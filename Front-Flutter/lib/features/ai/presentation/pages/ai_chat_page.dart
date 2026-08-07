@@ -1,0 +1,304 @@
+import 'package:flutter/cupertino.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import '../providers/ai_chat_provider.dart';
+import '../widgets/chat_bubble.dart';
+import '../widgets/chat_confirmation_card.dart';
+import '../widgets/chat_tool_step_card.dart';
+import '../widgets/typing_indicator.dart';
+import '../widgets/suggested_questions.dart';
+
+/// AI 对话主页面
+class AiChatPage extends StatefulWidget {
+  const AiChatPage({super.key});
+
+  @override
+  State<AiChatPage> createState() => _AiChatPageState();
+}
+
+class _AiChatPageState extends State<AiChatPage> {
+  final _textController = TextEditingController();
+  final _scrollController = ScrollController();
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      // 检查是否有来自首页输入框的待发送消息
+      final provider = context.read<AiChatProvider>();
+      final pending = provider.consumePendingMessage();
+      if (pending != null && pending.isNotEmpty) {
+        // 延迟一帧让页面完成渲染后再发送
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _sendMessage(pending);
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _sendMessage(String text) {
+    if (text.trim().isEmpty) return;
+    _textController.clear();
+    context.read<AiChatProvider>().sendMessage(text).then((_) {
+      _scrollToBottom();
+      _handleNavigation();
+    });
+    _scrollToBottom();
+  }
+
+  /// AI 请求页面跳转时执行导航（用 push 保留返回栈）
+  void _handleNavigation() {
+    final provider = context.read<AiChatProvider>();
+    final route = provider.consumeNavigateTo();
+    if (route != null && route.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.push(route);
+        }
+      });
+    }
+  }
+
+  /// 模型选择弹层（仿 settings 页语言选择器）
+  void _showModelPicker(AiChatProvider provider) {
+    final l10n = context.l10n;
+    const options = [
+      ('deepseek', 'DeepSeek'),
+      ('qwen', '通义千问'),
+    ];
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(l10n.aiModelPickerTitle),
+        actions: [
+          for (final (value, label) in options)
+            CupertinoActionSheetAction(
+              isDefaultAction: provider.provider == value,
+              onPressed: () {
+                Navigator.pop(ctx);
+                provider.switchModel(value);
+              },
+              child: Text(label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: false,
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(
+            l10n.cancel,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 由 build 方法中的 listener 触发：流式输出时持续滚动到底部
+  void _maybeScrollToBottom(bool isStreaming) {
+    if (isStreaming) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 50),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final aiProvider = context.watch<AiChatProvider>();
+    final messages = aiProvider.messages;
+    final isLoading = aiProvider.isLoading;
+    final isStreaming = aiProvider.isStreaming;
+    // 流式输出时持续自动滚动
+    _maybeScrollToBottom(isStreaming);
+    // 流式时已有一条占位消息在列表里，不需要额外 TypingIndicator
+    final showTyping = isLoading && !isStreaming && messages.isEmpty;
+
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(l10n.aiTitle),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => _showModelPicker(aiProvider),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    aiProvider.providerLabel,
+                    style: TextStyle(
+                      color: CupertinoTheme.of(context).primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Icon(
+                    CupertinoIcons.chevron_down,
+                    size: 12,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () {
+                showCupertinoModalPopup(
+                  context: context,
+                  builder: (ctx) => CupertinoActionSheet(
+                    actions: [
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          context.push('/ai/history');
+                        },
+                        child: const Text('历史对话'),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          aiProvider.clearConversation();
+                        },
+                        child: Text(l10n.aiClearConversation),
+                      ),
+                    ],
+                    cancelButton: CupertinoActionSheetAction(
+                      isDestructiveAction: false,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(l10n.cancel,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                );
+              },
+              child: Icon(
+                CupertinoIcons.ellipsis_circle,
+                color: CupertinoTheme.of(context).primaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+      child: Column(
+        children: [
+          // 消息列表
+          Expanded(
+            child: messages.isEmpty && !isLoading
+                ? Center(
+                    child: SingleChildScrollView(
+                      child: SuggestedQuestions(
+                        onTap: _sendMessage,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    itemCount: messages.length + (showTyping ? 1 : 0),
+                    itemBuilder: (_, i) {
+                      if (i == messages.length && showTyping) {
+                        return const TypingIndicator();
+                      }
+                      final msg = messages[i];
+                      if (msg.pendingConfirmation != null) {
+                        return ChatConfirmationCard(
+                          confirmation: msg.pendingConfirmation!,
+                        );
+                      }
+                      if (msg.toolStep != null) {
+                        return ChatToolStepCard(step: msg.toolStep!);
+                      }
+                      return ChatBubble(message: msg);
+                    },
+                  ),
+          ),
+
+          // 底部输入区
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: CupertinoTheme.of(context)
+                      .textTheme
+                      .textStyle
+                      .color!
+                      .withAlpha(20),
+                  width: 0.5,
+                ),
+              ),
+            ),
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 8,
+              bottom: MediaQuery.of(context).padding.bottom + 8,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CupertinoTextField(
+                    controller: _textController,
+                    placeholder: l10n.aiInputHint,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: CupertinoTheme.of(context)
+                          .scaffoldBackgroundColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: CupertinoColors.systemGrey4.resolveFrom(context),
+                      ),
+                    ),
+                    onSubmitted: isLoading ? null : _sendMessage,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minSize: 36,
+                  onPressed:
+                      isLoading ? null : () => _sendMessage(_textController.text),
+                  child: Icon(
+                    CupertinoIcons.arrow_up_circle_fill,
+                    size: 32,
+                    color: isLoading
+                        ? CupertinoColors.systemGrey
+                        : CupertinoTheme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

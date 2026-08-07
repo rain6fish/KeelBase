@@ -1,0 +1,20 @@
+.page { max-width: 760px; margin: 0 auto; }
+.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+
+.nb__label { display: block; font-size: 13px; color: var(--text-secondary); margin: 12px 0 6px; }
+.nb__input { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 14px; background: #fff; }
+.nb__textarea { width: 100%; min-height: 100px; border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 14px; line-height: 1.6; background: #fff; box-sizing: border-box; }
+
+.nb__all-toggle { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 14px; }
+
+.nb__users { margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; max-height: 300px; overflow-y: auto; }
+.nb__users-title { display: block; padding: 10px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+.nb__user { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.nb__user:last-child { border-bottom: none; }
+.nb__user.selected { background: #eff6ff; }
+.nb__user-name { font-weight: 500; }
+.nb__user-email { flex: 1; font-size: 12px; color: var(--text-secondary); }
+.nb__user-check { color: var(--primary); font-weight: 700; }
+.nb__users-empty { display: block; padding: 20px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+
+.nb__send { margin-top: 20px; background: var(--primary); color: #fff; }

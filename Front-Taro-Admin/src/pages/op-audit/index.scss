@@ -1,0 +1,30 @@
+.page { max-width: 1100px; margin: 0 auto; }
+.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+
+.opaudit__toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.opaudit__filter { flex: 1; max-width: 300px; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 14px; background: var(--bg-card); }
+.opaudit__filter-btn { background: var(--primary); color: #fff; }
+.opaudit__error { background: #fef2f2; border: 1px solid #fecaca; color: var(--error); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 13px; }
+
+.opaudit__table { padding: 0; overflow: hidden; }
+.opaudit__row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.opaudit__row:last-child { border-bottom: none; }
+.opaudit__row--header { background: #f9fafb; font-weight: 600; color: var(--text-secondary); font-size: 13px; cursor: default; }
+.opaudit__col-time { width: 150px; }
+.opaudit__col-user { width: 100px; }
+.opaudit__col-method { width: 70px; }
+.opaudit__col-feature { width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opaudit__col-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opaudit__col-status { width: 70px; }
+
+.opaudit__status { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+.opaudit__status.ok { background: #dcfce7; color: var(--success); }
+.opaudit__status.error { background: #fee2e2; color: var(--error); }
+
+.opaudit__detail { padding: 10px 16px 14px; background: #f9fafb; border-bottom: 1px solid var(--border); }
+.opaudit__detail-label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.opaudit__detail-body { display: block; font-size: 12px; color: var(--text-primary); word-break: break-all; white-space: pre-wrap; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 8px; }
+
+.opaudit__empty { padding: 40px; text-align: center; color: var(--text-secondary); }
+.opaudit__pagination { display: flex; align-items: center; gap: 12px; justify-content: center; margin-top: 16px; }
+.opaudit__page-info { color: var(--text-secondary); font-size: 14px; }

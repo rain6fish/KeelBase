@@ -1,0 +1,17 @@
+.page { max-width: 1100px; margin: 0 auto; }
+.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+.sess__error { background: #fef2f2; border: 1px solid #fecaca; color: var(--error); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 13px; }
+
+.sess__table { padding: 0; }
+.sess__row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.sess__row:last-child { border-bottom: none; }
+.sess__row--header { background: #f9fafb; font-weight: 600; color: var(--text-secondary); font-size: 13px; }
+.sess__col-id { width: 60px; }
+.sess__col-user { width: 120px; }
+.sess__col-device { flex: 1; }
+.sess__col-ip { width: 140px; }
+.sess__col-time { width: 160px; }
+.sess__col-action { width: 70px; }
+
+.sess__revoke { color: var(--error); cursor: pointer; }
+.sess__empty { padding: 40px; text-align: center; color: var(--text-secondary); }

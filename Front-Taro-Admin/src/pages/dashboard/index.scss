@@ -1,0 +1,28 @@
+.page { max-width: 1100px; margin: 0 auto; }
+.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+.dash__section-title { display: block; font-size: 15px; font-weight: 600; margin: 8px 0 12px; }
+
+.dash__cards { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.dash__card { flex: 1; min-width: 130px; text-align: center; margin-bottom: 0; }
+.dash__card-value { display: block; font-size: 24px; font-weight: 700; color: var(--primary); }
+.dash__card-label { display: block; margin-top: 4px; font-size: 13px; color: var(--text-secondary); }
+
+.dash__lower { display: flex; gap: 16px; flex-wrap: wrap; }
+.dash__trend { flex: 2; min-width: 320px; }
+.dash__trend-empty { font-size: 13px; color: var(--text-secondary); }
+.dash__trend-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.dash__trend-date { width: 90px; font-size: 12px; color: var(--text-secondary); }
+.dash__trend-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 14px; }
+.dash__trend-bar { height: 14px; border-radius: 4px; background: var(--primary-light); }
+.dash__trend-count { width: 30px; text-align: right; font-size: 12px; }
+.dash__storage { flex: 1; min-width: 200px; text-align: center; }
+.dash__storage-value { display: block; font-size: 24px; font-weight: 700; color: var(--primary); }
+.dash__storage-driver { display: block; margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+
+.dash__action { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.dash__action:last-child { border-bottom: none; }
+.dash__action-count { color: var(--primary); font-weight: 600; }
+
+.dash__links { display: flex; flex-wrap: wrap; gap: 12px; }
+.dash__link { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; cursor: pointer; font-size: 14px; color: var(--primary); }
+.dash__link:hover { background: #eff6ff; }

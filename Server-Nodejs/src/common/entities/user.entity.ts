@@ -1,0 +1,90 @@
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+}
+
+@Entity('users')
+export class User {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column({ unique: true, length: 32 })
+  username!: string;
+
+  @Column({ unique: true, length: 255 })
+  email!: string;
+
+  @Column({ length: 255, select: false })
+  password!: string;
+
+  @Column({ length: 64, nullable: true })
+  firstName?: string;
+
+  @Column({ length: 64, nullable: true })
+  lastName?: string;
+
+  @Column({ length: 64 })
+  nickname!: string;
+
+  @Column({ type: 'varchar', nullable: true, length: 512 })
+  phone?: string;
+
+  @Column({ type: 'varchar', nullable: true, length: 64, name: 'phone_hash' })
+  phoneHash?: string | null;
+
+  @Column({ type: 'boolean', default: false, name: 'phone_verified' })
+  phoneVerified!: boolean;
+
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth?: string;
+
+  @Column({ length: 512, nullable: true })
+  bio?: string;
+
+  @Column({ length: 256, nullable: true })
+  avatarUrl?: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'user' })
+  role!: UserRole;
+
+  @Column({ length: 32, nullable: true })
+  provider?: string;
+
+  @Column({ type: 'varchar', nullable: true, length: 512, name: 'provider_id' })
+  providerId?: string;
+
+  @Column({ type: 'varchar', nullable: true, length: 64, name: 'provider_hash' })
+  providerHash?: string;
+
+  @Column({ type: 'varchar', nullable: true, length: 512, name: 'refresh_token_hash' })
+  refreshTokenHash?: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 64, name: 'reset_token_hash' })
+  resetTokenHash?: string | null;
+
+  @Column({ type: Date, nullable: true, name: 'reset_token_expires_at' })
+  resetTokenExpiresAt?: Date | null;
+
+  @Column({ type: 'boolean', default: false, name: 'email_verified' })
+  emailVerified!: boolean;
+
+  @Column({ type: 'varchar', nullable: true, length: 64, name: 'email_verification_code' })
+  emailVerificationCode?: string | null;
+
+  @Column({ type: Date, nullable: true, name: 'email_verification_expires_at' })
+  emailVerificationExpiresAt?: Date | null;
+
+  @Column({ default: 0, name: 'login_attempts' })
+  loginAttempts!: number;
+
+  @Column({ type: Date, nullable: true, name: 'locked_until' })
+  lockedUntil?: Date | null;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+}

@@ -1,0 +1,143 @@
+ .notifications-page {
+   min-height: 100vh;
+   padding: 8px 0 80px;
+
+   &__header {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     padding: 16px;
+   }
+
+   &__title {
+     font-size: 20px;
+     font-weight: 600;
+     color: var(--text-primary);
+   }
+
+   &__mark-all {
+     font-size: 14px;
+     color: var(--primary);
+   }
+
+   &__loading {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 48px;
+   }
+
+   &__empty {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 64px 16px;
+
+     &-text {
+       color: var(--text-secondary);
+       font-size: 14px;
+     }
+   }
+
+   &__list {
+     height: calc(100vh - 160px);
+   }
+
+   &__item {
+     display: flex;
+     align-items: flex-start;
+     padding: 12px 16px;
+     margin: 4px 12px;
+     background-color: var(--bg-card);
+     border-radius: 10px;
+     position: relative;
+
+     &--unread {
+       background-color: var(--primary-light);
+     }
+   }
+
+   &__dot {
+     width: 8px;
+     height: 8px;
+     border-radius: 50%;
+     background-color: var(--primary);
+     margin-right: 8px;
+     margin-top: 6px;
+     flex-shrink: 0;
+   }
+
+   &__content {
+     flex: 1;
+     min-width: 0;
+   }
+
+   &__title-text {
+     font-size: 15px;
+     font-weight: 500;
+     color: var(--text-primary);
+     display: block;
+     word-break: break-all;
+   }
+
+   &__body {
+     font-size: 13px;
+     color: var(--text-secondary);
+     display: block;
+     margin-top: 4px;
+     word-break: break-all;
+   }
+
+   &__meta {
+     display: flex;
+     flex-direction: column;
+     align-items: flex-end;
+     margin-left: 8px;
+     flex-shrink: 0;
+   }
+
+   &__time {
+     font-size: 12px;
+     color: var(--text-secondary);
+   }
+
+   &__delete {
+     font-size: 14px;
+     color: var(--error);
+     margin-top: 8px;
+     padding: 4px;
+   }
+
+   &__list-loading {
+     text-align: center;
+     padding: 16px;
+     color: var(--text-secondary);
+     font-size: 13px;
+   }
+
+   &__badge {
+     position: fixed;
+     bottom: 16px;
+     left: 50%;
+     transform: translateX(-50%);
+     background-color: var(--primary);
+     color: #fff;
+     font-size: 13px;
+     border-radius: 16px;
+     padding: 6px 16px;
+   }
+ }
+
+ .spinner {
+   width: 24px;
+   height: 24px;
+   border: 2px solid var(--border);
+   border-top-color: var(--primary);
+   border-radius: 50%;
+   animation: spin 0.8s linear infinite;
+   display: inline-block;
+ }
+
+ @keyframes spin {
+   to { transform: rotate(360deg); }
+ }

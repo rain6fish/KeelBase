@@ -1,0 +1,10 @@
+.page { max-width: 900px; margin: 0 auto; }
+.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+.obs__hint { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+.obs__grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.obs__card { flex: 1; min-width: 260px; margin-bottom: 0; display: flex; flex-direction: column; }
+.obs__name { font-size: 17px; font-weight: 600; }
+.obs__desc { margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+.obs__url { margin-top: 8px; font-size: 12px; color: var(--primary); word-break: break-all; }
+.obs__open { margin-top: 14px; background: var(--primary); color: #fff; text-align: center; padding: 8px 0; border-radius: 6px; cursor: pointer; font-size: 14px; }

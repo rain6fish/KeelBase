@@ -1,0 +1,25 @@
+ export default defineAppConfig({
+   pages: [
+     'pages/splash/index',
+     'pages/login/index',
+     'pages/register/index',
+     'pages/dashboard/index',
+     'pages/events/index',
+     'pages/event-form/index',
+     'pages/upload/index',
+     'pages/profile/index',
+     'pages/explore/index',
+     'pages/settings/index',
+     'pages/privacy/index',
+     'pages/terms/index',
+     'pages/notifications/index',
+     'pages/sessions/index',
+   ],
+   window: {
+     navigationStyle: 'custom',
+     backgroundTextStyle: 'light',
+     navigationBarBackgroundColor: '#fff',
+     navigationBarTitleText: 'App',
+     navigationBarTextStyle: 'black',
+   },
+ })

@@ -1,0 +1,207 @@
+import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async' show TimeoutException;
+
+import 'app.dart';
+import 'core/api/api_client.dart';
+import 'core/api/sse_client.dart';
+import 'core/security/secure_storage_service.dart';
+import 'core/services/locale_provider.dart';
+import 'core/services/theme_provider.dart';
+import 'features/auth/data/repositories/auth_repository.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/events/data/repositories/events_repository.dart';
+import 'features/events/presentation/providers/events_provider.dart';
+import 'features/splash/data/repositories/splash_repository.dart';
+import 'features/upload/data/repositories/upload_repository.dart';
+import 'features/notifications/data/repositories/notifications_repository.dart';
+import 'features/notifications/presentation/providers/notifications_provider.dart';
+import 'features/ai/presentation/providers/ai_chat_provider.dart';
+import 'features/ai/presentation/providers/conversation_provider.dart';
+import 'features/ai/data/repositories/ai_conversation_repository.dart';
+import 'features/sessions/data/repositories/session_repository.dart';
+import 'features/sessions/presentation/providers/session_provider.dart';
+import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/todos/presentation/providers/todos_provider.dart';
+import 'features/search/data/repositories/search_repository.dart';
+import 'features/search/presentation/providers/search_provider.dart';
+import 'features/upload/presentation/providers/upload_provider.dart';
+import 'features/version/data/repositories/version_repository.dart';
+import 'features/version/presentation/providers/version_check_provider.dart';
+import 'features/auth/data/services/oauth_service.dart';
+
+void main() async {
+  // Timeout fallback: if init takes >15s, show error UI
+  try {
+    await _initApp().timeout(const Duration(seconds: 15));
+  } on TimeoutException {
+    FlutterError.reportError(FlutterErrorDetails(
+      exception: Exception('App initialization timed out'),
+      stack: StackTrace.current,
+    ));
+    runApp(_ErrorApp('App initialization timed out. Please refresh.'));
+  } catch (e, stack) {
+    // eslint-disable-next-line no-console
+    print('FATAL: App initialization failed: $e\n$stack');
+    // Re-throw so the browser console shows the full error
+    runApp(_ErrorApp('$e'));
+  }
+}
+
+Future<void> _initApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Core services
+  SharedPreferences? prefs;
+  try {
+    prefs = await SharedPreferences.getInstance();
+  } catch (_) {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  }
+  // Ensure prefs is non-null (second catch fallback)
+  prefs ??= await SharedPreferences.getInstance();
+  final secureStorage = SecureStorageService();  // Falls back to in-memory on web
+  final apiClient = ApiClient(secureStorage);
+
+  // Initialize device ID for rate limiting
+  apiClient.deviceId = await secureStorage.getOrCreateDeviceId();
+
+  // Repositories
+  final authRepository = AuthRepository(apiClient);
+  final splashRepository = SplashRepository(apiClient);
+  final eventsRepository = EventsRepository(apiClient);
+  final uploadRepository = UploadRepository(apiClient);
+  final notificationsRepository = NotificationsRepository(apiClient);
+  final aiConversationRepository = AiConversationRepository(apiClient);
+
+  // Auth failure handler — must be set before any API calls
+  AuthProvider? authProvider;
+  apiClient.onAuthFailure = () async {
+    authProvider?.logout();
+  };
+
+  // Initialize OAuth SDKs (WeChat / Alipay)
+  // Replace app IDs with your actual credentials from the respective platforms.
+  final oauthService = OAuthService();
+  try {
+    await oauthService.init(
+      weChatAppId: 'wx000000000000000',          // ← 替换为微信开放平台 AppID
+      weChatUniversalLink: null,                  // iOS Universal Link (可选)
+    );
+  } catch (_) {
+    // OAuth init is non-critical — app can still start
+  }
+
+  // SSE client for AI streaming
+  final sseClient = SseClient(getAccessToken: () => apiClient.accessToken ?? '');
+
+  // Theme
+  final themeProvider = ThemeProvider(prefs);
+
+  runApp(
+    MultiProvider(
+      providers: [
+        // Core services (accessible by all features)
+        Provider<SecureStorageService>.value(value: secureStorage),
+        Provider<SharedPreferences>.value(value: prefs),
+        Provider<ApiClient>.value(value: apiClient),
+        Provider<SseClient>.value(value: sseClient),
+        Provider<AuthRepository>.value(value: authRepository),
+
+        // Events
+        Provider<EventsRepository>.value(value: eventsRepository),
+
+        // Theme
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
+
+        // Locale
+        ChangeNotifierProvider<LocaleProvider>(
+          create: (_) => LocaleProvider(prefs!),
+        ),
+
+        // Auth
+        ChangeNotifierProvider<AuthProvider>(
+          create: (_) {
+            final ap = AuthProvider(
+              authRepository: authRepository,
+              splashRepository: splashRepository,
+              apiClient: apiClient,
+              oauthService: oauthService,
+            );
+            authProvider = ap;
+            return ap;
+          },
+        ),
+
+        // Events
+        ChangeNotifierProvider<EventsProvider>(
+          create: (_) => EventsProvider(eventsRepository),
+        ),
+
+        // Notifications
+        ChangeNotifierProvider<NotificationsProvider>(
+          create: (_) => NotificationsProvider(
+            notificationsRepository,
+            sseClient: sseClient,
+          ),
+        ),
+
+        // Upload
+        ChangeNotifierProvider<UploadProvider>(
+          create: (_) => UploadProvider(uploadRepository),
+        ),
+
+        // AI
+        ChangeNotifierProvider<AiChatProvider>(
+          create: (_) => AiChatProvider(apiClient, sseClient),
+        ),
+        ChangeNotifierProvider<ConversationProvider>(
+          create: (_) => ConversationProvider(aiConversationRepository),
+        ),
+
+        // Sessions
+        ChangeNotifierProvider<SessionProvider>(
+          create: (_) => SessionProvider(SessionRepository(apiClient)),
+        ),
+
+        // Search
+        ChangeNotifierProvider<SearchProvider>(
+          create: (_) => SearchProvider(SearchRepository(apiClient)),
+        ),
+
+        // Todos
+        ChangeNotifierProvider<TodosProvider>(
+          create: (_) => TodosProvider(TodosRepository(apiClient)),
+        ),
+
+        // Version check
+        ChangeNotifierProvider<VersionCheckProvider>(
+          create: (_) => VersionCheckProvider(VersionRepository(apiClient)),
+        ),
+      ],
+      child: const App(),
+    ),
+  );
+}
+
+/// Minimal error screen shown on initialization failure.
+class _ErrorApp extends StatelessWidget {
+  final String message;
+  const _ErrorApp(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoApp(
+      home: CupertinoPageScaffold(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Initialization Error\n\n$message\n\nPlease refresh the page.'),
+          ),
+        ),
+      ),
+    );
+  }
+}

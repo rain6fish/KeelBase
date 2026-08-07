@@ -1,0 +1,67 @@
+version: '3.8'
+
+# 可观测性栈 — Prometheus + Grafana + Jaeger + Loki
+#
+# 用法一（本地开发，server 跑在宿主机）：
+#   docker compose -f docker-compose.observability.yml up -d
+#   然后本地启动 server（OTEL_ENABLED=true OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 LOKI_ENABLED=true LOKI_URL=http://localhost:3100 node dist/main）
+#   Prometheus 通过 host.docker.internal:3000 抓取宿主机 server；pino 直推宿主机 Loki
+#
+# 用法二（生产/完整编排，server 也在容器）：
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
+#   此时 prometheus.yml 的 targets 需改回 server:3000，并给 server 叠加：
+#     OTEL_ENABLED=true
+#     OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+#     LOKI_ENABLED=true
+#     LOKI_URL=http://loki:3100
+#
+# 访问：
+#   Grafana    http://localhost:3001  (匿名)
+#   Prometheus http://localhost:9090
+#   Jaeger     http://localhost:16686
+#   Loki       http://localhost:3100
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      # 整体挂载目录，含 prometheus.yml 与 rules/ 告警规则
+      - ./infra/observability/prometheus:/etc/prometheus:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./infra/observability/loki:/etc/loki
+      - loki-data:/loki
+
+volumes:
+  grafana-data:
+  loki-data:

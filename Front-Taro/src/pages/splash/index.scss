@@ -1,0 +1,50 @@
+ .splash {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   min-height: 100vh;
+   background-color: var(--bg);
+ 
+   &__content {
+     text-align: center;
+   }
+ 
+   &__icon {
+     width: 72px;
+     height: 72px;
+     border-radius: 16px;
+     background-color: var(--primary);
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     margin: 0 auto 24px;
+ 
+     &-text {
+       color: #fff;
+       font-size: 36px;
+       font-weight: 700;
+     }
+   }
+ 
+   &__title {
+     font-size: 28px;
+     font-weight: 700;
+     letter-spacing: 2px;
+     color: var(--text-primary);
+     margin-bottom: 48px;
+   }
+ 
+   &__loader {
+     width: 24px;
+     height: 24px;
+     border: 2px solid var(--border);
+     border-top-color: var(--primary);
+     border-radius: 50%;
+     animation: spin 0.8s linear infinite;
+     margin: 0 auto;
+   }
+ 
+   @keyframes spin {
+     to { transform: rotate(360deg); }
+   }
+ }

@@ -1,0 +1,439 @@
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
+
+import type { OAuthUserInfo } from './interfaces/oauth-user-info.interface';
+import { OAuthProvidersConfigService } from './oauth-providers.config';
+
+// ─── Type helpers ──────────────────────────────────────────────────────────
+
+interface GoogleTokenInfo {
+  sub: string; email?: string; email_verified?: boolean;
+  name?: string; picture?: string; given_name?: string; family_name?: string;
+  aud?: string; iss?: string;
+}
+
+interface JwkKey { kty: string; kid: string; alg: string; n?: string; e?: string; x?: string; y?: string; crv?: string; use?: string; }
+interface AppleJwksResponse { keys: JwkKey[]; }
+
+/** WeChat token exchange response. */
+interface WeChatTokenRes {
+  access_token?: string; expires_in?: number; refresh_token?: string;
+  openid?: string; scope?: string; unionid?: string;
+  errcode?: number; errmsg?: string;
+}
+
+/** WeChat userinfo response. */
+interface WeChatUserRes {
+  openid: string; nickname?: string; sex?: number; province?: string;
+  city?: string; country?: string; headimgurl?: string; unionid?: string;
+  errcode?: number; errmsg?: string;
+}
+
+/** Alipay system.oauth.token response. */
+interface AlipayTokenRes {
+  user_id?: string; access_token?: string; expires_in?: number;
+  error_response?: { code?: string; msg?: string; sub_code?: string; sub_msg?: string; };
+}
+
+/** Alipay user.info.share response. */
+interface AlipayUserRes {
+  user_id?: string; avatar?: string; nick_name?: string;
+  error_response?: { code?: string; msg?: string; };
+}
+
+// ─── Service ───────────────────────────────────────────────────────────────
+
+/**
+ * OAuth token verification service.
+ *
+ * Supports:
+ *  - **International**: Google (token info endpoint), Apple (JWKS + jsonwebtoken)
+ *  - **China**: WeChat (code→token→userinfo), Alipay (auth_code→user info)
+ */
+@Injectable()
+export class OAuthService {
+  private readonly logger = new Logger(OAuthService.name);
+
+  // Apple JWKS cache
+  private appleJwksCache: { keys: JwkKey[]; fetchedAt: number } | null = null;
+  private readonly APPLE_JWKS_TTL = 3600_000;
+  private readonly APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
+
+  constructor(
+    private configService: ConfigService,
+    private providersConfig: OAuthProvidersConfigService,
+  ) {}
+
+  // ─── Public API ──────────────────────────────────────────────────────────
+
+  /**
+   * Verify an OAuth provider's **idToken** (Google / Apple).
+   */
+  async verify(provider: string, idToken: string, clientId?: string): Promise<OAuthUserInfo> {
+    switch (provider) {
+      case 'google': return this.verifyGoogle(idToken, clientId);
+      case 'apple':  return this.verifyApple(idToken, clientId);
+      default:
+        throw new UnauthorizedException(`Provider ${provider} does not support idToken verification`);
+    }
+  }
+
+  /**
+   * Verify a provider's **authorization code** (WeChat / Alipay / QQ).
+   */
+  async verifyCode(provider: string, code: string, redirectUri?: string): Promise<OAuthUserInfo> {
+    switch (provider) {
+      case 'wechat': return this.verifyWeChat(code, redirectUri);
+      case 'alipay': return this.verifyAlipay(code);
+      default:
+        throw new UnauthorizedException(`Provider ${provider} does not support authorization code flow`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  GOOGLE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async verifyGoogle(idToken: string, clientId?: string): Promise<OAuthUserInfo> {
+    const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
+    let response: Response;
+    try { response = await fetch(url); } catch (err) {
+      this.logger.error(`Google token info request failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Failed to verify Google token');
+    }
+    if (!response.ok) {
+      this.logger.warn(`Google token rejected: ${response.status}`);
+      throw new UnauthorizedException('Invalid Google token');
+    }
+    const payload: GoogleTokenInfo = await response.json();
+    const expectedAud = clientId ?? this.configService.get<string>('GOOGLE_CLIENT_ID', '');
+    if (expectedAud && payload.aud !== expectedAud) {
+      throw new UnauthorizedException('Google token audience mismatch');
+    }
+    const validIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+    if (!payload.iss || !validIssuers.some((i) => payload.iss!.includes(i))) {
+      throw new UnauthorizedException('Invalid Google token issuer');
+    }
+    const name = payload.name || [payload.given_name, payload.family_name].filter(Boolean).join(' ') || null;
+    return { providerId: payload.sub, email: (payload.email && payload.email_verified) ? payload.email : null, name, avatarUrl: payload.picture ?? null };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  APPLE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async verifyApple(idToken: string, clientId?: string): Promise<OAuthUserInfo> {
+    let header: Record<string, string>;
+    try {
+      const parts = idToken.split('.');
+      if (parts.length !== 3) throw new Error('Invalid JWT format');
+      header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf-8'));
+    } catch { throw new UnauthorizedException('Invalid Apple token format'); }
+    const kid = header.kid;
+    if (!kid) throw new UnauthorizedException('Apple token missing key ID');
+    const jwks = await this.getAppleJwks();
+    const matchingKey = jwks.keys.find((k) => k.kid === kid);
+    if (!matchingKey) throw new UnauthorizedException('Apple token key not found');
+    const publicKeyPem = this.jwkToPem(matchingKey);
+    let decoded: any;
+    try {
+      decoded = jwt.verify(idToken, publicKeyPem, {
+        algorithms: [matchingKey.alg as jwt.Algorithm],
+        issuer: 'https://appleid.apple.com',
+        audience: clientId ?? this.configService.get<string>('APPLE_CLIENT_ID', ''),
+      });
+    } catch (err) {
+      this.logger.warn(`Apple token verification failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Invalid Apple token');
+    }
+    const payload = decoded as Record<string, any>;
+    const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+    return { providerId: payload.sub, email: (payload.email && emailVerified) ? payload.email : null, name: null, avatarUrl: null };
+  }
+
+  private async getAppleJwks(): Promise<AppleJwksResponse> {
+    const now = Date.now();
+    if (this.appleJwksCache && now - this.appleJwksCache.fetchedAt < this.APPLE_JWKS_TTL) return this.appleJwksCache;
+    try {
+      const res = await fetch(this.APPLE_KEYS_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: AppleJwksResponse = await res.json();
+      this.appleJwksCache = { keys: data.keys, fetchedAt: now };
+      return data;
+    } catch (err) {
+      this.logger.error(`Failed to fetch Apple JWKS: ${(err as Error).message}`);
+      if (this.appleJwksCache) return this.appleJwksCache;
+      throw new UnauthorizedException('Failed to verify Apple token');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  WECHAT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * WeChat authorization code verification.
+   *
+   * Flow:
+   *  1. Exchange code → access_token + openid
+   *     GET https://api.weixin.qq.com/sns/oauth2/access_token
+   *  2. Get user profile
+   *     GET https://api.weixin.qq.com/sns/userinfo
+   *
+   * WeChat returns `unionid` only if the WeChat account is bound to
+   * WeChat Open Platform. If unavailable, `openid` is used as providerId.
+   *
+   * @see https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html
+   */
+  private async verifyWeChat(code: string, _redirectUri?: string): Promise<OAuthUserInfo> {
+    const appId = this.configService.get<string>('WECHAT_APP_ID', '');
+    const secret = this.configService.get<string>('WECHAT_APP_SECRET', '');
+    if (!appId || !secret) {
+      throw new UnauthorizedException('WeChat OAuth is not configured on the server');
+    }
+
+    // Step 1: Exchange code for access_token
+    const tokenUrl = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appId}&secret=${secret}&code=${code}&grant_type=authorization_code`;
+    let tokenRes: WeChatTokenRes;
+    try {
+      const res = await fetch(tokenUrl);
+      tokenRes = await res.json();
+    } catch (err) {
+      this.logger.error(`WeChat token exchange failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Failed to verify WeChat code');
+    }
+
+    if (tokenRes.errcode || !tokenRes.openid) {
+      this.logger.warn(`WeChat token error: ${tokenRes.errcode} ${tokenRes.errmsg}`);
+      throw new UnauthorizedException('Invalid WeChat authorization code');
+    }
+
+    const openid = tokenRes.openid;
+    const unionid = tokenRes.unionid ?? openid;
+    const accessToken = tokenRes.access_token!;
+
+    // Step 2: Get user profile
+    const userUrl = `https://api.weixin.qq.com/sns/userinfo?access_token=${accessToken}&openid=${openid}`;
+    let userRes: WeChatUserRes;
+    try {
+      const res = await fetch(userUrl);
+      userRes = await res.json();
+    } catch (err) {
+      this.logger.error(`WeChat userinfo failed: ${(err as Error).message}`);
+      // Fall back to just openid
+      return {
+        providerId: unionid,
+        email: null,
+        name: null,
+        avatarUrl: null,
+      };
+    }
+
+    if (userRes.errcode) {
+      this.logger.warn(`WeChat userinfo error: ${userRes.errcode} ${userRes.errmsg}`);
+      return { providerId: unionid, email: null, name: null, avatarUrl: null };
+    }
+
+    return {
+      providerId: unionid,
+      email: null,  // WeChat does not provide email
+      name: userRes.nickname ?? null,
+      avatarUrl: userRes.headimgurl ?? null,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  ALIPAY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Alipay authorization code verification.
+   *
+   * Flow:
+   *  1. Exchange auth_code → access_token + user_id
+   *     POST https://openapi.alipay.com/gateway.do (alipay.system.oauth.token)
+   *  2. Get user profile
+   *     POST https://openapi.alipay.com/gateway.do (alipay.user.info.share)
+   *
+   * Note: Alipay requires RSA2 signature for API calls. This implementation
+   * uses the `crypto` module for signing.
+   *
+   * @see https://opendocs.alipay.com/open/01emuq
+   */
+  private async verifyAlipay(code: string): Promise<OAuthUserInfo> {
+    const appId = this.configService.get<string>('ALIPAY_APP_ID', '');
+    const privateKey = this.configService.get<string>('ALIPAY_PRIVATE_KEY', '');
+    if (!appId) {
+      throw new UnauthorizedException('Alipay OAuth is not configured on the server');
+    }
+
+    // Step 1: Exchange auth_code for user_id
+    const tokenData = await this.alipayCall(
+      'alipay.system.oauth.token',
+      { grant_type: 'authorization_code', code },
+      appId,
+      privateKey,
+    );
+
+    const userId = tokenData?.user_id;
+    if (!userId) {
+      this.logger.warn(`Alipay token exchange failed: ${JSON.stringify(tokenData)}`);
+      throw new UnauthorizedException('Invalid Alipay authorization code');
+    }
+
+    // Step 2: Get user profile (only if private key is configured)
+    if (!privateKey) {
+      return { providerId: userId, email: null, name: null, avatarUrl: null };
+    }
+
+    const userData = await this.alipayCall(
+      'alipay.user.info.share',
+      {},
+      appId,
+      privateKey,
+      userId,
+    );
+
+    return {
+      providerId: userId,
+      email: null,
+      name: userData?.nick_name ?? null,
+      avatarUrl: userData?.avatar ?? null,
+    };
+  }
+
+  /**
+   * Make an Alipay OpenAPI call with RSA2 signature.
+   *
+   * This is a simplified implementation. A production app should use
+   * the `alipay-sdk` npm package for full compatibility.
+   */
+  private async alipayCall(
+    method: string,
+    bizParams: Record<string, string>,
+    appId: string,
+    privateKey: string,
+    userId?: string,
+  ): Promise<Record<string, any> | null> {
+    const publicKey = this.configService.get<string>('ALIPAY_PUBLIC_KEY', '');
+
+    const params: Record<string, string> = {
+      app_id: appId,
+      method,
+      format: 'JSON',
+      charset: 'utf-8',
+      sign_type: 'RSA2',
+      timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+08:00').replace('T', ' ').replace('Z', ''),
+      version: '1.0',
+      biz_content: JSON.stringify(bizParams),
+    };
+
+    if (userId) params.auth_token = userId;
+
+    // Build the string to sign
+    const sortedKeys = Object.keys(params).sort();
+    const signStr = sortedKeys.map((k) => `${k}=${params[k]}`).join('&');
+
+    // Sign with RSA2 (SHA-256)
+    try {
+      const signer = crypto.createSign('RSA-SHA256');
+      signer.update(signStr, 'utf-8');
+      const signature = signer.sign(
+        `-----BEGIN PRIVATE KEY-----\n${this.chunkBase64(privateKey.replace(/-----[^-]+-----/g, '').replace(/\s/g, ''), 64)}\n-----END PRIVATE KEY-----`,
+        'base64',
+      );
+      params.sign = signature;
+    } catch (err) {
+      this.logger.error(`Alipay signing failed: ${(err as Error).message}`);
+      return null;
+    }
+
+    // Build query string for GET (Alipay supports GET for public APIs)
+    const queryStr = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
+
+    try {
+      const res = await fetch(`https://openapi.alipay.com/gateway.do?${queryStr}`);
+      const body = await res.json();
+
+      // Alipay wraps the response in a key named after the method + "_response"
+      const responseKey = method.replace(/\./g, '_') + '_response';
+      const responseBody = body[responseKey] ?? body;
+
+      if (responseBody?.code && responseBody.code !== '10000') {
+        this.logger.warn(`Alipay API error: ${responseBody.code} ${responseBody.sub_msg ?? responseBody.msg}`);
+        return null;
+      }
+
+      // Optional: verify Alipay's response signature
+      if (publicKey && body.sign) {
+        // In production, verify the response signature here
+      }
+
+      return responseBody;
+    } catch (err) {
+      this.logger.error(`Alipay API call failed: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+  private jwkToPem(jwk: JwkKey): string {
+    if (jwk.kty === 'RSA') {
+      const n = Buffer.from(jwk.n!, 'base64url');
+      const e = Buffer.from(jwk.e!, 'base64url');
+      return this.toPem(this.derSequence(Buffer.concat([this.derInteger(n), this.derInteger(e)])), 'PUBLIC KEY');
+    }
+    if (jwk.kty === 'EC') {
+      const x = Buffer.from(jwk.x!, 'base64url');
+      const y = Buffer.from(jwk.y!, 'base64url');
+      const point = Buffer.concat([Buffer.from([0x04]), x, y]);
+      const pointBitString = this.derBitString(point);
+      const algoId = this.derSequence(Buffer.concat([
+        Buffer.from('06072A8648CE3D0201', 'hex'),
+        Buffer.from('06082A8648CE3D030107', 'hex'),
+      ]));
+      return this.toPem(this.derSequence(Buffer.concat([algoId, pointBitString])), 'PUBLIC KEY');
+    }
+    throw new Error(`Unsupported key type: ${jwk.kty}`);
+  }
+
+  private derInteger(v: Buffer): Buffer {
+    let data = v; while (data.length > 1 && data[0] === 0) data = data.subarray(1);
+    if (data[0]! & 0x80) data = Buffer.concat([Buffer.from([0x00]), data]);
+    return Buffer.concat([Buffer.from([0x02]), this.derLength(data.length), data]);
+  }
+  private derBitString(v: Buffer): Buffer {
+    return Buffer.concat([Buffer.from([0x03]), this.derLength(v.length + 1), Buffer.from([0x00]), v]);
+  }
+  private derSequence(contents: Buffer): Buffer {
+    return Buffer.concat([Buffer.from([0x30]), this.derLength(contents.length), contents]);
+  }
+  private derLength(length: number): Buffer {
+    if (length < 0x80) return Buffer.from([length]);
+    const bytes: number[] = []; let len = length;
+    while (len > 0) { bytes.unshift(len & 0xff); len >>= 8; }
+    return Buffer.concat([Buffer.from([0x80 | bytes.length]), Buffer.from(bytes)]);
+  }
+  private toPem(der: Buffer, label: string): string {
+    const b64 = der.toString('base64');
+    const lines = [`-----BEGIN ${label}-----`];
+    for (let i = 0; i < b64.length; i += 64) lines.push(b64.substring(i, i + 64));
+    lines.push(`-----END ${label}-----`);
+    return lines.join('\n');
+  }
+  private chunkBase64(str: string, size: number): string[] {
+    const chunks: string[] = [];
+    for (let i = 0; i < str.length; i += size) chunks.push(str.substring(i, i + size));
+    return chunks;
+  }
+}

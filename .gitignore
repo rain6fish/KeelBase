@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pub-cache/
+
+# Build output
+dist/
+build/
+*.js.map
+*.d.ts
+
+# Environment
+.env
+.env.local
+.env.test
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# AI Tooling / Agent workspace
+.claude/
+claude/
+.codebase-memory/
+task_plan.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+coverage/
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+android/local.properties
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+/coverage/
+
+# Server uploads (runtime artifacts)
+Server-Nodejs/uploads/
+
+# Database backups
+Server-Nodejs/data/backups/

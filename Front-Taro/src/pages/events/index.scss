@@ -1,0 +1,130 @@
+ .events-page {
+   min-height: 100vh;
+   position: relative;
+ 
+   &__nav {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     padding: 12px 16px;
+ 
+     &-btn {
+       font-size: 24px;
+       padding: 8px;
+       color: var(--primary);
+       font-weight: 700;
+     }
+ 
+     &-title {
+       font-size: 18px;
+       font-weight: 600;
+       color: var(--text-primary);
+     }
+   }
+ 
+   &__divider {
+     height: 1px;
+     background-color: var(--border);
+   }
+ 
+   &__error {
+     text-align: center;
+     padding: 32px 16px;
+ 
+     &-text {
+       color: var(--error);
+       font-size: 14px;
+       display: block;
+       margin-bottom: 16px;
+     }
+   }
+ 
+   &__retry {
+     display: inline-block;
+     background-color: var(--primary);
+     color: #fff;
+     font-size: 14px;
+     border-radius: 8px;
+     padding: 8px 24px;
+   }
+ 
+   &__loading {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 48px;
+   }
+ 
+   &__empty {
+     text-align: center;
+     padding: 48px;
+ 
+     &-text {
+       color: var(--text-secondary);
+       font-size: 14px;
+     }
+   }
+ 
+   &__list {
+     height: calc(100vh - 180px);
+   }
+ 
+   &__item {
+     display: flex;
+     align-items: center;
+     padding: 0;
+     overflow: hidden;
+ 
+     &-color {
+       width: 4px;
+       height: 60px;
+       flex-shrink: 0;
+     }
+ 
+     &-info {
+       flex: 1;
+       padding: 12px 16px;
+     }
+ 
+     &-title {
+       font-size: 15px;
+       font-weight: 500;
+       color: var(--text-primary);
+       display: block;
+     }
+ 
+     &-time {
+       font-size: 12px;
+       color: var(--text-secondary);
+       display: block;
+       margin-top: 4px;
+     }
+ 
+     &-cancelled {
+       padding: 12px;
+       font-size: 18px;
+       color: var(--error);
+     }
+   }
+ 
+   &__fab {
+     position: fixed;
+     right: 20px;
+     bottom: 80px;
+     width: 56px;
+     height: 56px;
+     border-radius: 50%;
+     background-color: var(--primary);
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+     z-index: 50;
+ 
+     &-icon {
+       color: #fff;
+       font-size: 28px;
+       font-weight: 300;
+     }
+   }
+ }

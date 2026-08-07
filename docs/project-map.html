@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShiYu-AppBase 项目架构图谱</title>
+<style>
+:root { color-scheme: light; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #1a1a2e; padding: 24px; }
+.container { max-width: 1240px; margin: 0 auto; }
+h1 { font-size: 28px; margin-bottom: 8px; color: #0f0f23; }
+.subtitle { color: #666; margin-bottom: 6px; font-size: 15px; }
+.generated-at { color: #999; font-size: 13px; margin-bottom: 28px; }
+
+.section { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.section h2 { font-size: 18px; margin-bottom: 16px; color: #0f0f23; border-left: 4px solid #4361ee; padding-left: 12px; }
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.metric-card { background: #f8f9ff; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #e8ecf4; }
+.metric-card .value { font-size: 30px; font-weight: 700; color: #4361ee; }
+.metric-card .label { font-size: 13px; color: #666; margin-top: 4px; }
+
+.sub-projects { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+.sub-project { border: 1px solid #e8ecf4; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; }
+.sub-project h3 { font-size: 16px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sub-project .tech { display: inline-block; background: #eef2ff; color: #4361ee; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+.sub-project .desc { font-size: 13px; color: #555; margin: 6px 0 12px; }
+.sub-project .mods { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.sub-project .mod { background: #f0f0f5; color: #333; font-size: 12px; padding: 3px 10px; border-radius: 6px; }
+
+.modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.module-item { background: #f8f9ff; border: 1px solid #e8ecf4; border-radius: 8px; padding: 14px; }
+.module-item .name { font-weight: 600; font-size: 14px; color: #4361ee; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; }
+.module-item .desc { font-size: 12px; color: #666; margin-top: 4px; }
+.module-item .tag { display: inline-block; background: #eef2ff; color: #4361ee; font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-top: 6px; }
+
+.api-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.api-table th { text-align: left; padding: 10px 12px; background: #f8f9ff; border-bottom: 2px solid #e8ecf4; font-weight: 600; color: #333; }
+.api-table td { padding: 10px 12px; border-bottom: 1px solid #eef1f5; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 13px; }
+.api-table .method { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #fff; }
+.method-get { background: #22c55e; }
+.method-post { background: #3b82f6; }
+.method-delete { background: #ef4444; }
+.method-put { background: #f59e0b; }
+
+.hotspots { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.hotspot-item { background: #fff8f0; border: 1px solid #fde6c8; border-radius: 6px; padding: 10px 14px; font-size: 13px; }
+.hotspot-item .fn { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px; color: #c2410c; word-break: break-all; }
+.hotspot-item .fan-in { color: #666; font-size: 11px; margin-top: 2px; }
+
+.language-bar { display: flex; gap: 16px; flex-wrap: wrap; }
+.lang-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.lang-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.entry-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.entry-item { background: #eef2ff; color: #3730a3; font-size: 12px; padding: 3px 10px; border-radius: 6px; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; }
+
+.structure-tree { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 13px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+.structure-tree .dir { color: #4361ee; font-weight: 600; }
+.structure-tree .file { color: #333; }
+.structure-tree .comment { color: #999; font-style: italic; }
+
+.note { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #713f12; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📁 ShiYu-AppBase 项目架构图谱</h1>
+  <p class="subtitle">代码库知识图谱 · 自动生成 · 实时更新</p>
+  <p class="generated-at">生成时间：2026-08-04 08:16 CST · 数据来源：codebase-memory-mcp</p>
+
+  <!-- 指标概览 -->
+  <div class="metrics">
+    <div class="metric-card"><div class="value">1,834</div><div class="label">代码节点</div></div>
+    <div class="metric-card"><div class="value">4,114</div><div class="label">关系边</div></div>
+    <div class="metric-card"><div class="value">241</div><div class="label">文件</div></div>
+    <div class="metric-card"><div class="value">403</div><div class="label">方法</div></div>
+    <div class="metric-card"><div class="value">177</div><div class="label">类</div></div>
+    <div class="metric-card"><div class="value">118</div><div class="label">函数</div></div>
+    <div class="metric-card"><div class="value">62</div><div class="label">接口</div></div>
+    <div class="metric-card"><div class="value">8</div><div class="label">API 路由</div></div>
+  </div>
+
+  <!-- 技术栈 -->
+  <div class="section">
+    <h2>📦 技术栈</h2>
+    <div class="language-bar">
+      <div class="lang-item"><span class="lang-dot" style="background:#3178c6"></span> TypeScript — 102 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#0175c2"></span> Dart — 57 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#c6538c"></span> SCSS — 16 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#cb3837"></span> YAML — 7 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#f05138"></span> Swift — 5 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#ffd900"></span> JavaScript — 4 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#3776ab"></span> Python — 2 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#00618a"></span> SQL — 2 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#4eaa25"></span> Bash — 2 文件</div>
+      <div class="lang-item"><span class="lang-dot" style="background:#e44d26"></span> HTML — 2 文件</div>
+    </div>
+  </div>
+
+  <!-- 子项目结构 -->
+  <div class="section">
+    <h2>🏗️ 子项目结构</h2>
+    <div class="sub-projects">
+      <div class="sub-project">
+        <h3>Server-Nodejs <span class="tech">NestJS 11 + TypeORM</span></h3>
+        <div class="desc">后端服务：JWT 认证 + OAuth（微信/支付宝/Apple/Google）、CASL 授权、AI 服务、Prometheus 可观测性</div>
+        <div class="mods">
+          <span class="mod">auth</span><span class="mod">users</span><span class="mod">events</span>
+          <span class="mod">ai</span><span class="mod">upload</span><span class="mod">config</span>
+          <span class="mod">common</span><span class="mod">health</span><span class="mod">migrations</span>
+          <span class="mod">postgresql</span>
+        </div>
+      </div>
+      <div class="sub-project">
+        <h3>Front-Taro <span class="tech">Taro 3 + React + TS</span></h3>
+        <div class="desc">主 app 的 H5 / 小程序跨端前端（不含管理功能），MobX 状态管理 + 统一 API 客户端</div>
+        <div class="mods">
+          <span class="mod">14 页面</span><span class="mod">components</span><span class="mod">services</span>
+          <span class="mod">stores</span><span class="mod">types</span><span class="mod">utils</span>
+        </div>
+      </div>
+      <div class="sub-project">
+        <h3>Front-Flutter <span class="tech">Flutter 3 + Material 3</span></h3>
+        <div class="desc">iOS / Android / Web 移动端 App，Provider 状态管理 + Clean Architecture 分层 + GoRouter</div>
+        <div class="mods">
+          <span class="mod">core/10</span><span class="mod">features/11</span>
+          <span class="mod">auth</span><span class="mod">events</span><span class="mod">ai</span>
+          <span class="mod">dashboard</span><span class="mod">explore</span><span class="mod">profile</span>
+          <span class="mod">settings</span><span class="mod">upload</span><span class="mod">users</span>
+        </div>
+      </div>
+      <div class="sub-project">
+        <h3>Front-Taro-Admin <span class="tech">Taro H5 独立管理台</span></h3>
+        <div class="desc">独立构建/部署的管理员后台：登录鉴权 + AI 用量统计 + 用户/事件/审计管理</div>
+        <div class="mods">
+          <span class="mod">登录</span><span class="mod">概览</span><span class="mod">用户管理</span>
+          <span class="mod">事件管理</span><span class="mod">审计监控</span>
+        </div>
+      </div>
+    </div>
+    <div class="note">📌 仓库结构：<b>App_Dev_Base/</b> 包含 Front-Flutter、Front-Taro、Front-Taro-Admin、Server-Nodejs 四个子项目，以及 docker-compose.yml / Dockerfile / nginx.conf / docs/ 等顶层配置。</div>
+  </div>
+
+  <!-- API 接口 -->
+  <div class="section">
+    <h2>🌐 API 接口</h2>
+    <table class="api-table">
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/health</td><td>健康检查</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/api/v1/auth/register</td><td>用户注册</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/api/v1/auth/login</td><td>用户登录</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/api/v1/auth/refresh</td><td>刷新 access token</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/auth/me</td><td>当前用户信息</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/api/v1/auth/oauth</td><td>OAuth 第三方登录（微信/支付宝/Apple/Google）</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/auth/oauth/providers</td><td>已启用的 OAuth 提供商列表</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/auth/logout</td><td>注销登录</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/users</td><td>用户列表（分页，ADMIN）</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/users/:id</td><td>用户详情</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/events</td><td>事件列表（范围查询）</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/events</td><td>创建事件</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/events/:id</td><td>事件详情</td></tr>
+      <tr><td><span class="method method-put">PUT</span></td><td>/events/:id</td><td>更新事件</td></tr>
+      <tr><td><span class="method method-delete">DELETE</span></td><td>/events/:id</td><td>删除事件</td></tr>
+      <tr><td><span class="method method-get">GET</span></td><td>/api/v1/audit/logs · stats</td><td>AI 审计日志 / 全局用量统计（ADMIN）</td></tr>
+      <tr><td><span class="method method-post">POST</span></td><td>/api/v1/upload</td><td>文件上传（MIME + 魔数校验，≤10MB）</td></tr>
+    </table>
+    <div class="note">📌 统一响应结构 <code>{ code, message, data, timestamp }</code>；全部接口经全局 JWT 守卫，公开端点加 @Public()；路由经 CASL @CheckPolicies 授权。</div>
+  </div>
+
+  <!-- 模块详情 -->
+  <div class="section">
+    <h2>📁 模块详情</h2>
+    <div style="margin-bottom:14px;"><b>Server-Nodejs 核心模块</b></div>
+    <div class="modules">
+      <div class="module-item"><div class="name">auth</div><div class="desc">JWT + 登录锁定 + Token 轮换 + OAuth 多平台</div></div>
+      <div class="module-item"><div class="name">ai</div><div class="desc">AI 服务：多 Provider + ToolRegistry + 会话管理</div></div>
+      <div class="module-item"><div class="name">events</div><div class="desc">事件 CRUD + 颜色标签 + 范围查询</div></div>
+      <div class="module-item"><div class="name">users</div><div class="desc">用户管理 + 角色 + 分页</div></div>
+      <div class="module-item"><div class="name">upload</div><div class="desc">文件上传（MIME/扩展名/魔数三重校验）</div></div>
+      <div class="module-item"><div class="name">common</div><div class="desc">DTO / 实体 / CASL / 过滤器 / 拦截器</div></div>
+      <div class="module-item"><div class="name">config</div><div class="desc">env 校验 + TypeORM 数据源 + 日志</div></div>
+      <div class="module-item"><div class="name">health</div><div class="desc">健康检查（跳过限流）</div></div>
+      <div class="module-item"><div class="name">migrations</div><div class="desc">TypeORM 迁移（InitialSchema / AddOAuthFields）</div></div>
+    </div>
+
+    <div style="margin:20px 0 14px;"><b>Front-Flutter 业务模块（features）</b></div>
+    <div class="modules">
+      <div class="module-item"><div class="name">auth</div><div class="desc">登录/注册/令牌（data/domain/presentation）</div></div>
+      <div class="module-item"><div class="name">ai</div><div class="desc">AI 对话页 + SSE 流式 + 建议问题</div></div>
+      <div class="module-item"><div class="name">events</div><div class="desc">日历事件列表 + 表单 + 周视图</div></div>
+      <div class="module-item"><div class="name">dashboard</div><div class="desc">首页概览</div></div>
+      <div class="module-item"><div class="name">explore</div><div class="desc">发现页快捷入口</div></div>
+      <div class="module-item"><div class="name">profile</div><div class="desc">个人中心</div></div>
+      <div class="module-item"><div class="name">settings</div><div class="desc">主题 / 语言 / 版本</div></div>
+      <div class="module-item"><div class="name">splash</div><div class="desc">启动页自动登录检测</div></div>
+      <div class="module-item"><div class="name">upload</div><div class="desc">文件上传</div></div>
+      <div class="module-item"><div class="name">users</div><div class="desc">用户列表 / 详情</div></div>
+      <div class="module-item"><div class="name">legal</div><div class="desc">隐私政策 + 服务条款</div></div>
+    </div>
+
+    <div style="margin:20px 0 14px;"><b>Front-Taro 页面 / 服务 / 状态</b></div>
+    <div class="modules">
+      <div class="module-item"><div class="name">14 个页面</div><div class="desc">dashboard · login · register · events · event-form · explore · profile · settings · users · user-detail · splash · upload · privacy · terms</div></div>
+      <div class="module-item"><div class="name">services</div><div class="desc">api-client · auth · events · upload · users</div></div>
+      <div class="module-item"><div class="name">stores</div><div class="desc">auth · connectivity · events · theme · upload · users</div></div>
+      <div class="module-item"><div class="name">components</div><div class="desc">app-shell · offline-banner</div></div>
+    </div>
+  </div>
+
+  <!-- 入口与热点 -->
+  <div class="section">
+    <h2>🚪 入口点</h2>
+    <div class="entry-list">
+      <span class="entry-item">Front-Flutter main()</span>
+      <span class="entry-item">Taro AppShell</span>
+      <span class="entry-item">Taro DashboardPage</span>
+      <span class="entry-item">Taro EventListPage</span>
+      <span class="entry-item">Taro LoginPage</span>
+      <span class="entry-item">Taro ProfilePage</span>
+      <span class="entry-item">Taro RegisterPage</span>
+      <span class="entry-item">Taro SplashPage</span>
+      <span class="entry-item">Taro UsersPage</span>
+      <span class="entry-item">api-client get/post</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔥 高频调用热点</h2>
+    <div class="hotspots">
+      <div class="hotspot-item"><div class="fn">EventsProvider._key</div><div class="fan-in">被 7 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">api-client.request</div><div class="fan-in">被 7 处调用 · 统一请求入口</div></div>
+      <div class="hotspot-item"><div class="fn">events-service.create</div><div class="fan-in">被 7 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">_EventsListPageState._norm</div><div class="fan-in">被 7 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">_EventsListPageState._sameDay</div><div class="fan-in">被 7 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">EventsProvider._loadWeek</div><div class="fan-in">被 6 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">ApiClient._handleError</div><div class="fan-in">被 5 处调用 · 统一错误处理</div></div>
+      <div class="hotspot-item"><div class="fn">AppLocalizations._t</div><div class="fan-in">被 5 处调用 · 国际化</div></div>
+      <div class="hotspot-item"><div class="fn">AuthService.generateRefreshToken</div><div class="fan-in">被 4 处调用</div></div>
+      <div class="hotspot-item"><div class="fn">AuthService.generateAccessToken</div><div class="fan-in">被 4 处调用</div></div>
+    </div>
+  </div>
+
+  <p class="generated-at" style="margin-top:32px; text-align:center;">
+    由 codebase-memory-mcp 自动生成 · 每次 Claude Desktop 启动时自动更新索引
+  </p>
+</div>
+</body>
+</html>

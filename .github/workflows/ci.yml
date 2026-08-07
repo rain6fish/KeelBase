@@ -1,0 +1,116 @@
+# 注意：远程仓库为 Gitee，GitHub Actions 不生效。
+# 实际 CI 运行在 Gitee Go（见 .workflow/master-pipeline.yml）。
+# 本文件保留作为标准 CI 模板，未来若镜像到 GitHub 时可启用。
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-Nodejs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-Nodejs/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-Nodejs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-Nodejs/package-lock.json
+      - run: npm ci
+      - run: npm run test:cov
+        env:
+          ENCRYPTION_KEY: e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
+          ENCRYPTION_HMAC_KEY: c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+      - run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-at-least-32-characters!!
+          JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars!!
+          ENCRYPTION_KEY: e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
+          ENCRYPTION_HMAC_KEY: c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+          DB_TYPE: sqlite
+          DB_PATH: ./data/test.sqlite
+
+  migration-consistency:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-Nodejs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-Nodejs/package-lock.json
+      - run: npm ci
+      # 用已提交迁移建库，再生成对比：实体与迁移一致 → "No changes" 退出码非零但无文件 → 通过
+      - name: 校验迁移与实体一致
+        run: |
+          rm -f ./data/consistency.sqlite
+          export DB_PATH=./data/consistency.sqlite
+          export ENCRYPTION_KEY=e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
+          export ENCRYPTION_HMAC_KEY=c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+          npm run migration:run
+          OUTPUT=$(npm run migration:generate -- src/migrations/_ConsistencyCheck 2>&1)
+          echo "$OUTPUT"
+          if ls src/migrations/_ConsistencyCheck* 2>/dev/null; then
+            echo "::error::实体新增了未迁移的变更，请运行 migration:generate 提交迁移"
+            exit 1
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-Nodejs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-Nodejs/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  flutter-analyze:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Front-Flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          cache: true
+      - run: flutter pub get
+      # 容忍既有 warning/info（项目有 100+ 历史 lint 问题），仅 error 视为失败
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - run: flutter test

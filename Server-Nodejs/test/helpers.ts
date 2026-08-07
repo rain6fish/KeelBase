@@ -1,0 +1,199 @@
+import { Module, ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
+import { AuthModule } from '../src/auth/auth.module';
+import { UsersModule } from '../src/users/users.module';
+import { HealthModule } from '../src/health/health.module';
+import { EventsModule } from '../src/events/events.module';
+import { TodosModule } from '../src/todos/todos.module';
+import { UploadModule } from '../src/upload/upload.module';
+import { AiModule } from '../src/ai/ai.module';
+import { MetricsModule } from '../src/metrics/metrics.module';
+import { NotificationsModule } from '../src/notifications/notifications.module';
+import { MailModule } from '../src/mail/mail.module';
+import { SearchModule } from '../src/search/search.module';
+import { OperationAuditModule } from '../src/operation-audit/operation-audit.module';
+import { OperationAuditInterceptor } from '../src/operation-audit/operation-audit.interceptor';
+import { PushModule } from '../src/push/push.module';
+import { AppVersionModule } from '../src/app-version/app-version.module';
+import { AdminModule } from '../src/admin/admin.module';
+import { SmsModule } from '../src/sms/sms.module';
+import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
+import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
+import { EmailVerificationGuard } from '../src/auth/guards/email-verification.guard';
+import { PoliciesGuard } from '../src/common/casl/policies.guard';
+import { CaslModule } from '../src/common/casl/casl.module';
+import { EncryptionModule } from '../src/common/utils/encryption.module';
+import { envValidationSchema } from '../src/config/env.config';
+import request from 'supertest';
+
+/**
+ * Test app module — mirrors AppModule (all modules) with a
+ * test-friendly throttle limit and a fresh SQLite database.
+ */
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env.test',
+      validationSchema: envValidationSchema,
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const dbType = configService.get<string>('DB_TYPE', 'sqlite');
+        const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+        const isDev = nodeEnv === 'development';
+
+        if (dbType === 'postgres') {
+          return {
+            type: 'postgres' as const,
+            autoLoadEntities: true,
+            synchronize: isDev,
+            logging: ['error', 'warn'],
+            migrations: [
+              'dist/migrations/*PostgresInitialSchema*.js',
+              'dist/migrations/*AddKnowledgeEmbeddings*.js',
+            ],
+            migrationsRun: false,
+            host: configService.get<string>('DB_HOST', 'localhost'),
+            port: configService.get<number>('DB_PORT', 5432),
+            username: configService.get<string>('DB_USER', 'postgres'),
+            password: configService.get<string>('DB_PASSWORD', 'postgres'),
+            database: configService.get<string>('DB_NAME', 'front'),
+          } satisfies TypeOrmModuleOptions;
+        }
+
+        return {
+          type: 'better-sqlite3' as const,
+          autoLoadEntities: true,
+          synchronize: true, // create tables from scratch in tests
+          logging: ['error', 'warn'],
+          migrations: ['dist/migrations/*.js'],
+          migrationsRun: false,
+          database: configService.get<string>('DB_PATH', './data/test.sqlite'),
+        } satisfies TypeOrmModuleOptions;
+      },
+    }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }]),
+    // 测试环境日志静默
+    LoggerModule.forRoot({ pinoHttp: { level: 'silent' } }),
+    AuthModule,
+    UsersModule,
+    HealthModule,
+    EventsModule,
+    TodosModule,
+    UploadModule,
+    AiModule,
+    MetricsModule,
+    CaslModule,
+    EncryptionModule,
+    NotificationsModule,
+    MailModule,
+    SearchModule,
+    OperationAuditModule,
+    PushModule,
+    AppVersionModule,
+    AdminModule,
+    SmsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: EmailVerificationGuard },
+    { provide: APP_GUARD, useClass: PoliciesGuard },
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: OperationAuditInterceptor },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    {
+      provide: APP_PIPE,
+      useFactory: () =>
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+          transformOptions: { enableImplicitConversion: false },
+        }),
+    },
+  ],
+})
+class TestAppModule {}
+
+export async function createTestApp(): Promise<INestApplication> {
+  // Ensure a fresh database for each test run
+  const testDbPath = path.resolve(__dirname, '../data/test.sqlite');
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [TestAppModule],
+  }).compile();
+
+  const app = moduleFixture.createNestApplication();
+  app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+  await app.init();
+  return app;
+}
+
+export async function registerUser(
+  app: INestApplication,
+  user: { username: string; email: string; password: string; nickname: string },
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await request(app.getHttpServer())
+    .post('/api/v1/auth/register')
+    .send(user)
+    .expect(201);
+  const token = res.body.data.accessToken;
+  // 默认视为已验证邮箱，避免新守卫拦截常规测试写操作；
+  // 守卫专项测试在 describe 内显式置 emailVerified=false。
+  const me = await request(app.getHttpServer())
+    .get('/api/v1/auth/me')
+    .set('Authorization', `Bearer ${token}`)
+    .expect(200);
+  const ds = app.get(DataSource);
+  await ds.getRepository('users').update(me.body.data.id, { emailVerified: true });
+  return {
+    accessToken: token,
+    refreshToken: res.body.data.refreshToken,
+  };
+}
+
+export async function loginAs(
+  app: INestApplication,
+  username: string,
+  password: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await request(app.getHttpServer())
+    .post('/api/v1/auth/login')
+    .send({ username, password })
+    .expect(200);
+  return {
+    accessToken: res.body.data.accessToken,
+    refreshToken: res.body.data.refreshToken,
+  };
+}
+
+export function authHeader(token: string): { Authorization: string } {
+  return { Authorization: `Bearer ${token}` };
+}
