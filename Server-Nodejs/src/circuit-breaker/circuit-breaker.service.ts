@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
+
+/** 熔断配置注入 token；未提供时用 DEFAULT_CONFIG。 */
+export const CIRCUIT_BREAKER_CONFIG = 'CIRCUIT_BREAKER_CONFIG';
 
 /** 熔断打开时抛出的异常：调用方应快速失败（降级/重试策略由上层决定）。 */
 export class CircuitOpenException extends Error {
@@ -41,7 +44,10 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
 export class CircuitBreakerService {
   private breakers = new Map<string, Breaker>();
 
-  constructor(private readonly config: CircuitBreakerConfig = DEFAULT_CONFIG) {}
+  constructor(
+    @Optional() @Inject(CIRCUIT_BREAKER_CONFIG)
+    private readonly config: CircuitBreakerConfig = DEFAULT_CONFIG,
+  ) {}
 
   isOpen(name: string): boolean {
     const b = this.breakers.get(name);

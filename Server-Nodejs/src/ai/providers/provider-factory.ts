@@ -8,9 +8,12 @@
 import { LlmProvider } from '../interfaces/llm-provider.interface';
 import { LlmProviderConfig } from '../interfaces/provider-config.interface';
 import { OpenAICompatibleProvider } from './openai-compatible.provider';
+import { CircuitBreakerService } from '../../circuit-breaker/circuit-breaker.service';
 
 export class LlmProviderFactory {
   private readonly providers = new Map<string, LlmProvider>();
+
+  constructor(private readonly circuitBreaker?: CircuitBreakerService) {}
 
   /**
    * 注册一个 Provider
@@ -22,7 +25,7 @@ export class LlmProviderFactory {
       throw new Error(`Provider "${config.name}" is already registered`);
     }
 
-    const provider = new OpenAICompatibleProvider(config);
+    const provider = new OpenAICompatibleProvider(config, this.circuitBreaker);
     this.providers.set(config.name, provider);
     return this;
   }

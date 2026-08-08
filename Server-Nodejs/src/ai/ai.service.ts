@@ -21,6 +21,8 @@ import { ConfirmationStore, ConfirmationOutcome } from './confirmation/confirmat
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { ToolResult } from './interfaces/tool.interface';
+import { SettingsService } from '../settings/settings.service';
+import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
   GenerateParams,
@@ -77,7 +79,24 @@ export class AiService {
     private readonly confirmationStore: ConfirmationStore,
     private readonly compactor: ConversationCompactor,
     private readonly subAgentOrchestrator: SubAgentOrchestrator,
+    private readonly settingsService?: SettingsService,
   ) {}
+
+  /**
+   * RG-2.1 AI 每日限额：Settings 里 ai_daily_limit（>0 时启用）按用户当日
+   * 非错误调用次数拦截。未注入 SettingsService（单测/降级）时跳过。
+   */
+  private async enforceDailyLimit(userId: string): Promise<void> {
+    const settings = this.settingsService;
+    if (!settings) return;
+    const limit = await settings.getAiDailyLimit();
+    if (limit <= 0) return; // 0 = 不限
+
+    const used = await this.auditService.countChatsToday(userId);
+    if (used >= limit) {
+      throw BusinessException.of('AI_DAILY_LIMIT');
+    }
+  }
 
   /** 对话所有权 CASL ability（userId 是 string，sub 转 number；普通 user） */
   private _abilityFor(userId: string) {
@@ -95,6 +114,7 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): Promise<ChatResponse> {
+    await this.enforceDailyLimit(userId);
     return withSpan('ai.chat', async () => {
       return this.chatImpl(userId, request);
     }, {
@@ -372,6 +392,13 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): AsyncIterable<StreamChunk> {
+    // RG-2.1：流式路径限额超限 → 转为 error chunk（不抛给迭代器）
+    try {
+      await this.enforceDailyLimit(userId);
+    } catch (err) {
+      yield { type: 'error', error: (err as Error).message };
+      return;
+    }
     // 流式 span：外层手动 start/end，避免 async generator 语义问题
     const span = tracer.startSpan('ai.chatStream', {
       attributes: {

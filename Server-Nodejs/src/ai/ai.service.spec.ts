@@ -22,6 +22,14 @@ describe('AiService', () => {
     generate: jest.Mock;
     stream: jest.Mock;
   }>;
+  let mockSettingsService: { getAiDailyLimit: jest.Mock };
+  let mockAuditService: {
+    log: jest.Mock;
+    getUserLogs: jest.Mock;
+    getStats: jest.Mock;
+    getAllStats: jest.Mock;
+    countChatsToday: jest.Mock;
+  };
 
   const config = {
     defaultProvider: 'deepseek',
@@ -76,11 +84,16 @@ describe('AiService', () => {
       cleanupExpiredConversations: jest.fn(),
     } as any;
 
-    const mockAuditService = {
+    mockAuditService = {
       log: jest.fn(),
       getUserLogs: jest.fn(),
       getStats: jest.fn(),
       getAllStats: jest.fn(),
+      countChatsToday: jest.fn().mockResolvedValue(0),
+    };
+
+    mockSettingsService = {
+      getAiDailyLimit: jest.fn().mockResolvedValue(0), // 0 = 不限
     };
 
     mockRagAgent = {
@@ -115,6 +128,7 @@ describe('AiService', () => {
       confirmationStore,
       { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
       mockSubAgentOrchestrator as any,
+      mockSettingsService as any,
     );
   });
 
@@ -824,6 +838,67 @@ describe('AiService', () => {
       expect(mockProvider.stream).toHaveBeenCalled();
       const texts = chunks.filter((c) => c.type === 'text').map((c) => c.content);
       expect(texts[0]).not.toContain('跳转');
+    });
+  });
+
+  describe('RG-2.1 AI 每日限额', () => {
+    it('limit=0（不限）时正常放行', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(0);
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
+      expect(mockProvider.generate).toHaveBeenCalled();
+    });
+
+    it('limit>0 且未超限时放行', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
+      mockAuditService.countChatsToday.mockResolvedValue(3);
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
+      expect(mockAuditService.countChatsToday).toHaveBeenCalledWith('1');
+    });
+
+    it('limit>0 且已达上限时抛 AI_DAILY_LIMIT', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
+      mockAuditService.countChatsToday.mockResolvedValue(10);
+
+      await expect(aiService.chat('1', { message: 'hi' }))
+        .rejects.toMatchObject({ errorCode: 'AI_DAILY_LIMIT' });
+      expect(mockProvider.generate).not.toHaveBeenCalled();
+    });
+
+    it('流式 chatStream 同样校验限额', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
+      mockAuditService.countChatsToday.mockResolvedValue(5);
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'hi' })) {
+        chunks.push(chunk);
+      }
+      expect(chunks.some((c) => c.type === 'error')).toBe(true);
+      expect(mockProvider.stream).not.toHaveBeenCalled();
+    });
+
+    it('未注入 SettingsService 时跳过限额', async () => {
+      // 构造一个不带 settingsService 的 AiService
+      const bare = new AiService(
+        mockProviderFactory as any,
+        mockToolRegistry as any,
+        mockConversationService as any,
+        config,
+        mockAuditService as any,
+        mockRagAgent as any,
+        { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
+        mockMemoriesService as any,
+        confirmationStore,
+        { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
+        mockSubAgentOrchestrator as any,
+      );
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await expect(bare.chat('1', { message: 'hi' })).resolves.toBeDefined();
+      expect(mockAuditService.countChatsToday).not.toHaveBeenCalled();
     });
   });
 });

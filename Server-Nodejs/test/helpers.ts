@@ -26,6 +26,8 @@ import { PushModule } from '../src/push/push.module';
 import { AppVersionModule } from '../src/app-version/app-version.module';
 import { AdminModule } from '../src/admin/admin.module';
 import { SmsModule } from '../src/sms/sms.module';
+import { SettingsModule } from '../src/settings/settings.module';
+import { CircuitBreakerModule } from '../src/circuit-breaker/circuit-breaker.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
@@ -106,6 +108,8 @@ import request from 'supertest';
     AppVersionModule,
     AdminModule,
     SmsModule,
+    SettingsModule,
+    CircuitBreakerModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

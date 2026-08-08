@@ -1,6 +1,7 @@
 import { OpenAICompatibleProvider } from './openai-compatible.provider';
 import { LlmProviderConfig } from '../interfaces/provider-config.interface';
 import { GenerateParams, StreamChunk } from '../interfaces/llm-provider.interface';
+import { CircuitBreakerService } from '../../circuit-breaker/circuit-breaker.service';
 
 describe('OpenAICompatibleProvider', () => {
   const config: LlmProviderConfig = {
@@ -297,6 +298,95 @@ describe('OpenAICompatibleProvider', () => {
       expect(chunks).toHaveLength(1);
       expect(chunks[0].type).toBe('error');
       expect(chunks[0].error).toBeDefined();
+    });
+  });
+
+  describe('RG-1.1 熔断', () => {
+    const params: GenerateParams = {
+      messages: [{ role: 'user', content: 'hi' }],
+    };
+
+    function breakerMock(overrides: Record<string, jest.Mock> = {}) {
+      return {
+        fire: jest.fn(),
+        isOpen: jest.fn().mockReturnValue(false),
+        recordSuccess: jest.fn(),
+        recordFailure: jest.fn(),
+        ...overrides,
+      } as unknown as CircuitBreakerService;
+    }
+
+    it('generate 成功时记录成功', async () => {
+      const cb = breakerMock();
+      cb.fire.mockImplementation(async (_name: string, fn: () => Promise<unknown>) => fn());
+      const p = new OpenAICompatibleProvider(config, cb);
+
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await p.generate(params);
+      expect(cb.fire).toHaveBeenCalledWith('llm:deepseek', expect.any(Function));
+    });
+
+    it('generate 抛错时经熔断传播', async () => {
+      const cb = breakerMock();
+      cb.fire.mockImplementation(async () => {
+        throw new Error('upstream down');
+      });
+      const p = new OpenAICompatibleProvider(config, cb);
+
+      await expect(p.generate(params)).rejects.toThrow('upstream down');
+    });
+
+    it('stream 熔断打开时直接返回 error chunk 不发请求', async () => {
+      const cb = breakerMock();
+      cb.isOpen.mockReturnValue(true);
+      const p = new OpenAICompatibleProvider(config, cb);
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of p.stream(params)) chunks.push(chunk);
+
+      expect(chunks[0].type).toBe('error');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('stream 网络失败时记录熔断失败', async () => {
+      const cb = breakerMock();
+      const p = new OpenAICompatibleProvider(config, cb);
+      mockFetch.mockRejectedValue(new Error('socket hang up'));
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of p.stream(params)) chunks.push(chunk);
+
+      expect(cb.recordFailure).toHaveBeenCalledWith('llm:deepseek');
+      expect(chunks[0].type).toBe('error');
+    });
+
+    it('stream 成功时记录熔断成功', async () => {
+      const cb = breakerMock();
+      const p = new OpenAICompatibleProvider(config, cb);
+      const encoder = new TextEncoder();
+      mockFetch.mockResolvedValue(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of p.stream(params)) chunks.push(chunk);
+
+      expect(cb.recordSuccess).toHaveBeenCalledWith('llm:deepseek');
+      expect(chunks[chunks.length - 1].type).toBe('done');
     });
   });
 });

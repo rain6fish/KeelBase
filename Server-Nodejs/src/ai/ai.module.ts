@@ -50,6 +50,8 @@ import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
+import { SettingsService } from '../settings/settings.service';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 @Module({
   imports: [
@@ -84,9 +86,11 @@ import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
         todosService: TodosService,
         memoryService: MemoriesService,
         confirmationStore: ConfirmationStore,
+        settingsService: SettingsService,
+        circuitBreaker: CircuitBreakerService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
-        const factory = new LlmProviderFactory();
+        const factory = new LlmProviderFactory(circuitBreaker);
         const defaultProvider = configService.get<string>('AI_PROVIDER', 'deepseek');
 
         const registerProvider = (name: string, defaults: Partial<LlmProviderConfig> & { displayName: string }) => {
@@ -168,9 +172,10 @@ import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
           confirmationStore,
           compactor,
           subAgentOrchestrator,
+          settingsService,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore],
+      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService],

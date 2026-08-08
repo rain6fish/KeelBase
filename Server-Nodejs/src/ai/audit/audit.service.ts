@@ -118,6 +118,18 @@ export class AuditService {
     }));
   }
 
+  /** RG-2.1：统计用户今日非错误 AI 调用次数（限额校验用）。 */
+  async countChatsToday(userId: string): Promise<number> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return this.logRepo
+      .createQueryBuilder('log')
+      .where('log.userId = :userId', { userId })
+      .andWhere('log.createdAt >= :start', { start })
+      .andWhere('log.isError = :err', { err: false })
+      .getCount();
+  }
+
   async getStats(userId: string, since?: Date): Promise<UsageStats> {
     const where: any = { userId };
     if (since) where.createdAt = Between(since, new Date());

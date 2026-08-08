@@ -23,6 +23,7 @@
 - 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 98 全绿。来源：本次实施。
 - 2026-08-08 完成 UX-5（fl_chart + InsightsProvider + Dashboard 月度分布柱状图与统计概览，复用 /ai/insights）+ UX-6（AnnouncementProvider 识别广播公告 + Dashboard 启动弹窗一次）+ UX-1（AppCache SharedPreferences 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚）；Flutter 测试 127 全绿 + analyze 干净（无新增 error/warning）。来源：本次实施。
 - 2026-08-08 完成 D.7（deploy/deploy.sh 一键部署 + create-admin.ts 幂等建管理员 + 部署指南 one-click-deploy.md）+ RG-3（events/todos @DeleteDateColumn 软删 + 管理台 /admin/trash 回收站 + restore；users/notifications 保持硬删）+ RG-4（AlertWebhookService 钉钉/飞书/Slack + 防抖 + AllExceptionsFilter 5xx 触发）；后端单测 492 + e2e 98 全绿。来源：本次实施。
+- 2026-08-08 完成 RG-2.1（AI 每日限额：AuditService.countChatsToday + AiService.enforceDailyLimit 拦截 chat/chatStream，settings.ai_daily_limit>0 时启用，流式超限转 error chunk）+ RG-1.1（AI provider 熔断：LlmProviderFactory 注入 CircuitBreaker，OpenAICompatibleProvider generate 用 fire / stream 用 isOpen+recordSuccess/Failure，llm:{name} 独立熔断 key）。来源：本次实施。
 
 ---
 
@@ -185,8 +186,8 @@
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| RG-1 | 外部依赖熔断 | AI/邮件/短信/推送等外部依赖连续失败 N 次后快速失败熔断（opossum 或自定义状态机，NestJS 无内置），防级联拖垮服务；与 3.2 队列、O.3 告警互补 | AI/PL-1/推送已就绪 | **已完成（CircuitBreakerService 状态机 + mail/sms/push 接入；AI provider 调用点分散，接入列为 RG-1.1 细化）** |
-| RG-2 | 动态配置中心 | Settings 表 + 管理台实时修改立即生效：维护模式开关 / AI 每日调用上限 / 新用户赠送积分等运营参数，替代改 .env 需重启 | AD-15 已就绪（当前仅只读摘要） | **已完成（Settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI_DAILY_LIMIT 读接口；AI 每日限额实际校验待 ai.service 接入）** |
+| RG-1 | 外部依赖熔断 | AI/邮件/短信/推送等外部依赖连续失败 N 次后快速失败熔断（opossum 或自定义状态机，NestJS 无内置），防级联拖垮服务；与 3.2 队列、O.3 告警互补 | AI/PL-1/推送已就绪 | **已完成（CircuitBreakerService 状态机 + mail/sms/push/AI 接入）** |
+| RG-2 | 动态配置中心 | Settings 表 + 管理台实时修改立即生效：维护模式开关 / AI 每日调用上限 / 新用户赠送积分等运营参数，替代改 .env 需重启 | AD-15 已就绪（当前仅只读摘要） | **已完成（Settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI 每日限额实际校验）** |
 | RG-3 | 软删除与回收站 | 核心实体（users/events/todos/notifications）启用 @DeleteDateColumn() + 查询自动过滤；管理台「回收站」视图恢复误删数据 | S.4 / AD 已就绪 | **已完成（events/todos 启用 @DeleteDateColumn + softDelete + 迁移 AddSoftDelete；管理台 GET /admin/trash + POST restore；users/notifications 保持硬删——注销/隐私合规需要真删）** |
 | RG-4 | 异常告警 Webhook | 500/致命异常主动推送钉钉/飞书/Slack 群（Webhook URL 配置化），O.3 告警规则 + Loki 日志之外的人工主动触达 | O.3 已就绪 | **已完成（AlertWebhookService 钉钉/飞书/Slack 三格式 + 60s 防抖 + ALERT_* env；AllExceptionsFilter 5xx 时异步触发）** |
 | RG-5 | 后端统一错误码 + i18n | 业务错误码机制（USER_NOT_FOUND 等，现 code 仅 HTTP 状态码）+ 前端按错误码渲染文案；响应按 Accept-Language 返回对应语言错误描述 | 前端 i18n 已就绪 | **已完成（BusinessException + API_ERROR_CODES 映射 + filter 按 Accept-Language 本地化 + errorCode 透传；auth/users/email-guard 关键路径已迁移，code 保持 HTTP 状态码向后兼容；前端按 errorCode 渲染待后续）** |

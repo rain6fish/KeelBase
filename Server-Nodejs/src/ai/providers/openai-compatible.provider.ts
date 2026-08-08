@@ -15,6 +15,7 @@ import {
   ChatMessage,
 } from '../interfaces/llm-provider.interface';
 import { LlmProviderConfig } from '../interfaces/provider-config.interface';
+import { CircuitBreakerService } from '../../circuit-breaker/circuit-breaker.service';
 
 /** OpenAI 兼容 API 的响应格式 */
 interface OpenAIChoice {
@@ -69,7 +70,10 @@ export class OpenAICompatibleProvider implements LlmProvider {
   private readonly maxTokens: number;
   private readonly temperature: number;
 
-  constructor(config: LlmProviderConfig) {
+  constructor(
+    config: LlmProviderConfig,
+    private readonly circuitBreaker?: CircuitBreakerService,
+  ) {
     this.name = config.name;
     this.displayName = config.displayName;
     this.availableModels = config.availableModels;
@@ -80,29 +84,46 @@ export class OpenAICompatibleProvider implements LlmProvider {
     this.temperature = config.temperature;
   }
 
+  /** RG-1.1：provider 名作熔断 key（deepseek/qwen/openai 各自独立熔断） */
+  private get breakerName(): string {
+    return `llm:${this.name}`;
+  }
+
   isOpenAICompatible(): boolean {
     return true;
   }
 
   async generate(params: GenerateParams): Promise<GenerateResult> {
-    const body = this.buildRequestBody(params);
+    const doGenerate = async () => {
+      const body = this.buildRequestBody(params);
 
-    const response = await fetch(`${this.baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify(body),
-    });
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(body),
+      });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => 'Unknown error');
-      throw new Error(`LLM API error: ${response.status} ${errorBody}`);
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => 'Unknown error');
+        throw new Error(`LLM API error: ${response.status} ${errorBody}`);
+      }
+
+      const data = (await response.json()) as OpenAIResponse;
+      return this.parseResponse(data);
+    };
+    if (this.circuitBreaker) {
+      return this.circuitBreaker.fire(this.breakerName, doGenerate);
     }
-
-    const data = (await response.json()) as OpenAIResponse;
-    return this.parseResponse(data);
+    return doGenerate();
   }
 
   async *stream(params: GenerateParams): AsyncIterable<StreamChunk> {
+    // RG-1.1：熔断打开时直接返回 error chunk（不发起请求）
+    if (this.circuitBreaker?.isOpen(this.breakerName)) {
+      yield { type: 'error', error: `LLM provider "${this.name}" is circuit-open` };
+      return;
+    }
+
     const body = this.buildRequestBody(params, true);
 
     let response: Response;
@@ -113,18 +134,21 @@ export class OpenAICompatibleProvider implements LlmProvider {
         body: JSON.stringify(body),
       });
     } catch (err) {
+      this.circuitBreaker?.recordFailure(this.breakerName);
       yield { type: 'error', error: (err as Error).message };
       return;
     }
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => 'Unknown error');
+      this.circuitBreaker?.recordFailure(this.breakerName);
       yield {
         type: 'error',
         error: `LLM API error: ${response.status} ${errorBody}`,
       };
       return;
     }
+    this.circuitBreaker?.recordSuccess(this.breakerName);
 
     const reader = response.body?.getReader();
     if (!reader) {
