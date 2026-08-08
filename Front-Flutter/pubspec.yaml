@@ -45,6 +45,7 @@ dependencies:
   shared_preferences: ^2.5.5
   intl: ^0.20.2
   url_launcher: ^6.3.0
+  fl_chart: ^1.1.0
 
   # Third-party OAuth login (International)
   google_sign_in: ^6.3.0

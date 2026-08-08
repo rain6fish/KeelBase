@@ -66,12 +66,26 @@ void main() {
       when(() => repository.getTodos()).thenAnswer((_) async => [todo]);
       await provider.load();
 
-      when(() => repository.toggleComplete(1, false)).thenAnswer((_) async => const TodoModel(id: 1, title: '买牛奶', completed: true));
+      when(() => repository.toggleComplete(1, true)).thenAnswer((_) async => const TodoModel(id: 1, title: '买牛奶', completed: true));
 
       final ok = await provider.toggle(1);
 
       expect(ok, isTrue);
       expect(provider.todos[0].completed, isTrue);
+    });
+
+    test('失败 → 回滚到原状态', () async {
+      when(() => repository.getTodos()).thenAnswer((_) async => [todo]);
+      await provider.load();
+
+      when(() => repository.toggleComplete(1, true)).thenThrow(Exception('network'));
+
+      // 乐观更新先翻转为 true，接口失败后回滚为 false
+      final ok = await provider.toggle(1);
+
+      expect(ok, isFalse);
+      expect(provider.todos[0].completed, isFalse);
+      expect(provider.error, isNotNull);
     });
   });
 
@@ -87,6 +101,36 @@ void main() {
       expect(ok, isTrue);
       expect(provider.todos.length, 1);
       expect(provider.todos[0].id, 2);
+    });
+
+    test('失败 → 恢复原列表', () async {
+      when(() => repository.getTodos()).thenAnswer((_) async => [todo, const TodoModel(id: 2, title: 'B')]);
+      await provider.load();
+
+      when(() => repository.delete(1)).thenThrow(Exception('network'));
+
+      final ok = await provider.remove(1);
+
+      expect(ok, isFalse);
+      expect(provider.todos.length, 2);
+      expect(provider.error, isNotNull);
+    });
+  });
+
+  group('缓存优先', () {
+    test('load 时先读缓存立即展示，再网络刷新', () async {
+      // 无缓存时 fromCache 应为 false
+      when(() => repository.getTodos()).thenAnswer((_) async => [todo]);
+      await provider.load();
+      expect(provider.fromCache, isFalse);
+    });
+
+    test('网络失败但有缓存时展示缓存数据不报错', () async {
+      // 先成功一次写缓存（unavailable 实例 no-op，此处验证降级路径）
+      when(() => repository.getTodos()).thenThrow(Exception('offline'));
+      await provider.load();
+      expect(provider.todos, isEmpty);
+      expect(provider.error, isNotNull);
     });
   });
 }

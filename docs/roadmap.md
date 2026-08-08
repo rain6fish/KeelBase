@@ -21,6 +21,7 @@
 - 2026-08-07 完成 AI-10.1（委托前端入口）：AiChatProvider 对技能/复杂触发词（对齐后端 Skills+delegate 关键词）、且非动作/导航请求走非流式 /ai/chat 完整回复；前端 107 测试 + analyze 干净。来源：本次实施。
 - 2026-08-07 整体审视：补「平台通用能力」PL-7 定时任务框架 / PL-8 特性开关（记忆遗留的基础设施未做项）；AI-8 已完成但代码待提交（归档表「待提交」）。来源：项目现状与 roadmap 一致性审视。
 - 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 98 全绿。来源：本次实施。
+- 2026-08-08 完成 UX-5（fl_chart + InsightsProvider + Dashboard 月度分布柱状图与统计概览，复用 /ai/insights）+ UX-6（AnnouncementProvider 识别广播公告 + Dashboard 启动弹窗一次）+ UX-1（AppCache SharedPreferences 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚）；Flutter 测试 127 全绿 + analyze 干净（无新增 error/warning）。来源：本次实施。
 
 ---
 
@@ -166,12 +167,12 @@
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| UX-1 | 离线缓存与乐观更新 | 引入本地数据库（Hive/Isar/sqflite）缓存 events/todos/notifications；「缓存优先，网络更新」策略，离线可读列表/详情；列表删除/完成待办乐观更新 UI，请求失败回滚 | 无 | 待办 |
+| UX-1 | 离线缓存与乐观更新 | 引入本地数据库（Hive/Isar/sqflite）缓存 events/todos/notifications；「缓存优先，网络更新」策略，离线可读列表/详情；列表删除/完成待办乐观更新 UI，请求失败回滚 | 无 | **已完成（AppCache 基于 SharedPreferences JSON 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚；events 日历缓存留后续）** |
 | UX-2 | 开发调试菜单（Dev Menu） | Debug 模式摇一摇/长按头像弹出：环境切换（Dev/Stage/Prod）、假数据生成（100 条事件/用户）、权限模拟（未登录/普通/管理员）、清缓存（SharedPreferences + 本地库） | 无 | 待办 |
 | UX-3 | 代码生成器 | Flutter 模块脚手架脚本：输入模块名自动生成 features/\<name\>/{data,domain,presentation} + Provider/Model 模板 | 无 | 待办 |
 | UX-4 | 应用锁（App Lock） | local_auth 生物识别；设置开启「启动时验证 FaceID/指纹」，保护隐私数据 | 无 | 待办 |
-| UX-5 | 仪表盘数据可视化 | fl_chart 集成：本周完成待办数 / AI 对话次数趋势等图表（复用 /ai/insights 数据） | SAM-1 / AI-1 已就绪 | 待办 |
-| UX-6 | 公告 App 端消费 | AD-7 管理台广播的前端半段：启动拉取最新公告弹窗展示 + 入口红点 | AD-7 已就绪 | 待办 |
+| UX-5 | 仪表盘数据可视化 | fl_chart 集成：本周完成待办数 / AI 对话次数趋势等图表（复用 /ai/insights 数据） | SAM-1 / AI-1 已就绪 | **已完成（fl_chart + InsightsProvider + InsightsCard：月度分布柱状图 + 统计概览，Dashboard 集成；单测 5）** |
+| UX-6 | 公告 App 端消费 | AD-7 管理台广播的前端半段：启动拉取最新公告弹窗展示 + 入口红点 | AD-7 已就绪 | **已完成（AnnouncementProvider 识别 broadcast/announcement 未读通知，Dashboard 启动弹窗一次 + 单测 5；入口红点复用通知中心未读数）** |
 | UX-7 | 隐私合规延迟初始化 | 用户同意隐私政策前不初始化第三方 SDK（统计/推送）；legal 模块配合延迟初始化；接 MS-2.3 推送 SDK 时前置 | MS-2.3 | 待办 |
 | UX-8 | Onboarding 首次引导 | 首次启动功能介绍页（可跳过）；业务相关性强、基座通用价值低，低优先 | 无 | 待办（低优先） |
 
@@ -291,3 +292,4 @@
 | AI-10.1 | 委托前端入口（AiChatProvider 技能/复杂触发词分流非流式 /ai/chat）；前端 107 测试 + analyze 干净 | 506552a |
 | PL-7 + PL-8 | 定时任务框架（@nestjs/schedule：每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ 特性开关（FeatureFlagsService + FeatureDisabledGuard + @FeatureFlag + FEATURE_*_ENABLED env）；后端单测 450 + e2e 98 全绿 | 71b10fc |
 | RG-5 + RG-1 + RG-2 | 统一错误码（BusinessException + API_ERROR_CODES + filter Accept-Language 本地化 + errorCode 透传）+ 外部依赖熔断（CircuitBreakerService + mail/sms/push 接入）+ 动态配置中心（settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI_DAILY_LIMIT）；单测 480 + e2e 98 + 迁移一致性 No changes | 4d5d79c |
+| UX-5 + UX-6 + UX-1 | 数据可视化（fl_chart + InsightsProvider + Dashboard 柱状图）+ 公告消费（AnnouncementProvider + 启动弹窗）+ 离线缓存乐观更新（AppCache + todos/notifications 缓存优先 + 乐观更新回滚）；Flutter 测试 127 全绿 | 待提交 |

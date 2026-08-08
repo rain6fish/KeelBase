@@ -22,4 +22,22 @@ class TodoModel {
       dueDate: json['dueDate'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'completed': completed,
+        'dueDate': dueDate,
+      };
+
+  TodoModel copyWith({bool? completed}) {
+    return TodoModel(
+      id: id,
+      title: title,
+      description: description,
+      completed: completed ?? this.completed,
+      dueDate: dueDate,
+    );
+  }
 }

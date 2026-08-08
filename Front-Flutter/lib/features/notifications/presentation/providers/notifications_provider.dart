@@ -1,12 +1,18 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/sse_client.dart';
+import '../../../../core/services/app_cache.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/repositories/notifications_repository.dart';
 
 class NotificationsProvider extends ChangeNotifier {
   final NotificationsRepository _repository;
   final SseClient? _sseClient;
+  final AppCache _cache;
+
+  static const _ns = 'notifications';
+  static const _keyList = 'list';
+  static const _keyUnread = 'unread';
 
   List<NotificationModel> _notifications = [];
   int _unreadCount = 0;
@@ -14,8 +20,8 @@ class NotificationsProvider extends ChangeNotifier {
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
-  NotificationsProvider(this._repository, {SseClient? sseClient})
-      : _sseClient = sseClient;
+  NotificationsProvider(this._repository, {this._sseClient, AppCache? cache})
+      : _cache = cache ?? AppCache.unavailable();
 
   List<NotificationModel> get notifications => _notifications;
   int get unreadCount => _unreadCount;
@@ -50,11 +56,23 @@ class NotificationsProvider extends ChangeNotifier {
     _loading = true;
     _error = null;
     notifyListeners();
+
+    // 缓存优先：先展示本地缓存，避免空白
+    final cached = await _cache.readList(_ns, _keyList);
+    final cachedUnread = _cache.readInt(_ns, _keyUnread);
+    if (cached != null) {
+      _notifications = cached.map(NotificationModel.fromJson).toList();
+      _unreadCount = cachedUnread ?? _notifications.where((n) => !n.isRead).length;
+      notifyListeners();
+    }
+
     try {
       _notifications = await _repository.getNotifications();
       _unreadCount = await _repository.getUnreadCount();
+      await _cache.writeList(_ns, _keyList, _notifications.map((n) => n.toJson()).toList());
+      await _cache.writeInt(_ns, _keyUnread, _unreadCount);
     } catch (e) {
-      _error = e.toString();
+      if (_notifications.isEmpty) _error = e.toString();
     }
     _loading = false;
     notifyListeners();

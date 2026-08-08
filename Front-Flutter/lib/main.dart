@@ -28,6 +28,10 @@ import 'features/search/data/repositories/search_repository.dart';
 import 'features/search/presentation/providers/search_provider.dart';
 import 'features/upload/presentation/providers/upload_provider.dart';
 import 'features/version/data/repositories/version_repository.dart';
+import 'features/insights/data/repositories/insights_repository.dart';
+import 'features/insights/presentation/providers/insights_provider.dart';
+import 'features/announcements/presentation/providers/announcement_provider.dart';
+import 'core/services/app_cache.dart';
 import 'features/version/presentation/providers/version_check_provider.dart';
 import 'features/auth/data/services/oauth_service.dart';
 
@@ -140,11 +144,12 @@ Future<void> _initApp() async {
           create: (_) => EventsProvider(eventsRepository),
         ),
 
-        // Notifications
+        // Notifications (UX-1 缓存优先)
         ChangeNotifierProvider<NotificationsProvider>(
           create: (_) => NotificationsProvider(
             notificationsRepository,
             sseClient: sseClient,
+            cache: AppCache(prefs),
           ),
         ),
 
@@ -171,14 +176,24 @@ Future<void> _initApp() async {
           create: (_) => SearchProvider(SearchRepository(apiClient)),
         ),
 
-        // Todos
+        // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
-          create: (_) => TodosProvider(TodosRepository(apiClient)),
+          create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
         ),
 
         // Version check
         ChangeNotifierProvider<VersionCheckProvider>(
           create: (_) => VersionCheckProvider(VersionRepository(apiClient)),
+        ),
+
+        // Insights (UX-5)
+        ChangeNotifierProvider<InsightsProvider>(
+          create: (_) => InsightsProvider(InsightsRepository(apiClient)),
+        ),
+
+        // Announcements (UX-6)
+        ChangeNotifierProvider<AnnouncementProvider>(
+          create: (_) => AnnouncementProvider(notificationsRepository),
         ),
       ],
       child: const App(),

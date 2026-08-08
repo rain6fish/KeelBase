@@ -48,4 +48,16 @@ class NotificationModel {
       createdAt: createdAt,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'type': type,
+        'targetType': targetType,
+        'targetId': targetId,
+        'isRead': isRead,
+        'link': link,
+        'createdAt': createdAt,
+      };
 }

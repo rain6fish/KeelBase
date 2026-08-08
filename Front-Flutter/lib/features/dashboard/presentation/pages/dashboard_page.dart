@@ -8,6 +8,9 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../ai/presentation/providers/ai_chat_provider.dart';
 import '../../../events/data/repositories/events_repository.dart';
 import '../../../events/data/models/event_model.dart';
+import '../../../insights/presentation/providers/insights_provider.dart';
+import '../../../insights/presentation/widgets/insights_card.dart';
+import '../../../announcements/presentation/providers/announcement_provider.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -24,6 +27,42 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadToday();
+    _loadInsights();
+    _checkAnnouncement();
+  }
+
+  void _loadInsights() {
+    // 未登录时不请求；登录后由 provider 加载
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<InsightsProvider>().load();
+    });
+  }
+
+  Future<void> _checkAnnouncement() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final show = await context.read<AnnouncementProvider>().check();
+      if (!mounted || !show) return;
+      final announcement = context.read<AnnouncementProvider>().latest;
+      if (announcement == null) return;
+      context.read<AnnouncementProvider>().markShown();
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(announcement.title),
+          content: SingleChildScrollView(
+            child: Text(announcement.body?.isNotEmpty == true ? announcement.body! : announcement.title),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(context.l10n.announcementDismiss),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override
@@ -121,6 +160,8 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 24),
           _todayCard(l10n, theme),
           const SizedBox(height: 20),
+          _insightsCard(theme),
+          const SizedBox(height: 20),
           Text(l10n.quickActions, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.textStyle.color)),
           const SizedBox(height: 12),
           Row(children: [
@@ -197,6 +238,16 @@ class _DashboardPageState extends State<DashboardPage> {
         textInputAction: TextInputAction.send,
         onSubmitted: (_) => _onAiSubmit(),
       ),
+    );
+  }
+
+  Widget _insightsCard(CupertinoThemeData theme) {
+    final insights = context.watch<InsightsProvider>();
+    return InsightsCard(
+      insights: insights.insights,
+      loading: insights.loading,
+      error: insights.error,
+      onRetry: () => context.read<InsightsProvider>().load(),
     );
   }
 

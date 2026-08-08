@@ -114,6 +114,17 @@ class AppLocalizations {
   String get editProfile => _t('Edit Profile', '编辑信息');
   String get todaySchedule => _t("Today's Schedule", '今日日程');
   String get noEventsToday => _t('No events today', '今天没有事件');
+  // UX-5 数据洞察
+  String get insightsTitle => _t('My Insights', '数据洞察');
+  String get insightsError => _t('Failed to load insights', '数据洞察加载失败');
+  String get insightsEmpty => _t('Create events to see your insights', '创建事件后可查看你的数据洞察');
+  String get insightsTotal => _t('Total', '全部');
+  String get insightsActive => _t('Active', '进行中');
+  String get insightsCancelled => _t('Cancelled', '已取消');
+  String get insightsRecent => _t('Recent', '近30天');
+  String get eventsByMonth => _t('Events by month', '每月事件分布');
+  // UX-6 公告
+  String get announcementDismiss => _t('Got it', '知道了');
   String get mondayShort => _t('Mon', '一');
   String get tuesdayShort => _t('Tue', '二');
   String get wednesdayShort => _t('Wed', '三');
