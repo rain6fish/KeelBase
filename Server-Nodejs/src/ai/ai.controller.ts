@@ -30,11 +30,13 @@ import { ConversationQueryDto } from './dto/conversation-query.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
 @ApiTags('AI')
 @ApiBearerAuth()
+@FeatureFlag('ai')
 @Controller({ path: 'ai', version: '1' })
 export class AiController {
   constructor(

@@ -5,11 +5,13 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
 @ApiTags('待办')
 @ApiBearerAuth()
+@FeatureFlag('todos')
 @Controller({ path: 'todos', version: '1' })
 export class TodosController {
   constructor(private readonly todosService: TodosService) {}

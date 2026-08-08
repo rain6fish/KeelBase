@@ -19,6 +19,7 @@ import { LoginPhoneDto } from './dto/login-phone.dto';
 import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { Public } from './guards/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -67,6 +68,7 @@ export class AuthController {
   }
 
   @Public()
+  @FeatureFlag('oauth')
   @Post('oauth')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -85,6 +87,7 @@ export class AuthController {
   }
 
   @Public()
+  @FeatureFlag('oauth')
   @Get('oauth/providers')
   @ApiOperation({ summary: 'Get list of enabled OAuth providers with metadata' })
   @ApiOkResponse({ description: 'Provider list returned' })
@@ -147,6 +150,7 @@ export class AuthController {
   }
 
   @Public()
+  @FeatureFlag('sms')
   @Post('send-sms-code')
   @SkipAudit()
   @HttpCode(HttpStatus.OK)
@@ -157,6 +161,7 @@ export class AuthController {
   }
 
   @Public()
+  @FeatureFlag('sms')
   @Post('login-phone')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -174,6 +179,7 @@ export class AuthController {
   }
 
   @Post('bind-phone')
+  @FeatureFlag('sms')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bind/update phone number with SMS code' })

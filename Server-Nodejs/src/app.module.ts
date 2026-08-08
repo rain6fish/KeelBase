@@ -2,6 +2,7 @@
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module';
@@ -33,6 +34,9 @@ import { KnowledgeWorkerModule } from './queue/knowledge-worker.module';
 import { AppVersionModule } from './app-version/app-version.module';
 import { AdminModule } from './admin/admin.module';
 import { SmsModule } from './sms/sms.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { FeatureDisabledGuard } from './feature-flags/feature-disabled.guard';
+import { MaintenanceTasksModule } from './maintenance-tasks/maintenance-tasks.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
@@ -99,6 +103,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
         } satisfies TypeOrmModuleOptions;
       },
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 60,
@@ -131,8 +136,11 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     KnowledgeWorkerModule,
     AdminModule,
     SmsModule,
+    FeatureFlagsModule,
+    MaintenanceTasksModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: FeatureDisabledGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: EmailVerificationGuard },
     { provide: APP_GUARD, useClass: PoliciesGuard },

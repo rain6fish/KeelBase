@@ -91,6 +91,8 @@ ShiYu-AppBase/
 │   │   ├── queue/                 # BullMQ 异步队列
 │   │   ├── search/                # 全局搜索
 │   │   ├── operation-audit/       # 通用操作审计
+│   │   ├── feature-flags/         # 特性开关（PL-8，FEATURE_*_ENABLED）
+│   │   ├── maintenance-tasks/     # 定时任务（PL-7，@nestjs/schedule cron）
 │   │   └── ai/                    # AI Agent 模块
 │   │       ├── providers/         # LLM Provider 工厂
 │   │       ├── tools/             # 工具注册表
@@ -175,6 +177,7 @@ feature/
 
 | 组件 | 类型 | 说明 |
 |------|------|------|
+| FeatureDisabledGuard | APP_GUARD | 全局特性开关守卫，@FeatureFlag(key) 特性关闭时返回 404 |
 | JwtAuthGuard | APP_GUARD | 全局 JWT 认证，@Public() 跳过 |
 | PoliciesGuard | APP_GUARD | 全局 CASL 策略守卫，@CheckPolicies() 路由级 + @CurrentAbility() 行级 |
 | ThrottlerGuard | APP_GUARD | 全局速率限制（60 次/分钟） |

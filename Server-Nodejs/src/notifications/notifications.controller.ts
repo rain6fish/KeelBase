@@ -18,10 +18,12 @@ import type { Response } from 'express';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('通知')
 @ApiBearerAuth()
+@FeatureFlag('notifications')
 @Controller({ path: 'notifications', version: '1' })
 export class NotificationsController {
   constructor(

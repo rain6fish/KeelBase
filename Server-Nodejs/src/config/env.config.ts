@@ -95,6 +95,19 @@ export const envValidationSchema = Joi.object({
   // 备份保留份数（npm run backup 轮转用）
   BACKUP_KEEP: Joi.number().default(7),
 
+  // 特性开关（PL-8）：FEATURE_<KEY>_ENABLED，默认全开，显式 false 关闭
+  FEATURE_AI_ENABLED: Joi.boolean().default(true),
+  FEATURE_SEARCH_ENABLED: Joi.boolean().default(true),
+  FEATURE_PUSH_ENABLED: Joi.boolean().default(true),
+  FEATURE_SMS_ENABLED: Joi.boolean().default(true),
+  FEATURE_OAUTH_ENABLED: Joi.boolean().default(true),
+  FEATURE_UPLOAD_ENABLED: Joi.boolean().default(true),
+  FEATURE_NOTIFICATIONS_ENABLED: Joi.boolean().default(true),
+  FEATURE_TODOS_ENABLED: Joi.boolean().default(true),
+
+  // 定时任务（PL-7）：已读通知保留天数，超期清理
+  NOTIFICATION_RETENTION_DAYS: Joi.number().default(30),
+
   // Redis 缓存
   REDIS_URL: Joi.string().allow('').default('redis://localhost:6379'),
   CACHE_ENABLED: Joi.boolean().default(true),

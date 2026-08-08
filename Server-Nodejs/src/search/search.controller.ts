@@ -2,10 +2,12 @@ import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SearchService } from './search.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('搜索')
 @ApiBearerAuth()
+@FeatureFlag('search')
 @Controller({ path: 'search', version: '1' })
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}

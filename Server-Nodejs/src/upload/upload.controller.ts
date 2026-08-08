@@ -13,6 +13,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { validateMagicBytes } from '../common/utils/file-validator';
 import { STORAGE_SERVICE } from '../storage/storage.service';
 import type { StorageService } from '../storage/storage.service';
@@ -25,6 +26,7 @@ const ALLOWED_EXTENSIONS = new Set([
 
 @ApiTags('文件上传')
 @ApiBearerAuth()
+@FeatureFlag('upload')
 @Controller({ path: 'upload', version: '1' })
 export class UploadController {
   private readonly logger = new Logger(UploadController.name);

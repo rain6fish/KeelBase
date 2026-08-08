@@ -20,6 +20,7 @@
 - 2026-08-07 完成 AI-10（子代理委托 + Skills）：SubAgentOrchestrator + 3 个只读子代理（calendar/stats/organizer）+ SkillsRegistry（week-plan 模板）+ router delegate 意图 + chatImpl 技能短路/委托分支；只读子代理，写操作留流式 AI-7 确认；后端 438 单测 + e2e 98 全绿。来源：本次实施。
 - 2026-08-07 完成 AI-10.1（委托前端入口）：AiChatProvider 对技能/复杂触发词（对齐后端 Skills+delegate 关键词）、且非动作/导航请求走非流式 /ai/chat 完整回复；前端 107 测试 + analyze 干净。来源：本次实施。
 - 2026-08-07 整体审视：补「平台通用能力」PL-7 定时任务框架 / PL-8 特性开关（记忆遗留的基础设施未做项）；AI-8 已完成但代码待提交（归档表「待提交」）。来源：项目现状与 roadmap 一致性审视。
+- 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 待验证。来源：本次实施。
 
 ---
 
@@ -91,8 +92,8 @@
 | PL-5 | 应用版本更新检查 | GET /api/v1/app/version 元数据端点 + 前端启动检查（强制更新阻断/引导更新）+ settings 版本展示与手动检查 + url_launcher 跳转 + 版本对比工具；后端 2 单测 + e2e 1 + 前端 11 测试 | 无 | **已完成** |
 | PL-6 | Front-Taro 端功能同步 | Taro 端新增通知中心（列表/未读/已读/全部已读/删除）+ 会话管理（设备列表/当前设备/远程登出）；api-client 补 PATCH + 统一 x-device-id 头；profile/settings 入口；AI/搜索/待办按渠道策略留 Flutter | 各模块已就绪 | **已完成** |
 | SAM-1 | 待办清单（基座验证样例） | 真实业务走一遍基座前后端流程：后端 todos CRUD + CASL + 迁移；前端第五 tab + provider + 页面；同轮补 upload 图片预览 / dashboard 头像 / explore 入口 | 基座已就绪 | **已完成** |
-| PL-7 | 定时任务框架 | 引入 @nestjs/schedule cron：每日统计快照、过期会话/验证码清理、日志与通知轮转、邮件重试等周期任务（区别于 3.2 BullMQ 的延迟任务） | 无 | 待办 |
-| PL-8 | 特性开关（Feature Flags） | 配置化开关：AI 功能/搜索/推送等按环境或全局开合（如 ai.enabled、search.enabled）；与 RG-2 动态配置中心互补（PL-8 管功能开关，RG-2 管运营参数值） | 无 | 待办 |
+| PL-7 | 定时任务框架 | 引入 @nestjs/schedule cron：每日统计快照、过期会话/验证码清理、日志与通知轮转、邮件重试等周期任务（区别于 3.2 BullMQ 的延迟任务） | 无 | **已完成** |
+| PL-8 | 特性开关（Feature Flags） | 配置化开关：AI 功能/搜索/推送等按环境或全局开合（如 ai.enabled、search.enabled）；与 RG-2 动态配置中心互补（PL-8 管功能开关，RG-2 管运营参数值） | 无 | **已完成** |
 
 ---
 

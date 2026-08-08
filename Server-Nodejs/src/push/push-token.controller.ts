@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, MaxLength, MinLength, IsIn } from 'class-validator';
 import { PushTokenService } from './push-token.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 class RegisterTokenDto {
@@ -22,6 +23,7 @@ class RegisterTokenDto {
 
 @ApiTags('推送')
 @ApiBearerAuth()
+@FeatureFlag('push')
 @Controller({ path: 'push/tokens', version: '1' })
 export class PushTokenController {
   constructor(private readonly pushTokenService: PushTokenService) {}
