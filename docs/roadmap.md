@@ -289,3 +289,4 @@
 | AI-11 | 知识库文档接入（POST /ai/knowledge/upload + pdf-parse v2/mammoth 解析 + chunkText + ai_knowledge_chunks postgres-only + BullMQ knowledge 队列降级同步 + union 向量检索 + 管理台上传 UI）；后端 417 单测 + build 通过 | aa021a6 |
 | AI-10 | 子代理委托 + Skills（SubAgentOrchestrator + calendar/stats/organizer 只读子代理 + week-plan 技能 + router delegate 意图 + 技能短路）；后端 438 单测 + e2e 98 全绿 | 018edb0 |
 | AI-10.1 | 委托前端入口（AiChatProvider 技能/复杂触发词分流非流式 /ai/chat）；前端 107 测试 + analyze 干净 | 506552a |
+| PL-7 + PL-8 | 定时任务框架（@nestjs/schedule：每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ 特性开关（FeatureFlagsService + FeatureDisabledGuard + @FeatureFlag + FEATURE_*_ENABLED env）；后端单测 450 + e2e 98 全绿 | 71b10fc |
