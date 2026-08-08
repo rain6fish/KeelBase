@@ -1,10 +1,11 @@
-import { Injectable, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { SKIP_EMAIL_VERIFICATION_KEY } from './skip-email-verification.decorator';
 import { UsersService } from '../../users/users.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { BusinessException } from '../../common/errors/business.exception';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -45,7 +46,7 @@ export class EmailVerificationGuard {
 
     const dbUser = await this.usersService.findOne(user.sub);
     if (dbUser && !dbUser.emailVerified) {
-      throw new ForbiddenException('请先验证邮箱');
+      throw BusinessException.of('EMAIL_NOT_VERIFIED');
     }
     return true;
   }

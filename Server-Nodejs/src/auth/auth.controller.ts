@@ -20,6 +20,7 @@ import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { Public } from './guards/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
+import { SkipMaintenance } from '../settings/skip-maintenance.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -50,6 +51,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipMaintenance()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 20 } })
@@ -96,6 +98,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipMaintenance()
   @Post('refresh')
   @SkipAudit()
   @HttpCode(HttpStatus.OK)

@@ -37,6 +37,9 @@ import { SmsModule } from './sms/sms.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { FeatureDisabledGuard } from './feature-flags/feature-disabled.guard';
 import { MaintenanceTasksModule } from './maintenance-tasks/maintenance-tasks.module';
+import { SettingsModule } from './settings/settings.module';
+import { MaintenanceGuard } from './settings/maintenance.guard';
+import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
@@ -74,6 +77,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddConversationSummary*.js',
               'dist/migrations/*AddKnowledgeDocumentColumns*.js',
               'dist/migrations/*AddKnowledgeChunks*.js',
+              'dist/migrations/*AddSettings*.js',
             ],
             migrationsRun: !isDev,
             host: configService.get<string>('DB_HOST', 'localhost'),
@@ -138,10 +142,13 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     SmsModule,
     FeatureFlagsModule,
     MaintenanceTasksModule,
+    SettingsModule,
+    CircuitBreakerModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: MaintenanceGuard },
     { provide: APP_GUARD, useClass: EmailVerificationGuard },
     { provide: APP_GUARD, useClass: PoliciesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },

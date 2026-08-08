@@ -618,6 +618,8 @@ npm run migration:run
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |
 | DELETE | /api/v1/push/tokens/:token | Yes | 本人 | 注销设备推送 token |
+| GET | /api/v1/settings | Yes (ADMIN) | — | 全部动态配置（RG-2，实时生效） |
+| PUT | /api/v1/settings/:key | Yes (ADMIN) | — | 更新/创建动态配置（维护模式/AI 每日限额等，写入 Settings 表即生效） |
 
 ---
 

@@ -93,6 +93,8 @@ ShiYu-AppBase/
 │   │   ├── operation-audit/       # 通用操作审计
 │   │   ├── feature-flags/         # 特性开关（PL-8，FEATURE_*_ENABLED）
 │   │   ├── maintenance-tasks/     # 定时任务（PL-7，@nestjs/schedule cron）
+│   │   ├── settings/              # 动态配置中心（RG-2，Settings 表 + 维护模式）
+│   │   ├── circuit-breaker/       # 外部依赖熔断（RG-1）
 │   │   └── ai/                    # AI Agent 模块
 │   │       ├── providers/         # LLM Provider 工厂
 │   │       ├── tools/             # 工具注册表
@@ -179,6 +181,7 @@ feature/
 |------|------|------|
 | FeatureDisabledGuard | APP_GUARD | 全局特性开关守卫，@FeatureFlag(key) 特性关闭时返回 404 |
 | JwtAuthGuard | APP_GUARD | 全局 JWT 认证，@Public() 跳过 |
+| MaintenanceGuard | APP_GUARD | 维护模式守卫，settings.maintenance_mode=true 时非 admin 请求返回 503，@SkipMaintenance() 豁免 |
 | PoliciesGuard | APP_GUARD | 全局 CASL 策略守卫，@CheckPolicies() 路由级 + @CurrentAbility() 行级 |
 | ThrottlerGuard | APP_GUARD | 全局速率限制（60 次/分钟） |
 | ResponseInterceptor | APP_INTERCEPTOR | 统一响应包装；@Raw() 端点跳过包装 |
@@ -360,6 +363,8 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | GET | /api/v1/health | No | 健康检查 |
 | GET | /api/v1/metrics | No | Prometheus 指标（裸文本，跳过限流） |
 | GET | /api/v1/app/version | No | 应用版本元数据（latestVersion/minRequiredVersion/updateUrl/changelog，PL-5） |
+| GET | /api/v1/settings | Yes (ADMIN) | 全部动态配置（RG-2，实时生效） |
+| PUT | /api/v1/settings/:key | Yes (ADMIN) | 更新/创建动态配置（维护模式/AI 限额等） |
 
 ### 5.9 推送模块（MS-2）
 

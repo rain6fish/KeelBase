@@ -5,10 +5,11 @@
  * 消费方（如 AU-1 密码重置、AU-2 邮箱验证）调用模板方法，无需感知环境差异。
  */
 
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { MAIL_TRANSPORTER } from './mail.constants';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 export interface MailMessage {
   to: string;
@@ -24,6 +25,7 @@ export class MailService {
   constructor(
     @Inject(MAIL_TRANSPORTER) private readonly transporter: nodemailer.Transporter | null,
     private readonly configService: ConfigService,
+    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
   ) {
     this.from = this.configService.get<string>('SMTP_FROM', '');
   }
@@ -40,12 +42,18 @@ export class MailService {
       this.logger.log(`[Mail] disabled — skip send to ${message.to} (${message.subject})`);
       return;
     }
-    await this.transporter.sendMail({
-      from: this.from,
-      to: message.to,
-      subject: message.subject,
-      html: message.html,
-    });
+    const send = () =>
+      this.transporter!.sendMail({
+        from: this.from,
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+      });
+    if (this.circuitBreaker) {
+      await this.circuitBreaker.fire('mail', send);
+    } else {
+      await send();
+    }
     this.logger.log(`[Mail] sent to ${message.to} (${message.subject})`);
   }
 

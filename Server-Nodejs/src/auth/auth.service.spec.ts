@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { BusinessException } from '../common/errors/business.exception';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -268,13 +269,13 @@ describe('AuthService', () => {
       mockRepository.findOne.mockResolvedValue(userWithPassword);
 
       const wrongPassDto = { ...loginDto, password: 'WrongPass1' };
-      await expect(service.login(wrongPassDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(wrongPassDto)).rejects.toThrow(BusinessException);
     });
 
     it('should throw same error for nonexistent user (no enumeration)', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(BusinessException);
     });
 
     it('should lock account after exceeding threshold', async () => {
@@ -286,7 +287,7 @@ describe('AuthService', () => {
       mockRepository.findOne.mockResolvedValue(userWithPassword);
 
       const wrongPassDto = { ...loginDto, password: 'WrongPass1' };
-      await expect(service.login(wrongPassDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(wrongPassDto)).rejects.toThrow(BusinessException);
 
       // Should have reset loginAttempts to 0 and set lockedUntil
       expect(mockRepository.update).toHaveBeenCalledWith(
@@ -384,7 +385,7 @@ describe('AuthService', () => {
     it('should reject revoking another user session', async () => {
       mockSessionRepo.findOne.mockResolvedValue({ id: 5, userId: 2 });
 
-      await expect(service.revokeSession(1, 5)).rejects.toThrow(UnauthorizedException);
+      await expect(service.revokeSession(1, 5)).rejects.toThrow(BusinessException);
       expect(mockSessionRepo.delete).not.toHaveBeenCalled();
     });
   });
@@ -405,7 +406,7 @@ describe('AuthService', () => {
     it('should throw if user not found', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getProfile(999)).rejects.toThrow(UnauthorizedException);
+      await expect(service.getProfile(999)).rejects.toThrow(BusinessException);
     });
   });
 
@@ -746,7 +747,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.bindPhone(1, { phone: '+8613800138000', code: '123456' }))
-        .rejects.toThrow('验证码错误或已过期');
+        .rejects.toMatchObject({ errorCode: 'VERIFICATION_CODE_INVALID' });
     });
   });
 
@@ -782,7 +783,7 @@ describe('AuthService', () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       await expect(service.loginPhone({ phone: '+8613800138000', code: '123456' }))
-        .rejects.toThrow('手机号未注册');
+        .rejects.toMatchObject({ errorCode: 'PHONE_NOT_REGISTERED' });
     });
   });
 
@@ -802,7 +803,7 @@ describe('AuthService', () => {
       mockRepository.findOne.mockResolvedValue({ ...mockUser, password: await bcrypt.hash('MyPass123', 4) });
 
       await expect(service.deactivateAccount(1, { password: 'wrong' }))
-        .rejects.toThrow('密码错误');
+        .rejects.toMatchObject({ errorCode: 'INVALID_CREDENTIALS' });
     });
 
     it('refuses to delete last admin', async () => {
@@ -810,7 +811,7 @@ describe('AuthService', () => {
       mockRepository.count.mockResolvedValue(1);
 
       await expect(service.deactivateAccount(1, { password: 'MyPass123' }))
-        .rejects.toThrow('不能注销唯一的系统管理员');
+        .rejects.toMatchObject({ errorCode: 'LAST_ADMIN_PROTECTED' });
     });
   });
 

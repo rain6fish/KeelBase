@@ -1,4 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
 import { EmailVerificationGuard } from './email-verification.guard';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { SKIP_EMAIL_VERIFICATION_KEY } from './skip-email-verification.decorator';
@@ -59,10 +58,10 @@ describe('EmailVerificationGuard', () => {
     await expect(guard.canActivate(mockContext('POST', { sub: 1 }))).resolves.toBe(true);
   });
 
-  it('rejects unverified user write with ForbiddenException', async () => {
+  it('rejects unverified user write with BusinessException(EMAIL_NOT_VERIFIED)', async () => {
     guard = buildGuard({});
     mockUsersService.findOne.mockResolvedValue({ emailVerified: false });
     await expect(guard.canActivate(mockContext('POST', { sub: 1 })))
-      .rejects.toThrow(ForbiddenException);
+      .rejects.toMatchObject({ errorCode: 'EMAIL_NOT_VERIFIED' });
   });
 });

@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PushPayload, PushService } from './push.service';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 const JPUSH_API = 'https://api.jpush.cn/v3/push';
 
@@ -15,7 +16,10 @@ export class JPushService implements PushService {
   private readonly appKey: string;
   private readonly masterSecret: string;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
+  ) {
     this.appKey = configService.get<string>('JPUSH_APP_KEY', '');
     this.masterSecret = configService.get<string>('JPUSH_MASTER_SECRET', '');
   }
@@ -69,20 +73,27 @@ export class JPushService implements PushService {
   }
 
   private async _post(body: Record<string, unknown>): Promise<void> {
-    const auth = Buffer.from(`${this.appKey}:${this.masterSecret}`).toString('base64');
-    const response = await fetch(JPUSH_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${auth}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => 'Unknown error');
-      throw new Error(`JPush API error: ${response.status} ${errorBody}`);
+    const doPost = async () => {
+      const auth = Buffer.from(`${this.appKey}:${this.masterSecret}`).toString('base64');
+      const response = await fetch(JPUSH_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${auth}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => 'Unknown error');
+        throw new Error(`JPush API error: ${response.status} ${errorBody}`);
+      }
+      const data = (await response.json()) as { msg_id?: string };
+      this.logger.log(`[JPush] sent, msg_id=${data.msg_id}`);
+    };
+    if (this.circuitBreaker) {
+      await this.circuitBreaker.fire('jpush', doPost);
+    } else {
+      await doPost();
     }
-    const data = (await response.json()) as { msg_id?: string };
-    this.logger.log(`[JPush] sent, msg_id=${data.msg_id}`);
   }
 }

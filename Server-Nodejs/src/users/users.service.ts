@@ -8,6 +8,7 @@ import { User, UserRole } from '../common/entities/user.entity';
 import { EncryptionService } from '../common/utils/encryption';
 import { CacheService } from '../common/cache/cache.service';
 import { maskEmail, maskPhone } from '../common/utils/mask';
+import { BusinessException } from '../common/errors/business.exception';
 
 const USER_CACHE_TTL_MS = 300 * 1000;
 
@@ -23,12 +24,12 @@ export class UsersService {
   async create(dto: CreateUserDto): Promise<Partial<User>> {
     const exists = await this.usersRepository.findOne({ where: { username: dto.username } });
     if (exists) {
-      throw new ConflictException('Username already exists');
+      throw BusinessException.of('USERNAME_ALREADY_EXISTS');
     }
 
     const emailExists = await this.usersRepository.findOne({ where: { email: dto.email } });
     if (emailExists) {
-      throw new ConflictException('Email already exists');
+      throw BusinessException.of('EMAIL_ALREADY_EXISTS');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);

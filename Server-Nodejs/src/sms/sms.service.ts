@@ -1,6 +1,7 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SMS_PROVIDER } from './sms.constants';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 /**
  * 短信服务 — 发送验证码短信。
@@ -20,6 +21,7 @@ export class SmsService {
   constructor(
     @Inject(SMS_PROVIDER) private readonly provider: SmsProvider | null,
     private readonly configService: ConfigService,
+    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
   ) {}
 
   get enabled(): boolean {
@@ -38,7 +40,13 @@ export class SmsService {
       this.logger.warn(`[SMS] no provider configured, skip send to ${phone}`);
       return;
     }
-    await this.provider.send(phone, `【ShiYu-AppBase】您的验证码是 ${code}，10 分钟内有效。`);
+    const send = () =>
+      this.provider!.send(phone, `【ShiYu-AppBase】您的验证码是 ${code}，10 分钟内有效。`);
+    if (this.circuitBreaker) {
+      await this.circuitBreaker.fire('sms', send);
+    } else {
+      await send();
+    }
     this.logger.log(`[SMS] sent code to ${phone}`);
   }
 }

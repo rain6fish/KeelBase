@@ -4,9 +4,6 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -28,6 +25,7 @@ import { LoginPhoneDto } from './dto/login-phone.dto';
 import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { OAuthService } from './oauth.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { BusinessException } from '../common/errors/business.exception';
 import { User, UserRole } from '../common/entities/user.entity';
 import { UserSession } from './user-session.entity';
 import { PhoneVerificationCode } from './phone-verification-code.entity';
@@ -293,7 +291,7 @@ export class AuthService {
     if (!user) {
       this._recordFailure(dto.deviceId);
       await this.delay();
-      throw new UnauthorizedException('Invalid credentials');
+      throw BusinessException.of('INVALID_CREDENTIALS');
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -330,7 +328,7 @@ export class AuthService {
 
       this.logger.warn(`Login failed: user=${dto.username}, attempts=${attempts}/${threshold}`);
       await this.delay();
-      throw new UnauthorizedException('Invalid credentials');
+      throw BusinessException.of('INVALID_CREDENTIALS');
     }
 
     // Success — reset both account and device counters
@@ -498,7 +496,7 @@ export class AuthService {
       where: { id: payload.sub },
     });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw BusinessException.of('USER_NOT_FOUND');
     }
 
     // 轮换：生成新 token → 更新会话行 + 单列
@@ -555,7 +553,7 @@ export class AuthService {
   async revokeSession(userId: number, sessionId: number): Promise<void> {
     const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
     if (!session || session.userId !== userId) {
-      throw new UnauthorizedException('Session not found');
+      throw BusinessException.of('SESSION_NOT_FOUND');
     }
     await this.sessionRepo.delete({ id: sessionId });
     this.logger.log(`Session revoked: userId=${userId}, sessionId=${sessionId}`);
@@ -564,7 +562,7 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw BusinessException.of('USER_NOT_FOUND');
     }
     return {
       id: user.id,
@@ -783,7 +781,7 @@ export class AuthService {
 
     const existing = await this.usersRepository.findOne({ where: { phoneHash: this.encryption.hmac(dto.phone) } });
     if (existing && existing.id !== userId) {
-      throw new ConflictException('该手机号已被绑定');
+      throw BusinessException.of('PHONE_ALREADY_BOUND');
     }
 
     await this.usersRepository.update(userId, {
@@ -805,7 +803,7 @@ export class AuthService {
 
     const user = await this.usersRepository.findOne({ where: { phoneHash: this.encryption.hmac(dto.phone) } });
     if (!user) {
-      throw new NotFoundException('手机号未注册');
+      throw BusinessException.of('PHONE_NOT_REGISTERED');
     }
 
     const accessToken = this.generateAccessToken(user.id, user.username, user.role);
@@ -838,7 +836,7 @@ export class AuthService {
       order: { createdAt: 'DESC' },
     });
     if (!record || record.expiresAt < new Date() || record.codeHash !== this.hashToken(code)) {
-      throw new BadRequestException('验证码错误或已过期');
+      throw BusinessException.of('VERIFICATION_CODE_INVALID');
     }
     await this.phoneCodeRepo.update(record.id, { used: true });
   }
@@ -857,14 +855,14 @@ export class AuthService {
     if (isAdmin) {
       const adminCount = await this.usersRepository.count({ where: { role: UserRole.ADMIN } });
       if (adminCount <= 1) {
-        throw new BadRequestException('不能注销唯一的系统管理员');
+        throw BusinessException.of('LAST_ADMIN_PROTECTED');
       }
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.password);
     if (!passwordValid) {
       await this.delay();
-      throw new UnauthorizedException('密码错误');
+      throw BusinessException.of('INVALID_CREDENTIALS');
     }
 
     // 级联清理：事件 FK 级联；其余手动删
@@ -891,7 +889,7 @@ export class AuthService {
   async exportData(userId: number) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw BusinessException.of('USER_NOT_FOUND');
     }
 
     const [events, todos, conversations, notifications] = await Promise.all([

@@ -101,7 +101,7 @@ describe('UsersService', () => {
     it('should throw ConflictException for duplicate username', async () => {
       mockRepository.findOne.mockResolvedValue(mockUser);
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto)).rejects.toMatchObject({ errorCode: 'USERNAME_ALREADY_EXISTS' });
     });
 
     it('should throw ConflictException for duplicate email', async () => {
@@ -109,7 +109,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(null)  // username check passes
         .mockResolvedValueOnce(mockUser); // email check fails
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto)).rejects.toMatchObject({ errorCode: 'EMAIL_ALREADY_EXISTS' });
     });
   });
 
