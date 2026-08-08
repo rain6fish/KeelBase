@@ -21,7 +21,7 @@ class ApiClient {
 
   ApiClient(this._storage) {
     _dio = Dio(BaseOptions(
-      baseUrl: AppConstants.baseUrl,
+      baseUrl: AppConstants.activeBaseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {'Content-Type': 'application/json'},
@@ -102,7 +102,7 @@ class ApiClient {
       final rt = await _storage.read(AppConstants.keyRefreshToken);
       if (rt == null) return false;
 
-      final response = await Dio(BaseOptions(baseUrl: AppConstants.baseUrl)).post(
+      final response = await Dio(BaseOptions(baseUrl: AppConstants.activeBaseUrl)).post(
         '/auth/refresh',
         data: {'refreshToken': rt},
       );

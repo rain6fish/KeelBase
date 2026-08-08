@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async' show TimeoutException;
+import 'core/constants/app_constants.dart';
 
 import 'app.dart';
 import 'core/api/api_client.dart';
@@ -66,6 +67,11 @@ Future<void> _initApp() async {
   }
   // Ensure prefs is non-null (second catch fallback)
   prefs ??= await SharedPreferences.getInstance();
+  // UX-2 Dev Menu 环境切换：读 dev_base_url 覆盖默认 API 地址（重启生效）
+  final devBaseUrl = prefs.getString(AppConstants.keyDevBaseUrl);
+  if (devBaseUrl != null && devBaseUrl.isNotEmpty) {
+    AppConstants.activeBaseUrl = devBaseUrl;
+  }
   final secureStorage = SecureStorageService();  // Falls back to in-memory on web
   final apiClient = ApiClient(secureStorage);
 
@@ -171,9 +177,13 @@ Future<void> _initApp() async {
           create: (_) => SessionProvider(SessionRepository(apiClient)),
         ),
 
-        // Search
+        // Search (PL-4.1 搜索历史 + AI 对话 Tab)
         ChangeNotifierProvider<SearchProvider>(
-          create: (_) => SearchProvider(SearchRepository(apiClient)),
+          create: (_) => SearchProvider(
+            SearchRepository(apiClient),
+            prefs: prefs,
+            conversationRepository: AiConversationRepository(apiClient),
+          ),
         ),
 
         // Todos (UX-1 缓存优先 + 乐观更新)

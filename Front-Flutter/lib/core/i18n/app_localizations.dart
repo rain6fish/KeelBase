@@ -125,6 +125,14 @@ class AppLocalizations {
   String get eventsByMonth => _t('Events by month', '每月事件分布');
   // UX-6 公告
   String get announcementDismiss => _t('Got it', '知道了');
+  // UX-2 Dev Menu
+  String get devMenuTitle => _t('Developer Menu', '开发调试');
+  String get devCurrentEnv => _t('Current', '当前环境');
+  String get devEnvironment => _t('Environment', '环境');
+  String get devEnvSwitched => _t('Environment switched', '已切换环境');
+  String get devEnvRestart => _t('Restart the app to apply.', '请重启应用使配置生效。');
+  String get devClearData => _t('Clear All Data', '清除所有数据');
+  String get devDataCleared => _t('All local data cleared', '本地数据已清除');
   String get mondayShort => _t('Mon', '一');
   String get tuesdayShort => _t('Tue', '二');
   String get wednesdayShort => _t('Wed', '三');
@@ -264,7 +272,11 @@ class AppLocalizations {
   String get globalSearchHint => _t('Search events, people...', '搜索事件、用户…');
   String get searchEventsTab => _t('Events', '事件');
   String get searchUsersTab => _t('Users', '用户');
+  String get searchConversationsTab => _t('Chats', '对话');
   String get noSearchResults => _t('No results found', '未找到结果');
+  String get searchHistoryTitle => _t('Recent', '最近搜索');
+  String get searchHotTitle => _t('Hot', '热门搜索');
+  String get clearSearchHistory => _t('Clear', '清空');
 
   // --- Errors ---
   String get unknownError => _t('Something went wrong', '出了点问题');

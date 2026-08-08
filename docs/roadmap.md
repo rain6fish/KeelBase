@@ -24,6 +24,7 @@
 - 2026-08-08 完成 UX-5（fl_chart + InsightsProvider + Dashboard 月度分布柱状图与统计概览，复用 /ai/insights）+ UX-6（AnnouncementProvider 识别广播公告 + Dashboard 启动弹窗一次）+ UX-1（AppCache SharedPreferences 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚）；Flutter 测试 127 全绿 + analyze 干净（无新增 error/warning）。来源：本次实施。
 - 2026-08-08 完成 D.7（deploy/deploy.sh 一键部署 + create-admin.ts 幂等建管理员 + 部署指南 one-click-deploy.md）+ RG-3（events/todos @DeleteDateColumn 软删 + 管理台 /admin/trash 回收站 + restore；users/notifications 保持硬删）+ RG-4（AlertWebhookService 钉钉/飞书/Slack + 防抖 + AllExceptionsFilter 5xx 触发）；后端单测 492 + e2e 98 全绿。来源：本次实施。
 - 2026-08-08 完成 RG-2.1（AI 每日限额：AuditService.countChatsToday + AiService.enforceDailyLimit 拦截 chat/chatStream，settings.ai_daily_limit>0 时启用，流式超限转 error chunk）+ RG-1.1（AI provider 熔断：LlmProviderFactory 注入 CircuitBreaker，OpenAICompatibleProvider generate 用 fire / stream 用 isOpen+recordSuccess/Failure，llm:{name} 独立熔断 key）。来源：本次实施。
+- 2026-08-08 完成 PL-4.1（搜索历史 + 热词 + AI 对话 Tab + Explore 顶部搜索入口）+ UX-2（Dev Menu：长按头像弹窗 + 环境切换重启生效 + 清数据）+ UX-3（tool/generate_feature.sh 模块脚手架）；Flutter 测试 132 全绿。来源：本次实施。
 
 ---
 
@@ -91,7 +92,7 @@
 | PL-2 | 通用操作审计 | 除 AI 审计外，记录用户增删改查操作（who/when/what），便于合规追溯 | 无 | **已完成** |
 | PL-3 | 数据备份与恢复 | 定期数据库备份 + 恢复演练 | 生产部署 | **已完成** |
 | PL-4 | 全局搜索 | 跨模块（events/users 等）统一搜索入口 | 无 | **已完成** |
-| PL-4.1 | 搜索体验增强 | PL-4 已实现搜索框 + 事件/用户双 Tab + Dashboard 入口；补：搜索历史与热词（聚焦展示）、AI 对话历史/知识库 Tab、入口上移 AppShell 顶部 | PL-4 已就绪 | 待办 |
+| PL-4.1 | 搜索体验增强 | PL-4 已实现搜索框 + 事件/用户双 Tab + Dashboard 入口；补：搜索历史与热词（聚焦展示）、AI 对话历史/知识库 Tab、入口上移 AppShell 顶部 | PL-4 已就绪 | **已完成（搜索历史 SharedPreferences 存 10 条 + 热词 chips + 清空；AI 对话 Tab 按标题/内容过滤对话，点击跳 /ai/history；Explore 页顶部全局搜索入口）** |
 | PL-5 | 应用版本更新检查 | GET /api/v1/app/version 元数据端点 + 前端启动检查（强制更新阻断/引导更新）+ settings 版本展示与手动检查 + url_launcher 跳转 + 版本对比工具；后端 2 单测 + e2e 1 + 前端 11 测试 | 无 | **已完成** |
 | PL-6 | Front-Taro 端功能同步 | Taro 端新增通知中心（列表/未读/已读/全部已读/删除）+ 会话管理（设备列表/当前设备/远程登出）；api-client 补 PATCH + 统一 x-device-id 头；profile/settings 入口；AI/搜索/待办按渠道策略留 Flutter | 各模块已就绪 | **已完成** |
 | SAM-1 | 待办清单（基座验证样例） | 真实业务走一遍基座前后端流程：后端 todos CRUD + CASL + 迁移；前端第五 tab + provider + 页面；同轮补 upload 图片预览 / dashboard 头像 / explore 入口 | 基座已就绪 | **已完成** |
@@ -170,8 +171,8 @@
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | UX-1 | 离线缓存与乐观更新 | 引入本地数据库（Hive/Isar/sqflite）缓存 events/todos/notifications；「缓存优先，网络更新」策略，离线可读列表/详情；列表删除/完成待办乐观更新 UI，请求失败回滚 | 无 | **已完成（AppCache 基于 SharedPreferences JSON 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚；events 日历缓存留后续）** |
-| UX-2 | 开发调试菜单（Dev Menu） | Debug 模式摇一摇/长按头像弹出：环境切换（Dev/Stage/Prod）、假数据生成（100 条事件/用户）、权限模拟（未登录/普通/管理员）、清缓存（SharedPreferences + 本地库） | 无 | 待办 |
-| UX-3 | 代码生成器 | Flutter 模块脚手架脚本：输入模块名自动生成 features/\<name\>/{data,domain,presentation} + Provider/Model 模板 | 无 | 待办 |
+| UX-2 | 开发调试菜单（Dev Menu） | Debug 模式摇一摇/长按头像弹出：环境切换（Dev/Stage/Prod）、假数据生成（100 条事件/用户）、权限模拟（未登录/普通/管理员）、清缓存（SharedPreferences + 本地库） | 无 | **已完成（长按 Dashboard 头像弹出 DevMenuSheet：环境切换写 dev_base_url 重启生效 + 清除所有数据 + 当前环境展示；AppConstants.activeBaseUrl + ApiClient/SseClient 改用）** |
+| UX-3 | 代码生成器 | Flutter 模块脚手架脚本：输入模块名自动生成 features/\<name\>/{data,domain,presentation} + Provider/Model 模板 | 无 | **已完成（tool/generate_feature.sh：snake_case 输入 → PascalCase 类名，生成 model/repository/provider/page 四文件，已实测）** |
 | UX-4 | 应用锁（App Lock） | local_auth 生物识别；设置开启「启动时验证 FaceID/指纹」，保护隐私数据 | 无 | 待办 |
 | UX-5 | 仪表盘数据可视化 | fl_chart 集成：本周完成待办数 / AI 对话次数趋势等图表（复用 /ai/insights 数据） | SAM-1 / AI-1 已就绪 | **已完成（fl_chart + InsightsProvider + InsightsCard：月度分布柱状图 + 统计概览，Dashboard 集成；单测 5）** |
 | UX-6 | 公告 App 端消费 | AD-7 管理台广播的前端半段：启动拉取最新公告弹窗展示 + 入口红点 | AD-7 已就绪 | **已完成（AnnouncementProvider 识别 broadcast/announcement 未读通知，Dashboard 启动弹窗一次 + 单测 5；入口红点复用通知中心未读数）** |
@@ -297,3 +298,4 @@
 | UX-5 + UX-6 + UX-1 | 数据可视化（fl_chart + InsightsProvider + Dashboard 柱状图）+ 公告消费（AnnouncementProvider + 启动弹窗）+ 离线缓存乐观更新（AppCache + todos/notifications 缓存优先 + 乐观更新回滚）；Flutter 测试 127 全绿 | bfe51a7 |
 | D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 78f1032 |
 | RG-2.1 + RG-1.1 | AI 每日限额（AuditService.countChatsToday + AiService.enforceDailyLimit + 流式转 error chunk）+ AI provider 熔断（LlmProviderFactory 注入熔断 + OpenAICompatibleProvider generate/stream 接入）；单测 504 + e2e 98 全绿 | ff4f0e0 |
+| PL-4.1 + UX-2 + UX-3 | 搜索体验增强（历史/热词/AI 对话 Tab/Explore 入口）+ Dev Menu（长按头像 + 环境切换 + 清数据）+ 模块代码生成器（tool/generate_feature.sh）；Flutter 测试 132 全绿 | 待提交 |

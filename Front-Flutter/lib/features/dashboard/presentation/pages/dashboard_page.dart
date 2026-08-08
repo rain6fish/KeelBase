@@ -11,6 +11,7 @@ import '../../../events/data/models/event_model.dart';
 import '../../../insights/presentation/providers/insights_provider.dart';
 import '../../../insights/presentation/widgets/insights_card.dart';
 import '../../../announcements/presentation/providers/announcement_provider.dart';
+import '../../../../core/widgets/dev_menu_sheet.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -127,6 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 20),
           GestureDetector(
             onTap: () => context.push('/profile'),
+            onLongPress: () => showDevMenuSheet(context),
             child: Row(children: [
               Container(
                 width: 48, height: 48,

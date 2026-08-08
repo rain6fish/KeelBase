@@ -6,6 +6,16 @@ class AppConstants {
   static const Duration accessTokenExpiry = Duration(minutes: 15);
   static const Duration refreshTokenThreshold = Duration(minutes: 5);
 
+  /// UX-2 环境切换：Dev Menu 修改后需重启应用生效（main() 读取）。
+  static String activeBaseUrl = baseUrl;
+
+  /// Dev Menu 可选环境预设（label → baseUrl）。
+  static const List<({String label, String url})> devEnvironments = [
+    (label: 'Dev', url: 'http://localhost:3000/api/v1'),
+    (label: 'Stage', url: 'http://staging.example.com/api/v1'),
+    (label: 'Prod', url: 'https://app.example.com/api/v1'),
+  ];
+
   /// 当前 App 版本号（发布时与 pubspec `version:` 同步）
   static const String appVersion = '1.0.0';
 
@@ -30,4 +40,5 @@ class AppConstants {
   static const String keyThemeMode = 'theme_mode';
   static const String keyLanguage = 'language';
   static const String keyDeviceId = 'device_id';
+  static const String keyDevBaseUrl = 'dev_base_url';
 }

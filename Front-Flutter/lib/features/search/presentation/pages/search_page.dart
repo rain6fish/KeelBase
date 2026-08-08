@@ -1,11 +1,13 @@
 import 'package:flutter/cupertino.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../events/data/models/event_model.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../ai/data/models/conversation_summary.dart';
 import '../providers/search_provider.dart';
 
-/// 全局搜索页：搜索框 + 事件/用户结果 Tab
+/// 全局搜索页（PL-4.1）：搜索框 + 历史/热词 + 事件/用户/对话 Tab
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -18,13 +20,26 @@ class _SearchPageState extends State<SearchPage> {
   int _tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = context.read<SearchProvider>();
+      p.loadHistory();
+      p.loadConversations();
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _onSubmit() {
-    context.read<SearchProvider>().search(_searchCtrl.text);
+  void _search(String q) {
+    final text = q.trim();
+    _searchCtrl.text = text;
+    _searchCtrl.selection = TextSelection.collapsed(offset: text.length);
+    context.read<SearchProvider>().search(text);
   }
 
   @override
@@ -39,7 +54,7 @@ class _SearchPageState extends State<SearchPage> {
         middle: CupertinoSearchTextField(
           controller: _searchCtrl,
           placeholder: l10n.globalSearchHint,
-          onSubmitted: (_) => _onSubmit(),
+          onSubmitted: (_) => _search(_searchCtrl.text),
         ),
       ),
       child: SafeArea(
@@ -51,6 +66,7 @@ class _SearchPageState extends State<SearchPage> {
                 children: {
                   0: Text(l10n.searchEventsTab),
                   1: Text(l10n.searchUsersTab),
+                  2: Text(l10n.searchConversationsTab),
                 },
                 onValueChanged: (v) => setState(() => _tab = v ?? 0),
               ),
@@ -59,10 +75,12 @@ class _SearchPageState extends State<SearchPage> {
               child: provider.loading
                   ? const Center(child: CupertinoActivityIndicator())
                   : provider.query.isEmpty
-                      ? _emptyHint(l10n)
+                      ? _emptyState(l10n, provider)
                       : _tab == 0
                           ? _eventsList(l10n, events)
-                          : _usersList(l10n, users),
+                          : _tab == 1
+                              ? _usersList(l10n, users)
+                              : _conversationsList(l10n, provider.filteredConversations),
             ),
           ],
         ),
@@ -70,12 +88,64 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _emptyHint(AppLocalizations l10n) => Center(
-        child: Text(
-          l10n.searchHint,
-          style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context)),
+  /// 空状态：最近搜索 + 热门搜索 chips
+  Widget _emptyState(AppLocalizations l10n, SearchProvider provider) {
+    final history = provider.history;
+    final showHot = history.isEmpty;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        if (history.isNotEmpty) ...[
+          Row(children: [
+            Text(l10n.searchHistoryTitle,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey.resolveFrom(context))),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => context.read<SearchProvider>().clearHistory(),
+              child: Text(l10n.clearSearchHistory,
+                  style: TextStyle(fontSize: 13, color: CupertinoColors.systemBlue.resolveFrom(context))),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: history.map((h) => _chip(h)).toList(),
+          ),
+          const SizedBox(height: 24),
+        ],
+        if (showHot) ...[
+          Text(l10n.searchHotTitle,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey.resolveFrom(context))),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: SearchProvider.hotKeywords.map((h) => _chip(h)).toList(),
+          ),
+        ],
+        if (!provider.historyLoaded)
+          const Padding(
+            padding: EdgeInsets.only(top: 20),
+            child: Center(child: CupertinoActivityIndicator()),
+          ),
+      ],
+    );
+  }
+
+  Widget _chip(String label) {
+    return GestureDetector(
+      onTap: () => _search(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGrey.withAlpha(20),
+          borderRadius: BorderRadius.circular(16),
         ),
-      );
+        child: Text(label, style: const TextStyle(fontSize: 14)),
+      ),
+    );
+  }
 
   Widget _eventsList(AppLocalizations l10n, List<EventModel> events) {
     if (events.isEmpty) {
@@ -138,6 +208,36 @@ class _SearchPageState extends State<SearchPage> {
             '@${u.username}',
             style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context)),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _conversationsList(AppLocalizations l10n, List<ConversationSummary> conversations) {
+    if (conversations.isEmpty) {
+      return Center(child: Text(l10n.noSearchResults, style: const TextStyle(fontSize: 15)));
+    }
+    return ListView.separated(
+      itemCount: conversations.length,
+      separatorBuilder: (_, _) => Container(
+        height: 1,
+        margin: const EdgeInsets.only(left: 60),
+        color: CupertinoColors.systemGrey.withAlpha(30),
+      ),
+      itemBuilder: (_, i) {
+        final c = conversations[i];
+        return CupertinoListTile(
+          leading: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemPurple.withAlpha(30),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(CupertinoIcons.sparkles, size: 18, color: CupertinoColors.systemPurple),
+          ),
+          title: Text(c.previewTitle, overflow: TextOverflow.ellipsis),
+          onTap: () => context.push('/ai/history'),
         );
       },
     );

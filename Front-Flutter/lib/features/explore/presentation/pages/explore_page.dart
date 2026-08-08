@@ -17,6 +17,29 @@ class ExplorePage extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.only(top: 20),
         children: [
+          // PL-4.1 全局搜索入口
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: GestureDetector(
+              onTap: () => context.push('/search'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.tertiarySystemBackground.resolveFrom(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: CupertinoColors.systemGrey.withAlpha(50)),
+                ),
+                child: Row(children: [
+                  const Icon(CupertinoIcons.search, size: 18, color: CupertinoColors.systemGrey),
+                  const SizedBox(width: 10),
+                  Text(
+                    l10n.globalSearchHint,
+                    style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                  ),
+                ]),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(

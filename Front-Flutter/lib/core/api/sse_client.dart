@@ -16,7 +16,7 @@ class SseClient {
   /// 每个事件为 { type, data }，type 对应 event: 行，data 为 JSON 解析后的 Map。
   Stream<Map<String, dynamic>> postStream(String path,
       {Map<String, dynamic>? body}) async* {
-    final uri = Uri.parse('${AppConstants.baseUrl}$path');
+    final uri = Uri.parse('${AppConstants.activeBaseUrl}$path');
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
