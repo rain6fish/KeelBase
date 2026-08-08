@@ -300,4 +300,4 @@
 | D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 78f1032 |
 | RG-2.1 + RG-1.1 | AI 每日限额（AuditService.countChatsToday + AiService.enforceDailyLimit + 流式转 error chunk）+ AI provider 熔断（LlmProviderFactory 注入熔断 + OpenAICompatibleProvider generate/stream 接入）；单测 504 + e2e 98 全绿 | ff4f0e0 |
 | PL-4.1 + UX-2 + UX-3 | 搜索体验增强（历史/热词/AI 对话 Tab/Explore 入口）+ Dev Menu（长按头像 + 环境切换 + 清数据）+ 模块代码生成器（tool/generate_feature.sh）；Flutter 测试 132 全绿 | 688d81f |
-| UX-8 | Onboarding 首次引导（OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启导向）；Flutter 测试 137 全绿 | 待提交 |
+| UX-8 | Onboarding 首次引导（OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启导向）；Flutter 测试 137 全绿 | bddcc97 |
