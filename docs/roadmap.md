@@ -22,6 +22,7 @@
 - 2026-08-07 整体审视：补「平台通用能力」PL-7 定时任务框架 / PL-8 特性开关（记忆遗留的基础设施未做项）；AI-8 已完成但代码待提交（归档表「待提交」）。来源：项目现状与 roadmap 一致性审视。
 - 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 98 全绿。来源：本次实施。
 - 2026-08-08 完成 UX-5（fl_chart + InsightsProvider + Dashboard 月度分布柱状图与统计概览，复用 /ai/insights）+ UX-6（AnnouncementProvider 识别广播公告 + Dashboard 启动弹窗一次）+ UX-1（AppCache SharedPreferences 缓存，todos/notifications 缓存优先 + todos 乐观更新失败回滚）；Flutter 测试 127 全绿 + analyze 干净（无新增 error/warning）。来源：本次实施。
+- 2026-08-08 完成 D.7（deploy/deploy.sh 一键部署 + create-admin.ts 幂等建管理员 + 部署指南 one-click-deploy.md）+ RG-3（events/todos @DeleteDateColumn 软删 + 管理台 /admin/trash 回收站 + restore；users/notifications 保持硬删）+ RG-4（AlertWebhookService 钉钉/飞书/Slack + 防抖 + AllExceptionsFilter 5xx 触发）；后端单测 492 + e2e 98 全绿。来源：本次实施。
 
 ---
 
@@ -186,8 +187,8 @@
 |---|------|------|------|------|
 | RG-1 | 外部依赖熔断 | AI/邮件/短信/推送等外部依赖连续失败 N 次后快速失败熔断（opossum 或自定义状态机，NestJS 无内置），防级联拖垮服务；与 3.2 队列、O.3 告警互补 | AI/PL-1/推送已就绪 | **已完成（CircuitBreakerService 状态机 + mail/sms/push 接入；AI provider 调用点分散，接入列为 RG-1.1 细化）** |
 | RG-2 | 动态配置中心 | Settings 表 + 管理台实时修改立即生效：维护模式开关 / AI 每日调用上限 / 新用户赠送积分等运营参数，替代改 .env 需重启 | AD-15 已就绪（当前仅只读摘要） | **已完成（Settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI_DAILY_LIMIT 读接口；AI 每日限额实际校验待 ai.service 接入）** |
-| RG-3 | 软删除与回收站 | 核心实体（users/events/todos/notifications）启用 @DeleteDateColumn() + 查询自动过滤；管理台「回收站」视图恢复误删数据 | S.4 / AD 已就绪 | 待办 |
-| RG-4 | 异常告警 Webhook | 500/致命异常主动推送钉钉/飞书/Slack 群（Webhook URL 配置化），O.3 告警规则 + Loki 日志之外的人工主动触达 | O.3 已就绪 | 待办 |
+| RG-3 | 软删除与回收站 | 核心实体（users/events/todos/notifications）启用 @DeleteDateColumn() + 查询自动过滤；管理台「回收站」视图恢复误删数据 | S.4 / AD 已就绪 | **已完成（events/todos 启用 @DeleteDateColumn + softDelete + 迁移 AddSoftDelete；管理台 GET /admin/trash + POST restore；users/notifications 保持硬删——注销/隐私合规需要真删）** |
+| RG-4 | 异常告警 Webhook | 500/致命异常主动推送钉钉/飞书/Slack 群（Webhook URL 配置化），O.3 告警规则 + Loki 日志之外的人工主动触达 | O.3 已就绪 | **已完成（AlertWebhookService 钉钉/飞书/Slack 三格式 + 60s 防抖 + ALERT_* env；AllExceptionsFilter 5xx 时异步触发）** |
 | RG-5 | 后端统一错误码 + i18n | 业务错误码机制（USER_NOT_FOUND 等，现 code 仅 HTTP 状态码）+ 前端按错误码渲染文案；响应按 Accept-Language 返回对应语言错误描述 | 前端 i18n 已就绪 | **已完成（BusinessException + API_ERROR_CODES 映射 + filter 按 Accept-Language 本地化 + errorCode 透传；auth/users/email-guard 关键路径已迁移，code 保持 HTTP 状态码向后兼容；前端按 errorCode 渲染待后续）** |
 
 ---
@@ -214,7 +215,7 @@
 | D.3 | 蓝绿 / 金丝雀部署策略 | 生产部署流程完善 | 无 | 待办 |
 | D.4 | 数据库迁移 CI 校验 | 生成首个统一基线迁移（1785-InitialSchema，全表）；CI 新增 migration-consistency job：migration:run 建库后 migration:generate 对比，实体与迁移一致则通过，有未迁移变更则失败 | 无 | **已完成** |
 | D.5 | CI 落地 | 最终采用 **GitHub Actions 方案**：仓库镜像到 GitHub（rain6fish/app-dev-base，main 分支），`.github/workflows/ci.yml` 真实运行并全绿（lint / 单元 155 / E2E 40 / build / flutter-analyze）。**Gitee Go 方案放弃**（Gitee Go 免费版 node 版本过老、网页端配置受限，且 Gitee 不支持 GitHub Actions）。双远程（GitHub + Gitee）代码同步，push 到 GitHub main 自动触发 CI | 无 | **已完成** |
-| D.7 | 一键部署交付（私有化定位） | deploy/ 目录：deploy.sh（装 Docker → 起 Compose → 配 HTTPS → 建 admin 账号）+ 云厂商轻量服务器（阿里云/腾讯云）部署指南；「数据主权/私有化部署」定位的最后一公里交付物 | 生产 compose 已就绪 | 待办 |
+| D.7 | 一键部署交付（私有化定位） | deploy/ 目录：deploy.sh（装 Docker → 起 Compose → 配 HTTPS → 建 admin 账号）+ 云厂商轻量服务器（阿里云/腾讯云）部署指南；「数据主权/私有化部署」定位的最后一公里交付物 | 生产 compose 已就绪 | **已完成（deploy/deploy.sh：环境初始化 + 随机密钥 + HTTPS 可选 + 容器构建启动 + 建管理员；create-admin.ts 幂等脚本 + npm run create:admin；部署指南 docs/manual/one-click-deploy.md）** |
 
 > 来源：生产级差距分析「可观测性与运维」；Phase 2 计划「不做」章节。
 
@@ -293,3 +294,4 @@
 | PL-7 + PL-8 | 定时任务框架（@nestjs/schedule：每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ 特性开关（FeatureFlagsService + FeatureDisabledGuard + @FeatureFlag + FEATURE_*_ENABLED env）；后端单测 450 + e2e 98 全绿 | 71b10fc |
 | RG-5 + RG-1 + RG-2 | 统一错误码（BusinessException + API_ERROR_CODES + filter Accept-Language 本地化 + errorCode 透传）+ 外部依赖熔断（CircuitBreakerService + mail/sms/push 接入）+ 动态配置中心（settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI_DAILY_LIMIT）；单测 480 + e2e 98 + 迁移一致性 No changes | 4d5d79c |
 | UX-5 + UX-6 + UX-1 | 数据可视化（fl_chart + InsightsProvider + Dashboard 柱状图）+ 公告消费（AnnouncementProvider + 启动弹窗）+ 离线缓存乐观更新（AppCache + todos/notifications 缓存优先 + 乐观更新回滚）；Flutter 测试 127 全绿 | bfe51a7 |
+| D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 待提交 |

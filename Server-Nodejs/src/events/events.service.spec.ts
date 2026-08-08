@@ -44,6 +44,7 @@ describe('EventsService', () => {
     find: jest.fn(),
     createQueryBuilder: jest.fn(),
     delete: jest.fn(),
+    softDelete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -274,11 +275,12 @@ describe('EventsService', () => {
   // ─── Remove ────────────────────────────────────────────────────────────────
 
   describe('remove', () => {
-    it('should delete own event', async () => {
+    it('should soft-delete own event', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
-      mockRepository.delete.mockResolvedValue({ affected: 1, raw: {} } as any);
+      mockRepository.softDelete.mockResolvedValue({ affected: 1, raw: {} } as any);
 
       await expect(service.remove(1, makeAbility(1))).resolves.toBeUndefined();
+      expect(mockRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
     it('should throw ForbiddenException when deleting other user event', async () => {

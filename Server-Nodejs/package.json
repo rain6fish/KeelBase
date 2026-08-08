@@ -18,7 +18,8 @@
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/typeorm-data-source.ts",
     "backup": "ts-node scripts/backup.ts",
-    "restore": "ts-node scripts/restore.ts"
+    "restore": "ts-node scripts/restore.ts",
+    "create:admin": "ts-node scripts/create-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

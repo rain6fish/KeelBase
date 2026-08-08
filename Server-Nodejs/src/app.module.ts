@@ -40,6 +40,7 @@ import { MaintenanceTasksModule } from './maintenance-tasks/maintenance-tasks.mo
 import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
+import { AlertWebhookModule } from './alert-webhook/alert-webhook.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
@@ -78,6 +79,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddKnowledgeDocumentColumns*.js',
               'dist/migrations/*AddKnowledgeChunks*.js',
               'dist/migrations/*AddSettings*.js',
+              'dist/migrations/*AddSoftDelete*.js',
             ],
             migrationsRun: !isDev,
             host: configService.get<string>('DB_HOST', 'localhost'),
@@ -144,6 +146,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     MaintenanceTasksModule,
     SettingsModule,
     CircuitBreakerModule,
+    AlertWebhookModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },

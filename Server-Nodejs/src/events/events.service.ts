@@ -224,7 +224,8 @@ export class EventsService {
 
   async remove(id: number, ability: AppAbility): Promise<void> {
     const event = await this.findOne(id, ability);
-    const result = await this.eventsRepository.delete(event.id);
+    // RG-3 软删除：置 deleted_at，管理台回收站可恢复
+    const result = await this.eventsRepository.softDelete(event.id);
     if (result.affected === 0) {
       throw new NotFoundException('Event not found');
     }

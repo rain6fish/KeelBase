@@ -12,6 +12,7 @@ describe('TodosService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     delete: jest.fn(),
+    softDelete: jest.fn(),
   };
 
   const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
@@ -74,12 +75,12 @@ describe('TodosService', () => {
     expect(result.completed).toBe(true);
   });
 
-  it('deletes todo', async () => {
+  it('soft-deletes todo', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
-    mockRepo.delete.mockResolvedValue({ affected: 1 });
+    mockRepo.softDelete.mockResolvedValue({ affected: 1 });
 
     await service.remove(1, mockAbility(true));
 
-    expect(mockRepo.delete).toHaveBeenCalledWith(1);
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
 });

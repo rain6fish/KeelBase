@@ -1,4 +1,4 @@
-import { BadRequestException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpStatus, InternalServerErrorException } from '@nestjs/common';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { BusinessException } from '../errors/business.exception';
 
@@ -7,6 +7,7 @@ function makeHost(acceptLanguage?: string) {
   const request = {
     method: 'GET',
     url: '/api/v1/test',
+    ip: '1.2.3.4',
     headers: acceptLanguage ? { 'accept-language': acceptLanguage } : {},
   };
   const host = {
@@ -72,5 +73,43 @@ describe('AllExceptionsFilter', () => {
     filter.catch(ex, host);
     const body = response.json.mock.calls[0][0];
     expect(body.message).toBe('field required; too long');
+  });
+
+  describe('RG-4 告警触发', () => {
+    it('5xx 异常时调用 alertWebhook.sendAlert', async () => {
+      const sendAlert = jest.fn().mockResolvedValue(undefined);
+      const filter = new AllExceptionsFilter({ sendAlert } as any);
+
+      const { response, host } = makeHost();
+      filter.catch(new InternalServerErrorException('boom'), host);
+
+      // 响应照常返回
+      expect(response.json).toHaveBeenCalled();
+      // 异步告警触发（微任务）
+      await new Promise((r) => setTimeout(r, 0));
+      expect(sendAlert).toHaveBeenCalledWith(
+        expect.stringContaining('500'),
+        'boom',
+        { ip: '1.2.3.4' },
+      );
+    });
+
+    it('4xx 异常不触发告警', async () => {
+      const sendAlert = jest.fn().mockResolvedValue(undefined);
+      const filter = new AllExceptionsFilter({ sendAlert } as any);
+
+      const { host } = makeHost();
+      filter.catch(new BadRequestException('bad'), host);
+
+      await new Promise((r) => setTimeout(r, 0));
+      expect(sendAlert).not.toHaveBeenCalled();
+    });
+
+    it('未注入 webhook 时不抛错', () => {
+      const filter = new AllExceptionsFilter();
+      const { response, host } = makeHost();
+      filter.catch(new InternalServerErrorException('x'), host);
+      expect(response.json).toHaveBeenCalled();
+    });
   });
 });

@@ -55,4 +55,26 @@ export class AdminController {
   broadcast(@Body() dto: BroadcastNotificationDto) {
     return this.adminService.broadcast(dto);
   }
+
+  @Get('trash')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '回收站：已软删除的事件/待办（可恢复）' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  getTrash(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.adminService.getTrash(page, Math.min(Math.max(limit, 1), 100));
+  }
+
+  @Post('trash/:type/:id/restore')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '恢复回收站记录（type: event|todo）' })
+  restoreTrash(
+    @Param('type') type: 'event' | 'todo',
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.adminService.restoreTrashItem(type, id);
+  }
 }

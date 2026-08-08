@@ -49,6 +49,7 @@ export class TodosService {
 
   async remove(id: number, ability: AppAbility): Promise<void> {
     const todo = await this.findOne(id, ability);
-    await this.todosRepository.delete(todo.id);
+    // RG-3 软删除：置 deleted_at，管理台回收站可恢复
+    await this.todosRepository.softDelete(todo.id);
   }
 }

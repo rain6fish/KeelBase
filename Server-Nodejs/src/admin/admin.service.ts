@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull, Not, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { maskEmail, maskPhone } from '../common/utils/mask';
@@ -226,6 +226,82 @@ export class AdminService {
       }
     }
     return { sent, mode: perUser ? 'selected' : 'all' };
+  }
+
+  /**
+   * RG-3 回收站：列出已软删除的 events + todos（带用户名，按删除时间倒序）。
+   */
+  async getTrash(page = 1, limit = 20) {
+    const [events, todos] = await Promise.all([
+      this.eventsRepo.find({
+        withDeleted: true,
+        where: { deletedAt: Not(IsNull()) },
+        order: { deletedAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.todosRepo.find({
+        withDeleted: true,
+        where: { deletedAt: Not(IsNull()) },
+        order: { deletedAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    const userIds = new Set<number>([...events, ...todos].map((i) => i.userId).filter((v): v is number => v != null));
+    const users = userIds.size
+      ? await this.usersRepo.find({ where: { id: In([...userIds]) }, select: { id: true, username: true } })
+      : [];
+    const usernameById = new Map(users.map((u) => [u.id, u.username]));
+
+    const items = [
+      ...events.map((e) => ({
+        type: 'event' as const,
+        id: e.id,
+        title: e.title,
+        userId: e.userId,
+        username: e.userId != null ? usernameById.get(e.userId) ?? null : null,
+        deletedAt: e.deletedAt?.toISOString() ?? null,
+      })),
+      ...todos.map((t) => ({
+        type: 'todo' as const,
+        id: t.id,
+        title: t.title,
+        userId: t.userId,
+        username: t.userId != null ? usernameById.get(t.userId) ?? null : null,
+        deletedAt: t.deletedAt?.toISOString() ?? null,
+      })),
+    ].sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
+
+    const [totalEvents, totalTodos] = await Promise.all([
+      this.eventsRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
+      this.todosRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
+    ]);
+    const total = totalEvents + totalTodos;
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /** RG-3 恢复一条软删除记录。 */
+  async restoreTrashItem(type: 'event' | 'todo', id: number) {
+    const repo = type === 'event' ? this.eventsRepo : this.todosRepo;
+    const item = await repo.findOne({
+      withDeleted: true,
+      where: { id, deletedAt: Not(IsNull()) },
+    });
+    if (!item) {
+      throw new NotFoundException('回收站中无此记录');
+    }
+    await repo.restore(id);
+    this.logger.log(`[Admin] restored ${type} #${id}`);
+    return { restored: true, type, id };
   }
 
   private async _readMetrics() {

@@ -5,6 +5,7 @@ import {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 @Entity('todos')
@@ -33,4 +34,8 @@ export class Todo {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  /** RG-3 软删除：删除后仍保留行，管理台回收站可恢复 */
+  @DeleteDateColumn({ type: Date, name: 'deleted_at' })
+  deletedAt?: Date | null;
 }

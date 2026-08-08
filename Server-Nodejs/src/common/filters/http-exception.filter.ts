@@ -5,11 +5,14 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Optional,
+  Inject,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiResponse } from '../interfaces/api-response.interface';
 import { API_ERROR_CODES } from '../errors/api-error-codes';
 import { BusinessException } from '../errors/business.exception';
+import { AlertWebhookService } from '../../alert-webhook/alert-webhook.service';
 
 /** 按 Accept-Language 选择语言（zh 开头 → 中文，其余 → 英文） */
 function pickLanguage(request: Request): 'zh' | 'en' {
@@ -20,6 +23,10 @@ function pickLanguage(request: Request): 'zh' | 'en' {
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
+
+  constructor(
+    @Optional() private readonly alertWebhook?: AlertWebhookService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -69,6 +76,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `${request.method} ${request.url} - ${httpStatus}: ${message}`,
       exception instanceof Error ? exception.stack : '',
     );
+
+    // RG-4：5xx 服务端异常 → 主动推送钉钉/飞书/Slack（不阻塞响应）
+    if (httpStatus >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      const webhook = this.alertWebhook;
+      if (webhook) {
+        void webhook
+          .sendAlert(
+            `${httpStatus} ${request.method} ${request.url}`,
+            message.slice(0, 500),
+            { ip: request.ip },
+          )
+          .catch(() => undefined);
+      }
+    }
 
     const body: Record<string, unknown> = {
       code,

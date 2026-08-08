@@ -108,6 +108,12 @@ export const envValidationSchema = Joi.object({
   // 定时任务（PL-7）：已读通知保留天数，超期清理
   NOTIFICATION_RETENTION_DAYS: Joi.number().default(30),
 
+  // 异常告警 Webhook（RG-4）
+  ALERT_WEBHOOK_ENABLED: Joi.boolean().default(false),
+  ALERT_WEBHOOK_URL: Joi.string().allow('').default(''),
+  ALERT_WEBHOOK_TYPE: Joi.string().valid('dingtalk', 'feishu', 'slack').default('dingtalk'),
+  ALERT_WEBHOOK_MIN_INTERVAL_SECONDS: Joi.number().min(1).default(60),
+
   // Redis 缓存
   REDIS_URL: Joi.string().allow('').default('redis://localhost:6379'),
   CACHE_ENABLED: Joi.boolean().default(true),

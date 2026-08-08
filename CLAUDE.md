@@ -620,6 +620,8 @@ npm run migration:run
 | DELETE | /api/v1/push/tokens/:token | Yes | 本人 | 注销设备推送 token |
 | GET | /api/v1/settings | Yes (ADMIN) | — | 全部动态配置（RG-2，实时生效） |
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | — | 更新/创建动态配置（维护模式/AI 每日限额等，写入 Settings 表即生效） |
+| GET | /api/v1/admin/trash | Yes (ADMIN) | — | 回收站：已软删除的事件/待办（RG-3，events/todos 用 @DeleteDateColumn 软删，管理台可恢复；users/notifications 保持硬删） |
+| POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | — | 恢复回收站记录（type: event\|todo） |
 
 ---
 

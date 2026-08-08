@@ -95,6 +95,7 @@ ShiYu-AppBase/
 │   │   ├── maintenance-tasks/     # 定时任务（PL-7，@nestjs/schedule cron）
 │   │   ├── settings/              # 动态配置中心（RG-2，Settings 表 + 维护模式）
 │   │   ├── circuit-breaker/       # 外部依赖熔断（RG-1）
+│   │   ├── alert-webhook/         # 异常告警 Webhook（RG-4，钉钉/飞书/Slack）
 │   │   └── ai/                    # AI Agent 模块
 │   │       ├── providers/         # LLM Provider 工厂
 │   │       ├── tools/             # 工具注册表
@@ -365,6 +366,8 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | GET | /api/v1/app/version | No | 应用版本元数据（latestVersion/minRequiredVersion/updateUrl/changelog，PL-5） |
 | GET | /api/v1/settings | Yes (ADMIN) | 全部动态配置（RG-2，实时生效） |
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | 更新/创建动态配置（维护模式/AI 限额等） |
+| GET | /api/v1/admin/trash | Yes (ADMIN) | 回收站：已软删除的事件/待办（RG-3，带用户名分页） |
+| POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | 恢复回收站记录（type: event\|todo） |
 
 ### 5.9 推送模块（MS-2）
 
