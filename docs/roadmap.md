@@ -20,7 +20,7 @@
 - 2026-08-07 完成 AI-10（子代理委托 + Skills）：SubAgentOrchestrator + 3 个只读子代理（calendar/stats/organizer）+ SkillsRegistry（week-plan 模板）+ router delegate 意图 + chatImpl 技能短路/委托分支；只读子代理，写操作留流式 AI-7 确认；后端 438 单测 + e2e 98 全绿。来源：本次实施。
 - 2026-08-07 完成 AI-10.1（委托前端入口）：AiChatProvider 对技能/复杂触发词（对齐后端 Skills+delegate 关键词）、且非动作/导航请求走非流式 /ai/chat 完整回复；前端 107 测试 + analyze 干净。来源：本次实施。
 - 2026-08-07 整体审视：补「平台通用能力」PL-7 定时任务框架 / PL-8 特性开关（记忆遗留的基础设施未做项）；AI-8 已完成但代码待提交（归档表「待提交」）。来源：项目现状与 roadmap 一致性审视。
-- 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 待验证。来源：本次实施。
+- 2026-08-08 完成 PL-7（定时任务框架：@nestjs/schedule + MaintenanceTasksService 每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ PL-8（特性开关：FeatureFlagsService + FeatureDisabledGuard 全局守卫 + @FeatureFlag，FEATURE_*_ENABLED env，覆盖 ai/search/push/sms/oauth/upload/notifications/todos）；后端 +12 单测（450 总）+ e2e 98 全绿。来源：本次实施。
 
 ---
 
