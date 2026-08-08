@@ -25,6 +25,7 @@
 - 2026-08-08 完成 D.7（deploy/deploy.sh 一键部署 + create-admin.ts 幂等建管理员 + 部署指南 one-click-deploy.md）+ RG-3（events/todos @DeleteDateColumn 软删 + 管理台 /admin/trash 回收站 + restore；users/notifications 保持硬删）+ RG-4（AlertWebhookService 钉钉/飞书/Slack + 防抖 + AllExceptionsFilter 5xx 触发）；后端单测 492 + e2e 98 全绿。来源：本次实施。
 - 2026-08-08 完成 RG-2.1（AI 每日限额：AuditService.countChatsToday + AiService.enforceDailyLimit 拦截 chat/chatStream，settings.ai_daily_limit>0 时启用，流式超限转 error chunk）+ RG-1.1（AI provider 熔断：LlmProviderFactory 注入 CircuitBreaker，OpenAICompatibleProvider generate 用 fire / stream 用 isOpen+recordSuccess/Failure，llm:{name} 独立熔断 key）。来源：本次实施。
 - 2026-08-08 完成 PL-4.1（搜索历史 + 热词 + AI 对话 Tab + Explore 顶部搜索入口）+ UX-2（Dev Menu：长按头像弹窗 + 环境切换重启生效 + 清数据）+ UX-3（tool/generate_feature.sh 模块脚手架）；Flutter 测试 132 全绿。来源：本次实施。
+- 2026-08-08 完成 UX-8（Onboarding 首次引导：OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启未登录未看过时导向引导页）；Flutter 测试 137 全绿。来源：本次实施。
 
 ---
 
@@ -177,7 +178,7 @@
 | UX-5 | 仪表盘数据可视化 | fl_chart 集成：本周完成待办数 / AI 对话次数趋势等图表（复用 /ai/insights 数据） | SAM-1 / AI-1 已就绪 | **已完成（fl_chart + InsightsProvider + InsightsCard：月度分布柱状图 + 统计概览，Dashboard 集成；单测 5）** |
 | UX-6 | 公告 App 端消费 | AD-7 管理台广播的前端半段：启动拉取最新公告弹窗展示 + 入口红点 | AD-7 已就绪 | **已完成（AnnouncementProvider 识别 broadcast/announcement 未读通知，Dashboard 启动弹窗一次 + 单测 5；入口红点复用通知中心未读数）** |
 | UX-7 | 隐私合规延迟初始化 | 用户同意隐私政策前不初始化第三方 SDK（统计/推送）；legal 模块配合延迟初始化；接 MS-2.3 推送 SDK 时前置 | MS-2.3 | 待办 |
-| UX-8 | Onboarding 首次引导 | 首次启动功能介绍页（可跳过）；业务相关性强、基座通用价值低，低优先 | 无 | 待办（低优先） |
+| UX-8 | Onboarding 首次引导 | 首次启动功能介绍页（可跳过）；业务相关性强、基座通用价值低，低优先 | 无 | **已完成（OnboardingProvider 记录 onboarding_seen + OnboardingPage 三页 PageView 可跳过 + router redirect 首次未登录未看过时导向引导页，完成跳登录）** |
 
 ---
 
@@ -299,3 +300,4 @@
 | D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 78f1032 |
 | RG-2.1 + RG-1.1 | AI 每日限额（AuditService.countChatsToday + AiService.enforceDailyLimit + 流式转 error chunk）+ AI provider 熔断（LlmProviderFactory 注入熔断 + OpenAICompatibleProvider generate/stream 接入）；单测 504 + e2e 98 全绿 | ff4f0e0 |
 | PL-4.1 + UX-2 + UX-3 | 搜索体验增强（历史/热词/AI 对话 Tab/Explore 入口）+ Dev Menu（长按头像 + 环境切换 + 清数据）+ 模块代码生成器（tool/generate_feature.sh）；Flutter 测试 132 全绿 | 688d81f |
+| UX-8 | Onboarding 首次引导（OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启导向）；Flutter 测试 137 全绿 | 待提交 |

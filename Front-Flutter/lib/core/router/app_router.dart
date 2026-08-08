@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show Listenable;
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/onboarding/presentation/providers/onboarding_provider.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
@@ -23,15 +25,20 @@ import '../../features/search/presentation/pages/search_page.dart';
 import '../../features/upload/presentation/pages/upload_page.dart';
 import '../../features/legal/presentation/pages/privacy_policy_page.dart';
 import '../../features/legal/presentation/pages/terms_of_service_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../widgets/app_shell.dart';
 
-GoRouter createRouter(AuthProvider authProvider) {
+GoRouter createRouter(
+  AuthProvider authProvider,
+  OnboardingProvider onboardingProvider,
+) {
   return GoRouter(
     initialLocation: '/splash',
-    refreshListenable: authProvider,
+    refreshListenable: Listenable.merge([authProvider, onboardingProvider]),
     redirect: (context, state) {
       final isLoggedIn = authProvider.isAuthenticated;
       final authStatus = authProvider.status;
+      final onboardingLoaded = onboardingProvider.loaded;
       final isAuthRoute = state.matchedLocation.startsWith('/login') ||
           state.matchedLocation.startsWith('/register') ||
           state.matchedLocation.startsWith('/forgot-password') ||
@@ -40,13 +47,25 @@ GoRouter createRouter(AuthProvider authProvider) {
       final isPublicRoute = state.matchedLocation == '/privacy' ||
           state.matchedLocation == '/terms';
       final isSplash = state.matchedLocation == '/splash';
+      final isOnboarding = state.matchedLocation == '/onboarding';
 
-      // Allow splash to show during initial auto-login check
-      if (isSplash && (authStatus == AuthStatus.initial || authStatus == AuthStatus.loading)) {
+      // Allow splash to show during initial auto-login / onboarding check
+      if (isSplash &&
+          (authStatus == AuthStatus.initial ||
+              authStatus == AuthStatus.loading ||
+              !onboardingLoaded)) {
         return null;
       }
       // After auto-login completes, redirect splash to final destination
-      if (isSplash) return isLoggedIn ? '/' : '/login';
+      if (isSplash) {
+        // UX-8：首次启动（未登录且未看过引导）→ 引导页；已登录直接进首页
+        return isLoggedIn ? '/' : (onboardingProvider.seen ? '/login' : '/onboarding');
+      }
+      // Onboarding only for logged-out users who haven't seen it
+      if (isOnboarding) {
+        if (isLoggedIn) return '/';
+        return null;
+      }
       // Public routes (privacy policy, terms of service) are accessible
       // to both authenticated and unauthenticated users
       if (isPublicRoute) return null;
@@ -58,6 +77,10 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/splash',
           builder: (_, _) => const SplashPage(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+          builder: (_, _) => const OnboardingPage(),
       ),
       GoRoute(
         path: '/login',

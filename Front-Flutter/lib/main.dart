@@ -32,6 +32,7 @@ import 'features/version/data/repositories/version_repository.dart';
 import 'features/insights/data/repositories/insights_repository.dart';
 import 'features/insights/presentation/providers/insights_provider.dart';
 import 'features/announcements/presentation/providers/announcement_provider.dart';
+import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'core/services/app_cache.dart';
 import 'features/version/presentation/providers/version_check_provider.dart';
 import 'features/auth/data/services/oauth_service.dart';
@@ -204,6 +205,11 @@ Future<void> _initApp() async {
         // Announcements (UX-6)
         ChangeNotifierProvider<AnnouncementProvider>(
           create: (_) => AnnouncementProvider(notificationsRepository),
+        ),
+
+        // Onboarding (UX-8)
+        ChangeNotifierProvider<OnboardingProvider>(
+          create: (_) => OnboardingProvider(prefs),
         ),
       ],
       child: const App(),

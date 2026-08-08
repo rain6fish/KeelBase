@@ -125,6 +125,16 @@ class AppLocalizations {
   String get eventsByMonth => _t('Events by month', '每月事件分布');
   // UX-6 公告
   String get announcementDismiss => _t('Got it', '知道了');
+  // UX-8 Onboarding
+  String get onboardingSkip => _t('Skip', '跳过');
+  String get onboardingNext => _t('Next', '下一步');
+  String get onboardingStart => _t('Get Started', '开始使用');
+  String get onboardingWelcomeTitle => _t('Welcome to ShiYu-AppBase', '欢迎使用 ShiYu-AppBase');
+  String get onboardingWelcomeDesc => _t('A full-stack app base — events, todos, AI assistant and more.', '全栈应用基座 —— 事件、待办、AI 助手一站式管理。');
+  String get onboardingEventsTitle => _t('Events & Todos', '事件与待办');
+  String get onboardingEventsDesc => _t('Manage your schedule with calendar events and todo lists.', '用日历事件与待办清单管理你的日程。');
+  String get onboardingAiTitle => _t('AI Assistant', 'AI 助手');
+  String get onboardingAiDesc => _t('Chat with AI to create events, search knowledge and more.', '与 AI 对话创建事件、查询知识库等。');
   // UX-2 Dev Menu
   String get devMenuTitle => _t('Developer Menu', '开发调试');
   String get devCurrentEnv => _t('Current', '当前环境');

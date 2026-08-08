@@ -16,6 +16,7 @@ import 'package:front_app/features/splash/data/repositories/splash_repository.da
 import 'package:front_app/features/upload/data/repositories/upload_repository.dart';
 import 'package:front_app/features/upload/presentation/providers/upload_provider.dart';
 import 'package:front_app/features/version/presentation/providers/version_check_provider.dart';
+import 'package:front_app/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'helpers.dart';
 
 void main() {
@@ -56,6 +57,9 @@ void main() {
           ),
           ChangeNotifierProvider<VersionCheckProvider>(
             create: (_) => VersionCheckProvider(versionRepository),
+          ),
+          ChangeNotifierProvider<OnboardingProvider>(
+            create: (_) => OnboardingProvider(prefs),
           ),
         ],
         child: const App(),

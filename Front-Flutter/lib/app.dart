@@ -8,6 +8,7 @@ import 'core/services/locale_provider.dart';
 import 'core/services/theme_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -19,18 +20,23 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   GoRouter? _router;
   AuthProvider? _lastAuth;
+  OnboardingProvider? _lastOnboarding;
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final authProvider = context.watch<AuthProvider>();
     final localeProvider = context.watch<LocaleProvider>();
+    final onboardingProvider = context.watch<OnboardingProvider>();
 
-    // Memoize router: only recreate when authProvider reference changes,
+    // Memoize router: only recreate when auth/onboarding provider reference changes,
     // not on every build (which would reset navigation state).
-    if (_router == null || authProvider != _lastAuth) {
-      _router = createRouter(authProvider);
+    if (_router == null ||
+        authProvider != _lastAuth ||
+        onboardingProvider != _lastOnboarding) {
+      _router = createRouter(authProvider, onboardingProvider);
       _lastAuth = authProvider;
+      _lastOnboarding = onboardingProvider;
     }
 
     final isDark = themeProvider.themeMode == AppThemeMode.dark ||
