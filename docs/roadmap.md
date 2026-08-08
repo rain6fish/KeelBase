@@ -294,4 +294,4 @@
 | PL-7 + PL-8 | 定时任务框架（@nestjs/schedule：每小时过期会话/验证码/登录锁/已读通知清理 + 每日统计快照通知管理员）+ 特性开关（FeatureFlagsService + FeatureDisabledGuard + @FeatureFlag + FEATURE_*_ENABLED env）；后端单测 450 + e2e 98 全绿 | 71b10fc |
 | RG-5 + RG-1 + RG-2 | 统一错误码（BusinessException + API_ERROR_CODES + filter Accept-Language 本地化 + errorCode 透传）+ 外部依赖熔断（CircuitBreakerService + mail/sms/push 接入）+ 动态配置中心（settings 表 + GET/PUT /settings + MaintenanceGuard 维护模式 503 + AI_DAILY_LIMIT）；单测 480 + e2e 98 + 迁移一致性 No changes | 4d5d79c |
 | UX-5 + UX-6 + UX-1 | 数据可视化（fl_chart + InsightsProvider + Dashboard 柱状图）+ 公告消费（AnnouncementProvider + 启动弹窗）+ 离线缓存乐观更新（AppCache + todos/notifications 缓存优先 + 乐观更新回滚）；Flutter 测试 127 全绿 | bfe51a7 |
-| D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 待提交 |
+| D.7 + RG-3 + RG-4 | 一键部署（deploy.sh + create-admin.ts + 部署指南）+ 软删除回收站（events/todos softDelete + /admin/trash + restore）+ 告警 Webhook（钉钉/飞书/Slack + 防抖 + 5xx 触发）；后端单测 492 + e2e 98 全绿 | 78f1032 |
