@@ -418,3 +418,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | RG-2.1 + RG-1.1 | AI 每日限额（AuditService.countChatsToday + AiService.enforceDailyLimit + 流式转 error chunk）+ AI provider 熔断（LlmProviderFactory 注入熔断 + OpenAICompatibleProvider generate/stream 接入）；单测 504 + e2e 98 全绿 | ff4f0e0 |
 | PL-4.1 + UX-2 + UX-3 | 搜索体验增强（历史/热词/AI 对话 Tab/Explore 入口）+ Dev Menu（长按头像 + 环境切换 + 清数据）+ 模块代码生成器（tool/generate_feature.sh）；Flutter 测试 132 全绿 | 688d81f |
 | UX-8 | Onboarding 首次引导（OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启导向）；Flutter 测试 137 全绿 | bddcc97 |
+| AI-15 + AI-18 + AI-21 + MOD-1 | 主动 AI 每日摘要（ProactiveAiService cron + LLM 降级）+ 对话反馈闭环（feedback 列 + POST /audit/feedback + logs 过滤）+ AI 成本看板（getCostBreakdown + GET /audit/cost）+ 模块清单与依赖图谱（manifest + 校验器）；单测 520 + e2e 98 全绿 | a158da3 |
