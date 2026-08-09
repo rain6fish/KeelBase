@@ -26,6 +26,7 @@
 - 2026-08-08 完成 RG-2.1（AI 每日限额：AuditService.countChatsToday + AiService.enforceDailyLimit 拦截 chat/chatStream，settings.ai_daily_limit>0 时启用，流式超限转 error chunk）+ RG-1.1（AI provider 熔断：LlmProviderFactory 注入 CircuitBreaker，OpenAICompatibleProvider generate 用 fire / stream 用 isOpen+recordSuccess/Failure，llm:{name} 独立熔断 key）。来源：本次实施。
 - 2026-08-08 完成 PL-4.1（搜索历史 + 热词 + AI 对话 Tab + Explore 顶部搜索入口）+ UX-2（Dev Menu：长按头像弹窗 + 环境切换重启生效 + 清数据）+ UX-3（tool/generate_feature.sh 模块脚手架）；Flutter 测试 132 全绿。来源：本次实施。
 - 2026-08-08 完成 UX-8（Onboarding 首次引导：OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启未登录未看过时导向引导页）；Flutter 测试 137 全绿。来源：本次实施。
+- 2026-08-09 完成 AI-15（ProactiveAiService 每日 8 点主动摘要：聚合当日事件/待办 → 通知 + LLM 润色降级）+ AI-18（对话反馈：AiAuditLog feedback 列 + POST /audit/feedback + logs 过滤）+ AI-21（成本看板：getCostBreakdown 按用户×模型×意图聚合 + GET /audit/cost）+ MOD-1（模块清单与依赖图谱 manifest + 校验器）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
 
@@ -283,13 +284,13 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-12 | 多模态对话 | 聊天附件上传图片/PDF/文档 → 视觉理解（OpenAI 兼容 vision：content 支持 image_url，复用 /upload 与 resolveUrl 取图）；补图像生成工具（OpenAI 兼容 images / DALL-E / SD 网关，走 provider 工厂） | AI 模块 + /upload 已就绪 | 待办 |
 | AI-13 | 语音助手 | ASR 语音输入（whisper 兼容端点）+ TTS 语音回复（前端播放、可关闭），覆盖无障碍/车载/儿童等语音场景 | AI-12 附件通道 | 待办 |
 | AI-14 | Web 搜索与联网 | 新增 web_search 工具（Tavily/Serper/博查等封装，API Key 配置化 + 管理台开关 + 隐私声明），解决通用知识类问题准确性 | AI 模块已就绪 | 待办 |
-| AI-15 | 定时与主动 AI 任务 | "每天 8 点总结今日日程/待办提醒/周报"：cron（复用 PL-7）+ LLM 生成 → MS-1 通知 + MS-2 推送触达，AI 从"被动回答"变"主动服务" | PL-7 / MS-1 / MS-2 已就绪 | 待办 |
+| AI-15 | 定时与主动 AI 任务 | "每天 8 点总结今日日程/待办提醒/周报"：cron（复用 PL-7）+ LLM 生成 → MS-1 通知 + MS-2 推送触达，AI 从"被动回答"变"主动服务" | PL-7 / MS-1 / MS-2 已就绪 | **已完成（ProactiveAiService 每日 8 点 cron：聚合当日事件/未完成待办 → 通知 daily_digest；LLM 润色 + 无 key 规则式降级；无数据用户跳过）** |
 | AI-16 | 知识库管理深化 | 管理台知识库补：文档切块预览（chunks 阅读）、检索命中调试（query→topN 可视化 + 分数）、批量导入（zip/目录）、向量库统计（条目/切块/存储量） | AI-11 已就绪 | 待办 |
 | AI-17 | 提示词与模型管理 | system prompt / 子代理提示词从代码抽到 DB（版本化 + 管理台编辑 + 热生效）；模型市场 UI（provider/model 增删启停、默认与回退链配置） | RG-2 Settings 模式可复用 | 待办 |
-| AI-18 | 对话反馈闭环 | 回复赞/踩 + 原因标注（存 ai_audit_logs 或新表）→ 管理台"低分对话"列表 + 导出为评测样本，AI 质量可持续改进 | AI 审计已就绪 | 待办 |
+| AI-18 | 对话反馈闭环 | 回复赞/踩 + 原因标注（存 ai_audit_logs 或新表）→ 管理台"低分对话"列表 + 导出为评测样本，AI 质量可持续改进 | AI 审计已就绪 | **已完成（AiAuditLog 加 feedback/feedbackNote + 迁移；POST /audit/feedback 用户点赞/踩写最近一条日志；GET /audit/logs 支持 feedback 过滤供管理台查低分）** |
 | AI-19 | Agent 对外 API（headless） | 第三方应用调用本基座 Agent 的无头端点（API Key 认证 + 独立限额 + 复用 AI 审计），"AI 能力外放"，企业集成卖点 | 基座已就绪 | 待办 |
 | AI-20 | AI 质量评估体系 | 评测集（场景化 prompt + 期望行为）+ 定时回归跑分 + 报告（工具命中/超时/拒绝率/成本/一致性），防 AI 演进回归 | AI-18 样本积累 | 待办 |
-| AI-21 | AI 成本看板 | 用量与费用按 用户×模型×意图 聚合（复用 ai_audit_logs），管理台成本卡 + 超预算自动熔断降级 | 审计 / RG-2.1 已就绪 | 待办 |
+| AI-21 | AI 成本看板 | 用量与费用按 用户×模型×意图 聚合（复用 ai_audit_logs），管理台成本卡 + 超预算自动熔断降级 | 审计 / RG-2.1 已就绪 | **已完成（AuditService.getCostBreakdown 按用户×模型×意图聚合 tokens + GET /audit/cost；超预算熔断后续）** |
 | AI-22 | 管理端 AI 助手 | 管理员在管理台直接对话平台：查用量/异常、生成运营报表、审审计日志（复用 headless 端点 + 独立权限面），差异化卖点 | AI-19 落地后 | 待办 |
 
 ### 五、平台化与商业化
@@ -341,7 +342,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| MOD-1 | 模块清单与依赖图谱（manifest） | 每模块声明 deps + isCore + 类别；装配校验器（开 C 必须开 D、关 A 必须关 B）。**先做，零风险** | 无 | 待办（方案待评估） |
+| MOD-1 | 模块清单与依赖图谱（manifest） | 每模块声明 deps + isCore + 类别；装配校验器（开 C 必须开 D、关 A 必须关 B）。**先做，零风险** | 无 | **已完成（src/common/modules/modules-manifest.ts：core/ai/notification/business 四组 + validateModuleGraph 校验「开 C 必须开 D、关核心报错」；单测 6）** |
 | MOD-2 | 启动期模块装配 | app.module 按启用清单动态 import（enableModules 配置/DB 表），未启用模块不进 DI 图 → 省启动时间/内存/调度任务/队列 worker/DB 表；改配置须重启 | MOD-1 | 待办（方案待评估） |
 | MOD-3 | 模块管理页（管理台） | 把 PL-8 软开关从 env 升到 Settings 表 + 管理台「模块管理」页：模块清单/依赖图展示/启用切换（即时生效层）+ 装配类变更引导重启 | RG-2 / PL-8 | 待办（方案待评估） |
 | MOD-4 | capabilities 端点 + 三端联动 | GET /app/capabilities 返回启用模块；Flutter/Taro/管理台按此隐藏未启用模块导航入口（路由/底部 Tab/更多菜单） | MOD-2/3 | 待办（方案待评估） |

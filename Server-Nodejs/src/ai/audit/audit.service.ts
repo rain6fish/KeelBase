@@ -80,14 +80,37 @@ export class AuditService {
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date } = {},
+    options: { limit?: number; offset?: number; since?: Date; feedback?: string } = {},
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs(options);
   }
 
+  /**
+   * AI-18 对话反馈：用户对某次对话点赞/点踩（+可选原因）。
+   * 反馈落在这条对话最近一条非错误审计日志上。
+   */
+  async submitFeedback(
+    userId: string,
+    conversationId: string,
+    feedback: 'thumbs_up' | 'thumbs_down',
+    note?: string,
+  ): Promise<{ updated: boolean }> {
+    const log = await this.logRepo
+      .createQueryBuilder('log')
+      .where('log.userId = :userId', { userId })
+      .andWhere('log.conversationId = :conversationId', { conversationId })
+      .andWhere('log.isError = :err', { err: false })
+      .orderBy('log.createdAt', 'DESC')
+      .getOne();
+
+    if (!log) return { updated: false };
+    await this.logRepo.update(log.id, { feedback, feedbackNote: note ?? undefined });
+    return { updated: true };
+  }
+
   /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date } = {},
+    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string } = {},
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -98,6 +121,7 @@ export class AuditService {
       .skip(options.offset ?? 0);
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
     if (options.since) qb.andWhere('log.createdAt >= :since', { since: options.since });
+    if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
 
     const rows = await qb.getRawMany();
     return rows.map((r) => ({
@@ -113,6 +137,8 @@ export class AuditService {
       durationMs: r.log_duration_ms != null ? Number(r.log_duration_ms) : null,
       isError: Boolean(r.log_is_error),
       errorMessage: r.log_error_message ?? null,
+      feedback: r.log_feedback ?? null,
+      feedbackNote: r.log_feedback_note ?? null,
       createdAt: String(r.log_createdAt),
       username: r.username ?? null,
     }));
@@ -155,6 +181,59 @@ export class AuditService {
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
+    };
+  }
+
+  /**
+   * AI-21 成本看板：按 用户×模型×意图 聚合 tokens（复用 ai_audit_logs）。
+   * 不含 error 日志；token 计费近似（prompt 单价低于 completion，此处给出原始量）。
+   */
+  async getCostBreakdown(since?: Date) {
+    const where: any = {};
+    if (since) where.createdAt = Between(since, new Date());
+
+    const logs = await this.logRepo.find({ where });
+
+    const byModel = new Map<string, { calls: number; promptTokens: number; completionTokens: number }>();
+    const byIntent = new Map<string, number>();
+    const byUser = new Map<string, { calls: number; tokens: number }>();
+    let totalCalls = 0;
+    let totalTokens = 0;
+
+    for (const log of logs) {
+      if (log.isError) continue;
+      totalCalls++;
+      const pt = log.promptTokens ?? 0;
+      const ct = log.completionTokens ?? 0;
+      const tokens = pt + ct;
+      totalTokens += tokens;
+
+      const model = log.model ?? 'unknown';
+      const m = byModel.get(model) ?? { calls: 0, promptTokens: 0, completionTokens: 0 };
+      m.calls++;
+      m.promptTokens += pt;
+      m.completionTokens += ct;
+      byModel.set(model, m);
+
+      byIntent.set(log.action, (byIntent.get(log.action) ?? 0) + 1);
+
+      const u = byUser.get(log.userId) ?? { calls: 0, tokens: 0 };
+      u.calls++;
+      u.tokens += tokens;
+      byUser.set(log.userId, u);
+    }
+
+    return {
+      summary: { totalCalls, totalTokens, since: since?.toISOString() ?? null },
+      byModel: Array.from(byModel.entries())
+        .map(([model, v]) => ({ model, ...v }))
+        .sort((a, b) => b.promptTokens + b.completionTokens - (a.promptTokens + a.completionTokens)),
+      byIntent: Array.from(byIntent.entries())
+        .map(([action, count]) => ({ action, count }))
+        .sort((a, b) => b.count - a.count),
+      byUser: Array.from(byUser.entries())
+        .map(([userId, v]) => ({ userId, ...v }))
+        .sort((a, b) => b.tokens - a.tokens),
     };
   }
 

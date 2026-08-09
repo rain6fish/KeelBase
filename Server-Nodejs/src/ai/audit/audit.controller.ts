@@ -1,8 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
+import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('审计')
 @ApiBearerAuth()
@@ -32,5 +35,28 @@ export class AuditController {
   getStats(@Query('since') since?: string) {
     const sinceDate = since ? new Date(since) : undefined;
     return this.auditService.getAllStats(sinceDate);
+  }
+
+  @Get('cost')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI 成本看板：按用户×模型×意图聚合 tokens（管理员）' })
+  @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
+  getCost(@Query('since') since?: string) {
+    const sinceDate = since ? new Date(since) : undefined;
+    return this.auditService.getCostBreakdown(sinceDate);
+  }
+
+  @Post('feedback')
+  @ApiOperation({ summary: 'AI-18 对话反馈：对某次对话点赞/点踩' })
+  async submitFeedback(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SubmitFeedbackDto,
+  ) {
+    return this.auditService.submitFeedback(
+      String(user.sub),
+      dto.conversationId,
+      dto.feedback,
+      dto.note,
+    );
   }
 }
