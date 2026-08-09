@@ -46,6 +46,14 @@ export class AiAuditLog {
   @Column({ type: 'text', nullable: true, name: 'error_message' })
   errorMessage?: string;
 
+  /** AI-18 对话反馈：thumbs_up | thumbs_down（用户赞/踩后记录） */
+  @Column({ length: 16, nullable: true })
+  feedback?: string;
+
+  /** AI-18 反馈原因标注（可选） */
+  @Column({ type: 'text', nullable: true, name: 'feedback_note' })
+  feedbackNote?: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 }

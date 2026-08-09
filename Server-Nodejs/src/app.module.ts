@@ -80,6 +80,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddKnowledgeChunks*.js',
               'dist/migrations/*AddSettings*.js',
               'dist/migrations/*AddSoftDelete*.js',
+              'dist/migrations/*AddAiFeedback*.js',
             ],
             migrationsRun: !isDev,
             host: configService.get<string>('DB_HOST', 'localhost'),
