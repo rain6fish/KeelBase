@@ -1,0 +1,91 @@
+.ai-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f6f8;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 20px 12px;
+    background: #fff;
+  }
+
+  &__title {
+    font-size: 32px;
+    font-weight: 700;
+  }
+
+  &__clear {
+    font-size: 26px;
+    color: #999;
+  }
+
+  &__messages {
+    flex: 1;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  &__empty {
+    text-align: center;
+    margin-top: 120px;
+    color: #aaa;
+    font-size: 26px;
+  }
+
+  &__bubble {
+    margin-bottom: 20px;
+    max-width: 80%;
+    padding: 16px 20px;
+    border-radius: 16px;
+    font-size: 28px;
+    line-height: 1.5;
+    word-break: break-all;
+
+    &--user {
+      align-self: flex-end;
+      margin-left: auto;
+      background: #007aff;
+      color: #fff;
+    }
+
+    &--assistant {
+      background: #fff;
+      color: #333;
+    }
+  }
+
+  &__error {
+    color: #ff3b30;
+    font-size: 26px;
+    margin: 10px 0;
+  }
+
+  &__input-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #fff;
+    border-top: 1px solid #eee;
+  }
+
+  &__input {
+    flex: 1;
+    height: 64px;
+    background: #f0f1f3;
+    border-radius: 32px;
+    padding: 0 24px;
+    font-size: 28px;
+  }
+
+  &__send {
+    background: #007aff;
+    color: #fff;
+    font-size: 26px;
+    border-radius: 32px;
+    padding: 0 24px;
+  }
+}

@@ -14,6 +14,7 @@
      'pages/terms/index',
      'pages/notifications/index',
      'pages/sessions/index',
+     'pages/ai/index',
    ],
    window: {
      navigationStyle: 'custom',

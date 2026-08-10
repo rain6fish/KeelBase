@@ -39,6 +39,8 @@ import { FeatureDisabledGuard } from './feature-flags/feature-disabled.guard';
 import { MaintenanceTasksModule } from './maintenance-tasks/maintenance-tasks.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { HeadlessModule } from './headless/headless.module';
+import { TemplatesModule } from './templates/templates.module';
+import { MarketingModule } from './marketing/marketing.module';
 import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
@@ -154,6 +156,8 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     AlertWebhookModule,
     FeedbackModule,
     HeadlessModule,
+    TemplatesModule,
+    MarketingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },
