@@ -602,10 +602,6 @@ npm run migration:run
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
-| GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请码 + 已邀请用户列表（G-2） |
-| GET | /api/v1/ai/knowledge/:id/chunks | Yes (ADMIN) | — | 文档切块预览（AI-16） |
-| POST | /api/v1/ai/knowledge/debug | Yes (ADMIN) | — | 检索命中调试：结果 + 分数（AI-16） |
-| GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |
 | GET | /api/v1/audit/operations/stats | Yes (ADMIN) | — | 操作审计统计（按 action 分组） |
 | GET | /api/v1/notifications | Yes | 本人 | 通知列表（分页） |
@@ -638,11 +634,6 @@ npm run migration:run
 | POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（AI-20，逐用例调 LLM） |
 | GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近评测报告（AI-20） |
 | POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19）：x-api-key 认证（HEADLESS_API_KEY），复用 Agent 工具/记忆/审计，返回 reply+conversationId |
-| GET | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 评测集用例列表（AI-20） |
-| POST | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 新增评测用例（AI-20） |
-| DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） |
-| POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批：逐用例调 LLM（AI-20） |
-| GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近一次评测报告（AI-20） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |
@@ -651,6 +642,9 @@ npm run migration:run
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | — | 更新/创建动态配置（维护模式/AI 每日限额等，写入 Settings 表即生效） |
 | GET | /api/v1/admin/trash | Yes (ADMIN) | — | 回收站：已软删除的事件/待办（RG-3，events/todos 用 @DeleteDateColumn 软删，管理台可恢复；users/notifications 保持硬删） |
 | POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | — | 恢复回收站记录（type: event\|todo） |
+| GET | /api/v1/admin/templates | Yes (ADMIN) | — | 内置示例模板列表（PL-9） |
+| POST | /api/v1/admin/templates/:id/import | Yes (ADMIN) | — | 一键导入模板数据（事件/待办种子，PL-9） |
+| POST | /api/v1/admin/marketing/send | Yes (ADMIN) | — | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） |
 
 ---
 

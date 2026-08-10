@@ -4,6 +4,7 @@
  
  export default function ExplorePage() {
    const quickCards = [
+     { icon: '🤖', label: 'AI', color: '#007AFF', path: '/pages/ai/index' },
      { icon: '📤', label: 'Upload', color: '#16A34A', path: '/pages/upload/index' },
      { icon: '📅', label: 'Events', color: '#F59E0B', path: '/pages/events/index' },
      { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },

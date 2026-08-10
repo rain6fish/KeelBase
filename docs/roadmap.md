@@ -29,6 +29,7 @@
 - 2026-08-09 完成 AI-15（ProactiveAiService 每日 8 点主动摘要：聚合当日事件/待办 → 通知 + LLM 润色降级）+ AI-18（对话反馈：AiAuditLog feedback 列 + POST /audit/feedback + logs 过滤）+ AI-21（成本看板：getCostBreakdown 按用户×模型×意图聚合 + GET /audit/cost）+ MOD-1（模块清单与依赖图谱 manifest + 校验器）。来源：本次实施。
 - 2026-08-10 完成 AI-17（Settings 表 ai_system_prompt 热生效覆盖 system prompt）+ AI-16（知识库深化：切块预览 / 检索调试 / 向量统计三端点）+ G-1（POST /feedback → 通知管理员 + 前端反馈表单）。来源：本次实施。
 - 2026-08-10 完成 AI-19（POST /headless/chat + API Key 认证，AI 能力外放）+ G-2（邀请码/邀请绑定/通知邀请者 + GET /auth/invite）+ AI-20（评测集 ai_eval_cases + 跑批 + 报告）。来源：本次实施。
+- 2026-08-10 完成 MINI-1（Taro 端 AI 聊天页，复用 /ai/chat）+ PL-9（模板市场：内置 2 模板 + 一键导入）+ G-3（运营邮件模板 + 分组发送）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
 - 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-8）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。PM-8 国产芯片适配（信创）已移除。
@@ -300,7 +301,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| PL-9 | 模板与示例应用市场 | 内置 2~3 个垂直 demo（个人助理/团队日程/进销存）作"开箱即用"样板：代码模板 + 种子数据 + 一键导入文档，降低基座落地门槛 | 基座已就绪 | 待办 |
+| PL-9 | 模板与示例应用市场 | 内置 2~3 个垂直 demo（个人助理/团队日程/进销存）作"开箱即用"样板：代码模板 + 种子数据 + 一键导入文档，降低基座落地门槛 | 基座已就绪 | **已完成（templates.ts 内置 个人助理/团队日程 两模板；GET /admin/templates + POST /admin/templates/:id/import 一键导入事件/待办种子到指定用户并通知）** |
 | PL-10 | 低代码表单/页面构建器 | JSON Schema 驱动动态表单（Flutter + Taro 共用 schema 渲染器）；后端运行时动态建模（动态表）二期，先表单后页面 | 基座已就绪 | 待办 |
 | PL-11 | 插件机制 | 后端模块插件（目录约定 + 生命周期钩子 + manifest）+ 前端功能注册；安装/卸载 CLI + 示例插件 | 基座已就绪 | 待办 |
 | PL-12 | 多租户与组织架构（企业版） | 组织/团队/成员/角色 + 数据 tenant 隔离（实体加 tenantId + 查询过滤 + 迁移策略）；二期大项 | 基座已就绪 | 待办 |
@@ -321,7 +322,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| MINI-1 | 小程序 AI 对话 | Taro 端 AI 聊天页（复用 /ai/chat 与 chat/stream 非流式 + 工具步骤卡），渠道策略从"AI 留 Flutter"改为小程序可用 | AI 模块已就绪 | 待办 |
+| MINI-1 | 小程序 AI 对话 | Taro 端 AI 聊天页（复用 /ai/chat 与 chat/stream 非流式 + 工具步骤卡），渠道策略从"AI 留 Flutter"改为小程序可用 | AI 模块已就绪 | **已完成（Front-Taro ai-service + ai-store + /pages/ai 聊天页（非流式 /ai/chat，消息气泡 + 清空）+ app.config 路由 + Explore 入口；build:h5 通过）** |
 | MINI-2 | 微信订阅消息 | 小程序订阅消息模板（事件提醒/通知触达），补小程序无设备推送通道的缺口 | MS-1 已就绪 | 待办 |
 | MINI-3 | 微信快捷登录 | 微信授权登录 + 手机号快捷获取（code2Session + 动态令牌），降低注册门槛、提升转化 | OAuth 已就绪 | 待办 |
 | MINI-4 | 分享与裂变 | 事件/邀请分享卡片 + onShareAppMessage + 回跳深链，微信生态增长 | MINI-3 | 待办 |
@@ -332,7 +333,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 |---|------|------|------|------|
 | G-1 | 应用内反馈与评分 | 反馈表单 + 截图 + 应用商店评分引导（Flutter），收集改进信号 | 基座已就绪 | **已完成（POST /feedback 本人提交建议/问题/好评 → 写 type='feedback' 通知给全体管理员（复用 MS-1 通知中心）；前端 feedback feature（设置页入口 + 表单页 + i18n））** |
 | G-2 | 邀请与奖励 | 邀请码/链接 + 注册奖励（积分/会员，运营可配置） | RG-2 已就绪 | **已完成（User 加 inviteCode/invitedBy + 注册生成邀请码 + 带邀请码注册绑定并通知邀请者 + GET /auth/invite 查看邀请码与邀请列表）** |
-| G-3 | 邮件营销与运营模板 | PL-1 事务邮件之外补运营邮件（周报/活动）+ 分组发送队列 | PL-1 已就绪 | 待办 |
+| G-3 | 邮件营销与运营模板 | PL-1 事务邮件之外补运营邮件（周报/活动）+ 分组发送队列 | PL-1 已就绪 | **已完成（MailService.sendMarketingEmail 运营模板含 CTA；POST /admin/marketing/send 按 audience=all/admin/user 分组发送，失败静默）** |
 
 ### 九、功能模块化（MOD）—— 按需装配基座
 
@@ -443,3 +444,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-15 + AI-18 + AI-21 + MOD-1 | 主动 AI 每日摘要（ProactiveAiService cron + LLM 降级）+ 对话反馈闭环（feedback 列 + POST /audit/feedback + logs 过滤）+ AI 成本看板（getCostBreakdown + GET /audit/cost）+ 模块清单与依赖图谱（manifest + 校验器）；单测 520 + e2e 98 全绿 | a158da3 |
 | AI-17 + AI-16 + G-1 | 提示词管理（Settings ai_system_prompt 热生效）+ 知识库深化（切块预览/检索调试/向量统计三端点）+ 应用内反馈（POST /feedback → 通知管理员 + 前端表单）；单测 530 + e2e 98 + Flutter 139 全绿 | 8c82517 |
 | AI-19 + G-2 + AI-20 | headless API（POST /headless/chat + API Key 认证）+ 邀请奖励（邀请码/绑定/通知 + GET /auth/invite）+ AI 评测（ai_eval_cases + 跑批 + 报告）；单测 543 + e2e 98 全绿 | 0fb0660 |
+| MINI-1 + PL-9 + G-3 | 小程序 AI（Taro 聊天页复用 /ai/chat）+ 模板市场（内置 2 模板一键导入）+ 运营邮件（模板 + 分组发送）；Taro build:h5 通过 | 待提交 |

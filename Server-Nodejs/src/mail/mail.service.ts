@@ -119,4 +119,26 @@ export class MailService {
 </html>`,
     });
   }
+
+  /**
+   * G-3 运营邮件（周报/活动模板）。
+   * subject/body 由调用方传，主题色 #1a73e8，含页脚。
+   */
+  async sendMarketingEmail(email: string, subject: string, body: string, cta?: { label: string; url: string }): Promise<void> {
+    await this.sendMail({
+      to: email,
+      subject: `【ShiYu-AppBase】${subject}`,
+      html: `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+  <h2 style="color:#1a73e8;">${subject}</h2>
+  <div style="font-size:15px; line-height:1.6; color:#333;">
+    ${body.replace(/\n/g, '<br/>')}
+  </div>
+  ${cta ? `<p style="margin-top:24px;"><a href="${cta.url}" style="display:inline-block; background:#1a73e8; color:#fff; padding:10px 20px; border-radius:4px; text-decoration:none;">${cta.label}</a></p>` : ''}
+  <p style="margin-top:32px; font-size:12px; color:#999;">此邮件由 ShiYu-AppBase 发送，如非本人操作请忽略。</p>
+</body>
+</html>`,
+    });
+  }
 }
