@@ -219,6 +219,123 @@ export class KnowledgeService {
     }
   }
 
+  /**
+   * AI-16 文档切块预览：返回文章的分块列表（postgres 从 chunks 表读；sqlite 实时切）。
+   */
+  async getChunks(id: number) {
+    const article = await this.findOne(id);
+    const dbType = (this.dataSource.options as any).type;
+
+    if (dbType === 'postgres') {
+      try {
+        const rows: Array<{ chunk_index: number; content: string }> =
+          await this.dataSource.query(
+            `SELECT "chunk_index", "content" FROM "ai_knowledge_chunks"
+             WHERE "article_id" = $1 ORDER BY "chunk_index"`,
+            [id],
+          );
+        return { articleId: id, chunks: rows };
+      } catch (err) {
+        this.logger.warn(`[RAG] chunks read failed article=${id}: ${(err as Error).message}`);
+      }
+    }
+
+    // sqlite / 无 chunks → 用同一切块逻辑实时生成预览
+    const chunks = chunkText(article.content);
+    return {
+      articleId: id,
+      chunks: chunks.map((content, i) => ({ chunk_index: i, content })),
+    };
+  }
+
+  /**
+   * AI-16 检索命中调试：返回 query 的检索结果 + 分数（向量 distance 或全文无分标记）。
+   */
+  async debugSearch(query: string, limit = 5) {
+    const keyword = query.trim();
+    if (!keyword) return { query: '', engine: 'none', hits: [] };
+
+    if (this.isVectorAvailable()) {
+      try {
+        const embeddings = this.embeddingsService!;
+        const vector = await embeddings.embed(keyword);
+        const vectorLiteral = `[${vector.join(',')}]`;
+        const rows = (await this.dataSource.query(
+          `SELECT a.id, a.title, a.category, c.content,
+                  (c.embedding <-> $1::vector) AS "distance"
+           FROM "ai_knowledge_chunks" c
+           JOIN "ai_knowledge_articles" a ON a.id = c.article_id
+           WHERE c.embedding IS NOT NULL
+           ORDER BY c.embedding <-> $1::vector
+           LIMIT $2`,
+          [vectorLiteral, limit],
+        )) as Array<Record<string, unknown>>;
+        return {
+          query: keyword,
+          engine: 'vector',
+          hits: rows.map((r) => ({
+            id: r.id,
+            title: r.title,
+            category: r.category,
+            content: String(r.content).slice(0, 200),
+            score: Number(r.distance).toFixed(4),
+          })),
+        };
+      } catch (err) {
+        this.logger.warn(`[RAG] debug vector search failed: ${(err as Error).message}`);
+      }
+    }
+
+    const hits = await this.fullTextSearch(keyword, limit);
+    return {
+      query: keyword,
+      engine: 'fulltext',
+      hits: hits.map((a) => ({
+        id: a.id,
+        title: a.title,
+        category: a.category,
+        content: a.content.slice(0, 200),
+        score: null,
+      })),
+    };
+  }
+
+  /**
+   * AI-16 向量库统计：条目数 / 切块数 / 存储量（postgres 才有 chunks）。
+   */
+  async getStats() {
+    const [articles, total] = await this.articleRepo.findAndCount();
+    const dbType = (this.dataSource.options as any).type;
+    let chunks = 0;
+    let storageBytes: number | null = null;
+
+    if (dbType === 'postgres') {
+      try {
+        const chunkRow = (await this.dataSource.query(
+          `SELECT COUNT(*)::int AS count FROM "ai_knowledge_chunks"`,
+        )) as Array<{ count: number }>;
+        chunks = chunkRow[0]?.count ?? 0;
+      } catch {
+        // 表可能不存在
+      }
+      try {
+        const sizeRow = (await this.dataSource.query(
+          `SELECT pg_database_size(current_database())::bigint AS bytes`,
+        )) as Array<{ bytes: number }>;
+        storageBytes = sizeRow[0]?.bytes ?? null;
+      } catch {
+        // ignore
+      }
+    }
+
+    return {
+      articles: total,
+      chunks,
+      storageBytes,
+      vectorEnabled: this.isVectorAvailable(),
+    };
+  }
+
   // --- 向量检索（降级链） ---
 
   private isVectorAvailable(): boolean {

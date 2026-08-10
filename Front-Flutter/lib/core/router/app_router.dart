@@ -20,6 +20,7 @@ import '../../features/profile/presentation/pages/profile_edit_page.dart';
 import '../../features/auth/presentation/pages/bind_phone_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/feedback/presentation/pages/feedback_page.dart';
 import '../../features/sessions/presentation/pages/session_list_page.dart';
 import '../../features/search/presentation/pages/search_page.dart';
 import '../../features/upload/presentation/pages/upload_page.dart';
@@ -123,6 +124,10 @@ GoRouter createRouter(
                   GoRoute(
                     path: 'settings',
                     builder: (_, _) => const SettingsPage(),
+                  ),
+                  GoRoute(
+                    path: 'feedback',
+                    builder: (_, _) => const FeedbackPage(),
                   ),
                   GoRoute(
                     path: 'sessions',
