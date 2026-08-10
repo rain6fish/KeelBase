@@ -177,6 +177,8 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 |------|----------|---------|
 | [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone | 快速上手（零基础 5 分钟跑通全栈） |
 | [`docs/manual/faq.md`](docs/manual/faq.md) | Everyone | 常见问题排查（环境/启动/账号/AI/部署） |
+| [`docs/manual/quickstart-en.md`](docs/manual/quickstart-en.md) | Everyone | Quick Start (English) |
+| [`docs/manual/faq-en.md`](docs/manual/faq-en.md) | Everyone | FAQ (English) |
 | [`CLAUDE.md`](CLAUDE.md) | AI agents | Full architecture spec, conventions, security rules |
 | [`docs/manual/usage.md`](docs/manual/usage.md) | End users | 使用手册 — feature URLs & common operations (EN/ZH) |
 | [`docs/manual/development.md`](docs/manual/development.md) | Developers | 开发手册 — architecture, patterns, testing |
