@@ -41,6 +41,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { HeadlessModule } from './headless/headless.module';
 import { TemplatesModule } from './templates/templates.module';
 import { MarketingModule } from './marketing/marketing.module';
+import { FormBuilderModule } from './form-builder/form-builder.module';
 import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
@@ -87,6 +88,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiFeedback*.js',
               'dist/migrations/*AddInvite*.js',
               'dist/migrations/*AddAiEvalCases*.js',
+              'dist/migrations/*AddFormBuilder*.js',
             ],
             migrationsRun: !isDev,
             host: configService.get<string>('DB_HOST', 'localhost'),
@@ -158,6 +160,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     HeadlessModule,
     TemplatesModule,
     MarketingModule,
+    FormBuilderModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },

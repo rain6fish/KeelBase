@@ -125,6 +125,9 @@ class AppLocalizations {
   String get eventsByMonth => _t('Events by month', '每月事件分布');
   // UX-6 公告
   String get announcementDismiss => _t('Got it', '知道了');
+  // PL-10 动态表单
+  String get formLoading => _t('Form', '表单');
+  String get formSubmit => _t('Submit', '提交');
   // G-1 应用内反馈
   String get feedbackTitle => _t('Feedback', '意见反馈');
   String get feedbackTypeLabel => _t('Type', '反馈类型');

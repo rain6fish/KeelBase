@@ -13,6 +13,7 @@ import 'package:front_app/features/search/data/repositories/search_repository.da
 import 'package:front_app/features/todos/data/repositories/todos_repository.dart';
 import 'package:front_app/features/version/data/repositories/version_repository.dart';
 import 'package:front_app/features/insights/data/repositories/insights_repository.dart';
+import 'package:front_app/features/forms/data/repositories/form_repository.dart';
 
 /// Mock ApiClient — AuthProvider 构造依赖真实 ApiClient 实例，用 mocktail 生成。
 class MockApiClient extends Mock implements ApiClient {}
@@ -38,6 +39,8 @@ class MockTodosRepository extends Mock implements TodosRepository {}
 class MockVersionRepository extends Mock implements VersionRepository {}
 
 class MockInsightsRepository extends Mock implements InsightsRepository {}
+
+class MockFormRepository extends Mock implements FormRepository {}
 
 /// 用 MultiProvider 包裹被测 widget（供 widget test 使用）。
 Widget wrapWithProviders({

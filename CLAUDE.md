@@ -647,6 +647,14 @@ npm run migration:run
 | POST | /api/v1/admin/marketing/send | Yes (ADMIN) | — | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） |
 | GET | /api/v1/admin/analytics | Yes (ADMIN) | — | 平台数据统计：DAU/WAU/MAU/留存/功能漏斗/错误大盘（PL-15） |
 | POST | /api/v1/admin/ai/chat | Yes (ADMIN) | — | 管理端 AI 助手：带平台实时上下文对话（AI-22） |
+| GET | /api/v1/forms/:slug | Yes | 本人 | 读取表单定义（PL-10，按 slug） |
+| POST | /api/v1/forms/:slug/submit | Yes | 本人 | 提交表单数据（按 schema 校验） |
+| GET | /api/v1/forms/:slug/submissions | Yes | 本人 | 本人对该表单的提交记录 |
+| GET | /api/v1/admin/forms | Yes (ADMIN) | — | 表单定义列表（PL-10） |
+| POST | /api/v1/admin/forms | Yes (ADMIN) | — | 创建表单定义（PL-10） |
+| PATCH | /api/v1/admin/forms/:id | Yes (ADMIN) | — | 更新表单定义（PL-10） |
+| DELETE | /api/v1/admin/forms/:id | Yes (ADMIN) | — | 删除表单定义及提交（PL-10） |
+| GET | /api/v1/admin/forms/:id/submissions | Yes (ADMIN) | — | 表单提交列表（PL-10） |
 
 ---
 
