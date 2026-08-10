@@ -99,6 +99,11 @@ class SettingsPage extends StatelessWidget {
             header: Text(l10n.sectionAbout),
             children: [
               CupertinoListTile(
+                title: Text(l10n.feedbackTitle),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push('/feedback'),
+              ),
+              CupertinoListTile(
                 title: Text(l10n.version),
                 trailing: Text(
                   AppConstants.appVersion,

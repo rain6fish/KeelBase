@@ -593,6 +593,10 @@ npm run migration:run
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
+| POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
+| GET | /api/v1/ai/knowledge/:id/chunks | Yes (ADMIN) | — | 文档切块预览（AI-16） |
+| POST | /api/v1/ai/knowledge/debug | Yes (ADMIN) | — | 检索命中调试：结果 + 分数（AI-16） |
+| GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |
 | GET | /api/v1/audit/operations/stats | Yes (ADMIN) | — | 操作审计统计（按 action 分组） |
 | GET | /api/v1/notifications | Yes | 本人 | 通知列表（分页） |

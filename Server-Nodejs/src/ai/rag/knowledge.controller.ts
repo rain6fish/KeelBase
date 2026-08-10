@@ -92,11 +92,33 @@ export class KnowledgeController {
     return this.knowledgeService.findAll(query);
   }
 
+  @Get('stats')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI-16 知识库统计：条目/切块/存储量（管理员）' })
+  getStats() {
+    return this.knowledgeService.getStats();
+  }
+
+  @Post('debug')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI-16 检索命中调试：返回结果与分数（管理员）' })
+  debugSearch(@Body() dto: { query: string; limit?: number }) {
+    if (!dto.query?.trim()) throw new BadRequestException('query 不能为空');
+    return this.knowledgeService.debugSearch(dto.query, Math.min(dto.limit ?? 5, 20));
+  }
+
   @Get(':id')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '知识条目详情（管理员）' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.knowledgeService.findOne(id);
+  }
+
+  @Get(':id/chunks')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI-16 文档切块预览（管理员）' })
+  getChunks(@Param('id', ParseIntPipe) id: number) {
+    return this.knowledgeService.getChunks(id);
   }
 
   @Patch(':id')

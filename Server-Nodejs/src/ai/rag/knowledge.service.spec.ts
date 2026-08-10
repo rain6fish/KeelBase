@@ -353,4 +353,58 @@ describe('KnowledgeService', () => {
       await expect(service.remove(99)).rejects.toThrow('知识条目不存在');
     });
   });
+
+  describe('AI-16 知识库深化', () => {
+    it('getChunks 在 sqlite 用 chunkText 实时切块', async () => {
+      await setup();
+      repo.findOneBy.mockResolvedValue({ ...article, content: '第一段。第二段。第三段。' });
+
+      const result = await service.getChunks(1);
+
+      expect(result.articleId).toBe(1);
+      expect(result.chunks.length).toBeGreaterThan(0);
+      expect(result.chunks[0]).toHaveProperty('content');
+    });
+
+    it('getChunks postgres 从 chunks 表读', async () => {
+      await setup();
+      dataSource.options = { type: 'postgres' };
+      dataSource.query.mockResolvedValue([
+        { chunk_index: 0, content: 'chunk0' },
+        { chunk_index: 1, content: 'chunk1' },
+      ]);
+      repo.findOneBy.mockResolvedValue(article);
+
+      const result = await service.getChunks(1);
+      expect(result.chunks).toHaveLength(2);
+      expect(result.chunks[0].content).toBe('chunk0');
+    });
+
+    it('debugSearch 无向量时走全文', async () => {
+      await setup();
+      repo.find.mockResolvedValue([article]);
+
+      const result = await service.debugSearch('年假');
+
+      expect(result.engine).toBe('fulltext');
+      expect(result.hits[0].title).toBe('休假政策');
+    });
+
+    it('debugSearch 空 query 返回空', async () => {
+      await setup();
+      const result = await service.debugSearch('   ');
+      expect(result.hits).toEqual([]);
+    });
+
+    it('getStats 返回条目数与向量状态', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      repo.findAndCount.mockResolvedValue([[article], 1]);
+
+      const stats = await service.getStats();
+
+      expect(stats.articles).toBe(1);
+      expect(stats.chunks).toBe(0);
+      expect(stats.vectorEnabled).toBe(false);
+    });
+  });
 });

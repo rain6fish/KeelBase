@@ -125,6 +125,18 @@ class AppLocalizations {
   String get eventsByMonth => _t('Events by month', '每月事件分布');
   // UX-6 公告
   String get announcementDismiss => _t('Got it', '知道了');
+  // G-1 应用内反馈
+  String get feedbackTitle => _t('Feedback', '意见反馈');
+  String get feedbackTypeLabel => _t('Type', '反馈类型');
+  String get feedbackTypeSuggestion => _t('Suggestion', '建议');
+  String get feedbackTypeBug => _t('Bug', '问题');
+  String get feedbackTypePraise => _t('Praise', '好评');
+  String get feedbackContentHint => _t('Describe your feedback...', '请描述你的建议或遇到的问题…');
+  String get feedbackContactHint => _t('Contact (optional)', '联系方式（选填）');
+  String get feedbackContentRequired => _t('Please enter feedback content', '请填写反馈内容');
+  String get feedbackSubmit => _t('Submit', '提交');
+  String get feedbackSubmitted => _t('Feedback submitted, thanks!', '反馈已提交，感谢你的支持！');
+  String get feedbackSubmitFailed => _t('Submit failed, please retry', '提交失败，请重试');
   // UX-8 Onboarding
   String get onboardingSkip => _t('Skip', '跳过');
   String get onboardingNext => _t('Next', '下一步');

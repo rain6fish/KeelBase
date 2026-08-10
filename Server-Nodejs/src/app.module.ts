@@ -37,6 +37,7 @@ import { SmsModule } from './sms/sms.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { FeatureDisabledGuard } from './feature-flags/feature-disabled.guard';
 import { MaintenanceTasksModule } from './maintenance-tasks/maintenance-tasks.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
@@ -148,6 +149,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     SettingsModule,
     CircuitBreakerModule,
     AlertWebhookModule,
+    FeedbackModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },

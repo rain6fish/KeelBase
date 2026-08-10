@@ -942,8 +942,13 @@ export class AiService {
       ? await this.compactor.ensureCompacted(conv)
       : conv;
 
+    // AI-17 提示词管理：Settings 里 ai_system_prompt 覆盖默认（热生效，管理台可编辑）
+    const systemPrompt = this.settingsService
+      ? String(await this.settingsService.getWithDefault('ai_system_prompt', this.config.systemPrompt))
+      : this.config.systemPrompt;
+
     const messages: ChatMessage[] = [
-      { role: 'system', content: this.config.systemPrompt },
+      { role: 'system', content: systemPrompt },
     ];
 
     // 注入用户长期记忆（第二条 system 消息，作为参考上下文）

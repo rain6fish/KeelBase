@@ -22,7 +22,7 @@ describe('AiService', () => {
     generate: jest.Mock;
     stream: jest.Mock;
   }>;
-  let mockSettingsService: { getAiDailyLimit: jest.Mock };
+  let mockSettingsService: { getAiDailyLimit: jest.Mock; getWithDefault: jest.Mock };
   let mockAuditService: {
     log: jest.Mock;
     getUserLogs: jest.Mock;
@@ -94,6 +94,7 @@ describe('AiService', () => {
 
     mockSettingsService = {
       getAiDailyLimit: jest.fn().mockResolvedValue(0), // 0 = 不限
+      getWithDefault: jest.fn().mockImplementation(async (_k: string, d: unknown) => d),
     };
 
     mockRagAgent = {
@@ -899,6 +900,29 @@ describe('AiService', () => {
 
       await expect(bare.chat('1', { message: 'hi' })).resolves.toBeDefined();
       expect(mockAuditService.countChatsToday).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('AI-17 提示词管理', () => {
+    it('Settings 配置了 ai_system_prompt 时优先使用', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue('自定义系统提示词');
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await aiService.chat('1', { message: 'hi' });
+
+      // 主对话（工具循环）的调用以自定义 system 开头；router 分类用其自身 prompt
+      const sent = mockProvider.generate.mock.calls[mockProvider.generate.mock.calls.length - 1][0];
+      expect(sent.messages[0].content).toBe('自定义系统提示词');
+    });
+
+    it('Settings 未配置时用默认 system prompt', async () => {
+      mockSettingsService.getWithDefault.mockImplementation(async (_k: string, d: unknown) => d);
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await aiService.chat('1', { message: 'hi' });
+
+      const sent = mockProvider.generate.mock.calls[mockProvider.generate.mock.calls.length - 1][0];
+      expect(sent.messages[0].content).toBe(config.systemPrompt);
     });
   });
 });
