@@ -15,6 +15,12 @@ Related manuals / 相关手册：
 
 ## 1. Quick Start / 快速启动
 
+> 💡 **最快：一条命令**（统一入口，详见 [quickstart](quickstart.md)）
+> ```bash
+> ./scripts/dev.sh experience    # 起后端+管理台，自动验收 + 开浏览器
+> ```
+> 下面保留手动方式供了解各端细节。
+
 ### Backend / 后端
 
 ```bash
@@ -22,6 +28,7 @@ cd Server-Nodejs
 cp .env.example .env
 npm install
 npm run start:dev
+# 或：./scripts/dev.sh dev
 ```
 
 | Service | URL |
@@ -194,7 +201,7 @@ All API routes are prefixed `/api/v1`. Auth required unless marked. / 所有接�
 
 ### 4.6 Admin Console / 管理台
 
-1. Build & serve Front-Taro-Admin (`build:h5` + static server) / 构建并托管管理台
+1. 一键部署后访问 `http://<域名>/admin`；本地用 `./scripts/dev.sh dev-admin` / Production: visit `/admin` after one-click deploy; locally `./scripts/dev.sh dev-admin`
 2. Login with `admin / Admin@1234` / 用 `admin / Admin@1234` 登录
 3. Modules: overview, user management, event management, audit monitoring / 模块：概览、用户管理、事件管理、审计监控
 
@@ -204,8 +211,8 @@ All API routes are prefixed `/api/v1`. Auth required unless marked. / 所有接�
 
 | Problem / 问题 | Solution / 解决 |
 |----------------|-----------------|
-| Cannot login (locked) / 登录被锁定 | 连续 10 次失败锁定 15 分钟，稍后重试 |
-| Email not received / 收不到邮件 | 检查 SMTP 配置 `MAIL_ENABLED=true` |
-| Upload fails / 上传失败 | 文件需 ≤10MB，格式在 jpg/png/gif/webp/pdf/zip 内 |
-| 403 on admin API / 管理接口 403 | 账号需 `role = admin` |
-| App cannot reach API / App 连不上后端 | 确认后端 `npm run start:dev` 已启动 |
+| Cannot login (locked) / 登录被锁定 | 连续 10 次失败锁定 15 分钟，稍后重试 / 10 fails → locked 15 min, retry later |
+| Email not received / 收不到邮件 | 检查 SMTP 配置 `MAIL_ENABLED=true` / check SMTP config |
+| Upload fails / 上传失败 | 文件需 ≤10MB，格式在 jpg/png/gif/webp/pdf/zip 内 / file ≤10MB, allowed formats |
+| 403 on admin API / 管理接口 403 | 账号需 `role = admin` / account needs `role = admin` |
+| App cannot reach API / App 连不上后端 | 确认后端已启动 / ensure backend is running |

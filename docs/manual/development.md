@@ -115,7 +115,9 @@ nest g controller features/xxx
 
 | Component / 组件 | Type / 类型 | Purpose / 作用 |
 |-----------------|------------|----------------|
+| FeatureDisabledGuard | APP_GUARD | Feature flags; returns 404 when a feature is off (PL-8) |
 | JwtAuthGuard | APP_GUARD | Global JWT auth; `@Public()` skips |
+| MaintenanceGuard | APP_GUARD | Maintenance mode 503; `@SkipMaintenance()` exempts (RG-2) |
 | PoliciesGuard | APP_GUARD | CASL policy guard (route-level + row-level) |
 | ThrottlerGuard | APP_GUARD | Rate limiting (60 req/min global) |
 | ResponseInterceptor | APP_INTERCEPTOR | Uniform `{code, message, data, timestamp}` wrap |
