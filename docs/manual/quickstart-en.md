@@ -16,10 +16,15 @@
 **Fastest path (only needs Docker):**
 
 ```bash
-./deploy/experience.sh          # one-shot: start backend + admin, print accounts & URLs
+./scripts/dev.sh experience     # unified entry: start backend + admin, auto-verify, open browser
+# equivalent on systems with make:
+# make experience
+FLUTTER=1 ./scripts/dev.sh experience   # also start Flutter Web app
 # or full Docker:
-DOCKER=1 ./deploy/experience.sh
+DOCKER=1 ./scripts/dev.sh experience
 ```
+
+> The script auto-detects free ports, waits for readiness, verifies each endpoint, prints accounts & URLs, and tries to open the browser. Other commands: `./scripts/dev.sh help` (or `make help`).
 
 ---
 
@@ -91,6 +96,60 @@ Auto-created on first backend start (development only):
 3. Admin console → log in as `admin` → Overview → User Management → AI Audit.
 
 > ⚠️ Non-admin accounts get 403 on admin APIs — by design (permission isolation), not a bug.
+
+## 3.1 What the Screens Look Like
+
+**Main app home (logged in as alex)**
+
+```
+┌──────────────────────────────────┐
+│ 👤 Alex          🔔              │  ← top: avatar / notification bell
+│  Insights                        │
+│  [Total 12] [Active 9] [Cancel 3] │  ← event stats card
+│  📊 Events by month ▇▇▇▂▇        │  ← bar chart (last 12 months)
+├──────────────────────────────────┤
+│  📅 Today's Schedule  "Weekly sync 09:00" │
+├──────────────────────────────────┤
+│  🏠  📅  ⋯  ✦  🗒️               │  ← bottom nav: Home/Events/More/Discover/AI/Todos
+└──────────────────────────────────┘
+```
+
+**Admin console overview (logged in as admin)**
+
+```
+┌──────────────┬─────────────────────────────┐
+│ Sidebar       │  Overview                   │
+│ Overview      │  [Users 2] [Events 0] [AI]  │  ← platform data cards
+│ Data          │  📈 New users last 7d ▁▂▁▅▂  │
+│  ├ Users      │  💾 Storage 1.2 KB          │
+│  ├ Events     │  Quick links: Users/Events  │
+│  ├ Knowledge  │  /Knowledge/Monitor/Audit   │
+│  ├ Broadcast  │                             │
+│ Monitor/Audit │                             │
+│  ├ Monitor    │                             │
+│  ├ AI Audit   │                             │
+│  ├ Op Audit   │                             │
+│  ├ Sessions   │                             │
+│ System        │                             │
+│  └ System     │                             │
+└──────────────┴─────────────────────────────┘
+```
+
+**AI assistant (main app AI tab)**
+
+```
+┌──────────────────────────────────┐
+│ AI Assistant      [Model: DeepSeek]│
+│ ┌────────────────────────────┐  │
+│ │ 🤖 What events this month? │  │
+│ │ 📅 Querying events…        │  │  ← tool step card
+│ │ ✅ 8 events this month: …  │  │
+│ └────────────────────────────┘  │
+│ [Input………………………………] [Send] │
+└──────────────────────────────────┘
+```
+
+> Exact layouts may vary by version; these give you a mental map of where things are.
 
 ## 4. Common Pitfalls (full list in [FAQ](faq-en.md))
 
