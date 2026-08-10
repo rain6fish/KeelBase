@@ -56,6 +56,14 @@ export class AdminController {
     return this.adminService.broadcast(dto);
   }
 
+  @Get('analytics')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'PL-15 平台数据统计：活跃/留存/功能漏斗/错误大盘' })
+  @ApiQuery({ name: 'days', required: false, example: 30, description: '统计窗口天数，默认 30' })
+  getAnalytics(@Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number) {
+    return this.adminService.getAnalytics(days);
+  }
+
   @Get('trash')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '回收站：已软删除的事件/待办（可恢复）' })

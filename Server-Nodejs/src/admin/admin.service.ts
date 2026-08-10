@@ -388,6 +388,94 @@ export class AdminService {
     }
   }
 
+  /**
+   * PL-15 平台数据统计：DAU/MAU/留存 + 功能使用漏斗 + 错误大盘。
+   * 复用审计日志（op_audit_logs / ai_audit_logs）与用户表，原始 SQL 跨库。
+   */
+  async getAnalytics(days = 30) {
+    const since = new Date();
+    since.setDate(since.getDate() - Math.min(Math.max(days, 1), 90));
+    const sinceIso = since.toISOString();
+
+    const run = async <T>(sql: string, params: unknown[] = []): Promise<T[]> => {
+      try {
+        return (await this.dataSource.query(sql, params)) as T[];
+      } catch (err) {
+        this.logger.warn(`[Admin] analytics query failed: ${(err as Error).message}`);
+        return [];
+      }
+    };
+    // 时间边界用 JS 计算（跨 sqlite/postgres），避免 sqlite 专用 datetime() 语法
+    const day7 = new Date();
+    day7.setDate(day7.getDate() - 7);
+    const day30 = new Date();
+    day30.setDate(day30.getDate() - 30);
+
+    // DAU / MAU：按操作审计日志的去重 userId 估算活跃（跨表最简：用 op_audit_logs 的 userId）
+    const [daily, mauRow, wauRow, totalUsersRow] = await Promise.all([
+      run<{ date: string; dau: number | string }>(
+        `SELECT DATE(createdAt) AS date, COUNT(DISTINCT userId) AS dau FROM op_audit_logs
+         WHERE createdAt >= ? GROUP BY DATE(createdAt) ORDER BY date ASC`, [sinceIso]),
+      run<{ mau: number | string }>(
+        `SELECT COUNT(DISTINCT userId) AS mau FROM op_audit_logs WHERE createdAt >= ?`, [sinceIso]),
+      run<{ mu: number | string }>(
+        `SELECT COUNT(DISTINCT userId) AS mu FROM op_audit_logs WHERE createdAt >= ?`, [day7.toISOString()]),
+      run<{ total: number | string }>(`SELECT COUNT(*) AS total FROM users`),
+    ]);
+
+    const totalUsers = Number(totalUsersRow[0]?.total ?? 0);
+    const mau = Number((mauRow[0] as { mau?: number | string })?.mau ?? 0);
+    const wau = Number((wauRow[0] as { mu?: number | string })?.mu ?? 0);
+
+    // 留存：近 7 天活跃用户中有多少在过去 7-30 天也活跃过（简化版）
+    const [retainedRow, mau30Row] = await Promise.all([
+      run<{ r: number | string }>(
+        `SELECT COUNT(DISTINCT a.userId) AS r FROM op_audit_logs a
+         WHERE a.createdAt >= ?
+           AND EXISTS (SELECT 1 FROM op_audit_logs b
+             WHERE b.userId = a.userId AND b.createdAt >= ? AND b.createdAt < ?)`,
+        [day7.toISOString(), day30.toISOString(), day7.toISOString()]),
+      run<{ m: number | string }>(
+        `SELECT COUNT(DISTINCT userId) AS m FROM op_audit_logs WHERE createdAt >= ?`, [day30.toISOString()]),
+    ]);
+    const retained = Number(retainedRow[0]?.r ?? 0);
+    const mau30 = Number(mau30Row[0]?.m ?? 0);
+
+    // 功能使用漏斗：按操作审计的 action 分组
+    const funnel = await run<{ action: string; count: number | string }>(
+      `SELECT action, COUNT(*) AS count FROM op_audit_logs WHERE createdAt >= ? GROUP BY action ORDER BY count DESC LIMIT 20`, [sinceIso]);
+
+    // 错误大盘：AI 审计的错误数 + 近 N 天趋势
+    const [aiErrors, errorTrend] = await Promise.all([
+      run<{ errors: number | string }>(
+        `SELECT COUNT(*) AS errors FROM ai_audit_logs WHERE isError = 1 AND createdAt >= ?`, [sinceIso]),
+      run<{ date: string; errors: number | string }>(
+        `SELECT DATE(createdAt) AS date, COUNT(*) AS errors FROM ai_audit_logs
+         WHERE isError = 1 AND createdAt >= ? GROUP BY DATE(createdAt) ORDER BY date ASC`, [sinceIso]),
+    ]);
+
+    return {
+      period: { days },
+      activeUsers: {
+        daily: daily.map((r) => ({ date: String(r.date), count: Number(r.dau) })),
+        wau,
+        mau,
+        totalUsers,
+      },
+      retention: {
+        // 7 天前活跃且近 7 天也活跃 / 近 30 天活跃
+        ratePct: mau30 > 0 ? Math.round((retained / mau30) * 10000) / 100 : 0,
+        retained,
+        activeLast30d: mau30,
+      },
+      featureFunnel: funnel.map((r) => ({ action: r.action, count: Number(r.count) })),
+      errors: {
+        aiErrors: Number(aiErrors[0]?.errors ?? 0),
+        trend: errorTrend.map((r) => ({ date: String(r.date), count: Number(r.errors) })),
+      },
+    };
+  }
+
   private async _getCountsByDay(table: string, since: Date): Promise<Array<{ date: string; count: number }>> {
     try {
       const rows = await this.dataSource.query(

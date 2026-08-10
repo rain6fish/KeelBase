@@ -15,6 +15,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { QueueModule } from '../queue/queue.module';
 import { EncryptionModule } from '../common/utils/encryption.module';
+import { AiModule } from '../ai/ai.module';
+import { AdminAiController } from './admin-ai.controller';
 
 @Module({
   imports: [
@@ -33,8 +35,9 @@ import { EncryptionModule } from '../common/utils/encryption.module';
     MetricsModule,
     QueueModule,
     EncryptionModule,
+    AiModule,
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, AdminAiController],
   providers: [AdminService],
 })
 export class AdminModule {}

@@ -230,6 +230,30 @@ export class OpenAICompatibleProvider implements LlmProvider {
     return `${this.baseURL.replace(/\/chat\/completions$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
+  /**
+   * AI-12.1 图像生成：OpenAI 兼容 POST /images/generations。
+   * 返回生成的图片 URL（b64 或 url）。失败抛错由调用方处理。
+   */
+  async generateImage(prompt: string, size: string = '1024x1024'): Promise<string> {
+    const body = { model: this.defaultModel, prompt, size, n: 1 };
+    const res = await fetch(`${this.baseURL.replace(/\/+$/, '')}/images/generations`, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => 'Unknown error');
+      throw new Error(`Image API error: ${res.status} ${err.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as {
+      data?: Array<{ url?: string; b64_json?: string }>;
+    };
+    const item = data.data?.[0];
+    if (item?.url) return item.url;
+    if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+    throw new Error('图像生成未返回有效结果');
+  }
+
   /** 构建请求头 */
   private buildHeaders(): Record<string, string> {
     return {
