@@ -446,3 +446,5 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-17 + AI-16 + G-1 | 提示词管理（Settings ai_system_prompt 热生效）+ 知识库深化（切块预览/检索调试/向量统计三端点）+ 应用内反馈（POST /feedback → 通知管理员 + 前端表单）；单测 530 + e2e 98 + Flutter 139 全绿 | 8c82517 |
 | AI-19 + G-2 + AI-20 | headless API（POST /headless/chat + API Key 认证）+ 邀请奖励（邀请码/绑定/通知 + GET /auth/invite）+ AI 评测（ai_eval_cases + 跑批 + 报告）；单测 543 + e2e 98 全绿 | 0fb0660 |
 | MINI-1 + PL-9 + G-3 | 小程序 AI（Taro 聊天页复用 /ai/chat）+ 模板市场（内置 2 模板一键导入）+ 运营邮件（模板 + 分组发送）；Taro build:h5 通过 | ed09872 |
+| AI-14 + AI-12 | web_search 联网工具（Tavily 封装 + 降级）+ 多模态图片理解（images 附加 + OpenAI vision content 转换）；单测 557 + e2e 98 全绿 | ad1f655 |
+| AI-14 + AI-12 | web_search 联网工具（Tavily 封装 + 降级）+ 多模态图片理解（images 附加 + OpenAI vision content 转换）；单测 557 + e2e 98 全绿 | ad1f655 |
