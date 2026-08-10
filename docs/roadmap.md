@@ -442,3 +442,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | UX-8 | Onboarding 首次引导（OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启导向）；Flutter 测试 137 全绿 | bddcc97 |
 | AI-15 + AI-18 + AI-21 + MOD-1 | 主动 AI 每日摘要（ProactiveAiService cron + LLM 降级）+ 对话反馈闭环（feedback 列 + POST /audit/feedback + logs 过滤）+ AI 成本看板（getCostBreakdown + GET /audit/cost）+ 模块清单与依赖图谱（manifest + 校验器）；单测 520 + e2e 98 全绿 | a158da3 |
 | AI-17 + AI-16 + G-1 | 提示词管理（Settings ai_system_prompt 热生效）+ 知识库深化（切块预览/检索调试/向量统计三端点）+ 应用内反馈（POST /feedback → 通知管理员 + 前端表单）；单测 530 + e2e 98 + Flutter 139 全绿 | 8c82517 |
+| AI-19 + G-2 + AI-20 | headless API（POST /headless/chat + API Key 认证）+ 邀请奖励（邀请码/绑定/通知 + GET /auth/invite）+ AI 评测（ai_eval_cases + 跑批 + 报告）；单测 543 + e2e 98 全绿 | 0fb0660 |
