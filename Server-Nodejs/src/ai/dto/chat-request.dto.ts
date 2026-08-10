@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MinLength, MaxLength, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ChatRequestDto {
@@ -32,4 +32,12 @@ export class ChatRequestDto {
   @IsString()
   @IsOptional()
   conversationId?: string;
+
+  @ApiPropertyOptional({
+    description: 'AI-12 多模态：已上传图片的 URL 列表（复用 /upload 返回的 url）',
+    example: ['/uploads/xxx.png'],
+  })
+  @IsArray()
+  @IsOptional()
+  images?: string[];
 }

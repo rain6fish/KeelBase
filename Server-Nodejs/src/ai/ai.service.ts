@@ -44,6 +44,8 @@ export interface ChatRequest {
   provider?: string;
   model?: string;
   conversationId?: string;
+  /** AI-12 多模态：用户消息附带的图片 URL 列表 */
+  images?: string[];
 }
 
 export interface ChatResponse {
@@ -66,6 +68,8 @@ export class AiService {
   private readonly routerAgent = new RouterAgent();
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
+  /** AI-12 多模态：当前请求待附加的用户消息图片 URL（构建消息后清除，不落库） */
+  private _pendingImages: string[] = [];
 
   constructor(
     private readonly providerFactory: LlmProviderFactory,
@@ -115,6 +119,7 @@ export class AiService {
     request: ChatRequest,
   ): Promise<ChatResponse> {
     await this.enforceDailyLimit(userId);
+    this._pendingImages = request.images ?? [];
     return withSpan('ai.chat', async () => {
       return this.chatImpl(userId, request);
     }, {
@@ -399,6 +404,7 @@ export class AiService {
       yield { type: 'error', error: (err as Error).message };
       return;
     }
+    this._pendingImages = request.images ?? [];
     // 流式 span：外层手动 start/end，避免 async generator 语义问题
     const span = tracer.startSpan('ai.chatStream', {
       attributes: {
@@ -988,6 +994,17 @@ export class AiService {
         chatMsg.tool_call_id = msg.toolCallId;
       }
       messages.push(chatMsg);
+    }
+
+    // AI-12 多模态：把当前请求待附加的图片挂到最后一条 user 消息（不落库）
+    if (this._pendingImages.length > 0) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          messages[i].images = this._pendingImages;
+          break;
+        }
+      }
+      this._pendingImages = [];
     }
 
     return messages;

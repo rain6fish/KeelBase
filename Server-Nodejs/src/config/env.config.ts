@@ -111,6 +111,10 @@ export const envValidationSchema = Joi.object({
   // Headless API（AI-19）：第三方集成用 API Key
   HEADLESS_API_KEY: Joi.string().allow('').default(''),
 
+  // 联网搜索（AI-14）
+  TAVILY_API_KEY: Joi.string().allow('').default(''),
+  TAVILY_BASE_URL: Joi.string().allow('').default('https://api.tavily.com/search'),
+
   // 异常告警 Webhook（RG-4）
   ALERT_WEBHOOK_ENABLED: Joi.boolean().default(false),
   ALERT_WEBHOOK_URL: Joi.string().allow('').default(''),

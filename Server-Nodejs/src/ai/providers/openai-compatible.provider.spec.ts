@@ -389,4 +389,47 @@ describe('OpenAICompatibleProvider', () => {
       expect(chunks[chunks.length - 1].type).toBe('done');
     });
   });
+
+  describe('AI-12 多模态', () => {
+    it('带 images 的 user 消息转多模态 content 数组', async () => {
+      const p = new OpenAICompatibleProvider(config);
+      const sendParams = {
+        messages: [
+          { role: 'user', content: '这张图里是什么？', images: ['/uploads/a.png'] },
+        ],
+      };
+      mockFetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: '一只猫' }, finish_reason: 'stop' }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+      await p.generate(sendParams as any);
+
+      const [, init] = mockFetch.mock.calls[0];
+      const body = JSON.parse(init.body);
+      const content = body.messages[0].content;
+      expect(Array.isArray(content)).toBe(true);
+      expect(content[0]).toEqual({ type: 'text', text: '这张图里是什么？' });
+      expect(content[1].type).toBe('image_url');
+      // 相对路径被拼成完整 URL
+      expect(content[1].image_url.url).toContain('/uploads/a.png');
+    });
+
+    it('无 images 的 user 消息保持纯文本 content', async () => {
+      const p = new OpenAICompatibleProvider(config);
+      mockFetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+      await p.generate({ messages: [{ role: 'user', content: 'hi' }] } as any);
+
+      const [, init] = mockFetch.mock.calls[0];
+      expect(JSON.parse(init.body).messages[0].content).toBe('hi');
+    });
+  });
 });

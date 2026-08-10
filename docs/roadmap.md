@@ -30,6 +30,7 @@
 - 2026-08-10 完成 AI-17（Settings 表 ai_system_prompt 热生效覆盖 system prompt）+ AI-16（知识库深化：切块预览 / 检索调试 / 向量统计三端点）+ G-1（POST /feedback → 通知管理员 + 前端反馈表单）。来源：本次实施。
 - 2026-08-10 完成 AI-19（POST /headless/chat + API Key 认证，AI 能力外放）+ G-2（邀请码/邀请绑定/通知邀请者 + GET /auth/invite）+ AI-20（评测集 ai_eval_cases + 跑批 + 报告）。来源：本次实施。
 - 2026-08-10 完成 MINI-1（Taro 端 AI 聊天页，复用 /ai/chat）+ PL-9（模板市场：内置 2 模板 + 一键导入）+ G-3（运营邮件模板 + 分组发送）。来源：本次实施。
+- 2026-08-10 完成 AI-14（web_search 工具封装 Tavily，TAVILY_API_KEY 配置化 + 降级）+ AI-12（多模态图片理解：ChatMessage.images + provider 转 OpenAI 兼容 vision content；图像生成 AI-12.1 待续）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
 - 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-8）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。PM-8 国产芯片适配（信创）已移除。
@@ -285,9 +286,9 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| AI-12 | 多模态对话 | 聊天附件上传图片/PDF/文档 → 视觉理解（OpenAI 兼容 vision：content 支持 image_url，复用 /upload 与 resolveUrl 取图）；补图像生成工具（OpenAI 兼容 images / DALL-E / SD 网关，走 provider 工厂） | AI 模块 + /upload 已就绪 | 待办 |
+| AI-12 | 多模态对话 | 聊天附件上传图片/PDF/文档 → 视觉理解（OpenAI 兼容 vision：content 支持 image_url，复用 /upload 与 resolveUrl 取图）；补图像生成工具（OpenAI 兼容 images / DALL-E / SD 网关，走 provider 工厂） | AI 模块 + /upload 已就绪 | **已完成（ChatRequestDto.images + ChatMessage.images + AiService._pendingImages 附加到用户消息 + provider 转多模态 content 数组 {type:text,image_url}；图像生成工具 AI-12.1 待续）** |
 | AI-13 | 语音助手 | ASR 语音输入（whisper 兼容端点）+ TTS 语音回复（前端播放、可关闭），覆盖无障碍/车载/儿童等语音场景 | AI-12 附件通道 | 待办 |
-| AI-14 | Web 搜索与联网 | 新增 web_search 工具（Tavily/Serper/博查等封装，API Key 配置化 + 管理台开关 + 隐私声明），解决通用知识类问题准确性 | AI 模块已就绪 | 待办 |
+| AI-14 | Web 搜索与联网 | 新增 web_search 工具（Tavily/Serper/博查等封装，API Key 配置化 + 管理台开关 + 隐私声明），解决通用知识类问题准确性 | AI 模块已就绪 | **已完成（WebSearchTool 封装 Tavily，TAVILY_API_KEY 配置后启用、未配置降级提示；已注册进工具表）** |
 | AI-15 | 定时与主动 AI 任务 | "每天 8 点总结今日日程/待办提醒/周报"：cron（复用 PL-7）+ LLM 生成 → MS-1 通知 + MS-2 推送触达，AI 从"被动回答"变"主动服务" | PL-7 / MS-1 / MS-2 已就绪 | **已完成（ProactiveAiService 每日 8 点 cron：聚合当日事件/未完成待办 → 通知 daily_digest；LLM 润色 + 无 key 规则式降级；无数据用户跳过）** |
 | AI-16 | 知识库管理深化 | 管理台知识库补：文档切块预览（chunks 阅读）、检索命中调试（query→topN 可视化 + 分数）、批量导入（zip/目录）、向量库统计（条目/切块/存储量） | AI-11 已就绪 | **已完成（GET /ai/knowledge/:id/chunks 切块预览 + POST /ai/knowledge/debug 检索调试含分数 + GET /ai/knowledge/stats 向量统计；sqlite 实时切块降级）** |
 | AI-17 | 提示词与模型管理 | system prompt / 子代理提示词从代码抽到 DB（版本化 + 管理台编辑 + 热生效）；模型市场 UI（provider/model 增删启停、默认与回退链配置） | RG-2 Settings 模式可复用 | **已完成（核心：Settings 表 ai_system_prompt 覆盖默认 system prompt，AiService.buildMessages 热读取，管理台 PUT /settings 即热生效；子代理提示词管理留后续）** |
