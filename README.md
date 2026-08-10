@@ -53,7 +53,21 @@ Unlike traditional boilerplates that focus only on CRUD, ShiYu-AppBase is engine
 
 ## Quick Start
 
-### Prerequisites
+> 🚀 **想 5 分钟不读代码跑起来？** 看 [快速上手（零基础版）](docs/manual/quickstart.md)，排错看 [常见问题 FAQ](docs/manual/faq.md)。
+
+### Fastest Path: Docker One-Click
+
+```bash
+docker compose up --build -d     # 起后端 + 前端 + 管理台全部
+curl http://localhost:3000/api/v1/health   # 验证后端
+open http://localhost                        # 主 App
+```
+
+> 只需装 Docker。首次构建约 10 分钟。演示账号：`alex / 123456`（主 App）、`admin / Admin@1234`（管理台）。
+
+### Local Dev Path（改代码时）
+
+#### Prerequisites
 - Node.js >= 22
 - Flutter SDK >= 3.12
 - npm
@@ -68,9 +82,10 @@ npm run start:dev
 ```
 
 Server: http://localhost:3000  
-API docs (Swagger): http://localhost:3000/api/docs
+API docs (Swagger): http://localhost:3000/api/docs  
+Health check: http://localhost:3000/api/v1/health
 
-> Dev DB is zero-config SQLite (`./data/front.sqlite`). Switch to PostgreSQL for production via `DB_TYPE=postgres`.
+> Dev DB is zero-config SQLite (`./data/front.sqlite`). Switch to PostgreSQL for production via `DB_TYPE=postgres`. First dev start auto-creates demo accounts (`alex`/`admin`).
 
 ### Flutter Frontend
 
@@ -160,10 +175,14 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 
 | File | Audience | Purpose |
 |------|----------|---------|
+| [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone | 快速上手（零基础 5 分钟跑通全栈） |
+| [`docs/manual/faq.md`](docs/manual/faq.md) | Everyone | 常见问题排查（环境/启动/账号/AI/部署） |
 | [`CLAUDE.md`](CLAUDE.md) | AI agents | Full architecture spec, conventions, security rules |
-| [`docs/manual/usage.md`](docs/manual/usage.md) | End users | 使用手册 — quick start, accounts, feature URLs (EN/ZH) |
+| [`docs/manual/usage.md`](docs/manual/usage.md) | End users | 使用手册 — feature URLs & common operations (EN/ZH) |
 | [`docs/manual/development.md`](docs/manual/development.md) | Developers | 开发手册 — architecture, patterns, testing |
 | [`docs/manual/operations.md`](docs/manual/operations.md) | Ops | 运维手册 — deploy, env vars, migration, observability |
+| [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | Ops | 云服务器一键部署（私有化） |
+| [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | 内网/离线环境部署 |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
 | [`docs/roadmap.md`](docs/roadmap.md) | Team | Roadmap & completed milestones |
