@@ -46,6 +46,9 @@ import { ConfirmationStore } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { KnowledgeIngestionService } from './rag/knowledge-ingestion.service';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
+import { EvalCase } from './eval/eval-case.entity';
+import { AiEvalService } from './eval/ai-eval.service';
+import { AiEvalController } from './eval/ai-eval.controller';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -61,9 +64,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     TodosModule,
     QueueModule,
     StorageModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, KnowledgeArticle, UserMemory]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, KnowledgeArticle, UserMemory, EvalCase]),
   ],
-  controllers: [AiController, AuditController, InsightsController, KnowledgeController],
+  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
   providers: [
     ConversationService,
     AuditService,
@@ -73,6 +76,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     KnowledgeIngestionService,
     MemoriesService,
     ConfirmationStore,
+    AiEvalService,
     {
       provide: AiService,
       useFactory: (

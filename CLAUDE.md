@@ -452,6 +452,13 @@ CACHE_TTL=300                      # 默认缓存 TTL（秒）
 
 # 异步队列（BullMQ）
 QUEUE_ENABLED=true                 # 是否启用队列（false 降级同步执行）
+
+# AI 模型配置（可选，不配置则 AI 功能降级不可用；详见 docs/ai-agent.spec.md §环境变量）
+AI_PROVIDER=deepseek               # deepseek | qwen | openai
+DEEPSEEK_API_KEY=                  # 按 AI_PROVIDER 配置对应模型的 API Key 与 Base URL
+
+# Headless API（AI-19，可选）
+HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头校验；留空则 /headless 端点 401）
 ```
 
 ### 6.2 配置文件层次
@@ -551,7 +558,7 @@ npm run migration:run
 
 | Method | Path | Auth | 所有权校验 | 说明 |
 |--------|------|------|-----------|------|
-| POST | /api/v1/auth/register | No | — | 注册（限流 3/m） |
+| POST | /api/v1/auth/register | No | — | 注册（限流 3/m，可带 inviteCode 邀请码 G-2） |
 | POST | /api/v1/auth/login | No | — | 登录（限流 10/m） |
 | POST | /api/v1/auth/refresh | No | — | 刷新 token |
 | GET | /api/v1/auth/me | Yes | 当前用户 | 当前用户信息 |
@@ -565,6 +572,7 @@ npm run migration:run
 | POST | /api/v1/auth/login-phone | No | — | 手机号 + 验证码登录（限流 10/m） |
 | POST | /api/v1/auth/deactivate | Yes | 本人 | 注销本人账号（密码确认 + 级联清理） |
 | GET | /api/v1/auth/export-data | Yes | 本人 | 导出本人全量数据（数据可携带权） |
+| GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请信息：邀请码 + 已邀请用户列表（G-2） |
 | GET | /api/v1/auth/oauth/providers | No | — | 获取已启用的 OAuth 提供商列表及元数据 |
 | POST | /api/v1/auth/logout | Yes | 当前用户 | 登出当前设备 |
 | GET | /api/v1/auth/sessions | Yes | 本人 | 登录设备会话列表（含 isCurrent） |
@@ -594,6 +602,7 @@ npm run migration:run
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
+| GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请码 + 已邀请用户列表（G-2） |
 | GET | /api/v1/ai/knowledge/:id/chunks | Yes (ADMIN) | — | 文档切块预览（AI-16） |
 | POST | /api/v1/ai/knowledge/debug | Yes (ADMIN) | — | 检索命中调试：结果 + 分数（AI-16） |
 | GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） |
@@ -618,8 +627,22 @@ npm run migration:run
 | POST | /api/v1/ai/knowledge/upload | Yes (ADMIN) | — | 上传文档入库（PDF/DOCX，multipart，异步向量化） |
 | GET | /api/v1/ai/knowledge | Yes (ADMIN) | — | 知识条目列表/搜索（?q=关键词） |
 | GET | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 知识条目详情 |
+| GET | /api/v1/ai/knowledge/:id/chunks | Yes (ADMIN) | — | 文档切块预览（AI-16） |
+| POST | /api/v1/ai/knowledge/debug | Yes (ADMIN) | — | 检索命中调试：结果 + 分数（AI-16） |
+| GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） |
 | PATCH | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 更新知识条目 |
 | DELETE | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 删除知识条目 |
+| GET | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 评测集用例列表（AI-20） |
+| POST | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 新增评测用例（AI-20） |
+| DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） |
+| POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（AI-20，逐用例调 LLM） |
+| GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近评测报告（AI-20） |
+| POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19）：x-api-key 认证（HEADLESS_API_KEY），复用 Agent 工具/记忆/审计，返回 reply+conversationId |
+| GET | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 评测集用例列表（AI-20） |
+| POST | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 新增评测用例（AI-20） |
+| DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） |
+| POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批：逐用例调 LLM（AI-20） |
+| GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近一次评测报告（AI-20） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |

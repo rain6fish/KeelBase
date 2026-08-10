@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum UserRole {
   USER = 'user',
@@ -81,6 +81,15 @@ export class User {
 
   @Column({ type: Date, nullable: true, name: 'locked_until' })
   lockedUntil?: Date | null;
+
+  /** G-2 邀请码（注册时生成，唯一） */
+  @Column({ length: 12, nullable: true, name: 'invite_code' })
+  @Index('IDX_users_invite_code', { unique: true })
+  inviteCode?: string;
+
+  /** G-2 被谁邀请（邀请者 userId） */
+  @Column({ nullable: true, name: 'invited_by' })
+  invitedBy?: number;
 
   @CreateDateColumn()
   createdAt!: Date;

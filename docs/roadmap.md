@@ -28,9 +28,10 @@
 - 2026-08-08 完成 UX-8（Onboarding 首次引导：OnboardingProvider + 三页 PageView 可跳过 + router redirect 首启未登录未看过时导向引导页）；Flutter 测试 137 全绿。来源：本次实施。
 - 2026-08-09 完成 AI-15（ProactiveAiService 每日 8 点主动摘要：聚合当日事件/待办 → 通知 + LLM 润色降级）+ AI-18（对话反馈：AiAuditLog feedback 列 + POST /audit/feedback + logs 过滤）+ AI-21（成本看板：getCostBreakdown 按用户×模型×意图聚合 + GET /audit/cost）+ MOD-1（模块清单与依赖图谱 manifest + 校验器）。来源：本次实施。
 - 2026-08-10 完成 AI-17（Settings 表 ai_system_prompt 热生效覆盖 system prompt）+ AI-16（知识库深化：切块预览 / 检索调试 / 向量统计三端点）+ G-1（POST /feedback → 通知管理员 + 前端反馈表单）。来源：本次实施。
+- 2026-08-10 完成 AI-19（POST /headless/chat + API Key 认证，AI 能力外放）+ G-2（邀请码/邀请绑定/通知邀请者 + GET /auth/invite）+ AI-20（评测集 ai_eval_cases + 跑批 + 报告）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
-- 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-9）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。
+- 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-8）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。PM-8 国产芯片适配（信创）已移除。
 
 ---
 
@@ -290,8 +291,8 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-16 | 知识库管理深化 | 管理台知识库补：文档切块预览（chunks 阅读）、检索命中调试（query→topN 可视化 + 分数）、批量导入（zip/目录）、向量库统计（条目/切块/存储量） | AI-11 已就绪 | **已完成（GET /ai/knowledge/:id/chunks 切块预览 + POST /ai/knowledge/debug 检索调试含分数 + GET /ai/knowledge/stats 向量统计；sqlite 实时切块降级）** |
 | AI-17 | 提示词与模型管理 | system prompt / 子代理提示词从代码抽到 DB（版本化 + 管理台编辑 + 热生效）；模型市场 UI（provider/model 增删启停、默认与回退链配置） | RG-2 Settings 模式可复用 | **已完成（核心：Settings 表 ai_system_prompt 覆盖默认 system prompt，AiService.buildMessages 热读取，管理台 PUT /settings 即热生效；子代理提示词管理留后续）** |
 | AI-18 | 对话反馈闭环 | 回复赞/踩 + 原因标注（存 ai_audit_logs 或新表）→ 管理台"低分对话"列表 + 导出为评测样本，AI 质量可持续改进 | AI 审计已就绪 | **已完成（AiAuditLog 加 feedback/feedbackNote + 迁移；POST /audit/feedback 用户点赞/踩写最近一条日志；GET /audit/logs 支持 feedback 过滤供管理台查低分）** |
-| AI-19 | Agent 对外 API（headless） | 第三方应用调用本基座 Agent 的无头端点（API Key 认证 + 独立限额 + 复用 AI 审计），"AI 能力外放"，企业集成卖点 | 基座已就绪 | 待办 |
-| AI-20 | AI 质量评估体系 | 评测集（场景化 prompt + 期望行为）+ 定时回归跑分 + 报告（工具命中/超时/拒绝率/成本/一致性），防 AI 演进回归 | AI-18 样本积累 | 待办 |
+| AI-19 | Agent 对外 API（headless） | 第三方应用调用本基座 Agent 的无头端点（API Key 认证 + 独立限额 + 复用 AI 审计），"AI 能力外放"，企业集成卖点 | 基座已就绪 | **已完成（POST /headless/chat + HeadlessGuard 校验 x-api-key/HEADLESS_API_KEY + 复用 AiService.chat 以系统用户执行）** |
+| AI-20 | AI 质量评估体系 | 评测集（场景化 prompt + 期望行为）+ 定时回归跑分 + 报告（工具命中/超时/拒绝率/成本/一致性），防 AI 演进回归 | AI-18 样本积累 | **已完成（ai_eval_cases 表 + GET/POST/DELETE /ai/eval/cases + POST /ai/eval/run 并发跑批（30s 超时判失败）+ GET /ai/eval/report 最近报告）** |
 | AI-21 | AI 成本看板 | 用量与费用按 用户×模型×意图 聚合（复用 ai_audit_logs），管理台成本卡 + 超预算自动熔断降级 | 审计 / RG-2.1 已就绪 | **已完成（AuditService.getCostBreakdown 按用户×模型×意图聚合 tokens + GET /audit/cost；超预算熔断后续）** |
 | AI-22 | 管理端 AI 助手 | 管理员在管理台直接对话平台：查用量/异常、生成运营报表、审审计日志（复用 headless 端点 + 独立权限面），差异化卖点 | AI-19 落地后 | 待办 |
 
@@ -330,7 +331,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | G-1 | 应用内反馈与评分 | 反馈表单 + 截图 + 应用商店评分引导（Flutter），收集改进信号 | 基座已就绪 | **已完成（POST /feedback 本人提交建议/问题/好评 → 写 type='feedback' 通知给全体管理员（复用 MS-1 通知中心）；前端 feedback feature（设置页入口 + 表单页 + i18n））** |
-| G-2 | 邀请与奖励 | 邀请码/链接 + 注册奖励（积分/会员，运营可配置） | RG-2 已就绪 | 待办 |
+| G-2 | 邀请与奖励 | 邀请码/链接 + 注册奖励（积分/会员，运营可配置） | RG-2 已就绪 | **已完成（User 加 inviteCode/invitedBy + 注册生成邀请码 + 带邀请码注册绑定并通知邀请者 + GET /auth/invite 查看邀请码与邀请列表）** |
 | G-3 | 邮件营销与运营模板 | PL-1 事务邮件之外补运营邮件（周报/活动）+ 分组发送队列 | PL-1 已就绪 | 待办 |
 
 ### 九、功能模块化（MOD）—— 按需装配基座
@@ -370,8 +371,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | PM-5 | 运维健康巡检脚本 | 备份/监控/告警已就绪，补一键健康巡检（health 聚合 + 依赖状态 + 日志扫描）命令集，降低非 DevOps 运维门槛 | AD-2 / PL-3 / RG-4 | 待办 |
 | PM-6 | 开源版 + 企业版双轨 | 开源核心 + 企业版（UI 组件库 / 优先支持 / 私有化部署服务 / 行业模板 / 多租户 / 支付 / headless API），明确收费模式补商业化路径 | PL-12/13/19 | 待办（商业化路径设计） |
 | PM-7 | 可视化 Agent 编排 | 当前 AI 工作流靠代码配置，上手门槛高；补可视化 Agent 编排（对标 LangChain/Langflow），区别于 PL-10 低代码表单构建器 | AI 模块 | 待办（待评估） |
-| PM-8 | 国产芯片适配（信创） | 昇腾/寒武纪/海光推理适配，政企私有化常要求信创，范式已验证刚需；衔接现有 OpenAI 兼容 provider 工厂 | LLM provider 工厂 | 待办 |
-| PM-9 | 垂直场景样板 | 选 1-2 个垂直场景（智能政务 / 企业知识管理）做深度样板，防"通用基座易被替代" | PL-9 模板市场 | 待办 |
+| PM-8 | 垂直场景样板 | 选 1-2 个垂直场景（智能政务 / 企业知识管理）做深度样板，防"通用基座易被替代" | PL-9 模板市场 | 待办 |
 
 ---
 

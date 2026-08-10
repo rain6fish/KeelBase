@@ -115,6 +115,15 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
+    // G-2 邀请：解析邀请码 → 绑定邀请者（无效邀请码静默忽略，不阻断注册）
+    let invitedBy: number | undefined;
+    if (dto.inviteCode) {
+      const inviter = await this.usersRepository.findOne({
+        where: { inviteCode: dto.inviteCode.toUpperCase() },
+      });
+      if (inviter) invitedBy = inviter.id;
+    }
+
     const user = this.usersRepository.create({
       username: dto.username,
       email: dto.email,
@@ -124,8 +133,15 @@ export class AuthService {
       lastName: dto.lastName,
       dateOfBirth: dto.dateOfBirth,
       phone: dto.phone ? this.encryption.encrypt(dto.phone) : undefined,
+      inviteCode: this.generateInviteCode(),
+      invitedBy,
     });
     await this.usersRepository.save(user);
+
+    // G-2：邀请成功后给邀请者发奖励通知
+    if (invitedBy) {
+      await this.notifyInviter(invitedBy, user.username).catch(() => {});
+    }
 
     // 发送邮箱验证码（失败不阻断注册）
     await this._sendVerification(user);
@@ -557,6 +573,50 @@ export class AuthService {
     }
     await this.sessionRepo.delete({ id: sessionId });
     this.logger.log(`Session revoked: userId=${userId}, sessionId=${sessionId}`);
+  }
+
+  /** G-2 邀请信息：本人邀请码 + 已邀请用户列表。 */
+  async getInviteInfo(userId: number) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) return { inviteCode: null, invited: 0, invitees: [] };
+    const invitees = await this.usersRepository.find({
+      where: { invitedBy: userId },
+      select: { id: true, username: true, nickname: true, createdAt: true },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return {
+      inviteCode: user.inviteCode ?? null,
+      invited: invitees.length,
+      invitees: invitees.map((i) => ({
+        id: i.id,
+        username: i.username,
+        nickname: i.nickname,
+        createdAt: i.createdAt,
+      })),
+    };
+  }
+
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    // 每字节取模映射到字符集，6 字节 → 8 位（多余字节丢弃，避免 undefined）
+    const rand = crypto.randomBytes(8);
+    for (let i = 0; i < 8; i++) {
+      code += chars[rand[i] % chars.length];
+    }
+    return code;
+  }
+
+  private async notifyInviter(inviterId: number, newUsername: string): Promise<void> {
+    await this.notificationsRepo.save(
+      this.notificationsRepo.create({
+        userId: inviterId,
+        title: '邀请成功',
+        body: `你邀请的用户 ${newUsername} 已注册成功`,
+        type: 'invite_reward',
+      }),
+    );
   }
 
   async getProfile(userId: number) {

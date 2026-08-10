@@ -108,6 +108,9 @@ export const envValidationSchema = Joi.object({
   // 定时任务（PL-7）：已读通知保留天数，超期清理
   NOTIFICATION_RETENTION_DAYS: Joi.number().default(30),
 
+  // Headless API（AI-19）：第三方集成用 API Key
+  HEADLESS_API_KEY: Joi.string().allow('').default(''),
+
   // 异常告警 Webhook（RG-4）
   ALERT_WEBHOOK_ENABLED: Joi.boolean().default(false),
   ALERT_WEBHOOK_URL: Joi.string().allow('').default(''),
