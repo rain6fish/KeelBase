@@ -17,11 +17,13 @@
 
 ```bash
 ./deploy/experience.sh        # 一键：起后端 + 管理台，打印演示账号与访问地址
+FLUTTER=1 ./deploy/experience.sh   # 额外起 Flutter Web 主 App
 # 或纯 Docker 全量：
 DOCKER=1 ./deploy/experience.sh
 ```
 
 > 不想看下面的分步说明？直接跑 `./deploy/experience.sh` 即可。它会自动检查依赖、起服务、等就绪、打印访问地址。
+> **端口不用操心**：后端默认 3000、管理台默认 10086、Flutter 自动分配；被占用会自动向上找空闲端口（如 3000 被占则用 3001）。
 
 ---
 
