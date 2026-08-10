@@ -224,6 +224,12 @@ export class OpenAICompatibleProvider implements LlmProvider {
     }
   }
 
+  /** AI-12：相对路径图片 URL 拼成公网可访问地址（LLM 需能 fetch 到） */
+  private resolveImageUrl(url: string): string {
+    if (/^https?:\/\//i.test(url)) return url;
+    return `${this.baseURL.replace(/\/chat\/completions$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
   /** 构建请求头 */
   private buildHeaders(): Record<string, string> {
     return {
@@ -242,8 +248,19 @@ export class OpenAICompatibleProvider implements LlmProvider {
       messages: params.messages.map((m: ChatMessage) => {
         const msg: Record<string, unknown> = {
           role: m.role,
-          content: m.content,
         };
+        // AI-12 多模态：带图片的 user 消息转 OpenAI 兼容的多模态 content 数组
+        if (m.images && m.images.length > 0) {
+          msg.content = [
+            { type: 'text', text: m.content },
+            ...m.images.map((url) => ({
+              type: 'image_url',
+              image_url: { url: this.resolveImageUrl(url) },
+            })),
+          ];
+        } else {
+          msg.content = m.content;
+        }
         if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
         if (m.name) msg.name = m.name;
         if (m.tool_calls && m.tool_calls.length > 0) {

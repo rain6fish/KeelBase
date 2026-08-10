@@ -17,6 +17,8 @@ export interface ChatMessage {
   tool_calls?: ToolCall[];
   /** DeepSeek thinking mode：推理内容必须随 assistant 消息原样回传，否则 API 400 */
   reasoning_content?: string;
+  /** AI-12 多模态：用户消息附带的图片 URL（OpenAI 兼容 vision 的 image_url） */
+  images?: string[];
 }
 
 /** 生成参数（通用，不区分供应商） */

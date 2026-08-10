@@ -62,6 +62,7 @@ export class AiController {
       provider: dto.provider,
       model: dto.model,
       conversationId: dto.conversationId,
+      images: dto.images,
     });
   }
 
@@ -91,6 +92,7 @@ export class AiController {
       provider: dto.provider,
       model: dto.model,
       conversationId: dto.conversationId,
+      images: dto.images,
     });
 
     // 客户端断开时停止

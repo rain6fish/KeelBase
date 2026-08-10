@@ -40,6 +40,7 @@ import { QueryEventsByKeywordTool } from './tools/query-events-by-keyword.tool';
 import { NavigatePageTool } from './tools/navigate-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { WebSearchTool } from './tools/web-search.tool';
 import { MemoriesService } from './memory/memory.service';
 import { UserMemory } from './memory/user-memory.entity';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -146,6 +147,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new NavigatePageTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // AI-14 联网搜索（TAVILY_API_KEY 配置后启用，未配置降级）
+        toolRegistry.register(new WebSearchTool(configService));
 
         // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
         const ragAgent = new RagAgent(knowledgeService);
