@@ -179,3 +179,38 @@ cat <<EOF
   体验 AI：先配 LLM Key（Server-Nodejs/.env 的 DEEPSEEK_API_KEY），
   或用本地 Ollama（见 docs/manual/quickstart.md）
 EOF
+
+# ── 验收清单：自动检查各端是否真的可用 ────────────────────
+echo ""
+echo "──── 验收清单 ────"
+check() {
+  local name="$1" url="$2"
+  if curl -sf "$url" >/dev/null 2>&1; then
+    echo "  ✓ $name"
+  else
+    echo "  ✗ $name（$url 无响应）"
+  fi
+}
+check "后端健康" "http://localhost:$BACKEND_PORT/api/v1/health"
+check "管理台" "$ADMIN_URL"
+if [ "$FLUTTER_URL" != "（未启动，加 FLUTTER=1 可启动）" ]; then
+  check "主 App" "$FLUTTER_URL"
+fi
+
+# ── 自动打开浏览器（尽力而为，失败不影响） ────────────────
+echo ""
+if [ "${OPEN_BROWSER:-1}" = "1" ]; then
+  echo "→ 尝试打开管理台…"
+  open_browser() {
+    case "$(uname -s)" in
+      Darwin) open "$1" ;;
+      Linux)  xdg-open "$1" ;;
+      MINGW*|MSYS*|CYGWIN*) cmd //c start "" "$1" ;;
+      *) true ;;
+    esac
+  }
+  (open_browser "$ADMIN_URL" >/dev/null 2>&1 || true)
+fi
+echo ""
+echo "→ 下一步：浏览器打开管理台 → 用 admin / Admin@1234 登录 → 看概览页的数据"
+echo "  主 App（Flutter）见上面地址（或加 FLUTTER=1 重启本脚本启动）"

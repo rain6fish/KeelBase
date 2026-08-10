@@ -16,14 +16,17 @@
 **最快的路径（只装 Docker）：**
 
 ```bash
-./deploy/experience.sh        # 一键：起后端 + 管理台，打印演示账号与访问地址
-FLUTTER=1 ./deploy/experience.sh   # 额外起 Flutter Web 主 App
+./scripts/dev.sh experience     # 统一入口：起后端 + 管理台，自动验收 + 开浏览器
+# 等价命令（有 make 的环境）：
+# make experience
+FLUTTER=1 ./scripts/dev.sh experience   # 额外起 Flutter Web 主 App
 # 或纯 Docker 全量：
-DOCKER=1 ./deploy/experience.sh
+DOCKER=1 ./scripts/dev.sh experience
 ```
 
-> 不想看下面的分步说明？直接跑 `./deploy/experience.sh` 即可。它会自动检查依赖、起服务、等就绪、打印访问地址。
+> 不想看下面的分步说明？直接跑 `./scripts/dev.sh experience` 即可。它会自动检查依赖、起服务、等就绪、**自动验收各端是否可用**、打印访问地址、尝试打开浏览器。
 > **端口不用操心**：后端默认 3000、管理台默认 10086、Flutter 自动分配；被占用会自动向上找空闲端口（如 3000 被占则用 3001）。
+> 其它命令入口：`./scripts/dev.sh help`（或 `make help`）看全部：dev / test / build / migrate 等。
 
 ---
 
