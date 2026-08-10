@@ -43,7 +43,9 @@
      },
    },
    h5: {
-     publicPath: '/',
+     // 子路径部署（与主 App 同域名 /admin 子路径）时设 ADMIN_BASE_PATH=admin
+     //（无斜杠前缀，规避 MSYS/Docker 路径转换差异）
+     publicPath: process.env.ADMIN_BASE_PATH ? `/${process.env.ADMIN_BASE_PATH}/` : '/',
      staticDirectory: 'static',
      postcss: {
        pxtransform: {

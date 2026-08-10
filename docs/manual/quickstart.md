@@ -11,7 +11,7 @@
 |----|---------|---------|
 | 后端 API | http://localhost:3000 | 提供所有接口 + Swagger 文档 |
 | 主 App（Web） | `flutter run` 后提示的端口（通常是随机端口） | 注册/登录、事件、待办、AI 助手 |
-| 管理台 | http://localhost:10086 | 用户/事件管理、审计、监控（需 admin 账号） |
+| 管理台 | http://localhost:10086（本地）/ 生产 `http://<域名>/admin` | 用户/事件管理、审计、监控（需 admin 账号） |
 
 **最快的路径（只装 Docker）：**
 
