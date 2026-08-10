@@ -41,6 +41,7 @@ import { NavigatePageTool } from './tools/navigate-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
 import { WebSearchTool } from './tools/web-search.tool';
+import { GenerateImageTool } from './tools/generate-image.tool';
 import { MemoriesService } from './memory/memory.service';
 import { UserMemory } from './memory/user-memory.entity';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -149,6 +150,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CreateTodoTool(todosService));
         // AI-14 联网搜索（TAVILY_API_KEY 配置后启用，未配置降级）
         toolRegistry.register(new WebSearchTool(configService));
+        // AI-12.1 图像生成（默认 provider 支持 images 端点时生效）
+        toolRegistry.register(new GenerateImageTool(factory, defaultProvider));
 
         // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
         const ragAgent = new RagAgent(knowledgeService);

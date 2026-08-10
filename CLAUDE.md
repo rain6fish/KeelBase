@@ -645,6 +645,8 @@ npm run migration:run
 | GET | /api/v1/admin/templates | Yes (ADMIN) | — | 内置示例模板列表（PL-9） |
 | POST | /api/v1/admin/templates/:id/import | Yes (ADMIN) | — | 一键导入模板数据（事件/待办种子，PL-9） |
 | POST | /api/v1/admin/marketing/send | Yes (ADMIN) | — | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） |
+| GET | /api/v1/admin/analytics | Yes (ADMIN) | — | 平台数据统计：DAU/WAU/MAU/留存/功能漏斗/错误大盘（PL-15） |
+| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | — | 管理端 AI 助手：带平台实时上下文对话（AI-22） |
 
 ---
 

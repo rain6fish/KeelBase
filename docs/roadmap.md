@@ -31,6 +31,7 @@
 - 2026-08-10 完成 AI-19（POST /headless/chat + API Key 认证，AI 能力外放）+ G-2（邀请码/邀请绑定/通知邀请者 + GET /auth/invite）+ AI-20（评测集 ai_eval_cases + 跑批 + 报告）。来源：本次实施。
 - 2026-08-10 完成 MINI-1（Taro 端 AI 聊天页，复用 /ai/chat）+ PL-9（模板市场：内置 2 模板 + 一键导入）+ G-3（运营邮件模板 + 分组发送）。来源：本次实施。
 - 2026-08-10 完成 AI-14（web_search 工具封装 Tavily，TAVILY_API_KEY 配置化 + 降级）+ AI-12（多模态图片理解：ChatMessage.images + provider 转 OpenAI 兼容 vision content；图像生成 AI-12.1 待续）。来源：本次实施。
+- 2026-08-10 完成 PL-15（GET /admin/analytics：DAU/WAU/MAU/留存/功能漏斗/错误大盘）+ AI-12.1（generate_image 工具 + provider generateImage 调 /images/generations）+ AI-22（POST /admin/ai/chat 管理端 AI 助手：注入平台统计/成本/监控上下文）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
 - 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-8）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。PM-8 国产芯片适配（信创）已移除。
@@ -296,7 +297,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-19 | Agent 对外 API（headless） | 第三方应用调用本基座 Agent 的无头端点（API Key 认证 + 独立限额 + 复用 AI 审计），"AI 能力外放"，企业集成卖点 | 基座已就绪 | **已完成（POST /headless/chat + HeadlessGuard 校验 x-api-key/HEADLESS_API_KEY + 复用 AiService.chat 以系统用户执行）** |
 | AI-20 | AI 质量评估体系 | 评测集（场景化 prompt + 期望行为）+ 定时回归跑分 + 报告（工具命中/超时/拒绝率/成本/一致性），防 AI 演进回归 | AI-18 样本积累 | **已完成（ai_eval_cases 表 + GET/POST/DELETE /ai/eval/cases + POST /ai/eval/run 并发跑批（30s 超时判失败）+ GET /ai/eval/report 最近报告）** |
 | AI-21 | AI 成本看板 | 用量与费用按 用户×模型×意图 聚合（复用 ai_audit_logs），管理台成本卡 + 超预算自动熔断降级 | 审计 / RG-2.1 已就绪 | **已完成（AuditService.getCostBreakdown 按用户×模型×意图聚合 tokens + GET /audit/cost；超预算熔断后续）** |
-| AI-22 | 管理端 AI 助手 | 管理员在管理台直接对话平台：查用量/异常、生成运营报表、审审计日志（复用 headless 端点 + 独立权限面），差异化卖点 | AI-19 落地后 | 待办 |
+| AI-22 | 管理端 AI 助手 | 管理员在管理台直接对话平台：查用量/异常、生成运营报表、审审计日志（复用 headless 端点 + 独立权限面），差异化卖点 | AI-19 落地后 | **已完成（POST /admin/ai/chat（CASL admin）：注入平台实时上下文（统计/成本/监控）→ 复用 AiService.chat 非流式回答）** |
 
 ### 五、平台化与商业化
 
@@ -308,7 +309,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | PL-12 | 多租户与组织架构（企业版） | 组织/团队/成员/角色 + 数据 tenant 隔离（实体加 tenantId + 查询过滤 + 迁移策略）；二期大项 | 基座已就绪 | 待办 |
 | PL-13 | 支付与内购 | 微信支付/支付宝/Apple IAP + 订单与回调验签 + 会员/积分权益映射，供基座生成的应用直接接入 | 基座已就绪 | 待办 |
 | PL-14 | 开放平台 | 应用 API Key 管理 + Webhook 订阅投递（事件/订单/通知变更）+ 第三方应用 OAuth 接入，生态化 | 基座已就绪 | 待办 |
-| PL-15 | 平台数据统计 | DAU/MAU/留存/功能使用漏斗/错误大盘（复用审计 + 新增统计端点），运营与增长决策 | 审计/监控已就绪 | 待办 |
+| PL-15 | 平台数据统计 | DAU/MAU/留存/功能使用漏斗/错误大盘（复用审计 + 新增统计端点），运营与增长决策 | 审计/监控已就绪 | **已完成（GET /admin/analytics：DAU 趋势/WAU/MAU/总用户 + 留存率 + 功能使用漏斗（op_audit_logs action 分组）+ AI 错误大盘；跨 sqlite/postgres 原始 SQL）** |
 
 ### 六、实时与规模化
 
@@ -447,4 +448,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-19 + G-2 + AI-20 | headless API（POST /headless/chat + API Key 认证）+ 邀请奖励（邀请码/绑定/通知 + GET /auth/invite）+ AI 评测（ai_eval_cases + 跑批 + 报告）；单测 543 + e2e 98 全绿 | 0fb0660 |
 | MINI-1 + PL-9 + G-3 | 小程序 AI（Taro 聊天页复用 /ai/chat）+ 模板市场（内置 2 模板一键导入）+ 运营邮件（模板 + 分组发送）；Taro build:h5 通过 | ed09872 |
 | AI-14 + AI-12 | web_search 联网工具（Tavily 封装 + 降级）+ 多模态图片理解（images 附加 + OpenAI vision content 转换）；单测 557 + e2e 98 全绿 | ad1f655 |
-| AI-14 + AI-12 | web_search 联网工具（Tavily 封装 + 降级）+ 多模态图片理解（images 附加 + OpenAI vision content 转换）；单测 557 + e2e 98 全绿 | ad1f655 |
+| PL-15 + AI-12.1 + AI-22 | 平台数据统计（GET /admin/analytics）+ 图像生成工具（generate_image）+ 管理端 AI 助手（POST /admin/ai/chat 带平台上下文）；单测 566 + e2e 98 全绿 | 待提交 |
