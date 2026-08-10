@@ -94,13 +94,14 @@ docker compose "${COMPOSE_FILES[@]}" exec -T -e NODE_ENV=production server npx t
 if [ "${HTTPS:-0}" = "1" ]; then
   echo ""
   echo "🎉 部署完成："
-  echo "   管理台 https://<服务器IP>/admin  （Front-Taro-Admin 独立部署）"
+  echo "   管理台 https://<服务器IP>/admin  （admin 账号登录）"
   echo "   主 App   https://<服务器IP>/"
   echo "   健康检查 https://<服务器IP>/api/v1/health"
 else
   echo ""
   echo "🎉 部署完成（HTTP）："
   echo "   健康检查 http://<服务器IP>:3000/api/v1/health"
+  echo "   管理台   http://<服务器IP>/admin  （admin 账号登录）"
   echo "   前端     http://<服务器IP>/"
 fi
 echo "   管理员   ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}"

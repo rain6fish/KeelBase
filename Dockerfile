@@ -26,9 +26,19 @@ COPY --from=server-build /app/server/dist ./dist
  RUN flutter pub get
  RUN flutter build web --release
 
- # ---- Nginx to serve Flutter web ----
+ # ---- Builder stage for Admin Console (Taro H5, /admin sub-path) ----
+ FROM node:22-alpine AS admin-build
+ WORKDIR /app/admin
+ COPY Front-Taro-Admin/package*.json ./
+ RUN npm ci
+ COPY Front-Taro-Admin/ .
+ ENV ADMIN_BASE_PATH=admin
+ RUN npm run build:h5
+
+ # ---- Nginx to serve Flutter web + admin console ----
  FROM nginx:alpine AS web
  COPY --from=flutter-build /app/client/build/web /usr/share/nginx/html
+ COPY --from=admin-build /app/admin/dist /usr/share/nginx/html/admin
  COPY nginx.conf /etc/nginx/conf.d/default.conf
  EXPOSE 80
  # nginx master runs as root, workers drop to nobody — standard nginx security model

@@ -57,13 +57,15 @@ curl http://localhost:3000/api/v1/health   # {"status":"ok",...}
 docker compose logs server | tail -20      # 启动日志 / 迁移执行
 ```
 
-登录管理台（`Front-Taro-Admin` 独立构建部署）：
+登录管理台（已随一键部署打包进 web 容器 `/admin` 子路径）：
 
 ```bash
-cd Front-Taro-Admin
-npm ci && npm run build:h5        # 产物 dist/
-# 将 dist/ 部署到独立域名（如 admin.example.com），或放到 web 容器的 /admin 子路径
+# 部署完成后直接访问：
+# 管理台  http://<服务器IP>/admin  （admin 账号登录）
 ```
+
+> 若想独立域名部署管理台（如 admin.example.com）：单独 `cd Front-Taro-Admin && npm ci && npm run build:h5`，
+> 把 `dist/` 托管到独立域名即可（默认 publicPath=/，无需 ADMIN_BASE_PATH）。
 
 ## 4. 生产环境注意
 
