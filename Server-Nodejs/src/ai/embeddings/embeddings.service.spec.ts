@@ -106,4 +106,31 @@ describe('EmbeddingsService', () => {
       await expect(service.embed('test')).rejects.toThrow('missing');
     });
   });
+
+  describe('POV-1 私有化（Ollama 本地）', () => {
+    it('isAvailable 仅需 OLLAMA_BASE_URL 即可用（数据不出域）', () => {
+      setup({ ...fullConfig, OLLAMA_BASE_URL: 'http://localhost:11434' });
+      expect(service.isAvailable('postgres')).toBe(true);
+    });
+
+    it('embed 走本地 /v1/embeddings 无真实 key', async () => {
+      setup({ ...fullConfig, OLLAMA_BASE_URL: 'http://localhost:11434', OLLAMA_EMBED_MODEL: 'bge-m3' });
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: [{ embedding: [0.9] }] }),
+      });
+      (global as any).fetch = mockFetch;
+
+      const vector = await service.embed('你好');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/v1/embeddings',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer ollama' }),
+          body: expect.stringContaining('bge-m3'),
+        }),
+      );
+      expect(vector).toEqual([0.9]);
+    });
+  });
 });

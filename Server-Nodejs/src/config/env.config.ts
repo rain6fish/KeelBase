@@ -115,6 +115,11 @@ export const envValidationSchema = Joi.object({
   TAVILY_API_KEY: Joi.string().allow('').default(''),
   TAVILY_BASE_URL: Joi.string().allow('').default('https://api.tavily.com/search'),
 
+  // 私有化 AI（POV-1）：本地 Ollama，数据不出域
+  OLLAMA_BASE_URL: Joi.string().allow('').default(''),
+  OLLAMA_MODEL: Joi.string().default('qwen2.5:7b'),
+  OLLAMA_EMBED_MODEL: Joi.string().default('bge-m3'),
+
   // 异常告警 Webhook（RG-4）
   ALERT_WEBHOOK_ENABLED: Joi.boolean().default(false),
   ALERT_WEBHOOK_URL: Joi.string().allow('').default(''),

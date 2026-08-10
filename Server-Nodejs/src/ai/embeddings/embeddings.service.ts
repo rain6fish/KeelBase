@@ -15,12 +15,14 @@ export class EmbeddingsService {
   constructor(private readonly configService: ConfigService) {}
 
   /**
-   * 向量功能是否可用：总开关 + postgres + API key + model 全部满足。
-   * 需要 access 到 DB 类型判断，故由调用方（KnowledgeService）传入。
+   * 向量功能是否可用：总开关 + postgres + 配置满足。
+   * 云端需要 baseUrl + apiKey + model；Ollama 本地（POV-1）仅需 OLLAMA_BASE_URL。
    */
   isAvailable(dbType?: string): boolean {
     if (!this.configService.get<boolean>('VECTOR_SEARCH_ENABLED', true)) return false;
     if (dbType !== 'postgres') return false;
+    // POV-1：本地 Ollama embedding（数据不出域）
+    if (this.configService.get<string>('OLLAMA_BASE_URL', '')) return true;
     const baseUrl = this.configService.get<string>('EMBEDDING_BASE_URL', '');
     const apiKey = this.configService.get<string>('EMBEDDING_API_KEY', '');
     const model = this.configService.get<string>('EMBEDDING_MODEL', '');
@@ -31,9 +33,16 @@ export class EmbeddingsService {
    * 生成单文本 embedding；失败抛错，由调用方降级。
    */
   async embed(text: string): Promise<number[]> {
-    const baseUrl = this.configService.get<string>('EMBEDDING_BASE_URL', '').replace(/\/+$/, '');
-    const apiKey = this.configService.get<string>('EMBEDDING_API_KEY', '');
-    const model = this.configService.get<string>('EMBEDDING_MODEL', '');
+    // POV-1：本地 Ollama（无 key，endpoint = /v1/embeddings）
+    const ollamaBase = this.configService.get<string>('OLLAMA_BASE_URL', '');
+    const isOllama = !!ollamaBase;
+    const baseUrl = isOllama
+      ? `${ollamaBase.replace(/\/+$/, '')}/v1`
+      : this.configService.get<string>('EMBEDDING_BASE_URL', '').replace(/\/+$/, '');
+    const apiKey = isOllama ? 'ollama' : this.configService.get<string>('EMBEDDING_API_KEY', '');
+    const model = isOllama
+      ? this.configService.get<string>('OLLAMA_EMBED_MODEL', 'bge-m3')
+      : this.configService.get<string>('EMBEDDING_MODEL', '');
 
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: 'POST',

@@ -139,6 +139,23 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           availableModels: ['gpt-4o-mini', 'gpt-4o'],
         });
 
+        // POV-1 私有化 AI：Ollama 本地模型（无需 API Key，OLLAMA_BASE_URL 判定启用）
+        // 数据不出域；AI_PROVIDER=ollama 时默认走本地，其余仍走云端（降级链）
+        const ollamaBase = configService.get<string>('OLLAMA_BASE_URL', '');
+        if (ollamaBase) {
+          const ollamaModel = configService.get<string>('OLLAMA_MODEL', 'qwen2.5:7b');
+          factory.register({
+            name: 'ollama',
+            displayName: '本地 Ollama',
+            baseURL: `${ollamaBase.replace(/\/+$/, '')}/v1`,
+            apiKey: 'ollama', // 本地无需真实 key，占位
+            defaultModel: configService.get<string>('AI_CHAT_MODEL', ollamaModel),
+            availableModels: [ollamaModel],
+            maxTokens: configService.get<number>('AI_MAX_TOKENS', 4096),
+            temperature: configService.get<number>('AI_TEMPERATURE', 0.7),
+          });
+        }
+
         // 2. 创建工具注册表
         const toolRegistry = new ToolRegistry();
         toolRegistry.register(new QueryEventsTool(eventsService));
