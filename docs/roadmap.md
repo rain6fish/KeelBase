@@ -480,3 +480,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-14 + AI-12 | web_search 联网工具（Tavily 封装 + 降级）+ 多模态图片理解（images 附加 + OpenAI vision content 转换）；单测 557 + e2e 98 全绿 | ad1f655 |
 | PL-15 + AI-12.1 + AI-22 | 平台数据统计（GET /admin/analytics）+ 图像生成工具（generate_image）+ 管理端 AI 助手（POST /admin/ai/chat 带平台上下文）；单测 566 + e2e 98 全绿 | 74593de |
 | PL-10 一期 | 低代码表单（form_schemas/form_submissions + /forms 用户端点 + admin CRUD + Flutter 动态表单渲染器）；后端单测 573 + e2e 98 + Flutter 145 全绿 | 36e8229 |
+| PL-11 | 插件机制（PluginManifest + PluginsService + 生命周期钩子 + registerRoute + hello-plugin + /admin/plugins）；后端单测 579 + e2e 98 全绿 | 2250cda |
