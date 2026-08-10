@@ -1,0 +1,145 @@
+# 快速上手 · 5 分钟跑通全栈（零基础版）
+
+> 目标：**不用看任何代码**，把「后端 + 主 App + 管理台」三个端跑起来，用演示账号登录体验。
+> 每步都给了「怎么验证」和「卡住了怎么办」。新手从第 1 节开始，老手直接看第 2 节。
+
+---
+
+## 0. 你会跑出什么
+
+| 端 | 访问地址 | 能做什么 |
+|----|---------|---------|
+| 后端 API | http://localhost:3000 | 提供所有接口 + Swagger 文档 |
+| 主 App（Web） | `flutter run` 后提示的端口（通常是随机端口） | 注册/登录、事件、待办、AI 助手 |
+| 管理台 | http://localhost:10086 | 用户/事件管理、审计、监控（需 admin 账号） |
+
+---
+
+## 1. 最快路径：Docker 一键（推荐）
+
+> 只需要装一个 Docker，其余全自动。
+
+**第一步：装 Docker**
+- Windows：安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)，启动它
+- Mac/Linux：装 Docker Engine + Compose
+- 验证：终端执行 `docker --version` 有输出版本号即成功
+
+**第二步：起服务**
+
+```bash
+# 在项目根目录
+docker compose up --build -d
+```
+
+> 首次构建会下载镜像 + 编译，约 10 分钟；之后启动很快。
+
+**第三步：验证**
+```bash
+# 浏览器打开，看到 {"status":"ok"} 即后端就绪
+curl http://localhost:3000/api/v1/health
+# 前端访问
+open http://localhost
+```
+
+**卡住了？**
+- 端口被占用 → 改 `docker-compose.yml` 里 `ports` 映射（如 `"80:80"` 改 `"8080:80"`）
+- 镜像拉不动（网络慢）→ 配置 Docker 国内镜像加速，再重试
+
+**然后**：用演示账号登录体验 → 见第 3 节。
+
+---
+
+## 2. 本地开发路径（要改代码时用）
+
+### 2.1 后端
+
+```bash
+cd Server-Nodejs
+cp .env.example .env      # 生成配置（默认零配置即可跑）
+npm install
+npm run start:dev
+```
+
+- ✅ 验证：http://localhost:3000/api/v1/health 显示 ok；http://localhost:3000/api/docs 打开 Swagger
+- ⚠️ 数据库默认 SQLite（零配置）；要接 PostgreSQL 需先 `docker compose up postgres redis -d`
+- ⚠️ 首次启动自动创建演示账号（见第 3 节）
+
+**卡住了？**
+- `npm install` 报权限 → Windows 用管理员终端，Mac/Linux 加 `sudo`
+- 启动报缺 `.env` → 确认已 `cp .env.example .env`
+- 端口 3000 被占 → 改 `.env` 的 `PORT`，同时前端配置要对应改
+
+### 2.2 主 App（Flutter Web，最省事）
+
+```bash
+cd Front-Flutter
+flutter pub get
+flutter run -d chrome
+```
+
+- ✅ 验证：浏览器弹出登录页；用 `alex / 123456` 登录进首页
+- ⚠️ 需先装 [Flutter SDK](https://docs.flutter.dev/get-started/install)（≥ 3.12）
+- ⚠️ 默认对接 `http://localhost:3000/api/v1`，后端须先启动
+
+**卡住了？**
+- `flutter: command not found` → Flutter 未装或未加入 PATH
+- 页面一直转圈 → 后端没起，或端口不是 3000（改 `lib/core/constants/app_constants.dart`）
+
+### 2.3 管理台（Taro H5）
+
+```bash
+cd Front-Taro-Admin
+npm install
+npm run build:h5              # 生成静态产物到 dist/
+# 用任意静态服务器托管 dist/
+python -m http.server 10086 -d dist
+```
+
+- ✅ 验证：http://localhost:10086 打开管理台 → 用 `admin / Admin@1234` 登录
+- ⚠️ `dev:h5` 在部分 Node 版本会崩，**始终用 `build:h5` + 静态服务器**
+
+**卡住了？**
+- 登录后 403/空白 → 检查是否用 admin 账号；普通用户进不了管理台
+- 主 App 同步功能（通知/会话）在 Taro 端 → 参照 Front-Taro 构建
+
+---
+
+## 3. 演示账号（体验全部功能）
+
+后端首次启动（development 环境）自动创建：
+
+| 角色 | 用户名 | 密码 | 用途 |
+|------|--------|------|------|
+| 普通用户 | `alex` | `123456` | 主 App：事件、待办、AI、通知、搜索、上传 |
+| 管理员 | `admin` | `Admin@1234` | 管理台：用户/事件管理、审计、监控、广播 |
+
+**建议体验路径**：
+1. 主 App 登录 `alex` → 首页看数据洞察 → 事件页创建一条日程 → 待办页加个任务
+2. 打开 AI 助手 → 输入「查一下我这个月的事件」（验证 AI 工具调用）
+3. 管理台登录 `admin` → 概览看平台数据 → 用户管理 → AI 审计
+
+> ⚠️ 管理端接口对 `alex`（非 admin）一律 403，这是权限设计，不是 bug。
+
+---
+
+## 4. 常见坑速查（详见 [FAQ](faq.md)）
+
+| 现象 | 原因 | 解决 |
+|------|------|------|
+| 登录被锁定 | 连续失败 10 次 | 等 15 分钟 |
+| 收不到验证邮件 | SMTP 未配置 | 开发环境无需邮件，直接跳过验证页 |
+| 管理接口 403 | 账号不是 admin | 用 admin 账号 |
+| AI 回复「未配置」 | 没配 LLM API Key | 见 [FAQ](faq.md)「AI 部分」 |
+| App 连不上后端 | 后端没起 / 端口不一致 | 先起后端，端口统一 3000 |
+
+---
+
+## 5. 下一步
+
+| 你想…… | 去看 |
+|--------|------|
+| 排查具体问题 | [常见问题 FAQ](faq.md) |
+| 了解所有功能与接口 | [使用手册](usage.md) |
+| 改代码 / 加功能 | [开发手册](development.md) |
+| 部署上线 | [一键部署](one-click-deploy.md) / [离线部署](offline-deploy.md) |
+| 服务器运维 | [运维手册](operations.md) |

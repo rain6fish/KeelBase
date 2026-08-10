@@ -4,8 +4,12 @@
 > For end users. Covers quick start, demo accounts, and all feature URLs.
 
 Related manuals / 相关手册：
+- [Quick Start / 快速上手（零基础）](quickstart.md)
+- [FAQ / 常见问题](faq.md)
 - [Development Manual / 开发手册](development.md)
 - [Operations Manual / 运维手册](operations.md)
+
+> 💡 第一次使用？先看 [快速上手（零基础 5 分钟跑通）](quickstart.md)，遇到问题查 [FAQ](faq.md)。本手册侧重功能与接口清单。
 
 ---
 
