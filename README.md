@@ -55,15 +55,31 @@ Unlike traditional boilerplates that focus only on CRUD, ShiYu-AppBase is engine
 
 > 🚀 **想 5 分钟不读代码跑起来？** 看 [快速上手（零基础版）](docs/manual/quickstart.md)，排错看 [常见问题 FAQ](docs/manual/faq.md)。
 
-### Fastest Path: Docker One-Click
+### Fastest Path: Docker One-Click / 一键体验
 
 ```bash
-docker compose up --build -d     # 起后端 + 前端 + 管理台全部
-curl http://localhost:3000/api/v1/health   # 验证后端
-open http://localhost                        # 主 App
+./scripts/dev.sh experience     # 一键：起后端+管理台，自动验收 + 开浏览器
+# 或纯 Docker 全量（有 make 用 `make experience`）：
+DOCKER=1 ./scripts/dev.sh experience
 ```
 
-> 只需装 Docker。首次构建约 10 分钟。演示账号：`alex / 123456`（主 App）、`admin / Admin@1234`（管理台）。
+> 只需装 Docker（或本地 Node）。端口自动探测、自动验收各端、打印演示账号。
+> Just needs Docker (or local Node). Auto port detection, auto-verify, prints demo accounts.
+
+### 统一命令入口 / Unified Commands
+
+```bash
+./scripts/dev.sh help      # 全部命令（experience / dev / test / build / migrate …）
+make help                 # 等价（有 make 的环境）
+```
+
+### Local Dev Path / 本地开发
+
+```bash
+./scripts/dev.sh dev        # 起后端（SQLite 零配置，自动降级缓存/队列）
+./scripts/dev.sh web        # 起 Flutter Web
+./scripts/dev.sh dev-admin  # 构建并托管管理台
+```
 
 ### Local Dev Path（改代码时）
 
@@ -98,18 +114,16 @@ flutter run -d chrome  # web
 
 Frontend defaults to `http://localhost:3000/api/v1`.
 
-### Admin Console
+### Admin Console / 管理台
 
-```bash
-cd Front-Taro-Admin
-npm install
-npm run build:h5      # static build → dist/
-# serve dist/ with any static server (e.g. python -m http.server 10086 -d dist)
-```
+一键部署后管理台随主 App 一起打包到 `/admin` 子路径（无需单独部署）：
 
-**Local access**: http://localhost:10086
+- **生产/一键部署**：`http://<服务器>/admin`
+- **本地**：`./scripts/dev.sh dev-admin` 构建并托管到 http://localhost:10086
+- 独立域名部署：`cd Front-Taro-Admin && npm ci && npm run build:h5`，托管 `dist/`
 
 > Admin console requires an account with `role = admin`. See [Demo Account](#demo-account).
+> 管理台需 `role = admin` 账号登录。
 
 ### Docker (Production)
 
