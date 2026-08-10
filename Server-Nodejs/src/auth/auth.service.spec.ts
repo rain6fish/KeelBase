@@ -66,6 +66,7 @@ describe('AuthService', () => {
     update: jest.fn(),
     delete: jest.fn(),
     count: jest.fn(),
+    find: jest.fn(),
   };
 
   const mockJwtService = {
@@ -830,6 +831,53 @@ describe('AuthService', () => {
       expect(result.profile.username).toBe('testuser');
       expect(result.todos).toHaveLength(1);
       expect(result).toHaveProperty('exportedAt');
+    });
+  });
+
+  describe('G-2 邀请奖励', () => {
+    const dto = {
+      username: 'newbie',
+      email: 'newbie@example.com',
+      password: 'Pass1234',
+      nickname: 'Newbie',
+    };
+
+    it('注册时生成邀请码', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockImplementation((d: any) => d);
+      mockRepository.save.mockResolvedValue({ id: 9, ...dto, inviteCode: 'ABCDEF12' });
+
+      await service.register({ ...dto, inviteCode: undefined } as any);
+
+      expect(mockRepository.create.mock.calls[0][0].inviteCode).toMatch(/^[A-Z0-9]{8}$/);
+    });
+
+    it('带有效邀请码注册时绑定邀请者并通知', async () => {
+      // findOne 依次: username 查重(null) → email 查重(null) → 邀请码查邀请者
+      mockRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 5 });
+      const notifications = moduleFixture.get(getRepositoryToken(Notification));
+      (notifications.save as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await service.register({ ...dto, inviteCode: 'ABCDEF12' } as any);
+
+      expect(mockRepository.create.mock.calls[0][0].invitedBy).toBe(5);
+      expect(notifications.save).toHaveBeenCalled();
+    });
+
+    it('getInviteInfo 返回邀请码与邀请列表', async () => {
+      mockRepository.findOne.mockResolvedValue({ id: 5, inviteCode: 'ABCDEF12' });
+      mockRepository.find.mockResolvedValue([
+        { id: 9, username: 'newbie', nickname: 'Newbie', createdAt: new Date() },
+      ]);
+
+      const info = await service.getInviteInfo(5);
+
+      expect(info.inviteCode).toBe('ABCDEF12');
+      expect(info.invited).toBe(1);
+      expect(info.invitees[0].username).toBe('newbie');
     });
   });
 });

@@ -207,6 +207,13 @@ export class AuthController {
     return this.authService.exportData(user.sub);
   }
 
+  @Get('invite')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'G-2 我的邀请信息：邀请码 + 已邀请用户列表' })
+  async getInvite(@CurrentUser() user: JwtPayload) {
+    return this.authService.getInviteInfo(user.sub);
+  }
+
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })

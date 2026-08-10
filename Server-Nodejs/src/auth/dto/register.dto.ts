@@ -62,4 +62,10 @@ export class RegisterDto {
   @IsString()
   @MaxLength(20)
   phone?: string;
+
+  @ApiPropertyOptional({ description: '邀请码（G-2）', example: 'ABCDEF12' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  inviteCode?: string;
 }
