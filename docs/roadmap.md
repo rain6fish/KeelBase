@@ -35,6 +35,7 @@
 - 2026-08-10 完成 PL-10 一期（低代码表单：form_schemas/form_submissions + /forms 用户端点 + admin CRUD + Flutter 动态表单渲染器，schema 字段渲染/校验/提交；页面构建器 + 动态表二期）。来源：本次实施。
 - 2026-08-10 完成 PL-11（插件机制：PluginsService 编译期注册 + requires 依赖校验 + featureFlag 开关 + 生命周期钩子 + registerRoute + 示例 hello-plugin + GET /admin/plugins）。来源：本次实施。
 - 2026-08-10 完成 POV-1（私有化 AI：OLLAMA_BASE_URL 自动注册 ollama provider（无 Key）+ AI_PROVIDER=ollama 全走本地 + Ollama embedding（/v1/embeddings，bge-m3）自动启用向量检索 + 云端可用形成降级链，兑现「数据不出域」）。来源：本次实施。
+- 2026-08-10 完成 POV-2（数据导入迁移：POST /admin/import/users + /admin/import/events，自写 CSV 解析 + 批量导入复用 create + 每行失败隔离返回明细）。来源：本次实施。
 - 2026-08-08 全项目竞争力审视：新增「市场竞争力审视与未来方向」章节——AI-12~AI-22（多模态/语音/联网/定时主动任务/知识库深化/提示词与模型管理/反馈闭环/headless API/评测/成本看板/管理端 AI）+ PL-9~PL-15（模板市场/低代码/插件/多租户/支付/开放平台/数据统计）+ RG-6/7（WS 实时/API 网关）+ MINI-1~4（小程序 AI/订阅消息/微信登录/分享）+ G-1~3（反馈/邀请/运营邮件）。来源：全项目市场竞争力、AI 缺口与未来方向盘点。
 - 2026-08-08 追加「功能模块化（MOD）」方案（MOD-1~4：模块清单与依赖图谱 / 启动期装配 / 管理台模块管理 / capabilities 三端联动）。来源：产品讨论——功能按需挂载减少开销；**方案待评估**（是否优于现有 PL-8 特性开关，后续定）。
 - 2026-08-10 追加「产品化与商业化」章节（PM-1~PM-8）。来源：产品评估报告（市场定位/竞争力/商业短板盘点）。**纠偏**：报告引用的 PL-8 特性开关、RG-3 软删回收站、D.7 一键部署均已完成，不重复入清单；AI-16/AI-17 已开始实现（代码未提交）。PM-8 国产芯片适配（信创）已移除。
@@ -370,7 +371,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | POV-1 | 私有化 AI 部署 | 定位核心矛盾：AI 全走云端 API，与「数据主权」冲突。补：本地 LLM 集成（Ollama/vLLM，provider 加 local 类型或 base URL 指引）、本地 embedding（bge-m3 等——embedding 是难点）、云→本地降级链、私有化部署指南。**区别于 PM-8 信创芯片适配（国产硬件兼容，已移除）**——这是「数据不出域」承诺本身 | AI provider（OpenAI 兼容）已就绪 | **已完成（OLLAMA_BASE_URL 配置后自动注册 ollama provider（无 Key）+ AI_PROVIDER=ollama 走本地 + Ollama embedding（/v1/embeddings，bge-m3）自动启用向量检索 + 云端仍可用形成降级链 + .env.example 说明）** |
-| POV-2 | 数据导入/迁移工具 | 企业采纳基座需从旧系统迁数据；现有 AU-6 仅**个人**数据导出，无管理台**批量导入**。补：管理台 Excel/CSV 批量导入（事件/待办/用户）+ 导入模板下载 + 校验与失败报告 + 导入审计（与 PL-9 开箱即用同族） | 管理台已就绪 | 待办 |
+| POV-2 | 数据导入/迁移工具 | 企业采纳基座需从旧系统迁数据；现有 AU-6 仅**个人**数据导出，无管理台**批量导入**。补：管理台 Excel/CSV 批量导入（事件/待办/用户）+ 导入模板下载 + 校验与失败报告 + 导入审计（与 PL-9 开箱即用同族） | 管理台已就绪 | **已完成（POST /admin/import/users + /admin/import/events：自写 CSV 解析（带引号字段）+ 批量导入复用 create + 每行独立失败隔离返回明细；Excel/待办导入 + 模板下载 + 管理台页面待续）** |
 | POV-3 | 离线/内网部署 | D.7 一键部署假设联网（docker pull + 云依赖），政企内网/离线环境无方案。补：离线镜像/依赖预置、SMTP/推送/OAuth 降级或内网替代 | D.7 已就绪 | 待办（可并入 POV-1 一并实施） |
 | AI-23 | 生成式 AI 内容安全 | 输入/输出内容审核（敏感词 + 违规过滤）+ prompt injection/越狱防护 + 数据出境声明（网信办《生成式 AI 服务管理暂行办法》）。**市场相关（国内 C 端合规），按决策押后** | AI 模块已就绪 | 待办（押后） |
 
@@ -483,3 +484,4 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | PL-10 一期 | 低代码表单（form_schemas/form_submissions + /forms 用户端点 + admin CRUD + Flutter 动态表单渲染器）；后端单测 573 + e2e 98 + Flutter 145 全绿 | 36e8229 |
 | PL-11 | 插件机制（PluginManifest + PluginsService + 生命周期钩子 + registerRoute + hello-plugin + /admin/plugins）；后端单测 579 + e2e 98 全绿 | 2250cda |
 | POV-1 | 私有化 AI（OLLAMA_BASE_URL 自动注册 ollama provider + 本地 embedding + 云→本地降级链，兑现「数据不出域」）；后端单测 581 + e2e 98 全绿 | 2a17430 |
+| POV-2 | 数据导入迁移（POST /admin/import/users + /events，CSV 批量导入 + 失败隔离明细）；后端单测 587 + e2e 98 全绿 | 待提交 |

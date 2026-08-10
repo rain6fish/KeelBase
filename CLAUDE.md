@@ -657,6 +657,8 @@ npm run migration:run
 | GET | /api/v1/admin/forms/:id/submissions | Yes (ADMIN) | — | 表单提交列表（PL-10） |
 | GET | /api/v1/admin/plugins | Yes (ADMIN) | — | 已加载插件列表（PL-11） |
 | POST | /api/v1/plugins/:path | Yes | — | 插件路由统一入口（PL-11，插件 registerRoute 注册） |
+| POST | /api/v1/admin/import/users | Yes (ADMIN) | — | 批量导入用户（CSV，POV-2，返回成功/失败明细） |
+| POST | /api/v1/admin/import/events | Yes (ADMIN) | — | 批量导入事件（CSV，POV-2，返回成功/失败明细） |
 
 ---
 
