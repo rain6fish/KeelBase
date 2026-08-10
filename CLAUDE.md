@@ -655,6 +655,8 @@ npm run migration:run
 | PATCH | /api/v1/admin/forms/:id | Yes (ADMIN) | — | 更新表单定义（PL-10） |
 | DELETE | /api/v1/admin/forms/:id | Yes (ADMIN) | — | 删除表单定义及提交（PL-10） |
 | GET | /api/v1/admin/forms/:id/submissions | Yes (ADMIN) | — | 表单提交列表（PL-10） |
+| GET | /api/v1/admin/plugins | Yes (ADMIN) | — | 已加载插件列表（PL-11） |
+| POST | /api/v1/plugins/:path | Yes | — | 插件路由统一入口（PL-11，插件 registerRoute 注册） |
 
 ---
 
