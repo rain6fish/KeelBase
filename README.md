@@ -1,5 +1,11 @@
 # ShiYu-AppBase — Full-Stack Application Base Platform
 
+> ### 🚀 60 秒开始 / Get Started in 60s
+> ```bash
+> ./scripts/dev.sh experience   # 一键体验：起后端+管理台，自动开浏览器（Windows/Linux/Mac）
+> ```
+> 只装 Docker 或 Node 即可。详见 [快速上手](docs/manual/quickstart.md) / [FAQ](docs/manual/faq.md)。
+
 **A Production-Ready, AI-Native, Full-Stack Application Base — built for data sovereignty.**
 **一个私有化部署、AI 原生、开箱即用的全栈应用基座。**
 
