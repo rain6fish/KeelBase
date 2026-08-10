@@ -42,6 +42,7 @@ import { HeadlessModule } from './headless/headless.module';
 import { TemplatesModule } from './templates/templates.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { FormBuilderModule } from './form-builder/form-builder.module';
+import { PluginsModule } from './plugins/plugins.module';
 import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
@@ -161,6 +162,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     TemplatesModule,
     MarketingModule,
     FormBuilderModule,
+    PluginsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },
