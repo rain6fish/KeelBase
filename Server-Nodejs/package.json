@@ -14,6 +14,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --forceExit",
+    "test:e2e:cov": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --forceExit --coverage",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/typeorm-data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/typeorm-data-source.ts",
