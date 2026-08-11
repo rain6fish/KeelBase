@@ -12,7 +12,7 @@
 | `SMTP_SECURE` | `true` | 是否使用 TLS |
 | `SMTP_USER` | `''` | 发件账号 |
 | `SMTP_PASS` | `''` | 发件密码 |
-| `SMTP_FROM` | `''` | 发件人显示，如 `ShiYu-AppBase <no-reply@example.com>` |
+| `SMTP_FROM` | `''` | 发件人显示，如 `KeelBase <no-reply@example.com>` |
 
 启用条件：`MAIL_ENABLED=true` 且 `SMTP_HOST` 非空。
 
@@ -24,7 +24,7 @@
 |------|------|------|
 | `sendVerificationEmail(email, code)` | 注册/邮箱验证 | 6 位验证码，10 分钟有效（有效期由消费方控制） |
 | `sendPasswordResetEmail(email, resetUrl)` | 重置密码 | 完整重置链接（由消费方拼接 `APP_BASE_URL`），30 分钟有效 |
-| `sendNotificationEmail(email, title, body)` | 站内通知 | subject 前缀 `【ShiYu-AppBase】`，正文换行转 `<br/>` |
+| `sendNotificationEmail(email, title, body)` | 站内通知 | subject 前缀 `【KeelBase】`，正文换行转 `<br/>` |
 
 正文为内联样式中文 HTML，支持主要客户端。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ShiYu-AppBase 统一命令入口（Windows/Linux/Mac 通用，不依赖 make）
+# KeelBase 统一命令入口（Windows/Linux/Mac 通用，不依赖 make）
 #
 # 用法：./scripts/dev.sh <command>
 #   experience      一键体验（起后端+管理台，自动开浏览器）

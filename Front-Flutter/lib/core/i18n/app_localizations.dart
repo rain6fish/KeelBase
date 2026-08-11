@@ -24,7 +24,7 @@ class AppLocalizations {
   String _t(String en, String zh) => isZh ? zh : en;
 
   // --- General ---
-  String get appName => _t('ShiYu-AppBase', 'ShiYu-AppBase');
+  String get appName => _t('KeelBase', 'KeelBase');
   String get ok => _t('OK', '确定');
   String get cancel => _t('Cancel', '取消');
   String get confirm => _t('Confirm', '确认');
@@ -144,7 +144,7 @@ class AppLocalizations {
   String get onboardingSkip => _t('Skip', '跳过');
   String get onboardingNext => _t('Next', '下一步');
   String get onboardingStart => _t('Get Started', '开始使用');
-  String get onboardingWelcomeTitle => _t('Welcome to ShiYu-AppBase', '欢迎使用 ShiYu-AppBase');
+  String get onboardingWelcomeTitle => _t('Welcome to KeelBase', '欢迎使用 KeelBase');
   String get onboardingWelcomeDesc => _t('A full-stack app base — events, todos, AI assistant and more.', '全栈应用基座 —— 事件、待办、AI 助手一站式管理。');
   String get onboardingEventsTitle => _t('Events & Todos', '事件与待办');
   String get onboardingEventsDesc => _t('Manage your schedule with calendar events and todo lists.', '用日历事件与待办清单管理你的日程。');

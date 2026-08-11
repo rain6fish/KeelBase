@@ -66,6 +66,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Front'), findsOneWidget);
+    expect(find.text('KeelBase'), findsOneWidget);
   });
 }

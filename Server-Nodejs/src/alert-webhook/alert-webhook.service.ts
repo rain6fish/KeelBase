@@ -46,7 +46,7 @@ export class AlertWebhookService {
     }
     this.lastSentAt = now;
 
-    const text = `[ShiYu-AppBase]\n${title}\n${message}${meta ? `\n${JSON.stringify(meta)}` : ''}`;
+    const text = `[KeelBase]\n${title}\n${message}${meta ? `\n${JSON.stringify(meta)}` : ''}`;
     const body = this._buildBody(text);
 
     try {

@@ -1,4 +1,4 @@
-# ShiYu-AppBase 统一命令入口（傻瓜化：不用记一堆命令）
+# KeelBase 统一命令入口（傻瓜化：不用记一堆命令）
 #
 # 最常用：
 #   make experience     一键体验（起后端+管理台，自动开浏览器）
@@ -11,7 +11,7 @@
 .PHONY: help experience dev dev-admin admin web test test-backend test-frontend build build-prod lint docker-up docker-down migrate migrate-generate backup db-redis clean
 
 help: ## 显示所有命令
-	@echo "ShiYu-AppBase 常用命令："
+	@echo "KeelBase 常用命令："
 	@echo ""
 	@echo "  体验/运行"
 	@echo "    make experience      一键体验（起后端+管理台，自动开浏览器）"

@@ -1,6 +1,6 @@
  # PostgreSQL 数据库配置指南
  
- 本目录包含 ShiYu-AppBase 项目生产环境 PostgreSQL 数据库的所有配置、脚本和最佳实践文档。
+ 本目录包含 KeelBase 项目生产环境 PostgreSQL 数据库的所有配置、脚本和最佳实践文档。
  
  ## 目录结构
  

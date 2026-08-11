@@ -1,8 +1,8 @@
 # Security Policy / 安全政策
 
-ShiYu-AppBase is a production-ready, AI-native full-stack application base built for **data sovereignty** and **private deployment**. We take security seriously. This document describes our supported versions, how we handle security issues, and the built-in security posture of the platform.
+KeelBase is a production-ready, AI-native full-stack application base built for **data sovereignty** and **private deployment**. We take security seriously. This document describes our supported versions, how we handle security issues, and the built-in security posture of the platform.
 
-ShiYu-AppBase 是一个面向**数据主权与私有化部署**的生产级、AI 原生全栈应用基座。我们高度重视安全。本文档说明受支持的版本、安全问题的处理流程，以及平台内置的安全能力。
+KeelBase 是一个面向**数据主权与私有化部署**的生产级、AI 原生全栈应用基座。我们高度重视安全。本文档说明受支持的版本、安全问题的处理流程，以及平台内置的安全能力。
 
 ---
 
@@ -49,9 +49,9 @@ If you prefer, you can encrypt the email using the PGP key below. / 如需要，
 
 ### Alternative / 备选
 
-If email is not suitable, you may use the **private vulnerability reporting** feature on GitHub if enabled, or contact the maintainer via the project's [GitHub Discussions](https://github.com/rain6fish/ShiYu-AppBase/discussions) **without** including exploit details.
+If email is not suitable, you may use the **private vulnerability reporting** feature on GitHub if enabled, or contact the maintainer via the project's [GitHub Discussions](https://github.com/rain6fish/KeelBase/discussions) **without** including exploit details.
 
-如不便使用邮件，也可通过 GitHub 的**私密漏洞报告**功能（若已启用），或通过项目 [GitHub Discussions](https://github.com/rain6fish/ShiYu-AppBase/discussions) 联系维护者（**不要**包含利用细节）。
+如不便使用邮件，也可通过 GitHub 的**私密漏洞报告**功能（若已启用），或通过项目 [GitHub Discussions](https://github.com/rain6fish/KeelBase/discussions) 联系维护者（**不要**包含利用细节）。
 
 ---
 

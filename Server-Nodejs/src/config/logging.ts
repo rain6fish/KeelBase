@@ -52,7 +52,7 @@ export function createLoggerOptions(configService: ConfigService): Params {
     target: 'pino-loki',
     options: {
       host: lokiUrl,
-      labels: { app: 'shiyu-appbase-server', env: nodeEnv },
+      labels: { app: 'keelbase-server', env: nodeEnv },
       batching: true,
       interval: 5,
       timeout: 30000,

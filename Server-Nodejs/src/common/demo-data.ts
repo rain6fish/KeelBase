@@ -162,10 +162,10 @@ export async function seedDemoData(
   if (kc === 0) {
     await knowledgeRepo.save([
       {
-        title: 'ShiYu-AppBase 是什么',
+        title: 'KeelBase 是什么',
         category: '产品介绍',
         content:
-          'ShiYu-AppBase 是一个生产级、AI 原生的全栈应用基座，覆盖 Flutter/Taro 三端 + NestJS 后端 + AI 编排，支持私有化部署，强调数据主权与企业级安全。',
+          'KeelBase 是一个生产级、AI 原生的全栈应用基座，覆盖 Flutter/Taro 三端 + NestJS 后端 + AI 编排，支持私有化部署，强调数据主权与企业级安全。',
       },
       {
         title: '如何启动后端',
@@ -253,7 +253,7 @@ export async function seedDemoData(
     await notifRepo.save([
       {
         userId: user.id,
-        title: '欢迎使用 ShiYu-AppBase',
+        title: '欢迎使用 KeelBase',
         body: '这是一条演示通知。你可以在消息中心查看、标记已读或删除通知。',
         type: 'system',
         isRead: true,

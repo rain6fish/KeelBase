@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ShiYu-AppBase 离线/内网部署脚本（POV-3）
+# KeelBase 离线/内网部署脚本（POV-3）
 #
 # 政企内网/离线环境：无外网无法 docker pull 镜像。本脚本假设镜像已预置到内网
 # 仓库（或已 load），只做：

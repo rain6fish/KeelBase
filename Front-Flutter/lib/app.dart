@@ -44,7 +44,7 @@ class _AppState extends State<App> {
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
     return CupertinoApp.router(
-      title: 'Front',
+      title: 'KeelBase',
       debugShowCheckedModeBanner: false,
       theme: isDark ? AppTheme.darkTheme : AppTheme.lightTheme,
       routerConfig: _router!,

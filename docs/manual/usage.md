@@ -1,6 +1,6 @@
 # Usage Manual / 使用手册
 
-> ShiYu-AppBase — 面向最终用户的快速使用指南。
+> KeelBase — 面向最终用户的快速使用指南。
 > For end users. Covers quick start, demo accounts, and all feature URLs.
 
 Related manuals / 相关手册：
