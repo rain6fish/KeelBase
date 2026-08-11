@@ -43,6 +43,23 @@ pick_port() {
 # ── Docker 模式：最简单，只需 Docker ───────────────────────
 if [ "${DOCKER:-0}" = "1" ]; then
   command -v docker >/dev/null 2>&1 || { echo "✗ 需要 Docker。安装: https://www.docker.com/products/docker-desktop/"; exit 1; }
+  # compose 的 server 服务从 .env.production 注入密钥，缺失会导致配置校验失败
+  if [ ! -f Server-Nodejs/.env.production ]; then
+    cp Server-Nodejs/.env.production.example Server-Nodejs/.env.production
+    gen() { openssl rand -hex 32; }
+    DB_PASS=$(gen)
+    sed -i.bak \
+      -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
+      -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
+      -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
+      -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
+      -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
+      -e "s/^DB_HOST=.*/DB_HOST=postgres/" \
+      -e "s/^REDIS_URL=.*/REDIS_URL=redis:\/\/redis:6379/" \
+      Server-Nodejs/.env.production
+    rm -f Server-Nodejs/.env.production.bak
+    echo "  ✓ 已生成 Server-Nodejs/.env.production（随机密钥）"
+  fi
   echo "→ 用 Docker 一键起服务（首次构建约 10 分钟）..."
   docker compose up --build -d
   echo "→ 等待后端就绪..."

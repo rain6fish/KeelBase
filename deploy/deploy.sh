@@ -37,12 +37,15 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "Server-Nodejs/.env.production.example" "$ENV_FILE"
   # 生成随机密钥（openssl rand -hex 32）
   gen() { openssl rand -hex 32; }
+  DB_PASS=$(gen)
   sed -i.bak \
     -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
     -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
     -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
-    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$(gen)/" \
+    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
+    -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
     -e "s/^DB_NAME=.*/DB_NAME=front_production/" \
+    -e "s/^POSTGRES_DB=.*/POSTGRES_DB=front_production/" \
     "$ENV_FILE"
   rm -f "$ENV_FILE.bak"
   # 生产环境数据库走容器内 postgres 服务，host/密码对齐 docker-compose
@@ -56,19 +59,18 @@ else
   echo "✓ 使用已有 $ENV_FILE"
 fi
 
-# ── 3. HTTPS（可选）──────────────────────────────────────────
-COMPOSE_FILES=(-f docker-compose.yml)
-if [ "${HTTPS:-0}" = "1" ]; then
-  mkdir -p certs
-  if [ ! -f certs/server.crt ] || [ ! -f certs/server.key ]; then
-    echo "→ 生成自签名 TLS 证书（certs/server.{crt,key}）"
-    openssl req -x509 -nodes -newkey rsa:2048 \
-      -keyout certs/server.key -out certs/server.crt \
-      -days 365 -subj "/CN=localhost"
-  fi
-  COMPOSE_FILES+=(-f docker-compose.prod.yml)
-  echo "✓ HTTPS 已启用（443 + 80）"
+# ── 3. 生产配置（默认生产模式 + HTTPS）──────────────────────
+# deploy.sh 面向生产部署：始终叠加 prod overlay（NODE_ENV=production、restart、HTTPS）。
+# 证书缺失时生成自签名（生产建议替换为真实证书，见 docs/manual/one-click-deploy.md）。
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
+mkdir -p certs
+if [ ! -f certs/server.crt ] || [ ! -f certs/server.key ]; then
+  echo "→ 生成自签名 TLS 证书（certs/server.{crt,key}）"
+  openssl req -x509 -nodes -newkey rsa:2048 \
+    -keyout certs/server.key -out certs/server.crt \
+    -days 365 -subj "/CN=localhost"
 fi
+echo "✓ 生产模式 + HTTPS（443 + 80）"
 
 # ── 4. 构建并启动 ────────────────────────────────────────────
 echo "→ 构建并启动容器（首次构建耗时较长）..."

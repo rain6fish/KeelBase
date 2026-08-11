@@ -70,8 +70,6 @@ export class AiService {
   private readonly routerAgent = new RouterAgent();
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
-  /** AI-12 多模态：当前请求待附加的用户消息图片 URL（构建消息后清除，不落库） */
-  private _pendingImages: string[] = [];
 
   constructor(
     private readonly providerFactory: LlmProviderFactory,
@@ -121,7 +119,6 @@ export class AiService {
     request: ChatRequest,
   ): Promise<ChatResponse> {
     await this.enforceDailyLimit(userId);
-    this._pendingImages = request.images ?? [];
     return withSpan('ai.chat', async () => {
       return this.chatImpl(userId, request);
     }, {
@@ -210,7 +207,7 @@ export class AiService {
 
     if (intent === 'knowledge') {
       // 知识库问答 — RAG 检索增强
-      const messages = await this.buildMessages(conversationId);
+      const messages = await this.buildMessages(conversationId, request.images);
       const ragResult = await this.ragAgent.answer(
         messages,
         request.message,
@@ -242,7 +239,7 @@ export class AiService {
 
     if (intent === 'delegate') {
       // 子代理委托：分解为子代理任务顺序执行，聚合后总结 + 反思
-      const messages = await this.buildMessages(conversationId);
+      const messages = await this.buildMessages(conversationId, request.images);
       const delegateResult = await this.subAgentOrchestrator.run({
         messages,
         userRequest: request.message,
@@ -288,6 +285,7 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: this.toolRegistry.getToolDefinitions(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          images: request.images,
         });
         finalContent = fallbackResult.finalContent;
         usage = fallbackResult.usage;
@@ -296,7 +294,7 @@ export class AiService {
       }
     } else if (intent === 'analyze' || intent === 'plan') {
       // Plan-and-Execute：多步推理
-      const messages = await this.buildMessages(conversationId);
+      const messages = await this.buildMessages(conversationId, request.images);
       const planResult = await this.planExecuteAgent.planAndExecute(
         messages,
         provider,
@@ -341,6 +339,7 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: this.toolRegistry.getToolDefinitions(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          images: request.images,
         });
         finalContent = fallbackResult.finalContent;
         usage = fallbackResult.usage;
@@ -357,6 +356,7 @@ export class AiService {
         model: request.model ?? this.config.defaultModel,
         initialToolDefs: this.toolRegistry.getToolDefinitions(),
         fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+        images: request.images,
       });
       finalContent = toolResult.finalContent;
       usage = toolResult.usage;
@@ -411,7 +411,6 @@ export class AiService {
       yield { type: 'error', error: (err as Error).message };
       return;
     }
-    this._pendingImages = request.images ?? [];
     // 流式 span：外层手动 start/end，避免 async generator 语义问题
     const span = tracer.startSpan('ai.chatStream', {
       attributes: {
@@ -479,7 +478,7 @@ export class AiService {
       return;
     }
 
-    let messages = await this.buildMessages(conversationId);
+    let messages = await this.buildMessages(conversationId, request.images);
     const model = request.model ?? this.config.defaultModel;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -807,8 +806,9 @@ export class AiService {
     model: string;
     initialToolDefs: any[];
     fallbackProviders: string[];
+    images?: string[];
   }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string; toolCalls?: string[] }> {
-    let messages = await this.buildMessages(params.conversationId);
+    let messages = await this.buildMessages(params.conversationId, params.images);
     let currentProvider = params.provider;
     let currentProviderName = params.providerName;
     let usage: { promptTokens: number; completionTokens: number } | undefined;
@@ -949,8 +949,12 @@ export class AiService {
 
   /**
    * 构建发送给 LLM 的消息列表
+   * @param images 当前请求待附加的图片 URL（AI-12 多模态，仅本次请求，不落库）
    */
-  private async buildMessages(conversationId: string): Promise<ChatMessage[]> {
+  private async buildMessages(
+    conversationId: string,
+    images?: string[],
+  ): Promise<ChatMessage[]> {
     const conv = await this.conversationService.peekConversation(conversationId);
     // 上下文压缩：超阈值时把旧轮次折叠进摘要，回放「摘要 + 最近窗口」
     const effectiveConv = this.compactor
@@ -1005,15 +1009,14 @@ export class AiService {
       messages.push(chatMsg);
     }
 
-    // AI-12 多模态：把当前请求待附加的图片挂到最后一条 user 消息（不落库）
-    if (this._pendingImages.length > 0) {
+    // AI-12 多模态：把本次请求待附加的图片挂到最后一条 user 消息（不落库）
+    if (images && images.length > 0) {
       for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === 'user') {
-          messages[i].images = this._pendingImages;
+          messages[i].images = images;
           break;
         }
       }
-      this._pendingImages = [];
     }
 
     return messages;
