@@ -47,6 +47,7 @@
 - 2026-08-11 完成 PM-5（运维健康巡检：scripts/healthcheck.ts + npm run healthcheck，复用 /health + /admin/monitor/summary + 本地资源/备份检查，退出码门禁）。来源：本次实施。
 - 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
 - 2026-08-11 完成 HS-1（评测判定闭环：expected 六型断言 + AiService 暴露 toolCalls + 报告断言明细 + 内置安全用例 seed）。来源：本次实施。
+- 2026-08-11 追加 T.6（e2e 纳入覆盖率统计）。来源：覆盖提升策略审视——实测全局 56.43% 但 e2e 98 用例不计入 coverage，是最大杠杆缺口；补 controller 单测见 T.4、门槛分档见 T.5。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
 - 2026-08-11 追加 T.4/T.5（测试覆盖审视：全局 56.43% 但 controller 层 0%、门槛无模块分档）+ D.8（运维单页：聚合四套可观测工具降中小团队门槛）。来源：整体测试覆盖 + 运维复杂度反馈。
 - 2026-08-11 追加「生产就绪硬伤修复（DEP-1~DEP-7）」章节。来源：外部代码评估逐条核实——CI 与 Taro 对齐已修复（过时），但 5 项仍存在：compose 密钥不注入（DEP-1）/ 部署默认非生产+默认密钥（DEP-2）/ _pendingImages 并发串号（DEP-3，唯一数据正确性 bug）/ 本地零配置启动失败（DEP-4）/ Taro API 写死 localhost（DEP-5）/ CI 注释过时+缺 Taro job（DEP-6）/ CORS+无 .dockerignore（DEP-7）。
@@ -277,9 +278,11 @@
 | T.3 | CI flutter-analyze job 验证 | GitHub Actions 已验证 flutter-analyze job 真实跑通（flutter pub get + flutter analyze 均 success） | 无 | **已完成** |
 | T.4 | 控制器层覆盖补齐（当前几乎全 0） | **2026-08-11 实测：全局 56.43%（超门槛），但分布极不均**——auth/events/todos/upload/users/templates 的 controller 层 0% 覆盖（单测只测 service，HTTP 层靠单个 e2e 文件）。对「业务安全的 harness」，**认证/权限/审计的 HTTP 入口是安全关键路径，却覆盖最薄**。补：为 auth/events/todos 控制器补 service 层已覆盖场景的 HTTP 断言 e2e（越权 403、未认证 401、写操作确认等） | 单测已就绪 / HS-1 | 待办 |
 | T.5 | 覆盖率门槛按模块分档 | 现为**全局单一数字**（40/30/40/41），单个核心模块可零覆盖也过 CI。改：关键安全模块（auth / casl / audit / ai-tools / headless）设独立 coverageThreshold（statements ≥ 60），其余维持全局门槛——防止核心安全路径裸奔 | T.2 | 待办 |
+| T.6 | e2e 纳入覆盖率统计 | **2026-08-11 实测发现**：全局 56.43% 是「单测口径」——98 个 e2e 用例走真实 HTTP 已覆盖 controller/DTO/守卫/拦截器（正是 0% 的那些层），但 `test/jest-e2e.json` 无 `collectCoverageFrom`，**e2e 覆盖完全不计入**。补：e2e jest 配置加 `collectCoverageFrom` + `--coverage`，或单测/e2e 合并统计，让覆盖率反映真实 HTTP 层覆盖（杠杆最大，改动最小） | T.2 | 待办 |
 
 > 来源：生产级差距分析「代码质量与测试」；Phase 0 计划「不做」章节。
 > 2026-08-11 追加 T.4/T.5。来源：整体系统测试覆盖审视——实测全局 56.43% 但 controller 层 0%、门槛无模块分档。
+> 2026-08-11 追加 T.6。来源：覆盖提升策略——e2e（98 用例）未计入 coverage 是最大杠杆缺口。
 
 ---
 
