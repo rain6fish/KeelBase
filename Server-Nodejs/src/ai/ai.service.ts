@@ -56,6 +56,8 @@ export interface ChatResponse {
   usage?: { promptTokens: number; completionTokens: number };
   /** AI 请求跳转的页面路由（前端收到后执行导航） */
   navigateTo?: string;
+  /** 本次对话实际调用的工具名（HS-1 评测断言用） */
+  toolCalls?: string[];
 }
 
 export interface AiServiceConfig {
@@ -186,6 +188,7 @@ export class AiService {
     let finalContent: string;
     let usage: { promptTokens: number; completionTokens: number } | undefined;
     let navigateTo: string | undefined;
+    let toolCalls: string[] | undefined;
 
     if (intent === 'navigate') {
       // 导航请求 — 关键词匹配，不走 LLM
@@ -289,6 +292,7 @@ export class AiService {
         finalContent = fallbackResult.finalContent;
         usage = fallbackResult.usage;
         navigateTo = fallbackResult.navigateTo;
+        toolCalls = fallbackResult.toolCalls;
       }
     } else if (intent === 'analyze' || intent === 'plan') {
       // Plan-and-Execute：多步推理
@@ -341,6 +345,7 @@ export class AiService {
         finalContent = fallbackResult.finalContent;
         usage = fallbackResult.usage;
         navigateTo = fallbackResult.navigateTo;
+        toolCalls = fallbackResult.toolCalls;
       }
     } else {
       // 默认：标准 Tool Loop
@@ -356,6 +361,7 @@ export class AiService {
       finalContent = toolResult.finalContent;
       usage = toolResult.usage;
       navigateTo = toolResult.navigateTo;
+      toolCalls = toolResult.toolCalls;
     }
 
     // Append assistant reply
@@ -387,6 +393,7 @@ export class AiService {
       model: request.model ?? this.config.defaultModel,
       usage,
       navigateTo,
+      toolCalls,
     };
   }
 
@@ -800,12 +807,13 @@ export class AiService {
     model: string;
     initialToolDefs: any[];
     fallbackProviders: string[];
-  }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string }> {
+  }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string; toolCalls?: string[] }> {
     let messages = await this.buildMessages(params.conversationId);
     let currentProvider = params.provider;
     let currentProviderName = params.providerName;
     let usage: { promptTokens: number; completionTokens: number } | undefined;
     let navigateTo: string | undefined;
+    const toolCalls: string[] = [];
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const tools = params.initialToolDefs;
@@ -846,7 +854,7 @@ export class AiService {
       if (!result.toolCalls || result.toolCalls.length === 0) {
         // No more tool calls — done
         messages.push({ role: 'assistant', content: result.content });
-        return { finalContent: result.content, usage, navigateTo };
+        return { finalContent: result.content, usage, navigateTo, toolCalls };
       }
 
       // Execute tool calls
@@ -860,6 +868,7 @@ export class AiService {
       messages.push(assistantMsg);
 
       for (const tc of result.toolCalls) {
+        toolCalls.push(tc.name);
         try {
           const args = JSON.parse(tc.arguments);
           // 非流式路径无确认通道：写操作不自动执行，返回提示让 LLM 引导用户走流式

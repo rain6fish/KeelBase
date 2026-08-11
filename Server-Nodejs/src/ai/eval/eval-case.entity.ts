@@ -7,11 +7,15 @@ export class EvalCase {
   id!: number;
 
   @Column({ length: 64 })
-  category!: string; // tool-hit | no-tool | timeout | ...
+  category!: string; // tool-hit | no-tool | security-reject | pii | injection | timeout | ...
 
   @Column({ type: 'text' })
   prompt!: string;
 
+  /**
+   * 期望行为断言（HS-1 判定闭环）。纯文本 → contains 包含匹配；
+   * JSON → {"assert": "contains|regex|tool-hit|tool-miss|no-tool|reject", "value": "..."}
+   */
   @Column({ type: 'text', nullable: true })
   expected!: string;
 

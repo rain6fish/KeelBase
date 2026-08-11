@@ -47,6 +47,14 @@ export class AiEvalController {
     return this.evalService.deleteCase(id);
   }
 
+  @Post('seed')
+  @SkipAudit()
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'HS-1 补齐内置安全评测用例（越权/PII/注入/写拒绝，幂等）' })
+  seedSecurityCases() {
+    return this.evalService.seedSecurityCases();
+  }
+
   @Post('run')
   @SkipAudit()
   @CheckPolicies((ability) => ability.can('manage', 'all'))
