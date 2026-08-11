@@ -48,6 +48,8 @@
 - 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
 - 2026-08-11 完成 HS-1（评测判定闭环：expected 六型断言 + AiService 暴露 toolCalls + 报告断言明细 + 内置安全用例 seed）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
+- 2026-08-11 追加 T.4/T.5（测试覆盖审视：全局 56.43% 但 controller 层 0%、门槛无模块分档）+ D.8（运维单页：聚合四套可观测工具降中小团队门槛）。来源：整体测试覆盖 + 运维复杂度反馈。
+- 2026-08-11 追加「生产就绪硬伤修复（DEP-1~DEP-7）」章节。来源：外部代码评估逐条核实——CI 与 Taro 对齐已修复（过时），但 5 项仍存在：compose 密钥不注入（DEP-1）/ 部署默认非生产+默认密钥（DEP-2）/ _pendingImages 并发串号（DEP-3，唯一数据正确性 bug）/ 本地零配置启动失败（DEP-4）/ Taro API 写死 localhost（DEP-5）/ CI 注释过时+缺 Taro job（DEP-6）/ CORS+无 .dockerignore（DEP-7）。
 
 ---
 
@@ -241,8 +243,28 @@
 | D.4 | 数据库迁移 CI 校验 | 生成首个统一基线迁移（1785-InitialSchema，全表）；CI 新增 migration-consistency job：migration:run 建库后 migration:generate 对比，实体与迁移一致则通过，有未迁移变更则失败 | 无 | **已完成** |
 | D.5 | CI 落地 | 最终采用 **GitHub Actions 方案**：仓库镜像到 GitHub（rain6fish/app-dev-base，main 分支），`.github/workflows/ci.yml` 真实运行并全绿（lint / 单元 155 / E2E 40 / build / flutter-analyze）。**Gitee Go 方案放弃**（Gitee Go 免费版 node 版本过老、网页端配置受限，且 Gitee 不支持 GitHub Actions）。双远程（GitHub + Gitee）代码同步，push 到 GitHub main 自动触发 CI | 无 | **已完成** |
 | D.7 | 一键部署交付（私有化定位） | deploy/ 目录：deploy.sh（装 Docker → 起 Compose → 配 HTTPS → 建 admin 账号）+ 云厂商轻量服务器（阿里云/腾讯云）部署指南；「数据主权/私有化部署」定位的最后一公里交付物 | 生产 compose 已就绪 | **已完成（deploy/deploy.sh：环境初始化 + 随机密钥 + HTTPS 可选 + 容器构建启动 + 建管理员；create-admin.ts 幂等脚本 + npm run create:admin；部署指南 docs/manual/one-click-deploy.md）** |
+| D.8 | 运维单页（聚合四套可观测工具） | **2026-08-11 反馈：监控是四套独立系统（Prometheus/Grafana/Jaeger/Loki），对中小团队各要学一套，学习/维护成本高。** 复用已有聚合基础（AD-2 `/admin/monitor/summary` + 管理台「监控中心」+ PM-5 healthcheck），补：①聚合端点补齐缺失维度（告警列表 + 日志错误摘要 + 关键指标趋势）②管理台「运维」页一页看懂（服务/依赖/错误率/日志/告警，不跳多系统）③「四工具各答什么问题」一页速查文档，把学习成本从四套文档降到一页 | AD-2 / PM-5 已就绪 | 待办 |
 
 > 来源：生产级差距分析「可观测性与运维」；Phase 2 计划「不做」章节。
+> 2026-08-11 追加 D.8。来源：运维复杂度反馈——「内置监控体系对团队能力要求较高」，聚合降低中小团队门槛。
+
+---
+
+## 生产就绪硬伤修复（DEP，2026-08-11 外部评估）
+
+> 来源：2026-08-11 外部代码评估（逐条核实后的结论）。**评估快照过时 2 项已修复**：CI 实际已镜像 GitHub 全绿（D.5）、Taro 功能对齐已完成（DX-3）——但**核心警示成立**：「README 说 60 秒跑起来，实际本地/容器都起不来」，直接戳穿 DX-1/「易用性」定位。以下为逐条核实后**仍存在**的硬伤，按严重度排。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| DEP-1 | compose 密钥注入（容器起不来的根因） | **已证实**：`env.config.ts` 强制 `ENCRYPTION_KEY` 为 64 hex 必填，但 compose 无 `env_file` 注入、Dockerfile 运行层只拷 dist/node_modules，deploy.sh 生成的随机密钥进不了容器 → `docker compose up` 配置校验失败。补：compose 加 `env_file: .env.production` + 缺省生成随机密钥 fallback | D.7 | 待办 |
+| DEP-2 | deploy.sh 默认生产模式 + 密钥随机化 | **已证实**：默认只加载 base compose（`HTTPS=1` 才叠加 prod overlay），base 里 JWT/DB 密码写死 `change-*`/`postgres`，prod overlay 不覆盖。补：默认叠加 prod overlay 或强制非 `change-*` 校验 + DB 密码随机化 + Postgres/Redis 不直映射宿主机端口 | D.7 | 待办 |
+| DEP-3 | AI 多模态并发串号（唯一数据正确性 bug） | **已证实**：`AiService._pendingImages` 单例字段存"当前请求"图片，`chat`/`chatStream` 跨多次 await 共用，并发请求互相覆盖（A 的图挂到 B 会话）。**唯一数据正确性 bug，不能拖**。补：图片状态随请求传递（request-scoped），不用单例字段 | AI-12 | 待办 |
+| DEP-4 | 本地零配置启动修复 | **已证实**：`dev.sh`/`experience.sh` 直接 `cp .env.example .env` 启动，但 `ENCRYPTION_KEY` 空 + required → `npm run start:dev` 配置校验报错，与「60 秒跑起来」承诺矛盾。补：本地路径缺省生成/校验友好报错 | DEP-1 / DX-1 | 待办 |
+| DEP-5 | Taro/Admin API 地址支持同源 | **已证实**：两端 `API_BASE_URL` 硬编码 `http://localhost:3000/api/v1`，远端浏览器请求客户端本机 localhost，远程一键部署实际不可用。补：优先同源相对路径（`/api/v1`，Nginx 反代天然可用），构建时 env 注入兜底 | 无 | 待办 |
+| DEP-6 | CI 注释修正 + Taro build job | **已证实**：ci.yml 头部注释过时（「GitHub Actions 不生效、实际在 Gitee Go .workflow」），仓库无 `.workflow`，已镜像 GitHub 全绿。补：改注释 + 加 Taro `build:h5` job，三端全纳入 | D.5 | 待办 |
+| DEP-7 | CORS 生产收紧 + .dockerignore | **已证实**：CORS 默认 `*` 且 credentials 共存（有风险）；无 `.dockerignore`（本地 SQLite/上传文件可能进镜像）。补：生产 `CORS_ORIGINS` 拒绝通配+credentials 组合 + 补 `.dockerignore` | 无 | 待办 |
+
+> **优先级**：DEP-3（数据正确性 bug，立即）→ DEP-1/2/4（部署与本地启动，兑现易用性承诺）→ DEP-5/6（远程部署可用性）→ DEP-7（安全默认值）。DEP 系列是 DX-1/易用性定位的前置条件——不修则「一键体验」名不副实。
 
 ---
 
@@ -253,8 +275,11 @@
 | T.1 | 前端 Flutter 测试覆盖 | AuthProvider（10 用例）+ EventsProvider（12 用例）+ login_page widget（2 用例），共 25 测试通过；mocktail 已加；CI flutter job 加 `flutter test` | 无 | **已完成** |
 | T.2 | 测试覆盖率门槛 | jest.config.ts 加 coverageThreshold（statements 40 / branches 30 / functions 40 / lines 41）；CI test job 改跑 `test:cov` | 无 | **已完成** |
 | T.3 | CI flutter-analyze job 验证 | GitHub Actions 已验证 flutter-analyze job 真实跑通（flutter pub get + flutter analyze 均 success） | 无 | **已完成** |
+| T.4 | 控制器层覆盖补齐（当前几乎全 0） | **2026-08-11 实测：全局 56.43%（超门槛），但分布极不均**——auth/events/todos/upload/users/templates 的 controller 层 0% 覆盖（单测只测 service，HTTP 层靠单个 e2e 文件）。对「业务安全的 harness」，**认证/权限/审计的 HTTP 入口是安全关键路径，却覆盖最薄**。补：为 auth/events/todos 控制器补 service 层已覆盖场景的 HTTP 断言 e2e（越权 403、未认证 401、写操作确认等） | 单测已就绪 / HS-1 | 待办 |
+| T.5 | 覆盖率门槛按模块分档 | 现为**全局单一数字**（40/30/40/41），单个核心模块可零覆盖也过 CI。改：关键安全模块（auth / casl / audit / ai-tools / headless）设独立 coverageThreshold（statements ≥ 60），其余维持全局门槛——防止核心安全路径裸奔 | T.2 | 待办 |
 
 > 来源：生产级差距分析「代码质量与测试」；Phase 0 计划「不做」章节。
+> 2026-08-11 追加 T.4/T.5。来源：整体系统测试覆盖审视——实测全局 56.43% 但 controller 层 0%、门槛无模块分档。
 
 ---
 
