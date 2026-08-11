@@ -43,6 +43,8 @@ export class SeedService implements OnApplicationBootstrap {
         nickname: 'Alex',
         firstName: 'Alex',
         lastName: 'Smith',
+        // 演示账号开箱即用：已验证邮箱（否则写操作被 EmailVerificationGuard 拦截）
+        emailVerified: true,
       },
       {
         username: 'admin',
@@ -50,6 +52,7 @@ export class SeedService implements OnApplicationBootstrap {
         password: hashedAdminPassword,
         nickname: 'Admin',
         role: UserRole.ADMIN,
+        emailVerified: true,
       },
     ]);
 

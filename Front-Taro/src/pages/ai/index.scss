@@ -17,9 +17,20 @@
     font-weight: 700;
   }
 
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
   &__clear {
     font-size: 26px;
     color: #999;
+  }
+
+  &__history {
+    font-size: 26px;
+    color: #007aff;
   }
 
   &__messages {

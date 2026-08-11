@@ -40,6 +40,7 @@ async function ensureDemoUser(
       email: `${username}@example.com`,
       password: hashed,
       nickname: username.charAt(0).toUpperCase() + username.slice(1),
+      emailVerified: true,
     }),
   );
   return { user, created: true };
