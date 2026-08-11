@@ -46,6 +46,7 @@
 - 2026-08-11 完成 DX-3（Taro 端功能对齐：todos/search/ai-history 三页 + 入口 + 修复 ai-service previewTitle + 种子账号 emailVerified）。来源：本次实施。
 - 2026-08-11 完成 PM-5（运维健康巡检：scripts/healthcheck.ts + npm run healthcheck，复用 /health + /admin/monitor/summary + 本地资源/备份检查，退出码门禁）。来源：本次实施。
 - 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
+- 2026-08-11 完成 HS-1（评测判定闭环：expected 六型断言 + AiService 暴露 toolCalls + 报告断言明细 + 内置安全用例 seed）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
 
 ---
@@ -392,7 +393,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| HS-1 | 评测判定闭环（当前是空判定） | **已证实硬伤**：`ai-eval.service` 的 `runImpl` 判定 `ok = !!res.reply && res.reply.length > 0`——**有回复即通过**；`createCase` 接受 `expected` 字段但从未用于断言。无法验证正确性，更无法验证安全性。补：①`expected` 断言（包含/正则/工具命中/拒绝）②安全用例类别（越权工具调用、写操作确认拒绝、PII 泄露、prompt injection）③报告含逐用例断言明细而非仅 ok 计数 | AI-20 已就绪 | 待办 |
+| HS-1 | 评测判定闭环（当前是空判定） | **已证实硬伤**：`ai-eval.service` 的 `runImpl` 判定 `ok = !!res.reply && res.reply.length > 0`——**有回复即通过**；`createCase` 接受 `expected` 字段但从未用于断言。无法验证正确性，更无法验证安全性。补：①`expected` 断言（包含/正则/工具命中/拒绝）②安全用例类别（越权工具调用、写操作确认拒绝、PII 泄露、prompt injection）③报告含逐用例断言明细而非仅 ok 计数 | AI-20 已就绪 | **已完成（expected 断言体系：contains/regex/tool-hit/tool-miss/no-tool/reject 六型，纯文本兼容 contains；AiService.chat 暴露 toolCalls 供工具断言；报告逐用例含 assertType/detail/actualToolCalls/replyPreview + byAssert 分组；内置安全用例 seed（越权删除/改密/PII 泄露/注入攻击/工具命中/无工具，`POST /ai/eval/seed` 幂等补齐）；后端 602 单测全绿）** |
 | HS-2 | 工具级权限治理 | **已证实缺口**：任意已认证用户可触发全部注册工具——工具直连 service（如 create-todo.tool 调 `todosService.create`），HTTP 层守卫（EmailVerificationGuard 等）管不到工具路径。补：AiTool 加权限元数据（可调角色/需验证邮箱/受 FeatureFlag 约束）+ ToolRegistry 执行前校验；管理台可见工具清单与权限 | 工具接口 / CASL / PL-8 | 待办 |
 | HS-3 | 写工具幂等与补偿（AI 副作用可撤销） | **已证实缺口**：`runToolLoop` 逐个执行工具，多工具流程中途失败无回滚；写工具无幂等键，LLM 重试/并发会重复建事件/待办。补：写工具 idempotency key（用户+会话+工具+参数 hash）+ 失败补偿钩子（agent 自述已做 vs 实际成败）+ 管理台可查 AI 创建的记录并一键删除（衔接 RG-3 回收站） | HS-2 / RG-3 | 待办 |
 | HS-4 | headless 治理 | **已证实缺口**：headless.controller 固定 `chat('0')`——无 per-API-key 限额（所有 key 共享 userId '0' 的每日限额桶）、无工具范围、无独立身份隔离。补：API Key ↔ 独立账号/工具范围/配额映射 + per-key 审计归属 + 管理台 Key 管理页 | AI-19 已就绪 | 待办 |
