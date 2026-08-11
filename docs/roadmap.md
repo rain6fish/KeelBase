@@ -470,6 +470,45 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 
 ---
 
+## 全项目代码审查发现（CR，2026-08-11 全仓扫描）
+
+> 来源：2026-08-11 引入 OpenCodeReview（OCR）后对全项目做的一次系统审查——OCR `scan` 锁定 609 个可审文件 / ~117K 行，按后端认证·AI·业务 + Flutter core·features + Taro + 管理端/部署拆 7 路并行审查，每条已用 Read 核实到 文件:行号。
+> 结论：**High 15 / Medium 40 / Low 20**。权限基线扎实（CASL 行级、写操作确认、token 轮换、上传魔数、SQL 参数化、管理台门控均正确），风险集中在**生产配置/密钥、流式 AI 审计缺失、管理端明文数据、前端主链路故障**四类。**2026-08-12 优先处理 P0**。
+> 编号：CR 系列。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| CR-1 | CI 明文硬编码密钥（P0/安全） | `ci.yml` 把 `ENCRYPTION_KEY`/`JWT_SECRET`/`JWT_REFRESH_SECRET` 等写死在 workflow，项目已 MIT 开源推双远程=公开泄露。改 GitHub/Gitee Secrets 注入 | 无 | 待办 |
+| CR-2 | 流式 AI 对话零审计 + 限额可绕过（P0/审计红线） | `ai.service.ts` `chatStreamImpl` 主路径全程无 `auditService.log`：流式对话/工具调用/已确认写操作不进 `ai_audit_logs`，`enforceDailyLimit` 靠非错误日志计数 → 流式可无限绕过每日限额，成本看板漏全部流式用量。补流式循环与工具执行处审计 | HS 系列 | 待办 |
+| CR-3 | Postgres 生产迁移清单遗漏（P0/生产阻塞） | `app.module.ts` postgres `migrations` 缺 `AddAccountCompliance`/`AddInvite` → 生产 users 表缺 phone_hash/phone_verified/invite_code 等列，手机号登录、bind-phone、/auth/invite 运行崩溃 | D.7 | 待办 |
+| CR-4 | 管理端/审计明文个人数据（P0/隐私红线） | ①`GET /users/:id` 管理员也走 `sanitizeUser`（email 未掩码 + 完整 phone），应走 `sanitizeForAdmin`；②操作审计展开行渲染 `requestBody` 明文，`redactSensitive` 只打码 password/token 等，email/phone/bio/正文裸露。增补 SENSITIVE_KEYS | 无 | 待办 |
+| CR-5 | 异常过滤器泄漏内部错误（P0/安全） | `http-exception.filter.ts` 对非 HttpException 的 Error 把 `exception.message` 原样透传（500 泄漏 SQL/路径/连接串）。5xx 统一通用文案，原文只进日志 | 无 | 待办 |
+| CR-6 | 多模态 images URL 未校验 → SSRF（P1/安全） | `chat-request.dto` images 仅 `@IsArray`，`resolveImageUrl` 对任意绝对 URL 放行，经 LLM 供应商回读内网地址（169.254.169.254 等）。仅允许本人上传的相对 URL + 所有权校验 | AI-12 | 待办 |
+| CR-7 | 管理台/主 app API 地址硬编码 localhost（P1/生产不可用） | 两端 `API_BASE_URL='http://localhost:3000/api/v1'` 无环境注入，生产不可用 + HTTPS 混合内容拦截。改同源相对路径 `/api/v1`（Nginx 反代）或构建期注入 | DEP-5 | 待办 |
+| CR-8 | 主 app switchTab 无 tabBar（P1/小程序登录必失败） | login/register/splash 成功后 `Taro.switchTab('/pages/dashboard')` 但 app.config.ts 无 tabBar 配置，小程序端 switchTab 直接失败。配原生 tabBar 或改 redirectTo/reLaunch | 无 | 待办 |
+| CR-9 | 主 app 误用管理员接口 + 隐私越权（P1/红线） | users/user-detail 页直连 `GET /users`（仅 admin）普通用户必 403，且展示他人锁定状态/注册时间。删除归管理台，或仅留「公开用户」只读摘要 | 无 | 待办 |
+| CR-10 | Taro 上传功能不可用（P1/功能故障） | `api.upload` 用 `Taro.request` 发 filePath 字符串不上传文件内容；chooseMessageFile 为微信专属 H5 不可用。改 `Taro.uploadFile` + 平台分支 | 无 | 待办 |
+| CR-11 | 事件颜色保存映射错位（P1/数据正确性） | `event_form_page.dart` 8 预设色按数组下标对后端 6 值枚举且首项是红非蓝 → 选红存成 blue、回显整体偏移。按 EventColorRole 显式映射 | 无 | 待办 |
+| CR-12 | 跨账号缓存泄漏（P1/隐私） | Flutter AppCache 命名空间（todos/notifications）不含 userId + logout 不清缓存，换账号后新用户先看到前一用户数据。命名空间加 userId 或 logout 清全部 | 无 | 待办 |
+| CR-13 | verifyEmail 状态机 bug（P1/功能故障） | `auth_provider.dart` verifyEmail 无条件置 authenticated，未登录深链进验证页 → 守卫放行 → 401 死循环；且注册后 push 验证页被守卫重定向回首页。仅 `_user!=null` 才置位 + 守卫放行已登录 | 无 | 待办 |
+| CR-14 | OAuth 校验缺口（P1/安全） | ①Google id_token 未验 `exp`（过期可重放，靠 tokeninfo 端点）；②Alipay 响应签名未验证（仅注释）；③微信 code 交换忽略 redirectUri。补 exp 校验 + Alipay 验签 | 无 | 待办 |
+| CR-15 | 认证侧信道枚举（P1/安全） | ①账号锁定返回 429「Account locked」不走 delay → 可枚举存在性 + 故意锁死 DoS；②register 明确报用户名/邮箱已存在可批量探测；③bindPhone 409 可探测手机号。统一防枚举口径 + 锁定态也延迟 | 无 | 待办 |
+| CR-16 | 401 刷新无单飞（P2/稳定性） | Flutter + Taro 均：并发 401 各自 refresh，后端 token 轮换使并发刷新必失败 → 误登出；Flutter 拦截器还误触发 auth 端点、`_tryRefreshToken` 无超时。共享刷新 Promise 单飞 + 跳过 auth 端点 + 10s 超时 | 无 | 待办 |
+| CR-17 | SSE 无重连 + 连接泄漏（P2/稳定性） | Flutter SSE 服务器正常断流/非 200 不触发 onError → 通知通道静默死亡；`http.Client` 异常路径不 close 泄漏；SSE 走手动 token 不走 refresh 拦截器（超 30 分钟必挂）。补 done/error 重连 + finally close + 401 先 refresh | 无 | 待办 |
+| CR-18 | Headless 固定 userId '0' 共享数据（P2/隔离） | headless + eval 均以 userId '0' 运行，多调用方共享对话历史/记忆/配额。按 key 派生独立用户 ID 或要求租户标识 | AI-19 | 待办 |
+| CR-19 | 分页 limit 无上限 + 缓存膨胀（P2） | events/notifications `limit` 无钳制（可传 20 亿），且缓存键含用户可控 limit。limit 钳 1-100 | 无 | 待办 |
+| CR-20 | 导入缺省密码固定 + 导入错误透传（P2/安全） | 导入用户缺密码固定 `DefaultPass123` 未改密可被接管；导入失败明细透出原始 Error.message；importEvents 未校验 userId 存在。缺密码生成随机值 + 通用错误 | 无 | 待办 |
+| CR-21 | /uploads 静态托管无鉴权（P2/隐私） | 上传文件 URL 一旦泄露未登录可直读（隐私文档）。私有文件鉴权或签名 URL | 无 | 待办 |
+| CR-22 | RAG/搜索结果注入系统提示（P2/加固） | 知识库内容与 web_search snippet 以原文注入 system/tool 消息，无「忽略文档内指令」护栏（因工具按 userId + 写确认，爆炸半径有限）。补反注入护栏 + 引号包裹 | 无 | 待办 |
+| CR-23 | 部署脚本/镜像配置硬伤（P2） | ①deploy.sh 里 create-admin.ts 容器内执行但镜像未拷 scripts 必失败且被 `|| echo ⚠` 吞掉；②`.gitignore` 漏 `.env.production`/`.env.staging`；③CORS 硬编码单域名；④HSTS 注释 + 无 CSP；⑤server 3000 直暴露公网；⑥Grafana 匿名 Admin；⑦默认管理员口令未强制覆盖；⑧CSV 导出无公式注入防护；⑨营销邮件 HTML 未转义 | D.7 | 待办 |
+| CR-24 | 自助改密复杂度弱化（P2/安全） | `update-user.dto` 自助改密仅 @MinLength(6) 无字母数字要求，与注册策略不一致可降级弱口令。复用注册密码正则 | 无 | 待办 |
+| CR-25 | i18n / 红线残留（P2/规范） | Taro 主 app 无 i18n 层（中英混杂）；Flutter/Taro-Admin 若干硬编码中文/英文标签；search 页无 leading 返回（Shell 外红线）；Dev Menu 无环境开关正式包可长按头像打开。统一走 i18n + 返回按钮 + 环境隔离 | 无 | 待办 |
+| CR-26 | 前端状态机/竞态加固（P2） | Flutter：流式完成无 mounted 保护、hasError 时 isStreaming 不清、loadConversation 失败静默、Dismissible 异步删除竞态、event_form `catch(_){}` 吞失败可能误存覆盖、日视图每次 build 抢滚动、loadMore 失败跳页；Taro：搜索防抖无请求序号守卫、通知 store fire-and-forget 未捕获异常 | 无 | 待办 |
+
+> **优先级（2026-08-12）**：P0 = CR-1~5（密钥泄露 / 审计红线 / 生产迁移 / 管理端明文 / 内部错误泄漏）→ P1 = CR-6~15（安全缺口 + 前端主链路故障）→ P2 = CR-16~26（稳定性与规范加固）。CR 系列与 DEP/T/HS 无重复——DEP 是「起不来/部署」硬伤，CR 是本轮审查的「安全+功能」缺陷。
+
+---
+
 ## 已完成（归档）
 
 | 阶段 | 内容 | 提交 |
