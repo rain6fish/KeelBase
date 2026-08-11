@@ -1,6 +1,7 @@
 # Front Flutter — Full-Stack Base Platform AI Development Guide
 
 > 本项目是一个 App 前后端全栈开发基座平台，以此为基座可快速开发新的全栈应用。
+> 定位：**业务安全的 Agent harness + 全栈应用基座**——Agent 工具调用限定用户数据范围、写操作需人工确认、CASL 行级权限 + 全链路审计。
 > 写代码之前，请先阅读此文件了解架构、约定和安全规则。
 
 > 致谢：本项目由 Claude Code（Anthropic）协助开发，架构设计、代码实现与文档均有 Claude 的贡献。
