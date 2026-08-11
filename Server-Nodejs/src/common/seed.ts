@@ -1,9 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from './entities/user.entity';
+import { seedDemoData } from './demo-data';
 
 /**
  * 开发环境种子数据：首次启动时创建演示账号。
@@ -16,6 +17,7 @@ export class SeedService implements OnApplicationBootstrap {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private configService: ConfigService,
+    private dataSource: DataSource,
   ) {}
 
   async onApplicationBootstrap() {
@@ -33,7 +35,7 @@ export class SeedService implements OnApplicationBootstrap {
     const hashedPassword = await bcrypt.hash('123456', 12);
     const hashedAdminPassword = await bcrypt.hash('Admin@1234', 12);
 
-    await this.usersRepository.save([
+    const users = await this.usersRepository.save([
       {
         username: 'alex',
         email: 'alex@example.com',
@@ -52,5 +54,27 @@ export class SeedService implements OnApplicationBootstrap {
     ]);
 
     this.logger.log('Demo users created: alex / 123456, admin / Admin@1234');
+
+    // PM-2 演示数据：为演示用户 alex 种入事件/待办/知识库/对话/通知
+    // （仅空库首启时执行，幂等；生产/测试环境不执行——已在开头 NODE_ENV 判断排除）
+    const alex = users.find((u) => u.username === 'alex');
+    if (alex?.id) {
+      try {
+        const seeded = await seedDemoData(this.dataSource, {
+          id: alex.id,
+          username: alex.username,
+        });
+        if (seeded) {
+          this.logger.log(
+            'Demo data seeded for alex: events/todos/knowledge/conversations/notifications',
+          );
+        }
+      } catch (err) {
+        // 演示数据失败不阻断启动（避免缺依赖时新手首启卡住）
+        this.logger.warn(
+          `Demo data seeding skipped: ${(err as Error).message}`,
+        );
+      }
+    }
   }
 }
