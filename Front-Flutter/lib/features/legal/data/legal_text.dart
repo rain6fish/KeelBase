@@ -118,11 +118,11 @@ Last updated: July 30, 2026
 
 ## 1. Acceptance of Terms
 
-By accessing or using Front App ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Service.
+By accessing or using KeelBase App ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Service.
 
 ## 2. Description of Service
 
-Front App provides a full-stack application platform that allows users to manage events, upload files, and access AI-powered features. The Service is provided "as is" and we reserve the right to modify or discontinue any feature at any time.
+KeelBase App provides a full-stack application platform that allows users to manage events, upload files, and access AI-powered features. The Service is provided "as is" and we reserve the right to modify or discontinue any feature at any time.
 
 ## 3. User Responsibilities
 
@@ -139,7 +139,7 @@ We reserve the right to suspend or terminate your account if you violate these T
 
 ## 5. Limitation of Liability
 
-To the maximum extent permitted by law, Front App shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
+To the maximum extent permitted by law, KeelBase App shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
 
 ## 6. Changes to Terms
 
@@ -157,11 +157,11 @@ These Terms shall be governed by and construed in accordance with applicable law
 
 ## 1. 条款接受
 
-访问或使用 Front App（"本服务"）即表示您同意受本服务条款的约束。如果您不同意，请勿使用本服务。
+访问或使用 KeelBase App（"本服务"）即表示您同意受本服务条款的约束。如果您不同意，请勿使用本服务。
 
 ## 2. 服务描述
 
-Front App 提供全栈应用平台，允许用户管理事件、上传文件以及使用 AI 功能。本服务按"现状"提供，我们保留随时修改或中断任何功能的权利。
+KeelBase App 提供全栈应用平台，允许用户管理事件、上传文件以及使用 AI 功能。本服务按"现状"提供，我们保留随时修改或中断任何功能的权利。
 
 ## 3. 用户责任
 
@@ -178,7 +178,7 @@ Front App 提供全栈应用平台，允许用户管理事件、上传文件以�
 
 ## 5. 责任限制
 
-在法律允许的最大范围内，Front App 不对因您使用本服务而产生的任何间接、附带或后果性损害承担责任。
+在法律允许的最大范围内，KeelBase App 不对因您使用本服务而产生的任何间接、附带或后果性损害承担责任。
 
 ## 6. 条款变更
 

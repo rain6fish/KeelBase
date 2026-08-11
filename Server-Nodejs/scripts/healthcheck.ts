@@ -109,7 +109,7 @@ function dirSize(dir: string): number {
 }
 
 async function main(): Promise<void> {
-  console.log(`${BOLD}ShiYu-AppBase 运维健康巡检${RESET}  ${DIM}${new Date().toISOString()}${RESET}`);
+  console.log(`${BOLD}KeelBase 运维健康巡检${RESET}  ${DIM}${new Date().toISOString()}${RESET}`);
 
   // ── 1. 服务存活 ─────────────────────────────────────────
   section('服务存活');

@@ -53,7 +53,7 @@ class _SplashPageState extends State<SplashPage> {
           children: [
             const Icon(CupertinoIcons.sparkles, size: 64, color: CupertinoColors.systemBlue),
             const SizedBox(height: 16),
-            Text('Front', style: theme.textTheme.navLargeTitleTextStyle.copyWith(fontSize: 34)),
+            Text('KeelBase', style: theme.textTheme.navLargeTitleTextStyle.copyWith(fontSize: 34)),
             const SizedBox(height: 32),
             const CupertinoActivityIndicator(radius: 14),
           ],

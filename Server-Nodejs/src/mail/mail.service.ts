@@ -63,7 +63,7 @@ export class MailService {
   async sendVerificationEmail(email: string, code: string): Promise<void> {
     await this.sendMail({
       to: email,
-      subject: '【ShiYu-AppBase】邮箱验证码',
+      subject: '【KeelBase】邮箱验证码',
       html: `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -84,7 +84,7 @@ export class MailService {
   async sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
     await this.sendMail({
       to: email,
-      subject: '【ShiYu-AppBase】重置密码',
+      subject: '【KeelBase】重置密码',
       html: `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -109,7 +109,7 @@ export class MailService {
   ): Promise<void> {
     await this.sendMail({
       to: email,
-      subject: `【ShiYu-AppBase】${title}`,
+      subject: `【KeelBase】${title}`,
       html: `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -127,7 +127,7 @@ export class MailService {
   async sendMarketingEmail(email: string, subject: string, body: string, cta?: { label: string; url: string }): Promise<void> {
     await this.sendMail({
       to: email,
-      subject: `【ShiYu-AppBase】${subject}`,
+      subject: `【KeelBase】${subject}`,
       html: `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -136,7 +136,7 @@ export class MailService {
     ${body.replace(/\n/g, '<br/>')}
   </div>
   ${cta ? `<p style="margin-top:24px;"><a href="${cta.url}" style="display:inline-block; background:#1a73e8; color:#fff; padding:10px 20px; border-radius:4px; text-decoration:none;">${cta.label}</a></p>` : ''}
-  <p style="margin-top:32px; font-size:12px; color:#999;">此邮件由 ShiYu-AppBase 发送，如非本人操作请忽略。</p>
+  <p style="margin-top:32px; font-size:12px; color:#999;">此邮件由 KeelBase 发送，如非本人操作请忽略。</p>
 </body>
 </html>`,
     });

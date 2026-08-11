@@ -51,8 +51,8 @@ async function bootstrap() {
   // Swagger docs — only in development
   if (isDev) {
     const config = new DocumentBuilder()
-      .setTitle('Front API')
-      .setDescription('Front backend API documentation (dev only)')
+      .setTitle('KeelBase API')
+      .setDescription('KeelBase backend API documentation (dev only)')
       .setVersion('1.0')
       .addBearerAuth()
       .build();

@@ -453,7 +453,7 @@ class _LoginPageState extends State<LoginPage> {
               child: const Icon(CupertinoIcons.sparkles, size: 44, color: CupertinoColors.white),
             ),
             const SizedBox(height: 20),
-            Text('Front', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
+            Text('KeelBase', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
             const SizedBox(height: 8),
             Text('Full-Stack App Platform', style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context))),
             const SizedBox(height: 44),

@@ -1,4 +1,4 @@
-# Contributing to ShiYu-AppBase
+# Contributing to KeelBase
 
 Thank you for your interest in contributing to this project! We welcome contributions from everyone, whether you're fixing a typo, improving documentation, or adding a new feature.
 
@@ -38,8 +38,8 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/rain6fish/ShiYu-AppBase.git
-   cd ShiYu-AppBase
+   git clone https://github.com/rain6fish/KeelBase.git
+   cd KeelBase
    ```
 3. Install backend dependencies:
    ```bash
@@ -214,8 +214,8 @@ If your contribution is found to infringe a third party's intellectual property 
 
 ## Getting Help
 
-- **Discussions**: [GitHub Discussions](https://github.com/rain6fish/ShiYu-AppBase/discussions)
-- **Issues**: [GitHub Issues](https://github.com/rain6fish/ShiYu-AppBase/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rain6fish/KeelBase/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rain6fish/KeelBase/issues)
 - **Email**: [128766028+rain6fish@users.noreply.github.com](mailto:128766028+rain6fish@users.noreply.github.com)
 
 Thank you for contributing! 🎉

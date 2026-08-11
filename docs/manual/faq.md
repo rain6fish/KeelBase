@@ -109,7 +109,7 @@ A: 参考 [一键部署](one-click-deploy.md)：`HTTPS=1 ./deploy/deploy.sh` 自
 A: 正确——seed 只在 development 执行。生产首次部署用 `npm run create:admin` 建管理员，见 [一键部署](one-click-deploy.md)。
 
 ### Q: CI（GitHub Actions）在哪里看结果？
-A: 代码镜像到 GitHub（`rain6fish/ShiYu-AppBase`），push 到 `main` 自动触发。在 GitHub 仓库的 Actions 页看 lint/test/build。Gitee 仓库仅供同步，不跑 CI。
+A: 代码镜像到 GitHub（`rain6fish/KeelBase`），push 到 `main` 自动触发。在 GitHub 仓库的 Actions 页看 lint/test/build。Gitee 仓库仅供同步，不跑 CI。
 
 ---
 

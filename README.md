@@ -1,4 +1,4 @@
-# ShiYu-AppBase — Full-Stack Application Base Platform
+# KeelBase — Full-Stack Application Base Platform
 
 > ### 🚀 60 秒开始 / Get Started in 60s
 > ```bash
@@ -9,21 +9,21 @@
 **A Production-Ready, AI-Native, Full-Stack Application Base — built for data sovereignty.**
 **一个私有化部署、AI 原生、开箱即用的全栈应用基座。**
 
-ShiYu-AppBase is not just a boilerplate; it is a production-ready foundation that fuses **enterprise data sovereignty** with **AI-native capabilities**. It provides a unified solution covering Flutter/Taro frontends, a NestJS backend, and AI orchestration — designed for developers who need to build secure, scalable, and intelligent applications without compromising on data privacy.
+KeelBase is not just a boilerplate; it is a production-ready foundation that fuses **enterprise data sovereignty** with **AI-native capabilities**. It provides a unified solution covering Flutter/Taro frontends, a NestJS backend, and AI orchestration — designed for developers who need to build secure, scalable, and intelligent applications without compromising on data privacy.
 
-At its core, ShiYu-AppBase is a **business-safe agent harness**: an AI runtime where every tool call is scoped to the authenticated user, write operations require human confirmation, and all agent activity runs through CASL row-level permissions and full audit trails. It lets you turn your business APIs into safe, controllable AI actions — without building an agent platform from scratch.
+At its core, KeelBase is a **business-safe agent harness**: an AI runtime where every tool call is scoped to the authenticated user, write operations require human confirmation, and all agent activity runs through CASL row-level permissions and full audit trails. It lets you turn your business APIs into safe, controllable AI actions — without building an agent platform from scratch.
 
-ShiYu-AppBase 不仅仅是一个脚手架，而是一个**生产级**的应用基座。它将**企业级数据主权**与**AI 原生能力**深度融合，提供了一套包含 Flutter/Taro 前端、NestJS 后端及 AI 编排的统一解决方案，专为希望在**不牺牲数据隐私**的前提下，快速构建安全、可扩展且智能化应用的开发者而生。
+KeelBase 不仅仅是一个脚手架，而是一个**生产级**的应用基座。它将**企业级数据主权**与**AI 原生能力**深度融合，提供了一套包含 Flutter/Taro 前端、NestJS 后端及 AI 编排的统一解决方案，专为希望在**不牺牲数据隐私**的前提下，快速构建安全、可扩展且智能化应用的开发者而生。
 
 它的本质是一个**业务安全的 Agent harness（运行时）**：每一次工具调用都限定在登录用户的数据范围内，写操作必须经人工确认，所有智能体行为都经过 CASL 行级权限校验与全链路审计。无需从零搭建 agent 平台，就能把业务 API 变成安全、可控的 AI 能力。
 
 ---
 
-## 🚀 Why ShiYu-AppBase? (核心价值)
+## 🚀 Why KeelBase? (核心价值)
 
-Unlike traditional boilerplates that focus only on CRUD, ShiYu-AppBase is engineered for the **AI era** and **enterprise compliance**.
+Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered for the **AI era** and **enterprise compliance**.
 
-与传统仅关注 CRUD 的脚手架不同，ShiYu-AppBase 专为 **AI 时代** 与 **企业合规** 而生。
+与传统仅关注 CRUD 的脚手架不同，KeelBase 专为 **AI 时代** 与 **企业合规** 而生。
 
 ### 🔒 Private & Secure — 私有化与安全性
 

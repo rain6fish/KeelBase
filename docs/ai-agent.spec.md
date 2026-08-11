@@ -2,7 +2,7 @@
 
 > 版本：v1.0
 > 基于：《AI Agent 智能助手 — 需求确认书》
-> 关联项目：ShiYu-AppBase（App 全栈开发平台）
+> 关联项目：KeelBase（App 全栈开发平台）
 
 ---
 
@@ -27,14 +27,14 @@
 
 ### 1.4 定位：业务安全的 Agent Harness
 
-ShiYu 的 Agent 不是"玩具助手"，而是可安全作用于**真实业务数据**的运行时（harness）：
+KeelBase 的 Agent 不是"玩具助手"，而是可安全作用于**真实业务数据**的运行时（harness）：
 
 - **数据隔离**：每次工具调用都携带登录用户上下文（`ToolRegistry.execute(name, args, userId)`），查询/写入一律限定本人数据
 - **人工确认**：写操作（创建事件/待办、生成图片等）标记 `requiresConfirmation`，流式对话先发 `confirmation_request`，用户确认后才真正执行
 - **权限约束**：底层实体走 CASL 行级权限，Agent 无法越权访问他人数据或管理端点
 - **全链路审计**：每次对话/工具调用落 `ai_audit_logs`，支持反馈闭环（AI-18）、成本统计（AI-21）与评测（AI-20）
 
-> 与通用 Agent harness（LangChain/Claude Code 等）的区别：ShiYu 的工具是**有权限边界的业务 API**，而非文件/命令操作——这是"业务安全"的核心。
+> 与通用 Agent harness（LangChain/Claude Code 等）的区别：KeelBase 的工具是**有权限边界的业务 API**，而非文件/命令操作——这是"业务安全"的核心。
 
 ---
 

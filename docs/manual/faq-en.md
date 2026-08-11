@@ -91,7 +91,7 @@ A: See [One-Click Deploy](one-click-deploy.md): `HTTPS=1 ./deploy/deploy.sh` aut
 A: Correct — seed runs in development only. Create an admin via `npm run create:admin` after first production deploy.
 
 **Q: Where to see CI results?**
-A: Code mirrors to GitHub (`rain6fish/ShiYu-AppBase`); pushing to `main` triggers GitHub Actions. Check the Actions tab. The Gitee repo is for sync only.
+A: Code mirrors to GitHub (`rain6fish/KeelBase`); pushing to `main` triggers GitHub Actions. Check the Actions tab. The Gitee repo is for sync only.
 
 ## 6. Platform & Permissions
 

@@ -1,6 +1,6 @@
 # 一键部署指南（D.7）
 
-> ShiYu-AppBase 私有化部署最后一公里：deploy.sh 自动完成 环境初始化 → HTTPS（可选）→ 容器构建启动 → 建管理员账号。
+> KeelBase 私有化部署最后一公里：deploy.sh 自动完成 环境初始化 → HTTPS（可选）→ 容器构建启动 → 建管理员账号。
 > 面向对象：阿里云/腾讯云等轻量应用服务器（2C4G 起步）。
 
 Related manuals / 相关手册：
@@ -29,7 +29,7 @@ sudo systemctl enable --now docker
 
 ```bash
 # 1. 拉取代码（或上传压缩包）
-git clone https://github.com/rain6fish/ShiYu-AppBase.git && cd ShiYu-AppBase
+git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
 
 # 2. HTTP 一键部署（首次构建 10-20 分钟）
 ./deploy/deploy.sh

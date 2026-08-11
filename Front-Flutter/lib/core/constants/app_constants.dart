@@ -1,7 +1,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'ShiYu-AppBase';
+  static const String appName = 'KeelBase';
   static const String baseUrl = 'http://localhost:3000/api/v1';
   static const Duration accessTokenExpiry = Duration(minutes: 15);
   static const Duration refreshTokenThreshold = Duration(minutes: 5);

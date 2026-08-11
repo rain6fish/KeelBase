@@ -1,6 +1,6 @@
 # Manuals / 手册索引
 
-Bilingual (EN/ZH) manuals for ShiYu-AppBase. 中英双语手册。
+Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 
 | Manual / 手册 | Audience / 读者 | Purpose / 用途 |
 |---------------|-----------------|----------------|

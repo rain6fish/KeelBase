@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ShiYu-AppBase 一键部署脚本（D.7，私有化定位）
+# KeelBase 一键部署脚本（D.7，私有化定位）
 #
 # 功能：
 #   1. 检查 Docker / Docker Compose

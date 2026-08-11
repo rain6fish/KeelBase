@@ -41,7 +41,7 @@ export class SmsService {
       return;
     }
     const send = () =>
-      this.provider!.send(phone, `【ShiYu-AppBase】您的验证码是 ${code}，10 分钟内有效。`);
+      this.provider!.send(phone, `【KeelBase】您的验证码是 ${code}，10 分钟内有效。`);
     if (this.circuitBreaker) {
       await this.circuitBreaker.fire('sms', send);
     } else {

@@ -1,6 +1,6 @@
 # Development Manual / 开发手册
 
-> ShiYu-AppBase — 面向开发者的架构指南、编码规范与工作流。
+> KeelBase — 面向开发者的架构指南、编码规范与工作流。
 > For developers. Architecture, conventions, testing, and workflows.
 
 Related manuals / 相关手册：

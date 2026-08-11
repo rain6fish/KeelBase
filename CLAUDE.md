@@ -31,7 +31,7 @@
 ## 2. 项目结构
 
 ```
-ShiYu-AppBase/
+KeelBase/
 ├── Front-Flutter/                 # Flutter 前端
 │   ├── lib/
 │   │   ├── main.dart              # 入口：依赖注入 + MultiProvider
@@ -149,7 +149,7 @@ Text(context.l10n.myLabel)
 // 带参数的形式（定义成 getter 返回方法）
 String get welcomeTo => (String name) => _t('Welcome to $name', '欢迎来到$name');
 // 使用
-Text(context.l10n.welcomeTo('ShiYu-AppBase'))
+Text(context.l10n.welcomeTo('KeelBase'))
 ```
 
 ### 3.4 主题规则
@@ -429,7 +429,7 @@ SMTP_PORT=465            # 465=SSL / 587=STARTTLS
 SMTP_SECURE=true         # 是否使用 TLS
 SMTP_USER=               # 发件账号
 SMTP_PASS=               # 发件密码
-SMTP_FROM=               # 发件人，如 "ShiYu-AppBase <no-reply@example.com>"
+SMTP_FROM=               # 发件人，如 "KeelBase <no-reply@example.com>"
 APP_BASE_URL=http://localhost:8080  # 前端地址，拼密码重置链接用
 
 # 对象存储

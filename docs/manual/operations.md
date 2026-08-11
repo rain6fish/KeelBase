@@ -1,6 +1,6 @@
 # Operations Manual / 运维手册
 
-> ShiYu-AppBase — 面向运维人员的部署、环境变量、备份恢复与可观测性指南。
+> KeelBase — 面向运维人员的部署、环境变量、备份恢复与可观测性指南。
 > For ops. Deployment, environment variables, backup/restore, observability.
 
 Related manuals / 相关手册：
@@ -69,7 +69,7 @@ cp Server-Nodejs/.env.production.example Server-Nodejs/.env.production
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-**Stack / 组件**: PostgreSQL 17 + Redis + NestJS API + Nginx (Flutter web). Runs as non-root (`shiyu-appbase` user).
+**Stack / 组件**: PostgreSQL 17 + Redis + NestJS API + Nginx (Flutter web). Runs as non-root (`keelbase` user).
 
 ### 2.2 Production Settings / 生产设置
 
@@ -158,7 +158,7 @@ LOKI_ENABLED=true LOKI_URL=http://localhost:3100 \
 npm run start:dev
 ```
 
-- Loki label: `app=shiyu-appbase-server`
+- Loki label: `app=keelbase-server`
 - Full compose: `docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build` (update Prometheus targets to `server:3000`)
 
 ---

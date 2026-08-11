@@ -6,7 +6,7 @@ describe('MailService', () => {
     sendMail: jest.fn().mockResolvedValue({ messageId: 'test' }),
   };
 
-  function createService(transporter: unknown, smtpFrom = 'ShiYu-AppBase <no-reply@example.com>') {
+  function createService(transporter: unknown, smtpFrom = 'KeelBase <no-reply@example.com>') {
     const mockConfig = {
       get: jest.fn((key: string) => {
         if (key === 'SMTP_FROM') return smtpFrom;
@@ -41,7 +41,7 @@ describe('MailService', () => {
       });
 
       expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: 'ShiYu-AppBase <no-reply@example.com>',
+        from: 'KeelBase <no-reply@example.com>',
         to: 'user@example.com',
         subject: '标题',
         html: '<p>内容</p>',
@@ -83,7 +83,7 @@ describe('MailService', () => {
       );
 
       const call = mockTransporter.sendMail.mock.calls[0][0];
-      expect(call.subject).toBe('【ShiYu-AppBase】新事件提醒');
+      expect(call.subject).toBe('【KeelBase】新事件提醒');
       expect(call.html).toContain('新事件提醒');
       expect(call.html).toContain('你有一个会议明天开始');
     });

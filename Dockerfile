@@ -9,14 +9,14 @@
 FROM node:22-alpine AS server
 WORKDIR /app/server
 RUN apk add --no-cache wget
-RUN addgroup -S shiyu-appbase && adduser -S shiyu-appbase -G shiyu-appbase && \
+RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
     mkdir -p /app/server/uploads /app/server/data && \
-    chown -R shiyu-appbase:shiyu-appbase /app/server
+    chown -R keelbase:keelbase /app/server
 COPY --from=server-build /app/server/dist ./dist
  COPY --from=server-build /app/server/node_modules ./node_modules
  COPY --from=server-build /app/server/package*.json ./
  EXPOSE 3000
- USER shiyu-appbase
+ USER keelbase
  CMD ["node", "dist/main"]
 
  # ---- Builder stage for Flutter ----

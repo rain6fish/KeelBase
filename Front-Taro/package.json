@@ -2,7 +2,7 @@
   "name": "front-taro",
   "version": "1.0.0",
   "private": true,
-  "description": "ShiYu-AppBase Taro Frontend",
+  "description": "KeelBase Taro Frontend",
   "scripts": {
     "dev:h5": "taro build --type h5 --watch",
     "build:h5": "taro build --type h5",

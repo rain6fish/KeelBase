@@ -1,4 +1,4 @@
-# ShiYu-AppBase 代码知识图谱扫描报告
+# KeelBase 代码知识图谱扫描报告
 
 > 由 codebase-memory-mcp 对全仓库做静态解析后生成的架构快照。
 > 生成日期：2026-08-11 ｜ 索引模式：full（persistence=true）
@@ -10,7 +10,7 @@
 
 | 指标 | 数值 |
 |------|------|
-| 项目名 | ShiYu-AppBase |
+| 项目名 | KeelBase |
 | 图节点总数 | 5,174 |
 | 图边总数 | 12,148 |
 | 索引文件数 | 690（含 405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C） |
@@ -169,6 +169,6 @@
 
 ## 8. 数据来源与再扫描
 
-- 索引命令：`index_repository(repo_path=C:\Rain6fish\ShiYu-AppBase, mode=full, name=ShiYu-AppBase, persistence=true)`
+- 索引命令：`index_repository(repo_path=<仓库根>, mode=full, name=KeelBase, persistence=true)`
 - 图持久化于 `.codebase-memory/graph.db.zst`，后续会话可直接 `get_architecture` / `query_graph` 复用，无需重新全量扫描（改代码后增量重扫即可）。
 - 可深挖维度：`search_graph`（语义检索）、`trace_path`（调用链/数据流）、`query_graph`（复杂度/循环嵌套热点）——需要时在对应会话中按本报告章节定位查询。

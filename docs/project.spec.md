@@ -1,7 +1,7 @@
-# ShiYu-AppBase App 全栈开发平台 — 项目规格说明 (Spec)
+# KeelBase App 全栈开发平台 — 项目规格说明 (Spec)
 
 > 版本：v1.0
-> 项目名：ShiYu-AppBase（App 全栈开发平台）
+> 项目名：KeelBase（App 全栈开发平台）
 > 前端：Front-Flutter | 后端：Server-Nodejs
 
 ---
@@ -37,7 +37,7 @@
 ## 2. 项目结构
 
 ```
-ShiYu-AppBase/
+KeelBase/
 ├── Front-Flutter/                 # Flutter 前端
 │   ├── lib/
 │   │   ├── main.dart              # 入口：依赖注入 + MultiProvider
@@ -555,7 +555,7 @@ Nginx (HTTPS) → NestJS (API) → PostgreSQL
 
 **告警规则**（`infra/observability/prometheus/rules/server-alerts.yml`）：ServerDown（critical，server 不可达 1m）、高错误率（5xx > 10% 持续 5m）、高延迟（P95 > 1s 持续 5m）、高并发（在途 > 100 持续 5m）。Prometheus 数据源启用 `manageAlerts`，Grafana Alerting 页面可见。
 
-**日志直推**：pino 通过 `pino-loki` transport 把 JSON 日志推给 Loki。`LOKI_ENABLED=true` 时启用（默认关闭）；dev 环境 pino-pretty 与 Loki 并存，生产只 Loki。标签 `app=shiyu-appbase-server`、`env=<NODE_ENV>`。
+**日志直推**：pino 通过 `pino-loki` transport 把 JSON 日志推给 Loki。`LOKI_ENABLED=true` 时启用（默认关闭）；dev 环境 pino-pretty 与 Loki 并存，生产只 Loki。标签 `app=keelbase-server`、`env=<NODE_ENV>`。
 
 **本地开发**（server 在宿主机）：`docker compose -f docker-compose.observability.yml up -d`，Prometheus 用 `host.docker.internal:3000` 抓取；server 启动需 `OTEL_ENABLED=true OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 LOKI_ENABLED=true LOKI_URL=http://localhost:3100`。
 
@@ -669,7 +669,7 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM=ShiYu-AppBase <no-reply@example.com>
+SMTP_FROM=KeelBase <no-reply@example.com>
 APP_BASE_URL=http://localhost:8080
 
 # 对象存储

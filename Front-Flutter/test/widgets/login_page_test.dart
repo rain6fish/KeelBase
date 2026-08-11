@@ -59,7 +59,7 @@ void main() {
   testWidgets('渲染用户名/密码输入框和登录按钮', (tester) async {
     await pumpLoginPage(tester);
 
-    expect(find.text('Front'), findsOneWidget);
+    expect(find.text('KeelBase'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsWidgets);
     // 登录按钮存在
     expect(find.byType(AppPrimaryButton), findsOneWidget);

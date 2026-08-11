@@ -5,7 +5,7 @@
 
 ## 1. 背景与目标
 
-RAG 问答当前用全文搜索（LIKE 匹配标题/内容/分类），语义相关但关键词不匹配的文档检索不到。pgvector 已就绪（docker `shiyu-appbase-postgres` 容器，`vector 0.8.2` 扩展已启用，库 front）。
+RAG 问答当前用全文搜索（LIKE 匹配标题/内容/分类），语义相关但关键词不匹配的文档检索不到。pgvector 已就绪（docker `keelbase-postgres` 容器，`vector 0.8.2` 扩展已启用，库 front）。
 
 **目标**：知识库检索升级为向量检索（语义相似度），保留全文搜索作降级兜底，保证无 Embedding 配置/非 PostgreSQL 环境仍可用。
 
