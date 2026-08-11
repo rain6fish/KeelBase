@@ -7,21 +7,20 @@
      { icon: '🤖', label: 'AI', color: '#007AFF', path: '/pages/ai/index' },
      { icon: '📤', label: 'Upload', color: '#16A34A', path: '/pages/upload/index' },
      { icon: '📅', label: 'Events', color: '#F59E0B', path: '/pages/events/index' },
+     { icon: '✅', label: 'Todos', color: '#8B5CF6', path: '/pages/todos/index' },
+     { icon: '📋', label: 'AI 历史', color: '#0EA5E9', path: '/pages/ai-history/index' },
      { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },
    ]
  
    return (
      <View className='explore-page'>
-       {/* Search bar */}
-       <View className='explore-page__search'>
+       {/* Search bar → 搜索页（DX-3） */}
+       <View
+         className='explore-page__search'
+         onClick={() => Taro.navigateTo({ url: '/pages/search/index' })}
+       >
          <Text className='explore-page__search-icon'>🔍</Text>
-         <Input
-           className='explore-page__search-input'
-           placeholder='Search features, users, events...'
-           onConfirm={(e) => {
-             // TODO: Implement search
-           }}
-         />
+         <Text className='explore-page__search-input'>搜索事件、用户…</Text>
        </View>
  
        {/* Quick Access */}

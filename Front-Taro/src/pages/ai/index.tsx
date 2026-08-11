@@ -30,11 +30,19 @@ export default function AiPage() {
     <View className='ai-page'>
       <View className='ai-page__header'>
         <Text className='ai-page__title'>AI 助手</Text>
-        {messages.length > 0 && (
-          <Text className='ai-page__clear' onClick={handleClear}>
-            清空
+        <View className='ai-page__actions'>
+          <Text
+            className='ai-page__history'
+            onClick={() => Taro.navigateTo({ url: '/pages/ai-history/index' })}
+          >
+            历史
           </Text>
-        )}
+          {messages.length > 0 && (
+            <Text className='ai-page__clear' onClick={handleClear}>
+              清空
+            </Text>
+          )}
+        </View>
       </View>
 
       <ScrollView

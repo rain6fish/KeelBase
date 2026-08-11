@@ -43,6 +43,7 @@
 - 2026-08-10 定位修正（MIT 路线）：**不做商业版，壁垒 = 易用性 + 完整性 + 开箱即用**，专注开发者体验。章节补 DX-1~3（本地一键体验 / 零基础教程 / Taro 功能对齐）；PM-6 双轨改为保持 MIT；PM-7 可视化编排降级待评估；PL-12/13（多租户/支付）标注按社区驱动押后。来源：产品定位建议。
 - 2026-08-10 追加「数据主权与定位补齐（POV）」章节（POV-1 私有化AI部署 / POV-2 数据导入迁移 / POV-3 离线内网部署 + AI-23 生成式AI内容安全）。来源：2026-08-10 roadmap 定位评估——以「数据主权/私有化」定位对照，AI 能力全走云端 API 与「数据不出域」承诺冲突。**决策：先补通用能力，暂不限定市场方向**——私有化AI/数据迁移优先（任何市场都要），AI-23 内容合规等市场相关项押后。
 - 2026-08-10 完成 PM-2（种子演示数据：common/demo-data.ts + SeedService 空库首启自动种入 + npm run seed:demo 幂等补种）+ DX-1（本地一键体验闭环：experience.sh 本地/Docker 双模式 + dev.sh seed-demo 入口 + README 60s banner）。来源：本次实施。
+- 2026-08-11 完成 DX-3（Taro 端功能对齐：todos/search/ai-history 三页 + 入口 + 修复 ai-service previewTitle + 种子账号 emailVerified）。来源：本次实施。
 
 ---
 
@@ -408,7 +409,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 |---|------|------|------|------|
 | DX-1 | 本地一键体验 | 生产部署已一键（D.7），补**开发者本地**体验：README 引导 `docker compose up` 直接起全栈（postgres/redis/server/web）+ seed 演示数据，5 分钟内看到可操作界面，无需装 Node/Flutter | PM-2 / compose 已就绪 | **已完成（README 60s banner + `./scripts/dev.sh experience`（本地/Docker 双模式，自动端口探测/开浏览器/验收清单）+ PM-2 空库首启自动种入演示数据；`dev.sh seed-demo` 手动补种入口）** |
 | DX-2 | 零基础从零到部署教程 | 现有 docs/manual 是手册非教程；补"零基础 → 跑起来 → 改配置 → 私有化部署"图文全流程（视频可选），降低首个用户的 30 分钟评估门槛 | 无 | 待办 |
-| DX-3 | Taro 端功能对齐 | MINI-1 AI 已就绪；补齐 Front-Taro 与 Flutter 的剩余功能差：全局搜索、待办清单、AI 历史列表，使小程序/H5 渠道完整（国内团队刚需） | MINI-1 / PL-4 / SAM-1 | 待办 |
+| DX-3 | Taro 端功能对齐 | MINI-1 AI 已就绪；补齐 Front-Taro 与 Flutter 的剩余功能差：全局搜索、待办清单、AI 历史列表，使小程序/H5 渠道完整（国内团队刚需） | MINI-1 / PL-4 / SAM-1 | **已完成（todos 页：列表/新增/切换/删除乐观更新；search 页：debounce 搜索复用 /search（事件+用户双区）；ai-history 页：历史列表/预览/打开/删除 + AI 页「历史」入口；Explore 搜索框跳转 + Todos/AI历史 卡片；修复 ai-service previewTitle 取首条 user 消息 bug + 种子账号 emailVerified 缺省修复）** |
 
 ---
 

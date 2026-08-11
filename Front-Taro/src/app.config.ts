@@ -15,6 +15,9 @@
      'pages/notifications/index',
      'pages/sessions/index',
      'pages/ai/index',
+     'pages/ai-history/index',
+     'pages/todos/index',
+     'pages/search/index',
    ],
    window: {
      navigationStyle: 'custom',
