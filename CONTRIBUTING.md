@@ -186,6 +186,10 @@ If your contribution is found to infringe a third party's intellectual property 
 
 ## Reporting Issues
 
+> **🔐 Security vulnerabilities**: Please **do not** open a public issue. Follow the [SECURITY.md](./SECURITY.md) disclosure process — email the maintainer privately for a coordinated fix.
+>
+> **🔐 安全漏洞**：请**不要**提交公开 Issue。请遵循 [SECURITY.md](./SECURITY.md) 的披露流程，通过邮件私密联系维护者以协调修复。
+
 ### Before Creating an Issue
 
 1. **Search existing issues** — make sure it hasn't been reported
