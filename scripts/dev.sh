@@ -4,6 +4,7 @@
 #
 # 用法：./scripts/dev.sh <command>
 #   experience      一键体验（起后端+管理台，自动开浏览器）
+#   seed-demo       为演示用户补种演示数据（事件/待办/知识库/对话/通知）
 #   dev             本地开发起后端（热重载，SQLite 零配置）
 #   dev-admin       构建并托管管理台
 #   web             起 Flutter Web 主 App
@@ -27,6 +28,9 @@ ROOT="$PWD"
 case "${1:-help}" in
   experience)
     ./deploy/experience.sh
+    ;;
+  seed-demo)
+    cd Server-Nodejs && npm run seed:demo
     ;;
   dev)
     cp -n Server-Nodejs/.env.example Server-Nodejs/.env 2>/dev/null || true
