@@ -45,6 +45,7 @@
 - 2026-08-10 完成 PM-2（种子演示数据：common/demo-data.ts + SeedService 空库首启自动种入 + npm run seed:demo 幂等补种）+ DX-1（本地一键体验闭环：experience.sh 本地/Docker 双模式 + dev.sh seed-demo 入口 + README 60s banner）。来源：本次实施。
 - 2026-08-11 完成 DX-3（Taro 端功能对齐：todos/search/ai-history 三页 + 入口 + 修复 ai-service previewTitle + 种子账号 emailVerified）。来源：本次实施。
 - 2026-08-11 完成 PM-5（运维健康巡检：scripts/healthcheck.ts + npm run healthcheck，复用 /health + /admin/monitor/summary + 本地资源/备份检查，退出码门禁）。来源：本次实施。
+- 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
 
 ---
@@ -417,7 +418,7 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | PM-1 | 在线 Demo 体验站 | "评估只能 clone 跑，门槛高"。用 Taro H5 静态产物（`build:h5`）+ 后端 + 种子数据部署只读体验站（演示账号已具备），README 首屏放链接 | D.7 / PM-2 | 待办 |
 | PM-2 | 种子演示数据（seed:demo） | `common/seed.ts` 现仅建演示账号，登录后空界面无价值感；补事件/待办/知识库/对话历史/通知的丰富样例数据，直观展示全栈基座 | 无 | **已完成（common/demo-data.ts + SeedService 空库首启自动种入 alex 演示数据：7 事件（含取消/提醒/循环）+ 6 待办 + 4 知识库 + 2 对话 4 消息 + 3 通知；`npm run seed:demo` 幂等手动补种，缺失自动建账号）** |
 | PM-3 | 案例墙与社区 | 无公开落地案例/标杆客户/社区分享——"看起来好≠能落地"。README 与 GitHub Discussions 征集早期使用者 PoC；Discord + 微信群 + 技术博客持续运营，让生态自然生长 | 无 | 待办 |
-| PM-4 | SECURITY.md + 安全披露流程 | 目标客群（ISV/政企）过安全审计必查，仓库现缺失：安全策略 + 漏洞报告渠道 + 开源依赖清单/SBOM | 无 | 待办 |
+| PM-4 | SECURITY.md + 安全披露流程 | 目标客群（ISV/政企）过安全审计必查，仓库现缺失：安全策略 + 漏洞报告渠道 + 开源依赖清单/SBOM | 无 | **已完成（SECURITY.md 双语：受支持版本 / 漏洞报告流程（私密邮件披露 + 72h 确认 + PGP 可选）/ 安全范围 / 内置安全能力（对齐 CLAUDE.md §5 认证·授权·请求·上传·部署·AI Agent）/ SBOM 生成方式（cyclonedx-npm + dart pub deps）+ npm audit + 面向安全的运维清单；README 文档表 + CONTRIBUTING 安全披露引导）** |
 | PM-5 | 运维健康巡检脚本 | 备份/监控/告警已就绪，补一键健康巡检（health 聚合 + 依赖状态 + 日志扫描）命令集，降低非 DevOps 运维门槛 | AD-2 / PL-3 / RG-4 | **已完成（scripts/healthcheck.ts + `npm run healthcheck`/`dev.sh healthcheck`：服务存活 / admin 依赖状态（数据库/Redis/队列/存储/邮件/推送）/ 数据规模计数 / 运行指标（错误率/P95/并发阈值）/ 本地资源（SQLite/磁盘）/ 备份新鲜度；admin 凭据用 ADMIN_USERNAME/ADMIN_PASSWORD 或 ADMIN_TOKEN；退出码 0 全通过 / 1 服务或依赖失败，供 cron/CI 门禁）** |
 | PM-6 | 保持 MIT，不做商业版 | 定位确认：不开企业版/SaaS 收费（移除原"开源+企业双轨"方案）。商业化路径 = 社区/案例/生态自然生长，而非自设付费墙 | 无 | 已定（定位） |
 | PM-7 | 可视化 Agent 编排 | 当前 AI 工作流靠代码配置，上手门槛高；补可视化 Agent 编排（对标 LangChain/Langflow）。**与易用性定位关联弱、投入大，降级待评估**，优先做 DX-1~3 | AI 模块 | 待办（低优先） |
