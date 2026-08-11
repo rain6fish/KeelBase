@@ -11,7 +11,11 @@
 
 ShiYu-AppBase is not just a boilerplate; it is a production-ready foundation that fuses **enterprise data sovereignty** with **AI-native capabilities**. It provides a unified solution covering Flutter/Taro frontends, a NestJS backend, and AI orchestration — designed for developers who need to build secure, scalable, and intelligent applications without compromising on data privacy.
 
+At its core, ShiYu-AppBase is a **business-safe agent harness**: an AI runtime where every tool call is scoped to the authenticated user, write operations require human confirmation, and all agent activity runs through CASL row-level permissions and full audit trails. It lets you turn your business APIs into safe, controllable AI actions — without building an agent platform from scratch.
+
 ShiYu-AppBase 不仅仅是一个脚手架，而是一个**生产级**的应用基座。它将**企业级数据主权**与**AI 原生能力**深度融合，提供了一套包含 Flutter/Taro 前端、NestJS 后端及 AI 编排的统一解决方案，专为希望在**不牺牲数据隐私**的前提下，快速构建安全、可扩展且智能化应用的开发者而生。
+
+它的本质是一个**业务安全的 Agent harness（运行时）**：每一次工具调用都限定在登录用户的数据范围内，写操作必须经人工确认，所有智能体行为都经过 CASL 行级权限校验与全链路审计。无需从零搭建 agent 平台，就能把业务 API 变成安全、可控的 AI 能力。
 
 ---
 
@@ -31,9 +35,9 @@ Unlike traditional boilerplates that focus only on CRUD, ShiYu-AppBase is engine
 ### 🤖 AI-Native — AI 原生架构
 
 - **Beyond Chat:** Integrated RAG (Retrieval-Augmented Generation), tool calling (function execution), and AI data insights.
-- **Agentic Ready:** Tool calling and RAG lay the groundwork for autonomous agents and complex AI workflows.
+- **Business-Safe Agent Harness:** Tools are user-scoped, write operations require human confirmation, and CASL row-level permissions + audit trails bound every agent action — safe to run agent workflows against real business data.
 - **超越聊天：** 深度集成 RAG（检索增强生成）、工具调用（Tool Calling）和 AI 数据洞察。
-- **智能体就绪：** 工具调用与 RAG 为自主智能体和复杂 AI 工作流奠定基础。
+- **业务安全的 Agent Harness：** 工具调用限定用户数据范围、写操作需人工确认；CASL 行级权限与全链路审计约束每个 agent 动作，可安全地在真实业务数据上运行智能体工作流。
 
 ### ⚡ Full-Stack Fusion — 全栈融合
 

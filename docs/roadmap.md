@@ -44,6 +44,7 @@
 - 2026-08-10 追加「数据主权与定位补齐（POV）」章节（POV-1 私有化AI部署 / POV-2 数据导入迁移 / POV-3 离线内网部署 + AI-23 生成式AI内容安全）。来源：2026-08-10 roadmap 定位评估——以「数据主权/私有化」定位对照，AI 能力全走云端 API 与「数据不出域」承诺冲突。**决策：先补通用能力，暂不限定市场方向**——私有化AI/数据迁移优先（任何市场都要），AI-23 内容合规等市场相关项押后。
 - 2026-08-10 完成 PM-2（种子演示数据：common/demo-data.ts + SeedService 空库首启自动种入 + npm run seed:demo 幂等补种）+ DX-1（本地一键体验闭环：experience.sh 本地/Docker 双模式 + dev.sh seed-demo 入口 + README 60s banner）。来源：本次实施。
 - 2026-08-11 完成 DX-3（Taro 端功能对齐：todos/search/ai-history 三页 + 入口 + 修复 ai-service previewTitle + 种子账号 emailVerified）。来源：本次实施。
+- 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
 
 ---
 
@@ -379,6 +380,26 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | AI-23 | 生成式 AI 内容安全 | 输入/输出内容审核（敏感词 + 违规过滤）+ prompt injection/越狱防护 + 数据出境声明（网信办《生成式 AI 服务管理暂行办法》）。**市场相关（国内 C 端合规），按决策押后** | AI 模块已就绪 | 待办（押后） |
 
 > **战略决策记录**：目标市场未限定——技术栈偏国内（微信/支付宝/极光/钉钉/等保），但 README 带 Google/Apple/英文国际化钩子。后续选型前先定目标市场（国内企业私有化 vs 出海 vs 通用），再据其调整 POV/AI-23/多语言/GDPR 优先级。
+
+---
+
+## 十一、业务安全的 Agent harness 深化（HS）
+
+> 来源：2026-08-11 定位深化分析——定位定义为「**业务安全的 agent harness**」（工具限定用户数据范围 + 写操作人工确认 + CASL 行级权限 + 全链路审计）后，对照现有代码逐层核查（ai.service 工具循环 / tool-registry / confirmation-store / eval / headless / audit 实体）。
+> **结论：安全骨架已存在，但"安全"作为卖点仍缺四块地基**——①评测判定是空的（见 HS-1）②工具无权限粒度 ③写副作用不可撤销 ④上下文注入无防线。以下按优先级排。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| HS-1 | 评测判定闭环（当前是空判定） | **已证实硬伤**：`ai-eval.service` 的 `runImpl` 判定 `ok = !!res.reply && res.reply.length > 0`——**有回复即通过**；`createCase` 接受 `expected` 字段但从未用于断言。无法验证正确性，更无法验证安全性。补：①`expected` 断言（包含/正则/工具命中/拒绝）②安全用例类别（越权工具调用、写操作确认拒绝、PII 泄露、prompt injection）③报告含逐用例断言明细而非仅 ok 计数 | AI-20 已就绪 | 待办 |
+| HS-2 | 工具级权限治理 | **已证实缺口**：任意已认证用户可触发全部注册工具——工具直连 service（如 create-todo.tool 调 `todosService.create`），HTTP 层守卫（EmailVerificationGuard 等）管不到工具路径。补：AiTool 加权限元数据（可调角色/需验证邮箱/受 FeatureFlag 约束）+ ToolRegistry 执行前校验；管理台可见工具清单与权限 | 工具接口 / CASL / PL-8 | 待办 |
+| HS-3 | 写工具幂等与补偿（AI 副作用可撤销） | **已证实缺口**：`runToolLoop` 逐个执行工具，多工具流程中途失败无回滚；写工具无幂等键，LLM 重试/并发会重复建事件/待办。补：写工具 idempotency key（用户+会话+工具+参数 hash）+ 失败补偿钩子（agent 自述已做 vs 实际成败）+ 管理台可查 AI 创建的记录并一键删除（衔接 RG-3 回收站） | HS-2 / RG-3 | 待办 |
+| HS-4 | headless 治理 | **已证实缺口**：headless.controller 固定 `chat('0')`——无 per-API-key 限额（所有 key 共享 userId '0' 的每日限额桶）、无工具范围、无独立身份隔离。补：API Key ↔ 独立账号/工具范围/配额映射 + per-key 审计归属 + 管理台 Key 管理页 | AI-19 已就绪 | 待办 |
+| HS-5 | 工具结果 token 预算与截断 | **已证实缺口**：非流式 `runToolLoop` 把 `JSON.stringify(resolvedResult)` 原样回填消息（流式有 summarizeToolResult，非流式没有），大查询结果可撑爆上下文窗口。补：非流式也走摘要/截断 + 工具结果字符上限 + 超限降级 | 无 | 待办 |
+| HS-6 | 确认协议体验补齐 | ConfirmationStore 内存存储（重启丢 pending）、TTL 固定 60s 不可配、无批量确认/信任工具名单/确认前预览（用户看不到将创建什么）。补：确认卡片带参数预览、本次会话信任工具、超时经 Settings 可配、pending 持久化 | AI-7 已就绪 | 待办 |
+| HS-7 | AI 行为回放与副作用视图 | ai_audit_logs 已记 tool_call（含参数），但管理台无「AI 对某用户数据做了什么」的时间线视图。补：管理台按用户/会话聚合「AI 创建/尝试/失败」的事件与待办清单，支持逐条展开工具参数与确认决策 | AI-21 / AD-6 / RG-3 | 待办 |
+| HS-8 | 上下文注入防线（隐私 + prompt injection） | 用户记忆 / RAG 知识库 / 文档内容原样注入 messages，无敏感数据过滤、无注入防护（AI-23 内容合规已押后，但注入防护是 harness 安全核心）。补：检索结果注入前过滤敏感字段（phone/email/token 掩码）+ 系统边界标注（区分「用户说」vs「知识库/记忆说」）+ 基础注入检测 | AI-6/AI-11 已就绪 | 待办 |
+
+> **优先级建议**：①HS-1 评测闭环（安全主张的验证地基，投入小见效快）→ ②HS-2 工具权限（越权是最大的安全叙事裂缝）→ ③HS-3 幂等/补偿（AI 副作用可撤销）→ ④HS-4 headless 治理 → ⑤HS-6 确认 UX → ⑥HS-5/7/8 视采用反馈再排。HS 系列与「数据主权」POV 同一逻辑：不追新功能，先证明现有能力安全可信。
 
 ---
 
