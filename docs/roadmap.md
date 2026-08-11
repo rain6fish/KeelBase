@@ -504,8 +504,13 @@ ShiYu-AppBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有�
 | CR-24 | 自助改密复杂度弱化（P2/安全） | `update-user.dto` 自助改密仅 @MinLength(6) 无字母数字要求，与注册策略不一致可降级弱口令。复用注册密码正则 | 无 | 待办 |
 | CR-25 | i18n / 红线残留（P2/规范） | Taro 主 app 无 i18n 层（中英混杂）；Flutter/Taro-Admin 若干硬编码中文/英文标签；search 页无 leading 返回（Shell 外红线）；Dev Menu 无环境开关正式包可长按头像打开。统一走 i18n + 返回按钮 + 环境隔离 | 无 | 待办 |
 | CR-26 | 前端状态机/竞态加固（P2） | Flutter：流式完成无 mounted 保护、hasError 时 isStreaming 不清、loadConversation 失败静默、Dismissible 异步删除竞态、event_form `catch(_){}` 吞失败可能误存覆盖、日视图每次 build 抢滚动、loadMore 失败跳页；Taro：搜索防抖无请求序号守卫、通知 store fire-and-forget 未捕获异常 | 无 | 待办 |
+| CR-27 | getConversation 裸 catch 吞越权失败（P1/访问控制） | `ai.service.ts` `getConversation` 错误被 `catch {}` 全吞：传他人 conversationId 时鉴权失败被当作"会话不存在"，转为新建会话 → 破坏对象级访问控制。只 catch not-found 场景，鉴权/服务错误放行 | CR-2 | 待办 |
+| CR-28 | provider fallback 错乱 + 流式无 fallback（P2/稳定性） | `ai.service.ts` 回退成功后 `currentProvider` 指向**刚失败的** provider，下轮重试坏的；流式路径完全没有 provider fallback（非流式 runToolLoop 有）。用实际成功的 provider + 流式补 fallback | 无 | 待办 |
+| CR-29 | 流式超限掉最后道歉消息（P2） | 超 MAX_TOOL_ROUNDS 时道歉只入库不 yield chunk，客户端只见 `done` 无最终文案。流式路径补 yield | CR-2 | 待办 |
+| CR-30 | console.log 打印用户消息 PII（P2/隐私） | `ai.service.ts` `console.log` 原样打印用户输入与导航意图进生产日志，泄漏 PII。改结构化 logger 或删除 | 无 | 待办 |
 
-> **优先级（2026-08-12）**：P0 = CR-1~5（密钥泄露 / 审计红线 / 生产迁移 / 管理端明文 / 内部错误泄漏）→ P1 = CR-6~15（安全缺口 + 前端主链路故障）→ P2 = CR-16~26（稳定性与规范加固）。CR 系列与 DEP/T/HS 无重复——DEP 是「起不来/部署」硬伤，CR 是本轮审查的「安全+功能」缺陷。
+> **优先级（2026-08-12）**：P0 = CR-1~5（密钥泄露 / 审计红线 / 生产迁移 / 管理端明文 / 内部错误泄漏）→ P1 = CR-6~15（安全缺口 + 前端主链路故障）→ P2 = CR-16~30（稳定性与规范加固）。CR 系列与 DEP/T/HS 无重复——DEP 是「起不来/部署」硬伤，CR 是本轮审查的「安全+功能」缺陷。
+> **2026-08-11 追加 CR-27~30**：配置 DeepSeek flash 后 `ocr review`/`ocr scan` 交叉验证 `ai.service.ts` 的独立发现——CR-27 为访问控制缺陷，CR-28~30 为流式路径与日志加固；与 CR-2（流式零审计）同域，均待修。
 
 ---
 
