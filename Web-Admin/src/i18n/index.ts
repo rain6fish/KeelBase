@@ -36,9 +36,12 @@ export function t(key: string, params?: Record<string, string | number>): string
 /** 功能名：featureKey 优先，兜底 featureFallback（英文），再兜底 key */
 export function tFeature(featureKey?: string | null, fallback?: string | null): string {
   if (!featureKey) return fallback || '-'
-  const key = `feature.${featureKey}`
-  const localized = i18n.global.te(key) ? i18n.global.t(key) : ''
-  return localized || fallback || featureKey
+  const dict = i18n.global.messages.value[i18n.global.locale.value] as { feature?: Record<string, string> }
+  const localized = dict?.feature?.[featureKey]
+  if (localized) return localized
+  // 英文兜底
+  const enDict = i18n.global.messages.value.en as { feature?: Record<string, string> }
+  return enDict?.feature?.[featureKey] || fallback || featureKey
 }
 
 /** 语言切换（Pinia store，持久化到 localStorage） */
