@@ -47,9 +47,11 @@
 - 2026-08-11 完成 PM-5（运维健康巡检：scripts/healthcheck.ts + npm run healthcheck，复用 /health + /admin/monitor/summary + 本地资源/备份检查，退出码门禁）。来源：本次实施。
 - 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
 - 2026-08-11 完成 HS-1（评测判定闭环：expected 六型断言 + AiService 暴露 toolCalls + 报告断言明细 + 内置安全用例 seed）。来源：本次实施。
+- 2026-08-12 完成 HS-2（工具级权限治理：AiTool.permissions + AiService._assertToolAllowed 执行前门控 + web_search/generate_image 绑 AI flag + create_event/todo 绑需验证邮箱 + GET /ai/tools admin 工具清单）。来源：本次实施。
 - 2026-08-11 追加 T.6（e2e 纳入覆盖率统计）。来源：覆盖提升策略审视——实测全局 56.43% 但 e2e 98 用例不计入 coverage，是最大杠杆缺口；补 controller 单测见 T.4、门槛分档见 T.5。
 - 2026-08-11 完成 T.6（e2e 纳入覆盖率：jest-e2e.json rootDir 修正 + collectCoverageFrom + test:e2e:cov 脚本；实测 e2e 覆盖 333 文件，核心 controller 88-100%）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
+- 2026-08-12 追加「易用性深化（EASY-1~4）」章节。来源：易用性产品讨论——①单容器 all-in-one 交付（`docker run -p 80:80` 一条命令，SQLite + 降级 redis + server 内嵌静态文件）②AI 配置向导（`npx shiyu init` 问答式生成配置，让 AI 做配置而非文档做配置）③三档预设（small/lite/full + white-label 品牌化 APP_BRAND）④MOD-2 方案修正（动态 import 硬装配 → 默认全开 + 精简预设，依赖图校验器保留）。定位：小项目快 + 大项目按需。MOD-2 标注「方案修正」。
 - 2026-08-11 追加 T.4/T.5（测试覆盖审视：全局 56.43% 但 controller 层 0%、门槛无模块分档）+ D.8（运维单页：聚合四套可观测工具降中小团队门槛）。来源：整体测试覆盖 + 运维复杂度反馈。
 - 2026-08-11 追加「生产就绪硬伤修复（DEP-1~DEP-7）」章节。来源：外部代码评估逐条核实——CI 与 Taro 对齐已修复（过时），但 5 项仍存在：compose 密钥不注入（DEP-1）/ 部署默认非生产+默认密钥（DEP-2）/ _pendingImages 并发串号（DEP-3，唯一数据正确性 bug）/ 本地零配置启动失败（DEP-4）/ Taro API 写死 localhost（DEP-5）/ CI 注释过时+缺 Taro job（DEP-6）/ CORS+无 .dockerignore（DEP-7）。
 - 2026-08-11 追加 UX-9~UX-11（登录页 Slogan+演示账号 / Dashboard 快速开始卡+模板导入入口 / AI 示例 chips 替代 placeholder 轮播）。来源：首次体验提升建议——三个体验项合计 ~2 天，与 PM-1 在线 Demo / DX-1 60秒体验同逻辑，作为演示站前置加分项。
@@ -395,7 +397,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | MOD-1 | 模块清单与依赖图谱（manifest） | 每模块声明 deps + isCore + 类别；装配校验器（开 C 必须开 D、关 A 必须关 B）。**先做，零风险** | 无 | **已完成（src/common/modules/modules-manifest.ts：core/ai/notification/business 四组 + validateModuleGraph 校验「开 C 必须开 D、关核心报错」；单测 6）** |
-| MOD-2 | 启动期模块装配 | app.module 按启用清单动态 import（enableModules 配置/DB 表），未启用模块不进 DI 图 → 省启动时间/内存/调度任务/队列 worker/DB 表；改配置须重启 | MOD-1 | 待办（方案待评估） |
+| MOD-2 | 启动期模块装配 | app.module 按启用清单动态 import（enableModules 配置/DB 表），未启用模块不进 DI 图 → 省启动时间/内存/调度任务/队列 worker/DB 表；改配置须重启。**2026-08-12 方案修正：降级**——改为 EASY-4「默认全开 + 精简预设」，不做动态 import 硬装配（见 EASY-4） | MOD-1 | 待办（方案修正→EASY-4） |
 | MOD-3 | 模块管理页（管理台） | 把 PL-8 软开关从 env 升到 Settings 表 + 管理台「模块管理」页：模块清单/依赖图展示/启用切换（即时生效层）+ 装配类变更引导重启 | RG-2 / PL-8 | 待办（方案待评估） |
 | MOD-4 | capabilities 端点 + 三端联动 | GET /app/capabilities 返回启用模块；Flutter/Taro/管理台按此隐藏未启用模块导航入口（路由/底部 Tab/更多菜单） | MOD-2/3 | 待办（方案待评估） |
 
@@ -427,7 +429,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | HS-1 | 评测判定闭环（当前是空判定） | **已证实硬伤**：`ai-eval.service` 的 `runImpl` 判定 `ok = !!res.reply && res.reply.length > 0`——**有回复即通过**；`createCase` 接受 `expected` 字段但从未用于断言。无法验证正确性，更无法验证安全性。补：①`expected` 断言（包含/正则/工具命中/拒绝）②安全用例类别（越权工具调用、写操作确认拒绝、PII 泄露、prompt injection）③报告含逐用例断言明细而非仅 ok 计数 | AI-20 已就绪 | **已完成（expected 断言体系：contains/regex/tool-hit/tool-miss/no-tool/reject 六型，纯文本兼容 contains；AiService.chat 暴露 toolCalls 供工具断言；报告逐用例含 assertType/detail/actualToolCalls/replyPreview + byAssert 分组；内置安全用例 seed（越权删除/改密/PII 泄露/注入攻击/工具命中/无工具，`POST /ai/eval/seed` 幂等补齐）；后端 602 单测全绿）** |
-| HS-2 | 工具级权限治理 | **已证实缺口**：任意已认证用户可触发全部注册工具——工具直连 service（如 create-todo.tool 调 `todosService.create`），HTTP 层守卫（EmailVerificationGuard 等）管不到工具路径。补：AiTool 加权限元数据（可调角色/需验证邮箱/受 FeatureFlag 约束）+ ToolRegistry 执行前校验；管理台可见工具清单与权限 | 工具接口 / CASL / PL-8 | 待办 |
+| HS-2 | 工具级权限治理 | **已证实缺口**：任意已认证用户可触发全部注册工具——工具直连 service（如 create-todo.tool 调 `todosService.create`），HTTP 层守卫（EmailVerificationGuard 等）管不到工具路径。补：AiTool 加权限元数据（可调角色/需验证邮箱/受 FeatureFlag 约束）+ ToolRegistry 执行前校验；管理台可见工具清单与权限 | 工具接口 / CASL / PL-8 | **已完成（AiTool.permissions（featureFlag / requireVerifiedEmail）+ AiService._assertToolAllowed 执行前门控（流式/非流式两循环入口）+ UsersService/FeatureFlagsService 注入 + web_search/generate_image 绑 featureFlag:'ai' + create_event/create_todo 绑 requireVerifiedEmail + GET /ai/tools（admin）工具清单与权限 + 2 门控单测；604 单测 + e2e 98 全绿）** |
 | HS-3 | 写工具幂等与补偿（AI 副作用可撤销） | **已证实缺口**：`runToolLoop` 逐个执行工具，多工具流程中途失败无回滚；写工具无幂等键，LLM 重试/并发会重复建事件/待办。补：写工具 idempotency key（用户+会话+工具+参数 hash）+ 失败补偿钩子（agent 自述已做 vs 实际成败）+ 管理台可查 AI 创建的记录并一键删除（衔接 RG-3 回收站） | HS-2 / RG-3 | 待办 |
 | HS-4 | headless 治理 | **已证实缺口**：headless.controller 固定 `chat('0')`——无 per-API-key 限额（所有 key 共享 userId '0' 的每日限额桶）、无工具范围、无独立身份隔离。补：API Key ↔ 独立账号/工具范围/配额映射 + per-key 审计归属 + 管理台 Key 管理页 | AI-19 已就绪 | 待办 |
 | HS-5 | 工具结果 token 预算与截断 | **已证实缺口**：非流式 `runToolLoop` 把 `JSON.stringify(resolvedResult)` 原样回填消息（流式有 summarizeToolResult，非流式没有），大查询结果可撑爆上下文窗口。补：非流式也走摘要/截断 + 工具结果字符上限 + 超限降级 | 无 | 待办 |
@@ -467,6 +469,19 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | DX-1 | 本地一键体验 | 生产部署已一键（D.7），补**开发者本地**体验：README 引导 `docker compose up` 直接起全栈（postgres/redis/server/web）+ seed 演示数据，5 分钟内看到可操作界面，无需装 Node/Flutter | PM-2 / compose 已就绪 | **已完成（README 60s banner + `./scripts/dev.sh experience`（本地/Docker 双模式，自动端口探测/开浏览器/验收清单）+ PM-2 空库首启自动种入演示数据；`dev.sh seed-demo` 手动补种入口）** |
 | DX-2 | 零基础从零到部署教程 | 现有 docs/manual 是手册非教程；补"零基础 → 跑起来 → 改配置 → 私有化部署"图文全流程（视频可选），降低首个用户的 30 分钟评估门槛 | 无 | 待办 |
 | DX-3 | Taro 端功能对齐 | MINI-1 AI 已就绪；补齐 Front-Taro 与 Flutter 的剩余功能差：全局搜索、待办清单、AI 历史列表，使小程序/H5 渠道完整（国内团队刚需） | MINI-1 / PL-4 / SAM-1 | **已完成（todos 页：列表/新增/切换/删除乐观更新；search 页：debounce 搜索复用 /search（事件+用户双区）；ai-history 页：历史列表/预览/打开/删除 + AI 页「历史」入口；Explore 搜索框跳转 + Todos/AI历史 卡片；修复 ai-service previewTitle 取首条 user 消息 bug + 种子账号 emailVerified 缺省修复）** |
+
+### 易用性深化（EASY，2026-08-12 新增）
+
+> 定位主线：**小项目快 + 大项目按需**。小团队要「30 分钟从 0 到能用的业务应用」，大团队要「标准化 + 可审计 + 可扩展」——同一套代码，用**三档预设 + 一个 AI 配置入口**满足两端，而非两套产品。市场参照：微搭/明道云强在拖拽弱在代码级+AI 安全；Supabase 强在 BaaS 弱在私有化+国内合规；Dify/Coze 强在 AI 编排但无全栈基座的「AI 引导配置」——**这是差异化缝隙**。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| EASY-1 | 单容器 all-in-one 交付 | **`docker run -p 80:80` 一条命令即可用**（用户只装 Docker）。现状是 4 容器编排（postgres+redis+server+web）；改：server 镜像内嵌 Flutter web + admin 静态文件（nest 静态托管或内置 nginx），默认 SQLite（项目已零配置）+ `CACHE_ENABLED=false` 降级 redis，大项目仍走 compose。目标：「小项目」最爽形态 | DX-1 已就绪 / Dockerfile 多阶段 | 待办 |
+| EASY-2 | AI 配置向导（`npx shiyu init`） | CLI 交互问答（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + 打印「下一步」。**让 AI 做配置，而不是文档做配置**——竞品未做，最高差异化 | AI 编排已就绪 | 待办 |
+| EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`shiyu init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
+| EASY-4 | MOD-2 方案修正 | **原方案「动态 import 硬装配」降级**：小团队价值感优先于「省启动时间」，且默认全开 + 精简预设比「配置想要的」心智负担小。改为：**默认全开** + EASY-3 精简预设控制；MOD-1 依赖图校验保留为**配置校验器**（防畸形预设）而非装配执行器 | MOD-1 已就绪 | 待办（方案修正） |
+
+> **关键权衡**：默认全开（小爽大略重）vs 默认精简（大干净小要配）。**选前者**——易用性是最大短板（「做出来了没人知道怎么用」），大项目减负走生产设施独立路径兜底。
 
 ---
 
