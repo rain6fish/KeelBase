@@ -59,6 +59,7 @@
 - 2026-08-12 追加「差异化定位红线」+「应用级管理（ORG）」+「获客与留存（GROWTH）」三章。来源：产品讨论——平台形态向若依/JeeCG 收敛的警觉（定位红线：不做若依式快速开发平台，差异主线 = 业务安全 AI Agent harness + 三端一致 + AI 引导配置）；应用端丰富功能与市面常用功能调研结论（组织架构/审批等企业能力按「应用层 + AI 织入」拟条目；社区动态流/积分等 C 端示例功能吸引试用）。
 - 2026-08-12 完成 EASY-1（单容器 all-in-one 交付）：Dockerfile.single（server+Flutter web+admin 单镜像）+ SERVE_STATIC=1 Nest 静态托管（根路径主 App + /admin 管理台）+ scripts/docker-single.sh（up/build/stop/down/logs）+ .dockerignore + Makefile docker-single + README 60s 改单容器优先；`docker run` 一条命令起全栈，SQLite 零配置 + Redis/队列降级。来源：本次实施。
 - 2026-08-12 补充定位红线：开发期 AI + 运行时 AI 双叙事（对照 JeeCG v3.9.2 AI Skills「一句话生成系统」）——JeeCG 抢先占位「AI 生成系统」话术，但 AI 仅开发期；我们把差异从「AI 引导配置」升级为「开发期 AI（EASY-2 生成业务模块）+ 运行时 AI（HS 安全 harness）」双叙事 + 评审守则补充。来源：本次产品讨论（JeeCG 观察）。
+- 2026-08-12 决策「认真做企业级」：新建独立 PC Web 管理台（WEB-ADMIN 章节），Taro-Admin 废弃并并入；组件库选 Vuetify 3（Materio 风格，MIT 合规）；首启强引导切预设（EASY-5）；补充 NestJS 企业级支撑声明。来源：本次产品讨论。
 
 ---
 
@@ -460,6 +461,39 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 - **结论**：JeeCG 把 AI 用在「快」，我们把 AI 用在「快 + 安全 + 真的会干活」。它不构成正面威胁，但**抢占了「AI 生成系统」的话术**——我们不能再只讲「AI 引导配置」，必须讲**双叙事**：**开发期 AI**（AI 生成业务模块，EASY-2）+ **运行时 AI**（业务安全的 agent harness，HS 系列）。两者合一才完整，JeeCG 只有前半段。
 - **评审守则补充**：涉及「AI 生成/低代码」的功能评审，先问「这是开发期 AI 还是运行时 AI？运行时部分有没有安全链路（确认/权限/审计/撤销）？」——只有开发期 AI 的，落在若依地盘，标 hygiene 或升级到双叙事再做。
 
+### 企业级支撑声明（NestJS，2026-08-12 补）
+
+> 来源：2026-08-12 产品讨论——企业级选型顾虑「NestJS 能否支撑企业级应用」。
+> **结论：能。企业级由能力证明，不由语言决定。** NestJS 模块化 + DI + 装饰器架构本就为大型项目设计，国内外大量生产级应用在跑。
+
+**已兑现的企业级能力**：TypeORM 事务、CASL 行级权限、操作审计、敏感数据静态加密、OTel + Prometheus + Loki + 告警 + Webhook、BullMQ 队列（降级链）、sqlite/postgres 双迁移基线 + CI 一致性校验、587 单测 + e2e + 覆盖率门槛、无状态 JWT + Redis 共享态（多实例可水平扩展）。
+
+**诚实缺口（与语言无关，需在 ORG 落地时补齐）**：ORG-3 组织级数据隔离未做（企业级最常被追问的一点）；3.3 读写分离押后。
+
+**换语言代价**：Java/Go 无现成「业务安全 AI agent harness」，重写将推翻 AI 原生核心优势。KeelBase 以「可靠性证据」（测试/审计/监控/部署链）而非语言叙事赢得企业信任。
+
+**待办**：一份「KeelBase 企业级能力架构声明」文档（能力清单 + 证据 + 合规路径），随 README/文档对外，正面回应选型评估。
+
+---
+
+## PC Web 管理台（WEB-ADMIN，2026-08-12 决策）
+
+> 来源：2026-08-12 产品讨论——认真做企业级 → 长痛不如短痛，新建独立 PC Web 管理台。**Taro-Admin（React H5）废弃**，所有功能并入新管理台（用户决策：Taro-Admin 本就是 web PC 风格，无需保留移动端）。视觉对标 [Materio Vuetify Vue 3 Admin Template](https://demos.themeselection.com/materio-vuetify-vuejs-admin-template/demo-1/dashboards/crm)。
+>
+> **关键约束**：
+> - **Materio 是商业付费模板**（ThemeSelection），MIT 开源仓库不能引入其代码；用 MIT 组件库（Vuetify 3）**复刻其布局与主题**（侧边栏折叠 + 顶栏 + 卡片式仪表盘 + 主题色/字体/圆角 token）——视觉对齐、代码原创。
+> - **技术栈修正**：先前建议 Vue3 + Element Plus；Materio 风格是 Material Design 3，**组件库改选 Vuetify 3（MIT，官方确认无商业/SaaS 限制）**。
+> - 附带差异化加分：Vuetify Material 风与若依的 Element Plus（Ant 风）**视觉上截然不同**，「管理台不像若依」本身就是定位的一部分。
+> - /admin 路径与部署链不变（Dockerfile / Nginx），三入口红线（CLAUDE.md §5.5）不受影响——管理台仍是唯一管理入口，只是换壳。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| WEB-ADMIN-1 | PC Web 管理台骨架 | Vue3 + Vite + Vuetify 3 + Pinia + Vue Router + TS；Materio 风格布局（侧边栏折叠 + 顶栏 + 内容区卡片仪表盘）+ 主题 token（浅/深色、品牌色/字体/圆角）；路由守卫（登录 + role=admin）；i18n 双语（zh/en，复用现有词表） | 无 | 待办 |
+| WEB-ADMIN-2 | 现有管理功能迁移 | Taro-Admin 全部页面并入：登录/平台总览/用户管理/事件管理/两类审计/监控中心/可观测性/知识库/通知广播/会话管理/系统信息/回收站/数据导入/模板市场/AI 评测/工具与副作用视图；**后端 Admin API 完全复用**，前端按 Vuetify 组件重写 | WEB-ADMIN-1 + 现有 Admin API | 待办 |
+| WEB-ADMIN-3 | 废弃 Taro-Admin | 删除 Front-Taro-Admin；Dockerfile admin-build stage、nginx /admin、README/文档、部署脚本切到新 PC Web；**CLAUDE.md §13 更新**（管理台技术栈变更） | WEB-ADMIN-2 | 待办 |
+| WEB-ADMIN-4 | ORG 应用级管理落地 | 组织树 + 成员角色 + 审批流设计器（ORG-1/2/4）直接构建于 PC Web（PC 交互密集场景） | ORG-1/2/4 | 待办（并入 ORG） |
+| WEB-ADMIN-5 | AI 行为回放（HS-7）可视化 | 管理员时间线视图「AI 对用户数据做了什么」（创建/尝试/失败 + 工具参数 + 确认决策）在 PC Web 呈现 | HS-7 | 待办（并入 HS-7） |
+
 ---
 
 ## 应用级管理（ORG，2026-08-12 新增）
@@ -555,6 +589,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | EASY-2 | AI 生成业务模块（`npx shiyu init`，开发期 AI） | 对话式引导（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + **生成一个完整业务模块**（实体/DTO/CRUD/前端页面/权限，走基座脚手架 tool/generate_feature.sh）+ 打印「下一步」。**2026-08-12 升级：从「配置向导」升级为「AI 生成业务模块」**——JeeCG 已抢先占位「一句话生成系统」，我们不能再只讲配置；配合运行时 AI（HS）构成「开发期 + 运行时」双叙事（见定位红线）。第一个 showcase 用 GROWTH-2 社区动态流（把上传/图片/通知/审计全链路演示给评估者） | AI 编排 + UX-3 脚手架已就绪 | 待办 |
 | EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`shiyu init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
 | EASY-4 | MOD-2 方案修正 | **原方案「动态 import 硬装配」降级**：小团队价值感优先于「省启动时间」，且默认全开 + 精简预设比「配置想要的」心智负担小。改为：**默认全开** + EASY-3 精简预设控制；MOD-1 依赖图校验保留为**配置校验器**（防畸形预设）而非装配执行器 | MOD-1 已就绪 | 待办（方案修正） |
+| EASY-5 | 首启体验强引导切预设 | **2026-08-12 决策**：默认全开与「上手陡峭」直接打架，补首启引导——首次登录后弹「当前为全功能模式（full）」提示：一键切换 small/lite 精简预设 + capabilities 联动（MOD-4）隐藏未启用模块导航；让「重」是可选而非默认感受 | EASY-3/4 + MOD-4 | 待办 |
 
 > **关键权衡**：默认全开（小爽大略重）vs 默认精简（大干净小要配）。**选前者**——易用性是最大短板（「做出来了没人知道怎么用」），大项目减负走生产设施独立路径兜底。
 
