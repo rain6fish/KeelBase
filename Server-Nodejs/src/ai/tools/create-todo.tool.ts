@@ -13,6 +13,7 @@ interface TodosServiceLike {
 export class CreateTodoTool implements AiTool {
   readonly name = 'create_todo';
   readonly requiresConfirmation = true;
+  readonly permissions = { requireVerifiedEmail: true };
   readonly description =
     '创建待办。用户明确要求"添加/创建待办、任务、TODO"时使用。' +
     '这是写操作，系统会弹出确认框，用户确认后才真正创建。';

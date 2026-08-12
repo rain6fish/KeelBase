@@ -199,6 +199,99 @@ describe('AiService', () => {
       expect(result.reply).toBe('You have 1 event this month: Meeting on July 15.');
     });
 
+    it('HS-2: should reject tool when feature flag is off', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'web_search',
+        permissions: { featureFlag: 'ai' },
+      } as any);
+      // 注入一个 featureFlagsService 使 flag 关闭生效
+      (aiService as any).featureFlagsService = {
+        isEnabled: jest.fn().mockReturnValue(false),
+      };
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'web_search', arguments: '{"query":"weather"}' },
+        ],
+      });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: {} });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'I cannot search right now.',
+      });
+
+      await aiService.chat('1', { message: '查一下天气' });
+
+      // 门控抛错 → execute 不被调用，LLM 收到失败结果
+      expect(mockToolRegistry.execute).not.toHaveBeenCalledWith(
+        'web_search',
+        { query: 'weather' },
+        '1',
+      );
+    });
+
+    it('HS-2: should reject write tool when email not verified', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'create_event',
+        requiresConfirmation: true,
+        permissions: { requireVerifiedEmail: true },
+      } as any);
+      (aiService as any).featureFlagsService = undefined;
+      (aiService as any).usersService = {
+        findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }),
+      };
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'create_event', arguments: '{"title":"Meeting"}' },
+        ],
+      });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'You need to verify your email first.',
+      });
+
+      await aiService.chat('1', { message: '创建会议' });
+
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('HS-3: should skip duplicate write tool execution when idempotency hit', async () => {
+      // 注入 mock toolEffectsService：findExisting 命中已有副作用
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('existing-key'),
+        findExisting: jest.fn().mockResolvedValue({
+          existing: true,
+          effect: { resultId: 99, resultType: 'event' },
+        }),
+        record: jest.fn(),
+      };
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'create_event',
+        requiresConfirmation: true,
+        permissions: { requireVerifiedEmail: true },
+      } as any);
+      (aiService as any).usersService = {
+        findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: true }),
+      };
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'create_event', arguments: '{"title":"Meeting"}' },
+        ],
+      });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 100 } });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'Event created.',
+      });
+
+      await aiService.chat('1', { message: '创建会议' });
+
+      // 幂等命中：不重复执行，返回已有 resultId 99
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      // 清理注入，避免影响后续测试
+      (aiService as any).toolEffectsService = undefined;
+    });
+
     it('should handle multiple sequential tool calls', async () => {
       mockProvider.generate.mockResolvedValueOnce({
         content: '',

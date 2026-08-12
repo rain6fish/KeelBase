@@ -16,6 +16,8 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotFoundException } from '@nestjs/common';
@@ -29,8 +31,10 @@ import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
 import { ConversationQueryDto } from './dto/conversation-query.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
+import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
+import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -44,6 +48,7 @@ export class AiController {
     private readonly conversationService: ConversationService,
     private readonly confirmationStore: ConfirmationStore,
     private readonly memoriesService: MemoriesService,
+    private readonly toolEffectsService: AiToolEffectsService,
   ) {}
 
   /**
@@ -205,5 +210,45 @@ export class AiController {
   async clearConversations(@CurrentUser() user: JwtPayload) {
     await this.conversationService.deleteAllUserConversations(String(user.sub));
     return null;
+  }
+
+  /**
+   * HS-2 工具清单（管理台可见）：展示工具与权限元数据，便于审计/治理
+   */
+  @Get('tools')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI 工具清单与权限（管理员）' })
+  getTools() {
+    return this.aiService.getToolInventory();
+  }
+
+  /**
+   * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
+   */
+  @Get('tool-effects')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤）' })
+  getToolEffects(
+    @Query('userId', new DefaultValuePipe(undefined)) userId?: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.toolEffectsService.list({
+      userId: userId !== undefined ? Number(userId) : undefined,
+      page,
+      limit,
+    });
+  }
+
+  /**
+   * HS-3 撤销 AI 副作用：软删对应 event/todo（可经 RG-3 回收站恢复）
+   */
+  @Delete('tool-effects/:id')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '撤销 AI 创建的事件/待办（管理员，软删可恢复）' })
+  async revokeToolEffect(@Param('id', ParseIntPipe) id: number) {
+    const result = await this.toolEffectsService.revoke(id);
+    if (!result) throw new NotFoundException('副作用记录不存在');
+    return result;
   }
 }

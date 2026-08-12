@@ -17,6 +17,7 @@ export class WebSearchTool implements AiTool {
   readonly name = 'web_search';
   readonly description =
     '联网搜索公开信息（新闻/知识/天气/百科等通用问题）。当用户问题涉及实时或外部信息时使用。';
+  readonly permissions = { featureFlag: 'ai' };
   readonly parameters: ToolParameter[] = [
     {
       name: 'query',

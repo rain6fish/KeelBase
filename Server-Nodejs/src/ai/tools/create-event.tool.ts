@@ -15,6 +15,7 @@ interface EventsServiceLike {
 export class CreateEventTool implements AiTool {
   readonly name = 'create_event';
   readonly requiresConfirmation = true;
+  readonly permissions = { requireVerifiedEmail: true };
   readonly description =
     '创建事件（日程/会议/安排）。用户明确要求"添加/创建事件、日程、安排"时使用。' +
     '这是写操作，系统会弹出确认框，用户确认后才真正创建。';

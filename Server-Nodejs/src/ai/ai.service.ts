@@ -20,8 +20,11 @@ import { MemoriesService } from './memory/memory.service';
 import { ConfirmationStore, ConfirmationOutcome } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
-import { ToolResult } from './interfaces/tool.interface';
+import { AiTool, ToolResult } from './interfaces/tool.interface';
+import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { SettingsService } from '../settings/settings.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { UsersService } from '../users/users.service';
 import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
@@ -84,6 +87,9 @@ export class AiService {
     private readonly compactor: ConversationCompactor,
     private readonly subAgentOrchestrator: SubAgentOrchestrator,
     private readonly settingsService?: SettingsService,
+    private readonly featureFlagsService?: FeatureFlagsService,
+    private readonly usersService?: UsersService,
+    private readonly toolEffectsService?: AiToolEffectsService,
   ) {}
 
   /**
@@ -109,6 +115,108 @@ export class AiService {
       username: '',
       role: 'user' as any,
     });
+  }
+
+  /**
+   * HS-2 工具执行前权限门控：按工具声明的 permissions 检查调用资格。
+   * - featureFlag：对应特性开关关闭时拒绝（对齐 HTTP 层 @FeatureFlag）
+   * - requireVerifiedEmail：写操作需已验证邮箱（对齐 EmailVerificationGuard，admin/headless 视为已验证）
+   * 无 permissions 声明的工具视为允许（数据隔离已由 execute 的 userId 保证）。
+   */
+  private async _assertToolAllowed(
+    toolName: string,
+    userId: string,
+  ): Promise<void> {
+    let tool: AiTool | undefined;
+    try {
+      tool = this.toolRegistry.getTool(toolName);
+    } catch {
+      // 工具未注册：让后续 execute 抛「not found」，这里不拦截
+    }
+    const perms = tool?.permissions;
+    if (!perms) return;
+
+    if (
+      perms.featureFlag &&
+      this.featureFlagsService &&
+      !this.featureFlagsService.isEnabled(perms.featureFlag as never)
+    ) {
+      throw new Error(
+        `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
+      );
+    }
+
+    // headless 系统账号（userId '0'）：由 headless 层 API Key 鉴权，不重复拦截
+    if (userId === '0') return;
+
+    if (perms.requireVerifiedEmail && this.usersService) {
+      const user = await this.usersService.findOne(Number(userId));
+      if (user && !user.emailVerified) {
+        throw new BusinessException('EMAIL_NOT_VERIFIED');
+      }
+    }
+  }
+
+  /**
+   * HS-3 写工具执行（幂等 + 副作用记录）：
+   * - 同会话同工具同参数重复调用返回已有结果（防 LLM 重试/并发重复创建）
+   * - 成功后记录副作用（resultType/resultId），管理台可软删撤销（衔接 RG-3）
+   * toolEffectsService 未注入（单测/降级）时直接执行，跳过幂等。
+   */
+  private async _executeWriteTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+    conversationId?: string,
+  ): Promise<ToolResult> {
+    if (!this.toolEffectsService) {
+      return this.toolRegistry.execute(toolName, args, userId);
+    }
+    const key = AiToolEffectsService.buildKey({
+      userId,
+      conversationId,
+      toolName,
+      args,
+    });
+    const existing = await this.toolEffectsService.findExisting(key);
+    if (existing.existing && existing.effect) {
+      return {
+        success: true,
+        data: {
+          id: existing.effect.resultId,
+          idempotent: true,
+        },
+      };
+    }
+    const result = await this.toolRegistry.execute(toolName, args, userId);
+    if (result.success && result.data && (result.data as any).id !== undefined) {
+      const resultType: 'event' | 'todo' =
+        toolName === 'create_event' ? 'event' : 'todo';
+      await this.toolEffectsService.record(
+        { userId, conversationId, toolName, args },
+        resultType,
+        (result.data as any).id,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * HS-2 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
+   * 供 GET /ai/tools（admin）展示工具与权限，便于审计与治理。
+   */
+  getToolInventory() {
+    return this.toolRegistry.getAllTools().map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters.map((p) => ({
+        name: p.name,
+        type: p.type,
+        required: p.required,
+      })),
+      requiresConfirmation: tool.requiresConfirmation ?? false,
+      permissions: tool.permissions ?? null,
+    }));
   }
 
   /**
@@ -570,6 +678,8 @@ export class AiService {
         let started = false;
         try {
           const parsed = JSON.parse(tc.args);
+          // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）— 先于确认流程
+          await this._assertToolAllowed(tc.name, userId);
           const isWrite = this.toolRegistry.requiresConfirmation(tc.name);
           started = true;
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
@@ -603,7 +713,7 @@ export class AiService {
             };
             const outcome: ConfirmationOutcome = await decision;
             if (outcome === 'approve') {
-              result = await this.toolRegistry.execute(tc.name, parsed, userId);
+              result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
               yield {
                 type: 'confirmation_decision',
                 confirmationDecision: {
@@ -871,6 +981,8 @@ export class AiService {
         toolCalls.push(tc.name);
         try {
           const args = JSON.parse(tc.arguments);
+          // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）
+          await this._assertToolAllowed(tc.name, params.userId);
           // 非流式路径无确认通道：写操作不自动执行，返回提示让 LLM 引导用户走流式
           const resolvedResult = this.toolRegistry.requiresConfirmation(tc.name)
             ? {

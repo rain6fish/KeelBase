@@ -14,6 +14,8 @@ import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
 import { QueueModule } from '../queue/queue.module';
 import { StorageModule } from '../storage/storage.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { EventsService } from '../events/events.service';
 import { UsersService } from '../users/users.service';
 import { AiController } from './ai.controller';
@@ -51,6 +53,8 @@ import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { EvalCase } from './eval/eval-case.entity';
 import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
+import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
+import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -66,7 +70,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     TodosModule,
     QueueModule,
     StorageModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, KnowledgeArticle, UserMemory, EvalCase]),
+    FeatureFlagsModule,
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
   providers: [
@@ -79,6 +84,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MemoriesService,
     ConfirmationStore,
     AiEvalService,
+    AiToolEffectsService,
     {
       provide: AiService,
       useFactory: (
@@ -94,6 +100,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         confirmationStore: ConfirmationStore,
         settingsService: SettingsService,
         circuitBreaker: CircuitBreakerService,
+        featureFlagsService: FeatureFlagsService,
+        toolEffectsService: AiToolEffectsService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -200,9 +208,12 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           compactor,
           subAgentOrchestrator,
           settingsService,
+          featureFlagsService,
+          usersService,
+          toolEffectsService,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService],
+      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService],
