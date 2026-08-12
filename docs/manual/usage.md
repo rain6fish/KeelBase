@@ -50,6 +50,8 @@ Frontend defaults to `http://localhost:3000/api/v1` / 前端默认对接 `http:/
 
 ### Admin Console / 管理台
 
+> 单容器（`./scripts/docker-single.sh`）已内嵌管理台到 `/admin`，无需单独构建。以下为本地开发/独立部署路径。
+
 ```bash
 cd Front-Taro-Admin
 npm install
@@ -59,7 +61,7 @@ python -m http.server 10086 -d dist
 
 | Console | URL |
 |---------|-----|
-| Admin Console / 管理台 | http://localhost:10086 |
+| Admin Console / 管理台 | http://localhost:10086（本地）/ 生产 `http://<域名>/admin` |
 
 ---
 

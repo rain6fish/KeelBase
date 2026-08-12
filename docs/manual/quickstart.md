@@ -11,28 +11,24 @@
 |----|---------|---------|
 | 后端 API | http://localhost:3000 | 提供所有接口 + Swagger 文档 |
 | 主 App（Web） | `flutter run` 后提示的端口（通常是随机端口） | 注册/登录、事件、待办、AI 助手 |
-| 管理台 | http://localhost:10086（本地）/ 生产 `http://<域名>/admin` | 用户/事件管理、审计、监控（需 admin 账号） |
+| 管理台 | http://localhost:3000/admin（单容器内嵌）/ 生产 `http://<域名>/admin` | 用户/事件管理、审计、监控（需 admin 账号） |
 
-**最快的路径（只装 Docker）：**
+**最快的路径（只装 Docker，单容器 all-in-one）：**
 
 ```bash
-./scripts/dev.sh experience     # 统一入口：起后端 + 管理台，自动验收 + 开浏览器
-# 等价命令（有 make 的环境）：
-# make experience
-FLUTTER=1 ./scripts/dev.sh experience   # 额外起 Flutter Web 主 App
-# 或纯 Docker 全量：
-DOCKER=1 ./scripts/dev.sh experience
+./scripts/docker-single.sh       # 构建并启动：后端 + 主 App + 管理台，一条命令起全栈
+# 访问 http://localhost:3000 主 App、http://localhost:3000/admin 管理台
 ```
 
-> 不想看下面的分步说明？直接跑 `./scripts/dev.sh experience` 即可。它会自动检查依赖、起服务、等就绪、**自动验收各端是否可用**、打印访问地址、尝试打开浏览器。
-> **端口不用操心**：后端默认 3000、管理台默认 10086、Flutter 自动分配；被占用会自动向上找空闲端口（如 3000 被占则用 3001）。
+> 不想看下面的分步说明？直接跑 `./scripts/docker-single.sh` 即可。默认 SQLite 零配置，缓存/队列自动降级——**用户只需装 Docker**。
+> 本地开发模式（起后端+管理台，自动开浏览器）用 `./scripts/dev.sh experience`（本地 Node 模式）或 `DOCKER=1 ./scripts/dev.sh experience`（Docker 全量）。
 > 其它命令入口：`./scripts/dev.sh help`（或 `make help`）看全部：dev / test / build / migrate 等。
 
 ---
 
-## 1. 最快路径：Docker 一键（推荐）
+## 1. 最快路径：单容器 Docker 一键（推荐）
 
-> 只需要装一个 Docker，其余全自动。
+> 只需要装一个 Docker，其余全自动。后端 + 主 App + 管理台打进一个镜像。
 
 **第一步：装 Docker**
 - Windows：安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)，启动它
@@ -42,25 +38,26 @@ DOCKER=1 ./scripts/dev.sh experience
 **第二步：起服务**
 
 ```bash
-# 在项目根目录
-docker compose up --build -d
+./scripts/docker-single.sh up
 ```
 
-> 首次构建会下载镜像 + 编译，约 10 分钟；之后启动很快。
+> 首次构建会下载镜像 + 编译，约 5-10 分钟；之后启动很快。单容器内嵌 Flutter Web 主 App（根路径）+ 管理台（/admin）。
 
 **第三步：验证**
 ```bash
 # 浏览器打开，看到 {"status":"ok"} 即后端就绪
 curl http://localhost:3000/api/v1/health
-# 前端访问
-open http://localhost
+# 前端访问（单容器内嵌，无需单独起前端）
+open http://localhost:3000
 ```
 
 **卡住了？**
-- 端口被占用 → 改 `docker-compose.yml` 里 `ports` 映射（如 `"80:80"` 改 `"8080:80"`）
+- 端口被占用 → 修改 `docker-single.sh` 里的端口映射，或用 `./scripts/dev.sh experience`（自动探测空闲端口）
 - 镜像拉不动（网络慢）→ 配置 Docker 国内镜像加速，再重试
 
 **然后**：用演示账号登录体验 → 见第 3 节。
+
+> 完整 compose（PostgreSQL + Redis + Nginx）生产部署见 [运维手册](operations.md)。
 
 ---
 
