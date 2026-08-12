@@ -11,36 +11,34 @@
 |-----|-----|--------------|
 | Backend API | http://localhost:3000 | All APIs + Swagger docs |
 | Main App (Web) | port shown after `flutter run` | Register/login, events, todos, AI assistant |
-| Admin Console | http://localhost:10086 | User/event management, audit, monitoring (admin account) |
+| Admin Console | http://localhost:3000/admin (embedded in single container) / prod `http://<domain>/admin` | User/event management, audit, monitoring (admin account) |
 
-**Fastest path (only needs Docker):**
+**Fastest path (only needs Docker, single-container all-in-one):**
 
 ```bash
-./scripts/dev.sh experience     # unified entry: start backend + admin, auto-verify, open browser
-# equivalent on systems with make:
-# make experience
-FLUTTER=1 ./scripts/dev.sh experience   # also start Flutter Web app
-# or full Docker:
-DOCKER=1 ./scripts/dev.sh experience
+./scripts/docker-single.sh       # build & start: backend + main app + admin console in one container
+# Visit http://localhost:3000 (main app), http://localhost:3000/admin (admin console)
 ```
 
-> The script auto-detects free ports, waits for readiness, verifies each endpoint, prints accounts & URLs, and tries to open the browser. Other commands: `./scripts/dev.sh help` (or `make help`).
+> Just needs Docker. Zero-config SQLite, cache/queue auto-degrade. For local Node dev: `./scripts/dev.sh experience` (or `DOCKER=1 ./scripts/dev.sh experience` for full Docker). Other commands: `./scripts/dev.sh help` (or `make help`).
 
 ---
 
-## 1. Fastest Path: Docker One-Click
+## 1. Fastest Path: Single-Container Docker One-Click
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows) / Docker Engine + Compose (Mac/Linux).
 2. Verify: `docker --version`.
 3. Start everything:
 
 ```bash
-docker compose up --build -d    # first build ~10 min
+./scripts/docker-single.sh up   # first build ~5-10 min; embeds Flutter Web app + /admin
 ```
 
-4. Verify: open http://localhost:3000/api/v1/health → `{"status":"ok"}`; open http://localhost.
+4. Verify: open http://localhost:3000/api/v1/health → `{"status":"ok"}`; open http://localhost:3000.
 
-**Stuck?** Port busy → change `ports` in `docker-compose.yml`. Slow pulls → configure a Docker registry mirror.
+**Stuck?** Port busy → change ports in `docker-single.sh`, or use `./scripts/dev.sh experience` (auto-detects free ports). Slow pulls → configure a Docker registry mirror.
+
+> Full compose (PostgreSQL + Redis + Nginx) production deploy: see the [Operations manual](operations.md).
 
 ## 2. Local Dev Path (to modify code)
 
