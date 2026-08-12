@@ -827,6 +827,8 @@ Role: admin
 
 ## 13. 管理员管理台（Front-Taro-Admin）
 
+> **⚠️ 技术栈迁移决策（2026-08-12，见 docs/roadmap.md「WEB-ADMIN」章节）**：管理台将从 Taro-Admin（React H5）迁移到 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格，MIT 合规）**。迁移未落地前，Taro-Admin 仍是当前管理台实现（下述命令仍然有效），但**禁止在其上新增管理功能**——新增管理功能一律等 PC Web 迁移（WEB-ADMIN-2）或在规划中注明归属新管理台。后端 Admin API 完全复用，不受影响。
+
 **独立于主 app 的 Taro H5 管理台**，与 `Front-Taro`（主 app）代码/构建/部署完全隔离。主 app 不携带任何管理逻辑或入口。
 
 **架构原则**：

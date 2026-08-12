@@ -52,7 +52,7 @@
 - 2026-08-11 追加 T.6（e2e 纳入覆盖率统计）。来源：覆盖提升策略审视——实测全局 56.43% 但 e2e 98 用例不计入 coverage，是最大杠杆缺口；补 controller 单测见 T.4、门槛分档见 T.5。
 - 2026-08-11 完成 T.6（e2e 纳入覆盖率：jest-e2e.json rootDir 修正 + collectCoverageFrom + test:e2e:cov 脚本；实测 e2e 覆盖 333 文件，核心 controller 88-100%）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
-- 2026-08-12 追加「易用性深化（EASY-1~4）」章节。来源：易用性产品讨论——①单容器 all-in-one 交付（`docker run -p 80:80` 一条命令，SQLite + 降级 redis + server 内嵌静态文件）②AI 配置向导（`npx shiyu init` 问答式生成配置，让 AI 做配置而非文档做配置）③三档预设（small/lite/full + white-label 品牌化 APP_BRAND）④MOD-2 方案修正（动态 import 硬装配 → 默认全开 + 精简预设，依赖图校验器保留）。定位：小项目快 + 大项目按需。MOD-2 标注「方案修正」。
+- 2026-08-12 追加「易用性深化（EASY-1~4）」章节。来源：易用性产品讨论——①单容器 all-in-one 交付（`docker run -p 80:80` 一条命令，SQLite + 降级 redis + server 内嵌静态文件）②AI 配置向导（`npx keelbase init` 问答式生成配置，让 AI 做配置而非文档做配置）③三档预设（small/lite/full + white-label 品牌化 APP_BRAND）④MOD-2 方案修正（动态 import 硬装配 → 默认全开 + 精简预设，依赖图校验器保留）。定位：小项目快 + 大项目按需。MOD-2 标注「方案修正」。
 - 2026-08-11 追加 T.4/T.5（测试覆盖审视：全局 56.43% 但 controller 层 0%、门槛无模块分档）+ D.8（运维单页：聚合四套可观测工具降中小团队门槛）。来源：整体测试覆盖 + 运维复杂度反馈。
 - 2026-08-11 追加「生产就绪硬伤修复（DEP-1~DEP-7）」章节。来源：外部代码评估逐条核实——CI 与 Taro 对齐已修复（过时），但 5 项仍存在：compose 密钥不注入（DEP-1）/ 部署默认非生产+默认密钥（DEP-2）/ _pendingImages 并发串号（DEP-3，唯一数据正确性 bug）/ 本地零配置启动失败（DEP-4）/ Taro API 写死 localhost（DEP-5）/ CI 注释过时+缺 Taro job（DEP-6）/ CORS+无 .dockerignore（DEP-7）。
 - 2026-08-11 追加 UX-9~UX-11（登录页 Slogan+演示账号 / Dashboard 快速开始卡+模板导入入口 / AI 示例 chips 替代 placeholder 轮播）。来源：首次体验提升建议——三个体验项合计 ~2 天，与 PM-1 在线 Demo / DX-1 60秒体验同逻辑，作为演示站前置加分项。
@@ -60,6 +60,8 @@
 - 2026-08-12 完成 EASY-1（单容器 all-in-one 交付）：Dockerfile.single（server+Flutter web+admin 单镜像）+ SERVE_STATIC=1 Nest 静态托管（根路径主 App + /admin 管理台）+ scripts/docker-single.sh（up/build/stop/down/logs）+ .dockerignore + Makefile docker-single + README 60s 改单容器优先；`docker run` 一条命令起全栈，SQLite 零配置 + Redis/队列降级。来源：本次实施。
 - 2026-08-12 补充定位红线：开发期 AI + 运行时 AI 双叙事（对照 JeeCG v3.9.2 AI Skills「一句话生成系统」）——JeeCG 抢先占位「AI 生成系统」话术，但 AI 仅开发期；我们把差异从「AI 引导配置」升级为「开发期 AI（EASY-2 生成业务模块）+ 运行时 AI（HS 安全 harness）」双叙事 + 评审守则补充。来源：本次产品讨论（JeeCG 观察）。
 - 2026-08-12 决策「认真做企业级」：新建独立 PC Web 管理台（WEB-ADMIN 章节），Taro-Admin 废弃并并入；组件库选 Vuetify 3（Materio 风格，MIT 合规）；首启强引导切预设（EASY-5）；补充 NestJS 企业级支撑声明。来源：本次产品讨论。
+- 2026-08-12 追加 HS-9~11（开放生态演进：治理策略化 / MCP 代理适配 / 审计加密链；明确不做确定性重放）。来源：海外对标调研——mcp-firewall / Aegis / agentward 等开源控制平面佐证「AI 权限治理」为国际热点赛道，但都是独立中间件（无 UI、无行级业务数据、无三端）；KeelBase 差异 = 治理内建（装好即用 + 管理台 UI + 行级业务数据 + 全链路审计展示）。MCP 作为治理覆盖的新边界而非并列功能，复用 HS-2/HS-3 链路。
+- 2026-08-12 追加 EASY-6（AI 开发者体验闭环：分层 AGENTS.md + 生成器可扩展性 + AI 可消费元数据 + 工具链集成）+ 命名修正（EASY-2/EASY-3 CLI 命令 `shiyu` → `keelbase`）。来源：开发者体验产品讨论。
 
 ---
 
@@ -545,8 +547,13 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | HS-6 | 确认协议体验补齐 | ConfirmationStore 内存存储（重启丢 pending）、TTL 固定 60s 不可配、无批量确认/信任工具名单/确认前预览（用户看不到将创建什么）。补：确认卡片带参数预览、本次会话信任工具、超时经 Settings 可配、pending 持久化 | AI-7 已就绪 | 待办 |
 | HS-7 | AI 行为回放与副作用视图 | ai_audit_logs 已记 tool_call（含参数），但管理台无「AI 对某用户数据做了什么」的时间线视图。补：管理台按用户/会话聚合「AI 创建/尝试/失败」的事件与待办清单，支持逐条展开工具参数与确认决策 | AI-21 / AD-6 / RG-3 | 待办 |
 | HS-8 | 上下文注入防线（隐私 + prompt injection） | 用户记忆 / RAG 知识库 / 文档内容原样注入 messages，无敏感数据过滤、无注入防护（AI-23 内容合规已押后，但注入防护是 harness 安全核心）。补：检索结果注入前过滤敏感字段（phone/email/token 掩码）+ 系统边界标注（区分「用户说」vs「知识库/记忆说」）+ 基础注入检测 | AI-6/AI-11 已就绪 | 待办 |
+| HS-9 | 治理策略化（可配置策略层） | 工具权限 / 确认规则 / 审计粒度从代码硬编码升级为数据驱动策略（复用 RG-2 Settings）：管理台可视化开关 + 按工具/角色配置确认规则。**「内建 vs 外部中间件」的真正差异点**——mcp-firewall/Aegis 等控制平面的策略要写配置文件，KeelBase 装好即用、管理台里点 | HS-2/3 + RG-2 | 待办 |
+| HS-10 | MCP 兼容（代理适配层） | 出口：现有 tools 统一暴露为 MCP server（@modelcontextprotocol/sdk）；入口：外部 MCP 工具经 gateway 接入并**强制过同一套治理层**（权限+确认+审计+tool-effects），逻辑复用 HS-2/HS-3。MCP 是治理覆盖的**新边界**而非并列功能——判断标准：兼容后用户能多做什么、少装什么，不为 MCP 而 MCP | HS-2/3/9 | 待办 |
+| HS-11 | 审计加密链（借鉴 Aegis） | 审计记录哈希链串接（每条约前条 hash），防篡改可验证——对「全链路审计」是实质性增强，企业过审的加分项。**可选做** | PL-2 / AI 审计已就绪 | 待办 |
 
-> **优先级建议**：①HS-1 评测闭环（安全主张的验证地基，投入小见效快）→ ②HS-2 工具权限（越权是最大的安全叙事裂缝）→ ③HS-3 幂等/补偿（AI 副作用可撤销）→ ④HS-4 headless 治理 → ⑤HS-6 确认 UX → ⑥HS-5/7/8 视采用反馈再排。HS 系列与「数据主权」POV 同一逻辑：不追新功能，先证明现有能力安全可信。
+> **明确不做 / 待评估**：①**确定性重放**（Aegis 另一卖点）——对企业业务应用过重，投入产出不划算，明确不做；②**声明式策略 DSL**——等 HS-9 落地后看形态再评估，别提前造抽象。
+>
+> **优先级建议**：①HS-1 评测闭环（安全主张的验证地基，投入小见效快）→ ②HS-2 工具权限（越权是最大的安全叙事裂缝）→ ③HS-3 幂等/补偿（AI 副作用可撤销）→ ④HS-4 headless 治理 → ⑤HS-6 确认 UX → ⑥HS-5/7/8 视采用反馈再排。HS 系列与「数据主权」POV 同一逻辑：不追新功能，先证明现有能力安全可信。HS-9/10/11 为开放生态演进，排在 HS-1~8 安全地基之后。
 
 ---
 
@@ -586,10 +593,11 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | EASY-1 | 单容器 all-in-one 交付 | **`docker run` 一条命令即可用**（用户只装 Docker）。Dockerfile.single：server 镜像内嵌 Flutter web 主 App（根路径）+ admin 静态文件（/admin，Nest 静态托管 SERVE_STATIC=1），默认 SQLite 零配置 + `CACHE_ENABLED=false` 降级 redis/队列，大项目仍走 compose。配套 scripts/docker-single.sh（up/build/stop/down/logs）。目标：「小项目」最爽形态 | DX-1 已就绪 / Dockerfile 多阶段 | **已完成（Dockerfile.single + main.ts SERVE_STATIC 静态托管 + docker-single.sh + .dockerignore + Makefile docker-single + README 单容器优先；build 通过；容器实测待部署时验证）** |
-| EASY-2 | AI 生成业务模块（`npx shiyu init`，开发期 AI） | 对话式引导（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + **生成一个完整业务模块**（实体/DTO/CRUD/前端页面/权限，走基座脚手架 tool/generate_feature.sh）+ 打印「下一步」。**2026-08-12 升级：从「配置向导」升级为「AI 生成业务模块」**——JeeCG 已抢先占位「一句话生成系统」，我们不能再只讲配置；配合运行时 AI（HS）构成「开发期 + 运行时」双叙事（见定位红线）。第一个 showcase 用 GROWTH-2 社区动态流（把上传/图片/通知/审计全链路演示给评估者） | AI 编排 + UX-3 脚手架已就绪 | 待办 |
-| EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`shiyu init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
+| EASY-2 | AI 生成业务模块（`npx keelbase init`，开发期 AI） | 对话式引导（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + **生成一个完整业务模块**（实体/DTO/CRUD/前端页面/权限，走基座脚手架 tool/generate_feature.sh）+ 打印「下一步」。**2026-08-12 升级：从「配置向导」升级为「AI 生成业务模块」**——JeeCG 已抢先占位「一句话生成系统」，我们不能再只讲配置；配合运行时 AI（HS）构成「开发期 + 运行时」双叙事（见定位红线）。第一个 showcase 用 GROWTH-2 社区动态流（把上传/图片/通知/审计全链路演示给评估者） | AI 编排 + UX-3 脚手架已就绪 | 待办 |
+| EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`keelbase init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
 | EASY-4 | MOD-2 方案修正 | **原方案「动态 import 硬装配」降级**：小团队价值感优先于「省启动时间」，且默认全开 + 精简预设比「配置想要的」心智负担小。改为：**默认全开** + EASY-3 精简预设控制；MOD-1 依赖图校验保留为**配置校验器**（防畸形预设）而非装配执行器 | MOD-1 已就绪 | 待办（方案修正） |
 | EASY-5 | 首启体验强引导切预设 | **2026-08-12 决策**：默认全开与「上手陡峭」直接打架，补首启引导——首次登录后弹「当前为全功能模式（full）」提示：一键切换 small/lite 精简预设 + capabilities 联动（MOD-4）隐藏未启用模块导航；让「重」是可选而非默认感受 | EASY-3/4 + MOD-4 | 待办 |
+| EASY-6 | AI 开发者体验闭环（AI 规则层 + 生成器可扩展性） | **「给文档」是让开发者学基座，「给 AI 规则 + 生成器 + 元数据」是让开发者跳过学习、AI 直接按基座约定干活**——后者才是开发期 AI 叙事。落地四块：①**分层 AI 规则**：CLAUDE.md 拆为分层 AGENTS.md（基座通用 + 业务模块局部，子目录自动继承），补「新增业务模块 AI 必做清单」（建结构/注册 DI/加 i18n/注册路由/注册 AI 导航工具/补测试/过审计红线）；②**生成器可扩展性要求**：EASY-2 生成的代码必须「AI 可继续扩展」——结构严格符合基座约定 + 测试骨架 + MOD-1 模块清单登记 + 文档同步，AI 增量加功能时能读懂前文沿约定扩展；③**AI 可消费元数据**：Swagger 已自动生成，MOD-1 manifest 升级为 AI 可查询的模块地图（能力描述机器可读）；④**工具链集成**：`npx keelbase init` 生成项目时自动注入 AGENTS.md + 预置 skills（生成模块/加 API/写迁移/审计检查）+ 启动配置，开箱即用 | EASY-2 / MOD-1 / DX-1 | 待办 |
 
 > **关键权衡**：默认全开（小爽大略重）vs 默认精简（大干净小要配）。**选前者**——易用性是最大短板（「做出来了没人知道怎么用」），大项目减负走生产设施独立路径兜底。
 
