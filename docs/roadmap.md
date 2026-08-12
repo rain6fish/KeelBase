@@ -48,6 +48,7 @@
 - 2026-08-11 完成 PM-4（SECURITY.md 双语安全政策 + 漏洞披露流程 + SBOM 生成方式；README/CONTRIBUTING 加安全引导）。来源：本次实施。
 - 2026-08-11 完成 HS-1（评测判定闭环：expected 六型断言 + AiService 暴露 toolCalls + 报告断言明细 + 内置安全用例 seed）。来源：本次实施。
 - 2026-08-12 完成 HS-2（工具级权限治理：AiTool.permissions + AiService._assertToolAllowed 执行前门控 + web_search/generate_image 绑 AI flag + create_event/todo 绑需验证邮箱 + GET /ai/tools admin 工具清单）。来源：本次实施。
+- 2026-08-12 完成 HS-3（写工具幂等与补偿：ai_tool_side_effects 表 + AiToolEffectsService + _executeWriteTool 幂等包装 + GET/DELETE /ai/tool-effects 管理端 + 迁移一致性验证）。来源：本次实施。
 - 2026-08-11 追加 T.6（e2e 纳入覆盖率统计）。来源：覆盖提升策略审视——实测全局 56.43% 但 e2e 98 用例不计入 coverage，是最大杠杆缺口；补 controller 单测见 T.4、门槛分档见 T.5。
 - 2026-08-11 完成 T.6（e2e 纳入覆盖率：jest-e2e.json rootDir 修正 + collectCoverageFrom + test:e2e:cov 脚本；实测 e2e 覆盖 333 文件，核心 controller 88-100%）。来源：本次实施。
 - 2026-08-11 追加「业务安全的 Agent harness 深化（HS-1~HS-8）」章节。来源：定位定义为「业务安全的 agent harness」后的代码级核查——评测空判定/工具无权限粒度/写副作用不可撤销/上下文注入无防线四项已证实硬伤，按优先级 HS-1 评测闭环 → HS-2 工具权限 → HS-3 幂等补偿 → HS-4 headless 治理。
@@ -55,6 +56,8 @@
 - 2026-08-11 追加 T.4/T.5（测试覆盖审视：全局 56.43% 但 controller 层 0%、门槛无模块分档）+ D.8（运维单页：聚合四套可观测工具降中小团队门槛）。来源：整体测试覆盖 + 运维复杂度反馈。
 - 2026-08-11 追加「生产就绪硬伤修复（DEP-1~DEP-7）」章节。来源：外部代码评估逐条核实——CI 与 Taro 对齐已修复（过时），但 5 项仍存在：compose 密钥不注入（DEP-1）/ 部署默认非生产+默认密钥（DEP-2）/ _pendingImages 并发串号（DEP-3，唯一数据正确性 bug）/ 本地零配置启动失败（DEP-4）/ Taro API 写死 localhost（DEP-5）/ CI 注释过时+缺 Taro job（DEP-6）/ CORS+无 .dockerignore（DEP-7）。
 - 2026-08-11 追加 UX-9~UX-11（登录页 Slogan+演示账号 / Dashboard 快速开始卡+模板导入入口 / AI 示例 chips 替代 placeholder 轮播）。来源：首次体验提升建议——三个体验项合计 ~2 天，与 PM-1 在线 Demo / DX-1 60秒体验同逻辑，作为演示站前置加分项。
+- 2026-08-12 追加「差异化定位红线」+「应用级管理（ORG）」+「获客与留存（GROWTH）」三章。来源：产品讨论——平台形态向若依/JeeCG 收敛的警觉（定位红线：不做若依式快速开发平台，差异主线 = 业务安全 AI Agent harness + 三端一致 + AI 引导配置）；应用端丰富功能与市面常用功能调研结论（组织架构/审批等企业能力按「应用层 + AI 织入」拟条目；社区动态流/积分等 C 端示例功能吸引试用）。
+- 2026-08-12 完成 EASY-1（单容器 all-in-one 交付）：Dockerfile.single（server+Flutter web+admin 单镜像）+ SERVE_STATIC=1 Nest 静态托管（根路径主 App + /admin 管理台）+ scripts/docker-single.sh（up/build/stop/down/logs）+ .dockerignore + Makefile docker-single + README 60s 改单容器优先；`docker run` 一条命令起全栈，SQLite 零配置 + Redis/队列降级。来源：本次实施。
 
 ---
 
@@ -421,6 +424,63 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 
 ---
 
+## 差异化定位红线（2026-08-12 产品讨论）
+
+> 来源：2026-08-12 产品讨论——平台形态向若依/JeeCG 收敛的警觉。随着 PL/AD/POV/EASY 系列落地，管理端 CRUD、代码生成器、低代码表单、定时任务、插件、数据导入、组织架构逐步齐备——**这些恰好是若依（RuoYi）与 JeeCG 的全部地盘**。结论：不与其正面拼后台，坚守差异主线。
+
+**一句话定位**：
+
+> 若依回答「怎么快速搭一个后台界面」；KeelBase 回答「怎么快速做出一个带 AI、业务安全、三端可用的应用」。后台是送的，AI 是主线，App 是终点。
+
+**划界（功能评审守则）**：
+
+- **不做 / 不当卖点（若依地盘，hygiene）**：
+  - 管理台通用 CRUD 堆料（字典、岗位、菜单管理、系统配置等纯后台 CRUD）——若依十年生态，正面拼必输。
+  - 代码生成器（UX-3）、低代码表单（PL-10）、插件机制（PL-11）、定时任务（PL-7）当**卖点**讲——它们只是「基座完整度」的台面，不是故事主线。
+- **差异主线（若依/JeeCG 没有，持续加倍投入）**：
+  - **业务安全的 AI Agent harness**：工具限定用户数据范围 + 写操作人工确认 + 副作用可撤销 + 评测闭环 + CASL 行级权限与 AI 工具打通（HS 系列）。
+  - **App 端与三端一致**：Flutter + Taro 小程序 + 管理台，一套后端三端出；C 端功能（推送/动态流/积分/语音）优先于后台功能。
+  - **AI 引导配置 + 开箱即用**（EASY 系列）：30 分钟出一个带 AI 的可用应用。
+- **评审守则**：每次功能评审先问「这功能若依有吗？」——若无 → 差异加分；若有 → 是否支撑差异主线，仅当支撑才做，否则标 hygiene 或不做。
+
+**对既有待办的影响**：PL-12 组织架构从「企业版押后」重定位为「应用级管理 ORG」——按应用层 + AI 织入做，不做若依式部门树 CRUD 堆料；PL-13 支付维持押后（商业向）。
+
+---
+
+## 应用级管理（ORG，2026-08-12 新增）
+
+> 来源：2026-08-12 产品讨论——管理端目前只有系统级功能，区分出「应用级管理」：基座造出的应用的企业/团队能力。**调性：组织架构不是若依式部门树 CRUD，而是「应用层能力 + AI 织入」**——呈现用管理台，用法靠 AI 与 CASL 组织边界授权。收编 PL-12（原「多租户与组织架构」，从押后重定位）。**分期控范围：一期只做组织树 + 成员角色 + 应用级权限开关，数据隔离二期**（真正贵的是「数据按组织隔离」——现有 events/todos 全 `{userId}` 所有权，改造要动所有查询）。
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| ORG-1 | 组织与部门数据模型 | Organization + Department（自引用树）+ 成员关系（user × org × role：企业管理员/部门管理员/成员）；复用 User 实体，不新建账号体系 | 基座已就绪 | 待办 |
+| ORG-2 | 管理端组织管理页 | 组织树 CRUD + 成员归属管理 + 角色分配 + 成员列表；成员**批量导入复用 POV-2** | ORG-1 / POV-2 | 待办 |
+| ORG-3 | 应用级权限与数据隔离（二期） | 现有 events/todos 所有权「本人 OR 同组织可见」的查询扩展 + 新建实体支持 orgId + CASL 扩展组织维度 subject；**工作量最大项，独立二期** | ORG-1 / S.1 | 待办（二期） |
+| ORG-4 | 审批流 | 与 PL-10 表单引擎衔接：表单提交 → 审批状态机（提交/审批/驳回/撤回）+ 按角色配审批人 + MS-1 通知触达；企业刚需、增量小（复用表单 schema） | PL-10 / MS-1 | 待办 |
+| ORG-5 | AI 织入（差异化） | 组织边界授权的 AI 工具：查部门日程/团队空闲/审批待办统计；AI 只在组织数据范围内运行 + AI 审计带组织维度——若依式组织架构没有的用法 | ORG-1~4 / HS-2 | 待办 |
+| ORG-6 | 邀请加入组织 | 复用 G-2 邀请码/绑定机制，管理员邀请成员入组织 | G-2 | 待办 |
+
+> **优先级**：ORG-1 → ORG-2 → ORG-4（审批流性价比最高）→ ORG-5（AI 织入差异化）→ ORG-3（二期，工作量最大）。ORG-6 顺带。
+
+---
+
+## 获客与留存（GROWTH，2026-08-12 新增）
+
+> 来源：2026-08-12 产品讨论——管理端只能服务运营，App 端需要能吸引用户试用的功能。对照市面调研（2026 必备功能：推送/社交/激励/即时反馈）+ 与基座契合度，按吸引力排序。**新增 2 项（社区动态流、积分激励），其余引用既有条目避免重复。**
+
+| # | 条目 | 说明 | 依赖 | 状态 |
+|---|------|------|------|------|
+| GROWTH-1 | 推送消费端闭环 | 即 MS-2.3：Flutter 设备 token 上报（firebase_messaging/极光 SDK）+ flutter_local_notifications 前台展示。调研明确「push done right」是留存必备；**纯前端、不改后端、半天量级，最高性价比** | MS-2/2.1 | 待办 |
+| GROWTH-2 | 社区/动态流（示例功能） | 发帖/配图/点赞/评论/关注——最吸引普通用户的高频功能；一箭双雕：既是 C 端示例，又演示全链路（上传/图片/通知/搜索/审计/权限）。**作为基座示例功能**而非通用模块 | 基座全链路已就绪 | 待办（新增） |
+| GROWTH-3 | 积分/签到/成就（gamification） | 签到连续奖励 + 成就徽章 + 排行榜；奖励数值走 RG-2 Settings 运营可配。调研明确 gamification 是吸引新用户/留存手段（streaks/challenges） | RG-2 | 待办（新增） |
+| GROWTH-4 | 微信分享裂变 | 即 MINI-4：事件/邀请分享卡片 + onShareAppMessage + 回跳深链；国内获客第一渠道 | MINI-3 | 待办 |
+| GROWTH-5 | AI 语音 | 即 AI-13：语音输入（whisper 兼容）+ TTS 回复（前端播放可关闭）；AI 差异化卖点 | AI-12 附件通道 | 待办 |
+| GROWTH-6 | 实时协作（斟酌） | 即 RG-6 WS 双向通道——IM/协同/AI 流式替代；投入大，按需 | 基座已就绪 | 待办（斟酌） |
+
+> **优先级建议**：GROWTH-1（留存必备、半天）→ GROWTH-2（获客示例、演示价值）→ GROWTH-3（激励留存）→ GROWTH-5（AI 差异化）→ GROWTH-4（依赖微信生态）→ GROWTH-6（斟酌）。
+
+---
+
 ## 十一、业务安全的 Agent harness 深化（HS）
 
 > 来源：2026-08-11 定位深化分析——定位定义为「**业务安全的 agent harness**」（工具限定用户数据范围 + 写操作人工确认 + CASL 行级权限 + 全链路审计）后，对照现有代码逐层核查（ai.service 工具循环 / tool-registry / confirmation-store / eval / headless / audit 实体）。
@@ -430,7 +490,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 |---|------|------|------|------|
 | HS-1 | 评测判定闭环（当前是空判定） | **已证实硬伤**：`ai-eval.service` 的 `runImpl` 判定 `ok = !!res.reply && res.reply.length > 0`——**有回复即通过**；`createCase` 接受 `expected` 字段但从未用于断言。无法验证正确性，更无法验证安全性。补：①`expected` 断言（包含/正则/工具命中/拒绝）②安全用例类别（越权工具调用、写操作确认拒绝、PII 泄露、prompt injection）③报告含逐用例断言明细而非仅 ok 计数 | AI-20 已就绪 | **已完成（expected 断言体系：contains/regex/tool-hit/tool-miss/no-tool/reject 六型，纯文本兼容 contains；AiService.chat 暴露 toolCalls 供工具断言；报告逐用例含 assertType/detail/actualToolCalls/replyPreview + byAssert 分组；内置安全用例 seed（越权删除/改密/PII 泄露/注入攻击/工具命中/无工具，`POST /ai/eval/seed` 幂等补齐）；后端 602 单测全绿）** |
 | HS-2 | 工具级权限治理 | **已证实缺口**：任意已认证用户可触发全部注册工具——工具直连 service（如 create-todo.tool 调 `todosService.create`），HTTP 层守卫（EmailVerificationGuard 等）管不到工具路径。补：AiTool 加权限元数据（可调角色/需验证邮箱/受 FeatureFlag 约束）+ ToolRegistry 执行前校验；管理台可见工具清单与权限 | 工具接口 / CASL / PL-8 | **已完成（AiTool.permissions（featureFlag / requireVerifiedEmail）+ AiService._assertToolAllowed 执行前门控（流式/非流式两循环入口）+ UsersService/FeatureFlagsService 注入 + web_search/generate_image 绑 featureFlag:'ai' + create_event/create_todo 绑 requireVerifiedEmail + GET /ai/tools（admin）工具清单与权限 + 2 门控单测；604 单测 + e2e 98 全绿）** |
-| HS-3 | 写工具幂等与补偿（AI 副作用可撤销） | **已证实缺口**：`runToolLoop` 逐个执行工具，多工具流程中途失败无回滚；写工具无幂等键，LLM 重试/并发会重复建事件/待办。补：写工具 idempotency key（用户+会话+工具+参数 hash）+ 失败补偿钩子（agent 自述已做 vs 实际成败）+ 管理台可查 AI 创建的记录并一键删除（衔接 RG-3 回收站） | HS-2 / RG-3 | 待办 |
+| HS-3 | 写工具幂等与补偿（AI 副作用可撤销） | **已证实缺口**：`runToolLoop` 逐个执行工具，多工具流程中途失败无回滚；写工具无幂等键，LLM 重试/并发会重复建事件/待办。补：写工具 idempotency key（用户+会话+工具+参数 hash）+ 失败补偿钩子（agent 自述已做 vs 实际成败）+ 管理台可查 AI 创建的记录并一键删除（衔接 RG-3 回收站） | HS-2 / RG-3 | **已完成（AiToolSideEffect 实体 + 迁移 + AiToolEffectsService（buildKey 稳定 hash / findExisting / record / list / revoke）+ AiService._executeWriteTool 幂等包装（同 key 命中返回已有结果）+ 流式写工具接入 + GET /ai/tool-effects（admin 列表含目标状态）+ DELETE /ai/tool-effects/:id（软删撤销，衔接 RG-3）+ 迁移一致性验证（ai_tool 表 No changes）；8 单测 + e2e 98 全绿）** |
 | HS-4 | headless 治理 | **已证实缺口**：headless.controller 固定 `chat('0')`——无 per-API-key 限额（所有 key 共享 userId '0' 的每日限额桶）、无工具范围、无独立身份隔离。补：API Key ↔ 独立账号/工具范围/配额映射 + per-key 审计归属 + 管理台 Key 管理页 | AI-19 已就绪 | 待办 |
 | HS-5 | 工具结果 token 预算与截断 | **已证实缺口**：非流式 `runToolLoop` 把 `JSON.stringify(resolvedResult)` 原样回填消息（流式有 summarizeToolResult，非流式没有），大查询结果可撑爆上下文窗口。补：非流式也走摘要/截断 + 工具结果字符上限 + 超限降级 | 无 | 待办 |
 | HS-6 | 确认协议体验补齐 | ConfirmationStore 内存存储（重启丢 pending）、TTL 固定 60s 不可配、无批量确认/信任工具名单/确认前预览（用户看不到将创建什么）。补：确认卡片带参数预览、本次会话信任工具、超时经 Settings 可配、pending 持久化 | AI-7 已就绪 | 待办 |
@@ -476,7 +536,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| EASY-1 | 单容器 all-in-one 交付 | **`docker run -p 80:80` 一条命令即可用**（用户只装 Docker）。现状是 4 容器编排（postgres+redis+server+web）；改：server 镜像内嵌 Flutter web + admin 静态文件（nest 静态托管或内置 nginx），默认 SQLite（项目已零配置）+ `CACHE_ENABLED=false` 降级 redis，大项目仍走 compose。目标：「小项目」最爽形态 | DX-1 已就绪 / Dockerfile 多阶段 | 待办 |
+| EASY-1 | 单容器 all-in-one 交付 | **`docker run` 一条命令即可用**（用户只装 Docker）。Dockerfile.single：server 镜像内嵌 Flutter web 主 App（根路径）+ admin 静态文件（/admin，Nest 静态托管 SERVE_STATIC=1），默认 SQLite 零配置 + `CACHE_ENABLED=false` 降级 redis/队列，大项目仍走 compose。配套 scripts/docker-single.sh（up/build/stop/down/logs）。目标：「小项目」最爽形态 | DX-1 已就绪 / Dockerfile 多阶段 | **已完成（Dockerfile.single + main.ts SERVE_STATIC 静态托管 + docker-single.sh + .dockerignore + Makefile docker-single + README 单容器优先；build 通过；容器实测待部署时验证）** |
 | EASY-2 | AI 配置向导（`npx shiyu init`） | CLI 交互问答（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + 打印「下一步」。**让 AI 做配置，而不是文档做配置**——竞品未做，最高差异化 | AI 编排已就绪 | 待办 |
 | EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`shiyu init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
 | EASY-4 | MOD-2 方案修正 | **原方案「动态 import 硬装配」降级**：小团队价值感优先于「省启动时间」，且默认全开 + 精简预设比「配置想要的」心智负担小。改为：**默认全开** + EASY-3 精简预设控制；MOD-1 依赖图校验保留为**配置校验器**（防畸形预设）而非装配执行器 | MOD-1 已就绪 | 待办（方案修正） |
@@ -605,3 +665,4 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | POV-1 | 私有化 AI（OLLAMA_BASE_URL 自动注册 ollama provider + 本地 embedding + 云→本地降级链，兑现「数据不出域」）；后端单测 581 + e2e 98 全绿 | 2a17430 |
 | POV-2 | 数据导入迁移（POST /admin/import/users + /events，CSV 批量导入 + 失败隔离明细）；后端单测 587 + e2e 98 全绿 | ebbd22c |
 | POV-3 | 离线/内网部署（deploy-offline.sh 镜像预置校验 + env 默认降级外部依赖 + offline-deploy.md 指南） | b37edad |
+| EASY-1 | 单容器 all-in-one 交付（Dockerfile.single + SERVE_STATIC 静态托管 + docker-single.sh + .dockerignore + Makefile/README） | 1c8e0c9 |
