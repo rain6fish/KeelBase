@@ -58,6 +58,7 @@
 - 2026-08-11 追加 UX-9~UX-11（登录页 Slogan+演示账号 / Dashboard 快速开始卡+模板导入入口 / AI 示例 chips 替代 placeholder 轮播）。来源：首次体验提升建议——三个体验项合计 ~2 天，与 PM-1 在线 Demo / DX-1 60秒体验同逻辑，作为演示站前置加分项。
 - 2026-08-12 追加「差异化定位红线」+「应用级管理（ORG）」+「获客与留存（GROWTH）」三章。来源：产品讨论——平台形态向若依/JeeCG 收敛的警觉（定位红线：不做若依式快速开发平台，差异主线 = 业务安全 AI Agent harness + 三端一致 + AI 引导配置）；应用端丰富功能与市面常用功能调研结论（组织架构/审批等企业能力按「应用层 + AI 织入」拟条目；社区动态流/积分等 C 端示例功能吸引试用）。
 - 2026-08-12 完成 EASY-1（单容器 all-in-one 交付）：Dockerfile.single（server+Flutter web+admin 单镜像）+ SERVE_STATIC=1 Nest 静态托管（根路径主 App + /admin 管理台）+ scripts/docker-single.sh（up/build/stop/down/logs）+ .dockerignore + Makefile docker-single + README 60s 改单容器优先；`docker run` 一条命令起全栈，SQLite 零配置 + Redis/队列降级。来源：本次实施。
+- 2026-08-12 补充定位红线：开发期 AI + 运行时 AI 双叙事（对照 JeeCG v3.9.2 AI Skills「一句话生成系统」）——JeeCG 抢先占位「AI 生成系统」话术，但 AI 仅开发期；我们把差异从「AI 引导配置」升级为「开发期 AI（EASY-2 生成业务模块）+ 运行时 AI（HS 安全 harness）」双叙事 + 评审守则补充。来源：本次产品讨论（JeeCG 观察）。
 
 ---
 
@@ -445,6 +446,20 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 
 **对既有待办的影响**：PL-12 组织架构从「企业版押后」重定位为「应用级管理 ORG」——按应用层 + AI 织入做，不做若依式部门树 CRUD 堆料；PL-13 支付维持押后（商业向）。
 
+### 与 JeeCG 的界线：开发期 AI vs 运行时 AI 双叙事（2026-08-12 补）
+
+> 来源：2026-08-12 产品讨论——观察 JeeCG v3.9.2 推出 AI Skills「一句话生成整个系统」。它已把「AI 引导开发」做成现实并当主打卖点，**抢先占位了「AI 生成系统」这个认知**；但它生成的是若依式后台 CRUD，AI 是**开发期 AI**（帮你写代码，生成完就下班）。这暴露并强化了我们的差异缝隙。
+
+| | JeeCG 的 AI | KeelBase |
+|---|---|---|
+| AI 何时工作 | 开发期：生成 CRUD | **开发期 + 运行时都工作** |
+| 生成对象 | 后台管理界面 | 带 AI、三端可用、数据安全的应用 |
+| 安全 | 无权限/审计叙事 | CASL 行级 + 写确认 + 副作用撤销 + 评测闭环（HS） |
+| 端 | Web 后台 | Flutter + Taro 小程序 + 管理台 |
+
+- **结论**：JeeCG 把 AI 用在「快」，我们把 AI 用在「快 + 安全 + 真的会干活」。它不构成正面威胁，但**抢占了「AI 生成系统」的话术**——我们不能再只讲「AI 引导配置」，必须讲**双叙事**：**开发期 AI**（AI 生成业务模块，EASY-2）+ **运行时 AI**（业务安全的 agent harness，HS 系列）。两者合一才完整，JeeCG 只有前半段。
+- **评审守则补充**：涉及「AI 生成/低代码」的功能评审，先问「这是开发期 AI 还是运行时 AI？运行时部分有没有安全链路（确认/权限/审计/撤销）？」——只有开发期 AI 的，落在若依地盘，标 hygiene 或升级到双叙事再做。
+
 ---
 
 ## 应用级管理（ORG，2026-08-12 新增）
@@ -537,7 +552,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
 | EASY-1 | 单容器 all-in-one 交付 | **`docker run` 一条命令即可用**（用户只装 Docker）。Dockerfile.single：server 镜像内嵌 Flutter web 主 App（根路径）+ admin 静态文件（/admin，Nest 静态托管 SERVE_STATIC=1），默认 SQLite 零配置 + `CACHE_ENABLED=false` 降级 redis/队列，大项目仍走 compose。配套 scripts/docker-single.sh（up/build/stop/down/logs）。目标：「小项目」最爽形态 | DX-1 已就绪 / Dockerfile 多阶段 | **已完成（Dockerfile.single + main.ts SERVE_STATIC 静态托管 + docker-single.sh + .dockerignore + Makefile docker-single + README 单容器优先；build 通过；容器实测待部署时验证）** |
-| EASY-2 | AI 配置向导（`npx shiyu init`） | CLI 交互问答（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + 打印「下一步」。**让 AI 做配置，而不是文档做配置**——竞品未做，最高差异化 | AI 编排已就绪 | 待办 |
+| EASY-2 | AI 生成业务模块（`npx shiyu init`，开发期 AI） | 对话式引导（做什么应用？要 AI/支付/多租户吗？目标规模？）→ 生成推荐配置集 + 种子数据 + 品牌替换 + **生成一个完整业务模块**（实体/DTO/CRUD/前端页面/权限，走基座脚手架 tool/generate_feature.sh）+ 打印「下一步」。**2026-08-12 升级：从「配置向导」升级为「AI 生成业务模块」**——JeeCG 已抢先占位「一句话生成系统」，我们不能再只讲配置；配合运行时 AI（HS）构成「开发期 + 运行时」双叙事（见定位红线）。第一个 showcase 用 GROWTH-2 社区动态流（把上传/图片/通知/审计全链路演示给评估者） | AI 编排 + UX-3 脚手架已就绪 | 待办 |
 | EASY-3 | 三档预设 + 品牌化 | ①small：`docker run` 单容器全功能开箱 ②lite：`shiyu init --lite` 只要基础+选 1-2 模块 ③full：全模块+生产设施。品牌化 `APP_BRAND`（logo/名/主色/域名一处配置 → 前端主题+邮件模板+文档联动，white-label 关键） | EASY-1/2 | 待办 |
 | EASY-4 | MOD-2 方案修正 | **原方案「动态 import 硬装配」降级**：小团队价值感优先于「省启动时间」，且默认全开 + 精简预设比「配置想要的」心智负担小。改为：**默认全开** + EASY-3 精简预设控制；MOD-1 依赖图校验保留为**配置校验器**（防畸形预设）而非装配执行器 | MOD-1 已就绪 | 待办（方案修正） |
 
