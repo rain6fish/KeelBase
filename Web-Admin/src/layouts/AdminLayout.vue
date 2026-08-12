@@ -14,7 +14,7 @@
         <v-list-item
           :prepend-icon="'mdi-view-dashboard-outline'"
           :title="t('overview')"
-          :active="route.name === 'dashboard'"
+          :active="route.path === '/'"
           @click="go('/')"
         />
       </v-list>
@@ -27,7 +27,7 @@
             :key="item.to"
             :prepend-icon="item.icon"
             :title="item.label"
-            :active="route.name === item.name"
+            :active="isActive(item.name)"
             @click="go(item.to)"
           />
         </v-list>
@@ -97,18 +97,22 @@ function go(path: string) {
   router.push(path)
 }
 
+function isActive(name: string): boolean {
+  // 详情页归其父导航激活（users/:id → 用户管理高亮）
+  return route.name === name || (name === 'users' && route.name === 'user-detail')
+}
+
 async function onLogout() {
   await auth.logout()
   router.replace('/login')
 }
 
 const breadcrumbs = computed(() => {
-  const name = route.name as string
-  const map: Record<string, string> = {
-    dashboard: t('overview'),
-  }
-  // P2 起在此补充业务页标题
-  return [{ title: t('appName') }, ...(map[name] ? [{ title: map[name] }] : [])]
+  const metaTitle = route.meta?.title as string | undefined
+  return [
+    { title: t('appName') },
+    ...(metaTitle ? [{ title: t(metaTitle) }] : []),
+  ]
 })
 
 // 导航分组：对齐旧 NAV_GROUPS；P3 新增页面在对应组追加

@@ -1,0 +1,136 @@
+export interface MonitorSummary {
+  health: {
+    status: string
+    uptimeSec: number
+    nodeEnv?: string
+    version: string
+  }
+  dependencies: {
+    database: string
+    redis: string
+    queue: string
+    storage: string
+    mail: string
+    push: string
+  }
+  counts: {
+    users: number
+    events: number
+    notifications: number
+    sessions: number
+    operationAuditLogs: number
+    aiAuditLogs: number
+    conversations: number
+    knowledge: number
+  }
+  metrics: {
+    requestRateRps: number | null
+    errorRatePct: number | null
+    latencyP95Ms: number | null
+    inFlight: number | null
+  }
+}
+
+export interface PlatformOverview {
+  counts: {
+    users: number
+    events: number
+    todos: number
+    notifications: number
+    operationAuditLogs: number
+    aiAuditLogs: number
+  }
+  storage: {
+    driver: string
+    bytes: number | null
+  }
+  trend: Array<{ date: string; count: number }>
+}
+
+export interface AdminSession {
+  id: number
+  userId: number
+  username: string | null
+  deviceName: string | null
+  ip: string | null
+  createdAt: string | null
+  lastActiveAt: string | null
+}
+
+export interface BroadcastResult {
+  sent: number
+  mode: 'selected' | 'all'
+}
+
+export interface OperationAuditLog {
+  id: number
+  userId?: number | null
+  action: string
+  method: string
+  path: string
+  /** 功能语义 key（如 users.create），前端按语言渲染为功能名 */
+  featureKey?: string | null
+  /** 兜底英文功能名 */
+  featureFallback?: string | null
+  targetId?: string | null
+  requestBody?: string | null
+  ip?: string | null
+  userAgent?: string | null
+  statusCode?: number | null
+  createdAt: string
+  /** 所属用户名（管理端审计 JOIN 用户表返回） */
+  username?: string | null
+}
+
+export interface KnowledgeArticle {
+  id: number
+  title: string
+  content: string
+  category?: string | null
+  sourceFile?: string | null
+  fileUrl?: string | null
+  docType?: string | null
+  chunkCount?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AppVersionInfo {
+  latestVersion: string
+  minRequiredVersion: string
+  updateUrl: string
+  changelog: string[]
+}
+
+export interface UserDetail {
+  id: number
+  username: string
+  email: string
+  phone?: string | null
+  role: string
+  nickname: string
+  emailVerified?: boolean
+  createdAt?: string
+  updatedAt?: string
+  sessions: Array<{
+    id: number
+    deviceName: string | null
+    ip: string | null
+    lastActiveAt: string | null
+    createdAt: string | null
+  }>
+  notifications: Array<{
+    id: number
+    title: string
+    body: string | null
+    type: string
+    isRead: boolean
+    createdAt: string | null
+  }>
+  counts: {
+    events: number
+    operationAuditLogs: number
+    aiAuditLogs: number
+    totalTokens: number
+  }
+}
