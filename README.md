@@ -1,10 +1,16 @@
 # KeelBase — Full-Stack Application Base Platform
 
 > ### 🚀 60 秒开始 / Get Started in 60s
+> **只装 Docker 就够了（单容器 all-in-one，后端+主 App+管理台）：**
 > ```bash
-> ./scripts/dev.sh experience   # 一键体验：起后端+管理台，自动开浏览器（Windows/Linux/Mac）
+> ./scripts/docker-single.sh    # 构建并启动，一条命令起全栈
+> # 访问 http://localhost:3000 主 App、/admin 管理台、alex/123456
 > ```
-> 只装 Docker 或 Node 即可。详见 [快速上手](docs/manual/quickstart.md) / [FAQ](docs/manual/faq.md)。
+> 或本地开发模式（起后端+管理台，自动开浏览器）：
+> ```bash
+> ./scripts/dev.sh experience
+> ```
+> 详见 [快速上手](docs/manual/quickstart.md) / [FAQ](docs/manual/faq.md)。
 
 **A Production-Ready, AI-Native, Full-Stack Application Base — built for data sovereignty.**
 **一个私有化部署、AI 原生、开箱即用的全栈应用基座。**

@@ -48,6 +48,19 @@ async function bootstrap() {
     prefix: '/uploads',
   });
 
+  // EASY-1 单容器交付：当 public/ 目录存在（Dockerfile.single 内嵌前端）时，
+  // 用 Nest 托管 Flutter web 主 App（根路径）+ 管理台（/admin），
+  // 使 `docker run` 单容器即可提供全栈，无需 nginx。SERVE_STATIC 显式开启。
+  if (process.env.SERVE_STATIC === '1') {
+    const publicDir = join(__dirname, '..', 'public');
+    const adminDir = join(publicDir, 'admin');
+    // 主 App（Flutter web，hash 路由无需 SPA fallback）
+    app.useStaticAssets(publicDir);
+    // 管理台（Taro H5 独立构建，/admin 子路径）
+    app.useStaticAssets(adminDir, { prefix: '/admin' });
+    logger.log('Serving web + admin console from public/ (single-container mode)');
+  }
+
   // Swagger docs — only in development
   if (isDev) {
     const config = new DocumentBuilder()

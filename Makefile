@@ -27,7 +27,8 @@ help: ## 显示所有命令
 	@echo ""
 	@echo "  构建/部署"
 	@echo "    make build           生产构建（Docker 镜像）"
-	@echo "    make docker-up       Docker 一键起全部"
+	@echo "    make docker-single   单容器 all-in-one（只装 Docker，一条命令起全栈）"
+	@echo "    make docker-up       Docker 一键起全部（多容器生产）"
 	@echo ""
 	@echo "  数据库/运维"
 	@echo "    make migrate         执行数据库迁移"
@@ -63,6 +64,9 @@ lint: ## 后端 lint
 
 build: ## 生产构建（Docker）
 	docker compose build
+
+docker-single: ## 单容器 all-in-one（只装 Docker 即可，SQLite 零配置）
+	./scripts/docker-single.sh up
 
 docker-up: ## Docker 一键起全部
 	docker compose up --build -d

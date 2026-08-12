@@ -1,0 +1,26 @@
+# 构建上下文精简：排除 node_modules / 构建产物 / 本地数据 / git
+**/node_modules
+**/dist
+**/build
+**/.dart_tool
+**/.packages
+**/coverage
+**/coverage-e2e
+**/.git
+.git
+.gitignore
+*.log
+**/data
+**/uploads
+**/backups
+**/.env
+**/.env.*
+!.env.example
+docs/
+infra/
+deploy/
+.idea/
+.vscode/
+.claude/
+*.sqlite
+*.backup
