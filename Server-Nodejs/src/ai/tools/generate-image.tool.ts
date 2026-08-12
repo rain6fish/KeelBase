@@ -13,6 +13,7 @@ export class GenerateImageTool implements AiTool {
   readonly name = 'generate_image';
   readonly description =
     '生成图片（根据文字描述创建图像）。当用户要求"画一张/生成图片/做一张图"时使用。';
+  readonly permissions = { featureFlag: 'ai' };
   readonly parameters: ToolParameter[] = [
     {
       name: 'prompt',

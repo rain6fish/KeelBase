@@ -91,6 +91,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddInvite*.js',
               'dist/migrations/*AddAiEvalCases*.js',
               'dist/migrations/*AddFormBuilder*.js',
+              'dist/migrations/*AddAiToolSideEffects*.js',
             ],
             migrationsRun: !isDev,
             host: configService.get<string>('DB_HOST', 'localhost'),
