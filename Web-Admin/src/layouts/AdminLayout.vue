@@ -1,0 +1,151 @@
+<template>
+  <v-layout class="rounded rounded-md">
+    <v-navigation-drawer v-model="ui.drawer" :rail="rail" permanent @click="onDrawerClick">
+      <template #prepend>
+        <v-list-item
+          :title="t('appName')"
+          subtitle="KeelBase"
+          prepend-icon="mdi-keel"
+          class="brand-item"
+        />
+      </template>
+
+      <v-list density="comfortable" nav>
+        <v-list-item
+          :prepend-icon="'mdi-view-dashboard-outline'"
+          :title="t('overview')"
+          :active="route.name === 'dashboard'"
+          @click="go('/')"
+        />
+      </v-list>
+
+      <template v-for="group in navGroups" :key="group.label">
+        <div class="nav-group-label">{{ group.label }}</div>
+        <v-list density="comfortable" nav>
+          <v-list-item
+            v-for="item in group.items"
+            :key="item.to"
+            :prepend-icon="item.icon"
+            :title="item.label"
+            :active="route.name === item.name"
+            @click="go(item.to)"
+          />
+        </v-list>
+      </template>
+
+      <template #append>
+        <div class="px-2 py-3">
+          <v-divider class="mb-2" />
+          <v-list-item
+            :title="auth.user?.username || '-'"
+            :subtitle="auth.user?.role || ''"
+            prepend-icon="mdi-account-circle"
+          />
+          <div class="d-flex justify-space-between align-center px-2">
+            <LangToggle />
+            <ThemeToggle />
+            <v-btn icon="mdi-logout" variant="text" size="small" :title="t('logout')" @click="onLogout" />
+          </div>
+        </div>
+      </template>
+    </v-navigation-drawer>
+
+    <v-main class="admin-main">
+      <v-app-bar elevation="0" border="b" class="admin-topbar">
+        <v-app-bar-nav-icon variant="text" @click.stop="toggleRail" />
+        <v-breadcrumbs :items="breadcrumbs" class="flex-grow-0" />
+        <v-spacer />
+        <ThemeToggle />
+        <LangToggle />
+        <v-btn variant="tonal" prepend-icon="mdi-logout" :title="t('logout')" @click="onLogout">
+          {{ t('logout') }}
+        </v-btn>
+      </v-app-bar>
+
+      <v-container fluid class="v-content-pad">
+        <router-view />
+      </v-container>
+    </v-main>
+  </v-layout>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
+import ThemeToggle from '@/components/ThemeToggle.vue'
+import LangToggle from '@/components/LangToggle.vue'
+
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+const ui = useUiStore()
+const auth = useAuthStore()
+
+const rail = ref(false)
+function toggleRail() {
+  rail.value = !rail.value
+}
+// rail 折叠时点击任意区域展开
+function onDrawerClick() {
+  if (rail.value) rail.value = false
+}
+
+function go(path: string) {
+  router.push(path)
+}
+
+async function onLogout() {
+  await auth.logout()
+  router.replace('/login')
+}
+
+const breadcrumbs = computed(() => {
+  const name = route.name as string
+  const map: Record<string, string> = {
+    dashboard: t('overview'),
+  }
+  // P2 起在此补充业务页标题
+  return [{ title: t('appName') }, ...(map[name] ? [{ title: map[name] }] : [])]
+})
+
+// 导航分组：对齐旧 NAV_GROUPS；P3 新增页面在对应组追加
+const navGroups = computed(() => [
+  {
+    label: t('navData'),
+    items: [
+      { name: 'users', to: '/users', icon: 'mdi-account-group-outline', label: t('navUsers') },
+      { name: 'events', to: '/events', icon: 'mdi-calendar-blank-outline', label: t('navEvents') },
+      { name: 'knowledge', to: '/knowledge', icon: 'mdi-book-open-variant', label: t('navKnowledge') },
+      { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
+    ],
+  },
+  {
+    label: t('navMonitor'),
+    items: [
+      { name: 'monitor', to: '/monitor', icon: 'mdi-heart-pulse', label: t('navMonitorCenter') },
+      { name: 'audit', to: '/audit', icon: 'mdi-history', label: t('navAiAudit') },
+      { name: 'op-audit', to: '/op-audit', icon: 'mdi-clipboard-text-outline', label: t('navOpAudit') },
+      { name: 'sessions', to: '/sessions', icon: 'mdi-monitor-cellphone', label: t('navSessions') },
+    ],
+  },
+  {
+    label: t('navSystem'),
+    items: [
+      { name: 'observability', to: '/observability', icon: 'mdi-lan', label: t('navObservability') },
+      { name: 'system', to: '/system', icon: 'mdi-cog-outline', label: t('navSystemInfo') },
+    ],
+  },
+])
+</script>
+
+<style scoped>
+.admin-main {
+  background-color: rgb(var(--v-theme-background));
+}
+.brand-item {
+  min-height: 56px;
+}
+</style>

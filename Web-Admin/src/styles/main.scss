@@ -1,0 +1,22 @@
+// 全局基础样式。Vuetify 负责组件；这里只放应用级覆盖（页面背景、滚动条等）。
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+// 侧边栏导航项
+.nav-group-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  padding: 12px 12px 4px;
+}
+
+// 内容区卡片统一间距
+.v-content-pad {
+  padding: 20px;
+}
