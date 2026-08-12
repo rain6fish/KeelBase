@@ -15,6 +15,9 @@
 **A Production-Ready, AI-Native, Full-Stack Application Base — built for data sovereignty.**
 **一个私有化部署、AI 原生、开箱即用的全栈应用基座。**
 
+**One main line, three audiences — one thread: the business-safe AI Agent harness.** AI that actually works, only within authorized data scopes, with human-confirmed writes and full audit.
+**一条主线，三类受益方**——一切围绕一个主线：**业务安全的 AI Agent harness**——让 AI 真的会干活，且只在授权的数据范围内、写操作经人确认、全程可审计。
+
 KeelBase is not just a boilerplate; it is a production-ready foundation that fuses **enterprise data sovereignty** with **AI-native capabilities**. It provides a unified solution covering Flutter/Taro frontends, a NestJS backend, and AI orchestration — designed for developers who need to build secure, scalable, and intelligent applications without compromising on data privacy.
 
 At its core, KeelBase is a **business-safe agent harness**: an AI runtime where every tool call is scoped to the authenticated user, write operations require human confirmation, and all agent activity runs through CASL row-level permissions and full audit trails. It lets you turn your business APIs into safe, controllable AI actions — without building an agent platform from scratch.
@@ -22,6 +25,16 @@ At its core, KeelBase is a **business-safe agent harness**: an AI runtime where 
 KeelBase 不仅仅是一个脚手架，而是一个**生产级**的应用基座。它将**企业级数据主权**与**AI 原生能力**深度融合，提供了一套包含 Flutter/Taro 前端、NestJS 后端及 AI 编排的统一解决方案，专为希望在**不牺牲数据隐私**的前提下，快速构建安全、可扩展且智能化应用的开发者而生。
 
 它的本质是一个**业务安全的 Agent harness（运行时）**：每一次工具调用都限定在登录用户的数据范围内，写操作必须经人工确认，所有智能体行为都经过 CASL 行级权限校验与全链路审计。无需从零搭建 agent 平台，就能把业务 API 变成安全、可控的 AI 能力。
+
+### 三类受益方 / Three Audiences
+
+| | 开发者 / Developers | 终端用户 / End Users | 企业主与管理 / Owners & Admins |
+|---|---|---|---|
+| 核心诉求 | 30 分钟出一个带 AI 的安全应用 | AI 真的会干活，不是玩具助手 | AI 可信、数据可控、全程可审计 |
+| 对应能力 | 开发期 AI（生成业务模块 + AI 规则层） | 运行时 AI（对话/工具/记忆/主动服务） | 治理内建（权限/确认/审计/撤销/私有化） |
+| 一句话 | 快且不重造轮子 | 会干活且只在你的数据里干活 | 数据不出域、AI 每步可查 |
+
+> 三个角色不是三条平行卖点，而是同一条主线的三个验证角度——开发者验证「能否快速造出」，用户验证「AI 是否真的有用」，管理者验证「AI 是否安全可信」。
 
 ---
 
@@ -31,25 +44,34 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 与传统仅关注 CRUD 的脚手架不同，KeelBase 专为 **AI 时代** 与 **企业合规** 而生。
 
-### 🔒 Private & Secure — 私有化与安全性
+### 🤖 AI-Native — 开发期 + 运行时双叙事
+
+- **Dev-Time AI:** Dialogue-driven business-module generation (entity / DTO / CRUD / pages / permissions) plus an AI rules layer (AGENTS.md) — developers use AI to build, not just to chat.
+- **Runtime AI:** Deep integration of RAG, tool calling, data insights, long-term memory, sub-agents, and proactive services — the assistant actually does work, not just chat.
+- **开发期 AI：** 对话式生成业务模块（实体/DTO/CRUD/页面/权限）+ AI 规则层（AGENTS.md）——开发者用 AI 开发，而非只聊天。
+- **运行时 AI：** 深度集成 RAG、工具调用、数据洞察、长程记忆、子代理与主动服务——助手真的会干活，不只是聊天。
+
+### 🛡️ Business-Safe Agent Harness — 业务安全的 Agent 运行时（主线）
+
+- **User-Scoped Tools:** Every tool call carries the authenticated user — AI can only touch that user's data.
+- **Human Confirmation:** Write operations require explicit human approval before execution.
+- **Audit & Revoke:** Full audit trails on every agent action; AI-created side effects are tracked and reversible.
+- **数据范围限定：** 每次工具调用携带登录用户上下文，AI 只能操作该用户的数据。
+- **写操作人工确认：** 写操作执行前需用户明确批准。
+- **全链路审计 + 可撤销：** 每个 agent 动作留痕，AI 创建的副作用可追踪、可撤销。
+
+### 🔒 Private & Secure — 私有化与安全性（管理者视角）
 
 - **Data Sovereignty:** Designed for private deployment — you keep full ownership of your data, not a cloud provider.
 - **Enterprise-Grade Security:** Built-in CASL permission control, login lockout, token hashing, AES-256-GCM static encryption, and full audit trails.
 - **数据主权：** 专为私有化部署设计，数据完全掌握在自己手中，而非云厂商。
 - **企业级安全：** 内置 CASL 权限控制、登录防爆破、Token 哈希、AES-256-GCM 静态加密及全链路审计日志。
 
-### 🤖 AI-Native — AI 原生架构
-
-- **Beyond Chat:** Integrated RAG (Retrieval-Augmented Generation), tool calling (function execution), and AI data insights.
-- **Business-Safe Agent Harness:** Tools are user-scoped, write operations require human confirmation, and CASL row-level permissions + audit trails bound every agent action — safe to run agent workflows against real business data.
-- **超越聊天：** 深度集成 RAG（检索增强生成）、工具调用（Tool Calling）和 AI 数据洞察。
-- **业务安全的 Agent Harness：** 工具调用限定用户数据范围、写操作需人工确认；CASL 行级权限与全链路审计约束每个 agent 动作，可安全地在真实业务数据上运行智能体工作流。
-
 ### ⚡ Full-Stack Fusion — 全栈融合
 
-- **One Base, Three Ends:** Seamlessly integrates the user App (Flutter), Mini-Program (Taro), and a standalone Admin Console (Taro).
+- **One Base, Three Ends:** Seamlessly integrates the user App (Flutter), Mini-Program (Taro), and an isolated Admin Console.
 - **Zero-Friction Dev:** Unified API contracts and shared type conventions; the admin console stays fully isolated from the main app.
-- **一端多能：** 无缝融合用户 App (Flutter)、小程序 (Taro) 和独立管理台 (Taro)。
+- **一端多能：** 无缝融合用户 App (Flutter)、小程序 (Taro) 和独立管理台。
 - **零摩擦开发：** 统一 API 契约与共享类型约定，管理台与主 App 完全隔离。
 
 ---
@@ -71,16 +93,25 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 > 🚀 **想 5 分钟不读代码跑起来？** 看 [快速上手（零基础版）](docs/manual/quickstart.md)，排错看 [常见问题 FAQ](docs/manual/faq.md)。
 
-### Fastest Path: Docker One-Click / 一键体验
+### Fastest Path: Single-Container / 一键体验（单容器优先）
 
 ```bash
-./scripts/dev.sh experience     # 一键：起后端+管理台，自动验收 + 开浏览器
-# 或纯 Docker 全量（有 make 用 `make experience`）：
-DOCKER=1 ./scripts/dev.sh experience
+./scripts/docker-single.sh    # 构建并启动，一条命令起全栈（后端+主 App+管理台）
+# 访问 http://localhost:3000 主 App、/admin 管理台
 ```
 
-> 只需装 Docker（或本地 Node）。端口自动探测、自动验收各端、打印演示账号。
-> Just needs Docker (or local Node). Auto port detection, auto-verify, prints demo accounts.
+> 只需装 Docker。默认 SQLite 零配置，缓存/队列自动降级。
+> Just needs Docker. Zero-config SQLite, cache/queue auto-degrade.
+
+### Alternative: Local Dev Script / 本地开发脚本
+
+```bash
+./scripts/dev.sh experience    # 本地 Node 模式：起后端+管理台，自动验收 + 开浏览器
+DOCKER=1 ./scripts/dev.sh experience   # 或纯 Docker 全量（有 make 用 `make experience`）
+```
+
+> 端口自动探测、自动验收各端、打印演示账号。
+> Auto port detection, auto-verify, prints demo accounts.
 
 ### 统一命令入口 / Unified Commands
 
