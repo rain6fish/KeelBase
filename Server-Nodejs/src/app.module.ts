@@ -81,6 +81,8 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
             migrations: [
               'dist/migrations/*PostgresInitialSchema*.js',
               'dist/migrations/*AddKnowledgeEmbeddings*.js',
+              'dist/migrations/*AddOperationAuditFeatureColumns*.js',
+              'dist/migrations/*AddAccountCompliance*.js',
               'dist/migrations/*AddUserMemory*.js',
               'dist/migrations/*AddConversationSummary*.js',
               'dist/migrations/*AddKnowledgeDocumentColumns*.js',

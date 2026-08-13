@@ -75,6 +75,26 @@ describe('AllExceptionsFilter', () => {
     expect(body.message).toBe('field required; too long');
   });
 
+  it('CR-5 通用 Error 不向客户端泄漏内部错误，原文只进日志/告警', async () => {
+    const sendAlert = jest.fn().mockResolvedValue(undefined);
+    const filter = new AllExceptionsFilter({ sendAlert } as any);
+    const { response, host } = makeHost('zh-CN');
+
+    filter.catch(new Error('SQL error: SELECT * FROM users -- leaked connection string'), host);
+
+    const body = response.json.mock.calls[0][0];
+    expect(body.code).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(body.message).toBe('服务器内部错误'); // 不向客户端泄漏原文
+    expect(body.message).not.toContain('SQL error');
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sendAlert).toHaveBeenCalledWith(
+      expect.stringContaining('500'),
+      'SQL error: SELECT * FROM users -- leaked connection string',
+      { ip: '1.2.3.4' },
+    );
+  });
+
   describe('RG-4 告警触发', () => {
     it('5xx 异常时调用 alertWebhook.sendAlert', async () => {
       const sendAlert = jest.fn().mockResolvedValue(undefined);
