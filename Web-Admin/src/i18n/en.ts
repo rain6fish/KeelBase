@@ -64,6 +64,27 @@ const en: ZhDict = {
   navAiEval: 'AI Eval',
   navAiTools: 'Tools & Effects',
   navAnalytics: 'Analytics',
+  navAiTimeline: 'AI Behavior Timeline',
+
+  // AI behavior timeline
+  aiTimelineHint: 'Aggregate "what AI did to user data" by user/session: tool calls / confirmations / side effects / errors',
+  noTimeline: 'No AI behavior records',
+  adhocChat: 'Ad-hoc chat',
+  conversation: 'Session',
+  toolCall: 'Tool call',
+  confirmation: 'Confirmation',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  navigate: 'Navigation',
+  toolEffect: 'AI side effect',
+  action: {
+    chat: 'Chat',
+    plan: 'Plan',
+    analyze: 'Analyze',
+    knowledge: 'Knowledge',
+    delegate: 'Sub-agent',
+    login: 'Login',
+  },
 
   // Trash
   restore: 'Restore',
