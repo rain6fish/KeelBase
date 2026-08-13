@@ -34,6 +34,7 @@ import 'features/insights/presentation/providers/insights_provider.dart';
 import 'features/announcements/presentation/providers/announcement_provider.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'core/services/app_cache.dart';
+import 'core/services/app_lock_provider.dart';
 import 'features/version/presentation/providers/version_check_provider.dart';
 import 'features/auth/data/services/oauth_service.dart';
 
@@ -130,6 +131,11 @@ Future<void> _initApp() async {
         // Locale
         ChangeNotifierProvider<LocaleProvider>(
           create: (_) => LocaleProvider(prefs!),
+        ),
+
+        // UX-4 应用锁（生物识别）
+        ChangeNotifierProvider<AppLockProvider>(
+          create: (_) => AppLockProvider(prefs!),
         ),
 
         // Auth

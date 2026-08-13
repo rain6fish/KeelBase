@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/services/app_lock_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../version/presentation/providers/version_check_provider.dart';
 import '../../../version/presentation/widgets/update_dialog.dart';
@@ -37,6 +38,14 @@ class _SplashPageState extends State<SplashPage> {
     } else if (decision == AppUpdateDecision.optional) {
       final info = versionProvider.info;
       if (info != null) showOptionalUpdateDialog(context, info);
+    }
+
+    // UX-4 应用锁：若已开启，启动时先过生物识别（FaceID/指纹）
+    final appLock = context.read<AppLockProvider>();
+    if (appLock.enabled) {
+      final ok = await appLock.authenticate();
+      if (!mounted) return;
+      if (!ok) return; // 验证失败：停留在 splash，不进入应用
     }
 
     context.read<AuthProvider>().tryAutoLogin();
