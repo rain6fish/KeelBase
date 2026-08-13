@@ -65,6 +65,7 @@
 - 2026-08-12 追加「对外宣传框架：一个主线 + 三类受益方」章节（定位红线内）。来源：产品讨论——否决「面向开发者/用户/管理者都好」弱话术，确立主线 = 业务安全的 AI Agent harness，三类角色为主线的三个验证角度；README/project.spec 已按此改写。
 - 2026-08-13 追加「未来方向：AI 驱动的企业应用工程体系」章节（定位红线内）+ EASY-7 协议化配置层（P0）。来源：战略讨论——确立「协议化配置 + AI 全链路生成 + 插件化架构」三支柱；**核心澄清：焦点是 AI 能否按系统约定快速生成，而非系统内建生成器**；防过度设计红线（协议只覆盖高频 20%）；HS 运行时安全不放松。
 - 2026-08-12 完成 WEB-ADMIN-1~3（PC Web 管理台全量落地）：P1 骨架（abdbab7）→ P2 迁移 13 页（32ecefc）→ P3 新增 6 页（回收站/数据导入/模板市场/AI评测/工具副作用/平台统计，89cc7d7）→ P4 废弃 Taro-Admin（删除 Front-Taro-Admin + Dockerfile/nginx/脚本/文档切换）。各页真后端实测通过。来源：本次实施。
+- 2026-08-13 完成 HS-7 + WEB-ADMIN-5（AI 行为回放）：后端确认决策落审计 tool_confirmation（approve/decline/timeout，27b1fe7）+ Web-Admin「AI 行为回放」页（c6c740b）——按会话聚合工具调用/确认决策/副作用/错误时间线，逐条展开参数与决策，副作用可撤销。三类事件实测渲染通过。来源：本次实施。
 
 ---
 
@@ -536,7 +537,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | WEB-ADMIN-2 | 现有管理功能迁移 | Taro-Admin 全部页面并入：登录/平台总览/用户管理/事件管理/两类审计/监控中心/可观测性/知识库/通知广播/会话管理/系统信息 + 回收站/数据导入/模板市场/AI 评测/工具与副作用/平台统计；**后端 Admin API 完全复用**，前端按 Vuetify 组件重写 | WEB-ADMIN-1 + 现有 Admin API | **已完成（32ecefc + 89cc7d7，各页实测 + tFeature 双语通过）** |
 | WEB-ADMIN-3 | 废弃 Taro-Admin | 删除 Front-Taro-Admin；Dockerfile admin-build stage、nginx /admin、README/文档、部署脚本切到新 PC Web；**CLAUDE.md §13 更新**（管理台技术栈变更） | WEB-ADMIN-2 | **已完成（本次）** |
 | WEB-ADMIN-4 | ORG 应用级管理落地 | 组织树 + 成员角色 + 审批流设计器（ORG-1/2/4）直接构建于 PC Web（PC 交互密集场景） | ORG-1/2/4 | 待办（并入 ORG） |
-| WEB-ADMIN-5 | AI 行为回放（HS-7）可视化 | 管理员时间线视图「AI 对用户数据做了什么」（创建/尝试/失败 + 工具参数 + 确认决策）在 PC Web 呈现 | HS-7 | 待办（并入 HS-7） |
+| WEB-ADMIN-5 | AI 行为回放（HS-7）可视化 | 管理员时间线视图「AI 对用户数据做了什么」（创建/尝试/失败 + 工具参数 + 确认决策）在 PC Web 呈现 | HS-7 | **已完成（c6c740b，并入 HS-7）** |
 
 ---
 
@@ -587,7 +588,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | HS-4 | headless 治理 | **已证实缺口**：headless.controller 固定 `chat('0')`——无 per-API-key 限额（所有 key 共享 userId '0' 的每日限额桶）、无工具范围、无独立身份隔离。补：API Key ↔ 独立账号/工具范围/配额映射 + per-key 审计归属 + 管理台 Key 管理页 | AI-19 已就绪 | 待办 |
 | HS-5 | 工具结果 token 预算与截断 | **已证实缺口**：非流式 `runToolLoop` 把 `JSON.stringify(resolvedResult)` 原样回填消息（流式有 summarizeToolResult，非流式没有），大查询结果可撑爆上下文窗口。补：非流式也走摘要/截断 + 工具结果字符上限 + 超限降级 | 无 | 待办 |
 | HS-6 | 确认协议体验补齐 | ConfirmationStore 内存存储（重启丢 pending）、TTL 固定 60s 不可配、无批量确认/信任工具名单/确认前预览（用户看不到将创建什么）。补：确认卡片带参数预览、本次会话信任工具、超时经 Settings 可配、pending 持久化 | AI-7 已就绪 | 待办 |
-| HS-7 | AI 行为回放与副作用视图 | ai_audit_logs 已记 tool_call（含参数），但管理台无「AI 对某用户数据做了什么」的时间线视图。补：管理台按用户/会话聚合「AI 创建/尝试/失败」的事件与待办清单，支持逐条展开工具参数与确认决策 | AI-21 / AD-6 / RG-3 | 待办 |
+| HS-7 | AI 行为回放与副作用视图 | ai_audit_logs 已记 tool_call（含参数），但管理台无「AI 对某用户数据做了什么」的时间线视图。补：管理台按用户/会话聚合「AI 创建/尝试/失败」的事件与待办清单，支持逐条展开工具参数与确认决策 | AI-21 / AD-6 / RG-3 | **已完成（后端 27b1fe7 确认决策落审计 tool_confirmation；前端 c6c740b Web-Admin AI 行为回放页，工具调用/确认决策/错误三类事件实测渲染 + 副作用可撤销）** |
 | HS-8 | 上下文注入防线（隐私 + prompt injection） | 用户记忆 / RAG 知识库 / 文档内容原样注入 messages，无敏感数据过滤、无注入防护（AI-23 内容合规已押后，但注入防护是 harness 安全核心）。补：检索结果注入前过滤敏感字段（phone/email/token 掩码）+ 系统边界标注（区分「用户说」vs「知识库/记忆说」）+ 基础注入检测 | AI-6/AI-11 已就绪 | 待办 |
 | HS-9 | 治理策略化（可配置策略层） | 工具权限 / 确认规则 / 审计粒度从代码硬编码升级为数据驱动策略（复用 RG-2 Settings）：管理台可视化开关 + 按工具/角色配置确认规则。**「内建 vs 外部中间件」的真正差异点**——mcp-firewall/Aegis 等控制平面的策略要写配置文件，KeelBase 装好即用、管理台里点 | HS-2/3 + RG-2 | 待办 |
 | HS-10 | MCP 兼容（代理适配层） | 出口：现有 tools 统一暴露为 MCP server（@modelcontextprotocol/sdk）；入口：外部 MCP 工具经 gateway 接入并**强制过同一套治理层**（权限+确认+审计+tool-effects），逻辑复用 HS-2/HS-3。MCP 是治理覆盖的**新边界**而非并列功能——判断标准：兼容后用户能多做什么、少装什么，不为 MCP 而 MCP | HS-2/3/9 | 待办 |
@@ -704,6 +705,7 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | WEB-ADMIN-1 | PC Web 管理台骨架（Vue3+Vuetify3 Materio 风格，admin 登录实测） | abdbab7 |
 | WEB-ADMIN-2 | 全量管理页迁移（13 页 + 新增 6 页，tFeature 双语实测） | 32ecefc / 89cc7d7 |
 | WEB-ADMIN-3 | 废弃 Taro-Admin（删除 Front-Taro-Admin + 部署链/文档切换） | 本次 |
+| HS-7 / WEB-ADMIN-5 | AI 行为回放：确认决策落审计（27b1fe7）+ Web-Admin 时间线视图（c6c740b） | 27b1fe7 / c6c740b |
 | D.1 | 可观测性栈编排（Prometheus + Grafana + Jaeger）+ OTel 修复 | 94ca6a4 |
 | O.2 | Loki 集中日志收集（pino-loki 直推）+ O.4 Jaeger 落地 | ce704d2 |
 | O.3 | Prometheus 告警规则（ServerDown/错误率/延迟/并发） | de31df3 |
