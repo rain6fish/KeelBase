@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/api/api_client.dart';
+import '../../../../core/api/api_response.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -11,6 +13,7 @@ import '../../../events/data/models/event_model.dart';
 import '../../../insights/presentation/providers/insights_provider.dart';
 import '../../../insights/presentation/widgets/insights_card.dart';
 import '../../../announcements/presentation/providers/announcement_provider.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/dev_menu_sheet.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -23,6 +26,8 @@ class _DashboardPageState extends State<DashboardPage> {
   final _aiInputCtrl = TextEditingController();
   List<EventModel> _todayEvents = [];
   bool _loading = true;
+  bool _isNewUser = false; // UX-10：仅全新用户（0 事件）显示快速开始卡
+  bool _importingTemplate = false;
 
   @override
   void initState() {
@@ -30,6 +35,39 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadToday();
     _loadInsights();
     _checkAnnouncement();
+    _checkNewUser();
+  }
+
+  /// 判断是否为全新用户（事件总数 == 0）——快速开始卡仅在此时显示
+  Future<void> _checkNewUser() async {
+    try {
+      final repo = context.read<EventsRepository>();
+      final res = await repo.searchEvents(page: 1, limit: 1);
+      final total = (res['total'] as num?)?.toInt() ?? 0;
+      if (mounted) setState(() => _isNewUser = total == 0);
+    } catch (_) {
+      // 网络失败静默：不显示快速开始卡
+    }
+  }
+
+  /// UX-10 一键导入示例数据（admin 专属：模板导入 API 是 CASL admin 端点）
+  Future<void> _importTemplate() async {
+    if (_importingTemplate) return;
+    setState(() => _importingTemplate = true);
+    try {
+      final api = context.read<ApiClient>();
+      final json = await api.post('/admin/templates/personal-assistant/import');
+      final response = ApiResponse.fromJson(json, (data) => data);
+      if (mounted) {
+        AppToast.success(context, context.l10n.templateImported);
+        _checkNewUser();
+        _loadToday();
+      }
+    } catch (e) {
+      if (mounted) AppToast.error(context, context.l10n.templateImportFailed);
+    } finally {
+      if (mounted) setState(() => _importingTemplate = false);
+    }
   }
 
   void _loadInsights() {
@@ -160,6 +198,10 @@ class _DashboardPageState extends State<DashboardPage> {
             ]),
           ),
           const SizedBox(height: 24),
+          if (_isNewUser) ...[
+            _quickStartCard(l10n, theme),
+            const SizedBox(height: 20),
+          ],
           _todayCard(l10n, theme),
           const SizedBox(height: 20),
           _insightsCard(theme),
@@ -239,6 +281,89 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         textInputAction: TextInputAction.send,
         onSubmitted: (_) => _onAiSubmit(),
+      ),
+    );
+  }
+
+  /// UX-10 快速开始卡：仅全新用户（0 事件）显示，提供创建事件 / AI 对话 / 导入示例三个入口
+  Widget _quickStartCard(AppLocalizations l10n, CupertinoThemeData theme) {
+    final auth = context.read<AuthProvider>();
+    final isAdmin = auth.user?.role == 'admin';
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [theme.primaryColor.withAlpha(20), theme.primaryColor.withAlpha(6)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.primaryColor.withAlpha(40)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(CupertinoIcons.sparkles, size: 18, color: theme.primaryColor),
+          const SizedBox(width: 8),
+          Text(l10n.quickStartTitle, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.textStyle.color)),
+        ]),
+        const SizedBox(height: 4),
+        Text(l10n.quickStartSubtitle, style: TextStyle(fontSize: 13, color: CupertinoColors.systemGrey.resolveFrom(context))),
+        const SizedBox(height: 12),
+        _quickStartItem(
+          icon: CupertinoIcons.calendar_badge_plus,
+          color: CupertinoColors.systemBlue,
+          label: l10n.quickStartCreateFirst,
+          onTap: () => context.push('/events/create'),
+        ),
+        const SizedBox(height: 8),
+        _quickStartItem(
+          icon: CupertinoIcons.chat_bubble_2_fill,
+          color: CupertinoColors.systemGreen,
+          label: l10n.quickStartTryAi,
+          onTap: () {
+            _aiInputCtrl.text = l10n.isZh ? '帮我安排本周的日程' : 'Help me plan my week';
+            _onAiSubmit();
+          },
+        ),
+        if (isAdmin) ...[
+          const SizedBox(height: 8),
+          _quickStartItem(
+            icon: CupertinoIcons.square_grid_2x2_fill,
+            color: CupertinoColors.systemOrange,
+            label: l10n.quickStartImportTemplate,
+            onTap: _importTemplate,
+            loading: _importingTemplate,
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _quickStartItem({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+    bool loading = false,
+  }) {
+    final theme = CupertinoTheme.of(context);
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: CupertinoColors.systemGrey.withAlpha(40)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.textTheme.textStyle.color))),
+          if (loading)
+            const CupertinoActivityIndicator(radius: 9)
+          else
+            Icon(CupertinoIcons.chevron_right, size: 14, color: CupertinoColors.systemGrey.withAlpha(120)),
+        ]),
       ),
     );
   }

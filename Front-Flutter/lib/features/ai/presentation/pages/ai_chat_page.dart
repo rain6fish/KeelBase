@@ -245,6 +245,7 @@ class _AiChatPageState extends State<AiChatPage> {
           // 底部输入区
           Container(
             decoration: BoxDecoration(
+              color: CupertinoTheme.of(context).scaffoldBackgroundColor,
               border: Border(
                 top: BorderSide(
                   color: CupertinoTheme.of(context)
@@ -262,41 +263,89 @@ class _AiChatPageState extends State<AiChatPage> {
               top: 8,
               bottom: MediaQuery.of(context).padding.bottom + 8,
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: CupertinoTextField(
-                    controller: _textController,
-                    placeholder: l10n.aiInputHint,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: CupertinoTheme.of(context)
-                          .scaffoldBackgroundColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: CupertinoColors.systemGrey4.resolveFrom(context),
+                // UX-11 示例 chips：真实触发句，点击填入输入框（agent 能力发现）
+                _buildExampleChips(l10n),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoTextField(
+                        controller: _textController,
+                        placeholder: l10n.aiInputHint,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: CupertinoTheme.of(context).scaffoldBackgroundColor,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: CupertinoColors.systemGrey4.resolveFrom(context),
+                          ),
+                        ),
+                        onSubmitted: isLoading ? null : _sendMessage,
                       ),
                     ),
-                    onSubmitted: isLoading ? null : _sendMessage,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minSize: 36,
-                  onPressed:
-                      isLoading ? null : () => _sendMessage(_textController.text),
-                  child: Icon(
-                    CupertinoIcons.arrow_up_circle_fill,
-                    size: 32,
-                    color: isLoading
-                        ? CupertinoColors.systemGrey
-                        : CupertinoTheme.of(context).primaryColor,
-                  ),
+                    const SizedBox(width: 8),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      minSize: 36,
+                      onPressed:
+                          isLoading ? null : () => _sendMessage(_textController.text),
+                      child: Icon(
+                        CupertinoIcons.arrow_up_circle_fill,
+                        size: 32,
+                        color: isLoading
+                            ? CupertinoColors.systemGrey
+                            : CupertinoTheme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// UX-11 AI 示例 chips：一排可点击的真实触发句，点击填入输入框并发送
+  Widget _buildExampleChips(AppLocalizations l10n) {
+    final examples = [
+      l10n.aiExampleWeekPlan,
+      l10n.aiExampleCreateMeeting,
+      l10n.aiExampleTrend,
+    ];
+    final theme = CupertinoTheme.of(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Text(
+            l10n.aiExampleChipsTitle,
+            style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+          ),
+          const SizedBox(width: 8),
+          ...examples.map((q) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => _sendMessage(q),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor.withAlpha(12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.primaryColor.withAlpha(40)),
+                ),
+                child: Text(
+                  q,
+                  style: TextStyle(fontSize: 13, color: theme.primaryColor),
+                ),
+              ),
+            ),
+          )),
         ],
       ),
     );
