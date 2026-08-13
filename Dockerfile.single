@@ -8,16 +8,17 @@
 FROM node:22-alpine AS server-build
 WORKDIR /app/server
 COPY Server-Nodejs/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY Server-Nodejs/ .
 RUN npm run build
+# 编译 seed-demo 脚本到 build-seed/（nest build 不含 scripts/）；synchronize 建表 + 幂等补种演示账号
+RUN npx tsc scripts/seed-demo.ts --outDir build-seed --rootDir . --module commonjs --target es2020 --esModuleInterop --skipLibCheck --experimentalDecorators --emitDecoratorMetadata --moduleResolution node
 
 # ---- Flutter web build ----
-FROM ghcr.io/cirruslabs/flutter:3.30.0 AS flutter-build
-WORKDIR /app/client
-COPY Front-Flutter/ .
-RUN flutter pub get
-RUN flutter build web --release
+# 注：flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃且无一致根因（宿主机/交互容器稳定）。
+# 改为宿主机构建产物，Dockerfile 只 COPY build/web —— 确定性最高，也更快。
+FROM scratch AS flutter-build
+COPY Front-Flutter/build/web /build/web
 
 # ---- Admin console build (Vue3 PC Web, /admin sub-path) ----
 FROM node:22-alpine AS admin-build
@@ -35,18 +36,26 @@ RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
     mkdir -p /app/server/uploads /app/server/data /app/server/public/admin && \
     chown -R keelbase:keelbase /app/server
 COPY --from=server-build /app/server/dist ./dist
+COPY --from=server-build /app/server/build-seed ./build-seed
 COPY --from=server-build /app/server/node_modules ./node_modules
 COPY --from=server-build /app/server/package*.json ./
 # 内嵌 Flutter web 主 App（根路径） + 管理台（/admin）
-COPY --from=flutter-build /app/client/build/web ./public
+COPY --from=flutter-build /build/web ./public
 COPY --from=admin-build /app/admin/dist ./public/admin
 # 单容器默认 SQLite + 降级 Redis/队列（大项目用 compose 覆盖这些 env）
+# 安全密钥：内置 dev 默认值保证 `docker run` 零配置可用；生产部署请用 -e 覆盖真实密钥
 ENV NODE_ENV=production \
     DB_TYPE=sqlite \
     CACHE_ENABLED=false \
     QUEUE_ENABLED=false \
     SERVE_STATIC=1 \
-    PORT=3000
+    DB_SYNCHRONIZE=true \
+    PORT=3000 \
+    JWT_SECRET=keelbase-single-container-dev-secret-at-least-32-chars!! \
+    JWT_REFRESH_SECRET=keelbase-single-container-refresh-secret-32chars!! \
+    ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
+    ENCRYPTION_HMAC_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
 EXPOSE 3000
 USER keelbase
-CMD ["node", "dist/main"]
+# 一键部署零配置：先补种演示账号（admin + alex，幂等），再启动后端
+CMD ["sh", "-c", "node build-seed/scripts/seed-demo.js --username admin --password 'Admin@1234' || true; node build-seed/scripts/seed-demo.js --username alex --password '123456' || true; node dist/main"]

@@ -12,7 +12,7 @@
 import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import { AppDataSource } from '../src/config/typeorm-data-source';
-import { User } from '../src/common/entities/user.entity';
+import { User, UserRole } from '../src/common/entities/user.entity';
 import { seedDemoData } from '../src/common/demo-data';
 
 dotenv.config();
@@ -40,6 +40,8 @@ async function ensureDemoUser(
       email: `${username}@example.com`,
       password: hashed,
       nickname: username.charAt(0).toUpperCase() + username.slice(1),
+      // admin 用户名自动赋予管理员角色（单容器一键部署的管理台登录账号）
+      role: username === 'admin' ? UserRole.ADMIN : undefined,
       emailVerified: true,
     }),
   );
@@ -51,6 +53,8 @@ async function main() {
   const password = arg('password') || '123456';
 
   await AppDataSource.initialize();
+  // 全新数据库（单容器首启）无表：synchronize 幂等建表（对齐主程序 DB_SYNCHRONIZE=true 的 synchronize，避免迁移重复建表冲突）
+  await AppDataSource.synchronize();
   try {
     const userRepo = AppDataSource.getRepository(User);
     const { user, created } = await ensureDemoUser(userRepo, username, password);
