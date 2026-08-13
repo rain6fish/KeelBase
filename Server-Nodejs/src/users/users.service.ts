@@ -88,17 +88,22 @@ export class UsersService {
     return { items, total, page, limit };
   }
 
-  async findOne(id: number): Promise<Partial<User>> {
-    const key = `user:${id}`;
-    const cached = await this.cacheService.get<Partial<User>>(key);
-    if (cached) return cached;
+  async findOne(id: number, isAdmin = false): Promise<Partial<User>> {
+    if (!isAdmin) {
+      const key = `user:${id}`;
+      const cached = await this.cacheService.get<Partial<User>>(key);
+      if (cached) return cached;
+    }
 
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    const result = this.sanitizeUser(user);
-    await this.cacheService.set(key, result, USER_CACHE_TTL_MS);
+    // CR-4：管理端视图脱敏（sanitizeForAdmin），且不缓存——避免与本人视图共享缓存键
+    const result = isAdmin ? this.sanitizeForAdmin(user) : this.sanitizeUser(user);
+    if (!isAdmin) {
+      await this.cacheService.set(`user:${id}`, result, USER_CACHE_TTL_MS);
+    }
     return result;
   }
 

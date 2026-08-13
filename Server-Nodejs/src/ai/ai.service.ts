@@ -646,6 +646,14 @@ export class AiService {
           role: 'assistant',
           content: fullText,
         });
+        // CR-2：流式主完成审计——否则不进 ai_audit_logs，每日限额可被流式绕过
+        this.auditService.log({
+          userId,
+          conversationId,
+          action: 'chat',
+          provider: providerName,
+          model,
+        });
         // fire-and-forget：规则式抽取用户记忆，不阻塞对话
         void this.memoryService
           .extractFromTurn(userId, request.message, conversationId)
@@ -781,6 +789,15 @@ export class AiService {
             content: JSON.stringify(result),
             tool_call_id: tc.id,
           });
+          // CR-2：流式工具执行审计（对齐非流式 runToolLoop）
+          this.auditService.log({
+            userId,
+            conversationId,
+            action: 'tool_call',
+            detail: `${tc.name}(${tc.args})`,
+            isError: !result.success,
+            errorMessage: result.error,
+          });
         } catch {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
           if (started) {
@@ -801,6 +818,15 @@ export class AiService {
             content: JSON.stringify({ success: false, error: 'Tool execution failed' }),
             tool_call_id: tc.id,
           });
+          // CR-2：流式工具执行失败审计
+          this.auditService.log({
+            userId,
+            conversationId,
+            action: 'tool_call',
+            detail: `${tc.name}(${tc.args})`,
+            isError: true,
+            errorMessage: 'Tool execution failed',
+          });
         }
       }
 
@@ -816,6 +842,16 @@ export class AiService {
     await this.conversationService.appendMessage(conversationId, {
       role: 'assistant',
       content: 'I apologize, but I was unable to complete the requested operation within the allowed number of steps.',
+    });
+    // CR-2：流式超轮次也记审计（isError），避免漏计数
+    this.auditService.log({
+      userId,
+      conversationId,
+      action: 'chat',
+      provider: providerName,
+      model,
+      isError: true,
+      errorMessage: 'Exceeded max tool rounds',
     });
     void this.memoryService
       .extractFromTurn(userId, request.message, conversationId)
