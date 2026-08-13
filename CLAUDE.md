@@ -551,7 +551,7 @@ npm run migration:run
 1. 本地提交后执行 `git push github master:main`
 2. 结果在 GitHub Actions 控制台查看
 
-> 曾尝试 Gitee Go，因其免费版 node 版本过老、网页端配置受限已放弃（见 `docs/roadmap.md` D.5）。`.workflow/` 目录已删除。
+> 曾尝试 Gitee Go，因其免费版 node 版本过老、网页端配置受限已放弃（见私有 roadmap D.5）。`.workflow/` 目录已删除。
 
 ---
 
@@ -799,11 +799,12 @@ Front-Flutter/lib/features/legal/
 
 ### 11.5 Roadmap 维护（必须遵守）
 
-**每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到 `docs/roadmap.md` 对应章节**，供后续按优先级执行。规则：
+**完整路线图已移至私有仓库（2026-08-13，公开仓库不再含 roadmap）。每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到私有仓库的 `roadmap.md` 对应章节**，供后续按优先级执行。私有仓：本地 `C:\Rain6fish\KeelBase-private`（推送至 GitHub 私有 `rain6fish/keelbase-private`）。规则：
 
 - 每条目标注：说明、依赖、状态（待办/进行中/已完成）
 - 计划执行完毕时，在 roadmap「已完成」表追加一行（阶段 + 内容 + 提交 hash）
 - 新增功能若产生新的「未做项」，同样追加；避免遗漏与重复
+- 维护后推送：`cd C:\Rain6fish\KeelBase-private && git add -A && git commit -m "docs: ..." && git push`
 
 ---
 
@@ -827,7 +828,7 @@ Role: admin
 
 ## 13. 管理员管理台（Web-Admin）
 
-> **技术栈（2026-08-12 决策，见 docs/roadmap.md「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格复刻，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
+> **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格复刻，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
 **独立于主 app 的 Vue3 PC Web 管理台**，与 `Front-Taro`（主 app）代码/构建/部署完全隔离。主 app 不携带任何管理逻辑或入口。
 
@@ -836,7 +837,7 @@ Role: admin
 - 所有管理 API 带 `@CheckPolicies((a) => a.can('manage', 'all'))`（CASL），普通用户 token 返回 403
 - `GET /auth/me` 返回 `role` 字段，供管理台判断管理员身份
 - 路由 hash 模式（`createWebHashHistory`）——单容器 Nest 静态托管无 SPA fallback，hash 让 nginx + 单容器两套部署链零改动
-- 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA（见 roadmap D.1）
+- 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA（见私有 roadmap D.1）
 
 **开发命令**：
 ```bash

@@ -241,6 +241,5 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | 内网/离线环境部署 |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
-| [`docs/roadmap.md`](docs/roadmap.md) | Team | Roadmap & completed milestones |
 | [`SECURITY.md`](SECURITY.md) | Everyone | 安全政策 — 受支持版本 / 漏洞报告 / 内置安全能力 / SBOM |
 | `Server-Nodejs/.env.example` | Developers | Environment variables reference |

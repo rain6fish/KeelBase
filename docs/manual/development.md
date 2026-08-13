@@ -207,7 +207,7 @@ Text(context.l10n.myLabel);
 
 ### 5.4 Roadmap Maintenance / Roadmap 维护
 
-When a plan is reviewed/completed, append any not-done / "later" items to `docs/roadmap.md`; append completed items to the archive table with commit hash.
+The full roadmap now lives in a **private repository** (2026-08-13; the public repo no longer contains it). When a plan is reviewed/completed, append any not-done / "later" items to the private roadmap (local `C:\Rain6fish\KeelBase-private\roadmap.md`, pushed to the GitHub private repo `rain6fish/keelbase-private`); append completed items to the archive table with commit hash.
 
 ---
 
