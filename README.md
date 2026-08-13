@@ -4,7 +4,7 @@
 > **只装 Docker 就够了（单容器 all-in-one，后端+主 App+管理台）：**
 > ```bash
 > ./scripts/docker-single.sh    # 构建并启动，一条命令起全栈
-> # 访问 http://localhost:3000 主 App、/admin 管理台、alex/123456
+> # 访问 http://localhost:3000 主 App（alex/123456）、/admin 管理台（admin/Admin@1234）
 > ```
 > 或本地开发模式（起后端+管理台，自动开浏览器）：
 > ```bash
@@ -88,13 +88,23 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 ### Fastest Path: Single-Container / 一键体验（单容器优先）
 
+**实测通过（2026-08-13）：一条命令起全栈，后端 API + Flutter 主 App + Vue3 管理台 + 演示账号全部就绪。**
+
 ```bash
-./scripts/docker-single.sh    # 构建并启动，一条命令起全栈（后端+主 App+管理台）
+./scripts/docker-single.sh         # 构建并启动（首次构建约 10 分钟，含前端编译）
 # 访问 http://localhost:3000 主 App、/admin 管理台
+# 演示账号：alex/123456（主 App）、admin/Admin@1234（管理台）——首次启动自动创建
 ```
 
-> 只需装 Docker。默认 SQLite 零配置，缓存/队列自动降级。
-> Just needs Docker. Zero-config SQLite, cache/queue auto-degrade.
+| 子命令 | 说明 |
+|--------|------|
+| `./scripts/docker-single.sh` / `up` | 构建并启动 |
+| `./scripts/docker-single.sh stop` | 停止容器 |
+| `./scripts/docker-single.sh down` | 停止并删除容器 |
+| `./scripts/docker-single.sh logs` | 查看日志 |
+
+> 只需装 Docker。默认 SQLite 零配置（数据落在命名卷 `keelbase_data` 持久化），缓存/队列自动降级。**生产环境**：建议用 `docker-compose.yml` 多容器（PostgreSQL + Redis + 独立 web），或用 `-e` 覆盖密钥/DB。
+> Just needs Docker. Zero-config SQLite (data persisted in `keelbase_data` volume), cache/queue auto-degrade. **Production**: prefer multi-container via `docker-compose.yml`, or override secrets/DB with `-e`.
 
 ### Alternative: Local Dev Script / 本地开发脚本
 

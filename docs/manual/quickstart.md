@@ -51,6 +51,19 @@ curl http://localhost:3000/api/v1/health
 open http://localhost:3000
 ```
 
+**第四步：登录体验（演示账号首次启动自动创建）**
+- 主 App：http://localhost:3000 → `alex` / `123456`
+- 管理台：http://localhost:3000/admin → `admin` / `Admin@1234`
+
+**管理容器**
+```bash
+./scripts/docker-single.sh logs   # 查看日志
+./scripts/docker-single.sh stop   # 停止
+./scripts/docker-single.sh down   # 停止并删除容器（数据保留在命名卷 keelbase_data）
+```
+
+> ✅ **实测通过（2026-08-13）**：`docker run` 一条命令起全栈，后端 + 主 App + 管理台 + 演示账号全部就绪，admin/alex 登录返回 200。数据落在命名卷 `keelbase_data`，容器删了数据还在。
+
 **卡住了？**
 - 端口被占用 → 修改 `docker-single.sh` 里的端口映射，或用 `./scripts/dev.sh experience`（自动探测空闲端口）
 - 镜像拉不动（网络慢）→ 配置 Docker 国内镜像加速，再重试
