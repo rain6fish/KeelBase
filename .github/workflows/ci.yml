@@ -1,6 +1,5 @@
-# 注意：远程仓库为 Gitee，GitHub Actions 不生效。
-# 实际 CI 运行在 Gitee Go（见 .workflow/master-pipeline.yml）。
-# 本文件保留作为标准 CI 模板，未来若镜像到 GitHub 时可启用。
+# KeelBase CI（GitHub Actions，仓库镜像到 GitHub 后触发）
+# 测试密钥在运行时用 openssl rand 随机生成，不入库、不落盘，避免公开仓库泄露。
 
 name: CI
 
@@ -42,17 +41,23 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Server-Nodejs/package-lock.json
       - run: npm ci
+      - name: 生成随机测试密钥
+        run: |
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - run: npm run test:cov
         env:
-          ENCRYPTION_KEY: e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
-          ENCRYPTION_HMAC_KEY: c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          ENCRYPTION_HMAC_KEY: ${{ env.ENCRYPTION_HMAC_KEY }}
       - run: npm run test:e2e
         env:
           NODE_ENV: test
-          JWT_SECRET: test-jwt-secret-at-least-32-characters!!
-          JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars!!
-          ENCRYPTION_KEY: e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
-          ENCRYPTION_HMAC_KEY: c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          ENCRYPTION_HMAC_KEY: ${{ env.ENCRYPTION_HMAC_KEY }}
           DB_TYPE: sqlite
           DB_PATH: ./data/test.sqlite
 
@@ -74,8 +79,8 @@ jobs:
         run: |
           rm -f ./data/consistency.sqlite
           export DB_PATH=./data/consistency.sqlite
-          export ENCRYPTION_KEY=e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
-          export ENCRYPTION_HMAC_KEY=c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+          export ENCRYPTION_KEY=$(openssl rand -hex 32)
+          export ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)
           npm run migration:run
           OUTPUT=$(npm run migration:generate -- src/migrations/_ConsistencyCheck 2>&1)
           echo "$OUTPUT"
