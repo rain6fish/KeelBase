@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_app/app.dart';
 import 'package:front_app/core/api/api_client.dart';
 import 'package:front_app/core/security/secure_storage_service.dart';
+import 'package:front_app/core/services/app_lock_provider.dart';
 import 'package:front_app/core/services/locale_provider.dart';
 import 'package:front_app/core/services/theme_provider.dart';
 import 'package:front_app/features/auth/data/repositories/auth_repository.dart';
@@ -60,6 +61,9 @@ void main() {
           ),
           ChangeNotifierProvider<OnboardingProvider>(
             create: (_) => OnboardingProvider(prefs),
+          ),
+          ChangeNotifierProvider<AppLockProvider>(
+            create: (_) => AppLockProvider(prefs),
           ),
         ],
         child: const App(),

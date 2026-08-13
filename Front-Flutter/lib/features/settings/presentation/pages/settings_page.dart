@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/services/app_lock_provider.dart';
 import '../../../../core/services/locale_provider.dart';
 import '../../../../core/services/theme_provider.dart';
 import '../../../../core/widgets/app_list_section.dart';
@@ -18,6 +19,7 @@ class SettingsPage extends StatelessWidget {
     final l10n = context.l10n;
     final themeProvider = context.watch<ThemeProvider>();
     final localeProvider = context.watch<LocaleProvider>();
+    final appLockProvider = context.watch<AppLockProvider>();
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -82,7 +84,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          // Sessions
+          // Sessions + App Lock
           AppListSection(
             header: Text(l10n.sectionAccount),
             children: [
@@ -90,6 +92,14 @@ class SettingsPage extends StatelessWidget {
                 title: Text(l10n.sessionManagement),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => context.push('/sessions'),
+              ),
+              CupertinoListTile(
+                title: Text(l10n.appLock),
+                subtitle: Text(l10n.appLockSubtitle),
+                trailing: CupertinoSwitch(
+                  value: appLockProvider.enabled,
+                  onChanged: (v) => _toggleAppLock(context, v),
+                ),
               ),
             ],
           ),
@@ -120,6 +130,18 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static Future<void> _toggleAppLock(BuildContext context, bool value) async {
+    final provider = context.read<AppLockProvider>();
+    final ok = await provider.setEnabled(value);
+    if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context);
+    if (!ok) {
+      AppToast.error(context, l10n.appLockUnsupported);
+    } else if (!value) {
+      AppToast.show(context, l10n.appLockDisabled);
+    }
   }
 
   static Future<void> _checkForUpdate(BuildContext context) async {
