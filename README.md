@@ -12,19 +12,12 @@
 > ```
 > 详见 [快速上手](docs/manual/quickstart.md) / [FAQ](docs/manual/faq.md)。
 
-**A Production-Ready, AI-Native, Full-Stack Application Base — built for data sovereignty.**
-**一个私有化部署、AI 原生、开箱即用的全栈应用基座。**
+**AI-Driven Enterprise Application Base — where AI does real work, only within your authorized data.**
+**AI 驱动的企业应用基座——让 AI 真的会干活，且只在你授权的数据里。**
 
-**One main line, three audiences — one thread: the business-safe AI Agent harness.** AI that actually works, only within authorized data scopes, with human-confirmed writes and full audit.
-**一条主线，三类受益方**——一切围绕一个主线：**业务安全的 AI Agent harness**——让 AI 真的会干活，且只在授权的数据范围内、写操作经人确认、全程可审计。
+KeelBase is a business-safe, AI-native full-stack base for building enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — every tool call scoped to the user's data, every write human-confirmed, every action audited. Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
 
-KeelBase is not just a boilerplate; it is a production-ready foundation that fuses **enterprise data sovereignty** with **AI-native capabilities**. It provides a unified solution covering Flutter/Taro frontends, a NestJS backend, and AI orchestration — designed for developers who need to build secure, scalable, and intelligent applications without compromising on data privacy.
-
-At its core, KeelBase is a **business-safe agent harness**: an AI runtime where every tool call is scoped to the authenticated user, write operations require human confirmation, and all agent activity runs through CASL row-level permissions and full audit trails. It lets you turn your business APIs into safe, controllable AI actions — without building an agent platform from scratch.
-
-KeelBase 不仅仅是一个脚手架，而是一个**生产级**的应用基座。它将**企业级数据主权**与**AI 原生能力**深度融合，提供了一套包含 Flutter/Taro 前端、NestJS 后端及 AI 编排的统一解决方案，专为希望在**不牺牲数据隐私**的前提下，快速构建安全、可扩展且智能化应用的开发者而生。
-
-它的本质是一个**业务安全的 Agent harness（运行时）**：每一次工具调用都限定在登录用户的数据范围内，写操作必须经人工确认，所有智能体行为都经过 CASL 行级权限校验与全链路审计。无需从零搭建 agent 平台，就能把业务 API 变成安全、可控的 AI 能力。
+KeelBase 是一个业务安全的 AI 全栈应用基座：**让 AI 按照系统约定，快速生成带安全、三端可用的企业应用**。开发期 AI 生成业务模块，10 分钟交付标准 CRUD；运行时 AI 会干活——工具调用限定用户数据范围、写操作需人工确认、CASL 行级权限 + 全链路审计。数据不出域、AI 每步可查，专为技术团队打造的「精而深」现代化底座。
 
 ### 三类受益方 / Three Audiences
 
