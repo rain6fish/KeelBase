@@ -19,13 +19,20 @@ async function bootstrap() {
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isDev = nodeEnv === 'development';
+  const isProd = nodeEnv === 'production';
 
   // CORS — allow specific origins in production
   const corsOrigins = process.env.CORS_ORIGINS || '*';
+  const isWildcard = corsOrigins === '*';
+  // DEP-7：生产环境拒绝「通配 + credentials」组合——通配时禁用 credentials，防任意源携带凭据
+  const allowCredentials = !(isProd && isWildcard);
+  if (isProd && isWildcard) {
+    logger.warn('CORS_ORIGINS 为 *（通配）：已禁用 credentials（生产禁止通配+凭据组合）');
+  }
    app.enableCors({
      origin: corsOrigins === '*' ? true : corsOrigins.split(',').map((s) => s.trim()),
      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-     credentials: true,
+     credentials: allowCredentials,
    });
 
   // Security headers
