@@ -39,6 +39,18 @@ const SENSITIVE_KEYS = [
   'apikey',
   'apiKey',
   'authorization',
+  // CR-4：个人隐私字段（审计 requestBody 打码）
+  'email',
+  'phone',
+  'bio',
+  'firstName',
+  'lastName',
+  'dateOfBirth',
+  'birthday',
+  'address',
+  'avatarUrl',
+  'providerId',
+  'providerHash',
 ];
 
 /** 对 JSON 字符串中的敏感字段值打码。非法输入原样返回。 */

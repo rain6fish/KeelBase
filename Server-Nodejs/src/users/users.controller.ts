@@ -85,7 +85,8 @@ export class UsersController {
     if (ability.cannot('read', subject('User', { id }))) {
       throw new ForbiddenException('无权访问其他用户信息');
     }
-    return this.usersService.findOne(id);
+    // CR-4：管理端视图走 sanitizeForAdmin（email/phone 掩码，bio/生日/名姓不返回）
+    return this.usersService.findOne(id, ability.can('manage', 'all'));
   }
 
   @Put(':id')
