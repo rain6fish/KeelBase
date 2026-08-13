@@ -31,7 +31,7 @@ Send an email to: **[128766028+rain6fish@users.noreply.github.com](mailto:128766
 
 Please include the following information in your report / 请在你的报告中包含以下信息：
 
-- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Front-Taro / Front-Taro-Admin / Docker / docs）
+- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Front-Taro / Web-Admin / Docker / docs）
 - **Vulnerability type** / 漏洞类型（e.g. XSS, SQL injection, auth bypass, RCE, information disclosure…）
 - **Steps to reproduce** / 复现步骤（尽量最小化）
 - **Impact** / 影响范围（谁能利用、能达到什么效果）
@@ -61,7 +61,7 @@ We consider the following in scope for security review / 以下内容在安全�
 
 - `Server-Nodejs/` — NestJS backend (auth, authorization, API, file upload, AI agent harness) / NestJS 后端（认证、授权、API、文件上传、AI Agent 运行时）
 - `Front-Flutter/` — Flutter app (iOS / Android / Web) / Flutter 主 App（三端）
-- `Front-Taro/` and `Front-Taro-Admin/` — Taro H5 / mini-program app and admin console / Taro 主 App 与管理台
+- `Front-Taro/` and `Web-Admin/` — Taro H5 / mini-program app and Vue3 admin console / Taro 主 App 与管理台
 - `Dockerfile`, `docker-compose*.yml`, `nginx*.conf` — deployment / 部署配置
 - `deploy/` — deployment scripts / 部署脚本
 
@@ -141,10 +141,10 @@ cd Front-Flutter
 dart pub deps --json > ../sbom.frontend.json
 ```
 
-### 3. All npm workspaces (Taro apps) / Taro 端
+### 3. All npm workspaces (Taro app + Vue3 admin) / 前端
 ```bash
 cd Front-Taro && cyclonedx-npm --output-file ../sbom.taro.json
-cd ../Front-Taro-Admin && cyclonedx-npm --output-file ../sbom.taro-admin.json
+cd ../Web-Admin && cyclonedx-npm --output-file ../sbom.web-admin.json
 ```
 
 Generated SBOMs should be committed or published alongside releases. For a quick **vulnerability scan** of backend dependencies:

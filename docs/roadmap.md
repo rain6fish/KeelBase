@@ -63,6 +63,7 @@
 - 2026-08-12 追加 HS-9~11（开放生态演进：治理策略化 / MCP 代理适配 / 审计加密链；明确不做确定性重放）。来源：海外对标调研——mcp-firewall / Aegis / agentward 等开源控制平面佐证「AI 权限治理」为国际热点赛道，但都是独立中间件（无 UI、无行级业务数据、无三端）；KeelBase 差异 = 治理内建（装好即用 + 管理台 UI + 行级业务数据 + 全链路审计展示）。MCP 作为治理覆盖的新边界而非并列功能，复用 HS-2/HS-3 链路。
 - 2026-08-12 追加 EASY-6（AI 开发者体验闭环：分层 AGENTS.md + 生成器可扩展性 + AI 可消费元数据 + 工具链集成）+ 命名修正（EASY-2/EASY-3 CLI 命令 `shiyu` → `keelbase`）。来源：开发者体验产品讨论。
 - 2026-08-12 追加「对外宣传框架：一个主线 + 三类受益方」章节（定位红线内）。来源：产品讨论——否决「面向开发者/用户/管理者都好」弱话术，确立主线 = 业务安全的 AI Agent harness，三类角色为主线的三个验证角度；README/project.spec 已按此改写。
+- 2026-08-12 完成 WEB-ADMIN-1~3（PC Web 管理台全量落地）：P1 骨架（abdbab7）→ P2 迁移 13 页（32ecefc）→ P3 新增 6 页（回收站/数据导入/模板市场/AI评测/工具副作用/平台统计，89cc7d7）→ P4 废弃 Taro-Admin（删除 Front-Taro-Admin + Dockerfile/nginx/脚本/文档切换）。各页真后端实测通过。来源：本次实施。
 
 ---
 
@@ -507,9 +508,9 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 
 | # | 条目 | 说明 | 依赖 | 状态 |
 |---|------|------|------|------|
-| WEB-ADMIN-1 | PC Web 管理台骨架 | Vue3 + Vite + Vuetify 3 + Pinia + Vue Router + TS；Materio 风格布局（侧边栏折叠 + 顶栏 + 内容区卡片仪表盘）+ 主题 token（浅/深色、品牌色/字体/圆角）；路由守卫（登录 + role=admin）；i18n 双语（zh/en，复用现有词表） | 无 | 待办 |
-| WEB-ADMIN-2 | 现有管理功能迁移 | Taro-Admin 全部页面并入：登录/平台总览/用户管理/事件管理/两类审计/监控中心/可观测性/知识库/通知广播/会话管理/系统信息/回收站/数据导入/模板市场/AI 评测/工具与副作用视图；**后端 Admin API 完全复用**，前端按 Vuetify 组件重写 | WEB-ADMIN-1 + 现有 Admin API | 待办 |
-| WEB-ADMIN-3 | 废弃 Taro-Admin | 删除 Front-Taro-Admin；Dockerfile admin-build stage、nginx /admin、README/文档、部署脚本切到新 PC Web；**CLAUDE.md §13 更新**（管理台技术栈变更） | WEB-ADMIN-2 | 待办 |
+| WEB-ADMIN-1 | PC Web 管理台骨架 | Vue3 + Vite + Vuetify 3 + Pinia + Vue Router + TS；Materio 风格布局（侧边栏折叠 + 顶栏 + 内容区卡片仪表盘）+ 主题 token（浅/深色、品牌色/字体/圆角）；路由守卫（登录 + role=admin）；i18n 双语（zh/en，复用现有词表） | 无 | **已完成（abdbab7，admin 登录实测通过）** |
+| WEB-ADMIN-2 | 现有管理功能迁移 | Taro-Admin 全部页面并入：登录/平台总览/用户管理/事件管理/两类审计/监控中心/可观测性/知识库/通知广播/会话管理/系统信息 + 回收站/数据导入/模板市场/AI 评测/工具与副作用/平台统计；**后端 Admin API 完全复用**，前端按 Vuetify 组件重写 | WEB-ADMIN-1 + 现有 Admin API | **已完成（32ecefc + 89cc7d7，各页实测 + tFeature 双语通过）** |
+| WEB-ADMIN-3 | 废弃 Taro-Admin | 删除 Front-Taro-Admin；Dockerfile admin-build stage、nginx /admin、README/文档、部署脚本切到新 PC Web；**CLAUDE.md §13 更新**（管理台技术栈变更） | WEB-ADMIN-2 | **已完成（本次）** |
 | WEB-ADMIN-4 | ORG 应用级管理落地 | 组织树 + 成员角色 + 审批流设计器（ORG-1/2/4）直接构建于 PC Web（PC 交互密集场景） | ORG-1/2/4 | 待办（并入 ORG） |
 | WEB-ADMIN-5 | AI 行为回放（HS-7）可视化 | 管理员时间线视图「AI 对用户数据做了什么」（创建/尝试/失败 + 工具参数 + 确认决策）在 PC Web 呈现 | HS-7 | 待办（并入 HS-7） |
 
@@ -674,7 +675,10 @@ KeelBase 的差异化 = **AI 原生 + 三端基座 + 数据主权（私有化）
 | Phase 2 | 结构化日志（pino）+ Prometheus 指标 + OpenTelemetry 追踪 + @Raw() | 52b3efe |
 | S.1 | CASL 数据级权限（CaslAbilityFactory + PoliciesGuard + users/events 迁移） | b0bd61a |
 | S.4 | 管理员端功能（用户/事件管理 + 审计监控后端 API） | 86885ab |
-| S.4.1 | 独立管理员管理台 Front-Taro-Admin（Taro H5，全量模块） | 24a4400 |
+| S.4.1 | 独立管理员管理台 Front-Taro-Admin（Taro H5，全量模块，2026-08-12 废弃被 Web-Admin 取代） | 24a4400 |
+| WEB-ADMIN-1 | PC Web 管理台骨架（Vue3+Vuetify3 Materio 风格，admin 登录实测） | abdbab7 |
+| WEB-ADMIN-2 | 全量管理页迁移（13 页 + 新增 6 页，tFeature 双语实测） | 32ecefc / 89cc7d7 |
+| WEB-ADMIN-3 | 废弃 Taro-Admin（删除 Front-Taro-Admin + 部署链/文档切换） | 本次 |
 | D.1 | 可观测性栈编排（Prometheus + Grafana + Jaeger）+ OTel 修复 | 94ca6a4 |
 | O.2 | Loki 集中日志收集（pino-loki 直推）+ O.4 Jaeger 落地 | ce704d2 |
 | O.3 | Prometheus 告警规则（ServerDown/错误率/延迟/并发） | de31df3 |
