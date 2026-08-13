@@ -1,10 +1,13 @@
 import { api } from './client'
 import type {
   AdminSession,
+  AnalyticsResponse,
   AppVersionInfo,
   BroadcastResult,
   MonitorSummary,
   PlatformOverview,
+  TrashResponse,
+  TrashRestoreResult,
 } from '@/types/admin'
 
 export const adminApi = {
@@ -25,5 +28,15 @@ export const adminApi = {
   },
   appVersion(): Promise<AppVersionInfo> {
     return api.get<AppVersionInfo>('/app/version')
+  },
+  // P3 新增
+  trash(page = 1, limit = 20): Promise<TrashResponse> {
+    return api.get<TrashResponse>('/admin/trash', { page, limit })
+  },
+  restoreTrash(type: 'event' | 'todo', id: number): Promise<TrashRestoreResult> {
+    return api.post<TrashRestoreResult>(`/admin/trash/${type}/${id}/restore`)
+  },
+  analytics(days = 30): Promise<AnalyticsResponse> {
+    return api.get<AnalyticsResponse>('/admin/analytics', { days })
   },
 }

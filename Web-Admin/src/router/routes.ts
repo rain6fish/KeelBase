@@ -30,6 +30,13 @@ const routes: RouteRecordRaw[] = [
       { path: 'sessions', name: 'sessions', component: () => import('@/views/sessions/SessionsView.vue'), meta: { title: 'navSessions' } },
       { path: 'observability', name: 'observability', component: () => import('@/views/observability/ObservabilityView.vue'), meta: { title: 'navObservability' } },
       { path: 'system', name: 'system', component: () => import('@/views/system/SystemView.vue'), meta: { title: 'navSystemInfo' } },
+      // P3 新增
+      { path: 'trash', name: 'trash', component: () => import('@/views/trash/TrashView.vue'), meta: { title: 'navTrash' } },
+      { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },
+      { path: 'templates', name: 'templates', component: () => import('@/views/templates/TemplatesView.vue'), meta: { title: 'navTemplates' } },
+      { path: 'ai-eval', name: 'ai-eval', component: () => import('@/views/ai-eval/AiEvalView.vue'), meta: { title: 'navAiEval' } },
+      { path: 'ai-tools', name: 'ai-tools', component: () => import('@/views/ai-tools/AiToolsView.vue'), meta: { title: 'navAiTools' } },
+      { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: 'navAnalytics' } },
     ],
   },
   {

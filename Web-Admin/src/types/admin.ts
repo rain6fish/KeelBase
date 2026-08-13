@@ -134,3 +134,116 @@ export interface UserDetail {
     totalTokens: number
   }
 }
+
+// ---- P3 新增 ----
+
+export interface TrashItem {
+  type: 'event' | 'todo'
+  id: number
+  title: string
+  userId: number | null
+  username: string | null
+  deletedAt: string | null
+}
+
+export interface TrashResponse {
+  items: TrashItem[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface TrashRestoreResult {
+  restored: boolean
+  type: 'event' | 'todo'
+  id: number
+}
+
+export interface AnalyticsResponse {
+  period: { days: number }
+  activeUsers: {
+    daily: Array<{ date: string; count: number }>
+    wau: number
+    mau: number
+    totalUsers: number
+  }
+  retention: {
+    ratePct: number
+    retained: number
+    activeLast30d: number
+  }
+  featureFunnel: Array<{ action: string; count: number }>
+  errors: {
+    aiErrors: number
+    trend: Array<{ date: string; count: number }>
+  }
+}
+
+export interface ImportResult {
+  type: 'user' | 'event'
+  total: number
+  success: number
+  failed: number
+  errors: Array<{ row: number; reason: string }>
+}
+
+export interface AdminTemplate {
+  id: string
+  name: string
+  description: string
+  events: Array<{
+    title: string
+    description?: string
+    startTime: string
+    endTime: string
+    location?: string
+    isCancelled?: boolean
+    reminderMinutes?: number
+  }>
+  todos: Array<{
+    title: string
+    description?: string
+    completed?: boolean
+    dueDate?: string
+  }>
+}
+
+export interface TemplateImportResult {
+  template: string
+  targetUserId: number
+  events: number
+  todos: number
+}
+
+export interface AdminAiTool {
+  name: string
+  description: string
+  parameters: Array<{ name: string; type: string; required: boolean }>
+  requiresConfirmation: boolean
+  permissions: {
+    requireVerifiedEmail?: boolean
+    featureFlag?: string
+    adminOnly?: boolean
+  } | null
+}
+
+export interface ToolEffect {
+  id: number
+  toolName: string
+  conversationId: string | null
+  resultType: 'event' | 'todo'
+  resultId: number
+  argsHash: string
+  createdAt: string
+  targetExists: boolean
+  targetSoftDeleted: boolean
+  targetTitle: string | null
+}
+
+export interface ToolEffectsResponse {
+  total: number
+  page: number
+  limit: number
+  items: ToolEffect[]
+}
