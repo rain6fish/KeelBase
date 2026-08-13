@@ -712,6 +712,15 @@ export class AiService {
               },
             };
             const outcome: ConfirmationOutcome = await decision;
+            // HS-7 确认决策审计：让管理台时间线能展示「AI 请求写操作 → 用户确认/拒绝」
+            this.auditService.log({
+              userId,
+              conversationId,
+              action: 'tool_confirmation',
+              detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}`,
+              isError: outcome !== 'approve',
+              errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
+            });
             if (outcome === 'approve') {
               result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
               yield {
