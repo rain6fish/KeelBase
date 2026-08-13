@@ -11,6 +11,8 @@ class UserModel {
   final String? avatarUrl;
   final String? createdAt;
   final bool emailVerified;
+  /// 角色：user | admin（登录/me 返回，主 App 用于判断是否展示管理入口）
+  final String role;
 
   UserModel({
     required this.id,
@@ -25,6 +27,7 @@ class UserModel {
     this.avatarUrl,
     this.createdAt,
     this.emailVerified = false,
+    this.role = 'user',
   });
 
   String get displayName {
@@ -46,6 +49,7 @@ class UserModel {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       createdAt: createdAt,
       emailVerified: emailVerified ?? this.emailVerified,
+      role: role,
     );
   }
 
@@ -63,6 +67,7 @@ class UserModel {
       avatarUrl: json['avatarUrl'] as String?,
       createdAt: json['createdAt'] as String?,
       emailVerified: json['emailVerified'] as bool? ?? false,
+      role: json['role'] as String? ?? 'user',
     );
   }
 
@@ -79,5 +84,6 @@ class UserModel {
         'avatarUrl': avatarUrl,
         'createdAt': createdAt,
         'emailVerified': emailVerified,
+        'role': role,
       };
 }
