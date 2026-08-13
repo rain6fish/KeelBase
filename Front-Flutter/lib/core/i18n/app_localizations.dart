@@ -50,6 +50,13 @@ class AppLocalizations {
   String get logout => _t('Logout', '退出登录');
   String get username => _t('Username', '用户名');
   String get password => _t('Password', '密码');
+
+  // --- UX-9 登录页 Slogan + 演示账号 ---
+  String get loginSlogan => _t('Business-safe AI full-stack app base', '业务安全的 AI 全栈应用基座');
+  String get loginSloganSub => _t('Where AI does real work, only within your data', 'AI 真的会干活，且只在你授权的数据里');
+  String get demoAccounts => _t('Demo accounts:', '演示账号：');
+  String get demoAccountUser => _t('User alex / 123456', '普通用户 alex / 123456');
+  String get demoAccountAdmin => _t('Admin admin / Admin@1234', '管理员 admin / Admin@1234');
   String get nickname => _t('Nickname', '昵称');
   String get loginSuccess => _t('Login successful', '登录成功');
   String get registerSuccess => _t('Registration successful', '注册成功');
@@ -114,6 +121,15 @@ class AppLocalizations {
   String get editProfile => _t('Edit Profile', '编辑信息');
   String get todaySchedule => _t("Today's Schedule", '今日日程');
   String get noEventsToday => _t('No events today', '今天没有事件');
+
+  // --- UX-10 Dashboard 快速开始卡（空态引导）---
+  String get quickStartTitle => _t('Get Started', '快速开始');
+  String get quickStartSubtitle => _t('A few things to try:', '几个可以马上试的：');
+  String get quickStartCreateFirst => _t('Create your first event', '创建第一个事件');
+  String get quickStartTryAi => _t('Try an AI conversation', '试一次 AI 对话');
+  String get quickStartImportTemplate => _t('One-click import sample data', '一键导入示例数据');
+  String get templateImported => _t('Sample data imported!', '示例数据已导入！');
+  String get templateImportFailed => _t('Import failed', '导入失败');
   // UX-5 数据洞察
   String get insightsTitle => _t('My Insights', '数据洞察');
   String get insightsError => _t('Failed to load insights', '数据洞察加载失败');
@@ -324,6 +340,12 @@ class AppLocalizations {
   String get aiSuggested1 => _t("What events do I have this month?", "本月有哪些事件？");
   String get aiSuggested2 => _t("Analyze my event trends", "分析我的事件趋势");
   String get aiSuggested3 => _t("Give me a summary of my data", "给我一份数据概览");
+
+  // --- UX-11 AI 示例 chips（agent 能力发现：真实触发句）---
+  String get aiExampleChipsTitle => _t('Try:', '试试：');
+  String get aiExampleWeekPlan => _t('Plan my week', '帮我安排本周');
+  String get aiExampleCreateMeeting => _t('Create a meeting at 3pm tomorrow', '创建明天下午 3 点的会议');
+  String get aiExampleTrend => _t('Analyze my event trends', '分析我的事件趋势');
   String get aiConfirmTitle => _t('Confirmation required', '确认操作');
   String get aiConfirmBody => _t('The AI would like to perform the following action:', 'AI 想要执行以下操作，请确认：');
   String get aiConfirmApprove => _t('Confirm', '确认');
