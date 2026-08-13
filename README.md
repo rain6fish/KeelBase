@@ -82,7 +82,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 |-----------|-------------|------|
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app | 主用户 App（三端） |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app | 主 App 的 H5/小程序端 |
-| `Front-Taro-Admin/` | Standalone admin console (Taro H5), fully isolated | 独立管理台（完全隔离） |
+| `Web-Admin/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated | 独立管理台（完全隔离） |
 | `Server-Nodejs/` | NestJS backend (REST API) | NestJS 后端 |
 | `docs/` | Specs, requirements, roadmap, manuals | 规格、需求、路线图、手册 |
 | `.github/workflows/` | CI pipeline (lint + test + build) | CI 流水线 |
@@ -166,8 +166,8 @@ Frontend defaults to `http://localhost:3000/api/v1`.
 一键部署后管理台随主 App 一起打包到 `/admin` 子路径（无需单独部署）：
 
 - **生产/一键部署**：`http://<服务器>/admin`
-- **本地**：`./scripts/dev.sh dev-admin` 构建并托管到 http://localhost:10086
-- 独立域名部署：`cd Front-Taro-Admin && npm ci && npm run build:h5`，托管 `dist/`
+- **本地**：`./scripts/dev.sh dev-admin` 启动 Vite dev server → http://localhost:10086/admin/
+- 独立域名部署：`cd Web-Admin && npm ci && npm run build`，托管 `dist/`（base=/admin/）
 
 > Admin console requires an account with `role = admin`. See [Demo Account](#demo-account).
 > 管理台需 `role = admin` 账号登录。
@@ -223,7 +223,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 - **Events 日历事件**: week/month views, agenda list, event CRUD (per-user ownership via CASL)
 - **AI Assistant AI 助手**: chat with tool calling (query events / user stats / navigate pages), RAG knowledge base Q&A, data insights, model hot-switch (DeepSeek/Qwen), conversation history
 - **Notifications 通知**: in-app notification center, unread count, SSE realtime push, JPush device push (abstracted)
-- **Admin Console 管理台**: isolated Taro H5 app — user management (roles, delete), event management, AI audit logs & usage stats, operation audit
+- **Admin Console 管理台**: isolated Vue3 PC Web app — user management (roles, delete), event management, knowledge base, AI audit logs & usage stats, operation audit, monitoring, templates, AI eval, tool effects
 - **Search 全局搜索**: events + public users unified search
 - **Upload 文件上传**: MIME + extension + magic-byte validation, 10MB limit, WebP conversion
 - **Security 安全**: Helmet, CORS whitelist, body limit, sort-injection guard, login lockout, token hashing, CASL row-level permission, AES-256-GCM static encryption

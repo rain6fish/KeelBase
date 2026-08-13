@@ -42,8 +42,7 @@ case "${1:-help}" in
     cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
     ;;
   dev-admin)
-    cd Front-Taro-Admin && npm run build:h5
-    echo "→ 托管管理台到 http://localhost:10086（无 python 用: npx http-server Front-Taro-Admin/dist -p 10086）"
+    cd Web-Admin && npm run dev
     ;;
   web)
     cd Front-Flutter && flutter run -d chrome

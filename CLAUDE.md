@@ -89,7 +89,7 @@ KeelBase/
 │   └── data/                      # SQLite 数据文件
 │
 ├── Front-Taro/                    # 主 app 的 Taro H5/小程序前端（不含管理功能）
-├── Front-Taro-Admin/              # 独立管理员管理台（Taro H5，独立构建/部署）
+├── Web-Admin/                     # 独立管理员管理台（Vue3 + Vuetify3 PC Web，独立构建/部署）
 │
 ├── .github/
 │   ├── workflows/ci.yml           # CI（GitHub Actions，push 到 GitHub main 自动触发）
@@ -374,7 +374,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 
 ## 5.5 产品架构红线（必须遵守）
 
-**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ 管理端（Front-Taro-Admin）。**
+**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ 管理端（Web-Admin）。**
 
 1. **所有后台管理功能一律并入管理端**，包括但不限于：用户与权限管理、事件/内容管理、监控审计、会话管理、知识库维护、通知广播、系统信息。**禁止**在主 App 或小程序中实现任何面向管理员的 CRUD/权限/审计功能。
 2. **管理页面不出现用户填写的个人数据 / 隐私数据**；必须出现时用掩码遮盖：
@@ -821,33 +821,33 @@ Password: Admin@1234
 Role: admin
 ```
 
-> `admin` 用于管理台（Front-Taro-Admin）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-Nodejs 已启动。
+> `admin` 用于管理台（Web-Admin）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-Nodejs 已启动。
 
 ---
 
-## 13. 管理员管理台（Front-Taro-Admin）
+## 13. 管理员管理台（Web-Admin）
 
-> **⚠️ 技术栈迁移决策（2026-08-12，见 docs/roadmap.md「WEB-ADMIN」章节）**：管理台将从 Taro-Admin（React H5）迁移到 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格，MIT 合规）**。迁移未落地前，Taro-Admin 仍是当前管理台实现（下述命令仍然有效），但**禁止在其上新增管理功能**——新增管理功能一律等 PC Web 迁移（WEB-ADMIN-2）或在规划中注明归属新管理台。后端 Admin API 完全复用，不受影响。
+> **技术栈（2026-08-12 决策，见 docs/roadmap.md「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格复刻，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
-**独立于主 app 的 Taro H5 管理台**，与 `Front-Taro`（主 app）代码/构建/部署完全隔离。主 app 不携带任何管理逻辑或入口。
+**独立于主 app 的 Vue3 PC Web 管理台**，与 `Front-Taro`（主 app）代码/构建/部署完全隔离。主 app 不携带任何管理逻辑或入口。
 
 **架构原则**：
 - 独立入口 + 独立登录（`/auth/login`），登录后校验 `role === 'admin'`，非管理员拒绝进入
 - 所有管理 API 带 `@CheckPolicies((a) => a.can('manage', 'all'))`（CASL），普通用户 token 返回 403
 - `GET /auth/me` 返回 `role` 字段，供管理台判断管理员身份
+- 路由 hash 模式（`createWebHashHistory`）——单容器 Nest 静态托管无 SPA fallback，hash 让 nginx + 单容器两套部署链零改动
 - 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA（见 roadmap D.1）
 
 **开发命令**：
 ```bash
-cd Front-Taro-Admin
+cd Web-Admin
 npm install
-npm run build:h5      # 构建静态产物 → dist/
-# npm run dev:h5      # 本地开发（Taro 3.6 dev server 在 Node 24 下有 webpack-virtual-modules 崩溃问题，用 build:h5 + 静态服务器替代）
+npm run dev           # Vite dev server → http://localhost:10086/admin/（proxy /api → 后端 3000）
+npm run build         # 构建静态产物 → dist/（base=/admin/）
+npm run typecheck     # vue-tsc 类型检查
 ```
 
-**模块**：登录 / 概览（AI 用量统计）/ 用户管理（列表·角色·删除）/ 事件管理（全量·删除）/ 审计监控（日志·统计）
-
-> 注意：Taro 3.6.36 的 `dev:h5`（webpack 5 watch）在 Node 24 下可能触发 `webpack-virtual-modules` 崩溃；`build:h5` 正常。开发验证用 `build:h5` + 静态服务器（`python -m http.server <port> -d dist`）即可。
+**模块**：登录 / 概览 / 用户管理（列表·角色·删除·详情）/ 事件管理（全量·删除）/ 知识库 / 通知广播 / 监控中心 / AI 审计 / 操作审计 / 会话管理 / 可观测性 / 系统信息 / 回收站 / 数据导入 / 模板市场 / AI 评测 / 工具与副作用 / 平台统计
 
 ---
 

@@ -66,18 +66,16 @@ flutter run -d chrome
 ✅ Verify: login page appears; log in with `alex / 123456`.
 ⚠️ Requires [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.12; backend must be running first.
 
-### Admin Console (Taro H5)
+### Admin Console (Vue3 PC Web)
 
 ```bash
-cd Front-Taro-Admin
+cd Web-Admin
 npm install
-npm run build:h5              # static output → dist/
-# serve dist/ with any static server
-npx http-server dist -p 10086
+npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```
 
-✅ Verify: http://localhost:10086 → log in with `admin / Admin@1234`.
-⚠️ Always use `build:h5` (not `dev:h5`, which can crash on some Node versions).
+✅ Verify: http://localhost:10086/admin/ → log in with `admin / Admin@1234`.
+Production: `npm run build` (base=/admin/, output dist/).
 
 ## 3. Demo Accounts
 

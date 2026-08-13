@@ -81,8 +81,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ### 2.3 Admin Console Deploy / 管理台部署
 
 ```bash
-cd Front-Taro-Admin
-npm run build:h5    # → dist/
+cd Web-Admin
+npm run build    # → dist/（base=/admin/）
 ```
 
 Serve `dist/` as static files. Recommended: separate domain (e.g. `admin.example.com`) + optional IP whitelist/VPN/MFA.

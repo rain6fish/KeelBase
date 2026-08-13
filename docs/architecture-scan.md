@@ -3,6 +3,8 @@
 > 由 codebase-memory-mcp 对全仓库做静态解析后生成的架构快照。
 > 生成日期：2026-08-11 ｜ 索引模式：full（persistence=true）
 > 数据文件：`.codebase-memory/graph.db.zst`（可提交共享）
+>
+> **注**：2026-08-12 管理台已从 Front-Taro-Admin（React H5）迁移到 Web-Admin（Vue3 PC Web）。本文是 08-11 的历史快照，文中 Front-Taro-Admin 路径引用已失效，仅作历史存档。
 
 ---
 
@@ -14,7 +16,7 @@
 | 图节点总数 | 5,174 |
 | 图边总数 | 12,148 |
 | 索引文件数 | 690（含 405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C） |
-| 四端结构 | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Front-Taro-Admin（管理台）+ Server-Nodejs（NestJS 后端） |
+| 四端结构 | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Web-Admin（Vue3 管理台）+ Server-Nodejs（NestJS 后端） |
 | 排除目录 | `node_modules`、`dist`、`build`、`coverage`、`.git`、`.claude`、`.idea`、`uploads`、`.dart_tool` 等 18 类 |
 
 **图结构统计**（节点标签）：
