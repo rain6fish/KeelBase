@@ -210,6 +210,12 @@ class AppLocalizations {
 
   // --- Sessions ---
   String get sessionManagement => _t('Login Devices', '登录设备');
+
+  // --- UX-4 应用锁 ---
+  String get appLock => _t('App Lock', '应用锁');
+  String get appLockSubtitle => _t('Verify with FaceID / fingerprint on app start', '启动时用 FaceID / 指纹验证');
+  String get appLockUnsupported => _t('This device does not support biometrics', '此设备不支持生物识别');
+  String get appLockDisabled => _t('App lock disabled', '应用锁已关闭');
   String get sessionEntry => _t('Manage login devices', '登录设备管理');
   String get currentDevice => _t('This device', '当前设备');
   String get noSessions => _t('No active sessions', '暂无登录设备');
