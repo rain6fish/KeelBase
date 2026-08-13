@@ -455,8 +455,45 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 20),
             Text('KeelBase', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
             const SizedBox(height: 8),
-            Text('Full-Stack App Platform', style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context))),
-            const SizedBox(height: 44),
+            Text(
+              l10n.loginSlogan,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: t.primaryColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.loginSloganSub,
+              style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            // 演示账号提示（评估者 clone 后最需要的就是账号）
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: t.primaryColor.withAlpha(10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.primaryColor.withAlpha(30)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  l10n.demoAccounts,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.primaryColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.demoAccountUser,
+                  style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.demoAccountAdmin,
+                  style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 32),
 
             // Error
             if (authError != null && !isCooldown)
