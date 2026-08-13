@@ -68,13 +68,15 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
         const dbType = configService.get<string>('DB_TYPE', 'sqlite');
         const nodeEnv = configService.get<string>('NODE_ENV', 'development');
         const isDev = nodeEnv === 'development';
+        // 单容器零配置：DB_SYNCHRONIZE=true 时用 synchronize（seed-demo 已建表，幂等），跳过迁移避免冲突
+        const useSync = configService.get<string>('DB_SYNCHRONIZE', 'false') === 'true';
 
         if (dbType === 'postgres') {
           const otelOn = configService.get<string>('OTEL_ENABLED', 'false') === 'true';
           return {
             type: 'postgres' as const,
             autoLoadEntities: true,
-            synchronize: isDev,
+            synchronize: isDev || useSync,
             logging: otelOn ? ['query', 'error'] : ['error', 'warn', 'schema'],
             logger: createTypeOrmLogger(otelOn),
             // postgres 用独立基线 + 向量迁移（sqlite 方言迁移不加载）
@@ -95,7 +97,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddFormBuilder*.js',
               'dist/migrations/*AddAiToolSideEffects*.js',
             ],
-            migrationsRun: !isDev,
+            migrationsRun: !isDev && !useSync,
             host: configService.get<string>('DB_HOST', 'localhost'),
             port: configService.get<number>('DB_PORT', 5432),
             username: configService.get<string>('DB_USER', 'postgres'),
@@ -114,11 +116,11 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
         return {
           type: 'better-sqlite3' as const,
           autoLoadEntities: true,
-          synchronize: isDev,
+          synchronize: isDev || useSync,
           logging: otelOn ? ['query', 'error'] : ['error', 'warn', 'schema'],
           logger: createTypeOrmLogger(otelOn),
           migrations: ['dist/migrations/*.js'],
-          migrationsRun: !isDev,
+          migrationsRun: !isDev && !useSync,
           database: configService.get<string>('DB_PATH', './data/front.sqlite'),
         } satisfies TypeOrmModuleOptions;
       },

@@ -29,15 +29,26 @@ PORT="${PORT:-3000}"
 
 cmd="${1:-up}"
 
+# flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃（宿主机稳定）；
+# Dockerfile 只 COPY build/web 产物，这里先宿主机构建（需已装 Flutter SDK）
+build_flutter_web() {
+  if [ ! -d Front-Flutter/build/web ]; then
+    echo "→ 宿主机构建 Flutter web（首次约 2 分钟）..."
+    (cd Front-Flutter && flutter pub get >/dev/null 2>&1 && flutter build web --release)
+  fi
+}
+
 ensure_image() {
   if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-    echo "→ 构建单容器镜像 $IMAGE（首次约 10 分钟，含 Flutter web 编译）..."
+    echo "→ 构建单容器镜像 $IMAGE..."
+    build_flutter_web
     docker build -f Dockerfile.single -t "$IMAGE" .
   fi
 }
 
 case "$cmd" in
   build)
+    build_flutter_web
     docker build -f Dockerfile.single -t "$IMAGE" .
     echo "✔ 镜像 $IMAGE 构建完成"
     ;;
