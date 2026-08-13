@@ -124,6 +124,8 @@ const navGroups = computed(() => [
       { name: 'events', to: '/events', icon: 'mdi-calendar-blank-outline', label: t('navEvents') },
       { name: 'knowledge', to: '/knowledge', icon: 'mdi-book-open-variant', label: t('navKnowledge') },
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
+      { name: 'trash', to: '/trash', icon: 'mdi-delete-outline', label: t('navTrash') },
+      { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },
     ],
   },
   {
@@ -133,6 +135,8 @@ const navGroups = computed(() => [
       { name: 'audit', to: '/audit', icon: 'mdi-history', label: t('navAiAudit') },
       { name: 'op-audit', to: '/op-audit', icon: 'mdi-clipboard-text-outline', label: t('navOpAudit') },
       { name: 'sessions', to: '/sessions', icon: 'mdi-monitor-cellphone', label: t('navSessions') },
+      { name: 'analytics', to: '/analytics', icon: 'mdi-chart-areaspline', label: t('navAnalytics') },
+      { name: 'ai-eval', to: '/ai-eval', icon: 'mdi-flask-outline', label: t('navAiEval') },
     ],
   },
   {
@@ -140,6 +144,8 @@ const navGroups = computed(() => [
     items: [
       { name: 'observability', to: '/observability', icon: 'mdi-lan', label: t('navObservability') },
       { name: 'system', to: '/system', icon: 'mdi-cog-outline', label: t('navSystemInfo') },
+      { name: 'templates', to: '/templates', icon: 'mdi-view-grid-plus-outline', label: t('navTemplates') },
+      { name: 'ai-tools', to: '/ai-tools', icon: 'mdi-tools', label: t('navAiTools') },
     ],
   },
 ])
