@@ -226,7 +226,13 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
   /** AI-12：相对路径图片 URL 拼成公网可访问地址（LLM 需能 fetch 到） */
   private resolveImageUrl(url: string): string {
-    if (/^https?:\/\//i.test(url)) return url;
+    // CR-6：禁止绝对 URL / 非 /uploads/ 路径，防 LLM 供应商回读内网地址（SSRF）
+    if (/^https?:\/\//i.test(url)) {
+      throw new Error('图片禁止使用绝对 URL（SSRF 防护）');
+    }
+    if (!url.startsWith('/uploads/') || url.includes('..')) {
+      throw new Error('图片必须是本平台 /uploads/ 上传文件（SSRF 防护）');
+    }
     return `${this.baseURL.replace(/\/chat\/completions$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 

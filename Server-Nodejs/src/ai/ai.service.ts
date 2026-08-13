@@ -25,6 +25,7 @@ import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { SettingsService } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
+import { NotFoundException } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
@@ -250,7 +251,9 @@ export class AiService {
       try {
         await this.conversationService.getConversation(request.conversationId, userId, this._abilityFor(userId));
         conversationId = request.conversationId;
-      } catch {
+      } catch (e) {
+        // CR-27：仅「会话不存在」时自动新建；越权（Forbidden）等错误放行，不吞
+        if (!(e instanceof NotFoundException)) throw e;
         const conv = await this.conversationService.createConversation(
           userId,
           providerName,
@@ -551,7 +554,9 @@ export class AiService {
       try {
         await this.conversationService.getConversation(request.conversationId, userId, this._abilityFor(userId));
         conversationId = request.conversationId;
-      } catch {
+      } catch (e) {
+        // CR-27：仅「会话不存在」时自动新建；越权（Forbidden）等错误放行，不吞
+        if (!(e instanceof NotFoundException)) throw e;
         const conv = await this.conversationService.createConversation(
           userId,
           providerName,

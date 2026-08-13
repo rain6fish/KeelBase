@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength, IsArray } from 'class-validator';
+import { IsString, IsOptional, MinLength, MaxLength, IsArray, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ChatRequestDto {
@@ -39,5 +39,9 @@ export class ChatRequestDto {
   })
   @IsArray()
   @IsOptional()
+  @Matches(/^\/uploads\/(?!.*\.\.)[\w%.\-]+$/i, {
+    each: true,
+    message: 'images 仅允许本平台 /uploads/ 上传文件（SSRF 防护）',
+  })
   images?: string[];
 }
