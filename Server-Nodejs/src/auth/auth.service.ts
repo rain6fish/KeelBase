@@ -104,13 +104,10 @@ export class AuthService {
     clientInfo: { deviceId?: string; ip?: string; userAgent?: string } = {},
   ) {
     const exists = await this.usersRepository.findOne({ where: { username: dto.username } });
-    if (exists) {
-      throw new UnauthorizedException('Username already exists');
-    }
-
     const emailExists = await this.usersRepository.findOne({ where: { email: dto.email } });
-    if (emailExists) {
-      throw new UnauthorizedException('Email already exists');
+    // CR-15②：注册冲突不区分用户名/邮箱（防批量探测枚举），统一口径
+    if (exists || emailExists) {
+      throw new UnauthorizedException('Username or email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
@@ -315,10 +312,9 @@ export class AuthService {
         (user.lockedUntil.getTime() - Date.now()) / 1000 / 60,
       );
       this.logger.warn(`Login blocked: user=${dto.username}, lock_remaining=${remaining}min`);
-      throw new HttpException(
-        `Account locked. Try again in ${remaining} minutes`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      // CR-15①：锁定态与「不存在/密码错」同一响应 + 延迟（防账号枚举与时序侧信道）
+      await this.delay();
+      throw BusinessException.of('INVALID_CREDENTIALS');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);

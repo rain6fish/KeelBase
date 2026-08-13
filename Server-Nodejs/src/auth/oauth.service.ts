@@ -15,7 +15,7 @@ import { OAuthProvidersConfigService } from './oauth-providers.config';
 interface GoogleTokenInfo {
   sub: string; email?: string; email_verified?: boolean;
   name?: string; picture?: string; given_name?: string; family_name?: string;
-  aud?: string; iss?: string;
+  aud?: string; iss?: string; exp?: number;
 }
 
 interface JwkKey { kty: string; kid: string; alg: string; n?: string; e?: string; x?: string; y?: string; crv?: string; use?: string; }
@@ -120,6 +120,10 @@ export class OAuthService {
     if (!payload.iss || !validIssuers.some((i) => payload.iss!.includes(i))) {
       throw new UnauthorizedException('Invalid Google token issuer');
     }
+    // CR-14①：校验 id_token 过期（防重放）
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      throw new UnauthorizedException('Google token expired');
+    }
     const name = payload.name || [payload.given_name, payload.family_name].filter(Boolean).join(' ') || null;
     return { providerId: payload.sub, email: (payload.email && payload.email_verified) ? payload.email : null, name, avatarUrl: payload.picture ?? null };
   }
@@ -191,7 +195,7 @@ export class OAuthService {
    *
    * @see https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html
    */
-  private async verifyWeChat(code: string, _redirectUri?: string): Promise<OAuthUserInfo> {
+  private async verifyWeChat(code: string, redirectUri?: string): Promise<OAuthUserInfo> {
     const appId = this.configService.get<string>('WECHAT_APP_ID', '');
     const secret = this.configService.get<string>('WECHAT_APP_SECRET', '');
     if (!appId || !secret) {
@@ -199,7 +203,9 @@ export class OAuthService {
     }
 
     // Step 1: Exchange code for access_token
-    const tokenUrl = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appId}&secret=${secret}&code=${code}&grant_type=authorization_code`;
+    // CR-14③：code 交换带上 redirect_uri（微信要求一致，防 code 劫持）
+    const redirectParam = redirectUri ? `&redirect_uri=${encodeURIComponent(redirectUri)}` : '';
+    const tokenUrl = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appId}&secret=${secret}&code=${code}&grant_type=authorization_code${redirectParam}`;
     let tokenRes: WeChatTokenRes;
     try {
       const res = await fetch(tokenUrl);
@@ -361,7 +367,8 @@ export class OAuthService {
 
     try {
       const res = await fetch(`https://openapi.alipay.com/gateway.do?${queryStr}`);
-      const body = await res.json();
+      const text = await res.text();
+      const body = JSON.parse(text) as Record<string, any>;
 
       // Alipay wraps the response in a key named after the method + "_response"
       const responseKey = method.replace(/\./g, '_') + '_response';
@@ -372,9 +379,13 @@ export class OAuthService {
         return null;
       }
 
-      // Optional: verify Alipay's response signature
+      // CR-14②：验证 Alipay 响应签名（RSA2，对原始响应 JSON 字符串验签；无公钥则跳过降级）
       if (publicKey && body.sign) {
-        // In production, verify the response signature here
+        const ok = this.verifyAlipayResponseSign(text, responseKey, body.sign as string, publicKey);
+        if (!ok) {
+          this.logger.warn('Alipay response signature verification failed');
+          return null;
+        }
       }
 
       return responseBody;
@@ -387,6 +398,38 @@ export class OAuthService {
   // ═══════════════════════════════════════════════════════════════════════════
   //  HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /** CR-14②：验证 Alipay 响应签名——签名对象为响应中 {method}_response 的原始 JSON 字符串 */
+  private verifyAlipayResponseSign(rawText: string, responseKey: string, sign: string, publicKey: string): boolean {
+    try {
+      const start = rawText.indexOf(`"${responseKey}"`);
+      if (start < 0) return false;
+      const braceIdx = rawText.indexOf('{', start);
+      if (braceIdx < 0) return false;
+      // 括号计数提取响应内容原始字符串（保留原始空白，Alipay 对这段原文做 RSA2 签名）
+      let depth = 0;
+      let end = braceIdx;
+      for (let i = braceIdx; i < rawText.length; i++) {
+        if (rawText[i] === '{') depth++;
+        else if (rawText[i] === '}') {
+          depth--;
+          if (depth === 0) { end = i + 1; break; }
+        }
+      }
+      const contentStr = rawText.slice(braceIdx, end);
+      const verifier = crypto.createVerify('RSA-SHA256');
+      verifier.update(contentStr, 'utf-8');
+      return verifier.verify(this.formatAlipayKey(publicKey, 'PUBLIC KEY'), sign, 'base64');
+    } catch {
+      return false;
+    }
+  }
+
+  private formatAlipayKey(key: string, label: 'PUBLIC KEY' | 'PRIVATE KEY'): string {
+    const b64 = key.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
+    const chunks = this.chunkBase64(b64, 64);
+    return [`-----BEGIN ${label}-----`, ...chunks, `-----END ${label}-----`].join('\n');
+  }
   private jwkToPem(jwk: JwkKey): string {
     if (jwk.kty === 'RSA') {
       const n = Buffer.from(jwk.n!, 'base64url');
