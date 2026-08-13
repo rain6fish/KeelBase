@@ -19,14 +19,13 @@ COPY Front-Flutter/ .
 RUN flutter pub get
 RUN flutter build web --release
 
-# ---- Admin console build (Taro H5, /admin sub-path) ----
+# ---- Admin console build (Vue3 PC Web, /admin sub-path) ----
 FROM node:22-alpine AS admin-build
 WORKDIR /app/admin
-COPY Front-Taro-Admin/package*.json ./
+COPY Web-Admin/package*.json ./
 RUN npm ci
-COPY Front-Taro-Admin/ .
-ENV ADMIN_BASE_PATH=admin
-RUN npm run build:h5
+COPY Web-Admin/ .
+RUN npm run build
 
 # ---- Single runtime image ----
 FROM node:22-alpine AS single

@@ -1,9 +1,0 @@
-.page { max-width: 760px; margin: 0 auto; }
-.page__title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 16px; }
-.sys__section { display: block; font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); }
-.sys__row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
-.sys__row:last-child { border-bottom: none; }
-.sys__label { color: var(--text-secondary); font-size: 14px; }
-.sys__value { font-size: 14px; word-break: break-all; text-align: right; }
-.sys__changelog { margin-top: 12px; }
-.sys__changelog-item { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }

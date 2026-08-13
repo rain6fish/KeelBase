@@ -44,10 +44,8 @@ dev: ## 本地开发起后端
 	cd Server-Nodejs && cp -n .env.example .env 2>/dev/null || true
 	cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
 
-dev-admin: ## 构建并托管管理台
-	cd Front-Taro-Admin && npm run build:h5
-	@echo "→ 托管 dist/ 到 http://localhost:10086（可用任意静态服务器）"
-	@echo "  无 python 时: npx http-server Front-Taro-Admin/dist -p 10086"
+dev-admin: ## 启动管理台（Vite dev server）
+	cd Web-Admin && npm run dev
 
 web: ## 起 Flutter Web 主 App
 	cd Front-Flutter && flutter run -d chrome
