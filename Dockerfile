@@ -20,11 +20,10 @@ COPY --from=server-build /app/server/dist ./dist
  CMD ["node", "dist/main"]
 
  # ---- Builder stage for Flutter ----
- FROM ghcr.io/cirruslabs/flutter:3.30.0 AS flutter-build
- WORKDIR /app/client
- COPY Front-Flutter/ .
- RUN flutter pub get
- RUN flutter build web --release
+ # 注：flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃且无一致根因（宿主机/交互容器稳定）。
+ # 改为宿主机构建产物，Dockerfile 只 COPY build/web —— 确定性最高，也更快。
+ FROM scratch AS flutter-build
+ COPY Front-Flutter/build/web /build/web
 
  # ---- Builder stage for Admin Console (Vue3 PC Web, /admin sub-path) ----
  FROM node:22-alpine AS admin-build
@@ -36,7 +35,7 @@ COPY --from=server-build /app/server/dist ./dist
 
  # ---- Nginx to serve Flutter web + admin console ----
  FROM nginx:alpine AS web
- COPY --from=flutter-build /app/client/build/web /usr/share/nginx/html
+ COPY --from=flutter-build /build/web /usr/share/nginx/html
  COPY --from=admin-build /app/admin/dist /usr/share/nginx/html/admin
  COPY nginx.conf /etc/nginx/conf.d/default.conf
  EXPOSE 80

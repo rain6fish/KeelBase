@@ -2,6 +2,7 @@
 **/node_modules
 **/dist
 **/build
+!Front-Flutter/build/web/
 **/.dart_tool
 **/.packages
 **/coverage
