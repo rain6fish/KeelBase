@@ -65,6 +65,27 @@ const zh = {
   navAiEval: 'AI 评测',
   navAiTools: '工具与副作用',
   navAnalytics: '平台统计',
+  navAiTimeline: 'AI 行为回放',
+
+  // AI 行为回放
+  aiTimelineHint: '按用户/会话聚合「AI 对用户数据做了什么」：工具调用 / 确认决策 / 副作用 / 错误',
+  noTimeline: '暂无 AI 行为记录',
+  adhocChat: '临时对话',
+  conversation: '会话',
+  toolCall: '工具调用',
+  confirmation: '确认决策',
+  approved: '已确认',
+  rejected: '已拒绝',
+  navigate: '页面跳转',
+  toolEffect: 'AI 副作用',
+  action: {
+    chat: '对话',
+    plan: '规划',
+    analyze: '分析',
+    knowledge: '知识库',
+    delegate: '子代理',
+    login: '登录',
+  },
 
   // 回收站
   restore: '恢复',
