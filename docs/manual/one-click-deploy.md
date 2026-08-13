@@ -64,8 +64,8 @@ docker compose logs server | tail -20      # 启动日志 / 迁移执行
 # 管理台  http://<服务器IP>/admin  （admin 账号登录）
 ```
 
-> 若想独立域名部署管理台（如 admin.example.com）：单独 `cd Front-Taro-Admin && npm ci && npm run build:h5`，
-> 把 `dist/` 托管到独立域名即可（默认 publicPath=/，无需 ADMIN_BASE_PATH）。
+> 若想独立域名部署管理台（如 admin.example.com）：单独 `cd Web-Admin && npm ci && npm run build`，
+> 把 `dist/` 托管到独立域名即可（需把 Vite `base` 改为 `/`，或放在 `/admin` 子路径）。
 
 ## 4. 生产环境注意
 

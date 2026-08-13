@@ -97,18 +97,16 @@ flutter run -d chrome
 - `flutter: command not found` → Flutter 未装或未加入 PATH
 - 页面一直转圈 → 后端没起，或端口不是 3000（改 `lib/core/constants/app_constants.dart`）
 
-### 2.3 管理台（Taro H5）
+### 2.3 管理台（Vue3 PC Web）
 
 ```bash
-cd Front-Taro-Admin
+cd Web-Admin
 npm install
-npm run build:h5              # 生成静态产物到 dist/
-# 用任意静态服务器托管 dist/
-python -m http.server 10086 -d dist
+npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```
 
-- ✅ 验证：http://localhost:10086 打开管理台 → 用 `admin / Admin@1234` 登录
-- ⚠️ `dev:h5` 在部分 Node 版本会崩，**始终用 `build:h5` + 静态服务器**
+- ✅ 验证：http://localhost:10086/admin/ 打开管理台 → 用 `admin / Admin@1234` 登录
+- 生产构建：`npm run build`（base=/admin/，产物 dist/）
 
 **卡住了？**
 - 登录后 403/空白 → 检查是否用 admin 账号；普通用户进不了管理台

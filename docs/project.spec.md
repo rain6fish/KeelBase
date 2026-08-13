@@ -741,15 +741,15 @@ EMBEDDING_DIMENSIONS=1536
 
 ---
 
-## 12. 管理员管理台（Front-Taro-Admin）
+## 12. 管理员管理台（Web-Admin）
 
-独立 Taro H5 管理台，与主 app 完全隔离。
+独立 Vue3 PC Web 管理台，与主 app 完全隔离。
 
 | 项 | 说明 |
 |------|------|
-| 技术栈 | Taro 3.6 + React 18 + TS + zustand |
-| 构建 | `npm run build:h5` → `dist/` 静态产物 |
-| 部署 | 独立域名（建议 `admin.example.com`），与主 app 分离 |
+| 技术栈 | Vue3 + Vite + TS + Vuetify 3（Materio 风格复刻）+ Pinia + vue-i18n |
+| 构建 | `npm run build` → `dist/`（base=/admin/） |
+| 部署 | 独立域名（建议 `admin.example.com`），与主 app 分离；hash 路由 |
 | 认证 | 独立登录 → `GET /auth/me` 校验 `role === 'admin'`，非管理员拒绝 |
 | 授权 | 全部管理 API 依赖后端 CASL `@CheckPolicies((a) => a.can('manage', 'all'))` |
 
@@ -758,10 +758,20 @@ EMBEDDING_DIMENSIONS=1536
 | 页面 | 功能 | 依赖 API |
 |------|------|---------|
 | 登录 | 管理员登录（无注册入口） | POST /auth/login |
-| 概览 | AI 用量统计卡片 + 操作分布 + 快捷入口 | GET /audit/stats |
-| 用户管理 | 分页/搜索、角色切换、删除 | GET /users、PATCH /users/:id/role、DELETE /users/:id |
-| 事件管理 | 全量事件分页、删除 | GET /events/admin/all、DELETE /events/admin/:id |
-| 审计监控 | 日志分页、按 userId 过滤、统计 | GET /audit/logs、GET /audit/stats |
+| 概览 | 平台数据 + AI 用量 + 趋势 + 操作分布 | GET /admin/overview、GET /audit/stats |
+| 用户管理 | 分页/搜索、角色切换、删除、详情 | GET /users、PATCH /users/:id/role、DELETE /users/:id |
+| 事件管理 | 全量事件分页、筛选、删除 | GET /events/admin/all、DELETE /events/admin/:id |
+| 知识库 | 条目 CRUD + 文档上传 | /ai/knowledge* |
+| 通知广播 | 全体/指定用户广播 | POST /admin/notifications/broadcast |
+| 监控中心 | 健康/依赖/指标/数据规模（15s 轮询） | GET /admin/monitor/summary |
+| AI 审计 / 操作审计 | 日志 + 统计 + CSV 导出 | /audit/*、/audit/operations/* |
+| 会话管理 | 在线会话 + 强制下线 | GET/DELETE /admin/sessions* |
+| 回收站 | 软删事件/待办恢复 | GET /admin/trash、POST /admin/trash/:type/:id/restore |
+| 数据导入 | 用户/事件 CSV 批量导入 | POST /admin/import/* |
+| 模板市场 | 内置示例模板一键导入 | GET /admin/templates、POST /admin/templates/:id/import |
+| AI 评测 | 用例 CRUD + 跑批 + 报告 | /ai/eval/* |
+| 工具与副作用 | AI 工具清单 + 副作用撤销 | /ai/tools、/ai/tool-effects* |
+| 平台统计 | DAU/WAU/MAU/留存/功能漏斗/错误 | GET /admin/analytics |
 
 **安全设计**：
 - 主 app 不打包/不引用任何管理页面（管理入口已从 Front-Taro 移除）

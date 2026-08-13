@@ -122,33 +122,21 @@ if ! curl -sf "http://localhost:$BACKEND_PORT/api/v1/health" >/dev/null 2>&1; th
 fi
 echo "✓ 后端就绪 (PID $BACKEND_PID)"
 
-# ── 2. 管理台（node 静态服务器，兼容无 python）─────────────
+# ── 2. 管理台（Vite preview，兼容无 python）─────────────────
 ADMIN_PORT=$(pick_port "${ADMIN_PORT:-10086}")
 echo ""
-echo "→ 启动管理台（端口 $ADMIN_PORT）..."
-if [ ! -d Front-Taro-Admin/node_modules ]; then
+echo "→ 构建管理台（端口 $ADMIN_PORT）..."
+if [ ! -d Web-Admin/node_modules ]; then
   echo "→ 安装管理台依赖（首次需几分钟）..."
-  (cd Front-Taro-Admin && npm install)
+  (cd Web-Admin && npm install)
 fi
-echo "→ 构建管理台..."
-(cd Front-Taro-Admin && npm run build:h5 > "$ROOT/.experience-admin-build.log" 2>&1)
+(cd Web-Admin && npm run build > "$ROOT/.experience-admin-build.log" 2>&1)
 
-# 用 node 内置静态服务器（避免 python stub / 缺依赖）
-node -e '
-const http=require("http"),fs=require("fs"),path=require("path");
-const root=path.resolve("Front-Taro-Admin/dist");
-const types={".html":"text/html",".js":"text/javascript",".css":"text/css",".png":"image/png",".svg":"image/svg+xml",".json":"application/json"};
-const port=Number(process.argv[1]);
-http.createServer((req,res)=>{
-  const url=req.url==="/"?"index.html":req.url.split("?")[0];
-  const p=path.join(root,url);
-  if(!p.startsWith(root)){res.writeHead(403);res.end();return;}
-  fs.readFile(p,(e,d)=>{ if(e){res.writeHead(404);res.end("not found");return;} res.writeHead(200,{"Content-Type":types[path.extname(p)]||"text/plain"});res.end(d);});
-}).listen(port,()=>console.log("admin on "+port));
-' "$ADMIN_PORT" > "$ROOT/.experience-admin.log" 2>&1 &
+# Vite preview 静态托管（base=/admin/ 已内联，hash 路由深层链接天然兼容）
+(cd Web-Admin && npx vite preview --port "$ADMIN_PORT" --strictPort > "$ROOT/.experience-admin.log" 2>&1 &)
 ADMIN_PID=$!
-sleep 1
-ADMIN_URL="http://localhost:$ADMIN_PORT"
+sleep 2
+ADMIN_URL="http://localhost:$ADMIN_PORT/admin/"
 
 # ── 3. Flutter Web（可选）─────────────────────────────────
 FLUTTER_URL="（未启动，加 FLUTTER=1 可启动）"
