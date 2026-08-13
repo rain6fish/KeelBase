@@ -1,6 +1,9 @@
  /** Application-wide constants aligned with backend */
  export const APP_NAME = 'App'
- export const API_BASE_URL = 'http://localhost:3000/api/v1'
+ // DEP-5：H5 走同源相对路径 /api/v1（Nginx/单容器反代天然可用）；小程序需绝对地址用 TARO_APP_API_BASE 覆盖
+export const API_BASE_URL =
+  process.env.TARO_APP_API_BASE ||
+  (process.env.TARO_ENV === 'h5' ? '/api/v1' : 'http://localhost:3000/api/v1')
  export const API_TIMEOUT = 30000
  
  // Storage keys
