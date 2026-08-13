@@ -35,6 +35,13 @@
 ```
 
 4. Verify: open http://localhost:3000/api/v1/health → `{"status":"ok"}`; open http://localhost:3000.
+5. Log in with auto-created demo accounts:
+   - Main app http://localhost:3000 → `alex` / `123456`
+   - Admin console http://localhost:3000/admin → `admin` / `Admin@1234`
+
+Manage the container: `./scripts/docker-single.sh logs | stop | down` (data persists in the `keelbase_data` volume).
+
+> ✅ **Verified 2026-08-13**: one `docker run` brings up backend + main app + admin console + demo accounts; admin/alex login returns 200.
 
 **Stuck?** Port busy → change ports in `docker-single.sh`, or use `./scripts/dev.sh experience` (auto-detects free ports). Slow pulls → configure a Docker registry mirror.
 
