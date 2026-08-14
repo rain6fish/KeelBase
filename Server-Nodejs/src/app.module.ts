@@ -12,6 +12,7 @@ import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
 import { TagsModule } from './tags/tags.module';
 import { NotesModule } from './notes/notes.module';
+import { FlowsModule } from './flows/flows.module';
 import { BooksModule } from './books/books.module';
 import { PostsModule } from './posts/posts.module';
 
@@ -150,6 +151,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     TodosModule,
     TagsModule,
     NotesModule,
+    FlowsModule,
     BooksModule,
     PostsModule,
 
