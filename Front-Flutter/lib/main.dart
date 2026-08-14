@@ -10,6 +10,8 @@ import 'core/api/sse_client.dart';
 import 'core/security/secure_storage_service.dart';
 import 'core/services/locale_provider.dart';
 import 'core/services/theme_provider.dart';
+import 'core/services/push_service.dart';
+import 'core/services/push_token_provider.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/events/data/repositories/events_repository.dart';
@@ -134,6 +136,14 @@ Future<void> _initApp() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<SseClient>.value(value: sseClient),
         Provider<AuthRepository>.value(value: authRepository),
+
+        // GROWTH-1 推送：默认 Noop（未接厂商），真实 JPush/FCM 接入后替换实现
+        Provider<PushService>(
+          create: (_) => NoopPushService(),
+        ),
+        ProxyProvider2<ApiClient, PushService, PushTokenProvider>(
+          update: (_, api, push, __) => PushTokenProvider(api, push),
+        ),
 
         // Events
         Provider<EventsRepository>.value(value: eventsRepository),
