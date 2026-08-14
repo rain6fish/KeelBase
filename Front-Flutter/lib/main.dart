@@ -23,7 +23,10 @@ import 'features/ai/presentation/providers/conversation_provider.dart';
 import 'features/ai/data/repositories/ai_conversation_repository.dart';
 import 'features/sessions/data/repositories/session_repository.dart';
 import 'features/sessions/presentation/providers/session_provider.dart';
-import 'features/todos/data/repositories/todos_repository.dart';import 'features/posts/data/repositories/posts_repository.dart';
+import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/books/data/repositories/books_repository.dart';
+import 'features/books/presentation/providers/books_provider.dart';
+import 'features/posts/data/repositories/posts_repository.dart';
 import 'features/posts/presentation/providers/posts_provider.dart';
 
 import 'features/todos/presentation/providers/todos_provider.dart';
@@ -198,6 +201,10 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+        // 图书（EASY-2 生成）
+        ChangeNotifierProvider<BooksProvider>(
+          create: (_) => BooksProvider(BooksRepository(apiClient), cache: AppCache(prefs)),
         ),
         // 帖子（EASY-2 生成）
         ChangeNotifierProvider<PostsProvider>(

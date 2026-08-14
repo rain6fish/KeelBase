@@ -215,6 +215,7 @@ async function main() {
   console.log(`\n${C.green}════ 完成！下一步 ════${C.reset}`);
   console.log(`  cd Server-Nodejs && npm run build        # 验证后端编译`);
   console.log(`  npm test -- ${ctx.plural}.service         # 跑生成模块单测`);
+  console.log(`  npm run migration:generate -- src/migrations/Add${ctx.pluralPascal}  # 生成建表迁移（prod postgres 需要，EASY-2.2 结论）`);
   console.log(`  cd Front-Flutter && flutter analyze       # 验证前端接线`);
   console.log(`  flutter run -d chrome                     # 运行看 ${ctx.label} 页`);
   console.log(`  POST /api/v1/${ctx.plural}                # API：/api/docs 看 Swagger`);

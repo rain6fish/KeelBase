@@ -67,7 +67,7 @@ export async function wireBackend(ctx, root = '') {
       insertAfter(
         c,
         `import { TodosModule } from './todos/todos.module';`,
-        `import { ${ctx.pluralPascal}Module } from './${ctx.plural}/${ctx.plural}.module';\n`,
+        `\nimport { ${ctx.pluralPascal}Module } from './${ctx.plural}/${ctx.plural}.module';`,
         `./${ctx.plural}/${ctx.plural}.module`,
       ),
     ),
@@ -77,7 +77,7 @@ export async function wireBackend(ctx, root = '') {
       insertAfter(
         c,
         `    TodosModule,`,
-        `    ${ctx.pluralPascal}Module,\n`,
+        `\n    ${ctx.pluralPascal}Module,`,
         `${ctx.pluralPascal}Module,`,
       ),
     ),
@@ -104,7 +104,7 @@ export async function wireBackend(ctx, root = '') {
       insertAfter(
         c,
         `  { id: 'todos', category: 'business', deps: [], label: '待办' },`,
-        `  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}' },\n`,
+        `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}' },`,
         `id: '${ctx.plural}'`,
       ),
     ),
@@ -117,7 +117,7 @@ export async function wireBackend(ctx, root = '') {
         insertAfter(
           c,
           `  TODOS: 'todos',`,
-          `  ${ctx.plural.toUpperCase().replace(/-/g, '_')}: '${ctx.plural}',\n`,
+          `\n  ${ctx.plural.toUpperCase().replace(/-/g, '_')}: '${ctx.plural}',`,
           `'${ctx.plural}',`,
         ),
       ),
@@ -142,7 +142,7 @@ export async function wireFrontend(ctx, root = '') {
       if (c.includes(marker)) return { content: c, changed: false, reason: 'already-wired' };
       if (!c.includes(anchor)) return { content: c, changed: false, reason: 'anchor-not-found' };
       const insertion =
-        `import 'features/${ctx.plural}/data/repositories/${ctx.plural}_repository.dart';\n` +
+        `\nimport 'features/${ctx.plural}/data/repositories/${ctx.plural}_repository.dart';\n` +
         `import 'features/${ctx.plural}/presentation/providers/${ctx.plural}_provider.dart';\n`;
       return {
         content: c.slice(0, c.indexOf(anchor) + anchor.length) + insertion + c.slice(c.indexOf(anchor) + anchor.length),
@@ -167,7 +167,7 @@ export async function wireFrontend(ctx, root = '') {
       insertAfter(
         c,
         `import '../../features/todos/presentation/pages/todos_page.dart';`,
-        `import '../../features/${ctx.plural}/presentation/pages/${ctx.plural}_page.dart';\n`,
+        `\nimport '../../features/${ctx.plural}/presentation/pages/${ctx.plural}_page.dart';`,
         `features/${ctx.plural}/presentation/pages`,
       ),
     ),
@@ -206,7 +206,7 @@ export async function wireFrontend(ctx, root = '') {
       insertAfter(
         c,
         `  todos: { route: '/todos', description: '待办清单' },`,
-        `  ${ctx.plural}: { route: '/${ctx.plural}', description: '${ctx.label}' },\n`,
+        `\n  ${ctx.plural}: { route: '/${ctx.plural}', description: '${ctx.label}' },`,
         `  ${ctx.plural}: { route: '/${ctx.plural}'`,
       ),
     ),

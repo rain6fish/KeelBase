@@ -51,6 +51,10 @@ import { EventsModule } from './events/events.module';
   ],
 })
 export class AppModule {}
+
+const MIGRATIONS = [
+  'dist/migrations/*AddAiToolSideEffects*.js',
+];
 `);
   await write(
     BE(root, 'common/modules/modules-manifest.ts'),
