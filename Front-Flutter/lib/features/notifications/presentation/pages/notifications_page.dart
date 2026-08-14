@@ -41,6 +41,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'todo':
         context.go('/todos');
         break;
+      case 'flow':
+        context.go('/flows/tasks');
+        break;
       default:
         break; // 无 target 或未知类型 → 仅标记已读
     }

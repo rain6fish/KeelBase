@@ -26,6 +26,8 @@ import 'features/sessions/presentation/providers/session_provider.dart';
 import 'features/todos/data/repositories/todos_repository.dart';
 import 'features/tags/data/repositories/tags_repository.dart';
 import 'features/tags/presentation/providers/tags_provider.dart';
+import 'features/flows/data/repositories/flows_repository.dart';
+import 'features/flows/presentation/providers/flows_provider.dart';
 
 import 'features/notes/data/repositories/notes_repository.dart';
 import 'features/notes/presentation/providers/notes_provider.dart';
@@ -207,6 +209,11 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+
+        // FLOW-7 审批待办
+        ChangeNotifierProvider<FlowsProvider>(
+          create: (_) => FlowsProvider(FlowsRepository(apiClient)),
         ),
         // 标签（EASY-2 生成）
         ChangeNotifierProvider<TagsProvider>(

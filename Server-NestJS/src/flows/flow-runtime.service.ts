@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 
 import { AuditService } from '../ai/audit/audit.service';
@@ -202,11 +202,28 @@ export class FlowRuntimeService {
     return inst;
   }
 
-  /** 我的待办（pending 审批任务）。 */
-  getTasksForUser(userId: number): Promise<FlowTask[]> {
-    return this.taskRepo.find({
+  /** 我的待办（pending 审批任务，附带节点名/流程名供 UI 展示）。 */
+  async getTasksForUser(userId: number): Promise<Array<FlowTask & { title?: string; flowName?: string }>> {
+    const tasks = await this.taskRepo.find({
       where: { assigneeId: userId, status: 'pending' },
       order: { createdAt: 'DESC' },
+    });
+    if (tasks.length === 0) return [];
+    const instances = await this.instRepo.find({
+      where: { id: In(tasks.map((t) => t.instanceId)) },
+    });
+    const defCache = new Map<string, FlowDef>();
+    for (const inst of instances) {
+      if (!defCache.has(inst.definitionId)) {
+        const def = await this.getDefinition(inst.definitionId);
+        if (def) defCache.set(inst.definitionId, def);
+      }
+    }
+    return tasks.map((t) => {
+      const inst = instances.find((i) => i.id === t.instanceId);
+      const def = inst ? defCache.get(inst.definitionId) : undefined;
+      const node = def?.nodes.find((n) => n.id === t.nodeId);
+      return { ...t, title: node?.name, flowName: def?.name };
     });
   }
 
