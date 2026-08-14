@@ -99,3 +99,15 @@ typecheck / build / test; manually: admin→console, alex (user)→workbench, ty
 **Known limits**：user `/events/search` 不支持 `isCancelled` 服务端筛选（仅 admin 版支持），事件页状态列用 StatusChip 展示、不做状态筛选；`/todos` 返回裸数组无分页，前端全量内联。写操作受 EmailVerificationGuard 约束（未验证 403），前端统一 `emailNotVerifiedHint` 提示。
 
 **不做 / Not in scope**：事件新建/编辑（表单复杂，押后）；多标签页 / 最近访问 / SSE 实时通知。
+
+---
+
+## 13. WEB-FRONT-6 交付质量（CI 纳入 lint/test） / Delivery Quality (CI lint/test)
+
+**前端 lint 基线**：此前 `npm run lint` 脚本从未生效（eslint 9 flat config 缺 `eslint.config.js`）。本次补齐：`eslint.config.js`（@eslint/js + typescript-eslint + eslint-plugin-vue flat/recommended + globals；关闭 `vue/valid-v-slot` 动态列插槽误报、`vue/require-default-prop` 必填字段风格）；修复 2 处真实问题（AppTable `items` any 行内豁免、UserDetailView 空 catch 未用参数）。
+
+**CI**（`.github/workflows/ci.yml` web-admin job）：`npm run typecheck` → 严格 `npx eslint .`（不带 --fix）→ `npm test`（vitest 13 用例）→ `npm run build`。
+
+**前端测试基线**：vitest（WEB-FRONT-1 建）+ 13 用例（auth 5 + 守卫 8），纳入 CI。
+
+**未做 / Not done**：关键流程 e2e（Playwright 级）、前端错误监控（Sentry 类）——WEB-Frontend-6 余下，随 WEB-FRONT-6 后续补。

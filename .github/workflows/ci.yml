@@ -118,6 +118,9 @@ jobs:
           cache-dependency-path: Web-Admin-Vue/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      # 严格 lint（不带 --fix，避免 CI 悄悄改文件）；本地开发用 npm run lint 自动修复
+      - run: npx eslint . --ext .vue,.ts
+      - run: npm test
       - run: npm run build
 
   taro-build:
