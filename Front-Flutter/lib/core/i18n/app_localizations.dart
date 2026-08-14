@@ -112,6 +112,15 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 审批待办（FLOW-7） ---
+  String get flowTasksTitle => _t('Approval Tasks', '审批待办');
+  String get flowTasksEmpty => _t('No approval tasks', '暂无审批任务');
+  String get flowTaskTitle => _t('Approval Task', '审批任务');
+  String get flowApprove => _t('Approve', '通过');
+  String get flowReject => _t('Reject', '驳回');
+  String get flowNote => _t('Note (optional)', '意见（可选）');
+  String get flowOpFailed => _t('Operation failed', '操作失败');
+
   // --- 标签（EASY-2 生成） ---
   String get tagsTitle => _t('Tag', '标签');
   String get tagsAddTitle => _t('New Tag', '新增标签');
