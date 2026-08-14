@@ -43,6 +43,10 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 - **Dev-Time AI:** Dialogue-driven business-module generation (entity / DTO / CRUD / pages / permissions) plus an AI rules layer (AGENTS.md) — developers use AI to build, not just to chat.
 - **Runtime AI:** Deep integration of RAG, tool calling, data insights, long-term memory, sub-agents, and proactive services — the assistant actually does work, not just chat.
 - **开发期 AI：** 对话式生成业务模块（实体/DTO/CRUD/页面/权限）+ AI 规则层（AGENTS.md）——开发者用 AI 开发，而非只聊天。
+
+> **`keelbase init` 是代码生成器，不是低代码平台 / Not a low-code platform, a code generator.**
+> 它按 KeelBase 约定模板**生成真实可读代码**（实体/DTO/CRUD/页面/权限，进 git、可改、AI 可继续扩展）；LLM 负责理解需求（自然语言 → 模块规格）与后续扩展生成物。刻意不做拖拽/运行时元数据引擎（撞「不做低代码平台」定位红线）——「系统提供约定，AI 负责生成」。
+> It generates real readable code (entity/DTO/CRUD/pages/permissions, committed to git, editable, AI-extensible) following KeelBase conventions; the LLM understands requirements (natural language → module spec) and extends the output. Deliberately no drag-and-drop / runtime-metadata engine — "the system provides conventions, AI does the generation".
 - **运行时 AI：** 深度集成 RAG、工具调用、数据洞察、长程记忆、子代理与主动服务——助手真的会干活，不只是聊天。
 
 ### 🛡️ Business-Safe Agent Harness — 业务安全的 Agent 运行时（主线）
