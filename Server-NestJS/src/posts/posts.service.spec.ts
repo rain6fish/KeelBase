@@ -18,6 +18,13 @@ describe('PostsService', () => {
     count: jest.fn(),
     delete: jest.fn(),
     findAndCount: jest.fn(),
+    createQueryBuilder: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    })),
   };
   // PostLike repo 独立 findOne（避免与 Post repo 共享 jest.fn 互相覆盖）
   const mockLikeRepo = {
@@ -26,6 +33,13 @@ describe('PostsService', () => {
     findOne: jest.fn(),
     count: jest.fn(),
     delete: jest.fn(),
+    createQueryBuilder: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    })),
   };
 
   const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
