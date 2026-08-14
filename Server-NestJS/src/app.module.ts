@@ -15,6 +15,7 @@ import { NotesModule } from './notes/notes.module';
 import { FlowsModule } from './flows/flows.module';
 import { BooksModule } from './books/books.module';
 import { PostsModule } from './posts/posts.module';
+import { OrgModule } from './org/org.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -104,6 +105,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiToolSideEffects*.js',
               'dist/migrations/*AddHeadlessApiKeys*.js',
               'dist/migrations/*AddGeneratedModuleSchemas*.js',
+              'dist/migrations/*AddOrgStructures*.js',
 
             ],
             migrationsRun: !isDev && !useSync,
@@ -154,6 +156,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     FlowsModule,
     BooksModule,
     PostsModule,
+    OrgModule,
 
     UploadModule,
     NotificationsModule,
