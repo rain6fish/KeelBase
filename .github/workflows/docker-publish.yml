@@ -1,0 +1,75 @@
+# 发布 Docker 单容器镜像到 ghcr.io（GitHub Container Registry）
+#
+# 触发：
+#   - 推送 tag v*（如 v0.9.0）→ 发布 latest + vX.Y.Z
+#   - 手动 workflow_dispatch → 发布 latest + run 号
+#
+# 产物：ghcr.io/rain6fish/keelbase:latest / :vX.Y.Z
+# 使用（公开镜像免登录）：
+#   docker run -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+#
+# 构建策略：flutter-action 在 runner 宿主机构建 Flutter web（build/web），
+# Dockerfile.single 的 flutter-build stage 是 scratch COPY 该产物 —— 与本机一致、Linux 稳定。
+
+name: Docker Publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22'
+  IMAGE_NAME: ghcr.io/rain6fish/keelbase
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # 推送 ghcr.io 需要 packages:write
+    steps:
+      - uses: actions/checkout@v4
+
+      # 宿主机构建 Flutter web 产物（对齐 scripts/docker-single.sh 的 build_flutter_web）
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+      - name: Build Flutter web
+        working-directory: Front-Flutter
+        run: |
+          flutter pub get
+          flutter build web --release
+
+      # 构建 Web-Admin（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
+
+      # 登录 ghcr.io（用内置 GITHUB_TOKEN）
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tags
+        id: meta
+        run: |
+          IMG="$IMAGE_NAME"
+          TAGS="$IMG:latest"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF#refs/tags/}"
+            TAGS="$TAGS,$IMG:$VER"
+          else
+            TAGS="$TAGS,$IMG:run-${{ github.run_number }}"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push single-container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.single
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
