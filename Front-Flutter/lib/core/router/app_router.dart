@@ -13,7 +13,8 @@ import '../../features/events/presentation/pages/events_list_page.dart';
 import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
-import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/todos/presentation/pages/todos_page.dart';import '../../features/posts/presentation/pages/posts_page.dart';
+
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/profile_edit_page.dart';
@@ -222,6 +223,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/search',
         builder: (_, _) => const SearchPage(),
+      ),
+      // 帖子（EASY-2 生成）
+      GoRoute(
+        path: '/posts',
+        builder: (_, _) => const PostsPage(),
       ),
       // Legal pages
       GoRoute(
