@@ -1,29 +1,31 @@
- import { create } from 'zustand'
- import { uploadService } from '../services/upload-service'
- 
- interface UploadState {
-   isUploading: boolean
-   uploadedUrl: string | null
-   error: string | null
- 
-   upload: (filePath: string) => Promise<void>
-   clear: () => void
- }
- 
- export const useUploadStore = create<UploadState>((set) => ({
-   isUploading: false,
-   uploadedUrl: null,
-   error: null,
- 
-   upload: async (filePath) => {
-     set({ isUploading: true, error: null, uploadedUrl: null })
-     try {
-       const result = await uploadService.uploadFile(filePath)
-       set({ isUploading: false, uploadedUrl: result.url })
-     } catch (err: any) {
-       set({ isUploading: false, error: err.message || 'Upload failed' })
-     }
-   },
- 
-   clear: () => set({ uploadedUrl: null, error: null }),
- }))
+import { defineStore } from 'pinia'
+import { uploadService } from '../services/upload-service'
+
+/** 文件上传状态（Taro→Vue3 迁移：zustand → pinia）：上传中/结果 URL/错误。 */
+export const useUploadStore = defineStore('upload', {
+  state: () => ({
+    isUploading: false,
+    uploadedUrl: null as string | null,
+    error: null as string | null,
+  }),
+  actions: {
+    async upload(filePath: string) {
+      this.isUploading = true
+      this.error = null
+      this.uploadedUrl = null
+      try {
+        const result = await uploadService.uploadFile(filePath)
+        this.isUploading = false
+        this.uploadedUrl = result.url
+      } catch (err: any) {
+        this.isUploading = false
+        this.error = err.message || 'Upload failed'
+      }
+    },
+
+    clear() {
+      this.uploadedUrl = null
+      this.error = null
+    },
+  },
+})

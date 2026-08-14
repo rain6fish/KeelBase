@@ -1,67 +1,53 @@
- import { create } from 'zustand'
- import { notificationService } from '../services/notification-service'
- import type { NotificationItem } from '../types/notification'
+import { defineStore } from 'pinia'
+import { notificationService } from '../services/notification-service'
+import type { NotificationItem } from '../types/notification'
 
- interface NotificationState {
-   notifications: NotificationItem[]
-   unreadCount: number
-   isLoading: boolean
-   hasMore: boolean
-   error: string | null
+/** 通知状态（Taro→Vue3 迁移：zustand → pinia）：分页加载 + 已读/全部已读/删除。 */
+export const useNotificationStore = defineStore('notification', {
+  state: () => ({
+    notifications: [] as NotificationItem[],
+    unreadCount: 0,
+    isLoading: false,
+    hasMore: true,
+    error: null as string | null,
+  }),
+  actions: {
+    async load(refresh = false) {
+      if (this.isLoading) return
+      const page = refresh ? 1 : Math.floor(this.notifications.length / 20) + 1
+      this.isLoading = true
+      this.error = null
+      try {
+        const result = await notificationService.getNotifications(page, 20)
+        this.notifications = refresh
+          ? result.items
+          : [...this.notifications, ...result.items]
+        this.unreadCount = await notificationService.getUnreadCount()
+        this.isLoading = false
+        this.hasMore = page * 20 < result.total
+      } catch (err: any) {
+        this.error = err.message || 'Failed to load notifications'
+        this.isLoading = false
+      }
+    },
 
-   load: (refresh?: boolean) => Promise<void>
-   markRead: (id: number) => Promise<void>
-   markAllRead: () => Promise<void>
-   remove: (id: number) => Promise<void>
- }
+    async markRead(id: number) {
+      await notificationService.markRead(id)
+      this.notifications = this.notifications.map((n) =>
+        n.id === id ? { ...n, isRead: true } : n,
+      )
+      this.unreadCount = Math.max(0, this.unreadCount - 1)
+    },
 
- export const useNotificationStore = create<NotificationState>((set, get) => ({
-   notifications: [],
-   unreadCount: 0,
-   isLoading: false,
-   hasMore: true,
-   error: null,
+    async markAllRead() {
+      await notificationService.markAllRead()
+      this.notifications = this.notifications.map((n) => ({ ...n, isRead: true }))
+      this.unreadCount = 0
+    },
 
-   load: async (refresh = false) => {
-     const state = get()
-     if (state.isLoading) return
-     const page = refresh ? 1 : Math.floor(state.notifications.length / 20) + 1
-     set({ isLoading: true, error: null })
-     try {
-       const result = await notificationService.getNotifications(page, 20)
-       set({
-         notifications: refresh ? result.items : [...state.notifications, ...result.items],
-         unreadCount: await notificationService.getUnreadCount(),
-         isLoading: false,
-         hasMore: page * 20 < result.total,
-       })
-     } catch (err: any) {
-       set({ error: err.message || 'Failed to load notifications', isLoading: false })
-     }
-   },
-
-   markRead: async (id) => {
-     await notificationService.markRead(id)
-     set({
-       notifications: get().notifications.map((n) =>
-         n.id === id ? { ...n, isRead: true } : n,
-       ),
-       unreadCount: Math.max(0, get().unreadCount - 1),
-     })
-   },
-
-   markAllRead: async () => {
-     await notificationService.markAllRead()
-     set({
-       notifications: get().notifications.map((n) => ({ ...n, isRead: true })),
-       unreadCount: 0,
-     })
-   },
-
-   remove: async (id) => {
-     await notificationService.deleteNotification(id)
-     set({
-       notifications: get().notifications.filter((n) => n.id !== id),
-     })
-   },
- }))
+    async remove(id: number) {
+      await notificationService.deleteNotification(id)
+      this.notifications = this.notifications.filter((n) => n.id !== id)
+    },
+  },
+})
