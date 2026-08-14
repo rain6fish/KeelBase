@@ -123,10 +123,28 @@ async function main() {
     return;
   }
 
-  // ── 收集输入：--desc 走 LLM；交互可输自然语言 ──
+  // ── 收集输入：--spec 读协议 JSON；--desc 走 LLM；交互可输自然语言 ──
   let name = args.module;
   let label = args.label;
   let fieldsStr = args.fields;
+
+  // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
+  if (args.spec) {
+    let spec;
+    try {
+      spec = JSON.parse(await readFile(args.spec, 'utf8'));
+    } catch (err) {
+      fail(`无法读取协议文件 ${args.spec}: ${err.message}`);
+    }
+    if (spec.module) name = spec.module;
+    if (spec.plural && !name) name = spec.plural;
+    if (spec.label) label = spec.label;
+    if (Array.isArray(spec.fields)) {
+      fieldsStr = spec.fields
+        .map((f) => `${f.name}${f.type ? `:${f.type}` : ''}`)
+        .join(',');
+    }
+  }
 
   async function llmExtract(description) {
     const r = await extractSpec(description);
