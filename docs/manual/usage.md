@@ -53,7 +53,7 @@ Frontend defaults to `http://localhost:3000/api/v1` / 前端默认对接 `http:/
 > 单容器（`./scripts/docker-single.sh`）已内嵌管理台到 `/admin`，无需单独构建。以下为本地开发/独立部署路径。
 
 ```bash
-cd Web-Admin
+cd Web-Admin-Vue
 npm install
 npm run dev          # Vite dev server → http://localhost:10086/admin/
 ```

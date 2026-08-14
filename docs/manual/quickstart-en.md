@@ -76,7 +76,7 @@ flutter run -d chrome
 ### Admin Console (Vue3 PC Web)
 
 ```bash
-cd Web-Admin
+cd Web-Admin-Vue
 npm install
 npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```

@@ -255,11 +255,11 @@ export async function wireFrontend(ctx, root = '') {
   return results;
 }
 
-/** Web-Admin 接线（⑤-2）：routes + navGroups + i18n zh/en。 */
+/** Web-Admin-Vue 接线（⑤-2）：routes + navGroups + i18n zh/en。 */
 export async function wireAdmin(ctx, root = '') {
   const results = [];
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
-  const WA = `${root}${sep}Web-Admin/src`;
+  const WA = `${root}${sep}Web-Admin-Vue/src`;
   const keys = adminI18nKeys(ctx);
 
   // 1) 路由：data-import 后加懒加载管理路由

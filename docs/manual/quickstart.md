@@ -113,7 +113,7 @@ flutter run -d chrome
 ### 2.3 管理台（Vue3 PC Web）
 
 ```bash
-cd Web-Admin
+cd Web-Admin-Vue
 npm install
 npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```

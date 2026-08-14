@@ -28,9 +28,9 @@ COPY --from=server-build /app/server/dist ./dist
  # ---- Builder stage for Admin Console (Vue3 PC Web, /admin sub-path) ----
  FROM node:22-alpine AS admin-build
  WORKDIR /app/admin
- COPY Web-Admin/package*.json ./
+ COPY Web-Admin-Vue/package*.json ./
  RUN npm ci
- COPY Web-Admin/ .
+ COPY Web-Admin-Vue/ .
  RUN npm run build
 
  # ---- Nginx to serve Flutter web + admin console ----

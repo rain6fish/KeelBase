@@ -14,7 +14,7 @@ Related manuals / 相关手册：
 ```
 Front-Flutter (Flutter 3.x)  ──┐
 Front-Taro (Taro H5/小程序)    ├──→  Server-Nodejs (NestJS 11)  ──→  SQLite/PostgreSQL
-Web-Admin (Vue3 管理台)      ──┘                                  Redis (缓存/队列)
+Web-Admin-Vue (Vue3 管理台)      ──┘                                  Redis (缓存/队列)
 ```
 
 | Layer / 层 | Tech / 技术 | Notes / 说明 |

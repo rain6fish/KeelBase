@@ -63,7 +63,7 @@ async function bootstrap() {
     const adminDir = join(publicDir, 'admin');
     // 主 App（Flutter web，hash 路由无需 SPA fallback）
     app.useStaticAssets(publicDir);
-    // 管理台（Web-Admin Vue3 独立构建，/admin 子路径）
+    // 管理台（Web-Admin-Vue Vue3 独立构建，/admin 子路径）
     app.useStaticAssets(adminDir, { prefix: '/admin' });
     logger.log('Serving web + admin console from public/ (single-container mode)');
   }
