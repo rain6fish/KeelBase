@@ -80,7 +80,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 |-----------|-------------|------|
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app | 主用户 App（三端） |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app | 主 App 的 H5/小程序端 |
-| `Web-Admin/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated | 独立管理台（完全隔离） |
+| `Web-Admin/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated；**React version planned**（面向海外用户的 React 管理端规划中） | 独立管理台（完全隔离）；**React 版规划中**（未来推出） |
 | `Server-Nodejs/` | NestJS backend (REST API) | NestJS 后端 |
 | `docs/` | Specs, requirements, roadmap, manuals | 规格、需求、路线图、手册 |
 | `.github/workflows/` | CI pipeline (lint + test + build) | CI 流水线 |
