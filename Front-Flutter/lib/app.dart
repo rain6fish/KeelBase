@@ -9,6 +9,7 @@ import 'core/services/theme_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'core/services/push_token_provider.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -21,6 +22,7 @@ class _AppState extends State<App> {
   GoRouter? _router;
   AuthProvider? _lastAuth;
   OnboardingProvider? _lastOnboarding;
+  bool? _lastAuthenticated;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,18 @@ class _AppState extends State<App> {
       _router = createRouter(authProvider, onboardingProvider);
       _lastAuth = authProvider;
       _lastOnboarding = onboardingProvider;
+    }
+
+    // GROWTH-1 推送：登录态变化时注册/注销设备 token（Noop 未接厂商时跳过）
+    final isAuthenticated = authProvider.isAuthenticated;
+    if (isAuthenticated != _lastAuthenticated) {
+      _lastAuthenticated = isAuthenticated;
+      final pushToken = context.read<PushTokenProvider>();
+      if (isAuthenticated) {
+        pushToken.registerDevice();
+      } else {
+        pushToken.unregister();
+      }
     }
 
     final isDark = themeProvider.themeMode == AppThemeMode.dark ||
