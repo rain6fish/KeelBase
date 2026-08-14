@@ -323,6 +323,33 @@ describe('AiService', () => {
       expect(result.reply).toBe('You have 1 event and 3 active events total.');
     });
 
+    it('HS-5: should truncate oversized tool results (array)', () => {
+      const svc = aiService as any;
+      const bigData = Array.from({ length: 500 }, (_, i) => ({ id: i, title: `Event ${i}`.repeat(10) }));
+      const json = svc.truncateToolResult({ success: true, data: bigData });
+      expect(json).toContain('_truncated');
+      expect(json.length).toBeLessThan(5000);
+      // 数组被截断到前 N 条
+      expect(JSON.parse(json).data).toHaveLength(20);
+    });
+
+    it('HS-5: should truncate oversized object results', () => {
+      const svc = aiService as any;
+      const hugeObj: Record<string, string> = {};
+      for (let i = 0; i < 200; i++) hugeObj[`key${i}`] = 'x'.repeat(50);
+      const json = svc.truncateToolResult({ success: true, data: hugeObj });
+      expect(json.length).toBeLessThan(5000);
+      expect(json).toContain('_truncated');
+    });
+
+    it('HS-5: should keep small tool results unchanged', () => {
+      const svc = aiService as any;
+      const small = { success: true, data: [{ id: 1, title: 'Meeting' }] };
+      const json = svc.truncateToolResult(small);
+      expect(json).toBe(JSON.stringify(small));
+      expect(json).not.toContain('_truncated');
+    });
+
     it('should use specified provider when provided', async () => {
       mockProvider.generate.mockResolvedValue({ content: 'OK' });
 

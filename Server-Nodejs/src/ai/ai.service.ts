@@ -811,7 +811,7 @@ export class AiService {
           }
           messages.push({
             role: 'tool',
-            content: JSON.stringify(result),
+            content: this.truncateToolResult(result),
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行审计（对齐非流式 runToolLoop）
@@ -947,6 +947,45 @@ export class AiService {
     }
   }
 
+  /** HS-5 工具结果字符上限（防大查询结果撑爆上下文窗口） */
+  private static readonly TOOL_RESULT_MAX_CHARS = 4000;
+  private static readonly TOOL_RESULT_MAX_ARRAY = 20;
+
+  /**
+   * HS-5 截断工具结果：超限时保留结构（数组截断到前 N 条 + 标记），
+   * 让 LLM 拿到足够信息回答，又不会撑爆上下文。
+   */
+  private truncateToolResult(result: ToolResult): string {
+    let json = JSON.stringify(result);
+    if (json.length <= AiService.TOOL_RESULT_MAX_CHARS) return json;
+
+    // 数组结果：截断到前 N 条
+    const data = result.data as any;
+    if (Array.isArray(data)) {
+      const truncated = data.slice(0, AiService.TOOL_RESULT_MAX_ARRAY);
+      const slim = {
+        ...result,
+        data: truncated,
+        _truncated: `结果已截断，共 ${data.length} 条，仅展示前 ${AiService.TOOL_RESULT_MAX_ARRAY} 条`,
+      };
+      json = JSON.stringify(slim);
+    } else if (data && typeof data === 'object') {
+      // 对象结果：精简到成功标志 + 截断标记，避免回填巨量详情
+      const slim = {
+        success: result.success,
+        error: result.error,
+        data: { _truncated: '结果过大已精简，详情请查审计日志', _originalKeys: Object.keys(data) },
+      };
+      json = JSON.stringify(slim);
+    }
+
+    // 保底：字符串硬截断 + 提示
+    if (json.length > AiService.TOOL_RESULT_MAX_CHARS) {
+      json = `${json.slice(0, AiService.TOOL_RESULT_MAX_CHARS)}... [截断]`;
+    }
+    return json;
+  }
+
   /**
    * 获取带 Fallback 的 Provider
    */
@@ -1079,7 +1118,7 @@ export class AiService {
 
           messages.push({
             role: 'tool',
-            content: JSON.stringify(resolvedResult),
+            content: this.truncateToolResult(resolvedResult),
             tool_call_id: tc.id,
           });
         } catch {
