@@ -30,7 +30,8 @@ import { useI18n } from 'vue-i18n'
 withDefaults(
   defineProps<{
     headers: { key: string; title: string; sortable?: boolean; width?: string | number }[]
-    items: any[]
+    // Vuetify v-data-table 的 items 透传，其内部即 any，父组件插槽按具体类型解构
+    items: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
     loading?: boolean
     total?: number
     itemsPerPage?: number
