@@ -17,6 +17,7 @@ import { QueueModule } from '../queue/queue.module';
 import { EncryptionModule } from '../common/utils/encryption.module';
 import { AiModule } from '../ai/ai.module';
 import { AdminAiController } from './admin-ai.controller';
+import { HeadlessModule } from '../headless/headless.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AdminAiController } from './admin-ai.controller';
     QueueModule,
     EncryptionModule,
     AiModule,
+    HeadlessModule,
   ],
   controllers: [AdminController, AdminAiController],
   providers: [AdminService],
