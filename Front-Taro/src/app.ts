@@ -1,14 +1,16 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import { useAuthStore } from './stores/auth-store'
 import { useThemeStore } from './stores/theme-store'
 import './app.scss'
 
-// Taro Vue3 入口：导出 createApp 实例，框架自动挂载。
-// stores 迁移到 pinia 后，在此 app.use(createPinia()) 并改用 pinia API。
-const App = createApp({})
+const pinia = createPinia()
 
-// 启动初始化（模块顶层执行，store 迁移中暂用 zustand API）
-useAuthStore.getState().tryAutoLogin()
-useThemeStore.getState().initialize()
+const App = createApp({})
+App.use(pinia)
+
+// 启动初始化（pinia 激活后，组件外调用需传实例）
+useAuthStore(pinia).tryAutoLogin()
+useThemeStore(pinia).initialize()
 
 export default App
