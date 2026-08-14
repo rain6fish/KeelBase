@@ -63,6 +63,7 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 
 ## 5. AI 生成 vs 手工
 
-- **标准 CRUD 模块**：用 `npx keelbase init`（零依赖确定性模板 + 自动接线）
+- **标准 CRUD 模块**：用 `npx keelbase init`（零依赖确定性模板 + 自动接线）；可从协议 JSON 读规格：`--spec module.json`（见 [docs/module-protocol.md](docs/module-protocol.md)）
 - **复杂/非 CRUD**：AI 按第 3 节清单手工实现，遵循基座约定
+- **业务模块协议**（EASY-7）：协议只覆盖高频 20% 字段（string/text/int/bool/date），复杂字段/业务走手写；见 [docs/module-protocol.md](docs/module-protocol.md)
 - 生成的代码必须「AI 可继续扩展」：结构符合约定 + 测试骨架 + 模块清单登记
