@@ -22,6 +22,11 @@ import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { AiTool, ToolResult } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import {
+  markSystemBoundary,
+  sanitizeExternalContent,
+  sanitizeMemoryEntry,
+} from './security/injection-guard';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
@@ -1192,30 +1197,38 @@ export class AiService {
     ];
 
     // 注入用户长期记忆（第二条 system 消息，作为参考上下文）
+    // HS-8：记忆内容注入前掩码敏感字段 + 系统边界标注 + 丢弃疑似注入条
     const memories = await this.memoryService.getForUser(effectiveConv.userId, 8);
-    if (memories.length > 0) {
+    const sanitizedMemories = memories
+      .map((m) => {
+        const clean = sanitizeMemoryEntry(m.content);
+        return clean ? { ...m, content: clean } : null;
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+    if (sanitizedMemories.length > 0) {
       messages.push({
         role: 'system',
         content:
-          '以下是关于用户的长期记忆（供参考；如与当前对话冲突，以当前对话为准）：\n' +
-          memories.map((m) => `- ${m.content}`).join('\n'),
+          markSystemBoundary('memory', sanitizedMemories.map((m) => `- ${m.content}`).join('\n')),
       });
       // fire-and-forget：记录使用时间以提升相关度排序
       void this.memoryService
         .markUsed(
           effectiveConv.userId,
-          memories.map((m) => m.content),
+          sanitizedMemories.map((m) => m.content),
         )
         .catch(() => {});
     }
 
     // 对话前文摘要（第三条 system 消息）
+    // HS-8：摘要也走掩码 + 边界标注
     if (effectiveConv.summary) {
       messages.push({
         role: 'system',
-        content:
-          '以下是本对话前文摘要（供参考；如与当前对话冲突，以当前对话为准）：\n' +
-          effectiveConv.summary,
+        content: markSystemBoundary(
+          'summary',
+          sanitizeExternalContent(effectiveConv.summary),
+        ),
       });
     }
 

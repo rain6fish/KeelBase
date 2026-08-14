@@ -10,6 +10,7 @@
 import { Injectable } from '@nestjs/common';
 import { ChatMessage, LlmProvider } from '../interfaces/llm-provider.interface';
 import { KnowledgeService } from '../rag/knowledge.service';
+import { markSystemBoundary, sanitizeExternalContent } from '../security/injection-guard';
 
 export interface KnowledgeArticle {
   id: number;
@@ -43,8 +44,9 @@ export class RagAgent {
     const articles = await this.search(userMessage);
 
     // Step 2: 构建增强 Prompt
+    // HS-8：检索结果注入前掩码敏感字段 + 系统边界标注（知识库内容非用户指令）
     const contextContent = articles
-      .map((a) => `[${a.title}] ${a.content}`)
+      .map((a) => `[${a.title}] ${sanitizeExternalContent(a.content)}`)
       .join('\n\n');
 
     const augmentedMessages: ChatMessage[] = [
@@ -53,7 +55,7 @@ export class RagAgent {
         ? [
             {
               role: 'system',
-              content: `参考文档：\n${contextContent}`,
+              content: markSystemBoundary('knowledge', contextContent),
             } as ChatMessage,
           ]
         : []),
