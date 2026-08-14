@@ -17,6 +17,7 @@ import { FlowDefinition } from './entities/flow-definition.entity';
 import { FlowInstance } from './entities/flow-instance.entity';
 import { FlowTask } from './entities/flow-task.entity';
 import { FlowNode, HumanTaskNode, FlowDefinition as FlowDef } from './flow-definition.types';
+import { User } from '../common/entities/user.entity';
 import { runHumanTask } from './node-registry/human-task.node';
 import { runAiTask } from './node-registry/ai-task.node';
 import { evalCondition } from './node-registry/condition.node';
@@ -33,6 +34,7 @@ export class FlowRuntimeService {
     @InjectRepository(FlowDefinition) private readonly defRepo: Repository<FlowDefinition>,
     @InjectRepository(FlowInstance) private readonly instRepo: Repository<FlowInstance>,
     @InjectRepository(FlowTask) private readonly taskRepo: Repository<FlowTask>,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
     private readonly providerFactory: LlmProviderFactory,
     private readonly auditService: AuditService,
@@ -120,7 +122,7 @@ export class FlowRuntimeService {
       await this.advance(inst, node.next, out);
     } else {
       // human_task：建待办 + 通知，实例保持 running 挂起
-      await runHumanTask(this.taskRepo, this.notificationsService, inst, node);
+      await runHumanTask(this.taskRepo, this.usersRepo, this.notificationsService, inst, node);
     }
   }
 
@@ -164,12 +166,22 @@ export class FlowRuntimeService {
     if (task.assigneeId !== userId) throw new ForbiddenException('无权审批该任务');
     if (task.status !== 'pending') throw new BadRequestException('任务已处理');
 
+    const inst = await this.instRepo.findOne({ where: { id: task.instanceId } });
+    if (!inst) throw new NotFoundException('流程实例不存在');
+
+    // FLOW-4：节点声明 roles 时，审批人须属于该角色（CASL 思路的节点级权限）
+    const def = await this.getDefinition(inst.definitionId);
+    const roleNode = def?.nodes.find((n) => n.id === task.nodeId);
+    if (roleNode?.roles && roleNode.roles.length > 0) {
+      const approver = await this.usersRepo.findOne({ where: { id: userId } });
+      if (!approver || !roleNode.roles.includes(approver.role)) {
+        throw new ForbiddenException('审批人角色不符');
+      }
+    }
+
     task.status = decision === 'approve' ? 'approved' : 'rejected';
     task.decisionNote = note;
     await this.taskRepo.save(task);
-
-    const inst = await this.instRepo.findOne({ where: { id: task.instanceId } });
-    if (!inst) throw new NotFoundException('流程实例不存在');
 
     await this.auditService.log({
       userId: String(userId),
@@ -184,8 +196,7 @@ export class FlowRuntimeService {
       return inst;
     }
 
-    const def = await this.getDefinition(inst.definitionId);
-    const node = def?.nodes.find((n) => n.id === task.nodeId) as HumanTaskNode | undefined;
+    const node = roleNode as HumanTaskNode | undefined;
     const data = JSON.parse(inst.dataJson || '{}') as Record<string, unknown>;
     await this.advance(inst, node?.next, data);
     return inst;

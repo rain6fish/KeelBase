@@ -9,6 +9,8 @@ export interface FlowNodeBase {
   id: string;
   type: FlowNodeType;
   name: string;
+  /** 可执行/可审批该节点的角色（如 admin/manager，FLOW-4 权限）；空 = 无角色限制 */
+  roles?: string[];
 }
 
 /** 人工审批/确认节点：指派审批人，等待 approve/reject 后推进。 */

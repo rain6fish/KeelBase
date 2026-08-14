@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { User } from '../common/entities/user.entity';
 import { FlowRuntimeService } from './flow-runtime.service';
 import { FlowDefinition } from './entities/flow-definition.entity';
 import { FlowInstance } from './entities/flow-instance.entity';
@@ -32,6 +33,7 @@ describe('FlowRuntimeService', () => {
     findOne: jest.fn(),
   };
   const mockTaskRepo = { create: (x: any) => x, save: jest.fn((t: any) => Promise.resolve(t)), find: jest.fn(), findOne: jest.fn() };
+  const mockUsersRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
   const mockNotify = { create: jest.fn().mockResolvedValue({}) };
   const mockProviderFactory = { getProvider: jest.fn() };
@@ -47,6 +49,7 @@ describe('FlowRuntimeService', () => {
         { provide: getRepositoryToken(FlowDefinition), useValue: mockDefRepo },
         { provide: getRepositoryToken(FlowInstance), useValue: mockInstRepo },
         { provide: getRepositoryToken(FlowTask), useValue: mockTaskRepo },
+        { provide: getRepositoryToken(User), useValue: mockUsersRepo },
         { provide: NotificationsService, useValue: mockNotify },
         { provide: LlmProviderFactory, useValue: mockProviderFactory },
         { provide: AuditService, useValue: mockAudit },
@@ -103,5 +106,30 @@ describe('FlowRuntimeService', () => {
   it('resolveTask：已处理任务拒绝重复审批', async () => {
     mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'b', assigneeId: 5, status: 'approved' });
     await expect(service.resolveTask(1, 'approve', 5)).rejects.toThrow(BadRequestException);
+  });
+
+  it('resolveTask：节点 roles 声明时非该角色审批人拒绝', async () => {
+    const roleDef: FlowDef = {
+      id: 'role_flow', name: '角色流程', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '管理员审批', roles: ['admin'] }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'role_flow', name: '角色流程', version: '1.0', nodesJson: JSON.stringify(roleDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 5, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'role_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    mockUsersRepo.findOne.mockResolvedValue({ id: 5, role: 'user' });
+    await expect(service.resolveTask(1, 'approve', 5)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('resolveTask：节点 roles 声明且审批人属该角色通过', async () => {
+    const roleDef: FlowDef = {
+      id: 'role_flow', name: '角色流程', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '管理员审批', roles: ['admin'] }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'role_flow', name: '角色流程', version: '1.0', nodesJson: JSON.stringify(roleDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 5, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'role_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    mockUsersRepo.findOne.mockResolvedValue({ id: 5, role: 'admin' });
+    await service.resolveTask(1, 'approve', 5);
+    expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'completed' }));
   });
 });
