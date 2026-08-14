@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { User } from '../common/entities/user.entity';
+import { OrgMember } from '../org/org-member.entity';
 import { FlowRuntimeService } from './flow-runtime.service';
 import { FlowDefinition } from './entities/flow-definition.entity';
 import { FlowInstance } from './entities/flow-instance.entity';
@@ -34,6 +35,7 @@ describe('FlowRuntimeService', () => {
   };
   const mockTaskRepo = { create: (x: any) => x, save: jest.fn((t: any) => Promise.resolve(t)), find: jest.fn(), findOne: jest.fn() };
   const mockUsersRepo = { find: jest.fn(), findOne: jest.fn() };
+  const mockOrgMemberRepo = { findOne: jest.fn(), find: jest.fn() };
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
   const mockNotify = { create: jest.fn().mockResolvedValue({}) };
   const mockProviderFactory = { getProvider: jest.fn() };
@@ -50,6 +52,7 @@ describe('FlowRuntimeService', () => {
         { provide: getRepositoryToken(FlowInstance), useValue: mockInstRepo },
         { provide: getRepositoryToken(FlowTask), useValue: mockTaskRepo },
         { provide: getRepositoryToken(User), useValue: mockUsersRepo },
+        { provide: getRepositoryToken(OrgMember), useValue: mockOrgMemberRepo },
         { provide: NotificationsService, useValue: mockNotify },
         { provide: LlmProviderFactory, useValue: mockProviderFactory },
         { provide: AuditService, useValue: mockAudit },
@@ -131,5 +134,49 @@ describe('FlowRuntimeService', () => {
     mockUsersRepo.findOne.mockResolvedValue({ id: 5, role: 'admin' });
     await service.resolveTask(1, 'approve', 5);
     expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'completed' }));
+  });
+
+  it('ORG-4：human_task 按组织角色解析审批人（有组织管理员）', async () => {
+    const orgDef: FlowDef = {
+      id: 'org_flow', name: '组织审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '组织管理员审批', assigneeOrgRole: { scope: 'org', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'org_flow', name: '组织审批', version: '1.0', nodesJson: JSON.stringify(orgDef.nodes), audit: true, confirmationRequired: true });
+    mockInstRepo.save.mockImplementation((i: any) => Promise.resolve({ ...i, id: 1 }));
+    // 发起人成员 + 候选组织管理员
+    mockOrgMemberRepo.findOne
+      .mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' })
+      .mockResolvedValueOnce({ orgId: 1, userId: 99, deptId: null, role: 'admin' });
+    await service.start('org_flow', {}, 5);
+    expect(mockTaskRepo.save).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: 99 }));
+  });
+
+  it('ORG-4：无组织管理员候选 → 回退发起人', async () => {
+    const orgDef: FlowDef = {
+      id: 'org_flow', name: '组织审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '组织管理员审批', assigneeOrgRole: { scope: 'org', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'org_flow', name: '组织审批', version: '1.0', nodesJson: JSON.stringify(orgDef.nodes), audit: true, confirmationRequired: true });
+    mockInstRepo.save.mockImplementation((i: any) => Promise.resolve({ ...i, id: 1 }));
+    mockOrgMemberRepo.findOne
+      .mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' }) // 发起人成员
+      .mockResolvedValueOnce(null); // 无管理员候选
+    await service.start('org_flow', {}, 5);
+    expect(mockTaskRepo.save).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: 5 }));
+  });
+
+  it('ORG-4：resolveTask 时审批人不再持有组织角色 → 拒绝', async () => {
+    const orgDef: FlowDef = {
+      id: 'org_flow', name: '组织审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '组织管理员审批', assigneeOrgRole: { scope: 'org', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'org_flow', name: '组织审批', version: '1.0', nodesJson: JSON.stringify(orgDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 99, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'org_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    // 发起人成员存在；审批人已不是该组织 admin
+    mockOrgMemberRepo.findOne
+      .mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' })
+      .mockResolvedValueOnce(null);
+    await expect(service.resolveTask(1, 'approve', 99)).rejects.toThrow(ForbiddenException);
   });
 });

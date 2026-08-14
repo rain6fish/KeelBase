@@ -11,6 +11,10 @@ const nodeSchema = Joi.alternatives().try(
     roles: rolesSchema,
     assigneeUserId: Joi.number().optional(),
     assigneeRole: Joi.string().optional(),
+    assigneeOrgRole: Joi.object({
+      scope: Joi.valid('org', 'department').required(),
+      role: Joi.valid('owner', 'admin', 'member').required(),
+    }).optional(),
     next: Joi.string().optional(),
   }),
   Joi.object({

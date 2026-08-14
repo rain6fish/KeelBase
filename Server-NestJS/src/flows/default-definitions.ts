@@ -25,4 +25,34 @@ export const DEFAULT_FLOW_DEFINITIONS: FlowDefinition[] = [
     ],
     security: { audit: true, confirmationRequired: true },
   },
+  {
+    id: 'org_request_approval',
+    name: '组织内申请审批',
+    version: '1.0',
+    trigger: 'form_submit:/api/org/requests',
+    nodes: [
+      {
+        id: 'check_dept',
+        type: 'condition',
+        name: '是否有部门',
+        expr: '{{hasDepartment}} == true',
+        then: 'dept_approve',
+        else: 'org_approve',
+      },
+      {
+        id: 'dept_approve',
+        type: 'human_task',
+        name: '部门管理员审批',
+        assigneeOrgRole: { scope: 'department', role: 'admin' },
+        next: 'org_approve',
+      },
+      {
+        id: 'org_approve',
+        type: 'human_task',
+        name: '组织管理员审批',
+        assigneeOrgRole: { scope: 'org', role: 'admin' },
+      },
+    ],
+    security: { audit: true, confirmationRequired: true },
+  },
 ];

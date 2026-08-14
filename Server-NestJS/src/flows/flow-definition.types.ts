@@ -18,6 +18,11 @@ export interface HumanTaskNode extends FlowNodeBase {
   type: 'human_task';
   assigneeUserId?: number;
   assigneeRole?: string;
+  /**
+   * ORG-4：按组织角色解析审批人（scope=org 组织级 / department 部门级）。
+   * 运行时按发起人所在组织/部门解析，流程定义可跨组织共享。
+   */
+  assigneeOrgRole?: { scope: 'org' | 'department'; role: 'owner' | 'admin' | 'member' };
   /** 下一节点；空 = 流程完成 */
   next?: string;
 }
