@@ -1,9 +1,15 @@
-// 全局基础样式。Vuetify 负责组件；这里只放应用级覆盖（页面背景、滚动条等）。
+// 全局基础样式。Vuetify 负责组件；这里只放应用级覆盖（字体兜底、留白、侧边栏质感等）。
 html,
 body,
 #app {
   height: 100%;
   margin: 0;
+}
+
+// 字体由 settings.scss $body-font-family 接入，此处兜底
+body {
+  font-family: 'Public Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 // 侧边栏导航项
@@ -16,7 +22,28 @@ body,
   padding: 12px 12px 4px;
 }
 
-// 内容区卡片统一间距
+// 内容区统一留白（全宽 + 24px，Materio 式）
 .v-content-pad {
-  padding: 20px;
+  padding: 24px;
+}
+
+// 卡片质感：阴影过渡（配合 defaults elevation 0 的轻卡片风格）
+.v-card {
+  transition: box-shadow 0.2s ease;
+}
+
+// 侧边栏激活项：primary 底 + 白字 + 圆角 + 轻投影（对齐 Materio/Matdash）
+.v-navigation-drawer .v-list-item--active {
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 17px 20px -8px rgba(47, 107, 245, 0.22);
+}
+.v-navigation-drawer .v-list-item--active .v-list-item__prepend {
+  color: #fff;
+}
+
+// 侧边栏导航项 hover：primary 浅底（非激活项）
+.v-navigation-drawer .v-list-item--nav:not(.v-list-item--active):hover {
+  background: rgb(var(--v-theme-lightprimary));
 }

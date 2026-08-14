@@ -7,7 +7,13 @@ import vuetify from 'vite-plugin-vuetify'
 // 产物资源走绝对路径 /admin/assets/*，两套部署链都命中。
 export default defineConfig({
   base: '/admin/',
-  plugins: [vue(), vuetify({ autoImport: true })],
+  plugins: [
+    vue(),
+    vuetify({
+      autoImport: true,
+      styles: { configFile: 'src/styles/settings.scss' },
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
