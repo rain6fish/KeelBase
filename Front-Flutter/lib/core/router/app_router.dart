@@ -14,6 +14,7 @@ import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
 import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/tags/presentation/pages/tags_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
 import '../../features/books/presentation/pages/books_page.dart';
 import '../../features/posts/presentation/pages/posts_page.dart';
@@ -241,6 +242,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/notes',
         builder: (_, _) => const NotesPage(),
+      ),
+      // 标签（EASY-2 生成）
+      GoRoute(
+        path: '/tags',
+        builder: (_, _) => const TagsPage(),
       ),
       // Legal pages
       GoRoute(

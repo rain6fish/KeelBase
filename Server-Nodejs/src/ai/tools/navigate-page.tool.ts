@@ -28,6 +28,7 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   profile: { route: '/profile', description: '个人资料' },
   settings: { route: '/settings', description: '设置' },
   todos: { route: '/todos', description: '待办清单' },
+  tags: { route: '/tags', description: '标签' },
   notes: { route: '/notes', description: '笔记' },
   books: { route: '/books', description: '图书' },
   posts: { route: '/posts', description: '帖子' },
