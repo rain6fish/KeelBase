@@ -194,8 +194,8 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// 将 branch 索引（0-4）映射到 tab 索引（0-5），跳过 index 2 的 More 按钮
-int _branchToTab(int branch) => branch < 2 ? branch : branch + 2;
+/// 将 branch 索引映射到 tab 索引，跳过 index 2 的 More 按钮（branch 0/1 → 0/1，其余 +1）
+int _branchToTab(int branch) => branch < 2 ? branch : branch + 1;
 
 /// Lightweight pseudo-blur filter for the tab bar.
 class _PseudoBlurFilter {
