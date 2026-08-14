@@ -59,12 +59,15 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
     children: [
       ...consoleChildren,
-      // 工作台（应用侧）：普通企业用户；WEB-FRONT-3 子页挂这里继承 roles
+      // 工作台（应用侧）：普通企业用户；子页挂这里继承 roles
       {
         path: 'workbench',
         meta: { roles: ['user'] },
         children: [
           { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
+          { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
+          { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
+          { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
         ],
       },
     ],

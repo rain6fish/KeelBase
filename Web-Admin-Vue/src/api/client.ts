@@ -18,13 +18,20 @@ function isPublicEndpoint(path: string): boolean {
 
 export class ApiError extends Error {
   statusCode: number
+  errorCode?: string
   errors?: Record<string, string[]>
 
-  constructor(message: string, statusCode: number, errors?: Record<string, string[]>) {
+  constructor(message: string, statusCode: number, errorCode?: string, errors?: Record<string, string[]>) {
     super(message)
     this.statusCode = statusCode
+    this.errorCode = errorCode
     this.errors = errors
   }
+}
+
+/** 后端业务错误码判断：写操作邮箱未验证 403 */
+export function isEmailNotVerified(err: unknown): boolean {
+  return err instanceof ApiError && err.errorCode === 'EMAIL_NOT_VERIFIED'
 }
 
 // 共享刷新 Promise：并发 401 时只发一次刷新请求（防 stampede）
@@ -114,13 +121,13 @@ instance.interceptors.response.use(
 function normalizeError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   const axiosErr = error as {
-    response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } }
+    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]> } }
     message?: string
   }
   const status = axiosErr.response?.status ?? 0
   const message =
     axiosErr.response?.data?.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
-  return new ApiError(message, status, axiosErr.response?.data?.errors)
+  return new ApiError(message, status, axiosErr.response?.data?.errorCode, axiosErr.response?.data?.errors)
 }
 
 /** 与旧 api 封装对齐的调用面：get/post/patch/delete */

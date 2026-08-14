@@ -121,6 +121,14 @@ const workspaceNavGroups = computed(() => [
     label: t('navWorkbench'),
     items: [{ name: 'workbench-home', to: '/workbench', icon: 'mdi-home-outline', label: t('navWorkbench') }],
   },
+  {
+    label: t('navMy'),
+    items: [
+      { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents') },
+      { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos') },
+      { name: 'workbench-notifications', to: '/workbench/notifications', icon: 'mdi-bell-outline', label: t('workbenchNotifications') },
+    ],
+  },
 ])
 
 // 控制台（管理侧）导航：对齐旧 NAV_GROUPS；P3 新增页面在对应组追加

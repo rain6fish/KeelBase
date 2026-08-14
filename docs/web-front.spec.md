@@ -15,8 +15,8 @@ Web-Admin-Vue evolves from a pure admin console into an **enterprise application
 
 **This round (WEB-FRONT-1)**: remove the admin hardcode in the auth store; role-based route guard; two navigation sets in AdminLayout; minimal workbench landing page; vitest baseline; login page/i18n adaptation; wire 401-refresh-failure logout.
 
-**不做 / Not in scope**：后端改动（零改动可工作）；第三角色 enum（随 ORG-1）；工作台丰富页面（WEB-FRONT-3）；MFA/SSO（WEB-FRONT-4）；CI 纳入 test（WEB-FRONT-6）。
-**Backend changes (none needed — zero change works)**; third role enum value (with ORG-1); rich workbench pages (WEB-FRONT-3); MFA/SSO (WEB-FRONT-4); wiring tests into CI (WEB-FRONT-6).
+**不做 / Not in scope**：后端改动（零改动可工作）；第三角色 enum（随 ORG-1）；MFA/SSO（WEB-FRONT-4）；CI 纳入 test（WEB-FRONT-6）。工作台丰富页面属 **WEB-FRONT-3（已完成，见 §12）**。
+**Backend changes (none needed — zero change works)**; third role enum value (with ORG-1); MFA/SSO (WEB-FRONT-4); wiring tests into CI (WEB-FRONT-6). Rich workbench pages belong to **WEB-FRONT-3 (done, see §12)**.
 
 ## 3. 路由设计 / Routing
 
@@ -74,9 +74,28 @@ typecheck / build / test; manually: admin→console, alex (user)→workbench, ty
 
 ## 11. 后续演进 / Next Steps
 
-- WEB-FRONT-2 前端 RBAC（v-permission + 角色/权限点管理页）；WEB-FRONT-3 工作台丰富页面（我的事件/待办/通知，复用 user-scoped API）；WEB-FRONT-5 普通用户业务 API 面（联动 ORG）；WEB-FRONT-6 CI 纳入 lint/test
+- WEB-FRONT-2 前端 RBAC（v-permission + 角色/权限点管理页）；WEB-FRONT-5 普通用户业务 API 面（联动 ORG）；WEB-FRONT-6 CI 纳入 lint/test；WEB-FRONT-4 MFA/SSO
+- WEB-FRONT-3 已完成（§12），后续可补：事件新建/编辑、多标签页、SSE 实时通知
 - ORG-1 落地时第三角色 enum 进 `UserRole`（varchar 列免迁移，CASL else 分支自动覆盖）
-- 工作台写操作受 EmailVerificationGuard 约束（未验证 403），WEB-FRONT-3 需在管理端提供验证流程入口
+- 工作台写操作受 EmailVerificationGuard 约束（未验证 403），前端已做 `EMAIL_NOT_VERIFIED` 引导（isEmailNotVerified）
 - WEB-FRONT-2 frontend RBAC (v-permission + role/permission-point admin); WEB-FRONT-3 rich workbench pages (reuse user-scoped APIs); WEB-FRONT-5 regular-user business API surface (ties into ORG); WEB-FRONT-6 CI lint/test
 - When ORG-1 lands, the third role enum joins `UserRole` (varchar column avoids migration; CASL else-branch covers it automatically)
-- Workbench writes are constrained by EmailVerificationGuard (unverified → 403); WEB-FRONT-3 needs a verification entry in the console
+- Workbench writes are constrained by EmailVerificationGuard (unverified → 403); the frontend guides with `isEmailNotVerified`
+
+---
+
+## 12. WEB-FRONT-3 工作台页面 / Workbench Pages
+
+三个「我的」页面，普通企业用户在工作台管理自己的数据，**复用 user-scoped API，后端零改动**。Three "My" pages let regular enterprise users manage their own data on the workbench, reusing user-scoped APIs with **zero backend changes**.
+
+| 页面 / Page | 路径 / Path | 端点 / Endpoints |
+|---|---|---|
+| 我的事件 / My Events | `/workbench/events` | `GET /events/search`（分页+keyword+start）、`DELETE /events/:id` |
+| 我的待办 / My Todos | `/workbench/todos` | `GET /todos`（数组）、`POST /todos`、`PATCH /todos/:id/complete`、`DELETE /todos/:id` |
+| 我的通知 / My Notifications | `/workbench/notifications` | `GET /notifications`（分页）、`GET /notifications/unread-count`、`PATCH /notifications/:id/read`、`PATCH /notifications/read-all`、`DELETE /notifications/:id` |
+
+**前端实现**：`src/api/workbench.ts` + `src/types/workbench.ts`（user-scoped 封装，非 admin 前缀）；`client.ts` 的 `ApiError` 补 `errorCode` + `isEmailNotVerified` helper（写操作 403 `EMAIL_NOT_VERIFIED` 引导）；三个视图 `src/views/workbench/MyEventsView|MyTodosView|MyNotificationsView.vue` 复用 PageHeader/AppTable/AppPagination/StatusChip/DebouncedSearch/RangeFilter/FormDialog/ConfirmDialog；落地页占位卡改为可点击快捷入口 + 未读通知卡。
+
+**Known limits**：user `/events/search` 不支持 `isCancelled` 服务端筛选（仅 admin 版支持），事件页状态列用 StatusChip 展示、不做状态筛选；`/todos` 返回裸数组无分页，前端全量内联。写操作受 EmailVerificationGuard 约束（未验证 403），前端统一 `emailNotVerifiedHint` 提示。
+
+**不做 / Not in scope**：事件新建/编辑（表单复杂，押后）；多标签页 / 最近访问 / SSE 实时通知。

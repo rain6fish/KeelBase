@@ -47,6 +47,22 @@ describe('路由守卫角色分流', () => {
     expect(router.currentRoute.value.path).toBe('/workbench')
   })
 
+  it('普通用户访问工作台子页 → 停驻', async () => {
+    const router = makeRouter()
+    await loginAs('user')
+
+    await router.push('/workbench/events')
+    expect(router.currentRoute.value.path).toBe('/workbench/events')
+  })
+
+  it('admin 访问工作台子页 → 弹回控制台', async () => {
+    const router = makeRouter()
+    await loginAs('admin')
+
+    await router.push('/workbench/events')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
   it('admin 访问控制台 → 停驻', async () => {
     const router = makeRouter()
     await loginAs('admin')
