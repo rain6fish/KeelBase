@@ -51,7 +51,17 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - [ ] 后端单测 / 前端测试通过
 - [ ] 迁移一致性：`migration:generate` 输出 "No changes"
 
-## 4. AI 生成 vs 手工
+## 4. 预置 Skills（EASY-6 ④）
+
+项目 `.claude/skills/` 提供可调用的 AI 技能（Claude Code 可用 `/skill` 或直接描述触发）：
+
+| Skill | 何时用 |
+|-------|--------|
+| `generate-module` | 新增业务模块（调 `keelbase init` CLI 或按第 3 节手工） |
+| `add-api` | 给现有模块加 API 端点（含 CASL/审计/Swagger/测试） |
+| `write-migration` | 新实体或改列后生成/校验迁移（禁止手写，见 EASY-2.2） |
+
+## 5. AI 生成 vs 手工
 
 - **标准 CRUD 模块**：用 `npx keelbase init`（零依赖确定性模板 + 自动接线）
 - **复杂/非 CRUD**：AI 按第 3 节清单手工实现，遵循基座约定
