@@ -21,7 +21,8 @@ import {
 } from './generator/validate.mjs';
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
-import { wireBackend, wireFrontend, summarize } from './generator/wire.mjs';
+import { adminFiles } from './generator/templates-admin.mjs';
+import { wireBackend, wireFrontend, wireAdmin, summarize } from './generator/wire.mjs';
 import { extractSpec } from './generator/llm.mjs';
 
 const C = {
@@ -181,12 +182,14 @@ async function main() {
 
   const backend = backendFiles(ctx).map((f) => ({ ...f, rel: `Server-Nodejs/src/${f.path}` }));
   const frontend = frontendFiles(ctx).map((f) => ({ ...f, rel: `Front-Flutter/lib/${f.path}` }));
+  const admin = adminFiles(ctx).map((f) => ({ ...f, rel: `Web-Admin/${f.path}` }));
 
   if (args.dryRun) {
     console.log(`${C.yellow}[dry-run] 将生成以下文件：${C.reset}`);
     for (const f of [...backend, ...frontend]) console.log(`  ${f.rel}`);
+    for (const f of admin) console.log(`  ${f.rel}`);
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
-    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${tabNote}${C.reset}`);
+    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${tabNote} + Web-Admin（routes/navGroups/i18n）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
     return;
   }
@@ -194,12 +197,14 @@ async function main() {
   // ── 写文件 ──
   for (const f of backend) await writeGenerated(f.rel, f.content);
   for (const f of frontend) await writeGenerated(f.rel, f.content);
-  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length} 个文件${C.reset}`);
+  for (const f of admin) await writeGenerated(f.rel, f.content);
+  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length} 个文件（含 Web-Admin 管理页）${C.reset}`);
 
   // ── 接线 ──
   const beResults = await wireBackend(ctx);
   const feResults = await wireFrontend(ctx);
-  const all = summarize([...beResults, ...feResults]);
+  const adminResults = await wireAdmin(ctx);
+  const all = summarize([...beResults, ...feResults, ...adminResults]);
   for (const file of all.wired) console.log(`${C.green}✓ 接线：${file}${C.reset}`);
   for (const s of all.skipped) {
     console.log(`${C.yellow}△ 跳过：${s.file}（${reasonZh(s.reason)}）${C.reset}`);
