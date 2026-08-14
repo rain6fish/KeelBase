@@ -7,6 +7,7 @@ import { FlowDefinition } from './entities/flow-definition.entity';
 import { FlowInstance } from './entities/flow-instance.entity';
 import { FlowTask } from './entities/flow-task.entity';
 import { FlowRuntimeService } from './flow-runtime.service';
+import { AiFlowService } from './ai-flow.service';
 import { FlowController } from './flow.controller';
 import { DEFAULT_FLOW_DEFINITIONS } from './default-definitions';
 
@@ -21,8 +22,8 @@ import { DEFAULT_FLOW_DEFINITIONS } from './default-definitions';
     NotificationsModule,
   ],
   controllers: [FlowController],
-  providers: [FlowRuntimeService],
-  exports: [FlowRuntimeService],
+  providers: [FlowRuntimeService, AiFlowService],
+  exports: [FlowRuntimeService, AiFlowService],
 })
 export class FlowsModule implements OnModuleInit {
   constructor(

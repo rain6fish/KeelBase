@@ -5,11 +5,16 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FlowRuntimeService } from './flow-runtime.service';
+import { AiFlowService } from './ai-flow.service';
 import { StartFlowDto } from './dto/start-flow.dto';
 import { ApproveTaskDto } from './dto/approve-task.dto';
+import { AiGenerateFlowDto } from './dto/ai-generate-flow.dto';
+import { SaveFlowDefinitionDto } from './dto/save-flow-definition.dto';
+import { validateFlowDefinition } from './flow-definition.schema';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
@@ -20,7 +25,24 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 @ApiBearerAuth()
 @Controller({ path: 'flows', version: '1' })
 export class FlowController {
-  constructor(private readonly runtime: FlowRuntimeService) {}
+  constructor(
+    private readonly runtime: FlowRuntimeService,
+    private readonly aiFlow: AiFlowService,
+  ) {}
+
+  @Post('ai/generate')
+  @ApiOperation({ summary: 'AI 生成流程定义（自然语言 → 流程 JSON，预览后经 /definitions 发布）' })
+  async aiGenerate(@Body() body: AiGenerateFlowDto) {
+    return this.aiFlow.generateFromDescription(body.description);
+  }
+
+  @Post('definitions')
+  @ApiOperation({ summary: '保存/发布流程定义（AI 生成确认后）' })
+  async saveDefinition(@Body() body: SaveFlowDefinitionDto) {
+    const valid = validateFlowDefinition(body.definition);
+    if (!valid.ok) throw new BadRequestException(valid.error);
+    return this.runtime.upsertDefinition(body.definition);
+  }
 
   @Post(':definitionId/start')
   @ApiOperation({ summary: '发起流程（如 leave_approval 请假审批）' })
