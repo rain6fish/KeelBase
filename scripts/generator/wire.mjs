@@ -4,6 +4,7 @@
  *           marker 已存在 → 幂等跳过（重跑零改动）。
  */
 import { readFile, writeFile } from 'node:fs/promises';
+import { adminI18nKeys } from './templates-admin.mjs';
 
 /** 在 anchor 之后插入；marker 已存在则幂等跳过。 */
 function insertAfter(content, anchor, insertion, marker) {
@@ -86,17 +87,12 @@ export async function wireBackend(ctx, root = '') {
   // 2) modules-manifest.ts：BUSINESS_MODULES + businessEntries
   results.push(
     await applyFile(`${BE}/common/modules/modules-manifest.ts`, (c) => {
-      const marker = `BUSINESS_MODULES = ['events', 'todos', '${ctx.plural}'`;
-      if (c.includes(marker)) return { content: c, changed: false, reason: 'already-wired' };
-      const anchor = `export const BUSINESS_MODULES = ['events', 'todos'] as const;`;
-      if (!c.includes(anchor)) return { content: c, changed: false, reason: 'anchor-not-found' };
-      return {
-        content: c.replace(
-          anchor,
-          `export const BUSINESS_MODULES = ['events', 'todos', '${ctx.plural}'] as const;`,
-        ),
-        changed: true,
-      };
+      if (new RegExp(`'${ctx.plural}'`).test(c)) return { content: c, changed: false, reason: 'already-wired' };
+      const m = c.match(/(export const BUSINESS_MODULES = \[)([^\]]*)(\])/);
+      if (!m) return { content: c, changed: false, reason: 'anchor-not-found' };
+      const inner = m[2].trim();
+      const next = `${m[1]}${inner}${inner ? ', ' : ''}'${ctx.plural}'${m[3]}`;
+      return { content: c.replace(m[0], next), changed: true };
     }),
   );
   results.push(
@@ -255,6 +251,52 @@ export async function wireFrontend(ctx, root = '') {
       ),
     ),
   );
+
+  return results;
+}
+
+/** Web-Admin 接线（⑤-2）：routes + navGroups + i18n zh/en。 */
+export async function wireAdmin(ctx, root = '') {
+  const results = [];
+  const sep = root ? (root.endsWith('/') ? '' : '/') : '';
+  const WA = `${root}${sep}Web-Admin/src`;
+  const keys = adminI18nKeys(ctx);
+
+  // 1) 路由：data-import 后加懒加载管理路由
+  results.push(
+    await applyFile(`${WA}/router/routes.ts`, (c) =>
+      insertAfter(
+        c,
+        `{ path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },`,
+        `\n      { path: '${ctx.plural}', name: '${ctx.plural}', component: () => import('@/views/${ctx.plural}/${ctx.pluralPascal}View.vue'), meta: { title: 'nav${ctx.pluralPascal}' } },`,
+        `name: '${ctx.plural}'`,
+      ),
+    ),
+  );
+
+  // 2) 侧边栏：navData 组 data-import 后加菜单项
+  results.push(
+    await applyFile(`${WA}/layouts/AdminLayout.vue`, (c) =>
+      insertAfter(
+        c,
+        `{ name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },`,
+        `\n      { name: '${ctx.plural}', to: '/${ctx.plural}', icon: 'mdi-database-outline', label: t('nav${ctx.pluralPascal}') },`,
+        `name: '${ctx.plural}'`,
+      ),
+    ),
+  );
+
+  // 3) i18n：zh + en
+  for (const [lang, zh] of [['zh', keys.zh], ['en', keys.en]]) {
+    const anchor = lang === 'zh' ? `  navDataImport: '数据导入',` : `  navDataImport: 'Data Import',`;
+    const insertion =
+      `\n  ${Object.entries(zh).map(([k, v]) => `${k}: '${v}',`).join('\n  ')}`;
+    results.push(
+      await applyFile(`${WA}/i18n/${lang}.ts`, (c) =>
+        insertAfter(c, anchor, insertion, `nav${ctx.pluralPascal}`),
+      ),
+    );
+  }
 
   return results;
 }

@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { NotesModule } from './notes/notes.module';
 import { BooksModule } from './books/books.module';
 import { PostsModule } from './posts/posts.module';
 
@@ -146,6 +147,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     HealthModule,
     EventsModule,
     TodosModule,
+    NotesModule,
     BooksModule,
     PostsModule,
 
