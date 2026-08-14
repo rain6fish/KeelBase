@@ -47,6 +47,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --brand <name>       替换应用品牌名（写 app_constants.dart）
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
+  --tab                生成模块作为 AppShell 底部 Tab（默认顶层全屏页）
   -h, --help           显示帮助
 `;
 
@@ -57,6 +58,7 @@ function parseArgs(argv) {
     if (a === '--help' || a === '-h') args.help = true;
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--no-feature-flag') args.featureFlag = false;
+    else if (a === '--tab') args.tab = true;
     else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq < 0 ? undefined : eq);
@@ -166,6 +168,7 @@ async function main() {
 
   const ctx = buildContext(name, label, fields);
   ctx.featureFlag = args.featureFlag !== false;
+  ctx.isTab = args.tab === true;
 
   // 目标目录冲突检查
   const beDir = `Server-Nodejs/src/${ctx.plural}`;
@@ -182,7 +185,8 @@ async function main() {
   if (args.dryRun) {
     console.log(`${C.yellow}[dry-run] 将生成以下文件：${C.reset}`);
     for (const f of [...backend, ...frontend]) console.log(`  ${f.rel}`);
-    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${C.reset}`);
+    const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
+    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${tabNote}${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
     return;
   }
