@@ -16,6 +16,7 @@ describe('MOD-1 模块清单与依赖图谱', () => {
     for (const n of NOTIFICATION_MODULES) expect(ids).toContain(n);
     expect(ids).toContain('events');
     expect(ids).toContain('todos');
+    expect(ids).toContain('org');
   });
 
   it('全部启用时校验通过', () => {
