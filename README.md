@@ -24,11 +24,12 @@ KeelBase 是一个业务安全的 AI 全栈应用基座：**让 AI 按照系统�
 
 | | 开发者 / Developers | 终端用户 / End Users | 企业主与管理 / Owners & Admins |
 |---|---|---|---|
-| 核心诉求 | 30 分钟出一个带 AI 的安全应用 | AI 真的会干活，不是玩具助手 | AI 可信、数据可控、全程可审计 |
-| 对应能力 | 开发期 AI（生成业务模块 + AI 规则层） | 运行时 AI（对话/工具/记忆/主动服务） | 治理内建（权限/确认/审计/撤销/私有化） |
-| 一句话 | 快且不重造轮子 | 会干活且只在你的数据里干活 | 数据不出域、AI 每步可查 |
+| 核心诉求 / Core needs | 30 分钟出一个带 AI 的安全应用 / A secure AI app in 30 minutes | AI 真的会干活，不是玩具助手 / AI does real work, not a toy | AI 可信、数据可控、全程可审计 / Trusted AI, controlled data, full audit trail |
+| 对应能力 / Capabilities | 开发期 AI（生成业务模块 + AI 规则层）/ Dev-time AI (module generation + AI rules layer) | 运行时 AI（对话/工具/记忆/主动服务）/ Runtime AI (chat / tools / memory / proactive) | 治理内建（权限/确认/审计/撤销/私有化）/ Built-in governance (permissions / confirmation / audit / revoke / on-prem) |
+| 一句话 / In a word | 快且不重造轮子 / Fast, no wheel-reinvention | 会干活且只在你的数据里干活 / Works — only within your data | 数据不出域、AI 每步可查 / Data on-prem, AI fully traceable |
 
 > 三个角色不是三条平行卖点，而是同一条主线的三个验证角度——开发者验证「能否快速造出」，用户验证「AI 是否真的有用」，管理者验证「AI 是否安全可信」。
+> These three roles are not three parallel selling points but three angles of validation on the same main thread — developers validate "can we build it fast", users validate "is the AI genuinely useful", and managers validate "is the AI safe and trustworthy".
 
 ---
 
@@ -96,7 +97,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 **实测通过（2026-08-13）：一条命令起全栈，后端 API + Flutter 主 App + Vue3 管理台 + 演示账号全部就绪。**
 
-#### 🐳 用已发布的镜像（免构建，最快）
+#### 🐳 用已发布的镜像（免构建，最快）/ Use a published image (no build, fastest)
 
 ```bash
 docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
@@ -107,19 +108,20 @@ docker stop keelbase && docker rm keelbase   # 停止并删除（数据留在命
 ```
 
 > 镜像托管在 [ghcr.io](https://github.com/rain6fish/KeelBase/pkgs/container/keelbase)，随 tag 自动构建发布（`latest` + 版本号）。生产建议 `-e` 覆盖 JWT/加密密钥。
+> Images are hosted on [ghcr.io](https://github.com/rain6fish/KeelBase/pkgs/container/keelbase) and auto-built/published on tag (`latest` + version). For production, override the JWT/encryption secrets with `-e`.
 
-#### 🛠 自己构建（改代码时）
+#### 🛠 自己构建（改代码时）/ Build it yourself (when modifying code)
 
 ```bash
 ./scripts/docker-single.sh         # 构建并启动（首次构建约 10 分钟，含前端编译）
 ```
 
-| 子命令 | 说明 |
+| 子命令 / Subcommand | 说明 / Description |
 |--------|------|
-| `./scripts/docker-single.sh` / `up` | 构建并启动 |
-| `./scripts/docker-single.sh stop` | 停止容器 |
-| `./scripts/docker-single.sh down` | 停止并删除容器 |
-| `./scripts/docker-single.sh logs` | 查看日志 |
+| `./scripts/docker-single.sh` / `up` | 构建并启动 / Build & start |
+| `./scripts/docker-single.sh stop` | 停止容器 / Stop the container |
+| `./scripts/docker-single.sh down` | 停止并删除容器 / Stop & remove the container |
+| `./scripts/docker-single.sh logs` | 查看日志 / View logs |
 
 > 只需装 Docker。默认 SQLite 零配置（数据落在命名卷 `keelbase_data` 持久化），缓存/队列自动降级。**生产环境**：建议用 `docker-compose.yml` 多容器（PostgreSQL + Redis + 独立 web），或用 `-e` 覆盖密钥/DB。
 > Just needs Docker. Zero-config SQLite (data persisted in `keelbase_data` volume), cache/queue auto-degrade. **Production**: prefer multi-container via `docker-compose.yml`, or override secrets/DB with `-e`.
