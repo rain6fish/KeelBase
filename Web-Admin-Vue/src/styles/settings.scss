@@ -1,0 +1,35 @@
+// Vuetify 全局 settings 覆盖 —— 对齐 Materio/Matdash 质感
+// 经 vite-plugin-vuetify styles.configFile 注入（所有组件样式共享）
+// 变量名对照 Matdash free 版 _variables.scss（已在其项目验证可编译）
+@use 'vuetify/settings' with (
+  // 字号 / 圆角 / 字体
+  $font-size-root: 1rem,
+  $border-radius-root: 8px,
+  $body-font-family: ('Public Sans', sans-serif),
+  $heading-font-family: ('Public Sans', sans-serif),
+
+  // 按钮：无默认投影、hover 提升、圆角 8、字母间距归零
+  $button-border-radius: 8px,
+  $button-text-letter-spacing: 0,
+  $button-text-transform: capitalize,
+  $button-elevation: (default: 0, hover: 4, active: 8),
+
+  // 圆角刻度（root 8 → md 12 / lg 16）
+  $rounded: (
+    0: 0,
+    xs: 2px,
+    sm: 4px,
+    null: 8px,
+    md: 12px,
+    lg: 16px,
+    xl: 16px,
+    pill: 9999px,
+    circle: 50%
+  ),
+
+  // 卡片：标题行高、文本/项留白（elevation 由组件 defaults 控制，不全局加大阴影）
+  $card-title-line-height: 1.6,
+  $card-text-padding: 24px,
+  $card-item-padding: 20px,
+  $card-actions-padding: 10px 24px 24px,
+);
