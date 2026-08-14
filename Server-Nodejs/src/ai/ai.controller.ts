@@ -143,11 +143,12 @@ export class AiController {
       token,
       String(user.sub),
       dto.decision,
+      dto.trustTool,
     );
     if (!ok) {
       throw new NotFoundException('确认请求不存在或已过期');
     }
-    return { ok: true };
+    return { ok: true, trustTool: dto.trustTool ?? false };
   }
 
   /**

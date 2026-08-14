@@ -18,8 +18,15 @@ export interface PendingConfirmation {
   userId: string;
   toolName: string;
   args: Record<string, unknown>;
-  resolve: (outcome: ConfirmationOutcome) => void;
+  /** HS-6：本次会话是否信任该工具（后续免确认） */
+  trustTool?: boolean;
+  resolve: (result: ConfirmationResolveResult) => void;
   timer: NodeJS.Timeout;
+}
+
+export interface ConfirmationResolveResult {
+  outcome: ConfirmationOutcome;
+  trustTool?: boolean;
 }
 
 @Injectable()
@@ -34,15 +41,17 @@ export class ConfirmationStore {
   /**
    * 创建待确认项，返回 token 与可等待的决策 Promise。
    * TTL 超时后自动 resolve('timeout')，避免 pending promise 泄漏。
+   * @param ttlMs 覆盖默认 TTL（HS-6：经 Settings 可配，如 confirmation_ttl_seconds）
    */
   create(
     userId: string,
     toolName: string,
     args: Record<string, unknown>,
-  ): { token: string; decision: Promise<ConfirmationOutcome> } {
+    ttlMs?: number,
+  ): { token: string; decision: Promise<ConfirmationResolveResult> } {
     const token = randomUUID();
-    let resolveFn!: (outcome: ConfirmationOutcome) => void;
-    const decision = new Promise<ConfirmationOutcome>((resolve) => {
+    let resolveFn!: (result: ConfirmationResolveResult) => void;
+    const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
 
@@ -50,9 +59,9 @@ export class ConfirmationStore {
       const pending = this.pending.get(token);
       if (pending) {
         this.pending.delete(token);
-        pending.resolve('timeout');
+        pending.resolve({ outcome: 'timeout' });
       }
-    }, this.ttlMs);
+    }, ttlMs ?? this.ttlMs);
     timer.unref?.();
 
     this.pending.set(token, {
@@ -69,11 +78,13 @@ export class ConfirmationStore {
 
   /**
    * 解析确认。校验 token 存在且属于请求用户，否则返回 false（controller 转 404）。
+   * HS-6：trustTool 为 true 时，后续同工具写操作本会话免确认。
    */
   resolve(
     token: string,
     requestUserId: string,
     decision: 'approve' | 'reject',
+    trustTool?: boolean,
   ): boolean {
     const pending = this.pending.get(token);
     if (!pending || pending.userId !== requestUserId) {
@@ -81,7 +92,10 @@ export class ConfirmationStore {
     }
     clearTimeout(pending.timer);
     this.pending.delete(token);
-    pending.resolve(decision === 'approve' ? 'approve' : 'decline');
+    pending.resolve({
+      outcome: decision === 'approve' ? 'approve' : 'decline',
+      trustTool,
+    });
     return true;
   }
 

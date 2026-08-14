@@ -370,6 +370,8 @@ class AppLocalizations {
   String get aiConfirmReject => _t('Decline', '拒绝');
   String get aiConfirming => _t('Processing...', '处理中…');
   String get aiWaitingConfirm => _t('Awaiting your confirmation...', '等待确认…');
+  String get aiConfirmTrustTool => _t('Trust this tool for this session (skip confirmation)', '本会话信任此工具（不再询问）');
+  String get aiConfirmArgsTitle => _t('Details', '操作详情');
   String get aiToolRunning => _t('Working...', '正在执行…');
   String get aiToolSuccess => _t('Done', '已完成');
   String get aiToolFailed => _t('Failed', '执行失败');
