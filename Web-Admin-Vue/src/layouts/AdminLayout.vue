@@ -126,6 +126,7 @@ const navGroups = computed(() => [
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
       { name: 'trash', to: '/trash', icon: 'mdi-delete-outline', label: t('navTrash') },
       { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },
+      { name: 'tags', to: '/tags', icon: 'mdi-database-outline', label: t('navTags') },
       { name: 'notes', to: '/notes', icon: 'mdi-database-outline', label: t('navNotes') },
     ],
   },

@@ -18,6 +18,7 @@
      'pages/ai-history/index',
      'pages/todos/index',
      'pages/search/index',
+    'pages/tags/index',
    ],
    window: {
      navigationStyle: 'custom',

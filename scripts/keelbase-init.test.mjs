@@ -23,7 +23,8 @@ import {
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
-import { wireBackend, wireFrontend, wireAdmin } from './generator/wire.mjs';
+import { taroFiles } from './generator/templates-taro.mjs';
+import { wireBackend, wireFrontend, wireAdmin, wireTaro } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
@@ -370,6 +371,33 @@ test('wireAdmin：routes + navGroups + i18n zh/en', async () => {
   assert.match(zh, /navPosts: '帖子'/);
   const en = await readFile(`${root}/Web-Admin-Vue/src/i18n/en.ts`, 'utf8');
   assert.match(en, /navPosts: 'Post'/);
+});
+
+test('Taro 模板：service/types/store/page 骨架', () => {
+  const files = taroFiles(ctx());
+  assert.equal(files.length, 5);
+  const service = files.find((f) => f.path.endsWith('-service.ts')).content;
+  assert.match(service, /\/posts/);
+  assert.match(service, /api\.get/);
+  const store = files.find((f) => f.path.endsWith('-store.ts')).content;
+  assert.match(store, /defineStore/);
+  const page = files.find((f) => f.path.endsWith('.vue')).content;
+  assert.match(page, /<script setup lang="ts">/);
+  assert.match(page, /usePostsStore/);
+  assert.match(page, /<style src="\.\/index\.scss" scoped><\/style>/);
+});
+
+test('wireTaro：app.config pages + explore quickCards', async () => {
+  const root = await tempRoot();
+  await write(`${root}/Front-Taro/src/app.config.ts`, `    'pages/search/index',`);
+  await write(`${root}/Front-Taro/src/pages/explore/index.vue`, `  { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },`);
+
+  const r = await wireTaro(ctx(), root);
+  assert.ok(r.filter((x) => x.changed).length >= 2);
+  const app = await readFile(`${root}/Front-Taro/src/app.config.ts`, 'utf8');
+  assert.match(app, /pages\/posts\/index/);
+  const explore = await readFile(`${root}/Front-Taro/src/pages/explore/index.vue`, 'utf8');
+  assert.match(explore, /pages\/posts\/index/);
 });
 
 // ── 端到端：跑真实 CLI ───────────────────────────────────────────────────────

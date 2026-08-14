@@ -40,6 +40,7 @@ const quickCards = [
   { icon: '✅', label: 'Todos', color: '#8B5CF6', path: '/pages/todos/index' },
   { icon: '📋', label: 'AI 历史', color: '#0EA5E9', path: '/pages/ai-history/index' },
   { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },
+  { icon: '📦', label: '标签', color: '#F97316', path: '/pages/tags/index' },
 ]
 
 function goSearch() {

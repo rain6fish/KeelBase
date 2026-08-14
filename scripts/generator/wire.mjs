@@ -301,6 +301,36 @@ export async function wireAdmin(ctx, root = '') {
   return results;
 }
 
+/** Taro（Vue3）接线（⑤-3）：app.config pages + explore quickCards。 */
+export async function wireTaro(ctx, root = '') {
+  const results = [];
+  const sep = root ? (root.endsWith('/') ? '' : '/') : '';
+  const TARO = `${root}${sep}Front-Taro/src`;
+
+  results.push(
+    await applyFile(`${TARO}/app.config.ts`, (c) =>
+      insertAfter(
+        c,
+        `    'pages/search/index',`,
+        `\n    'pages/${ctx.plural}/index',`,
+        `'pages/${ctx.plural}/index'`,
+      ),
+    ),
+  );
+  results.push(
+    await applyFile(`${TARO}/pages/explore/index.vue`, (c) =>
+      insertAfter(
+        c,
+        `  { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },`,
+        `\n  { icon: '📦', label: '${ctx.label}', color: '#F97316', path: '/pages/${ctx.plural}/index' },`,
+        `path: '/pages/${ctx.plural}/index'`,
+      ),
+    ),
+  );
+
+  return results;
+}
+
 /** 汇总接线结果，打印已接入/跳过清单。 */
 export function summarize(results) {
   const wired = results.filter((r) => r.changed).map((r) => r.file);
