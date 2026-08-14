@@ -17,6 +17,7 @@ export const FEATURE_KEYS = {
   NOTES: 'notes',
   BOOKS: 'books',
   POSTS: 'posts',
+  ORG: 'org',
 
 } as const;
 
