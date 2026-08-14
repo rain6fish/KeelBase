@@ -6,7 +6,7 @@ describe('ConfirmationStore', () => {
     const { token, decision } = store.create('1', 'create_event', { title: 'T' });
 
     expect(store.resolve(token, '1', 'approve')).toBe(true);
-    await expect(decision).resolves.toBe('approve');
+    await expect(decision).resolves.toMatchObject({ outcome: 'approve' });
     expect(store.pendingCount).toBe(0);
   });
 
@@ -15,7 +15,7 @@ describe('ConfirmationStore', () => {
     const { token, decision } = store.create('1', 'create_event', { title: 'T' });
 
     expect(store.resolve(token, '1', 'reject')).toBe(true);
-    await expect(decision).resolves.toBe('decline');
+    await expect(decision).resolves.toMatchObject({ outcome: 'decline' });
   });
 
   it('should reject a different user (cross-user attempt)', async () => {
@@ -25,7 +25,7 @@ describe('ConfirmationStore', () => {
     expect(store.resolve(token, '2', 'approve')).toBe(false);
     // 原 pending 未被消费，仍可被本人确认
     expect(store.resolve(token, '1', 'approve')).toBe(true);
-    await expect(decision).resolves.toBe('approve');
+    await expect(decision).resolves.toMatchObject({ outcome: 'approve' });
   });
 
   it('should reject an unknown token', () => {
@@ -38,7 +38,7 @@ describe('ConfirmationStore', () => {
     const { token, decision } = store.create('1', 'create_event', { title: 'T' });
     expect(store.pendingCount).toBe(1);
 
-    await expect(decision).resolves.toBe('timeout');
+    await expect(decision).resolves.toMatchObject({ outcome: 'timeout' });
     expect(store.pendingCount).toBe(0);
     // 超时后 token 已失效
     expect(store.resolve(token, '1', 'approve')).toBe(false);
