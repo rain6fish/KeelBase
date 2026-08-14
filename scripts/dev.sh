@@ -42,7 +42,7 @@ case "${1:-help}" in
     cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
     ;;
   dev-admin)
-    cd Web-Admin && npm run dev
+    cd Web-Admin-Vue && npm run dev
     ;;
   web)
     cd Front-Flutter && flutter run -d chrome

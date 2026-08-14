@@ -182,14 +182,14 @@ async function main() {
 
   const backend = backendFiles(ctx).map((f) => ({ ...f, rel: `Server-Nodejs/src/${f.path}` }));
   const frontend = frontendFiles(ctx).map((f) => ({ ...f, rel: `Front-Flutter/lib/${f.path}` }));
-  const admin = adminFiles(ctx).map((f) => ({ ...f, rel: `Web-Admin/${f.path}` }));
+  const admin = adminFiles(ctx).map((f) => ({ ...f, rel: `Web-Admin-Vue/${f.path}` }));
 
   if (args.dryRun) {
     console.log(`${C.yellow}[dry-run] 将生成以下文件：${C.reset}`);
     for (const f of [...backend, ...frontend]) console.log(`  ${f.rel}`);
     for (const f of admin) console.log(`  ${f.rel}`);
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
-    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${tabNote} + Web-Admin（routes/navGroups/i18n）${C.reset}`);
+    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
     return;
   }
@@ -198,7 +198,7 @@ async function main() {
   for (const f of backend) await writeGenerated(f.rel, f.content);
   for (const f of frontend) await writeGenerated(f.rel, f.content);
   for (const f of admin) await writeGenerated(f.rel, f.content);
-  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length} 个文件（含 Web-Admin 管理页）${C.reset}`);
+  console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length} 个文件（含 Web-Admin-Vue 管理页）${C.reset}`);
 
   // ── 接线 ──
   const beResults = await wireBackend(ctx);

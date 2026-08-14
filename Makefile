@@ -45,7 +45,7 @@ dev: ## 本地开发起后端
 	cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
 
 dev-admin: ## 启动管理台（Vite dev server）
-	cd Web-Admin && npm run dev
+	cd Web-Admin-Vue && npm run dev
 
 web: ## 起 Flutter Web 主 App
 	cd Front-Flutter && flutter run -d chrome

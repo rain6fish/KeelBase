@@ -89,7 +89,7 @@ KeelBase/
 │   └── data/                      # SQLite 数据文件
 │
 ├── Front-Taro/                    # 主 app 的 Taro H5/小程序前端（不含管理功能）
-├── Web-Admin/                     # 独立管理员管理台（Vue3 + Vuetify3 PC Web，独立构建/部署）
+├── Web-Admin-Vue/                     # 独立管理员管理台（Vue3 + Vuetify3 PC Web，独立构建/部署）
 │
 ├── .github/
 │   ├── workflows/ci.yml           # CI（GitHub Actions，push 到 GitHub main 自动触发）
@@ -374,7 +374,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 
 ## 5.5 产品架构红线（必须遵守）
 
-**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ 管理端（Web-Admin）。**
+**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ 管理端（Web-Admin-Vue）。**
 
 1. **所有后台管理功能一律并入管理端**，包括但不限于：用户与权限管理、事件/内容管理、监控审计、会话管理、知识库维护、通知广播、系统信息。**禁止**在主 App 或小程序中实现任何面向管理员的 CRUD/权限/审计功能。
 2. **管理页面不出现用户填写的个人数据 / 隐私数据**；必须出现时用掩码遮盖：
@@ -826,11 +826,11 @@ Password: Admin@1234
 Role: admin
 ```
 
-> `admin` 用于管理台（Web-Admin）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-Nodejs 已启动。
+> `admin` 用于管理台（Web-Admin-Vue）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-Nodejs 已启动。
 
 ---
 
-## 13. 管理员管理台（Web-Admin）
+## 13. 管理员管理台（Web-Admin-Vue）
 
 > **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格复刻，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
@@ -845,7 +845,7 @@ Role: admin
 
 **开发命令**：
 ```bash
-cd Web-Admin
+cd Web-Admin-Vue
 npm install
 npm run dev           # Vite dev server → http://localhost:10086/admin/（proxy /api → 后端 3000）
 npm run build         # 构建静态产物 → dist/（base=/admin/）

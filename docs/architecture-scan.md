@@ -7,8 +7,8 @@
 > 数据文件：`.codebase-memory/graph.db.zst`（可提交共享）
 > Data file: `.codebase-memory/graph.db.zst` (can be committed and shared)
 >
-> **注**：2026-08-12 管理台已从 Front-Taro-Admin（React H5）迁移到 Web-Admin（Vue3 PC Web）。本文是 08-11 的历史快照，文中 Front-Taro-Admin 路径引用已失效，仅作历史存档。
-> **Note**: on 2026-08-12 the admin console was migrated from Front-Taro-Admin (React H5) to Web-Admin (Vue3 PC Web). This document is a historical snapshot from 08-11; the Front-Taro-Admin path references in it are no longer valid and are kept for archival purposes only.
+> **注**：2026-08-12 管理台已从 Front-Taro-Admin（React H5）迁移到 Web-Admin-Vue（Vue3 PC Web）。本文是 08-11 的历史快照，文中 Front-Taro-Admin 路径引用已失效，仅作历史存档。
+> **Note**: on 2026-08-12 the admin console was migrated from Front-Taro-Admin (React H5) to Web-Admin-Vue (Vue3 PC Web). This document is a historical snapshot from 08-11; the Front-Taro-Admin path references in it are no longer valid and are kept for archival purposes only.
 
 ---
 
@@ -20,7 +20,7 @@
 | 图节点总数 / Total graph nodes | 5,174 |
 | 图边总数 / Total graph edges | 12,148 |
 | 索引文件数 / Indexed files | 690（含 405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C） / 690 (405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C) |
-| 四端结构 / Four-client structure | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Web-Admin（Vue3 管理台）+ Server-Nodejs（NestJS 后端） / Front-Flutter (Flutter main app) + Front-Taro (mini-program/H5) + Web-Admin (Vue3 admin console) + Server-Nodejs (NestJS backend) |
+| 四端结构 / Four-client structure | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Web-Admin-Vue（Vue3 管理台）+ Server-Nodejs（NestJS 后端） / Front-Flutter (Flutter main app) + Front-Taro (mini-program/H5) + Web-Admin-Vue (Vue3 admin console) + Server-Nodejs (NestJS backend) |
 | 排除目录 / Excluded directories | `node_modules`、`dist`、`build`、`coverage`、`.git`、`.claude`、`.idea`、`uploads`、`.dart_tool` 等 18 类 / `node_modules`, `dist`, `build`, `coverage`, `.git`, `.claude`, `.idea`, `uploads`, `.dart_tool`, etc. — 18 categories |
 
 **图结构统计**（节点标签）：

@@ -43,7 +43,7 @@ jobs:
           flutter pub get
           flutter build web --release
 
-      # 构建 Web-Admin（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
+      # 构建 Web-Admin-Vue（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
 
       # 登录 ghcr.io（用内置 GITHUB_TOKEN）
       - name: Log in to ghcr.io

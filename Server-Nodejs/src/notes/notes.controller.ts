@@ -17,7 +17,7 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
-  // 管理端：全量列表（admin，供 Web-Admin 管理页）
+  // 管理端：全量列表（admin，供 Web-Admin-Vue 管理页）
   @Get('admin/all')
   @ApiOperation({ summary: '管理端：全量笔记列表' })
   @CheckPolicies((ability) => ability.can('manage', 'all'))

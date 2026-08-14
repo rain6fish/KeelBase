@@ -126,14 +126,14 @@ echo "✓ 后端就绪 (PID $BACKEND_PID)"
 ADMIN_PORT=$(pick_port "${ADMIN_PORT:-10086}")
 echo ""
 echo "→ 构建管理台（端口 $ADMIN_PORT）..."
-if [ ! -d Web-Admin/node_modules ]; then
+if [ ! -d Web-Admin-Vue/node_modules ]; then
   echo "→ 安装管理台依赖（首次需几分钟）..."
-  (cd Web-Admin && npm install)
+  (cd Web-Admin-Vue && npm install)
 fi
-(cd Web-Admin && npm run build > "$ROOT/.experience-admin-build.log" 2>&1)
+(cd Web-Admin-Vue && npm run build > "$ROOT/.experience-admin-build.log" 2>&1)
 
 # Vite preview 静态托管（base=/admin/ 已内联，hash 路由深层链接天然兼容）
-(cd Web-Admin && npx vite preview --port "$ADMIN_PORT" --strictPort > "$ROOT/.experience-admin.log" 2>&1 &)
+(cd Web-Admin-Vue && npx vite preview --port "$ADMIN_PORT" --strictPort > "$ROOT/.experience-admin.log" 2>&1 &)
 ADMIN_PID=$!
 sleep 2
 ADMIN_URL="http://localhost:$ADMIN_PORT/admin/"

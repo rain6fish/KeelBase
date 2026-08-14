@@ -80,7 +80,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 |-----------|-------------|------|
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app | 主用户 App（三端） |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app | 主 App 的 H5/小程序端 |
-| `Web-Admin/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated；**React version planned**（面向海外用户的 React 管理端规划中） | 独立管理台（完全隔离）；**React 版规划中**（未来推出） |
+| `Web-Admin-Vue/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated；**React version planned**（面向海外用户的 React 管理端规划中） | 独立管理台（完全隔离）；**React 版规划中**（未来推出） |
 | `Server-Nodejs/` | NestJS backend (REST API) | NestJS 后端 |
 | `docs/` | Specs, requirements, roadmap, manuals | 规格、需求、路线图、手册 |
 | `.github/workflows/` | CI pipeline (lint + test + build) | CI 流水线 |
@@ -189,7 +189,7 @@ Frontend defaults to `http://localhost:3000/api/v1`. / 前端默认对接 `http:
 
 - **生产/一键部署**：`http://<服务器>/admin`
 - **本地**：`./scripts/dev.sh dev-admin` 启动 Vite dev server → http://localhost:10086/admin/
-- 独立域名部署：`cd Web-Admin && npm ci && npm run build`，托管 `dist/`（base=/admin/）
+- 独立域名部署：`cd Web-Admin-Vue && npm ci && npm run build`，托管 `dist/`（base=/admin/）
 
 > Admin console requires an account with `role = admin`. See [Demo Account](#demo-account).
 > 管理台需 `role = admin` 账号登录。
