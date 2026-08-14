@@ -12,7 +12,9 @@ export const FEATURE_KEYS = {
   OAUTH: 'oauth',
   UPLOAD: 'upload',
   NOTIFICATIONS: 'notifications',
-  TODOS: 'todos',  POSTS: 'posts',
+  TODOS: 'todos',
+  BOOKS: 'books',
+  POSTS: 'posts',
 
 } as const;
 

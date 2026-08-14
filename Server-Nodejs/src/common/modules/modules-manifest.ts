@@ -70,7 +70,9 @@ const notificationEntries: ModuleManifestEntry[] = NOTIFICATION_MODULES.map((id)
 
 const businessEntries: ModuleManifestEntry[] = [
   { id: 'events', category: 'business', deps: ['notifications'], label: '事件' },
-  { id: 'todos', category: 'business', deps: [], label: '待办' },  { id: 'posts', category: 'business', deps: [], label: '帖子' },
+  { id: 'todos', category: 'business', deps: [], label: '待办' },
+  { id: 'books', category: 'business', deps: [], label: '图书' },
+  { id: 'posts', category: 'business', deps: [], label: '帖子' },
 
 ];
 
