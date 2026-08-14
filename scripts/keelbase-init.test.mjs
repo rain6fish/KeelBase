@@ -23,6 +23,7 @@ import {
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { wireBackend, wireFrontend } from './generator/wire.mjs';
+import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
 async function tempRoot() {
@@ -148,7 +149,7 @@ test('后端 7 文件骨架', () => {
   assert.match(entity, /@Entity\('posts'\)/);
   assert.match(entity, /name: 'user_id'/);
   assert.match(entity, /@DeleteDateColumn/);
-  assert.match(entity, /title: string/);
+  assert.match(entity, /title!: string/);
   assert.match(entity, /content\?: string \| null/);
   const dto = files.find((f) => f.path.includes('create-')).content;
   assert.match(dto, /@MaxLength\(200\)/);
@@ -229,6 +230,58 @@ test('接线：锚点缺失 → 跳过 + 文件未破坏', async () => {
   const after = await readFile(BE(root, 'app.module.ts'), 'utf8');
   assert.match(after, /PostsModule/);
   assert.ok(after.startsWith(original.slice(0, 40)), 'app.module 未被破坏');
+});
+
+// ── LLM（EASY-2.1） ──────────────────────────────────────────────────────────
+test('buildSpecPrompt：含描述与 JSON 约束', () => {
+  const p = buildSpecPrompt('图书管理');
+  assert.match(p, /图书管理/);
+  assert.match(p, /"module"/);
+  assert.match(p, /"fields"/);
+  assert.match(p, /string\|text\|int\|bool\|date/);
+});
+
+test('parseSpecResponse：纯净 JSON / 代码块围栏 / 非法', () => {
+  const spec = parseSpecResponse('{"module":"books","label":"图书","fields":[{"name":"title","type":"string"},{"name":"price","type":"int"}]}');
+  assert.equal(spec.module, 'books');
+  assert.equal(spec.fields.length, 2);
+  assert.equal(spec.fields[1].type, 'int');
+
+  const fenced = parseSpecResponse('```json\n{"module":"posts","label":"帖子","fields":[{"name":"content","type":"text"}]}\n```');
+  assert.equal(fenced.module, 'posts');
+
+  assert.throws(() => parseSpecResponse('无 JSON'));
+  assert.throws(() => parseSpecResponse('{bad json'));
+});
+
+test('llmConfig：云端/本地/未配置', () => {
+  assert.equal(llmConfig({ DEEPSEEK_API_KEY: 'k' }).apiKey, 'k');
+  const cloud = llmConfig({ DEEPSEEK_API_KEY: 'k', DEEPSEEK_BASE_URL: 'https://api.deepseek.com' });
+  assert.equal(cloud.apiKey, 'k');
+  assert.match(cloud.endpoint, /\/chat\/completions$/);
+  const local = llmConfig({ OLLAMA_BASE_URL: 'http://localhost:11434' });
+  assert.equal(local.apiKey, '');
+  assert.match(local.endpoint, /\/v1\/chat\/completions$/);
+  assert.equal(llmConfig({}), null);
+});
+
+test('extractSpec：mock fetch 成功 / API 错误 / 无配置', async () => {
+  const okFetch = async () => ({
+    ok: true,
+    json: async () => ({ choices: [{ message: { content: '{"module":"books","label":"图书","fields":[{"name":"author","type":"string"}]}' } }] }),
+  });
+  const r = await extractSpec('图书管理', { fetchImpl: okFetch, env: { DEEPSEEK_API_KEY: 'k' } });
+  assert.equal(r.ok, true);
+  assert.equal(r.spec.module, 'books');
+
+  const errFetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
+  const r2 = await extractSpec('x', { fetchImpl: errFetch, env: { DEEPSEEK_API_KEY: 'k' } });
+  assert.equal(r2.ok, false);
+  assert.match(r2.error, /401/);
+
+  const r3 = await extractSpec('x', { fetchImpl: okFetch, env: {} });
+  assert.equal(r3.ok, false);
+  assert.match(r3.error, /DEEPSEEK_API_KEY|OLLAMA_BASE_URL/);
 });
 
 // ── 端到端：跑真实 CLI ───────────────────────────────────────────────────────
