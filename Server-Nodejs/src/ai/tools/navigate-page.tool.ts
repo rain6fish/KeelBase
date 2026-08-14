@@ -27,7 +27,9 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   ai: { route: '/ai', description: 'AI 助手' },
   profile: { route: '/profile', description: '个人资料' },
   settings: { route: '/settings', description: '设置' },
-  todos: { route: '/todos', description: '待办清单' },  posts: { route: '/posts', description: '帖子' },
+  todos: { route: '/todos', description: '待办清单' },
+  books: { route: '/books', description: '图书' },
+  posts: { route: '/posts', description: '帖子' },
 
   upload: { route: '/upload', description: '文件上传' },
   privacy: { route: '/privacy', description: '隐私政策' },
