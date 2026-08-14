@@ -13,6 +13,7 @@ export const FEATURE_KEYS = {
   UPLOAD: 'upload',
   NOTIFICATIONS: 'notifications',
   TODOS: 'todos',
+  TAGS: 'tags',
   NOTES: 'notes',
   BOOKS: 'books',
   POSTS: 'posts',
