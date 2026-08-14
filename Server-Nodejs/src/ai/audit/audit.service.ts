@@ -13,7 +13,7 @@ import { AiAuditLog } from './ai-audit-log.entity';
 export interface AuditEntry {
   userId: string;
   conversationId?: string;
-  action: 'chat' | 'tool_call' | 'navigate' | 'error' | 'login' | 'plan' | 'analyze' | 'knowledge' | 'delegate' | 'tool_confirmation';
+  action: 'chat' | 'tool_call' | 'navigate' | 'error' | 'login' | 'plan' | 'analyze' | 'knowledge' | 'delegate' | 'tool_confirmation' | 'flow_node';
   detail?: string;
   model?: string;
   provider?: string;
