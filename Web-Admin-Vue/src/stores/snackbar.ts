@@ -23,6 +23,9 @@ export const useSnackbarStore = defineStore('snackbar', {
     error(message: string, timeout = 5000) {
       this.show(message, 'error', timeout)
     },
+    warning(message: string, timeout = 4000) {
+      this.show(message, 'info', timeout)
+    },
     dismiss(id: number) {
       this.items = this.items.filter((s) => s.id !== id)
     },
