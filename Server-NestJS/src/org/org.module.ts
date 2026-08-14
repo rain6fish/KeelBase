@@ -8,11 +8,14 @@ import { OrgMember } from './org-member.entity';
 import { OrgInvite } from './org-invite.entity';
 import { User } from '../common/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { FlowsModule } from '../flows/flows.module';
+import { FlowInstance } from '../flows/entities/flow-instance.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Organization, Department, OrgMember, OrgInvite, User]),
+    TypeOrmModule.forFeature([Organization, Department, OrgMember, OrgInvite, User, FlowInstance]),
     NotificationsModule,
+    FlowsModule,
   ],
   controllers: [OrgController],
   providers: [OrgService],

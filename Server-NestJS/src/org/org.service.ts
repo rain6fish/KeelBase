@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
+import * as crypto from 'crypto';
 import { Organization } from './organization.entity';
 import { Department } from './department.entity';
 import { OrgMember } from './org-member.entity';
@@ -17,9 +19,13 @@ import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { CreateInviteDto } from './dto/create-invite.dto';
+import { SubmitRequestDto } from './dto/submit-request.dto';
 import { User } from '../common/entities/user.entity';
 import { maskEmail } from '../common/utils/mask';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FlowRuntimeService } from '../flows/flow-runtime.service';
+import { FlowInstance } from '../flows/entities/flow-instance.entity';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -50,7 +56,9 @@ export class OrgService {
     @InjectRepository(OrgMember) private membersRepo: Repository<OrgMember>,
     @InjectRepository(OrgInvite) private invitesRepo: Repository<OrgInvite>,
     @InjectRepository(User) private usersRepo: Repository<User>,
+    @InjectRepository(FlowInstance) private flowInstRepo: Repository<FlowInstance>,
     private notificationsService: NotificationsService,
+    private flowRuntime: FlowRuntimeService,
   ) {}
 
   // ── 组织 ──
@@ -247,7 +255,183 @@ export class OrgService {
     await this.membersRepo.delete(member.id);
   }
 
+  // ── 邀请（ORG-6） ──
+
+  async createInvite(orgId: number, dto: CreateInviteDto, adminId: number): Promise<OrgInvite> {
+    await this._ensureOrg(orgId);
+    if (dto.deptId != null) await this._ensureDeptInOrg(dto.deptId, orgId);
+    return this.invitesRepo.save(
+      this.invitesRepo.create({
+        code: this._generateInviteCode(),
+        orgId,
+        inviterId: adminId,
+        role: dto.role ?? OrgMemberRole.MEMBER,
+        deptId: dto.deptId ?? null,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+      }),
+    );
+  }
+
+  async listInvites(orgId: number): Promise<OrgInvite[]> {
+    await this._ensureOrg(orgId);
+    return this.invitesRepo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
+  }
+
+  async removeInvite(id: number): Promise<void> {
+    const invite = await this.invitesRepo.findOne({ where: { id } });
+    if (!invite) throw new NotFoundException('邀请不存在');
+    await this.invitesRepo.delete(id);
+  }
+
+  /** 注册后兑换组织邀请码（ORG-6）：命中则自动入组织 + 通知邀请者；无效/过期/已用静默返回 false。 */
+  async redeemOrgInvite(code: string, userId: number): Promise<boolean> {
+    const invite = await this.invitesRepo.findOne({ where: { code } });
+    if (!invite || invite.usedBy != null) return false;
+    if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) return false;
+    const existing = await this.membersRepo.findOne({ where: { orgId: invite.orgId, userId } });
+    if (!existing) {
+      await this.membersRepo.save(
+        this.membersRepo.create({
+          orgId: invite.orgId,
+          userId,
+          deptId: invite.deptId ?? null,
+          role: invite.role,
+        }),
+      );
+    }
+    invite.usedBy = userId;
+    invite.usedAt = new Date();
+    await this.invitesRepo.save(invite);
+    await this.notificationsService
+      .create({
+        userId: invite.inviterId,
+        title: '组织新成员',
+        body: '有用户通过您的邀请码加入了组织',
+        type: 'org_invite_joined',
+      })
+      .catch(() => {});
+    return true;
+  }
+
+  // ── 申请（ORG-4，构建于 FLOW 引擎） ──
+
+  async submitRequest(userId: number, dto: SubmitRequestDto): Promise<FlowInstance> {
+    const member = await this.membersRepo.findOne({ where: { userId } });
+    if (!member) throw new ForbiddenException('您不是任何组织的成员');
+    const inst = await this.flowRuntime.start(
+      'org_request_approval',
+      { hasDepartment: member.deptId != null, title: dto.title, content: dto.content ?? '' },
+      userId,
+    );
+    await this.notificationsService
+      .create({
+        userId,
+        title: '申请已提交',
+        body: `您的申请「${dto.title}」已提交审批`,
+        type: 'flow_submitted',
+        targetType: 'flow',
+        targetId: String(inst.id),
+      })
+      .catch(() => {});
+    return inst;
+  }
+
+  async listMyRequests(userId: number): Promise<FlowInstance[]> {
+    return this.flowInstRepo.find({
+      where: { definitionId: 'org_request_approval', initiatorId: userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // ── 我的组织 / 通讯录（ORG-7，只读脱敏） ──
+
+  async getMyOrg(userId: number): Promise<{
+    org: { id: number; name: string; description?: string };
+    role: OrgMemberRole;
+    deptId: number | null;
+    deptPath: string[];
+  }> {
+    const member = await this._myMember(userId);
+    const org = await this._ensureOrg(member.orgId);
+    const deptPath = await this._deptPath(member.orgId, member.deptId);
+    return {
+      org: { id: org.id, name: org.name, description: org.description },
+      role: member.role,
+      deptId: member.deptId ?? null,
+      deptPath,
+    };
+  }
+
+  async getMyTree(userId: number): Promise<Array<Record<string, unknown>>> {
+    const member = await this._myMember(userId);
+    const depts = await this.deptsRepo.find({ where: { orgId: member.orgId } });
+    const members = await this.membersRepo.find({ where: { orgId: member.orgId } });
+    const countByDept = new Map<number, number>();
+    for (const m of members) {
+      if (m.deptId == null) continue;
+      countByDept.set(m.deptId, (countByDept.get(m.deptId) ?? 0) + 1);
+    }
+    const nodeMap = new Map<number, Record<string, unknown>>();
+    for (const d of depts) {
+      nodeMap.set(d.id, { id: d.id, name: d.name, parentId: d.parentId, memberCount: countByDept.get(d.id) ?? 0, children: [] as unknown[] });
+    }
+    const roots: Array<Record<string, unknown>> = [];
+    for (const d of depts) {
+      const node = nodeMap.get(d.id)!;
+      if (d.parentId != null && nodeMap.has(d.parentId)) {
+        (nodeMap.get(d.parentId)!.children as unknown[]).push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return roots;
+  }
+
+  async listMyMembers(userId: number): Promise<Array<Record<string, unknown>>> {
+    const member = await this._myMember(userId);
+    const members = await this.membersRepo.find({
+      where: { orgId: member.orgId },
+      relations: { user: true, dept: true },
+    });
+    // 脱敏白名单：仅 id/nickname/avatarUrl/role/deptName，不含 email/phone/username
+    return members.map((m) => ({
+      id: m.userId,
+      nickname: m.user?.nickname ?? null,
+      avatarUrl: m.user?.avatarUrl ?? null,
+      role: m.role,
+      deptName: m.dept?.name ?? null,
+    }));
+  }
+
   // ── 内部工具 ──
+
+  private async _myMember(userId: number): Promise<OrgMember> {
+    const member = await this.membersRepo.findOne({ where: { userId } });
+    if (!member) throw new NotFoundException('您不是任何组织的成员');
+    return member;
+  }
+
+  private async _deptPath(orgId: number, deptId: number | null | undefined): Promise<string[]> {
+    if (deptId == null) return [];
+    const depts = await this.deptsRepo.find({ where: { orgId } });
+    const byId = new Map<number, Department>();
+    for (const d of depts) byId.set(d.id, d);
+    const path: string[] = [];
+    let cur = byId.get(deptId);
+    while (cur) {
+      path.unshift(cur.name);
+      cur = cur.parentId != null ? byId.get(cur.parentId) : undefined;
+    }
+    return path;
+  }
+
+  private _generateInviteCode(): string {
+    const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.randomBytes(8);
+    let code = '';
+    for (const b of bytes) code += charset[b % charset.length];
+    return code;
+  }
 
   private _toMemberView(m: OrgMember): MemberView {
     return {

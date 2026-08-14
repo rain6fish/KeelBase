@@ -39,6 +39,7 @@ import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity
 import { EncryptionService } from '../common/utils/encryption';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
+import { OrgService } from '../org/org.service';
 
 interface DeviceEntry {
   attempts: number;
@@ -88,6 +89,7 @@ export class AuthService {
     private aiMessageRepo: Repository<AiMessage>,
     @InjectRepository(OperationAuditLog)
     private opAuditRepo: Repository<OperationAuditLog>,
+    private orgService: OrgService,
   ) {
     this.cleanupTimer = setInterval(() => this._cleanupDevices(), 60_000);
   }
@@ -138,6 +140,11 @@ export class AuthService {
     // G-2：邀请成功后给邀请者发奖励通知
     if (invitedBy) {
       await this.notifyInviter(invitedBy, user.username).catch(() => {});
+    }
+
+    // ORG-6：注册携带组织邀请码时，自动加入组织（无效/过期/已用静默，不阻断注册）
+    if (dto.inviteCode) {
+      await this.orgService.redeemOrgInvite(dto.inviteCode.toUpperCase(), user.id).catch(() => {});
     }
 
     // 发送邮箱验证码（失败不阻断注册）

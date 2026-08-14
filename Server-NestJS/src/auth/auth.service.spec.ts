@@ -12,6 +12,7 @@ import { OAuthService } from './oauth.service';
 import { EncryptionService } from '../common/utils/encryption';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
+import { OrgService } from '../org/org.service';
 import { User } from '../common/entities/user.entity';
 import { UserSession } from './user-session.entity';
 import { PhoneVerificationCode } from './phone-verification-code.entity';
@@ -165,6 +166,7 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(AiConversation), useValue: genericRepo() },
         { provide: getRepositoryToken(AiMessage), useValue: genericRepo() },
         { provide: getRepositoryToken(OperationAuditLog), useValue: genericRepo() },
+        { provide: OrgService, useValue: { redeemOrgInvite: jest.fn().mockResolvedValue(false) } },
       ],
     }).compile();
 
