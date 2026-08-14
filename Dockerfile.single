@@ -7,9 +7,9 @@
 # ---- Backend build ----
 FROM node:22-alpine AS server-build
 WORKDIR /app/server
-COPY Server-Nodejs/package*.json ./
+COPY Server-NestJS/package*.json ./
 RUN npm ci --include=dev
-COPY Server-Nodejs/ .
+COPY Server-NestJS/ .
 RUN npm run build
 # 编译 seed-demo 脚本到 build-seed/（nest build 不含 scripts/）；synchronize 建表 + 幂等补种演示账号
 RUN npx tsc scripts/seed-demo.ts --outDir build-seed --rootDir . --module commonjs --target es2020 --esModuleInterop --skipLibCheck --experimentalDecorators --emitDecoratorMetadata --moduleResolution node

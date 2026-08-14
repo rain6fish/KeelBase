@@ -24,7 +24,7 @@ Related manuals / 相关手册：
 ### Backend / 后端
 
 ```bash
-cd Server-Nodejs
+cd Server-NestJS
 cp .env.example .env
 npm install
 npm run start:dev

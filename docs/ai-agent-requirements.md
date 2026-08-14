@@ -122,7 +122,7 @@ Users can manually switch models in the frontend; the default follows the `AI_CH
   Frontend bottom-navigation implementation: `Front-Flutter/lib/core/widgets/app_shell.dart`
 - 路由配置：`Front-Flutter/lib/core/router/app_router.dart`
   Route configuration: `Front-Flutter/lib/core/router/app_router.dart`
-- 后端架构：`Server-Nodejs/src/`
-  Backend architecture: `Server-Nodejs/src/`
+- 后端架构：`Server-NestJS/src/`
+  Backend architecture: `Server-NestJS/src/`
 - 项目架构文档：`CLAUDE.md`
   Project architecture documentation: `CLAUDE.md`

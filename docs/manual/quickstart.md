@@ -79,7 +79,7 @@ open http://localhost:3000
 ### 2.1 后端
 
 ```bash
-cd Server-Nodejs
+cd Server-NestJS
 cp .env.example .env      # 生成配置（默认零配置即可跑）
 npm install
 npm run start:dev

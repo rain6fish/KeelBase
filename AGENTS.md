@@ -28,7 +28,7 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 
 > 对齐 `keelbase init` 生成器的 7 处接线。**手工加模块（或 AI 加模块）必须全部完成**，缺一处就是坏的模块。
 
-### 后端（Server-Nodejs）
+### 后端（Server-NestJS）
 - [ ] 建模块目录 `src/<name>/`：entity + dto + service + controller + module + spec
 - [ ] **app.module.ts**：import 模块 + 加入 `imports: []`
 - [ ] **modules-manifest.ts**：`BUSINESS_MODULES` 数组 + `businessEntries` 加新模块

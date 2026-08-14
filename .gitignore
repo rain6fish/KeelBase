@@ -56,7 +56,7 @@ npm-debug.log*
 /coverage/
 
 # Server uploads (runtime artifacts)
-Server-Nodejs/uploads/
+Server-NestJS/uploads/
 
 # Database backups
-Server-Nodejs/data/backups/
+Server-NestJS/data/backups/

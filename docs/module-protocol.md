@@ -39,7 +39,7 @@
 
 协议字段如何映射到基座各层：
 
-| 协议项 | 后端（Server-Nodejs） | 前端（Front-Flutter） |
+| 协议项 | 后端（Server-NestJS） | 前端（Front-Flutter） |
 |--------|----------------------|----------------------|
 | `module`/`plural` | 目录 `src/<plural>/` | 目录 `lib/features/<plural>/` |
 | `label` | 中文名（Swagger/i18n） | 页面标题（i18n） |
