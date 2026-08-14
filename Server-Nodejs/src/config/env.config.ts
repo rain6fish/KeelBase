@@ -95,15 +95,18 @@ export const envValidationSchema = Joi.object({
   // 备份保留份数（npm run backup 轮转用）
   BACKUP_KEEP: Joi.number().default(7),
 
-  // 特性开关（PL-8）：FEATURE_<KEY>_ENABLED，默认全开，显式 false 关闭
-  FEATURE_AI_ENABLED: Joi.boolean().default(true),
-  FEATURE_SEARCH_ENABLED: Joi.boolean().default(true),
-  FEATURE_PUSH_ENABLED: Joi.boolean().default(true),
-  FEATURE_SMS_ENABLED: Joi.boolean().default(true),
-  FEATURE_OAUTH_ENABLED: Joi.boolean().default(true),
-  FEATURE_UPLOAD_ENABLED: Joi.boolean().default(true),
-  FEATURE_NOTIFICATIONS_ENABLED: Joi.boolean().default(true),
-  FEATURE_TODOS_ENABLED: Joi.boolean().default(true),
+  // 特性开关（PL-8/EASY-3）：FEATURE_<KEY>_ENABLED；不设默认，未配置由 APP_PRESET 判定（默认 full 全开）
+  FEATURE_AI_ENABLED: Joi.boolean(),
+  FEATURE_SEARCH_ENABLED: Joi.boolean(),
+  FEATURE_PUSH_ENABLED: Joi.boolean(),
+  FEATURE_SMS_ENABLED: Joi.boolean(),
+  FEATURE_OAUTH_ENABLED: Joi.boolean(),
+  FEATURE_UPLOAD_ENABLED: Joi.boolean(),
+  FEATURE_NOTIFICATIONS_ENABLED: Joi.boolean(),
+  FEATURE_TODOS_ENABLED: Joi.boolean(),
+
+  // EASY-3 三档预设：full（默认全开）| small（关外部集成）| lite（最小可用）
+  APP_PRESET: Joi.string().valid('full', 'small', 'lite').default('full'),
 
   // 定时任务（PL-7）：已读通知保留天数，超期清理
   NOTIFICATION_RETENTION_DAYS: Joi.number().default(30),
