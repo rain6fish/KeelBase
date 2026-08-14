@@ -22,7 +22,7 @@ import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { AiTool, ToolResult } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
-import { SettingsService } from '../settings/settings.service';
+import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
 import { NotFoundException } from '@nestjs/common';
@@ -545,6 +545,8 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): AsyncIterable<StreamChunk> {
+    // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
+    const trustedTools = new Set<string>();
     const { conversation, providerName, provider } =
       this.resolveProvider(request);
 
@@ -709,11 +711,24 @@ export class AiService {
 
           let result: ToolResult;
           if (isWrite) {
-            // 写操作：先发 confirmation_request，等待用户确认后才执行
+            // HS-6：本会话已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
+            if (trustedTools.has(tc.name)) {
+              result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
+            } else {
+              // 写操作：先发 confirmation_request，等待用户确认后才执行
+            const ttlSeconds = this.settingsService
+              ? Number(
+                  await this.settingsService.getWithDefault(
+                    SETTING_KEYS.CONFIRMATION_TTL,
+                    60,
+                  ),
+                )
+              : 60;
             const { token, decision } = this.confirmationStore.create(
               userId,
               tc.name,
               parsed,
+              ttlSeconds * 1000,
             );
             yield {
               type: 'confirmation_request',
@@ -724,13 +739,17 @@ export class AiService {
                 arguments: parsed,
               },
             };
-            const outcome: ConfirmationOutcome = await decision;
+            const { outcome, trustTool } = await decision;
+            // HS-6：用户勾选「本会话信任此工具」→ 后续免确认
+            if (trustTool && outcome === 'approve') {
+              trustedTools.add(tc.name);
+            }
             // HS-7 确认决策审计：让管理台时间线能展示「AI 请求写操作 → 用户确认/拒绝」
             this.auditService.log({
               userId,
               conversationId,
               action: 'tool_confirmation',
-              detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}`,
+              detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}${trustTool ? ' (trusted)' : ''}`,
               isError: outcome !== 'approve',
               errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
             });
@@ -776,6 +795,7 @@ export class AiService {
                     outcome === 'timeout' ? '操作超时未确认' : '操作已取消',
                 },
               };
+            }
             }
           } else {
             result = await this.toolRegistry.execute(tc.name, parsed, userId);

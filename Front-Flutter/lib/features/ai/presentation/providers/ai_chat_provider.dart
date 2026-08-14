@@ -370,7 +370,7 @@ class AiChatProvider extends ChangeNotifier {
   }
 
   /// 确认 / 拒绝 AI 的写操作（调用后端 confirmation 端点，恢复被挂起的流）
-  Future<void> confirmPending({required bool approved}) async {
+  Future<void> confirmPending({required bool approved, bool trustTool = false}) async {
     final conf = _currentConfirmation;
     if (conf == null || _isConfirming) return;
     _isConfirming = true;
@@ -378,7 +378,10 @@ class AiChatProvider extends ChangeNotifier {
     try {
       await _apiClient.post(
         '/ai/confirmations/${conf.token}',
-        data: {'decision': approved ? 'approve' : 'reject'},
+        data: {
+          'decision': approved ? 'approve' : 'reject',
+          if (trustTool) 'trustTool': true,
+        },
       );
     } catch (_) {
       _error = '确认请求失败，请重试';

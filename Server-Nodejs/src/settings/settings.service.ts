@@ -6,6 +6,7 @@ import { Setting } from './settings.entity';
 export const SETTING_KEYS = {
   MAINTENANCE_MODE: 'maintenance_mode',
   AI_DAILY_LIMIT: 'ai_daily_limit',
+  CONFIRMATION_TTL: 'confirmation_ttl_seconds',
 } as const;
 
 interface ParsedValue {
