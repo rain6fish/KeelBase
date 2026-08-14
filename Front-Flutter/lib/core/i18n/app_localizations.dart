@@ -112,6 +112,12 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 标签（EASY-2 生成） ---
+  String get tagsTitle => _t('Tag', '标签');
+  String get tagsAddTitle => _t('New Tag', '新增标签');
+  String get tagsEmpty => _t('No Tag yet', '暂无标签');
+  String get tagsDeleteConfirm => _t('Delete this tag?', '删除该标签？');
+
   // --- 笔记（EASY-2 生成） ---
   String get notesTitle => _t('Note', '笔记');
   String get notesAddTitle => _t('New Note', '新增笔记');
