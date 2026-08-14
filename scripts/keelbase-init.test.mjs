@@ -33,7 +33,7 @@ async function tempRoot() {
   return dir.replace(/\\/g, '/');
 }
 
-const BE = (root, p) => `${root}/Server-Nodejs/src/${p}`;
+const BE = (root, p) => `${root}/Server-NestJS/src/${p}`;
 const FE = (root, p) => `${root}/Front-Flutter/lib/${p}`;
 
 async function write(p, c) {

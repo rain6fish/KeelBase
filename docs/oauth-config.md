@@ -227,9 +227,9 @@ Complete the following steps one by one before formal integration testing. Once 
 
 | # | 步骤 / Step | 文件 / File | 完成 / Done |
 |---|------|------|------|
-| 2.1 | 设置 `OAUTH_ENABLED_PROVIDERS`（联调时推荐全开） / Set `OAUTH_ENABLED_PROVIDERS` (recommended to enable all during integration) | `Server-Nodejs/.env` | ☐ |
-| 2.2 | 填入 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` / Fill in `WECHAT_APP_ID` and `WECHAT_APP_SECRET` | `Server-Nodejs/.env` | ☐ |
-| 2.3 | 填入 `ALIPAY_APP_ID` 和 `ALIPAY_PRIVATE_KEY`（私钥可从支付宝开放平台下载） / Fill in `ALIPAY_APP_ID` and `ALIPAY_PRIVATE_KEY` (the private key can be downloaded from the Alipay Open Platform) | `Server-Nodejs/.env` | ☐ |
+| 2.1 | 设置 `OAUTH_ENABLED_PROVIDERS`（联调时推荐全开） / Set `OAUTH_ENABLED_PROVIDERS` (recommended to enable all during integration) | `Server-NestJS/.env` | ☐ |
+| 2.2 | 填入 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` / Fill in `WECHAT_APP_ID` and `WECHAT_APP_SECRET` | `Server-NestJS/.env` | ☐ |
+| 2.3 | 填入 `ALIPAY_APP_ID` 和 `ALIPAY_PRIVATE_KEY`（私钥可从支付宝开放平台下载） / Fill in `ALIPAY_APP_ID` and `ALIPAY_PRIVATE_KEY` (the private key can be downloaded from the Alipay Open Platform) | `Server-NestJS/.env` | ☐ |
 | 2.4 | 验证环境变量加载：`npm run start:dev` 后无 `Missing config` 错误 / Verify env loading: no `Missing config` errors after `npm run start:dev` | 终端日志 / Terminal logs | ☐ |
 | 2.5 | 验证 `/api/v1/auth/oauth/providers` 返回正确列表 / Verify `/api/v1/auth/oauth/providers` returns the correct list | `curl` 或浏览器 / `curl` or a browser | ☐ |
 

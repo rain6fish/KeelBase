@@ -17,14 +17,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Server-Nodejs
+        working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: Server-Nodejs/package-lock.json
+          cache-dependency-path: Server-NestJS/package-lock.json
       - run: npm ci
       - run: npm run lint
 
@@ -32,14 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Server-Nodejs
+        working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: Server-Nodejs/package-lock.json
+          cache-dependency-path: Server-NestJS/package-lock.json
       - run: npm ci
       - name: 生成随机测试密钥
         run: |
@@ -65,14 +65,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Server-Nodejs
+        working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: Server-Nodejs/package-lock.json
+          cache-dependency-path: Server-NestJS/package-lock.json
       - run: npm ci
       # 用已提交迁移建库，再生成对比：实体与迁移一致 → "No changes" 退出码非零但无文件 → 通过
       - name: 校验迁移与实体一致
@@ -93,14 +93,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Server-Nodejs
+        working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: Server-Nodejs/package-lock.json
+          cache-dependency-path: Server-NestJS/package-lock.json
       - run: npm ci
       - run: npm run build
 

@@ -62,7 +62,7 @@ KeelBase/
 │   │       └── users/             # 用户列表/详情 (data/domain/presentation)
 │   └── test/                      # Flutter 测试
 │
-├── Server-Nodejs/                 # NestJS 后端
+├── Server-NestJS/                 # NestJS 后端
 │   ├── src/
 │   │   ├── main.ts                # 启动：OTel 初始化 → Nest → pino → Swagger
 │   │   ├── app.module.ts          # 根模块：Config、TypeORM、Throttler、Logger、全局守卫
@@ -481,7 +481,7 @@ HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头�
 mkdir certs && cp your-cert.crt certs/server.crt && cp your-key.key certs/server.key
 
 # 2. 配置生产环境
-cp Server-Nodejs/.env.production.example Server-Nodejs/.env.production
+cp Server-NestJS/.env.production.example Server-NestJS/.env.production
 # 编辑 .env.production 填入真实值
 
 # 3. 启动
@@ -826,7 +826,7 @@ Password: Admin@1234
 Role: admin
 ```
 
-> `admin` 用于管理台（Web-Admin-Vue）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-Nodejs 已启动。
+> `admin` 用于管理台（Web-Admin-Vue）登录。前端默认通过 ApiClient 对接真实后端 API。开发时确保 Server-NestJS 已启动。
 
 ---
 

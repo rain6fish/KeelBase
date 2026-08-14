@@ -20,7 +20,7 @@
 | 图节点总数 / Total graph nodes | 5,174 |
 | 图边总数 / Total graph edges | 12,148 |
 | 索引文件数 / Indexed files | 690（含 405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C） / 690 (405 TS / 123 Dart / 38 SCSS / 14 YAML / 8 JS / 5 Swift / 4 Bash / 4 HTML / 3 SQL / 2 C) |
-| 四端结构 / Four-client structure | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Web-Admin-Vue（Vue3 管理台）+ Server-Nodejs（NestJS 后端） / Front-Flutter (Flutter main app) + Front-Taro (mini-program/H5) + Web-Admin-Vue (Vue3 admin console) + Server-Nodejs (NestJS backend) |
+| 四端结构 / Four-client structure | Front-Flutter（Flutter 主 App）+ Front-Taro（小程序/H5）+ Web-Admin-Vue（Vue3 管理台）+ Server-NestJS（NestJS 后端） / Front-Flutter (Flutter main app) + Front-Taro (mini-program/H5) + Web-Admin-Vue (Vue3 admin console) + Server-NestJS (NestJS backend) |
 | 排除目录 / Excluded directories | `node_modules`、`dist`、`build`、`coverage`、`.git`、`.claude`、`.idea`、`uploads`、`.dart_tool` 等 18 类 / `node_modules`, `dist`, `build`, `coverage`, `.git`, `.claude`, `.idea`, `uploads`, `.dart_tool`, etc. — 18 categories |
 
 **图结构统计**（节点标签）：
@@ -62,9 +62,9 @@
 
 ## 2. 包与依赖分层 / 2. Package & Dependency Layering
 
-**包内节点数 Top**：`src`（Server-Nodejs，1,291）＞ `lib`（Front-Flutter，600）＞ `test`（42）＞ `android`（27）＞ `scripts`（24）＞ `Makefile`（16）＞ `ios`（10）。
+**包内节点数 Top**：`src`（Server-NestJS，1,291）＞ `lib`（Front-Flutter，600）＞ `test`（42）＞ `android`（27）＞ `scripts`（24）＞ `Makefile`（16）＞ `ios`（10）。
 
-**Top packages by node count**: `src` (Server-Nodejs, 1,291) > `lib` (Front-Flutter, 600) > `test` (42) > `android` (27) > `scripts` (24) > `Makefile` (16) > `ios` (10).
+**Top packages by node count**: `src` (Server-NestJS, 1,291) > `lib` (Front-Flutter, 600) > `test` (42) > `android` (27) > `scripts` (24) > `Makefile` (16) > `ios` (10).
 
 **分层判定**：
 
@@ -72,7 +72,7 @@
 
 | 层 / Layer | 包/模块 / Package/Module | 依据 / Basis |
 |----|---------|------|
-| core | `src`（Server-Nodejs） / `src` (Server-Nodejs) | 高扇入（48 in, 2 out），被全端依赖 / High fan-in (48 in, 2 out), depended on across all clients |
+| core | `src`（Server-NestJS） / `src` (Server-NestJS) | 高扇入（48 in, 2 out），被全端依赖 / High fan-in (48 in, 2 out), depended on across all clients |
 | core | `android` / `Makefile` | 高扇入（15–20 in, 0 out） / High fan-in (15–20 in, 0 out) |
 | internal | `lib`（Front-Flutter） / `lib` (Front-Flutter) | 扇入 47 / 扇出 54 / Fan-in 47 / fan-out 54 |
 | entry | `test` / `ios` / `scripts` | 仅出站调用 / 入口点 / Outbound-only calls / entry points |
@@ -82,8 +82,8 @@
 
 **Cross-package call boundaries**: `test→lib` (47), `lib→src` (35), `test→Makefile` (18), `lib→android` (14), `scripts→src` (4).
 
-> 依赖方向健康：`lib`（Flutter）与 `Front-Taro*` 只出站依赖 `Server-Nodejs/src`，无反向依赖，符合前后端解耦。
-> Dependency direction is healthy: `lib` (Flutter) and `Front-Taro*` only depend outbound on `Server-Nodejs/src`, with no reverse dependencies, consistent with frontend/backend decoupling.
+> 依赖方向健康：`lib`（Flutter）与 `Front-Taro*` 只出站依赖 `Server-NestJS/src`，无反向依赖，符合前后端解耦。
+> Dependency direction is healthy: `lib` (Flutter) and `Front-Taro*` only depend outbound on `Server-NestJS/src`, with no reverse dependencies, consistent with frontend/backend decoupling.
 
 ---
 
@@ -133,8 +133,8 @@ Community detection over the call graph, identifying the module boundaries that 
 | Front-Taro-Admin | 99 | 0.82 | `t`、AdminLayout、UsersPage、EventsPage、load |
 | Front-Flutter（核心 UI）/ Front-Flutter (core UI) | 77 | 0.86 | _initApp、test、main、NotificationModel |
 | Front-Taro（API 客户端）/ Front-Taro (API client) | 58 | 0.98 | request、delete、tryRefreshToken、logout、saveTokens |
-| Server-Nodejs Auth | 40 | 0.98 | of（BusinessException）、login、hashToken、register、generateRefreshToken |
-| Server-Nodejs RAG | 27 | 0.97 | chunkText、isVectorAvailable、createDocument、searchImpl、findOne |
+| Server-NestJS Auth | 40 | 0.98 | of（BusinessException）、login、hashToken、register、generateRefreshToken |
+| Server-NestJS RAG | 27 | 0.97 | chunkText、isVectorAvailable、createDocument、searchImpl、findOne |
 | Front-Flutter 事件日历 / Front-Flutter event calendar | 32 | 0.86 | build、_buildWeekView、_sameDay、_buildBody |
 
 > 高内聚（≥0.86）的聚类表明认证、RAG、事件日历等模块边界清晰，职责单一。
@@ -153,10 +153,10 @@ Community detection over the call graph, identifying the module boundaries that 
 | `t` | Front-Taro-Admin/src/i18n | 66 | 国际化翻译入口，被全局复用 / i18n translation entry, reused globally |
 | `test` | Makefile | 18 | 测试命令 / Test command |
 | `fetch` | Front-Taro-Admin/stores/users-store | 15 | 用户数据拉取 / User data fetching |
-| `CheckPolicies` | Server-Nodejs/common/casl | 14 | CASL 策略装饰器（全后端授权） / CASL policy decorator (global backend authorization) |
-| `BusinessException.of` | Server-Nodejs/common/errors | 13 | 统一业务异常工厂 / Unified business-exception factory |
-| `SkipAudit` | Server-Nodejs/operation-audit | 11 | 操作审计跳过装饰器 / Operation-audit skip decorator |
-| `hashToken` | Server-Nodejs/auth | 9 | Refresh token SHA-256 哈希 / Refresh token SHA-256 hash |
+| `CheckPolicies` | Server-NestJS/common/casl | 14 | CASL 策略装饰器（全后端授权） / CASL policy decorator (global backend authorization) |
+| `BusinessException.of` | Server-NestJS/common/errors | 13 | 统一业务异常工厂 / Unified business-exception factory |
+| `SkipAudit` | Server-NestJS/operation-audit | 11 | 操作审计跳过装饰器 / Operation-audit skip decorator |
+| `hashToken` | Server-NestJS/auth | 9 | Refresh token SHA-256 哈希 / Refresh token SHA-256 hash |
 | `request` | Front-Taro/services/api-client | 9 | Taro 端请求封装 / Taro-side request wrapper |
 
 **高复杂度函数（认知复杂度 ≥ 10，排除测试/构建脚本）**：
@@ -167,20 +167,20 @@ Community detection over the call graph, identifying the module boundaries that 
 |------|------|---------|-----------|------|-------------|
 | `main` | scripts/healthcheck.ts | 20 | 29 | 113 | 1 |
 | `request` | Front-Taro/src/services/api-client.ts | 11 | 23 | 66 | 1 |
-| `chunkText` | Server-Nodejs/src/ai/rag/chunk-text.ts | 11 | 20 | 72 | **2** |
+| `chunkText` | Server-NestJS/src/ai/rag/chunk-text.ts | 11 | 20 | 72 | **2** |
 | `KnowledgePage` | Front-Taro-Admin/pages/knowledge | 14 | 19 | 216 | 1 |
 | `dirSize` | scripts/healthcheck.ts | 7 | 18 | 18 | 1 |
 | `UsersPage` | Front-Taro-Admin/pages/users | 10 | 15 | 226 | 1 |
-| `validateFileMagicBytes` | Server-Nodejs/common/utils/file-validator.ts | 6 | 11 | 31 | 0 |
+| `validateFileMagicBytes` | Server-NestJS/common/utils/file-validator.ts | 6 | 11 | 31 | 0 |
 | `TodosPage` | Front-Taro/src/pages/todos | 8 | 11 | 137 | 1 |
-| `validateModuleGraph` | Server-Nodejs/common/modules/modules-manifest.ts | 5 | 10 | 17 | 2 |
+| `validateModuleGraph` | Server-NestJS/common/modules/modules-manifest.ts | 5 | 10 | 17 | 2 |
 
 > 建议关注：`chunkText`（RAG 切块，嵌套循环深度 2，是向量化主路径）与 `api-client.request`（Taro 端请求重试逻辑）——如需优化可从这两处入手，拆分或增加测试覆盖。
 > Suggested focus: `chunkText` (RAG chunking, nested loop depth 2, the main vectorization path) and `api-client.request` (Taro-side request retry logic) — if optimization is needed, start with these two by splitting them up or adding test coverage.
 
 ---
 
-## 7. Server-Nodejs 后端模块清单 / 7. Server-Nodejs Backend Module List
+## 7. Server-NestJS 后端模块清单 / 7. Server-NestJS Backend Module List
 
 按目录解析出的 NestJS 模块（`src/` 下共 37 个子目录）：
 

@@ -31,15 +31,15 @@ case "${1:-help}" in
     ./deploy/experience.sh
     ;;
   seed-demo)
-    cd Server-Nodejs && npm run seed:demo
+    cd Server-NestJS && npm run seed:demo
     ;;
   healthcheck)
-    cd Server-Nodejs && npm run healthcheck
+    cd Server-NestJS && npm run healthcheck
     ;;
   dev)
-    cp -n Server-Nodejs/.env.example Server-Nodejs/.env 2>/dev/null || true
+    cp -n Server-NestJS/.env.example Server-NestJS/.env 2>/dev/null || true
     echo "→ 本地开发起后端（SQLite 零配置；无需 Redis，已降级缓存/队列）"
-    cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
+    cd Server-NestJS && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
     ;;
   dev-admin)
     cd Web-Admin-Vue && npm run dev
@@ -52,14 +52,14 @@ case "${1:-help}" in
     "$0" test-frontend
     ;;
   test-backend)
-    cd Server-Nodejs && npm test
-    cd Server-Nodejs && npm run test:e2e
+    cd Server-NestJS && npm test
+    cd Server-NestJS && npm run test:e2e
     ;;
   test-frontend)
     cd Front-Flutter && flutter test
     ;;
   lint)
-    cd Server-Nodejs && npm run lint
+    cd Server-NestJS && npm run lint
     ;;
   build)
     docker compose build
@@ -69,10 +69,10 @@ case "${1:-help}" in
     echo "→ 主 App http://localhost  管理台 http://localhost/admin  健康 http://localhost:3000/api/v1/health"
     ;;
   migrate)
-    cd Server-Nodejs && npm run migration:run
+    cd Server-NestJS && npm run migration:run
     ;;
   backup)
-    cd Server-Nodejs && npm run backup
+    cd Server-NestJS && npm run backup
     ;;
   db-redis)
     docker compose up redis -d

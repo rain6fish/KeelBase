@@ -49,7 +49,7 @@ Related manuals / 相关手册：
 | `OTEL_ENABLED` | `false` | OpenTelemetry tracing |
 | `LOKI_ENABLED` | `false` | Push pino logs to Loki |
 
-Full reference: `Server-Nodejs/.env.example` / 完整参考见 `Server-Nodejs/.env.example`。
+Full reference: `Server-NestJS/.env.example` / 完整参考见 `Server-NestJS/.env.example`。
 
 ---
 
@@ -62,7 +62,7 @@ Full reference: `Server-Nodejs/.env.example` / 完整参考见 `Server-Nodejs/.e
 mkdir certs && cp your-cert.crt certs/server.crt && cp your-key.key certs/server.key
 
 # 2. Configure production env / 配置生产环境
-cp Server-Nodejs/.env.production.example Server-Nodejs/.env.production
+cp Server-NestJS/.env.production.example Server-NestJS/.env.production
 # edit values / 填写真实值
 
 # 3. Start / 启动
