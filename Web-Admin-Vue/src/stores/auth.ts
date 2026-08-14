@@ -3,7 +3,7 @@ import { authApi } from '@/api/auth'
 import { storage } from '@/utils/storage'
 import type { AuthUser } from '@/types/api'
 
-export type AuthStatus = 'initial' | 'loading' | 'authenticated' | 'unauthenticated' | 'forbidden'
+export type AuthStatus = 'initial' | 'loading' | 'authenticated' | 'unauthenticated'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -11,6 +11,9 @@ export const useAuthStore = defineStore('auth', {
     user: null as AuthUser | null,
     errorMessage: '',
   }),
+  getters: {
+    isAdmin: (state) => state.user?.role === 'admin',
+  },
   actions: {
     async tryAutoLogin() {
       const { accessToken } = storage.readTokens()
@@ -20,14 +23,7 @@ export const useAuthStore = defineStore('auth', {
       }
       this.status = 'loading'
       try {
-        const user = await authApi.me()
-        if (user.role !== 'admin') {
-          storage.clearTokens()
-          this.status = 'forbidden'
-          this.user = null
-          return
-        }
-        this.user = user
+        this.user = await authApi.me()
         this.status = 'authenticated'
       } catch {
         storage.clearTokens()
@@ -40,13 +36,6 @@ export const useAuthStore = defineStore('auth', {
       this.errorMessage = ''
       try {
         const result = await authApi.login(username, password)
-        if (result.user.role !== 'admin') {
-          storage.clearTokens()
-          this.status = 'forbidden'
-          this.user = null
-          this.errorMessage = ''
-          return false
-        }
         storage.saveTokens(result.accessToken, result.refreshToken)
         this.user = result.user
         this.status = 'authenticated'
@@ -66,11 +55,6 @@ export const useAuthStore = defineStore('auth', {
       storage.clearTokens()
       this.user = null
       this.status = 'unauthenticated'
-    },
-    setForbidden() {
-      storage.clearTokens()
-      this.user = null
-      this.status = 'forbidden'
     },
   },
 })

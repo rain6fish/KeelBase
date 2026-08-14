@@ -74,6 +74,17 @@ const zh = {
   navAiTools: '工具与副作用',
   navAnalytics: '平台统计',
   navAiTimeline: 'AI 行为回放',
+  navWorkbench: '工作台',
+
+  // 工作台（应用侧）
+  workbenchSubtitle: '企业应用工作台——普通用户的应用入口，管理功能请在控制台使用',
+  workbenchComingSoon: 'WEB-FRONT-3 上线',
+  workbenchMyEvents: '我的事件',
+  workbenchMyEventsDesc: '查看和管理我的日历事件',
+  workbenchMyTodos: '我的待办',
+  workbenchMyTodosDesc: '查看和管理我的待办清单',
+  workbenchNotifications: '我的通知',
+  workbenchNotificationsDesc: '查看我的通知与消息',
 
   // AI 行为回放
   aiTimelineHint: '按用户/会话聚合「AI 对用户数据做了什么」：工具调用 / 确认决策 / 副作用 / 错误',
@@ -165,14 +176,13 @@ const zh = {
   errorTrend: 'AI 错误趋势',
 
   // 登录页
-  loginTitle: '管理员登录',
+  loginTitle: '登录',
   username: '用户名',
   password: '密码',
   usernamePlaceholder: '请输入用户名',
   passwordPlaceholder: '请输入密码',
   loginSuccess: '登录成功',
   loginFailed: '登录失败',
-  noAdminRole: '该账号无管理员权限',
   toggleLang: '切换语言',
   toggleTheme: '切换主题',
 

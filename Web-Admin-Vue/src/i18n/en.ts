@@ -73,6 +73,17 @@ const en: ZhDict = {
   navAiTools: 'Tools & Effects',
   navAnalytics: 'Analytics',
   navAiTimeline: 'AI Behavior Timeline',
+  navWorkbench: 'Workbench',
+
+  // Workbench (application side)
+  workbenchSubtitle: 'Enterprise application workbench — regular user entry; management lives in the console',
+  workbenchComingSoon: 'Coming in WEB-FRONT-3',
+  workbenchMyEvents: 'My Events',
+  workbenchMyEventsDesc: 'View and manage my calendar events',
+  workbenchMyTodos: 'My Todos',
+  workbenchMyTodosDesc: 'View and manage my todos',
+  workbenchNotifications: 'My Notifications',
+  workbenchNotificationsDesc: 'View my notifications and messages',
 
   // AI behavior timeline
   aiTimelineHint: 'Aggregate "what AI did to user data" by user/session: tool calls / confirmations / side effects / errors',
@@ -163,14 +174,13 @@ const en: ZhDict = {
   featureFunnel: 'Feature Funnel',
   errorTrend: 'AI Error Trend',
 
-  loginTitle: 'Admin Login',
+  loginTitle: 'Login',
   username: 'Username',
   password: 'Password',
   usernamePlaceholder: 'Enter username',
   passwordPlaceholder: 'Enter password',
   loginSuccess: 'Login successful',
   loginFailed: 'Login failed',
-  noAdminRole: 'This account does not have admin privileges',
   toggleLang: 'Toggle language',
   toggleTheme: 'Toggle theme',
 
