@@ -111,6 +111,16 @@ export class ${ctx.pluralPascal}Service {
     });
   }
 
+  /** 管理端：全量列表（无 userId 过滤，admin） */
+  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {
+    return this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });
+  }
+
+  /** 管理端：删除任意（软删进回收站，admin） */
+  async removeAsAdmin(id: number): Promise<void> {
+    await this.${ctx.plural}Repository.softDelete(id);
+  }
+
   async findOne(id: number, ability: AppAbility): Promise<${ctx.singlePascal}> {
     const entity = await this.${ctx.plural}Repository.findOne({ where: { id } });
     if (!entity) throw new NotFoundException('${ctx.singlePascal} not found');
@@ -147,6 +157,7 @@ import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
+import { CheckPolicies } from '../common/casl/check-policies.decorator';
 ${flagImport}import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -155,6 +166,24 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 ${flagDecorator}@Controller({ path: '${ctx.plural}', version: '1' })
 export class ${ctx.pluralPascal}Controller {
   constructor(private readonly ${ctx.plural}Service: ${ctx.pluralPascal}Service) {}
+
+  // 管理端：全量列表（admin，供 Web-Admin 管理页）
+  @Get('admin/all')
+  @ApiOperation({ summary: '管理端：全量${ctx.label}列表' })
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async findAllForAdmin() {
+    return this.${ctx.plural}Service.findAllForAdmin();
+  }
+
+  // 管理端：删除任意（admin，软删进回收站）
+  @Delete('admin/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '管理端：删除任意${ctx.label}' })
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async removeAsAdmin(@Param('id', ParseIntPipe) id: number) {
+    await this.${ctx.plural}Service.removeAsAdmin(id);
+    return null;
+  }
 
   @Post()
   @ApiOperation({ summary: '创建${ctx.label}' })
