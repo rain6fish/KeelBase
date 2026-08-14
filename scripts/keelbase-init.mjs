@@ -22,6 +22,7 @@ import {
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { wireBackend, wireFrontend, summarize } from './generator/wire.mjs';
+import { extractSpec } from './generator/llm.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m',
@@ -30,13 +31,19 @@ const C = {
 const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
 
 用法:
-  node scripts/keelbase-init.mjs                    # 交互式引导
+  node scripts/keelbase-init.mjs                    # 交互式引导（可输自然语言走 LLM）
+  node scripts/keelbase-init.mjs --desc "图书管理，有书名、作者、价格"   # LLM 识别（EASY-2.1）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+
+LLM（--desc / 交互中文输入）需要配置环境变量：
+  DEEPSEEK_API_KEY=...        # 云端（默认 deepseek-chat）
+  OLLAMA_BASE_URL=...         # 本地 Ollama（无需 key）
 
 选项:
   --module <name>      模块英文名（小写，如 posts / user_profile）
   --label <中文>       模块中文名（1-12 字）
   --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date（默认 string）
+  --desc <描述>        自然语言描述 → LLM 提取模块/标签/字段
   --brand <name>       替换应用品牌名（写 app_constants.dart）
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
@@ -112,15 +119,35 @@ async function main() {
     return;
   }
 
-  // ── 收集输入：交互补缺 ──
+  // ── 收集输入：--desc 走 LLM；交互可输自然语言 ──
   let name = args.module;
   let label = args.label;
   let fieldsStr = args.fields;
 
+  async function llmExtract(description) {
+    const r = await extractSpec(description);
+    if (!r.ok) fail(r.error);
+    if (!name) name = r.spec.module;
+    if (!label) label = r.spec.label;
+    if (!fieldsStr) fieldsStr = r.spec.fields.map((f) => `${f.name}:${f.type}`).join(',');
+    console.log(`${C.cyan}LLM 识别：模块 ${r.spec.module} / 标签 ${r.spec.label} / 字段 ${r.spec.fields.map((f) => f.name).join(', ')}${C.reset}`);
+  }
+
+  if (args.desc) {
+    await llmExtract(args.desc);
+  }
+
   if (!name || !label || !fieldsStr) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
-      if (!name) name = await prompt(rl, '模块英文名（小写，如 posts）', 'posts');
+      if (!name) {
+        const a = await prompt(rl, '模块英文名（小写，如 posts）或一句话描述（中文/带空格→LLM 识别）', 'posts');
+        if (/^[a-z][a-z0-9_]*$/.test(a)) {
+          name = a;
+        } else {
+          await llmExtract(a);
+        }
+      }
       if (!label) label = await prompt(rl, '模块中文名（1-12 字）', '帖子');
       if (!fieldsStr) fieldsStr = await prompt(rl, '字段（title:string,content:text）', 'title:string,content:text');
     } finally {
