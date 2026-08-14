@@ -9,7 +9,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
-import { TodosModule } from './todos/todos.module';
+import { TodosModule } from './todos/todos.module';import { PostsModule } from './posts/posts.module';
+
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -139,7 +140,8 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     UsersModule,
     HealthModule,
     EventsModule,
-    TodosModule,
+    TodosModule,    PostsModule,
+
     UploadModule,
     NotificationsModule,
     AiModule,

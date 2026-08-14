@@ -1,0 +1,262 @@
+/**
+ * EASY-2 CLI 单测（node:test，零依赖）。
+ * 运行：node --test scripts/keelbase-init.test.mjs
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+import {
+  validateModuleName,
+  validateLabel,
+  parseFields,
+  validateFields,
+  buildContext,
+  toSingular,
+  toPlural,
+  toPascal,
+} from './generator/validate.mjs';
+import { backendFiles } from './generator/templates-backend.mjs';
+import { frontendFiles } from './generator/templates-frontend.mjs';
+import { wireBackend, wireFrontend } from './generator/wire.mjs';
+
+// ── 工具 ─────────────────────────────────────────────────────────────────────
+async function tempRoot() {
+  const dir = await mkdtemp(join(tmpdir(), 'keelbase-cli-'));
+  return dir.replace(/\\/g, '/');
+}
+
+const BE = (root, p) => `${root}/Server-Nodejs/src/${p}`;
+const FE = (root, p) => `${root}/Front-Flutter/lib/${p}`;
+
+async function write(p, c) {
+  await mkdir(p.substring(0, p.lastIndexOf('/')), { recursive: true });
+  await writeFile(p, c, 'utf8');
+}
+
+/** 生成一套最小接线 fixture（含各锚点）。 */
+async function makeFixtures(root) {
+  await write(BE(root, 'app.module.ts'), `import { TodosModule } from './todos/todos.module';
+import { EventsModule } from './events/events.module';
+
+@Module({
+  imports: [
+    EventsModule,
+    TodosModule,
+  ],
+})
+export class AppModule {}
+`);
+  await write(
+    BE(root, 'common/modules/modules-manifest.ts'),
+    `export const BUSINESS_MODULES = ['events', 'todos'] as const;
+
+const businessEntries: ModuleManifestEntry[] = [
+  { id: 'events', category: 'business', deps: ['notifications'], label: '事件' },
+  { id: 'todos', category: 'business', deps: [], label: '待办' },
+];`,
+  );
+  await write(
+    BE(root, 'feature-flags/feature-flags.constants.ts'),
+    `export const FEATURE_KEYS = {
+  TODOS: 'todos',
+} as const;`,
+  );
+  await write(
+    BE(root, 'ai/tools/navigate-page.tool.ts'),
+    `const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
+  todos: { route: '/todos', description: '待办清单' },
+};`,
+  );
+  await write(
+    FE(root, 'main.dart'),
+    `import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/todos/presentation/providers/todos_provider.dart';
+
+      providers: [
+        ChangeNotifierProvider<TodosProvider>(
+          create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+      ],`,
+  );
+  await write(
+    FE(root, 'core/router/app_router.dart'),
+    `import '../../features/todos/presentation/pages/todos_page.dart';
+    routes: [
+      // Legal pages
+    ],`,
+  );
+  await write(
+    FE(root, 'core/i18n/app_localizations.dart'),
+    `  String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
+}`,
+  );
+}
+
+function ctx(over = {}) {
+  return { ...buildContext('posts', '帖子', parseFields('title:string,content:text')), featureFlag: true, ...over };
+}
+
+// ── 校验与命名 ───────────────────────────────────────────────────────────────
+test('validateModuleName：合法/非法', () => {
+  assert.equal(validateModuleName('posts'), null);
+  assert.equal(validateModuleName('user_profile'), null);
+  assert.ok(validateModuleName('Posts'));
+  assert.ok(validateModuleName('帖子'));
+  assert.ok(validateModuleName('post-title'));
+  assert.equal(validateModuleName('bu'), null); // 短但合法
+  assert.ok(validateModuleName('bus')); // 去 s 后过短 → 拒绝
+});
+
+test('validateLabel：注入防护', () => {
+  assert.equal(validateLabel('帖子'), null);
+  assert.equal(validateLabel('AB 12'), null);
+  assert.ok(validateLabel('包含\'引号'));
+  assert.ok(validateLabel('带`反引号'));
+  assert.ok(validateLabel('带反斜杠\\'));
+  assert.ok(validateLabel('太长了太长了太长了太长了太长了'));
+});
+
+test('parseFields + validateFields：类型与保留词', () => {
+  const fields = parseFields('title:string,content:text,count:int,ok:bool,when:date');
+  assert.equal(validateFields(fields), null);
+  assert.ok(validateFields([{ name: 'id', type: 'string' }])); // 保留词
+  assert.ok(validateFields([{ name: 'bad type', type: 'string' }]));
+  assert.ok(validateFields([{ name: 'x', type: 'unknown' }]));
+});
+
+test('命名变换：posts/post 归一', () => {
+  const a = buildContext('posts', '帖子', []);
+  const b = buildContext('post', '帖子', []);
+  assert.equal(a.singular, 'post');
+  assert.equal(a.plural, 'posts');
+  assert.equal(a.singlePascal, 'Post');
+  assert.equal(a.pluralPascal, 'Posts');
+  assert.equal(b.singular, a.singular);
+  assert.equal(b.plural, a.plural);
+});
+
+// ── 骨架 ─────────────────────────────────────────────────────────────────────
+test('后端 7 文件骨架', () => {
+  const files = backendFiles(ctx());
+  assert.equal(files.length, 7);
+  const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
+  assert.match(entity, /@Entity\('posts'\)/);
+  assert.match(entity, /name: 'user_id'/);
+  assert.match(entity, /@DeleteDateColumn/);
+  assert.match(entity, /title: string/);
+  assert.match(entity, /content\?: string \| null/);
+  const dto = files.find((f) => f.path.includes('create-')).content;
+  assert.match(dto, /@MaxLength\(200\)/);
+  const updateDto = files.find((f) => f.path.includes('update-')).content;
+  assert.match(updateDto, /extends PartialType/);
+  const controller = files.find((f) => f.path.endsWith('.controller.ts')).content;
+  assert.match(controller, /path: 'posts', version: '1'/);
+  assert.match(controller, /@FeatureFlag\('posts'\)/);
+  const module = files.find((f) => f.path.endsWith('.module.ts')).content;
+  assert.match(module, /forFeature\(\[Post\]\)/);
+});
+
+test('后端 controller：--no-feature-flag 省略装饰器', () => {
+  const files = backendFiles(ctx({ featureFlag: false }));
+  const controller = files.find((f) => f.path.endsWith('.controller.ts')).content;
+  assert.doesNotMatch(controller, /@FeatureFlag/);
+  assert.doesNotMatch(controller, /feature-flag\.decorator/);
+});
+
+test('前端 4 文件骨架', () => {
+  const files = frontendFiles(ctx());
+  assert.equal(files.length, 4);
+  const model = files.find((f) => f.path.endsWith('_model.dart')).content;
+  assert.match(model, /class PostModel/);
+  assert.match(model, /fromJson/);
+  assert.match(model, /toJson/);
+  const repo = files.find((f) => f.path.endsWith('_repository.dart')).content;
+  assert.match(repo, /\/posts/);
+  assert.match(repo, /class PostsRepository/);
+  const provider = files.find((f) => f.path.endsWith('_provider.dart')).content;
+  assert.match(provider, /static const _ns = 'posts'/);
+  assert.match(provider, /乐观更新/);
+  const page = files.find((f) => f.path.endsWith('_page.dart')).content;
+  assert.match(page, /class PostsPage/);
+  assert.match(page, /l10n\.postsTitle/);
+});
+
+// ── 接线 ─────────────────────────────────────────────────────────────────────
+test('接线：7 处插入 + 幂等重跑零改动', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const c = ctx();
+
+  const r1 = [...(await wireBackend(c, root)), ...(await wireFrontend(c, root))];
+  const changed = r1.filter((r) => r.changed);
+  assert.ok(changed.length >= 7, `应接线 ≥7 处，实际 ${changed.length}: ${r1.map((r) => r.file).join(',')}`);
+
+  const app = await readFile(BE(root, 'app.module.ts'), 'utf8');
+  assert.match(app, /PostsModule/);
+  const manifest = await readFile(BE(root, 'common/modules/modules-manifest.ts'), 'utf8');
+  assert.match(manifest, /'posts'/);
+  assert.match(manifest, /label: '帖子'/);
+  const main = await readFile(FE(root, 'main.dart'), 'utf8');
+  assert.match(main, /PostsProvider/);
+  const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
+  assert.match(router, /path: '\/posts'/);
+  const i18n = await readFile(FE(root, 'core/i18n/app_localizations.dart'), 'utf8');
+  assert.match(i18n, /postsTitle/);
+
+  // 幂等：重跑全部应 skipped（already-wired）
+  const r2 = [...(await wireBackend(c, root)), ...(await wireFrontend(c, root))];
+  assert.equal(r2.filter((r) => r.changed).length, 0);
+});
+
+test('接线：锚点缺失 → 跳过 + 文件未破坏', async () => {
+  const root = await tempRoot();
+  // 只写 app.module（缺其他 fixture）
+  await write(BE(root, 'app.module.ts'), `import { TodosModule } from './todos/todos.module';\n@Module({ imports: [TodosModule] })\nexport class AppModule {}\n`);
+  const original = await readFile(BE(root, 'app.module.ts'), 'utf8');
+
+  const r = [...(await wireBackend(ctx(), root))];
+  const appRes = r.find((x) => x.file.endsWith('app.module.ts') && x.changed);
+  assert.ok(appRes, 'app.module 应接线成功');
+  const missing = r.filter((x) => !x.changed);
+  assert.ok(missing.length > 0, '缺 fixture 的文件应跳过');
+  // 缺 fixtures 的 manifest 文件未被创建/破坏
+  await assert.rejects(access(BE(root, 'common/modules/modules-manifest.ts')));
+  const after = await readFile(BE(root, 'app.module.ts'), 'utf8');
+  assert.match(after, /PostsModule/);
+  assert.ok(after.startsWith(original.slice(0, 40)), 'app.module 未被破坏');
+});
+
+// ── 端到端：跑真实 CLI ───────────────────────────────────────────────────────
+test('端到端：非交互 CLI 生成 + 接线', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--module', 'posts', '--label', '帖子', '--fields', 'title:string'], {
+      cwd: root,
+    });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /生成业务模块：posts/);
+  // 生成文件存在
+  await access(BE(root, 'posts/post.entity.ts'));
+  await access(BE(root, 'posts/posts.module.ts'));
+  await access(FE(root, 'features/posts/data/models/post_model.dart'));
+  await access(FE(root, 'features/posts/presentation/pages/posts_page.dart'));
+  // 接线已插入
+  const app = await readFile(BE(root, 'app.module.ts'), 'utf8');
+  assert.match(app, /PostsModule/);
+  const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
+  assert.match(router, /path: '\/posts'/);
+});

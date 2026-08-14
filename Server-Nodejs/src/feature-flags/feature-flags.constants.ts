@@ -12,7 +12,8 @@ export const FEATURE_KEYS = {
   OAUTH: 'oauth',
   UPLOAD: 'upload',
   NOTIFICATIONS: 'notifications',
-  TODOS: 'todos',
+  TODOS: 'todos',  POSTS: 'posts',
+
 } as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[keyof typeof FEATURE_KEYS];

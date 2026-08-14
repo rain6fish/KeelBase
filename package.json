@@ -1,0 +1,13 @@
+{
+  "name": "keelbase",
+  "version": "0.9.0",
+  "description": "KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）",
+  "type": "module",
+  "bin": {
+    "keelbase": "./scripts/keelbase-init.mjs"
+  },
+  "scripts": {
+    "cli:test": "node --test scripts/keelbase-init.test.mjs"
+  },
+  "private": true
+}
