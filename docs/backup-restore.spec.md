@@ -49,7 +49,7 @@ The output directory is `data/backups/` (ignored by gitignore; contains sensitiv
 
 ```bash
 # cron 每天凌晨 2 点
-0 2 * * * cd /path/to/Server-Nodejs && npm run backup >> /var/log/backup.log 2>&1
+0 2 * * * cd /path/to/Server-NestJS && npm run backup >> /var/log/backup.log 2>&1
 ```
 
 ## 7. 安全 / Security

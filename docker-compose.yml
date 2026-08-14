@@ -6,7 +6,7 @@ services:
     image: pgvector/pgvector:pg17
     # 从 .env.production 读 POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD（与 server 的 DB_* 同步）
     env_file:
-      - ./Server-Nodejs/.env.production
+      - ./Server-NestJS/.env.production
     # 不暴露宿主机端口（仅容器内网被 server 访问）；调试需直连时用 `docker compose run -p 5432:5432 postgres`
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -36,7 +36,7 @@ services:
     # 密钥/密码从 .env.production 注入（deploy.sh / experience.sh 会生成随机密钥）。
     # 容器内 ENCRYPTION_KEY 等缺失时，NestJS 配置校验会失败——因此启动前必须先有该文件。
     env_file:
-      - ./Server-Nodejs/.env.production
+      - ./Server-NestJS/.env.production
     environment:
       - PORT=3000
       - DB_TYPE=postgres

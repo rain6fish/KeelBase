@@ -43,7 +43,7 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
    ```
 3. Install backend dependencies:
    ```bash
-   cd Server-Nodejs
+   cd Server-NestJS
    npm install
    ```
 4. Install Flutter dependencies:

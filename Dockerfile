@@ -1,9 +1,9 @@
  # ---- Backend ----
  FROM node:22-alpine AS server-build
  WORKDIR /app/server
- COPY Server-Nodejs/package*.json ./
+ COPY Server-NestJS/package*.json ./
  RUN npm ci
- COPY Server-Nodejs/ .
+ COPY Server-NestJS/ .
  RUN npm run build
 
 FROM node:22-alpine AS server

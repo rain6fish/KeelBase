@@ -60,7 +60,7 @@ async function applyFile(file, fn) {
 export async function wireBackend(ctx, root = '') {
   const results = [];
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
-  const BE = `${root}${sep}Server-Nodejs/src`;
+  const BE = `${root}${sep}Server-NestJS/src`;
 
   // 1) app.module.ts：import + imports 数组
   results.push(
@@ -128,7 +128,7 @@ export async function wireFrontend(ctx, root = '') {
   const results = [];
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
   const FE = `${root}${sep}Front-Flutter/lib`;
-  const BE = `${root}${sep}Server-Nodejs/src`;
+  const BE = `${root}${sep}Server-NestJS/src`;
 
   // 4) main.dart：imports + Provider
   results.push(

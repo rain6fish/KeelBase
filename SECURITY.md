@@ -31,7 +31,7 @@ Send an email to: **[128766028+rain6fish@users.noreply.github.com](mailto:128766
 
 Please include the following information in your report / 请在你的报告中包含以下信息：
 
-- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Front-Taro / Web-Admin / Docker / docs）
+- **Affected component(s)** / 受影响组件（backend / Front-Flutter / Front-Taro / Web-Admin-Vue / Docker / docs）
 - **Vulnerability type** / 漏洞类型（e.g. XSS, SQL injection, auth bypass, RCE, information disclosure…）
 - **Steps to reproduce** / 复现步骤（尽量最小化）
 - **Impact** / 影响范围（谁能利用、能达到什么效果）
@@ -59,9 +59,9 @@ If email is not suitable, you may use the **private vulnerability reporting** fe
 
 We consider the following in scope for security review / 以下内容在安全审查范围内：
 
-- `Server-Nodejs/` — NestJS backend (auth, authorization, API, file upload, AI agent harness) / NestJS 后端（认证、授权、API、文件上传、AI Agent 运行时）
+- `Server-NestJS/` — NestJS backend (auth, authorization, API, file upload, AI agent harness) / NestJS 后端（认证、授权、API、文件上传、AI Agent 运行时）
 - `Front-Flutter/` — Flutter app (iOS / Android / Web) / Flutter 主 App（三端）
-- `Front-Taro/` and `Web-Admin/` — Taro H5 / mini-program app and Vue3 admin console / Taro 主 App 与管理台
+- `Front-Taro/` and `Web-Admin-Vue/` — Taro H5 / mini-program app and Vue3 admin console / Taro 主 App 与管理台
 - `Dockerfile`, `docker-compose*.yml`, `nginx*.conf` — deployment / 部署配置
 - `deploy/` — deployment scripts / 部署脚本
 
@@ -130,7 +130,7 @@ SBOM 为审计提供第三方依赖的机器可读清单，可通过两种方式
 
 ### 1. Backend (npm) / 后端
 ```bash
-cd Server-Nodejs
+cd Server-NestJS
 npm install -g @cyclonedx/cyclonedx-npm   # once / 首次安装
 cyclonedx-npm --output-file ../sbom.backend.json
 ```
@@ -144,7 +144,7 @@ dart pub deps --json > ../sbom.frontend.json
 ### 3. All npm workspaces (Taro app + Vue3 admin) / 前端
 ```bash
 cd Front-Taro && cyclonedx-npm --output-file ../sbom.taro.json
-cd ../Web-Admin && cyclonedx-npm --output-file ../sbom.web-admin.json
+cd ../Web-Admin-Vue && cyclonedx-npm --output-file ../sbom.web-admin.json
 ```
 
 Generated SBOMs should be committed or published alongside releases. For a quick **vulnerability scan** of backend dependencies:
@@ -152,7 +152,7 @@ Generated SBOMs should be committed or published alongside releases. For a quick
 生成的 SBOM 建议随发布一起提交或公开。快速**漏洞扫描**后端依赖：
 
 ```bash
-cd Server-Nodejs && npm audit
+cd Server-NestJS && npm audit
 ```
 
 > ⚠️ `npm audit` may report issues in transitive dependencies. Evaluate each advisory in the context of how the package is used (many are dev-only or non-exploitable in our usage).
@@ -167,7 +167,7 @@ For production deployments, see also / 生产部署另见：
 
 - [`docs/manual/operations.md`](docs/manual/operations.md) — backup/restore, observability, alerting / 备份恢复、可观测性、告警
 - [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) — deployment with HTTPS / HTTPS 部署
-- [`scripts/healthcheck.ts`](Server-Nodejs/scripts/healthcheck.ts) — one-command health inspection / 一键健康巡检
+- [`scripts/healthcheck.ts`](Server-NestJS/scripts/healthcheck.ts) — one-command health inspection / 一键健康巡检
 - Key production env vars / 关键生产环境变量：
   - `JWT_SECRET`, `JWT_REFRESH_SECRET` — **min 32 chars**, rotate regularly / 最短 32 字符，定期轮换
   - `ENCRYPTION_KEY` — AES key for sensitive fields, `openssl rand -hex 32` / 敏感字段加密密钥

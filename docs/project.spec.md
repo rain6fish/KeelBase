@@ -6,8 +6,8 @@
 > 项目名：KeelBase（App 全栈开发平台）
 > Project name: KeelBase (App full-stack development platform)
 
-> 前端：Front-Flutter | 后端：Server-Nodejs
-> Frontend: Front-Flutter | Backend: Server-Nodejs
+> 前端：Front-Flutter | 后端：Server-NestJS
+> Frontend: Front-Flutter | Backend: Server-NestJS
 
 ---
 
@@ -83,7 +83,7 @@ KeelBase/
 │   │       └── users/             # 用户管理
 │   └── test/
 │
-├── Server-Nodejs/                 # NestJS 后端
+├── Server-NestJS/                 # NestJS 后端
 │   ├── src/
 │   │   ├── main.ts                # 启动入口
 │   │   ├── app.module.ts          # 根模块
