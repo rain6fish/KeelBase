@@ -31,11 +31,19 @@ export class PostsService {
     return this.postsRepository.save(entity);
   }
 
-  async findAll(userId: number): Promise<Post[]> {
-    return this.postsRepository.find({
+  async findAll(userId: number): Promise<Array<Post & { likes: number; comments: number }>> {
+    const posts = await this.postsRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
     });
+    // GROWTH-2：聚合点赞/评论数（前端列表展示）
+    const likeCounts = await this._likeCounts(posts.map((p) => p.id));
+    const commentCounts = await this._commentCounts(posts.map((p) => p.id));
+    return posts.map((p) => ({
+      ...p,
+      likes: likeCounts.get(p.id) ?? 0,
+      comments: commentCounts.get(p.id) ?? 0,
+    }));
   }
 
   async findOne(id: number, ability: AppAbility): Promise<Post> {
@@ -124,5 +132,29 @@ export class PostsService {
 
   private async _likeCount(postId: number): Promise<number> {
     return this.likesRepository.count({ where: { postId } });
+  }
+
+  private async _likeCounts(postIds: number[]): Promise<Map<number, number>> {
+    if (postIds.length === 0) return new Map();
+    const rows = await this.likesRepository
+      .createQueryBuilder('l')
+      .select('l.postId', 'postId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('l.postId IN (:...ids)', { ids: postIds })
+      .groupBy('l.postId')
+      .getRawMany<{ postId: string; cnt: string }>();
+    return new Map(rows.map((r) => [Number(r.postId), Number(r.cnt)]));
+  }
+
+  private async _commentCounts(postIds: number[]): Promise<Map<number, number>> {
+    if (postIds.length === 0) return new Map();
+    const rows = await this.commentsRepository
+      .createQueryBuilder('c')
+      .select('c.postId', 'postId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('c.postId IN (:...ids)', { ids: postIds })
+      .groupBy('c.postId')
+      .getRawMany<{ postId: string; cnt: string }>();
+    return new Map(rows.map((r) => [Number(r.postId), Number(r.cnt)]));
   }
 }

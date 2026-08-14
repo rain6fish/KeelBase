@@ -84,6 +84,46 @@ class PostsProvider extends ChangeNotifier {
     }
   }
 
+  /// GROWTH-2 点赞切换（乐观更新，失败回滚）
+  Future<void> toggleLike(int id) async {
+    final index = _items.indexWhere((e) => e.id == id);
+    if (index < 0) return;
+    final current = _items[index];
+    final nextLiked = !current.likedByMe;
+    // 乐观更新
+    _items[index] = current.copyWith(
+      likedByMe: nextLiked,
+      likes: current.likes + (nextLiked ? 1 : -1),
+    );
+    notifyListeners();
+    try {
+      final likes = nextLiked ? await _repository.like(id) : await _repository.unlike(id);
+      _items[index] = _items[index].copyWith(likes: likes);
+      notifyListeners();
+    } catch (_) {
+      // 失败回滚
+      _items[index] = current;
+      notifyListeners();
+    }
+  }
+
+  /// GROWTH-2 评论（成功刷新评论数）
+  Future<bool> addComment(int id, String content) async {
+    try {
+      await _repository.comment(id, content);
+      final index = _items.indexWhere((e) => e.id == id);
+      if (index >= 0) {
+        _items[index] = _items[index].copyWith(comments: _items[index].comments + 1);
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> _persist() async {
     await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
   }
