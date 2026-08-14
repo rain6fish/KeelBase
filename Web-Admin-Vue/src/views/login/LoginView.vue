@@ -8,10 +8,7 @@
       <v-card-text class="px-8 py-6">
         <div class="text-subtitle-2 mb-4 text-center">{{ t('loginTitle') }}</div>
 
-        <v-alert v-if="auth.status === 'forbidden'" type="error" variant="tonal" class="mb-4">
-          {{ t('noAdminRole') }}
-        </v-alert>
-        <v-alert v-else-if="errorMessage" type="error" variant="tonal" class="mb-4">
+        <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
           {{ errorMessage }}
         </v-alert>
 
@@ -49,7 +46,7 @@
         </v-form>
 
         <div class="text-caption text-medium-emphasis mt-4 text-center">
-          admin / Admin@1234 · alex / 123456
+          admin / Admin@1234（控制台）· alex / 123456（工作台）
         </div>
       </v-card-text>
 
@@ -62,7 +59,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { VForm } from 'vuetify/components'
 import { useAuthStore } from '@/stores/auth'
@@ -70,6 +67,7 @@ import LangToggle from '@/components/LangToggle.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 
 const username = ref('')
@@ -85,8 +83,9 @@ async function onSubmit() {
   }
   const ok = await auth.login(username.value, password.value)
   if (ok) {
-    router.replace('/')
-  } else if (auth.status !== 'forbidden') {
+    const redirect = route.query.redirect
+    router.replace(typeof redirect === 'string' ? redirect : auth.isAdmin ? '/' : '/workbench')
+  } else {
     errorMessage.value = auth.errorMessage || t('loginFailed')
   }
 }

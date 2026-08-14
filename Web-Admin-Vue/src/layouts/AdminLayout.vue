@@ -10,7 +10,7 @@
         />
       </template>
 
-      <v-list density="comfortable" nav>
+      <v-list v-if="auth.isAdmin" density="comfortable" nav>
         <v-list-item
           :prepend-icon="'mdi-view-dashboard-outline'"
           :title="t('overview')"
@@ -115,8 +115,16 @@ const breadcrumbs = computed(() => {
   ]
 })
 
-// 导航分组：对齐旧 NAV_GROUPS；P3 新增页面在对应组追加
-const navGroups = computed(() => [
+// 工作台（应用侧）导航：普通企业用户；WEB-FRONT-3 子页在此追加
+const workspaceNavGroups = computed(() => [
+  {
+    label: t('navWorkbench'),
+    items: [{ name: 'workbench-home', to: '/workbench', icon: 'mdi-home-outline', label: t('navWorkbench') }],
+  },
+])
+
+// 控制台（管理侧）导航：对齐旧 NAV_GROUPS；P3 新增页面在对应组追加
+const consoleNavGroups = computed(() => [
   {
     label: t('navData'),
     items: [
@@ -152,6 +160,8 @@ const navGroups = computed(() => [
     ],
   },
 ])
+
+const navGroups = computed(() => (auth.isAdmin ? consoleNavGroups.value : workspaceNavGroups.value))
 </script>
 
 <style scoped>
