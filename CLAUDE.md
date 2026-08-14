@@ -667,6 +667,27 @@ npm run migration:run
 | POST | /api/v1/plugins/:path | Yes | — | 插件路由统一入口（PL-11，插件 registerRoute 注册） |
 | POST | /api/v1/admin/import/users | Yes (ADMIN) | — | 批量导入用户（CSV，POV-2，返回成功/失败明细） |
 | POST | /api/v1/admin/import/events | Yes (ADMIN) | — | 批量导入事件（CSV，POV-2，返回成功/失败明细） |
+| POST | /api/v1/org/organizations | Yes (ADMIN) | — | 创建组织（ORG-1，创建者成 owner） |
+| GET | /api/v1/org/organizations | Yes (ADMIN) | — | 组织列表（含成员/部门数，ORG-1） |
+| GET | /api/v1/org/organizations/:id | Yes (ADMIN) | — | 组织详情（ORG-1） |
+| PUT | /api/v1/org/organizations/:id | Yes (ADMIN) | — | 更新组织（ORG-1） |
+| DELETE | /api/v1/org/organizations/:id | Yes (ADMIN) | — | 删除组织（有成员拒绝，ORG-1） |
+| POST | /api/v1/org/organizations/:orgId/departments | Yes (ADMIN) | — | 创建部门（ORG-1） |
+| GET | /api/v1/org/organizations/:orgId/departments | Yes (ADMIN) | — | 部门扁平列表（含 parentId，ORG-1） |
+| PUT | /api/v1/org/departments/:id | Yes (ADMIN) | — | 更新部门（改名/移动上级，防环，ORG-1） |
+| DELETE | /api/v1/org/departments/:id | Yes (ADMIN) | — | 删除部门（子孙上挂、成员脱离，ORG-1） |
+| GET | /api/v1/org/organizations/:orgId/members | Yes (ADMIN) | — | 成员列表（脱敏，ORG-1） |
+| POST | /api/v1/org/organizations/:orgId/members | Yes (ADMIN) | — | 添加成员（重复 409，ORG-1） |
+| PUT | /api/v1/org/members/:id | Yes (ADMIN) | — | 更新成员（改角色/移部门，最后 owner 保护，ORG-1） |
+| DELETE | /api/v1/org/members/:id | Yes (ADMIN) | — | 移除成员（最后 owner 拒绝，ORG-1） |
+| POST | /api/v1/org/organizations/:orgId/invites | Yes (ADMIN) | — | 生成组织邀请码（ORG-6） |
+| GET | /api/v1/org/organizations/:orgId/invites | Yes (ADMIN) | — | 组织邀请列表（ORG-6） |
+| DELETE | /api/v1/org/invites/:id | Yes (ADMIN) | — | 撤销邀请（ORG-6） |
+| POST | /api/v1/org/requests | Yes | 成员 | 提交组织申请（发起 FLOW 审批流，ORG-4） |
+| GET | /api/v1/org/requests | Yes | 本人 | 我的申请列表（ORG-4） |
+| GET | /api/v1/org/my | Yes | 成员 | 我的组织信息 + 部门路径（ORG-7） |
+| GET | /api/v1/org/my/tree | Yes | 成员 | 我的组织部门树（只读，ORG-7） |
+| GET | /api/v1/org/my/members | Yes | 成员 | 我的组织成员（脱敏白名单，ORG-7） |
 
 ---
 
