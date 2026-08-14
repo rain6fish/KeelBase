@@ -26,16 +26,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 
-// 守卫已保证 auth.user 已加载（tryAutoLogin），直接读 store 不额外发请求
+// 登录响应不含 email 等完整字段，挂载时用 /auth/me 刷新完整资料（失败静默，保留登录态 user）
+onMounted(async () => {
+  try {
+    auth.user = await authApi.me()
+  } catch {
+    // 忽略：守卫已保证 user 存在
+  }
+})
+
 const user = computed(() => auth.user)
 
 const infoCards = computed(() => [
