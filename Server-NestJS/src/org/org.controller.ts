@@ -20,6 +20,8 @@ import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { CreateInviteDto } from './dto/create-invite.dto';
+import { SubmitRequestDto } from './dto/submit-request.dto';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -162,5 +164,70 @@ export class OrgController {
   async removeMember(@Param('id', ParseIntPipe) id: number) {
     await this.orgService.removeMember(id);
     return null;
+  }
+
+  // ── 邀请（ORG-6，管理端） ──
+
+  @Post('organizations/:orgId/invites')
+  @HttpCode(HttpStatus.CREATED)
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '生成组织邀请码' })
+  createInvite(
+    @Param('orgId', ParseIntPipe) orgId: number,
+    @Body() dto: CreateInviteDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.orgService.createInvite(orgId, dto, user.sub);
+  }
+
+  @Get('organizations/:orgId/invites')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '邀请列表（含使用状态）' })
+  listInvites(@Param('orgId', ParseIntPipe) orgId: number) {
+    return this.orgService.listInvites(orgId);
+  }
+
+  @Delete('invites/:id')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '撤销邀请' })
+  async removeInvite(@Param('id', ParseIntPipe) id: number) {
+    await this.orgService.removeInvite(id);
+    return null;
+  }
+
+  // ── 申请（ORG-4，成员） ──
+
+  @Post('requests')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '提交组织申请（发起审批流）' })
+  submitRequest(@Body() dto: SubmitRequestDto, @CurrentUser() user: JwtPayload) {
+    return this.orgService.submitRequest(user.sub, dto);
+  }
+
+  @Get('requests')
+  @ApiOperation({ summary: '我的申请列表' })
+  listMyRequests(@CurrentUser() user: JwtPayload) {
+    return this.orgService.listMyRequests(user.sub);
+  }
+
+  // ── 我的组织 / 通讯录（ORG-7，成员只读） ──
+
+  @Get('my')
+  @ApiOperation({ summary: '我的组织信息 + 部门路径' })
+  getMyOrg(@CurrentUser() user: JwtPayload) {
+    return this.orgService.getMyOrg(user.sub);
+  }
+
+  @Get('my/tree')
+  @ApiOperation({ summary: '我的组织部门树（只读，含成员数）' })
+  getMyTree(@CurrentUser() user: JwtPayload) {
+    return this.orgService.getMyTree(user.sub);
+  }
+
+  @Get('my/members')
+  @ApiOperation({ summary: '我的组织成员（脱敏白名单：无 email/phone）' })
+  listMyMembers(@CurrentUser() user: JwtPayload) {
+    return this.orgService.listMyMembers(user.sub);
   }
 }

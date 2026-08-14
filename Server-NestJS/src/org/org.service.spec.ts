@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConflictException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { OrgService } from './org.service';
 import { Organization } from './organization.entity';
 import { Department } from './department.entity';
@@ -9,6 +9,8 @@ import { OrgInvite } from './org-invite.entity';
 import { OrgMemberRole } from './org-member-role.enum';
 import { User } from '../common/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FlowRuntimeService } from '../flows/flow-runtime.service';
+import { FlowInstance } from '../flows/entities/flow-instance.entity';
 
 /** 链式 QueryBuilder mock */
 function mockQB(overrides: Record<string, unknown> = {}) {
@@ -72,7 +74,12 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(OrgMember), useValue: members },
         { provide: getRepositoryToken(OrgInvite), useValue: invites },
         { provide: getRepositoryToken(User), useValue: users },
+        { provide: getRepositoryToken(FlowInstance), useValue: mockRepo() },
         { provide: NotificationsService, useValue: notify },
+        {
+          provide: FlowRuntimeService,
+          useValue: { start: jest.fn().mockResolvedValue({ id: 1, definitionId: 'org_request_approval' }) },
+        },
       ],
     }).compile();
 
@@ -211,5 +218,47 @@ describe('OrgService', () => {
     const result = await service.listMembers(1, 1, 20);
     expect(result.items[0].email).toBe('a***@example.com');
     expect(result.items[0].deptName).toBe('研发部');
+  });
+
+  // ── 邀请（ORG-6） ──
+
+  it('兑换邀请码：有效 → 入组织 + 标记已用 + 通知邀请者', async () => {
+    invites.findOne.mockResolvedValue({
+      id: 1, code: 'ABC12345', orgId: 1, inviterId: 2,
+      role: OrgMemberRole.MEMBER, deptId: null, expiresAt: null, usedBy: null, usedAt: null,
+    });
+    members.findOne.mockResolvedValue(null);
+    const ok = await service.redeemOrgInvite('ABC12345', 9);
+    expect(ok).toBe(true);
+    expect(members.save).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 1, userId: 9, role: OrgMemberRole.MEMBER }),
+    );
+    expect(invites.save).toHaveBeenCalledWith(expect.objectContaining({ usedBy: 9 }));
+    expect(notify.create).toHaveBeenCalled();
+  });
+
+  it('兑换邀请码：已用 / 过期 / 无效 → 静默 false', async () => {
+    invites.findOne
+      .mockResolvedValueOnce({ id: 1, usedBy: 5, expiresAt: null }) // used
+      .mockResolvedValueOnce({ id: 2, usedBy: null, expiresAt: new Date(Date.now() - 1000) }) // expired
+      .mockResolvedValueOnce(null); // invalid
+    expect(await service.redeemOrgInvite('USED', 9)).toBe(false);
+    expect(await service.redeemOrgInvite('EXPI', 9)).toBe(false);
+    expect(await service.redeemOrgInvite('XXXX', 9)).toBe(false);
+    expect(members.save).not.toHaveBeenCalled();
+  });
+
+  // ── 申请（ORG-4） ──
+
+  it('提交申请：非成员 403', async () => {
+    members.findOne.mockResolvedValue(null);
+    await expect(service.submitRequest(9, { title: '请假' })).rejects.toThrow(ForbiddenException);
+  });
+
+  it('提交申请：成员 → 发起 FLOW 审批流 + 通知发起人', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: 2, role: OrgMemberRole.MEMBER });
+    const inst = await service.submitRequest(9, { title: '请假' });
+    expect(inst.definitionId).toBe('org_request_approval');
+    expect(notify.create).toHaveBeenCalled();
   });
 });
