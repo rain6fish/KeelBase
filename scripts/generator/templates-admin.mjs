@@ -1,5 +1,5 @@
 /**
- * EASY-2 Web-Admin（Vue3 + Vuetify3）管理 CRUD 页模板（⑤-2）。
+ * EASY-2 Web-Admin-Vue（Vue3 + Vuetify3）管理 CRUD 页模板（⑤-2）。
  * 管理端复用 KnowledgeView 骨架（PageHeader + AppTable + ConfirmDialog + useSnackbarStore）。
  * v1：全量列表（GET /<plural>/admin/all）+ 删除（DELETE /<plural>/admin/:id）；无分页/搜索/新建编辑。
  */
@@ -135,7 +135,7 @@ export function adminI18nKeys(ctx) {
   };
 }
 
-/** Web-Admin 新文件：{ relativePath, content }。 */
+/** Web-Admin-Vue 新文件：{ relativePath, content }。 */
 export function adminFiles(ctx) {
   return [
     { path: `src/api/${ctx.plural}.ts`, content: adminApiTemplate(ctx) },

@@ -341,7 +341,7 @@ import 'features/todos/presentation/providers/todos_provider.dart';
   assert.match(i18n, /tabPosts/);
 });
 
-test('Web-Admin 模板：api + view 骨架', () => {
+test('Web-Admin-Vue 模板：api + view 骨架', () => {
   const files = adminFiles(ctx());
   assert.equal(files.length, 2);
   const api = files.find((f) => f.path.endsWith('.ts')).content;
@@ -355,20 +355,20 @@ test('Web-Admin 模板：api + view 骨架', () => {
 
 test('wireAdmin：routes + navGroups + i18n zh/en', async () => {
   const root = await tempRoot();
-  await write(`${root}/Web-Admin/src/router/routes.ts`, `      { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },`);
-  await write(`${root}/Web-Admin/src/layouts/AdminLayout.vue`, `      { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },`);
-  await write(`${root}/Web-Admin/src/i18n/zh.ts`, `  navDataImport: '数据导入',`);
-  await write(`${root}/Web-Admin/src/i18n/en.ts`, `  navDataImport: 'Data Import',`);
+  await write(`${root}/Web-Admin-Vue/src/router/routes.ts`, `      { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },`);
+  await write(`${root}/Web-Admin-Vue/src/layouts/AdminLayout.vue`, `      { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },`);
+  await write(`${root}/Web-Admin-Vue/src/i18n/zh.ts`, `  navDataImport: '数据导入',`);
+  await write(`${root}/Web-Admin-Vue/src/i18n/en.ts`, `  navDataImport: 'Data Import',`);
 
   const r = await wireAdmin(ctx(), root);
   assert.ok(r.filter((x) => x.changed).length >= 4);
-  const routes = await readFile(`${root}/Web-Admin/src/router/routes.ts`, 'utf8');
+  const routes = await readFile(`${root}/Web-Admin-Vue/src/router/routes.ts`, 'utf8');
   assert.match(routes, /PostsView\.vue/);
-  const nav = await readFile(`${root}/Web-Admin/src/layouts/AdminLayout.vue`, 'utf8');
+  const nav = await readFile(`${root}/Web-Admin-Vue/src/layouts/AdminLayout.vue`, 'utf8');
   assert.match(nav, /navPosts/);
-  const zh = await readFile(`${root}/Web-Admin/src/i18n/zh.ts`, 'utf8');
+  const zh = await readFile(`${root}/Web-Admin-Vue/src/i18n/zh.ts`, 'utf8');
   assert.match(zh, /navPosts: '帖子'/);
-  const en = await readFile(`${root}/Web-Admin/src/i18n/en.ts`, 'utf8');
+  const en = await readFile(`${root}/Web-Admin-Vue/src/i18n/en.ts`, 'utf8');
   assert.match(en, /navPosts: 'Post'/);
 });
 

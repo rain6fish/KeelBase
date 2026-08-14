@@ -167,7 +167,7 @@ ${flagDecorator}@Controller({ path: '${ctx.plural}', version: '1' })
 export class ${ctx.pluralPascal}Controller {
   constructor(private readonly ${ctx.plural}Service: ${ctx.pluralPascal}Service) {}
 
-  // 管理端：全量列表（admin，供 Web-Admin 管理页）
+  // 管理端：全量列表（admin，供 Web-Admin-Vue 管理页）
   @Get('admin/all')
   @ApiOperation({ summary: '管理端：全量${ctx.label}列表' })
   @CheckPolicies((ability) => ability.can('manage', 'all'))

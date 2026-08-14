@@ -81,7 +81,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ### 2.3 Admin Console Deploy / 管理台部署
 
 ```bash
-cd Web-Admin
+cd Web-Admin-Vue
 npm run build    # → dist/（base=/admin/）
 ```
 

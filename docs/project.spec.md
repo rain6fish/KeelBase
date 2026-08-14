@@ -790,7 +790,7 @@ The H5/mini-program channel of the main App. Layered as: `services/` (API wrappe
 
 ---
 
-## 12. 管理员管理台（Web-Admin） / 12. Admin Console (Web-Admin)
+## 12. 管理员管理台（Web-Admin-Vue） / 12. Admin Console (Web-Admin-Vue)
 
 独立 Vue3 PC Web 管理台，与主 app 完全隔离。
 

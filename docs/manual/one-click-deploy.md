@@ -67,8 +67,8 @@ Log in to the admin console (already bundled into the web container at `/admin`)
 # 管理台  http://<服务器IP>/admin  （admin 账号登录）
 ```
 
-> To host the admin console on its own domain (e.g. admin.example.com): `cd Web-Admin && npm ci && npm run build`, then serve `dist/` on the domain (set Vite `base` to `/`, or keep it under `/admin`).
-> 若想独立域名部署管理台（如 admin.example.com）：单独 `cd Web-Admin && npm ci && npm run build`，把 `dist/` 托管到独立域名即可（需把 Vite `base` 改为 `/`，或放在 `/admin` 子路径）。
+> To host the admin console on its own domain (e.g. admin.example.com): `cd Web-Admin-Vue && npm ci && npm run build`, then serve `dist/` on the domain (set Vite `base` to `/`, or keep it under `/admin`).
+> 若想独立域名部署管理台（如 admin.example.com）：单独 `cd Web-Admin-Vue && npm ci && npm run build`，把 `dist/` 托管到独立域名即可（需把 Vite `base` 改为 `/`，或放在 `/admin` 子路径）。
 
 ## 4. Production Considerations / 生产环境注意
 
