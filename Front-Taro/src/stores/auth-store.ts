@@ -1,80 +1,78 @@
- import { create } from 'zustand'
- import { authService } from '../services/auth-service'
- import { setOnAuthFailure } from '../services/api-client'
- import type { User, AuthStatus } from '../types/auth'
- 
- interface AuthState {
-   status: AuthStatus
-   user: User | null
-   errorMessage: string | null
- 
-   // Actions
-   tryAutoLogin: () => Promise<void>
-   login: (username: string, password: string) => Promise<boolean>
-   register: (username: string, password: string, nickname: string) => Promise<boolean>
-   logout: () => Promise<void>
-   clearError: () => void
- }
- 
- export const useAuthStore = create<AuthState>((set, get) => {
-   // Register the auth failure callback
-   setOnAuthFailure(() => {
-     set({ user: null, status: 'unauthenticated', errorMessage: null })
-   })
- 
-   return {
-     status: 'initial',
-     user: null,
-     errorMessage: null,
- 
-     tryAutoLogin: async () => {
-       set({ status: 'loading' })
-       const hasToken = await authService.isAuthenticated()
-       if (!hasToken) {
-         set({ status: 'unauthenticated' })
-         return
-       }
-       try {
-         const profile = await authService.getProfile()
-         set({
-           user: { id: profile.id, username: profile.username, nickname: profile.nickname },
-           status: 'authenticated',
-         })
-       } catch {
-         await authService.logout()
-         set({ status: 'unauthenticated' })
-       }
-     },
- 
-     login: async (username, password) => {
-       set({ status: 'loading', errorMessage: null })
-       try {
-         const response = await authService.login(username, password)
-         set({ user: response.user, status: 'authenticated' })
-         return true
-       } catch (err: any) {
-         set({ status: 'error', errorMessage: err.message || 'Login failed' })
-         return false
-       }
-     },
- 
-     register: async (username, password, nickname) => {
-       set({ status: 'loading', errorMessage: null })
-       try {
-         const response = await authService.register(username, password, nickname)
-         set({ user: response.user, status: 'authenticated' })
-         return true
-       } catch (err: any) {
-         set({ status: 'error', errorMessage: err.message || 'Registration failed' })
-         return false
-       }
-     },
- 
-     logout: async () => {
-       await authService.logout()
-       set({ user: null, status: 'unauthenticated', errorMessage: null })
-     },
- 
-     clearError: () => set({ errorMessage: null }),
-   }
- })
+import { defineStore } from 'pinia'
+import { authService } from '../services/auth-service'
+import { setOnAuthFailure } from '../services/api-client'
+import type { User, AuthStatus } from '../types/auth'
+
+/** 认证状态（Taro→Vue3 迁移：zustand → pinia）：自动登录/登录/注册/登出 + 401 认证失败回调。 */
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    status: 'initial' as AuthStatus,
+    user: null as User | null,
+    errorMessage: null as string | null,
+  }),
+  actions: {
+    async tryAutoLogin() {
+      this.status = 'loading'
+      const hasToken = await authService.isAuthenticated()
+      if (!hasToken) {
+        this.status = 'unauthenticated'
+        return
+      }
+      try {
+        const profile = await authService.getProfile()
+        this.user = { id: profile.id, username: profile.username, nickname: profile.nickname }
+        this.status = 'authenticated'
+      } catch {
+        await authService.logout()
+        this.status = 'unauthenticated'
+      }
+    },
+
+    async login(username: string, password: string) {
+      this.status = 'loading'
+      this.errorMessage = null
+      try {
+        const response = await authService.login(username, password)
+        this.user = response.user
+        this.status = 'authenticated'
+        return true
+      } catch (err: any) {
+        this.status = 'error'
+        this.errorMessage = err.message || 'Login failed'
+        return false
+      }
+    },
+
+    async register(username: string, password: string, nickname: string) {
+      this.status = 'loading'
+      this.errorMessage = null
+      try {
+        const response = await authService.register(username, password, nickname)
+        this.user = response.user
+        this.status = 'authenticated'
+        return true
+      } catch (err: any) {
+        this.status = 'error'
+        this.errorMessage = err.message || 'Registration failed'
+        return false
+      }
+    },
+
+    async logout() {
+      await authService.logout()
+      this.user = null
+      this.status = 'unauthenticated'
+      this.errorMessage = null
+    },
+
+    clearError() {
+      this.errorMessage = null
+    },
+  },
+})
+
+// 注册 401 认证失败回调（与原 zustand create 的注册时机一致：模块加载即注册，运行期更新 store）
+setOnAuthFailure(() => {
+  const store = useAuthStore()
+  store.$patch({ user: null, status: 'unauthenticated', errorMessage: null })
+})

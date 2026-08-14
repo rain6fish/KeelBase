@@ -26,9 +26,11 @@
     "@babel/preset-typescript": "^7.25.0",
     "@tarojs/cli": "3.6.36",
     "@tarojs/webpack5-runner": "3.6.36",
+    "@vue/babel-plugin-jsx": "^3.0.0",
     "@vue/compiler-sfc": "^3.4.0",
     "babel-preset-taro": "3.6.36",
     "typescript": "^5.6.0",
+    "vue-loader": "^17.4.2",
     "webpack": "5.91.0"
   }
 }
