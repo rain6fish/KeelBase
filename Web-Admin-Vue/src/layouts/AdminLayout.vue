@@ -127,6 +127,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents') },
       { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos') },
       { name: 'workbench-notifications', to: '/workbench/notifications', icon: 'mdi-bell-outline', label: t('workbenchNotifications') },
+      { name: 'workbench-org', to: '/workbench/org', icon: 'mdi-account-group-outline', label: t('workbenchOrgDir') },
     ],
   },
 ])
@@ -137,6 +138,7 @@ const consoleNavGroups = computed(() => [
     label: t('navData'),
     items: [
       { name: 'users', to: '/users', icon: 'mdi-account-group-outline', label: t('navUsers') },
+      { name: 'org', to: '/org', icon: 'mdi-sitemap', label: t('navOrg') },
       { name: 'events', to: '/events', icon: 'mdi-calendar-blank-outline', label: t('navEvents') },
       { name: 'knowledge', to: '/knowledge', icon: 'mdi-book-open-variant', label: t('navKnowledge') },
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
