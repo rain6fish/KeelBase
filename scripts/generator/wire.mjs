@@ -173,17 +173,61 @@ export async function wireFrontend(ctx, root = '') {
     ),
   );
   results.push(
-    await applyFile(`${FE}/core/router/app_router.dart`, (c) =>
-      insertBefore(
+    await applyFile(`${FE}/core/router/app_router.dart`, (c) => {
+      if (ctx.isTab) {
+        // --tab：作为底部 Tab 的 StatefulShellBranch，追加到 todos 分支后
+        return insertAfter(
+          c,
+          `                pageBuilder: (_, _) => const NoTransitionPage(child: TodosPage()),\n              ),\n            ],\n          ),`,
+          `\n          StatefulShellBranch(\n            routes: [\n              GoRoute(\n                path: '/${ctx.plural}',\n                pageBuilder: (_, _) => const NoTransitionPage(child: ${ctx.pluralPascal}Page()),\n              ),\n            ],\n          ),`,
+          `path: '/${ctx.plural}'`,
+        );
+      }
+      // 非 tab：顶层全屏页
+      return insertBefore(
         c,
         `      // Legal pages`,
         `      // ${ctx.label}（EASY-2 生成）\n      GoRoute(\n        path: '/${ctx.plural}',\n        builder: (_, _) => const ${ctx.pluralPascal}Page(),\n      ),\n`,
         `path: '/${ctx.plural}'`,
-      ),
-    ),
+      );
+    }),
   );
 
-  // 6) app_localizations.dart：4 个 getter
+  // 6) --tab：app_shell 底部 Tab + i18n tab 标签
+  if (ctx.isTab) {
+    results.push(
+      await applyFile(`${FE}/core/widgets/app_shell.dart`, (c) =>
+        insertAfter(
+          c,
+          `    _TabItem(icon: CupertinoIcons.checkmark_square, labelKey: 'tabTodos'),`,
+          `\n    _TabItem(icon: CupertinoIcons.doc_text, labelKey: 'tab${ctx.pluralPascal}'),`,
+          `labelKey: 'tab${ctx.pluralPascal}'`,
+        ),
+      ),
+    );
+    results.push(
+      await applyFile(`${FE}/core/widgets/app_shell.dart`, (c) =>
+        insertAfter(
+          c,
+          `      case 'tabTodos':\n        return l10n.tabTodos;`,
+          `\n      case 'tab${ctx.pluralPascal}':\n        return l10n.tab${ctx.pluralPascal};`,
+          `case 'tab${ctx.pluralPascal}'`,
+        ),
+      ),
+    );
+    results.push(
+      await applyFile(`${FE}/core/i18n/app_localizations.dart`, (c) =>
+        insertAfter(
+          c,
+          `  String get tabTodos => _t('Todos', '待办');`,
+          `\n  String get tab${ctx.pluralPascal} => _t('${ctx.singlePascal}', '${ctx.label}');`,
+          `tab${ctx.pluralPascal}`,
+        ),
+      ),
+    );
+  }
+
+  // 7) app_localizations.dart：4 个页面 getter
   const enTitle = ctx.singlePascal;
   results.push(
     await applyFile(`${FE}/core/i18n/app_localizations.dart`, (c) =>
@@ -200,7 +244,7 @@ export async function wireFrontend(ctx, root = '') {
     ),
   );
 
-  // 7) navigate-page.tool.ts：PAGE_ROUTES
+  // 8) navigate-page.tool.ts：PAGE_ROUTES
   results.push(
     await applyFile(`${BE}/ai/tools/navigate-page.tool.ts`, (c) =>
       insertAfter(

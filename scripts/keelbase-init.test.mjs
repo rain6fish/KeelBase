@@ -288,6 +288,52 @@ test('extractSpec：mock fetch 成功 / API 错误 / 无配置', async () => {
   assert.match(r3.error, /DEEPSEEK_API_KEY|OLLAMA_BASE_URL/);
 });
 
+test('--tab：路由 shell 分支 + app_shell Tab + i18n tab 标签（非 tab 不生成顶层路由）', async () => {
+  const root = await tempRoot();
+  await write(FE(root, 'main.dart'), `import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/todos/presentation/providers/todos_provider.dart';
+      providers: [
+        ChangeNotifierProvider<TodosProvider>(
+          create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+      ],`);
+  await write(FE(root, 'core/router/app_router.dart'), `
+    routes: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/todos',
+                pageBuilder: (_, _) => const NoTransitionPage(child: TodosPage()),
+              ),
+            ],
+          ),
+      // Legal pages
+    ],`);
+  await write(FE(root, 'core/widgets/app_shell.dart'), `    _TabItem(icon: CupertinoIcons.checkmark_square, labelKey: 'tabTodos'),
+  String _label(AppLocalizations l10n, String key) {
+    switch (key) {
+      case 'tabTodos':
+        return l10n.tabTodos;
+    }
+  }`);
+  await write(FE(root, 'core/i18n/app_localizations.dart'), `  String get tabTodos => _t('Todos', '待办');`);
+
+  const c = ctx({ isTab: true });
+  await wireFrontend(c, root);
+
+  const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
+  assert.match(router, /path: '\/posts'/);
+  assert.match(router, /StatefulShellBranch/);
+  assert.doesNotMatch(router, /builder: \(_, _\) => const PostsPage\(\)/); // 非顶层路由
+
+  const shell = await readFile(FE(root, 'core/widgets/app_shell.dart'), 'utf8');
+  assert.match(shell, /labelKey: 'tabPosts'/);
+  assert.match(shell, /case 'tabPosts':/);
+
+  const i18n = await readFile(FE(root, 'core/i18n/app_localizations.dart'), 'utf8');
+  assert.match(i18n, /tabPosts/);
+});
+
 // ── 端到端：跑真实 CLI ───────────────────────────────────────────────────────
 test('端到端：非交互 CLI 生成 + 接线', async () => {
   const root = await tempRoot();
