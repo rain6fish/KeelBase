@@ -16,7 +16,7 @@
      patterns: [],
      options: {},
    },
-   framework: 'react',
+   framework: 'vue3',
    compiler: 'webpack5',
    cache: {
      enable: false,
