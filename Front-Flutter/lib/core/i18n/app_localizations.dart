@@ -112,6 +112,12 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 图书（EASY-2 生成） ---
+  String get booksTitle => _t('Book', '图书');
+  String get booksAddTitle => _t('New Book', '新增图书');
+  String get booksEmpty => _t('No Book yet', '暂无图书');
+  String get booksDeleteConfirm => _t('Delete this book?', '删除该图书？');
+
   // --- 帖子（EASY-2 生成） ---
   String get postsTitle => _t('Post', '帖子');
   String get postsAddTitle => _t('New Post', '新增帖子');

@@ -9,7 +9,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
-import { TodosModule } from './todos/todos.module';import { PostsModule } from './posts/posts.module';
+import { TodosModule } from './todos/todos.module';
+import { BooksModule } from './books/books.module';
+import { PostsModule } from './posts/posts.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -97,6 +99,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiEvalCases*.js',
               'dist/migrations/*AddFormBuilder*.js',
               'dist/migrations/*AddAiToolSideEffects*.js',
+
             ],
             migrationsRun: !isDev && !useSync,
             host: configService.get<string>('DB_HOST', 'localhost'),
@@ -140,7 +143,9 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     UsersModule,
     HealthModule,
     EventsModule,
-    TodosModule,    PostsModule,
+    TodosModule,
+    BooksModule,
+    PostsModule,
 
     UploadModule,
     NotificationsModule,

@@ -13,7 +13,9 @@ import '../../features/events/presentation/pages/events_list_page.dart';
 import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
-import '../../features/todos/presentation/pages/todos_page.dart';import '../../features/posts/presentation/pages/posts_page.dart';
+import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/books/presentation/pages/books_page.dart';
+import '../../features/posts/presentation/pages/posts_page.dart';
 
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -228,6 +230,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/posts',
         builder: (_, _) => const PostsPage(),
+      ),
+      // 图书（EASY-2 生成）
+      GoRoute(
+        path: '/books',
+        builder: (_, _) => const BooksPage(),
       ),
       // Legal pages
       GoRoute(
