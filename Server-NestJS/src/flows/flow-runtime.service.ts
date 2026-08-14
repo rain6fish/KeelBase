@@ -18,6 +18,8 @@ import { FlowInstance } from './entities/flow-instance.entity';
 import { FlowTask } from './entities/flow-task.entity';
 import { FlowNode, HumanTaskNode, FlowDefinition as FlowDef } from './flow-definition.types';
 import { User } from '../common/entities/user.entity';
+import { OrgMember } from '../org/org-member.entity';
+import { OrgMemberRole } from '../org/org-member-role.enum';
 import { runHumanTask } from './node-registry/human-task.node';
 import { runAiTask } from './node-registry/ai-task.node';
 import { evalCondition } from './node-registry/condition.node';
@@ -35,6 +37,7 @@ export class FlowRuntimeService {
     @InjectRepository(FlowInstance) private readonly instRepo: Repository<FlowInstance>,
     @InjectRepository(FlowTask) private readonly taskRepo: Repository<FlowTask>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(OrgMember) private readonly orgMemberRepo: Repository<OrgMember>,
     private readonly notificationsService: NotificationsService,
     private readonly providerFactory: LlmProviderFactory,
     private readonly auditService: AuditService,
@@ -122,7 +125,14 @@ export class FlowRuntimeService {
       await this.advance(inst, node.next, out);
     } else {
       // human_task：建待办 + 通知，实例保持 running 挂起
-      await runHumanTask(this.taskRepo, this.usersRepo, this.notificationsService, inst, node);
+      await runHumanTask(
+        this.taskRepo,
+        this.usersRepo,
+        this.orgMemberRepo,
+        this.notificationsService,
+        inst,
+        node,
+      );
     }
   }
 
@@ -142,6 +152,7 @@ export class FlowRuntimeService {
         action: 'flow_node',
         detail: `flow:${inst.definitionId} completed`,
       });
+      await this._notifyResult(inst, true);
       return;
     }
     const def = await this.getDefinition(inst.definitionId);
@@ -178,6 +189,10 @@ export class FlowRuntimeService {
         throw new ForbiddenException('审批人角色不符');
       }
     }
+    // ORG-4：节点声明 assigneeOrgRole 时，复查审批人当前仍持有该组织角色（防岗位变更后旧审批人越权）
+    if (roleNode && roleNode.type === 'human_task' && roleNode.assigneeOrgRole) {
+      await this._assertOrgRoleStillHeld(inst.initiatorId, userId, roleNode);
+    }
 
     task.status = decision === 'approve' ? 'approved' : 'rejected';
     task.decisionNote = note;
@@ -193,6 +208,7 @@ export class FlowRuntimeService {
     if (decision === 'reject') {
       inst.state = 'failed';
       await this.instRepo.save(inst);
+      await this._notifyResult(inst, false);
       return inst;
     }
 
@@ -244,5 +260,45 @@ export class FlowRuntimeService {
     inst.state = 'rolled_back';
     await this.instRepo.save(inst);
     return inst;
+  }
+
+  /** ORG-4：审批时复查审批人当前仍持有该组织角色（发起人同组织/同部门）。 */
+  private async _assertOrgRoleStillHeld(
+    initiatorId: number,
+    approverId: number,
+    node: HumanTaskNode,
+  ): Promise<void> {
+    const initiatorMember = await this.orgMemberRepo.findOne({ where: { userId: initiatorId } });
+    if (!initiatorMember) throw new ForbiddenException('发起人已不在组织中');
+    const allowedRoles: OrgMemberRole[] =
+      node.assigneeOrgRole!.role === OrgMemberRole.ADMIN
+        ? [OrgMemberRole.OWNER, OrgMemberRole.ADMIN]
+        : [node.assigneeOrgRole!.role as OrgMemberRole];
+    const where: Record<string, unknown> = {
+      orgId: initiatorMember.orgId,
+      userId: approverId,
+      role: In(allowedRoles),
+    };
+    if (node.assigneeOrgRole!.scope === 'department') {
+      if (initiatorMember.deptId == null) throw new ForbiddenException('发起人已无部门');
+      where.deptId = initiatorMember.deptId;
+    }
+    const approverMember = await this.orgMemberRepo.findOne({ where });
+    if (!approverMember) throw new ForbiddenException('审批人当前不再持有该组织角色');
+  }
+
+  /** 流程完成/驳回时通知发起人（MS-1 触达）。 */
+  private async _notifyResult(inst: FlowInstance, approved: boolean): Promise<void> {
+    const def = await this.getDefinition(inst.definitionId);
+    await this.notificationsService
+      .create({
+        userId: inst.initiatorId,
+        title: approved ? '流程已完成' : '流程被驳回',
+        body: `您的流程「${def?.name ?? inst.definitionId}」${approved ? '已通过审批' : '被驳回'}`,
+        type: 'flow_result',
+        targetType: 'flow',
+        targetId: String(inst.id),
+      })
+      .catch(() => {});
   }
 }

@@ -21,6 +21,7 @@ import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity
 import { MailModule } from '../mail/mail.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { SmsModule } from '../sms/sms.module';
+import { OrgModule } from '../org/org.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SmsModule } from '../sms/sms.module';
     MailModule,
     CacheModule,
     SmsModule,
+    OrgModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy],
