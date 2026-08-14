@@ -1,11 +1,14 @@
 import * as Joi from 'joi';
 import { FlowDefinition } from './flow-definition.types';
 
+const rolesSchema = Joi.array().items(Joi.string().valid('user', 'admin')).optional();
+
 const nodeSchema = Joi.alternatives().try(
   Joi.object({
     id: Joi.string().required(),
     type: Joi.valid('human_task').required(),
     name: Joi.string().required(),
+    roles: rolesSchema,
     assigneeUserId: Joi.number().optional(),
     assigneeRole: Joi.string().optional(),
     next: Joi.string().optional(),
@@ -14,6 +17,7 @@ const nodeSchema = Joi.alternatives().try(
     id: Joi.string().required(),
     type: Joi.valid('ai_task').required(),
     name: Joi.string().required(),
+    roles: rolesSchema,
     prompt: Joi.string().required(),
     outputKey: Joi.string().optional(),
     next: Joi.string().optional(),
@@ -22,6 +26,7 @@ const nodeSchema = Joi.alternatives().try(
     id: Joi.string().required(),
     type: Joi.valid('condition').required(),
     name: Joi.string().required(),
+    roles: rolesSchema,
     expr: Joi.string().required(),
     then: Joi.string().required(),
     else: Joi.string().required(),
