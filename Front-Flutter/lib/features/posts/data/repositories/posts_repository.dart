@@ -25,4 +25,21 @@ class PostsRepository {
   Future<void> delete(int id) async {
     await _client.delete('/posts/$id');
   }
+
+  // GROWTH-2 社区动态流：点赞 / 评论
+  Future<int> like(int id) async {
+    final json = await _client.post('/posts/$id/like');
+    final response = ApiResponse.fromJson(json, (d) => (d as Map<String, dynamic>)['likes'] as int);
+    return response.data ?? 0;
+  }
+
+  Future<int> unlike(int id) async {
+    final json = await _client.delete('/posts/$id/like');
+    final response = ApiResponse.fromJson(json, (d) => (d as Map<String, dynamic>)['likes'] as int);
+    return response.data ?? 0;
+  }
+
+  Future<void> comment(int id, String content) async {
+    await _client.post('/posts/$id/comments', data: {'content': content});
+  }
 }
