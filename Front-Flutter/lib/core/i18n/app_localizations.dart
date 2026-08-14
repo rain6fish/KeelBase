@@ -112,6 +112,12 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 帖子（EASY-2 生成） ---
+  String get postsTitle => _t('Post', '帖子');
+  String get postsAddTitle => _t('New Post', '新增帖子');
+  String get postsEmpty => _t('No Post yet', '暂无帖子');
+  String get postsDeleteConfirm => _t('Delete this post?', '删除该帖子？');
+
   // --- Dashboard ---
   String welcome(String name) => _t('Welcome, $name', '欢迎回来，$name');
   String get dashboardDesc => _t('This is your dashboard.', '这是您的仪表盘。');
