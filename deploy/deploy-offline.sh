@@ -19,7 +19,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ENV_FILE="Server-Nodejs/.env.production"
+ENV_FILE="Server-NestJS/.env.production"
 export NODE_ENV=production
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@1234}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
@@ -46,7 +46,7 @@ echo "✓ 关键镜像已就绪"
 
 # ── 2. 生成生产 env（外部依赖全部降级 = 内网可用） ──────────
 if [ ! -f "$ENV_FILE" ]; then
-  cp "Server-Nodejs/.env.production.example" "$ENV_FILE"
+  cp "Server-NestJS/.env.production.example" "$ENV_FILE"
   gen() { openssl rand -hex 32; }
   sed -i.bak \
     -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \

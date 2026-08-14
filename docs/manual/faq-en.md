@@ -21,10 +21,10 @@ A: Windows `python` may be a Store placeholder. Install real Python (python.org)
 ## 2. Startup & Ports
 
 **Q: Backend won't start — port 3000 in use?**
-A: Change `PORT` in `Server-Nodejs/.env`, and sync the port in `Front-Flutter/lib/core/constants/app_constants.dart`.
+A: Change `PORT` in `Server-NestJS/.env`, and sync the port in `Front-Flutter/lib/core/constants/app_constants.dart`.
 
 **Q: SQLite / database errors on startup?**
-A: Dev uses zero-config SQLite (`Server-Nodejs/data/front.sqlite`), auto-created. Delete a corrupted file and restart.
+A: Dev uses zero-config SQLite (`Server-NestJS/data/front.sqlite`), auto-created. Delete a corrupted file and restart.
 
 **Q: Want PostgreSQL / Redis?**
 ```bash
@@ -54,7 +54,7 @@ A: Default `SMS_DRIVER=console` prints codes to the backend console log. Real SM
 ## 4. AI
 
 **Q: AI replies "not configured"?**
-A: Set an LLM API key in `Server-Nodejs/.env`:
+A: Set an LLM API key in `Server-NestJS/.env`:
 ```bash
 AI_PROVIDER=deepseek
 DEEPSEEK_API_KEY=your-key
@@ -102,7 +102,7 @@ A: All admin endpoints require `role = admin` (CASL). This is an architecture re
 A: Admin console → User Management → find user → change role. Users can't self-promote.
 
 **Q: How to back up / restore data?**
-A: `cd Server-Nodejs && npm run backup` (to `data/backups/`); restore: `npm run restore -- <file>`. See [Operations Manual](operations.md).
+A: `cd Server-NestJS && npm run backup` (to `data/backups/`); restore: `npm run restore -- <file>`. See [Operations Manual](operations.md).
 
 ---
 

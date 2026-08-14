@@ -41,8 +41,8 @@ experience: ## 一键体验
 	./deploy/experience.sh
 
 dev: ## 本地开发起后端
-	cd Server-Nodejs && cp -n .env.example .env 2>/dev/null || true
-	cd Server-Nodejs && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
+	cd Server-NestJS && cp -n .env.example .env 2>/dev/null || true
+	cd Server-NestJS && CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev
 
 dev-admin: ## 启动管理台（Vite dev server）
 	cd Web-Admin-Vue && npm run dev
@@ -52,13 +52,13 @@ web: ## 起 Flutter Web 主 App
 
 test: test-backend test-frontend ## 全部测试
 test-backend: ## 后端单测 + e2e
-	cd Server-Nodejs && npm test
-	cd Server-Nodejs && npm run test:e2e
+	cd Server-NestJS && npm test
+	cd Server-NestJS && npm run test:e2e
 test-frontend: ## Flutter 测试
 	cd Front-Flutter && flutter test
 
 lint: ## 后端 lint
-	cd Server-Nodejs && npm run lint
+	cd Server-NestJS && npm run lint
 
 build: ## 生产构建（Docker）
 	docker compose build
@@ -71,11 +71,11 @@ docker-up: ## Docker 一键起全部
 	@echo "→ 主 App http://localhost  管理台 http://localhost/admin  健康 http://localhost:3000/api/v1/health"
 
 migrate: ## 执行数据库迁移
-	cd Server-Nodejs && npm run migration:run
+	cd Server-NestJS && npm run migration:run
 migrate-generate: ## 生成增量迁移（NAME=xxx）
-	cd Server-Nodejs && npm run migration:generate -- src/migrations/$(NAME)
+	cd Server-NestJS && npm run migration:generate -- src/migrations/$(NAME)
 backup: ## 数据库备份
-	cd Server-Nodejs && npm run backup
+	cd Server-NestJS && npm run backup
 
 db-redis: ## 起 Redis（缓存/队列）
 	docker compose up redis -d

@@ -52,7 +52,7 @@ Manage the container: `./scripts/docker-single.sh logs | stop | down` (data pers
 ### Backend
 
 ```bash
-cd Server-Nodejs
+cd Server-NestJS
 cp .env.example .env
 npm install
 npm run start:dev

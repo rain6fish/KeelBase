@@ -44,8 +44,8 @@ pick_port() {
 if [ "${DOCKER:-0}" = "1" ]; then
   command -v docker >/dev/null 2>&1 || { echo "✗ 需要 Docker。安装: https://www.docker.com/products/docker-desktop/"; exit 1; }
   # compose 的 server 服务从 .env.production 注入密钥，缺失会导致配置校验失败
-  if [ ! -f Server-Nodejs/.env.production ]; then
-    cp Server-Nodejs/.env.production.example Server-Nodejs/.env.production
+  if [ ! -f Server-NestJS/.env.production ]; then
+    cp Server-NestJS/.env.production.example Server-NestJS/.env.production
     gen() { openssl rand -hex 32; }
     DB_PASS=$(gen)
     sed -i.bak \
@@ -56,9 +56,9 @@ if [ "${DOCKER:-0}" = "1" ]; then
       -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
       -e "s/^DB_HOST=.*/DB_HOST=postgres/" \
       -e "s/^REDIS_URL=.*/REDIS_URL=redis:\/\/redis:6379/" \
-      Server-Nodejs/.env.production
-    rm -f Server-Nodejs/.env.production.bak
-    echo "  ✓ 已生成 Server-Nodejs/.env.production（随机密钥）"
+      Server-NestJS/.env.production
+    rm -f Server-NestJS/.env.production.bak
+    echo "  ✓ 已生成 Server-NestJS/.env.production（随机密钥）"
   fi
   echo "→ 用 Docker 一键起服务（首次构建约 10 分钟）..."
   docker compose up --build -d
@@ -95,17 +95,17 @@ echo "✓ Node $(node -v)"
 BACKEND_PORT=$(pick_port "${BACKEND_PORT:-3000}")
 echo ""
 echo "→ 启动后端（SQLite 零配置，首次自动建演示账号，端口 $BACKEND_PORT）..."
-if [ ! -f Server-Nodejs/.env ]; then
-  cp Server-Nodejs/.env.example Server-Nodejs/.env
+if [ ! -f Server-NestJS/.env ]; then
+  cp Server-NestJS/.env.example Server-NestJS/.env
   echo "  ✓ 已生成 .env"
 fi
-if [ ! -d Server-Nodejs/node_modules ]; then
+if [ ! -d Server-NestJS/node_modules ]; then
   echo "→ 安装后端依赖（首次需几分钟）..."
-  (cd Server-Nodejs && npm install)
+  (cd Server-NestJS && npm install)
 fi
 
 # 降级缓存/队列（CACHE_ENABLED/QUEUE_ENABLED=false）：本地无需 Redis 即可跑通
-(cd Server-Nodejs && PORT="$BACKEND_PORT" CACHE_ENABLED=false QUEUE_ENABLED=false \
+(cd Server-NestJS && PORT="$BACKEND_PORT" CACHE_ENABLED=false QUEUE_ENABLED=false \
   npm run start:dev > "$ROOT/.experience-backend.log" 2>&1) &
 BACKEND_PID=$!
 
@@ -181,7 +181,7 @@ cat <<EOF
   后端日志：.experience-backend.log
   管理台日志：.experience-admin.log
 
-  体验 AI：先配 LLM Key（Server-Nodejs/.env 的 DEEPSEEK_API_KEY），
+  体验 AI：先配 LLM Key（Server-NestJS/.env 的 DEEPSEEK_API_KEY），
   或用本地 Ollama（见 docs/manual/quickstart.md）
 EOF
 

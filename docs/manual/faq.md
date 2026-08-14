@@ -29,16 +29,16 @@ A: Windows 的 `python` 可能是微软商店占位程序。两个选择：
 ## 2. 启动与端口
 
 ### Q: 后端 `npm run start:dev` 起不来，报端口占用？
-A: 3000 端口被别的程序占了。改 `Server-Nodejs/.env` 的 `PORT`，同时主 App 的 `lib/core/constants/app_constants.dart` 里的 `baseUrl` 要同步改端口。
+A: 3000 端口被别的程序占了。改 `Server-NestJS/.env` 的 `PORT`，同时主 App 的 `lib/core/constants/app_constants.dart` 里的 `baseUrl` 要同步改端口。
 
 ### Q: 后端启动报缺数据库 / SQLite 错误？
-A: 开发环境默认 SQLite（零配置，文件在 `Server-Nodejs/data/front.sqlite`）。首次启动自动建库建表。若残留损坏的旧库，删掉 `data/front.sqlite` 重启即可重建。
+A: 开发环境默认 SQLite（零配置，文件在 `Server-NestJS/data/front.sqlite`）。首次启动自动建库建表。若残留损坏的旧库，删掉 `data/front.sqlite` 重启即可重建。
 
 ### Q: 要接 PostgreSQL / Redis 怎么起？
 ```bash
 docker compose up postgres redis -d
 ```
-然后把 `Server-Nodejs/.env` 的 `DB_TYPE=postgres` 并配好 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD`。Redis 用于缓存与队列，`CACHE_ENABLED=false` 可降级不用。
+然后把 `Server-NestJS/.env` 的 `DB_TYPE=postgres` 并配好 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD`。Redis 用于缓存与队列，`CACHE_ENABLED=false` 可降级不用。
 
 ### Q: 主 App 页面一直转圈 / 连不上后端？
 A: 三步排查：
@@ -67,7 +67,7 @@ A: 默认 `SMS_DRIVER=console`，验证码打印在后端控制台日志里（�
 ## 4. AI 部分
 
 ### Q: AI 对话回复「未配置」或报错？
-A: 需配置 LLM API Key。在 `Server-Nodejs/.env`：
+A: 需配置 LLM API Key。在 `Server-NestJS/.env`：
 ```bash
 AI_PROVIDER=deepseek
 DEEPSEEK_API_KEY=你的key
@@ -122,11 +122,11 @@ A: 管理功能全部要求 `role = admin`（CASL 权限），这是架构红线
 A: 管理台 → 用户管理 → 找到用户 → 修改角色。不能用普通账号自己改自己。
 
 ### Q: 数据备份恢复怎么做？
-A: `cd Server-Nodejs && npm run backup`（备份到 `data/backups/`）；恢复 `npm run restore -- <file>`。详见 [运维手册](operations.md)。
+A: `cd Server-NestJS && npm run backup`（备份到 `data/backups/`）；恢复 `npm run restore -- <file>`。详见 [运维手册](operations.md)。
 
 ---
 
 ## 7. 还是没解决？
 
 - 带完整报错 + 操作步骤提 issue
-- 看后端日志：`cd Server-Nodejs && npm run start:dev` 的控制台输出，或生产 `docker compose logs server`
+- 看后端日志：`cd Server-NestJS && npm run start:dev` 的控制台输出，或生产 `docker compose logs server`

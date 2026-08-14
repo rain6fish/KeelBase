@@ -20,7 +20,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-ENV_FILE="Server-Nodejs/.env.production"
+ENV_FILE="Server-NestJS/.env.production"
 export NODE_ENV=production
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@1234}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
@@ -34,7 +34,7 @@ echo "✓ Docker 就绪: $(docker --version)"
 
 # ── 2. 初始化生产环境配置 ────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
-  cp "Server-Nodejs/.env.production.example" "$ENV_FILE"
+  cp "Server-NestJS/.env.production.example" "$ENV_FILE"
   # 生成随机密钥（openssl rand -hex 32）
   gen() { openssl rand -hex 32; }
   DB_PASS=$(gen)

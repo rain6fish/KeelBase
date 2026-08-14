@@ -191,7 +191,7 @@ async function main() {
   ctx.isTab = args.tab === true;
 
   // 目标目录冲突检查
-  const beDir = `Server-Nodejs/src/${ctx.plural}`;
+  const beDir = `Server-NestJS/src/${ctx.plural}`;
   if (!args.dryRun && (await exists(beDir))) {
     fail(`目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过）`);
   }
@@ -199,7 +199,7 @@ async function main() {
   console.log(`\n${C.yellow}生成业务模块：${ctx.plural}（${ctx.label}）${C.reset}`);
   console.log(`${C.dim}  singular=${ctx.singular} plural=${ctx.plural} 类=${ctx.pluralPascal} 字段=[${fields.map((f) => f.name).join(', ')}]${C.reset}\n`);
 
-  const backend = backendFiles(ctx).map((f) => ({ ...f, rel: `Server-Nodejs/src/${f.path}` }));
+  const backend = backendFiles(ctx).map((f) => ({ ...f, rel: `Server-NestJS/src/${f.path}` }));
   const frontend = frontendFiles(ctx).map((f) => ({ ...f, rel: `Front-Flutter/lib/${f.path}` }));
   const admin = adminFiles(ctx).map((f) => ({ ...f, rel: `Web-Admin-Vue/${f.path}` }));
   const taro = taroFiles(ctx).map((f) => ({ ...f, rel: `Front-Taro/${f.path}` }));
@@ -245,7 +245,7 @@ async function main() {
 
   // ── 下一步 ──
   console.log(`\n${C.green}════ 完成！下一步 ════${C.reset}`);
-  console.log(`  cd Server-Nodejs && npm run build        # 验证后端编译`);
+  console.log(`  cd Server-NestJS && npm run build        # 验证后端编译`);
   console.log(`  npm test -- ${ctx.plural}.service         # 跑生成模块单测`);
   console.log(`  npm run migration:generate -- src/migrations/Add${ctx.pluralPascal}  # 生成建表迁移（prod postgres 需要，EASY-2.2 结论）`);
   console.log(`  cd Front-Flutter && flutter analyze       # 验证前端接线`);

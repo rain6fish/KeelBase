@@ -45,8 +45,8 @@ ADMIN_PASSWORD='your-strong-password' ./deploy/deploy.sh
 What `deploy.sh` does / deploy.sh 做了什么：
 
 1. Verify Docker / Compose / 校验 Docker / Compose
-2. Generate `Server-Nodejs/.env.production` (copies from the example when missing, then generates random `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD` with `openssl rand -hex 32`)
-   生成 `Server-Nodejs/.env.production`（缺失时从示例复制，并用 `openssl rand -hex 32` 生成随机 `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD`）
+2. Generate `Server-NestJS/.env.production` (copies from the example when missing, then generates random `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD` with `openssl rand -hex 32`)
+   生成 `Server-NestJS/.env.production`（缺失时从示例复制，并用 `openssl rand -hex 32` 生成随机 `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` / `DB_PASSWORD`）
 3. With `HTTPS=1`, generate a self-signed cert and overlay `docker-compose.prod.yml` / `HTTPS=1` 时生成自签名证书并叠加 `docker-compose.prod.yml`
 4. `docker compose up --build -d` starts PostgreSQL + Redis + NestJS + Nginx / 启动 PostgreSQL + Redis + NestJS + Nginx
 5. Wait for backend health, then call `create:admin` to create the initial admin / 等待后端健康后调用 `create:admin` 创建初始管理员
@@ -75,7 +75,7 @@ Log in to the admin console (already bundled into the web container at `/admin`)
 | Item / 项 | Notes / 说明 |
 |----|------|
 | Real certificate / 真实证书 | Replace `certs/server.crt` / `certs/server.key` with a trusted cert (Let's Encrypt or cloud provider) or HTTPS shows a cert warning / 生产替换 `certs/server.crt` / `certs/server.key` 为受信证书（Let's Encrypt 或云厂商），否则 HTTPS 会有证书告警 |
-| Domain CORS / 域名 CORS | Set `CORS_ORIGINS` in `Server-Nodejs/.env.production` to the real domain, then `docker compose up -d` / 修改 `Server-Nodejs/.env.production` 的 `CORS_ORIGINS` 为真实域名后 `docker compose up -d` |
+| Domain CORS / 域名 CORS | Set `CORS_ORIGINS` in `Server-NestJS/.env.production` to the real domain, then `docker compose up -d` / 修改 `Server-NestJS/.env.production` 的 `CORS_ORIGINS` 为真实域名后 `docker compose up -d` |
 | Key custody / 密钥保管 | `.env.production` contains sensitive keys — never commit it; keep the same env across container rebuilds so encrypted data stays decryptable / `.env.production` 含敏感密钥，勿提交到 git；容器重建后沿用同一份 env 保证加密数据可解密 |
 | DB backup / 数据库备份 | `npm run backup` (see operations.md); add a cron job to run daily / `npm run backup`（见 operations.md），建议加 cron 每日执行 |
 | Upgrade deploy / 升级部署 | `git pull && ./deploy/deploy.sh` (incremental build; migrations auto-run via `migrationsRun`) / `git pull && ./deploy/deploy.sh`（增量构建，迁移由 `migrationsRun` 自动执行） |

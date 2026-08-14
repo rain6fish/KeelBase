@@ -81,7 +81,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app | 主用户 App（三端） |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app | 主 App 的 H5/小程序端 |
 | `Web-Admin-Vue/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated；**React version planned**（面向海外用户的 React 管理端规划中） | 独立管理台（完全隔离）；**React 版规划中**（未来推出） |
-| `Server-Nodejs/` | NestJS backend (REST API) | NestJS 后端 |
+| `Server-NestJS/` | NestJS backend (REST API) | NestJS 后端 |
 | `docs/` | Specs, requirements, roadmap, manuals | 规格、需求、路线图、手册 |
 | `.github/workflows/` | CI pipeline (lint + test + build) | CI 流水线 |
 
@@ -159,7 +159,7 @@ make help                 # 等价（有 make 的环境）
 ### Backend / 后端
 
 ```bash
-cd Server-Nodejs
+cd Server-NestJS
 cp .env.example .env
 npm install
 npm run start:dev
@@ -272,4 +272,4 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
 | [`SECURITY.md`](SECURITY.md) | Everyone | 安全政策 — 受支持版本 / 漏洞报告 / 内置安全能力 / SBOM |
-| `Server-Nodejs/.env.example` | Developers | Environment variables reference |
+| `Server-NestJS/.env.example` | Developers | Environment variables reference |
