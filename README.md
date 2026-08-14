@@ -1,11 +1,12 @@
 # KeelBase — Full-Stack Application Base Platform
 
 > ### 🚀 60 秒开始 / Get Started in 60s
-> **只装 Docker 就够了（单容器 all-in-one，后端+主 App+管理台）：**
+> **只装 Docker，一条命令起全栈（后端+主 App+管理台）——用已发布镜像免构建：**
 > ```bash
-> ./scripts/docker-single.sh    # 构建并启动，一条命令起全栈
+> docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 > # 访问 http://localhost:3000 主 App（alex/123456）、/admin 管理台（admin/Admin@1234）
 > ```
+> 自己构建（改代码时）：`./scripts/docker-single.sh`
 > 或本地开发模式（起后端+管理台，自动开浏览器）：
 > ```bash
 > ./scripts/dev.sh experience
@@ -90,10 +91,22 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 **实测通过（2026-08-13）：一条命令起全栈，后端 API + Flutter 主 App + Vue3 管理台 + 演示账号全部就绪。**
 
+#### 🐳 用已发布的镜像（免构建，最快）
+
 ```bash
-./scripts/docker-single.sh         # 构建并启动（首次构建约 10 分钟，含前端编译）
+docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 # 访问 http://localhost:3000 主 App、/admin 管理台
 # 演示账号：alex/123456（主 App）、admin/Admin@1234（管理台）——首次启动自动创建
+docker logs -f keelbase      # 看日志
+docker stop keelbase && docker rm keelbase   # 停止并删除（数据留在命名卷 keelbase_data）
+```
+
+> 镜像托管在 [ghcr.io](https://github.com/rain6fish/KeelBase/pkgs/container/keelbase)，随 tag 自动构建发布（`latest` + 版本号）。生产建议 `-e` 覆盖 JWT/加密密钥。
+
+#### 🛠 自己构建（改代码时）
+
+```bash
+./scripts/docker-single.sh         # 构建并启动（首次构建约 10 分钟，含前端编译）
 ```
 
 | 子命令 | 说明 |
