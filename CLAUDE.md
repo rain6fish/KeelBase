@@ -634,10 +634,14 @@ npm run migration:run
 | DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） |
 | POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（AI-20，逐用例调 LLM） |
 | GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近评测报告（AI-20） |
-| POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19）：x-api-key 认证（HEADLESS_API_KEY），复用 Agent 工具/记忆/审计，返回 reply+conversationId |
+| POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19/HS-4）：x-api-key 认证（HEADLESS_API_KEY 或管理台创建 key），以 key 归属用户身份执行，复用 Agent 工具/记忆/审计，返回 reply+conversationId |
 | GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限（HS-2，含 permissions/requiresConfirmation） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
+| GET | /api/v1/admin/headless-keys | Yes (ADMIN) | — | headless API Key 列表（HS-4） |
+| POST | /api/v1/admin/headless-keys | Yes (ADMIN) | — | 创建 headless API Key（HS-4，返回明文仅此一次） |
+| PATCH | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | — | 更新 headless API Key（HS-4：配额/工具范围/归属/启停） |
+| DELETE | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | — | 删除 headless API Key（HS-4） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |

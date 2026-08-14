@@ -1,14 +1,60 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Query, Body, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNumber, IsArray, IsBoolean, MaxLength } from 'class-validator';
 import { AdminService } from './admin.service';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
+import { HeadlessKeysService } from '../headless/headless-keys.service';
+
+class CreateHeadlessKeyDto {
+  @IsString()
+  @MaxLength(100)
+  name!: string;
+
+  @IsOptional()
+  @IsNumber()
+  ownerUserId?: number;
+
+  @IsOptional()
+  @IsArray()
+  toolWhitelist?: string[];
+
+  @IsOptional()
+  @IsNumber()
+  quotaPerDay?: number;
+}
+
+class UpdateHeadlessKeyDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  ownerUserId?: number;
+
+  @IsOptional()
+  @IsArray()
+  toolWhitelist?: string[] | null;
+
+  @IsOptional()
+  @IsNumber()
+  quotaPerDay?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+}
 
 @ApiTags('管理台（聚合）')
 @ApiBearerAuth()
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly headlessKeysService: HeadlessKeysService,
+  ) {}
 
   @Get('monitor/summary')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
@@ -84,5 +130,36 @@ export class AdminController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.adminService.restoreTrashItem(type, id);
+  }
+
+  // ── HS-4 headless API Key 管理 ──────────────────────────
+
+  @Get('headless-keys')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'headless API Key 列表（HS-4）' })
+  listHeadlessKeys() {
+    return this.headlessKeysService.list();
+  }
+
+  @Post('headless-keys')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '创建 headless API Key（HS-4，返回明文仅此一次）' })
+  createHeadlessKey(@Body() dto: CreateHeadlessKeyDto) {
+    return this.headlessKeysService.create(dto);
+  }
+
+  @Patch('headless-keys/:id')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '更新 headless API Key（HS-4：配额/工具范围/归属/启停）' })
+  updateHeadlessKey(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateHeadlessKeyDto) {
+    return this.headlessKeysService.update(id, dto);
+  }
+
+  @Delete('headless-keys/:id')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '删除 headless API Key（HS-4）' })
+  async deleteHeadlessKey(@Param('id', ParseIntPipe) id: number) {
+    await this.headlessKeysService.remove(id);
+    return { deleted: true, id };
   }
 }

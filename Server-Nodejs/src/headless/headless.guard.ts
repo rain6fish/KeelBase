@@ -1,25 +1,49 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
+import { HeadlessKeysService } from './headless-keys.service';
 
 /**
- * AI-19 headless API 守卫：校验 `x-api-key` 请求头与 HEADLESS_API_KEY 匹配。
- * 未配置 HEADLESS_API_KEY 时端点不可用（返回 401）。
+ * HS-4 headless API 守卫：校验 `x-api-key`（入库 key 或兼容 HEADLESS_API_KEY env）。
+ * 校验通过后把 key 上下文挂到 request.headlessKey，controller 用它作为执行身份。
  */
 @Injectable()
 export class HeadlessGuard implements CanActivate {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly keysService: HeadlessKeysService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    const apiKey = this.configService.get<string>('HEADLESS_API_KEY', '');
-    if (!apiKey) {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<Request & { headlessKey?: unknown }>();
+    const xKey = req.headers['x-api-key'];
+    const rawKey = Array.isArray(xKey) ? xKey[0] : xKey;
+    const authHeader = req.headers['authorization'];
+    const bearerKey = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+    const key = rawKey ?? bearerKey?.replace(/^Bearer\s+/i, '');
+    if (!key) {
+      throw new UnauthorizedException('缺少 API Key');
+    }
+    const envKey = this.configService.get<string>('HEADLESS_API_KEY', '');
+    // env 未配置且库内无 key → 端点不可用
+    if (!envKey && !(await this._hasStoredKeys())) {
       throw new UnauthorizedException('headless API 未启用');
     }
-    const req = context.switchToHttp().getRequest<Request>();
-    const key = req.headers['x-api-key'] ?? req.headers['authorization']?.replace(/^Bearer\s+/i, '');
-    if (!key || key !== apiKey) {
+    try {
+      const ctx = await this.keysService.authenticate(key, envKey);
+      req.headlessKey = ctx;
+      return true;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
       throw new UnauthorizedException('无效的 API Key');
     }
-    return true;
+  }
+
+  private async _hasStoredKeys(): Promise<boolean> {
+    try {
+      return await this.keysService.hasStoredKeys();
+    } catch {
+      return false;
+    }
   }
 }
