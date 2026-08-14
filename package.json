@@ -1,13 +1,33 @@
 {
   "name": "keelbase",
   "version": "0.9.0",
-  "description": "KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）",
+  "description": "KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）。`npx keelbase init` 对话式/自然语言生成全栈 CRUD 模块（NestJS + Flutter）。",
   "type": "module",
   "bin": {
     "keelbase": "./scripts/keelbase-init.mjs"
   },
+  "files": [
+    "scripts/generator",
+    "scripts/keelbase-init.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "keelbase",
+    "nestjs",
+    "flutter",
+    "scaffold",
+    "cli",
+    "crud",
+    "ai"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rain6fish/KeelBase.git"
+  },
   "scripts": {
     "cli:test": "node --test scripts/keelbase-init.test.mjs"
-  },
-  "private": true
+  }
 }
