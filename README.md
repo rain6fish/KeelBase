@@ -1,4 +1,4 @@
-# KeelBase — Full-Stack Application Base Platform
+# KeelBase — Full-Stack Application Base Platform / 全栈应用基座平台
 
 > ### 🚀 60 秒开始 / Get Started in 60s
 > **只装 Docker，一条命令起全栈（后端+主 App+管理台）——用已发布镜像免构建：**
@@ -70,7 +70,7 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 ---
 
-## Repositories / Directories
+## Repositories / Directories / 目录结构
 
 | Directory | Description | 说明 |
 |-----------|-------------|------|
@@ -83,9 +83,10 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 ---
 
-## Quick Start
+## Quick Start / 快速上手
 
 > 🚀 **想 5 分钟不读代码跑起来？** 看 [快速上手（零基础版）](docs/manual/quickstart.md)，排错看 [常见问题 FAQ](docs/manual/faq.md)。
+> 🚀 **Want to run the full stack in 5 minutes without reading code?** See [Quick Start](docs/manual/quickstart-en.md); stuck? See [FAQ](docs/manual/faq-en.md).
 
 ### Fastest Path: Single-Container / 一键体验（单容器优先）
 
@@ -146,12 +147,12 @@ make help                 # 等价（有 make 的环境）
 
 ### Local Dev Path（改代码时）
 
-#### Prerequisites
+#### Prerequisites / 前置要求
 - Node.js >= 22
 - Flutter SDK >= 3.12
 - npm
 
-### Backend
+### Backend / 后端
 
 ```bash
 cd Server-Nodejs
@@ -165,8 +166,9 @@ API docs (Swagger): http://localhost:3000/api/docs
 Health check: http://localhost:3000/api/v1/health
 
 > Dev DB is zero-config SQLite (`./data/front.sqlite`). Switch to PostgreSQL for production via `DB_TYPE=postgres`. First dev start auto-creates demo accounts (`alex`/`admin`).
+> 开发环境数据库为零配置 SQLite（`./data/front.sqlite`）。生产环境用 `DB_TYPE=postgres` 切到 PostgreSQL。首次启动自动创建演示账号（`alex`/`admin`）。
 
-### Flutter Frontend
+### Flutter Frontend / Flutter 前端
 
 ```bash
 cd Front-Flutter
@@ -175,7 +177,7 @@ flutter run            # mobile/desktop
 flutter run -d chrome  # web
 ```
 
-Frontend defaults to `http://localhost:3000/api/v1`.
+Frontend defaults to `http://localhost:3000/api/v1`. / 前端默认对接 `http://localhost:3000/api/v1`。
 
 ### Admin Console / 管理台
 
@@ -188,23 +190,23 @@ Frontend defaults to `http://localhost:3000/api/v1`.
 > Admin console requires an account with `role = admin`. See [Demo Account](#demo-account).
 > 管理台需 `role = admin` 账号登录。
 
-### Docker (Production)
+### Docker (Production) / Docker 生产部署
 
 ```bash
 docker compose up --build
-# production HTTPS:
+# production HTTPS / 生产 HTTPS：
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Starts PostgreSQL 17 + Redis + NestJS API + Nginx (Flutter web).
+Starts PostgreSQL 17 + Redis + NestJS API + Nginx (Flutter web). / 启动 PostgreSQL 17 + Redis + NestJS API + Nginx（Flutter Web）。
 
 ---
 
 ## Demo Account / 演示账号
 
-Seed data (dev only) creates both accounts automatically on first backend start.
+Seed data (dev only) creates both accounts automatically on first backend start. / 首次启动后端（仅开发环境）自动创建这两个账号。
 
-| Role | Username | Password | 用途 |
+| Role / 角色 | Username / 用户名 | Password / 密码 | 用途 |
 |------|----------|----------|------|
 | User | `alex` | `123456` | 普通用户（主 App） |
 | Admin | `admin` | `Admin@1234` | 管理员（管理台） |
@@ -213,23 +215,23 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 
 ---
 
-## Tech Stack
+## Tech Stack / 技术栈
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) |
-| Backend | NestJS 11.x, TypeScript, TypeORM |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| Cache / Queue | Redis 7 + CacheManager (Redis) + BullMQ |
-| Auth | JWT access/refresh rotation, bcrypt, login lockout, OAuth (WeChat / Alipay / Google / Apple), email verification, multi-device sessions |
-| Authorization | CASL ability-based permissions (role + row-level) |
-| AI | OpenAI-compatible LLM providers (DeepSeek / Qwen / OpenAI), tool calling, RAG knowledge base, conversation & audit persistence |
-| Notifications | In-app notifications + SSE realtime + JPush (abstracted) |
-| Email | nodemailer + SMTP (verification / reset / notification templates) |
-| Storage | Local disk / S3-compatible (MinIO, OSS) + sharp image processing (WebP) |
-| Observability | pino structured logs, Prometheus metrics (`/metrics`), OpenTelemetry traces, Loki logs, Grafana, Jaeger |
-| API | RESTful, versioned (v1), Swagger documented, rate-limited |
-| Deploy | Docker, Nginx, CI (GitHub Actions) |
+| Layer / 层 | Technology / 技术 | Notes / 说明 |
+|-------|-----------|--------------|
+| Frontend / 前端 | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) | 主 App 三端 + H5/小程序 |
+| Backend / 后端 | NestJS 11.x, TypeScript, TypeORM | 模块化、装饰器驱动 |
+| Database / 数据库 | SQLite (dev) / PostgreSQL (prod) | 开发 / 生产 |
+| Cache / Queue / 缓存·队列 | Redis 7 + CacheManager (Redis) + BullMQ | 缓存层 + 异步队列 |
+| Auth / 认证 | JWT access/refresh rotation, bcrypt, login lockout, OAuth (WeChat / Alipay / Google / Apple), email verification, multi-device sessions | 轮换 + 防爆破 + OAuth + 多设备会话 |
+| Authorization / 授权 | CASL ability-based permissions (role + row-level) | 角色 + 行级权限 |
+| AI | OpenAI-compatible LLM providers (DeepSeek / Qwen / OpenAI), tool calling, RAG knowledge base, conversation & audit persistence | 工具调用 + RAG + 对话与审计持久化 |
+| Notifications / 通知 | In-app notifications + SSE realtime + JPush (abstracted) | 站内 + SSE 实时 + 推送抽象 |
+| Email / 邮件 | nodemailer + SMTP (verification / reset / notification templates) | 验证 / 重置 / 通知模板 |
+| Storage / 存储 | Local disk / S3-compatible (MinIO, OSS) + sharp image processing (WebP) | 本地 / S3 兼容 + WebP 处理 |
+| Observability / 可观测性 | pino structured logs, Prometheus metrics (`/metrics`), OpenTelemetry traces, Loki logs, Grafana, Jaeger | 日志 / 指标 / 追踪 |
+| API | RESTful, versioned (v1), Swagger documented, rate-limited | 版本化 + 文档 + 限流 |
+| Deploy / 部署 | Docker, Nginx, CI (GitHub Actions) | 容器化 + 自动化 |
 
 ---
 
@@ -250,9 +252,9 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 
 ## Documentation / 文档
 
-| File | Audience | Purpose |
+| File / 文件 | Audience / 读者 | Purpose / 用途 |
 |------|----------|---------|
-| [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone | 快速上手（零基础 5 分钟跑通全栈） |
+| [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone / 所有人 | 快速上手（零基础 5 分钟跑通全栈） |
 | [`docs/manual/faq.md`](docs/manual/faq.md) | Everyone | 常见问题排查（环境/启动/账号/AI/部署） |
 | [`docs/manual/quickstart-en.md`](docs/manual/quickstart-en.md) | Everyone | Quick Start (English) |
 | [`docs/manual/faq-en.md`](docs/manual/faq-en.md) | Everyone | FAQ (English) |
