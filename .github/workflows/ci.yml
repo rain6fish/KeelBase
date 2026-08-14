@@ -84,7 +84,7 @@ jobs:
           npm run migration:run
           OUTPUT=$(npm run migration:generate -- src/migrations/_ConsistencyCheck 2>&1)
           echo "$OUTPUT"
-          if ls src/migrations/_ConsistencyCheck* 2>/dev/null; then
+          if ls src/migrations/*_ConsistencyCheck* 2>/dev/null; then
             echo "::error::实体新增了未迁移的变更，请运行 migration:generate 提交迁移"
             exit 1
           fi
