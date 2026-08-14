@@ -95,7 +95,7 @@ const statCards = computed(() => [
 async function load() {
   try {
     detail.value = await usersApi.detail(id)
-  } catch (err) {
+  } catch {
     // global snackbar
   } finally {
     loading.value = false
