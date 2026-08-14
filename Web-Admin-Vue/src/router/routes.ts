@@ -34,6 +34,7 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: 'ai-timeline', name: 'ai-timeline', component: () => import('@/views/ai-timeline/AiTimelineView.vue'), meta: { title: 'navAiTimeline' } },
   { path: 'ai-tools', name: 'ai-tools', component: () => import('@/views/ai-tools/AiToolsView.vue'), meta: { title: 'navAiTools' } },
   { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: 'navAnalytics' } },
+  { path: 'org', name: 'org', component: () => import('@/views/org/OrgView.vue'), meta: { title: 'navOrg' } },
 ]
 
 for (const r of consoleChildren) {
@@ -68,6 +69,7 @@ const routes: RouteRecordRaw[] = [
           { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
           { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
           { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
+          { path: 'org', name: 'workbench-org', component: () => import('@/views/workbench/OrgDirectoryView.vue'), meta: { title: 'workbenchOrgDir' } },
         ],
       },
     ],
