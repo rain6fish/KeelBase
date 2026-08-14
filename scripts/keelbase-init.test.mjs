@@ -162,6 +162,12 @@ test('后端 7 文件骨架', () => {
   const controller = files.find((f) => f.path.endsWith('.controller.ts')).content;
   assert.match(controller, /path: 'posts', version: '1'/);
   assert.match(controller, /@FeatureFlag\('posts'\)/);
+  // ⑤-1 admin 端点：管理端全量列表 + 删除任意
+  assert.match(controller, /admin\/all/);
+  assert.match(controller, /@CheckPolicies\(\(ability\) => ability\.can\('manage', 'all'\)\)/);
+  const service = files.find((f) => f.path.endsWith('.service.ts')).content;
+  assert.match(service, /findAllForAdmin/);
+  assert.match(service, /removeAsAdmin/);
   const module = files.find((f) => f.path.endsWith('.module.ts')).content;
   assert.match(module, /forFeature\(\[Post\]\)/);
 });
