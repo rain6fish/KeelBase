@@ -144,6 +144,8 @@ class AppLocalizations {
   String get postsAddTitle => _t('New Post', '新增帖子');
   String get postsEmpty => _t('No Post yet', '暂无帖子');
   String get postsDeleteConfirm => _t('Delete this post?', '删除该帖子？');
+  String get postsCommentHint => _t('Add a comment...', '写评论…');
+  String get postsSendComment => _t('Send', '发送');
 
   // --- Dashboard ---
   String welcome(String name) => _t('Welcome, $name', '欢迎回来，$name');

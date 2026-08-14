@@ -133,17 +133,84 @@ if (_contentCtrl.text.isNotEmpty) data['content'] = _contentCtrl.text.trim();
                   itemBuilder: (_, i) {
                     final item = items[i];
                     final title = item.title.toString();
-                    return CupertinoListTile(
-                      title: Text(title),
-                      trailing: CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(32, 32),
-                        onPressed: () => _onDelete(item.id),
-                        child: const Icon(
-                          CupertinoIcons.trash,
-                          size: 18,
-                          color: CupertinoColors.destructiveRed,
-                        ),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(title,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(28, 28),
+                                onPressed: () => _onDelete(item.id),
+                                child: const Icon(
+                                  CupertinoIcons.trash,
+                                  size: 16,
+                                  color: CupertinoColors.destructiveRed,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (item.content != null && item.content!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(item.content!,
+                                  style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              // 点赞按钮（乐观更新）
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(28, 28),
+                                onPressed: () => context.read<PostsProvider>().toggleLike(item.id),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      item.likedByMe
+                                          ? CupertinoIcons.heart_fill
+                                          : CupertinoIcons.heart,
+                                      size: 16,
+                                      color: item.likedByMe
+                                          ? CupertinoColors.systemRed
+                                          : CupertinoColors.systemGrey,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text('${item.likes}',
+                                        style: const TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // 评论数 + 评论输入
+                              Icon(CupertinoIcons.chat_bubble,
+                                  size: 14, color: CupertinoColors.systemGrey),
+                              const SizedBox(width: 4),
+                              Text('${item.comments}',
+                                  style: const TextStyle(fontSize: 12)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: CupertinoTextField(
+                                  placeholder: l10n.postsCommentHint,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (v) {
+                                    if (v.trim().isEmpty) return;
+                                    context.read<PostsProvider>().addComment(item.id, v.trim());
+                                    // 清空输入（通过 controller 不方便，直接提交后刷新提示）
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   },
