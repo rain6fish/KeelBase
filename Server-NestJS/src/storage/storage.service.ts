@@ -14,4 +14,9 @@ export interface StorageService {
    * 删除文件（key 为 save 返回 URL 中的对象键）。
    */
   delete(key: string): Promise<void>;
+
+  /**
+   * 健康探测（A8）：返回 'up' | 'down'，供 /health?detail=true 展示依赖状态。
+   */
+  checkHealth(): Promise<'up' | 'down'>;
 }

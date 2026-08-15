@@ -38,16 +38,32 @@ class _RegisterPageState extends State<RegisterPage> {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
 
-    if (email.isEmpty || username.isEmpty || password.isEmpty) return;
-
     final auth = context.read<AuthProvider>();
-    auth.clearError();
     final l10n = context.l10n;
+    // 请求在途时忽略重复提交（键盘 Done + 按钮双入口）
+    if (auth.status == AuthStatus.loading) return;
+
+    if (username.isEmpty) {
+      AppToast.error(context, l10n.usernameRequired);
+      return;
+    }
+    if (email.isEmpty) {
+      AppToast.error(context, l10n.emailRequired);
+      return;
+    }
+    if (password.isEmpty) {
+      AppToast.error(context, l10n.passwordRequired);
+      return;
+    }
+
+    auth.clearError();
+    // 姓名为空时回退到 username，避免向后端提交空 nickname
+    final nickname = '$firstName $lastName'.trim();
     final ok = await auth.register(
       username: username,
       email: email,
       password: password,
-      nickname: '$firstName $lastName'.trim(),
+      nickname: nickname.isEmpty ? username : nickname,
       firstName: firstName.isNotEmpty ? firstName : null,
       lastName: lastName.isNotEmpty ? lastName : null,
     );
@@ -70,7 +86,6 @@ class _RegisterPageState extends State<RegisterPage> {
     bool obscure = false,
     bool showToggle = false,
     VoidCallback? onToggle,
-    bool isLast = false,
   }) {
     final t = CupertinoTheme.of(context);
     return Container(
@@ -128,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
         // Title
         Text(l10n.register, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
         const SizedBox(height: 6),
-        Text('Create your account', style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context))),
+        Text(l10n.registerSubtitle, style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context))),
         const SizedBox(height: 32),
 
         // Error
@@ -174,7 +189,7 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 32),
 
         // Button
-        Consumer<AuthProvider>(builder: (_, a, __) => AppPrimaryButton(
+        Consumer<AuthProvider>(builder: (_, a, _) => AppPrimaryButton(
           label: l10n.register,
           isLoading: a.status == AuthStatus.loading,
           onPressed: _onRegister,

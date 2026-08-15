@@ -42,10 +42,9 @@ class AppListSection extends StatelessWidget {
         // Cells
         if (children.isNotEmpty)
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 0),
+            width: double.infinity,
             decoration: BoxDecoration(
               color: CupertinoColors.systemBackground.resolveFrom(context),
-              borderRadius: BorderRadius.circular(0),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -56,8 +55,11 @@ class AppListSection extends StatelessWidget {
                     if (i > 0)
                       Container(
                         height: 0.5,
+                        width: double.infinity,
                         margin: const EdgeInsets.only(left: 20),
-                        color: CupertinoColors.separator.resolveFrom(context).withAlpha(60),
+                        color: CupertinoColors.separator
+                            .resolveFrom(context)
+                            .withValues(alpha: 60 / 255),
                       ),
                     children[i],
                   ],

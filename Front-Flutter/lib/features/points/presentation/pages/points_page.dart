@@ -35,7 +35,7 @@ class _PointsPageState extends State<PointsPage> {
       final gained = provider.lastCheckIn?.points ?? 0;
       AppToast.success(context, l10n.pointsCheckInGained(gained));
     } else if (provider.error != null) {
-      AppToast.error(context, provider.error!);
+      AppToast.error(context, l10n.pointsCheckInFailed);
     }
   }
 
@@ -56,7 +56,7 @@ class _PointsPageState extends State<PointsPage> {
           ? const LoadingWidget()
           : provider.error != null && overview == null
               ? AppErrorView(
-                  message: provider.error!,
+                  message: l10n.pointsLoadFailed,
                   actionLabel: l10n.retry,
                   onRetry: () => context.read<PointsProvider>().load(),
                 )
@@ -323,7 +323,7 @@ class _LeaderboardSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (rows.isEmpty)
-          _hint(l10n.pointsNoPoints)
+          _hint(l10n.pointsLeaderboardEmpty)
         else
           ...rows.indexed.map((entry) => _LeaderboardTile(rank: entry.$1 + 1, row: entry.$2)),
       ],
@@ -367,11 +367,12 @@ class _LeaderboardTile extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: (avatarUrl != null && avatarUrl.isNotEmpty)
-                ? Image.network(AppConstants.resolveUrl(avatarUrl), fit: BoxFit.cover)
-                : Text(
-                    (row.nickname?.isNotEmpty ?? false) ? row.nickname!.substring(0, 1) : '?',
-                    style: TextStyle(color: theme.primaryColor, fontSize: 14),
-                  ),
+                ? Image.network(
+                    AppConstants.resolveUrl(avatarUrl),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _initialPlaceholder(theme, row.nickname),
+                  )
+                : _initialPlaceholder(theme, row.nickname),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -400,4 +401,18 @@ Widget _hint(String text) {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Text(text, style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
   );
+}
+
+/// 昵称首字母占位（无头像 / 头像加载失败时的回退）。
+Widget _initialPlaceholder(CupertinoThemeData theme, String? nickname) {
+  return Text(
+    _initialOf(nickname),
+    style: TextStyle(color: theme.primaryColor, fontSize: 14),
+  );
+}
+
+/// 取昵称首字符（按字素簇，避免切断 emoji 等 surrogate pair）。
+String _initialOf(String? nickname) {
+  if (nickname == null || nickname.isEmpty) return '?';
+  return nickname.characters.first;
 }

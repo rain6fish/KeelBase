@@ -24,20 +24,38 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     super.dispose();
   }
 
+  static bool _isValidEmail(String email) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+
   Future<void> _onSubmit() async {
     final email = _emailCtrl.text.trim();
-    if (email.isEmpty) return;
-
     final auth = context.read<AuthProvider>();
-    auth.clearError();
     final l10n = context.l10n;
-    final ok = await auth.requestPasswordReset(email);
+    // 请求在途时忽略重复提交（键盘 Done + 按钮双入口）
+    if (auth.status == AuthStatus.loading) return;
 
-    if (!mounted) return;
-    if (ok) {
-      setState(() => _sent = true);
-    } else {
-      AppToast.error(context, auth.error ?? l10n.unknownError);
+    if (email.isEmpty) {
+      AppToast.error(context, l10n.emailRequired);
+      return;
+    }
+    if (!_isValidEmail(email)) {
+      AppToast.error(context, l10n.invalidEmail);
+      return;
+    }
+
+    auth.clearError();
+    try {
+      final ok = await auth.requestPasswordReset(email);
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _sent = true);
+      } else {
+        AppToast.error(context, auth.error ?? l10n.unknownError);
+      }
+    } catch (_) {
+      // 兜底：provider 内部已捕获，防御未来抛错导致未处理异步异常
+      if (!mounted) return;
+      AppToast.error(context, l10n.unknownError);
     }
   }
 
@@ -45,8 +63,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final t = CupertinoTheme.of(context);
-    final auth = context.watch<AuthProvider>();
-    final authError = auth.status == AuthStatus.error ? auth.error : null;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -91,22 +107,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             ),
           ),
         ] else ...[
-          if (authError != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: CupertinoColors.destructiveRed.withAlpha(15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: CupertinoColors.destructiveRed.withAlpha(40)),
-              ),
-              child: Row(children: [
-                const Icon(CupertinoIcons.exclamationmark_circle, size: 18, color: CupertinoColors.destructiveRed),
-                const SizedBox(width: 10),
-                Expanded(child: Text(authError, style: const TextStyle(fontSize: 14, color: CupertinoColors.destructiveRed))),
-              ]),
-            ),
+          Consumer<AuthProvider>(
+            builder: (_, a, _) {
+              final authError = a.status == AuthStatus.error ? a.error : null;
+              if (authError == null) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.destructiveRed.withAlpha(15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: CupertinoColors.destructiveRed.withAlpha(40)),
+                ),
+                child: Row(children: [
+                  const Icon(CupertinoIcons.exclamationmark_circle, size: 18, color: CupertinoColors.destructiveRed),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(authError, style: const TextStyle(fontSize: 14, color: CupertinoColors.destructiveRed))),
+                ]),
+              );
+            },
+          ),
 
           // Email
           Container(

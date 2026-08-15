@@ -413,7 +413,11 @@ export class OrgService {
 
   /** ORG-3 数据隔离：返回用户所属组织 id（非成员返回 null，不抛错） */
   async getUserOrgId(userId: number): Promise<number | null> {
-    const member = await this.membersRepo.findOne({ where: { userId } });
+    // A10：多组织用户取最早加入的组织，保证确定性（不依赖 DB 返回顺序）
+    const member = await this.membersRepo.findOne({
+      where: { userId },
+      order: { id: 'ASC' },
+    });
     return member?.orgId ?? null;
   }
 

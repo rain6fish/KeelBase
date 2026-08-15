@@ -20,10 +20,20 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
   bool _trustTool = false;
 
   @override
+  void didUpdateWidget(covariant ChatConfirmationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 卡片被复用于不同确认时，重置上次的信任选择，避免串台
+    if (oldWidget.confirmation.token != widget.confirmation.token) {
+      _trustTool = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    final provider = context.read<AiChatProvider>();
+    // watch：确认中状态变化时卡片及时重建，避免按钮/文案过期
+    final provider = context.watch<AiChatProvider>();
     final conf = widget.confirmation;
 
     return Padding(
@@ -35,11 +45,11 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark
-                ? CupertinoColors.systemGrey5.resolveFrom(context).withAlpha(60)
+                ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.24)
                 : CupertinoColors.systemGrey6.resolveFrom(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: CupertinoTheme.of(context).primaryColor.withAlpha(90),
+              color: CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.35),
             ),
           ),
           child: Column(
@@ -69,7 +79,7 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   style: TextStyle(
                     fontSize: 11,
                     color: CupertinoTheme.of(context).textTheme.textStyle.color
-                        ?.withAlpha(160),
+                        ?.withValues(alpha: 0.63),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -99,7 +109,7 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                               .textTheme
                               .textStyle
                               .color
-                              ?.withAlpha(200),
+                              ?.withValues(alpha: 0.78),
                         ),
                       ),
                     ),
@@ -116,7 +126,8 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                         ? null
                         : () => provider.confirmPending(
                               approved: false,
-                              trustTool: _trustTool,
+                              // 拒绝时不传播信任标记，避免「信任」被误用于拒绝的写操作
+                              trustTool: false,
                             ),
                     child: Text(l10n.aiConfirmReject),
                   ),
@@ -150,14 +161,15 @@ class _ArgsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final labels = <String, String>{
-      'title': '标题',
-      'startTime': '开始',
-      'endTime': '结束',
-      'dueDate': '截止',
-      'location': '地点',
-      'description': '描述',
-      'reminderMinutes': '提醒',
+      'title': l10n.aiConfirmArgTitle,
+      'startTime': l10n.aiConfirmArgStart,
+      'endTime': l10n.aiConfirmArgEnd,
+      'dueDate': l10n.aiConfirmArgDueDate,
+      'location': l10n.aiConfirmArgLocation,
+      'description': l10n.aiConfirmArgDescription,
+      'reminderMinutes': l10n.aiConfirmArgReminder,
     };
     final entries = arguments.entries
         .where((e) => e.value != null && e.value.toString().isNotEmpty)
@@ -170,7 +182,7 @@ class _ArgsPreview extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(top: 2),
           child: Text(
-            '${labels[e.key]}: ${e.value}',
+            '${labels[e.key]}: ${_formatValue(e.value)}',
             style: TextStyle(
               fontSize: 12,
               color: CupertinoTheme.of(context).textTheme.textStyle.color,
@@ -179,5 +191,19 @@ class _ArgsPreview extends StatelessWidget {
         );
       }).toList(),
     );
+  }
+
+  /// 时间戳转本地短格式，其余值原样展示。
+  String _formatValue(Object? value) {
+    if (value is String) {
+      final dt = DateTime.tryParse(value);
+      if (dt != null) {
+        final local = dt.toLocal();
+        final date =
+            '${local.month}/${local.day} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+        return date;
+      }
+    }
+    return value.toString();
   }
 }

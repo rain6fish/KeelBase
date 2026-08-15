@@ -45,4 +45,8 @@ describe('LocalStorageService', () => {
   it('delete swallows missing file errors', async () => {
     await expect(service.delete('/uploads/nonexistent.png')).resolves.toBeUndefined();
   });
+
+  it('checkHealth：目录可访问返回 up（A8）', async () => {
+    await expect(service.checkHealth()).resolves.toBe('up');
+  });
 });
