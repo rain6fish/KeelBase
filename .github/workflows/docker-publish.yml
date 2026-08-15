@@ -39,9 +39,20 @@ jobs:
           cache: true
       - name: Build Flutter web
         working-directory: Front-Flutter
+        shell: bash
         run: |
+          flutter doctor -v 2>&1 | tail -20 || true
           flutter pub get
-          flutter build web --release
+          set +e
+          flutter build web --release > /tmp/flutter_build.log 2>&1
+          RC=$?
+          echo "flutter build exit: $RC"
+          if [ $RC -ne 0 ]; then
+            echo "--- flutter build error ---"
+            tail -60 /tmp/flutter_build.log
+            echo "::error::flutter build failed (exit $RC)"
+            exit $RC
+          fi
 
       # 构建 Web-Admin-Vue（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
 
