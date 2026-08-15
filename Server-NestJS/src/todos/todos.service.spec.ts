@@ -42,7 +42,8 @@ describe('TodosService', () => {
 
     const result = await service.findAll(5);
 
-    expect(mockRepo.find).toHaveBeenCalledWith({ where: { userId: 5 }, order: { completed: 'ASC', createdAt: 'DESC' } });
+    // ORG-3 二期：where 为数组（本人 OR 同组织）；无 orgService 时仅本人条件
+    expect(mockRepo.find).toHaveBeenCalledWith({ where: [{ userId: 5 }], order: { completed: 'ASC', createdAt: 'DESC' } });
     expect(result).toHaveLength(1);
   });
 
