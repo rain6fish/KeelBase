@@ -121,6 +121,21 @@ class ProfilePage extends StatelessWidget {
 
           const SizedBox(height: 12),
 
+          // Growth section（GROWTH-3 积分/签到）
+          AppListSection(
+            header: Text(l10n.sectionGrowth),
+            children: [
+              CupertinoListTile(
+                leading: const Icon(CupertinoIcons.star_circle_fill, color: CupertinoColors.systemYellow),
+                title: Text(l10n.pointsTitle),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push('/points'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
           // Account section
           AppListSection(
             header: Text(l10n.sectionAccount),

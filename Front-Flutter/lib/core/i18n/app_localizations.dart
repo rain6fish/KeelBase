@@ -132,6 +132,18 @@ class AppLocalizations {
   String get roleAdmin => _t('Admin', '管理员');
   String get roleMember => _t('Member', '成员');
 
+  // GROWTH-3 积分 / 签到
+  String get pointsTitle => _t('Points & Check-in', '积分签到');
+  String get pointsBalance => _t('Points', '当前积分');
+  String get pointsStreak => _t('Check-in streak', '连续签到');
+  String get pointsCheckIn => _t('Check in', '签到');
+  String get pointsCheckedInToday => _t('Checked in today', '今日已签到');
+  String get pointsAchievements => _t('Achievements', '我的成就');
+  String get pointsLeaderboard => _t('Leaderboard', '积分排行榜');
+  String get pointsNoPoints => _t('No points yet — check in to start earning', '还没有积分，签到开始赚取吧');
+  String pointsStreakDays(int days) => _t('$days days', '已连签 $days 天');
+  String pointsCheckInGained(int points) => _t('Check-in successful! +$points points', '签到成功！获得 +$points 积分');
+
   // --- 标签（EASY-2 生成） ---
   String get tagsTitle => _t('Tag', '标签');
   String get tagsAddTitle => _t('New Tag', '新增标签');
@@ -233,6 +245,7 @@ class AppLocalizations {
   String get settings => _t('Settings', '设置');
   String memberSince(String date) => _t('Member since $date', '注册于 $date');
   String get sectionAccount => _t('Account', '账户');
+  String get sectionGrowth => _t('Growth', '成长');
   String get sectionLegal => _t('Legal', '法律');
 
   // --- Settings ---
