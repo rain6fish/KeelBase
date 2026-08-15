@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Box, CircularProgress } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
@@ -17,11 +17,14 @@ function redirectToLogin(navigate: ReturnType<typeof useNavigate>, path: string)
 export function AuthGate({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const status = useAuthStore((s) => s.status)
   const tryAutoLogin = useAuthStore((s) => s.tryAutoLogin)
   const [checked, setChecked] = useState(false)
+  // C5: once-guard —— 避免 status 订阅变化 / StrictMode 双调用触发并发 /auth/me
+  const ranOnce = useRef(false)
 
   useEffect(() => {
+    if (ranOnce.current) return
+    ranOnce.current = true
     let cancelled = false
     const path = location.pathname
     ;(async () => {
@@ -54,7 +57,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, navigate, tryAutoLogin, status])
+  }, [location.pathname, navigate, tryAutoLogin])
 
   if (!checked) {
     return (

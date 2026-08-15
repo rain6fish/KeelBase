@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
 import '../../../../core/api/sse_client.dart';
+import '../../../../core/errors/exceptions.dart';
 
 /// 工具步骤卡状态
 enum ToolStepStatus { running, success, error }
@@ -124,6 +125,9 @@ class AiChatProvider extends ChangeNotifier {
   PendingConfirmation? _currentConfirmation;
   bool _isConfirming = false;
 
+  /// SSE 流代际计数：clearConversation / loadConversation 递增以取消进行中的流。
+  int _streamGeneration = 0;
+
   // --- Getters ---
   List<ChatMessageModel> get messages => _messages;
   bool get isLoading => _isLoading;
@@ -165,11 +169,14 @@ class AiChatProvider extends ChangeNotifier {
   /// 发送消息（SSE 流式）
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
+    if (_isLoading || _isStreaming) return; // 防止流式请求进行中重入
 
     _messages = [..._messages, ChatMessageModel(role: 'user', content: text.trim())];
     _isLoading = true;
     _isStreaming = true;
     _error = null;
+    // 新请求开始时清掉旧的待消费导航，避免 sendFromHome 的 '/ai' 或上一轮
+    // delegate 遗留导航被本页 _handleNavigation 再次触发（重复 push）。
     _navigateTo = null;
     notifyListeners();
 
@@ -186,168 +193,183 @@ class AiChatProvider extends ChangeNotifier {
       body['conversationId'] = _currentConversationId;
     }
 
+    final gen = _streamGeneration;
     final buf = StringBuffer();
-    bool hasError = false;
 
     try {
       if (_shouldDelegate(text)) {
         // 委托请求：走非流式 /ai/chat（后端触发 SubAgentOrchestrator），无 SSE 打字机
-        await _sendNonStreaming(body);
+        await _sendNonStreaming(body, gen);
       } else {
         await for (final event in _sseClient.postStream('/ai/chat/stream', body: body)) {
-        final type = event['type'] as String?;
-        final data = event['data'] as Map<String, dynamic>?;
+          // clearConversation / loadConversation 会递增 _streamGeneration 取消本次流
+          if (gen != _streamGeneration) break;
 
-        switch (type) {
-          case 'text':
-            final content = data?['content'] as String? ?? '';
-            buf.write(content);
-            _messages = [
-              ..._messages.sublist(0, _messages.length - 1),
-              _messages.last.copyWith(
+          final type = event['type'] as String?;
+          final data = event['data'] as Map<String, dynamic>?;
+
+          switch (type) {
+            case 'text':
+              final content = data?['content'] as String? ?? '';
+              buf.write(content);
+              if (_messages.isEmpty) break;
+              // 原地替换最后一条，避免每次 chunk 全量重建列表（O(n²)→O(1)）
+              final last = _messages[_messages.length - 1];
+              _messages[_messages.length - 1] = last.copyWith(
                 content: buf.toString(),
                 isStreaming: true,
                 clearConfirmation: true,
-              ),
-            ];
-            notifyListeners();
-          case 'tool_call':
-            // Tool calling in progress — user sees "searching" from the streaming text
-            break;
-          case 'confirmation_request':
-            final c = data?['confirmation'] as Map<String, dynamic>?;
-            if (c != null) {
-              final pending = PendingConfirmation(
-                token: c['token'] as String,
-                toolName: c['toolName'] as String? ?? '',
-                summary: c['summary'] as String? ?? '',
-                arguments: (c['arguments'] as Map?)?.cast<String, dynamic>() ??
-                    const {},
               );
-              _currentConfirmation = pending;
-              // 用 sublist 重建最后一条消息并附加确认卡片（不用 copyWith，
-              // 因为 copyWith 的 clearConfirmation 语义会误清掉正在流式累积的内容）
-              _messages = [
-                ..._messages.sublist(0, _messages.length - 1),
-                _messages.last
-                    .copyWith(isStreaming: false)
-                    .copyWith(pendingConfirmation: pending),
-              ];
               notifyListeners();
-            }
-          case 'tool_start':
-            final ts = data?['toolStart'] as Map<String, dynamic>?;
-            if (ts != null) {
-              final step = ToolStepModel(
-                name: ts['name'] as String? ?? '',
-                status: ToolStepStatus.running,
-                summary: ts['summary'] as String? ?? '',
-              );
-              // 在流式占位消息之前插入步骤卡，保持「最后一条 = 占位」不变式
-              _messages = [
-                ..._messages.sublist(0, _messages.length - 1),
-                ChatMessageModel(role: 'assistant', content: '', toolStep: step),
-                _messages.last,
-              ];
-              notifyListeners();
-            }
-          case 'tool_end':
-            final te = data?['toolEnd'] as Map<String, dynamic>?;
-            if (te != null) {
-              final name = te['name'] as String? ?? '';
-              final idx = _messages.lastIndexWhere((m) =>
-                  m.toolStep != null &&
-                  m.toolStep!.name == name &&
-                  m.toolStep!.status == ToolStepStatus.running);
-              if (idx >= 0) {
-                final step = _messages[idx].toolStep!;
-                final success = te['success'] == true;
-                final updated = _messages[idx].copyWith(
-                  toolStep: step.copyWith(
-                    status: success ? ToolStepStatus.success : ToolStepStatus.error,
-                    summary: te['summary'] as String? ?? step.summary,
-                    error: te['error'] as String?,
-                  ),
+            case 'tool_call':
+              // Tool calling in progress — user sees "searching" from the streaming text
+              break;
+            case 'confirmation_request':
+              final c = data?['confirmation'] as Map<String, dynamic>?;
+              if (c != null) {
+                final pending = PendingConfirmation(
+                  token: c['token'] as String,
+                  toolName: c['toolName'] as String? ?? '',
+                  summary: c['summary'] as String? ?? '',
+                  arguments: (c['arguments'] as Map?)?.cast<String, dynamic>() ??
+                      const {},
                 );
+                _currentConfirmation = pending;
+                if (_messages.isNotEmpty) {
+                  // 用 sublist 重建最后一条消息并附加确认卡片（不用 copyWith，
+                  // 因为 copyWith 的 clearConfirmation 语义会误清掉正在流式累积的内容）
+                  _messages = [
+                    ..._messages.sublist(0, _messages.length - 1),
+                    _messages.last
+                        .copyWith(isStreaming: false)
+                        .copyWith(pendingConfirmation: pending),
+                  ];
+                }
+                notifyListeners();
+              }
+            case 'tool_start':
+              final ts = data?['toolStart'] as Map<String, dynamic>?;
+              if (ts != null) {
+                final step = ToolStepModel(
+                  name: ts['name'] as String? ?? '',
+                  status: ToolStepStatus.running,
+                  summary: ts['summary'] as String? ?? '',
+                );
+                if (_messages.isEmpty) break;
+                // 在流式占位消息之前插入步骤卡，保持「最后一条 = 占位」不变式
                 _messages = [
-                  ..._messages.sublist(0, idx),
-                  updated,
-                  ..._messages.sublist(idx + 1),
+                  ..._messages.sublist(0, _messages.length - 1),
+                  ChatMessageModel(role: 'assistant', content: '', toolStep: step),
+                  _messages.last,
                 ];
                 notifyListeners();
               }
-            }
-          case 'confirmation_decision':
-            // 立即清除确认卡（修复：无后续 text 时确认卡不消失）
-            _messages = [
-              ..._messages.sublist(0, _messages.length - 1),
-              _messages.last.copyWith(clearConfirmation: true),
-            ];
-            notifyListeners();
-          case 'done':
-            _currentConversationId = data?['conversationId'] as String?;
-            break;
-          case 'error':
-            hasError = true;
-            final errMsg = data?['error'] as String? ?? 'Stream error';
-            _messages = [
-              ..._messages.sublist(0, _messages.length - 1),
-              ChatMessageModel(role: 'assistant', content: '抱歉，出错了：$errMsg'),
-            ];
-            break;
-        }
+            case 'tool_end':
+              final te = data?['toolEnd'] as Map<String, dynamic>?;
+              if (te != null) {
+                final name = te['name'] as String? ?? '';
+                final idx = _messages.lastIndexWhere((m) =>
+                    m.toolStep != null &&
+                    m.toolStep!.name == name &&
+                    m.toolStep!.status == ToolStepStatus.running);
+                // 无匹配 running 步骤时静默跳过（graceful no-op）
+                if (idx >= 0) {
+                  final step = _messages[idx].toolStep!;
+                  final success = te['success'] == true;
+                  final updated = _messages[idx].copyWith(
+                    toolStep: step.copyWith(
+                      status: success ? ToolStepStatus.success : ToolStepStatus.error,
+                      summary: te['summary'] as String? ?? step.summary,
+                      error: te['error'] as String?,
+                    ),
+                  );
+                  _messages = [
+                    ..._messages.sublist(0, idx),
+                    updated,
+                    ..._messages.sublist(idx + 1),
+                  ];
+                  notifyListeners();
+                }
+              }
+            case 'confirmation_decision':
+              // 确认决策到达：清除待确认状态并移除卡片（卡片随流恢复而消失）
+              _currentConfirmation = null;
+              if (_messages.isNotEmpty) {
+                _messages = [
+                  ..._messages.sublist(0, _messages.length - 1),
+                  _messages.last.copyWith(clearConfirmation: true),
+                ];
+              }
+              notifyListeners();
+            case 'done':
+              _currentConversationId = data?['conversationId'] as String?;
+              break;
+            case 'error':
+              final errMsg = data?['error'] as String? ?? 'Stream error';
+              if (_messages.isNotEmpty) {
+                _messages = [
+                  ..._messages.sublist(0, _messages.length - 1),
+                  ChatMessageModel(role: 'assistant', content: '抱歉，出错了：$errMsg'),
+                ];
+                notifyListeners();
+              }
+              break; // 终止流，避免后端继续推事件覆盖错误消息
+          }
         }
       }
     } catch (e) {
-      hasError = true;
       // 如果还没有任何内容被追加，显示错误
-      if (buf.isEmpty) {
+      if (gen == _streamGeneration && buf.isEmpty && _messages.isNotEmpty) {
         _messages = [
           ..._messages.sublist(0, _messages.length - 1),
           ChatMessageModel(role: 'assistant', content: '抱歉，出错了，请重试。'),
         ];
       }
     } finally {
-      _isLoading = false;
-      _isStreaming = false;
-      _currentConfirmation = null;
-      // 移除 streaming 标记
-      if (!hasError && _messages.isNotEmpty) {
-        final last = _messages.last;
-        if (last.isStreaming) {
-          _messages = [
-            ..._messages.sublist(0, _messages.length - 1),
-            last.copyWith(isStreaming: false),
-          ];
-        }
-      }
-      // 流中断/error 时，把仍未结束的步骤卡置为 error（避免悬空 running）
-      if (_messages.any((m) =>
-          m.toolStep != null && m.toolStep!.status == ToolStepStatus.running)) {
-        _messages = _messages.map((m) {
-          final step = m.toolStep;
-          if (step != null && step.status == ToolStepStatus.running) {
-            return m.copyWith(
-              toolStep: step.copyWith(status: ToolStepStatus.error),
-            );
+      // 仅当本次请求仍是当前代时才清理共享状态，避免覆盖 clear/load 后的新会话
+      if (gen == _streamGeneration) {
+        _isLoading = false;
+        _isStreaming = false;
+        // 成功或失败都移除 streaming 标记，避免光标永久闪烁
+        if (_messages.isNotEmpty) {
+          final last = _messages.last;
+          if (last.isStreaming) {
+            _messages[_messages.length - 1] = last.copyWith(isStreaming: false);
           }
-          return m;
-        }).toList();
+        }
+        // 流中断/error 时，把仍未结束的步骤卡置为 error（避免悬空 running）
+        if (_messages.any((m) =>
+            m.toolStep != null && m.toolStep!.status == ToolStepStatus.running)) {
+          _messages = _messages.map((m) {
+            final step = m.toolStep;
+            if (step != null && step.status == ToolStepStatus.running) {
+              return m.copyWith(
+                toolStep: step.copyWith(status: ToolStepStatus.error),
+              );
+            }
+            return m;
+          }).toList();
+        }
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
 
   /// 非流式委托调用：替换占位 assistant 消息为完整回复，并同步 conversationId / 导航。
-  Future<void> _sendNonStreaming(Map<String, dynamic> body) async {
+  Future<void> _sendNonStreaming(Map<String, dynamic> body, int gen) async {
     try {
       final json = await _apiClient.post('/ai/chat', data: body);
       final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
+      if (response.code < 200 || response.code >= 300) {
+        throw NetworkException(response.message);
+      }
+      if (gen != _streamGeneration) return; // 已被 clear/load 取消
       final data = response.data;
       final reply = data?['reply'] as String? ?? '';
       final convId = data?['conversationId'] as String?;
       final nav = data?['navigateTo'] as String?;
 
+      if (_messages.isEmpty) return; // 对话已被清空
       _messages = [
         ..._messages.sublist(0, _messages.length - 1),
         ChatMessageModel(role: 'assistant', content: reply),
@@ -361,6 +383,8 @@ class AiChatProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
     } catch (e) {
+      if (gen != _streamGeneration) return;
+      if (_messages.isEmpty) return;
       _messages = [
         ..._messages.sublist(0, _messages.length - 1),
         ChatMessageModel(role: 'assistant', content: '抱歉，出错了，请重试。'),
@@ -380,7 +404,8 @@ class AiChatProvider extends ChangeNotifier {
         '/ai/confirmations/${conf.token}',
         data: {
           'decision': approved ? 'approve' : 'reject',
-          if (trustTool) 'trustTool': true,
+          // 仅批准时传播信任标记：拒绝时忽略，避免 Reject 误把工具标记为已信任
+          if (approved && trustTool) 'trustTool': true,
         },
       );
     } catch (_) {
@@ -400,25 +425,41 @@ class AiChatProvider extends ChangeNotifier {
 
   /// 清空当前对话
   void clearConversation() {
+    _streamGeneration++; // 取消进行中的 SSE 流
     _messages = [];
     _currentConversationId = null;
+    _currentConfirmation = null;
+    _isConfirming = false;
+    _isLoading = false;
+    _isStreaming = false;
     _error = null;
     _navigateTo = null;
-    _isStreaming = false;
+    _pendingMessage = null;
     notifyListeners();
   }
 
   /// 加载历史对话的完整消息，填充聊天界面（用于从历史列表切换）
   Future<void> loadConversation(String id) async {
+    _streamGeneration++; // 取消进行中的 SSE 流
+    _currentConfirmation = null;
+    _isConfirming = false;
+    _isLoading = false;
+    _isStreaming = false;
+    _navigateTo = null;
+    _pendingMessage = null;
     try {
       final json = await _apiClient.get('/ai/conversations/$id');
       final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
+      if (response.code < 200 || response.code >= 300) {
+        throw NetworkException(response.message);
+      }
       final data = response.data;
       final rawMessages = data?['messages'] as List? ?? [];
 
       final loaded = <ChatMessageModel>[];
       for (final m in rawMessages) {
-        final role = (m as Map<String, dynamic>)['role'] as String?;
+        if (m is! Map<String, dynamic>) continue; // 防御：跳过畸形消息
+        final role = m['role'] as String?;
         final content = m['content'] as String? ?? '';
         if (role == 'user' || role == 'assistant') {
           loaded.add(ChatMessageModel(role: role!, content: content));
@@ -428,7 +469,6 @@ class AiChatProvider extends ChangeNotifier {
       _messages = loaded;
       _currentConversationId = id;
       _error = null;
-      _isStreaming = false;
       // 继续聊时用会话原 provider，保持模型一致
       final convProvider = data?['provider'] as String?;
       if (convProvider != null && convProvider.isNotEmpty) {

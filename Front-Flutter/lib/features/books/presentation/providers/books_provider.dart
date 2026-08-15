@@ -15,38 +15,67 @@ class BooksProvider extends ChangeNotifier {
   bool _loading = false;
   bool _fromCache = false;
   String? _error;
+  bool _disposed = false;
+  int _loadGeneration = 0;
 
   BooksProvider(this._repository, {AppCache? cache})
       : _cache = cache ?? AppCache.unavailable();
 
-  List<BookModel> get items => _items;
+  List<BookModel> get items => List.unmodifiable(_items);
   bool get loading => _loading;
   String? get error => _error;
   /// 当前数据是否来自离线缓存（网络未刷新成功）。
   bool get fromCache => _fromCache;
 
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
-    notifyListeners();
+    _notify();
 
-    // 缓存优先：先展示本地缓存，避免空白
-    final cached = await _cache.readList(_ns, _keyList);
-    if (cached != null) {
-      _items = cached.map(BookModel.fromJson).toList();
-      _fromCache = true;
-      notifyListeners();
+    // 缓存优先：先展示本地缓存，避免空白。缓存读取失败不阻塞网络刷新。
+    try {
+      final cached = await _cache.readList(_ns, _keyList);
+      if (generation != _loadGeneration) return;
+      if (cached != null) {
+        _items = cached.map(BookModel.fromJson).toList();
+        _fromCache = true;
+        _notify();
+      }
+    } catch (e) {
+      if (generation != _loadGeneration) return;
+      debugPrint('BooksProvider cache read failed: $e');
     }
 
     try {
-      _items = await _repository.getBooks();
+      final books = await _repository.getBooks();
+      if (generation != _loadGeneration) return;
+      _items = books;
       _fromCache = false;
-      await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
+      try {
+        await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
+      } catch (e) {
+        // 网络加载已成功，缓存写入失败不应视为加载失败。
+        debugPrint('BooksProvider cache write failed: $e');
+      }
     } catch (e) {
+      if (generation != _loadGeneration) return;
       if (_items.isEmpty) _error = e.toString();
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _notify();
+      }
     }
   }
 
@@ -55,12 +84,17 @@ class BooksProvider extends ChangeNotifier {
       final item = await _repository.create(data);
       _items = [..._items, item];
       _error = null;
-      notifyListeners();
-      await _persist();
+      _notify();
+      try {
+        await _persist();
+      } catch (e) {
+        // 网络创建已成功，缓存写入失败不应视为操作失败。
+        debugPrint('BooksProvider cache write failed: $e');
+      }
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }
@@ -70,16 +104,20 @@ class BooksProvider extends ChangeNotifier {
     final originalList = _items;
     _items = _items.where((e) => e.id != id).toList();
     _error = null;
-    notifyListeners();
+    _notify();
 
     try {
       await _repository.delete(id);
-      await _persist();
+      try {
+        await _persist();
+      } catch (e) {
+        debugPrint('BooksProvider cache write failed: $e');
+      }
       return true;
     } catch (e) {
       _items = originalList;
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }

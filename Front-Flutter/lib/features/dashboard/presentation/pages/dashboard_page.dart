@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -146,7 +147,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final theme = CupertinoTheme.of(context);
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
-    final name = user?.nickname ?? user?.username ?? 'User';
+    final rawName = user?.nickname ?? user?.username ?? '';
+    final name = rawName.isEmpty ? 'User' : rawName;
     final initial = name[0].toUpperCase();
     final today = DateTime.now();
     final dateStr = DateFormat(l10n.isZh ? 'M月d日 EEEE' : 'EEEE, MMMM d').format(today);
@@ -166,7 +168,8 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 20),
           GestureDetector(
             onTap: () => context.push('/profile'),
-            onLongPress: () => showDevMenuSheet(context),
+            // 开发菜单（切换环境/清数据）仅调试构建可用，避免暴露给生产用户。
+            onLongPress: kDebugMode ? () => showDevMenuSheet(context) : null,
             child: Row(children: [
               Container(
                 width: 48, height: 48,

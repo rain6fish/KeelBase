@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../providers/ai_chat_provider.dart';
 import '../providers/conversation_provider.dart';
 
@@ -35,31 +37,46 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
   Future<void> _openConversation(String id) async {
     final chatProvider = context.read<AiChatProvider>();
     await chatProvider.loadConversation(id);
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    if (chatProvider.error == null) {
+      Navigator.of(context).pop();
+    } else {
+      AppToast.error(context, context.l10n.aiLoadFailed);
+    }
   }
 
-  void _confirmDelete(String id, String title) {
-    showCupertinoDialog<void>(
+  /// 删除确认弹窗（trash 按钮与滑动删除共用）。
+  Future<bool> _confirmDelete(String id, String title) async {
+    final l10n = context.l10n;
+    final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('删除对话'),
-        content: Text('确定删除「$title」？'),
+        title: Text(l10n.delete),
+        content: Text(l10n.deleteConversationConfirm(title)),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<ConversationProvider>().delete(id);
-            },
-            child: const Text('删除'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.delete),
           ),
         ],
       ),
     );
+    return confirmed ?? false;
+  }
+
+  /// 删除对话并等待结果；失败（服务端删除未成功、本地已回滚）时提示用户。
+  Future<void> _handleDelete(String id) async {
+    final provider = context.read<ConversationProvider>();
+    await provider.delete(id);
+    if (!mounted) return;
+    if (provider.conversations.any((c) => c.id == id)) {
+      AppToast.error(context, context.l10n.deleteFailed);
+    }
   }
 
   @override
@@ -74,20 +91,15 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
           previousPageTitle: l10n.back,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        middle: const Text('对话历史'),
+        middle: Text(l10n.conversationHistory),
       ),
       child: conversations.isEmpty
-          ? Center(
-              child: Text(
-                provider.loading ? l10n.loading : '暂无历史对话',
-                style: const TextStyle(color: CupertinoColors.systemGrey),
-              ),
-            )
+          ? _buildEmptyState(provider, l10n)
           : ListView.separated(
               itemCount: conversations.length,
               separatorBuilder: (_, _) => Container(
                 height: 0.5,
-                color: CupertinoColors.separator.withAlpha(60),
+                color: CupertinoColors.separator.withValues(alpha: 0.24),
               ),
               itemBuilder: (context, index) {
                 final c = conversations[index];
@@ -100,8 +112,9 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                     padding: const EdgeInsets.only(right: 20),
                     child: const Icon(CupertinoIcons.trash, color: CupertinoColors.white),
                   ),
-                  onDismissed: (_) =>
-                      context.read<ConversationProvider>().delete(c.id),
+                  // 滑动删除与 trash 按钮一致，都先确认再删
+                  confirmDismiss: (_) => _confirmDelete(c.id, c.previewTitle),
+                  onDismissed: (_) => _handleDelete(c.id),
                   child: GestureDetector(
                     onTap: () => _openConversation(c.id),
                     child: Container(
@@ -134,7 +147,12 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                           ),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            onPressed: () => _confirmDelete(c.id, c.previewTitle),
+                            onPressed: () async {
+                              final confirmed = await _confirmDelete(c.id, c.previewTitle);
+                              if (confirmed && mounted) {
+                                await _handleDelete(c.id);
+                              }
+                            },
                             child: const Icon(
                               CupertinoIcons.trash,
                               size: 18,
@@ -148,6 +166,30 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                 );
               },
             ),
+    );
+  }
+
+  /// 空列表/加载中/加载失败三态。
+  Widget _buildEmptyState(ConversationProvider provider, AppLocalizations l10n) {
+    if (provider.loading) {
+      return Center(
+        child: Text(
+          l10n.loading,
+          style: const TextStyle(color: CupertinoColors.systemGrey),
+        ),
+      );
+    }
+    if (provider.error != null) {
+      return AppErrorView(
+        message: provider.error!,
+        onRetry: () => provider.load(),
+      );
+    }
+    return Center(
+      child: Text(
+        l10n.noConversationHistory,
+        style: const TextStyle(color: CupertinoColors.systemGrey),
+      ),
     );
   }
 }

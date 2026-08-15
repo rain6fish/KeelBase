@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 轻量 JSON 缓存（UX-1 离线缓存）：
@@ -12,7 +13,9 @@ class AppCache {
   /// 无存储的降级实例：读返回 null、写 no-op（测试/未注入时安全）。
   factory AppCache.unavailable() => AppCache(null);
 
-  String _key(String namespace, String key) => '$namespace:$key';
+  /// 用 JSON 数组编码命名空间与 key，避免 `:` 拼接导致的键碰撞
+  /// （如 namespace/key 含冒号时 `a:b:c` 可能被不同组合复用）。
+  String _key(String namespace, String key) => jsonEncode([namespace, key]);
 
   /// 读缓存列表；无缓存或损坏时返回 null（调用方回退空列表）。
   Future<List<Map<String, dynamic>>?> readList(
@@ -26,11 +29,16 @@ class AppCache {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return null;
-      return decoded
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-    } catch (_) {
+      // 任一元素非 Map 即视为整份缓存损坏，返回 null 让调用方回退网络，
+      // 避免返回残缺数据误导 UI。
+      final list = <Map<String, dynamic>>[];
+      for (final e in decoded) {
+        if (e is! Map) return null;
+        list.add(Map<String, dynamic>.from(e));
+      }
+      return list;
+    } catch (e) {
+      debugPrint('[AppCache] readList 解析失败: $namespace:$key → $e');
       return null;
     }
   }
@@ -42,13 +50,15 @@ class AppCache {
   ) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.setString(_key(namespace, key), jsonEncode(data));
+    final ok = await prefs.setString(_key(namespace, key), jsonEncode(data));
+    if (!ok) debugPrint('[AppCache] writeList 写入失败: $namespace:$key');
   }
 
   Future<void> writeInt(String namespace, String key, int value) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.setInt(_key(namespace, key), value);
+    final ok = await prefs.setInt(_key(namespace, key), value);
+    if (!ok) debugPrint('[AppCache] writeInt 写入失败: $namespace:$key');
   }
 
   int? readInt(String namespace, String key) {
@@ -59,6 +69,7 @@ class AppCache {
   Future<void> remove(String namespace, String key) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.remove(_key(namespace, key));
+    final ok = await prefs.remove(_key(namespace, key));
+    if (!ok) debugPrint('[AppCache] remove 失败: $namespace:$key');
   }
 }

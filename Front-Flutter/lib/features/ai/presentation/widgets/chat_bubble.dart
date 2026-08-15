@@ -27,7 +27,7 @@ class ChatBubble extends StatelessWidget {
                 color: isUser
                     ? CupertinoTheme.of(context).primaryColor
                     : (isDark
-                        ? CupertinoColors.systemGrey5.resolveFrom(context).withAlpha(60)
+                        ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.6)
                         : CupertinoColors.systemGrey6.resolveFrom(context)),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),

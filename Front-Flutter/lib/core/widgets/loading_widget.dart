@@ -14,13 +14,17 @@ class LoadingWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const CupertinoActivityIndicator(radius: 16),
-          if (message != null) ...[
+          if (message case final msg?) ...[
             const SizedBox(height: 16),
             Text(
-              message!,
+              msg,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 15,
-                color: theme.textTheme.textStyle.color?.withAlpha(180),
+                color: theme.textTheme.textStyle.color
+                    ?.withValues(alpha: 180 / 255),
               ),
             ),
           ],

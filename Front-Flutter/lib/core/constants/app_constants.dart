@@ -19,20 +19,23 @@ class AppConstants {
   /// 当前 App 版本号（发布时与 pubspec `version:` 同步）
   static const String appVersion = '0.9.0';
 
-  /// 服务端资源基础地址（剥掉 /api/v1 前缀，如 http://localhost:3000）
+  /// 服务端资源基础地址（剥掉 /api/v1 前缀，如 http://localhost:3000）。
+  /// 跟随 [activeBaseUrl]，确保 Dev Menu 切换环境后资源 URL 同步指向新 host。
   static String get resourceBaseUrl {
-    if (baseUrl.endsWith('/api/v1')) {
-      return baseUrl.substring(0, baseUrl.length - '/api/v1'.length);
+    final url = activeBaseUrl;
+    if (url.endsWith('/api/v1')) {
+      return url.substring(0, url.length - '/api/v1'.length);
     }
-    return baseUrl;
+    return url;
   }
 
   /// 把后端返回的相对路径（如 /uploads/xxx）拼成完整 URL；
-  /// 已是绝对 URL（S3 等）则原样返回。
+  /// 已是绝对 URL（S3 等）则原样返回；协议相对路径（//host/x）按协议相对处理。
   static String resolveUrl(String? path) {
     if (path == null || path.isEmpty) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    return '$resourceBaseUrl$path';
+    if (path.startsWith('//')) return path; // 协议相对 URL，交由上层显式解析
+    return '$resourceBaseUrl${path.startsWith('/') ? '' : '/'}$path';
   }
 
   // Storage keys

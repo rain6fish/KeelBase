@@ -19,7 +19,13 @@ class AppLocalizations {
   static const LocalizationsDelegate<AppLocalizations> delegate =
       _AppLocalizationsDelegate();
 
-  bool get isZh => locale.languageCode == 'zh';
+  /// 简体中文判定：仅 zh_CN / 无地区 zh / Hans 脚本视为简体中文。
+  /// zh_TW / zh_HK 等繁体地区无对应译文，按未支持处理（回退英文）。
+  bool get isZh =>
+      locale.languageCode == 'zh' &&
+      (locale.countryCode == null ||
+          locale.countryCode == 'CN' ||
+          locale.scriptCode == 'Hans');
 
   String _t(String en, String zh) => isZh ? zh : en;
 
@@ -61,8 +67,8 @@ class AppLocalizations {
   String get loginSuccess => _t('Login successful', '登录成功');
   String get registerSuccess => _t('Registration successful', '注册成功');
   String get logoutConfirm => _t('Are you sure to logout?', '确定要退出登录吗？');
-  String get passwordLogin => _t('Password', '密码登录');
-  String get phoneLogin => _t('Phone', '手机号登录');
+  String get passwordLogin => _t('Password Login', '密码登录');
+  String get phoneLogin => _t('Phone Login', '手机号登录');
   String get phoneNumber => _t('Phone number', '手机号');
   String get sendCode => _t('Send code', '获取验证码');
   String get phoneOrCodeInvalid => _t('Enter valid phone and 6-digit code', '请输入正确手机号和 6 位验证码');
@@ -141,8 +147,14 @@ class AppLocalizations {
   String get pointsAchievements => _t('Achievements', '我的成就');
   String get pointsLeaderboard => _t('Leaderboard', '积分排行榜');
   String get pointsNoPoints => _t('No points yet — check in to start earning', '还没有积分，签到开始赚取吧');
-  String pointsStreakDays(int days) => _t('$days days', '已连签 $days 天');
+  String pointsStreakDays(int days) => _t(
+        days == 1 ? '1 day' : '$days days',
+        '已连签 $days 天',
+      );
   String pointsCheckInGained(int points) => _t('Check-in successful! +$points points', '签到成功！获得 +$points 积分');
+  String get pointsCheckInFailed => _t('Check-in failed', '签到失败');
+  String get pointsLoadFailed => _t('Failed to load points', '积分数据加载失败');
+  String get pointsLeaderboardEmpty => _t('No one on the leaderboard yet', '排行榜暂无数据');
 
   // --- 标签（EASY-2 生成） ---
   String get tagsTitle => _t('Tag', '标签');
@@ -161,6 +173,7 @@ class AppLocalizations {
   String get booksAddTitle => _t('New Book', '新增图书');
   String get booksEmpty => _t('No Book yet', '暂无图书');
   String get booksDeleteConfirm => _t('Delete this book?', '删除该图书？');
+  String get author => _t('Author', '作者');
 
   // --- 帖子（EASY-2 生成） ---
   String get postsTitle => _t('Post', '帖子');
@@ -300,6 +313,8 @@ class AppLocalizations {
   String get titleRequired => _t('Title is required', '请输入标题');
   String get titleHint => _t('Up to 200 characters', '最多200字');
   String get color => _t('Color', '颜色');
+  String get apply => _t('Apply', '应用');
+  String get noTitle => _t('(No Title)', '无标题');
   String get recurringEvent => _t('Recurring Event', '重复事件');
   String get reminder => _t('Reminder', '提醒');
   String get reminderNone => _t('None', '不提醒');
@@ -336,6 +351,8 @@ class AppLocalizations {
   String get email => _t('Email', '邮箱');
   String get emailHint => _t('your@email.com', 'your@email.com');
   String get emailRequired => _t('Email is required', '请输入邮箱');
+  String get invalidEmail => _t('Invalid email address', '邮箱格式不正确');
+  String get registerSubtitle => _t('Create your account', '创建你的账号');
   String get firstName => _t('First Name', '名');
   String get lastName => _t('Last Name', '姓');
   String get firstNameHint => _t('Given name', '名');
@@ -348,8 +365,10 @@ class AppLocalizations {
   String get saveProfile => _t('Save Profile', '保存资料');
 
   // --- Rate limit ---
-  String retryIn(int seconds) =>
-      _t('Retry in ${seconds}s', '${seconds}秒后重试');
+  String retryIn(int seconds) => _t(
+        seconds == 1 ? 'Retry in 1 second' : 'Retry in $seconds seconds',
+        '$seconds秒后重试',
+      );
 
   // --- Password recovery ---
   String get forgotPassword => _t('Forgot password?', '忘记密码？');
@@ -422,6 +441,19 @@ class AppLocalizations {
   String get aiToolRunning => _t('Working...', '正在执行…');
   String get aiToolSuccess => _t('Done', '已完成');
   String get aiToolFailed => _t('Failed', '执行失败');
+  String get aiHistory => _t('Chat history', '历史对话');
+  String get conversationHistory => _t('Chat history', '对话历史');
+  String get noConversationHistory => _t('No chat history yet', '暂无历史对话');
+  String get aiLoadFailed => _t('Failed to load conversation', '加载对话失败');
+  String get deleteFailed => _t('Delete failed, please try again', '删除失败，请重试');
+  String Function(String) get deleteConversationConfirm => (String title) => _t('Delete "$title"?', '确定删除「$title」？');
+  String get aiConfirmArgTitle => _t('Title', '标题');
+  String get aiConfirmArgStart => _t('Start', '开始');
+  String get aiConfirmArgEnd => _t('End', '结束');
+  String get aiConfirmArgDueDate => _t('Due', '截止');
+  String get aiConfirmArgLocation => _t('Location', '地点');
+  String get aiConfirmArgDescription => _t('Description', '描述');
+  String get aiConfirmArgReminder => _t('Reminder', '提醒');
 
   // --- Profile (more menu) ---
   String get profileEntry => _t('Profile', '个人资料');
@@ -436,7 +468,10 @@ class AppLocalizations {
   String get allEvents => _t('All', '全部');
   String get loadMore => _t('Load more', '加载更多');
   String get noMoreEvents => _t('All events loaded', '已加载全部事件');
-  String eventsCount(int n) => _t('$n events', '$n 个事件');
+  String eventsCount(int n) => _t(
+        n == 1 ? '1 event' : '$n events',
+        '$n 个事件',
+      );
   String get searchResults => _t('Search Results', '搜索结果');
   String get today => _t('Today', '今天');
 
@@ -450,7 +485,11 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      locale.languageCode == 'en' || locale.languageCode == 'zh';
+      locale.languageCode == 'en' ||
+      (locale.languageCode == 'zh' &&
+          (locale.countryCode == null ||
+              locale.countryCode == 'CN' ||
+              locale.scriptCode == 'Hans'));
 
   @override
   Future<AppLocalizations> load(Locale locale) =>

@@ -68,6 +68,7 @@ void main() {
 
     await tester.pumpWidget(wrap(provider));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('今日已签到'), findsOneWidget);
     expect(find.text('签到'), findsNothing);

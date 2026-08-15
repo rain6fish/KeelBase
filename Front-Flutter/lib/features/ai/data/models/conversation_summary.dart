@@ -19,11 +19,13 @@ class ConversationSummary {
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
     final rawMessages = json['messages'] as List? ?? [];
     return ConversationSummary(
-      id: json['id'] as String,
+      // 防御性解析：单条畸形数据不拖垮整个列表
+      id: json['id'] as String? ?? '',
       provider: json['provider'] as String?,
       model: json['model'] as String?,
       messages: rawMessages
-          .map((m) => ConversationMessagePreview.fromJson(m as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map(ConversationMessagePreview.fromJson)
           .toList(),
       createdAt: json['createdAt'] as String?,
       lastActivityAt: json['lastActivityAt'] as String?,
@@ -35,8 +37,12 @@ class ConversationSummary {
     String text = '新对话';
     for (final m in messages) {
       if (m.role == 'user') {
-        text = m.content.trim();
-        break;
+        final trimmed = m.content.trim();
+        // 跳过空白首条，避免标题退化为空字符串
+        if (trimmed.isNotEmpty) {
+          text = trimmed;
+          break;
+        }
       }
     }
     return text.length > 30 ? '${text.substring(0, 30)}...' : text;

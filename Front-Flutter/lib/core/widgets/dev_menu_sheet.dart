@@ -37,25 +37,33 @@ class _DevMenuSheetState extends State<DevMenuSheet> {
       setState(() => _selected = index);
       return;
     }
+    // 先捕获长生命周期 context：pop 后 sheet 的 State 会被销毁，
+    // 之后展示的确认对话框必须用 navigator.context / builder 的 ctx
+    final navigator = Navigator.of(context);
     setState(() {
       _selected = index;
       _switching = true;
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(AppConstants.keyDevBaseUrl, url);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ok = await prefs.setString(AppConstants.keyDevBaseUrl, url);
+      if (!ok) return; // 写入失败：不报成功，也不弹确认框
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+    // sheet 若在等待期间被用户滑掉，mounted 为 false，不再 pop 或弹框
     if (!mounted) return;
-    setState(() => _switching = false);
-    Navigator.of(context).pop();
+    navigator.pop();
     showCupertinoDialog<void>(
-      context: context,
+      context: navigator.context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(context.l10n.devEnvSwitched),
-        content: Text('$url\n${context.l10n.devEnvRestart}'),
+        title: Text(ctx.l10n.devEnvSwitched),
+        content: Text('$url\n${ctx.l10n.devEnvRestart}'),
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(context.l10n.announcementDismiss),
+            child: Text(ctx.l10n.announcementDismiss),
           ),
         ],
       ),
@@ -63,20 +71,28 @@ class _DevMenuSheetState extends State<DevMenuSheet> {
   }
 
   Future<void> _clearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    final navigator = Navigator.of(context);
+    // 与 _switchEnvironment 共享 busy 标志，避免 clear 与 setString 交错
+    setState(() => _switching = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 只清除已知的 dev key，不触碰 refresh_token / theme_mode / language / device_id
+      await prefs.remove(AppConstants.keyDevBaseUrl);
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
     if (!mounted) return;
-    Navigator.of(context).pop();
+    navigator.pop();
     showCupertinoDialog<void>(
-      context: context,
+      context: navigator.context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(context.l10n.devDataCleared),
-        content: Text(context.l10n.devEnvRestart),
+        title: Text(ctx.l10n.devDataCleared),
+        content: Text(ctx.l10n.devEnvRestart),
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(context.l10n.announcementDismiss),
+            child: Text(ctx.l10n.announcementDismiss),
           ),
         ],
       ),
@@ -130,7 +146,9 @@ class _DevMenuSheetState extends State<DevMenuSheet> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 color: i == _selected
-                    ? CupertinoTheme.of(context).primaryColor.withAlpha(20)
+                    ? CupertinoTheme.of(context)
+                        .primaryColor
+                        .withValues(alpha: 20 / 255)
                     : null,
               ),
               child: Row(children: [

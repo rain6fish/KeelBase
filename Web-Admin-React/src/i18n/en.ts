@@ -372,6 +372,8 @@ const en: ZhDict = {
   featureCol: 'Feature',
   pathCol: 'Path',
   statusCol: 'Status',
+  userAgent: 'User-Agent',
+  requestBody: 'Request body',
 
   aiAuditTitle: 'AI Audit',
   filterByUser: 'Filter by user',
@@ -379,6 +381,9 @@ const en: ZhDict = {
   tokenCol: 'Tokens',
   noAiAudit: 'No logs',
   providerModel: '{provider}/{model}',
+  errorMessage: 'Error message',
+  durationMs: 'Duration',
+  conversationId: 'Conversation ID',
 
   sessionTitle: 'Session Management',
   revokeConfirmTitle: 'Force Logout',

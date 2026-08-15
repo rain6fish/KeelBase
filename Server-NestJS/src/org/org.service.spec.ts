@@ -93,6 +93,14 @@ describe('OrgService', () => {
     expect(await service.getUserOrgId(5)).toBe(3);
   });
 
+  it('getUserOrgId：多组织用户按最早加入确定返回（A10）', async () => {
+    members.findOne.mockResolvedValue({ id: 1, userId: 5, orgId: 3, role: 'member' });
+    await service.getUserOrgId(5);
+    expect(members.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 5 }, order: { id: 'ASC' } }),
+    );
+  });
+
   it('getUserOrgId：非成员返回 null（不抛错）', async () => {
     members.findOne.mockResolvedValue(null);
     expect(await service.getUserOrgId(99)).toBeNull();

@@ -2,14 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { HealthController } from './health.controller';
+import { STORAGE_SERVICE } from '../storage/storage.service';
 
 describe('HealthController', () => {
   let controller: HealthController;
-  let dataSource: { query: jest.Mock };
+  let runner: { connect: jest.Mock; query: jest.Mock; release: jest.Mock };
+  let dataSource: { createQueryRunner: jest.Mock; options: { type: string } };
   let configService: { get: jest.Mock };
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn().mockResolvedValue([{ '1': 1 }]) };
+    runner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn().mockResolvedValue([{ '1': 1 }]),
+      release: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource = {
+      createQueryRunner: jest.fn(() => runner),
+      options: { type: 'better-sqlite3' },
+    };
     configService = { get: jest.fn((k: string, d?: unknown) => (k === 'STORAGE_DRIVER' ? 'local' : d)) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -17,6 +27,7 @@ describe('HealthController', () => {
       providers: [
         { provide: DataSource, useValue: dataSource },
         { provide: ConfigService, useValue: configService },
+        // 不提供 STORAGE_SERVICE：走 _checkStorage 的降级分支（local → up）
       ],
     }).compile();
 
@@ -35,13 +46,37 @@ describe('HealthController', () => {
     const result = await controller.check('true');
     expect(result).toHaveProperty('dependencies');
     expect((result as any).dependencies).toHaveProperty('database', 'up');
-    expect((result as any).dependencies).toHaveProperty('storage', 'local');
+    // A8：storage 返回状态值 + 单独 driver 字段
+    expect((result as any).dependencies).toHaveProperty('storage', 'up');
+    expect((result as any).dependencies).toHaveProperty('storageDriver', 'local');
     expect((result as any).dependencies).toHaveProperty('queue', 'down'); // 未注入 pushQueue
   });
 
   it('database down should degrade gracefully (not throw)', async () => {
-    dataSource.query.mockRejectedValue(new Error('db down'));
+    runner.query.mockRejectedValue(new Error('db down'));
     const result = await controller.check('true');
     expect((result as any).dependencies.database).toBe('down');
+  });
+
+  it('postgres uses driver-level statement_timeout then resets it (A4)', async () => {
+    dataSource.options = { type: 'postgres' };
+    const result = await controller.check('true');
+    expect((result as any).dependencies.database).toBe('up');
+    // 先 SET statement_timeout 再 SELECT 1，归还前复位
+    const queries = runner.query.mock.calls.map((c) => c[0]);
+    expect(queries[0]).toBe(`SET statement_timeout = '2000'`);
+    expect(queries).toContain('SELECT 1');
+    expect(queries[queries.length - 1]).toBe(`SET statement_timeout = '0'`);
+  });
+
+  it('postgres db down still releases the query runner (A4)', async () => {
+    dataSource.options = { type: 'postgres' };
+    runner.query
+      .mockResolvedValueOnce(undefined) // SET statement_timeout
+      .mockRejectedValueOnce(new Error('db hung')) // SELECT 1 被 statement_timeout 中止
+      .mockResolvedValueOnce(undefined); // 复位（失败也会被吞）
+    const result = await controller.check('true');
+    expect((result as any).dependencies.database).toBe('down');
+    expect(runner.release).toHaveBeenCalled();
   });
 });

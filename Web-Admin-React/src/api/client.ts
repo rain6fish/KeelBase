@@ -13,7 +13,8 @@ export function setOnAuthFailure(callback: () => void) {
 }
 
 function isPublicEndpoint(path: string): boolean {
-  return PUBLIC_ENDPOINTS.some((ep) => path.includes(ep))
+  // 精确路径段匹配：避免 /auth/login 子串误配 /auth/login-phone 等
+  return PUBLIC_ENDPOINTS.includes(path.split('?')[0])
 }
 
 export class ApiError extends Error {

@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:front_app/features/auth/data/models/token_model.dart';
 import 'package:front_app/features/auth/data/models/user_model.dart';
 import 'package:front_app/features/auth/data/services/oauth_providers.dart';
+import 'package:front_app/core/errors/exceptions.dart';
 import 'package:front_app/features/auth/presentation/providers/auth_provider.dart';
 import '../../helpers.dart';
 
@@ -99,7 +100,7 @@ void main() {
 
     test('getProfile 失败 → unauthenticated 且清 token', () async {
       when(() => apiClient.refreshToken).thenAnswer((_) async => 'refresh-token');
-      when(() => authRepository.getProfile()).thenThrow(Exception('session expired'));
+      when(() => authRepository.getProfile()).thenThrow(AuthException('session expired'));
       when(() => apiClient.clearTokens()).thenAnswer((_) async => null);
 
       await provider.tryAutoLogin();

@@ -14,6 +14,14 @@ class SseClient {
 
   /// POST 请求并返回 SSE 事件流。
   /// 每个事件为 { type, data }，type 对应 event: 行，data 为 JSON 解析后的 Map。
+  ///
+  /// 处理规则：
+  /// - 跨 chunk 的行缓冲：长 `data:` 行被 TCP 拆成多段时仍作为一个完整行解析；
+  /// - 字段按 `field: value` 解析（允许无空格形式），`:` 前缀的注释行被忽略；
+  /// - 事件在空白行（或流结束）时派发，多行 `data:` 用 `\n` 合并为一条；
+  /// - `[DONE]` 数据发出 `{type: 'done', data: null}` 后立即终止流；
+  /// - 非 200 状态、流错误转为 `{type: 'error', data: {'error': ...}}`；
+  /// - 编程错误（[Error]）向上抛出，不会被吞成 error 事件。
   Stream<Map<String, dynamic>> postStream(String path,
       {Map<String, dynamic>? body}) async* {
     final uri = Uri.parse('${AppConstants.activeBaseUrl}$path');
@@ -26,9 +34,8 @@ class SseClient {
       headers['Authorization'] = 'Bearer $token';
     }
 
+    final client = http.Client();
     try {
-      final client = http.Client();
-      // 使用流式请求
       final request = http.Request('POST', uri)
         ..headers.addAll(headers)
         ..body = body != null ? jsonEncode(body) : '{}';
@@ -41,33 +48,118 @@ class SseClient {
       }
 
       String? currentEventType;
-      await for (final chunk in response.stream.transform(utf8.decoder)) {
-        for (final line in chunk.split('\n')) {
-          if (line.startsWith('event: ')) {
-            currentEventType = line.substring(7).trim();
-          } else if (line.startsWith('data: ')) {
-            final payload = line.substring(6).trim();
-            if (payload == '[DONE]') {
-              yield {'type': 'done', 'data': null};
-            } else {
-              try {
-                final json = jsonDecode(payload) as Map<String, dynamic>;
-                yield {'type': currentEventType ?? 'message', 'data': json};
-              } catch (_) {
-                yield {
-                  'type': 'text',
-                  'data': {'type': 'text', 'content': payload},
-                };
-              }
-            }
-            currentEventType = null;
-          }
+      final dataLines = <String>[];
+      final lineBuffer = StringBuffer();
+      var stopped = false;
+
+      // 处理一条完整行（不含末尾 '\n'），返回需要派发的事件列表。
+      // 捕获其用到的局部状态，通过返回值向外派发（async* 内不能在闭包中 yield）。
+      List<Map<String, dynamic>> handleLine(String line) {
+        final events = <Map<String, dynamic>>[];
+        if (line.startsWith(':')) {
+          // 注释行：忽略
+          return events;
         }
+        final colon = line.indexOf(':');
+        final field = colon < 0 ? line : line.substring(0, colon);
+        final value = colon < 0 ? '' : line.substring(colon + 1).trim();
+        switch (field) {
+          case 'event':
+            currentEventType = value;
+            break;
+          case 'data':
+            dataLines.add(value);
+            break;
+          case '':
+            // 空白行 → 派发一个完整事件
+            if (dataLines.isNotEmpty) {
+              final payload = dataLines.join('\n');
+              final type = currentEventType;
+              dataLines.clear();
+              currentEventType = null;
+              if (payload == '[DONE]') {
+                events.add({'type': 'done', 'data': null});
+              } else {
+                events.add(_buildEvent(type, payload));
+              }
+            } else {
+              currentEventType = null;
+            }
+            break;
+          default:
+            // 'id:' / 'retry:' 等未知字段：忽略
+            break;
+        }
+        return events;
       }
 
-      client.close();
+      await for (final chunk in response.stream.transform(utf8.decoder)) {
+        lineBuffer.write(chunk);
+        var buf = lineBuffer.toString();
+        var newlineIdx = buf.indexOf('\n');
+        while (newlineIdx >= 0) {
+          final line = buf.substring(0, newlineIdx);
+          buf = buf.substring(newlineIdx + 1);
+          newlineIdx = buf.indexOf('\n');
+          for (final event in handleLine(line)) {
+            if (event['type'] == 'done' && event['data'] == null) {
+              stopped = true;
+            }
+            yield event;
+          }
+          if (stopped) return; // [DONE] 已收到，停止解析后续字节
+        }
+        lineBuffer
+          ..clear()
+          ..write(buf);
+      }
+
+      // 流结束：处理未换行的最后一行 + 未以空白行结尾的 data 块。
+      if (!stopped && lineBuffer.isNotEmpty) {
+        final line = lineBuffer.toString();
+        lineBuffer.clear();
+        for (final event in handleLine(line)) {
+          if (event['type'] == 'done' && event['data'] == null) {
+            stopped = true;
+          }
+          yield event;
+        }
+      }
+      if (!stopped && dataLines.isNotEmpty) {
+        final payload = dataLines.join('\n');
+        final type = currentEventType;
+        if (payload == '[DONE]') {
+          yield {'type': 'done', 'data': null};
+        } else {
+          yield _buildEvent(type, payload);
+        }
+      }
     } catch (e) {
+      if (e is Error) rethrow; // 编程错误向上抛出，不伪装成 error 事件
       yield {'type': 'error', 'data': {'error': e.toString()}};
+    } finally {
+      // 正常/非 200/流错误/消费者取消 均关闭连接，避免泄漏。
+      client.close();
     }
+  }
+
+  /// 把单条 `data:` 载荷解析为事件：合法 JSON 对象 → 结构化事件；
+  /// 其余（纯文本 / JSON 字符串等）→ `text` 事件。
+  Map<String, dynamic> _buildEvent(String? type, String payload) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(payload);
+    } catch (_) {
+      decoded = null;
+    }
+    if (decoded is Map<String, dynamic>) {
+      return {'type': type ?? 'message', 'data': decoded};
+    }
+    // JSON 字符串去引号，纯文本原样。
+    final content = decoded is String ? decoded : payload;
+    return {
+      'type': 'text',
+      'data': {'type': 'text', 'content': content},
+    };
   }
 }

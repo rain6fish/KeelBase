@@ -6,7 +6,6 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/widgets/app_primary_button.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
-import '../../data/services/oauth_service.dart';
 import '../../data/services/oauth_providers.dart';
 
 class LoginPage extends StatefulWidget {
@@ -30,6 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _appleAvailable = true;
   bool _weChatAvailable = false;
   bool _smsTab = false;
+  bool _sendingCode = false;
   int _codeCooldown = 0;
 
   @override
@@ -50,10 +50,15 @@ class _LoginPageState extends State<LoginPage> {
     // Non-blocking checks for native SDK availability
     auth.oauthService.isAppleSignInAvailable().then((v) {
       if (mounted) setState(() => _appleAvailable = v);
+    }).catchError((_) {
+      // 探测失败视为不可用，避免显示必失败的入口
+      if (mounted) setState(() => _appleAvailable = false);
     });
     if (!kIsWeb) {
       svc.isWeChatInstalled().then((v) {
         if (mounted) setState(() => _weChatAvailable = v);
+      }).catchError((_) {
+        if (mounted) setState(() => _weChatAvailable = false);
       });
     }
   }
@@ -105,7 +110,11 @@ class _LoginPageState extends State<LoginPage> {
     if (!_checkAgree()) return;
     final phone = _phoneCtrl.text.trim();
     final code = _codeCtrl.text.trim();
-    if (phone.isEmpty || code.length != 6) {
+    if (phone.isEmpty) {
+      AppToast.error(context, context.l10n.phoneRequired);
+      return;
+    }
+    if (!_isValidPhone(phone) || code.length != 6) {
       AppToast.error(context, context.l10n.phoneOrCodeInvalid);
       return;
     }
@@ -122,31 +131,52 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _onSendCode() async {
+    if (!_checkAgree()) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
       AppToast.error(context, context.l10n.phoneRequired);
       return;
     }
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.sendSmsCode(phone);
-    if (!mounted) return;
-    if (ok) {
-      setState(() => _codeCooldown = 60);
-      // 倒计时（简化：每 1s 递减，到 0 停）
-      Future.doWhile(() async {
-        if (!mounted) return false;
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted && _codeCooldown > 1) {
-          setState(() => _codeCooldown -= 1);
-          return true;
-        }
-        if (mounted) setState(() => _codeCooldown = 0);
-        return false;
-      });
-      AppToast.success(context, context.l10n.smsCodeSent);
-    } else {
-      AppToast.error(context, auth.error ?? context.l10n.unknownError);
+    if (!_isValidPhone(phone)) {
+      AppToast.error(context, context.l10n.phoneOrCodeInvalid);
+      return;
     }
+    // 防止请求在途时重复发送（重复短信 + 并发倒计时竞态）
+    if (_sendingCode || _codeCooldown > 0) return;
+    setState(() => _sendingCode = true);
+    final auth = context.read<AuthProvider>();
+    try {
+      final ok = await auth.sendSmsCode(phone);
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _codeCooldown = 60);
+        _startCodeCooldown();
+        AppToast.success(context, context.l10n.smsCodeSent);
+      } else {
+        AppToast.error(context, auth.error ?? context.l10n.unknownError);
+      }
+    } finally {
+      if (mounted) setState(() => _sendingCode = false);
+    }
+  }
+
+  void _startCodeCooldown() {
+    // 倒计时（简化：每 1s 递减，到 0 停）
+    Future.doWhile(() async {
+      if (!mounted) return false;
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted && _codeCooldown > 1) {
+        setState(() => _codeCooldown -= 1);
+        return true;
+      }
+      if (mounted) setState(() => _codeCooldown = 0);
+      return false;
+    });
+  }
+
+  static bool _isValidPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'[\s-]'), '');
+    return RegExp(r'^\+?\d{6,15}$').hasMatch(digits);
   }
 
   Future<void> _onOAuthLogin(String provider) async {
@@ -355,8 +385,10 @@ class _LoginPageState extends State<LoginPage> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 4,
         children: [
           // Checkbox
           GestureDetector(
@@ -424,7 +456,8 @@ class _LoginPageState extends State<LoginPage> {
       return list.where((p) {
         if (p.id == 'apple' && !_appleAvailable) return false;
         if (p.id == 'wechat' && !_weChatAvailable) return false;
-        if (kIsWeb && p.nativeOnly) return false;
+        // nativeOnly（微信/支付宝）仅在原生移动端展示，Web/桌面一律过滤
+        if (p.nativeOnly && !OAuthProviders.isMobilePlatform) return false;
         return true;
       }).toList();
     }
@@ -467,32 +500,34 @@ class _LoginPageState extends State<LoginPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            // 演示账号提示（评估者 clone 后最需要的就是账号）
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: t.primaryColor.withAlpha(10),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: t.primaryColor.withAlpha(30)),
+            // 演示账号提示（评估者 clone 后最需要的就是账号）。
+            // 仅在 debug/dev 构建展示，避免生产环境暴露演示凭据。
+            if (kDebugMode)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: t.primaryColor.withAlpha(10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: t.primaryColor.withAlpha(30)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    l10n.demoAccounts,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.primaryColor),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.demoAccountUser,
+                    style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.demoAccountAdmin,
+                    style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                  ),
+                ]),
               ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  l10n.demoAccounts,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.primaryColor),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.demoAccountUser,
-                  style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.demoAccountAdmin,
-                  style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey.resolveFrom(context)),
-                ),
-              ]),
-            ),
             const SizedBox(height: 32),
 
             // Error
@@ -586,7 +621,7 @@ class _LoginPageState extends State<LoginPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     color: _codeCooldown > 0 ? CupertinoColors.systemGrey : t.primaryColor,
                     borderRadius: const BorderRadius.all(Radius.circular(12)),
-                    onPressed: _codeCooldown > 0 ? null : _onSendCode,
+                    onPressed: (_codeCooldown > 0 || _sendingCode) ? null : _onSendCode,
                     child: Text(
                       _codeCooldown > 0 ? '${_codeCooldown}s' : l10n.sendCode,
                       style: const TextStyle(fontSize: 14, color: CupertinoColors.white, fontWeight: FontWeight.w600),

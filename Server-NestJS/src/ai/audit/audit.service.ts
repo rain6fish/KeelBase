@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
+import { AiDailyUsage } from './ai-daily-usage.entity';
 
 export interface AuditEntry {
   userId: string;
@@ -54,6 +55,8 @@ export class AuditService {
   constructor(
     @InjectRepository(AiAuditLog)
     private readonly logRepo: Repository<AiAuditLog>,
+    @InjectRepository(AiDailyUsage)
+    private readonly usageRepo: Repository<AiDailyUsage>,
   ) {}
 
   async log(entry: AuditEntry): Promise<void> {
@@ -144,16 +147,48 @@ export class AuditService {
     }));
   }
 
-  /** RG-2.1：统计用户今日非错误 AI 调用次数（限额校验用）。 */
+  /**
+   * RG-2.1：统计用户今日非错误 AI 调用次数（限额校验用）。
+   * A2：改读独立计数表 ai_daily_usage，不再依赖 ai_audit_logs——
+   * HS-9 审计粒度 'off'/'write' 只关审计日志，不能关掉每日限额。
+   */
   async countChatsToday(userId: string): Promise<number> {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    return this.logRepo
-      .createQueryBuilder('log')
-      .where('log.userId = :userId', { userId })
-      .andWhere('log.createdAt >= :start', { start })
-      .andWhere('log.isError = :err', { err: false })
-      .getCount();
+    const usageDate = this._todayKey();
+    const row = await this.usageRepo.findOne({ where: { userId, usageDate } });
+    return row?.count ?? 0;
+  }
+
+  /**
+   * A2：成功（非错误）AI 对话完成时自增当日用量，独立于审计粒度写入。
+   */
+  async incrementDailyUsage(userId: string): Promise<void> {
+    const usageDate = this._todayKey();
+    const existing = await this.usageRepo.findOne({ where: { userId, usageDate } });
+    if (existing) {
+      existing.count += 1;
+      await this.usageRepo.save(existing);
+    } else {
+      try {
+        await this.usageRepo.save(
+          this.usageRepo.create({ userId, usageDate, count: 1 }),
+        );
+      } catch {
+        // 并发首写冲突：唯一约束兜底，改走自增路径
+        const row = await this.usageRepo.findOne({ where: { userId, usageDate } });
+        if (row) {
+          row.count += 1;
+          await this.usageRepo.save(row);
+        }
+      }
+    }
+  }
+
+  private _todayKey(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   async getStats(userId: string, since?: Date): Promise<UsageStats> {

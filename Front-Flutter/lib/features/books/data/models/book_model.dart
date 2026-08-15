@@ -11,9 +11,9 @@ class BookModel {
 
   factory BookModel.fromJson(Map<String, dynamic> json) {
     return BookModel(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      author: json['author'] as String,
+      id: json['id'] as int? ?? 0,
+      title: (json['title'] as String? ?? '').trim(),
+      author: (json['author'] as String? ?? '').trim(),
     );
   }
 
@@ -23,14 +23,11 @@ class BookModel {
         'author': author,
       };
 
-  BookModel copyWith({
-    title = const Object(),
-    author = const Object()
-  }) {
+  BookModel copyWith({int? id, String? title, String? author}) {
     return BookModel(
-      id: id,
-      title: title == const Object() ? this.title : title as dynamic,
-      author: author == const Object() ? this.author : author as dynamic,
+      id: id ?? this.id,
+      title: title ?? this.title,
+      author: author ?? this.author,
     );
   }
 }

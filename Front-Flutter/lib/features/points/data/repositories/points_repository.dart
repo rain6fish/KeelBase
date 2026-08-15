@@ -29,8 +29,15 @@ class PointsRepository {
   Future<List<LeaderboardRow>> getLeaderboard({int limit = 20}) async {
     final json = await _client.get('/points/leaderboard', queryParameters: {'limit': limit});
     final response = ApiResponse.fromJson(json, (data) {
-      final items = data as List? ?? [];
-      return items.map((e) => LeaderboardRow.fromJson(e as Map<String, dynamic>)).toList();
+      final items = data is List ? data : const <dynamic>[];
+      final rows = <LeaderboardRow>[];
+      for (final e in items) {
+        // 类型检查后解析：单条坏数据跳过，不拖垮整个列表。
+        if (e is Map) {
+          rows.add(LeaderboardRow.fromJson(Map<String, dynamic>.from(e)));
+        }
+      }
+      return rows;
     });
     return response.data ?? [];
   }
@@ -38,8 +45,15 @@ class PointsRepository {
   Future<List<AchievementView>> getAchievements() async {
     final json = await _client.get('/points/achievements');
     final response = ApiResponse.fromJson(json, (data) {
-      final items = data as List? ?? [];
-      return items.map((e) => AchievementView.fromJson(e as Map<String, dynamic>)).toList();
+      final items = data is List ? data : const <dynamic>[];
+      final rows = <AchievementView>[];
+      for (final e in items) {
+        // 类型检查后解析：单条坏数据跳过，不拖垮整个列表。
+        if (e is Map) {
+          rows.add(AchievementView.fromJson(Map<String, dynamic>.from(e)));
+        }
+      }
+      return rows;
     });
     return response.data ?? [];
   }

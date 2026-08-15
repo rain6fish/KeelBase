@@ -3,6 +3,7 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { TodosService } from './todos.service';
 import { Todo } from './todo.entity';
+import { OrgService } from '../org/org.service';
 
 describe('TodosService', () => {
   let service: TodosService;
@@ -15,7 +16,10 @@ describe('TodosService', () => {
     softDelete: jest.fn(),
   };
 
-  const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
+  const mockAbility = (allowed: boolean) => ({
+    cannot: () => !allowed,
+    can: () => allowed,
+  }) as any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -83,5 +87,53 @@ describe('TodosService', () => {
     await service.remove(1, mockAbility(true));
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
+  });
+
+  describe('ORG-3 组织级隔离一致性（A3）', () => {
+    const noAccessAbility = { cannot: () => true, can: () => false } as any;
+    let orgService: { getUserOrgId: jest.Mock };
+
+    const buildService = async () => {
+      jest.clearAllMocks();
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TodosService,
+          { provide: getRepositoryToken(Todo), useValue: mockRepo },
+          { provide: OrgService, useValue: orgService },
+        ],
+      }).compile();
+      return module.get<TodosService>(TodosService);
+    };
+
+    it('同组织成员可读他人待办（列表与明细一致）', async () => {
+      orgService = { getUserOrgId: jest.fn().mockResolvedValue(7) };
+      const s = await buildService();
+      mockRepo.findOne.mockResolvedValue({ id: 2, userId: 99, orgId: 7 });
+
+      const todo = await s.findOne(2, noAccessAbility, 5);
+      expect(todo.id).toBe(2);
+      expect(orgService.getUserOrgId).toHaveBeenCalledWith(5);
+    });
+
+    it('跨组织成员访问他人待办被拒（cross-org 负向）', async () => {
+      orgService = { getUserOrgId: jest.fn().mockResolvedValue(8) };
+      const s = await buildService();
+      mockRepo.findOne.mockResolvedValue({ id: 2, userId: 99, orgId: 7 });
+
+      await expect(s.findOne(2, noAccessAbility, 5)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('未注入 orgService 时非本人待办不可见', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TodosService,
+          { provide: getRepositoryToken(Todo), useValue: mockRepo },
+        ],
+      }).compile();
+      const s = module.get<TodosService>(TodosService);
+      mockRepo.findOne.mockResolvedValue({ id: 2, userId: 99, orgId: 7 });
+
+      await expect(s.findOne(2, noAccessAbility, 5)).rejects.toThrow(ForbiddenException);
+    });
   });
 });

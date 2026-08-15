@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { LangToggle } from '@/components/LangToggle'
+import { homeFor } from '@/router/AuthGate'
 
 export default function LoginView() {
   const { t } = useTranslation()
@@ -35,7 +36,7 @@ export default function LoginView() {
       const params = new URLSearchParams(location.search)
       const redirect = params.get('redirect')
       const user = useAuthStore.getState().user
-      navigate(typeof redirect === 'string' && redirect ? redirect : user?.role === 'admin' ? '/' : '/workbench', {
+      navigate(typeof redirect === 'string' && redirect ? redirect : homeFor(user?.role), {
         replace: true,
       })
     } else {

@@ -22,7 +22,7 @@ class SuggestedQuestions extends StatelessWidget {
         Icon(
           CupertinoIcons.sparkles,
           size: 48,
-          color: CupertinoTheme.of(context).primaryColor.withAlpha(120),
+          color: CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.47),
         ),
         const SizedBox(height: 12),
         Text(
@@ -48,7 +48,13 @@ class SuggestedQuestions extends StatelessWidget {
             child: CupertinoButton.filled(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               onPressed: () => onTap(q),
-              child: Text(q, style: const TextStyle(fontSize: 14)),
+              child: Text(
+                q,
+                style: const TextStyle(fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ),

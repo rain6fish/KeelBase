@@ -152,6 +152,9 @@ export class AiService {
       }
       const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
       if (allowedRoles.length > 0 && userId !== '0') {
+        // A14：角色白名单每次工具调用实时查库取用户——角色降权对下一次工具调用立即生效；
+        // 治理策略本身经 SettingsService 缓存提供（写 settings 即失效重载），非持久缓存，
+        // 因此「策略降权不生效」的感知来自设置未落库，而非本层缓存。此处不做额外 TTL 缓存。
         const user = this.usersService
           ? await this.usersService.findOne(Number(userId))
           : null;
@@ -402,6 +405,8 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
         });
       }
+      // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
+      await this.auditService.incrementDailyUsage(userId);
 
       return {
         conversationId,
@@ -561,6 +566,8 @@ export class AiService {
         completionTokens: usage?.completionTokens,
       });
     }
+    // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
+    await this.auditService.incrementDailyUsage(userId);
 
     return {
       conversationId,
@@ -729,6 +736,8 @@ export class AiService {
             model,
           });
         }
+        // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
+        await this.auditService.incrementDailyUsage(userId);
         // fire-and-forget：规则式抽取用户记忆，不阻塞对话
         void this.memoryService
           .extractFromTurn(userId, request.message, conversationId)
