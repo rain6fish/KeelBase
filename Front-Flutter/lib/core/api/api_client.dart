@@ -19,13 +19,14 @@ class ApiClient {
   /// Persistent device identifier for rate limiting.
   String? deviceId;
 
-  ApiClient(this._storage) {
-    _dio = Dio(BaseOptions(
-      baseUrl: AppConstants.activeBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {'Content-Type': 'application/json'},
-    ));
+  ApiClient(this._storage, {Dio? dio}) {
+    _dio = dio ??
+        Dio(BaseOptions(
+          baseUrl: AppConstants.activeBaseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {'Content-Type': 'application/json'},
+        ));
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
