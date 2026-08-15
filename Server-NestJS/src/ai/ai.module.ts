@@ -55,6 +55,7 @@ import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { GovernancePolicyService } from './governance/governance-policy.service';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -85,6 +86,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ConfirmationStore,
     AiEvalService,
     AiToolEffectsService,
+    GovernancePolicyService,
     {
       provide: AiService,
       useFactory: (
@@ -102,6 +104,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         circuitBreaker: CircuitBreakerService,
         featureFlagsService: FeatureFlagsService,
         toolEffectsService: AiToolEffectsService,
+        governancePolicy: GovernancePolicyService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -211,9 +214,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           featureFlagsService,
           usersService,
           toolEffectsService,
+          governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService],
+      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService],
