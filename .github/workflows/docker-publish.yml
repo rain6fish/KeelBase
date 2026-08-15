@@ -34,7 +34,7 @@ jobs:
       # 宿主机构建 Flutter web 产物（对齐 scripts/docker-single.sh 的 build_flutter_web）
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          flutter-version: '3.44.9'
           channel: 'stable'
           cache: true
       - name: Build Flutter web
