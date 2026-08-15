@@ -16,6 +16,7 @@ import { FlowsModule } from './flows/flows.module';
 import { BooksModule } from './books/books.module';
 import { PostsModule } from './posts/posts.module';
 import { OrgModule } from './org/org.module';
+import { PointsModule } from './points/points.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -108,6 +109,8 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddOrgStructures*.js',
               'dist/migrations/*AddGrowthCommunity*.js',
               'dist/migrations/*AddEventOrgId*.js',
+              'dist/migrations/*AddTodoOrgId*.js',
+              'dist/migrations/*AddPoints*.js',
 
             ],
             migrationsRun: !isDev && !useSync,
@@ -159,6 +162,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     BooksModule,
     PostsModule,
     OrgModule,
+    PointsModule,
 
     UploadModule,
     NotificationsModule,
