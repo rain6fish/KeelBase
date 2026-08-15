@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrgController } from './org.controller';
 import { OrgService } from './org.service';
@@ -11,11 +11,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { FlowsModule } from '../flows/flows.module';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
 
+// forwardRef：org→flows→ai→events→org 间接环（ORG 事件按组织归属引入 events→org）
 @Module({
   imports: [
     TypeOrmModule.forFeature([Organization, Department, OrgMember, OrgInvite, User, FlowInstance]),
     NotificationsModule,
-    FlowsModule,
+    forwardRef(() => FlowsModule),
   ],
   controllers: [OrgController],
   providers: [OrgService],
