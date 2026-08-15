@@ -24,6 +24,7 @@ import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/profile_edit_page.dart';
 import '../../features/org/presentation/pages/my_org_page.dart';
+import '../../features/points/presentation/pages/points_page.dart';
 import '../../features/auth/presentation/pages/bind_phone_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -238,6 +239,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/my-org',
         builder: (_, _) => const MyOrgPage(),
+      ),
+      // 积分 / 签到（GROWTH-3）
+      GoRoute(
+        path: '/points',
+        builder: (_, _) => const PointsPage(),
       ),
       // 帖子（EASY-2 生成）
       GoRoute(
