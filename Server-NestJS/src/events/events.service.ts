@@ -143,14 +143,17 @@ export class EventsService {
 
     const where: any[] = [];
     const addRange = (field: string) => {
-      const conditions: Array<Record<string, unknown>> = [];
-      if (userId) conditions.push({ userId });
-      if (orgId != null) conditions.push({ orgId });
-      // 事件与查询范围有交集的三种情况
-      where.push({
-        [field]: Between(startDate, endDate),
-        ...(conditions.length > 0 ? [{ OR: conditions }] : {}),
-      });
+      // ORG-3 数据隔离：本人事件 OR 同组织事件；事件与查询范围有交集
+      // 顶层数组 = OR，每项 = (时间范围 AND 所有权) 组合
+      const ownership: Array<Record<string, unknown>> = [];
+      if (userId) ownership.push({ userId });
+      if (orgId != null) ownership.push({ orgId });
+      const range = { [field]: Between(startDate, endDate) };
+      if (ownership.length === 0) {
+        where.push(range);
+      } else {
+        for (const o of ownership) where.push({ ...range, ...o });
+      }
     };
     addRange('startTime');
     addRange('endTime');
