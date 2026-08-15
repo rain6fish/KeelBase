@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_form_section.dart';
 import '../../../../core/widgets/app_primary_button.dart';
 import '../../../../core/widgets/app_toast.dart';
@@ -46,16 +47,21 @@ class _EventFormPageState extends State<EventFormPage> {
   int? _reminderMinutes;
   bool _loading = false;
   bool _saving = false;
+  bool _loadFailed = false;
 
   bool get _editing => widget.eventId != null;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _startDate = now;
-    _endDate = now.add(const Duration(hours: 1));
-    if (_editing) _load();
+    if (_editing) {
+      _load();
+    } else {
+      // 新建事件默认落在日历当前选中的日期（双击某天创建时即当天）。
+      final selected = context.read<EventsProvider>().selectedDate;
+      _startDate = selected;
+      _endDate = selected.add(const Duration(hours: 1));
+    }
   }
 
   @override
@@ -67,20 +73,29 @@ class _EventFormPageState extends State<EventFormPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final repo = context.read<EventsRepository>();
       final event = await repo.getEvent(widget.eventId!);
-      _titleCtrl.text = event.title;
-      _descCtrl.text = event.description ?? '';
-      _locationCtrl.text = event.location ?? '';
-      _startDate = event.startTime;
-      _endDate = event.endTime;
-      _colorRole = event.colorRole.index < _colorHexes.length ? _colorHexes[event.colorRole.index] : _colorHexes[0];
-      _recurring = event.isRecurring;
-      _reminderMinutes = event.reminderMinutes;
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _titleCtrl.text = event.title;
+        _descCtrl.text = event.description ?? '';
+        _locationCtrl.text = event.location ?? '';
+        _startDate = event.startTime;
+        _endDate = event.endTime;
+        _colorRole = event.colorRole.index < _colorHexes.length ? _colorHexes[event.colorRole.index] : _colorHexes[0];
+        _recurring = event.isRecurring;
+        _reminderMinutes = event.reminderMinutes;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   String _reminderLabel(AppLocalizations l10n) {
@@ -214,14 +229,22 @@ class _EventFormPageState extends State<EventFormPage> {
       'isRecurring': _recurring,
       'reminderMinutes': _reminderMinutes,
     };
-    final ok = _editing ? await provider.update(widget.eventId!, data) : await provider.create(data);
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (ok) {
-      AppToast.success(context, _editing ? l10n.eventUpdated : l10n.eventCreated);
-      context.pop();
-    } else {
-      AppToast.error(context, provider.error ?? l10n.unknownError);
+    try {
+      final ok = _editing ? await provider.update(widget.eventId!, data) : await provider.create(data);
+      if (!mounted) return;
+      if (ok) {
+        AppToast.success(context, _editing ? l10n.eventUpdated : l10n.eventCreated);
+        context.pop();
+      } else {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
+    } catch (e) {
+      // 防御：即使 provider 抛异常也不让保存按钮卡死
+      if (mounted) {
+        AppToast.error(context, e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -252,6 +275,18 @@ class _EventFormPageState extends State<EventFormPage> {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(middle: Text(_editing ? l10n.editEvent : l10n.newEvent)),
         child: const LoadingWidget(),
+      );
+    }
+    if (_loadFailed) {
+      return CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(middle: Text(_editing ? l10n.editEvent : l10n.newEvent)),
+        child: AppErrorView(
+          message: l10n.unknownError,
+          onRetry: () {
+            setState(() => _loadFailed = false);
+            _load();
+          },
+        ),
       );
     }
     return CupertinoPageScaffold(
@@ -506,7 +541,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Color', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
+            Text(context.l10n.color, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: CupertinoColors.label)),
             const SizedBox(height: 20),
 
             // Hue strip
@@ -591,7 +626,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 borderRadius: BorderRadius.circular(10),
                 color: CupertinoColors.systemBlue,
-                child: const Text('Apply', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.white)),
+                child: Text(context.l10n.apply, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.white)),
                 onPressed: _apply,
               ),
             ]),

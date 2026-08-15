@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
@@ -18,6 +19,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _user;
   String? _error;
   int _cooldownRemaining = 0;
+  Timer? _cooldownTimer;
   OAuthProviderConfig _providerConfig = OAuthProviderConfig.defaults();
 
   AuthProvider({
@@ -69,9 +71,15 @@ class AuthProvider extends ChangeNotifier {
       final user = await authRepository.getProfile();
       _user = user;
       _status = AuthStatus.authenticated;
-    } catch (e) {
+    } on AuthException {
+      // 认证被明确拒绝（token 失效/被拒）才清除会话
       await apiClient.clearTokens();
+      _user = null;
       _status = AuthStatus.unauthenticated;
+    } catch (e) {
+      // 网络瞬断/服务端 5xx 等临时错误：保留 token，下次启动可再尝试自动登录
+      _error = e.toString();
+      _status = AuthStatus.error;
     }
     notifyListeners();
   }
@@ -80,6 +88,7 @@ class AuthProvider extends ChangeNotifier {
     _status = AuthStatus.loading;
     _error = null;
     _cooldownRemaining = 0;
+    _cooldownTimer?.cancel();
     notifyListeners();
 
     try {
@@ -111,6 +120,8 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> loginPhone(String phone, String code) async {
     _status = AuthStatus.loading;
     _error = null;
+    _cooldownRemaining = 0;
+    _cooldownTimer?.cancel();
     notifyListeners();
     try {
       final tokens = await authRepository.loginPhone(phone, code);
@@ -167,16 +178,19 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> deactivate(String password) async {
     try {
       await authRepository.deactivate(password);
-      await apiClient.clearTokens();
-      _user = null;
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return true;
     } catch (e) {
       _error = e.toString();
       notifyListeners();
       return false;
     }
+    // 后端已注销账号：即使清理本地 token 失败也要重置本地状态
+    try {
+      await apiClient.clearTokens();
+    } catch (_) {}
+    _user = null;
+    _status = AuthStatus.unauthenticated;
+    notifyListeners();
+    return true;
   }
 
   /// 导出本人全量数据
@@ -198,6 +212,11 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await authRepository.requestPasswordReset(email);
+      // 强制置为未认证时同步清空本地会话，避免下次自动登录恢复旧会话
+      try {
+        await apiClient.clearTokens();
+      } catch (_) {}
+      _user = null;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return true;
@@ -217,6 +236,11 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await authRepository.resetPassword(token, newPassword);
+      // 密码已重置，旧会话失效：清空本地会话，避免下次自动登录恢复旧账号
+      try {
+        await apiClient.clearTokens();
+      } catch (_) {}
+      _user = null;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return true;
@@ -238,8 +262,11 @@ class AuthProvider extends ChangeNotifier {
       await authRepository.verifyEmail(email, code);
       if (_user != null && _user!.email == email) {
         _user = _user!.copyWith(emailVerified: true);
+        _status = AuthStatus.authenticated;
+      } else {
+        // 无匹配的登录用户时不得强行置为已认证，保持未登录态
+        _status = AuthStatus.unauthenticated;
       }
-      _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
     } catch (e) {
@@ -276,6 +303,7 @@ class AuthProvider extends ChangeNotifier {
     _status = AuthStatus.loading;
     _error = null;
     _cooldownRemaining = 0;
+    _cooldownTimer?.cancel();
     notifyListeners();
 
     try {
@@ -336,16 +364,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _startCooldownTimer() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
+    // 可取消的单例 Timer：避免并发倒计时循环以 2x/3x 速度跑完
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_cooldownRemaining <= 1) {
+        timer.cancel();
         _cooldownRemaining = 0;
         notifyListeners();
-        return false;
+      } else {
+        _cooldownRemaining--;
+        notifyListeners();
       }
-      _cooldownRemaining--;
-      notifyListeners();
-      return true;
     });
   }
 
@@ -415,5 +444,11 @@ class AuthProvider extends ChangeNotifier {
   void updateUser(UserModel updated) {
     _user = updated;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
   }
 }

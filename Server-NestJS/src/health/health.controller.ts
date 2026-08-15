@@ -1,12 +1,14 @@
-import { Controller, Get, Query, Optional } from '@nestjs/common';
+import { Controller, Get, Query, Optional, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Public } from '../auth/guards/public.decorator';
 import { SkipMaintenance } from '../settings/skip-maintenance.decorator';
+import { STORAGE_SERVICE } from '../storage/storage.service';
+import type { StorageService } from '../storage/storage.service';
 
 /**
  * D.9 公开健康检查：默认轻量（status/uptime），
@@ -15,7 +17,6 @@ import { SkipMaintenance } from '../settings/skip-maintenance.decorator';
  * 供负载均衡/监控等无需鉴权的健康检查消费者使用。
  */
 @ApiTags('健康检查')
-@SkipThrottle()
 @SkipMaintenance()
 @Controller({ path: 'health', version: '1' })
 export class HealthController {
@@ -23,10 +24,13 @@ export class HealthController {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     @Optional() @InjectQueue('push') private readonly pushQueue?: Queue,
+    @Optional() @Inject(STORAGE_SERVICE) private readonly storageService?: StorageService,
   ) {}
 
   @Public()
   @Get()
+  // A4：移除全局免限流——detail=true 探测不再可被无限打；60/min 对 LB 常规探活（通常数秒一次）无影响
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @ApiOperation({ summary: '服务健康检查（?detail=true 含依赖状态）' })
   @ApiQuery({ name: 'detail', required: false, example: 'true', description: '返回 db/redis/queue/storage 依赖状态' })
   async check(@Query('detail') detail?: string) {
@@ -42,25 +46,44 @@ export class HealthController {
       this._checkDatabase(),
       this._checkRedis(),
       Promise.resolve(this.pushQueue ? 'up' : 'down'),
-      Promise.resolve(this.configService.get<string>('STORAGE_DRIVER', 'local')),
+      this._checkStorage(),
     ]);
 
     return {
       ...base,
-      dependencies: { database, redis, queue, storage },
+      dependencies: {
+        database,
+        redis,
+        queue,
+        storage,
+        storageDriver: this.configService.get<string>('STORAGE_DRIVER', 'local'),
+      },
     };
   }
 
-  /** 数据库：SELECT 1，2s 超时；sqlite/postgres 通用 */
+  /**
+   * 数据库：SELECT 1。
+   * A4：用独立 query runner + 驱动级超时——postgres 上 statement_timeout 让服务端
+   * 2s 中止查询，连接不会因客户端 Promise.race 超时仍被长期占用。
+   */
   private async _checkDatabase(): Promise<string> {
+    const runner = this.dataSource.createQueryRunner();
+    const isPostgres = (this.dataSource.options as { type?: string }).type === 'postgres';
     try {
-      const ok = await Promise.race([
-        this.dataSource.query('SELECT 1'),
-        new Promise<false>((resolve) => setTimeout(() => resolve(false), 2000)),
-      ]);
-      return ok === false ? 'down' : 'up';
+      await runner.connect();
+      if (isPostgres) {
+        await runner.query(`SET statement_timeout = '2000'`);
+      }
+      await runner.query('SELECT 1');
+      return 'up';
     } catch {
       return 'down';
+    } finally {
+      if (isPostgres) {
+        // 归还前复位，避免该连接被复用后仍带 2s statement_timeout
+        await runner.query(`SET statement_timeout = '0'`).catch(() => undefined);
+      }
+      await runner.release();
     }
   }
 
@@ -86,5 +109,19 @@ export class HealthController {
     } catch {
       return 'down';
     }
+  }
+
+  /** A8：存储健康状态——优先走存储服务探测；未注入（测试/降级）时 local 视为 up、s3 视为 down */
+  private async _checkStorage(): Promise<string> {
+    if (this.storageService) {
+      try {
+        return await this.storageService.checkHealth();
+      } catch {
+        return 'down';
+      }
+    }
+    return this.configService.get<string>('STORAGE_DRIVER', 'local') === 's3'
+      ? 'down'
+      : 'up';
   }
 }

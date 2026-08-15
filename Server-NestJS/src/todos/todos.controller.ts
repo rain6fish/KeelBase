@@ -33,10 +33,10 @@ export class TodosController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTodoDto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    return this.todosService.update(id, dto, ability);
+    return this.todosService.update(id, dto, ability, user.sub);
   }
 
   @Patch(':id/complete')
@@ -44,11 +44,16 @@ export class TodosController {
   @ApiOperation({ summary: '切换待办完成状态' })
   async toggleComplete(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    const todo = await this.todosService.findOne(id, ability);
-    return this.todosService.update(id, { completed: !todo.completed }, ability);
+    const todo = await this.todosService.findOne(id, ability, user.sub);
+    return this.todosService.update(
+      id,
+      { completed: !todo.completed },
+      ability,
+      user.sub,
+    );
   }
 
   @Delete(':id')
@@ -56,10 +61,10 @@ export class TodosController {
   @ApiOperation({ summary: '删除待办' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    await this.todosService.remove(id, ability);
+    await this.todosService.remove(id, ability, user.sub);
     return null;
   }
 }

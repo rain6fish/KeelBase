@@ -23,7 +23,7 @@ export default function UserDetailView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams()
-  const snackbar = useSnackbarStore()
+  const snackbarError = useSnackbarStore((s) => s.error)
 
   const [detail, setDetail] = useState<UserDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,13 +33,13 @@ export default function UserDetailView() {
       try {
         setDetail(await usersApi.detail(Number(id)))
       } catch (err) {
-        snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+        snackbarError(err instanceof Error ? err.message : t('loadFailed'))
       } finally {
         setLoading(false)
       }
     }
     void load()
-  }, [id, snackbar, t])
+  }, [id, snackbarError, t])
 
   if (loading) {
     return (

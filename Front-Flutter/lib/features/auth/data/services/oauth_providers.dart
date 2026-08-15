@@ -57,6 +57,13 @@ class OAuthProviders {
     }
   }
 
+  /// 原生移动平台（iOS/Android）才支持 nativeOnly 提供商（微信/支付宝）。
+  static bool get isMobilePlatform {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
+  }
+
   /// Default enabled providers when the backend config is unavailable.
   static const defaultEnabled = ['wechat', 'alipay'];
 }
@@ -80,23 +87,38 @@ class OAuthProviderConfig {
 
   /// Parse from backend JSON response.
   factory OAuthProviderConfig.fromJson(Map<String, dynamic> json) {
-    final enabledIds = (json['enabledProviders'] as List<dynamic>?)
-            ?.cast<String>() ??
-        OAuthProviders.defaultEnabled;
+    final enabledRaw = json['enabledProviders'];
+    if (enabledRaw is! List) {
+      debugPrint('OAuthProviderConfig: "enabledProviders" missing or malformed — using defaults');
+    }
+    final enabledIds = enabledRaw is List
+        ? enabledRaw.whereType<String>().toList()
+        : OAuthProviders.defaultEnabled;
 
     List<OAuthProviderMeta> parseGroup(String key) {
-      final list = (json['groups'] as Map<String, dynamic>?)?[key] as List<dynamic>?;
-      if (list == null) return [];
-      return list
-          .where((e) => enabledIds.contains(e['id'] as String))
-          .map((e) => OAuthProviderMeta(
-                id: e['id'] as String,
-                name: e['name'] as String,
-                icon: e['icon'] as String,
-                group: e['group'] as String,
-                nativeOnly: e['nativeOnly'] as bool,
-              ))
-          .toList();
+      final groups = json['groups'];
+      if (groups is! Map<String, dynamic>) return [];
+      final list = groups[key];
+      if (list is! List) return [];
+      // 逐条做类型检查，跳过坏条目，避免单个坏数据崩溃整个登录页
+      final result = <OAuthProviderMeta>[];
+      for (final e in list) {
+        if (e is! Map<String, dynamic>) continue;
+        final id = e['id'];
+        final name = e['name'];
+        final icon = e['icon'];
+        final group = e['group'];
+        if (id is! String || name is! String || icon is! String || group is! String) continue;
+        final nativeOnly = e['nativeOnly'];
+        result.add(OAuthProviderMeta(
+          id: id,
+          name: name,
+          icon: icon,
+          group: group,
+          nativeOnly: nativeOnly is bool && nativeOnly,
+        ));
+      }
+      return result.where((meta) => enabledIds.contains(meta.id)).toList();
     }
 
     return OAuthProviderConfig(
@@ -108,13 +130,17 @@ class OAuthProviderConfig {
 
   /// Fallback when backend is unreachable.
   factory OAuthProviderConfig.defaults() {
+    // nativeOnly 提供商（微信/支付宝）仅在原生移动端展示，Web/桌面一律过滤
     return OAuthProviderConfig(
       enabledProviderIds: OAuthProviders.defaultEnabled,
       international: OAuthProviders.all
           .where((p) => p.group == 'international' && OAuthProviders.defaultEnabled.contains(p.id))
           .toList(),
       china: OAuthProviders.all
-          .where((p) => p.group == 'china' && OAuthProviders.defaultEnabled.contains(p.id))
+          .where((p) =>
+              p.group == 'china' &&
+              OAuthProviders.defaultEnabled.contains(p.id) &&
+              (!p.nativeOnly || OAuthProviders.isMobilePlatform))
           .toList(),
     );
   }

@@ -320,19 +320,25 @@ function openEditDept(id: number) {
 }
 
 const parentDeptOptions = computed(() => {
-  // 编辑时排除自身及其子孙（后端也会防环）
+  // 编辑时排除自身及其子孙（全树 DFS 定位 self，避免嵌套部门下防环失效；后端也会防环）
   const exclude = new Set<number>()
   if (deptForm.id) {
-    const self = departments.value.find((d) => d.id === deptForm.id)
-    if (self) {
-      const root = buildDeptTree(departments.value).find((n) => n.id === self.id)
-      if (root) collect(root, exclude)
-    }
+    const node = findDept(buildDeptTree(departments.value), deptForm.id)
+    if (node) collect(node, exclude)
   }
   return departments.value
     .filter((d) => !exclude.has(d.id))
     .map((d) => ({ label: d.name, value: d.id }))
 })
+
+function findDept(nodes: Array<{ id: number; children: unknown[] }>, id: number): { id: number; children: unknown[] } | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    const found = findDept(n.children as Array<{ id: number; children: unknown[] }>, id)
+    if (found) return found
+  }
+  return null
+}
 
 function collect(node: { id: number; children: unknown[] }, acc: Set<number>) {
   acc.add(node.id)

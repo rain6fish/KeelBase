@@ -73,21 +73,30 @@ class OAuthService {
 
   void dispose() {
     _weChatAuthSub?.cancel();
+    // 防止 dispose 期间进行中的微信授权永久悬挂
+    final completer = _weChatCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(OAuthException('OAuthService disposed during WeChat auth'));
+    }
+    _weChatCompleter = null;
   }
 
   // ─── International ──────────────────────────────────────────────────────
 
-  GoogleSignIn get _lazyGoogleSignIn {
-    if (_googleSignIn == null) {
-      _googleSignIn = GoogleSignIn(clientId: _googleClientId);
+  /// google_sign_in 6.x 的 signIn() 不接受 scopes，只能在构造时传入。
+  /// 已构造实例缺少所需 scopes 时重建，确保请求的权限真正被请求。
+  GoogleSignIn _googleSignInWith(List<String>? scopes) {
+    final requested = scopes ?? const <String>[];
+    if (_googleSignIn == null || !requested.every(_googleSignIn!.scopes.contains)) {
+      _googleSignIn = GoogleSignIn(clientId: _googleClientId, scopes: requested);
     }
     return _googleSignIn!;
   }
 
   Future<OAuthResult> signInWithGoogle({List<String>? scopes}) async {
     try {
-      final gs = _lazyGoogleSignIn;
-      await gs.signOut();
+      final gs = _googleSignInWith(scopes);
+      // 不要无脑 signOut：会破坏已有 Google 会话的静默重登
       final account = await gs.signIn();
       if (account == null) {
         throw OAuthException('Google sign-in cancelled by user');
@@ -150,6 +159,7 @@ class OAuthService {
       return OAuthResult(
         provider: 'apple',
         idToken: credential.identityToken!,
+        authorizationCode: credential.authorizationCode,
         displayName: displayName,
         email: credential.email,
       );
@@ -270,7 +280,9 @@ class OAuthService {
     }
   }
 
-  bool get isGoogleSignInAvailable => true;
+  // 仅当配置了 Google Client ID 时认为可用，避免暴露必失败的登录入口。
+  // 注：Web 端若通过 <meta google-signin-client_id> 配置，需显式传入 googleClientId。
+  bool get isGoogleSignInAvailable => _googleClientId != null;
 
   Future<bool> isWeChatInstalled() async {
     // TODO: 集成 fluwx 后替换为: return await fluwx.isWeChatInstalled;

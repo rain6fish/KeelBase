@@ -39,11 +39,11 @@ describe('TodosController', () => {
   });
 
   describe('update', () => {
-    it('委托 service.update 并传入 ability', async () => {
+    it('委托 service.update 并传入 ability + userId（A3 同组可读）', async () => {
       service.update.mockResolvedValue({ ...mockTodo, title: '改标题' } as never);
       const dto = { title: '改标题' };
       await expect(controller.update(1, dto as any, mockUser as any, mockAbility)).resolves.toMatchObject({ title: '改标题' });
-      expect(service.update).toHaveBeenCalledWith(1, dto, mockAbility);
+      expect(service.update).toHaveBeenCalledWith(1, dto, mockAbility, 1);
     });
   });
 
@@ -52,8 +52,8 @@ describe('TodosController', () => {
       service.findOne.mockResolvedValue(mockTodo as never);
       service.update.mockResolvedValue({ ...mockTodo, completed: true } as never);
       await controller.toggleComplete(1, mockUser as any, mockAbility);
-      expect(service.findOne).toHaveBeenCalledWith(1, mockAbility);
-      expect(service.update).toHaveBeenCalledWith(1, { completed: true }, mockAbility);
+      expect(service.findOne).toHaveBeenCalledWith(1, mockAbility, 1);
+      expect(service.update).toHaveBeenCalledWith(1, { completed: true }, mockAbility, 1);
     });
   });
 
@@ -61,7 +61,7 @@ describe('TodosController', () => {
     it('委托 service.remove 并返回 null', async () => {
       service.remove.mockResolvedValue(undefined as never);
       await expect(controller.remove(1, mockUser as any, mockAbility)).resolves.toBeNull();
-      expect(service.remove).toHaveBeenCalledWith(1, mockAbility);
+      expect(service.remove).toHaveBeenCalledWith(1, mockAbility, 1);
     });
   });
 });

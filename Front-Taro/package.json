@@ -1,6 +1,6 @@
 {
   "name": "front-taro",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "KeelBase Taro Frontend (Vue3)",
   "scripts": {

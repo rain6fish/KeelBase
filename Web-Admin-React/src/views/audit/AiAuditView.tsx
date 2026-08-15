@@ -138,22 +138,22 @@ export default function AiAuditView() {
             <List dense>
               {expanded.detail ? (
                 <ListItem>
-                  <ListItemText primary="detail" secondary={expanded.detail} />
+                  <ListItemText primary={t('detail')} secondary={expanded.detail} />
                 </ListItem>
               ) : null}
               {expanded.errorMessage ? (
                 <ListItem>
-                  <ListItemText primary="errorMessage" secondary={expanded.errorMessage} />
+                  <ListItemText primary={t('errorMessage')} secondary={expanded.errorMessage} />
                 </ListItem>
               ) : null}
               {expanded.durationMs != null ? (
                 <ListItem>
-                  <ListItemText primary="durationMs" secondary={`${expanded.durationMs} ms`} />
+                  <ListItemText primary={t('durationMs')} secondary={`${expanded.durationMs} ms`} />
                 </ListItem>
               ) : null}
               {expanded.conversationId ? (
                 <ListItem>
-                  <ListItemText primary="conversationId" secondary={expanded.conversationId} />
+                  <ListItemText primary={t('conversationId')} secondary={expanded.conversationId} />
                 </ListItem>
               ) : null}
             </List>

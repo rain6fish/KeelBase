@@ -145,18 +145,18 @@ export default function OpAuditView() {
             <List dense>
               {expanded.ip ? (
                 <ListItem>
-                  <ListItemText primary="IP" secondary={expanded.ip} />
+                  <ListItemText primary={t('ipCol')} secondary={expanded.ip} />
                 </ListItem>
               ) : null}
               {expanded.userAgent ? (
                 <ListItem>
-                  <ListItemText primary="User-Agent" secondary={expanded.userAgent} />
+                  <ListItemText primary={t('userAgent')} secondary={expanded.userAgent} />
                 </ListItem>
               ) : null}
               {expanded.requestBody ? (
                 <ListItem>
                   <ListItemText
-                    primary="requestBody"
+                    primary={t('requestBody')}
                     secondary={<Box component="pre" sx={{ m: 0, fontSize: 'body2.fontSize', whiteSpace: 'pre-wrap' }}>{prettyJson(expanded.requestBody)}</Box>}
                   />
                 </ListItem>

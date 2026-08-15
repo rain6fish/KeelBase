@@ -1,13 +1,20 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../i18n/app_localizations.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import 'app_toast.dart';
 
 /// Navigate to a route in the next microtask cycle, to avoid
 /// Navigator key reservation conflicts during tap handling.
 void _navigate(BuildContext context, String route) {
-  Future.microtask(() => GoRouter.of(context).push(route));
+  if (!context.mounted) return;
+  Future.microtask(() {
+    if (!context.mounted) return;
+    GoRouter.of(context).push(route);
+  });
 }
 
 void showMoreMenuSheet(BuildContext context) {
@@ -56,7 +63,8 @@ class _MoreSheetState extends State<_MoreSheet> {
   @override
   void initState() {
     super.initState();
-    _totalPages = (widget.allItems.length + 8) ~/ 9;
+    // 空列表时 _totalPages 不能为 0（PageView 需要至少 1 页）
+    _totalPages = math.max(1, (widget.allItems.length + 8) ~/ 9);
     _ctrl = PageController();
   }
 
@@ -122,7 +130,8 @@ class _MoreSheetState extends State<_MoreSheet> {
                           width: 6, height: 6,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
                           decoration: BoxDecoration(
-                            color: CupertinoColors.systemGrey.withAlpha(i == _page ? 180 : 60),
+                            color: CupertinoColors.systemGrey
+                                .withValues(alpha: (i == _page ? 180 : 60) / 255),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -159,13 +168,20 @@ Widget _buildGrid(BuildContext context, List<_MoreItem> items, CupertinoThemeDat
                   decoration: BoxDecoration(
                     color: CupertinoColors.tertiarySystemBackground.resolveFrom(context),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: CupertinoColors.separator.resolveFrom(context).withAlpha(25)),
+                    border: Border.all(
+                        color: CupertinoColors.separator
+                            .resolveFrom(context)
+                            .withValues(alpha: 25 / 255)),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(width: 34, height: 34,
-                        decoration: BoxDecoration(color: item.color.withAlpha(20), borderRadius: BorderRadius.circular(10)),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                            color: item.color.withValues(alpha: 20 / 255),
+                            borderRadius: BorderRadius.circular(10)),
                         child: Icon(item.icon, size: 19, color: item.color),
                       ),
                       const SizedBox(height: 4),
@@ -194,10 +210,23 @@ void _confirmLogout(BuildContext context) {
       content: Text(l10n.logoutConfirm),
       actions: [
         CupertinoDialogAction(isDestructiveAction: false, onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-        CupertinoDialogAction(isDestructiveAction: true, onPressed: () {
-          Navigator.pop(ctx); // close dialog
-          auth.logout(); // triggers auth state change → GoRouter redirect → sheet auto-dismissed
-        }, child: Text(l10n.logout)),
+        CupertinoDialogAction(
+          isDestructiveAction: true,
+          onPressed: () async {
+            Navigator.pop(ctx); // close dialog
+            try {
+              await auth.logout();
+              // 弹层不是 GoRouter 页面栈的一部分，redirect 不会自动关闭它，
+              // 需在登出成功后显式 pop sheet
+              if (context.mounted) Navigator.pop(context);
+            } catch (_) {
+              if (context.mounted) {
+                AppToast.error(context, l10n.logoutConfirm);
+              }
+            }
+          },
+          child: Text(l10n.logout),
+        ),
       ],
     ),
   );

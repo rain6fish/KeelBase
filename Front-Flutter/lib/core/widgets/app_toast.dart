@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 
 /// iOS-style toast displayed as an overlay with spring animation.
@@ -17,14 +19,17 @@ class AppToast {
   }
 
   static void _showOverlay(BuildContext context, String message, Color bgColor) {
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return; // context 已失活或无 Overlay 祖先时不崩溃
     late OverlayEntry entry;
 
     entry = OverlayEntry(
       builder: (_) => _ToastWidget(
         message: message,
         color: bgColor,
-        onDismiss: () => entry.remove(),
+        onDismiss: () {
+          if (entry.mounted) entry.remove();
+        },
       ),
     );
 
@@ -51,6 +56,7 @@ class _ToastWidgetState extends State<_ToastWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -69,15 +75,20 @@ class _ToastWidgetState extends State<_ToastWidget>
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        _controller.reverse().then((_) => widget.onDismiss());
-      }
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      _controller.reverse().then((_) {
+        if (mounted) widget.onDismiss();
+      }).catchError((Object _) {
+        // 控制器在反向动画期间被 dispose 时 TickerFuture 以
+        // TickerCanceled 完成，这里吞掉以避免未处理的异步错误。
+      });
     });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -92,28 +103,32 @@ class _ToastWidgetState extends State<_ToastWidget>
           bottom: 80 + bottom + (1 - _animation.value) * 16,
           left: 20,
           right: 20,
-          child: Opacity(
-            opacity: _animation.value,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: widget.color,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.color.withAlpha(120),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+          // 完全透明（淡入开始 / 淡出期间）时也不拦截底部点击
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: _animation.value,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: 120 / 255),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              ),
-              child: Text(
-                widget.message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: CupertinoColors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

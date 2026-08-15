@@ -3,12 +3,19 @@ import 'package:flutter/foundation.dart';
 /// 推送服务抽象（GROWTH-1 / MS-2.3）
 ///
 /// 平台无关：真实厂商（极光 JPush / Firebase FCM）通过实现本接口接入。
-/// 默认 [NoopPushService] 不接厂商，token 为 null（不注册），但上报/注销逻辑完整。
+/// 默认 [NoopPushService] 不接厂商，[isAvailable] 恒为 false，
+/// 上层（[PushTokenProvider]）据此跳过 token 上报/注销。
+///
+/// 注意：本接口只负责“获取 token / 展示本地通知”，token 的上报与注销
+/// （调用后端 `/push/tokens`）由 `PushTokenProvider` 统一处理。
 abstract class PushService {
-  /// 初始化 SDK（真实厂商需调用；Noop 无操作）
+  /// 初始化 SDK（真实厂商需调用；Noop 无操作）。
+  /// 失败语义由实现决定：建议内部捕获并降级，不要抛出未处理异常。
   Future<void> initialize();
 
-  /// 获取设备推送 token（注册号）；无厂商/失败返回 null
+  /// 获取设备推送 token（注册号）。
+  /// 返回 null 有两种含义：未接入厂商，或获取失败（瞬时 SDK 错误）。
+  /// 调用方必须先检查 [isAvailable] 再依赖结果；需要重试时由调用方负责。
   Future<String?> getToken();
 
   /// 前台收到推送时本地展示通知（真实厂商需实现；Noop 无操作）

@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { S3StorageService } from './s3-storage.service';
 
 jest.mock('@aws-sdk/client-s3', () => {
@@ -8,6 +8,7 @@ jest.mock('@aws-sdk/client-s3', () => {
     S3Client: jest.fn(() => ({ send })),
     PutObjectCommand: jest.fn((args: any) => ({ __type: 'PutObjectCommand', ...args })),
     DeleteObjectCommand: jest.fn((args: any) => ({ __type: 'DeleteObjectCommand', ...args })),
+    HeadBucketCommand: jest.fn((args: any) => ({ __type: 'HeadBucketCommand', ...args })),
   };
 });
 
@@ -71,5 +72,20 @@ describe('S3StorageService', () => {
 
     const cmd = (DeleteObjectCommand as unknown as jest.Mock).mock.calls[0][0];
     expect(cmd.Key).toBe('2026-08-05/123.jpg');
+  });
+
+  it('checkHealth：HEAD bucket 可达返回 up（A8）', async () => {
+    const service = new S3StorageService(mockConfig);
+    await expect(service.checkHealth()).resolves.toBe('up');
+    const cmd = (HeadBucketCommand as unknown as jest.Mock).mock.calls[0][0];
+    expect(cmd.Bucket).toBe('test-bucket');
+  });
+
+  it('checkHealth：HEAD 失败返回 down（A8）', async () => {
+    const { S3Client: MockS3Client } = jest.requireMock('@aws-sdk/client-s3') as any;
+    const send = jest.fn().mockRejectedValue(new Error('bucket unreachable'));
+    MockS3Client.mockImplementationOnce(() => ({ send }));
+    const service = new S3StorageService(mockConfig);
+    await expect(service.checkHealth()).resolves.toBe('down');
   });
 });

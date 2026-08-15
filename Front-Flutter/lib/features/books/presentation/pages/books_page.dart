@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../providers/books_provider.dart';
 
 /// 图书页
@@ -43,13 +44,13 @@ class _BooksPageState extends State<BooksPage> {
             children: [
               const SizedBox(height: 8),
           CupertinoTextField(
-            placeholder: 'title',
+            placeholder: l10n.eventTitle,
             controller: _titleCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
           CupertinoTextField(
-            placeholder: 'author',
+            placeholder: l10n.author,
             controller: _authorCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
@@ -59,17 +60,27 @@ class _BooksPageState extends State<BooksPage> {
             CupertinoActionSheetAction(
               isDefaultAction: true,
               onPressed: () async {
-                final data = <String, dynamic>{};
-if (_titleCtrl.text.isNotEmpty) data['title'] = _titleCtrl.text.trim();
-if (_authorCtrl.text.isNotEmpty) data['author'] = _authorCtrl.text.trim();
-                final ok = await ctx.read<BooksProvider>().add(data);
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                final title = _titleCtrl.text.trim();
+                final author = _authorCtrl.text.trim();
+                if (title.isEmpty && author.isEmpty) return;
+                final data = <String, dynamic>{'title': title, 'author': author};
+                final provider = ctx.read<BooksProvider>();
+                final ok = await provider.add(data);
+                if (!ctx.mounted) return;
+                if (ok) {
+                  _titleCtrl.clear();
+                  _authorCtrl.clear();
+                  Navigator.pop(ctx);
+                } else {
+                  // 保留输入，提示用户错误原因
+                  AppToast.error(ctx, provider.error ?? l10n.unknownError);
+                }
               },
-              child: const Text('保存'),
+              child: Text(l10n.save),
             ),
             CupertinoActionSheetAction(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),
@@ -94,7 +105,11 @@ if (_authorCtrl.text.isNotEmpty) data['author'] = _authorCtrl.text.trim();
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<BooksProvider>().remove(id);
+      final provider = context.read<BooksProvider>();
+      final ok = await provider.remove(id);
+      if (!ok && mounted) {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
     }
   }
 

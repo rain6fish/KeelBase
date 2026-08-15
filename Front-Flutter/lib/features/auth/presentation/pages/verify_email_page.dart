@@ -18,6 +18,15 @@ class VerifyEmailPage extends StatefulWidget {
 
 class _VerifyEmailPageState extends State<VerifyEmailPage> {
   final _codeCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 本页错误独立于全局 AuthProvider，避免展示其它流程遗留的陈旧错误
+    _error = null;
+  }
 
   @override
   void dispose() {
@@ -26,34 +35,78 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   }
 
   Future<void> _onSubmit() async {
-    final code = _codeCtrl.text.trim();
-    if (code.isEmpty) return;
-
     final auth = context.read<AuthProvider>();
-    auth.clearError();
     final l10n = context.l10n;
-    final ok = await auth.verifyEmail(widget.email, code);
+    // 请求在途时忽略重复提交（键盘 Done + 按钮双入口）
+    if (_submitting || auth.status == AuthStatus.loading) return;
 
-    if (!mounted) return;
-    if (ok) {
-      AppToast.success(context, l10n.emailVerifiedSuccess);
-      // 已登录用户返回 profile；未登录跳登录
-      context.go(auth.isAuthenticated ? '/profile' : '/login');
-    } else {
-      AppToast.error(context, auth.error ?? l10n.unknownError);
+    final code = _codeCtrl.text.trim();
+    if (code.isEmpty || code.length != 6) {
+      setState(() => _error = l10n.verificationCodeHint);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    auth.clearError();
+    final wasAuthenticated = auth.isAuthenticated;
+    try {
+      final ok = await auth.verifyEmail(widget.email, code);
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      if (ok) {
+        AppToast.success(context, l10n.emailVerifiedSuccess);
+        // 仅当验证的邮箱与当前登录账号一致才返回 profile，否则回登录
+        context.go(
+          wasAuthenticated && auth.user?.email == widget.email
+              ? '/profile'
+              : '/login',
+        );
+      } else {
+        final message = auth.error ?? l10n.unknownError;
+        setState(() => _error = message);
+        AppToast.error(context, message);
+      }
+    } catch (_) {
+      // 兜底：provider 内部已捕获，防御未来抛错导致未处理异步异常
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = l10n.unknownError;
+      });
+      AppToast.error(context, l10n.unknownError);
     }
   }
 
   Future<void> _onResend() async {
     final auth = context.read<AuthProvider>();
-    auth.clearError();
     final l10n = context.l10n;
-    final ok = await auth.resendVerification(widget.email);
-    if (!mounted) return;
-    if (ok) {
-      AppToast.success(context, l10n.codeSent);
-    } else {
-      AppToast.error(context, auth.error ?? l10n.unknownError);
+    if (_submitting) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    auth.clearError();
+    try {
+      final ok = await auth.resendVerification(widget.email);
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      if (ok) {
+        AppToast.success(context, l10n.codeSent);
+      } else {
+        final message = auth.error ?? l10n.unknownError;
+        setState(() => _error = message);
+        AppToast.error(context, message);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = l10n.unknownError;
+      });
+      AppToast.error(context, l10n.unknownError);
     }
   }
 
@@ -61,8 +114,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final t = CupertinoTheme.of(context);
-    final auth = context.watch<AuthProvider>();
-    final authError = auth.status == AuthStatus.error ? auth.error : null;
+    final error = _error;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -81,7 +133,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
         ),
         const SizedBox(height: 32),
 
-        if (authError != null)
+        if (error != null)
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 16),
@@ -94,7 +146,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
             child: Row(children: [
               const Icon(CupertinoIcons.exclamationmark_circle, size: 18, color: CupertinoColors.destructiveRed),
               const SizedBox(width: 10),
-              Expanded(child: Text(authError, style: const TextStyle(fontSize: 14, color: CupertinoColors.destructiveRed))),
+              Expanded(child: Text(error, style: const TextStyle(fontSize: 14, color: CupertinoColors.destructiveRed))),
             ]),
           ),
 
@@ -112,6 +164,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
             style: TextStyle(fontSize: 16, color: t.textTheme.textStyle.color),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             keyboardType: TextInputType.number,
+            maxLength: 6,
             clearButtonMode: OverlayVisibilityMode.editing,
             prefix: Padding(
               padding: const EdgeInsets.only(left: 12),
@@ -125,8 +178,8 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
 
         Consumer<AuthProvider>(builder: (_, a, _) => AppPrimaryButton(
           label: l10n.verifyEmail,
-          isLoading: a.status == AuthStatus.loading,
-          onPressed: _onSubmit,
+          isLoading: _submitting || a.status == AuthStatus.loading,
+          onPressed: _submitting ? null : _onSubmit,
         )),
         const SizedBox(height: 16),
 
@@ -134,7 +187,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
         Center(
           child: CupertinoButton(
             padding: EdgeInsets.zero,
-            onPressed: () => _onResend(),
+            onPressed: _submitting ? null : () => _onResend(),
             child: Text(
               l10n.resendCode,
               style: TextStyle(color: t.primaryColor, fontWeight: FontWeight.w600, fontSize: 15),

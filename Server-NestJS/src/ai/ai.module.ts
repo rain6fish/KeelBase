@@ -35,6 +35,7 @@ import { AuditService } from './audit/audit.service';
 import { AiConversation } from './conversation/ai-conversation.entity';
 import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
+import { AiDailyUsage } from './audit/ai-daily-usage.entity';
 import { QueryEventsTool } from './tools/query-events.tool';
 import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
 import { QueryUserStatsTool } from './tools/query-user-stats.tool';
@@ -72,7 +73,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
   providers: [

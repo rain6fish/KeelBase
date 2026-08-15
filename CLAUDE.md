@@ -299,7 +299,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 - 全局：60 次/分钟
 - `POST /auth/login`：10 次/分钟
 - `POST /auth/register`：3 次/分钟
-- 健康检查：跳过限流
+- `GET /health`：60 次/分钟（`?detail=true` 时同样限流，防依赖故障占满 DB 连接池）
 
 ### 4.5 文件上传
 
@@ -578,7 +578,7 @@ npm run migration:run
 | POST | /api/v1/auth/logout | Yes | 当前用户 | 登出当前设备 |
 | GET | /api/v1/auth/sessions | Yes | 本人 | 登录设备会话列表（含 isCurrent） |
 | DELETE | /api/v1/auth/sessions/:id | Yes | 本人 | 远程登出指定会话 |
-| GET | /api/v1/health | No | — | 健康检查 |
+| GET | /api/v1/health | No | — | 健康检查（?detail=true 返回 db/redis/queue/storage 状态，60/min 限流） |
 | GET | /api/v1/metrics | No | — | Prometheus 指标（跳过限流）|
 | GET | /api/v1/users | Yes (ADMIN) | — | 用户列表（分页） |
 | POST | /api/v1/users | Yes (ADMIN) | — | 创建用户 |
@@ -587,11 +587,11 @@ npm run migration:run
 | PUT | /api/v1/users/:id | Yes | 本人或管理员 | 更新用户 |
 | DELETE | /api/v1/users/:id | Yes | 本人或管理员 | 删除用户（不能删自己/最后一个 admin） |
 | POST | /api/v1/events | Yes | 创建者 | 创建事件 |
-| POST | /api/v1/todos | Yes | 创建者 | 创建待办（未验证邮箱 403） |
-| GET | /api/v1/todos | Yes | 本人 | 我的待办列表 |
-| PATCH | /api/v1/todos/:id | Yes | 本人或管理员 | 更新待办 |
-| PATCH | /api/v1/todos/:id/complete | Yes | 本人或管理员 | 切换待办完成状态 |
-| DELETE | /api/v1/todos/:id | Yes | 本人或管理员 | 删除待办 |
+| POST | /api/v1/todos | Yes | 创建者 | 创建待办（未验证邮箱 403；组织成员自动带 orgId，同组可见） |
+| GET | /api/v1/todos | Yes | 本人或同组 | 待办列表（本人 + 同组成员，ORG-3 v2） |
+| PATCH | /api/v1/todos/:id | Yes | 本人或同组或管理员 | 更新待办 |
+| PATCH | /api/v1/todos/:id/complete | Yes | 本人或同组或管理员 | 切换待办完成状态 |
+| DELETE | /api/v1/todos/:id | Yes | 本人或同组或管理员 | 删除待办 |
 | GET | /api/v1/events | Yes | 本人 | 范围查询事件 |
 | GET | /api/v1/events/admin/all | Yes (ADMIN) | — | 全量事件列表（分页） |
 | DELETE | /api/v1/events/admin/:id | Yes (ADMIN) | — | 删除任意事件 |
@@ -635,13 +635,17 @@ npm run migration:run
 | POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（AI-20，逐用例调 LLM） |
 | GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近评测报告（AI-20） |
 | POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19/HS-4）：x-api-key 认证（HEADLESS_API_KEY 或管理台创建 key），以 key 归属用户身份执行，复用 Agent 工具/记忆/审计，返回 reply+conversationId |
-| GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限（HS-2，含 permissions/requiresConfirmation） |
+| GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限（HS-2 权限 + HS-9 治理策略生效值 enabled/allowedRoles/requiresConfirmation；策略存 Settings key `ai_governance_policy`） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
 | GET | /api/v1/admin/headless-keys | Yes (ADMIN) | — | headless API Key 列表（HS-4） |
 | POST | /api/v1/admin/headless-keys | Yes (ADMIN) | — | 创建 headless API Key（HS-4，返回明文仅此一次） |
 | PATCH | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | — | 更新 headless API Key（HS-4：配额/工具范围/归属/启停） |
 | DELETE | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | — | 删除 headless API Key（HS-4） |
+| GET | /api/v1/points/me | Yes | 本人 | 我的积分/连签/今日签到状态（GROWTH-3） |
+| POST | /api/v1/points/checkin | Yes | 本人 | 每日签到（checkin_date 唯一约束防重复，重复 409） |
+| GET | /api/v1/points/leaderboard | Yes | 本人 | 积分排行榜（脱敏：昵称/头像/积分，不含内部 userId） |
+| GET | /api/v1/points/achievements | Yes | 本人 | 成就列表（按正分毛累计判定，admin 扣分不回退） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |

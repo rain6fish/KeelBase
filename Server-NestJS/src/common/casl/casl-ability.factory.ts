@@ -29,6 +29,8 @@ export class CaslAbilityFactory {
       can('manage', 'User', { id: user.sub });
       can('manage', 'Event', { userId: user.sub });
       can('manage', 'Todo', { userId: user.sub });
+      // 注：组织级共享（同组织成员可读/管理待办）在 TodosService 层用 orgService 校验
+      // （JWT payload 不含 orgId，无法在此表达），此处保持本人所有权规则。
       // AiConversation.userId 是 string UUID，JWT sub 是 number → 需转换
       can('manage', 'AiConversation', { userId: String(user.sub) });
       can('manage', 'UserMemory', { userId: String(user.sub) });

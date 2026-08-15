@@ -18,9 +18,9 @@ class ChatToolStepCard extends StatelessWidget {
 
     final Widget statusIcon = switch (step.status) {
       ToolStepStatus.running => const SizedBox(
-          width: 14,
-          height: 14,
-          child: CupertinoActivityIndicator(),
+          width: 18,
+          height: 18,
+          child: CupertinoActivityIndicator(radius: 7),
         ),
       ToolStepStatus.success => Icon(
           CupertinoIcons.checkmark_circle_fill,
@@ -49,7 +49,7 @@ class ChatToolStepCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark
-                ? CupertinoColors.systemGrey5.resolveFrom(context).withAlpha(60)
+                ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.24)
                 : CupertinoColors.systemGrey6.resolveFrom(context),
             borderRadius: BorderRadius.circular(14),
           ),
@@ -67,6 +67,8 @@ class ChatToolStepCard extends StatelessWidget {
                   children: [
                     Text(
                       step.summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
                         color: CupertinoTheme.of(context).textTheme.textStyle.color,

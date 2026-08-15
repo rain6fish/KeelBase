@@ -29,17 +29,26 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   Future<void> _onSubmit() async {
+    final auth = context.read<AuthProvider>();
+    final l10n = context.l10n;
+    // 请求在途时忽略重复提交；reset token 通常一次性，竞态会导致首个请求失效
+    if (auth.status == AuthStatus.loading) return;
+
     final password = _passwordCtrl.text;
     final confirm = _confirmCtrl.text;
-    if (password.isEmpty || confirm.isEmpty) return;
-
-    final l10n = context.l10n;
+    if (password.trim().isEmpty) {
+      AppToast.error(context, l10n.passwordRequired);
+      return;
+    }
+    if (password.length < 8) {
+      AppToast.error(context, l10n.resetPasswordHint);
+      return;
+    }
     if (password != confirm) {
       AppToast.error(context, l10n.passwordMismatch);
       return;
     }
 
-    final auth = context.read<AuthProvider>();
     auth.clearError();
     final ok = await auth.resetPassword(widget.token, password);
 

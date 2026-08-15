@@ -46,21 +46,36 @@ class _AiChatPageState extends State<AiChatPage> {
     super.dispose();
   }
 
+  /// AI navigateTo 白名单（与后端 navigate-page.tool.ts PAGE_ROUTES 对齐）。
+  /// 仅允许已注册的合法目的地，防止 AI 返回的任意字符串导致导航错误/越权跳转。
+  static const Set<String> _aiAllowedRoutes = {
+    '/', '/events', '/explore', '/ai', '/profile', '/settings', '/todos',
+    '/flows/tasks', '/tags', '/notes', '/books', '/posts', '/my-org',
+    '/points', '/upload', '/privacy', '/terms',
+  };
+
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
+    final provider = context.read<AiChatProvider>();
+    if (provider.isLoading || provider.isStreaming) return; // 防止流式请求进行中重复发送
     _textController.clear();
-    context.read<AiChatProvider>().sendMessage(text).then((_) {
+    provider.sendMessage(text).then((_) {
+      if (!mounted) return;
       _scrollToBottom();
       _handleNavigation();
+    }).catchError((Object e) {
+      // Provider 内部已处理大多数错误，这里兜底避免未捕获异常
+      debugPrint('sendMessage failed: $e');
     });
     _scrollToBottom();
   }
 
   /// AI 请求页面跳转时执行导航（用 push 保留返回栈）
   void _handleNavigation() {
+    if (!mounted) return;
     final provider = context.read<AiChatProvider>();
     final route = provider.consumeNavigateTo();
-    if (route != null && route.isNotEmpty) {
+    if (route != null && _aiAllowedRoutes.contains(route)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.push(route);
@@ -103,19 +118,22 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
-  /// 由 build 方法中的 listener 触发：流式输出时持续滚动到底部
+  /// 由 build 方法中的 listener 触发：流式输出时持续滚动到底部。
+  /// 仅在用户已接近底部时自动滚动，避免与用户上翻阅读产生对抗。
   void _maybeScrollToBottom(bool isStreaming) {
-    if (isStreaming) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 50),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
+    if (!isStreaming) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final pos = _scrollController.position;
+      final nearBottom = pos.maxScrollExtent - pos.pixels < 120;
+      if (nearBottom) {
+        _scrollController.animateTo(
+          pos.maxScrollExtent,
+          duration: const Duration(milliseconds: 50),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _scrollToBottom() {
@@ -181,7 +199,7 @@ class _AiChatPageState extends State<AiChatPage> {
                           Navigator.pop(ctx);
                           context.push('/ai/history');
                         },
-                        child: const Text('历史对话'),
+                        child: Text(l10n.aiHistory),
                       ),
                       CupertinoActionSheetAction(
                         onPressed: () {
@@ -252,7 +270,7 @@ class _AiChatPageState extends State<AiChatPage> {
                       .textTheme
                       .textStyle
                       .color!
-                      .withAlpha(20),
+                      .withValues(alpha: 0.08),
                   width: 0.5,
                 ),
               ),
@@ -335,9 +353,9 @@ class _AiChatPageState extends State<AiChatPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: theme.primaryColor.withAlpha(12),
+                  color: theme.primaryColor.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.primaryColor.withAlpha(40)),
+                  border: Border.all(color: theme.primaryColor.withValues(alpha: 0.16)),
                 ),
                 child: Text(
                   q,

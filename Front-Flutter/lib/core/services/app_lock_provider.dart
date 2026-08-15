@@ -19,9 +19,12 @@ class AppLockProvider extends ChangeNotifier {
   bool get enabled => _enabled;
   bool get checkedOnce => _checkedOnce;
 
+  /// 是否支持应用锁：仅当设备**已录入生物特征**（FaceID/指纹）时为 true。
+  /// 不叠加 `isDeviceSupported()` —— iOS 设了锁屏密码、Android 有硬件但未录入
+  /// 时它都会误报 true，导致开启后永远无法解锁（用户锁死）。
   Future<bool> get supportsBiometrics async {
     try {
-      return await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+      return await _auth.canCheckBiometrics;
     } catch (_) {
       return false;
     }
@@ -34,24 +37,40 @@ class AppLockProvider extends ChangeNotifier {
       if (!supported) return false;
     }
     _enabled = value;
-    await _prefs.setBool(_keyEnabled, value);
+    final ok = await _prefs.setBool(_keyEnabled, value);
+    if (!ok) {
+      // 持久化失败：回滚内存状态，避免 UI 声称已开启但重启后锁消失
+      _enabled = !value;
+      return false;
+    }
     notifyListeners();
     return true;
   }
 
   /// 启动/恢复时验证生物识别。返回是否通过。
+  ///
+  /// `checkedOnce` 只在验证**成功**（或未开启直接放行）后置位，
+  /// 失败/取消不会被误当成已解锁。
   Future<bool> authenticate() async {
-    _checkedOnce = true;
-    notifyListeners();
-    if (!_enabled) return true;
+    if (!_enabled) {
+      _checkedOnce = true;
+      notifyListeners();
+      return true;
+    }
     try {
-      return await _auth.authenticate(
+      final ok = await _auth.authenticate(
         localizedReason: 'Unlock KeelBase',
         options: const AuthenticationOptions(
           biometricOnly: true,
-          stickyAuth: true,
+          // stickyAuth: false —— 每次恢复都重新验证，不缓存本会话的成功结果
+          stickyAuth: false,
         ),
       );
+      if (ok) {
+        _checkedOnce = true;
+        notifyListeners();
+      }
+      return ok;
     } catch (_) {
       return false;
     }

@@ -72,6 +72,34 @@ describe('PointsService (GROWTH-3)', () => {
     await expect(service.checkIn(1)).rejects.toThrow(ConflictException);
   });
 
+  it('并发重复签到被唯一约束兜底：409（A1）', async () => {
+    entries.find.mockResolvedValue([]); // 检查-插入间隙内另一请求已插入
+    entries.save.mockRejectedValue({
+      code: 'SQLITE_CONSTRAINT',
+      message: 'UNIQUE constraint failed: points_entries.user_id, points_entries.checkin_date',
+    });
+    await expect(service.checkIn(1)).rejects.toThrow(ConflictException);
+    expect(entries.save).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'checkin', checkinDate: expect.any(String) }),
+    );
+  });
+
+  it('积分值 NaN 回退默认值（A13）', async () => {
+    entries.find.mockResolvedValue([]);
+    settings.getWithDefault.mockResolvedValue(NaN);
+    entries.createQueryBuilder().getRawOne.mockResolvedValue({ sum: 10 });
+    const result = await service.checkIn(1);
+    expect(result.points).toBe(10);
+  });
+
+  it('积分值负值回退默认值（A13）', async () => {
+    entries.find.mockResolvedValue([]);
+    settings.getWithDefault.mockResolvedValue(-5);
+    entries.createQueryBuilder().getRawOne.mockResolvedValue({ sum: 10 });
+    const result = await service.checkIn(1);
+    expect(result.points).toBe(10);
+  });
+
   it('昨日已签：今日签到 streak 延续 + 连签加成', async () => {
     const yesterday = new Date(Date.now() - 86400000);
     entries.find.mockResolvedValue([checkinEntry(yesterday)]);
@@ -96,7 +124,7 @@ describe('PointsService (GROWTH-3)', () => {
     expect(overview.streak).toBe(3);
   });
 
-  it('排行榜：聚合 + 脱敏（无 email/phone）', async () => {
+  it('排行榜：聚合 + 脱敏（无 userId/email/phone）', async () => {
     entries.createQueryBuilder().getRawMany.mockResolvedValue([
       { userId: 1, points: 50 },
       { userId: 2, points: 20 },
@@ -107,7 +135,9 @@ describe('PointsService (GROWTH-3)', () => {
     ]);
     const lb = await service.getLeaderboard(20);
     expect(lb).toHaveLength(2);
-    expect(lb[0]).toEqual({ userId: 1, points: 50, nickname: 'Alice', avatarUrl: 'a.png' });
+    expect(lb[0]).toEqual({ points: 50, nickname: 'Alice', avatarUrl: 'a.png' });
+    // A9：不暴露内部 userId（避免枚举）
+    expect(Object.keys(lb[0])).not.toContain('userId');
     expect(Object.keys(lb[0])).not.toContain('email');
     expect(Object.keys(lb[0])).not.toContain('phone');
   });
@@ -122,5 +152,15 @@ describe('PointsService (GROWTH-3)', () => {
     expect(checkin7.progress).toBe(0);
     expect(points100.unlocked).toBe(false);
     expect(points100.progress).toBe(50);
+  });
+
+  it('成就用毛累计正分：admin 扣分不回退进度（A5）', async () => {
+    entries.find.mockResolvedValue([]);
+    // _earnedTotal 只累计 points > 0；净余额即使被扣到 50，毛累计仍到 1000
+    entries.createQueryBuilder().getRawOne.mockResolvedValue({ sum: 1000 });
+    const ach = await service.getAchievements(1);
+    const points1000 = ach.find((a) => a.key === 'points_1000')!;
+    expect(points1000.unlocked).toBe(true);
+    expect(points1000.progress).toBe(1000);
   });
 });

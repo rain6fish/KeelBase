@@ -40,6 +40,15 @@ const EXACT: Array<{ method: string; path: string; key: string; fallback: string
   { method: 'PATCH', path: '/ai/knowledge', key: 'ai.updateKnowledge', fallback: 'AI · Update knowledge' },
   { method: 'DELETE', path: '/ai/knowledge', key: 'ai.deleteKnowledge', fallback: 'AI · Delete knowledge' },
   { method: 'DELETE', path: '/ai/conversations', key: 'ai.deleteConversation', fallback: 'AI · Delete conversation' },
+  // 待办（A12：避免审计名退化为 todos.create/update/delete）
+  { method: 'POST', path: '/todos', key: 'todos.create', fallback: 'Todos · Create' },
+  { method: 'PATCH', path: '/todos', key: 'todos.update', fallback: 'Todos · Update' },
+  { method: 'DELETE', path: '/todos', key: 'todos.delete', fallback: 'Todos · Delete' },
+  // 积分/签到（A12）
+  { method: 'POST', path: '/points/checkin', key: 'points.checkin', fallback: 'Points · Daily check-in' },
+  { method: 'GET', path: '/points/me', key: 'points.myOverview', fallback: 'Points · My overview' },
+  { method: 'GET', path: '/points/leaderboard', key: 'points.leaderboard', fallback: 'Points · Leaderboard' },
+  { method: 'GET', path: '/points/achievements', key: 'points.achievements', fallback: 'Points · Achievements' },
 ];
 
 const METHOD_ACTION: Record<string, string> = {

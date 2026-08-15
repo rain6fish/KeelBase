@@ -25,9 +25,11 @@ The todo list is a **base-platform reusability validation**: it runs a real busi
 
 ## 3. 数据模型 / Data Model
 
-`todos` 表：id / title(200) / description? / completed(bool default false) / dueDate?(datetime) / userId + @Index(['userId','completed'])。
+`todos` 表：id / title(200) / description? / completed(bool default false) / dueDate?(datetime) / userId / orgId?(nullable) + @Index(['userId','completed'])（ORG-3 v2）。
 
-The `todos` table: id / title(200) / description? / completed(bool default false) / dueDate?(datetime) / userId + @Index(['userId','completed']).
+The `todos` table: id / title(200) / description? / completed(bool default false) / dueDate?(datetime) / userId / orgId?(nullable) + @Index(['userId','completed']) (ORG-3 v2).
+
+**组织级数据隔离（ORG-3 v2）/ Org-level data isolation**：成员在组织内创建的新待办自动带 orgId，组织成员可见同组待办并可在列表/详情/更新/删除层面一致操作（`_canAccess`：本人或同组成员）；跨组待办一律不可见/不可操作（fail-closed）。入组前创建的待办 orgId 为 null，保持仅本人可见。客户端无法通过 DTO 篡改 orgId（whitelist 剔除）。
 
 ## 4. API
 

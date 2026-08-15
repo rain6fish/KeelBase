@@ -381,6 +381,8 @@ const zh = {
   featureCol: '功能',
   pathCol: '路径',
   statusCol: '状态',
+  userAgent: 'User-Agent',
+  requestBody: '请求体',
 
   // AI 审计
   aiAuditTitle: 'AI 审计',
@@ -389,6 +391,9 @@ const zh = {
   tokenCol: 'Token',
   noAiAudit: '暂无日志',
   providerModel: '{provider}/{model}',
+  errorMessage: '错误信息',
+  durationMs: '耗时',
+  conversationId: '会话 ID',
 
   // 会话管理
   sessionTitle: '会话管理',

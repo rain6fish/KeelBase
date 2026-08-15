@@ -158,7 +158,7 @@ void main() {
 
   group('401 → 刷新失败 → onAuthFailure', () {
     test('refresh token 缺失时回调 onAuthFailure 并抛 AuthException', () async {
-      // storage.read 返回 null（refresh token 不存在）→ _tryRefreshToken 直接失败
+      // storage.read 返回 null（refresh token 不存在）→ _doRefresh 直接失败
       adapter.handler = (options) async => _json({'message': '未授权'}, 401);
       var authFailureCalled = false;
       client.onAuthFailure = () async {
@@ -167,6 +167,111 @@ void main() {
 
       await expectLater(client.get('/protected'), throwsA(isA<AuthException>()));
       expect(authFailureCalled, isTrue);
+    });
+  });
+
+  group('401 → 刷新（single-flight）', () {
+    setUp(() {
+      when(() => storage.read(any())).thenAnswer((_) async => 'rt');
+    });
+
+    test('刷新接口网络错误不触发 onAuthFailure，抛 NetworkException', () async {
+      adapter.handler = (options) async {
+        if (options.path == '/auth/refresh') {
+          throw DioException(
+            requestOptions: options,
+            type: DioExceptionType.connectionError,
+          );
+        }
+        return _json({'message': '未授权'}, 401);
+      };
+      await client.setTokens(accessToken: 'at', refreshToken: 'rt');
+      var authFailureCalled = false;
+      client.onAuthFailure = () async {
+        authFailureCalled = true;
+      };
+
+      await expectLater(client.get('/protected'), throwsA(isA<NetworkException>()));
+      expect(authFailureCalled, isFalse);
+    });
+
+    test('刷新接口返回 401（token 无效）触发 onAuthFailure', () async {
+      adapter.handler = (options) async => _json({'message': '无效'}, 401);
+      await client.setTokens(accessToken: 'at', refreshToken: 'rt');
+      var authFailureCalled = false;
+      client.onAuthFailure = () async {
+        authFailureCalled = true;
+      };
+
+      await expectLater(client.get('/protected'), throwsA(isA<AuthException>()));
+      expect(authFailureCalled, isTrue);
+    });
+
+    test('刷新成功自动重试原请求并更新 token', () async {
+      var protectedHits = 0;
+      adapter.handler = (options) async {
+        if (options.path == '/auth/refresh') {
+          return _json({
+            'code': 200,
+            'message': 'ok',
+            'data': {'accessToken': 'new-at', 'refreshToken': 'new-rt'},
+            'timestamp': '',
+          }, 200);
+        }
+        protectedHits++;
+        return _json({'code': 200, 'message': 'ok', 'data': {'ok': true}, 'timestamp': ''},
+            protectedHits == 1 ? 401 : 200);
+      };
+      await client.setTokens(accessToken: 'old-at', refreshToken: 'rt');
+
+      final res = await client.get('/protected');
+      expect(res['data'], {'ok': true});
+      expect(protectedHits, 2);
+      expect(client.accessToken, 'new-at');
+    });
+
+    test('重试失败传播重试的真实错误而非原始 401', () async {
+      adapter.handler = (options) async {
+        if (options.path == '/auth/refresh') {
+          return _json({
+            'code': 200,
+            'message': 'ok',
+            'data': {'accessToken': 'new-at', 'refreshToken': 'new-rt'},
+            'timestamp': '',
+          }, 200);
+        }
+        return _json({'message': '服务器错误'}, 500);
+      };
+      await client.setTokens(accessToken: 'at', refreshToken: 'rt');
+
+      await expectLater(client.get('/protected'), throwsA(isA<NetworkException>()));
+    });
+
+    test('并发 401 只触发一次刷新并都重试成功', () async {
+      var protectedHits = 0;
+      var refreshCalls = 0;
+      adapter.handler = (options) async {
+        if (options.path == '/auth/refresh') {
+          refreshCalls++;
+          return _json({
+            'code': 200,
+            'message': 'ok',
+            'data': {'accessToken': 'new-at', 'refreshToken': 'new-rt'},
+            'timestamp': '',
+          }, 200);
+        }
+        protectedHits++;
+        return _json({'code': 200, 'message': 'ok', 'data': {'ok': true}, 'timestamp': ''},
+            protectedHits <= 2 ? 401 : 200);
+      };
+      await client.setTokens(accessToken: 'old-at', refreshToken: 'rt');
+
+      final results = await Future.wait([client.get('/protected'), client.get('/protected')]);
+      expect(results, hasLength(2));
+      for (final r in results) {
+        expect(r['data'], {'ok': true});
+      }
+      expect(refreshCalls, 1);
     });
   });
 }

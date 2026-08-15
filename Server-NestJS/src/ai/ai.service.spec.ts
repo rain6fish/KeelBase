@@ -90,6 +90,7 @@ describe('AiService', () => {
       getStats: jest.fn(),
       getAllStats: jest.fn(),
       countChatsToday: jest.fn().mockResolvedValue(0),
+      incrementDailyUsage: jest.fn().mockResolvedValue(undefined),
     };
 
     mockSettingsService = {
@@ -553,7 +554,7 @@ describe('AiService', () => {
         mockToolRegistry as any,
         mockConversationService as any,
         config,
-        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn() } as any,
+        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn(), countChatsToday: jest.fn().mockResolvedValue(0), incrementDailyUsage: jest.fn().mockResolvedValue(undefined) } as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,

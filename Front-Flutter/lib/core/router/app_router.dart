@@ -49,21 +49,27 @@ GoRouter createRouter(
       final isLoggedIn = authProvider.isAuthenticated;
       final authStatus = authProvider.status;
       final onboardingLoaded = onboardingProvider.loaded;
-      final isAuthRoute = state.matchedLocation.startsWith('/login') ||
-          state.matchedLocation.startsWith('/register') ||
-          state.matchedLocation.startsWith('/forgot-password') ||
-          state.matchedLocation.startsWith('/reset') ||
-          state.matchedLocation.startsWith('/verify-email');
-      final isPublicRoute = state.matchedLocation == '/privacy' ||
-          state.matchedLocation == '/terms';
-      final isSplash = state.matchedLocation == '/splash';
-      final isOnboarding = state.matchedLocation == '/onboarding';
+      final path = state.matchedLocation;
+      // 用精确路径匹配，避免 /reset-password、/register-verify 等前缀误判为认证路由
+      final isAuthRoute = path == '/login' ||
+          path == '/register' ||
+          path == '/forgot-password' ||
+          path == '/reset' ||
+          path == '/verify-email';
+      final isPublicRoute = path == '/privacy' || path == '/terms';
+      final isSplash = path == '/splash';
+      final isOnboarding = path == '/onboarding';
 
-      // Allow splash to show during initial auto-login / onboarding check
-      if (isSplash &&
-          (authStatus == AuthStatus.initial ||
-              authStatus == AuthStatus.loading ||
-              !onboardingLoaded)) {
+      // Public routes (privacy policy, terms of service) are accessible
+      // to both authenticated and unauthenticated users
+      if (isPublicRoute) return null;
+
+      // 自动登录/引导检查未完成前，延迟所有路由的重定向决策，
+      // 避免 deep link（如 /events/3/edit）在自动登录期间被提前踢回 /login。
+      // AuthStatus.error 不属于“未完成”，会正常落入后续分支，不会卡死在 splash。
+      if (authStatus == AuthStatus.initial ||
+          authStatus == AuthStatus.loading ||
+          (isSplash && !onboardingLoaded)) {
         return null;
       }
       // After auto-login completes, redirect splash to final destination
@@ -76,9 +82,6 @@ GoRouter createRouter(
         if (isLoggedIn) return '/';
         return null;
       }
-      // Public routes (privacy policy, terms of service) are accessible
-      // to both authenticated and unauthenticated users
-      if (isPublicRoute) return null;
       if (!isLoggedIn && !isAuthRoute) return '/login';
       if (isLoggedIn && isAuthRoute) return '/';
       return null;
@@ -176,6 +179,12 @@ GoRouter createRouter(
                   ),
                   GoRoute(
                     path: ':id/edit',
+                    // 无效的 id 直接回事件列表，避免静默进入“创建”模式导致重复创建
+                    redirect: (_, state) {
+                      final id =
+                          int.tryParse(state.pathParameters['id'] ?? '');
+                      return id == null ? '/events' : null;
+                    },
                     builder: (_, state) => EventFormPage(
                       eventId: int.tryParse(state.pathParameters['id'] ?? ''),
                     ),

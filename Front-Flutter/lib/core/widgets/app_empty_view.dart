@@ -12,11 +12,13 @@ class AppEmptyView extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
-  });
+  }) : assert(onAction == null || actionLabel != null,
+            'onAction 提供时必须同时提供 actionLabel');
 
   @override
   Widget build(BuildContext context) {
     final theme = CupertinoTheme.of(context);
+    final textColor = theme.textTheme.textStyle.color;
 
     return Center(
       child: Padding(
@@ -27,7 +29,8 @@ class AppEmptyView extends StatelessWidget {
             Icon(
               icon ?? CupertinoIcons.tray,
               size: 56,
-              color: theme.textTheme.textStyle.color?.withAlpha(100),
+              color: (textColor ?? CupertinoColors.secondaryLabel)
+                  .withValues(alpha: 100 / 255),
             ),
             const SizedBox(height: 16),
             Text(
@@ -35,7 +38,8 @@ class AppEmptyView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: theme.textTheme.textStyle.color?.withAlpha(180),
+                color: (textColor ?? CupertinoColors.secondaryLabel)
+                    .withValues(alpha: 180 / 255),
               ),
             ),
             if (onAction != null) ...[
@@ -43,7 +47,7 @@ class AppEmptyView extends StatelessWidget {
               CupertinoButton(
                 onPressed: onAction,
                 color: theme.primaryColor,
-                child: Text(actionLabel!),
+                child: Text(actionLabel ?? ''),
               ),
             ],
           ],

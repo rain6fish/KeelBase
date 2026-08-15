@@ -22,7 +22,7 @@ class AppPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDisabled = disabled || isLoading;
+    final isDisabled = disabled || isLoading || onPressed == null;
     final theme = CupertinoTheme.of(context);
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
@@ -34,25 +34,29 @@ class AppPrimaryButton extends StatelessWidget {
         pressedOpacity: isDisabled ? 1.0 : 0.7,
         borderRadius: const BorderRadius.all(Radius.circular(27)),
         color: isDark
-            ? theme.primaryColor.withAlpha(30)
-            : theme.primaryColor.withAlpha(20),
+            ? theme.primaryColor.withValues(alpha: 30 / 255)
+            : theme.primaryColor.withValues(alpha: 20 / 255),
         disabledColor: isDark
-            ? CupertinoColors.systemGrey5.withAlpha(30)
-            : CupertinoColors.systemGrey5.withAlpha(40),
+            ? CupertinoColors.systemGrey5.withValues(alpha: 30 / 255)
+            : CupertinoColors.systemGrey5.withValues(alpha: 40 / 255),
         child: isLoading
-            ? const CupertinoActivityIndicator(
-                radius: 12,
+            ? Semantics(
+                label: label,
+                child: const CupertinoActivityIndicator(
+                  radius: 12,
+                ),
               )
             : Center(
                 child: Text(
                   label,
                   maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: isDisabled
-                        ? theme.primaryColor.withAlpha(isDark ? 80 : 60)
+                        ? CupertinoColors.secondaryLabel
                         : theme.primaryColor,
                     letterSpacing: -0.43,
                     // NotoSansSC 字体行高较大，固定高度按钮需压缩垂直度量避免文字被裁剪

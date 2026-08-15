@@ -30,9 +30,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
   @override
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    final dotColor = isDark
-        ? CupertinoColors.systemGrey.resolveFrom(context)
-        : CupertinoColors.systemGrey.resolveFrom(context);
+    final dotColor = CupertinoColors.systemGrey.resolveFrom(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -42,7 +40,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: isDark
-                  ? CupertinoColors.systemGrey5.resolveFrom(context).withAlpha(60)
+                  ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.24)
                   : CupertinoColors.systemGrey6.resolveFrom(context),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
@@ -58,7 +56,8 @@ class _TypingIndicatorState extends State<TypingIndicator>
                   animation: _controller,
                   builder: (_, child) {
                     final delay = i * 0.15;
-                    final t = (_controller.value - delay).clamp(0.0, 1.0);
+                    // 周期相位：用 % 而非 clamp，让弹跳在周期回绕时无缝衔接
+                    final t = (_controller.value - delay) % 1.0;
                     final scale = 0.5 + 0.5 * (1 - (t * 2 - 1).abs());
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -67,8 +66,8 @@ class _TypingIndicatorState extends State<TypingIndicator>
                         child: Container(
                           width: 7,
                           height: 7,
-                          decoration: const BoxDecoration(
-                            color: CupertinoColors.systemGrey,
+                          decoration: BoxDecoration(
+                            color: dotColor,
                             shape: BoxShape.circle,
                           ),
                         ),
