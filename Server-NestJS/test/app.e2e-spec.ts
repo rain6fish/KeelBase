@@ -27,6 +27,24 @@ describe('App (e2e)', () => {
           expect(res.body.data).toHaveProperty('status', 'ok');
         });
     });
+
+    it('GET /api/v1/health?detail=true should include dependency statuses (D.9)', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/health')
+        .query({ detail: 'true' })
+        .expect(200);
+      expect(res.body.data).toHaveProperty('dependencies');
+      expect(res.body.data.dependencies).toHaveProperty('database');
+      expect(res.body.data.dependencies).toHaveProperty('redis');
+      expect(res.body.data.dependencies).toHaveProperty('storage');
+    });
+
+    it('GET /api/v1/health without detail stays lightweight', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/health')
+        .expect(200);
+      expect(res.body.data).not.toHaveProperty('dependencies');
+    });
   });
 
   describe('App Version', () => {
