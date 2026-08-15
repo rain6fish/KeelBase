@@ -135,7 +135,7 @@ export class AiToolEffectsService {
     return (await repo.findOne({
       where: { id },
       withDeleted: true,
-      select: ['title', 'deletedAt'] as any,
+      select: { title: true, deletedAt: true },
     } as any)) as any;
   }
 }
