@@ -86,6 +86,18 @@ describe('OrgService', () => {
     service = module.get(OrgService);
   });
 
+  // ── ORG-3 数据隔离 ──
+
+  it('getUserOrgId：成员返回 orgId', async () => {
+    members.findOne.mockResolvedValue({ id: 1, userId: 5, orgId: 3, role: 'member' });
+    expect(await service.getUserOrgId(5)).toBe(3);
+  });
+
+  it('getUserOrgId：非成员返回 null（不抛错）', async () => {
+    members.findOne.mockResolvedValue(null);
+    expect(await service.getUserOrgId(99)).toBeNull();
+  });
+
   // ── 组织 ──
 
   it('创建组织：重名冲突', async () => {

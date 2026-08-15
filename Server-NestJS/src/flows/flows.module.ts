@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { AiModule } from '../ai/ai.module';
@@ -23,7 +23,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     TypeOrmModule.forFeature([FlowDefinition, FlowInstance, FlowTask, User, OrgMember]),
-    AiModule,
+    forwardRef(() => AiModule),
     NotificationsModule,
   ],
   controllers: [FlowController],

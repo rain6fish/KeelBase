@@ -9,6 +9,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { CacheService } from '../common/cache/cache.service';
+import { OrgService } from '../org/org.service';
 
 const EVENT_CACHE_TTL_MS = 60 * 1000;
 
@@ -37,14 +38,18 @@ export class EventsService {
     private eventsRepository: Repository<Event>,
     private cacheService: CacheService,
     @Optional() @InjectQueue('reminder') private readonly reminderQueue: Queue | null,
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   async create(dto: CreateEventDto, userId: number): Promise<Event> {
+    // ORG-3：创建时自动归属用户所属组织（同组织成员可见）
+    const orgId = await this._userOrgId(userId);
     const event = this.eventsRepository.create({
       ...dto,
       startTime: new Date(dto.startTime),
       endTime: new Date(dto.endTime),
       userId,
+      orgId: orgId ?? undefined,
     });
     const saved = await this.eventsRepository.save(event);
     await this.cacheService.delByPrefix('events:');
@@ -133,24 +138,37 @@ export class EventsService {
     const startDate = new Date(`${start}T00:00:00`);
     const endDate = new Date(`${end}T23:59:59.999`);
 
-    const where: any = [];
-    // 事件与查询范围有交集的两种情况：
-    // 1. 事件在范围内开始 (startTime BETWEEN startDate AND endDate)
-    // 2. 事件在范围内结束 (endTime BETWEEN startDate AND endDate)
-    // 3. 事件跨越整个范围 (startTime < startDate AND endTime > endDate)
-    where.push({
-      startTime: Between(startDate, endDate),
-      ...(userId ? { userId } : {}),
-    });
-    where.push({
-      endTime: Between(startDate, endDate),
-      ...(userId ? { userId } : {}),
-    });
+    // ORG-3 数据隔离：本人事件 OR 同组织事件（orgId = 用户所属组织）
+    const orgId = userId ? await this._userOrgId(userId) : null;
+
+    const where: any[] = [];
+    const addRange = (field: string) => {
+      const conditions: Array<Record<string, unknown>> = [];
+      if (userId) conditions.push({ userId });
+      if (orgId != null) conditions.push({ orgId });
+      // 事件与查询范围有交集的三种情况
+      where.push({
+        [field]: Between(startDate, endDate),
+        ...(conditions.length > 0 ? [{ OR: conditions }] : {}),
+      });
+    };
+    addRange('startTime');
+    addRange('endTime');
 
     return this.eventsRepository.find({
       where,
       order: { startTime: 'ASC' },
     });
+  }
+
+  /** ORG-3：取用户所属组织 id（非成员或未注入 orgService 返回 null） */
+  private async _userOrgId(userId?: number): Promise<number | null> {
+    if (!userId || !this.orgService) return null;
+    try {
+      return await this.orgService.getUserOrgId(userId);
+    } catch {
+      return null;
+    }
   }
 
   async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {
