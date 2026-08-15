@@ -10,6 +10,7 @@ const MODULES = [
   { name: 'casl', prefix: 'src/common/casl/' },
   { name: 'operation-audit', prefix: 'src/operation-audit/' },
   { name: 'ai-tools', prefix: 'src/ai/tools/' },
+  { name: 'governance', prefix: 'src/ai/governance/' },
   { name: 'headless', prefix: 'src/headless/' },
 ];
 

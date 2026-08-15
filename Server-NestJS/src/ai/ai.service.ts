@@ -22,6 +22,7 @@ import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { AiTool, ToolResult } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { GovernancePolicyService } from './governance/governance-policy.service';
 import {
   markSystemBoundary,
   sanitizeExternalContent,
@@ -96,6 +97,7 @@ export class AiService {
     private readonly featureFlagsService?: FeatureFlagsService,
     private readonly usersService?: UsersService,
     private readonly toolEffectsService?: AiToolEffectsService,
+    private readonly governancePolicy?: GovernancePolicyService,
   ) {}
 
   /**
@@ -124,7 +126,9 @@ export class AiService {
   }
 
   /**
-   * HS-2 工具执行前权限门控：按工具声明的 permissions 检查调用资格。
+   * HS-2 + HS-9 工具执行前权限门控：按工具声明 + 治理策略检查调用资格。
+   * - HS-9 策略开关：工具被策略禁用时拒绝
+   * - HS-9 角色白名单：allowedRoles 非空时仅列内角色可调（headless 系统账号由 API Key 鉴权，跳过）
    * - featureFlag：对应特性开关关闭时拒绝（对齐 HTTP 层 @FeatureFlag）
    * - requireVerifiedEmail：写操作需已验证邮箱（对齐 EmailVerificationGuard，admin/headless 视为已验证）
    * 无 permissions 声明的工具视为允许（数据隔离已由 execute 的 userId 保证）。
@@ -139,6 +143,26 @@ export class AiService {
     } catch {
       // 工具未注册：让后续 execute 抛「not found」，这里不拦截
     }
+
+    // HS-9 治理策略：工具开关 + 角色白名单
+    if (this.governancePolicy) {
+      const enabled = await this.governancePolicy.isToolEnabled(toolName);
+      if (!enabled) {
+        throw new Error(`Tool "${toolName}" is disabled by governance policy`);
+      }
+      const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
+      if (allowedRoles.length > 0 && userId !== '0') {
+        const user = this.usersService
+          ? await this.usersService.findOne(Number(userId))
+          : null;
+        if (!user || !user.role || !allowedRoles.includes(user.role)) {
+          throw new Error(
+            `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
+          );
+        }
+      }
+    }
+
     const perms = tool?.permissions;
     if (!perms) return;
 
@@ -161,6 +185,27 @@ export class AiService {
         throw new BusinessException('EMAIL_NOT_VERIFIED');
       }
     }
+  }
+
+  /**
+   * HS-9 确认规则：治理策略可覆盖工具定义的 requiresConfirmation。
+   * 未注入 GovernancePolicyService（单测/降级）时沿用工具定义默认。
+   */
+  private async _requiresConfirmation(name: string): Promise<boolean> {
+    const fallback = this.toolRegistry.requiresConfirmation(name);
+    if (!this.governancePolicy) return fallback;
+    return this.governancePolicy.requiresConfirmation(name, fallback);
+  }
+
+  /**
+   * HS-9 审计粒度：all = 记对话+工具；write = 只记工具调用；off = 不记。
+   */
+  private async _shouldAudit(scope: 'conversation' | 'tool'): Promise<boolean> {
+    if (!this.governancePolicy) return true;
+    const granularity = await this.governancePolicy.getAuditGranularity();
+    if (granularity === 'off') return false;
+    if (granularity === 'write') return scope === 'tool';
+    return true;
   }
 
   /**
@@ -208,21 +253,32 @@ export class AiService {
   }
 
   /**
-   * HS-2 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
+   * HS-2 + HS-9 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
    * 供 GET /ai/tools（admin）展示工具与权限，便于审计与治理。
+   * HS-9：反映治理策略实际生效的开关/确认规则。
    */
-  getToolInventory() {
-    return this.toolRegistry.getAllTools().map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters.map((p) => ({
-        name: p.name,
-        type: p.type,
-        required: p.required,
-      })),
-      requiresConfirmation: tool.requiresConfirmation ?? false,
-      permissions: tool.permissions ?? null,
-    }));
+  async getToolInventory() {
+    const policy = this.governancePolicy
+      ? await this.governancePolicy.getPolicy()
+      : null;
+    const tools = policy?.tools ?? {};
+    return this.toolRegistry.getAllTools().map((tool) => {
+      const override = tools[tool.name] ?? {};
+      return {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters.map((p) => ({
+          name: p.name,
+          type: p.type,
+          required: p.required,
+        })),
+        enabled: override.enabled ?? true,
+        requiresConfirmation:
+          override.requiresConfirmation ?? tool.requiresConfirmation ?? false,
+        allowedRoles: override.allowedRoles ?? [],
+        permissions: tool.permissions ?? null,
+      };
+    });
   }
 
   /**
@@ -336,14 +392,16 @@ export class AiService {
         content: ragResult.content,
       });
 
-      // 审计日志
-      this.auditService.log({
-        userId,
-        conversationId,
-        action: 'knowledge',
-        provider: providerName,
-        model: request.model ?? this.config.defaultModel,
-      });
+      // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
+      if (await this._shouldAudit('conversation')) {
+        this.auditService.log({
+          userId,
+          conversationId,
+          action: 'knowledge',
+          provider: providerName,
+          model: request.model ?? this.config.defaultModel,
+        });
+      }
 
       return {
         conversationId,
@@ -491,16 +549,18 @@ export class AiService {
       .extractFromTurn(userId, request.message, conversationId)
       .catch(() => {});
 
-    // 审计日志
-    this.auditService.log({
-      userId,
-      conversationId,
-      action: intent === 'delegate' ? 'delegate' : intent === 'plan' ? 'plan' : intent === 'analyze' ? 'analyze' : 'chat',
-      provider: providerName,
-      model: request.model ?? this.config.defaultModel,
-      promptTokens: usage?.promptTokens,
-      completionTokens: usage?.completionTokens,
-    });
+    // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
+    if (await this._shouldAudit('conversation')) {
+      this.auditService.log({
+        userId,
+        conversationId,
+        action: intent === 'delegate' ? 'delegate' : intent === 'plan' ? 'plan' : intent === 'analyze' ? 'analyze' : 'chat',
+        provider: providerName,
+        model: request.model ?? this.config.defaultModel,
+        promptTokens: usage?.promptTokens,
+        completionTokens: usage?.completionTokens,
+      });
+    }
 
     return {
       conversationId,
@@ -659,13 +719,16 @@ export class AiService {
           content: fullText,
         });
         // CR-2：流式主完成审计——否则不进 ai_audit_logs，每日限额可被流式绕过
-        this.auditService.log({
-          userId,
-          conversationId,
-          action: 'chat',
-          provider: providerName,
-          model,
-        });
+        // HS-9 粒度门控：conversation 级仅 all 时记录
+        if (await this._shouldAudit('conversation')) {
+          this.auditService.log({
+            userId,
+            conversationId,
+            action: 'chat',
+            provider: providerName,
+            model,
+          });
+        }
         // fire-and-forget：规则式抽取用户记忆，不阻塞对话
         void this.memoryService
           .extractFromTurn(userId, request.message, conversationId)
@@ -700,7 +763,7 @@ export class AiService {
           const parsed = JSON.parse(tc.args);
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）— 先于确认流程
           await this._assertToolAllowed(tc.name, userId);
-          const isWrite = this.toolRegistry.requiresConfirmation(tc.name);
+          const isWrite = await this._requiresConfirmation(tc.name);
           started = true;
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
           yield {
@@ -750,14 +813,17 @@ export class AiService {
               trustedTools.add(tc.name);
             }
             // HS-7 确认决策审计：让管理台时间线能展示「AI 请求写操作 → 用户确认/拒绝」
-            this.auditService.log({
-              userId,
-              conversationId,
-              action: 'tool_confirmation',
-              detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}${trustTool ? ' (trusted)' : ''}`,
-              isError: outcome !== 'approve',
-              errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
-            });
+            // HS-9 粒度门控：tool 级在 off 时不记录
+            if (await this._shouldAudit('tool')) {
+              this.auditService.log({
+                userId,
+                conversationId,
+                action: 'tool_confirmation',
+                detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}${trustTool ? ' (trusted)' : ''}`,
+                isError: outcome !== 'approve',
+                errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
+              });
+            }
             if (outcome === 'approve') {
               result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
               yield {
@@ -820,14 +886,17 @@ export class AiService {
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行审计（对齐非流式 runToolLoop）
-          this.auditService.log({
-            userId,
-            conversationId,
-            action: 'tool_call',
-            detail: `${tc.name}(${tc.args})`,
-            isError: !result.success,
-            errorMessage: result.error,
-          });
+          // HS-9 粒度门控：tool 级在 off 时不记录
+          if (await this._shouldAudit('tool')) {
+            this.auditService.log({
+              userId,
+              conversationId,
+              action: 'tool_call',
+              detail: `${tc.name}(${tc.args})`,
+              isError: !result.success,
+              errorMessage: result.error,
+            });
+          }
         } catch {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
           if (started) {
@@ -849,14 +918,17 @@ export class AiService {
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行失败审计
-          this.auditService.log({
-            userId,
-            conversationId,
-            action: 'tool_call',
-            detail: `${tc.name}(${tc.args})`,
-            isError: true,
-            errorMessage: 'Tool execution failed',
-          });
+          // HS-9 粒度门控：tool 级在 off 时不记录
+          if (await this._shouldAudit('tool')) {
+            this.auditService.log({
+              userId,
+              conversationId,
+              action: 'tool_call',
+              detail: `${tc.name}(${tc.args})`,
+              isError: true,
+              errorMessage: 'Tool execution failed',
+            });
+          }
         }
       }
 
@@ -874,15 +946,18 @@ export class AiService {
       content: 'I apologize, but I was unable to complete the requested operation within the allowed number of steps.',
     });
     // CR-2：流式超轮次也记审计（isError），避免漏计数
-    this.auditService.log({
-      userId,
-      conversationId,
-      action: 'chat',
-      provider: providerName,
-      model,
-      isError: true,
-      errorMessage: 'Exceeded max tool rounds',
-    });
+    // HS-9 粒度门控：conversation 级仅 all 时记录
+    if (await this._shouldAudit('conversation')) {
+      this.auditService.log({
+        userId,
+        conversationId,
+        action: 'chat',
+        provider: providerName,
+        model,
+        isError: true,
+        errorMessage: 'Exceeded max tool rounds',
+      });
+    }
     void this.memoryService
       .extractFromTurn(userId, request.message, conversationId)
       .catch(() => {});
@@ -1098,7 +1173,7 @@ export class AiService {
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）
           await this._assertToolAllowed(tc.name, params.userId);
           // 非流式路径无确认通道：写操作不自动执行，返回提示让 LLM 引导用户走流式
-          const resolvedResult = this.toolRegistry.requiresConfirmation(tc.name)
+          const resolvedResult = (await this._requiresConfirmation(tc.name))
             ? {
                 success: false,
                 error:
@@ -1111,15 +1186,17 @@ export class AiService {
             navigateTo = (resolvedResult.data as any).navigateTo;
           }
 
-          // 审计日志：工具调用
-          this.auditService.log({
-            userId: params.userId,
-            conversationId: params.conversationId,
-            action: 'tool_call',
-            detail: `${tc.name}(${tc.arguments})`,
-            isError: !resolvedResult.success,
-            errorMessage: resolvedResult.error,
-          });
+          // 审计日志：工具调用（HS-9 粒度门控：tool 级在 off 时不记录）
+          if (await this._shouldAudit('tool')) {
+            this.auditService.log({
+              userId: params.userId,
+              conversationId: params.conversationId,
+              action: 'tool_call',
+              detail: `${tc.name}(${tc.arguments})`,
+              isError: !resolvedResult.success,
+              errorMessage: resolvedResult.error,
+            });
+          }
 
           messages.push({
             role: 'tool',
