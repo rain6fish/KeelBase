@@ -33,6 +33,7 @@ describe('EventsService', () => {
     isCancelled: false,
     isRecurring: false,
     userId: 1,
+    orgId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -147,6 +148,36 @@ describe('EventsService', () => {
       const result = await service.getEventsForRange('2026-09-01', '2026-09-30', 1);
 
       expect(result).toHaveLength(0);
+    });
+
+    it('ORG-3: 同组织成员事件对用户可见（查询含 orgId 条件）', async () => {
+      // 注入 mock OrgService（user 5 属于 org 3）
+      const mockOrgService = { getUserOrgId: jest.fn().mockResolvedValue(3) };
+      (service as any).orgService = mockOrgService;
+      mockRepository.find.mockResolvedValue([{ ...mockEvent, userId: 9, orgId: 3 }]);
+
+      const result = await service.getEventsForRange('2026-08-01', '2026-08-31', 5);
+
+      expect(result).toHaveLength(1);
+      expect(mockOrgService.getUserOrgId).toHaveBeenCalledWith(5);
+      // 查询条件应包含 orgId: 3
+      const findWhere = mockRepository.find.mock.calls[0][0].where;
+      const hasOrgCond = JSON.stringify(findWhere).includes('orgId');
+      expect(hasOrgCond).toBe(true);
+      // 清理，避免影响后续测试
+      (service as any).orgService = undefined;
+    });
+
+    it('ORG-3: 非组织成员不注入 orgId 条件', async () => {
+      const mockOrgService = { getUserOrgId: jest.fn().mockResolvedValue(null) };
+      (service as any).orgService = mockOrgService;
+      mockRepository.find.mockResolvedValue([mockEvent]);
+
+      await service.getEventsForRange('2026-08-01', '2026-08-31', 5);
+
+      const findWhere = mockRepository.find.mock.calls[0][0].where;
+      expect(JSON.stringify(findWhere)).not.toContain('orgId');
+      (service as any).orgService = undefined;
     });
   });
 

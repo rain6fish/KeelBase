@@ -411,6 +411,12 @@ export class OrgService {
     return member;
   }
 
+  /** ORG-3 数据隔离：返回用户所属组织 id（非成员返回 null，不抛错） */
+  async getUserOrgId(userId: number): Promise<number | null> {
+    const member = await this.membersRepo.findOne({ where: { userId } });
+    return member?.orgId ?? null;
+  }
+
   private async _deptPath(orgId: number, deptId: number | null | undefined): Promise<string[]> {
     if (deptId == null) return [];
     const depts = await this.deptsRepo.find({ where: { orgId } });
