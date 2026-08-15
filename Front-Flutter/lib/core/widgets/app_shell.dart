@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import '../i18n/app_localizations.dart';
@@ -24,6 +26,10 @@ class AppShell extends StatelessWidget {
     final theme = CupertinoTheme.of(context);
     final selectedIndex = navigationShell.currentIndex;
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    // AppShell 期望 6 个 Tab，且 More 固定在 index 2，与 router 的 5 个
+    // StatefulShellBranch 一一对应；增删 Tab/Branch 时在此尽早失败。
+    assert(_tabs.length == 6 && _tabs[2].isMore,
+        'AppShell expects 6 tabs with the More button at index 2');
 
     // Use a plain ColoredBox instead of nested CupertinoPageScaffold
     // to avoid double safe-area + gray gap issues.
@@ -54,7 +60,9 @@ class AppShell extends StatelessWidget {
         border: Border(
           top: BorderSide(
             color: isDark
-                ? CupertinoColors.separator.resolveFrom(context).withAlpha(40)
+                ? CupertinoColors.separator
+                    .resolveFrom(context)
+                    .withValues(alpha: 40 / 255)
                 : CupertinoColors.opaqueSeparator.resolveFrom(context),
             width: 0.5,
           ),
@@ -62,13 +70,13 @@ class AppShell extends StatelessWidget {
       ),
       child: ClipRect(
         child: BackdropFilter(
-          filter: isDark
-              ? _PseudoBlurFilter.blurDark
-              : _PseudoBlurFilter.blurLight,
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             color: isDark
                 ? const Color(0xCC000000)
-                : CupertinoColors.systemBackground.resolveFrom(context).withAlpha(240),
+                : CupertinoColors.systemBackground
+                    .resolveFrom(context)
+                    .withValues(alpha: 240 / 255),
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
             child: Row(
               children: List.generate(_tabs.length, (i) {
@@ -125,44 +133,49 @@ class AppShell extends StatelessWidget {
 
   Widget _buildMoreButton(BuildContext context, CupertinoThemeData theme) {
     return Expanded(
-      child: GestureDetector(
-        onTap: () => showMoreMenuSheet(context),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.primaryColor.withAlpha(230),
-                    theme.primaryColor,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      child: Semantics(
+        button: true,
+        label: _moreLabel(context),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showMoreMenuSheet(context),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.primaryColor.withValues(alpha: 230 / 255),
+                      theme.primaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
                 ),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Icon(
-                  CupertinoIcons.ellipsis,
-                  size: 16,
-                  color: CupertinoColors.white,
+                child: const Center(
+                  child: Icon(
+                    CupertinoIcons.ellipsis,
+                    size: 16,
+                    color: CupertinoColors.white,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              _moreLabel(context),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w400,
-                color: CupertinoColors.systemGrey,
+              const SizedBox(height: 2),
+              Text(
+                _moreLabel(context),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: CupertinoColors.systemGrey,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -189,6 +202,8 @@ class AppShell extends StatelessWidget {
       case 'tabTodos':
         return l10n.tabTodos;
       default:
+        // 新增 Tab 忘记加 labelKey 时尽早暴露，而不是静默渲染空标签
+        assert(false, 'Unknown tab labelKey: $key');
         return '';
     }
   }
@@ -196,25 +211,6 @@ class AppShell extends StatelessWidget {
 
 /// 将 branch 索引映射到 tab 索引，跳过 index 2 的 More 按钮（branch 0/1 → 0/1，其余 +1）
 int _branchToTab(int branch) => branch < 2 ? branch : branch + 1;
-
-/// Lightweight pseudo-blur filter for the tab bar.
-class _PseudoBlurFilter {
-  _PseudoBlurFilter._();
-
-  static final ColorFilter blurLight = ColorFilter.matrix(<double>[
-    1, 0, 0, 0, 0, //
-    0, 1, 0, 0, 0, //
-    0, 0, 1, 0, 0, //
-    0, 0, 0, 0.85, 0, //
-  ]);
-
-  static final ColorFilter blurDark = ColorFilter.matrix(<double>[
-    1, 0, 0, 0, 0, //
-    0, 1, 0, 0, 0, //
-    0, 0, 1, 0, 0, //
-    0, 0, 0, 0.75, 0, //
-  ]);
-}
 
 class _TabItem {
   final IconData icon;

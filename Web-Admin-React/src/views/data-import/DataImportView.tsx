@@ -35,10 +35,13 @@ export default function DataImportView() {
   function onUserFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f) void handleFile(f, 'user')
+    // C9: 重置 input 值，重复导入同一文件也能触发 change
+    e.target.value = ''
   }
   function onEventFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f) void handleFile(f, 'event')
+    e.target.value = ''
   }
 
   return (

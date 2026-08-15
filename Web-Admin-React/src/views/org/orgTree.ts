@@ -22,3 +22,13 @@ export function collectDescendantIds(node: DeptTreeNode, acc: number[] = []): nu
   for (const c of node.children) collectDescendantIds(c, acc)
   return acc
 }
+
+/** 全树 DFS 查找指定 id 的节点（任意深度），用于防环：定位 self 后排除其子孙 */
+export function findDeptNode(nodes: DeptTreeNode[], id: number): DeptTreeNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    const found = findDeptNode(n.children, id)
+    if (found) return found
+  }
+  return null
+}

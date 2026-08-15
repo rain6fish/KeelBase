@@ -18,7 +18,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { orgApi } from '@/api/org'
 import { usersApi } from '@/api/users'
 import { OrgDeptTree } from './components/OrgDeptTree'
-import { buildDeptTree, collectDescendantIds } from './orgTree'
+import { buildDeptTree, collectDescendantIds, findDeptNode } from './orgTree'
 import type { Organization, Department, OrgMember, OrgMemberRole, OrgInvite, DeptTreeNode } from '@/types/org'
 
 const roleOptions = [
@@ -76,13 +76,11 @@ export default function OrgView() {
   const deptTree = useMemo(() => buildDeptTree(departments), [departments])
 
   const parentDeptOptions = useMemo(() => {
+    // 编辑时排除自身及其子孙（全树 DFS 定位 self，避免嵌套部门下防环失效）
     const exclude = new Set<number>()
     if (deptForm.id) {
-      const self = departments.find((d) => d.id === deptForm.id)
-      if (self) {
-        const root = buildDeptTree(departments).find((n) => n.id === self.id)
-        if (root) collectDescendantIds(root, [...exclude.values()]).forEach((id) => exclude.add(id))
-      }
+      const node = findDeptNode(buildDeptTree(departments), deptForm.id)
+      if (node) collectDescendantIds(node).forEach((id) => exclude.add(id))
     }
     return departments.filter((d) => !exclude.has(d.id)).map((d) => ({ label: d.name, value: d.id }))
   }, [departments, deptForm.id])
@@ -94,10 +92,12 @@ export default function OrgView() {
   )
 
   // 组织
-  async function loadOrgs() {
+  async function loadOrgs(): Promise<number | null> {
     const res = await orgApi.listOrganizations(1, 100)
     setOrgs(res.items)
-    setCurrentOrgId((cur) => (cur ?? (res.items.length ? res.items[0].id : null)))
+    const firstId = res.items.length ? res.items[0].id : null
+    setCurrentOrgId((cur) => (cur ?? firstId))
+    return firstId
   }
 
   async function onSelectOrg(id: number | null) {
@@ -338,10 +338,15 @@ export default function OrgView() {
   }
 
   useEffect(() => {
+    let cancelled = false
     void (async () => {
-      await loadOrgs()
-      if (currentOrgId) void onSelectOrg(currentOrgId)
+      // C3: loadOrgs 返回首个 org id，避免闭包 currentOrgId 恒为 null 导致首组织部门/成员/邀请不加载
+      const firstId = await loadOrgs()
+      if (!cancelled && firstId) void onSelectOrg(firstId)
     })()
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

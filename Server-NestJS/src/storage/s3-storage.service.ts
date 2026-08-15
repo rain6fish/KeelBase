@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { StorageService } from './storage.service';
 
 /**
@@ -61,5 +61,15 @@ export class S3StorageService implements StorageService {
   private _toUrl(key: string): string {
     if (this.publicUrl) return `${this.publicUrl.replace(/\/$/, '')}/${key}`;
     return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+  }
+
+  /** A8：S3 健康——HEAD bucket 可达即 up，超时/异常降级 down */
+  async checkHealth(): Promise<'up' | 'down'> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return 'up';
+    } catch {
+      return 'down';
+    }
   }
 }

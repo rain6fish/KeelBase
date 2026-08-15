@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -22,7 +24,51 @@ class _AppState extends State<App> {
   GoRouter? _router;
   AuthProvider? _lastAuth;
   OnboardingProvider? _lastOnboarding;
+  AuthProvider? _listenedAuth;
   bool? _lastAuthenticated;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authProvider = context.read<AuthProvider>();
+    if (!identical(authProvider, _listenedAuth)) {
+      _listenedAuth?.removeListener(_handleAuthChanged);
+      _listenedAuth = authProvider;
+      // 初始登录态不算“切换”：冷启动时避免误注销设备 token
+      _lastAuthenticated = authProvider.isAuthenticated;
+      authProvider.addListener(_handleAuthChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _listenedAuth?.removeListener(_handleAuthChanged);
+    super.dispose();
+  }
+
+  // GROWTH-1 推送：登录态变化时注册/注销设备 token（在监听器里处理，
+  // 不在 build() 中执行副作用，保证每次登录态切换都被处理）
+  void _handleAuthChanged() {
+    final authProvider = _listenedAuth;
+    if (authProvider == null || !mounted) return;
+    final isAuthenticated = authProvider.isAuthenticated;
+    if (isAuthenticated == _lastAuthenticated) return;
+    _lastAuthenticated = isAuthenticated;
+    final pushToken = context.read<PushTokenProvider>();
+    unawaited(_syncDeviceToken(pushToken, isAuthenticated));
+  }
+
+  Future<void> _syncDeviceToken(PushTokenProvider pushToken, bool register) async {
+    try {
+      if (register) {
+        await pushToken.registerDevice();
+      } else {
+        await pushToken.unregister();
+      }
+    } catch (e, st) {
+      debugPrint('[Push] device token sync failed: $e\n$st');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,21 +87,10 @@ class _AppState extends State<App> {
       _lastOnboarding = onboardingProvider;
     }
 
-    // GROWTH-1 推送：登录态变化时注册/注销设备 token（Noop 未接厂商时跳过）
-    final isAuthenticated = authProvider.isAuthenticated;
-    if (isAuthenticated != _lastAuthenticated) {
-      _lastAuthenticated = isAuthenticated;
-      final pushToken = context.read<PushTokenProvider>();
-      if (isAuthenticated) {
-        pushToken.registerDevice();
-      } else {
-        pushToken.unregister();
-      }
-    }
-
     final isDark = themeProvider.themeMode == AppThemeMode.dark ||
         (themeProvider.themeMode == AppThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+            View.of(context).platformDispatcher.platformBrightness ==
+                Brightness.dark);
 
     return CupertinoApp.router(
       title: 'KeelBase',

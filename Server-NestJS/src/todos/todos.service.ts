@@ -18,6 +18,8 @@ export class TodosService {
 
   async create(dto: CreateTodoDto, userId: number): Promise<Todo> {
     // ORG-3 二期：创建时自动归属用户所属组织（同组织成员可见）
+    // A11：组织内新待办强制共享是设计（「同组织成员可见」），暂无 per-todo 私有化 opt-out；
+    // 非组织成员创建的不带 orgId，仅本人可见。
     const orgId = await this._userOrgId(userId);
     const todo = this.todosRepository.create({
       ...dto,
@@ -29,7 +31,7 @@ export class TodosService {
   }
 
   async findAll(userId: number): Promise<Todo[]> {
-    // ORG-3 二期：本人待办 OR 同组织待办
+    // ORG-3 二期：本人待办 OR 同组织待办（与 findOne/update/remove 的「同组可读」保持一致）
     const orgId = await this._userOrgId(userId);
     const where: any[] = [{ userId }];
     if (orgId != null) where.push({ orgId });
@@ -49,26 +51,48 @@ export class TodosService {
     }
   }
 
-  async findOne(id: number, ability: AppAbility): Promise<Todo> {
+  async findOne(id: number, ability: AppAbility, userId?: number): Promise<Todo> {
     const todo = await this.todosRepository.findOne({ where: { id } });
     if (!todo) throw new NotFoundException('Todo not found');
-    if (ability.cannot('read', subject('Todo', todo))) {
+    if (!(await this._canAccess(todo, ability, userId))) {
       throw new ForbiddenException('无权访问此待办');
     }
     return todo;
   }
 
-  async update(id: number, dto: UpdateTodoDto, ability: AppAbility): Promise<Todo> {
-    const todo = await this.findOne(id, ability);
+  async update(
+    id: number,
+    dto: UpdateTodoDto,
+    ability: AppAbility,
+    userId?: number,
+  ): Promise<Todo> {
+    const todo = await this.findOne(id, ability, userId);
     const updateData: any = { ...dto };
     if (dto.dueDate) updateData.dueDate = new Date(dto.dueDate);
     Object.assign(todo, updateData);
     return this.todosRepository.save(todo);
   }
 
-  async remove(id: number, ability: AppAbility): Promise<void> {
-    const todo = await this.findOne(id, ability);
+  async remove(id: number, ability: AppAbility, userId?: number): Promise<void> {
+    const todo = await this.findOne(id, ability, userId);
     // RG-3 软删除：置 deleted_at，管理台回收站可恢复
     await this.todosRepository.softDelete(todo.id);
+  }
+
+  /**
+   * ORG-3 统一访问控制：本人（CASL 所有权）或同组织成员可读/管理，
+   * 与列表层（本人 OR 同组织）保持一致，消除「列表可见但明细 403」的半套隔离。
+   */
+  private async _canAccess(
+    todo: Todo,
+    ability: AppAbility,
+    userId?: number,
+  ): Promise<boolean> {
+    if (ability.can('read', subject('Todo', todo))) return true;
+    if (todo.orgId != null && userId != null) {
+      const orgId = await this._userOrgId(userId);
+      if (orgId != null && orgId === todo.orgId) return true;
+    }
+    return false;
   }
 }

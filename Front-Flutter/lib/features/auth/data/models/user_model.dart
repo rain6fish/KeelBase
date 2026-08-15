@@ -11,7 +11,10 @@ class UserModel {
   final String? avatarUrl;
   final String? createdAt;
   final bool emailVerified;
-  /// 角色：user | admin（登录/me 返回，主 App 用于判断是否展示管理入口）
+  /// 角色：user | admin（登录/me 返回，主 App 仅用于判断是否展示管理入口）。
+  ///
+  /// 注意：此字段仅作 UI 显示提示，绝不能作为权限边界——它直接来自未信任的
+  /// JSON 载荷，任何权限判断一律在服务端（CASL）执行，前端不做授权决策。
   final String role;
 
   UserModel({
@@ -31,8 +34,8 @@ class UserModel {
   });
 
   String get displayName {
-    if (firstName != null && lastName != null) return '$firstName $lastName';
-    return nickname;
+    final name = [firstName, lastName].whereType<String>().join(' ');
+    return name.isEmpty ? nickname : name;
   }
 
   UserModel copyWith({bool? emailVerified, String? avatarUrl}) {
@@ -54,11 +57,14 @@ class UserModel {
   }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'];
+    final rawUsername = json['username'];
+    final rawNickname = json['nickname'];
     return UserModel(
-      id: json['id'] as int,
-      username: json['username'] as String,
+      id: rawId is int ? rawId : 0,
+      username: rawUsername is String ? rawUsername : '',
       email: json['email'] as String? ?? '',
-      nickname: json['nickname'] as String,
+      nickname: rawNickname is String ? rawNickname : '',
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       dateOfBirth: json['dateOfBirth'] as String?,

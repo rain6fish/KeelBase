@@ -17,6 +17,7 @@ class _BindPhonePageState extends State<BindPhonePage> {
   final _phoneCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _submitting = false;
+  bool _sendingCode = false;
   int _codeCooldown = 0;
 
   @override
@@ -26,50 +27,78 @@ class _BindPhonePageState extends State<BindPhonePage> {
     super.dispose();
   }
 
+  static bool _isValidPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'[\s-]'), '');
+    return RegExp(r'^\+?\d{6,15}$').hasMatch(digits);
+  }
+
   Future<void> _sendCode() async {
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
       AppToast.error(context, context.l10n.phoneRequired);
       return;
     }
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.sendSmsCode(phone);
-    if (!mounted) return;
-    if (ok) {
-      setState(() => _codeCooldown = 60);
-      Future.doWhile(() async {
-        if (!mounted) return false;
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted && _codeCooldown > 1) {
-          setState(() => _codeCooldown -= 1);
-          return true;
-        }
-        if (mounted) setState(() => _codeCooldown = 0);
-        return false;
-      });
-      AppToast.success(context, context.l10n.smsCodeSent);
-    } else {
-      AppToast.error(context, auth.error ?? context.l10n.unknownError);
+    if (!_isValidPhone(phone)) {
+      AppToast.error(context, context.l10n.phoneOrCodeInvalid);
+      return;
     }
+    // 防止请求在途时重复发送（重复短信 + 并发倒计时竞态）
+    if (_sendingCode || _codeCooldown > 0) return;
+    setState(() => _sendingCode = true);
+    final auth = context.read<AuthProvider>();
+    try {
+      final ok = await auth.sendSmsCode(phone);
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _codeCooldown = 60);
+        _startCodeCooldown();
+        AppToast.success(context, context.l10n.smsCodeSent);
+      } else {
+        AppToast.error(context, auth.error ?? context.l10n.unknownError);
+      }
+    } finally {
+      if (mounted) setState(() => _sendingCode = false);
+    }
+  }
+
+  void _startCodeCooldown() {
+    Future.doWhile(() async {
+      if (!mounted) return false;
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted && _codeCooldown > 1) {
+        setState(() => _codeCooldown -= 1);
+        return true;
+      }
+      if (mounted) setState(() => _codeCooldown = 0);
+      return false;
+    });
   }
 
   Future<void> _bind() async {
     final phone = _phoneCtrl.text.trim();
     final code = _codeCtrl.text.trim();
-    if (phone.isEmpty || code.length != 6) {
+    if (phone.isEmpty) {
+      AppToast.error(context, context.l10n.phoneRequired);
+      return;
+    }
+    if (!_isValidPhone(phone) || code.length != 6) {
       AppToast.error(context, context.l10n.phoneOrCodeInvalid);
       return;
     }
+    if (_submitting) return;
     setState(() => _submitting = true);
     final auth = context.read<AuthProvider>();
-    final ok = await auth.bindPhone(phone, code);
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    if (ok) {
-      AppToast.success(context, context.l10n.phoneBound);
-      context.pop();
-    } else {
-      AppToast.error(context, auth.error ?? context.l10n.unknownError);
+    try {
+      final ok = await auth.bindPhone(phone, code);
+      if (!mounted) return;
+      if (ok) {
+        AppToast.success(context, context.l10n.phoneBound);
+        if (context.canPop()) context.pop();
+      } else {
+        AppToast.error(context, auth.error ?? context.l10n.unknownError);
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -136,7 +165,7 @@ class _BindPhonePageState extends State<BindPhonePage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     color: _codeCooldown > 0 ? CupertinoColors.systemGrey : t.primaryColor,
                     borderRadius: const BorderRadius.all(Radius.circular(12)),
-                    onPressed: _codeCooldown > 0 ? null : _sendCode,
+                    onPressed: (_codeCooldown > 0 || _sendingCode) ? null : _sendCode,
                     child: Text(
                       _codeCooldown > 0 ? '${_codeCooldown}s' : l10n.sendCode,
                       style: const TextStyle(fontSize: 14, color: CupertinoColors.white, fontWeight: FontWeight.w600),

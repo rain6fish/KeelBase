@@ -35,4 +35,14 @@ export class LocalStorageService implements StorageService {
       this.logger.warn(`[Storage] local delete failed: ${(err as Error).message}`);
     }
   }
+
+  /** A8：本地磁盘健康——目录可访问即可（不可写会在 save 时报错） */
+  async checkHealth(): Promise<'up' | 'down'> {
+    try {
+      await fs.access(LOCAL_UPLOAD_DIR);
+      return 'up';
+    } catch {
+      return 'down';
+    }
+  }
 }

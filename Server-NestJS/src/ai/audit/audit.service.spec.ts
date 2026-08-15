@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
+import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AuditService } from './audit.service';
 
 function makeLogRepo() {
@@ -18,33 +19,72 @@ function makeLogRepo() {
   };
 }
 
+function makeUsageRepo() {
+  return {
+    findOne: jest.fn().mockResolvedValue(null),
+    save: jest.fn((x) => Promise.resolve(x)),
+    create: jest.fn((x) => x ?? {}),
+  };
+}
+
 describe('AuditService', () => {
   let service: AuditService;
   let repo: ReturnType<typeof makeLogRepo>;
+  let usageRepo: ReturnType<typeof makeUsageRepo>;
 
   beforeEach(async () => {
     repo = makeLogRepo();
+    usageRepo = makeUsageRepo();
     const moduleRef = await Test.createTestingModule({
-      providers: [AuditService, { provide: getRepositoryToken(AiAuditLog), useValue: repo }],
+      providers: [
+        AuditService,
+        { provide: getRepositoryToken(AiAuditLog), useValue: repo },
+        { provide: getRepositoryToken(AiDailyUsage), useValue: usageRepo },
+      ],
     }).compile();
     service = moduleRef.get(AuditService);
   });
 
-  describe('countChatsToday（RG-2.1）', () => {
-    it('按 userId + 当日 + 非错误过滤统计', async () => {
-      repo.createQueryBuilder().getCount.mockResolvedValue(7);
+  describe('countChatsToday / incrementDailyUsage（RG-2.1 / A2）', () => {
+    it('从独立计数表读取当日用量（不依赖审计粒度）', async () => {
+      usageRepo.findOne.mockResolvedValue({ userId: '42', usageDate: '2026-08-15', count: 7 });
 
       const count = await service.countChatsToday('42');
 
       expect(count).toBe(7);
-      expect(repo.createQueryBuilder).toHaveBeenCalled();
-      const qb = repo.createQueryBuilder();
-      expect(qb.where).toHaveBeenCalledWith('log.userId = :userId', { userId: '42' });
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'log.createdAt >= :start',
-        expect.any(Object),
+      expect(usageRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ userId: '42' }) }),
       );
-      expect(qb.andWhere).toHaveBeenCalledWith('log.isError = :err', { err: false });
+    });
+
+    it('无记录时返回 0', async () => {
+      usageRepo.findOne.mockResolvedValue(null);
+      await expect(service.countChatsToday('42')).resolves.toBe(0);
+    });
+
+    it('已有记录时自增 count', async () => {
+      usageRepo.findOne.mockResolvedValue({ userId: '42', usageDate: '2026-08-15', count: 3 });
+      await service.incrementDailyUsage('42');
+      expect(usageRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ count: 4 }),
+      );
+    });
+
+    it('无记录时创建 count=1', async () => {
+      usageRepo.findOne.mockResolvedValue(null);
+      await service.incrementDailyUsage('42');
+      expect(usageRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '42', count: 1, usageDate: expect.any(String) }),
+      );
+    });
+
+    it('并发首写冲突时改走自增路径（A2）', async () => {
+      usageRepo.findOne
+        .mockResolvedValueOnce(null) // 首次检查无记录
+        .mockResolvedValueOnce({ userId: '42', usageDate: '2026-08-15', count: 5 }); // save 冲突后重查
+      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' });
+      await service.incrementDailyUsage('42');
+      expect(usageRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({ count: 6 }));
     });
   });
 

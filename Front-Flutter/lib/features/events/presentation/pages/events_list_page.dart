@@ -25,7 +25,10 @@ class _EventsListPageState extends State<EventsListPage> {
   DateTime? _srchEnd;
   bool _showSearch = false;
   bool _dayFiltered = false; // true = list shows only selected date's events
-  bool _firstLoad = true;
+
+  // 自动滚动跟踪：仅当选中的日期真正变化时才滚动，避免每次重建抢走用户滚动位置
+  DateTime? _autoScrollDay;
+  DateTime? _autoScrollWeek;
 
   @override
   void initState() {
@@ -48,19 +51,19 @@ class _EventsListPageState extends State<EventsListPage> {
   void _onScroll() {
     if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
       final p = context.read<EventsProvider>();
+      if (p.loadingMore) return; // 已有分页请求在途，避免重复触发
       if (p.mode == EventsMode.all && p.hasMore) p.loadMoreAll();
       else if (p.mode == EventsMode.search && p.hasMore) p.loadMore();
     }
   }
 
   void _toggleSearch() {
-    setState(() => _showSearch = !_showSearch);
-    if (_showSearch) {}
-    else {
+    if (_showSearch) {
       _searchCtrl.clear();
       _srchStart = null;
       _srchEnd = null;
     }
+    setState(() => _showSearch = !_showSearch);
   }
 
   void _search() {
@@ -329,10 +332,10 @@ class _EventsListPageState extends State<EventsListPage> {
           ),
         CupertinoButton(padding: const EdgeInsets.all(6), minSize: 32,
           child: Icon(CupertinoIcons.chevron_left, size: 18, color: t.primaryColor ?? CupertinoColors.systemBlue),
-          onPressed: () { p.prevWeek(); }),
+          onPressed: () { p.viewMode == CalendarViewMode.month ? p.prevMonth() : p.prevWeek(); }),
         CupertinoButton(padding: const EdgeInsets.all(6), minSize: 32,
           child: Icon(CupertinoIcons.chevron_right, size: 18, color: t.primaryColor ?? CupertinoColors.systemBlue),
-          onPressed: () { p.nextWeek(); }),
+          onPressed: () { p.viewMode == CalendarViewMode.month ? p.nextMonth() : p.nextWeek(); }),
       ]),
     );
   }
@@ -365,7 +368,7 @@ class _EventsListPageState extends State<EventsListPage> {
             final isT = date != null && _sameDay(date, today);
             final has = date != null && (p.eventsByDate[_norm(date)]?.isNotEmpty ?? false);
             return Expanded(child: GestureDetector(
-              onDoubleTap: () { if (date != null) context.push('/events/create'); },
+              onDoubleTap: () { if (date != null) { p.selectDate(date); context.push('/events/create'); } },
               onTap: () {
               if (date != null) {
                 p.selectDate(date);
@@ -410,7 +413,7 @@ class _EventsListPageState extends State<EventsListPage> {
           final isT = _sameDay(date, DateTime.now());
           final has = p.eventsByDate[_norm(date)]?.isNotEmpty ?? false;
           return GestureDetector(
-            onDoubleTap: () => context.push('/events/create'),
+            onDoubleTap: () { p.selectDate(date); context.push('/events/create'); },
             onTap: () {
                 p.selectDate(date);
                 setState(() => _dayFiltered = p.viewMode != CalendarViewMode.day);
@@ -460,14 +463,18 @@ class _EventsListPageState extends State<EventsListPage> {
     final sorted = List<EventModel>.from(items)..sort((a,b) => a.startTime.compareTo(b.startTime));
     final firstEventHour = sorted.isNotEmpty ? sorted.first.startTime.toLocal().hour : 8;
 
-    // Auto-scroll to first event after build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final scrollPos = firstEventHour * _hourH - 30; // 30px padding at top
-      if (_scrollCtrl.hasClients && scrollPos > 0) {
-        _scrollCtrl.animateTo(scrollPos > _scrollCtrl.position.maxScrollExtent ? _scrollCtrl.position.maxScrollExtent : scrollPos,
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
-    });
+    // 仅当选中的日期变化时才自动滚动到首个事件，避免重建/下拉刷新抢走用户位置
+    final dayKey = _norm(p.selectedDate);
+    if (_autoScrollDay != dayKey) {
+      _autoScrollDay = dayKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final scrollPos = firstEventHour * _hourH - 30; // 30px padding at top
+        if (_scrollCtrl.hasClients && scrollPos > 0) {
+          _scrollCtrl.animateTo(scrollPos > _scrollCtrl.position.maxScrollExtent ? _scrollCtrl.position.maxScrollExtent : scrollPos,
+            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+        }
+      });
+    }
 
     return Column(children: [
       Padding(
@@ -558,7 +565,7 @@ class _EventsListPageState extends State<EventsListPage> {
                             border: Border(left: BorderSide(color: evColor, width: 3)),
                           ),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                            if (safeH > 24) Text(e.title.isNotEmpty ? e.title : '(No Title)',
+                            if (safeH > 24) Text(e.title.isNotEmpty ? e.title : context.l10n.noTitle,
                               style: TextStyle(fontSize: safeH > 30 ? 13 : 11, fontWeight: FontWeight.w600, color: t.textTheme.textStyle.color),
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                             if (safeH > 24 && e.location != null)
@@ -604,36 +611,38 @@ class _EventsListPageState extends State<EventsListPage> {
     return sections;
   }
 
-  int _weekScrollToIndex = -1;
-
   Widget _buildWeekView(EventsProvider p) {
     final l = context.l10n;
     final sections = _getViewSections(p, true);
 
     if (sections.isEmpty) return AppEmptyView(message: l.noEventsForDate);
 
-    // Scroll to selected date when it changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollCtrl.hasClients) return;
-      int target = -1;
-      for (int i = 0; i < sections.length; i++) {
-        if (sections[i].isHeader && sections[i].date != null && _sameDay(sections[i].date!, p.selectedDate)) {
-          target = i;
-          break;
+    // 仅当选中的日期变化时才滚动到对应日期标头，避免重建/删除/刷新抢走用户位置
+    final weekKey = _norm(p.selectedDate);
+    if (_autoScrollWeek != weekKey) {
+      _autoScrollWeek = weekKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollCtrl.hasClients) return;
+        int target = -1;
+        for (int i = 0; i < sections.length; i++) {
+          if (sections[i].isHeader && sections[i].date != null && _sameDay(sections[i].date!, p.selectedDate)) {
+            target = i;
+            break;
+          }
         }
-      }
-      if (target > 0) {
-        double offset = 0;
-        for (int i = 0; i < target; i++) {
-          offset += sections[i].isHeader ? 44.0 : 56.0;
+        if (target > 0) {
+          double offset = 0;
+          for (int i = 0; i < target; i++) {
+            offset += sections[i].isHeader ? 44.0 : 56.0;
+          }
+          final max = _scrollCtrl.position.maxScrollExtent;
+          if (offset > max && max > 0) offset = max;
+          if ((_scrollCtrl.position.pixels - offset).abs() > 20) {
+            _scrollCtrl.animateTo(offset, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
         }
-        final max = _scrollCtrl.position.maxScrollExtent;
-        if (offset > max && max > 0) offset = max;
-        if ((_scrollCtrl.position.pixels - offset).abs() > 20) {
-          _scrollCtrl.animateTo(offset, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-        }
-      }
-    });
+      });
+    }
 
     return CupertinoScrollbar(controller: _scrollCtrl, child: CustomScrollView(
       controller: _scrollCtrl, physics: const AlwaysScrollableScrollPhysics(),
@@ -702,7 +711,7 @@ class _EventsListPageState extends State<EventsListPage> {
               Container(width: 3, height: 32, margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2))),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e.title.isNotEmpty ? e.title : '(No Title)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textTheme.textStyle.color), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(e.title.isNotEmpty ? e.title : context.l10n.noTitle, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textTheme.textStyle.color), maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text('$s - $en', style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey.resolveFrom(context))),
               ])),
               CupertinoButton(padding: const EdgeInsets.all(4), minSize: 28,
@@ -723,6 +732,8 @@ class _EventsListPageState extends State<EventsListPage> {
   Widget _buildMonthListView(EventsProvider p) {
     final l = context.l10n;
     final sections = _getViewSections(p, false);
+
+    if (sections.isEmpty) return AppEmptyView(message: l.noEventsForDate);
 
     return CupertinoScrollbar(controller: _scrollCtrl, child: CustomScrollView(
       controller: _scrollCtrl, physics: const AlwaysScrollableScrollPhysics(),
@@ -765,6 +776,15 @@ class _EventsListPageState extends State<EventsListPage> {
     final l = context.l10n;
     final items = p.allEvents;
     final loadingMore = p.loadingMore;
+    if (p.loading && items.isEmpty) return const LoadingWidget();
+    if (p.error != null && items.isEmpty) {
+      return AppErrorView(
+        message: p.error!,
+        onRetry: () => p.mode == EventsMode.search
+            ? p.search(reload: true)
+            : p.loadAll(reload: true),
+      );
+    }
     if (items.isEmpty && !p.loading) return AppEmptyView(message: l.noEvents);
     return Column(children: [
       Padding(padding: const EdgeInsets.fromLTRB(16,8,16,4), child: Row(children: [
@@ -856,7 +876,7 @@ class _EventsListPageState extends State<EventsListPage> {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(width:4, height:60, decoration:BoxDecoration(color:c, borderRadius:const BorderRadius.only(topLeft:Radius.circular(10), bottomLeft:Radius.circular(10)))),
               Expanded(child: Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:10), child:Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e.title.isNotEmpty ? e.title : '(No Title)', style:TextStyle(fontSize:15, fontWeight:FontWeight.w600, color:t.textTheme.textStyle.color), maxLines:1, overflow:TextOverflow.ellipsis),
+                Text(e.title.isNotEmpty ? e.title : context.l10n.noTitle, style:TextStyle(fontSize:15, fontWeight:FontWeight.w600, color:t.textTheme.textStyle.color), maxLines:1, overflow:TextOverflow.ellipsis),
                 if (e.location != null || (e.description != null && e.description!.isNotEmpty)) ...[
                   const SizedBox(height:3),
                   Text([e.location, e.description].where((s) => s != null && s.isNotEmpty).join(' · '),
@@ -897,6 +917,7 @@ class _EventsListPageState extends State<EventsListPage> {
   // ═══════════════ 日期选择器 ═══════════════
 
   void _datePicker(bool isStart) {
+    final l = context.l10n;
     final initial = isStart ? (_srchStart ?? DateTime.now()) : (_srchEnd ?? DateTime.now().add(const Duration(days:7)));
     DateTime? picked;
     showCupertinoModalPopup(context:context, builder:(ctx) {
@@ -907,8 +928,8 @@ class _EventsListPageState extends State<EventsListPage> {
         child: Column(children:[
           Container(height:44, color:CupertinoTheme.of(context).barBackgroundColor,
             child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween, children:[
-              CupertinoButton(child:const Text('Cancel'), onPressed:()=>Navigator.pop(ctx)),
-              CupertinoButton(child:const Text('Done'), onPressed:(){picked=local; Navigator.pop(ctx);})])),
+              CupertinoButton(child:Text(l.cancel), onPressed:()=>Navigator.pop(ctx)),
+              CupertinoButton(child:Text(l.done), onPressed:(){picked=local; Navigator.pop(ctx);})])),
           Expanded(child:CupertinoDatePicker(initialDateTime:initial, mode:CupertinoDatePickerMode.date, onDateTimeChanged:(v){local=v;})),
         ]));
     }).then((_){
