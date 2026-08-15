@@ -120,7 +120,8 @@ jobs:
       - run: npm run typecheck
       # 严格 lint（不带 --fix，避免 CI 悄悄改文件）；本地开发用 npm run lint 自动修复
       - run: npx eslint . --ext .vue,.ts
-      - run: npm test
+      # vitest + coverage 门槛（statements/branches/functions/lines ≥ 30/50/25/30，见 vitest.config.ts）
+      - run: npx vitest run --coverage
       - run: npm run build
 
   taro-build:
@@ -152,4 +153,13 @@ jobs:
       - run: flutter pub get
       # 容忍既有 warning/info（项目有 100+ 历史 lint 问题），仅 error 视为失败
       - run: flutter analyze --no-fatal-warnings --no-fatal-infos
-      - run: flutter test
+      # 单测 + 覆盖率门禁（行覆盖 ≥45%，防回归；awk 解析 lcov.info 不引入额外依赖）
+      - run: flutter test --coverage
+      - name: Enforce line coverage ≥45%
+        run: |
+          awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END {
+            if (lf == 0) { print "no coverage data"; exit 1 }
+            pct = 100 * lh / lf;
+            printf "Line coverage: %.1f%%\n", pct;
+            if (pct < 45) { print "Coverage below 45% threshold"; exit 1 }
+          }' coverage/lcov.info
