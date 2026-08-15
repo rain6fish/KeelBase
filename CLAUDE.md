@@ -875,6 +875,16 @@ npm run typecheck     # vue-tsc 类型检查
 
 **模块**：登录 / 概览 / 用户管理（列表·角色·删除·详情）/ 事件管理（全量·删除）/ 知识库 / 通知广播 / 监控中心 / AI 审计 / 操作审计 / 会话管理 / 可观测性 / 系统信息 / 回收站 / 数据导入 / 模板市场 / AI 评测 / 工具与副作用 / 平台统计
 
+### 13.1 Web-Admin-React（预览版 / Preview）
+
+**定位：预览版（Preview）**——前端 UI 与 Vue 版（Web-Admin-Vue）保持一致，用于评估 React 技术方案；**Vue 版仍是主版本**，后续是否更新 React 版由用户单独决定（决定前不做部署/CI 接线）。
+
+- **技术栈（2026-08-15）**：React 19 + TypeScript（strict）+ Vite 6 + **MUI**（Material UI，视觉对标 Vuetify/Materio，因 Vuetify 仅支持 Vue）+ react-router（hash 模式）+ Zustand + axios + i18next。
+- **复用面**：API 客户端（统一解包 + 401 自动刷新）、localStorage keys（`admin_access_token/refresh_token/locale/theme`）、i18n 文案均与 Vue 版一致，两控制台共享同一后端会话。
+- **模块范围**：与 Vue 版逐页对齐（24 个控制台页 + 工作台 + 登录/403）。
+- **构建接线**：**本地 dev 独立**——`cd Web-Admin-React && npm run dev`（端口 10087，base `/admin-react/`，proxy `/api` → 3000）；未接入 CI/Docker/nginx。
+- **命令**：`npm run typecheck` / `npm run lint` / `npm test` / `npm run build`
+
 ---
 
 ## 14. 行为准则（通用编码规范）

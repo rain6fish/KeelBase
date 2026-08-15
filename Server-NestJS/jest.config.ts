@@ -23,6 +23,8 @@ const config: Config = {
       functions: 60,
       lines: 65,
     },
+    // 关键安全模块分档门槛由 scripts/check-security-coverage.mjs 在 test:cov 后门控
+    // （jest coverageThreshold 的目录 glob 在 Windows 反斜杠路径下无法匹配，见 T.5）
   },
   testEnvironment: 'node',
   moduleNameMapper: {
