@@ -23,6 +23,7 @@ import '../../features/posts/presentation/pages/posts_page.dart';
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/profile_edit_page.dart';
+import '../../features/org/presentation/pages/my_org_page.dart';
 import '../../features/auth/presentation/pages/bind_phone_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -232,6 +233,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/flows/tasks',
         builder: (_, _) => const FlowTasksPage(),
+      ),
+      // 我的组织（ORG-7，只读通讯录）
+      GoRoute(
+        path: '/my-org',
+        builder: (_, _) => const MyOrgPage(),
       ),
       // 帖子（EASY-2 生成）
       GoRoute(

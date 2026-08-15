@@ -8,6 +8,8 @@ import 'package:front_app/core/api/api_client.dart';
 import 'package:front_app/core/security/secure_storage_service.dart';
 import 'package:front_app/core/services/app_lock_provider.dart';
 import 'package:front_app/core/services/locale_provider.dart';
+import 'package:front_app/core/services/push_service.dart';
+import 'package:front_app/core/services/push_token_provider.dart';
 import 'package:front_app/core/services/theme_provider.dart';
 import 'package:front_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:front_app/features/auth/presentation/providers/auth_provider.dart';
@@ -64,6 +66,12 @@ void main() {
           ),
           ChangeNotifierProvider<AppLockProvider>(
             create: (_) => AppLockProvider(prefs),
+          ),
+          Provider<PushService>(
+            create: (_) => NoopPushService(),
+          ),
+          ProxyProvider2<ApiClient, PushService, PushTokenProvider>(
+            update: (_, api, push, __) => PushTokenProvider(api, push),
           ),
         ],
         child: const App(),
