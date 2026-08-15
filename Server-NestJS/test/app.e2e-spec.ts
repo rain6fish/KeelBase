@@ -4,6 +4,8 @@ import request from 'supertest';
 import sharp from 'sharp';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { UserRole } from '../src/common/entities/user.entity';
+import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
+import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 
 describe('App (e2e)', () => {
   let app: INestApplication;
@@ -1692,6 +1694,196 @@ describe('App (e2e)', () => {
         .post('/api/v1/auth/deactivate')
         .set(authHeader(tokens.accessToken))
         .send({ password: 'wrongpass' })
+        .expect(401);
+    });
+  });
+
+  describe('T.7 — AI write-confirmation flow', () => {
+    let userToken: string;
+    let userId: number;
+    let confirmationStore: ConfirmationStore;
+
+    beforeAll(async () => {
+      const tokens = await registerUser(app, {
+        username: 't7_ai_user',
+        email: 't7ai@test.com',
+        password: 'T7AiPass1',
+        nickname: 'T7Ai',
+      });
+      userToken = tokens.accessToken;
+      confirmationStore = app.get(ConfirmationStore);
+      const me = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set(authHeader(userToken))
+        .expect(200);
+      userId = me.body.data.id;
+    });
+
+    it('POST /ai/confirmations/:token approve resolves pending (确认→批准)', async () => {
+      // 直接注入 pending confirmation（真实流式 chat 需 LLM，测试直连 store）
+      const { token } = confirmationStore.create(String(userId), 'create_event', {
+        title: 'AI 确认流测试事件',
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 3600_000).toISOString(),
+      });
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/ai/confirmations/${token}`)
+        .set(authHeader(userToken))
+        .send({ decision: 'approve' })
+        .expect(200);
+      expect(res.body.data.ok).toBe(true);
+      // pending 已消费
+      expect(confirmationStore.pendingCount).toBe(0);
+    });
+
+    it('POST /ai/confirmations/:token rejects other user token (越权 404)', async () => {
+      const other = await registerUser(app, {
+        username: 't7_other',
+        email: 't7other@test.com',
+        password: 'T7Other1',
+        nickname: 'T7Other',
+      });
+      const { token } = confirmationStore.create(String(userId), 'create_todo', {
+        title: '他人不可确认',
+      });
+      // 另一用户拿 token 确认 → 404（token 属于他人）
+      await request(app.getHttpServer())
+        .post(`/api/v1/ai/confirmations/${token}`)
+        .set(authHeader(other.accessToken))
+        .send({ decision: 'approve' })
+        .expect(404);
+      // 未知 token → 404
+      await request(app.getHttpServer())
+        .post('/api/v1/ai/confirmations/unknown-token')
+        .set(authHeader(userToken))
+        .send({ decision: 'approve' })
+        .expect(404);
+    });
+
+    it('POST /ai/confirmations/:token reject (拒绝→decline)', async () => {
+      const { token } = confirmationStore.create(String(userId), 'create_event', {
+        title: '拒绝测试',
+      });
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/ai/confirmations/${token}`)
+        .set(authHeader(userToken))
+        .send({ decision: 'reject' })
+        .expect(200);
+      expect(res.body.data.ok).toBe(true);
+    });
+  });
+
+  describe('T.7 — write-tool idempotency + revoke (HS-3)', () => {
+    let userToken: string;
+    let adminToken: string;
+    let effectsService: AiToolEffectsService;
+    let ds: DataSource;
+
+    beforeAll(async () => {
+      const user = await registerUser(app, {
+        username: 't7_effect_user',
+        email: 't7effect@test.com',
+        password: 'T7EffPass1',
+        nickname: 'T7Eff',
+      });
+      userToken = user.accessToken;
+      // 提升为 admin（测试库无 seed admin，直接改 DB 角色后重新登录）
+      ds = app.get(DataSource);
+      const me = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set(authHeader(userToken))
+        .expect(200);
+      await ds.getRepository('users').update(me.body.data.id, { role: UserRole.ADMIN });
+      adminToken = (await loginAs(app, 't7_effect_user', 'T7EffPass1')).accessToken;
+      effectsService = app.get(AiToolEffectsService);
+    });
+
+    it('record 同参数两次 → 幂等键唯一，只有一条副作用', async () => {
+      // 先建一个真实 event（副作用指向真实目标，list 的 _loadTarget 才能正常）
+      const me = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set(authHeader(userToken))
+        .expect(200);
+      const eventRepo = ds.getRepository('Event');
+      const evt = await eventRepo.save({
+        title: '幂等测试事件',
+        startTime: new Date(),
+        endTime: new Date(Date.now() + 3600_000),
+        userId: me.body.data.id,
+      });
+      const ctx = {
+        userId: String(me.body.data.id),
+        conversationId: 'conv-t7-1',
+        toolName: 'create_event',
+        args: { title: '幂等测试事件', startTime: '2026-09-01T10:00:00Z' },
+      };
+      const first = await effectsService.record(ctx, 'event', evt.id);
+      const second = await effectsService.record(ctx, 'event', evt.id); // 同参数再记
+      // 幂等：返回同一效果记录（冲突跳过）
+      expect(first.id).toBe(second.id);
+      // DB 中只有一条
+      const count = await ds
+        .getRepository('ai_tool_side_effects')
+        .count({ where: { idempotencyKey: first.idempotencyKey } });
+      expect(count).toBe(1);
+    });
+
+    it('GET /ai/tool-effects 普通用户 403（越权，admin 可见）', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/ai/tool-effects')
+        .set(authHeader(userToken))
+        .expect(403);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/ai/tool-effects')
+        .set(authHeader(adminToken))
+        .expect(200);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('DELETE /ai/tool-effects/:id revoke 软删目标 event（可经回收站恢复）', async () => {
+      // 直插一个 event + 副作用记录
+      const me = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set(authHeader(userToken))
+        .expect(200);
+      const eventRepo = ds.getRepository('Event');
+      const evt = await eventRepo.save({
+        title: '可撤销 AI 事件',
+        startTime: new Date(),
+        endTime: new Date(Date.now() + 3600_000),
+        userId: me.body.data.id,
+      });
+      const effect = await effectsService.record(
+        { userId: String(me.body.data.id), toolName: 'create_event', args: { title: '可撤销 AI 事件' } },
+        'event',
+        evt.id,
+      );
+      const res = await request(app.getHttpServer())
+        .delete(`/api/v1/ai/tool-effects/${effect.id}`)
+        .set(authHeader(adminToken))
+        .expect(200);
+      expect(res.body.data.revoked).toBe(true);
+      // 目标 event 软删（默认查询不可见，回收站可见）
+      const after = await eventRepo.findOne({ where: { id: evt.id } });
+      expect(after).toBeNull();
+      const softDeleted = await eventRepo.findOne({ where: { id: evt.id }, withDeleted: true });
+      expect(softDeleted?.deletedAt).toBeTruthy();
+    });
+  });
+
+  describe('T.7 — headless API auth (HS-4)', () => {
+    it('POST /headless/chat 无 API Key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .send({ message: 'hello' })
+        .expect(401);
+    });
+
+    it('POST /headless/chat 错误 API Key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .set('x-api-key', 'wrong-key-123')
+        .send({ message: 'hello' })
         .expect(401);
     });
   });
