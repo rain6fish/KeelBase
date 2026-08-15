@@ -5,7 +5,7 @@
  * 使用 TypeORM 持久化对话和审计日志。
  */
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventsModule } from '../events/events.module';
@@ -65,7 +65,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     ConfigModule,
-    EventsModule,
+    forwardRef(() => EventsModule),
     UsersModule,
     TodosModule,
     QueueModule,
@@ -216,6 +216,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, LlmProviderFactory],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService],
 })
 export class AiModule {}

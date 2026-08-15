@@ -107,6 +107,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddGeneratedModuleSchemas*.js',
               'dist/migrations/*AddOrgStructures*.js',
               'dist/migrations/*AddGrowthCommunity*.js',
+              'dist/migrations/*AddEventOrgId*.js',
 
             ],
             migrationsRun: !isDev && !useSync,

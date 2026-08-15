@@ -49,6 +49,10 @@ export class Event {
   @Column({ nullable: true })
   userId?: number;
 
+  /** ORG-3 组织级数据隔离：所属组织 id（null=仅本人可见） */
+  @Column({ type: 'int', nullable: true, name: 'org_id' })
+  orgId?: number | null;
+
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user?: User;
