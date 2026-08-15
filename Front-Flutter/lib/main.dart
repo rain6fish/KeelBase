@@ -40,6 +40,8 @@ import 'features/posts/data/repositories/posts_repository.dart';
 import 'features/posts/presentation/providers/posts_provider.dart';
 import 'features/org/data/repositories/org_repository.dart';
 import 'features/org/presentation/providers/org_provider.dart';
+import 'features/points/data/repositories/points_repository.dart';
+import 'features/points/presentation/providers/points_provider.dart';
 
 import 'features/todos/presentation/providers/todos_provider.dart';
 import 'features/search/data/repositories/search_repository.dart';
@@ -247,6 +249,11 @@ Future<void> _initApp() async {
         // 我的组织（ORG-7，只读通讯录）
         ChangeNotifierProvider<OrgProvider>(
           create: (_) => OrgProvider(OrgRepository(apiClient)),
+        ),
+
+        // 积分 / 签到（GROWTH-3）
+        ChangeNotifierProvider<PointsProvider>(
+          create: (_) => PointsProvider(PointsRepository(apiClient)),
         ),
 
         // Version check
