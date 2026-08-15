@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
@@ -6,28 +6,47 @@ import { Todo } from './todo.entity';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { OrgService } from '../org/org.service';
 
 @Injectable()
 export class TodosService {
   constructor(
     @InjectRepository(Todo)
     private readonly todosRepository: Repository<Todo>,
+    @Optional() private readonly orgService?: OrgService,
   ) {}
 
   async create(dto: CreateTodoDto, userId: number): Promise<Todo> {
+    // ORG-3 二期：创建时自动归属用户所属组织（同组织成员可见）
+    const orgId = await this._userOrgId(userId);
     const todo = this.todosRepository.create({
       ...dto,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       userId,
+      orgId: orgId ?? undefined,
     });
     return this.todosRepository.save(todo);
   }
 
   async findAll(userId: number): Promise<Todo[]> {
+    // ORG-3 二期：本人待办 OR 同组织待办
+    const orgId = await this._userOrgId(userId);
+    const where: any[] = [{ userId }];
+    if (orgId != null) where.push({ orgId });
     return this.todosRepository.find({
-      where: { userId },
+      where,
       order: { completed: 'ASC', createdAt: 'DESC' },
     });
+  }
+
+  /** ORG-3：取用户所属组织 id（非成员或未注入 orgService 返回 null） */
+  private async _userOrgId(userId?: number): Promise<number | null> {
+    if (!userId || !this.orgService) return null;
+    try {
+      return await this.orgService.getUserOrgId(userId);
+    } catch {
+      return null;
+    }
   }
 
   async findOne(id: number, ability: AppAbility): Promise<Todo> {
