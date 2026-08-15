@@ -170,6 +170,12 @@ class ProfilePage extends StatelessWidget {
             header: Text(l10n.sectionAccount),
             children: [
               CupertinoListTile(
+                leading: const Icon(CupertinoIcons.building_2_fill, color: CupertinoColors.systemTeal),
+                title: Text(l10n.myOrgTitle),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push('/my-org'),
+              ),
+              CupertinoListTile(
                 leading: const Icon(CupertinoIcons.phone_fill, color: CupertinoColors.systemGreen),
                 title: Text(l10n.bindPhone),
                 trailing: const CupertinoListTileChevron(),

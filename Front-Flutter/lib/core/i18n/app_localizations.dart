@@ -121,6 +121,17 @@ class AppLocalizations {
   String get flowNote => _t('Note (optional)', '意见（可选）');
   String get flowOpFailed => _t('Operation failed', '操作失败');
 
+  // ORG-7 我的组织 / 通讯录
+  String get myOrgTitle => _t('My Organization', '我的组织');
+  String get notInOrg => _t('You are not in any organization yet', '您尚未加入任何组织');
+  String get myOrgDept => _t('Departments', '部门');
+  String get myOrgMembers => _t('Members', '成员');
+  String get noDept => _t('No departments', '暂无部门');
+  String get noMember => _t('No members', '暂无成员');
+  String get roleOwner => _t('Owner', '所有者');
+  String get roleAdmin => _t('Admin', '管理员');
+  String get roleMember => _t('Member', '成员');
+
   // --- 标签（EASY-2 生成） ---
   String get tagsTitle => _t('Tag', '标签');
   String get tagsAddTitle => _t('New Tag', '新增标签');
