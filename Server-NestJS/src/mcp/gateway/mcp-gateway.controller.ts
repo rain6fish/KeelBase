@@ -1,18 +1,31 @@
 import { Controller, Get, Post, Delete, Param, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsNotEmpty, IsObject, IsString } from 'class-validator';
 import { McpGatewayService } from './mcp-gateway.service';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 
-class RegisterServerDto {
+export class RegisterServerDto {
+  @IsString()
+  @IsNotEmpty()
   name!: string;
+
+  @IsString()
+  @IsNotEmpty()
   url!: string;
 }
 
-class CallExternalToolDto {
+export class CallExternalToolDto {
+  @IsString()
+  @IsNotEmpty()
   serverName!: string;
+
+  @IsString()
+  @IsNotEmpty()
   toolName!: string;
+
+  @IsObject()
   arguments!: Record<string, unknown>;
 }
 
