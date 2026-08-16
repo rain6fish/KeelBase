@@ -13,6 +13,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Operations Manual / 运维手册](operations.md) | Ops / 运维 | Deploy, env vars, backup/restore, observability / 部署、环境变量、备份恢复、可观测性 |
 | [One-Click Deploy / 一键部署](one-click-deploy.md) | Ops / 运维 | 云服务器一键部署（私有化）/ cloud one-click deploy |
 | [Offline Deploy / 离线部署](offline-deploy.md) | Ops / 运维 | 内网/离线环境部署 / on-prem / air-gapped deploy |
+| [Admin Independent Deploy / 管理台独立部署](admin-deploy.md) | Ops / 运维 | 管理台独立域名部署 / standalone admin on its own domain (D.10) |
 
 Also see / 另见：
 - [README.md](../../README.md) — project overview / 项目概览

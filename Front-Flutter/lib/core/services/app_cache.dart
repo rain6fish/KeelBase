@@ -72,4 +72,23 @@ class AppCache {
     final ok = await prefs.remove(_key(namespace, key));
     if (!ok) debugPrint('[AppCache] remove 失败: $namespace:$key');
   }
+
+  /// 清空所有 AppCache 写入的缓存 key（登出/注销时调用，防跨账号缓存泄漏）。
+  /// 仅删除 AppCache 自己的 key（`jsonEncode([namespace, key])` 数组格式），
+  /// 不影响 refresh_token / theme_mode / language 等应用级 SharedPreferences 键。
+  Future<void> clearAll() async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    final keys = prefs.getKeys().where((k) {
+      try {
+        final decoded = jsonDecode(k);
+        return decoded is List && decoded.length == 2 && decoded.every((e) => e is String);
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+    for (final k in keys) {
+      await prefs.remove(k);
+    }
+  }
 }

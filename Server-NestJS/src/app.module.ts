@@ -112,6 +112,10 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddEventOrgId*.js',
               'dist/migrations/*AddTodoOrgId*.js',
               'dist/migrations/*AddPoints*.js',
+              'dist/migrations/*AddCheckinDateToPointsEntries*.js',
+              'dist/migrations/*AddAiDailyUsage*.js',
+              'dist/migrations/*AddAuditHashChain*.js',
+              'dist/migrations/*PostgresIncrementalSchema*.js',
 
             ],
             migrationsRun: !isDev && !useSync,
