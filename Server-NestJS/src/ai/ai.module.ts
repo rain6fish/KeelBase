@@ -223,6 +223,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
 })
 export class AiModule {}

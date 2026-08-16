@@ -28,8 +28,9 @@ Expose the existing AI tools (registered in ToolRegistry: query_events / create_
 
 ### 1.3 v1 范围 / 1.3 v1 Scope
 
-- **出口（本版）**：HTTP JSON-RPC 子集——`initialize` / `ping` / `tools/list` / `tools/call`（+ 通知 ack）。
-- **入口（后续迭代）**：外部 MCP 工具经 gateway 接入 KeelBase Agent 并过治理层（需外部 MCP server 联调，留待下一轮）。
+- **出口（v1）**：HTTP JSON-RPC 子集——`initialize` / `ping` / `tools/list` / `tools/call`（+ 通知 ack）。
+- **入口（v1，McpGatewayService）**：Settings 注册外部 MCP server（key=`mcp_servers`）→ 发现其工具 → 调用时**强制过治理层**（HS-9 权限/确认 + 审计）。admin 端点：`GET/POST/DELETE /admin/mcp/servers`、`GET /admin/mcp/tools`、`POST /admin/mcp/call`。
+- **Agent 对话集成**（外部工具并入 LLM 工具流）为下一轮；当前 gateway 通过 admin 端点暴露。
 - Streamable HTTP 会话 / SSE 推送后续升级（当前无状态 JSON-RPC 足够覆盖工具发现与调用）。
 
 ---
@@ -104,8 +105,10 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
   Stateless JSON-RPC: no Streamable HTTP sessions / SSE server push (future upgrade).
 - 写工具经 MCP 需确认但无内建确认 UI；确认流与「入口」一起迭代。
   Write tools via MCP require confirmation but have no built-in confirmation UI; the confirmation flow ships with the "entry" iteration.
-- MCP「入口」（外部工具接入 KeelBase Agent）未在本版实现。
-  The MCP "entry" (external tools into KeelBase's Agent) is not in this version.
+- MCP「入口」gateway（v1，McpGatewayService）已实现：外部 server 经 Settings 注册、发现/调用过治理层；但**尚未并入 LLM 对话工具流**（Agent 对话集成留待下一轮）。
+  The MCP "entry" gateway (v1, McpGatewayService) is implemented: external servers registered via Settings, discover/call through governance; but it is **not yet merged into the LLM conversation tool flow** (Agent-chat integration is the next round).
+- 外部工具默认确认策略：`readOnlyHint=true` 免确认；非只读默认需确认（第三方安全默认），HS-9 策略可覆盖。
+  External tool confirmation default: `readOnlyHint=true` skips confirmation; non-read-only defaults to requiring confirmation (safe third-party default), overridable via the HS-9 policy.
 
 ---
 
