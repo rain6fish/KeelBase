@@ -236,6 +236,21 @@ const zh = {
   revokeEffect: '撤销',
   revokeEffectConfirm: '确定撤销「{title}」？将软删对应记录（可经回收站恢复）',
 
+  // 治理策略（HS-9）
+  governancePolicy: '治理策略',
+  auditGranularity: '审计粒度',
+  auditAll: '全部操作',
+  auditWrite: '仅写操作',
+  auditOff: '关闭',
+  policyHint: '展示当前生效配置；保存后写入显式覆盖。',
+  allowedRoles: '允许角色',
+  noRestriction: '不限制',
+  roleUser: '普通用户',
+  savePolicy: '保存策略',
+  resetPolicy: '重置',
+  policySaved: '治理策略已保存，实时生效',
+  policySaveFailed: '保存策略失败',
+
   // 平台统计
   wau: '周活跃 (WAU)',
   mau: '月活跃 (MAU)',
