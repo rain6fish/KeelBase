@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEmail, MinLength, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsEmail, MinLength, MaxLength, Matches } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateUserDto {
@@ -48,10 +48,11 @@ export class UpdateUserDto {
   @MaxLength(256)
   avatarUrl?: string;
 
-  @ApiPropertyOptional({ description: '密码', example: 'newpassword123' })
+  @ApiPropertyOptional({ description: '密码（至少8位，需包含字母和数字）', example: 'newpassword123' })
   @IsOptional()
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   @MaxLength(128)
+  @Matches(/^(?=.*[a-zA-Z])(?=.*\d)/, { message: '密码必须包含字母和数字' })
   password?: string;
 }

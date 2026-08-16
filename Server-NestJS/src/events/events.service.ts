@@ -85,6 +85,9 @@ export class EventsService {
     limit = 20,
     filter: { keyword?: string; userId?: number; isCancelled?: boolean; start?: string; end?: string } = {},
   ): Promise<PaginatedResult<Omit<Event, 'user'> & { user?: { id: number; username: string } }>> {
+    // CR-19：limit 钳制 1-100，防超大值全表拉取 + 缓存键膨胀
+    page = Math.max(1, page);
+    limit = Math.min(Math.max(limit, 1), 100);
     const key = `events:list:${page}:${limit}`;
     const cached = await this.cacheService.get(key);
     if (cached && !this._hasFilter(filter)) return cached as any;
@@ -175,6 +178,9 @@ export class EventsService {
   }
 
   async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {
+    // CR-19：limit 钳制 1-100，防超大值全表拉取 + 缓存键膨胀
+    params.page = Math.max(1, params.page);
+    params.limit = Math.min(Math.max(params.limit, 1), 100);
     const key = `events:search:${userId ?? 'all'}:${params.keyword ?? ''}:${params.page}:${params.limit}:${params.start ?? ''}:${params.end ?? ''}`;
     const cached = await this.cacheService.get(key);
     if (cached) return cached as any;
