@@ -8,6 +8,12 @@ export class AuditQueryDto {
   @IsString()
   userId?: string;
 
+  @ApiPropertyOptional({ description: '按组织 ID 过滤（ORG-5 组织维度审计）' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  orgId?: number;
+
   @ApiPropertyOptional({ description: '返回条数上限', default: 50 })
   @IsOptional()
   @Type(() => Number)

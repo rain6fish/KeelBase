@@ -261,6 +261,15 @@ describe('AuditService', () => {
       await service.getUserLogs('42', { limit: 10 });
       expect(qb.where).toHaveBeenCalledWith('log.userId = :userId', { userId: '42' });
     });
+
+    it('getLogs 按组织维度过滤（ORG-5）', async () => {
+      const qb = mockQueryBuilder();
+      await service.getLogs({ orgId: 3 });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        { orgId: 3 },
+      );
+    });
   });
 
   describe('getStats / getAllStats', () => {
