@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Event } from '../events/event.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PushModule } from '../push/push.module';
 import { ReminderProcessor } from './reminder.processor';
 
 /**
@@ -14,6 +15,7 @@ import { ReminderProcessor } from './reminder.processor';
     BullModule.registerQueue({ name: 'reminder' }),
     TypeOrmModule.forFeature([Event]),
     NotificationsModule,
+    PushModule, // MINI-2：WxSubscribeService（事件提醒订阅消息）
   ],
   providers: [ReminderProcessor],
 })
