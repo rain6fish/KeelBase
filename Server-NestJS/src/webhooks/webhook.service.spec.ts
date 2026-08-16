@@ -42,7 +42,7 @@ describe('WebhookService (PL-14)', () => {
 
   it('subscribe 生成 secret 并保存', async () => {
     const repo = makeRepo();
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const sub = await svc.subscribe(1, { name: 'ops', url: 'https://hook.example.com', events: ['feedback.created'] });
     expect(sub.events).toEqual(['feedback.created']);
     expect(sub.secret).toBeUndefined(); // 视图不暴露 secret
@@ -54,7 +54,7 @@ describe('WebhookService (PL-14)', () => {
 
   it('list 返回本人订阅（视图不含 secret）', async () => {
     const repo = makeRepo([{ ...base(), id: 7 } as Partial<WebhookSubscription>]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const list = await svc.list(1);
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe(7);
@@ -63,7 +63,7 @@ describe('WebhookService (PL-14)', () => {
 
   it('remove 只删本人订阅', async () => {
     const repo = makeRepo();
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     await svc.remove(1, 5);
     expect(repo.delete).toHaveBeenCalledWith({ id: 5, userId: 1 });
   });
@@ -73,7 +73,7 @@ describe('WebhookService (PL-14)', () => {
       { ...base(), id: 1, eventsJson: JSON.stringify(['feedback.created']) } as Partial<WebhookSubscription>,
       { ...base(), id: 2, url: 'https://hook2.example.com', enabled: false } as Partial<WebhookSubscription>,
     ]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     (global as any).fetch = fetchMock;
 
@@ -89,7 +89,7 @@ describe('WebhookService (PL-14)', () => {
 
   it('publish 事件不匹配 → 不投递', async () => {
     const repo = makeRepo([{ ...base(), eventsJson: JSON.stringify(['todo.created']) } as Partial<WebhookSubscription>]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
     await svc.publish('feedback.created', {});
@@ -98,15 +98,36 @@ describe('WebhookService (PL-14)', () => {
 
   it('publish 投递失败静默（不抛异常）', async () => {
     const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
     (global as any).fetch = fetchMock;
     await expect(svc.publish('feedback.created', {})).resolves.toBeUndefined();
   });
 
+  it('投递失败按配置重试多次（可靠性）', async () => {
+    const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 3, backoffMs: 0 } as any);
+    const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
+    (global as any).fetch = fetchMock;
+    await svc.publish('feedback.created', {});
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('首次失败后第二次成功 → 不再重试', async () => {
+    const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 3, backoffMs: 0 } as any);
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('conn refused'))
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    (global as any).fetch = fetchMock;
+    await svc.publish('feedback.created', {});
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('testDeliver 返回签名与结果', async () => {
     const repo = makeRepo([{ ...base(), id: 3 } as Partial<WebhookSubscription>]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     (global as any).fetch = fetchMock;
     const out = await svc.testDeliver(1, 3);
@@ -116,7 +137,7 @@ describe('WebhookService (PL-14)', () => {
 
   it('testDeliver 未知订阅 → 错误', async () => {
     const repo = makeRepo([{ ...base(), id: 3 } as Partial<WebhookSubscription>]);
-    const svc = new WebhookService(repo as any);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const out = await svc.testDeliver(1, 99);
     expect(out.delivered).toBe(false);
     expect(out.error).toContain('not found');
