@@ -613,6 +613,7 @@ npm run migration:run
 | PATCH | /api/v1/notifications/read-all | Yes | 本人 | 全部标记已读 |
 | DELETE | /api/v1/notifications/:id | Yes | 本人 | 删除通知 |
 | POST | /api/v1/notifications/stream | Yes | 本人 | 通知实时推送（SSE 长连接） |
+| WS | /ws?token=&lt;jwt&gt; | 握手 JWT | 本人 | WebSocket 双向通道（RG-6）：握手失败 4401；通知推送（`notification` 事件）+ AI 流式（`ai:chat`/`ai:abort` → `ai:*` 事件）+ 通用双向 `message`；心跳 ping/pong；与 SSE 并存。协议详见 docs/ws-realtime.spec.md |
 | POST | /api/v1/ai/chat | Yes | 当前用户 | AI 对话（非流式） |
 | POST | /api/v1/ai/chat/stream | Yes | 当前用户 | AI 对话（SSE 流式；含 tool_start/tool_end 过程事件 + confirmation_request/confirmation_decision） |
 | POST | /api/v1/ai/confirmations/:token | Yes | 本人 | 确认 AI 写操作（create_event/create_todo，approve/reject，未知 token 404） |
@@ -653,6 +654,11 @@ npm run migration:run
 | POST | /api/v1/points/checkin | Yes | 本人 | 每日签到（checkin_date 唯一约束防重复，重复 409） |
 | GET | /api/v1/points/leaderboard | Yes | 本人 | 积分排行榜（脱敏：昵称/头像/积分，不含内部 userId） |
 | GET | /api/v1/points/achievements | Yes | 本人 | 成就列表（按正分毛累计判定，admin 扣分不回退） |
+| POST | /api/v1/webhooks | Yes | 本人 | 订阅 Webhook（PL-14：name/url/events，服务端生成 HMAC secret） |
+| GET | /api/v1/webhooks | Yes | 本人 | 我的 Webhook 订阅列表（视图不含 secret） |
+| PATCH | /api/v1/webhooks/:id | Yes | 本人 | 启用/停用 Webhook |
+| DELETE | /api/v1/webhooks/:id | Yes | 本人 | 删除 Webhook |
+| POST | /api/v1/webhooks/test/:id | Yes | 本人 | 测试投递（返回签名与结果） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
 | GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |

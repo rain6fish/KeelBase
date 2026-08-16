@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../common/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import type { WebhookPublisher } from '../webhooks/webhook.service';
 
 export interface FeedbackInput {
   type: 'suggestion' | 'bug' | 'praise';
@@ -27,6 +28,7 @@ export class FeedbackService {
   constructor(
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
+    @Optional() private readonly webhookPublisher?: WebhookPublisher,
   ) {}
 
   async submit(userId: string, input: FeedbackInput) {
@@ -46,6 +48,14 @@ export class FeedbackService {
       } catch (err) {
         this.logger.warn(`[Feedback] notify admin ${admin.id} failed: ${(err as Error).message}`);
       }
+    }
+    // PL-14：反馈事件发布（用户订阅了 feedback.created 的 webhook 收到投递）
+    if (this.webhookPublisher) {
+      await this.webhookPublisher
+        .publish('feedback.created', { type: input.type, userId })
+        .catch((err: Error) =>
+          this.logger.warn(`[Feedback] webhook publish failed: ${err.message}`),
+        );
     }
     this.logger.log(`[Feedback] user ${userId} submitted ${label} feedback`);
     return { received: true, notifiedAdmins: sent };
