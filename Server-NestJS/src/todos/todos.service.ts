@@ -7,6 +7,7 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
+import type { WebhookPublisher } from '../webhooks/webhook.service';
 
 @Injectable()
 export class TodosService {
@@ -14,6 +15,7 @@ export class TodosService {
     @InjectRepository(Todo)
     private readonly todosRepository: Repository<Todo>,
     @Optional() private readonly orgService?: OrgService,
+    @Optional() private readonly webhookPublisher?: WebhookPublisher,
   ) {}
 
   async create(dto: CreateTodoDto, userId: number): Promise<Todo> {
@@ -27,7 +29,14 @@ export class TodosService {
       userId,
       orgId: orgId ?? undefined,
     });
-    return this.todosRepository.save(todo);
+    const saved = await this.todosRepository.save(todo);
+    // PL-14：待办创建事件发布（订阅 todo.created 的 webhook 收到投递）
+    if (this.webhookPublisher) {
+      await this.webhookPublisher
+        .publish('todo.created', { todoId: saved.id, title: saved.title, userId })
+        .catch(() => undefined);
+    }
+    return saved;
   }
 
   async findAll(userId: number): Promise<Todo[]> {
