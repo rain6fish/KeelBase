@@ -97,6 +97,51 @@ describe('HeadlessKeysService（HS-4 治理）', () => {
   });
 
   describe('create / list / update / remove', () => {
+    it('authenticate 已禁用 key → 拒绝', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, enabled: false, keyHash: 'h' });
+      await expect(service.authenticate('some-key', '')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('list 返回全部 key 并解析 toolWhitelist', async () => {
+      repo.find.mockResolvedValue([
+        {
+          id: 1, name: 'k1', ownerUserId: 5, toolWhitelist: '["query_events"]',
+          quotaPerDay: 10, dailyUsed: 2, enabled: true, lastUsedAt: null, createdAt: new Date(),
+        },
+        { id: 2, name: 'k2', ownerUserId: 6, toolWhitelist: null, quotaPerDay: 0, dailyUsed: 0, enabled: true, lastUsedAt: null, createdAt: new Date() },
+      ]);
+      const list = await service.list();
+      expect(list).toHaveLength(2);
+      expect(list[0].toolWhitelist).toEqual(['query_events']);
+      expect(list[1].toolWhitelist).toBeNull();
+    });
+
+    it('update 成功更新全部字段', async () => {
+      const key = { id: 1, name: 'old', ownerUserId: 1, toolWhitelist: null, quotaPerDay: 0, enabled: true };
+      repo.findOne.mockResolvedValue(key);
+      repo.save.mockImplementation(async (k: any) => k);
+      const result = await service.update(1, {
+        name: 'new', ownerUserId: 9, toolWhitelist: ['query_events'], quotaPerDay: 50, enabled: false,
+      });
+      expect(result).toMatchObject({
+        name: 'new', ownerUserId: 9, quotaPerDay: 50, enabled: false,
+      });
+      expect(result.toolWhitelist).toBe(JSON.stringify(['query_events']));
+    });
+
+    it('hasStoredKeys：有/无 key 分别返回 true/false', async () => {
+      repo.count.mockResolvedValue(3);
+      await expect(service.hasStoredKeys()).resolves.toBe(true);
+      repo.count.mockResolvedValue(0);
+      await expect(service.hasStoredKeys()).resolves.toBe(false);
+    });
+
+    it('_findAdminId：usersService 抛错回退 1', async () => {
+      usersService.findOne.mockRejectedValueOnce(new Error('db down'));
+      const ctx = await service.authenticate('envkey', 'envkey');
+      expect(ctx.ownerUserId).toBe(1);
+    });
+
     it('create 返回明文 key（仅一次）且落库 hash', async () => {
       repo.save.mockImplementation((d: any) => Promise.resolve({ ...d, id: 1 }));
       const res = await service.create({ name: 'app1' });
