@@ -184,9 +184,12 @@ const en: ZhDict = {
   // Data import
   importUsers: 'Import Users',
   importEvents: 'Import Events',
+  importTodos: 'Import Todos',
   importUsersHint: 'CSV headers: username, email, password, nickname (optional firstname/lastname)',
   importEventsHint: 'CSV headers: userId, title, startTime, endTime, location, description',
+  importTodosHint: 'CSV headers: userId, title, completed, dueDate (completed: true/false, dueDate: ISO time, optional)',
   chooseCsv: 'Choose CSV',
+  downloadTemplate: 'Download Template',
   importResult: 'Import Result',
   importTotal: 'Rows',
   importSuccess: 'Success',
