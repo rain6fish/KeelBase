@@ -1,8 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { WebhookSubscription } from './webhook-subscription.entity';
+
+export interface WebhookRetryConfig {
+  attempts: number;
+  backoffMs: number;
+}
+
+const DEFAULT_RETRY: WebhookRetryConfig = { attempts: 3, backoffMs: 1000 };
 
 export interface WebhookSubscriptionView {
   id: number;
@@ -25,6 +32,7 @@ export class WebhookService implements WebhookPublisher {
   constructor(
     @InjectRepository(WebhookSubscription)
     private readonly repo: Repository<WebhookSubscription>,
+    @Optional() private readonly retryConfig?: WebhookRetryConfig,
   ) {}
 
   async subscribe(
@@ -62,8 +70,9 @@ export class WebhookService implements WebhookPublisher {
   }
 
   /**
-   * PL-14 投递：匹配 userId 下启用且订阅了该事件类型的 webhook，
-   * 用各自 secret 做 HMAC-SHA256 签名后 POST。失败仅记日志，不阻断业务。
+   * PL-14 投递：匹配启用且订阅了该事件类型的 webhook，
+   * 用各自 secret 做 HMAC-SHA256 签名后 POST（带指数退避重试）。
+   * 重试耗尽仅记日志，不阻断业务。完整异步重试队列（BullMQ worker）留待量大后。
    */
   async publish(eventType: string, payload: Record<string, unknown>): Promise<void> {
     const subs = await this.repo.find({ where: { enabled: true } });
@@ -71,22 +80,7 @@ export class WebhookService implements WebhookPublisher {
     for (const sub of matches) {
       const body = JSON.stringify({ event: eventType, ...payload });
       const signature = createHmac('sha256', sub.secret).update(body).digest('hex');
-      try {
-        await fetch(sub.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Webhook-Event': eventType,
-            'X-Webhook-Signature': signature,
-          },
-          body,
-          signal: AbortSignal.timeout(5_000),
-        });
-      } catch (err) {
-        this.logger.warn(
-          `[Webhook] deliver ${eventType} -> ${sub.url} failed: ${(err as Error).message}`,
-        );
-      }
+      await this._deliver(sub.url, eventType, body, signature);
     }
   }
 
@@ -97,21 +91,42 @@ export class WebhookService implements WebhookPublisher {
     const payload = { event: 'webhook.test', message: 'KeelBase webhook test' };
     const body = JSON.stringify(payload);
     const signature = createHmac('sha256', sub.secret).update(body).digest('hex');
-    try {
-      const res = await fetch(sub.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Event': 'webhook.test',
-          'X-Webhook-Signature': signature,
-        },
-        body,
-        signal: AbortSignal.timeout(5_000),
-      });
-      return { delivered: res.ok, signature, error: res.ok ? undefined : `HTTP ${res.status}` };
-    } catch (err) {
-      return { delivered: false, signature, error: (err as Error).message };
+    const ok = await this._deliver(sub.url, 'webhook.test', body, signature);
+    return { delivered: ok.delivered, signature, error: ok.delivered ? undefined : ok.error };
+  }
+
+  /** 投递 + 指数退避重试。returns 是否最终成功。 */
+  private async _deliver(
+    url: string,
+    eventType: string,
+    body: string,
+    signature: string,
+  ): Promise<{ delivered: boolean; error?: string }> {
+    const cfg = this.retryConfig ?? DEFAULT_RETRY;
+    let lastError = 'unknown error';
+    for (let attempt = 1; attempt <= cfg.attempts; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Webhook-Event': eventType,
+            'X-Webhook-Signature': signature,
+          },
+          body,
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (res.ok) return { delivered: true };
+        lastError = `HTTP ${res.status}`;
+      } catch (err) {
+        lastError = (err as Error).message;
+      }
+      if (attempt < cfg.attempts) {
+        await new Promise((r) => setTimeout(r, cfg.backoffMs * attempt));
+      }
     }
+    this.logger.warn(`[Webhook] deliver ${eventType} -> ${url} failed after ${cfg.attempts} attempts: ${lastError}`);
+    return { delivered: false, error: lastError };
   }
 
   private _eventsOf(sub: WebhookSubscription): string[] {
