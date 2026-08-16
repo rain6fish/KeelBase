@@ -152,6 +152,7 @@ const consoleNavGroups = computed(() => [
     label: t('navMonitor'),
     items: [
       { name: 'monitor', to: '/monitor', icon: 'mdi-heart-pulse', label: t('navMonitorCenter') },
+      { name: 'ops', to: '/ops', icon: 'mdi-wrench-outline', label: t('navOps') },
       { name: 'audit', to: '/audit', icon: 'mdi-history', label: t('navAiAudit') },
       { name: 'op-audit', to: '/op-audit', icon: 'mdi-clipboard-text-outline', label: t('navOpAudit') },
       { name: 'sessions', to: '/sessions', icon: 'mdi-monitor-cellphone', label: t('navSessions') },

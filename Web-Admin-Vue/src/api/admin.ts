@@ -5,6 +5,7 @@ import type {
   AppVersionInfo,
   BroadcastResult,
   MonitorSummary,
+  OpsSummary,
   PlatformOverview,
   TrashResponse,
   TrashRestoreResult,
@@ -13,6 +14,9 @@ import type {
 export const adminApi = {
   monitorSummary(): Promise<MonitorSummary> {
     return api.get<MonitorSummary>('/admin/monitor/summary')
+  },
+  opsSummary(): Promise<OpsSummary> {
+    return api.get<OpsSummary>('/admin/ops/summary')
   },
   overview(days = 7): Promise<PlatformOverview> {
     return api.get<PlatformOverview>('/admin/overview', { days })

@@ -19,6 +19,7 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: 'knowledge', name: 'knowledge', component: () => import('@/views/knowledge/KnowledgeView.vue'), meta: { title: 'navKnowledge' } },
   { path: 'notifications', name: 'notifications', component: () => import('@/views/notifications/NotificationsView.vue'), meta: { title: 'navNotifications' } },
   { path: 'monitor', name: 'monitor', component: () => import('@/views/monitor/MonitorView.vue'), meta: { title: 'navMonitorCenter' } },
+  { path: 'ops', name: 'ops', component: () => import('@/views/ops/OpsView.vue'), meta: { title: 'opsTitle' } },
   { path: 'audit', name: 'audit', component: () => import('@/views/audit/AiAuditView.vue'), meta: { title: 'navAiAudit' } },
   { path: 'op-audit', name: 'op-audit', component: () => import('@/views/op-audit/OpAuditView.vue'), meta: { title: 'navOpAudit' } },
   { path: 'sessions', name: 'sessions', component: () => import('@/views/sessions/SessionsView.vue'), meta: { title: 'navSessions' } },
