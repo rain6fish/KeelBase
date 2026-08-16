@@ -22,6 +22,10 @@ export class PostgresIncrementalSchema1789999999999 implements MigrationInterfac
     await queryRunner.query(`CREATE TABLE IF NOT EXISTS "flow_instances" ("id" SERIAL NOT NULL, "definition_id" character varying NOT NULL, "state" character varying(20) NOT NULL DEFAULT 'pending', "current_node_id" character varying, "data_json" text, "initiator_id" integer NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "PK_d9bb606f96d8590f4a15f466f5a" PRIMARY KEY ("id"))`);
     await queryRunner.query(`CREATE TABLE IF NOT EXISTS "flow_tasks" ("id" SERIAL NOT NULL, "instance_id" integer NOT NULL, "node_id" character varying NOT NULL, "assignee_id" integer NOT NULL, "status" character varying(20) NOT NULL DEFAULT 'pending', "decision_note" text, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_bea6c5c65d6de7eea70206b62ea" PRIMARY KEY ("id"))`);
 
+    // 1.1) WEB-FRONT-4 MFA：users 表 mfa 列（幂等；sqlite 由 AddUserMfa 迁移加）
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mfa_secret" character varying(512)`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mfa_enabled" boolean NOT NULL DEFAULT false`);
+
     // 2) 索引名对齐：可读名/占位名 → 实体 hash 名（DROP 旧 IF EXISTS + CREATE 新）
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_post_comments_post"`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_c6c385cabd9b8693912ac4c7d5" ON "post_comments" ("post_id", "created_at")`);

@@ -22,4 +22,10 @@ export class LoginDto {
   @IsString()
   @IsOptional()
   deviceName?: string;
+
+  /** WEB-FRONT-4 MFA：启用双因素的用户登录时需传 6 位 TOTP code。 */
+  @ApiProperty({ description: 'TOTP 两步验证码（启用 MFA 的用户必填）', example: '123456', required: false })
+  @IsString()
+  @IsOptional()
+  totp?: string;
 }
