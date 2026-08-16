@@ -202,4 +202,107 @@ describe('AuditService', () => {
       expect(repo.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('getLogs / getUserLogs（左联用户表带出 username）', () => {
+    const rawRow = {
+      log_id: 7,
+      log_user_id: '5',
+      log_conversation_id: 'conv-1',
+      log_action: 'chat',
+      log_detail: 'd',
+      log_model: 'deepseek',
+      log_provider: 'deepseek',
+      log_prompt_tokens: '100',
+      log_completion_tokens: '50',
+      log_duration_ms: '200',
+      log_is_error: 0,
+      log_error_message: null,
+      log_feedback: null,
+      log_feedback_note: null,
+      log_createdAt: '2026-08-15T00:00:00.000Z',
+      username: 'alice',
+    };
+
+    function mockQueryBuilder() {
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([rawRow]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    }
+
+    it('getLogs 全量查询并映射字段（含 username）', async () => {
+      const qb = mockQueryBuilder();
+      const result = await service.getLogs({ limit: 20, offset: 5 });
+      expect(result[0]).toMatchObject({
+        id: 7, userId: '5', action: 'chat', username: 'alice',
+        promptTokens: 100, completionTokens: 50, durationMs: 200,
+      });
+      expect(qb.take).toHaveBeenCalledWith(20);
+      expect(qb.skip).toHaveBeenCalledWith(5);
+    });
+
+    it('getLogs 带 since/feedback 追加 andWhere', async () => {
+      const qb = mockQueryBuilder();
+      await service.getLogs({ since: new Date('2026-08-01'), feedback: 'thumbs_down' });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt >= :since', { since: new Date('2026-08-01') });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.feedback = :feedback', { feedback: 'thumbs_down' });
+    });
+
+    it('getUserLogs 按 userId 过滤', async () => {
+      const qb = mockQueryBuilder();
+      await service.getUserLogs('42', { limit: 10 });
+      expect(qb.where).toHaveBeenCalledWith('log.userId = :userId', { userId: '42' });
+    });
+  });
+
+  describe('getStats / getAllStats', () => {
+    const logs = [
+      { action: 'chat', promptTokens: 100, completionTokens: 50, isError: false },
+      { action: 'tool_call', promptTokens: 10, completionTokens: 5, isError: false },
+      { action: 'chat', promptTokens: 30, completionTokens: 10, isError: true },
+    ];
+
+    it('getStats 聚合 token/错误/动作分布并按次数排序', async () => {
+      repo.find.mockResolvedValue(logs);
+      const result = await service.getStats('1', new Date('2026-08-01'));
+      expect(result.totalConversations).toBe(2);
+      expect(result.totalMessages).toBe(3);
+      expect(result.totalTokens).toBe(205);
+      expect(result.totalErrors).toBe(1);
+      expect(result.topActions[0]).toEqual({ action: 'chat', count: 2 });
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ userId: '1', createdAt: expect.anything() }) }),
+      );
+    });
+
+    it('getStats 无 since 不设时间过滤', async () => {
+      repo.find.mockResolvedValue([]);
+      await service.getStats('1');
+      expect(repo.find).toHaveBeenCalledWith({ where: { userId: '1' } });
+    });
+
+    it('getAllStats 全量聚合（无 userId）', async () => {
+      repo.find.mockResolvedValue(logs);
+      const result = await service.getAllStats();
+      expect(result.totalMessages).toBe(3);
+      expect(result.totalErrors).toBe(1);
+      expect(repo.find).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it('getAllStats 带 since 过滤', async () => {
+      repo.find.mockResolvedValue([]);
+      await service.getAllStats(new Date('2026-08-01'));
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ createdAt: expect.anything() }) }),
+      );
+    });
+  });
 });
