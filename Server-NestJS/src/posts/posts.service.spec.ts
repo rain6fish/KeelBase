@@ -150,4 +150,35 @@ describe('PostsService', () => {
   it('followUser 不能关注自己', async () => {
     await expect(service.followUser(1, 1)).rejects.toThrow(ForbiddenException);
   });
+
+  // ── 补充覆盖：update / listComments / unfollow ────────────────────────────
+
+  it('update 合并 dto 并保存', async () => {
+    const entity = { id: 1, userId: 5, title: '旧' };
+    mockRepo.findOne.mockResolvedValue(entity);
+    mockRepo.save.mockImplementation(async (e: any) => e);
+    const result = await service.update(1, { title: '新' } as any, mockAbility(true));
+    expect(result.title).toBe('新');
+    expect(mockRepo.save).toHaveBeenCalled();
+  });
+
+  it('listComments 分页返回', async () => {
+    mockRepo.findAndCount.mockResolvedValue([
+      [{ id: 1, postId: 2, content: 'c1' }, { id: 2, postId: 2, content: 'c2' }],
+      2,
+    ]);
+    const result = await service.listComments(2, 1, 20);
+    expect(result.total).toBe(2);
+    expect(result.items).toHaveLength(2);
+    expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { postId: 2 }, skip: 0, take: 20 }),
+    );
+  });
+
+  it('unfollowUser 删除关注并返回 following=false', async () => {
+    mockRepo.delete.mockResolvedValue({ affected: 1 });
+    const res = await service.unfollowUser(2, 1);
+    expect(res).toEqual({ following: false });
+    expect(mockRepo.delete).toHaveBeenCalledWith({ followerId: 1, followeeId: 2 });
+  });
 });
