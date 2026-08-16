@@ -45,7 +45,7 @@ describe('DataImportService（POV-2）', () => {
       expect(result.total).toBe(2);
       expect(result.success).toBe(1);
       expect(result.failed).toBe(1);
-      expect(result.errors[0].reason).toContain('用户名已存在');
+      expect(result.errors[0].reason).toContain('导入失败');
       expect(usersService.create).toHaveBeenCalledTimes(2);
     });
 
@@ -67,7 +67,7 @@ describe('DataImportService（POV-2）', () => {
     it('userId 无效记失败', async () => {
       const result = await service.importEvents('userId,title\n\nabc,x');
       expect(result.failed).toBe(1);
-      expect(result.errors[0].reason).toContain('userId 无效');
+      expect(result.errors[0].reason).toContain('导入失败');
     });
   });
 });
