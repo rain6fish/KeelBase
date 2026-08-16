@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { Event } from '../events/event.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WxSubscribeService } from '../push/wx-subscribe.service';
 
 export interface ReminderJobData {
   eventId: number;
@@ -21,6 +22,7 @@ export class ReminderProcessor extends WorkerHost {
   constructor(
     @InjectRepository(Event) private readonly eventRepo: Repository<Event>,
     private readonly notificationsService: NotificationsService,
+    private readonly wxSubscribeService: WxSubscribeService,
   ) {
     super();
   }
@@ -44,6 +46,8 @@ export class ReminderProcessor extends WorkerHost {
         targetId: String(eventId),
         link: `/events/${eventId}`,
       });
+      // MINI-2：微信登录的小程序用户额外收订阅消息（未配置凭据/非微信用户自动降级）
+      await this.wxSubscribeService.sendReminder(userId, event.title);
       this.logger.log(`[Reminder] notified user=${userId} about event=${eventId}`);
     } catch (err) {
       this.logger.warn(`[Reminder] job failed event=${eventId}: ${(err as Error).message}`);
