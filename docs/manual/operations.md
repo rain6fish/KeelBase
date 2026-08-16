@@ -138,9 +138,21 @@ docker compose -f docker-compose.observability.yml up -d
 | Component / 组件 | Port / 端口 | Purpose / 用途 |
 |-----------------|-------------|----------------|
 | Prometheus | 9090 | Scrapes `server:3000/api/v1/metrics` |
-| Grafana | 3001 | Dashboards + alerts (anonymous access) |
+| Grafana | 3001 | Dashboards + alerts (anonymous read-only / 匿名只读) |
 | Jaeger | 16686 (UI) / 4318 (OTLP) | OpenTelemetry traces |
 | Loki | 3100 | Centralized pino logs |
+
+### 5.1.1 Quick reference: what each tool answers / 四工具速查：各答什么问题
+
+遇到问题先看管理台「运维」页（一页聚合派生告警/指标/近 24h 错误/7 天趋势，无需登录四套系统）；深入定位时按问题选工具：
+
+| Problem you have / 你遇到什么问题 | Use / 用它 | Example / 示例 |
+|------|------|------|
+| 服务与依赖还正常吗？当前有哪些异常告警？ | 管理台「运维」页 / `GET /admin/ops/summary` | 派生告警（错误率/Redis/5xx）、7 天操作趋势 |
+| 当前指标数值（QPS / 错误率 / P95 / 并发） | Prometheus | `rate(http_requests_total[5m])` |
+| 指标可视化看板 + 告警通知 | Grafana | ServerDown / High error rate / High latency 规则 |
+| 一次请求内部调用链（慢在哪一环节） | Jaeger | 按 service/operation 查 trace 瀑布图 |
+| 结构化错误日志检索 | Loki | `{service="server"} |= "ERROR"` |
 
 ### 5.2 Alert Rules / 告警规则
 

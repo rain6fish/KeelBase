@@ -255,3 +255,25 @@ export interface ToolEffectsResponse {
   limit: number
   items: ToolEffect[]
 }
+
+export interface OpsAlert {
+  level: 'critical' | 'warning'
+  title: string
+  detail: string
+}
+
+export interface OpsSummary {
+  alerts: OpsAlert[]
+  metrics: {
+    requestRateRps: number | null
+    errorRatePct: number | null
+    latencyP95Ms: number | null
+    inFlight: number | null
+  }
+  logErrors: {
+    since: string
+    opErrors: Array<{ code: number; count: number }>
+    aiErrors: number
+  }
+  trend: Array<{ day: string; total: number; errors: number }>
+}
