@@ -19,3 +19,4 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 Also see / 另见：
 - [README.md](../../README.md) — project overview / 项目概览
 - [CLAUDE.md](../../CLAUDE.md) — AI agent guide / AI 开发指南
+- [Enterprise Readiness / 企业就绪度](../enterprise-readiness.md) — enterprise capability checklist & gaps / 企业选型能力对照与差距
