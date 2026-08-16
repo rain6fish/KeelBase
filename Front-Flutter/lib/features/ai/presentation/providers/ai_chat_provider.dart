@@ -1,39 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../../data/models/tool_step_model.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
 import '../../../../core/api/sse_client.dart';
+import '../../../../core/api/ws_client.dart';
 import '../../../../core/errors/exceptions.dart';
-
-/// 工具步骤卡状态
-enum ToolStepStatus { running, success, error }
-
-/// 工具执行步骤（来自 SSE tool_start / tool_end 事件，前端过程可视化）
-class ToolStepModel {
-  final String name;
-  final ToolStepStatus status;
-  final String summary;
-  final String? error;
-
-  const ToolStepModel({
-    required this.name,
-    required this.status,
-    required this.summary,
-    this.error,
-  });
-
-  ToolStepModel copyWith({
-    ToolStepStatus? status,
-    String? summary,
-    String? error,
-  }) {
-    return ToolStepModel(
-      name: name,
-      status: status ?? this.status,
-      summary: summary ?? this.summary,
-      error: error ?? this.error,
-    );
-  }
-}
 
 /// 单条聊天消息模型
 class ChatMessageModel {
