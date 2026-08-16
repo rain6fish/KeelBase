@@ -17,11 +17,17 @@ export class AuditController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'AI 审计日志（管理员）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤' })
+  @ApiQuery({ name: 'orgId', required: false, description: '按组织过滤（ORG-5 组织维度审计）' })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @ApiQuery({ name: 'offset', required: false, example: 0 })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getLogs(@Query() query: AuditQueryDto) {
-    const options = { limit: query.limit, offset: query.offset, since: query.since ? new Date(query.since) : undefined };
+    const options = {
+      limit: query.limit,
+      offset: query.offset,
+      since: query.since ? new Date(query.since) : undefined,
+      orgId: query.orgId,
+    };
     if (query.userId) {
       return this.auditService.getUserLogs(query.userId, options);
     }

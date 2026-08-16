@@ -143,7 +143,7 @@ export class AuditService {
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date; feedback?: string } = {},
+    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number } = {},
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs(options);
   }
@@ -171,9 +171,9 @@ export class AuditService {
     return { updated: true };
   }
 
-  /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。 */
+  /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string } = {},
+    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number } = {},
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -185,6 +185,12 @@ export class AuditService {
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
     if (options.since) qb.andWhere('log.createdAt >= :since', { since: options.since });
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
+    if (options.orgId != null) {
+      qb.andWhere(
+        'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
+        { orgId: options.orgId },
+      );
+    }
 
     const rows = await qb.getRawMany();
     return rows.map((r) => ({

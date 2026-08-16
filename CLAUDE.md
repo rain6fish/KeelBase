@@ -599,7 +599,7 @@ npm run migration:run
 | GET | /api/v1/events/:id | Yes | 本人或管理员 | 事件详情 |
 | PUT | /api/v1/events/:id | Yes | 本人或管理员 | 更新事件 |
 | DELETE | /api/v1/events/:id | Yes | 本人或管理员 | 删除事件 |
-| GET | /api/v1/audit/logs | Yes (ADMIN) | — | AI 审计日志（可按 userId / feedback=thumbs_down 过滤） |
+| GET | /api/v1/audit/logs | Yes (ADMIN) | — | AI 审计日志（可按 userId / orgId / feedback=thumbs_down 过滤，ORG-5 组织维度） |
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
