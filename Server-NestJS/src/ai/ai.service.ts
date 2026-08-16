@@ -256,6 +256,53 @@ export class AiService {
   }
 
   /**
+   * HS-10 MCP 出口：现有工具暴露为 MCP 工具（尊重治理策略 enabled 开关）。
+   */
+  async listMcpTools(): Promise<
+    Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>
+  > {
+    const defs = this.toolRegistry.getToolDefinitions();
+    const tools: Array<{
+      name: string;
+      description: string;
+      inputSchema: Record<string, unknown>;
+    }> = [];
+    for (const d of defs) {
+      const name = d.function.name;
+      if (this.governancePolicy && !(await this.governancePolicy.isToolEnabled(name))) {
+        continue;
+      }
+      tools.push({
+        name,
+        description: d.function.description,
+        inputSchema: d.function.parameters as Record<string, unknown>,
+      });
+    }
+    return tools;
+  }
+
+  /**
+   * HS-10 MCP 出口执行入口：过同一治理层（权限门控 → 确认规则 → 执行）。
+   * - 读工具：直接执行（权限通过后）
+   * - 写工具（requiresConfirmation）：不自动执行，返回需确认信号，由调用方处理
+   */
+  async executeToolForExternal(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<{ executed: boolean; requiresConfirmation: boolean; result?: ToolResult }> {
+    await this._assertToolAllowed(toolName, userId);
+    if (await this._requiresConfirmation(toolName)) {
+      return { executed: false, requiresConfirmation: true };
+    }
+    return {
+      executed: true,
+      requiresConfirmation: false,
+      result: await this.toolRegistry.execute(toolName, args, userId),
+    };
+  }
+
+  /**
    * HS-2 + HS-9 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
    * 供 GET /ai/tools（admin）展示工具与权限，便于审计与治理。
    * HS-9：反映治理策略实际生效的开关/确认规则。
