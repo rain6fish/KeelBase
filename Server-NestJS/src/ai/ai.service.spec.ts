@@ -1088,4 +1088,92 @@ describe('AiService', () => {
       });
     });
   });
+
+  describe('HS-10 Agent 对话集成（ExternalToolProvider）', () => {
+    let provider: {
+      listExternalTools: jest.Mock;
+      isExternal: jest.Mock;
+      requiresConfirmation: jest.Mock;
+      callTool: jest.Mock;
+    };
+
+    beforeEach(() => {
+      provider = {
+        listExternalTools: jest.fn().mockResolvedValue([
+          { name: 'mcp_wx_get_weather', description: '查天气', parameters: { type: 'object' } },
+          { name: 'mcp_wx_send_email', description: '发邮件', parameters: { type: 'object' } },
+        ]),
+        isExternal: jest.fn().mockImplementation((name: string) => name.startsWith('mcp_')),
+        requiresConfirmation: jest.fn(),
+        callTool: jest.fn(),
+      };
+      aiService.registerExternalToolProvider(provider as any);
+    });
+
+    it('_buildToolDefs 合并内置 + 外部工具定义', async () => {
+      mockToolRegistry.getToolDefinitions.mockReturnValue([
+        { type: 'function', function: { name: 'query_events', description: '查事件', parameters: {} } },
+      ] as any);
+      const defs = await (aiService as any)._buildToolDefs();
+      const names = defs.map((d: any) => d.function.name);
+      expect(names).toContain('mcp_wx_get_weather');
+      expect(names).toContain('mcp_wx_send_email');
+      expect(names).toContain('query_events'); // 内置仍在
+      expect(provider.listExternalTools).toHaveBeenCalled();
+    });
+
+    it('外部提供者缺失时 _buildToolDefs 只返回内置', async () => {
+      const plain = new AiService(
+        mockProviderFactory as any,
+        mockToolRegistry as any,
+        mockConversationService as any,
+        config,
+        mockAuditService as any,
+        mockRagAgent as any,
+        {} as any,
+        mockMemoriesService as any,
+        confirmationStore,
+        {} as any,
+        mockSubAgentOrchestrator as any,
+      );
+      const defs = await (plain as any)._buildToolDefs();
+      expect(defs.every((d: any) => !d.function.name.startsWith('mcp_'))).toBe(true);
+    });
+
+    it('外部读工具 → 经 provider 执行并返回文本', async () => {
+      provider.callTool.mockResolvedValue({ executed: true, content: '晴 26°C' });
+      const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', { city: 'sz' }, '1');
+      expect(provider.callTool).toHaveBeenCalledWith('mcp_wx_get_weather', { city: 'sz' }, '1');
+      expect(result.success).toBe(true);
+      expect(result.data).toBe('晴 26°C');
+    });
+
+    it('内置读工具仍走 toolRegistry', async () => {
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 1 } });
+      const result = await (aiService as any)._executeReadTool('query_events', {}, '1');
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', {}, '1');
+      expect(result.data).toEqual({ total: 1 });
+    });
+
+    it('外部写工具确认规则委托 provider', async () => {
+      provider.requiresConfirmation.mockResolvedValue(true);
+      await expect((aiService as any)._requiresConfirmation('mcp_wx_send_email')).resolves.toBe(true);
+      expect(provider.requiresConfirmation).toHaveBeenCalledWith('mcp_wx_send_email');
+    });
+
+    it('外部写工具经 _executeWriteTool 执行（跳过幂等/副作用）', async () => {
+      provider.callTool.mockResolvedValue({ executed: true, content: 'sent' });
+      const result = await (aiService as any)._executeWriteTool('mcp_wx_send_email', { to: 'a' }, '1');
+      expect(result.success).toBe(true);
+      expect(result.data).toBe('sent');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('外部 provider 调用失败 → success false + error', async () => {
+      provider.callTool.mockResolvedValue({ executed: false, error: 'remote down' });
+      const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', {}, '1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('remote down');
+    });
+  });
 });

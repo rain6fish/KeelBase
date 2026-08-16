@@ -58,6 +58,6 @@ export class McpGatewayController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '调用外部 MCP 工具（admin，强制过治理层：权限+确认+审计）' })
   async call(@CurrentUser() user: JwtPayload, @Body() dto: CallExternalToolDto) {
-    return this.gateway.callTool(dto.serverName, dto.toolName, dto.arguments ?? {}, String(user.sub));
+    return this.gateway.callExternalTool(dto.serverName, dto.toolName, dto.arguments ?? {}, String(user.sub));
   }
 }

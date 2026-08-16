@@ -94,7 +94,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
   describe('callTool（治理层）', () => {
     it('未注册 server → error', async () => {
       settings.get.mockResolvedValue(null);
-      const out = await service.callTool('nope', 't', {}, '1');
+      const out = await service.callExternalTool('nope', 't', {}, '1');
       expect(out.error).toContain('not registered');
       expect(out.executed).toBe(false);
     });
@@ -102,7 +102,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
     it('策略禁用 → error', async () => {
       settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x' }]));
       governance.isToolEnabled.mockResolvedValue(false);
-      const out = await service.callTool('wx', 'get_weather', {}, '1');
+      const out = await service.callExternalTool('wx', 'get_weather', {}, '1');
       expect(out.error).toContain('disabled by governance policy');
     });
 
@@ -111,7 +111,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
       jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
       governance.requiresConfirmation.mockResolvedValue(false);
       jest.spyOn(service as any, '_callRemote').mockResolvedValue(callResult);
-      const out = await service.callTool('wx', 'get_weather', { city: 'sz' }, '1');
+      const out = await service.callExternalTool('wx', 'get_weather', { city: 'sz' }, '1');
       expect(out.executed).toBe(true);
       expect(out.requiresConfirmation).toBe(false);
       expect(out.result?.content[0].text).toBe('ok');
@@ -125,7 +125,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
       jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
       const callSpy = jest.spyOn(service as any, '_callRemote');
       governance.requiresConfirmation.mockResolvedValue(true);
-      const out = await service.callTool('wx', 'send_email', {}, '1');
+      const out = await service.callExternalTool('wx', 'send_email', {}, '1');
       expect(out.executed).toBe(false);
       expect(out.requiresConfirmation).toBe(true);
       expect(callSpy).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
       jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
       governance.requiresConfirmation.mockResolvedValue(false);
       jest.spyOn(service as any, '_callRemote').mockResolvedValue(callResult);
-      const out = await service.callTool('wx', 'send_email', {}, '1');
+      const out = await service.callExternalTool('wx', 'send_email', {}, '1');
       expect(out.executed).toBe(true);
       expect(out.requiresConfirmation).toBe(false);
     });
@@ -146,8 +146,56 @@ describe('McpGatewayService (HS-10 入口)', () => {
       jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
       governance.requiresConfirmation.mockResolvedValue(false);
       jest.spyOn(service as any, '_callRemote').mockRejectedValue(new Error('remote boom'));
-      const out = await service.callTool('wx', 'get_weather', {}, '1');
+      const out = await service.callExternalTool('wx', 'get_weather', {}, '1');
       expect(out.error).toContain('remote boom');
+    });
+  });
+
+  describe('ExternalToolProvider 接口（Agent 对话集成）', () => {
+    beforeEach(() => {
+      settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x' }]));
+      jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
+    });
+
+    it('listExternalTools 映射为 mcp_<server>_<tool> 键', async () => {
+      const list = await service.listExternalTools();
+      const names = list.map((t) => t.name);
+      expect(names).toEqual(['mcp_wx_get_weather', 'mcp_wx_send_email']);
+      expect(list[0].parameters).toBeDefined();
+    });
+
+    it('isExternal 识别 mcp_ 前缀', () => {
+      expect(service.isExternal('mcp_wx_get_weather')).toBe(true);
+      expect(service.isExternal('query_events')).toBe(false);
+    });
+
+    it('requiresConfirmation：非只读默认 true，策略可覆盖', async () => {
+      governance.requiresConfirmation.mockResolvedValue(true);
+      await expect(service.requiresConfirmation('mcp_wx_send_email')).resolves.toBe(true);
+      expect(governance.requiresConfirmation).toHaveBeenCalledWith('mcp_wx_send_email', true);
+      governance.requiresConfirmation.mockResolvedValue(false);
+      await expect(service.requiresConfirmation('mcp_wx_send_email')).resolves.toBe(false);
+    });
+
+    it('callTool（复合键）→ 转发 + 拼文本', async () => {
+      governance.requiresConfirmation.mockResolvedValue(false);
+      jest.spyOn(service as any, '_callRemote').mockResolvedValue({
+        content: [{ type: 'text', text: '晴 26°C' }],
+        isError: false,
+      });
+      const out = await service.callTool('mcp_wx_get_weather', { city: 'sz' }, '1');
+      expect(out.executed).toBe(true);
+      expect(out.content).toBe('晴 26°C');
+      expect(audit.log).toHaveBeenCalled();
+    });
+
+    it('callTool：需确认时返回 requiresConfirmation 不执行', async () => {
+      governance.requiresConfirmation.mockResolvedValue(true);
+      const callSpy = jest.spyOn(service as any, '_callRemote');
+      const out = await service.callTool('mcp_wx_send_email', {}, '1');
+      expect(out.executed).toBe(false);
+      expect(out.requiresConfirmation).toBe(true);
+      expect(callSpy).not.toHaveBeenCalled();
     });
   });
 });

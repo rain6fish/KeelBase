@@ -1,9 +1,11 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
+import { AiService } from '../../ai/ai.service';
+import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
 
 export interface McpServerConfig {
   name: string;
@@ -46,7 +48,7 @@ const defaultTransportFactory: McpTransportFactory = async (server) => {
  * Agent 对话集成（外部工具并入 LLM 工具流）为下一步，本版暴露 admin 端点。
  */
 @Injectable()
-export class McpGatewayService {
+export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
   static readonly SETTING_KEY = 'mcp_servers';
   private static readonly CACHE_TTL_MS = 30_000;
   private readonly logger = new Logger(McpGatewayService.name);
@@ -56,8 +58,72 @@ export class McpGatewayService {
     private readonly settings: SettingsService,
     private readonly governance: GovernancePolicyService,
     private readonly audit: AuditService,
+    @Optional() private readonly aiService?: AiService,
     @Optional() private readonly transportFactory?: McpTransportFactory,
   ) {}
+
+  /** HS-10 Agent 对话集成：启动时把本 gateway 注册为 AiService 的外部工具提供者。 */
+  async onModuleInit(): Promise<void> {
+    this.aiService?.registerExternalToolProvider(this);
+  }
+
+  // --- ExternalToolProvider 接口实现（供 AiService 工具流合并/路由） ---
+
+  async listExternalTools(): Promise<ExternalToolDef[]> {
+    const discovered = await this.discoverTools();
+    const tools: ExternalToolDef[] = [];
+    for (const d of discovered) {
+      for (const t of d.tools) {
+        tools.push({
+          name: `mcp_${d.server}_${t.name}`,
+          description: t.description ?? '',
+          parameters: (t.inputSchema ?? {}) as Record<string, unknown>,
+        });
+      }
+    }
+    return tools;
+  }
+
+  isExternal(name: string): boolean {
+    return name.startsWith('mcp_');
+  }
+
+  async requiresConfirmation(name: string): Promise<boolean> {
+    const key = this._parseKey(name);
+    if (!key) return false;
+    const server = (await this.listServers()).find((s) => s.name === key.server);
+    if (!server) return false;
+    const readOnly = (await this._findTool(server, key.tool))?.readOnly ?? false;
+    return this.governance.requiresConfirmation(name, !readOnly);
+  }
+
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<ExternalToolCall> {
+    const key = this._parseKey(name);
+    if (!key) {
+      return { executed: false, error: `"${name}" is not an external tool key` };
+    }
+    const out = await this.callExternalTool(key.server, key.tool, args, userId);
+    if (!out.executed) {
+      return {
+        executed: false,
+        requiresConfirmation: out.requiresConfirmation,
+        error: out.error ?? 'External tool call failed',
+      };
+    }
+    const text =
+      out.result?.content?.map((c) => c.text).filter(Boolean).join('\n') ?? '';
+    return { executed: true, content: text };
+  }
+
+  private _parseKey(name: string): { server: string; tool: string } | null {
+    const m = name.match(/^mcp_(.+?)_(.+)$/);
+    if (!m) return null;
+    return { server: m[1], tool: m[2] };
+  }
 
   async listServers(): Promise<McpServerConfig[]> {
     const raw = await this.settings.get(McpGatewayService.SETTING_KEY);
@@ -118,7 +184,7 @@ export class McpGatewayService {
    * 3) 审计（provider=mcp）
    * 4) 转发给外部 server
    */
-  async callTool(
+  async callExternalTool(
     serverName: string,
     toolName: string,
     args: Record<string, unknown>,
