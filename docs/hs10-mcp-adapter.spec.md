@@ -30,7 +30,7 @@ Expose the existing AI tools (registered in ToolRegistry: query_events / create_
 
 - **出口（v1）**：HTTP JSON-RPC 子集——`initialize` / `ping` / `tools/list` / `tools/call`（+ 通知 ack）。
 - **入口（v1，McpGatewayService）**：Settings 注册外部 MCP server（key=`mcp_servers`）→ 发现其工具 → 调用时**强制过治理层**（HS-9 权限/确认 + 审计）。admin 端点：`GET/POST/DELETE /admin/mcp/servers`、`GET /admin/mcp/tools`、`POST /admin/mcp/call`。
-- **Agent 对话集成**（外部工具并入 LLM 工具流）为下一轮；当前 gateway 通过 admin 端点暴露。
+- **Agent 对话集成（v1）**：`ExternalToolProvider` 接口 + AiService 运行时注入（`registerExternalToolProvider`，McpModule 启动时注册，避免 AiModule↔McpModule 循环依赖）——外部工具（`mcp_<server>_<tool>` 键）并入 LLM 工具流，读工具经 gateway 执行、写工具走确认流程，同一治理层。
 - Streamable HTTP 会话 / SSE 推送后续升级（当前无状态 JSON-RPC 足够覆盖工具发现与调用）。
 
 ---
@@ -105,8 +105,8 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
   Stateless JSON-RPC: no Streamable HTTP sessions / SSE server push (future upgrade).
 - 写工具经 MCP 需确认但无内建确认 UI；确认流与「入口」一起迭代。
   Write tools via MCP require confirmation but have no built-in confirmation UI; the confirmation flow ships with the "entry" iteration.
-- MCP「入口」gateway（v1，McpGatewayService）已实现：外部 server 经 Settings 注册、发现/调用过治理层；但**尚未并入 LLM 对话工具流**（Agent 对话集成留待下一轮）。
-  The MCP "entry" gateway (v1, McpGatewayService) is implemented: external servers registered via Settings, discover/call through governance; but it is **not yet merged into the LLM conversation tool flow** (Agent-chat integration is the next round).
+- MCP「入口」gateway + Agent 对话集成（v1）已实现：外部 server 经 Settings 注册、发现/调用过治理层，`ExternalToolProvider` 把外部工具并入 LLM 工具流（读执行/写确认）。plan-execute / delegate 子代理路径暂不并入外部工具。
+  The MCP "entry" gateway + Agent-chat integration (v1) is implemented: external servers registered via Settings, discover/call through governance; `ExternalToolProvider` merges external tools into the LLM tool flow (read executes / write confirms). plan-execute / delegate sub-agent paths do not include external tools yet.
 - 外部工具默认确认策略：`readOnlyHint=true` 免确认；非只读默认需确认（第三方安全默认），HS-9 策略可覆盖。
   External tool confirmation default: `readOnlyHint=true` skips confirmation; non-read-only defaults to requiring confirmation (safe third-party default), overridable via the HS-9 policy.
 
