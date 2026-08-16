@@ -58,6 +58,10 @@ import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
+import { OrgModule } from '../org/org.module';
+import { OrgService } from '../org/org.service';
+import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
+import { QueryOrgMembersTool } from './tools/query-org-members.tool';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -71,6 +75,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     forwardRef(() => EventsModule),
     UsersModule,
     TodosModule,
+    OrgModule,
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
@@ -96,6 +101,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         configService: ConfigService,
         eventsService: EventsService,
         usersService: UsersService,
+        orgService: OrgService,
         conversationService: ConversationService,
         auditService: AuditService,
         knowledgeService: KnowledgeService,
@@ -176,6 +182,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CountEventsByStatusTool(eventsService));
         toolRegistry.register(new QueryUserStatsTool(usersService, eventsService));
         toolRegistry.register(new QueryEventsByKeywordTool(eventsService));
+        // ORG-5 组织边界 AI 工具（仅返回请求用户所属组织的数据）
+        toolRegistry.register(new QueryOrgAvailabilityTool(orgService, eventsService));
+        toolRegistry.register(new QueryOrgMembersTool(orgService));
         toolRegistry.register(new NavigatePageTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
@@ -220,7 +229,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
