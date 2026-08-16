@@ -71,8 +71,8 @@ No new REST endpoints — the tools are exposed to the LLM via the existing `/ai
 
 - 「团队空闲」当前用事件数近似（有事件的成员视为忙），未做时间段相交判定——v2 可按起止时间精确算空闲。
   "Availability" currently approximates by event count (members with events are busy), not exact time-window intersection — v2 can compute precise free time.
-- AI 审计暂未带 org 维度（审计已有 userId，可按 userId 关联 org）；org 维度审计留待后续。
-  AI audit does not yet carry an org dimension (audit already has userId, which maps to org); org-dimension audit is a follow-up.
+- AI 审计组织维度已落地（`GET /audit/logs?orgId=X`，经 org_members 子查询过滤），管理台可按组织查 AI 行为/用量。
+  AI audit org dimension is live (`GET /audit/logs?orgId=X`, filtered via org_members subquery) — the admin console can query AI behavior/usage per org.
 
 ---
 
