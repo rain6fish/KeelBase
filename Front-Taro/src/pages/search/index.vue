@@ -71,18 +71,25 @@ async function run() {
     searched.value = false
     return
   }
+  const seq = ++searchSeq
   loading.value = true
   try {
     const res = await searchService.search(q)
+    if (seq !== searchSeq) return // 过期响应丢弃，防慢响应覆盖新结果
     events.value = res.events.items
     users.value = res.users.items
   } catch (err: any) {
+    if (seq !== searchSeq) return
     Taro.showToast({ title: err.message || '搜索失败', icon: 'none' })
   } finally {
-    loading.value = false
-    searched.value = true
+    if (seq === searchSeq) {
+      loading.value = false
+      searched.value = true
+    }
   }
 }
+
+let searchSeq = 0
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(keyword, () => {
