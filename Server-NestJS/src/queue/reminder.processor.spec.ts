@@ -1,16 +1,19 @@
 import { ReminderProcessor } from './reminder.processor';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WxSubscribeService } from '../push/wx-subscribe.service';
 
 describe('ReminderProcessor', () => {
   let processor: ReminderProcessor;
   const mockEventRepo = { findOne: jest.fn() };
   const mockNotifications = { create: jest.fn().mockResolvedValue({}) };
+  const mockWxSubscribe = { sendReminder: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(() => {
     jest.clearAllMocks();
     processor = new ReminderProcessor(
       mockEventRepo as any,
       mockNotifications as unknown as NotificationsService,
+      mockWxSubscribe as unknown as WxSubscribeService,
     );
   });
 

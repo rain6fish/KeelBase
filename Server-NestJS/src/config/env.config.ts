@@ -36,6 +36,9 @@ export const envValidationSchema = Joi.object({
   // 安全设置
   LOCKOUT_THRESHOLD: Joi.number().default(10),
   LOCKOUT_DURATION: Joi.number().default(15),
+  // 全局限流（3.4 压测/大促可放宽；默认 60 次/分钟）
+  THROTTLE_LIMIT: Joi.number().min(1).default(60),
+  THROTTLE_TTL: Joi.number().min(1000).default(60000),
 
   // 敏感数据静态加密（AES-256-GCM）
   ENCRYPTION_KEY: Joi.string().length(64).required(),       // 32 bytes hex
@@ -50,6 +53,8 @@ export const envValidationSchema = Joi.object({
   // OAuth 中国区第三方
   WECHAT_APP_ID: Joi.string().allow('').default(''),
   WECHAT_APP_SECRET: Joi.string().allow('').default(''),
+  // MINI-2 微信订阅消息：事件提醒模板 ID（小程序后台申请；空则不发送）
+  WECHAT_REMIND_TEMPLATE_ID: Joi.string().allow('').default(''),
   ALIPAY_APP_ID: Joi.string().allow('').default(''),
   ALIPAY_PUBLIC_KEY: Joi.string().allow('').default(''),
   ALIPAY_PRIVATE_KEY: Joi.string().allow('').default(''),
