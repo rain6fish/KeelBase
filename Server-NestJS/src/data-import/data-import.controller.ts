@@ -33,4 +33,15 @@ export class DataImportController {
     if (!file) throw new BadRequestException('请上传 CSV 文件');
     return this.dataImport.importEvents(file.buffer.toString('utf8'));
   }
+
+  @Post('todos')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @HttpCode(HttpStatus.OK)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'POV-2 批量导入待办（CSV：userId,title,completed,dueDate）' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
+  async importTodos(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('请上传 CSV 文件');
+    return this.dataImport.importTodos(file.buffer.toString('utf8'));
+  }
 }
