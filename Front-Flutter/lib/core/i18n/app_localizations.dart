@@ -416,6 +416,8 @@ class AppLocalizations {
   String get aiThinking => _t('Thinking...', '思考中…');
   String get aiSearching => _t('Searching data...', '正在查询数据…');
   String get aiError => _t('Sorry, an error occurred. Please try again.', '抱歉，出错了，请重试。');
+  String Function(String) get aiErrorWithDetail => (String msg) => _t('Sorry, an error occurred: \$msg', '抱歉，出错了：\$msg');
+  String get aiConfirmFailed => _t('Confirmation request failed, please retry.', '确认请求失败，请重试');
   String get aiRegenerate => _t('Regenerate', '重新生成');
   String get aiClearConversation => _t('Clear conversation', '清空对话');
   String get aiModelSelect => _t('Switch model', '切换模型');

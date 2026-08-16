@@ -88,8 +88,20 @@ class PendingConfirmation {
 class AiChatProvider extends ChangeNotifier {
   final ApiClient _apiClient;
   final SseClient _sseClient;
+  final String Function(String msg) _errorWithDetail;
+  final String Function() _errorRetry;
+  final String Function() _confirmFailed;
 
-  AiChatProvider(this._apiClient, this._sseClient);
+  /// i18n 回调注入：provider 无 BuildContext，错误文案由调用方本地化；缺省英文兜底。
+  AiChatProvider(
+    this._apiClient,
+    this._sseClient, {
+    String Function(String msg)? errorWithDetail,
+    String Function()? errorRetry,
+    String Function()? confirmFailed,
+  }) : _errorWithDetail = errorWithDetail ?? ((msg) => 'Sorry, an error occurred: $msg'),
+       _errorRetry = errorRetry ?? (() => 'Sorry, an error occurred. Please try again.'),
+       _confirmFailed = confirmFailed ?? (() => 'Confirmation request failed, please retry.');
 
   /// 委托触发词（与后端 SkillsRegistry.triggerKeywords + router delegateKeywords 对齐）。
   /// 命中 → 走非流式 /ai/chat 触发 SubAgentOrchestrator，而非流式 SSE 无意图路由。
@@ -309,7 +321,7 @@ class AiChatProvider extends ChangeNotifier {
               if (_messages.isNotEmpty) {
                 _messages = [
                   ..._messages.sublist(0, _messages.length - 1),
-                  ChatMessageModel(role: 'assistant', content: '抱歉，出错了：$errMsg'),
+                  ChatMessageModel(role: 'assistant', content: _errorWithDetail(errMsg)),
                 ];
                 notifyListeners();
               }
@@ -322,7 +334,7 @@ class AiChatProvider extends ChangeNotifier {
       if (gen == _streamGeneration && buf.isEmpty && _messages.isNotEmpty) {
         _messages = [
           ..._messages.sublist(0, _messages.length - 1),
-          ChatMessageModel(role: 'assistant', content: '抱歉，出错了，请重试。'),
+          ChatMessageModel(role: 'assistant', content: _errorRetry()),
         ];
       }
     } finally {
@@ -387,7 +399,7 @@ class AiChatProvider extends ChangeNotifier {
       if (_messages.isEmpty) return;
       _messages = [
         ..._messages.sublist(0, _messages.length - 1),
-        ChatMessageModel(role: 'assistant', content: '抱歉，出错了，请重试。'),
+        ChatMessageModel(role: 'assistant', content: _errorRetry()),
       ];
       notifyListeners();
     }
@@ -409,7 +421,7 @@ class AiChatProvider extends ChangeNotifier {
         },
       );
     } catch (_) {
-      _error = '确认请求失败，请重试';
+      _error = _confirmFailed();
     } finally {
       _isConfirming = false;
       notifyListeners();
