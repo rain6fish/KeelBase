@@ -79,6 +79,14 @@ export class User {
   @Column({ default: 0, name: 'login_attempts' })
   loginAttempts!: number;
 
+  /** WEB-FRONT-4 MFA：TOTP secret（AES-256-GCM 密文，select:false 防泄露） */
+  @Column({ type: 'varchar', nullable: true, length: 512, name: 'mfa_secret', select: false })
+  mfaSecret?: string | null;
+
+  /** WEB-FRONT-4 MFA：是否已启用（启用后登录需 TOTP 验证） */
+  @Column({ type: 'boolean', default: false, name: 'mfa_enabled' })
+  mfaEnabled!: boolean;
+
   @Column({ type: Date, nullable: true, name: 'locked_until' })
   lockedUntil?: Date | null;
 

@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { MfaService } from './mfa/mfa.service';
 import { User } from '../common/entities/user.entity';
 import { UserSession } from './user-session.entity';
 import { PhoneVerificationCode } from './phone-verification-code.entity';
@@ -54,7 +55,7 @@ import { OrgModule } from '../org/org.module';
     OrgModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy],
+  providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService],
   exports: [AuthService, OAuthService, OAuthProvidersConfigService, JwtModule, PassportModule, TypeOrmModule],
 })
 export class AuthModule {}

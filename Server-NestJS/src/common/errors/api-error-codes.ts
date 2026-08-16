@@ -23,6 +23,10 @@ export const API_ERROR_CODES: Record<string, ApiErrorCodeDef> = {
   ACCOUNT_LOCKED: { status: HttpStatus.LOCKED, zh: '账号已锁定，请稍后再试', en: 'Account locked, please try again later' },
   EMAIL_NOT_VERIFIED: { status: HttpStatus.FORBIDDEN, zh: '请先验证邮箱', en: 'Please verify your email first' },
 
+  // WEB-FRONT-4 MFA（TOTP 双因素）
+  MFA_REQUIRED: { status: HttpStatus.UNAUTHORIZED, zh: '需要两步验证码', en: 'Two-factor code required' },
+  INVALID_MFA_CODE: { status: HttpStatus.BAD_REQUEST, zh: '两步验证码错误', en: 'Invalid two-factor code' },
+
   // 注册/绑定
   USERNAME_ALREADY_EXISTS: { status: HttpStatus.CONFLICT, zh: '用户名已存在', en: 'Username already exists' },
   EMAIL_ALREADY_EXISTS: { status: HttpStatus.CONFLICT, zh: '邮箱已注册', en: 'Email already registered' },

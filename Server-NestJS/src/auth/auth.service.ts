@@ -37,6 +37,7 @@ import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity';
 import { EncryptionService } from '../common/utils/encryption';
+import { MfaService } from './mfa/mfa.service';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
 import { OrgService } from '../org/org.service';
@@ -73,6 +74,7 @@ export class AuthService {
     private configService: ConfigService,
     private oauthService: OAuthService,
     private encryption: EncryptionService,
+    private mfaService: MfaService,
     private mailService: MailService,
     private smsService: SmsService,
     @InjectRepository(Event)
@@ -305,6 +307,8 @@ export class AuthService {
         lockedUntil: true,
         createdAt: true,
         updatedAt: true,
+        mfaEnabled: true,
+        mfaSecret: true,
       },
     });
 
@@ -358,6 +362,16 @@ export class AuthService {
       });
     }
     this._resetDevice(dto.deviceId);
+
+    // WEB-FRONT-4 MFA：启用用户需 TOTP 验证（错误统一提示防枚举）
+    if (user.mfaEnabled) {
+      const secret = user.mfaSecret ? this.encryption.decrypt(user.mfaSecret) : '';
+      if (!secret || !this.mfaService.verifyCode(secret, dto.totp ?? '')) {
+        this.logger.warn(`Login MFA failed: user=${dto.username}`);
+        await this.delay();
+        throw BusinessException.of('MFA_REQUIRED');
+      }
+    }
 
     const accessToken = this.generateAccessToken(user.id, user.username, user.role);
     const refreshToken = await this.generateRefreshToken(user);
@@ -486,6 +500,45 @@ export class AuthService {
         createdAt: user.createdAt?.toISOString(),
       },
     };
+  }
+
+  // ── WEB-FRONT-4 MFA（TOTP） ──
+
+  /** 启用第一步：生成 secret + otpauth URL（未落库，verify 通过才保存）。 */
+  async mfaSetup(userId: number, username: string): Promise<{ secret: string; otpauthUrl: string; alreadyEnabled: boolean }> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (user?.mfaEnabled) {
+      return { secret: '', otpauthUrl: '', alreadyEnabled: true };
+    }
+    const secret = this.mfaService.generateSecret();
+    return { secret, otpauthUrl: this.mfaService.otpauthUrl(secret, username), alreadyEnabled: false };
+  }
+
+  /** 验证绑定 code 并启用 MFA（secret AES 加密落库）。 */
+  async mfaVerify(userId: number, secret: string, code: string): Promise<{ enabled: boolean }> {
+    if (!this.mfaService.verifyCode(secret, code)) {
+      throw BusinessException.of('INVALID_MFA_CODE');
+    }
+    await this.usersRepository.update(userId, {
+      mfaSecret: this.encryption.encrypt(secret),
+      mfaEnabled: true,
+    });
+    return { enabled: true };
+  }
+
+  /** 停用 MFA（需正确 TOTP code 确认）。 */
+  async mfaDisable(userId: number, code: string): Promise<{ disabled: boolean }> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: { id: true, mfaEnabled: true, mfaSecret: true },
+    });
+    if (!user?.mfaEnabled || !user.mfaSecret) return { disabled: false };
+    const secret = this.encryption.decrypt(user.mfaSecret);
+    if (!this.mfaService.verifyCode(secret, code)) {
+      throw BusinessException.of('INVALID_MFA_CODE');
+    }
+    await this.usersRepository.update(userId, { mfaEnabled: false, mfaSecret: null });
+    return { disabled: true };
   }
 
   async refreshToken(dto: RefreshTokenDto) {
