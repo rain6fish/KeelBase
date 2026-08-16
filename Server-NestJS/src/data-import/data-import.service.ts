@@ -2,9 +2,10 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { EventsService } from '../events/events.service';
+import { TodosService } from '../todos/todos.service';
 
 export type ImportResult = {
-  type: 'user' | 'event';
+  type: 'user' | 'event' | 'todo';
   total: number;
   success: number;
   failed: number;
@@ -23,6 +24,7 @@ export class DataImportService {
   constructor(
     private readonly usersService: UsersService,
     private readonly eventsService: EventsService,
+    private readonly todosService: TodosService,
   ) {}
 
   /** 生成临时密码（16 位 hex，含字母+数字，满足密码策略）。导入后用户应走「忘记密码」重置。 */
@@ -143,6 +145,36 @@ export class DataImportService {
       }
     }
     this.logger.log(`[DataImport] events: ${result.success}/${result.total} ok`);
+    return result;
+  }
+
+  /** 批量导入待办（列：userId,title,completed,dueDate） */
+  async importTodos(csv: string): Promise<ImportResult> {
+    const objects = this.toObjects(csv);
+    const result: ImportResult = { type: 'todo', total: objects.length, success: 0, failed: 0, errors: [] };
+
+    for (let i = 0; i < objects.length; i++) {
+      const o = objects[i];
+      try {
+        const userId = Number(o.userid);
+        if (!userId) throw new Error('userId 无效');
+        await this.todosService.create(
+          {
+            title: o.title,
+            completed: o.completed === 'true' || o.completed === '1',
+            dueDate: o.duedate ? new Date(o.duedate).toISOString() : undefined,
+          } as never,
+          userId,
+        );
+        result.success++;
+      } catch (err) {
+        result.failed++;
+        // CR-20：不透传内部 Error.message，用通用文案
+        this.logger.warn(`[DataImport] todo row ${i + 2} failed: ${(err as Error).message}`);
+        result.errors.push({ row: i + 2, reason: '导入失败' });
+      }
+    }
+    this.logger.log(`[DataImport] todos: ${result.success}/${result.total} ok`);
     return result;
   }
 }
