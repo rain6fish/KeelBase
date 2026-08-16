@@ -432,4 +432,112 @@ describe('OpenAICompatibleProvider', () => {
       expect(JSON.parse(init.body).messages[0].content).toBe('hi');
     });
   });
+
+  // ── 补充覆盖：generateImage / SSRF / 流式分支 ──────────────────────────────
+
+  describe('AI-12.1 generateImage', () => {
+    it('返回 url 结果', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: [{ url: 'https://cdn/img.png' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const url = await provider.generateImage('一只猫');
+      expect(url).toBe('https://cdn/img.png');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.deepseek.com/images/generations',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('返回 b64_json 时拼 data URI', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: [{ b64_json: 'AAA=' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      await expect(provider.generateImage('x', '512x512')).resolves.toBe('data:image/png;base64,AAA=');
+    });
+
+    it('API 非 200 抛错（含响应体截断）', async () => {
+      mockFetch.mockResolvedValue(new Response('quota exceeded', { status: 402 }));
+      await expect(provider.generateImage('x')).rejects.toThrow('Image API error: 402 quota exceeded');
+    });
+
+    it('无有效结果抛错', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+      await expect(provider.generateImage('x')).rejects.toThrow('图像生成未返回有效结果');
+    });
+  });
+
+  describe('resolveImageUrl（SSRF 防护）', () => {
+    it('绝对 URL / 非 /uploads/ 路径抛错', () => {
+      const p = provider as any;
+      expect(() => p.resolveImageUrl('https://evil.com/x.png')).toThrow('SSRF');
+      expect(() => p.resolveImageUrl('http://localhost:8080/x.png')).toThrow('SSRF');
+      expect(() => p.resolveImageUrl('/etc/passwd')).toThrow('SSRF');
+      expect(() => p.resolveImageUrl('/uploads/../../etc/x.png')).toThrow('SSRF');
+    });
+
+    it('合法 /uploads/ 路径拼成公网地址', () => {
+      const p = provider as any;
+      expect(p.resolveImageUrl('/uploads/a.png')).toBe('https://api.deepseek.com/uploads/a.png');
+    });
+  });
+
+  describe('流式分支补强', () => {
+    it('响应体不可读时 yield error chunk', async () => {
+      mockFetch.mockResolvedValue(new Response(null, { status: 200 }));
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of provider.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+        chunks.push(chunk);
+      }
+      expect(chunks[0].type).toBe('error');
+      expect(chunks[0].error).toBe('Response body is not readable');
+    });
+
+    it('yield reasoning_content 分块', async () => {
+      const sseData = [
+        'data: {"choices":[{"delta":{"reasoning_content":"深度思考中"},"finish_reason":null}]}',
+        'data: {"choices":[{"delta":{"content":"答案"},"finish_reason":"stop"}]}',
+        'data: [DONE]',
+      ].join('\n');
+      mockFetch.mockResolvedValue(
+        new Response(sseData, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      );
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of provider.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+        chunks.push(chunk);
+      }
+      expect(chunks.some((c) => c.type === 'reasoning' && c.content === '深度思考中')).toBe(true);
+      expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('assistant 消息带 tool_calls/reasoning_content 时回传请求体', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      await provider.generate({
+        messages: [
+          {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{ id: 'c1', name: 'query_events', arguments: '{}' }],
+            reasoning_content: 'think',
+          } as never,
+        ],
+      });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.messages[0].tool_calls).toHaveLength(1);
+      expect(body.messages[0].tool_calls[0].function.name).toBe('query_events');
+      expect(body.messages[0].reasoning_content).toBe('think');
+    });
+  });
 });
