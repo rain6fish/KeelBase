@@ -320,6 +320,97 @@ describe('AuthService', () => {
 
       await expect(service.login(loginDto)).rejects.toThrow(HttpException);
     });
+
+    it('MFA 用户登录需 TOTP（正确 code 通过）', async () => {
+      const mfaUser = {
+        ...mockUser,
+        password: await bcrypt.hash('Password1', 12),
+        mfaEnabled: true,
+        mfaSecret: 'encrypted-secret',
+      };
+      mockRepository.findOne.mockResolvedValue(mfaUser);
+      mockEncryption.decrypt.mockReturnValue('plain-secret');
+      mockMfaService.verifyCode.mockReturnValue(true);
+      mockJwtService.sign.mockReturnValue('mock.access.token');
+
+      const res = await service.login({ ...loginDto, totp: '123456' });
+      expect(mockMfaService.verifyCode).toHaveBeenCalledWith('plain-secret', '123456');
+      expect(res.accessToken).toBe('mock.access.token');
+    });
+
+    it('MFA 用户登录 code 错误 → MFA_REQUIRED', async () => {
+      const mfaUser = {
+        ...mockUser,
+        password: await bcrypt.hash('Password1', 12),
+        mfaEnabled: true,
+        mfaSecret: 'encrypted-secret',
+      };
+      mockRepository.findOne.mockResolvedValue(mfaUser);
+      mockEncryption.decrypt.mockReturnValue('plain-secret');
+      mockMfaService.verifyCode.mockReturnValue(false);
+
+      await expect(service.login({ ...loginDto, totp: '000000' })).rejects.toThrow();
+    });
+  });
+
+  // ─── WEB-FRONT-4 MFA ─────────────────────────────────────────────────────────
+
+  describe('MFA (TOTP)', () => {
+    beforeEach(() => {
+      // 重置 mock 实现，避免污染后续 OAuth 测试（顶层 beforeEach 不重置）
+      mockEncryption.encrypt.mockImplementation((v: string) => `enc:${v}`);
+      mockEncryption.decrypt.mockImplementation((v: string) => (v.startsWith('enc:') ? v.slice(4) : v));
+      mockMfaService.verifyCode.mockReturnValue(true);
+    });
+
+    it('mfaSetup 生成 secret + otpauth URL', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false });
+      const res = await service.mfaSetup(1, 'testuser');
+      expect(res.secret).toBe('mfa-secret');
+      expect(res.otpauthUrl).toContain('otpauth://');
+      expect(res.alreadyEnabled).toBe(false);
+    });
+
+    it('mfaSetup 已启用 → alreadyEnabled', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: true });
+      const res = await service.mfaSetup(1, 'testuser');
+      expect(res.alreadyEnabled).toBe(true);
+    });
+
+    it('mfaVerify 正确 code → 加密落库并启用', async () => {
+      mockMfaService.verifyCode.mockReturnValue(true);
+      mockEncryption.encrypt.mockReturnValue('cipher');
+      const res = await service.mfaVerify(1, 'plain-secret', '123456');
+      expect(mockRepository.update).toHaveBeenCalledWith(1, { mfaSecret: 'cipher', mfaEnabled: true });
+      expect(res.enabled).toBe(true);
+    });
+
+    it('mfaVerify 错误 code → INVALID_MFA_CODE', async () => {
+      mockMfaService.verifyCode.mockReturnValue(false);
+      await expect(service.mfaVerify(1, 'plain-secret', '000000')).rejects.toThrow();
+    });
+
+    it('mfaDisable 正确 code → 停用并清 secret', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: true, mfaSecret: 'cipher' });
+      mockEncryption.decrypt.mockReturnValue('plain-secret');
+      mockMfaService.verifyCode.mockReturnValue(true);
+      const res = await service.mfaDisable(1, '123456');
+      expect(mockRepository.update).toHaveBeenCalledWith(1, { mfaEnabled: false, mfaSecret: null });
+      expect(res.disabled).toBe(true);
+    });
+
+    it('mfaDisable 错误 code → 拒绝', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: true, mfaSecret: 'cipher' });
+      mockEncryption.decrypt.mockReturnValue('plain-secret');
+      mockMfaService.verifyCode.mockReturnValue(false);
+      await expect(service.mfaDisable(1, '000000')).rejects.toThrow();
+    });
+
+    it('mfaDisable 未启用 → disabled=false', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false });
+      const res = await service.mfaDisable(1, '123456');
+      expect(res.disabled).toBe(false);
+    });
   });
 
   // ─── Refresh Token ─────────────────────────────────────────────────────────

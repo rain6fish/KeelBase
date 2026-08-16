@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth
 import { AuthService } from './auth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { LoginDto } from './dto/login.dto';
+import { MfaVerifyDto, MfaDisableDto } from './dto/mfa.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OAuthLoginDto } from './dto/oauth-login.dto';
@@ -233,6 +234,27 @@ export class AuthController {
   ) {
     await this.authService.logout(user.sub, deviceId || undefined);
     return null;
+  }
+
+  @Post('mfa/setup')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'WEB-FRONT-4 MFA：生成 TOTP secret + otpauth URL（未启用）' })
+  async mfaSetup(@CurrentUser() user: JwtPayload) {
+    return this.authService.mfaSetup(user.sub, user.username);
+  }
+
+  @Post('mfa/verify')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'WEB-FRONT-4 MFA：验证绑定 code 并启用' })
+  async mfaVerify(@CurrentUser() user: JwtPayload, @Body() dto: MfaVerifyDto) {
+    return this.authService.mfaVerify(user.sub, dto.secret, dto.code);
+  }
+
+  @Post('mfa/disable')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'WEB-FRONT-4 MFA：停用（需正确 TOTP code 确认）' })
+  async mfaDisable(@CurrentUser() user: JwtPayload, @Body() dto: MfaDisableDto) {
+    return this.authService.mfaDisable(user.sub, dto.code);
   }
 
   @Get('sessions')
