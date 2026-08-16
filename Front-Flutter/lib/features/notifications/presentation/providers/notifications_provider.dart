@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/sse_client.dart';
+import '../../../../core/api/ws_client.dart';
 import '../../../../core/services/app_cache.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/repositories/notifications_repository.dart';
@@ -8,6 +9,7 @@ import '../../data/repositories/notifications_repository.dart';
 class NotificationsProvider extends ChangeNotifier {
   final NotificationsRepository _repository;
   final SseClient? _sseClient;
+  final WsClient? _wsClient;
   final AppCache _cache;
 
   static const _ns = 'notifications';
@@ -20,7 +22,8 @@ class NotificationsProvider extends ChangeNotifier {
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
-  NotificationsProvider(this._repository, {this._sseClient, AppCache? cache})
+  NotificationsProvider(this._repository,
+      {this._sseClient, this._wsClient, AppCache? cache})
       : _cache = cache ?? AppCache.unavailable();
 
   List<NotificationModel> get notifications => _notifications;
@@ -28,28 +31,41 @@ class NotificationsProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
 
-  /// 订阅实时通知（SSE）。返回后新通知会实时插入列表。
+  /// 订阅实时通知。优先走 WS 双向通道（RG-6），SSE 作为降级。
   void subscribe() {
+    final ws = _wsClient;
+    if (ws != null && _subscription == null) {
+      ws.connect();
+      _subscription = ws.events.listen((event) {
+        if (event['event'] != 'notification') return;
+        _onNotification(event['data']);
+      });
+      return;
+    }
     final sse = _sseClient;
     if (sse == null || _subscription != null) return;
     _subscription = sse.postStream('/notifications/stream').listen(
       (event) {
         if (event['type'] != 'notification') return;
-        final data = event['data'] as Map<String, dynamic>?;
-        if (data == null) return;
-        try {
-          final n = NotificationModel.fromJson(data);
-          _notifications = [n, ..._notifications];
-          _unreadCount++;
-          notifyListeners();
-        } catch (_) {
-          // 忽略解析失败的事件
-        }
+        _onNotification(event['data']);
       },
       onError: (_) {
         _subscription = null; // 允许重试
       },
     );
+  }
+
+  void _onNotification(Object? data) {
+    final map = data as Map<String, dynamic>?;
+    if (map == null) return;
+    try {
+      final n = NotificationModel.fromJson(map);
+      _notifications = [n, ..._notifications];
+      _unreadCount++;
+      notifyListeners();
+    } catch (_) {
+      // 忽略解析失败的事件
+    }
   }
 
   Future<void> load() async {
