@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { json } from 'express';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { join } from 'path';
 
 async function bootstrap() {
@@ -80,6 +81,9 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
     logger.log('Swagger docs enabled at /api/docs (dev only)');
   }
+
+  // RG-6 WebSocket 双向通道（原生 ws，/ws）
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // Graceful shutdown
   app.enableShutdownHooks();

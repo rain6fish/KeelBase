@@ -60,6 +60,7 @@ const { notifications, unreadCount, isLoading, hasMore } = storeToRefs(store)
 
 onMounted(() => {
   store.load(true)
+  store.initRealtime()
 })
 
 function handleLoadMore() {

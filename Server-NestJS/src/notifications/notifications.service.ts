@@ -9,6 +9,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { PUSH_SERVICE, PushPayload } from '../push/push.service';
 import type { PushService } from '../push/push.service';
 import { PushTokenService } from '../push/push-token.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { withSpan } from '../common/tracing/tracer';
 
 export interface PaginatedNotifications {
@@ -41,6 +42,7 @@ export class NotificationsService {
     private pushTokenService: PushTokenService,
     @Optional() @InjectQueue('push') private readonly pushQueue: Queue | null,
     private readonly configService: ConfigService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /** 供其他模块调用：创建一条通知，并实时推送（SSE + 设备推送） */
@@ -67,6 +69,16 @@ export class NotificationsService {
     });
     const saved = await this.notificationsRepository.save(notification);
     this.notificationsGateway.emitToUser(data.userId, {
+      id: saved.id,
+      title: saved.title,
+      body: saved.body,
+      type: saved.type,
+      targetType: saved.targetType,
+      targetId: saved.targetId,
+      createdAt: saved.createdAt,
+    });
+    // RG-6：WS 通道同样实时推送（SSE 并存）
+    this.realtime.emitToUser(data.userId, 'notification', {
       id: saved.id,
       title: saved.title,
       body: saved.body,

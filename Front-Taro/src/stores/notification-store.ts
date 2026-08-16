@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { notificationService } from '../services/notification-service'
+import { wsClient } from '../services/ws-client'
 import type { NotificationItem } from '../types/notification'
 
 /** 通知状态（Taro→Vue3 迁移：zustand → pinia）：分页加载 + 已读/全部已读/删除。 */
@@ -48,6 +49,17 @@ export const useNotificationStore = defineStore('notification', {
     async remove(id: number) {
       await notificationService.deleteNotification(id)
       this.notifications = this.notifications.filter((n) => n.id !== id)
+    },
+
+    /** RG-6：连接 WS 实时通道，新通知实时插入列表（REST 轮询保留为降级）。 */
+    initRealtime() {
+      wsClient.connect()
+      wsClient.onMessage((msg) => {
+        if (msg.event !== 'notification') return
+        const n = msg.data as NotificationItem
+        this.notifications = [n, ...this.notifications]
+        this.unreadCount++
+      })
     },
   },
 })
