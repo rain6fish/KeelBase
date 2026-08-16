@@ -235,6 +235,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | File | Audience | Purpose |
 |------|----------|---------|
 | [`docs/manual/quickstart-en.md`](docs/manual/quickstart-en.md) | Everyone | Quick Start (English, 5-min full stack) |
+| [`docs/manual/tutorial.md`](docs/manual/tutorial.md) | Everyone | Zero-to-deploy tutorial: run → configure → deploy (Chinese) |
 | [`docs/manual/faq-en.md`](docs/manual/faq-en.md) | Everyone | FAQ — troubleshooting (environment / startup / accounts / AI / deploy) |
 | [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone | 快速上手 (Chinese) |
 | [`docs/manual/faq.md`](docs/manual/faq.md) | Everyone | 常见问题排查 (Chinese) |
