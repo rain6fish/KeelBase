@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/api/api_client.dart';
 import 'core/api/sse_client.dart';
 import 'core/security/secure_storage_service.dart';
+import 'core/i18n/app_localizations.dart';
 import 'core/services/locale_provider.dart';
 import 'core/services/theme_provider.dart';
 import 'core/services/push_service.dart';
@@ -201,7 +202,16 @@ Future<void> _initApp() async {
 
         // AI
         ChangeNotifierProvider<AiChatProvider>(
-          create: (_) => AiChatProvider(apiClient, sseClient),
+          create: (context) {
+            final l10n = context.l10n;
+            return AiChatProvider(
+              apiClient,
+              sseClient,
+              errorWithDetail: (msg) => l10n.aiErrorWithDetail(msg),
+              errorRetry: () => l10n.aiError,
+              confirmFailed: () => l10n.aiConfirmFailed,
+            );
+          },
         ),
         ChangeNotifierProvider<ConversationProvider>(
           create: (_) => ConversationProvider(aiConversationRepository),
