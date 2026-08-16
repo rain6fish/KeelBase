@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
+import { RealtimeService } from '../realtime/realtime.service';
 import { Notification } from './notification.entity';
 import { PUSH_SERVICE } from '../push/push.service';
 import { PushTokenService } from '../push/push-token.service';
@@ -71,6 +72,7 @@ describe('NotificationsService', () => {
         { provide: PushTokenService, useValue: mockPushTokenService },
         { provide: getQueueToken('push'), useValue: mockPushQueue },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: RealtimeService, useValue: { emitToUser: jest.fn(), broadcast: jest.fn() } },
       ],
     }).compile();
 

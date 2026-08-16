@@ -30,6 +30,8 @@ import { SettingsModule } from '../src/settings/settings.module';
 import { CircuitBreakerModule } from '../src/circuit-breaker/circuit-breaker.module';
 import { HeadlessModule } from '../src/headless/headless.module';
 import { McpModule } from '../src/mcp/mcp.module';
+import { RealtimeModule } from '../src/realtime/realtime.module';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
@@ -114,6 +116,7 @@ import request from 'supertest';
     CircuitBreakerModule,
     HeadlessModule,
     McpModule,
+    RealtimeModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -160,6 +163,8 @@ export async function createTestApp(): Promise<INestApplication> {
       transform: true,
     }),
   );
+  // RG-6：WS 网关（init 前挂 adapter；supertest 走 app.getHttpServer() 不受影响）
+  app.useWebSocketAdapter(new WsAdapter(app));
   await app.init();
   return app;
 }

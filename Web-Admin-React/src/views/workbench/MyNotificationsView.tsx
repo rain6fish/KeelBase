@@ -14,6 +14,7 @@ import { StatusChip } from '@/components/StatusChip'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { workbenchApi } from '@/api/workbench'
 import { isEmailNotVerified } from '@/api/client'
+import { connectRealtime, onRealtimeMessage } from '@/api/ws'
 import { formatTime } from '@/utils/format'
 import type { MyNotification } from '@/types/workbench'
 
@@ -48,6 +49,18 @@ export default function MyNotificationsView() {
 
   useEffect(() => {
     void load(1)
+    // RG-6：连接 WS 实时通道，新通知实时插入列表（REST 轮询保留为降级）
+    connectRealtime()
+    const off = onRealtimeMessage((msg) => {
+      if (msg.event !== 'notification') return
+      const n = msg.data as MyNotification
+      setNotifications((prev) => [n, ...prev])
+      setTotal((prev) => prev + 1)
+      if (!n.isRead) setUnread((prev) => prev + 1)
+    })
+    return () => {
+      off()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

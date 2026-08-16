@@ -417,6 +417,7 @@ LOKI_URL=                      # Loki 地址，默认 http://localhost:3100
 OAUTH_ENABLED_PROVIDERS=wechat,alipay     # 启用的认证商（逗号分隔，默认国内）
 WECHAT_APP_ID=           # 微信开放平台 AppID
 WECHAT_APP_SECRET=       # 微信开放平台 AppSecret
+WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送）
 ALIPAY_APP_ID=           # 支付宝开放平台 AppID
 ALIPAY_PRIVATE_KEY=      # 支付宝应用私钥（用于签名）
 GOOGLE_CLIENT_ID=        # Google OAuth Web client ID（国际，如需加）
