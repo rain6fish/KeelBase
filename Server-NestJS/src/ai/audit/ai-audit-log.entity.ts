@@ -54,6 +54,14 @@ export class AiAuditLog {
   @Column({ type: 'text', nullable: true, name: 'feedback_note' })
   feedbackNote?: string;
 
+  /** HS-11 审计哈希链：前一条记录的 hash（首条为 null） */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'prev_hash' })
+  prevHash?: string | null;
+
+  /** HS-11 审计哈希链：本条内容 HMAC（防篡改可验证） */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'hash' })
+  hash?: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }
