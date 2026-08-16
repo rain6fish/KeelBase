@@ -1,0 +1,27 @@
+# D.2 非敏感环境配置。敏感值（DB 密码 / JWT_SECRET / API keys）走 Secret（见 secret.yaml）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keelbase-config
+  namespace: keelbase
+data:
+  NODE_ENV: "production"
+  DB_TYPE: "postgres"
+  DB_HOST: "keelbase-postgres"          # 或托管 PG 地址
+  DB_PORT: "5432"
+  DB_NAME: "front"
+  DB_USER: "front"
+  # DB_READ_REPLICAS: "replica-1:5432,replica-2:5432"   # 3.3 读写分离（可选）
+  CORS_ORIGINS: "https://app.example.com"
+  APP_BASE_URL: "https://app.example.com"
+  LOG_LEVEL: "info"
+  OTEL_ENABLED: "false"
+  LOKI_ENABLED: "false"
+  MAIL_ENABLED: "false"
+  PUSH_DRIVER: "none"
+  QUEUE_ENABLED: "true"
+  CACHE_ENABLED: "true"
+  REDIS_URL: "redis://keelbase-redis:6379"
+  STORAGE_DRIVER: "local"
+  # AI_PROVIDER: "deepseek"
+  # DEEPSEEK_API_KEY 等 AI 密钥走 Secret

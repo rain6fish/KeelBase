@@ -1,0 +1,20 @@
+# D.2 水平自动伸缩：按 CPU 使用率在 2~10 副本间伸缩（滚动更新零中断）。
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: keelbase-backend
+  namespace: keelbase
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: keelbase-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
