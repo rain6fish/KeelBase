@@ -4,6 +4,7 @@
 #
 # 用法：./scripts/dev.sh <command>
 #   experience      一键体验（起后端+管理台，自动开浏览器）
+#   demo            一键起在线演示站（Taro H5 主 App + 后端种子数据，PM-1）
 #   seed-demo       为演示用户补种演示数据（事件/待办/知识库/对话/通知）
 #   healthcheck     运维健康巡检（服务/依赖/指标/本地资源/备份）
 #   dev             本地开发起后端（热重载，SQLite 零配置）
@@ -29,6 +30,9 @@ ROOT="$PWD"
 case "${1:-help}" in
   experience)
     ./deploy/experience.sh
+    ;;
+  demo)
+    ./deploy/demo.sh
     ;;
   seed-demo)
     cd Server-NestJS && npm run seed:demo

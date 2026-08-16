@@ -13,6 +13,11 @@
 > ```
 > See [Quick Start](docs/manual/quickstart-en.md) / [FAQ](docs/manual/faq-en.md).
 
+> ### 🖥️ Live Demo (read-only, seed data)
+> **Try the full-stack app without installing anything** — the Taro H5 main App with demo data (`alex / 123456`):
+> - One-command local demo: `./deploy/demo.sh` → http://localhost:8080
+> - Host your own online demo (DNS + static hosting + backend): [docs/manual/demo-deploy.md](docs/manual/demo-deploy.md)
+
 **AI-Driven Enterprise Application Base — where AI does real work, only within your authorized data.**
 
 KeelBase is a business-safe, AI-native full-stack base for building enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — every tool call scoped to the user's data, every write human-confirmed, every action audited. Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
