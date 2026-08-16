@@ -77,6 +77,20 @@ class AiChatProvider extends ChangeNotifier {
        _errorRetry = errorRetry ?? (() => 'Sorry, an error occurred. Please try again.'),
        _confirmFailed = confirmFailed ?? (() => 'Confirmation request failed, please retry.');
 
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _cancelWsStream();
+    super.dispose();
+  }
+
+  /// 流式/异步完成点统一经此通知：已 dispose 后不再 notify（CR-26 mounted 保护）。
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
   /// 委托触发词（与后端 SkillsRegistry.triggerKeywords + router delegateKeywords 对齐）。
   /// 命中 → 走非流式 /ai/chat 触发 SubAgentOrchestrator，而非流式 SSE 无意图路由。
   static const List<String> _delegateTriggers = [
@@ -138,7 +152,7 @@ class AiChatProvider extends ChangeNotifier {
   void switchModel(String provider) {
     if (provider == _provider) return;
     _provider = provider;
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 消费待发送消息（首页输入框跳转时使用）
@@ -152,7 +166,7 @@ class AiChatProvider extends ChangeNotifier {
   void sendFromHome(String text, String route) {
     _pendingMessage = text.trim();
     _navigateTo = route;
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 发送消息（SSE 流式）
@@ -167,12 +181,12 @@ class AiChatProvider extends ChangeNotifier {
     // 新请求开始时清掉旧的待消费导航，避免 sendFromHome 的 '/ai' 或上一轮
     // delegate 遗留导航被本页 _handleNavigation 再次触发（重复 push）。
     _navigateTo = null;
-    notifyListeners();
+    _safeNotify();
 
     // 添加空白的 assistant 消息，后续逐字追加
     final aiMsg = ChatMessageModel(role: 'assistant', content: '', isStreaming: true);
     _messages = [..._messages, aiMsg];
-    notifyListeners();
+    _safeNotify();
 
     final body = <String, dynamic>{
       'message': text.trim(),
@@ -233,7 +247,7 @@ class AiChatProvider extends ChangeNotifier {
             return m;
           }).toList();
         }
-        notifyListeners();
+        _safeNotify();
       }
     }
   }
@@ -281,7 +295,7 @@ class AiChatProvider extends ChangeNotifier {
           isStreaming: true,
           clearConfirmation: true,
         );
-        notifyListeners();
+        _safeNotify();
       case 'tool_call':
         // Tool calling in progress — user sees "searching" from the streaming text
         break;
@@ -304,7 +318,7 @@ class AiChatProvider extends ChangeNotifier {
                   .copyWith(pendingConfirmation: pending),
             ];
           }
-          notifyListeners();
+          _safeNotify();
         }
       case 'tool_start':
         final ts = data?['toolStart'] as Map<String, dynamic>?;
@@ -320,7 +334,7 @@ class AiChatProvider extends ChangeNotifier {
             ChatMessageModel(role: 'assistant', content: '', toolStep: step),
             _messages.last,
           ];
-          notifyListeners();
+          _safeNotify();
         }
       case 'tool_end':
         final te = data?['toolEnd'] as Map<String, dynamic>?;
@@ -345,7 +359,7 @@ class AiChatProvider extends ChangeNotifier {
               updated,
               ..._messages.sublist(idx + 1),
             ];
-            notifyListeners();
+            _safeNotify();
           }
         }
       case 'confirmation_decision':
@@ -356,7 +370,7 @@ class AiChatProvider extends ChangeNotifier {
             _messages.last.copyWith(clearConfirmation: true),
           ];
         }
-        notifyListeners();
+        _safeNotify();
       case 'done':
         _currentConversationId = data?['conversationId'] as String?;
         break;
@@ -367,7 +381,7 @@ class AiChatProvider extends ChangeNotifier {
             ..._messages.sublist(0, _messages.length - 1),
             ChatMessageModel(role: 'assistant', content: _errorWithDetail(errMsg)),
           ];
-          notifyListeners();
+          _safeNotify();
         }
         break;
     }
@@ -399,7 +413,7 @@ class AiChatProvider extends ChangeNotifier {
         _navigateTo = nav;
       }
       _error = null;
-      notifyListeners();
+      _safeNotify();
     } catch (e) {
       if (gen != _streamGeneration) return;
       if (_messages.isEmpty) return;
@@ -407,7 +421,7 @@ class AiChatProvider extends ChangeNotifier {
         ..._messages.sublist(0, _messages.length - 1),
         ChatMessageModel(role: 'assistant', content: _errorRetry()),
       ];
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -423,7 +437,7 @@ class AiChatProvider extends ChangeNotifier {
     final conf = _currentConfirmation;
     if (conf == null || _isConfirming) return;
     _isConfirming = true;
-    notifyListeners();
+    _safeNotify();
     try {
       await _apiClient.post(
         '/ai/confirmations/${conf.token}',
@@ -437,7 +451,7 @@ class AiChatProvider extends ChangeNotifier {
       _error = _confirmFailed();
     } finally {
       _isConfirming = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -461,7 +475,7 @@ class AiChatProvider extends ChangeNotifier {
     _error = null;
     _navigateTo = null;
     _pendingMessage = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   /// 加载历史对话的完整消息，填充聊天界面（用于从历史列表切换）
@@ -501,10 +515,10 @@ class AiChatProvider extends ChangeNotifier {
       if (convProvider != null && convProvider.isNotEmpty) {
         _provider = convProvider;
       }
-      notifyListeners();
+      _safeNotify();
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _safeNotify();
     }
   }
 }
