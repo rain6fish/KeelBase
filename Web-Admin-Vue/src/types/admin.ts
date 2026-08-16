@@ -220,12 +220,20 @@ export interface AdminAiTool {
   name: string
   description: string
   parameters: Array<{ name: string; type: string; required: boolean }>
+  enabled: boolean
   requiresConfirmation: boolean
+  allowedRoles: string[]
   permissions: {
     requireVerifiedEmail?: boolean
     featureFlag?: string
     adminOnly?: boolean
   } | null
+}
+
+export interface SettingRow {
+  key: string
+  value: string
+  type: 'string' | 'number' | 'boolean'
 }
 
 export interface ToolEffect {

@@ -235,6 +235,21 @@ const en: ZhDict = {
   revokeEffect: 'Revoke',
   revokeEffectConfirm: 'Revoke "{title}"? Soft-deletes the record (recoverable via Trash)',
 
+  // Governance policy (HS-9)
+  governancePolicy: 'Governance Policy',
+  auditGranularity: 'Audit granularity',
+  auditAll: 'All actions',
+  auditWrite: 'Write only',
+  auditOff: 'Off',
+  policyHint: 'Shows the currently effective config; saving writes explicit overrides.',
+  allowedRoles: 'Allowed roles',
+  noRestriction: 'No restriction',
+  roleUser: 'User',
+  savePolicy: 'Save policy',
+  resetPolicy: 'Reset',
+  policySaved: 'Governance policy saved — effective immediately',
+  policySaveFailed: 'Failed to save policy',
+
   // Analytics
   wau: 'Weekly Active',
   mau: 'Monthly Active',
