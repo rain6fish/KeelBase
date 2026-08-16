@@ -10,22 +10,26 @@ import '../../../../core/widgets/loading_widget.dart';
 import '../providers/events_provider.dart';
 import '../../data/repositories/events_repository.dart';
 
-/// 预设颜色 hex：6 种基础色 + 自定义
+/// 预设颜色 hex：与后端 EventColorRole 枚举 index 一一对应
+/// （blue→red→green→orange→purple→cyan）。禁止按 UI 顺序排——否则保存时
+/// `indexOf` 落成枚举下标会选红存 blue、回显整体错位（CR-11）。
 const List<String> _colorHexes = [
-  'FF3B30','FF9500','FFCC00','34C759','007AFF','5856D6',
-  'FF2D55','AF52DE',
+  '007AFF', // blue(0)
+  'FF3B30', // red(1)
+  '34C759', // green(2)
+  'FF9500', // orange(3)
+  'AF52DE', // purple(4)
+  '32ADE6', // cyan(5)
 ];
 
-/// 预设颜色
+/// 预设颜色（顺序与 _colorHexes 一致）
 const List<Color> _colorPalette = [
-  CupertinoColors.systemRed,     // 红
-  CupertinoColors.systemOrange,  // 橙
-  CupertinoColors.systemYellow,  // 黄
-  CupertinoColors.systemGreen,   // 绿
-  CupertinoColors.systemBlue,    // 蓝
-  CupertinoColors.systemIndigo,  // 靛
-  CupertinoColors.systemPink,    // 粉
-  CupertinoColors.systemPurple,  // 紫
+  CupertinoColors.systemBlue,   // blue
+  CupertinoColors.systemRed,    // red
+  CupertinoColors.systemGreen,  // green
+  CupertinoColors.systemOrange, // orange
+  CupertinoColors.systemPurple, // purple
+  CupertinoColors.systemCyan,   // cyan
 ];
 
 class EventFormPage extends StatefulWidget {

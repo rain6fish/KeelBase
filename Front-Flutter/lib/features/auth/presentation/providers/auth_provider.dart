@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/app_cache.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/oauth_service.dart';
@@ -21,6 +22,7 @@ class AuthProvider extends ChangeNotifier {
   int _cooldownRemaining = 0;
   Timer? _cooldownTimer;
   OAuthProviderConfig _providerConfig = OAuthProviderConfig.defaults();
+  final AppCache _cache;
 
   AuthProvider({
     required this.authRepository,
@@ -28,7 +30,9 @@ class AuthProvider extends ChangeNotifier {
     required this.apiClient,
     OAuthService? oauthService,
     String? googleClientId,
-  }) : oauthService = oauthService ?? OAuthService(googleClientId: googleClientId);
+    AppCache? cache,
+  })  : oauthService = oauthService ?? OAuthService(googleClientId: googleClientId),
+        _cache = cache ?? AppCache.unavailable();
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
@@ -187,6 +191,8 @@ class AuthProvider extends ChangeNotifier {
     try {
       await apiClient.clearTokens();
     } catch (_) {}
+    // 清离线缓存，防账号残留数据（CR-12）
+    await _cache.clearAll();
     _user = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
@@ -436,6 +442,8 @@ class AuthProvider extends ChangeNotifier {
 
     // Then clear all local state in one shot
     await apiClient.clearTokens();
+    // 清离线缓存，防跨账号数据泄漏（CR-12）
+    await _cache.clearAll();
     _user = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
