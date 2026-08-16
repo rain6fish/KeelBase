@@ -8,6 +8,7 @@ import {
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Raw } from '../common/decorators/raw.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 interface McpJsonRpc {
@@ -39,6 +40,8 @@ export class McpExportController {
   ) {}
 
   @Post()
+  // @Raw()：MCP 协议要求原始 JSON-RPC 响应，跳过全局 ResponseInterceptor 包装
+  @Raw()
   @ApiOperation({ summary: 'HS-10 MCP 出口：现有 AI 工具暴露为 MCP server（JSON-RPC）' })
   async handle(@CurrentUser() user: JwtPayload, @Body() body: McpJsonRpc): Promise<unknown> {
     const method = body.method ?? '';
