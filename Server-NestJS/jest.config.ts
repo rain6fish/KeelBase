@@ -14,6 +14,22 @@ const config: Config = {
     '!src/main.ts',
     '!src/tracing*.ts',
     '!src/tracing-init.ts',
+    // 纯 DI 声明样板 module 排除（2026-08-16 决策）：仅 imports/controllers/providers 声明
+    // 的模块不参与统计；含真实逻辑（useFactory/useValue/useClass/条件分支）的 module 重新纳入
+    '!src/**/*.module.ts',
+    'src/ai/ai.module.ts',
+    'src/app.module.ts',
+    'src/auth/auth.module.ts',
+    'src/common/cache/cache.module.ts',
+    'src/flows/flows.module.ts',
+    'src/mail/mail.module.ts',
+    'src/maintenance-tasks/maintenance-tasks.module.ts',
+    'src/plugins/plugins.module.ts',
+    'src/push/push.module.ts',
+    'src/queue/queue.module.ts',
+    'src/realtime/realtime.module.ts',
+    'src/sms/sms.module.ts',
+    'src/storage/storage.module.ts',
   ],
   coverageDirectory: './coverage',
   coverageThreshold: {
