@@ -28,6 +28,18 @@ node scripts/benchmark/run-benchmark.mjs
 | GET /health | 689 | 11ms | 受 `/health` 独立 60/min 限流（超限 429） |
 | POST /ai/chat/stream（SSE） | — | 首字节 27ms | 单次实测 |
 
+## Redis 开/关对比（2026-08-16）
+
+`REDIS_URL=redis://localhost:6379 CACHE_ENABLED=true` 开启缓存层，同环境复测：
+
+| 场景 | Redis off | Redis on | 差异 |
+|------|-----------|----------|------|
+| GET /auth/me | 444 req/s | 169 req/s | 缓存序列化 + 网络往返开销 |
+| GET /events（分页） | 366 req/s | 230 req/s | 同上 |
+| POST /ai/chat | 323 req/s | 234 req/s | 同上 |
+
+> **单机 SQLite 场景缓存收益为负**：小数据量下 SQLite 本地直查快于 Redis 往返（网络 + JSON 序列化）。生产 **PostgreSQL + 大数据量/高并发**下，Redis 缓存（users/events 热点 + 穿透防护）才有明显收益——建议以生产配置复测对比。
+
 ## 解读与保护
 
 - **全局限流**（默认 60/min）经 `THROTTLE_LIMIT`/`THROTTLE_TTL` 可配（app.module + env.config）；压测/大促可放宽。
