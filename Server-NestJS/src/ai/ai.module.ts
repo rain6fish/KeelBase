@@ -62,6 +62,7 @@ import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
 import { QueryOrgMembersTool } from './tools/query-org-members.tool';
+import { QueryOrgTasksTool } from './tools/query-org-tasks.tool';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -185,6 +186,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         // ORG-5 组织边界 AI 工具（仅返回请求用户所属组织的数据）
         toolRegistry.register(new QueryOrgAvailabilityTool(orgService, eventsService));
         toolRegistry.register(new QueryOrgMembersTool(orgService));
+        toolRegistry.register(new QueryOrgTasksTool(orgService));
         toolRegistry.register(new NavigatePageTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
