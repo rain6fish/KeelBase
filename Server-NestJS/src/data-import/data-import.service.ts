@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { EventsService } from '../events/events.service';
 
@@ -23,6 +24,11 @@ export class DataImportService {
     private readonly usersService: UsersService,
     private readonly eventsService: EventsService,
   ) {}
+
+  /** 生成临时密码（16 位 hex，含字母+数字，满足密码策略）。导入后用户应走「忘记密码」重置。 */
+  private randomPassword(): string {
+    return randomBytes(8).toString('hex');
+  }
 
   /** 解析 CSV → 行数组（首行表头）。 */
   parseCsv(csv: string): string[][] {
@@ -91,7 +97,7 @@ export class DataImportService {
         await this.usersService.create({
           username: o.username,
           email: o.email,
-          password: o.password || 'DefaultPass123',
+          password: o.password || this.randomPassword(),
           nickname: o.nickname || o.username,
           firstName: o.firstname,
           lastName: o.lastname,
@@ -99,7 +105,9 @@ export class DataImportService {
         result.success++;
       } catch (err) {
         result.failed++;
-        result.errors.push({ row: i + 2, reason: (err as Error).message });
+        // CR-20：不透传内部 Error.message（防泄露校验细节），用通用文案
+        this.logger.warn(`[DataImport] user row ${i + 2} failed: ${(err as Error).message}`);
+        result.errors.push({ row: i + 2, reason: '导入失败' });
       }
     }
     this.logger.log(`[DataImport] users: ${result.success}/${result.total} ok`);
@@ -129,7 +137,9 @@ export class DataImportService {
         result.success++;
       } catch (err) {
         result.failed++;
-        result.errors.push({ row: i + 2, reason: (err as Error).message });
+        // CR-20：不透传内部 Error.message，用通用文案
+        this.logger.warn(`[DataImport] event row ${i + 2} failed: ${(err as Error).message}`);
+        result.errors.push({ row: i + 2, reason: '导入失败' });
       }
     }
     this.logger.log(`[DataImport] events: ${result.success}/${result.total} ok`);

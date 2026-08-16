@@ -108,28 +108,38 @@
    }
  }
  
+ let refreshPromise: Promise<boolean> | null = null
+
  async function tryRefreshToken(): Promise<boolean> {
-   try {
-     const tokens = await storage.readTokens()
-     if (!tokens.refreshToken) return false
- 
-     const response = await Taro.request({
-       url: `${API_BASE_URL}/auth/refresh`,
-       method: 'POST',
-       header: { 'Content-Type': 'application/json' },
-       data: { refreshToken: tokens.refreshToken },
-     })
- 
-     const body = response.data as any
-     const data = body?.data
-     if (data?.accessToken && data?.refreshToken) {
-       await storage.saveTokens(data.accessToken, data.refreshToken)
-       return true
+   // CR-16：共享刷新 Promise（单飞）——并发 401 只刷新一次，防后端 token 轮换并发刷新互相覆盖导致误登出
+   if (refreshPromise) return refreshPromise
+   refreshPromise = (async () => {
+     try {
+       const tokens = await storage.readTokens()
+       if (!tokens.refreshToken) return false
+
+       const response = await Taro.request({
+         url: `${API_BASE_URL}/auth/refresh`,
+         method: 'POST',
+         header: { 'Content-Type': 'application/json' },
+         data: { refreshToken: tokens.refreshToken },
+         timeout: 10000,
+       })
+
+       const body = response.data as any
+       const data = body?.data
+       if (data?.accessToken && data?.refreshToken) {
+         await storage.saveTokens(data.accessToken, data.refreshToken)
+         return true
+       }
+       return false
+     } catch {
+       return false
+     } finally {
+       refreshPromise = null
      }
-     return false
-   } catch {
-     return false
-   }
+   })()
+   return refreshPromise
  }
  
  export class ApiError extends Error {

@@ -137,6 +137,9 @@ export class NotificationsService {
     page = 1,
     limit = 20,
   ): Promise<PaginatedNotifications> {
+    // CR-19：limit 钳制 1-100，防超大值全表拉取
+    page = Math.max(1, page);
+    limit = Math.min(Math.max(limit, 1), 100);
     const [items, total] = await this.notificationsRepository.findAndCount({
       where: { userId },
       order: { createdAt: 'DESC' },
