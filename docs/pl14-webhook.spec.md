@@ -78,8 +78,8 @@ X-Webhook-Signature: <hmac-sha256-hex>
 
 - **签名**：`HMAC-SHA256(secret, rawBody)`，十六进制。接收方可用 secret 验签。
   **Signature**: `HMAC-SHA256(secret, rawBody)` hex. Receivers verify with the secret.
-- **投递**：`fetch` POST，5 秒超时；失败仅记日志，**不阻断业务**。
-  **Delivery**: `fetch` POST with 5s timeout; failure is logged, **never blocks business**.
+- **投递**：`fetch` POST，5 秒超时；**失败按指数退避重试（默认 3 次：1s/2s 间隔，可配置）**，重试耗尽仅记日志，**不阻断业务**。
+  **Delivery**: `fetch` POST with 5s timeout; **exponential-backoff retry on failure (default 3 attempts: 1s/2s interval, configurable)**; after exhaustion only logged, **never blocks business**.
 
 ---
 
