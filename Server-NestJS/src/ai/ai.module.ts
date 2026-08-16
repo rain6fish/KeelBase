@@ -57,6 +57,7 @@ import { AiEvalController } from './eval/ai-eval.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
+import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -73,6 +74,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
+    AuditChainModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
