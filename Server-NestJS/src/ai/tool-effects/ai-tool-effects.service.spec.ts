@@ -98,20 +98,84 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  describe('record', () => {
+    it('并发唯一冲突时幂等跳过返回已有记录', async () => {
+      repo.save.mockRejectedValueOnce(new Error('SQLITE_CONSTRAINT: UNIQUE'));
+      repo.findOne.mockResolvedValue({ id: 9, idempotencyKey: 'k', resultType: 'event', resultId: 7 });
+      const saved = await service.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'X' } },
+        'event',
+        7,
+      );
+      expect(saved.id).toBe(9);
+    });
+  });
+
   describe('revoke', () => {
-    it('软删目标 event（衔接 RG-3）', async () => {
-      repo.findOne.mockResolvedValue({ id: 3, resultType: 'event', resultId: 42 });
-      const eventRepo = { findOne: jest.fn().mockResolvedValue({ id: 42 }), softDelete: jest.fn() };
+    it('软删目标 todo', async () => {
+      repo.findOne.mockResolvedValue({ id: 3, resultType: 'todo', resultId: 55 });
+      const todoRepo = { findOne: jest.fn().mockResolvedValue({ id: 55 }), softDelete: jest.fn() };
+      entityManager.getRepository.mockReturnValue(todoRepo);
+
+      const res = await service.revoke(3);
+      expect(res).toEqual({ revoked: true, effectId: 3 });
+      expect(entityManager.getRepository).toHaveBeenCalledWith('Todo');
+      expect(todoRepo.softDelete).toHaveBeenCalledWith(55);
+    });
+
+    it('目标已不存在时只记日志不软删', async () => {
+      repo.findOne.mockResolvedValue({ id: 3, resultType: 'event', resultId: 999 });
+      const eventRepo = { findOne: jest.fn().mockResolvedValue(null), softDelete: jest.fn() };
       entityManager.getRepository.mockReturnValue(eventRepo);
 
       const res = await service.revoke(3);
       expect(res).toEqual({ revoked: true, effectId: 3 });
-      expect(eventRepo.softDelete).toHaveBeenCalledWith(42);
+      expect(eventRepo.softDelete).not.toHaveBeenCalled();
     });
 
     it('记录不存在 → null', async () => {
       repo.findOne.mockResolvedValue(null);
       expect(await service.revoke(99)).toBeNull();
+    });
+  });
+
+  describe('list（含目标状态富化）', () => {
+    const baseEffect = (id: number, resultType: string, resultId: number) => ({
+      id, userId: '1', toolName: 'create_event', conversationId: 'c',
+      resultType, resultId, argsHash: 'h', createdAt: new Date(),
+    });
+
+    it('按 userId 过滤并附带目标存在/软删/标题', async () => {
+      repo.findAndCount.mockResolvedValue([
+        [baseEffect(1, 'event', 42), baseEffect(2, 'todo', 7)],
+        2,
+      ]);
+      entityManager.getRepository
+        .mockReturnValueOnce({ findOne: jest.fn().mockResolvedValue({ title: '晨会', deletedAt: null }) }) // event
+        .mockReturnValueOnce({ findOne: jest.fn().mockResolvedValue({ title: '买牛奶', deletedAt: new Date() }) }); // todo 已软删
+
+      const result = await service.list({ userId: 1, page: 1, limit: 20 });
+      expect(result.total).toBe(2);
+      expect(result.items[0]).toMatchObject({ targetExists: true, targetSoftDeleted: false, targetTitle: '晨会' });
+      expect(result.items[1]).toMatchObject({ targetExists: true, targetSoftDeleted: true, targetTitle: '买牛奶' });
+      expect(entityManager.getRepository).toHaveBeenCalledWith('Event');
+      expect(entityManager.getRepository).toHaveBeenCalledWith('Todo');
+    });
+
+    it('目标不存在时 targetExists=false', async () => {
+      repo.findAndCount.mockResolvedValue([[baseEffect(1, 'event', 999)], 1]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      const result = await service.list({});
+      expect(result.items[0]).toMatchObject({ targetExists: false, targetSoftDeleted: false, targetTitle: null });
+    });
+
+    it('limit 钳制 100', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      await service.list({ limit: 999 });
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
     });
   });
 });
