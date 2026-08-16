@@ -319,5 +319,103 @@ describe('EventsService', () => {
 
       await expect(service.remove(1, makeAbility(999))).rejects.toThrow(ForbiddenException);
     });
+
+    it('软删受影响行数为 0 时抛 NotFound', async () => {
+      mockRepository.findOne.mockResolvedValue(mockEvent);
+      mockRepository.softDelete.mockResolvedValue({ affected: 0, raw: {} } as any);
+      await expect(service.remove(1, makeAbility(1))).rejects.toThrow(NotFoundException);
+    });
+
+    it('移除提醒 job 失败仅记日志不阻断删除', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockEvent, reminderMinutes: 30 });
+      mockRepository.softDelete.mockResolvedValue({ affected: 1, raw: {} } as any);
+      (service as any).reminderQueue.remove.mockRejectedValue(new Error('job gone'));
+      await expect(service.remove(1, makeAbility(1))).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── 补充覆盖：findAll / 范围查询边界 / 提醒失败 ───────────────────────────
+
+  describe('findAll', () => {
+    beforeEach(() => {
+      (mockRepository as any).findAndCount = jest.fn().mockResolvedValue([
+        [{ ...mockEvent, user: { id: 1, username: 'alex' } }],
+        1,
+      ]);
+    });
+
+    it('无过滤时走缓存：set 写回', async () => {
+      const result = await service.findAll(1, 20);
+      expect(result.items[0].user).toEqual({ id: 1, username: 'alex' });
+      expect(result.totalPages).toBe(1);
+      const cache = (service as any).cacheService;
+      expect(cache.set).toHaveBeenCalledWith('events:list:1:20', result, expect.any(Number));
+    });
+
+    it('缓存命中时直接返回且不查库', async () => {
+      const cached = { items: [{ id: 99 }], total: 1, page: 1, limit: 20, totalPages: 1 };
+      (service as any).cacheService.get.mockResolvedValue(cached);
+      const result = await service.findAll(1, 20);
+      expect(result).toEqual(cached);
+      expect(mockRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it('带过滤时不读写缓存', async () => {
+      await service.findAll(1, 20, { keyword: '会', userId: 3, isCancelled: true, start: '2026-08-01', end: '2026-08-31' });
+      const cache = (service as any).cacheService;
+      expect(cache.set).not.toHaveBeenCalled();
+      const where = mockRepository.findAndCount.mock.calls[0][0].where;
+      expect(where.title).toBeDefined();
+      expect(where.userId).toBe(3);
+      expect(where.isCancelled).toBe(true);
+      expect(where.startTime).toBeDefined(); // Between
+    });
+
+    it('只给 start / 只给 end 分别用 >= / <=', async () => {
+      await service.findAll(1, 20, { start: '2026-08-01' });
+      let where = mockRepository.findAndCount.mock.calls[0][0].where;
+      expect(where.startTime._type).toBe('moreThanOrEqual');
+
+      await service.findAll(1, 20, { end: '2026-08-31' });
+      where = mockRepository.findAndCount.mock.calls[1][0].where;
+      expect(where.startTime._type).toBe('lessThanOrEqual');
+    });
+
+    it('limit 钳制 1-100（CR-19）', async () => {
+      await service.findAll(-5, 9999);
+      expect(mockRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+    });
+  });
+
+  describe('范围查询与提醒边界', () => {
+    it('无 userId 时只用时间范围（无所有权条件）', async () => {
+      mockRepository.find.mockResolvedValue([]);
+      await service.getEventsForRange('2026-08-01', '2026-08-31');
+      const where = mockRepository.find.mock.calls[0][0].where;
+      expect(Array.isArray(where)).toBe(true);
+      // 每项都是纯时间范围，不带 orgId/userId
+      expect(JSON.stringify(where)).not.toContain('userId');
+    });
+
+    it('orgService 抛错时降级为仅本人（不阻断）', async () => {
+      (service as any).orgService = { getUserOrgId: jest.fn().mockRejectedValue(new Error('db down')) };
+      mockRepository.find.mockResolvedValue([mockEvent]);
+      const result = await service.getEventsForRange('2026-08-01', '2026-08-31', 5);
+      expect(result).toHaveLength(1);
+      const where = mockRepository.find.mock.calls[0][0].where;
+      expect(JSON.stringify(where)).not.toContain('orgId');
+      (service as any).orgService = undefined;
+    });
+
+    it('提醒 job 入队失败仅记日志（create 不阻断）', async () => {
+      const future = new Date(Date.now() + 3600 * 1000).toISOString();
+      const withReminder = { ...mockEvent, id: 8, startTime: new Date(future), reminderMinutes: 30 };
+      mockRepository.create.mockReturnValue(withReminder);
+      mockRepository.save.mockResolvedValue(withReminder);
+      (service as any).reminderQueue.add.mockRejectedValue(new Error('queue down'));
+      await expect(service.create({ title: 'T', startTime: future, endTime: future } as any, 1)).resolves.toBeDefined();
+    });
   });
 });
