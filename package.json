@@ -29,5 +29,8 @@
   },
   "scripts": {
     "cli:test": "node --test scripts/keelbase-init.test.mjs"
+  },
+  "devDependencies": {
+    "autocannon": "^8.0.0"
   }
 }
