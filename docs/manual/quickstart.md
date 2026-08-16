@@ -217,6 +217,7 @@ npm run dev                   # Vite dev server → http://localhost:10086/admin
 
 | 你想…… | 去看 |
 |--------|------|
+| 从零到部署的完整教程 | [从零到部署教程](tutorial.md) |
 | 排查具体问题 | [常见问题 FAQ](faq.md) |
 | 了解所有功能与接口 | [使用手册](usage.md) |
 | 改代码 / 加功能 | [开发手册](development.md) |

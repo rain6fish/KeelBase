@@ -6,6 +6,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 |---------------|-----------------|----------------|
 | [Quick Start / 快速上手](quickstart.md) | Everyone / 所有人 | 零基础 5 分钟跑通全栈，每步含验证与排错 / 5-min zero-setup runthrough |
 | [Quick Start (EN)](quickstart-en.md) | Everyone / 所有人 | English zero-setup runthrough |
+| [Tutorial / 从零到部署教程](tutorial.md) | Everyone / 所有人 | 零基础 → 跑起来 → 改配置 → 私有化部署全流程 / zero-to-deploy full journey (DX-2) |
 | [FAQ / 常见问题](faq.md) | Everyone / 所有人 | 按主题排查（环境/启动/账号/AI/部署）/ topic-based troubleshooting |
 | [FAQ (EN)](faq-en.md) | Everyone / 所有人 | English topic-based troubleshooting |
 | [Usage Manual / 使用手册](usage.md) | End users / 终端用户 | Feature URLs & common operations / 功能 URL 与常见操作 |
