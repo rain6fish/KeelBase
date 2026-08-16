@@ -2,21 +2,25 @@ import { Test } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { EventsService } from '../events/events.service';
+import { TodosService } from '../todos/todos.service';
 import { DataImportService } from './data-import.service';
 
 describe('DataImportService（POV-2）', () => {
   let service: DataImportService;
   let usersService: { create: jest.Mock };
   let eventsService: { create: jest.Mock };
+  let todosService: { create: jest.Mock };
 
   beforeEach(async () => {
     usersService = { create: jest.fn().mockResolvedValue({ id: 1 }) };
     eventsService = { create: jest.fn().mockResolvedValue({ id: 1 }) };
+    todosService = { create: jest.fn().mockResolvedValue({ id: 1 }) };
     const moduleRef = await Test.createTestingModule({
       providers: [
         DataImportService,
         { provide: UsersService, useValue: usersService },
         { provide: EventsService, useValue: eventsService },
+        { provide: TodosService, useValue: todosService },
       ],
     }).compile();
     service = moduleRef.get(DataImportService);
@@ -66,6 +70,25 @@ describe('DataImportService（POV-2）', () => {
 
     it('userId 无效记失败', async () => {
       const result = await service.importEvents('userId,title\n\nabc,x');
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].reason).toContain('导入失败');
+    });
+  });
+
+  describe('importTodos（POV-2 深化）', () => {
+    it('导入待办并带 userId / completed / dueDate', async () => {
+      const result = await service.importTodos('userId,title,completed,dueDate\n\n5,买牛奶,true,2026-08-10T18:00:00Z');
+
+      expect(result.success).toBe(1);
+      const [dto, userId] = todosService.create.mock.calls[0];
+      expect(userId).toBe(5);
+      expect(dto.title).toBe('买牛奶');
+      expect(dto.completed).toBe(true);
+      expect(dto.dueDate).toContain('2026-08-10');
+    });
+
+    it('userId 无效记失败（不透传错误）', async () => {
+      const result = await service.importTodos('userId,title\n\nabc,x');
       expect(result.failed).toBe(1);
       expect(result.errors[0].reason).toContain('导入失败');
     });
