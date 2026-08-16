@@ -84,7 +84,20 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
 
         if (dbType === 'postgres') {
           const otelOn = configService.get<string>('OTEL_ENABLED', 'false') === 'true';
-          return {
+          const username = configService.get<string>('DB_USER', 'postgres');
+          const password = configService.get<string>('DB_PASSWORD', 'postgres');
+          const database = configService.get<string>('DB_NAME', 'front');
+          // 3.3 读写分离：DB_READ_REPLICAS 逗号分隔 "host1:5432,host2:5432" →
+          // TypeORM replication 自动把读路由到从库、写走主库；未配置 = 单库（向后兼容）。
+          const readReplicas = (configService.get<string>('DB_READ_REPLICAS', '') || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((addr) => {
+              const [rhost, rport] = addr.split(':');
+              return { host: rhost, port: parseInt(rport || '5432', 10), username, password, database };
+            });
+          const common = {
             type: 'postgres' as const,
             autoLoadEntities: true,
             synchronize: isDev || useSync,
@@ -118,20 +131,38 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiDailyUsage*.js',
               'dist/migrations/*AddAuditHashChain*.js',
               'dist/migrations/*PostgresIncrementalSchema*.js',
-
             ],
             migrationsRun: !isDev && !useSync,
-            host: configService.get<string>('DB_HOST', 'localhost'),
-            port: configService.get<number>('DB_PORT', 5432),
-            username: configService.get<string>('DB_USER', 'postgres'),
-            password: configService.get<string>('DB_PASSWORD', 'postgres'),
-            database: configService.get<string>('DB_NAME', 'front'),
             extra: {
               max: configService.get<number>('DB_POOL_MAX', 20),
               min: configService.get<number>('DB_POOL_MIN', 5),
               idleTimeoutMillis: configService.get<number>('DB_POOL_IDLE_TIMEOUT', 30000),
               connectionTimeoutMillis: configService.get<number>('DB_POOL_CONNECTION_TIMEOUT', 2000),
             },
+          };
+          if (readReplicas.length > 0) {
+            // 读写分离：读自动路由到从库（TypeORM replication），写走主库
+            return {
+              ...common,
+              replication: {
+                master: {
+                  host: configService.get<string>('DB_HOST', 'localhost'),
+                  port: configService.get<number>('DB_PORT', 5432),
+                  username,
+                  password,
+                  database,
+                },
+                slaves: readReplicas,
+              },
+            } satisfies TypeOrmModuleOptions;
+          }
+          return {
+            ...common,
+            host: configService.get<string>('DB_HOST', 'localhost'),
+            port: configService.get<number>('DB_PORT', 5432),
+            username,
+            password,
+            database,
           } satisfies TypeOrmModuleOptions;
         }
 
