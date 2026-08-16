@@ -16,11 +16,19 @@ Security & governance hardening on top of 0.9.1. / 0.9.1 之上的安全与治�
   **MCP 适配（HS-10）**：内置 AI 工具出口为 MCP server（`POST /api/v1/mcp`，JSON-RPC）且过同一治理层（权限+确认+审计）；入口 gateway（`/admin/mcp/*`）经 Settings 注册外部 MCP server 并让其工具强制过治理层（工具键 `mcp_<server>_<tool>`，非只读默认需确认）；Agent 对话集成（`ExternalToolProvider`）把外部工具并入 LLM 工具流
 - **Per-module coverage gate (T.5)**: `scripts/check-security-coverage.mjs` enforces statements ≥60% for critical modules (auth / casl / audit / ai-tools / governance / headless) after `test:cov`
   **关键模块覆盖率分档门控（T.5）**：`scripts/check-security-coverage.mjs` 在 `test:cov` 后按模块门控 statements ≥60%（auth/casl/audit/ai-tools/governance/headless）
+- **Admin governance policy editor (HS-9)**: Web-Admin-Vue「AI Tools」page gains a governance editor — per-tool enabled / confirmation / allowed-roles toggles + audit granularity (all / write / off), saved to `ai_governance_policy` and effective immediately (no redeploy)
+  **管理台治理策略编辑器（HS-9）**：Web-Admin-Vue「工具与副作用」页新增治理策略编辑——每工具启用/需确认/允许角色开关 + 审计粒度（全部/仅写/关闭），保存即写入 `ai_governance_policy` 实时生效
+- **MCP integration admin page (HS-10)**: register / remove MCP servers, discover external tools (30s cache, force refresh), and call tools with a JSON argument template pre-filled from `inputSchema` — all through the governance layer (permission + confirmation + audit)
+  **MCP 集成管理页（HS-10）**：注册/移除 MCP Server、发现外部工具（30s 缓存 + 强制刷新）、调用工具（按 `inputSchema` 预填 JSON 参数模板），全部过治理层
+- **Flutter AI i18n hardening (T.8)**: AI chat error messages no longer hardcoded Chinese — injected i18n callbacks into the provider; stable keys on suggested-question chips; `UserModel.copyWith` can clear nullable fields; `ToolStepModel` extracted to a domain model
+  **Flutter AI i18n 加固（T.8）**：AI 对话错误文案不再硬编码中文——向 provider 注入 i18n 回调；建议问题 chips 补稳定 key；`UserModel.copyWith` 支持清空可空字段；`ToolStepModel` 抽取到领域模型
 
 ### Fixed / 修复
 
 - Migration schema consistency: named/placeholder constraint names (post_likes, user_follows, ai_daily_usage, …) caused CI `migration:generate` drift; `AddSchemaConsistencyConstraints` reconciles the chain (fresh-DB generate → "No changes")
   **迁移一致性**：可读/占位约束名（post_likes、user_follows、ai_daily_usage 等）导致 CI 迁移一致性校验漂移；`AddSchemaConsistencyConstraints` 修正迁移收敛（全新库 generate → No changes）
+- MCP admin DTO validation: `RegisterServerDto` / `CallExternalToolDto` lacked class-validator decorators, so the global `whitelist + forbidNonWhitelisted` pipe stripped them and `POST /admin/mcp/servers` / `POST /admin/mcp/call` returned 400 (service unit tests bypass the HTTP pipe, so this was a blind spot); added decorators + DTO spec
+  **MCP 管理 DTO 校验**：`RegisterServerDto`/`CallExternalToolDto` 缺 class-validator 装饰器，被全局 `whitelist + forbidNonWhitelisted` 管道整条剥掉致 register/call 400（service 单测直调绕过 HTTP 层所以是盲区）；补装饰器 + DTO 单测
 
 ## [0.9.1] - 2026-08-15
 
