@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { HealthController } from './health.controller';
 import { STORAGE_SERVICE } from '../storage/storage.service';
+import * as net from 'net';
 
 describe('HealthController', () => {
   let controller: HealthController;
@@ -78,5 +79,27 @@ describe('HealthController', () => {
     const result = await controller.check('true');
     expect((result as any).dependencies.database).toBe('down');
     expect(runner.release).toHaveBeenCalled();
+  });
+
+  // ── 补充覆盖：Redis 降级 / storage 异常 ────────────────────────────────────
+  // 注：_checkRedis 的 TCP 探测用 `await import('net')` 动态加载，jest.mock 无法拦截
+  // （动态 import 绕过 mock registry），故只覆盖「未配置」「URL 非法」两条降级路径。
+
+  it('_checkRedis：REDIS_URL 非法 → catch 降级 down', async () => {
+    configService.get.mockImplementation((k: string, d?: unknown) => (k === 'REDIS_URL' ? 'not-a-valid-url' : d));
+    await expect((controller as any)._checkRedis()).resolves.toBe('down');
+  });
+
+  it('_checkStorage：storageService 抛错 → down', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [HealthController],
+      providers: [
+        { provide: DataSource, useValue: dataSource },
+        { provide: ConfigService, useValue: configService },
+        { provide: STORAGE_SERVICE, useValue: { checkHealth: jest.fn().mockRejectedValue(new Error('s3 down')) } },
+      ],
+    }).compile();
+    const c = module.get<HealthController>(HealthController);
+    await expect((c as any)._checkStorage()).resolves.toBe('down');
   });
 });
