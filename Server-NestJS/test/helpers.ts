@@ -29,6 +29,7 @@ import { SmsModule } from '../src/sms/sms.module';
 import { SettingsModule } from '../src/settings/settings.module';
 import { CircuitBreakerModule } from '../src/circuit-breaker/circuit-breaker.module';
 import { HeadlessModule } from '../src/headless/headless.module';
+import { McpModule } from '../src/mcp/mcp.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
@@ -112,6 +113,7 @@ import request from 'supertest';
     SettingsModule,
     CircuitBreakerModule,
     HeadlessModule,
+    McpModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
