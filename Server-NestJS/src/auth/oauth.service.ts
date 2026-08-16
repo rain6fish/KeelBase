@@ -350,10 +350,12 @@ export class OAuthService {
     try {
       const signer = crypto.createSign('RSA-SHA256');
       signer.update(signStr, 'utf-8');
-      const signature = signer.sign(
-        `-----BEGIN PRIVATE KEY-----\n${this.chunkBase64(privateKey.replace(/-----[^-]+-----/g, '').replace(/\s/g, ''), 64)}\n-----END PRIVATE KEY-----`,
-        'base64',
-      );
+      const privateKeyPem = [
+        '-----BEGIN PRIVATE KEY-----',
+        ...this.chunkBase64(privateKey.replace(/-----[^-]+-----/g, '').replace(/\s/g, ''), 64),
+        '-----END PRIVATE KEY-----',
+      ].join('\n');
+      const signature = signer.sign(privateKeyPem, 'base64');
       params.sign = signature;
     } catch (err) {
       this.logger.error(`Alipay signing failed: ${(err as Error).message}`);
@@ -434,7 +436,14 @@ export class OAuthService {
     if (jwk.kty === 'RSA') {
       const n = Buffer.from(jwk.n!, 'base64url');
       const e = Buffer.from(jwk.e!, 'base64url');
-      return this.toPem(this.derSequence(Buffer.concat([this.derInteger(n), this.derInteger(e)])), 'PUBLIC KEY');
+      // SPKI 需要 AlgorithmIdentifier（rsaEncryption OID + NULL）+ BIT STRING 包装，
+      // 否则 createPublicKey 无法解析为非对称密钥
+      const algoId = this.derSequence(Buffer.concat([
+        Buffer.from('06092A864886F70D010101', 'hex'),
+        Buffer.from('0500', 'hex'),
+      ]));
+      const rsaPub = this.derSequence(Buffer.concat([this.derInteger(n), this.derInteger(e)]));
+      return this.toPem(this.derSequence(Buffer.concat([algoId, this.derBitString(rsaPub)])), 'PUBLIC KEY');
     }
     if (jwk.kty === 'EC') {
       const x = Buffer.from(jwk.x!, 'base64url');
