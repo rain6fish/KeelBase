@@ -407,4 +407,113 @@ describe('KnowledgeService', () => {
       expect(stats.vectorEnabled).toBe(false);
     });
   });
+
+  describe('补充覆盖：失败降级与分支', () => {
+    const doc = { buffer: Buffer.from('%PDF'), originalName: '手册.pdf', mimetype: 'application/pdf' };
+
+    it('createDocument 解析失败抛 400', async () => {
+      await setup();
+      (detectDocType as jest.Mock).mockReturnValue('pdf');
+      (parseDocument as jest.Mock).mockRejectedValue(new Error('corrupt'));
+      await expect(service.createDocument(doc)).rejects.toThrow('文档解析失败');
+    });
+
+    it('createDocument 存文件失败仅记日志不阻断', async () => {
+      await setup();
+      (detectDocType as jest.Mock).mockReturnValue('pdf');
+      (parseDocument as jest.Mock).mockResolvedValue('内容');
+      storageService.save.mockRejectedValueOnce(new Error('disk full'));
+      const result = await service.createDocument(doc);
+      expect(result.fileUrl).toBeUndefined();
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ fileUrl: undefined }));
+    });
+
+    it('update 文档文章走重切块重向量化（ingestById）', async () => {
+      await setup();
+      const docArticle = { ...article, docType: 'pdf' };
+      repo.findOneBy.mockResolvedValueOnce(docArticle).mockResolvedValueOnce({ ...docArticle, title: '新' });
+      repo.update.mockResolvedValue({ affected: 1 });
+      await service.update(1, { title: '新' });
+      expect(ingestionService.ingestById).toHaveBeenCalledWith(1);
+    });
+
+    it('update 普通文章走 embedForArticle', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      repo.findOneBy.mockResolvedValueOnce(article).mockResolvedValueOnce({ ...article, title: '新' });
+      repo.update.mockResolvedValue({ affected: 1 });
+      await service.update(1, { title: '新' });
+      expect(ingestionService.ingestById).not.toHaveBeenCalled();
+      expect(embeddings.embed).not.toHaveBeenCalled();
+    });
+
+    it('remove 在 postgres 显式删 chunks', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      dataSource.options = { type: 'postgres' };
+      repo.findOneBy.mockResolvedValue(article);
+      await service.remove(1);
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM "ai_knowledge_chunks"'),
+        [1],
+      );
+    });
+
+    it('remove 删 chunks 失败仅记日志', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      dataSource.options = { type: 'postgres' };
+      dataSource.query.mockRejectedValue(new Error('no table'));
+      repo.findOneBy.mockResolvedValue(article);
+      await expect(service.remove(1)).resolves.toBeUndefined();
+    });
+
+    it('getChunks postgres 查询失败回退实时切块', async () => {
+      await setup();
+      dataSource.options = { type: 'postgres' };
+      dataSource.query.mockRejectedValue(new Error('no table'));
+      repo.findOneBy.mockResolvedValue({ ...article, content: '第一段。第二段。' });
+      const result = await service.getChunks(1);
+      expect(result.chunks.length).toBeGreaterThan(0);
+    });
+
+    it('getStats postgres 查 chunks 计数与库大小', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      dataSource.options = { type: 'postgres' };
+      dataSource.query
+        .mockResolvedValueOnce([{ count: 12 }])
+        .mockResolvedValueOnce([{ bytes: 1048576 }]);
+      repo.findAndCount.mockResolvedValue([[article], 1]);
+      const stats = await service.getStats();
+      expect(stats.chunks).toBe(12);
+      expect(stats.storageBytes).toBe(1048576);
+    });
+
+    it('debugSearch 向量可用走 vector engine（含分数格式化）', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(true), embed: jest.fn().mockResolvedValue([0.1, 0.2]) });
+      dataSource.options = { type: 'postgres' };
+      dataSource.query.mockResolvedValue([{ id: 1, title: '手册', category: null, content: 'x', distance: 0.25 }]);
+      const result = await service.debugSearch('年假');
+      expect(result.engine).toBe('vector');
+      expect(result.hits[0].score).toBe('0.2500');
+    });
+
+    it('debugSearch 向量失败回退全文', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(true), embed: jest.fn().mockRejectedValue(new Error('down')) });
+      repo.find.mockResolvedValue([article]);
+      const result = await service.debugSearch('年假');
+      expect(result.engine).toBe('fulltext');
+    });
+
+    it('向量写入失败仅记日志（create 不阻断）', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(true), embed: jest.fn().mockResolvedValue([0.1]) });
+      dataSource.query.mockRejectedValue(new Error('pg down'));
+      const result = await service.create({ title: 'x', content: 'y' });
+      expect(result.id).toBe(1);
+    });
+
+    it('向量删除失败仅记日志（remove 不阻断）', async () => {
+      await setup({ isAvailable: jest.fn().mockReturnValue(true) });
+      repo.findOneBy.mockResolvedValue(article);
+      dataSource.query.mockRejectedValue(new Error('pg down'));
+      await expect(service.remove(1)).resolves.toBeUndefined();
+    });
+  });
 });
