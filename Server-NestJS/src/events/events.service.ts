@@ -10,6 +10,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { CacheService } from '../common/cache/cache.service';
 import { OrgService } from '../org/org.service';
+import type { WebhookPublisher } from '../webhooks/webhook.service';
 
 const EVENT_CACHE_TTL_MS = 60 * 1000;
 
@@ -39,6 +40,7 @@ export class EventsService {
     private cacheService: CacheService,
     @Optional() @InjectQueue('reminder') private readonly reminderQueue: Queue | null,
     @Optional() private readonly orgService?: OrgService,
+    @Optional() private readonly webhookPublisher?: WebhookPublisher,
   ) {}
 
   async create(dto: CreateEventDto, userId: number): Promise<Event> {
@@ -54,6 +56,12 @@ export class EventsService {
     const saved = await this.eventsRepository.save(event);
     await this.cacheService.delByPrefix('events:');
     await this._scheduleReminder(saved);
+    // PL-14：事件创建事件发布（订阅 event.created 的 webhook 收到投递）
+    if (this.webhookPublisher) {
+      await this.webhookPublisher
+        .publish('event.created', { eventId: saved.id, title: saved.title, userId, orgId: saved.orgId ?? null })
+        .catch(() => undefined);
+    }
     return saved;
   }
 
