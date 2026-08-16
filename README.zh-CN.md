@@ -235,6 +235,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 | 文件 | 读者 | 用途 |
 |------|----------|---------|
 | [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | 所有人 | 快速上手（零基础 5 分钟跑通全栈） |
+| [`docs/manual/tutorial.md`](docs/manual/tutorial.md) | 所有人 | 从零到部署教程：跑起来 → 改配置 → 私有化部署 |
 | [`docs/manual/faq.md`](docs/manual/faq.md) | 所有人 | 常见问题排查（环境/启动/账号/AI/部署） |
 | [`docs/manual/quickstart-en.md`](docs/manual/quickstart-en.md) | Everyone | Quick Start (English) |
 | [`docs/manual/faq-en.md`](docs/manual/faq-en.md) | Everyone | FAQ (English) |
