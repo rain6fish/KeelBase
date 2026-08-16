@@ -23,6 +23,7 @@ import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { AiTool, ToolResult } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
+import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
 import {
   markSystemBoundary,
   sanitizeExternalContent,
@@ -80,6 +81,14 @@ export class AiService {
   private readonly routerAgent = new RouterAgent();
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
+
+  /** HS-10 Agent 对话集成：外部 MCP 工具提供者（运行时由 McpModule 注入，避免模块循环依赖） */
+  private externalToolProvider?: ExternalToolProvider;
+
+  /** HS-10：注入外部工具提供者（McpGatewayService 实现；启动时调用）。 */
+  registerExternalToolProvider(provider: ExternalToolProvider): void {
+    this.externalToolProvider = provider;
+  }
 
   constructor(
     private readonly providerFactory: LlmProviderFactory,
@@ -192,12 +201,53 @@ export class AiService {
 
   /**
    * HS-9 确认规则：治理策略可覆盖工具定义的 requiresConfirmation。
+   * HS-10：外部 MCP 工具由 ExternalToolProvider 判定（readOnly 免确认，非只读默认需确认，策略可覆盖）。
    * 未注入 GovernancePolicyService（单测/降级）时沿用工具定义默认。
    */
   private async _requiresConfirmation(name: string): Promise<boolean> {
+    if (this.externalToolProvider?.isExternal(name)) {
+      return this.externalToolProvider.requiresConfirmation(name);
+    }
     const fallback = this.toolRegistry.requiresConfirmation(name);
     if (!this.governancePolicy) return fallback;
     return this.governancePolicy.requiresConfirmation(name, fallback);
+  }
+
+  /**
+   * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
+   */
+  private async _buildToolDefs(): Promise<ToolDefinition[]> {
+    const builtin = this.toolRegistry.getToolDefinitions();
+    if (!this.externalToolProvider) return builtin;
+    try {
+      const external: ExternalToolDef[] = await this.externalToolProvider.listExternalTools();
+      if (external.length === 0) return builtin;
+      return [
+        ...builtin,
+        ...external.map((t) => ({
+          type: 'function' as const,
+          function: { name: t.name, description: t.description, parameters: t.parameters },
+        })),
+      ];
+    } catch {
+      return builtin;
+    }
+  }
+
+  /** HS-10：读工具执行（内置走 toolRegistry，外部走 provider）。 */
+  private async _executeReadTool(
+    name: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<ToolResult> {
+    if (this.externalToolProvider?.isExternal(name)) {
+      const out = await this.externalToolProvider.callTool(name, args, userId);
+      if (!out.executed) {
+        return { success: false, error: out.error ?? 'External tool call failed' };
+      }
+      return { success: true, data: out.content ?? {} };
+    }
+    return this.toolRegistry.execute(name, args, userId);
   }
 
   /**
@@ -216,6 +266,7 @@ export class AiService {
    * - 同会话同工具同参数重复调用返回已有结果（防 LLM 重试/并发重复创建）
    * - 成功后记录副作用（resultType/resultId），管理台可软删撤销（衔接 RG-3）
    * toolEffectsService 未注入（单测/降级）时直接执行，跳过幂等。
+   * HS-10：外部 MCP 写工具经 provider 执行（跳过幂等/副作用——外部工具不创建 KeelBase 实体）。
    */
   private async _executeWriteTool(
     toolName: string,
@@ -223,6 +274,13 @@ export class AiService {
     userId: string,
     conversationId?: string,
   ): Promise<ToolResult> {
+    if (this.externalToolProvider?.isExternal(toolName)) {
+      const out = await this.externalToolProvider.callTool(toolName, args, userId);
+      if (!out.executed) {
+        return { success: false, error: out.error ?? 'External tool call failed' };
+      }
+      return { success: true, data: out.content ?? {} };
+    }
     if (!this.toolEffectsService) {
       return this.toolRegistry.execute(toolName, args, userId);
     }
@@ -509,7 +567,7 @@ export class AiService {
           conversationId,
           userId,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: this.toolRegistry.getToolDefinitions(),
+          initialToolDefs: await this._buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
           images: request.images,
         });
@@ -563,7 +621,7 @@ export class AiService {
           conversationId,
           userId,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: this.toolRegistry.getToolDefinitions(),
+          initialToolDefs: await this._buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
           images: request.images,
         });
@@ -580,7 +638,7 @@ export class AiService {
         conversationId,
         userId,
         model: request.model ?? this.config.defaultModel,
-        initialToolDefs: this.toolRegistry.getToolDefinitions(),
+        initialToolDefs: await this._buildToolDefs(),
         fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
         images: request.images,
       });
@@ -716,7 +774,7 @@ export class AiService {
     const model = request.model ?? this.config.defaultModel;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const tools = this.toolRegistry.getToolDefinitions();
+      const tools = await this._buildToolDefs();
       const stream = provider.stream({
         messages,
         tools: tools.length > 0 ? tools : undefined,
@@ -925,7 +983,7 @@ export class AiService {
             }
             }
           } else {
-            result = await this.toolRegistry.execute(tc.name, parsed, userId);
+            result = await this._executeReadTool(tc.name, parsed, userId);
             yield {
               type: 'tool_end',
               toolEnd: {
@@ -1235,7 +1293,7 @@ export class AiService {
                 error:
                   'Write operations require confirmation; please use streaming chat.',
               }
-            : await this.toolRegistry.execute(tc.name, args, params.userId);
+            : await this._executeReadTool(tc.name, args, params.userId);
 
           // 检测导航请求 — 工具返回 navigateTo 时记录
           if (resolvedResult.success && resolvedResult.data && (resolvedResult.data as any).navigateTo) {
