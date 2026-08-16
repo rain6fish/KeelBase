@@ -12,6 +12,7 @@ import { User } from '../common/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
+import { FlowTask } from '../flows/entities/flow-task.entity';
 
 /** 链式 QueryBuilder mock */
 function mockQB(overrides: Record<string, unknown> = {}) {
@@ -78,6 +79,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(OrgInvite), useValue: invites },
         { provide: getRepositoryToken(User), useValue: users },
         { provide: getRepositoryToken(FlowInstance), useValue: flowInst },
+        { provide: getRepositoryToken(FlowTask), useValue: mockRepo() },
         { provide: NotificationsService, useValue: notify },
         {
           provide: FlowRuntimeService,
