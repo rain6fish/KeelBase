@@ -56,6 +56,7 @@ import { SettingsModule } from './settings/settings.module';
 import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { AlertWebhookModule } from './alert-webhook/alert-webhook.module';
+import { McpModule } from './mcp/mcp.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
@@ -167,6 +168,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     UploadModule,
     NotificationsModule,
     AiModule,
+    McpModule,
     MetricsModule,
     CaslModule,
     EncryptionModule,
