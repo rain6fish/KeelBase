@@ -107,5 +107,8 @@ else
   echo "   前端     http://<服务器IP>/"
 fi
 echo "   管理员   ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}"
+if [ "${ADMIN_PASSWORD}" = "Admin@1234" ]; then
+  echo "   ⚠ 正在使用默认管理员密码，请立即登录管理台修改！建议重跑：ADMIN_PASSWORD='<强密码>' ./deploy/deploy.sh"
+fi
 echo ""
 echo "   PostgreSQL/Redis 数据在 volume 中；备份：npm run backup（需在 server 容器内执行）"

@@ -15,6 +15,8 @@ RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
 COPY --from=server-build /app/server/dist ./dist
  COPY --from=server-build /app/server/node_modules ./node_modules
  COPY --from=server-build /app/server/package*.json ./
+ # CR-23：deploy.sh 容器内 exec `npx ts-node scripts/create-admin.ts`，镜像必须含 scripts/ 才能建管理员
+ COPY --from=server-build /app/server/scripts ./scripts
  EXPOSE 3000
  USER keelbase
  CMD ["node", "dist/main"]

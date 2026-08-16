@@ -1,7 +1,9 @@
 /** 前端生成 CSV 下载（无后端依赖）。Blob + a[download]。 */
 
 function escapeCell(value: unknown): string {
-  const s = String(value ?? '')
+  let s = String(value ?? '')
+  // CR-23：公式注入防护——以 = + - @ 开头的单元格加 ' 前缀，防止 Excel 当公式执行（如 =2+2、@cmd）
+  if (/^[=+\-@]/.test(s)) s = `'${s}`
   if (/[",\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`
   }
