@@ -31,6 +31,7 @@ describe('FlowRuntimeService', () => {
   const mockInstRepo = {
     create: (x: any) => x,
     save: jest.fn((i: any) => Promise.resolve(i)),
+    find: jest.fn(),
     findOne: jest.fn(),
   };
   const mockTaskRepo = { create: (x: any) => x, save: jest.fn((t: any) => Promise.resolve(t)), find: jest.fn(), findOne: jest.fn() };
@@ -178,5 +179,111 @@ describe('FlowRuntimeService', () => {
       .mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' })
       .mockResolvedValueOnce(null);
     await expect(service.resolveTask(1, 'approve', 99)).rejects.toThrow(ForbiddenException);
+  });
+
+  // ── 补充覆盖：注册/ai_task/推进失败/待办/实例/回滚 ──
+
+  it('upsertDefinition 未声明 security 时用默认值并返回', async () => {
+    const result = await service.upsertDefinition(def);
+    expect(mockDefRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: def.id, nodesJson: JSON.stringify(def.nodes), audit: true, confirmationRequired: false }),
+    );
+    expect(result).toEqual(def);
+  });
+
+  it('upsertDefinition 声明 security 时持久化', async () => {
+    await service.upsertDefinition({ ...def, security: { audit: false, confirmationRequired: true } });
+    expect(mockDefRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ audit: false, confirmationRequired: true }),
+    );
+  });
+
+  it('start：ai_task 节点同步推进到下一 human_task', async () => {
+    const aiDef: FlowDef = {
+      id: 'ai_flow', name: 'AI 流程', version: '1.0',
+      nodes: [
+        { id: 'a', type: 'ai_task', name: '总结', prompt: '总结上下文', outputKey: 'summary', next: 'b' },
+        { id: 'b', type: 'human_task', name: '人工确认' },
+      ],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'ai_flow', name: 'AI 流程', version: '1.0', nodesJson: JSON.stringify(aiDef.nodes), audit: true, confirmationRequired: true });
+    mockProviderFactory.getProvider.mockReturnValue({ generate: jest.fn().mockResolvedValue({ content: '总结结果' }), availableModels: ['m'] });
+    await service.start('ai_flow', { input: 'x' }, 5);
+    expect(mockProviderFactory.getProvider).toHaveBeenCalledWith('deepseek');
+    // ai_result 写入 data，随后 human_task 建任务挂起
+    expect(mockTaskRepo.save).toHaveBeenCalledWith(expect.objectContaining({ nodeId: 'b' }));
+  });
+
+  it('advance：next 节点不存在 → 实例置 failed', async () => {
+    const defWithGap: FlowDef = {
+      id: 'gap_flow', name: '断链流程', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '审批', next: 'ghost' }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'gap_flow', name: '断链流程', version: '1.0', nodesJson: JSON.stringify(defWithGap.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 5, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'gap_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    await service.resolveTask(1, 'approve', 5);
+    expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'failed' }));
+  });
+
+  it('getTasksForUser：无待办返回空数组', async () => {
+    mockTaskRepo.find.mockResolvedValue([]);
+    await expect(service.getTasksForUser(5)).resolves.toEqual([]);
+  });
+
+  it('getTasksForUser：附带节点名/流程名', async () => {
+    mockTaskRepo.find.mockResolvedValue([
+      { id: 1, instanceId: 10, nodeId: 'b', assigneeId: 5, status: 'pending' },
+      { id: 2, instanceId: 11, nodeId: 'c', assigneeId: 5, status: 'pending' },
+    ]);
+    mockInstRepo.find.mockResolvedValue([
+      { id: 10, definitionId: def.id },
+      { id: 11, definitionId: 'missing_def' },
+    ]);
+    // def 命中缓存；missing_def 返回 null（不缓存）
+    mockDefRepo.findOne
+      .mockResolvedValueOnce({ id: def.id, name: def.name, version: '1.0', nodesJson: JSON.stringify(def.nodes), audit: true, confirmationRequired: true })
+      .mockResolvedValueOnce(null);
+    const tasks = await service.getTasksForUser(5);
+    expect(tasks[0]).toMatchObject({ title: '经理审批', flowName: '请假审批' });
+    expect(tasks[1]).toMatchObject({ title: undefined, flowName: undefined }); // 流程定义缺失
+    expect(mockDefRepo.findOne).toHaveBeenCalledTimes(2);
+  });
+
+  it('getInstance：本人/管理员可看，他人禁止，不存在 404', async () => {
+    const forbidAbility = { cannot: jest.fn().mockReturnValue(true) };
+    mockInstRepo.findOne.mockResolvedValueOnce({ id: 1, initiatorId: 5 });
+    await expect(service.getInstance(1, 5, forbidAbility as any)).resolves.toMatchObject({ id: 1 });
+    expect(forbidAbility.cannot).not.toHaveBeenCalled(); // 本人直接通过
+
+    mockInstRepo.findOne.mockResolvedValueOnce({ id: 1, initiatorId: 5 });
+    await expect(service.getInstance(1, 9, forbidAbility as any)).rejects.toThrow(ForbiddenException);
+
+    const adminAbility = { cannot: jest.fn().mockReturnValue(false) };
+    mockInstRepo.findOne.mockResolvedValueOnce({ id: 1, initiatorId: 5 });
+    await expect(service.getInstance(1, 9, adminAbility as any)).resolves.toMatchObject({ id: 1 });
+
+    mockInstRepo.findOne.mockResolvedValueOnce(null);
+    await expect(service.getInstance(99, 5, adminAbility as any)).rejects.toThrow('流程实例不存在');
+  });
+
+  it('rollback：标记 rolled_back', async () => {
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, state: 'running' });
+    await service.rollback(1);
+    expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'rolled_back' }));
+    mockInstRepo.findOne.mockResolvedValue(null);
+    await expect(service.rollback(99)).rejects.toThrow('流程实例不存在');
+  });
+
+  it('ORG-4：部门范围审批且发起人已无部门 → 拒绝', async () => {
+    const deptDef: FlowDef = {
+      id: 'dept_flow', name: '部门审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '部门负责人', assigneeOrgRole: { scope: 'department', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'dept_flow', name: '部门审批', version: '1.0', nodesJson: JSON.stringify(deptDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 99, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'dept_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    mockOrgMemberRepo.findOne.mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' }); // 发起人无部门
+    await expect(service.resolveTask(1, 'approve', 99)).rejects.toThrow('发起人已无部门');
   });
 });
