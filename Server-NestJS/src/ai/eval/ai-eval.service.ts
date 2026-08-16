@@ -226,8 +226,10 @@ export class AiEvalService {
         let actualToolCalls: string[] | undefined;
         let replyPreview: string | undefined;
         try {
+          // CR-18：评测隔离——用本次 run 独立 userId（eval:时间戳），不共享系统账号 '0'
+          // 的配额/记忆/审计，也不污染真实用户数据（每次 run 独立，可追溯）
           const res = await this.withTimeout(
-            this.aiService.chat('0', { message: c.prompt }),
+            this.aiService.chat(`eval:${started}`, { message: c.prompt }),
             30_000,
           );
           actualToolCalls = res.toolCalls;
