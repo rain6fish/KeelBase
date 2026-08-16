@@ -7,6 +7,7 @@ import 'core/constants/app_constants.dart';
 import 'app.dart';
 import 'core/api/api_client.dart';
 import 'core/api/sse_client.dart';
+import 'core/api/ws_client.dart';
 import 'core/security/secure_storage_service.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/services/locale_provider.dart';
@@ -129,6 +130,9 @@ Future<void> _initApp() async {
   // SSE client for AI streaming
   final sseClient = SseClient(getAccessToken: () => apiClient.accessToken ?? '');
 
+  // RG-6 WebSocket 双向通道（通知推送 + AI 流式）
+  final wsClient = WsClient(getAccessToken: () => apiClient.accessToken ?? '');
+
   // Theme
   final themeProvider = ThemeProvider(prefs);
 
@@ -140,6 +144,7 @@ Future<void> _initApp() async {
         Provider<SharedPreferences>.value(value: prefs),
         Provider<ApiClient>.value(value: apiClient),
         Provider<SseClient>.value(value: sseClient),
+        Provider<WsClient>.value(value: wsClient),
         Provider<AuthRepository>.value(value: authRepository),
 
         // GROWTH-1 推送：默认 Noop（未接厂商），真实 JPush/FCM 接入后替换实现
@@ -186,10 +191,11 @@ Future<void> _initApp() async {
           create: (_) => EventsProvider(eventsRepository),
         ),
 
-        // Notifications (UX-1 缓存优先)
+        // Notifications (UX-1 缓存优先 + RG-6 WS 实时推送)
         ChangeNotifierProvider<NotificationsProvider>(
           create: (_) => NotificationsProvider(
             notificationsRepository,
+            wsClient: wsClient,
             sseClient: sseClient,
             cache: AppCache(prefs),
           ),
@@ -207,6 +213,7 @@ Future<void> _initApp() async {
             return AiChatProvider(
               apiClient,
               sseClient,
+              wsClient: wsClient,
               errorWithDetail: (msg) => l10n.aiErrorWithDetail(msg),
               errorRetry: () => l10n.aiError,
               confirmFailed: () => l10n.aiConfirmFailed,

@@ -56,6 +56,7 @@ import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { workbenchApi } from '@/api/workbench'
 import { isEmailNotVerified } from '@/api/client'
+import { connectRealtime, onRealtimeMessage } from '@/api/ws'
 import { formatTime } from '@/utils/format'
 import type { MyNotification } from '@/types/workbench'
 
@@ -140,5 +141,16 @@ async function onDelete() {
   }
 }
 
-onMounted(() => load(1))
+// RG-6：连接 WS 实时通道，新通知实时插入列表（REST 轮询保留为降级）
+onMounted(() => {
+  load(1)
+  connectRealtime()
+  onRealtimeMessage((msg) => {
+    if (msg.event !== 'notification') return
+    const n = msg.data as MyNotification
+    notifications.value = [n, ...notifications.value]
+    total.value += 1
+    if (!n.isRead) unread.value += 1
+  })
+})
 </script>

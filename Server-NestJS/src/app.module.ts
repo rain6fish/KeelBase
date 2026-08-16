@@ -57,6 +57,8 @@ import { MaintenanceGuard } from './settings/maintenance.guard';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { AlertWebhookModule } from './alert-webhook/alert-webhook.module';
 import { McpModule } from './mcp/mcp.module';
+import { WebhookModule } from './webhooks/webhook.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
@@ -148,8 +150,9 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 60,
+      // 3.4 压测/大促可经 THROTTLE_LIMIT/TTL 放宽；默认 60/min
+      ttl: parseInt(process.env.THROTTLE_TTL || '60000', 10),
+      limit: parseInt(process.env.THROTTLE_LIMIT || '60', 10),
     }]),
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
@@ -173,6 +176,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     NotificationsModule,
     AiModule,
     McpModule,
+    WebhookModule,
     MetricsModule,
     CaslModule,
     EncryptionModule,
@@ -200,6 +204,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     FormBuilderModule,
     PluginsModule,
     DataImportModule,
+    RealtimeModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: FeatureDisabledGuard },
