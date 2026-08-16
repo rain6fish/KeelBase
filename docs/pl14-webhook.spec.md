@@ -98,8 +98,8 @@ X-Webhook-Signature: <hmac-sha256-hex>
 
 ## 6. 局限 / 6. Limitations
 
-- 两个真实触发点：`feedback.created`（用户反馈）+ `todo.created`（待办创建）；event 创建等更多事件后续接入。
-  Two live triggers: `feedback.created` (user feedback) + `todo.created` (todo creation); more events (event creation) later.
+- 三个真实触发点：`feedback.created`（用户反馈）+ `todo.created`（待办创建）+ `event.created`（事件创建）。
+  Three live triggers: `feedback.created` (user feedback) + `todo.created` (todo creation) + `event.created` (event creation).
 - 无重试队列（投递失败仅记日志）——需要时接 BullMQ 重试。
   No retry queue (failures only logged) — add BullMQ retry when needed.
 - URL 校验要求 https（`class-validator @IsUrl`），回调接收方需 TLS。
