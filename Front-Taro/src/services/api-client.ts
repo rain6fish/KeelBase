@@ -165,6 +165,42 @@
    },
  
    upload<T = any>(path: string, filePath: string, fieldName: string = 'file'): Promise<ApiResponse<T>> {
-     return request<T>('POST', path, { [fieldName]: filePath }, { isFormData: true })
+     // CR-10：Taro.request 发 filePath 字符串不会上传文件内容，必须用 Taro.uploadFile
+     return (async () => {
+       const header: Record<string, string> = {}
+       header['x-device-id'] = await getOrCreateDeviceId()
+       if (!isPublicEndpoint(path)) {
+         const tokens = await storage.readTokens()
+         if (tokens.accessToken) header['Authorization'] = `Bearer ${tokens.accessToken}`
+       }
+       try {
+         const res = await Taro.uploadFile({
+           url: `${API_BASE_URL}${path}`,
+           filePath,
+           name: fieldName,
+           header,
+           timeout: API_TIMEOUT,
+         })
+         let body: ApiResponse<T>
+         try {
+           body = JSON.parse(res.data as string) as ApiResponse<T>
+         } catch {
+           throw new ApiError('Invalid server response', res.statusCode)
+         }
+         if (res.statusCode === 401 && !isPublicEndpoint(path)) {
+           const refreshed = await tryRefreshToken()
+           if (refreshed) return this.upload<T>(path, filePath, fieldName)
+           onAuthFailure?.()
+           throw new ApiError('Authentication required', 401)
+         }
+         if (res.statusCode >= 400) {
+           throw new ApiError((body as any)?.message || 'Upload failed', res.statusCode, (body as any)?.errors)
+         }
+         return body
+       } catch (err: any) {
+         if (err instanceof ApiError) throw err
+         throw new ApiError(err.errMsg || err.message || 'Upload failed', 0)
+       }
+     })()
    },
  }
