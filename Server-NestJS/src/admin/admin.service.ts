@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository, DataSource, IsNull, Not, In } from 'typeorm';
+import { Repository, DataSource, IsNull, Not, In, MoreThanOrEqual } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { maskEmail, maskPhone } from '../common/utils/mask';
@@ -489,5 +489,90 @@ export class AdminService {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * D.8 运维单页聚合：派生告警 + 关键指标 + 近 24h 错误摘要 + 7 天操作趋势。
+   * 让运维在管理台「运维」页一页看懂（服务/依赖/错误率/日志/告警），不跳四套监控系统。
+   */
+  async getOpsSummary() {
+    const [metrics, redis, errors] = await Promise.all([
+      this._readMetrics(),
+      this._checkRedis(),
+      this._recentErrors(),
+    ]);
+    const alerts = this._deriveAlerts(metrics, redis, errors);
+    const trend = await this._getAuditTrend(7);
+    return { alerts, metrics, logErrors: errors, trend };
+  }
+
+  /** 近 24h 错误摘要：操作审计 4xx/5xx 按状态码分组 + AI 审计 is_error 数。 */
+  private async _recentErrors() {
+    const since = new Date(Date.now() - 24 * 3600 * 1000);
+    const rows = await this.opAuditRepo
+      .createQueryBuilder('log')
+      .select('log.statusCode', 'code')
+      .addSelect('COUNT(*)', 'count')
+      .where('log.createdAt >= :since', { since })
+      .andWhere('log.statusCode >= 400')
+      .groupBy('log.statusCode')
+      .getRawMany<{ code: string; count: string }>();
+    const aiErrors = await this.aiAuditRepo.count({
+      where: { isError: true, createdAt: MoreThanOrEqual(since) },
+    });
+    return {
+      since,
+      opErrors: rows.map((r) => ({ code: Number(r.code), count: Number(r.count) })),
+      aiErrors,
+    };
+  }
+
+  /** 派生告警：指标阈值 + 依赖状态 + 错误计数（Prometheus 规则的可视化降级）。 */
+  private _deriveAlerts(
+    metrics: { errorRatePct?: number | null },
+    redis: boolean,
+    errors: { opErrors: Array<{ code: number; count: number }>; aiErrors: number },
+  ): Array<{ level: 'critical' | 'warning'; title: string; detail: string }> {
+    const alerts: Array<{ level: 'critical' | 'warning'; title: string; detail: string }> = [];
+    const errRate = metrics.errorRatePct ?? 0;
+    if (errRate > 15) {
+      alerts.push({ level: 'critical', title: '错误率过高', detail: `HTTP 错误率 ${errRate.toFixed(1)}% 超过 15% 阈值` });
+    } else if (errRate > 5) {
+      alerts.push({ level: 'warning', title: '错误率偏高', detail: `HTTP 错误率 ${errRate.toFixed(1)}% 超过 5% 阈值` });
+    }
+    if (!redis) {
+      alerts.push({ level: 'critical', title: 'Redis 不可用', detail: '缓存与依赖中断，功能可能降级' });
+    }
+    if (errors.opErrors.length > 0) {
+      const n = errors.opErrors.reduce((s, e) => s + e.count, 0);
+      alerts.push({ level: 'warning', title: '近 24h 有 4xx/5xx', detail: `操作审计记录 ${n} 条错误响应` });
+    }
+    if (errors.aiErrors > 0) {
+      alerts.push({ level: 'warning', title: 'AI 调用失败', detail: `近 24h ${errors.aiErrors} 次 AI 调用失败` });
+    }
+    return alerts;
+  }
+
+  /** 最近 N 天操作审计日趋势（操作数 + 错误数），无日志的天补 0。 */
+  private async _getAuditTrend(days: number): Promise<Array<{ day: string; total: number; errors: number }>> {
+    const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+    const isPg = this.dataSource.options.type === 'postgres';
+    const dayExpr = isPg ? "to_char(log.createdAt, 'YYYY-MM-DD')" : "strftime('%Y-%m-%d', log.createdAt)";
+    const rows = await this.opAuditRepo
+      .createQueryBuilder('log')
+      .select(dayExpr, 'day')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect("SUM(CASE WHEN log.statusCode >= 400 THEN 1 ELSE 0 END)", 'errors')
+      .where('log.createdAt >= :since', { since })
+      .groupBy(dayExpr)
+      .orderBy('day', 'ASC')
+      .getRawMany<{ day: string; total: string; errors: string | null }>();
+    const map = new Map(rows.map((r) => [r.day, { total: Number(r.total), errors: Number(r.errors ?? 0) }]));
+    const out: Array<{ day: string; total: number; errors: number }> = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const key = new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      out.push({ day: key, ...(map.get(key) ?? { total: 0, errors: 0 }) });
+    }
+    return out;
   }
 }

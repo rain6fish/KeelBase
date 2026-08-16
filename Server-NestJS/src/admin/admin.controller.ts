@@ -63,6 +63,13 @@ export class AdminController {
     return this.adminService.getMonitorSummary();
   }
 
+  @Get('ops/summary')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'D.8 运维单页聚合（派生告警 + 指标 + 近 24h 错误 + 7 天趋势）' })
+  getOpsSummary() {
+    return this.adminService.getOpsSummary();
+  }
+
   @Get('overview')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '平台数据总览（用户/事件/待办/通知/审计/存储 + 趋势）' })
