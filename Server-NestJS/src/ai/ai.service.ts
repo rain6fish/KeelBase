@@ -1075,6 +1075,12 @@ export class AiService {
     void this.memoryService
       .extractFromTurn(userId, request.message, conversationId)
       .catch(() => {});
+    // CR-29：流式超限的道歉文案此前只入库不 yield，客户端只见 done；补 text 事件
+    yield {
+      type: 'text',
+      content:
+        'I apologize, but I was unable to complete the requested operation within the allowed number of steps.',
+    };
     yield { type: 'done', conversationId };
   }
 
