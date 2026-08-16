@@ -33,6 +33,7 @@ Provide AI Agent with **org-boundary authorized** tools: query team availability
 |-----------|----------|-----------------|------------------|
 | 团队忙闲 | `query_org_availability` | `startDate?`, `endDate?`（YYYY-MM-DD，默认今天） | 统计组织成员在某日期范围的事件数（忙闲度）。Aggregates org members' event counts in a date range (busy-ness). |
 | 成员目录 | `query_org_members` | `deptName?` | 返回组织成员（昵称/部门/角色，脱敏白名单），可按部门筛选。Returns masked org members (nickname/dept/role), dept-filterable. |
+| 审批待办统计 | `query_org_tasks` | 无 | 按组织成员聚合审批任务（pending / 已处理）。Aggregates org members' approval tasks (pending / processed). |
 
 ### 2.1 数据边界 / 2.1 Data Boundary
 
@@ -79,4 +80,5 @@ No new REST endpoints — the tools are exposed to the LLM via the existing `/ai
 
 - `query-org-availability.tool.spec.ts`：非成员拒绝 / 成员事件数统计（组织边界）/ 默认日期 / 工具定义（4 用例）。
 - `query-org-members.tool.spec.ts`：非成员拒绝 / 脱敏目录 / 部门筛选 / 工具定义（4 用例）。
-- 全量：本功能 8 用例（其余套件的 data-import/notifications 失败为并发会话未提交重构）。
+- `query-org-tasks.tool.spec.ts`：非成员拒绝 / 审批待办统计（组织边界）/ 工具定义（3 用例）。
+- 全量：本功能 11 用例（其余套件的 data-import/notifications 失败为并发会话未提交重构）。

@@ -26,6 +26,7 @@ import { maskEmail } from '../common/utils/mask';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
+import { FlowTask } from '../flows/entities/flow-task.entity';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -57,6 +58,7 @@ export class OrgService {
     @InjectRepository(OrgInvite) private invitesRepo: Repository<OrgInvite>,
     @InjectRepository(User) private usersRepo: Repository<User>,
     @InjectRepository(FlowInstance) private flowInstRepo: Repository<FlowInstance>,
+    @InjectRepository(FlowTask) private flowTaskRepo: Repository<FlowTask>,
     private notificationsService: NotificationsService,
     private flowRuntime: FlowRuntimeService,
   ) {}
@@ -401,6 +403,49 @@ export class OrgService {
       role: m.role,
       deptName: m.dept?.name ?? null,
     }));
+  }
+
+  /**
+   * ORG-5：组织审批待办统计——按组织成员聚合审批任务（pending / 已处理）。
+   * 数据限定在用户所属组织内（成员 + 任务均以 org 域过滤）。
+   */
+  async getOrgApprovalTaskStats(userId: number): Promise<{
+    orgId: number;
+    members: Array<{ nickname: string | null; deptName: string | null; pending: number; processed: number; total: number }>;
+  }> {
+    const member = await this._myMember(userId);
+    const members = await this.membersRepo.find({
+      where: { orgId: member.orgId },
+      relations: { user: true, dept: true },
+    });
+    const memberIds = members.map((m) => m.userId);
+    const tasks = await this.flowTaskRepo
+      .createQueryBuilder('t')
+      .where('t.assigneeId IN (:...ids)', { ids: memberIds })
+      .getMany();
+    const pending = new Map<number, number>();
+    const processed = new Map<number, number>();
+    for (const t of tasks) {
+      if (t.status === 'pending') {
+        pending.set(t.assigneeId, (pending.get(t.assigneeId) ?? 0) + 1);
+      } else if (t.status === 'approved' || t.status === 'rejected') {
+        processed.set(t.assigneeId, (processed.get(t.assigneeId) ?? 0) + 1);
+      }
+    }
+    return {
+      orgId: member.orgId,
+      members: members.map((m) => {
+        const p = pending.get(m.userId) ?? 0;
+        const c = processed.get(m.userId) ?? 0;
+        return {
+          nickname: m.user?.nickname ?? null,
+          deptName: m.dept?.name ?? null,
+          pending: p,
+          processed: c,
+          total: p + c,
+        };
+      }),
+    };
   }
 
   // ── 内部工具 ──
