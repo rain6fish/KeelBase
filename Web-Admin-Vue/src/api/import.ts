@@ -13,4 +13,9 @@ export const importApi = {
     fd.append('file', file)
     return instance.post('/admin/import/events', fd) as unknown as Promise<ImportResult>
   },
+  importTodos(file: File): Promise<ImportResult> {
+    const fd = new FormData()
+    fd.append('file', file)
+    return instance.post('/admin/import/todos', fd) as unknown as Promise<ImportResult>
+  },
 }

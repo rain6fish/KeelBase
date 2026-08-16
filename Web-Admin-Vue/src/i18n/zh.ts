@@ -185,9 +185,12 @@ const zh = {
   // 数据导入
   importUsers: '导入用户',
   importEvents: '导入事件',
+  importTodos: '导入待办',
   importUsersHint: 'CSV 表头：username, email, password, nickname（可选 firstname/lastname）',
   importEventsHint: 'CSV 表头：userId, title, startTime, endTime, location, description',
+  importTodosHint: 'CSV 表头：userId, title, completed, dueDate（completed 填 true/false，dueDate 填 ISO 时间，可空）',
   chooseCsv: '选择 CSV',
+  downloadTemplate: '下载模板',
   importResult: '导入结果',
   importTotal: '数据行数',
   importSuccess: '成功',
