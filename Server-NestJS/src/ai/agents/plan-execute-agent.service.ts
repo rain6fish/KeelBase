@@ -79,9 +79,9 @@ export class PlanExecuteAgent {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
 
-      // 检查依赖是否成功
+      // 检查依赖是否成功（失败步骤记 'ERROR: ...'，前缀匹配）
       const depsFailed = (step.dependsOn ?? []).some(
-        (depIdx) => stepResults[depIdx] === 'ERROR',
+        (depIdx) => String(stepResults[depIdx] ?? '').startsWith('ERROR'),
       );
       if (depsFailed) {
         stepResults[i] = 'ERROR';

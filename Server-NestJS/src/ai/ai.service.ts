@@ -20,7 +20,7 @@ import { MemoriesService } from './memory/memory.service';
 import { ConfirmationStore, ConfirmationOutcome } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
-import { AiTool, ToolResult } from './interfaces/tool.interface';
+import { AiTool, ToolDefinition, ToolResult } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';

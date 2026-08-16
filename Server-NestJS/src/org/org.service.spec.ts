@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Like } from 'typeorm';
 import { OrgService } from './org.service';
 import { Organization } from './organization.entity';
 import { Department } from './department.entity';
@@ -56,6 +57,7 @@ describe('OrgService', () => {
   let members: ReturnType<typeof mockRepo>;
   let invites: ReturnType<typeof mockRepo>;
   let users: ReturnType<typeof mockRepo>;
+  let flowInst: ReturnType<typeof mockRepo>;
   let notify: { create: jest.Mock };
 
   beforeEach(async () => {
@@ -64,6 +66,7 @@ describe('OrgService', () => {
     members = mockRepo();
     invites = mockRepo();
     users = mockRepo();
+    flowInst = mockRepo();
     notify = { create: jest.fn().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -74,7 +77,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(OrgMember), useValue: members },
         { provide: getRepositoryToken(OrgInvite), useValue: invites },
         { provide: getRepositoryToken(User), useValue: users },
-        { provide: getRepositoryToken(FlowInstance), useValue: mockRepo() },
+        { provide: getRepositoryToken(FlowInstance), useValue: flowInst },
         { provide: NotificationsService, useValue: notify },
         {
           provide: FlowRuntimeService,
@@ -280,5 +283,233 @@ describe('OrgService', () => {
     const inst = await service.submitRequest(9, { title: '请假' });
     expect(inst.definitionId).toBe('org_request_approval');
     expect(notify.create).toHaveBeenCalled();
+  });
+
+  // ── 补充覆盖：组织列表/查询/更新 ──
+
+  it('组织列表：带关键词过滤 + 成员/部门计数', async () => {
+    orgs.findAndCount.mockResolvedValue([
+      [
+        { id: 1, name: 'Acme', createdAt: new Date() },
+        { id: 2, name: 'Globex', createdAt: new Date() },
+      ],
+      2,
+    ]);
+    (members.createQueryBuilder().getRawMany as jest.Mock).mockResolvedValue([
+      { groupKey: '1', cnt: '3' },
+    ]);
+    (depts.createQueryBuilder().getRawMany as jest.Mock).mockResolvedValue([
+      { groupKey: '2', cnt: '5' },
+    ]);
+    const result = await service.findAllOrganizations(1, 20, 'Acme');
+    expect(result.total).toBe(2);
+    expect(result.totalPages).toBe(1);
+    expect(result.items[0]).toMatchObject({ memberCount: 3, deptCount: 0 });
+    expect(result.items[1]).toMatchObject({ memberCount: 0, deptCount: 5 });
+    expect(orgs.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { name: Like('%Acme%') } }),
+    );
+  });
+
+  it('组织列表：无关键词不过滤、空列表不查计数', async () => {
+    orgs.findAndCount.mockResolvedValue([[], 0]);
+    const result = await service.findAllOrganizations(1, 20);
+    expect(result.items).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(orgs.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
+    );
+  });
+
+  it('组织详情：存在返回 / 不存在抛 NotFound', async () => {
+    orgs.findOne.mockResolvedValueOnce({ id: 1, name: 'Acme' });
+    await expect(service.findOrganization(1)).resolves.toMatchObject({ id: 1 });
+    orgs.findOne.mockResolvedValueOnce(null);
+    await expect(service.findOrganization(99)).rejects.toThrow(NotFoundException);
+  });
+
+  it('更新组织：合并字段并保存', async () => {
+    const org = { id: 1, name: 'Acme', description: 'old' };
+    orgs.findOne.mockResolvedValue(org);
+    orgs.save.mockResolvedValue({ ...org, description: 'new' });
+    await expect(service.updateOrganization(1, { description: 'new' })).resolves.toMatchObject({ description: 'new' });
+    expect(orgs.save).toHaveBeenCalled();
+  });
+
+  it('删除组织：无成员时软删', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    members.count.mockResolvedValue(0);
+    await expect(service.removeOrganization(1)).resolves.toBeUndefined();
+    expect(orgs.softDelete).toHaveBeenCalledWith(1);
+  });
+
+  // ── 补充覆盖：部门成功路径 ──
+
+  it('创建部门：成功保存（无父级、默认排序）', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    depts.findOne.mockResolvedValue(null);
+    depts.save.mockResolvedValue({ id: 5, orgId: 1, name: '研发部' });
+    await service.createDepartment(1, { name: '研发部' });
+    expect(depts.save).toHaveBeenCalledWith(expect.objectContaining({ orgId: 1, name: '研发部', parentId: null, sortOrder: 0 }));
+  });
+
+  it('部门列表：委托 repo 按排序查询', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    depts.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listDepartments(1)).resolves.toEqual([{ id: 1 }]);
+    expect(depts.find).toHaveBeenCalledWith({ where: { orgId: 1 }, order: { sortOrder: 'ASC', id: 'ASC' } });
+  });
+
+  it('更新部门：设父级为 null、改名、改排序', async () => {
+    depts.findOne.mockResolvedValue({ id: 1, orgId: 1, parentId: 2, name: '旧名', sortOrder: 1 });
+    depts.save.mockImplementation(async (x) => x);
+    await service.updateDepartment(1, { parentId: null, name: '新名', sortOrder: 9 });
+    expect(depts.save).toHaveBeenCalledWith(expect.objectContaining({ parentId: null, name: '新名', sortOrder: 9 }));
+  });
+
+  it('更新部门：改名与其他部门冲突抛 Conflict', async () => {
+    depts.findOne
+      .mockResolvedValueOnce({ id: 1, orgId: 1, parentId: null, name: 'A' })
+      .mockResolvedValueOnce({ id: 2, orgId: 1, name: 'B' }); // dup
+    await expect(service.updateDepartment(1, { name: 'B' })).rejects.toThrow(ConflictException);
+  });
+
+  it('更新部门：部门不存在抛 NotFound', async () => {
+    depts.findOne.mockResolvedValue(null);
+    await expect(service.updateDepartment(99, { name: 'X' })).rejects.toThrow(NotFoundException);
+  });
+
+  // ── 补充覆盖：成员成功路径 ──
+
+  it('成员列表：关键词 + 部门过滤走 andWhere', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    members.createQueryBuilder().getCount.mockResolvedValue(1);
+    members.createQueryBuilder().getMany.mockResolvedValue([
+      { id: 1, orgId: 1, userId: 5, deptId: 2, role: OrgMemberRole.MEMBER, user: { username: 'alice', email: 'alice@example.com' }, dept: null },
+    ]);
+    const result = await service.listMembers(1, 1, 20, 'ali', 2);
+    expect(result.total).toBe(1);
+    expect(members.createQueryBuilder().andWhere).toHaveBeenCalled();
+  });
+
+  it('更新成员：有另一 owner 时允许降级 + 移部门/设部门', async () => {
+    members.findOne.mockResolvedValueOnce({ id: 1, orgId: 1, userId: 5, deptId: 2, role: OrgMemberRole.OWNER });
+    members.createQueryBuilder().getCount.mockResolvedValue(1); // 还有别的 owner
+    members.save.mockImplementation(async (x) => x);
+    await service.updateMember(1, { role: OrgMemberRole.MEMBER, deptId: null });
+    expect(members.save).toHaveBeenCalledWith(expect.objectContaining({ role: OrgMemberRole.MEMBER, deptId: null }));
+  });
+
+  it('更新成员：设部门需属于组织', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 5, deptId: null, role: OrgMemberRole.MEMBER });
+    depts.findOne.mockResolvedValueOnce(null); // dept not in org
+    await expect(service.updateMember(1, { deptId: 99 })).rejects.toThrow(BadRequestException);
+  });
+
+  it('更新成员：成员不存在抛 NotFound', async () => {
+    members.findOne.mockResolvedValue(null);
+    await expect(service.updateMember(99, { role: OrgMemberRole.MEMBER })).rejects.toThrow(NotFoundException);
+  });
+
+  it('移除成员：普通成员直接删除', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 5, role: OrgMemberRole.MEMBER });
+    await service.removeMember(1);
+    expect(members.delete).toHaveBeenCalledWith(1);
+  });
+
+  it('移除成员：不存在抛 NotFound', async () => {
+    members.findOne.mockResolvedValue(null);
+    await expect(service.removeMember(99)).rejects.toThrow(NotFoundException);
+  });
+
+  // ── 补充覆盖：邀请 ──
+
+  it('创建邀请：保存邀请码/角色/过期时间', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    invites.save.mockImplementation(async (x) => ({ ...x, id: 1 }));
+    const inv = await service.createInvite(1, { role: OrgMemberRole.ADMIN, expiresAt: '2026-12-31T00:00:00Z' }, 2);
+    expect(inv.code).toHaveLength(8);
+    expect(inv.role).toBe(OrgMemberRole.ADMIN);
+    expect(inv.expiresAt).toBeInstanceOf(Date);
+  });
+
+  it('邀请列表：委托 repo 倒序', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    invites.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listInvites(1)).resolves.toEqual([{ id: 1 }]);
+    expect(invites.find).toHaveBeenCalledWith({ where: { orgId: 1 }, order: { createdAt: 'DESC' } });
+  });
+
+  it('撤销邀请：不存在抛 NotFound，存在删除', async () => {
+    invites.findOne.mockResolvedValue(null);
+    await expect(service.removeInvite(99)).rejects.toThrow(NotFoundException);
+    invites.findOne.mockResolvedValue({ id: 1 });
+    await service.removeInvite(1);
+    expect(invites.delete).toHaveBeenCalledWith(1);
+  });
+
+  // ── 补充覆盖：申请 / 我的组织（ORG-7） ──
+
+  it('我的申请列表：委托 flow 仓库', async () => {
+    flowInst.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listMyRequests(9)).resolves.toEqual([{ id: 1 }]);
+    expect(flowInst.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { definitionId: 'org_request_approval', initiatorId: 9 } }),
+    );
+  });
+
+  it('我的组织：返回部门路径', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: 2, role: OrgMemberRole.MEMBER });
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme', description: 'd' });
+    depts.find.mockResolvedValue([
+      { id: 1, name: '总部', parentId: null },
+      { id: 2, name: '研发部', parentId: 1 },
+    ]);
+    const result = await service.getMyOrg(9);
+    expect(result.deptPath).toEqual(['总部', '研发部']);
+    expect(result.org.name).toBe('Acme');
+  });
+
+  it('我的组织：无部门路径为空；非成员抛 NotFound', async () => {
+    members.findOne.mockResolvedValueOnce({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    const result = await service.getMyOrg(9);
+    expect(result.deptPath).toEqual([]);
+
+    members.findOne.mockResolvedValueOnce(null);
+    await expect(service.getMyOrg(99)).rejects.toThrow(NotFoundException);
+  });
+
+  it('组织树：构建层级结构', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
+    depts.find.mockResolvedValue([
+      { id: 1, name: '总部', parentId: null },
+      { id: 2, name: '研发部', parentId: 1 },
+      { id: 3, name: '独立组', parentId: null },
+    ]);
+    members.find.mockResolvedValue([
+      { deptId: 2 }, { deptId: 2 }, { deptId: 1 },
+    ]);
+    const tree = await service.getMyTree(9);
+    expect(tree).toHaveLength(2);
+    const root = tree.find((n) => n.id === 1) as any;
+    expect(root.children).toHaveLength(1);
+    expect(root.children[0]).toMatchObject({ id: 2, memberCount: 2 });
+    expect((tree.find((n) => n.id === 3) as any).memberCount).toBe(0);
+  });
+
+  it('通讯录：脱敏白名单（无 email/phone/username）', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
+    members.find.mockResolvedValue([
+      {
+        userId: 5, role: OrgMemberRole.MEMBER,
+        user: { nickname: 'Alice', avatarUrl: 'http://a', username: 'alice', email: 'x@y.z' },
+        dept: { name: '研发部' },
+      },
+    ]);
+    const list = await service.listMyMembers(9);
+    expect(list[0]).toEqual({ id: 5, nickname: 'Alice', avatarUrl: 'http://a', role: OrgMemberRole.MEMBER, deptName: '研发部' });
+    expect(list[0]).not.toHaveProperty('email');
+    expect(list[0]).not.toHaveProperty('username');
   });
 });
