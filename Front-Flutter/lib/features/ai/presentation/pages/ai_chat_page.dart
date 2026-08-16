@@ -347,6 +347,7 @@ class _AiChatPageState extends State<AiChatPage> {
           ),
           const SizedBox(width: 8),
           ...examples.map((q) => Padding(
+            key: ValueKey('example-$q'),
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
               onTap: () => _sendMessage(q),

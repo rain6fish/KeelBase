@@ -44,6 +44,7 @@ class SuggestedQuestions extends StatelessWidget {
         const SizedBox(height: 24),
         ...questions.map(
           (q) => Padding(
+            key: ValueKey('suggested-$q'),
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
             child: CupertinoButton.filled(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
