@@ -2,7 +2,13 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'KeelBase';
-  static const String baseUrl = 'http://localhost:3000/api/v1';
+  /// API 基址：默认本地开发；构建期用 `--dart-define=API_BASE_URL=...` 覆盖。
+  /// 生产同域反代传相对路径 `/api/v1`，跨域传完整地址（如 `https://api.example.com/api/v1`）。
+  /// （CR-7：避免硬编码 localhost 导致生产不可用 + HTTPS 混合内容拦截）
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:3000/api/v1',
+  );
   static const Duration accessTokenExpiry = Duration(minutes: 15);
   static const Duration refreshTokenThreshold = Duration(minutes: 5);
 
@@ -17,7 +23,7 @@ class AppConstants {
   ];
 
   /// 当前 App 版本号（发布时与 pubspec `version:` 同步）
-  static const String appVersion = '0.9.0';
+  static const String appVersion = '0.9.1';
 
   /// 服务端资源基础地址（剥掉 /api/v1 前缀，如 http://localhost:3000）。
   /// 跟随 [activeBaseUrl]，确保 Dev Menu 切换环境后资源 URL 同步指向新 host。
