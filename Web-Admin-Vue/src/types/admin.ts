@@ -181,7 +181,7 @@ export interface AnalyticsResponse {
 }
 
 export interface ImportResult {
-  type: 'user' | 'event'
+  type: 'user' | 'event' | 'todo'
   total: number
   success: number
   failed: number
