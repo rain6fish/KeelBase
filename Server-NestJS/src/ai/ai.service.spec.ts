@@ -293,6 +293,43 @@ describe('AiService', () => {
       (aiService as any).toolEffectsService = undefined;
     });
 
+    it('HS-3: _executeWriteTool 无已有副作用时执行并记录', async () => {
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('new-key'),
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+      };
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 100 } });
+
+      const result = await (aiService as any)._executeWriteTool('create_event', { title: 'X' }, '1', 'c1');
+
+      expect(result).toEqual({ success: true, data: { id: 100 } });
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '1', toolName: 'create_event', conversationId: 'c1' }),
+        'event',
+        100,
+      );
+      (aiService as any).toolEffectsService = undefined;
+    });
+
+    it('HS-3: _executeWriteTool 无 toolEffectsService 时直接执行不记录', async () => {
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+      (aiService as any).toolEffectsService = undefined;
+      const result = await (aiService as any)._executeWriteTool('create_event', {}, '1');
+      expect(result).toEqual({ success: true, data: { id: 1 } });
+    });
+
+    it('HS-3: _executeWriteTool 外部 MCP 工具经 provider 调用', async () => {
+      (aiService as any).externalToolProvider = {
+        isExternal: jest.fn().mockReturnValue(true),
+        callTool: jest.fn().mockResolvedValue({ executed: true, content: 'sent' }),
+      };
+      const result = await (aiService as any)._executeWriteTool('mcp_wx_send_email', { to: 'a' }, '1');
+      expect(result).toEqual({ success: true, data: 'sent' });
+      (aiService as any).externalToolProvider = undefined;
+    });
+
     it('should handle multiple sequential tool calls', async () => {
       mockProvider.generate.mockResolvedValueOnce({
         content: '',
