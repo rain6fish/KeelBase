@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import '../providers/ai_chat_provider.dart';
+import '../../data/models/tool_step_model.dart';
 
 /// AI 工具执行步骤卡片（过程可视化）
 ///
