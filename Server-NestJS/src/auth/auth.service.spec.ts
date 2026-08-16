@@ -882,4 +882,172 @@ describe('AuthService', () => {
       expect(info.invitees[0].username).toBe('newbie');
     });
   });
+
+  // ─── 补充覆盖：设备冷却 / 边界分支 ────────────────────────────────────────
+
+  describe('设备冷却', () => {
+    beforeEach(() => {
+      (service as any).deviceStore = new Map();
+      mockJwtService.sign.mockReturnValue('mock.access.token');
+    });
+
+    it('登录：设备冷却期内拦截返回 429', async () => {
+      (service as any).deviceStore.set('dev1', {
+        attempts: 3,
+        firstAttemptAt: Date.now(),
+        unlockedAt: Date.now() + 30_000,
+      });
+      await expect(service.login({ username: 'x', password: 'y', deviceId: 'dev1' } as any))
+        .rejects.toThrow(HttpException);
+    });
+
+    it('登录成功后重置失败计数（loginAttempts>0）', async () => {
+      const userWithPassword = {
+        ...mockUser,
+        loginAttempts: 3,
+        password: await bcrypt.hash('Password1', 12),
+      };
+      mockRepository.findOne.mockResolvedValue(userWithPassword);
+      const result = await service.login({ username: 'testuser', password: 'Password1', deviceId: '' } as any);
+      expect(result.accessToken).toBeDefined();
+      expect(mockRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.objectContaining({ loginAttempts: 0, lockedUntil: null }),
+      );
+    });
+
+    it('_checkDevice：无设备 / 无记录 / 空闲超时 / 冷却中', () => {
+      const svc = service as any;
+      expect(svc._checkDevice(undefined)).toEqual({ blocked: false, retryAfter: 0 });
+      expect(svc._checkDevice('dev9')).toEqual({ blocked: false, retryAfter: 0 });
+
+      // 空闲超时（>30min）→ 重置
+      svc.deviceStore.set('idle', { firstAttemptAt: Date.now() - 40 * 60_000, unlockedAt: Date.now() + 1000 });
+      expect(svc._checkDevice('idle')).toEqual({ blocked: false, retryAfter: 0 });
+      expect(svc.deviceStore.has('idle')).toBe(false);
+
+      // 冷却中 → blocked
+      svc.deviceStore.set('cool', { firstAttemptAt: Date.now(), unlockedAt: Date.now() + 60_000 });
+      const r = svc._checkDevice('cool');
+      expect(r.blocked).toBe(true);
+      expect(r.retryAfter).toBeGreaterThan(0);
+
+      // 已过冷却 → 放行
+      svc.deviceStore.set('ok', { firstAttemptAt: Date.now(), unlockedAt: Date.now() - 1000 });
+      expect(svc._checkDevice('ok')).toEqual({ blocked: false, retryAfter: 0 });
+    });
+
+    it('_recordFailure：新记录起算 / 连续失败指数退避 / 封顶 MAX_COOLDOWN', () => {
+      const svc = service as any;
+      svc._recordFailure('devA');
+      let entry = svc.deviceStore.get('devA');
+      expect(entry.attempts).toBe(1);
+
+      svc._recordFailure('devA');
+      svc._recordFailure('devA');
+      entry = svc.deviceStore.get('devA');
+      expect(entry.attempts).toBe(3);
+      // 4 次失败（2^4=16s）后 unlockedAt 应大于 now
+      expect(entry.unlockedAt).toBeGreaterThan(Date.now());
+
+      // 超过封顶：手动塞一个超大 attempts
+      svc.deviceStore.set('cap', { attempts: 20, firstAttemptAt: Date.now(), unlockedAt: Date.now() - 1 });
+      svc._recordFailure('cap');
+      const capped = svc.deviceStore.get('cap');
+      expect(capped.attempts).toBe(21);
+      expect(capped.unlockedAt - Date.now()).toBeLessThanOrEqual(svc.MAX_COOLDOWN * 1000 + 1000);
+    });
+
+    it('_cleanupDevices：清理过期记录', () => {
+      const svc = service as any;
+      svc.deviceStore.set('expired', { firstAttemptAt: Date.now() - 60 * 60_000, unlockedAt: Date.now() });
+      svc.deviceStore.set('fresh', { firstAttemptAt: Date.now(), unlockedAt: Date.now() + 1000 });
+      svc._cleanupDevices();
+      expect(svc.deviceStore.has('expired')).toBe(false);
+      expect(svc.deviceStore.has('fresh')).toBe(true);
+    });
+  });
+
+  // ─── 补充覆盖：OAuth / 手机号 / 导出 / 用户名冲突 ─────────────────────────
+
+  describe('OAuth 与数据边界', () => {
+    beforeEach(() => { mockJwtService.sign.mockReturnValue('mock.access.token'); });
+
+    it('oAuthLogin：token 无 providerId 抛 Unauthorized', async () => {
+      mockOAuthService.verify.mockResolvedValue({ providerId: '', email: 'x@y.z' });
+      await expect(
+        service.oAuthLogin({ provider: 'google', idToken: 'tok', clientId: 'cid' } as any),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('oAuthLogin 自动建号：用户名冲突时追加随机后缀', async () => {
+      mockOAuthService.verify.mockResolvedValue({
+        providerId: 'google_abc', email: 'conflict@example.com', name: 'X',
+      });
+      // providerId 查无 → email 查无 → 用户名冲突(有) → 后缀用户名空闲(null)
+      mockRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 99, username: 'conflict' })
+        .mockResolvedValueOnce(null);
+      mockRepository.create.mockReturnValue(mockUser);
+      mockRepository.save.mockResolvedValue(mockUser);
+
+      const result = await service.oAuthLogin({ provider: 'google', idToken: 'tok', clientId: 'cid' } as any);
+      expect(result.accessToken).toBe('mock.access.token');
+      expect(mockRepository.create.mock.calls[0][0].username).toMatch(/^conflict_[0-9a-f]+$/);
+    });
+
+    it('refreshToken：会话有效但用户已删除 → USER_NOT_FOUND', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: 1, username: 'testuser' });
+      const tokenHash = crypto.createHash('sha256').update('valid.refresh.token').digest('hex');
+      mockSessionRepo.findOne.mockResolvedValue({ id: 10, userId: 1, refreshHash: tokenHash });
+      mockRepository.findOne.mockResolvedValue(null);
+      await expect(service.refreshToken({ refreshToken: 'valid.refresh.token' })).rejects.toThrow(BusinessException);
+    });
+
+    it('decryptPhone：登录返回解密后的手机号', async () => {
+      const userWithPassword = {
+        ...mockUser,
+        phone: 'enc:13800138000',
+        password: await bcrypt.hash('Password1', 12),
+      };
+      mockRepository.findOne.mockResolvedValue(userWithPassword);
+      const result = await service.login({ username: 'testuser', password: 'Password1', deviceId: '' } as any);
+      expect(result.user.phone).toBe('13800138000');
+    });
+  });
+
+  // ─── 补充覆盖：手机绑定冲突 / 邮件失败 / 导出 ─────────────────────────────
+
+  describe('边界分支', () => {
+    it('resendVerification：邮件发送失败不阻断（防枚举统一响应）', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockUser, emailVerified: false });
+      mockMailService.sendVerificationEmail.mockRejectedValue(new Error('smtp down'));
+      await expect(service.resendVerification('test@example.com')).resolves.toMatchObject({
+        message: expect.any(String),
+      });
+    });
+
+    it('bindPhone：手机号已被他人绑定 → PHONE_ALREADY_BOUND', async () => {
+      // 先验证码校验通过
+      const phoneCodeRepo = moduleFixture.get(getRepositoryToken(PhoneVerificationCode));
+      (phoneCodeRepo.findOne as jest.Mock).mockResolvedValue({
+        phone: '+8613800138000',
+        used: false,
+        codeHash: crypto.createHash('sha256').update('123456').digest('hex'),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      // 手机号已被另一个用户绑定
+      mockRepository.findOne.mockResolvedValueOnce({ id: 2, username: 'other' });
+      await expect(
+        service.bindPhone(1, { phone: '+8613800138000', code: '123456' } as any),
+      ).rejects.toMatchObject({ errorCode: 'PHONE_ALREADY_BOUND' });
+    });
+
+    it('exportData：用户不存在 → USER_NOT_FOUND', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+      await expect(service.exportData(99)).rejects.toThrow(BusinessException);
+    });
+  });
 });
