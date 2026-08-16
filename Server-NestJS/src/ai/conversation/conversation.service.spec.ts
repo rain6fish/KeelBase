@@ -253,4 +253,42 @@ describe('ConversationService', () => {
       expect((await service.getUserConversations('user1'))).toEqual([]);
     });
   });
+
+  describe('peekConversation()', () => {
+    it('返回会话及其消息（含已软删过滤）', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+      await service.appendMessage(created.id, { role: 'user', content: 'hi' });
+
+      const data = await service.peekConversation(created.id);
+      expect(data.id).toBe(created.id);
+      expect(data.messages.some((m: any) => m.content === 'hi')).toBe(true);
+    });
+
+    it('会话不存在抛 NotFound', async () => {
+      await expect(service.peekConversation('nope')).rejects.toThrow('Conversation not found');
+    });
+  });
+
+  describe('cleanupExpiredConversations()', () => {
+    it('清理过期会话及其消息，保留未过期', async () => {
+      // 覆盖 find 以支持 lastActivityAt 过滤（默认 mock 只按 userId）
+      mockConvRepo.find.mockImplementation(({ where }: any) => {
+        const cutoff = (where?.lastActivityAt as any)?.value;
+        return Promise.resolve(
+          Array.from(convStore.values()).filter(
+            (c) => !c.isDeleted && cutoff && new Date(c.lastActivityAt).getTime() < cutoff.getTime(),
+          ),
+        );
+      });
+      // 直接塞一条过期会话（lastActivityAt 在 ttlMs 之前）+ 一条未过期
+      convStore.set('expired-1', { id: 'expired-1', userId: 'user1', provider: 'deepseek', model: 'm', lastActivityAt: new Date(Date.now() - 7200 * 1000), isDeleted: false, createdAt: new Date(), updatedAt: new Date() });
+      msgStore.set(1, { id: 1, conversationId: 'expired-1', role: 'user', content: 'x', createdAt: new Date() });
+      const fresh = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+
+      await service.cleanupExpiredConversations();
+
+      expect(convStore.has('expired-1')).toBe(false);
+      expect(convStore.has(fresh.id)).toBe(true);
+    });
+  });
 });
