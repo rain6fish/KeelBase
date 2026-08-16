@@ -38,7 +38,13 @@ class UserModel {
     return name.isEmpty ? nickname : name;
   }
 
-  UserModel copyWith({bool? emailVerified, String? avatarUrl}) {
+  static const Object _unset = Object();
+
+  /// 哨兵：显式传 null 可清空可空字段（如 avatarUrl）。
+  UserModel copyWith({
+    bool? emailVerified,
+    Object? avatarUrl = _unset,
+  }) {
     return UserModel(
       id: id,
       username: username,
@@ -49,7 +55,7 @@ class UserModel {
       dateOfBirth: dateOfBirth,
       phone: phone,
       bio: bio,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
+      avatarUrl: identical(avatarUrl, _unset) ? this.avatarUrl : avatarUrl as String?,
       createdAt: createdAt,
       emailVerified: emailVerified ?? this.emailVerified,
       role: role,
