@@ -638,6 +638,11 @@ npm run migration:run
 | GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近评测报告（AI-20） |
 | POST | /api/v1/headless/chat | API Key | — | 无头对话（AI-19/HS-4）：x-api-key 认证（HEADLESS_API_KEY 或管理台创建 key），以 key 归属用户身份执行，复用 Agent 工具/记忆/审计，返回 reply+conversationId |
 | POST | /api/v1/mcp | JWT | — | MCP 出口（HS-10）：现有 AI 工具暴露为 MCP server（JSON-RPC：initialize/ping/tools/list/tools/call），工具以调用者身份过同一治理层（权限+确认+审计），写工具返回需确认不自动执行 |
+| GET | /api/v1/admin/mcp/servers | Yes (ADMIN) | — | 已注册外部 MCP server 列表（HS-10 入口 gateway） |
+| POST | /api/v1/admin/mcp/servers | Yes (ADMIN) | — | 注册外部 MCP server（写入 Settings key mcp_servers） |
+| DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | — | 移除外部 MCP server |
+| GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新） |
+| POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
 | GET | /api/v1/admin/headless-keys | Yes (ADMIN) | — | headless API Key 列表（HS-4） |
