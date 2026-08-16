@@ -599,11 +599,13 @@ npm run migration:run
 | PUT | /api/v1/events/:id | Yes | 本人或管理员 | 更新事件 |
 | DELETE | /api/v1/events/:id | Yes | 本人或管理员 | 删除事件 |
 | GET | /api/v1/audit/logs | Yes (ADMIN) | — | AI 审计日志（可按 userId / feedback=thumbs_down 过滤） |
+| GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |
+| GET | /api/v1/audit/operations/verify | Yes (ADMIN) | — | 操作审计哈希链完整性校验（HS-11） |
 | GET | /api/v1/audit/operations/stats | Yes (ADMIN) | — | 操作审计统计（按 action 分组） |
 | GET | /api/v1/notifications | Yes | 本人 | 通知列表（分页） |
 | GET | /api/v1/notifications/unread-count | Yes | 本人 | 未读通知数量 |
