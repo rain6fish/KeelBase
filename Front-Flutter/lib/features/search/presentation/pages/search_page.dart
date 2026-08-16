@@ -51,6 +51,10 @@ class _SearchPageState extends State<SearchPage> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
+        leading: CupertinoNavigationBarBackButton(
+          previousPageTitle: l10n.back,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         middle: CupertinoSearchTextField(
           controller: _searchCtrl,
           placeholder: l10n.globalSearchHint,
