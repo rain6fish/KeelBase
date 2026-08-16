@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:front_app/features/ai/presentation/providers/ai_chat_provider.dart';
+import 'package:front_app/features/ai/data/models/tool_step_model.dart';
 import '../../helpers.dart';
 
 void main() {
