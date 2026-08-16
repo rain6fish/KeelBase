@@ -167,6 +167,7 @@ const consoleNavGroups = computed(() => [
       { name: 'system', to: '/system', icon: 'mdi-cog-outline', label: t('navSystemInfo') },
       { name: 'templates', to: '/templates', icon: 'mdi-view-grid-plus-outline', label: t('navTemplates') },
       { name: 'ai-tools', to: '/ai-tools', icon: 'mdi-tools', label: t('navAiTools') },
+      { name: 'mcp', to: '/mcp', icon: 'mdi-connection', label: t('navMcp') },
     ],
   },
 ])
