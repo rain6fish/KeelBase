@@ -13,6 +13,7 @@ import { EncryptionService } from '../common/utils/encryption';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
 import { OrgService } from '../org/org.service';
+import { MfaService } from './mfa/mfa.service';
 import { User } from '../common/entities/user.entity';
 import { UserSession } from './user-session.entity';
 import { PhoneVerificationCode } from './phone-verification-code.entity';
@@ -146,6 +147,12 @@ describe('AuthService', () => {
     driver: 'console',
   };
 
+  const mockMfaService = {
+    generateSecret: jest.fn().mockReturnValue('mfa-secret'),
+    otpauthUrl: jest.fn().mockReturnValue('otpauth://totp/keelbase:test?secret=abc'),
+    verifyCode: jest.fn().mockReturnValue(true),
+  };
+
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
       providers: [
@@ -158,6 +165,7 @@ describe('AuthService', () => {
         { provide: EncryptionService, useValue: mockEncryption },
         { provide: MailService, useValue: mockMailService },
         { provide: SmsService, useValue: mockSmsService },
+        { provide: MfaService, useValue: mockMfaService },
         { provide: getRepositoryToken(PhoneVerificationCode), useValue: genericRepo() },
         { provide: getRepositoryToken(Event), useValue: genericRepo() },
         { provide: getRepositoryToken(Todo), useValue: genericRepo() },
