@@ -41,6 +41,20 @@ describe('TodosService', () => {
     expect(result.userId).toBe(5);
   });
 
+  it('PL-14：创建待办发布 todo.created webhook', async () => {
+    const webhook = { publish: jest.fn().mockResolvedValue(undefined) };
+    const svc = new TodosService(mockRepo as any, undefined as any, webhook as any);
+    mockRepo.create.mockReturnValue({ id: 9, title: 'T', userId: 1 });
+    mockRepo.save.mockResolvedValue({ id: 9, title: 'T', userId: 1 });
+
+    await svc.create({ title: 'T' }, 1);
+
+    expect(webhook.publish).toHaveBeenCalledWith(
+      'todo.created',
+      expect.objectContaining({ todoId: 9, title: 'T', userId: 1 }),
+    );
+  });
+
   it('returns only user todos', async () => {
     mockRepo.find.mockResolvedValue([{ id: 1 }]);
 
