@@ -118,4 +118,29 @@ describe('AdminService · D.8 运维单页聚合', () => {
     expect(result.trend).toHaveLength(7);
     expect(result.trend.every((t: { total: number }) => t.total === 0)).toBe(true);
   });
+
+  // ── 补充覆盖：告警阈值分级 / 存储用量降级 ──────────────────────────────────
+  // 注：_getStorageUsage 的 fs 读取与 _checkRedis 的 net 探测用 `await import('fs'/'net')`
+  // 动态加载，jest（无 --experimental-vm-modules）对内置模块动态 import 直接抛错，
+  // 故只测「非 local 直接返回」这条不触达 import 的路径。
+
+  it('_deriveAlerts：错误率 >15% → critical，5-15% → warning，≤5% 无错误告警', () => {
+    const s = service as any;
+    const noErrors = { opErrors: [], aiErrors: 0 };
+    const crit = s._deriveAlerts({ errorRatePct: 20 }, true, noErrors);
+    expect(crit.some((a: any) => a.level === 'critical' && a.title === '错误率过高')).toBe(true);
+    expect(crit.some((a: any) => a.title === '错误率偏高')).toBe(false);
+
+    const warn = s._deriveAlerts({ errorRatePct: 8 }, true, noErrors);
+    expect(warn.some((a: any) => a.level === 'warning' && a.title === '错误率偏高')).toBe(true);
+
+    const none = s._deriveAlerts({ errorRatePct: 2 }, true, noErrors);
+    expect(none.some((a: any) => a.title.includes('错误率'))).toBe(false);
+  });
+
+  it('_getStorageUsage：非 local 驱动返回 null（不读磁盘）', async () => {
+    configService.get.mockImplementation((k: string, d?: unknown) => (k === 'STORAGE_DRIVER' ? 's3' : d));
+    const result = await (service as any)._getStorageUsage();
+    expect(result).toEqual({ driver: 's3', bytes: null });
+  });
 });
