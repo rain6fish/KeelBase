@@ -1046,4 +1046,46 @@ describe('AiService', () => {
       expect(sent.messages[0].content).toBe(config.systemPrompt);
     });
   });
+
+  describe('HS-10 MCP 出口方法', () => {
+    describe('listMcpTools', () => {
+      it('把工具定义映射为 MCP 工具清单', async () => {
+        mockToolRegistry.getToolDefinitions.mockReturnValue([
+          { type: 'function', function: { name: 'query_events', description: '查事件', parameters: { type: 'object', properties: { status: {} } } } },
+        ] as any);
+        const tools = await aiService.listMcpTools();
+        expect(tools).toEqual([
+          { name: 'query_events', description: '查事件', inputSchema: { type: 'object', properties: { status: {} } } },
+        ]);
+      });
+
+      it('未注入治理策略时返回全部工具', async () => {
+        mockToolRegistry.getToolDefinitions.mockReturnValue([
+          { type: 'function', function: { name: 'a', description: '', parameters: {} } },
+          { type: 'function', function: { name: 'b', description: '', parameters: {} } },
+        ] as any);
+        const tools = await aiService.listMcpTools();
+        expect(tools).toHaveLength(2);
+      });
+    });
+
+    describe('executeToolForExternal', () => {
+      it('读工具（无需确认）→ 直接执行', async () => {
+        mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+        mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 1 } });
+        const out = await aiService.executeToolForExternal('query_events', { status: 'active' }, '1');
+        expect(out.executed).toBe(true);
+        expect(out.requiresConfirmation).toBe(false);
+        expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { status: 'active' }, '1');
+      });
+
+      it('写工具（需确认）→ 不执行，返回需确认信号', async () => {
+        mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+        const out = await aiService.executeToolForExternal('create_event', {}, '1');
+        expect(out.executed).toBe(false);
+        expect(out.requiresConfirmation).toBe(true);
+        expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      });
+    });
+  });
 });
