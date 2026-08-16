@@ -4,7 +4,7 @@ import { McpGatewayService } from './mcp-gateway.service';
 
 describe('McpGatewayController (HS-10 入口 admin)', () => {
   let controller: McpGatewayController;
-  let gateway: jest.Mocked<Pick<McpGatewayService, 'listServers' | 'registerServer' | 'removeServer' | 'discoverTools' | 'callTool'>>;
+  let gateway: jest.Mocked<Pick<McpGatewayService, 'listServers' | 'registerServer' | 'removeServer' | 'discoverTools' | 'callExternalTool'>>;
 
   const user = { sub: 1, username: 'admin', role: 'admin' as const };
 
@@ -14,7 +14,7 @@ describe('McpGatewayController (HS-10 入口 admin)', () => {
       registerServer: jest.fn().mockResolvedValue([]),
       removeServer: jest.fn().mockResolvedValue([]),
       discoverTools: jest.fn().mockResolvedValue([]),
-      callTool: jest.fn(),
+      callExternalTool: jest.fn(),
     };
     const moduleRef = await Test.createTestingModule({
       providers: [McpGatewayController, { provide: McpGatewayService, useValue: gateway }],
@@ -46,6 +46,6 @@ describe('McpGatewayController (HS-10 入口 admin)', () => {
 
   it('call 透传并带 userId', async () => {
     await controller.call(user as any, { serverName: 'wx', toolName: 't', arguments: { a: 1 } } as any);
-    expect(gateway.callTool).toHaveBeenCalledWith('wx', 't', { a: 1 }, '1');
+    expect(gateway.callExternalTool).toHaveBeenCalledWith('wx', 't', { a: 1 }, '1');
   });
 });
