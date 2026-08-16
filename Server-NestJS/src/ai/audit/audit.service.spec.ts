@@ -3,15 +3,20 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AuditService } from './audit.service';
+import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 
 function makeLogRepo() {
   const qb = {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getCount: jest.fn().mockResolvedValue(0),
+    select: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue(null),
   };
   return {
-    save: jest.fn(),
+    save: jest.fn((x) => Promise.resolve(x)),
     find: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
@@ -31,15 +36,21 @@ describe('AuditService', () => {
   let service: AuditService;
   let repo: ReturnType<typeof makeLogRepo>;
   let usageRepo: ReturnType<typeof makeUsageRepo>;
+  let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
 
   beforeEach(async () => {
     repo = makeLogRepo();
     usageRepo = makeUsageRepo();
+    chain = {
+      computeHash: jest.fn().mockReturnValue('hash-1'),
+      verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 0 }),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuditService,
         { provide: getRepositoryToken(AiAuditLog), useValue: repo },
         { provide: getRepositoryToken(AiDailyUsage), useValue: usageRepo },
+        { provide: AuditChainService, useValue: chain },
       ],
     }).compile();
     service = moduleRef.get(AuditService);
@@ -88,10 +99,35 @@ describe('AuditService', () => {
     });
   });
 
-  describe('log', () => {
-    it('保存审计条目', async () => {
+  describe('log（HS-11 哈希链）', () => {
+    it('保存审计条目并写入 prevHash + hash', async () => {
+      chain.computeHash.mockReturnValue('computed-hash');
       await service.log({ userId: '1', action: 'chat', provider: 'deepseek' });
-      expect(repo.save).toHaveBeenCalled();
+      expect(chain.computeHash).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ userId: '1', action: 'chat', provider: 'deepseek' }),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ prevHash: null, hash: 'computed-hash' }),
+      );
+    });
+
+    it('取到上一条 hash 后串接', async () => {
+      (repo.createQueryBuilder as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-hash' }),
+      });
+      await service.log({ userId: '1', action: 'chat' });
+      expect(chain.computeHash).toHaveBeenCalledWith('prev-hash', expect.anything());
+    });
+
+    it('verifyChain 沿 id 升序取数并委托链校验', async () => {
+      repo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
+      await service.verifyChain();
+      expect(repo.find).toHaveBeenCalledWith({ order: { id: 'ASC' } });
+      expect(chain.verifyChain).toHaveBeenCalled();
     });
   });
 
