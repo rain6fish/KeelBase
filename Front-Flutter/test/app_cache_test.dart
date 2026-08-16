@@ -55,4 +55,21 @@ void main() {
     ]);
     expect(noop.readInt('todos', 'x'), isNull);
   });
+
+  test('clearAll 只清 AppCache key，保留应用级键（CR-12）', () async {
+    await cache.writeList('todos', 'list', [
+      {'id': 1, 'title': 'x'},
+    ]);
+    await cache.writeInt('notifications', 'unread', 5);
+    // 模拟 token/主题等应用级键（非 AppCache 格式）
+    await prefs.setString('refresh_token', 'keep-me');
+    await prefs.setString('theme_mode', 'dark');
+
+    await cache.clearAll();
+
+    expect(await cache.readList('todos', 'list'), isNull);
+    expect(cache.readInt('notifications', 'unread'), isNull);
+    expect(prefs.getString('refresh_token'), 'keep-me');
+    expect(prefs.getString('theme_mode'), 'dark');
+  });
 }

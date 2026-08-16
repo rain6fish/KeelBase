@@ -4,13 +4,17 @@ import 'package:front_app/features/auth/data/models/token_model.dart';
 import 'package:front_app/features/auth/data/models/user_model.dart';
 import 'package:front_app/features/auth/data/services/oauth_providers.dart';
 import 'package:front_app/core/errors/exceptions.dart';
+import 'package:front_app/core/services/app_cache.dart';
 import 'package:front_app/features/auth/presentation/providers/auth_provider.dart';
 import '../../helpers.dart';
+
+class MockAppCache extends Mock implements AppCache {}
 
 void main() {
   late MockApiClient apiClient;
   late MockAuthRepository authRepository;
   late MockSplashRepository splashRepository;
+  late MockAppCache cache;
   late AuthProvider provider;
 
   final testUser = UserModel(
@@ -30,10 +34,13 @@ void main() {
     apiClient = MockApiClient();
     authRepository = MockAuthRepository();
     splashRepository = MockSplashRepository();
+    cache = MockAppCache();
+    when(() => cache.clearAll()).thenAnswer((_) async => null);
     provider = AuthProvider(
       authRepository: authRepository,
       splashRepository: splashRepository,
       apiClient: apiClient,
+      cache: cache,
     );
   });
 
@@ -131,6 +138,8 @@ void main() {
       expect(provider.status, AuthStatus.unauthenticated);
       verify(() => authRepository.logout()).called(1);
       verify(() => apiClient.clearTokens()).called(1);
+      // CR-12：登出必须清离线缓存，防跨账号数据泄漏
+      verify(() => cache.clearAll()).called(1);
     });
   });
 
