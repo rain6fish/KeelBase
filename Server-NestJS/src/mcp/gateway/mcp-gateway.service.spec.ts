@@ -2,6 +2,24 @@ import { McpGatewayService, ExternalMcpTool, ExternalToolCallResult } from './mc
 import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+
+jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(undefined),
+    listTools: jest.fn().mockResolvedValue({
+      tools: [
+        { name: 'get_weather', description: '查天气', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
+        { name: 'send_email', description: '发邮件', annotations: { readOnlyHint: false } },
+      ],
+    }),
+    callTool: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '晴 26°C' }], isError: false }),
+    close: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+jest.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
+  StreamableHTTPClientTransport: jest.fn().mockImplementation(() => ({ close: jest.fn() })),
+}));
 
 describe('McpGatewayService (HS-10 入口)', () => {
   let service: McpGatewayService;
@@ -196,6 +214,56 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(out.executed).toBe(false);
       expect(out.requiresConfirmation).toBe(true);
       expect(callSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('SDK 集成层（_listTools/_callRemote/_makeTransport）', () => {
+    const server = { name: 'wx', url: 'http://x/mcp' };
+
+    function svcWithFactory() {
+      const close = jest.fn();
+      const transportFactory = jest.fn().mockResolvedValue({ transport: { fake: true }, close });
+      const s = new McpGatewayService(settings as any, governance as any, audit as any, undefined, transportFactory as any);
+      return { s, close, transportFactory };
+    }
+
+    it('_listTools 经 transportFactory + Client 拉取并映射 readOnly', async () => {
+      const { s, close, transportFactory } = svcWithFactory();
+      const tools = await (s as any)._listTools(server);
+      expect(transportFactory).toHaveBeenCalledWith(server);
+      expect(Client).toHaveBeenCalledWith(expect.objectContaining({ name: 'keelbase-gateway' }));
+      expect(tools).toHaveLength(2);
+      expect(tools[0]).toMatchObject({ name: 'get_weather', readOnly: true });
+      expect(tools[1]).toMatchObject({ name: 'send_email', readOnly: false });
+      expect(close).toHaveBeenCalled();
+    });
+
+    it('_callRemote 调远端工具并归一化结果', async () => {
+      const { s } = svcWithFactory();
+      const result = await (s as any)._callRemote(server, 'get_weather', { city: 'sz' });
+      expect(result).toEqual({ content: [{ type: 'text', text: '晴 26°C' }], isError: false });
+    });
+
+    it('_makeTransport 无 factory 时走默认 StreamableHTTPClientTransport', async () => {
+      const s = new McpGatewayService(settings as any, governance as any, audit as any);
+      const made = await (s as any)._makeTransport(server);
+      expect(made.transport).toBeDefined();
+      expect(typeof made.close).toBe('function');
+      // 不抛错即证明默认 transport 构造可用（SDK mock）
+      expect(() => made.close()).not.toThrow();
+    });
+
+    it('onModuleInit 把 gateway 注册为 AiService 外部工具提供者', async () => {
+      const aiService = { registerExternalToolProvider: jest.fn() };
+      const s = new McpGatewayService(settings as any, governance as any, audit as any, aiService as any);
+      await s.onModuleInit();
+      expect(aiService.registerExternalToolProvider).toHaveBeenCalledWith(s);
+    });
+
+    it('callTool 非 mcp_ 前缀键返回错误', async () => {
+      const out = await service.callTool('query_events', {}, '1');
+      expect(out.executed).toBe(false);
+      expect(out.error).toContain('not an external tool key');
     });
   });
 });
