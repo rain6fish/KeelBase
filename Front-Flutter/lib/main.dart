@@ -173,6 +173,7 @@ Future<void> _initApp() async {
               splashRepository: splashRepository,
               apiClient: apiClient,
               oauthService: oauthService,
+              cache: AppCache(prefs),
             );
             authProvider = ap;
             return ap;
