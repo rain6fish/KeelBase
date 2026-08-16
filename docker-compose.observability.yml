@@ -35,8 +35,11 @@ services:
     ports:
       - "3001:3000"
     environment:
+      # CR-23：匿名从 Admin 降为 Viewer（只读看板，防匿名改配置）；管理员凭据可经 env 覆盖
       - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:-admin}
     volumes:
       - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/observability/grafana/dashboards:/etc/grafana/dashboards:ro

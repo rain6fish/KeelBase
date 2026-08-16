@@ -17,6 +17,16 @@ export interface MailMessage {
   html: string;
 }
 
+/** HTML 转义，防注入（CR-23：营销邮件 body/CTA 来自管理端输入，须转义再入模板）。 */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -125,17 +135,24 @@ export class MailService {
    * subject/body 由调用方传，主题色 #1a73e8，含页脚。
    */
   async sendMarketingEmail(email: string, subject: string, body: string, cta?: { label: string; url: string }): Promise<void> {
+    // CR-23：body/subject/label 转义防 HTML 注入；cta.url 仅允许 http/https（防 javascript: 等危险协议）
+    const safeSubject = escapeHtml(subject);
+    const safeBody = escapeHtml(body).replace(/\n/g, '<br/>');
+    const safeCta =
+      cta && /^https?:\/\//i.test(cta.url)
+        ? { label: escapeHtml(cta.label), url: escapeHtml(cta.url) }
+        : undefined;
     await this.sendMail({
       to: email,
-      subject: `【KeelBase】${subject}`,
+      subject: `【KeelBase】${safeSubject}`,
       html: `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-  <h2 style="color:#1a73e8;">${subject}</h2>
+  <h2 style="color:#1a73e8;">${safeSubject}</h2>
   <div style="font-size:15px; line-height:1.6; color:#333;">
-    ${body.replace(/\n/g, '<br/>')}
+    ${safeBody}
   </div>
-  ${cta ? `<p style="margin-top:24px;"><a href="${cta.url}" style="display:inline-block; background:#1a73e8; color:#fff; padding:10px 20px; border-radius:4px; text-decoration:none;">${cta.label}</a></p>` : ''}
+  ${safeCta ? `<p style="margin-top:24px;"><a href="${safeCta.url}" style="display:inline-block; background:#1a73e8; color:#fff; padding:10px 20px; border-radius:4px; text-decoration:none;">${safeCta.label}</a></p>` : ''}
   <p style="margin-top:32px; font-size:12px; color:#999;">此邮件由 KeelBase 发送，如非本人操作请忽略。</p>
 </body>
 </html>`,
