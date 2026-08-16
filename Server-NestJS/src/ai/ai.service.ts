@@ -1254,10 +1254,10 @@ export class AiService {
             `All providers failed after ${round + 1} attempts. Last error: ${(err as Error).message}`,
           );
         }
-        result = fallbackResult;
-        currentProvider = this.providerFactory.getProvider(
-          params.fallbackProviders[0],
-        );
+        result = fallbackResult.result;
+        // CR-28：后续轮次用「实际成功」的 provider，而非回退链首（可能也是失败的）
+        currentProvider = this.providerFactory.getProvider(fallbackResult.providerName);
+        currentProviderName = fallbackResult.providerName;
       }
 
       if (result.usage) {
@@ -1344,15 +1344,16 @@ export class AiService {
     fallbackChain: string[],
     model: string,
     params: { messages: ChatMessage[]; tools?: any[] },
-  ): Promise<GenerateResult | null> {
+  ): Promise<{ result: GenerateResult; providerName: string } | null> {
     for (const name of fallbackChain) {
       try {
         const provider = this.providerFactory.getProvider(name);
-        return await provider.generate({
+        const result = await provider.generate({
           messages: params.messages,
           tools: params.tools,
           model,
         });
+        return { result, providerName: name };
       } catch (fallbackErr) {
         console.error(
           `[AiService] Fallback provider "${name}" also failed:`,
@@ -1471,8 +1472,6 @@ export class AiService {
     const hasNavIntent = navVerbs.some((v) => trimmed.includes(v));
     if (!hasNavIntent) return null;
 
-    console.log(`[AiService] detectNavigation triggered for: "${trimmed}"`);
-
     // 页面映射表：按优先顺序匹配
     const pageMap: Array<{ keywords: string[]; route: string; label: string }> = [
       { keywords: ['首页', '主页', 'home', 'dashboard'], route: '/', label: '首页' },
@@ -1486,7 +1485,6 @@ export class AiService {
 
     for (const page of pageMap) {
       if (page.keywords.some((k) => trimmed.includes(k))) {
-        console.log(`[AiService] Navigation matched: "${page.label}" → ${page.route}`);
         return {
           route: page.route,
           reply: `已为您跳转到${page.label}。`,
