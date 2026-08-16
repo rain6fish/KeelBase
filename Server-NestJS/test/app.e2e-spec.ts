@@ -454,6 +454,17 @@ describe('App (e2e)', () => {
       });
     });
 
+    it('GET /events rejects unauthenticated (T.4 401)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/events').expect(401);
+    });
+
+    it('POST /events rejects unauthenticated (T.4 401)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/events')
+        .send({ title: 'x', startTime: new Date().toISOString(), endTime: new Date().toISOString() })
+        .expect(401);
+    });
+
     it('POST /api/v1/events should create an event', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/events')
@@ -1157,6 +1168,13 @@ describe('App (e2e)', () => {
       expect(Array.isArray(res.body.data)).toBe(true);
     });
 
+    it('POST /ai/chat rejects unauthenticated (T.4 401)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/ai/chat')
+        .send({ message: 'hello' })
+        .expect(401);
+    });
+
     it('DELETE /api/v1/ai/conversations/:id should reject other user conversation (403)', async () => {
       // 对话 userId 是 'ai-conv-user-id'（字符串），当前用户是数字 id → 越权
       await request(app.getHttpServer())
@@ -1630,6 +1648,47 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .delete(`/api/v1/todos/${created.body.data.id}`)
+        .set(authHeader(other.accessToken))
+        .expect(403);
+    });
+
+    it('GET /todos rejects unauthenticated (T.4 401)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/todos').expect(401);
+    });
+
+    it('blocks updating another user todo (T.4 403)', async () => {
+      const other = await registerUser(app, {
+        username: 'todo_other_upd',
+        email: 'todo_other_upd@test.com',
+        password: 'Todo6789',
+        nickname: 'OtherUpd',
+      });
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/todos')
+        .set(authHeader(token))
+        .send({ title: '他人更新' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .patch(`/api/v1/todos/${created.body.data.id}`)
+        .set(authHeader(other.accessToken))
+        .send({ title: '篡改' })
+        .expect(403);
+    });
+
+    it('blocks completing another user todo (T.4 403)', async () => {
+      const other = await registerUser(app, {
+        username: 'todo_other_cmp',
+        email: 'todo_other_cmp@test.com',
+        password: 'Todo6789',
+        nickname: 'OtherCmp',
+      });
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/todos')
+        .set(authHeader(token))
+        .send({ title: '他人完成' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .patch(`/api/v1/todos/${created.body.data.id}/complete`)
         .set(authHeader(other.accessToken))
         .expect(403);
     });
