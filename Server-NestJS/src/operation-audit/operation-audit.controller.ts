@@ -25,6 +25,13 @@ export class OperationAuditController {
     return this.auditService.getLogs(page, limit, userId ? Number(userId) : undefined, since ? new Date(since) : undefined);
   }
 
+  @Get('verify')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'HS-11 操作审计哈希链完整性校验（admin）' })
+  async verify() {
+    return this.auditService.verifyChain();
+  }
+
   @Get('stats')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '操作审计统计（按 action 分组，admin）' })

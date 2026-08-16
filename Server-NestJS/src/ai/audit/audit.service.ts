@@ -10,6 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
+import {
+  AuditChainService,
+  ChainVerification,
+} from '../../common/audit-chain/audit-chain.service';
 
 export interface AuditEntry {
   userId: string;
@@ -57,9 +61,27 @@ export class AuditService {
     private readonly logRepo: Repository<AiAuditLog>,
     @InjectRepository(AiDailyUsage)
     private readonly usageRepo: Repository<AiDailyUsage>,
+    private readonly auditChain: AuditChainService,
   ) {}
 
   async log(entry: AuditEntry): Promise<void> {
+    const prevHash = await this._lastHash();
+    const hash = this.auditChain.computeHash(
+      prevHash,
+      this._payload({
+        userId: entry.userId,
+        conversationId: entry.conversationId,
+        action: entry.action,
+        detail: entry.detail ? entry.detail.slice(0, 2000) : null,
+        model: entry.model,
+        provider: entry.provider,
+        promptTokens: entry.promptTokens,
+        completionTokens: entry.completionTokens,
+        durationMs: entry.durationMs,
+        isError: entry.isError ?? false,
+        errorMessage: entry.errorMessage,
+      }),
+    );
     await this.logRepo.save({
       userId: entry.userId,
       conversationId: entry.conversationId,
@@ -72,7 +94,45 @@ export class AuditService {
       durationMs: entry.durationMs,
       isError: entry.isError ?? false,
       errorMessage: entry.errorMessage,
+      prevHash,
+      hash,
     });
+  }
+
+  /** HS-11：沿 id 升序校验审计哈希链完整性。 */
+  async verifyChain(): Promise<ChainVerification> {
+    const rows = await this.logRepo.find({ order: { id: 'ASC' } });
+    return this.auditChain.verifyChain(rows, (row) => this._payload(row));
+  }
+
+  private async _lastHash(): Promise<string | null> {
+    const row = await this.logRepo
+      .createQueryBuilder('log')
+      .select('log.hash', 'hash')
+      .orderBy('log.id', 'DESC')
+      .limit(1)
+      .getRawOne<{ hash: string }>();
+    return row?.hash ?? null;
+  }
+
+  /** 链 payload 的规范形态：写入与校验共用，保证两端一致。 */
+  private _payload(row: object): Record<string, unknown> {
+    const r = row as Record<string, unknown>;
+    return {
+      userId: r.userId ?? null,
+      conversationId: r.conversationId ?? null,
+      action: r.action ?? null,
+      detail: r.detail ?? null,
+      model: r.model ?? null,
+      provider: r.provider ?? null,
+      promptTokens: r.promptTokens ?? null,
+      completionTokens: r.completionTokens ?? null,
+      durationMs: r.durationMs ?? null,
+      isError: r.isError ?? false,
+      errorMessage: r.errorMessage ?? null,
+      feedback: r.feedback ?? null,
+      feedbackNote: r.feedbackNote ?? null,
+    };
   }
 
   async getUserLogs(

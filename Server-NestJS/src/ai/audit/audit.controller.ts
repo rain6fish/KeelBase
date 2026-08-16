@@ -28,6 +28,13 @@ export class AuditController {
     return this.auditService.getLogs(options);
   }
 
+  @Get('verify')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员）' })
+  verify() {
+    return this.auditService.verifyChain();
+  }
+
   @Get('stats')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '全局 AI 用量统计（管理员）' })

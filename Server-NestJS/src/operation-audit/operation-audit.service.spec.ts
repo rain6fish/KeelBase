@@ -2,32 +2,46 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { OperationAuditService } from './operation-audit.service';
 import { OperationAuditLog } from './operation-audit-log.entity';
+import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 
 describe('OperationAuditService', () => {
   let service: OperationAuditService;
+  let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
   const mockRepo = {
     create: jest.fn((d: any) => d),
     save: jest.fn((d: any) => Promise.resolve(d)),
     findAndCount: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    find: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue(null),
+    }),
     count: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    chain = {
+      computeHash: jest.fn().mockReturnValue('hash-1'),
+      verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 0 }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OperationAuditService,
         { provide: getRepositoryToken(OperationAuditLog), useValue: mockRepo },
+        { provide: AuditChainService, useValue: chain },
       ],
     }).compile();
 
     service = module.get<OperationAuditService>(OperationAuditService);
   });
 
-  describe('log', () => {
-    it('persists a log entry with truncated body', async () => {
+  describe('log（HS-11 哈希链）', () => {
+    it('persists a log entry with truncated body + hash chain', async () => {
       const longBody = 'x'.repeat(3000);
+      chain.computeHash.mockReturnValue('computed-hash');
       await service.log({
         userId: 1,
         action: 'CREATE',
@@ -43,6 +57,12 @@ describe('OperationAuditService', () => {
       expect(saved.userId).toBe(1);
       expect(saved.action).toBe('CREATE');
       expect(saved.requestBody.length).toBeLessThanOrEqual(2000);
+      expect(chain.computeHash).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ path: '/events', method: 'POST' }),
+      );
+      expect(saved.prevHash).toBeNull();
+      expect(saved.hash).toBe('computed-hash');
     });
 
     it('swallows save errors silently (audit must not fail business)', async () => {
@@ -50,6 +70,13 @@ describe('OperationAuditService', () => {
 
       await expect(service.log({ action: 'CREATE', method: 'POST', path: '/x' }))
         .resolves.toBeUndefined();
+    });
+
+    it('verifyChain 沿 id 升序取数并委托链校验', async () => {
+      mockRepo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
+      await service.verifyChain();
+      expect(mockRepo.find).toHaveBeenCalledWith({ order: { id: 'ASC' } });
+      expect(chain.verifyChain).toHaveBeenCalled();
     });
   });
 
