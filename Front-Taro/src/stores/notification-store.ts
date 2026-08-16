@@ -33,7 +33,13 @@ export const useNotificationStore = defineStore('notification', {
     },
 
     async markRead(id: number) {
-      await notificationService.markRead(id)
+      try {
+        await notificationService.markRead(id)
+      } catch (err: any) {
+        // CR-26：fire-and-forget 调用防未捕获 rejection
+        this.error = err?.message || 'Failed to mark read'
+        return
+      }
       this.notifications = this.notifications.map((n) =>
         n.id === id ? { ...n, isRead: true } : n,
       )
@@ -41,13 +47,23 @@ export const useNotificationStore = defineStore('notification', {
     },
 
     async markAllRead() {
-      await notificationService.markAllRead()
+      try {
+        await notificationService.markAllRead()
+      } catch (err: any) {
+        this.error = err?.message || 'Failed to mark all read'
+        return
+      }
       this.notifications = this.notifications.map((n) => ({ ...n, isRead: true }))
       this.unreadCount = 0
     },
 
     async remove(id: number) {
-      await notificationService.deleteNotification(id)
+      try {
+        await notificationService.deleteNotification(id)
+      } catch (err: any) {
+        this.error = err?.message || 'Failed to delete notification'
+        return
+      }
       this.notifications = this.notifications.filter((n) => n.id !== id)
     },
 
