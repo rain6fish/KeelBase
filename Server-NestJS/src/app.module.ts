@@ -1,6 +1,7 @@
 ﻿import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { LogLevel } from 'typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD, APP_PIPE } from '@nestjs/core';
@@ -102,7 +103,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
             type: 'postgres' as const,
             autoLoadEntities: true,
             synchronize: isDev || useSync,
-            logging: otelOn ? ['query', 'error'] : ['error', 'warn', 'schema'],
+            logging: (otelOn ? ['query', 'error'] : ['error', 'warn', 'schema']) as LogLevel[],
             logger: createTypeOrmLogger(otelOn),
             // postgres 用独立基线 + 向量迁移（sqlite 方言迁移不加载）
             migrations: [
@@ -173,7 +174,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
           type: 'better-sqlite3' as const,
           autoLoadEntities: true,
           synchronize: isDev || useSync,
-          logging: otelOn ? ['query', 'error'] : ['error', 'warn', 'schema'],
+          logging: (otelOn ? ['query', 'error'] : ['error', 'warn', 'schema']) as LogLevel[],
           logger: createTypeOrmLogger(otelOn),
           migrations: ['dist/migrations/*.js'],
           migrationsRun: !isDev && !useSync,
