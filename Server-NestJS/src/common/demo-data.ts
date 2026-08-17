@@ -11,6 +11,10 @@ import { CrmOrder } from '../crm/crm-order.entity';
 import { CrmActivity } from '../crm/crm-activity.entity';
 import { CrmTask } from '../crm/crm-task.entity';
 import { CrmRisk } from '../crm/crm-risk.entity';
+import { PmProject } from '../pm/pm-project.entity';
+import { PmMilestone } from '../pm/pm-milestone.entity';
+import { PmTask } from '../pm/pm-task.entity';
+import { PmRisk } from '../pm/pm-risk.entity';
 import { User } from './entities/user.entity';
 
 /**
@@ -41,6 +45,10 @@ export async function seedDemoData(
   const crmActivityRepo = dataSource.getRepository(CrmActivity);
   const crmTaskRepo = dataSource.getRepository(CrmTask);
   const crmRiskRepo = dataSource.getRepository(CrmRisk);
+  const pmProjectRepo = dataSource.getRepository(PmProject);
+  const pmMilestoneRepo = dataSource.getRepository(PmMilestone);
+  const pmTaskRepo = dataSource.getRepository(PmTask);
+  const pmRiskRepo = dataSource.getRepository(PmRisk);
 
   const day = 24 * 60 * 60 * 1000;
   const today = new Date();
@@ -148,6 +156,57 @@ export async function seedDemoData(
       { userId: uid, customerId: cid('蓝湾地产'), level: 'high', reason: '两笔订单逾期合计 30.5 万，项目资金承压。', detectedAt: at(-10, 9) },
       { userId: uid, customerId: cid('临海制造'), level: 'critical', reason: '单笔 280 万订单逾期 40 天，客户资金链紧张。', detectedAt: at(-15, 9) },
       { userId: uid, customerId: cid('星河科技'), level: 'medium', reason: '续约谈判未定，订单临近到期。', detectedAt: at(-5, 9) },
+    ]);
+  }
+
+  // ── AI Project Management 旗舰应用演示数据（独立守卫）──
+  const existingPm = await pmProjectRepo.count({ where: { userId: user.id } });
+  if (existingPm === 0) {
+    const projects = await pmProjectRepo.save([
+      {
+        userId: user.id, name: '电商平台重构', status: 'active', riskLevel: 'high',
+        description: 'Q3 核心项目：订单与库存模块重构，涉及 6 个服务。', startDate: dateOnly(-60), endDate: dateOnly(40),
+      },
+      {
+        userId: user.id, name: '移动端 App 发布', status: 'active', riskLevel: 'medium',
+        description: '新版 App 上线，含登录链路与推送升级。', startDate: dateOnly(-30), endDate: dateOnly(20),
+      },
+      {
+        userId: user.id, name: '内部 BI 看板', status: 'completed', riskLevel: 'low',
+        description: '运营看板一期已上线，二期规划中。', startDate: dateOnly(-120), endDate: dateOnly(-10),
+      },
+      {
+        userId: user.id, name: '数据仓库迁移', status: 'on_hold', riskLevel: 'medium',
+        description: '从自建 Hive 迁移至云数仓，等待资源审批。', startDate: dateOnly(-45),
+      },
+    ]);
+
+    const pid = (name: string) => projects.find((p) => p.name === name)!.id;
+
+    await pmMilestoneRepo.save([
+      { projectId: pid('电商平台重构'), title: '需求冻结', dueDate: dateOnly(-20), status: 'completed' },
+      { projectId: pid('电商平台重构'), title: '订单模块上线', dueDate: dateOnly(-5), status: 'pending' },
+      { projectId: pid('电商平台重构'), title: '库存模块上线', dueDate: dateOnly(15), status: 'pending' },
+      { projectId: pid('移动端 App 发布'), title: '提审包', dueDate: dateOnly(5), status: 'in_progress' },
+      { projectId: pid('移动端 App 发布'), title: '应用商店上架', dueDate: dateOnly(15), status: 'pending' },
+      { projectId: pid('内部 BI 看板'), title: '看板一期交付', dueDate: dateOnly(-15), status: 'completed' },
+      { projectId: pid('数据仓库迁移'), title: '资源申请批复', dueDate: dateOnly(-3), status: 'pending' },
+    ]);
+
+    await pmTaskRepo.save([
+      { userId: user.id, projectId: pid('电商平台重构'), title: '订单模块联调遗留缺陷修复', dueDate: at(-2, 18), status: 'pending' },
+      { userId: user.id, projectId: pid('电商平台重构'), title: '库存模块性能压测', dueDate: at(3, 17), status: 'pending' },
+      { userId: user.id, projectId: pid('电商平台重构'), title: '上线回滚预案评审', dueDate: at(2, 15), status: 'pending' },
+      { userId: user.id, projectId: pid('移动端 App 发布'), title: 'App 提审材料准备', dueDate: at(1, 12), status: 'pending' },
+      { userId: user.id, projectId: pid('移动端 App 发布'), title: '推送证书替换', dueDate: at(-1, 16), status: 'completed' },
+      { userId: user.id, projectId: pid('内部 BI 看板'), title: '看板一期验收', dueDate: at(-16, 10), status: 'completed' },
+      { userId: user.id, projectId: pid('数据仓库迁移'), title: '云数仓资源申请跟进', dueDate: at(-4, 15), status: 'pending' },
+    ]);
+
+    await pmRiskRepo.save([
+      { projectId: pid('电商平台重构'), level: 'high', reason: '订单模块上线里程碑已延期 5 天，3 个任务逾期。', detectedAt: at(-5, 9) },
+      { projectId: pid('移动端 App 发布'), level: 'medium', reason: '提审包排期临近，商店审核周期不确定。', detectedAt: at(-3, 9) },
+      { projectId: pid('数据仓库迁移'), level: 'medium', reason: '云资源申请长期未批复，项目暂停。', detectedAt: at(-8, 9) },
     ]);
   }
 

@@ -40,6 +40,12 @@ export class CaslAbilityFactory {
       can('manage', 'CrmActivity', { userId: user.sub });
       can('manage', 'CrmTask', { userId: user.sub });
       can('manage', 'CrmRisk', { userId: user.sub });
+      // AI Project Management 旗舰应用：项目/成员/里程碑/任务/风险 本人所有权
+      can('manage', 'PmProject', { userId: user.sub });
+      can('manage', 'PmMember', { userId: user.sub });
+      can('manage', 'PmMilestone', { userId: user.sub });
+      can('manage', 'PmTask', { userId: user.sub });
+      can('manage', 'PmRisk', { userId: user.sub });
     }
 
     return build();

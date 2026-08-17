@@ -302,8 +302,15 @@ export class AiService {
     }
     const result = await this.toolRegistry.execute(toolName, args, userId);
     if (result.success && result.data && (result.data as any).id !== undefined) {
-      // AI CRM：create_followup_task → crm_task（撤销走 CrmTask 软删）
-      const resultType = toolName === 'create_event' ? 'event' : toolName === 'create_followup_task' ? 'crm_task' : 'todo';
+      // AI CRM / AI Project：写工具 → 对应实体 resultType（撤销走软删）
+      const resultType =
+        toolName === 'create_event'
+          ? 'event'
+          : toolName === 'create_followup_task'
+            ? 'crm_task'
+            : toolName === 'create_project_task'
+              ? 'pm_task'
+              : 'todo';
       await this.toolEffectsService.record(
         { userId, conversationId, toolName, args },
         resultType,

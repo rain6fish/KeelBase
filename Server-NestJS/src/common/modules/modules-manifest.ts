@@ -44,7 +44,7 @@ export const NOTIFICATION_MODULES = [
 ] as const;
 
 /** 可选业务样例：可独立关 */
-export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm'] as const;
+export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm', 'pm'] as const;
 
 const coreEntries: ModuleManifestEntry[] = CORE_MODULES.map((id) => ({
   id,
@@ -78,6 +78,7 @@ const businessEntries: ModuleManifestEntry[] = [
   { id: 'org', category: 'business', deps: ['notifications'], label: '组织架构' },
   { id: 'points', category: 'business', deps: [], label: '积分' },
   { id: 'crm', category: 'business', deps: [], label: '客户管理' },
+  { id: 'pm', category: 'business', deps: [], label: '项目管理' },
 ];
 
 export const MODULES_MANIFEST: ModuleManifestEntry[] = [
