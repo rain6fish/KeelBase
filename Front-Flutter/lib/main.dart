@@ -46,6 +46,8 @@ import 'features/crm/data/repositories/crm_repository.dart';
 import 'features/crm/presentation/providers/crm_provider.dart';
 import 'features/pm/data/repositories/pm_repository.dart';
 import 'features/pm/presentation/providers/pm_provider.dart';
+import 'features/approval/data/repositories/approval_repository.dart';
+import 'features/approval/presentation/providers/approval_provider.dart';
 import 'features/org/data/repositories/org_repository.dart';
 import 'features/org/presentation/providers/org_provider.dart';
 import 'features/points/data/repositories/points_repository.dart';
@@ -288,6 +290,10 @@ Future<void> _initApp() async {
         // AI Project Management 旗舰应用
         ChangeNotifierProvider<PmProvider>(
           create: (_) => PmProvider(PmRepository(apiClient)),
+        ),
+        // AI Approval 旗舰应用
+        ChangeNotifierProvider<ApprovalProvider>(
+          create: (_) => ApprovalProvider(ApprovalRepository(apiClient)),
         ),
 
         // 我的组织（ORG-7，只读通讯录）
