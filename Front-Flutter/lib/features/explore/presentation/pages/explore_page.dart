@@ -83,6 +83,12 @@ class ExplorePage extends StatelessWidget {
                 onTap: () => context.push('/explore/upload'),
               ),
               CupertinoListTile(
+                leading: const Icon(CupertinoIcons.person_3, color: CupertinoColors.systemIndigo),
+                title: Text(l10n.crmExploreEntry),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push('/crm'),
+              ),
+              CupertinoListTile(
                 leading: const Icon(CupertinoIcons.pencil, color: CupertinoColors.systemOrange),
                 title: Text(l10n.editProfile),
                 trailing: const CupertinoListTileChevron(),
