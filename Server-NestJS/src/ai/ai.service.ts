@@ -302,20 +302,25 @@ export class AiService {
     }
     const result = await this.toolRegistry.execute(toolName, args, userId);
     if (result.success && result.data && (result.data as any).id !== undefined) {
-      // AI CRM / AI Project：写工具 → 对应实体 resultType（撤销走软删）
-      const resultType =
-        toolName === 'create_event'
-          ? 'event'
-          : toolName === 'create_followup_task'
-            ? 'crm_task'
-            : toolName === 'create_project_task'
-              ? 'pm_task'
-              : 'todo';
-      await this.toolEffectsService.record(
-        { userId, conversationId, toolName, args },
-        resultType,
-        (result.data as any).id,
-      );
+      // 状态变更型写工具（AI 预审）不创建可撤销记录，仅确认 + 审计
+      if (toolName !== 'review_approval_request') {
+        // AI 旗舰应用：写工具 → 对应实体 resultType（撤销走软删）
+        const resultType =
+          toolName === 'create_event'
+            ? 'event'
+            : toolName === 'create_followup_task'
+              ? 'crm_task'
+              : toolName === 'create_project_task'
+                ? 'pm_task'
+                : toolName === 'submit_approval_request'
+                  ? 'app_request'
+                  : 'todo';
+        await this.toolEffectsService.record(
+          { userId, conversationId, toolName, args },
+          resultType,
+          (result.data as any).id,
+        );
+      }
     }
     return result;
   }

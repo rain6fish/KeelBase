@@ -54,7 +54,7 @@ describe('FeatureFlagsService', () => {
     }).compile();
     const svc = moduleRef.get(FeatureFlagsService);
     expect(Object.keys(svc.getFlags()).sort()).toEqual(
-      ['ai', 'books', 'crm', 'notes', 'notifications', 'oauth', 'org', 'pm', 'points', 'posts', 'push', 'search', 'sms', 'tags', 'todos', 'upload'],
+      ['ai', 'approval', 'books', 'crm', 'notes', 'notifications', 'oauth', 'org', 'pm', 'points', 'posts', 'push', 'search', 'sms', 'tags', 'todos', 'upload'],
     );
   });
 
