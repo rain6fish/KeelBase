@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
+import '../../../../core/api/capabilities_provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -37,6 +39,48 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadInsights();
     _checkAnnouncement();
     _checkNewUser();
+    _checkPresetGuide();
+  }
+
+  /// EASY-5：首次进入提示当前部署预设（full/small/lite），每 preset 一次。
+  Future<void> _checkPresetGuide() async {
+    final prefs = context.read<SharedPreferences>();
+    final capsProvider = context.read<CapabilitiesProvider>();
+    if (capsProvider.capabilities == null) {
+      await capsProvider.load(); // 确保已拉取（MOD-4 启动时也已触发）
+    }
+    final preset = capsProvider.capabilities?.preset;
+    if (preset == null) return;
+    final seenKey = 'preset_guide_seen_$preset';
+    if (prefs.getBool(seenKey) ?? false) return;
+    await prefs.setBool(seenKey, true);
+    if (!mounted) return;
+    final l10n = context.l10n;
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(l10n.presetGuideTitle),
+        content: Text(_presetGuideBody(l10n, preset)),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.gotIt),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _presetGuideBody(AppLocalizations l10n, String preset) {
+    switch (preset) {
+      case 'small':
+        return l10n.presetGuideSmall;
+      case 'lite':
+        return l10n.presetGuideLite;
+      default:
+        return l10n.presetGuideFull;
+    }
   }
 
   /// 判断是否为全新用户（事件总数 == 0）——快速开始卡仅在此时显示
@@ -146,6 +190,9 @@ class _DashboardPageState extends State<DashboardPage> {
     final l10n = context.l10n;
     final theme = CupertinoTheme.of(context);
     final auth = context.watch<AuthProvider>();
+    // MOD-4：search 禁用时隐藏全局搜索入口
+    final searchEnabled =
+        context.watch<CapabilitiesProvider>().isFeatureEnabled('search');
     final user = auth.user;
     final rawName = user?.nickname ?? user?.username ?? '';
     final name = rawName.isEmpty ? 'User' : rawName;
@@ -223,8 +270,10 @@ class _DashboardPageState extends State<DashboardPage> {
             Expanded(child: _actionCard(actions[3], theme)),
           ]),
           const SizedBox(height: 24),
-          _searchInput(l10n, theme),
-          const SizedBox(height: 12),
+          if (searchEnabled) ...[
+            _searchInput(l10n, theme),
+            const SizedBox(height: 12),
+          ],
           _aiInput(l10n, theme),
           const SizedBox(height: 30),
         ],

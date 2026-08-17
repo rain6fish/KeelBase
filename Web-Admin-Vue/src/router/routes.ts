@@ -7,6 +7,8 @@ declare module 'vue-router' {
     public?: boolean
     requiresAuth?: boolean
     title?: string
+    /** MOD-4：对应业务模块 id；模块被 capabilities 禁用时路由不可达 */
+    module?: string
   }
 }
 
@@ -15,7 +17,7 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: '', name: 'dashboard', component: () => import('@/views/dashboard/DashboardView.vue'), meta: { title: 'overview' } },
   { path: 'users', name: 'users', component: () => import('@/views/users/UsersView.vue'), meta: { title: 'navUsers' } },
   { path: 'users/:id', name: 'user-detail', component: () => import('@/views/users/UserDetailView.vue'), meta: { title: 'navUsers' } },
-  { path: 'events', name: 'events', component: () => import('@/views/events/EventsView.vue'), meta: { title: 'navEvents' } },
+  { path: 'events', name: 'events', component: () => import('@/views/events/EventsView.vue'), meta: { title: 'navEvents', module: 'events' } },
   { path: 'knowledge', name: 'knowledge', component: () => import('@/views/knowledge/KnowledgeView.vue'), meta: { title: 'navKnowledge' } },
   { path: 'notifications', name: 'notifications', component: () => import('@/views/notifications/NotificationsView.vue'), meta: { title: 'navNotifications' } },
   { path: 'monitor', name: 'monitor', component: () => import('@/views/monitor/MonitorView.vue'), meta: { title: 'navMonitorCenter' } },
@@ -28,15 +30,15 @@ const consoleChildren: RouteRecordRaw[] = [
   // P3 新增
   { path: 'trash', name: 'trash', component: () => import('@/views/trash/TrashView.vue'), meta: { title: 'navTrash' } },
   { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },
-  { path: 'tags', name: 'tags', component: () => import('@/views/tags/TagsView.vue'), meta: { title: 'navTags' } },
-  { path: 'notes', name: 'notes', component: () => import('@/views/notes/NotesView.vue'), meta: { title: 'navNotes' } },
+  { path: 'tags', name: 'tags', component: () => import('@/views/tags/TagsView.vue'), meta: { title: 'navTags', module: 'tags' } },
+  { path: 'notes', name: 'notes', component: () => import('@/views/notes/NotesView.vue'), meta: { title: 'navNotes', module: 'notes' } },
   { path: 'templates', name: 'templates', component: () => import('@/views/templates/TemplatesView.vue'), meta: { title: 'navTemplates' } },
   { path: 'ai-eval', name: 'ai-eval', component: () => import('@/views/ai-eval/AiEvalView.vue'), meta: { title: 'navAiEval' } },
   { path: 'ai-timeline', name: 'ai-timeline', component: () => import('@/views/ai-timeline/AiTimelineView.vue'), meta: { title: 'navAiTimeline' } },
   { path: 'ai-tools', name: 'ai-tools', component: () => import('@/views/ai-tools/AiToolsView.vue'), meta: { title: 'navAiTools' } },
   { path: 'mcp', name: 'mcp', component: () => import('@/views/mcp/McpView.vue'), meta: { title: 'navMcp' } },
   { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: 'navAnalytics' } },
-  { path: 'org', name: 'org', component: () => import('@/views/org/OrgView.vue'), meta: { title: 'navOrg' } },
+  { path: 'org', name: 'org', component: () => import('@/views/org/OrgView.vue'), meta: { title: 'navOrg', module: 'org' } },
 ]
 
 for (const r of consoleChildren) {

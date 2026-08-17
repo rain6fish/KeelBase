@@ -44,6 +44,19 @@ class AppLocalizations {
   String get submit => _t('Submit', '提交');
   String get done => _t('Done', '完成');
   String get back => _t('Back', '返回');
+  String get gotIt => _t('Got it', '知道了');
+
+  // --- EASY-5 首启预设引导（MOD-4 capabilities） ---
+  String get presetGuideTitle => _t('Deployment preset', '部署预设模式');
+  String get presetGuideFull => _t(
+      'This deployment runs in full mode — all modules and AI capabilities are enabled.',
+      '当前部署为全功能模式（full）：所有模块与 AI 能力均已开启。');
+  String get presetGuideSmall => _t(
+      'This deployment runs in small mode — push, SMS and third-party login are disabled to keep it lightweight.',
+      '当前部署为精简模式（small）：推送、短信、第三方登录等功能已关闭，保持轻量。');
+  String get presetGuideLite => _t(
+      'This deployment runs in lite mode — only core modules are enabled; search and sample modules are disabled.',
+      '当前部署为极简模式（lite）：仅核心模块开启，搜索与示例模块已关闭。');
 
   // --- Notifications ---
   String get notifications => _t('Notifications', '通知');

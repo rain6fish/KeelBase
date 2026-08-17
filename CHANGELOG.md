@@ -6,7 +6,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased] / 未发布
 
-Security & governance hardening on top of 0.9.1. / 0.9.1 之上的安全与治理加固。
+## [0.9.2] - 2026-08-17
+
+Preset guidance & capabilities-driven navigation, streaming resilience, WeChat mini-app, enterprise login security (MFA / forced password change), deployment scale-out. / 首启预设引导 + capabilities 三端导航联动、流式韧性与 SSE 重连、微信小程序、企业登录安全（TOTP / 强制改密）、部署扩展（读写分离 / K8s / 蓝绿）。
 
 ### Added / 新增
 
@@ -24,8 +26,35 @@ Security & governance hardening on top of 0.9.1. / 0.9.1 之上的安全与治�
   **MCP 集成管理页（HS-10）**：注册/移除 MCP Server、发现外部工具（30s 缓存 + 强制刷新）、调用工具（按 `inputSchema` 预填 JSON 参数模板），全部过治理层
 - **Flutter AI i18n hardening (T.8)**: AI chat error messages no longer hardcoded Chinese — injected i18n callbacks into the provider; stable keys on suggested-question chips; `UserModel.copyWith` can clear nullable fields; `ToolStepModel` extracted to a domain model
   **Flutter AI i18n 加固（T.8）**：AI 对话错误文案不再硬编码中文——向 provider 注入 i18n 回调；建议问题 chips 补稳定 key；`UserModel.copyWith` 支持清空可空字段；`ToolStepModel` 抽取到领域模型
+- **Preset guidance & capabilities navigation (EASY-5 / MOD-4)**: Flutter shows a one-time first-login dialog for the active preset (full / small / lite) and hides the search entry when the `search` feature is disabled; Web-Admin-Vue filters console routes & nav by `businessModules` (route `meta.module` + guard interception + nav filtering)
+  **首启预设引导 + capabilities 导航联动（EASY-5 / MOD-4）**：Flutter 首次登录弹一次性预设说明（full/small/lite），`search` 禁用时隐藏搜索入口；Web-Admin-Vue 按 `businessModules` 过滤控制台路由与导航（`meta.module` + 守卫拦截 + 导航过滤）
+- **WeChat mini-app login + subscribe messages (MINI-3 / MINI-2)**: `/auth/oauth` supports `providerType: miniapp` (code2Session → openid), one-tap WeChat login in Taro + subscribe-message reminder authorization (`WxSubscribeService`, template messages on event reminders)
+  **微信小程序登录 + 订阅消息（MINI-3 / MINI-2）**：`/auth/oauth` 支持 `providerType: miniapp`（code2Session→openid）；Taro 微信一键登录 + 订阅消息授权（`WxSubscribeService` 事件提醒模板消息）
+- **Enterprise login security (WEB-FRONT-4)**: TOTP two-factor auth (RFC 6238, zero-dependency `MfaService` — setup / verify / disable endpoints + login integration with unified `MFA_REQUIRED` anti-enumeration) and forced password change (`/auth/change-password` + admin `must-change-password` marker)
+  **企业登录安全（WEB-FRONT-4）**：TOTP 双因素（RFC 6238 零依赖 `MfaService`——setup/verify/disable 端点 + 登录集成，统一 `MFA_REQUIRED` 防枚举）+ 强制改密（`/auth/change-password` + admin 强制标记）
+- **DB read/write splitting + K8s + blue-green/canary (3.3 / D.2 / D.3)**: TypeORM replication (`DB_READ_REPLICAS`), `infra/k8s/` manifests (rolling update / HPA / Ingress), and compose blue-green script + canary ingress with weight switching
+  **读写分离 + K8s + 蓝绿/金丝雀（3.3 / D.2 / D.3）**：TypeORM 主从复制（`DB_READ_REPLICAS`）、`infra/k8s/` 清单（滚动更新/HPA/Ingress）、compose 蓝绿脚本 + 金丝雀 Ingress 权重切换
+- **Webhook reliability (PL-14)**: exponential-backoff retry on delivery failure (default 3 attempts, injectable) + `event.created` trigger (3 real events now: feedback / todo / event)
+  **Webhook 可靠性（PL-14）**：投递失败指数退避重试（默认 3 次，可注入）+ `event.created` 触发点（现覆盖 feedback/todo/event 三个真实事件）
+- **Todos bulk import (POV-2)**: `POST /admin/import/todos` + admin page card with CSV template download (BOM + formula-injection guard)
+  **待办批量导入（POV-2）**：`POST /admin/import/todos` + 管理台待办导入卡 + CSV 模板下载（BOM + 公式注入防护）
+- **Online demo site (PM-1)**: `deploy/demo.sh` one-command read-only demo (Taro H5 + seeded backend + static hosting) + README Live Demo block
+  **在线演示站（PM-1）**：`deploy/demo.sh` 一键起只读体验站（Taro H5 + 种子数据后端 + 静态托管）+ README Live Demo 区块
+- **Org-dimension AI audit (ORG-5 v3)**: `GET /audit/logs?orgId=X` filters AI audit by organization (org_members subquery) for admin per-org oversight
+  **AI 审计组织维度（ORG-5 v3）**：`GET /audit/logs?orgId=X` 按组织过滤 AI 审计（org_members 子查询），管理台按组织看 AI 行为
 
 ### Fixed / 修复
+
+- **Streaming provider fallback (CR-28)**: `chatStreamImpl` now falls back to the next provider when the primary errors before emitting any content (previously a broken primary failed the whole stream); `tryFallback` keeps the actually-successful provider
+  **流式 provider fallback（CR-28）**：`chatStreamImpl` 在主 provider 未产出内容即失败时自动切换下一个 provider（此前主 provider 故障整个流失败）；`tryFallback` 用实际成功的 provider
+- **SSE reconnect + 401 refresh (CR-17)**: `SseClient.postStream` gains exponential-backoff reconnect (opt-in, max attempts) and refresh-then-retry on 401 via `ApiClient.refreshNow()` (single-flight); notifications SSE fallback enables reconnect
+  **SSE 断流重连 + 401 刷新（CR-17）**：`SseClient.postStream` 加指数退避重连（可选、限次）+ 401 经 `ApiClient.refreshNow()`（single-flight）刷新后重试；通知 SSE 兜底开启重连
+- **Eval isolation (CR-18)**: eval runs use a per-run identity `eval:<ts>` instead of the shared system account `'0'` — no longer polluting quota / memory / audit
+  **评测隔离（CR-18）**：评测跑批用每次独立身份 `eval:<ts>` 替代共享系统账号 `'0'`——不再污染配额/记忆/审计
+- **Provider race cleanup (CR-26)**: Flutter `AiChatProvider` dispose-guard (`_safeNotify`), day/week calendar scroll hijack fixed (once per date); Taro search request-seq guard + notification-store try/catch
+  **Provider 竞态清理（CR-26）**：Flutter `AiChatProvider` dispose 守卫（`_safeNotify`）、日历日/周视图抢滚动修复（每日期一次）；Taro 搜索请求序号守卫 + 通知 store try/catch
+- **Streaming tool-round apology (CR-29)** + **PII log removal / non-streaming fallback (CR-28/CR-30)**
+  **流式超轮次道歉（CR-29）** + **PII 日志移除 / 非流式 fallback（CR-28/CR-30）**
 
 - Migration schema consistency: named/placeholder constraint names (post_likes, user_follows, ai_daily_usage, …) caused CI `migration:generate` drift; `AddSchemaConsistencyConstraints` reconciles the chain (fresh-DB generate → "No changes")
   **迁移一致性**：可读/占位约束名（post_likes、user_follows、ai_daily_usage 等）导致 CI 迁移一致性校验漂移；`AddSchemaConsistencyConstraints` 修正迁移收敛（全新库 generate → No changes）

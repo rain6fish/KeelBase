@@ -110,8 +110,11 @@ void main() {
   group('subscribe', () {
     test('收到实时通知 → 插入列表、未读数+1', () async {
       final controller = StreamController<Map<String, dynamic>>();
-      when(() => sseClient.postStream('/notifications/stream'))
-          .thenAnswer((_) => controller.stream);
+      when(() => sseClient.postStream(
+            '/notifications/stream',
+            reconnect: any(named: 'reconnect'),
+            maxAttempts: any(named: 'maxAttempts'),
+          )).thenAnswer((_) => controller.stream);
 
       provider.subscribe();
 

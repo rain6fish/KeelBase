@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { storage } from '@/utils/storage'
 
 // 角色首页：admin → 控制台 dashboard，其余 → 工作台。唯一合法首页保证分流不互踢
@@ -36,6 +37,16 @@ export function setupGuards(router: Router) {
     const roles = to.meta.roles
     if (roles && !roles.includes(auth.user!.role)) {
       return homeFor(auth.user!.role)
+    }
+
+    // MOD-4：目标路由属于被 capabilities 禁用的业务模块 → 弹回角色首页
+    const module = to.meta.module
+    if (module) {
+      const caps = useCapabilitiesStore()
+      await caps.load()
+      if (!caps.isModuleEnabled(module)) {
+        return homeFor(auth.user!.role)
+      }
     }
 
     return true

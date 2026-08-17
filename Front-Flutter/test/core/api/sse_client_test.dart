@@ -18,7 +18,10 @@ void main() {
 
   /// 起一个 loopback SSE 服务，返回指向它的 SseClient。
   /// [handler] 在请求到达时被调用，负责写响应。
-  Future<SseClient> startServer(void Function(HttpRequest) handler) async {
+  Future<SseClient> startServer(
+    void Function(HttpRequest) handler, {
+    Future<String?> Function()? refreshToken,
+  }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     server.listen((req) async {
@@ -32,7 +35,10 @@ void main() {
       }
     });
     AppConstants.activeBaseUrl = 'http://127.0.0.1:${server.port}/api/v1';
-    return SseClient(getAccessToken: () => 'token');
+    return SseClient(
+      getAccessToken: () => 'token',
+      refreshToken: refreshToken,
+    );
   }
 
   Future<void> writeSse(HttpRequest req, List<String> fragments) async {
@@ -154,5 +160,91 @@ void main() {
     final events = await sse.postStream('/ai/chat/stream').toList();
     expect(events, hasLength(1));
     expect(events.single['type'], 'text');
+  });
+
+  test('401 时先刷新 token 再重试，成功后不残留错误（CR-17）', () async {
+    var calls = 0;
+    final sse = await startServer(
+      (req) async {
+        calls++;
+        if (calls == 1) {
+          req.response.statusCode = 401;
+          req.response.write('unauthorized');
+          await req.response.close();
+          return;
+        }
+        await writeSse(req, [
+          'event: text\ndata: {"type":"text","content":"ok"}\n\n',
+        ]);
+      },
+      refreshToken: () async => 'new-token',
+    );
+
+    final events = await sse
+        .postStream(
+          '/notifications/stream',
+          maxAttempts: 3,
+          initialBackoff: const Duration(milliseconds: 10),
+        )
+        .toList();
+
+    expect(calls, 2);
+    expect(events.map((e) => e['type']).toList(), ['text']);
+    expect((events.single['data'] as Map)['content'], 'ok');
+  });
+
+  test('无 refreshToken 时 401 直接透传为 error（原语义）', () async {
+    final sse = await startServer((req) async {
+      req.response.statusCode = 401;
+      req.response.write('unauthorized');
+      await req.response.close();
+    });
+
+    final events = await sse
+        .postStream(
+          '/notifications/stream',
+          reconnect: true,
+          maxAttempts: 2,
+          initialBackoff: const Duration(milliseconds: 10),
+        )
+        .toList();
+
+    expect(events, hasLength(1));
+    expect(events.single['type'], 'error');
+    expect((events.single['data'] as Map)['error'], 'HTTP 401');
+  });
+
+  test('服务端断流（无 [DONE]）时自动重连并继续收到事件（CR-17）', () async {
+    var calls = 0;
+    final sse = await startServer((req) async {
+      calls++;
+      if (calls == 1) {
+        // 第一次连接：发一个事件后直接断开（断流）
+        await writeSse(req, [
+          'event: notification\ndata: {"type":"notification","id":1}\n\n',
+        ]);
+        // 连接随后被服务端关闭，未发 [DONE]
+        return;
+      }
+      await writeSse(req, [
+        'event: notification\ndata: {"type":"notification","id":2}\n\n',
+        'event: text\ndata: [DONE]\n\n', // 第二次干净结束
+      ]);
+    });
+
+    final events = await sse
+        .postStream(
+          '/notifications/stream',
+          reconnect: true,
+          maxAttempts: 3,
+          initialBackoff: const Duration(milliseconds: 10),
+        )
+        .toList();
+
+    expect(calls, 2);
+    final ids = events
+        .where((e) => e['type'] == 'notification')
+        .map((e) => (e['data'] as Map)['id']);
+    expect(ids, [1, 2]);
   });
 }

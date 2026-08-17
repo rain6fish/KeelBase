@@ -23,7 +23,7 @@ class AppConstants {
   ];
 
   /// 当前 App 版本号（发布时与 pubspec `version:` 同步）
-  static const String appVersion = '0.9.1';
+  static const String appVersion = '0.9.2';
 
   /// 服务端资源基础地址（剥掉 /api/v1 前缀，如 http://localhost:3000）。
   /// 跟随 [activeBaseUrl]，确保 Dev Menu 切换环境后资源 URL 同步指向新 host。
