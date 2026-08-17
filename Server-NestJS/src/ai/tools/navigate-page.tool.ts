@@ -37,6 +37,7 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   points: { route: '/points', description: '积分签到/排行榜/成就' },
   crm: { route: '/crm', description: '客户管理（AI CRM）' },
   pm: { route: '/pm', description: '项目管理（AI Project）' },
+  approval: { route: '/approval', description: '审批中心（AI Approval）' },
 
   upload: { route: '/upload', description: '文件上传' },
   privacy: { route: '/privacy', description: '隐私政策' },

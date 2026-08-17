@@ -95,6 +95,12 @@ class ExplorePage extends StatelessWidget {
                 onTap: () => context.push('/pm'),
               ),
               CupertinoListTile(
+                leading: const Icon(CupertinoIcons.checkmark_seal, color: CupertinoColors.systemGreen),
+                title: Text(l10n.apExploreEntry),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push('/approval'),
+              ),
+              CupertinoListTile(
                 leading: const Icon(CupertinoIcons.pencil, color: CupertinoColors.systemOrange),
                 title: Text(l10n.editProfile),
                 trailing: const CupertinoListTileChevron(),
