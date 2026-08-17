@@ -107,6 +107,14 @@ export class UsersService {
     return result;
   }
 
+  /** WEB-FRONT-4：标记用户下次登录需改密（admin 重置默认密码/安全策略用）。 */
+  async forceChangePassword(id: number): Promise<{ flagged: boolean }> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    await this.usersRepository.update(id, { mustChangePassword: true });
+    return { flagged: true };
+  }
+
   async update(id: number, dto: UpdateUserDto): Promise<Partial<User>> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {

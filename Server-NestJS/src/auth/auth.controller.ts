@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { LoginDto } from './dto/login.dto';
 import { MfaVerifyDto, MfaDisableDto } from './dto/mfa.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OAuthLoginDto } from './dto/oauth-login.dto';
@@ -255,6 +256,13 @@ export class AuthController {
   @ApiOperation({ summary: 'WEB-FRONT-4 MFA：停用（需正确 TOTP code 确认）' })
   async mfaDisable(@CurrentUser() user: JwtPayload, @Body() dto: MfaDisableDto) {
     return this.authService.mfaDisable(user.sub, dto.code);
+  }
+
+  @Post('change-password')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'WEB-FRONT-4：登录后修改密码（校验当前密码，清除强制改密标志）' })
+  async changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.sub, dto);
   }
 
   @Get('sessions')

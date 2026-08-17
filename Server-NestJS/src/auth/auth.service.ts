@@ -38,6 +38,7 @@ import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity';
 import { EncryptionService } from '../common/utils/encryption';
 import { MfaService } from './mfa/mfa.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
 import { OrgService } from '../org/org.service';
@@ -309,6 +310,7 @@ export class AuthService {
         updatedAt: true,
         mfaEnabled: true,
         mfaSecret: true,
+        mustChangePassword: true,
       },
     });
 
@@ -388,6 +390,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      mustChangePassword: user.mustChangePassword ?? false,
       user: {
         id: user.id,
         username: user.username,
@@ -413,7 +416,7 @@ export class AuthService {
     // 1. Verify the OAuth credential with the provider
     const isCodeFlow = ['wechat', 'alipay'].includes(dto.provider);
     const oauthUser = isCodeFlow
-      ? await this.oauthService.verifyCode(dto.provider, dto.authorizationCode!, dto.redirectUri)
+      ? await this.oauthService.verifyCode(dto.provider, dto.authorizationCode!, dto.redirectUri, dto.providerType)
       : await this.oauthService.verify(dto.provider, dto.idToken!, dto.clientId);
 
     if (!oauthUser.providerId) {
@@ -484,6 +487,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      mustChangePassword: user.mustChangePassword ?? false,
       user: {
         id: user.id,
         username: user.username,
@@ -500,6 +504,25 @@ export class AuthService {
         createdAt: user.createdAt?.toISOString(),
       },
     };
+  }
+
+  // ── WEB-FRONT-4 强制改密 ──
+
+  /** 登录后修改密码：校验当前密码 → 更新新密码 → 清除强制改密标志。 */
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<{ changed: boolean }> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: { id: true, password: true },
+    });
+    if (!user || !(await bcrypt.compare(dto.currentPassword, user.password))) {
+      throw BusinessException.of('INVALID_CREDENTIALS');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw BusinessException.of('PASSWORD_SAME_AS_OLD');
+    }
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
+    await this.usersRepository.update(userId, { password: hashed, mustChangePassword: false });
+    return { changed: true };
   }
 
   // ── WEB-FRONT-4 MFA（TOTP） ──

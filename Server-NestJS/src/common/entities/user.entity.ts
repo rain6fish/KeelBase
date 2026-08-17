@@ -87,6 +87,10 @@ export class User {
   @Column({ type: 'boolean', default: false, name: 'mfa_enabled' })
   mfaEnabled!: boolean;
 
+  /** WEB-FRONT-4 强制改密：admin 重置密码/默认密码后标记，登录需先改密 */
+  @Column({ type: 'boolean', default: false, name: 'must_change_password' })
+  mustChangePassword!: boolean;
+
   @Column({ type: Date, nullable: true, name: 'locked_until' })
   lockedUntil?: Date | null;
 
