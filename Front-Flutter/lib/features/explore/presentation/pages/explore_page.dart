@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/api/capabilities_provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/widgets/app_list_section.dart';
 
@@ -9,6 +11,9 @@ class ExplorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // MOD-4：search 禁用时隐藏全局搜索入口
+    final searchEnabled =
+        context.watch<CapabilitiesProvider>().isFeatureEnabled('search');
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -18,28 +23,29 @@ class ExplorePage extends StatelessWidget {
         padding: const EdgeInsets.only(top: 20),
         children: [
           // PL-4.1 全局搜索入口
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: GestureDetector(
-              onTap: () => context.push('/search'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.tertiarySystemBackground.resolveFrom(context),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: CupertinoColors.systemGrey.withAlpha(50)),
-                ),
-                child: Row(children: [
-                  const Icon(CupertinoIcons.search, size: 18, color: CupertinoColors.systemGrey),
-                  const SizedBox(width: 10),
-                  Text(
-                    l10n.globalSearchHint,
-                    style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context)),
+          if (searchEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: GestureDetector(
+                onTap: () => context.push('/search'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.tertiarySystemBackground.resolveFrom(context),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: CupertinoColors.systemGrey.withAlpha(50)),
                   ),
-                ]),
+                  child: Row(children: [
+                    const Icon(CupertinoIcons.search, size: 18, color: CupertinoColors.systemGrey),
+                    const SizedBox(width: 10),
+                    Text(
+                      l10n.globalSearchHint,
+                      style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey.resolveFrom(context)),
+                    ),
+                  ]),
+                ),
               ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(

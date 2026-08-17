@@ -724,8 +724,9 @@ export class AiService {
   ): AsyncIterable<StreamChunk> {
     // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
     const trustedTools = new Set<string>();
-    const { conversation, providerName, provider } =
-      this.resolveProvider(request);
+    const { providerName } = this.resolveProvider(request);
+    // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
+    const streamFallbackChain = FALLBACK_CHAIN[providerName] ?? [providerName];
 
     let conversationId: string;
     if (request.conversationId) {
@@ -775,7 +776,8 @@ export class AiService {
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const tools = await this._buildToolDefs();
-      const stream = provider.stream({
+      const stream = this.streamWithProviderFallback({
+        chain: streamFallbackChain,
         messages,
         tools: tools.length > 0 ? tools : undefined,
         model,
@@ -1369,6 +1371,64 @@ export class AiService {
       }
     }
     return null;
+  }
+
+  /**
+   * 流式 Fallback（CR-28）：主 provider 在产出任何内容之前失败（stream() 抛错 /
+   * 首个 chunk 即 error）时，切换下一个 provider 重开流；已产出内容后的错误
+   * 无法干净回退，直接透传。全部失败时 yield 一个最终 error chunk。
+   */
+  private async *streamWithProviderFallback(params: {
+    chain: string[];
+    messages: ChatMessage[];
+    tools?: any[];
+    model: string;
+  }): AsyncIterable<StreamChunk> {
+    let lastError = 'Unknown provider error';
+    for (const name of params.chain) {
+      let provider: LlmProvider;
+      try {
+        provider = this.providerFactory.getProvider(name);
+      } catch {
+        lastError = `Provider "${name}" is not configured`;
+        continue;
+      }
+      let hasContent = false;
+      try {
+        const stream = provider.stream({
+          messages: params.messages,
+          tools: params.tools,
+          model: params.model,
+        });
+        for await (const chunk of stream) {
+          if (chunk.type === 'error') {
+            lastError = chunk.error ?? 'Unknown stream error';
+            if (hasContent) {
+              // 已产出内容 → 无法回退，透传错误并停止
+              yield chunk;
+              return;
+            }
+            // 首个 chunk 即错误（未产出任何内容）→ 尝试下一个 provider
+            break;
+          }
+          hasContent = true;
+          yield chunk;
+        }
+        // 正常完整结束 → 成功；首块错误 break（hasContent=false）→ 继续外层循环
+        if (hasContent) return;
+      } catch (err) {
+        lastError = (err as Error).message;
+        if (hasContent) throw err;
+        console.error(
+          `[AiService] Streaming provider "${name}" failed:`,
+          lastError,
+        );
+      }
+    }
+    yield {
+      type: 'error',
+      error: `All providers failed. Last error: ${lastError}`,
+    };
   }
 
   /**

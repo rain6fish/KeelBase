@@ -3,10 +3,10 @@
  * 发布新版本时更新 latestVersion + changelog；需强制升级时提升 minRequiredVersion。
  */
 export const APP_VERSION = {
-  latestVersion: '0.9.1',
+  latestVersion: '0.9.2',
   minRequiredVersion: '0.9.1',
   updateUrl: 'https://example.com/download',
-  changelog: ['AI 治理策略化 + 每日限额独立计数（HS-9/0.9.1）', '签到/积分/成就（GROWTH-3）', '组织级待办隔离 + AI 织入工具', '401 刷新 single-flight / SSE 行缓冲 / Provider 竞态全面修复', '管理台运维单页（D.8）'],
+  changelog: ['首启预设引导 + capabilities 三端导航联动（EASY-5/MOD-4）', '流式 AI provider fallback + SSE 断流重连（CR-28/CR-17）', '微信小程序登录 + 订阅消息（MINI-3/2）', 'TOTP 双因素 + 强制改密（WEB-FRONT-4）', '读写分离 / K8s / 蓝绿部署（3.3/D.2/D.3）'],
 } as const;
 
 export type AppVersionInfo = {

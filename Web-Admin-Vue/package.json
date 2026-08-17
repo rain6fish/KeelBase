@@ -1,6 +1,6 @@
 {
   "name": "web-admin",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "KeelBase Admin Console (Vue3 + Vuetify3 PC Web) — 独立管理员管理台",
   "type": "module",
