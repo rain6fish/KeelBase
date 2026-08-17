@@ -44,6 +44,8 @@ import 'features/posts/data/repositories/posts_repository.dart';
 import 'features/posts/presentation/providers/posts_provider.dart';
 import 'features/crm/data/repositories/crm_repository.dart';
 import 'features/crm/presentation/providers/crm_provider.dart';
+import 'features/pm/data/repositories/pm_repository.dart';
+import 'features/pm/presentation/providers/pm_provider.dart';
 import 'features/org/data/repositories/org_repository.dart';
 import 'features/org/presentation/providers/org_provider.dart';
 import 'features/points/data/repositories/points_repository.dart';
@@ -282,6 +284,10 @@ Future<void> _initApp() async {
         // AI CRM 旗舰应用
         ChangeNotifierProvider<CrmProvider>(
           create: (_) => CrmProvider(CrmRepository(apiClient)),
+        ),
+        // AI Project Management 旗舰应用
+        ChangeNotifierProvider<PmProvider>(
+          create: (_) => PmProvider(PmRepository(apiClient)),
         ),
 
         // 我的组织（ORG-7，只读通讯录）

@@ -21,6 +21,8 @@ import '../../features/books/presentation/pages/books_page.dart';
 import '../../features/posts/presentation/pages/posts_page.dart';
 import '../../features/crm/presentation/pages/customers_page.dart';
 import '../../features/crm/presentation/pages/customer_detail_page.dart';
+import '../../features/pm/presentation/pages/projects_page.dart';
+import '../../features/pm/presentation/pages/project_detail_page.dart';
 
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -270,6 +272,17 @@ GoRouter createRouter(
         path: '/crm/customers/:id',
         builder: (_, state) => CustomerDetailPage(
           customerId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      // AI Project Management 旗舰应用
+      GoRoute(
+        path: '/pm',
+        builder: (_, _) => const ProjectsPage(),
+      ),
+      GoRoute(
+        path: '/pm/projects/:id',
+        builder: (_, state) => ProjectDetailPage(
+          projectId: int.parse(state.pathParameters['id']!),
         ),
       ),
       // 图书（EASY-2 生成）

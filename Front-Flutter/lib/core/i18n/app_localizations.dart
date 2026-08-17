@@ -90,6 +90,38 @@ class AppLocalizations {
     }
   }
 
+  // --- AI Project Management 旗舰应用 ---
+  String get pmTitle => _t('AI Project', '项目管理');
+  String get pmExploreEntry => _t('AI Project', 'AI 项目管理');
+  String get pmAddProject => _t('Add project', '新增项目');
+  String get pmProjectName => _t('Project name', '项目名称');
+  String get pmNameRequired => _t('Project name is required', '请输入项目名称');
+  String get pmEmpty => _t('No projects yet — add one, or ask the AI to analyze project risk.', '暂无项目——新增一个，或让 AI 分析项目风险。');
+  String get pmMilestones => _t('Milestones', '里程碑');
+  String get pmTasks => _t('Tasks', '任务');
+  String get pmRisks => _t('Risks', '风险');
+  String get pmMembers => _t('members', '成员');
+  String get pmNoMilestones => _t('No milestones', '暂无里程碑');
+  String get pmNoTasks => _t('No tasks', '暂无任务');
+  String get pmNoRisks => _t('No risks', '暂无风险记录');
+  String get pmAddMilestone => _t('Add milestone', '新增里程碑');
+  String get pmMilestoneTitleHint => _t('Milestone title', '里程碑标题');
+  String get pmAddTask => _t('Add task', '新增任务');
+  String get pmTaskTitleHint => _t('Task title', '任务标题');
+
+  String pmStatusLabel(String status) {
+    switch (status) {
+      case 'active':
+        return _t('Active', '进行中');
+      case 'on_hold':
+        return _t('On hold', '暂停');
+      case 'completed':
+        return _t('Completed', '已完成');
+      default:
+        return _t('Planned', '规划中');
+    }
+  }
+
   String crmRiskLabel(String level) {
     switch (level) {
       case 'critical':
