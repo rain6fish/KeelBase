@@ -3,7 +3,7 @@
 > 这份文档对照企业选型时常见的「必需功能」清单，逐项列出 KeelBase 现状（✅ 已完成 / 🚧 部分 / ⬜ 待办 / ⏸ 押后）+ 证据（spec 文档 / 端点 / 页面），并给出差距与优先级。
 > This document maps KeelBase against the typical "must-have" checklist used in enterprise evaluations — current status (✅ done / 🚧 partial / ⬜ todo / ⏸ deferred) with evidence (specs / endpoints / pages), plus gaps and priorities.
 >
-> 状态日期：2026-08-16。本文档为活清单，随版本更新。Status as of 2026-08-16; a living checklist that moves with each release.
+> 状态日期：2026-08-17。本文档为活清单，随版本更新。Status as of 2026-08-17; a living checklist that moves with each release.
 
 ---
 
@@ -19,7 +19,7 @@
 | 组织级数据隔离 Org-level data isolation | ✅ | events/todos 加 `org_id`，「本人 OR 同组织」查询（ORG-3） |
 | 登录防爆破 / Token 哈希 / AES-256-GCM 静态加密 Lockout / token hashing / static encryption | ✅ | 连续失败锁定、refresh SHA-256、phone/providerId 加密 |
 | **前端 RBAC（WEB-FRONT-2）Route/menu/button permissions** | ⬜ 待办 | 现仅「是否 admin」一个开关；需路由级 + 按钮级权限点 + 可视化角色管理页（前端 RBAC 仅为渲染层，后端授权仍以 CASL 为唯一来源） |
-| **企业登录安全（WEB-FRONT-4）MFA / 强制改密 / SSO** | ⬜ 待办 | MFA（TOTP）/ 强制改密 / SSO（OIDC/SAML）未做——**采购评审硬门槛** |
+| **企业登录安全（WEB-FRONT-4）MFA / 强制改密 / SSO** | 🚧 部分 | MFA（TOTP setup/verify/disable + 登录需 TOTP）✅ 强制改密（登录带标志 + admin 标记）✅ SSO（OIDC/SAML）⬜——SSO 为剩余采购评审硬门槛 |
 
 ## 2. 组织与协作 / Organization & Collaboration
 
@@ -83,7 +83,7 @@
 按「企业选型影响 × 投入」排序：
 
 1. **WEB-FRONT-2 前端 RBAC** —— 多角色企业场景必需；当前只有「是否 admin」，无法表达部门管理员/项目经理/审计员等角色。
-2. **WEB-FRONT-4 企业登录安全（MFA / 强制改密 / SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。
+2. **WEB-FRONT-4 企业登录安全（SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。MFA（TOTP）与强制改密已完成（2026-08-17），SSO（OIDC/SAML）为剩余项。
 3. **WEB-FRONT-5 普通用户业务 API 面** —— 工作台应用侧的能力底座，随 ORG 联动。
 4. **3.4 性能基准重做** —— 对外基线可信度；当前初版报告方法论有缺陷。
 5. **Taro i18n** —— 小程序渠道一致性（CR-25）。
