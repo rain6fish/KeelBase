@@ -19,6 +19,8 @@ import '../../features/tags/presentation/pages/tags_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
 import '../../features/books/presentation/pages/books_page.dart';
 import '../../features/posts/presentation/pages/posts_page.dart';
+import '../../features/crm/presentation/pages/customers_page.dart';
+import '../../features/crm/presentation/pages/customer_detail_page.dart';
 
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -258,6 +260,17 @@ GoRouter createRouter(
       GoRoute(
         path: '/posts',
         builder: (_, _) => const PostsPage(),
+      ),
+      // AI CRM 旗舰应用
+      GoRoute(
+        path: '/crm',
+        builder: (_, _) => const CustomersPage(),
+      ),
+      GoRoute(
+        path: '/crm/customers/:id',
+        builder: (_, state) => CustomerDetailPage(
+          customerId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       // 图书（EASY-2 生成）
       GoRoute(
