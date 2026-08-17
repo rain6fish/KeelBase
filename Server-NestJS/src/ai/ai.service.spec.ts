@@ -1,4 +1,5 @@
 import { AiService } from './ai.service';
+import { NotFoundException } from '@nestjs/common';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ConversationService } from './conversation/conversation.service';
@@ -1211,6 +1212,96 @@ describe('AiService', () => {
       const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', {}, '1');
       expect(result.success).toBe(false);
       expect(result.error).toContain('remote down');
+    });
+  });
+
+  describe('治理策略与工具边界', () => {
+    afterEach(() => {
+      (aiService as any).governancePolicy = undefined;
+      (aiService as any).usersService = undefined;
+    });
+
+    it('_assertToolAllowed：治理策略禁用工具抛错', async () => {
+      (aiService as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
+      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('disabled by governance policy');
+    });
+
+    it('_assertToolAllowed：角色白名单不含用户角色抛错', async () => {
+      (aiService as any).governancePolicy = {
+        isToolEnabled: jest.fn().mockResolvedValue(true),
+        getAllowedRoles: jest.fn().mockResolvedValue(['admin']),
+      };
+      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'user' }) };
+      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('restricted to roles');
+    });
+
+    it("_assertToolAllowed：headless 系统账号 '0' 跳过邮箱校验", async () => {
+      mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
+      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 0, emailVerified: false }) };
+      await expect((aiService as any)._assertToolAllowed('query_events', '0')).resolves.toBeUndefined();
+      expect((aiService as any).usersService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('_assertToolAllowed：requireVerifiedEmail 未验证抛 EMAIL_NOT_VERIFIED', async () => {
+      mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
+      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }) };
+      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toMatchObject({ errorCode: 'EMAIL_NOT_VERIFIED' });
+    });
+
+    it('_assertToolAllowed：featureFlag 关闭抛错', async () => {
+      (aiService as any).featureFlagsService = { isEnabled: jest.fn().mockReturnValue(false) };
+      mockToolRegistry.getTool.mockReturnValue({ permissions: { featureFlag: 'ai' } } as any);
+      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('feature flag');
+      (aiService as any).featureFlagsService = undefined;
+    });
+
+    it('_shouldAudit：off/write/all 粒度门控', async () => {
+      const policy = { getAuditGranularity: jest.fn() };
+      (aiService as any).governancePolicy = policy;
+      policy.getAuditGranularity.mockResolvedValue('off');
+      expect(await (aiService as any)._shouldAudit('conversation')).toBe(false);
+      expect(await (aiService as any)._shouldAudit('tool')).toBe(false);
+      policy.getAuditGranularity.mockResolvedValue('write');
+      expect(await (aiService as any)._shouldAudit('tool')).toBe(true);
+      expect(await (aiService as any)._shouldAudit('conversation')).toBe(false);
+      policy.getAuditGranularity.mockResolvedValue('all');
+      expect(await (aiService as any)._shouldAudit('conversation')).toBe(true);
+    });
+
+    it('_requiresConfirmation：治理策略覆盖工具默认', async () => {
+      (aiService as any).governancePolicy = { requiresConfirmation: jest.fn().mockResolvedValue(true) };
+      await expect((aiService as any)._requiresConfirmation('query_events')).resolves.toBe(true);
+    });
+
+    it('getToolInventory：治理策略覆盖开关', async () => {
+      const tool = { name: 'query_events', description: 'd', parameters: [], toToolDefinition: () => ({}) };
+      (aiService as any).governancePolicy = {
+        getPolicy: jest.fn().mockResolvedValue({ tools: { query_events: { enabled: false, requiresConfirmation: true } } }),
+      };
+      mockToolRegistry.getAllTools.mockReturnValue([tool] as any);
+      const inv = await aiService.getToolInventory();
+      expect(inv[0].name).toBe('query_events');
+      expect(inv[0].enabled).toBe(false);
+    });
+  });
+
+  describe('会话生命周期边界', () => {
+    it('chat：会话不存在（NotFound）时自动新建', async () => {
+      mockConversationService.getConversation.mockRejectedValue(new NotFoundException('not found'));
+      const conv = { id: 'conv-new', userId: '1' };
+      mockConversationService.createConversation.mockReturnValue(conv);
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      const result = await aiService.chat('1', { message: '你好', conversationId: 'stale-id' });
+      expect(mockConversationService.createConversation).toHaveBeenCalled();
+      expect(result.conversationId).toBe('conv-new');
+    });
+
+    it('chat：导航意图不走 LLM，直接返回跳转', async () => {
+      mockProvider.generate.mockResolvedValue({ content: 'should not be used' });
+      const result = await aiService.chat('1', { message: '打开事件列表' });
+      expect(mockProvider.generate).not.toHaveBeenCalled();
+      expect(result.reply).toContain('事件');
     });
   });
 });
