@@ -302,8 +302,8 @@ export class AiService {
     }
     const result = await this.toolRegistry.execute(toolName, args, userId);
     if (result.success && result.data && (result.data as any).id !== undefined) {
-      const resultType: 'event' | 'todo' =
-        toolName === 'create_event' ? 'event' : 'todo';
+      // AI CRM：create_followup_task → crm_task（撤销走 CrmTask 软删）
+      const resultType = toolName === 'create_event' ? 'event' : toolName === 'create_followup_task' ? 'crm_task' : 'todo';
       await this.toolEffectsService.record(
         { userId, conversationId, toolName, args },
         resultType,

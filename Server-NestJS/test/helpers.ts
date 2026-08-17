@@ -31,6 +31,7 @@ import { CircuitBreakerModule } from '../src/circuit-breaker/circuit-breaker.mod
 import { HeadlessModule } from '../src/headless/headless.module';
 import { McpModule } from '../src/mcp/mcp.module';
 import { RealtimeModule } from '../src/realtime/realtime.module';
+import { CrmModule } from '../src/crm/crm.module';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
@@ -117,6 +118,7 @@ import request from 'supertest';
     HeadlessModule,
     McpModule,
     RealtimeModule,
+    CrmModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

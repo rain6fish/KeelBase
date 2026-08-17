@@ -34,6 +34,12 @@ export class CaslAbilityFactory {
       // AiConversation.userId 是 string UUID，JWT sub 是 number → 需转换
       can('manage', 'AiConversation', { userId: String(user.sub) });
       can('manage', 'UserMemory', { userId: String(user.sub) });
+      // AI CRM 旗舰应用：客户/订单/跟进/任务/风险 本人所有权
+      can('manage', 'CrmCustomer', { userId: user.sub });
+      can('manage', 'CrmOrder', { userId: user.sub });
+      can('manage', 'CrmActivity', { userId: user.sub });
+      can('manage', 'CrmTask', { userId: user.sub });
+      can('manage', 'CrmRisk', { userId: user.sub });
     }
 
     return build();
