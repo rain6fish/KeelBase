@@ -20,6 +20,8 @@
 
 **AI-Driven Enterprise Application Base — where AI does real work, only within your authorized data.**
 
+> **Build and run business-safe AI applications.**
+
 KeelBase is a business-safe, AI-native full-stack base for building enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — every tool call scoped to the user's data, every write human-confirmed, every action audited. Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
 
 ### 🎯 North Star
