@@ -9,6 +9,7 @@ const FIELD_COLUMNS = {
   int: (c) => `  @Column({ nullable: true })\n  ${c}?: number;`,
   bool: (c) => `  @Column({ default: false })\n  ${c}!: boolean;`,
   date: (c) => `  @Column({ type: Date, nullable: true })\n  ${c}?: Date | null;`,
+  enum: (c, f) => `  @Column({ length: 32, default: '${f.enum[0]}' })\n  ${c}!: string;`,
 };
 
 const FIELD_DTO_PROPS = {
@@ -22,10 +23,12 @@ const FIELD_DTO_PROPS = {
     `  @ApiPropertyOptional({ description: '${c}' })\n  @IsBoolean()\n  @IsOptional()\n  ${c}?: boolean;`,
   date: (c) =>
     `  @ApiPropertyOptional({ description: '${c}' })\n  @IsDateString()\n  @IsOptional()\n  ${c}?: string;`,
+  enum: (c, f) =>
+    `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`,
 };
 
 export function entityTemplate(ctx) {
-  const fieldCols = ctx.fields.map((f) => FIELD_COLUMNS[f.type](f.name)).join('\n\n');
+  const fieldCols = ctx.fields.map((f) => FIELD_COLUMNS[f.type](f.name, f)).join('\n\n');
   return `import {
   Entity,
   PrimaryGeneratedColumn,
@@ -61,8 +64,10 @@ ${fieldCols}
 }
 
 export function createDtoTemplate(ctx) {
-  const props = ctx.fields.map((f) => FIELD_DTO_PROPS[f.type](f.name)).join('\n\n');
-  return `import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength } from 'class-validator';
+  const props = ctx.fields.map((f) => FIELD_DTO_PROPS[f.type](f.name, f)).join('\n\n');
+  const hasEnum = ctx.fields.some((f) => f.type === 'enum');
+  const isInImport = hasEnum ? ', IsIn' : '';
+  return `import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength${isInImport} } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class Create${ctx.singlePascal}Dto {

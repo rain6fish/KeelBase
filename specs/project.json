@@ -1,0 +1,10 @@
+{
+  "module": "projects",
+  "label": "项目",
+  "fields": [
+    { "name": "name", "type": "string", "label": "项目名", "required": true },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["planning", "active", "delayed", "completed"] },
+    { "name": "priority", "type": "enum", "label": "优先级", "enum": ["low", "medium", "high"] },
+    { "name": "deadline", "type": "date", "label": "截止日" }
+  ]
+}

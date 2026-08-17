@@ -30,6 +30,9 @@ import 'features/ai/data/repositories/ai_conversation_repository.dart';
 import 'features/sessions/data/repositories/session_repository.dart';
 import 'features/sessions/presentation/providers/session_provider.dart';
 import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/suppliers/data/repositories/suppliers_repository.dart';
+import 'features/suppliers/presentation/providers/suppliers_provider.dart';
+
 import 'features/tags/data/repositories/tags_repository.dart';
 import 'features/tags/presentation/providers/tags_provider.dart';
 import 'features/flows/data/repositories/flows_repository.dart';
@@ -261,6 +264,10 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+        // 供应商（EASY-2 生成）
+        ChangeNotifierProvider<SuppliersProvider>(
+          create: (_) => SuppliersProvider(SuppliersRepository(apiClient), cache: AppCache(prefs)),
         ),
 
         // FLOW-7 审批待办

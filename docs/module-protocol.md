@@ -17,11 +17,14 @@
   "label": "笔记",
   "fields": [
     { "name": "title", "type": "string", "label": "标题", "required": true },
-    { "name": "content", "type": "text", "label": "内容" }
+    { "name": "content", "type": "text", "label": "内容" },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "published"] }
   ],
   "searchable": true
 }
 ```
+
+> **字段命名**：用 camelCase（`riskLevel`、`annualValue`）——与代码库跨语言约定一致，TypeORM 自动映射 snake_case 列名。生成器同时兼容 snake_case（会触发 Dart lint info，不推荐）。
 
 ## 2. 字段类型（协议词汇表）
 
@@ -32,8 +35,9 @@
 | `int` | `int` | 数字输入 | 整数 |
 | `bool` | `boolean` | 开关 | 布尔 |
 | `date` | `datetime` | 日期选择 | 时间 |
+| `enum` | `varchar(32)` + 默认值 | 分段选择/下拉 | 枚举（需 `enum: [...]` 选项，2-10 个，小写英文/下划线） |
 
-> 超出这 5 种类型的复杂字段（外键/枚举/关联），**不写协议**，走手写 + AI 辅助。
+> 超出这 6 种类型的复杂字段（外键关联/级联/复杂业务逻辑），**不写协议**，走手写 + AI 辅助。关联（belongsTo）已在旗舰应用中识别为共性，但保持薄协议——关联查询手写 + AI 生成（见 §6 反推记录）。
 
 ## 3. 协议 → 生成物映射（AI 必读）
 
@@ -54,6 +58,27 @@
 - 导航注册：`navigate-page.tool.ts` PAGE_ROUTES
 - i18n：所有用户可见文本中英双语
 - 迁移：`migration:generate` 生成（禁止手写，TypeORM 索引用 hash 名）
+
+## 3.5 旗舰应用反推（2026-08-17，第 9-10 周里程碑）
+
+从三个旗舰应用（AI CRM / AI Project / AI Approval）反推的**共性字段形态**，已回写协议词汇表：
+
+| 旗舰共性 | 出现处 | 协议处理 |
+|---|---|---|
+| **enum 字段**（status/type/riskLevel 等高频率） | CRM Customer.status、Order.status；PM Task.status、Risk.level；Approval Request.status/type | ✅ 已入词汇表（§2 `enum` + 选项） |
+| **camelCase 字段名** | 全部实体 | ✅ 已入规范（§1 命名约定） |
+| **外键关联**（belongsTo） | Customer→Order/Activity/Task/Risk；Project→Member/Milestone/Task/Risk；Request→Policy | ⚠️ 已识别共性，但**保持薄协议**：关联列/查询手写 + AI 辅助（协议厚了成低代码平台） |
+| **required 必填** | 各 title/name | ✅ 协议 `required: true`（已支持） |
+| **AI 工具**（query/analyze/create + 写需确认） | 三旗舰各 4-5 个工具 | ⚠️ 运行时 AI 层：工具按 `src/ai/tools/` 手写注册 + HS-9 治理，协议暂不自动化（聚焦 CRUD 高频 20%） |
+
+**反推协议示例**（`specs/` 目录，可直接 `keelbase init --spec` 生成）：
+
+- `specs/customer.json` — 客户（status/riskLevel 双 enum）
+- `specs/project.json` — 项目（status/priority 双 enum + deadline）
+- `specs/approval-request.json` — 审批请求（type/status 双 enum + amount）
+- `specs/supplier.json` — 供应商（**端到端验证产物**：已生成 `suppliers` 模块，migration:generate + build + 5 单测通过）
+
+**验证结论（第 9-10 周）**：协议 → `keelbase init --spec` → 普通源代码（实体/DTO/API/权限/审计/Flutter 页）闭环成立，30 分钟内可生成带 enum + CASL + 审计的业务模块。
 
 ## 4. 如何用协议生成
 

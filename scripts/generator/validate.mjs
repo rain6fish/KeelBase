@@ -7,7 +7,10 @@ export const RESERVED_FIELD_NAMES = new Set([
   'id', 'userId', 'createdAt', 'updatedAt', 'deletedAt',
 ]);
 
-export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date']);
+export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum']);
+
+/** 协议反推：旗舰应用高频的 enum 字段默认选项（CLI 字符串 `status:enum` 未给选项时）。 */
+export const DEFAULT_ENUM_OPTIONS = ['active', 'inactive'];
 
 /** 模块名：小写字母开头，字母/数字/下划线，最长 30。 */
 export function validateModuleName(name) {
@@ -56,7 +59,7 @@ export function validateLabel(label) {
   return null;
 }
 
-/** 解析 "title:string,content:text" → [{name,type}]。 */
+/** 解析 "title:string,content:text,status:enum" → [{name,type,enum?}]。enum 无选项时给默认。 */
 export function parseFields(str) {
   if (!str) return [];
   return str
@@ -65,19 +68,33 @@ export function parseFields(str) {
     .filter(Boolean)
     .map((pair) => {
       const [name, type = 'string'] = pair.split(':');
-      return { name: name.trim(), type: (type || 'string').trim() };
+      const t = (type || 'string').trim();
+      return t === 'enum'
+        ? { name: name.trim(), type: 'enum', enum: [...DEFAULT_ENUM_OPTIONS] }
+        : { name: name.trim(), type: t };
     });
 }
 
 export function validateFields(fields) {
   const seen = new Set();
   for (const f of fields) {
-    if (!/^[a-z][a-z0-9_]{0,29}$/.test(f.name)) return `字段名非法：${f.name}`;
+    // 字段名允许 camelCase（代码库约定，TypeORM 自动映射 snake_case 列名）或 snake_case
+    if (!/^[a-z][a-zA-Z0-9_]{0,29}$/.test(f.name)) return `字段名非法：${f.name}`;
     if (RESERVED_FIELD_NAMES.has(f.name)) return `字段名是保留词：${f.name}`;
     if (seen.has(f.name)) return `字段名重复：${f.name}`;
     seen.add(f.name);
     if (!FIELD_TYPES.has(f.type)) {
-      return `字段类型非法：${f.name}:${f.type}（支持 string/text/int/bool/date）`;
+      return `字段类型非法：${f.name}:${f.type}（支持 string/text/int/bool/date/enum）`;
+    }
+    if (f.type === 'enum') {
+      if (!Array.isArray(f.enum) || f.enum.length < 2 || f.enum.length > 10) {
+        return `enum 字段 ${f.name} 需提供 2-10 个选项（协议 JSON 的 enum 数组）`;
+      }
+      for (const opt of f.enum) {
+        if (typeof opt !== 'string' || !/^[a-z][a-z0-9_]{0,24}$/.test(opt)) {
+          return `enum 选项非法：${f.name}.${opt}（需小写英文/下划线，如 active、in_progress）`;
+        }
+      }
     }
   }
   return null;

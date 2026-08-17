@@ -14,6 +14,7 @@ import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
 import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/suppliers/presentation/pages/suppliers_page.dart';
 import '../../features/flows/presentation/pages/flow_tasks_page.dart';
 import '../../features/tags/presentation/pages/tags_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
@@ -312,6 +313,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/tags',
         builder: (_, _) => const TagsPage(),
+      ),
+      // 供应商（EASY-2 生成）
+      GoRoute(
+        path: '/suppliers',
+        builder: (_, _) => const SuppliersPage(),
       ),
       // Legal pages
       GoRoute(

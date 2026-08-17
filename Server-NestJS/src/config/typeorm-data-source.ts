@@ -55,6 +55,7 @@
        resolve(__dirname, '../migrations/*FixWebhookIndex*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddPm*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddApproval*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddSuppliers*').replace(/\\/g, '/'),
      ],
    };
  } else {
