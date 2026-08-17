@@ -22,6 +22,16 @@
 
 KeelBase is a business-safe, AI-native full-stack base for building enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — every tool call scoped to the user's data, every write human-confirmed, every action audited. Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
 
+### 🎯 North Star
+
+> **60 seconds to understand · 10 minutes to run · 30 minutes to create.**
+
+Everything ships along one main thread — **Build → Run → Trust → Private Deploy**:
+
+- **Build** — *AI Application Engineering:* the system provides Application Protocols (conventions), AI generates the business modules — no low-code engine.
+- **Run** — *Business-safe Agent Runtime:* runtime AI does real work — user-scoped tools, human-confirmed writes, full audit and revoke.
+- **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible.
+
 ### Three Audiences
 
 | | Developers | End Users | Owners & Admins |
