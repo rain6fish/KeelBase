@@ -87,9 +87,9 @@ export class OAuthService {
   /**
    * Verify a provider's **authorization code** (WeChat / Alipay / QQ).
    */
-  async verifyCode(provider: string, code: string, redirectUri?: string): Promise<OAuthUserInfo> {
+  async verifyCode(provider: string, code: string, redirectUri?: string, providerType?: 'web' | 'miniapp'): Promise<OAuthUserInfo> {
     switch (provider) {
-      case 'wechat': return this.verifyWeChat(code, redirectUri);
+      case 'wechat': return this.verifyWeChat(code, redirectUri, providerType);
       case 'alipay': return this.verifyAlipay(code);
       default:
         throw new UnauthorizedException(`Provider ${provider} does not support authorization code flow`);
@@ -195,11 +195,17 @@ export class OAuthService {
    *
    * @see https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html
    */
-  private async verifyWeChat(code: string, redirectUri?: string): Promise<OAuthUserInfo> {
+  private async verifyWeChat(code: string, redirectUri?: string, providerType: 'web' | 'miniapp' = 'web'): Promise<OAuthUserInfo> {
     const appId = this.configService.get<string>('WECHAT_APP_ID', '');
     const secret = this.configService.get<string>('WECHAT_APP_SECRET', '');
     if (!appId || !secret) {
       throw new UnauthorizedException('WeChat OAuth is not configured on the server');
+    }
+
+    // MINI-3：小程序登录走 jscode2session（Taro.login 的 code → openid + session_key）。
+    // 订阅消息 touser 需小程序 openid，故 providerId 存 openid（公众号流程存 unionid，同人两渠道会分账号，unionid 合并二期）。
+    if (providerType === 'miniapp') {
+      return this.verifyWeChatMiniApp(code, appId, secret);
     }
 
     // Step 1: Exchange code for access_token
@@ -252,6 +258,25 @@ export class OAuthService {
       name: userRes.nickname ?? null,
       avatarUrl: userRes.headimgurl ?? null,
     };
+  }
+
+  /** MINI-3：小程序 code2Session —— Taro.login 的 js_code 换 openid + session_key（无 userinfo，昵称/头像需后续完善资料）。 */
+  private async verifyWeChatMiniApp(code: string, appId: string, secret: string): Promise<OAuthUserInfo> {
+    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appId}&secret=${secret}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`;
+    let res: { openid?: string; session_key?: string; unionid?: string; errcode?: number; errmsg?: string };
+    try {
+      const r = await fetch(url);
+      res = await r.json();
+    } catch (err) {
+      this.logger.error(`WeChat mini-app code2Session failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Failed to verify WeChat mini-app code');
+    }
+    if (res.errcode || !res.openid) {
+      this.logger.warn(`WeChat mini-app code2Session error: ${res.errcode} ${res.errmsg}`);
+      throw new UnauthorizedException('Invalid WeChat mini-app code');
+    }
+    // 订阅消息 touser 需小程序 openid（公众号/小程序同人分开，unionid 合并二期）
+    return { providerId: res.openid, email: null, name: null, avatarUrl: null };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -48,4 +48,14 @@ export class OAuthLoginDto {
   @IsOptional()
   @IsString()
   redirectUri?: string;
+
+  @ApiProperty({
+    description: 'WeChat channel: web（公众号网页授权，默认）/ miniapp（小程序 code2Session，providerId=openid）',
+    required: false,
+    example: 'miniapp',
+    enum: ['web', 'miniapp'],
+  })
+  @IsOptional()
+  @IsIn(['web', 'miniapp'])
+  providerType?: 'web' | 'miniapp';
 }
