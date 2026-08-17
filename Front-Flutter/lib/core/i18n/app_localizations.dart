@@ -46,6 +46,63 @@ class AppLocalizations {
   String get back => _t('Back', '返回');
   String get gotIt => _t('Got it', '知道了');
 
+  // --- AI CRM 旗舰应用 ---
+  String get crmTitle => _t('AI CRM', '客户管理');
+  String get crmExploreEntry => _t('AI CRM', 'AI 客户管理');
+  String get crmAddCustomer => _t('Add customer', '新增客户');
+  String get crmCustomerName => _t('Customer name', '客户/公司名称');
+  String get crmCustomerCompany => _t('Company (optional)', '公司（可选）');
+  String get crmNameRequired => _t('Customer name is required', '请输入客户名称');
+  String get crmCreated => _t('Saved', '已保存');
+  String get crmEmpty => _t('No customers yet — add one, or ask the AI to analyze your customers.', '暂无客户——新增一个，或让 AI 帮你分析客户。');
+  String get crmOrders => _t('Orders', '订单');
+  String get crmActivities => _t('Activities', '跟进记录');
+  String get crmTasks => _t('Tasks', '任务');
+  String get crmRisks => _t('Risks', '风险');
+  String get crmNoOrders => _t('No orders', '暂无订单');
+  String get crmNoActivities => _t('No activities', '暂无跟进记录');
+  String get crmNoTasks => _t('No tasks', '暂无任务');
+  String get crmNoRisks => _t('No risks', '暂无风险记录');
+  String get crmAddOrder => _t('Add order', '新增订单');
+  String get crmOrderAmountHint => _t('Amount (e.g. 450000)', '金额（如 450000）');
+  String get crmAddActivity => _t('Add activity', '新增跟进记录');
+  String get crmActivitySummaryHint => _t('Summary (call / meeting / email)', '跟进内容（电话/会议/邮件）');
+  String get crmAddTask => _t('Add follow-up task', '新增跟进任务');
+  String get crmTaskTitleHint => _t('Task title', '任务标题');
+  String get crmAnalyzeRisk => _t('Analyze risk', '风险分析');
+  String get crmAnalysisDone => _t('Analysis complete', '分析完成');
+  String get crmRiskLevel => _t('Risk level', '风险等级');
+  String get crmStatusLead => _t('Lead', '潜在');
+  String get crmStatusActive => _t('Active', '合作中');
+  String get crmStatusChurnRisk => _t('Churn risk', '流失风险');
+  String get crmStatusInactive => _t('Inactive', '已停止');
+
+  String crmStatusLabel(String status) {
+    switch (status) {
+      case 'active':
+        return crmStatusActive;
+      case 'churn_risk':
+        return crmStatusChurnRisk;
+      case 'inactive':
+        return crmStatusInactive;
+      default:
+        return crmStatusLead;
+    }
+  }
+
+  String crmRiskLabel(String level) {
+    switch (level) {
+      case 'critical':
+        return _t('Critical', '极危');
+      case 'high':
+        return _t('High', '高');
+      case 'medium':
+        return _t('Medium', '中');
+      default:
+        return _t('Low', '低');
+    }
+  }
+
   // --- EASY-5 首启预设引导（MOD-4 capabilities） ---
   String get presetGuideTitle => _t('Deployment preset', '部署预设模式');
   String get presetGuideFull => _t(
