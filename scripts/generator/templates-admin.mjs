@@ -10,6 +10,7 @@ const ADMIN_TS_TYPE = {
   int: () => 'number',
   bool: () => 'boolean',
   date: () => 'string',
+  enum: () => 'string',
 };
 
 export function adminApiTemplate(ctx) {

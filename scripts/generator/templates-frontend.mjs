@@ -35,15 +35,21 @@ const MODEL_FIELD = {
     from: `      ${c}: json['${c}'] as String?,`,
     to: `        '${c}': ${c},`,
   }),
+  enum: (c, f) => ({
+    decl: `  final String ${c};`,
+    ctor: `this.${c} = '${f.enum[0]}'`,
+    from: `      ${c}: json['${c}'] as String? ?? '${f.enum[0]}',`,
+    to: `        '${c}': ${c},`,
+  }),
 };
 
 export function modelTemplate(ctx) {
-  const decls = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name).decl).join('\n');
-  const ctors = ctx.fields.map((f) => `    ${MODEL_FIELD[f.type](f.name).ctor},`).join('\n');
-  const froms = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name).from).join('\n');
-  const tos = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name).to).join('\n');
+  const decls = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).decl).join('\n');
+  const ctors = ctx.fields.map((f) => `    ${MODEL_FIELD[f.type](f.name, f).ctor},`).join('\n');
+  const froms = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).from).join('\n');
+  const tos = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).to).join('\n');
   const copyParams = ctx.fields.map((f) => {
-    const m = MODEL_FIELD[f.type](f.name);
+    const m = MODEL_FIELD[f.type](f.name, f);
     const type = m.decl.replace(/^  final /, '').replace(/;/, '');
     return `${f.name}: ${type} ?? this.${f.name}`;
   }).join(',\n    ');
@@ -245,6 +251,17 @@ const FORM_FIELD = {
             controller: _${c}Ctrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
+  enum: (c, l10n, f) =>
+    `          CupertinoSegmentedControl<String>(
+            groupValue: _${c}Val,
+            onValueChanged: (v) => setState(() => _${c}Val = v),
+            children: {
+              for (final o in ${JSON.stringify(f.enum)}) o: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(o),
+              ),
+            },
+          ),`,
 };
 
 const FORM_CONTROLLERS = {
@@ -253,6 +270,7 @@ const FORM_CONTROLLERS = {
   int: (c) => `  final _${c}Ctrl = TextEditingController();`,
   bool: (c) => `  bool _${c}Val = false;`,
   date: (c) => `  final _${c}Ctrl = TextEditingController();`,
+  enum: (c, f) => `  String _${c}Val = '${f.enum[0]}';`,
 };
 
 const FORM_READ = {
@@ -261,12 +279,13 @@ const FORM_READ = {
   int: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = int.tryParse(_${c}Ctrl.text.trim());`,
   bool: (c) => `data['${c}'] = _${c}Val;`,
   date: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
+  enum: (c) => `data['${c}'] = _${c}Val;`,
 };
 
 export function pageTemplate(ctx) {
-  const controllers = ctx.fields.map((f) => FORM_CONTROLLERS[f.type](f.name)).join('\n');
-  const formFields = ctx.fields.map((f) => FORM_FIELD[f.type](f.name)).join('\n\n');
-  const reads = ctx.fields.map((f) => FORM_READ[f.type](f.name)).join('\n');
+  const controllers = ctx.fields.map((f) => FORM_CONTROLLERS[f.type](f.name, f)).join('\n');
+  const formFields = ctx.fields.map((f) => FORM_FIELD[f.type](f.name, null, f)).join('\n\n');
+  const reads = ctx.fields.map((f) => FORM_READ[f.type](f.name, f)).join('\n');
   const titleField = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
 
   return `import 'package:flutter/cupertino.dart';
@@ -295,7 +314,7 @@ ${controllers}
 
   @override
   void dispose() {
-    ${ctx.fields.filter((f) => f.type !== 'bool').map((f) => `_${f.name}Ctrl.dispose();`).join('\n    ')}
+    ${ctx.fields.filter((f) => f.type !== 'bool' && f.type !== 'enum').map((f) => `_${f.name}Ctrl.dispose();`).join('\n    ')}
     super.dispose();
   }
 

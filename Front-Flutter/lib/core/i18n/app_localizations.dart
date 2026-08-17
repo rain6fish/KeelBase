@@ -257,6 +257,12 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 供应商（EASY-2 生成） ---
+  String get suppliersTitle => _t('Supplier', '供应商');
+  String get suppliersAddTitle => _t('New Supplier', '新增供应商');
+  String get suppliersEmpty => _t('No Supplier yet', '暂无供应商');
+  String get suppliersDeleteConfirm => _t('Delete this supplier?', '删除该供应商？');
+
   // --- 审批待办（FLOW-7） ---
   String get flowTasksTitle => _t('Approval Tasks', '审批待办');
   String get flowTasksEmpty => _t('No approval tasks', '暂无审批任务');

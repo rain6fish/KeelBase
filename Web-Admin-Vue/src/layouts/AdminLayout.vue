@@ -152,6 +152,7 @@ const consoleNavGroups = computed(() => [
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
       { name: 'trash', to: '/trash', icon: 'mdi-delete-outline', label: t('navTrash') },
       { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },
+      { name: 'suppliers', to: '/suppliers', icon: 'mdi-database-outline', label: t('navSuppliers') },
       { name: 'tags', to: '/tags', icon: 'mdi-database-outline', label: t('navTags'), module: 'tags' },
       { name: 'notes', to: '/notes', icon: 'mdi-database-outline', label: t('navNotes'), module: 'notes' },
     ].filter((item: { module?: string }) => !item.module || caps.isModuleEnabled(item.module)),
