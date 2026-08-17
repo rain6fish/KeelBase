@@ -6,6 +6,11 @@ import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
 import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { Notification } from '../notifications/notification.entity';
+import { CrmCustomer } from '../crm/crm-customer.entity';
+import { CrmOrder } from '../crm/crm-order.entity';
+import { CrmActivity } from '../crm/crm-activity.entity';
+import { CrmTask } from '../crm/crm-task.entity';
+import { CrmRisk } from '../crm/crm-risk.entity';
 import { User } from './entities/user.entity';
 
 /**
@@ -31,10 +36,11 @@ export async function seedDemoData(
   const convRepo = dataSource.getRepository(AiConversation);
   const msgRepo = dataSource.getRepository(AiMessage);
   const notifRepo = dataSource.getRepository(Notification);
-
-  // 幂等：已种过演示事件则跳过
-  const existing = await eventRepo.count({ where: { userId: user.id } });
-  if (existing > 0) return false;
+  const crmCustomerRepo = dataSource.getRepository(CrmCustomer);
+  const crmOrderRepo = dataSource.getRepository(CrmOrder);
+  const crmActivityRepo = dataSource.getRepository(CrmActivity);
+  const crmTaskRepo = dataSource.getRepository(CrmTask);
+  const crmRiskRepo = dataSource.getRepository(CrmRisk);
 
   const day = 24 * 60 * 60 * 1000;
   const today = new Date();
@@ -43,6 +49,111 @@ export async function seedDemoData(
     d.setHours(hour, minute, 0, 0);
     return d;
   };
+  const dateOnly = (offsetDays: number) => {
+    const d = new Date(today.getTime() + offsetDays * day);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  // ── AI CRM 旗舰应用演示数据（独立守卫：已有客户则跳过，不影响既有演示账号）──
+  const existingCrm = await crmCustomerRepo.count({ where: { userId: user.id } });
+  if (existingCrm === 0) {
+    const customers = await crmCustomerRepo.save([
+      {
+        userId: user.id, name: '华润建材', company: '华润建材集团', email: 'crm@huarun.example',
+        phone: '138-0000-1001', status: 'active', riskLevel: 'high',
+        notes: '华东区核心客户，Q3 两笔大单。历史付款周期偏长，近期有逾期迹象。',
+      },
+      {
+        userId: user.id, name: '蓝湾地产', company: '蓝湾置业', email: 'buyer@lanwan.example',
+        phone: '138-0000-1002', status: 'churn_risk', riskLevel: 'high',
+        notes: '项目回款承压，两笔订单逾期超 30 天，需重点跟进催款。',
+      },
+      {
+        userId: user.id, name: '星河科技', company: '星河信息技术', email: 'procure@xinghe.example',
+        phone: '138-0000-1003', status: 'active', riskLevel: 'medium',
+        notes: '年度框架客户，续约谈判中，订单接近到期需提前确认。',
+      },
+      {
+        userId: user.id, name: '临海制造', company: '临海智能制造', email: 'po@linhai.example',
+        phone: '138-0000-1004', status: 'active', riskLevel: 'critical',
+        notes: '单笔大额订单 280 万已逾期，资金链紧张，最高优先级催收。',
+      },
+      {
+        userId: user.id, name: '恒达物流', company: '恒达供应链', email: 'ops@hengda.example',
+        phone: '138-0000-1005', status: 'active', riskLevel: 'medium',
+        notes: '合作平稳，近期新增一笔 60 万订单，留意回款节奏。',
+      },
+      {
+        userId: user.id, name: '远山贸易', company: '远山国际贸易', email: 'contact@yuanshan.example',
+        phone: '138-0000-1006', status: 'active', riskLevel: 'low',
+        notes: '老客户，历史回款及时，无风险。',
+      },
+      {
+        userId: user.id, name: '新芽教育', company: '新芽在线教育', email: 'bd@xinya.example',
+        phone: '138-0000-1007', status: 'lead', riskLevel: 'low',
+        notes: '潜客，本周有产品演示安排，争取转正。',
+      },
+      {
+        userId: user.id, name: '云帆软件', company: '云帆科技', email: 'it@yunfan.example',
+        phone: '138-0000-1008', status: 'inactive', riskLevel: 'low',
+        notes: '去年订单已结清，今年无新需求，保持低强度触达。',
+      },
+    ]);
+
+    const cid = (name: string) => customers.find((c) => c.name === name)!.id;
+    const uid = user.id;
+
+    await crmOrderRepo.save([
+      { userId: uid, customerId: cid('华润建材'), amount: 450000, status: 'overdue', orderDate: dateOnly(-60), dueDate: dateOnly(-10) },
+      { userId: uid, customerId: cid('华润建材'), amount: 120000, status: 'paid', orderDate: dateOnly(-90), dueDate: dateOnly(-30) },
+      { userId: uid, customerId: cid('华润建材'), amount: 80000, status: 'pending', orderDate: dateOnly(-5), dueDate: dateOnly(25) },
+      { userId: uid, customerId: cid('蓝湾地产'), amount: 210000, status: 'overdue', orderDate: dateOnly(-45), dueDate: dateOnly(-15) },
+      { userId: uid, customerId: cid('蓝湾地产'), amount: 95000, status: 'overdue', orderDate: dateOnly(-30), dueDate: dateOnly(-5) },
+      { userId: uid, customerId: cid('星河科技'), amount: 150000, status: 'pending', orderDate: dateOnly(-20), dueDate: dateOnly(10) },
+      { userId: uid, customerId: cid('星河科技'), amount: 90000, status: 'paid', orderDate: dateOnly(-70), dueDate: dateOnly(-40) },
+      { userId: uid, customerId: cid('临海制造'), amount: 2800000, status: 'overdue', orderDate: dateOnly(-120), dueDate: dateOnly(-40) },
+      { userId: uid, customerId: cid('恒达物流'), amount: 600000, status: 'pending', orderDate: dateOnly(-8), dueDate: dateOnly(22) },
+      { userId: uid, customerId: cid('远山贸易'), amount: 88000, status: 'paid', orderDate: dateOnly(-100), dueDate: dateOnly(-70) },
+      { userId: uid, customerId: cid('远山贸易'), amount: 45000, status: 'paid', orderDate: dateOnly(-40), dueDate: dateOnly(-10) },
+      { userId: uid, customerId: cid('云帆软件'), amount: 66000, status: 'paid', orderDate: dateOnly(-200), dueDate: dateOnly(-170) },
+    ]);
+
+    await crmActivityRepo.save([
+      { userId: uid, customerId: cid('华润建材'), type: 'call', summary: '电话沟通：采购总监反馈总部回款流程调整，预计下周付款。', happenedAt: at(-3, 14) },
+      { userId: uid, customerId: cid('华润建材'), type: 'email', summary: '发送催款函 + 逾期订单明细清单。', happenedAt: at(-8, 10) },
+      { userId: uid, customerId: cid('蓝湾地产'), type: 'call', summary: '项目负责人电话未接，留言催收。', happenedAt: at(-2, 15) },
+      { userId: uid, customerId: cid('蓝湾地产'), type: 'meeting', summary: '面谈：财务表示资金优先偿还银行贷款，本月无回款。', happenedAt: at(-12, 9) },
+      { userId: uid, customerId: cid('临海制造'), type: 'call', summary: '与 CFO 通话：确认 280 万订单分期支付方案，第一批下月初。', happenedAt: at(-1, 16) },
+      { userId: uid, customerId: cid('星河科技'), type: 'meeting', summary: '续约谈判：对方要求折扣 8%，待内部审批。', happenedAt: at(-4, 11) },
+      { userId: uid, customerId: cid('新芽教育'), type: 'email', summary: '发送产品演示资料与报价单。', happenedAt: at(-2, 9) },
+      { userId: uid, customerId: cid('恒达物流'), type: 'call', summary: '确认新订单交付细节。', happenedAt: at(-1, 13) },
+      { userId: uid, customerId: cid('远山贸易'), type: 'email', summary: '季度回访，客户反馈服务满意。', happenedAt: at(-20, 10) },
+    ]);
+
+    await crmTaskRepo.save([
+      { userId: uid, customerId: cid('华润建材'), title: '跟进华润 45 万逾期订单回款', description: '确认下周付款计划，必要时升级商务。', dueDate: at(1, 17), status: 'pending' },
+      { userId: uid, customerId: cid('华润建材'), title: '与华润确认新订单交付排期', dueDate: at(3, 11), status: 'pending' },
+      { userId: uid, customerId: cid('蓝湾地产'), title: '催收蓝湾两笔逾期订单（30.5 万）', description: '电话 + 上门双线推进。', dueDate: at(2, 15), status: 'pending' },
+      { userId: uid, customerId: cid('蓝湾地产'), title: '整理蓝湾回款风险报告', dueDate: at(-1, 18), status: 'pending' },
+      { userId: uid, customerId: cid('临海制造'), title: '推进临海 280 万分期方案签约', description: '第一批付款协议初稿。', dueDate: at(5, 10), status: 'pending' },
+      { userId: uid, customerId: cid('星河科技'), title: '内部确认星河续约折扣', dueDate: at(2, 16), status: 'in_progress' },
+      { userId: uid, customerId: cid('新芽教育'), title: '准备新芽教育产品演示', dueDate: at(3, 14), status: 'pending' },
+      { userId: uid, customerId: cid('恒达物流'), title: '确认恒达新订单交付细节', dueDate: at(-2, 17), status: 'completed' },
+      { userId: uid, customerId: cid('云帆软件'), title: '云帆年度回访（低强度）', dueDate: at(10, 10), status: 'pending' },
+    ]);
+
+    await crmRiskRepo.save([
+      { userId: uid, customerId: cid('华润建材'), level: 'high', reason: '45 万订单逾期 10 天，历史回款周期变长。', detectedAt: at(-7, 9) },
+      { userId: uid, customerId: cid('蓝湾地产'), level: 'high', reason: '两笔订单逾期合计 30.5 万，项目资金承压。', detectedAt: at(-10, 9) },
+      { userId: uid, customerId: cid('临海制造'), level: 'critical', reason: '单笔 280 万订单逾期 40 天，客户资金链紧张。', detectedAt: at(-15, 9) },
+      { userId: uid, customerId: cid('星河科技'), level: 'medium', reason: '续约谈判未定，订单临近到期。', detectedAt: at(-5, 9) },
+    ]);
+  }
+
+  // 幂等：已种过演示事件则跳过
+  const existing = await eventRepo.count({ where: { userId: user.id } });
+  if (existing > 0) return false;
 
   // ── 事件：含今天/未来/已取消，展示 reminder 与颜色 ──────────
   await eventRepo.save([

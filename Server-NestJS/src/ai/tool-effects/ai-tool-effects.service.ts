@@ -50,8 +50,8 @@ export class AiToolEffectsService {
     return { existing: false };
   }
 
-  /** 记录写工具副作用（execute 成功后调用） */
-  async record(ctx: WriteToolContext, resultType: 'event' | 'todo', resultId: number): Promise<AiToolSideEffect> {
+  /** 记录写工具副作用（execute 成功后调用）；resultType: event/todo/crm_task */
+  async record(ctx: WriteToolContext, resultType: string, resultId: number): Promise<AiToolSideEffect> {
     const key = AiToolEffectsService.buildKey(ctx);
     // 幂等：并发下可能已插入，命中唯一冲突则跳过
     try {
@@ -110,15 +110,12 @@ export class AiToolEffectsService {
     return { total, page, limit, items: enriched };
   }
 
-  /** 撤销 AI 副作用：软删目标 event/todo（可经 RG-3 回收站恢复） */
+  /** 撤销 AI 副作用：软删目标 event/todo/crm_task（可经 RG-3 回收站恢复） */
   async revoke(effectId: number): Promise<{ revoked: boolean; effectId: number } | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect) return null;
 
-    const repo =
-      effect.resultType === 'event'
-        ? this.entityManager.getRepository('Event')
-        : this.entityManager.getRepository('Todo');
+    const repo = this.entityManager.getRepository(this._entityFor(effect.resultType));
     const target = await repo.findOne({ where: { id: effect.resultId } } as any);
     if (target) {
       await repo.softDelete(effect.resultId);
@@ -127,16 +124,24 @@ export class AiToolEffectsService {
     return { revoked: true, effectId };
   }
 
-  private async _loadTarget(type: 'event' | 'todo', id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {
-    const repo =
-      type === 'event'
-        ? this.entityManager.getRepository('Event')
-        : this.entityManager.getRepository('Todo');
+  private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {
+    const repo = this.entityManager.getRepository(this._entityFor(type));
     return (await repo.findOne({
       where: { id },
       withDeleted: true,
       select: { title: true, deletedAt: true },
     } as any)) as any;
+  }
+
+  private _entityFor(type: string): string {
+    switch (type) {
+      case 'event':
+        return 'Event';
+      case 'crm_task':
+        return 'CrmTask';
+      default:
+        return 'Todo';
+    }
   }
 }
 
