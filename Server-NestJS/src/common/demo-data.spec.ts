@@ -5,11 +5,17 @@ import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
 import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { Notification } from '../notifications/notification.entity';
+import { CrmCustomer } from '../crm/crm-customer.entity';
+import { CrmOrder } from '../crm/crm-order.entity';
+import { CrmActivity } from '../crm/crm-activity.entity';
+import { CrmTask } from '../crm/crm-task.entity';
+import { CrmRisk } from '../crm/crm-risk.entity';
 
 function mockRepo() {
   return {
     count: jest.fn().mockResolvedValue(0),
-    save: jest.fn().mockResolvedValue({}),
+    // save 返回输入（数组/对象原样），让 CRM seed 的 `customers.find` 能取到实体
+    save: jest.fn((d: any) => d),
     create: jest.fn((d: any) => d),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
@@ -18,7 +24,7 @@ function mockRepo() {
 describe('seedDemoData（PM-2 演示数据）', () => {
   function makeDataSource() {
     const repos = new Map<unknown, ReturnType<typeof mockRepo>>();
-    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification]) {
+    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification, CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk]) {
       repos.set(entity, mockRepo());
     }
     const dataSource = {
