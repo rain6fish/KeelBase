@@ -1,7 +1,10 @@
 # Front Flutter — Full-Stack Base Platform AI Development Guide
 
-> 本项目是一个 App 前后端全栈开发基座平台，以此为基座可快速开发新的全栈应用。
-> 定位：**业务安全的 Agent harness + 全栈应用基座**——Agent 工具调用限定用户数据范围、写操作需人工确认、CASL 行级权限 + 全链路审计。
+> 本项目是一个 **AI 驱动的企业应用工程体系**基座——让 AI 按系统约定快速生成带安全、三端可用的企业应用，以此为基座可快速开发新的全栈应用。
+> 定位（Roadmap V2 战略三角）：**Build → Run → Trust → Private Deploy**——
+> ① **Build 开发期 AI**：Application Protocol 协议化配置 → AI 生成业务模块（entity/DTO/API/页面/权限/审计）；系统只提供约定，AI 负责生成，**不做内建低代码/代码生成器**；
+> ② **Run 运行时 AI**：业务安全的 Agent harness——Agent 工具调用限定用户数据范围、写操作需人工确认、CASL 行级权限 + 全链路审计；
+> ③ **Trust / Private Deploy**：数据主权与私有化部署，AI 全程可审计、可撤销。
 > 写代码之前，请先阅读此文件了解架构、约定和安全规则。
 
 > 致谢：本项目由 Claude Code（Anthropic）协助开发，架构设计、代码实现与文档均有 Claude 的贡献。
