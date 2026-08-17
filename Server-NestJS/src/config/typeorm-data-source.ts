@@ -50,6 +50,10 @@
        resolve(__dirname, '../migrations/*AddAiDailyUsage*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAuditHashChain*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*PostgresIncrementalSchema*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddCrm*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddWebhookSubscriptions*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*FixWebhookIndex*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddPm*').replace(/\\/g, '/'),
      ],
    };
  } else {

@@ -68,8 +68,14 @@ import { QueryCustomerOrdersTool } from './tools/query-customer-orders.tool';
 import { QueryCustomerActivitiesTool } from './tools/query-customer-activities.tool';
 import { AnalyzeCustomerRiskTool } from './tools/analyze-customer-risk.tool';
 import { CreateFollowupTaskTool } from './tools/create-followup-task.tool';
+import { QueryProjectsTool } from './tools/query-projects.tool';
+import { QueryProjectTasksTool } from './tools/query-project-tasks.tool';
+import { AnalyzeProjectRiskTool } from './tools/analyze-project-risk.tool';
+import { CreateProjectTaskTool } from './tools/create-project-task.tool';
 import { CrmModule } from '../crm/crm.module';
 import { CrmService } from '../crm/crm.service';
+import { PmModule } from '../pm/pm.module';
+import { PmService } from '../pm/pm.service';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -86,6 +92,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     // org→flows→ai→events→org 间接环：Org 侧需 forwardRef
     forwardRef(() => OrgModule),
     CrmModule,
+    PmModule,
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
@@ -125,6 +132,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolEffectsService: AiToolEffectsService,
         governancePolicy: GovernancePolicyService,
         crmService: CrmService,
+        pmService: PmService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -210,6 +218,11 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryCustomerActivitiesTool(crmService));
         toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
         toolRegistry.register(new CreateFollowupTaskTool(crmService));
+        // AI Project Management 旗舰应用：项目/任务/风险/创建项目任务
+        toolRegistry.register(new QueryProjectsTool(pmService));
+        toolRegistry.register(new QueryProjectTasksTool(pmService));
+        toolRegistry.register(new AnalyzeProjectRiskTool(pmService));
+        toolRegistry.register(new CreateProjectTaskTool(pmService));
 
         // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
         const ragAgent = new RagAgent(knowledgeService);
@@ -247,7 +260,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],

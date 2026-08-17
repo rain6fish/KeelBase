@@ -19,6 +19,7 @@ import { PostsModule } from './posts/posts.module';
 import { OrgModule } from './org/org.module';
 import { PointsModule } from './points/points.module';
 import { CrmModule } from './crm/crm.module';
+import { PmModule } from './pm/pm.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -134,6 +135,9 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAuditHashChain*.js',
               'dist/migrations/*PostgresIncrementalSchema*.js',
               'dist/migrations/*AddCrm*.js',
+              'dist/migrations/*AddWebhookSubscriptions*.js',
+              'dist/migrations/*FixWebhookIndex*.js',
+              'dist/migrations/*AddPm*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
@@ -206,6 +210,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     OrgModule,
     PointsModule,
     CrmModule,
+    PmModule,
 
     UploadModule,
     NotificationsModule,

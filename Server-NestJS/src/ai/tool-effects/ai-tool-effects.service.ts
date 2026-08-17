@@ -139,6 +139,8 @@ export class AiToolEffectsService {
         return 'Event';
       case 'crm_task':
         return 'CrmTask';
+      case 'pm_task':
+        return 'PmTask';
       default:
         return 'Todo';
     }
