@@ -20,6 +20,7 @@ import { OrgModule } from './org/org.module';
 import { PointsModule } from './points/points.module';
 import { CrmModule } from './crm/crm.module';
 import { PmModule } from './pm/pm.module';
+import { ApprovalModule } from './approval/approval.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -138,6 +139,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddWebhookSubscriptions*.js',
               'dist/migrations/*FixWebhookIndex*.js',
               'dist/migrations/*AddPm*.js',
+              'dist/migrations/*AddApproval*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
@@ -211,6 +213,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     PointsModule,
     CrmModule,
     PmModule,
+    ApprovalModule,
 
     UploadModule,
     NotificationsModule,

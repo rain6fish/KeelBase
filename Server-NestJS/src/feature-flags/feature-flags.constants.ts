@@ -21,6 +21,7 @@ export const FEATURE_KEYS = {
   POINTS: 'points',
   CRM: 'crm',
   PM: 'pm',
+  APPROVAL: 'approval',
 } as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[keyof typeof FEATURE_KEYS];
@@ -40,5 +41,5 @@ export const PRESETS: Record<AppPreset, FeatureKey[]> = {
   // small：单容器开箱，关闭需外部凭据/配置的集成（推送/短信/OAuth）
   small: ['push', 'sms', 'oauth'],
   // lite：在 small 基础上再关搜索与生成的重业务模块，最小可用
-  lite: ['push', 'sms', 'oauth', 'search', 'tags', 'notes', 'books', 'posts', 'crm', 'pm'],
+  lite: ['push', 'sms', 'oauth', 'search', 'tags', 'notes', 'books', 'posts', 'crm', 'pm', 'approval'],
 };

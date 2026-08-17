@@ -46,6 +46,9 @@ export class CaslAbilityFactory {
       can('manage', 'PmMilestone', { userId: user.sub });
       can('manage', 'PmTask', { userId: user.sub });
       can('manage', 'PmRisk', { userId: user.sub });
+      // AI Approval 旗舰应用：审批请求/政策 本人所有权
+      can('manage', 'ApprovalRequest', { requesterId: user.sub });
+      can('manage', 'ApprovalPolicy', { userId: user.sub });
     }
 
     return build();
