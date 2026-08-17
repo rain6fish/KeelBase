@@ -109,6 +109,43 @@ class AppLocalizations {
   String get pmAddTask => _t('Add task', '新增任务');
   String get pmTaskTitleHint => _t('Task title', '任务标题');
 
+  // --- AI Approval 旗舰应用 ---
+  String get apTitle => _t('AI Approval', '审批中心');
+  String get apExploreEntry => _t('AI Approval', 'AI 审批');
+  String get apSubmitRequest => _t('Submit request', '提交审批');
+  String get apTitleHint => _t('Title (e.g. Q3 travel reimbursement)', '标题（如 Q3 差旅报销）');
+  String get apAmountHint => _t('Amount (yuan)', '金额（元）');
+  String get apReasonHint => _t('Reason', '事由');
+  String get apRequired => _t('Fill in title, amount and reason', '请填写标题、金额和事由');
+  String get apEmpty => _t('No requests yet — submit one, or ask the AI to review a reimbursement.', '暂无审批——提交一个，或让 AI 帮你预审批。');
+  String get apReview => _t('AI review (apply policy)', 'AI 预审（按政策分级）');
+  String get apApprove => _t('Approve', '通过');
+  String get apReject => _t('Reject', '驳回');
+  String get apReviewed => _t('AI review complete', 'AI 预审完成');
+  String get apDecided => _t('Decision saved', '已决定');
+  String get apReason => _t('Reason:', '事由：');
+  String get apAiRecommendation => _t('AI recommendation', 'AI 预审建议');
+  String get apStatusPending => _t('Pending', '待预审');
+  String get apStatusNeedsReview => _t('Needs review', '待人工复核');
+  String get apStatusApproved => _t('Approved', '已通过');
+  String get apStatusRejected => _t('Rejected', '已驳回');
+  String get apStatusAutoApproved => _t('Auto approved', '已自动通过');
+
+  String apStatusLabel(String status) {
+    switch (status) {
+      case 'needs_review':
+        return apStatusNeedsReview;
+      case 'approved':
+        return apStatusApproved;
+      case 'rejected':
+        return apStatusRejected;
+      case 'auto_approved':
+        return apStatusAutoApproved;
+      default:
+        return apStatusPending;
+    }
+  }
+
   String pmStatusLabel(String status) {
     switch (status) {
       case 'active':

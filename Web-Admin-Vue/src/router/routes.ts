@@ -78,6 +78,8 @@ const routes: RouteRecordRaw[] = [
           { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle' } },
           { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle' } },
           { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle' } },
+          { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle' } },
+          { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle' } },
         ],
       },
     ],

@@ -134,6 +134,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-org', to: '/workbench/org', icon: 'mdi-account-group-outline', label: t('workbenchOrgDir') },
       { name: 'workbench-crm', to: '/workbench/crm', icon: 'mdi-account-star-outline', label: t('crmTitle') },
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle') },
+      { name: 'workbench-approval', to: '/workbench/approval', icon: 'mdi-check-decagram-outline', label: t('apTitle') },
     ],
   },
 ])
