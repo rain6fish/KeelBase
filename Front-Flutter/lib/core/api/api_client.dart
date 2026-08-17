@@ -141,6 +141,13 @@ class ApiClient {
   /// Get current access token (for auth state check).
   String? get accessToken => _accessToken;
 
+  /// 强制刷新一次 access token（供绕过 Dio 拦截器的长连接通道如 SSE/WS
+  /// 在 401 时调用）。复用 single-flight 刷新，返回新 token；失败返回 null。
+  Future<String?> refreshNow() async {
+    final ok = await _refreshSingleFlight();
+    return ok ? _accessToken : null;
+  }
+
   /// Get refresh token from secure storage.
   Future<String?> get refreshToken => _storage.read(AppConstants.keyRefreshToken);
 

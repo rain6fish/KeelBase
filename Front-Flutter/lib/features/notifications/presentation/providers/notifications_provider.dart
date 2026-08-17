@@ -44,7 +44,10 @@ class NotificationsProvider extends ChangeNotifier {
     }
     final sse = _sseClient;
     if (sse == null || _subscription != null) return;
-    _subscription = sse.postStream('/notifications/stream').listen(
+    // CR-17：服务端断流自动重连（指数退避，最多 5 次），401 由 SseClient 先刷新
+    _subscription = sse
+        .postStream('/notifications/stream', reconnect: true, maxAttempts: 5)
+        .listen(
       (event) {
         if (event['type'] != 'notification') return;
         _onNotification(event['data']);
