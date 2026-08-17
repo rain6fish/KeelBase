@@ -8,6 +8,7 @@
    '/auth/login',
    '/auth/register',
    '/auth/refresh',
+   '/auth/oauth',
    '/health',
  ]
  
