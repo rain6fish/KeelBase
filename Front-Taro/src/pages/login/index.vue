@@ -51,6 +51,17 @@
           Sign In
         </button>
 
+        <view v-if="!isH5" class="login__divider"><text class="login__divider-text">or</text></view>
+        <button
+          v-if="!isH5"
+          class="login__button login__button--wechat"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="handleWechatLogin"
+        >
+          WeChat Login
+        </button>
+
         <view class="login__footer">
           <text class="login__footer-text">Don't have an account? </text>
           <text class="login__footer-link" @click="goRegister">Register</text>
@@ -75,6 +86,7 @@ const showPassword = ref(false)
 const errors = ref<{ username?: string; password?: string }>({})
 
 const isLoading = computed(() => status.value === 'loading')
+const isH5 = process.env.TARO_ENV === 'h5'
 
 async function handleSubmit() {
   const usernameErr = validateUsername(username.value)
@@ -84,6 +96,13 @@ async function handleSubmit() {
   if (usernameErr || passwordErr) return
 
   const success = await store.login(username.value.trim(), password.value)
+  if (success) {
+    Taro.redirectTo({ url: '/pages/dashboard/index' })
+  }
+}
+
+async function handleWechatLogin() {
+  const success = await store.wechatLogin()
   if (success) {
     Taro.redirectTo({ url: '/pages/dashboard/index' })
   }

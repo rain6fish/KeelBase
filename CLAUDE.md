@@ -417,7 +417,7 @@ LOKI_URL=                      # Loki 地址，默认 http://localhost:3100
 OAUTH_ENABLED_PROVIDERS=wechat,alipay     # 启用的认证商（逗号分隔，默认国内）
 WECHAT_APP_ID=           # 微信开放平台 AppID
 WECHAT_APP_SECRET=       # 微信开放平台 AppSecret
-WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送）
+WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送；前端构建时 TARO_APP_WX_TEMPLATE_ID 需与此一致）
 ALIPAY_APP_ID=           # 支付宝开放平台 AppID
 ALIPAY_PRIVATE_KEY=      # 支付宝应用私钥（用于签名）
 GOOGLE_CLIENT_ID=        # Google OAuth Web client ID（国际，如需加）
@@ -564,7 +564,7 @@ npm run migration:run
 | POST | /api/v1/auth/login | No | — | 登录（限流 10/m） |
 | POST | /api/v1/auth/refresh | No | — | 刷新 token |
 | GET | /api/v1/auth/me | Yes | 当前用户 | 当前用户信息 |
-| POST | /api/v1/auth/oauth | No | — | OAuth 第三方登录（Google/Apple/WeChat/Alipay），新用户自动注册（限流 10/m）|
+| POST | /api/v1/auth/oauth | No | — | OAuth 第三方登录（Google/Apple/WeChat/Alipay），新用户自动注册（限流 10/m）；WeChat 加 `providerType: 'miniapp'` 走小程序 code2Session（MINI-3） |
 | POST | /api/v1/auth/forgot-password | No | — | 忘记密码：发送重置邮件（防枚举统一响应，限流 5/m） |
 | POST | /api/v1/auth/reset-password | No | — | 重置密码（邮件链接 token，限流 5/m） |
 | POST | /api/v1/auth/verify-email | No | — | 邮箱验证（提交 6 位验证码，限流 5/m） |
