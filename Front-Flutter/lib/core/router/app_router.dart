@@ -23,6 +23,8 @@ import '../../features/crm/presentation/pages/customers_page.dart';
 import '../../features/crm/presentation/pages/customer_detail_page.dart';
 import '../../features/pm/presentation/pages/projects_page.dart';
 import '../../features/pm/presentation/pages/project_detail_page.dart';
+import '../../features/approval/presentation/pages/approval_requests_page.dart';
+import '../../features/approval/presentation/pages/approval_request_detail_page.dart';
 
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -283,6 +285,17 @@ GoRouter createRouter(
         path: '/pm/projects/:id',
         builder: (_, state) => ProjectDetailPage(
           projectId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      // AI Approval 旗舰应用
+      GoRoute(
+        path: '/approval',
+        builder: (_, _) => const ApprovalRequestsPage(),
+      ),
+      GoRoute(
+        path: '/approval/requests/:id',
+        builder: (_, state) => ApprovalRequestDetailPage(
+          requestId: int.parse(state.pathParameters['id']!),
         ),
       ),
       // 图书（EASY-2 生成）
