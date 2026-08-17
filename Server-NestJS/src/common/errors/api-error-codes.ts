@@ -26,6 +26,7 @@ export const API_ERROR_CODES: Record<string, ApiErrorCodeDef> = {
   // WEB-FRONT-4 MFA（TOTP 双因素）
   MFA_REQUIRED: { status: HttpStatus.UNAUTHORIZED, zh: '需要两步验证码', en: 'Two-factor code required' },
   INVALID_MFA_CODE: { status: HttpStatus.BAD_REQUEST, zh: '两步验证码错误', en: 'Invalid two-factor code' },
+  PASSWORD_SAME_AS_OLD: { status: HttpStatus.BAD_REQUEST, zh: '新密码不能与旧密码相同', en: 'New password must differ from the old one' },
 
   // 注册/绑定
   USERNAME_ALREADY_EXISTS: { status: HttpStatus.CONFLICT, zh: '用户名已存在', en: 'Username already exists' },
