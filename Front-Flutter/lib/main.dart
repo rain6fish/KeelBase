@@ -6,6 +6,8 @@ import 'core/constants/app_constants.dart';
 
 import 'app.dart';
 import 'core/api/api_client.dart';
+import 'core/api/capabilities_provider.dart';
+import 'core/api/capabilities_repository.dart';
 import 'core/api/sse_client.dart';
 import 'core/api/ws_client.dart';
 import 'core/security/secure_storage_service.dart';
@@ -108,6 +110,9 @@ Future<void> _initApp() async {
   final uploadRepository = UploadRepository(apiClient);
   final notificationsRepository = NotificationsRepository(apiClient);
   final aiConversationRepository = AiConversationRepository(apiClient);
+  // MOD-4 capabilities：预设 + 功能开关（EASY-5 预设引导 / 导航隐藏共用）
+  final capabilitiesProvider =
+      CapabilitiesProvider(CapabilitiesRepository(apiClient));
 
   // Auth failure handler — must be set before any API calls
   AuthProvider? authProvider;
@@ -127,14 +132,20 @@ Future<void> _initApp() async {
     // OAuth init is non-critical — app can still start
   }
 
-  // SSE client for AI streaming
-  final sseClient = SseClient(getAccessToken: () => apiClient.accessToken ?? '');
+  // SSE client for AI streaming（CR-17：401 时经 ApiClient 刷新后重连）
+  final sseClient = SseClient(
+    getAccessToken: () => apiClient.accessToken ?? '',
+    refreshToken: () => apiClient.refreshNow(),
+  );
 
   // RG-6 WebSocket 双向通道（通知推送 + AI 流式）
   final wsClient = WsClient(getAccessToken: () => apiClient.accessToken ?? '');
 
   // Theme
   final themeProvider = ThemeProvider(prefs);
+
+  // MOD-4：启动即拉取 capabilities（Public），供导航隐藏 + 预设引导
+  capabilitiesProvider.load();
 
   runApp(
     MultiProvider(
@@ -146,6 +157,9 @@ Future<void> _initApp() async {
         Provider<SseClient>.value(value: sseClient),
         Provider<WsClient>.value(value: wsClient),
         Provider<AuthRepository>.value(value: authRepository),
+        ChangeNotifierProvider<CapabilitiesProvider>.value(
+          value: capabilitiesProvider,
+        ),
 
         // GROWTH-1 推送：默认 Noop（未接厂商），真实 JPush/FCM 接入后替换实现
         Provider<PushService>(
