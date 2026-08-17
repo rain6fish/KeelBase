@@ -199,4 +199,60 @@ describe('SubAgentOrchestrator', () => {
       expect(result.stepResults[0]).toContain('ok');
     });
   });
+
+  describe('补充覆盖', () => {
+    it('matchSkill 委托 skillsRegistry', () => {
+      expect(orchestrator.matchSkill('帮我安排本周')).not.toBeNull();
+      expect(orchestrator.matchSkill('不相关的请求')).toBeNull();
+    });
+
+    it('子代理 LLM 调用失败返回 ERROR', async () => {
+      mockProvider.generate
+        .mockResolvedValueOnce({ content: '{"tasks":[{"subAgent":"calendar","query":"q"}]}', toolCalls: [] })
+        .mockRejectedValue(new Error('provider down'));
+
+      const result = await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我综合看看',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '1',
+      });
+      expect(result.stepResults[0]).toContain('ERROR');
+    });
+
+    it('子代理工具循环超过最大轮数返回提示', async () => {
+      // 分解 1 个任务；子代理 generate 每次都返回 toolCall → 循环到 MAX 轮
+      const toolCall = { id: 'c1', name: 'query_events', arguments: '{}' };
+      mockProvider.generate
+        .mockResolvedValueOnce({ content: '{"tasks":[{"subAgent":"calendar","query":"q"}]}', toolCalls: [] })
+        .mockResolvedValue({ content: '', toolCalls: [toolCall] });
+
+      const result = await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我综合看看',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '1',
+      });
+      expect(result.stepResults[0]).toBe('子代理执行超出最大轮数');
+    });
+
+    it('工具参数非法 JSON 时 executeSafe 返回错误', async () => {
+      mockProvider.generate
+        .mockResolvedValueOnce({ content: '{"tasks":[{"subAgent":"calendar","query":"q"}]}', toolCalls: [] })
+        .mockResolvedValueOnce({ content: '', toolCalls: [{ id: 'c1', name: 'query_events', arguments: 'not-json' }] })
+        .mockResolvedValue({ content: 'done', toolCalls: [] });
+
+      const result = await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我综合看看',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '1',
+      });
+      // 工具解析失败不阻断，最终子代理给出文本结果
+      expect(result.stepResults[0]).toBe('done');
+    });
+  });
 });
