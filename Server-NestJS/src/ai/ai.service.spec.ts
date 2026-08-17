@@ -693,6 +693,90 @@ describe('AiService', () => {
       expect(chunks[0].type).toBe('error');
     });
 
+    it('should fallback to a backup provider when the primary stream errors before content (CR-28)', async () => {
+      const fallbackProvider = {
+        name: 'qwen',
+        displayName: 'Qwen',
+        availableModels: [],
+        isOpenAICompatible: jest.fn().mockReturnValue(true),
+        generate: jest.fn(),
+        stream: jest.fn(),
+      };
+      mockProviderFactory.getProvider.mockImplementation((name: string) =>
+        name === 'qwen' ? fallbackProvider : mockProvider,
+      );
+      async function* primaryError() {
+        yield { type: 'error' as const, error: 'Rate limited' };
+      }
+      async function* fallbackOk() {
+        yield { type: 'text' as const, content: 'Fallback OK' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream.mockReturnValue(primaryError());
+      fallbackProvider.stream.mockReturnValue(fallbackOk());
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'Hi' })) {
+        chunks.push(chunk);
+      }
+
+      const textChunks = chunks.filter((c) => c.type === 'text');
+      expect(textChunks.map((c) => (c as any).content)).toContain('Fallback OK');
+      // 主 provider 的首块错误被回退吞掉，不应透传给客户端
+      expect(
+        chunks.some(
+          (c) => c.type === 'error' && (c as any).error === 'Rate limited',
+        ),
+      ).toBe(false);
+      expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('should fallback when provider.stream throws before yielding content (CR-28)', async () => {
+      const fallbackProvider = {
+        name: 'qwen',
+        displayName: 'Qwen',
+        availableModels: [],
+        isOpenAICompatible: jest.fn().mockReturnValue(true),
+        generate: jest.fn(),
+        stream: jest.fn(),
+      };
+      mockProviderFactory.getProvider.mockImplementation((name: string) =>
+        name === 'qwen' ? fallbackProvider : mockProvider,
+      );
+      mockProvider.stream.mockImplementation(() => {
+        throw new Error('network down');
+      });
+      async function* fallbackOk() {
+        yield { type: 'text' as const, content: 'Recovered' };
+        yield { type: 'done' as const };
+      }
+      fallbackProvider.stream.mockReturnValue(fallbackOk());
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'Hi' })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks.filter((c) => c.type === 'text').map((c) => (c as any).content)).toContain('Recovered');
+      expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('should yield a single error chunk when all streaming providers fail (CR-28)', async () => {
+      mockProvider.stream.mockReturnValue(
+        (async function* () {
+          yield { type: 'error' as const, error: 'boom' };
+        })(),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'Hi' })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks[0].type).toBe('error');
+      expect((chunks[0] as any).error).toContain('All providers failed');
+    });
+
     it('should include conversationId in the done chunk', async () => {
       async function* mockStream() {
         yield { type: 'text' as const, content: 'Hello' };
@@ -998,6 +1082,47 @@ describe('AiService', () => {
       expect(mockProvider.stream).toHaveBeenCalled();
       const texts = chunks.filter((c) => c.type === 'text').map((c) => c.content);
       expect(texts[0]).not.toContain('跳转');
+    });
+
+    it('chatStream：会话不存在（NotFound）时自动新建', async () => {
+      mockConversationService.getConversation.mockRejectedValue(new NotFoundException('x'));
+      mockConversationService.createConversation.mockReturnValue({ id: 'new-stream-conv' });
+      async function* mockStream() {
+        yield { type: 'text' as const, content: 'ok' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream.mockReturnValue(mockStream());
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'Hi', conversationId: 'stale' })) {
+        chunks.push(chunk);
+      }
+      expect(mockConversationService.createConversation).toHaveBeenCalled();
+      expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('chatStream：工具循环超过最大轮数 → 道歉文本 + done', async () => {
+      // 每次流都返回工具调用（query_events 安全执行）→ 循环 5 轮后超限
+      async function* mockToolStream() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'query_events', arguments: '{}' },
+        };
+        yield { type: 'done' as const };
+      }
+      // mockReturnValue 复用同一已耗尽的 generator，需每轮新建才能触发超限
+      mockProvider.stream.mockImplementation(() => mockToolStream());
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: [] });
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'query' })) {
+        chunks.push(chunk);
+      }
+
+      const texts = chunks.filter((c) => c.type === 'text');
+      // 超限道歉文案 yield 给客户端
+      expect(texts.some((c) => c.content.includes('unable to complete'))).toBe(true);
+      expect(chunks[chunks.length - 1].type).toBe('done');
     });
   });
 
