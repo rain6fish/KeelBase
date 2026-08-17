@@ -15,6 +15,8 @@ import { PmProject } from '../pm/pm-project.entity';
 import { PmMilestone } from '../pm/pm-milestone.entity';
 import { PmTask } from '../pm/pm-task.entity';
 import { PmRisk } from '../pm/pm-risk.entity';
+import { ApprovalRequest } from '../approval/approval-request.entity';
+import { ApprovalPolicy } from '../approval/approval-policy.entity';
 import { User } from './entities/user.entity';
 
 /**
@@ -49,6 +51,8 @@ export async function seedDemoData(
   const pmMilestoneRepo = dataSource.getRepository(PmMilestone);
   const pmTaskRepo = dataSource.getRepository(PmTask);
   const pmRiskRepo = dataSource.getRepository(PmRisk);
+  const approvalRequestRepo = dataSource.getRepository(ApprovalRequest);
+  const approvalPolicyRepo = dataSource.getRepository(ApprovalPolicy);
 
   const day = 24 * 60 * 60 * 1000;
   const today = new Date();
@@ -207,6 +211,22 @@ export async function seedDemoData(
       { projectId: pid('电商平台重构'), level: 'high', reason: '订单模块上线里程碑已延期 5 天，3 个任务逾期。', detectedAt: at(-5, 9) },
       { projectId: pid('移动端 App 发布'), level: 'medium', reason: '提审包排期临近，商店审核周期不确定。', detectedAt: at(-3, 9) },
       { projectId: pid('数据仓库迁移'), level: 'medium', reason: '云资源申请长期未批复，项目暂停。', detectedAt: at(-8, 9) },
+    ]);
+  }
+
+  // ── AI Approval 旗舰应用演示数据（独立守卫）──
+  const existingApproval = await approvalRequestRepo.count({ where: { requesterId: user.id } });
+  if (existingApproval === 0) {
+    await approvalPolicyRepo.save([
+      { userId: user.id, title: '差旅报销自动通过政策', type: 'reimbursement', maxAmount: 1000, description: '单笔差旅报销 ≤ 1000 元自动通过，超出转人工复核。' },
+      { userId: user.id, title: '办公采购自动通过政策', type: 'purchase', maxAmount: 5000, description: '办公采购 ≤ 5000 元自动通过，超出转人工复核。' },
+      { userId: user.id, title: '请假审批政策', type: 'leave', maxAmount: 0, description: '请假一律转人工复核。' },
+    ]);
+
+    await approvalRequestRepo.save([
+      { requesterId: user.id, title: '8 月差旅报销', type: 'reimbursement', amount: 800, reason: '客户拜访交通与住宿费', status: 'pending', riskLevel: 'low' },
+      { requesterId: user.id, title: '研发服务器采购', type: 'purchase', amount: 12000, reason: 'Q3 上线扩容，采购 2 台高配服务器', status: 'pending', riskLevel: 'low' },
+      { requesterId: user.id, title: '本周五事假半天', type: 'leave', amount: 0, reason: '家中有事，请假半天', status: 'needs_review', riskLevel: 'medium', aiRecommendation: '请假类型无自动通过政策，转人工复核。' },
     ]);
   }
 

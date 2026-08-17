@@ -14,6 +14,8 @@ import { PmProject } from '../pm/pm-project.entity';
 import { PmMilestone } from '../pm/pm-milestone.entity';
 import { PmTask } from '../pm/pm-task.entity';
 import { PmRisk } from '../pm/pm-risk.entity';
+import { ApprovalRequest } from '../approval/approval-request.entity';
+import { ApprovalPolicy } from '../approval/approval-policy.entity';
 
 function mockRepo() {
   return {
@@ -28,7 +30,7 @@ function mockRepo() {
 describe('seedDemoData（PM-2 演示数据）', () => {
   function makeDataSource() {
     const repos = new Map<unknown, ReturnType<typeof mockRepo>>();
-    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification, CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk, PmProject, PmMilestone, PmTask, PmRisk]) {
+    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification, CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk, PmProject, PmMilestone, PmTask, PmRisk, ApprovalRequest, ApprovalPolicy]) {
       repos.set(entity, mockRepo());
     }
     const dataSource = {

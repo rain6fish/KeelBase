@@ -141,6 +141,8 @@ export class AiToolEffectsService {
         return 'CrmTask';
       case 'pm_task':
         return 'PmTask';
+      case 'app_request':
+        return 'ApprovalRequest';
       default:
         return 'Todo';
     }

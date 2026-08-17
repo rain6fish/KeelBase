@@ -76,6 +76,12 @@ import { CrmModule } from '../crm/crm.module';
 import { CrmService } from '../crm/crm.service';
 import { PmModule } from '../pm/pm.module';
 import { PmService } from '../pm/pm.service';
+import { QueryApprovalRequestsTool } from './tools/query-approval-requests.tool';
+import { QueryApprovalPoliciesTool } from './tools/query-approval-policies.tool';
+import { SubmitApprovalRequestTool } from './tools/submit-approval-request.tool';
+import { ReviewApprovalRequestTool } from './tools/review-approval-request.tool';
+import { ApprovalModule } from '../approval/approval.module';
+import { ApprovalService } from '../approval/approval.service';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -93,6 +99,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     forwardRef(() => OrgModule),
     CrmModule,
     PmModule,
+    ApprovalModule,
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
@@ -133,6 +140,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         governancePolicy: GovernancePolicyService,
         crmService: CrmService,
         pmService: PmService,
+        approvalService: ApprovalService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -223,6 +231,11 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryProjectTasksTool(pmService));
         toolRegistry.register(new AnalyzeProjectRiskTool(pmService));
         toolRegistry.register(new CreateProjectTaskTool(pmService));
+        // AI Approval 旗舰应用：审批请求/政策/提交/预审
+        toolRegistry.register(new QueryApprovalRequestsTool(approvalService));
+        toolRegistry.register(new QueryApprovalPoliciesTool(approvalService));
+        toolRegistry.register(new SubmitApprovalRequestTool(approvalService));
+        toolRegistry.register(new ReviewApprovalRequestTool(approvalService));
 
         // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
         const ragAgent = new RagAgent(knowledgeService);
@@ -260,7 +273,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
