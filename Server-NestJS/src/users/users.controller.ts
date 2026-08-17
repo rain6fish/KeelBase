@@ -103,6 +103,19 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
+  @Post(':id/must-change-password')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'WEB-FRONT-4：标记用户下次登录需改密（管理员）' })
+  async mustChangePassword(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (user.sub === id) {
+      throw new BadRequestException('不能给自己设强制改密');
+    }
+    return this.usersService.forceChangePassword(id);
+  }
+
   @Patch(':id/role')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '修改用户角色（管理员）' })

@@ -25,6 +25,8 @@ export class PostgresIncrementalSchema1789999999999 implements MigrationInterfac
     // 1.1) WEB-FRONT-4 MFA：users 表 mfa 列（幂等；sqlite 由 AddUserMfa 迁移加）
     await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mfa_secret" character varying(512)`);
     await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mfa_enabled" boolean NOT NULL DEFAULT false`);
+    // 1.2) WEB-FRONT-4 强制改密（幂等；sqlite 由 AddMustChangePassword 迁移加）
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "must_change_password" boolean NOT NULL DEFAULT false`);
 
     // 2) 索引名对齐：可读名/占位名 → 实体 hash 名（DROP 旧 IF EXISTS + CREATE 新）
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_post_comments_post"`);

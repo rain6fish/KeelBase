@@ -413,6 +413,37 @@ describe('AuthService', () => {
     });
   });
 
+  // ─── WEB-FRONT-4 强制改密 ─────────────────────────────────────────────────────────
+
+  describe('changePassword (force change)', () => {
+    it('正确当前密码 → 更新新密码并清除强制改密标志', async () => {
+      const hashed = await bcrypt.hash('OldPass123', 12);
+      mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
+      const res = await service.changePassword(1, { currentPassword: 'OldPass123', newPassword: 'NewPass456' });
+      expect(res.changed).toBe(true);
+      expect(mockRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ password: expect.any(String), mustChangePassword: false }),
+      );
+    });
+
+    it('当前密码错误 → INVALID_CREDENTIALS', async () => {
+      const hashed = await bcrypt.hash('OldPass123', 12);
+      mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
+      await expect(
+        service.changePassword(1, { currentPassword: 'WrongPass', newPassword: 'NewPass456' }),
+      ).rejects.toThrow();
+    });
+
+    it('新旧密码相同 → 拒绝', async () => {
+      const hashed = await bcrypt.hash('SamePass123', 12);
+      mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
+      await expect(
+        service.changePassword(1, { currentPassword: 'SamePass123', newPassword: 'SamePass123' }),
+      ).rejects.toThrow();
+    });
+  });
+
   // ─── Refresh Token ─────────────────────────────────────────────────────────
 
   describe('refreshToken', () => {
