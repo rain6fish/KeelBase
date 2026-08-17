@@ -21,6 +21,20 @@
       </view>
     </view>
 
+    <!-- Notifications -->
+    <text class="settings-page__section">Notifications</text>
+    <view class="settings-page__card card">
+      <view
+        class="settings-page__row"
+        :class="{ 'settings-page__row--disabled': isH5 }"
+        @click="handleEnableWechatReminder"
+      >
+        <text class="settings-page__row-icon">🔔</text>
+        <text class="settings-page__row-label">Enable WeChat Event Reminders</text>
+        <text class="settings-page__row-value">{{ isH5 ? 'H5 only' : '›' }}</text>
+      </view>
+    </view>
+
     <!-- Account -->
     <text class="settings-page__section">Account</text>
     <view class="settings-page__card card">
@@ -76,6 +90,10 @@ const { themeMode } = storeToRefs(themeStore)
 const authStore = useAuthStore()
 const appVersion = ref('1.0.0')
 
+const isH5 = process.env.TARO_ENV === 'h5'
+// MINI-2：构建时注入微信订阅消息模板 id（需与后端 WECHAT_REMIND_TEMPLATE_ID 一致）
+const WECHAT_REMIND_TEMPLATE_ID = process.env.TARO_APP_WX_TEMPLATE_ID || ''
+
 const themeOptions: { label: string; value: ThemeMode; icon: string }[] = [
   { label: 'Light', value: 'light', icon: '☀️' },
   { label: 'Dark', value: 'dark', icon: '🌙' },
@@ -84,6 +102,29 @@ const themeOptions: { label: string; value: ThemeMode; icon: string }[] = [
 
 function goTo(url: string) {
   Taro.navigateTo({ url })
+}
+
+/** MINI-2：小程序订阅消息授权（事件提醒），须由用户点击手势触发 */
+async function handleEnableWechatReminder() {
+  if (isH5) {
+    Taro.showToast({ title: 'WeChat reminders are only available in the mini program', icon: 'none' })
+    return
+  }
+  if (!WECHAT_REMIND_TEMPLATE_ID) {
+    Taro.showToast({ title: 'Reminder template not configured', icon: 'none' })
+    return
+  }
+  try {
+    const res = await Taro.requestSubscribeMessage({ tmplIds: [WECHAT_REMIND_TEMPLATE_ID] })
+    const state = res[WECHAT_REMIND_TEMPLATE_ID]
+    if (state === 'accept') {
+      Taro.showToast({ title: 'WeChat reminders enabled', icon: 'success' })
+    } else {
+      Taro.showToast({ title: 'You declined WeChat reminders', icon: 'none' })
+    }
+  } catch (err: any) {
+    Taro.showToast({ title: err?.errMsg || 'Failed to enable reminders', icon: 'none' })
+  }
 }
 
 function handleLogout() {

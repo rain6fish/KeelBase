@@ -75,7 +75,29 @@
      align-items: center;
      justify-content: center;
    }
- 
+
+   &__button--wechat {
+     margin-top: 12px;
+     background-color: #07c160;
+   }
+
+   &__divider {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     margin-top: 18px;
+     color: var(--text-secondary);
+     font-size: 12px;
+
+     &-text::before,
+     &-text::after {
+       content: '—';
+       margin: 0 8px;
+       color: var(--text-secondary);
+       opacity: 0.5;
+     }
+   }
+
    &__footer {
      text-align: center;
      margin-top: 16px;

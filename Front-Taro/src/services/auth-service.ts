@@ -18,6 +18,18 @@
      await storage.saveTokens(data.accessToken, data.refreshToken)
      return data
    },
+
+   /** MINI-3：微信小程序一键登录（Taro.login 的 code → 后端 /auth/oauth code2Session） */
+   async oauthLogin(authorizationCode: string): Promise<LoginResponse> {
+     const res = await api.post<LoginResponse>('/auth/oauth', {
+       provider: 'wechat',
+       providerType: 'miniapp',
+       authorizationCode,
+     })
+     const data = res.data!
+     await storage.saveTokens(data.accessToken, data.refreshToken)
+     return data
+   },
  
    async getProfile(): Promise<UserProfile> {
      const res = await api.get<UserProfile>('/auth/me')

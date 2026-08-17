@@ -48,7 +48,7 @@ describe('OAuthService', () => {
     it('wechat → verifyWeChat', async () => {
       const spy = jest.spyOn(service as any, 'verifyWeChat').mockResolvedValue({ providerId: 'w1' });
       await expect(service.verifyCode('wechat', 'code')).resolves.toEqual({ providerId: 'w1' });
-      expect(spy).toHaveBeenCalledWith('code', undefined);
+      expect(spy).toHaveBeenCalledWith('code', undefined, undefined);
     });
 
     it('alipay → verifyAlipay', async () => {
@@ -337,6 +337,36 @@ describe('OAuthService', () => {
       await expect(service.verifyCode('wechat', 'code')).resolves.toEqual({
         providerId: 'u1', email: null, name: null, avatarUrl: null,
       });
+    });
+
+    // MINI-3：小程序 code2Session
+    it('miniapp 走 jscode2session 返回 openid（providerId=openid）', async () => {
+      baseConfig();
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ openid: 'mini-open-1', session_key: 'sk', unionid: 'union-1' }) });
+      await expect(service.verifyCode('wechat', 'code', undefined, 'miniapp')).resolves.toEqual({
+        providerId: 'mini-open-1', email: null, name: null, avatarUrl: null,
+      });
+      const url = String(fetchMock.mock.calls[0][0]);
+      expect(url).toContain('jscode2session');
+      expect(url).toContain('js_code=');
+    });
+
+    it('miniapp code2Session 网络错误抛', async () => {
+      baseConfig();
+      fetchMock.mockRejectedValue(new Error('network'));
+      await expect(service.verifyCode('wechat', 'code', undefined, 'miniapp')).rejects.toThrow('Failed to verify WeChat mini-app code');
+    });
+
+    it('miniapp code2Session 错误码抛', async () => {
+      baseConfig();
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ errcode: 40029, errmsg: 'invalid code' }) });
+      await expect(service.verifyCode('wechat', 'code', undefined, 'miniapp')).rejects.toThrow('Invalid WeChat mini-app code');
+    });
+
+    it('miniapp 无 openid 抛', async () => {
+      baseConfig();
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ session_key: 'sk' }) });
+      await expect(service.verifyCode('wechat', 'code', undefined, 'miniapp')).rejects.toThrow('Invalid WeChat mini-app code');
     });
   });
 

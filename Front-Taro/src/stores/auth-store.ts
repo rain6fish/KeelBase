@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import Taro from '@tarojs/taro'
 import { authService } from '../services/auth-service'
 import { setOnAuthFailure } from '../services/api-client'
 import type { User, AuthStatus } from '../types/auth'
@@ -54,6 +55,29 @@ export const useAuthStore = defineStore('auth', {
       } catch (err: any) {
         this.status = 'error'
         this.errorMessage = err.message || 'Registration failed'
+        return false
+      }
+    },
+
+    /** MINI-3：微信一键登录（仅小程序环境；Taro.login → code → /auth/oauth） */
+    async wechatLogin() {
+      if (process.env.TARO_ENV === 'h5') {
+        this.errorMessage = 'WeChat login is only available in the mini program'
+        return false
+      }
+      this.status = 'loading'
+      this.errorMessage = null
+      try {
+        const loginRes = await Taro.login()
+        const code = loginRes.code
+        if (!code) throw new Error('WeChat login failed')
+        const response = await authService.oauthLogin(code)
+        this.user = response.user
+        this.status = 'authenticated'
+        return true
+      } catch (err: any) {
+        this.status = 'error'
+        this.errorMessage = err.message || 'WeChat login failed'
         return false
       }
     },
