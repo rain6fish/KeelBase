@@ -127,6 +127,8 @@ async function main() {
   let name = args.module;
   let label = args.label;
   let fieldsStr = args.fields;
+  // --spec 提供的结构化字段（保留 enum 选项）；非空则优先于 parseFields 字符串解析。
+  let specFields = null;
 
   // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
   if (args.spec) {
@@ -140,9 +142,12 @@ async function main() {
     if (spec.plural && !name) name = spec.plural;
     if (spec.label) label = spec.label;
     if (Array.isArray(spec.fields)) {
-      fieldsStr = spec.fields
-        .map((f) => `${f.name}${f.type ? `:${f.type}` : ''}`)
-        .join(',');
+      // 协议反推：直接保留结构化字段（name/type/enum），避免字符串转换丢失 enum 选项
+      specFields = spec.fields.map((f) => ({
+        name: f.name,
+        type: f.type || 'string',
+        ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
+      }));
     }
   }
 
@@ -159,7 +164,7 @@ async function main() {
     await llmExtract(args.desc);
   }
 
-  if (!name || !label || !fieldsStr) {
+  if (!name || !label || (!fieldsStr && !specFields)) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
       if (!name) {
@@ -182,7 +187,7 @@ async function main() {
   if (nameErr) fail(nameErr);
   const labelErr = validateLabel(label);
   if (labelErr) fail(labelErr);
-  const fields = parseFields(fieldsStr);
+  const fields = specFields ?? parseFields(fieldsStr);
   const fieldsErr = validateFields(fields);
   if (fieldsErr) fail(fieldsErr);
 

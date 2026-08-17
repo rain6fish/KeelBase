@@ -136,6 +136,47 @@ test('parseFields + validateFields：类型与保留词', () => {
   assert.ok(validateFields([{ name: 'x', type: 'unknown' }]));
 });
 
+test('enum（协议反推）：类型 + 选项校验 + CLI 默认选项', () => {
+  // CLI 字符串 `status:enum` → 默认选项
+  const cliFields = parseFields('title:string,status:enum');
+  assert.equal(cliFields[1].type, 'enum');
+  assert.deepEqual(cliFields[1].enum, ['active', 'inactive']);
+  assert.equal(validateFields(cliFields), null);
+
+  // 协议 JSON 提供的 enum 选项
+  const specFields = [
+    { name: 'title', type: 'string' },
+    { name: 'status', type: 'enum', enum: ['pending', 'approved', 'rejected'] },
+  ];
+  assert.equal(validateFields(specFields), null);
+
+  // 非法：无选项 / 选项非法 / 选项超长
+  assert.ok(validateFields([{ name: 's', type: 'enum' }]));
+  assert.ok(validateFields([{ name: 's', type: 'enum', enum: ['大写'] }]));
+  assert.ok(validateFields([{ name: 's', type: 'enum', enum: ['a'.repeat(30)] }]));
+  assert.ok(validateFields([{ name: 's', type: 'enum', enum: ['onlyone'] }]));
+});
+
+test('enum 模板：后端 @IsIn + 前端下拉', () => {
+  const c = buildContext('suppliers', '供应商', [
+    { name: 'name', type: 'string' },
+    { name: 'status', type: 'enum', enum: ['active', 'inactive', 'blacklist'] },
+  ]);
+  const files = backendFiles({ ...c, featureFlag: true });
+  const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
+  assert.match(entity, /default: 'active'/);
+  const dto = files.find((f) => f.path.includes('create-')).content;
+  assert.match(dto, /@IsIn\(\['active', 'inactive', 'blacklist'\]\)/);
+  assert.match(dto, /import.*IsIn/);
+
+  const fe = frontendFiles({ ...c, featureFlag: true });
+  const model = fe.find((f) => f.path.endsWith('_model.dart')).content;
+  assert.match(model, /this\.status = 'active'/);
+  const page = fe.find((f) => f.path.endsWith('_page.dart')).content;
+  assert.match(page, /CupertinoSegmentedControl<String>/);
+  assert.match(page, /data\['status'\] = _statusVal;/);
+});
+
 test('命名变换：posts/post 归一', () => {
   const a = buildContext('posts', '帖子', []);
   const b = buildContext('post', '帖子', []);
@@ -428,4 +469,37 @@ test('端到端：非交互 CLI 生成 + 接线', async () => {
   assert.match(app, /PostsModule/);
   const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
   assert.match(router, /path: '\/posts'/);
+});
+
+test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const specPath = `${root}/supplier.json`;
+  await write(specPath, JSON.stringify({
+    module: 'suppliers',
+    label: '供应商',
+    fields: [
+      { name: 'name', type: 'string', label: '名称' },
+      { name: 'status', type: 'enum', label: '状态', enum: ['active', 'inactive', 'blacklist'] },
+    ],
+  }));
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--spec', specPath], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /生成业务模块：suppliers/);
+  // enum 选项透传：后端 @IsIn + entity 默认值；前端 model 默认 + 下拉
+  const dto = await readFile(BE(root, 'suppliers/dto/create-supplier.dto.ts'), 'utf8');
+  assert.match(dto, /@IsIn\(\['active', 'inactive', 'blacklist'\]\)/);
+  const entity = await readFile(BE(root, 'suppliers/supplier.entity.ts'), 'utf8');
+  assert.match(entity, /default: 'active'/);
+  const page = await readFile(FE(root, 'features/suppliers/presentation/pages/suppliers_page.dart'), 'utf8');
+  assert.match(page, /CupertinoSegmentedControl<String>/);
 });
