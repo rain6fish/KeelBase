@@ -1304,4 +1304,38 @@ describe('AiService', () => {
       expect(result.reply).toContain('事件');
     });
   });
+
+  describe('plan 意图（Plan-and-Execute）', () => {
+    beforeEach(() => {
+      // 禁用技能匹配，确保走 plan 意图而非 delegate
+      (aiService as any).subAgentOrchestrator = { matchSkill: jest.fn().mockReturnValue(null) };
+    });
+    afterEach(() => {
+      (aiService as any).planExecuteAgent = undefined;
+      (aiService as any).reflectionAgent = undefined;
+    });
+
+    it('步骤结果非空：LLM 汇总 + reflection 精化', async () => {
+      const mockPlan = { planAndExecute: jest.fn().mockResolvedValue({ stepResults: ['r1', 'r2'], content: 'plan content' }) };
+      const mockReflect = { reflect: jest.fn().mockResolvedValue('精化后的回答') };
+      (aiService as any).planExecuteAgent = mockPlan;
+      (aiService as any).reflectionAgent = mockReflect;
+      mockProvider.generate.mockResolvedValueOnce({ content: 'raw summary', usage: { promptTokens: 10, completionTokens: 5 } });
+
+      const result = await aiService.chat('1', { message: '为下个月制定执行计划' });
+
+      expect(mockPlan.planAndExecute).toHaveBeenCalled();
+      expect(mockReflect.reflect).toHaveBeenCalled();
+      expect(result.reply).toBe('精化后的回答');
+    });
+
+    it('步骤结果为空：回退标准工具循环', async () => {
+      (aiService as any).planExecuteAgent = { planAndExecute: jest.fn().mockResolvedValue({ stepResults: [], content: '' }) };
+      mockProvider.generate.mockResolvedValue({ content: '工具循环结果', toolCalls: [] });
+
+      const result = await aiService.chat('1', { message: '制定一个执行计划' });
+
+      expect(result.reply).toContain('工具循环结果');
+    });
+  });
 });
