@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { TagsModule } from './tags/tags.module';
 import { NotesModule } from './notes/notes.module';
 import { FlowsModule } from './flows/flows.module';
@@ -140,6 +141,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*FixWebhookIndex*.js',
               'dist/migrations/*AddPm*.js',
               'dist/migrations/*AddApproval*.js',
+              'dist/migrations/*AddSuppliers*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
@@ -204,6 +206,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     HealthModule,
     EventsModule,
     TodosModule,
+    SuppliersModule,
     TagsModule,
     NotesModule,
     FlowsModule,
