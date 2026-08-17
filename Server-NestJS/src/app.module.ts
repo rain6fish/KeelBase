@@ -17,6 +17,7 @@ import { BooksModule } from './books/books.module';
 import { PostsModule } from './posts/posts.module';
 import { OrgModule } from './org/org.module';
 import { PointsModule } from './points/points.module';
+import { CrmModule } from './crm/crm.module';
 
 import { UploadModule } from './upload/upload.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -131,6 +132,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiDailyUsage*.js',
               'dist/migrations/*AddAuditHashChain*.js',
               'dist/migrations/*PostgresIncrementalSchema*.js',
+              'dist/migrations/*AddCrm*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
@@ -202,6 +204,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     PostsModule,
     OrgModule,
     PointsModule,
+    CrmModule,
 
     UploadModule,
     NotificationsModule,

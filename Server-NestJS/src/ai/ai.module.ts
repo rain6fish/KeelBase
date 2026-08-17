@@ -63,6 +63,13 @@ import { OrgService } from '../org/org.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
 import { QueryOrgMembersTool } from './tools/query-org-members.tool';
 import { QueryOrgTasksTool } from './tools/query-org-tasks.tool';
+import { QueryCustomersTool } from './tools/query-customers.tool';
+import { QueryCustomerOrdersTool } from './tools/query-customer-orders.tool';
+import { QueryCustomerActivitiesTool } from './tools/query-customer-activities.tool';
+import { AnalyzeCustomerRiskTool } from './tools/analyze-customer-risk.tool';
+import { CreateFollowupTaskTool } from './tools/create-followup-task.tool';
+import { CrmModule } from '../crm/crm.module';
+import { CrmService } from '../crm/crm.service';
 import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
@@ -76,7 +83,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     forwardRef(() => EventsModule),
     UsersModule,
     TodosModule,
-    OrgModule,
+    // org→flows→ai→events→org 间接环：Org 侧需 forwardRef
+    forwardRef(() => OrgModule),
+    CrmModule,
     QueueModule,
     StorageModule,
     FeatureFlagsModule,
@@ -115,6 +124,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         featureFlagsService: FeatureFlagsService,
         toolEffectsService: AiToolEffectsService,
         governancePolicy: GovernancePolicyService,
+        crmService: CrmService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -194,6 +204,12 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new WebSearchTool(configService));
         // AI-12.1 图像生成（默认 provider 支持 images 端点时生效）
         toolRegistry.register(new GenerateImageTool(factory, defaultProvider));
+        // AI CRM 旗舰应用：客户/订单/跟进/风险/创建跟进任务
+        toolRegistry.register(new QueryCustomersTool(crmService));
+        toolRegistry.register(new QueryCustomerOrdersTool(crmService));
+        toolRegistry.register(new QueryCustomerActivitiesTool(crmService));
+        toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
+        toolRegistry.register(new CreateFollowupTaskTool(crmService));
 
         // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
         const ragAgent = new RagAgent(knowledgeService);
@@ -231,7 +247,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
