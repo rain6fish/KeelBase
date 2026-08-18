@@ -1,0 +1,10 @@
+{
+  "module": "todos",
+  "label": "待办",
+  "fields": [
+    { "name": "title", "type": "string", "label": "标题", "required": true },
+    { "name": "dueDate", "type": "string", "label": "截止日期" },
+    { "name": "priority", "type": "enum", "label": "优先级", "enum": ["low", "medium", "high"] },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["pending", "done"] }
+  ]
+}
