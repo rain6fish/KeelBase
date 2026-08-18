@@ -60,6 +60,36 @@
 | 字幕 | 叠加 5-8 字说明（如「AI 分析风险」「写操作需确认」）|
 | 目标 | GIF < 3MB（README 内嵌）；或 mp4 首帧图 + 链接 |
 
+## Phase 1 旗舰验证清单（可勾选）
+
+> 跑三旗舰 Golden Demo 时按此清单核对（development-plan §7.1 Phase 1），每项勾选确认。
+> 配合 [30min-acceptance.md](30min-acceptance.md) 与 `scripts/verify-private-ai.sh`（Private AI Golden Path）。
+
+### 场景 1：AI CRM「哪些客户本周值得跟进？」
+
+- [ ] AI 调用读工具（`query_customers` → `query_customer_orders` → `analyze_customer_risk`），工具卡显示「读」徽标
+- [ ] 工具调用按 userId 限定数据范围（只查本人客户/订单）
+- [ ] 写操作（`create_followup_task`）触发人工确认，确认后才执行
+- [ ] 管理台「AI 审计」可见本次工具调用记录（谁 / 什么工具 / 结果）
+- [ ] 副作用可撤销：创建的任务可撤销（软删 + 回收站恢复）
+- [ ] 数据真实：seed 客户 / 逾期订单存在，AI 回答基于真实数据（非编造）
+
+### 场景 2：AI Project「判断项目延期风险」
+
+- [ ] `query_projects` → `query_project_tasks` → `analyze_project_risk` 调用链
+- [ ] 风险分级（中 / 高）基于真实逾期任务 / 延期里程碑 / 未解决风险
+- [ ] 写工具（`create_project_task`）确认 + 可撤销
+- [ ] 结果可解释：AI 给出逾期任务 / 里程碑清单作为理由
+
+### 场景 3：AI Approval「预审 + 人工复核」
+
+- [ ] `query_approval_policies` → `query_approval_requests` → `review_approval_request` 调用链
+- [ ] 低风险（≤ 阈值）自动通过 / 高风险转 `needs_review`
+- [ ] 人工复核 `decide` 通过 / 驳回生效
+- [ ] 全程审计哈希链完整（HS-11，`GET /audit/verify`）
+
+> **通过标准**：三场景全部勾选 = 旗舰验证通过（Capability Validated）；任一不通过 → 记录差距进下迭代（development-plan §7.1 平台冻结原则：只修 bug 不加功能）。
+
 ## 相关
 
 - 单容器一键跑：`./scripts/docker-single.sh`（[quickstart.md](quickstart.md)）
