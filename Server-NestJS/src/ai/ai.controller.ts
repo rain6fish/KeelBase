@@ -267,4 +267,19 @@ export class AiController {
     if (!result) throw new NotFoundException('副作用记录不存在');
     return result;
   }
+
+  /**
+   * P0-15 用户侧撤销：本人撤销自己的 AI 副作用（软删可经 RG-3 回收站恢复）。
+   * 所有权校验在 service（effect.userId === 当前用户），非本人/不存在 → 404。
+   */
+  @Delete('my/tool-effects/:id')
+  @ApiOperation({ summary: '撤销本人 AI 创建的记录（本人，软删可恢复，P0-15）' })
+  async revokeMyToolEffect(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const result = await this.toolEffectsService.revokeOwned(id, String(user.sub));
+    if (!result) throw new NotFoundException('副作用记录不存在');
+    return result;
+  }
 }

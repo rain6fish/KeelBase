@@ -622,6 +622,9 @@ class AppLocalizations {
   String get traceDeclined => _t('Declined', '已拒绝');
   String get traceTimedOut => _t('Timed out', '已超时');
   String get traceTrusted => _t('Trusted this session', '本会话免确认');
+  String get traceRevoke => _t('Revoke', '撤销');
+  String get traceRevoked => _t('Revoked, restorable from trash', '已撤销，可经回收站恢复');
+  String get traceRevokeFailed => _t('Revoke failed', '撤销失败');
   String get aiConfirmArgTitle => _t('Title', '标题');
   String get aiConfirmArgStart => _t('Start', '开始');
   String get aiConfirmArgEnd => _t('End', '结束');

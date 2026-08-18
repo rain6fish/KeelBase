@@ -114,6 +114,8 @@ const en: ZhDict = {
   stepDeclined: 'Declined',
   stepTimedOut: 'Timed out',
   stepTrusted: 'Trusted this session',
+  aiTraceRevoked: 'Revoked, restorable from trash',
+  aiTraceRevokeFailed: 'Revoke failed',
   locationCol: 'Location',
   dueDateCol: 'Due date',
   completed: 'Completed',

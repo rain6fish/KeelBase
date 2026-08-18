@@ -9,4 +9,8 @@ export const aiTraceApi = {
   trace(id: string): Promise<TraceResponse> {
     return api.get<TraceResponse>(`/ai/conversations/${id}/trace`)
   },
+  /** P0-15：撤销本人 AI 创建的记录（软删可恢复） */
+  revokeEffect(effectId: number): Promise<{ revoked: boolean; effectId: number }> {
+    return api.delete<{ revoked: boolean; effectId: number }>(`/ai/my/tool-effects/${effectId}`)
+  },
 }

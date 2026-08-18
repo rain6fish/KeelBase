@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { AiController } from './ai.controller';
 import { AiService, ChatResponse } from './ai.service';
 import { ConversationService } from './conversation/conversation.service';
@@ -12,6 +13,7 @@ describe('AiController', () => {
   let mockDeleteConversation: jest.Mock;
   let mockDeleteAllUserConversations: jest.Mock;
   let mockGetConversationTrace: jest.Mock;
+  let mockRevokeOwned: jest.Mock;
   let mockAbility: any;
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -24,6 +26,7 @@ describe('AiController', () => {
     mockDeleteConversation = jest.fn();
     mockDeleteAllUserConversations = jest.fn();
     mockGetConversationTrace = jest.fn();
+    mockRevokeOwned = jest.fn();
     mockAbility = { cannot: () => false };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
     const mockConversationService = {
@@ -37,7 +40,7 @@ describe('AiController', () => {
       create: jest.fn(),
     } as any;
     const mockMemoriesService = { deleteAllForUser: jest.fn() } as any;
-    const mockToolEffectsService = { list: jest.fn(), revoke: jest.fn() } as any;
+    const mockToolEffectsService = { list: jest.fn(), revoke: jest.fn(), revokeOwned: mockRevokeOwned } as any;
     const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
       mockAiService,
@@ -247,6 +250,16 @@ describe('AiController', () => {
 
       expect(mockGetConversationTrace).toHaveBeenCalledWith('conv-1', '1', mockAbility);
       expect(result).toEqual(mockTrace);
+    });
+
+    it('DELETE my/tool-effects/:id 本人撤销（P0-15）→ 委托 revokeOwned + 非本人 404', async () => {
+      mockRevokeOwned.mockResolvedValue({ revoked: true, effectId: 7 });
+      const ok = await controller.revokeMyToolEffect(7, mockUser as any);
+      expect(mockRevokeOwned).toHaveBeenCalledWith(7, '1');
+      expect(ok).toEqual({ revoked: true, effectId: 7 });
+
+      mockRevokeOwned.mockResolvedValue(null);
+      await expect(controller.revokeMyToolEffect(7, mockUser as any)).rejects.toThrow(NotFoundException);
     });
   });
 });
