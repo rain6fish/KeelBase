@@ -257,6 +257,12 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 合同（EASY-2 生成） ---
+  String get contractsTitle => _t('Contract', '合同');
+  String get contractsAddTitle => _t('New Contract', '新增合同');
+  String get contractsEmpty => _t('No Contract yet', '暂无合同');
+  String get contractsDeleteConfirm => _t('Delete this contract?', '删除该合同？');
+
   // --- 供应商（EASY-2 生成） ---
   String get suppliersTitle => _t('Supplier', '供应商');
   String get suppliersAddTitle => _t('New Supplier', '新增供应商');

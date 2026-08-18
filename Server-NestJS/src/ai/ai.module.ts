@@ -12,6 +12,8 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
+import { ContractsModule } from '../contracts/contracts.module';
+import { ContractsService } from '../contracts/contracts.service';
 import { QueueModule } from '../queue/queue.module';
 import { StorageModule } from '../storage/storage.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
@@ -43,6 +45,8 @@ import { QueryEventsByKeywordTool } from './tools/query-events-by-keyword.tool';
 import { NavigatePageTool } from './tools/navigate-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { QueryContractsTool } from './tools/query-contracts.tool';
+import { CreateContractTool } from './tools/create-contract.tool';
 import { WebSearchTool } from './tools/web-search.tool';
 import { GenerateImageTool } from './tools/generate-image.tool';
 import { MemoriesService } from './memory/memory.service';
@@ -95,6 +99,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     forwardRef(() => EventsModule),
     UsersModule,
     TodosModule,
+    ContractsModule,
     // org→flows→ai→events→org 间接环：Org 侧需 forwardRef
     forwardRef(() => OrgModule),
     CrmModule,
@@ -131,6 +136,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
+        contractsService: ContractsService,
         memoryService: MemoriesService,
         confirmationStore: ConfirmationStore,
         settingsService: SettingsService,
@@ -216,6 +222,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new NavigatePageTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // 合同（EASY-2 自动生成 AI 工具：读 + 写需确认）
+        toolRegistry.register(new QueryContractsTool(contractsService));
+        toolRegistry.register(new CreateContractTool(contractsService));
         // AI-14 联网搜索（TAVILY_API_KEY 配置后启用，未配置降级）
         toolRegistry.register(new WebSearchTool(configService));
         // AI-12.1 图像生成（默认 provider 支持 images 端点时生效）
@@ -273,7 +282,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
