@@ -6,6 +6,7 @@ import { PUSH_SERVICE } from './push.service';
 import { NoopPushService } from './noop-push.service';
 import { JPushService } from './jpush.service';
 import { PushToken } from './push-token.entity';
+import { User } from '../common/entities/user.entity';
 
 describe('PushModule', () => {
   function mockConfig(driver: string, jpushAppKey = 'k', jpushSecret = 's') {
@@ -28,6 +29,8 @@ describe('PushModule', () => {
       .overrideProvider(ConfigService)
       .useValue(config)
       .overrideProvider(getRepositoryToken(PushToken))
+      .useValue({})
+      .overrideProvider(getRepositoryToken(User))
       .useValue({})
       .compile();
     return testingModule;
