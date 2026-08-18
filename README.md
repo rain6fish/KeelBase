@@ -263,6 +263,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/operations.md`](docs/manual/operations.md) | Ops | Operations manual — deploy, env vars, migration, observability |
 | [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | Ops | One-click cloud server deployment (on-prem) |
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | Intranet / offline deployment |
+| [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | Ops | Private AI verification — data-stays-on-prem closed loop (Ollama / local embedding / RAG / audit) |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
 | [`docs/enterprise-capabilities.md`](docs/enterprise-capabilities.md) | Enterprise buyers | Enterprise capability statement — capability + evidence + compliance path |
