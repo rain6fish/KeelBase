@@ -77,12 +77,12 @@ UI 框架全部位于 Core 之下、作为实现层。一个新渲染器的接�
 
 | 前端 | 框架 | 定位 | 状态 |
 |---|---|---|---|
-| **Web-Admin-Vue** | Vue 3 + **Element Plus**（自 Vuetify 迁移中） | **国内市场主前端**（企业 Web 工作台 + 管理控制台同一壳） | 迁移中（见 `docs/frontend-migration.md` 或迁移计划） |
-| **Web-Admin-React** | React 19 + MUI | **国际市场路径** | 预览版 0.1.0；正式化以真实国际用户需求为准 |
+| **Web-Admin-Vue** | Vue 3 + **Element Plus**（自 Vuetify 迁移，2026-08 完成） | 企业 Web 工作台 + 管理控制台同一壳 | 主版本 |
+| **Web-Admin-React** | React 19 + MUI | 备选前端（React 技术方案预览） | 预览版 0.1.0；正式化以真实用户需求为准 |
 | **Front-Flutter** | Flutter | 移动主 App（iOS/Android）；Web 预览形态 | 主版本 |
 | **Front-Taro** | Taro Vue3 | H5 / 小程序 | 渠道版 |
 
-> 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护 Vue 与 React 双 admin 的长期同步；Element Plus 是国内企业应用主流 UI 库的官方渲染器/适配器。
+> 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护 Vue 与 React 双 admin 的长期同步；Element Plus 是企业应用主流 UI 库的官方渲染器/适配器。
 
 ## 5. 验收红线
 

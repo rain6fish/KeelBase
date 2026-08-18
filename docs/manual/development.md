@@ -21,7 +21,7 @@ Web-Admin-Vue (Vue3 管理台)      ──┘                                  R
 |-----------|-------------|--------------|
 | Frontend / 前端 | Flutter 3.x + Provider + Dio + GoRouter | Material 3，三端 |
 | Frontend (Taro) / Taro 前端 | Taro 3.6 + React + zustand | 主 App H5/小程序端 |
-| Admin Console / 管理台 | Vue3 + Vuetify3 + Pinia (独立构建) | 与主 App 完全隔离 |
+| Admin Console / 管理台 | Vue3 + Element Plus + Pinia（Web 端宿主：工作台 + 控制台同一壳） | 与移动主 App 代码/构建/部署分离 |
 | Backend / 后端 | NestJS 11 + TypeScript + TypeORM | 模块化 + 装饰器 |
 | DB / 数据库 | SQLite (dev) / PostgreSQL (prod) | |
 | Cache & Queue / 缓存与队列 | Redis 7 + CacheManager + BullMQ | Phase 3 |
