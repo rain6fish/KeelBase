@@ -33,9 +33,9 @@ async function exists(p) {
   }
 }
 
-/** 从插件源文件提取 `export const <NAME>_PLUGIN: PluginManifest` 的 manifest 名。 */
+/** 从插件源文件提取 `export const <NAME>_PLUGIN(: PluginManifest)? = {` 的 manifest 名。 */
 function extractManifestName(source) {
-  const m = source.match(/export const (\w+):\s*PluginManifest/);
+  const m = source.match(/export const (\w+)(?::\s*PluginManifest)?\s*=/);
   return m ? m[1] : null;
 }
 
@@ -43,7 +43,7 @@ function extractManifestName(source) {
 
 /** 提取 manifest 对象字面量（`= { ... };` 花括号匹配），返回对象文本。 */
 export function extractManifestObject(source) {
-  const m = source.match(/export const \w+:\s*PluginManifest\s*=\s*\{/);
+  const m = source.match(/export const \w+(?::\s*PluginManifest)?\s*=\s*\{/);
   if (!m) return null;
   let depth = 0;
   let start = m.index + m[0].length - 1; // 指向 '{'
@@ -55,6 +55,17 @@ export function extractManifestObject(source) {
     }
   }
   return null;
+}
+
+/**
+ * 自包含检查：插件是否引用了宿主树相对路径（如 `../plugin.interface`）。
+ * 宿主内插件合法（随宿主编译）；作者化插件应自包含（不依赖宿主树），否则不可移植。
+ * 返回宿主相对 import 的模块名数组（空 = 自包含）。
+ */
+export function findHostRelativeImports(source) {
+  return [...source.matchAll(/(?:import|export)\s+(?:[\w{},\s*]*?\s+from\s+)?['"](\.\.?\/[^'"]+)['"]/g)].map(
+    (m) => m[1],
+  );
 }
 
 /** 解析 manifest 对象文本 → 结构化 manifest（正则取顶层键，够用即可）。 */
@@ -168,6 +179,13 @@ async function verifyPlugin(sourcePath) {
     for (const p of problems) console.error(`  - ${p}`);
     process.exit(1);
   }
+  // 自包含/可移植性提示：宿主相对导入合法但不可移植（作者化插件应自包含）
+  const hostImports = findHostRelativeImports(source);
+  if (hostImports.length) {
+    console.log(`${C.yellow}⚠ 含宿主树相对导入（${hostImports.join(', ')}）：宿主内可编译，但不可移植。${C.reset}`);
+    console.log(`  作者化插件建议自包含：不 import 宿主相对路径；manifest 的 PluginManifest 注解可省略（verify 仅做结构校验）`);
+  }
+
   console.log(`${C.green}✓ 插件 ${manifestName}（${manifest.version || '?'}）校验通过${C.reset}`);
   console.log(`  描述：${manifest.description || ''}`);
   if (manifest.requires?.length) console.log(`  依赖宿主服务：${manifest.requires.join(', ')}`);
@@ -203,7 +221,11 @@ async function addPlugin(sourcePath) {
   if (!(await exists(sourcePath))) fail(`源文件不存在：${sourcePath}`);
   const source = await readFile(sourcePath, 'utf8');
   const manifestName = extractManifestName(source);
-  if (!manifestName) fail('未找到 `export const <NAME>_PLUGIN: PluginManifest`（请按约定导出插件 manifest）');
+  if (!manifestName) fail('未找到 `export const <NAME>_PLUGIN(= {...})`（请按约定导出插件 manifest）');
+  // add 接线进宿主编译，需确保是 manifest 对象（含 name），而非任意 export const
+  const objectText = extractManifestObject(source);
+  const parsed = objectText ? parseManifest(objectText) : { name: null };
+  if (!parsed.name) fail('manifest 对象缺少 name 字段（`export const X_PLUGIN = { name: "...", ... }`）');
 
   const targetFile = `${PLUGINS_DIR}/${basename(sourcePath)}`;
   if ((await exists(targetFile)) && targetFile !== sourcePath) {

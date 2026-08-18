@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { validateManifest, parseManifest, extractManifestObject } from './keelbase-plugin.mjs';
+import { validateManifest, parseManifest, extractManifestObject, findHostRelativeImports } from './keelbase-plugin.mjs';
 
 const PLUGIN_CLI = fileURLToPath(new URL('./keelbase-plugin.mjs', import.meta.url));
 
@@ -52,11 +52,15 @@ test('plugin add：复制源文件 + 接线 import 与 PLUGINS 数组', async ()
   assert.match(copied, /NOTIFY_PLUGIN/);
 });
 
-test('plugin add：源文件无约定导出 → 报错', async () => {
+test('plugin add：导出不是 manifest 对象（无 name）→ 报错', async () => {
   const root = await tempRepo();
   const badPath = `${root}/bad.plugin.ts`;
   await writeFile(badPath, `export const X = 1;\n`);
-  await assert.rejects(() => run(['add', badPath], root), /PluginManifest/);
+  await assert.rejects(() => run(['add', badPath], root), /manifest 对象缺少 name 字段/);
+
+  const noNamePath = `${root}/noname.plugin.ts`;
+  await writeFile(noNamePath, `export const Y = { version: '1.0.0' };\n`);
+  await assert.rejects(() => run(['add', noNamePath], root), /缺少 name/);
 });
 
 test('plugin remove：从数组与 import 移除；list 列出', async () => {
@@ -113,4 +117,19 @@ test('verify CLI：解析 manifest 对象 + 通过/失败路径', async () => {
   const badPath = `${root}/bad.plugin.ts`;
   await writeFile(badPath, `export const BAD_PLUGIN: PluginManifest = { name: 'Bad', version: 'x' };\n`);
   await assert.rejects(() => run(['verify', badPath], root), /校验未通过/);
+});
+
+test('verify 增强：自包含插件（无 PluginManifest 注解）通过且无宿主导入警告', async () => {
+  const root = await tempRepo();
+  const selfPath = `${root}/self.plugin.ts`;
+  await writeFile(selfPath, `export const SELF_PLUGIN = { name: 'self-plugin', version: '0.1.0', description: '自包含' };\n`);
+  const out = await run(['verify', selfPath], root);
+  assert.match(out, /校验通过/);
+  assert.doesNotMatch(out, /宿主树相对导入/);
+});
+
+test('verify 增强：宿主相对导入被识别为可移植性警告', () => {
+  const src = `import { PluginManifest } from '../plugin.interface';\nexport const X = {};\n`;
+  assert.deepEqual(findHostRelativeImports(src), ['../plugin.interface']);
+  assert.deepEqual(findHostRelativeImports(`export const Y = { name: 'y' };\n`), []);
 });
