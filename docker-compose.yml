@@ -19,7 +19,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    # 同 postgres：不暴露宿主机端口
+    # loopback-only 暴露：仅本机 localhost:6379（本地宿主开发 server/e2e 需连 Redis）。
+    # 容器内 server 仍走内部网络 redis://redis:6379；生产不绑 0.0.0.0，避免外网暴露。
+    ports:
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
