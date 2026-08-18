@@ -1,26 +1,33 @@
 <template>
-  <v-card>
-    <!-- 普通 v-data-table：items 直接渲染（分页由父组件 AppPagination 控制，无需 server 模式） -->
-    <v-data-table
-      :headers="headers"
-      :items="items"
-      :loading="loading"
-      item-value="id"
-      hover
-      hide-default-footer
+  <el-card shadow="never" class="app-table">
+    <el-table
+      :data="items"
+      v-loading="loading"
+      :row-key="'id'"
+      style="width: 100%"
     >
-      <template #no-data>
+      <el-table-column
+        v-for="col in headers"
+        :key="col.key"
+        :prop="col.key"
+        :label="col.title"
+        :sortable="col.sortable"
+        :width="typeof col.width === 'number' ? col.width : undefined"
+        :min-width="col.width === undefined ? 120 : undefined"
+      >
+        <!-- 父组件提供了 #item.X 插槽 → 渲染插槽；否则 el-table 自动渲染原始值 -->
+        <template v-if="columnSlots.includes(col.key)" #default="scope">
+          <slot :name="`item.${col.key}`" :item="scope.row" :value="scope.row[col.key]" />
+        </template>
+      </el-table-column>
+      <template #empty>
         <div class="pa-4 text-medium-emphasis">{{ emptyText || t('loading') }}</div>
       </template>
-      <!-- 父组件提供的 #item.xxx 插槽 → 转发原始行数据（普通 v-data-table 的 item 插槽直接给行对象） -->
-      <template v-for="col in columnSlots" :key="col" #[`item.${col}`]="props">
-        <slot :name="`item.${col}`" :item="props.item" />
-      </template>
-      <template #bottom>
-        <slot name="pagination" />
-      </template>
-    </v-data-table>
-  </v-card>
+    </el-table>
+    <div v-if="hasPaginationSlot" class="px-3">
+      <slot name="pagination" />
+    </div>
+  </el-card>
 </template>
 
 <script setup lang="ts">
@@ -30,7 +37,6 @@ import { useI18n } from 'vue-i18n'
 withDefaults(
   defineProps<{
     headers: { key: string; title: string; sortable?: boolean; width?: string | number }[]
-    // Vuetify v-data-table 的 items 透传，其内部即 any，父组件插槽按具体类型解构
     items: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
     loading?: boolean
     total?: number
@@ -43,10 +49,11 @@ withDefaults(
 const { t } = useI18n()
 const slots = useSlots()
 
-// 父组件写 #item.columnName → 出现在 slots 里，取列名（去掉 item. 前缀）转发给内层 v-data-table-server
+// 父组件写 #item.columnName → 出现在 slots 里，取列名（去掉 item. 前缀）
 const columnSlots = computed(() =>
   Object.keys(slots)
     .filter((k) => k.startsWith('item.') && !k.includes(' '))
     .map((k) => k.slice('item.'.length)),
 )
+const hasPaginationSlot = computed(() => Boolean(slots.pagination))
 </script>

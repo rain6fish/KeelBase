@@ -1,79 +1,85 @@
 <template>
-  <v-layout class="rounded rounded-md">
-    <v-navigation-drawer v-model="ui.drawer" :rail="rail" permanent @click="onDrawerClick">
-      <template #prepend>
-        <v-list-item
-          :title="t('appName')"
-          subtitle="KeelBase"
-          prepend-icon="mdi-keel"
-          class="brand-item"
-        />
-      </template>
+  <el-container class="admin-shell">
+    <el-aside :width="rail ? '64px' : '240px'" class="admin-aside">
+      <div class="brand-item px-3">
+        <div class="d-flex align-center ga-2">
+          <AppIcon icon="mdi-keel" size="26" color="var(--el-color-primary)" />
+          <span v-if="!rail" class="text-h6 font-weight-bold">{{ t('appName') }}</span>
+        </div>
+      </div>
 
-      <v-list v-if="auth.isAdmin" density="comfortable" nav>
-        <v-list-item
-          :prepend-icon="'mdi-view-dashboard-outline'"
-          :title="t('overview')"
-          :active="route.path === '/'"
-          @click="go('/')"
-        />
-      </v-list>
+      <div class="admin-nav">
+        <el-menu
+          :default-active="activeMenu"
+          :collapse="rail"
+          :collapse-transition="false"
+          class="el-menu-nav"
+        >
+          <el-menu-item v-if="auth.isAdmin" index="/" @click="go('/')">
+            <AppIcon icon="mdi-view-dashboard-outline" />
+            <template #title>{{ t('overview') }}</template>
+          </el-menu-item>
 
-      <template v-for="group in navGroups" :key="group.label">
-        <div class="nav-group-label">{{ group.label }}</div>
-        <v-list density="comfortable" nav>
-          <v-list-item
-            v-for="item in group.items"
-            :key="item.to"
-            :prepend-icon="item.icon"
-            :title="item.label"
-            :active="isActive(item.name)"
-            @click="go(item.to)"
-          />
-        </v-list>
-      </template>
+          <template v-for="group in navGroups" :key="group.label">
+            <div v-if="!rail" class="nav-group-label">{{ group.label }}</div>
+            <el-menu-item
+              v-for="item in group.items"
+              :key="item.to"
+              :index="item.to"
+              @click="go(item.to)"
+            >
+              <AppIcon :icon="item.icon" />
+              <template #title>{{ item.label }}</template>
+            </el-menu-item>
+          </template>
+        </el-menu>
+      </div>
 
-      <template #append>
-        <div class="px-2 py-3">
-          <v-divider class="mb-2" />
-          <v-list-item
-            :title="auth.user?.username || '-'"
-            :subtitle="auth.user?.role || ''"
-            prepend-icon="mdi-account-circle"
-          />
-          <div class="d-flex justify-space-between align-center px-2">
-            <LangToggle />
-            <ThemeToggle />
-            <v-btn icon="mdi-logout" variant="text" size="small" :title="t('logout')" @click="onLogout" />
+      <div class="admin-aside-append pa-3">
+        <div class="d-flex align-center ga-2 mb-2">
+          <AppIcon icon="mdi-account-circle" size="22" />
+          <div v-if="!rail">
+            <div class="text-body-2">{{ auth.user?.username || '-' }}</div>
+            <div class="text-caption text-medium-emphasis">{{ auth.user?.role || '' }}</div>
           </div>
         </div>
-      </template>
-    </v-navigation-drawer>
+        <div class="d-flex justify-space-between align-center">
+          <LangToggle />
+          <ThemeToggle />
+          <el-button circle size="small" :title="t('logout')" @click="onLogout">
+            <AppIcon icon="mdi-logout" />
+          </el-button>
+        </div>
+      </div>
+    </el-aside>
 
-    <v-main class="admin-main">
-      <v-app-bar elevation="0" border="b" class="admin-topbar">
-        <v-app-bar-nav-icon variant="text" @click.stop="toggleRail" />
-        <v-breadcrumbs :items="breadcrumbs" class="flex-grow-0" />
-        <v-spacer />
+    <el-container class="admin-main">
+      <el-header class="admin-topbar d-flex align-center ga-3">
+        <el-button circle @click="toggleRail">
+          <AppIcon :icon="rail ? 'mdi-menu-open' : 'mdi-menu'" />
+        </el-button>
+        <el-breadcrumb separator="/" class="flex-grow-1">
+          <el-breadcrumb-item v-for="b in breadcrumbs" :key="b.title">{{ b.title }}</el-breadcrumb-item>
+        </el-breadcrumb>
         <ThemeToggle />
         <LangToggle />
-        <v-btn variant="tonal" prepend-icon="mdi-logout" :title="t('logout')" @click="onLogout">
+        <el-button type="primary" plain @click="onLogout">
+          <template #icon><AppIcon icon="mdi-logout" /></template>
           {{ t('logout') }}
-        </v-btn>
-      </v-app-bar>
+        </el-button>
+      </el-header>
 
-      <v-container fluid class="v-content-pad">
+      <el-main class="v-content-pad">
         <router-view />
-      </v-container>
-    </v-main>
-  </v-layout>
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -82,7 +88,6 @@ import LangToggle from '@/components/LangToggle.vue'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const ui = useUiStore()
 const auth = useAuthStore()
 // MOD-4：按 capabilities 隐藏未启用业务模块的导航入口
 const caps = useCapabilitiesStore()
@@ -92,24 +97,17 @@ const rail = ref(false)
 function toggleRail() {
   rail.value = !rail.value
 }
-// rail 折叠时点击任意区域展开
-function onDrawerClick() {
-  if (rail.value) rail.value = false
-}
 
 function go(path: string) {
   router.push(path)
-}
-
-function isActive(name: string): boolean {
-  // 详情页归其父导航激活（users/:id → 用户管理高亮）
-  return route.name === name || (name === 'users' && route.name === 'user-detail')
 }
 
 async function onLogout() {
   await auth.logout()
   router.replace('/login')
 }
+
+const activeMenu = computed(() => route.path)
 
 const breadcrumbs = computed(() => {
   const metaTitle = route.meta?.title as string | undefined
@@ -188,10 +186,41 @@ const navGroups = computed(() => (auth.isAdmin ? consoleNavGroups.value : worksp
 </script>
 
 <style scoped>
-.admin-main {
-  background-color: rgb(var(--v-theme-background));
+.admin-shell {
+  height: 100vh;
+}
+.admin-aside {
+  display: flex;
+  flex-direction: column;
+  background: var(--el-bg-color);
+  border-right: 1px solid var(--el-border-color-light);
+  transition: width 0.2s;
+  overflow: hidden;
 }
 .brand-item {
-  min-height: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+}
+.admin-nav {
+  flex: 1;
+  overflow-y: auto;
+}
+.el-menu-nav {
+  border-right: none;
+  width: 100%;
+}
+.nav-group-label {
+  padding: 8px 16px 4px;
+}
+.admin-aside-append {
+  border-top: 1px solid var(--el-border-color-light);
+}
+.admin-main {
+  min-width: 0;
+}
+.admin-topbar {
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
 }
 </style>
