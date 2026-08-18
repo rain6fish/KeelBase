@@ -106,6 +106,7 @@ export class NotificationsService {
   ): Promise<void> {
     try {
       const queued = this.configService.get<boolean>('QUEUE_ENABLED', true);
+      console.error('[DIAG] _pushToDevices queued=', queued, 'hasQueue=', !!this.pushQueue, Date.now());
       if (queued && this.pushQueue) {
         await this.pushQueue.add('send', { userId, title, body, type, link, targetType, targetId }, { removeOnComplete: true });
         return;
