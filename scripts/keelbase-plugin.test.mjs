@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { validateManifest, parseManifest, extractManifestObject } from './keelbase-plugin.mjs';
 
 const PLUGIN_CLI = fileURLToPath(new URL('./keelbase-plugin.mjs', import.meta.url));
 
@@ -69,4 +70,47 @@ test('plugin remove：从数组与 import 移除；list 列出', async () => {
   assert.match(module, /const PLUGINS = \[\];/);
 
   await assert.rejects(() => run(['remove', 'HELLO_PLUGIN'], root), /未接线/);
+});
+
+// ── verify（宿主外校验，Phase 2 生态）────────────────────────────────────────
+test('verify 纯函数：结构校验（name/version/description 约定）', () => {
+  const good = validateManifest({ name: 'notify-plugin', version: '1.0.0', description: '通知', requires: [], capabilities: ['x'] });
+  assert.deepEqual(good, []);
+
+  const bad = validateManifest({ name: 'Bad Plugin', version: '1.0', description: '' });
+  assert.ok(bad.some((p) => /name 非法/.test(p)));
+  assert.ok(bad.some((p) => /version 非法/.test(p)));
+  assert.ok(bad.some((p) => /description 缺失/.test(p)));
+});
+
+test('verify 纯函数：宿主一致性（requires/featureFlag 对照）', () => {
+  const ctx = { knownServices: new Set(['UsersService', 'EventsService']), featureFlags: new Set(['ai', 'crm']) };
+  const good = validateManifest(
+    { name: 'x-plugin', version: '1.0.0', description: 'x', requires: ['UsersService'], featureFlag: 'ai' },
+    ctx,
+  );
+  assert.deepEqual(good, []);
+
+  const bad = validateManifest(
+    { name: 'x-plugin', version: '1.0.0', description: 'x', requires: ['NoSuchService'], featureFlag: 'bogus' },
+    ctx,
+  );
+  assert.ok(bad.some((p) => /未知宿主服务.*NoSuchService/.test(p)));
+  assert.ok(bad.some((p) => /featureFlag 未知.*bogus/.test(p)));
+});
+
+test('verify CLI：解析 manifest 对象 + 通过/失败路径', async () => {
+  const root = await tempRepo();
+  const goodPath = `${root}/good.plugin.ts`;
+  await writeFile(goodPath, `export const GOOD_PLUGIN: PluginManifest = { name: 'good-plugin', version: '1.2.3', description: '一个测试插件' };\n`);
+  const goodOut = await run(['verify', goodPath], root);
+  assert.match(goodOut, /校验通过/);
+  assert.match(goodOut, /GOOD_PLUGIN/);
+  assert.match(goodOut, /1\.2\.3/);
+  // 宿主缺失时提示，但结构合法即通过（宿主外校验的核心价值）
+  assert.match(goodOut, /未检测到宿主/);
+
+  const badPath = `${root}/bad.plugin.ts`;
+  await writeFile(badPath, `export const BAD_PLUGIN: PluginManifest = { name: 'Bad', version: 'x' };\n`);
+  await assert.rejects(() => run(['verify', badPath], root), /校验未通过/);
 });

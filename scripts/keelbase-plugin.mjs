@@ -11,8 +11,9 @@
  * 插件源文件约定：导出 `export const <NAME>_PLUGIN: PluginManifest = {...}`。
  * 零依赖（node:fs），复用 wire.mjs 的插入/幂等模式。
  */
-import { readFile, writeFile, copyFile, mkdir, access } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { readFile, writeFile, copyFile, mkdir, access, readdir } from 'node:fs/promises';
+import { basename, dirname, join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const C = { reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m' };
 const PLUGINS_DIR = 'Server-NestJS/src/plugins/plugins';
@@ -36,6 +37,143 @@ async function exists(p) {
 function extractManifestName(source) {
   const m = source.match(/export const (\w+):\s*PluginManifest/);
   return m ? m[1] : null;
+}
+
+// ── verify（宿主外校验）：纯函数，便于第三方在安装前校验插件 ────────────────
+
+/** 提取 manifest 对象字面量（`= { ... };` 花括号匹配），返回对象文本。 */
+export function extractManifestObject(source) {
+  const m = source.match(/export const \w+:\s*PluginManifest\s*=\s*\{/);
+  if (!m) return null;
+  let depth = 0;
+  let start = m.index + m[0].length - 1; // 指向 '{'
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') {
+      depth--;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/** 解析 manifest 对象文本 → 结构化 manifest（正则取顶层键，够用即可）。 */
+export function parseManifest(objectText) {
+  const str = (key) => {
+    const m = objectText.match(new RegExp(`\\b${key}\\s*:\\s*['"]([^'"]*)['"]`));
+    return m ? m[1] : null;
+  };
+  const arr = (key) => {
+    const m = objectText.match(new RegExp(`\\b${key}\\s*:\\s*\\[([^\\]]*)\\]`));
+    if (!m) return null;
+    return [...m[1].matchAll(/['"]([^'"]*)['"]/g)].map((x) => x[1]);
+  };
+  return {
+    name: str('name'),
+    version: str('version'),
+    description: str('description'),
+    featureFlag: str('featureFlag'),
+    requires: arr('requires'),
+    capabilities: arr('capabilities'),
+  };
+}
+
+/**
+ * 校验 manifest（纯函数）。ctx = { knownServices?: Set, featureFlags?: Set }。
+ * 返回问题数组（空 = 通过）。宿主一致性仅在提供 knownServices/featureFlags 时校验。
+ */
+export function validateManifest(manifest, ctx = {}) {
+  const problems = [];
+  if (!manifest.name) problems.push('name 缺失（kebab-case 字符串，如 notify-plugin）');
+  else if (!/^[a-z][a-z0-9-]{0,31}$/.test(manifest.name)) {
+    problems.push(`name 非法：${manifest.name}（需小写 kebab-case，字母/数字/连字符）`);
+  }
+  if (!manifest.version) problems.push('version 缺失（semver 如 1.0.0）');
+  else if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) {
+    problems.push(`version 非法：${manifest.version}（需 x.y.z，如 1.0.0）`);
+  }
+  if (!manifest.description) problems.push('description 缺失（一句话说明插件做什么）');
+
+  if (ctx.knownServices && manifest.requires) {
+    for (const r of manifest.requires) {
+      if (!ctx.knownServices.has(r)) {
+        problems.push(`requires 引用未知宿主服务：${r}（宿主解析按类名，如 UsersService）`);
+      }
+    }
+  }
+  if (ctx.featureFlags && manifest.featureFlag && !ctx.featureFlags.has(manifest.featureFlag)) {
+    problems.push(`featureFlag 未知：${manifest.featureFlag}`);
+  }
+  if (manifest.capabilities && manifest.capabilities.some((c) => !c || !c.trim())) {
+    problems.push('capabilities 需为非空字符串数组');
+  }
+  return problems;
+}
+
+/** 扫描 Server-NestJS/src 的宿主服务类名（serviceResolver 按类名解析）。 */
+export async function knownHostServices() {
+  const names = new Set();
+  const srcDir = 'Server-NestJS/src';
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name === 'node_modules') continue;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) await walk(p);
+      else if (/\.ts$/.test(e.name) && !/\.spec\.ts$/.test(e.name)) {
+        try {
+          const content = await readFile(p, 'utf8');
+          for (const m of content.matchAll(/\bclass\s+(\w+Service)\b/g)) names.add(m[1]);
+        } catch { /* 跳过 */ }
+      }
+    }
+  }
+  await walk(srcDir);
+  return names;
+}
+
+/** 扫描 FEATURE_KEYS 已知特性键。 */
+export async function knownFeatureFlags() {
+  try {
+    const content = await readFile('Server-NestJS/src/feature-flags/feature-flags.constants.ts', 'utf8');
+    const block = content.match(/FEATURE_KEYS\s*=\s*\{([\s\S]*?)\}\s*as const/);
+    if (!block) return new Set();
+    return new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  } catch {
+    return new Set();
+  }
+}
+
+/** verify：宿主外校验插件源文件。 */
+async function verifyPlugin(sourcePath) {
+  if (!(await exists(sourcePath))) fail(`源文件不存在：${sourcePath}`);
+  const source = await readFile(sourcePath, 'utf8');
+  const manifestName = extractManifestName(source);
+  if (!manifestName) fail('未找到 `export const <NAME>_PLUGIN: PluginManifest`（请按约定导出插件 manifest）');
+  const objectText = extractManifestObject(source);
+  if (!objectText) fail('无法解析 manifest 对象字面量');
+
+  const manifest = parseManifest(objectText);
+  const [services, flags] = await Promise.all([knownHostServices(), knownFeatureFlags()]);
+  const inRepo = services.size > 0;
+  const problems = validateManifest(manifest, inRepo ? { knownServices: services, featureFlags: flags } : {});
+
+  if (problems.length) {
+    console.error(`${C.red}✗ 插件 ${manifestName} 校验未通过（${problems.length} 项）：${C.reset}`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+  console.log(`${C.green}✓ 插件 ${manifestName}（${manifest.version || '?'}）校验通过${C.reset}`);
+  console.log(`  描述：${manifest.description || ''}`);
+  if (manifest.requires?.length) console.log(`  依赖宿主服务：${manifest.requires.join(', ')}`);
+  if (manifest.featureFlag) console.log(`  特性开关：${manifest.featureFlag}`);
+  if (manifest.capabilities?.length) console.log(`  能力：${manifest.capabilities.join(', ')}`);
+  if (!inRepo) console.log(`${C.yellow}⚠ 未检测到宿主（在仓库根目录运行才做 requires/featureFlag 一致性校验）${C.reset}`);
 }
 
 async function readModule() {
@@ -119,25 +257,33 @@ async function listCmd() {
   if (list.length === 0) console.log('  （无）—— 可用 `keelbase-plugin add <source.ts>` 安装');
 }
 
-const cmd = process.argv[2];
-const arg = process.argv[3];
-switch (cmd) {
-  case 'add':
-    if (!arg) fail('用法：keelbase-plugin add <source.ts>');
-    await addPlugin(arg);
-    break;
-  case 'remove':
-    if (!arg) fail('用法：keelbase-plugin remove <manifestName>');
-    await removePlugin(arg);
-    break;
-  case 'list':
-    await listCmd();
-    break;
-  default:
-    console.log(`KeelBase 插件 CLI（P1-7）
+// run-as-main 守卫：作为 CLI 运行时执行；被 import（如单测）时仅暴露纯函数
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const cmd = process.argv[2];
+  const arg = process.argv[3];
+  switch (cmd) {
+    case 'add':
+      if (!arg) fail('用法：keelbase-plugin add <source.ts>');
+      await addPlugin(arg);
+      break;
+    case 'remove':
+      if (!arg) fail('用法：keelbase-plugin remove <manifestName>');
+      await removePlugin(arg);
+      break;
+    case 'list':
+      await listCmd();
+      break;
+    case 'verify':
+      if (!arg) fail('用法：keelbase-plugin verify <source.ts>');
+      await verifyPlugin(arg);
+      break;
+    default:
+      console.log(`KeelBase 插件 CLI（P1-7）
 用法:
-  node scripts/keelbase-plugin.mjs add <source.ts>   # 安装源码级插件（复制 + 接线 PLUGINS）
-  node scripts/keelbase-plugin.mjs remove <name>     # 卸载（移除接线）
-  node scripts/keelbase-plugin.mjs list              # 列出已接线插件
+  node scripts/keelbase-plugin.mjs add <source.ts>      # 安装源码级插件（复制 + 接线 PLUGINS）
+  node scripts/keelbase-plugin.mjs remove <name>        # 卸载（移除接线）
+  node scripts/keelbase-plugin.mjs list                 # 列出已接线插件
+  node scripts/keelbase-plugin.mjs verify <source.ts>   # 宿主外校验插件（约定/结构/依赖一致性）
 插件源文件约定：export const <NAME>_PLUGIN: PluginManifest = {...}`);
+  }
 }
