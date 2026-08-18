@@ -43,7 +43,7 @@ node scripts/keelbase-plugin.mjs add my-crm-integration.ts
 |---|---|---|
 | 模板机制 | ★★★☆ | 模板 = 种子数据（事件/待办/旗舰实体）；**缺「模板 = 代码包」**（安装带后端实体+工具的模板）——Phase 2 最大缺口 |
 | 业务 Skill | ★★★☆ | Skill = 文档规则（AGENTS 消费）；**缺「Skill = 可执行包」**（含自动接线/校验） |
-| 插件 CLI | ★★★ | add/list/remove 通；**缺插件市场/Registry + 依赖版本解析**（P1-7 记录）；**缺宿主外独立 `verify/typecheck` 步骤**——示例源文件经真实安装闭环验证，作者化时需自包含（不能依赖宿主树内 `../plugin.interface` 相对导入），且源文件须位于 CJS 目录（仓库根 `package.json` 为 `"type":"module"`，根 `scripts/` 下的 `.ts` 会被 nodenext 编为 ESM，宿主 CJS 工具链无法消费）|
+| 插件 CLI | ★★★☆ | add/list/remove/verify 通；**`verify` 已补齐（2026-08-18，a9c54d6）**——宿主外独立校验（约定/结构/requires 对照宿主服务类名/featureFlag 对照 FEATURE_KEYS）；剩余**缺插件市场/Registry + 依赖版本解析**（P1-7 记录）+ **ESM/CJS 域**——作者化时源文件须自包含（不能依赖宿主树内 `../plugin.interface` 相对导入），且须位于 CJS 目录（仓库根 `package.json` 为 `"type":"module"`，根 `scripts/` 下的 `.ts` 会被 nodenext 编为 ESM，宿主 CJS 工具链无法消费）|
 | 生成器 | ★★★★ | 协议 → 模块 + AI 工具已通；增量生成（P1-3）待续 |
 
 **结论**：三旗舰的**素材**（模板/Skill/协议）已能从旗舰自然拆分，官方可用四件套组装演示；但「模板/Skill 作为可安装代码包」的抽象未成熟——这是 Phase 2 验证发现的 **Extension API 修补方向**（v1.0 后）。
