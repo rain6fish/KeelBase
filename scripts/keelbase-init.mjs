@@ -26,6 +26,8 @@ import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
 import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize } from './generator/wire.mjs';
 import { extractSpec } from './generator/llm.mjs';
+import { parseOpenApiSpec } from './generator/import-openapi.mjs';
+import { parseSqlDdl } from './generator/import-schema.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m',
@@ -38,6 +40,12 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs --desc "图书管理，有书名、作者、价格"   # LLM 识别（EASY-2.1）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
 
+已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol）：
+  node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
+  node scripts/keelbase-init.mjs --import-openapi swagger.json --module customer           # 转换→直接生成
+  node scripts/keelbase-init.mjs --import-schema schema.sql --table customers --out specs/customer.json
+  node scripts/keelbase-init.mjs --import-schema schema.sql                                # 默认取第一张表
+
 LLM（--desc / 交互中文输入）需要配置环境变量：
   DEEPSEEK_API_KEY=...        # 云端（默认 deepseek-chat）
   OLLAMA_BASE_URL=...         # 本地 Ollama（无需 key）
@@ -45,8 +53,13 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
 选项:
   --module <name>      模块英文名（小写，如 posts / user_profile）
   --label <中文>       模块中文名（1-12 字）
-  --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date（默认 string）
+  --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date/enum（默认 string）
   --desc <描述>        自然语言描述 → LLM 提取模块/标签/字段
+  --import-openapi <file>   从 OpenAPI 3 / Swagger 2 JSON 提取 schema → Protocol
+  --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
+  --schema <name>      OpenAPI 中选定的 schema 名（默认第一个）
+  --table <name>       SQL 中选定的表名（默认第一张）
+  --out <file>         配合 --import-* 只写 Protocol JSON（供 --spec 复用）
   --brand <name>       替换应用品牌名（写 app_constants.dart）
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
@@ -150,6 +163,49 @@ async function main() {
         ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
       }));
     }
+  }
+
+  // P0-12 多输入通道：OpenAPI / SQL DDL → Module Protocol
+  // --out 时只写协议 JSON（供复查/共享/后续 --spec 生成）；否则直接复用字段继续生成
+  const importOpenapi = args['import-openapi'];
+  const importSchema = args['import-schema'];
+  if (importOpenapi || importSchema) {
+    let imported;
+    if (importOpenapi) {
+      let spec;
+      try {
+        spec = JSON.parse(await readFile(importOpenapi, 'utf8'));
+      } catch (err) {
+        fail(`无法读取 OpenAPI 文件 ${importOpenapi}: ${err.message}`);
+      }
+      imported = parseOpenApiSpec(spec, { schema: args.schema, module: args.module, label: args.label });
+    } else {
+      let sql;
+      try {
+        sql = await readFile(importSchema, 'utf8');
+      } catch (err) {
+        fail(`无法读取 SQL 文件 ${importSchema}: ${err.message}`);
+      }
+      imported = parseSqlDdl(sql, { table: args.table, module: args.module, label: args.label });
+    }
+    if (imported.error) fail(imported.error);
+
+    if (args.out) {
+      const proto = { module: imported.module, label: imported.label, fields: imported.fields };
+      try {
+        await writeGenerated(args.out, JSON.stringify(proto, null, 2) + '\n');
+        console.log(`${C.green}✓ 已从 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'} 写出协议 ${args.out}${C.reset}`);
+        console.log(`${C.dim}  下一步：node scripts/keelbase-init.mjs --spec ${args.out}${C.reset}`);
+        return;
+      } catch (err) {
+        fail(`写入 ${args.out} 失败: ${err.message}`);
+      }
+    }
+
+    name = imported.module;
+    label = imported.label;
+    specFields = imported.fields;
+    console.log(`${C.cyan}导入 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'}：模块 ${imported.module} / 标签 ${imported.label} / 字段 ${imported.fields.map((f) => f.name).join(', ')}${C.reset}`);
   }
 
   async function llmExtract(description) {

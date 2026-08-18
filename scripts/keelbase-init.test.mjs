@@ -27,6 +27,8 @@ import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
 import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
+import { parseOpenApiSpec } from './generator/import-openapi.mjs';
+import { parseSqlDdl } from './generator/import-schema.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
 async function tempRoot() {
@@ -569,4 +571,173 @@ test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () =>
   assert.match(createTool, /requiresConfirmation = true/);
   const aiModule = await readFile(BE(root, 'ai/ai.module.ts'), 'utf8');
   assert.match(aiModule, /new CreateSupplierTool\(suppliersService\)/);
+});
+
+// ── P0-12 输入通道：OpenAPI → Protocol ─────────────────────────────────────────
+test('parseOpenApiSpec：OpenAPI 3 类型映射（string/int/bool/date/enum + 保留字段/对象跳过）', () => {
+  const spec = {
+    openapi: '3.0.0',
+    components: { schemas: { Customer: { type: 'object', properties: {
+      id: { type: 'integer' },
+      name: { type: 'string' },
+      status: { type: 'string', enum: ['active', 'inactive', 'archived'] },
+      birthday: { type: 'string', format: 'date' },
+      vip: { type: 'boolean' },
+      score: { type: 'number' },
+      orders: { type: 'array', items: { type: 'object' } },
+      meta: { type: 'object' },
+    } } } },
+  };
+  const r = parseOpenApiSpec(spec);
+  assert.equal(r.module, 'customers');
+  assert.deepEqual(
+    r.fields.map((f) => `${f.name}:${f.type}`),
+    ['name:string', 'status:enum', 'birthday:date', 'vip:bool', 'score:int'],
+  );
+  assert.deepEqual(r.fields.find((f) => f.name === 'status').enum, ['active', 'inactive', 'archived']);
+});
+
+test('parseOpenApiSpec：Swagger 2 definitions + 指定 schema', () => {
+  const spec = { swagger: '2.0', definitions: { Order: { type: 'object', properties: {
+    id: { type: 'integer' },
+    amount: { type: 'number' },
+    createdAt: { type: 'string', format: 'date-time' },
+  } }, Customer: { type: 'object', properties: { name: { type: 'string' } } } } };
+  const r = parseOpenApiSpec(spec, { schema: 'Customer', module: 'clients', label: '客户' });
+  assert.equal(r.module, 'clients');
+  assert.equal(r.label, '客户');
+  assert.deepEqual(r.fields, [{ name: 'name', type: 'string' }]);
+});
+
+test('parseOpenApiSpec：无 schemas / enum 选项不合法时降级 string', () => {
+  assert.match(parseOpenApiSpec({ openapi: '3.0.0' }).error, /未找到可用的 schemas/);
+  const spec = { components: { schemas: { Foo: { properties: { status: { type: 'string', enum: ['Active', 'in progress', 'x'] } } } } } };
+  const r = parseOpenApiSpec(spec);
+  assert.equal(r.fields[0].type, 'string'); // 选项非法 → 降级 string
+});
+
+// ── P0-12 输入通道：SQL DDL → Protocol ────────────────────────────────────────
+test('parseSqlDdl：类型映射（text/int/bool/date/enum）+ 保留列/约束行跳过', () => {
+  const sql = `CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL,
+    bio TEXT,
+    vip BOOLEAN DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+    birthday DATE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME,
+    deleted_at DATETIME,
+    score DECIMAL(10,2),
+    long_note VARCHAR(1000),
+    UNIQUE (email)
+  );`;
+  const r = parseSqlDdl(sql);
+  assert.equal(r.module, 'customers');
+  assert.deepEqual(
+    r.fields.map((f) => `${f.name}:${f.type}`),
+    ['name:string', 'bio:text', 'vip:bool', 'status:enum', 'birthday:date', 'score:int', 'long_note:text'],
+  );
+  assert.deepEqual(r.fields.find((f) => f.name === 'status').enum, ['active', 'inactive', 'archived']);
+});
+
+test('parseSqlDdl：多表选指定表 + 无 CREATE TABLE 报错', () => {
+  const sql = `CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES customers(id),
+    amount NUMERIC(12,2),
+    status TEXT CHECK (status IN ('pending','paid','cancelled')),
+    created_at TIMESTAMP
+  );
+  CREATE TABLE customers (id INTEGER PRIMARY KEY, name VARCHAR(50));`;
+  const r = parseSqlDdl(sql, { table: 'orders' });
+  assert.equal(r.module, 'orders');
+  assert.deepEqual(r.fields.map((f) => f.name), ['customer_id', 'amount', 'status']);
+  assert.match(parseSqlDdl('SELECT 1;').error, /未找到 CREATE TABLE/);
+  assert.match(parseSqlDdl('').error, /空的 SQL/);
+});
+
+// ── P0-12 CLI：--import-* --out 写协议 JSON ───────────────────────────────────
+test('端到端：--import-openapi --out 写出可被 --spec 消费的协议 JSON', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const swaggerPath = `${root}/swagger.json`;
+  await write(swaggerPath, JSON.stringify({ components: { schemas: {
+    Customer: { properties: { name: { type: 'string' }, status: { type: 'string', enum: ['active', 'inactive'] } } },
+  } } }));
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-openapi', swaggerPath, '--module', 'customers', '--out', `${root}/spec.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /写出协议/);
+  const spec = JSON.parse(await readFile(`${root}/spec.json`, 'utf8'));
+  assert.equal(spec.module, 'customers');
+  assert.ok(spec.fields.some((f) => f.name === 'name'));
+  // 产物可被 --spec 消费（字段合法）
+  assert.equal(validateFields(spec.fields), null);
+});
+
+test('端到端：--import-schema --out 写出协议 JSON（enum 透传）', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const sqlPath = `${root}/schema.sql`;
+  await write(sqlPath, `CREATE TABLE suppliers (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    tier VARCHAR(20) CHECK (tier IN ('basic','pro','enterprise'))
+  );`);
+
+  await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-schema', sqlPath, '--table', 'suppliers', '--out', `${root}/supplier.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  const spec = JSON.parse(await readFile(`${root}/supplier.json`, 'utf8'));
+  assert.equal(spec.module, 'suppliers');
+  const tier = spec.fields.find((f) => f.name === 'tier');
+  assert.deepEqual(tier.enum, ['basic', 'pro', 'enterprise']);
+  assert.equal(validateFields(spec.fields), null);
+});
+
+test('端到端：--import-schema 直接生成（无 --out，enum 透传 + AI 工具）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const sqlPath = `${root}/schema.sql`;
+  await write(sqlPath, `CREATE TABLE suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL,
+    tier VARCHAR(20) DEFAULT 'basic' CHECK (tier IN ('basic','pro','enterprise')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );`);
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-schema', sqlPath, '--table', 'suppliers', '--module', 'suppliers', '--label', '供应商'], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /生成业务模块：suppliers/);
+  // enum 从 CHECK IN 透传：entity 默认值 + DTO @IsIn
+  const entity = await readFile(BE(root, 'suppliers/supplier.entity.ts'), 'utf8');
+  assert.match(entity, /default: 'basic'/);
+  const dto = await readFile(BE(root, 'suppliers/dto/create-supplier.dto.ts'), 'utf8');
+  assert.match(dto, /@IsIn\(\['basic', 'pro', 'enterprise'\]\)/);
+  // 自动附 AI 工具（读 + 写需确认）
+  await access(BE(root, 'ai/tools/query-suppliers.tool.ts'));
+  const createTool = await readFile(BE(root, 'ai/tools/create-supplier.tool.ts'), 'utf8');
+  assert.match(createTool, /requiresConfirmation = true/);
 });
