@@ -156,6 +156,7 @@ export async function createTestApp(): Promise<INestApplication> {
   // 测试环境禁用异步队列：无 Redis 时 BullMQ pushQueue.add 会阻塞重试导致 e2e 挂起（CI 上曾 >60s 超时），
   // 走同步降级路径（_doPush），与 queue.module「测试避免连 Redis 挂起」的设计一致。
   process.env.QUEUE_ENABLED = 'false';
+  console.error('[DIAG] createTestApp set QUEUE_ENABLED=', process.env.QUEUE_ENABLED);
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [TestAppModule],
