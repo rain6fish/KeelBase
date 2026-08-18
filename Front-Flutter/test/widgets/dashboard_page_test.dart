@@ -2,6 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:front_app/core/api/capabilities_provider.dart';
+import 'package:front_app/core/api/capabilities_repository.dart';
 import 'package:front_app/features/ai/presentation/providers/ai_chat_provider.dart';
 import 'package:front_app/features/announcements/presentation/providers/announcement_provider.dart';
 import 'package:front_app/features/auth/presentation/providers/auth_provider.dart';
@@ -19,8 +22,11 @@ void main() {
   late MockNotificationsRepository notificationsRepository;
   late MockApiClient apiClient;
   late MockSseClient sseClient;
+  late SharedPreferences prefs;
 
-  setUp(() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
     eventsRepository = MockEventsRepository();
     when(() => eventsRepository.getEvents(any(), any())).thenAnswer((_) async => []);
     when(() => eventsRepository.searchEvents(page: any(named: 'page'), limit: any(named: 'limit')))
@@ -52,6 +58,12 @@ void main() {
     return wrapCupertinoPage(
       const DashboardPage(),
       providers: [
+        // MOD-4/EASY-5：Dashboard build 时 context.watch<CapabilitiesProvider>()，
+        // initState 里 _checkPresetGuide() 读取 SharedPreferences
+        Provider<SharedPreferences>.value(value: prefs),
+        ChangeNotifierProvider<CapabilitiesProvider>(
+          create: (_) => CapabilitiesProvider(CapabilitiesRepository(apiClient)),
+        ),
         ChangeNotifierProvider<AuthProvider>.value(value: auth),
         ChangeNotifierProvider<AiChatProvider>(
           create: (_) => AiChatProvider(apiClient, sseClient),

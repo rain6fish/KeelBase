@@ -145,7 +145,7 @@ async function load(p = 1) {
     customers.value = res.items
     total.value = res.total
     page.value = p
-  } catch (e) {
+  } catch {
     snackbar.error(t('loadFailed'))
   } finally {
     loading.value = false
@@ -176,7 +176,7 @@ async function onCreate() {
     showCreate.value = false
     snackbar.success(t('crmCreated'))
     load()
-  } catch (e) {
+  } catch {
     snackbar.error(t('saveFailed'))
   } finally {
     saving.value = false

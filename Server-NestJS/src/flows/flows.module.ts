@@ -101,8 +101,9 @@ export class FlowsModule implements OnModuleInit {
     for (const def of DEFAULT_FLOW_DEFINITIONS) {
       await this.runtime.upsertDefinition(def).catch((e) => {
         // 启动阶段失败仅告警，不阻断（如定义已存在冲突）
-        this.configService.get('NODE_ENV') === 'development' &&
+        if (this.configService.get('NODE_ENV') === 'development') {
           console.warn(`FLOW: 注册流程定义 ${def.id} 失败: ${e.message}`);
+        }
       });
     }
   }
