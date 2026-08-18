@@ -265,6 +265,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | Intranet / offline deployment |
 | [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | Ops | Private AI verification — data-stays-on-prem closed loop (Ollama / local embedding / RAG / audit) |
 | [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | Marketing | Golden Demo 60s recording script — Tool → Permission → Confirmation → Audit closed loop (P0-3) |
+| [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | Developers / Sales | Existing System AIization demo — legacy Schema → `keelbase import` → Protocol → module → AI tools → governance (P0-12) |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | Developers / AI agents | Protocol ecosystem — Module/Flow/Tool/Plugin/Capability protocols & AI generation chain (P1-1) |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
