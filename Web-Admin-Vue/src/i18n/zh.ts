@@ -87,6 +87,8 @@ const zh = {
 
   // 工作台（应用侧）
   workbenchSubtitle: '企业应用工作台——普通用户的应用入口，管理功能请在控制台使用',
+  workbenchMobilePreview: '移动 App 预览',
+  workbenchMobilePreviewDesc: '以手机形态预览主 App（Flutter web）',
   workbenchMyEvents: '我的事件',
   workbenchMyEventsDesc: '查看和管理我的日历事件',
   workbenchMyTodos: '我的待办',
