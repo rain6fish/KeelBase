@@ -203,7 +203,6 @@ export class AdminService {
   }
 
   async broadcast(dto: { title: string; body?: string; type?: string; userIds?: number[] }) {
-    console.error('[DIAG] broadcast start', Date.now(), JSON.stringify(dto));
     const users =
       dto.userIds && dto.userIds.length > 0
         ? dto.userIds
