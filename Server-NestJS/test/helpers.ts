@@ -172,6 +172,7 @@ QUEUE_ENABLED=false
 
 function ensureTestEnvFile(): void {
   const testEnvPath = path.resolve(__dirname, '../.env.test');
+  console.error('[DIAG] ensureTestEnvFile exists=', fs.existsSync(testEnvPath), testEnvPath);
   if (fs.existsSync(testEnvPath)) return;
   fs.writeFileSync(testEnvPath, TEST_ENV_CONTENT, 'utf8');
 }
