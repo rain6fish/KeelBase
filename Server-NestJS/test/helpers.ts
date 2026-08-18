@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as fs from 'fs';
@@ -172,7 +173,6 @@ QUEUE_ENABLED=false
 
 function ensureTestEnvFile(): void {
   const testEnvPath = path.resolve(__dirname, '../.env.test');
-  console.error('[DIAG] ensureTestEnvFile exists=', fs.existsSync(testEnvPath), testEnvPath);
   if (fs.existsSync(testEnvPath)) return;
   fs.writeFileSync(testEnvPath, TEST_ENV_CONTENT, 'utf8');
 }
@@ -185,9 +185,15 @@ export async function createTestApp(): Promise<INestApplication> {
   }
   ensureTestEnvFile();
 
+  // 队列 override 为 stub：无论 QUEUE_ENABLED/config 状态如何，pushQueue.add 立即返回，
+  // 测试环境永不建立 Redis 连接（无 Redis 时 BullMQ add 会阻塞重试导致 e2e 挂起）。
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [TestAppModule],
-  }).compile();
+  })
+    .overrideProvider(getQueueToken('push')).useValue({ add: jest.fn(async () => ({})) })
+    .overrideProvider(getQueueToken('reminder')).useValue({ add: jest.fn(async () => ({})) })
+    .overrideProvider(getQueueToken('knowledge')).useValue({ add: jest.fn(async () => ({})) })
+    .compile();
 
   const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api');
