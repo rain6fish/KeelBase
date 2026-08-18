@@ -25,6 +25,8 @@ export interface ModuleManifestEntry {
   isCore?: boolean;
   /** 人类可读名（中文） */
   label: string;
+  /** P1-3 AI 可消费元数据：模块能力描述（开发期 AI 读模块地图即知每个模块做什么） */
+  description?: string;
 }
 
 export const CORE_MODULES = [
@@ -69,19 +71,19 @@ const notificationEntries: ModuleManifestEntry[] = NOTIFICATION_MODULES.map((id)
 }));
 
 const businessEntries: ModuleManifestEntry[] = [
-  { id: 'events', category: 'business', deps: ['notifications'], label: '事件' },
-  { id: 'todos', category: 'business', deps: [], label: '待办' },
-  { id: 'contracts', category: 'business', deps: [], label: '合同' },
-  { id: 'suppliers', category: 'business', deps: [], label: '供应商' },
-  { id: 'tags', category: 'business', deps: [], label: '标签' },
-  { id: 'notes', category: 'business', deps: [], label: '笔记' },
-  { id: 'books', category: 'business', deps: [], label: '图书' },
-  { id: 'posts', category: 'business', deps: [], label: '帖子' },
-  { id: 'org', category: 'business', deps: ['notifications'], label: '组织架构' },
-  { id: 'points', category: 'business', deps: [], label: '积分' },
-  { id: 'crm', category: 'business', deps: [], label: '客户管理' },
-  { id: 'pm', category: 'business', deps: [], label: '项目管理' },
-  { id: 'approval', category: 'business', deps: [], label: '审批中心' },
+  { id: 'events', category: 'business', deps: ['notifications'], label: '事件', description: '日历事件与提醒' },
+  { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },
+  { id: 'contracts', category: 'business', deps: [], label: '合同', description: '合同管理（生成模块示例）' },
+  { id: 'suppliers', category: 'business', deps: [], label: '供应商', description: '供应商档案与风险分级' },
+  { id: 'tags', category: 'business', deps: [], label: '标签', description: '标签（生成模块示例）' },
+  { id: 'notes', category: 'business', deps: [], label: '笔记', description: '笔记（生成模块示例）' },
+  { id: 'books', category: 'business', deps: [], label: '图书', description: '图书（生成模块示例）' },
+  { id: 'posts', category: 'business', deps: [], label: '帖子', description: '社区动态流（帖子/点赞/评论/关注）' },
+  { id: 'org', category: 'business', deps: ['notifications'], label: '组织架构', description: '组织/部门/成员与邀请' },
+  { id: 'points', category: 'business', deps: [], label: '积分', description: '签到/积分/成就/排行榜' },
+  { id: 'crm', category: 'business', deps: [], label: '客户管理', description: 'AI CRM：客户/订单/跟进/任务/风险，AI 可分析流失风险并创建跟进任务' },
+  { id: 'pm', category: 'business', deps: [], label: '项目管理', description: 'AI Project：项目/里程碑/任务/风险，AI 可判断延期风险并创建任务' },
+  { id: 'approval', category: 'business', deps: [], label: '审批中心', description: 'AI Approval：审批请求/政策，AI 预审按政策分级（低风险自动通过/高风险人工复核）' },
 ];
 
 export const MODULES_MANIFEST: ModuleManifestEntry[] = [
