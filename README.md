@@ -82,7 +82,8 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 |-----------|-------------|
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app |
-| `Web-Admin-Vue/` | Standalone admin console (Vue3 + Vuetify3 PC Web), fully isolated; React version planned |
+| `Web-Admin-Vue/` | Web admin console + workbench (Vue3 + **Element Plus**, domestic/CN market primary; migrated from Vuetify 2026-08) |
+| `Web-Admin-React/` | International-market admin console (React 19 + MUI, preview; formalized on real intl demand) |
 | `Server-NestJS/` | NestJS backend (REST API) |
 | `docs/` | Specs, requirements, manuals |
 | `.github/workflows/` | CI pipeline (lint + test + build) |
@@ -216,7 +217,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 
 | Layer | Technology | Notes |
 |-------|-----------|--------------|
-| Frontend | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) | Main App (3 platforms) + H5/mini-program |
+| Frontend | Flutter 3.x (mobile main app) · Taro 3.x Vue3 (H5/mini-program) · **Vue3 + Element Plus** (Web admin/workbench, CN market) · React 19 + MUI (intl market, preview) | Core is UI-framework-agnostic; UI frameworks are Renderers (see `docs/architecture-boundary.md`) |
 | Backend | NestJS 11.x, TypeScript, TypeORM | Modular, decorator-driven |
 | Database | SQLite (dev) / PostgreSQL (prod) | Dev / production |
 | Cache / Queue | Redis 7 + CacheManager (Redis) + BullMQ | Cache layer + async queue |
@@ -261,6 +262,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/usage.md`](docs/manual/usage.md) | End users | Usage manual — feature URLs & common operations (EN/ZH) |
 | [`docs/manual/development.md`](docs/manual/development.md) | Developers | Development manual — architecture, patterns, testing |
 | [`docs/manual/operations.md`](docs/manual/operations.md) | Ops | Operations manual — deploy, env vars, migration, observability |
+| [`docs/manual/plugin-development.md`](docs/manual/plugin-development.md) | Developers | Plugin development guide — manifest / context / lifecycle / wiring / CLI (P1-7) |
 | [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | Ops | One-click cloud server deployment (on-prem) |
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | Intranet / offline deployment |
 | [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | Ops | Private AI verification — data-stays-on-prem closed loop (Ollama / local embedding / RAG / audit) |
