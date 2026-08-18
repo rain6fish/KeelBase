@@ -260,5 +260,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | 运维 | 内网/离线环境部署 |
 | [`docs/project.spec.md`](docs/project.spec.md) | 开发者 | 项目规格 |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | 开发者 | AI 助手功能规格 |
+| [`docs/flagship-applications.md`](docs/flagship-applications.md) | 开发者 / 销售 | 三旗舰应用规格——AI CRM / 项目 / 审批的完整规格（数据模型、AI 工具、治理、演示路径） |
 | [`SECURITY.md`](SECURITY.md) | 所有人 | 安全政策——受支持版本/漏洞报告/内置安全能力/SBOM |
 | `Server-NestJS/.env.example` | 开发者 | 环境变量参考 |

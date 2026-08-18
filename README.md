@@ -271,5 +271,6 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
 | [`docs/enterprise-capabilities.md`](docs/enterprise-capabilities.md) | Enterprise buyers | Enterprise capability statement — capability + evidence + compliance path |
 | [`docs/enterprise-readiness.md`](docs/enterprise-readiness.md) | Enterprise buyers | Enterprise readiness checklist — status / gaps / priorities |
+| [`docs/flagship-applications.md`](docs/flagship-applications.md) | Developers / Sales | Flagship applications spec — AI CRM / Project / Approval full spec (data model, AI tools, governance, demo paths) |
 | [`SECURITY.md`](SECURITY.md) | Everyone | Security policy — supported versions / vulnerability reporting / built-in security / SBOM |
 | `Server-NestJS/.env.example` | Developers | Environment variables reference |
