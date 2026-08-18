@@ -25,7 +25,7 @@ export class AppCapabilitiesController {
       (m) => m.category === 'business',
     )
       .filter((m) => flags[m.id as keyof typeof flags] !== false)
-      .map((m) => ({ id: m.id, label: m.label }));
+      .map((m) => ({ id: m.id, label: m.label, description: m.description }));
 
     return {
       preset: this.featureFlagsService.getPreset(),

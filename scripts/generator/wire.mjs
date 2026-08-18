@@ -100,7 +100,7 @@ export async function wireBackend(ctx, root = '') {
       insertAfter(
         c,
         `  { id: 'todos', category: 'business', deps: [], label: '待办' },`,
-        `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}' },`,
+        `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}', description: '${ctx.label}（${ctx.plural} 模块，keelbase init 生成）' },`,
         `id: '${ctx.plural}'`,
       ),
     ),
