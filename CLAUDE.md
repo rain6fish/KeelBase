@@ -795,6 +795,8 @@ docs/
 ├── ai-agent-requirements.md   # 需求确认书
 ├── ai-agent.spec.md           # 功能规格说明
 ├── oauth-config.md            # OAuth 第三方登录配置文档
+├── architecture-boundary.md   # 架构边界：Core 与 UI 无关 + Renderer 契约 + 前端战略
+├── protocol-models.md         # Application/Runtime/Trust 三模型协议
 └── ...                        # 后续功能文档
 ```
 
