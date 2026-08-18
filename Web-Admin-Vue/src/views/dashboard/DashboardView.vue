@@ -2,46 +2,42 @@
   <div>
     <PageHeader :title="t('overview')" />
 
-    <v-row>
-      <v-col v-for="card in statCards" :key="card.label" cols="12" sm="6" md="3">
+    <el-row :gutter="16">
+      <el-col v-for="card in statCards" :key="card.label" :xs="24" :sm="12" :md="6">
         <StatCard v-bind="card" />
-      </v-col>
-    </v-row>
+      </el-col>
+    </el-row>
 
-    <v-row>
-      <v-col cols="12" md="8">
-        <v-card>
-          <v-card-title>{{ t('newUsers7d') }}</v-card-title>
-          <v-card-text>
-            <div v-if="trend.length" class="d-flex align-end ga-1" style="height: 120px">
-              <div
-                v-for="item in trend"
-                :key="item.date"
-                class="flex-grow-1 rounded-sm"
-                style="background: rgb(var(--v-theme-primary))"
-                :style="{ height: `${barHeight(item.count)}%` }"
-                :title="`${item.date}: ${item.count}`"
-              />
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="16">
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('newUsers7d') }}</template>
+          <div v-if="trend.length" class="d-flex align-end ga-1" style="height: 120px">
+            <div
+              v-for="item in trend"
+              :key="item.date"
+              class="flex-grow-1 rounded-sm"
+              style="background: var(--el-color-primary)"
+              :style="{ height: `${barHeight(item.count)}%` }"
+              :title="`${item.date}: ${item.count}`"
+            />
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never">
+          <template #header>{{ t('actionDistribution') }}</template>
+          <div v-if="topActions.length" class="d-flex flex-column ga-1">
+            <div v-for="a in topActions" :key="a.action" class="d-flex justify-space-between text-body-2">
+              <span>{{ a.action }}</span>
+              <span class="text-medium-emphasis">{{ a.count }}</span>
             </div>
-            <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>{{ t('actionDistribution') }}</v-card-title>
-          <v-card-text>
-            <div v-if="topActions.length" class="d-flex flex-column ga-1">
-              <div v-for="a in topActions" :key="a.action" class="d-flex justify-space-between text-body-2">
-                <span>{{ a.action }}</span>
-                <span class="text-medium-emphasis">{{ a.count }}</span>
-              </div>
-            </div>
-            <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 

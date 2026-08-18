@@ -2,31 +2,34 @@
   <div>
     <PageHeader :title="t('navWorkbench')" :subtitle="t('workbenchSubtitle')" />
 
-    <v-row>
-      <v-col v-for="card in infoCards" :key="card.label" cols="12" sm="6" md="3">
+    <el-row :gutter="16">
+      <el-col v-for="card in infoCards" :key="card.label" :xs="24" :sm="12" :md="6">
         <StatCard v-bind="card" />
-      </v-col>
-    </v-row>
+      </el-col>
+    </el-row>
 
-    <v-row>
-      <v-col v-for="card in shortcutCards" :key="card.title" cols="12" sm="6" md="4">
-        <v-card class="h-100" :to="card.href ? undefined : card.to" :href="card.href" :target="card.href ? '_blank' : undefined" link>
-          <v-card-title>
-            <v-icon :icon="card.icon" class="mr-2" color="primary" />
-            {{ card.title }}
-          </v-card-title>
-          <v-card-text>
-            <p class="text-body-2 text-medium-emphasis mb-2">{{ card.desc }}</p>
-            <v-chip size="small" variant="tonal" color="primary">{{ t('open') }}</v-chip>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+    <el-row :gutter="16">
+      <el-col v-for="card in shortcutCards" :key="card.title" :xs="24" :sm="12" :md="8">
+        <el-card
+          class="h-100 mb-4 shortcut-card"
+          shadow="hover"
+          :on-click="() => openCard(card)"
+        >
+          <div class="d-flex align-center ga-2">
+            <AppIcon :icon="card.icon" size="22" color="var(--el-color-primary)" />
+            <span class="text-h6">{{ card.title }}</span>
+          </div>
+          <p class="text-body-2 text-medium-emphasis my-2">{{ card.desc }}</p>
+          <el-tag size="small" type="primary" effect="light">{{ t('open') }}</el-tag>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
@@ -34,9 +37,26 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { workbenchApi } from '@/api/workbench'
 
+interface ShortcutCard {
+  title: string
+  desc: string
+  icon: string
+  to?: string
+  href?: string
+}
+
 const { t } = useI18n()
 const auth = useAuthStore()
+const router = useRouter()
 const unread = ref(0)
+
+function openCard(card: ShortcutCard) {
+  if (card.href) {
+    window.open(card.href, '_blank')
+  } else if (card.to) {
+    router.push(card.to)
+  }
+}
 
 // 登录响应不含 email 等完整字段，挂载时用 /auth/me 刷新完整资料；未读数失败静默
 onMounted(async () => {
