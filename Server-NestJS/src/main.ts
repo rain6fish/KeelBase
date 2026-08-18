@@ -5,11 +5,13 @@ import { VersioningType, Logger as NestLogger } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { json } from 'express';
+import { json, Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { join } from 'path';
+import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
+import { UploadSignService } from './upload/upload-sign.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -51,9 +53,28 @@ async function bootstrap() {
   // Global route prefix
   app.setGlobalPrefix('api');
 
-  // Serve uploaded files as static assets
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads',
+  // CR-21：/uploads 文件访问控制——签名 URL 校验后才放行（渐进模式默认放行，UPLOAD_REQUIRE_SIGN=1 强制）
+  const uploadSign = app.get(UploadSignService);
+  const requireSign = process.env.UPLOAD_REQUIRE_SIGN === '1';
+  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+    const filename = (req.path || '').replace(/^\/+/, '');
+    // 防路径穿越：上传文件名是单层 `时间戳-随机.ext`，拒绝任何子路径/.. /\
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(403).json({ code: 403, message: 'Forbidden' });
+    }
+    const pathname = `/uploads/${filename}`;
+    const e = (req.query.e as string) || '';
+    const s = (req.query.s as string) || '';
+    if (!uploadSign.verify(pathname, e, s)) {
+      if (requireSign) {
+        return res.status(403).json({ code: 403, message: 'Forbidden' });
+      }
+      // 渐进模式：放行但记日志，观察裸 URL 访问面
+      logger.warn(`[uploads] unsigned access (progressive mode): ${pathname}`);
+    }
+    res.sendFile(join(LOCAL_UPLOAD_DIR, filename), (err: Error | undefined) => {
+      if (err) next(err);
+    });
   });
 
   // EASY-1 单容器交付：当 public/ 目录存在（Dockerfile.single 内嵌前端）时，
