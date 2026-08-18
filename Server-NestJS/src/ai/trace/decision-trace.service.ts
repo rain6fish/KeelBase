@@ -26,6 +26,7 @@ export type TraceStepType =
   | 'notice'; // chat/knowledge/plan/analyze/error/navigate 等摘要
 
 export interface TraceEffect {
+  effectId: number;
   resultType: string;
   resultId: number;
   targetTitle?: string | null;
@@ -146,6 +147,7 @@ export class DecisionTraceService {
         time: eff.createdAt,
         toolName: eff.toolName,
         effect: {
+          effectId: eff.id,
           resultType: eff.resultType,
           resultId: eff.resultId,
           targetTitle: eff.targetTitle ?? null,

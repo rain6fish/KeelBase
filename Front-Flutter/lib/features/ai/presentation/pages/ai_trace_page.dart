@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/ai_trace_models.dart';
 import '../providers/conversation_provider.dart';
 
@@ -58,18 +59,40 @@ class _AiTracePageState extends State<AiTracePage> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       itemCount: steps.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) =>
-                          _StepCard(step: steps[index], l10n: l10n),
+                      itemBuilder: (context, index) => _StepCard(
+                        step: steps[index],
+                        l10n: l10n,
+                        onRevoke: (effectId) => _handleRevoke(provider, effectId),
+                        revoking: provider.revokingEffectId,
+                      ),
                     ),
     );
+  }
+
+  /// P0-15 本人撤销 AI 创建的记录；结果以 toast 反馈。
+  Future<void> _handleRevoke(ConversationProvider provider, int effectId) async {
+    final ok = await provider.revokeEffect(effectId);
+    if (!mounted) return;
+    if (ok) {
+      AppToast.show(context, context.l10n.traceRevoked);
+    } else {
+      AppToast.error(context, context.l10n.traceRevokeFailed);
+    }
   }
 }
 
 class _StepCard extends StatelessWidget {
   final AiTraceStep step;
   final AppLocalizations l10n;
+  final void Function(int effectId) onRevoke;
+  final int? revoking;
 
-  const _StepCard({required this.step, required this.l10n});
+  const _StepCard({
+    required this.step,
+    required this.l10n,
+    required this.onRevoke,
+    required this.revoking,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +243,25 @@ class _StepCard extends StatelessWidget {
           if (effect.targetTitle != null && effect.targetTitle!.isNotEmpty) {
             list.add(const SizedBox(height: 2));
             list.add(Text(effect.targetTitle!, style: bodyMuted));
+          }
+          if (effect.revocable) {
+            list.add(const SizedBox(height: 6));
+            list.add(
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: revoking == effect.effectId ? null : () => onRevoke(effect.effectId),
+                child: revoking == effect.effectId
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CupertinoActivityIndicator(),
+                      )
+                    : Text(
+                        l10n.traceRevoke,
+                        style: const TextStyle(fontSize: 13, color: CupertinoColors.systemOrange),
+                      ),
+              ),
+            );
           }
         }
         break;

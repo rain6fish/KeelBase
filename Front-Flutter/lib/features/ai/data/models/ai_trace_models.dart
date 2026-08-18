@@ -2,12 +2,14 @@
 // 对应后端 GET /ai/conversations/:id/trace 返回结构。
 
 class AiTraceEffect {
+  final int effectId;
   final String resultType;
   final int resultId;
   final String? targetTitle;
   final bool revocable;
 
   const AiTraceEffect({
+    required this.effectId,
     required this.resultType,
     required this.resultId,
     this.targetTitle,
@@ -16,6 +18,7 @@ class AiTraceEffect {
 
   factory AiTraceEffect.fromJson(Map<String, dynamic> json) {
     return AiTraceEffect(
+      effectId: json['effectId'] as int? ?? 0,
       resultType: json['resultType'] as String? ?? '',
       resultId: json['resultId'] as int? ?? 0,
       targetTitle: json['targetTitle'] as String?,

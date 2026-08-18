@@ -229,6 +229,7 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 | GET | /ai/conversations | 对话历史列表 / Conversation history list | 登录 / Logged-in |
 | GET | /ai/conversations/:id | 单个对话完整消息 / Full messages of a single conversation | 本人 / Self |
 | GET | /ai/conversations/:id/trace | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） / Conversation execution trace (tool calls/confirmations/effects/results) | 本人 / Self |
+| DELETE | /ai/my/tool-effects/:id | 撤销本人 AI 创建的记录（P0-15：所有权校验，软删可经回收站恢复） / Revoke own AI-created record (ownership-checked, soft-deleted, restorable from trash) | 本人 / Self |
 | DELETE | /ai/conversations/:id | 删除指定对话 / Delete a specified conversation | 本人 / Self |
 | DELETE | /ai/conversations | 清空所有对话 / Clear all conversations | 本人 / Self |
 | POST | /ai/knowledge | 创建知识条目 / Create knowledge entry | 管理员 / Admin |
