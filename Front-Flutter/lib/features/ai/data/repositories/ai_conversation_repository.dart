@@ -1,6 +1,7 @@
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../models/ai_trace_models.dart';
 import '../models/conversation_summary.dart';
 
 /// 对话历史数据访问。GET/DELETE /ai/conversations 用 ApiClient（非 SSE）。
@@ -57,6 +58,19 @@ class AiConversationRepository {
       throw NetworkException('Unexpected response format for /ai/conversations/$id');
     }
     return data;
+  }
+
+  /// 加载单条对话的执行轨迹（P0-14）：工具调用/确认/副作用/结果
+  Future<AiTrace> getTrace(String id) async {
+    _validateId(id);
+    final json = await _client.get('/ai/conversations/$id/trace');
+    final response = ApiResponse.fromJson(json, (data) => data);
+    _requireSuccess(response);
+    final data = response.data;
+    if (data is! Map<String, dynamic>) {
+      throw NetworkException('Unexpected response format for /ai/conversations/$id/trace');
+    }
+    return AiTrace.fromJson(data);
   }
 
   Future<void> deleteConversation(String id) async {
