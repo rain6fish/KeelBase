@@ -43,7 +43,7 @@ node scripts/keelbase-plugin.mjs add my-crm-integration.ts
 |---|---|---|
 | 模板机制 | ★★★☆ | 模板 = 种子数据（事件/待办/旗舰实体）；**缺「模板 = 代码包」**（安装带后端实体+工具的模板）——Phase 2 最大缺口 |
 | 业务 Skill | ★★★☆ | Skill = 文档规则（AGENTS 消费）；**缺「Skill = 可执行包」**（含自动接线/校验） |
-| 插件 CLI | ★★★ | add/list/remove 通；**缺插件市场/Registry + 依赖版本解析**（P1-7 记录）|
+| 插件 CLI | ★★★ | add/list/remove 通；**缺插件市场/Registry + 依赖版本解析**（P1-7 记录）；**缺宿主外独立 `verify/typecheck` 步骤**——示例源文件经真实安装闭环验证，作者化时需自包含（不能依赖宿主树内 `../plugin.interface` 相对导入），且源文件须位于 CJS 目录（仓库根 `package.json` 为 `"type":"module"`，根 `scripts/` 下的 `.ts` 会被 nodenext 编为 ESM，宿主 CJS 工具链无法消费）|
 | 生成器 | ★★★★ | 协议 → 模块 + AI 工具已通；增量生成（P1-3）待续 |
 
 **结论**：三旗舰的**素材**（模板/Skill/协议）已能从旗舰自然拆分，官方可用四件套组装演示；但「模板/Skill 作为可安装代码包」的抽象未成熟——这是 Phase 2 验证发现的 **Extension API 修补方向**（v1.0 后）。
@@ -51,6 +51,20 @@ node scripts/keelbase-plugin.mjs add my-crm-integration.ts
 ## 四、验证记录
 
 - `keelbase-plugin.test.mjs` 3 用例通过（add/list/remove 接线）——第三方装插件路径通。
+- **approval-intake 示例插件真实 CLI 闭环（2026-08-18）**：源文件 `Server-NestJS/scripts/examples/approval-intake.plugin.ts`（自包含 manifest，`requires: ['ApprovalService']` + `featureFlag: 'approval'`，注册只读端点 `/plugins/approval-intake/precheck`，演示 getService 探测 ApprovalService + isFeatureEnabled）。命令序列：
+  ```bash
+  # 1. 安装（复制 + 接线 PLUGINS）
+  node scripts/keelbase-plugin.mjs add Server-NestJS/scripts/examples/approval-intake.plugin.ts
+  node scripts/keelbase-plugin.mjs list            # → HELLO_PLUGIN, APPROVAL_INTAKE_PLUGIN
+  # 2. 构建（编译进 dist/plugins/plugins/）
+  cd Server-NestJS && npm run build
+  # 3. 路由验证（新增 plugins.integration.spec.ts 4 用例；全插件套件 15/15 绿）
+  cd Server-NestJS && npx jest src/plugins
+  # 4. 卸载（移除接线）+ 删除复制文件，源文件保留在 Server-NestJS/scripts/examples 作示例
+  node scripts/keelbase-plugin.mjs remove APPROVAL_INTAKE_PLUGIN
+  rm Server-NestJS/src/plugins/plugins/approval-intake.plugin.ts
+  ```
+  集成测试覆盖：安装后加载 + 路由注册 + 低/高风险样例返回 + 非对象 body 防御 + 未安装 not-found 分支（经真实 PluginsController 派发）+ requires 缺失跳过 + featureFlag 关闭跳过。
 - 三旗舰模板导入 e2e 通过（`generated-modules.e2e-spec.ts`）。
 - 旗舰 Skill 从 `src/` 拆出（approval-policy-review 示例见上）。
 
