@@ -71,8 +71,8 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 ### ⚡ Full-Stack Fusion
 
-- **One Base, Three Ends:** Seamlessly integrates the user App (Flutter), Mini-Program (Taro), and an isolated Admin Console.
-- **Zero-Friction Dev:** Unified API contracts and shared type conventions; the admin console stays fully isolated from the main app.
+- **One Base, Three Ends:** Seamlessly integrates the user App (Flutter), Mini-Program (Taro), and the Web end (workbench + admin console, one shell).
+- **Zero-Friction Dev:** Unified API contracts and shared type conventions; admin features live only on the console side of the web end, never in the mobile apps.
 
 ---
 
@@ -82,8 +82,8 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 |-----------|-------------|
 | `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app |
 | `Front-Taro/` | Taro H5 / mini-program app — main user app |
-| `Web-Admin-Vue/` | Web admin console + workbench (Vue3 + **Element Plus**, domestic/CN market primary; migrated from Vuetify 2026-08) |
-| `Web-Admin-React/` | International-market admin console (React 19 + MUI, preview; formalized on real intl demand) |
+| `Web-Admin-Vue/` | Web host — workbench + admin console, one shell (Vue3 + **Element Plus**) |
+| `Web-Admin-React/` | Admin console React preview (React 19 + MUI; formalized on real demand) |
 | `Server-NestJS/` | NestJS backend (REST API) |
 | `docs/` | Specs, requirements, manuals |
 | `.github/workflows/` | CI pipeline (lint + test + build) |
@@ -217,7 +217,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 
 | Layer | Technology | Notes |
 |-------|-----------|--------------|
-| Frontend | Flutter 3.x (mobile main app) · Taro 3.x Vue3 (H5/mini-program) · **Vue3 + Element Plus** (Web admin/workbench, CN market) · React 19 + MUI (intl market, preview) | Core is UI-framework-agnostic; UI frameworks are Renderers (see `docs/architecture-boundary.md`) |
+| Frontend | Flutter 3.x (mobile main app) · Taro 3.x Vue3 (H5/mini-program) · **Vue3 + Element Plus** (web host: workbench + admin console) · React 19 + MUI (preview) | Core is UI-framework-agnostic; UI frameworks are Renderers (see `docs/architecture-boundary.md`) |
 | Backend | NestJS 11.x, TypeScript, TypeORM | Modular, decorator-driven |
 | Database | SQLite (dev) / PostgreSQL (prod) | Dev / production |
 | Cache / Queue | Redis 7 + CacheManager (Redis) + BullMQ | Cache layer + async queue |
@@ -239,7 +239,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 - **Events**: week/month views, agenda list, event CRUD (per-user ownership via CASL)
 - **AI Assistant**: chat with tool calling (query events / user stats / navigate pages), RAG knowledge base Q&A, data insights, model hot-switch (DeepSeek/Qwen), conversation history
 - **Notifications**: in-app notification center, unread count, SSE realtime push, JPush device push (abstracted)
-- **Admin Console**: isolated Vue3 PC Web app — user management (roles, delete), event management, knowledge base, AI audit logs & usage stats, operation audit, monitoring, templates, AI eval, tool effects
+- **Admin Console**: Vue3 + Element Plus PC web console (console side of the web end) — user management (roles, delete), event management, knowledge base, AI audit logs & usage stats, operation audit, monitoring, templates, AI eval, tool effects
 - **Search**: events + public users unified search
 - **Upload**: MIME + extension + magic-byte validation, 10MB limit, WebP conversion
 - **Security**: Helmet, CORS whitelist, body limit, sort-injection guard, login lockout, token hashing, CASL row-level permission, AES-256-GCM static encryption

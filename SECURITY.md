@@ -61,7 +61,7 @@ We consider the following in scope for security review / 以下内容在安全�
 
 - `Server-NestJS/` — NestJS backend (auth, authorization, API, file upload, AI agent harness) / NestJS 后端（认证、授权、API、文件上传、AI Agent 运行时）
 - `Front-Flutter/` — Flutter app (iOS / Android / Web) / Flutter 主 App（三端）
-- `Front-Taro/` and `Web-Admin-Vue/` — Taro H5 / mini-program app and Vue3 admin console / Taro 主 App 与管理台
+- `Front-Taro/` and `Web-Admin-Vue/` — Taro H5 / mini-program app and Vue3 + Element Plus web host (workbench + admin console) / Taro 主 App 与 Web 端（工作台+管理台）
 - `Dockerfile`, `docker-compose*.yml`, `nginx*.conf` — deployment / 部署配置
 - `deploy/` — deployment scripts / 部署脚本
 
