@@ -110,6 +110,9 @@ export const envValidationSchema = Joi.object({
   FEATURE_NOTIFICATIONS_ENABLED: Joi.boolean(),
   FEATURE_TODOS_ENABLED: Joi.boolean(),
 
+  // CR-21 上传访问控制：=1 时强制校验签名 URL（渐进模式默认放行裸 URL）
+  UPLOAD_REQUIRE_SIGN: Joi.boolean().truthy('1').default(false),
+
   // EASY-3 三档预设：full（默认全开）| small（关外部集成）| lite（最小可用）
   APP_PRESET: Joi.string().valid('full', 'small', 'lite').default('full'),
 

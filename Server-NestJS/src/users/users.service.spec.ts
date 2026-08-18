@@ -8,6 +8,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { EncryptionService } from '../common/utils/encryption';
 import { CacheService } from '../common/cache/cache.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { User, UserRole } from '../common/entities/user.entity';
 
 describe('UsersService', () => {
@@ -67,6 +68,7 @@ describe('UsersService', () => {
             delByPrefix: jest.fn().mockResolvedValue(undefined),
           },
         },
+        { provide: UploadSignService, useValue: { signUrl: jest.fn((p: string) => p) } },
       ],
     }).compile();
 

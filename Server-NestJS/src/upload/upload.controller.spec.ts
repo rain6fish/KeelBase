@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { UploadController } from './upload.controller';
 import type { StorageService } from '../storage/storage.service';
 import { ImageProcessorService, ProcessedImage } from './image-processor.service';
+import { UploadSignService } from './upload-sign.service';
 
 /** 最小合法 PNG 头（魔数 89504e47） */
 const PNG_BUFFER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]);
@@ -10,6 +11,7 @@ describe('UploadController', () => {
   let controller: UploadController;
   let storageService: { save: jest.Mock };
   let imageProcessor: { processImage: jest.Mock };
+  let uploadSign: { signUrl: jest.Mock };
 
   const processed: ProcessedImage = {
     buffer: Buffer.from('webp-data'),
@@ -20,9 +22,13 @@ describe('UploadController', () => {
   beforeEach(() => {
     storageService = { save: jest.fn() };
     imageProcessor = { processImage: jest.fn() };
+    uploadSign = {
+      signUrl: jest.fn((p: string) => (p.startsWith('/') ? `${p}?e=1&s=sig` : p)),
+    };
     controller = new UploadController(
       storageService as unknown as StorageService,
       imageProcessor as unknown as ImageProcessorService,
+      uploadSign as unknown as UploadSignService,
     );
   });
 
@@ -98,5 +104,23 @@ describe('UploadController', () => {
     const result = await controller.uploadFile(file);
     expect(result.mimeType).toBe('image/gif');
     expect(result.filename).toBe('anim.gif');
+  });
+
+  it('CR-21：本地相对路径 URL 返回带签名 query（绝对 URL 原样透传）', async () => {
+    imageProcessor.processImage.mockResolvedValue(processed);
+    storageService.save.mockResolvedValue('/uploads/123-photo.webp');
+
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer: PNG_BUFFER,
+    } as Express.Multer.File;
+
+    const result = await controller.uploadFile(file);
+
+    expect(uploadSign.signUrl).toHaveBeenCalledWith('/uploads/123-photo.webp');
+    expect(result.url).toBe('/uploads/123-photo.webp?e=1&s=sig');
+    // filename 取签名前路径段
+    expect(result.filename).toBe('123-photo.webp');
   });
 });
