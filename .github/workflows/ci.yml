@@ -82,7 +82,9 @@ jobs:
           export ENCRYPTION_KEY=$(openssl rand -hex 32)
           export ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)
           npm run migration:run
-          OUTPUT=$(npm run migration:generate -- src/migrations/_ConsistencyCheck 2>&1)
+          # typeorm migration:generate 对「无变化」返回退出码 1；bash -e 下命令替换失败会直接中止，
+          # 需 || true 让其非致命，再由下方 if ls 判断是否真产生漂移文件。
+          OUTPUT=$(npm run migration:generate -- src/migrations/_ConsistencyCheck 2>&1 || true)
           echo "$OUTPUT"
           if ls src/migrations/*_ConsistencyCheck* 2>/dev/null; then
             echo "::error::实体新增了未迁移的变更，请运行 migration:generate 提交迁移"

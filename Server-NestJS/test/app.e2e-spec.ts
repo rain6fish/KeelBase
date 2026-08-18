@@ -6,6 +6,7 @@ import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { UserRole } from '../src/common/entities/user.entity';
 import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { CacheService } from '../src/common/cache/cache.service';
 
 describe('App (e2e)', () => {
   let app: INestApplication;
@@ -835,7 +836,8 @@ describe('App (e2e)', () => {
         .expect(200);
       const titles = list.body.data.items.map((n: { title: string }) => n.title);
       expect(titles).toContain('BroadcastTest');
-    });
+      // CI 无 Redis 时 notificationsService 可能 await pushQueue.add 重试，放宽超时（默认 30s 偶发不够）
+    }, 60000);
 
     it('admin aggregation endpoints should be forbidden for regular users', async () => {
       const regular = await registerUser(app, {
@@ -1549,6 +1551,8 @@ describe('App (e2e)', () => {
       const ds = app.get(DataSource);
       const repo = ds.getRepository('users');
       await repo.update(userId, { emailVerified: false });
+      // 直连 DB 更新绕过 service 层，须手动失效 user 缓存，否则守卫读到旧值
+      await app.get(CacheService).delete(`user:${userId}`);
 
       await request(app.getHttpServer())
         .post('/api/v1/events')
@@ -1565,6 +1569,7 @@ describe('App (e2e)', () => {
       const ds = app.get(DataSource);
       const repo = ds.getRepository('users');
       await repo.update(userId, { emailVerified: true });
+      await app.get(CacheService).delete(`user:${userId}`);
 
       await request(app.getHttpServer())
         .post('/api/v1/events')
