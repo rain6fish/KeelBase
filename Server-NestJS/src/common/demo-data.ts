@@ -375,6 +375,25 @@ export async function seedDemoData(
         content:
           '基座支持私有化部署，AI 可对接本地 Ollama 使数据不出域；敏感字段（手机号等）静态加密存储，管理端访问脱敏，满足企业数据安全要求。',
       },
+      // P0-2 真实 Seed：与三旗舰业务呼应的知识文档（登录即可问「哪些客户值得跟进」等）
+      {
+        title: '大客户风险管理流程',
+        category: 'CRM 业务',
+        content:
+          '识别高风险客户的关键信号：订单逾期（尤其单笔超 100 万）、付款周期拉长、连续两月未续约。按风险等级分级：critical（≥10 分）立即人工跟进、high（≥6 分）建议创建跟进任务、medium（≥3 分）观察、low 常规维护。逾期订单优先催款，未解决风险记录需持续跟踪。',
+      },
+      {
+        title: '项目延期风险识别指南',
+        category: '项目管理',
+        content:
+          '判断项目延期风险的三类信号：逾期未完成任务（+2 分）、延期里程碑（+3 分，权重最高）、未解决风险记录（+2 分）。总分 ≥6 为高风险、≥3 为中风险。发现中高风险时应建议创建补救任务并通知项目负责人。',
+      },
+      {
+        title: '差旅报销审批政策',
+        category: '审批政策',
+        content:
+          '差旅报销审批规则：单笔金额 ≤ 2000 元且符合差旅标准 → AI 自动通过；超过 2000 元 → 转人工复核；金额 ≥ 10000 元需部门负责人审批。报销需附发票与事由说明。',
+      },
     ]);
   }
 
@@ -434,6 +453,33 @@ export async function seedDemoData(
     await convRepo.update(
       { id: c2.id },
       { messageCount: 2, summary: '用户要求创建待办，助手成功创建。' },
+    );
+
+    // P0-2 真实 Seed：旗舰场景对话——AI 读数据 → 分析风险 → 建议动作
+    const c3 = await convRepo.save(
+      convRepo.create({
+        userId: String(user.id),
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        lastActivityAt: new Date(Date.now() - 3 * 3600 * 1000),
+      }),
+    );
+    await msgRepo.save([
+      {
+        conversationId: c3.id,
+        role: 'user',
+        content: '哪些客户本周最值得跟进？',
+      },
+      {
+        conversationId: c3.id,
+        role: 'assistant',
+        content:
+          '我帮你查了客户与订单数据：蓝湾地产有 2 笔订单逾期超 30 天（风险 high），临海制造单笔 280 万订单逾期（风险 critical），云帆软件逾期且连续未续约。建议优先跟进临海制造与蓝湾地产催款——需要我为你创建跟进任务吗（需你确认）？',
+      },
+    ]);
+    await convRepo.update(
+      { id: c3.id },
+      { messageCount: 2, summary: '用户询问本周值得跟进的客户，助手基于订单逾期与风险分级给出建议并提议创建跟进任务。' },
     );
   }
 
