@@ -16,6 +16,7 @@ class ConversationProvider extends ChangeNotifier {
   bool _traceLoading = false;
   String? _traceError;
   int _traceGeneration = 0;
+  int? _revokingEffectId;
   bool _disposed = false;
 
   ConversationProvider(this._repository);
@@ -27,6 +28,7 @@ class ConversationProvider extends ChangeNotifier {
   AiTrace? get trace => _trace;
   bool get traceLoading => _traceLoading;
   String? get traceError => _traceError;
+  int? get revokingEffectId => _revokingEffectId;
 
   void _safeNotify() {
     if (!_disposed) notifyListeners();
@@ -72,6 +74,26 @@ class ConversationProvider extends ChangeNotifier {
       if (generation == _traceGeneration) {
         _traceLoading = false;
       }
+      _safeNotify();
+    }
+  }
+
+  /// P0-15：撤销本人 AI 创建的记录，成功后重载轨迹刷新状态。
+  /// 返回是否成功（UI 据此弹提示）；失败保留 trace 供重试。
+  Future<bool> revokeEffect(int effectId) async {
+    _revokingEffectId = effectId;
+    _safeNotify();
+    try {
+      await _repository.revokeEffect(effectId);
+      final currentId = _trace?.id;
+      if (currentId != null && currentId.isNotEmpty) {
+        await loadTrace(currentId);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _revokingEffectId = null;
       _safeNotify();
     }
   }

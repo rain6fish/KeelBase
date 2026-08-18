@@ -73,6 +73,13 @@ class AiConversationRepository {
     return AiTrace.fromJson(data);
   }
 
+  /// P0-15：撤销本人 AI 创建的记录（软删可恢复）
+  Future<void> revokeEffect(int effectId) async {
+    final json = await _client.delete('/ai/my/tool-effects/$effectId');
+    final response = ApiResponse.fromJson(json, (_) => null);
+    _requireSuccess(response);
+  }
+
   Future<void> deleteConversation(String id) async {
     _validateId(id);
     final json = await _client.delete('/ai/conversations/$id');
