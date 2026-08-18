@@ -1486,6 +1486,14 @@ describe('AiService', () => {
       expect(s.summarizeToolResult('x', { success: false, error: 'boom' })).toBe('boom');
     });
 
+    it('summarizeWriteTool 写操作摘要分支（确认卡片文案）', () => {
+      const s = aiService as any;
+      expect(s.summarizeWriteTool('create_event', { title: '评审', startTime: '10:00', endTime: '11:00' })).toBe('创建事件：评审（10:00 至 11:00）');
+      expect(s.summarizeWriteTool('create_todo', { title: '周报', dueDate: '2026-08-20' })).toBe('创建待办：周报（截止 2026-08-20）');
+      expect(s.summarizeWriteTool('create_todo', { title: '无截止' })).toBe('创建待办：无截止');
+      expect(s.summarizeWriteTool('unknown', {})).toBe('执行操作：unknown');
+    });
+
     it('_streamWithProviderFallback：主 provider 未配置回退下一个', async () => {
       mockProviderFactory.getProvider.mockImplementation((name: string) => {
         if (name === 'broken') throw new Error('not configured');
