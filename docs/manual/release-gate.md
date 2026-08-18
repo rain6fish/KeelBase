@@ -10,7 +10,7 @@
 | 维度 | 核心指标 | 当前状态 | 验证方法 |
 |---|---|---|---|
 | **Build** | 30min Create——陌生开发者从零生成带权限/AI 工具/确认/审计的模块 | 🔶 工程已通 | [dev-challenge.md](dev-challenge.md) + [30min-acceptance.md](30min-acceptance.md) |
-| **Run** | 1hr 真实业务任务 + Agent Success Rate | 🔶 需 LLM 实测 | 三旗舰业务任务 + [verify-flagships.sh](../../scripts/verify-flagships.sh) LLM 部分 |
+| **Run** | 1hr 真实业务任务 + Agent Success Rate | ✅ 3/3 SUCCESS（DeepSeek 实测，ASR=100%）| 三旗舰业务任务（[flagship-task-card.md](flagship-task-card.md)）+ [verify-flagships.sh](../../scripts/verify-flagships.sh) |
 | **Trust** | Safe Execution / Unauthorized Action / Human Intervention Rate | ✅ 无 LLM 部分全绿 | [verify-flagships.sh](../../scripts/verify-flagships.sh) + HS e2e |
 | **Private** | Offline + Local AI（数据不出域）| 🔶 需 Ollama 实测 | [private-ai-verification.md](private-ai-verification.md) + [verify-private-ai.sh](../../scripts/verify-private-ai.sh) |
 | **External** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
@@ -44,7 +44,13 @@
 | Agent Success Rate | 记录每次任务：AI 全程独立完成（SUCCESS）/ 需人工介入（HUMAN_INTERVENTION）/ 失败（FAIL）|
 | 时间 | 每任务目标 <20min（三任务 1hr 内）|
 
-**前置**：需要 LLM/Ollama 环境（`verify-private-ai.sh` 先通）。
+**实测记录（2026-08-18，DeepSeek deepseek-v4-flash）：3/3 SUCCESS，Agent Success Rate = 100%**
+- **CRM**：正确识别临海制造（280 万逾期 / 11 分）、蓝湾地产（2 笔逾期 / 13 分）、华润（45 万逾期）为风险客户；
+- **PM**：正确分析数据仓库迁移项目（9/10 分）、电商平台重构项目延期风险；
+- **Approval**：报销 800≤1000 → AI 预审自动通过；12000>5000 → 转人工复核，且提示写操作需确认；
+- **Trust 佐证**：Decision Trace 工具调用全 success + 审计哈希链 `valid:true`（17 条）+ Approval 写操作确认门控生效（请求保持 pending 未静默执行）。
+
+**前置**：LLM 环境（DeepSeek key 或 Ollama）。任务卡与记录表见 `flagship-task-card.md`。
 
 ## 3. Trust：Safe Execution / Unauthorized Action / Human Intervention Rate
 
