@@ -1,0 +1,70 @@
+/**
+ * Element Plus 主题：把原 Vuetify 主题 token（plugins/vuetify.ts）映射为 EP CSS 变量，
+ * 保证迁移后视觉一致。浅色为 :root 默认，深色由 <html class="dark"> 触发（ThemeToggle 切换）。
+ */
+:root {
+  // 主色（对齐 Vuetify primary #2f6bf5）
+  --el-color-primary: #2f6bf5;
+  --el-color-primary-light-3: #6d97f8;
+  --el-color-primary-light-5: #97b5fa;
+  --el-color-primary-light-7: #c1d3fc;
+  --el-color-primary-light-8: #d6e2fd;
+  --el-color-primary-light-9: #eaf0fe;
+  --el-color-primary-dark-2: #2656c4;
+
+  // 语义色（对齐 Vuetify success/warning/error/info）
+  --el-color-success: #28c76f;
+  --el-color-success-light-3: #6bd89b;
+  --el-color-success-light-9: #e2f6e9;
+  --el-color-warning: #ff9f43;
+  --el-color-warning-light-3: #ffbd79;
+  --el-color-warning-light-9: #fff3d9;
+  --el-color-danger: #ea5455;
+  --el-color-danger-light-3: #f18889;
+  --el-color-danger-light-9: #ffe0e6;
+  --el-color-error: #ea5455;
+  --el-color-error-light-3: #f18889;
+  --el-color-error-light-9: #ffe0e6;
+  --el-color-info: #00cfe8;
+  --el-color-info-light-3: #4dddf0;
+  --el-color-info-light-9: #d9f5fc;
+
+  // 背景/文字（对齐 Vuetify light surface/background/on-surface）
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f4f5fa;
+  --el-bg-color-overlay: #ffffff;
+  --el-fill-color-blank: #ffffff;
+  --el-text-color-primary: #4b5563;
+  --el-text-color-regular: #4b5563;
+  --el-text-color-secondary: #6b7280;
+  --el-border-color: #e5e7eb;
+  --el-border-color-light: #e5e7eb;
+  --el-border-color-lighter: #f1f2f4;
+  --el-border-radius-base: 8px;
+  --el-border-radius-round: 8px;
+  --el-font-size-base: 14px;
+}
+
+/* 深色主题（对齐 Vuetify dark surface/background/on-surface） */
+html.dark {
+  --el-color-primary: #2f6bf5;
+  --el-color-primary-light-3: #5d82d6;
+  --el-color-primary-light-5: #4c6fbe;
+  --el-color-primary-light-7: #3b5ba6;
+  --el-color-primary-light-8: #324f94;
+  --el-color-primary-light-9: #2a4382;
+  --el-color-primary-dark-2: #6d97f8;
+
+  --el-bg-color: #28243d;
+  --el-bg-color-page: #16142a;
+  --el-bg-color-overlay: #312d4b;
+  --el-fill-color-blank: #28243d;
+  --el-fill-color: #312d4b;
+  --el-fill-color-light: #3a3560;
+  --el-text-color-primary: #cbcbe1;
+  --el-text-color-regular: #cbcbe1;
+  --el-text-color-secondary: #9a97b8;
+  --el-border-color: #4a4a68;
+  --el-border-color-light: #4a4a68;
+  --el-border-color-lighter: #3a3560;
+}

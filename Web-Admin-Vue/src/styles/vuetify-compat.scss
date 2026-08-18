@@ -1,0 +1,123 @@
+/**
+ * Vuetify 兼容工具类 shim —— Element Plus 迁移过渡层。
+ *
+ * Vuetify 暴露大量纯 CSS 工具类（text-* / d-flex / ga-* / mb-* / pa-* 等），
+ * Element Plus 没有对应类。此文件把它们实现为普通 CSS class，让迁移中的
+ * 模板（已改 el-* 组件 + 未改的既有类）都能正常工作；迁移完成后可逐步清理。
+ * 依赖 @mdi/font（materialdesignicons）已全局引入，无需额外处理。
+ */
+
+// ── 文本 ──
+.text-medium-emphasis { color: var(--el-text-color-secondary); }
+.text-primary { color: var(--el-color-primary); }
+.text-success { color: var(--el-color-success); }
+.text-warning { color: var(--el-color-warning); }
+.text-error { color: var(--el-color-danger); }
+.text-info { color: var(--el-color-info); }
+.text-body-1 { font-size: 15px; line-height: 1.6; }
+.text-body-2 { font-size: 14px; line-height: 1.4; }
+.text-caption { font-size: 12px; line-height: 1.4; }
+.text-h6 { font-size: 18px; font-weight: 500; line-height: 1.4; }
+.text-h5 { font-size: 20px; font-weight: 500; line-height: 1.4; }
+.text-subtitle-1 { font-size: 16px; line-height: 1.5; }
+.text-subtitle-2 { font-size: 14px; line-height: 1.5; color: var(--el-text-color-secondary); }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-nowrap { white-space: nowrap; }
+.text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-decoration-line-through { text-decoration: line-through; }
+.text-uppercase { text-transform: uppercase; }
+.font-weight-medium { font-weight: 500; }
+.font-weight-bold { font-weight: 700; }
+
+// ── Flex / 布局 ──
+.d-flex { display: flex; }
+.d-inline-flex { display: inline-flex; }
+.d-none { display: none; }
+.flex-column { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.flex-grow-1, .grow-1 { flex-grow: 1; }
+.flex-shrink-0 { flex-shrink: 0; }
+.flex-1 { flex: 1; }
+.align-center { align-items: center; }
+.align-start { align-items: flex-start; }
+.align-end { align-items: flex-end; }
+.align-baseline { align-items: baseline; }
+.align-self-center { align-self: center; }
+.justify-center { justify-content: center; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.justify-space-between { justify-content: space-between; }
+.justify-space-around { justify-content: space-around; }
+.justify-space-evenly { justify-content: space-evenly; }
+
+// ── 间距（gap）──
+.ga-0 { gap: 0; }
+.ga-1 { gap: 4px; }
+.ga-2 { gap: 8px; }
+.ga-3 { gap: 12px; }
+.ga-4 { gap: 16px; }
+.ga-5 { gap: 20px; }
+.ga-6 { gap: 24px; }
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+
+// ── 尺寸（百分比宽高）──
+.h-100 { height: 100%; }
+.w-100 { width: 100%; }
+
+// ── 圆角 / 阴影 ──
+.rounded-sm { border-radius: 4px; }
+.rounded { border-radius: 8px; }
+.rounded-md { border-radius: 8px; }
+.rounded-lg { border-radius: 12px; }
+.rounded-circle { border-radius: 50%; }
+.elevation-0 { box-shadow: none; }
+.elevation-1 { box-shadow: 0 1px 3px rgb(0 0 0 / 12%), 0 1px 2px rgb(0 0 0 / 24%); }
+.elevation-2 { box-shadow: 0 3px 6px rgb(0 0 0 / 15%), 0 2px 4px rgb(0 0 0 / 12%); }
+
+// ── 溢出 / 光标 ──
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.cursor-pointer { cursor: pointer; }
+.cursor-default { cursor: default; }
+.position-relative { position: relative; }
+.position-absolute { position: absolute; }
+.position-fixed { position: fixed; }
+.object-fit-cover { object-fit: cover; }
+
+// ── 边框 ──
+.border { border: 1px solid var(--el-border-color-light); }
+.border-b { border-bottom: 1px solid var(--el-border-color-light); }
+.border-t { border-top: 1px solid var(--el-border-color-light); }
+.border-thin { border: 1px solid var(--el-border-color-light); }
+
+// ── 间距简写（margin / padding）──
+// 规则：pa-4 → padding:16px；pt-2 → padding-top:8px；mb-3 → margin-bottom:12px（Vuetify 的 1=4px）
+@each $prop, $prefix in (padding: p, margin: m) {
+  @each $side, $suffix in (top: t, right: r, bottom: b, left: l) {
+    @for $i from 0 through 6 {
+      .#{$prefix}#{$suffix}-#{$i} { #{$prop}-#{$side}: #{$i * 4}px; }
+    }
+  }
+  @for $i from 0 through 6 {
+    .#{$prefix}a-#{$i} { #{$prop}: #{$i * 4}px; }
+    .#{$prefix}x-#{$i} { #{$prop}-left: #{$i * 4}px; #{$prop}-right: #{$i * 4}px; }
+    .#{$prefix}y-#{$i} { #{$prop}-top: #{$i * 4}px; #{$prop}-bottom: #{$i * 4}px; }
+  }
+}
+// 逻辑方向（ms-/me-/ps-/pe-）
+@for $i from 0 through 6 {
+  .ms-#{$i} { margin-inline-start: #{$i * 4}px; }
+  .me-#{$i} { margin-inline-end: #{$i * 4}px; }
+  .ps-#{$i} { padding-inline-start: #{$i * 4}px; }
+  .pe-#{$i} { padding-inline-end: #{$i * 4}px; }
+}
+// 常用负边距（v-spacer 语义的 flex 空隙已有 flex-grow-1；这里补 ml-auto 等）
+.mx-auto { margin-left: auto; margin-right: auto; }
+.ml-auto { margin-left: auto; }
+.mr-auto { margin-right: auto; }

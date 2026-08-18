@@ -1,40 +1,30 @@
 <template>
-  <div class="snackbar-stack">
-    <v-snackbar
-      v-for="item in snackbar.items"
-      :key="item.id"
-      :model-value="true"
-      :color="colorFor(item.type)"
-      location="bottom"
-      timeout="-1"
-    >
-      {{ item.message }}
-      <template #actions>
-        <v-btn icon="mdi-close" variant="text" @click="snackbar.dismiss(item.id)" />
-      </template>
-    </v-snackbar>
-  </div>
+  <div />
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useSnackbarStore } from '@/stores/snackbar'
 
+/** Element Plus 版：监听 snackbar store，新条目以 ElMessage 弹出（自动堆叠 + 可关闭）。 */
 const snackbar = useSnackbarStore()
+const seen = new Set<number>()
 
-function colorFor(type: string): string {
-  return type === 'success' ? 'success' : type === 'error' ? 'error' : 'info'
-}
+watch(
+  () => snackbar.items.map((i) => i.id).join(','),
+  () => {
+    for (const item of snackbar.items) {
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      ElMessage({
+        message: item.message,
+        type: item.type as 'success' | 'warning' | 'info' | 'error',
+        grouping: true,
+        onClose: () => snackbar.dismiss(item.id),
+      })
+    }
+  },
+  { immediate: true },
+)
 </script>
-
-<style scoped>
-.snackbar-stack {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-</style>

@@ -1,34 +1,34 @@
 <template>
-  <v-card class="stat-card">
-    <v-card-text class="d-flex align-center ga-3">
-      <v-avatar :color="lightColor(color)" rounded="md" size="48" class="flex-shrink-0">
-        <v-icon :icon="icon" size="26" :color="color" />
-      </v-avatar>
+  <el-card shadow="never" class="stat-card">
+    <div class="d-flex align-center ga-3">
+      <div
+        class="flex-shrink-0 d-flex align-center justify-center"
+        :style="{ width: '48px', height: '48px', borderRadius: '12px', background: lightBg }"
+      >
+        <AppIcon :icon="icon" size="26" :color="iconColor" />
+      </div>
       <div>
         <div class="text-caption text-medium-emphasis">{{ label }}</div>
         <div class="text-h5 font-weight-bold">{{ value }}</div>
         <div v-if="hint" class="text-caption text-medium-emphasis">{{ hint }}</div>
       </div>
-    </v-card-text>
-  </v-card>
+    </div>
+  </el-card>
 </template>
 
 <script setup lang="ts">
-import { withDefaults } from 'vue'
+import { computed, withDefaults } from 'vue'
 
-// 浅色底映射：主色语义色 → 对应 light 变体（供图标底色，对齐 Matdash 统计卡形态）
-const lightMap: Record<string, string> = {
-  primary: 'lightprimary',
-  info: 'lightinfo',
-  success: 'lightsuccess',
-  warning: 'lightwarning',
-  error: 'lighterror',
-}
-function lightColor(color: string): string {
-  return lightMap[color] ?? 'lightprimary'
+// 语义色 → Element Plus CSS 变量（图标色 + 浅色底）
+const colorVar: Record<string, string> = {
+  primary: 'var(--el-color-primary)',
+  info: 'var(--el-color-info)',
+  success: 'var(--el-color-success)',
+  warning: 'var(--el-color-warning)',
+  error: 'var(--el-color-error)',
 }
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     label: string
     value: string | number
@@ -37,5 +37,10 @@ withDefaults(
     hint?: string
   }>(),
   { color: 'primary' },
+)
+
+const iconColor = computed(() => colorVar[props.color] ?? 'var(--el-color-primary)')
+const lightBg = computed(
+  () => `var(--el-color-${props.color === 'error' ? 'danger' : props.color}-light-9)`,
 )
 </script>

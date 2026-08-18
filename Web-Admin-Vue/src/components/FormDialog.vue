@@ -1,23 +1,16 @@
 <template>
-  <v-dialog v-model="show" :max-width="maxWidth" persistent>
-    <v-card :loading="loading">
-      <v-card-title class="d-flex align-center ga-2">
-        <v-icon :icon="icon" color="primary" />
-        {{ title }}
-      </v-card-title>
-      <v-divider />
-      <v-card-text class="pt-4">
-        <slot />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" :disabled="loading" @click="show = false">{{ t('cancel') }}</v-btn>
-        <v-btn color="primary" variant="tonal" :loading="loading" @click="emit('save')">
-          {{ saveLabel || t('save') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <el-dialog v-model="show" :width="maxWidth" :title="title" :close-on-click-modal="false">
+    <div class="d-flex align-center ga-2 mb-3">
+      <AppIcon :icon="icon" color="var(--el-color-primary)" />
+    </div>
+    <slot />
+    <template #footer>
+      <el-button :disabled="loading" @click="show = false">{{ t('cancel') }}</el-button>
+      <el-button type="primary" :loading="loading" @click="emit('save')">
+        {{ saveLabel || t('save') }}
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">

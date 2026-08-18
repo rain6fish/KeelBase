@@ -1,22 +1,18 @@
 <template>
-  <v-dialog v-model="show" max-width="420">
-    <v-card>
-      <v-card-title class="d-flex align-center ga-2">
-        <v-icon :icon="icon" :color="color" />
-        {{ title }}
-      </v-card-title>
-      <v-card-text>{{ content }}</v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="show = false">{{ t('no') }}</v-btn>
-        <v-btn :color="color" variant="tonal" :loading="loading" @click="confirm">{{ t('yes') }}</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <el-dialog v-model="show" :title="title" width="420" :close-on-click-modal="false">
+    <div class="d-flex align-center ga-2">
+      <AppIcon :icon="icon" :color="color" />
+      <span class="text-body-2">{{ content }}</span>
+    </div>
+    <template #footer>
+      <el-button @click="show = false">{{ t('no') }}</el-button>
+      <el-button :type="buttonType" :loading="loading" @click="confirm">{{ t('yes') }}</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(
@@ -42,6 +38,8 @@ watch(
   (v) => (show.value = v),
 )
 watch(show, (v) => emit('update:modelValue', v))
+
+const buttonType = computed(() => (props.color === 'error' ? 'danger' : 'primary'))
 
 function confirm() {
   emit('confirm')

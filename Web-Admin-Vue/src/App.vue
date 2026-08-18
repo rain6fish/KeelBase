@@ -1,8 +1,8 @@
 <template>
-  <v-app>
+  <el-config-provider>
     <router-view />
     <GlobalSnackbar />
-  </v-app>
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">

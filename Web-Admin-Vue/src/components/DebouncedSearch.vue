@@ -1,15 +1,16 @@
 <template>
-  <v-text-field
+  <el-input
     :model-value="modelValue"
     :placeholder="placeholder"
-    prepend-inner-icon="mdi-magnify"
-    variant="outlined"
-    density="comfortable"
-    hide-details
     clearable
+    style="max-width: 260px"
     @update:model-value="onInput"
-    @click:clear="clear"
-  />
+    @clear="clear"
+  >
+    <template #prefix>
+      <AppIcon icon="mdi-magnify" />
+    </template>
+  </el-input>
 </template>
 
 <script setup lang="ts">
@@ -28,8 +29,8 @@ const emit = defineEmits<{
 
 const timer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-function onInput(v: string | null) {
-  const value = v ?? ''
+function onInput(v: string | number | null) {
+  const value = v == null ? '' : String(v)
   emit('update:modelValue', value)
   if (timer.value) clearTimeout(timer.value)
   timer.value = setTimeout(() => emit('search', value), props.delay ?? 400)
