@@ -15,7 +15,7 @@ describe('PoliciesGuard', () => {
   const makeContext = (request: Record<string, unknown>): ExecutionContext =>
     ({
       switchToHttp: () => ({ getRequest: () => request }),
-      getHandler: () => ({} as Function),
+      getHandler: () => (() => {}),
       getClass: () => class {},
     }) as unknown as ExecutionContext;
 

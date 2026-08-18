@@ -39,7 +39,7 @@ export class ChatRequestDto {
   })
   @IsArray()
   @IsOptional()
-  @Matches(/^\/uploads\/(?!.*\.\.)[\w%.\-]+$/i, {
+  @Matches(/^\/uploads\/(?!.*\.\.)[\w%.-]+$/i, {
     each: true,
     message: 'images 仅允许本平台 /uploads/ 上传文件（SSRF 防护）',
   })
