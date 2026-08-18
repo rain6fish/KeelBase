@@ -1463,4 +1463,80 @@ describe('AiService', () => {
       expect(result.reply).toContain('工具循环结果');
     });
   });
+
+  describe('工具摘要与流式回退', () => {
+    it('summarizeReadTool 各分支', () => {
+      const s = aiService as any;
+      expect(s.summarizeReadTool('query_events')).toBe('查询事件');
+      expect(s.summarizeReadTool('count_events_by_status')).toBe('统计事件');
+      expect(s.summarizeReadTool('query_events_by_keyword')).toBe('搜索事件');
+      expect(s.summarizeReadTool('get_user_stats')).toBe('获取用户统计');
+      expect(s.summarizeReadTool('navigate_page')).toBe('页面跳转');
+      expect(s.summarizeReadTool('unknown_tool')).toBe('执行操作：unknown_tool');
+    });
+
+    it('summarizeToolResult 成功/失败/各工具分支', () => {
+      const s = aiService as any;
+      expect(s.summarizeToolResult('query_events', { success: true, data: [1, 2] })).toBe('查询到 2 个结果');
+      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: { total: 5 } })).toBe('共 5 个事件');
+      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: {} })).toBe('统计完成');
+      expect(s.summarizeToolResult('create_event', { success: true, data: { id: 1 } })).toBe('创建事件成功');
+      expect(s.summarizeToolResult('navigate_page', { success: true, data: { description: '设置' } })).toBe('跳转至设置');
+      expect(s.summarizeToolResult('x', { success: true, data: {} })).toBe('执行完成');
+      expect(s.summarizeToolResult('x', { success: false, error: 'boom' })).toBe('boom');
+    });
+
+    it('_streamWithProviderFallback：主 provider 未配置回退下一个', async () => {
+      mockProviderFactory.getProvider.mockImplementation((name: string) => {
+        if (name === 'broken') throw new Error('not configured');
+        return mockProvider;
+      });
+      async function* s() { yield { type: 'text' as const, content: 'ok' }; yield { type: 'done' as const }; }
+      mockProvider.stream.mockReturnValue(s());
+
+      const chunks: any[] = [];
+      for await (const c of (aiService as any).streamWithProviderFallback({
+        chain: ['broken', 'deepseek'],
+        messages: [{ role: 'user', content: 'x' }],
+        tools: [],
+        model: 'm',
+      })) {
+        chunks.push(c);
+      }
+      expect(chunks.some((c) => c.type === 'text' && c.content === 'ok')).toBe(true);
+      expect(mockProvider.stream).toHaveBeenCalledTimes(1); // 只在 deepseek 上调用
+    });
+
+    it('_streamWithProviderFallback：产出内容后遇 error 透传并停止（不回退）', async () => {
+      mockProviderFactory.getProvider.mockReturnValue(mockProvider);
+      async function* s() {
+        yield { type: 'text' as const, content: 'partial' };
+        yield { type: 'error' as const, error: 'boom' };
+      }
+      mockProvider.stream.mockReturnValue(s());
+
+      const chunks: any[] = [];
+      for await (const c of (aiService as any).streamWithProviderFallback({
+        chain: ['deepseek'],
+        messages: [],
+        tools: [],
+        model: 'm',
+      })) {
+        chunks.push(c);
+      }
+      expect(chunks.some((c) => c.type === 'text')).toBe(true);
+      expect(chunks.some((c) => c.type === 'error')).toBe(true);
+      expect(mockProvider.stream).toHaveBeenCalledTimes(1);
+    });
+
+    it('listMcpTools：治理策略禁用工具时跳过', async () => {
+      (aiService as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
+      mockToolRegistry.getToolDefinitions.mockReturnValue([
+        { type: 'function', function: { name: 'query_events', description: 'd', parameters: {} } },
+      ] as any);
+      const tools = await aiService.listMcpTools();
+      expect(tools).toEqual([]);
+      (aiService as any).governancePolicy = undefined;
+    });
+  });
 });
