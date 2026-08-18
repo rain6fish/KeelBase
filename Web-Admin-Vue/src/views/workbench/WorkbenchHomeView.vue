@@ -10,7 +10,7 @@
 
     <v-row>
       <v-col v-for="card in shortcutCards" :key="card.title" cols="12" sm="6" md="4">
-        <v-card class="h-100" :to="card.to" link>
+        <v-card class="h-100" :to="card.href ? undefined : card.to" :href="card.href" :target="card.href ? '_blank' : undefined" link>
           <v-card-title>
             <v-icon :icon="card.icon" class="mr-2" color="primary" />
             {{ card.title }}
@@ -66,5 +66,7 @@ const shortcutCards = computed(() => [
   { title: t('workbenchMyEvents'), desc: t('workbenchMyEventsDesc'), icon: 'mdi-calendar-blank-outline', to: '/workbench/events' },
   { title: t('workbenchMyTodos'), desc: t('workbenchMyTodosDesc'), icon: 'mdi-checkbox-marked-circle-outline', to: '/workbench/todos' },
   { title: t('workbenchNotifications'), desc: t('workbenchNotificationsDesc'), icon: 'mdi-bell-outline', to: '/workbench/notifications' },
+  // 移动主 App 预览（Flutter web，/mobile/ 新窗口）——Web 业务 UI 归工作台，Flutter 专注移动
+  { title: t('workbenchMobilePreview'), desc: t('workbenchMobilePreviewDesc'), icon: 'mdi-cellphone', href: '/mobile/' },
 ])
 </script>

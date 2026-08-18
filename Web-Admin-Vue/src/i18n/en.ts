@@ -86,6 +86,8 @@ const en: ZhDict = {
 
   // Workbench (application side)
   workbenchSubtitle: 'Enterprise application workbench — regular user entry; management lives in the console',
+  workbenchMobilePreview: 'Mobile app preview',
+  workbenchMobilePreviewDesc: 'Preview the main app (Flutter web) in mobile form',
   workbenchMyEvents: 'My Events',
   workbenchMyEventsDesc: 'View and manage my calendar events',
   workbenchMyTodos: 'My Todos',

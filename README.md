@@ -4,7 +4,7 @@
 > **Docker only — one command brings up the full stack (backend + main App + Admin Console) using a published image, no build needed:**
 > ```bash
 > docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
-> # Visit http://localhost:3000 for the main App, /admin for the Admin Console
+> # Visit http://localhost:3000 (workbench / business web), /admin (Admin Console), /mobile (main App mobile preview)
 > ```
 > Build it yourself (when modifying code): `./scripts/docker-single.sh`
 > Or local dev mode (backend + Admin Console, auto-opens browser):
@@ -101,8 +101,8 @@ Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered 
 
 ```bash
 docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
-# Visit http://localhost:3000 (main App), /admin (Admin Console)
-# Demo accounts: alex/123456 (main App), admin/Admin@1234 (Admin Console) — auto-created on first start
+# Visit http://localhost:3000 (workbench), /admin (Admin Console), /mobile (main App mobile preview)
+# Demo accounts: alex/123456 (workbench + mobile preview), admin/Admin@1234 (Admin Console) — auto-created on first start
 docker logs -f keelbase      # view logs
 docker stop keelbase && docker rm keelbase   # stop & remove (data persists in named volume keelbase_data)
 ```
@@ -197,7 +197,7 @@ docker compose up --build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Starts PostgreSQL 17 + Redis + NestJS API + Nginx (Flutter web).
+Starts PostgreSQL 17 + Redis + NestJS API + Nginx (Web workbench at `/`, Admin Console at `/admin`, Flutter mobile preview at `/mobile`).
 
 ---
 

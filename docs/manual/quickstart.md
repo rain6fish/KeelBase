@@ -10,14 +10,15 @@
 | 端 | 访问地址 | 能做什么 |
 |----|---------|---------|
 | 后端 API | http://localhost:3000 | 提供所有接口 + Swagger 文档 |
-| 主 App（Web） | `flutter run` 后提示的端口（通常是随机端口） | 注册/登录、事件、待办、AI 助手 |
+| 工作台（Web 业务） | http://localhost:3000（重定向）/ 生产 `http://<域名>` | 企业应用 Web 业务 UI（客户/项目/审批等） |
+| 移动主 App 预览 | http://localhost:3000/mobile | Flutter 主 App（移动形态）Web 预览 |
 | 管理台 | http://localhost:3000/admin（单容器内嵌）/ 生产 `http://<域名>/admin` | 用户/事件管理、审计、监控（需 admin 账号） |
 
 **最快的路径（只装 Docker，单容器 all-in-one）：**
 
 ```bash
-./scripts/docker-single.sh       # 构建并启动：后端 + 主 App + 管理台，一条命令起全栈
-# 访问 http://localhost:3000 主 App、http://localhost:3000/admin 管理台
+./scripts/docker-single.sh       # 构建并启动：后端 + 工作台 + 管理台，一条命令起全栈
+# 访问 http://localhost:3000 工作台、http://localhost:3000/mobile 移动预览、http://localhost:3000/admin 管理台
 ```
 
 > 不想看下面的分步说明？直接跑 `./scripts/docker-single.sh` 即可。默认 SQLite 零配置，缓存/队列自动降级——**用户只需装 Docker**。
@@ -41,18 +42,19 @@
 ./scripts/docker-single.sh up
 ```
 
-> 首次构建会下载镜像 + 编译，约 5-10 分钟；之后启动很快。单容器内嵌 Flutter Web 主 App（根路径）+ 管理台（/admin）。
+> 首次构建会下载镜像 + 编译，约 5-10 分钟；之后启动很快。单容器内嵌 Web 工作台（根路径 /，重定向）+ 移动主 App 预览（/mobile）+ 管理台（/admin）。
 
 **第三步：验证**
 ```bash
 # 浏览器打开，看到 {"status":"ok"} 即后端就绪
 curl http://localhost:3000/api/v1/health
 # 前端访问（单容器内嵌，无需单独起前端）
-open http://localhost:3000
+open http://localhost:3000        # 工作台（根路径重定向）
+open http://localhost:3000/mobile # 移动主 App 预览
 ```
 
 **第四步：登录体验（演示账号首次启动自动创建）**
-- 主 App：http://localhost:3000 → `alex` / `123456`
+- 工作台 / 移动预览：`alex` / `123456`
 - 管理台：http://localhost:3000/admin → `admin` / `Admin@1234`
 
 **管理容器**
