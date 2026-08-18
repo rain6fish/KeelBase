@@ -49,6 +49,9 @@ export class CaslAbilityFactory {
       // AI Approval 旗舰应用：审批请求/政策 本人所有权
       can('manage', 'ApprovalRequest', { requesterId: user.sub });
       can('manage', 'ApprovalPolicy', { userId: user.sub });
+      // keelbase init 生成模块（wireBackend 自动接线，勿手改：wire.mjs 会追加）
+      can('manage', 'Supplier', { userId: user.sub });
+      can('manage', 'Contract', { userId: user.sub });
     }
 
     return build();
