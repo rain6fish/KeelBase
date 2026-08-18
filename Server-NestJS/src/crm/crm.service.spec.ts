@@ -167,4 +167,79 @@ describe('CrmService', () => {
       expect(result.level).toBe('low');
     });
   });
+
+  it('listCustomers 状态/风险/关键词过滤 + 分页钳制', async () => {
+    const qb: any = {
+      andWhere: jest.fn(() => qb),
+      orderBy: jest.fn(() => qb),
+      skip: jest.fn(() => qb),
+      take: jest.fn(() => qb),
+      getManyAndCount: jest.fn().mockResolvedValue([[customer(1)], 1]),
+    };
+    const whereSpy = jest.fn(() => qb);
+    customers.createQueryBuilder.mockReturnValue({ ...qb, where: whereSpy });
+
+    const result = await service.listCustomers(1, { status: 'active', riskLevel: 'high', keyword: 'Acme', page: 2, limit: 500 });
+    expect(result.items).toHaveLength(1);
+    expect(qb.take).toHaveBeenCalledWith(100); // limit 钳到 100
+    expect(qb.andWhere).toHaveBeenCalledWith('c.status = :status', { status: 'active' });
+    expect(qb.andWhere).toHaveBeenCalledWith('c.riskLevel = :riskLevel', { riskLevel: 'high' });
+    expect(qb.andWhere).toHaveBeenCalledWith('(c.name LIKE :kw OR c.company LIKE :kw OR c.email LIKE :kw)', { kw: '%Acme%' });
+  });
+
+  it('updateCustomer 合并字段并保存', async () => {
+    const entity = { ...customer(1), name: '旧' };
+    customers.findOne.mockResolvedValue(entity);
+    customers.save.mockImplementation(async (e: any) => e);
+    const result = await service.updateCustomer(1, { name: '新' } as any, ownerAbility(1));
+    expect(result.name).toBe('新');
+    expect(customers.save).toHaveBeenCalled();
+  });
+
+  it('getCustomerDetail 聚合子资源（按 userId 隔离）', async () => {
+    customers.findOne.mockResolvedValue(customer(1));
+    orders.find.mockResolvedValue([{ id: 1, amount: 100 }]);
+    activities.find.mockResolvedValue([{ id: 1, note: 'x' }]);
+    tasks.find.mockResolvedValue([{ id: 1, title: 'T' }]);
+    risks.find.mockResolvedValue([{ id: 1, level: 'high' }]);
+    const detail = await service.getCustomerDetail(1, ownerAbility(1));
+    expect(detail.customer.id).toBe(1);
+    expect(detail.orders).toHaveLength(1);
+    expect(detail.activities).toHaveLength(1);
+    expect(detail.tasks).toHaveLength(1);
+    expect(detail.risks).toHaveLength(1);
+    // 子资源按 customerId + userId 过滤
+    expect(orders.find).toHaveBeenCalledWith(expect.objectContaining({ where: { customerId: 1, userId: 1 } }));
+  });
+
+  it('订单/跟进列表与创建委托 service', async () => {
+    orders.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listOrders(1, 1)).resolves.toHaveLength(1);
+    orders.create.mockImplementation((d: any) => d);
+    await service.createOrder(1, { amount: 100 } as any, 1);
+    expect(orders.save).toHaveBeenCalledWith(expect.objectContaining({ customerId: 1, userId: 1, amount: 100 }));
+
+    activities.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listActivities(1, 1)).resolves.toHaveLength(1);
+    activities.create.mockImplementation((d: any) => d);
+    await service.createActivity(1, { note: '跟进' } as any, 1);
+    expect(activities.save).toHaveBeenCalledWith(expect.objectContaining({ customerId: 1, userId: 1, happenedAt: expect.any(Date) }));
+  });
+
+  it('listTasks 带/不带客户过滤', async () => {
+    tasks.findAndCount.mockResolvedValue([[{ id: 1 }], 1]);
+    const withCustomer = await service.listTasks(1, 1);
+    expect(withCustomer.items).toHaveLength(1);
+    expect(tasks.findAndCount).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 1, customerId: 1 } }));
+    await service.listTasks(1);
+    expect(tasks.findAndCount).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: 1 } }));
+  });
+
+  it('风险列表/创建委托 service', async () => {
+    risks.find.mockResolvedValue([{ id: 1 }]);
+    await expect(service.listRisks(1, 1)).resolves.toHaveLength(1);
+    risks.create.mockImplementation((d: any) => d);
+    await service.createRisk(1, { level: 'high', description: 'x' } as any, 1);
+    expect(risks.save).toHaveBeenCalledWith(expect.objectContaining({ customerId: 1, userId: 1, level: 'high' }));
+  });
 });
