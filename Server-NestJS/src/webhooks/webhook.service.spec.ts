@@ -142,4 +142,19 @@ describe('WebhookService (PL-14)', () => {
     expect(out.delivered).toBe(false);
     expect(out.error).toContain('not found');
   });
+
+  it('setEnabled 启用/停用本人订阅并返回视图（不含 secret）', async () => {
+    const repo = makeRepo([{ ...base(), id: 3 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const view = await svc.setEnabled(1, 3, false);
+    expect(view).not.toBeNull();
+    expect(view!.enabled).toBe(false);
+    expect((view as any).secret).toBeUndefined();
+  });
+
+  it('setEnabled 订阅不存在或非本人 → null', async () => {
+    const repo = makeRepo([{ ...base(), id: 3 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    await expect(svc.setEnabled(1, 99, true)).resolves.toBeNull();
+  });
 });
