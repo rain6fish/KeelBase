@@ -73,6 +73,8 @@ export interface ToolStartData {
   name: string;
   summary: string;
   arguments?: Record<string, unknown>;
+  /** ADT（P0-14）：写操作（需确认/可撤销）标记 */
+  isWrite?: boolean;
 }
 
 /** 工具执行结束（前端进程卡片结果） */
