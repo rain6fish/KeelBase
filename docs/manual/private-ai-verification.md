@@ -113,6 +113,18 @@ curl -s http://localhost:3000/api/v1/audit/logs/verify \
 
 **预期**：`{ valid: true }`——本次 AI 对话/工具调用已落 `ai_audit_logs` 且哈希链完整（HS-11）。
 
+## 8. AI CRM Golden Path（阶段 2 Phase 1，业务场景闭环）
+
+在 AI CRM 上跑通「数据不出域」完整业务闭环（`verify-private-ai.sh` 已含第 5 步自动校验 CRM 数据可读）：
+
+1. 登录后问 AI「**哪些客户本周最值得跟进？**」——AI 调 `query_customers` / `query_customer_orders` / `analyze_customer_risk`（读工具，蓝色「读」徽标，本地库）
+2. AI 回答「云帆商贸有逾期订单且连续两月未续约」→ 问「要为云帆创建跟进任务吗？」
+3. 点「确认」→ AI 调 `create_followup_task`（写工具，橙色「写」徽标）→ 落库
+4. 工具卡显示「已确认 · 可撤销」→ 可撤销（本人 P0-15）
+5. 管理台「AI 审计」查这次对话/工具调用，`/audit/verify` 哈希链完整
+
+**验证点**：AI 操作真实业务数据 + 写操作确认 + 审计 + 撤销，全部在本机（无云端）。
+
 ## 常见问题
 
 | 现象 | 处理 |
