@@ -1,7 +1,7 @@
-# v1.0 Release Gate（阶段 2 Phase 4 决策门禁）
+# Release Gate（0.9.x 里程碑质量门禁 / 阶段 2 Phase 4）
 
-> 依据 development-plan §7.1 Phase 4：**Code Complete ≠ Product Validated**——达标才发 v1.0。本文件把 Release Gate 落地为可执行检查单。
-> 注意：**v0.9.3 暂不发布**（用户决定）；本 Gate 用于 v1.0 决策，不是 v0.9.x 发版条件。
+> 依据 development-plan §7.1 Phase 4：**Code Complete ≠ Product Validated**。本文件把 Release Gate 落地为可执行检查单。
+> **版本策略（2026-08-18 用户决定）**：先不发行 1.0，**继续 0.9.x 版本线**——本 Gate 作为 0.9.x 里程碑质量检查；五维不达标 → 记录差距进下一迭代；1.0 是否发另行决策。
 
 ---
 
