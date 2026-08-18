@@ -649,6 +649,35 @@ describe('AuthService', () => {
       // Only one findOne call for provider lookup
       expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
     });
+
+    it('P2-4 OIDC：走 verifyCode 授权码流程并自动建号', async () => {
+      const oidcDto: OAuthLoginDto = {
+        provider: 'oidc',
+        authorizationCode: 'sso-auth-code',
+        redirectUri: 'https://app/callback',
+      };
+      mockOAuthService.verifyCode.mockResolvedValue({
+        providerId: 'sso-user-99',
+        email: 'emp@sso.example',
+        name: 'Employee',
+        avatarUrl: null,
+      });
+      // provider 查无 → email 查无 → 用户名可用
+      mockRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockRepository.create.mockReturnValue(mockUser);
+      mockRepository.save.mockResolvedValue(mockUser);
+
+      const result = await service.oAuthLogin(oidcDto);
+
+      expect(result.accessToken).toBe('mock.access.token');
+      expect(mockOAuthService.verifyCode).toHaveBeenCalledWith(
+        'oidc', 'sso-auth-code', 'https://app/callback', undefined,
+      );
+      expect(mockRepository.create).toHaveBeenCalled();
+    });
   });
 
   // ─── forgotPassword ────────────────────────────────────────────────────────
