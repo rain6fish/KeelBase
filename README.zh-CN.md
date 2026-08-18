@@ -66,8 +66,8 @@ KeelBase 是一个业务安全的 AI 全栈应用基座：**让 AI 按照系统�
 
 ### ⚡ 全栈融合
 
-- **一端多能：** 无缝融合用户 App (Flutter)、小程序 (Taro) 和独立管理台。
-- **零摩擦开发：** 统一 API 契约与共享类型约定，管理台与主 App 完全隔离。
+- **一端多能：** 无缝融合用户 App (Flutter)、小程序 (Taro) 和 Web 端（工作台 + 管理台同一壳）。
+- **零摩擦开发：** 统一 API 契约与共享类型约定；管理功能只在控制台侧（与工作台同一壳），移动端不携带管理逻辑。
 
 ---
 
@@ -77,7 +77,7 @@ KeelBase 是一个业务安全的 AI 全栈应用基座：**让 AI 按照系统�
 |-----------|-------------|
 | `Front-Flutter/` | 主用户 App（Flutter，iOS/Android/Web 三端） |
 | `Front-Taro/` | 主 App 的 H5/小程序端（Taro） |
-| `Web-Admin-Vue/` | 独立管理台（Vue3 + Vuetify3 PC Web，完全隔离）；React 版规划中 |
+| `Web-Admin-Vue/` | Web 端宿主：工作台 + 管理台同一壳（Vue3 + Element Plus）；React 版规划中 |
 | `Server-NestJS/` | NestJS 后端（REST API） |
 | `docs/` | 规格、需求、手册 |
 | `.github/workflows/` | CI 流水线（lint + 测试 + 构建） |
@@ -211,7 +211,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
 | 层 | 技术 | 说明 |
 |-------|-----------|--------------|
-| 前端 | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) | 主 App 三端 + H5/小程序 |
+| 前端 | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) + Vue3 + Element Plus | 主 App 三端 + H5/小程序 + Web 端（工作台 + 管理台同一壳） |
 | 后端 | NestJS 11.x, TypeScript, TypeORM | 模块化、装饰器驱动 |
 | 数据库 | SQLite (dev) / PostgreSQL (prod) | 开发 / 生产 |
 | 缓存·队列 | Redis 7 + CacheManager (Redis) + BullMQ | 缓存层 + 异步队列 |
@@ -233,7 +233,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 - **日历事件 Events**：周/月视图、日程列表、事件 CRUD（CASL 按用户所有权）
 - **AI 助手**：带工具调用的对话（查事件/用户统计/页面导航）、RAG 知识库问答、数据洞察、模型热切换（DeepSeek/Qwen）、对话历史
 - **通知 Notifications**：站内通知中心、未读计数、SSE 实时推送、极光设备推送（抽象）
-- **管理台 Admin Console**：独立 Vue3 PC Web——用户管理（角色/删除）、事件管理、知识库、AI 审计日志与用量统计、操作审计、监控、模板、AI 评测、工具副作用
+- **管理台 Admin Console**：Vue3 + Element Plus PC Web（Web 端控制台侧）——用户管理（角色/删除）、事件管理、知识库、AI 审计日志与用量统计、操作审计、监控、模板、AI 评测、工具副作用
 - **全局搜索 Search**：事件 + 公开用户统一搜索
 - **文件上传 Upload**：MIME + 扩展名 + 魔数校验、10MB 上限、WebP 转换
 - **安全 Security**：Helmet、CORS 白名单、Body 限制、排序注入防护、登录锁定、Token 哈希、CASL 行级权限、AES-256-GCM 静态加密
