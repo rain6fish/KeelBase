@@ -50,6 +50,12 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   APPLE_CLIENT_ID: Joi.string().allow('').default(''),
 
+  // P2-4 企业 SSO（通用 OIDC）：配齐 OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET 后，/auth/oauth/providers 出现 oidc（enterprise 组）
+  OIDC_ENABLED: Joi.boolean().default(false),
+  OIDC_ISSUER: Joi.string().uri().allow('').default(''),
+  OIDC_CLIENT_ID: Joi.string().allow('').default(''),
+  OIDC_CLIENT_SECRET: Joi.string().allow('').default(''),
+
   // OAuth 中国区第三方
   WECHAT_APP_ID: Joi.string().allow('').default(''),
   WECHAT_APP_SECRET: Joi.string().allow('').default(''),

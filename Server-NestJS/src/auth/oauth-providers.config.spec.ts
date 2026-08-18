@@ -53,4 +53,28 @@ describe('OAuthProvidersConfigService', () => {
     configService.get.mockReturnValue('');
     expect(service.getRedirectUri('wechat')).toBe('');
   });
+
+  it('oidc 配齐凭据时进入 enterprise 组（P2-4）', async () => {
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'OAUTH_ENABLED_PROVIDERS') return 'oidc';
+      if (key === 'OIDC_CLIENT_ID') return 'client-id';
+      if (key === 'OIDC_CLIENT_SECRET') return 'client-secret';
+      if (key === 'OIDC_ISSUER') return 'https://sso.example.com';
+      return '';
+    });
+    const cfg = await service.getConfig();
+    expect(cfg.enabledProviders).toContain('oidc');
+    expect(cfg.groups.enterprise.map((p) => p.id)).toContain('oidc');
+  });
+
+  it('oidc 缺凭据（无 client_secret/issuer）时被过滤', async () => {
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'OAUTH_ENABLED_PROVIDERS') return 'oidc';
+      if (key === 'OIDC_CLIENT_ID') return 'client-id';
+      return '';
+    });
+    const cfg = await service.getConfig();
+    expect(cfg.enabledProviders).not.toContain('oidc');
+    expect(cfg.groups.enterprise).toEqual([]);
+  });
 });
