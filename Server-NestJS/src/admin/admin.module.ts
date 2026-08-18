@@ -34,7 +34,7 @@ import { HeadlessModule } from '../headless/headless.module';
     ]),
     NotificationsModule,
     MetricsModule,
-    QueueModule,
+    QueueModule.register(),
     EncryptionModule,
     AiModule,
     HeadlessModule,

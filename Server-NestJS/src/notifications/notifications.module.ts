@@ -9,7 +9,7 @@ import { QueueModule } from '../queue/queue.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification]), PushModule, QueueModule, forwardRef(() => RealtimeModule)],
+  imports: [TypeOrmModule.forFeature([Notification]), PushModule, QueueModule.register(), forwardRef(() => RealtimeModule)],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway],
   exports: [NotificationsService],
