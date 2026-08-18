@@ -49,6 +49,19 @@ node scripts/keelbase-init.mjs --spec specs/contract.json
 ### 3.2 `specs/supplier.json`（供应商，双 enum）— 协议反推验证产物
 ### 3.3 `specs/customer.json` / `project.json` / `approval-request.json` — 三旗舰反推协议示例
 
+### 3.4 常用业务模块协议（2026-08-18 补充，直接 `--spec` 生成）
+
+| 协议 | 说明 | 字段亮点 |
+|---|---|---|
+| `specs/events.json` | 日程事件 | colorRole enum（6 色） |
+| `specs/todos.json` | 待办 | priority / status enum |
+| `specs/books.json` | 图书 | status enum + rating int |
+| `specs/notes.json` | 笔记 | category enum |
+
+```bash
+node scripts/keelbase-init.mjs --spec specs/books.json   # 生成 books 模块（含 AI 工具）
+```
+
 ## 4. 验收判定
 
 - ✅ **30 分钟内**完成 1-7 步（生成/迁移/API/前端/权限/测试）
