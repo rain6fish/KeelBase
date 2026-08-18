@@ -269,6 +269,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | Marketing | Golden Demo 60s recording script — Tool → Permission → Confirmation → Audit closed loop (P0-3) |
 | [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | Developers / Sales | Existing System AIization demo — legacy Schema → `keelbase import` → Protocol → module → AI tools → governance (P0-12) |
 | [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | Developers | Ecosystem pack assembly — templates / business skills / plugin CLI / generator (Phase 2 third-party-style build) |
+| [`docs/manual/plugin-authoring.md`](docs/manual/plugin-authoring.md) | Plugin authors | Plugin authoring — self-contained plugin pattern, `keelbase-plugin verify/add/list`, PluginContext API, lifecycle (Phase 2 Extension API) |
 | [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | External developers | Dev Challenge — 30-minute reproducible build (module + AI tool + confirmation + audit) with feedback form (Phase 3) |
 | [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | Maintainers | Release Gate — Build / Run / Trust / Private / External checklist with commands & current status (0.9.x milestone) |
 | [`docs/manual/flagship-task-card.md`](docs/manual/flagship-task-card.md) | Maintainers | Flagship LLM task card — real business tasks for CRM / Project / Approval with Agent Success Rate record (Run/Private verification) |
