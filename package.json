@@ -28,7 +28,8 @@
     "url": "https://github.com/rain6fish/KeelBase.git"
   },
   "scripts": {
-    "cli:test": "node --test scripts/keelbase-init.test.mjs"
+    "cli:test": "node --test scripts/keelbase-init.test.mjs",
+    "check:boundary": "node scripts/check-core-boundary.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"
