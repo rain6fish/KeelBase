@@ -1,39 +1,51 @@
 <template>
   <div>
     <PageHeader :title="t('navAiEval')">
-      <v-btn variant="tonal" prepend-icon="mdi-plus" @click="openCreate">{{ t('newEvalCase') }}</v-btn>
-      <v-btn variant="tonal" prepend-icon="mdi-seed" @click="onSeed">{{ t('seedCases') }}</v-btn>
-      <v-btn color="primary" prepend-icon="mdi-play" :loading="running" @click="onRun">{{ t('runEval') }}</v-btn>
+      <el-button @click="openCreate">
+        <template #icon><AppIcon icon="mdi-plus" /></template>
+        {{ t('newEvalCase') }}
+      </el-button>
+      <el-button @click="onSeed">
+        <template #icon><AppIcon icon="mdi-seed" /></template>
+        {{ t('seedCases') }}
+      </el-button>
+      <el-button type="primary" :loading="running" @click="onRun">
+        <template #icon><AppIcon icon="mdi-play" /></template>
+        {{ t('runEval') }}
+      </el-button>
     </PageHeader>
 
     <!-- 最近报告 -->
-    <v-card v-if="report" class="mb-4">
-      <v-card-title class="d-flex align-center ga-2">
-        <v-icon icon="mdi-chart-box" color="primary" />
-        {{ t('lastReport') }}
-        <v-chip size="small" color="success" variant="tonal">{{ t('passed', { n: report.passed }) }}</v-chip>
-        <v-chip size="small" color="error" variant="tonal">{{ t('failed', { n: report.failed }) }}</v-chip>
-        <v-chip size="small" variant="tonal">{{ t('total') }} {{ report.total }}</v-chip>
-      </v-card-title>
-      <v-card-text>
-        <v-expansion-panels variant="accordion">
-          <v-expansion-panel v-for="c in report.cases" :key="c.id">
-            <v-expansion-panel-title class="d-flex align-center ga-2">
-              <v-icon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'success' : 'error'" />
+    <el-card v-if="report" shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <AppIcon icon="mdi-chart-box" color="var(--el-color-primary)" />
+          {{ t('lastReport') }}
+          <el-tag size="small" type="success" effect="light">{{ t('passed', { n: report.passed }) }}</el-tag>
+          <el-tag size="small" type="danger" effect="light">{{ t('failed', { n: report.failed }) }}</el-tag>
+          <el-tag size="small" effect="light">{{ t('total') }} {{ report.total }}</el-tag>
+        </div>
+      </template>
+      <el-collapse>
+        <el-collapse-item v-for="c in report.cases" :key="c.id">
+          <template #title>
+            <div class="d-flex align-center ga-2">
+              <AppIcon
+                :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'"
+                :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'"
+              />
               <span class="text-body-2">{{ c.category }} / {{ c.prompt }}</span>
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <div class="text-body-2">{{ t('assertType') }}: {{ c.assertType }}</div>
-              <div class="text-body-2">{{ t('detail') }}: {{ c.detail }}</div>
-              <div v-if="c.actualToolCalls?.length" class="text-body-2">{{ t('actualToolCalls') }}: {{ c.actualToolCalls.join(', ') }}</div>
-              <div v-if="c.replyPreview" class="text-body-2">{{ t('replyPreview') }}: {{ c.replyPreview }}</div>
-              <div v-if="c.error" class="text-body-2 text-error">{{ t('error') }}: {{ c.error }}</div>
-              <div class="text-caption text-medium-emphasis">{{ c.durationMs }}ms</div>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-      </v-card-text>
-    </v-card>
+            </div>
+          </template>
+          <div class="text-body-2">{{ t('assertType') }}: {{ c.assertType }}</div>
+          <div class="text-body-2">{{ t('detail') }}: {{ c.detail }}</div>
+          <div v-if="c.actualToolCalls?.length" class="text-body-2">{{ t('actualToolCalls') }}: {{ c.actualToolCalls.join(', ') }}</div>
+          <div v-if="c.replyPreview" class="text-body-2">{{ t('replyPreview') }}: {{ c.replyPreview }}</div>
+          <div v-if="c.error" class="text-body-2 text-error">{{ t('error') }}: {{ c.error }}</div>
+          <div class="text-caption text-medium-emphasis">{{ c.durationMs }}ms</div>
+        </el-collapse-item>
+      </el-collapse>
+    </el-card>
 
     <AppTable :headers="headers" :items="cases" :loading="loading" :total="cases.length" :items-per-page="cases.length || 1">
       <template #item.enabled="{ item }">
@@ -42,16 +54,24 @@
       <template #item.expected="{ item }">{{ item.expected || '-' }}</template>
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 
     <FormDialog v-model="showCreate" :title="t('newEvalCase')" :loading="saving" @save="onCreate">
-      <v-form @submit.prevent="onCreate">
-        <v-text-field v-model="form.category" :label="t('category')" required />
-        <v-textarea v-model="form.prompt" :label="t('prompt')" rows="3" required />
-        <v-text-field v-model="form.expected" :label="t('expected')" />
-      </v-form>
+      <el-form @submit.prevent="onCreate">
+        <el-form-item :label="t('category')">
+          <el-input v-model="form.category" required />
+        </el-form-item>
+        <el-form-item :label="t('prompt')">
+          <el-input v-model="form.prompt" type="textarea" :rows="3" required />
+        </el-form-item>
+        <el-form-item :label="t('expected')">
+          <el-input v-model="form.expected" />
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <ConfirmDialog

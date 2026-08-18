@@ -2,47 +2,59 @@
   <div>
     <PageHeader :title="t('pmTitle')" :subtitle="t('pmTotal', { n: total })" />
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
         <DebouncedSearch v-model="keyword" :placeholder="t('pmSearchPlaceholder')" style="max-width: 220px" @search="load(1)" />
-        <v-select v-model="statusFilter" :items="statusOptions" item-title="label" item-value="value" :label="t('pmStatus')" density="compact" style="max-width: 160px" hide-details />
-        <v-btn color="primary" prepend-icon="mdi-magnify" @click="load(1)">{{ t('filter') }}</v-btn>
-        <v-spacer />
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">{{ t('pmAddProject') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-select v-model="statusFilter" :placeholder="t('pmStatus')" style="max-width: 160px" clearable>
+          <el-option v-for="o in statusOptions" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+        <el-button type="primary" @click="load(1)">
+          <template #icon><AppIcon icon="mdi-magnify" /></template>
+          {{ t('filter') }}
+        </el-button>
+        <div class="flex-grow-1" />
+        <el-button type="primary" @click="openCreate">
+          <template #icon><AppIcon icon="mdi-plus" /></template>
+          {{ t('pmAddProject') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="projects" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.name="{ item }">
-        <v-btn variant="text" color="primary" class="pa-0" @click="goDetail(item.id)">{{ item.name }}</v-btn>
+        <el-button text type="primary" class="pa-0" @click="goDetail(item.id)">{{ item.name }}</el-button>
       </template>
       <template #item.status="{ item }">
         <StatusChip :status="item.status" :label-map="statusLabelMap" />
       </template>
       <template #item.riskLevel="{ item }">
-        <v-chip size="small" :color="riskColor(item.riskLevel)" variant="tonal">{{ riskLabel(item.riskLevel) }}</v-chip>
+        <el-tag size="small" :type="{ green: 'success', amber: 'warning', orange: 'warning', red: 'danger', grey: 'info' }[riskColor(item.riskLevel)] ?? 'info'" effect="light">{{ riskLabel(item.riskLevel) }}</el-tag>
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 
     <AppPagination :page="page" :limit="limit" :total="total" :loading="loading" @update:page="load" />
 
-    <v-dialog v-model="showCreate" max-width="460">
-      <v-card>
-        <v-card-title>{{ t('pmAddProject') }}</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="form.name" :label="t('pmProjectName')" required />
-          <v-text-field v-model="form.description" :label="t('pmProjectDesc')" />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showCreate = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="primary" :loading="saving" @click="onCreate">{{ t('save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <el-dialog v-model="showCreate" :width="460" :title="t('pmAddProject')">
+      <el-form @submit.prevent="onCreate">
+        <el-form-item :label="t('pmProjectName')">
+          <el-input v-model="form.name" required />
+        </el-form-item>
+        <el-form-item :label="t('pmProjectDesc')">
+          <el-input v-model="form.description" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="d-flex justify-end ga-2">
+          <el-button @click="showCreate = false">{{ t('cancel') }}</el-button>
+          <el-button type="primary" :loading="saving" @click="onCreate">{{ t('save') }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <ConfirmDialog v-model="showDelete" :title="t('pmDeleteTitle')" :content="t('pmDeleteContent')" @confirm="onDelete" />
   </div>

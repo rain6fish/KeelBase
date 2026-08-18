@@ -2,31 +2,42 @@
   <div>
     <PageHeader :title="req?.title ?? t('apTitle')" :subtitle="req ? t('apStatusLabel', { s: statusLabel(req.status) }) : ''" />
 
-    <v-row v-if="req" class="mb-4">
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>{{ t('apRequestInfo') }}</v-card-title>
-          <v-card-text>
+    <el-row v-if="req" :gutter="16" class="mb-4">
+      <el-col :xs="24" :md="12">
+        <el-card shadow="never">
+          <template #header>{{ t('apRequestInfo') }}</template>
+          <div>
             <p><strong>{{ t('apType') }}:</strong> {{ typeLabel(req.type) }}</p>
             <p><strong>{{ t('apAmount') }}:</strong> ¥{{ req.amount.toFixed(2) }}</p>
             <p><strong>{{ t('apReason') }}:</strong> {{ req.reason }}</p>
-            <v-chip size="small" class="mr-2" variant="tonal">{{ statusLabel(req.status) }}</v-chip>
-            <v-chip size="small" :color="riskColor(req.riskLevel)" variant="tonal">{{ riskLabel(req.riskLevel) }}</v-chip>
-            <v-card v-if="req.aiRecommendation" class="mt-3 pa-3 bg-amber-lighten-4">
-              <strong>{{ t('apAiRecommendation') }}:</strong>
-              <p class="mb-0 text-body-2">{{ req.aiRecommendation }}</p>
-            </v-card>
-          </v-card-text>
-          <v-card-actions v-if="req.status === 'pending'">
-            <v-btn color="primary" :loading="working" prepend-icon="mdi-robot" @click="review">{{ t('apReview') }}</v-btn>
-          </v-card-actions>
-          <v-card-actions v-else-if="req.status === 'needs_review'">
-            <v-btn color="success" :loading="working" prepend-icon="mdi-check" @click="decide('approved')">{{ t('apApprove') }}</v-btn>
-            <v-btn color="error" :loading="working" prepend-icon="mdi-close" @click="decide('rejected')">{{ t('apReject') }}</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+            <div class="d-flex ga-2 flex-wrap">
+              <el-tag size="small" effect="light">{{ statusLabel(req.status) }}</el-tag>
+              <el-tag size="small" :type="{ green: 'success', amber: 'warning', orange: 'warning', red: 'danger', grey: 'info' }[riskColor(req.riskLevel)] ?? 'info'" effect="light">{{ riskLabel(req.riskLevel) }}</el-tag>
+            </div>
+            <el-alert v-if="req.aiRecommendation" type="warning" :closable="false" class="mt-3">
+              <template #title><strong>{{ t('apAiRecommendation') }}:</strong></template>
+              {{ req.aiRecommendation }}
+            </el-alert>
+          </div>
+          <div v-if="req.status === 'pending'" class="mt-3">
+            <el-button type="primary" :loading="working" @click="review">
+              <template #icon><AppIcon icon="mdi-robot" /></template>
+              {{ t('apReview') }}
+            </el-button>
+          </div>
+          <div v-else-if="req.status === 'needs_review'" class="mt-3 d-flex ga-2">
+            <el-button type="success" :loading="working" @click="decide('approved')">
+              <template #icon><AppIcon icon="mdi-check" /></template>
+              {{ t('apApprove') }}
+            </el-button>
+            <el-button type="danger" :loading="working" @click="decide('rejected')">
+              <template #icon><AppIcon icon="mdi-close" /></template>
+              {{ t('apReject') }}
+            </el-button>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 

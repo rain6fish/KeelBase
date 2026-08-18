@@ -4,28 +4,28 @@
 
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('loading') }}</div>
 
-    <v-row v-else>
-      <v-col v-for="tpl in templates" :key="tpl.id" cols="12" md="6" lg="4">
-        <v-card>
-          <v-card-title class="d-flex align-center ga-2">
-            <v-icon icon="mdi-view-grid-plus-outline" color="primary" />
-            {{ tpl.name }}
-          </v-card-title>
-          <v-card-text>
-            <div class="text-body-2 text-medium-emphasis mb-3">{{ tpl.description }}</div>
-            <div class="text-caption">
-              {{ t('events') }}: {{ tpl.events.length }} · {{ t('todos') }}: {{ tpl.todos.length }}
+    <el-row v-else :gutter="16">
+      <el-col v-for="tpl in templates" :key="tpl.id" :xs="24" :md="12" :lg="8">
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex align-center ga-2">
+              <AppIcon icon="mdi-view-grid-plus-outline" color="var(--el-color-primary)" />
+              {{ tpl.name }}
             </div>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn color="primary" variant="tonal" prepend-icon="mdi-download" :loading="importingId === tpl.id" @click="confirmImport(tpl)">
+          </template>
+          <div class="text-body-2 text-medium-emphasis mb-3">{{ tpl.description }}</div>
+          <div class="text-caption">
+            {{ t('events') }}: {{ tpl.events.length }} · {{ t('todos') }}: {{ tpl.todos.length }}
+          </div>
+          <div class="d-flex justify-end mt-3">
+            <el-button type="primary" plain :loading="importingId === tpl.id" @click="confirmImport(tpl)">
+              <template #icon><AppIcon icon="mdi-download" /></template>
               {{ t('importTemplate') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+            </el-button>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <div v-if="!loading && !templates.length" class="text-medium-emphasis pa-4">{{ t('noTemplates') }}</div>
 

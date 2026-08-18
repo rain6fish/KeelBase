@@ -2,95 +2,104 @@
   <div>
     <PageHeader :title="detail?.project.name ?? t('pmTitle')" :subtitle="subtitle" />
 
-    <v-row v-if="detail" class="mb-4">
-      <v-col cols="12" md="4">
-        <v-card class="h-100">
-          <v-card-title>{{ t('pmProjectInfo') }}</v-card-title>
-          <v-card-text>
+    <el-row v-if="detail" :gutter="16" class="mb-4">
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="h-100">
+          <template #header>{{ t('pmProjectInfo') }}</template>
+          <div>
             <p v-if="detail.project.description">{{ detail.project.description }}</p>
-            <v-chip size="small" class="mr-2" variant="tonal">{{ statusLabel(detail.project.status) }}</v-chip>
-            <v-chip size="small" :color="riskColor(detail.project.riskLevel)" variant="tonal">{{ riskLabel(detail.project.riskLevel) }}</v-chip>
+            <div class="d-flex ga-2 flex-wrap">
+              <el-tag size="small" effect="light">{{ statusLabel(detail.project.status) }}</el-tag>
+              <el-tag size="small" :type="{ green: 'success', amber: 'warning', orange: 'warning', red: 'danger', grey: 'info' }[riskColor(detail.project.riskLevel)] ?? 'info'" effect="light">{{ riskLabel(detail.project.riskLevel) }}</el-tag>
+            </div>
             <p class="mt-2 text-body-2">{{ detail.memberCount }} {{ t('pmMembers') }}</p>
-            <v-divider class="my-3" />
-            <v-btn color="primary" :loading="analyzing" prepend-icon="mdi-chart-line" @click="analyze">{{ t('crmAnalyzeRisk') }}</v-btn>
+            <el-divider class="my-3" />
+            <el-button type="primary" :loading="analyzing" @click="analyze">
+              <template #icon><AppIcon icon="mdi-chart-line" /></template>
+              {{ t('crmAnalyzeRisk') }}
+            </el-button>
             <template v-if="analysis">
               <p class="mt-3 mb-0" :style="{ color: riskColor(analysis.level) }">
                 <strong>{{ t('crmRiskLevel') }}: {{ riskLabel(analysis.level) }}</strong>
               </p>
               <p v-for="(r, i) in analysis.reasons" :key="i" class="mb-0 text-body-2">• {{ r }}</p>
             </template>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </div>
+        </el-card>
+      </el-col>
 
-      <v-col cols="12" md="8">
-        <v-row>
-          <v-col cols="12">
-            <v-card>
-              <v-card-title class="d-flex align-center">
-                {{ t('pmMilestones') }}
-                <v-spacer />
-                <v-btn size="small" variant="tonal" prepend-icon="mdi-plus" @click="openAdd('milestone')">{{ t('pmAddMilestone') }}</v-btn>
-              </v-card-title>
-              <v-list dense>
-                <v-list-item v-for="m in detail.milestones" :key="m.id">
-                  <template #title>{{ m.title }}</template>
-                  <template #subtitle>{{ m.status }} · {{ m.dueDate || '-' }}</template>
-                </v-list-item>
-                <v-list-item v-if="!detail.milestones.length">{{ t('pmNoMilestones') }}</v-list-item>
-              </v-list>
-            </v-card>
-          </v-col>
+      <el-col :xs="24" :md="16">
+        <el-row :gutter="16">
+          <el-col :span="24">
+            <el-card shadow="never">
+              <template #header>
+                <div class="d-flex align-center justify-space-between">
+                  <span>{{ t('pmMilestones') }}</span>
+                  <el-button size="small" plain @click="openAdd('milestone')">
+                    <template #icon><AppIcon icon="mdi-plus" /></template>
+                    {{ t('pmAddMilestone') }}
+                  </el-button>
+                </div>
+              </template>
+              <div v-for="m in detail.milestones" :key="m.id" class="py-1">
+                <div class="text-body-2">{{ m.title }}</div>
+                <div class="text-caption text-medium-emphasis">{{ m.status }} · {{ m.dueDate || '-' }}</div>
+              </div>
+              <div v-if="!detail.milestones.length" class="text-medium-emphasis">{{ t('pmNoMilestones') }}</div>
+            </el-card>
+          </el-col>
 
-          <v-col cols="12">
-            <v-card>
-              <v-card-title class="d-flex align-center">
-                {{ t('pmTasks') }}
-                <v-spacer />
-                <v-btn size="small" variant="tonal" prepend-icon="mdi-plus" @click="openAdd('task')">{{ t('pmAddTask') }}</v-btn>
-              </v-card-title>
-              <v-list dense>
-                <v-list-item v-for="tk in detail.tasks" :key="tk.id">
-                  <template #title>
-                    <span :class="{ 'text-decoration-line-through': tk.status === 'completed', 'text-grey': tk.status === 'completed' }">{{ tk.title }}</span>
-                  </template>
-                  <template #append>
-                    <v-btn v-if="tk.status !== 'completed'" icon="mdi-check-circle" size="small" variant="text" color="success" @click="completeTask(tk.id)" />
-                  </template>
-                </v-list-item>
-                <v-list-item v-if="!detail.tasks.length">{{ t('pmNoTasks') }}</v-list-item>
-              </v-list>
-            </v-card>
-          </v-col>
+          <el-col :span="24">
+            <el-card shadow="never">
+              <template #header>
+                <div class="d-flex align-center justify-space-between">
+                  <span>{{ t('pmTasks') }}</span>
+                  <el-button size="small" plain @click="openAdd('task')">
+                    <template #icon><AppIcon icon="mdi-plus" /></template>
+                    {{ t('pmAddTask') }}
+                  </el-button>
+                </div>
+              </template>
+              <div v-for="tk in detail.tasks" :key="tk.id" class="d-flex align-center justify-space-between py-1">
+                <span :class="{ 'text-decoration-line-through text-medium-emphasis': tk.status === 'completed' }">{{ tk.title }}</span>
+                <el-button
+                  v-if="tk.status !== 'completed'"
+                  circle
+                  text
+                  type="success"
+                  size="small"
+                  :title="t('crmTaskCompleted')"
+                  @click="completeTask(tk.id)"
+                >
+                  <AppIcon icon="mdi-check-circle" />
+                </el-button>
+              </div>
+              <div v-if="!detail.tasks.length" class="text-medium-emphasis">{{ t('pmNoTasks') }}</div>
+            </el-card>
+          </el-col>
 
-          <v-col cols="12">
-            <v-card>
-              <v-card-title>{{ t('pmRisks') }}</v-card-title>
-              <v-list dense>
-                <v-list-item v-for="r in detail.risks" :key="r.id">
-                  <template #title>{{ riskLabel(r.level) }} · {{ r.reason }}</template>
-                </v-list-item>
-                <v-list-item v-if="!detail.risks.length">{{ t('pmNoRisks') }}</v-list-item>
-              </v-list>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-col>
-    </v-row>
+          <el-col :span="24">
+            <el-card shadow="never">
+              <template #header>{{ t('pmRisks') }}</template>
+              <div v-for="r in detail.risks" :key="r.id" class="py-1 text-body-2">{{ riskLabel(r.level) }} · {{ r.reason }}</div>
+              <div v-if="!detail.risks.length" class="text-medium-emphasis">{{ t('pmNoRisks') }}</div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-col>
+    </el-row>
 
-    <v-dialog v-model="showAdd" max-width="420">
-      <v-card>
-        <v-card-title>{{ addTitle }}</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="addValue" :label="addHint" />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showAdd = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="primary" :loading="saving" @click="onAdd">{{ t('save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <el-dialog v-model="showAdd" :width="420" :title="addTitle">
+      <el-form-item :label="addHint">
+        <el-input v-model="addValue" />
+      </el-form-item>
+      <template #footer>
+        <div class="d-flex justify-end ga-2">
+          <el-button @click="showAdd = false">{{ t('cancel') }}</el-button>
+          <el-button type="primary" :loading="saving" @click="onAdd">{{ t('save') }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
