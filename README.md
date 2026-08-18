@@ -269,6 +269,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | Marketing | Golden Demo 60s recording script — Tool → Permission → Confirmation → Audit closed loop (P0-3) |
 | [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | Developers / Sales | Existing System AIization demo — legacy Schema → `keelbase import` → Protocol → module → AI tools → governance (P0-12) |
 | [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | Developers | Ecosystem pack assembly — templates / business skills / plugin CLI / generator (Phase 2 third-party-style build) |
+| [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | External developers | Dev Challenge — 30-minute reproducible build (module + AI tool + confirmation + audit) with feedback form (Phase 3) |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | Developers / AI agents | Protocol ecosystem — Module/Flow/Tool/Plugin/Capability protocols & AI generation chain (P1-1) |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
