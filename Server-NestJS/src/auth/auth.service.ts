@@ -38,6 +38,7 @@ import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity';
 import { EncryptionService } from '../common/utils/encryption';
 import { MfaService } from './mfa/mfa.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
@@ -93,6 +94,7 @@ export class AuthService {
     @InjectRepository(OperationAuditLog)
     private opAuditRepo: Repository<OperationAuditLog>,
     private orgService: OrgService,
+    private uploadSign: UploadSignService,
   ) {
     this.cleanupTimer = setInterval(() => this._cleanupDevices(), 60_000);
   }
@@ -402,7 +404,7 @@ export class AuthService {
         dateOfBirth: user.dateOfBirth,
         phone: this.decryptPhone(user.phone),
         bio: user.bio,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: this.signedAvatar(user.avatarUrl),
         emailVerified: user.emailVerified,
         createdAt: user.createdAt?.toISOString(),
       },
@@ -443,7 +445,7 @@ export class AuthService {
           provider: dto.provider,
           providerId: this.encryption.encrypt(oauthUser.providerId),
           providerHash: this.encryption.hmac(oauthUser.providerId),
-          avatarUrl: oauthUser.avatarUrl ?? user.avatarUrl,
+          avatarUrl: this.signedAvatar(oauthUser.avatarUrl) ?? user.avatarUrl,
         });
       }
     }
@@ -465,7 +467,7 @@ export class AuthService {
         provider: dto.provider,
         providerId: this.encryption.encrypt(oauthUser.providerId),
         providerHash: this.encryption.hmac(oauthUser.providerId),
-        avatarUrl: oauthUser.avatarUrl ?? undefined,
+        avatarUrl: this.signedAvatar(oauthUser.avatarUrl) ?? undefined,
         password: '', // placeholder, set below
       });
       // Set placeholder password (unusable but non-null to satisfy the column)
@@ -499,7 +501,7 @@ export class AuthService {
         dateOfBirth: user.dateOfBirth,
         phone: this.decryptPhone(user.phone),
         bio: user.bio,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: this.signedAvatar(user.avatarUrl),
         emailVerified: user.emailVerified,
         createdAt: user.createdAt?.toISOString(),
       },
@@ -615,7 +617,7 @@ export class AuthService {
         dateOfBirth: user.dateOfBirth,
         phone: this.decryptPhone(user.phone),
         bio: user.bio,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: this.signedAvatar(user.avatarUrl),
         emailVerified: user.emailVerified,
         createdAt: user.createdAt?.toISOString(),
       },
@@ -714,7 +716,7 @@ export class AuthService {
       dateOfBirth: user.dateOfBirth,
       phone: this.decryptPhone(user.phone),
       bio: user.bio,
-      avatarUrl: user.avatarUrl,
+      avatarUrl: this.signedAvatar(user.avatarUrl),
       createdAt: user.createdAt.toISOString(),
     };
   }
@@ -874,6 +876,12 @@ export class AuthService {
   private decryptPhone(encrypted?: string | null): string | null | undefined {
     if (!encrypted) return encrypted;
     return this.encryption.decrypt(encrypted);
+  }
+
+  /** CR-21：头像等 /uploads 资源附签名 URL（null/绝对 URL 原样） */
+  private signedAvatar(url?: string | null): string | null | undefined {
+    if (!url) return url;
+    return this.uploadSign.signUrl(url);
   }
 
   private async delay() {

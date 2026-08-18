@@ -7,6 +7,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from '../common/entities/user.entity';
 import { EncryptionService } from '../common/utils/encryption';
 import { CacheService } from '../common/cache/cache.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { maskEmail, maskPhone } from '../common/utils/mask';
 import { BusinessException } from '../common/errors/business.exception';
 
@@ -19,6 +20,7 @@ export class UsersService {
     private usersRepository: Repository<User>,
     private encryption: EncryptionService,
     private cacheService: CacheService,
+    private uploadSign: UploadSignService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<Partial<User>> {
@@ -69,7 +71,7 @@ export class UsersService {
     keyword: string,
     page = 1,
     limit = 10,
-  ): Promise<{ items: Array<{ id: number; username: string; nickname: string; avatarUrl?: string }>; total: number; page: number; limit: number }> {
+  ): Promise<{ items: Array<{ id: number; username: string; nickname: string; avatarUrl?: string | null }>; total: number; page: number; limit: number }> {
     const [users, total] = await this.usersRepository.findAndCount({
       where: [
         { username: Like(`%${keyword}%`) },
@@ -83,7 +85,7 @@ export class UsersService {
       id: u.id,
       username: u.username,
       nickname: u.nickname,
-      avatarUrl: u.avatarUrl,
+      avatarUrl: u.avatarUrl ? this.uploadSign.signUrl(u.avatarUrl) : null,
     }));
     return { items, total, page, limit };
   }

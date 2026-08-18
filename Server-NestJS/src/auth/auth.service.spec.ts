@@ -14,6 +14,7 @@ import { MailService } from '../mail/mail.service';
 import { SmsService } from '../sms/sms.service';
 import { OrgService } from '../org/org.service';
 import { MfaService } from './mfa/mfa.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { User } from '../common/entities/user.entity';
 import { UserSession } from './user-session.entity';
 import { PhoneVerificationCode } from './phone-verification-code.entity';
@@ -175,6 +176,7 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(AiMessage), useValue: genericRepo() },
         { provide: getRepositoryToken(OperationAuditLog), useValue: genericRepo() },
         { provide: OrgService, useValue: { redeemOrgInvite: jest.fn().mockResolvedValue(false) } },
+        { provide: UploadSignService, useValue: { signUrl: jest.fn((p: string) => p) } },
       ],
     }).compile();
 

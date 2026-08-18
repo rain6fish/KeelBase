@@ -5,11 +5,12 @@ import { UsersService } from './users.service';
 import { User } from '../common/entities/user.entity';
 import { SeedService } from '../common/seed';
 import { CacheModule } from '../common/cache/cache.module';
+import { UploadSignService } from '../upload/upload-sign.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User]), CacheModule],
   controllers: [UsersController],
-  providers: [UsersService, SeedService],
+  providers: [UsersService, SeedService, UploadSignService],
   exports: [UsersService],
 })
 export class UsersModule {}

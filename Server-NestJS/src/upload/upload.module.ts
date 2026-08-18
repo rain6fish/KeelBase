@@ -3,6 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadController } from './upload.controller';
 import { ImageProcessorService } from './image-processor.service';
+import { UploadSignService } from './upload-sign.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
@@ -13,6 +14,7 @@ import { StorageModule } from '../storage/storage.module';
     StorageModule,
   ],
   controllers: [UploadController],
-  providers: [ImageProcessorService],
+  providers: [ImageProcessorService, UploadSignService],
+  exports: [UploadSignService],
 })
 export class UploadModule {}

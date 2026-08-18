@@ -18,6 +18,7 @@ import { validateMagicBytes } from '../common/utils/file-validator';
 import { STORAGE_SERVICE } from '../storage/storage.service';
 import type { StorageService } from '../storage/storage.service';
 import { ImageProcessorService } from './image-processor.service';
+import { UploadSignService } from './upload-sign.service';
 
 /** 安全的文件扩展名白名单 — 与 MIME 互相印证 */
 const ALLOWED_EXTENSIONS = new Set([
@@ -34,6 +35,7 @@ export class UploadController {
   constructor(
     @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
     private readonly imageProcessor: ImageProcessorService,
+    private readonly uploadSign: UploadSignService,
   ) {}
 
   @Post()
@@ -106,14 +108,16 @@ export class UploadController {
       processed.filename,
       processed.mimetype,
     );
-    const filename = url.split('/').pop() ?? processed.filename;
+    // CR-21：返回带签名 URL（S3 绝对 URL 由 signUrl 原样透传）
+    const signedUrl = this.uploadSign.signUrl(url);
+    const filename = signedUrl.split('/').pop()?.split('?')[0] ?? processed.filename;
 
     this.logger.log(
       `文件上传成功: ${filename} (${processed.buffer.length}b, ${processed.mimetype})`,
     );
 
     return {
-      url,
+      url: signedUrl,
       filename,
       originalName: file.originalname,
       size: processed.buffer.length,
