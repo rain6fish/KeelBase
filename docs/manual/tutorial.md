@@ -18,14 +18,15 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 | 地址 | 看到什么 |
 |------|---------|
 | http://localhost:3000/api/v1/health | `{"status":"ok"}` |
-| http://localhost:3000 | 主 App（Flutter） |
+| http://localhost:3000 | 工作台（Web 业务，根路径重定向） |
+| http://localhost:3000/mobile | 移动主 App 预览（Flutter） |
 | http://localhost:3000/admin | 管理台（Vue3） |
 
 **登录**（首次启动自动创建）：
 
 | 账号 | 密码 | 用途 |
 |------|------|------|
-| `alex` | `123456` | 主 App 普通用户 |
+| `alex` | `123456` | 工作台 / 移动预览 普通用户 |
 | `admin` | `Admin@1234` | 管理台管理员 |
 
 > 看日志 `docker logs -f keelbase`；停止并删除 `docker stop keelbase && docker rm keelbase`（数据留在命名卷 `keelbase_data`）。
@@ -35,7 +36,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 跑起来后，用 4 个动作快速理解「AI 不只是聊天，而是在权限和审计边界内干活」：
 
-1. **用 AI 对话探索数据**：主 App 底部「AI」页输入「我这个月有哪些事件安排？」——AI 会调用查询工具返回你的真实数据（不是闲聊）。
+1. **用 AI 对话探索数据**：移动 App 预览（/mobile）底部「AI」页输入「我这个月有哪些事件安排？」——AI 会调用查询工具返回你的真实数据（不是闲聊）。
 2. **看能力清单**：访问 `/app/capabilities`（或管理台「系统信息」）——当前 preset（full / small / lite）启用了哪些功能，前端导航与之一致。
 3. **看审计**：管理台「AI 审计」「操作审计」——刚才那次 AI 工具调用已有记录（谁、什么工具、结果）；写操作（如创建事件）还要求人工确认。
 4. **数据模型速览**：核心实体 `User / Event / Todo / Notification`——所有业务围绕「本人数据」隔离（CASL 行级权限）。
@@ -127,7 +128,7 @@ node scripts/keelbase-init.mjs --module books --label 图书 --fields title:stri
 ./deploy/deploy.sh
 ```
 
-**验证**：浏览器打开 `https://你的域名`（主 App）+ `https://你的域名/admin`（管理台），用部署脚本提示的管理员账号登录。
+**验证**：浏览器打开 `https://你的域名`（工作台）+ `https://你的域名/mobile`（移动预览）+ `https://你的域名/admin`（管理台），用部署脚本提示的管理员账号登录。
 
 > 生产 HTTPS 需要先准备证书：`mkdir certs && cp 你的证书 certs/server.crt && cp 你的私钥 certs/server.key`。详见 [一键部署](one-click-deploy.md)。
 > 快速试部署可不装 Docker 环境，用已发布镜像：`docker run -d -p 80:3000 ghcr.io/rain6fish/keelbase:latest`（生产建议 `-e` 覆盖 JWT/加密密钥）。

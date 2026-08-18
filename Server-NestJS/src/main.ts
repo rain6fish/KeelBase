@@ -78,16 +78,20 @@ async function bootstrap() {
   });
 
   // EASY-1 单容器交付：当 public/ 目录存在（Dockerfile.single 内嵌前端）时，
-  // 用 Nest 托管 Flutter web 主 App（根路径）+ 管理台（/admin），
+  // 用 Nest 托管 Web 工作台（根路径 → /admin/#/workbench）+ 移动主 App 预览（/mobile）+ 管理台（/admin），
   // 使 `docker run` 单容器即可提供全栈，无需 nginx。SERVE_STATIC 显式开启。
+  // 端定位（2026-08-17）：Web 业务 UI 唯一宿主 = 工作台；Flutter web 仅作移动预览。
   if (process.env.SERVE_STATIC === '1') {
     const publicDir = join(__dirname, '..', 'public');
     const adminDir = join(publicDir, 'admin');
-    // 主 App（Flutter web，hash 路由无需 SPA fallback）
-    app.useStaticAssets(publicDir);
-    // 管理台（Web-Admin-Vue Vue3 独立构建，/admin 子路径）
+    const mobileDir = join(publicDir, 'mobile');
+    // 根路径 → 工作台（Vue hash 路由，/admin/#/workbench 为工作台首页）
+    app.getHttpAdapter().get('/', (req: any, res: any) => res.redirect('/admin/#/workbench'));
+    // 移动主 App 预览（Flutter web，hash 路由无需 SPA fallback）→ /mobile/
+    app.useStaticAssets(mobileDir, { prefix: '/mobile' });
+    // 管理台 + 工作台（Web-Admin-Vue Vue3 独立构建，/admin 子路径）
     app.useStaticAssets(adminDir, { prefix: '/admin' });
-    logger.log('Serving web + admin console from public/ (single-container mode)');
+    logger.log('Serving workbench (root → /admin/#/workbench) + mobile preview (/mobile) + admin console');
   }
 
   // Swagger docs — only in development
