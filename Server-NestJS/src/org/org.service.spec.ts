@@ -59,6 +59,7 @@ describe('OrgService', () => {
   let invites: ReturnType<typeof mockRepo>;
   let users: ReturnType<typeof mockRepo>;
   let flowInst: ReturnType<typeof mockRepo>;
+  let flowTask: ReturnType<typeof mockRepo>;
   let notify: { create: jest.Mock };
 
   beforeEach(async () => {
@@ -68,6 +69,7 @@ describe('OrgService', () => {
     invites = mockRepo();
     users = mockRepo();
     flowInst = mockRepo();
+    flowTask = mockRepo();
     notify = { create: jest.fn().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -79,7 +81,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(OrgInvite), useValue: invites },
         { provide: getRepositoryToken(User), useValue: users },
         { provide: getRepositoryToken(FlowInstance), useValue: flowInst },
-        { provide: getRepositoryToken(FlowTask), useValue: mockRepo() },
+        { provide: getRepositoryToken(FlowTask), useValue: flowTask },
         { provide: NotificationsService, useValue: notify },
         {
           provide: FlowRuntimeService,
@@ -513,5 +515,45 @@ describe('OrgService', () => {
     expect(list[0]).toEqual({ id: 5, nickname: 'Alice', avatarUrl: 'http://a', role: OrgMemberRole.MEMBER, deptName: '研发部' });
     expect(list[0]).not.toHaveProperty('email');
     expect(list[0]).not.toHaveProperty('username');
+  });
+
+  // ── 补充覆盖：update 成功路径 / 审批待办统计 ───────────────────────────────
+
+  it('更新部门：设非 null 父级成功（在组织内且无环）', async () => {
+    depts.findOne
+      .mockResolvedValueOnce({ id: 1, orgId: 1, parentId: null, name: 'A' })
+      .mockResolvedValueOnce({ id: 3, orgId: 1 }); // 父级在组织内
+    depts.find.mockResolvedValue([{ id: 1, orgId: 1, parentId: null }]); // 无环
+    depts.save.mockImplementation(async (x) => x);
+    await service.updateDepartment(1, { parentId: 3 });
+    expect(depts.save).toHaveBeenCalledWith(expect.objectContaining({ parentId: 3 }));
+  });
+
+  it('更新成员：设非 null 部门成功', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 5, deptId: null, role: OrgMemberRole.MEMBER });
+    depts.findOne.mockResolvedValue({ id: 2, orgId: 1 }); // 部门在组织内
+    members.save.mockImplementation(async (x) => x);
+    await service.updateMember(1, { deptId: 2 });
+    expect(members.save).toHaveBeenCalledWith(expect.objectContaining({ deptId: 2 }));
+  });
+
+  it('getOrgApprovalTaskStats：按成员聚合 pending/processed 审批任务', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, role: OrgMemberRole.MEMBER });
+    members.find.mockResolvedValue([
+      { userId: 5, role: OrgMemberRole.MEMBER, user: { nickname: 'Alice' }, dept: { name: '研发部' } },
+      { userId: 6, role: OrgMemberRole.MEMBER, user: { nickname: 'Bob' }, dept: null },
+    ]);
+    flowTask.createQueryBuilder().getMany.mockResolvedValue([
+      { assigneeId: 5, status: 'pending' },
+      { assigneeId: 5, status: 'approved' },
+      { assigneeId: 6, status: 'rejected' },
+      { assigneeId: 6, status: 'pending' },
+    ]);
+    const result = await service.getOrgApprovalTaskStats(9);
+    expect(result.orgId).toBe(1);
+    const alice = result.members.find((m) => m.nickname === 'Alice')!;
+    expect(alice).toMatchObject({ pending: 1, processed: 1, total: 2, deptName: '研发部' });
+    const bob = result.members.find((m) => m.nickname === 'Bob')!;
+    expect(bob).toMatchObject({ pending: 1, processed: 1, total: 2 });
   });
 });
