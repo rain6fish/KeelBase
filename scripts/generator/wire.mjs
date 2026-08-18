@@ -120,6 +120,18 @@ export async function wireBackend(ctx, root = '') {
     );
   }
 
+  // 4) CaslAbilityFactory：生成模块 CASL 规则（本人所有权）——否则本人更新/删除 403
+  results.push(
+    await applyFile(`${BE}/common/casl/casl-ability.factory.ts`, (c) =>
+      insertAfter(
+        c,
+        `      can('manage', 'Todo', { userId: user.sub });`,
+        `\n      // keelbase init 生成模块\n      can('manage', '${ctx.singlePascal}', { userId: user.sub });`,
+        `can('manage', '${ctx.singlePascal}'`,
+      ),
+    ),
+  );
+
   return results;
 }
 

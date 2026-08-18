@@ -34,6 +34,7 @@ import { RealtimeModule } from '../src/realtime/realtime.module';
 import { CrmModule } from '../src/crm/crm.module';
 import { PmModule } from '../src/pm/pm.module';
 import { ApprovalModule } from '../src/approval/approval.module';
+import { SuppliersModule } from '../src/suppliers/suppliers.module';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
@@ -123,6 +124,7 @@ import request from 'supertest';
     CrmModule,
     PmModule,
     ApprovalModule,
+    SuppliersModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
