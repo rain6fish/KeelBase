@@ -2,47 +2,41 @@
   <div>
     <PageHeader :title="t('sysTitle')" />
 
-    <v-row>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>{{ t('appInfo') }}</v-card-title>
-          <v-card-text v-if="version">
-            <v-list density="compact">
-              <v-list-item><v-list-item-title>{{ t('adminConsole') }}</v-list-item-title></v-list-item>
-              <v-list-item>{{ t('latestVersion') }}：{{ version.latestVersion }}</v-list-item>
-              <v-list-item>{{ t('minVersion') }}：{{ version.minRequiredVersion }}</v-list-item>
-              <v-list-item v-if="version.updateUrl">{{ t('updateUrl') }}：<a :href="version.updateUrl" target="_blank">{{ version.updateUrl }}</a></v-list-item>
-            </v-list>
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="12">
+        <el-card shadow="never">
+          <template #header>{{ t('appInfo') }}</template>
+          <div v-if="version" class="d-flex flex-column ga-2">
+            <div class="text-body-2 font-weight-medium">{{ t('adminConsole') }}</div>
+            <div class="text-body-2">{{ t('latestVersion') }}：{{ version.latestVersion }}</div>
+            <div class="text-body-2">{{ t('minVersion') }}：{{ version.minRequiredVersion }}</div>
+            <div v-if="version.updateUrl" class="text-body-2">{{ t('updateUrl') }}：<a :href="version.updateUrl" target="_blank">{{ version.updateUrl }}</a></div>
             <div class="mt-2">
               <div class="text-subtitle-2 mb-1">{{ t('changelog') }}</div>
-              <v-list v-if="version.changelog?.length" density="compact">
-                <v-list-item v-for="(c, i) in version.changelog" :key="i">
-                  <span class="text-body-2">- {{ c }}</span>
-                </v-list-item>
-              </v-list>
+              <div v-if="version.changelog?.length" class="d-flex flex-column ga-1">
+                <div v-for="(c, i) in version.changelog" :key="i" class="text-body-2">- {{ c }}</div>
+              </div>
             </div>
-          </v-card-text>
-          <v-card-text v-else class="text-medium-emphasis">{{ t('loading') }}</v-card-text>
-        </v-card>
-      </v-col>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+        </el-card>
+      </el-col>
 
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>{{ t('runtimeEnv') }}</v-card-title>
-          <v-card-text v-if="monitor">
-            <v-list density="compact">
-              <v-list-item>{{ t('nodeEnv') }}：{{ monitor.health.nodeEnv || '-' }}</v-list-item>
-              <v-list-item>{{ t('storageDriverLabel') }}：{{ monitor.dependencies.storage }}</v-list-item>
-              <v-list-item>{{ t('pushDriverLabel') }}：{{ monitor.dependencies.push }}</v-list-item>
-              <v-list-item>{{ t('mailService') }}：{{ monitor.dependencies.mail }}</v-list-item>
-              <v-list-item>{{ t('redisCache') }}：{{ monitor.dependencies.redis }}</v-list-item>
-              <v-list-item>{{ t('uptimeLabel') }}：{{ formatUptime(monitor.health.uptimeSec) }}</v-list-item>
-            </v-list>
-          </v-card-text>
-          <v-card-text v-else class="text-medium-emphasis">{{ t('loading') }}</v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+      <el-col :xs="24" :md="12">
+        <el-card shadow="never">
+          <template #header>{{ t('runtimeEnv') }}</template>
+          <div v-if="monitor" class="d-flex flex-column ga-2">
+            <div class="text-body-2">{{ t('nodeEnv') }}：{{ monitor.health.nodeEnv || '-' }}</div>
+            <div class="text-body-2">{{ t('storageDriverLabel') }}：{{ monitor.dependencies.storage }}</div>
+            <div class="text-body-2">{{ t('pushDriverLabel') }}：{{ monitor.dependencies.push }}</div>
+            <div class="text-body-2">{{ t('mailService') }}：{{ monitor.dependencies.mail }}</div>
+            <div class="text-body-2">{{ t('redisCache') }}：{{ monitor.dependencies.redis }}</div>
+            <div class="text-body-2">{{ t('uptimeLabel') }}：{{ formatUptime(monitor.health.uptimeSec) }}</div>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 

@@ -3,93 +3,104 @@
     <PageHeader :title="t('navAiTools')" />
 
     <!-- HS-9 治理策略（写 Settings 实时生效） -->
-    <v-card class="mb-4">
-      <v-card-title class="d-flex align-center justify-space-between">
-        <span>{{ t('governancePolicy') }}</span>
-        <div>
-          <v-btn variant="text" prepend-icon="mdi-restore" :disabled="saving" @click="loadAll()">{{ t('resetPolicy') }}</v-btn>
-          <v-btn color="primary" prepend-icon="mdi-content-save" :loading="saving" @click="onSavePolicy()">{{ t('savePolicy') }}</v-btn>
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center justify-space-between">
+          <span>{{ t('governancePolicy') }}</span>
+          <div>
+            <el-button text :disabled="saving" @click="loadAll()">
+              <template #icon><AppIcon icon="mdi-restore" /></template>
+              {{ t('resetPolicy') }}
+            </el-button>
+            <el-button type="primary" :loading="saving" @click="onSavePolicy()">
+              <template #icon><AppIcon icon="mdi-content-save" /></template>
+              {{ t('savePolicy') }}
+            </el-button>
+          </div>
         </div>
-      </v-card-title>
-      <v-card-text>
-        <div class="text-caption text-medium-emphasis mb-3">{{ t('policyHint') }}</div>
-        <v-radio-group v-model="granularity" inline density="compact" class="mb-2">
-          <v-radio :label="t('auditAll')" value="all" />
-          <v-radio :label="t('auditWrite')" value="write" />
-          <v-radio :label="t('auditOff')" value="off" />
-        </v-radio-group>
-        <v-table v-if="rows.length" density="compact">
-          <thead>
-            <tr>
-              <th>{{ t('tool') }}</th>
-              <th class="text-center">{{ t('enabled') }}</th>
-              <th class="text-center">{{ t('requiresConfirmation') }}</th>
-              <th>{{ t('allowedRoles') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.name">
-              <td>
-                <div class="font-weight-medium">{{ row.name }}</div>
-                <div class="text-caption text-medium-emphasis">{{ row.description }}</div>
-              </td>
-              <td class="text-center"><v-switch v-model="row.enabled" density="compact" hide-details color="primary" /></td>
-              <td class="text-center"><v-switch v-model="row.requiresConfirmation" density="compact" hide-details color="warning" /></td>
-              <td style="max-width: 240px">
-                <v-select
-                  v-model="row.allowedRoles"
-                  :items="roleOptions"
-                  multiple
-                  clearable
-                  :placeholder="t('noRestriction')"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-        <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
-      </v-card-text>
-    </v-card>
+      </template>
+      <div class="text-caption text-medium-emphasis mb-3">{{ t('policyHint') }}</div>
+      <el-radio-group v-model="granularity" class="mb-2">
+        <el-radio value="all">{{ t('auditAll') }}</el-radio>
+        <el-radio value="write">{{ t('auditWrite') }}</el-radio>
+        <el-radio value="off">{{ t('auditOff') }}</el-radio>
+      </el-radio-group>
+      <table v-if="rows.length" class="w-100 border">
+        <thead>
+          <tr>
+            <th class="pa-2 text-left">{{ t('tool') }}</th>
+            <th class="text-center pa-2">{{ t('enabled') }}</th>
+            <th class="text-center pa-2">{{ t('requiresConfirmation') }}</th>
+            <th class="pa-2 text-left">{{ t('allowedRoles') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in rows" :key="row.name">
+            <td class="pa-2">
+              <div class="font-weight-medium">{{ row.name }}</div>
+              <div class="text-caption text-medium-emphasis">{{ row.description }}</div>
+            </td>
+            <td class="text-center pa-2"><el-switch v-model="row.enabled" /></td>
+            <td class="text-center pa-2"><el-switch v-model="row.requiresConfirmation" style="--el-switch-on-color: var(--el-color-warning)" /></td>
+            <td class="pa-2" style="max-width: 240px">
+              <el-select v-model="row.allowedRoles" multiple clearable :placeholder="t('noRestriction')">
+                <el-option v-for="o in roleOptions" :key="o.value" :label="o.title" :value="o.value" />
+              </el-select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+    </el-card>
 
-    <v-card class="mb-4">
-      <v-card-title>{{ t('toolInventory') }}</v-card-title>
-      <v-card-text v-if="tools.length">
-        <v-row>
-          <v-col v-for="tool in tools" :key="tool.name" cols="12" md="6" lg="4">
-            <v-card variant="outlined">
-              <v-card-title class="text-subtitle-1 d-flex align-center ga-2">
-                <v-icon :icon="tool.requiresConfirmation ? 'mdi-shield-check-outline' : 'mdi-wrench-outline'" :color="tool.requiresConfirmation ? 'warning' : 'primary'" size="small" />
-                {{ tool.name }}
-                <v-chip v-if="tool.requiresConfirmation" size="x-small" color="warning" variant="tonal">{{ t('requiresConfirmation') }}</v-chip>
-              </v-card-title>
-              <v-card-text class="text-caption">
+    <el-card shadow="never" class="mb-4">
+      <template #header>{{ t('toolInventory') }}</template>
+      <div v-if="tools.length">
+        <el-row :gutter="16">
+          <el-col v-for="tool in tools" :key="tool.name" :xs="24" :md="12" :lg="8">
+            <el-card shadow="never" class="mb-4">
+              <template #header>
+                <div class="text-subtitle-1 d-flex align-center ga-2">
+                  <AppIcon
+                    :icon="tool.requiresConfirmation ? 'mdi-shield-check-outline' : 'mdi-wrench-outline'"
+                    :color="tool.requiresConfirmation ? 'var(--el-color-warning)' : 'var(--el-color-primary)'"
+                    size="18"
+                  />
+                  {{ tool.name }}
+                  <el-tag v-if="tool.requiresConfirmation" size="small" type="warning" effect="light">{{ t('requiresConfirmation') }}</el-tag>
+                </div>
+              </template>
+              <div class="text-caption">
                 <div class="text-medium-emphasis mb-1">{{ tool.description }}</div>
                 <div v-if="tool.parameters.length">
                   <span class="font-weight-medium">{{ t('parameters') }}:</span>
                   {{ tool.parameters.map((p) => `${p.name}${p.required ? '*' : ''}`).join(', ') }}
                 </div>
                 <div v-if="tool.permissions?.adminOnly" class="text-error">{{ t('adminOnly') }}</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-card-text>
-      <v-card-text v-else class="text-medium-emphasis">{{ t('loading') }}</v-card-text>
-    </v-card>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+      <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+    </el-card>
 
     <PageHeader :title="t('toolEffects')">
-      <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="loadEffects()">{{ t('refresh') }}</v-btn>
+      <el-button @click="loadEffects()">
+        <template #icon><AppIcon icon="mdi-refresh" /></template>
+        {{ t('refresh') }}
+      </el-button>
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 align-center">
-        <v-text-field v-model="effectUserId" :label="t('filterByUserId')" type="number" density="comfortable" variant="outlined" hide-details style="max-width: 180px" />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="loadEffects(1)">{{ t('filter') }}</v-btn>
-      </v-card-text>
-    </v-card>
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 align-center">
+        <el-input v-model="effectUserId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
+        <el-button type="primary" @click="loadEffects(1)">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="effectHeaders" :items="effects" :loading="effectsLoading" :total="effectTotal" :items-per-page="limit">
       <template #item.resultType="{ item }">
@@ -103,15 +114,16 @@
         <StatusChip v-else status="down" :label-map="effectStatusMap" />
       </template>
       <template #item.actions="{ item }">
-        <v-btn
-          icon="mdi-undo-variant"
-          variant="text"
+        <el-button
+          text
           size="small"
-          color="error"
+          type="danger"
           :disabled="!item.targetExists || item.targetSoftDeleted"
           :title="t('revokeEffect')"
           @click="confirmRevoke(item)"
-        />
+        >
+          <AppIcon icon="mdi-undo-variant" />
+        </el-button>
       </template>
     </AppTable>
 

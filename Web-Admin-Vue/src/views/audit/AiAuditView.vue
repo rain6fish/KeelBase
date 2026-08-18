@@ -1,22 +1,28 @@
 <template>
   <div>
     <PageHeader :title="t('aiAuditTitle')">
-      <v-btn variant="tonal" prepend-icon="mdi-download" @click="onExport">{{ t('export') }}</v-btn>
+      <el-button @click="onExport">
+        <template #icon><AppIcon icon="mdi-download" /></template>
+        {{ t('export') }}
+      </el-button>
     </PageHeader>
 
-    <v-row class="mb-2">
-      <v-col v-for="s in statCards" :key="s.label" cols="6" md="3">
+    <el-row :gutter="16" class="mb-2">
+      <el-col v-for="s in statCards" :key="s.label" :xs="12" :md="6">
         <StatCard v-bind="s" />
-      </v-col>
-    </v-row>
+      </el-col>
+    </el-row>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
-        <v-text-field v-model="userId" :label="t('filterByUser')" density="comfortable" variant="outlined" hide-details style="max-width: 200px" />
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
+        <el-input v-model="userId" :label="t('filterByUser')" style="max-width: 200px" />
         <RangeFilter v-model="range" @update:model-value="onRange" />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="load">{{ t('filter') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button type="primary" @click="load">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="logs" :loading="loading" :total="logs.length" :items-per-page="limit" :hide-footer="true">
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
@@ -26,30 +32,32 @@
         <StatusChip :status="item.isError ? 'error' : 'ok'" :label-map="errorLabelMap" />
       </template>
       <template #item.expand="{ item }">
-        <v-btn icon="mdi-chevron-down" variant="text" size="small" @click="toggleExpand(item.id)" />
+        <el-button text size="small" @click="toggleExpand(item.id)">
+          <AppIcon icon="mdi-chevron-down" />
+        </el-button>
       </template>
     </AppTable>
 
     <!-- 展开详情 -->
-    <v-card v-if="expanded" class="mt-2">
-      <v-card-title>{{ t('statistics') }}</v-card-title>
-      <v-card-text>
-        <v-list density="compact">
-          <template v-if="expanded.detail">
-            <v-list-item><v-list-item-title>detail</v-list-item-title>{{ expanded.detail }}</v-list-item>
-          </template>
-          <template v-if="expanded.errorMessage">
-            <v-list-item><v-list-item-title>errorMessage</v-list-item-title>{{ expanded.errorMessage }}</v-list-item>
-          </template>
-          <template v-if="expanded.durationMs != null">
-            <v-list-item><v-list-item-title>durationMs</v-list-item-title>{{ expanded.durationMs }} ms</v-list-item>
-          </template>
-          <template v-if="expanded.conversationId">
-            <v-list-item><v-list-item-title>conversationId</v-list-item-title>{{ expanded.conversationId }}</v-list-item>
-          </template>
-        </v-list>
-      </v-card-text>
-    </v-card>
+    <el-card v-if="expanded" shadow="never" class="mt-2">
+      <template #header>{{ t('statistics') }}</template>
+      <div v-if="expanded.detail" class="d-flex ga-2 py-1">
+        <span class="font-weight-medium" style="min-width: 140px">detail</span>
+        <span class="text-medium-emphasis">{{ expanded.detail }}</span>
+      </div>
+      <div v-if="expanded.errorMessage" class="d-flex ga-2 py-1">
+        <span class="font-weight-medium" style="min-width: 140px">errorMessage</span>
+        <span class="text-medium-emphasis">{{ expanded.errorMessage }}</span>
+      </div>
+      <div v-if="expanded.durationMs != null" class="d-flex ga-2 py-1">
+        <span class="font-weight-medium" style="min-width: 140px">durationMs</span>
+        <span class="text-medium-emphasis">{{ expanded.durationMs }} ms</span>
+      </div>
+      <div v-if="expanded.conversationId" class="d-flex ga-2 py-1">
+        <span class="font-weight-medium" style="min-width: 140px">conversationId</span>
+        <span class="text-medium-emphasis">{{ expanded.conversationId }}</span>
+      </div>
+    </el-card>
   </div>
 </template>
 

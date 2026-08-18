@@ -1,7 +1,10 @@
 <template>
   <div>
     <PageHeader :title="t('workbenchMyTodos')" :subtitle="t('todoTotal', { n: todos.length })">
-      <v-btn variant="tonal" prepend-icon="mdi-plus" @click="openCreate">{{ t('addTodo') }}</v-btn>
+      <el-button plain @click="openCreate">
+        <template #icon><AppIcon icon="mdi-plus" /></template>
+        {{ t('addTodo') }}
+      </el-button>
     </PageHeader>
 
     <AppTable :headers="headers" :items="todos" :loading="loading" :total="todos.length" :items-per-page="todos.length || 1">
@@ -10,19 +13,27 @@
       </template>
       <template #item.dueDate="{ item }">{{ formatTime(item.dueDate) }}</template>
       <template #item.completed="{ item }">
-        <v-checkbox :model-value="item.completed" density="comfortable" hide-details @change="toggle(item)" />
+        <el-checkbox :model-value="item.completed" @change="toggle(item)" />
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 
     <FormDialog v-model="showCreate" :title="t('addTodo')" icon="mdi-plus-circle-outline" :loading="creating" @save="onCreate">
-      <v-form @submit.prevent="onCreate">
-        <v-text-field v-model="form.title" :label="t('titleLabel')" :rules="[requiredRule]" hide-details class="mb-3" />
-        <v-textarea v-model="form.description" :label="t('contentLabel')" rows="2" hide-details class="mb-3" />
-        <v-text-field v-model="form.dueDate" :label="t('dueDateCol')" type="date" hide-details />
-      </v-form>
+      <el-form @submit.prevent="onCreate">
+        <el-form-item :label="t('titleLabel')" required class="mb-3">
+          <el-input v-model="form.title" />
+        </el-form-item>
+        <el-form-item :label="t('contentLabel')" class="mb-3">
+          <el-input v-model="form.description" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item :label="t('dueDateCol')">
+          <el-input v-model="form.dueDate" type="date" />
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <ConfirmDialog
@@ -75,7 +86,6 @@ async function load() {
 const showCreate = ref(false)
 const creating = ref(false)
 const form = reactive({ title: '', description: '', dueDate: '' })
-const requiredRule = (v: string) => !!v?.trim() || t('titleRequired')
 
 function openCreate() {
   form.title = ''

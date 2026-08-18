@@ -1,97 +1,94 @@
 <template>
   <div>
     <PageHeader :title="t('navAiTimeline')" :subtitle="t('aiTimelineHint')">
-      <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="load">{{ t('refresh') }}</v-btn>
+      <el-button @click="load">
+        <template #icon><AppIcon icon="mdi-refresh" /></template>
+        {{ t('refresh') }}
+      </el-button>
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
-        <v-text-field
-          v-model="userId"
-          :label="t('filterByUserId')"
-          type="number"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          style="max-width: 180px"
-        />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="load">{{ t('filter') }}</v-btn>
-      </v-card-text>
-    </v-card>
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
+        <el-input v-model="userId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
+        <el-button type="primary" @click="load">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('loading') }}</div>
 
     <template v-else>
       <div v-if="sessions.length === 0" class="text-medium-emphasis pa-4">{{ t('noTimeline') }}</div>
 
-      <v-expansion-panels v-for="s in sessions" :key="s.conversationId || 'no-conv'" variant="accordion" class="mb-3">
-        <v-expansion-panel>
-          <v-expansion-panel-title class="d-flex align-center ga-2">
-            <v-icon :icon="sessionIcon(s)" :color="sessionColor(s)" />
-            <span class="text-body-2">{{ s.conversationId ? t('conversation') + ' ' + shortId(s.conversationId) : t('adhocChat') }}</span>
-            <v-chip size="small" variant="tonal" class="ml-2">{{ s.events.length }} {{ t('events') }}</v-chip>
-            <v-chip v-if="s.toolEffects.length" size="small" color="warning" variant="tonal" class="ml-1">{{ s.toolEffects.length }} {{ t('toolEffects') }}</v-chip>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-timeline side="end" density="compact" align="start">
-              <v-timeline-item
-                v-for="e in timelineEvents(s)"
-                :key="e.key"
-                :dot-color="e.color"
-                :icon="e.icon"
-                size="small"
-              >
-                <v-card variant="outlined" class="mb-2">
-                  <v-card-text class="pa-3">
-                    <div class="d-flex justify-space-between align-center">
-                      <span class="text-caption font-weight-medium" :class="e.colorClass">
-                        {{ e.label }}
-                      </span>
-                      <span class="text-caption text-medium-emphasis">{{ formatTime(e.time) }}</span>
-                    </div>
+      <el-collapse v-for="s in sessions" :key="s.conversationId || 'no-conv'" accordion class="mb-3">
+        <el-collapse-item>
+          <template #title>
+            <div class="d-flex align-center ga-2">
+              <AppIcon
+                :icon="sessionIcon(s)"
+                :color="sessionColor(s) === 'warning' ? 'var(--el-color-warning)' : 'var(--el-color-primary)'"
+              />
+              <span class="text-body-2">{{ s.conversationId ? t('conversation') + ' ' + shortId(s.conversationId) : t('adhocChat') }}</span>
+              <el-tag size="small" effect="light">{{ s.events.length }} {{ t('events') }}</el-tag>
+              <el-tag v-if="s.toolEffects.length" size="small" type="warning" effect="light">{{ s.toolEffects.length }} {{ t('toolEffects') }}</el-tag>
+            </div>
+          </template>
+          <el-timeline>
+            <el-timeline-item
+              v-for="e in timelineEvents(s)"
+              :key="e.key"
+              :color="e.color === 'primary' ? 'var(--el-color-primary)' : e.color === 'success' ? 'var(--el-color-success)' : e.color === 'error' ? 'var(--el-color-danger)' : e.color === 'warning' ? 'var(--el-color-warning)' : e.color === 'info' ? 'var(--el-color-info)' : 'var(--el-text-color-secondary)'"
+            >
+              <el-card shadow="never" class="mb-2">
+                <div class="d-flex justify-space-between align-center">
+                  <span class="text-caption font-weight-medium" :class="e.colorClass">
+                    {{ e.label }}
+                  </span>
+                  <span class="text-caption text-medium-emphasis">{{ formatTime(e.time) }}</span>
+                </div>
 
-                    <!-- 工具调用详情 -->
-                    <div v-if="e.type === 'tool_call'" class="mt-1">
-                      <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
-                      <div v-if="e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
-                    </div>
+                <!-- 工具调用详情 -->
+                <div v-if="e.type === 'tool_call'" class="mt-1">
+                  <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
+                  <div v-if="e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
+                </div>
 
-                    <!-- 确认决策 -->
-                    <div v-else-if="e.type === 'tool_confirmation'" class="mt-1">
-                      <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
-                      <StatusChip :status="e.outcome === 'approve' ? 'ok' : 'cancelled'" :label-map="outcomeMap" />
-                    </div>
+                <!-- 确认决策 -->
+                <div v-else-if="e.type === 'tool_confirmation'" class="mt-1">
+                  <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
+                  <StatusChip :status="e.outcome === 'approve' ? 'ok' : 'cancelled'" :label-map="outcomeMap" />
+                </div>
 
-                    <!-- 副作用（AI 实际创建/修改的记录） -->
-                    <div v-else-if="e.type === 'effect'" class="mt-1">
-                      <div class="d-flex align-center ga-2">
-                        <span class="text-body-2">{{ e.toolName }}</span>
-                        <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
-                      </div>
-                      <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
-                      <v-btn
-                        v-if="e.effect"
-                        size="x-small"
-                        variant="tonal"
-                        color="warning"
-                        class="mt-1"
-                        :disabled="!e.effect.targetExists || e.effect.targetSoftDeleted"
-                        @click="onRevoke(e.effect)"
-                      >
-                        {{ t('revoke') }} #{{ e.effect.resultId }}
-                      </v-btn>
-                    </div>
+                <!-- 副作用（AI 实际创建/修改的记录） -->
+                <div v-else-if="e.type === 'effect'" class="mt-1">
+                  <div class="d-flex align-center ga-2">
+                    <span class="text-body-2">{{ e.toolName }}</span>
+                    <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
+                  </div>
+                  <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
+                  <el-button
+                    v-if="e.effect"
+                    size="small"
+                    type="warning"
+                    plain
+                    class="mt-1"
+                    :disabled="!e.effect.targetExists || e.effect.targetSoftDeleted"
+                    @click="onRevoke(e.effect)"
+                  >
+                    {{ t('revoke') }} #{{ e.effect.resultId }}
+                  </el-button>
+                </div>
 
-                    <!-- chat / error / navigate 摘要 -->
-                    <div v-else-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
-                    <div v-if="e.type === 'error' && e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
-                  </v-card-text>
-                </v-card>
-              </v-timeline-item>
-            </v-timeline>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+                <!-- chat / error / navigate 摘要 -->
+                <div v-else-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
+                <div v-if="e.type === 'error' && e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
+              </el-card>
+            </el-timeline-item>
+          </el-timeline>
+        </el-collapse-item>
+      </el-collapse>
     </template>
   </div>
 </template>
