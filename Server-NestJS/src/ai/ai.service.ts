@@ -894,6 +894,7 @@ export class AiService {
           const isWrite = await this._requiresConfirmation(tc.name);
           started = true;
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
+          // ADT（P0-14）：isWrite 让前端标注读/写，写操作需确认、可撤销
           yield {
             type: 'tool_start',
             toolStart: {
@@ -902,6 +903,7 @@ export class AiService {
                 ? this.summarizeWriteTool(tc.name, parsed)
                 : this.summarizeReadTool(tc.name),
               arguments: parsed,
+              isWrite,
             },
           };
 

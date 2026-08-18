@@ -327,6 +327,7 @@ class AiChatProvider extends ChangeNotifier {
             name: ts['name'] as String? ?? '',
             status: ToolStepStatus.running,
             summary: ts['summary'] as String? ?? '',
+            isWrite: ts['isWrite'] == true,
           );
           if (_messages.isEmpty) break;
           _messages = [

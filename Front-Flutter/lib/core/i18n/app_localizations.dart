@@ -594,6 +594,12 @@ class AppLocalizations {
   String get aiToolRunning => _t('Working...', '正在执行…');
   String get aiToolSuccess => _t('Done', '已完成');
   String get aiToolFailed => _t('Failed', '执行失败');
+  // ADT（P0-14）：工具读/写与确认态标注
+  String get aiToolRead => _t('Read', '读');
+  String get aiToolWrite => _t('Write', '写');
+  String get aiToolReadOnly => _t('Read-only', '只读');
+  String get aiToolWriteNeedsConfirm => _t('Needs your confirm', '需你确认');
+  String get aiToolConfirmedRevocable => _t('Confirmed · revocable', '已确认 · 可撤销');
   String get aiHistory => _t('Chat history', '历史对话');
   String get conversationHistory => _t('Chat history', '对话历史');
   String get noConversationHistory => _t('No chat history yet', '暂无历史对话');
