@@ -60,6 +60,9 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 | `generate-module` | 新增业务模块（调 `keelbase init` CLI 或按第 3 节手工） |
 | `add-api` | 给现有模块加 API 端点（含 CASL/审计/Swagger/测试） |
 | `write-migration` | 新实体或改列后生成/校验迁移（禁止手写，见 EASY-2.2） |
+| `crm-customer-risk` | 客户风险分析（AI CRM 旗舰业务规则：打分公式 + 分级） |
+| `pm-deadline-risk` | 项目延期风险（AI Project 旗舰业务规则） |
+| `approval-policy-review` | 审批政策分级预审（AI Approval 旗舰业务规则） |
 
 ## 5. AI 生成 vs 手工
 
