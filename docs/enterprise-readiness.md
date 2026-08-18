@@ -19,7 +19,7 @@
 | 组织级数据隔离 Org-level data isolation | ✅ | events/todos 加 `org_id`，「本人 OR 同组织」查询（ORG-3） |
 | 登录防爆破 / Token 哈希 / AES-256-GCM 静态加密 Lockout / token hashing / static encryption | ✅ | 连续失败锁定、refresh SHA-256、phone/providerId 加密 |
 | **前端 RBAC（WEB-FRONT-2）Route/menu/button permissions** | ⬜ 待办 | 现仅「是否 admin」一个开关；需路由级 + 按钮级权限点 + 可视化角色管理页（前端 RBAC 仅为渲染层，后端授权仍以 CASL 为唯一来源） |
-| **企业登录安全（WEB-FRONT-4）MFA / 强制改密 / SSO** | 🚧 部分 | MFA（TOTP setup/verify/disable + 登录需 TOTP）✅ 强制改密（登录带标志 + admin 标记）✅ SSO（OIDC/SAML）⬜——SSO 为剩余采购评审硬门槛 |
+| **企业登录安全（WEB-FRONT-4）MFA / 强制改密 / SSO** | 🚧 部分 | MFA（TOTP setup/verify/disable + 登录需 TOTP）✅ 强制改密（登录带标志 + admin 标记）✅ **SSO（通用 OIDC 后端，2026-08-18）**：动态发现 + token 交换 + id_token 签名验证 + userinfo，接入 /auth/oauth；SAML ⬜ |
 
 ## 2. 组织与协作 / Organization & Collaboration
 
@@ -83,7 +83,7 @@
 按「企业选型影响 × 投入」排序：
 
 1. **WEB-FRONT-2 前端 RBAC** —— 多角色企业场景必需；当前只有「是否 admin」，无法表达部门管理员/项目经理/审计员等角色。
-2. **WEB-FRONT-4 企业登录安全（SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。MFA（TOTP）与强制改密已完成（2026-08-17），SSO（OIDC/SAML）为剩余项。
+2. **WEB-FRONT-4 企业登录安全（SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。MFA（TOTP）与强制改密已完成（2026-08-17）；**SSO 通用 OIDC 后端已完成（2026-08-18，主仓 036eb46）**——需接入企业 IdP（配 OIDC_ISSUER/CLIENT_ID/SECRET）后前端展示「企业 SSO」按钮；SAML 如需再评估。
 3. **WEB-FRONT-5 普通用户业务 API 面** —— 工作台应用侧的能力底座，随 ORG 联动。
 4. **3.4 性能基准重做** —— 对外基线可信度；当前初版报告方法论有缺陷。
 5. **Taro i18n** —— 小程序渠道一致性（CR-25）。
