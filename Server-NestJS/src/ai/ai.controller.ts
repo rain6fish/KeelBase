@@ -35,6 +35,7 @@ import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { DecisionTraceService } from './trace/decision-trace.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -49,6 +50,7 @@ export class AiController {
     private readonly confirmationStore: ConfirmationStore,
     private readonly memoriesService: MemoriesService,
     private readonly toolEffectsService: AiToolEffectsService,
+    private readonly decisionTraceService: DecisionTraceService,
   ) {}
 
   /**
@@ -185,6 +187,19 @@ export class AiController {
     @CurrentAbility() ability: AppAbility,
   ) {
     return this.conversationService.getConversation(id, String(user.sub), ability);
+  }
+
+  /**
+   * P0-14 对话执行轨迹（用户可见）：工具调用 / 确认决策 / 副作用 / 结果
+   */
+  @Get('conversations/:id/trace')
+  @ApiOperation({ summary: '对话执行轨迹（工具调用/确认/副作用，本人）' })
+  async getConversationTrace(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    return this.decisionTraceService.getConversationTrace(id, String(user.sub), ability);
   }
 
   /**

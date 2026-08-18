@@ -228,6 +228,7 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 | POST | /ai/chat/stream | SSE 流式对话 / SSE streaming chat | 登录 / Logged-in |
 | GET | /ai/conversations | 对话历史列表 / Conversation history list | 登录 / Logged-in |
 | GET | /ai/conversations/:id | 单个对话完整消息 / Full messages of a single conversation | 本人 / Self |
+| GET | /ai/conversations/:id/trace | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） / Conversation execution trace (tool calls/confirmations/effects/results) | 本人 / Self |
 | DELETE | /ai/conversations/:id | 删除指定对话 / Delete a specified conversation | 本人 / Self |
 | DELETE | /ai/conversations | 清空所有对话 / Clear all conversations | 本人 / Self |
 | POST | /ai/knowledge | 创建知识条目 / Create knowledge entry | 管理员 / Admin |
@@ -275,6 +276,32 @@ data: {"type":"text","content":"本月的事件列表"}
 event: done
 data: {"type":"done"}
 ```
+
+执行轨迹（P0-14，本人）：
+
+Execution trace (P0-14, self):
+
+```
+GET /api/v1/ai/conversations/:id/trace
+
+→ {
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "conversation": { "id": "uuid", "provider": "deepseek", "model": "deepseek-v4-flash", "createdAt": "...", "lastActivityAt": "..." },
+    "steps": [
+      { "id": "msg-1", "type": "input", "time": "...", "content": "帮我创建明天的事件" },
+      { "id": "tool-101", "type": "tool_call", "time": "...", "toolName": "create_event", "args": "{\"title\":\"meeting\"}", "success": true },
+      { "id": "conf-102", "type": "confirmation", "time": "...", "toolName": "create_event", "args": "{}", "outcome": "approve", "trusted": false },
+      { "id": "effect-9", "type": "effect", "time": "...", "toolName": "create_event", "effect": { "resultType": "event", "resultId": 7, "targetTitle": "meeting", "revocable": true } },
+      { "id": "msg-5", "type": "assistant", "time": "...", "content": "已创建事件「meeting」" }
+    ]
+  },
+  "timestamp": "2026-07-28T10:00:00Z"
+}
+```
+
+> step.type：`input`（用户提问）/ `assistant`（AI 文本回复）/ `tool_call`（工具调用，含 success/errorMessage）/ `confirmation`（写操作确认，outcome=approve|decline|timeout，trusted=本会话免确认）/ `effect`（AI 实际创建的记录，resultType+resultId+targetTitle+revocable）/ `notice`（chat/knowledge/plan/analyze/error 等摘要）。数据来自 ai_messages + ai_audit_logs + ai_tool_side_effects 三表聚合，只读不写库。
 
 ---
 

@@ -625,6 +625,7 @@ npm run migration:run
 | POST | /api/v1/ai/insights | Yes | 当前用户 | 数据洞察报告（结构化统计） |
 | GET | /api/v1/ai/conversations | Yes | 本人 | 对话历史列表 |
 | GET | /api/v1/ai/conversations/:id | Yes | 本人 | 单个对话完整消息 |
+| GET | /api/v1/ai/conversations/:id/trace | Yes | 本人 | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） |
 | DELETE | /api/v1/ai/conversations/:id | Yes | 本人 | 删除指定对话 |
 | DELETE | /api/v1/ai/conversations | Yes | 本人 | 清空所有对话 |
 | POST | /api/v1/ai/knowledge | Yes (ADMIN) | — | 创建知识条目 |

@@ -11,6 +11,7 @@ describe('AiController', () => {
   let mockGetConversation: jest.Mock;
   let mockDeleteConversation: jest.Mock;
   let mockDeleteAllUserConversations: jest.Mock;
+  let mockGetConversationTrace: jest.Mock;
   let mockAbility: any;
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -22,6 +23,7 @@ describe('AiController', () => {
     mockGetConversation = jest.fn();
     mockDeleteConversation = jest.fn();
     mockDeleteAllUserConversations = jest.fn();
+    mockGetConversationTrace = jest.fn();
     mockAbility = { cannot: () => false };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
     const mockConversationService = {
@@ -35,11 +37,15 @@ describe('AiController', () => {
       create: jest.fn(),
     } as any;
     const mockMemoriesService = { deleteAllForUser: jest.fn() } as any;
+    const mockToolEffectsService = { list: jest.fn(), revoke: jest.fn() } as any;
+    const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
       mockAiService,
       mockConversationService,
       mockConfirmationStore,
       mockMemoriesService,
+      mockToolEffectsService,
+      mockDecisionTraceService,
     );
   });
 
@@ -231,6 +237,16 @@ describe('AiController', () => {
       await controller.clearConversations(mockUser as any);
 
       expect(mockDeleteAllUserConversations).toHaveBeenCalledWith('1');
+    });
+
+    it('GET conversations/:id/trace should delegate with user + ability', async () => {
+      const mockTrace = { conversation: { id: 'conv-1' }, steps: [] };
+      mockGetConversationTrace.mockResolvedValue(mockTrace);
+
+      const result = await controller.getConversationTrace('conv-1', mockUser as any, mockAbility);
+
+      expect(mockGetConversationTrace).toHaveBeenCalledWith('conv-1', '1', mockAbility);
+      expect(result).toEqual(mockTrace);
     });
   });
 });

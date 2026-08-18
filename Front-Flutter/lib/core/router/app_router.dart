@@ -29,6 +29,7 @@ import '../../features/approval/presentation/pages/approval_requests_page.dart';
 import '../../features/approval/presentation/pages/approval_request_detail_page.dart';
 
 import '../../features/ai/presentation/pages/ai_conversation_history_page.dart';
+import '../../features/ai/presentation/pages/ai_trace_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/profile_edit_page.dart';
 import '../../features/org/presentation/pages/my_org_page.dart';
@@ -224,6 +225,12 @@ GoRouter createRouter(
                   GoRoute(
                     path: 'history',
                     builder: (_, _) => const AiConversationHistoryPage(),
+                  ),
+                  GoRoute(
+                    path: 'trace/:id',
+                    builder: (_, state) => AiTracePage(
+                      id: state.pathParameters['id'] ?? '',
+                    ),
                   ),
                 ],
               ),

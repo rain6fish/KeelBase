@@ -606,6 +606,22 @@ class AppLocalizations {
   String get aiLoadFailed => _t('Failed to load conversation', '加载对话失败');
   String get deleteFailed => _t('Delete failed, please try again', '删除失败，请重试');
   String Function(String) get deleteConversationConfirm => (String title) => _t('Delete "$title"?', '确定删除「$title」？');
+  // P0-14 Agent Decision Trace：用户可见的 AI 执行轨迹
+  String get aiTrace => _t('Execution trace', '执行轨迹');
+  String get aiTraceLoading => _t('Loading execution trace…', '加载执行轨迹…');
+  String get aiTraceEmpty => _t('No execution trace for this conversation', '该对话暂无执行轨迹');
+  String get traceStepInput => _t('Your input', '你的提问');
+  String get traceStepAssistant => _t('AI reply', 'AI 回复');
+  String get traceStepToolCall => _t('Tool call', '工具调用');
+  String get traceStepConfirmation => _t('Confirmation', '确认决策');
+  String get traceStepEffect => _t('Created record', '创建记录');
+  String get traceStepNotice => _t('AI action', 'AI 处理');
+  String get traceSuccess => _t('Success', '成功');
+  String get traceFailed => _t('Failed', '失败');
+  String get traceApproved => _t('Approved', '已批准');
+  String get traceDeclined => _t('Declined', '已拒绝');
+  String get traceTimedOut => _t('Timed out', '已超时');
+  String get traceTrusted => _t('Trusted this session', '本会话免确认');
   String get aiConfirmArgTitle => _t('Title', '标题');
   String get aiConfirmArgStart => _t('Start', '开始');
   String get aiConfirmArgEnd => _t('End', '结束');

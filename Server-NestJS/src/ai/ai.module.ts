@@ -60,6 +60,7 @@ import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { DecisionTraceService } from './trace/decision-trace.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { OrgModule } from '../org/org.module';
@@ -124,6 +125,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiEvalService,
     AiToolEffectsService,
     GovernancePolicyService,
+    DecisionTraceService,
     {
       provide: AiService,
       useFactory: (
