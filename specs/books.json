@@ -1,0 +1,10 @@
+{
+  "module": "books",
+  "label": "图书",
+  "fields": [
+    { "name": "title", "type": "string", "label": "书名", "required": true },
+    { "name": "author", "type": "string", "label": "作者" },
+    { "name": "status", "type": "enum", "label": "阅读状态", "enum": ["unread", "reading", "finished"] },
+    { "name": "rating", "type": "int", "label": "评分" }
+  ]
+}
