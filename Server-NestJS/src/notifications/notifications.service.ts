@@ -57,7 +57,6 @@ export class NotificationsService {
   }
 
   private async createImpl(data: CreateNotificationData): Promise<Notification> {
-    console.error('[DIAG] createImpl start', Date.now());
     const notification = this.notificationsRepository.create({
       userId: data.userId,
       title: data.title,
@@ -69,7 +68,6 @@ export class NotificationsService {
       isRead: false,
     });
     const saved = await this.notificationsRepository.save(notification);
-    console.error('[DIAG] createImpl after save', Date.now());
     this.notificationsGateway.emitToUser(data.userId, {
       id: saved.id,
       title: saved.title,
@@ -91,7 +89,6 @@ export class NotificationsService {
     });
     // 设备推送（入队异步；QUEUE_ENABLED=false 降级同步）
     await this._pushToDevices(data.userId, saved.title, saved.body, saved.type, saved.link, saved.targetType, saved.targetId);
-    console.error('[DIAG] createImpl done', Date.now());
     return saved;
   }
 
@@ -106,7 +103,6 @@ export class NotificationsService {
   ): Promise<void> {
     try {
       const queued = this.configService.get<boolean>('QUEUE_ENABLED', true);
-      console.error('[DIAG] _pushToDevices queued=', queued, 'raw=', this.configService.get('QUEUE_ENABLED', undefined), 'env=', process.env.QUEUE_ENABLED, 'hasQueue=', !!this.pushQueue, Date.now());
       if (queued && this.pushQueue) {
         await this.pushQueue.add('send', { userId, title, body, type, link, targetType, targetId }, { removeOnComplete: true });
         return;
