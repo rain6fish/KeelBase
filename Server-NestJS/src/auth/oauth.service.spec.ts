@@ -464,4 +464,145 @@ describe('OAuthService', () => {
       await expect(service.verifyCode('alipay', 'code')).rejects.toThrow('Invalid Alipay authorization code');
     });
   });
+
+  describe('verifyOidc（P2-4 企业 SSO）', () => {
+    const ISSUER = 'https://sso.example.com/realms/keelbase';
+    const CLIENT_ID = 'keelbase-client';
+    const CLIENT_SECRET = 'client-secret';
+
+    let kid: string;
+    let privateKey: string;
+    let jwk: crypto.JsonWebKey;
+
+    beforeAll(() => {
+      const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+      privateKey = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+      jwk = pair.publicKey.export({ format: 'jwk' });
+      kid = 'oidc-kid';
+    });
+
+    function configureOidc() {
+      configValues['OIDC_ISSUER'] = ISSUER;
+      configValues['OIDC_CLIENT_ID'] = CLIENT_ID;
+      configValues['OIDC_CLIENT_SECRET'] = CLIENT_SECRET;
+    }
+
+    function signIdToken(payload: Record<string, unknown>, overrides: jwt.SignOptions = {}): string {
+      return jwt.sign(
+        { sub: 'sso-user-1', email: 'user@sso.example', email_verified: true, name: 'SSO User', ...payload },
+        privateKey,
+        { algorithm: 'RS256', keyid: kid, issuer: ISSUER, audience: CLIENT_ID, expiresIn: '1h', ...overrides },
+      );
+    }
+
+    function mockDiscovery(overrides: Record<string, unknown> = {}) {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          issuer: ISSUER,
+          token_endpoint: 'https://sso.example.com/token',
+          userinfo_endpoint: 'https://sso.example.com/userinfo',
+          jwks_uri: 'https://sso.example.com/jwks',
+          ...overrides,
+        }),
+      });
+    }
+
+    function mockJwks() {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ keys: [{ kty: 'RSA', kid, alg: 'RS256', n: jwk.n, e: jwk.e }] }) });
+    }
+
+    function mockToken(idToken?: string, accessToken = 'at-123') {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id_token: idToken, access_token: accessToken }) });
+    }
+
+    afterEach(() => {
+      for (const k of Object.keys(configValues)) delete configValues[k];
+    });
+
+    it('成功流程：发现 → token → id_token 验证 → userinfo → 返回用户', async () => {
+      configureOidc();
+      mockDiscovery();
+      mockToken(signIdToken({}));
+      mockJwks();
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ sub: 'sso-user-1', email: 'user@sso.example', name: 'SSO User', picture: 'http://pic' }) });
+
+      const result = await service.verifyCode('oidc', 'auth-code', 'https://app/callback');
+
+      expect(result).toEqual({ providerId: 'sso-user-1', email: 'user@sso.example', name: 'SSO User', avatarUrl: 'http://pic' });
+      // token 交换带 redirect_uri 与 client 凭据
+      const tokenCall = fetchMock.mock.calls[1];
+      expect(tokenCall[0]).toBe('https://sso.example.com/token');
+      expect(String(tokenCall[1].body)).toContain('redirect_uri=https%3A%2F%2Fapp%2Fcallback');
+      expect(String(tokenCall[1].body)).toContain(`client_id=${CLIENT_ID}`);
+    });
+
+    it('未配置 OIDC → Unauthorized', async () => {
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('not configured');
+    });
+
+    it('发现返回 issuer 与配置不一致 → Unauthorized（防混淆）', async () => {
+      configureOidc();
+      mockDiscovery({ issuer: 'https://evil.example.com' });
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('issuer mismatch');
+    });
+
+    it('发现失败（网络/HTTP）→ Unauthorized', async () => {
+      configureOidc();
+      fetchMock.mockRejectedValueOnce(new Error('network'));
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('Invalid OIDC configuration');
+    });
+
+    it('token 交换失败（无 id_token）→ Unauthorized', async () => {
+      configureOidc();
+      mockDiscovery();
+      mockToken(undefined);
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('Invalid OIDC authorization code');
+    });
+
+    it('id_token 签名非法 → Unauthorized', async () => {
+      configureOidc();
+      mockDiscovery();
+      // 用另一把私钥签 id_token → JWKS 公钥验不过
+      const other = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+      const forged = jwt.sign(
+        { sub: 'x' },
+        other.privateKey.export({ type: 'pkcs8', format: 'pem' }) as string,
+        { algorithm: 'RS256', keyid: kid, issuer: ISSUER, audience: CLIENT_ID, expiresIn: '1h' },
+      );
+      mockToken(forged);
+      mockJwks();
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('Invalid OIDC token');
+    });
+
+    it('id_token issuer 不匹配 → Unauthorized', async () => {
+      configureOidc();
+      mockDiscovery();
+      mockToken(signIdToken({}, { issuer: 'https://wrong.example.com' }));
+      mockJwks();
+      await expect(service.verifyCode('oidc', 'code')).rejects.toThrow('Invalid OIDC token');
+    });
+
+    it('userinfo 失败降级用 id_token 声明', async () => {
+      configureOidc();
+      mockDiscovery();
+      mockToken(signIdToken({}));
+      mockJwks();
+      fetchMock.mockRejectedValueOnce(new Error('userinfo down'));
+      const result = await service.verifyCode('oidc', 'code');
+      expect(result.providerId).toBe('sso-user-1');
+      expect(result.email).toBe('user@sso.example');
+      expect(result.name).toBe('SSO User');
+    });
+
+    it('无 email 时 email=null', async () => {
+      configureOidc();
+      mockDiscovery();
+      mockToken(signIdToken({ email: undefined }));
+      mockJwks();
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ sub: 'sso-user-1' }) });
+      const result = await service.verifyCode('oidc', 'code');
+      expect(result.email).toBeNull();
+    });
+  });
 });

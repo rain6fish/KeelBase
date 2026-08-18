@@ -8,8 +8,8 @@ export interface OAuthProviderInfo {
   name: string;
   /** Icon identifier (the frontend maps this to a Flutter widget) */
   icon: string;
-  /** Region group: 'international' | 'china' */
-  group: 'international' | 'china';
+  /** Region group: 'international' | 'china' | 'enterprise' */
+  group: 'international' | 'china' | 'enterprise';
   /** Whether this provider requires a native SDK (vs. web redirect) */
   nativeOnly: boolean;
 }
@@ -26,5 +26,6 @@ export interface OAuthProvidersConfig {
   groups: {
     international: OAuthProviderInfo[];
     china: OAuthProviderInfo[];
+    enterprise: OAuthProviderInfo[];
   };
 }

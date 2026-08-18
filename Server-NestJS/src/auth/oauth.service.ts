@@ -47,6 +47,21 @@ interface AlipayUserRes {
   error_response?: { code?: string; msg?: string; };
 }
 
+/** OIDC discovery document（.well-known/openid-configuration 子集）。 */
+interface OidcDiscoveryDoc {
+  issuer?: string; token_endpoint?: string; userinfo_endpoint?: string; jwks_uri?: string;
+}
+
+/** OIDC token endpoint response. */
+interface OidcTokenRes {
+  id_token?: string; access_token?: string; error?: string;
+}
+
+/** OIDC userinfo response. */
+interface OidcUserInfo {
+  sub?: string; email?: string; email_verified?: boolean; name?: string; picture?: string;
+}
+
 // ─── Service ───────────────────────────────────────────────────────────────
 
 /**
@@ -64,6 +79,10 @@ export class OAuthService {
   private appleJwksCache: { keys: JwkKey[]; fetchedAt: number } | null = null;
   private readonly APPLE_JWKS_TTL = 3600_000;
   private readonly APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
+
+  // OIDC（P2-4 企业 SSO）JWKS 缓存 per jwks_uri
+  private oidcJwksCache = new Map<string, { keys: JwkKey[]; fetchedAt: number }>();
+  private readonly OIDC_JWKS_TTL = 3600_000;
 
   constructor(
     private configService: ConfigService,
@@ -91,6 +110,7 @@ export class OAuthService {
     switch (provider) {
       case 'wechat': return this.verifyWeChat(code, redirectUri, providerType);
       case 'alipay': return this.verifyAlipay(code);
+      case 'oidc': return this.verifyOidc(code, redirectUri);
       default:
         throw new UnauthorizedException(`Provider ${provider} does not support authorization code flow`);
     }
@@ -419,6 +439,142 @@ export class OAuthService {
     } catch (err) {
       this.logger.error(`Alipay API call failed: ${(err as Error).message}`);
       return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  OIDC（P2-4 企业 SSO：授权码流程 + id_token 签名验证）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * 通用 OIDC authorization code flow（企业 IdP，如 Keycloak / Azure AD）。
+   *  1. 动态发现：GET {issuer}/.well-known/openid-configuration
+   *  2. token 交换：POST token_endpoint（authorization_code）
+   *  3. id_token 签名验证（issuer + audience + JWKS，安全硬门槛）
+   *  4. userinfo：Bearer access_token → sub/email/name
+   */
+  private async verifyOidc(code: string, redirectUri?: string): Promise<OAuthUserInfo> {
+    const issuer = this.configService.get<string>('OIDC_ISSUER', '');
+    const clientId = this.configService.get<string>('OIDC_CLIENT_ID', '');
+    const clientSecret = this.configService.get<string>('OIDC_CLIENT_SECRET', '');
+    if (!issuer || !clientId || !clientSecret) {
+      throw new UnauthorizedException('OIDC is not configured on the server');
+    }
+
+    // 1. 动态发现
+    let discovery: OidcDiscoveryDoc;
+    try {
+      const res = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      discovery = await res.json();
+    } catch (err) {
+      this.logger.error(`OIDC discovery failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Invalid OIDC configuration');
+    }
+    // 防混淆攻击：发现返回的 issuer 必须与配置一致
+    if (!discovery.issuer || discovery.issuer.replace(/\/$/, '') !== issuer.replace(/\/$/, '')) {
+      throw new UnauthorizedException('OIDC issuer mismatch');
+    }
+    const { token_endpoint: tokenEndpoint, userinfo_endpoint: userinfoEndpoint, jwks_uri: jwksUri } = discovery;
+    if (!tokenEndpoint || !userinfoEndpoint || !jwksUri) {
+      throw new UnauthorizedException('OIDC endpoints not advertised');
+    }
+
+    // 2. token 交换
+    let tokenRes: OidcTokenRes;
+    try {
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+      });
+      if (redirectUri) body.set('redirect_uri', redirectUri);
+      const res = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      tokenRes = await res.json();
+    } catch (err) {
+      this.logger.error(`OIDC token exchange failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Failed to verify OIDC code');
+    }
+    if (!tokenRes.id_token) {
+      this.logger.warn(`OIDC token exchange error: ${tokenRes.error ?? 'no id_token'}`);
+      throw new UnauthorizedException('Invalid OIDC authorization code');
+    }
+
+    // 3. id_token 签名验证
+    const idPayload = await this.verifyOidcIdToken(tokenRes.id_token, clientId, issuer, jwksUri);
+
+    // 4. userinfo（失败降级用 id_token 声明）
+    let userInfo: OidcUserInfo = {};
+    if (tokenRes.access_token) {
+      try {
+        const res = await fetch(userinfoEndpoint, {
+          headers: { Authorization: `Bearer ${tokenRes.access_token}` },
+        });
+        if (res.ok) userInfo = await res.json();
+      } catch (err) {
+        this.logger.warn(`OIDC userinfo failed: ${(err as Error).message}`);
+      }
+    }
+
+    return {
+      providerId: userInfo.sub ?? idPayload.sub,
+      // userinfo 不可用时降级用 id_token 声明（OIDC id_token 通常也含 email/name）
+      email: userInfo.email ?? idPayload.email ?? null,
+      name: userInfo.name ?? idPayload.name ?? null,
+      avatarUrl: userInfo.picture ?? idPayload.picture ?? null,
+    };
+  }
+
+  private async verifyOidcIdToken(
+    idToken: string,
+    clientId: string,
+    issuer: string,
+    jwksUri: string,
+  ): Promise<Record<string, any>> {
+    let header: Record<string, string>;
+    try {
+      const parts = idToken.split('.');
+      if (parts.length !== 3) throw new Error('Invalid JWT format');
+      header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf-8'));
+    } catch { throw new UnauthorizedException('Invalid OIDC token format'); }
+    const kid = header.kid;
+    if (!kid) throw new UnauthorizedException('OIDC token missing key ID');
+    const jwks = await this.getOidcJwks(jwksUri);
+    const matchingKey = jwks.keys.find((k) => k.kid === kid);
+    if (!matchingKey) throw new UnauthorizedException('OIDC token key not found');
+    const publicKeyPem = this.jwkToPem(matchingKey);
+    try {
+      const decoded = jwt.verify(idToken, publicKeyPem, {
+        algorithms: [matchingKey.alg as jwt.Algorithm],
+        issuer,
+        audience: clientId,
+      });
+      return decoded as Record<string, any>;
+    } catch (err) {
+      this.logger.warn(`OIDC id_token verification failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Invalid OIDC token');
+    }
+  }
+
+  private async getOidcJwks(jwksUri: string): Promise<{ keys: JwkKey[] }> {
+    const cached = this.oidcJwksCache.get(jwksUri);
+    const now = Date.now();
+    if (cached && now - cached.fetchedAt < this.OIDC_JWKS_TTL) return cached;
+    try {
+      const res = await fetch(jwksUri);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { keys: JwkKey[] };
+      this.oidcJwksCache.set(jwksUri, { keys: data.keys, fetchedAt: now });
+      return data;
+    } catch (err) {
+      this.logger.error(`Failed to fetch OIDC JWKS: ${(err as Error).message}`);
+      if (cached) return cached;
+      throw new UnauthorizedException('Failed to verify OIDC token');
     }
   }
 
