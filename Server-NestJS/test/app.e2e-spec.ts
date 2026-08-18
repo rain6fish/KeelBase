@@ -17,7 +17,7 @@ describe('App (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-  });
+  }, 90000);
 
   describe('Health', () => {
     it('GET /api/v1/health should return ok', () => {
@@ -837,7 +837,7 @@ describe('App (e2e)', () => {
       const titles = list.body.data.items.map((n: { title: string }) => n.title);
       expect(titles).toContain('BroadcastTest');
       // CI 无 Redis 时 notificationsService 可能 await pushQueue.add 重试，放宽超时（默认 30s 偶发不够）
-    }, 60000);
+    }, 120000);
 
     it('admin aggregation endpoints should be forbidden for regular users', async () => {
       const regular = await registerUser(app, {
