@@ -5,10 +5,10 @@ export class OAuthLoginDto {
   @ApiProperty({
     description: 'OAuth provider name',
     example: 'google',
-    enum: ['google', 'apple', 'wechat', 'alipay'],
+    enum: ['google', 'apple', 'wechat', 'alipay', 'oidc'],
   })
   @IsString()
-  @IsIn(['google', 'apple', 'wechat', 'alipay'])
+  @IsIn(['google', 'apple', 'wechat', 'alipay', 'oidc'])
   provider!: string;
 
   @ApiProperty({
@@ -22,11 +22,11 @@ export class OAuthLoginDto {
   idToken?: string;
 
   @ApiProperty({
-    description: 'Authorization code from the OAuth provider — used by WeChat, Alipay',
+    description: 'Authorization code from the OAuth provider — used by WeChat, Alipay, OIDC',
     required: false,
     example: '081LJL000m2zG41I3r200e5Guh1LJL0Y',
   })
-  @ValidateIf((o: OAuthLoginDto) => ['wechat', 'alipay'].includes(o.provider))
+  @ValidateIf((o: OAuthLoginDto) => ['wechat', 'alipay', 'oidc'].includes(o.provider))
   @IsString()
   @MinLength(8)
   authorizationCode?: string;

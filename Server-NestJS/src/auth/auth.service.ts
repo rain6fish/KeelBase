@@ -416,7 +416,7 @@ export class AuthService {
     clientInfo: { deviceId?: string; ip?: string; userAgent?: string } = {},
   ) {
     // 1. Verify the OAuth credential with the provider
-    const isCodeFlow = ['wechat', 'alipay'].includes(dto.provider);
+    const isCodeFlow = ['wechat', 'alipay', 'oidc'].includes(dto.provider);
     const oauthUser = isCodeFlow
       ? await this.oauthService.verifyCode(dto.provider, dto.authorizationCode!, dto.redirectUri, dto.providerType)
       : await this.oauthService.verify(dto.provider, dto.idToken!, dto.clientId);

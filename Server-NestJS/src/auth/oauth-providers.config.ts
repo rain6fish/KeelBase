@@ -14,6 +14,9 @@ const ALL_PROVIDERS: OAuthProviderInfo[] = [
   // ── China ──
   { id: 'wechat',     name: '微信',         icon: 'wechat',        group: 'china',         nativeOnly: true  },
   { id: 'alipay',     name: '支付宝',       icon: 'alipay',        group: 'china',         nativeOnly: true  },
+
+  // ── Enterprise（P2-4 通用 OIDC SSO）──
+  { id: 'oidc',       name: '企业 SSO',     icon: 'sso',           group: 'enterprise',    nativeOnly: false },
 ];
 
 /**
@@ -56,6 +59,7 @@ export class OAuthProvidersConfigService {
       groups: {
         international: available.filter((p) => p.group === 'international'),
         china: available.filter((p) => p.group === 'china'),
+        enterprise: available.filter((p) => p.group === 'enterprise'),
       },
     };
     await this.cacheService.set('oauth:config', result, 3600 * 1000);
@@ -76,6 +80,10 @@ export class OAuthProvidersConfigService {
                !!this.configService.get<string>('WECHAT_APP_SECRET', '');
       case 'alipay':
         return !!this.configService.get<string>('ALIPAY_APP_ID', '');
+      case 'oidc':
+        return !!this.configService.get<string>('OIDC_CLIENT_ID', '') &&
+               !!this.configService.get<string>('OIDC_CLIENT_SECRET', '') &&
+               !!this.configService.get<string>('OIDC_ISSUER', '');
       default:
         return false;
     }
