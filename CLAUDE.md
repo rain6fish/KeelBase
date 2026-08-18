@@ -92,7 +92,7 @@ KeelBase/
 │   └── data/                      # SQLite 数据文件
 │
 ├── Front-Taro/                    # 主 app 的 Taro H5/小程序前端（不含管理功能）
-├── Web-Admin-Vue/                     # 独立管理员管理台（Vue3 + Vuetify3 PC Web，独立构建/部署）
+├── Web-Admin-Vue/                     # Web 端宿主（Vue3 + Element Plus，工作台 + 管理台同一壳，独立构建/部署）
 │
 ├── .github/
 │   ├── workflows/ci.yml           # CI（GitHub Actions，push 到 GitHub main 自动触发）
@@ -878,9 +878,9 @@ Role: admin
 
 ## 13. 管理员管理台（Web-Admin-Vue）
 
-> **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Vuetify 3 + Vite + Pinia + TS，Materio 风格复刻，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
+> **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
-**独立于主 app 的 Vue3 PC Web 管理台**，与 `Front-Taro`（主 app）代码/构建/部署完全隔离。主 app 不携带任何管理逻辑或入口。
+**Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳；与 `Front-Flutter` / `Front-Taro`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
 
 **架构原则**：
 - 独立入口 + 独立登录（`/auth/login`），登录后校验 `role === 'admin'`，非管理员拒绝进入
@@ -904,7 +904,7 @@ npm run typecheck     # vue-tsc 类型检查
 
 **定位：预览版（Preview）**——前端 UI 与 Vue 版（Web-Admin-Vue）保持一致，用于评估 React 技术方案；**Vue 版仍是主版本**，后续是否更新 React 版由用户单独决定（决定前不做部署/CI 接线）。
 
-- **技术栈（2026-08-15）**：React 19 + TypeScript（strict）+ Vite 6 + **MUI**（Material UI，视觉对标 Vuetify/Materio，因 Vuetify 仅支持 Vue）+ react-router（hash 模式）+ Zustand + axios + i18next。
+- **技术栈（2026-08-15）**：React 19 + TypeScript（strict）+ Vite 6 + **MUI**（Material UI，视觉对标 Vue 管理台（Element Plus））+ react-router（hash 模式）+ Zustand + axios + i18next。
 - **复用面**：API 客户端（统一解包 + 401 自动刷新）、localStorage keys（`admin_access_token/refresh_token/locale/theme`）、i18n 文案均与 Vue 版一致，两控制台共享同一后端会话。
 - **模块范围**：与 Vue 版逐页对齐（24 个控制台页 + 工作台 + 登录/403）。
 - **构建接线**：**本地 dev 独立**——`cd Web-Admin-React && npm run dev`（端口 10087，base `/admin-react/`，proxy `/api` → 3000）；未接入 CI/Docker/nginx。

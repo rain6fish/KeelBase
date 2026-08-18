@@ -778,13 +778,13 @@ The H5/mini-program channel of the main App. Layered as: `services/` (API wrappe
 
 ## 12. 管理员管理台（Web-Admin-Vue） / 12. Admin Console (Web-Admin-Vue)
 
-独立 Vue3 PC Web 管理台，与主 app 完全隔离。
+Web 端宿主（Vue3 + Element Plus）：企业用户工作台与管理员控制台同一壳，管理功能只在控制台侧。
 
-A standalone Vue3 PC web admin console, fully isolated from the main app.
+Enterprise web host (Vue3 + Element Plus): workbench and admin console share one shell; admin features live only on the console side.
 
 | 项 / Item | 说明 / Description |
 |------|------|
-| 技术栈 / Tech stack | Vue3 + Vite + TS + Vuetify 3（Materio 风格复刻）+ Pinia + vue-i18n / Vue3 + Vite + TS + Vuetify 3 (Materio-style replica) + Pinia + vue-i18n |
+| 技术栈 / Tech stack | Vue3 + Vite + TS + Element Plus + Pinia + vue-i18n / Vue3 + Vite + TS + Element Plus + Pinia + vue-i18n |
 | 构建 / Build | `npm run build` → `dist/`（base=/admin/） / `npm run build` → `dist/` (base=/admin/) |
 | 部署 / Deployment | 独立域名（建议 `admin.example.com`），与主 app 分离；hash 路由 / Standalone domain (suggested `admin.example.com`), separated from the main app; hash routing |
 | 认证 / Auth | 独立登录 → `GET /auth/me` 校验 `role === 'admin'`，非管理员拒绝 / Standalone login → `GET /auth/me` checks `role === 'admin'`, non-admins rejected |
