@@ -106,7 +106,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     CrmModule,
     PmModule,
     ApprovalModule,
-    QueueModule,
+    QueueModule.register(),
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,

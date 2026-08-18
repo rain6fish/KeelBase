@@ -11,7 +11,7 @@ import { WebhookModule } from '../webhooks/webhook.module';
 // forwardRef：events→org→flows→ai→events 间接环（ORG 事件按组织归属），
 // events 仅用 OrgService.getUserOrgId，非 DI 强依赖
 @Module({
-  imports: [TypeOrmModule.forFeature([Event]), CacheModule, QueueModule, forwardRef(() => OrgModule), WebhookModule],
+  imports: [TypeOrmModule.forFeature([Event]), CacheModule, QueueModule.register(), forwardRef(() => OrgModule), WebhookModule],
   controllers: [EventsController],
   providers: [EventsService],
   exports: [EventsService],

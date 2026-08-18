@@ -235,7 +235,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
     PushModule,
     CacheModule,
     AppVersionModule,
-    QueueModule,
+    QueueModule.register(),
     PushWorkerModule,
     ReminderWorkerModule,
     KnowledgeWorkerModule,
