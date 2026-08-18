@@ -30,6 +30,7 @@ const consoleChildren: RouteRecordRaw[] = [
   // P3 新增
   { path: 'trash', name: 'trash', component: () => import('@/views/trash/TrashView.vue'), meta: { title: 'navTrash' } },
   { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },
+      { path: 'contracts', name: 'contracts', component: () => import('@/views/contracts/ContractsView.vue'), meta: { title: 'navContracts' } },
       { path: 'suppliers', name: 'suppliers', component: () => import('@/views/suppliers/SuppliersView.vue'), meta: { title: 'navSuppliers' } },
   { path: 'tags', name: 'tags', component: () => import('@/views/tags/TagsView.vue'), meta: { title: 'navTags', module: 'tags' } },
   { path: 'notes', name: 'notes', component: () => import('@/views/notes/NotesView.vue'), meta: { title: 'navNotes', module: 'notes' } },

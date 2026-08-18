@@ -13,6 +13,7 @@ export const FEATURE_KEYS = {
   UPLOAD: 'upload',
   NOTIFICATIONS: 'notifications',
   TODOS: 'todos',
+  CONTRACTS: 'contracts',
   SUPPLIERS: 'suppliers',
   TAGS: 'tags',
   NOTES: 'notes',

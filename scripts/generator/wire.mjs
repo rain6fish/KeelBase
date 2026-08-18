@@ -255,6 +255,78 @@ export async function wireFrontend(ctx, root = '') {
   return results;
 }
 
+/** AI 工具接线（第 11-12 周）：ai.module.ts 注册生成的 query/create 工具。 */
+export async function wireAiModule(ctx, root = '') {
+  const results = [];
+  const sep = root ? (root.endsWith('/') ? '' : '/') : '';
+  const BE = `${root}${sep}Server-NestJS/src`;
+  const AI = `${BE}/ai/ai.module.ts`;
+
+  // 1) 模块 + service import
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(
+        c,
+        `import { TodosService } from '../todos/todos.service';`,
+        `\nimport { ${ctx.pluralPascal}Module } from '../${ctx.plural}/${ctx.plural}.module';\nimport { ${ctx.pluralPascal}Service } from '../${ctx.plural}/${ctx.plural}.service';`,
+        `../${ctx.plural}/${ctx.plural}.module`,
+      ),
+    ),
+  );
+  // 2) 工具文件 import
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(
+        c,
+        `import { CreateTodoTool } from './tools/create-todo.tool';`,
+        `\nimport { Query${ctx.pluralPascal}Tool } from './tools/query-${ctx.plural}.tool';\nimport { Create${ctx.singlePascal}Tool } from './tools/create-${ctx.singular}.tool';`,
+        `./tools/query-${ctx.plural}.tool`,
+      ),
+    ),
+  );
+  // 3) imports 数组
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(c, `    TodosModule,`, `\n    ${ctx.pluralPascal}Module,`, `${ctx.pluralPascal}Module,`),
+    ),
+  );
+  // 4) useFactory 参数
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(
+        c,
+        `        todosService: TodosService,`,
+        `\n        ${ctx.plural}Service: ${ctx.pluralPascal}Service,`,
+        `${ctx.plural}Service: ${ctx.pluralPascal}Service`,
+      ),
+    ),
+  );
+  // 5) inject 数组：`TodosService, `（大写 + 逗号 + 空格）仅在 inject 数组出现（useFactory 参数是逗号+换行），唯一锚点
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(
+        c,
+        `TodosService, `,
+        `${ctx.pluralPascal}Service, `,
+        `${ctx.pluralPascal}Service, MemoriesService`,
+      ),
+    ),
+  );
+  // 6) 注册 query + create 工具
+  results.push(
+    await applyFile(AI, (c) =>
+      insertAfter(
+        c,
+        `        toolRegistry.register(new CreateTodoTool(todosService));`,
+        `\n        // ${ctx.label}（EASY-2 自动生成 AI 工具：读 + 写需确认）\n        toolRegistry.register(new Query${ctx.pluralPascal}Tool(${ctx.plural}Service));\n        toolRegistry.register(new Create${ctx.singlePascal}Tool(${ctx.plural}Service));`,
+        `new Query${ctx.pluralPascal}Tool(`,
+      ),
+    ),
+  );
+
+  return results;
+}
+
 /** Web-Admin-Vue 接线（⑤-2）：routes + navGroups + i18n zh/en。 */
 export async function wireAdmin(ctx, root = '') {
   const results = [];

@@ -24,7 +24,8 @@ import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
 import { taroFiles } from './generator/templates-taro.mjs';
-import { wireBackend, wireFrontend, wireAdmin, wireTaro } from './generator/wire.mjs';
+import { aiFiles } from './generator/templates-ai.mjs';
+import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
@@ -101,6 +102,28 @@ import 'features/todos/presentation/providers/todos_provider.dart';
     FE(root, 'core/i18n/app_localizations.dart'),
     `  String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 }`,
+  );
+  await write(
+    BE(root, 'ai/ai.module.ts'),
+    `import { TodosModule } from '../todos/todos.module';
+import { TodosService } from '../todos/todos.service';
+import { CreateTodoTool } from './tools/create-todo.tool';
+
+@Module({
+  imports: [
+    TodosModule,
+  ],
+})
+export class AiModule {
+  useFactory(
+        todosService: TodosService,
+  ) {
+    const toolRegistry = new ToolRegistry();
+        toolRegistry.register(new CreateTodoTool(todosService));
+  }
+}
+inject: [TodosService, MemoriesService, ConfirmationStore],
+`,
   );
 }
 
@@ -428,6 +451,43 @@ test('Taro 模板：service/types/store/page 骨架', () => {
   assert.match(page, /<style src="\.\/index\.scss" scoped><\/style>/);
 });
 
+test('AI 工具模板：query 读 + create 写需确认', () => {
+  const c = buildContext('suppliers', '供应商', [
+    { name: 'name', type: 'string', required: true },
+    { name: 'status', type: 'enum', enum: ['active', 'inactive'] },
+  ]);
+  const files = aiFiles({ ...c, featureFlag: true });
+  assert.equal(files.length, 2);
+  const query = files.find((f) => f.path.includes('query-')).content;
+  assert.match(query, /name = 'query_suppliers'/);
+  assert.match(query, /findAll\(Number\(userId\)\)/);
+  const create = files.find((f) => f.path.includes('create-')).content;
+  assert.match(create, /name = 'create_supplier'/);
+  assert.match(create, /requiresConfirmation = true/);
+  assert.match(create, /requireVerifiedEmail: true/);
+  assert.match(create, /@IsIn|enum: \['active', 'inactive'\]/);
+  assert.match(create, /dto\.name = args\.name/);
+});
+
+test('wireAiModule：ai.module 六处接线 + 幂等', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const c = buildContext('suppliers', '供应商', [{ name: 'name', type: 'string', required: true }]);
+
+  const r1 = await wireAiModule({ ...c, featureFlag: true }, root);
+  assert.ok(r1.filter((x) => x.changed).length >= 6, `应接线 ≥6 处，实际 ${r1.filter((x) => x.changed).length}`);
+
+  const ai = await readFile(BE(root, 'ai/ai.module.ts'), 'utf8');
+  assert.match(ai, /SuppliersModule/);
+  assert.match(ai, /QuerySuppliersTool/);
+  assert.match(ai, /new CreateSupplierTool\(suppliersService\)/);
+  assert.match(ai, /inject: \[TodosService, SuppliersService/);
+
+  // 幂等重跑零改动
+  const r2 = await wireAiModule({ ...c, featureFlag: true }, root);
+  assert.equal(r2.filter((x) => x.changed).length, 0);
+});
+
 test('wireTaro：app.config pages + explore quickCards', async () => {
   const root = await tempRoot();
   await write(`${root}/Front-Taro/src/app.config.ts`, `    'pages/search/index',`);
@@ -502,4 +562,11 @@ test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () =>
   assert.match(entity, /default: 'active'/);
   const page = await readFile(FE(root, 'features/suppliers/presentation/pages/suppliers_page.dart'), 'utf8');
   assert.match(page, /CupertinoSegmentedControl<String>/);
+  // AI 工具自动生成：读 + 写需确认
+  await access(BE(root, 'ai/tools/query-suppliers.tool.ts'));
+  await access(BE(root, 'ai/tools/create-supplier.tool.ts'));
+  const createTool = await readFile(BE(root, 'ai/tools/create-supplier.tool.ts'), 'utf8');
+  assert.match(createTool, /requiresConfirmation = true/);
+  const aiModule = await readFile(BE(root, 'ai/ai.module.ts'), 'utf8');
+  assert.match(aiModule, /new CreateSupplierTool\(suppliersService\)/);
 });
