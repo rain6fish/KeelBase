@@ -1547,4 +1547,27 @@ describe('AiService', () => {
       (aiService as any).governancePolicy = undefined;
     });
   });
+
+  describe('resolveProvider（Fallback 链）', () => {
+    it('默认 provider 可用 → 直接返回', () => {
+      const r = (aiService as any).resolveProvider({ message: 'hi' });
+      expect(r.providerName).toBe('deepseek');
+      expect(r.provider).toBe(mockProvider);
+    });
+
+    it('主 provider 抛错 → 回退链下一个', () => {
+      mockProviderFactory.getProvider.mockImplementation((name: string) => {
+        if (name === 'deepseek') throw new Error('not configured');
+        return mockProvider;
+      });
+      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'deepseek' });
+      expect(r.providerName).toBe('qwen');
+      expect(r.provider).toBe(mockProvider);
+    });
+
+    it('链上全部抛错 → throw 汇总错误', () => {
+      mockProviderFactory.getProvider.mockImplementation(() => { throw new Error('down'); });
+      expect(() => (aiService as any).resolveProvider({ message: 'hi', provider: 'openai' })).toThrow('No provider available');
+    });
+  });
 });
