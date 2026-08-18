@@ -7,6 +7,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   let service: AiToolEffectsService;
   let repo: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     findAndCount: jest.Mock;
     create: jest.Mock;
@@ -16,6 +17,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   beforeEach(async () => {
     repo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       save: jest.fn(),
       findAndCount: jest.fn(),
       create: jest.fn((d: any) => d),
@@ -203,6 +205,46 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(repo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ take: 100 }),
       );
+    });
+  });
+
+  describe('listForConversation（P0-14 轨迹副作用）', () => {
+    it('按对话取副作用并富化目标当前状态', async () => {
+      repo.find.mockResolvedValue([
+        { id: 1, resultType: 'event', resultId: 88, action: 'create_event', createdAt: new Date() },
+        { id: 2, resultType: 'crm_task', resultId: 7, action: 'create_followup_task', createdAt: new Date() },
+      ]);
+      const eventRepo = { findOne: jest.fn().mockResolvedValue({ id: 88, title: '会议' }) };
+      const crmRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, title: '跟进' }) };
+      entityManager.getRepository
+        .mockReturnValueOnce(eventRepo)
+        .mockReturnValueOnce(crmRepo);
+
+      const items = await service.listForConversation('conv-1');
+
+      expect(repo.find).toHaveBeenCalledWith({ where: { conversationId: 'conv-1' }, order: { createdAt: 'ASC' } });
+      expect(entityManager.getRepository).toHaveBeenCalledWith('Event');
+      expect(entityManager.getRepository).toHaveBeenCalledWith('CrmTask');
+      expect(items[0]).toMatchObject({ targetExists: true, targetTitle: '会议' });
+      expect(items[1]).toMatchObject({ targetExists: true, targetTitle: '跟进' });
+    });
+
+    it('目标已删除时 targetExists 为 false 且不抛错', async () => {
+      repo.find.mockResolvedValue([{ id: 1, resultType: 'pm_task', resultId: 99, createdAt: new Date() }]);
+      const pmRepo = { findOne: jest.fn().mockResolvedValue(null) };
+      entityManager.getRepository.mockReturnValue(pmRepo);
+      const items = await service.listForConversation('conv-2');
+      expect(entityManager.getRepository).toHaveBeenCalledWith('PmTask');
+      expect(items[0].targetExists).toBe(false);
+      expect(items[0].targetTitle).toBeNull();
+    });
+
+    it('_entityFor 映射旗舰副作用类型', () => {
+      const svc = service as any;
+      expect(svc._entityFor('crm_task')).toBe('CrmTask');
+      expect(svc._entityFor('pm_task')).toBe('PmTask');
+      expect(svc._entityFor('app_request')).toBe('ApprovalRequest');
+      expect(svc._entityFor('unknown')).toBe('Todo');
     });
   });
 });
