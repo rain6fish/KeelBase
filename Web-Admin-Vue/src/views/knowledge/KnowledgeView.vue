@@ -1,21 +1,30 @@
 <template>
   <div>
     <PageHeader :title="t('navKnowledge')" :subtitle="t('total', { n: total })">
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">{{ t('newArticle') }}</v-btn>
-      <v-btn variant="tonal" prepend-icon="mdi-upload" @click="fileInput?.click()">{{ t('uploadDocument') }}</v-btn>
+      <el-button type="primary" @click="openCreate">
+        <template #icon><AppIcon icon="mdi-plus" /></template>
+        {{ t('newArticle') }}
+      </el-button>
+      <el-button @click="fileInput?.click()">
+        <template #icon><AppIcon icon="mdi-upload" /></template>
+        {{ t('uploadDocument') }}
+      </el-button>
       <input ref="fileInput" type="file" accept=".pdf,.docx" class="d-none" @change="onUploadFile" />
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3">
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3">
         <DebouncedSearch v-model="q" :placeholder="t('searchKnowledge')" class="flex-grow-1" @search="load(1)" />
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="load(1)">{{ t('reset') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button @click="load(1)">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('reset') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="knowledge" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.category="{ item }">
-        <v-chip v-if="item.category" size="small" variant="tonal">{{ item.category }}</v-chip>
+        <el-tag v-if="item.category" size="small" effect="light">{{ item.category }}</el-tag>
         <span v-else>-</span>
       </template>
       <template #item.sourceFile="{ item }">
@@ -23,19 +32,29 @@
         <span v-else>-</span>
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-pencil-outline" variant="text" size="small" @click="openEdit(item)" />
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" @click="openEdit(item)">
+          <AppIcon icon="mdi-pencil-outline" />
+        </el-button>
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 
     <AppPagination :page="page" :limit="limit" :total="total" :loading="loading" @update:page="load" />
 
     <FormDialog v-model="showForm" :title="editing ? t('editArticle') : t('createArticle')" :loading="saving" @save="onSave">
-      <v-form @submit.prevent="onSave">
-        <v-text-field v-model="form.title" :label="t('titleLabel')" required />
-        <v-text-field v-model="form.category" :label="t('categoryOptional')" />
-        <v-textarea v-model="form.content" :label="t('contentMarkdown')" rows="6" required />
-      </v-form>
+      <el-form @submit.prevent="onSave">
+        <el-form-item :label="t('titleLabel')">
+          <el-input v-model="form.title" required />
+        </el-form-item>
+        <el-form-item :label="t('categoryOptional')">
+          <el-input v-model="form.category" />
+        </el-form-item>
+        <el-form-item :label="t('contentMarkdown')">
+          <el-input v-model="form.content" type="textarea" :rows="6" required />
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <ConfirmDialog

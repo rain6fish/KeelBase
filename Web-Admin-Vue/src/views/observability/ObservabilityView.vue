@@ -2,19 +2,24 @@
   <div>
     <PageHeader :title="t('obsTitle')" />
 
-    <v-alert type="info" variant="tonal" class="mb-4">
+    <el-alert type="info" :closable="false" class="mb-4">
       {{ t('obsHint') }}
-    </v-alert>
+    </el-alert>
 
-    <v-row>
-      <v-col v-for="sys in systems" :key="sys.key" cols="12" sm="6" md="3">
-        <v-card hover class="text-center pa-4" @click="open(sys.url)">
-          <v-icon :icon="sys.icon" size="42" :color="sys.color" class="mb-2" />
+    <el-row :gutter="16">
+      <el-col v-for="sys in systems" :key="sys.key" :xs="24" :sm="12" :md="6">
+        <el-card shadow="hover" class="text-center pa-4 cursor-pointer mb-4" @click="open(sys.url)">
+          <AppIcon
+            :icon="sys.icon"
+            :size="42"
+            :color="sys.color === 'error' ? 'var(--el-color-error)' : 'var(--el-color-' + sys.color + ')'"
+            class="mb-2"
+          />
           <div class="text-h6">{{ sys.label }}</div>
           <div class="text-caption text-medium-emphasis">{{ sys.url }}</div>
-        </v-card>
-      </v-col>
-    </v-row>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 

@@ -2,22 +2,24 @@
   <div>
     <PageHeader :title="t('aiTraceTitle')" :subtitle="t('aiTraceHint')" />
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
-        <v-select
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
+        <el-select
           v-model="selectedId"
-          :items="conversationItems"
-          :label="t('aiTracePickConversation')"
-          density="comfortable"
-          variant="outlined"
-          hide-details
+          :placeholder="t('aiTracePickConversation')"
           clearable
+          filterable
           style="max-width: 420px"
           @update:model-value="onSelect"
-        />
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="loadConversations">{{ t('refresh') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        >
+          <el-option v-for="c in conversationItems" :key="c.value" :label="c.title" :value="c.value" />
+        </el-select>
+        <el-button plain @click="loadConversations">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('refresh') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('aiTraceLoading') }}</div>
 
@@ -30,16 +32,14 @@
       <div v-else-if="traceError" class="text-error pa-4">{{ traceError }}</div>
       <div v-else-if="steps.length === 0" class="text-medium-emphasis pa-4">{{ t('aiTraceEmpty') }}</div>
 
-      <v-timeline v-else side="end" density="compact" align="start">
-        <v-timeline-item
+      <el-timeline v-else>
+        <el-timeline-item
           v-for="s in steps"
           :key="s.id"
-          :dot-color="stepColor(s)"
-          :icon="stepIcon(s)"
-          size="small"
+          :color="{ info: 'var(--el-color-info)', primary: 'var(--el-color-primary)', error: 'var(--el-color-danger)', success: 'var(--el-color-success)', warning: 'var(--el-color-warning)', grey: 'var(--el-text-color-placeholder)' }[stepColor(s)] ?? 'var(--el-color-primary)'"
         >
-          <v-card variant="outlined" class="mb-2">
-            <v-card-text class="pa-3">
+          <el-card shadow="never" class="mb-2">
+            <div class="pa-1">
               <div class="d-flex justify-space-between align-center">
                 <span class="text-caption font-weight-medium" :class="stepColorClass(s)">
                   {{ stepLabel(s) }}
@@ -66,7 +66,7 @@
                 <div class="text-body-2">{{ s.toolName }} <code class="text-caption">{{ s.args }}</code></div>
                 <div class="mt-1">
                   <StatusChip :status="confirmStatus(s)" :label-map="confirmLabels" />
-                  <span v-if="s.trusted" class="text-caption text-medium-emphasis ml-2">{{ t('stepTrusted') }}</span>
+                  <span v-if="s.trusted" class="text-caption text-medium-emphasis ms-2">{{ t('stepTrusted') }}</span>
                 </div>
               </div>
 
@@ -74,17 +74,17 @@
               <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
                 <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
                 <div v-if="s.effect.targetTitle" class="text-body-2 text-medium-emphasis mt-1">{{ s.effect.targetTitle }}</div>
-                <v-btn
+                <el-button
                   v-if="s.effect.revocable"
-                  size="x-small"
-                  variant="tonal"
-                  color="warning"
+                  size="small"
+                  plain
+                  type="warning"
                   class="mt-1"
                   :loading="revokingId === s.effect.effectId"
                   @click="onRevokeEffect(s.effect)"
                 >
                   {{ t('revokeEffect') }}
-                </v-btn>
+                </el-button>
               </div>
 
               <!-- 摘要类（chat/knowledge/error 等） -->
@@ -92,10 +92,10 @@
                 <div v-if="s.detail" class="text-body-2 text-medium-emphasis mt-1">{{ s.detail }}</div>
                 <div v-if="s.errorMessage" class="text-body-2 text-error mt-1">{{ s.errorMessage }}</div>
               </div>
-            </v-card-text>
-          </v-card>
-        </v-timeline-item>
-      </v-timeline>
+            </div>
+          </el-card>
+        </el-timeline-item>
+      </el-timeline>
     </template>
   </div>
 </template>
@@ -198,17 +198,6 @@ function stepLabel(s: TraceStep): string {
     case 'confirmation': return t('stepConfirmation')
     case 'effect': return t('stepEffect')
     default: return t('stepNotice')
-  }
-}
-
-function stepIcon(s: TraceStep): string {
-  switch (s.type) {
-    case 'input': return 'mdi-account-outline'
-    case 'assistant': return 'mdi-robot-outline'
-    case 'tool_call': return 'mdi-wrench-outline'
-    case 'confirmation': return 'mdi-shield-check-outline'
-    case 'effect': return 'mdi-content-save-outline'
-    default: return 'mdi-message-outline'
   }
 }
 

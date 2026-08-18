@@ -1,14 +1,17 @@
 <template>
   <div>
     <PageHeader :title="t('workbenchNotifications')">
-      <v-btn variant="tonal" prepend-icon="mdi-check-all" @click="onReadAll">{{ t('markAllRead') }}</v-btn>
+      <el-button plain @click="onReadAll">
+        <template #icon><AppIcon icon="mdi-check-all" /></template>
+        {{ t('markAllRead') }}
+      </el-button>
     </PageHeader>
 
-    <v-row class="mb-4">
-      <v-col cols="12" sm="6" md="3">
+    <el-row :gutter="16" class="mb-4">
+      <el-col :xs="24" :sm="12" :md="6">
         <StatCard :label="t('unreadCount')" :value="unread" icon="mdi-bell-badge-outline" color="warning" />
-      </v-col>
-    </v-row>
+      </el-col>
+    </el-row>
 
     <AppTable :headers="headers" :items="notifications" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.title="{ item }">
@@ -21,15 +24,18 @@
       </template>
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
       <template #item.actions="{ item }">
-        <v-btn
+        <el-button
           v-if="!item.isRead"
-          icon="mdi-email-open-outline"
-          variant="text"
+          text
           size="small"
           :title="t('markRead')"
           @click="markRead(item)"
-        />
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        >
+          <AppIcon icon="mdi-email-open-outline" />
+        </el-button>
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 

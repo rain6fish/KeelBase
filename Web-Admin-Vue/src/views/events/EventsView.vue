@@ -1,37 +1,35 @@
 <template>
   <div>
     <PageHeader :title="t('navEvents')" :subtitle="t('eventTotal', { n: total })">
-      <v-btn variant="tonal" prepend-icon="mdi-download" @click="onExport">{{ t('export') }}</v-btn>
+      <el-button @click="onExport">
+        <template #icon><AppIcon icon="mdi-download" /></template>
+        {{ t('export') }}
+      </el-button>
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
         <DebouncedSearch v-model="keyword" :placeholder="t('searchTitle')" style="max-width: 220px" @search="load(1)" />
-        <v-text-field
+        <el-input
           v-model.number="userId"
           :label="t('filterByUserId')"
           type="number"
-          density="comfortable"
-          variant="outlined"
-          hide-details
           style="max-width: 160px"
         />
-        <v-select
-          v-model="status"
-          :items="statusOptions"
-          item-title="label"
-          item-value="value"
-          :label="t('eventStatus')"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          style="max-width: 150px"
-        />
+        <el-select v-model="status" :label="t('eventStatus')" style="max-width: 150px">
+          <el-option v-for="o in statusOptions" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
         <RangeFilter v-model="range" @update:model-value="onRange" />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="load(1)">{{ t('filter') }}</v-btn>
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="reset">{{ t('reset') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button type="primary" @click="load(1)">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+        <el-button @click="reset">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('reset') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="events" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.startTime="{ item }">{{ formatTime(item.startTime) }}</template>
@@ -41,7 +39,9 @@
         <StatusChip :status="item.isCancelled ? 'cancelled' : 'active'" :label-map="statusLabelMap" />
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 

@@ -2,46 +2,62 @@
   <div>
     <PageHeader :title="t('apTitle')" :subtitle="t('apTotal', { n: total })" />
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
-        <v-select v-model="statusFilter" :items="statusOptions" item-title="label" item-value="value" :label="t('apStatus')" density="compact" style="max-width: 200px" hide-details />
-        <v-btn color="primary" prepend-icon="mdi-magnify" @click="load(1)">{{ t('filter') }}</v-btn>
-        <v-spacer />
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">{{ t('apSubmitRequest') }}</v-btn>
-      </v-card-text>
-    </v-card>
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
+        <el-select v-model="statusFilter" :placeholder="t('apStatus')" style="max-width: 200px" clearable>
+          <el-option v-for="o in statusOptions" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+        <el-button type="primary" @click="load(1)">
+          <template #icon><AppIcon icon="mdi-magnify" /></template>
+          {{ t('filter') }}
+        </el-button>
+        <div class="flex-grow-1" />
+        <el-button type="primary" @click="openCreate">
+          <template #icon><AppIcon icon="mdi-plus" /></template>
+          {{ t('apSubmitRequest') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="requests" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.title="{ item }">
-        <v-btn variant="text" color="primary" class="pa-0" @click="goDetail(item.id)">{{ item.title }}</v-btn>
+        <el-button text type="primary" class="pa-0" @click="goDetail(item.id)">{{ item.title }}</el-button>
       </template>
       <template #item.amount="{ item }">¥{{ item.amount.toFixed(0) }}</template>
       <template #item.status="{ item }">
         <StatusChip :status="item.status" :label-map="statusLabelMap" />
       </template>
       <template #item.riskLevel="{ item }">
-        <v-chip size="small" :color="riskColor(item.riskLevel)" variant="tonal">{{ riskLabel(item.riskLevel) }}</v-chip>
+        <el-tag size="small" :type="{ green: 'success', amber: 'warning', orange: 'warning', red: 'danger', grey: 'info' }[riskColor(item.riskLevel)] ?? 'info'" effect="light">{{ riskLabel(item.riskLevel) }}</el-tag>
       </template>
     </AppTable>
 
     <AppPagination :page="page" :limit="limit" :total="total" :loading="loading" @update:page="load" />
 
-    <v-dialog v-model="showCreate" max-width="480">
-      <v-card>
-        <v-card-title>{{ t('apSubmitRequest') }}</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="form.title" :label="t('apTitleHint')" required />
-          <v-select v-model="form.type" :items="typeOptions" item-title="label" item-value="value" :label="t('apType')" density="compact" hide-details />
-          <v-text-field v-model.number="form.amount" :label="t('apAmountHint')" type="number" class="mt-2" />
-          <v-text-field v-model="form.reason" :label="t('apReasonHint')" required />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showCreate = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="primary" :loading="saving" @click="onCreate">{{ t('save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <el-dialog v-model="showCreate" :width="480" :title="t('apSubmitRequest')">
+      <el-form @submit.prevent="onCreate">
+        <el-form-item :label="t('apTitleHint')">
+          <el-input v-model="form.title" required />
+        </el-form-item>
+        <el-form-item :label="t('apType')">
+          <el-select v-model="form.type" style="width: 100%">
+            <el-option v-for="o in typeOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('apAmountHint')">
+          <el-input v-model.number="form.amount" type="number" class="mt-2" />
+        </el-form-item>
+        <el-form-item :label="t('apReasonHint')">
+          <el-input v-model="form.reason" required />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="d-flex justify-end ga-2">
+          <el-button @click="showCreate = false">{{ t('cancel') }}</el-button>
+          <el-button type="primary" :loading="saving" @click="onCreate">{{ t('save') }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
