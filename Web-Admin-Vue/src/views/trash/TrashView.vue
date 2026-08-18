@@ -1,7 +1,10 @@
 <template>
   <div>
     <PageHeader :title="t('navTrash')" :subtitle="t('total', { n: total })">
-      <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="load(1)">{{ t('refresh') }}</v-btn>
+      <el-button @click="load(1)">
+        <template #icon><AppIcon icon="mdi-refresh" /></template>
+        {{ t('refresh') }}
+      </el-button>
     </PageHeader>
 
     <AppTable :headers="headers" :items="trash" :loading="loading" :total="total" :items-per-page="limit">
@@ -10,7 +13,9 @@
       </template>
       <template #item.deletedAt="{ item }">{{ formatTime(item.deletedAt) }}</template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-restore" variant="text" size="small" color="primary" :title="t('restore')" @click="confirmRestore(item)" />
+        <el-button text size="small" type="primary" :title="t('restore')" @click="confirmRestore(item)">
+          <AppIcon icon="mdi-restore" />
+        </el-button>
       </template>
     </AppTable>
 

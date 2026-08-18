@@ -60,7 +60,9 @@ onMounted(load)
     <PageHeader :title="t('navNotes')" :subtitle="t('notesViewSubtitle')" />
     <AppTable :headers="headers" :items="items" :loading="loading">
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
     <ConfirmDialog

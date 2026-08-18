@@ -1,14 +1,19 @@
 <template>
   <div>
     <PageHeader :title="t('sessionTitle')">
-      <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="load">{{ t('refresh') }}</v-btn>
+      <el-button @click="load">
+        <template #icon><AppIcon icon="mdi-refresh" /></template>
+        {{ t('refresh') }}
+      </el-button>
     </PageHeader>
 
     <AppTable :headers="headers" :items="sessions" :loading="loading" :total="sessions.length" :items-per-page="sessions.length || 1">
       <template #item.deviceName="{ item }">{{ item.deviceName || t('unknownDevice') }}</template>
       <template #item.lastActiveAt="{ item }">{{ formatTime(item.lastActiveAt) }}</template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-logout" variant="text" size="small" color="error" @click="confirmRevoke(item)" />
+        <el-button text size="small" type="danger" @click="confirmRevoke(item)">
+          <AppIcon icon="mdi-logout" />
+        </el-button>
       </template>
     </AppTable>
 

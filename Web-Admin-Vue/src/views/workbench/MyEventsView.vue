@@ -2,14 +2,20 @@
   <div>
     <PageHeader :title="t('workbenchMyEvents')" :subtitle="t('eventTotal', { n: total })" />
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center">
         <DebouncedSearch v-model="keyword" :placeholder="t('searchTitle')" style="max-width: 220px" @search="load(1)" />
         <RangeFilter v-model="range" @update:model-value="onRange" />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="load(1)">{{ t('filter') }}</v-btn>
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="reset">{{ t('reset') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button type="primary" @click="load(1)">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+        <el-button plain @click="reset">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('reset') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="events" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.startTime="{ item }">{{ formatTime(item.startTime) }}</template>
@@ -19,7 +25,9 @@
         <StatusChip :status="item.isCancelled ? 'cancelled' : 'active'" :label-map="statusLabelMap" />
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 

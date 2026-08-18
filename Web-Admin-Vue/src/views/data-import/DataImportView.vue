@@ -2,85 +2,89 @@
   <div>
     <PageHeader :title="t('navDataImport')" />
 
-    <v-row>
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>{{ t('importUsers') }}</v-card-title>
-          <v-card-text>
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('importUsers') }}</template>
+          <div>
             <div class="text-body-2 text-medium-emphasis mb-3">
               {{ t('importUsersHint') }}
             </div>
             <div class="d-flex ga-2 flex-wrap">
-              <v-btn variant="tonal" prepend-icon="mdi-file-download-outline" @click="downloadUsersTemplate">
+              <el-button @click="downloadUsersTemplate">
+                <template #icon><AppIcon icon="mdi-file-download-outline" /></template>
                 {{ t('downloadTemplate') }}
-              </v-btn>
-              <v-btn color="primary" prepend-icon="mdi-upload" :loading="importing === 'user'" @click="userInput?.click()">
+              </el-button>
+              <el-button type="primary" :loading="importing === 'user'" @click="userInput?.click()">
+                <template #icon><AppIcon icon="mdi-upload" /></template>
                 {{ t('chooseCsv') }}
-              </v-btn>
+              </el-button>
             </div>
             <input ref="userInput" type="file" accept=".csv" class="d-none" @change="onUserFile" />
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </div>
+        </el-card>
+      </el-col>
 
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>{{ t('importEvents') }}</v-card-title>
-          <v-card-text>
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('importEvents') }}</template>
+          <div>
             <div class="text-body-2 text-medium-emphasis mb-3">
               {{ t('importEventsHint') }}
             </div>
             <div class="d-flex ga-2 flex-wrap">
-              <v-btn variant="tonal" prepend-icon="mdi-file-download-outline" @click="downloadEventsTemplate">
+              <el-button @click="downloadEventsTemplate">
+                <template #icon><AppIcon icon="mdi-file-download-outline" /></template>
                 {{ t('downloadTemplate') }}
-              </v-btn>
-              <v-btn color="primary" prepend-icon="mdi-upload" :loading="importing === 'event'" @click="eventInput?.click()">
+              </el-button>
+              <el-button type="primary" :loading="importing === 'event'" @click="eventInput?.click()">
+                <template #icon><AppIcon icon="mdi-upload" /></template>
                 {{ t('chooseCsv') }}
-              </v-btn>
+              </el-button>
             </div>
             <input ref="eventInput" type="file" accept=".csv" class="d-none" @change="onEventFile" />
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </div>
+        </el-card>
+      </el-col>
 
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>{{ t('importTodos') }}</v-card-title>
-          <v-card-text>
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('importTodos') }}</template>
+          <div>
             <div class="text-body-2 text-medium-emphasis mb-3">
               {{ t('importTodosHint') }}
             </div>
             <div class="d-flex ga-2 flex-wrap">
-              <v-btn variant="tonal" prepend-icon="mdi-file-download-outline" @click="downloadTodosTemplate">
+              <el-button @click="downloadTodosTemplate">
+                <template #icon><AppIcon icon="mdi-file-download-outline" /></template>
                 {{ t('downloadTemplate') }}
-              </v-btn>
-              <v-btn color="primary" prepend-icon="mdi-upload" :loading="importing === 'todo'" @click="todoInput?.click()">
+              </el-button>
+              <el-button type="primary" :loading="importing === 'todo'" @click="todoInput?.click()">
+                <template #icon><AppIcon icon="mdi-upload" /></template>
                 {{ t('chooseCsv') }}
-              </v-btn>
+              </el-button>
             </div>
             <input ref="todoInput" type="file" accept=".csv" class="d-none" @change="onTodoFile" />
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <!-- 导入结果 -->
-    <v-card v-if="result" class="mt-4">
-      <v-card-title>{{ t('importResult') }}</v-card-title>
-      <v-card-text>
-        <v-row class="mb-2">
-          <v-col cols="4"><StatCard :label="t('importTotal')" :value="result.total" icon="mdi-file-document-outline" color="info" /></v-col>
-          <v-col cols="4"><StatCard :label="t('importSuccess')" :value="result.success" icon="mdi-check-circle-outline" color="success" /></v-col>
-          <v-col cols="4"><StatCard :label="t('importFailed')" :value="result.failed" icon="mdi-alert-circle-outline" color="error" /></v-col>
-        </v-row>
-        <v-alert v-if="result.errors.length" type="error" variant="tonal">
-          <div v-for="e in result.errors" :key="e.row" class="text-body-2">
-            {{ t('row') }} {{ e.row }}: {{ e.reason }}
-          </div>
-        </v-alert>
-        <div v-else class="text-body-2 text-medium-emphasis">{{ t('importAllOk') }}</div>
-      </v-card-text>
-    </v-card>
+    <el-card v-if="result" shadow="never" class="mt-4">
+      <template #header>{{ t('importResult') }}</template>
+      <el-row :gutter="16" class="mb-2">
+        <el-col :xs="8"><StatCard :label="t('importTotal')" :value="result.total" icon="mdi-file-document-outline" color="info" /></el-col>
+        <el-col :xs="8"><StatCard :label="t('importSuccess')" :value="result.success" icon="mdi-check-circle-outline" color="success" /></el-col>
+        <el-col :xs="8"><StatCard :label="t('importFailed')" :value="result.failed" icon="mdi-alert-circle-outline" color="error" /></el-col>
+      </el-row>
+      <el-alert v-if="result.errors.length" type="error" :closable="false">
+        <div v-for="e in result.errors" :key="e.row" class="text-body-2">
+          {{ t('row') }} {{ e.row }}: {{ e.reason }}
+        </div>
+      </el-alert>
+      <div v-else class="text-body-2 text-medium-emphasis">{{ t('importAllOk') }}</div>
+    </el-card>
   </div>
 </template>
 

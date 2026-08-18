@@ -1,11 +1,14 @@
 <template>
   <div>
     <PageHeader :title="t('navUsers')" :subtitle="t('userTotal', { n: total })">
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">{{ t('newUser') }}</v-btn>
+      <el-button type="primary" @click="openCreate">
+        <template #icon><AppIcon icon="mdi-plus" /></template>
+        {{ t('newUser') }}
+      </el-button>
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap">
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap">
         <DebouncedSearch
           v-model="searchInput"
           :placeholder="t('searchUserPlaceholder')"
@@ -13,9 +16,12 @@
           style="max-width: 320px"
           @search="onSearch"
         />
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="load(1)">{{ t('reset') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button @click="load(1)">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('reset') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable
       :headers="headers"
@@ -28,27 +34,22 @@
         <a class="text-decoration-none" href="#" @click.prevent="openDetail(item.id)">{{ item.username }}</a>
       </template>
       <template #item.role="{ item }">
-        <v-select
+        <el-select
           :model-value="item.role"
-          :items="['user', 'admin']"
-          density="compact"
-          variant="outlined"
-          hide-details
           style="max-width: 110px"
-          @update:model-value="(v) => onChangeRole(item.id, v as string)"
-        />
+          @update:model-value="(v: string | number | boolean | undefined) => onChangeRole(item.id, String(v ?? ''))"
+        >
+          <el-option label="user" value="user" />
+          <el-option label="admin" value="admin" />
+        </el-select>
       </template>
       <template #item.createdAt="{ item }">
         {{ formatTime(item.createdAt) }}
       </template>
       <template #item.actions="{ item }">
-        <v-btn
-          icon="mdi-delete-outline"
-          variant="text"
-          size="small"
-          color="error"
-          @click="confirmDelete(item)"
-        />
+        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+          <AppIcon icon="mdi-delete-outline" />
+        </el-button>
       </template>
     </AppTable>
 
@@ -61,20 +62,32 @@
       :loading="creating"
       @save="onCreate"
     >
-      <v-form @submit.prevent="onCreate">
-        <v-text-field v-model="createForm.username" :label="t('usernameCol')" required />
-        <v-text-field v-model="createForm.email" label="Email" type="email" required />
-        <v-text-field v-model="createForm.password" :label="t('password')" type="password" required />
-        <v-text-field v-model="createForm.nickname" :label="t('nicknameCol')" required />
-        <v-row>
-          <v-col cols="6">
-            <v-text-field v-model="createForm.firstName" label="First name" />
-          </v-col>
-          <v-col cols="6">
-            <v-text-field v-model="createForm.lastName" label="Last name" />
-          </v-col>
-        </v-row>
-      </v-form>
+      <el-form @submit.prevent="onCreate">
+        <el-form-item :label="t('usernameCol')">
+          <el-input v-model="createForm.username" required />
+        </el-form-item>
+        <el-form-item label="Email">
+          <el-input v-model="createForm.email" type="email" required />
+        </el-form-item>
+        <el-form-item :label="t('password')">
+          <el-input v-model="createForm.password" type="password" required />
+        </el-form-item>
+        <el-form-item :label="t('nicknameCol')">
+          <el-input v-model="createForm.nickname" required />
+        </el-form-item>
+        <el-row :gutter="8">
+          <el-col :span="12">
+            <el-form-item label="First name">
+              <el-input v-model="createForm.firstName" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="Last name">
+              <el-input v-model="createForm.lastName" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
     </FormDialog>
 
     <!-- 删除确认 -->

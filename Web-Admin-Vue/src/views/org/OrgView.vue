@@ -1,198 +1,222 @@
 <template>
   <div>
     <PageHeader :title="t('navOrg')" :subtitle="t('orgSubtitle')">
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateOrg">
+      <el-button type="primary" @click="openCreateOrg">
+        <template #icon><AppIcon icon="mdi-plus" /></template>
         {{ t('orgCreate') }}
-      </v-btn>
+      </el-button>
     </PageHeader>
 
     <!-- 组织选择 -->
-    <v-card class="mb-4">
-      <v-card-text class="d-flex align-center ga-3">
-        <v-select
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex align-center ga-3 pa-4">
+        <el-select
           v-model="currentOrgId"
-          :items="orgs"
-          item-title="name"
-          item-value="id"
-          :label="t('selectOrg')"
+          :placeholder="t('selectOrg')"
           class="flex-grow-1"
-          density="comfortable"
           clearable
-          @update:model-value="onSelectOrg"
-        />
-        <v-btn
+          @update:model-value="(v: string | number | boolean | undefined) => onSelectOrg(typeof v === 'number' ? v : null)"
+        >
+          <el-option v-for="o in orgs" :key="o.id" :label="o.name" :value="o.id" />
+        </el-select>
+        <el-button
           v-if="currentOrgId"
-          variant="tonal"
-          color="error"
-          prepend-icon="mdi-delete-outline"
+          type="danger"
+          plain
           @click="confirmDeleteOrg"
         >
+          <template #icon><AppIcon icon="mdi-delete-outline" /></template>
           {{ t('deleteOrg') }}
-        </v-btn>
-      </v-card-text>
-    </v-card>
+        </el-button>
+      </div>
+    </el-card>
 
-    <v-row v-if="currentOrgId" class="ma-0">
+    <el-row v-if="currentOrgId" :gutter="16">
       <!-- 左：部门树 -->
-      <v-col cols="12" md="4" class="ps-0">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-sitemap" class="me-2" />
-            {{ t('deptTitle') }}
-            <v-spacer />
-            <v-btn icon="mdi-plus" size="small" variant="text" :title="t('deptAdd')" @click="openAddDept(null)" />
-          </v-card-title>
-          <v-divider />
-          <v-card-text class="pa-2">
-            <v-list density="comfortable" nav>
-              <v-list-item
-                :active="selectedDeptId == null"
-                prepend-icon="mdi-office-building-outline"
-                :title="t('allDepartments')"
-                @click="selectDept(null)"
-              />
-              <OrgDeptTree
-                v-for="n in deptTree"
-                :key="n.id"
-                :node="n"
-                :selected-id="selectedDeptId"
-                @select="selectDept"
-                @add="openAddDept"
-                @rename="openEditDept"
-                @remove="confirmDeleteDept"
-              />
-            </v-list>
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex align-center">
+              <AppIcon icon="mdi-sitemap" class="me-2" />
+              {{ t('deptTitle') }}
+              <div class="flex-grow-1" />
+              <el-button text size="small" :title="t('deptAdd')" @click="openAddDept(null)">
+                <AppIcon icon="mdi-plus" />
+              </el-button>
+            </div>
+          </template>
+          <div class="pa-2">
+            <div
+              class="dept-tree-node"
+              :class="{ 'is-active': selectedDeptId == null }"
+              @click="selectDept(null)"
+            >
+              <AppIcon icon="mdi-office-building-outline" size="16" class="me-2 flex-shrink-0" />
+              <span class="text-truncate">{{ t('allDepartments') }}</span>
+            </div>
+            <OrgDeptTree
+              v-for="n in deptTree"
+              :key="n.id"
+              :node="n"
+              :selected-id="selectedDeptId"
+              @select="selectDept"
+              @add="openAddDept"
+              @rename="openEditDept"
+              @remove="confirmDeleteDept"
+            />
             <div v-if="!departments.length" class="text-medium-emphasis pa-2 text-caption">
               {{ t('noDept') }}
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </div>
+        </el-card>
+      </el-col>
 
       <!-- 右：成员 -->
-      <v-col cols="12" md="8" class="pe-0">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-account-group-outline" class="me-2" />
-            {{ t('memberTitle') }}
-            <v-spacer />
-            <v-btn variant="tonal" prepend-icon="mdi-link-variant" class="me-2" @click="openInvite">
-              {{ t('inviteCreate') }}
-            </v-btn>
-            <v-btn color="primary" prepend-icon="mdi-account-plus-outline" @click="openAddMember">
-              {{ t('memberAdd') }}
-            </v-btn>
-          </v-card-title>
-          <v-divider />
-          <v-card-text>
-            <div class="d-flex ga-3 mb-3">
-              <DebouncedSearch v-model="memberKeyword" :placeholder="t('searchMember')" class="flex-grow-1" @search="loadMembers(1)" />
+      <el-col :xs="24" :md="16">
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex align-center">
+              <AppIcon icon="mdi-account-group-outline" class="me-2" />
+              {{ t('memberTitle') }}
+              <div class="flex-grow-1" />
+              <el-button @click="openInvite" class="me-2">
+                <template #icon><AppIcon icon="mdi-link-variant" /></template>
+                {{ t('inviteCreate') }}
+              </el-button>
+              <el-button type="primary" @click="openAddMember">
+                <template #icon><AppIcon icon="mdi-account-plus-outline" /></template>
+                {{ t('memberAdd') }}
+              </el-button>
             </div>
-            <AppTable :headers="memberHeaders" :items="members" :loading="memberLoading" :total="memberTotal" :items-per-page="memberLimit">
-              <template #item.nickname="{ item }">{{ item.nickname || '-' }}</template>
-              <template #item.role="{ item }">
-                <v-select
-                  :model-value="item.role"
-                  :items="roleOptions"
-                  item-title="label"
-                  item-value="value"
-                  density="compact"
-                  hide-details
-                  class="role-select"
-                  @update:model-value="(v: string) => updateMemberRole(item, v as OrgMemberRole)"
-                />
-              </template>
-              <template #item.deptName="{ item }">{{ item.deptName || '-' }}</template>
-              <template #item.actions="{ item }">
-                <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" :title="t('delete')" @click="confirmDeleteMember(item)" />
-              </template>
-              <template #pagination>
-                <AppPagination :page="memberPage" :limit="memberLimit" :total="memberTotal" :loading="memberLoading" @update:page="loadMembers" />
-              </template>
-            </AppTable>
+          </template>
+          <div class="d-flex ga-3 mb-3">
+            <DebouncedSearch v-model="memberKeyword" :placeholder="t('searchMember')" class="flex-grow-1" @search="loadMembers(1)" />
+          </div>
+          <AppTable :headers="memberHeaders" :items="members" :loading="memberLoading" :total="memberTotal" :items-per-page="memberLimit">
+            <template #item.nickname="{ item }">{{ item.nickname || '-' }}</template>
+            <template #item.role="{ item }">
+              <el-select
+                :model-value="item.role"
+                class="role-select"
+                @update:model-value="(v: string | number | boolean | undefined) => updateMemberRole(item, String(v ?? '') as OrgMemberRole)"
+              >
+                <el-option v-for="opt in roleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </template>
+            <template #item.deptName="{ item }">{{ item.deptName || '-' }}</template>
+            <template #item.actions="{ item }">
+              <el-button text size="small" type="danger" :title="t('delete')" @click="confirmDeleteMember(item)">
+                <AppIcon icon="mdi-delete-outline" />
+              </el-button>
+            </template>
+            <template #pagination>
+              <AppPagination :page="memberPage" :limit="memberLimit" :total="memberTotal" :loading="memberLoading" @update:page="loadMembers" />
+            </template>
+          </AppTable>
 
-            <!-- 邀请列表 -->
-            <v-divider class="my-4" />
-            <div class="text-subtitle-2 mb-2">{{ t('inviteList') }}</div>
-            <v-table v-if="invites.length" density="compact">
-              <thead>
-                <tr>
-                  <th>{{ t('inviteCode') }}</th>
-                  <th>{{ t('roleCol') }}</th>
-                  <th>{{ t('statusCol') }}</th>
-                  <th>{{ t('actionCol') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="inv in invites" :key="inv.id">
-                  <td><code>{{ inv.code }}</code></td>
-                  <td>{{ t(`role${cap(inv.role)}`) }}</td>
-                  <td>{{ inv.usedBy ? t('inviteUsed') : t('invitePending') }}</td>
-                  <td>
-                    <v-btn icon="mdi-content-copy" size="x-small" variant="text" :title="t('inviteCopy')" @click="copyInvite(inv.code)" />
-                    <v-btn icon="mdi-delete-outline" size="x-small" variant="text" color="error" :title="t('inviteRevoke')" @click="revokeInvite(inv)" />
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-            <div v-else class="text-medium-emphasis text-caption">{{ t('noInvite') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          <!-- 邀请列表 -->
+          <el-divider class="my-4" />
+          <div class="text-subtitle-2 mb-2">{{ t('inviteList') }}</div>
+          <el-table v-if="invites.length" :data="invites" size="small" border>
+            <el-table-column :label="t('inviteCode')">
+              <template #default="{ row }"><code>{{ row.code }}</code></template>
+            </el-table-column>
+            <el-table-column :label="t('roleCol')">
+              <template #default="{ row }">{{ t(`role${cap(row.role)}`) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('statusCol')">
+              <template #default="{ row }">{{ row.usedBy ? t('inviteUsed') : t('invitePending') }}</template>
+            </el-table-column>
+            <el-table-column :label="t('actionCol')">
+              <template #default="{ row }">
+                <el-button text size="small" :title="t('inviteCopy')" @click="copyInvite(row.code)">
+                  <AppIcon icon="mdi-content-copy" />
+                </el-button>
+                <el-button text size="small" type="danger" :title="t('inviteRevoke')" @click="revokeInvite(row)">
+                  <AppIcon icon="mdi-delete-outline" />
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else class="text-medium-emphasis text-caption">{{ t('noInvite') }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
 
-    <v-empty-state v-else icon="mdi-office-building-outline" :title="t('selectOrgFirst')" :text="t('selectOrgFirstHint')" />
+    <el-empty v-else :description="t('selectOrgFirstHint')">
+      <template #description>
+        <div class="font-weight-medium">{{ t('selectOrgFirst') }}</div>
+        <div class="text-caption text-medium-emphasis">{{ t('selectOrgFirstHint') }}</div>
+      </template>
+    </el-empty>
 
     <!-- 新建/编辑组织 -->
     <FormDialog v-model="showOrgDialog" :title="orgForm.id ? t('editOrg') : t('orgCreate')" :loading="savingOrg" @save="onSaveOrg">
-      <v-form @submit.prevent="onSaveOrg">
-        <v-text-field v-model="orgForm.name" :label="t('orgName')" :rules="[required]" required />
-        <v-text-field v-model="orgForm.description" :label="t('orgDescription')" />
-      </v-form>
+      <el-form @submit.prevent="onSaveOrg">
+        <el-form-item :label="t('orgName')" required>
+          <el-input v-model="orgForm.name" required />
+        </el-form-item>
+        <el-form-item :label="t('orgDescription')">
+          <el-input v-model="orgForm.description" />
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <!-- 新建/编辑部门 -->
     <FormDialog v-model="showDeptDialog" :title="deptForm.id ? t('editDept') : t('deptAdd')" :loading="savingDept" @save="onSaveDept">
-      <v-form @submit.prevent="onSaveDept">
-        <v-text-field v-model="deptForm.name" :label="t('deptName')" :rules="[required]" required />
-        <v-select
-          v-model="deptForm.parentId"
-          :items="parentDeptOptions"
-          item-title="label"
-          item-value="value"
-          :label="t('deptParent')"
-          clearable
-        />
-      </v-form>
+      <el-form @submit.prevent="onSaveDept">
+        <el-form-item :label="t('deptName')" required>
+          <el-input v-model="deptForm.name" required />
+        </el-form-item>
+        <el-form-item :label="t('deptParent')">
+          <el-select v-model="deptForm.parentId" clearable style="width: 100%">
+            <el-option v-for="opt in parentDeptOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <!-- 添加成员 -->
     <FormDialog v-model="showMemberDialog" :title="t('memberAdd')" :loading="savingMember" @save="onSaveMember">
-      <v-form @submit.prevent="onSaveMember">
-        <v-select
-          v-model="memberForm.userId"
-          :items="memberUserOptions"
-          item-title="label"
-          item-value="value"
-          :label="t('selectUser')"
-          :rules="[required]"
-          required
-        />
-        <v-select v-model="memberForm.role" :items="roleOptions" item-title="label" item-value="value" :label="t('roleCol')" />
-        <v-select v-model="memberForm.deptId" :items="deptOptions" item-title="label" item-value="value" :label="t('deptOptional')" clearable />
-      </v-form>
+      <el-form @submit.prevent="onSaveMember">
+        <el-form-item :label="t('selectUser')" required>
+          <el-select v-model="memberForm.userId" style="width: 100%">
+            <el-option v-for="opt in memberUserOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('roleCol')">
+          <el-select v-model="memberForm.role" style="width: 100%">
+            <el-option v-for="opt in roleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('deptOptional')">
+          <el-select v-model="memberForm.deptId" clearable style="width: 100%">
+            <el-option v-for="opt in deptOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
     </FormDialog>
 
     <!-- 邀请 -->
     <FormDialog v-model="showInviteDialog" :title="t('inviteCreate')" :loading="savingInvite" :save-label="t('generateInvite')" @save="onSaveInvite">
-      <v-form @submit.prevent="onSaveInvite">
-        <v-select v-model="inviteForm.role" :items="roleOptions" item-title="label" item-value="value" :label="t('roleCol')" />
-        <v-select v-model="inviteForm.deptId" :items="deptOptions" item-title="label" item-value="value" :label="t('deptOptional')" clearable />
+      <el-form @submit.prevent="onSaveInvite">
+        <el-form-item :label="t('roleCol')">
+          <el-select v-model="inviteForm.role" style="width: 100%">
+            <el-option v-for="opt in roleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('deptOptional')">
+          <el-select v-model="inviteForm.deptId" clearable style="width: 100%">
+            <el-option v-for="opt in deptOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
         <div v-if="inviteResult" class="d-flex align-center ga-2 mt-2">
           <code class="text-h6">{{ inviteResult }}</code>
-          <v-btn icon="mdi-content-copy" size="small" variant="tonal" :title="t('inviteCopy')" @click="copyInvite(inviteResult)" />
+          <el-button size="small" :title="t('inviteCopy')" @click="copyInvite(inviteResult)">
+            <template #icon><AppIcon icon="mdi-content-copy" /></template>
+          </el-button>
         </div>
-      </v-form>
+      </el-form>
     </FormDialog>
 
     <ConfirmDialog v-model="confirm.show" :title="confirm.title" :content="confirm.content" @confirm="runConfirm" />
@@ -563,10 +587,6 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-function required(v: unknown): true | string {
-  return !!v || t('requiredField')
-}
-
 onMounted(async () => {
   await loadOrgs()
   if (currentOrgId.value) onSelectOrg(currentOrgId.value)
@@ -576,5 +596,21 @@ onMounted(async () => {
 <style scoped>
 .role-select {
   max-width: 130px;
+}
+.dept-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.dept-tree-node:hover {
+  background: var(--el-fill-color-light);
+}
+.dept-tree-node.is-active {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
 }
 </style>

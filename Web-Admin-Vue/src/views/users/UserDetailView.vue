@@ -1,65 +1,72 @@
 <template>
   <div>
     <PageHeader :title="`${t('navUsers')} #${id}`" :subtitle="detail?.username || ''">
-      <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="router.back()">{{ t('back') }}</v-btn>
+      <el-button text @click="router.back()">
+        <template #icon><AppIcon icon="mdi-arrow-left" /></template>
+        {{ t('back') }}
+      </el-button>
     </PageHeader>
 
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('loading') }}</div>
 
     <template v-else-if="detail">
-      <v-row>
-        <v-col cols="12" md="6">
-          <v-card class="mb-4">
-            <v-card-title>{{ t('appInfo') }}</v-card-title>
-            <v-card-text>
-              <v-list density="compact">
-                <v-list-item><template #prepend><v-icon icon="mdi-account" size="small" /></template>{{ t('usernameCol') }}：{{ detail.username }}</v-list-item>
-                <v-list-item><template #prepend><v-icon icon="mdi-email" size="small" /></template>{{ t('emailCol') }}：{{ detail.email }}</v-list-item>
-                <v-list-item><template #prepend><v-icon icon="mdi-shield-account" size="small" /></template>{{ t('roleCol') }}：{{ detail.role }}</v-list-item>
-                <v-list-item><template #prepend><v-icon icon="mdi-clock-outline" size="small" /></template>{{ t('createdAt') }}：{{ formatTime(detail.createdAt) }}</v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-row>
-            <v-col v-for="stat in statCards" :key="stat.label" cols="6">
+      <el-row :gutter="16">
+        <el-col :xs="24" :md="12">
+          <el-card shadow="never" class="mb-4">
+            <template #header>{{ t('appInfo') }}</template>
+            <div class="d-flex align-center ga-2 py-1">
+              <AppIcon icon="mdi-account" :size="16" class="text-medium-emphasis" />
+              <span>{{ t('usernameCol') }}：{{ detail.username }}</span>
+            </div>
+            <div class="d-flex align-center ga-2 py-1">
+              <AppIcon icon="mdi-email" :size="16" class="text-medium-emphasis" />
+              <span>{{ t('emailCol') }}：{{ detail.email }}</span>
+            </div>
+            <div class="d-flex align-center ga-2 py-1">
+              <AppIcon icon="mdi-shield-account" :size="16" class="text-medium-emphasis" />
+              <span>{{ t('roleCol') }}：{{ detail.role }}</span>
+            </div>
+            <div class="d-flex align-center ga-2 py-1">
+              <AppIcon icon="mdi-clock-outline" :size="16" class="text-medium-emphasis" />
+              <span>{{ t('createdAt') }}：{{ formatTime(detail.createdAt) }}</span>
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :md="12">
+          <el-row :gutter="16">
+            <el-col v-for="stat in statCards" :key="stat.label" :xs="24" :sm="12" :md="12">
               <StatCard v-bind="stat" />
-            </v-col>
-          </v-row>
-        </v-col>
-      </v-row>
+            </el-col>
+          </el-row>
+        </el-col>
+      </el-row>
 
-      <v-row>
-        <v-col cols="12" md="6">
-          <v-card>
-            <v-card-title>{{ t('sessions') }}</v-card-title>
-            <v-card-text>
-              <v-list v-if="detail.sessions.length" density="compact">
-                <v-list-item v-for="s in detail.sessions" :key="s.id">
-                  <v-list-item-title>{{ s.deviceName || t('unknownDevice') }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ s.ip }} · {{ formatTime(s.lastActiveAt) }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-              <div v-else class="text-medium-emphasis">{{ t('noSessions') }}</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-card>
-            <v-card-title>{{ t('notifications') }}</v-card-title>
-            <v-card-text>
-              <v-list v-if="detail.notifications.length" density="compact">
-                <v-list-item v-for="n in detail.notifications" :key="n.id">
-                  <v-list-item-title>{{ n.title }} <StatusChip :status="n.isRead ? 'read' : 'unread'" :label-map="readMap" /></v-list-item-title>
-                  <v-list-item-subtitle>{{ n.body }} · {{ formatTime(n.createdAt) }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-              <div v-else class="text-medium-emphasis">{{ t('noNotifications') }}</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
+      <el-row :gutter="16">
+        <el-col :xs="24" :md="12">
+          <el-card shadow="never">
+            <template #header>{{ t('sessions') }}</template>
+            <div v-if="detail.sessions.length">
+              <div v-for="s in detail.sessions" :key="s.id" class="py-1">
+                <div class="text-body-2">{{ s.deviceName || t('unknownDevice') }}</div>
+                <div class="text-caption text-medium-emphasis">{{ s.ip }} · {{ formatTime(s.lastActiveAt) }}</div>
+              </div>
+            </div>
+            <div v-else class="text-medium-emphasis">{{ t('noSessions') }}</div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :md="12">
+          <el-card shadow="never">
+            <template #header>{{ t('notifications') }}</template>
+            <div v-if="detail.notifications.length">
+              <div v-for="n in detail.notifications" :key="n.id" class="py-1">
+                <div class="text-body-2">{{ n.title }} <StatusChip :status="n.isRead ? 'read' : 'unread'" :label-map="readMap" /></div>
+                <div class="text-caption text-medium-emphasis">{{ n.body }} · {{ formatTime(n.createdAt) }}</div>
+              </div>
+            </div>
+            <div v-else class="text-medium-emphasis">{{ t('noNotifications') }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
     </template>
   </div>
 </template>

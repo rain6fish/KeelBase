@@ -3,100 +3,115 @@
     <PageHeader :title="t('navMcp')" />
 
     <!-- MCP servers -->
-    <v-card class="mb-4">
-      <v-card-title>{{ t('mcpServers') }}</v-card-title>
-      <v-card-text>
-        <v-row class="align-center mb-2">
-          <v-col cols="12" sm="4">
-            <v-text-field v-model="newName" :label="t('serverName')" density="compact" variant="outlined" hide-details />
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-text-field v-model="newUrl" :label="t('serverUrl')" density="compact" variant="outlined" hide-details placeholder="https://..." />
-          </v-col>
-          <v-col cols="12" sm="2">
-            <v-btn color="primary" prepend-icon="mdi-plus" :loading="busy" block @click="onRegister()">{{ t('register') }}</v-btn>
-          </v-col>
-        </v-row>
-        <v-table v-if="servers.length" density="compact">
-          <thead>
-            <tr>
-              <th>{{ t('serverName') }}</th>
-              <th>{{ t('serverUrl') }}</th>
-              <th class="text-end">{{ t('actionCol') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in servers" :key="s.name">
-              <td class="font-weight-medium">{{ s.name }}</td>
-              <td class="text-caption text-medium-emphasis">{{ s.url }}</td>
-              <td class="text-end">
-                <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" :title="t('removeServer')" @click="confirmRemove(s)" />
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-        <div v-else class="text-medium-emphasis">{{ t('noServers') }}</div>
-      </v-card-text>
-    </v-card>
+    <el-card shadow="never" class="mb-4">
+      <template #header>{{ t('mcpServers') }}</template>
+      <el-row :gutter="16" class="align-center mb-2">
+        <el-col :xs="24" :sm="8">
+          <el-input v-model="newName" :label="t('serverName')" />
+        </el-col>
+        <el-col :xs="24" :sm="12">
+          <el-input v-model="newUrl" :label="t('serverUrl')" placeholder="https://..." />
+        </el-col>
+        <el-col :xs="24" :sm="4">
+          <el-button type="primary" :loading="busy" style="width: 100%" @click="onRegister()">
+            <template #icon><AppIcon icon="mdi-plus" /></template>
+            {{ t('register') }}
+          </el-button>
+        </el-col>
+      </el-row>
+      <table v-if="servers.length" class="w-100 border">
+        <thead>
+          <tr>
+            <th class="pa-2 text-left">{{ t('serverName') }}</th>
+            <th class="pa-2 text-left">{{ t('serverUrl') }}</th>
+            <th class="text-end pa-2">{{ t('actionCol') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in servers" :key="s.name">
+            <td class="pa-2 font-weight-medium">{{ s.name }}</td>
+            <td class="pa-2 text-caption text-medium-emphasis">{{ s.url }}</td>
+            <td class="text-end pa-2">
+              <el-button text size="small" type="danger" :title="t('removeServer')" @click="confirmRemove(s)">
+                <AppIcon icon="mdi-delete-outline" />
+              </el-button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="text-medium-emphasis">{{ t('noServers') }}</div>
+    </el-card>
 
     <!-- Discovered tools -->
-    <v-card class="mb-4">
-      <v-card-title class="d-flex align-center justify-space-between">
-        <span>{{ t('mcpTools') }}</span>
-        <div>
-          <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="toolsLoading" @click="loadTools(false)">{{ t('refresh') }}</v-btn>
-          <v-btn variant="text" prepend-icon="mdi-refresh-auto" :loading="toolsLoading" @click="loadTools(true)">{{ t('forceRefresh') }}</v-btn>
-        </div>
-      </v-card-title>
-      <v-card-text>
-        <template v-if="discovered.length">
-          <div v-for="group in discovered" :key="group.server" class="mb-3">
-            <div class="text-subtitle-2 font-weight-medium mb-1">{{ group.server }}</div>
-            <div v-if="group.error" class="text-error text-caption mb-1">{{ t('discoverFailed') }}: {{ group.error }}</div>
-            <div v-if="!group.tools.length && !group.error" class="text-medium-emphasis text-caption mb-1">{{ t('noTools') }}</div>
-            <v-row>
-              <v-col v-for="tool in group.tools" :key="`${group.server}-${tool.name}`" cols="12" md="6" lg="4">
-                <v-card variant="outlined">
-                  <v-card-title class="text-subtitle-1 d-flex align-center ga-2">
-                    <v-icon :icon="tool.readOnly ? 'mdi-eye-outline' : 'mdi-pen'" :color="tool.readOnly ? 'primary' : 'warning'" size="small" />
-                    {{ tool.name }}
-                    <v-chip v-if="tool.readOnly" size="x-small" color="primary" variant="tonal">{{ t('readOnly') }}</v-chip>
-                    <v-chip v-else size="x-small" color="warning" variant="tonal">{{ t('needsConfirmation') }}</v-chip>
-                  </v-card-title>
-                  <v-card-text class="text-caption">
-                    <div class="text-medium-emphasis mb-2">{{ tool.description || '-' }}</div>
-                    <v-btn size="small" color="primary" variant="tonal" prepend-icon="mdi-play" @click="openCall(group.server, tool)">{{ t('callTool') }}</v-btn>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center justify-space-between">
+          <span>{{ t('mcpTools') }}</span>
+          <div>
+            <el-button :loading="toolsLoading" @click="loadTools(false)">
+              <template #icon><AppIcon icon="mdi-refresh" /></template>
+              {{ t('refresh') }}
+            </el-button>
+            <el-button text :loading="toolsLoading" @click="loadTools(true)">
+              <template #icon><AppIcon icon="mdi-refresh-auto" /></template>
+              {{ t('forceRefresh') }}
+            </el-button>
           </div>
-        </template>
-        <div v-else class="text-medium-emphasis">{{ t('noServers') }}</div>
-      </v-card-text>
-    </v-card>
+        </div>
+      </template>
+      <template v-if="discovered.length">
+        <div v-for="group in discovered" :key="group.server" class="mb-3">
+          <div class="text-subtitle-2 font-weight-medium mb-1">{{ group.server }}</div>
+          <div v-if="group.error" class="text-error text-caption mb-1">{{ t('discoverFailed') }}: {{ group.error }}</div>
+          <div v-if="!group.tools.length && !group.error" class="text-medium-emphasis text-caption mb-1">{{ t('noTools') }}</div>
+          <el-row :gutter="16">
+            <el-col v-for="tool in group.tools" :key="`${group.server}-${tool.name}`" :xs="24" :md="12" :lg="8">
+              <el-card shadow="never" class="mb-4">
+                <template #header>
+                  <div class="text-subtitle-1 d-flex align-center ga-2">
+                    <AppIcon
+                      :icon="tool.readOnly ? 'mdi-eye-outline' : 'mdi-pen'"
+                      :color="tool.readOnly ? 'var(--el-color-primary)' : 'var(--el-color-warning)'"
+                      size="18"
+                    />
+                    {{ tool.name }}
+                    <el-tag v-if="tool.readOnly" size="small" type="primary" effect="light">{{ t('readOnly') }}</el-tag>
+                    <el-tag v-else size="small" type="warning" effect="light">{{ t('needsConfirmation') }}</el-tag>
+                  </div>
+                </template>
+                <div class="text-caption">
+                  <div class="text-medium-emphasis mb-2">{{ tool.description || '-' }}</div>
+                  <el-button size="small" type="primary" plain @click="openCall(group.server, tool)">
+                    <template #icon><AppIcon icon="mdi-play" /></template>
+                    {{ t('callTool') }}
+                  </el-button>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+      </template>
+      <div v-else class="text-medium-emphasis">{{ t('noServers') }}</div>
+    </el-card>
 
     <!-- Call dialog -->
-    <v-dialog v-model="showCall" max-width="680">
-      <v-card>
-        <v-card-title>{{ t('callTool') }}</v-card-title>
-        <v-card-text>
-          <div class="text-caption text-medium-emphasis mb-2">{{ callServer }} · {{ callToolName }}</div>
-          <v-textarea v-model="callArgsText" :label="t('callArgsLabel')" rows="8" variant="outlined" spellcheck="false" />
-          <div v-if="callOutcome">
-            <v-divider class="my-2" />
-            <v-alert v-if="callOutcome.requiresConfirmation" type="info" variant="tonal">{{ t('callNeedsConfirmation') }}</v-alert>
-            <v-alert v-else-if="callOutcome.error" type="error" variant="tonal">{{ callOutcome.error }}</v-alert>
-            <v-alert v-else :type="callOutcome.result?.isError ? 'warning' : 'success'" variant="tonal" class="text-caption">{{ callResultText }}</v-alert>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showCall = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="primary" :loading="callLoading" prepend-icon="mdi-play" @click="onCall()">{{ t('execute') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <el-dialog v-model="showCall" :width="680" :title="t('callTool')" :close-on-click-modal="false">
+      <div class="text-caption text-medium-emphasis mb-2">{{ callServer }} · {{ callToolName }}</div>
+      <el-input v-model="callArgsText" :label="t('callArgsLabel')" type="textarea" :rows="8" spellcheck="false" />
+      <div v-if="callOutcome">
+        <el-divider class="my-2" />
+        <el-alert v-if="callOutcome.requiresConfirmation" type="info" :closable="false">{{ t('callNeedsConfirmation') }}</el-alert>
+        <el-alert v-else-if="callOutcome.error" type="error" :closable="false">{{ callOutcome.error }}</el-alert>
+        <el-alert v-else :type="callOutcome.result?.isError ? 'warning' : 'success'" :closable="false" class="text-caption">{{ callResultText }}</el-alert>
+      </div>
+      <template #footer>
+        <el-button @click="showCall = false">{{ t('cancel') }}</el-button>
+        <el-button type="primary" :loading="callLoading" @click="onCall()">
+          <template #icon><AppIcon icon="mdi-play" /></template>
+          {{ t('execute') }}
+        </el-button>
+      </template>
+    </el-dialog>
 
     <ConfirmDialog
       v-model="showRemove"

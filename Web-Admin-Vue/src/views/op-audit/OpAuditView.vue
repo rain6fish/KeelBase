@@ -1,17 +1,32 @@
 <template>
   <div>
     <PageHeader :title="t('opAuditTitle')" :subtitle="t('total', { n: total })">
-      <v-btn variant="tonal" prepend-icon="mdi-download" @click="onExport">{{ t('export') }}</v-btn>
+      <el-button @click="onExport">
+        <template #icon><AppIcon icon="mdi-download" /></template>
+        {{ t('export') }}
+      </el-button>
     </PageHeader>
 
-    <v-card class="mb-4">
-      <v-card-text class="d-flex ga-3 flex-wrap align-center">
-        <v-text-field v-model="userId" :label="t('filterByUserId')" type="number" density="comfortable" variant="outlined" hide-details style="max-width: 180px" />
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex ga-3 flex-wrap align-center pa-4">
+        <el-input
+          v-model="userId"
+          :placeholder="t('filterByUserId')"
+          type="number"
+          clearable
+          style="max-width: 180px"
+        />
         <RangeFilter v-model="range" @update:model-value="onRange" />
-        <v-btn color="primary" prepend-icon="mdi-filter-variant" @click="load(1)">{{ t('filter') }}</v-btn>
-        <v-btn variant="tonal" prepend-icon="mdi-refresh" @click="reset">{{ t('reset') }}</v-btn>
-      </v-card-text>
-    </v-card>
+        <el-button type="primary" @click="load(1)">
+          <template #icon><AppIcon icon="mdi-filter-variant" /></template>
+          {{ t('filter') }}
+        </el-button>
+        <el-button @click="reset">
+          <template #icon><AppIcon icon="mdi-refresh" /></template>
+          {{ t('reset') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <AppTable :headers="headers" :items="logs" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
@@ -20,29 +35,32 @@
         <span :class="(item.statusCode ?? 200) >= 400 ? 'text-error' : ''">{{ item.statusCode ?? '-' }}</span>
       </template>
       <template #item.actions="{ item }">
-        <v-btn icon="mdi-chevron-down" variant="text" size="small" @click="toggleExpand(item.id)" />
+        <el-button text size="small" @click="toggleExpand(item.id)">
+          <AppIcon icon="mdi-chevron-down" />
+        </el-button>
       </template>
     </AppTable>
 
     <AppPagination :page="page" :limit="limit" :total="total" :loading="loading" @update:page="load" />
 
     <!-- 展开详情 -->
-    <v-card v-if="expanded" class="mt-2">
-      <v-card-title>{{ t('statistics') }}</v-card-title>
-      <v-card-text>
-        <v-list density="compact">
-          <template v-if="expanded.ip">
-            <v-list-item><v-list-item-title>IP</v-list-item-title>{{ expanded.ip }}</v-list-item>
-          </template>
-          <template v-if="expanded.userAgent">
-            <v-list-item><v-list-item-title>User-Agent</v-list-item-title>{{ expanded.userAgent }}</v-list-item>
-          </template>
-          <template v-if="expanded.requestBody">
-            <v-list-item><v-list-item-title>requestBody</v-list-item-title><pre class="text-body-2">{{ prettyJson(expanded.requestBody) }}</pre></v-list-item>
-          </template>
-        </v-list>
-      </v-card-text>
-    </v-card>
+    <el-card v-if="expanded" shadow="never" class="mt-2">
+      <template #header>{{ t('statistics') }}</template>
+      <div class="d-flex flex-column ga-3">
+        <div v-if="expanded.ip" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">IP</span>
+          <span class="text-body-2">{{ expanded.ip }}</span>
+        </div>
+        <div v-if="expanded.userAgent" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">User-Agent</span>
+          <span class="text-body-2">{{ expanded.userAgent }}</span>
+        </div>
+        <div v-if="expanded.requestBody" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">requestBody</span>
+          <pre class="text-body-2 ma-0">{{ prettyJson(expanded.requestBody) }}</pre>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
