@@ -43,6 +43,7 @@ describe('UsersService', () => {
     save: jest.fn(),
     findAndCount: jest.fn(),
     count: jest.fn(),
+    update: jest.fn(),
     delete: jest.fn(),
   };
 
@@ -317,5 +318,37 @@ describe('UsersService', () => {
 
       await expect(service.updateRole(5, UserRole.USER)).rejects.toThrow(BadRequestException);
     });
+  });
+
+  it('update 更新 email 成功（本人可用同一邮箱）', async () => {
+    const userCopy = { ...mockUser };
+    mockRepository.findOne
+      .mockResolvedValueOnce(userCopy) // find user to update
+      .mockResolvedValueOnce({ ...mockUser, id: 1 }); // 同一用户占邮箱 → 不冲突
+    mockRepository.save.mockImplementation(async (u: any) => u);
+    const result = await service.update(1, { email: 'same@example.com' } as any);
+    expect(result.email).toBe('same@example.com');
+    expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({ email: 'same@example.com' }));
+  });
+
+  it('forceChangePassword 标记需改密（WEB-FRONT-4）', async () => {
+    mockRepository.findOne.mockResolvedValue(mockUser);
+    mockRepository.update.mockResolvedValue({ affected: 1 });
+    const result = await service.forceChangePassword(1);
+    expect(result).toEqual({ flagged: true });
+    expect(mockRepository.update).toHaveBeenCalledWith(1, { mustChangePassword: true });
+  });
+
+  it('forceChangePassword 用户不存在 → NotFound', async () => {
+    mockRepository.findOne.mockResolvedValue(null);
+    await expect(service.forceChangePassword(999)).rejects.toThrow(NotFoundException);
+  });
+
+  it('sanitizeUser 解密 phone（密文还原明文）', async () => {
+    const userWithPhone = { ...mockUser, phone: 'enc:13800138000' };
+    const result = (service as any).sanitizeUser(userWithPhone);
+    expect(result.phone).toBe('13800138000');
+    expect(result.password).toBeUndefined();
+    expect(result.refreshTokenHash).toBeUndefined();
   });
 });
