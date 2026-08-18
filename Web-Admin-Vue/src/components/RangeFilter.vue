@@ -1,16 +1,7 @@
 <template>
-  <v-select
-    :model-value="modelValue"
-    :items="rangeOptions"
-    item-title="label"
-    item-value="key"
-    :label="t('timeRange')"
-    density="comfortable"
-    variant="outlined"
-    hide-details
-    style="max-width: 160px"
-    @update:model-value="onChange"
-  />
+  <el-select :model-value="modelValue" style="max-width: 160px" @update:model-value="onChange">
+    <el-option v-for="o in rangeOptions" :key="o.key" :label="o.label" :value="o.key" />
+  </el-select>
 </template>
 
 <script setup lang="ts">
@@ -31,8 +22,9 @@ const rangeOptions = computed(() =>
   })),
 )
 
-function onChange(key: string) {
-  const option = RANGE_OPTIONS.find((o) => o.key === key) as RangeOption
-  emit('update:modelValue', key, sinceForOption(option))
+function onChange(key: string | number | boolean | undefined) {
+  const k = key == null ? 'all' : String(key)
+  const option = RANGE_OPTIONS.find((o) => o.key === k) as RangeOption
+  emit('update:modelValue', k, sinceForOption(option))
 }
 </script>
