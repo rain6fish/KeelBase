@@ -126,6 +126,21 @@ else
   bad "AI 对话未返回（本地 ollama 模型未就绪？）：$REPLY"
 fi
 
+# ── [5/5] AI CRM Golden Path（阶段 2 Phase 1）：数据不出域落到业务场景 ──────
+echo "→ [5/5] AI CRM Golden Path（业务数据 + 工具 + 确认 + 审计）"
+CRM=$(curl -s -m 5 "http://localhost:$PORT/api/v1/crm/customers" \
+  -H "Authorization: Bearer $TOKEN" 2>/dev/null | head -c 200)
+if echo "$CRM" | grep -qi '"id"'; then
+  ok "CRM 业务数据可读（本地库，含 seed 客户）"
+else
+  bad "CRM 数据不可读（演示账号 seed 未种？空库首启会自动种）"
+fi
+
+echo "  手动 Golden Path（AI 对话输入）："
+echo "    「哪些客户本周最值得跟进？」→ 观察 query_customers/analyze_customer_risk 工具卡（读）"
+echo "    「为云帆商贸创建跟进任务」→ create_followup_task 写操作确认 → 审计 → 可撤销"
+echo "  审计：AI 对话/工具调用已落 ai_audit_logs（管理台「AI 审计」+ 哈希链验证可查）"
+
 echo ""
 echo "═══ 验证结果：${PASS} 通过 / ${FAIL} 失败 ═══"
 echo "审计：AI 对话已落 ai_audit_logs（管理台「AI 审计」可查，含工具调用/确认）"
