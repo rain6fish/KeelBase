@@ -2,13 +2,16 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import '@fontsource/public-sans'
 import '@mdi/font/css/materialdesignicons.css'
-import 'element-plus/dist/index.css'
+// Element Plus 按需引入：组件/指令/样式由 vite 的 unplugin 插件注入，这里只保留
+// 深色模式 css-vars（html.dark 触发）与应用主题覆盖。
+// base.css 须在主题 scss 之前显式引入：按需模式 base.css 由组件样式链引入，
+// 位置在主题 scss 之后会覆盖自定义 --el-color-*（浅色 :root 同特异性后者胜）。
+import 'element-plus/theme-chalk/base.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './styles/element-theme.scss'
 import './styles/vuetify-compat.scss'
 import './styles/main.scss'
 
-import ElementPlus from 'element-plus'
 import App from './App.vue'
 import router from './router'
 import AppIcon from './components/AppIcon.vue'
@@ -19,7 +22,6 @@ import { useAuthStore } from './stores/auth'
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus)
 app.component('AppIcon', AppIcon)
 app.use(i18n)
 
