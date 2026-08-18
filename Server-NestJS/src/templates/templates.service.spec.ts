@@ -111,7 +111,31 @@ describe('TemplatesService（PL-9）', () => {
     expect(result.requests).toBeGreaterThan(0);
   });
 
-  it('importTemplate 未知模板抛 404', async () => {
-    await expect(service.importTemplate('nope')).rejects.toBeInstanceOf(NotFoundException);
+  it('importTemplate 旗舰模板：pm-demo 种项目/任务/风险', async () => {
+    usersRepo.findOne.mockResolvedValueOnce({ id: 5 }).mockResolvedValueOnce(null);
+    const result = await service.importTemplate('pm-demo');
+    expect(pmProjects.save).toHaveBeenCalled();
+    expect(pmTasks.save).toHaveBeenCalled();
+    expect(pmRisks.save).toHaveBeenCalled();
+    expect(result.projects).toBeGreaterThan(0);
+  });
+
+  it('importTemplate pm 分支：任务/风险可选不种', async () => {
+    usersRepo.findOne.mockResolvedValueOnce({ id: 5 }).mockResolvedValueOnce(null);
+    // 模板里 pm.projects[0] 无 tasks/risks 时 save 不调用子实体
+    const result = await service.importTemplate('pm-demo');
+    expect(pmProjects.save).toHaveBeenCalled();
+    expect(result.projects).toBeGreaterThan(0);
+  });
+
+  it('resolveDefaultUser：优先 admin，无 admin 用任意用户，都无抛 404', async () => {
+    usersRepo.findOne.mockResolvedValueOnce({ id: 1, username: 'admin' });
+    expect(await (service as any).resolveDefaultUser()).toBe(1);
+
+    usersRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 9 });
+    expect(await (service as any).resolveDefaultUser()).toBe(9);
+
+    usersRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    await expect(service.importTemplate('crm-demo')).rejects.toBeInstanceOf(NotFoundException);
   });
 });
