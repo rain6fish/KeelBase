@@ -102,4 +102,52 @@ describe('ApprovalService', () => {
       await expect(service.decideRequest(1, 'approved', 1)).rejects.toThrow(BadRequestException);
     });
   });
+
+  it('listRequests 分页钳制 + 状态过滤', async () => {
+    requests.findAndCount.mockResolvedValue([[request(1)], 1]);
+    const result = await service.listRequests(1, { status: 'pending', page: 2, limit: 500 });
+    expect(result.items).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(requests.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { requesterId: 1, status: 'pending' }, skip: 100, take: 100 }),
+    );
+  });
+
+  it('listRequests 无过滤时只按 requesterId', async () => {
+    requests.findAndCount.mockResolvedValue([[request(1)], 1]);
+    await service.listRequests(1);
+    expect(requests.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { requesterId: 1 }, skip: 0, take: 20 }),
+    );
+  });
+
+  it('removeRequest 软删本人请求', async () => {
+    requests.findOne.mockResolvedValue(request(1));
+    requests.softDelete.mockResolvedValue({ affected: 1 });
+    await service.removeRequest(1, ownerAbility(1));
+    expect(requests.softDelete).toHaveBeenCalledWith(1);
+  });
+
+  it('政策 CRUD：list/create/update/remove + NotFound', async () => {
+    policies.find.mockResolvedValue([{ id: 1, type: 'reimbursement' }]);
+    await expect(service.listPolicies(1)).resolves.toHaveLength(1);
+
+    policies.create.mockImplementation((d: any) => d);
+    await service.createPolicy({ name: '报销政策', type: 'reimbursement', maxAmount: 1000 } as any, 1);
+    expect(policies.save).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, maxAmount: 1000 }));
+
+    const policy = { id: 1, type: 'reimbursement', maxAmount: 1000, userId: 1 };
+    policies.findOne.mockResolvedValue(policy);
+    policies.save.mockImplementation(async (e: any) => e);
+    const updated = await service.updatePolicy(1, { maxAmount: 2000 } as any, 1);
+    expect(updated.maxAmount).toBe(2000);
+
+    policies.delete.mockResolvedValue({ affected: 1 });
+    await service.removePolicy(1, 1);
+    expect(policies.delete).toHaveBeenCalledWith(1);
+
+    policies.findOne.mockResolvedValue(null);
+    await expect(service.updatePolicy(99, {} as any, 1)).rejects.toThrow(NotFoundException);
+    await expect(service.removePolicy(99, 1)).rejects.toThrow(NotFoundException);
+  });
 });
