@@ -94,6 +94,34 @@ CLI 内部即按本协议解析 + 生成 + 接线（见 `scripts/generator/valid
 3. 按 `AGENTS.md` 第 3 节「必做清单」完成 7 处接线
 4. 补测试 + 迁移 + 验收
 
+## 4.1 多输入通道（P0-12）：已有系统 → 协议（2026-08-18）
+
+KeelBase 不只适合「从零创建」，也能成为**已有系统的 AI 化入口**。`keelbase-init` 支持从 OpenAPI / SQL DDL 提取 Module Protocol，再走 `--spec` 生成：
+
+```bash
+# OpenAPI 3 / Swagger 2 → 协议文件（--out 只写协议，供复查/共享/后续 --spec）
+node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json
+node scripts/keelbase-init.mjs --import-openapi swagger.json --schema Customer --module customers --label 客户
+
+# SQL DDL（CREATE TABLE）→ 协议
+node scripts/keelbase-init.mjs --import-schema schema.sql --out specs/customer.json
+node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 默认第一张表
+```
+
+**转换规则（`scripts/generator/import-openapi.mjs` / `import-schema.mjs`）**：
+
+| 来源 | 映射 |
+|------|------|
+| string + format date/date-time → `date` | OpenAPI |
+| string + enum（2-10 个合法小写选项）→ `enum` | OpenAPI / SQL `CHECK ... IN (...)` |
+| integer/number → `int`；boolean → `bool` | OpenAPI / SQL |
+| TEXT/CLOB → `text`；VARCHAR/CHAR ≤255 → `string`，>255 → `text` | SQL |
+| INTEGER/BIGINT/SERIAL/REAL/DECIMAL → `int`；DATE/DATETIME/TIMESTAMP → `date` | SQL |
+| object / array / $ref / 关系列（FK） | **跳过**（协议红线：关系保持手写） |
+| id / createdAt / updatedAt / deletedAt / userId | **跳过**（基座自带） |
+
+> 输入通道 = 开发期 AI 的一环：`已有 DB Schema / OpenAPI / 自然语言` → Protocol → Code。协议仍是语义源，生成物是可继续修改的普通源代码。
+
 ## 5. 协议边界（红线）
 
 - **不覆盖**：关联查询、级联、复杂业务逻辑、权限变体（非本人数据）
