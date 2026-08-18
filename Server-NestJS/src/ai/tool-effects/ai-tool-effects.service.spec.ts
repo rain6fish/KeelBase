@@ -139,6 +139,33 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  describe('revokeOwned（P0-15 用户侧撤销）', () => {
+    it('本人撤销 → 软删目标并返回', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, userId: '42', resultType: 'event', resultId: 88 });
+      const eventRepo = { findOne: jest.fn().mockResolvedValue({ id: 88 }), softDelete: jest.fn() };
+      entityManager.getRepository.mockReturnValue(eventRepo);
+
+      const res = await service.revokeOwned(7, '42');
+      expect(res).toEqual({ revoked: true, effectId: 7 });
+      expect(eventRepo.softDelete).toHaveBeenCalledWith(88);
+    });
+
+    it('非本人 → null，不软删', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, userId: '42', resultType: 'event', resultId: 88 });
+      const eventRepo = { findOne: jest.fn(), softDelete: jest.fn() };
+      entityManager.getRepository.mockReturnValue(eventRepo);
+
+      const res = await service.revokeOwned(7, '999');
+      expect(res).toBeNull();
+      expect(eventRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('记录不存在 → null', async () => {
+      repo.findOne.mockResolvedValue(null);
+      expect(await service.revokeOwned(99, '42')).toBeNull();
+    });
+  });
+
   describe('list（含目标状态富化）', () => {
     const baseEffect = (id: number, resultType: string, resultId: number) => ({
       id, userId: '1', toolName: 'create_event', conversationId: 'c',

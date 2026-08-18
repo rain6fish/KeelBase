@@ -51,6 +51,7 @@ export interface CreateTodoInput {
 
 // P0-14 Agent Decision Trace：本人 AI 对话执行轨迹
 export interface TraceEffect {
+  effectId: number
   resultType: string
   resultId: number
   targetTitle?: string | null

@@ -142,7 +142,7 @@ describe('DecisionTraceService', () => {
       id: 'effect-9',
       type: 'effect',
       toolName: 'create_event',
-      effect: { resultType: 'event', resultId: 7, targetTitle: 'meeting', revocable: true },
+      effect: { effectId: 9, resultType: 'event', resultId: 7, targetTitle: 'meeting', revocable: true },
     });
   });
 

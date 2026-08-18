@@ -1956,12 +1956,28 @@ describe('App (e2e)', () => {
       const effectStep = res.body.data.steps.find((s: any) => s.type === 'effect');
       expect(effectStep.effect.resultType).toBe('event');
       expect(effectStep.effect.revocable).toBe(true);
+      const effectId = effectStep.effect.effectId as number;
+      expect(typeof effectId).toBe('number');
 
-      // 他人越权 → 403
+      // 他人越权读 → 403
       await request(app.getHttpServer())
         .get(`/api/v1/ai/conversations/${convId}/trace`)
         .set(authHeader(other.accessToken))
         .expect(403);
+
+      // P0-15 他人撤销本人副作用 → 404（所有权）
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(other.accessToken))
+        .expect(404);
+
+      // P0-15 本人撤销 → 200 + 目标事件软删（回收站可恢复）
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(owner.accessToken))
+        .expect(200);
+      const softDeleted = await ds.getRepository('Event').findOne({ where: { id: evt.id }, withDeleted: true });
+      expect(softDeleted?.deletedAt).toBeTruthy();
     });
 
     it('DELETE /ai/tool-effects/:id revoke 软删目标 event（可经回收站恢复）', async () => {

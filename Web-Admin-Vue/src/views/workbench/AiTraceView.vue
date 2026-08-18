@@ -74,6 +74,17 @@
               <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
                 <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
                 <div v-if="s.effect.targetTitle" class="text-body-2 text-medium-emphasis mt-1">{{ s.effect.targetTitle }}</div>
+                <v-btn
+                  v-if="s.effect.revocable"
+                  size="x-small"
+                  variant="tonal"
+                  color="warning"
+                  class="mt-1"
+                  :loading="revokingId === s.effect.effectId"
+                  @click="onRevokeEffect(s.effect)"
+                >
+                  {{ t('revokeEffect') }}
+                </v-btn>
               </div>
 
               <!-- 摘要类（chat/knowledge/error 等） -->
@@ -94,11 +105,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
-import type { ConversationSummary, TraceStep } from '@/types/workbench'
+import type { ConversationSummary, TraceEffect, TraceStep } from '@/types/workbench'
 
 const { t } = useI18n()
+const snackbar = useSnackbarStore()
 
 const conversations = ref<ConversationSummary[]>([])
 const selectedId = ref<string | null>(null)
@@ -107,6 +120,7 @@ const loading = ref(false)
 const traceLoading = ref(false)
 const loadError = ref('')
 const traceError = ref('')
+const revokingId = ref<number | null>(null)
 
 const confirmLabels = computed(() => ({
   ok: t('stepApproved'),
@@ -159,6 +173,20 @@ async function loadTrace(id: string) {
     traceError.value = err instanceof Error ? err.message : t('loadFailed')
   } finally {
     traceLoading.value = false
+  }
+}
+
+/** P0-15 本人撤销 AI 创建的记录，成功后重载轨迹（副作用步骤状态刷新） */
+async function onRevokeEffect(effect: TraceEffect) {
+  revokingId.value = effect.effectId
+  try {
+    await aiTraceApi.revokeEffect(effect.effectId)
+    snackbar.success(t('aiTraceRevoked'))
+    if (selectedId.value) await loadTrace(selectedId.value)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('aiTraceRevokeFailed'))
+  } finally {
+    revokingId.value = null
   }
 }
 

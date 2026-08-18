@@ -142,14 +142,27 @@ export class AiToolEffectsService {
   async revoke(effectId: number): Promise<{ revoked: boolean; effectId: number } | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect) return null;
+    return this._doRevoke(effect);
+  }
 
+  /**
+   * P0-15 用户侧撤销：仅本人可撤销自己的 AI 副作用。
+   * 非本人/不存在 → null（controller 转 404）；目标软删可经 RG-3 回收站恢复。
+   */
+  async revokeOwned(effectId: number, userId: string): Promise<{ revoked: boolean; effectId: number } | null> {
+    const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
+    if (!effect || effect.userId !== userId) return null;
+    return this._doRevoke(effect);
+  }
+
+  private async _doRevoke(effect: AiToolSideEffect): Promise<{ revoked: boolean; effectId: number }> {
     const repo = this.entityManager.getRepository(this._entityFor(effect.resultType));
     const target = await repo.findOne({ where: { id: effect.resultId } } as any);
     if (target) {
       await repo.softDelete(effect.resultId);
     }
-    this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effectId})`);
-    return { revoked: true, effectId };
+    this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
+    return { revoked: true, effectId: effect.id };
   }
 
   private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {

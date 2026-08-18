@@ -115,6 +115,8 @@ const zh = {
   stepDeclined: '已拒绝',
   stepTimedOut: '已超时',
   stepTrusted: '本会话免确认',
+  aiTraceRevoked: '已撤销，可经回收站恢复',
+  aiTraceRevokeFailed: '撤销失败',
   locationCol: '地点',
   dueDateCol: '截止日期',
   completed: '已完成',
