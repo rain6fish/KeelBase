@@ -66,6 +66,8 @@ const shortcutCards = computed(() => [
   { title: t('workbenchMyEvents'), desc: t('workbenchMyEventsDesc'), icon: 'mdi-calendar-blank-outline', to: '/workbench/events' },
   { title: t('workbenchMyTodos'), desc: t('workbenchMyTodosDesc'), icon: 'mdi-checkbox-marked-circle-outline', to: '/workbench/todos' },
   { title: t('workbenchNotifications'), desc: t('workbenchNotificationsDesc'), icon: 'mdi-bell-outline', to: '/workbench/notifications' },
+  // AI 执行轨迹（P0-14）：用户可见的 AI 行为
+  { title: t('aiTraceTitle'), desc: t('aiTraceDesc'), icon: 'mdi-robot-outline', to: '/workbench/ai-trace' },
   // 移动主 App 预览（Flutter web，/mobile/ 新窗口）——Web 业务 UI 归工作台，Flutter 专注移动
   { title: t('workbenchMobilePreview'), desc: t('workbenchMobilePreviewDesc'), icon: 'mdi-cellphone', href: '/mobile/' },
 ])

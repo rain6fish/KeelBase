@@ -1469,8 +1469,8 @@ describe('App (e2e)', () => {
         .attach('file', png, 'test.png')
         .expect(201);
 
-      // 图片被转成 webp
-      expect(res.body.data.url).toMatch(/^\/uploads\/.+\.webp$/);
+      // 图片被转成 webp（CR-21 起上传返回签名 URL，带 ?e=&s= 查询参数）
+      expect(res.body.data.url).toMatch(/^\/uploads\/.+\.webp(?:\?e=\d+&s=[a-f0-9]+)?$/);
       expect(res.body.data.originalName).toBe('test.png');
       expect(res.body.data.mimeType).toBe('image/webp');
     });
@@ -1915,6 +1915,53 @@ describe('App (e2e)', () => {
         .set(authHeader(adminToken))
         .expect(200);
       expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('P0-14 GET /ai/conversations/:id/trace 本人可见执行轨迹，他人 403', async () => {
+      const owner = await registerUser(app, { username: 'trace_owner', email: 'traceowner@test.com', password: 'TracePw123', nickname: 'TraceOwner' });
+      const other = await registerUser(app, { username: 'trace_other', email: 'traceother@test.com', password: 'TracePw123', nickname: 'TraceOther' });
+      const uid = (await request(app.getHttpServer()).get('/api/v1/auth/me').set(authHeader(owner.accessToken)).expect(200)).body.data.id;
+
+      // 直插会话 + 审计（tool_call/confirmation）+ 副作用，构造「创建事件」轨迹
+      const convId = 'trace-e2e-1';
+      const convRepo = ds.getRepository('ai_conversations');
+      await convRepo.save({
+        id: convId, userId: String(uid), provider: 'deepseek', model: 'deepseek-v4-flash',
+        messageCount: 2, lastActivityAt: new Date(),
+      });
+      const base = new Date('2026-08-18T02:00:00.000Z');
+      const auditRepo = ds.getRepository('ai_audit_logs');
+      await auditRepo.save([
+        { userId: String(uid), conversationId: convId, action: 'tool_call', detail: 'create_event({"title":"e2e 事件"})', isError: false, createdAt: base },
+        { userId: String(uid), conversationId: convId, action: 'tool_confirmation', detail: 'create_event({"title":"e2e 事件"}) → approve', isError: false, createdAt: new Date(base.getTime() + 1000) },
+      ]);
+      const evt = await ds.getRepository('Event').save({
+        title: 'e2e 事件', startTime: new Date(), endTime: new Date(Date.now() + 3600_000), userId: uid,
+      });
+      await effectsService.record(
+        { userId: String(uid), conversationId: convId, toolName: 'create_event', args: { title: 'e2e 事件' } },
+        'event',
+        evt.id,
+      );
+
+      // 本人可见
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/ai/conversations/${convId}/trace`)
+        .set(authHeader(owner.accessToken))
+        .expect(200);
+      const types = res.body.data.steps.map((s: any) => s.type) as string[];
+      expect(types).toContain('tool_call');
+      expect(types).toContain('confirmation');
+      expect(types).toContain('effect');
+      const effectStep = res.body.data.steps.find((s: any) => s.type === 'effect');
+      expect(effectStep.effect.resultType).toBe('event');
+      expect(effectStep.effect.revocable).toBe(true);
+
+      // 他人越权 → 403
+      await request(app.getHttpServer())
+        .get(`/api/v1/ai/conversations/${convId}/trace`)
+        .set(authHeader(other.accessToken))
+        .expect(403);
     });
 
     it('DELETE /ai/tool-effects/:id revoke 软删目标 event（可经回收站恢复）', async () => {

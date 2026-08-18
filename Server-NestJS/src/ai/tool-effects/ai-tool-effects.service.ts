@@ -110,6 +110,34 @@ export class AiToolEffectsService {
     return { total, page, limit, items: enriched };
   }
 
+  /**
+   * P0-14：按对话取副作用（含目标记录当前状态），供用户可见的执行轨迹用。
+   * 复用 _loadTarget 富化，按 createdAt 升序。
+   */
+  async listForConversation(conversationId: string) {
+    const items = await this.effectsRepo.find({
+      where: { conversationId },
+      order: { createdAt: 'ASC' },
+    });
+    return Promise.all(
+      items.map(async (effect) => {
+        const target = await this._loadTarget(effect.resultType, effect.resultId);
+        return {
+          id: effect.id,
+          toolName: effect.toolName,
+          conversationId: effect.conversationId,
+          resultType: effect.resultType,
+          resultId: effect.resultId,
+          argsHash: effect.argsHash,
+          createdAt: effect.createdAt.toISOString(),
+          targetExists: !!target,
+          targetSoftDeleted: target?.deletedAt != null,
+          targetTitle: target?.title ?? null,
+        };
+      }),
+    );
+  }
+
   /** 撤销 AI 副作用：软删目标 event/todo/crm_task（可经 RG-3 回收站恢复） */
   async revoke(effectId: number): Promise<{ revoked: boolean; effectId: number } | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });

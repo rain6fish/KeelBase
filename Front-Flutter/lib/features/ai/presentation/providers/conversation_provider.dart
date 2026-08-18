@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../data/models/ai_trace_models.dart';
 import '../../data/models/conversation_summary.dart';
 import '../../data/repositories/ai_conversation_repository.dart';
 
@@ -11,6 +12,10 @@ class ConversationProvider extends ChangeNotifier {
   String? _error;
   int _loadGeneration = 0;
   int _pendingLoads = 0;
+  AiTrace? _trace;
+  bool _traceLoading = false;
+  String? _traceError;
+  int _traceGeneration = 0;
   bool _disposed = false;
 
   ConversationProvider(this._repository);
@@ -19,6 +24,9 @@ class ConversationProvider extends ChangeNotifier {
       List.unmodifiable(_conversations);
   bool get loading => _loading;
   String? get error => _error;
+  AiTrace? get trace => _trace;
+  bool get traceLoading => _traceLoading;
+  String? get traceError => _traceError;
 
   void _safeNotify() {
     if (!_disposed) notifyListeners();
@@ -42,6 +50,27 @@ class ConversationProvider extends ChangeNotifier {
       _pendingLoads--;
       if (_pendingLoads == 0) {
         _loading = false;
+      }
+      _safeNotify();
+    }
+  }
+
+  /// 加载单条对话的执行轨迹（P0-14）。单请求竞态守卫：新请求使旧响应失效。
+  Future<void> loadTrace(String id) async {
+    final generation = ++_traceGeneration;
+    _traceLoading = true;
+    _traceError = null;
+    _safeNotify();
+    try {
+      final result = await _repository.getTrace(id);
+      if (generation != _traceGeneration) return; // 过期响应丢弃
+      _trace = result;
+    } catch (e) {
+      if (generation != _traceGeneration) return;
+      _traceError = e.toString();
+    } finally {
+      if (generation == _traceGeneration) {
+        _traceLoading = false;
       }
       _safeNotify();
     }

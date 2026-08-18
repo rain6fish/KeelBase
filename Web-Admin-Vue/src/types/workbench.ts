@@ -48,3 +48,46 @@ export interface CreateTodoInput {
   description?: string
   dueDate?: string
 }
+
+// P0-14 Agent Decision Trace：本人 AI 对话执行轨迹
+export interface TraceEffect {
+  resultType: string
+  resultId: number
+  targetTitle?: string | null
+  revocable: boolean
+}
+
+export type TraceStepType = 'input' | 'assistant' | 'tool_call' | 'confirmation' | 'effect' | 'notice'
+
+export interface TraceStep {
+  id: string
+  type: TraceStepType
+  time: string
+  toolName?: string
+  args?: string
+  success?: boolean
+  errorMessage?: string | null
+  outcome?: 'approve' | 'decline' | 'timeout'
+  trusted?: boolean
+  content?: string
+  detail?: string | null
+  model?: string
+  provider?: string
+  tokens?: number
+  effect?: TraceEffect
+}
+
+export interface ConversationSummary {
+  id: string
+  provider: string
+  model: string
+  summary?: string | null
+  createdAt: string
+  lastActivityAt: string
+  messages: Array<{ role: string; content: string; timestamp: string }>
+}
+
+export interface TraceResponse {
+  conversation: ConversationSummary
+  steps: TraceStep[]
+}

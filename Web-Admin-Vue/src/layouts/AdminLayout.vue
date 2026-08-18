@@ -131,6 +131,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents') },
       { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos') },
       { name: 'workbench-notifications', to: '/workbench/notifications', icon: 'mdi-bell-outline', label: t('workbenchNotifications') },
+      { name: 'workbench-ai-trace', to: '/workbench/ai-trace', icon: 'mdi-robot-outline', label: t('aiTraceTitle') },
       { name: 'workbench-org', to: '/workbench/org', icon: 'mdi-account-group-outline', label: t('workbenchOrgDir') },
       { name: 'workbench-crm', to: '/workbench/crm', icon: 'mdi-account-star-outline', label: t('crmTitle') },
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle') },

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -43,6 +44,11 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
     } else {
       AppToast.error(context, context.l10n.aiLoadFailed);
     }
+  }
+
+  /// 查看对话的执行轨迹（P0-14）：从 GoRouter push，保留返回栈。
+  void _openTrace(String id) {
+    context.push('/ai/trace/$id');
   }
 
   /// 删除确认弹窗（trash 按钮与滑动删除共用）。
@@ -143,6 +149,15 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => _openTrace(c.id),
+                            child: const Icon(
+                              CupertinoIcons.clock,
+                              size: 18,
+                              color: CupertinoColors.systemGrey,
                             ),
                           ),
                           CupertinoButton(
