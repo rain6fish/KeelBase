@@ -1,7 +1,7 @@
 <template>
-  <v-btn variant="text" :title="t('toggleLang')" @click="locale.toggle()">
+  <el-button :title="t('toggleLang')" @click="locale.toggle()">
     {{ locale.locale === 'zh' ? 'EN' : '中文' }}
-  </v-btn>
+  </el-button>
 </template>
 
 <script setup lang="ts">
