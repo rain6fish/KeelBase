@@ -397,20 +397,6 @@ Notifications are produced via `NotificationsService.create()` for use by each m
 | GET | /api/v1/admin/trash | Yes (ADMIN) | 回收站：已软删除的事件/待办（RG-3，带用户名分页） / Trash: soft-deleted events/todos (RG-3, paginated with username) |
 | POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | 恢复回收站记录（type: event\|todo） / Restore trash records (type: event\|todo) |
 
-### 5.9 推送模块（MS-2） / 5.9 Push Module (MS-2)
-
-| Method | Path | Auth | 说明 / Description |
-|--------|------|------|------|
-| POST | /api/v1/push/tokens | Yes | 注册/更新设备推送 token / Register/update device push token |
-| DELETE | /api/v1/push/tokens/:token | Yes | 注销设备推送 token / Unregister device push token |
-
-### 5.10 其他 / 5.10 Others
-
-| Method | Path | Auth | 说明 / Description |
-|--------|------|------|------|
-| GET | /api/v1/health | No | 健康检查 / Health check |
-| GET | /api/v1/metrics | No | Prometheus 指标（裸文本，跳过限流） / Prometheus metrics (raw text, skips rate limiting) |
-
 ---
 
 ## 6. 数据模型 / 6. Data Model
