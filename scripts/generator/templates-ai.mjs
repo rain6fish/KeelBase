@@ -150,10 +150,123 @@ ${whitelistReads(ctx.fields)}
 `;
 }
 
+export function queryToolSpecTemplate(ctx) {
+  const firstField = ctx.fields.length > 0 ? ctx.fields[0].name : null;
+  const itemLiteral = firstField ? `{ id: 1, ${firstField}: 'sample' }` : '{ id: 1 }';
+  return `import { Query${ctx.pluralPascal}Tool } from './query-${ctx.plural}.tool';
+
+describe('Query${ctx.pluralPascal}Tool', () => {
+  const mockService = { findAll: jest.fn() };
+
+  let tool: Query${ctx.pluralPascal}Tool;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    tool = new Query${ctx.pluralPascal}Tool(mockService as any);
+  });
+
+  it('should have correct name and description', () => {
+    expect(tool.name).toBe('query_${ctx.plural}');
+    expect(tool.description.length).toBeGreaterThan(0);
+  });
+
+  it('should build a valid tool definition', () => {
+    const def = tool.toToolDefinition();
+    expect(def.type).toBe('function');
+    expect(def.function.name).toBe('query_${ctx.plural}');
+    expect(def.function.parameters).toBeDefined();
+  });
+
+  it('should fetch own ${ctx.plural} scoped by userId and map fields', async () => {
+    mockService.findAll.mockResolvedValue([${itemLiteral}]);
+
+    const result = await tool.execute({}, '7');
+
+    expect(mockService.findAll).toHaveBeenCalledWith(7);
+    expect(result.success).toBe(true);
+    expect((result.data as any[])[0]).toMatchObject({ id: 1${firstField ? `, ${firstField}: 'sample'` : ''} });
+  });
+
+  it('should return empty data when none found', async () => {
+    mockService.findAll.mockResolvedValue([]);
+
+    const result = await tool.execute({}, '7');
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual([]);
+  });
+
+  it('should handle service errors gracefully', async () => {
+    mockService.findAll.mockRejectedValue(new Error('db down'));
+
+    const result = await tool.execute({}, '7');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('db down');
+  });
+});
+`;
+}
+
+export function createToolSpecTemplate(ctx) {
+  const firstField = ctx.fields.length > 0 ? ctx.fields[0] : null;
+  const mockData = firstField ? `{ id: 7, ${firstField.name}: 'sample' }` : '{ id: 7 }';
+  const argsLiteral = firstField ? `{ ${firstField.name}: 'sample' }` : '{}';
+  const expectDto = firstField
+    ? `expect.objectContaining({ ${firstField.name}: 'sample' })`
+    : 'expect.any(Object)';
+  return `import { Create${ctx.singlePascal}Tool } from './create-${ctx.singular}.tool';
+
+describe('Create${ctx.singlePascal}Tool', () => {
+  const mockService = { create: jest.fn() };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should have name and require confirmation + verified email', () => {
+    const tool = new Create${ctx.singlePascal}Tool(mockService as any);
+    expect(tool.name).toBe('create_${ctx.singular}');
+    expect(tool.requiresConfirmation).toBe(true);
+    expect(tool.permissions.requireVerifiedEmail).toBe(true);
+  });
+
+  it('should build a valid tool definition', () => {
+    const tool = new Create${ctx.singlePascal}Tool(mockService as any);
+    const def = tool.toToolDefinition();
+    expect(def.function.name).toBe('create_${ctx.singular}');
+    expect(def.function.parameters).toBeDefined();
+  });
+
+  it('should create and return id + first field', async () => {
+    mockService.create.mockResolvedValue(${mockData});
+    const tool = new Create${ctx.singlePascal}Tool(mockService as any);
+
+    const result = await tool.execute(${argsLiteral}, '1');
+
+    expect(mockService.create).toHaveBeenCalledWith(${expectDto}, 1);
+    expect(result).toEqual({ success: true, data: ${mockData} });
+  });
+
+  it('should return error when service throws', async () => {
+    mockService.create.mockRejectedValue(new Error('boom'));
+    const tool = new Create${ctx.singlePascal}Tool(mockService as any);
+
+    const result = await tool.execute({}, '1');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('boom');
+  });
+});
+`;
+}
+
 /** 全部 AI 工具文件：{ relativePath, content }。 */
 export function aiFiles(ctx) {
   return [
     { path: `ai/tools/query-${ctx.plural}.tool.ts`, content: queryToolTemplate(ctx) },
     { path: `ai/tools/create-${ctx.singular}.tool.ts`, content: createToolTemplate(ctx) },
+    { path: `ai/tools/query-${ctx.plural}.tool.spec.ts`, content: queryToolSpecTemplate(ctx) },
+    { path: `ai/tools/create-${ctx.singular}.tool.spec.ts`, content: createToolSpecTemplate(ctx) },
   ];
 }
