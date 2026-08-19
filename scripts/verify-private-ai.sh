@@ -85,11 +85,13 @@ cleanup() {
 trap cleanup EXIT
 
 echo "  启动后端（port $PORT，Ctrl+C 退出）..."
-# 直接环境变量覆盖（AI 全走本地），不依赖 .env.private-ai 被 ConfigModule 读取
-( cd Server-NestJS && PORT="$PORT" NODE_ENV=development \
-    AI_PROVIDER=ollama OLLAMA_BASE_URL="$OLLAMA_BASE_URL" \
+# 直接环境变量覆盖（AI 全走本地），不依赖 .env.private-ai 被 ConfigModule 读取。
+# 注意：NODE_ENV 不能设（ConfigModule 会去读 .env.development 而 JWT 缺失）；AI_PROVIDER 不能设 ollama（Joi 只认 deepseek/qwen/openai），
+# 靠 OLLAMA_BASE_URL 激活本地 provider + AI_CHAT_MODEL 指定模型；QUEUE_ENABLED 保持 true（Redis 必需，false 反而让 worker 挂）。
+( cd Server-NestJS && PORT="$PORT" \
+    OLLAMA_BASE_URL="$OLLAMA_BASE_URL" AI_CHAT_MODEL="$OLLAMA_MODEL" \
     EMBEDDING_BASE_URL="$OLLAMA_BASE_URL/v1" EMBEDDING_API_KEY=ollama EMBEDDING_MODEL="$EMBEDDING_MODEL" \
-    CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev ) &
+    CACHE_ENABLED=false npm run start:dev ) &
 BACKEND_PID=$!
 
 READY=0
@@ -116,14 +118,15 @@ if [ -z "$TOKEN" ]; then
 fi
 ok "登录成功（alex）"
 
-REPLY=$(curl -s -m 120 -X POST "http://localhost:$PORT/api/v1/ai/chat" \
+# 显式传 provider/model（默认 provider 是 deepseek，回退链不含 ollama）；首次冷启动预填充大 system prompt 可能 2-5 分钟
+REPLY=$(curl -s -m 300 -X POST "http://localhost:$PORT/api/v1/ai/chat" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"message":"你好，用一句话介绍你自己"}' | head -c 300)
-if [ -n "$REPLY" ] && ! echo "$REPLY" | grep -qi 'provider\|不可用\|未配置'; then
+  -d "{\"message\":\"你好，用一句话介绍你自己\",\"provider\":\"ollama\",\"model\":\"$OLLAMA_MODEL\"}" | head -c 300)
+if [ -n "$REPLY" ] && ! echo "$REPLY" | grep -qi 'provider\|不可用\|未配置\|error'; then
   ok "AI 对话返回本地 ollama 回复（未走云端）"
   echo "    回复：$(echo "$REPLY" | head -c 120)"
 else
-  bad "AI 对话未返回（本地 ollama 模型未就绪？）：$REPLY"
+  bad "AI 对话未返回（本地 ollama 模型未就绪 / CPU 冷启动慢？）：$REPLY"
 fi
 
 # ── [5/5] AI CRM Golden Path（阶段 2 Phase 1）：数据不出域落到业务场景 ──────

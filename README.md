@@ -266,6 +266,7 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | Ops | One-click cloud server deployment (on-prem) |
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | Intranet / offline deployment |
 | [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | Ops | Private AI verification — data-stays-on-prem closed loop (Ollama / local embedding / RAG / audit) |
+| [`docs/manual/private-ai-report.md`](docs/manual/private-ai-report.md) | Ops | Private AI Golden Path report (2026-08-19) — Cloud OFF + Ollama chat + bge-m3 embedding + audit chain valid |
 | [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | Marketing | Golden Demo 60s recording script — Tool → Permission → Confirmation → Audit closed loop (P0-3) |
 | [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | Developers / Sales | Existing System AIization demo — legacy Schema → `keelbase import` → Protocol → module → AI tools → governance (P0-12) |
 | [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | Developers | Ecosystem pack assembly — templates / business skills / plugin CLI / generator (Phase 2 third-party-style build) |

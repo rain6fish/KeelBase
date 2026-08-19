@@ -50,9 +50,9 @@ grep DEEPSEEK_API_KEY Server-NestJS/.env   # 应无输出
 ```bash
 cd Server-NestJS
 cp .env.example .env.private-ai
-# .env.private-ai 中显式设置：
-#   AI_PROVIDER=ollama
-#   OLLAMA_BASE_URL=http://localhost:11434
+# .env.private-ai 中显式设置（2026-08-19 修正：AI_PROVIDER=ollama 会被 Joi schema 拒绝）：
+#   OLLAMA_BASE_URL=http://localhost:11434     ← 激活本地 ollama provider
+#   AI_CHAT_MODEL=qwen2.5:7b                   ← 必须：ollama provider 用本地模型，而非默认 deepseek-v4-flash
 #   EMBEDDING_BASE_URL=http://localhost:11434/v1
 #   EMBEDDING_API_KEY=ollama
 #   EMBEDDING_MODEL=bge-m3
@@ -62,7 +62,10 @@ cp .env.example .env.private-ai
 ### 3. 起后端（开发模式）
 
 ```bash
-NODE_ENV=development AI_PROVIDER=ollama OLLAMA_BASE_URL=http://localhost:11434 \
+# 注意：不要设 NODE_ENV（否则 ConfigModule 读 .env.development 导致 JWT 缺失）；
+# 不要设 AI_PROVIDER=ollama（schema 拒绝，ollama 由 OLLAMA_BASE_URL 激活）；
+# 不要设 QUEUE_ENABLED=false（反而让 BullMQ worker 报「requires a connection」）
+OLLAMA_BASE_URL=http://localhost:11434 AI_CHAT_MODEL=qwen2.5:7b \
   EMBEDDING_BASE_URL=http://localhost:11434/v1 EMBEDDING_API_KEY=ollama EMBEDDING_MODEL=bge-m3 \
   npm run start:dev
 # 健康检查：
