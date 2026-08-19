@@ -9,10 +9,13 @@
 
 ## 0. 三旗舰概览 / Overview
 
-三旗舰共同证明：**AI 能在权限 / 确认 / 审计 / 撤销约束下完成真实业务工作**，且全部沿同一可复用模式构建：实体 → 迁移 → CRUD/CASL → AI 工具（读 + 写需确认）→ Seed → 多端 UI。
+三旗舰已从「验证平台能力的 Demo」升级为 **KeelBase 的 Reference Applications**（2026-08-19 定位）：它们共同证明 **AI 能在权限 / 确认 / 审计 / 撤销约束下完成真实业务工作**，且沿同一可复用模式构建：实体 → 迁移 → CRUD/CASL → AI 工具（读 + 写需确认）→ Seed → 多端 UI。
+
+**AI 角色差异化（2026-08-19）**：三旗舰不是「三个 CRUD Demo」，而是三类 AI 工作方式的 Reference——**CRM = AI Operator（替用户执行）**、**PM = AI Collaborator（与用户协作）**、**Approval = AI Decision Assistant（辅助决策）**。对外故事按此讲，避免「带 AI Tool Calling 的企业 CRUD」认知。
 
 | | **AI CRM** | **AI Project Management** | **AI Approval** |
 |---|---|---|---|
+| AI 角色 | **AI Operator**（找风险客户 → 建任务替用户干活） | **AI Collaborator**（判断延期 → 与用户协作推进） | **AI Decision Assistant**（按政策预审 → 建议/人工复核） |
 | 业务 | 客户 / 订单 / 跟进 / 任务 / 风险 | 项目 / 成员 / 里程碑 / 任务 / 风险 | 审批请求 + 审批政策（AI 预审） |
 | 实体 | Customer/Order/Activity/Task/Risk | Project/Member/Milestone/Task/Risk | ApprovalRequest/ApprovalPolicy |
 | 读工具 | query_customers / query_customer_orders / query_customer_activities / analyze_customer_risk | query_projects / query_project_tasks / analyze_project_risk | query_approval_requests / query_approval_policies |
