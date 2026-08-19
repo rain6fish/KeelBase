@@ -214,9 +214,9 @@ test('命名变换：posts/post 归一', () => {
 });
 
 // ── 骨架 ─────────────────────────────────────────────────────────────────────
-test('后端 7 文件骨架', () => {
+test('后端 8 文件骨架', () => {
   const files = backendFiles(ctx());
-  assert.equal(files.length, 7);
+  assert.equal(files.length, 8);
   const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
   assert.match(entity, /@Entity\('posts'\)/);
   assert.match(entity, /name: 'user_id'/);
@@ -238,6 +238,11 @@ test('后端 7 文件骨架', () => {
   assert.match(service, /removeAsAdmin/);
   const module = files.find((f) => f.path.endsWith('.module.ts')).content;
   assert.match(module, /forFeature\(\[Post\]\)/);
+  // controller.spec：生成模块自动带 controller 单测（覆盖管理端 admin 端点）
+  const controllerSpec = files.find((f) => f.path.endsWith('.controller.spec.ts')).content;
+  assert.match(controllerSpec, /describe\('PostsController'/);
+  assert.match(controllerSpec, /findAllForAdmin/);
+  assert.match(controllerSpec, /removeAsAdmin/);
 });
 
 test('后端 controller：--no-feature-flag 省略装饰器', () => {
@@ -459,16 +464,23 @@ test('AI 工具模板：query 读 + create 写需确认', () => {
     { name: 'status', type: 'enum', enum: ['active', 'inactive'] },
   ]);
   const files = aiFiles({ ...c, featureFlag: true });
-  assert.equal(files.length, 2);
-  const query = files.find((f) => f.path.includes('query-')).content;
+  assert.equal(files.length, 4);
+  const query = files.find((f) => f.path.includes('query-') && !f.path.endsWith('.spec.ts')).content;
   assert.match(query, /name = 'query_suppliers'/);
   assert.match(query, /findAll\(Number\(userId\)\)/);
-  const create = files.find((f) => f.path.includes('create-')).content;
+  const create = files.find((f) => f.path.includes('create-') && !f.path.endsWith('.spec.ts')).content;
   assert.match(create, /name = 'create_supplier'/);
   assert.match(create, /requiresConfirmation = true/);
   assert.match(create, /requireVerifiedEmail: true/);
   assert.match(create, /@IsIn|enum: \['active', 'inactive'\]/);
   assert.match(create, /dto\.name = args\.name/);
+  // AI 工具 spec：query/create 各带单测（写工具断言 requiresConfirmation）
+  const querySpec = files.find((f) => f.path.endsWith('query-suppliers.tool.spec.ts')).content;
+  assert.match(querySpec, /describe\('QuerySuppliersTool'/);
+  assert.match(querySpec, /toHaveBeenCalledWith\(7\)/);
+  const createSpec = files.find((f) => f.path.endsWith('create-supplier.tool.spec.ts')).content;
+  assert.match(createSpec, /describe\('CreateSupplierTool'/);
+  assert.match(createSpec, /requiresConfirmation/);
 });
 
 test('wireAiModule：ai.module 六处接线 + 幂等', async () => {

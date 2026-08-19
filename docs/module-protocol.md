@@ -76,7 +76,7 @@
 - `specs/customer.json` — 客户（status/riskLevel 双 enum）
 - `specs/project.json` — 项目（status/priority 双 enum + deadline）
 - `specs/approval-request.json` — 审批请求（type/status 双 enum + amount）
-- `specs/supplier.json` — 供应商（**端到端验证产物**：已生成 `suppliers` 模块，migration:generate + build + 5 单测通过）
+- `specs/supplier.json` — 供应商（**端到端验证产物**：已生成 `suppliers` 模块，migration:generate + build + 单测通过）
 
 **验证结论（第 9-10 周）**：协议 → `keelbase init --spec` → 普通源代码（实体/DTO/API/权限/审计/Flutter 页）闭环成立，30 分钟内可生成带 enum + CASL + 审计的业务模块。
 
