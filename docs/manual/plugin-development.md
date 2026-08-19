@@ -73,7 +73,7 @@ import { GITHUB_PLUGIN } from './plugins/github.plugin';
 const PLUGINS = [HELLO_PLUGIN, GITHUB_PLUGIN];
 ```
 
-2. **CLI（推荐）**：`node scripts/keelbase-plugin.mjs add <source.ts>` 自动复制插件 TS 并接线；`remove <name>` 移除；`list` 查看。
+2. **CLI（推荐）**：`node scripts/keelbase-plugin.mjs add <source.ts>` 自动复制插件 TS 并接线；`verify <source.ts>` 宿主外校验（约定/结构/requires 对照宿主服务类名/featureFlag 对照 FEATURE_KEYS）；`remove <name>` 移除；`list` 查看。
 
 3. **启停**：插件 `featureFlag` 与 FeatureFlags 关联，`APP_PRESET` / `FEATURE_<KEY>_ENABLED` 控制。
 

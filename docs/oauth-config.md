@@ -10,7 +10,8 @@
 │               │    JWT tokens       │  ├─ Google: tokeninfo │
 └──────────────┘                      │  ├─ Apple: JWKS       │
                                       │  ├─ WeChat: code→openid│
-                                      │  └─ Alipay: code→user │
+                                      │  ├─ Alipay: code→user │
+                                      │  └─ OIDC: 发现+JWKS   │
                                       └──────────────────────┘
 ```
 
@@ -18,8 +19,8 @@
 
 1. **配置驱动**: 通过 `OAUTH_ENABLED_PROVIDERS` 环境变量控制哪些认证方式可用，前后端自动适配。
    **Config-driven**: the `OAUTH_ENABLED_PROVIDERS` env var controls which auth methods are available; frontend and backend adapt automatically.
-2. **国际/国内分组**: 登录页按「国际」和「国内」两个区域展示按钮，由后端配置决定。
-   **International/China grouping**: the login page shows buttons in "International" and "China" sections, determined by backend config.
+2. **国际/国内/企业分组**: 登录页按「国际」「国内」「企业」三个区域展示按钮，由后端配置决定。
+   **International/China/Enterprise grouping**: the login page shows buttons in "International", "China" and "Enterprise" sections, determined by backend config.
 3. **免注册**: 新用户首次使用第三方登录时自动创建账号，无需填写注册表单。
    **Registration-free**: a new user's first third-party login auto-creates an account without filling out a registration form.
 4. **账号关联**: 同一邮箱的已有账号会自动关联新的第三方登录方式。
@@ -33,7 +34,7 @@
 
 ```env
 # 启用的 OAuth 提供商（逗号分隔）—— 这是核心配置开关
-OAUTH_ENABLED_PROVIDERS=google,apple,wechat,alipay
+OAUTH_ENABLED_PROVIDERS=google,apple,wechat,alipay,oidc
 
 # 国际
 GOOGLE_CLIENT_ID=
@@ -44,6 +45,11 @@ WECHAT_APP_ID=
 WECHAT_APP_SECRET=
 ALIPAY_APP_ID=
 ALIPAY_PRIVATE_KEY=
+
+# 企业 SSO（通用 OIDC）：配齐 issuer/client_id/client_secret 后，/auth/oauth/providers 出现 oidc（enterprise 组）
+OIDC_ISSUER=https://sso.example.com/realms/your-realm
+OIDC_CLIENT_ID=
+OIDC_CLIENT_SECRET=
 ```
 
 ### Provider 自动发现 / Provider Auto-Discovery
@@ -54,7 +60,7 @@ The frontend calls `GET /api/v1/auth/oauth/providers` when the login page loads;
 
 ```json
 {
-  "enabledProviders": ["google", "apple", "wechat"],
+  "enabledProviders": ["google", "apple", "wechat", "oidc"],
   "providers": [...],
   "groups": {
     "international": [
@@ -62,6 +68,9 @@ The frontend calls `GET /api/v1/auth/oauth/providers` when the login page loads;
     ],
     "china": [
       { "id": "wechat", "name": "微信", "icon": "wechat", "nativeOnly": true }
+    ],
+    "enterprise": [
+      { "id": "oidc", "name": "企业 SSO", "icon": "sso", "nativeOnly": false }
     ]
   }
 }
@@ -177,6 +186,64 @@ Each platform's **native project configuration** (Info.plist / AndroidManifest) 
 
 ---
 
+## 企业 SSO（OIDC） / Enterprise SSO (OIDC)
+
+> 通用 OIDC authorization code flow（P2-4）——对接任何标准 OIDC 身份提供方（如 Keycloak / Azure AD / Authing），登录页展示「企业 SSO」按钮。
+> Generic OIDC authorization code flow (P2-4) — works with any standards-compliant OIDC identity provider (e.g. Keycloak / Azure AD / Authing); the login page shows an "Enterprise SSO" button.
+
+### 验证流程（授权码模式） / Verification Flow (Authorization Code Mode)
+
+```
+Flutter App                    Backend
+    │                            │
+    │  1. 调起企业 SSO 授权      │
+    │  ← 获得 authorization_code │
+    │                            │
+    │  2. POST /auth/oauth       │
+    │  { provider: "oidc", authorizationCode }
+    │                            │
+    │  3. 动态发现               │
+    │    GET {issuer}/.well-known/openid-configuration
+    │  4. token 交换             │
+    │    POST token_endpoint     │
+    │  5. id_token 签名验证      │
+    │    issuer + audience + JWKS
+    │  6. userinfo 获取          │
+    │    Bearer access_token     │
+    │  7. 创建/查找用户          │
+    │  ← JWT tokens              │
+```
+
+| 提供商 / Provider | 协议 / Protocol | 前端 SDK / Frontend SDK | 后端验证 / Backend verification |
+|--------|------|----------|---------|
+| 企业 SSO / OIDC | authorization_code | 浏览器 / 系统浏览器（`nativeOnly=false`） | 动态发现 + token 交换 + id_token 签名验证（issuer/audience/JWKS）+ userinfo |
+
+### 配置要点 / Configuration Notes
+
+1. 在 IdP 侧创建 **confidential client** 应用，配置回调地址，获取 `client_id` / `client_secret`
+   Create a **confidential client** app in the IdP, configure the callback URL, and obtain `client_id` / `client_secret`
+2. 后端填 `OIDC_ISSUER` + `OIDC_CLIENT_ID` + `OIDC_CLIENT_SECRET`（缺一则 `/auth/oauth/providers` 不返回 oidc）
+   Fill `OIDC_ISSUER` + `OIDC_CLIENT_ID` + `OIDC_CLIENT_SECRET` in the backend (missing any one → oidc absent from `/auth/oauth/providers`)
+3. `OAUTH_ENABLED_PROVIDERS` 需包含 `oidc`
+   `OAUTH_ENABLED_PROVIDERS` must include `oidc`
+
+```env
+OIDC_ISSUER=https://sso.example.com/realms/your-realm
+OIDC_CLIENT_ID=your-client-id
+OIDC_CLIENT_SECRET=your-client-secret
+```
+
+### 安全说明 / Security Notes
+
+- **动态发现 + 防混淆**：后端 GET `{issuer}/.well-known/openid-configuration` 动态发现端点，并校验发现文档返回的 `issuer` 与配置一致（防混淆攻击）
+  **Dynamic discovery + anti-confusion**: the backend discovers endpoints via `{issuer}/.well-known/openid-configuration` and verifies the returned `issuer` matches the configured one
+- **id_token 签名验证**：按 `kid` 从 `jwks_uri` 取公钥验签，同时校验 `issuer` 与 `audience`（= client_id）——双重防混淆
+  **id_token signature verification**: the public key is fetched from `jwks_uri` by `kid`, and both `issuer` and `audience` (= client_id) are verified — double anti-confusion
+- **userinfo 降级**：userinfo 端点不可用时，降级用 id_token 内的声明（sub/email/name/picture）
+  **userinfo fallback**: when the userinfo endpoint is unavailable, claims from the id_token are used (sub/email/name/picture)
+
+---
+
 ## API 端点 / API Endpoints
 
 | Method | Path | 说明 / Description |
@@ -194,7 +261,7 @@ Each platform's **native project configuration** (Info.plist / AndroidManifest) 
 }
 ```
 
-**授权码模式（WeChat / Alipay）** / **Authorization code mode (WeChat / Alipay)**:
+**授权码模式（WeChat / Alipay / OIDC）** / **Authorization code mode (WeChat / Alipay / OIDC)**:
 ```json
 {
   "provider": "wechat",

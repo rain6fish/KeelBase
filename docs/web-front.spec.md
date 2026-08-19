@@ -54,8 +54,8 @@ Reads `auth.user` directly (loaded by the guard); PageHeader + 4 StatCards (user
 
 ## 7. 前端测试 / Frontend Testing
 
-最小 vitest 基线（此前 0 测试）：`vitest` + `@vue/test-utils` + `jsdom`，store 测试用 `vi.mock('@/api/auth')` + `createPinia`；守卫测试用 `createRouter` + `createMemoryHistory`（动态 import 组件不挂载，无需 Vuetify）。11 用例覆盖：login/tryAutoLogin 各角色分支、守卫分流与防循环、匿名跳转。
-Minimal vitest baseline (previously 0 tests): store tests mock `@/api/auth` with `createPinia`; guard tests use `createRouter` + `createMemoryHistory` (lazy components never mount, no Vuetify needed). 11 cases cover login/tryAutoLogin role branches, guard routing, and anonymous redirect.
+最小 vitest 基线（此前 0 测试）：`vitest` + `@vue/test-utils` + `jsdom`，store 测试用 `vi.mock('@/api/auth')` + `createPinia`；守卫测试用 `createRouter` + `createMemoryHistory`（动态 import 组件不挂载，无需 Element Plus）。11 用例覆盖：login/tryAutoLogin 各角色分支、守卫分流与防循环、匿名跳转。
+Minimal vitest baseline (previously 0 tests): store tests mock `@/api/auth` with `createPinia`; guard tests use `createRouter` + `createMemoryHistory` (lazy components never mount, no Element Plus needed). 11 cases cover login/tryAutoLogin role branches, guard routing, and anonymous redirect.
 
 ## 8. i18n
 
