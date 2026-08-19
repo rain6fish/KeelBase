@@ -46,8 +46,8 @@ EMBEDDING_BASE_URL=http://localhost:11434/v1
 EMBEDDING_API_KEY=ollama
 EMBEDDING_MODEL=bge-m3
 # 不要设 NODE_ENV（否则 ConfigModule 读 .env.development 导致 JWT 缺失）
-# 不要设 AI_PROVIDER=ollama（Joi schema 只认 deepseek/qwen/openai；ollama 由 OLLAMA_BASE_URL 激活）
 # 不要设 QUEUE_ENABLED=false（反而让 BullMQ worker 报「requires a connection」）
+# AI_PROVIDER=ollama 已放行（2026-08-19 修复，env.config Joi 含 ollama）；ollama 场景模型由 OLLAMA_MODEL 决定（非 AI_CHAT_MODEL 云模型名）
 ```
 
 ## 5. 说明与限制
