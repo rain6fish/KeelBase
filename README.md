@@ -1,4 +1,4 @@
-# KeelBase — Full-Stack Application Base Platform
+# KeelBase — Business-safe AI Application Base
 
 > ### 🚀 Get Started in 60 Seconds
 > **Docker only — one command brings up the full stack (backend + main App + Admin Console) using a published image, no build needed:**
@@ -18,11 +18,11 @@
 > - One-command local demo: `./deploy/demo.sh` → http://localhost:8080
 > - Host your own online demo (DNS + static hosting + backend): [docs/manual/demo-deploy.md](docs/manual/demo-deploy.md)
 
-**AI-Driven Enterprise Application Base — where AI does real work, only within your authorized data.**
+**Build and run business-safe AI applications.**
 
-> **Build and run business-safe AI applications.**
+> **AI doesn't just answer. It acts — within your rules.**
 
-KeelBase is a business-safe, AI-native full-stack base for building enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — every tool call scoped to the user's data, every write human-confirmed, every action audited. Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
+KeelBase is a business-safe, AI-native base for enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — **every tool call scoped to your data, every write human-confirmed, every action audited and reversible.** Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
 
 ### 🎯 North Star
 
@@ -34,15 +34,9 @@ Everything ships along one main thread — **Build → Run → Trust → Private
 - **Run** — *Business-safe Agent Runtime:* runtime AI does real work — user-scoped tools, human-confirmed writes, full audit and revoke.
 - **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible.
 
-### Three Audiences
+### One Main Thread, Three Validations
 
-| | Developers | End Users | Owners & Admins |
-|---|---|---|---|
-| Core needs | A secure AI app in 30 minutes | AI does real work, not a toy | Trusted AI, controlled data, full audit trail |
-| Capabilities | Dev-time AI (module generation + AI rules layer) | Runtime AI (chat / tools / memory / proactive) | Built-in governance (permissions / confirmation / audit / revoke / on-prem) |
-| In a word | Fast, no wheel-reinvention | Works — only within your data | Data on-prem, AI fully traceable |
-
-> These three roles are not three parallel selling points but three angles of validation on the same main thread — developers validate "can we build it fast", users validate "is the AI genuinely useful", and managers validate "is the AI safe and trustworthy".
+Developers validate **"can we build it fast"** · end users validate **"is the AI genuinely useful"** · owners validate **"is the AI safe and trustworthy"** — three angles on the same main thread: **Build → Run → Trust → Private Deploy**.
 
 ---
 
