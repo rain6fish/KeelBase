@@ -4,6 +4,11 @@
 > 验收基准：**30 分钟内完成带 权限(CASL) + AI Tool + Confirmation + Audit 的业务模块**。
 > 依据协议：`docs/module-protocol.md`（协议 → `keelbase init --spec` → 普通源代码）。
 
+> **两级指标（2026-08-19 采纳）**：
+> - **30min Build**：本页验证的技术链路——协议 → 模块 → API → 权限 → 工具 → 确认 → 审计（证明「能造」）。
+> - **60min Business**：真实业务闭环——模块 + 真实数据 → AI 查询 → AI 分析 → AI Action → Confirmation → Audit（证明「能落地业务」）。
+> 前者是生成器闭环，后者是业务价值闭环；对外指标 = **30min to Build / 60min to Business Outcome**。
+
 ## 0. 前置条件
 
 - 已 clone KeelBase 并 `npm install`（`Server-NestJS`）+ `flutter pub get`（`Front-Flutter`）
