@@ -86,12 +86,13 @@ trap cleanup EXIT
 
 echo "  启动后端（port $PORT，Ctrl+C 退出）..."
 # 直接环境变量覆盖（AI 全走本地），不依赖 .env.private-ai 被 ConfigModule 读取。
-# 注意：NODE_ENV 不能设（ConfigModule 会去读 .env.development 而 JWT 缺失）；AI_PROVIDER 不能设 ollama（Joi 只认 deepseek/qwen/openai），
-# 靠 OLLAMA_BASE_URL 激活本地 provider + AI_CHAT_MODEL 指定模型；QUEUE_ENABLED 保持 true（Redis 必需，false 反而让 worker 挂）。
+# AI_PROVIDER=ollama 合法（env.config Joi 已放行，2026-08-19）；OLLAMA_MODEL 决定本地对话模型
+# （ai.module 已改为 ollama 场景用 OLLAMA_MODEL，非 AI_CHAT_MODEL 云模型名）；QUEUE_ENABLED=false 时
+# worker 条件注册不连 Redis（push/reminder/knowledge 均 register() 动态注册，无需 Redis）。
 ( cd Server-NestJS && PORT="$PORT" \
-    OLLAMA_BASE_URL="$OLLAMA_BASE_URL" AI_CHAT_MODEL="$OLLAMA_MODEL" \
+    AI_PROVIDER=ollama OLLAMA_BASE_URL="$OLLAMA_BASE_URL" \
     EMBEDDING_BASE_URL="$OLLAMA_BASE_URL/v1" EMBEDDING_API_KEY=ollama EMBEDDING_MODEL="$EMBEDDING_MODEL" \
-    CACHE_ENABLED=false npm run start:dev ) &
+    CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev ) &
 BACKEND_PID=$!
 
 READY=0
@@ -118,13 +119,14 @@ if [ -z "$TOKEN" ]; then
 fi
 ok "登录成功（alex）"
 
-# 显式传 provider/model（默认 provider 是 deepseek，回退链不含 ollama）；首次冷启动预填充大 system prompt 可能 2-5 分钟
+# AI_PROVIDER=ollama 已默认走本地模型；首次冷启动预填充大 system prompt 可能 2-5 分钟（CPU）
 REPLY=$(curl -s -m 300 -X POST "http://localhost:$PORT/api/v1/ai/chat" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"message\":\"你好，用一句话介绍你自己\",\"provider\":\"ollama\",\"model\":\"$OLLAMA_MODEL\"}" | head -c 300)
-if [ -n "$REPLY" ] && ! echo "$REPLY" | grep -qi 'provider\|不可用\|未配置\|error'; then
+  -d '{"message":"你好，用一句话介绍你自己"}' | head -c 300)
+# 成功响应含 "provider":"ollama"（走了本地 provider），故不能把含 provider 当失败——只判错误与空回复
+if [ -n "$REPLY" ] && echo "$REPLY" | grep -q '"reply"' && ! echo "$REPLY" | grep -qi '不可用\|未配置\|"error"'; then
   ok "AI 对话返回本地 ollama 回复（未走云端）"
-  echo "    回复：$(echo "$REPLY" | head -c 120)"
+  echo "    回复：$(echo "$REPLY" | grep -o '"reply":"[^"]*"' | cut -d'"' -f4 | head -c 120)"
 else
   bad "AI 对话未返回（本地 ollama 模型未就绪 / CPU 冷启动慢？）：$REPLY"
 fi
