@@ -70,16 +70,26 @@ export class EventsService {
    * QUEUE_ENABLED=false 或队列不可用时跳过（提醒不生效，业务正常）。
    */
   private async _scheduleReminder(event: Event): Promise<void> {
-    if (!this.reminderQueue || event.reminderMinutes == null || event.isCancelled) return;
-    const remindAt = event.startTime.getTime() - event.reminderMinutes * 60000;
-    if (remindAt <= Date.now()) return; // 提醒时间已过，不再调度
+    if (!this.reminderQueue) return;
+    const jobId = `event-remind-${event.id}`;
+    const reminderMinutes = event.reminderMinutes;
+    const remindAt = reminderMinutes != null ? event.startTime.getTime() - reminderMinutes * 60000 : null;
+    // 提醒不再需要（清空/取消/时间已过）→ 移除可能残留的旧 job，防过期提醒继续触发
+    if (reminderMinutes == null || event.isCancelled || (remindAt != null && remindAt <= Date.now())) {
+      try {
+        await this.reminderQueue.remove(jobId);
+      } catch (err) {
+        this.logger.warn(`[Reminder] remove job failed event=${event.id}: ${(err as Error).message}`);
+      }
+      return;
+    }
     try {
       await this.reminderQueue.add(
         'event-remind',
         { eventId: event.id, userId: event.userId },
         {
-          delay: remindAt - Date.now(),
-          jobId: `event-remind-${event.id}`,
+          delay: event.startTime.getTime() - reminderMinutes * 60000 - Date.now(),
+          jobId,
           removeOnComplete: true,
         },
       );
@@ -152,22 +162,18 @@ export class EventsService {
     // ORG-3 数据隔离：本人事件 OR 同组织事件（orgId = 用户所属组织）
     const orgId = userId ? await this._userOrgId(userId) : null;
 
+    // 事件与查询范围有交集 = startTime <= 范围末 且 endTime >= 范围始（区间重叠判断，
+    // 覆盖完全包住查询范围的事件——仅 Between(startTime) OR Between(endTime) 会漏掉它们）
+    const ownership: Array<Record<string, unknown>> = [];
+    if (userId) ownership.push({ userId });
+    if (orgId != null) ownership.push({ orgId });
+    const range = { startTime: LessThanOrEqual(endDate), endTime: MoreThanOrEqual(startDate) };
     const where: any[] = [];
-    const addRange = (field: string) => {
-      // ORG-3 数据隔离：本人事件 OR 同组织事件；事件与查询范围有交集
-      // 顶层数组 = OR，每项 = (时间范围 AND 所有权) 组合
-      const ownership: Array<Record<string, unknown>> = [];
-      if (userId) ownership.push({ userId });
-      if (orgId != null) ownership.push({ orgId });
-      const range = { [field]: Between(startDate, endDate) };
-      if (ownership.length === 0) {
-        where.push(range);
-      } else {
-        for (const o of ownership) where.push({ ...range, ...o });
-      }
-    };
-    addRange('startTime');
-    addRange('endTime');
+    if (ownership.length === 0) {
+      where.push(range);
+    } else {
+      for (const o of ownership) where.push({ ...range, ...o });
+    }
 
     return this.eventsRepository.find({
       where,
