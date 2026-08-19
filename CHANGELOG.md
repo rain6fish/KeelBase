@@ -6,6 +6,60 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased] / 未发布
 
+Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic OIDC SSO, Web-Admin Element Plus migration. / 三旗舰 AI 应用、私有 AI 全链路验证、插件生态 CLI、通用 OIDC SSO、管理台 Element Plus 迁移。
+
+### Added / 新增
+
+- **AI CRM flagship (backend + Flutter/Web UI)**: Customer/Order/Activity/Task/Risk entities, CRUD/CASL, 5 AI tools (query_customers / query_customer_orders / query_customer_activities / analyze_customer_risk read + create_followup_task write-with-confirmation, revocable `crm_task` side effect), risk scoring (overdue / amount / open-risk tiers), real seed (8 customers / overdue orders / risks), feature flag `crm`
+  **AI CRM 旗舰（后端 + Flutter/Web UI）**：客户/订单/跟进/任务/风险实体，CRUD/CASL，5 个 AI 工具（4 读 + 写需确认可撤销 `create_followup_task`，副作用 `crm_task`）、风险打分（逾期/金额/未解决风险分级）、真实 Seed（8 客户/逾期订单/风险）、feature flag `crm`
+- **AI Project Management flagship (backend + Flutter/Web UI)**: Project/Member/Milestone/Task/Risk entities, CRUD/CASL, 4 AI tools (query_projects / query_project_tasks / analyze_project_risk read + create_project_task write-with-confirmation, revocable `pm_task` side effect), delay-risk scoring, real seed (4 projects / milestones / delayed tasks), feature flag `pm`
+  **AI Project 旗舰（后端 + Flutter/Web UI）**：项目/成员/里程碑/任务/风险实体，CRUD/CASL，4 个 AI 工具（3 读 + 写需确认可撤销 `create_project_task`，副作用 `pm_task`）、延期风险打分、真实 Seed（4 项目/里程碑/延期任务）、feature flag `pm`
+- **AI Approval flagship (backend + Flutter/Web UI)**: ApprovalRequest/ApprovalPolicy entities, CRUD/CASL, AI pre-review with policy-tiered rules (low-risk amount ≤ threshold auto-approve / over-threshold → human review) + manual decide, 4 AI tools, real seed (3 policies / 3 requests), feature flag `approval`
+  **AI Approval 旗舰（后端 + Flutter/Web UI）**：审批请求/政策实体，CRUD/CASL，AI 预审按政策分级（金额≤阈值低风险自动通过 / 超阈值转人工复核）+ 人工 decide，4 个 AI 工具，真实 Seed（3 政策/3 请求），feature flag `approval`
+- **Private AI Golden Path (W1 / POV-1)**: `scripts/verify-private-ai.sh` proves the "data never leaves the perimeter" chain end-to-end — Cloud OFF → local Ollama chat (provider=ollama) → local bge-m3 embedding → CRM read → AI audit `provider=ollama` → audit hash chain `valid`; evidence pack `private-ai-report.md` + `benchmarks/private-ai.json`; Release Gate Private dimension ✅
+  **私有 AI 全链路验证（W1 / POV-1）**：`scripts/verify-private-ai.sh` 端到端证明「数据不出域」闭环——Cloud OFF → 本地 Ollama 对话（provider=ollama）→ 本地 bge-m3 embedding → CRM 读 → AI 审计 provider=ollama → 审计哈希链 valid；证据包 `private-ai-report.md` + `benchmarks/private-ai.json`；Release Gate Private 维度 ✅
+- **Plugin ecosystem CLI (P1-7)**: `keelbase-plugin` add / remove / list / verify — host-independent manifest validation (name kebab-case / version semver / description / requires / featureFlag / capabilities), self-containment check (host-relative imports → portability warning), real third-party install cycle (approval-intake example)
+  **插件生态 CLI（P1-7）**：`keelbase-plugin` add/remove/list/verify——宿主外 manifest 校验（结构/一致性/featureFlag 对照）、自包含检测（宿主相对导入→可移植性警告）、真实第三方安装闭环（approval-intake 示例）
+- **Generic OIDC SSO backend (P2-4)**: dynamic `.well-known` discovery → token exchange → id_token signature verification (issuer/audience/JWKS, anti-confusion) → userinfo fallback to claims; enterprise provider group appears when `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` are configured
+  **通用 OIDC SSO 后端（P2-4）**：动态发现 `.well-known` → token 交换 → id_token 签名验证（issuer/audience/JWKS，防混淆）→ userinfo 降级 id_token 声明；配齐 `OIDC_ISSUER`/`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET` 后 `/auth/oauth/providers` 出现 oidc（enterprise 组）
+- **Web-Admin-Vue migrated to Element Plus**: Vuetify fully removed (zero `v-*` tags) — 12 shared components + 37 pages + layout migrated (el-table / el-form / el-menu / el-tag / el-dialog …), Vuetify tokens → EP CSS variables (incl. dark), on-demand tree-shaken import
+  **管理台迁移到 Element Plus**：Vuetify 完全移除（零 `v-*` 残留）——12 个共享组件 + 37 个页面 + 布局迁移（el-table/el-form/el-menu/el-tag/el-dialog…），Vuetify token → EP CSS 变量（含 dark），按需 tree-shake 引入
+- **Agent Decision Trace (P0-14)**: `GET /ai/conversations/:id/trace` aggregates messages / audit / tool-effects into a timeline (tool calls / confirmation decisions / side effects / results); Web workbench AiTraceView + Flutter AiTracePage; live tool cards show read/write badges + "needs confirmation" / "confirmed · revocable"
+  **AI 决策执行轨迹（P0-14）**：`GET /ai/conversations/:id/trace` 聚合消息/审计/副作用为时间线（工具调用/确认决策/副作用/结果）；Web 工作台 AiTraceView + Flutter AiTracePage；实时工具卡显示「读/写」徽标 + 「需确认」/「已确认 · 可撤销」
+- **Self-service AI side-effect revocation (P0-15)**: users revoke their own AI-created records (`DELETE /ai/my/tool-effects/:id`, ownership-checked, soft-delete → restorable from recycle bin); trace effect steps carry `effectId`
+  **用户侧 AI 副作用撤销（P0-15）**：本人可撤销 AI 创建的记录（`DELETE /ai/my/tool-effects/:id`，所有权校验，软删可经回收站恢复）；轨迹 effect 步骤带 `effectId`
+- **Existing-system AIization (P0-12)**: `keelbase init --import-openapi` (OpenAPI 3 / Swagger 2) + `--import-schema` (SQL CREATE TABLE — CHECK IN → enum, long VARCHAR → text) turn a legacy schema into a Protocol → generated module; `--out` writes only the Protocol JSON for later `--spec` reuse
+  **已有系统 AI 化（P0-12）**：`keelbase init --import-openapi`（OpenAPI 3/Swagger 2）+ `--import-schema`（SQL 建表——CHECK IN→enum、长 VARCHAR→text）把老 schema 转成 Protocol → 生成模块；`--out` 只写协议 JSON 供 `--spec` 复用
+- **AI-consumable module metadata (P1-3)**: `/app/capabilities` businessModules expose a `description` so AI agents know what each module does at a glance
+  **AI 可消费模块元数据（P1-3）**：`/app/capabilities` businessModules 透出 `description`，AI 读模块地图即知每个模块做什么
+- **Flagship demo templates (P1-9)**: template market gains `crm-demo` / `pm-demo` / `approval-demo` — one-click import of flagship scenario seeds (at-risk customers / delayed projects / approval policies)
+  **旗舰演示模板（P1-9）**：模板市场新增 `crm-demo`/`pm-demo`/`approval-demo`——一键导入旗舰场景种子（流失风险客户/延期项目/审批政策）
+- **Protocol reverse-engineering + business protocol specs**: generator supports `enum` fields (@IsIn / defaults + Flutter dropdown + admin/taro type mapping); `specs/` common business protocols (events / todos / books / notes) usable with `keelbase init --spec`
+  **协议反推 + 业务协议示例**：生成器支持 enum 字段（`@IsIn`/默认值 + Flutter 下拉 + admin/taro 类型映射）；`specs/` 常用业务协议（events/todos/books/notes）可直接 `--spec` 生成
+- **Generated modules ship AI tools + tests (30-min acceptance)**: `keelbase init` auto-attaches `query_<module>` (read) + `create_<module>` (write, requires confirmation + verified email) and registers them in ai.module; generated controller + AI-tool specs; 30-min acceptance script (`docs/manual/30min-acceptance.md`)
+  **生成模块自带 AI 工具 + 测试（30min 验收）**：`keelbase init` 自动附带 `query_<module>`（读）+ `create_<module>`（写，需确认 + 已验证邮箱）并注册 ai.module；生成 controller/AI 工具单测；30min 验收脚本（`docs/manual/30min-acceptance.md`）
+- **Flagship strict verification (Phase 2-1)**: `scripts/verify-flagships.sh` runs 4 e2e suites (crm / pm / approval / generated-modules — CRUD/CASL/confirmation/audit) with explicit security acceptance points; Release Gate Run dimension gains real LLM evidence (3/3 SUCCESS, DeepSeek)
+  **三旗舰严格验证（Phase 2-1）**：`scripts/verify-flagships.sh` 跑 4 个 e2e suite（crm/pm/approval/generated-modules——CRUD/CASL/确认/审计）+ 显式安全验收点；Release Gate Run 维度补真实 LLM 实测证据（3/3 SUCCESS，DeepSeek）
+- **Signed-URL upload access control (CR-21)**: `/uploads` files served via HMAC-SHA256 signed URLs with expiry (progressive default; `UPLOAD_REQUIRE_SIGN=1` forces 403) + path-traversal guard; avatar/upload responses return signed URLs
+  **上传签名访问（CR-21）**：`/uploads` 经 HMAC-SHA256 签名 URL（含过期时间）访问（渐进默认放行；`UPLOAD_REQUIRE_SIGN=1` 强制 403）+ 路径穿越防护；头像/上传响应返回签名 URL
+- **Web root → workbench, Flutter web as `/mobile` preview**: single-container/nginx root redirects to the Web workbench; Flutter web moves to `/mobile` as the mobile-app preview (Web business UI host = workbench)
+  **Web 根路径切工作台 + Flutter web 移 `/mobile` 预览**：单容器/nginx 根路径重定向到 Web 工作台；Flutter web 移到 `/mobile` 作移动 App 预览（Web 业务 UI 唯一宿主=工作台）
+
+### Fixed / 修复
+
+- **Private AI chain repairs (W1)**: Joi schema accepts `AI_PROVIDER=ollama`; BullMQ workers register only when `QUEUE_ENABLED` (test env never connects Redis); ollama default model follows `OLLAMA_MODEL`
+  **私有 AI 断链修复（W1）**：Joi 放行 `AI_PROVIDER=ollama`；BullMQ worker 条件注册（测试环境不连 Redis）；ollama 默认模型用 `OLLAMA_MODEL`
+- **CI repair (6 failure domains)**: migration-consistency job (no-change exits 1 under `bash -e` → `|| true`), 2 flaky e2e timeouts, coverage gates (Flutter 46.1% / web-admin ≥30%), e2e queue stubbing (never connects Redis), email-verified cache clear
+  **CI 修复（6 个失败域）**：migration-consistency job（`bash -e` 下无变化退出码 1 → `|| true`）、2 个抖动 e2e 超时、覆盖率门禁（Flutter 46.1% / web-admin ≥30%）、e2e 队列 stub（永不连 Redis）、email-verified 缓存清除
+- **Queue disabled in test env**: BullMQ no longer hangs e2e when Redis is absent (conditional registration + stub overrides); `.env.test` auto-generated when missing
+  **测试环境禁用队列**：无 Redis 时 BullMQ 不再挂起 e2e（条件注册 + stub override）；缺 `.env.test` 时自动生成
+- **Redis exposed to host loopback**: compose `redis` now maps `127.0.0.1:6379:6379` (loopback-only) so local dev/e2e can reach it without binding 0.0.0.0
+  **Redis 暴露到宿主机回环**：compose `redis` 加 `127.0.0.1:6379:6379` loopback-only 映射（本机可用、不绑 0.0.0.0 避免生产外网暴露）
+- **Generated-module CASL wiring (30-min acceptance hardening)**: `keelbase init` modules now auto-wire `can('manage','<Module>',{userId})` — owner update/delete previously returned 403
+  **生成模块 CASL 接线修复（30min 验收加固）**：`keelbase init` 生成模块自动接线 `can('manage','<Module>',{userId})`——此前本人更新/删除全 403
+- **TypeORM logging type**: `app.module` logging `string[]` → `LogLevel[]` (build blocker from read/write-split)
+  **TypeORM logging 类型**：`app.module` logging `string[]`→`LogLevel[]`（读写分离遗留的 build 阻塞）
+
 ## [0.9.2] - 2026-08-17
 
 Preset guidance & capabilities-driven navigation, streaming resilience, WeChat mini-app, enterprise login security (MFA / forced password change), deployment scale-out. / 首启预设引导 + capabilities 三端导航联动、流式韧性与 SSE 重连、微信小程序、企业登录安全（TOTP / 强制改密）、部署扩展（读写分离 / K8s / 蓝绿）。
