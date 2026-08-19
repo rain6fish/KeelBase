@@ -204,7 +204,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
             displayName: '本地 Ollama',
             baseURL: `${ollamaBase.replace(/\/+$/, '')}/v1`,
             apiKey: 'ollama', // 本地无需真实 key，占位
-            defaultModel: configService.get<string>('AI_CHAT_MODEL', ollamaModel),
+            defaultModel: ollamaModel, // 本地模型由 OLLAMA_MODEL 决定；AI_CHAT_MODEL 是云模型名（如 deepseek-v4-flash），不适用于 ollama
             availableModels: [ollamaModel],
             maxTokens: configService.get<number>('AI_MAX_TOKENS', 4096),
             temperature: configService.get<number>('AI_TEMPERATURE', 0.7),
@@ -254,7 +254,11 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         // 4. 创建 ConversationCompactor（长对话上下文压缩，手动组装）
         const aiConfig = {
           defaultProvider,
-          defaultModel: configService.get<string>('AI_CHAT_MODEL', 'deepseek-v4-flash'),
+          // ollama 场景默认模型用本地 OLLAMA_MODEL；其余走 AI_CHAT_MODEL（云模型名）
+          defaultModel:
+            defaultProvider === 'ollama'
+              ? configService.get<string>('OLLAMA_MODEL', 'qwen2.5:7b')
+              : configService.get<string>('AI_CHAT_MODEL', 'deepseek-v4-flash'),
           systemPrompt: SYSTEM_PROMPT,
         };
         const compactor = new ConversationCompactor(factory, aiConfig, conversationService);
