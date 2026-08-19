@@ -3,7 +3,7 @@
 > 这份文档对照企业选型时常见的「必需功能」清单，逐项列出 KeelBase 现状（✅ 已完成 / 🚧 部分 / ⬜ 待办 / ⏸ 押后）+ 证据（spec 文档 / 端点 / 页面），并给出差距与优先级。
 > This document maps KeelBase against the typical "must-have" checklist used in enterprise evaluations — current status (✅ done / 🚧 partial / ⬜ todo / ⏸ deferred) with evidence (specs / endpoints / pages), plus gaps and priorities.
 >
-> 状态日期：2026-08-17。本文档为活清单，随版本更新。Status as of 2026-08-17; a living checklist that moves with each release.
+> 状态日期：2026-08-18。本文档为活清单，随版本更新。Status as of 2026-08-18; a living checklist that moves with each release.
 
 ---
 

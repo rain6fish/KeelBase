@@ -77,7 +77,8 @@ KeelBase 是一个业务安全的 AI 全栈应用基座：**让 AI 按照系统�
 |-----------|-------------|
 | `Front-Flutter/` | 主用户 App（Flutter，iOS/Android/Web 三端） |
 | `Front-Taro/` | 主 App 的 H5/小程序端（Taro） |
-| `Web-Admin-Vue/` | Web 端宿主：工作台 + 管理台同一壳（Vue3 + Element Plus）；React 版规划中 |
+| `Web-Admin-Vue/` | Web 端宿主：工作台 + 管理台同一壳（Vue3 + Element Plus） |
+| `Web-Admin-React/` | 管理台 React 预览版（React 19 + MUI；按实际需求转正） |
 | `Server-NestJS/` | NestJS 后端（REST API） |
 | `docs/` | 规格、需求、手册 |
 | `.github/workflows/` | CI 流水线（lint + 测试 + 构建） |
@@ -211,7 +212,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
 | 层 | 技术 | 说明 |
 |-------|-----------|--------------|
-| 前端 | Flutter 3.x (Material 3, Provider, Dio) + Taro 3.6 (React, zustand) + Vue3 + Element Plus | 主 App 三端 + H5/小程序 + Web 端（工作台 + 管理台同一壳） |
+| 前端 | Flutter 3.x（移动主 App）· Taro 3.x Vue3（H5/小程序）· Vue3 + Element Plus（Web 端宿主：工作台 + 管理台同一壳）· React 19 + MUI（预览版） | 核心与 UI 框架无关；UI 框架作为 Renderer（见 docs/architecture-boundary.md） |
 | 后端 | NestJS 11.x, TypeScript, TypeORM | 模块化、装饰器驱动 |
 | 数据库 | SQLite (dev) / PostgreSQL (prod) | 开发 / 生产 |
 | 缓存·队列 | Redis 7 + CacheManager (Redis) + BullMQ | 缓存层 + 异步队列 |
@@ -256,10 +257,22 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 | [`docs/manual/usage.md`](docs/manual/usage.md) | 终端用户 | 使用手册——功能入口与常用操作（中英） |
 | [`docs/manual/development.md`](docs/manual/development.md) | 开发者 | 开发手册——架构、模式、测试 |
 | [`docs/manual/operations.md`](docs/manual/operations.md) | 运维 | 运维手册——部署、环境变量、迁移、可观测性 |
+| [`docs/manual/plugin-development.md`](docs/manual/plugin-development.md) | 开发者 | 插件开发指南——manifest / context / lifecycle / 接线 / CLI（P1-7） |
 | [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | 运维 | 云服务器一键部署（私有化） |
 | [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | 运维 | 内网/离线环境部署 |
+| [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | 运维 | 私有化 AI 验证——数据留在本地的闭环（Ollama / 本地 embedding / RAG / 审计） |
+| [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | 市场 | Golden Demo 60 秒录制脚本——工具 → 权限 → 确认 → 审计闭环（P0-3） |
+| [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | 开发者 / 销售 | 存量系统 AI 化演示——旧 Schema → `keelbase import` → Protocol → 模块 → AI 工具 → 治理（P0-12） |
+| [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | 开发者 | 生态包组装——模板 / 业务技能 / 插件 CLI / 生成器（Phase 2 三方共建式构建） |
+| [`docs/manual/plugin-authoring.md`](docs/manual/plugin-authoring.md) | 插件作者 | 插件编写——自包含插件模式、`keelbase-plugin verify/add/list`、PluginContext API、生命周期（Phase 2 Extension API） |
+| [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | 外部开发者 | 开发挑战赛——30 分钟可复现构建（模块 + AI 工具 + 确认 + 审计），含反馈表单（Phase 3） |
+| [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | 维护者 | 发布门禁——Build / Run / Trust / Private / External 检查清单 + 命令 + 当前状态（0.9.x 里程碑） |
+| [`docs/manual/flagship-task-card.md`](docs/manual/flagship-task-card.md) | 维护者 | 旗舰 LLM 任务卡——CRM / 项目 / 审批真实业务任务 + Agent 成功率记录（Run/Private 验证） |
 | [`docs/project.spec.md`](docs/project.spec.md) | 开发者 | 项目规格 |
+| [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | 开发者 / AI 代理 | 协议生态——Module/Flow/Tool/Plugin/Capability 协议与 AI 生成链（P1-1） |
 | [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | 开发者 | AI 助手功能规格 |
+| [`docs/enterprise-capabilities.md`](docs/enterprise-capabilities.md) | 企业采购 | 企业能力声明——能力 + 证据 + 合规路径 |
+| [`docs/enterprise-readiness.md`](docs/enterprise-readiness.md) | 企业采购 | 企业就绪度检查清单——状态 / 缺口 / 优先级 |
 | [`docs/flagship-applications.md`](docs/flagship-applications.md) | 开发者 / 销售 | 三旗舰应用规格——AI CRM / 项目 / 审批的完整规格（数据模型、AI 工具、治理、演示路径） |
 | [`SECURITY.md`](SECURITY.md) | 所有人 | 安全政策——受支持版本/漏洞报告/内置安全能力/SBOM |
 | `Server-NestJS/.env.example` | 开发者 | 环境变量参考 |
