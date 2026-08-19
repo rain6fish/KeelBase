@@ -215,7 +215,7 @@ export function createToolSpecTemplate(ctx) {
   const expectDto = firstField
     ? `expect.objectContaining({ ${firstField.name}: 'sample' })`
     : 'expect.any(Object)';
-  return `import { Create${ctx.singlePascal}Tool } from './create-${ctx.singular}.tool';
+  return `import { Create${ctx.singlePascal}Tool } from './create-${ctx.plural}.tool';
 
 describe('Create${ctx.singlePascal}Tool', () => {
   const mockService = { create: jest.fn() };
@@ -265,8 +265,8 @@ describe('Create${ctx.singlePascal}Tool', () => {
 export function aiFiles(ctx) {
   return [
     { path: `ai/tools/query-${ctx.plural}.tool.ts`, content: queryToolTemplate(ctx) },
-    { path: `ai/tools/create-${ctx.singular}.tool.ts`, content: createToolTemplate(ctx) },
+    { path: `ai/tools/create-${ctx.plural}.tool.ts`, content: createToolTemplate(ctx) },
     { path: `ai/tools/query-${ctx.plural}.tool.spec.ts`, content: queryToolSpecTemplate(ctx) },
-    { path: `ai/tools/create-${ctx.singular}.tool.spec.ts`, content: createToolSpecTemplate(ctx) },
+    { path: `ai/tools/create-${ctx.plural}.tool.spec.ts`, content: createToolSpecTemplate(ctx) },
   ];
 }
