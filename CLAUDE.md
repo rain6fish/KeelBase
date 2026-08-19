@@ -15,11 +15,12 @@
 
 | 层 | 技术 | 说明 |
 |----|------|------|
-| 前端框架 | Flutter 3.x + Material 3 | iOS / Android / Web 三端 |
-| 状态管理 | Provider (ChangeNotifier) | 轻量、官方推荐 |
-| 网络层 | Dio | HTTP 客户端，含 JWT 拦截器 + 自动刷新 |
-| 路由 | GoRouter | 声明式路由 + 重定向守卫 |
-| 持久化 | SharedPreferences + flutter_secure_storage | 主题偏好 + Token 安全存储 |
+| 前端框架（移动） | Flutter 3.x + Material 3 | iOS / Android / Web 预览三端 |
+| 前端框架（Web 宿主） | Vue3 + Element Plus (Vite + Pinia) | 企业应用 Web 端宿主：工作台 + 管理台同一壳；React 19 + MUI 预览版 |
+| 状态管理（移动） | Provider (ChangeNotifier) | 轻量、官方推荐 |
+| 网络层（移动） | Dio | HTTP 客户端，含 JWT 拦截器 + 自动刷新 |
+| 路由（移动） | GoRouter | 声明式路由 + 重定向守卫 |
+| 持久化（移动） | SharedPreferences + flutter_secure_storage | 主题偏好 + Token 安全存储 |
 | 后端框架 | NestJS 11.x + TypeScript | 模块化、装饰器驱动 |
 | ORM | TypeORM | 支持 SQLite (dev) / PostgreSQL (prod) |
 | 认证 | JWT (access + refresh token) | 轮换策略 + SHA-256 哈希存储 |
@@ -79,12 +80,22 @@ KeelBase/
 │   │   │   ├── interceptors/      # ResponseInterceptor (统一响应包装，@Raw() 跳过)
 │   │   │   ├── interfaces/        # ApiResponse 接口
 │   │   │   └── utils/             # file-validator.ts (魔数校验)
-│   │   ├── auth/                  # 认证模块 (JWT + bcrypt + 登录锁定 + Token轮换)
+│   │   ├── auth/                  # 认证模块 (JWT + bcrypt + 登录锁定 + Token轮换 + MFA/强制改密/SSO OIDC)
 │   │   ├── users/                 # 用户模块 (CRUD + 分页 + CASL + 所有权校验)
-│   │   ├── events/                # 日历事件模块 (CRUD + 范围查询 + CASL + 所有权校验)
-│   │   ├── health/                # 健康检查
-│   │   ├── metrics/               # Prometheus 指标（service + middleware + controller）
+│   │   ├── events/ + todos/       # 日历事件 + 待办清单
+│   │   ├── notifications/         # 站内通知 + SSE + WS 推送
+│   │   ├── search/                # 全局搜索
+│   │   ├── health/ + metrics/     # 健康检查 + Prometheus 指标
 │   │   ├── upload/                # 文件上传（MIME + 魔数 + 扩展名校验）
+│   │   ├── ai/                    # AI 助手（对话/工具/RAG/评测/记忆/副作用撤销/MCP 出口）
+│   │   ├── crm/ + pm/ + approval/ # 旗舰应用（AI CRM / Project / Approval）
+│   │   ├── contracts/ + suppliers/ + tags/ + notes/ + books/ + posts/  # 生成/示例业务模块
+│   │   ├── org/ + points/ + feedback/ + marketing/ + sms/              # 组织/积分/反馈/运营/短信
+│   │   ├── flows/                 # FLOW 工作流引擎
+│   │   ├── plugins/ + mcp/ + headless/ + webhooks/                     # 扩展：插件/MCP/无头/Webhook
+│   │   ├── admin/ + settings/ + data-import/ + templates/ + form-builder/ + maintenance-tasks/  # 管理侧
+│   │   ├── queue/ + push/ + realtime/ + mail/                          # 基础设施：队列/推送/实时/邮件
+│   │   ├── feature-flags/ + app-version/ + circuit-breaker/ + alert-webhook/ + operation-audit/  # 开关/版本/熔断/告警/审计
 │   │   └── tracing.ts             # OpenTelemetry 初始化
 │   ├── test/                      # E2E 测试
 │   ├── migrations/                # TypeORM 迁移文件
@@ -300,8 +311,12 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 ### 4.4 速率限制
 
 - 全局：60 次/分钟
-- `POST /auth/login`：10 次/分钟
+- `POST /auth/login`：20 次/分钟
+- `POST /auth/login-phone`：20 次/分钟
+- `POST /auth/oauth`：10 次/分钟
 - `POST /auth/register`：3 次/分钟
+- `POST /auth/forgot-password` / `reset-password` / `verify-email` / `resend-verification`：5 次/分钟
+- `POST /auth/send-sms-code`：20 次/分钟
 - `GET /health`：60 次/分钟（`?detail=true` 时同样限流，防依赖故障占满 DB 连接池）
 
 ### 4.5 文件上传
@@ -377,7 +392,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 
 ## 5.5 产品架构红线（必须遵守）
 
-**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ 管理端（Web-Admin-Vue）。**
+**全平台只有三个入口：主 App（Front-Flutter）/ 小程序（Front-Taro）/ Web 端宿主（Web-Admin-Vue，工作台 + 管理台同一壳）。**
 
 1. **所有后台管理功能一律并入管理端**，包括但不限于：用户与权限管理、事件/内容管理、监控审计、会话管理、知识库维护、通知广播、系统信息。**禁止**在主 App 或小程序中实现任何面向管理员的 CRUD/权限/审计功能。
 2. **管理页面不出现用户填写的个人数据 / 隐私数据**；必须出现时用掩码遮盖：
@@ -399,9 +414,26 @@ JWT_SECRET=           # 最少 32 字符
 JWT_REFRESH_SECRET=   # 最少 32 字符
 
 # 环境切换
-NODE_ENV=development  # development | staging | production
-DB_TYPE=sqlite        # sqlite (dev) | postgres (prod)
+NODE_ENV=development  # development | staging | production | test
+PORT=3000
 CORS_ORIGINS=*        # 生产环境改为 https://yourdomain.com
+
+# 数据库
+DB_TYPE=sqlite        # sqlite (dev) | postgres (prod)
+DB_HOST=localhost     # postgres 时
+DB_PORT=5432
+DB_NAME=front
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_PATH=./data/front.sqlite   # sqlite 时
+DB_POOL_MAX=20        # 连接池
+DB_POOL_MIN=5
+DB_POOL_IDLE_TIMEOUT=30000
+DB_POOL_CONNECTION_TIMEOUT=2000
+
+# 限流
+THROTTLE_LIMIT=60     # 全局限流（次/分钟，压测/大促可放宽）
+THROTTLE_TTL=60000    # 限流窗口（毫秒）
 
 # 安全
 LOCKOUT_THRESHOLD=10  # 登录锁定的失败次数阈值
@@ -417,14 +449,24 @@ LOKI_ENABLED=false             # 是否把 pino 日志直推 Loki
 LOKI_URL=                      # Loki 地址，默认 http://localhost:3100
 
 # OAuth 第三方登录
-OAUTH_ENABLED_PROVIDERS=wechat,alipay     # 启用的认证商（逗号分隔，默认国内）
+OAUTH_ENABLED_PROVIDERS=wechat,alipay  # 启用的认证商（逗号分隔；google,apple,wechat,alipay,oidc；qq 预留未实现）
+OAUTH_REDIRECT_BASE=     # 原生 OAuth 回调前缀（native flow）
 WECHAT_APP_ID=           # 微信开放平台 AppID
 WECHAT_APP_SECRET=       # 微信开放平台 AppSecret
 WECHAT_REMIND_TEMPLATE_ID=  # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送；前端构建时 TARO_APP_WX_TEMPLATE_ID 需与此一致）
 ALIPAY_APP_ID=           # 支付宝开放平台 AppID
+ALIPAY_PUBLIC_KEY=       # 支付宝公钥（验签）
 ALIPAY_PRIVATE_KEY=      # 支付宝应用私钥（用于签名）
+QQ_APP_ID=               # QQ 开放平台 AppID
+QQ_APP_KEY=              # QQ 开放平台 AppKey
 GOOGLE_CLIENT_ID=        # Google OAuth Web client ID（国际，如需加）
 APPLE_CLIENT_ID=         # Apple Service ID（国际，如需加）
+
+# 企业 SSO（P2-4 通用 OIDC）：三变量配齐后 /auth/oauth/providers 出现 oidc（enterprise 组）
+OIDC_ENABLED=false
+OIDC_ISSUER=             # OIDC Issuer（动态发现 .well-known）
+OIDC_CLIENT_ID=          # OIDC confidential client ID
+OIDC_CLIENT_SECRET=      # OIDC client secret
 
 # 邮件服务（SMTP）
 MAIL_ENABLED=false       # 是否启用邮件发送（nodemailer）
@@ -460,10 +502,58 @@ QUEUE_ENABLED=true                 # 是否启用队列（false 降级同步执�
 
 # AI 模型配置（可选，不配置则 AI 功能降级不可用；详见 docs/ai-agent.spec.md §环境变量）
 AI_PROVIDER=deepseek               # deepseek | qwen | openai
+AI_CHAT_MODEL=deepseek-v4-flash    # 默认对话模型
+AI_MAX_TOKENS=4096
+AI_TEMPERATURE=0.7
+CONVERSATION_TTL=3600              # 对话缓存 TTL（秒）
 DEEPSEEK_API_KEY=                  # 按 AI_PROVIDER 配置对应模型的 API Key 与 Base URL
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+QWEN_API_KEY=
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# RAG 向量检索（AI-5，postgres + vector 扩展时可用）
+VECTOR_SEARCH_ENABLED=true
+EMBEDDING_BASE_URL=                # 本地 Ollama 时填 http://localhost:11434/v1
+EMBEDDING_API_KEY=
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=1536
+
+# 联网搜索（AI-14）
+TAVILY_API_KEY=
+TAVILY_BASE_URL=https://api.tavily.com/search
+
+# 私有化 AI（POV-1）：本地 Ollama，数据不出域
+OLLAMA_BASE_URL=                   # 本地 Ollama，如 http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_EMBED_MODEL=bge-m3
 
 # Headless API（AI-19，可选）
 HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头校验；留空则 /headless 端点 401）
+
+# 特性开关（PL-8/EASY-3）：FEATURE_<KEY>_ENABLED；未配置由 APP_PRESET 判定
+FEATURE_AI_ENABLED=
+FEATURE_SEARCH_ENABLED=
+FEATURE_PUSH_ENABLED=
+FEATURE_SMS_ENABLED=
+FEATURE_OAUTH_ENABLED=
+FEATURE_UPLOAD_ENABLED=
+FEATURE_NOTIFICATIONS_ENABLED=
+FEATURE_TODOS_ENABLED=
+APP_PRESET=full                    # full（默认全开）| small（关外部集成）| lite（最小可用）
+UPLOAD_REQUIRE_SIGN=false          # =1 时强制校验上传签名 URL（渐进模式默认放行裸 URL）
+
+# 运维
+BACKUP_KEEP=7                      # npm run backup 轮转保留份数
+NOTIFICATION_RETENTION_DAYS=30     # 已读通知保留天数（定时清理）
+ALERT_WEBHOOK_ENABLED=false        # 异常告警 Webhook（钉钉/飞书/Slack）
+ALERT_WEBHOOK_URL=
+ALERT_WEBHOOK_TYPE=dingtalk        # dingtalk | feishu | slack
+ALERT_WEBHOOK_MIN_INTERVAL_SECONDS=60
+
+# 短信服务
+SMS_DRIVER=console                 # console（控制台打印）| aliyun | none
 ```
 
 ### 6.2 配置文件层次
@@ -512,13 +602,18 @@ npm run migration:run
 | `npm run start:dev` | 开发启动（热重载） |
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |
-| `npm run test:e2e` | 端到端测试 |
-| `npm run test:cov` | 测试覆盖率（含门槛检查：statements≥40 / branches≥30 / functions≥40 / lines≥41） |
+| `npm run test:e2e` | 端到端测试（NODE_ENV=test，8 个 suite） |
+| `npm run test:e2e:cov` | e2e 覆盖率 |
+| `npm run test:cov` | 测试覆盖率（门槛：statements≥65 / branches≥55 / functions≥60 / lines≥65）+ `check-security-coverage.mjs` 安全模块分档门控（auth/casl/operation-audit/ai-tools/governance/headless statements≥60） |
 | `npm run lint` | 代码检查 |
 | `npm run migration:generate` | 生成迁移文件 |
+| `npm run migration:run` | 执行迁移 |
+| `npm run migration:revert` | 回滚最近迁移 |
+| `npm run seed:demo` | 导入演示数据（旗舰 Seed） |
+| `npm run create:admin` | 创建管理员账号 |
+| `npm run healthcheck` | 健康检查 |
 | `npm run backup` | 数据库备份（`data/backups/`，保留 BACKUP_KEEP=7 份） |
 | `npm run restore -- <file>` | 数据库恢复（危险，先停应用） |
-| `npm run migration:run` | 执行迁移 |
 
 ### 前端
 
@@ -564,10 +659,10 @@ npm run migration:run
 | Method | Path | Auth | 所有权校验 | 说明 |
 |--------|------|------|-----------|------|
 | POST | /api/v1/auth/register | No | — | 注册（限流 3/m，可带 inviteCode 邀请码 G-2） |
-| POST | /api/v1/auth/login | No | — | 登录（限流 10/m） |
+| POST | /api/v1/auth/login | No | — | 登录（限流 20/m） |
 | POST | /api/v1/auth/refresh | No | — | 刷新 token |
 | GET | /api/v1/auth/me | Yes | 当前用户 | 当前用户信息 |
-| POST | /api/v1/auth/oauth | No | — | OAuth 第三方登录（Google/Apple/WeChat/Alipay），新用户自动注册（限流 10/m）；WeChat 加 `providerType: 'miniapp'` 走小程序 code2Session（MINI-3） |
+| POST | /api/v1/auth/oauth | No | — | OAuth 第三方登录（Google/Apple/WeChat/Alipay/OIDC 企业 SSO），新用户自动注册（限流 10/m）；WeChat 加 `providerType: 'miniapp'` 走小程序 code2Session（MINI-3）；OIDC 走 authorization-code flow（动态发现 + JWKS 验签） |
 | POST | /api/v1/auth/forgot-password | No | — | 忘记密码：发送重置邮件（防枚举统一响应，限流 5/m） |
 | POST | /api/v1/auth/reset-password | No | — | 重置密码（邮件链接 token，限流 5/m） |
 | POST | /api/v1/auth/verify-email | No | — | 邮箱验证（提交 6 位验证码，限流 5/m） |
@@ -579,14 +674,21 @@ npm run migration:run
 | GET | /api/v1/auth/export-data | Yes | 本人 | 导出本人全量数据（数据可携带权） |
 | GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请信息：邀请码 + 已邀请用户列表（G-2） |
 | GET | /api/v1/auth/oauth/providers | No | — | 获取已启用的 OAuth 提供商列表及元数据 |
+| POST | /api/v1/auth/mfa/setup | Yes | 本人 | 启用 MFA：生成 TOTP 密钥（RFC 6238）与 otpauth URL |
+| POST | /api/v1/auth/mfa/verify | Yes | 本人 | 提交 TOTP 验证码启用 MFA |
+| POST | /api/v1/auth/mfa/disable | Yes | 本人 | 禁用 MFA |
+| POST | /api/v1/auth/change-password | Yes | 本人 | 修改密码（校验当前密码，清除 mustChangePassword 标志） |
 | POST | /api/v1/auth/logout | Yes | 当前用户 | 登出当前设备 |
 | GET | /api/v1/auth/sessions | Yes | 本人 | 登录设备会话列表（含 isCurrent） |
 | DELETE | /api/v1/auth/sessions/:id | Yes | 本人 | 远程登出指定会话 |
 | GET | /api/v1/health | No | — | 健康检查（?detail=true 返回 db/redis/queue/storage 状态，60/min 限流） |
 | GET | /api/v1/metrics | No | — | Prometheus 指标（跳过限流）|
+| GET | /api/v1/app/version | No | — | 应用版本元数据（PL-5，optional/forced 决策） |
+| GET | /api/v1/app/capabilities | No | — | 能力清单（businessModules 含模块描述，AI 可消费） |
 | GET | /api/v1/users | Yes (ADMIN) | — | 用户列表（分页） |
 | POST | /api/v1/users | Yes (ADMIN) | — | 创建用户 |
 | PATCH | /api/v1/users/:id/role | Yes (ADMIN) | — | 修改用户角色 |
+| POST | /api/v1/users/:id/must-change-password | Yes (ADMIN) | — | 强制用户下次登录修改密码（WEB-FRONT-4） |
 | GET | /api/v1/users/:id | Yes | 本人或管理员 | 用户详情 |
 | PUT | /api/v1/users/:id | Yes | 本人或管理员 | 更新用户 |
 | DELETE | /api/v1/users/:id | Yes | 本人或管理员 | 删除用户（不能删自己/最后一个 admin） |
@@ -597,6 +699,7 @@ npm run migration:run
 | PATCH | /api/v1/todos/:id/complete | Yes | 本人或同组或管理员 | 切换待办完成状态 |
 | DELETE | /api/v1/todos/:id | Yes | 本人或同组或管理员 | 删除待办 |
 | GET | /api/v1/events | Yes | 本人 | 范围查询事件 |
+| GET | /api/v1/events/search | Yes | 本人 | 事件搜索（title/description LIKE，所有权限定） |
 | GET | /api/v1/events/admin/all | Yes (ADMIN) | — | 全量事件列表（分页） |
 | DELETE | /api/v1/events/admin/:id | Yes (ADMIN) | — | 删除任意事件 |
 | GET | /api/v1/events/:id | Yes | 本人或管理员 | 事件详情 |
@@ -620,6 +723,7 @@ npm run migration:run
 | WS | /ws?token=&lt;jwt&gt; | 握手 JWT | 本人 | WebSocket 双向通道（RG-6）：握手失败 4401；通知推送（`notification` 事件）+ AI 流式（`ai:chat`/`ai:abort` → `ai:*` 事件）+ 通用双向 `message`；心跳 ping/pong；与 SSE 并存。协议详见 docs/ws-realtime.spec.md |
 | POST | /api/v1/ai/chat | Yes | 当前用户 | AI 对话（非流式） |
 | POST | /api/v1/ai/chat/stream | Yes | 当前用户 | AI 对话（SSE 流式；含 tool_start/tool_end 过程事件 + confirmation_request/confirmation_decision） |
+| GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限元数据（HS-2，管理台审计/治理） |
 | POST | /api/v1/ai/confirmations/:token | Yes | 本人 | 确认 AI 写操作（create_event/create_todo，approve/reject，未知 token 404） |
 | DELETE | /api/v1/ai/memory | Yes | 本人 | 清除用户长期记忆（隐私） |
 | POST | /api/v1/ai/insights | Yes | 当前用户 | 数据洞察报告（结构化统计） |
@@ -637,6 +741,7 @@ npm run migration:run
 | GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） |
 | PATCH | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 更新知识条目 |
 | DELETE | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 删除知识条目 |
+| POST | /api/v1/ai/eval/seed | Yes (ADMIN) | — | 补齐内置安全评测用例（越权/PII/注入/写拒绝，幂等，HS-1） |
 | GET | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 评测集用例列表（AI-20） |
 | POST | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 新增评测用例（AI-20） |
 | DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） |
@@ -671,6 +776,13 @@ npm run migration:run
 | DELETE | /api/v1/push/tokens/:token | Yes | 本人 | 注销设备推送 token |
 | GET | /api/v1/settings | Yes (ADMIN) | — | 全部动态配置（RG-2，实时生效） |
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | — | 更新/创建动态配置（维护模式/AI 每日限额等，写入 Settings 表即生效） |
+| GET | /api/v1/admin/monitor/summary | Yes (ADMIN) | — | 监控摘要：健康 + 依赖 + 指标 + 计数 |
+| GET | /api/v1/admin/ops/summary | Yes (ADMIN) | — | 运维摘要 |
+| GET | /api/v1/admin/overview | Yes (ADMIN) | — | 平台总览（计数卡 + 趋势 + 存储） |
+| GET | /api/v1/admin/sessions | Yes (ADMIN) | — | 会话管理列表 |
+| DELETE | /api/v1/admin/sessions/:id | Yes (ADMIN) | — | 远程登出任意会话 |
+| GET | /api/v1/admin/users/:id/detail | Yes (ADMIN) | — | 用户详情聚合（脱敏 + 会话 + 通知 + 统计，AD-6） |
+| POST | /api/v1/admin/notifications/broadcast | Yes (ADMIN) | — | 通知广播（全部或指定用户） |
 | GET | /api/v1/admin/trash | Yes (ADMIN) | — | 回收站：已软删除的事件/待办（RG-3，events/todos 用 @DeleteDateColumn 软删，管理台可恢复；users/notifications 保持硬删） |
 | POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | — | 恢复回收站记录（type: event\|todo） |
 | GET | /api/v1/admin/templates | Yes (ADMIN) | — | 内置示例模板列表（PL-9） |
@@ -690,6 +802,7 @@ npm run migration:run
 | POST | /api/v1/plugins/:path | Yes | — | 插件路由统一入口（PL-11，插件 registerRoute 注册） |
 | POST | /api/v1/admin/import/users | Yes (ADMIN) | — | 批量导入用户（CSV，POV-2，返回成功/失败明细） |
 | POST | /api/v1/admin/import/events | Yes (ADMIN) | — | 批量导入事件（CSV，POV-2，返回成功/失败明细） |
+| POST | /api/v1/admin/import/todos | Yes (ADMIN) | — | 批量导入待办（CSV，POV-2，返回成功/失败明细） |
 | POST | /api/v1/org/organizations | Yes (ADMIN) | — | 创建组织（ORG-1，创建者成 owner） |
 | GET | /api/v1/org/organizations | Yes (ADMIN) | — | 组织列表（含成员/部门数，ORG-1） |
 | GET | /api/v1/org/organizations/:id | Yes (ADMIN) | — | 组织详情（ORG-1） |
@@ -711,7 +824,11 @@ npm run migration:run
 | GET | /api/v1/org/my | Yes | 成员 | 我的组织信息 + 部门路径（ORG-7） |
 | GET | /api/v1/org/my/tree | Yes | 成员 | 我的组织部门树（只读，ORG-7） |
 | GET | /api/v1/org/my/members | Yes | 成员 | 我的组织成员（脱敏白名单，ORG-7） |
-
+| GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务子资源 + `:id/analyze` 风险分析（旗舰应用，feature flag: crm） |
+| GET/POST | /api/v1/pm/projects（及 :id/milestones·tasks·members·risks） | Yes | 本人 | AI Project：项目 CRUD + 里程碑/任务/成员 + `:id/analyze` 延期风险分析（旗舰应用，feature flag: pm） |
+| GET/POST | /api/v1/approval/requests（及 policies）+ `:id/review`·`:id/decide` | Yes | 本人 | AI Approval：审批请求 + 政策 + AI 预审/人工复核（旗舰应用，feature flag: approval） |
+| GET/POST/PATCH/DELETE | /api/v1/{module} | Yes | 本人 | 生成/示例业务模块：contracts / suppliers / tags / notes / books / posts（`keelbase init` 生成，CASL 所有权 + 审计） |
+| GET/POST | /api/v1/flows/... | Yes | 本人 | FLOW 工作流引擎：流程定义/实例/节点（human_task/ai_task/condition） |
 ---
 
 ## 10. 常见模式
@@ -876,14 +993,14 @@ Role: admin
 
 ---
 
-## 13. 管理员管理台（Web-Admin-Vue）
+## 13. 企业 Web 端（Web-Admin-Vue：工作台 + 管理台同一壳）
 
-> **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：管理台为 **PC Web 管理台（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
+> **技术栈（2026-08-12 决策，见私有 roadmap「WEB-ADMIN」章节）**：Web 端为 **PC Web 宿主（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
-**Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳；与 `Front-Flutter` / `Front-Taro`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
+**Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳、两套导航（WEB-FRONT-1）；与 `Front-Flutter` / `Front-Taro`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
 
 **架构原则**：
-- 独立入口 + 独立登录（`/auth/login`），登录后校验 `role === 'admin'`，非管理员拒绝进入
+- 独立入口 + 独立登录（`/auth/login`），登录后按角色分流：`role === 'admin'` → 控制台，普通用户 → 工作台（非拒绝）
 - 所有管理 API 带 `@CheckPolicies((a) => a.can('manage', 'all'))`（CASL），普通用户 token 返回 403
 - `GET /auth/me` 返回 `role` 字段，供管理台判断管理员身份
 - 路由 hash 模式（`createWebHashHistory`）——单容器 Nest 静态托管无 SPA fallback，hash 让 nginx + 单容器两套部署链零改动
