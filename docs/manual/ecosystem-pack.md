@@ -65,6 +65,33 @@ node scripts/keelbase-plugin.mjs add my-crm-integration.ts
   rm Server-NestJS/src/plugins/plugins/approval-intake.plugin.ts
   ```
   集成测试覆盖：安装后加载 + 路由注册 + 低/高风险样例返回 + 非对象 body 防御 + 未安装 not-found 分支（经真实 PluginsController 派发）+ requires 缺失跳过 + featureFlag 关闭跳过。
+- **三旗舰第三方风格插件全链路闭环（2026-08-19）**：新增 3 个自包含示例插件（`Server-NestJS/scripts/examples/`），均为「作者不看 Core 内部实现」的第三方风格——本地声明与宿主一致的 PluginManifest/PluginContext 形状、**不 import 宿主相对路径**、业务逻辑为纯函数 + 宿主服务探测（无外部凭据可本地验证）：
+  - `crm-import-webhook.plugin.ts`（`CRM_IMPORT_WEBHOOK_PLUGIN`，requires `CrmService` + featureFlag `crm`；只读端点 `/plugins/crm-import-webhook/normalize`：字段清洗 + 价值分级）
+  - `pm-deadline-notify.plugin.ts`（`PM_DEADLINE_NOTIFY_PLUGIN`，requires `PmService` + featureFlag `pm`；只读端点 `/plugins/pm-deadline-notify/scan`：逾期/临期扫描）
+  - `approval-escalation.plugin.ts`（`APPROVAL_ESCALATION_PLUGIN`，requires `ApprovalService` + featureFlag `approval`；只读端点 `/plugins/approval-escalation/evaluate`：SLA 升级评估）
+  每个插件均演示 `getService`（探测对应旗舰服务能力）+ `isFeatureEnabled` + `registerRoute`（只读路由）。命令序列（仓库根目录）：
+  ```bash
+  # 1. verify：3/3 通过（requires 对照 CrmService/PmService/ApprovalService、featureFlag 对照 FEATURE_KEYS、无宿主相对导入警告）
+  node scripts/keelbase-plugin.mjs verify Server-NestJS/scripts/examples/crm-import-webhook.plugin.ts   # ✓
+  node scripts/keelbase-plugin.mjs verify Server-NestJS/scripts/examples/pm-deadline-notify.plugin.ts    # ✓
+  node scripts/keelbase-plugin.mjs verify Server-NestJS/scripts/examples/approval-escalation.plugin.ts   # ✓
+  # 2. install（逐一 add → PLUGINS 增至 4 个：HELLO + 3 新增）
+  node scripts/keelbase-plugin.mjs add Server-NestJS/scripts/examples/crm-import-webhook.plugin.ts
+  node scripts/keelbase-plugin.mjs add Server-NestJS/scripts/examples/pm-deadline-notify.plugin.ts
+  node scripts/keelbase-plugin.mjs add Server-NestJS/scripts/examples/approval-escalation.plugin.ts
+  # 3. build
+  cd Server-NestJS && npm run build          # ✓ 编译通过（编译进 dist/plugins/plugins/）
+  # 4. route-test（新增 plugins.flagship.integration.spec.ts 11 用例；插件套件 5 suites / 26 tests 全绿）
+  cd Server-NestJS && npx jest src/plugins
+  # 5. remove（逐一 remove → PLUGINS 还原为 HELLO_PLUGIN）+ 删除复制文件，源文件保留在 scripts/examples/ 作示例
+  node scripts/keelbase-plugin.mjs remove CRM_IMPORT_WEBHOOK_PLUGIN
+  node scripts/keelbase-plugin.mjs remove PM_DEADLINE_NOTIFY_PLUGIN
+  node scripts/keelbase-plugin.mjs remove APPROVAL_ESCALATION_PLUGIN
+  rm Server-NestJS/src/plugins/plugins/crm-import-webhook.plugin.ts
+  rm Server-NestJS/src/plugins/plugins/pm-deadline-notify.plugin.ts
+  rm Server-NestJS/src/plugins/plugins/approval-escalation.plugin.ts
+  ```
+  集成测试覆盖：每个插件的「安装后加载 + 路由注册 + 样例请求预期结果 + 非对象 body 防御 + requires 缺失跳过 + featureFlag 关闭跳过」+ 三插件共存（三条路由同时注册）+ 未安装控制器 not-found 分支。证据：官方以「第三方作者」方式（不看 Core 内部实现）构建 3 个业务插件全链路通过——verify→install→build→route-test→remove 全链路走通，作为 **Extension API 已成熟**的实证（补强 §三插件 CLI ★★★★ 结论）。
 - 三旗舰模板导入 e2e 通过（`generated-modules.e2e-spec.ts`）。
 - 旗舰 Skill 从 `src/` 拆出（approval-policy-review 示例见上）。
 
