@@ -291,7 +291,7 @@ export async function wireAiModule(ctx, root = '') {
       insertAfter(
         c,
         `import { CreateTodoTool } from './tools/create-todo.tool';`,
-        `\nimport { Query${ctx.pluralPascal}Tool } from './tools/query-${ctx.plural}.tool';\nimport { Create${ctx.singlePascal}Tool } from './tools/create-${ctx.singular}.tool';`,
+        `\nimport { Query${ctx.pluralPascal}Tool } from './tools/query-${ctx.plural}.tool';\nimport { Create${ctx.singlePascal}Tool } from './tools/create-${ctx.plural}.tool';`,
         `./tools/query-${ctx.plural}.tool`,
       ),
     ),
