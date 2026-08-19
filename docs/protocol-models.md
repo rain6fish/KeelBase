@@ -18,7 +18,8 @@ Application Protocol
 - **类型词汇表**：string / text / int / bool / date / enum（选项 2-10）
 - **输入通道**（P0-12）：自然语言（`--desc`）/ 已有 DB / OpenAPI → Protocol（`--import-openapi` / `--import-schema`）
 - **生成物**：`keelbase init --spec <json>` → 实体/DTO/API/迁移/权限/审计/页面/AI 工具/测试（普通源代码）
-- **红线**：关系/复杂逻辑保持手写；协议是语义源，不是低代码运行时
+- **红线（2026-08-19 升级）**：**Semantic Source, not Runtime Source**——协议是开发期语义源，生成普通代码、开发者拥有代码；不是运行时元数据引擎。关系/复杂逻辑保持手写。
+- **Protocol 冻结范围（2026-08-19）**：只覆盖高频重复的 20%——Entity / Field / Relation / API / Permission / Tool / Audit / 语义路由 key。**明确不做**：复杂 Workflow / 完整 BPM / UI DSL / 数据可视化 / 运行时元数据驱动——超出即违背「不做低代码平台」定位红线。
 
 ## 2. Runtime Model（本文新沉淀）
 
