@@ -73,16 +73,24 @@ UI 框架全部位于 Core 之下、作为实现层。一个新渲染器的接�
 
 **语义路由契约**：`src/ai/tools/navigate-page.tool.ts` 的 `PAGE_ROUTES` 是**跨端语义路由 key → route** 的映射（如 `events: '/events'`），Flutter 与 Vue 各自消费同一 key 渲染到自己的路由实现。**route 是跨端契约，不是某框架专用路径**——改动须同步各端。
 
-## 4. 前端战略（2026-08-18）
+**Experience / UI Contract（2026-08-19 明确，即三模型之外的 Experience Model 边界）**：Core 定义「AI 交互体验的**数据形状 + 状态机**」，Renderer 自由实现视觉——只契约数据，不定义 UI 组件规范（避免滑向 UI DSL）：
+- **confirmation**：SSE `confirmation_request` / `confirmation_decision` 事件载荷（token / tool / args 摘要）+ 状态机（`pending → approve | decline | timeout`）。Trust Model 决定「**是否**需确认」（`requiresConfirmation` / 治理策略），Renderer 决定「**怎么**展示确认 UI」。
+- **decision trace**：`GET /ai/conversations/:id/trace` 返回的步骤数据（input / tool_call / confirmation / effect / assistant）。Core 定义步骤形状，Renderer 决定「时间线 / 工具卡怎么画」。
+- **通知 / 审批 UI** 同理：Core 给事件与数据，Renderer 给形态。
+- 新增 Renderer 只需消费这些事件契约 + `GET /app/capabilities` + REST/SSE/WS；**不新增跨端 UI 组件规范**。
 
-| 前端 | 框架 | 定位 | 状态 |
+## 4. Renderer Matrix（前端战略，2026-08-18 / 2026-08-19 升级）
+
+UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer，不影响 Core**。核心竞争力不被 UI 技术绑定。当前渲染器矩阵：
+
+| Renderer | 框架 | 定位 | 状态语义 |
 |---|---|---|---|
-| **Web-Admin-Vue** | Vue 3 + **Element Plus**（自 Vuetify 迁移，2026-08 完成） | 企业 Web 工作台 + 管理控制台同一壳 | 主版本 |
-| **Web-Admin-React** | React 19 + MUI | 备选前端（React 技术方案预览） | 预览版 0.1.0；正式化以真实用户需求为准 |
-| **Front-Flutter** | Flutter | 移动主 App（iOS/Android）；Web 预览形态 | 主版本 |
-| **Front-Taro** | Taro Vue3 | H5 / 小程序 | 渠道版 |
+| **Web-Admin-Vue** | Vue 3 + **Element Plus**（自 Vuetify 迁移，2026-08 完成） | 企业 Web 工作台 + 管理控制台同一壳 | **Official**（官方 Web 渲染器，主版本） |
+| **Web-Admin-React** | React 19 + MUI | 备选前端（React 技术方案预览） | **Experimental**（预览版 0.1.0；正式化以真实用户需求为准，不预设） |
+| **Front-Flutter** | Flutter | 移动主 App（iOS/Android）；Web 预览形态 | **Official Mobile**（移动主渲染器） |
+| **Front-Taro** | Taro Vue3 | H5 / 小程序 | **Channel**（渠道渲染器） |
 
-> 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护 Vue 与 React 双 admin 的长期同步；Element Plus 是企业应用主流 UI 库的官方渲染器/适配器。
+> 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护多前端长期同步（Capability Drift）；新增渲染器 = 新增生成器 per-framework 模板 + 消费同一 Core 契约，不进 Core 路线。Element Plus 是企业应用主流 UI 库的官方渲染器。
 
 ## 5. 验收红线
 
