@@ -1,15 +1,12 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { PointsEntry } from './points-entry.entity';
 import { User } from '../common/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
 
 const CHECKIN_BASE_KEY = 'points_checkin_base';
 const CHECKIN_STREAK_PER_DAY_KEY = 'points_streak_per_day';
-
-/** 连签状态回看窗口：只统计最近 40 天签到，避免无界加载全部历史 */
-const CHECKIN_LOOKBACK_DAYS = 40;
 
 export interface PointsOverview {
   balance: number;
@@ -151,14 +148,16 @@ export class PointsService {
 
   /** 连签状态：今日是否已签 + 当前连签天数（未签今日则从昨日往回数，签到后自然延续）。 */
   private async _checkinState(userId: number): Promise<{ todayCheckedIn: boolean; streak: number }> {
-    // A6：只取最近 40 天签到（更长连签不可能存在，40 天下界已足够）
-    const since = new Date(Date.now() - CHECKIN_LOOKBACK_DAYS * 86400000);
+    // A6：按 checkin_date 键取全部签到（每天最多 1 条，量小）；不设时间窗——
+    // 连签加成鼓励长连签，用 createdAt 时间窗会把 >40 天连签截断
     const entries = await this.entriesRepo.find({
-      where: { userId, reason: 'checkin', createdAt: MoreThanOrEqual(since) },
-      select: { createdAt: true },
-      order: { createdAt: 'DESC' },
+      where: { userId, reason: 'checkin' },
+      select: { checkinDate: true },
     });
-    const dates = new Set(entries.map((e) => this._dayKey(e.createdAt)));
+    const dates = new Set<string>();
+    for (const e of entries) {
+      if (e.checkinDate) dates.add(e.checkinDate);
+    }
     const today = this._dayKey(new Date());
     const yesterday = this._dayKey(new Date(Date.now() - 86400000));
     const todayCheckedIn = dates.has(today);

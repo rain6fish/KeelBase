@@ -37,6 +37,7 @@ describe('PointsService (GROWTH-3)', () => {
     points: 10,
     reason: 'checkin',
     createdAt,
+    checkinDate: createdAt.toISOString().slice(0, 10),
   });
 
   beforeEach(async () => {
@@ -122,6 +123,15 @@ describe('PointsService (GROWTH-3)', () => {
     expect(overview.balance).toBe(30);
     expect(overview.todayCheckedIn).toBe(true);
     expect(overview.streak).toBe(3);
+  });
+
+  it('连签超过 40 天不被时间窗截断', async () => {
+    const base = Date.now();
+    const days = Array.from({ length: 41 }, (_, i) => checkinEntry(new Date(base - i * 86400000)));
+    entries.find.mockResolvedValue(days);
+    entries.createQueryBuilder().getRawOne.mockResolvedValue({ sum: 10 });
+    const overview = await service.getMyOverview(1);
+    expect(overview.streak).toBe(41);
   });
 
   it('排行榜：聚合 + 脱敏（无 userId/email/phone）', async () => {
