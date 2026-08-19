@@ -68,7 +68,7 @@ export const envValidationSchema = Joi.object({
   QQ_APP_KEY: Joi.string().allow('').default(''),
 
   // AI Provider 配置
-  AI_PROVIDER: Joi.string().valid('deepseek', 'qwen', 'openai').default('deepseek'),
+  AI_PROVIDER: Joi.string().valid('deepseek', 'qwen', 'openai', 'ollama').default('deepseek'),
   AI_CHAT_MODEL: Joi.string().default('deepseek-v4-flash'),
   AI_MAX_TOKENS: Joi.number().default(4096),
   AI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
