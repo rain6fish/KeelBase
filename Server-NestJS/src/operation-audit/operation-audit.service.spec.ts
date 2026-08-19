@@ -72,10 +72,70 @@ describe('OperationAuditService', () => {
         .resolves.toBeUndefined();
     });
 
+    it('log 处理空可选字段（?? null 兜底）', async () => {
+      chain.computeHash.mockReturnValue('h');
+      await service.log({ action: 'CREATE', method: 'POST', path: '/x' });
+
+      const saved = mockRepo.save.mock.calls[0][0];
+      expect(saved.userId).toBeNull();
+      expect(saved.featureKey).toBeNull();
+      expect(saved.featureFallback).toBeNull();
+      expect(saved.targetId).toBeNull();
+      expect(saved.requestBody).toBeNull();
+      expect(saved.ip).toBeNull();
+      expect(saved.userAgent).toBeNull();
+      expect(saved.statusCode).toBeNull();
+    });
+
+    it('log 截断 ip/userAgent/requestBody 至安全上限', async () => {
+      await service.log({
+        action: 'CREATE',
+        method: 'POST',
+        path: '/x',
+        ip: '1'.repeat(100),
+        userAgent: 'u'.repeat(300),
+        requestBody: 'b'.repeat(3000),
+      });
+
+      const saved = mockRepo.save.mock.calls[0][0];
+      expect(saved.ip.length).toBe(64);
+      expect(saved.userAgent.length).toBe(255);
+      expect(saved.requestBody.length).toBe(2000);
+    });
+
+    it('log 链接上一条哈希（prevHash 非空）', async () => {
+      mockRepo.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-hash' }),
+      });
+      chain.computeHash.mockReturnValue('new-hash');
+      await service.log({ action: 'CREATE', method: 'POST', path: '/x' });
+
+      expect(chain.computeHash).toHaveBeenCalledWith('prev-hash', expect.anything());
+      const saved = mockRepo.save.mock.calls[0][0];
+      expect(saved.prevHash).toBe('prev-hash');
+      expect(saved.hash).toBe('new-hash');
+    });
+
     it('verifyChain 沿 id 升序取数并委托链校验', async () => {
       mockRepo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
       await service.verifyChain();
       expect(mockRepo.find).toHaveBeenCalledWith({ order: { id: 'ASC' } });
+      expect(chain.verifyChain).toHaveBeenCalled();
+    });
+
+    it('verifyChain 委托 _payload 行映射（null 兜底）', async () => {
+      mockRepo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
+      chain.verifyChain.mockImplementation(
+        (rows: unknown[], map: (row: object) => Record<string, unknown>) => {
+          map(rows[0] as object);
+          return { valid: true, checked: 1 };
+        },
+      );
+
+      await service.verifyChain();
       expect(chain.verifyChain).toHaveBeenCalled();
     });
   });
@@ -89,6 +149,7 @@ describe('OperationAuditService', () => {
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue(rows),
       };
       mockRepo.createQueryBuilder.mockReturnValue(qb);
@@ -123,6 +184,43 @@ describe('OperationAuditService', () => {
 
       expect(qb.where).toHaveBeenCalledWith('log.userId = :userId', { userId: 5 });
     });
+
+    it('filters by since + userId 组合（andWhere + count 带 userId）', async () => {
+      const qb = mockQueryBuilder();
+      const since = new Date('2026-08-01');
+
+      await service.getLogs(1, 20, 5, since);
+
+      expect(qb.where).toHaveBeenCalledWith('log.userId = :userId', { userId: 5 });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt >= :since', { since });
+      expect(mockRepo.count).toHaveBeenCalledWith({
+        where: { userId: 5, createdAt: expect.anything() },
+      });
+    });
+
+    it('filters by since only（count 不带 userId）', async () => {
+      const qb = mockQueryBuilder();
+      const since = new Date('2026-08-01');
+
+      await service.getLogs(1, 20, undefined, since);
+
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt >= :since', { since });
+      expect(mockRepo.count).toHaveBeenCalledWith({
+        where: { createdAt: expect.anything() },
+      });
+    });
+
+    it('maps rows with null userId/statusCode/username to null', async () => {
+      mockQueryBuilder([
+        { log_id: 1, log_user_id: null, log_action: 'LOGIN', log_method: 'POST', log_path: '/auth/login', log_feature_key: null, log_feature_fallback: null, log_target_id: null, log_request_body: null, log_ip: null, log_user_agent: null, log_status_code: null, log_createdAt: new Date(), username: null },
+      ]);
+
+      const result = await service.getLogs(1, 20);
+
+      expect(result.items[0].userId).toBeNull();
+      expect(result.items[0].statusCode).toBeNull();
+      expect(result.items[0].username).toBeNull();
+    });
   });
 
   describe('getStats', () => {
@@ -141,6 +239,20 @@ describe('OperationAuditService', () => {
       const stats = await service.getStats();
 
       expect(stats).toEqual({ CREATE: 3, LOGIN: 2 });
+    });
+
+    it('getStats 支持 since 过滤（where 分支）', async () => {
+      mockRepo.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const stats = await service.getStats(new Date('2026-08-01'));
+
+      expect(stats).toEqual({});
     });
   });
 });

@@ -1,6 +1,7 @@
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { HeadlessKeysService } from '../headless/headless-keys.service';
+import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -10,7 +11,7 @@ describe('AdminController', () => {
   beforeEach(() => {
     adminService = Object.fromEntries(
       [
-        'getMonitorSummary', 'getOverview', 'getSessions', 'getUserDetail',
+        'getMonitorSummary', 'getOpsSummary', 'getOverview', 'getSessions', 'getUserDetail',
         'revokeSession', 'broadcast', 'getAnalytics', 'getTrash', 'restoreTrashItem',
       ].map((m) => [m, jest.fn()]),
     );
@@ -27,6 +28,12 @@ describe('AdminController', () => {
     const summary = { healthy: true };
     adminService.getMonitorSummary.mockReturnValue(summary);
     expect(controller.getMonitorSummary()).toBe(summary);
+  });
+
+  it('getOpsSummary 委托 service', () => {
+    const summary = { alerts: [], errors24h: 3 };
+    adminService.getOpsSummary.mockReturnValue(summary);
+    expect(controller.getOpsSummary()).toBe(summary);
   });
 
   it('getOverview 把 days 换算成 since 日期', () => {
@@ -96,5 +103,26 @@ describe('AdminController', () => {
     expect(headlessKeysService.create).toHaveBeenCalledWith({ name: 'x' });
     expect(headlessKeysService.update).toHaveBeenCalledWith(1, { name: 'y' });
     expect(headlessKeysService.remove).toHaveBeenCalledWith(1);
+  });
+
+  it('所有管理端点均声明 manage-all 策略（CASL 拒绝非管理员）', () => {
+    // 直接 new 实例不经过装饰器执行路径，故从 Reflect metadata 取出策略处理函数并调用，
+    // 验证每个端点都要求 ability.can('manage', 'all')。
+    const methods = [
+      'getMonitorSummary', 'getOpsSummary', 'getOverview', 'getSessions',
+      'getUserDetail', 'revokeSession', 'broadcast', 'getAnalytics', 'getTrash',
+      'restoreTrash', 'listHeadlessKeys', 'createHeadlessKey',
+      'updateHeadlessKey', 'deleteHeadlessKey',
+    ];
+    for (const m of methods) {
+      // SetMetadata 把元数据存在 descriptor.value（方法函数）上，故从原型方法读取
+      const handlers = Reflect.getMetadata(
+        CHECK_POLICIES_KEY,
+        (AdminController.prototype as Record<string, unknown>)[m] as unknown,
+      ) as Array<(ability: { can: (...args: unknown[]) => boolean }) => boolean>;
+      expect(handlers?.length).toBeGreaterThan(0);
+      expect(handlers[0]({ can: () => true })).toBe(true);
+      expect(handlers[0]({ can: () => false })).toBe(false);
+    }
   });
 });
