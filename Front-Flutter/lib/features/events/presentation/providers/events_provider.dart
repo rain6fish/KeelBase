@@ -55,7 +55,7 @@ class EventsProvider extends ChangeNotifier {
   List<EventModel> get weekEvents {
     final r = <EventModel>[];
     for (var i = 0; i < 7; i++) {
-      final evts = _eventsByDate[_key(_weekStart.add(Duration(days: i)))];
+      final evts = _eventsByDate[_key(DateTime(_weekStart.year, _weekStart.month, _weekStart.day + i))];
       if (evts != null) r.addAll(evts);
     }
     return r;
@@ -138,7 +138,8 @@ class EventsProvider extends ChangeNotifier {
         while (true) {
           _eventsByDate.putIfAbsent(d, () => []).add(e);
           if (d == last) break;
-          d = _key(d.add(const Duration(days: 1)));
+          // 日历加法而非 +24h：DST 回拨日（25 小时）用 add 会回到当日 23:00 致死循环
+          d = _key(DateTime(d.year, d.month, d.day + 1));
         }
       }
       _currentDayEvents = _eventsByDate[_selectedDate] ?? [];
