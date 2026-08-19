@@ -36,7 +36,7 @@ Build an App frontend-backend full-stack development base platform, on which new
 | ORM | TypeORM | 1.x | 支持 SQLite/PG 切换 / Supports switching between SQLite/PG |
 | 认证 / Authentication | JWT (access + refresh token) | — | 轮换策略 + 哈希存储 + 多设备会话 / Rotation strategy + hash storage + multi-device sessions |
 | 校验 / Validation | class-validator + Joi | — | DTO + 环境变量双重校验 / Dual validation of DTOs + environment variables |
-| 缓存/队列 / Cache/Queue | Redis 7 + CacheManager + BullMQ | — | 缓存层 + 异步任务队列（Phase 3） / Cache layer + async task queue (Phase 3) |
+| 缓存/队列 / Cache/Queue | Redis 7 + CacheManager + BullMQ | — | 缓存层 + 异步任务队列（已实现；`CACHE_ENABLED=false` 直查库、`QUEUE_ENABLED=false` 降级同步执行） / Cache layer + async task queue (implemented; `CACHE_ENABLED=false` bypasses cache, `QUEUE_ENABLED=false` degrades to sync execution) |
 | 邮件 / Email | nodemailer + SMTP | — | 验证码/重置/通知三模板，未配置降级 / Three templates (verification/reset/notification), degrades when unconfigured |
 | 推送 / Push | 极光 JPush（抽象 PushService） / JPush (abstracted via PushService) | — | 可切换 FCM/APNs / Switchable to FCM/APNs |
 | 图片处理 / Image processing | sharp | — | 光栅图转 WebP + 尺寸上限 / Raster images to WebP + size cap |
@@ -85,34 +85,67 @@ KeelBase/
 │
 ├── Server-NestJS/                 # NestJS 后端
 │   ├── src/
-│   │   ├── main.ts                # 启动入口
+│   │   ├── main.ts                # 启动入口（OTel init → Nest → pino → Swagger）
 │   │   ├── app.module.ts          # 根模块
-│   │   ├── config/                # 环境变量校验 + 数据源配置
-│   │   ├── common/                # 共享：entities/dto/filters/interceptors/seed
-│   │   ├── auth/                  # 认证模块（登录/注册/OAuth/密码/验证/会话）
+│   │   ├── config/                # 环境变量校验（Joi）+ 数据源配置
+│   │   ├── common/                # 共享：entities/dto/casl/filters/interceptors/seed/modules-manifest
+│   │   ├── auth/                  # 认证模块（登录/注册/OAuth/OIDC/MFA/密码/验证/会话）
 │   │   ├── users/                 # 用户模块
 │   │   ├── events/                # 事件模块
+│   │   ├── todos/                 # 待办模块
 │   │   ├── health/                # 健康检查
 │   │   ├── metrics/               # Prometheus 指标
 │   │   ├── upload/                # 文件上传
 │   │   ├── storage/               # 对象存储抽象（local/s3）
 │   │   ├── mail/                  # 邮件服务（nodemailer + 模板）
+│   │   ├── sms/                   # 短信服务（console/aliyun，SMS_DRIVER）
 │   │   ├── notifications/         # 站内通知 + SSE 实时推送
 │   │   ├── push/                  # 推送抽象（极光/noop）
 │   │   ├── queue/                 # BullMQ 异步队列
+│   │   ├── realtime/              # WebSocket 双向通道（RG-6，/ws）
 │   │   ├── search/                # 全局搜索
 │   │   ├── operation-audit/       # 通用操作审计
-│   │   ├── feature-flags/         # 特性开关（PL-8，FEATURE_*_ENABLED）
+│   │   ├── feature-flags/         # 特性开关（PL-8/EASY-3，FEATURE_*_ENABLED + APP_PRESET）
 │   │   ├── maintenance-tasks/     # 定时任务（PL-7，@nestjs/schedule cron）
 │   │   ├── settings/              # 动态配置中心（RG-2，Settings 表 + 维护模式）
 │   │   ├── circuit-breaker/       # 外部依赖熔断（RG-1）
 │   │   ├── alert-webhook/         # 异常告警 Webhook（RG-4，钉钉/飞书/Slack）
+│   │   ├── app-version/           # 应用版本元数据 + 能力清单（PL-5/MOD-4）
+│   │   ├── admin/                 # 管理台聚合端点（overview/monitor/sessions/headless-keys/广播）
+│   │   ├── org/                   # 组织架构（ORG：组织/部门/成员/邀请/申请）
+│   │   ├── points/                # 积分/签到/排行榜/成就（GROWTH-3）
+│   │   ├── feedback/              # 应用内反馈（G-1）
+│   │   ├── data-import/           # 数据导入（POV-2，CSV 批量）
+│   │   ├── templates/             # 模板市场（PL-9）
+│   │   ├── marketing/             # 运营邮件（G-3）
+│   │   ├── form-builder/          # 表单构建（PL-10）
+│   │   ├── plugins/               # 插件宿主（PL-11）
+│   │   ├── webhooks/              # Webhook 订阅（PL-14）
+│   │   ├── flows/                 # 工作流引擎（FLOW：定义/发起/审批/回滚）
+│   │   ├── mcp/                   # MCP 出口 + 外部 MCP 网关（HS-10）
+│   │   ├── headless/              # Headless API（AI-19，API Key）
+│   │   ├── contracts/             # 合同模块（业务示例）
+│   │   ├── suppliers/             # 供应商模块（业务示例）
+│   │   ├── tags/                  # 标签模块（业务示例）
+│   │   ├── notes/                 # 笔记模块（业务示例）
+│   │   ├── books/                 # 图书模块（业务示例）
+│   │   ├── posts/                 # 帖子/社区动态（GROWTH-2，点赞/评论/关注）
+│   │   ├── crm/                   # AI CRM 旗舰应用（客户/订单/跟进/任务/风险）
+│   │   ├── pm/                    # AI Project Management 旗舰应用（项目/里程碑/任务/风险）
+│   │   ├── approval/              # AI Approval 旗舰应用（审批请求/政策）
 │   │   └── ai/                    # AI Agent 模块
-│   │       ├── providers/         # LLM Provider 工厂
+│   │       ├── providers/         # LLM Provider 工厂（deepseek/qwen/openai/ollama）
 │   │       ├── tools/             # 工具注册表
 │   │       ├── conversation/      # 对话管理
+│   │       ├── memory/            # 长期记忆
+│   │       ├── confirmation/      # 写操作确认（HS-9）
+│   │       ├── tool-effects/      # AI 副作用记录（HS-3/P0-15）
+│   │       ├── trace/             # 对话执行轨迹（P0-14）
 │   │       ├── insights/          # 数据洞察
 │   │       ├── knowledge/         # RAG 知识库
+│   │       ├── rag/               # 检索（pgvector + LIKE 降级，AI-5）
+│   │       ├── eval/              # 评测体系（AI-20/HS-1）
+│   │       ├── audit/             # AI 审计（HS-11 哈希链）
 │   │       └── ai.service.ts      # 编排核心
 │   ├── test/                      # E2E 测试
 │   ├── migrations/                # 数据库迁移
@@ -275,6 +308,16 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | POST | /api/v1/auth/reset-password | No | 5/m | 重置密码（邮件链接 token） / Reset password (email link token) |
 | POST | /api/v1/auth/verify-email | No | 5/m | 邮箱验证（提交 6 位验证码） / Email verification (submit 6-digit code) |
 | POST | /api/v1/auth/resend-verification | No | 5/m | 重发邮箱验证码（防枚举） / Resend email verification code (anti-enumeration) |
+| POST | /api/v1/auth/send-sms-code | No | 20/m | 发送短信验证码（防枚举统一响应，FeatureFlag sms） / Send SMS verification code (unified anti-enumeration response, FeatureFlag sms) |
+| POST | /api/v1/auth/login-phone | No | 10/m | 手机号 + 验证码登录（FeatureFlag sms） / Login with phone + SMS code (FeatureFlag sms) |
+| POST | /api/v1/auth/bind-phone | Yes | — | 绑定/更新手机号（校验验证码，FeatureFlag sms） / Bind/update phone number (verified by SMS code, FeatureFlag sms) |
+| POST | /api/v1/auth/deactivate | Yes | — | 注销本人账号（密码确认 + 级联清理） / Deactivate own account (password confirmation + cascade cleanup) |
+| GET | /api/v1/auth/export-data | Yes | — | 导出本人全量数据（数据可携带权） / Export own full data (data portability) |
+| GET | /api/v1/auth/invite | Yes | — | 我的邀请信息：邀请码 + 已邀请用户列表 / My invite info: invite code + invited user list |
+| POST | /api/v1/auth/mfa/setup | Yes | — | MFA：生成 TOTP secret + otpauth URL（未启用） / MFA: generate TOTP secret + otpauth URL (not yet enabled) |
+| POST | /api/v1/auth/mfa/verify | Yes | — | MFA：验证绑定 code 并启用 / MFA: verify binding code and enable |
+| POST | /api/v1/auth/mfa/disable | Yes | — | MFA：停用（需正确 TOTP code 确认） / MFA: disable (requires valid TOTP code) |
+| POST | /api/v1/auth/change-password | Yes | — | 登录后修改密码（校验当前密码，清除强制改密标志） / Change password after login (verifies current password, clears force-change flag) |
 | POST | /api/v1/auth/logout | Yes | — | 登出当前设备 / Log out of the current device |
 | GET | /api/v1/auth/sessions | Yes | — | 登录设备会话列表（含 isCurrent） / List of logged-in device sessions (including isCurrent) |
 | DELETE | /api/v1/auth/sessions/:id | Yes | — | 远程登出指定会话 / Remotely log out a specified session |
@@ -286,6 +329,7 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | GET | /api/v1/users | Yes | ADMIN | — | 用户列表（分页） / User list (paginated) |
 | POST | /api/v1/users | Yes | ADMIN | — | 创建用户 / Create user |
 | PATCH | /api/v1/users/:id/role | Yes | ADMIN | — | 修改用户角色 / Update user role |
+| POST | /api/v1/users/:id/must-change-password | Yes | ADMIN | — | 标记用户下次登录需改密（不能对自己） / Force password change on next login (admin; cannot target self) |
 | GET | /api/v1/users/:id | Yes | — | 本人/管理员 / Self/Admin | 用户详情 / User details |
 | PUT | /api/v1/users/:id | Yes | — | 本人/管理员 / Self/Admin | 更新用户 / Update user |
 | DELETE | /api/v1/users/:id | Yes | — | 本人/管理员 / Self/Admin | 删除用户（不能删自己/最后一个 admin） / Delete user (cannot delete self / last admin) |
@@ -323,11 +367,28 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | GET | /api/v1/ai/conversations/:id | Yes | 30/m | 单个对话完整消息（继续对话） / Full messages of a single conversation (continue conversation) |
 | DELETE | /api/v1/ai/conversations/:id | Yes | 30/m | 删除指定对话（本人所有权校验） / Delete a specified conversation (self-ownership check) |
 | DELETE | /api/v1/ai/conversations | Yes | 30/m | 清空所有对话 / Clear all conversations |
+| GET | /api/v1/ai/conversations/:id/trace | Yes | — | 对话执行轨迹（工具调用/确认/副作用，本人，P0-14） / Conversation execution trace (tool calls/confirmations/side effects, self, P0-14) |
+| POST | /api/v1/ai/confirmations/:token | Yes | — | 确认 AI 写操作（create_event/create_todo，approve/reject，未知 token 404） / Confirm an AI write operation (create_event/create_todo, approve/reject, unknown token 404) |
+| DELETE | /api/v1/ai/memory | Yes | — | 清除用户长期记忆（隐私） / Clear user long-term memory (privacy) |
+| GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限（HS-2，管理台可见） / AI tool inventory and permissions (HS-2, admin-facing) |
+| GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（可按 userId 过滤，HS-3） / AI write-operation side-effect records (filterable by userId, HS-3) |
+| DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（软删，HS-3） / Revoke an AI-created event/todo (soft delete, HS-3) |
+| DELETE | /api/v1/ai/my/tool-effects/:id | Yes | — | 撤销本人 AI 创建的记录（软删，P0-15） / Revoke own AI-created record (soft delete, P0-15) |
 | POST | /api/v1/ai/knowledge | Yes (ADMIN) | — | 创建知识条目（RAG 知识库） / Create a knowledge entry (RAG knowledge base) |
+| POST | /api/v1/ai/knowledge/upload | Yes (ADMIN) | — | 上传文档入库（PDF/DOCX，multipart，异步向量化） / Upload a document to the knowledge base (PDF/DOCX, multipart, async vectorization) |
 | GET | /api/v1/ai/knowledge | Yes (ADMIN) | — | 知识条目列表/搜索（?q=关键词） / Knowledge entry list/search (?q=keyword) |
+| GET | /api/v1/ai/knowledge/stats | Yes (ADMIN) | — | 知识库统计：条目/切块/存储量（AI-16） / Knowledge base stats: entries/chunks/storage (AI-16) |
+| POST | /api/v1/ai/knowledge/debug | Yes (ADMIN) | — | 检索命中调试：返回结果与分数（AI-16） / Retrieval-hit debug: results + scores (AI-16) |
 | GET | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 知识条目详情 / Knowledge entry details |
+| GET | /api/v1/ai/knowledge/:id/chunks | Yes (ADMIN) | — | 文档切块预览（AI-16） / Document chunk preview (AI-16) |
 | PATCH | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 更新知识条目 / Update knowledge entry |
 | DELETE | /api/v1/ai/knowledge/:id | Yes (ADMIN) | — | 删除知识条目 / Delete knowledge entry |
+| GET | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 评测集用例列表（AI-20） / Eval-case list (AI-20) |
+| POST | /api/v1/ai/eval/cases | Yes (ADMIN) | — | 新增评测用例（AI-20） / Create an eval case (AI-20) |
+| DELETE | /api/v1/ai/eval/cases/:id | Yes (ADMIN) | — | 删除评测用例（AI-20） / Delete an eval case (AI-20) |
+| POST | /api/v1/ai/eval/seed | Yes (ADMIN) | — | 补齐内置安全评测用例（越权/PII/注入/写拒绝，幂等，HS-1） / Seed built-in security eval cases (privilege escalation/PII/injection/write-denial, idempotent, HS-1) |
+| POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（逐用例调 LLM，AI-20） / Run the eval batch (LLM per case, AI-20) |
+| GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近一次评测报告（AI-20） / Latest eval report (AI-20) |
 
 > 对话历史持久化于 ai_conversations / ai_messages 表（AI-2 后端已接通，前端列表页见 roadmap AI-2.1）。知识库检索为向量优先 + 全文降级（AI-5）：pgvector 语义检索，无 embedding 配置/SQLite/查询异常时自动降级 LIKE 全文（`KnowledgeService.search` 签名不变，RagAgent 零改动）。
 > Conversation history is persisted in the ai_conversations / ai_messages tables (AI-2 backend wired; frontend list page per roadmap AI-2.1). Knowledge-base retrieval is vector-first with full-text fallback (AI-5): pgvector semantic search, automatically falling back to LIKE full-text when there is no embedding config / on SQLite / on query errors (`KnowledgeService.search` signature unchanged, RagAgent untouched).
@@ -336,9 +397,13 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 
 | Method | Path | Auth | 说明 / Description |
 |--------|------|------|------|
-| GET | /api/v1/audit/logs | Yes (ADMIN) | AI 审计日志（分页，可按 userId 过滤） / AI audit logs (paginated, filterable by userId) |
+| GET | /api/v1/audit/logs | Yes (ADMIN) | AI 审计日志（分页，可按 userId/orgId/since 过滤） / AI audit logs (paginated, filterable by userId/orgId/since) |
+| GET | /api/v1/audit/verify | Yes (ADMIN) | AI 审计哈希链完整性校验（HS-11） / AI audit hash-chain integrity verification (HS-11) |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | 全局 AI 用量统计 / Global AI usage statistics |
+| GET | /api/v1/audit/cost | Yes (ADMIN) | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） / AI cost dashboard: tokens aggregated by user×model×intent (AI-21) |
+| POST | /api/v1/audit/feedback | Yes | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） / Conversation feedback: like/dislike a conversation + reason (AI-18) |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | 操作审计日志（写操作，可按 userId 过滤） / Operation audit logs (write operations, filterable by userId) |
+| GET | /api/v1/audit/operations/verify | Yes (ADMIN) | 操作审计哈希链完整性校验（HS-11） / Operation audit hash-chain integrity verification (HS-11) |
 | GET | /api/v1/audit/operations/stats | Yes (ADMIN) | 操作审计统计（按 action 分组） / Operation audit statistics (grouped by action) |
 
 > 操作审计由全局 `OperationAuditInterceptor` 自动捕获 POST/PATCH/PUT/DELETE（@SkipAudit 排除幂等/已审计端点），记录 who/when/what 供合规追溯（PL-2）。
@@ -389,13 +454,191 @@ Notifications are produced via `NotificationsService.create()` for use by each m
 
 | Method | Path | Auth | 说明 / Description |
 |--------|------|------|------|
-| GET | /api/v1/health | No | 健康检查 / Health check |
+| GET | /api/v1/health | No | 健康检查（?detail=true 返回 db/redis/queue/storage 状态，60/min 限流） / Health check (?detail=true returns db/redis/queue/storage status, 60/min rate limit) |
 | GET | /api/v1/metrics | No | Prometheus 指标（裸文本，跳过限流） / Prometheus metrics (raw text, skips rate limiting) |
 | GET | /api/v1/app/version | No | 应用版本元数据（latestVersion/minRequiredVersion/updateUrl/changelog，PL-5） / App version metadata (latestVersion/minRequiredVersion/updateUrl/changelog, PL-5) |
+| GET | /api/v1/app/capabilities | No | 当前预设 + 启用模块清单（MOD-4，前端据此隐藏导航） / Current preset + enabled module manifest (MOD-4; frontend hides navigation accordingly) |
 | GET | /api/v1/settings | Yes (ADMIN) | 全部动态配置（RG-2，实时生效） / All dynamic config (RG-2, effective immediately) |
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | 更新/创建动态配置（维护模式/AI 限额等） / Update/create dynamic config (maintenance mode / AI limits, etc.) |
 | GET | /api/v1/admin/trash | Yes (ADMIN) | 回收站：已软删除的事件/待办（RG-3，带用户名分页） / Trash: soft-deleted events/todos (RG-3, paginated with username) |
 | POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | 恢复回收站记录（type: event\|todo） / Restore trash records (type: event\|todo) |
+| GET | /api/v1/admin/monitor/summary | Yes (ADMIN) | 运行状态聚合（健康/依赖/指标/告警） / Runtime status aggregation (health/deps/metrics/alerts) |
+| GET | /api/v1/admin/ops/summary | Yes (ADMIN) | 运维单页聚合（派生告警 + 指标 + 近 24h 错误 + 7 天趋势） / Ops single-page aggregation (derived alerts + metrics + last-24h errors + 7-day trend) |
+| GET | /api/v1/admin/overview | Yes (ADMIN) | 平台数据总览（用户/事件/待办/通知/审计/存储 + 趋势，?days=） / Platform data overview (users/events/todos/notifications/audit/storage + trends, ?days=) |
+| GET | /api/v1/admin/sessions | Yes (ADMIN) | 全部在线会话（管理员视角） / All online sessions (admin view) |
+| DELETE | /api/v1/admin/sessions/:id | Yes (ADMIN) | 强制下线指定会话 / Force logout a specified session |
+| GET | /api/v1/admin/users/:id/detail | Yes (ADMIN) | 用户详情聚合（脱敏信息 + 会话 + 通知 + 统计） / User detail aggregation (sanitized info + sessions + notifications + stats) |
+| POST | /api/v1/admin/notifications/broadcast | Yes (ADMIN) | 通知广播（全体/指定用户） / Notification broadcast (all/specified users) |
+| GET | /api/v1/admin/analytics | Yes (ADMIN) | 平台数据统计：DAU/WAU/MAU/留存/功能漏斗/错误（?days=30） / Platform analytics: DAU/WAU/MAU/retention/feature funnel/errors (?days=30) |
+| GET | /api/v1/admin/templates | Yes (ADMIN) | 内置示例模板列表（PL-9） / Built-in example template list (PL-9) |
+| POST | /api/v1/admin/templates/:id/import | Yes (ADMIN) | 一键导入模板数据（事件/待办种子，PL-9） / One-click import of template data (event/todo seeds, PL-9) |
+| POST | /api/v1/admin/marketing/send | Yes (ADMIN) | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） / Send marketing email (audience=all/admin/user, G-3) |
+| GET | /api/v1/admin/forms | Yes (ADMIN) | 表单定义列表（PL-10） / Form definition list (PL-10) |
+| POST | /api/v1/admin/forms | Yes (ADMIN) | 创建表单定义（PL-10） / Create a form definition (PL-10) |
+| PATCH | /api/v1/admin/forms/:id | Yes (ADMIN) | 更新表单定义（PL-10） / Update a form definition (PL-10) |
+| DELETE | /api/v1/admin/forms/:id | Yes (ADMIN) | 删除表单定义及提交（PL-10） / Delete a form definition and its submissions (PL-10) |
+| GET | /api/v1/admin/forms/:id/submissions | Yes (ADMIN) | 表单提交列表（PL-10） / Form submission list (PL-10) |
+| GET | /api/v1/admin/plugins | Yes (ADMIN) | 已加载插件列表（PL-11） / Loaded plugin list (PL-11) |
+| POST | /api/v1/plugins/:path | Yes | 插件路由统一入口（PL-11，插件 registerRoute 注册） / Unified plugin-route entry (PL-11, routes registered by plugins) |
+| GET | /api/v1/admin/headless-keys | Yes (ADMIN) | headless API Key 列表（HS-4） / Headless API key list (HS-4) |
+| POST | /api/v1/admin/headless-keys | Yes (ADMIN) | 创建 headless API Key（返回明文仅此一次，HS-4） / Create a headless API key (plaintext returned once, HS-4) |
+| PATCH | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | 更新 headless API Key（配额/工具范围/归属/启停，HS-4） / Update a headless API key (quota/tool scope/ownership/enable, HS-4) |
+| DELETE | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | 删除 headless API Key（HS-4） / Delete a headless API key (HS-4) |
+| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | 管理端 AI 助手：带平台实时上下文（AI-22） / Admin AI assistant with live platform context (AI-22) |
+| GET | /api/v1/admin/mcp/servers | Yes (ADMIN) | 已注册外部 MCP server 列表（HS-10） / Registered external MCP servers (HS-10) |
+| POST | /api/v1/admin/mcp/servers | Yes (ADMIN) | 注册外部 MCP server（写入 Settings，HS-10） / Register an external MCP server (HS-10) |
+| DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | 移除外部 MCP server（HS-10） / Remove an external MCP server (HS-10) |
+| GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | 发现外部 MCP 工具（缓存 30s；?force=true 刷新，HS-10） / Discover external MCP tools (30s cache; ?force=true refresh, HS-10) |
+| POST | /api/v1/admin/mcp/call | Yes (ADMIN) | 调用外部 MCP 工具（强制过治理层：权限+确认+审计，HS-10） / Call an external MCP tool (forced through governance: permission+confirmation+audit, HS-10) |
+| POST | /api/v1/admin/import/users | Yes (ADMIN) | 批量导入用户（CSV，POV-2） / Bulk import users (CSV, POV-2) |
+| POST | /api/v1/admin/import/events | Yes (ADMIN) | 批量导入事件（CSV，POV-2） / Bulk import events (CSV, POV-2) |
+| POST | /api/v1/admin/import/todos | Yes (ADMIN) | 批量导入待办（CSV，POV-2） / Bulk import todos (CSV, POV-2) |
+| GET | /api/v1/forms/:slug | Yes | 读取表单定义（PL-10，按 slug） / Read a form definition (PL-10, by slug) |
+| POST | /api/v1/forms/:slug/submit | Yes | 提交表单数据（按 schema 校验，PL-10） / Submit form data (schema-validated, PL-10) |
+| GET | /api/v1/forms/:slug/submissions | Yes | 本人对该表单的提交记录（PL-10） / Own submissions for a form (PL-10) |
+| POST | /api/v1/feedback | Yes | 应用内反馈：建议/问题/好评，通知管理员（G-1） / In-app feedback: suggestion/bug/praise, notifies admins (G-1) |
+| POST | /api/v1/headless/chat | API Key | 无头对话（AI-19/HS-4）：x-api-key 认证，以 key 归属用户身份执行 / Headless chat (AI-19/HS-4): x-api-key auth, executes as the key owner |
+| POST | /api/v1/mcp | Yes | MCP 出口（HS-10）：JSON-RPC（initialize/ping/tools/list/tools/call，@Raw 跳过统一包装） / MCP export (HS-10): JSON-RPC (initialize/ping/tools/list/tools/call, @Raw skips unified wrapping) |
+| GET | /api/v1/webhooks | Yes | 我的 Webhook 订阅列表（PL-14，视图不含 secret） / My webhook subscriptions (PL-14, without secret) |
+| POST | /api/v1/webhooks | Yes | 订阅 Webhook（PL-14：name/url/events，服务端生成 HMAC secret） / Subscribe a webhook (PL-14: name/url/events, HMAC secret generated) |
+| PATCH | /api/v1/webhooks/:id | Yes | 启用/停用 Webhook（PL-14） / Enable/disable a webhook (PL-14) |
+| DELETE | /api/v1/webhooks/:id | Yes | 删除 Webhook（PL-14） / Delete a webhook (PL-14) |
+| POST | /api/v1/webhooks/test/:id | Yes | 测试投递（返回签名与结果，PL-14） / Test delivery (returns signature + result, PL-14) |
+| WS | /ws?token=\<jwt\> | 握手 JWT | WebSocket 双向通道（RG-6）：握手失败 4401；通知推送 + AI 流式 + 通用消息；心跳 ping/pong；与 SSE 并存 / WebSocket bidirectional channel (RG-6): handshake failure 4401; notification push + AI streaming + generic messages; heartbeat ping/pong; coexists with SSE |
+
+### 5.12 组织模块（ORG） / 5.12 Organization Module (ORG)
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/org/organizations | Yes (ADMIN) | 创建组织（创建者成 owner，ORG-1） / Create an organization (creator becomes owner, ORG-1) |
+| GET | /api/v1/org/organizations | Yes (ADMIN) | 组织列表（含成员/部门数，ORG-1） / Organization list (with member/department counts, ORG-1) |
+| GET | /api/v1/org/organizations/:id | Yes (ADMIN) | 组织详情（ORG-1） / Organization details (ORG-1) |
+| PUT | /api/v1/org/organizations/:id | Yes (ADMIN) | 更新组织（ORG-1） / Update an organization (ORG-1) |
+| DELETE | /api/v1/org/organizations/:id | Yes (ADMIN) | 删除组织（有成员拒绝，ORG-1） / Delete an organization (rejected when it has members, ORG-1) |
+| POST | /api/v1/org/organizations/:orgId/departments | Yes (ADMIN) | 创建部门（ORG-1） / Create a department (ORG-1) |
+| GET | /api/v1/org/organizations/:orgId/departments | Yes (ADMIN) | 部门扁平列表（含 parentId，前端组树，ORG-1） / Flat department list (with parentId, ORG-1) |
+| PUT | /api/v1/org/departments/:id | Yes (ADMIN) | 更新部门（改名/移动上级，防环，ORG-1） / Update a department (rename/move parent, cycle-proof, ORG-1) |
+| DELETE | /api/v1/org/departments/:id | Yes (ADMIN) | 删除部门（子孙上挂、成员脱离，ORG-1） / Delete a department (descendants re-parented, members detached, ORG-1) |
+| GET | /api/v1/org/organizations/:orgId/members | Yes (ADMIN) | 成员列表（脱敏，ORG-1） / Member list (sanitized, ORG-1) |
+| POST | /api/v1/org/organizations/:orgId/members | Yes (ADMIN) | 添加成员（重复 409，ORG-1） / Add a member (duplicate 409, ORG-1) |
+| PUT | /api/v1/org/members/:id | Yes (ADMIN) | 更新成员（改角色/移部门，最后 owner 保护，ORG-1） / Update a member (role/department change, last-owner protected, ORG-1) |
+| DELETE | /api/v1/org/members/:id | Yes (ADMIN) | 移除成员（最后 owner 拒绝，ORG-1） / Remove a member (last owner rejected, ORG-1) |
+| POST | /api/v1/org/organizations/:orgId/invites | Yes (ADMIN) | 生成组织邀请码（ORG-6） / Generate an organization invite code (ORG-6) |
+| GET | /api/v1/org/organizations/:orgId/invites | Yes (ADMIN) | 邀请列表（含使用状态，ORG-6） / Invite list (with usage status, ORG-6) |
+| DELETE | /api/v1/org/invites/:id | Yes (ADMIN) | 撤销邀请（ORG-6） / Revoke an invite (ORG-6) |
+| POST | /api/v1/org/requests | Yes | 提交组织申请（发起审批流，ORG-4） / Submit an organization application (starts an approval flow, ORG-4) |
+| GET | /api/v1/org/requests | Yes | 我的申请列表（ORG-4） / My applications list (ORG-4) |
+| GET | /api/v1/org/my | Yes | 我的组织信息 + 部门路径（ORG-7） / My organization info + department path (ORG-7) |
+| GET | /api/v1/org/my/tree | Yes | 我的组织部门树（只读，含成员数，ORG-7） / My organization department tree (read-only, ORG-7) |
+| GET | /api/v1/org/my/members | Yes | 我的组织成员（脱敏白名单：无 email/phone，ORG-7） / My organization members (sanitized whitelist: no email/phone, ORG-7) |
+
+### 5.13 积分模块（GROWTH-3） / 5.13 Points Module (GROWTH-3)
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| GET | /api/v1/points/me | Yes | 我的积分概览（余额/今日是否已签/连签天数） / My points overview (balance/today-checked-in/streak) |
+| POST | /api/v1/points/checkin | Yes | 每日签到（checkin_date 唯一约束防重复，重复 409） / Daily check-in (unique checkin_date prevents duplicates, duplicate 409) |
+| GET | /api/v1/points/leaderboard | Yes | 积分排行榜（脱敏：仅昵称/头像/积分，不含内部 userId） / Points leaderboard (sanitized: nickname/avatar/points only) |
+| GET | /api/v1/points/achievements | Yes | 我的成就（按正分毛累计判定，admin 扣分不回退） / My achievements (based on gross positive points; admin deductions don't regress) |
+
+### 5.14 业务示例模块（合同/供应商/标签/笔记/图书） / 5.14 Business Sample Modules (Contracts/Suppliers/Tags/Notes/Books)
+
+contracts / suppliers / tags / notes / books 五个模块接口结构相同（各带 FeatureFlag 开关），`{module}` = contracts｜suppliers｜tags｜notes｜books，本人所有权走 CASL，删除为软删可进回收站：
+
+The five modules contracts/suppliers/tags/notes/books share an identical interface structure (each gated by its own FeatureFlag); `{module}` = contracts｜suppliers｜tags｜notes｜books, self-ownership via CASL, deletes are soft deletes recoverable from the trash:
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/{module} | Yes | 创建 / Create |
+| GET | /api/v1/{module} | Yes | 我的列表（本人） / My list (own) |
+| PATCH | /api/v1/{module}/:id | Yes | 更新（本人/管理员） / Update (self/admin) |
+| DELETE | /api/v1/{module}/:id | Yes | 删除（本人/管理员，软删进回收站） / Delete (self/admin, soft delete to trash) |
+| GET | /api/v1/{module}/admin/all | Yes (ADMIN) | 管理端全量列表 / Admin full list |
+| DELETE | /api/v1/{module}/admin/:id | Yes (ADMIN) | 管理端删除任意（软删进回收站） / Admin delete any (soft delete to trash) |
+
+### 5.15 帖子与社区（GROWTH-2） / 5.15 Posts & Community (GROWTH-2)
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/posts | Yes | 创建帖子 / Create a post |
+| GET | /api/v1/posts | Yes | 我的帖子列表 / My posts list |
+| PATCH | /api/v1/posts/:id | Yes | 更新帖子 / Update a post |
+| DELETE | /api/v1/posts/:id | Yes | 删除帖子 / Delete a post |
+| POST | /api/v1/posts/:id/like | Yes | 点赞帖子（幂等） / Like a post (idempotent) |
+| DELETE | /api/v1/posts/:id/like | Yes | 取消点赞 / Unlike a post |
+| POST | /api/v1/posts/:id/comments | Yes | 评论帖子 / Comment on a post |
+| GET | /api/v1/posts/:id/comments | Yes | 帖子评论列表（分页） / Post comment list (paginated) |
+| POST | /api/v1/posts/users/:followeeId/follow | Yes | 关注用户 / Follow a user |
+| DELETE | /api/v1/posts/users/:followeeId/follow | Yes | 取消关注 / Unfollow a user |
+
+### 5.16 工作流（FLOW） / 5.16 Workflow (FLOW)
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/flows/ai/generate | Yes | AI 生成流程定义（自然语言 → 流程 JSON） / AI-generate a flow definition (natural language → flow JSON) |
+| POST | /api/v1/flows/definitions | Yes | 保存/发布流程定义（AI 生成确认后） / Save/publish a flow definition (after AI generation confirmation) |
+| POST | /api/v1/flows/:definitionId/start | Yes | 发起流程（如 leave_approval 请假审批） / Start a flow (e.g. leave_approval) |
+| GET | /api/v1/flows/tasks | Yes | 我的待办审批任务 / My pending approval tasks |
+| POST | /api/v1/flows/tasks/:id/approve | Yes | 审批（approve/reject） / Approve/reject a task |
+| GET | /api/v1/flows/:id | Yes | 流程实例详情 / Flow instance details |
+| POST | /api/v1/flows/:id/rollback | Yes (ADMIN) | 回滚流程实例 / Roll back a flow instance |
+
+### 5.17 AI CRM 模块 / 5.17 AI CRM Module
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/crm/customers | Yes | 创建客户 / Create a customer |
+| GET | /api/v1/crm/customers | Yes | 客户列表（分页 + 状态/风险/关键词筛选） / Customer list (paginated + status/risk/keyword filters) |
+| GET | /api/v1/crm/customers/:id | Yes | 客户详情（含订单/跟进/任务/风险） / Customer details (with orders/activities/tasks/risks) |
+| PATCH | /api/v1/crm/customers/:id | Yes | 更新客户 / Update a customer |
+| DELETE | /api/v1/crm/customers/:id | Yes | 删除客户（软删） / Delete a customer (soft delete) |
+| GET | /api/v1/crm/customers/:id/analyze | Yes | 客户风险分析（逾期订单/任务/未解决风险） / Customer risk analysis (overdue orders/tasks/open risks) |
+| GET | /api/v1/crm/customers/:id/orders | Yes | 客户订单列表 / Customer order list |
+| POST | /api/v1/crm/customers/:id/orders | Yes | 创建客户订单 / Create a customer order |
+| GET | /api/v1/crm/customers/:id/activities | Yes | 客户跟进记录列表 / Customer activity list |
+| POST | /api/v1/crm/customers/:id/activities | Yes | 创建跟进记录 / Create an activity |
+| GET | /api/v1/crm/customers/:id/tasks | Yes | 客户任务列表 / Customer task list |
+| GET | /api/v1/crm/tasks | Yes | 我的跟进任务列表 / My follow-up task list |
+| POST | /api/v1/crm/tasks | Yes | 创建跟进任务 / Create a follow-up task |
+| POST | /api/v1/crm/tasks/:id/complete | Yes | 完成任务 / Complete a task |
+| GET | /api/v1/crm/customers/:id/risks | Yes | 客户风险记录列表 / Customer risk list |
+| POST | /api/v1/crm/customers/:id/risks | Yes | 创建风险记录 / Create a risk record |
+
+### 5.18 AI Project Management 模块 / 5.18 AI Project Management Module
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/pm/projects | Yes | 创建项目 / Create a project |
+| GET | /api/v1/pm/projects | Yes | 项目列表（分页 + 状态/关键词筛选） / Project list (paginated + status/keyword filters) |
+| GET | /api/v1/pm/projects/:id | Yes | 项目详情（含里程碑/任务/风险/成员数） / Project details (with milestones/tasks/risks/member count) |
+| PATCH | /api/v1/pm/projects/:id | Yes | 更新项目 / Update a project |
+| DELETE | /api/v1/pm/projects/:id | Yes | 删除项目（软删） / Delete a project (soft delete) |
+| GET | /api/v1/pm/projects/:id/analyze | Yes | 项目风险分析（逾期任务/里程碑/未解决风险） / Project risk analysis (overdue tasks/milestones/open risks) |
+| GET | /api/v1/pm/projects/:id/members | Yes | 项目成员列表 / Project member list |
+| POST | /api/v1/pm/projects/:id/members | Yes | 添加成员（owner/member） / Add a member (owner/member) |
+| GET | /api/v1/pm/projects/:id/milestones | Yes | 项目里程碑列表 / Project milestone list |
+| POST | /api/v1/pm/projects/:id/milestones | Yes | 创建里程碑 / Create a milestone |
+| GET | /api/v1/pm/projects/:id/tasks | Yes | 项目任务列表 / Project task list |
+| GET | /api/v1/pm/tasks | Yes | 我的项目任务列表 / My project task list |
+| POST | /api/v1/pm/tasks | Yes | 创建项目任务 / Create a project task |
+| POST | /api/v1/pm/tasks/:id/complete | Yes | 完成任务 / Complete a task |
+| GET | /api/v1/pm/projects/:id/risks | Yes | 项目风险列表 / Project risk list |
+| POST | /api/v1/pm/projects/:id/risks | Yes | 创建风险记录 / Create a risk record |
+
+### 5.19 AI Approval 模块 / 5.19 AI Approval Module
+
+| Method | Path | Auth | 说明 / Description |
+|--------|------|------|------|
+| POST | /api/v1/approval/requests | Yes | 提交审批请求（pending） / Submit an approval request (pending) |
+| GET | /api/v1/approval/requests | Yes | 我的审批请求（状态筛选） / My approval requests (status filter) |
+| GET | /api/v1/approval/requests/:id | Yes | 审批请求详情 / Approval request details |
+| DELETE | /api/v1/approval/requests/:id | Yes | 删除审批请求（软删） / Delete an approval request (soft delete) |
+| POST | /api/v1/approval/requests/:id/review | Yes | AI 预审：按政策分级（低风险自动通过 / 高风险转人工复核） / AI pre-review: policy-tiered (low risk auto-approve / high risk to manual review) |
+| POST | /api/v1/approval/requests/:id/decide | Yes | 人工复核：通过/驳回 needs_review 请求 / Manual review: approve/reject a needs_review request |
+| GET | /api/v1/approval/policies | Yes | 我的审批政策列表 / My approval policy list |
+| POST | /api/v1/approval/policies | Yes | 创建审批政策 / Create an approval policy |
+| PATCH | /api/v1/approval/policies/:id | Yes | 更新审批政策 / Update an approval policy |
+| DELETE | /api/v1/approval/policies/:id | Yes | 删除审批政策 / Delete an approval policy |
 
 ---
 
@@ -673,6 +916,7 @@ DB_PORT=5432
 DB_NAME=front
 DB_USER=postgres
 DB_PASSWORD=postgres
+DB_READ_REPLICAS=             # 读写分离：逗号分隔只读副本 "host1:5432,host2:5432"，空=单库
 DB_PATH=./data/front.sqlite
 
 # 连接池
@@ -681,11 +925,35 @@ DB_POOL_MIN=5
 DB_POOL_IDLE_TIMEOUT=30000
 DB_POOL_CONNECTION_TIMEOUT=2000
 
+# 全局限流（默认 60 次/分钟；压测/大促可放宽）
+THROTTLE_LIMIT=60
+THROTTLE_TTL=60000
+
 # 安全
 LOCKOUT_THRESHOLD=10
 LOCKOUT_DURATION=15
-ENCRYPTION_KEY=                   # 敏感数据加密密钥（32 字节 hex）
+ENCRYPTION_KEY=                   # 敏感数据加密密钥（32 字节 hex，必填）
 ENCRYPTION_HMAC_KEY=              # providerHash 派生密钥（缺省回退 ENCRYPTION_KEY）
+
+# OAuth 第三方登录
+OAUTH_ENABLED_PROVIDERS=wechat,alipay,qq   # 逗号分隔（可加 google,apple,oidc）
+OAUTH_REDIRECT_BASE=              # OAuth 回跳基址（空则用请求 host）
+GOOGLE_CLIENT_ID=
+APPLE_CLIENT_ID=
+WECHAT_APP_ID=
+WECHAT_APP_SECRET=
+WECHAT_REMIND_TEMPLATE_ID=        # MINI-2 微信订阅消息：事件提醒模板 ID（空则不发送）
+ALIPAY_APP_ID=
+ALIPAY_PUBLIC_KEY=                # 支付宝公钥（验证支付宝响应）
+ALIPAY_PRIVATE_KEY=               # 支付宝应用私钥（签名请求）
+QQ_APP_ID=
+QQ_APP_KEY=
+
+# 企业 SSO（P2-4 通用 OIDC）：配齐 issuer/client_id/secret 后 /auth/oauth/providers 出现 oidc（enterprise 组）
+OIDC_ENABLED=false
+OIDC_ISSUER=
+OIDC_CLIENT_ID=
+OIDC_CLIENT_SECRET=
 
 # 可观测性
 LOG_LEVEL=info
@@ -703,6 +971,9 @@ SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=KeelBase <no-reply@example.com>
 APP_BASE_URL=http://localhost:8080
+
+# 短信服务
+SMS_DRIVER=console                 # console（本地） | aliyun | none
 
 # 对象存储
 STORAGE_DRIVER=local              # local | s3
@@ -724,7 +995,45 @@ CACHE_ENABLED=true
 CACHE_TTL=300
 QUEUE_ENABLED=true
 
-# AI Provider
+# 备份保留份数（npm run backup 轮转用）
+BACKUP_KEEP=7
+
+# 特性开关（PL-8/EASY-3）：未配置由 APP_PRESET 判定（默认 full 全开）；关闭后对应接口返回 404
+APP_PRESET=full                   # full（全开）| small（关外部集成）| lite（最小可用）
+FEATURE_AI_ENABLED=true
+FEATURE_SEARCH_ENABLED=true
+FEATURE_PUSH_ENABLED=true
+FEATURE_SMS_ENABLED=true
+FEATURE_OAUTH_ENABLED=true
+FEATURE_UPLOAD_ENABLED=true
+FEATURE_NOTIFICATIONS_ENABLED=true
+FEATURE_TODOS_ENABLED=true
+
+# 上传访问控制（CR-21）：=1 时强制校验签名 URL（渐进模式默认放行裸 URL）
+UPLOAD_REQUIRE_SIGN=false
+
+# 定时任务（PL-7）：已读通知保留天数，超期由定时清理
+NOTIFICATION_RETENTION_DAYS=30
+
+# Headless API（AI-19，可选）：第三方集成用 API Key（x-api-key 头校验；留空则 /headless 端点 401）
+HEADLESS_API_KEY=
+
+# 联网搜索（AI-14）
+TAVILY_API_KEY=
+TAVILY_BASE_URL=https://api.tavily.com/search
+
+# 私有化 AI（POV-1）：配置 OLLAMA_BASE_URL 后自动注册 ollama provider（无 API Key，数据不出域）
+OLLAMA_BASE_URL=
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_EMBED_MODEL=bge-m3
+
+# 异常告警 Webhook（RG-4）：5xx 自动推送群机器人（钉钉/飞书/Slack），防抖 60s
+ALERT_WEBHOOK_ENABLED=false
+ALERT_WEBHOOK_URL=
+ALERT_WEBHOOK_TYPE=dingtalk       # dingtalk | feishu | slack
+ALERT_WEBHOOK_MIN_INTERVAL_SECONDS=60
+
+# AI Provider（deepseek | qwen | openai；配置 OLLAMA_BASE_URL 后可选 ollama）
 AI_PROVIDER=deepseek
 AI_CHAT_MODEL=deepseek-v4-flash
 AI_MAX_TOKENS=4096
