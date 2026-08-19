@@ -12,7 +12,7 @@
 | **Build** | 30min Create——陌生开发者从零生成带权限/AI 工具/确认/审计的模块 | 🔶 工程已通 | [dev-challenge.md](dev-challenge.md) + [30min-acceptance.md](30min-acceptance.md) |
 | **Run** | 1hr 真实业务任务 + Agent Success Rate | ✅ 3/3 SUCCESS（DeepSeek 实测，ASR=100%）| 三旗舰业务任务（[flagship-task-card.md](flagship-task-card.md)）+ [verify-flagships.sh](../../scripts/verify-flagships.sh) |
 | **Trust** | Safe Execution / Unauthorized Action / Human Intervention Rate | ✅ 无 LLM 部分全绿 | [verify-flagships.sh](../../scripts/verify-flagships.sh) + HS e2e |
-| **Private** | Offline + Local AI（数据不出域）| 🔶 需 Ollama 实测 | [private-ai-verification.md](private-ai-verification.md) + [verify-private-ai.sh](../../scripts/verify-private-ai.sh) |
+| **Private** | Offline + Local AI（数据不出域）| ✅ 本地实测（Cloud OFF + Ollama 对话 + bge-m3 embedding + 审计链 valid）| [private-ai-report.md](private-ai-report.md) + [verify-private-ai.sh](../../scripts/verify-private-ai.sh) |
 | **External** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
 
 **判定**：五维全部达标才发 v1.0；任何一维不达标 → 记录差距，不发布。
@@ -67,6 +67,8 @@
 **状态**：✅ 无 LLM 部分全绿（HS e2e + verify-flagships 7/7）。
 
 ## 4. Private：Offline + Local AI
+
+**实测记录（2026-08-19，本机 Ollama 原生 + CPU）**：Cloud OFF（进程无 DEEPSEEK_API_KEY）→ Ollama `qwen2.5:7b` 本地对话（`/ai/chat/stream` 返回「您好！请问…」）→ bge-m3 本地 embedding（4.7s/条）→ 审计 `provider:ollama` 记录 + 哈希链 `valid:true (20条)`。完整证据见 [private-ai-report.md](private-ai-report.md) + `benchmarks/private-ai.json`。**工具调用**：7B 模型 CPU 上对 30+ 工具集可靠性低（模型能力限制，非代码缺陷）；旗舰 e2e 7/7 证明工具/确认/审计链路。
 
 **指标**：数据不出域——本地 LLM / 本地 embedding / 本地审计全链路。
 

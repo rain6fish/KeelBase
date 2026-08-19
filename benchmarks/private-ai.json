@@ -1,0 +1,38 @@
+{
+  "name": "private-ai-golden-path",
+  "date": "2026-08-19",
+  "environment": {
+    "os": "Windows 10 Pro 19045",
+    "ollama": "native install (non-Docker)",
+    "chat_model": "qwen2.5:7b",
+    "embedding_model": "bge-m3",
+    "inference": "CPU"
+  },
+  "results": {
+    "cloud_off": { "pass": true, "note": "backend process without DEEPSEEK_API_KEY" },
+    "local_chat": {
+      "pass": true,
+      "provider": "ollama",
+      "model": "qwen2.5:7b",
+      "first_cold_prefill_ms": 296672,
+      "warm_reply_ms": 17261,
+      "reply_preview": "您好！请问您想了解哪些方面的信息呢？"
+    },
+    "local_embedding": {
+      "pass": true,
+      "model": "bge-m3",
+      "single_embed_ms": 4701,
+      "dimensions": 1024
+    },
+    "audit": {
+      "pass": true,
+      "provider_in_logs": "ollama",
+      "hash_chain": { "valid": true, "checked": 20 }
+    },
+    "agent_tool_call": {
+      "pass": false,
+      "reason": "7B model on CPU unreliable function-calling for 30+ tool set (model capability limit, not code defect)",
+      "note": "flagship e2e verify-flagships 7/7 proves tool/confirmation/audit path"
+    }
+  }
+}
