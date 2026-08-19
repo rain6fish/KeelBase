@@ -478,7 +478,7 @@ test('AI 工具模板：query 读 + create 写需确认', () => {
   const querySpec = files.find((f) => f.path.endsWith('query-suppliers.tool.spec.ts')).content;
   assert.match(querySpec, /describe\('QuerySuppliersTool'/);
   assert.match(querySpec, /toHaveBeenCalledWith\(7\)/);
-  const createSpec = files.find((f) => f.path.endsWith('create-supplier.tool.spec.ts')).content;
+  const createSpec = files.find((f) => f.path.endsWith('create-suppliers.tool.spec.ts')).content;
   assert.match(createSpec, /describe\('CreateSupplierTool'/);
   assert.match(createSpec, /requiresConfirmation/);
 });
@@ -578,8 +578,8 @@ test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () =>
   assert.match(page, /CupertinoSegmentedControl<String>/);
   // AI 工具自动生成：读 + 写需确认
   await access(BE(root, 'ai/tools/query-suppliers.tool.ts'));
-  await access(BE(root, 'ai/tools/create-supplier.tool.ts'));
-  const createTool = await readFile(BE(root, 'ai/tools/create-supplier.tool.ts'), 'utf8');
+  await access(BE(root, 'ai/tools/create-suppliers.tool.ts'));
+  const createTool = await readFile(BE(root, 'ai/tools/create-suppliers.tool.ts'), 'utf8');
   assert.match(createTool, /requiresConfirmation = true/);
   const aiModule = await readFile(BE(root, 'ai/ai.module.ts'), 'utf8');
   assert.match(aiModule, /new CreateSupplierTool\(suppliersService\)/);
@@ -750,6 +750,6 @@ test('端到端：--import-schema 直接生成（无 --out，enum 透传 + AI �
   assert.match(dto, /@IsIn\(\['basic', 'pro', 'enterprise'\]\)/);
   // 自动附 AI 工具（读 + 写需确认）
   await access(BE(root, 'ai/tools/query-suppliers.tool.ts'));
-  const createTool = await readFile(BE(root, 'ai/tools/create-supplier.tool.ts'), 'utf8');
+  const createTool = await readFile(BE(root, 'ai/tools/create-suppliers.tool.ts'), 'utf8');
   assert.match(createTool, /requiresConfirmation = true/);
 });
