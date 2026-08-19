@@ -179,6 +179,21 @@ describe('EventsService', () => {
       expect(JSON.stringify(findWhere)).not.toContain('orgId');
       (service as any).orgService = undefined;
     });
+
+    it('完全包住查询范围的事件也命中（区间重叠，非 Between OR Between）', async () => {
+      mockRepository.find.mockResolvedValue([mockEvent]);
+
+      await service.getEventsForRange('2026-08-01', '2026-08-31', 1);
+
+      const findWhere = mockRepository.find.mock.calls[0][0].where as any[];
+      expect(findWhere.length).toBeGreaterThan(0);
+      for (const cond of findWhere) {
+        // 每个条件项同时含 startTime(<=endDate) 与 endTime(>=startDate) → 区间重叠判断
+        const json = JSON.stringify(cond);
+        expect(json).toContain('startTime');
+        expect(json).toContain('endTime');
+      }
+    });
   });
 
   // ─── Search ────────────────────────────────────────────────────────────────
@@ -300,6 +315,27 @@ describe('EventsService', () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       await expect(service.update(999, dto, makeAbility(1))).rejects.toThrow(NotFoundException);
+    });
+
+    it('update 清空提醒时移除旧 reminder job', async () => {
+      mockRepository.findOne.mockResolvedValue({ ...mockEvent, reminderMinutes: 30 });
+      mockRepository.save.mockResolvedValue({ ...mockEvent, reminderMinutes: null });
+      const queue = (service as any).reminderQueue;
+
+      await service.update(1, { reminderMinutes: null } as UpdateEventDto, makeAbility(1));
+
+      expect(queue.remove).toHaveBeenCalledWith('event-remind-1');
+    });
+
+    it('update 把提醒时间改到过去时移除旧 reminder job', async () => {
+      const pastStart = new Date(Date.now() - 3600 * 1000);
+      mockRepository.findOne.mockResolvedValue({ ...mockEvent, reminderMinutes: 30 });
+      mockRepository.save.mockResolvedValue({ ...mockEvent, reminderMinutes: 30, startTime: pastStart });
+      const queue = (service as any).reminderQueue;
+
+      await service.update(1, { startTime: pastStart.toISOString() } as UpdateEventDto, makeAbility(1));
+
+      expect(queue.remove).toHaveBeenCalledWith('event-remind-1');
     });
   });
 
