@@ -134,7 +134,16 @@ export class UsersService {
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.nickname !== undefined) user.nickname = dto.nickname;
     if (dto.dateOfBirth !== undefined) user.dateOfBirth = dto.dateOfBirth;
-    if (dto.phone !== undefined) user.phone = this.encryption.encrypt(dto.phone);
+    if (dto.phone !== undefined) {
+      // 与 bindPhone/loginPhone 一致：同步写 phoneHash（否则改号后无法手机号登录）+ 唯一性检查（防绕过 SMS 验证重复绑定）
+      const newHash = this.encryption.hmac(dto.phone);
+      const phoneExists = await this.usersRepository.findOne({ where: { phoneHash: newHash } });
+      if (phoneExists && phoneExists.id !== id) {
+        throw new ConflictException('Phone already exists');
+      }
+      user.phone = this.encryption.encrypt(dto.phone);
+      user.phoneHash = newHash;
+    }
     if (dto.bio !== undefined) user.bio = dto.bio;
     if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl;
     if (dto.password !== undefined) {
