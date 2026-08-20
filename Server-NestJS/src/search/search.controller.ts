@@ -18,7 +18,7 @@ export class SearchController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
   async search(
-    @Query('q') q: string,
+    @Query('q', new DefaultValuePipe('')) q: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @CurrentUser() user: JwtPayload,

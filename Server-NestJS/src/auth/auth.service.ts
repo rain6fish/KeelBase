@@ -371,7 +371,19 @@ export class AuthService {
     if (user.mfaEnabled) {
       const secret = user.mfaSecret ? this.encryption.decrypt(user.mfaSecret) : '';
       if (!secret || !this.mfaService.verifyCode(secret, dto.totp ?? '')) {
-        this.logger.warn(`Login MFA failed: user=${dto.username}`);
+        // TOTP 失败同样累计失败数 + 锁定（与密码错分支一致），防持密码者换 IP 爆破 6 位 TOTP
+        const attempts = user.loginAttempts + 1;
+        const threshold = this.configService.get<number>('LOCKOUT_THRESHOLD', 10);
+        const durationMinutes = this.configService.get<number>('LOCKOUT_DURATION', 15);
+        if (attempts >= threshold) {
+          const lockedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+          await this.usersRepository.update(user.id, { loginAttempts: 0, lockedUntil });
+          this.logger.warn(`Account locked: user=${dto.username}, duration=${durationMinutes}min`);
+        } else {
+          await this.usersRepository.update(user.id, { loginAttempts: attempts });
+        }
+        this._recordFailure(dto.deviceId);
+        this.logger.warn(`Login MFA failed: user=${dto.username}, attempts=${attempts}/${threshold}`);
         await this.delay();
         throw BusinessException.of('MFA_REQUIRED');
       }
