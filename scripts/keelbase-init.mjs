@@ -299,8 +299,17 @@ async function main() {
   const aiResults = await wireAiModule(ctx);
   const all = summarize([...beResults, ...feResults, ...adminResults, ...taroResults, ...aiResults]);
   for (const file of all.wired) console.log(`${C.green}✓ 接线：${file}${C.reset}`);
-  for (const s of all.skipped) {
-    console.log(`${C.yellow}△ 跳过：${s.file}（${reasonZh(s.reason)}）${C.reset}`);
+  // 合成陌生人实测（W3）发现：锚点失败仅「△ 跳过」不阻断，build 检测不出残缺接线（Flutter 页崩 / capabilities 缺）。
+  // 区分「幂等跳过（正常）」与「真失败（锚点未命中）」——后者醒目告警 + 汇总 N/M。
+  const skippedIdempotent = all.skipped.filter((s) => s.reason === 'already-wired');
+  const failed = all.skipped.filter((s) => s.reason !== 'already-wired');
+  for (const s of skippedIdempotent) console.log(`${C.dim}○ 已存在：${s.file}（幂等跳过）${C.reset}`);
+  if (failed.length > 0) {
+    const total = all.wired.length + all.skipped.length;
+    console.log(
+      `${C.red}⚠ 接线 ${all.wired.length}/${total} 完成，${failed.length} 处锚点未命中——对应端可能残缺（build 检测不出），请手动检查：${C.reset}`,
+    );
+    for (const s of failed) console.log(`${C.red}  ✗ ${s.file}（${reasonZh(s.reason)}）${C.reset}`);
   }
 
   // ── 品牌 ──
