@@ -1,6 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
+import { CrmService } from '../src/crm/crm.service';
+import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
+import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 
 /**
  * 越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归套件，评审三 §5）
@@ -124,6 +127,9 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
   let app: INestApplication;
   let userA: { accessToken: string };
   let userB: { accessToken: string };
+  // AI 工具数据隔离（嵌套 describe 共享同一 app）
+  let userAId: number;
+  let crmService: CrmService;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -139,6 +145,12 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
       password: 'AuthzB1234',
       nickname: 'AuthzB',
     });
+    const meA = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(userA.accessToken))
+      .expect(200);
+    userAId = meA.body.data.id;
+    crmService = app.get(CrmService);
   });
 
   afterAll(async () => {
@@ -189,5 +201,43 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
       .get('/api/v1/audit/logs')
       .set(authHeader(userA.accessToken))
       .expect(403);
+  });
+
+  /**
+   * AI 工具数据隔离（评审三 §5 矩阵剩余行：AI Tool Read / AI Tool Write）。
+   * 确定性验证：AI 工具以调用者 userId 执行，A 的身份无法读/写 B 的数据。
+   * 直接实例化 crm 工具（mirror AI Agent 的工具执行路径），传 A 的 userId + B 的数据 id。
+   * 复用主 describe 的 app / 用户，避免同文件二次 createTestApp 的 SQLite 文件锁冲突。
+   */
+  describe('AI 工具数据隔离', () => {
+    let bCustomerId: number;
+
+    beforeAll(async () => {
+      // B 创建一条客户数据作为越权目标
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/crm/customers')
+        .set(authHeader(userB.accessToken))
+        .send({ name: '越权目标客户' })
+        .expect(201);
+      bCustomerId = created.body.data.id;
+    });
+
+    it('AI Tool Read 越权：A 查客户 → 不含 B 的客户', async () => {
+      const queryTool = new QueryCustomersTool(crmService);
+      const res = await queryTool.execute({}, String(userAId));
+      expect(res.success).toBe(true);
+      const ids = (res.data as any).items.map((c: any) => c.id);
+      expect(ids).not.toContain(bCustomerId);
+    });
+
+    it('AI Tool Write 越权：A 对 B 的客户建跟进任务 → 拒绝', async () => {
+      const createTool = new CreateFollowupTaskTool(crmService);
+      const res = await createTool.execute(
+        { customerId: bCustomerId, title: '越权任务' },
+        String(userAId),
+      );
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/无权|不存在/);
+    });
   });
 });
