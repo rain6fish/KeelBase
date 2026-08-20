@@ -71,12 +71,19 @@
 | **required 必填** | 各 title/name | ✅ 协议 `required: true`（已支持） |
 | **AI 工具**（query/analyze/create + 写需确认） | 三旗舰各 4-5 个工具 | ⚠️ 运行时 AI 层：工具按 `src/ai/tools/` 手写注册 + HS-9 治理，协议暂不自动化（聚焦 CRUD 高频 20%） |
 
-**反推协议示例**（`specs/` 目录，可直接 `keelbase init --spec` 生成）：
+**协议示例与已验证产物**（`specs/` 目录，可直接 `keelbase init --spec` 生成）：
 
+**与既有生成模块一致的 spec**（协议字段 ⊆ 实体，由 `scripts/keelbase-init.test.mjs` 一致性检查锁定，改动任意一方都会 fail）：
+- `specs/supplier.json` — 供应商（**端到端验证产物**：spec 即 `suppliers` 模块生成来源，migration:generate + build + 单测通过）
+- `specs/contract.json` — 合同（**端到端验证产物**：spec 即 `contracts` 模块生成来源）
+- `specs/books.json` — 图书（status enum + rating；2026-08-20 按 spec 回填实体字段，消除与既有 `books` 模块的漂移）
+- `specs/notes.json` — 笔记（category enum；2026-08-20 按 spec 回填实体字段，消除与既有 `notes` 模块的漂移）
+
+**反推协议示例**（既有手写模块的协议化摘要，`specs/` 下同名 JSON 不代表同名模块的完整字段集）：
 - `specs/customer.json` — 客户（status/riskLevel 双 enum）
 - `specs/project.json` — 项目（status/priority 双 enum + deadline）
 - `specs/approval-request.json` — 审批请求（type/status 双 enum + amount）
-- `specs/supplier.json` — 供应商（**端到端验证产物**：已生成 `suppliers` 模块，migration:generate + build + 单测通过）
+- `specs/events.json` / `specs/todos.json` — 核心模块（events/todos 实体字段多于协议，协议只摘高频核心字段）
 
 **验证结论（第 9-10 周）**：协议 → `keelbase init --spec` → 普通源代码（实体/DTO/API/权限/审计/Flutter 页）闭环成立，30 分钟内可生成带 enum + CASL + 审计的业务模块。
 
