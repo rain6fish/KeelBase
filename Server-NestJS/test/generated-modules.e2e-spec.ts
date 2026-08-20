@@ -85,4 +85,76 @@ describe('Generated modules (keelbase init, e2e)', () => {
       .set(authHeader(admin.accessToken))
       .expect(200);
   });
+
+  // contracts：协议生成模块（enum status + amount），验证模板通用性 + enum 校验 + 所有权隔离
+  describe('contracts（协议生成模块：enum 字段 + 所有权隔离）', () => {
+    const makeContract = (over: Record<string, unknown> = {}) => ({
+      name: '采购合同',
+      counterparty: '乙方公司',
+      status: 'draft',
+      amount: 10000,
+      ...over,
+    });
+
+    it('创建 contract（enum status 合法）→ 列表本人可见', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/contracts')
+        .set(authHeader(user.accessToken))
+        .send(makeContract())
+        .expect(201);
+      const id = created.body.data.id;
+      expect(created.body.data.status).toBe('draft');
+
+      const list = await request(app.getHttpServer())
+        .get('/api/v1/contracts')
+        .set(authHeader(user.accessToken))
+        .expect(200);
+      expect(list.body.data.some((c: any) => c.id === id)).toBe(true);
+    });
+
+    it('enum 非法值 → 400（class-validator @IsIn）', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/contracts')
+        .set(authHeader(user.accessToken))
+        .send(makeContract({ status: 'not-a-status' }))
+        .expect(400);
+    });
+
+    it('所有权隔离：他人无法更新/删除我的合同（CASL 403）', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/contracts')
+        .set(authHeader(user.accessToken))
+        .send(makeContract())
+        .expect(201);
+      const id = created.body.data.id;
+      const otherUser = await registerUser(app, {
+        username: 'gm_other',
+        email: 'gm_other@test.com',
+        password: 'GmOther1',
+        nickname: 'Other',
+      });
+
+      // 生成器模板 controller 无 GET /:id 端点（404 是路由不存在）；所有权校验经 update/remove 的 findOne
+      await request(app.getHttpServer())
+        .patch(`/api/v1/contracts/${id}`)
+        .set(authHeader(otherUser.accessToken))
+        .send({ name: 'hack' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .delete(`/api/v1/contracts/${id}`)
+        .set(authHeader(otherUser.accessToken))
+        .expect(403);
+    });
+
+    it('admin 端点：user 403 / admin 200', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/contracts/admin/all')
+        .set(authHeader(user.accessToken))
+        .expect(403);
+      await request(app.getHttpServer())
+        .get('/api/v1/contracts/admin/all')
+        .set(authHeader(admin.accessToken))
+        .expect(200);
+    });
+  });
 });
