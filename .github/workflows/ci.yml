@@ -126,6 +126,22 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node --test scripts/keelbase-init.test.mjs
 
+  # 合成陌生人冒烟（W3 harness 进 CI）：keelbase init 生成模块 → 编译 → 测试（防生成器闭环回归）
+  stranger-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      - name: keelbase init 生成 → 编译 → 测试（模拟陌生人 30min Build）
+        run: |
+          node scripts/keelbase-init.mjs --module cismoke --label CI冒烟 --fields title:string,content:text
+          cd Server-NestJS && npm run build && npm test -- cismoke
+
   # 供应链安全（评审三 §6）：依赖完整性 + 漏洞审计 + SBOM
   supply-chain:
     runs-on: ubuntu-latest
