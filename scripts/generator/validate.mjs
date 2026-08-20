@@ -59,20 +59,27 @@ export function validateLabel(label) {
   return null;
 }
 
-/** 解析 "title:string,content:text,status:enum" → [{name,type,enum?}]。enum 无选项时给默认。 */
+/**
+ * 解析 "title:string,content:text,status:enum" → [{name,type,enum?}]。
+ * enum 支持内联选项 `status:enum:active,inactive`（小写英文/下划线，2-10 个）；未给选项时用默认。
+ * 用正则逐字段匹配，避免 enum 选项里的逗号被当成字段分隔拆散。
+ */
 export function parseFields(str) {
   if (!str) return [];
-  return str
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((pair) => {
-      const [name, type = 'string'] = pair.split(':');
-      const t = (type || 'string').trim();
-      return t === 'enum'
-        ? { name: name.trim(), type: 'enum', enum: [...DEFAULT_ENUM_OPTIONS] }
-        : { name: name.trim(), type: t };
-    });
+  const fields = [];
+  // 选项 token 用宽松 `[^,\s:]+`：非法选项（大写/中文等）保留进 enum 数组，由 validateFields 拒绝，而非静默丢弃
+  const re = /([a-z][a-zA-Z0-9_]{0,29})(?::(enum(?::((?:[^,\s:]+)(?:,[^,\s:]+){1,9}))?|([a-z]+)))?/g;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    // 组 2 是 `enum(?::(...))?`（多选项时含选项串），用 startsWith 判定 enum 分支
+    if (m[2] && m[2].startsWith('enum')) {
+      const opts = m[3] ? m[3].split(',') : [];
+      fields.push({ name: m[1], type: 'enum', enum: opts.length >= 2 ? opts : [...DEFAULT_ENUM_OPTIONS] });
+    } else {
+      fields.push({ name: m[1], type: m[4] || 'string' });
+    }
+  }
+  return fields;
 }
 
 export function validateFields(fields) {
