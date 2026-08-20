@@ -76,5 +76,5 @@ PROVIDER=deepseek MODEL=deepseek-v4-flash BASE_URL=http://localhost:3000/api/v1 
 
 **结论**：
 - 7B 本地 CPU 的 Run 0% 是**冷启动超时（大 system prompt 预填充 ~5min）而非能力缺陷**；云端模型工具调用全对。
-- **已知口径边界（可复现，approval）**：`ambiguous-approval` 模糊「这个审批怎么样？」被当作查询执行（查询本身无害）；`high-risk-approval` 写确认未触发（LLM 未选 submit 工具）。记为 approval 旗舰治理场景，待后续调优（工具描述引导澄清 / 写触发词）。
+- **approval 两缺口已修复（2026-08-20，工具描述调优 + benchmark 可回归迭代）**：`ambiguous-approval`（模糊「这个审批怎么样？」被当查询）与 `high-risk-approval`（写确认未触发）经 query_approval_requests 加「模糊时澄清」+ submit_approval_request 加「意图明确直接触发确认」后，approval 5 用例全绿（DeepSeek 实测）。
 - 报告：`docs/benchmark/agent-benchmark-<ts>.md`（逐用例判定）+ `.json`。
