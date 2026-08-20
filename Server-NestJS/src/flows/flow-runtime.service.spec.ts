@@ -214,6 +214,22 @@ describe('FlowRuntimeService', () => {
     expect(mockTaskRepo.save).toHaveBeenCalledWith(expect.objectContaining({ nodeId: 'b' }));
   });
 
+  it('start：ai_task 节点 provider 抛错 → 实例置 failed（不永久卡 running）', async () => {
+    const aiDef: FlowDef = {
+      id: 'ai_fail', name: 'AI 失败流程', version: '1.0',
+      nodes: [
+        { id: 'a', type: 'ai_task', name: '总结', prompt: 'p', outputKey: 'summary', next: 'b' },
+        { id: 'b', type: 'human_task', name: '确认' },
+      ],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'ai_fail', name: 'AI 失败流程', version: '1.0', nodesJson: JSON.stringify(aiDef.nodes), audit: true, confirmationRequired: true });
+    mockProviderFactory.getProvider.mockReturnValue({ generate: jest.fn().mockRejectedValue(new Error('LLM timeout')), availableModels: ['m'] });
+
+    await expect(service.start('ai_fail', { input: 'x' }, 5)).rejects.toThrow('LLM timeout');
+
+    expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'failed' }));
+  });
+
   it('advance：next 节点不存在 → 实例置 failed', async () => {
     const defWithGap: FlowDef = {
       id: 'gap_flow', name: '断链流程', version: '1.0',
