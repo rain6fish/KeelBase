@@ -56,4 +56,47 @@ export class CaslAbilityFactory {
 
     return build();
   }
+
+  /**
+   * W5-⑦ Explainable Authz：把当前用户的能力规则解析为用户可读的「权限清单 + 依据」。
+   * 遍历 ability.rules → 提取 subject/scope（all=管理员全量，own=行级所有权条件）。
+   */
+  describeForUser(user: JwtPayload): {
+    role: string;
+    basis: string;
+    resources: { subject: string; scope: 'all' | 'own'; reason: string }[];
+  } {
+    const ability = this.createForUser(user);
+    const isAdmin = user.role === UserRole.ADMIN;
+    const seen = new Map<string, { subject: string; scope: 'all' | 'own'; reason: string }>();
+
+    for (const rule of ability.rules) {
+      const subjects = (Array.isArray(rule.subject) ? rule.subject : [rule.subject]).filter(
+        (s): s is string => typeof s === 'string',
+      );
+      for (const s of subjects) {
+        if (s === 'all') {
+          seen.set('all', { subject: 'all', scope: 'all', reason: '管理员：可管理全部资源' });
+          continue;
+        }
+        if (seen.has(s)) continue;
+        const cond = (rule.conditions ?? {}) as Record<string, unknown>;
+        const hasOwn =
+          cond.userId !== undefined || cond.id !== undefined || cond.requesterId !== undefined;
+        seen.set(s, {
+          subject: s,
+          scope: hasOwn ? 'own' : 'all',
+          reason: hasOwn ? '只能操作自己的数据（行级所有权条件）' : '可访问（无行级限制）',
+        });
+      }
+    }
+
+    return {
+      role: user.role,
+      basis: isAdmin
+        ? '管理员角色：可管理全部资源'
+        : '普通用户：可管理本人拥有的资源（行级所有权条件）',
+      resources: [...seen.values()].sort((a, b) => a.subject.localeCompare(b.subject)),
+    };
+  }
 }
