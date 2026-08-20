@@ -94,4 +94,48 @@ describe('AuditChainService (HS-11)', () => {
       expect(r.brokenIndex).toBe(2);
     });
   });
+
+  describe('审计密钥分离与轮换（W4-②）', () => {
+    const KEY_A = 'a'.repeat(64);
+    const KEY_B = 'b'.repeat(64);
+    const payloadFor = (row: { action: string }) => ({ action: row.action });
+
+    it('配置 AUDIT_HMAC_KEY 后独立签名（不依赖 ENCRYPTION_KEY）', () => {
+      const withKey = makeService({ ENCRYPTION_KEY: '1'.repeat(64), AUDIT_HMAC_KEY: KEY_A });
+      const diffEnc = makeService({ ENCRYPTION_KEY: '2'.repeat(64), AUDIT_HMAC_KEY: KEY_A });
+      const legacyOnly = makeService({ ENCRYPTION_KEY: '1'.repeat(64) });
+      const h1 = withKey.computeHash(null, { action: 'chat' });
+      expect(h1).toHaveLength(64);
+      // AUDIT_HMAC_KEY 主导：换 ENCRYPTION_KEY 不影响 hash
+      expect(diffEnc.computeHash(null, { action: 'chat' })).toBe(h1);
+      // 未配 AUDIT_HMAC_KEY 的 legacy 派生与独立密钥不同（密钥域已分离）
+      expect(legacyOnly.computeHash(null, { action: 'chat' })).not.toBe(h1);
+    });
+
+    it('轮换：保留 AUDIT_HMAC_KEY_PREVIOUS 时旧 key 记录仍可验证，新记录用新 key', () => {
+      // 阶段 1：KEY_A 签名的链
+      const oldSvc = makeService({ AUDIT_HMAC_KEY: KEY_A });
+      const h1 = oldSvc.computeHash(null, { action: 'chat' });
+      const h2 = oldSvc.computeHash(h1, { action: 'tool_call' });
+      const rows = [
+        { id: 1, prevHash: null, hash: h1, action: 'chat' },
+        { id: 2, prevHash: h1, hash: h2, action: 'tool_call' },
+      ];
+      // 阶段 2：轮换到 KEY_B，保留 KEY_A 为 previous → 旧链仍可验证
+      const newSvc = makeService({ AUDIT_HMAC_KEY: KEY_B, AUDIT_HMAC_KEY_PREVIOUS: KEY_A });
+      expect(newSvc.verifyChain(rows as never, payloadFor)).toMatchObject({ valid: true, checked: 2 });
+      // 新记录用 KEY_B 签名，续链后整体仍验证
+      const h3 = newSvc.computeHash(h2, { action: 'chat' });
+      const rows2 = [...rows, { id: 3, prevHash: h2, hash: h3, action: 'chat' }];
+      expect(newSvc.verifyChain(rows2 as never, payloadFor).valid).toBe(true);
+    });
+
+    it('轮换未保留旧 key：旧记录 verify 断链（提示需配置 previous）', () => {
+      const oldSvc = makeService({ AUDIT_HMAC_KEY: KEY_A });
+      const h1 = oldSvc.computeHash(null, { action: 'chat' });
+      const rows = [{ id: 1, prevHash: null, hash: h1, action: 'chat' }];
+      const newSvc = makeService({ AUDIT_HMAC_KEY: KEY_B }); // 无 previous
+      expect(newSvc.verifyChain(rows as never, payloadFor).valid).toBe(false);
+    });
+  });
 });

@@ -43,6 +43,9 @@ export const envValidationSchema = Joi.object({
   // 敏感数据静态加密（AES-256-GCM）
   ENCRYPTION_KEY: Joi.string().length(64).required(),       // 32 bytes hex
   ENCRYPTION_HMAC_KEY: Joi.string().length(64).allow('').default(''),
+  // HS-11 审计链独立密钥（W4-②）：AUDIT_HMAC_KEY 与业务加密密钥分离；AUDIT_HMAC_KEY_PREVIOUS 为轮换时旧密钥（保留用于验证旧记录）
+  AUDIT_HMAC_KEY: Joi.string().length(64).allow('').default(''),
+  AUDIT_HMAC_KEY_PREVIOUS: Joi.string().length(64).allow('').default(''),
 
   // OAuth 第三方登录
   OAUTH_ENABLED_PROVIDERS: Joi.string().allow('').default('wechat,alipay,qq'),
