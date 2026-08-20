@@ -281,6 +281,9 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/crm/customers/:id',
+        // 无效 id（深链/手输）回列表，避免 int.parse 红屏（同 events :id/edit 守卫）
+        redirect: (_, state) =>
+            int.tryParse(state.pathParameters['id'] ?? '') == null ? '/crm' : null,
         builder: (_, state) => CustomerDetailPage(
           customerId: int.parse(state.pathParameters['id']!),
         ),
@@ -292,6 +295,8 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/pm/projects/:id',
+        redirect: (_, state) =>
+            int.tryParse(state.pathParameters['id'] ?? '') == null ? '/pm' : null,
         builder: (_, state) => ProjectDetailPage(
           projectId: int.parse(state.pathParameters['id']!),
         ),
@@ -303,6 +308,8 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/approval/requests/:id',
+        redirect: (_, state) =>
+            int.tryParse(state.pathParameters['id'] ?? '') == null ? '/approval' : null,
         builder: (_, state) => ApprovalRequestDetailPage(
           requestId: int.parse(state.pathParameters['id']!),
         ),

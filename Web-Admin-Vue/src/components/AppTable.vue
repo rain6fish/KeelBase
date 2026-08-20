@@ -21,7 +21,7 @@
         </template>
       </el-table-column>
       <template #empty>
-        <div class="pa-4 text-medium-emphasis">{{ emptyText || t('loading') }}</div>
+        <div class="pa-4 text-medium-emphasis">{{ emptyText || t('noData') }}</div>
       </template>
     </el-table>
     <div v-if="hasPaginationSlot" class="px-3">
