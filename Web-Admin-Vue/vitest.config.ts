@@ -17,10 +17,11 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       thresholds: {
-        statements: 30,
-        branches: 50,
-        functions: 25,
-        lines: 30,
+        // 2026-08-20 提高：锁住当前水平（实际 36.1/81.1/59.2/36.1，留 4-6 点余量防 CI 波动）
+        statements: 32,
+        branches: 75,
+        functions: 54,
+        lines: 32,
       },
     },
   },
