@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron } from '@nestjs/schedule';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../common/entities/user.entity';
 import { Event } from '../events/event.entity';
@@ -38,7 +38,8 @@ export class ProactiveAiService {
 
     // 只挑今天有日程/待办的用户，避免打扰无数据用户
     const [events, todos] = await Promise.all([
-      this.eventsRepo.find({ where: { startTime: dayStart as any } as any }),
+      // 查今天及以前开始的事件（含跨天），今日重叠由下方 JS 区间过滤；原精确等 dayStart 会漏掉几乎所有今日事件
+      this.eventsRepo.find({ where: { startTime: LessThanOrEqual(dayEnd) } as any }),
       this.todosRepo.find({ where: { completed: false } }),
     ]);
     if (events.length === 0 && todos.length === 0) {
