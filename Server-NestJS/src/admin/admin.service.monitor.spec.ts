@@ -71,7 +71,7 @@ describe('AdminService · 监控/概览/用户详情/会话/广播', () => {
       httpRequestsInFlight: { get: jest.fn().mockResolvedValue({ values: [{ value: 3 }] }) },
       httpRequestDurationSeconds: { get: jest.fn().mockResolvedValue({ values: [{ value: 80, labels: { le: '0.1' } }, { value: 95, labels: { le: '0.2' } }, { value: 100, labels: { le: '+Inf' } }] }) },
     };
-    dataSource = { query: jest.fn().mockResolvedValue([]) };
+    dataSource = { query: jest.fn().mockResolvedValue([]), options: { type: 'better-sqlite3' } };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
