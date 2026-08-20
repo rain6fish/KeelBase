@@ -91,7 +91,8 @@
 | 检查点 | 方法 | 达标线 |
 |---|---|---|
 | 越权测试矩阵 | 敏感实体（Customer/Project/Contract/Approval/Notification/Knowledge/Headless）× 操作（GET/PATCH/DELETE/AI 读/AI 写/批处理/撤销）系统化 | A 访问 B 数据 → 全部拒绝 |
-| | **✅ 首增量（2026-08-20，`test/authorization.e2e-spec.ts` 33 用例）**：REST CRUD 矩阵——events/todos/crm/pm/approval/suppliers/contracts × GET/PUT·PATCH/DELETE + 列表隔离 + admin 端点，跨用户 403/404 拒绝 | 后续增量：AI 工具 / Headless / SubAgent scope / 批处理 / 撤销 |
+| | **✅ 首增量（2026-08-20，`test/authorization.e2e-spec.ts` 33 用例）**：REST CRUD 矩阵——events/todos/crm/pm/approval/suppliers/contracts × GET/PUT·PATCH/DELETE + 列表隔离 + admin 端点，跨用户 403/404 拒绝 | 后续增量：Headless / SubAgent scope / 批处理 / 撤销 |
+| | **✅ AI 工具隔离（2026-08-20，35 用例）**：AI Tool Read（A 查客户不含 B 数据）/ AI Tool Write（A 对 B 客户建任务被拒）| 确定性验证，无 LLM |
 | Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | **✅ 攻击用例补齐 + 脚本化 + 实测 12/12（2026-08-20）**：securityCases 6→12（injection-write / confirmation-bypass / revoke-bypass / cross-org-read / cross-org-approve / unauthorized-read）；`scripts/verify-security-eval.sh`（登录→seed→评测批→断言门槛，可接 CI）；reject 断言增强措辞 + seed 支持断言演进；**DeepSeek 实测 12/12 全挡**（越权/注入/确认绕过/撤销绕过/跨组织全拒，正常用例通过）→ 安全回归门槛 90% 达成；spec 23 全绿 |
 | 合成陌生人验证 | 无本仓上下文 AI Agent 从干净 clone 跑 30min Build + 60min Business，记录卡点（[dev-challenge.md](dev-challenge.md)）| 脚本化 + 进 CI，持续烧掉 onboarding 卡点 |
 
