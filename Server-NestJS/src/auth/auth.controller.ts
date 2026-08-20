@@ -5,6 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
+import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { LoginDto } from './dto/login.dto';
 import { MfaVerifyDto, MfaDisableDto } from './dto/mfa.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -32,6 +33,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private providersConfig: OAuthProvidersConfigService,
+    private caslFactory: CaslAbilityFactory,
   ) {}
 
   @Public()
@@ -222,6 +224,14 @@ export class AuthController {
   @ApiOkResponse({ description: 'Profile retrieved' })
   async getProfile(@CurrentUser() user: JwtPayload) {
     return this.authService.getProfile(user.sub);
+  }
+
+  @Get('me/permissions')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Explainable authorization: current user capability list with basis' })
+  @ApiOkResponse({ description: 'Permission capability list' })
+  async getMyPermissions(@CurrentUser() user: JwtPayload) {
+    return this.caslFactory.describeForUser(user);
   }
 
   @Post('logout')
