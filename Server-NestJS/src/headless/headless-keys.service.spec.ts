@@ -76,23 +76,44 @@ describe('HeadlessKeysService（HS-4 治理）', () => {
         quotaDate: 0,
         dailyUsed: 0,
         enabled: true,
-        save: jest.fn(),
       };
       repo.findOne.mockResolvedValue(keyRow);
+      repo.update.mockResolvedValue({ affected: 1, raw: {} });
       const ctx = await service.authenticate('k', '');
       expect(ctx.ownerUserId).toBe(5);
       expect(ctx.toolWhitelist).toEqual(['query_events']);
-      expect(keyRow.dailyUsed).toBe(1);
+      // 日切换（quotaDate=0）→ 重置 update（id 条件）+ 原子递增 update（where dailyUsed<10）
+      expect(repo.update).toHaveBeenCalledTimes(2);
+      expect(repo.update.mock.calls[0][0]).toBe(3); // 重置以 id 为条件
+      const bumpCriteria = repo.update.mock.calls[1][0];
+      expect(bumpCriteria.id).toBe(3);
+      expect(JSON.stringify(bumpCriteria.dailyUsed)).toContain('10');
     });
 
-    it('配额用尽 → 拒绝', async () => {
+    it('配额用尽 → 原子 update affected=0 拒绝', async () => {
       const keyRow = {
         id: 3, keyHash: 'h', name: 'k', ownerUserId: 5,
         toolWhitelist: null, quotaPerDay: 1, quotaDate: Math.floor(Date.now() / 86400000),
-        dailyUsed: 1, enabled: true, save: jest.fn(),
+        dailyUsed: 1, enabled: true,
       };
       repo.findOne.mockResolvedValue(keyRow);
+      repo.update.mockResolvedValue({ affected: 0, raw: {} }); // where dailyUsed<1 不命中
       await expect(service.authenticate('k', '')).rejects.toThrow(/配额/);
+    });
+
+    it('不限配额（quotaPerDay=0）不设 where，affected=1 正常通过', async () => {
+      const keyRow = {
+        id: 5, keyHash: 'h', name: 'k', ownerUserId: 5,
+        toolWhitelist: null, quotaPerDay: 0, quotaDate: Math.floor(Date.now() / 86400000),
+        dailyUsed: 100, enabled: true,
+      };
+      repo.findOne.mockResolvedValue(keyRow);
+      repo.update.mockResolvedValue({ affected: 1, raw: {} });
+      const ctx = await service.authenticate('k', '');
+      expect(ctx.quotaPerDay).toBe(0);
+      const bumpCall = repo.update.mock.calls.find((c) => c[1] && typeof c[1].dailyUsed === 'function');
+      expect(bumpCall[0].id).toBe(5);
+      expect(bumpCall[0].dailyUsed).toBeUndefined(); // 不限配额无 dailyUsed where
     });
   });
 
