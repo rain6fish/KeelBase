@@ -234,6 +234,21 @@ export class AuthController {
     return this.caslFactory.describeForUser(user);
   }
 
+  @Post('permissions/explain')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Explainable authorization: decision + basis for action×resource' })
+  @ApiOkResponse({ description: 'Permission decision with basis' })
+  async explainPermission(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { action: string; subject: string },
+  ) {
+    return this.caslFactory.explain(
+      user,
+      body.action as 'manage' | 'create' | 'read' | 'update' | 'delete',
+      body.subject,
+    );
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
