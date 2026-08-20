@@ -32,19 +32,25 @@
 
 ---
 
-## 3. 导入加固清单（A 路径，🚧 P1，带验收）
+## 3. 导入加固清单（A 路径，带验收）
 
-| # | 加固项 | 问题 | 验收标准 |
-|---|---|---|---|
-| 1 | **required 透传** | OpenAPI `required` 数组未映射到 Protocol `required` | 单测：required 字段 → create DTO 非空校验 + 前端必填 |
-| 2 | **label/description 透传** | schema 属性 `title/description` 丢失 | 单测：title → Protocol `label`，生成后 UI 显示中文标签 |
-| 3 | **多 schema / 多模块** | 只取第一个 schema，其余静默丢弃 | 支持 `--schemas a,b` 或交互选择；未选 schema 列入手写清单 |
-| 4 | **$ref / allOf 浅层解析** | `$ref` / `allOf` 直接跳过 | 单层 `$ref` 解析为「关系标注」并落入手写清单；`allOf` 合并标量字段 |
-| 5 | **YAML 支持** | 只吃 JSON，真实企业 spec 多为 YAML | 内置 YAML 解析，支持 `.yaml/.yml` |
-| 6 | **跳过诊断报告** | 字段静默跳过，Java 团队不知道缺了什么 | `--out` 时输出 `skipped: [{ name, reason }]` |
-| 7 | **enum 降级告警** | enum 选项不合法静默降级 string | 降级时输出 warning + 建议（如转换选项为小写） |
-| 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| 对 `DECIMAL` / `format:double` 输出「建议保留 text/int，金额字段谨慎」提示 |
-| 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | 本地相对 `$ref: './other.yaml#/...'` 解析 |
+> 状态：✅ 已完成（2026-08-20） / 🚧 规划（P1，未实现）
+
+| # | 加固项 | 问题 | 状态 | 验收标准 |
+|---|---|---|---|---|
+| 1 | **required 透传** | OpenAPI `required` 数组未映射到 Protocol `required` | ✅ | required 字段 → Protocol `required: true` → **AI 工具输入 schema 必填**（Agent 必须提供所需参数）；单测 + CLI 端到端覆盖 |
+| 2 | **label/description 透传** | schema 属性 `title/description` 丢失 | ✅ | `title` 优先 / `description` 兜底 → Protocol `label`（流入 AI 工具参数描述）；引号/换行/反斜杠净化、限长 40 |
+| 3 | **多 schema / 多模块** | 只取第一个 schema，其余静默丢弃 | 🚧 | 支持 `--schemas a,b` 或交互选择；未选 schema 列入手写清单 |
+| 4 | **$ref / allOf 浅层解析** | `$ref` / `allOf` 直接跳过 | 🚧 | 单层 `$ref` 解析为「关系标注」并落入手写清单；`allOf` 合并标量字段 |
+| 5 | **YAML 支持** | 只吃 JSON，真实企业 spec 多为 YAML | 🚧 | 内置 YAML 解析，支持 `.yaml/.yml` |
+| 6 | **跳过诊断报告** | 字段静默跳过，Java 团队不知道缺了什么 | ✅ | `--out` 协议含 `skipped: [{ name, reason }]`（保留/关系/非法名/enum 降级）；直接生成时终端打印诊断 |
+| 7 | **enum 降级告警** | enum 选项不合法静默降级 string | ✅ | 降级记入 `skipped`（reason 含「降级为 string」），不再静默 |
+| 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| 🚧 | 对 `DECIMAL` / `format:double` 输出「建议保留 text/int，金额字段谨慎」提示 |
+| 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | 🚧 | 本地相对 `$ref: './other.yaml#/...'` 解析 |
+
+**后续项（本增量未做）**：
+- DTO required 必填：`required` 字段 → create DTO `@IsNotEmpty()` + 前端必填（当前 DTO 恒可选，AI 工具层已强制必填）
+- `import-schema` 对称加固：`NOT NULL` → `required` + 同样输出 `skipped` 诊断
 
 ---
 
