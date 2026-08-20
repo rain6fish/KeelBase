@@ -62,3 +62,6 @@ Server-NestJS/uploads/
 
 # Database backups
 Server-NestJS/data/backups/
+
+# SBOM（CI 生成的上传产物，不入库）
+Server-NestJS/sbom.spdx.json
