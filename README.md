@@ -184,6 +184,18 @@ The Admin Console is bundled with the main App at `/admin` after one-command dep
 
 > Admin Console requires an account with `role = admin`. See [Demo Account](#demo-account).
 
+### Generate a Module in 30 Minutes
+
+`keelbase init` generates a runnable business module (entity / API / permissions / audit / AI tools) from one command:
+
+```bash
+cd Server-NestJS
+node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+npm run build && npm test -- posts
+```
+
+The module auto-lands in the admin console, workbench, and as AI tools (`query_posts` / `create_post` with confirmation). Full flow: [30min-acceptance.md](docs/manual/30min-acceptance.md) · [dev-challenge.md](docs/manual/dev-challenge.md).
+
 ### Docker (Production)
 
 ```bash
