@@ -32,6 +32,36 @@ export interface ToolResult {
 }
 
 /**
+ * 工具风险等级（W5 Risk-based Tool Contract，评审二 §7）。
+ * 把工具执行从简单 Read/Write 升级为风险分级，对应执行策略：
+ *   R0 Informational → auto；R1 Read → auto；R2 Low-risk Write → policy（治理决定）；
+ *   R3 Business-sensitive Write → confirmation；R4 High-impact Action → human_approval；
+ *   R5 Irreversible / External Action → block（阻断）。
+ * 仅服务端关切，不暴露给 LLM。
+ */
+export type ToolRiskLevel = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
+
+export const RISK_STRATEGY: Record<ToolRiskLevel, string> = {
+  R0: 'auto',
+  R1: 'auto',
+  R2: 'policy',
+  R3: 'confirmation',
+  R4: 'human_approval',
+  R5: 'block',
+};
+
+/**
+ * 解析工具风险级：显式声明优先；否则按既有语义派生——
+ * requiresConfirmation 写工具 → R3（业务敏感写），读工具 → R1（读）。
+ */
+export function resolveRiskLevel(
+  tool: Pick<AiTool, 'riskLevel' | 'requiresConfirmation'>,
+): ToolRiskLevel {
+  if (tool.riskLevel) return tool.riskLevel;
+  return tool.requiresConfirmation ? 'R3' : 'R1';
+}
+
+/**
  * 工具权限元数据（HS-2）：AI 执行工具前的门控依据。
  * 仅服务端关切，不暴露给 LLM。
  */
@@ -52,6 +82,9 @@ export interface AiTool {
 
   /** 写操作标记：为 true 时需人工确认后才执行（仅服务端关切，不暴露给 LLM） */
   readonly requiresConfirmation?: boolean;
+
+  /** 风险等级（W5）：显式声明优先，未声明时由 requiresConfirmation 派生（R3/R1）。R5 = 阻断。 */
+  readonly riskLevel?: ToolRiskLevel;
 
   /** 权限元数据（HS-2）：未声明则默认允许（数据隔离已由 execute 的 userId 保证） */
   readonly permissions?: ToolPermissions;
