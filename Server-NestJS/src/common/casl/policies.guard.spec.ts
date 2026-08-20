@@ -47,10 +47,10 @@ describe('PoliciesGuard', () => {
     await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
   });
 
-  it('任一策略拒绝 → 拒绝', async () => {
+  it('任一策略拒绝 → 抛 403 且附 explanation（W5-⑦ 为何阻止）', async () => {
     reflector.getAllAndOverride.mockReturnValue([() => true, () => false]);
     const request: Record<string, unknown> = { user };
-    await expect(guard.canActivate(makeContext(request))).resolves.toBe(false);
+    await expect(guard.canActivate(makeContext(request))).rejects.toThrow('Forbidden resource');
   });
 
   it('策略按顺序逐个执行（every 短路）', async () => {
@@ -58,7 +58,7 @@ describe('PoliciesGuard', () => {
     const second = jest.fn(() => true);
     reflector.getAllAndOverride.mockReturnValue([first as PolicyHandler, second as PolicyHandler]);
     const request: Record<string, unknown> = { user };
-    await expect(guard.canActivate(makeContext(request))).resolves.toBe(false);
+    await expect(guard.canActivate(makeContext(request))).rejects.toThrow('Forbidden resource');
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).not.toHaveBeenCalled();
   });
