@@ -62,6 +62,24 @@ export function resolveRiskLevel(
 }
 
 /**
+ * Explainable Authorization（W5-⑦，评审四）：单条授权依据。
+ * 供 tool_start / confirmation_request 事件携带，前端渲染「为何允许 / 为何需确认」。
+ */
+export interface AuthorizationCheck {
+  name: string;
+  ok: boolean;
+  note?: string;
+}
+
+export interface AuthorizationReasons {
+  tool: string;
+  riskLevel: ToolRiskLevel;
+  riskStrategy: string;
+  requiresConfirmation: boolean;
+  checks: AuthorizationCheck[];
+}
+
+/**
  * 工具权限元数据（HS-2）：AI 执行工具前的门控依据。
  * 仅服务端关切，不暴露给 LLM。
  */
