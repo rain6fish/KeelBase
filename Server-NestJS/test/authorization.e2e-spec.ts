@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
+import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 
@@ -258,6 +259,35 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
         .set('x-api-key', 'forged-key-abcdef')
         .send({ message: 'hi' })
         .expect(401);
+    });
+  });
+
+  describe('撤销越权（评审三 §5：Revoke → 拒绝）', () => {
+    let effectId: number;
+
+    beforeAll(async () => {
+      // A 的 AI 副作用（直接经 toolEffectsService 构造，模拟 AI 写工具执行后落库）
+      const effectsService = app.get(AiToolEffectsService);
+      const effect = await effectsService.record(
+        { userId: String(userAId), conversationId: 'matrix-revoke', toolName: 'create_event', args: { title: 'x' } } as any,
+        'event',
+        999,
+      );
+      effectId = effect.id;
+    });
+
+    it('B 撤销 A 的副作用 → 404（非本人）', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(userB.accessToken))
+        .expect(404);
+    });
+
+    it('A 撤销自己的副作用 → 200', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(userA.accessToken))
+        .expect(200);
     });
   });
 });
