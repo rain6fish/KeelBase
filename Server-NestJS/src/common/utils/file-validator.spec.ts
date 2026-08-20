@@ -24,6 +24,16 @@ describe('validateMagicBytes（内存版）', () => {
     const buf = Buffer.concat([Buffer.from('504b0304', 'hex'), Buffer.from('x')]);
     expect(() => validateMagicBytes(buf, 'application/zip')).not.toThrow();
   });
+
+  it('WebP：RIFF@0 + WEBP@8 双校验通过', () => {
+    const buf = Buffer.from('RIFFABCDWEBP', 'ascii');
+    expect(() => validateMagicBytes(buf, 'image/webp')).not.toThrow();
+  });
+
+  it('WAV（同为 RIFF 头）伪装 image/webp 被拒', () => {
+    const buf = Buffer.from('RIFFABCDWAVE', 'ascii');
+    expect(() => validateMagicBytes(buf, 'image/webp')).toThrow(BadRequestException);
+  });
 });
 
 describe('validateFileMagicBytes（磁盘版）', () => {
