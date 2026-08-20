@@ -250,6 +250,27 @@ describe('UsersService', () => {
       await expect(service.update(1, emailDto)).rejects.toThrow(ConflictException);
     });
 
+    it('update 改手机号：同步写 phoneHash + 唯一性通过', async () => {
+      const userCopy = { ...mockUser, phone: 'enc:old', phoneHash: 'oldhash' };
+      mockRepository.findOne
+        .mockResolvedValueOnce(userCopy)  // find the user to update
+        .mockResolvedValueOnce(null);     // 唯一性检查：新号码未占用
+      mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+      await service.update(1, { phone: '13800138000' } as UpdateUserDto);
+
+      const saved = mockRepository.save.mock.calls[0][0];
+      expect(saved.phone).toBe('enc:13800138000');
+      expect(saved.phoneHash).toBe('hmac:13800138000'); // 与 bindPhone 一致
+    });
+
+    it('update 改手机号：号码已被他人占用 → 409', async () => {
+      mockRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser, phone: 'enc:old', phoneHash: 'oldhash' }) // find user
+        .mockResolvedValueOnce({ ...mockUser, id: 2 }); // 他人占用该号码
+      await expect(service.update(1, { phone: '13800138000' } as UpdateUserDto)).rejects.toThrow(ConflictException);
+    });
+
     it('should rehash password when provided', async () => {
       const originalPassword = mockUser.password;
       const userCopy = { ...mockUser };
