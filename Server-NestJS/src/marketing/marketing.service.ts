@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../common/entities/user.entity';
@@ -7,7 +7,7 @@ import { MailService } from '../mail/mail.service';
 export interface MarketingEmailInput {
   subject: string;
   body: string;
-  /** 目标用户筛选：all | active（有事件/待办）| role:user | role:admin */
+  /** 目标用户筛选：all | admin | user（active 未实现；未知值 service 抛错防静默群发全员） */
   audience?: string;
   ctaLabel?: string;
   ctaUrl?: string;
@@ -34,9 +34,11 @@ export class MarketingService {
       users = await this.usersRepo.find({ where: { role: UserRole.ADMIN } });
     } else if (audience === 'user') {
       users = await this.usersRepo.find({ where: { role: UserRole.USER } });
-    } else {
-      // all
+    } else if (audience === 'all') {
       users = await this.usersRepo.find();
+    } else {
+      // 防静默群发：未知 audience 抛错而非落 all
+      throw new BadRequestException(`未知 audience: ${audience}`);
     }
 
     let sent = 0;
