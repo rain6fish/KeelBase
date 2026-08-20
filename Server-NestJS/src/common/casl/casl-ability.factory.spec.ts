@@ -103,4 +103,23 @@ describe('CaslAbilityFactory', () => {
       expect(admin).toBeUndefined(); // 普通用户无权 all
     });
   });
+
+  describe('explain (W5-⑦ 决策解释)', () => {
+    it('admin: manage all → allowed', () => {
+      const e = factory.explain(adminUser, 'manage', 'all');
+      expect(e.allowed).toBe(true);
+      expect(e.reason).toContain('管理员');
+      expect(e.deniedBy).toBeNull();
+    });
+
+    it('user: manage Event → allowed (own scope); manage all → denied', () => {
+      const ok = factory.explain(regularUser, 'manage', 'Event');
+      expect(ok.allowed).toBe(true);
+      expect(ok.reason).toContain('本人所有权');
+      const denied = factory.explain(regularUser, 'manage', 'all');
+      expect(denied.allowed).toBe(false);
+      expect(denied.deniedBy).toBe('casl');
+      expect(denied.reason).toContain('管理员');
+    });
+  });
 });

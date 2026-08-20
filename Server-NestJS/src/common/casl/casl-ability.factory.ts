@@ -99,4 +99,31 @@ export class CaslAbilityFactory {
       resources: [...seen.values()].sort((a, b) => a.subject.localeCompare(b.subject)),
     };
   }
+
+  /**
+   * W5-⑦ Explainable Authz：对「某 action × 资源」返回决策 + 依据（资源级；对象级由行级校验承担）。
+   * 供 POST /auth/permissions/explain 与管理台 Security Review 排查「为何某用户被拒」。
+   */
+  explain(
+    user: JwtPayload,
+    action: Action,
+    subjectName: string,
+  ): { action: string; subject: string; allowed: boolean; reason: string; deniedBy: 'casl' | null } {
+    const ability = this.createForUser(user);
+    const allowed = ability.can(action, subjectName);
+    const isAdmin = user.role === UserRole.ADMIN;
+    return {
+      action,
+      subject: subjectName,
+      allowed,
+      reason: allowed
+        ? subjectName === 'all'
+          ? '管理员：可管理全部资源'
+          : '可操作（本人所有权范围，行级条件）'
+        : isAdmin
+          ? '当前策略不允许此操作'
+          : '需要管理员权限，或该资源不在你的可管理范围',
+      deniedBy: allowed ? null : 'casl',
+    };
+  }
 }
