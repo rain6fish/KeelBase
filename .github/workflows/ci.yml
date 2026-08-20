@@ -126,6 +126,33 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node --test scripts/keelbase-init.test.mjs
 
+  # 供应链安全（评审三 §6）：依赖完整性 + 漏洞审计 + SBOM
+  supply-chain:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-NestJS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      # npm ci 即依赖完整性检查：lockfile 与 package.json 不一致会直接失败
+      - run: npm ci
+      # 生产依赖漏洞审计：high/critical 即失败（2026-08-20 已清零 4 个 high，含 @nestjs/swagger→js-yaml/fast-uri）
+      - name: 依赖漏洞审计
+        run: npm audit --omit=dev --audit-level=high
+      # SBOM（SPDX）生成并上传，供供应链核查
+      - name: 生成 SBOM
+        run: npm sbom --sbom-format spdx --omit=dev --output sbom.spdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keelbase-sbom
+          path: Server-NestJS/sbom.spdx.json
+          if-no-files-found: error
+
   web-admin:
     runs-on: ubuntu-latest
     defaults:
