@@ -275,6 +275,19 @@ describe('OrgService', () => {
     expect(members.save).not.toHaveBeenCalled();
   });
 
+  it('兑换邀请码：已是组织成员 → 不消耗邀请码、不发通知', async () => {
+    invites.findOne.mockResolvedValue({
+      id: 3, code: 'MEMBER', orgId: 1, inviterId: 2,
+      role: OrgMemberRole.MEMBER, deptId: null, expiresAt: null, usedBy: null, usedAt: null,
+    });
+    members.findOne.mockResolvedValue({ id: 99, orgId: 1, userId: 9 }); // 已是成员
+    const ok = await service.redeemOrgInvite('MEMBER', 9);
+    expect(ok).toBe(false);
+    expect(members.save).not.toHaveBeenCalled();
+    expect(invites.save).not.toHaveBeenCalled();
+    expect(notify.create).not.toHaveBeenCalled();
+  });
+
   // ── 申请（ORG-4） ──
 
   it('提交申请：非成员 403', async () => {
