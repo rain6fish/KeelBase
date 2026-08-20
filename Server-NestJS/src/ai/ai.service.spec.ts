@@ -816,6 +816,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterTool());
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
       mockToolRegistry.execute.mockResolvedValue({
         success: true,
         data: { id: 42, title: '评审' },
@@ -836,6 +837,15 @@ describe('AiService', () => {
       expect(first.value.type).toBe('tool_start');
       expect(first.value.toolStart?.name).toBe('create_event');
       expect(first.value.toolStart?.summary).toContain('创建事件：评审');
+      // W5-⑦ Explainable Authz：tool_start 携带 riskLevel + authorization
+      expect(first.value.toolStart?.riskLevel).toBe('R3');
+      expect(first.value.toolStart?.authorization?.riskStrategy).toBe('confirmation');
+      expect(
+        first.value.toolStart?.authorization?.checks.some((c: any) => c.name === 'user_scoped' && c.ok),
+      ).toBe(true);
+      expect(
+        first.value.toolStart?.authorization?.checks.some((c: any) => c.name === 'risk_policy' && c.ok),
+      ).toBe(true);
       // 确认前不执行写操作
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
 
@@ -844,6 +854,9 @@ describe('AiService', () => {
       expect(second.value.type).toBe('confirmation_request');
       expect(second.value.confirmation?.toolName).toBe('create_event');
       expect(second.value.confirmation?.summary).toContain('创建事件：评审');
+      // W5-⑦ Explainable Authz：确认请求携带为何需确认
+      expect(second.value.confirmation?.authorization?.requiresConfirmation).toBe(true);
+      expect(second.value.confirmation?.authorization?.riskLevel).toBe('R3');
       expect(pendingToken).toBeDefined();
 
       // 用户确认 → confirmation_decision + tool_end(success)
