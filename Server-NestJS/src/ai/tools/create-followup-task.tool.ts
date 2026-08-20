@@ -76,9 +76,13 @@ export class CreateFollowupTaskTool implements AiTool {
   ): Promise<ToolResult> {
     try {
       const customerId = args.customerId !== undefined ? Number(args.customerId) : undefined;
-      const dto: { customerId?: number; title: string; description?: string; dueDate?: string } = {
+      if (customerId === undefined || !Number.isFinite(customerId)) {
+        // 显式校验（customerId 是必填）：非有限值返回错误，防无客户关联的数据孤儿
+        return { success: false, error: 'customerId 无效' };
+      }
+      const dto: { customerId: number; title: string; description?: string; dueDate?: string } = {
         title: String(args.title ?? ''),
-        ...(customerId !== undefined && Number.isFinite(customerId) ? { customerId } : {}),
+        customerId,
         ...(args.description !== undefined ? { description: String(args.description) } : {}),
         ...(args.dueDate !== undefined ? { dueDate: String(args.dueDate) } : {}),
       };
