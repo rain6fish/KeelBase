@@ -80,6 +80,18 @@ export interface AuthorizationReasons {
 }
 
 /**
+ * 授权拒绝（W5-⑦，评审四 §五 Why blocked）：工具被门控拒绝时抛出的结构化错误。
+ * 携带失败的检查清单，供 tool_end / 审计展示「为何阻止」。
+ * message 保持原拒绝文案（兼容既有 toThrow 断言）。
+ */
+export class AuthorizationDeniedError extends Error {
+  constructor(message: string, public readonly reasons: AuthorizationCheck[]) {
+    super(message);
+    this.name = 'AuthorizationDeniedError';
+  }
+}
+
+/**
  * 工具权限元数据（HS-2）：AI 执行工具前的门控依据。
  * 仅服务端关切，不暴露给 LLM。
  */
