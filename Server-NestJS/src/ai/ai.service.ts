@@ -20,7 +20,7 @@ import { MemoriesService } from './memory/memory.service';
 import { ConfirmationStore, ConfirmationOutcome } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
-import { AiTool, ToolDefinition, ToolResult } from './interfaces/tool.interface';
+import { AiTool, ToolDefinition, ToolResult, RISK_STRATEGY } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
@@ -151,6 +151,11 @@ export class AiService {
       tool = this.toolRegistry.getTool(toolName);
     } catch {
       // 工具未注册：让后续 execute 抛「not found」，这里不拦截
+    }
+
+    // W5 风险模型：R5（不可逆/外部动作）→ 阻断，不进入确认/执行（评审二 §7）
+    if (tool && this.toolRegistry.riskLevel(toolName) === 'R5') {
+      throw new Error(`Tool "${toolName}" is blocked (risk level R5)`);
     }
 
     // HS-9 治理策略：工具开关 + 角色白名单
@@ -397,6 +402,8 @@ export class AiService {
           override.requiresConfirmation ?? tool.requiresConfirmation ?? false,
         allowedRoles: override.allowedRoles ?? [],
         permissions: tool.permissions ?? null,
+        riskLevel: this.toolRegistry.riskLevel(tool.name),
+        riskStrategy: RISK_STRATEGY[this.toolRegistry.riskLevel(tool.name)],
       };
     });
   }

@@ -72,6 +72,7 @@ describe('AiService', () => {
       getTool: jest.fn(),
       getAllTools: jest.fn(),
       requiresConfirmation: jest.fn().mockReturnValue(false),
+      riskLevel: jest.fn().mockReturnValue('R1'),
     } as any;
 
     mockConversationService = {
@@ -1249,6 +1250,41 @@ describe('AiService', () => {
         expect(out.requiresConfirmation).toBe(true);
         expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       });
+
+      it('R5 风险级 → 阻断（不执行也不确认）', async () => {
+        mockToolRegistry.getTool.mockReturnValue({ name: 'irreversible_action', riskLevel: 'R5' });
+        mockToolRegistry.riskLevel.mockReturnValue('R5');
+        await expect(
+          aiService.executeToolForExternal('irreversible_action', {}, '1'),
+        ).rejects.toThrow('is blocked (risk level R5)');
+        expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      });
+
+      it('R4 风险级（human_approval）→ 仍需确认', async () => {
+        mockToolRegistry.riskLevel.mockReturnValue('R4');
+        mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+        const out = await aiService.executeToolForExternal('review_approval_request', { requestId: 1 }, '1');
+        expect(out.executed).toBe(false);
+        expect(out.requiresConfirmation).toBe(true);
+      });
+    });
+  });
+
+  describe('getToolInventory（HS-2 工具清单）', () => {
+    it('暴露 riskLevel / riskStrategy', async () => {
+      const fakeTool = {
+        name: 'review_approval_request',
+        description: '审批预审',
+        parameters: [{ name: 'requestId', type: 'number', required: true }],
+        requiresConfirmation: true,
+      };
+      mockToolRegistry.getAllTools.mockReturnValue([fakeTool as any]);
+      mockToolRegistry.riskLevel.mockReturnValue('R4');
+      const inv = await aiService.getToolInventory();
+      expect(inv).toHaveLength(1);
+      expect(inv[0].riskLevel).toBe('R4');
+      expect(inv[0].riskStrategy).toBe('human_approval');
+      expect(inv[0].requiresConfirmation).toBe(true);
     });
   });
 
