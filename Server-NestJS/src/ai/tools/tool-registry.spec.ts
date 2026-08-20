@@ -175,6 +175,34 @@ describe('ToolRegistry', () => {
     });
   });
 
+  describe('riskLevel()（W5 风险模型）', () => {
+    it('读工具（无标记）→ 派生 R1', () => {
+      registry.register(mockTool);
+      expect(registry.riskLevel('query_events')).toBe('R1');
+    });
+
+    it('写工具（requiresConfirmation）→ 派生 R3', () => {
+      registry.register({ ...mockTool, name: 'create_event', requiresConfirmation: true });
+      expect(registry.riskLevel('create_event')).toBe('R3');
+    });
+
+    it('显式 riskLevel 优先（R4 human_approval）', () => {
+      registry.register({ ...mockTool, name: 'review_approval', requiresConfirmation: true, riskLevel: 'R4' });
+      expect(registry.riskLevel('review_approval')).toBe('R4');
+    });
+
+    it('R5 阻断：requiresConfirmation=false，确认门不触发（阻断另行强制）', () => {
+      registry.register({ ...mockTool, name: 'irreversible', requiresConfirmation: false, riskLevel: 'R5' });
+      expect(registry.riskLevel('irreversible')).toBe('R5');
+      expect(registry.requiresConfirmation('irreversible')).toBe(false);
+    });
+
+    it('R4 虽未声明 requiresConfirmation 也需确认', () => {
+      registry.register({ ...mockTool, name: 'high_impact', requiresConfirmation: false, riskLevel: 'R4' });
+      expect(registry.requiresConfirmation('high_impact')).toBe(true);
+    });
+  });
+
   describe('getAllTools()', () => {
     it('should return empty array when no tools registered', () => {
       expect(registry.getAllTools()).toEqual([]);

@@ -6,7 +6,7 @@
  * 状态变更型写操作，不创建可撤销记录（不记副作用）。
  */
 
-import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+import { AiTool, ToolDefinition, ToolParameter, ToolResult, ToolRiskLevel } from '../interfaces/tool.interface';
 
 interface ApprovalServiceLike {
   reviewRequest(id: number, userId: number): Promise<{ id: number; status: string; riskLevel: string; aiRecommendation?: string | null }>;
@@ -15,6 +15,8 @@ interface ApprovalServiceLike {
 export class ReviewApprovalRequestTool implements AiTool {
   readonly name = 'review_approval_request';
   readonly requiresConfirmation = true;
+  /** W5 风险模型：审批决定是高影响动作（R4 human_approval）——仍确认，但治理视图区分于普通写（R3） */
+  readonly riskLevel: ToolRiskLevel = 'R4';
   readonly permissions = { requireVerifiedEmail: true };
   readonly description =
     'AI 预审审批请求：读取请求并按审批政策分级——金额不超过阈值则自动通过（低风险），超出阈值转人工复核（需人工决定）。' +
