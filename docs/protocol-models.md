@@ -108,6 +108,7 @@ user  → can('manage', 'User', { id: user.sub })
 - AI 审计：`ai_audit_logs`（action=chat/tool_call/tool_confirmation/error/…，detail=`name(args)`，HS-11 HMAC 哈希链）
 - 操作审计：`operation_audit_logs`（全局拦截 POST/PATCH/PUT/DELETE，敏感字段打码）
 - 用户可见轨迹：`GET /ai/conversations/:id/trace`（P0-14 聚合 messages+audit+effects）
+- **密钥分离（W4-②）**：链 HMAC 用独立 `AUDIT_HMAC_KEY`（64 hex），不再混用业务加密密钥；`AUDIT_HMAC_KEY_PREVIOUS` 保留轮换旧密钥，verify 候选集 [current/previous/legacy] 任一匹配即通过（换 key 后旧记录仍可验证）
 
 ### 3.5 SideEffect（`src/ai/tool-effects/ai-tool-effects.service.ts`，HS-3 / P0-15）
 
