@@ -591,6 +591,12 @@ class AppLocalizations {
   String get aiWaitingConfirm => _t('Awaiting your confirmation...', '等待确认…');
   String get aiConfirmTrustTool => _t('Trust this tool for this session (skip confirmation)', '本会话信任此工具（不再询问）');
   String get aiConfirmArgsTitle => _t('Details', '操作详情');
+  // W5-⑦ Explainable Authz：确认卡展示「为何需确认」（风险级/策略/检查清单）
+  String get aiAuthzTitle => _t('Authorization', '授权依据');
+  String get aiAuthzRiskLevel => _t('Risk level', '风险等级');
+  String get aiAuthzChecksTitle => _t('Why this needs confirmation', '为何需要确认');
+  String get aiAuthzConfirmRequired => _t('Confirmation required', '需人工确认');
+  String get aiAuthzAllowed => _t('Allowed', '允许');
   String get aiToolRunning => _t('Working...', '正在执行…');
   String get aiToolSuccess => _t('Done', '已完成');
   String get aiToolFailed => _t('Failed', '执行失败');

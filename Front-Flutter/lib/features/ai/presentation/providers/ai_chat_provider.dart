@@ -41,18 +41,62 @@ class ChatMessageModel {
   }
 }
 
+/// Explainable Authz（W5-⑦）：单条授权检查（tool_enabled / role_allowed / user_scoped / risk_policy）
+class AuthorizationCheck {
+  final String name;
+  final bool ok;
+  final String? note;
+
+  const AuthorizationCheck({required this.name, required this.ok, this.note});
+
+  factory AuthorizationCheck.fromJson(Map<String, dynamic> json) =>
+      AuthorizationCheck(
+        name: json['name'] as String? ?? '',
+        ok: json['ok'] as bool? ?? false,
+        note: json['note'] as String?,
+      );
+}
+
+/// Explainable Authz（W5-⑦）：授权依据——为何允许 / 为何需确认
+class AuthorizationReasons {
+  final String riskLevel; // R0-R5
+  final String riskStrategy; // auto / policy / confirmation / human_approval / block
+  final bool requiresConfirmation;
+  final List<AuthorizationCheck> checks;
+
+  const AuthorizationReasons({
+    required this.riskLevel,
+    required this.riskStrategy,
+    required this.requiresConfirmation,
+    this.checks = const [],
+  });
+
+  factory AuthorizationReasons.fromJson(Map<String, dynamic> json) =>
+      AuthorizationReasons(
+        riskLevel: json['riskLevel'] as String? ?? '',
+        riskStrategy: json['riskStrategy'] as String? ?? '',
+        requiresConfirmation: json['requiresConfirmation'] as bool? ?? false,
+        checks: (json['checks'] as List?)
+                ?.map((c) => AuthorizationCheck.fromJson(c as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      );
+}
+
 /// 待人工确认的 AI 写操作（来自 SSE confirmation_request 事件）
 class PendingConfirmation {
   final String token;
   final String toolName;
   final String summary;
   final Map<String, dynamic> arguments;
+  final AuthorizationReasons? authorization;
 
   const PendingConfirmation({
     required this.token,
     required this.toolName,
     required this.summary,
     this.arguments = const {},
+    this.authorization,
   });
 }
 
@@ -308,6 +352,10 @@ class AiChatProvider extends ChangeNotifier {
             summary: c['summary'] as String? ?? '',
             arguments: (c['arguments'] as Map?)?.cast<String, dynamic>() ??
                 const {},
+            authorization: c['authorization'] is Map<String, dynamic>
+                ? AuthorizationReasons.fromJson(
+                    c['authorization'] as Map<String, dynamic>)
+                : null,
           );
           _currentConfirmation = pending;
           if (_messages.isNotEmpty) {

@@ -240,4 +240,24 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
       expect(res.error).toMatch(/无权|不存在/);
     });
   });
+
+  describe('Headless API 越权（评审三 §5：Headless API → 拒绝）', () => {
+    // 认证拒绝（守卫层）：缺 key / 伪造 key 一律 401。
+    // 归属身份隔离（key→ownerUserId→工具按 owner 隔离）由 headless 单测
+    // （authenticate 归属解析 + controller 委托 owner）与 AI 工具隔离 e2e 覆盖。
+    it('无 x-api-key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .send({ message: 'hi' })
+        .expect(401);
+    });
+
+    it('伪造 x-api-key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .set('x-api-key', 'forged-key-abcdef')
+        .send({ message: 'hi' })
+        .expect(401);
+    });
+  });
 });
