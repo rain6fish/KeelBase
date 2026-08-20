@@ -5,8 +5,13 @@
  * provider 不支持或失败时返回 success:false（LLM 引导用户，不崩）。
  */
 
-import { AiTool, ToolDefinition, ToolResult } from '../interfaces/tool.interface';
-import { ToolParameter } from '../interfaces/tool.interface';
+import {
+  AiTool,
+  ToolDefinition,
+  ToolResult,
+  ToolParameter,
+  ToolRiskLevel,
+} from '../interfaces/tool.interface';
 import { LlmProviderFactory } from '../providers/provider-factory';
 
 export class GenerateImageTool implements AiTool {
@@ -14,6 +19,8 @@ export class GenerateImageTool implements AiTool {
   readonly description =
     '生成图片（根据文字描述创建图像）。当用户要求"画一张/生成图片/做一张图"时使用。';
   readonly permissions = { featureFlag: 'ai' };
+  /** W5 风险模型：R2 低风险写/外部动作——默认自动（无需确认），治理策略可强制确认（R2 policy 通道） */
+  readonly riskLevel: ToolRiskLevel = 'R2';
   readonly parameters: ToolParameter[] = [
     {
       name: 'prompt',
