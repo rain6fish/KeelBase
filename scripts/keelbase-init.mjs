@@ -64,6 +64,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
   --tab                生成模块作为 AppShell 底部 Tab（默认顶层全屏页）
+  --force              目标目录已存在时覆盖生成（内置/示例模块撞名时用，如 posts——覆盖会重写生成文件，接线幂等）
   -h, --help           显示帮助
 `;
 
@@ -75,6 +76,7 @@ function parseArgs(argv) {
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--no-feature-flag') args.featureFlag = false;
     else if (a === '--tab') args.tab = true;
+    else if (a === '--force') args.force = true;
     else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq < 0 ? undefined : eq);
@@ -256,10 +258,18 @@ async function main() {
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
 
-  // 目标目录冲突检查
+  // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）
   const beDir = `Server-NestJS/src/${ctx.plural}`;
   if (!args.dryRun && (await exists(beDir))) {
-    fail(`目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过）`);
+    if (args.force) {
+      console.log(
+        `${C.yellow}⚠ 目录已存在：${beDir}（${args.force ? '--force 覆盖生成' : ''}）——将重写生成文件，接线幂等跳过${C.reset}`,
+      );
+    } else {
+      fail(
+        `目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过；如确认覆盖请加 --force）`,
+      );
+    }
   }
 
   console.log(`\n${C.yellow}生成业务模块：${ctx.plural}（${ctx.label}）${C.reset}`);
