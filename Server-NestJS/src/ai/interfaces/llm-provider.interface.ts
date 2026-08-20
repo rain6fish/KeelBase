@@ -5,7 +5,7 @@
  * 设计为 Provider 无关，支持同步生成和流式生成两种模式。
  */
 
-import { ToolDefinition } from './tool.interface';
+import { ToolDefinition, AuthorizationReasons } from './tool.interface';
 
 /** 发送给 LLM 的消息 */
 export interface ChatMessage {
@@ -57,6 +57,8 @@ export interface ConfirmationRequestData {
   toolName: string;
   summary: string;
   arguments: Record<string, unknown>;
+  /** W5-⑦ Explainable Authz：为何需确认（风险级/策略/检查清单） */
+  authorization?: AuthorizationReasons;
 }
 
 /** 写操作确认结果数据 */
@@ -75,6 +77,10 @@ export interface ToolStartData {
   arguments?: Record<string, unknown>;
   /** ADT（P0-14）：写操作（需确认/可撤销）标记 */
   isWrite?: boolean;
+  /** W5-⑥ 风险等级（R0-R5） */
+  riskLevel?: string;
+  /** W5-⑦ Explainable Authz：为何允许/为何需确认 */
+  authorization?: AuthorizationReasons;
 }
 
 /** 工具执行结束（前端进程卡片结果） */
