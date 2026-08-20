@@ -20,6 +20,7 @@ const zh = {
   send: '发送',
   loading: '加载中...',
   loadFailed: '加载失败',
+  noData: '暂无数据',
   total: '共 {n} 条',
   export: '导出',
   exportDone: '已导出',
