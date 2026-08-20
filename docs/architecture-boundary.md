@@ -92,7 +92,27 @@ UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer�
 
 > 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护多前端长期同步（Capability Drift）；新增渲染器 = 新增生成器 per-framework 模板 + 消费同一 Core 契约，不进 Core 路线。Element Plus 是企业应用主流 UI 库的官方渲染器。
 
-## 5. 验收红线
+## 5. 安全分层防线：Injection Guard 是辅助，治理层是最终防线
+
+AI 安全采用**纵深防御**——正则/检测类防护只是「减少诱导」的辅助层，**绝不作为最终防线**（2026-08-20 明确）：
+
+```text
+Injection Guard（正则检测，HS-8，上下文注入防线）   ← 可被绕过，无妨
+    ↓ 被绕过
+Permission（CASL 行级 + HS-9 治理策略）             ← 最终防线 ①：越权拒绝
+    ↓
+Confirmation（requiresConfirmation + 确认流）       ← 最终防线 ②：写操作人工确认
+    ↓
+Audit（HS-11 哈希链，无条件记录）                   ← 最终防线 ③：全程可审计可撤销
+```
+
+**原则**：
+- `detectInjection`（`src/ai/security/injection-guard.ts`）只处理「记忆/RAG/摘要」上下文内容注入（敏感字段掩码 + 系统边界标注 + 基础正则检测）；**不控制工具执行权限**。
+- 工具执行（AI 对话 `runToolLoop` 与 MCP 出口 `executeToolForExternal` 同一链路）无条件经过：`_assertToolAllowed`（HS-9 工具开关 + 角色白名单）→ `_requiresConfirmation`（写操作确认门控）→ `auditService.log`（`chat`/`tool_call`/`tool_confirmation`，HS-11）。
+- **即使 Injection Guard 被绕过**（正则未匹配恶意指令、LLM 被诱导调工具）：写操作仍需人工确认、越权仍被 CASL 拒绝、全程仍审计；确认被社会工程骗过时，CASL `userId` 数据范围仍限定只能操作本人数据。
+- 任何新检测/防护（正则 / 分类器 / 提示词加固）都只是第一层，**不得替代或弱化 Permission / Confirmation / Audit 三关**。
+
+## 6. 验收红线
 
 - 后端 `npm run check:boundary` 必须通过（CI 门禁）
 - 新增前端功能只改 Renderer；Core 契约变更须先更新对应协议文档
