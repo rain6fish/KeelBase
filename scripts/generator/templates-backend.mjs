@@ -13,18 +13,31 @@ const FIELD_COLUMNS = {
 };
 
 const FIELD_DTO_PROPS = {
-  string: (c) =>
-    `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @MinLength(1)\n  @MaxLength(200)\n  ${c}!: string;`,
-  text: (c) =>
-    `  @ApiPropertyOptional({ description: '${c}' })\n  @IsString()\n  @IsOptional()\n  ${c}?: string;`,
-  int: (c) =>
-    `  @ApiPropertyOptional({ description: '${c}' })\n  @IsInt()\n  @IsOptional()\n  ${c}?: number;`,
-  bool: (c) =>
-    `  @ApiPropertyOptional({ description: '${c}' })\n  @IsBoolean()\n  @IsOptional()\n  ${c}?: boolean;`,
-  date: (c) =>
-    `  @ApiPropertyOptional({ description: '${c}' })\n  @IsDateString()\n  @IsOptional()\n  ${c}?: string;`,
+  // f.required === true → 必填形式（@ApiProperty + @IsNotEmpty + 非可选）；否则保持现状
+  string: (c, f) =>
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @IsNotEmpty()\n  @MinLength(1)\n  @MaxLength(200)\n  ${c}!: string;`
+      : `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @MinLength(1)\n  @MaxLength(200)\n  ${c}!: string;`,
+  text: (c, f) =>
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @IsNotEmpty()\n  ${c}!: string;`
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsString()\n  @IsOptional()\n  ${c}?: string;`,
+  int: (c, f) =>
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsInt()\n  @IsNotEmpty()\n  ${c}!: number;`
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsInt()\n  @IsOptional()\n  ${c}?: number;`,
+  bool: (c, f) =>
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsBoolean()\n  @IsNotEmpty()\n  ${c}!: boolean;`
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsBoolean()\n  @IsOptional()\n  ${c}?: boolean;`,
+  date: (c, f) =>
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsDateString()\n  @IsNotEmpty()\n  ${c}!: string;`
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsDateString()\n  @IsOptional()\n  ${c}?: string;`,
   enum: (c, f) =>
-    `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`,
+    f.required === true
+      ? `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsNotEmpty()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`
+      : `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`,
 };
 
 export function entityTemplate(ctx) {
@@ -67,7 +80,9 @@ export function createDtoTemplate(ctx) {
   const props = ctx.fields.map((f) => FIELD_DTO_PROPS[f.type](f.name, f)).join('\n\n');
   const hasEnum = ctx.fields.some((f) => f.type === 'enum');
   const isInImport = hasEnum ? ', IsIn' : '';
-  return `import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength${isInImport} } from 'class-validator';
+  const hasRequired = ctx.fields.some((f) => f.required === true);
+  const notEmptyImport = hasRequired ? ', IsNotEmpty' : '';
+  return `import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength${isInImport}${notEmptyImport} } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class Create${ctx.singlePascal}Dto {

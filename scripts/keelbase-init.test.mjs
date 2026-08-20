@@ -208,6 +208,29 @@ test('enum 模板：后端 @IsIn + 前端下拉', () => {
   assert.match(page, /data\['status'\] = _statusVal;/);
 });
 
+test('required 透传：create DTO @IsNotEmpty + 非可选；前端 model required + 非空类型', () => {
+  const c = buildContext('contracts', '合同', [
+    { name: 'title', type: 'string', required: true },
+    { name: 'amount', type: 'int', required: true },
+    { name: 'note', type: 'text' },
+  ]);
+  const files = backendFiles({ ...c, featureFlag: true });
+  const dto = files.find((f) => f.path.includes('create-')).content;
+  assert.match(dto, /import.*IsNotEmpty/);
+  assert.match(dto, /@IsInt\(\)\n  @IsNotEmpty\(\)\n  amount!: number;/);
+  assert.doesNotMatch(dto, /amount\?: number;/);
+  assert.match(dto, /@ApiProperty\(/); // 必填字段用 @ApiProperty 非 Optional
+  assert.match(dto, /@IsOptional\(\)\n  note\?: string;/); // 非 required 保持可选
+
+  const fe = frontendFiles({ ...c, featureFlag: true });
+  const model = fe.find((f) => f.path.endsWith('_model.dart')).content;
+  assert.match(model, /final int amount;/);
+  assert.match(model, /required this\.amount/);
+  assert.match(model, /amount: json\['amount'\] as int,/);
+  assert.match(model, /final String\? note;/);
+  assert.doesNotMatch(model, /required this\.note/);
+});
+
 test('命名变换：posts/post 归一', () => {
   const a = buildContext('posts', '帖子', []);
   const b = buildContext('post', '帖子', []);
