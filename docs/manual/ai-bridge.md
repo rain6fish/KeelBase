@@ -48,9 +48,11 @@
 | 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| 🚧 | 对 `DECIMAL` / `format:double` 输出「建议保留 text/int，金额字段谨慎」提示 |
 | 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | 🚧 | 本地相对 `$ref: './other.yaml#/...'` 解析 |
 
-**后续项（本增量未做）**：
+**已完成同步（2026-08-20）**：`import-schema` 对称加固——`NOT NULL` → `required` + 同款 `skipped` 诊断（保留列/约束行/未知类型/无法解析），单测 + e2e 覆盖（CLI 测试 34→36）。
+
+**后续项**：
 - DTO required 必填：`required` 字段 → create DTO `@IsNotEmpty()` + 前端必填（当前 DTO 恒可选，AI 工具层已强制必填）
-- `import-schema` 对称加固：`NOT NULL` → `required` + 同样输出 `skipped` 诊断
+- §3 其余规划项：多 schema / `$ref`-`allOf` / YAML / number 精度 / 多文件 OpenAPI（🚧）
 
 ---
 
