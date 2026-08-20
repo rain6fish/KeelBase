@@ -21,6 +21,7 @@ const en: ZhDict = {
   send: 'Send',
   loading: 'Loading...',
   loadFailed: 'Failed to load',
+  noData: 'No data',
   total: '{n} items',
   export: 'Export',
   exportDone: 'Exported',
