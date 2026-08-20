@@ -704,6 +704,28 @@ test('parseSqlDdl：类型映射（text/int/bool/date/enum）+ 保留列/约束�
   assert.deepEqual(r.fields.find((f) => f.name === 'status').enum, ['active', 'inactive', 'archived']);
 });
 
+test('parseSqlDdl：NOT NULL → required + skipped 诊断（保留列/约束行/未知类型）', () => {
+  const sql = `CREATE TABLE assets (
+    id INTEGER PRIMARY KEY,
+    code VARCHAR(32) NOT NULL,
+    name VARCHAR(100),
+    category_id INTEGER,
+    meta JSON,
+    created_at DATETIME,
+    UNIQUE (code)
+  );`;
+  const r = parseSqlDdl(sql);
+  // NOT NULL → required；可空不标
+  assert.equal(r.fields.find((f) => f.name === 'code').required, true);
+  assert.equal(r.fields.find((f) => f.name === 'name').required, undefined);
+  assert.equal(r.fields.find((f) => f.name === 'category_id').required, undefined); // 关系列保留为 int，非 NOT NULL 不标
+  // 保留列 / 约束行 / 未知类型 诊断
+  assert.ok(r.skipped.some((s) => s.name === 'id' && /保留/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === 'created_at' && /保留/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === 'unique' && /约束/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === 'meta' && /未知类型/.test(s.reason)));
+});
+
 test('parseSqlDdl：多表选指定表 + 无 CREATE TABLE 报错', () => {
   const sql = `CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
@@ -802,6 +824,36 @@ test('端到端：--import-schema --out 写出协议 JSON（enum 透传）', asy
   assert.equal(spec.module, 'suppliers');
   const tier = spec.fields.find((f) => f.name === 'tier');
   assert.deepEqual(tier.enum, ['basic', 'pro', 'enterprise']);
+  assert.equal(validateFields(spec.fields), null);
+});
+
+test('端到端：--import-schema --out 协议含 required 透传 + skipped 诊断', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const sqlPath = `${root}/schema.sql`;
+  await write(sqlPath, `CREATE TABLE contracts (
+    id INTEGER PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    meta JSON,
+    created_at DATETIME
+  );`);
+
+  await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-schema', sqlPath, '--table', 'contracts', '--out', `${root}/contract.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  const spec = JSON.parse(await readFile(`${root}/contract.json`, 'utf8'));
+  assert.equal(spec.fields.find((f) => f.name === 'title').required, true);
+  assert.equal(spec.fields.find((f) => f.name === 'amount').required, true);
+  assert.ok(spec.skipped.some((s) => s.name === 'id' && /保留/.test(s.reason)));
+  assert.ok(spec.skipped.some((s) => s.name === 'meta' && /未知类型/.test(s.reason)));
+  // 产物仍可被 --spec 消费
   assert.equal(validateFields(spec.fields), null);
 });
 

@@ -25,14 +25,14 @@ export function parseSqlDdl(sql, opts = {}) {
 
   const pick = opts.table && tables.some((t) => t.name === opts.table) ? opts.table : tables[0].name;
   const table = tables.find((t) => t.name === pick);
-  const fields = table.columns;
+  const { fields, skipped } = table.columns;
   if (fields.length === 0) {
     return { error: `表「${pick}」没有可转换的标量列（id 除外）` };
   }
 
   const module = opts.module ?? toPlural(pick);
   const label = opts.label ?? pick;
-  return { module, label, fields };
+  return { module, label, fields, skipped };
 }
 
 /** 按分号切块，每个含 CREATE TABLE 的块解析出 { name, columns[] } */
@@ -70,16 +70,26 @@ function splitTopLevel(body) {
 
 function parseColumns(body) {
   const cols = [];
+  const skipped = [];
   for (const line of splitTopLevel(body)) {
     const t = line.trim();
     if (!t) continue;
     // 顶层约束行（PRIMARY KEY/UNIQUE/FOREIGN KEY/CHECK/INDEX/CONSTRAINT/KEY）跳过
-    if (/^(PRIMARY|UNIQUE|FOREIGN|CHECK|INDEX|CONSTRAINT|KEY|REFERENCES)\b/i.test(t)) continue;
+    if (/^(PRIMARY|UNIQUE|FOREIGN|CHECK|INDEX|CONSTRAINT|KEY|REFERENCES)\b/i.test(t)) {
+      skipped.push({ name: t.split(/\s+/)[0].toLowerCase(), reason: '约束行（索引/关系，保持手写）' });
+      continue;
+    }
 
     const colMatch = /^[`"]?([a-zA-Z_][a-zA-Z0-9_]*)[`"]?\s+([A-Za-z0-9_() ]+)/.exec(t);
-    if (!colMatch) continue;
+    if (!colMatch) {
+      skipped.push({ name: (t.split(/[\s(]/)[0] || t).slice(0, 30), reason: '列定义无法解析' });
+      continue;
+    }
     const name = colMatch[1];
-    if (SKIP_COLUMNS.has(name)) continue;
+    if (SKIP_COLUMNS.has(name)) {
+      skipped.push({ name, reason: '保留字段（基座自带，不生成）' });
+      continue;
+    }
 
     const typePart = colMatch[2].trim();
     // 取类型第一个 token：VARCHAR(100) → VARCHAR；BOOLEAN DEFAULT 0 → BOOLEAN
@@ -89,10 +99,15 @@ function parseColumns(body) {
     const enumOptions = extractEnumOptions(t);
 
     const type = sqlTypeToField(base, length, enumOptions);
-    if (!type) continue;
-    cols.push(type === 'enum' ? { name, type: 'enum', enum: enumOptions } : { name, type });
+    if (!type) {
+      skipped.push({ name, reason: `未知类型 ${base}，未转换` });
+      continue;
+    }
+    const col = type === 'enum' ? { name, type: 'enum', enum: enumOptions } : { name, type };
+    if (/NOT\s+NULL/i.test(t)) col.required = true;
+    cols.push(col);
   }
-  return cols;
+  return { fields: cols, skipped };
 }
 
 /** 列级 CHECK ... IN ('a','b') → 合法小写选项列表 */
