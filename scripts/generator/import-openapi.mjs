@@ -46,41 +46,72 @@ export function parseOpenApiSpec(spec, opts = {}) {
 
   const pick = opts.schema && names.includes(opts.schema) ? opts.schema : names[0];
   const schema = schemas[pick];
-  const fields = schemaFields(schema);
+  const { fields, skipped } = schemaFields(schema);
   if (fields.length === 0) {
     return { error: `schema「${pick}」没有可转换的标量属性（object/array/关系字段保持手写，不自动生成）` };
   }
 
   const module = opts.module ?? toPlural(toSnake(pick));
   const label = opts.label ?? pick;
-  return { module, label, fields };
+  return { module, label, fields, skipped };
 }
 
+/**
+ * 提取字段 + 诊断报告（skipped: [{ name, reason }]）。
+ * skip = 未转换（保留/关系/非法名）；downgrade 也记入（enum 非法降级 string）。
+ */
 function schemaFields(schema) {
   const props = schema.properties ?? {};
+  const requiredSet = new Set(Array.isArray(schema.required) ? schema.required : []);
   const fields = [];
+  const skipped = [];
   for (const [rawName, prop] of Object.entries(props)) {
-    if (!prop || typeof prop !== 'object') continue;
+    if (!prop || typeof prop !== 'object') {
+      skipped.push({ name: rawName, reason: '属性定义缺失' });
+      continue;
+    }
     const name = sanitizeFieldName(rawName);
-    if (!name || RESERVED.has(name)) continue;
+    if (!name) {
+      skipped.push({ name: rawName, reason: '字段名非法（仅小写字母开头）' });
+      continue;
+    }
+    if (RESERVED.has(name)) {
+      skipped.push({ name, reason: '保留字段（基座自带，不生成）' });
+      continue;
+    }
 
     const type = mapType(prop);
-    if (!type) continue; // object/array/$ref → 关系，保持手写
+    if (!type) {
+      skipped.push({ name, reason: '关系/复杂结构（object/array/$ref，协议红线保持手写）' });
+      continue;
+    }
 
+    const field = { name, type };
     if (type === 'enum') {
       const options = (prop.enum ?? [])
         .filter((o) => typeof o === 'string' && VALID_OPTION.test(o));
       if (options.length >= 2 && options.length <= 10) {
-        fields.push({ name, type: 'enum', enum: options });
-        continue;
+        field.enum = options;
+      } else {
+        // 选项不合法/超限 → 降级为 string，并记录诊断
+        field.type = 'string';
+        skipped.push({ name, reason: 'enum 选项非法/超限 → 降级为 string' });
       }
-      // 选项不合法/超限 → 降级为 string
-      fields.push({ name, type: 'string' });
-    } else {
-      fields.push({ name, type });
     }
+    const label = sanitizeLabel(prop.title ?? prop.description);
+    if (label) field.label = label;
+    if (requiredSet.has(name)) field.required = true;
+    fields.push(field);
   }
-  return fields;
+  return { fields, skipped };
+}
+
+/** OpenAPI title/description → 安全 label（去除会破坏生成代码的引号/反斜杠/换行，限长）。 */
+function sanitizeLabel(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/['\\\n\r]/g, '').trim();
+  if (!s) return null;
+  return s.length > 40 ? s.slice(0, 40) : s;
 }
 
 /** 属性 → Protocol 类型；object/array/$ref 返回 null（不转换） */
