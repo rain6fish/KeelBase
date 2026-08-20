@@ -1,25 +1,37 @@
 import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 
-interface MagicBytesRule {
-  mime: string;
-  /** 文件头部特征字节（十六进制字符串） */
+interface MagicBytesCheck {
+  /** 文件头部特征字节（十六进制字符串），任一匹配即通过该项 */
   magic: string[];
-  /** 匹配偏移量（字节） */
+  /** 匹配偏移量（字节），默认 0 */
   offset?: number;
 }
 
+interface MagicBytesRule {
+  mime: string;
+  /** 多项特征需全部匹配才通过（如 WebP = RIFF 头 + offset 8 的 "WEBP" 标记） */
+  checks: MagicBytesCheck[];
+}
+
 const MAGIC_BYTES: MagicBytesRule[] = [
-  { mime: 'image/jpeg', magic: ['ffd8ff'] },
-  { mime: 'image/png', magic: ['89504e47'] },
-  { mime: 'image/gif', magic: ['47494638'] },
-  { mime: 'image/webp', magic: ['52494646'], offset: 0 }, // RIFF header
-  { mime: 'application/pdf', magic: ['25504446'] },
-  { mime: 'application/zip', magic: ['504b0304', '504b0506', '504b0708'] },
+  { mime: 'image/jpeg', checks: [{ magic: ['ffd8ff'] }] },
+  { mime: 'image/png', checks: [{ magic: ['89504e47'] }] },
+  { mime: 'image/gif', checks: [{ magic: ['47494638'] }] },
+  // WebP = RIFF 头（offset 0）+ "WEBP" 标记（offset 8），防 WAV/AVI（同为 RIFF）伪装
+  {
+    mime: 'image/webp',
+    checks: [
+      { magic: ['52494646'], offset: 0 },
+      { magic: ['57454250'], offset: 8 },
+    ],
+  },
+  { mime: 'application/pdf', checks: [{ magic: ['25504446'] }] },
+  { mime: 'application/zip', checks: [{ magic: ['504b0304', '504b0506', '504b0708'] }] },
   // docx 本质是 zip
   {
     mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    magic: ['504b0304', '504b0506', '504b0708'],
+    checks: [{ magic: ['504b0304', '504b0506', '504b0708'] }],
   },
 ];
 
@@ -37,13 +49,16 @@ export async function validateFileMagicBytes(
   let fd;
   try {
     fd = await fs.open(filePath, 'r');
-    const offset = rule.offset ?? 0;
-    const length = Math.max(...rule.magic.map((m) => m.length / 2)) + offset;
+    const length = Math.max(
+      ...rule.checks.flatMap((c) => c.magic.map((m) => m.length / 2 + (c.offset ?? 0))),
+    );
     const buf = Buffer.alloc(length);
     await fd.read(buf, 0, length, 0);
 
-    const hex = buf.subarray(offset).toString('hex').toLowerCase();
-    const matched = rule.magic.some((m) => hex.startsWith(m.toLowerCase()));
+    const matched = rule.checks.every((c) => {
+      const hex = buf.subarray(c.offset ?? 0).toString('hex').toLowerCase();
+      return c.magic.some((m) => hex.startsWith(m.toLowerCase()));
+    });
 
     if (!matched) {
       await fs.unlink(filePath); // 删除无效文件
@@ -69,9 +84,10 @@ export function validateMagicBytes(
   const rule = MAGIC_BYTES.find((r) => r.mime === declaredMime);
   if (!rule) return; // 不验证未定义规则的类型
 
-  const offset = rule.offset ?? 0;
-  const hex = buffer.subarray(offset).toString('hex').toLowerCase();
-  const matched = rule.magic.some((m) => hex.startsWith(m.toLowerCase()));
+  const matched = rule.checks.every((c) => {
+    const hex = buffer.subarray(c.offset ?? 0).toString('hex').toLowerCase();
+    return c.magic.some((m) => hex.startsWith(m.toLowerCase()));
+  });
 
   if (!matched) {
     throw new BadRequestException(
