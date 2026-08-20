@@ -90,7 +90,7 @@
 |---|---|---|
 | 越权测试矩阵 | 敏感实体（Customer/Project/Contract/Approval/Notification/Knowledge/Headless）× 操作（GET/PATCH/DELETE/AI 读/AI 写/批处理/撤销）系统化 | A 访问 B 数据 → 全部拒绝 |
 | | **✅ 首增量（2026-08-20，`test/authorization.e2e-spec.ts` 33 用例）**：REST CRUD 矩阵——events/todos/crm/pm/approval/suppliers/contracts × GET/PUT·PATCH/DELETE + 列表隔离 + admin 端点，跨用户 403/404 拒绝 | 后续增量：AI 工具 / Headless / SubAgent scope / 批处理 / 撤销 |
-| Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | 通过，作安全回归门禁 |
+| Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | **✅ 攻击用例已补齐（2026-08-20）**：securityCases 6→12——新增 injection-write / confirmation-bypass（tool-miss）/ revoke-bypass / cross-org-read / cross-org-approve / unauthorized-read；`POST /ai/eval/seed` 幂等补入评测集；spec +2（tool-miss 判定）共 23；跑评测批（`POST /ai/eval/run`）作安全回归 |
 | 合成陌生人验证 | 无本仓上下文 AI Agent 从干净 clone 跑 30min Build + 60min Business，记录卡点（[dev-challenge.md](dev-challenge.md)）| 脚本化 + 进 CI，持续烧掉 onboarding 卡点 |
 
 ## 6. External：1.0 后增长里程碑（非发布门禁）
