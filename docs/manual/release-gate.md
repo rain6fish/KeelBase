@@ -1,7 +1,8 @@
 # Release Gate（0.9.x 里程碑质量门禁 / 阶段 2 Phase 4）
 
 > 依据 development-plan §7.1 Phase 4：**Code Complete ≠ Product Validated**。本文件把 Release Gate 落地为可执行检查单。
-> **版本策略（2026-08-18 用户决定）**：先不发行 1.0，**继续 0.9.x 版本线**——本 Gate 作为 0.9.x 里程碑质量检查；五维不达标 → 记录差距进下一迭代；1.0 是否发另行决策。
+> **版本策略（2026-08-18 用户决定）**：先不发行 1.0，**继续 0.9.x 版本线**——本 Gate 作为 0.9.x 里程碑质量检查。
+> **版本门重校（2026-08-20 用户确认，外部短期不可得）**：1.0 由 **Build / Run / Trust / Private 四维全绿 + 对抗性证明（越权矩阵 + Agent Security Eval 攻击测试集 + 合成陌生人验证）** 触发；**External 降级为「1.0 后增长里程碑」**，不阻塞发布。
 
 ---
 
@@ -13,9 +14,10 @@
 | **Run** | 1hr 真实业务任务 + Agent Success Rate | ✅ 3/3 SUCCESS（DeepSeek 实测，ASR=100%）| 三旗舰业务任务（[flagship-task-card.md](flagship-task-card.md)）+ [verify-flagships.sh](../../scripts/verify-flagships.sh) |
 | **Trust** | Safe Execution / Unauthorized Action / Human Intervention Rate | ✅ 无 LLM 部分全绿 | [verify-flagships.sh](../../scripts/verify-flagships.sh) + HS e2e |
 | **Private** | Offline + Local AI（数据不出域）| ✅ 本地实测（Cloud OFF + Ollama 对话 + bge-m3 embedding + 审计链 valid）| [private-ai-report.md](private-ai-report.md) + [verify-private-ai.sh](../../scripts/verify-private-ai.sh) |
-| **External** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
+| **对抗性证明** | 越权矩阵 + Agent Security Eval 攻击测试集 + 合成陌生人验证 | 🔶 待 W3-W5 建立 | [agent-benchmark.mjs](../../scripts/benchmark/agent-benchmark.mjs) + 越权矩阵 + 合成陌生人 harness |
+| **External（1.0 后增长里程碑）** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
 
-**判定**：五维全部达标才发 v1.0；任何一维不达标 → 记录差距，不发布。
+**判定**：Build / Run / Trust / Private 四维全绿 + 对抗性证明通过 → 发 v1.0；任何一维不达标 → 记录差距，不发布。**External 为 1.0 后增长里程碑，不阻塞发布。**
 
 ---
 
@@ -78,9 +80,21 @@
 | CRM Golden Path | verify-private-ai.sh 第 5 步 + [private-ai-verification.md](private-ai-verification.md) §8 |
 | 离线部署 | [offline-deploy.md](offline-deploy.md) |
 
-**状态**：🔶 需 Ollama 实测（脚本已就绪，本机无 Ollama）。
+**状态**：✅ 已实测（2026-08-19 本机 Ollama 原生 + CPU，Cloud OFF 全链路 8/8）。
 
-## 5. External：5-10 人 + 至少一个真实项目
+## 5. 对抗性证明（Adversarial Proof，2026-08-20 新增）
+
+> 外部验证短期不可得的替代验证层：不依赖外部开发者，以「自己当最严苛攻击者 + 合成陌生人」证明安全与可用性。W3-W5 建立，作为 v1.0 触发条件之一。
+
+| 检查点 | 方法 | 达标线 |
+|---|---|---|
+| 越权测试矩阵 | 敏感实体（Customer/Project/Contract/Approval/Notification/Knowledge/Headless）× 操作（GET/PATCH/DELETE/AI 读/AI 写/批处理/撤销）系统化 | A 访问 B 数据 → 全部拒绝 |
+| Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | 通过，作安全回归门禁 |
+| 合成陌生人验证 | 无本仓上下文 AI Agent 从干净 clone 跑 30min Build + 60min Business，记录卡点（[dev-challenge.md](dev-challenge.md)）| 脚本化 + 进 CI，持续烧掉 onboarding 卡点 |
+
+## 6. External：1.0 后增长里程碑（非发布门禁）
+
+> **2026-08-20 重排**：外部开发者 / 真实项目 / 社区短期不可得，External 从发布门禁降级为「1.0 后增长里程碑」。1.0 前的替代验证由「对抗性证明」承担（§5）。
 
 **指标**：不认识作者的外部开发者完成挑战，至少一个放进真实项目。
 
@@ -90,7 +104,7 @@
 | 反馈采集 | 反馈表：Where stuck / Why stuck / Missing abstraction |
 | 真实项目 | 至少一个 PoC 进入外部开发者真实项目 |
 
-**状态**：⬜ 需社区运营。
+**状态**：⬜ 待社区（不阻塞 v1.0）。
 
 ---
 
@@ -102,8 +116,9 @@ v1.0 Release Gate 结论：
 - Run:   ✅/❌（Agent Success Rate = ?）
 - Trust: ✅/❌
 - Private: ✅/❌
-- External: ✅/❌（N 人 / 真实项目数）
-→ 达标 / 不达标（差距：...）
+- 对抗性证明: ✅/❌（越权矩阵 / 攻击测试集 / 合成陌生人）
+→ 四维 + 对抗性证明达标 → 发 v1.0
+- External（1.0 后里程碑）: N 人 / 真实项目数（不阻塞）
 ```
 
 ## 相关
