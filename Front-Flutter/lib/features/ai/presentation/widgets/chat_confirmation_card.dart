@@ -85,6 +85,11 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                 const SizedBox(height: 2),
                 _ArgsPreview(arguments: conf.arguments),
               ],
+              // W5-⑦ Explainable Authz：展示「为何需确认」（风险级/策略/检查清单）
+              if (conf.authorization != null) ...[
+                const SizedBox(height: 8),
+                _AuthzSection(authorization: conf.authorization!),
+              ],
               const SizedBox(height: 10),
               CupertinoButton(
                 padding: EdgeInsets.zero,
@@ -205,5 +210,78 @@ class _ArgsPreview extends StatelessWidget {
       }
     }
     return value.toString();
+  }
+}
+
+/// W5-⑦ Explainable Authz：确认卡上的「授权依据」段——风险级 + 检查清单（为何需确认）。
+class _AuthzSection extends StatelessWidget {
+  final AuthorizationReasons authorization;
+
+  const _AuthzSection({required this.authorization});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final dim = CupertinoTheme.of(context).textTheme.textStyle.color?.withValues(alpha: 0.63);
+    final okColor = CupertinoColors.systemGreen.resolveFrom(context);
+    final badColor = CupertinoTheme.of(context).primaryColor;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.aiAuthzTitle,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: dim),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${l10n.aiAuthzRiskLevel} ${authorization.riskLevel} · '
+            '${authorization.requiresConfirmation ? l10n.aiAuthzConfirmRequired : l10n.aiAuthzAllowed}',
+            style: TextStyle(
+              fontSize: 12,
+              color: authorization.requiresConfirmation ? badColor : okColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.aiAuthzChecksTitle,
+            style: TextStyle(fontSize: 11, color: dim),
+          ),
+          const SizedBox(height: 2),
+          for (final check in authorization.checks)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    check.ok ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.xmark_circle_fill,
+                    size: 13,
+                    color: check.ok ? okColor : badColor,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      check.note ?? check.name,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: CupertinoTheme.of(context).textTheme.textStyle.color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
