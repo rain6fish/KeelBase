@@ -25,11 +25,12 @@ describe('CreateFollowupTaskTool', () => {
     expect((result.data as any).id).toBe(11);
   });
 
-  it('缺少 customerId 时仍可创建（不带客户关联）', async () => {
+  it('缺少 customerId → success:false（防无客户关联的数据孤儿）', async () => {
     crmService.createTask.mockResolvedValue({ id: 12, title: '杂项任务', customerId: null });
     const result = await tool.execute({ title: '杂项任务' }, '3');
-    expect(crmService.createTask).toHaveBeenCalledWith({ title: '杂项任务' }, 3);
-    expect(result.success).toBe(true);
+    expect(crmService.createTask).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('customerId');
   });
 
   it('服务异常 → success:false', async () => {
