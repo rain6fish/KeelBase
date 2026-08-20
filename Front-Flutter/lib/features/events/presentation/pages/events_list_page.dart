@@ -304,7 +304,7 @@ class _EventsListPageState extends State<EventsListPage> {
   Widget _buildHeader(EventsProvider p) {
     final t = CupertinoTheme.of(context);
     final l = context.l10n;
-    final we = p.weekStart.add(const Duration(days: 6));
+    final we = DateTime(p.weekStart.year, p.weekStart.month, p.weekStart.day + 6);
     final title = l.isZh
         ? '${p.weekStart.year}年${p.weekStart.month}月'
         : DateFormat('MMMM yyyy').format(p.weekStart);
@@ -408,7 +408,7 @@ class _EventsListPageState extends State<EventsListPage> {
         scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal:8),
         physics: const BouncingScrollPhysics(), itemCount: 7,
         itemBuilder: (_, i) {
-          final date = p.weekStart.add(Duration(days:i));
+          final date = DateTime(p.weekStart.year, p.weekStart.month, p.weekStart.day + i);
           final sel = _sameDay(date, p.selectedDate);
           final isT = _sameDay(date, DateTime.now());
           final has = p.eventsByDate[_norm(date)]?.isNotEmpty ?? false;
@@ -594,7 +594,7 @@ class _EventsListPageState extends State<EventsListPage> {
     for (var i = 0; i < range; i++) {
       DateTime date;
       if (isWeek) {
-        date = _norm(p.weekStart.add(Duration(days: i)));
+        date = _norm(DateTime(p.weekStart.year, p.weekStart.month, p.weekStart.day + i));
       } else {
         date = DateTime(p.weekStart.year, p.weekStart.month, i + 1);
         if (date.month != p.weekStart.month) break;
