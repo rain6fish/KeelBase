@@ -38,7 +38,7 @@
 
 | # | 加固项 | 问题 | 状态 | 验收标准 |
 |---|---|---|---|---|
-| 1 | **required 透传** | OpenAPI `required` 数组未映射到 Protocol `required` | ✅ | required 字段 → Protocol `required: true` → **AI 工具输入 schema 必填**（Agent 必须提供所需参数）；单测 + CLI 端到端覆盖 |
+| 1 | **required 透传** | OpenAPI `required` 数组未映射到 Protocol `required` | ✅ | required 字段 → Protocol `required: true` → **AI 工具输入 schema 必填**（Agent 必须提供）+ **create DTO `@IsNotEmpty()` 非可选** + **前端 model `required`**；单测 + CLI 端到端覆盖 |
 | 2 | **label/description 透传** | schema 属性 `title/description` 丢失 | ✅ | `title` 优先 / `description` 兜底 → Protocol `label`（流入 AI 工具参数描述）；引号/换行/反斜杠净化、限长 40 |
 | 3 | **多 schema / 多模块** | 只取第一个 schema，其余静默丢弃 | 🚧 | 支持 `--schemas a,b` 或交互选择；未选 schema 列入手写清单 |
 | 4 | **$ref / allOf 浅层解析** | `$ref` / `allOf` 直接跳过 | 🚧 | 单层 `$ref` 解析为「关系标注」并落入手写清单；`allOf` 合并标量字段 |
@@ -48,11 +48,11 @@
 | 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| 🚧 | 对 `DECIMAL` / `format:double` 输出「建议保留 text/int，金额字段谨慎」提示 |
 | 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | 🚧 | 本地相对 `$ref: './other.yaml#/...'` 解析 |
 
-**已完成同步（2026-08-20）**：`import-schema` 对称加固——`NOT NULL` → `required` + 同款 `skipped` 诊断（保留列/约束行/未知类型/无法解析），单测 + e2e 覆盖（CLI 测试 34→36）。
+**已完成（2026-08-20）**：
+- `import-schema` 对称加固——`NOT NULL` → `required` + 同款 `skipped` 诊断（保留列/约束行/未知类型/无法解析），CLI 测试 34→36
+- **DTO required 必填**——`required` 字段 → create DTO `@IsNotEmpty()` + `@ApiProperty` + 非可选；前端 model `required this.x` + 非空类型（CLI 测试 36→37）
 
-**后续项**：
-- DTO required 必填：`required` 字段 → create DTO `@IsNotEmpty()` + 前端必填（当前 DTO 恒可选，AI 工具层已强制必填）
-- §3 其余规划项：多 schema / `$ref`-`allOf` / YAML / number 精度 / 多文件 OpenAPI（🚧）
+**后续项（§3 其余规划项）**：多 schema / `$ref`-`allOf` / YAML / number 精度 / 多文件 OpenAPI（🚧）
 
 ---
 
