@@ -929,3 +929,22 @@ test('specs/ 协议文件全部可被生成器消费（协议生态基础检查�
     );
   }
 });
+
+test('生成模块一致性：协议字段 ⊆ 实体字段（contracts/suppliers 已验证产物）', async () => {
+  const fsp = await import('node:fs/promises');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  // 端到端验证过的生成模块：specs 即其生成来源（books/notes 的 specs 是通用示例，见独立处理项）
+  const verified = [
+    { spec: 'contract.json', module: 'contracts' },
+    { spec: 'supplier.json', module: 'suppliers' },
+  ];
+  for (const { spec, module } of verified) {
+    const specData = JSON.parse(await fsp.readFile(join(root, 'specs', spec), 'utf8'));
+    const ctx = buildContext(module, specData.label, specData.fields);
+    const entityPath = join(root, 'Server-NestJS', 'src', module, `${ctx.singular}.entity.ts`);
+    const entity = await fsp.readFile(entityPath, 'utf8');
+    for (const f of specData.fields) {
+      assert.ok(entity.includes(f.name), `${module}: 实体缺协议字段 ${f.name}`);
+    }
+  }
+});
