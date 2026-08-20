@@ -20,7 +20,14 @@ import { MemoriesService } from './memory/memory.service';
 import { ConfirmationStore, ConfirmationOutcome } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
-import { AiTool, ToolDefinition, ToolResult, RISK_STRATEGY } from './interfaces/tool.interface';
+import {
+  AiTool,
+  ToolDefinition,
+  ToolResult,
+  RISK_STRATEGY,
+  AuthorizationCheck,
+  AuthorizationReasons,
+} from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
@@ -216,6 +223,62 @@ export class AiService {
     const fallback = this.toolRegistry.requiresConfirmation(name);
     if (!this.governancePolicy) return fallback;
     return this.governancePolicy.requiresConfirmation(name, fallback);
+  }
+
+  /**
+   * W5-⑦ Explainable Authorization（评审四）：生成「为何允许 / 为何需确认」的结构化依据。
+   * 由 tool_start / confirmation_request 事件携带，供前端渲染治理可解释性。
+   * 调用时机在 _assertToolAllowed 之后，故 tool_enabled / role_allowed 反映已生效的门控。
+   */
+  private async _authorizationReasons(
+    toolName: string,
+    userId: string,
+    isWrite: boolean,
+  ): Promise<AuthorizationReasons> {
+    const riskLevel = this.toolRegistry.riskLevel(toolName);
+    const riskStrategy = RISK_STRATEGY[riskLevel];
+    const checks: AuthorizationCheck[] = [];
+    if (this.governancePolicy) {
+      const enabled = await this.governancePolicy.isToolEnabled(toolName);
+      checks.push({
+        name: 'tool_enabled',
+        ok: enabled,
+        note: enabled ? '治理策略已启用' : '治理策略禁用',
+      });
+      const roles = await this.governancePolicy.getAllowedRoles(toolName);
+      if (roles.length > 0) {
+        const user = this.usersService
+          ? await this.usersService.findOne(Number(userId))
+          : null;
+        const ok = !!user && !!user.role && roles.includes(user.role);
+        checks.push({
+          name: 'role_allowed',
+          ok,
+          note: ok
+            ? `角色 ${user.role} ∈ [${roles.join(', ')}]`
+            : `需要角色 [${roles.join(', ')}]`,
+        });
+      } else {
+        checks.push({ name: 'role_allowed', ok: true, note: '无角色限制' });
+      }
+    }
+    checks.push({
+      name: 'user_scoped',
+      ok: true,
+      note: '执行时注入调用者 userId，仅操作本人数据',
+    });
+    checks.push({
+      name: 'risk_policy',
+      ok: isWrite,
+      note: `风险级 ${riskLevel}（${riskStrategy}）${isWrite ? '→ 需人工确认' : '→ 自动执行'}`,
+    });
+    return {
+      tool: toolName,
+      riskLevel,
+      riskStrategy,
+      requiresConfirmation: isWrite,
+      checks,
+    };
   }
 
   /**
@@ -902,6 +965,8 @@ export class AiService {
           started = true;
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
           // ADT（P0-14）：isWrite 让前端标注读/写，写操作需确认、可撤销
+          // W5-⑦ Explainable Authz：携带 riskLevel + authorization（为何允许/为何需确认）
+          const authz = await this._authorizationReasons(tc.name, userId, isWrite);
           yield {
             type: 'tool_start',
             toolStart: {
@@ -911,6 +976,8 @@ export class AiService {
                 : this.summarizeReadTool(tc.name),
               arguments: parsed,
               isWrite,
+              riskLevel: authz.riskLevel,
+              authorization: authz,
             },
           };
 
@@ -942,6 +1009,8 @@ export class AiService {
                 toolName: tc.name,
                 summary: this.summarizeWriteTool(tc.name, parsed),
                 arguments: parsed,
+                // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
+                authorization: await this._authorizationReasons(tc.name, userId, true),
               },
             };
             const { outcome, trustTool } = await decision;
