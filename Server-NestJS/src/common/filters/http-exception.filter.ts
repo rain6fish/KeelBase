@@ -106,13 +106,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       body.errorCode = errorCode;
     }
 
-    // Pass through extra fields from the exception (e.g. retryAfter)
+    // Pass through extra fields from the exception (e.g. retryAfter, explanation)
     if (exception instanceof HttpException) {
       const resp = exception.getResponse();
       if (typeof resp === 'object' && resp !== null) {
         const record = resp as Record<string, unknown>;
         if (record.retryAfter != null) {
           body.retryAfter = record.retryAfter;
+        }
+        // W5-⑦ Explainable Authz：403 附「为何阻止」依据
+        if (record.explanation != null) {
+          body.explanation = record.explanation;
         }
       }
     }

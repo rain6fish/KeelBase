@@ -1,7 +1,8 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import { CHECK_POLICIES_KEY, PolicyHandler } from './check-policies.decorator';
+import { UserRole } from '../entities/user.entity';
 
 @Injectable()
 export class PoliciesGuard implements CanActivate {
@@ -32,6 +33,21 @@ export class PoliciesGuard implements CanActivate {
       return true;
     }
 
-    return handlers.every((handler) => handler(ability));
+    if (!handlers.every((handler) => handler(ability))) {
+      // W5-⑦ Explainable Authz：403 附「为何阻止」依据（前端可展示）
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Forbidden resource',
+        explanation: {
+          deniedBy: 'casl',
+          reason:
+            user.role === UserRole.ADMIN
+              ? '当前策略不允许此操作'
+              : '需要管理员权限，或该操作不在你的角色范围内',
+        },
+      });
+    }
+
+    return true;
   }
 }
