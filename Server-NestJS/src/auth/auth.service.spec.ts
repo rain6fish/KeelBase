@@ -353,6 +353,29 @@ describe('AuthService', () => {
 
       await expect(service.login({ ...loginDto, totp: '000000' })).rejects.toThrow();
     });
+
+    it('MFA TOTP 失败累计失败数并锁定（防换 IP 爆破）', async () => {
+      const mfaUser = {
+        ...mockUser,
+        password: await bcrypt.hash('Password1', 12),
+        mfaEnabled: true,
+        mfaSecret: 'encrypted-secret',
+        loginAttempts: 9, // 再错 1 次达阈值
+      };
+      mockRepository.findOne.mockResolvedValue(mfaUser);
+      mockEncryption.decrypt.mockReturnValue('plain-secret');
+      mockMfaService.verifyCode.mockReturnValue(false);
+      mockRepository.update.mockResolvedValue({ affected: 1 });
+
+      await expect(service.login({ ...loginDto, totp: '000000' })).rejects.toThrow();
+
+      // 密码正确会先走 success 重置（loginAttempts:0, lockedUntil:null），MFA 失败再锁定
+      const lockCall = mockRepository.update.mock.calls.find(
+        (c) => c[0] === mfaUser.id && c[1].lockedUntil instanceof Date,
+      );
+      expect(lockCall).toBeDefined(); // 达阈值 → 锁定
+      expect(lockCall[1].loginAttempts).toBe(0);
+    });
   });
 
   // ─── WEB-FRONT-4 MFA ─────────────────────────────────────────────────────────
