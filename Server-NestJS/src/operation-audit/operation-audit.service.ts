@@ -106,6 +106,9 @@ export class OperationAuditService {
     userId?: number,
     since?: Date,
   ): Promise<{ items: Array<OperationAuditLog & { username?: string | null }>; total: number; page: number; limit: number }> {
+    // CR-19 同款钳制：limit 1-100 防一次拉全量审计表
+    page = Math.max(page, 1);
+    limit = Math.min(Math.max(limit, 1), 100);
     const qb = this.logRepo
       .createQueryBuilder('log')
       .leftJoin('users', 'u', 'u.id = log.userId')
