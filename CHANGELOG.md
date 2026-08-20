@@ -44,6 +44,20 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **上传签名访问（CR-21）**：`/uploads` 经 HMAC-SHA256 签名 URL（含过期时间）访问（渐进默认放行；`UPLOAD_REQUIRE_SIGN=1` 强制 403）+ 路径穿越防护；头像/上传响应返回签名 URL
 - **Web root → workbench, Flutter web as `/mobile` preview**: single-container/nginx root redirects to the Web workbench; Flutter web moves to `/mobile` as the mobile-app preview (Web business UI host = workbench)
   **Web 根路径切工作台 + Flutter web 移 `/mobile` 预览**：单容器/nginx 根路径重定向到 Web 工作台；Flutter web 移到 `/mobile` 作移动 App 预览（Web 业务 UI 唯一宿主=工作台）
+- **Explainable Authorization (W5-⑦)**: authorization denials now carry structured reasons (which policy / why blocked); `GET /auth/me/permissions` exposes the caller's capability list
+  **授权依据可解释化（W5-⑦）**：授权拒绝返回结构化原因（哪条策略/为何阻止）；`GET /auth/me/permissions` 暴露调用方能力清单
+- **Agent Security Eval attack set (W4)**: security eval cases 6→12 (injection-write / confirmation-bypass / revoke-bypass / cross-org read·approve / unauthorized-read), verified 12/12 blocked on DeepSeek; `scripts/verify-security-eval.sh` scripts the regression with a 90% pass gate
+  **Agent 安全评测攻击集（W4）**：评测用例 6→12（注入写/确认绕过/撤销绕过/跨组织读·审批/越权读），DeepSeek 实测 12/12 全挡；`scripts/verify-security-eval.sh` 脚本化安全回归（90% 门槛）
+- **Stranger-challenge harness (W3)**: self-contained challenge card (30min Build + 60min Business) + `run.sh` clean-clone script for reproducible external-developer evaluation
+  **合成陌生人挑战包（W3）**：自包含挑战卡（30min Build + 60min Business）+ `run.sh` 干净 clone 脚本，供外部开发者可复现评估
+- **Audit-chain key separation + rotation (W4-②)**: `AUDIT_HMAC_KEY` (independent 64-hex) + `AUDIT_HMAC_KEY_PREVIOUS`; verify accepts `[current, previous, legacy]` candidate keys so old records stay verifiable after rotation
+  **审计链密钥分离 + 轮换（W4-②）**：独立 `AUDIT_HMAC_KEY`（64 hex）+ `AUDIT_HMAC_KEY_PREVIOUS`；verify 用候选集 `[current, previous, legacy]` 任一匹配——轮换后旧记录仍可验证
+- **AIization hardening (ai-bridge §3)**: `--import-openapi`/`--import-schema` extract `required`/label + skipped diagnostics; Protocol `required` propagates to DTO `@IsNotEmpty` and non-null model fields
+  **已有系统 AI 化加固（ai-bridge §3）**：`--import-openapi`/`--import-schema` 提取 `required`/标签 + 跳过诊断；Protocol `required` 透传到 DTO `@IsNotEmpty` 与非空模型字段
+- **Generator DX**: `--fields` supports inline enum options (`status:enum:active,paid`); create AI-tool files named with the plural module (consistent `jest <plural>` matching — 30-min acceptance "20 passed" now true); CLI tests 32→36
+  **生成器 DX**：`--fields` 支持内联 enum 选项（`status:enum:active,paid`）；create 工具文件统一复数命名（`jest <plural>` 匹配一致——30min 验收「20 passed」成立）；CLI 测试 32→36
+- **Business-safe Agent Benchmark (W2)**: `agent-benchmark.mjs` — 15 cases (Normal/Unauthorized/Ambiguous/High-risk/Prompt Injection × CRM/PM/Approval) with Run/Trust/Safety scores; deterministic Trust via `agent-benchmark.sh` (e2e 403/confirmation/audit-chain)
+  **Business-safe Agent Benchmark（W2）**：`agent-benchmark.mjs`——15 用例（五类任务 × 三旗舰）+ Run/Trust/Safety 评分；确定性 Trust 由 `agent-benchmark.sh`（e2e 越权/确认/审计链）补足
 
 ### Fixed / 修复
 
@@ -59,6 +73,18 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **生成模块 CASL 接线修复（30min 验收加固）**：`keelbase init` 生成模块自动接线 `can('manage','<Module>',{userId})`——此前本人更新/删除全 403
 - **TypeORM logging type**: `app.module` logging `string[]` → `LogLevel[]` (build blocker from read/write-split)
   **TypeORM logging 类型**：`app.module` logging `string[]`→`LogLevel[]`（读写分离遗留的 build 阻塞）
+- **W4 production bug fixes (security/robustness batch)**: MFA TOTP failures now accumulate lockout attempts (prevent per-IP brute force of the 6-digit code); WebP magic bytes require the `WEBP` marker at offset 8 (WAV/AVI can no longer masquerade); webhook delivery blocks private/loopback/link-local targets (SSRF guard); headless quota uses atomic UPDATE (concurrent requests can no longer exceed `quotaPerDay`); `PUT /users/:id` phone change syncs `phoneHash` + uniqueness; search returns safe-empty on missing `q`; op-audit / form-builder pagination clamped 1-100; flow instance marked `failed` when an AI node throws; single `ai:done` on WS stream close; admin analytics uses per-dialect date expression (Postgres no longer empty)
+  **W4 生产 bug 修复（安全/健壮性批次）**：MFA TOTP 失败累计锁定（防换 IP 爆破 6 位码）；WebP 魔数补 offset8 "WEBP"（WAV/AVI 无法再伪装）；webhook 投递阻止私网/回环/链接本地（SSRF 防护）；headless 配额改原子 UPDATE（并发无法超 quotaPerDay）；`PUT /users/:id` 改手机号同步 phoneHash + 唯一性；search 缺 q 安全返回空；op-audit/form-builder 分页钳制 1-100；AI 节点抛错时流程实例置 failed；WS 流关闭单一 ai:done；admin 分析按库用日期表达式（Postgres 不再空）
+- **DST-safe calendar-day iteration (events)**: Flutter events list page & provider use `DateTime(y,m,d+1)` instead of `+24h` — no infinite loop / repeated day on DST fall-back weeks
+  **事件日历加法（DST 安全）**：Flutter 事件列表页与 provider 用 `DateTime(y,m,d+1)` 替代 `+24h`——DST 回拨周不再死循环/重复日期
+- **Check-in streak no longer truncated**: `_checkinState` reads `checkin_date` keys without a 40-day window (>40-day streaks now counted)
+  **连签不再截断**：`_checkinState` 按 `checkin_date` 键取全部签到（无 40 天窗口），>40 天连签正常统计
+- **Events reminders removed on update**: clearing/cancelling a reminder or moving an event to the past removes the stale delayed job; range queries use interval-overlap (`startTime<=end AND endTime>=start`) so month view shows spanning events
+  **事件提醒更新清理**：清空/取消提醒或事件改到过去时移除残留 delayed job；范围查询改区间重叠判断（跨月事件月视图完整）
+- **Invite code not burned for existing members**: `redeemOrgInvite` returns false (no consume / no "new member" notification) when the user is already a member
+  **邀请码重复兑换防护**：已是组织成员时 `redeemOrgInvite` 直接返回（不消耗邀请码、不发「新成员加入」通知）
+- **Maintenance-mode string trap + marketing audience strictness**: `isMaintenanceMode` accepts string `'true'`; marketing `send` throws on unknown audience instead of silently emailing everyone
+  **维护模式字符串陷阱 + marketing audience 严格化**：`isMaintenanceMode` 兼容字符串 'true'；marketing send 对未知 audience 抛错而非静默群发全员
 
 ## [0.9.2] - 2026-08-17
 
