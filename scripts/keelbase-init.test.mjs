@@ -1065,11 +1065,13 @@ test('specs/ 协议文件全部可被生成器消费（协议生态基础检查�
   }
 });
 
-test('生成模块一致性：协议字段 ⊆ 实体字段（contracts/suppliers 已验证产物）', async () => {
+test('生成模块一致性：协议字段 ⊆ 实体字段（books/notes/contracts/suppliers 已验证产物）', async () => {
   const fsp = await import('node:fs/promises');
   const root = fileURLToPath(new URL('..', import.meta.url));
-  // 端到端验证过的生成模块：specs 即其生成来源（books/notes 的 specs 是通用示例，见独立处理项）
+  // 端到端验证过的生成模块：specs 即其生成来源（books/notes 已按 specs 回填实体字段，2026-08-20）
   const verified = [
+    { spec: 'books.json', module: 'books' },
+    { spec: 'notes.json', module: 'notes' },
     { spec: 'contract.json', module: 'contracts' },
     { spec: 'supplier.json', module: 'suppliers' },
   ];
