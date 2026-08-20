@@ -396,6 +396,9 @@ export class AdminService {
     const since = new Date();
     since.setDate(since.getDate() - Math.min(Math.max(days, 1), 90));
     const sinceIso = since.toISOString();
+    // 日表达式跨 sqlite/postgres（同 _getAuditTrend）：DATE() 是 sqlite 专有，pg 用 to_char，否则 pg 下静默空
+    const isPg = this.dataSource.options.type === 'postgres';
+    const dayExpr = isPg ? "to_char(createdAt, 'YYYY-MM-DD')" : 'DATE(createdAt)';
 
     const run = async <T>(sql: string, params: unknown[] = []): Promise<T[]> => {
       try {
@@ -414,8 +417,8 @@ export class AdminService {
     // DAU / MAU：按操作审计日志的去重 userId 估算活跃（跨表最简：用 op_audit_logs 的 userId）
     const [daily, mauRow, wauRow, totalUsersRow] = await Promise.all([
       run<{ date: string; dau: number | string }>(
-        `SELECT DATE(createdAt) AS date, COUNT(DISTINCT userId) AS dau FROM op_audit_logs
-         WHERE createdAt >= ? GROUP BY DATE(createdAt) ORDER BY date ASC`, [sinceIso]),
+        `SELECT ${dayExpr} AS date, COUNT(DISTINCT userId) AS dau FROM op_audit_logs
+         WHERE createdAt >= ? GROUP BY ${dayExpr} ORDER BY date ASC`, [sinceIso]),
       run<{ mau: number | string }>(
         `SELECT COUNT(DISTINCT userId) AS mau FROM op_audit_logs WHERE createdAt >= ?`, [sinceIso]),
       run<{ mu: number | string }>(
@@ -450,8 +453,8 @@ export class AdminService {
       run<{ errors: number | string }>(
         `SELECT COUNT(*) AS errors FROM ai_audit_logs WHERE isError = 1 AND createdAt >= ?`, [sinceIso]),
       run<{ date: string; errors: number | string }>(
-        `SELECT DATE(createdAt) AS date, COUNT(*) AS errors FROM ai_audit_logs
-         WHERE isError = 1 AND createdAt >= ? GROUP BY DATE(createdAt) ORDER BY date ASC`, [sinceIso]),
+        `SELECT ${dayExpr} AS date, COUNT(*) AS errors FROM ai_audit_logs
+         WHERE isError = 1 AND createdAt >= ? GROUP BY ${dayExpr} ORDER BY date ASC`, [sinceIso]),
     ]);
 
     return {
@@ -478,8 +481,10 @@ export class AdminService {
 
   private async _getCountsByDay(table: string, since: Date): Promise<Array<{ date: string; count: number }>> {
     try {
+      const isPg = this.dataSource.options.type === 'postgres';
+      const dayExpr = isPg ? "to_char(createdAt, 'YYYY-MM-DD')" : 'DATE(createdAt)';
       const rows = await this.dataSource.query(
-        `SELECT DATE(createdAt) AS date, COUNT(*) AS count FROM ${table} WHERE createdAt >= ? GROUP BY DATE(createdAt) ORDER BY date ASC`,
+        `SELECT ${dayExpr} AS date, COUNT(*) AS count FROM ${table} WHERE createdAt >= ? GROUP BY ${dayExpr} ORDER BY date ASC`,
         [since.toISOString()],
       );
       return (rows as Array<{ date: string; count: number | string }>).map((r) => ({

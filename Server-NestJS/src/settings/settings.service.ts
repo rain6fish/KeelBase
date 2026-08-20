@@ -70,7 +70,9 @@ export class SettingsService implements OnModuleInit {
   }
 
   async isMaintenanceMode(): Promise<boolean> {
-    return (await this.getWithDefault(SETTING_KEYS.MAINTENANCE_MODE, false)) === true;
+    // 兼容布尔与字符串 'true'（通用 PUT /settings 未指定 type 时 value 存为 string）
+    const v = await this.getWithDefault(SETTING_KEYS.MAINTENANCE_MODE, false);
+    return v === true || v === 'true';
   }
 
   async getAiDailyLimit(): Promise<number> {

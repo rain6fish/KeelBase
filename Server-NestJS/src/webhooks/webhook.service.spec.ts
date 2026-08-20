@@ -31,6 +31,10 @@ function makeRepo(seed: Partial<WebhookSubscription>[] = []) {
 }
 
 describe('WebhookService (PL-14)', () => {
+  // SSRF 门控默认放行（公网目标）；SSRF 用例覆盖阻止分支；_isPrivateV4/V6 单独测
+  beforeEach(() => {
+    (WebhookService.prototype as any)._isBlockedHost = jest.fn().mockResolvedValue(false);
+  });
   const base = () => ({
     userId: 1,
     name: 'ops',
@@ -66,6 +70,30 @@ describe('WebhookService (PL-14)', () => {
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     await svc.remove(1, 5);
     expect(repo.delete).toHaveBeenCalledWith({ id: 5, userId: 1 });
+  });
+
+  it('SSRF：目标被判定为内网/回环时阻止投递', async () => {
+    (WebhookService.prototype as any)._isBlockedHost = jest.fn().mockResolvedValue(true);
+    const repo = makeRepo([{ ...base(), id: 1, url: 'http://127.0.0.1:5432/x' } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    (global as any).fetch = fetchMock;
+
+    await svc.publish('feedback.created', {});
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('SSRF：_isPrivateV4/V6 判定私网/回环/链接本地', () => {
+    const S = WebhookService as any;
+    expect(S._isPrivateV4('127.0.0.1')).toBe(true); // 回环
+    expect(S._isPrivateV4('10.0.0.1')).toBe(true); // 私网
+    expect(S._isPrivateV4('192.168.1.1')).toBe(true); // 私网
+    expect(S._isPrivateV4('169.254.169.254')).toBe(true); // 云元数据/链接本地
+    expect(S._isPrivateV4('8.8.8.8')).toBe(false); // 公网
+    expect(S._isPrivateV6('::1')).toBe(true); // 回环
+    expect(S._isPrivateV6('fe80::1')).toBe(true); // 链接本地
+    expect(S._isPrivateV6('2001:4860:4860::8888')).toBe(false); // 公网
   });
 
   it('publish 只投递事件匹配且启用的订阅，带 HMAC 签名', async () => {
