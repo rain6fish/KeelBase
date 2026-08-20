@@ -82,4 +82,25 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('read', subject('AiConversation', { userId: '999' }))).toBe(true);
     });
   });
+
+  describe('describeForUser (W5-⑦ Explainable Authz)', () => {
+    it('admin: role + manage all basis + all scope', () => {
+      const d = factory.describeForUser(adminUser);
+      expect(d.role).toBe(UserRole.ADMIN);
+      expect(d.basis).toContain('管理员');
+      const all = d.resources.find((r) => r.subject === 'all');
+      expect(all?.scope).toBe('all');
+    });
+
+    it('user: own-scoped resources with ownership reason', () => {
+      const d = factory.describeForUser(regularUser);
+      expect(d.role).toBe(UserRole.USER);
+      expect(d.basis).toContain('本人拥有');
+      const event = d.resources.find((r) => r.subject === 'Event');
+      expect(event?.scope).toBe('own');
+      expect(event?.reason).toContain('自己的数据');
+      const admin = d.resources.find((r) => r.subject === 'all');
+      expect(admin).toBeUndefined(); // 普通用户无权 all
+    });
+  });
 });
