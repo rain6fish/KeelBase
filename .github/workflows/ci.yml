@@ -116,6 +116,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-core-boundary.mjs
 
+  # 生成器/导入 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema 导入防回归
+  cli-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node --test scripts/keelbase-init.test.mjs
+
   web-admin:
     runs-on: ubuntu-latest
     defaults:
