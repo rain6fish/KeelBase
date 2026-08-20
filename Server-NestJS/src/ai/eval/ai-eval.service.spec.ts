@@ -9,6 +9,7 @@ function makeEvalRepo() {
     create: jest.fn((d: any) => d),
     save: jest.fn(async (d: any) => ({ ...d, id: 1 })),
     find: jest.fn().mockResolvedValue([]),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 }
