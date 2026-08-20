@@ -36,6 +36,8 @@ import { CrmModule } from '../src/crm/crm.module';
 import { PmModule } from '../src/pm/pm.module';
 import { ApprovalModule } from '../src/approval/approval.module';
 import { SuppliersModule } from '../src/suppliers/suppliers.module';
+import { BooksModule } from '../src/books/books.module';
+import { NotesModule } from '../src/notes/notes.module';
 import { FormBuilderModule } from '../src/form-builder/form-builder.module';
 import { PointsModule } from '../src/points/points.module';
 import { WebhookModule } from '../src/webhooks/webhook.module';
@@ -131,6 +133,8 @@ import request from 'supertest';
     PmModule,
     ApprovalModule,
     SuppliersModule,
+    BooksModule,
+    NotesModule,
     FormBuilderModule,
     PointsModule,
     WebhookModule,
