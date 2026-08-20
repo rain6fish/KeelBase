@@ -168,6 +168,12 @@ test('enum（协议反推）：类型 + 选项校验 + CLI 默认选项', () => 
   assert.deepEqual(cliFields[1].enum, ['active', 'inactive']);
   assert.equal(validateFields(cliFields), null);
 
+  // CLI 内联 enum 选项：`status:enum:active,inactive,paid`（选项不被外层逗号拆散）
+  const inline = parseFields('title:string,status:enum:active,inactive,paid');
+  assert.equal(inline[1].type, 'enum');
+  assert.deepEqual(inline[1].enum, ['active', 'inactive', 'paid']);
+  assert.equal(validateFields(inline), null);
+
   // 协议 JSON 提供的 enum 选项
   const specFields = [
     { name: 'title', type: 'string' },
@@ -628,6 +634,51 @@ test('parseOpenApiSpec：无 schemas / enum 选项不合法时降级 string', ()
   assert.equal(r.fields[0].type, 'string'); // 选项非法 → 降级 string
 });
 
+test('parseOpenApiSpec：required/label 透传 + skipped 诊断（保留/关系/非法名/enum 降级）', () => {
+  const spec = {
+    openapi: '3.0.0',
+    components: { schemas: { Customer: {
+      type: 'object',
+      required: ['name', 'status', 'owner', 'tier'],
+      properties: {
+        id: { type: 'integer' },
+        name: { type: 'string', title: '客户名称' },
+        status: { type: 'string', enum: ['Active', 'in progress'] },
+        owner: { type: 'string', description: '负责人' },
+        tier: { type: 'string', enum: ['basic', 'pro'], title: '等级' },
+        orders: { type: 'array', items: { $ref: '#/components/schemas/Order' } },
+        ref: { $ref: '#/components/schemas/Contact' },
+        '9first': { type: 'string' },
+        extra: { type: 'string', title: '额外' },
+      },
+    } } },
+  };
+  const r = parseOpenApiSpec(spec);
+  // required 透传（合法字段 + required 才标；保留/关系不在 fields 中）
+  assert.equal(r.fields.find((f) => f.name === 'name').required, true);
+  assert.equal(r.fields.find((f) => f.name === 'owner').required, true);
+  assert.equal(r.fields.find((f) => f.name === 'tier').required, true);
+  assert.equal(r.fields.find((f) => f.name === 'extra').required, undefined); // 未列 required 不误标
+  // label 透传：title 优先，description 兜底
+  assert.equal(r.fields.find((f) => f.name === 'name').label, '客户名称');
+  assert.equal(r.fields.find((f) => f.name === 'owner').label, '负责人');
+  assert.equal(r.fields.find((f) => f.name === 'extra').label, '额外');
+  // label 安全化：去掉引号/换行/反斜杠
+  const badTitle = parseOpenApiSpec({ components: { schemas: { Foo: { properties: { a: { type: 'string', title: "引'号\n反\\斜杠" } } } } } });
+  assert.equal(badTitle.fields[0].label, '引号反斜杠');
+  // 合法 enum 保留 + required；非法 enum 降级 string + 诊断
+  assert.deepEqual(r.fields.find((f) => f.name === 'tier').enum, ['basic', 'pro']);
+  assert.equal(r.fields.find((f) => f.name === 'status').type, 'string');
+  assert.ok(r.skipped.some((s) => s.name === 'status' && /降级/.test(s.reason)));
+  // 保留字段 / 关系 / 非法名 诊断
+  assert.ok(r.skipped.some((s) => s.name === 'id' && /保留/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === 'orders' && /关系/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === 'ref' && /关系/.test(s.reason)));
+  assert.ok(r.skipped.some((s) => s.name === '9first' && /非法/.test(s.reason)));
+  // 全部保留/关系字段被记入，fields 只含标量
+  assert.deepEqual(r.fields.map((f) => f.name), ['name', 'status', 'owner', 'tier', 'extra']);
+});
+
 // ── P0-12 输入通道：SQL DDL → Protocol ────────────────────────────────────────
 test('parseSqlDdl：类型映射（text/int/bool/date/enum）+ 保留列/约束行跳过', () => {
   const sql = `CREATE TABLE IF NOT EXISTS customers (
@@ -692,6 +743,39 @@ test('端到端：--import-openapi --out 写出可被 --spec 消费的协议 JSO
   assert.equal(spec.module, 'customers');
   assert.ok(spec.fields.some((f) => f.name === 'name'));
   // 产物可被 --spec 消费（字段合法）
+  assert.equal(validateFields(spec.fields), null);
+});
+
+test('端到端：--import-openapi --out 协议含 required/label 透传 + skipped 诊断', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const swaggerPath = `${root}/swagger.json`;
+  await write(swaggerPath, JSON.stringify({ components: { schemas: {
+    Customer: {
+      required: ['name'],
+      properties: {
+        id: { type: 'integer' },
+        name: { type: 'string', title: '客户名称' },
+        orders: { type: 'array', items: { type: 'object' } },
+      },
+    },
+  } } }));
+
+  await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-openapi', swaggerPath, '--module', 'customers', '--out', `${root}/spec.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  const spec = JSON.parse(await readFile(`${root}/spec.json`, 'utf8'));
+  assert.equal(spec.fields.find((f) => f.name === 'name').required, true);
+  assert.equal(spec.fields.find((f) => f.name === 'name').label, '客户名称');
+  assert.ok(spec.skipped.some((s) => s.name === 'id' && /保留/.test(s.reason)));
+  assert.ok(spec.skipped.some((s) => s.name === 'orders' && /关系/.test(s.reason)));
+  // 产物仍可被 --spec 消费（skipped 为诊断信息，不影响字段合法性）
   assert.equal(validateFields(spec.fields), null);
 });
 

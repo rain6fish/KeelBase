@@ -53,7 +53,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
 选项:
   --module <name>      模块英文名（小写，如 posts / user_profile）
   --label <中文>       模块中文名（1-12 字）
-  --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date/enum（默认 string）
+  --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date/enum（默认 string）；enum 内联选项：status:enum:active,inactive（小写英文，2-10 个，未给时用默认）
   --desc <描述>        自然语言描述 → LLM 提取模块/标签/字段
   --import-openapi <file>   从 OpenAPI 3 / Swagger 2 JSON 提取 schema → Protocol
   --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
@@ -192,6 +192,7 @@ async function main() {
 
     if (args.out) {
       const proto = { module: imported.module, label: imported.label, fields: imported.fields };
+      if (imported.skipped?.length) proto.skipped = imported.skipped;
       try {
         await writeGenerated(args.out, JSON.stringify(proto, null, 2) + '\n');
         console.log(`${C.green}✓ 已从 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'} 写出协议 ${args.out}${C.reset}`);
@@ -206,6 +207,9 @@ async function main() {
     label = imported.label;
     specFields = imported.fields;
     console.log(`${C.cyan}导入 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'}：模块 ${imported.module} / 标签 ${imported.label} / 字段 ${imported.fields.map((f) => f.name).join(', ')}${C.reset}`);
+    if (imported.skipped?.length) {
+      console.log(`${C.yellow}  诊断 ${imported.skipped.length} 项：${imported.skipped.map((s) => `${s.name}(${s.reason})`).join('，')}${C.reset}`);
+    }
   }
 
   async function llmExtract(description) {
