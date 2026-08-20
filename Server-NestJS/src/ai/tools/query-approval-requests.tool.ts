@@ -13,7 +13,9 @@ interface ApprovalServiceLike {
 export class QueryApprovalRequestsTool implements AiTool {
   readonly name = 'query_approval_requests';
   readonly description =
-    '查询审批请求列表（可按状态筛选）。用户问"有哪些审批/待审批/已通过的申请"时使用。返回请求 id、标题、类型、金额、状态、风险等级、AI 建议。';
+    '查询审批请求列表（可按状态筛选）。用户明确问"有哪些审批/待审批/已通过的申请/我的审批"时使用。' +
+    '若用户未指明具体要查哪个审批或哪个状态（如只说"这个审批怎么样"），先询问澄清具体审批意图，不要直接查询全部。' +
+    '返回请求 id、标题、类型、金额、状态、风险等级、AI 建议。';
   readonly parameters: ToolParameter[] = [
     {
       name: 'status',
