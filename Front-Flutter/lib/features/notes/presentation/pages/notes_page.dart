@@ -14,6 +14,7 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
+  String _categoryVal = 'work';
 
   @override
   void initState() {
@@ -54,6 +55,17 @@ class _NotesPageState extends State<NotesPage> {
             maxLines: 3,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
+
+          CupertinoSegmentedControl<String>(
+            groupValue: _categoryVal,
+            onValueChanged: (v) => setState(() => _categoryVal = v),
+            children: {
+              for (final o in ["work", "personal", "idea", "archive"]) o: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(o),
+              ),
+            },
+          ),
             ],
           ),
           actions: [
@@ -63,6 +75,7 @@ class _NotesPageState extends State<NotesPage> {
                 final data = <String, dynamic>{};
 if (_titleCtrl.text.isNotEmpty) data['title'] = _titleCtrl.text.trim();
 if (_contentCtrl.text.isNotEmpty) data['content'] = _contentCtrl.text.trim();
+data['category'] = _categoryVal;
                 final ok = await ctx.read<NotesProvider>().add(data);
                 if (ctx.mounted) Navigator.pop(ctx, ok);
               },

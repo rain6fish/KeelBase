@@ -20,6 +20,12 @@ export class Book {
   @Column({ length: 200 })
   author!: string;
 
+  @Column({ length: 32, default: 'unread' })
+  status!: string;
+
+  @Column({ nullable: true })
+  rating?: number;
+
   @Column({ nullable: true, name: 'user_id' })
   userId?: number;
 

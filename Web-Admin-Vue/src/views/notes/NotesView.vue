@@ -19,6 +19,7 @@ const headers = computed(() => [
   { key: 'id', title: 'ID' },
   { key: 'title', title: 'title' },
   { key: 'content', title: 'content' },
+  { key: 'category', title: 'category' },
   { key: 'createdAt', title: t('createdAt') },
   { key: 'actions', title: t('actionCol') },
 ])

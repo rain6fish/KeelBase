@@ -157,4 +157,74 @@ describe('Generated modules (keelbase init, e2e)', () => {
         .expect(200);
     });
   });
+
+  // books：协议生成模块（enum status + rating int，2026-08-20 按 specs/books.json 回填字段）
+  describe('books（协议生成模块：enum status + rating 回填）', () => {
+    const makeBook = (over: Record<string, unknown> = {}) => ({
+      title: '三体',
+      author: '刘慈欣',
+      status: 'unread',
+      rating: 5,
+      ...over,
+    });
+
+    it('创建 book（enum status + rating）→ 列表本人可见', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/books')
+        .set(authHeader(user.accessToken))
+        .send(makeBook())
+        .expect(201);
+      const id = created.body.data.id;
+      expect(created.body.data.status).toBe('unread');
+      expect(created.body.data.rating).toBe(5);
+
+      const list = await request(app.getHttpServer())
+        .get('/api/v1/books')
+        .set(authHeader(user.accessToken))
+        .expect(200);
+      expect(list.body.data.some((b: any) => b.id === id)).toBe(true);
+    });
+
+    it('enum 非法值 → 400（class-validator @IsIn）', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/books')
+        .set(authHeader(user.accessToken))
+        .send(makeBook({ status: 'not-a-status' }))
+        .expect(400);
+    });
+  });
+
+  // notes：协议生成模块（category enum，2026-08-20 按 specs/notes.json 回填字段）
+  describe('notes（协议生成模块：category enum 回填）', () => {
+    const makeNote = (over: Record<string, unknown> = {}) => ({
+      title: '会议纪要',
+      content: '今日结论：达成一致。',
+      category: 'work',
+      ...over,
+    });
+
+    it('创建 note（category 合法）→ 列表本人可见', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/notes')
+        .set(authHeader(user.accessToken))
+        .send(makeNote())
+        .expect(201);
+      const id = created.body.data.id;
+      expect(created.body.data.category).toBe('work');
+
+      const list = await request(app.getHttpServer())
+        .get('/api/v1/notes')
+        .set(authHeader(user.accessToken))
+        .expect(200);
+      expect(list.body.data.some((n: any) => n.id === id)).toBe(true);
+    });
+
+    it('enum 非法值 → 400（class-validator @IsIn）', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/notes')
+        .set(authHeader(user.accessToken))
+        .send(makeNote({ category: 'hobby' }))
+        .expect(400);
+    });
+  });
 });
