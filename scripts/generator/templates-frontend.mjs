@@ -4,6 +4,7 @@
  */
 
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
+// f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
 const MODEL_FIELD = {
   string: (c) => ({
     decl: `  final String ${c};`,
@@ -11,36 +12,71 @@ const MODEL_FIELD = {
     from: `      ${c}: json['${c}'] as String,`,
     to: `        '${c}': ${c},`,
   }),
-  text: (c) => ({
-    decl: `  final String? ${c};`,
-    ctor: `this.${c}`,
-    from: `      ${c}: json['${c}'] as String?,`,
-    to: `        '${c}': ${c},`,
-  }),
-  int: (c) => ({
-    decl: `  final int? ${c};`,
-    ctor: `this.${c}`,
-    from: `      ${c}: json['${c}'] as int?,`,
-    to: `        '${c}': ${c},`,
-  }),
-  bool: (c) => ({
-    decl: `  final bool ${c};`,
-    ctor: `this.${c} = false`,
-    from: `      ${c}: json['${c}'] as bool? ?? false,`,
-    to: `        '${c}': ${c},`,
-  }),
-  date: (c) => ({
-    decl: `  final String? ${c};`,
-    ctor: `this.${c}`,
-    from: `      ${c}: json['${c}'] as String?,`,
-    to: `        '${c}': ${c},`,
-  }),
-  enum: (c, f) => ({
-    decl: `  final String ${c};`,
-    ctor: `this.${c} = '${f.enum[0]}'`,
-    from: `      ${c}: json['${c}'] as String? ?? '${f.enum[0]}',`,
-    to: `        '${c}': ${c},`,
-  }),
+  text: (c, f) => (f.required === true
+    ? {
+      decl: `  final String ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as String,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final String? ${c};`,
+      ctor: `this.${c}`,
+      from: `      ${c}: json['${c}'] as String?,`,
+      to: `        '${c}': ${c},`,
+    }),
+  int: (c, f) => (f.required === true
+    ? {
+      decl: `  final int ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as int,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final int? ${c};`,
+      ctor: `this.${c}`,
+      from: `      ${c}: json['${c}'] as int?,`,
+      to: `        '${c}': ${c},`,
+    }),
+  bool: (c, f) => (f.required === true
+    ? {
+      decl: `  final bool ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as bool,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final bool ${c};`,
+      ctor: `this.${c} = false`,
+      from: `      ${c}: json['${c}'] as bool? ?? false,`,
+      to: `        '${c}': ${c},`,
+    }),
+  date: (c, f) => (f.required === true
+    ? {
+      decl: `  final String ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as String,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final String? ${c};`,
+      ctor: `this.${c}`,
+      from: `      ${c}: json['${c}'] as String?,`,
+      to: `        '${c}': ${c},`,
+    }),
+  enum: (c, f) => (f.required === true
+    ? {
+      decl: `  final String ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as String,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final String ${c};`,
+      ctor: `this.${c} = '${f.enum[0]}'`,
+      from: `      ${c}: json['${c}'] as String? ?? '${f.enum[0]}',`,
+      to: `        '${c}': ${c},`,
+    }),
 };
 
 export function modelTemplate(ctx) {
