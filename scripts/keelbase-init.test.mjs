@@ -912,3 +912,20 @@ test('端到端：--import-schema 直接生成（无 --out，enum 透传 + AI �
   const createTool = await readFile(BE(root, 'ai/tools/create-suppliers.tool.ts'), 'utf8');
   assert.match(createTool, /requiresConfirmation = true/);
 });
+
+test('specs/ 协议文件全部可被生成器消费（协议生态基础检查）', async () => {
+  const fsp = await import('node:fs/promises');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const dir = join(root, 'specs');
+  const files = (await fsp.readdir(dir)).filter((f) => f.endsWith('.json'));
+  assert.ok(files.length >= 8, `应有 ≥8 份协议，实际 ${files.length}`);
+  for (const f of files) {
+    const spec = JSON.parse(await fsp.readFile(join(dir, f), 'utf8'));
+    assert.ok(spec.module, `${f}: 缺 module`);
+    assert.equal(validateFields(spec.fields || []), null, `${f}: 字段非法`);
+    assert.doesNotThrow(
+      () => buildContext(spec.module, spec.label || spec.module, spec.fields || []),
+      `${f}: buildContext 失败`,
+    );
+  }
+});
