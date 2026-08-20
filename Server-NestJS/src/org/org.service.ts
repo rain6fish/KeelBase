@@ -291,16 +291,15 @@ export class OrgService {
     if (!invite || invite.usedBy != null) return false;
     if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) return false;
     const existing = await this.membersRepo.findOne({ where: { orgId: invite.orgId, userId } });
-    if (!existing) {
-      await this.membersRepo.save(
-        this.membersRepo.create({
-          orgId: invite.orgId,
-          userId,
-          deptId: invite.deptId ?? null,
-          role: invite.role,
-        }),
-      );
-    }
+    if (existing) return false; // 已是组织成员：不消耗邀请码、不发「新成员加入」通知
+    await this.membersRepo.save(
+      this.membersRepo.create({
+        orgId: invite.orgId,
+        userId,
+        deptId: invite.deptId ?? null,
+        role: invite.role,
+      }),
+    );
     invite.usedBy = userId;
     invite.usedAt = new Date();
     await this.invitesRepo.save(invite);
