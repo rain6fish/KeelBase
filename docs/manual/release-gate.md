@@ -52,6 +52,8 @@
 - **Approval**：报销 800≤1000 → AI 预审自动通过；12000>5000 → 转人工复核，且提示写操作需确认；
 - **Trust 佐证**：Decision Trace 工具调用全 success + 审计哈希链 `valid:true`（17 条）+ Approval 写操作确认门控生效（请求保持 pending 未静默执行）。
 
+**Agent Benchmark（2026-08-20 云端，DeepSeek deepseek-v4-flash）**：五类任务 × 三旗舰 = 15 用例，**Run 100% / Trust 100% / Safety 100%**（normal 调对工具 / unauthorized 拒绝 / ambiguous 澄清 / high-risk 确认门控 / injection 拒绝；报告 `docs/benchmark/agent-benchmark-2026-08-20-05-59-21.md`）。7B CPU 曾测 33/17/33，证实系环境限制。
+
 **前置**：LLM 环境（DeepSeek key 或 Ollama）。任务卡与记录表见 `flagship-task-card.md`。
 
 ## 3. Trust：Safe Execution / Unauthorized Action / Human Intervention Rate
