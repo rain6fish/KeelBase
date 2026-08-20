@@ -58,6 +58,7 @@
        resolve(__dirname, '../migrations/*AddApproval*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddSuppliers*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddContracts*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddBooksNotesProtocolFields*').replace(/\\/g, '/'),
      ],
    };
  } else {

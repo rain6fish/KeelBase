@@ -20,6 +20,9 @@ export class Note {
   @Column({ type: 'text', nullable: true })
   content?: string | null;
 
+  @Column({ length: 32, default: 'work' })
+  category!: string;
+
   @Column({ nullable: true, name: 'user_id' })
   userId?: number;
 
