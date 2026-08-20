@@ -15,6 +15,8 @@ class BooksPage extends StatefulWidget {
 class _BooksPageState extends State<BooksPage> {
   final _titleCtrl = TextEditingController();
   final _authorCtrl = TextEditingController();
+  String _statusVal = 'unread';
+  final _ratingCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _BooksPageState extends State<BooksPage> {
   void dispose() {
     _titleCtrl.dispose();
     _authorCtrl.dispose();
+    _ratingCtrl.dispose();
     super.dispose();
   }
 
@@ -54,6 +57,24 @@ class _BooksPageState extends State<BooksPage> {
             controller: _authorCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
+
+          CupertinoSegmentedControl<String>(
+            groupValue: _statusVal,
+            onValueChanged: (v) => setState(() => _statusVal = v),
+            children: {
+              for (final o in ["unread", "reading", "finished"]) o: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(o),
+              ),
+            },
+          ),
+
+          CupertinoTextField(
+            placeholder: 'rating',
+            controller: _ratingCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
             ],
           ),
           actions: [
@@ -62,8 +83,14 @@ class _BooksPageState extends State<BooksPage> {
               onPressed: () async {
                 final title = _titleCtrl.text.trim();
                 final author = _authorCtrl.text.trim();
-                if (title.isEmpty && author.isEmpty) return;
-                final data = <String, dynamic>{'title': title, 'author': author};
+                final rating = _ratingCtrl.text.trim();
+                if (title.isEmpty && author.isEmpty && rating.isEmpty) return;
+                final data = <String, dynamic>{
+                  'title': title,
+                  'author': author,
+                  'status': _statusVal,
+                  if (rating.isNotEmpty) 'rating': int.tryParse(rating),
+                };
                 final provider = ctx.read<BooksProvider>();
                 final ok = await provider.add(data);
                 if (!ctx.mounted) return;

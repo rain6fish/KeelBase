@@ -5,6 +5,7 @@ export interface AdminNote {
   userId: number | null;
   title: string;
   content: string;
+  category: string;
   createdAt: string;
 }
 

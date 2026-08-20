@@ -145,6 +145,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddApproval*.js',
               'dist/migrations/*AddSuppliers*.js',
               'dist/migrations/*AddContracts*.js',
+              'dist/migrations/*AddBooksNotesProtocolFields*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
