@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { HeadlessApiKey } from './headless-api-key.entity';
 import { UsersService } from '../users/users.service';
@@ -12,8 +12,6 @@ export interface HeadlessKeyContext {
   toolWhitelist: string[] | null;
   quotaPerDay: number;
 }
-
-const DAY_START_KEY = 'headless:quota-date';
 
 /**
  * HS-4 headless API Key 治理：每 key 独立身份/配额/工具范围，替代单一全局 KEY。
@@ -119,20 +117,21 @@ export class HeadlessKeysService {
     return count > 0;
   }
 
-  /** 配额校验 + 计数（按自然日） */
+  /** 配额校验 + 计数（按自然日）。用原子 UPDATE 递增 + where 配额条件，防并发请求读-改-写覆盖导致超配额。 */
   private async _checkAndBumpQuota(key: HeadlessApiKey): Promise<void> {
     const today = Math.floor(Date.now() / 86400000);
     if (key.quotaDate !== today) {
+      await this.keysRepo.update(key.id, { quotaDate: today, dailyUsed: 0 });
       key.quotaDate = today;
       key.dailyUsed = 0;
-      await this.keysRepo.save(key);
     }
-    if (key.quotaPerDay > 0 && key.dailyUsed >= key.quotaPerDay) {
-      throw new UnauthorizedException('该 API Key 今日配额已用完');
-    }
-    key.dailyUsed += 1;
-    key.lastUsedAt = new Date();
-    await this.keysRepo.save(key);
+    const criteria: any = { id: key.id };
+    if (key.quotaPerDay > 0) criteria.dailyUsed = LessThan(key.quotaPerDay);
+    const result = await this.keysRepo.update(criteria, {
+      dailyUsed: () => 'dailyUsed + 1',
+      lastUsedAt: new Date(),
+    });
+    if (result.affected === 0) throw new UnauthorizedException('该 API Key 今日配额已用完');
   }
 
   private async _defaultContext(): Promise<HeadlessKeyContext> {
