@@ -5,7 +5,7 @@
  * 设计为 Provider 无关，支持同步生成和流式生成两种模式。
  */
 
-import { ToolDefinition, AuthorizationReasons } from './tool.interface';
+import { ToolDefinition, AuthorizationCheck, AuthorizationReasons } from './tool.interface';
 
 /** 发送给 LLM 的消息 */
 export interface ChatMessage {
@@ -83,12 +83,20 @@ export interface ToolStartData {
   authorization?: AuthorizationReasons;
 }
 
+/** 授权拒绝详情（W5-⑦ 为何阻止） */
+export interface AuthorizationDeniedData {
+  reason: string;
+  checks: AuthorizationCheck[];
+}
+
 /** 工具执行结束（前端进程卡片结果） */
 export interface ToolEndData {
   name: string;
   success: boolean;
   summary?: string;
   error?: string;
+  /** W5-⑦ Explainable Authz：授权被拒时携带「为何阻止」+ 失败检查清单 */
+  authorizationDenied?: AuthorizationDeniedData;
 }
 
 /** 流式数据块 */
