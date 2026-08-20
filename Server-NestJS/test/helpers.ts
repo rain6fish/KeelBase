@@ -40,6 +40,7 @@ import { FormBuilderModule } from '../src/form-builder/form-builder.module';
 import { PointsModule } from '../src/points/points.module';
 import { WebhookModule } from '../src/webhooks/webhook.module';
 import { FeedbackModule } from '../src/feedback/feedback.module';
+import { DataImportModule } from '../src/data-import/data-import.module';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
@@ -134,6 +135,7 @@ import request from 'supertest';
     PointsModule,
     WebhookModule,
     FeedbackModule,
+    DataImportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
