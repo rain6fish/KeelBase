@@ -179,6 +179,18 @@ flutter run -d chrome  # Web
 
 > 管理台需 `role = admin` 账号登录，见 [演示账号](#演示账号)。
 
+### 30 分钟生成一个模块
+
+`keelbase init` 一条命令生成可运行的业务模块（实体 / API / 权限 / 审计 / AI 工具）：
+
+```bash
+cd Server-NestJS
+node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+npm run build && npm test -- posts
+```
+
+模块自动接入管理台、工作台与 AI 工具（`query_posts` / `create_post` 带确认）。完整流程见 [30min-acceptance.md](docs/manual/30min-acceptance.md) · [dev-challenge.md](docs/manual/dev-challenge.md)。
+
 ### Docker 生产部署
 
 ```bash
