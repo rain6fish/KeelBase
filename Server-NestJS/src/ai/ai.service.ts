@@ -27,6 +27,7 @@ import {
   RISK_STRATEGY,
   AuthorizationCheck,
   AuthorizationReasons,
+  AuthorizationDeniedError,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
@@ -162,14 +163,20 @@ export class AiService {
 
     // W5 风险模型：R5（不可逆/外部动作）→ 阻断，不进入确认/执行（评审二 §7）
     if (tool && this.toolRegistry.riskLevel(toolName) === 'R5') {
-      throw new Error(`Tool "${toolName}" is blocked (risk level R5)`);
+      throw new AuthorizationDeniedError(
+        `Tool "${toolName}" is blocked (risk level R5)`,
+        [{ name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` }],
+      );
     }
 
     // HS-9 治理策略：工具开关 + 角色白名单
     if (this.governancePolicy) {
       const enabled = await this.governancePolicy.isToolEnabled(toolName);
       if (!enabled) {
-        throw new Error(`Tool "${toolName}" is disabled by governance policy`);
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" is disabled by governance policy`,
+          [{ name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' }],
+        );
       }
       const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
       if (allowedRoles.length > 0 && userId !== '0') {
@@ -180,8 +187,15 @@ export class AiService {
           ? await this.usersService.findOne(Number(userId))
           : null;
         if (!user || !user.role || !allowedRoles.includes(user.role)) {
-          throw new Error(
+          throw new AuthorizationDeniedError(
             `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
+            [
+              {
+                name: 'role_allowed',
+                ok: false,
+                note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
+              },
+            ],
           );
         }
       }
@@ -195,8 +209,9 @@ export class AiService {
       this.featureFlagsService &&
       !this.featureFlagsService.isEnabled(perms.featureFlag as never)
     ) {
-      throw new Error(
+      throw new AuthorizationDeniedError(
         `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
+        [{ name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` }],
       );
     }
 
@@ -1103,28 +1118,39 @@ export class AiService {
               errorMessage: result.error,
             });
           }
-        } catch {
+        } catch (err) {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
           if (started) {
+            // W5-⑦ Explainable Authz：授权拒绝透出「为何阻止」（结构化检查清单）
+            const denied =
+              err instanceof AuthorizationDeniedError
+                ? { reason: err.message, checks: err.reasons }
+                : undefined;
             yield {
               type: 'tool_end',
               toolEnd: {
                 name: tc.name,
                 success: false,
-                summary: '工具执行失败',
-                error: 'Tool execution failed',
+                summary: denied ? '工具被拒绝' : '工具执行失败',
+                error: denied ? denied.reason : 'Tool execution failed',
+                authorizationDenied: denied,
               },
             };
           }
           // If the tool call couldn't be fully reconstructed or executed,
           // add an error result
+          const deniedMsg =
+            err instanceof AuthorizationDeniedError
+              ? err.message
+              : 'Tool execution failed';
           messages.push({
             role: 'tool',
-            content: JSON.stringify({ success: false, error: 'Tool execution failed' }),
+            content: JSON.stringify({ success: false, error: deniedMsg }),
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行失败审计
           // HS-9 粒度门控：tool 级在 off 时不记录
+          // W5-⑦ Explainable Authz：拒绝时记录真实原因（决策轨迹展示「为何阻止」）
           if (await this._shouldAudit('tool')) {
             this.auditService.log({
               userId,
@@ -1132,7 +1158,7 @@ export class AiService {
               action: 'tool_call',
               detail: `${tc.name}(${tc.args})`,
               isError: true,
-              errorMessage: 'Tool execution failed',
+              errorMessage: deniedMsg,
             });
           }
         }
