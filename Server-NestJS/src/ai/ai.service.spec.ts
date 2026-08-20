@@ -1273,6 +1273,31 @@ describe('AiService', () => {
         expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       });
 
+      it('R5 阻断错误携带结构化拒绝原因（AuthorizationDeniedError）', async () => {
+        mockToolRegistry.getTool.mockReturnValue({ name: 'irreversible_action', riskLevel: 'R5' });
+        mockToolRegistry.riskLevel.mockReturnValue('R5');
+        const err = await aiService
+          .executeToolForExternal('irreversible_action', {}, '1')
+          .catch((e: any) => e);
+        expect(err.reasons).toBeDefined();
+        expect(err.reasons.some((c: any) => c.name === 'risk_policy' && c.ok === false)).toBe(true);
+      });
+
+      it('治理策略禁用 → 拒绝并携带 tool_enabled 失败原因', async () => {
+        mockToolRegistry.getTool.mockReturnValue({ name: 'create_event', requiresConfirmation: true });
+        mockToolRegistry.riskLevel.mockReturnValue('R3');
+        (aiService as any).governancePolicy = {
+          isToolEnabled: jest.fn().mockResolvedValue(false),
+          getAllowedRoles: jest.fn().mockResolvedValue([]),
+        };
+        const err = await aiService
+          .executeToolForExternal('create_event', {}, '1')
+          .catch((e: any) => e);
+        expect(err.message).toContain('disabled by governance policy');
+        expect(err.reasons).toBeDefined();
+        expect(err.reasons.some((c: any) => c.name === 'tool_enabled' && c.ok === false)).toBe(true);
+      });
+
       it('R4 风险级（human_approval）→ 仍需确认', async () => {
         mockToolRegistry.riskLevel.mockReturnValue('R4');
         mockToolRegistry.requiresConfirmation.mockReturnValue(true);
