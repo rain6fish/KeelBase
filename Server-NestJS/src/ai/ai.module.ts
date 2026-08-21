@@ -43,6 +43,7 @@ import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
 import { QueryUserStatsTool } from './tools/query-user-stats.tool';
 import { QueryEventsByKeywordTool } from './tools/query-events-by-keyword.tool';
 import { NavigatePageTool } from './tools/navigate-page.tool';
+import { AdminNavigatePageTool } from './tools/navigate-admin-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
 import { QueryContractsTool } from './tools/query-contracts.tool';
@@ -222,6 +223,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryOrgMembersTool(orgService));
         toolRegistry.register(new QueryOrgTasksTool(orgService));
         toolRegistry.register(new NavigatePageTool());
+        // System AI Assistant（管理端导航，adminOnly）
+        toolRegistry.register(new AdminNavigatePageTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
         // 合同（EASY-2 自动生成 AI 工具：读 + 写需确认）

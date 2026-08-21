@@ -1,63 +1,38 @@
 import { Test } from '@nestjs/testing';
-import { AiService } from '../ai/ai.service';
-import { AuditService } from '../ai/audit/audit.service';
-import { AdminService } from './admin.service';
+import { AdminAiService } from './admin-ai.service';
 import { AdminAiController } from './admin-ai.controller';
 
-describe('AdminAiController（AI-22）', () => {
+describe('AdminAiController（System AI Assistant）', () => {
   let controller: AdminAiController;
-  let aiService: { chat: jest.Mock };
-  let adminService: { getAnalytics: jest.Mock; getMonitorSummary: jest.Mock };
-  let auditService: { getCostBreakdown: jest.Mock };
+  let adminAiService: { assistantChat: jest.Mock };
 
   beforeEach(async () => {
-    aiService = { chat: jest.fn().mockResolvedValue({ reply: '平台状态良好', conversationId: 'c1' }) };
-    adminService = {
-      getAnalytics: jest.fn().mockResolvedValue({
-        activeUsers: { totalUsers: 50, wau: 8, mau: 20 },
-        retention: { ratePct: 33.33 },
-        errors: { aiErrors: 3 },
+    adminAiService = {
+      assistantChat: jest.fn().mockResolvedValue({
+        reply: '已打开系统信息页',
+        conversationId: 'c1',
+        navigateTo: '/system',
+        toolCalls: ['navigate_admin_page'],
       }),
-      getMonitorSummary: jest.fn().mockResolvedValue({
-        counts: { events: 100, notifications: 20 },
-      }),
-    };
-    auditService = {
-      getCostBreakdown: jest.fn().mockResolvedValue({ summary: { totalCalls: 10, totalTokens: 5000 } }),
     };
 
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        AdminAiController,
-        { provide: AiService, useValue: aiService },
-        { provide: AdminService, useValue: adminService },
-        { provide: AuditService, useValue: auditService },
-      ],
+      controllers: [AdminAiController],
+      providers: [{ provide: AdminAiService, useValue: adminAiService }],
     }).compile();
     controller = moduleRef.get(AdminAiController);
   });
 
-  it('注入平台上下文并转发到 AiService', async () => {
-    const result = await controller.chat({ message: '平台活跃度如何？' });
+  it('以真实管理员身份委托 AdminAiService.assistantChat 并透出 navigateTo/toolCalls', async () => {
+    const result = await controller.chat({ message: '打开系统信息页' }, { sub: 5, username: 'admin5', role: 'admin' } as any);
 
-    expect(result.reply).toBe('平台状态良好');
-    expect(aiService.chat).toHaveBeenCalledTimes(1);
-    const [userId, req] = aiService.chat.mock.calls[0];
-    expect(userId).toBe('0');
-    expect(req.message).toContain('平台统计(近30天)');
-    expect(req.message).toContain('总用户50');
-    expect(req.message).toContain('月活20');
-    expect(req.message).toContain('AI用量');
-    expect(req.message).toContain('管理员提问：平台活跃度如何？');
-  });
-
-  it('上下文收集失败时静默降级仍对话', async () => {
-    adminService.getAnalytics.mockRejectedValue(new Error('db down'));
-    auditService.getCostBreakdown.mockRejectedValue(new Error('err'));
-
-    const result = await controller.chat({ message: 'hi' });
-
-    expect(result.reply).toBeDefined();
-    expect(aiService.chat.mock.calls[0][1].message).toContain('管理员提问：hi');
+    expect(adminAiService.assistantChat).toHaveBeenCalledWith(
+      5,
+      { message: '打开系统信息页' },
+    );
+    expect(result.reply).toBe('已打开系统信息页');
+    expect(result.conversationId).toBe('c1');
+    expect(result.navigateTo).toBe('/system');
+    expect(result.toolCalls).toContain('navigate_admin_page');
   });
 });
