@@ -177,7 +177,7 @@ interface AdminAiChatResponse {
 ### 6.1 AdminAiService.assistantChat 流程 / Flow
 
 1. `buildSystemContext()` 并行收集：能力清单（`CapabilitiesService`）、版本（`APP_VERSION` 常量）、工具清单（`aiService.getToolInventory()`，反映实时治理）、治理策略（`GovernancePolicyService.getPolicy()`）、实时统计（`AdminService.getAnalytics`/`getMonitorSummary` + `AuditService.getCostBreakdown`）——各子项失败静默。
-2. `aiService.chat('0', { message: context + '\n管理员提问：' + dto.message, conversationId, systemPrompt: ADMIN_SYSTEM_PROMPT, adminMode: true })`。
+2. `aiService.chat(String(userId), { message: context + '\n管理员提问：' + dto.message, conversationId, systemPrompt: ADMIN_SYSTEM_PROMPT, adminMode: true })`——userId 为当前登录管理员的真实 id（会话/记忆/限额/审计按管理员隔离）。
 3. 返回 `{ reply, conversationId, navigateTo, toolCalls }`。
 
 ### 6.2 ADMIN_SYSTEM_PROMPT 规则 / Prompt Rules
@@ -192,7 +192,7 @@ interface AdminAiChatResponse {
 ### 6.3 adminMode 与 adminOnly / Mode & Gate
 
 - `adminMode: true` 时关闭 `detectNavigation()` 关键词短路（防「打开设置」被误判为 Flutter `/settings`），导航交 LLM + `navigate_admin_page`。
-- `_assertToolAllowed` 新增：`perms.adminOnly && userId !== '0'` → `AuthorizationDeniedError`（`admin_only` 检查）。`'0'`（系统账号）放行；其他调用者（含普通用户 AI 会话）拒绝。`adminOnly` 元数据此前为装饰性，本次起强制（爆炸半径仅 `navigate_admin_page`）。
+- `_assertToolAllowed` 新增：`perms.adminOnly && userId !== '0'` → 实时查库校验角色，`role !== 'admin'` 则 `AuthorizationDeniedError`（`admin_only` 检查）。`'0'`（系统账号，eval/兼容）放行；普通用户拒绝。`adminOnly` 元数据此前为装饰性，本次起强制（爆炸半径仅 `navigate_admin_page`）。
 
 ### 6.4 非流式拒绝透传 / Non-Streaming Denial
 
@@ -204,7 +204,7 @@ interface AdminAiChatResponse {
 
 ### 6.6 已知限制 / Known Limitations（延后项）
 
-- 所有管理员共享 `'0'` 会话命名空间（每管理员独立会话延后）
+- eval `admin-assistant` 用例仍以系统账号 `'0'` 运行（`adminOnly` 兼容），会向 `'0'` 会话命名空间写入 eval 噪音——已知限制（v1 接受）
 - 管理端非流式，写工具（需确认）不可用 → L4 Act 延后
 - 管理端提示词绕过 Settings `ai_system_prompt`（by design）
 - 系统上下文块每轮注入，token 随会话历史增长（静态部分后续可缓存/压缩）
@@ -215,7 +215,7 @@ interface AdminAiChatResponse {
 
 | 文件 | 断言 |
 |------|------|
-| `ai.service.spec.ts` | `systemPrompt` 覆盖生效 / 缺省行为不变；`adminMode` 下「打开设置」不返回 `/settings`、非 adminMode 保持短路；`runToolLoop` 透传 `AuthorizationDeniedError`；`adminOnly` 非 '0' 拒绝、'0' 放行 |
+| `ai.service.spec.ts` | `systemPrompt` 覆盖生效 / 缺省行为不变；`adminMode` 下「打开设置」不返回 `/settings`、非 adminMode 保持短路；`runToolLoop` 透传 `AuthorizationDeniedError`；`adminOnly` 普通用户拒绝 / 真实 admin 放行 / '0' 放行 |
 | `admin-ai.service.spec.ts`（新） | `assistantChat` 调用参数（`systemPrompt`/`adminMode`）；上下文含能力/版本/工具/统计；`navigateTo`/`toolCalls` 透出；失败静默降级 |
 | `admin-ai.controller.spec.ts` | 瘦身委托（守卫保留、请求透传） |
 | `navigate-admin-page.tool.spec.ts`（新） | 已知 key → `{navigateTo}`；未知 → `{success:false}` |
