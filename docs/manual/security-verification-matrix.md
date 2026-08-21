@@ -34,7 +34,7 @@
 ## 3. 已知缺口（进 Trust 回归补测）
 
 1. ~~SSE/WS 非 REST 入口越权~~（✅ 2026-08-21 已补：notifications.e2e + ws-realtime.e2e 隔离断言 + gateway/service 单测）。
-2. **org/points 跨组织 AI 工具越权**：AI 工具按 `org_id` 域限定（ORG-5 已实现），但 benchmark 未含「跨组织工具越权」用例。
+2. ~~org/points 跨组织 AI 工具越权~~（✅ 2026-08-21 已补：`org.service.spec` 新增 `getOrgApprovalTaskStats` 双向跨组织隔离——A 在 org1 只见 org1 成员不见 org2，B 在 org2 反向隔离，且断言成员查询按调用者 org 过滤；query_org_tasks 工具非成员拒绝已有单测）。
 3. ~~管理台脱敏的字段级断言~~（✅ 2026-08-21 已补：`test/admin-sanitize.e2e-spec.ts` 逐项断言 bio/dateOfBirth/firstName/lastName/avatarUrl/provider 不返回 + email 掩码 + password/refreshTokenHash 等不返回；phone 掩码实现同 maskEmail，经 bind-phone 需 SMS 码未在 e2e 绑定）。
 
 ## 4. 结论
