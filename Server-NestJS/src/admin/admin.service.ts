@@ -209,7 +209,8 @@ export class AdminService {
         : (await this.usersRepo.find({ select: { id: true } })).map((u) => u.id);
     if (users.length === 0) return { sent: 0 };
 
-    const type = dto.type || 'system';
+    // 管理台广播默认公告类型（'broadcast'），Flutter 公告弹窗只识别 broadcast/announcement——原默认 'system' 致广播永不弹窗
+    const type = dto.type || 'broadcast';
     const perUser = dto.userIds && dto.userIds.length > 0;
     let sent = 0;
     for (const userId of users) {
