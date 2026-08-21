@@ -6,6 +6,17 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased] / 未发布
 
+> **1.0 Release Notes（RC 定稿时移入 `[1.0.0]` 条目）**
+>
+> **KeelBase 1.0：Business-safe AI Application Base**——AI 驱动的企业应用工程体系首个稳定版。
+> 1.0 只证明「三件套」：**AI CRM（Golden Application）** 一次跑通闭环（Customer → 风险分析 → 建跟进 → 确认 → 写 → 审计 → 撤销）+ **Application Protocol** 生成器（协议化配置 → 生成带权限/AI 工具/确认/审计的模块）+ **Runtime 治理**（CASL / 写操作确认 / 审计哈希链 / 副作用撤销 / Explainable Authz）。FLOW / 插件 / MCP / Headless / 模板市场等能力已实现，**1.0 后按需激活**。
+>
+> 关键交付（v0.9.2 后 94+ 提交）：
+> - **Build → Run → Trust → Private Deploy 全链路可验证**：`release-gate.sh` 确定性 10/10 + Gate 1-4（Golden Application 双视角 9/9+8/8 / Adversarial 证据链：越权矩阵 39 + 攻击集 12/12 + 合成陌生人实测 / Release Gate 进 CI）
+> - 三旗舰 AI 应用、私有 AI 全链路、插件生态 CLI、通用 OIDC SSO、管理台 Element Plus、审计哈希链、Agent 安全评测、Explainable Authz、AIization（OpenAPI/Schema 导入）、生成器 DX 等
+>
+> 完整变更见下。README 双叙事：AI 能力 + 数据主权（Private AI 独立叙事）。
+
 Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic OIDC SSO, Web-Admin Element Plus migration. / 三旗舰 AI 应用、私有 AI 全链路验证、插件生态 CLI、通用 OIDC SSO、管理台 Element Plus 迁移。
 
 ### Added / 新增
