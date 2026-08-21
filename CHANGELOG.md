@@ -58,6 +58,14 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **生成器 DX**：`--fields` 支持内联 enum 选项（`status:enum:active,paid`）；create 工具文件统一复数命名（`jest <plural>` 匹配一致——30min 验收「20 passed」成立）；CLI 测试 32→36
 - **Business-safe Agent Benchmark (W2)**: `agent-benchmark.mjs` — 15 cases (Normal/Unauthorized/Ambiguous/High-risk/Prompt Injection × CRM/PM/Approval) with Run/Trust/Safety scores; deterministic Trust via `agent-benchmark.sh` (e2e 403/confirmation/audit-chain)
   **Business-safe Agent Benchmark（W2）**：`agent-benchmark.mjs`——15 用例（五类任务 × 三旗舰）+ Run/Trust/Safety 评分；确定性 Trust 由 `agent-benchmark.sh`（e2e 越权/确认/审计链）补足
+- **Release Gate unified entry (W3 / 08-21)**: `scripts/release-gate.sh` — one command proving Build / Gate 1 / Trust / Private / Adversarial (deterministic 10/10, CI-able; `LLM_ENV=1` adds Run/Adversarial), wired as a `release-gate` CI job; Release Precheck standard program (Alibaba `ocr` + Claude double code review → full tests → coverage) as the pre-publish gate
+  **Release Gate 统一入口（W3 / 08-21）**：`scripts/release-gate.sh`——一命令证明 Build/Gate 1/Trust/Private/Adversarial（确定性 10/10，可 CI；`LLM_ENV=1` 加 Run/Adversarial），接线 `release-gate` CI job；发布前标准程序（阿里 ocr + Claude 双重 code review → 全量测试 → 覆盖率）作为发布前置
+- **Gate 1 Golden Application = AI CRM one-pass closed loop**: `test/golden-application.e2e-spec.ts` — 7-step deterministic loop (Customer → Risk Analysis → Create Follow-up Task → confirmation gate, no-write-without-approval → write + revocable side-effect → audit hash-chain verify → revoke soft-delete → cross-user revoke 404) + `scripts/verify-golden-application.sh` (8-item single acceptance, 9/9); release-gate gains a Gate 1 block
+  **Gate 1 Golden Application = AI CRM 一次跑通闭环**：`test/golden-application.e2e-spec.ts`——7 步确定性闭环（客户 → 风险分析 → 建跟进 → 确认门控，不确认不写 → 写入 + 可撤销副作用 → 审计哈希链 verify → 撤销软删 → 越权撤销 404）+ `scripts/verify-golden-application.sh`（8 项单一验收，9/9）；release-gate 加 Gate 1 段
+- **Gate 4 1.0 Candidate freeze list + policy**: `docs/manual/release-1.0-candidate.md` — scope slimming (1.0 proves only AI CRM + Protocol generator + Runtime governance; FLOW / plugin / MCP / Headless / template market marked "available, activate on demand after 1.0"), core-architecture freeze, Exit Criteria tracker (10 items); operations.md §3.1 v1.0 compatibility / upgrade policy (dual-driver migrations, v0.9.x→v1.0 path, honest technical-vs-market declaration)
+  **Gate 4 1.0 Candidate 冻结清单 + 政策**：`docs/manual/release-1.0-candidate.md`——1.0 边界瘦身（只证明 AI CRM + Protocol 生成器 + Runtime 治理三件套；FLOW/插件/MCP/Headless/模板市场标「具备，1.0 后按需激活」）、核心架构冻结、Exit Criteria 状态表（10 项）；operations.md §3.1 v1.0 兼容与升级政策（双驱动迁移、v0.9.x→v1.0 升级路径、技术/市场诚实声明）
+- **Private AI promoted to co-equal narrative (§7.4 #4)**: enterprise-capabilities.md "Dual narrative" — AI capability (Business-safe Agent acting within rules) and data sovereignty (data-never-leaves-perimeter Private AI) as parallel external narratives, with Private AI evidence strengthened (private-ai-report 8/8 + verify-private-ai.sh)
+  **Private AI 升为独立叙事（§7.4 #4）**：enterprise-capabilities.md 加「双叙事」——AI 能力（Business-safe Agent 在规则内干活）与数据主权（数据不出域 Private AI）并列为对外叙事，并强化 §10 私有 AI 证据（private-ai-report 8/8 + verify-private-ai.sh）
 
 ### Fixed / 修复
 
@@ -85,6 +93,8 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **邀请码重复兑换防护**：已是组织成员时 `redeemOrgInvite` 直接返回（不消耗邀请码、不发「新成员加入」通知）
 - **Maintenance-mode string trap + marketing audience strictness**: `isMaintenanceMode` accepts string `'true'`; marketing `send` throws on unknown audience instead of silently emailing everyone
   **维护模式字符串陷阱 + marketing audience 严格化**：`isMaintenanceMode` 兼容字符串 'true'；marketing send 对未知 audience 抛错而非静默群发全员
+- **Audit hash-chain concurrent fork fixed (W3 2nd stranger challenge)**: `AuditService` / `OperationAuditService` serialize chain writes (read last `prev_hash` → compute → insert atomically) — two writes in the same second no longer fork the chain (`brokenIndex` in `/audit/verify` fixed); concurrent unit tests assert `prev_hash` continuity
+  **审计哈希链并发写分叉修复（W3 二次合成陌生人）**：`AuditService`/`OperationAuditService` 串行化链写（读 lastHash → 计算 → 插入原子化）——同一秒两次并发写不再分叉（`/audit/verify` 的 `brokenIndex` 修复）；并发单测验证 `prev_hash` 连续
 
 ## [0.9.2] - 2026-08-17
 
