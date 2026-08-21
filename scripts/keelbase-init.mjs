@@ -332,7 +332,7 @@ async function main() {
     for (const s of failed) console.log(`${C.red}  ✗ ${s.file}（${reasonZh(s.reason)}）${C.reset}`);
   }
 
-  // ── Provenance DNA：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
+  // ── Provenance：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
   try {
     const man = await writeManifest(ctx.plural);
     console.log(

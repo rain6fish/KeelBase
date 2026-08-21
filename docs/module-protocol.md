@@ -130,9 +130,9 @@ node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 
 
 ---
 
-## 6. 生成来源身份（Provenance DNA）
+## 6. 生成来源身份（Provenance）
 
-> 2026-08-21 落地（设计建议《KeelBase DNA 设计建议》的最小切片）：**不给源码贴水印**，只保留一份项目级来源清单。原则：`Visible by default` / `Removable by choice` / `Verifiable when retained` / `No hidden telemetry` / `No lock-in` / `Project-level first`。
+> 2026-08-21 落地（私有仓架构/生态身份设计建议的最小切片）：**不给源码贴水印**，只保留一份项目级来源清单。原则：`Visible by default` / `Removable by choice` / `Verifiable when retained` / `No hidden telemetry` / `No lock-in` / `Project-level first`。
 
 ### 6.1 `.keelbase/manifest.json`
 
@@ -171,6 +171,6 @@ node scripts/keelbase-init.mjs inspect   # 或 node scripts/keelbase-inspect.mjs
 
 ### 6.3 边界
 
-- **不实现**（1.0 后）：Runtime DNA 独立 schema、`keelbase doctor` 兼容矩阵、System AI Assistant、`Built with KeelBase` badge 生态
+- **不实现**（1.0 后）：Runtime Provenance 独立 schema、`keelbase doctor` 兼容矩阵、System AI Assistant、`Built with KeelBase` badge 生态
 - 清单只记「由生成器产生」的模块，手写模块不强制登记
 - 协议仍是语义源；清单是来源身份，**不是**运行时元数据引擎（对齐 §5 红线）
