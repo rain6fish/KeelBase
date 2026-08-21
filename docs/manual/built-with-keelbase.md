@@ -65,7 +65,7 @@ node scripts/keelbase-init.mjs doctor
 ## 5. 当前状态（2026-08-21）
 
 - 来源身份能力完整：`.keelbase/manifest.json` + `keelbase inspect`/`doctor` + `GET /app/provenance`，均已实现并测试。
-- 官方模板/生成链路均携带 manifest（`keelbase init` 幂等合并，gate ⑨ Provenance 验证）。
+- 官方模板/生成链路均携带来源身份：`keelbase init` 幂等合并 manifest（gate ⑨ Provenance 验证）；模板市场 `GET /admin/templates` 列表附 `provenance`（source/templateId/keelbaseVersion）。
 - **待第三方**：生态发现（registry / 发现页）、badge 聚合展示——1.0 后 External Validation 出现真实应用时激活。
 
 ## 相关
