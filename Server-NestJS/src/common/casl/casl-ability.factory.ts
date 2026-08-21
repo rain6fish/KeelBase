@@ -52,6 +52,11 @@ export class CaslAbilityFactory {
       // keelbase init 生成模块（wireBackend 自动接线，勿手改：wire.mjs 会追加）
       can('manage', 'Supplier', { userId: user.sub });
       can('manage', 'Contract', { userId: user.sub });
+      // 早期生成模块（wire 当时未追加，手动补）：本人可管理（否则编辑/删除恒 403）
+      can('manage', 'Book', { userId: user.sub });
+      can('manage', 'Tag', { userId: user.sub });
+      can('manage', 'Note', { userId: user.sub });
+      can('manage', 'Post', { userId: user.sub });
     }
 
     return build();
