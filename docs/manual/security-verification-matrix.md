@@ -25,15 +25,15 @@
 | 入口 | 越权断言覆盖 | 说明 |
 |------|:--:|------|
 | REST（HTTP） | ✅ 密集 | 13 个 e2e suite + verify-security-eval 全覆盖 |
-| SSE `/notifications/stream` | 🔶 部分 | 未做「他人订阅自己流」的越权断言（待补） |
-| WS `/ws` | 🔶 部分 | 握手鉴权有 e2e；未做「他人 room 推送越权」断言（待补） |
+| SSE `/notifications/stream` | ✅ | 越权隔离 e2e（`test/notifications.e2e-spec.ts`：A 的流收不到 B 的通知）+ gateway 单测跨用户隔离 |
+| WS `/ws` | ✅ | 握手鉴权 e2e（4401）+ **他人 room 推送越权隔离**（`test/ws-realtime.e2e-spec.ts`：双连接 emitToUser 互不可见）+ service 单测隔离 |
 | MCP 出口 `/mcp` | ✅ | mcp-export e2e + HS-10 治理层（权限→确认→审计） |
 | Headless `/headless` | ✅ | headless-keys e2e + HS-4 x-api-key |
 | Plugin `/plugins/:path` | ✅ | plugins.flagship.integration.spec（requires 缺失跳过 / featureFlag 关闭跳过） |
 
 ## 3. 已知缺口（进 Trust 回归补测）
 
-1. **SSE/WS 非 REST 入口越权**：他人数据订阅/推送的越权断言未系统化（REST 密集，长连接少）。
+1. ~~SSE/WS 非 REST 入口越权~~（✅ 2026-08-21 已补：notifications.e2e + ws-realtime.e2e 隔离断言 + gateway/service 单测）。
 2. **org/points 跨组织 AI 工具越权**：AI 工具按 `org_id` 域限定（ORG-5 已实现），但 benchmark 未含「跨组织工具越权」用例。
 3. **管理台脱敏的字段级断言**：`sanitizeForAdmin` 掩码有 e2e，但字段级（bio/生日/名姓不返回）矩阵未逐项核对。
 
@@ -41,4 +41,4 @@
 
 - **REST 入口越权（跨用户读写删 + 非管理员访问 + 跨组织 + AI 工具越权）已系统覆盖**：13 e2e suite + SE 12/12 + AB 15/15 全过。
 - **核心护城河验证**：三旗舰 + 生成模块 + org 的越权拒绝、写确认、审计哈希链、撤销均有自动化回归。
-- 缺口集中在**长连接入口（SSE/WS）与跨组织 AI 工具**——作为 Trust 深化下一步（非阻塞 v1.0 对抗性证明的主体，因 REST + AI 工具主体已覆盖）。
+- 缺口收窄为**跨组织 AI 工具**（SSE/WS 长连接越权已补）——作为 Trust 深化下一步（非阻塞 v1.0 对抗性证明的主体，因 REST + AI 工具主体已覆盖）。
