@@ -22,6 +22,10 @@ export interface AuditEntry {
   detail?: string;
   model?: string;
   provider?: string;
+  /** W4-⑤ Agent Identity：调用方 agent 标识（headless key id / 子 agent） */
+  agentId?: string;
+  /** W4-⑤ 会话标识（access token 暂无 jti，接入前可空） */
+  sessionId?: string;
   promptTokens?: number;
   completionTokens?: number;
   durationMs?: number;
@@ -64,39 +68,50 @@ export class AuditService {
     private readonly auditChain: AuditChainService,
   ) {}
 
+  /** 审计写串行队列：保证「读 lastHash → 计算 hash → 插入」原子化，杜绝并发写链分叉（合成陌生人实测发现 brokenIndex:30） */
+  private _tail: Promise<unknown> = Promise.resolve();
+
   async log(entry: AuditEntry): Promise<void> {
-    const prevHash = await this._lastHash();
-    const hash = this.auditChain.computeHash(
-      prevHash,
-      this._payload({
+    // 链式串行：每次 log 排队在前一次之后执行，避免两个并发写同时读到同一 lastHash 造成分叉
+    const job = this._tail.then(async () => {
+      const prevHash = await this._lastHash();
+      const hash = this.auditChain.computeHash(
+        prevHash,
+        this._payload({
+          userId: entry.userId,
+          conversationId: entry.conversationId,
+          action: entry.action,
+          detail: entry.detail ? entry.detail.slice(0, 2000) : null,
+          model: entry.model,
+          provider: entry.provider,
+          promptTokens: entry.promptTokens,
+          completionTokens: entry.completionTokens,
+          durationMs: entry.durationMs,
+          isError: entry.isError ?? false,
+          errorMessage: entry.errorMessage,
+        }),
+      );
+      await this.logRepo.save({
         userId: entry.userId,
         conversationId: entry.conversationId,
         action: entry.action,
-        detail: entry.detail ? entry.detail.slice(0, 2000) : null,
+        detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
         model: entry.model,
         provider: entry.provider,
+        agentId: entry.agentId,
+        sessionId: entry.sessionId,
         promptTokens: entry.promptTokens,
         completionTokens: entry.completionTokens,
         durationMs: entry.durationMs,
         isError: entry.isError ?? false,
         errorMessage: entry.errorMessage,
-      }),
-    );
-    await this.logRepo.save({
-      userId: entry.userId,
-      conversationId: entry.conversationId,
-      action: entry.action,
-      detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
-      model: entry.model,
-      provider: entry.provider,
-      promptTokens: entry.promptTokens,
-      completionTokens: entry.completionTokens,
-      durationMs: entry.durationMs,
-      isError: entry.isError ?? false,
-      errorMessage: entry.errorMessage,
-      prevHash,
-      hash,
+        prevHash,
+        hash,
+      });
     });
+    // 串行链：失败不阻断后续写，但保持顺序
+    this._tail = job.catch(() => {});
+    await job;
   }
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。 */

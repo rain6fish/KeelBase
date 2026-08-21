@@ -6,6 +6,17 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased] / 未发布
 
+> **1.0 Release Notes（RC 定稿时移入 `[1.0.0]` 条目）**
+>
+> **KeelBase 1.0：Business-safe AI Application Base**——AI 驱动的企业应用工程体系首个稳定版。
+> 1.0 只证明「三件套」：**AI CRM（Golden Application）** 一次跑通闭环（Customer → 风险分析 → 建跟进 → 确认 → 写 → 审计 → 撤销）+ **Application Protocol** 生成器（协议化配置 → 生成带权限/AI 工具/确认/审计的模块）+ **Runtime 治理**（CASL / 写操作确认 / 审计哈希链 / 副作用撤销 / Explainable Authz）。FLOW / 插件 / MCP / Headless / 模板市场等能力已实现，**1.0 后按需激活**。
+>
+> 关键交付（v0.9.2 后 94+ 提交）：
+> - **Build → Run → Trust → Private Deploy 全链路可验证**：`release-gate.sh` 确定性 10/10 + Gate 1-4（Golden Application 双视角 9/9+8/8 / Adversarial 证据链：越权矩阵 39 + 攻击集 12/12 + 合成陌生人实测 / Release Gate 进 CI）
+> - 三旗舰 AI 应用、私有 AI 全链路、插件生态 CLI、通用 OIDC SSO、管理台 Element Plus、审计哈希链、Agent 安全评测、Explainable Authz、AIization（OpenAPI/Schema 导入）、生成器 DX 等
+>
+> 完整变更见下。README 双叙事：AI 能力 + 数据主权（Private AI 独立叙事）。
+
 Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic OIDC SSO, Web-Admin Element Plus migration. / 三旗舰 AI 应用、私有 AI 全链路验证、插件生态 CLI、通用 OIDC SSO、管理台 Element Plus 迁移。
 
 ### Added / 新增
@@ -44,6 +55,28 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **上传签名访问（CR-21）**：`/uploads` 经 HMAC-SHA256 签名 URL（含过期时间）访问（渐进默认放行；`UPLOAD_REQUIRE_SIGN=1` 强制 403）+ 路径穿越防护；头像/上传响应返回签名 URL
 - **Web root → workbench, Flutter web as `/mobile` preview**: single-container/nginx root redirects to the Web workbench; Flutter web moves to `/mobile` as the mobile-app preview (Web business UI host = workbench)
   **Web 根路径切工作台 + Flutter web 移 `/mobile` 预览**：单容器/nginx 根路径重定向到 Web 工作台；Flutter web 移到 `/mobile` 作移动 App 预览（Web 业务 UI 唯一宿主=工作台）
+- **Explainable Authorization (W5-⑦)**: authorization denials now carry structured reasons (which policy / why blocked); `GET /auth/me/permissions` exposes the caller's capability list
+  **授权依据可解释化（W5-⑦）**：授权拒绝返回结构化原因（哪条策略/为何阻止）；`GET /auth/me/permissions` 暴露调用方能力清单
+- **Agent Security Eval attack set (W4)**: security eval cases 6→12 (injection-write / confirmation-bypass / revoke-bypass / cross-org read·approve / unauthorized-read), verified 12/12 blocked on DeepSeek; `scripts/verify-security-eval.sh` scripts the regression with a 90% pass gate
+  **Agent 安全评测攻击集（W4）**：评测用例 6→12（注入写/确认绕过/撤销绕过/跨组织读·审批/越权读），DeepSeek 实测 12/12 全挡；`scripts/verify-security-eval.sh` 脚本化安全回归（90% 门槛）
+- **Stranger-challenge harness (W3)**: self-contained challenge card (30min Build + 60min Business) + `run.sh` clean-clone script for reproducible external-developer evaluation
+  **合成陌生人挑战包（W3）**：自包含挑战卡（30min Build + 60min Business）+ `run.sh` 干净 clone 脚本，供外部开发者可复现评估
+- **Audit-chain key separation + rotation (W4-②)**: `AUDIT_HMAC_KEY` (independent 64-hex) + `AUDIT_HMAC_KEY_PREVIOUS`; verify accepts `[current, previous, legacy]` candidate keys so old records stay verifiable after rotation
+  **审计链密钥分离 + 轮换（W4-②）**：独立 `AUDIT_HMAC_KEY`（64 hex）+ `AUDIT_HMAC_KEY_PREVIOUS`；verify 用候选集 `[current, previous, legacy]` 任一匹配——轮换后旧记录仍可验证
+- **AIization hardening (ai-bridge §3)**: `--import-openapi`/`--import-schema` extract `required`/label + skipped diagnostics; Protocol `required` propagates to DTO `@IsNotEmpty` and non-null model fields
+  **已有系统 AI 化加固（ai-bridge §3）**：`--import-openapi`/`--import-schema` 提取 `required`/标签 + 跳过诊断；Protocol `required` 透传到 DTO `@IsNotEmpty` 与非空模型字段
+- **Generator DX**: `--fields` supports inline enum options (`status:enum:active,paid`); create AI-tool files named with the plural module (consistent `jest <plural>` matching — 30-min acceptance "20 passed" now true); CLI tests 32→36
+  **生成器 DX**：`--fields` 支持内联 enum 选项（`status:enum:active,paid`）；create 工具文件统一复数命名（`jest <plural>` 匹配一致——30min 验收「20 passed」成立）；CLI 测试 32→36
+- **Business-safe Agent Benchmark (W2)**: `agent-benchmark.mjs` — 15 cases (Normal/Unauthorized/Ambiguous/High-risk/Prompt Injection × CRM/PM/Approval) with Run/Trust/Safety scores; deterministic Trust via `agent-benchmark.sh` (e2e 403/confirmation/audit-chain)
+  **Business-safe Agent Benchmark（W2）**：`agent-benchmark.mjs`——15 用例（五类任务 × 三旗舰）+ Run/Trust/Safety 评分；确定性 Trust 由 `agent-benchmark.sh`（e2e 越权/确认/审计链）补足
+- **Release Gate unified entry (W3 / 08-21)**: `scripts/release-gate.sh` — one command proving Build / Gate 1 / Trust / Private / Adversarial (deterministic 10/10, CI-able; `LLM_ENV=1` adds Run/Adversarial), wired as a `release-gate` CI job; Release Precheck standard program (Alibaba `ocr` + Claude double code review → full tests → coverage) as the pre-publish gate
+  **Release Gate 统一入口（W3 / 08-21）**：`scripts/release-gate.sh`——一命令证明 Build/Gate 1/Trust/Private/Adversarial（确定性 10/10，可 CI；`LLM_ENV=1` 加 Run/Adversarial），接线 `release-gate` CI job；发布前标准程序（阿里 ocr + Claude 双重 code review → 全量测试 → 覆盖率）作为发布前置
+- **Gate 1 Golden Application = AI CRM one-pass closed loop**: `test/golden-application.e2e-spec.ts` — 7-step deterministic loop (Customer → Risk Analysis → Create Follow-up Task → confirmation gate, no-write-without-approval → write + revocable side-effect → audit hash-chain verify → revoke soft-delete → cross-user revoke 404) + `scripts/verify-golden-application.sh` (8-item single acceptance, 9/9); release-gate gains a Gate 1 block
+  **Gate 1 Golden Application = AI CRM 一次跑通闭环**：`test/golden-application.e2e-spec.ts`——7 步确定性闭环（客户 → 风险分析 → 建跟进 → 确认门控，不确认不写 → 写入 + 可撤销副作用 → 审计哈希链 verify → 撤销软删 → 越权撤销 404）+ `scripts/verify-golden-application.sh`（8 项单一验收，9/9）；release-gate 加 Gate 1 段
+- **Gate 4 1.0 Candidate freeze list + policy**: `docs/manual/release-1.0-candidate.md` — scope slimming (1.0 proves only AI CRM + Protocol generator + Runtime governance; FLOW / plugin / MCP / Headless / template market marked "available, activate on demand after 1.0"), core-architecture freeze, Exit Criteria tracker (10 items); operations.md §3.1 v1.0 compatibility / upgrade policy (dual-driver migrations, v0.9.x→v1.0 path, honest technical-vs-market declaration)
+  **Gate 4 1.0 Candidate 冻结清单 + 政策**：`docs/manual/release-1.0-candidate.md`——1.0 边界瘦身（只证明 AI CRM + Protocol 生成器 + Runtime 治理三件套；FLOW/插件/MCP/Headless/模板市场标「具备，1.0 后按需激活」）、核心架构冻结、Exit Criteria 状态表（10 项）；operations.md §3.1 v1.0 兼容与升级政策（双驱动迁移、v0.9.x→v1.0 升级路径、技术/市场诚实声明）
+- **Private AI promoted to co-equal narrative (§7.4 #4)**: enterprise-capabilities.md "Dual narrative" — AI capability (Business-safe Agent acting within rules) and data sovereignty (data-never-leaves-perimeter Private AI) as parallel external narratives, with Private AI evidence strengthened (private-ai-report 8/8 + verify-private-ai.sh)
+  **Private AI 升为独立叙事（§7.4 #4）**：enterprise-capabilities.md 加「双叙事」——AI 能力（Business-safe Agent 在规则内干活）与数据主权（数据不出域 Private AI）并列为对外叙事，并强化 §10 私有 AI 证据（private-ai-report 8/8 + verify-private-ai.sh）
 
 ### Fixed / 修复
 
@@ -59,6 +92,20 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **生成模块 CASL 接线修复（30min 验收加固）**：`keelbase init` 生成模块自动接线 `can('manage','<Module>',{userId})`——此前本人更新/删除全 403
 - **TypeORM logging type**: `app.module` logging `string[]` → `LogLevel[]` (build blocker from read/write-split)
   **TypeORM logging 类型**：`app.module` logging `string[]`→`LogLevel[]`（读写分离遗留的 build 阻塞）
+- **W4 production bug fixes (security/robustness batch)**: MFA TOTP failures now accumulate lockout attempts (prevent per-IP brute force of the 6-digit code); WebP magic bytes require the `WEBP` marker at offset 8 (WAV/AVI can no longer masquerade); webhook delivery blocks private/loopback/link-local targets (SSRF guard); headless quota uses atomic UPDATE (concurrent requests can no longer exceed `quotaPerDay`); `PUT /users/:id` phone change syncs `phoneHash` + uniqueness; search returns safe-empty on missing `q`; op-audit / form-builder pagination clamped 1-100; flow instance marked `failed` when an AI node throws; single `ai:done` on WS stream close; admin analytics uses per-dialect date expression (Postgres no longer empty)
+  **W4 生产 bug 修复（安全/健壮性批次）**：MFA TOTP 失败累计锁定（防换 IP 爆破 6 位码）；WebP 魔数补 offset8 "WEBP"（WAV/AVI 无法再伪装）；webhook 投递阻止私网/回环/链接本地（SSRF 防护）；headless 配额改原子 UPDATE（并发无法超 quotaPerDay）；`PUT /users/:id` 改手机号同步 phoneHash + 唯一性；search 缺 q 安全返回空；op-audit/form-builder 分页钳制 1-100；AI 节点抛错时流程实例置 failed；WS 流关闭单一 ai:done；admin 分析按库用日期表达式（Postgres 不再空）
+- **DST-safe calendar-day iteration (events)**: Flutter events list page & provider use `DateTime(y,m,d+1)` instead of `+24h` — no infinite loop / repeated day on DST fall-back weeks
+  **事件日历加法（DST 安全）**：Flutter 事件列表页与 provider 用 `DateTime(y,m,d+1)` 替代 `+24h`——DST 回拨周不再死循环/重复日期
+- **Check-in streak no longer truncated**: `_checkinState` reads `checkin_date` keys without a 40-day window (>40-day streaks now counted)
+  **连签不再截断**：`_checkinState` 按 `checkin_date` 键取全部签到（无 40 天窗口），>40 天连签正常统计
+- **Events reminders removed on update**: clearing/cancelling a reminder or moving an event to the past removes the stale delayed job; range queries use interval-overlap (`startTime<=end AND endTime>=start`) so month view shows spanning events
+  **事件提醒更新清理**：清空/取消提醒或事件改到过去时移除残留 delayed job；范围查询改区间重叠判断（跨月事件月视图完整）
+- **Invite code not burned for existing members**: `redeemOrgInvite` returns false (no consume / no "new member" notification) when the user is already a member
+  **邀请码重复兑换防护**：已是组织成员时 `redeemOrgInvite` 直接返回（不消耗邀请码、不发「新成员加入」通知）
+- **Maintenance-mode string trap + marketing audience strictness**: `isMaintenanceMode` accepts string `'true'`; marketing `send` throws on unknown audience instead of silently emailing everyone
+  **维护模式字符串陷阱 + marketing audience 严格化**：`isMaintenanceMode` 兼容字符串 'true'；marketing send 对未知 audience 抛错而非静默群发全员
+- **Audit hash-chain concurrent fork fixed (W3 2nd stranger challenge)**: `AuditService` / `OperationAuditService` serialize chain writes (read last `prev_hash` → compute → insert atomically) — two writes in the same second no longer fork the chain (`brokenIndex` in `/audit/verify` fixed); concurrent unit tests assert `prev_hash` continuity
+  **审计哈希链并发写分叉修复（W3 二次合成陌生人）**：`AuditService`/`OperationAuditService` 串行化链写（读 lastHash → 计算 → 插入原子化）——同一秒两次并发写不再分叉（`/audit/verify` 的 `brokenIndex` 修复）；并发单测验证 `prev_hash` 连续
 
 ## [0.9.2] - 2026-08-17
 

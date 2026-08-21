@@ -35,32 +35,40 @@ export class OperationAuditService {
    * 记录一条操作审计。落库失败静默（审计失败不应影响业务）。
    * HS-11：写入同时计算哈希链（prev_hash + hash）。
    */
+  /** 审计写串行队列：杜绝并发写链分叉（HTTP 写操作审计并发频率高，必须串行） */
+  private _tail: Promise<unknown> = Promise.resolve();
+
   async log(entry: OperationAuditEntry): Promise<void> {
-    try {
-      const payload = {
-        userId: entry.userId ?? null,
-        action: entry.action,
-        method: entry.method,
-        path: entry.path,
-        featureKey: entry.featureKey ?? null,
-        featureFallback: entry.featureFallback ?? null,
-        targetId: entry.targetId ?? null,
-        requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
-        ip: entry.ip ? entry.ip.slice(0, 64) : null,
-        userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
-        statusCode: entry.statusCode ?? null,
-      };
-      const prevHash = await this._lastHash();
-      const hash = this.auditChain.computeHash(prevHash, payload);
-      const entity = this.logRepo.create({
-        ...payload,
-        prevHash,
-        hash,
-      });
-      await this.logRepo.save(entity);
-    } catch (err) {
-      this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
-    }
+    const job = this._tail.then(async () => {
+      try {
+        const payload = {
+          userId: entry.userId ?? null,
+          action: entry.action,
+          method: entry.method,
+          path: entry.path,
+          featureKey: entry.featureKey ?? null,
+          featureFallback: entry.featureFallback ?? null,
+          targetId: entry.targetId ?? null,
+          requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
+          ip: entry.ip ? entry.ip.slice(0, 64) : null,
+          userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
+          statusCode: entry.statusCode ?? null,
+        };
+        const prevHash = await this._lastHash();
+        const hash = this.auditChain.computeHash(prevHash, payload);
+        const entity = this.logRepo.create({
+          ...payload,
+          prevHash,
+          hash,
+        });
+        await this.logRepo.save(entity);
+      } catch (err) {
+        this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
+      }
+    });
+    // 串行链：失败不阻断后续写，但保持顺序
+    this._tail = job.catch(() => {});
+    await job;
   }
 
   /** HS-11：沿 id 升序校验操作审计哈希链完整性。 */
