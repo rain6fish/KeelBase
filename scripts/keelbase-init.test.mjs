@@ -384,6 +384,22 @@ test('manifest：mergeManifest 缺省 root 指向 cwd（.keelbase/manifest.json�
   assert.equal(await readManifest(root), null);
 });
 
+test('manifest：schema 不匹配 → 拒绝覆盖（防更新版本数据丢失）', async () => {
+  const root = await tempRoot();
+  await write(
+    `${root}/.keelbase/manifest.json`,
+    JSON.stringify({ schema: 2, identity: 'keelbase-application', generator: 'keelbase', generatorVersion: '9.9.9', protocol: '2.0', modules: ['future'] }),
+  );
+  const r = await writeManifest('posts', root);
+  assert.equal(r.changed, false);
+  assert.equal(r.reason, 'schema-mismatch');
+  assert.equal(await mergeManifest('posts', root), null);
+  // 原文件未被覆盖
+  const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.equal(man.schema, 2);
+  assert.deepEqual(man.modules, ['future']);
+});
+
 test('端到端：inspect 子命令——有 manifest 退出 0 / 无 manifest 退出 1', async () => {
   const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
   const spawnRun = (root) =>
@@ -413,6 +429,50 @@ test('端到端：inspect 子命令——有 manifest 退出 0 / 无 manifest �
   assert.match(plain, /Modules:\s+posts/);
   assert.match(plain, /✓\s+AI Tools/);
   assert.match(plain, /✓\s+CASL Permission/);
+});
+
+test('端到端：doctor 子命令——四查 PASS / 非 KeelBase / 不支持 schema', async () => {
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const spawnRun = (root) =>
+    new Promise((resolve) => {
+      const p = spawn(process.execPath, [cli, 'doctor'], { cwd: root });
+      let o = '';
+      p.stdout.on('data', (d) => (o += d));
+      p.on('close', (code) => resolve({ code, o }));
+    });
+  const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+
+  // 非 KeelBase：无 manifest → 退出 1 + 干净提示
+  const empty = await spawnRun(await tempRoot());
+  assert.equal(empty.code, 1);
+  assert.match(stripAnsi(empty.o), /非 KeelBase 应用/);
+
+  // 完整 fixture（manifest + 模块目录 + 运行时能力）→ 四查 PASS 退出 0
+  const root = await tempRoot();
+  await makeFixtures(root);
+  await write(BE(root, 'common/casl/casl-ability.factory.ts'), 'export {};\n');
+  await write(BE(root, 'ai/governance/governance-policy.service.ts'), 'export {};\n');
+  await write(BE(root, 'ai/audit/ai-audit.service.ts'), 'export {};\n');
+  await write(BE(root, 'operation-audit/operation-audit.service.ts'), 'export {};\n');
+  await write(BE(root, 'posts/post.entity.ts'), 'export {};\n');
+  await writeManifest('posts', root);
+  const ok = await spawnRun(root);
+  const plain = stripAnsi(ok.o);
+  assert.equal(ok.code, 0);
+  assert.match(plain, /PASS/);
+  assert.match(plain, /完整性/);
+  assert.match(plain, /一致性/);
+  assert.match(plain, /运行时/);
+  assert.match(plain, /版本/);
+
+  // schema 2 → 退出 1 + 明确提示
+  await write(
+    `${root}/.keelbase/manifest.json`,
+    JSON.stringify({ schema: 2, identity: 'keelbase-application', generator: 'keelbase', generatorVersion: '9.9.9', protocol: '2.0', modules: ['future'] }),
+  );
+  const fut = await spawnRun(root);
+  assert.equal(fut.code, 1);
+  assert.match(stripAnsi(fut.o), /不支持的 manifest schema 2/);
 });
 
 // ── LLM（EASY-2.1） ──────────────────────────────────────────────────────────
