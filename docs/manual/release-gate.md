@@ -65,7 +65,7 @@
 | 三旗舰 + 生成模块 e2e | `./scripts/verify-flagships.sh` | 7/7 通过 |
 | 越权 | e2e（他人数据 403 / admin 端点 403 / user 访问 admin 403）| 全部 403 |
 | 写操作确认 | e2e（approval decide / create 需确认）| 写操作无绕过 |
-| 审计哈希链 | `/audit/verify` + `/audit/operations/verify` | valid: true |
+| 审计哈希链 | `/audit/verify` + `/audit/operations/verify` | valid: true；**✅ 2026-08-21 修复并发写链分叉**（合成陌生人实测发现 brokenIndex：两并发审计写读同一 lastHash 分叉；AuditService/OperationAuditService 加串行队列，单测验证 prevHash 连续）|
 | 撤销 | 本人撤销 AI 副作用（P0-15）+ admin 撤销 | 软删可恢复 |
 
 **状态**：✅ 无 LLM 部分全绿（HS e2e + verify-flagships 7/7）。
@@ -97,6 +97,7 @@
 | | **✅ 撤销越权（2026-08-20，39 用例）**：B 撤销 A 的 AI 副作用 → 404，A 撤销自己 → 200 | Revoke 所有权 |
 | Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | **✅ 攻击用例补齐 + 脚本化 + 实测 12/12（2026-08-20）**：securityCases 6→12（injection-write / confirmation-bypass / revoke-bypass / cross-org-read / cross-org-approve / unauthorized-read）；`scripts/verify-security-eval.sh`（登录→seed→评测批→断言门槛，可接 CI）；reject 断言增强措辞 + seed 支持断言演进；**DeepSeek 实测 12/12 全挡**（越权/注入/确认绕过/撤销绕过/跨组织全拒，正常用例通过）→ 安全回归门槛 90% 达成；spec 23 全绿 |
 | 合成陌生人验证 | 无本仓上下文 AI Agent 从干净 clone 跑 30min Build + 60min Business，记录卡点（[dev-challenge.md](dev-challenge.md)）| 脚本化 + 进 CI，持续烧掉 onboarding 卡点 |
+| | **✅ 正式实测（2026-08-21，[stranger-challenge-report](benchmark/stranger-challenge-report-2026-08-21.md)）**：fresh-context AI 干净 clone 跑通 30min Build（生成+编译+单测）+ 60min Business（读→写 R3→确认→执行→审计→撤销）；Would use again ✅ | 卡点 6 项：README 命令路径/依赖安装/存量模块占用提示/后端重启说明/README-AI 工具承诺不符 + 审计链并发分叉（**已修复**）|
 
 ## 6. External：1.0 后增长里程碑（非发布门禁）
 
