@@ -9,7 +9,8 @@
   "files": [
     "scripts/generator",
     "scripts/keelbase-init.mjs",
-    "scripts/keelbase-inspect.mjs"
+    "scripts/keelbase-inspect.mjs",
+    "scripts/keelbase-doctor.mjs"
   ],
   "engines": {
     "node": ">=20"
