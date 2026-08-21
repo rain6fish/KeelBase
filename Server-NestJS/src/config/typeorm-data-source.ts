@@ -49,6 +49,7 @@
        resolve(__dirname, '../migrations/*AddCheckinDateToPointsEntries*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiDailyUsage*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAuditHashChain*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiAuditIdentity*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*PostgresIncrementalSchema*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddCrm*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddWebhookSubscriptions*').replace(/\\/g, '/'),
