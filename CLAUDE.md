@@ -789,7 +789,7 @@ npm run migration:run
 | POST | /api/v1/admin/templates/:id/import | Yes (ADMIN) | — | 一键导入模板数据（事件/待办种子，PL-9） |
 | POST | /api/v1/admin/marketing/send | Yes (ADMIN) | — | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） |
 | GET | /api/v1/admin/analytics | Yes (ADMIN) | — | 平台数据统计：DAU/WAU/MAU/留存/功能漏斗/错误大盘（PL-15） |
-| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | — | 管理端 AI 助手：带平台实时上下文对话（AI-22） |
+| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | — | 系统 AI 助手：平台能力/版本/工具/治理上下文，Explain/Guide/Navigate（AI-22 演进），响应含 navigateTo/toolCalls |
 | GET | /api/v1/forms/:slug | Yes | 本人 | 读取表单定义（PL-10，按 slug） |
 | POST | /api/v1/forms/:slug/submit | Yes | 本人 | 提交表单数据（按 schema 校验） |
 | GET | /api/v1/forms/:slug/submissions | Yes | 本人 | 本人对该表单的提交记录 |
@@ -868,6 +868,10 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
 - key 为英文短名，供 LLM 识别
 - route 为 GoRouter 定义的路由路径
 - description 为中文描述，帮助 LLM 理解页面用途
+
+**管理台页面**同样必须注册到 System AI Assistant 的管理端导航（三处同步，见 `src/ai/constants/admin-pages.ts` 头部注释）：
+- `ADMIN_PAGE_ROUTES`（后端映射）+ `ADMIN_SYSTEM_PROMPT` 页面清单（模板生成）+ Web-Admin-Vue `routes.ts` consoleChildren
+- 工具：`src/ai/tools/navigate-admin-page.tool.ts`（`navigate_admin_page`，adminOnly）
 
 ### 页面返回功能
 
@@ -1015,7 +1019,7 @@ npm run build         # 构建静态产物 → dist/（base=/admin/）
 npm run typecheck     # vue-tsc 类型检查
 ```
 
-**模块**：登录 / 概览 / 用户管理（列表·角色·删除·详情）/ 事件管理（全量·删除）/ 知识库 / 通知广播 / 监控中心 / AI 审计 / 操作审计 / 会话管理 / 可观测性 / 系统信息 / 回收站 / 数据导入 / 模板市场 / AI 评测 / 工具与副作用 / 平台统计
+**模块**：登录 / 概览 / **系统 AI 助手** / 用户管理（列表·角色·删除·详情）/ 事件管理（全量·删除）/ 知识库 / 通知广播 / 监控中心 / AI 审计 / 操作审计 / 会话管理 / 可观测性 / 系统信息 / 回收站 / 数据导入 / 模板市场 / AI 评测 / 工具与副作用 / 平台统计
 
 ### 13.1 Web-Admin-React（预览版 / Preview）
 
