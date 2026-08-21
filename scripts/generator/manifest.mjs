@@ -1,5 +1,5 @@
 /**
- * Provenance DNA：.keelbase/manifest.json 的来源身份清单（设计建议 §八）。
+ * Provenance：.keelbase/manifest.json 的来源身份清单（设计建议 §八）。
  *
  * 由 keelbase init 生成/幂等合并；keelbase inspect 读取。纯 JSON 元数据：
  * 删除不破坏任何代码与运行行为，仅丢失「来源/能力身份」声明。
