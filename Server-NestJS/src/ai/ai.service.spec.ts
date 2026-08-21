@@ -1222,6 +1222,96 @@ describe('AiService', () => {
       const sent = mockProvider.generate.mock.calls[mockProvider.generate.mock.calls.length - 1][0];
       expect(sent.messages[0].content).toBe(config.systemPrompt);
     });
+
+    it('System AI Assistant：ChatRequest.systemPrompt 覆盖 Settings/默认', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue('Settings 里的自定义提示词');
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      await aiService.chat('1', { message: 'hi', systemPrompt: 'ADMIN_PROMPT' });
+
+      const sent = mockProvider.generate.mock.calls[mockProvider.generate.mock.calls.length - 1][0];
+      // 覆盖优先于 Settings 与默认
+      expect(sent.messages[0].content).toBe('ADMIN_PROMPT');
+    });
+  });
+
+  describe('System AI Assistant（adminMode / adminOnly / 拒绝透传）', () => {
+    it('adminMode=true：关闭关键词导航短路，导航交 LLM（不返回 Flutter 路由）', async () => {
+      mockProvider.generate.mockResolvedValue({ content: 'ok' });
+
+      const result = await aiService.chat('1', {
+        message: '打开设置',
+        adminMode: true,
+      });
+
+      // 未短路 → 走 LLM（provider 被调用），不返回 /settings
+      expect(mockProvider.generate).toHaveBeenCalled();
+      expect(result.navigateTo).toBeUndefined();
+      expect(result.reply).toBe('ok');
+    });
+
+    it('非 adminMode：导航关键词短路仍生效（回归守卫）', async () => {
+      mockProvider.generate.mockResolvedValue({ content: 'should not be used' });
+
+      const result = await aiService.chat('1', { message: '打开设置' });
+
+      expect(mockProvider.generate).not.toHaveBeenCalled();
+      expect(result.navigateTo).toBe('/settings');
+    });
+
+    it('adminOnly 工具：非系统账号调用被结构化拒绝', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'navigate_admin_page',
+        permissions: { adminOnly: true },
+      } as any);
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'navigate_admin_page', arguments: '{"page":"system"}' },
+        ],
+      });
+      mockProvider.generate.mockResolvedValueOnce({ content: 'final' });
+
+      await aiService.chat('5', { message: '打开系统信息页' });
+
+      // 非流式 runToolLoop 透传结构化拒绝原因（W5-⑦），LLM 能看到「为何阻止」
+      const sent = mockProvider.generate.mock.calls[1][0];
+      const toolMsg = sent.messages.find((m: any) => m.role === 'tool');
+      expect(toolMsg).toBeDefined();
+      const parsed = JSON.parse(toolMsg.content);
+      expect(parsed.success).toBe(false);
+      expect(parsed.error).toContain('admin-only');
+      expect(parsed.reasons).toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: 'admin_only', ok: false })]),
+      );
+    });
+
+    it('adminOnly 工具：系统账号（userId 0）放行', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'navigate_admin_page',
+        permissions: { adminOnly: true },
+      } as any);
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: { navigateTo: '/system' },
+      });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'navigate_admin_page', arguments: '{"page":"system"}' },
+        ],
+      });
+      mockProvider.generate.mockResolvedValueOnce({ content: 'final' });
+
+      const result = await aiService.chat('0', { message: '打开系统信息页' });
+
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'navigate_admin_page',
+        { page: 'system' },
+        '0',
+      );
+      expect(result.navigateTo).toBe('/system');
+    });
   });
 
   describe('HS-10 MCP 出口方法', () => {
