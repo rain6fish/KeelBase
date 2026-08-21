@@ -41,6 +41,8 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: 'mcp', name: 'mcp', component: () => import('@/views/mcp/McpView.vue'), meta: { title: 'navMcp' } },
   { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: 'navAnalytics' } },
   { path: 'org', name: 'org', component: () => import('@/views/org/OrgView.vue'), meta: { title: 'navOrg', module: 'org' } },
+  // System AI Assistant（管理端 AI 助手）
+  { path: 'system-ai-assistant', name: 'system-ai-assistant', component: () => import('@/views/ai-assistant/SystemAiAssistantView.vue'), meta: { title: 'navSystemAssistant' } },
 ]
 
 for (const r of consoleChildren) {

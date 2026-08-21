@@ -1,5 +1,7 @@
 import { api } from './client'
 import type {
+  AdminAiChatRequest,
+  AdminAiChatResponse,
   AdminSession,
   AnalyticsResponse,
   AppVersionInfo,
@@ -42,5 +44,9 @@ export const adminApi = {
   },
   analytics(days = 30): Promise<AnalyticsResponse> {
     return api.get<AnalyticsResponse>('/admin/analytics', { days })
+  },
+  // System AI Assistant（管理端 AI 助手）
+  adminAiChat(data: AdminAiChatRequest): Promise<AdminAiChatResponse> {
+    return api.post<AdminAiChatResponse>('/admin/ai/chat', data)
   },
 }

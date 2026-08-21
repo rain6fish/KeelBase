@@ -187,7 +187,7 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     service.onModuleDestroy();
   });
 
@@ -263,7 +263,7 @@ describe('AuthService', () => {
     it('should login successfully with valid credentials', async () => {
       const userWithPassword = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
       };
       mockRepository.findOne.mockResolvedValue(userWithPassword);
 
@@ -276,7 +276,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException for wrong password', async () => {
       const userWithPassword = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         loginAttempts: 0,
       };
       mockRepository.findOne.mockResolvedValue(userWithPassword);
@@ -294,7 +294,7 @@ describe('AuthService', () => {
     it('should lock account after exceeding threshold', async () => {
       const userWithPassword = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         loginAttempts: 9, // one more and it locks
       };
       mockRepository.findOne.mockResolvedValue(userWithPassword);
@@ -315,7 +315,7 @@ describe('AuthService', () => {
     it('should block login when account is locked', async () => {
       const lockedUser = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         lockedUntil: new Date(Date.now() + 60 * 60 * 1000), // locked for 1 hour
       };
       mockRepository.findOne.mockResolvedValue(lockedUser);
@@ -326,7 +326,7 @@ describe('AuthService', () => {
     it('MFA 用户登录需 TOTP（正确 code 通过）', async () => {
       const mfaUser = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         mfaEnabled: true,
         mfaSecret: 'encrypted-secret',
       };
@@ -343,7 +343,7 @@ describe('AuthService', () => {
     it('MFA 用户登录 code 错误 → MFA_REQUIRED', async () => {
       const mfaUser = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         mfaEnabled: true,
         mfaSecret: 'encrypted-secret',
       };
@@ -357,7 +357,7 @@ describe('AuthService', () => {
     it('MFA TOTP 失败累计失败数并锁定（防换 IP 爆破）', async () => {
       const mfaUser = {
         ...mockUser,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
         mfaEnabled: true,
         mfaSecret: 'encrypted-secret',
         loginAttempts: 9, // 再错 1 次达阈值
@@ -370,11 +370,10 @@ describe('AuthService', () => {
       await expect(service.login({ ...loginDto, totp: '000000' })).rejects.toThrow();
 
       // 密码正确会先走 success 重置（loginAttempts:0, lockedUntil:null），MFA 失败再锁定
-      const lockCall = mockRepository.update.mock.calls.find(
-        (c) => c[0] === mfaUser.id && c[1].lockedUntil instanceof Date,
+      expect(mockRepository.update).toHaveBeenCalledWith(
+        mfaUser.id,
+        expect.objectContaining({ loginAttempts: 0, lockedUntil: expect.any(Date) }),
       );
-      expect(lockCall).toBeDefined(); // 达阈值 → 锁定
-      expect(lockCall[1].loginAttempts).toBe(0);
     });
   });
 
@@ -442,7 +441,7 @@ describe('AuthService', () => {
 
   describe('changePassword (force change)', () => {
     it('正确当前密码 → 更新新密码并清除强制改密标志', async () => {
-      const hashed = await bcrypt.hash('OldPass123', 12);
+      const hashed = await bcrypt.hash('OldPass123', 4);
       mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
       const res = await service.changePassword(1, { currentPassword: 'OldPass123', newPassword: 'NewPass456' });
       expect(res.changed).toBe(true);
@@ -453,7 +452,7 @@ describe('AuthService', () => {
     });
 
     it('当前密码错误 → INVALID_CREDENTIALS', async () => {
-      const hashed = await bcrypt.hash('OldPass123', 12);
+      const hashed = await bcrypt.hash('OldPass123', 4);
       mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
       await expect(
         service.changePassword(1, { currentPassword: 'WrongPass', newPassword: 'NewPass456' }),
@@ -461,7 +460,7 @@ describe('AuthService', () => {
     });
 
     it('新旧密码相同 → 拒绝', async () => {
-      const hashed = await bcrypt.hash('SamePass123', 12);
+      const hashed = await bcrypt.hash('SamePass123', 4);
       mockRepository.findOne.mockResolvedValue({ id: 1, password: hashed });
       await expect(
         service.changePassword(1, { currentPassword: 'SamePass123', newPassword: 'SamePass123' }),
@@ -1089,7 +1088,7 @@ describe('AuthService', () => {
       const userWithPassword = {
         ...mockUser,
         loginAttempts: 3,
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
       };
       mockRepository.findOne.mockResolvedValue(userWithPassword);
       const result = await service.login({ username: 'testuser', password: 'Password1', deviceId: '' } as any);
@@ -1194,7 +1193,7 @@ describe('AuthService', () => {
       const userWithPassword = {
         ...mockUser,
         phone: 'enc:13800138000',
-        password: await bcrypt.hash('Password1', 12),
+        password: await bcrypt.hash('Password1', 4),
       };
       mockRepository.findOne.mockResolvedValue(userWithPassword);
       const result = await service.login({ username: 'testuser', password: 'Password1', deviceId: '' } as any);
