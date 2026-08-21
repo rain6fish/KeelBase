@@ -353,7 +353,7 @@ test('接线：锚点缺失 → 跳过 + 文件未破坏', async () => {
   assert.ok(after.startsWith(original.slice(0, 40)), 'app.module 未被破坏');
 });
 
-// ── Provenance DNA：.keelbase/manifest.json + keelbase inspect ─────────────────
+// ── Provenance：.keelbase/manifest.json + keelbase inspect ────────────────────
 test('manifest：首次创建 + 幂等合并（多模块去重、schema/identity 固定）', async () => {
   const root = await tempRoot();
   await writeManifest('posts', root);
@@ -643,7 +643,7 @@ test('端到端：非交互 CLI 生成 + 接线', async () => {
   assert.match(app, /PostsModule/);
   const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
   assert.match(router, /path: '\/posts'/);
-  // Provenance DNA：CLI 自动写 .keelbase/manifest.json（来源身份）
+  // Provenance：CLI 自动写 .keelbase/manifest.json（来源身份）
   const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
   assert.equal(man.identity, MANIFEST_IDENTITY);
   assert.ok(man.modules.includes('posts'));

@@ -57,7 +57,7 @@ else
   gate "⑧ Build(后端编译)" fail "npm run build"
 fi
 
-# ── Provenance：来源身份清单 + inspect（Provenance DNA 最小切片）──────────────
+# ── Provenance：来源身份清单 + inspect（最小切片）─────────────────────────────
 echo "→ [9/9] Provenance（.keelbase/manifest.json + keelbase inspect）"
 if [ -f .keelbase/manifest.json ] && node scripts/keelbase-init.mjs inspect >/dev/null 2>&1; then
   gate "⑨ Provenance(manifest + inspect)" pass
