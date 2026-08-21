@@ -54,8 +54,8 @@ Two new admin verification endpoints:
 
 | Method | Path | Auth | 说明 Description |
 |--------|------|------|------------------|
-| GET | `/api/v1/audit/logs/verify` | ADMIN | AI 审计哈希链完整性校验。Verify AI audit hash chain integrity. |
-| GET | `/api/v1/audit/operations/logs/verify` | ADMIN | 操作审计哈希链完整性校验。Verify operation audit hash chain integrity. |
+| GET | `/api/v1/audit/verify` | ADMIN | AI 审计哈希链完整性校验。Verify AI audit hash chain integrity. |
+| GET | `/api/v1/audit/operations/verify` | ADMIN | 操作审计哈希链完整性校验。Verify operation audit hash chain integrity. |
 
 响应 / Response:
 
