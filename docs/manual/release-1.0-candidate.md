@@ -47,7 +47,7 @@
 | 6 | Adversarial Gate PASS | ✅ | 越权矩阵 + 攻击测试集 + 合成陌生人（§4 证据链）|
 | 7 | release-gate.sh PASS | ✅ | 确定性模式 **10/10**（Gate 1 + Build + Trust + Private）|
 | 8 | CI PASS | 🔶 本地已验证，待 push 实跑 | `release-gate` CI job 已接线（确定性模式）；**确定性 Gate 本地 10/10 全绿**（含修复 `AddAiAuditIdentity` sqlite 表重建引用更晚添加列，bf27ec3）+ postgres 迁移一致性 job（f635ab3）；本地可跑 CI job 全绿（后端 lint/test/cov、web-admin typecheck/eslint/vitest/build、cli-test 42、core-boundary、sqlite 迁移一致性）——剩余 postgres 迁移 job 与 GitHub Actions 实跑待 push 后确认 |
-| 9 | CHANGELOG / Release Notes 完成 | ✅（草稿） | Unreleased 已归并（v0.9.2 后 94+ 提交）+ 1.0 定位摘要（三件套证明 + 关键交付）；RC 定稿时移入 `[1.0.0]`（CHANGELOG.md，2026-08-21）|
+| 9 | CHANGELOG / Release Notes 完成 | ✅ | `[1.0.0] - 2026-08-21` 定稿：Unreleased 移入 1.0.0（v0.9.2 后 94+ 提交归并）+ 1.0 定位摘要（三件套证明 + 关键交付）（CHANGELOG.md）|
 | 10 | v1.0 compatibility / migration policy 明确 | ✅ | operations.md §3.1——版本契约（v1.x additive-only）+ 双驱动迁移 + v0.9.x→v1.0 升级路径 + 兼容性声明 + 诚实声明 |
 
 **门槛**：10 项全勾选才进入 1.0 Candidate——「何时可发 1.0」由客观清单决定。
