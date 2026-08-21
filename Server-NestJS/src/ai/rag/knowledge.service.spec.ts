@@ -32,16 +32,25 @@ describe('KnowledgeService', () => {
     updatedAt: new Date(),
   };
 
-  const storageService = {
+  let storageService = {
     save: jest.fn().mockResolvedValue('/uploads/doc.pdf'),
     delete: jest.fn().mockResolvedValue(undefined),
   };
-  const ingestionService = {
+  let ingestionService = {
     enqueue: jest.fn().mockResolvedValue(true),
     ingestById: jest.fn().mockResolvedValue(3),
   };
 
   const setup = async (embeddingsOverrides: Partial<typeof embeddings> = {}) => {
+    // 每用例重建共享 mock：避免 mockRejectedValueOnce 等一次性实现跨用例泄漏
+    storageService = {
+      save: jest.fn().mockResolvedValue('/uploads/doc.pdf'),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+    ingestionService = {
+      enqueue: jest.fn().mockResolvedValue(true),
+      ingestById: jest.fn().mockResolvedValue(3),
+    };
     repo = {
       create: jest.fn((d) => d),
       save: jest.fn((d) => Promise.resolve({ ...d, id: 1 })),

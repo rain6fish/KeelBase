@@ -40,6 +40,7 @@ import {
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../common/entities/user.entity';
 import { NotFoundException } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
@@ -65,6 +66,10 @@ export interface ChatRequest {
   conversationId?: string;
   /** AI-12 多模态：用户消息附带的图片 URL 列表 */
   images?: string[];
+  /** System AI Assistant：覆盖默认 system prompt（管理员专用提示词，内部字段不暴露 HTTP DTO） */
+  systemPrompt?: string;
+  /** System AI Assistant：跳过关键词导航短路，导航交给 LLM + navigate_admin_page 工具 */
+  adminMode?: boolean;
 }
 
 export interface ChatResponse {
@@ -213,6 +218,20 @@ export class AiService {
         `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
         [{ name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` }],
       );
+    }
+
+    // System AI Assistant：adminOnly 工具仅管理员（或系统账号 '0'——eval/兼容）可调用。
+    // 管理端助手已改为真实管理员身份，故按角色放行（与角色白名单一致实时查库）。
+    if (perms.adminOnly && userId !== '0') {
+      const user = this.usersService
+        ? await this.usersService.findOne(Number(userId))
+        : null;
+      if (!user || user.role !== UserRole.ADMIN) {
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" is admin-only`,
+          [{ name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' }],
+        );
+      }
     }
 
     // headless 系统账号（userId '0'）：由 headless 层 API Key 鉴权，不重复拦截
@@ -566,7 +585,7 @@ export class AiService {
     const matchedSkill = !isActionRequest
       ? this.subAgentOrchestrator.matchSkill(request.message)
       : null;
-    const hasNav = this.detectNavigation(request.message) !== null;
+    const hasNav = !request.adminMode && this.detectNavigation(request.message) !== null;
     const intent =
       matchedSkill && !hasNav
         ? ('delegate' as const)
@@ -583,7 +602,7 @@ export class AiService {
 
     if (intent === 'navigate') {
       // 导航请求 — 关键词匹配，不走 LLM
-      const navResult = this.detectNavigation(request.message);
+      const navResult = request.adminMode ? null : this.detectNavigation(request.message);
       if (navResult) {
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
@@ -601,7 +620,7 @@ export class AiService {
 
     if (intent === 'knowledge') {
       // 知识库问答 — RAG 检索增强
-      const messages = await this.buildMessages(conversationId, request.images);
+      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
       const ragResult = await this.ragAgent.answer(
         messages,
         request.message,
@@ -637,7 +656,7 @@ export class AiService {
 
     if (intent === 'delegate') {
       // 子代理委托：分解为子代理任务顺序执行，聚合后总结 + 反思
-      const messages = await this.buildMessages(conversationId, request.images);
+      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
       const delegateResult = await this.subAgentOrchestrator.run({
         messages,
         userRequest: request.message,
@@ -683,6 +702,7 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this._buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          systemPrompt: request.systemPrompt,
           images: request.images,
         });
         finalContent = fallbackResult.finalContent;
@@ -692,7 +712,7 @@ export class AiService {
       }
     } else if (intent === 'analyze' || intent === 'plan') {
       // Plan-and-Execute：多步推理
-      const messages = await this.buildMessages(conversationId, request.images);
+      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
       const planResult = await this.planExecuteAgent.planAndExecute(
         messages,
         provider,
@@ -737,6 +757,7 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this._buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          systemPrompt: request.systemPrompt,
           images: request.images,
         });
         finalContent = fallbackResult.finalContent;
@@ -754,6 +775,7 @@ export class AiService {
         model: request.model ?? this.config.defaultModel,
         initialToolDefs: await this._buildToolDefs(),
         fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+        systemPrompt: request.systemPrompt,
         images: request.images,
       });
       finalContent = toolResult.finalContent;
@@ -874,7 +896,7 @@ export class AiService {
     });
 
     // 导航意图预检测
-    const navResult = this.detectNavigation(request.message);
+    const navResult = request.adminMode ? null : this.detectNavigation(request.message);
     if (navResult) {
       await this.conversationService.appendMessage(conversationId, {
         role: 'assistant',
@@ -885,7 +907,7 @@ export class AiService {
       return;
     }
 
-    let messages = await this.buildMessages(conversationId, request.images);
+    let messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
     const model = request.model ?? this.config.defaultModel;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -1361,8 +1383,9 @@ export class AiService {
     initialToolDefs: any[];
     fallbackProviders: string[];
     images?: string[];
+    systemPrompt?: string;
   }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string; toolCalls?: string[] }> {
-    let messages = await this.buildMessages(params.conversationId, params.images);
+    let messages = await this.buildMessages(params.conversationId, params.images, params.systemPrompt);
     let currentProvider = params.provider;
     let currentProviderName = params.providerName;
     let usage: { promptTokens: number; completionTokens: number } | undefined;
@@ -1458,12 +1481,15 @@ export class AiService {
             content: this.truncateToolResult(resolvedResult),
             tool_call_id: tc.id,
           });
-        } catch {
+        } catch (err) {
+          // W5-⑦：非流式路径也透传结构化拒绝原因（此前只流式透传），让模型看到「为何阻止」
+          const denied = err instanceof AuthorizationDeniedError;
           messages.push({
             role: 'tool',
             content: JSON.stringify({
               success: false,
-              error: `Failed to execute tool "${tc.name}"`,
+              error: denied ? err.message : `Failed to execute tool "${tc.name}"`,
+              ...(denied ? { reasons: err.reasons } : {}),
             }),
             tool_call_id: tc.id,
           });
@@ -1567,10 +1593,12 @@ export class AiService {
   /**
    * 构建发送给 LLM 的消息列表
    * @param images 当前请求待附加的图片 URL（AI-12 多模态，仅本次请求，不落库）
+   * @param overrideSystemPrompt System AI Assistant 专用：覆盖默认 system prompt（缺省走 Settings/默认）
    */
   private async buildMessages(
     conversationId: string,
     images?: string[],
+    overrideSystemPrompt?: string,
   ): Promise<ChatMessage[]> {
     const conv = await this.conversationService.peekConversation(conversationId);
     // 上下文压缩：超阈值时把旧轮次折叠进摘要，回放「摘要 + 最近窗口」
@@ -1579,9 +1607,12 @@ export class AiService {
       : conv;
 
     // AI-17 提示词管理：Settings 里 ai_system_prompt 覆盖默认（热生效，管理台可编辑）
-    const systemPrompt = this.settingsService
-      ? String(await this.settingsService.getWithDefault('ai_system_prompt', this.config.systemPrompt))
-      : this.config.systemPrompt;
+    // 管理员系统助手用固定 ADMIN_SYSTEM_PROMPT（绕过 ai_system_prompt，by design）
+    const systemPrompt =
+      overrideSystemPrompt ??
+      (this.settingsService
+        ? String(await this.settingsService.getWithDefault('ai_system_prompt', this.config.systemPrompt))
+        : this.config.systemPrompt);
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
