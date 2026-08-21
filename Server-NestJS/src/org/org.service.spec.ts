@@ -113,6 +113,50 @@ describe('OrgService', () => {
     expect(await service.getUserOrgId(99)).toBeNull();
   });
 
+  // ── ORG-5 组织审批待办统计：跨组织隔离（security-matrix §3 待补项）──
+
+  it('getOrgApprovalTaskStats：A 在 org1 只见 org1 成员，不见 org2（B）', async () => {
+    // _myMember(A=1) → org1
+    members.findOne.mockResolvedValue({ id: 1, userId: 1, orgId: 1, role: 'member' });
+    // org1 成员列表：A(1)、C(2)；org2 成员 B(3) 不在其中
+    members.find.mockResolvedValue([
+      { userId: 1, user: { nickname: 'CrossA' }, dept: null },
+      { userId: 2, user: { nickname: 'CrossC' }, dept: null },
+    ]);
+    // 审批任务：org1 成员 + 一条 org2 成员 B 的任务（若泄漏应被排除）
+    flowTask.createQueryBuilder.mockReturnValue(
+      mockQB({
+        getMany: jest.fn().mockResolvedValue([
+          { assigneeId: 1, status: 'pending' },
+          { assigneeId: 2, status: 'approved' },
+          { assigneeId: 3, status: 'pending' }, // org2 的 B
+        ]),
+      }),
+    );
+
+    const res = await service.getOrgApprovalTaskStats(1);
+
+    expect(res.orgId).toBe(1);
+    const names = res.members.map((m) => m.nickname);
+    expect(names).toContain('CrossA');
+    expect(names).toContain('CrossC');
+    expect(names).not.toContain('CrossB'); // org2 成员不出现
+    // 成员查询按调用者所属 org 过滤
+    expect(members.find).toHaveBeenCalledWith(expect.objectContaining({ where: { orgId: 1 } }));
+  });
+
+  it('getOrgApprovalTaskStats：B 在 org2 只见 org2 成员（反向隔离）', async () => {
+    members.findOne.mockResolvedValue({ id: 9, userId: 3, orgId: 2, role: 'member' }); // B → org2
+    members.find.mockResolvedValue([{ userId: 3, user: { nickname: 'CrossB' }, dept: null }]);
+    flowTask.createQueryBuilder.mockReturnValue(mockQB({ getMany: jest.fn().mockResolvedValue([]) }));
+
+    const res = await service.getOrgApprovalTaskStats(3);
+
+    expect(res.orgId).toBe(2);
+    expect(res.members.map((m) => m.nickname)).toEqual(['CrossB']);
+    expect(members.find).toHaveBeenCalledWith(expect.objectContaining({ where: { orgId: 2 } }));
+  });
+
   // ── 组织 ──
 
   it('创建组织：重名冲突', async () => {
