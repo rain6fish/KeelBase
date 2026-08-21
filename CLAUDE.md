@@ -687,6 +687,7 @@ npm run migration:run
 | GET | /api/v1/metrics | No | — | Prometheus 指标（跳过限流）|
 | GET | /api/v1/app/version | No | — | 应用版本元数据（PL-5，optional/forced 决策） |
 | GET | /api/v1/app/capabilities | No | — | 能力清单（businessModules 含模块描述，AI 可消费） |
+| GET | /api/v1/app/provenance | No | — | 运行时来源指纹（公开，onboarding）：来源身份（.keelbase/manifest.json）+ 能力清单 + AI 工具指纹（读写分类/风险级分布，不含工具参数权限详情）——与 `keelbase inspect`/`doctor`（Build 侧 CLI）互补，回答「这是什么系统」 |
 | GET | /api/v1/users | Yes (ADMIN) | — | 用户列表（分页） |
 | POST | /api/v1/users | Yes (ADMIN) | — | 创建用户 |
 | PATCH | /api/v1/users/:id/role | Yes (ADMIN) | — | 修改用户角色 |
