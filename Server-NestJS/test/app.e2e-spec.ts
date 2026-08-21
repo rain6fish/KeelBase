@@ -62,6 +62,33 @@ describe('App (e2e)', () => {
     });
   });
 
+  describe('App Provenance（§13.1 ①，公开来源指纹）', () => {
+    it('GET /api/v1/app/provenance returns source identity + runtime fingerprint without auth', () => {
+      return request(app.getHttpServer())
+        .get('/api/v1/app/provenance')
+        .expect(200)
+        .expect((res) => {
+          const data = res.body.data;
+          // 静态来源身份（Build 侧 manifest）
+          expect(data.source).toHaveProperty('manifestPresent');
+          expect(data.source).toHaveProperty('identity');
+          expect(data.source).toHaveProperty('protocol');
+          // 运行时能力
+          expect(data.runtime).toHaveProperty('preset');
+          expect(Array.isArray(data.runtime.businessModules)).toBe(true);
+          // 运行时 AI 工具指纹（不含参数/权限详情，onboarding 公开）
+          expect(data.runtime.aiToolFingerprint).toHaveProperty('total');
+          expect(data.runtime.aiToolFingerprint).toHaveProperty('read');
+          expect(data.runtime.aiToolFingerprint).toHaveProperty('write');
+          expect(data.runtime.aiToolFingerprint.total).toBeGreaterThan(0);
+          // 读 + 写 = 总数（风险级分布存在）
+          const f = data.runtime.aiToolFingerprint;
+          expect(f.read + f.write).toBe(f.total);
+          expect(f.byRisk).toBeDefined();
+        });
+    });
+  });
+
   describe('Auth — Full Flow', () => {
     const testUser = {
       username: 'e2e_test_user',
