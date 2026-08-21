@@ -50,8 +50,9 @@ export class FormBuilderService {
   }
 
   async listSchemas(options: { page?: number; limit?: number } = {}) {
-    const page = options.page ?? 1;
-    const limit = options.limit ?? 20;
+    // CR-19 同款钳制：防 page=0 负 skip（500）与 limit 巨大全表拉取
+    const page = Math.max(options.page ?? 1, 1);
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const [items, total] = await this.schemaRepo.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -110,6 +111,9 @@ export class FormBuilderService {
   }
 
   async listSubmissions(schemaId: number, page = 1, limit = 20) {
+    // CR-19 同款钳制：防负 skip 与全表拉取
+    page = Math.max(page, 1);
+    limit = Math.min(Math.max(limit, 1), 100);
     const [items, total] = await this.submissionRepo.findAndCount({
       where: { schemaId },
       order: { createdAt: 'DESC' },
