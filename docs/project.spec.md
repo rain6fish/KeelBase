@@ -484,7 +484,7 @@ Notifications are produced via `NotificationsService.create()` for use by each m
 | POST | /api/v1/admin/headless-keys | Yes (ADMIN) | 创建 headless API Key（返回明文仅此一次，HS-4） / Create a headless API key (plaintext returned once, HS-4) |
 | PATCH | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | 更新 headless API Key（配额/工具范围/归属/启停，HS-4） / Update a headless API key (quota/tool scope/ownership/enable, HS-4) |
 | DELETE | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | 删除 headless API Key（HS-4） / Delete a headless API key (HS-4) |
-| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | 管理端 AI 助手：带平台实时上下文（AI-22） / Admin AI assistant with live platform context (AI-22) |
+| POST | /api/v1/admin/ai/chat | Yes (ADMIN) | 系统 AI 助手：平台能力/版本/工具/治理上下文，Explain/Guide/Navigate（AI-22 演进），响应含 navigateTo/toolCalls / System AI Assistant with platform context (Explain/Guide/Navigate), returns navigateTo/toolCalls |
 | GET | /api/v1/admin/mcp/servers | Yes (ADMIN) | 已注册外部 MCP server 列表（HS-10） / Registered external MCP servers (HS-10) |
 | POST | /api/v1/admin/mcp/servers | Yes (ADMIN) | 注册外部 MCP server（写入 Settings，HS-10） / Register an external MCP server (HS-10) |
 | DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | 移除外部 MCP server（HS-10） / Remove an external MCP server (HS-10) |
@@ -1118,6 +1118,7 @@ Enterprise web host (Vue3 + Element Plus): workbench and admin console share one
 | AI 评测 / AI evaluation | 用例 CRUD + 跑批 + 报告 / Case CRUD + batch run + report | /ai/eval/* |
 | 工具与副作用 / Tools & side effects | AI 工具清单 + 副作用撤销 / AI tool list + side-effect undo | /ai/tools、/ai/tool-effects* |
 | 平台统计 / Platform statistics | DAU/WAU/MAU/留存/功能漏斗/错误 / DAU/WAU/MAU/retention/feature funnel/errors | GET /admin/analytics |
+| 系统 AI 助手 / System AI Assistant | 平台能力 Explain/Guide/Navigate 对话，可跳转管理台页 / Platform explain/guide/navigate chat; navigates console pages | POST /admin/ai/chat |
 
 **安全设计**： / **Security design**:
 - 主 app 不打包/不引用任何管理页面（管理入口已从 Front-Taro 移除）
