@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * KeelBase inspect — 识别 KeelBase 应用（Provenance DNA 工具，设计建议 §十五）。
+ * KeelBase inspect — 识别 KeelBase 应用（Provenance 工具，设计建议 §十五）。
  *
  * 只读、确定性、零网络零 DB：读 .keelbase/manifest.json + 扫描仓库能力指纹。
  * 非 KeelBase 项目也可运行（打印干净提示并返回退出码 1，不抛栈）。
