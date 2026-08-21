@@ -4,9 +4,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased] / 未发布
+## [1.0.0] - 2026-08-21
 
-> **1.0 Release Notes（RC 定稿时移入 `[1.0.0]` 条目）**
+> **KeelBase 1.0 Release Notes**
 >
 > **KeelBase 1.0：Business-safe AI Application Base**——AI 驱动的企业应用工程体系首个稳定版。
 > 1.0 只证明「三件套」：**AI CRM（Golden Application）** 一次跑通闭环（Customer → 风险分析 → 建跟进 → 确认 → 写 → 审计 → 撤销）+ **Application Protocol** 生成器（协议化配置 → 生成带权限/AI 工具/确认/审计的模块）+ **Runtime 治理**（CASL / 写操作确认 / 审计哈希链 / 副作用撤销 / Explainable Authz）。FLOW / 插件 / MCP / Headless / 模板市场等能力已实现，**1.0 后按需激活**。
