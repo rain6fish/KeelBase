@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -32,6 +33,8 @@ import { evalCondition } from './node-registry/condition.node';
  */
 @Injectable()
 export class FlowRuntimeService {
+  private readonly logger = new Logger(FlowRuntimeService.name);
+
   constructor(
     @InjectRepository(FlowDefinition) private readonly defRepo: Repository<FlowDefinition>,
     @InjectRepository(FlowInstance) private readonly instRepo: Repository<FlowInstance>,
@@ -115,24 +118,32 @@ export class FlowRuntimeService {
       detail: `flow:${inst.definitionId} node:${node.id} (${node.type})`,
     });
 
-    if (node.type === 'condition') {
-      const goThen = evalCondition(node, data);
-      const next = goThen ? node.then : node.else;
-      await this.advance(inst, next, data);
-    } else if (node.type === 'ai_task') {
-      const provider = this.configService.get<string>('AI_PROVIDER', 'deepseek');
-      const out = await runAiTask(this.providerFactory, node, data, provider);
-      await this.advance(inst, node.next, out);
-    } else {
-      // human_task：建待办 + 通知，实例保持 running 挂起
-      await runHumanTask(
-        this.taskRepo,
-        this.usersRepo,
-        this.orgMemberRepo,
-        this.notificationsService,
-        inst,
-        node,
-      );
+    try {
+      if (node.type === 'condition') {
+        const goThen = evalCondition(node, data);
+        const next = goThen ? node.then : node.else;
+        await this.advance(inst, next, data);
+      } else if (node.type === 'ai_task') {
+        const provider = this.configService.get<string>('AI_PROVIDER', 'deepseek');
+        const out = await runAiTask(this.providerFactory, node, data, provider);
+        await this.advance(inst, node.next, out);
+      } else {
+        // human_task：建待办 + 通知，实例保持 running 挂起
+        await runHumanTask(
+          this.taskRepo,
+          this.usersRepo,
+          this.orgMemberRepo,
+          this.notificationsService,
+          inst,
+          node,
+        );
+      }
+    } catch (err) {
+      // AI/condition 节点异常（provider 未配置/超时/LLM 错）→ 实例置 failed，避免永久卡 running 无法自愈
+      inst.state = 'failed';
+      await this.instRepo.save(inst);
+      this.logger.error(`[Flow] instance ${inst.id} failed at node ${node.id} (${node.type}): ${(err as Error).message}`);
+      throw err;
     }
   }
 

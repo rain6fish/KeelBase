@@ -19,6 +19,7 @@ class SearchProvider extends ChangeNotifier {
   bool _loading = false;
   String? _error;
   String _query = '';
+  int _searchSeq = 0;
   List<String> _history = [];
   bool _historyLoaded = false;
   List<ConversationSummary> _conversations = [];
@@ -87,6 +88,7 @@ class SearchProvider extends ChangeNotifier {
   Future<void> search(String q) async {
     final query = q.trim();
     if (query.isEmpty) {
+      _searchSeq++; // 作废在途旧请求
       _result = const SearchResult();
       _query = '';
       _error = null;
@@ -94,6 +96,7 @@ class SearchProvider extends ChangeNotifier {
       return;
     }
 
+    final seq = ++_searchSeq;
     _loading = true;
     _query = query;
     _error = null;
@@ -102,13 +105,18 @@ class SearchProvider extends ChangeNotifier {
     await addToHistory(query);
 
     try {
-      _result = await _repository.search(query);
+      final result = await _repository.search(query);
+      if (seq != _searchSeq) return; // 过期响应丢弃，防「新词配旧结果」
+      _result = result;
     } catch (e) {
+      if (seq != _searchSeq) return;
       _error = e.toString();
       _result = const SearchResult();
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (seq == _searchSeq) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 

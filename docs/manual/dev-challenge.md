@@ -27,7 +27,7 @@ git clone <repo> && cd KeelBase && cd Server-NestJS && npm install
 |---|---|---|
 | 0-5min | 写协议：`specs/supplier.json`（name/status 枚举/riskLevel 枚举）或一句话描述 | 协议文件就绪 |
 | 5-8min | 生成：`node scripts/keelbase-init.mjs --spec specs/supplier.json` | 输出「生成业务模块」+ 多端接线 ✓ |
-| 8-12min | 编译 + 迁移：`cd Server-NestJS && npm run build && npm run migration:generate -- src/migrations/AddSupplier` | 0 error + 迁移生成 |
+| 8-12min | 编译 + 迁移：`cd Server-NestJS && npm run build && npm run migration:generate -- src/migrations/AddSupplier`（**注意**：新鲜 clone 无 SQLite 库，`migration:generate` 会对空库产出全量 dump——**先 `npm run start:dev` 起一次后端建库**，再 generate 才得到 AddSupplier 增量迁移；生产 postgres 同理走迁移）| 0 error + 迁移生成 |
 | 12-15min | API 验证：起后端，`curl /api/v1/suppliers`（带 token）| 200 + 本人数据 |
 | 15-20min | **AI 工具**：AI 对话里输入「查一下我的供应商」→ 观察 `query_suppliers` 读工具卡（蓝色「读」徽标）| Runtime Agent 调用生成模块 |
 | 20-25min | **写操作确认**：AI 对话输入「创建一条供应商」→ 写工具卡（橙色「写」）+ 确认框 → 确认 → 落库 → 「已确认 · 可撤销」| 写操作人工确认 |

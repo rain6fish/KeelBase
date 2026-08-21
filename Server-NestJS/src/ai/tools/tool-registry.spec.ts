@@ -201,6 +201,13 @@ describe('ToolRegistry', () => {
       registry.register({ ...mockTool, name: 'high_impact', requiresConfirmation: false, riskLevel: 'R4' });
       expect(registry.requiresConfirmation('high_impact')).toBe(true);
     });
+
+    it('R2 低风险写（policy 通道）：默认不确认、风险策略 policy', () => {
+      registry.register({ ...mockTool, name: 'generate_image', requiresConfirmation: false, riskLevel: 'R2' });
+      expect(registry.riskLevel('generate_image')).toBe('R2');
+      expect(registry.requiresConfirmation('generate_image')).toBe(false);
+      // 确认决策由治理策略（policy 通道）决定，而非工具元数据硬编码
+    });
   });
 
   describe('getAllTools()', () => {

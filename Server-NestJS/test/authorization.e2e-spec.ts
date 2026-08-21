@@ -1,6 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
+import { CrmService } from '../src/crm/crm.service';
+import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
+import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 
 /**
  * 越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归套件，评审三 §5）
@@ -124,6 +128,9 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
   let app: INestApplication;
   let userA: { accessToken: string };
   let userB: { accessToken: string };
+  // AI 工具数据隔离（嵌套 describe 共享同一 app）
+  let userAId: number;
+  let crmService: CrmService;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -139,6 +146,12 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
       password: 'AuthzB1234',
       nickname: 'AuthzB',
     });
+    const meA = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(userA.accessToken))
+      .expect(200);
+    userAId = meA.body.data.id;
+    crmService = app.get(CrmService);
   });
 
   afterAll(async () => {
@@ -189,5 +202,92 @@ describe('越权测试矩阵（Authorization Matrix，V1.0 Blocker 回归）', (
       .get('/api/v1/audit/logs')
       .set(authHeader(userA.accessToken))
       .expect(403);
+  });
+
+  /**
+   * AI 工具数据隔离（评审三 §5 矩阵剩余行：AI Tool Read / AI Tool Write）。
+   * 确定性验证：AI 工具以调用者 userId 执行，A 的身份无法读/写 B 的数据。
+   * 直接实例化 crm 工具（mirror AI Agent 的工具执行路径），传 A 的 userId + B 的数据 id。
+   * 复用主 describe 的 app / 用户，避免同文件二次 createTestApp 的 SQLite 文件锁冲突。
+   */
+  describe('AI 工具数据隔离', () => {
+    let bCustomerId: number;
+
+    beforeAll(async () => {
+      // B 创建一条客户数据作为越权目标
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/crm/customers')
+        .set(authHeader(userB.accessToken))
+        .send({ name: '越权目标客户' })
+        .expect(201);
+      bCustomerId = created.body.data.id;
+    });
+
+    it('AI Tool Read 越权：A 查客户 → 不含 B 的客户', async () => {
+      const queryTool = new QueryCustomersTool(crmService);
+      const res = await queryTool.execute({}, String(userAId));
+      expect(res.success).toBe(true);
+      const ids = (res.data as any).items.map((c: any) => c.id);
+      expect(ids).not.toContain(bCustomerId);
+    });
+
+    it('AI Tool Write 越权：A 对 B 的客户建跟进任务 → 拒绝', async () => {
+      const createTool = new CreateFollowupTaskTool(crmService);
+      const res = await createTool.execute(
+        { customerId: bCustomerId, title: '越权任务' },
+        String(userAId),
+      );
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/无权|不存在/);
+    });
+  });
+
+  describe('Headless API 越权（评审三 §5：Headless API → 拒绝）', () => {
+    // 认证拒绝（守卫层）：缺 key / 伪造 key 一律 401。
+    // 归属身份隔离（key→ownerUserId→工具按 owner 隔离）由 headless 单测
+    // （authenticate 归属解析 + controller 委托 owner）与 AI 工具隔离 e2e 覆盖。
+    it('无 x-api-key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .send({ message: 'hi' })
+        .expect(401);
+    });
+
+    it('伪造 x-api-key → 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/headless/chat')
+        .set('x-api-key', 'forged-key-abcdef')
+        .send({ message: 'hi' })
+        .expect(401);
+    });
+  });
+
+  describe('撤销越权（评审三 §5：Revoke → 拒绝）', () => {
+    let effectId: number;
+
+    beforeAll(async () => {
+      // A 的 AI 副作用（直接经 toolEffectsService 构造，模拟 AI 写工具执行后落库）
+      const effectsService = app.get(AiToolEffectsService);
+      const effect = await effectsService.record(
+        { userId: String(userAId), conversationId: 'matrix-revoke', toolName: 'create_event', args: { title: 'x' } } as any,
+        'event',
+        999,
+      );
+      effectId = effect.id;
+    });
+
+    it('B 撤销 A 的副作用 → 404（非本人）', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(userB.accessToken))
+        .expect(404);
+    });
+
+    it('A 撤销自己的副作用 → 200', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectId}`)
+        .set(authHeader(userA.accessToken))
+        .expect(200);
+    });
   });
 });

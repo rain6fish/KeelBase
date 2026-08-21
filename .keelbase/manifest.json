@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "identity": "keelbase-application",
+  "generator": "keelbase",
+  "generatorVersion": "0.9.1",
+  "protocol": "1.0",
+  "modules": [
+    "books",
+    "contracts",
+    "notes",
+    "posts",
+    "suppliers",
+    "tags"
+  ]
+}
