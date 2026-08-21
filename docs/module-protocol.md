@@ -157,6 +157,8 @@ node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 
 | `protocol` | 生成所依据的 Application Protocol 版本 |
 | `modules` | 本仓库由 keelbase init 生成的模块列表（幂等合并去重、排序） |
 
+**版本化规则**：`schema` 只在不兼容变更时递增（当前 1）。CLI 遇到**更高 schema** 的清单时拒绝覆盖（`keelbase init` 打印 `schema 不匹配——清单由更新版本创建，勿覆盖`，原文件原样保留），防更新版本创建的数据丢失；仅新增字段视为向后兼容，不递增 schema。
+
 ### 6.2 `keelbase inspect`
 
 只读、确定性、零网络零 DB 的识别工具：
@@ -169,8 +171,20 @@ node scripts/keelbase-init.mjs inspect   # 或 node scripts/keelbase-inspect.mjs
 
 用途：机器可读 onboarding（陌生 AI / AI Bridge 快速判断「这是什么项目、什么协议版本」）+ CI 断言 + 未来的生态识别基础。
 
-### 6.3 边界
+### 6.3 `keelbase doctor`
 
-- **不实现**（1.0 后）：Runtime Provenance 独立 schema、`keelbase doctor` 兼容矩阵、System AI Assistant、`Built with KeelBase` badge 生态
+只读、确定性、零网络零 DB 的诊断工具：
+
+```bash
+node scripts/keelbase-init.mjs doctor   # 或 node scripts/keelbase-doctor.mjs
+```
+
+四查：① **完整性**（manifest 存在、schema 受支持、必需字段齐全）② **一致性**（manifest 列出的生成模块目录是否仍在——缺失按「可移除原则」报 WARN）③ **运行时兼容**（基座能力在位：AI 工具 / CASL / 治理 / AI 审计 / 操作审计 / Agent 运行时）④ **生成器版本**（manifest 记录版本 vs 当前 CLI：旧 → WARN 可升级合并；新 → WARN 勿覆盖）。退出码：0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase。
+
+用途：CI 门禁（`cli-test` job 断言仓库 doctor PASS）+ 生成器升级前体检 + 交接排查。
+
+### 6.4 边界
+
+- **不实现**（1.0 后）：Runtime Provenance 独立 schema、System AI Assistant、`Built with KeelBase` badge 生态
 - 清单只记「由生成器产生」的模块，手写模块不强制登记
 - 协议仍是语义源；清单是来源身份，**不是**运行时元数据引擎（对齐 §5 红线）
