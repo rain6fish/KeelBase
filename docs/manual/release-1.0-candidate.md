@@ -46,7 +46,6 @@
 | 5 | Private Gate PASS | ✅ | private-ai-report（Cloud OFF → Ollama 8/8）+ verify-private-ai.sh |
 | 6 | Adversarial Gate PASS | ✅ | 越权矩阵 + 攻击测试集 + 合成陌生人（§4 证据链）|
 | 7 | release-gate.sh PASS | ✅ | 确定性模式 **10/10**（Gate 1 + Build + Trust + Private）|
-<<<<<<< HEAD
 | 8 | CI PASS | ✅ | GitHub Actions 全绿（2026-08-21，run 32481093705，13/13 job）——含 `release-gate` 确定性 10/10（修复脚本执行位 100755，5904e3e）+ postgres 迁移一致性 job（f635ab3）+ `AddAiAuditIdentity` 迁移修复（bf27ec3）+ supply-chain SBOM 落盘修复（5904e3e）+ `run-adversarial` job（云端 LLM 非阻塞，continue-on-error，9407250）；lint/test/cov/web-admin/cli-test/core-boundary/stranger-smoke/flutter-analyze/taro-build 全部通过 |
 | 9 | CHANGELOG / Release Notes 完成 | ✅ | `[1.0.0] - 2026-08-21` 定稿：Unreleased 移入 1.0.0（v0.9.2 后 94+ 提交归并）+ 1.0 定位摘要（三件套证明 + 关键交付）（CHANGELOG.md）|
 | 10 | v1.0 compatibility / migration policy 明确 | ✅ | operations.md §3.1——版本契约（v1.x additive-only）+ 双驱动迁移 + v0.9.x→v1.0 升级路径 + 兼容性声明 + 诚实声明 |
@@ -69,7 +68,6 @@
 
 ## 5. 遗留（Gate 4 收口前）
 
-<<<<<<< HEAD
 - **✅ CI PASS**：GitHub Actions 全绿（run 32481093705，13/13）——release-gate 确定性 10/10 + postgres 迁移 job + 迁移修复 + supply-chain SBOM + run-adversarial job（云端非阻塞），均已实跑确认。
 - **CHANGELOG / Release Notes**：v0.9.2 之后的 94+ 提交归并已入 Unreleased；1.0 定位摘要已补（CHANGELOG.md）；RC 定稿时移入 `[1.0.0]`。
 - **诚实声明**（§7.4 #5）：发布区分「技术 1.0」vs「市场验证后置」（External 为 1.0 后增长里程碑）——已写入 operations.md §3.1。
