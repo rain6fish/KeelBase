@@ -2,8 +2,9 @@
 #
 # KeelBase Release Gate 统一入口（W3，专家 08-21 建议）
 #
-# 把现有验证脚本串成五维 + Adversarial → PASS/FAIL，一命令证明「Build / Run / Trust / Private 已可重复验证」。
-# 确定性部分（Build/Trust/Private/迁移一致性）可进 CI；LLM 部分（Run/Adversarial）需 LLM_ENV=1（DeepSeek/Ollama）。
+# 把现有验证脚本串成五维 + Adversarial + Gate 1 Golden Application → PASS/FAIL，
+# 一命令证明「Build / Run / Trust / Private 已可重复验证」。
+# 确定性部分（Build/Gate1/Trust/Private/迁移一致性）可进 CI；LLM 部分（Run/Adversarial）需 LLM_ENV=1（DeepSeek/Ollama）。
 #
 # 用法：
 #   ./scripts/release-gate.sh            # 确定性 Gate（可 CI）
@@ -24,6 +25,14 @@ gate() { # name ok detail
 echo "═══ KeelBase Release Gate（W3 统一入口）═══"
 echo "模式：$([ "${LLM_ENV:-}" = "1" ] && echo 'LLM 全量（需 LLM + 后端）' || echo '确定性（可 CI）')"
 echo ""
+
+# ── Gate 1：Golden Application = AI CRM 一次跑通闭环（development-plan §7.3）──
+echo "→ [Gate 1] Golden Application = AI CRM（Customer → Risk → 建跟进 → 确认 → 写 → 审计 → 撤销）"
+if ./scripts/verify-golden-application.sh >/dev/null 2>&1; then
+  gate "Gate1(Golden 闭环 + Build)" pass
+else
+  gate "Gate1(Golden 闭环 + Build)" fail "verify-golden-application"
+fi
 
 # ── Build：后端编译 + 生成器闭环 ──────────────────────────────────────────────
 echo "→ [Build] 编译 + 生成器"
