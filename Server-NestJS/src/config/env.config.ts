@@ -118,6 +118,18 @@ export const envValidationSchema = Joi.object({
   FEATURE_UPLOAD_ENABLED: Joi.boolean(),
   FEATURE_NOTIFICATIONS_ENABLED: Joi.boolean(),
   FEATURE_TODOS_ENABLED: Joi.boolean(),
+  // 生成模块/旗舰/组织功能 flag（对齐 feature-flags.constants FEATURE_KEYS；否则未声明 flag 无 Joi 布尔强转，=1/=yes 行为不一）
+  FEATURE_CONTRACTS_ENABLED: Joi.boolean(),
+  FEATURE_SUPPLIERS_ENABLED: Joi.boolean(),
+  FEATURE_TAGS_ENABLED: Joi.boolean(),
+  FEATURE_NOTES_ENABLED: Joi.boolean(),
+  FEATURE_BOOKS_ENABLED: Joi.boolean(),
+  FEATURE_POSTS_ENABLED: Joi.boolean(),
+  FEATURE_ORG_ENABLED: Joi.boolean(),
+  FEATURE_POINTS_ENABLED: Joi.boolean(),
+  FEATURE_CRM_ENABLED: Joi.boolean(),
+  FEATURE_PM_ENABLED: Joi.boolean(),
+  FEATURE_APPROVAL_ENABLED: Joi.boolean(),
 
   // CR-21 上传访问控制：=1 时强制校验签名 URL（渐进模式默认放行裸 URL）
   UPLOAD_REQUIRE_SIGN: Joi.boolean().truthy('1').default(false),
