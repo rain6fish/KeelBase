@@ -397,7 +397,7 @@ export class AdminService {
     since.setDate(since.getDate() - Math.min(Math.max(days, 1), 90));
     const sinceIso = since.toISOString();
     // 日表达式跨 sqlite/postgres（同 _getAuditTrend）：DATE() 是 sqlite 专有，pg 用 to_char，否则 pg 下静默空
-    const isPg = this.dataSource.options.type === 'postgres';
+    const isPg = this.dataSource.options?.type === 'postgres';
     const dayExpr = isPg ? "to_char(createdAt, 'YYYY-MM-DD')" : 'DATE(createdAt)';
 
     const run = async <T>(sql: string, params: unknown[] = []): Promise<T[]> => {
@@ -481,7 +481,7 @@ export class AdminService {
 
   private async _getCountsByDay(table: string, since: Date): Promise<Array<{ date: string; count: number }>> {
     try {
-      const isPg = this.dataSource.options.type === 'postgres';
+      const isPg = this.dataSource.options?.type === 'postgres';
       const dayExpr = isPg ? "to_char(createdAt, 'YYYY-MM-DD')" : 'DATE(createdAt)';
       const rows = await this.dataSource.query(
         `SELECT ${dayExpr} AS date, COUNT(*) AS count FROM ${table} WHERE createdAt >= ? GROUP BY ${dayExpr} ORDER BY date ASC`,
@@ -561,7 +561,7 @@ export class AdminService {
   /** 最近 N 天操作审计日趋势（操作数 + 错误数），无日志的天补 0。 */
   private async _getAuditTrend(days: number): Promise<Array<{ day: string; total: number; errors: number }>> {
     const since = new Date(Date.now() - days * 24 * 3600 * 1000);
-    const isPg = this.dataSource.options.type === 'postgres';
+    const isPg = this.dataSource.options?.type === 'postgres';
     const dayExpr = isPg ? "to_char(log.createdAt, 'YYYY-MM-DD')" : "strftime('%Y-%m-%d', log.createdAt)";
     const rows = await this.opAuditRepo
       .createQueryBuilder('log')
