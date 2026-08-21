@@ -110,7 +110,7 @@ curl -s -X POST http://localhost:3000/api/v1/ai/chat \
 ### 7. 审计（哈希链可验证）
 
 ```bash
-curl -s http://localhost:3000/api/v1/audit/logs/verify \
+curl -s http://localhost:3000/api/v1/audit/verify \
   -H "Authorization: Bearer $TOKEN"
 ```
 
