@@ -200,6 +200,26 @@ All API routes are prefixed `/api/v1`. Auth required unless marked. / 所有接�
 - View conversation history / 查看对话历史
 - Admin can manage RAG knowledge base via admin console / 管理员可在管理台维护 RAG 知识库
 
+#### AI 写操作确认（API 层）/ Write Confirmation (API)
+
+写工具（如 `create_followup_task`）**不会静默执行**——需人工确认（token 60s TTL）。合成陌生人实测（W3）驱动补全操作层：
+
+```bash
+# 1. 流式对话触发写工具（SSE 流会在 confirmation_request 处挂起）
+curl -N -X POST "$BASE/ai/chat/stream" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"message":"为华润建材创建跟进任务"}'
+# 观察事件：tool_start（写工具）→ confirmation_request（含 token）
+
+# 2. 流保持打开的同时，从**另一个请求**完成确认（须并发，不能阻塞等 curl 结束）
+curl -X POST "$BASE/ai/confirmations/<token>" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"decision":"approve"}'
+# decision: "approve" | "decline"
+
+# 3. 确认后流式收到 confirmation_decision + tool_end（resultId）→ 落库 + 审计
+```
+
+时序要点：确认 token **60s 过期**；对话流与确认**并发**；未确认或超时 → 写操作不执行（门控有效）；中文 body 用 UTF-8 文件（`curl --data @file.json`），避免 Windows GBK 乱码。
+
 ### 4.6 Admin Console / 管理台
 
 1. 一键部署后访问 `http://<域名>/admin`；本地用 `./scripts/dev.sh dev-admin` / Production: visit `/admin` after one-click deploy; locally `./scripts/dev.sh dev-admin`

@@ -125,6 +125,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node --test scripts/keelbase-init.test.mjs
+      # Provenance：仓库自带 manifest，inspect 应识别为 KeelBase 应用并退出 0
+      - run: node scripts/keelbase-init.mjs inspect
+
+  # 合成陌生人冒烟（W3 harness 进 CI）：keelbase init 生成模块 → 编译 → 测试（防生成器闭环回归）
+  stranger-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      - name: keelbase init 生成 → 编译 → 测试（模拟陌生人 30min Build）
+        run: |
+          node scripts/keelbase-init.mjs --module cismoke --label CI冒烟 --fields title:string,content:text
+          cd Server-NestJS && npm run build && npm test -- cismoke
 
   # 供应链安全（评审三 §6）：依赖完整性 + 漏洞审计 + SBOM
   supply-chain:
@@ -152,6 +170,33 @@ jobs:
           name: keelbase-sbom
           path: Server-NestJS/sbom.spdx.json
           if-no-files-found: error
+
+  # 1.0 Release Gate（确定性模式，§7.3 Gate 3）：Gate1 Golden + Build + Trust + Private 一次证明
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      - name: 生成随机测试密钥
+        run: |
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      # 确定性五维 + Gate1（LLM 部分由 LLM_ENV=1 标注，云端跑见 docs/benchmark/）
+      - name: 运行 Release Gate（确定性）
+        run: ./scripts/release-gate.sh
+        env:
+          ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
+          ENCRYPTION_HMAC_KEY: ${{ env.ENCRYPTION_HMAC_KEY }}
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          NODE_ENV: test
 
   web-admin:
     runs-on: ubuntu-latest

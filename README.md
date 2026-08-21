@@ -184,6 +184,18 @@ The Admin Console is bundled with the main App at `/admin` after one-command dep
 
 > Admin Console requires an account with `role = admin`. See [Demo Account](#demo-account).
 
+### Generate a Module in 30 Minutes
+
+`keelbase init` generates a runnable business module (entity / API / permissions / audit / AI tools) from one command:
+
+```bash
+cd Server-NestJS
+node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+npm run build && npm test -- posts
+```
+
+The module auto-lands in the admin console, workbench, and as AI tools (`query_posts` / `create_post` with confirmation). Full flow: [30min-acceptance.md](docs/manual/30min-acceptance.md) · [dev-challenge.md](docs/manual/dev-challenge.md).
+
 ### Docker (Production)
 
 ```bash
@@ -266,7 +278,8 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | Developers | Ecosystem pack assembly — templates / business skills / plugin CLI / generator (Phase 2 third-party-style build) |
 | [`docs/manual/plugin-authoring.md`](docs/manual/plugin-authoring.md) | Plugin authors | Plugin authoring — self-contained plugin pattern, `keelbase-plugin verify/add/list`, PluginContext API, lifecycle (Phase 2 Extension API) |
 | [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | External developers | Dev Challenge — 30-minute reproducible build (module + AI tool + confirmation + audit) with feedback form (Phase 3) |
-| [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | Maintainers | Release Gate — Build / Run / Trust / Private / External checklist with commands & current status (0.9.x milestone) |
+| [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | Maintainers | Release Gate — Gate 1-4 + Build / Run / Trust / Private / External checklist with commands & current status |
+| [`docs/manual/release-1.0-candidate.md`](docs/manual/release-1.0-candidate.md) | Maintainers | 1.0 Candidate (Gate 4) — scope slimming (AI CRM + Protocol + Runtime 治理), architecture freeze, Exit Criteria status tracker |
 | [`docs/manual/flagship-task-card.md`](docs/manual/flagship-task-card.md) | Maintainers | Flagship LLM task card — real business tasks for CRM / Project / Approval with Agent Success Rate record (Run/Private verification) |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | Developers / AI agents | Protocol ecosystem — Module/Flow/Tool/Plugin/Capability protocols & AI generation chain (P1-1) |

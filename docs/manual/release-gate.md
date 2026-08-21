@@ -10,6 +10,7 @@
 
 | 维度 | 核心指标 | 当前状态 | 验证方法 |
 |---|---|---|---|
+| **Gate 1（Golden Application）** | AI CRM 一次跑通：Customer → Risk Analysis → 建跟进 → 确认 → 写 → 审计 → 撤销 + 60s/10m/30m | 🟢 已落地（2026-08-21，`verify-golden-application.sh` 9/9）| [verify-golden-application.sh](../../scripts/verify-golden-application.sh) + `test/golden-application.e2e-spec.ts` |
 | **Build** | 30min Create——陌生开发者从零生成带权限/AI 工具/确认/审计的模块 | 🔶 工程已通 | [dev-challenge.md](dev-challenge.md) + [30min-acceptance.md](30min-acceptance.md) |
 | **Run** | 1hr 真实业务任务 + Agent Success Rate | ✅ 3/3 SUCCESS（DeepSeek 实测，ASR=100%）| 三旗舰业务任务（[flagship-task-card.md](flagship-task-card.md)）+ [verify-flagships.sh](../../scripts/verify-flagships.sh) |
 | **Trust** | Safe Execution / Unauthorized Action / Human Intervention Rate | ✅ 无 LLM 部分全绿 | [verify-flagships.sh](../../scripts/verify-flagships.sh) + HS e2e |
@@ -18,6 +19,29 @@
 | **External（1.0 后增长里程碑）** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
 
 **判定**：Build / Run / Trust / Private 四维全绿 + 对抗性证明通过 → 发 v1.0；任何一维不达标 → 记录差距，不发布。**External 为 1.0 后增长里程碑，不阻塞发布。**
+
+---
+
+## 0. Gate 1：Golden Application = AI CRM（一次跑通闭环）
+
+> development-plan §7.3：**Golden Demo ≠ Golden Application**——Demo 是 60s 最小能力展示，Golden Application 是 1.0 完整产品证明 = AI CRM（Customer → Risk Analysis → Create Follow-up Task → 确认 → 写 → 审计 → 撤销）。**缺「一次跑通」聚焦闭环 → 2026-08-21 补齐**。
+
+**单一验收脚本**：`./scripts/verify-golden-application.sh`（8 项同时验证，确定性可进 CI）
+
+| # | 步骤 | 验证方式 |
+|---|---|---|
+| ① | **Customer**（客户 + 逾期订单，AI 可读）| REST 创建临海制造 + 280 万/80 万逾期订单 → `query_customers` 工具读到 |
+| ② | **Risk Analysis** | `analyze_customer_risk` → level=critical + 理由（确定性打分）|
+| ③ | **Create Follow-up Task（需确认）** | `AiService.executeToolForExternal` → `requiresConfirmation:true`，不确认不执行（无写副作用）|
+| ④ | **确认 → 写** | 确认后执行（镜像 `_executeWriteTool`）→ 任务真实落库 + `AiToolEffectsService.record` 登记副作用 |
+| ⑤ | **审计** | 副作用可撤销登记存在 + 管理端 `/audit/verify`·`/audit/operations/verify` → `valid:true`（HS-11）|
+| ⑥ | **撤销** | 本人 `DELETE /ai/my/tool-effects/:id` → 200 → 任务软删不可见 |
+| ⑦ | **所有权** | B 撤销 A 的副作用 → 404（越权拒绝）|
+| ⑧ | **Build 30min** | `keelbase init` dry-run + 后端编译 |
+
+**实测记录（2026-08-21）**：`verify-golden-application.sh` → **9 pass / 0 fail**（7 业务步 + Build 双检查）。
+
+**LLM 部分（真实 Agent 对话驱动同一闭环）**：`LLM_ENV=1` 标注，跑 `scripts/benchmark/agent-benchmark.mjs`（三旗舰 Run/Trust/Safety，2026-08-20 DeepSeek 15/15）。
 
 ---
 
@@ -65,7 +89,7 @@
 | 三旗舰 + 生成模块 e2e | `./scripts/verify-flagships.sh` | 7/7 通过 |
 | 越权 | e2e（他人数据 403 / admin 端点 403 / user 访问 admin 403）| 全部 403 |
 | 写操作确认 | e2e（approval decide / create 需确认）| 写操作无绕过 |
-| 审计哈希链 | `/audit/verify` + `/audit/operations/verify` | valid: true |
+| 审计哈希链 | `/audit/verify` + `/audit/operations/verify` | valid: true；**✅ 2026-08-21 修复并发写链分叉**（合成陌生人实测发现 brokenIndex：两并发审计写读同一 lastHash 分叉；AuditService/OperationAuditService 加串行队列，单测验证 prevHash 连续）|
 | 撤销 | 本人撤销 AI 副作用（P0-15）+ admin 撤销 | 软删可恢复 |
 
 **状态**：✅ 无 LLM 部分全绿（HS e2e + verify-flagships 7/7）。
@@ -91,9 +115,13 @@
 | 检查点 | 方法 | 达标线 |
 |---|---|---|
 | 越权测试矩阵 | 敏感实体（Customer/Project/Contract/Approval/Notification/Knowledge/Headless）× 操作（GET/PATCH/DELETE/AI 读/AI 写/批处理/撤销）系统化 | A 访问 B 数据 → 全部拒绝 |
-| | **✅ 首增量（2026-08-20，`test/authorization.e2e-spec.ts` 33 用例）**：REST CRUD 矩阵——events/todos/crm/pm/approval/suppliers/contracts × GET/PUT·PATCH/DELETE + 列表隔离 + admin 端点，跨用户 403/404 拒绝 | 后续增量：AI 工具 / Headless / SubAgent scope / 批处理 / 撤销 |
+| | **✅ 首增量（2026-08-20，`test/authorization.e2e-spec.ts` 33 用例）**：REST CRUD 矩阵——events/todos/crm/pm/approval/suppliers/contracts × GET/PUT·PATCH/DELETE + 列表隔离 + admin 端点，跨用户 403/404 拒绝 | 后续增量：Headless / SubAgent scope / 批处理 / 撤销 |
+| | **✅ AI 工具隔离（2026-08-20，35 用例）**：AI Tool Read（A 查客户不含 B 数据）/ AI Tool Write（A 对 B 客户建任务被拒）| 确定性验证，无 LLM |
+| | **✅ Headless 越权（2026-08-20，37 用例）**：缺 key / 伪造 key → 401 | 守卫层 HTTP 拒绝 |
+| | **✅ 撤销越权（2026-08-20，39 用例）**：B 撤销 A 的 AI 副作用 → 404，A 撤销自己 → 200 | Revoke 所有权 |
 | Agent Security Eval 攻击测试集 | Prompt Injection / 越权 / Confirmation Bypass / Revoke Bypass / Cross-org 进评测集 | **✅ 攻击用例补齐 + 脚本化 + 实测 12/12（2026-08-20）**：securityCases 6→12（injection-write / confirmation-bypass / revoke-bypass / cross-org-read / cross-org-approve / unauthorized-read）；`scripts/verify-security-eval.sh`（登录→seed→评测批→断言门槛，可接 CI）；reject 断言增强措辞 + seed 支持断言演进；**DeepSeek 实测 12/12 全挡**（越权/注入/确认绕过/撤销绕过/跨组织全拒，正常用例通过）→ 安全回归门槛 90% 达成；spec 23 全绿 |
 | 合成陌生人验证 | 无本仓上下文 AI Agent 从干净 clone 跑 30min Build + 60min Business，记录卡点（[dev-challenge.md](dev-challenge.md)）| 脚本化 + 进 CI，持续烧掉 onboarding 卡点 |
+| | **✅ 正式实测（2026-08-21，[stranger-challenge-report](benchmark/stranger-challenge-report-2026-08-21.md)）**：fresh-context AI 干净 clone 跑通 30min Build（生成+编译+单测）+ 60min Business（读→写 R3→确认→执行→审计→撤销）；Would use again ✅ | 卡点 6 项：README 命令路径/依赖安装/存量模块占用提示/后端重启说明/README-AI 工具承诺不符 + 审计链并发分叉（**已修复**）|
 
 ## 6. External：1.0 后增长里程碑（非发布门禁）
 
