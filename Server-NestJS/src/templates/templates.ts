@@ -192,7 +192,7 @@ export const PM_TEMPLATE: AppTemplate = {
       {
         name: '数据平台 v2',
         description: '实时指标 + 报表重构',
-        status: 'planning',
+        status: 'planned',
         riskLevel: 'low',
         endDate: '2026-12-31',
       },
