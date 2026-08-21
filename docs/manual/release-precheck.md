@@ -24,8 +24,9 @@
 | 前端 vitest（Web-Admin-Vue） | `cd Web-Admin-Vue && npm test` | 行覆盖 ≥30% |
 | Flutter 测试 | `cd Front-Flutter && flutter test --coverage` | 行覆盖 ≥45% |
 | 生成器/CLI | `node --test scripts/keelbase-init.test.mjs` + `node --test scripts/keelbase-plugin.test.mjs` | 全过 |
-| Gate 1 Golden Application | `./scripts/verify-golden-application.sh` | 8 项 PASS（AI CRM 一次跑通闭环 + Build）|
-| Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 10/10 PASS |
+| Gate 1 Golden Application | `./scripts/verify-golden-application.sh` | 9 项 PASS（AI CRM 一次跑通闭环 + Build + Provenance）|
+| 文档-端点一致性 | `node scripts/verify-endpoint-docs.mjs` | 声明端点（CLAUDE.md §9）全在代码中，0 条缺失 |
+| Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 全 PASS |
 
 ### ③ 提高测试覆盖率
 
