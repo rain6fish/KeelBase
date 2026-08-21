@@ -23,12 +23,13 @@ describe('AdminAiController（System AI Assistant）', () => {
     controller = moduleRef.get(AdminAiController);
   });
 
-  it('委托 AdminAiService.assistantChat 并透出 navigateTo/toolCalls', async () => {
-    const result = await controller.chat({ message: '打开系统信息页' });
+  it('以真实管理员身份委托 AdminAiService.assistantChat 并透出 navigateTo/toolCalls', async () => {
+    const result = await controller.chat({ message: '打开系统信息页' }, { sub: 5, username: 'admin5', role: 'admin' } as any);
 
-    expect(adminAiService.assistantChat).toHaveBeenCalledWith({
-      message: '打开系统信息页',
-    });
+    expect(adminAiService.assistantChat).toHaveBeenCalledWith(
+      5,
+      { message: '打开系统信息页' },
+    );
     expect(result.reply).toBe('已打开系统信息页');
     expect(result.conversationId).toBe('c1');
     expect(result.navigateTo).toBe('/system');
