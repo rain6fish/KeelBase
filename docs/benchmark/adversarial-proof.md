@@ -35,7 +35,7 @@
   - **Headless 越权**：无/伪造 x-api-key → 401
   - **撤销越权**：B 撤销 A 副作用 → 404；A 撤销自己 → 200
 - **佐证**：13 个资源 e2e（events/todos/crm/pm/approval/suppliers/contracts/org/points/settings/admin/ai/forms）跨用户 403 全覆盖。
-- **残余待补**（security-verification-matrix §3）：org/points 跨组织 AI 工具越权（SSE/WS 长连接越权与管理台脱敏字段级已补，2026-08-21）。
+- **残余待补**（security-verification-matrix §3）：无（SSE/WS 长连接越权、管理台脱敏字段级、跨组织 AI 工具越权均已补，2026-08-21）。
 
 ### 2.2 提示注入 / 确认绕过 / 撤销绕过 / 跨组织（Agent Security Eval）— 12/12
 
