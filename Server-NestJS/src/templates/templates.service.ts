@@ -127,7 +127,7 @@ export class TemplatesService {
         const project = await this.pmProjects.save({
           name: p.name,
           description: p.description,
-          status: p.status ?? 'planning',
+          status: p.status ?? 'planned',
           riskLevel: p.riskLevel ?? 'low',
           endDate: p.endDate,
           userId: targetId,

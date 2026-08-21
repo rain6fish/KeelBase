@@ -69,7 +69,8 @@ export class ApprovalService {
     if (!req) throw new NotFoundException('审批请求不存在或无权访问');
     if (req.status !== 'pending') throw new BadRequestException('仅待处理的请求可预审');
 
-    const policy = await this.policies.findOne({ where: { type: req.type, active: true } });
+    // 政策归本人所有（createPolicy/listPolicies 均按 userId）：预审只命中本人政策，防跨用户政策泄漏/误判
+    const policy = await this.policies.findOne({ where: { type: req.type, active: true, userId } });
     const threshold = policy?.maxAmount ?? 1000;
 
     let status: string;
