@@ -127,3 +127,50 @@ node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 
 - **不覆盖**：关联查询、级联、复杂业务逻辑、权限变体（非本人数据）
 - **为什么**：协议厚了会变成低代码平台（撞竞品），且被元数据拖死可扩展性
 - 每个字段写协议前问：「AI 不生成它行不行？」——能手写就手写
+
+---
+
+## 6. 生成来源身份（Provenance DNA）
+
+> 2026-08-21 落地（设计建议《KeelBase DNA 设计建议》的最小切片）：**不给源码贴水印**，只保留一份项目级来源清单。原则：`Visible by default` / `Removable by choice` / `Verifiable when retained` / `No hidden telemetry` / `No lock-in` / `Project-level first`。
+
+### 6.1 `.keelbase/manifest.json`
+
+`keelbase init` 每次生成在项目根写/合并一份来源清单（纯 JSON，删除不破坏任何运行行为）：
+
+```json
+{
+  "schema": 1,
+  "identity": "keelbase-application",
+  "generator": "keelbase",
+  "generatorVersion": "0.9.1",
+  "protocol": "1.0",
+  "modules": ["posts", "notes"]
+}
+```
+
+| 字段 | 含义 |
+|---|---|
+| `schema` | 清单 schema 版本（当前 1） |
+| `identity` | 身份标记：`keelbase-application` |
+| `generator` / `generatorVersion` | 生成器标识与版本（来自发布包的 package.json） |
+| `protocol` | 生成所依据的 Application Protocol 版本 |
+| `modules` | 本仓库由 keelbase init 生成的模块列表（幂等合并去重、排序） |
+
+### 6.2 `keelbase inspect`
+
+只读、确定性、零网络零 DB 的识别工具：
+
+```bash
+node scripts/keelbase-init.mjs inspect   # 或 node scripts/keelbase-inspect.mjs
+```
+
+读 `manifest.json` + 扫描仓库能力指纹（ai/tools、casl、governance、audit、旗舰、mcp、headless、flows、realtime），输出「来源身份 + 架构指纹」。退出码：0 = KeelBase 应用；1 = 非 KeelBase（清单缺失）或 schema 无效——**非 KeelBase 项目也可运行**，不抛栈不锁定。
+
+用途：机器可读 onboarding（陌生 AI / AI Bridge 快速判断「这是什么项目、什么协议版本」）+ CI 断言 + 未来的生态识别基础。
+
+### 6.3 边界
+
+- **不实现**（1.0 后）：Runtime DNA 独立 schema、`keelbase doctor` 兼容矩阵、System AI Assistant、`Built with KeelBase` badge 生态
+- 清单只记「由生成器产生」的模块，手写模块不强制登记
+- 协议仍是语义源；清单是来源身份，**不是**运行时元数据引擎（对齐 §5 红线）
