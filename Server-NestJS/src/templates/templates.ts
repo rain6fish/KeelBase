@@ -32,6 +32,8 @@ export interface AppTemplate {
   pm?: TemplatePmSeed;
   /** P1-9 旗舰模板：AI Approval 种子（政策 + 请求） */
   approval?: TemplateApprovalSeed;
+  /** 来源身份（§13.1 ④ 铺路）：官方模板来源声明，listTemplates 统一附上——「模板也带来源身份」示范 */
+  provenance?: { source: 'keelbase'; templateId: string; keelbaseVersion: string };
 }
 
 /** AI CRM 模板种子 */
