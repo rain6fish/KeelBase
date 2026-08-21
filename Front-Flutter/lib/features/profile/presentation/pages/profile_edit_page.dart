@@ -201,9 +201,11 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                     child: _avatarUrl == null || _avatarUrl!.isEmpty
                         ? Center(
                             child: Text(
-                              (context.watch<AuthProvider>().user?.displayName ?? 'U')
-                                  .substring(0, 1)
-                                  .toUpperCase(),
+                              (() {
+                                // displayName 为空串时 ?? 不生效，''.substring 抛 RangeError
+                                final dn = context.watch<AuthProvider>().user?.displayName ?? '';
+                                return dn.isNotEmpty ? dn.substring(0, 1) : 'U';
+                              })().toUpperCase(),
                               style: TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.w600,
