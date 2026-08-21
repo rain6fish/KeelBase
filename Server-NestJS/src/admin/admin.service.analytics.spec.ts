@@ -25,7 +25,7 @@ describe('AdminService · 平台数据统计（PL-15）', () => {
   let dataSource: { query: jest.Mock };
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn() };
+    dataSource = { query: jest.fn(), options: { type: 'better-sqlite3' } };
     // 按 SQL 内容分发结果（并发调用顺序不可靠）
     dataSource.query.mockImplementation(async (sql: string) => {
       const has = (s: string) => sql.includes(s);
