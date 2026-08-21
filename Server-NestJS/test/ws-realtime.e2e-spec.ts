@@ -126,4 +126,20 @@ describe('WebSocket Realtime (e2e)', () => {
     expect(frame.data.title).toBe('WS Hello');
     ws.close();
   });
+
+  it('isolates users: notification to one user does not reach another（他人 room 推送越权 → 隔离）', async () => {
+    const a = await connectWs(sign(7));
+    const b = await connectWs(sign(8));
+    await waitFor(() => a.messages.length > 0);
+    await waitFor(() => b.messages.length > 0);
+    const svc = app.get(RealtimeService);
+    const aBefore = a.messages.length;
+    svc.emitToUser(7, 'notification', { id: 1, title: 'A secret' });
+    await waitFor(() => a.messages.length > aBefore);
+    // B 的 socket 不应收到 A 的通知
+    const bNotifs = b.messages.map((m) => JSON.parse(m)).filter((m) => m.event === 'notification');
+    expect(bNotifs).toHaveLength(0);
+    a.ws.close();
+    b.ws.close();
+  });
 });
