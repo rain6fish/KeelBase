@@ -456,6 +456,23 @@ export class AiService {
   }
 
   /**
+   * Runtime provenance 工具指纹（§13.1 后置项①，公开命名 provenance）：
+   * 只暴露「多少个工具 / 读写分类 / 风险级分布」的汇总指纹，不含参数/权限详情（admin 专属）。
+   * 供 GET /app/provenance（公开）回答「这个 AI 系统有哪些能力」。
+   */
+  getToolFingerprint(): { total: number; read: number; write: number; byRisk: Record<string, number> } {
+    const tools = this.toolRegistry.getAllTools();
+    const byRisk: Record<string, number> = {};
+    let write = 0;
+    for (const t of tools) {
+      const lv = this.toolRegistry.riskLevel(t.name);
+      byRisk[lv] = (byRisk[lv] ?? 0) + 1;
+      if (t.requiresConfirmation) write++;
+    }
+    return { total: tools.length, read: tools.length - write, write, byRisk };
+  }
+
+  /**
    * HS-2 + HS-9 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
    * 供 GET /ai/tools（admin）展示工具与权限，便于审计与治理。
    * HS-9：反映治理策略实际生效的开关/确认规则。
