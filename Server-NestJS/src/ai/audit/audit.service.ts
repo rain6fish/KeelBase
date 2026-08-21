@@ -22,6 +22,10 @@ export interface AuditEntry {
   detail?: string;
   model?: string;
   provider?: string;
+  /** W4-⑤ Agent Identity：调用方 agent 标识（headless key id / 子 agent） */
+  agentId?: string;
+  /** W4-⑤ 会话标识（access token 暂无 jti，接入前可空） */
+  sessionId?: string;
   promptTokens?: number;
   completionTokens?: number;
   durationMs?: number;
@@ -94,6 +98,8 @@ export class AuditService {
         detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
         model: entry.model,
         provider: entry.provider,
+        agentId: entry.agentId,
+        sessionId: entry.sessionId,
         promptTokens: entry.promptTokens,
         completionTokens: entry.completionTokens,
         durationMs: entry.durationMs,
