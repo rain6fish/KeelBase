@@ -39,6 +39,14 @@ echo "→ [Build] 编译 + 生成器"
 if (cd Server-NestJS && npm run build >/dev/null 2>&1); then gate "Build(后端编译)" pass; else gate "Build(后端编译)" fail "npm run build"; fi
 if node scripts/keelbase-init.mjs --module cigate --label 门 --fields title:string --dry-run >/dev/null 2>&1; then gate "Build(生成器 init)" pass; else gate "Build(生成器 init)" fail "keelbase init dry-run"; fi
 
+# ── Endpoints：文档 ↔ 端点一致性（§7.4 #5 发布前核对）─────────────────────────
+echo "→ [Endpoints] CLAUDE.md §9 声明端点 vs 实际 Controller 路由"
+if node scripts/verify-endpoint-docs.mjs >/dev/null 2>&1; then
+  gate "Endpoints(文档-端点一致)" pass
+else
+  gate "Endpoints(文档-端点一致)" fail "声明端点缺失（文档过期或路由被删）——先修 CLAUDE.md §9 或补路由"
+fi
+
 # ── Trust：三旗舰 + 生成模块 e2e（越权/写确认/审计）────────────────────────────
 echo "→ [Trust] 越权 / 写确认 / 审计"
 (cd Server-NestJS && rm -f data/test.sqlite)
