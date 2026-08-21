@@ -86,19 +86,19 @@ describe('AdminAiService（System AI Assistant）', () => {
     service = moduleRef.get(AdminAiService);
   });
 
-  it('以系统账号调用 AiService，注入管理端提示词与 adminMode', async () => {
-    await service.assistantChat({ message: '平台活跃度如何？' });
+  it('以真实管理员身份调用 AiService，注入管理端提示词与 adminMode', async () => {
+    await service.assistantChat(5, { message: '平台活跃度如何？' });
 
     expect(aiService.chat).toHaveBeenCalledTimes(1);
     const [userId, req] = aiService.chat.mock.calls[0];
-    expect(userId).toBe('0');
+    expect(userId).toBe('5');
     expect(req.systemPrompt).toBe(ADMIN_SYSTEM_PROMPT);
     expect(req.adminMode).toBe(true);
     expect(req.message).toContain('管理员提问：平台活跃度如何？');
   });
 
   it('消息包含能力清单/版本/工具清单/治理/实时统计', async () => {
-    await service.assistantChat({ message: 'hi' });
+    await service.assistantChat(5, { message: 'hi' });
     const msg: string = aiService.chat.mock.calls[0][1].message;
 
     expect(msg).toContain('能力清单');
@@ -115,7 +115,7 @@ describe('AdminAiService（System AI Assistant）', () => {
   });
 
   it('透出 navigateTo/toolCalls', async () => {
-    const result = await service.assistantChat({ message: '打开系统信息页' });
+    const result = await service.assistantChat(5, { message: '打开系统信息页' });
 
     expect(result.navigateTo).toBe('/system');
     expect(result.toolCalls).toContain('navigate_admin_page');
@@ -128,7 +128,7 @@ describe('AdminAiService（System AI Assistant）', () => {
       throw new Error('manifest down');
     });
 
-    const result = await service.assistantChat({ message: 'hi' });
+    const result = await service.assistantChat(5, { message: 'hi' });
 
     expect(result.reply).toBeDefined();
     const msg: string = aiService.chat.mock.calls[0][1].message;

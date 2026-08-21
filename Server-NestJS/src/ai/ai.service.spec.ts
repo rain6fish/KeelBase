@@ -1259,7 +1259,10 @@ describe('AiService', () => {
       expect(result.navigateTo).toBe('/settings');
     });
 
-    it('adminOnly 工具：非系统账号调用被结构化拒绝', async () => {
+    it('adminOnly 工具：非管理员（普通用户）调用被结构化拒绝', async () => {
+      (aiService as any).usersService = {
+        findOne: jest.fn().mockResolvedValue({ id: 5, role: 'user' }),
+      };
       mockToolRegistry.getTool.mockReturnValue({
         name: 'navigate_admin_page',
         permissions: { adminOnly: true },
@@ -1310,6 +1313,31 @@ describe('AiService', () => {
         { page: 'system' },
         '0',
       );
+      expect(result.navigateTo).toBe('/system');
+    });
+
+    it('adminOnly 工具：真实管理员（role=admin）放行', async () => {
+      (aiService as any).usersService = {
+        findOne: jest.fn().mockResolvedValue({ id: 5, role: 'admin' }),
+      };
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'navigate_admin_page',
+        permissions: { adminOnly: true },
+      } as any);
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: { navigateTo: '/system' },
+      });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          { id: 'call_1', name: 'navigate_admin_page', arguments: '{"page":"system"}' },
+        ],
+      });
+      mockProvider.generate.mockResolvedValueOnce({ content: 'final' });
+
+      const result = await aiService.chat('5', { message: '打开系统信息页' });
+
       expect(result.navigateTo).toBe('/system');
     });
   });

@@ -32,9 +32,12 @@ export class AdminAiService {
     private readonly governancePolicy: GovernancePolicyService,
   ) {}
 
-  async assistantChat(dto: AdminAiChatDto): Promise<AdminAiChatResponse> {
+  async assistantChat(
+    userId: number,
+    dto: AdminAiChatDto,
+  ): Promise<AdminAiChatResponse> {
     const context = await this.buildSystemContext();
-    const result = await this.aiService.chat('0', {
+    const result = await this.aiService.chat(String(userId), {
       message: `${context}\n管理员提问：${dto.message}`,
       conversationId: dto.conversationId,
       systemPrompt: ADMIN_SYSTEM_PROMPT,
