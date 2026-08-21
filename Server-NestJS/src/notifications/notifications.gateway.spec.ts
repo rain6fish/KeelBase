@@ -48,6 +48,30 @@ describe('NotificationsGateway', () => {
 
       expect(res.write).not.toHaveBeenCalled();
     });
+
+    it('isolates users: emitting to one user does not reach another（他人订阅自己流 → 收不到）', () => {
+      const a = mockResponse();
+      const b = mockResponse();
+      gateway.subscribe(1, a);
+      gateway.subscribe(2, b);
+
+      gateway.emitToUser(2, { id: 1, title: 'B only', type: 'system' });
+
+      expect(a.write).not.toHaveBeenCalled();
+      expect(b.writes.join('')).toContain('"title":"B only"');
+    });
+
+    it('isolates users: subscribed user receives only own notifications', () => {
+      const a = mockResponse();
+      const b = mockResponse();
+      gateway.subscribe(1, a);
+      gateway.subscribe(2, b);
+
+      gateway.emitToUser(1, { id: 1, title: 'A only', type: 'system' });
+
+      expect(a.writes.join('')).toContain('"title":"A only"');
+      expect(b.write).not.toHaveBeenCalled();
+    });
   });
 
   describe('subscribe', () => {

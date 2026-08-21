@@ -55,6 +55,18 @@ describe('RealtimeService', () => {
       service.emitToUser(1, 'notification', { title: 'x' });
       expect(ws.send).not.toHaveBeenCalled();
     });
+
+    it('isolates users: emitting to one user does not reach another（他人 room 推送越权 → 收不到）', () => {
+      const a = mockSocket();
+      const b = mockSocket();
+      service.register(1, a);
+      service.register(2, b);
+
+      service.emitToUser(2, 'notification', { title: 'B only' });
+
+      expect(a.send).not.toHaveBeenCalled();
+      expect(b.send).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('broadcast', () => {
