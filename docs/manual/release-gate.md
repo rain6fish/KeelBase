@@ -10,6 +10,7 @@
 
 | 维度 | 核心指标 | 当前状态 | 验证方法 |
 |---|---|---|---|
+| **Gate 1（Golden Application）** | AI CRM 一次跑通：Customer → Risk Analysis → 建跟进 → 确认 → 写 → 审计 → 撤销 + 60s/10m/30m | 🟢 已落地（2026-08-21，`verify-golden-application.sh` 9/9）| [verify-golden-application.sh](../../scripts/verify-golden-application.sh) + `test/golden-application.e2e-spec.ts` |
 | **Build** | 30min Create——陌生开发者从零生成带权限/AI 工具/确认/审计的模块 | 🔶 工程已通 | [dev-challenge.md](dev-challenge.md) + [30min-acceptance.md](30min-acceptance.md) |
 | **Run** | 1hr 真实业务任务 + Agent Success Rate | ✅ 3/3 SUCCESS（DeepSeek 实测，ASR=100%）| 三旗舰业务任务（[flagship-task-card.md](flagship-task-card.md)）+ [verify-flagships.sh](../../scripts/verify-flagships.sh) |
 | **Trust** | Safe Execution / Unauthorized Action / Human Intervention Rate | ✅ 无 LLM 部分全绿 | [verify-flagships.sh](../../scripts/verify-flagships.sh) + HS e2e |
@@ -18,6 +19,29 @@
 | **External（1.0 后增长里程碑）** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
 
 **判定**：Build / Run / Trust / Private 四维全绿 + 对抗性证明通过 → 发 v1.0；任何一维不达标 → 记录差距，不发布。**External 为 1.0 后增长里程碑，不阻塞发布。**
+
+---
+
+## 0. Gate 1：Golden Application = AI CRM（一次跑通闭环）
+
+> development-plan §7.3：**Golden Demo ≠ Golden Application**——Demo 是 60s 最小能力展示，Golden Application 是 1.0 完整产品证明 = AI CRM（Customer → Risk Analysis → Create Follow-up Task → 确认 → 写 → 审计 → 撤销）。**缺「一次跑通」聚焦闭环 → 2026-08-21 补齐**。
+
+**单一验收脚本**：`./scripts/verify-golden-application.sh`（8 项同时验证，确定性可进 CI）
+
+| # | 步骤 | 验证方式 |
+|---|---|---|
+| ① | **Customer**（客户 + 逾期订单，AI 可读）| REST 创建临海制造 + 280 万/80 万逾期订单 → `query_customers` 工具读到 |
+| ② | **Risk Analysis** | `analyze_customer_risk` → level=critical + 理由（确定性打分）|
+| ③ | **Create Follow-up Task（需确认）** | `AiService.executeToolForExternal` → `requiresConfirmation:true`，不确认不执行（无写副作用）|
+| ④ | **确认 → 写** | 确认后执行（镜像 `_executeWriteTool`）→ 任务真实落库 + `AiToolEffectsService.record` 登记副作用 |
+| ⑤ | **审计** | 副作用可撤销登记存在 + 管理端 `/audit/verify`·`/audit/operations/verify` → `valid:true`（HS-11）|
+| ⑥ | **撤销** | 本人 `DELETE /ai/my/tool-effects/:id` → 200 → 任务软删不可见 |
+| ⑦ | **所有权** | B 撤销 A 的副作用 → 404（越权拒绝）|
+| ⑧ | **Build 30min** | `keelbase init` dry-run + 后端编译 |
+
+**实测记录（2026-08-21）**：`verify-golden-application.sh` → **9 pass / 0 fail**（7 业务步 + Build 双检查）。
+
+**LLM 部分（真实 Agent 对话驱动同一闭环）**：`LLM_ENV=1` 标注，跑 `scripts/benchmark/agent-benchmark.mjs`（三旗舰 Run/Trust/Safety，2026-08-20 DeepSeek 15/15）。
 
 ---
 

@@ -20,11 +20,12 @@
 | 套件 | 命令 | 门槛 |
 |------|------|------|
 | 后端单测 + 覆盖率 | `cd Server-NestJS && npm run test:cov` | statements≥65 / branches≥55 / functions≥60 / lines≥65 + 安全模块分档门控（statements≥60） |
-| 后端 e2e | `npm run test:e2e` | 8 个 suite 全过 |
+| 后端 e2e | `npm run test:e2e` | 14 个 suite 全过 |
 | 前端 vitest（Web-Admin-Vue） | `cd Web-Admin-Vue && npm test` | 行覆盖 ≥30% |
 | Flutter 测试 | `cd Front-Flutter && flutter test --coverage` | 行覆盖 ≥45% |
 | 生成器/CLI | `node --test scripts/keelbase-init.test.mjs` + `node --test scripts/keelbase-plugin.test.mjs` | 全过 |
-| Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 9/9 PASS |
+| Gate 1 Golden Application | `./scripts/verify-golden-application.sh` | 8 项 PASS（AI CRM 一次跑通闭环 + Build）|
+| Release Gate | `./scripts/release-gate.sh` | 确定性 Gate 10/10 PASS |
 
 ### ③ 提高测试覆盖率
 
