@@ -99,11 +99,13 @@ class NotificationsProvider extends ChangeNotifier {
 
   Future<void> markRead(int id) async {
     try {
+      // 未读计数是服务端总数，不能从截断列表重算（列表只持最新 N 条）
+      final wasUnread = _notifications.any((n) => n.id == id && !n.isRead);
       await _repository.markRead(id);
       _notifications = _notifications
           .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
           .toList();
-      _unreadCount = _notifications.where((n) => !n.isRead).length;
+      if (wasUnread && _unreadCount > 0) _unreadCount--;
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -127,9 +129,10 @@ class NotificationsProvider extends ChangeNotifier {
 
   Future<void> delete(int id) async {
     try {
+      final wasUnread = _notifications.any((n) => n.id == id && !n.isRead);
       await _repository.delete(id);
       _notifications = _notifications.where((n) => n.id != id).toList();
-      _unreadCount = _notifications.where((n) => !n.isRead).length;
+      if (wasUnread && _unreadCount > 0) _unreadCount--;
       notifyListeners();
     } catch (e) {
       _error = e.toString();

@@ -185,8 +185,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         for await (const chunk of gen) {
           if (stream.aborted) break;
           const type = AI_CHUNK_TO_WS[chunk.type];
-          if (type) this.send(client, type, chunk);
+          // done 不在此转发：终止事件由 finally 统一发送（避免连发两个 ai:done）
           if (chunk.type === 'done') break;
+          if (type) this.send(client, type, chunk);
         }
       } catch (err) {
         this.send(client, 'ai:error', { error: (err as Error)?.message ?? 'stream error' });

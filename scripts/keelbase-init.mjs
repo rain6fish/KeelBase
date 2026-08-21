@@ -28,6 +28,7 @@ import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
+import { writeManifest } from './generator/manifest.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m',
@@ -39,6 +40,7 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs                    # 交互式引导（可输自然语言走 LLM）
   node scripts/keelbase-init.mjs --desc "图书管理，有书名、作者、价格"   # LLM 识别（EASY-2.1）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+  node scripts/keelbase-init.mjs inspect              # 识别 KeelBase 应用（来源 + 能力指纹）
 
 已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol）：
   node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
@@ -64,6 +66,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
   --tab                生成模块作为 AppShell 底部 Tab（默认顶层全屏页）
+  --force              目标目录已存在时覆盖生成（内置/示例模块撞名时用，如 posts——覆盖会重写生成文件，接线幂等）
   -h, --help           显示帮助
 `;
 
@@ -75,6 +78,7 @@ function parseArgs(argv) {
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--no-feature-flag') args.featureFlag = false;
     else if (a === '--tab') args.tab = true;
+    else if (a === '--force') args.force = true;
     else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq < 0 ? undefined : eq);
@@ -131,6 +135,13 @@ async function brandReplace(brand, dryRun) {
 }
 
 async function main() {
+  // keelbase inspect 子命令：识别 KeelBase 应用（来源 + 能力指纹），委托独立脚本
+  if (process.argv[2] === 'inspect') {
+    const { runInspect } = await import('./keelbase-inspect.mjs');
+    process.exitCode = await runInspect(process.argv.slice(3));
+    return;
+  }
+
   const args = parseArgs(process.argv);
   if (args.help) {
     console.log(HELP);
@@ -256,10 +267,18 @@ async function main() {
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
 
-  // 目标目录冲突检查
+  // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）
   const beDir = `Server-NestJS/src/${ctx.plural}`;
   if (!args.dryRun && (await exists(beDir))) {
-    fail(`目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过）`);
+    if (args.force) {
+      console.log(
+        `${C.yellow}⚠ 目录已存在：${beDir}（${args.force ? '--force 覆盖生成' : ''}）——将重写生成文件，接线幂等跳过${C.reset}`,
+      );
+    } else {
+      fail(
+        `目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过；如确认覆盖请加 --force）`,
+      );
+    }
   }
 
   console.log(`\n${C.yellow}生成业务模块：${ctx.plural}（${ctx.label}）${C.reset}`);
@@ -280,6 +299,7 @@ async function main() {
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
     console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ai.module（query+create 工具）${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）+ Taro（app.config/explore）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
+    console.log(`${C.yellow}[dry-run] 将写 .keelbase/manifest.json（来源身份：generator/version/protocol/modules）${C.reset}`);
     return;
   }
 
@@ -299,8 +319,27 @@ async function main() {
   const aiResults = await wireAiModule(ctx);
   const all = summarize([...beResults, ...feResults, ...adminResults, ...taroResults, ...aiResults]);
   for (const file of all.wired) console.log(`${C.green}✓ 接线：${file}${C.reset}`);
-  for (const s of all.skipped) {
-    console.log(`${C.yellow}△ 跳过：${s.file}（${reasonZh(s.reason)}）${C.reset}`);
+  // 合成陌生人实测（W3）发现：锚点失败仅「△ 跳过」不阻断，build 检测不出残缺接线（Flutter 页崩 / capabilities 缺）。
+  // 区分「幂等跳过（正常）」与「真失败（锚点未命中）」——后者醒目告警 + 汇总 N/M。
+  const skippedIdempotent = all.skipped.filter((s) => s.reason === 'already-wired');
+  const failed = all.skipped.filter((s) => s.reason !== 'already-wired');
+  for (const s of skippedIdempotent) console.log(`${C.dim}○ 已存在：${s.file}（幂等跳过）${C.reset}`);
+  if (failed.length > 0) {
+    const total = all.wired.length + all.skipped.length;
+    console.log(
+      `${C.red}⚠ 接线 ${all.wired.length}/${total} 完成，${failed.length} 处锚点未命中——对应端可能残缺（build 检测不出），请手动检查：${C.reset}`,
+    );
+    for (const s of failed) console.log(`${C.red}  ✗ ${s.file}（${reasonZh(s.reason)}）${C.reset}`);
+  }
+
+  // ── Provenance：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
+  try {
+    const man = await writeManifest(ctx.plural);
+    console.log(
+      `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,
+    );
+  } catch (err) {
+    console.log(`${C.yellow}△ 写来源清单跳过：${err.message}${C.reset}`);
   }
 
   // ── 品牌 ──

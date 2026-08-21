@@ -1416,6 +1416,29 @@ describe('AiService', () => {
         expect(err.reasons.some((c: any) => c.name === 'tool_enabled' && c.ok === false)).toBe(true);
       });
 
+      it('R2 工具（policy 通道）：默认自动执行；治理策略强制确认后需确认', async () => {
+        // 默认：R2 低风险写 → 自动执行（无需确认）
+        mockToolRegistry.riskLevel.mockReturnValue('R2');
+        mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+        mockToolRegistry.execute.mockResolvedValue({ success: true, data: { url: 'x' } });
+        const out = await aiService.executeToolForExternal('generate_image', { prompt: 'logo' }, '1');
+        expect(out.executed).toBe(true);
+        expect(out.requiresConfirmation).toBe(false);
+
+        // R2 policy 通道：治理策略强制确认 → 需确认（低风险写可被治理收紧）
+        (aiService as any).governancePolicy = {
+          isToolEnabled: jest.fn().mockResolvedValue(true),
+          getAllowedRoles: jest.fn().mockResolvedValue([]),
+          requiresConfirmation: jest.fn().mockResolvedValue(true),
+        };
+        mockToolRegistry.riskLevel.mockReturnValue('R2');
+        mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+        const out2 = await aiService.executeToolForExternal('generate_image', { prompt: 'logo' }, '1');
+        expect(out2.executed).toBe(false);
+        expect(out2.requiresConfirmation).toBe(true);
+        expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+      });
+
       it('R4 风险级（human_approval）→ 仍需确认', async () => {
         mockToolRegistry.riskLevel.mockReturnValue('R4');
         mockToolRegistry.requiresConfirmation.mockReturnValue(true);

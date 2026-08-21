@@ -31,6 +31,14 @@ export class AiAuditLog {
   @Column({ length: 64, nullable: true, name: 'provider' })
   provider?: string;
 
+  /** W4-⑤ Agent Identity 最小切片：调用方 agent 标识（headless key id / 子 agent）；不参与哈希链 payload（避免破坏历史链） */
+  @Column({ nullable: true, name: 'agent_id' })
+  agentId?: string;
+
+  /** W4-⑤ 会话标识（access token 暂无 jti，接入前可空） */
+  @Column({ nullable: true, name: 'session_id' })
+  sessionId?: string;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 
