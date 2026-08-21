@@ -91,6 +91,56 @@ jobs:
             exit 1
           fi
 
+  # postgres 迁移一致性（roadmap 未做项）：真实 pgvector/pg17 上全量白名单迁移跑通 +
+  # 实体↔迁移无漂移。防 postgres 方言回归——如 sqlite-only 迁移误入 postgres 白名单
+  # 导致 AUTOINCREMENT 语法失败（曾由 80528d0 修复，需 CI 持续拦截）。
+  migration-consistency-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server-NestJS
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: keelbase_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: npm ci
+      - name: postgres 全量迁移跑通 + 一致性
+        env:
+          DB_TYPE: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: keelbase_ci
+        run: |
+          export ENCRYPTION_KEY=$(openssl rand -hex 32)
+          export ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)
+          npm run migration:run
+          # migration:generate 对「无变化」返回退出码 1；同 sqlite job 用 || true + 文件判断
+          OUTPUT=$(npm run migration:generate -- src/migrations/_PgConsistencyCheck 2>&1 || true)
+          echo "$OUTPUT"
+          if ls src/migrations/*_PgConsistencyCheck* 2>/dev/null; then
+            echo "::error::postgres 实体新增了未迁移的变更，请运行 migration:generate 提交迁移"
+            exit 1
+          fi
+
   build:
     runs-on: ubuntu-latest
     defaults:
