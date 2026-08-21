@@ -100,6 +100,40 @@ describe('AuditService', () => {
   });
 
   describe('log（HS-11 哈希链）', () => {
+    it('并发写不产生链分叉（串行队列，合成陌生人实测发现 brokenIndex）', async () => {
+      // 模拟 DB 语义：_lastHash 读当前最新 hash，save 追加；无串行队列时并发会读到同一 lastHash 分叉
+      (service as any)._tail = Promise.resolve();
+      const stored: Array<{ prevHash: string | null; hash: string }> = [];
+      let seq = 0;
+      (repo.createQueryBuilder as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockImplementation(async () =>
+          stored.length ? { hash: stored[stored.length - 1].hash } : null,
+        ),
+      });
+      repo.save.mockImplementation(async (e: any) => {
+        seq += 1;
+        const record = { ...e, hash: `h-${seq}` };
+        stored.push(record);
+        return record;
+      });
+
+      await Promise.all(
+        Array.from({ length: 5 }, () =>
+          service.log({ userId: '1', conversationId: 'c', action: 'chat', isError: false }),
+        ),
+      );
+
+      expect(stored).toHaveLength(5);
+      // 串行队列保证：每条 prevHash = 前一条 hash（无分叉）；首条 prevHash = null
+      expect(stored[0].prevHash).toBeNull();
+      for (let i = 1; i < stored.length; i++) {
+        expect(stored[i].prevHash).toBe(stored[i - 1].hash);
+      }
+    });
+
     it('保存审计条目并写入 prevHash + hash', async () => {
       chain.computeHash.mockReturnValue('computed-hash');
       await service.log({ userId: '1', action: 'chat', provider: 'deepseek' });
