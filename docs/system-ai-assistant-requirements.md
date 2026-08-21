@@ -14,7 +14,7 @@ Evolve AI-22 (admin AI chat) into a **System AI Assistant** for the admin consol
 
 | 角色 / Role | 说明 / Description |
 |------|------|
-| 系统管理员 / System Admin | 管理控制台登录用户（`role === 'admin'`，CASL `manage-all`）。唯一使用者。对话以系统账号 `'0'` 运行（沿用 AI-22 约定，v1 不区分管理员身份） / Admin console users. Sole audience. Chat runs under the headless system account `'0'` (AI-22 convention; v1 does not distinguish per-admin identity) |
+| 系统管理员 / System Admin | 管理控制台登录用户（`role === 'admin'`，CASL `manage-all`）。唯一使用者。对话以**真实管理员身份**运行——会话/记忆/限额/审计按管理员隔离 / Admin console users. Sole audience. Chat runs under the **real admin identity** — conversations/memory/quota/audit are isolated per admin |
 
 ## 3. 确认事项（已达成一致） / 3. Confirmed Decisions (Agreed)
 
@@ -26,7 +26,7 @@ Evolve AI-22 (admin AI chat) into a **System AI Assistant** for the admin consol
 | 4 | 系统上下文来源 / System Context Source | 复用 `GET /app/capabilities`（MODULES_MANIFEST 描述，已标注「AI 可消费」）、`AiService.getToolInventory()`（HS-2）、治理策略、应用版本、现有实时统计 / Reuse `/app/capabilities`, `getToolInventory()`, governance policy, app version, existing live stats |
 | 5 | 系统提示词 / System Prompt | 新增管理端专属 `ADMIN_SYSTEM_PROMPT`，通过可选 `ChatRequest.systemPrompt` 覆盖（向后兼容，用户侧 `/ai/chat` 不受影响）；绕过 Settings `ai_system_prompt`（by design） / New admin-only `ADMIN_SYSTEM_PROMPT` via optional `systemPrompt` override (backward-compatible) |
 | 6 | 管理端导航 / Admin Navigation | 新增 `navigate_admin_page` 工具 + `ADMIN_PAGE_ROUTES`（镜像前端 `routes.ts`），`adminOnly` 元数据首次强制执行；`adminMode` 关闭 Flutter 关键词导航短路 / New `navigate_admin_page` tool + page map; `adminOnly` metadata enforced for the first time; `adminMode` disables the Flutter nav keyword shortcut |
-| 7 | 会话身份 / Identity | v1 沿用系统账号 `'0'`（所有管理员共享会话命名空间）；**每管理员独立会话延后** / Keep `'0'` for v1 (shared namespace); per-admin identity deferred |
+| 7 | 会话身份 / Identity | **真实管理员身份**（`@CurrentUser().sub`），会话/记忆/限额/审计按管理员隔离；`navigate_admin_page` 的 `adminOnly` 门按角色（`role === 'admin'`）放行，`'0'` 仅 eval/兼容保留 / **Real admin identity**; `adminOnly` gate checks role; `'0'` kept only for eval/compat |
 | 8 | 前端 / Frontend | Web-Admin-Vue 从零新建「系统 AI 助手」聊天页（当前无任何 admin chat UI）/ Greenfield admin chat page in Web-Admin-Vue |
 | 9 | 文档 / Docs | 先文档后编码（§11.3）；接口表、模块列表、私有 roadmap 同步（§11.2/§11.5）/ Docs before code; sync endpoint tables, module list, private roadmap |
 
@@ -65,9 +65,8 @@ Evolve AI-22 (admin AI chat) into a **System AI Assistant** for the admin consol
 | # | 事项 / Item | 说明 / Rationale |
 |---|------|------|
 | 1 | L4 Act（模块生成/部署/复制） | 需确认通道 + 红线对齐；列为延后项 |
-| 2 | 每管理员独立会话身份 | v1 沿用 `'0'`；多管理员共享会话命名空间为已知限制 |
-| 3 | 管理端流式 + 确认通道 | 非流式写工具无法确认；流式 admin chat 延后 |
-| 4 | 端用户侧系统助手（生成应用自解释） | §8「自解释闭环」为长期愿景，单独立项，不在本次 |
+| 2 | 管理端流式 + 确认通道 | 非流式写工具无法确认；流式 admin chat 延后 |
+| 3 | 端用户侧系统助手（生成应用自解释） | §8「自解释闭环」为长期愿景，单独立项，不在本次 |
 
 ## 6. 验收标准 / 6. Acceptance Criteria
 

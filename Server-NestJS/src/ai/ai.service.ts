@@ -40,6 +40,7 @@ import {
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../common/entities/user.entity';
 import { NotFoundException } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
@@ -219,12 +220,18 @@ export class AiService {
       );
     }
 
-    // System AI Assistant：adminOnly 工具仅系统账号（'0'，管理端助手）可调用
+    // System AI Assistant：adminOnly 工具仅管理员（或系统账号 '0'——eval/兼容）可调用。
+    // 管理端助手已改为真实管理员身份，故按角色放行（与角色白名单一致实时查库）。
     if (perms.adminOnly && userId !== '0') {
-      throw new AuthorizationDeniedError(
-        `Tool "${toolName}" is admin-only`,
-        [{ name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' }],
-      );
+      const user = this.usersService
+        ? await this.usersService.findOne(Number(userId))
+        : null;
+      if (!user || user.role !== UserRole.ADMIN) {
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" is admin-only`,
+          [{ name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' }],
+        );
+      }
     }
 
     // headless 系统账号（userId '0'）：由 headless 层 API Key 鉴权，不重复拦截
