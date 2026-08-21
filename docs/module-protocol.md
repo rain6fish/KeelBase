@@ -185,6 +185,7 @@ node scripts/keelbase-init.mjs doctor   # 或 node scripts/keelbase-doctor.mjs
 
 ### 6.4 边界
 
-- **不实现**（1.0 后）：Runtime Provenance 独立 schema、System AI Assistant、`Built with KeelBase` badge 生态
+- **已实现**：运行时来源指纹 `GET /app/provenance`（来源身份 + 能力清单 + AI 工具指纹，2026-08-21）；`Built with KeelBase` badge 规范见 [built-with-keelbase.md](manual/built-with-keelbase.md)
+- **不实现**（1.0 后）：System AI Assistant；badge 生态发现（registry / 发现页，需第三方应用出现）
 - 清单只记「由生成器产生」的模块，手写模块不强制登记
 - 协议仍是语义源；清单是来源身份，**不是**运行时元数据引擎（对齐 §5 红线）
