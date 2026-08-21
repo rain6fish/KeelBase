@@ -41,8 +41,16 @@ export class TemplatesService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
+  /** 官方模板来源声明：基座版本（随发布更新） */
+  private readonly keelbaseVersion = '1.0.0';
+
   listTemplates(): AppTemplate[] {
-    return APP_TEMPLATES;
+    // 来源身份（§13.1 ④ 铺路）：官方模板统一附 provenance——「官方模板都携带来源身份」示范，
+    // 供 System AI Assistant（③）读模板时回答「这个模板基于什么」。
+    return APP_TEMPLATES.map((t) => ({
+      ...t,
+      provenance: { source: 'keelbase', templateId: t.id, keelbaseVersion: this.keelbaseVersion },
+    }));
   }
 
   async importTemplate(templateId: string, targetUserId?: number) {
