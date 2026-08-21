@@ -214,9 +214,9 @@ jobs:
       # 生产依赖漏洞审计：high/critical 即失败（2026-08-20 已清零 4 个 high，含 @nestjs/swagger→js-yaml/fast-uri）
       - name: 依赖漏洞审计
         run: npm audit --omit=dev --audit-level=high
-      # SBOM（SPDX）生成并上传，供供应链核查
+      # SBOM（SPDX）生成并上传，供供应链核查（npm sbom 输出到 stdout，重定向落盘；--output 不写文件）
       - name: 生成 SBOM
-        run: npm sbom --sbom-format spdx --omit=dev --output sbom.spdx.json
+        run: npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
       - uses: actions/upload-artifact@v4
         with:
           name: keelbase-sbom
