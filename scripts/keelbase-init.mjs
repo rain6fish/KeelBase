@@ -28,6 +28,7 @@ import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
+import { writeManifest } from './generator/manifest.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m',
@@ -39,6 +40,7 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs                    # 交互式引导（可输自然语言走 LLM）
   node scripts/keelbase-init.mjs --desc "图书管理，有书名、作者、价格"   # LLM 识别（EASY-2.1）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
+  node scripts/keelbase-init.mjs inspect              # 识别 KeelBase 应用（来源 + 能力指纹）
 
 已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol）：
   node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
@@ -133,6 +135,13 @@ async function brandReplace(brand, dryRun) {
 }
 
 async function main() {
+  // keelbase inspect 子命令：识别 KeelBase 应用（来源 + 能力指纹），委托独立脚本
+  if (process.argv[2] === 'inspect') {
+    const { runInspect } = await import('./keelbase-inspect.mjs');
+    process.exitCode = await runInspect(process.argv.slice(3));
+    return;
+  }
+
   const args = parseArgs(process.argv);
   if (args.help) {
     console.log(HELP);
@@ -290,6 +299,7 @@ async function main() {
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
     console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ai.module（query+create 工具）${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）+ Taro（app.config/explore）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
+    console.log(`${C.yellow}[dry-run] 将写 .keelbase/manifest.json（来源身份：generator/version/protocol/modules）${C.reset}`);
     return;
   }
 
@@ -320,6 +330,16 @@ async function main() {
       `${C.red}⚠ 接线 ${all.wired.length}/${total} 完成，${failed.length} 处锚点未命中——对应端可能残缺（build 检测不出），请手动检查：${C.reset}`,
     );
     for (const s of failed) console.log(`${C.red}  ✗ ${s.file}（${reasonZh(s.reason)}）${C.reset}`);
+  }
+
+  // ── Provenance DNA：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
+  try {
+    const man = await writeManifest(ctx.plural);
+    console.log(
+      `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,
+    );
+  } catch (err) {
+    console.log(`${C.yellow}△ 写来源清单跳过：${err.message}${C.reset}`);
   }
 
   // ── 品牌 ──
