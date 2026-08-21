@@ -2,15 +2,16 @@
 #
 # 1.0 Gate 1 — Golden Application = AI CRM 单一验收脚本（development-plan §7.3）
 #
-# 「一次跑通」8 项同时验证：Customer → Risk Analysis → Create Follow-up Task
-#   → 确认 → 写 → 审计 → 撤销（7 步业务闭环，e2e）+ Build 30min（keelbase init → 编译）。
+# 「一次跑通」9 项同时验证：Customer → Risk Analysis → Create Follow-up Task
+#   → 确认 → 写 → 审计 → 撤销（7 步业务闭环，e2e）+ Build 30min（keelbase init → 编译）
+#   + Provenance（.keelbase/manifest.json + keelbase inspect）。
 # 确定性、可进 CI；LLM 部分（真实 Agent 对话）由 LLM_ENV=1 标注（agent-benchmark）。
 #
 # 用法：
 #   ./scripts/verify-golden-application.sh          # 确定性（可 CI）
 #   LLM_ENV=1 ./scripts/verify-golden-application.sh # 标注 LLM 需人工/云端跑
 #
-# 输出：8 项 PASS/FAIL + 退出码（0=全过）
+# 输出：9 项 PASS/FAIL + 退出码（0=全过）
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -27,7 +28,7 @@ echo "模式：$([ "${LLM_ENV:-}" = "1" ] && echo '含 LLM 标注（需 LLM + �
 echo ""
 
 # ── 业务闭环：7 步一次跑通（golden-application.e2e-spec.ts）──────────────────
-echo "→ [1-7/8] AI CRM Golden Application 业务闭环（e2e）"
+echo "→ [1-7/9] AI CRM Golden Application 业务闭环（e2e）"
 (cd Server-NestJS && rm -f data/test.sqlite)
 E2E_OUT=$(cd Server-NestJS && node_modules/.bin/jest --config test/jest-e2e.json \
   test/golden-application.e2e-spec.ts 2>&1) || true
@@ -44,7 +45,7 @@ step "⑥ 撤销（本人撤销 → 软删不可见）" "⑥ 撤销"
 step "⑦ 所有权（越权撤销 → 404）" "⑦ 所有权"
 
 # ── Build：60s/10m/30m 的「30min 创造」证明（keelbase init → 编译）────────────
-echo "→ [8/8] Build 30min（生成器闭环 + 编译）"
+echo "→ [8/9] Build 30min（生成器闭环 + 编译）"
 if node scripts/keelbase-init.mjs --module cigolden --label 金 --fields title:string --dry-run >/dev/null 2>&1; then
   gate "⑧ Build(生成器 init)" pass
 else
@@ -54,6 +55,14 @@ if (cd Server-NestJS && npm run build >/dev/null 2>&1); then
   gate "⑧ Build(后端编译)" pass
 else
   gate "⑧ Build(后端编译)" fail "npm run build"
+fi
+
+# ── Provenance：来源身份清单 + inspect（Provenance DNA 最小切片）──────────────
+echo "→ [9/9] Provenance（.keelbase/manifest.json + keelbase inspect）"
+if [ -f .keelbase/manifest.json ] && node scripts/keelbase-init.mjs inspect >/dev/null 2>&1; then
+  gate "⑨ Provenance(manifest + inspect)" pass
+else
+  gate "⑨ Provenance(manifest + inspect)" fail "manifest 缺失或 inspect 退出非 0"
 fi
 
 # ── LLM 部分（真实 Agent 对话驱动闭环，需 LLM_ENV=1）─────────────────────────

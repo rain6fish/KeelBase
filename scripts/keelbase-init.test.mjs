@@ -29,6 +29,15 @@ import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
+import {
+  writeManifest,
+  readManifest,
+  mergeManifest,
+  manifestPath,
+  MANIFEST_SCHEMA,
+  MANIFEST_IDENTITY,
+  MANIFEST_PROTOCOL,
+} from './generator/manifest.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
 async function tempRoot() {
@@ -344,6 +353,68 @@ test('接线：锚点缺失 → 跳过 + 文件未破坏', async () => {
   assert.ok(after.startsWith(original.slice(0, 40)), 'app.module 未被破坏');
 });
 
+// ── Provenance DNA：.keelbase/manifest.json + keelbase inspect ─────────────────
+test('manifest：首次创建 + 幂等合并（多模块去重、schema/identity 固定）', async () => {
+  const root = await tempRoot();
+  await writeManifest('posts', root);
+
+  let man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.equal(man.schema, MANIFEST_SCHEMA);
+  assert.equal(man.identity, MANIFEST_IDENTITY);
+  assert.equal(man.protocol, MANIFEST_PROTOCOL);
+  assert.equal(man.generator, 'keelbase');
+  assert.ok(man.generatorVersion);
+  assert.deepEqual(man.modules, ['posts']);
+
+  // 幂等：同模块重跑不重复；新模块追加（排序）
+  await writeManifest('posts', root);
+  await writeManifest('notes', root);
+  await writeManifest('posts', root);
+  man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.modules, ['notes', 'posts']);
+  assert.deepEqual((await readManifest(root)).modules, ['notes', 'posts']);
+});
+
+test('manifest：mergeManifest 缺省 root 指向 cwd（.keelbase/manifest.json）', async () => {
+  const root = await tempRoot();
+  const merged = await mergeManifest('books', root);
+  assert.equal(manifestPath(root), `${root}/.keelbase/manifest.json`);
+  assert.ok(merged.modules.includes('books'));
+  // 未写入前 readManifest 返回 null（非 KeelBase 项目也是合法输入）
+  assert.equal(await readManifest(root), null);
+});
+
+test('端到端：inspect 子命令——有 manifest 退出 0 / 无 manifest 退出 1', async () => {
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const spawnRun = (root) =>
+    new Promise((resolve) => {
+      const p = spawn(process.execPath, [cli, 'inspect'], { cwd: root });
+      let o = '';
+      p.stdout.on('data', (d) => (o += d));
+      p.on('close', (code) => resolve({ code, o }));
+    });
+  const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+
+  // 无 manifest → 退出 1 + 干净提示（不抛栈）
+  const empty = await spawnRun(await tempRoot());
+  assert.equal(empty.code, 1);
+  assert.match(empty.o, /非 KeelBase 应用/);
+
+  // 有 manifest → 退出 0 + 输出来源身份与能力指纹
+  const root = await tempRoot();
+  await makeFixtures(root);
+  await write(BE(root, 'common/casl/casl-ability.factory.ts'), 'export {};\n');
+  await writeManifest('posts', root);
+  const ok = await spawnRun(root);
+  const plain = stripAnsi(ok.o);
+  assert.equal(ok.code, 0);
+  assert.match(plain, /KeelBase Application/);
+  assert.match(plain, /Protocol:\s+1\.0/);
+  assert.match(plain, /Modules:\s+posts/);
+  assert.match(plain, /✓\s+AI Tools/);
+  assert.match(plain, /✓\s+CASL Permission/);
+});
+
 // ── LLM（EASY-2.1） ──────────────────────────────────────────────────────────
 test('buildSpecPrompt：含描述与 JSON 约束', () => {
   const p = buildSpecPrompt('图书管理');
@@ -572,6 +643,10 @@ test('端到端：非交互 CLI 生成 + 接线', async () => {
   assert.match(app, /PostsModule/);
   const router = await readFile(FE(root, 'core/router/app_router.dart'), 'utf8');
   assert.match(router, /path: '\/posts'/);
+  // Provenance DNA：CLI 自动写 .keelbase/manifest.json（来源身份）
+  const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.equal(man.identity, MANIFEST_IDENTITY);
+  assert.ok(man.modules.includes('posts'));
 });
 
 test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () => {
