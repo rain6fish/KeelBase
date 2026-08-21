@@ -47,8 +47,8 @@
 | 6 | Adversarial Gate PASS | ✅ | 越权矩阵 + 攻击测试集 + 合成陌生人（§4 证据链）|
 | 7 | release-gate.sh PASS | ✅ | 确定性模式 **10/10**（Gate 1 + Build + Trust + Private）|
 | 8 | CI PASS | 🔶 在途 | release-gate CI job（并发会话接线，`ci.yml`）；现有 CI 其余 job 全绿 |
-| 9 | CHANGELOG / Release Notes 完成 | ⬜ | 待 1.0 RC 时生成 |
-| 10 | v1.0 compatibility / migration policy 明确 | ⬜ | 待补：升级兼容声明 + 迁移策略（见 §5）|
+| 9 | CHANGELOG / Release Notes 完成 | 🔶 | Unreleased 已归并（v0.9.2 后 94+ 提交）；1.0 RC 时定稿 |
+| 10 | v1.0 compatibility / migration policy 明确 | ✅ | operations.md §3.1——版本契约（v1.x additive-only）+ 双驱动迁移 + v0.9.x→v1.0 升级路径 + 兼容性声明 + 诚实声明 |
 
 **门槛**：10 项全勾选才进入 1.0 Candidate——「何时可发 1.0」由客观清单决定。
 
@@ -69,9 +69,8 @@
 ## 5. 遗留（Gate 4 收口前）
 
 - **CI PASS**：release-gate job 落 CI（并发在途）。
-- **compatibility / migration policy**：明确 v1.0 升级路径——`synchronize:false + migrationsRun:true` 生产模式、双驱动迁移（sqlite/pg）、既有 dev 库迁移兼容声明。
 - **CHANGELOG / Release Notes**：v0.9.2 之后的 94+ 提交归并已入 Unreleased；1.0 RC 时定稿。
-- **诚实声明**（§7.4 #5）：发布区分「技术 1.0」vs「市场验证后置」（External 为 1.0 后增长里程碑）。
+- **诚实声明**（§7.4 #5）：发布区分「技术 1.0」vs「市场验证后置」（External 为 1.0 后增长里程碑）——已写入 operations.md §3.1。
 
 ---
 

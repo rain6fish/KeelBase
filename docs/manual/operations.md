@@ -103,6 +103,30 @@ npm run migration:run
 - Prod: `synchronize: false`, run migrations manually
 - CI checks migration consistency: runs baseline + `migration:generate`, fails if drift
 
+### 3.1 v1.0 Compatibility / Upgrade Policy / v1.0 兼容与升级政策
+
+> 1.0 Candidate Exit Criteria #10（`release-1.0-candidate.md` §3）。
+
+**Version contract / 版本契约**：v1.0 为首个稳定发布。REST API（`/api/v1`）与 AI 工具契约（工具名/参数）在 v1.x 内**向后兼容（additive only）**——新增为兼容，破坏性变更进大版本。
+
+**Schema / 数据模式**：所有 schema 变更以**双驱动 TypeORM 迁移**（SQLite + PostgreSQL）发布；生产 `synchronize: false` + `migrationsRun: true`（无自动同步漂移）；CI 强制迁移一致性（baseline + `migration:generate`，有漂移即失败）。
+
+**Upgrade path v0.9.x → v1.0 / 升级路径**：
+1. 备份：`npm run backup`
+2. 拉取 v1.0 → `npm run build`
+3. 应用迁移：`npm run migration:run`
+4. 验证：`npm run healthcheck` + `npm run test:e2e`
+
+无需数据迁移——只要此前一直在跑迁移（schema 由迁移驱动）；`synchronize: true` 的开发库需对全新 baseline 跑一次 `migration:generate` 并对齐。
+
+**Backward compatibility statement / 兼容性声明**：
+- REST：v1.x 内 additive-only，废弃端点记入 CHANGELOG；
+- 环境变量：新变量带默认值（见 `.env.example`），删除仅在大版本；
+- `Settings` 动态配置：key 稳定，未知 key 忽略；
+- AI Agent 运行时（工具注册 / 确认 / 审计）为稳定契约，供插件/扩展依赖。
+
+**Honest declaration / 诚实声明**（§7.4 #5）：**技术 1.0**（稳定 API + 迁移契约）与**市场验证后置**（External developer validation = 1.0 后增长里程碑）分开表述，不混淆。
+
 ---
 
 ## 4. Backup & Restore / 备份与恢复
