@@ -69,13 +69,14 @@ rm -f Server-NestJS/src/migrations/*_GateCheck* 2>/dev/null || true
 
 # ── Run / Adversarial（LLM 部分，需 LLM_ENV=1）────────────────────────────────
 if [ "${LLM_ENV:-}" = "1" ]; then
-  echo "→ [Run/Adversarial] Agent Benchmark + 安全回归（需 LLM + 后端）"
-  echo "  先起后端（DeepSeek/Ollama），再："
-  echo "    PROVIDER=deepseek MODEL=deepseek-v4-flash BASE_URL=... node scripts/benchmark/agent-benchmark.mjs"
-  echo "    BASE_URL=... ./scripts/verify-security-eval.sh"
-  gate "Run/Adversarial(LLM)" fail "需 LLM_ENV 完整环境（起后端 + key）——确定性 Gate 已覆盖 Trust 主体"
+  echo "→ [Run/Adversarial] Agent Benchmark + 安全回归（自起隔离后端 + DeepSeek）"
+  if ./scripts/benchmark/run-adversarial.sh; then
+    gate "Run/Adversarial(LLM)" pass
+  else
+    gate "Run/Adversarial(LLM)" fail "run-adversarial.sh（缺 DEEPSEEK_API_KEY 或 LLM 场景未过）"
+  fi
 else
-  echo "→ [Run/Adversarial] LLM 部分标注（LLM_ENV=1 时跑 agent-benchmark + verify-security-eval）"
+  echo "→ [Run/Adversarial] LLM 部分标注（LLM_ENV=1 时自起后端跑 agent-benchmark + verify-security-eval）"
 fi
 
 echo ""
