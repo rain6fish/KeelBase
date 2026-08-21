@@ -17,6 +17,8 @@ import { QueueModule } from '../queue/queue.module';
 import { EncryptionModule } from '../common/utils/encryption.module';
 import { AiModule } from '../ai/ai.module';
 import { AdminAiController } from './admin-ai.controller';
+import { AdminAiService } from './admin-ai.service';
+import { AppVersionModule } from '../app-version/app-version.module';
 import { HeadlessModule } from '../headless/headless.module';
 
 @Module({
@@ -37,9 +39,10 @@ import { HeadlessModule } from '../headless/headless.module';
     QueueModule.register(),
     EncryptionModule,
     AiModule,
+    AppVersionModule,
     HeadlessModule,
   ],
   controllers: [AdminController, AdminAiController],
-  providers: [AdminService],
+  providers: [AdminService, AdminAiService],
 })
 export class AdminModule {}
