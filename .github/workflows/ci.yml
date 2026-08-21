@@ -127,6 +127,8 @@ jobs:
       - run: node --test scripts/keelbase-init.test.mjs
       # Provenance：仓库自带 manifest，inspect 应识别为 KeelBase 应用并退出 0
       - run: node scripts/keelbase-init.mjs inspect
+      # Provenance：doctor 四查（完整性/一致性/运行时/版本）应 PASS 退出 0
+      - run: node scripts/keelbase-init.mjs doctor
 
   # 合成陌生人冒烟（W3 harness 进 CI）：keelbase init 生成模块 → 编译 → 测试（防生成器闭环回归）
   stranger-smoke:
