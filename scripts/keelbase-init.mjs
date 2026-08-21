@@ -41,6 +41,7 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs --desc "图书管理，有书名、作者、价格"   # LLM 识别（EASY-2.1）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
   node scripts/keelbase-init.mjs inspect              # 识别 KeelBase 应用（来源 + 能力指纹）
+  node scripts/keelbase-init.mjs doctor               # 诊断 KeelBase 应用（完整性/一致性/运行时/版本）
 
 已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol）：
   node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
@@ -135,10 +136,15 @@ async function brandReplace(brand, dryRun) {
 }
 
 async function main() {
-  // keelbase inspect 子命令：识别 KeelBase 应用（来源 + 能力指纹），委托独立脚本
+  // keelbase inspect / doctor 子命令：识别 / 诊断，委托独立脚本
   if (process.argv[2] === 'inspect') {
     const { runInspect } = await import('./keelbase-inspect.mjs');
     process.exitCode = await runInspect(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === 'doctor') {
+    const { runDoctor } = await import('./keelbase-doctor.mjs');
+    process.exitCode = await runDoctor(process.argv.slice(3));
     return;
   }
 
@@ -335,9 +341,13 @@ async function main() {
   // ── Provenance：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
   try {
     const man = await writeManifest(ctx.plural);
-    console.log(
-      `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,
-    );
+    if (man.changed) {
+      console.log(
+        `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,
+      );
+    } else {
+      console.log(`${C.yellow}△ ${man.file} 未更新（${reasonZh(man.reason)}——清单由更新版本创建，勿覆盖）${C.reset}`);
+    }
   } catch (err) {
     console.log(`${C.yellow}△ 写来源清单跳过：${err.message}${C.reset}`);
   }
@@ -369,6 +379,7 @@ function reasonZh(reason) {
     case 'anchor-not-found': return '锚点未找到（可手动接线）';
     case 'anchor-ambiguous': return '锚点匹配多处（可手动接线）';
     case 'file-not-found': return '文件不存在';
+    case 'schema-mismatch': return 'schema 不匹配';
     default: return reason;
   }
 }
