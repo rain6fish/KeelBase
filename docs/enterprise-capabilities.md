@@ -4,6 +4,10 @@
 > 内部差距与待办见 [enterprise-readiness.md](enterprise-readiness.md)（活清单）；安全策略与披露见 [SECURITY.md](../SECURITY.md)。
 > This statement declares KeelBase's enterprise capabilities with concrete evidence (endpoints / docs / tests / tooling). Gaps live in enterprise-readiness.md; security policy lives in SECURITY.md.
 
+**双叙事 / Dual narrative**（§7.4 #4）：KeelBase 对外并列为两大叙事，不以前者遮蔽后者——
+1. **AI 能力**：Business-safe Agent——AI 不只会答，更在权限/确认/审计边界内真实干活（§9 Agent 治理 + 旗舰应用证明）；
+2. **数据主权 / Private AI**：数据不出域的私有化 AI 闭环——本地 LLM + 本地 Embedding + 本地审计全链路可验证（§10）。
+
 ---
 
 ## 1. 认证 / Authentication
@@ -62,9 +66,9 @@
 
 ## 10. 私有 AI / Private AI
 
-**能力**：本地 LLM（Ollama/vLLM OpenAI 兼容）无 Key 自动注册 + 本地 Embedding（bge-m3）+ 云→本地降级链 + 向量检索（pgvector）+ 离线镜像预置——「数据不出域」可验证闭环。
+**能力**：本地 LLM（Ollama/vLLM OpenAI 兼容）无 Key 自动注册 + 本地 Embedding（bge-m3）+ 云→本地降级链 + 向量检索（pgvector）+ 离线镜像预置——「数据不出域」全链路可验证闭环（对话 → 审计 `provider:ollama` → 本地 embedding → 哈希链 valid）。
 
-**证据**：`OLLAMA_BASE_URL` / `AI_PROVIDER=ollama`；[offline-deploy.md](manual/offline-deploy.md)。
+**证据**：`OLLAMA_BASE_URL` / `AI_PROVIDER=ollama`；[offline-deploy.md](manual/offline-deploy.md) + [private-ai-report.md](manual/private-ai-report.md)（2026-08-19 本机 Ollama Cloud OFF 全链路 8/8）+ `scripts/verify-private-ai.sh`（一键「数据不出域」验证）。
 
 ## 11. 测试与质量 / Testing & Quality
 
