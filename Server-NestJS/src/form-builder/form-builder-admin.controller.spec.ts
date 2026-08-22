@@ -1,5 +1,6 @@
 import { FormBuilderAdminController } from './form-builder-admin.controller';
 import { FormBuilderService } from './form-builder.service';
+import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 
 describe('FormBuilderAdminController', () => {
   let controller: FormBuilderAdminController;
@@ -36,5 +37,19 @@ describe('FormBuilderAdminController', () => {
 
     expect(controller.remove(1)).toBeUndefined();
     expect(formBuilder.removeSchema).toHaveBeenCalledWith(1);
+  });
+
+  it('全部端点声明 manage:all 策略', () => {
+    const ability = { can: jest.fn((a: string, r: string) => a === 'manage' && r === 'all') };
+    const proto = FormBuilderAdminController.prototype as any;
+    let count = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      count++;
+      for (const h of handlers) expect(h(ability)).toBe(true);
+    }
+    expect(count).toBe(5);
   });
 });

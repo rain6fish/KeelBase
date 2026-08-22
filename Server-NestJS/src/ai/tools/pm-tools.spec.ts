@@ -46,6 +46,23 @@ describe('PM tools', () => {
       expect(pmService.analyzeProjectRisk).toHaveBeenCalledWith(1, 7);
       expect((result.data as any).level).toBe('critical');
     });
+    it('toToolDefinition 生成合法函数工具定义', () => {
+      const def = tool.toToolDefinition();
+      expect(def.type).toBe('function');
+      expect(def.function.name).toBe('analyze_project_risk');
+      expect(def.function.parameters.required).toContain('projectId');
+    });
+    it('projectId 非法 → 参数错误', async () => {
+      const result = await tool.execute({ projectId: 'abc' }, '1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('必须是数字');
+    });
+    it('服务异常 → success:false', async () => {
+      pmService.analyzeProjectRisk.mockRejectedValue(new Error('risk engine down'));
+      const result = await tool.execute({ projectId: 1 }, '1');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('risk engine down');
+    });
   });
 
   describe('CreateProjectTaskTool', () => {

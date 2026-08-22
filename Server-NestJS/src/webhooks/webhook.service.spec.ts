@@ -1,5 +1,13 @@
 import { WebhookService } from './webhook.service';
 import { WebhookSubscription } from './webhook-subscription.entity';
+import { lookup } from 'dns/promises';
+
+jest.mock('dns/promises', () => ({
+  lookup: jest.fn(),
+}));
+
+// 捕获真实 _isBlockedHost 实现（beforeEach 会替换为 mock，单独测真实解析分支用）
+const realIsBlockedHost = (WebhookService.prototype as any)._isBlockedHost;
 
 function makeRepo(seed: Partial<WebhookSubscription>[] = []) {
   let rows: WebhookSubscription[] = seed.map((s) => ({
@@ -224,5 +232,79 @@ describe('WebhookService (PL-14)', () => {
     const repo = makeRepo([{ ...base(), id: 3 } as Partial<WebhookSubscription>]);
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     await expect(svc.setEnabled(1, 99, true)).resolves.toBeNull();
+  });
+
+  it('HTTP 非 2xx 状态码 → 投递失败返回 HTTP 状态错误', async () => {
+    const repo = makeRepo([{ ...base(), id: 1 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 500 });
+    (global as any).fetch = fetchMock;
+    const out = await svc.testDeliver(1, 1);
+    expect(out.delivered).toBe(false);
+    expect(out.error).toBe('HTTP 500');
+  });
+
+  it('重定向响应无 Location 头 → 按当前响应判定（不无限跟随）', async () => {
+    const repo = makeRepo([{ ...base(), id: 1 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest.fn().mockResolvedValue({ status: 302, ok: false, headers: { get: () => null } });
+    (global as any).fetch = fetchMock;
+    const out = await svc.testDeliver(1, 1);
+    expect(out.delivered).toBe(false);
+    expect(out.error).toBe('HTTP 302');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('重定向超过上限 → 判定失败（防重定向环）', async () => {
+    const repo = makeRepo([{ ...base(), id: 1 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ status: 302, ok: false, headers: { get: () => 'https://hop.example.com/next' } });
+    (global as any).fetch = fetchMock;
+    const out = await svc.testDeliver(1, 1);
+    expect(out.delivered).toBe(false);
+    expect(out.error).toBe('too-many-redirects');
+    // 初始 URL 一次 + 5 跳 → 6 次 fetch 后中止
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it('_isBlockedHost 真实实现：解析失败保守阻止；私网/公网正确判定', async () => {
+    (WebhookService.prototype as any)._isBlockedHost = realIsBlockedHost;
+    const mockLookup = lookup as jest.Mock;
+    const svc = new WebhookService(makeRepo() as any, { attempts: 1, backoffMs: 0 } as any);
+
+    // DNS 解析失败 → 保守阻止
+    mockLookup.mockRejectedValue(new Error('ENOTFOUND'));
+    await expect((svc as any)._isBlockedHost('nope.example.com')).resolves.toBe(true);
+
+    // 公网 IPv4 → 放行
+    mockLookup.mockResolvedValue([{ address: '8.8.8.8' }]);
+    await expect((svc as any)._isBlockedHost('public.example.com')).resolves.toBe(false);
+
+    // 私网 IPv4 → 阻止
+    mockLookup.mockResolvedValue([{ address: '10.1.2.3' }]);
+    await expect((svc as any)._isBlockedHost('private.example.com')).resolves.toBe(true);
+
+    // IPv6 回环/链接本地 → 阻止；公网 IPv6 → 放行
+    mockLookup.mockResolvedValue([{ address: '::1' }]);
+    await expect((svc as any)._isBlockedHost('v6.example.com')).resolves.toBe(true);
+    mockLookup.mockResolvedValue([{ address: '2001:4860:4860::8888' }]);
+    await expect((svc as any)._isBlockedHost('v6pub.example.com')).resolves.toBe(false);
+
+    // 解析出非 IP 地址 → 保守阻止
+    mockLookup.mockResolvedValue([{ address: 'not-an-ip' }]);
+    await expect((svc as any)._isBlockedHost('bad.example.com')).resolves.toBe(true);
+  });
+
+  it('eventsJson 非法 JSON 或非数组 → events 视为空', async () => {
+    const repo = makeRepo([
+      { ...base(), id: 1, eventsJson: 'not-json{' } as Partial<WebhookSubscription>,
+      { ...base(), id: 2, eventsJson: JSON.stringify({ a: 1 }) } as Partial<WebhookSubscription>,
+    ]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const list = await svc.list(1);
+    expect(list[0].events).toEqual([]);
+    expect(list[1].events).toEqual([]);
   });
 });
