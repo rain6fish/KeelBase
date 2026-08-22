@@ -29,7 +29,8 @@ describe('AiService', () => {
     getUserLogs: jest.Mock;
     getStats: jest.Mock;
     getAllStats: jest.Mock;
-    countChatsToday: jest.Mock;
+    reserveDailyUsage: jest.Mock;
+    releaseDailyUsage: jest.Mock;
   };
 
   const config = {
@@ -91,8 +92,8 @@ describe('AiService', () => {
       getUserLogs: jest.fn(),
       getStats: jest.fn(),
       getAllStats: jest.fn(),
-      countChatsToday: jest.fn().mockResolvedValue(0),
-      incrementDailyUsage: jest.fn().mockResolvedValue(undefined),
+      reserveDailyUsage: jest.fn().mockResolvedValue(true),
+      releaseDailyUsage: jest.fn().mockResolvedValue(undefined),
     };
 
     mockSettingsService = {
@@ -593,7 +594,7 @@ describe('AiService', () => {
         mockToolRegistry as any,
         mockConversationService as any,
         config,
-        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn(), countChatsToday: jest.fn().mockResolvedValue(0), incrementDailyUsage: jest.fn().mockResolvedValue(undefined) } as any,
+        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn(), reserveDailyUsage: jest.fn().mockResolvedValue(true), releaseDailyUsage: jest.fn().mockResolvedValue(undefined) } as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -1140,36 +1141,47 @@ describe('AiService', () => {
     });
   });
 
-  describe('RG-2.1 AI 每日限额', () => {
-    it('limit=0（不限）时正常放行', async () => {
+  describe('RG-2.1 AI 每日限额（原子预留）', () => {
+    it('limit=0（不限）时正常放行且不预留', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(0);
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
       await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
       expect(mockProvider.generate).toHaveBeenCalled();
+      expect(mockAuditService.reserveDailyUsage).not.toHaveBeenCalled();
     });
 
-    it('limit>0 且未超限时放行', async () => {
+    it('limit>0 且预留成功时放行（成功保留不计额外自增）', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
-      mockAuditService.countChatsToday.mockResolvedValue(3);
+      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
       await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
-      expect(mockAuditService.countChatsToday).toHaveBeenCalledWith('1');
+      expect(mockAuditService.reserveDailyUsage).toHaveBeenCalledWith('1', 10);
+      expect(mockAuditService.releaseDailyUsage).not.toHaveBeenCalled();
     });
 
-    it('limit>0 且已达上限时抛 AI_DAILY_LIMIT', async () => {
+    it('limit>0 且已达上限（预留失败）时抛 AI_DAILY_LIMIT', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
-      mockAuditService.countChatsToday.mockResolvedValue(10);
+      mockAuditService.reserveDailyUsage.mockResolvedValue(false);
 
       await expect(aiService.chat('1', { message: 'hi' }))
         .rejects.toMatchObject({ errorCode: 'AI_DAILY_LIMIT' });
       expect(mockProvider.generate).not.toHaveBeenCalled();
     });
 
+    it('对话失败时释放预留槽（不占当日额度）', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
+      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
+      mockProvider.generate.mockRejectedValue(new Error('provider down'));
+
+      await expect(aiService.chat('1', { message: 'hi' })).rejects.toThrow('provider down');
+      expect(mockAuditService.releaseDailyUsage).toHaveBeenCalledWith('1');
+    });
+
     it('流式 chatStream 同样校验限额', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
-      mockAuditService.countChatsToday.mockResolvedValue(5);
+      mockAuditService.reserveDailyUsage.mockResolvedValue(false);
 
       const chunks: StreamChunk[] = [];
       for await (const chunk of aiService.chatStream('1', { message: 'hi' })) {
@@ -1177,6 +1189,24 @@ describe('AiService', () => {
       }
       expect(chunks.some((c) => c.type === 'error')).toBe(true);
       expect(mockProvider.stream).not.toHaveBeenCalled();
+    });
+
+    it('流式 provider 失败：转 error chunk + done，保留预留（资源已消耗）', async () => {
+      mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
+      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
+      // stream 首块即抛错 → streamWithProviderFallback 内部转 error chunk + done（不抛给调用方）
+      mockProvider.stream.mockImplementation(() =>
+        (async function* () {
+          throw new Error('stream down');
+        })(),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'hi' })) chunks.push(chunk);
+
+      expect(chunks.some((c) => c.type === 'error')).toBe(true);
+      expect(chunks[chunks.length - 1].type).toBe('done');
+      expect(mockAuditService.releaseDailyUsage).not.toHaveBeenCalled();
     });
 
     it('未注入 SettingsService 时跳过限额', async () => {
@@ -1197,7 +1227,7 @@ describe('AiService', () => {
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
       await expect(bare.chat('1', { message: 'hi' })).resolves.toBeDefined();
-      expect(mockAuditService.countChatsToday).not.toHaveBeenCalled();
+      expect(mockAuditService.reserveDailyUsage).not.toHaveBeenCalled();
     });
   });
 
