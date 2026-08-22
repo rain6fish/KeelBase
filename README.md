@@ -280,6 +280,8 @@ Seed data (dev only) creates both accounts automatically on first backend start.
 | [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | External developers | Dev Challenge — 30-minute reproducible build (module + AI tool + confirmation + audit) with feedback form (Phase 3) |
 | [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | Maintainers | Release Gate — Gate 1-4 + Build / Run / Trust / Private / External checklist with commands & current status |
 | [`docs/manual/release-1.0-candidate.md`](docs/manual/release-1.0-candidate.md) | Maintainers | 1.0 Candidate (Gate 4) — scope slimming (AI CRM + Protocol + Runtime 治理), architecture freeze, Exit Criteria status tracker |
+| [`docs/manual/release-precheck.md`](docs/manual/release-precheck.md) | Maintainers | Release Precheck — pre-publish standard procedure (Alibaba OCR + Claude double code review → full tests → coverage) |
+| [`docs/release-notes-1.0.0.md`](docs/release-notes-1.0.0.md) | Everyone | v1.0.0 Release Notes — Business-safe AI Application Base (三件套证明 + Trust/Adversarial + Quality) |
 | [`docs/manual/flagship-task-card.md`](docs/manual/flagship-task-card.md) | Maintainers | Flagship LLM task card — real business tasks for CRM / Project / Approval with Agent Success Rate record (Run/Private verification) |
 | [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
 | [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | Developers / AI agents | Protocol ecosystem — Module/Flow/Tool/Plugin/Capability protocols & AI generation chain (P1-1) |

@@ -152,6 +152,20 @@ v1.0 Release Gate 结论：
 - External（1.0 后里程碑）: N 人 / 真实项目数（不阻塞）
 ```
 
+## v1.0.0 结论（2026-08-22 已发布）
+
+```text
+v1.0.0 Release Gate 结论：
+- Gate 1（Golden Application = AI CRM）: ✅ verify-golden-application.sh 9/9（确定性 7 步闭环 + Build）；LLM 视角 agent-benchmark 15/15
+- Build: ✅ 后端编译 + keelbase init dry-run（release-gate Build 段 PASS）
+- Run:   ✅ 三旗舰 3/3 SUCCESS（DeepSeek，ASR=100%）+ agent-benchmark Run 100%
+- Trust: ✅ verify-flagships 7/7 + 越权矩阵 39 + 安全评测 12/12 + 审计链 valid（并发分叉已修复）
+- Private: ✅ AIization + 迁移一致性（release-gate Private 段 PASS）+ verify-private-ai（Cloud OFF → Ollama 8/8）
+- 对抗性证明: ✅ 越权矩阵 39 + Agent Security Eval 12/12 + 合成陌生人 30min/60min 实测（卡点全修复）
+→ 四维 + 对抗性证明达标 → **v1.0.0 发布（2026-08-22）**
+- External（1.0 后里程碑）: ⬜ 待社区（不阻塞）
+```
+
 ## 相关
 
 - [dev-challenge.md](dev-challenge.md) — 外部开发者验收包
