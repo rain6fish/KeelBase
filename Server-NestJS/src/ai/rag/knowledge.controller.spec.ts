@@ -1,6 +1,19 @@
 import { BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
+import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
+
+// 捕获 FileInterceptor 的 multer options（fileFilter 仅在真实 multipart 处理时触发，
+// 单元测试从捕获的 options 中直接调用以覆盖 mimetype 校验分支）
+jest.mock('@nestjs/platform-express', () => ({
+  FileInterceptor: jest.fn(() => () => undefined),
+}));
+
+const fileInterceptorMock = FileInterceptor as unknown as jest.Mock;
+
+const getFileFilter = (): ((_req: any, file: any, cb: (err: Error | null, ok: boolean) => void) => void) =>
+  fileInterceptorMock.mock.calls[0][1].fileFilter;
 
 describe('KnowledgeController', () => {
   let controller: KnowledgeController;
@@ -71,5 +84,40 @@ describe('KnowledgeController', () => {
   it('调试查询为空抛 BadRequest', () => {
     expect(() => controller.debugSearch({ query: '   ' })).toThrow(BadRequestException);
     expect(knowledgeService.debugSearch).not.toHaveBeenCalled();
+  });
+
+  it('调试 limit 超上限被钳制到 20', () => {
+    knowledgeService.debugSearch.mockReturnValue({ results: [] });
+    controller.debugSearch({ query: '手册', limit: 99 });
+    expect(knowledgeService.debugSearch).toHaveBeenCalledWith('手册', 20);
+  });
+
+  it('multer fileFilter：PDF/DOCX mimetype 放行，其余拒绝', () => {
+    const fileFilter = getFileFilter();
+    const cb = jest.fn();
+
+    fileFilter(null, { mimetype: 'application/pdf' }, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
+
+    fileFilter(null, { mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
+
+    cb.mockClear();
+    fileFilter(null, { mimetype: 'text/plain' }, cb);
+    expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
+  });
+
+  it('所有端点声明 manage:all 策略', () => {
+    const ability = { can: jest.fn((a: string, r: string) => a === 'manage' && r === 'all') };
+    const proto = KnowledgeController.prototype as any;
+    let count = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      count++;
+      for (const h of handlers) expect(h(ability)).toBe(true);
+    }
+    expect(count).toBe(9);
   });
 });

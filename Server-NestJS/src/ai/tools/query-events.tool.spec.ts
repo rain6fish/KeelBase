@@ -76,6 +76,49 @@ describe('QueryEventsTool', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should filter cancelled events when status=cancelled', async () => {
+      const events = [
+        { id: 1, title: 'A', isCancelled: true },
+        { id: 2, title: 'B', isCancelled: false },
+      ];
+      mockEventsService.getEventsForRange.mockResolvedValue(events);
+
+      const result = await tool.execute(
+        { startDate: '2026-07-01', endDate: '2026-07-31', status: 'cancelled' },
+        '1',
+      );
+
+      expect(result.success).toBe(true);
+      expect((result.data as any[]).map((e) => e.id)).toEqual([1]);
+    });
+
+    it('should filter non-cancelled events when status=active', async () => {
+      const events = [
+        { id: 1, title: 'A', isCancelled: true },
+        { id: 2, title: 'B', isCancelled: false },
+      ];
+      mockEventsService.getEventsForRange.mockResolvedValue(events);
+
+      const result = await tool.execute(
+        { startDate: '2026-07-01', endDate: '2026-07-31', status: 'active' },
+        '1',
+      );
+
+      expect(result.success).toBe(true);
+      expect((result.data as any[]).map((e) => e.id)).toEqual([2]);
+    });
+
+    it('should default startDate/endDate to current month when not provided', async () => {
+      mockEventsService.getEventsForRange.mockResolvedValue(mockEvents);
+
+      const result = await tool.execute({}, '1');
+
+      expect(result.success).toBe(true);
+      const [start, end] = mockEventsService.getEventsForRange.mock.calls[0];
+      expect(start).toMatch(/^\d{4}-\d{2}-01$/); // 本月1日
+      expect(end).toMatch(/^\d{4}-\d{2}-\d{2}$/); // 今天
+    });
+
     it('should limit results when limit is provided', async () => {
       const manyEvents = Array.from({ length: 20 }, (_, i) => ({
         id: i + 1,
