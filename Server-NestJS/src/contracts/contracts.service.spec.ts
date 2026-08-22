@@ -65,4 +65,33 @@ describe('ContractsService', () => {
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
+
+  it('returns entity when CASL allows', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+
+    await expect(service.findOne(1, mockAbility(true))).resolves.toEqual({ id: 1, userId: 5 });
+  });
+
+  it('findAllForAdmin 全量列表（无 userId 过滤）', async () => {
+    mockRepo.find.mockResolvedValue([{ id: 2, userId: 9 }]);
+    const result = await service.findAllForAdmin();
+    expect(mockRepo.find).toHaveBeenCalledWith(expect.objectContaining({ order: { createdAt: 'DESC' } }));
+    expect(result).toHaveLength(1);
+  });
+
+  it('removeAsAdmin 软删任意合同', async () => {
+    mockRepo.softDelete.mockResolvedValue({ affected: 1 });
+    await service.removeAsAdmin(3);
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(3);
+  });
+
+  it('update 合并字段并保存', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, name: '旧' });
+    mockRepo.save.mockImplementation(async (d: any) => d);
+
+    const result = await service.update(1, { name: '新' } as any, mockAbility(true));
+
+    expect(result).toEqual(expect.objectContaining({ id: 1, name: '新' }));
+    expect(mockRepo.save).toHaveBeenCalled();
+  });
 });
