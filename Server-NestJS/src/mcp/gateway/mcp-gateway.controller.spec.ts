@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { McpGatewayController } from './mcp-gateway.controller';
 import { McpGatewayService } from './mcp-gateway.service';
+import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 
 describe('McpGatewayController (HS-10 入口 admin)', () => {
   let controller: McpGatewayController;
@@ -47,5 +48,24 @@ describe('McpGatewayController (HS-10 入口 admin)', () => {
   it('call 透传并带 userId', async () => {
     await controller.call(user as any, { serverName: 'wx', toolName: 't', arguments: { a: 1 } } as any);
     expect(gateway.callExternalTool).toHaveBeenCalledWith('wx', 't', { a: 1 }, '1');
+  });
+
+  it('call 缺 arguments 时兜底空对象', async () => {
+    await controller.call(user as any, { serverName: 'wx', toolName: 't' } as any);
+    expect(gateway.callExternalTool).toHaveBeenCalledWith('wx', 't', {}, '1');
+  });
+
+  it('全部端点声明 manage:all 策略', () => {
+    const ability = { can: jest.fn((a: string, r: string) => a === 'manage' && r === 'all') };
+    const proto = McpGatewayController.prototype as any;
+    let count = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      count++;
+      for (const h of handlers) expect(h(ability)).toBe(true);
+    }
+    expect(count).toBe(5);
   });
 });
