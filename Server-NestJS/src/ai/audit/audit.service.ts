@@ -7,7 +7,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import {
@@ -231,39 +231,31 @@ export class AuditService {
   }
 
   /**
-   * RG-2.1：统计用户今日非错误 AI 调用次数（限额校验用）。
-   * A2：改读独立计数表 ai_daily_usage，不再依赖 ai_audit_logs——
-   * HS-9 审计粒度 'off'/'write' 只关审计日志，不能关掉每日限额。
+   * RG-2.1 原子预留：AI 每日限额（ai_daily_limit）并发下不超限。
+   * 用原子条件 UPDATE（where count < limit）替代「读-判-写」，与 headless 配额同模式——
+   * 并发请求同时读到同一 used 集体越限的问题由此消除。
+   * 返回 true=预留成功（本次对话已计入限额）；false=已达限额。首写行不存在时先建 count=0。
    */
-  async countChatsToday(userId: string): Promise<number> {
+  async reserveDailyUsage(userId: string, limit: number): Promise<boolean> {
     const usageDate = this._todayKey();
-    const row = await this.usageRepo.findOne({ where: { userId, usageDate } });
-    return row?.count ?? 0;
+    try {
+      await this.usageRepo.save(this.usageRepo.create({ userId, usageDate, count: 0 }));
+    } catch {
+      // 行已存在（含并发首写唯一约束冲突）——忽略，走原子条件递增
+    }
+    const criteria: any = { userId, usageDate };
+    if (limit > 0) criteria.count = LessThan(limit);
+    const res = await this.usageRepo.update(criteria, { count: () => 'count + 1' });
+    return res.affected === 1;
   }
 
-  /**
-   * A2：成功（非错误）AI 对话完成时自增当日用量，独立于审计粒度写入。
-   */
-  async incrementDailyUsage(userId: string): Promise<void> {
+  /** 对话错误/失败时释放预留槽（保底：count>0 才递减，防负值）。 */
+  async releaseDailyUsage(userId: string): Promise<void> {
     const usageDate = this._todayKey();
-    const existing = await this.usageRepo.findOne({ where: { userId, usageDate } });
-    if (existing) {
-      existing.count += 1;
-      await this.usageRepo.save(existing);
-    } else {
-      try {
-        await this.usageRepo.save(
-          this.usageRepo.create({ userId, usageDate, count: 1 }),
-        );
-      } catch {
-        // 并发首写冲突：唯一约束兜底，改走自增路径
-        const row = await this.usageRepo.findOne({ where: { userId, usageDate } });
-        if (row) {
-          row.count += 1;
-          await this.usageRepo.save(row);
-        }
-      }
-    }
+    await this.usageRepo.update(
+      { userId, usageDate, count: MoreThan(0) },
+      { count: () => 'count - 1' },
+    );
   }
 
   private _todayKey(): string {

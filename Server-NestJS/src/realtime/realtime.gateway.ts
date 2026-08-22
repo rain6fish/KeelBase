@@ -21,7 +21,8 @@ import {
 } from './realtime.types';
 
 const HEARTBEAT_INTERVAL_MS = 30000;
-const AI_CHAT_LIMIT_PER_MIN = 30;
+/** ai:chat 节流窗口上限。窗口 = HEARTBEAT_INTERVAL_MS（心跳 sweep 同时重置 aiCalls，即 30 次/30s）。 */
+const AI_CHAT_LIMIT_PER_WINDOW = 30;
 
 interface ActiveStream {
   aborted: boolean;
@@ -149,7 +150,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
     const calls = (this.aiCalls.get(client) ?? 0) + 1;
     this.aiCalls.set(client, calls);
-    if (calls > AI_CHAT_LIMIT_PER_MIN) {
+    if (calls > AI_CHAT_LIMIT_PER_WINDOW) {
       this.send(client, WS_EVENTS.ERROR, { code: 'AI_RATE_LIMITED', message: 'ai:chat rate limit exceeded' });
       return;
     }

@@ -4,6 +4,15 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Fixed / 修复
+
+- **AI daily limit made concurrency-atomic (v1.0 review S3)**: `reserveDailyUsage` uses an atomic conditional increment (`WHERE count < limit`, same pattern as the headless quota) instead of read-check-write, so concurrent chats can no longer collectively exceed `ai_daily_limit`; failed chats release their reserved slot via `releaseDailyUsage` (only decrements when `count > 0`)
+  **AI 每日限额并发原子化（v1.0 review S3）**：`reserveDailyUsage` 用原子条件递增（`WHERE count < limit`，同 headless 配额）替代「读-判-写」，并发请求不再集体越过 `ai_daily_limit`；对话失败经 `releaseDailyUsage` 释放预留槽（仅 `count > 0` 时递减）
+- **WS `ai:chat` throttle window naming (v1.0 review S4)**: `AI_CHAT_LIMIT_PER_MIN` → `AI_CHAT_LIMIT_PER_WINDOW` with a comment — the window is the 30s heartbeat sweep, so the effective rate is 30/30s (≈60/min), matching the constant
+  **WS `ai:chat` 节流窗口命名（v1.0 review S4）**：`AI_CHAT_LIMIT_PER_MIN` → `AI_CHAT_LIMIT_PER_WINDOW` 并注明窗口=30s 心跳 sweep（实际 30 次/30s ≈ 60/min），常量名与行为一致
+
 ## [1.0.0] - 2026-08-22
 
 > **KeelBase 1.0 Release Notes**
