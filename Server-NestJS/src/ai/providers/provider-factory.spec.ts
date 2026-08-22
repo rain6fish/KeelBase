@@ -106,4 +106,34 @@ describe('LlmProviderFactory', () => {
       expect(names).toEqual(['deepseek', 'qwen']);
     });
   });
+
+  describe('registerCustom()', () => {
+    it('should register a custom provider and make it retrievable', () => {
+      const custom: LlmProvider = {
+        name: 'qianfan',
+        displayName: '千帆',
+        availableModels: ['ernie-4'],
+        chat: jest.fn(),
+        chatStream: jest.fn(),
+      } as unknown as LlmProvider;
+
+      const ret = factory.registerCustom(custom);
+
+      expect(ret).toBe(factory);
+      expect(factory.getProvider('qianfan')).toBe(custom);
+    });
+
+    it('should throw when registering a custom provider with a duplicate name', () => {
+      const custom: LlmProvider = {
+        name: 'dup',
+        displayName: 'Dup',
+        availableModels: ['m1'],
+      } as unknown as LlmProvider;
+      factory.registerCustom(custom);
+
+      expect(() => factory.registerCustom(custom)).toThrow(
+        'Provider "dup" is already registered',
+      );
+    });
+  });
 });

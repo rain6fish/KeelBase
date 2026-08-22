@@ -1,5 +1,6 @@
 import { OperationAuditController } from './operation-audit.controller';
 import { OperationAuditService } from './operation-audit.service';
+import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 
 describe('OperationAuditController', () => {
   let controller: OperationAuditController;
@@ -29,5 +30,19 @@ describe('OperationAuditController', () => {
     auditService.getStats.mockResolvedValue({ create_event: 3 });
     await expect(controller.stats()).resolves.toEqual({ create_event: 3 });
     expect(auditService.getStats).toHaveBeenCalled();
+  });
+
+  it('全部端点声明 manage:all 策略', () => {
+    const ability = { can: jest.fn((a: string, r: string) => a === 'manage' && r === 'all') };
+    const proto = OperationAuditController.prototype as any;
+    let count = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      count++;
+      for (const h of handlers) expect(h(ability)).toBe(true);
+    }
+    expect(count).toBe(3);
   });
 });

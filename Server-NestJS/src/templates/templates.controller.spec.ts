@@ -1,5 +1,6 @@
 import { TemplatesController } from './templates.controller';
 import { TemplatesService } from './templates.service';
+import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 
 describe('TemplatesController', () => {
   let controller: TemplatesController;
@@ -28,5 +29,19 @@ describe('TemplatesController', () => {
     service.importTemplate.mockResolvedValue({ events: 0, todos: 0 } as never);
     await expect(controller.importTemplate('daily', undefined)).resolves.toMatchObject({});
     expect(service.importTemplate).toHaveBeenCalledWith('daily', undefined);
+  });
+
+  it('两端点声明 manage:all 策略', () => {
+    const ability = { can: jest.fn((a: string, r: string) => a === 'manage' && r === 'all') };
+    const proto = TemplatesController.prototype as any;
+    let count = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      count++;
+      for (const h of handlers) expect(h(ability)).toBe(true);
+    }
+    expect(count).toBe(2);
   });
 });
