@@ -14,6 +14,11 @@ describe('AiController', () => {
   let mockDeleteAllUserConversations: jest.Mock;
   let mockGetConversationTrace: jest.Mock;
   let mockRevokeOwned: jest.Mock;
+  let mockConfirmResolve: jest.Mock;
+  let mockDeleteAllForUser: jest.Mock;
+  let mockGetToolInventory: jest.Mock;
+  let mockListToolEffects: jest.Mock;
+  let mockRevokeToolEffect: jest.Mock;
   let mockAbility: any;
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -27,8 +32,13 @@ describe('AiController', () => {
     mockDeleteAllUserConversations = jest.fn();
     mockGetConversationTrace = jest.fn();
     mockRevokeOwned = jest.fn();
+    mockConfirmResolve = jest.fn().mockReturnValue(true);
+    mockDeleteAllForUser = jest.fn();
+    mockGetToolInventory = jest.fn();
+    mockListToolEffects = jest.fn();
+    mockRevokeToolEffect = jest.fn();
     mockAbility = { cannot: () => false };
-    const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
+    const mockAiService = { chat: mockChat, chatStream: mockChatStream, getToolInventory: mockGetToolInventory } as unknown as AiService;
     const mockConversationService = {
       getUserConversations: mockGetUserConversations,
       getConversation: mockGetConversation,
@@ -36,11 +46,11 @@ describe('AiController', () => {
       deleteAllUserConversations: mockDeleteAllUserConversations,
     } as unknown as ConversationService;
     const mockConfirmationStore = {
-      resolve: jest.fn().mockReturnValue(true),
+      resolve: mockConfirmResolve,
       create: jest.fn(),
     } as any;
-    const mockMemoriesService = { deleteAllForUser: jest.fn() } as any;
-    const mockToolEffectsService = { list: jest.fn(), revoke: jest.fn(), revokeOwned: mockRevokeOwned } as any;
+    const mockMemoriesService = { deleteAllForUser: mockDeleteAllForUser } as any;
+    const mockToolEffectsService = { list: mockListToolEffects, revoke: mockRevokeToolEffect, revokeOwned: mockRevokeOwned } as any;
     const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
       mockAiService,
@@ -260,6 +270,69 @@ describe('AiController', () => {
 
       mockRevokeOwned.mockResolvedValue(null);
       await expect(controller.revokeMyToolEffect(7, mockUser as any)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('POST /ai/confirmations/:token', () => {
+    it('确认成功 → 返回 ok 与 trustTool', async () => {
+      mockConfirmResolve.mockReturnValue(true);
+      const result = await controller.confirm('tok-1', { decision: 'approve', trustTool: true }, mockUser as any);
+      expect(mockConfirmResolve).toHaveBeenCalledWith('tok-1', '1', 'approve', true);
+      expect(result).toEqual({ ok: true, trustTool: true });
+    });
+
+    it('确认失败（不存在/已过期）→ 404', async () => {
+      mockConfirmResolve.mockReturnValue(false);
+      await expect(
+        controller.confirm('tok-1', { decision: 'approve', trustTool: false }, mockUser as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('decision 为 reject 时透传 trustTool 默认 false', async () => {
+      mockConfirmResolve.mockReturnValue(true);
+      const result = await controller.confirm('tok-2', { decision: 'reject' }, mockUser as any);
+      expect(mockConfirmResolve).toHaveBeenCalledWith('tok-2', '1', 'reject', undefined);
+      expect(result).toEqual({ ok: true, trustTool: false });
+    });
+  });
+
+  describe('DELETE /ai/memory', () => {
+    it('清除当前用户长期记忆 → 调用 deleteAllForUser 并返回 null', async () => {
+      mockDeleteAllForUser.mockResolvedValue(undefined);
+      const result = await controller.clearMemory(mockUser as any);
+      expect(mockDeleteAllForUser).toHaveBeenCalledWith('1');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('管理员治理端点（HS-2/HS-3）', () => {
+    it('GET /ai/tools 委托 getToolInventory', () => {
+      const inventory = [{ name: 'create_event', risk: 'write' }];
+      mockGetToolInventory.mockReturnValue(inventory);
+      expect(controller.getTools()).toEqual(inventory);
+    });
+
+    it('GET /ai/tool-effects 无 userId → 不过滤', () => {
+      mockListToolEffects.mockReturnValue({ items: [], total: 0 });
+      controller.getToolEffects(undefined, 1, 20);
+      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: undefined, page: 1, limit: 20 });
+    });
+
+    it('GET /ai/tool-effects 带 userId（字符串）→ 转数字过滤', () => {
+      controller.getToolEffects('42', 1, 20);
+      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: 42, page: 1, limit: 20 });
+    });
+
+    it('DELETE /ai/tool-effects/:id 撤销成功 → 返回结果', async () => {
+      mockRevokeToolEffect.mockResolvedValue({ revoked: true, effectId: 1 });
+      const result = await controller.revokeToolEffect(1);
+      expect(mockRevokeToolEffect).toHaveBeenCalledWith(1);
+      expect(result).toEqual({ revoked: true, effectId: 1 });
+    });
+
+    it('DELETE /ai/tool-effects/:id 不存在 → 404', async () => {
+      mockRevokeToolEffect.mockResolvedValue(null);
+      await expect(controller.revokeToolEffect(1)).rejects.toThrow(NotFoundException);
     });
   });
 });
