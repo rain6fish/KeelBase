@@ -97,6 +97,36 @@ Widget wrapCupertinoPage(
   return MultiProvider(providers: providers, child: app);
 }
 
+/// 强制中文 locale、页面作为可 pop 路由 push 的 harness。
+/// 与 [wrapCupertinoPage] 的区别：
+/// 1. 页面通过 Navigator.push 进入（CupertinoNavigationBarBackButton 断言当前路由可 pop）；
+/// 2. localizationsDelegates 注册在 App 层，dialog/action sheet 里也能解析 AppLocalizations。
+Widget wrapPushableCupertinoPage(
+  Widget page, {
+  List<SingleChildWidget> providers = const [],
+}) {
+  Widget app = CupertinoApp(
+    locale: const Locale('zh', 'CN'),
+    supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: Builder(
+      builder: (context) => Center(
+        child: CupertinoButton(
+          onPressed: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(builder: (_) => page),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ),
+  );
+  if (providers.isEmpty) return app;
+  return MultiProvider(providers: providers, child: app);
+}
+
 /// 构造一个固定日期的 EventModel（避免 DateTime.now() 不确定性）。
 DateTime fixedDate({int year = 2026, int month = 8, int day = 10, int hour = 9}) {
   return DateTime(year, month, day, hour);
