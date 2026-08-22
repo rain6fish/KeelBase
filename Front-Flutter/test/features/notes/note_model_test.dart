@@ -12,6 +12,6 @@ void main() {
 
   test('toJson 往返', () {
     final note = NoteModel(id: 3, title: 'T', content: 'C');
-    expect(note.toJson(), {'id': 3, 'title': 'T', 'content': 'C'});
+    expect(note.toJson(), {'id': 3, 'title': 'T', 'content': 'C', 'category': 'work'});
   });
 }

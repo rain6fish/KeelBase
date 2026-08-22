@@ -128,7 +128,11 @@ export class UsersService {
       if (emailExists && emailExists.id !== id) {
         throw new ConflictException('Email already exists');
       }
+      const emailChanged = dto.email !== user.email; // 在赋值前记录旧值对比
       user.email = dto.email;
+      // 换邮箱后必须重新验证：否则可把已验证邮箱换成任意未验证地址仍保有「已验证」，
+      // 使 AI 写工具的 requireVerifiedEmail 门（HS-2）名存实亡
+      if (emailChanged) user.emailVerified = false;
     }
     if (dto.firstName !== undefined) user.firstName = dto.firstName;
     if (dto.lastName !== undefined) user.lastName = dto.lastName;

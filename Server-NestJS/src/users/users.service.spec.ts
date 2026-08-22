@@ -271,6 +271,31 @@ describe('UsersService', () => {
       await expect(service.update(1, { phone: '13800138000' } as UpdateUserDto)).rejects.toThrow(ConflictException);
     });
 
+    it('update 改 email：重置 emailVerified=false（防绕过 requireVerifiedEmail 门，HS-2）', async () => {
+      mockRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser, email: 'old@example.com', emailVerified: true }) // find user
+        .mockResolvedValueOnce(null); // 新邮箱未占用
+      mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+      await service.update(1, { email: 'new@example.com' } as UpdateUserDto);
+
+      const saved = mockRepository.save.mock.calls[0][0];
+      expect(saved.email).toBe('new@example.com');
+      expect(saved.emailVerified).toBe(false);
+    });
+
+    it('update email 不变：不重置 emailVerified', async () => {
+      mockRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser, email: 'same@example.com', emailVerified: true }) // find user
+        .mockResolvedValueOnce({ ...mockUser, id: 1 }); // 同邮箱查到自己
+      mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+      await service.update(1, { email: 'same@example.com' } as UpdateUserDto);
+
+      const saved = mockRepository.save.mock.calls[0][0];
+      expect(saved.emailVerified).toBe(true);
+    });
+
     it('should rehash password when provided', async () => {
       const originalPassword = mockUser.password;
       const userCopy = { ...mockUser };

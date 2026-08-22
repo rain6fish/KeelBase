@@ -145,8 +145,10 @@ export class AuditService {
       durationMs: r.durationMs ?? null,
       isError: r.isError ?? false,
       errorMessage: r.errorMessage ?? null,
-      feedback: r.feedback ?? null,
-      feedbackNote: r.feedbackNote ?? null,
+      // feedback/feedbackNote 是链外注解列（submitFeedback 后置更新且不重算 hash）：
+      // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止反馈写入断链（HS-11）
+      feedback: null,
+      feedbackNote: null,
     };
   }
 
