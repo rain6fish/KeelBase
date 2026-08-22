@@ -27,18 +27,20 @@ COPY --from=server-build /app/server/dist ./dist
  FROM scratch AS flutter-build
  COPY Front-Flutter/build/web /build/web
 
- # ---- Builder stage for Admin Console (Vue3 PC Web, /admin sub-path) ----
+ # ---- Builder stage for Admin Console (Vue3 PC Web) ----
+ # 双 surface 构建：build:user → dist/user（普通用户工作台，/user 子路径）；build:admin → dist/admin（管理台，/admin）
  FROM node:22-alpine AS admin-build
  WORKDIR /app/admin
  COPY Web-Admin-Vue/package*.json ./
  RUN npm ci
  COPY Web-Admin-Vue/ .
- RUN npm run build
+ RUN npm run build:user && npm run build:admin
 
- # ---- Nginx to serve Flutter web + admin console ----
+ # ---- Nginx to serve Flutter web + user workbench + admin console ----
  FROM nginx:alpine AS web
  COPY --from=flutter-build /build/web /usr/share/nginx/html/mobile
- COPY --from=admin-build /app/admin/dist /usr/share/nginx/html/admin
+ COPY --from=admin-build /app/admin/dist/user /usr/share/nginx/html/user
+ COPY --from=admin-build /app/admin/dist/admin /usr/share/nginx/html/admin
  COPY nginx.conf /etc/nginx/conf.d/default.conf
  EXPOSE 80
  # nginx master runs as root, workers drop to nobody — standard nginx security model
