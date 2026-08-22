@@ -114,6 +114,15 @@ describe('AdminAiService（System AI Assistant）', () => {
     expect(msg).toContain('内容统计');
   });
 
+  it('消息包含来源身份（manifest 来源清单，答「这是什么系统」）', async () => {
+    await service.assistantChat(5, { message: '这是什么系统？' });
+    const msg: string = aiService.chat.mock.calls[0][1].message;
+
+    expect(msg).toContain('来源身份:');
+    expect(msg).toContain('protocol'); // manifest protocol 版本
+    expect(msg).toContain('来源模块:');
+  });
+
   it('透出 navigateTo/toolCalls', async () => {
     const result = await service.assistantChat(5, { message: '打开系统信息页' });
 
