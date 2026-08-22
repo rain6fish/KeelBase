@@ -15,6 +15,10 @@ export const auditApi = {
   stats(since?: string): Promise<UsageStats> {
     return api.get<UsageStats>('/audit/stats', { ...(since ? { since } : {}) })
   },
+  /** HS-11 审计哈希链完整性校验 */
+  verify(): Promise<{ valid: boolean; brokenIndex?: number; total?: number }> {
+    return api.get('/audit/verify')
+  },
   opLogs(page = 1, limit = 20, userId?: string, since?: string): Promise<Paginated<OperationAuditLog>> {
     return api.get<Paginated<OperationAuditLog>>('/audit/operations/logs', {
       page,
