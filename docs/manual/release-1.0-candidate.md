@@ -68,7 +68,7 @@
 
 ## 5. 遗留（Gate 4 收口前）
 
-- **✅ CI PASS**：GitHub Actions 全绿（run 32481093705，13/13）——release-gate 确定性 10/10 + postgres 迁移 job + 迁移修复 + supply-chain SBOM + run-adversarial job（云端非阻塞），均已实跑确认。
+- **✅ CI PASS**：GitHub Actions 全绿（run 32481093705，13/13 为 merge 前基线；merge 777a436 曾因 run-adversarial 步骤级 `if` 引用 secrets 致 workflow 解析失败 0s，752066d 修复后 **14/14 全绿**，v1.0.0 tag 已含修复）——release-gate 确定性 10/10 + postgres 迁移 job + 迁移修复 + supply-chain SBOM + run-adversarial job（云端非阻塞），均已实跑确认。
 - **✅ CHANGELOG / Release Notes**：v0.9.2 之后的 94+ 提交归并已入 `[1.0.0] - 2026-08-22`；1.0 定位摘要 + 发布前检查记录已补；`docs/release-notes-1.0.0.md` 已建。
 - **✅ 诚实声明**（§7.4 #5）：发布区分「技术 1.0」vs「市场验证后置」（External 为 1.0 后增长里程碑）——已写入 operations.md §3.1。
 - **✅ v1.0.0 发布**（2026-08-22）：版本 bump 0.9.x→1.0.0（四端 + 根 + app-version）+ 发布前标准程序（双重 code review / 全量测试 / 覆盖率达标）→ Full Acceptance（release-gate 确定性）→ tag v1.0.0 + Release Notes + GitHub Release。
