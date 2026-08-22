@@ -31,6 +31,8 @@ export interface AuditEntry {
   durationMs?: number;
   isError?: boolean;
   errorMessage?: string;
+  /** W5-⑦ Explainable Authz：工具被拒时 AuthorizationDeniedError.reasons 的 JSON（checks[]） */
+  authorization?: string;
 }
 
 export interface UsageStats {
@@ -54,6 +56,7 @@ export interface AiAuditLogWithUser {
   durationMs?: number | null;
   isError: boolean;
   errorMessage?: string | null;
+  authorization?: string | null;
   createdAt: string;
   username?: string | null;
 }
@@ -89,6 +92,7 @@ export class AuditService {
           durationMs: entry.durationMs,
           isError: entry.isError ?? false,
           errorMessage: entry.errorMessage,
+          authorization: entry.authorization,
         }),
       );
       await this.logRepo.save({
@@ -105,6 +109,7 @@ export class AuditService {
         durationMs: entry.durationMs,
         isError: entry.isError ?? false,
         errorMessage: entry.errorMessage,
+        authorization: entry.authorization,
         prevHash,
         hash,
       });
@@ -145,6 +150,7 @@ export class AuditService {
       durationMs: r.durationMs ?? null,
       isError: r.isError ?? false,
       errorMessage: r.errorMessage ?? null,
+      authorization: r.authorization ?? null,
       // feedback/feedbackNote 是链外注解列（submitFeedback 后置更新且不重算 hash）：
       // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止反馈写入断链（HS-11）
       feedback: null,
@@ -223,6 +229,7 @@ export class AuditService {
       durationMs: r.log_duration_ms != null ? Number(r.log_duration_ms) : null,
       isError: Boolean(r.log_is_error),
       errorMessage: r.log_error_message ?? null,
+      authorization: r.log_authorization ?? null,
       feedback: r.log_feedback ?? null,
       feedbackNote: r.log_feedback_note ?? null,
       createdAt: String(r.log_createdAt),
