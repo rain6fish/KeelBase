@@ -59,6 +59,14 @@
                   class="mt-1"
                 />
                 <div v-if="!s.success && s.errorMessage" class="text-body-2 text-error mt-1">{{ s.errorMessage }}</div>
+                <!-- W5-⑦ Explainable Authz：被拒工具的结构化检查清单（为何阻止） -->
+                <div v-if="s.checks && s.checks.length" class="mt-1 pa-2" style="background: var(--el-fill-color-light); border-radius: 4px">
+                  <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('traceDeniedTitle') }}</div>
+                  <div v-for="c in s.checks" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+                    <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="16" />
+                    <span :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
+                  </div>
+                </div>
               </div>
 
               <!-- 写操作确认 -->
@@ -104,6 +112,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
