@@ -223,11 +223,29 @@ export interface AdminAiTool {
   enabled: boolean
   requiresConfirmation: boolean
   allowedRoles: string[]
+  /** W5 Risk-based Tool Contract：R0-R5 风险级 + 策略（auto/policy/confirmation/human_approval/block） */
+  riskLevel?: string
+  riskStrategy?: string
   permissions: {
     requireVerifiedEmail?: boolean
     featureFlag?: string
     adminOnly?: boolean
   } | null
+}
+
+/** R4 双人审批请求（管理端审批页） */
+export interface AiApprovalRequest {
+  id: number
+  token: string
+  toolName: string
+  args: string
+  operatorId: string
+  conversationId?: string | null
+  riskLevel: string
+  status: 'pending' | 'approved' | 'declined'
+  approverId?: string | null
+  decidedAt?: string | null
+  createdAt: string
 }
 
 export interface SettingRow {
@@ -289,4 +307,21 @@ export interface AdminAiChatResponse {
   conversationId: string
   navigateTo?: string
   toolCalls?: string[]
+}
+
+// 对话历史（GET /ai/conversations，admin 复用本人历史接口）
+export interface AiConversationMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
+  timestamp?: string
+}
+
+export interface AiConversationSummary {
+  id: string
+  provider?: string
+  model?: string
+  summary?: string
+  messages: AiConversationMessage[]
+  createdAt: string
+  lastActivityAt: string
 }

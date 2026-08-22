@@ -6,7 +6,7 @@
  */
 
 import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
@@ -38,6 +38,7 @@ import { AiConversation } from './conversation/ai-conversation.entity';
 import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
 import { AiDailyUsage } from './audit/ai-daily-usage.entity';
+import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { QueryEventsTool } from './tools/query-events.tool';
 import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
 import { QueryUserStatsTool } from './tools/query-user-stats.tool';
@@ -111,7 +112,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
   providers: [
@@ -150,6 +151,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         crmService: CrmService,
         pmService: PmService,
         approvalService: ApprovalService,
+        approvalsRepo,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -289,9 +291,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           usersService,
           toolEffectsService,
           governancePolicy,
+          approvalsRepo,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest)],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],

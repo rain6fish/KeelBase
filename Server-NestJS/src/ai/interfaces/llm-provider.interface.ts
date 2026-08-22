@@ -59,6 +59,8 @@ export interface ConfirmationRequestData {
   arguments: Record<string, unknown>;
   /** W5-⑦ Explainable Authz：为何需确认（风险级/策略/检查清单） */
   authorization?: AuthorizationReasons;
+  /** R4 双人审批：'approval' = 已提交人工审批（operator 不阻塞）；缺省 = 本人即时确认（R3） */
+  mode?: 'immediate' | 'approval';
 }
 
 /** 写操作确认结果数据 */
