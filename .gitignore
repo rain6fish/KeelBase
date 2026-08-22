@@ -14,6 +14,7 @@ build/
 .env.test
 .env.staging
 .env.production
+.env.private-ai
 
 # IDE
 .idea/
