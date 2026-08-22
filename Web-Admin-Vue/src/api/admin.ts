@@ -3,6 +3,8 @@ import type {
   AdminAiChatRequest,
   AdminAiChatResponse,
   AdminSession,
+  AiConversationMessage,
+  AiConversationSummary,
   AnalyticsResponse,
   AppVersionInfo,
   BroadcastResult,
@@ -12,6 +14,14 @@ import type {
   TrashResponse,
   TrashRestoreResult,
 } from '@/types/admin'
+
+/** 校验对话 id，防止路径穿越（与 Flutter AiConversationRepository 一致） */
+function validateConversationId(id: string): string {
+  if (!id || id.includes('/') || id.includes('?') || id.includes('#') || id.includes('..')) {
+    throw new Error('Invalid conversation id')
+  }
+  return id
+}
 
 export const adminApi = {
   monitorSummary(): Promise<MonitorSummary> {
@@ -48,5 +58,17 @@ export const adminApi = {
   // System AI Assistant（管理端 AI 助手）
   adminAiChat(data: AdminAiChatRequest): Promise<AdminAiChatResponse> {
     return api.post<AdminAiChatResponse>('/admin/ai/chat', data)
+  },
+  // 对话历史（admin 复用本人 /ai/conversations，与普通用户 AI 聊天一致）
+  aiConversations(): Promise<AiConversationSummary[]> {
+    return api.get<AiConversationSummary[]>('/ai/conversations')
+  },
+  aiConversation(id: string): Promise<AiConversationSummary & { messages: AiConversationMessage[] }> {
+    return api.get<AiConversationSummary & { messages: AiConversationMessage[] }>(
+      `/ai/conversations/${validateConversationId(id)}`,
+    )
+  },
+  deleteAiConversation(id: string): Promise<null> {
+    return api.delete<null>(`/ai/conversations/${validateConversationId(id)}`)
   },
 }
