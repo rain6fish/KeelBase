@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AdminAiTool, SettingRow, ToolEffectsResponse } from '@/types/admin'
+import type { AdminAiTool, AiApprovalRequest, SettingRow, ToolEffectsResponse } from '@/types/admin'
 
 export const aiToolsApi = {
   tools(): Promise<AdminAiTool[]> {
@@ -23,5 +23,17 @@ export const aiToolsApi = {
   /** HS-9 保存治理策略（写 Settings 即实时生效，无需发版）。 */
   savePolicy(value: string): Promise<unknown> {
     return api.put('/settings/ai_governance_policy', { value, type: 'string' })
+  },
+  /** R4 双人审批：待审批列表（管理员） */
+  approvals(): Promise<AiApprovalRequest[]> {
+    return api.get('/ai/confirmations/pending')
+  },
+  /** R4 双人审批：已审批历史（管理员） */
+  decidedApprovals(): Promise<AiApprovalRequest[]> {
+    return api.get('/ai/confirmations/decided')
+  },
+  /** R4 双人审批：approver 决策（approve → 以 operator 维度执行工具） */
+  decideApproval(token: string, decision: 'approve' | 'decline'): Promise<{ ok: boolean; success?: boolean; resultId?: unknown; message?: string }> {
+    return api.post(`/ai/confirmations/${token}/approve-by`, { decision })
   },
 }
