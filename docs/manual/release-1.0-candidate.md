@@ -46,7 +46,7 @@
 | 5 | Private Gate PASS | ✅ | private-ai-report（Cloud OFF → Ollama 8/8）+ verify-private-ai.sh |
 | 6 | Adversarial Gate PASS | ✅ | 越权矩阵 + 攻击测试集 + 合成陌生人（§4 证据链）|
 | 7 | release-gate.sh PASS | ✅ | 确定性模式 **10/10**（Gate 1 + Build + Trust + Private）|
-| 8 | CI PASS | ✅ | GitHub Actions 全绿（2026-08-21，run 32481093705，13/13 job）——含 `release-gate` 确定性 10/10（修复脚本执行位 100755，5904e3e）+ postgres 迁移一致性 job（f635ab3）+ `AddAiAuditIdentity` 迁移修复（bf27ec3）+ supply-chain SBOM 落盘修复（5904e3e）+ `run-adversarial` job（云端 LLM 非阻塞，continue-on-error，9407250）；lint/test/cov/web-admin/cli-test/core-boundary/stranger-smoke/flutter-analyze/taro-build 全部通过 |
+| 8 | CI PASS | ✅ | GitHub Actions 全绿（2026-08-21，run 32481093705，13/13 job）——含 `release-gate` 确定性 10/10（修复脚本执行位 100755，5904e3e）+ postgres 迁移一致性 job（f635ab3）+ `AddAiAuditIdentity` 迁移修复（bf27ec3）+ supply-chain SBOM 落盘修复（5904e3e）+ `run-adversarial` job（云端 LLM 非阻塞，continue-on-error，9407250）；lint/test/cov/web-admin/cli-test/core-boundary/stranger-smoke/flutter-analyze/taro-build 全部通过。**⚠ 2026-08-22 修复**：merge 777a436 引入的 `run-adversarial` 步骤级 `if: ${{ secrets… }}` 直接引用 secrets 导致 workflow 解析失败（merge 后 CI 全部 0s fail），改 job 级 env 透传（752066d）后 CI 恢复；v1.0.0 tag 已含修复 |
 | 9 | CHANGELOG / Release Notes 完成 | ✅ | `[1.0.0] - 2026-08-22` 定稿：Unreleased 移入 1.0.0（v0.9.2 后 94+ 提交归并）+ 1.0 定位摘要（三件套证明 + 关键交付）+ 发布前检查记录（CHANGELOG.md）+ `docs/release-notes-1.0.0.md` |
 | 10 | v1.0 compatibility / migration policy 明确 | ✅ | operations.md §3.1——版本契约（v1.x additive-only）+ 双驱动迁移 + v0.9.x→v1.0 升级路径 + 兼容性声明 + 诚实声明 |
 
