@@ -120,6 +120,7 @@ const en: ZhDict = {
   stepNotice: 'AI action',
   stepSuccess: 'Success',
   stepFailed: 'Failed',
+  traceDeniedTitle: 'Denied — why blocked',
   stepApproved: 'Approved',
   stepDeclined: 'Declined',
   stepTimedOut: 'Timed out',

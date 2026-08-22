@@ -68,6 +68,8 @@ export interface TraceStep {
   args?: string
   success?: boolean
   errorMessage?: string | null
+  /** W5-⑦ Explainable Authz：工具被拒时检查清单（为何阻止） */
+  checks?: Array<{ name: string; ok: boolean; note?: string }>
   outcome?: 'approve' | 'decline' | 'timeout'
   trusted?: boolean
   content?: string

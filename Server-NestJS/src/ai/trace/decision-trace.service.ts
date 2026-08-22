@@ -41,6 +41,8 @@ export interface TraceStep {
   args?: string;
   success?: boolean;
   errorMessage?: string | null;
+  /** W5-⑦ Explainable Authz：工具被拒时 AuthorizationDeniedError 的检查清单（为何阻止） */
+  checks?: Array<{ name: string; ok: boolean; note?: string }>;
   outcome?: 'approve' | 'decline' | 'timeout';
   trusted?: boolean;
   content?: string;
@@ -111,6 +113,7 @@ export class DecisionTraceService {
           args,
           success: !log.isError,
           errorMessage: log.errorMessage,
+          checks: parseChecks(log.authorization),
         });
       } else if (log.action === 'tool_confirmation') {
         const parsed = parseConfirmation(log.detail);
@@ -169,6 +172,17 @@ export class DecisionTraceService {
       },
       steps,
     };
+  }
+}
+
+/** W5-⑦：authorization 列是 AuthorizationDeniedError.reasons（checks[]）的 JSON；非法/缺失返回 undefined */
+function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; note?: string }> | undefined {
+  if (!raw) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : undefined;
+  } catch {
+    return undefined;
   }
 }
 
