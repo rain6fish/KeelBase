@@ -123,19 +123,20 @@ export class AiService {
   ) {}
 
   /**
-   * RG-2.1 AI 每日限额：Settings 里 ai_daily_limit（>0 时启用）按用户当日
-   * 非错误调用次数拦截。未注入 SettingsService（单测/降级）时跳过。
+   * RG-2.1 AI 每日限额：Settings 里 ai_daily_limit（>0 时启用）原子预留当日槽位
+   * （AuditService.reserveDailyUsage 条件递增），并发请求不再集体越限。
+   * 返回 true=已预留（对话进行中即计入，成功后保留、失败由调用方 release）；
+   * false=未注入 SettingsService / 未启用限额（单测/降级场景）。
    */
-  private async enforceDailyLimit(userId: string): Promise<void> {
+  private async enforceDailyLimit(userId: string): Promise<boolean> {
     const settings = this.settingsService;
-    if (!settings) return;
+    if (!settings) return false;
     const limit = await settings.getAiDailyLimit();
-    if (limit <= 0) return; // 0 = 不限
+    if (limit <= 0) return false; // 0 = 不限
 
-    const used = await this.auditService.countChatsToday(userId);
-    if (used >= limit) {
-      throw BusinessException.of('AI_DAILY_LIMIT');
-    }
+    const reserved = await this.auditService.reserveDailyUsage(userId, limit);
+    if (!reserved) throw BusinessException.of('AI_DAILY_LIMIT');
+    return true;
   }
 
   /** 对话所有权 CASL ability（userId 是 string，sub 转 number；普通 user） */
@@ -529,14 +530,19 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): Promise<ChatResponse> {
-    await this.enforceDailyLimit(userId);
-    return withSpan('ai.chat', async () => {
-      return this.chatImpl(userId, request);
-    }, {
-      'ai.user_id': userId,
-      'ai.provider': request.provider,
-      'ai.model': request.model,
-    });
+    const reserved = await this.enforceDailyLimit(userId);
+    try {
+      return await withSpan('ai.chat', async () => {
+        return this.chatImpl(userId, request);
+      }, {
+        'ai.user_id': userId,
+        'ai.provider': request.provider,
+        'ai.model': request.model,
+      });
+    } catch (err) {
+      if (reserved) await this.auditService.releaseDailyUsage(userId).catch(() => {});
+      throw err;
+    }
   }
 
   /** chat 实际实现（被 chat 的业务 span 包装；拆分便于单独加 span 而不影响外部调用方） */
@@ -643,9 +649,6 @@ export class AiService {
           model: request.model ?? this.config.defaultModel,
         });
       }
-      // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
-      await this.auditService.incrementDailyUsage(userId);
-
       return {
         conversationId,
         reply: ragResult.content,
@@ -807,9 +810,6 @@ export class AiService {
         completionTokens: usage?.completionTokens,
       });
     }
-    // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
-    await this.auditService.incrementDailyUsage(userId);
-
     return {
       conversationId,
       reply: finalContent,
@@ -829,8 +829,9 @@ export class AiService {
     request: ChatRequest,
   ): AsyncIterable<StreamChunk> {
     // RG-2.1：流式路径限额超限 → 转为 error chunk（不抛给迭代器）
+    let reserved = false;
     try {
-      await this.enforceDailyLimit(userId);
+      reserved = await this.enforceDailyLimit(userId);
     } catch (err) {
       yield { type: 'error', error: (err as Error).message };
       return;
@@ -847,6 +848,8 @@ export class AiService {
       yield* this.chatStreamImpl(userId, request);
       span.end();
     } catch (err) {
+      // 对话失败释放预留槽（成功保留 = 计入当日用量）
+      if (reserved) await this.auditService.releaseDailyUsage(userId).catch(() => {});
       span.recordException(err as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
       span.end();
@@ -979,8 +982,6 @@ export class AiService {
             model,
           });
         }
-        // A2：每日限额计数独立于审计粒度，成功对话必然自增（审计 off/write 不影响限额）
-        await this.auditService.incrementDailyUsage(userId);
         // fire-and-forget：规则式抽取用户记忆，不阻塞对话
         void this.memoryService
           .extractFromTurn(userId, request.message, conversationId)

@@ -29,6 +29,7 @@ function makeUsageRepo() {
     findOne: jest.fn().mockResolvedValue(null),
     save: jest.fn((x) => Promise.resolve(x)),
     create: jest.fn((x) => x ?? {}),
+    update: jest.fn(async () => ({ affected: 1, raw: {} })),
   };
 }
 
@@ -56,46 +57,36 @@ describe('AuditService', () => {
     service = moduleRef.get(AuditService);
   });
 
-  describe('countChatsToday / incrementDailyUsage（RG-2.1 / A2）', () => {
-    it('从独立计数表读取当日用量（不依赖审计粒度）', async () => {
-      usageRepo.findOne.mockResolvedValue({ userId: '42', usageDate: '2026-08-15', count: 7 });
-
-      const count = await service.countChatsToday('42');
-
-      expect(count).toBe(7);
-      expect(usageRepo.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ userId: '42' }) }),
+  describe('reserveDailyUsage / releaseDailyUsage（RG-2.1 原子预留）', () => {
+    it('行不存在时先建 count=0 再原子递增 → 预留成功', async () => {
+      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' }); // 首写冲突（行已存在）
+      const ok = await service.reserveDailyUsage('42', 10);
+      expect(ok).toBe(true);
+      expect(usageRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '42', count: expect.anything() }),
+        { count: expect.any(Function) },
       );
     });
 
-    it('无记录时返回 0', async () => {
-      usageRepo.findOne.mockResolvedValue(null);
-      await expect(service.countChatsToday('42')).resolves.toBe(0);
-    });
-
-    it('已有记录时自增 count', async () => {
-      usageRepo.findOne.mockResolvedValue({ userId: '42', usageDate: '2026-08-15', count: 3 });
-      await service.incrementDailyUsage('42');
-      expect(usageRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ count: 4 }),
-      );
-    });
-
-    it('无记录时创建 count=1', async () => {
-      usageRepo.findOne.mockResolvedValue(null);
-      await service.incrementDailyUsage('42');
-      expect(usageRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: '42', count: 1, usageDate: expect.any(String) }),
-      );
-    });
-
-    it('并发首写冲突时改走自增路径（A2）', async () => {
-      usageRepo.findOne
-        .mockResolvedValueOnce(null) // 首次检查无记录
-        .mockResolvedValueOnce({ userId: '42', usageDate: '2026-08-15', count: 5 }); // save 冲突后重查
+    it('已用满（count >= limit）时 where 不命中 → 预留失败', async () => {
       usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' });
-      await service.incrementDailyUsage('42');
-      expect(usageRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({ count: 6 }));
+      usageRepo.update.mockResolvedValueOnce({ affected: 0, raw: {} });
+      const ok = await service.reserveDailyUsage('42', 3);
+      expect(ok).toBe(false);
+    });
+
+    it('limit<=0 时无 where count 条件（不限量直接自增）', async () => {
+      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' });
+      await service.reserveDailyUsage('42', 0);
+      const [criteria] = usageRepo.update.mock.calls[0];
+      expect(criteria).not.toHaveProperty('count'); // 0 = 不限
+    });
+
+    it('release 只在 count>0 时递减（防负值）', async () => {
+      await service.releaseDailyUsage('42');
+      const [criteria, update] = usageRepo.update.mock.calls[0];
+      expect(criteria).toEqual(expect.objectContaining({ userId: '42' }));
+      expect(update.count).toEqual(expect.any(Function));
     });
   });
 
