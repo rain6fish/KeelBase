@@ -116,6 +116,8 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **安全矩阵补测（v1.0）**：SSE/WS 长连接跨用户隔离断言（A 的流收不到 B 的通知 + WS `emitToUser` 互不可见）、管理台用户详情字段级脱敏断言（bio/生日/名姓/头像/provider 不返回 + email 掩码 + password/refreshTokenHash/loginAttempts/lockedUntil 不返回）、跨组织 AI 工具隔离断言（组织审批统计双向隔离）——security-matrix §3 已知缺口全部闭环
 - **books/notes backfilled to protocol specs (v1.0)**: books gains `status`/`rating`, notes gains `category` (entity / DTO / migration / Flutter model / admin model), consistency check extended to 4 verified modules + books/notes e2e coverage
   **books/notes 回填协议一致（v1.0）**：books 补 `status`/`rating`、notes 补 `category`（含 DTO/迁移/Flutter 模型/管理端模型），一致性检查从 contracts/suppliers 扩至 4 个已验证模块 + books/notes e2e
+- **CI workflow parse restored (v1.0, 752066d)**: `run-adversarial` job referenced `secrets.DEEPSEEK_API_KEY` directly in step `if:` conditions — GitHub Actions forbids secrets in `if`, which failed to load the whole workflow (every CI run after merge 777a436 died in 0s with "workflow file issue", invalidating the earlier CI PASS record). Fixed by passing the secret through job-level `env` and gating steps on `env.DEEPSEEK_API_KEY`; CI back to green 14/14
+  **CI workflow 解析恢复（v1.0，752066d）**：`run-adversarial` job 在步骤级 `if:` 直接引用 `secrets.DEEPSEEK_API_KEY`——GitHub Actions 禁止在 if 条件引用 secrets，导致整个 workflow 加载失败（merge 777a436 后每次 CI 都 0s 报 "workflow file issue"，此前 CI PASS 记录失效）。改为 job 级 env 透传 secret + 步骤 if 用 `env.DEEPSEEK_API_KEY` 判断；CI 恢复全绿 14/14
 
 ### Release Precheck / 发布前检查（2026-08-22）
 
