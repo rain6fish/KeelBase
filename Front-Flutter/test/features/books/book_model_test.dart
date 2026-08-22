@@ -7,7 +7,9 @@ void main() {
     expect(book.id, 1);
     expect(book.title, '人类简史');
     expect(book.author, '赫拉利');
-    expect(book.toJson(), {'id': 1, 'title': '人类简史', 'author': '赫拉利'});
+    expect(book.status, 'unread');
+    expect(book.rating, isNull);
+    expect(book.toJson(), {'id': 1, 'title': '人类简史', 'author': '赫拉利', 'status': 'unread', 'rating': null});
   });
 
   test('copyWith 只替换指定字段', () {
