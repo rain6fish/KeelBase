@@ -11,6 +11,8 @@ export interface AuditLog {
   durationMs?: number | null
   isError: boolean
   errorMessage?: string | null
+  /** W5-⑦ Explainable Authz：AuthorizationDeniedError.reasons 的 JSON（checks） */
+  authorization?: string | null
   createdAt: string
   /** 所属用户名（管理端审计 JOIN 用户表返回） */
   username?: string | null
