@@ -40,9 +40,10 @@ export class AdminAiService {
   ): Promise<AdminAiChatResponse> {
     const context = await this.buildSystemContext();
     const result = await this.aiService.chat(String(userId), {
-      message: `${context}\n管理员提问：${dto.message}`,
+      // 平台实时上下文拼入 systemPrompt（buildMessages 每轮实时注入）；message 保持干净提问，对话历史/预览标题不受污染
+      message: dto.message,
       conversationId: dto.conversationId,
-      systemPrompt: ADMIN_SYSTEM_PROMPT,
+      systemPrompt: `${ADMIN_SYSTEM_PROMPT}${context}`,
       adminMode: true,
     });
     return {
