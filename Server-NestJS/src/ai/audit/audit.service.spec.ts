@@ -163,6 +163,26 @@ describe('AuditService', () => {
       expect(repo.find).toHaveBeenCalledWith({ order: { id: 'ASC' } });
       expect(chain.verifyChain).toHaveBeenCalled();
     });
+
+    it('feedback 后置写入不参与哈希 payload（submitFeedback 不断链，HS-11）', async () => {
+      repo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
+      let payloadFor: ((row: Record<string, unknown>) => Record<string, unknown>) | undefined;
+      (chain.verifyChain as jest.Mock).mockImplementation((_rows, cb) => {
+        payloadFor = cb;
+        return { valid: true, checked: 1 };
+      });
+      await service.verifyChain();
+      // 即使行里已写入 feedback（submitFeedback 后置更新），payload 仍恒为 null —— 与写入时 canonical 一致
+      const payload = payloadFor!({
+        id: 1,
+        prevHash: null,
+        hash: 'a',
+        feedback: 'thumbs_down',
+        feedbackNote: '回答不准',
+      });
+      expect(payload.feedback).toBeNull();
+      expect(payload.feedbackNote).toBeNull();
+    });
   });
 
   describe('getCostBreakdown（AI-21）', () => {
