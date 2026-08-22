@@ -5,6 +5,9 @@
  * 处理多轮工具调用循环、Fallback 机制、对话保存。
  */
 
+import { Repository, In } from 'typeorm';
+import { randomUUID } from 'crypto';
+import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ConversationService } from './conversation/conversation.service';
@@ -120,6 +123,7 @@ export class AiService {
     private readonly usersService?: UsersService,
     private readonly toolEffectsService?: AiToolEffectsService,
     private readonly governancePolicy?: GovernancePolicyService,
+    private readonly approvalsRepo?: Repository<AiConfirmationRequest>,
   ) {}
 
   /**
@@ -425,6 +429,101 @@ export class AiService {
         );
       }
     }
+    return result;
+  }
+
+  // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
+
+  /** 创建持久化审批请求（operator 触发，approver 稍后决策；不阻塞 operator 对话）。 */
+  async createR4ApprovalRequest(
+    operatorId: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    conversationId?: string,
+  ): Promise<{ token: string; id: number }> {
+    if (!this.approvalsRepo) throw new Error('Approvals repository not injected');
+    const token = randomUUID();
+    const saved = await this.approvalsRepo.save(
+      this.approvalsRepo.create({
+        token,
+        toolName,
+        args: JSON.stringify(args),
+        operatorId,
+        riskLevel: 'R4',
+        status: 'pending',
+        conversationId,
+      }),
+    );
+    return { token, id: saved.id };
+  }
+
+  /** 待审批 R4 列表（管理端审批页）。 */
+  async listPendingApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+    if (!this.approvalsRepo) return [];
+    return this.approvalsRepo.find({
+      where: { status: 'pending' },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  /** 已审批历史（管理端审批页）。 */
+  async listDecidedApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+    if (!this.approvalsRepo) return [];
+    return this.approvalsRepo.find({
+      where: { status: In(['approved', 'declined']) },
+      order: { decidedAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  /** approver 决策：approve → 以 operator 维度执行工具；decline → 拒绝。 */
+  async decideApproval(
+    token: string,
+    approverId: string,
+    decision: 'approve' | 'decline',
+  ): Promise<{ ok: boolean; message?: string; success?: boolean; resultId?: unknown }> {
+    if (!this.approvalsRepo) return { ok: false, message: 'not supported' };
+    const req = await this.approvalsRepo.findOne({ where: { token } });
+    if (!req || req.status !== 'pending') {
+      return { ok: false, message: req ? 'already decided' : 'not found' };
+    }
+    req.status = decision === 'approve' ? 'approved' : 'declined';
+    req.approverId = approverId;
+    req.decidedAt = new Date();
+    await this.approvalsRepo.save(req);
+
+    if (decision === 'approve') {
+      const result = await this._executeApprovedTool(req);
+      return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
+    }
+    return { ok: true, success: false };
+  }
+
+  /** approve 后以 operator 维度执行工具：复用写工具执行（幂等 + 副作用登记）+ 审计含 approver。 */
+  private async _executeApprovedTool(req: AiConfirmationRequest): Promise<ToolResult> {
+    let args: Record<string, unknown> = {};
+    try {
+      args = JSON.parse(req.args || '{}');
+    } catch {
+      args = {};
+    }
+    let result: ToolResult;
+    try {
+      result = await this._executeWriteTool(req.toolName, args, req.operatorId, req.conversationId);
+    } catch (err) {
+      result = { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    await this.auditService.log({
+      userId: req.operatorId,
+      conversationId: req.conversationId,
+      action: 'tool_call',
+      detail: `${req.toolName}(${JSON.stringify(args)})`,
+      isError: !result.success,
+      errorMessage: result.success
+        ? `R4 approved by approver ${req.approverId}`
+        : `R4 approved by approver ${req.approverId}; execution failed: ${result.error}`,
+    });
     return result;
   }
 
@@ -1041,6 +1140,29 @@ export class AiService {
             // HS-6：本会话已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
             if (trustedTools.has(tc.name)) {
               result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
+            } else if (this.toolRegistry.riskLevel(tc.name) === 'R4') {
+              // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
+              const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
+              yield {
+                type: 'confirmation_request',
+                confirmation: {
+                  token: approval.token,
+                  toolName: tc.name,
+                  summary: this.summarizeWriteTool(tc.name, parsed),
+                  arguments: parsed,
+                  mode: 'approval',
+                  authorization: await this._authorizationReasons(tc.name, userId, true),
+                },
+              };
+              result = { success: false, error: '已提交人工审批，等待审批人决策（R4 高影响动作）' };
+              if (await this._shouldAudit('tool')) {
+                this.auditService.log({
+                  userId,
+                  conversationId,
+                  action: 'tool_confirmation',
+                  detail: `${tc.name}(${JSON.stringify(parsed)}) → pending_approval`,
+                });
+              }
             } else {
               // 写操作：先发 confirmation_request，等待用户确认后才执行
             const ttlSeconds = this.settingsService
