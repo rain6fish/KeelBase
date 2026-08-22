@@ -464,6 +464,8 @@ test('端到端：doctor 子命令——四查 PASS / 非 KeelBase / 不支持 s
   assert.match(plain, /一致性/);
   assert.match(plain, /运行时/);
   assert.match(plain, /版本/);
+  assert.match(plain, /兼容矩阵/);
+  assert.match(plain, /protocol/); // ⑤ 协议匹配
 
   // schema 2 → 退出 1 + 明确提示
   await write(
