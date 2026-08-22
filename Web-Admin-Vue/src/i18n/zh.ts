@@ -121,6 +121,7 @@ const zh = {
   stepNotice: 'AI 处理',
   stepSuccess: '成功',
   stepFailed: '失败',
+  traceDeniedTitle: '拒绝原因（为何阻止）',
   stepApproved: '已批准',
   stepDeclined: '已拒绝',
   stepTimedOut: '已超时',

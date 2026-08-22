@@ -54,6 +54,10 @@ export class AiAuditLog {
   @Column({ type: 'text', nullable: true, name: 'error_message' })
   errorMessage?: string;
 
+  /** W5-⑦ Explainable Authz 落库：工具被拒时 AuthorizationDeniedError.reasons 的 JSON（checks[]），供轨迹/审计展示「为何阻止」 */
+  @Column({ type: 'text', nullable: true, name: 'authorization' })
+  authorization?: string;
+
   /** AI-18 对话反馈：thumbs_up | thumbs_down（用户赞/踩后记录） */
   @Column({ length: 16, nullable: true })
   feedback?: string;
