@@ -186,7 +186,7 @@ node scripts/keelbase-init.mjs inspect   # 或 node scripts/keelbase-inspect.mjs
 node scripts/keelbase-init.mjs doctor   # 或 node scripts/keelbase-doctor.mjs
 ```
 
-四查：① **完整性**（manifest 存在、schema 受支持、必需字段齐全）② **一致性**（manifest 列出的生成模块目录是否仍在——缺失按「可移除原则」报 WARN）③ **运行时兼容**（基座能力在位：AI 工具 / CASL / 治理 / AI 审计 / 操作审计 / Agent 运行时）④ **生成器版本**（manifest 记录版本 vs 当前 CLI：旧 → WARN 可升级合并；新 → WARN 勿覆盖）。退出码：0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase。
+五查：① **完整性**（manifest 存在、schema 受支持、必需字段齐全）② **一致性**（manifest 列出的生成模块目录是否仍在——缺失按「可移除原则」报 WARN）③ **运行时兼容**（基座能力在位：AI 工具 / CASL / 治理 / AI 审计 / 操作审计 / Agent 运行时）④ **生成器版本**（manifest 记录版本 vs 当前 CLI：旧 → WARN 可升级合并；新 → WARN 勿覆盖）⑤ **兼容矩阵**（manifest 协议/schema vs 当前 CLI 支持的协议/schema：不匹配 → FAIL 需升级 CLI 或重建来源清单）。退出码：0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase。
 
 用途：CI 门禁（`cli-test` job 断言仓库 doctor PASS）+ 生成器升级前体检 + 交接排查。
 
