@@ -28,6 +28,7 @@ import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
+import { ApproveDecisionDto } from './dto/approve-decision.dto';
 import { ConversationQueryDto } from './dto/conversation-query.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
@@ -151,6 +152,45 @@ export class AiController {
       throw new NotFoundException('确认请求不存在或已过期');
     }
     return { ok: true, trustTool: dto.trustTool ?? false };
+  }
+
+  /**
+   * R4 双人审批：待审批列表（管理员审批页）
+   */
+  @Get('confirmations/pending')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'R4 待人工审批列表（管理员）' })
+  async pendingApprovals() {
+    return this.aiService.listPendingApprovals();
+  }
+
+  /**
+   * R4 双人审批：已审批历史（管理员审批页）
+   */
+  @Get('confirmations/decided')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'R4 已审批历史（管理员）' })
+  async decidedApprovals() {
+    return this.aiService.listDecidedApprovals();
+  }
+
+  /**
+   * R4 双人审批：approver 决策（管理员）——approve 后以 operator 维度执行工具
+   */
+  @Post('confirmations/:token/approve-by')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'R4 审批人决策（管理员）' })
+  async decideApproval(
+    @Param('token') token: string,
+    @Body() dto: ApproveDecisionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const res = await this.aiService.decideApproval(token, String(user.sub), dto.decision);
+    if (!res.ok) {
+      throw new NotFoundException(res.message ?? '审批请求不存在或已决策');
+    }
+    return res;
   }
 
   /**

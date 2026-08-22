@@ -61,6 +61,10 @@
         <el-breadcrumb separator="/" class="flex-grow-1">
           <el-breadcrumb-item v-for="b in breadcrumbs" :key="b.title">{{ b.title }}</el-breadcrumb-item>
         </el-breadcrumb>
+        <el-button v-if="showOverview" class="ai-assistant-btn" @click="aiDrawerOpen = true">
+          <template #icon><AppIcon icon="mdi-robot-happy-outline" size="20" /></template>
+          {{ t('navSystemAssistant') }}
+        </el-button>
         <ThemeToggle />
         <LangToggle />
         <el-button type="primary" plain @click="onLogout">
@@ -74,6 +78,7 @@
       </el-main>
     </el-container>
 
+    <AiAssistantDrawer v-model="aiDrawerOpen" />
   </el-container>
 </template>
 
@@ -85,6 +90,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import LangToggle from '@/components/LangToggle.vue'
+import AiAssistantDrawer from '@/components/AiAssistantDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,6 +101,7 @@ const caps = useCapabilitiesStore()
 caps.load()
 
 const rail = ref(false)
+const aiDrawerOpen = ref(false)
 function toggleRail() {
   rail.value = !rail.value
 }
