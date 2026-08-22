@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
@@ -77,7 +79,15 @@ export class AdminAiService {
       /* ignore */
     }
 
-    // 3. AI 工具清单（getToolInventory 反映实时治理 enabled/确认/角色白名单）
+    // 3. 来源身份（§13.1 ③）：读 .keelbase/manifest.json → 答「这是什么系统」（与 /app/provenance 同源）
+    try {
+      const identity = this._sourceIdentity();
+      if (identity) lines.push(identity);
+    } catch {
+      /* ignore */
+    }
+
+    // 4. AI 工具清单（getToolInventory 反映实时治理 enabled/确认/角色白名单）
     try {
       const inv = await this.aiService.getToolInventory();
       if (inv.length > 0) {
@@ -138,5 +148,25 @@ export class AdminAiService {
     return lines.length
       ? `\n\n【平台实时数据，供回答参考】\n${lines.join('\n')}\n`
       : '';
+  }
+
+  /** 来源身份（Build 侧 .keelbase/manifest.json）；缺失/不可读 → null（静默降级）。路径与 app-provenance 一致。 */
+  private _sourceIdentity(): string | null {
+    const candidates = [
+      resolve(process.cwd(), '../.keelbase/manifest.json'),
+      resolve(process.cwd(), '.keelbase/manifest.json'),
+    ];
+    for (const p of candidates) {
+      if (existsSync(p)) {
+        try {
+          const m = JSON.parse(readFileSync(p, 'utf8'));
+          const modules = Array.isArray(m.modules) && m.modules.length ? m.modules.join(', ') : '—';
+          return `来源身份: ${m.identity ?? 'unknown'}（generator ${m.generator ?? '?'} v${m.generatorVersion ?? '?'}, protocol ${m.protocol ?? '?'}, schema ${m.schema ?? '?'}）; 来源模块: ${modules}`;
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
   }
 }

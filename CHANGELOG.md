@@ -6,6 +6,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added / 新增
+
+- **System AI Assistant source identity (provenance §13.1 ③)**: `AdminAiService.buildSystemContext` now injects the source identity from `.keelbase/manifest.json` (identity / generator+version / protocol / schema / source modules) so the console AI can answer "what system is this / who generated it / which protocol version"; complements the public `GET /app/provenance` runtime fingerprint
+  **System AI 来源身份集成（来源清单 §13.1 ③）**：`AdminAiService.buildSystemContext` 注入 `.keelbase/manifest.json` 的来源身份（identity/generator+version/protocol/schema/来源模块），管理台 AI 可回答「这是什么系统/谁生成的/什么协议版本」；与公开 `GET /app/provenance` 运行时指纹互补
+- **`keelbase doctor` compatibility matrix (provenance §13.1 ⑤)**: fifth check compares the manifest `protocol`/`schema` against the current CLI's supported values (mismatch → FAIL, upgrade CLI or rebuild the source manifest), alongside the existing completeness/consistency/runtime/version checks
+  **`keelbase doctor` 兼容矩阵（来源清单 §13.1 ⑤）**：新增第五查——manifest `protocol`/`schema` 对照当前 CLI 支持的版本（不匹配 → FAIL，需升级 CLI 或重建来源清单），与完整性/一致性/运行时/版本并列
+
 ### Fixed / 修复
 
 - **AI daily limit made concurrency-atomic (v1.0 review S3)**: `reserveDailyUsage` uses an atomic conditional increment (`WHERE count < limit`, same pattern as the headless quota) instead of read-check-write, so concurrent chats can no longer collectively exceed `ai_daily_limit`; failed chats release their reserved slot via `releaseDailyUsage` (only decrements when `count > 0`)
