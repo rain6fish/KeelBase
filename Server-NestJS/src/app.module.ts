@@ -137,6 +137,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiDailyUsage*.js',
               'dist/migrations/*AddAuditHashChain*.js',
               'dist/migrations/*AddAiAuditIdentity*.js',
+              'dist/migrations/*AddAiAuditAuthorization*.js',
               'dist/migrations/*PostgresIncrementalSchema*.js',
               'dist/migrations/*AddCrm*.js',
               'dist/migrations/*AddWebhookSubscriptions*.js',
