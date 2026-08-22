@@ -68,3 +68,25 @@ html.dark {
   --el-border-color-light: #4a4a68;
   --el-border-color-lighter: #3a3560;
 }
+
+// Materio 式卡片：无边框 + 柔和阴影 + 统一圆角（去「分块」割裂感；覆盖 shadow="never" 的默认描边）
+.el-card {
+  --el-card-border-color: transparent;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 0 20px 0 rgba(47, 107, 245, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+}
+.el-card.is-never-shadow,
+.el-card.is-always-shadow,
+.el-card.is-hover-shadow {
+  box-shadow: 0 0 20px 0 rgba(47, 107, 245, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+}
+
+html.dark {
+  .el-card,
+  .el-card.is-never-shadow,
+  .el-card.is-always-shadow,
+  .el-card.is-hover-shadow {
+    box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.3);
+  }
+}

@@ -86,20 +86,20 @@ describe('AdminAiService（System AI Assistant）', () => {
     service = moduleRef.get(AdminAiService);
   });
 
-  it('以真实管理员身份调用 AiService，注入管理端提示词与 adminMode', async () => {
+  it('以真实管理员身份调用 AiService，注入管理端提示词与 adminMode，消息保持干净提问', async () => {
     await service.assistantChat(5, { message: '平台活跃度如何？' });
 
     expect(aiService.chat).toHaveBeenCalledTimes(1);
     const [userId, req] = aiService.chat.mock.calls[0];
     expect(userId).toBe('5');
-    expect(req.systemPrompt).toBe(ADMIN_SYSTEM_PROMPT);
+    expect(req.systemPrompt).toContain(ADMIN_SYSTEM_PROMPT);
     expect(req.adminMode).toBe(true);
-    expect(req.message).toContain('管理员提问：平台活跃度如何？');
+    expect(req.message).toBe('平台活跃度如何？');
   });
 
-  it('消息包含能力清单/版本/工具清单/治理/实时统计', async () => {
+  it('平台实时上下文拼入 systemPrompt（能力清单/版本/工具清单/治理/实时统计），不进对话历史', async () => {
     await service.assistantChat(5, { message: 'hi' });
-    const msg: string = aiService.chat.mock.calls[0][1].message;
+    const msg: string = aiService.chat.mock.calls[0][1].systemPrompt;
 
     expect(msg).toContain('能力清单');
     expect(msg).toContain('事件-日历事件与提醒');
@@ -112,11 +112,13 @@ describe('AdminAiService（System AI Assistant）', () => {
     expect(msg).toContain('总用户50');
     expect(msg).toContain('AI用量');
     expect(msg).toContain('内容统计');
+    // 上下文不污染历史消息
+    expect(aiService.chat.mock.calls[0][1].message).toBe('hi');
   });
 
   it('消息包含来源身份（manifest 来源清单，答「这是什么系统」）', async () => {
     await service.assistantChat(5, { message: '这是什么系统？' });
-    const msg: string = aiService.chat.mock.calls[0][1].message;
+    const msg: string = aiService.chat.mock.calls[0][1].systemPrompt;
 
     expect(msg).toContain('来源身份:');
     expect(msg).toContain('protocol'); // manifest protocol 版本
@@ -140,8 +142,10 @@ describe('AdminAiService（System AI Assistant）', () => {
     const result = await service.assistantChat(5, { message: 'hi' });
 
     expect(result.reply).toBeDefined();
-    const msg: string = aiService.chat.mock.calls[0][1].message;
-    expect(msg).toContain('管理员提问：hi');
-    expect(msg).not.toContain('能力清单'); // 失败子项被跳过
+    const req = aiService.chat.mock.calls[0][1];
+    expect(req.message).toBe('hi');
+    // 失败子项（能力清单/实时统计）被跳过：仅上下文出现的片段不应出现
+    expect(req.systemPrompt).not.toContain('事件-日历事件与提醒');
+    expect(req.systemPrompt).not.toContain('总用户50');
   });
 });
