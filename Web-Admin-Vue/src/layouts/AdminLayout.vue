@@ -15,7 +15,7 @@
           :collapse-transition="false"
           class="el-menu-nav"
         >
-          <el-menu-item v-if="auth.isAdmin" index="/" @click="go('/')">
+          <el-menu-item v-if="showOverview" index="/" @click="go('/')">
             <AppIcon icon="mdi-view-dashboard-outline" />
             <template #title>{{ t('overview') }}</template>
           </el-menu-item>
@@ -73,6 +73,7 @@
         <router-view />
       </el-main>
     </el-container>
+
   </el-container>
 </template>
 
@@ -178,12 +179,16 @@ const consoleNavGroups = computed(() => [
       { name: 'system', to: '/system', icon: 'mdi-cog-outline', label: t('navSystemInfo') },
       { name: 'templates', to: '/templates', icon: 'mdi-view-grid-plus-outline', label: t('navTemplates') },
       { name: 'ai-tools', to: '/ai-tools', icon: 'mdi-tools', label: t('navAiTools') },
+      { name: 'ai-approvals', to: '/ai-approvals', icon: 'mdi-shield-check-outline', label: t('navAiApprovals') },
       { name: 'mcp', to: '/mcp', icon: 'mdi-connection', label: t('navMcp') },
     ],
   },
 ])
 
-const navGroups = computed(() => (auth.isAdmin ? consoleNavGroups.value : workspaceNavGroups.value))
+// user 构建（/user/）没有控制台路由，任何角色都只显示工作台菜单
+const isUserSurface = import.meta.env.MODE === 'user'
+const showOverview = computed(() => !isUserSurface && auth.isAdmin)
+const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavGroups.value : consoleNavGroups.value))
 </script>
 
 <style scoped>
@@ -221,7 +226,24 @@ const navGroups = computed(() => (auth.isAdmin ? consoleNavGroups.value : worksp
   min-width: 0;
 }
 .admin-topbar {
-  border-bottom: 1px solid var(--el-border-color-light);
   background: var(--el-bg-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.ai-assistant-btn {
+  border: none;
+  border-radius: 999px;
+  height: 36px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-info) 100%);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(47, 107, 245, 0.3);
+}
+.ai-assistant-btn:hover,
+.ai-assistant-btn:focus,
+.ai-assistant-btn:active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-info) 100%);
+  filter: brightness(1.06);
 }
 </style>
