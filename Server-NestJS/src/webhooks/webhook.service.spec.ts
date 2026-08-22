@@ -84,6 +84,46 @@ describe('WebhookService (PL-14)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('SSRF：重定向到私网目标同样阻止（redirect:manual 逐跳校验）', async () => {
+    const repo = makeRepo([{ ...base(), id: 1 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ status: 302, ok: false, headers: { get: () => 'http://169.254.169.254/latest' } });
+    (global as any).fetch = fetchMock;
+    // 顺序：_deliver 顶部初检(放行) → guard hop0 初检(放行, fetch→302) → guard hop1 重定向目标(阻止)
+    (WebhookService.prototype as any)._isBlockedHost = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    await svc.publish('feedback.created', {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1); // 重定向第二跳被阻止，不再发起
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.redirect).toBe('manual');
+  });
+
+  it('SSRF：合法 302 重定向到公网目标正常跟随', async () => {
+    const repo = makeRepo([{ ...base(), id: 1 } as Partial<WebhookSubscription>]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 302, ok: false, headers: { get: () => 'https://hook2.example.com/final' } })
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    (global as any).fetch = fetchMock;
+    // 每次 host 都放行（初始 + hop0 + hop1）
+    (WebhookService.prototype as any)._isBlockedHost = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    const out = await svc.testDeliver(1, 1);
+
+    expect(out.delivered).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // 初始 → 302 → 跟随到公网目标
+  });
+
   it('SSRF：_isPrivateV4/V6 判定私网/回环/链接本地', () => {
     const S = WebhookService as any;
     expect(S._isPrivateV4('127.0.0.1')).toBe(true); // 回环
