@@ -4,7 +4,10 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 import { storage } from '@/utils/storage'
 
 // 角色首页：admin → 控制台 dashboard，其余 → 工作台。唯一合法首页保证分流不互踢
+// user 构建（/user/ 普通用户工作台）没有控制台路由，任何角色都回落工作台，避免守卫互踢死循环
+const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
 export function homeFor(role?: string): string {
+  if (SURFACE === 'user') return '/workbench'
   return role === 'admin' ? '/' : '/workbench'
 }
 
