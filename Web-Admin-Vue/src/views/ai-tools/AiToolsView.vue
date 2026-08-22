@@ -29,6 +29,7 @@
         <thead>
           <tr>
             <th class="pa-2 text-left">{{ t('tool') }}</th>
+            <th class="text-center pa-2">{{ t('riskLevel') }}</th>
             <th class="text-center pa-2">{{ t('enabled') }}</th>
             <th class="text-center pa-2">{{ t('requiresConfirmation') }}</th>
             <th class="pa-2 text-left">{{ t('allowedRoles') }}</th>
@@ -39,6 +40,11 @@
             <td class="pa-2">
               <div class="font-weight-medium">{{ row.name }}</div>
               <div class="text-caption text-medium-emphasis">{{ row.description }}</div>
+            </td>
+            <td class="text-center pa-2">
+              <el-tag v-if="toolRisk[row.name]" :type="riskTag(toolRisk[row.name]).type" size="small" effect="light">
+                {{ toolRisk[row.name].riskLevel }} · {{ riskTag(toolRisk[row.name]).label }}
+              </el-tag>
             </td>
             <td class="text-center pa-2"><el-switch v-model="row.enabled" /></td>
             <td class="text-center pa-2"><el-switch v-model="row.requiresConfirmation" style="--el-switch-on-color: var(--el-color-warning)" /></td>
@@ -68,6 +74,7 @@
                   />
                   {{ tool.name }}
                   <el-tag v-if="tool.requiresConfirmation" size="small" type="warning" effect="light">{{ t('requiresConfirmation') }}</el-tag>
+                  <el-tag v-if="tool.riskLevel" size="small" :type="riskTag(tool).type" effect="light">{{ tool.riskLevel }} · {{ riskTag(tool).label }}</el-tag>
                 </div>
               </template>
               <div class="text-caption">
@@ -175,6 +182,21 @@ const roleOptions = computed(() => [
 
 const resultTypeMap = computed(() => ({ event: t('events'), todo: t('todos') }))
 const effectStatusMap = computed(() => ({ ok: t('active'), cancelled: t('cancelled'), down: t('deleted') }))
+
+/** W5 风险级标签：R5 阻断（红）/ R4 人工审批（橙）/ R3 需确认（橙）/ R0-R2 自动（绿） */
+function riskTag(tool: AdminAiTool) {
+  const lv = tool.riskLevel || ''
+  if (lv === 'R5') return { label: t('riskBlocked'), type: 'danger' as const }
+  if (lv === 'R4') return { label: t('riskApproval'), type: 'warning' as const }
+  if (lv === 'R3') return { label: t('riskConfirm'), type: 'warning' as const }
+  return { label: t('riskAuto'), type: 'success' as const }
+}
+/** 工具名 → 风险级（治理表只读列用） */
+const toolRisk = computed(() => {
+  const m: Record<string, AdminAiTool> = {}
+  for (const t of tools.value) m[t.name] = t
+  return m
+})
 
 const effectHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
