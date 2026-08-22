@@ -4,7 +4,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.1] - 2026-08-22
+
+> **KeelBase 1.0.1 — Maintenance & Coverage Release / 维护与覆盖加固版**
+>
+> 首个 1.0 补丁：v1.0 发布前 review 的两项遗留（AI 每日限额并发原子化 / WS 节流窗口命名）+ 来源身份体系补齐（System AI 来源身份 / doctor 兼容矩阵）+ 测试覆盖大幅提升（后端 24 文件到 85%+、管理台 10 视图、Flutter 102 用例）。
 
 ### Added / 新增
 
@@ -12,6 +16,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **System AI 来源身份集成（来源清单 §13.1 ③）**：`AdminAiService.buildSystemContext` 注入 `.keelbase/manifest.json` 的来源身份（identity/generator+version/protocol/schema/来源模块），管理台 AI 可回答「这是什么系统/谁生成的/什么协议版本」；与公开 `GET /app/provenance` 运行时指纹互补
 - **`keelbase doctor` compatibility matrix (provenance §13.1 ⑤)**: fifth check compares the manifest `protocol`/`schema` against the current CLI's supported values (mismatch → FAIL, upgrade CLI or rebuild the source manifest), alongside the existing completeness/consistency/runtime/version checks
   **`keelbase doctor` 兼容矩阵（来源清单 §13.1 ⑤）**：新增第五查——manifest `protocol`/`schema` 对照当前 CLI 支持的版本（不匹配 → FAIL，需升级 CLI 或重建来源清单），与完整性/一致性/运行时/版本并列
+- **Test coverage surge (maintenance)**: backend 24 low-coverage files raised to 85%+ (most 100%); Web-Admin-Vue 10 core view component tests (35 cases); Flutter flagship detail/list pages, repositories & core (102 cases) — overall backend statements 92.7% / branches 77.8% / functions 90.4%, vitest ~75.5%
+  **测试覆盖大幅提升（维护）**：后端 24 个低覆盖文件提到 85%+（多数 100%）；管理台 10 个核心视图组件测试（35 用例）；Flutter 旗舰详情/列表页 + repository + core（102 用例）——后端 statements 92.7% / branches 77.8% / functions 90.4%，vitest ~75.5%
 
 ### Fixed / 修复
 
