@@ -1,6 +1,6 @@
 {
   "name": "keelbase",
-  "version": "0.9.1",
+  "version": "1.0.0",
   "description": "KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）。`npx keelbase init` 对话式/自然语言生成全栈 CRUD 模块（NestJS + Flutter）。",
   "type": "module",
   "bin": {

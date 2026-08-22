@@ -4,7 +4,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.0.0] - 2026-08-21
+## [1.0.0] - 2026-08-22
 
 > **KeelBase 1.0 Release Notes**
 >
@@ -110,6 +110,21 @@ Flagship AI applications, Private AI Golden Path, plugin ecosystem CLI, generic 
   **W4 Fix 加固批次（第 5-10 批）+ 跨模块一致性**：AI 节点抛错流程实例置 failed；WS 单一 ai:done；form-builder 分页钳制；Flutter 未读计数增量/search 请求序号/路由 id 守卫/头像空名守卫/表格空态；AI 工具契约（create_contract counterparty required、create_followup_task customerId 校验、query_contracts keyword）；CASL Book/Tag/Note/Post 规则；proactive-ai 区间查询；metrics route 标签/断连 in-flight；AddSuppliers/AddContracts postgres 方言；approval 预审按政策所有者；pm-demo 状态 planned；广播默认 broadcast；补全 FEATURE_*_ENABLED schema
 - **W4-⑤ Agent Identity minimal slice**: `ai_audit_logs` gains `agent_id`/`session_id` columns + `AuditEntry` extension (answers "who asked whom to do what under which authorization"; excluded from hash-chain payload to preserve historical chain); bilingual migration `AddAiAuditIdentity` (pg ALTER / sqlite rebuild)
   **W4-⑤ Agent Identity 最小切片**：`ai_audit_logs` 补 `agent_id`/`session_id` 列 + `AuditEntry` 扩展（回答「谁让谁以什么授权做了什么」；不加入哈希链 payload 防破坏历史链）；双方言迁移 `AddAiAuditIdentity`
+- **Pre-release double-review fixes (v1.0, 2026-08-22)**: AI audit hash chain stays valid after `POST /audit/feedback` — feedback/feedbackNote are treated as non-chain annotation columns (previously any thumbs-up/down broke `/audit/verify` from that row on, HS-11); webhook delivery validates every redirect hop (`redirect:'manual'`) so a public 302 can no longer bounce to private/cloud-metadata targets (SSRF hardening follow-on to W4-④); `PUT /users/:id` resets `emailVerified` when the email changes (prevents swapping to an unverified address while keeping "verified" — which would defeat the `requireVerifiedEmail` gate on AI write tools, HS-2)
+  **发布前双重 review 修复（v1.0，2026-08-22）**：`POST /audit/feedback` 后 AI 审计哈希链仍 valid——feedback/feedbackNote 作为链外注解列（此前任意赞/踩会让 `/audit/verify` 从该行起断链，HS-11）；webhook 投递对每一跳重定向复用私网校验（`redirect:'manual'`，公网 302 不能再弹到内网/云元数据，W4-④ SSRF 加固后续）；`PUT /users/:id` 改 email 时重置 `emailVerified`（防换成未验证地址仍保有「已验证」，使 AI 写工具 `requireVerifiedEmail` 门失效，HS-2）
+- **Security-matrix completions (v1.0)**: SSE/WS long-connection cross-user isolation asserted (A's notification stream cannot see B's + WS `emitToUser` mutually invisible), admin user-detail field-level sanitize asserted (bio / dateOfBirth / firstName / lastName / avatarUrl / provider not returned + email masked + password / refreshTokenHash / loginAttempts / lockedUntil hidden), cross-org AI tool isolation asserted (org approval task stats bidirectional) — security-matrix §3 known gaps all closed
+  **安全矩阵补测（v1.0）**：SSE/WS 长连接跨用户隔离断言（A 的流收不到 B 的通知 + WS `emitToUser` 互不可见）、管理台用户详情字段级脱敏断言（bio/生日/名姓/头像/provider 不返回 + email 掩码 + password/refreshTokenHash/loginAttempts/lockedUntil 不返回）、跨组织 AI 工具隔离断言（组织审批统计双向隔离）——security-matrix §3 已知缺口全部闭环
+- **books/notes backfilled to protocol specs (v1.0)**: books gains `status`/`rating`, notes gains `category` (entity / DTO / migration / Flutter model / admin model), consistency check extended to 4 verified modules + books/notes e2e coverage
+  **books/notes 回填协议一致（v1.0）**：books 补 `status`/`rating`、notes 补 `category`（含 DTO/迁移/Flutter 模型/管理端模型），一致性检查从 contracts/suppliers 扩至 4 个已验证模块 + books/notes e2e
+
+### Release Precheck / 发布前检查（2026-08-22）
+
+```text
+Release Precheck（2026-08-22）：
+- 双重 code review：阿里 OCR（v1.9.8 delegate 规则）+ Claude 多维审查 → 修复 3 处（1 阻塞 B1 审计链 feedback 断链 + 2 建议 S1 webhook SSRF 重定向 / S2 emailVerified 重置）；S3/S4 记入 1.0 后加固
+- 全量测试：后端单测 189 suite / 1591 全过（statements 91.1% / branches 77.1% / functions 84.9%，安全模块分档全 ≥85%）+ e2e 16 suite / 245 全过 + vitest 39.5%（≥32%）+ Flutter 62.3%（≥45%）+ CLI（init 44 / plugin 8）+ 端点-文档一致性 + verify-golden 9/9 + release-gate 确定性
+- 覆盖率：较 v0.9.2 无降级、全部达标
+```
 
 ## [0.9.2] - 2026-08-17
 
