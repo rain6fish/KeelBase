@@ -114,7 +114,7 @@ export class WebhookService implements WebhookPublisher {
     let lastError = 'unknown error';
     for (let attempt = 1; attempt <= cfg.attempts; attempt++) {
       try {
-        const res = await fetch(url, {
+        const res = await this._fetchWithRedirectGuard(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,6 +128,7 @@ export class WebhookService implements WebhookPublisher {
         lastError = `HTTP ${res.status}`;
       } catch (err) {
         lastError = (err as Error).message;
+        if (lastError === 'ssrf-blocked') break; // 目标（含重定向）为私网，重试无意义
       }
       if (attempt < cfg.attempts) {
         await new Promise((r) => setTimeout(r, cfg.backoffMs * attempt));
@@ -151,6 +152,32 @@ export class WebhookService implements WebhookPublisher {
       if (version === 6) return WebhookService._isPrivateV6(addr);
       return true;
     });
+  }
+
+  /**
+   * SSRF 加固（W4-④ 后补）：fetch 默认 follow 重定向，攻击者可注册公网 302 端点
+   * 重定向到私网/云元数据地址绕过 _isBlockedHost。此处 redirect:'manual' 并逐跳
+   * 复用 _isBlockedHost 校验每个重定向目标；超限抛错防重定向环。
+   */
+  private async _fetchWithRedirectGuard(
+    url: string,
+    init: RequestInit,
+    maxHops = 5,
+  ): Promise<Response> {
+    let current = url;
+    for (let hop = 0; hop <= maxHops; hop++) {
+      const hostname = new URL(current).hostname;
+      if (await this._isBlockedHost(hostname)) throw new Error('ssrf-blocked');
+      const res = await fetch(current, { ...init, redirect: 'manual' });
+      if ([301, 302, 303, 307, 308].includes(res.status)) {
+        const location = res.headers.get('location');
+        if (!location) return res;
+        current = new URL(location, current).toString();
+        continue;
+      }
+      return res;
+    }
+    throw new Error('too-many-redirects');
   }
 
   private static _isPrivateV4(ip: string): boolean {
