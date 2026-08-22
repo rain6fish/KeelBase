@@ -1199,6 +1199,7 @@ export class AiService {
               detail: `${tc.name}(${tc.args})`,
               isError: true,
               errorMessage: deniedMsg,
+              authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
             });
           }
         }
@@ -1485,15 +1486,28 @@ export class AiService {
         } catch (err) {
           // W5-⑦：非流式路径也透传结构化拒绝原因（此前只流式透传），让模型看到「为何阻止」
           const denied = err instanceof AuthorizationDeniedError;
+          const deniedMsg = denied ? err.message : `Failed to execute tool "${tc.name}"`;
           messages.push({
             role: 'tool',
             content: JSON.stringify({
               success: false,
-              error: denied ? err.message : `Failed to execute tool "${tc.name}"`,
+              error: deniedMsg,
               ...(denied ? { reasons: err.reasons } : {}),
             }),
             tool_call_id: tc.id,
           });
+          // W5-⑦ Explainable Authz 落库：拒绝路径补审计 + reasons（决策轨迹展示「为何阻止」）
+          if (await this._shouldAudit('tool')) {
+            this.auditService.log({
+              userId: params.userId,
+              conversationId: params.conversationId,
+              action: 'tool_call',
+              detail: `${tc.name}(${tc.arguments})`,
+              isError: true,
+              errorMessage: deniedMsg,
+              authorization: denied ? JSON.stringify(err.reasons) : undefined,
+            });
+          }
         }
       }
 
