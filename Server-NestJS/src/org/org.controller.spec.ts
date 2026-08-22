@@ -1,5 +1,6 @@
 import { OrgController } from './org.controller';
 import { OrgService } from './org.service';
+import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 
 describe('OrgController', () => {
   let controller: OrgController;
@@ -95,5 +96,28 @@ describe('OrgController', () => {
 
     expect(orgService.submitRequest).toHaveBeenCalledWith(1, { orgId: 1 });
     expect(orgService.getMyOrg).toHaveBeenCalledWith(1);
+  });
+
+  it('所有管理端端点声明 manage:all 策略（handler 用管理员能力评估通过）', () => {
+    const ability = { can: jest.fn((action: string, resource: string) => action === 'manage' && resource === 'all') };
+    const proto = OrgController.prototype as any;
+    let adminPolicies = 0;
+    for (const method of Object.getOwnPropertyNames(proto)) {
+      if (method === 'constructor') continue;
+      const handlers = Reflect.getMetadata(CHECK_POLICIES_KEY, proto[method]);
+      if (!handlers) continue;
+      adminPolicies++;
+      for (const handler of handlers) {
+        expect(handler(ability)).toBe(true);
+      }
+    }
+    // 管理端端点（组织/部门/成员/邀请）全部带 CheckPolicies；成员端 my/requests 不带
+    expect(adminPolicies).toBe(16);
+  });
+
+  it('listMembers 无 deptId → 透传 undefined', () => {
+    orgService.listMembers.mockReturnValue({ items: [], total: 0 });
+    controller.listMembers(2, 1, 20, 'k', undefined);
+    expect(orgService.listMembers).toHaveBeenCalledWith(2, 1, 20, 'k', undefined);
   });
 });

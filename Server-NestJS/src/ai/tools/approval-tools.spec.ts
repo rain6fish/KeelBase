@@ -13,6 +13,22 @@ describe('Approval tools', () => {
       expect(svc.listRequests).toHaveBeenCalledWith(1, { status: 'auto_approved' });
       expect(result.success).toBe(true);
     });
+    it('toToolDefinition 生成合法工具定义', () => {
+      const def = tool.toToolDefinition();
+      expect(def.type).toBe('function');
+      expect(def.function.name).toBe('query_approval_requests');
+    });
+    it('服务异常 → success:false', async () => {
+      svc.listRequests.mockRejectedValue(new Error('db down'));
+      const result = await tool.execute({}, '1');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('db down');
+    });
+    it('无 aiRecommendation 时置 null', async () => {
+      svc.listRequests.mockResolvedValue({ total: 1, items: [{ id: 2, title: '出差', type: 'travel', amount: 300, status: 'pending', riskLevel: 'low' }] });
+      const result = await tool.execute({}, '1');
+      expect((result.data as any).items[0].aiRecommendation).toBeNull();
+    });
   });
 
   describe('QueryApprovalPoliciesTool', () => {
@@ -22,6 +38,17 @@ describe('Approval tools', () => {
       svc.listPolicies.mockResolvedValue([{ id: 1, title: '报销政策', type: 'reimbursement', maxAmount: 1000, active: true }]);
       const result = await tool.execute({}, '1');
       expect((result.data as any)[0].maxAmount).toBe(1000);
+    });
+    it('toToolDefinition 生成合法工具定义', () => {
+      const def = tool.toToolDefinition();
+      expect(def.type).toBe('function');
+      expect(def.function.name).toBe('query_approval_policies');
+    });
+    it('服务异常 → success:false', async () => {
+      svc.listPolicies.mockRejectedValue(new Error('no policies'));
+      const result = await tool.execute({}, '1');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('no policies');
     });
   });
 
@@ -55,6 +82,28 @@ describe('Approval tools', () => {
       const result = await tool.execute({ requestId: 1 }, '3');
       expect(svc.reviewRequest).toHaveBeenCalledWith(1, 3);
       expect((result.data as any).status).toBe('auto_approved');
+    });
+    it('toToolDefinition 生成合法工具定义', () => {
+      const def = tool.toToolDefinition();
+      expect(def.type).toBe('function');
+      expect(def.function.name).toBe('review_approval_request');
+      expect(def.function.parameters.required).toContain('requestId');
+    });
+    it('requestId 非法 → 参数错误', async () => {
+      const result = await tool.execute({ requestId: 'abc' }, '3');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('必须是数字');
+    });
+    it('服务异常 → success:false', async () => {
+      svc.reviewRequest.mockRejectedValue(new Error('approval down'));
+      const result = await tool.execute({ requestId: 1 }, '3');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('approval down');
+    });
+    it('无 aiRecommendation 时置 null', async () => {
+      svc.reviewRequest.mockResolvedValue({ id: 2, status: 'needs_review', riskLevel: 'medium' });
+      const result = await tool.execute({ requestId: 2 }, '3');
+      expect((result.data as any).aiRecommendation).toBeNull();
     });
   });
 });
