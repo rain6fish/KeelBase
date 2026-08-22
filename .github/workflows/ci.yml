@@ -252,9 +252,13 @@ jobs:
 
   # Run/Adversarial 云端实证（§7.4 #2）：真实 LLM 对话（Run/Safety）+ 攻击集回归。
   # 非阻塞标注——continue-on-error 让失败以警告呈现不 gate 流水线；缺 DEEPSEEK_API_KEY 时跳过。
+  # 注意：GitHub Actions 禁止在 if 条件里直接引用 secrets（会导致 workflow 解析失败），
+  # 因此 secret 经 job 级 env 透传，步骤 if 用 env.DEEPSEEK_API_KEY 判断。
   run-adversarial:
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -264,15 +268,13 @@ jobs:
           cache-dependency-path: Server-NestJS/package-lock.json
       - run: cd Server-NestJS && npm ci
       - name: Run/Adversarial 云端实证（自起隔离后端 + DeepSeek）
-        if: ${{ secrets.DEEPSEEK_API_KEY != '' }}
+        if: env.DEEPSEEK_API_KEY != ''
         run: ./scripts/benchmark/run-adversarial.sh
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - name: 缺 key 跳过标注
-        if: ${{ secrets.DEEPSEEK_API_KEY == '' }}
+        if: env.DEEPSEEK_API_KEY == ''
         run: echo "DEEPSEEK_API_KEY 未配置——Run/Adversarial 跳过（配置 secrets 后自动启用）"
       - uses: actions/upload-artifact@v4
-        if: ${{ secrets.DEEPSEEK_API_KEY != '' }}
+        if: env.DEEPSEEK_API_KEY != ''
         with:
           name: adversarial-reports
           path: docs/benchmark/*.md
