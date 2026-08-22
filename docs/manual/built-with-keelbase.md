@@ -10,7 +10,7 @@
 | 层 | 载体 | 回答 |
 |---|---|---|
 | **静态**（Build 侧）| `.keelbase/manifest.json`（`keelbase init` 生成/幂等合并：schema/identity/generator/version/protocol/modules）| 这是什么项目、协议几版、含哪些生成模块 |
-| **CLI 识别** | `keelbase inspect`（来源 + 能力指纹）· `keelbase doctor`（完整性/一致性/运行时/版本四查）| 是否 KeelBase 应用、是否健康 |
+| **CLI 识别** | `keelbase inspect`（来源 + 能力指纹）· `keelbase doctor`（完整性/一致性/运行时/版本/兼容矩阵五查）| 是否 KeelBase 应用、是否健康、协议是否兼容 |
 | **运行时**（Run 侧）| `GET /app/provenance`（来源身份 + 能力清单 + AI 工具指纹：读写分类/风险级分布）| 运行中的系统有哪些能力 |
 
 `inspect`/`doctor` 是 Build 侧 CLI，`/app/provenance` 是运行时 HTTP 端点——互补覆盖「源码里是什么」与「跑起来是什么」。

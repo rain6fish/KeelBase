@@ -2,11 +2,12 @@
 /**
  * KeelBase doctor — 诊断 KeelBase 应用（来源清单 + 运行时能力体检）。
  *
- * 只读、确定性、零网络零 DB。检查四类：
+ * 只读、确定性、零网络零 DB。检查五类：
  *   1. 完整性：.keelbase/manifest.json 存在、schema 受支持、必需字段齐全
  *   2. 一致性：manifest 列出的生成模块在仓库中是否仍有对应目录
  *   3. 运行时兼容：基座运行时能力（AI 工具 / CASL / 治理 / 审计 / Agent）是否在位
  *   4. 生成器版本：manifest 记录版本 vs 当前 CLI 版本（升级可用 / 不兼容警示）
+ *   5. 兼容矩阵：manifest 协议/schema vs 当前 CLI 支持的协议/schema（协议匹配深化）
  *
  * 输出 PASS/WARN/FAIL + 退出码（0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase）。
  *
@@ -16,7 +17,7 @@
  *   keelbase doctor                               # npm 安装后
  */
 import { access } from 'node:fs/promises';
-import { readManifest, manifestPath, generatorVersion, MANIFEST_SCHEMA, MANIFEST_IDENTITY } from './generator/manifest.mjs';
+import { readManifest, manifestPath, generatorVersion, MANIFEST_SCHEMA, MANIFEST_IDENTITY, MANIFEST_PROTOCOL } from './generator/manifest.mjs';
 
 const C = { reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m' };
 
@@ -27,7 +28,7 @@ const HELP = `KeelBase doctor — 诊断 KeelBase 应用（来源清单 + 运行
   node scripts/keelbase-init.mjs doctor         # 等价的 CLI 子命令
 
 检查: ① 完整性（manifest/schema/字段）② 一致性（生成模块目录）③ 运行时兼容（基座能力）
-      ④ 生成器版本（manifest vs 当前 CLI）
+      ④ 生成器版本（manifest vs 当前 CLI）⑤ 兼容矩阵（协议/schema vs 当前 CLI 支持）
 退出码: 0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase
 `;
 
@@ -150,6 +151,19 @@ export async function runDoctor(argv = []) {
       : cmp < 0
         ? { status: 'warn', name: '版本', detail: `manifest v${man.generatorVersion} 旧于当前 CLI v${cur}——可重新运行 keelbase init 合并升级` }
         : { status: 'warn', name: '版本', detail: `manifest v${man.generatorVersion} 新于当前 CLI v${cur}——当前 CLI 可能不认识新字段，勿覆盖` },
+  );
+
+  // ⑤ 兼容矩阵：manifest 协议/schema vs 当前 CLI 支持的协议/schema（协议匹配深化）
+  const protocolOk = String(man.protocol ?? '') === String(MANIFEST_PROTOCOL);
+  const schemaOk = Number(man.schema) === Number(MANIFEST_SCHEMA);
+  const matrixDetail =
+    `protocol ${man.protocol ?? '?'} ${protocolOk ? '=' : '≠'} ${MANIFEST_PROTOCOL}, ` +
+    `schema ${man.schema ?? '?'} ${schemaOk ? '=' : '≠'} ${MANIFEST_SCHEMA}, ` +
+    `generator v${man.generatorVersion ?? '?'} vs CLI v${cur}`;
+  checks.push(
+    protocolOk && schemaOk
+      ? { status: 'pass', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 全部匹配` }
+      : { status: 'fail', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 不匹配（升级 keelbase 或重建来源清单）` },
   );
 
   return report(checks);

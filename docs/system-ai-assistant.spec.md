@@ -107,6 +107,7 @@ interface AdminAiChatResponse {
 【平台实时数据，供回答参考】
 - 能力清单: preset=full, 已启用模块: 事件-日历事件与提醒, 待办-待办清单与完成状态, ...（来自 /app/capabilities）
 - 应用版本: 1.0.0（最低 1.0.0）
+- 来源身份: keelbase-application（generator keelbase v1.0.0, protocol 1.0, schema 1）; 来源模块: books, contracts, ...（读 .keelbase/manifest.json）
 - AI 工具: query_events-查询事件（启用,仅[roles]）, create_todo-创建待办（需确认）, ...（来自 getToolInventory）
 - 治理策略: 禁用工具: [...], 审计粒度: all
 - 平台统计(近30天): 总用户N, 周活N, 月活N, 留存率N%, AI错误N次
