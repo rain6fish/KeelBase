@@ -49,6 +49,29 @@ for (const r of consoleChildren) {
   r.meta = { ...r.meta, roles: ['admin'] }
 }
 
+// 双 surface 构建：`--mode user` 只含普通用户工作台路由，其余（admin/development）只含控制台路由
+const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
+
+// 工作台（应用侧）：普通企业用户；子页挂这里继承 roles
+const workbenchRoute: RouteRecordRaw = {
+  path: 'workbench',
+  meta: { roles: ['user'] },
+  children: [
+    { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
+    { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
+    { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
+    { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
+    { path: 'ai-trace', name: 'workbench-ai-trace', component: () => import('@/views/workbench/AiTraceView.vue'), meta: { title: 'aiTraceTitle' } },
+    { path: 'org', name: 'workbench-org', component: () => import('@/views/workbench/OrgDirectoryView.vue'), meta: { title: 'workbenchOrgDir' } },
+    { path: 'crm', name: 'workbench-crm', component: () => import('@/views/workbench/CrmCustomersView.vue'), meta: { title: 'crmTitle' } },
+    { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle' } },
+    { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle' } },
+    { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle' } },
+    { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle' } },
+    { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle' } },
+  ],
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -66,28 +89,9 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
-    children: [
-      ...consoleChildren,
-      // 工作台（应用侧）：普通企业用户；子页挂这里继承 roles
-      {
-        path: 'workbench',
-        meta: { roles: ['user'] },
-        children: [
-          { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
-          { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
-          { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
-          { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
-          { path: 'ai-trace', name: 'workbench-ai-trace', component: () => import('@/views/workbench/AiTraceView.vue'), meta: { title: 'aiTraceTitle' } },
-          { path: 'org', name: 'workbench-org', component: () => import('@/views/workbench/OrgDirectoryView.vue'), meta: { title: 'workbenchOrgDir' } },
-          { path: 'crm', name: 'workbench-crm', component: () => import('@/views/workbench/CrmCustomersView.vue'), meta: { title: 'crmTitle' } },
-          { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle' } },
-          { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle' } },
-          { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle' } },
-          { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle' } },
-          { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle' } },
-        ],
-      },
-    ],
+    // user 构建无 dashboard 空路径子路由，直接落地工作台；admin 构建 '/' = dashboard
+    redirect: SURFACE === 'user' ? '/workbench' : undefined,
+    children: SURFACE === 'user' ? [workbenchRoute] : consoleChildren,
   },
   {
     path: '/:pathMatch(.*)*',
