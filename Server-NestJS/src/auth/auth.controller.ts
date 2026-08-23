@@ -4,6 +4,8 @@ import { ParseIntPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { DelegationTokenService } from './delegation-token.service';
+import { DelegationTokenDto } from './dto/delegation-token.dto';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { LoginDto } from './dto/login.dto';
@@ -34,6 +36,7 @@ export class AuthController {
     private authService: AuthService,
     private providersConfig: OAuthProvidersConfigService,
     private caslFactory: CaslAbilityFactory,
+    private delegationTokenService: DelegationTokenService,
   ) {}
 
   @Public()
@@ -224,6 +227,19 @@ export class AuthController {
   @ApiOkResponse({ description: 'Profile retrieved' })
   async getProfile(@CurrentUser() user: JwtPayload) {
     return this.authService.getProfile(user.sub);
+  }
+
+  /** AI Bridge §5 身份桥接：已认证用户签发短期委托 JWT（Java 系统共享密钥验签映射本地用户）。 */
+  @Post('delegation-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Issue delegation token for a target system (AI Bridge identity bridge)' })
+  @ApiOkResponse({ description: 'Short-lived delegation JWT issued' })
+  async issueDelegationToken(
+    @Body() dto: DelegationTokenDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.delegationTokenService.sign(String(user.sub), dto.audience, dto.ttlSeconds);
   }
 
   @Get('me/permissions')
