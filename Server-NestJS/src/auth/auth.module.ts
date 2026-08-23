@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { DelegationTokenService } from './delegation-token.service';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -56,7 +57,7 @@ import { OrgModule } from '../org/org.module';
     OrgModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService, UploadSignService],
+  providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService, UploadSignService, DelegationTokenService],
   exports: [AuthService, OAuthService, OAuthProvidersConfigService, JwtModule, PassportModule, TypeOrmModule],
 })
 export class AuthModule {}
