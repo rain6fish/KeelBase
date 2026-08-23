@@ -21,13 +21,14 @@
 
 ## 2. 现状能力盘点（A 路径，✅ 已实测）
 
-- `node scripts/keelbase-init.mjs --import-openapi swagger.json`（OpenAPI 3 `components.schemas` / Swagger 2 `definitions`）
+- `node scripts/keelbase-init.mjs --import-openapi swagger.json`（OpenAPI 3 `components.schemas` / Swagger 2 `definitions`；**支持 `.yaml/.yml` + 多文件本地相对 `$ref` 自动合并 + `--list-schemas`**）
 - `--import-schema schema.sql --table xxx`（`CHECK IN` → enum，`VARCHAR(120)` → string，`DECIMAL` → int）
 - 类型映射：string / text / int / bool / date / enum（2-10 个合法小写选项），非法降级 string
 - 保留字段跳过：`id / userId / createdAt / updatedAt / deletedAt`
-- 关系跳过：`object / array / $ref` 保持手写（协议红线）
+- 关系跳过：`object / array / $ref` 保持手写（协议红线，诊断报告标注关系目标）
 - `--out` 写 Protocol JSON（复查 / 供 `--spec` 复用）；`--module / --label / --schema` 指定
-- 测试覆盖：类型映射、Swagger 2、无 schemas、enum 非法降级、CLI 端到端（`--out` + 直接生成）
+- **身份桥接**：`POST /auth/delegation-token` 签发委托 JWT（Java 系统共享密钥验签映射本地用户，§5）
+- 测试覆盖：类型映射、Swagger 2、无 schemas、enum 非法降级、YAML、$ref/allOf、number 精度、CLI 端到端（`--out` + 直接生成）
 - 引用：`scripts/keelbase-init.test.mjs` P0-12 段；[aiization-demo.md](aiization-demo.md)
 
 ---
@@ -103,36 +104,43 @@ OpenAPI（含 operations + securitySchemes）
 
 ---
 
-## 6. Java 团队接入指南（草案，随实现完善；对外发布前先完成 §3/§4/§5）
+## 6. Java 团队接入指南（§3 导入加固 + §5 委托 token 已落地；§4 B 路径 ProxyTool 待实现）
 
 ### 第 1 步：选路（决策表）
 
 | 场景 | 路径 |
 |---|---|
 | 旧系统可改库 / 数据可复制 | **A** Schema 重建 |
-| 不能动旧系统、AI 要操作在线数据 | **B** API 代理 |
+| 不能动旧系统、AI 要操作在线数据 | **B** API 代理（§4 未实现；先走 A 或混合） |
 | 核心数据用 B 代理，衍生表用 A | 混合 |
 
-### 第 2 步：导入
+### 第 2 步：导入（A 路径）
 
 ```bash
-# A 路径：Schema / OpenAPI → Protocol（先出协议，复查后再生成）
+# OpenAPI → Protocol（支持 .yaml/.yml、多文件本地相对 $ref 自动合并）
 node scripts/keelbase-init.mjs --import-openapi ./swagger.yaml --out specs/contract.json
-node scripts/keelbase-init.mjs --import-schema schema.sql --table contracts --out specs/contract.json
-# 查看 skipped 报告 → 关系字段手写
+node scripts/keelbase-init.mjs --import-openapi ./swagger.yaml --list-schemas   # 列出可用 schema
+node scripts/keelbase-init.mjs --import-openapi ./swagger.yaml --schema Contract --out specs/contract.json  # 指定 schema
+# 查看 skipped（关系/保留）与 notes（number 精度）报告 → 关系字段手写
 # 确认后生成
 node scripts/keelbase-init.mjs --spec specs/contract.json --label 合同
 ```
 
-### 第 3 步：治理
+### 第 3 步：身份桥接（B 路径前提；A 路径可选）
+
+- KeelBase 用户签发短期委托 token：`POST /auth/delegation-token`（body `{ audience: '<目标系统>' }`）
+- Java 端共享 `DELEGATION_SECRET` 验签 → 用 `oidcSub`（OIDC subject）或 `local:<userId>` 映射本地用户 → 越权拒绝
+- 默认 300s 短时有效 + audience 限定目标系统，防跨系统冒用
+
+### 第 4 步：治理
 
 - 读工具 → 自动；写工具 → 人工确认（已默认）
-- 高风险写（金额变更 / 删除 / 审批决定）→ 等 W5 `riskLevel` 落地后配置
+- 高风险写（金额变更 / 删除 / 审批决定）→ 配置 `riskLevel`（R3 确认 / R4 双人审批 / R5 阻断）
 - 审计：所有 AI 操作落哈希链，可撤销
 
-### 第 4 步：验收
+### 第 5 步：验收
 
-> AI 完成一个真实业务任务 + 审计可查 + 越权被拒（他人数据 403）。
+> AI 完成一个真实业务任务 + 审计可查 + 越权被拒（他人数据 403）。B 路径需：Java 端收到调用识别到正确用户身份。
 
 ---
 
