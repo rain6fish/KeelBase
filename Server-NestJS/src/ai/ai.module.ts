@@ -8,6 +8,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthModule } from '../auth/auth.module';
+import { DelegationTokenService } from '../auth/delegation-token.service';
+import { ProxyToolRegistryService } from './proxy/proxy-tool.service';
 import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
@@ -99,6 +102,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     ConfigModule,
+    forwardRef(() => AuthModule),
     forwardRef(() => EventsModule),
     UsersModule,
     TodosModule,
@@ -152,6 +156,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         pmService: PmService,
         approvalService: ApprovalService,
         approvalsRepo,
+        delegationTokenService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -273,6 +278,15 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           new SkillsRegistry(DEFAULT_SKILLS),
         );
 
+        // 4.5 B 路径 ProxyTool（AI Bridge §4）：从 Settings ai_proxy_tools 动态注册代理工具
+        // fire-and-forget——启动后注册，LLM 后续对话可见（MVP 无运行时热更新）
+        const proxyRegistry = new ProxyToolRegistryService(
+          settingsService,
+          delegationTokenService,
+          toolRegistry,
+        );
+        void proxyRegistry.loadAndRegister();
+
         // 5. 创建 AiService（ConversationService 和 AuditService 由 NestJS 注入）
         return new AiService(
           factory,
@@ -294,7 +308,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           approvalsRepo,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest)],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
