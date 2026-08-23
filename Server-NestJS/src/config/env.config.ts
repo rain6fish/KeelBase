@@ -10,6 +10,8 @@ export const envValidationSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+  /** AI Bridge 委托 token 密钥（Java 系统共享验签；缺省回退 JWT_SECRET，生产应显式配置独立密钥） */
+  DELEGATION_SECRET: Joi.string().min(32).optional().allow(''),
 
   // Database (遵循文档规范)
   DB_TYPE: Joi.string().valid('sqlite', 'postgres').default('sqlite'),

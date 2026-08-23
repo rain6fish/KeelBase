@@ -412,6 +412,7 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 # 核心变量（必填）
 JWT_SECRET=           # 最少 32 字符
 JWT_REFRESH_SECRET=   # 最少 32 字符
+DELEGATION_SECRET=    # AI Bridge 委托 token 密钥（Java 系统共享验签，缺省回退 JWT_SECRET，生产应独立配置）
 
 # 环境切换
 NODE_ENV=development  # development | staging | production | test
@@ -676,6 +677,7 @@ npm run migration:run
 | GET | /api/v1/auth/export-data | Yes | 本人 | 导出本人全量数据（数据可携带权） |
 | GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请信息：邀请码 + 已邀请用户列表（G-2） |
 | GET | /api/v1/auth/oauth/providers | No | — | 获取已启用的 OAuth 提供商列表及元数据 |
+| POST | /api/v1/auth/delegation-token | Yes | 本人 | 签发短期委托 JWT（AI Bridge §5：Java 系统共享密钥验签映射本地用户；audience 限定目标系统，默认 300s） |
 | POST | /api/v1/auth/mfa/setup | Yes | 本人 | 启用 MFA：生成 TOTP 密钥（RFC 6238）与 otpauth URL |
 | POST | /api/v1/auth/mfa/verify | Yes | 本人 | 提交 TOTP 验证码启用 MFA |
 | POST | /api/v1/auth/mfa/disable | Yes | 本人 | 禁用 MFA |

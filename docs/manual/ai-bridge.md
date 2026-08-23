@@ -80,14 +80,25 @@ OpenAPI（含 operations + securitySchemes）
 
 ---
 
-## 5. 身份 / 权限桥接（🚧 P1，B 路径成立的前提）
+## 5. 身份 / 权限桥接（✅ KeelBase 侧落地；Java 侧 + B 路径待做）
 
 问题：**Java 系统登录用户在 KeelBase 里是谁？AI 以谁的权限操作 Java 数据？**
 不解决它，B 路径的「Permission」是空心的。
 
-- 现有：OIDC SSO（`oauth.service verifyOidc`）可作统一身份源
-- 缺口：Java 会话 → KeelBase 用户作用域的委托/模拟 token 流
-- 设计：企业 IdP 认证一次 → KeelBase 建 session 映射 → 代理 Tool 调目标端点时注入「用户委托身份」头（目标系统认可该映射）
+**✅ KeelBase 侧委托 token 签发（2026-08-23）**：
+- `POST /auth/delegation-token`（已认证用户）→ 签发**短期委托 JWT**：
+  - `sub` = KeelBase userId；`oidcSub` = OIDC subject（`users.providerId`，统一身份源映射键）；无 OIDC 时 `subject = local:<userId>`
+  - `aud` = 目标系统标识（如 `legacy-erp`）；`iss` = `keelbase`；默认 300s（DTO 限制 60-3600）
+  - 独立 `DELEGATION_SECRET`（缺省回退 JWT_SECRET，生产应显式配置独立密钥）
+- **Java 端验证方式**：共享 `DELEGATION_SECRET` 验签 → 校验 `aud` → 用 `oidcSub`（或 `local:<userId>`）映射本地用户 → 越权（他人数据）拒绝。示例：
+  ```java
+  // Java/Spring：验签委托 JWT（HMAC256，secret=DELEGATION_SECRET）
+  Jws<Claims> jws = Jwts.parserBuilder().setSigningKey(secret.getBytes()).build().parseClaimsJws(token);
+  String oidcSub = jws.getBody().get("oidcSub", String.class); // 映射本地用户
+  if (!"legacy-erp".equals(jws.getBody().getAudience())) throw new AccessDeniedException("audience mismatch");
+  ```
+
+- **待做**：B 路径 ProxyTool 注入委托身份头（§4 未实现）+ 模拟 Java 系统端到端验收（收到调用识别到正确用户身份；越权被拒）
 - 验收：模拟 Java 系统收到调用识别到正确用户身份；越权（他人数据）被目标系统或 KeelBase 拒绝
 
 ---
