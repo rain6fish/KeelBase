@@ -29,6 +29,7 @@ import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
+import { parseYaml } from './generator/yaml.mjs';
 import {
   writeManifest,
   readManifest,
@@ -837,6 +838,85 @@ test('parseOpenApiSpec：required/label 透传 + skipped 诊断（保留/关系/
   assert.ok(r.skipped.some((s) => s.name === '9first' && /非法/.test(s.reason)));
   // 全部保留/关系字段被记入，fields 只含标量
   assert.deepEqual(r.fields.map((f) => f.name), ['name', 'status', 'owner', 'tier', 'extra']);
+});
+
+// ── AI Bridge 加固（§3）：YAML / $ref / allOf / number 精度 / 多 schema 提示 ──
+test('parseYaml：嵌套 map/list/引号/内联 enum/多行注释（OpenAPI YAML 子集）', () => {
+  const yaml = `
+openapi: 3.0.1
+info:
+  title: Contract API
+  version: 1.0
+components:
+  schemas:
+    Contract:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: 合同名称
+        status:
+          type: string
+          enum: [draft, active]
+        tags:
+          - 内部
+          - 外部
+`;
+  const r = parseYaml(yaml);
+  assert.equal(r.openapi, '3.0.1');
+  assert.equal(r.info.title, 'Contract API');
+  assert.deepEqual(r.components.schemas.Contract.required, ['title']);
+  assert.equal(r.components.schemas.Contract.properties.title.description, '合同名称');
+  assert.deepEqual(r.components.schemas.Contract.properties.status.enum, ['draft', 'active']);
+  assert.deepEqual(r.components.schemas.Contract.properties.tags, ['内部', '外部']);
+});
+
+test('parseOpenApiSpec：$ref 关系标注 + 顶层 allOf 合并 + number 精度 notes', () => {
+  // $ref 关系标注落入手写清单
+  const ref = parseOpenApiSpec({
+    components: { schemas: { Order: { type: 'object', properties: {
+      owner: { $ref: '#/components/schemas/User' },
+      title: { type: 'string' },
+    } } } },
+  });
+  assert.ok(ref.skipped.some((s) => s.name === 'owner' && /关系 \$ref/.test(s.reason)));
+  assert.ok(ref.fields.some((f) => f.name === 'title'));
+
+  // 顶层 allOf 组合：合并标量 properties + required
+  const allOf = parseOpenApiSpec({
+    components: { schemas: { Order: { allOf: [
+      { type: 'object', properties: { base: { type: 'string' } } },
+      { type: 'object', properties: { amount: { type: 'number' } }, required: ['amount'] },
+    ] } } },
+  });
+  assert.ok(allOf.fields.some((f) => f.name === 'base'));
+  const amount = allOf.fields.find((f) => f.name === 'amount');
+  assert.equal(amount.required, true);
+
+  // number 精度 notes（format double / type number → int 提示）
+  assert.ok(allOf.notes.some((n) => /amount/.test(n) && /丢精度/.test(n)));
+
+  // 字段级 allOf 含 $ref → 关系跳过（需至少一个标量字段避免返回 error）
+  const allOfRef = parseOpenApiSpec({
+    components: { schemas: { X: { type: 'object', properties: {
+      title: { type: 'string' },
+      detail: { allOf: [{ $ref: '#/components/schemas/User' }] },
+    } } } },
+  });
+  assert.ok(allOfRef.skipped.some((s) => s.name === 'detail' && /关系/.test(s.reason)));
+});
+
+test('parseSqlDdl：DECIMAL/REAL → int 丢精度 notes', () => {
+  const r = parseSqlDdl(`CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    title VARCHAR(120) NOT NULL,
+    amount DECIMAL(10,2),
+    price REAL
+  );`);
+  assert.ok(r.notes.some((n) => /amount/.test(n) && /DECIMAL/.test(n)));
+  assert.ok(r.notes.some((n) => /price/.test(n) && /REAL/.test(n)));
 });
 
 // ── P0-12 输入通道：SQL DDL → Protocol ────────────────────────────────────────
