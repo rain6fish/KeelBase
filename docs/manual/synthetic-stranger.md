@@ -38,17 +38,19 @@ fresh-context Agent 执行，逐步记录
 - 背景：熟悉 REST / 全栈，不了解 KeelBase
 - 任务：从零生成一个带权限 / AI 工具 / 确认 / 审计的业务模块（对齐 [30min-acceptance.md](30min-acceptance.md)）
 
-### P2 Java 团队视角（新增，2026-08-20，对齐 [ai-bridge.md](ai-bridge.md)）
+### P2 Java 团队视角（2026-08-20 新增；2026-08-23 对齐 AI Bridge 加固 + 委托 token）
 
 - 背景：Java / Spring 团队，有存量 REST API（OpenAPI），不想学 KeelBase 全套
 - 任务：
-  1. 用已有 OpenAPI 导入（先按决策表选路 A / B）
+  1. 用已有 OpenAPI 导入（先按决策表选路 A / B；真实 spec 多为 YAML / 多文件 / $ref 组合——AI Bridge §3 已支持）
   2. 生成模块（A）或代理工具（B）
   3. 配置治理（确认 / 审计）
-  4. AI 完成一个真实业务任务（读 + 写）
-  5. 越权验证（他人数据 → 拒绝）
+  4. **身份桥接**：签发委托 token（`POST /auth/delegation-token`，audience=目标系统），Java 端共享 `DELEGATION_SECRET` 验签后按 `oidcSub`/`local:<userId>` 映射本地用户（§5）
+  5. AI 完成一个真实业务任务（读 + 写）
+  6. 越权验证（他人数据 → 拒绝）
 - 重点观察：
-  - OpenAPI 导入是否对真实 spec 可用（`skipped` 报告可读性）
+  - OpenAPI 导入对真实 spec（YAML / 多文件 $ref）可用性 + `skipped`/`notes` 报告可读性
+  - 委托 token 桥接是否让 Java 系统识别到正确用户身份
   - 指南能否让它在不读 Core 代码的情况下继续
 
 ## 4. 卡点记录表
