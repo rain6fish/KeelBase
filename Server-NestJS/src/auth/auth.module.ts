@@ -58,6 +58,6 @@ import { OrgModule } from '../org/org.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService, UploadSignService, DelegationTokenService],
-  exports: [AuthService, OAuthService, OAuthProvidersConfigService, JwtModule, PassportModule, TypeOrmModule],
+  exports: [AuthService, OAuthService, OAuthProvidersConfigService, JwtModule, PassportModule, TypeOrmModule, DelegationTokenService],
 })
 export class AuthModule {}
