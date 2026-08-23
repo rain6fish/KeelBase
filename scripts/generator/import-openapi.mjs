@@ -46,14 +46,14 @@ export function parseOpenApiSpec(spec, opts = {}) {
 
   const pick = opts.schema && names.includes(opts.schema) ? opts.schema : names[0];
   const schema = schemas[pick];
-  const { fields, skipped } = schemaFields(schema);
+  const { fields, skipped, notes } = schemaFields(schema);
   if (fields.length === 0) {
     return { error: `schema「${pick}」没有可转换的标量属性（object/array/关系字段保持手写，不自动生成）` };
   }
 
   const module = opts.module ?? toPlural(toSnake(pick));
   const label = opts.label ?? pick;
-  return { module, label, fields, skipped };
+  return { module, label, fields, skipped, notes, available: names };
 }
 
 /**
@@ -61,10 +61,25 @@ export function parseOpenApiSpec(spec, opts = {}) {
  * skip = 未转换（保留/关系/非法名）；downgrade 也记入（enum 非法降级 string）。
  */
 function schemaFields(schema) {
+  // #4 顶层 allOf 组合（如 Base + 扩展）：合并标量 properties + required（关系 $ref 保持手写）
+  if (Array.isArray(schema.allOf)) {
+    const merged = { ...schema };
+    delete merged.allOf;
+    for (const part of schema.allOf) {
+      if (part && typeof part === 'object' && !part.$ref) {
+        if (part.properties) Object.assign(merged.properties ?? (merged.properties = {}), part.properties);
+        if (Array.isArray(part.required)) {
+          merged.required = [...(merged.required ?? []), ...part.required];
+        }
+      }
+    }
+    schema = merged;
+  }
   const props = schema.properties ?? {};
   const requiredSet = new Set(Array.isArray(schema.required) ? schema.required : []);
   const fields = [];
   const skipped = [];
+  const notes = [];
   for (const [rawName, prop] of Object.entries(props)) {
     if (!prop || typeof prop !== 'object') {
       skipped.push({ name: rawName, reason: '属性定义缺失' });
@@ -80,10 +95,37 @@ function schemaFields(schema) {
       continue;
     }
 
+    // #4 $ref / allOf：单层 $ref → 关系标注落入手写清单；纯标量 allOf → 合并；allOf 含 $ref → 关系跳过
+    if (typeof prop.$ref === 'string') {
+      skipped.push({ name, reason: `关系 $ref: ${prop.$ref}（协议红线保持手写）` });
+      continue;
+    }
+    if (Array.isArray(prop.allOf)) {
+      const refs = prop.allOf.filter((p) => p && typeof p === 'object' && p.$ref);
+      if (refs.length > 0) {
+        skipped.push({ name, reason: `allOf 含关系 $ref: ${refs.map((r) => r.$ref).join(',')}（协议红线保持手写）` });
+        continue;
+      }
+      const merged = { ...prop };
+      delete merged.allOf;
+      for (const part of prop.allOf) {
+        if (part && typeof part === 'object') {
+          if (part.type) merged.type = part.type;
+          if (part.properties) Object.assign(merged.properties ?? (merged.properties = {}), part.properties);
+        }
+      }
+      prop = merged;
+    }
+
     const type = mapType(prop);
     if (!type) {
       skipped.push({ name, reason: '关系/复杂结构（object/array/$ref，协议红线保持手写）' });
       continue;
+    }
+
+    // #8 number 精度提示：number / double / float → int 丢精度，金额字段谨慎
+    if (type === 'int' && (prop.type === 'number' || prop.format === 'double' || prop.format === 'float')) {
+      notes.push(`${name}：number/double → int 丢精度（价格/金额字段建议保留 text/int 或手写）`);
     }
 
     const field = { name, type };
@@ -103,7 +145,7 @@ function schemaFields(schema) {
     if (requiredSet.has(name)) field.required = true;
     fields.push(field);
   }
-  return { fields, skipped };
+  return { fields, skipped, notes };
 }
 
 /** OpenAPI title/description → 安全 label（去除会破坏生成代码的引号/反斜杠/换行，限长）。 */
