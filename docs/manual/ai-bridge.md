@@ -58,7 +58,7 @@
 
 ---
 
-## 4. API 代理工具路径（B 路径，🚧 P1）
+## 4. API 代理工具路径（B 路径，✅ MVP 落地 2026-08-23；完整 B 待做）
 
 目标：`OpenAPI operations → 生成代理 Tool → 直接调已有系统 REST 端点`，全部过治理层。
 
@@ -74,10 +74,14 @@ OpenAPI（含 operations + securitySchemes）
 治理：Permission / Risk / Confirmation / Audit（复用 HS-9 治理层）
 ```
 
-- 读操作 → R1 自动；写操作 → R3 Confirmation（对齐 W5 Risk-based Tool Contract）
-- 新增组件：`openapi-proxy` 生成器 + 运行时 `ProxyTool` 骨架（首个先例 `web-search.tool.ts`）
-- 错误语义：目标系统 4xx/5xx 透传为工具失败原因，供 Agent 回退
-- **验收**：一个模拟 Java 系统（示例 OpenAPI）端到端——OpenAPI → 生成 → AI 读/写 → 确认 → 审计 → 撤销
+**✅ MVP（2026-08-23）**：
+- 运行时 `ProxyTool`（`src/ai/proxy/proxy-tool.ts`）：Settings `ai_proxy_tools` 动态配置（`{ baseUrl, audience, tools[{ name, method, path, parameters, riskLevel }] }`）→ `ProxyToolRegistryService` 启动时注册到 ToolRegistry
+- 读 → R1 自动；写 → R3 Confirmation（缺省按 method 派生，`requiresConfirmation` 门控走现有确认流）
+- 委托身份注入：execute 时 `DelegationTokenService.sign(userId, audience)` → `Authorization: Bearer <委托 JWT>`（§5）
+- 错误语义：目标 4xx/5xx 透传为工具失败原因，供 Agent 回退
+- **e2e 验收（`test/proxy-bridge.e2e-spec.ts`，模拟 Java 系统）3/3**：读工具委托身份注入目标+识别用户 / 写工具 R3 确认门控+body 送达 / 越权（目标 403）→ 工具失败透传
+
+**完整 B 待做**：`openapi-proxy` 生成器（从 OpenAPI operations 自动生成 proxy 配置，非手写 JSON）+ AI 对话端到端（确认 → 执行 → 审计 → 目标系统撤销）。MVP 撤销语义在 Java 端（数据在目标系统）。
 
 ---
 

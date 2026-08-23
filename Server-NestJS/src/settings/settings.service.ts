@@ -7,6 +7,8 @@ export const SETTING_KEYS = {
   MAINTENANCE_MODE: 'maintenance_mode',
   AI_DAILY_LIMIT: 'ai_daily_limit',
   CONFIRMATION_TTL: 'confirmation_ttl_seconds',
+  /** AI Bridge B 路径：proxy 工具配置（JSON：{ baseUrl, audience, tools[] }） */
+  PROXY_TOOLS: 'ai_proxy_tools',
 } as const;
 
 interface ParsedValue {
