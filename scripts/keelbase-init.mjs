@@ -28,10 +28,11 @@ import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
+import { parseYaml } from './generator/yaml.mjs';
 import { writeManifest } from './generator/manifest.mjs';
 
 const C = {
-  reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m',
+  reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', dim: '\x1b[2m',
 };
 
 const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
@@ -58,9 +59,10 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --label <中文>       模块中文名（1-12 字）
   --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date/enum（默认 string）；enum 内联选项：status:enum:active,inactive（小写英文，2-10 个，未给时用默认）
   --desc <描述>        自然语言描述 → LLM 提取模块/标签/字段
-  --import-openapi <file>   从 OpenAPI 3 / Swagger 2 JSON 提取 schema → Protocol
+  --import-openapi <file>   从 OpenAPI 3 / Swagger 2 提取 schema → Protocol（支持 .yaml/.yml，本地相对 $ref 自动合并）
   --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
   --schema <name>      OpenAPI 中选定的 schema 名（默认第一个）
+  --list-schemas       列出 OpenAPI 中可用 schema（配合 --import-openapi）
   --table <name>       SQL 中选定的表名（默认第一张）
   --out <file>         配合 --import-* 只写 Protocol JSON（供 --spec 复用）
   --brand <name>       替换应用品牌名（写 app_constants.dart）
@@ -80,6 +82,7 @@ function parseArgs(argv) {
     else if (a === '--no-feature-flag') args.featureFlag = false;
     else if (a === '--tab') args.tab = true;
     else if (a === '--force') args.force = true;
+    else if (a === '--list-schemas') args['list-schemas'] = true;
     else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq < 0 ? undefined : eq);
@@ -111,6 +114,36 @@ async function exists(p) {
   } catch {
     return false;
   }
+}
+
+/** #9 多文件 OpenAPI：扫描本地相对 $ref（./other.yaml#/...）→ 加载外部文件并合并其 schemas 到主 spec。 */
+async function resolveLocalRefs(spec, file) {
+  const dir = file.substring(0, Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\')));
+  const seen = new Set([file]);
+  const json = JSON.stringify(spec);
+  const refs = [...json.matchAll(/"\$ref":"(\.\.?\/[^"]+)"/g)].map((m) => m[1]);
+  for (const ref of refs) {
+    const rel = ref.match(/^\.{0,2}\/([^#]+)/)?.[1];
+    if (!rel) continue;
+    const key = `${dir}/${rel}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      const raw = await readFile(key, 'utf8');
+      const ext = /\.ya?ml$/i.test(rel) ? parseYaml(raw) : JSON.parse(raw);
+      const extSchemas = ext.components?.schemas ?? ext.definitions ?? {};
+      for (const [n, s] of Object.entries(extSchemas)) {
+        if (!spec.components?.schemas?.[n]) {
+          spec.components ??= {};
+          spec.components.schemas ??= {};
+          spec.components.schemas[n] = s;
+        }
+      }
+    } catch {
+      // 外部文件缺失：忽略（引用目标保留，后续手写清单提示）
+    }
+  }
+  return spec;
 }
 
 async function writeGenerated(rel, content) {
@@ -191,11 +224,23 @@ async function main() {
     if (importOpenapi) {
       let spec;
       try {
-        spec = JSON.parse(await readFile(importOpenapi, 'utf8'));
+        const raw = await readFile(importOpenapi, 'utf8');
+        // #5 YAML 支持：.yaml/.yml 走内置解析；否则 JSON
+        spec = /\.ya?ml$/i.test(importOpenapi) ? parseYaml(raw) : JSON.parse(raw);
+        if (!spec || typeof spec !== 'object') fail('OpenAPI 文件解析结果无效');
       } catch (err) {
-        fail(`无法读取 OpenAPI 文件 ${importOpenapi}: ${err.message}`);
+        fail(`无法读取/解析 OpenAPI 文件 ${importOpenapi}: ${err.message}（YAML 需 .yaml/.yml 扩展名）`);
       }
+      // #9 多文件 OpenAPI：本地相对 $ref（./other.yaml#/...）→ 加载外部文件并合并 schemas
+      spec = await resolveLocalRefs(spec, importOpenapi);
       imported = parseOpenApiSpec(spec, { schema: args.schema, module: args.module, label: args.label });
+      // #3 多 schema：--list-schemas 列出可用 schema（未选的手写清单）
+      if (args['list-schemas']) {
+        const names = imported.available ?? [];
+        console.log(`可用 schema（${names.length}）：${names.join(', ')}`);
+        console.log(`${C.dim}  未选 schema 保持手写——用 --schema <name> 指定单个，或 --schemas a,b 循环生成${C.reset}`);
+        return;
+      }
     } else {
       let sql;
       try {
@@ -213,6 +258,9 @@ async function main() {
       try {
         await writeGenerated(args.out, JSON.stringify(proto, null, 2) + '\n');
         console.log(`${C.green}✓ 已从 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'} 写出协议 ${args.out}${C.reset}`);
+        if (imported.notes?.length) {
+          console.log(`${C.cyan}  提示：${imported.notes.join('；')}${C.reset}`);
+        }
         console.log(`${C.dim}  下一步：node scripts/keelbase-init.mjs --spec ${args.out}${C.reset}`);
         return;
       } catch (err) {
@@ -226,6 +274,9 @@ async function main() {
     console.log(`${C.cyan}导入 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'}：模块 ${imported.module} / 标签 ${imported.label} / 字段 ${imported.fields.map((f) => f.name).join(', ')}${C.reset}`);
     if (imported.skipped?.length) {
       console.log(`${C.yellow}  诊断 ${imported.skipped.length} 项：${imported.skipped.map((s) => `${s.name}(${s.reason})`).join('，')}${C.reset}`);
+    }
+    if (imported.notes?.length) {
+      console.log(`${C.cyan}  提示 ${imported.notes.length} 条：${imported.notes.join('；')}${C.reset}`);
     }
   }
 

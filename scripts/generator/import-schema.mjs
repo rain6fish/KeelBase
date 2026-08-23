@@ -25,14 +25,14 @@ export function parseSqlDdl(sql, opts = {}) {
 
   const pick = opts.table && tables.some((t) => t.name === opts.table) ? opts.table : tables[0].name;
   const table = tables.find((t) => t.name === pick);
-  const { fields, skipped } = table.columns;
+  const { fields, skipped, notes } = table.columns;
   if (fields.length === 0) {
     return { error: `表「${pick}」没有可转换的标量列（id 除外）` };
   }
 
   const module = opts.module ?? toPlural(pick);
   const label = opts.label ?? pick;
-  return { module, label, fields, skipped };
+  return { module, label, fields, skipped, notes };
 }
 
 /** 按分号切块，每个含 CREATE TABLE 的块解析出 { name, columns[] } */
@@ -71,6 +71,7 @@ function splitTopLevel(body) {
 function parseColumns(body) {
   const cols = [];
   const skipped = [];
+  const notes = [];
   for (const line of splitTopLevel(body)) {
     const t = line.trim();
     if (!t) continue;
@@ -103,11 +104,15 @@ function parseColumns(body) {
       skipped.push({ name, reason: `未知类型 ${base}，未转换` });
       continue;
     }
+    // #8 number 精度提示：DECIMAL/REAL/FLOAT/NUMERIC → int 丢精度（金额字段谨慎）
+    if (type === 'int' && /^(DECIMAL|REAL|FLOAT|NUMERIC|DOUBLE)/.test(base)) {
+      notes.push(`${name}：${base} → int 丢精度（价格/金额字段建议保留 text/int 或手写）`);
+    }
     const col = type === 'enum' ? { name, type: 'enum', enum: enumOptions } : { name, type };
     if (/NOT\s+NULL/i.test(t)) col.required = true;
     cols.push(col);
   }
-  return { fields: cols, skipped };
+  return { fields: cols, skipped, notes };
 }
 
 /** 列级 CHECK ... IN ('a','b') → 合法小写选项列表 */

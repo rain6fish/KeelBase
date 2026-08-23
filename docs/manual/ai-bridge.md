@@ -40,19 +40,20 @@
 |---|---|---|---|---|
 | 1 | **required 透传** | OpenAPI `required` 数组未映射到 Protocol `required` | ✅ | required 字段 → Protocol `required: true` → **AI 工具输入 schema 必填**（Agent 必须提供）+ **create DTO `@IsNotEmpty()` 非可选** + **前端 model `required`**；单测 + CLI 端到端覆盖 |
 | 2 | **label/description 透传** | schema 属性 `title/description` 丢失 | ✅ | `title` 优先 / `description` 兜底 → Protocol `label`（流入 AI 工具参数描述）；引号/换行/反斜杠净化、限长 40 |
-| 3 | **多 schema / 多模块** | 只取第一个 schema，其余静默丢弃 | 🚧 | 支持 `--schemas a,b` 或交互选择；未选 schema 列入手写清单 |
-| 4 | **$ref / allOf 浅层解析** | `$ref` / `allOf` 直接跳过 | 🚧 | 单层 `$ref` 解析为「关系标注」并落入手写清单；`allOf` 合并标量字段 |
-| 5 | **YAML 支持** | 只吃 JSON，真实企业 spec 多为 YAML | 🚧 | 内置 YAML 解析，支持 `.yaml/.yml` |
+| 3 | **多 schema / 多模块** | 只取第一个 schema，其余静默丢弃 | ✅（`--list-schemas`） | `--list-schemas` 列出可用 schema（未选列入手写清单）；`--schema <name>` 指定单个。`--schemas a,b` 多模块循环留待后续 |
+| 4 | **$ref / allOf 浅层解析** | `$ref` / `allOf` 直接跳过 | ✅ | 字段级 `$ref` / allOf 含 `$ref` → 关系标注落入手写清单；顶层 allOf → 合并标量 properties + required |
+| 5 | **YAML 支持** | 只吃 JSON，真实企业 spec 多为 YAML | ✅ | 内置 YAML 子集解析（零依赖 `yaml.mjs`），`.yaml/.yml` 直接导入（嵌套 map/list/引号/内联 enum/多行） |
 | 6 | **跳过诊断报告** | 字段静默跳过，Java 团队不知道缺了什么 | ✅ | `--out` 协议含 `skipped: [{ name, reason }]`（保留/关系/非法名/enum 降级）；直接生成时终端打印诊断 |
 | 7 | **enum 降级告警** | enum 选项不合法静默降级 string | ✅ | 降级记入 `skipped`（reason 含「降级为 string」），不再静默 |
-| 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| 🚧 | 对 `DECIMAL` / `format:double` 输出「建议保留 text/int，金额字段谨慎」提示 |
-| 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | 🚧 | 本地相对 `$ref: './other.yaml#/...'` 解析 |
+| 8 | **number 精度提示** | `number` → int 丢精度（价格/金额）| ✅ | OpenAPI `number`/`format:double` + SQL `DECIMAL`/`REAL`/`FLOAT` → int 时输出「建议保留 text/int，金额字段谨慎」提示（`notes` 打印） |
+| 9 | **多文件 OpenAPI** | 企业 spec 常拆分多文件 | ✅ | 本地相对 `$ref: './other.yaml#/...'` 自动加载外部文件并合并其 schemas |
 
-**已完成（2026-08-20）**：
-- `import-schema` 对称加固——`NOT NULL` → `required` + 同款 `skipped` 诊断（保留列/约束行/未知类型/无法解析），CLI 测试 34→36
-- **DTO required 必填**——`required` 字段 → create DTO `@IsNotEmpty()` + `@ApiProperty` + 非可选；前端 model `required this.x` + 非空类型（CLI 测试 36→37）
+**已完成（2026-08-20 首轮 + 2026-08-23 AI Bridge 加固）**：
+- `import-schema` 对称加固——`NOT NULL` → `required` + 同款 `skipped` 诊断（保留列/约束行/未知类型/无法解析）+ `DECIMAL`/`REAL`/`FLOAT` 精度 `notes`
+- **DTO required 必填**——`required` 字段 → create DTO `@IsNotEmpty()` + `@ApiProperty` + 非可选；前端 model `required this.x` + 非空类型
+- **§3 剩余 5 项（#3/#4/#5/#8/#9）全部落地**——YAML 解析、$ref/allOf、多文件合并、精度提示、list-schemas；CLI 测试 44→47
 
-**后续项（§3 其余规划项）**：多 schema / `$ref`-`allOf` / YAML / number 精度 / 多文件 OpenAPI（🚧）
+**后续项（§3 其余规划项）**：`--schemas a,b` 多模块循环生成（当前 `--list-schemas` + 单 `--schema` 已覆盖选择/手写清单）
 
 ---
 
