@@ -81,7 +81,13 @@ OpenAPI（含 operations + securitySchemes）
 - 错误语义：目标 4xx/5xx 透传为工具失败原因，供 Agent 回退
 - **e2e 验收（`test/proxy-bridge.e2e-spec.ts`，模拟 Java 系统）3/3**：读工具委托身份注入目标+识别用户 / 写工具 R3 确认门控+body 送达 / 越权（目标 403）→ 工具失败透传
 
-**完整 B 待做**：`openapi-proxy` 生成器（从 OpenAPI operations 自动生成 proxy 配置，非手写 JSON）+ AI 对话端到端（确认 → 执行 → 审计 → 目标系统撤销）。MVP 撤销语义在 Java 端（数据在目标系统）。
+**✅ openapi-proxy 生成器（2026-08-23）**：`keelbase-init --import-openapi-proxy <spec> --base-url <url> --audience <id> [--out proxy.json]`——从 OpenAPI `paths` operations **自动生成** `ai_proxy_tools` 配置（替代手写 JSON）：
+- 每条 operation → 一个工具：`name`（operationId 优先，camelCase → snake_case；冲突去重）+ `method` + `path`（OpenAPI 路径模板 `{param}` 与 ProxyTool 占位同构直传）+ `parameters`（path 必填 + query + requestBody JSON schema 属性，required 透传）+ `riskLevel`（读 GET=R1 / 写 POST·PUT·PATCH·DELETE=R3；`x-keelbase-risk-level` 扩展可覆盖，如删除 R4）
+- 支持 YAML/JSON + 本地相对 `$ref` 多文件合并（复用 §3 加载器）；flow-map 字符串 schema 防御性解析
+- 产物可直接 `PUT /settings/ai_proxy_tools`（或管理台「设置」粘贴）→ ProxyToolRegistryService 重启后注册为 AI 工具
+- 覆盖：CLI 端到端 + `parseOpenApiProxy` 单测（类型映射 / riskLevel 覆盖 / body required / 名称去重）
+
+**完整 B 待做**：AI 对话端到端（确认 → 执行 → 审计 → 目标系统撤销；MVP 撤销语义在 Java 端，数据在目标系统）。
 
 ---
 
@@ -115,7 +121,7 @@ OpenAPI（含 operations + securitySchemes）
 | 场景 | 路径 |
 |---|---|
 | 旧系统可改库 / 数据可复制 | **A** Schema 重建 |
-| 不能动旧系统、AI 要操作在线数据 | **B** API 代理（§4 未实现；先走 A 或混合） |
+| 不能动旧系统、AI 要操作在线数据 | **B** API 代理（§4 生成器已落地；配好 `ai_proxy_tools` 即生效） |
 | 核心数据用 B 代理，衍生表用 A | 混合 |
 
 ### 第 2 步：导入（A 路径）
@@ -128,6 +134,10 @@ node scripts/keelbase-init.mjs --import-openapi ./swagger.yaml --schema Contract
 # 查看 skipped（关系/保留）与 notes（number 精度）报告 → 关系字段手写
 # 确认后生成
 node scripts/keelbase-init.mjs --spec specs/contract.json --label 合同
+
+# B 路径（代理已有系统 REST）：OpenAPI operations → ai_proxy_tools 配置
+node scripts/keelbase-init.mjs --import-openapi-proxy ./legacy-openapi.yaml --base-url http://legacy-erp:8080/api --audience legacy-erp --out proxy-config.json
+# 产物粘贴到管理台「设置」/ PUT /settings/ai_proxy_tools → 重启后 ProxyTool 生效
 ```
 
 ### 第 3 步：身份桥接（B 路径前提；A 路径可选）
