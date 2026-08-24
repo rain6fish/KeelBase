@@ -23,6 +23,22 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+// 滚动条与整体底色一致：轨道透明（显浅灰底），滑块用边框色（亮/暗自适应）
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--el-border-color);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--el-text-color-secondary);
+}
+
 // 侧边栏导航分组标题
 .nav-group-label {
   font-size: 0.68rem;
@@ -47,9 +63,9 @@ body {
   box-shadow: var(--keel-sidebar-active-shadow, 0 17px 20px -8px rgba(79, 70, 229, 0.22));
 }
 
-// 侧边栏导航项 hover：primary 浅底（非激活项）
+// 侧边栏导航项 hover：中性浅灰底（与一体浅灰底协调，激活项才是 primary 悬浮块）
 .el-menu-nav .el-menu-item:not(.is-active):hover {
-  background: var(--el-color-primary-light-9);
+  background: var(--el-fill-color-light);
 }
 
 // ── 动效微交互（克制；尊重 prefers-reduced-motion）──
