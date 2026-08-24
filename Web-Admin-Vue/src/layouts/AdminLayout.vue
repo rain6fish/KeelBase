@@ -35,22 +35,6 @@
         </el-menu>
       </div>
 
-      <div class="admin-aside-append pa-3">
-        <div class="d-flex align-center ga-2 mb-2">
-          <AppIcon icon="mdi-account-circle" size="22" />
-          <div v-if="!rail">
-            <div class="text-body-2">{{ auth.user?.username || '-' }}</div>
-            <div class="text-caption text-medium-emphasis">{{ auth.user?.role || '' }}</div>
-          </div>
-        </div>
-        <div class="d-flex justify-space-between align-center">
-          <LangToggle />
-          <ThemeSwitcher />
-          <el-button circle size="small" :title="t('logout')" @click="onLogout">
-            <AppIcon icon="mdi-logout" />
-          </el-button>
-        </div>
-      </div>
     </el-aside>
 
     <el-container class="admin-main">
@@ -65,7 +49,8 @@
           <template #icon><AppIcon icon="mdi-robot-happy-outline" size="20" /></template>
           {{ t('navSystemAssistant') }}
         </el-button>
-        <ThemeToggle />
+        <span class="text-body-2 text-medium-emphasis">{{ auth.user?.username || '' }}</span>
+        <ThemeSwitcher />
         <LangToggle />
         <el-button type="primary" plain @click="onLogout">
           <template #icon><AppIcon icon="mdi-logout" /></template>
@@ -231,10 +216,6 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
 }
 .nav-group-label {
   padding: 8px 16px 4px;
-}
-.admin-aside-append {
-  /* 与菜单一体：去掉分隔线 */
-  border-top: none;
 }
 .admin-main {
   min-width: 0;
