@@ -1,34 +1,78 @@
-# KeelBase — Business-safe AI Application Base
+# KeelBase — Build and Run Business-safe AI Applications
 
-> ### 🚀 Get Started in 60 Seconds
-> **Docker only — one command brings up the full stack (backend + main App + Admin Console) using a published image, no build needed:**
-> ```bash
-> docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
-> # Visit http://localhost:3000 (workbench / business web), /admin (Admin Console), /mobile (main App mobile preview)
-> ```
-> Build it yourself (when modifying code): `./scripts/docker-single.sh`
-> Or local dev mode (backend + Admin Console, auto-opens browser):
-> ```bash
-> ./scripts/dev.sh experience
-> ```
-> See [Quick Start](docs/manual/quickstart-en.md) / [FAQ](docs/manual/faq-en.md).
+> **Open-source AI application engineering platform** — build business-safe AI applications from existing systems or new business models, with governance, auditability, and private deployment built in.
 
-> ### 🖥️ Live Demo (read-only, seed data)
-> **Try the full-stack app without installing anything** — the Taro H5 main App with demo data (`alex / 123456`):
-> - One-command local demo: `./deploy/demo.sh` → http://localhost:8080
-> - Host your own online demo (DNS + static hosting + backend): [docs/manual/demo-deploy.md](docs/manual/demo-deploy.md)
+```text
+Existing System / New Business
+              ↓
+           Protocol
+              ↓
+       AI Application
+              ↓
+      Business-safe Agent
+              ↓
+         Governance
+              ↓
+            Audit
+              ↓
+       Private Deploy
+```
 
-**Build and run business-safe AI applications.**
+> **Build AI applications that can safely act on business data.**
 
-> **AI doesn't just answer. It acts — within your rules.**
+---
 
-KeelBase is a business-safe, AI-native base for enterprise apps. Dev-time AI generates business modules from protocols in minutes; runtime AI does real work — **every tool call scoped to your data, every write human-confirmed, every action audited and reversible.** Data stays on-prem; AI stays accountable. A deep base, not a wide platform.
+## 🚀 Try in 60 Seconds
 
-### 🎯 Who It's For
+Docker only — one command brings up the entire application (backend + workbench + Admin Console + mobile preview), no build:
+
+```bash
+docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
+```
+
+Then walk the golden path in 6 steps:
+
+```text
+1. Open http://localhost:3000            (workbench) — /admin is the Admin Console
+2. Sign in — alex/123456, or admin/Admin@1234
+3. Ask: "Which customers are at the highest risk this week?"
+4. Watch AI analyze real business data
+5. Approve a follow-up task              (human confirmation)
+6. Open the audit trace                  (every action recorded & reversible)
+```
+
+Prefers a read-only live demo? `./deploy/demo.sh` → http://localhost:8080.
+
+---
+
+## 🎯 See AI Actually Do Business
+
+KeelBase's flagship **AI CRM** is not a demo — it's a working product loop:
+
+```text
+You:
+"Which customers are at the highest risk this week?"
+
+KeelBase AI:
+3 customers require attention…
+  → Analyze customer risk
+  → Read authorized orders and activities
+  → Create a follow-up task
+  → Ask for your confirmation
+  → Write to the CRM
+  → Record audit
+  → Allow revoke
+```
+
+One business scenario says more than a list of twenty features.
+
+---
+
+## 🎯 Who It's For
 
 Two ways to meet KeelBase — one runtime underneath.
 
-**For AI-native builders** — you want to ship an AI business application without rebuilding the foundation:
+**For AI-native builders** — ship an AI business application without rebuilding the foundation:
 - Generate a full business module (entities / CRUD / permissions / AI tools / audit) from a protocol in ~30 minutes — real, editable code, not a low-code engine
 - Bring your own LLM (cloud or local); data stays under your control
 
@@ -37,271 +81,131 @@ Two ways to meet KeelBase — one runtime underneath.
 - AI acts as a business assistant on your real data — risk analysis, follow-ups, summaries, approvals
 - Private deployment: Docker / offline / local models — data never leaves your perimeter
 
-### 🎯 North Star
+---
 
-> **60 seconds to understand · 10 minutes to run · 30 minutes to create.**
+## 🔐 Business-safe by Design
 
-Everything ships along one main thread — **Build → Run → Trust → Private Deploy**:
+```text
+User Request → AI Understanding → Business Data → Tool Call
+        → Permission Check → Human Confirmation
+        → Side Effect → Audit → Revoke
+```
 
-- **Build** — *AI Application Engineering:* the system provides Application Protocols (conventions), AI generates the business modules — no low-code engine.
-- **Run** — *Business-safe Agent Runtime:* runtime AI does real work — user-scoped tools, human-confirmed writes, full audit and revoke.
-- **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible.
+> **AI can act — but only within explicit business boundaries.**
 
-### One Main Thread, Three Validations
-
-Developers validate **"can we build it fast"** · end users validate **"is the AI genuinely useful"** · owners validate **"is the AI safe and trustworthy"** — three angles on the same main thread: **Build → Run → Trust → Private Deploy**.
+- **User-scoped tools** — every call carries the authenticated user; AI can only touch that user's data
+- **Human confirmation** — write operations require explicit approval before execution
+- **Audit & revoke** — every action lands on a tamper-evident audit hash chain; AI-created side effects are tracked and reversible
+- **Explainable** — "why did the AI do that?" is answered by a decision trace, not a black box
 
 ---
 
-## 🚀 Why KeelBase?
+## 🏗 Build — AI Application Engineering
 
-Unlike traditional boilerplates that focus only on CRUD, KeelBase is engineered for the **AI era** and **enterprise compliance**.
+Build AI applications from new business models or existing systems:
 
-### 🤖 AI-Native — Dev-Time + Runtime Dual Narrative
+- **Application Protocol** — a human/AI-readable schema describing an application
+- **`keelbase init`** — natural language / SQL schema / OpenAPI → Protocol → a complete business module with permissions, AI tools, confirmation, and audit
+- **AI Bridge** — connect a Java/legacy system; AI reads and acts on it under governance
 
-- **Dev-Time AI:** Dialogue-driven business-module generation (entity / DTO / CRUD / pages / permissions) plus an AI rules layer (AGENTS.md) — developers use AI to build, not just to chat.
-- **Runtime AI:** Deep integration of RAG, tool calling, data insights, long-term memory, sub-agents, and proactive services — the assistant actually does work, not just chat.
-
-> **`keelbase init` is a code generator, not a low-code platform.**
-> It generates real readable code (entity/DTO/CRUD/pages/permissions, committed to git, editable, AI-extensible) following KeelBase conventions; the LLM understands requirements (natural language → module spec) and extends the output. Deliberately no drag-and-drop / runtime-metadata engine — "the system provides conventions, AI does the generation".
-
-### 🛡️ Business-Safe Agent Harness (main thread)
-
-- **User-Scoped Tools:** Every tool call carries the authenticated user — AI can only touch that user's data.
-- **Human Confirmation:** Write operations require explicit human approval before execution.
-- **Audit & Revoke:** Full audit trails on every agent action; AI-created side effects are tracked and reversible.
-
-### 🔒 Private & Secure (owner view)
-
-- **Data Sovereignty:** Designed for private deployment — you keep full ownership of your data, not a cloud provider.
-- **Enterprise-Grade Security:** Built-in CASL permission control, login lockout, token hashing, AES-256-GCM static encryption, and full audit trails.
-
-### ⚡ Full-Stack Fusion
-
-- **One Base, Three Ends:** Seamlessly integrates the user App (Flutter), Mini-Program (Taro), and the Web end (workbench + admin console, one shell).
-- **Zero-Friction Dev:** Unified API contracts and shared type conventions; admin features live only on the console side of the web end, never in the mobile apps.
+> Generated artifacts are **normal source code**. No proprietary runtime metadata. No drag-and-drop lock-in.
 
 ---
 
-## Repositories / Directories
+## ▶️ Run — AI Does Real Business Work
+
+- Tool calling, RAG, memory, sub-agents, proactive AI
+- AI reads and acts on **business data** — not just chat
+- Every tool call scoped, every write confirmed, every action audited
+
+---
+
+## 🔒 Trust — Governance & Audit
+
+Where KeelBase differs from a plain agent framework:
+
+- CASL row-level permissions · tool governance · write confirmation
+- Audit hash chain (tamper-evident) · side-effect idempotency · revoke
+- Decision trace · AI eval · prompt-injection defense
+
+---
+
+## 🏠 Deploy — Private by Design
+
+```text
+Cloud LLM  OR  Local Model / Ollama
+        → Local Embedding → Local RAG → Business-safe Agent → Local Audit
+```
+
+> **Run the entire AI application locally when your data cannot leave your environment.**
+
+Docker single-container · offline / intranet deploy · local models & embeddings.
+
+---
+
+## 🛠 Build Your First Application
+
+```bash
+npm install -g keelbase
+keelbase init --desc "Customer management"
+```
+
+Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance.
+
+Full flow: [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md)
+
+---
+
+## 📦 Existing System AIization
+
+```text
+Existing DB / OpenAPI / Java System
+        → Application Protocol → Generated Module
+        → AI Tools + Governance → Business Agent
+```
+
+Give a 10-year-old business system AI capability without rewriting it.
+
+---
+
+## 🧩 Architecture
+
+One main thread — **Build → Run → Trust → Private Deploy**:
+
+- **Build** — *AI Application Engineering:* Application Protocol (conventions); AI generates the business modules — no low-code engine
+- **Run** — *Business-safe Agent Runtime:* user-scoped tools, human-confirmed writes, full audit and revoke
+- **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible
+
+The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([architecture-boundary](docs/architecture-boundary.md)).
+
+---
+
+## 📚 Documentation
+
+- [Quick Start (5-min, no code)](docs/manual/quickstart-en.md) · [FAQ](docs/manual/faq-en.md) · [Tutorial](docs/manual/tutorial.md)
+- [Operations](docs/manual/operations.md) · [Development](docs/manual/development.md) · [Private AI verification](docs/manual/private-ai-verification.md)
+- [Flagship apps spec (AI CRM / PM / Approval)](docs/flagship-applications.md) · [Enterprise capabilities](docs/enterprise-capabilities.md)
+- [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
+- **Explore all capabilities →** [docs/](docs/)
+
+---
+
+## 🤝 Community & Contributing
+
+- [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · **MIT** licensed
+- Demo accounts: `alex/123456` (workbench / mobile) · `admin/Admin@1234` (Admin Console)
+
+## Repositories
 
 | Directory | Description |
 |-----------|-------------|
-| `Front-Flutter/` | Flutter app (iOS / Android / Web) — main user app |
-| `Front-Taro/` | Taro H5 / mini-program app — main user app |
-| `Web-Admin-Vue/` | Web host — workbench + admin console, one shell (Vue3 + **Element Plus**) |
-| `Web-Admin-React/` | Admin console React preview (React 19 + MUI; formalized on real demand) |
 | `Server-NestJS/` | NestJS backend (REST API) |
+| `Front-Flutter/` | Flutter main app (iOS / Android / Web) |
+| `Front-Taro/` | Taro H5 / mini-program app |
+| `Web-Admin-Vue/` | Web host — workbench + admin console, one shell (Vue3 + Element Plus) |
+| `Web-Admin-React/` | Admin console React preview (React 19 + MUI) |
 | `docs/` | Specs, requirements, manuals |
-| `.github/workflows/` | CI pipeline (lint + test + build) |
-
----
-
-## Quick Start
-
-> 🚀 **Want to run the full stack in 5 minutes without reading code?** See [Quick Start](docs/manual/quickstart-en.md); stuck? See [FAQ](docs/manual/faq-en.md).
-
-### Fastest Path: Single Container
-
-**Verified (2026-08-13): one command brings up the full stack — backend API + Flutter main App + Vue3 Admin Console + demo accounts.**
-
-#### 🐳 Use a published image (no build, fastest)
-
-```bash
-docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
-# Visit http://localhost:3000 (workbench), /admin (Admin Console), /mobile (main App mobile preview)
-# Demo accounts: alex/123456 (workbench + mobile preview), admin/Admin@1234 (Admin Console) — auto-created on first start
-docker logs -f keelbase      # view logs
-docker stop keelbase && docker rm keelbase   # stop & remove (data persists in named volume keelbase_data)
-```
-
-> Images are hosted on [ghcr.io](https://github.com/rain6fish/KeelBase/pkgs/container/keelbase) and auto-built/published on tag (`latest` + version). For production, override the JWT/encryption secrets with `-e`.
-
-#### 🛠 Build it yourself (when modifying code)
-
-```bash
-./scripts/docker-single.sh         # build & start (first build ~10 min, includes frontend compile)
-```
-
-| Subcommand | Description |
-|--------|------|
-| `./scripts/docker-single.sh` / `up` | Build & start |
-| `./scripts/docker-single.sh stop` | Stop the container |
-| `./scripts/docker-single.sh down` | Stop & remove the container |
-| `./scripts/docker-single.sh logs` | View logs |
-
-> Just needs Docker. Zero-config SQLite (data persisted in `keelbase_data` volume), cache/queue auto-degrade. **Production**: prefer multi-container via `docker-compose.yml`, or override secrets/DB with `-e`.
-
-### Alternative: Local Dev Script
-
-```bash
-./scripts/dev.sh experience    # local Node mode: backend + Admin Console, auto-verify + open browser
-DOCKER=1 ./scripts/dev.sh experience   # or full Docker (use `make experience` if make is available)
-```
-
-> Auto port detection, auto-verify, prints demo accounts.
-
-### Unified Commands
-
-```bash
-./scripts/dev.sh help      # all commands (experience / dev / test / build / migrate …)
-make help                 # equivalent (with make)
-```
-
-### Local Dev Path
-
-```bash
-./scripts/dev.sh dev        # backend only (zero-config SQLite, cache/queue auto-degrade)
-./scripts/dev.sh web        # Flutter Web
-./scripts/dev.sh dev-admin  # build & serve Admin Console
-```
-
-#### Prerequisites
-- Node.js >= 22
-- Flutter SDK >= 3.12
-- npm
-
-### Backend
-
-```bash
-cd Server-NestJS
-cp .env.example .env
-npm install
-npm run start:dev
-```
-
-Server: http://localhost:3000  
-API docs (Swagger): http://localhost:3000/api/docs  
-Health check: http://localhost:3000/api/v1/health
-
-> Dev DB is zero-config SQLite (`./data/front.sqlite`). Switch to PostgreSQL for production via `DB_TYPE=postgres`. First dev start auto-creates demo accounts (`alex`/`admin`).
-
-### Flutter Frontend
-
-```bash
-cd Front-Flutter
-flutter pub get
-flutter run            # mobile/desktop
-flutter run -d chrome  # web
-```
-
-Frontend defaults to `http://localhost:3000/api/v1`.
-
-### Admin Console
-
-The Admin Console is bundled with the main App at `/admin` after one-command deploy (no separate deployment needed):
-
-- **Production / one-command deploy**: `http://<server>/admin`
-- **Local**: `./scripts/dev.sh dev-admin` starts the Vite dev server → http://localhost:10086/admin/
-- **Standalone domain**: `cd Web-Admin-Vue && npm ci && npm run build`, host `dist/` (base=/admin/)
-
-> Admin Console requires an account with `role = admin`. See [Demo Account](#demo-account).
-
-### Generate a Module in 30 Minutes
-
-`keelbase init` generates a runnable business module (entity / API / permissions / audit / AI tools) from one command:
-
-```bash
-cd Server-NestJS
-node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
-npm run build && npm test -- posts
-```
-
-The module auto-lands in the admin console, workbench, and as AI tools (`query_posts` / `create_post` with confirmation). Full flow: [30min-acceptance.md](docs/manual/30min-acceptance.md) · [dev-challenge.md](docs/manual/dev-challenge.md).
-
-### Docker (Production)
-
-```bash
-docker compose up --build
-# production HTTPS:
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
-```
-
-Starts PostgreSQL 17 + Redis + NestJS API + Nginx (Web workbench at `/`, Admin Console at `/admin`, Flutter mobile preview at `/mobile`).
-
----
-
-## Demo Account
-
-Seed data (dev only) creates both accounts automatically on first backend start.
-
-| Role | Username | Password | Purpose |
-|------|----------|----------|------|
-| User | `alex` | `123456` | Regular user (main App) |
-| Admin | `admin` | `Admin@1234` | Administrator (Admin Console) |
-
----
 
 ## Tech Stack
 
-| Layer | Technology | Notes |
-|-------|-----------|--------------|
-| Frontend | Flutter 3.x (mobile main app) · Taro 3.x Vue3 (H5/mini-program) · **Vue3 + Element Plus** (web host: workbench + admin console) · React 19 + MUI (preview) | Core is UI-framework-agnostic; UI frameworks are Renderers (see `docs/architecture-boundary.md`) |
-| Backend | NestJS 11.x, TypeScript, TypeORM | Modular, decorator-driven |
-| Database | SQLite (dev) / PostgreSQL (prod) | Dev / production |
-| Cache / Queue | Redis 7 + CacheManager (Redis) + BullMQ | Cache layer + async queue |
-| Auth | JWT access/refresh rotation, bcrypt, login lockout, OAuth (WeChat / Alipay / Google / Apple), email verification, multi-device sessions | Rotation + brute-force protection + OAuth + multi-device sessions |
-| Authorization | CASL ability-based permissions (role + row-level) | Role + row-level |
-| AI | OpenAI-compatible LLM providers (DeepSeek / Qwen / OpenAI), tool calling, RAG knowledge base, conversation & audit persistence | Tool calling + RAG + conversation & audit persistence |
-| Notifications | In-app notifications + SSE realtime + JPush (abstracted) | In-app + SSE realtime + push abstraction |
-| Email | nodemailer + SMTP (verification / reset / notification templates) | Verification / reset / notification templates |
-| Storage | Local disk / S3-compatible (MinIO, OSS) + sharp image processing (WebP) | Local / S3-compatible + WebP |
-| Observability | pino structured logs, Prometheus metrics (`/metrics`), OpenTelemetry traces, Loki logs, Grafana, Jaeger | Logs / metrics / traces |
-| API | RESTful, versioned (v1), Swagger documented, rate-limited | Versioned + docs + rate limiting |
-| Deploy | Docker, Nginx, CI (GitHub Actions) | Containerized + automated |
-
----
-
-## Key Features
-
-- **Auth**: register, login, JWT rotation, auto-login, token refresh, OAuth third-party login, forgot/reset password, email verification, multi-device session management
-- **Events**: week/month views, agenda list, event CRUD (per-user ownership via CASL)
-- **AI Assistant**: chat with tool calling (query events / user stats / navigate pages), RAG knowledge base Q&A, data insights, model hot-switch (DeepSeek/Qwen), conversation history
-- **Notifications**: in-app notification center, unread count, SSE realtime push, JPush device push (abstracted)
-- **Admin Console**: Vue3 + Element Plus PC web console (console side of the web end) — user management (roles, delete), event management, knowledge base, AI audit logs & usage stats, operation audit, monitoring, templates, AI eval, tool effects
-- **Search**: events + public users unified search
-- **Upload**: MIME + extension + magic-byte validation, 10MB limit, WebP conversion
-- **Security**: Helmet, CORS whitelist, body limit, sort-injection guard, login lockout, token hashing, CASL row-level permission, AES-256-GCM static encryption
-- **Observability**: structured JSON logs, Prometheus metrics, OpenTelemetry tracing, Loki log collection, alert rules
-- **Ops**: backup/restore scripts, Redis cache, BullMQ async queue
-
----
-
-## Documentation
-
-| File | Audience | Purpose |
-|------|----------|---------|
-| [`docs/manual/quickstart-en.md`](docs/manual/quickstart-en.md) | Everyone | Quick Start (English, 5-min full stack) |
-| [`docs/manual/tutorial.md`](docs/manual/tutorial.md) | Everyone | Zero-to-deploy tutorial: run → configure → deploy (Chinese) |
-| [`docs/manual/faq-en.md`](docs/manual/faq-en.md) | Everyone | FAQ — troubleshooting (environment / startup / accounts / AI / deploy) |
-| [`docs/manual/quickstart.md`](docs/manual/quickstart.md) | Everyone | 快速上手 (Chinese) |
-| [`docs/manual/faq.md`](docs/manual/faq.md) | Everyone | 常见问题排查 (Chinese) |
-| [`AGENTS.md`](AGENTS.md) | AI agents | Layered AI rules — new business module checklist |
-| [`CLAUDE.md`](CLAUDE.md) | AI agents | Full architecture spec, conventions, security rules |
-| [`docs/manual/usage.md`](docs/manual/usage.md) | End users | Usage manual — feature URLs & common operations (EN/ZH) |
-| [`docs/manual/development.md`](docs/manual/development.md) | Developers | Development manual — architecture, patterns, testing |
-| [`docs/manual/operations.md`](docs/manual/operations.md) | Ops | Operations manual — deploy, env vars, migration, observability |
-| [`docs/manual/plugin-development.md`](docs/manual/plugin-development.md) | Developers | Plugin development guide — manifest / context / lifecycle / wiring / CLI (P1-7) |
-| [`docs/manual/one-click-deploy.md`](docs/manual/one-click-deploy.md) | Ops | One-click cloud server deployment (on-prem) |
-| [`docs/manual/offline-deploy.md`](docs/manual/offline-deploy.md) | Ops | Intranet / offline deployment |
-| [`docs/manual/private-ai-verification.md`](docs/manual/private-ai-verification.md) | Ops | Private AI verification — data-stays-on-prem closed loop (Ollama / local embedding / RAG / audit) |
-| [`docs/manual/private-ai-report.md`](docs/manual/private-ai-report.md) | Ops | Private AI Golden Path report (2026-08-19) — Cloud OFF + Ollama chat + bge-m3 embedding + audit chain valid |
-| [`docs/manual/golden-demo-script.md`](docs/manual/golden-demo-script.md) | Marketing | Golden Demo 60s recording script — Tool → Permission → Confirmation → Audit closed loop (P0-3) |
-| [`docs/manual/aiization-demo.md`](docs/manual/aiization-demo.md) | Developers / Sales | Existing System AIization demo — legacy Schema → `keelbase import` → Protocol → module → AI tools → governance (P0-12) |
-| [`docs/manual/ecosystem-pack.md`](docs/manual/ecosystem-pack.md) | Developers | Ecosystem pack assembly — templates / business skills / plugin CLI / generator (Phase 2 third-party-style build) |
-| [`docs/manual/plugin-authoring.md`](docs/manual/plugin-authoring.md) | Plugin authors | Plugin authoring — self-contained plugin pattern, `keelbase-plugin verify/add/list`, PluginContext API, lifecycle (Phase 2 Extension API) |
-| [`docs/manual/dev-challenge.md`](docs/manual/dev-challenge.md) | External developers | Dev Challenge — 30-minute reproducible build (module + AI tool + confirmation + audit) with feedback form (Phase 3) |
-| [`docs/manual/release-gate.md`](docs/manual/release-gate.md) | Maintainers | Release Gate — Gate 1-4 + Build / Run / Trust / Private / External checklist with commands & current status |
-| [`docs/manual/release-1.0-candidate.md`](docs/manual/release-1.0-candidate.md) | Maintainers | 1.0 Candidate (Gate 4) — scope slimming (AI CRM + Protocol + Runtime 治理), architecture freeze, Exit Criteria status tracker |
-| [`docs/manual/release-precheck.md`](docs/manual/release-precheck.md) | Maintainers | Release Precheck — pre-publish standard procedure (Alibaba OCR + Claude double code review → full tests → coverage) |
-| [`docs/release-notes-1.0.0.md`](docs/release-notes-1.0.0.md) | Everyone | v1.0.0 Release Notes — Business-safe AI Application Base (三件套证明 + Trust/Adversarial + Quality) |
-| [`docs/release-notes-1.0.1.md`](docs/release-notes-1.0.1.md) | Everyone | v1.0.1 Release Notes — Maintenance & Coverage (S3/S4 + provenance + coverage surge) |
-| [`docs/manual/flagship-task-card.md`](docs/manual/flagship-task-card.md) | Maintainers | Flagship LLM task card — real business tasks for CRM / Project / Approval with Agent Success Rate record (Run/Private verification) |
-| [`docs/project.spec.md`](docs/project.spec.md) | Developers | Project specification |
-| [`docs/protocol-ecosystem.md`](docs/protocol-ecosystem.md) | Developers / AI agents | Protocol ecosystem — Module/Flow/Tool/Plugin/Capability protocols & AI generation chain (P1-1) |
-| [`docs/ai-agent.spec.md`](docs/ai-agent.spec.md) | Developers | AI assistant feature spec |
-| [`docs/enterprise-capabilities.md`](docs/enterprise-capabilities.md) | Enterprise buyers | Enterprise capability statement — capability + evidence + compliance path |
-| [`docs/enterprise-readiness.md`](docs/enterprise-readiness.md) | Enterprise buyers | Enterprise readiness checklist — status / gaps / priorities |
-| [`docs/flagship-applications.md`](docs/flagship-applications.md) | Developers / Sales | Flagship applications spec — AI CRM / Project / Approval full spec (data model, AI tools, governance, demo paths) |
-| [`SECURITY.md`](SECURITY.md) | Everyone | Security policy — supported versions / vulnerability reporting / built-in security / SBOM |
-| `Server-NestJS/.env.example` | Developers | Environment variables reference |
+Flutter 3.x · Vue3 + Element Plus · React 19 (preview) · NestJS 11 + TypeORM · SQLite / PostgreSQL · Redis + BullMQ · JWT + CASL · OpenAI-compatible LLMs (DeepSeek / Qwen / OpenAI) · pino + Prometheus + OpenTelemetry · Docker / Nginx · CI (GitHub Actions)
