@@ -715,7 +715,7 @@ npm run migration:run
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
-| GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断 + 副作用计数 + 审计哈希链 verify，可按 userId/since/limit |
+| GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify，可按 userId/since/limit |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
 | POST | /api/v1/feedback | Yes | 本人 | 应用内反馈：建议/问题/好评 → 通知管理员（G-1） |
 | GET | /api/v1/audit/operations/logs | Yes (ADMIN) | — | 操作审计日志（写操作，可按 userId 过滤） |
@@ -759,7 +759,7 @@ npm run migration:run
 | GET | /api/v1/admin/mcp/servers | Yes (ADMIN) | — | 已注册外部 MCP server 列表（HS-10 入口 gateway） |
 | POST | /api/v1/admin/mcp/servers | Yes (ADMIN) | — | 注册外部 MCP server（写入 Settings key mcp_servers） |
 | DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | — | 移除外部 MCP server |
-| GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新） |
+| GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新；元数据带 riskLevel/riskStrategy 风险声明，A2） |
 | POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
@@ -831,7 +831,7 @@ npm run migration:run
 | GET | /api/v1/org/my | Yes | 成员 | 我的组织信息 + 部门路径（ORG-7） |
 | GET | /api/v1/org/my/tree | Yes | 成员 | 我的组织部门树（只读，ORG-7） |
 | GET | /api/v1/org/my/members | Yes | 成员 | 我的组织成员（脱敏白名单，ORG-7） |
-| GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks·opportunities·contacts） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务/销售机会/联系人子资源 + `:id/analyze` 风险分析（旗舰应用，feature flag: crm；opportunities/contacts = Customer 360 §10 P0） |
+| GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks·opportunities·contacts） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务/销售机会/联系人子资源 + `:id/analyze` 风险分析 + `GET /crm/dashboard` 业务洞察聚合（旗舰应用，feature flag: crm；opportunities/contacts/dashboard = Customer 360 + AI Sales Agent §10 P0） |
 | GET/POST | /api/v1/pm/projects（及 :id/milestones·tasks·members·risks） | Yes | 本人 | AI Project：项目 CRUD + 里程碑/任务/成员 + `:id/analyze` 延期风险分析（旗舰应用，feature flag: pm） |
 | GET/POST | /api/v1/approval/requests（及 policies）+ `:id/review`·`:id/decide` | Yes | 本人 | AI Approval：审批请求 + 政策 + AI 预审/人工复核（旗舰应用，feature flag: approval） |
 | GET/POST/PATCH/DELETE | /api/v1/{module} | Yes | 本人 | 生成/示例业务模块：contracts / suppliers / tags / notes / books / posts（`keelbase init` 生成，CASL 所有权 + 审计） |
