@@ -665,6 +665,7 @@ npm run migration:run
 | GET | /api/v1/auth/me | Yes | 当前用户 | 当前用户信息 |
 | GET | /api/v1/auth/me/permissions | Yes | 本人 | Explainable Authz：能力清单 + 依据（role + resources scope=all/own，W5⑦） |
 | POST | /api/v1/auth/permissions/explain | Yes | 本人 | Explainable Authz：对 action×resource 返回决策 + 依据（管理台 Security Review，W5⑦） |
+| POST | /api/v1/auth/permissions/explain/target | Yes (ADMIN) | — | Explainable Authz（管理台，B1）：管理员为目标用户返回决策 + 依据（排查「为何某用户被拒」） |
 | POST | /api/v1/auth/oauth | No | — | OAuth 第三方登录（Google/Apple/WeChat/Alipay/OIDC 企业 SSO），新用户自动注册（限流 10/m）；WeChat 加 `providerType: 'miniapp'` 走小程序 code2Session（MINI-3）；OIDC 走 authorization-code flow（动态发现 + JWKS 验签） |
 | POST | /api/v1/auth/forgot-password | No | — | 忘记密码：发送重置邮件（防枚举统一响应，限流 5/m） |
 | POST | /api/v1/auth/reset-password | No | — | 重置密码（邮件链接 token，限流 5/m） |
