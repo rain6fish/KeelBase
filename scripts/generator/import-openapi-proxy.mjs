@@ -99,7 +99,10 @@ function requestBodySchema(op, spec) {
 
 /** 单条 operation → ProxyToolConfig；无法转换返回 null。 */
 function operationToTool(method, path, pathItem, operation, spec) {
-  const pathSlug = path.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_+/g, '_');
+  // path 占位符重写为清洗后的参数名：OpenAPI `{customer-id}` → `{customer_id}`（与 parameters 的 name 对齐，
+  // ProxyTool 按占位符名从 args 取值；若不清洗，args 用 customer_id 而路径找 customer-id → 缺参失败）
+  const rewrittenPath = path.replace(/\{([^{}]+)\}/g, (m, p) => `{${sanitizeParamName(p) ?? p}}`);
+  const pathSlug = rewrittenPath.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_+/g, '_');
   const nameBase = sanitizeToolName(operation.operationId) || `${method.toLowerCase()}_${pathSlug}`;
   const parameters = [];
   const seen = new Set();
@@ -145,9 +148,9 @@ function operationToTool(method, path, pathItem, operation, spec) {
 
   return {
     name: nameBase,
-    description: `${tagPrefix}${summary}（B 路径代理：${method} ${path}）`,
+    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}）`,
     method,
-    path,
+    path: rewrittenPath,
     parameters,
     riskLevel: operation['x-keelbase-risk-level'] ?? (WRITE_METHODS.includes(method) ? 'R3' : 'R1'),
     skipped,
