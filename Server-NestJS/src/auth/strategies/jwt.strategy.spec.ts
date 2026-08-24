@@ -17,7 +17,7 @@ describe('JwtStrategy', () => {
   it('validate 返回合法 payload', async () => {
     const strategy = new JwtStrategy(configService as unknown as ConfigService);
     const payload = { sub: 1, username: 'alex' };
-    await expect(strategy.validate(payload as never)).resolves.toBe(payload);
+    await expect(strategy.validate(payload as never)).resolves.toEqual({ ...payload, sessionId: undefined });
   });
 
   it('validate 缺 sub 或 username 抛 Unauthorized', async () => {
