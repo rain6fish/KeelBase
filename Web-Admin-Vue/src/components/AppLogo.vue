@@ -1,7 +1,5 @@
 <template>
   <svg
-    width="auto"
-    height="auto"
     viewBox="0 0 24 24"
     :style="{ width: `${size}px`, height: `${size}px`, color }"
     aria-hidden="true"
