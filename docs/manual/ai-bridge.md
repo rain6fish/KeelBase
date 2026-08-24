@@ -91,7 +91,9 @@ OpenAPI（含 operations + securitySchemes）
 
 **✅ AI 对话端到端脚本（2026-08-23，`scripts/verify-proxy-bridge.mjs`）**：真实 LLM 对话驱动——读（R1 自动，LLM 调 `proxy_list_contract` → mock 目标收到 + 委托身份）/ 写（R3 确认门控 → `confirmation_request` → approve → 目标收到 POST + body）+ 决策轨迹审计。前置：后端已起 + `ai_proxy_tools` 已配置（重启后端使生效）+ DeepSeek key；报告落 `docs/benchmark/proxy-bridge-<ts>.md`。
 
-**完整 B 待做**：目标系统撤销（MVP 撤销语义在 Java 端，数据在目标系统——需 Java 侧按委托身份幂等/补偿）。
+**✅ 写副作用登记 + 外部撤销语义（2026-08-23）**：ProxyTool 写经确认后执行 → `AiService._executeWriteTool` 登记 `proxy_call` 副作用（`/ai/tool-effects` 可见，审计完整）；撤销外部副作用返回 `{ revoked:false, external:true, message:'B 路径外部副作用撤销需 Java 端补偿' }`（诚实语义，无本地实体可软删）。e2e 5/5。
+
+**完整 B 待做**：目标系统撤销的真正执行——Java 侧按委托身份提供幂等/补偿接口（如 `x-keelbase-revoke-path`），KeelBase 撤销时调用。
 
 ---
 

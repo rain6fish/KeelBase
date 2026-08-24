@@ -1,11 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createServer, Server } from 'http';
-import { createTestApp, registerUser } from './helpers';
+import { createTestApp, registerUser, authHeader } from './helpers';
 import { ProxyTool } from '../src/ai/proxy/proxy-tool';
 import { ProxyToolRegistryService } from '../src/ai/proxy/proxy-tool.service';
 import { ToolRegistry } from '../src/ai/tools/tool-registry';
 import { SettingsService } from '../src/settings/settings.service';
+import { AiService } from '../src/ai/ai.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
 
 /**
@@ -160,5 +161,37 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     // 工具定义 LLM 可见（含写工具参数 schema）
     const defs = registry.getToolDefinitions().map((d) => d.function.name);
     expect(defs).toContain('proxy_gen_create');
+  });
+
+  it('写工具（ProxyTool）经确认后执行 → 登记 proxy_call 副作用；撤销返回外部补偿语义', async () => {
+    const settings = app.get(SettingsService);
+    const aiService = app.get(AiService);
+    // 注册进 app 的实际 ToolRegistry（_executeWriteTool 走 AiService 的注册表执行）
+    const appRegistry = (aiService as any).toolRegistry;
+    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, appRegistry);
+    await settings.set('ai_proxy_tools', JSON.stringify({
+      baseUrl: base,
+      audience: 'legacy-erp',
+      tools: [{ name: 'proxy_side_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' }],
+    }), 'json');
+    const reg = await proxyRegistry.loadAndRegister();
+    expect(reg.registered).toEqual(['proxy_side_create']);
+
+    // 经 AiService._executeWriteTool（AI 确认后执行路径）→ 工具注册表执行（ProxyTool → mock 目标）+ 副作用登记
+    const effectsService = (aiService as any).toolEffectsService;
+    const res = await (aiService as any)._executeWriteTool('proxy_side_create', { title: '外部合同' }, userAId, 'conv-proxy-side');
+    expect(res.success).toBe(true);
+    const list = await effectsService.list({ userId: Number(userAId) });
+    const effect = list.items.find((e: any) => e.toolName === 'proxy_side_create');
+    expect(effect).toBeDefined();
+    expect(effect.resultType).toBe('proxy_call');
+    expect(effect.targetExists).toBe(true);
+    expect(effect.targetTitle).toContain('外部系统写调用');
+
+    // 撤销外部副作用：无本地实体 → revoked:false + external 补偿语义（Java 端）
+    const revoke = await effectsService.revokeOwned(effect.id, userAId);
+    expect(revoke.revoked).toBe(false);
+    expect(revoke.external).toBe(true);
+    expect(revoke.message).toMatch(/Java 端补偿/);
   });
 });
