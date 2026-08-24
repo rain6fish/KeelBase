@@ -42,7 +42,7 @@ const ui = useUiStore()
 const { t } = useI18n()
 
 const VARIANTS: Array<{ id: ThemeVariant; color: string; label: string }> = [
-  { id: 'navy', color: '#0e7490', label: 'themeNavy' },
+  { id: 'purple', color: '#6d28d9', label: 'themePurple' },
   { id: 'teal', color: '#0e9384', label: 'themeTeal' },
   { id: 'graphite', color: '#d97706', label: 'themeGraphite' },
 ]
