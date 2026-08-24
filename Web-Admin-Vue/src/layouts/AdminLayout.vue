@@ -1,11 +1,8 @@
 <template>
   <el-container class="admin-shell">
     <el-aside :width="rail ? '64px' : '240px'" class="admin-aside">
-      <div class="brand-item px-3">
-        <div class="d-flex align-center ga-2">
-          <AppLogo :size="26" />
-          <span v-if="!rail" class="text-h6 font-weight-bold">{{ t('appName') }}</span>
-        </div>
+      <div class="brand-item px-3 d-flex align-center">
+        <AppLogo :width="rail ? 30 : 88" />
       </div>
 
       <div class="admin-nav">
