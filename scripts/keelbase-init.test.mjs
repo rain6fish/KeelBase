@@ -1002,6 +1002,19 @@ test('parseOpenApiProxy：连字符 path 参数（{customer-id}）→ 占位符�
   assert.equal(p.required, true);
 });
 
+test('parseOpenApiProxy：x-keelbase-revoke-path → revokePath（Java 端补偿端点约定）', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/contracts/{id}': {
+        delete: { operationId: 'removeContract', 'x-keelbase-revoke-path': 'DELETE /contracts/{id}', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }] },
+      },
+    },
+  }, {});
+  const t = r.tools[0];
+  assert.equal(t.revokePath, 'DELETE /contracts/{id}');
+  assert.match(t.description, /撤销/);
+});
+
 test('parseOpenApiProxy：无 paths / 空工具 → error', () => {
   assert.match(parseOpenApiProxy({ openapi: '3.0.0' }, {}).error, /未找到可用 operations/);
   assert.match(parseOpenApiProxy({ paths: { '/x': { parameters: [] } } }, {}).error, /没有可转换的 operations/);
