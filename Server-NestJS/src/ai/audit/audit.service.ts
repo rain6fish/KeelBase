@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
+import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import {
   AuditChainService,
   ChainVerification,
@@ -43,6 +44,28 @@ export interface UsageStats {
   topActions: Array<{ action: string; count: number }>;
 }
 
+export interface ActionReport {
+  period: { since: string | null; to: string };
+  summary: {
+    executed: number; // 工具执行（含写）
+    approved: number; // 写操作人工批准
+    rejected: number; // 写操作人工拒绝/超时
+    blocked: number; // 工具被拒（治理/越权/R5）
+    errors: number; // 全部 error
+    effects: number; // 可撤销副作用记录数
+  };
+  byAction: Array<{ action: string; count: number }>;
+  hashChain: { valid: boolean; checked: number; brokenIndex: number | null };
+  samples: Array<{
+    id: number;
+    action: string;
+    toolName: string | null;
+    isError: boolean;
+    errorMessage?: string | null;
+    createdAt: Date;
+  }>;
+}
+
 export interface AiAuditLogWithUser {
   id: number;
   userId: string;
@@ -68,6 +91,8 @@ export class AuditService {
     private readonly logRepo: Repository<AiAuditLog>,
     @InjectRepository(AiDailyUsage)
     private readonly usageRepo: Repository<AiDailyUsage>,
+    @InjectRepository(AiToolSideEffect)
+    private readonly effectsRepo: Repository<AiToolSideEffect>,
     private readonly auditChain: AuditChainService,
   ) {}
 
@@ -299,6 +324,70 @@ export class AuditService {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
     };
+  }
+
+  /**
+   * §10 P1 AI Action Report：合规证据包——聚合 AI 行为（执行/批准/拒绝/阻断）+ 副作用 + 审计哈希链。
+   * 回答「AI 执行了什么写操作 / 谁批准 / 哪些被拒 / 审计链是否可验证」，作为 Business-safe 合规证据。
+   */
+  async getActionReport(
+    options: { userId?: string; since?: Date; limit?: number } = {},
+  ): Promise<ActionReport> {
+    const where: Record<string, unknown> = {};
+    if (options.userId) where.userId = options.userId;
+    if (options.since) where.createdAt = Between(options.since, new Date());
+    const logs = await this.logRepo.find({ where, order: { createdAt: 'DESC' } });
+
+    let executed = 0;
+    let approved = 0;
+    let rejected = 0;
+    let blocked = 0;
+    let errors = 0;
+    const byAction = new Map<string, number>();
+    for (const l of logs) {
+      byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
+      if (l.isError) errors++;
+      if (l.action === 'tool_call') {
+        if (l.isError) blocked++;
+        else executed++;
+      } else if (l.action === 'tool_confirmation') {
+        if (l.isError) rejected++;
+        else approved++;
+      }
+    }
+
+    const effWhere: Record<string, unknown> = {};
+    if (options.userId) effWhere.userId = options.userId;
+    if (options.since) effWhere.createdAt = Between(options.since, new Date());
+    const effects = await this.effectsRepo.count({ where: effWhere });
+
+    const chain = await this.verifyChain();
+    const limit = Math.min(options.limit ?? 10, 50);
+    const samples = logs.slice(0, limit).map((l) => ({
+      id: l.id,
+      action: l.action,
+      toolName: this._toolNameFromDetail(l.detail),
+      isError: l.isError,
+      errorMessage: l.errorMessage,
+      createdAt: l.createdAt,
+    }));
+
+    return {
+      period: { since: options.since ? options.since.toISOString() : null, to: new Date().toISOString() },
+      summary: { executed, approved, rejected, blocked, errors, effects },
+      byAction: Array.from(byAction.entries())
+        .map(([action, count]) => ({ action, count }))
+        .sort((a, b) => b.count - a.count),
+      hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
+      samples,
+    };
+  }
+
+  /** 从审计 detail（"create_followup_task({...})"）提取工具名 */
+  private _toolNameFromDetail(detail?: string | null): string | null {
+    if (!detail) return null;
+    const m = /^([a-z_]+)\(/.exec(detail);
+    return m ? m[1] : null;
   }
 
   /**
