@@ -105,6 +105,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
   const pathSlug = rewrittenPath.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_+/g, '_');
   const nameBase = sanitizeToolName(operation.operationId) || `${method.toLowerCase()}_${pathSlug}`;
   const parameters = [];
+  const queryParams = [];
   const seen = new Set();
   const skipped = [];
 
@@ -119,6 +120,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
     }
     if (p.in !== 'path' && p.in !== 'query') continue;
     seen.add(pname);
+    if (p.in === 'query') queryParams.push(pname);
     parameters.push({
       name: pname,
       type: mapProxyType(resolveSchema(p.schema) ?? p),
@@ -152,6 +154,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
     method,
     path: rewrittenPath,
     parameters,
+    queryParams,
     riskLevel: operation['x-keelbase-risk-level'] ?? (WRITE_METHODS.includes(method) ? 'R3' : 'R1'),
     skipped,
   };
