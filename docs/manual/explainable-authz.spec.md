@@ -64,6 +64,18 @@ interface PermissionExplanation {
 → { "allowed": false, "reason": "只能操作自己的数据（该客户属于他人）", "deniedBy": "casl" }
 ```
 
+### 3.2b `POST /auth/permissions/explain/target`（管理员，B1 2026-08-24）
+
+管理员为目标用户反查决策依据（排查「为何某用户被拒」）：
+
+```json
+{ "userId": 42, "action": "write", "subject": "crm/customers" }
+→ { "userId": 42, "username": "alice", "allowed": false, "reason": "需要管理员权限，或该资源不在你的可管理范围", "deniedBy": "casl" }
+```
+
+- 仅管理员（`@CheckPolicies(manage all)`）；目标用户不存在 → 404
+- 实现：auth.controller 查目标用户 role → `caslFactory.explainForTarget({ role, sub }, ...)`（复用本人 explain 的三层依据逻辑）
+
 ### 3.3 403 响应增强
 
 `ForbiddenException` 自动携带 `explanation`（对前端可读的「为何阻止」）：
@@ -78,7 +90,7 @@ interface PermissionExplanation {
 |----|------|------|
 | **工作台** | 「我的权限」 | 本人能力清单（基于 3.1），用户理解自己 AI 能做什么 |
 | **工作台** | AI 拒绝提示 | 对话中 AI 拒绝时，附带「为何」（基于 3.3 的 explanation，如「这是别人的数据」） |
-| **管理台** | Security Review | 按用户/资源查权限决策依据（基于 3.2），管理员排查「为何某用户被拒」 |
+| **管理台** | Security Review | 按用户/资源查权限决策依据（基于 3.2b，B1 已落地：Review tab 诊断卡 + 该用户风险操作时间线），管理员排查「为何某用户被拒」 |
 
 ## 5. 实现落点（后续，不占当前开发）
 
