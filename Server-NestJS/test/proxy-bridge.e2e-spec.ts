@@ -24,6 +24,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
   let base: string;
   let delegation: DelegationTokenService;
   let userAId: string;
+  let userAToken: string;
 
   beforeAll(async () => {
     // 模拟 Java 系统：验 Authorization（Bearer）→ echo 请求用户/方法/路径/body；无 token 或 /forbidden → 401
@@ -67,6 +68,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
     userAId = String(me.body.data.id);
+    userAToken = accessToken;
     delegation = app.get(DelegationTokenService);
   });
 
@@ -199,5 +201,41 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(revoke.compensated).toBe(true);
     expect(revoke.revoked).toBe(true);
     expect(revoke.message).toMatch(/已补偿/);
+  });
+
+  it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 403', async () => {
+    // 注册一个 B 路径写工具 + 触发副作用（B4：透过业务动作反查治理轨迹）
+    const settings = app.get(SettingsService);
+    const aiService = app.get(AiService);
+    const appRegistry = (aiService as any).toolRegistry;
+    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, appRegistry);
+    await settings.set('ai_proxy_tools', JSON.stringify({
+      baseUrl: base,
+      audience: 'legacy-erp',
+      tools: [{ name: 'proxy_gov_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' }],
+    }), 'json');
+    await proxyRegistry.loadAndRegister();
+    await (aiService as any)._executeWriteTool('proxy_gov_create', { title: '治理视图合同' }, userAId, 'conv-gov');
+    const effectsService = (aiService as any).toolEffectsService;
+    const list = await effectsService.list({ userId: Number(userAId) });
+    const effect = list.items.find((e: any) => e.toolName === 'proxy_gov_create');
+    expect(effect).toBeDefined();
+
+    // 本人可读治理视图（effect 元数据 + 决策轨迹 trace，trace 尽力而为）
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/ai/governance/action/proxy_call/${effect.resultId}`)
+      .set(authHeader(userAToken))
+      .expect(200);
+    expect(res.body.data.effect.resultType).toBe('proxy_call');
+    expect(res.body.data.effect.resultId).toBe(effect.resultId);
+    expect(res.body.data.effect.toolName).toBe('proxy_gov_create');
+    // trace 为 null（conv-gov 无真实对话）或含步骤——不强制，重点是 effect 反查通
+
+    // 越权：他人 → 403
+    const other = await registerUser(app, { username: 'proxy_gov_b', email: 'proxygov_b@test.com', password: 'ProxyGov1', nickname: 'ProxyGovB' });
+    await request(app.getHttpServer())
+      .get(`/api/v1/ai/governance/action/proxy_call/${effect.resultId}`)
+      .set(authHeader(other.accessToken))
+      .expect(403);
   });
 });
