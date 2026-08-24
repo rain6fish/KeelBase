@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 
 export interface WriteToolContext {
   userId: string;
@@ -13,11 +14,15 @@ export interface WriteToolContext {
   args: Record<string, unknown>;
 }
 
-/** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）revoked=false + external（需 Java 端补偿） */
+/** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
+export const EXTERNAL_REVOKER = 'EXTERNAL_REVOKER';
+
+/** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）external=true（Java 端补偿 / 或诚实语义） */
 export type RevokeResult = {
   revoked: boolean;
   effectId: number;
   external?: boolean;
+  compensated?: boolean;
   message?: string;
 };
 
@@ -35,7 +40,14 @@ export class AiToolEffectsService {
     private readonly effectsRepo: Repository<AiToolSideEffect>,
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
+    @Optional() @Inject(EXTERNAL_REVOKER)
+    private externalRevoker?: ExternalRevoker,
   ) {}
+
+  /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
+  setExternalRevoker(revoker: ExternalRevoker): void {
+    this.externalRevoker = revoker;
+  }
 
   /** 幂等键：sha256(userId:conversationId:toolName:stableArgsJson) */
   static buildKey(ctx: WriteToolContext): string {
@@ -166,7 +178,17 @@ export class AiToolEffectsService {
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
     const entity = this._entityFor(effect.resultType);
     if (!entity) {
-      // B 路径（proxy_call）：目标是外部 Java 系统，无本地实体可软删——撤销需 Java 端补偿（幂等/补偿接口）
+      // B 路径（proxy_call）：无本地实体可软删——有 revoker 则调 Java 补偿端点，否则返回诚实语义
+      if (this.externalRevoker) {
+        const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
+        return {
+          revoked: r.ok,
+          effectId: effect.id,
+          external: true,
+          compensated: r.ok,
+          message: r.ok ? `Java 端已补偿（${r.message}）` : r.message,
+        };
+      }
       return {
         revoked: false,
         effectId: effect.id,
