@@ -293,4 +293,30 @@ describe('CrmService', () => {
       expect(data.contacts).toHaveLength(1);
     });
   });
+
+  describe('getDashboard（AI Intelligence Dashboard）', () => {
+    it('聚合客户/风险/管道/逾期/跟进', async () => {
+      customers.find.mockResolvedValue([{ riskLevel: 'low' }, { riskLevel: 'high' }]);
+      opportunities.find.mockResolvedValue([
+        { amount: 100000, stage: 'negotiation', probability: 70, expectedCloseDate: new Date(Date.now() + 5 * 86400000) },
+        { amount: 50000, stage: 'won', probability: 100, expectedCloseDate: null },
+        { amount: 30000, stage: 'lost', probability: 0, expectedCloseDate: null },
+      ]);
+      orders.find.mockResolvedValue([{ status: 'overdue' }, { status: 'paid' }]);
+      tasks.find.mockResolvedValue([{ status: 'pending' }, { status: 'completed' }]);
+      risks.find.mockResolvedValue([{ resolvedAt: null }, { resolvedAt: new Date() }]);
+
+      const d = await service.getDashboard(1);
+
+      expect(d.customers).toBe(2);
+      expect(d.highRiskCustomers).toBe(1);
+      expect(d.opportunities).toBe(3);
+      expect(d.pipelineAmount).toBe(100000); // 仅 negotiation 在谈
+      expect(d.weightedAmount).toBe(70000); // 100000 × 0.7
+      expect(d.soonClosing).toBe(1); // 5 天内到期
+      expect(d.overdueOrders).toBe(1);
+      expect(d.openTasks).toBe(1);
+      expect(d.openRisks).toBe(1);
+    });
+  });
 });

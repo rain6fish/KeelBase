@@ -224,6 +224,42 @@ export class CrmService {
     return this.opportunities.find({ where: { userId }, order: { expectedCloseDate: 'ASC' } });
   }
 
+  /**
+   * AI Intelligence Dashboard（§10 P0）：聚合用户 CRM 业务全景——客户/风险/管道/逾期/跟进/风险。
+   * 供 Dashboard 卡片呈现（纯后端统计，无 LLM）。
+   */
+  async getDashboard(userId: number) {
+    const [customers, opportunities, orders, tasks, risks] = await Promise.all([
+      this.customers.find({ where: { userId } }),
+      this.listAllOpportunities(userId),
+      this.orders.find({ where: { userId } }),
+      this.tasks.find({ where: { userId } }),
+      this.risks.find({ where: { userId } }),
+    ]);
+
+    const openStages = new Set(['qualification', 'proposal', 'negotiation']);
+    const open = opportunities.filter((o) => openStages.has(o.stage));
+    const pipelineAmount = open.reduce((s, o) => s + o.amount, 0);
+    const weightedAmount = open.reduce((s, o) => s + o.amount * (o.probability / 100), 0);
+
+    const now = Date.now();
+    const soonClosing = open
+      .filter((o) => o.expectedCloseDate && o.expectedCloseDate.getTime() - now <= 30 * 86400000 && o.expectedCloseDate.getTime() >= now)
+      .length;
+
+    return {
+      customers: customers.length,
+      highRiskCustomers: customers.filter((c) => c.riskLevel === 'high' || c.riskLevel === 'critical').length,
+      opportunities: opportunities.length,
+      pipelineAmount: Math.round(pipelineAmount),
+      weightedAmount: Math.round(weightedAmount),
+      soonClosing,
+      overdueOrders: orders.filter((o) => o.status === 'overdue').length,
+      openTasks: tasks.filter((t) => t.status !== 'completed').length,
+      openRisks: risks.filter((r) => !r.resolvedAt).length,
+    };
+  }
+
   async createOpportunity(
     customerId: number,
     dto: CreateOpportunityDto,
