@@ -20,7 +20,7 @@ import {
   DefaultValuePipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
 import { actorContext } from './actor-context';
@@ -37,7 +37,7 @@ import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
-import { DecisionTraceService } from './trace/decision-trace.service';
+import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -301,6 +301,45 @@ export class AiController {
       page,
       limit,
     });
+  }
+
+  /**
+   * B4 治理可视化：给定业务动作（resultType+resultId，如 crm_task:42）→ 反查 AI 副作用 + 决策轨迹
+   * （决策轨迹 / 权限依据 / 确认 / 审计，供前端「透过 AI CRM 活展示」；本人或管理员）
+   */
+  @Get('governance/action/:resultType/:resultId')
+  @ApiOperation({ summary: '业务动作治理视图：AI 副作用 + 决策轨迹（B4）' })
+  async governanceAction(
+    @Param('resultType') resultType: string,
+    @Param('resultId', ParseIntPipe) resultId: number,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    const effect = await this.toolEffectsService.findByTarget(resultType, resultId);
+    if (!effect) throw new NotFoundException('AI 副作用记录不存在');
+    if (effect.userId !== String(user.sub) && ability.cannot('manage', 'all')) {
+      throw new ForbiddenException('无权访问此业务动作的治理视图');
+    }
+    let trace: DecisionTrace | null = null;
+    if (effect.conversationId) {
+      try {
+        trace = await this.decisionTraceService.getConversationTrace(effect.conversationId, String(user.sub), ability);
+      } catch {
+        // conversation 不存在（如脚本/外部直写副作用）→ trace 容错为 null，effect 仍返回
+        trace = null;
+      }
+    }
+    return {
+      effect: {
+        id: effect.id,
+        toolName: effect.toolName,
+        conversationId: effect.conversationId,
+        resultType: effect.resultType,
+        resultId: effect.resultId,
+        createdAt: effect.createdAt,
+      },
+      trace,
+    };
   }
 
   /**
