@@ -1165,6 +1165,56 @@ paths:
   }
 });
 
+test('端到端：多文件 OpenAPI（外部 $ref schema）→ proxy 配置 body 参数解析', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  // 主 spec：paths 的 requestBody 引用外部文件 schema（真实企业 spec 常见拆分）
+  await write(`${root}/erp.yaml`, `openapi: 3.0.0
+paths:
+  /contracts:
+    post:
+      operationId: createContract
+      summary: 新建合同
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "./schemas.yaml#/components/schemas/Contract"
+`);
+  // 外部 schema 文件
+  await write(`${root}/schemas.yaml`, `components:
+  schemas:
+    Contract:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: 合同名称 }
+        tier: { type: string, enum: [basic, pro] }
+`);
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-openapi-proxy', `${root}/erp.yaml`, '--base-url', 'http://erp:8080/api', '--audience', 'legacy-erp', '--out', `${root}/proxy.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /写出 B 路径 Proxy 配置/);
+  const cfg = JSON.parse(await readFile(`${root}/proxy.json`, 'utf8'));
+  const create = cfg.tools.find((t) => t.name === 'create_contract');
+  assert.ok(create, '应生成 create_contract');
+  // 外部 $ref body schema 已被 deref：name（required）与 tier 进参数
+  const name = create.parameters.find((p) => p.name === 'name');
+  const tier = create.parameters.find((p) => p.name === 'tier');
+  assert.ok(name, '外部 schema 的 name 应解析为 body 参数');
+  assert.equal(name.required, true);
+  assert.equal(name.type, 'string');
+  assert.ok(tier, '外部 schema 的 tier 应解析');
+  assert.equal(tier.type, 'string');
+});
+
 test('端到端：--import-openapi --out 协议含 required/label 透传 + skipped 诊断', async () => {
   const root = await tempRoot();
   const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
