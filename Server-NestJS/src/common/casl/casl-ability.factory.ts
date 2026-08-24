@@ -10,6 +10,15 @@ export type Action =
   | 'update'
   | 'delete';
 
+/** W5-⑦ Explainable Authz：决策 + 依据（资源级） */
+export interface ExplainResult {
+  action: string;
+  subject: string;
+  allowed: boolean;
+  reason: string;
+  deniedBy: 'casl' | null;
+}
+
 /**
  * 宽松的 subject 类型：字符串名（'all'/'User'/'Event'）+ 任意对象。
  * CASL v7 对严格联合类型（含实体类）的 AbilityBuilder 条件推断存在缺陷
@@ -109,12 +118,25 @@ export class CaslAbilityFactory {
    * W5-⑦ Explainable Authz：对「某 action × 资源」返回决策 + 依据（资源级；对象级由行级校验承担）。
    * 供 POST /auth/permissions/explain 与管理台 Security Review 排查「为何某用户被拒」。
    */
-  explain(
-    user: JwtPayload,
+  /** W5-⑦ 决策解释（本人） */
+  explain(user: JwtPayload, action: Action, subjectName: string): ExplainResult {
+    return this._explain(user, action, subjectName);
+  }
+
+  /**
+   * B1：管理员为目标用户反查决策依据（资源级；对象级由行级校验承担）。
+   * 只需 role + sub，不要求完整 JwtPayload。
+   */
+  explainForTarget(user: { role: UserRole; sub: number }, action: Action, subjectName: string): ExplainResult {
+    return this._explain(user, action, subjectName);
+  }
+
+  private _explain(
+    user: { role: UserRole; sub: number },
     action: Action,
     subjectName: string,
-  ): { action: string; subject: string; allowed: boolean; reason: string; deniedBy: 'casl' | null } {
-    const ability = this.createForUser(user);
+  ): ExplainResult {
+    const ability = this.createForUser(user as JwtPayload);
     const allowed = ability.can(action, subjectName);
     const isAdmin = user.role === UserRole.ADMIN;
     return {
