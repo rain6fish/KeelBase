@@ -33,6 +33,8 @@ export const ADMIN_PAGE_ROUTES: Record<
   'ai-eval': { route: '/ai-eval', description: 'AI 评测' },
   'ai-timeline': { route: '/ai-timeline', description: 'AI 执行轨迹' },
   'ai-tools': { route: '/ai-tools', description: 'AI 工具与副作用' },
+  'security-review': { route: '/security-review', description: '安全审查' },
+  'ai-approvals': { route: '/ai-approvals', description: 'AI 审批' },
   mcp: { route: '/mcp', description: 'MCP 服务' },
   analytics: { route: '/analytics', description: '平台统计' },
   org: { route: '/org', description: '组织管理' },

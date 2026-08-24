@@ -6,10 +6,11 @@
  */
 
 import { Repository, In } from 'typeorm';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
+import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { RouterAgent } from './agents/router-agent.service';
@@ -91,6 +92,15 @@ export interface AiServiceConfig {
   defaultProvider: string;
   defaultModel: string;
   systemPrompt: string;
+}
+
+/** B 路径：外部写无目标 id 时，用稳定 hash 作为副作用 resultId（正整数，48bit，可回溯同参数调用） */
+function proxyResultId(toolName: string, args: Record<string, unknown>): number {
+  const h = createHash('sha256')
+    .update(`${toolName}:${JSON.stringify(args)}`)
+    .digest('hex')
+    .slice(0, 12);
+  return Number(BigInt('0x' + h));
 }
 
 export class AiService {
@@ -408,12 +418,15 @@ export class AiService {
       };
     }
     const result = await this.toolRegistry.execute(toolName, args, userId);
-    if (result.success && result.data && (result.data as any).id !== undefined) {
+    const isProxyWrite = this.isProxyTool(toolName);
+    if (result.success && result.data && ((result.data as any).id !== undefined || isProxyWrite)) {
       // 状态变更型写工具（AI 预审）不创建可撤销记录，仅确认 + 审计
       if (toolName !== 'review_approval_request') {
+        // B 路径（ProxyTool 写）：登记 proxy_call 副作用（目标在外部系统，可见/可审计；撤销需 Java 端补偿）
         // AI 旗舰应用：写工具 → 对应实体 resultType（撤销走软删）
-        const resultType =
-          toolName === 'create_event'
+        const resultType = isProxyWrite
+          ? 'proxy_call'
+          : toolName === 'create_event'
             ? 'event'
             : toolName === 'create_followup_task'
               ? 'crm_task'
@@ -422,14 +435,28 @@ export class AiService {
                 : toolName === 'submit_approval_request'
                   ? 'app_request'
                   : 'todo';
+        const resultId = isProxyWrite
+          ? typeof (result.data as any)?.id === 'number'
+            ? (result.data as any).id
+            : proxyResultId(toolName, args)
+          : (result.data as any).id;
         await this.toolEffectsService.record(
           { userId, conversationId, toolName, args },
           resultType,
-          (result.data as any).id,
+          resultId,
         );
       }
     }
     return result;
+  }
+
+  /** B 路径：工具是否为 ProxyTool（读注册表判型，安全兜底） */
+  private isProxyTool(toolName: string): boolean {
+    try {
+      return this.toolRegistry.getTool(toolName) instanceof ProxyTool;
+    } catch {
+      return false;
+    }
   }
 
   // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
@@ -1056,6 +1083,9 @@ export class AiService {
       }
 
       if (streamError) {
+        // 流式失败（yield error 不抛 → 外层 chatStream catch 不触发）：显式释放 daily-limit 预留槽，
+        // 防零 token 失败对话计入当日用量、耗尽限额后误拦（对齐非流式 chat 失败释放语义）
+        await this.auditService.releaseDailyUsage(userId).catch(() => {});
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
           content: `Error: ${streamError}`,
