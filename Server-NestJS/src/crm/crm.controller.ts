@@ -19,6 +19,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
+import { CreateOpportunityDto } from './dto/create-opportunity.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
@@ -112,6 +113,45 @@ export class CrmController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.crmService.createOrder(id, dto, user.sub);
+  }
+
+  // ── Customer 360：销售机会（P0 §10）────────────────────
+
+  @Get('customers/:id/opportunities')
+  @ApiOperation({ summary: '客户销售机会列表（Customer 360）' })
+  listOpportunities(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return this.crmService.listOpportunities(id, user.sub);
+  }
+
+  @Post('customers/:id/opportunities')
+  @ApiOperation({ summary: '创建客户销售机会' })
+  createOpportunity(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateOpportunityDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.createOpportunity(id, dto, user.sub);
+  }
+
+  @Patch('customers/:id/opportunities/:oppId')
+  @ApiOperation({ summary: '更新客户销售机会' })
+  updateOpportunity(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('oppId', ParseIntPipe) oppId: number,
+    @Body() dto: CreateOpportunityDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.updateOpportunity(id, oppId, dto, user.sub);
+  }
+
+  @Delete('customers/:id/opportunities/:oppId')
+  @ApiOperation({ summary: '删除客户销售机会' })
+  removeOpportunity(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('oppId', ParseIntPipe) oppId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.removeOpportunity(id, oppId, user.sub);
   }
 
   @Get('customers/:id/activities')
