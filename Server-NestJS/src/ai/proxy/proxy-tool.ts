@@ -44,8 +44,10 @@ export class ProxyTool implements AiTool {
   constructor(
     private readonly cfg: ProxyToolConfig,
     private readonly delegationService: DelegationTokenService,
-    private readonly baseUrl: string,
-    private readonly audience: string,
+    /** 目标系统 baseUrl（撤销时 revoker 读取调补偿端点） */
+    readonly baseUrl: string,
+    /** 目标系统 audience（委托 token 限定） */
+    readonly audience: string,
   ) {
     this.name = cfg.name;
     this.description = cfg.description;
