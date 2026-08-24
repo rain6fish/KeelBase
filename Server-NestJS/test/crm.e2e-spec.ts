@@ -92,6 +92,55 @@ describe('AI CRM (e2e)', () => {
     expect(analysis.body.data.reasons.length).toBeGreaterThan(0);
   });
 
+  it('Customer 360：销售机会 PATCH 部分更新（只改 stage，不传 name/amount → 200）', async () => {
+    const cust = await request(app.getHttpServer())
+      .post('/api/v1/crm/customers')
+      .set(authHeader(userA.accessToken))
+      .send({ name: '360 客户' })
+      .expect(201);
+    const cid = cust.body.data.id;
+
+    const opp = await request(app.getHttpServer())
+      .post(`/api/v1/crm/customers/${cid}/opportunities`)
+      .set(authHeader(userA.accessToken))
+      .send({ name: 'Q3 续约', amount: 100000 })
+      .expect(201);
+    const oid = opp.body.data.id;
+
+    // 修复前：PATCH 复用 CreateDto（name/amount 必填）→ 400；修复后 PartialType → 200
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/v1/crm/customers/${cid}/opportunities/${oid}`)
+      .set(authHeader(userA.accessToken))
+      .send({ stage: 'won' })
+      .expect(200);
+    expect(updated.body.data.stage).toBe('won');
+    expect(updated.body.data.amount).toBe(100000);
+  });
+
+  it('Customer 360：联系人 CRUD + PATCH 部分更新（只改 role → 200）', async () => {
+    const cust = await request(app.getHttpServer())
+      .post('/api/v1/crm/customers')
+      .set(authHeader(userA.accessToken))
+      .send({ name: '360 联系客户' })
+      .expect(201);
+    const cid = cust.body.data.id;
+
+    const contact = await request(app.getHttpServer())
+      .post(`/api/v1/crm/customers/${cid}/contacts`)
+      .set(authHeader(userA.accessToken))
+      .send({ name: '张总', role: '采购' })
+      .expect(201);
+    const cid2 = contact.body.data.id;
+
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/v1/crm/customers/${cid}/contacts/${cid2}`)
+      .set(authHeader(userA.accessToken))
+      .send({ role: '决策人' })
+      .expect(200);
+    expect(updated.body.data.role).toBe('决策人');
+    expect(updated.body.data.name).toBe('张总');
+  });
+
   it('删除客户 → 软删后 404 访问', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/crm/customers')
