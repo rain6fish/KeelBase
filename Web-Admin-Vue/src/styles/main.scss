@@ -64,9 +64,9 @@ body {
   margin: 2px 0;
 }
 
-// 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆
+// 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆；底色从左到右渐变深（主色→主色深）
 .el-menu-nav .el-menu-item.is-active {
-  background: var(--el-color-primary);
+  background: linear-gradient(90deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
   color: #fff;
   border-radius: 0 999px 999px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
