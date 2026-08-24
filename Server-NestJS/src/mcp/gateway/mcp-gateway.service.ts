@@ -6,6 +6,7 @@ import { GovernancePolicyService } from '../../ai/governance/governance-policy.s
 import { AuditService } from '../../ai/audit/audit.service';
 import { AiService } from '../../ai/ai.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
+import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';
 
 export interface McpServerConfig {
   name: string;
@@ -18,6 +19,9 @@ export interface ExternalMcpTool {
   inputSchema?: Record<string, unknown>;
   /** readOnlyHint=true 视为只读；否则默认需确认（第三方工具安全默认） */
   readOnly: boolean;
+  /** A2 风险声明：readOnly→R1(auto)，非只读→R3(confirmation)，对齐内部 R0-R5 模型 */
+  riskLevel: ToolRiskLevel;
+  riskStrategy: string;
 }
 
 export interface ExternalToolCallResult {
@@ -234,12 +238,18 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     try {
       await client.connect(transport as never);
       const { tools } = await client.listTools();
-      return tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema as Record<string, unknown> | undefined,
-        readOnly: t.annotations?.readOnlyHint ?? false,
-      }));
+      return tools.map((t) => {
+        const readOnly = t.annotations?.readOnlyHint ?? false;
+        const riskLevel: ToolRiskLevel = readOnly ? 'R1' : 'R3';
+        return {
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema as Record<string, unknown> | undefined,
+          readOnly,
+          riskLevel,
+          riskStrategy: RISK_STRATEGY[riskLevel],
+        };
+      });
     } finally {
       await client.close().catch(() => undefined);
       close();

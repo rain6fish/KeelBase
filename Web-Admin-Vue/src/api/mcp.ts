@@ -11,6 +11,9 @@ export interface ExternalMcpTool {
   inputSchema?: Record<string, unknown>
   /** readOnlyHint=true 视为只读；否则默认需确认（第三方工具安全默认） */
   readOnly: boolean
+  /** A2 风险声明：readOnly→R1(auto)，非只读→R3(confirmation) */
+  riskLevel?: string
+  riskStrategy?: string
 }
 
 export interface McpDiscoverResult {
