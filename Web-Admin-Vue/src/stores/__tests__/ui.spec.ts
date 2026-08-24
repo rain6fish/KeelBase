@@ -18,10 +18,28 @@ describe('useUiStore', () => {
     expect(store.drawer).toBe(true)
   })
 
+  it('默认主题变体为 indigo', () => {
+    const store = useUiStore()
+    expect(store.variant).toBe('indigo')
+  })
+
   it('有保存的主题时恢复', () => {
     storage.set(STORAGE_KEYS.THEME, 'dark')
     const store = useUiStore()
     expect(store.theme).toBe('dark')
+  })
+
+  it('有保存的主题变体时恢复', () => {
+    storage.set(STORAGE_KEYS.THEME_VARIANT, 'graphite')
+    const store = useUiStore()
+    expect(store.variant).toBe('graphite')
+  })
+
+  it('setVariant 更新并持久化', () => {
+    const store = useUiStore()
+    store.setVariant('teal')
+    expect(store.variant).toBe('teal')
+    expect(storage.get(STORAGE_KEYS.THEME_VARIANT)).toBe('teal')
   })
 
   it('toggleDrawer 翻转', () => {

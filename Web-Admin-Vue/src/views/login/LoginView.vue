@@ -2,8 +2,9 @@
   <div class="login-bg d-flex align-center justify-center">
     <el-card class="login-card" shadow="always">
       <div class="text-center pt-4">
-        <AppIcon icon="mdi-keel" size="40" color="var(--el-color-primary)" class="mb-1" />
+        <AppLogo :size="44" class="mb-1" />
         <div class="text-h5 font-weight-bold">{{ t('appName') }}</div>
+        <div class="text-caption text-medium-emphasis mt-1">{{ t('appTagline') }}</div>
       </div>
       <div class="px-6 py-4">
         <div class="text-subtitle-2 mb-4 text-center">{{ t('loginTitle') }}</div>
@@ -63,6 +64,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import LangToggle from '@/components/LangToggle.vue'
+import AppLogo from '@/components/AppLogo.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -92,11 +94,13 @@ async function onSubmit() {
 <style scoped>
 .login-bg {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-bg-color-page) 100%);
+  background:
+    radial-gradient(1200px 600px at 70% -10%, var(--keel-glow, rgba(79, 70, 229, 0.25)) 0%, transparent 60%),
+    linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--el-bg-color-page) 100%);
 }
 .login-card {
   width: 420px;
   max-width: 92vw;
-  border-radius: 12px;
+  border-radius: var(--keel-radius-md);
 }
 </style>
