@@ -99,13 +99,13 @@ function toggleRail() {
   rail.value = !rail.value
 }
 
-// 菜单滚动条：鼠标滑过/滚动时短暂显示（1.6s 后自动隐藏）
+// 菜单滚动条：鼠标滑过/滚动时短暂显示（0.5s 后自动隐藏）
 const adminNavRef = ref<HTMLElement | null>(null)
 let scrollFlashTimer: number | undefined
 function flashAdminScroll() {
   adminNavRef.value?.classList.add('scroll-flash')
   clearTimeout(scrollFlashTimer)
-  scrollFlashTimer = window.setTimeout(() => adminNavRef.value?.classList.remove('scroll-flash'), 1600)
+  scrollFlashTimer = window.setTimeout(() => adminNavRef.value?.classList.remove('scroll-flash'), 500)
 }
 
 function go(path: string) {
