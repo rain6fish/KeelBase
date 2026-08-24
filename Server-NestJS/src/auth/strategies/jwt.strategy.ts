@@ -18,6 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!payload.sub || !payload.username) {
       throw new UnauthorizedException('无效的 Token');
     }
-    return payload;
+    // Agent Identity（评审二 §5）：access token 的 jti → sessionId，供审计 actor 上下文（ai_audit_logs.session_id）落值
+    return { ...payload, sessionId: (payload as JwtPayload & { jti?: string }).jti };
   }
 }
