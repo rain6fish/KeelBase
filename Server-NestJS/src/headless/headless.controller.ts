@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { IsString, IsOptional, MaxLength } from 'class-validator';
 import type { Request } from 'express';
 import { AiService } from '../ai/ai.service';
+import { actorContext } from '../ai/actor-context';
 import { Public } from '../auth/guards/public.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { HeadlessGuard } from './headless.guard';
@@ -44,11 +45,14 @@ export class HeadlessController {
   @ApiOperation({ summary: 'HS-4 无头对话（API Key 认证，按 key 归属用户身份执行）' })
   async chat(@Body() dto: HeadlessChatDto, @Req() req: HeadlessRequest) {
     const ctx = req.headlessKey!;
-    const result = await this.aiService.chat(String(ctx.ownerUserId), {
-      message: dto.message,
-      provider: dto.provider,
-      model: dto.model,
-    });
+    // Agent Identity（评审二 §5）：headless 集成以 key 名作 agentId，审计可溯源「哪个集成/代理身份执行」
+    const result = await actorContext.run({ agentId: ctx.name }, () =>
+      this.aiService.chat(String(ctx.ownerUserId), {
+        message: dto.message,
+        provider: dto.provider,
+        model: dto.model,
+      }),
+    );
     return { reply: result.reply, conversationId: result.conversationId };
   }
 }
