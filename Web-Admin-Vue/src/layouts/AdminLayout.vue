@@ -45,7 +45,8 @@
         <el-breadcrumb separator="/" class="flex-grow-1">
           <el-breadcrumb-item v-for="b in breadcrumbs" :key="b.title">{{ b.title }}</el-breadcrumb-item>
         </el-breadcrumb>
-        <el-button v-if="showOverview" class="ai-btn" @click="aiDrawerOpen = true">
+        <!-- AI 助手：管理员=系统助手，普通用户=本人数据作用域助手（抽屉内按角色分流） -->
+        <el-button class="ai-btn" @click="aiDrawerOpen = true">
           <template #icon><AppIcon icon="mdi-robot-happy-outline" size="18" /></template>
           AI
         </el-button>
