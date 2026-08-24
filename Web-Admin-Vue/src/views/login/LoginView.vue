@@ -2,9 +2,8 @@
   <div class="login-bg d-flex align-center justify-center">
     <el-card class="login-card" shadow="always">
       <div class="text-center pt-4">
-        <AppLogo :size="44" class="mb-1" />
-        <div class="text-h5 font-weight-bold">{{ t('appName') }}</div>
-        <div class="text-caption text-medium-emphasis mt-1">{{ t('appTagline') }}</div>
+        <AppLogo :width="240" class="mx-auto mb-2" />
+        <div class="text-caption text-medium-emphasis">{{ t('appTagline') }}</div>
       </div>
       <div class="px-6 py-4">
         <div class="text-subtitle-2 mb-4 text-center">{{ t('loginTitle') }}</div>

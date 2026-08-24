@@ -12,7 +12,7 @@ function initialTheme(): ThemeMode {
 
 function initialVariant(): ThemeVariant {
   const saved = storage.get(STORAGE_KEYS.THEME_VARIANT)
-  return isThemeVariant(saved) ? saved : 'indigo'
+  return isThemeVariant(saved) ? saved : 'navy'
 }
 
 export const useUiStore = defineStore('ui', {
