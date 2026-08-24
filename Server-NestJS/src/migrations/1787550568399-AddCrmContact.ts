@@ -31,6 +31,13 @@ export class AddCrmContact1787550568399 implements MigrationInterface {
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        if ((queryRunner.connection.options as any).type === 'postgres') {
+            await queryRunner.query(`ALTER TABLE "crm_contacts" DROP CONSTRAINT "FK_73ddc5a7db8c3edb2d25060f845"`);
+            await queryRunner.query(`DROP INDEX "public"."IDX_73ddc5a7db8c3edb2d25060f84"`);
+            await queryRunner.query(`DROP INDEX "public"."IDX_716652046341807ab127c9b127"`);
+            await queryRunner.query(`DROP TABLE "crm_contacts"`);
+            return;
+        }
         await queryRunner.query(`DROP INDEX "IDX_73ddc5a7db8c3edb2d25060f84"`);
         await queryRunner.query(`DROP INDEX "IDX_716652046341807ab127c9b127"`);
         await queryRunner.query(`ALTER TABLE "crm_contacts" RENAME TO "temporary_crm_contacts"`);
