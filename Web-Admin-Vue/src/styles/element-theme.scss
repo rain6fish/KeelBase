@@ -17,17 +17,26 @@
   --keel-radius-md: 14px;
 }
 
-// 卡片：无边框 + 主题签名阴影 + 统一圆角（覆盖 shadow="never" 的默认描边）
+// 卡片：无边框 + 中性立体阴影 + 主题签名色晕 + 统一圆角（在浅灰一体底上显悬浮）
 .el-card {
   --el-card-border-color: transparent;
   border: none;
   border-radius: var(--keel-radius-md);
-  box-shadow: var(--keel-card-shadow, 0 0 20px 0 rgba(79, 70, 229, 0.05), 0 2px 8px 0 rgba(0, 0, 0, 0.04));
+  // 显式用表面色（亮=白 / 暗=深色面），!important 压过 EP 暗色 css-vars 的 overlay 回环，确保暗色下卡片不白底
+  background-color: var(--el-bg-color) !important;
+  box-shadow:
+    0 1px 2px 0 rgba(0, 0, 0, 0.04),
+    0 6px 18px -4px rgba(0, 0, 0, 0.08),
+    var(--keel-card-shadow, 0 0 20px 0 rgba(29, 78, 216, 0.05));
 }
 .el-card.is-never-shadow,
 .el-card.is-always-shadow,
 .el-card.is-hover-shadow {
-  box-shadow: var(--keel-card-shadow, 0 0 20px 0 rgba(79, 70, 229, 0.05), 0 2px 8px 0 rgba(0, 0, 0, 0.04));
+  background-color: var(--el-bg-color) !important;
+  box-shadow:
+    0 1px 2px 0 rgba(0, 0, 0, 0.04),
+    0 6px 18px -4px rgba(0, 0, 0, 0.08),
+    var(--keel-card-shadow, 0 0 20px 0 rgba(29, 78, 216, 0.05));
 }
 
 html.dark {
@@ -35,6 +44,11 @@ html.dark {
   .el-card.is-never-shadow,
   .el-card.is-always-shadow,
   .el-card.is-hover-shadow {
-    box-shadow: var(--keel-card-shadow-dark, 0 0 20px 0 rgba(0, 0, 0, 0.35));
+    // 覆盖 EP 暗色 css-vars 的 overlay 回环（--el-card-bg-color → overlay）
+    background-color: var(--el-bg-color) !important;
+    box-shadow:
+      0 1px 2px 0 rgba(0, 0, 0, 0.5),
+      0 6px 20px -4px rgba(0, 0, 0, 0.5),
+      var(--keel-card-shadow-dark, 0 0 20px 0 rgba(0, 0, 0, 0.35));
   }
 }
