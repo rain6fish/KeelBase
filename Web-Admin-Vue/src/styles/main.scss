@@ -1,4 +1,4 @@
-// 全局基础样式。Element Plus 负责组件；这里只放应用级覆盖（字体、留白、侧边栏质感等）。
+// 全局基础样式。Element Plus 负责组件；这里只放应用级覆盖（字体、留白、侧边栏质感、动效）。
 html,
 body,
 #app {
@@ -6,10 +6,21 @@ body,
   margin: 0;
 }
 
+// 滚动溢出区域跟随当前主题背景
+html {
+  background: var(--el-bg-color-page);
+}
+
 body {
-  font-family: 'Public Sans', sans-serif;
+  font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   background: var(--el-bg-color-page);
+}
+
+// 数据/数字：等宽数字，KPI 与表格读数更稳
+.text-tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 // 侧边栏导航分组标题
@@ -22,21 +33,72 @@ body {
   padding: 12px 12px 4px;
 }
 
-// 内容区统一留白（全宽 + 24px，Materio 式）
+// 内容区统一留白
 .v-content-pad {
   padding: 24px;
 }
 
-// 侧边栏激活项：primary 底 + 白字 + 圆角 + 轻投影（对齐 Materio/Matdash）
+// 侧边栏激活项：primary 底 + 白字 + 主题签名圆角/投影
 .el-menu-nav .el-menu-item.is-active {
   background: var(--el-color-primary);
   color: #fff;
-  border-radius: 12px;
+  border-radius: var(--keel-radius-md);
   margin: 0 8px;
-  box-shadow: 0 17px 20px -8px rgba(47, 107, 245, 0.22);
+  box-shadow: var(--keel-sidebar-active-shadow, 0 17px 20px -8px rgba(79, 70, 229, 0.22));
 }
 
 // 侧边栏导航项 hover：primary 浅底（非激活项）
 .el-menu-nav .el-menu-item:not(.is-active):hover {
   background: var(--el-color-primary-light-9);
+}
+
+// ── 动效微交互（克制；尊重 prefers-reduced-motion）──
+
+// 卡片 hover：轻微上浮 + 阴影加深
+.el-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.el-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+html.dark .el-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+// 页面切换：淡入 + 4px 上移
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.page-leave-to {
+  opacity: 0;
+}
+
+// AI 助手按钮常驻微光（呼吸）
+@keyframes keel-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 4px 14px var(--keel-glow, rgba(79, 70, 229, 0.3));
+  }
+  50% {
+    box-shadow: 0 4px 20px var(--keel-glow, rgba(79, 70, 229, 0.3)), 0 0 0 4px rgba(79, 70, 229, 0.08);
+  }
+}
+.ai-assistant-btn {
+  animation: keel-glow-pulse 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .el-card,
+  .page-enter-active,
+  .page-leave-active,
+  .ai-assistant-btn {
+    transition: none !important;
+    animation: none !important;
+  }
 }

@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'admin_refresh_token',
   LOCALE: 'admin_locale',
   THEME: 'admin_theme',
+  THEME_VARIANT: 'admin_theme_variant',
 } as const
 
 export const DEFAULT_PAGE_SIZE = 20

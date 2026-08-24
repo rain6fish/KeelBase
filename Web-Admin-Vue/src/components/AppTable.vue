@@ -21,7 +21,10 @@
         </template>
       </el-table-column>
       <template #empty>
-        <div class="pa-4 text-medium-emphasis">{{ emptyText || t('noData') }}</div>
+        <div class="pa-4 text-medium-emphasis">
+          <AppIcon icon="mdi-inbox-outline" size="28" class="mb-1" />
+          <div>{{ emptyText || t('noData') }}</div>
+        </div>
       </template>
     </el-table>
     <div v-if="hasPaginationSlot" class="px-3">

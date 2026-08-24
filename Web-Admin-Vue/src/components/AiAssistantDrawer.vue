@@ -269,10 +269,10 @@ function formatTime(iso: string): string {
 .ai-avatar {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--keel-radius-md);
   color: #fff;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-info) 100%);
-  box-shadow: 0 4px 12px rgba(47, 107, 245, 0.3);
+  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--keel-brand-gradient-to, var(--el-color-primary)) 100%);
+  box-shadow: 0 4px 12px var(--keel-glow, rgba(79, 70, 229, 0.3));
   flex-shrink: 0;
 }
 .history-item {
