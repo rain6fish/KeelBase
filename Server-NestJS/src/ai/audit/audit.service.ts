@@ -56,6 +56,8 @@ export interface ActionReport {
     effects: number; // 可撤销副作用记录数
   };
   byAction: Array<{ action: string; count: number }>;
+  /** B3 时间趋势：按 UTC 日聚合执行/批准/拒绝/阻断/错误（升序），合规报告可看趋势 */
+  byDay: Array<{ date: string; executed: number; approved: number; rejected: number; blocked: number; errors: number }>;
   hashChain: { valid: boolean; checked: number; brokenIndex: number | null };
   samples: Array<{
     id: number;
@@ -349,18 +351,30 @@ export class AuditService {
     let blocked = 0;
     let errors = 0;
     const byAction = new Map<string, number>();
+    // B3 时间趋势：按 UTC 日聚合（createdAt.toISOString 与审计链 DB 时区一致，避免本地时区偏移）
+    const byDay = new Map<string, ActionReport['byDay'][number]>();
+    const bucket = (createdAt: Date): ActionReport['byDay'][number] => {
+      const key = createdAt.toISOString().slice(0, 10);
+      let b = byDay.get(key);
+      if (!b) {
+        b = { date: key, executed: 0, approved: 0, rejected: 0, blocked: 0, errors: 0 };
+        byDay.set(key, b);
+      }
+      return b;
+    };
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
-      if (l.isError) errors++;
+      const b = bucket(l.createdAt);
+      if (l.isError) { errors++; b.errors++; }
       if (l.action === 'tool_call') {
         // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记：R5/越权/禁用/权限）；
         // 执行失败（无拒绝标记）只算 error，不计 blocked
-        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) blocked++;
-        else if (!l.isError) executed++;
+        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) { blocked++; b.blocked++; }
+        else if (!l.isError) { executed++; b.executed++; }
       } else if (l.action === 'tool_confirmation') {
-        if (l.isError) rejected++;
+        if (l.isError) { rejected++; b.rejected++; }
         // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报
-        else if (!l.detail?.includes('pending_approval')) approved++;
+        else if (!l.detail?.includes('pending_approval')) { approved++; b.approved++; }
       }
     }
 
@@ -386,6 +400,7 @@ export class AuditService {
       byAction: Array.from(byAction.entries())
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count),
+      byDay: Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date)),
       hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
       samples,
     };

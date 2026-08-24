@@ -118,6 +118,32 @@
           <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
         </el-card>
 
+        <!-- B3 时间趋势：按日迷你柱状图（无图表库，纯 CSS 分段条） -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('secTrendTitle') }}</template>
+          <div v-if="actionReport?.byDay?.length">
+            <div v-for="d in actionReport.byDay" :key="d.date" class="mb-2">
+              <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis">
+                <span>{{ d.date }}</span>
+                <span>{{ d.executed + d.approved + d.rejected + d.blocked }}</span>
+              </div>
+              <div class="d-flex" style="height: 14px; border-radius: 3px; overflow: hidden; background: var(--el-fill-color-light)">
+                <div v-if="d.executed" :style="{ width: pct(d.executed) + '%', background: 'var(--el-color-primary)' }" :title="`${t('secActionExecuted')}: ${d.executed}`" />
+                <div v-if="d.approved" :style="{ width: pct(d.approved) + '%', background: 'var(--el-color-success)' }" :title="`${t('secActionApproved')}: ${d.approved}`" />
+                <div v-if="d.rejected" :style="{ width: pct(d.rejected) + '%', background: 'var(--el-color-warning)' }" :title="`${t('secActionRejected')}: ${d.rejected}`" />
+                <div v-if="d.blocked" :style="{ width: pct(d.blocked) + '%', background: 'var(--el-color-danger)' }" :title="`${t('secActionBlocked')}: ${d.blocked}`" />
+              </div>
+            </div>
+            <div class="d-flex flex-wrap ga-3 text-caption text-medium-emphasis mt-1">
+              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-primary)"></span>{{ t('secActionExecuted') }}</span>
+              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-success)"></span>{{ t('secActionApproved') }}</span>
+              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-warning)"></span>{{ t('secActionRejected') }}</span>
+              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-danger)"></span>{{ t('secActionBlocked') }}</span>
+            </div>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
+        </el-card>
+
         <el-card shadow="never" class="mb-4">
           <template #header>{{ t('secActionByType') }}</template>
           <div v-if="actionReport?.byAction.length">
@@ -287,6 +313,21 @@ async function loadPosture() {
 
 // ── Action Report tab（§10 P1 合规证据包）──
 const actionReport = ref<ActionReport | null>(null)
+
+/** B3 时间趋势：当日各段总数最大值（分段条宽度基准） */
+const maxDailyTotal = computed(() => {
+  const days = actionReport.value?.byDay ?? []
+  let m = 0
+  for (const d of days) {
+    const tot = d.executed + d.approved + d.rejected + d.blocked
+    if (tot > m) m = tot
+  }
+  return m
+})
+/** B3 时间趋势：分段宽度百分比（相对最大日总数） */
+function pct(count: number): number {
+  return maxDailyTotal.value === 0 ? 0 : Math.round((100 * count) / maxDailyTotal.value)
+}
 const sampleHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('secActionTool') },
