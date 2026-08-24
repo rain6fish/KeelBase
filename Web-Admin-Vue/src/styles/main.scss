@@ -23,10 +23,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-// 滚动条与整体底色一致：轨道透明（显浅灰底），滑块用边框色（亮/暗自适应）
+// 滚动条与整体底色一致：轨道透明、滑块用边框色；默认细 4px，hover 到滚动区域恢复 8px（Materio 风格）
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -37,6 +37,10 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--el-text-color-secondary);
+}
+*:hover::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
 // 侧边栏导航分组标题
@@ -54,12 +58,17 @@ body {
   padding: 24px;
 }
 
-// 侧边栏激活项：Materio 风格——primary 底 + 白字 + 圆角 8 + 柔和投影
+// 侧边栏导航项：Materio 间距（紧凑高度 + item 间隔）
+.el-menu-nav .el-menu-item {
+  height: 42px;
+  margin: 2px 0;
+}
+
+// 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆
 .el-menu-nav .el-menu-item.is-active {
   background: var(--el-color-primary);
   color: #fff;
-  border-radius: 8px;
-  margin: 0 8px;
+  border-radius: 0 999px 999px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 }
 
