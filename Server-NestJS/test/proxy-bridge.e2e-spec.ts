@@ -3,6 +3,9 @@ import request from 'supertest';
 import { createServer, Server } from 'http';
 import { createTestApp, registerUser } from './helpers';
 import { ProxyTool } from '../src/ai/proxy/proxy-tool';
+import { ProxyToolRegistryService } from '../src/ai/proxy/proxy-tool.service';
+import { ToolRegistry } from '../src/ai/tools/tool-registry';
+import { SettingsService } from '../src/settings/settings.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
 
 /**
@@ -124,5 +127,38 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     const r = await tool.execute({}, userAId);
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/403/);
+  });
+
+  it('生成器产物（openapi-proxy 输出形态）→ Settings → 运行时注册 → 读自动/写确认 + 委托身份可调用', async () => {
+    // 复刻 ai.module useFactory 的组装：真实 SettingsService + DelegationTokenService + ToolRegistry
+    const settings = app.get(SettingsService);
+    const registry = new ToolRegistry();
+    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, registry);
+    // `keelbase-init --import-openapi-proxy` 的产物形态（riskLevel 显式：读 R1 / 写 R3）
+    const cfg = {
+      baseUrl: base,
+      audience: 'legacy-erp',
+      tools: [
+        { name: 'proxy_gen_list', description: '列合同', method: 'GET', path: '/contracts', parameters: [{ name: 'page', type: 'integer', description: '页码', required: false }], riskLevel: 'R1' },
+        { name: 'proxy_gen_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' },
+      ],
+    };
+    await settings.set('ai_proxy_tools', JSON.stringify(cfg), 'json');
+    const r = await proxyRegistry.loadAndRegister();
+    expect(r.registered).toEqual(['proxy_gen_list', 'proxy_gen_create']);
+
+    // 读自动 / 写需确认（riskLevel 派生门控）
+    expect(registry.requiresConfirmation('proxy_gen_list')).toBe(false);
+    expect(registry.requiresConfirmation('proxy_gen_create')).toBe(true);
+    expect(registry.riskLevel('proxy_gen_create')).toBe('R3');
+
+    // 读工具经运行时执行 → mock 目标收到 + 委托身份注入
+    const res = await registry.execute('proxy_gen_list', { page: '1' }, userAId);
+    expect(res.success).toBe(true);
+    expect((res.data as any).method).toBe('GET');
+    expect((res.data as any).user).toContain('eyJ'); // 委托 JWT 到达目标
+    // 工具定义 LLM 可见（含写工具参数 schema）
+    const defs = registry.getToolDefinitions().map((d) => d.function.name);
+    expect(defs).toContain('proxy_gen_create');
   });
 });
