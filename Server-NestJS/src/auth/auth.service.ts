@@ -817,7 +817,13 @@ export class AuthService {
   // ─── Private helpers ─────────────────────────────────────────────────────
 
   private generateAccessToken(userId: number, username: string, role: string): string {
-    const payload: JwtPayload = { sub: userId, username, role: role as any };
+    // Agent Identity（评审二 §5）：access token 带 jti 作 sessionId——每次访问令牌唯一标识，审计 actor 上下文用
+    const payload: JwtPayload & { jti: string } = {
+      sub: userId,
+      username,
+      role: role as any,
+      jti: crypto.randomBytes(8).toString('hex'),
+    };
     const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN', '15m');
     return this.jwtService.sign(payload, { expiresIn } as JwtSignOptions);
   }
