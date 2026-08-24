@@ -76,6 +76,7 @@ import { QueryOrgTasksTool } from './tools/query-org-tasks.tool';
 import { QueryCustomersTool } from './tools/query-customers.tool';
 import { QueryCustomerOrdersTool } from './tools/query-customer-orders.tool';
 import { QueryCustomerOpportunitiesTool } from './tools/query-opportunities.tool';
+import { SummarizeCustomerTool } from './tools/summarize-customer.tool';
 import { QueryCustomerActivitiesTool } from './tools/query-customer-activities.tool';
 import { AnalyzeCustomerRiskTool } from './tools/analyze-customer-risk.tool';
 import { CreateFollowupTaskTool } from './tools/create-followup-task.tool';
@@ -247,6 +248,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryCustomerOrdersTool(crmService));
         toolRegistry.register(new QueryCustomerActivitiesTool(crmService));
         toolRegistry.register(new QueryCustomerOpportunitiesTool(crmService));
+        toolRegistry.register(new SummarizeCustomerTool(crmService, factory, defaultProvider));
         toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
         toolRegistry.register(new CreateFollowupTaskTool(crmService));
         // AI Project Management 旗舰应用：项目/任务/风险/创建项目任务
