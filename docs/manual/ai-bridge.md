@@ -93,7 +93,15 @@ OpenAPI（含 operations + securitySchemes）
 
 **✅ 写副作用登记 + 外部撤销语义（2026-08-23）**：ProxyTool 写经确认后执行 → `AiService._executeWriteTool` 登记 `proxy_call` 副作用（`/ai/tool-effects` 可见，审计完整）；撤销外部副作用返回 `{ revoked:false, external:true, message:'B 路径外部副作用撤销需 Java 端补偿' }`（诚实语义，无本地实体可软删）。e2e 5/5。
 
-**完整 B 待做**：目标系统撤销的真正执行——Java 侧按委托身份提供幂等/补偿接口（如 `x-keelbase-revoke-path`），KeelBase 撤销时调用。
+**✅ revokePath 约定（2026-08-24）**：OpenAPI operation 加 `x-keelbase-revoke-path` 扩展 → 生成器自动生成工具 `revokePath` 字段（Java 端补偿端点约定，如 `DELETE /contracts/{id}`）；`ProxyTool` 持有 `revokePath`，AI 写副作用撤销时据此调 Java 补偿端点（带委托身份）。生成器单测 5/5。
+
+**Java 端补偿接口约定（`x-keelbase-revoke-path`）**：
+- 形态：OpenAPI operation 声明补偿端点（相对 baseUrl），如 `DELETE /contracts/{id}`（`{id}` 占位来自副作用 resultId）
+- 委托身份：撤销调用同样注入 `Authorization: Bearer <委托 JWT>`（§5 验签映射本地用户）
+- 幂等要求：补偿端点须幂等（重复撤销返回同结果，不报错）——与 KeelBase 副作用幂等键对齐，防 LLM/重试重复撤销
+- 无 revokePath 的写工具：撤销返回 `{ revoked:false, external:true, message:'B 路径外部副作用撤销需 Java 端补偿' }`（诚实语义）
+
+**运行时撤销调用（待 Java 端就绪后增量）**：副作用撤销时若工具配置带 revokePath → HTTP 调补偿端点；KeelBase 侧注入 `revokeDispatcher` 从已注册 ProxyTool 取 baseUrl/audience/revokePath + 签发委托 token。
 
 ---
 
