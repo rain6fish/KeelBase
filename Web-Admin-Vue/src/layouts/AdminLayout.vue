@@ -11,6 +11,7 @@
       <div ref="adminNavRef" class="admin-nav" @mouseenter="flashAdminScroll" @scroll.passive="flashAdminScroll">
         <el-menu
           :default-active="activeMenu"
+          :default-openeds="defaultOpeneds"
           :collapse="rail"
           :collapse-transition="false"
           class="el-menu-nav"
@@ -20,8 +21,12 @@
             <template #title>{{ t('overview') }}</template>
           </el-menu-item>
 
-          <template v-for="group in navGroups" :key="group.label">
-            <div v-if="!rail" class="nav-group-label">{{ group.label }}</div>
+          <!-- Materio 式二级可折叠菜单：一级分组（图标+标题，可展开/折叠），二级子项；组内有激活子项时一级显示浅色 -->
+          <el-sub-menu v-for="group in navGroups" :key="group.label" :index="group.label" :class="{ 'is-active-group': group.label === activeGroup }">
+            <template #title>
+              <AppIcon :icon="group.icon" />
+              <span>{{ group.label }}</span>
+            </template>
             <el-menu-item
               v-for="item in group.items"
               :key="item.to"
@@ -31,7 +36,7 @@
               <AppIcon :icon="item.icon" />
               <template #title>{{ item.label }}</template>
             </el-menu-item>
-          </template>
+          </el-sub-menu>
         </el-menu>
       </div>
 
@@ -126,10 +131,12 @@ const breadcrumbs = computed(() => {
 const workspaceNavGroups = computed(() => [
   {
     label: t('navWorkbench'),
+    icon: 'mdi-apps',
     items: [{ name: 'workbench-home', to: '/workbench', icon: 'mdi-home-outline', label: t('navWorkbench') }],
   },
   {
     label: t('navMy'),
+    icon: 'mdi-account-circle-outline',
     items: [
       { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents') },
       { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos') },
@@ -148,6 +155,7 @@ const workspaceNavGroups = computed(() => [
 const consoleNavGroups = computed(() => [
   {
     label: t('navData'),
+    icon: 'mdi-folder-multiple-outline',
     items: [
       { name: 'users', to: '/users', icon: 'mdi-account-group-outline', label: t('navUsers') },
       { name: 'org', to: '/org', icon: 'mdi-sitemap', label: t('navOrg'), module: 'org' },
@@ -164,6 +172,7 @@ const consoleNavGroups = computed(() => [
   },
   {
     label: t('navMonitor'),
+    icon: 'mdi-shield-search',
     items: [
       { name: 'monitor', to: '/monitor', icon: 'mdi-heart-pulse', label: t('navMonitorCenter') },
       { name: 'ops', to: '/ops', icon: 'mdi-wrench-outline', label: t('navOps') },
@@ -177,6 +186,7 @@ const consoleNavGroups = computed(() => [
   },
   {
     label: t('navSystem'),
+    icon: 'mdi-cog-outline',
     items: [
       { name: 'system-ai-assistant', to: '/system-ai-assistant', icon: 'mdi-robot-outline', label: t('navSystemAssistant') },
       { name: 'observability', to: '/observability', icon: 'mdi-lan', label: t('navObservability') },
@@ -194,6 +204,16 @@ const consoleNavGroups = computed(() => [
 const isUserSurface = import.meta.env.MODE === 'user'
 const showOverview = computed(() => !isUserSurface && auth.isAdmin)
 const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavGroups.value : consoleNavGroups.value))
+// 默认展开当前路由所在的一级分组（Materio 式二级菜单）
+const defaultOpeneds = computed(() => {
+  const active = navGroups.value.find((g) => g.items.some((i) => route.path.startsWith(i.to) && i.to !== '/'))
+  return active ? [active.label] : []
+})
+// 当前激活路由所属的一级分组（其标题显示浅色底，表示该组有激活子项）
+const activeGroup = computed(
+  () =>
+    navGroups.value.find((g) => g.items.some((i) => route.path.startsWith(i.to) && i.to !== '/'))?.label ?? '',
+)
 </script>
 
 <style scoped>
