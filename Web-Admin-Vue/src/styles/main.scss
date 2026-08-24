@@ -43,6 +43,34 @@ body {
   height: 8px;
 }
 
+// 侧边栏菜单滚动条：默认隐藏，鼠标滑过时短暂显示（约 1.6s）后淡出
+.admin-nav::-webkit-scrollbar,
+.admin-aside::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.admin-nav::-webkit-scrollbar-thumb,
+.admin-aside::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 8px;
+  opacity: 0;
+}
+.admin-nav:hover::-webkit-scrollbar-thumb,
+.admin-aside:hover::-webkit-scrollbar-thumb {
+  animation: keel-scroll-flash 1.6s ease forwards;
+}
+@keyframes keel-scroll-flash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 // 侧边栏导航分组标题
 .nav-group-label {
   font-size: 0.68rem;

@@ -88,6 +88,8 @@ const zh = {
   navAiTimeline: 'AI 行为回放',
   navSystemAssistant: '系统 AI 助手',
   assHint: '我是 KeelBase 平台系统助手，可解答平台功能、配置指引并跳转到管理台页面。',
+  aiAssistant: 'AI 助手',
+  aiAssistantHint: '我可以帮你查询和处理你的业务数据（事件/待办/客户等），写操作需确认。',
   assWelcome: '你好，我是系统 AI 助手。可以问我「系统有哪些模块？」「怎么配置权限？」或「打开系统信息页」。',
   assPlaceholder: '输入问题…',
   assThinking: '思考中…',

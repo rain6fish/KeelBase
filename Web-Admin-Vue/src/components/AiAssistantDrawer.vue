@@ -16,8 +16,8 @@
             <AppIcon icon="mdi-robot-happy-outline" size="22" />
           </div>
           <div>
-            <div class="font-weight-bold">{{ t('navSystemAssistant') }}</div>
-            <div class="text-caption text-medium-emphasis">{{ t('assHint') }}</div>
+            <div class="font-weight-bold">{{ auth.isAdmin ? t('navSystemAssistant') : t('aiAssistant') }}</div>
+            <div class="text-caption text-medium-emphasis">{{ auth.isAdmin ? t('assHint') : t('aiAssistantHint') }}</div>
           </div>
         </div>
         <div class="d-flex ga-1">
@@ -107,7 +107,9 @@ import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { useAuthStore } from '@/stores/auth'
 import { adminApi } from '@/api/admin'
+import { aiApi } from '@/api/ai'
 import type { AiConversationSummary } from '@/types/admin'
 
 interface ChatMsg {
@@ -123,6 +125,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 const { t } = useI18n()
 const router = useRouter()
 const snackbar = useSnackbarStore()
+const auth = useAuthStore()
 
 const view = ref<'chat' | 'list'>('chat')
 const messages = ref<ChatMsg[]>([])
@@ -188,10 +191,16 @@ async function send() {
   sending.value = true
   await scrollBottom()
   try {
-    const res = await adminApi.adminAiChat({
-      message: text,
-      conversationId: conversationId.value ?? undefined,
-    })
+    // 权限区分：管理员 = 系统 AI 助手（平台/治理上下文）；普通用户 = 本人数据作用域 AI
+    const res = auth.isAdmin
+      ? await adminApi.adminAiChat({
+          message: text,
+          conversationId: conversationId.value ?? undefined,
+        })
+      : await aiApi.chat({
+          message: text,
+          conversationId: conversationId.value ?? undefined,
+        })
     messages.value.push({
       role: 'assistant',
       content: res.reply,
