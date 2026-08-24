@@ -404,6 +404,26 @@ describe('AuditService', () => {
       expect(report.samples[0].toolName).toBe('create_followup_task');
       expect(report.samples[3].toolName).toBe('query_customers');
       expect(report.samples[3].errorMessage).toContain('blocked (risk level R5)');
+      // B3：同日日志聚合到单个 byDay 桶（计数与 summary 对齐）
+      expect(report.byDay).toHaveLength(1);
+      expect(report.byDay[0]).toMatchObject({ executed: 1, approved: 1, rejected: 1, blocked: 1, errors: 2 });
+    });
+
+    it('byDay 按 UTC 日聚合（多日升序，阻断/错误分别入桶）', async () => {
+      repo.find.mockResolvedValue([
+        { id: 1, userId: '1', action: 'tool_call', detail: 'create_x()', isError: false, createdAt: new Date('2026-08-20T10:00:00Z') },
+        { id: 2, userId: '1', action: 'tool_call', detail: 'query_y({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-20T11:00:00Z') },
+        { id: 3, userId: '1', action: 'tool_call', detail: 'create_z()', isError: false, createdAt: new Date('2026-08-21T09:00:00Z') },
+      ]);
+      effectsRepo.count.mockResolvedValue(0);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 3 });
+
+      const report = await service.getActionReport();
+
+      expect(report.byDay).toEqual([
+        { date: '2026-08-20', executed: 1, approved: 0, rejected: 0, blocked: 1, errors: 1 },
+        { date: '2026-08-21', executed: 1, approved: 0, rejected: 0, blocked: 0, errors: 0 },
+      ]);
     });
 
     it('无日志时全零 + 哈希链 checked 0', async () => {
@@ -415,6 +435,7 @@ describe('AuditService', () => {
       expect(report.summary.executed).toBe(0);
       expect(report.hashChain).toEqual({ valid: true, checked: 0, brokenIndex: null });
       expect(report.samples).toEqual([]);
+      expect(report.byDay).toEqual([]);
     });
   });
 });
