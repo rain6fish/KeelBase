@@ -104,25 +104,8 @@ html.dark .el-card:hover {
   opacity: 0;
 }
 
-// AI 助手按钮常驻微光（呼吸）
-@keyframes keel-glow-pulse {
-  0%,
-  100% {
-    box-shadow: 0 4px 14px var(--keel-glow, rgba(79, 70, 229, 0.3));
-  }
-  50% {
-    box-shadow: 0 4px 20px var(--keel-glow, rgba(79, 70, 229, 0.3)), 0 0 0 4px rgba(79, 70, 229, 0.08);
-  }
-}
-.ai-assistant-btn {
-  animation: keel-glow-pulse 3.2s ease-in-out infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .el-card,
-  .page-enter-active,
-  .page-leave-active,
-  .ai-assistant-btn {
+  .el-card {
     transition: none !important;
     animation: none !important;
   }
