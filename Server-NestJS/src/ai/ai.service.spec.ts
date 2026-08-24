@@ -1375,14 +1375,35 @@ describe('AiService', () => {
 
   describe('HS-10 MCP 出口方法', () => {
     describe('listMcpTools', () => {
-      it('把工具定义映射为 MCP 工具清单', async () => {
+      it('把工具定义映射为 MCP 工具清单（含风险分级与确认策略声明，A2 Secure MCP Gateway）', async () => {
         mockToolRegistry.getToolDefinitions.mockReturnValue([
           { type: 'function', function: { name: 'query_events', description: '查事件', parameters: { type: 'object', properties: { status: {} } } } },
         ] as any);
+        mockToolRegistry.riskLevel.mockReturnValue('R1');
+        mockToolRegistry.requiresConfirmation.mockReturnValue(false);
         const tools = await aiService.listMcpTools();
         expect(tools).toEqual([
-          { name: 'query_events', description: '查事件', inputSchema: { type: 'object', properties: { status: {} } } },
+          {
+            name: 'query_events',
+            description: '查事件',
+            inputSchema: { type: 'object', properties: { status: {} } },
+            riskLevel: 'R1',
+            riskStrategy: 'auto',
+            requiresConfirmation: false,
+          },
         ]);
+      });
+
+      it('写工具在 MCP 清单中声明确认策略（R3 confirmation）', async () => {
+        mockToolRegistry.getToolDefinitions.mockReturnValue([
+          { type: 'function', function: { name: 'create_event', description: '', parameters: {} } },
+        ] as any);
+        mockToolRegistry.riskLevel.mockReturnValue('R3');
+        mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+        const tools = await aiService.listMcpTools();
+        expect(tools[0].riskLevel).toBe('R3');
+        expect(tools[0].riskStrategy).toBe('confirmation');
+        expect(tools[0].requiresConfirmation).toBe(true);
       });
 
       it('未注入治理策略时返回全部工具', async () => {

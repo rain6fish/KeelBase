@@ -558,23 +558,38 @@ export class AiService {
    * HS-10 MCP 出口：现有工具暴露为 MCP 工具（尊重治理策略 enabled 开关）。
    */
   async listMcpTools(): Promise<
-    Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>
+    Array<{
+      name: string;
+      description: string;
+      inputSchema: Record<string, unknown>;
+      /** A2 Secure MCP Gateway：工具风险分级（R0-R5）与确认策略声明，客户端可见治理契约 */
+      riskLevel: string;
+      riskStrategy: string;
+      requiresConfirmation: boolean;
+    }>
   > {
     const defs = this.toolRegistry.getToolDefinitions();
     const tools: Array<{
       name: string;
       description: string;
       inputSchema: Record<string, unknown>;
+      riskLevel: string;
+      riskStrategy: string;
+      requiresConfirmation: boolean;
     }> = [];
     for (const d of defs) {
       const name = d.function.name;
       if (this.governancePolicy && !(await this.governancePolicy.isToolEnabled(name))) {
         continue;
       }
+      const riskLevel = this.toolRegistry.riskLevel(name);
       tools.push({
         name,
         description: d.function.description,
         inputSchema: d.function.parameters as Record<string, unknown>,
+        riskLevel,
+        riskStrategy: RISK_STRATEGY[riskLevel],
+        requiresConfirmation: this.toolRegistry.requiresConfirmation(name),
       });
     }
     return tools;
