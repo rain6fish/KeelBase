@@ -46,7 +46,7 @@ export class ProxyTool implements AiTool {
   ) {
     this.name = cfg.name;
     this.description = cfg.description;
-    this.parameters = cfg.parameters;
+    this.parameters = cfg.parameters ?? []; // 无参端点配置缺 parameters → 默认空，防 toToolDefinition 迭代 undefined 崩溃
     this.riskLevel = cfg.riskLevel ?? (WRITE_METHODS.includes(cfg.method) ? 'R3' : 'R1');
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
   }
