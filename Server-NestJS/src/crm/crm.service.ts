@@ -7,11 +7,13 @@ import { CrmOrder } from './crm-order.entity';
 import { CrmActivity } from './crm-activity.entity';
 import { CrmTask } from './crm-task.entity';
 import { CrmRisk } from './crm-risk.entity';
+import { CrmOpportunity, OPPORTUNITY_STAGES } from './crm-opportunity.entity';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/create-customer.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
+import { CreateOpportunityDto } from './dto/create-opportunity.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
 /** 客户列表筛选 */
@@ -53,6 +55,8 @@ export class CrmService {
     private readonly tasks: Repository<CrmTask>,
     @InjectRepository(CrmRisk)
     private readonly risks: Repository<CrmRisk>,
+    @InjectRepository(CrmOpportunity)
+    private readonly opportunities: Repository<CrmOpportunity>,
   ) {}
 
   // ── Customer CRUD ─────────────────────────────────────────
@@ -124,16 +128,18 @@ export class CrmService {
     activities: CrmActivity[];
     tasks: CrmTask[];
     risks: CrmRisk[];
+    opportunities: CrmOpportunity[];
   }> {
     const customer = await this.getCustomer(id, ability);
     const userId = customer.userId!;
-    const [orders, activities, tasks, risks] = await Promise.all([
+    const [orders, activities, tasks, risks, opportunities] = await Promise.all([
       this.orders.find({ where: { customerId: id, userId }, order: { orderDate: 'DESC' } }),
       this.activities.find({ where: { customerId: id, userId }, order: { happenedAt: 'DESC' } }),
       this.tasks.find({ where: { customerId: id, userId }, order: { createdAt: 'DESC' } }),
       this.risks.find({ where: { customerId: id, userId }, order: { detectedAt: 'DESC' } }),
+      this.opportunities.find({ where: { customerId: id, userId }, order: { expectedCloseDate: 'ASC' } }),
     ]);
-    return { customer, orders, activities, tasks, risks };
+    return { customer, orders, activities, tasks, risks, opportunities };
   }
 
   // ── Children（订单 / 跟进 / 任务 / 风险）────────────────────
@@ -167,6 +173,56 @@ export class CrmService {
         userId,
       }),
     );
+  }
+
+  // ── Customer 360：销售机会（P0 §10，Opportunity）──────────────
+
+  async listOpportunities(customerId: number, userId: number): Promise<CrmOpportunity[]> {
+    await this._assertCustomerOwner(customerId, userId);
+    return this.opportunities.find({ where: { customerId, userId }, order: { expectedCloseDate: 'ASC' } });
+  }
+
+  async createOpportunity(
+    customerId: number,
+    dto: CreateOpportunityDto,
+    userId: number,
+  ): Promise<CrmOpportunity> {
+    await this._assertCustomerOwner(customerId, userId);
+    return this.opportunities.save(
+      this.opportunities.create({
+        ...dto,
+        expectedCloseDate: dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : undefined,
+        customerId,
+        userId,
+      }),
+    );
+  }
+
+  async updateOpportunity(
+    customerId: number,
+    opportunityId: number,
+    dto: CreateOpportunityDto,
+    userId: number,
+  ): Promise<CrmOpportunity> {
+    await this._assertCustomerOwner(customerId, userId);
+    const opp = await this.opportunities.findOne({ where: { id: opportunityId, customerId, userId } });
+    if (!opp) throw new NotFoundException('销售机会不存在或无权访问');
+    Object.assign(opp, {
+      ...dto,
+      expectedCloseDate: dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : undefined,
+    });
+    return this.opportunities.save(opp);
+  }
+
+  async removeOpportunity(
+    customerId: number,
+    opportunityId: number,
+    userId: number,
+  ): Promise<void> {
+    await this._assertCustomerOwner(customerId, userId);
+    const opp = await this.opportunities.findOne({ where: { id: opportunityId, customerId, userId } });
+    if (!opp) throw new NotFoundException('销售机会不存在或无权访问');
+    await this.opportunities.remove(opp);
   }
 
   async listActivities(customerId: number, userId: number): Promise<CrmActivity[]> {
