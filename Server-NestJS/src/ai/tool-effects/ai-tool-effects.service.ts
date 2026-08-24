@@ -13,6 +13,14 @@ export interface WriteToolContext {
   args: Record<string, unknown>;
 }
 
+/** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）revoked=false + external（需 Java 端补偿） */
+export type RevokeResult = {
+  revoked: boolean;
+  effectId: number;
+  external?: boolean;
+  message?: string;
+};
+
 /**
  * HS-3 写工具幂等与补偿：
  * - 幂等：同会话同工具同参数（idempotencyKey）重复调用返回已有结果，防 LLM 重试/并发重复创建
@@ -139,7 +147,7 @@ export class AiToolEffectsService {
   }
 
   /** 撤销 AI 副作用：软删目标 event/todo/crm_task（可经 RG-3 回收站恢复） */
-  async revoke(effectId: number): Promise<{ revoked: boolean; effectId: number } | null> {
+  async revoke(effectId: number): Promise<RevokeResult | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect) return null;
     return this._doRevoke(effect);
@@ -149,14 +157,24 @@ export class AiToolEffectsService {
    * P0-15 用户侧撤销：仅本人可撤销自己的 AI 副作用。
    * 非本人/不存在 → null（controller 转 404）；目标软删可经 RG-3 回收站恢复。
    */
-  async revokeOwned(effectId: number, userId: string): Promise<{ revoked: boolean; effectId: number } | null> {
+  async revokeOwned(effectId: number, userId: string): Promise<RevokeResult | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect || effect.userId !== userId) return null;
     return this._doRevoke(effect);
   }
 
-  private async _doRevoke(effect: AiToolSideEffect): Promise<{ revoked: boolean; effectId: number }> {
-    const repo = this.entityManager.getRepository(this._entityFor(effect.resultType));
+  private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
+    const entity = this._entityFor(effect.resultType);
+    if (!entity) {
+      // B 路径（proxy_call）：目标是外部 Java 系统，无本地实体可软删——撤销需 Java 端补偿（幂等/补偿接口）
+      return {
+        revoked: false,
+        effectId: effect.id,
+        external: true,
+        message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删）',
+      };
+    }
+    const repo = this.entityManager.getRepository(entity);
     const target = await repo.findOne({ where: { id: effect.resultId } } as any);
     if (target) {
       await repo.softDelete(effect.resultId);
@@ -166,7 +184,12 @@ export class AiToolEffectsService {
   }
 
   private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {
-    const repo = this.entityManager.getRepository(this._entityFor(type));
+    const entity = this._entityFor(type);
+    if (!entity) {
+      // B 路径外部写调用：目标存在于 Java 系统（KeelBase 无本地记录，撤销语义在 Java 端）
+      return { title: '外部系统写调用（B 路径）', deletedAt: null };
+    }
+    const repo = this.entityManager.getRepository(entity);
     return (await repo.findOne({
       where: { id },
       withDeleted: true,
@@ -174,7 +197,7 @@ export class AiToolEffectsService {
     } as any)) as any;
   }
 
-  private _entityFor(type: string): string {
+  private _entityFor(type: string): string | null {
     switch (type) {
       case 'event':
         return 'Event';
@@ -184,6 +207,8 @@ export class AiToolEffectsService {
         return 'PmTask';
       case 'app_request':
         return 'ApprovalRequest';
+      case 'proxy_call':
+        return null; // B 路径外部写调用（目标在 Java 系统，无本地实体）
       default:
         return 'Todo';
     }
