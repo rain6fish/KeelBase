@@ -450,6 +450,7 @@ const en: ZhDict = {
   secActionEffects: 'Revocable effects',
   secActionChain: 'Hash chain',
   secActionByType: 'By action type',
+  secTrendTitle: 'Daily trend',
   secActionSamples: 'Detail samples',
   secNoActionLog: 'No AI actions recorded',
   secActionTool: 'Tool',
