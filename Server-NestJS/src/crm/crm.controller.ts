@@ -20,6 +20,7 @@ import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { CreateContactDto } from './dto/create-contact.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
@@ -152,6 +153,45 @@ export class CrmController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.crmService.removeOpportunity(id, oppId, user.sub);
+  }
+
+  // ── Customer 360：联系人（P0 §10）────────────────────
+
+  @Get('customers/:id/contacts')
+  @ApiOperation({ summary: '客户联系人列表（Customer 360）' })
+  listContacts(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return this.crmService.listContacts(id, user.sub);
+  }
+
+  @Post('customers/:id/contacts')
+  @ApiOperation({ summary: '创建客户联系人' })
+  createContact(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateContactDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.createContact(id, dto, user.sub);
+  }
+
+  @Patch('customers/:id/contacts/:contactId')
+  @ApiOperation({ summary: '更新客户联系人' })
+  updateContact(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('contactId', ParseIntPipe) contactId: number,
+    @Body() dto: CreateContactDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.updateContact(id, contactId, dto, user.sub);
+  }
+
+  @Delete('customers/:id/contacts/:contactId')
+  @ApiOperation({ summary: '删除客户联系人' })
+  removeContact(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('contactId', ParseIntPipe) contactId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.crmService.removeContact(id, contactId, user.sub);
   }
 
   @Get('customers/:id/activities')

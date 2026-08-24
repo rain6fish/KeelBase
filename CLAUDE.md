@@ -830,7 +830,7 @@ npm run migration:run
 | GET | /api/v1/org/my | Yes | 成员 | 我的组织信息 + 部门路径（ORG-7） |
 | GET | /api/v1/org/my/tree | Yes | 成员 | 我的组织部门树（只读，ORG-7） |
 | GET | /api/v1/org/my/members | Yes | 成员 | 我的组织成员（脱敏白名单，ORG-7） |
-| GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks·opportunities） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务/销售机会子资源 + `:id/analyze` 风险分析（旗舰应用，feature flag: crm；opportunities = Customer 360 §10 P0） |
+| GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks·opportunities·contacts） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务/销售机会/联系人子资源 + `:id/analyze` 风险分析（旗舰应用，feature flag: crm；opportunities/contacts = Customer 360 §10 P0） |
 | GET/POST | /api/v1/pm/projects（及 :id/milestones·tasks·members·risks） | Yes | 本人 | AI Project：项目 CRUD + 里程碑/任务/成员 + `:id/analyze` 延期风险分析（旗舰应用，feature flag: pm） |
 | GET/POST | /api/v1/approval/requests（及 policies）+ `:id/review`·`:id/decide` | Yes | 本人 | AI Approval：审批请求 + 政策 + AI 预审/人工复核（旗舰应用，feature flag: approval） |
 | GET/POST/PATCH/DELETE | /api/v1/{module} | Yes | 本人 | 生成/示例业务模块：contracts / suppliers / tags / notes / books / posts（`keelbase init` 生成，CASL 所有权 + 审计） |
