@@ -72,6 +72,75 @@
         </el-row>
       </el-tab-pane>
 
+      <!-- Action Report：合规证据包——执行/批准/拒绝/阻断 + 副作用 + 哈希链 -->
+      <el-tab-pane :label="t('secTabActionReport')" name="action-report">
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex justify-space-between align-center">
+              <span>{{ t('secActionReportHint') }}</span>
+              <el-button size="small" @click="loadActionReport()">
+                <template #icon><AppIcon icon="mdi-refresh" /></template>
+                {{ t('refresh') }}
+              </el-button>
+            </div>
+          </template>
+          <div v-if="actionReport" class="d-flex flex-wrap ga-3 mb-3">
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6">{{ actionReport.summary.executed }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionExecuted') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6">{{ actionReport.summary.approved }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionApproved') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6">{{ actionReport.summary.rejected }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionRejected') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6 text-error">{{ actionReport.summary.blocked }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionBlocked') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 120px">
+              <div class="text-h6">{{ actionReport.summary.effects }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('secActionEffects') }}</div>
+            </el-card>
+            <el-card shadow="never" class="flex-1" style="min-width: 160px">
+              <div class="d-flex align-center ga-1">
+                <StatusChip
+                  :status="actionReport.hashChain.valid ? 'ok' : 'cancelled'"
+                  :label-map="{ ok: t('secChainValid'), cancelled: `${t('secChainBroken')} @${actionReport.hashChain.brokenIndex ?? '?'}` }"
+                />
+              </div>
+              <div class="text-caption text-medium-emphasis mt-1">{{ t('secActionChain') }} ({{ actionReport.hashChain.checked }})</div>
+            </el-card>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+        </el-card>
+
+        <el-card shadow="never" class="mb-4">
+          <template #header>{{ t('secActionByType') }}</template>
+          <div v-if="actionReport?.byAction.length">
+            <div v-for="a in actionReport.byAction" :key="a.action" class="d-flex justify-space-between align-center pa-1">
+              <span class="text-body-2">{{ a.action }}</span>
+              <el-tag size="small" effect="plain">{{ a.count }}</el-tag>
+            </div>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
+        </el-card>
+
+        <el-card shadow="never">
+          <template #header>{{ t('secActionSamples') }}</template>
+          <AppTable :headers="sampleHeaders" :items="actionReport?.samples ?? []" :loading="loading">
+            <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
+            <template #item.errorMessage="{ item }">
+              <span class="text-caption text-error">{{ item.errorMessage || '-' }}</span>
+            </template>
+          </AppTable>
+          <div v-if="!loading && !actionReport?.samples.length" class="text-medium-emphasis pa-3">{{ t('secNoActionLog') }}</div>
+        </el-card>
+      </el-tab-pane>
+
       <!-- Posture：整体态势——治理策略 + 审计链完整性 -->
       <el-tab-pane :label="t('secTabPosture')" name="posture">
         <el-row :gutter="16">
@@ -115,7 +184,7 @@ import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { aiEvalApi } from '@/api/aiEval'
 import { formatTime } from '@/utils/format'
-import type { AuditLog } from '@/types/audit'
+import type { AuditLog, ActionReport } from '@/types/audit'
 import type { AdminAiTool } from '@/types/admin'
 import type { EvalRunReport } from '@/types/eval'
 
@@ -152,7 +221,7 @@ async function loadReview() {
     const logs = await auditApi.logs({ limit: 50 })
     // 风险操作：isError 或带结构化拒绝原因（authorization）
     riskLogs.value = logs.filter((l) => l.isError || !!l.authorization)
-  } catch (err) {
+  } catch {
     riskLogs.value = []
   } finally {
     loading.value = false
@@ -216,9 +285,28 @@ async function loadPosture() {
   }
 }
 
+// ── Action Report tab（§10 P1 合规证据包）──
+const actionReport = ref<ActionReport | null>(null)
+const sampleHeaders = computed(() => [
+  { key: 'id', title: t('idCol') },
+  { key: 'toolName', title: t('secActionTool') },
+  { key: 'action', title: t('secActionType') },
+  { key: 'createdAt', title: t('timeCol') },
+  { key: 'errorMessage', title: t('secActionReason') },
+])
+
+async function loadActionReport() {
+  try {
+    actionReport.value = await auditApi.actionReport({ limit: 10 })
+  } catch {
+    actionReport.value = null
+  }
+}
+
 onMounted(() => {
   loadReview()
   loadSecurity()
   loadPosture()
+  loadActionReport()
 })
 </script>
