@@ -8,12 +8,14 @@ import { CrmActivity } from './crm-activity.entity';
 import { CrmTask } from './crm-task.entity';
 import { CrmRisk } from './crm-risk.entity';
 import { CrmOpportunity, OPPORTUNITY_STAGES } from './crm-opportunity.entity';
+import { CrmContact } from './crm-contact.entity';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/create-customer.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { CreateContactDto } from './dto/create-contact.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
 /** 客户列表筛选 */
@@ -57,6 +59,8 @@ export class CrmService {
     private readonly risks: Repository<CrmRisk>,
     @InjectRepository(CrmOpportunity)
     private readonly opportunities: Repository<CrmOpportunity>,
+    @InjectRepository(CrmContact)
+    private readonly contacts: Repository<CrmContact>,
   ) {}
 
   // ── Customer CRUD ─────────────────────────────────────────
@@ -129,17 +133,19 @@ export class CrmService {
     tasks: CrmTask[];
     risks: CrmRisk[];
     opportunities: CrmOpportunity[];
+    contacts: CrmContact[];
   }> {
     const customer = await this.getCustomer(id, ability);
     const userId = customer.userId!;
-    const [orders, activities, tasks, risks, opportunities] = await Promise.all([
+    const [orders, activities, tasks, risks, opportunities, contacts] = await Promise.all([
       this.orders.find({ where: { customerId: id, userId }, order: { orderDate: 'DESC' } }),
       this.activities.find({ where: { customerId: id, userId }, order: { happenedAt: 'DESC' } }),
       this.tasks.find({ where: { customerId: id, userId }, order: { createdAt: 'DESC' } }),
       this.risks.find({ where: { customerId: id, userId }, order: { detectedAt: 'DESC' } }),
       this.opportunities.find({ where: { customerId: id, userId }, order: { expectedCloseDate: 'ASC' } }),
+      this.contacts.find({ where: { customerId: id, userId }, order: { isPrimary: 'DESC' } }),
     ]);
-    return { customer, orders, activities, tasks, risks, opportunities };
+    return { customer, orders, activities, tasks, risks, opportunities, contacts };
   }
 
   /**
@@ -156,17 +162,19 @@ export class CrmService {
     tasks: CrmTask[];
     risks: CrmRisk[];
     opportunities: CrmOpportunity[];
+    contacts: CrmContact[];
   }> {
     await this._assertCustomerOwner(customerId, userId);
-    const [orders, activities, tasks, risks, opportunities, customer] = await Promise.all([
+    const [orders, activities, tasks, risks, opportunities, contacts, customer] = await Promise.all([
       this.orders.find({ where: { customerId, userId }, order: { orderDate: 'DESC' } }),
       this.activities.find({ where: { customerId, userId }, order: { happenedAt: 'DESC' } }),
       this.tasks.find({ where: { customerId, userId }, order: { createdAt: 'DESC' } }),
       this.risks.find({ where: { customerId, userId }, order: { detectedAt: 'DESC' } }),
       this.opportunities.find({ where: { customerId, userId }, order: { expectedCloseDate: 'ASC' } }),
+      this.contacts.find({ where: { customerId, userId }, order: { isPrimary: 'DESC' } }),
       this.customers.findOne({ where: { id: customerId, userId } }),
     ]);
-    return { customer, orders, activities, tasks, risks, opportunities };
+    return { customer, orders, activities, tasks, risks, opportunities, contacts };
   }
 
   // ── Children（订单 / 跟进 / 任务 / 风险）────────────────────
@@ -250,6 +258,42 @@ export class CrmService {
     const opp = await this.opportunities.findOne({ where: { id: opportunityId, customerId, userId } });
     if (!opp) throw new NotFoundException('销售机会不存在或无权访问');
     await this.opportunities.remove(opp);
+  }
+
+  // ── Customer 360：联系人（P0 §10，Contact）───────────────
+
+  async listContacts(customerId: number, userId: number): Promise<CrmContact[]> {
+    await this._assertCustomerOwner(customerId, userId);
+    return this.contacts.find({ where: { customerId, userId }, order: { isPrimary: 'DESC' } });
+  }
+
+  async createContact(
+    customerId: number,
+    dto: CreateContactDto,
+    userId: number,
+  ): Promise<CrmContact> {
+    await this._assertCustomerOwner(customerId, userId);
+    return this.contacts.save(this.contacts.create({ ...dto, customerId, userId }));
+  }
+
+  async updateContact(
+    customerId: number,
+    contactId: number,
+    dto: CreateContactDto,
+    userId: number,
+  ): Promise<CrmContact> {
+    await this._assertCustomerOwner(customerId, userId);
+    const contact = await this.contacts.findOne({ where: { id: contactId, customerId, userId } });
+    if (!contact) throw new NotFoundException('联系人不存在或无权访问');
+    Object.assign(contact, dto);
+    return this.contacts.save(contact);
+  }
+
+  async removeContact(customerId: number, contactId: number, userId: number): Promise<void> {
+    await this._assertCustomerOwner(customerId, userId);
+    const contact = await this.contacts.findOne({ where: { id: contactId, customerId, userId } });
+    if (!contact) throw new NotFoundException('联系人不存在或无权访问');
+    await this.contacts.remove(contact);
   }
 
   async listActivities(customerId: number, userId: number): Promise<CrmActivity[]> {
