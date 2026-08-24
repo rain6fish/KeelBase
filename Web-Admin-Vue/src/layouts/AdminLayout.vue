@@ -8,7 +8,7 @@
         </div>
       </div>
 
-      <div ref="adminNavRef" class="admin-nav" @mouseenter="flashAdminScroll" @scroll.passive="flashAdminScroll">
+      <div ref="adminNavRef" class="admin-nav" @mouseenter="updateNavScrollbar" @scroll.passive="updateNavScrollbar">
         <el-menu
           :default-active="activeMenu"
           :default-openeds="defaultOpeneds"
@@ -38,6 +38,8 @@
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
+        <!-- 自定义短滑块（高度大幅缩短，滑过/滚动时短暂显示） -->
+        <div class="nav-scrollbar" :class="{ show: scrollBarVisible }" :style="{ height: scrollBarHeight + 'px', top: scrollBarTop + 'px' }"></div>
       </div>
 
     </el-aside>
@@ -99,13 +101,31 @@ function toggleRail() {
   rail.value = !rail.value
 }
 
-// 菜单滚动条：鼠标滑过/滚动时短暂显示（0.5s 后自动隐藏）
+// 自定义菜单滚动条：短滑块（高度/位置/显隐由 JS 驱动），滑过/滚动时显示 1s 后隐藏
 const adminNavRef = ref<HTMLElement | null>(null)
+const scrollBarVisible = ref(false)
+const scrollBarHeight = ref(40)
+const scrollBarTop = ref(0)
 let scrollFlashTimer: number | undefined
-function flashAdminScroll() {
-  adminNavRef.value?.classList.add('scroll-flash')
+function updateNavScrollbar() {
+  const el = adminNavRef.value
+  if (!el) return
+  const viewH = el.clientHeight
+  const contentH = el.scrollHeight
+  if (contentH <= viewH) {
+    scrollBarVisible.value = false
+    return
+  }
+  const ratio = viewH / contentH
+  // 滑块高度大幅缩短：按比例再 ×0.35（最短 12px）
+  scrollBarHeight.value = Math.max(12, ratio * viewH * 0.35)
+  const maxScroll = contentH - viewH
+  scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
+  scrollBarVisible.value = true
   clearTimeout(scrollFlashTimer)
-  scrollFlashTimer = window.setTimeout(() => adminNavRef.value?.classList.remove('scroll-flash'), 500)
+  scrollFlashTimer = window.setTimeout(() => {
+    scrollBarVisible.value = false
+  }, 1000)
 }
 
 function go(path: string) {
@@ -237,6 +257,8 @@ const activeGroup = computed(
 .admin-nav {
   flex: 1;
   overflow-y: auto;
+  /* 自定义滚动条滑块定位参照 */
+  position: relative;
 }
 .el-menu-nav {
   border-right: none;
