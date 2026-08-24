@@ -148,14 +148,18 @@ function operationToTool(method, path, pathItem, operation, spec) {
   const tagPrefix = Array.isArray(operation.tags) && operation.tags.length ? `[${operation.tags.join('/')}] ` : '';
   const summary = sanitizeLabel(operation.summary ?? operation.description) ?? `${method} ${path}`;
 
+  // Java 端补偿端点约定（AI Bridge §4）：撤销时调用（带委托身份），如 DELETE /contracts/{id}
+  const revokePath = operation['x-keelbase-revoke-path'];
+
   return {
     name: nameBase,
-    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}）`,
+    description: `${tagPrefix}${summary}（B 路径代理：${method} ${rewrittenPath}${revokePath ? `；撤销 ${revokePath}` : ''}）`,
     method,
     path: rewrittenPath,
     parameters,
     queryParams,
     riskLevel: operation['x-keelbase-risk-level'] ?? (WRITE_METHODS.includes(method) ? 'R3' : 'R1'),
+    revokePath: revokePath ?? undefined,
     skipped,
   };
 }

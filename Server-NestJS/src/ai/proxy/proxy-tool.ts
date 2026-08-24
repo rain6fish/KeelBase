@@ -27,6 +27,8 @@ export interface ProxyToolConfig {
   riskLevel?: ToolRiskLevel;
   /** query 参数名（写方法时拼 URL query string，不塞进 body） */
   queryParams?: string[];
+  /** Java 端补偿端点路径（相对 baseUrl）——撤销时调用（带委托身份），`{param}` 占位取自副作用 resultId；缺省无本地撤销（AI Bridge §4） */
+  revokePath?: string;
 }
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -37,6 +39,7 @@ export class ProxyTool implements AiTool {
   readonly parameters: ToolParameter[];
   readonly riskLevel?: ToolRiskLevel;
   readonly requiresConfirmation: boolean;
+  readonly revokePath?: string;
 
   constructor(
     private readonly cfg: ProxyToolConfig,
@@ -49,6 +52,7 @@ export class ProxyTool implements AiTool {
     this.parameters = cfg.parameters ?? []; // 无参端点配置缺 parameters → 默认空，防 toToolDefinition 迭代 undefined 崩溃
     this.riskLevel = cfg.riskLevel ?? (WRITE_METHODS.includes(cfg.method) ? 'R3' : 'R1');
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
+    this.revokePath = cfg.revokePath;
   }
 
   toToolDefinition(): ToolDefinition {
