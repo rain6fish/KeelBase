@@ -45,13 +45,14 @@
         <el-breadcrumb separator="/" class="flex-grow-1">
           <el-breadcrumb-item v-for="b in breadcrumbs" :key="b.title">{{ b.title }}</el-breadcrumb-item>
         </el-breadcrumb>
-        <el-button v-if="showOverview" class="ai-assistant-btn" @click="aiDrawerOpen = true">
-          <template #icon><AppIcon icon="mdi-robot-happy-outline" size="20" /></template>
-          {{ t('navSystemAssistant') }}
+        <el-button v-if="showOverview" class="ai-btn" @click="aiDrawerOpen = true">
+          <template #icon><AppIcon icon="mdi-robot-happy-outline" size="18" /></template>
+          AI
         </el-button>
-        <span class="text-body-2 text-medium-emphasis">{{ auth.user?.username || '' }}</span>
         <ThemeSwitcher />
         <LangToggle />
+        <el-avatar :size="26" class="admin-avatar">{{ (auth.user?.username || 'U')[0].toUpperCase() }}</el-avatar>
+        <span class="text-body-2 text-medium-emphasis">{{ auth.user?.username || '' }}</span>
         <el-button type="primary" plain @click="onLogout">
           <template #icon><AppIcon icon="mdi-logout" /></template>
           {{ t('logout') }}
@@ -225,21 +226,12 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
   background: var(--el-bg-color-page);
   box-shadow: none;
 }
-.ai-assistant-btn {
-  border: none;
-  border-radius: var(--el-border-radius-round);
-  height: 36px;
-  padding: 0 16px;
-  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--keel-brand-gradient-to, var(--el-color-primary)) 100%);
+/* 登录名左侧头像 */
+.admin-avatar {
+  background: var(--el-color-primary);
   color: #fff;
+  font-size: 13px;
   font-weight: 600;
-  box-shadow: 0 4px 14px var(--keel-glow, rgba(79, 70, 229, 0.3));
-}
-.ai-assistant-btn:hover,
-.ai-assistant-btn:focus,
-.ai-assistant-btn:active {
-  color: #fff;
-  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--keel-brand-gradient-to, var(--el-color-primary)) 100%);
-  filter: brightness(1.06);
+  flex-shrink: 0;
 }
 </style>
