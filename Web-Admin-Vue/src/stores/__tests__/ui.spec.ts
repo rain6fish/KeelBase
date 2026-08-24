@@ -18,9 +18,9 @@ describe('useUiStore', () => {
     expect(store.drawer).toBe(true)
   })
 
-  it('默认主题变体为 purple（深紫）', () => {
+  it('默认主题变体为 blue（安全蓝）', () => {
     const store = useUiStore()
-    expect(store.variant).toBe('purple')
+    expect(store.variant).toBe('blue')
   })
 
   it('有保存的主题时恢复', () => {

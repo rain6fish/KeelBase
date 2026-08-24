@@ -512,7 +512,7 @@ const en: ZhDict = {
   toggleLang: 'Toggle language',
   toggleTheme: 'Toggle theme',
   theme: 'Theme',
-  themePurple: 'Deep Purple Trust',
+  themeBlue: 'Trust Blue',
   themeTeal: 'Teal Cockpit',
   themeGraphite: 'Graphite Amber',
 
