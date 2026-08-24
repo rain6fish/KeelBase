@@ -1141,6 +1141,7 @@ export class AiService {
       // Execute accumulated tool calls
       for (const [, tc] of accumulatedToolCalls) {
         let started = false;
+        let pendingApproval = false; // R4 高影响动作（已提交审批）——通用 tool_call 审计不算失败
         try {
           const parsed = JSON.parse(tc.args);
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）— 先于确认流程
@@ -1185,6 +1186,7 @@ export class AiService {
                 },
               };
               result = { success: false, error: '已提交人工审批，等待审批人决策（R4 高影响动作）' };
+              pendingApproval = true;
               if (await this._shouldAudit('tool')) {
                 this.auditService.log({
                   userId,
@@ -1306,7 +1308,8 @@ export class AiService {
               conversationId,
               action: 'tool_call',
               detail: `${tc.name}(${tc.args})`,
-              isError: !result.success,
+              // R4 pending（已提交审批）不算失败：否则单次审批被计 approved+blocked+errors 三重误报
+              isError: !result.success && !pendingApproval,
               errorMessage: result.error,
             });
           }
