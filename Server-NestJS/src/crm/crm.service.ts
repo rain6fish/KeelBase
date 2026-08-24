@@ -219,6 +219,11 @@ export class CrmService {
     return this.opportunities.find({ where: { customerId, userId }, order: { expectedCloseDate: 'ASC' } });
   }
 
+  /** 用户全部销售机会（AI Sales Agent 管道分析用，跨客户聚合） */
+  async listAllOpportunities(userId: number): Promise<CrmOpportunity[]> {
+    return this.opportunities.find({ where: { userId }, order: { expectedCloseDate: 'ASC' } });
+  }
+
   async createOpportunity(
     customerId: number,
     dto: CreateOpportunityDto,
