@@ -87,6 +87,8 @@ const en: ZhDict = {
   navAiTimeline: 'AI Behavior Timeline',
   navSystemAssistant: 'System AI Assistant',
   assHint: "I'm the KeelBase system assistant — I can explain features, guide configuration, and navigate the admin console.",
+  aiAssistant: 'AI Assistant',
+  aiAssistantHint: 'I can help query and manage your business data (events/todos/customers...); write actions require confirmation.',
   assWelcome: 'Hi, I\'m the system AI assistant. Try "What modules does the system have?", "How do I configure permissions?", or "Open the system info page".',
   assPlaceholder: 'Ask a question…',
   assThinking: 'Thinking…',
