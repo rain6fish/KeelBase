@@ -53,6 +53,7 @@ describe('CrmService', () => {
   let activities: any;
   let tasks: any;
   let risks: any;
+  let opportunities: any;
 
   const customer = (id: number, userId = 1, overrides: Partial<CrmCustomer> = {}) =>
     ({ id, name: `客户${id}`, status: 'active', riskLevel: 'low', userId, ...overrides }) as CrmCustomer;
@@ -63,8 +64,9 @@ describe('CrmService', () => {
     activities = makeRepo([]);
     tasks = makeRepo([]);
     risks = makeRepo([]);
+    opportunities = makeRepo([]);
     service = new CrmService(
-      customers as any, orders as any, activities as any, tasks as any, risks as any,
+      customers as any, orders as any, activities as any, tasks as any, risks as any, opportunities as any,
     );
   });
 
@@ -241,5 +243,30 @@ describe('CrmService', () => {
     risks.create.mockImplementation((d: any) => d);
     await service.createRisk(1, { level: 'high', description: 'x' } as any, 1);
     expect(risks.save).toHaveBeenCalledWith(expect.objectContaining({ customerId: 1, userId: 1, level: 'high' }));
+  });
+
+  describe('Opportunity（Customer 360）', () => {
+    it('创建销售机会归属客户与 userId', async () => {
+      opportunities.create.mockImplementation((d: any) => d);
+      await service.createOpportunity(1, { name: 'Q3 续约扩展', amount: 200000 } as any, 1);
+      expect(opportunities.save).toHaveBeenCalledWith(
+        expect.objectContaining({ customerId: 1, userId: 1, name: 'Q3 续约扩展', amount: 200000 }),
+      );
+    });
+
+    it('列表需所有权（他人客户 → 404）', async () => {
+      await expect(service.listOpportunities(1, 2)).rejects.toThrow('无权');
+    });
+
+    it('更新/删除需所有权（他人客户 → 404）', async () => {
+      await expect(service.updateOpportunity(1, 9, { name: 'x', amount: 1 } as any, 2)).rejects.toThrow('无权');
+      await expect(service.removeOpportunity(1, 9, 2)).rejects.toThrow('无权');
+    });
+
+    it('getCustomerDetail 聚合含机会', async () => {
+      opportunities.find.mockResolvedValue([{ id: 5, name: '在谈机会', amount: 50000 }]);
+      const detail = await service.getCustomerDetail(1, { cannot: () => false } as any);
+      expect(detail.opportunities).toHaveLength(1);
+    });
   });
 });

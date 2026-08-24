@@ -7,11 +7,12 @@ import { CrmOrder } from './crm-order.entity';
 import { CrmActivity } from './crm-activity.entity';
 import { CrmTask } from './crm-task.entity';
 import { CrmRisk } from './crm-risk.entity';
+import { CrmOpportunity } from './crm-opportunity.entity';
 
 /** AI CRM 旗舰应用模块（业务样例，capabilities 可开关） */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk]),
+    TypeOrmModule.forFeature([CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk, CrmOpportunity]),
   ],
   controllers: [CrmController],
   providers: [CrmService],
