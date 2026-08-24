@@ -15,7 +15,9 @@ import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
 /** 客户列表筛选 */
@@ -236,7 +238,7 @@ export class CrmService {
   async updateOpportunity(
     customerId: number,
     opportunityId: number,
-    dto: CreateOpportunityDto,
+    dto: UpdateOpportunityDto,
     userId: number,
   ): Promise<CrmOpportunity> {
     await this._assertCustomerOwner(customerId, userId);
@@ -279,7 +281,7 @@ export class CrmService {
   async updateContact(
     customerId: number,
     contactId: number,
-    dto: CreateContactDto,
+    dto: UpdateContactDto,
     userId: number,
   ): Promise<CrmContact> {
     await this._assertCustomerOwner(customerId, userId);

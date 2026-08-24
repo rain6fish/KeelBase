@@ -20,7 +20,9 @@ import { CreateActivityDto } from './dto/create-activity.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
@@ -139,7 +141,7 @@ export class CrmController {
   updateOpportunity(
     @Param('id', ParseIntPipe) id: number,
     @Param('oppId', ParseIntPipe) oppId: number,
-    @Body() dto: CreateOpportunityDto,
+    @Body() dto: UpdateOpportunityDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.crmService.updateOpportunity(id, oppId, dto, user.sub);
@@ -178,7 +180,7 @@ export class CrmController {
   updateContact(
     @Param('id', ParseIntPipe) id: number,
     @Param('contactId', ParseIntPipe) contactId: number,
-    @Body() dto: CreateContactDto,
+    @Body() dto: UpdateContactDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.crmService.updateContact(id, contactId, dto, user.sub);
