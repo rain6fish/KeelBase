@@ -77,6 +77,7 @@
                     {{ tool.name }}
                     <el-tag v-if="tool.readOnly" size="small" type="primary" effect="light">{{ t('readOnly') }}</el-tag>
                     <el-tag v-else size="small" type="warning" effect="light">{{ t('needsConfirmation') }}</el-tag>
+                    <el-tag v-if="tool.riskLevel" size="small" :type="riskTagType(tool.riskLevel)" effect="plain">{{ tool.riskLevel }} · {{ riskLabel(tool.riskLevel) }}</el-tag>
                   </div>
                 </template>
                 <div class="text-caption">
@@ -140,6 +141,19 @@ const newName = ref('')
 const newUrl = ref('')
 const busy = ref(false)
 const toolsLoading = ref(false)
+
+/** A2 风险级 → 可读标签 / 标签色（对齐 Security Review 的 R0-R5 展示） */
+function riskLabel(lv: string): string {
+  if (lv === 'R5') return t('riskBlocked')
+  if (lv === 'R4') return t('riskApproval')
+  if (lv === 'R3') return t('riskConfirm')
+  return t('riskAuto')
+}
+function riskTagType(lv: string): 'danger' | 'warning' | 'success' {
+  if (lv === 'R5') return 'danger'
+  if (lv === 'R4' || lv === 'R3') return 'warning'
+  return 'success'
+}
 
 const showRemove = ref(false)
 const pendingRemove = ref('')
