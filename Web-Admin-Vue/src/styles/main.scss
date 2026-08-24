@@ -43,11 +43,11 @@ body {
   height: 8px;
 }
 
-// 侧边栏菜单滚动条：默认隐藏（透明），JS 在鼠标滑过/滚动时加 .scroll-flash 短暂显示（1.6s 后自动移除）；滑块极细（1px）
+// 侧边栏菜单滚动条：默认隐藏（透明），JS 在鼠标滑过/滚动时加 .scroll-flash 短暂显示（1.6s 后自动移除）；滑块细（2px）
 .admin-nav::-webkit-scrollbar,
 .admin-aside::-webkit-scrollbar {
-  width: 1px;
-  height: 1px;
+  width: 2px;
+  height: 2px;
 }
 .admin-nav::-webkit-scrollbar-thumb,
 .admin-aside::-webkit-scrollbar-thumb {
