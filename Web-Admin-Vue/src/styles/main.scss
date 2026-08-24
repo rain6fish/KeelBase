@@ -54,12 +54,12 @@ body {
   width: 0;
   height: 0;
 }
-// 自定义菜单滑块：宽 4px、高度大幅缩短（由 JS 计算比例 ×0.35），滑过/滚动时短暂显示
+// 自定义菜单滑块：宽 6px、高度大幅缩短（由 JS 计算比例 ×0.22），滑过/滚动时短暂显示；pointer-events:none 不拦截菜单点击
 .nav-scrollbar {
   position: absolute;
-  right: 2px;
-  width: 4px;
-  border-radius: 4px;
+  right: 1px;
+  width: 6px;
+  border-radius: 6px;
   background-color: var(--el-border-color);
   opacity: 0;
   transition: opacity 0.2s ease;
