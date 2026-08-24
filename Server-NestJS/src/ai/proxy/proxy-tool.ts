@@ -25,6 +25,8 @@ export interface ProxyToolConfig {
   parameters: ToolParameter[];
   /** W5 风险级：缺省读=R1 / 写=R3；显式覆盖 */
   riskLevel?: ToolRiskLevel;
+  /** query 参数名（写方法时拼 URL query string，不塞进 body） */
+  queryParams?: string[];
 }
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -69,7 +71,8 @@ export class ProxyTool implements AiTool {
   async execute(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
     // 1. 路径模板 `{param}` 替换（从 args 取，URL 编码）；未提供 → 失败
     let path = this.cfg.path;
-    const pathParams = [...this.cfg.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    // 占位符用任意非花括号字符（生成器 sanitize 后参数名含 _，OpenAPI path 可能是 {customer-id} 等非 \w 形式）
+    const pathParams = [...this.cfg.path.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]);
     for (const p of pathParams) {
       const val = args[p];
       if (val === undefined || val === null || val === '') {
@@ -86,23 +89,27 @@ export class ProxyTool implements AiTool {
       return { success: false, error: `委托 token 签发失败: ${(err as Error).message}` };
     }
 
-    // 3. 非路径参数：写 → body；读 → query string
+    // 3. 非路径参数分流：读 → 全拼 query string；写 → queryParams 拼 query、其余进 body
     const isWrite = WRITE_METHODS.includes(this.cfg.method);
-    const rest: Record<string, unknown> = {};
+    const body: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(args)) {
-      if (!pathParams.includes(k)) rest[k] = v;
+      if (pathParams.includes(k)) continue;
+      if (isWrite && this.cfg.queryParams?.includes(k)) query[k] = v;
+      else if (isWrite) body[k] = v;
+      else query[k] = v;
     }
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     };
-    const url = this.baseUrl + path + (isWrite ? '' : this.toQuery(rest));
+    const url = this.baseUrl + path + this.toQuery(query);
 
     try {
       const res = await fetch(url, {
         method: this.cfg.method,
         headers,
-        ...(isWrite ? { body: JSON.stringify(rest) } : {}),
+        ...(isWrite ? { body: JSON.stringify(body) } : {}),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
