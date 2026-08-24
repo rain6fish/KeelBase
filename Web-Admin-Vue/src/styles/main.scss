@@ -54,18 +54,18 @@ body {
   padding: 24px;
 }
 
-// 侧边栏激活项：primary 底 + 白字 + 主题签名圆角/投影
+// 侧边栏激活项：Materio 风格——primary 底 + 白字 + 圆角 8 + 柔和投影
 .el-menu-nav .el-menu-item.is-active {
   background: var(--el-color-primary);
   color: #fff;
-  border-radius: var(--keel-radius-md);
+  border-radius: 8px;
   margin: 0 8px;
-  box-shadow: var(--keel-sidebar-active-shadow, 0 17px 20px -8px rgba(79, 70, 229, 0.22));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 }
 
-// 侧边栏导航项 hover：中性浅灰底（与一体浅灰底协调，激活项才是 primary 悬浮块）
+// 侧边栏导航项 hover：Materio lightprimary 浅底（primary 色调）
 .el-menu-nav .el-menu-item:not(.is-active):hover {
-  background: var(--el-fill-color-light);
+  background: var(--el-color-primary-light-9);
 }
 
 // ── 动效微交互（克制；尊重 prefers-reduced-motion）──
