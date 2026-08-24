@@ -92,8 +92,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
     // user 构建无 dashboard 空路径子路由，直接落地工作台；admin 构建 '/' = dashboard
+    // 同一壳两套导航（WEB-FRONT-1）：admin 构建也并入工作台路由，普通用户登录进工作台（不再 403）
     redirect: SURFACE === 'user' ? '/workbench' : undefined,
-    children: SURFACE === 'user' ? [workbenchRoute] : consoleChildren,
+    children: SURFACE === 'user' ? [workbenchRoute] : [...consoleChildren, workbenchRoute],
   },
   {
     path: '/:pathMatch(.*)*',
