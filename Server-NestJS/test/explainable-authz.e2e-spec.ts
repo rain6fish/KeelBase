@@ -85,4 +85,34 @@ describe('Explainable Authz (W5-⑦)', () => {
     expect(denied.body.data.deniedBy).toBe('casl');
     expect(denied.body.data.reason).toContain('管理员');
   });
+
+  it('POST /auth/permissions/explain/target — admin explains decision for target user (B1)', async () => {
+    const me = await request(app.getHttpServer()).get('/api/v1/auth/me').set(authHeader(userToken));
+    const targetId = me.body.data.id;
+    const ok = await request(app.getHttpServer())
+      .post('/api/v1/auth/permissions/explain/target')
+      .set(authHeader(adminToken))
+      .send({ userId: targetId, action: 'manage', subject: 'Event' })
+      .expect(201);
+    expect(ok.body.data.userId).toBe(targetId);
+    expect(ok.body.data.username).toBe('ea_user');
+    expect(ok.body.data.allowed).toBe(true);
+    expect(ok.body.data.reason).toContain('本人所有权');
+
+    const denied = await request(app.getHttpServer())
+      .post('/api/v1/auth/permissions/explain/target')
+      .set(authHeader(adminToken))
+      .send({ userId: targetId, action: 'manage', subject: 'all' })
+      .expect(201);
+    expect(denied.body.data.allowed).toBe(false);
+    expect(denied.body.data.deniedBy).toBe('casl');
+  });
+
+  it('POST /auth/permissions/explain/target — non-admin 403', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/permissions/explain/target')
+      .set(authHeader(userToken))
+      .send({ userId: 1, action: 'manage', subject: 'Event' })
+      .expect(403);
+  });
 });

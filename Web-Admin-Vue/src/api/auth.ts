@@ -1,6 +1,17 @@
 import { api } from './client'
 import type { AuthUser, LoginResult } from '@/types/api'
 
+/** B1：管理员为目标用户反查权限决策依据（POST /auth/permissions/explain/target） */
+export interface ExplainTargetResult {
+  userId: number
+  username: string
+  action: string
+  subject: string
+  allowed: boolean
+  reason: string
+  deniedBy: 'casl' | null
+}
+
 export const authApi = {
   login(username: string, password: string): Promise<LoginResult> {
     return api.post<LoginResult>('/auth/login', { username, password })
@@ -10,5 +21,8 @@ export const authApi = {
   },
   logout(): Promise<null> {
     return api.post<null>('/auth/logout')
+  },
+  explainTarget(userId: number, action: string, subject: string): Promise<ExplainTargetResult> {
+    return api.post<ExplainTargetResult>('/auth/permissions/explain/target', { userId, action, subject })
   },
 }
