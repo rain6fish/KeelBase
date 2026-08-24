@@ -198,6 +198,34 @@ describe('SubAgentOrchestrator', () => {
       expect(mockRegistry.execute).not.toHaveBeenCalled();
       expect(result.stepResults[0]).toContain('ok');
     });
+
+    it('SubAgent 工具执行以发起者 userId 作用域（他人数据不可达）', async () => {
+      mockRegistry.getAllTools.mockReturnValue([
+        { name: 'query_events', toToolDefinition: () => ({ name: 'query_events' }) },
+        { name: 'count_events_by_status', toToolDefinition: () => ({ name: 'count_events_by_status' }) },
+        { name: 'get_user_stats', toToolDefinition: () => ({ name: 'get_user_stats' }) },
+      ]);
+      const calls = [
+        { content: '', toolCalls: [{ id: 'call_1', name: 'query_events', arguments: '{}' }] },
+        { content: '日程', toolCalls: [] },
+        { content: '统计', toolCalls: [] },
+        { content: '建议', toolCalls: [] },
+      ];
+      let callIdx = 0;
+      mockProvider.generate.mockImplementation(async () => calls[Math.min(callIdx++, calls.length - 1)]);
+
+      const result = await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我安排本周',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '42',
+      });
+
+      // calendar 子代理的 query_events 以发起者 userId（42）执行——工具查询按本人作用域，他人数据不可达
+      expect(mockRegistry.execute).toHaveBeenCalledWith('query_events', expect.anything(), '42');
+      expect(result.stepResults[0]).toContain('日程');
+    });
   });
 
   describe('补充覆盖', () => {
