@@ -54,6 +54,7 @@ describe('CrmService', () => {
   let tasks: any;
   let risks: any;
   let opportunities: any;
+  let contacts: any;
 
   const customer = (id: number, userId = 1, overrides: Partial<CrmCustomer> = {}) =>
     ({ id, name: `客户${id}`, status: 'active', riskLevel: 'low', userId, ...overrides }) as CrmCustomer;
@@ -65,8 +66,9 @@ describe('CrmService', () => {
     tasks = makeRepo([]);
     risks = makeRepo([]);
     opportunities = makeRepo([]);
+    contacts = makeRepo([]);
     service = new CrmService(
-      customers as any, orders as any, activities as any, tasks as any, risks as any, opportunities as any,
+      customers as any, orders as any, activities as any, tasks as any, risks as any, opportunities as any, contacts as any,
     );
   });
 
@@ -267,6 +269,28 @@ describe('CrmService', () => {
       opportunities.find.mockResolvedValue([{ id: 5, name: '在谈机会', amount: 50000 }]);
       const detail = await service.getCustomerDetail(1, { cannot: () => false } as any);
       expect(detail.opportunities).toHaveLength(1);
+    });
+  });
+
+  describe('Contact（Customer 360）', () => {
+    it('创建联系人归属客户与 userId', async () => {
+      contacts.create.mockImplementation((d: any) => d);
+      await service.createContact(1, { name: '张总', role: '决策人' } as any, 1);
+      expect(contacts.save).toHaveBeenCalledWith(
+        expect.objectContaining({ customerId: 1, userId: 1, name: '张总', role: '决策人' }),
+      );
+    });
+
+    it('列表/更新/删除需所有权（他人客户 → 404）', async () => {
+      await expect(service.listContacts(1, 2)).rejects.toThrow('无权');
+      await expect(service.updateContact(1, 9, { name: 'x' } as any, 2)).rejects.toThrow('无权');
+      await expect(service.removeContact(1, 9, 2)).rejects.toThrow('无权');
+    });
+
+    it('getCustomer360Data 聚合含联系人', async () => {
+      contacts.find.mockResolvedValue([{ id: 3, name: '李经理', isPrimary: true }]);
+      const data = await service.getCustomer360Data(1, 1);
+      expect(data.contacts).toHaveLength(1);
     });
   });
 });
