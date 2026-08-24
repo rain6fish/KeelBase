@@ -101,7 +101,7 @@ OpenAPI（含 operations + securitySchemes）
 - 幂等要求：补偿端点须幂等（重复撤销返回同结果，不报错）——与 KeelBase 副作用幂等键对齐，防 LLM/重试重复撤销
 - 无 revokePath 的写工具：撤销返回 `{ revoked:false, external:true, message:'B 路径外部副作用撤销需 Java 端补偿' }`（诚实语义）
 
-**运行时撤销调用（待 Java 端就绪后增量）**：副作用撤销时若工具配置带 revokePath → HTTP 调补偿端点；KeelBase 侧注入 `revokeDispatcher` 从已注册 ProxyTool 取 baseUrl/audience/revokePath + 签发委托 token。
+**✅ 运行时撤销调用（2026-08-24）**：副作用撤销时若工具配置带 `revokePath` → `ProxyToolRevokerService`（ai.module useFactory 组装，注入 AiToolEffectsService）从已注册 ProxyTool 取 baseUrl/audience/revokePath + 签发委托 token → HTTP 调补偿端点（`{id}` 占位=副作用 resultId）。撤销结果 `{ revoked:true, external:true, compensated:true, message:'Java 端已补偿（POST /contracts/…/cancel）' }`；未配置 revokePath → `{ revoked:false, external:true, message:'…需 Java 端补偿接口' }`（诚实语义）。proxy-bridge e2e 5/5 覆盖。
 
 ---
 
