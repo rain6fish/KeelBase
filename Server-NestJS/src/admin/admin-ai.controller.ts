@@ -6,6 +6,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminAiService } from './admin-ai.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
+import { actorContext } from '../ai/actor-context';
 
 /**
  * System AI Assistant（AI-22 演进）：管理员对话时注入平台系统上下文
@@ -25,6 +26,8 @@ export class AdminAiController {
   @ApiOperation({ summary: 'System AI Assistant：平台能力/版本/工具/治理上下文，Explain/Guide/Navigate' })
   async chat(@Body() dto: AdminAiChatDto, @CurrentUser() user: JwtPayload) {
     // 用真实管理员身份：会话/记忆/限额/审计按管理员隔离（不再共享系统账号 '0'）
-    return this.adminAiService.assistantChat(user.sub, dto);
+    // Agent Identity：包 actorContext 让 sessionId（JWT jti）落入 ai_audit_logs（对齐 ai.controller chat/stream，否则系统 AI 会话审计 session_id 恒 null）
+    return actorContext.run({ sessionId: user.sessionId }, () =>
+      this.adminAiService.assistantChat(user.sub, dto));
   }
 }
