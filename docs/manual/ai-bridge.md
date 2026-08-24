@@ -87,7 +87,11 @@ OpenAPI（含 operations + securitySchemes）
 - 产物可直接 `PUT /settings/ai_proxy_tools`（或管理台「设置」粘贴）→ ProxyToolRegistryService 重启后注册为 AI 工具
 - 覆盖：CLI 端到端 + `parseOpenApiProxy` 单测（类型映射 / riskLevel 覆盖 / body required / 名称去重）
 
-**完整 B 待做**：AI 对话端到端（确认 → 执行 → 审计 → 目标系统撤销；MVP 撤销语义在 Java 端，数据在目标系统）。
+**✅ 确定性整链 e2e（2026-08-23）**：`test/proxy-bridge.e2e-spec.ts` 扩至 4 用例——新增「生成器产物 → Settings → 运行时注册 → 读自动/写确认 + 委托身份可调用」（`ProxyToolRegistryService.loadAndRegister` 读真实 Settings + mock 目标收到 GET + 委托 JWT，CI 可跑）。
+
+**✅ AI 对话端到端脚本（2026-08-23，`scripts/verify-proxy-bridge.mjs`）**：真实 LLM 对话驱动——读（R1 自动，LLM 调 `proxy_list_contract` → mock 目标收到 + 委托身份）/ 写（R3 确认门控 → `confirmation_request` → approve → 目标收到 POST + body）+ 决策轨迹审计。前置：后端已起 + `ai_proxy_tools` 已配置（重启后端使生效）+ DeepSeek key；报告落 `docs/benchmark/proxy-bridge-<ts>.md`。
+
+**完整 B 待做**：目标系统撤销（MVP 撤销语义在 Java 端，数据在目标系统——需 Java 侧按委托身份幂等/补偿）。
 
 ---
 
