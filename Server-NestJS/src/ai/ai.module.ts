@@ -11,6 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { DelegationTokenService } from '../auth/delegation-token.service';
 import { ProxyToolRegistryService } from './proxy/proxy-tool.service';
+import { ProxyToolRevokerService } from './proxy/proxy-revoker.service';
 import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
@@ -292,6 +293,13 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           toolRegistry,
         );
         void proxyRegistry.loadAndRegister();
+
+        // 4.6 B 路径运行时撤销：ProxyTool 写副作用撤销 → 调 Java 补偿端点（revokePath 约定，AI Bridge §4）
+        if (toolEffectsService) {
+          toolEffectsService.setExternalRevoker(
+            new ProxyToolRevokerService(toolRegistry, delegationTokenService),
+          );
+        }
 
         // 5. 创建 AiService（ConversationService 和 AuditService 由 NestJS 注入）
         return new AiService(
