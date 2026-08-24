@@ -1,7 +1,7 @@
 // Element Plus 主题入口：三套可切换主题（深靛默认 / 青绿 / 石墨）× 亮/暗。
 // 每主题覆盖 EP CSS 变量，整个 app 随 <html data-theme> + <html.dark> 换肤。
 // 注意：@use 必须在任何其他规则之前（Dart Sass 约束）。
-@use 'themes/navy';
+@use 'themes/purple';
 @use 'themes/teal';
 @use 'themes/graphite';
 
