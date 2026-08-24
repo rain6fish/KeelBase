@@ -1,9 +1,11 @@
 <template>
   <div class="login-bg d-flex align-center justify-center">
+    <img src="/logo.png" alt="" class="login-bg-mark" />
     <el-card class="login-card" shadow="always">
       <div class="text-center pt-4">
-        <AppLogo :width="240" class="mx-auto mb-2" />
-        <div class="text-caption text-medium-emphasis">{{ t('appTagline') }}</div>
+        <AppLogo :size="40" class="mb-1" />
+        <div class="text-h5 font-weight-bold">{{ t('appName') }}</div>
+        <div class="text-caption text-medium-emphasis mt-1">{{ t('appTagline') }}</div>
       </div>
       <div class="px-6 py-4">
         <div class="text-subtitle-2 mb-4 text-center">{{ t('loginTitle') }}</div>
@@ -93,9 +95,21 @@ async function onSubmit() {
 <style scoped>
 .login-bg {
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 600px at 70% -10%, var(--keel-glow, rgba(79, 70, 229, 0.25)) 0%, transparent 60%),
-    linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--el-bg-color-page) 100%);
+  position: relative;
+  background-color: #04131f;
+  background-image: url('/login-bg.png');
+  background-size: cover;
+  background-position: center;
+}
+/* 用户提供的彩色 logo：背景左上角水印 */
+.login-bg-mark {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 200px;
+  height: auto;
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
 }
 .login-card {
   width: 420px;
