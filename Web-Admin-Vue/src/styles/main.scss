@@ -43,20 +43,30 @@ body {
   height: 8px;
 }
 
-// 侧边栏菜单滚动条：默认隐藏（透明），JS 在鼠标滑过/滚动时加 .scroll-flash 短暂显示（1.6s 后自动移除）；滑块细（2px）
+// 侧边栏菜单：隐藏原生滚动条，用自定义短滑块（.nav-scrollbar，JS 驱动高度/位置/显隐）
+.admin-nav,
+.admin-aside {
+  scrollbar-width: none; /* Firefox */
+}
 .admin-nav::-webkit-scrollbar,
 .admin-aside::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
+  display: none;
+  width: 0;
+  height: 0;
 }
-.admin-nav::-webkit-scrollbar-thumb,
-.admin-aside::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 8px;
-}
-.admin-nav.scroll-flash::-webkit-scrollbar-thumb,
-.admin-aside.scroll-flash::-webkit-scrollbar-thumb {
+// 自定义菜单滑块：宽 4px、高度大幅缩短（由 JS 计算比例 ×0.35），滑过/滚动时短暂显示
+.nav-scrollbar {
+  position: absolute;
+  right: 2px;
+  width: 4px;
+  border-radius: 4px;
   background-color: var(--el-border-color);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.nav-scrollbar.show {
+  opacity: 1;
 }
 
 // 侧边栏导航分组标题
