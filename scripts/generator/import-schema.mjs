@@ -42,7 +42,8 @@ function extractTables(sql) {
   for (const block of cleaned.split(';')) {
     const trimmed = block.trim();
     if (!trimmed) continue;
-    const m = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([a-zA-Z_][a-zA-Z0-9_]*)[`"]?\s*\(([\s\S]*)\)\s*$/i.exec(trimmed);
+    // 允许右括号后的 MySQL 表选项（ENGINE=InnoDB DEFAULT CHARSET...），否则整表静默丢弃
+    const m = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([a-zA-Z_][a-zA-Z0-9_]*)[`"]?\s*\(([\s\S]*)\)\s*(?:[A-Za-z][\w =.,'()]*)?$/i.exec(trimmed);
     if (!m) continue;
     tables.push({ name: m[1], columns: parseColumns(m[2]) });
   }

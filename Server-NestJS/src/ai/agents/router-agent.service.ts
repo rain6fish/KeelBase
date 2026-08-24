@@ -47,8 +47,9 @@ export class RouterAgent {
     model?: string,
   ): Promise<Intent> {
     // 关键词快速匹配 — 不走 LLM，零成本
-    const navKeywords = ['打开', '去', '跳转', '转到', '前往', '进入'];
-    if (navKeywords.some((k) => message.includes(k))) return 'navigate';
+    // 单字「去」太泛（去年/过去/出去/失去等误判为导航），用否定前瞻仅匹配导航含义
+    const navKeywords: Array<string | RegExp> = ['打开', /去(?!年|下|出|掉|过|除)/, '跳转', '转到', '前往', '进入'];
+    if (navKeywords.some((k) => (typeof k === 'string' ? message.includes(k) : k.test(message)))) return 'navigate';
 
     // 多域复杂任务（放在 plan 之前：这些措辞的「安排/规划」指综合处理，非单一排期）
     const delegateKeywords = ['综合分析', '综合来看', '分别', '统筹', '全面分析', '盘点', '帮我规划', '做个规划', '汇总一下', '归纳'];
