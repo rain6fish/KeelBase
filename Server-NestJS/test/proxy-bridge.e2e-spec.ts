@@ -40,6 +40,11 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
         res.end(JSON.stringify({ error: 'forbidden' }));
         return;
       }
+      // Java 端补偿端点（B 路径撤销约定）：POST /contracts/{id}/cancel → 记录 + 200
+      if (req.method === 'POST' && /\/contracts\/\d+\/cancel$/.test(req.url || '')) {
+        res.end(JSON.stringify({ cancelled: true, user: auth.slice(7), path: req.url }));
+        return;
+      }
       let body = '';
       req.on('data', (d) => (body += d));
       req.on('end', () => {
@@ -172,7 +177,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     await settings.set('ai_proxy_tools', JSON.stringify({
       baseUrl: base,
       audience: 'legacy-erp',
-      tools: [{ name: 'proxy_side_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' }],
+      tools: [{ name: 'proxy_side_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3', revokePath: 'POST /contracts/{id}/cancel' }],
     }), 'json');
     const reg = await proxyRegistry.loadAndRegister();
     expect(reg.registered).toEqual(['proxy_side_create']);
@@ -188,10 +193,11 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(effect.targetExists).toBe(true);
     expect(effect.targetTitle).toContain('外部系统写调用');
 
-    // 撤销外部副作用：无本地实体 → revoked:false + external 补偿语义（Java 端）
+    // 撤销外部副作用：revoker 调 Java 补偿端点（revokePath）→ compensated:true
     const revoke = await effectsService.revokeOwned(effect.id, userAId);
-    expect(revoke.revoked).toBe(false);
     expect(revoke.external).toBe(true);
-    expect(revoke.message).toMatch(/Java 端补偿/);
+    expect(revoke.compensated).toBe(true);
+    expect(revoke.revoked).toBe(true);
+    expect(revoke.message).toMatch(/已补偿/);
   });
 });
