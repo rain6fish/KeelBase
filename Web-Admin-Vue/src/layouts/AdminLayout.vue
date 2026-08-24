@@ -117,8 +117,8 @@ function updateNavScrollbar() {
     return
   }
   const ratio = viewH / contentH
-  // 滑块高度大幅缩短：按比例再 ×0.35（最短 12px）
-  scrollBarHeight.value = Math.max(12, ratio * viewH * 0.35)
+  // 滑块高度大幅缩短：按比例再 ×0.22（最短 8px），尽量不遮菜单项
+  scrollBarHeight.value = Math.max(8, ratio * viewH * 0.22)
   const maxScroll = contentH - viewH
   scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
   scrollBarVisible.value = true
