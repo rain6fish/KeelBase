@@ -11,6 +11,7 @@ import { Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+import { actorContext } from '../actor-context';
 import {
   AuditChainService,
   ChainVerification,
@@ -100,6 +101,10 @@ export class AuditService {
   private _tail: Promise<unknown> = Promise.resolve();
 
   async log(entry: AuditEntry): Promise<void> {
+    // Agent Identity（评审二 §5）：从请求级 ActorContext 读 sessionId/agentId（entry 显式传值优先）
+    const actor = actorContext.getStore();
+    const sessionId = entry.sessionId ?? actor?.sessionId;
+    const agentId = entry.agentId ?? actor?.agentId;
     // 链式串行：每次 log 排队在前一次之后执行，避免两个并发写同时读到同一 lastHash 造成分叉
     const job = this._tail.then(async () => {
       const prevHash = await this._lastHash();
@@ -127,8 +132,8 @@ export class AuditService {
         detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
         model: entry.model,
         provider: entry.provider,
-        agentId: entry.agentId,
-        sessionId: entry.sessionId,
+        agentId,
+        sessionId,
         promptTokens: entry.promptTokens,
         completionTokens: entry.completionTokens,
         durationMs: entry.durationMs,

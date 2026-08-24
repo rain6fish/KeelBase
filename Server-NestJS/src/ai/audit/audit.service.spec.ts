@@ -5,6 +5,7 @@ import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
+import { actorContext } from '../actor-context';
 
 function makeLogRepo() {
   const qb = {
@@ -99,6 +100,15 @@ describe('AuditService', () => {
   });
 
   describe('log（HS-11 哈希链）', () => {
+    it('从 ActorContext 读 sessionId/agentId 接线（Agent Identity）', async () => {
+      await actorContext.run({ sessionId: 'sess-1', agentId: 'key-legacy-erp' }, () =>
+        service.log({ userId: '1', action: 'chat' }),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionId: 'sess-1', agentId: 'key-legacy-erp' }),
+      );
+    });
+
     it('并发写不产生链分叉（串行队列，合成陌生人实测发现 brokenIndex）', async () => {
       // 模拟 DB 语义：_lastHash 读当前最新 hash，save 追加；无串行队列时并发会读到同一 lastHash 分叉
       (service as any)._tail = Promise.resolve();
