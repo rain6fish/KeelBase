@@ -25,3 +25,26 @@ export interface UsageStats {
   totalErrors: number
   topActions: Array<{ action: string; count: number }>
 }
+
+/** §10 P1 AI Action Report：合规证据包 */
+export interface ActionReport {
+  period: { since: string | null; to: string }
+  summary: {
+    executed: number
+    approved: number
+    rejected: number
+    blocked: number
+    errors: number
+    effects: number
+  }
+  byAction: Array<{ action: string; count: number }>
+  hashChain: { valid: boolean; checked: number; brokenIndex: number | null }
+  samples: Array<{
+    id: number
+    action: string
+    toolName: string | null
+    isError: boolean
+    errorMessage?: string | null
+    createdAt: string
+  }>
+}
