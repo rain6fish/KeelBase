@@ -100,6 +100,12 @@ export class CrmController {
     return this.crmService.analyzeRisk(id, user.sub);
   }
 
+  @Get('dashboard')
+  @ApiOperation({ summary: 'AI Intelligence Dashboard：客户/风险/管道/逾期/跟进聚合（AI Sales Agent）' })
+  getDashboard(@CurrentUser() user: JwtPayload) {
+    return this.crmService.getDashboard(user.sub);
+  }
+
   // ── 子资源（订单 / 跟进 / 任务 / 风险）─────────────────────
 
   @Get('customers/:id/orders')
