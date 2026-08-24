@@ -10,33 +10,28 @@
   --el-font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC',
     'Microsoft YaHei', sans-serif;
   --el-font-size-base: 14px;
-  // 控件圆角稍微加大（8→10）；round 恢复 999px（此前被压成 8px，pill 失效）
-  --el-border-radius-base: 10px;
+  // 圆角对齐 Materio：控件 base 8 / 卡片·按钮 md 12 / 输入框 lg 16；round 恢复 999px（pill）
+  --el-border-radius-base: 8px;
   --el-border-radius-round: 999px;
-  // 卡片/菜单/头像统一圆角（14px）
-  --keel-radius-md: 14px;
+  --keel-radius-md: 12px;
+  --keel-radius-lg: 16px;
 }
 
-// 卡片：无边框 + 中性立体阴影 + 主题签名色晕 + 统一圆角（在浅灰一体底上显悬浮）
+// 卡片：Materio 柔和阴影 + 圆角 md 12；表面色（暗色覆盖 EP overlay 回环）
 .el-card {
   --el-card-border-color: transparent;
+  --el-card-border-radius: var(--keel-radius-md);
   border: none;
-  border-radius: var(--keel-radius-md);
-  // 显式用表面色（亮=白 / 暗=深色面），!important 压过 EP 暗色 css-vars 的 overlay 回环，确保暗色下卡片不白底
+  border-radius: var(--keel-radius-md) !important;
   background-color: var(--el-bg-color) !important;
-  box-shadow:
-    0 1px 2px 0 rgba(0, 0, 0, 0.04),
-    0 6px 18px -4px rgba(0, 0, 0, 0.08),
-    var(--keel-card-shadow, 0 0 20px 0 rgba(29, 78, 216, 0.05));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), 0 8px 22px -6px rgba(0, 0, 0, 0.06);
 }
 .el-card.is-never-shadow,
 .el-card.is-always-shadow,
 .el-card.is-hover-shadow {
+  border-radius: var(--keel-radius-md) !important;
   background-color: var(--el-bg-color) !important;
-  box-shadow:
-    0 1px 2px 0 rgba(0, 0, 0, 0.04),
-    0 6px 18px -4px rgba(0, 0, 0, 0.08),
-    var(--keel-card-shadow, 0 0 20px 0 rgba(29, 78, 216, 0.05));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), 0 8px 22px -6px rgba(0, 0, 0, 0.06);
 }
 
 html.dark {
@@ -44,11 +39,33 @@ html.dark {
   .el-card.is-never-shadow,
   .el-card.is-always-shadow,
   .el-card.is-hover-shadow {
-    // 覆盖 EP 暗色 css-vars 的 overlay 回环（--el-card-bg-color → overlay）
     background-color: var(--el-bg-color) !important;
-    box-shadow:
-      0 1px 2px 0 rgba(0, 0, 0, 0.5),
-      0 6px 20px -4px rgba(0, 0, 0, 0.5),
-      var(--keel-card-shadow-dark, 0 0 20px 0 rgba(0, 0, 0, 0.35));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 22px -6px rgba(0, 0, 0, 0.45);
   }
+}
+
+// ── Materio 控件圆角 + 按钮柔和投影 ──
+.el-button {
+  border-radius: var(--keel-radius-md) !important;
+}
+.el-button:not(.is-text):not(.is-link):not(.is-plain):hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.el-button:not(.is-text):not(.is-link):not(.is-plain):active {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--keel-radius-lg) !important;
+}
+.el-dialog,
+.el-message-box,
+.el-popover,
+.el-drawer__header,
+.el-dropdown__popper .el-dropdown-menu {
+  border-radius: var(--keel-radius-md) !important;
+}
+.el-tag {
+  border-radius: 6px !important;
 }
