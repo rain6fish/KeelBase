@@ -3,9 +3,9 @@
  * 由 App.vue 集中调用（首个 paint 前），保证登录页等任意路由都正确应用。
  */
 export type ThemeMode = 'light' | 'dark'
-export type ThemeVariant = 'navy' | 'teal' | 'graphite'
+export type ThemeVariant = 'purple' | 'teal' | 'graphite'
 
-export const THEME_VARIANTS: ThemeVariant[] = ['navy', 'teal', 'graphite']
+export const THEME_VARIANTS: ThemeVariant[] = ['purple', 'teal', 'graphite']
 
 export function isThemeVariant(v: string | null | undefined): v is ThemeVariant {
   return !!v && (THEME_VARIANTS as string[]).includes(v)
