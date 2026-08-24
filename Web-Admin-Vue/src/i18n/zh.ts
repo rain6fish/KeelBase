@@ -514,7 +514,7 @@ const zh = {
   toggleLang: '切换语言',
   toggleTheme: '切换主题',
   theme: '主题',
-  themePurple: '深紫 · 可信运行台',
+  themeBlue: '深蓝 · 安全运行台',
   themeTeal: '青绿 · 智能座舱',
   themeGraphite: '石墨 · 运营温度',
 
