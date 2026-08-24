@@ -451,6 +451,7 @@ const zh = {
   secActionEffects: '可撤销副作用',
   secActionChain: '哈希链校验',
   secActionByType: '按类型分布',
+  secTrendTitle: '按日趋势',
   secActionSamples: '明细样本',
   secNoActionLog: '暂无 AI 行为记录',
   secActionTool: '工具',

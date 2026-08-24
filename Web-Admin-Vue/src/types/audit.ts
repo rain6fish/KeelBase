@@ -38,6 +38,8 @@ export interface ActionReport {
     effects: number
   }
   byAction: Array<{ action: string; count: number }>
+  /** B3 时间趋势：按日聚合执行/批准/拒绝/阻断/错误（升序） */
+  byDay: Array<{ date: string; executed: number; approved: number; rejected: number; blocked: number; errors: number }>
   hashChain: { valid: boolean; checked: number; brokenIndex: number | null }
   samples: Array<{
     id: number
