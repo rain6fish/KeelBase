@@ -145,7 +145,8 @@ async function main() {
       { name: 'proxy_create_contract', description: '在 legacy 系统创建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '合同标题', required: true }, { name: 'amount', type: 'number', description: '金额', required: false }], riskLevel: 'R3' },
     ],
   };
-  const setRes = await api(adminToken, '/settings/ai_proxy_tools', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(proxyCfg), type: 'json' }) });
+  // Settings type 枚举只收 string/number/boolean——value 传 JSON 字符串，type 用 string（HTTP 层 DTO 校验）
+  const setRes = await api(adminToken, '/settings/ai_proxy_tools', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(proxyCfg), type: 'string' }) });
   if (setRes.status !== 200 && setRes.status !== 201) {
     console.log(`  ⚠ 写入 ai_proxy_tools 失败 status=${setRes.status}（可能 Settings 端点/权限差异，继续按已配置处理）`);
   }
