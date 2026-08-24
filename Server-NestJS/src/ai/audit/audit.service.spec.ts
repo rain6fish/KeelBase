@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
+import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 
@@ -33,15 +34,21 @@ function makeUsageRepo() {
   };
 }
 
+function makeEffectsRepo() {
+  return { count: jest.fn().mockResolvedValue(0), find: jest.fn().mockResolvedValue([]) };
+}
+
 describe('AuditService', () => {
   let service: AuditService;
   let repo: ReturnType<typeof makeLogRepo>;
   let usageRepo: ReturnType<typeof makeUsageRepo>;
+  let effectsRepo: ReturnType<typeof makeEffectsRepo>;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
 
   beforeEach(async () => {
     repo = makeLogRepo();
     usageRepo = makeUsageRepo();
+    effectsRepo = makeEffectsRepo();
     chain = {
       computeHash: jest.fn().mockReturnValue('hash-1'),
       verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 0 }),
@@ -51,6 +58,7 @@ describe('AuditService', () => {
         AuditService,
         { provide: getRepositoryToken(AiAuditLog), useValue: repo },
         { provide: getRepositoryToken(AiDailyUsage), useValue: usageRepo },
+        { provide: getRepositoryToken(AiToolSideEffect), useValue: effectsRepo },
         { provide: AuditChainService, useValue: chain },
       ],
     }).compile();
@@ -357,6 +365,46 @@ describe('AuditService', () => {
       expect(repo.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ createdAt: expect.anything() }) }),
       );
+    });
+  });
+
+  describe('getActionReport（§10 P1 合规证据包）', () => {
+    it('聚合 执行/批准/拒绝/阻断 + 副作用 + 哈希链', async () => {
+      repo.find.mockResolvedValue([
+        { id: 1, userId: '1', action: 'tool_call', detail: 'create_followup_task({"customerId":1})', isError: false, createdAt: new Date() },
+        { id: 2, userId: '1', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
+        { id: 3, userId: '1', action: 'tool_confirmation', detail: 'x() → decline', isError: true, errorMessage: 'User declined the operation', createdAt: new Date() },
+        { id: 4, userId: '1', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: 'Tool "query_evil" is blocked (risk level R5)', createdAt: new Date() },
+      ]);
+      effectsRepo.count.mockResolvedValue(2);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 4 });
+
+      const report = await service.getActionReport({ userId: '1' });
+
+      expect(report.summary).toEqual({
+        executed: 1,
+        approved: 1,
+        rejected: 1,
+        blocked: 1,
+        errors: 2,
+        effects: 2,
+      });
+      expect(report.hashChain).toEqual({ valid: true, checked: 4, brokenIndex: null });
+      // 明细样本：从 detail 提取工具名 + 阻断原因可见
+      expect(report.samples[0].toolName).toBe('create_followup_task');
+      expect(report.samples[3].toolName).toBe('query_customers');
+      expect(report.samples[3].errorMessage).toContain('blocked (risk level R5)');
+    });
+
+    it('无日志时全零 + 哈希链 checked 0', async () => {
+      repo.find.mockResolvedValue([]);
+      effectsRepo.count.mockResolvedValue(0);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 0 });
+
+      const report = await service.getActionReport();
+      expect(report.summary.executed).toBe(0);
+      expect(report.hashChain).toEqual({ valid: true, checked: 0, brokenIndex: null });
+      expect(report.samples).toEqual([]);
     });
   });
 });
