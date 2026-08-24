@@ -1,6 +1,5 @@
 <template>
   <div class="login-bg d-flex align-center justify-center">
-    <img src="/logo.png" alt="" class="login-bg-mark" />
     <el-card class="login-card" shadow="always">
       <div class="text-center pt-4">
         <AppLogo :size="40" class="mb-1" />
@@ -95,21 +94,9 @@ async function onSubmit() {
 <style scoped>
 .login-bg {
   min-height: 100vh;
-  position: relative;
-  background-color: #04131f;
-  background-image: url('/login-bg.png');
-  background-size: cover;
-  background-position: center;
-}
-/* 用户提供的彩色 logo：背景左上角水印 */
-.login-bg-mark {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  width: 200px;
-  height: auto;
-  opacity: 0.9;
-  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
+  background:
+    radial-gradient(1200px 600px at 70% -10%, var(--keel-glow, rgba(109, 40, 217, 0.25)) 0%, transparent 60%),
+    linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--el-bg-color-page) 100%);
 }
 .login-card {
   width: 420px;

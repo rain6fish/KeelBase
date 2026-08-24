@@ -1,0 +1,83 @@
+// 深紫 · 可信运行台（默认主题，主色 #6D28D9 深紫）。token 落在 :root/html.dark——首个 paint 无 JS 即本主题，零闪烁。
+:root {
+  --el-color-primary: #6d28d9;
+  --el-color-primary-light-3: #9969e4;
+  --el-color-primary-light-5: #b694ec;
+  --el-color-primary-light-7: #d3bff4;
+  --el-color-primary-light-8: #e2d4f7;
+  --el-color-primary-light-9: #f0eafb;
+  --el-color-primary-dark-2: #5720ae;
+
+  --el-color-success: #28c76f;
+  --el-color-success-light-3: #6bd89b;
+  --el-color-success-light-9: #e2f6e9;
+  --el-color-warning: #ff9f43;
+  --el-color-warning-light-3: #ffbd79;
+  --el-color-warning-light-9: #fff3d9;
+  --el-color-danger: #ea5455;
+  --el-color-danger-light-3: #f18889;
+  --el-color-danger-light-9: #ffe0e6;
+  --el-color-error: #ea5455;
+  --el-color-error-light-3: #f18889;
+  --el-color-error-light-9: #ffe0e6;
+  --el-color-info: #00cfe8;
+  --el-color-info-light-3: #4dddf0;
+  --el-color-info-light-9: #d9f5fc;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f5f3fb;
+  --el-bg-color-overlay: #ffffff;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color: #eeeaf7;
+  --el-fill-color-light: #e5dff2;
+  --el-text-color-primary: #3d3a4f;
+  --el-text-color-regular: #4a465e;
+  --el-text-color-secondary: #6e6a85;
+  --el-border-color: #e2dcf0;
+  --el-border-color-light: #e2dcf0;
+  --el-border-color-lighter: #eeeaf7;
+
+  // 签名：深紫→紫罗兰渐变 + 紫光晕
+  --keel-brand-gradient-from: #6d28d9;
+  --keel-brand-gradient-to: #7c3aed;
+  --keel-glow: rgba(109, 40, 217, 0.3);
+  --keel-card-shadow: 0 0 20px 0 rgba(109, 40, 217, 0.05), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+  --keel-card-shadow-dark: 0 0 20px 0 rgba(0, 0, 0, 0.35);
+  --keel-sidebar-active-shadow: 0 17px 20px -8px rgba(109, 40, 217, 0.22);
+}
+
+html.dark {
+  --el-color-primary: #6d28d9;
+  --el-color-primary-light-3: #521ea3;
+  --el-color-primary-light-5: #411882;
+  --el-color-primary-light-7: #311262;
+  --el-color-primary-light-8: #260e4c;
+  --el-color-primary-light-9: #180930;
+  --el-color-primary-dark-2: #853ee5;
+
+  // 暗色语义色阶：对齐本主题 hue
+  --el-color-success-light-3: #2e7d5b;
+  --el-color-success-light-9: #14302a;
+  --el-color-warning-light-3: #8a6a3a;
+  --el-color-warning-light-9: #3a2a17;
+  --el-color-danger-light-3: #8a3a4d;
+  --el-color-danger-light-9: #3a1f2b;
+  --el-color-error-light-3: #8a3a4d;
+  --el-color-error-light-9: #3a1f2b;
+  --el-color-info-light-3: #0f7b93;
+  --el-color-info-light-9: #12303c;
+
+  // 深色分层：紫氛围（page/surface/elevated）
+  --el-bg-color: #1f1a38;
+  --el-bg-color-page: #14102a;
+  --el-bg-color-overlay: #27204a;
+  --el-fill-color-blank: #1f1a38;
+  --el-fill-color: #27204a;
+  --el-fill-color-light: #2e2660;
+  --el-text-color-primary: #d5cff2;
+  --el-text-color-regular: #c9c2ec;
+  --el-text-color-secondary: #9d93cd;
+  --el-border-color: #3b3560;
+  --el-border-color-light: #3b3560;
+  --el-border-color-lighter: #2e2660;
+}
