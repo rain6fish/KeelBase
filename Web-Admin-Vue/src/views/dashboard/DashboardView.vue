@@ -2,8 +2,9 @@
   <div>
     <PageHeader :title="t('overview')" />
 
-    <el-row :gutter="16">
-      <el-col v-for="card in statCards" :key="card.label" :xs="24" :sm="12" :md="6">
+    <!-- 统计卡：与 AI 审计一致（xs 2 列 + 底部间距） -->
+    <el-row :gutter="16" class="mb-2">
+      <el-col v-for="card in statCards" :key="card.label" :xs="12" :md="6">
         <StatCard v-bind="card" />
       </el-col>
     </el-row>
@@ -24,13 +25,17 @@
           <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :md="8">
+      <el-col :xs="24" :md="8" class="mb-4">
         <el-card shadow="never">
           <template #header>{{ t('actionDistribution') }}</template>
-          <div v-if="topActions.length" class="d-flex flex-column ga-1">
-            <div v-for="a in topActions" :key="a.action" class="d-flex justify-space-between text-body-2">
-              <span>{{ a.action }}</span>
-              <span class="text-medium-emphasis">{{ a.count }}</span>
+          <div v-if="topActions.length">
+            <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis pb-1 mb-1" style="border-bottom: 1px solid var(--el-border-color-lighter)">
+              <span>{{ t('actionCol') }}</span>
+              <span>#</span>
+            </div>
+            <div v-for="a in topActions" :key="a.action" class="d-flex justify-space-between align-center py-1">
+              <span class="text-body-2">{{ a.action }}</span>
+              <el-tag size="small" effect="plain" round>{{ a.count }}</el-tag>
             </div>
           </div>
           <div v-else class="text-medium-emphasis">{{ t('noTrend') }}</div>
