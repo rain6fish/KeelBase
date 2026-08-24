@@ -2,6 +2,7 @@ import type { ZhDict } from './zh'
 
 const en: ZhDict = {
   appName: 'Admin Console',
+  appTagline: 'Build and run business-safe AI applications',
   login: 'Login',
   loggingIn: 'Logging in...',
   show: 'Show',
@@ -510,6 +511,10 @@ const en: ZhDict = {
   loginFailed: 'Login failed',
   toggleLang: 'Toggle language',
   toggleTheme: 'Toggle theme',
+  theme: 'Theme',
+  themeIndigo: 'Indigo Trust',
+  themeTeal: 'Teal Cockpit',
+  themeGraphite: 'Graphite Amber',
 
   platformData: 'Platform Data',
   aiUsage: 'AI Usage',
