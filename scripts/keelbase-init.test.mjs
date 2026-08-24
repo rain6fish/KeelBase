@@ -28,6 +28,7 @@ import { aiFiles } from './generator/templates-ai.mjs';
 import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
+import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
 import {
@@ -919,6 +920,79 @@ test('parseSqlDdl：DECIMAL/REAL → int 丢精度 notes', () => {
   assert.ok(r.notes.some((n) => /price/.test(n) && /REAL/.test(n)));
 });
 
+// ── AI Bridge B 路径（§4 完整 B）：OpenAPI operations → ProxyTool 配置 ────────
+test('parseOpenApiProxy：operations → 工具（读 R1 / 写 R3 + 参数映射）', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/customers': {
+        get: { operationId: 'listCustomers', summary: '客户列表', parameters: [{ name: 'keyword', in: 'query', schema: { type: 'string' }, description: '关键字' }] },
+        post: { operationId: 'createCustomer', summary: '新建', tags: ['crm'], requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, annualSpend: { type: 'number' } } } } } } },
+      },
+      '/customers/{id}': {
+        get: { operationId: 'getCustomer', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }] },
+      },
+    },
+  }, { baseUrl: 'http://erp', audience: 'legacy-erp' });
+  assert.equal(r.error, undefined);
+  assert.equal(r.baseUrl, 'http://erp');
+  assert.equal(r.audience, 'legacy-erp');
+  assert.equal(r.tools.length, 3);
+
+  const list = r.tools.find((t) => t.name === 'list_customers');
+  assert.equal(list.method, 'GET');
+  assert.equal(list.riskLevel, 'R1');
+  assert.equal(list.parameters[0].name, 'keyword');
+  assert.equal(list.parameters[0].type, 'string');
+  assert.equal(list.parameters[0].required, false);
+
+  const create = r.tools.find((t) => t.name === 'create_customer');
+  assert.equal(create.method, 'POST');
+  assert.equal(create.riskLevel, 'R3'); // 写默认
+  assert.match(create.description, /\[crm\]/); // tag 前缀
+  const name = create.parameters.find((p) => p.name === 'name');
+  assert.equal(name.required, true); // requestBody.required 透传
+  const spend = create.parameters.find((p) => p.name === 'annualSpend');
+  assert.equal(spend.type, 'number');
+  assert.equal(spend.required, false);
+
+  const get = r.tools.find((t) => t.name === 'get_customer');
+  assert.equal(get.path, '/customers/{id}'); // OpenAPI 路径模板直接透传
+  const id = get.parameters.find((p) => p.name === 'id');
+  assert.equal(id.type, 'integer');
+  assert.equal(id.required, true); // path 参数必填
+});
+
+test('parseOpenApiProxy：riskLevel 覆盖 + YAML flow-map 字符串 schema + 名称冲突去重', () => {
+  // YAML 子集解析器把嵌套 flow-map 存为字符串（键值无引号非严格 JSON）——模拟真实 parseYaml 产物
+  const r = parseOpenApiProxy({
+    paths: {
+      '/customers/{id}': {
+        delete: {
+          operationId: 'removeCustomer',
+          'x-keelbase-risk-level': 'R4',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: '{ type: integer }' }],
+        },
+        get: {
+          parameters: [{ name: 'id', in: 'path', required: true, schema: '{ type: integer }' }],
+        },
+      },
+    },
+  }, {});
+  assert.equal(r.tools.length, 2);
+  const del = r.tools.find((t) => t.method === 'DELETE');
+  assert.equal(del.riskLevel, 'R4'); // x-keelbase-risk-level 覆盖默认 R3
+  assert.equal(del.parameters[0].type, 'integer'); // flow-map 字符串 schema 解析出类型
+  assert.equal(del.name, 'remove_customer'); // operationId 优先
+  // 无 operationId 的 GET → 派生名 method_path
+  assert.ok(r.tools.some((t) => t.name === 'get_customers_id'));
+});
+
+test('parseOpenApiProxy：无 paths / 空工具 → error', () => {
+  assert.match(parseOpenApiProxy({ openapi: '3.0.0' }, {}).error, /未找到可用 operations/);
+  assert.match(parseOpenApiProxy({ paths: { '/x': { parameters: [] } } }, {}).error, /没有可转换的 operations/);
+  assert.match(parseOpenApiProxy(null, {}).error, /无效的 OpenAPI/);
+});
+
 // ── P0-12 输入通道：SQL DDL → Protocol ────────────────────────────────────────
 test('parseSqlDdl：类型映射（text/int/bool/date/enum）+ 保留列/约束行跳过', () => {
   const sql = `CREATE TABLE IF NOT EXISTS customers (
@@ -1006,6 +1080,61 @@ test('端到端：--import-openapi --out 写出可被 --spec 消费的协议 JSO
   assert.ok(spec.fields.some((f) => f.name === 'name'));
   // 产物可被 --spec 消费（字段合法）
   assert.equal(validateFields(spec.fields), null);
+});
+
+test('端到端：--import-openapi-proxy 写出 B 路径 Proxy 配置（读 R1 / 写 R3 + 委托身份）', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const specPath = `${root}/erp.yaml`;
+  await write(specPath, `openapi: 3.0.0
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: 客户列表
+      parameters:
+        - { name: keyword, in: query, schema: { type: string }, description: 关键字 }
+    post:
+      operationId: createCustomer
+      summary: 新建客户
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+  /customers/{id}:
+    delete:
+      operationId: removeCustomer
+      x-keelbase-risk-level: R4
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+`);
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-openapi-proxy', specPath, '--base-url', 'http://erp:8080/api', '--audience', 'legacy-erp', '--out', `${root}/proxy.json`], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /写出 B 路径 Proxy 配置/);
+  const cfg = JSON.parse(await readFile(`${root}/proxy.json`, 'utf8'));
+  assert.equal(cfg.baseUrl, 'http://erp:8080/api');
+  assert.equal(cfg.audience, 'legacy-erp');
+  assert.equal(cfg.tools.length, 3);
+  assert.equal(cfg.tools.find((t) => t.name === 'list_customers').riskLevel, 'R1');
+  assert.equal(cfg.tools.find((t) => t.name === 'create_customer').riskLevel, 'R3');
+  assert.equal(cfg.tools.find((t) => t.name === 'remove_customer').riskLevel, 'R4');
+  assert.equal(cfg.tools.find((t) => t.name === 'get_customers_id'), undefined); // 无 GET /customers/{id}
+  // 产物可被 ProxyToolRegistryService 消费（name/method/path/parameters 齐全）
+  for (const t of cfg.tools) {
+    assert.ok(t.name && t.method && t.path && Array.isArray(t.parameters));
+  }
 });
 
 test('端到端：--import-openapi --out 协议含 required/label 透传 + skipped 诊断', async () => {
