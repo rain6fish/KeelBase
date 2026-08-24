@@ -74,11 +74,11 @@ function sanitizeLabel(v) {
   return s ? (s.length > 120 ? s.slice(0, 120) : s) : null;
 }
 
-/** 内部 $ref（#/components/schemas/X）→ 指向的 schema 对象；非 $ref 原样返回。 */
+/** $ref → 指向的 schema 对象；支持内部（#/components/schemas/X）与外部（./file.yaml#/components/schemas/X，resolveLocalRefs 已合并进主 spec）；非 $ref 原样返回。 */
 function deref(schema, spec) {
   if (!schema || typeof schema !== 'object') return schema;
   if (typeof schema.$ref === 'string') {
-    const m = schema.$ref.match(/#\/components\/schemas\/(.+)$/);
+    const m = schema.$ref.match(/(?:\.{0,2}\/[^#]+)?#\/components\/schemas\/(.+)$/);
     if (m) {
       const name = decodeURIComponent(m[1]);
       const target = spec.components?.schemas?.[name] ?? spec.definitions?.[name];
