@@ -23,6 +23,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
+import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MemoriesService } from './memory/memory.service';
@@ -65,13 +66,16 @@ export class AiController {
     @Body() dto: ChatRequestDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.aiService.chat(String(user.sub), {
-      message: dto.message,
-      provider: dto.provider,
-      model: dto.model,
-      conversationId: dto.conversationId,
-      images: dto.images,
-    });
+    // Agent Identity（评审二 §5）：access token 会话标识贯穿审计
+    return actorContext.run({ sessionId: user.sessionId }, () =>
+      this.aiService.chat(String(user.sub), {
+        message: dto.message,
+        provider: dto.provider,
+        model: dto.model,
+        conversationId: dto.conversationId,
+        images: dto.images,
+      }),
+    );
   }
 
   /**
@@ -109,22 +113,25 @@ export class AiController {
       aborted = true;
     });
 
-    try {
-      for await (const chunk of stream) {
-        if (aborted) break;
+    // Agent Identity（评审二 §5）：access token 会话标识贯穿审计（流创建 + 消费均在 ALS 上下文内）
+    await actorContext.run({ sessionId: user.sessionId }, async () => {
+      try {
+        for await (const chunk of stream) {
+          if (aborted) break;
 
-        response.write(`event: ${chunk.type}\n`);
-        response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          response.write(`event: ${chunk.type}\n`);
+          response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        }
+      } catch {
+        if (!response.destroyed) {
+          response.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: 'Internal stream error' })}\n\n`);
+        }
+      } finally {
+        if (!response.destroyed && !aborted) {
+          response.end();
+        }
       }
-    } catch {
-      if (!response.destroyed) {
-        response.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: 'Internal stream error' })}\n\n`);
-      }
-    } finally {
-      if (!response.destroyed && !aborted) {
-        response.end();
-      }
-    }
+    });
   }
 
   /**
