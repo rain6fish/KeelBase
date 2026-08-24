@@ -134,6 +134,11 @@ export class AiToolEffectsService {
    * P0-14：按对话取副作用（含目标记录当前状态），供用户可见的执行轨迹用。
    * 复用 _loadTarget 富化，按 createdAt 升序。
    */
+  /** B4 治理视图：按业务动作（resultType+resultId，如 crm_task:42）反查 AI 副作用（供「业务动作 → 治理轨迹」展示） */
+  async findByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect | null> {
+    return this.effectsRepo.findOne({ where: { resultType, resultId } as any });
+  }
+
   async listForConversation(conversationId: string) {
     const items = await this.effectsRepo.find({
       where: { conversationId },
