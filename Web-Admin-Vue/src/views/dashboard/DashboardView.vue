@@ -16,8 +16,7 @@
             <div
               v-for="item in trend"
               :key="item.date"
-              class="flex-grow-1 rounded-sm"
-              style="background: var(--el-color-primary)"
+              class="trend-bar flex-grow-1"
               :style="{ height: `${barHeight(item.count)}%` }"
               :title="`${item.date}: ${item.count}`"
             />
@@ -81,3 +80,17 @@ function barHeight(n: number): number {
 
 onMounted(load)
 </script>
+
+<style scoped>
+/* 趋势条：主题渐变 + 圆角顶 + hover 提亮 */
+.trend-bar {
+  background: linear-gradient(180deg, var(--keel-brand-gradient-to, var(--el-color-primary)) 0%, var(--el-color-primary) 100%);
+  border-radius: 6px 6px 0 0;
+  opacity: 0.88;
+  transition: opacity 0.15s ease;
+  min-height: 4px;
+}
+.trend-bar:hover {
+  opacity: 1;
+}
+</style>

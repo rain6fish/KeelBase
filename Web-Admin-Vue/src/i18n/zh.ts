@@ -1,6 +1,7 @@
 const zh = {
   // 通用
   appName: '管理控制台',
+  appTagline: '安全地构建并运行 AI 业务应用',
   login: '登录',
   loggingIn: '登录中...',
   show: '显示',
@@ -512,6 +513,10 @@ const zh = {
   loginFailed: '登录失败',
   toggleLang: '切换语言',
   toggleTheme: '切换主题',
+  theme: '主题',
+  themeIndigo: '深靛 · 可信运行台',
+  themeTeal: '青绿 · 智能座舱',
+  themeGraphite: '石墨 · 运营温度',
 
   // 概览页
   platformData: '平台数据',
