@@ -225,12 +225,16 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
 .el-menu-nav {
   border-right: none;
   width: 100%;
+  /* 菜单底色与侧边栏/整体一致（浅灰），由激活项/悬停色块提供悬浮感 */
+  background: transparent;
+  --el-menu-bg-color: transparent;
 }
 .nav-group-label {
   padding: 8px 16px 4px;
 }
 .admin-aside-append {
-  border-top: 1px solid var(--el-border-color-light);
+  /* 与菜单一体：去掉分隔线 */
+  border-top: none;
 }
 .admin-main {
   min-width: 0;
