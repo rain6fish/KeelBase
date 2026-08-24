@@ -8,7 +8,8 @@ import { storage } from '@/utils/storage'
 const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
 export function homeFor(role?: string): string {
   if (SURFACE === 'user') return '/workbench'
-  return role === 'admin' ? '/' : '/workbench'
+  // admin 构建无 workbench 路由：非 admin 回落 /403（否则 /workbench 不存在 → catch-all → / → 守卫死循环）
+  return role === 'admin' ? '/' : '/403'
 }
 
 export function setupGuards(router: Router) {
@@ -36,9 +37,10 @@ export function setupGuards(router: Router) {
       if (auth.status === 'unauthenticated') return { path: '/login', query: { redirect: to.fullPath } }
     }
 
-    // 角色校验：路由声明了 roles 而当前用户不匹配 → 弹回角色首页
+    // 角色校验：user 构建（/user/）无控制台路由，任何角色回落工作台（防守卫互踢死循环）；
+    // 仅 admin 构建按角色校验
     const roles = to.meta.roles
-    if (roles && !roles.includes(auth.user!.role)) {
+    if (SURFACE !== 'user' && roles && !roles.includes(auth.user!.role)) {
       return homeFor(auth.user!.role)
     }
 
