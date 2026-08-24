@@ -41,8 +41,8 @@ describe('McpGatewayService (HS-10 入口)', () => {
   });
 
   const tools: ExternalMcpTool[] = [
-    { name: 'get_weather', description: '查天气', readOnly: true },
-    { name: 'send_email', description: '发邮件', readOnly: false },
+    { name: 'get_weather', description: '查天气', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' },
+    { name: 'send_email', description: '发邮件', readOnly: false, riskLevel: 'R3', riskStrategy: 'confirmation' },
   ];
   const callResult: ExternalToolCallResult = { content: [{ type: 'text', text: 'ok' }], isError: false };
 
@@ -233,8 +233,8 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(transportFactory).toHaveBeenCalledWith(server);
       expect(Client).toHaveBeenCalledWith(expect.objectContaining({ name: 'keelbase-gateway' }));
       expect(tools).toHaveLength(2);
-      expect(tools[0]).toMatchObject({ name: 'get_weather', readOnly: true });
-      expect(tools[1]).toMatchObject({ name: 'send_email', readOnly: false });
+      expect(tools[0]).toMatchObject({ name: 'get_weather', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
+      expect(tools[1]).toMatchObject({ name: 'send_email', readOnly: false, riskLevel: 'R3', riskStrategy: 'confirmation' });
       expect(close).toHaveBeenCalled();
     });
 
