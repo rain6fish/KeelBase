@@ -41,9 +41,9 @@ describe('DelegationTokenService（AI Bridge §5 身份桥接）', () => {
     expect(r.audience).toBe('legacy-erp');
     expect(r.expiresIn).toBe(300);
 
-    // 解码 payload：sub/oidcSub/aud/iss
+    // 解码 payload：sub/oidcSub/aud/iss（sub 与 subject 一致：OIDC → providerId）
     const payload = jwt.verify(r.token, { secret: 'delegation-secret-0123456789abcdef' }) as any;
-    expect(payload.sub).toBe('1');
+    expect(payload.sub).toBe('oidc-subject-abc');
     expect(payload.oidcSub).toBe('oidc-subject-abc');
     expect(payload.aud).toBe('legacy-erp');
     expect(payload.iss).toBe('keelbase');
@@ -71,7 +71,7 @@ describe('DelegationTokenService（AI Bridge §5 身份桥接）', () => {
     const { token } = await service.sign('1', 'erp');
 
     const payload = service.verify(token, 'erp');
-    expect(payload.sub).toBe('1');
+    expect(payload.sub).toBe('sub-1'); // sub 与 subject 一致（OIDC providerId）
 
     expect(() => service.verify(token, 'other-system')).toThrow('audience');
 

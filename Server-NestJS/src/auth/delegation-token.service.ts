@@ -56,8 +56,10 @@ export class DelegationTokenService {
     const oidcSub = user?.providerId || undefined;
     const subject = oidcSub ?? `local:${userId}`;
 
+    // JWT sub 与响应 subject 一致（oidcSub 或 local:<userId>），Java 端按文档直接映射本地用户（原 sub 裸 userId 无前缀）
+    const jwtSub = oidcSub ?? `local:${userId}`;
     const token = this.jwtService.sign(
-      { sub: userId, oidcSub, aud: audience, iss: 'keelbase' },
+      { sub: jwtSub, oidcSub, aud: audience, iss: 'keelbase' },
       { secret: this.secret, expiresIn: `${ttl}s` },
     );
     return { token, subject, expiresIn: ttl, userId, audience };
