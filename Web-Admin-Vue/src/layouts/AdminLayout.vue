@@ -207,8 +207,9 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
 .admin-aside {
   display: flex;
   flex-direction: column;
-  background: var(--el-bg-color);
-  border-right: 1px solid var(--el-border-color-light);
+  /* 与内容区同底色（浅灰），整页一体；菜单激活项/卡片作为悬浮元素 */
+  background: var(--el-bg-color-page);
+  border-right: none;
   transition: width 0.2s;
   overflow: hidden;
 }
@@ -235,8 +236,9 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
   min-width: 0;
 }
 .admin-topbar {
-  background: var(--el-bg-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  /* 与内容区同底色（浅灰），一体；不压阴影 */
+  background: var(--el-bg-color-page);
+  box-shadow: none;
 }
 .ai-assistant-btn {
   border: none;
