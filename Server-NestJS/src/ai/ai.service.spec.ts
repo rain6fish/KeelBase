@@ -1191,7 +1191,7 @@ describe('AiService', () => {
       expect(mockProvider.stream).not.toHaveBeenCalled();
     });
 
-    it('流式 provider 失败：转 error chunk + done，保留预留（资源已消耗）', async () => {
+    it('流式 provider 失败：转 error chunk + done，释放预留（零 token 失败不计入用量）', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
       mockAuditService.reserveDailyUsage.mockResolvedValue(true);
       // stream 首块即抛错 → streamWithProviderFallback 内部转 error chunk + done（不抛给调用方）
@@ -1206,7 +1206,8 @@ describe('AiService', () => {
 
       expect(chunks.some((c) => c.type === 'error')).toBe(true);
       expect(chunks[chunks.length - 1].type).toBe('done');
-      expect(mockAuditService.releaseDailyUsage).not.toHaveBeenCalled();
+      // 流式零 token 失败释放预留槽（对齐非流式 chat 失败语义），防误计入当日用量误拦
+      expect(mockAuditService.releaseDailyUsage).toHaveBeenCalled();
     });
 
     it('未注入 SettingsService 时跳过限额', async () => {
