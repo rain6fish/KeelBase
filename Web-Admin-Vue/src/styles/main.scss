@@ -43,11 +43,11 @@ body {
   height: 8px;
 }
 
-// 侧边栏菜单滚动条：默认隐藏（透明），JS 在鼠标滑过/滚动时加 .scroll-flash 短暂显示（1.6s 后自动移除）；滑块较窄（3px）
+// 侧边栏菜单滚动条：默认隐藏（透明），JS 在鼠标滑过/滚动时加 .scroll-flash 短暂显示（1.6s 后自动移除）；滑块极细（1px）
 .admin-nav::-webkit-scrollbar,
 .admin-aside::-webkit-scrollbar {
-  width: 3px;
-  height: 3px;
+  width: 1px;
+  height: 1px;
 }
 .admin-nav::-webkit-scrollbar-thumb,
 .admin-aside::-webkit-scrollbar-thumb {
@@ -78,6 +78,33 @@ body {
 .el-menu-nav .el-menu-item {
   height: 42px;
   margin: 2px 0;
+}
+
+// 一级分组（sub-menu 标题）：与子项同高 + hover 浅底
+.el-menu-nav .el-sub-menu__title {
+  height: 42px;
+  line-height: 42px;
+  margin: 2px 0;
+  color: inherit;
+}
+.el-menu-nav .el-sub-menu__title:hover {
+  background: var(--el-color-primary-light-9);
+}
+
+// 二级子项：透明底、缩进（对齐图标层级）；选中项仍用渐变贴边半圆（主规则 is-active）
+.el-menu-nav .el-sub-menu .el-menu {
+  background: transparent;
+  padding: 0;
+}
+.el-menu-nav .el-sub-menu .el-menu-item {
+  height: 38px;
+  margin: 2px 0;
+  padding-left: 42px;
+}
+// 一级分组：当组内有激活子项时，分组标题显示浅色底（primary 文字）
+.el-menu-nav .el-sub-menu.is-active-group > .el-sub-menu__title {
+  background-color: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
 }
 
 // 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆；底色从左到右渐变：浅色(light-3) → 主色（右侧正好是主色）
