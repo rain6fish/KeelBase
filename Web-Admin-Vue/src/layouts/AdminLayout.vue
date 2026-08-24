@@ -3,7 +3,7 @@
     <el-aside :width="rail ? '64px' : '240px'" class="admin-aside">
       <div class="brand-item px-3">
         <div class="d-flex align-center ga-2">
-          <AppIcon icon="mdi-keel" size="26" color="var(--el-color-primary)" />
+          <AppLogo :size="26" />
           <span v-if="!rail" class="text-h6 font-weight-bold">{{ t('appName') }}</span>
         </div>
       </div>
@@ -45,7 +45,7 @@
         </div>
         <div class="d-flex justify-space-between align-center">
           <LangToggle />
-          <ThemeToggle />
+          <ThemeSwitcher />
           <el-button circle size="small" :title="t('logout')" @click="onLogout">
             <AppIcon icon="mdi-logout" />
           </el-button>
@@ -88,9 +88,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import LangToggle from '@/components/LangToggle.vue'
 import AiAssistantDrawer from '@/components/AiAssistantDrawer.vue'
+import AppLogo from '@/components/AppLogo.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -239,19 +240,19 @@ const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavG
 }
 .ai-assistant-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--el-border-radius-round);
   height: 36px;
   padding: 0 16px;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-info) 100%);
+  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--keel-brand-gradient-to, var(--el-color-primary)) 100%);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 4px 14px rgba(47, 107, 245, 0.3);
+  box-shadow: 0 4px 14px var(--keel-glow, rgba(79, 70, 229, 0.3));
 }
 .ai-assistant-btn:hover,
 .ai-assistant-btn:focus,
 .ai-assistant-btn:active {
   color: #fff;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-info) 100%);
+  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--keel-brand-gradient-to, var(--el-color-primary)) 100%);
   filter: brightness(1.06);
 }
 </style>

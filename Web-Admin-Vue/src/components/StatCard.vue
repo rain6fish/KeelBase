@@ -3,13 +3,13 @@
     <div class="d-flex align-center ga-3">
       <div
         class="flex-shrink-0 d-flex align-center justify-center"
-        :style="{ width: '48px', height: '48px', borderRadius: '12px', background: lightBg }"
+        :style="{ width: '48px', height: '48px', borderRadius: 'var(--keel-radius-md)', background: lightBg }"
       >
         <AppIcon :icon="icon" size="26" :color="iconColor" />
       </div>
       <div>
         <div class="text-caption text-medium-emphasis">{{ label }}</div>
-        <div class="text-h5 font-weight-bold">{{ value }}</div>
+        <div class="text-h5 font-weight-bold text-tabular">{{ value }}</div>
         <div v-if="hint" class="text-caption text-medium-emphasis">{{ hint }}</div>
       </div>
     </div>
