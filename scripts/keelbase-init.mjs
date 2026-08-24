@@ -27,6 +27,7 @@ import { aiFiles } from './generator/templates-ai.mjs';
 import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule, summarize } from './generator/wire.mjs';
 import { extractSpec } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
+import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
 import { writeManifest } from './generator/manifest.mjs';
@@ -44,11 +45,12 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs inspect              # 识别 KeelBase 应用（来源 + 能力指纹）
   node scripts/keelbase-init.mjs doctor               # 诊断 KeelBase 应用（完整性/一致性/运行时/版本）
 
-已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol）：
+已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol；AI Bridge B 路径 → Proxy 配置）：
   node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
   node scripts/keelbase-init.mjs --import-openapi swagger.json --module customer           # 转换→直接生成
   node scripts/keelbase-init.mjs --import-schema schema.sql --table customers --out specs/customer.json
   node scripts/keelbase-init.mjs --import-schema schema.sql                                # 默认取第一张表
+  node scripts/keelbase-init.mjs --import-openapi-proxy swagger.json --base-url http://legacy:8080/api --audience legacy-erp --out proxy-config.json   # B 路径：OpenAPI operations → ProxyTool 配置
 
 LLM（--desc / 交互中文输入）需要配置环境变量：
   DEEPSEEK_API_KEY=...        # 云端（默认 deepseek-chat）
@@ -60,6 +62,9 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --fields <a:type,b>  字段列表，type 支持 string/text/int/bool/date/enum（默认 string）；enum 内联选项：status:enum:active,inactive（小写英文，2-10 个，未给时用默认）
   --desc <描述>        自然语言描述 → LLM 提取模块/标签/字段
   --import-openapi <file>   从 OpenAPI 3 / Swagger 2 提取 schema → Protocol（支持 .yaml/.yml，本地相对 $ref 自动合并）
+  --import-openapi-proxy <file>   从 OpenAPI paths 提取 operations → ProxyTool 配置（AI Bridge B 路径；读=R1 写=R3，x-keelbase-risk-level 可覆盖）
+  --base-url <url>          配合 --import-openapi-proxy 指定目标系统 baseUrl
+  --audience <id>           配合 --import-openapi-proxy 指定目标系统 audience（委托 token）
   --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
   --schema <name>      OpenAPI 中选定的 schema 名（默认第一个）
   --list-schemas       列出 OpenAPI 中可用 schema（配合 --import-openapi）
@@ -184,6 +189,35 @@ async function main() {
   const args = parseArgs(process.argv);
   if (args.help) {
     console.log(HELP);
+    return;
+  }
+
+  // ── B 路径（AI Bridge §4 完整 B）：OpenAPI operations → ProxyTool 配置 ──
+  const importOpenApiProxy = args['import-openapi-proxy'];
+  if (importOpenApiProxy) {
+    let spec;
+    try {
+      const raw = await readFile(importOpenApiProxy, 'utf8');
+      spec = /\.ya?ml$/i.test(importOpenApiProxy) ? parseYaml(raw) : JSON.parse(raw);
+      if (!spec || typeof spec !== 'object') fail('OpenAPI 文件解析结果无效');
+    } catch (err) {
+      fail(`无法读取/解析 OpenAPI 文件 ${importOpenApiProxy}: ${err.message}（YAML 需 .yaml/.yml 扩展名）`);
+    }
+    spec = await resolveLocalRefs(spec, importOpenApiProxy);
+    const proxy = parseOpenApiProxy(spec, { baseUrl: args['base-url'], audience: args.audience });
+    if (proxy.error) fail(proxy.error);
+
+    if (args.out) {
+      await writeGenerated(args.out, JSON.stringify({ baseUrl: proxy.baseUrl, audience: proxy.audience, tools: proxy.tools }, null, 2) + '\n');
+      console.log(`${C.green}✓ 已从 OpenAPI 写出 B 路径 Proxy 配置 ${args.out}（${proxy.tools.length} 个工具）${C.reset}`);
+      if (proxy.skipped?.length) {
+        console.log(`${C.cyan}  跳过：${proxy.skipped.map((s) => `${s.tool}.${s.name}（${s.reason}）`).join('；')}${C.reset}`);
+      }
+      console.log(`${C.dim}  应用到运行时：PUT /settings/ai_proxy_tools 或管理台「设置」粘贴该 JSON，重启后工具生效${C.reset}`);
+    } else {
+      console.log(JSON.stringify({ baseUrl: proxy.baseUrl, audience: proxy.audience, tools: proxy.tools }, null, 2));
+      console.log(`\n可用工具（${proxy.tools.length}）：${proxy.available.join(', ')}`);
+    }
     return;
   }
 
