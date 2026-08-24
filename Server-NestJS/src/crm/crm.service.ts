@@ -142,6 +142,33 @@ export class CrmService {
     return { customer, orders, activities, tasks, risks, opportunities };
   }
 
+  /**
+   * Customer 360 全景数据（AI Summary 工具用）：所有权校验后聚合全部子资源。
+   * 与 getCustomerDetail 不同——不依赖 CASL ability，直接以 userId 校验归属（AI 工具无 ability 对象）。
+   */
+  async getCustomer360Data(
+    customerId: number,
+    userId: number,
+  ): Promise<{
+    customer: CrmCustomer | null;
+    orders: CrmOrder[];
+    activities: CrmActivity[];
+    tasks: CrmTask[];
+    risks: CrmRisk[];
+    opportunities: CrmOpportunity[];
+  }> {
+    await this._assertCustomerOwner(customerId, userId);
+    const [orders, activities, tasks, risks, opportunities, customer] = await Promise.all([
+      this.orders.find({ where: { customerId, userId }, order: { orderDate: 'DESC' } }),
+      this.activities.find({ where: { customerId, userId }, order: { happenedAt: 'DESC' } }),
+      this.tasks.find({ where: { customerId, userId }, order: { createdAt: 'DESC' } }),
+      this.risks.find({ where: { customerId, userId }, order: { detectedAt: 'DESC' } }),
+      this.opportunities.find({ where: { customerId, userId }, order: { expectedCloseDate: 'ASC' } }),
+      this.customers.findOne({ where: { id: customerId, userId } }),
+    ]);
+    return { customer, orders, activities, tasks, risks, opportunities };
+  }
+
   // ── Children（订单 / 跟进 / 任务 / 风险）────────────────────
 
   private async _assertCustomerOwner(
