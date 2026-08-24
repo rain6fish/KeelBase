@@ -1,13 +1,17 @@
-import { Controller, Post, Get, Delete, Body, Headers, Param, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Headers, Param, Req, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
 import { ParseIntPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { DelegationTokenService } from './delegation-token.service';
 import { DelegationTokenDto } from './dto/delegation-token.dto';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
-import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
+import { CaslAbilityFactory, Action } from '../common/casl/casl-ability.factory';
+import { CheckPolicies } from '../common/casl/check-policies.decorator';
+import { User } from '../common/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { MfaVerifyDto, MfaDisableDto } from './dto/mfa.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -37,6 +41,7 @@ export class AuthController {
     private providersConfig: OAuthProvidersConfigService,
     private caslFactory: CaslAbilityFactory,
     private delegationTokenService: DelegationTokenService,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
   @Public()
@@ -263,6 +268,30 @@ export class AuthController {
       body.action as 'manage' | 'create' | 'read' | 'update' | 'delete',
       body.subject,
     );
+  }
+
+  @Post('permissions/explain/target')
+  @ApiBearerAuth()
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'Explainable Authz (admin): decision + basis for target user×action×resource' })
+  @ApiOkResponse({ description: 'Decision + basis for target user' })
+  async explainPermissionForTarget(
+    @Body() body: { userId: number; action: string; subject: string },
+  ) {
+    const target = await this.usersRepo.findOne({
+      where: { id: Number(body.userId) },
+      select: { id: true, role: true, username: true },
+    });
+    if (!target) throw new NotFoundException('用户不存在');
+    return {
+      userId: target.id,
+      username: target.username,
+      ...this.caslFactory.explainForTarget(
+        { role: target.role, sub: target.id },
+        body.action as Action,
+        body.subject,
+      ),
+    };
   }
 
   @Post('logout')

@@ -122,4 +122,23 @@ describe('CaslAbilityFactory', () => {
       expect(denied.reason).toContain('管理员');
     });
   });
+
+  describe('explainForTarget (B1 管理员为目标用户反查决策)', () => {
+    it('target regular user: manage Event → allowed; manage all → denied', () => {
+      const ok = factory.explainForTarget({ role: regularUser.role, sub: regularUser.sub }, 'manage', 'Event');
+      expect(ok.allowed).toBe(true);
+      expect(ok.reason).toContain('本人所有权');
+      const denied = factory.explainForTarget({ role: regularUser.role, sub: regularUser.sub }, 'manage', 'all');
+      expect(denied.allowed).toBe(false);
+      expect(denied.deniedBy).toBe('casl');
+      expect(denied.reason).toContain('管理员');
+    });
+
+    it('target admin: manage all → allowed', () => {
+      const e = factory.explainForTarget({ role: adminUser.role, sub: adminUser.sub }, 'manage', 'all');
+      expect(e.allowed).toBe(true);
+      expect(e.reason).toContain('管理员');
+      expect(e.deniedBy).toBeNull();
+    });
+  });
 });

@@ -10,6 +10,37 @@
 
       <!-- Review："是否安全"判断——风险操作 + 结构化拒绝 + 副作用 -->
       <el-tab-pane :label="t('secTabReview')" name="review">
+        <!-- B1：管理员按用户反查权限决策依据（为何允许/为何阻止） -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex justify-space-between align-center">
+              <span>{{ t('secUserDiag') }}</span>
+              <span class="text-caption text-medium-emphasis">{{ t('secUserDiagHint') }}</span>
+            </div>
+          </template>
+          <div class="d-flex flex-wrap ga-3 align-center">
+            <el-select v-model="diagUserId" filterable clearable :placeholder="t('secUserDiagPick')" style="width: 200px" @update:model-value="onDiagUserChange">
+              <el-option v-for="u in diagUsers" :key="u.id" :label="u.username" :value="u.id" />
+            </el-select>
+            <el-select v-model="diagAction" style="width: 120px">
+              <el-option v-for="a in ACTIONS" :key="a" :label="a" :value="a" />
+            </el-select>
+            <el-input v-model="diagSubject" style="width: 180px" placeholder="subject" />
+            <el-button type="primary" size="small" :loading="diagLoading" @click="runDiag">
+              {{ t('secUserDiagRun') }}
+            </el-button>
+          </div>
+          <div v-if="diagResult" class="mt-3">
+            <el-alert :type="diagResult.allowed ? 'success' : 'error'" :closable="false" :title="`${diagResult.action} ${diagResult.subject}`" show-icon>
+              <div class="text-body-2 mt-1">
+                <StatusChip :status="diagResult.allowed ? 'ok' : 'cancelled'" :label-map="{ ok: t('secUserDiagAllowed'), cancelled: t('secUserDiagDenied') }" />
+                <span class="ms-2">{{ diagResult.reason }}</span>
+                <span v-if="!diagResult.allowed && diagResult.deniedBy" class="text-caption text-medium-emphasis ms-2">deniedBy: {{ diagResult.deniedBy }}</span>
+              </div>
+            </el-alert>
+          </div>
+        </el-card>
+
         <el-card shadow="never" class="mb-4">
           <template #header>
             <div class="d-flex justify-space-between align-center">
@@ -209,6 +240,8 @@ import AiTraceView from '@/views/workbench/AiTraceView.vue'
 import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { aiEvalApi } from '@/api/aiEval'
+import { usersApi } from '@/api/users'
+import { authApi } from '@/api/auth'
 import { formatTime } from '@/utils/format'
 import type { AuditLog, ActionReport } from '@/types/audit'
 import type { AdminAiTool } from '@/types/admin'
@@ -244,13 +277,48 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
 async function loadReview() {
   loading.value = true
   try {
-    const logs = await auditApi.logs({ limit: 50 })
+    const logs = await auditApi.logs({ limit: 50, ...(diagUserId.value ? { userId: String(diagUserId.value) } : {}) })
     // 风险操作：isError 或带结构化拒绝原因（authorization）
     riskLogs.value = logs.filter((l) => l.isError || !!l.authorization)
   } catch {
     riskLogs.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// ── B1：按用户反查权限决策依据 + 该用户风险操作时间线 ──
+const ACTIONS = ['manage', 'create', 'read', 'update', 'delete']
+const diagUsers = ref<Array<{ id: number; username: string }>>([])
+const diagUserId = ref<number | null>(null)
+const diagAction = ref('manage')
+const diagSubject = ref('CrmCustomer')
+const diagResult = ref<{ action: string; subject: string; allowed: boolean; reason: string; deniedBy: string | null } | null>(null)
+const diagLoading = ref(false)
+
+async function loadDiagUsers() {
+  try {
+    const res = await usersApi.list(1, 100)
+    diagUsers.value = res.items.map((u) => ({ id: u.id, username: u.username }))
+  } catch {
+    diagUsers.value = []
+  }
+}
+
+async function onDiagUserChange() {
+  diagResult.value = null
+  await loadReview()
+}
+
+async function runDiag() {
+  if (!diagUserId.value) return
+  diagLoading.value = true
+  try {
+    diagResult.value = await authApi.explainTarget(diagUserId.value, diagAction.value, diagSubject.value)
+  } catch {
+    diagResult.value = null
+  } finally {
+    diagLoading.value = false
   }
 }
 
@@ -349,5 +417,6 @@ onMounted(() => {
   loadSecurity()
   loadPosture()
   loadActionReport()
+  loadDiagUsers()
 })
 </script>
