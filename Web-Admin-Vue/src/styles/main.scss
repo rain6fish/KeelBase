@@ -80,21 +80,12 @@ body {
   margin: 2px 0;
 }
 
-// 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆；底色从左到右渐变深（主色→混黑加深，跨度更大）
+// 侧边栏激活项：Materio——左侧贴边（直角、无左右边距），右侧半圆；底色从左到右渐变：浅色 → 主色（右侧正好是主色，不再更深）
 .el-menu-nav .el-menu-item.is-active {
-  background: linear-gradient(90deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
+  background: linear-gradient(90deg, var(--el-color-primary-light-5) 0%, var(--el-color-primary) 100%);
   color: #fff;
   border-radius: 0 999px 999px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
-}
-@supports (color: color-mix(in srgb, red, black)) {
-  .el-menu-nav .el-menu-item.is-active {
-    background: linear-gradient(
-      90deg,
-      var(--el-color-primary) 0%,
-      color-mix(in srgb, var(--el-color-primary) 45%, #000) 100%
-    );
-  }
 }
 
 // 侧边栏导航项 hover：Materio lightprimary 浅底（primary 色调）
