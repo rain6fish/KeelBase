@@ -987,6 +987,21 @@ test('parseOpenApiProxy：riskLevel 覆盖 + YAML flow-map 字符串 schema + �
   assert.ok(r.tools.some((t) => t.name === 'get_customers_id'));
 });
 
+test('parseOpenApiProxy：连字符 path 参数（{customer-id}）→ 占位符重写为清洗名 {customer_id} + 参数对齐', () => {
+  const r = parseOpenApiProxy({
+    paths: {
+      '/orders/{customer-id}': {
+        get: { operationId: 'getOrdersByCustomer', parameters: [{ name: 'customer-id', in: 'path', required: true, schema: { type: 'integer' } }] },
+      },
+    },
+  }, {});
+  const t = r.tools[0];
+  assert.equal(t.path, '/orders/{customer_id}'); // 占位符与参数名对齐（ProxyTool 按名取 args）
+  const p = t.parameters.find((x) => x.name === 'customer_id');
+  assert.equal(p.type, 'integer');
+  assert.equal(p.required, true);
+});
+
 test('parseOpenApiProxy：无 paths / 空工具 → error', () => {
   assert.match(parseOpenApiProxy({ openapi: '3.0.0' }, {}).error, /未找到可用 operations/);
   assert.match(parseOpenApiProxy({ paths: { '/x': { parameters: [] } } }, {}).error, /没有可转换的 operations/);
