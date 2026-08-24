@@ -54,6 +54,21 @@ export class AdminAiService {
     };
   }
 
+  /**
+   * 管理端流式（roadmap 待办「管理端流式 + 确认通道」）：复用 AiService.chatStream，
+   * 写工具（需确认）经 SSE confirmation_request 事件 → 前端确认 → approve → 执行。
+   * 平台实时上下文同非流式注入（systemPrompt + adminMode）。
+   */
+  async *assistantChatStream(userId: number, dto: AdminAiChatDto) {
+    const context = await this.buildSystemContext();
+    yield* this.aiService.chatStream(String(userId), {
+      message: dto.message,
+      conversationId: dto.conversationId,
+      systemPrompt: `${ADMIN_SYSTEM_PROMPT}${context}`,
+      adminMode: true,
+    });
+  }
+
   /** 组装【平台实时数据】上下文块（各子项失败静默，单行紧凑约束 token） */
   private async buildSystemContext(): Promise<string> {
     const lines: string[] = [];
