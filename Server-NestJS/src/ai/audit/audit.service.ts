@@ -353,11 +353,14 @@ export class AuditService {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
       if (l.isError) errors++;
       if (l.action === 'tool_call') {
-        if (l.isError) blocked++;
-        else executed++;
+        // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记：R5/越权/禁用/权限）；
+        // 执行失败（无拒绝标记）只算 error，不计 blocked
+        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) blocked++;
+        else if (!l.isError) executed++;
       } else if (l.action === 'tool_confirmation') {
         if (l.isError) rejected++;
-        else approved++;
+        // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报
+        else if (!l.detail?.includes('pending_approval')) approved++;
       }
     }
 
