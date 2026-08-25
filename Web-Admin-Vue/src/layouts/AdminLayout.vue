@@ -3,8 +3,11 @@
     <el-aside :width="rail ? '64px' : '240px'" class="admin-aside">
       <div class="brand-item px-3">
         <div class="d-flex align-center ga-2">
-          <AppLogo :size="26" />
-          <span v-if="!rail" class="text-h6 font-weight-bold">{{ t('appName') }}</span>
+          <AppLogo v-if="rail" :size="26" />
+          <template v-else>
+            <img src="/logo.png" alt="KeelBase" class="brand-logo" />
+            <img src="/logo-white.png" alt="KeelBase" class="brand-logo brand-logo-dark" />
+          </template>
         </div>
       </div>
 
@@ -234,6 +237,21 @@ const activeGroup = computed(
   height: 56px;
   display: flex;
   align-items: center;
+}
+.brand-logo {
+  height: 30px;
+  width: auto;
+  max-width: 170px;
+  object-fit: contain;
+}
+.brand-logo-dark {
+  display: none;
+}
+html.dark .brand-logo:not(.brand-logo-dark) {
+  display: none;
+}
+html.dark .brand-logo-dark {
+  display: inline-block;
 }
 .admin-nav {
   flex: 1;
