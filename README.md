@@ -178,6 +178,28 @@ One main thread — **Build → Run → Trust → Private Deploy**:
 
 The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([architecture-boundary](docs/architecture-boundary.md)).
 
+## 📍 Where KeelBase Sits
+
+KeelBase is the **enterprise AI trust runtime** — it doesn't replace your agent framework or your business systems; it sits between them and makes AI business-safe.
+
+```text
+Your AI Applications / Agent Frameworks     ← up: no re-built orchestration
+  (MCP, OpenAPI, LangGraph, CrewAI, AutoGen)    agents enter governance via MCP / OpenAPI
+                    ▲
+                    │ identity · policy · governance · audit · revoke · deploy
+              ┌─────┴─────┐
+              │  KeelBase  │   Enterprise AI Trust Runtime
+              └─────┬─────┘
+                    │ no replacement — existing systems keep running
+                    ▼
+Your Existing Business Systems              ← down: no rip-and-replace
+  (CRM / ERP / OA via Bridge)                   systems gain AI capability via Bridge
+```
+
+- **Up** — your AI applications, or bring your own agent framework: tools enter KeelBase governance through **open standards (MCP / OpenAPI)**, not a proprietary SDK
+- **Down** — your existing business systems (CRM / ERP / OA): no replacement; they become **Business-safe AI capability** through the Bridge
+- **In between** — KeelBase runs the **trust layer**: identity, permission, human confirmation, audit & revoke, private deployment
+
 ---
 
 ## 📚 Documentation
