@@ -678,6 +678,7 @@ npm run migration:run
 | GET | /api/v1/auth/export-data | Yes | 本人 | 导出本人全量数据（数据可携带权） |
 | GET | /api/v1/auth/invite | Yes | 本人 | 我的邀请信息：邀请码 + 已邀请用户列表（G-2） |
 | GET | /api/v1/auth/oauth/providers | No | — | 获取已启用的 OAuth 提供商列表及元数据 |
+| GET | /api/v1/auth/oauth/oidc/url | No | — | 构建 OIDC 授权 URL（企业 SSO 前端跳转 IdP：?redirectUri= 必填，动态发现 authorization_endpoint + 随机 state） |
 | POST | /api/v1/auth/delegation-token | Yes | 本人 | 签发短期委托 JWT（AI Bridge §5：Java 系统共享密钥验签映射本地用户；audience 限定目标系统，默认 300s） |
 | POST | /api/v1/auth/mfa/setup | Yes | 本人 | 启用 MFA：生成 TOTP 密钥（RFC 6238）与 otpauth URL |
 | POST | /api/v1/auth/mfa/verify | Yes | 本人 | 提交 TOTP 验证码启用 MFA |
