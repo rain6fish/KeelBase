@@ -16,6 +16,7 @@ import {
   AuditChainService,
   ChainVerification,
 } from '../../common/audit-chain/audit-chain.service';
+import { aiActionLabel } from './ai-feature-map';
 
 export interface AuditEntry {
   userId: string;
@@ -75,6 +76,9 @@ export interface AiAuditLogWithUser {
   conversationId?: string | null;
   action: string;
   detail?: string | null;
+  /** D2 人类语言审计标签：语义 key（前端 i18n）+ 兜底人类可读描述（含工具名） */
+  actionKey?: string | null;
+  actionLabel?: string | null;
   model?: string | null;
   provider?: string | null;
   promptTokens?: number | null;
@@ -248,12 +252,16 @@ export class AuditService {
     }
 
     const rows = await qb.getRawMany();
-    return rows.map((r) => ({
+    return rows.map((r) => {
+      const label = aiActionLabel(r.log_action, r.log_detail);
+      return {
       id: Number(r.log_id),
       userId: String(r.log_user_id),
       conversationId: r.log_conversation_id ?? null,
       action: r.log_action,
       detail: r.log_detail ?? null,
+      actionKey: label.key,
+      actionLabel: label.fallback,
       model: r.log_model ?? null,
       provider: r.log_provider ?? null,
       promptTokens: r.log_prompt_tokens != null ? Number(r.log_prompt_tokens) : null,
@@ -266,7 +274,8 @@ export class AuditService {
       feedbackNote: r.log_feedback_note ?? null,
       createdAt: String(r.log_createdAt),
       username: r.username ?? null,
-    }));
+    };
+    });
   }
 
   /**
