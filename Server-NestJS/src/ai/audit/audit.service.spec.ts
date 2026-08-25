@@ -109,6 +109,20 @@ describe('AuditService', () => {
       );
     });
 
+    it('D4 从 ActorContext fallback callerAgentId/businessIntent（子 agent 场景自动归责）', async () => {
+      await actorContext.run(
+        { agentId: 'research-agent', callerAgentId: 'orchestrator', businessIntent: 'sub-agent' },
+        () => service.log({ userId: '1', action: 'tool_call' }),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentId: 'research-agent',
+          callerAgentId: 'orchestrator',
+          businessIntent: 'sub-agent',
+        }),
+      );
+    });
+
     it('D4 委托链字段填充（parentActionId/callerAgentId/businessIntent/source）', async () => {
       await service.log({
         userId: '1',
