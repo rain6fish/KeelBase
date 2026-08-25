@@ -43,6 +43,7 @@ import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
 import { AiDailyUsage } from './audit/ai-daily-usage.entity';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
+import { CreateModuleTool } from './tools/create-module.tool';
 import { QueryEventsTool } from './tools/query-events.tool';
 import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
 import { QueryUserStatsTool } from './tools/query-user-stats.tool';
@@ -237,6 +238,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new NavigatePageTool());
         // System AI Assistant（管理端导航，adminOnly）
         toolRegistry.register(new AdminNavigatePageTool());
+        // System AI L4 Act（dry-run 预览）：管理端 AI 委托 keelbase init 预览创建模块（adminOnly, R1 读）
+        toolRegistry.register(new CreateModuleTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
         // 合同（EASY-2 自动生成 AI 工具：读 + 写需确认）
