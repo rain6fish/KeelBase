@@ -47,6 +47,13 @@
           </el-button>
         </el-form>
 
+        <template v-if="hasEnterpriseSso">
+          <el-divider><span class="text-caption text-medium-emphasis">{{ t('enterpriseSso') }}</span></el-divider>
+          <el-button plain size="large" class="w-100" @click="onEnterpriseSso">
+            {{ t('enterpriseSso') }}
+          </el-button>
+        </template>
+
         <div class="text-caption text-medium-emphasis mt-4 text-center">
           admin / Admin@1234（控制台）· alex / 123456（工作台）
         </div>
@@ -59,10 +66,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
 import LangToggle from '@/components/LangToggle.vue'
 import AppLogo from '@/components/AppLogo.vue'
 
@@ -75,6 +83,28 @@ const username = ref('')
 const password = ref('')
 const showPwd = ref(false)
 const errorMessage = ref('')
+const hasEnterpriseSso = ref(false)
+
+onMounted(async () => {
+  try {
+    const cfg = await authApi.oauthProviders()
+    const enterprise = (cfg.groups?.enterprise as Array<{ id?: string }> | undefined) ?? []
+    hasEnterpriseSso.value = enterprise.some((p) => p.id === 'oidc')
+  } catch {
+    // providers 端点不可用时不显示企业 SSO 入口，不影响账号密码登录
+  }
+})
+
+async function onEnterpriseSso() {
+  try {
+    // hash 路由回调：IdP 需将 redirect_uri 精确注册（OIDC redirect_uri 必须一致）
+    const callback = `${location.origin}${location.pathname}#/auth/oidc/callback`
+    const { url } = await authApi.oidcUrl(callback)
+    location.href = url
+  } catch {
+    errorMessage.value = t('oidcLoginFailed')
+  }
+}
 
 async function onSubmit() {
   if (!username.value || !password.value) {

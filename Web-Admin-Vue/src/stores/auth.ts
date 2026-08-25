@@ -46,6 +46,21 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
+    async oidcLogin(code: string, redirectUri: string): Promise<boolean> {
+      this.status = 'loading'
+      this.errorMessage = ''
+      try {
+        const result = await authApi.oidcLogin(code, redirectUri)
+        storage.saveTokens(result.accessToken, result.refreshToken)
+        this.user = result.user
+        this.status = 'authenticated'
+        return true
+      } catch (err) {
+        this.status = 'unauthenticated'
+        this.errorMessage = err instanceof Error ? err.message : '登录失败'
+        return false
+      }
+    },
     async logout() {
       try {
         await authApi.logout()
