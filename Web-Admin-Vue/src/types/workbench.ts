@@ -78,6 +78,9 @@ export interface TraceStep {
   provider?: string
   tokens?: number
   effect?: TraceEffect
+  /** D4 多 Agent 归责：执行该步骤的子 agent / 调用方 agent */
+  agentId?: string
+  callerAgentId?: string
 }
 
 export interface ConversationSummary {
