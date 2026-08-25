@@ -258,7 +258,8 @@ export interface ToolEffect {
   id: number
   toolName: string
   conversationId: string | null
-  resultType: 'event' | 'todo'
+  /** EB-2 Bridge Audit：proxy_call = 外部系统（B 路径）写副作用（撤销走 Java 补偿，无本地实体） */
+  resultType: 'event' | 'todo' | 'proxy_call'
   resultId: number
   argsHash: string
   createdAt: string
