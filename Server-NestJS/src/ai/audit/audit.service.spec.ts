@@ -109,6 +109,27 @@ describe('AuditService', () => {
       );
     });
 
+    it('D4 委托链字段填充（parentActionId/callerAgentId/businessIntent/source）', async () => {
+      await service.log({
+        userId: '1',
+        action: 'tool_call',
+        parentActionId: 'action-9',
+        callerAgentId: 'sub-agent-2',
+        delegationContext: '{"from":"orchestrator"}',
+        businessIntent: '跟进高风险客户',
+        source: 'headless',
+      });
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parentActionId: 'action-9',
+          callerAgentId: 'sub-agent-2',
+          delegationContext: '{"from":"orchestrator"}',
+          businessIntent: '跟进高风险客户',
+          source: 'headless',
+        }),
+      );
+    });
+
     it('并发写不产生链分叉（串行队列，合成陌生人实测发现 brokenIndex）', async () => {
       // 模拟 DB 语义：_lastHash 读当前最新 hash，save 追加；无串行队列时并发会读到同一 lastHash 分叉
       (service as any)._tail = Promise.resolve();

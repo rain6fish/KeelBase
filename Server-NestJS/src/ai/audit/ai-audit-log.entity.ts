@@ -39,6 +39,22 @@ export class AiAuditLog {
   @Column({ nullable: true, name: 'session_id' })
   sessionId?: string;
 
+  /** D4 Agent Delegation Chain（多 Agent 归责最小必需，增量非 Envelope）：父动作 id / 上层 agent / 委托上下文 / 业务意图 / 来源通道。均不参与哈希链 payload（同 agent_id/session_id，防破坏历史链） */
+  @Column({ length: 64, nullable: true, name: 'parent_action_id' })
+  parentActionId?: string;
+
+  @Column({ length: 64, nullable: true, name: 'caller_agent_id' })
+  callerAgentId?: string;
+
+  @Column({ length: 512, nullable: true, name: 'delegation_context' })
+  delegationContext?: string;
+
+  @Column({ length: 255, nullable: true, name: 'business_intent' })
+  businessIntent?: string;
+
+  @Column({ length: 32, nullable: true, name: 'source' })
+  source?: string;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 
