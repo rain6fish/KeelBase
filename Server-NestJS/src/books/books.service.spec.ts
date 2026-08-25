@@ -65,4 +65,21 @@ describe('BooksService', () => {
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
+
+  it('updates merged dto on owned book', async () => {
+    const existing = { id: 1, userId: 5, title: '旧标题' };
+    mockRepo.findOne.mockResolvedValue(existing);
+    mockRepo.save.mockResolvedValue({ ...existing, title: '新标题' });
+
+    const result = await service.update(1, { title: '新标题' } as any, mockAbility(true));
+
+    expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ title: '新标题' }));
+    expect(result.title).toBe('新标题');
+  });
+
+  it('update throws Forbidden when CASL denies', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+
+    await expect(service.update(1, { title: 'x' } as any, mockAbility(false))).rejects.toThrow(ForbiddenException);
+  });
 });
