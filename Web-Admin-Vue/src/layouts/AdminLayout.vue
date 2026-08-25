@@ -8,7 +8,7 @@
         </div>
       </div>
 
-      <div ref="adminNavRef" class="admin-nav" @mouseenter="updateNavScrollbar" @scroll.passive="updateNavScrollbar">
+      <div class="admin-nav">
         <el-menu
           :key="activeGroup"
           :default-active="activeMenu"
@@ -39,8 +39,6 @@
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
-        <!-- 自定义短滑块（高度缩短，滑过/滚动时短暂显示；可拖动） -->
-        <div class="nav-scrollbar" :class="{ show: scrollBarVisible }" :style="{ height: scrollBarHeight + 'px', top: scrollBarTop + 'px' }" @mousedown="onBarMouseDown"></div>
       </div>
 
     </el-aside>
@@ -102,82 +100,7 @@ function toggleRail() {
   rail.value = !rail.value
 }
 
-// 自定义菜单滚动条：短滑块（高度/位置/显隐由 JS 驱动），滑过/滚动时显示 1s 后隐藏
-const adminNavRef = ref<HTMLElement | null>(null)
-const scrollBarVisible = ref(false)
-const scrollBarHeight = ref(40)
-const scrollBarTop = ref(0)
-let scrollFlashTimer: number | undefined
-function updateNavScrollbar() {
-  const el = adminNavRef.value
-  if (!el) return
-  const viewH = el.clientHeight
-  const contentH = el.scrollHeight
-  if (contentH <= viewH) {
-    scrollBarVisible.value = false
-    return
-  }
-  // 拖动中由 applyDrag 直接设置滑块位置，避免经过 scrollTop 重算造成偏差
-  if (!barDragging) {
-    const ratio = viewH / contentH
-    scrollBarHeight.value = Math.max(20, ratio * viewH * 0.5)
-    const maxScroll = contentH - viewH
-    scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
-  }
-  scrollBarVisible.value = true
-  clearTimeout(scrollFlashTimer)
-  scrollFlashTimer = window.setTimeout(() => {
-    scrollBarVisible.value = false
-  }, 1600)
-}
-
-// 拖动滑块 → 滚动菜单（标准滚动条行为；requestAnimationFrame 批处理，每帧只应用一次，更丝滑）
-let barDragging = false
-let dragOffsetY = 0
-let dragLastY = 0
-let dragRaf = 0
-function onBarMouseDown(e: MouseEvent) {
-  barDragging = true
-  const barRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  dragOffsetY = e.clientY - barRect.top
-  document.addEventListener('mousemove', onBarMouseMove)
-  document.addEventListener('mouseup', onBarMouseUp)
-}
-function onBarMouseMove(e: MouseEvent) {
-  dragLastY = e.clientY
-  if (dragRaf) return
-  dragRaf = window.requestAnimationFrame(applyDrag)
-}
-function applyDrag() {
-  dragRaf = 0
-  if (!barDragging || !adminNavRef.value) return
-  const el = adminNavRef.value
-  const navRect = el.getBoundingClientRect()
-  const viewH = el.clientHeight
-  const maxScroll = el.scrollHeight - viewH
-  const maxBarTop = viewH - scrollBarHeight.value
-  if (maxScroll <= 0 || maxBarTop <= 0) return
-  // 滑块视口 top（保持按下时的偏移，1:1 跟随鼠标）→ 相对 .admin-nav 的 top
-  const barTopRel = dragLastY - dragOffsetY - navRect.top
-  const newTop = Math.max(0, Math.min(maxBarTop, barTopRel))
-  // 直接同步滑块位置与内容滚动（不经过 scrollTop 重算，避免偏差）
-  scrollBarTop.value = newTop
-  el.scrollTop = (newTop / maxBarTop) * maxScroll
-  scrollBarVisible.value = true
-  clearTimeout(scrollFlashTimer)
-  scrollFlashTimer = window.setTimeout(() => {
-    scrollBarVisible.value = false
-  }, 1600)
-}
-function onBarMouseUp() {
-  barDragging = false
-  if (dragRaf) {
-    cancelAnimationFrame(dragRaf)
-    dragRaf = 0
-  }
-  document.removeEventListener('mousemove', onBarMouseMove)
-  document.removeEventListener('mouseup', onBarMouseUp)
-}
+// 菜单滚动条：使用浏览器原生滚动条（main.scss 定制细滑块样式），拖动灵敏丝滑，无需自定义 JS
 
 function go(path: string) {
   router.push(path)
