@@ -75,4 +75,32 @@ describe('JPushService', () => {
     await expect(service.sendToDevice('reg', { title: 'T', body: 'B' }))
       .rejects.toThrow('JPush API error: 401');
   });
+
+  it('sendToTopic no-ops without credentials (degraded)', async () => {
+    const service = new JPushService(mockConfig('', ''));
+
+    await service.sendToTopic('vip', { title: 'T', body: 'B' });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('posts directly when no circuit breaker injected (else branch)', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ msg_id: 'cb' }) });
+    const service = new JPushService(mockConfig());
+
+    await service.sendToDevice('reg-cb', { title: 'T', body: 'B' });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes through circuit breaker when injected', async () => {
+    const fire = jest.fn(async (_n: string, fn: () => Promise<void>) => fn());
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ msg_id: 'cb2' }) });
+    const service = new JPushService(mockConfig(), { fire } as any);
+
+    await service.sendToDevice('reg-cb2', { title: 'T', body: 'B' });
+
+    expect(fire).toHaveBeenCalledWith('jpush', expect.any(Function));
+    expect(mockFetch).toHaveBeenCalled();
+  });
 });
