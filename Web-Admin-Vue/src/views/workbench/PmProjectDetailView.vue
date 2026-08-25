@@ -1,6 +1,11 @@
 <template>
   <div>
-    <PageHeader :title="detail?.project.name ?? t('pmTitle')" :subtitle="subtitle" />
+    <PageHeader :title="detail?.project.name ?? t('pmTitle')" :subtitle="subtitle">
+      <el-button type="primary" plain @click="showCopilot = true">
+        <template #icon><AppIcon icon="mdi-robot-outline" /></template>
+        {{ t('copilotTitle') }}
+      </el-button>
+    </PageHeader>
 
     <el-row v-if="detail" :gutter="16" class="mb-4">
       <el-col :xs="24" :md="8">
@@ -89,6 +94,13 @@
       </el-col>
     </el-row>
 
+    <!-- AI Copilot：当前项目上下文 AI 助手（P0） -->
+    <PmCopilotDrawer
+      v-model="showCopilot"
+      :project-name="detail?.project.name ?? ''"
+      :project-id="Number(route.params.id)"
+    />
+
     <el-dialog v-model="showAdd" :width="420" :title="addTitle">
       <el-form-item :label="addHint">
         <el-input v-model="addValue" />
@@ -108,6 +120,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
+import PmCopilotDrawer from '@/components/PmCopilotDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { pmApi, type PmProjectDetail, type PmRiskAnalysis } from '@/api/pm'
 
@@ -119,6 +132,7 @@ const id = Number(route.params.id)
 const detail = ref<PmProjectDetail | null>(null)
 const analysis = ref<PmRiskAnalysis | null>(null)
 const analyzing = ref(false)
+const showCopilot = ref(false)
 const showAdd = ref(false)
 const saving = ref(false)
 const addType = ref('task')

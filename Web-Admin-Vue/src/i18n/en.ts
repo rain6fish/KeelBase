@@ -278,6 +278,10 @@ const en: ZhDict = {
   copilotQRisk: 'Analyze this customer\'s risk',
   copilotQOrders: 'Why did orders decline?',
   copilotQFollowup: 'Suggest follow-ups',
+  copilotPMHint: 'Ask about the current project "{name}" — AI analyzes within your data scope and suggests (writes need confirmation)',
+  copilotPMRisk: 'Analyze this project\'s delay risk',
+  copilotPMDelay: 'Why is it delayed?',
+  copilotPMFollowup: 'Suggest next steps',
 
   // AI Project Management flagship app
   pmTitle: 'AI Project',
