@@ -1,10 +1,10 @@
-<p align="center">
-  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的企业 AI 信任运行时" width="840">
-</p>
-
 # KeelBase — 构建并安全运行业务 AI 应用
 
 > **开源企业 AI 信任运行时（Enterprise AI Trust Runtime）**——连接 AI Agent 与现有业务系统，在不替换现有技术体系的前提下，提供身份、治理、审计与私有部署能力。从新业务模型或已有系统，构建并运行业务安全 AI 应用。
+
+<p align="center">
+  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的企业 AI 信任运行时" width="840">
+</p>
 
 > **构建能够安全地操作业务数据的 AI 应用。**
 
