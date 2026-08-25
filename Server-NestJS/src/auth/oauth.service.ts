@@ -49,7 +49,7 @@ interface AlipayUserRes {
 
 /** OIDC discovery document（.well-known/openid-configuration 子集）。 */
 interface OidcDiscoveryDoc {
-  issuer?: string; token_endpoint?: string; userinfo_endpoint?: string; jwks_uri?: string;
+  issuer?: string; authorization_endpoint?: string; token_endpoint?: string; userinfo_endpoint?: string; jwks_uri?: string;
 }
 
 /** OIDC token endpoint response. */
@@ -447,6 +447,52 @@ export class OAuthService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
+   * 构建 OIDC authorization URL（企业 SSO 前端跳转 IdP 用）。
+   * 动态发现 authorization_endpoint → 拼 client_id / response_type=code / scope / redirect_uri / 随机 state。
+   * 仅 OIDC 已配置（issuer + clientId）可用，否则抛 401。
+   */
+  async getOidcAuthorizationUrl(redirectUri: string): Promise<string> {
+    const issuer = this.configService.get<string>('OIDC_ISSUER', '');
+    const clientId = this.configService.get<string>('OIDC_CLIENT_ID', '');
+    if (!issuer || !clientId) {
+      throw new UnauthorizedException('OIDC is not configured on the server');
+    }
+    const discovery = await this._discoverOidc(issuer);
+    if (!discovery.authorization_endpoint) {
+      throw new UnauthorizedException('OIDC authorization endpoint not advertised');
+    }
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      scope: 'openid profile email',
+      redirect_uri: redirectUri,
+      state: crypto.randomUUID(),
+    });
+    return `${discovery.authorization_endpoint}?${params.toString()}`;
+  }
+
+  /**
+   * OIDC 动态发现（.well-known/openid-configuration）+ issuer 防混淆校验。
+   * 供 getOidcAuthorizationUrl / verifyOidc 复用。
+   */
+  private async _discoverOidc(issuer: string): Promise<OidcDiscoveryDoc> {
+    let discovery: OidcDiscoveryDoc;
+    try {
+      const res = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      discovery = await res.json();
+    } catch (err) {
+      this.logger.error(`OIDC discovery failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Invalid OIDC configuration');
+    }
+    // 防混淆攻击：发现返回的 issuer 必须与配置一致
+    if (!discovery.issuer || discovery.issuer.replace(/\/$/, '') !== issuer.replace(/\/$/, '')) {
+      throw new UnauthorizedException('OIDC issuer mismatch');
+    }
+    return discovery;
+  }
+
+  /**
    * 通用 OIDC authorization code flow（企业 IdP，如 Keycloak / Azure AD）。
    *  1. 动态发现：GET {issuer}/.well-known/openid-configuration
    *  2. token 交换：POST token_endpoint（authorization_code）
@@ -462,19 +508,7 @@ export class OAuthService {
     }
 
     // 1. 动态发现
-    let discovery: OidcDiscoveryDoc;
-    try {
-      const res = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      discovery = await res.json();
-    } catch (err) {
-      this.logger.error(`OIDC discovery failed: ${(err as Error).message}`);
-      throw new UnauthorizedException('Invalid OIDC configuration');
-    }
-    // 防混淆攻击：发现返回的 issuer 必须与配置一致
-    if (!discovery.issuer || discovery.issuer.replace(/\/$/, '') !== issuer.replace(/\/$/, '')) {
-      throw new UnauthorizedException('OIDC issuer mismatch');
-    }
+    const discovery = await this._discoverOidc(issuer);
     const { token_endpoint: tokenEndpoint, userinfo_endpoint: userinfoEndpoint, jwks_uri: jwksUri } = discovery;
     if (!tokenEndpoint || !userinfoEndpoint || !jwksUri) {
       throw new UnauthorizedException('OIDC endpoints not advertised');
