@@ -1,22 +1,10 @@
+<p align="center">
+  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的企业 AI 信任运行时" width="840">
+</p>
+
 # KeelBase — 构建并安全运行业务 AI 应用
 
-> **开源 AI 应用工程平台**——从已有系统或新业务模型，构建带治理、可审计、可私有化部署的业务安全 AI 应用。
-
-```text
-已有系统 / 新业务
-        ↓
-      协议 Protocol
-        ↓
-      AI 应用
-        ↓
-   业务安全 Agent
-        ↓
-      治理 Governance
-        ↓
-      审计 Audit
-        ↓
-    私有化部署
-```
+> **开源企业 AI 信任运行时（Enterprise AI Trust Runtime）**——连接 AI Agent 与现有业务系统，在不替换现有技术体系的前提下，提供身份、治理、审计与私有部署能力。从新业务模型或已有系统，构建并运行业务安全 AI 应用。
 
 > **构建能够安全地操作业务数据的 AI 应用。**
 
@@ -177,6 +165,35 @@ keelbase init --desc "Customer management"
 - **Trust / Private Deploy（数据主权）**：数据不出域，AI 每步可查、可撤销
 
 核心与 UI 框架无关；Flutter / Vue / React 都是 Renderer（[架构边界](docs/architecture-boundary.md)）。
+
+## 📍 KeelBase 的位置
+
+> **KeelBase 是企业 AI 信任运行时（Enterprise AI Trust Runtime）**——连接 AI Agent 与现有业务系统，在不替换现有技术体系的前提下，提供身份、治理、审计与私有部署能力。
+
+```text
+      AI 应用 / Agent
+      Agent 框架
+  LangGraph · AutoGen · CrewAI
+  自定义 Agent · MCP 客户端
+                    ▲
+                    │ identity · policy · governance
+                    │ audit · runtime · deployment
+              ┌─────────────┐
+              │  KeelBase   │
+              │ Enterprise  │
+              │ AI Trust    │
+              │ Runtime     │
+              └─────────────┘
+                    │
+                    │ bridge · protocol · capability mapping
+                    ▼
+      现有业务系统
+      CRM · ERP · OA · MES · Database
+```
+
+- **上（AI 世界，northbound）**：任何 Agent 都能进入治理。Agent 框架经**开放标准（MCP / OpenAPI / 函数调用）**接入——KeelBase 不重造编排、Agent 循环或记忆策略
+- **下（企业世界，southbound）**：任何业务系统都能具备 AI 能力。业务系统经 **Bridge（协议 + 能力映射）** 接入——无需替换
+- **中间（信任层）**：identity · policy · permission · 人工确认 · 副作用控制 · 审计与撤销 · 私有部署
 
 ---
 
