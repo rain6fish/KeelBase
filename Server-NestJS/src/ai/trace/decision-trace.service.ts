@@ -51,6 +51,9 @@ export interface TraceStep {
   provider?: string;
   tokens?: number;
   effect?: TraceEffect;
+  /** D4 多 Agent 归责：执行该步骤的子 agent 标识 / 调用方 agent */
+  agentId?: string;
+  callerAgentId?: string;
 }
 
 export interface DecisionTrace {
@@ -114,6 +117,8 @@ export class DecisionTraceService {
           success: !log.isError,
           errorMessage: log.errorMessage,
           checks: parseChecks(log.authorization),
+          agentId: log.agentId,
+          callerAgentId: log.callerAgentId,
         });
       } else if (log.action === 'tool_confirmation') {
         const parsed = parseConfirmation(log.detail);
@@ -125,6 +130,8 @@ export class DecisionTraceService {
           args: parsed.args,
           outcome: parsed.outcome,
           trusted: parsed.trusted,
+          agentId: log.agentId,
+          callerAgentId: log.callerAgentId,
         });
       } else {
         const tokens = (log.promptTokens ?? 0) + (log.completionTokens ?? 0);
@@ -138,6 +145,8 @@ export class DecisionTraceService {
           tokens: tokens > 0 ? tokens : undefined,
           success: !log.isError,
           errorMessage: log.errorMessage,
+          agentId: log.agentId,
+          callerAgentId: log.callerAgentId,
         });
       }
     }
