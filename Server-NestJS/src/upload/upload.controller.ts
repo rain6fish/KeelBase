@@ -60,6 +60,7 @@ export class UploadController {
         fileSize: 10 * 1024 * 1024, // 10 MB
         files: 1, // 单次只允许上传一个文件
       },
+      // fileFilter 在 Multer 拦截器内执行，单测直接调 controller 不经拦截器 → 不计单测覆盖（e2e 用 supertest multipart 覆盖）
       fileFilter: (_req, file, callback) => {
         const allowedMimes = [
           'image/jpeg',
