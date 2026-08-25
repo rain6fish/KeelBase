@@ -95,5 +95,31 @@ describe('NotificationsGateway', () => {
       const joined = res.writes.join('');
       expect(joined).not.toContain('"title":"b"');
     });
+
+    it('returned cleanup removes connection (set.delete + empty → connections.delete)', () => {
+      const res = mockResponse();
+      const unsubscribe = gateway.subscribe(1, res);
+      gateway.emitToUser(1, { id: 1, title: 'a', type: 'system' });
+      expect(res.write).toHaveBeenCalled();
+
+      unsubscribe();
+      gateway.emitToUser(1, { id: 2, title: 'b', type: 'system' });
+
+      const joined = res.writes.join('');
+      expect(joined).not.toContain('"title":"b"');
+    });
+
+    it('cleaning one of multiple connections keeps user subscribed', () => {
+      const a = mockResponse();
+      const b = mockResponse();
+      const unsubA = gateway.subscribe(1, a);
+      gateway.subscribe(1, b);
+
+      unsubA();
+      gateway.emitToUser(1, { id: 3, title: 'c', type: 'system' });
+
+      expect(b.writes.join('')).toContain('"title":"c"');
+      expect(a.writes.join('')).not.toContain('"title":"c"');
+    });
   });
 });
