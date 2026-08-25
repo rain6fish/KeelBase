@@ -123,6 +123,9 @@ export class AuditService {
     const actor = actorContext.getStore();
     const sessionId = entry.sessionId ?? actor?.sessionId;
     const agentId = entry.agentId ?? actor?.agentId;
+    // D4 多 Agent 归责：callerAgentId/businessIntent 从 ActorContext fallback（子 agent 场景自动填充）
+    const callerAgentId = entry.callerAgentId ?? actor?.callerAgentId;
+    const businessIntent = entry.businessIntent ?? actor?.businessIntent;
     // 链式串行：每次 log 排队在前一次之后执行，避免两个并发写同时读到同一 lastHash 造成分叉
     const job = this._tail.then(async () => {
       const prevHash = await this._lastHash();
@@ -153,9 +156,9 @@ export class AuditService {
         agentId,
         sessionId,
         parentActionId: entry.parentActionId,
-        callerAgentId: entry.callerAgentId,
+        callerAgentId,
         delegationContext: entry.delegationContext,
-        businessIntent: entry.businessIntent,
+        businessIntent,
         source: entry.source,
         promptTokens: entry.promptTokens,
         completionTokens: entry.completionTokens,
