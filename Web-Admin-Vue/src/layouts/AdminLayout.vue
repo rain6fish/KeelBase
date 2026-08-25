@@ -117,9 +117,11 @@ function updateNavScrollbar() {
     scrollBarVisible.value = false
     return
   }
-  const ratio = viewH / contentH
-  // 滑块高度：按比例 ×0.5（最短 20px），位于右侧空隙不遮菜单
-  scrollBarHeight.value = Math.max(20, ratio * viewH * 0.5)
+  // 拖动中保持滑块高度稳定（只更新位置），避免跳动
+  if (!barDragging) {
+    const ratio = viewH / contentH
+    scrollBarHeight.value = Math.max(20, ratio * viewH * 0.5)
+  }
   const maxScroll = contentH - viewH
   scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
   scrollBarVisible.value = true
@@ -129,26 +131,28 @@ function updateNavScrollbar() {
   }, 1000)
 }
 
-// 拖动滑块 → 滚动菜单
+// 拖动滑块 → 滚动菜单（标准滚动条行为：按下时记住滑块视口位置与鼠标偏移，拖动时滑块 1:1 跟随鼠标）
 let barDragging = false
-let dragStartY = 0
-let dragStartScroll = 0
+let dragOffsetY = 0
 function onBarMouseDown(e: MouseEvent) {
   barDragging = true
-  dragStartY = e.clientY
-  dragStartScroll = adminNavRef.value?.scrollTop ?? 0
+  const barRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  dragOffsetY = e.clientY - barRect.top
   document.addEventListener('mousemove', onBarMouseMove)
   document.addEventListener('mouseup', onBarMouseUp)
 }
 function onBarMouseMove(e: MouseEvent) {
   if (!barDragging || !adminNavRef.value) return
   const el = adminNavRef.value
+  const navRect = el.getBoundingClientRect()
   const viewH = el.clientHeight
   const maxScroll = el.scrollHeight - viewH
   const maxBarTop = viewH - scrollBarHeight.value
   if (maxScroll <= 0 || maxBarTop <= 0) return
-  const dy = e.clientY - dragStartY
-  el.scrollTop = dragStartScroll + (dy * maxScroll) / maxBarTop
+  // 滑块视口 top（保持按下时的偏移，1:1 跟随鼠标）→ 相对 .admin-nav 的 top
+  const barTopRel = e.clientY - dragOffsetY - navRect.top
+  const newTop = Math.max(0, Math.min(maxBarTop, barTopRel))
+  el.scrollTop = (newTop / maxBarTop) * maxScroll
   updateNavScrollbar()
 }
 function onBarMouseUp() {
