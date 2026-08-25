@@ -80,6 +80,8 @@ export class OperationAuditInterceptor implements NestInterceptor {
       case 'DELETE':
         return 'DELETE';
       default:
+        // WRITE_METHODS 过滤保证只有 POST/PATCH/PUT/DELETE 会走到这，default 防御性不可达
+        /* istanbul ignore next */
         return method;
     }
   }
