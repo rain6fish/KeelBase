@@ -8,7 +8,7 @@
         </div>
       </div>
 
-      <div class="admin-nav">
+      <div ref="adminNavRef" class="admin-nav" @mouseenter="flashAdminScroll" @scroll.passive="flashAdminScroll">
         <el-menu
           :key="activeGroup"
           :default-active="activeMenu"
@@ -100,7 +100,14 @@ function toggleRail() {
   rail.value = !rail.value
 }
 
-// 菜单滚动条：使用浏览器原生滚动条（main.scss 定制细滑块样式），拖动灵敏丝滑，无需自定义 JS
+// 菜单滚动条：浏览器原生（拖动灵敏丝滑），滑块平时隐藏，鼠标滑过/滚动时显示 1.6s 后隐藏
+const adminNavRef = ref<HTMLElement | null>(null)
+let scrollFlashTimer: number | undefined
+function flashAdminScroll() {
+  adminNavRef.value?.classList.add('scroll-flash')
+  clearTimeout(scrollFlashTimer)
+  scrollFlashTimer = window.setTimeout(() => adminNavRef.value?.classList.remove('scroll-flash'), 1600)
+}
 
 function go(path: string) {
   router.push(path)
