@@ -10,6 +10,7 @@
 
       <div ref="adminNavRef" class="admin-nav" @mouseenter="updateNavScrollbar" @scroll.passive="updateNavScrollbar">
         <el-menu
+          :key="activeGroup"
           :default-active="activeMenu"
           :default-openeds="defaultOpeneds"
           :collapse="rail"
@@ -38,8 +39,8 @@
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
-        <!-- 自定义短滑块（高度大幅缩短，滑过/滚动时短暂显示） -->
-        <div class="nav-scrollbar" :class="{ show: scrollBarVisible }" :style="{ height: scrollBarHeight + 'px', top: scrollBarTop + 'px' }"></div>
+        <!-- 自定义短滑块（高度缩短，滑过/滚动时短暂显示；可拖动） -->
+        <div class="nav-scrollbar" :class="{ show: scrollBarVisible }" :style="{ height: scrollBarHeight + 'px', top: scrollBarTop + 'px' }" @mousedown="onBarMouseDown"></div>
       </div>
 
     </el-aside>
@@ -126,6 +127,34 @@ function updateNavScrollbar() {
   scrollFlashTimer = window.setTimeout(() => {
     scrollBarVisible.value = false
   }, 1000)
+}
+
+// 拖动滑块 → 滚动菜单
+let barDragging = false
+let dragStartY = 0
+let dragStartScroll = 0
+function onBarMouseDown(e: MouseEvent) {
+  barDragging = true
+  dragStartY = e.clientY
+  dragStartScroll = adminNavRef.value?.scrollTop ?? 0
+  document.addEventListener('mousemove', onBarMouseMove)
+  document.addEventListener('mouseup', onBarMouseUp)
+}
+function onBarMouseMove(e: MouseEvent) {
+  if (!barDragging || !adminNavRef.value) return
+  const el = adminNavRef.value
+  const viewH = el.clientHeight
+  const maxScroll = el.scrollHeight - viewH
+  const maxBarTop = viewH - scrollBarHeight.value
+  if (maxScroll <= 0 || maxBarTop <= 0) return
+  const dy = e.clientY - dragStartY
+  el.scrollTop = dragStartScroll + (dy * maxScroll) / maxBarTop
+  updateNavScrollbar()
+}
+function onBarMouseUp() {
+  barDragging = false
+  document.removeEventListener('mousemove', onBarMouseMove)
+  document.removeEventListener('mouseup', onBarMouseUp)
 }
 
 function go(path: string) {
