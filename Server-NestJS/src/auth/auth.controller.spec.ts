@@ -1,11 +1,16 @@
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
+import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
+import { DelegationTokenService } from './delegation-token.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: Record<string, jest.Mock>;
   let providersConfig: { getConfig: jest.Mock };
+  let caslFactory: { explain: jest.Mock };
+  let delegationTokenService: { sign: jest.Mock };
+  let usersRepo: { findOne: jest.Mock };
 
   const mockUser = { sub: 1, username: 'alex' };
   const mockReq = {
@@ -20,12 +25,19 @@ describe('AuthController', () => {
         'resetPassword', 'verifyEmail', 'resendVerification', 'sendSmsCode',
         'loginPhone', 'bindPhone', 'deactivateAccount', 'exportData',
         'getInviteInfo', 'getProfile', 'logout', 'getSessions', 'revokeSession',
+        'mfaSetup', 'mfaVerify', 'mfaDisable', 'changePassword',
       ].map((m) => [m, jest.fn()]),
     );
     providersConfig = { getConfig: jest.fn() };
+    caslFactory = { explain: jest.fn(), describeForUser: jest.fn(), explainForTarget: jest.fn() };
+    delegationTokenService = { sign: jest.fn() };
+    usersRepo = { findOne: jest.fn() };
     controller = new AuthController(
       authService as unknown as AuthService,
       providersConfig as unknown as OAuthProvidersConfigService,
+      caslFactory as unknown as CaslAbilityFactory,
+      delegationTokenService as unknown as DelegationTokenService,
+      usersRepo as unknown as import('typeorm').Repository<any>,
     );
   });
 
@@ -141,5 +153,64 @@ describe('AuthController', () => {
     await expect(controller.revokeSession(mockUser as any, 3)).resolves.toBeNull();
     expect(authService.logout).toHaveBeenCalledWith(1, 'dev-1');
     expect(authService.revokeSession).toHaveBeenCalledWith(1, 3);
+  });
+
+  describe('Explainable Authz / delegation / MFA', () => {
+    it('issueDelegationToken 委托 delegationTokenService.sign', async () => {
+      delegationTokenService.sign.mockReturnValue('jwt-token');
+      await expect(
+        controller.issueDelegationToken({ audience: 'crm', ttlSeconds: 300 } as any, mockUser as any),
+      ).resolves.toBe('jwt-token');
+      expect(delegationTokenService.sign).toHaveBeenCalledWith('1', 'crm', 300);
+    });
+
+    it('getMyPermissions 委托 caslFactory.describeForUser', async () => {
+      caslFactory.describeForUser.mockReturnValue({ permissions: [] });
+      await expect(controller.getMyPermissions(mockUser as any)).resolves.toEqual({ permissions: [] });
+      expect(caslFactory.describeForUser).toHaveBeenCalledWith(mockUser);
+    });
+
+    it('explainPermission 委托 caslFactory.explain', async () => {
+      caslFactory.explain.mockReturnValue({ allowed: true, basis: [] });
+      const body = { action: 'read', subject: 'Event' };
+      await expect(controller.explainPermission(mockUser as any, body as any)).resolves.toEqual({ allowed: true, basis: [] });
+      expect(caslFactory.explain).toHaveBeenCalledWith(mockUser, 'read', 'Event');
+    });
+
+    it('explainPermissionForTarget 委托 usersRepo + explainForTarget', async () => {
+      usersRepo.findOne.mockResolvedValue({ id: 5, role: 'admin', username: 'boss' });
+      caslFactory.explainForTarget.mockReturnValue({ allowed: true });
+      const body = { userId: 5, action: 'manage', subject: 'all' };
+      const result = await controller.explainPermissionForTarget(body as any);
+      expect(usersRepo.findOne).toHaveBeenCalledWith({ where: { id: 5 }, select: { id: true, role: true, username: true } });
+      expect(result.userId).toBe(5);
+      expect(result.username).toBe('boss');
+      expect(caslFactory.explainForTarget).toHaveBeenCalledWith({ role: 'admin', sub: 5 }, 'manage', 'all');
+    });
+
+    it('explainPermissionForTarget 用户不存在抛 404', async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      await expect(controller.explainPermissionForTarget({ userId: 999, action: 'read', subject: 'Event' } as any))
+        .rejects.toThrow('用户不存在');
+    });
+
+    it('mfaSetup/verify/disable 委托 authService', async () => {
+      authService.mfaSetup.mockResolvedValue({ secret: 's', otpauthUrl: 'otpauth://' });
+      authService.mfaVerify.mockResolvedValue({ ok: true });
+      authService.mfaDisable.mockResolvedValue({ ok: true });
+      await expect(controller.mfaSetup(mockUser as any)).resolves.toEqual({ secret: 's', otpauthUrl: 'otpauth://' });
+      await expect(controller.mfaVerify(mockUser as any, { secret: 's', code: '123456' } as any)).resolves.toEqual({ ok: true });
+      await expect(controller.mfaDisable(mockUser as any, { code: '123456' } as any)).resolves.toEqual({ ok: true });
+      expect(authService.mfaSetup).toHaveBeenCalledWith(1, 'alex');
+      expect(authService.mfaVerify).toHaveBeenCalledWith(1, 's', '123456');
+      expect(authService.mfaDisable).toHaveBeenCalledWith(1, '123456');
+    });
+
+    it('changePassword 委托 authService', async () => {
+      authService.changePassword.mockResolvedValue({ ok: true });
+      const dto = { currentPassword: 'old', newPassword: 'NewPass123' };
+      await expect(controller.changePassword(mockUser as any, dto as any)).resolves.toEqual({ ok: true });
+      expect(authService.changePassword).toHaveBeenCalledWith(1, dto);
+    });
   });
 });
