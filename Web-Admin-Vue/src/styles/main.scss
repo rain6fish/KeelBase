@@ -63,7 +63,11 @@ body {
   background-color: var(--el-border-color);
   opacity: 0;
   transition: opacity 0.2s ease;
-  pointer-events: none;
+  cursor: grab;
+}
+.nav-scrollbar:active {
+  cursor: grabbing;
+  background-color: var(--el-text-color-secondary);
 }
 .nav-scrollbar.show {
   opacity: 1;
