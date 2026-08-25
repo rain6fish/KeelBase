@@ -126,7 +126,26 @@
         </div>
         <el-divider />
         <div class="text-caption text-medium-emphasis mb-1">{{ t('decisionTrace') }}</div>
-        <div v-if="governance.trace" class="text-body-2 text-success">{{ t('traceAvailable') }}</div>
+        <div v-if="whySteps.length" class="d-flex flex-column ga-2">
+          <div v-for="s in whySteps" :key="s.id" class="bordered pa-2">
+            <div class="d-flex justify-space-between align-center">
+              <span class="text-body-2">{{ s.toolName || s.type }}</span>
+              <StatusChip :status="s.type === 'confirmation' ? (s.outcome === 'approve' ? 'ok' : 'cancelled') : s.success === false ? 'error' : s.success === true ? 'ok' : 'info'" :label-map="whyStatusMap" />
+            </div>
+            <div class="text-body-2 text-medium-emphasis mt-1">{{ whyUserText(s) }}</div>
+            <el-collapse class="mt-1">
+              <el-collapse-item :title="t('techDetail')">
+                <div v-if="s.checks?.length" class="d-flex flex-column ga-1">
+                  <div v-for="c in s.checks" :key="c.name" class="text-caption">
+                    <StatusChip :status="c.ok ? 'ok' : 'error'" :label-map="checkStatusMap" /> {{ c.name }}{{ c.note ? ' — ' + c.note : '' }}
+                  </div>
+                </div>
+                <div v-if="s.args" class="text-caption mt-1"><code>{{ s.args }}</code></div>
+                <div v-if="s.errorMessage" class="text-caption text-error mt-1">{{ s.errorMessage }}</div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+        </div>
         <div v-else class="text-body-2 text-medium-emphasis">{{ t('traceEmpty') }}</div>
       </div>
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
@@ -155,6 +174,40 @@ const effects = ref<ToolEffect[]>([])
 const loading = ref(false)
 const governanceDrawer = ref(false)
 const governance = ref<GovernanceActionResponse | null>(null)
+
+/** D1 Why 双层：决策轨迹中的工具调用/确认步骤（用户视角人类语言 + 技术详情展开） */
+interface TraceStepLite {
+  id: string
+  type: string
+  toolName?: string
+  args?: string
+  success?: boolean
+  errorMessage?: string | null
+  checks?: Array<{ name: string; ok: boolean; note?: string }>
+  outcome?: 'approve' | 'decline' | 'timeout'
+}
+
+const whyStatusMap = computed(() => ({
+  ok: t('allowed'),
+  cancelled: t('rejected'),
+  error: t('blocked'),
+  info: t('pending'),
+}))
+const checkStatusMap = computed(() => ({ ok: t('pass'), error: t('denied') }))
+
+const whySteps = computed<TraceStepLite[]>(() => {
+  const trace = governance.value?.trace as { steps?: TraceStepLite[] } | null
+  if (!trace?.steps) return []
+  return trace.steps.filter((s) => s.type === 'tool_call' || s.type === 'confirmation')
+})
+
+function whyUserText(s: TraceStepLite): string {
+  if (s.type === 'confirmation') {
+    return s.outcome === 'approve' ? t('whyConfirmed') : s.outcome === 'decline' ? t('whyDeclined') : t('whyTimeout')
+  }
+  if (s.success === false) return t('whyBlocked')
+  return t('whyAllowed')
+}
 
 const outcomeMap = computed(() => ({ ok: t('approved'), cancelled: t('rejected') }))
 const effectStatusMap = computed(() => ({
