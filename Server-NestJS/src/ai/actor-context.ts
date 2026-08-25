@@ -14,6 +14,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export interface ActorContext {
   sessionId?: string;
   agentId?: string;
+  /** D4 多 Agent 归责：父 agent 标识（子 agent 由谁调用） */
+  callerAgentId?: string;
+  /** D4：本次委托/子代理执行的业务意图 */
+  businessIntent?: string;
 }
 
 export const actorContext = new AsyncLocalStorage<ActorContext>();
