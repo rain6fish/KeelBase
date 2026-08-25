@@ -63,8 +63,7 @@ body {
   background-color: var(--el-border-color);
   opacity: 0;
   transition: opacity 0.2s ease;
-  /* 滚动条滑块：上下调整箭头（非抓取手型） */
-  cursor: ns-resize;
+  /* 与原生滚动条一致：默认箭头光标，不设特殊 cursor */
 }
 .nav-scrollbar:active {
   background-color: var(--el-text-color-secondary);
