@@ -232,4 +232,28 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
       .set(authHeader(userA.accessToken))
       .expect(200);
   });
+
+  it('⑧ 治理视图：CRM 业务动作（crm_task）经 governance 端点反查（EB-2/B4 贯通）', async () => {
+    // 经 AI 写执行路径登记 crm_task 副作用（真实 CRM 业务动作）
+    const write = await (aiService as any)._executeWriteTool('create_followup_task', { customerId, title: '治理视图跟进' }, String(userAId), 'gov-crm-conv');
+    expect(write.success).toBe(true);
+    const list = await effectsService.list({ userId: userAId });
+    const effect = list.items.find((e: any) => e.toolName === 'create_followup_task' && e.targetTitle === '治理视图跟进');
+    expect(effect).toBeDefined();
+
+    // 本人可读治理视图（CRM 业务动作 → 副作用 + trace，trace 尽力而为）
+    const gov = await request(app.getHttpServer())
+      .get(`/api/v1/ai/governance/action/crm_task/${effect.resultId}`)
+      .set(authHeader(userA.accessToken))
+      .expect(200);
+    expect(gov.body.data.effect.resultType).toBe('crm_task');
+    expect(gov.body.data.effect.resultId).toBe(effect.resultId);
+    expect(gov.body.data.effect.toolName).toBe('create_followup_task');
+
+    // 越权：B → 403
+    await request(app.getHttpServer())
+      .get(`/api/v1/ai/governance/action/crm_task/${effect.resultId}`)
+      .set(authHeader(userB.accessToken))
+      .expect(403);
+  });
 });
