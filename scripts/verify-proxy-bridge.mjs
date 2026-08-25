@@ -28,6 +28,8 @@ const PROVIDER = process.env.PROVIDER || 'deepseek';
 const MODEL = process.env.MODEL || 'deepseek-v4-flash';
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4310', 10);
 const TIMEOUT_MS = parseInt(process.env.GATE_TIMEOUT || '180000', 10);
+/** SKIP_SETUP=1：跳过写 ai_proxy_tools（假定 run-adversarial 已预配置 + 重启后端注册），只做 mock + 对话验证 */
+const SKIP_SETUP = process.env.SKIP_SETUP === '1';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const results = [];
@@ -136,21 +138,25 @@ async function main() {
   // 0. 起 mock Java 目标 + 写入 ai_proxy_tools 配置
   const mock = await startMockTarget(PROXY_PORT);
   console.log(`→ mock Java 目标已起（${mock.base}）`);
-  const adminToken = await loginAs('admin', ADMIN_PASS);
-  const proxyCfg = {
-    baseUrl: mock.base,
-    audience: 'legacy-erp',
-    tools: [
-      { name: 'proxy_list_contract', description: '查询 legacy 系统的合同列表', method: 'GET', path: '/contracts', parameters: [{ name: 'keyword', type: 'string', description: '搜索关键字', required: false }], riskLevel: 'R1' },
-      { name: 'proxy_create_contract', description: '在 legacy 系统创建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '合同标题', required: true }, { name: 'amount', type: 'number', description: '金额', required: false }], riskLevel: 'R3' },
-    ],
-  };
-  // Settings type 枚举只收 string/number/boolean——value 传 JSON 字符串，type 用 string（HTTP 层 DTO 校验）
-  const setRes = await api(adminToken, '/settings/ai_proxy_tools', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(proxyCfg), type: 'string' }) });
-  if (setRes.status !== 200 && setRes.status !== 201) {
-    console.log(`  ⚠ 写入 ai_proxy_tools 失败 status=${setRes.status}（可能 Settings 端点/权限差异，继续按已配置处理）`);
+  if (!SKIP_SETUP) {
+    const adminToken = await loginAs('admin', ADMIN_PASS);
+    const proxyCfg = {
+      baseUrl: mock.base,
+      audience: 'legacy-erp',
+      tools: [
+        { name: 'proxy_list_contract', description: '查询 legacy 系统的合同列表', method: 'GET', path: '/contracts', parameters: [{ name: 'keyword', type: 'string', description: '搜索关键字', required: false }], riskLevel: 'R1' },
+        { name: 'proxy_create_contract', description: '在 legacy 系统创建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '合同标题', required: true }, { name: 'amount', type: 'number', description: '金额', required: false }], riskLevel: 'R3' },
+      ],
+    };
+    // Settings type 枚举只收 string/number/boolean——value 传 JSON 字符串，type 用 string（HTTP 层 DTO 校验）
+    const setRes = await api(adminToken, '/settings/ai_proxy_tools', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(proxyCfg), type: 'string' }) });
+    if (setRes.status !== 200 && setRes.status !== 201) {
+      console.log(`  ⚠ 写入 ai_proxy_tools 失败 status=${setRes.status}（可能 Settings 端点/权限差异，继续按已配置处理）`);
+    }
+    ok('配置 ai_proxy_tools（mock 目标）', `PUT /settings/ai_proxy_tools`);
+  } else {
+    ok('复用预配置 ai_proxy_tools', 'SKIP_SETUP=1（run-adversarial 已配置）');
   }
-  ok('配置 ai_proxy_tools（mock 目标）', `PUT /settings/ai_proxy_tools`);
 
   // 0.5 检查工具是否已注册（需后端重启使配置生效）
   const inv = await api(adminToken, '/ai/tools');
