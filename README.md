@@ -1,6 +1,6 @@
 # KeelBase — Build and Run Business-safe AI Applications
 
-> **Open-source AI application engineering platform** — build business-safe AI applications from existing systems or new business models, with governance, auditability, and private deployment built in.
+> **Open-source Enterprise AI Trust Runtime** — connect AI agents with existing business systems, adding identity, governance, auditability, and private deployment **without replacing existing technology stacks**. Build and run business-safe AI applications from new business models or existing systems.
 
 ```text
 Existing System / New Business
@@ -180,25 +180,32 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ## 📍 Where KeelBase Sits
 
-KeelBase is the **enterprise AI trust runtime** — it doesn't replace your agent framework or your business systems; it sits between them and makes AI business-safe.
+> **KeelBase is an Enterprise AI Trust Runtime** — it connects AI agents with existing business systems, adding identity, governance, auditability, and private deployment, **without replacing existing technology stacks**.
 
 ```text
-Your AI Applications / Agent Frameworks     ← up: no re-built orchestration
-  (MCP, OpenAPI, LangGraph, CrewAI, AutoGen)    agents enter governance via MCP / OpenAPI
+      AI Applications / Agents
+      Agent Frameworks
+  LangGraph · AutoGen · CrewAI
+  Custom Agents · MCP Clients
                     ▲
-                    │ identity · policy · governance · audit · revoke · deploy
-              ┌─────┴─────┐
-              │  KeelBase  │   Enterprise AI Trust Runtime
-              └─────┬─────┘
-                    │ no replacement — existing systems keep running
+                    │ identity · policy · governance
+                    │ audit · runtime · deployment
+              ┌─────────────┐
+              │  KeelBase   │
+              │ Enterprise  │
+              │ AI Trust    │
+              │ Runtime     │
+              └─────────────┘
+                    │
+                    │ bridge · protocol · capability mapping
                     ▼
-Your Existing Business Systems              ← down: no rip-and-replace
-  (CRM / ERP / OA via Bridge)                   systems gain AI capability via Bridge
+      Existing Business Systems
+      CRM · ERP · OA · MES · Database
 ```
 
-- **Up** — your AI applications, or bring your own agent framework: tools enter KeelBase governance through **open standards (MCP / OpenAPI)**, not a proprietary SDK
-- **Down** — your existing business systems (CRM / ERP / OA): no replacement; they become **Business-safe AI capability** through the Bridge
-- **In between** — KeelBase runs the **trust layer**: identity, permission, human confirmation, audit & revoke, private deployment
+- **Up — the AI world (northbound):** any agent can enter governance. Agent frameworks connect via **open standards (MCP / OpenAPI / function calling)** — KeelBase does not re-build orchestration, agent loops, or memory strategies
+- **Down — the business world (southbound):** any existing system can become AI-capable. Business systems connect via the **Bridge** (protocol + capability mapping) — no rip-and-replace
+- **In between — the trust layer:** identity, policy, permission, human confirmation, side-effect control, audit & revoke, private deployment
 
 ---
 
