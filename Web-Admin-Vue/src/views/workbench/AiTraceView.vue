@@ -42,8 +42,9 @@
             <div class="pa-1">
               <div class="d-flex justify-space-between align-center">
                 <div class="d-flex align-center ga-1">
-                  <!-- D1 Human-Agent-System：步骤来源标签（人 / AI / 系统） -->
+                  <!-- D1 Human-Agent-System：步骤来源标签（人 / AI / 系统）+ 子 agent 归责 -->
                   <el-tag size="small" :type="sourceTagType(s)" effect="plain">{{ t(sourceLabel(s)) }}</el-tag>
+                  <span v-if="s.agentId" class="text-caption text-medium-emphasis">· {{ s.agentId }}</span>
                   <span class="text-caption font-weight-medium" :class="stepColorClass(s)">
                     {{ stepLabel(s) }}
                   </span>
