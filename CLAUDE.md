@@ -1018,6 +1018,13 @@ Role: admin
 - 路由 hash 模式（`createWebHashHistory`）——单容器 Nest 静态托管无 SPA fallback，hash 让 nginx + 单容器两套部署链零改动
 - 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA（见私有 roadmap D.1）
 
+**视觉与交互（2026-08-25 UI 改造）**：
+- **三主题可切换**：深蓝（默认，信任蓝 `#1d4ed8`）/ 青绿 / 石墨，各含亮/暗变体；`<html data-theme>` + `dark` class 驱动，侧边栏底部主题切换器持久化（`admin_theme_variant`）
+- **二级可折叠菜单**（Materio 式）：一级分组带图标可展开/折叠，当前分组自动展开；选中项左侧贴边、右侧半圆 + 渐变底；二级选中时其一级分组显示浅色
+- **AI 助手全角色**：顶栏 AI 按钮全角色可用——管理员 = 系统 AI 助手（`/admin/ai/chat`，平台/治理上下文）；普通用户 = 本人数据作用域 AI（`/ai/chat`，写需确认）
+- **一体浅灰底 + 悬浮卡片**：侧边栏/顶栏与内容区同底色（`--el-bg-color-page`），白色卡片分层阴影悬浮；原生滚动条自动隐藏（滑过/滚动显示）
+- **Materio 视觉**：圆角（控件 8 / 卡片·按钮 12 / 输入框 16）、卡片柔和阴影、按钮 hover 投影
+
 **开发命令**：
 ```bash
 cd Web-Admin-Vue
