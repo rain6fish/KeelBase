@@ -25,4 +25,13 @@ export const authApi = {
   explainTarget(userId: number, action: string, subject: string): Promise<ExplainTargetResult> {
     return api.post<ExplainTargetResult>('/auth/permissions/explain/target', { userId, action, subject })
   },
+  oauthProviders(): Promise<{ enabledProviders: string[]; providers: unknown[]; groups: Record<string, unknown[]> }> {
+    return api.get('/auth/oauth/providers')
+  },
+  oidcUrl(redirectUri: string): Promise<{ url: string }> {
+    return api.get('/auth/oauth/oidc/url', { redirectUri })
+  },
+  oidcLogin(code: string, redirectUri: string): Promise<LoginResult> {
+    return api.post<LoginResult>('/auth/oauth', { provider: 'oidc', authorizationCode: code, redirectUri })
+  },
 }
