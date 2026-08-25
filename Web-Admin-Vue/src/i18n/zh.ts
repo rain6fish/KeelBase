@@ -125,6 +125,9 @@ const zh = {
   aiTraceLoading: '加载执行轨迹…',
   stepInput: '你的提问',
   stepAssistant: 'AI 回复',
+  traceSourceHuman: '人',
+  traceSourceAgent: 'AI',
+  traceSourceSystem: '系统',
   stepToolCall: '工具调用',
   stepConfirmation: '确认决策',
   stepEffect: '创建记录',
@@ -310,6 +313,7 @@ const zh = {
   // AI 行为回放
   aiTimelineHint: '按用户/会话聚合「AI 对用户数据做了什么」：工具调用 / 确认决策 / 副作用 / 错误',
   noTimeline: '暂无 AI 行为记录',
+  externalSystem: '外部系统（B 路径）',
   governanceDetail: '治理详情',
   who: '谁',
   when: '何时',
