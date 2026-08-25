@@ -63,10 +63,10 @@ body {
   background-color: var(--el-border-color);
   opacity: 0;
   transition: opacity 0.2s ease;
-  cursor: grab;
+  /* 滚动条滑块：上下调整箭头（非抓取手型） */
+  cursor: ns-resize;
 }
 .nav-scrollbar:active {
-  cursor: grabbing;
   background-color: var(--el-text-color-secondary);
 }
 .nav-scrollbar.show {
