@@ -254,6 +254,24 @@ const zh = {
   crmTaskTitleHint: '任务标题',
   crmTaskCompleted: '任务已完成',
 
+  // AI 业务洞察（P0 Intelligence Dashboard）
+  aiIntelligence: 'AI 业务洞察',
+  aiIntelligenceHint: 'AI CRM 业务洞察聚合——风险/管道/逾期/任务/风险一键总览',
+  recommendedActions: 'AI 建议动作',
+  highRiskCustomers: '高风险客户',
+  opportunities: '商机',
+  pipelineAmount: '管道金额',
+  weightedAmount: '加权金额',
+  soonClosing: '30 天内将成交',
+  overdueOrders: '逾期订单',
+  openTasks: '未完成任务',
+  openRisks: '未解决风险',
+  recommendFollowHighRisk: '有 {n} 个高风险客户——建议优先回访/跟进',
+  recommendCollectOverdue: '有 {n} 笔逾期订单——建议催收/联系',
+  recommendFollowOpportunity: '有 {n} 个商机 30 天内将成交——建议跟进推进',
+  recommendResolveRisk: '有 {n} 个未解决风险——建议处理',
+  allClear: '一切正常——暂无风险/逾期/待处理项',
+
   // AI Project Management 旗舰应用
   pmTitle: '项目管理',
   pmTotal: '共 {n} 个项目',
