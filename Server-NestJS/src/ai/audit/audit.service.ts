@@ -29,6 +29,12 @@ export interface AuditEntry {
   agentId?: string;
   /** W4-⑤ 会话标识（access token 暂无 jti，接入前可空） */
   sessionId?: string;
+  /** D4 Agent Delegation Chain（多 Agent 归责最小必需）：调用链父动作 id / 上层 agent / 委托上下文 / 业务意图 / 来源通道 */
+  parentActionId?: string;
+  callerAgentId?: string;
+  delegationContext?: string;
+  businessIntent?: string;
+  source?: string;
   promptTokens?: number;
   completionTokens?: number;
   durationMs?: number;
@@ -79,6 +85,12 @@ export interface AiAuditLogWithUser {
   /** D2 人类语言审计标签：语义 key（前端 i18n）+ 兜底人类可读描述（含工具名） */
   actionKey?: string | null;
   actionLabel?: string | null;
+  /** D4 Agent Delegation Chain 增量字段（多 Agent 归责） */
+  parentActionId?: string | null;
+  callerAgentId?: string | null;
+  delegationContext?: string | null;
+  businessIntent?: string | null;
+  source?: string | null;
   model?: string | null;
   provider?: string | null;
   promptTokens?: number | null;
@@ -140,6 +152,11 @@ export class AuditService {
         provider: entry.provider,
         agentId,
         sessionId,
+        parentActionId: entry.parentActionId,
+        callerAgentId: entry.callerAgentId,
+        delegationContext: entry.delegationContext,
+        businessIntent: entry.businessIntent,
+        source: entry.source,
         promptTokens: entry.promptTokens,
         completionTokens: entry.completionTokens,
         durationMs: entry.durationMs,
@@ -262,6 +279,11 @@ export class AuditService {
       detail: r.log_detail ?? null,
       actionKey: label.key,
       actionLabel: label.fallback,
+      parentActionId: r.log_parent_action_id ?? null,
+      callerAgentId: r.log_caller_agent_id ?? null,
+      delegationContext: r.log_delegation_context ?? null,
+      businessIntent: r.log_business_intent ?? null,
+      source: r.log_source ?? null,
       model: r.log_model ?? null,
       provider: r.log_provider ?? null,
       promptTokens: r.log_prompt_tokens != null ? Number(r.log_prompt_tokens) : null,
