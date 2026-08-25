@@ -250,6 +250,14 @@ OIDC_CLIENT_SECRET=your-client-secret
 |--------|------|------|
 | POST | `/api/v1/auth/oauth` | 第三方登录认证 / Third-party login authentication |
 | GET | `/api/v1/auth/oauth/providers` | 获取可用提供商列表 / Get the available provider list |
+| GET | `/api/v1/auth/oauth/oidc/url?redirectUri=` | 构建 OIDC 授权 URL（企业 SSO 前端跳转 IdP，动态发现 + 随机 state） / Build the OIDC authorization URL (Enterprise SSO redirect to IdP; dynamic discovery + random state) |
+
+### Web 管理端企业 SSO 按钮 / Web Admin Enterprise SSO Button
+
+- 登录页（Web-Admin-Vue `LoginView`）拉取 `/auth/oauth/providers`，`groups.enterprise` 含 `oidc` 时显示「企业 SSO」按钮 / The login page fetches `/auth/oauth/providers` and shows an "Enterprise SSO" button when `groups.enterprise` contains `oidc`
+- 点击 → `GET /auth/oauth/oidc/url?redirectUri=...` → 跳转 IdP；IdP 回调到 `#/auth/oidc/callback?code=...` → `POST /auth/oauth`（provider=oidc + authorizationCode）换 token / Click → `GET /auth/oauth/oidc/url?redirectUri=...` → redirect to IdP; IdP callback to `#/auth/oidc/callback?code=...` → `POST /auth/oauth` (provider=oidc + authorizationCode) to exchange tokens
+- **回调 URL 必须精确注册**：`redirect_uri` = `{origin}{pathname}#/auth/oidc/callback`（hash 模式；IdP 端须允许该回调） / **Callback URL must be registered exactly**: `redirect_uri` = `{origin}{pathname}#/auth/oidc/callback` (hash mode; the IdP must allow this callback)
+- 已知限制：`state` 已随机生成（防 CSRF），回调侧服务端校验为后续加固项（需会话状态） / Known limitation: `state` is randomly generated (CSRF), server-side validation on callback is a later hardening item (requires session state)
 
 ### POST /api/v1/auth/oauth
 
