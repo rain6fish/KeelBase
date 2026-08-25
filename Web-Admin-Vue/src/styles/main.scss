@@ -62,7 +62,7 @@ body {
   border-radius: 6px;
   background-color: var(--el-border-color);
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease;
   /* 与原生滚动条一致：默认箭头光标，不设特殊 cursor */
 }
 .nav-scrollbar:active {

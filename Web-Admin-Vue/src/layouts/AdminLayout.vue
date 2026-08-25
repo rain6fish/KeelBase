@@ -128,7 +128,7 @@ function updateNavScrollbar() {
   clearTimeout(scrollFlashTimer)
   scrollFlashTimer = window.setTimeout(() => {
     scrollBarVisible.value = false
-  }, 1000)
+  }, 1600)
 }
 
 // 拖动滑块 → 滚动菜单（标准滚动条行为：按下时记住滑块视口位置与鼠标偏移，拖动时滑块 1:1 跟随鼠标）
