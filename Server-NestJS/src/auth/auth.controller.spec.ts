@@ -1,5 +1,6 @@
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OAuthService } from './oauth.service';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { DelegationTokenService } from './delegation-token.service';
@@ -7,6 +8,7 @@ import { DelegationTokenService } from './delegation-token.service';
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: Record<string, jest.Mock>;
+  let oauthService: { getOidcAuthorizationUrl: jest.Mock };
   let providersConfig: { getConfig: jest.Mock };
   let caslFactory: { explain: jest.Mock };
   let delegationTokenService: { sign: jest.Mock };
@@ -32,8 +34,10 @@ describe('AuthController', () => {
     caslFactory = { explain: jest.fn(), describeForUser: jest.fn(), explainForTarget: jest.fn() };
     delegationTokenService = { sign: jest.fn() };
     usersRepo = { findOne: jest.fn() };
+    oauthService = { getOidcAuthorizationUrl: jest.fn() };
     controller = new AuthController(
       authService as unknown as AuthService,
+      oauthService as unknown as OAuthService,
       providersConfig as unknown as OAuthProvidersConfigService,
       caslFactory as unknown as CaslAbilityFactory,
       delegationTokenService as unknown as DelegationTokenService,
@@ -80,6 +84,19 @@ describe('AuthController', () => {
     const cfg = { providers: [] };
     providersConfig.getConfig.mockResolvedValue(cfg);
     await expect(controller.getProviders()).resolves.toBe(cfg);
+  });
+
+  it('getOidcUrl 委托 oauthService 并返回 { url }', async () => {
+    oauthService.getOidcAuthorizationUrl.mockResolvedValue('https://idp.example.com/auth?client_id=x');
+    await expect(controller.getOidcUrl('https://app.example.com/auth/oidc/callback')).resolves.toEqual({
+      url: 'https://idp.example.com/auth?client_id=x',
+    });
+    expect(oauthService.getOidcAuthorizationUrl).toHaveBeenCalledWith('https://app.example.com/auth/oidc/callback');
+  });
+
+  it('getOidcUrl 缺 redirectUri → BadRequestException', async () => {
+    await expect(controller.getOidcUrl(undefined)).rejects.toThrow('redirectUri is required');
+    expect(oauthService.getOidcAuthorizationUrl).not.toHaveBeenCalled();
   });
 
   it('refresh 委托 service.refreshToken', async () => {
