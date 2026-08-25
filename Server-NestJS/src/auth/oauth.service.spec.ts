@@ -605,4 +605,76 @@ describe('OAuthService', () => {
       expect(result.email).toBeNull();
     });
   });
+
+  describe('getOidcAuthorizationUrl（企业 SSO 授权 URL）', () => {
+    const ISSUER = 'https://sso.example.com/realms/keelbase';
+    const CLIENT_ID = 'keelbase-client';
+    const REDIRECT = 'https://app.example.com/auth/oidc/callback';
+
+    function configureOidc() {
+      configValues['OIDC_ISSUER'] = ISSUER;
+      configValues['OIDC_CLIENT_ID'] = CLIENT_ID;
+    }
+
+    function mockDiscovery(overrides: Record<string, unknown> = {}) {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          issuer: ISSUER,
+          authorization_endpoint: 'https://sso.example.com/realms/keelbase/protocol/openid-connect/auth',
+          token_endpoint: 'https://sso.example.com/token',
+          ...overrides,
+        }),
+      });
+    }
+
+    afterEach(() => {
+      for (const k of Object.keys(configValues)) delete configValues[k];
+    });
+
+    it('返回授权 URL：authorization_endpoint + client_id/code/scope/redirect_uri/state', async () => {
+      configureOidc();
+      mockDiscovery();
+      const url = await service.getOidcAuthorizationUrl(REDIRECT);
+      const parsed = new URL(url);
+      expect(parsed.origin + parsed.pathname).toBe('https://sso.example.com/realms/keelbase/protocol/openid-connect/auth');
+      expect(parsed.searchParams.get('client_id')).toBe(CLIENT_ID);
+      expect(parsed.searchParams.get('response_type')).toBe('code');
+      expect(parsed.searchParams.get('scope')).toBe('openid profile email');
+      expect(parsed.searchParams.get('redirect_uri')).toBe(REDIRECT);
+      expect(parsed.searchParams.get('state')).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it('每次调用 state 不同（防 CSRF 随机化）', async () => {
+      configureOidc();
+      mockDiscovery();
+      const a = new URL(await service.getOidcAuthorizationUrl(REDIRECT)).searchParams.get('state');
+      mockDiscovery();
+      const b = new URL(await service.getOidcAuthorizationUrl(REDIRECT)).searchParams.get('state');
+      expect(a).not.toBe(b);
+    });
+
+    it('OIDC 未配置（缺 clientId）→ UnauthorizedException', async () => {
+      configValues['OIDC_ISSUER'] = ISSUER; // 只配 issuer 缺 clientId
+      await expect(service.getOidcAuthorizationUrl(REDIRECT)).rejects.toThrow('OIDC is not configured');
+    });
+
+    it('discovery 缺 authorization_endpoint → UnauthorizedException', async () => {
+      configureOidc();
+      mockDiscovery({ authorization_endpoint: undefined });
+      await expect(service.getOidcAuthorizationUrl(REDIRECT)).rejects.toThrow('OIDC authorization endpoint not advertised');
+    });
+
+    it('discovery issuer 与配置不一致 → UnauthorizedException（防混淆）', async () => {
+      configureOidc();
+      mockDiscovery({ issuer: 'https://evil.example.com' });
+      await expect(service.getOidcAuthorizationUrl(REDIRECT)).rejects.toThrow('OIDC issuer mismatch');
+    });
+
+    it('discovery 请求失败 → UnauthorizedException', async () => {
+      configureOidc();
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+      await expect(service.getOidcAuthorizationUrl(REDIRECT)).rejects.toThrow('Invalid OIDC configuration');
+    });
+  });
 });
