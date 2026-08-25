@@ -103,6 +103,35 @@ else
   FAIL=$((FAIL+1))
 fi
 
+# ── AI Bridge B 路径（LLM 对话端到端：读 R1 自动 / 写 R3 确认 / 委托身份 / 审计）──
+echo ""
+echo "→ AI Bridge B 路径（verify-proxy-bridge：ProxyTool × mock Java 系统）"
+ADMIN_TOKEN=$(curl -s -m 5 -X POST "$BASE/auth/login" -H 'Content-Type: application/json' -d '{"username":"admin","password":"Admin@1234"}' | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).data.accessToken)}catch{console.log('FAIL')}})")
+if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "FAIL" ]; then
+  # 预配置 ai_proxy_tools（指向 mock 4310，mock 由 verify-proxy-bridge 起）→ 重启后端使 ProxyTool 注册
+  CFG='{"baseUrl":"http://localhost:4310/api","audience":"legacy-erp","tools":[{"name":"proxy_list_contract","description":"查询 legacy 系统合同列表","method":"GET","path":"/contracts","parameters":[{"name":"keyword","type":"string","description":"关键字","required":false}],"riskLevel":"R1"},{"name":"proxy_create_contract","description":"在 legacy 系统创建合同","method":"POST","path":"/contracts","parameters":[{"name":"title","type":"string","description":"标题","required":true}],"riskLevel":"R3"}]}'
+  CFG_JSON=$(node -e "process.stdout.write(JSON.stringify({ value: process.argv[1], type: 'string' }))" "$CFG")
+  curl -s -m 5 -X PUT "$BASE/settings/ai_proxy_tools" -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d "$CFG_JSON" >/dev/null 2>&1
+  # 重启隔离后端使 ProxyTool 注册（DB 为文件 sqlite，数据保留）
+  kill $SERVER_PID 2>/dev/null || true
+  sleep 1
+  (cd Server-NestJS && node dist/main > "$SERVER_LOG" 2>&1) &
+  SERVER_PID=$!
+  for i in $(seq 1 60); do
+    if curl -s -m 2 "$BASE/health" >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  if SKIP_SETUP=1 BASE_URL="$BASE" node scripts/verify-proxy-bridge.mjs; then
+    echo "  ✓ AI Bridge B 路径通过"
+    PASS=$((PASS+1))
+  else
+    echo "  ✗ AI Bridge B 路径有 fail（报告 docs/benchmark/proxy-bridge-*.md）"
+    FAIL=$((FAIL+1))
+  fi
+else
+  echo "  ⚠ admin 登录失败——跳过 B 路径（其余 Run/Adversarial 已覆盖）"
+fi
+
 echo ""
 echo "═══ Run/Adversarial: $([ $FAIL -eq 0 ] && echo 'PASS' || echo 'FAIL')（${PASS} pass / ${FAIL} fail）═══"
 [ $FAIL -eq 0 ]
