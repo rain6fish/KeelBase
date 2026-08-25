@@ -1015,6 +1015,31 @@ test('parseOpenApiProxy：x-keelbase-revoke-path → revokePath（Java 端补偿
   assert.match(t.description, /撤销/);
 });
 
+test('parseOpenApiProxy：Swagger 2（in: body 参数）→ body 字段解析', () => {
+  const r = parseOpenApiProxy({
+    swagger: '2.0',
+    paths: {
+      '/contracts': {
+        post: {
+          operationId: 'createContract',
+          summary: '新建合同',
+          parameters: [
+            { name: 'body', in: 'body', required: true, schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: '合同名称' }, amount: { type: 'number' } } } },
+          ],
+        },
+      },
+    },
+  }, {});
+  const t = r.tools[0];
+  assert.equal(t.method, 'POST');
+  const name = t.parameters.find((p) => p.name === 'name');
+  const amount = t.parameters.find((p) => p.name === 'amount');
+  assert.ok(name, 'Swagger 2 body 参数 schema 属性应解析');
+  assert.equal(name.required, true);
+  assert.equal(name.type, 'string');
+  assert.equal(amount.type, 'number');
+});
+
 test('parseOpenApiProxy：无 paths / 空工具 → error', () => {
   assert.match(parseOpenApiProxy({ openapi: '3.0.0' }, {}).error, /未找到可用 operations/);
   assert.match(parseOpenApiProxy({ paths: { '/x': { parameters: [] } } }, {}).error, /没有可转换的 operations/);
