@@ -124,6 +124,9 @@ const en: ZhDict = {
   aiTraceLoading: 'Loading execution trace…',
   stepInput: 'Your input',
   stepAssistant: 'AI reply',
+  traceSourceHuman: 'Human',
+  traceSourceAgent: 'AI',
+  traceSourceSystem: 'System',
   stepToolCall: 'Tool call',
   stepConfirmation: 'Confirmation',
   stepEffect: 'Created record',
@@ -309,6 +312,7 @@ const en: ZhDict = {
   // AI behavior timeline
   aiTimelineHint: 'Aggregate "what AI did to user data" by user/session: tool calls / confirmations / side effects / errors',
   noTimeline: 'No AI behavior records',
+  externalSystem: 'External system (B-path)',
   governanceDetail: 'Governance Detail',
   who: 'Who',
   when: 'When',
