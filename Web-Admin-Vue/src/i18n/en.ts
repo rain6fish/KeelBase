@@ -271,6 +271,14 @@ const en: ZhDict = {
   recommendResolveRisk: '{n} open risks — consider resolving',
   allClear: 'All clear — no risks / overdue / pending items',
 
+  // AI Copilot (P0 per-business-page AI assistant)
+  copilotTitle: 'AI Assistant',
+  copilotHint: 'Ask about the current customer "{name}" — AI analyzes within your data scope and suggests (writes need confirmation)',
+  copilotPlaceholder: 'Ask: what opportunities does this customer have?',
+  copilotQRisk: 'Analyze this customer\'s risk',
+  copilotQOrders: 'Why did orders decline?',
+  copilotQFollowup: 'Suggest follow-ups',
+
   // AI Project Management flagship app
   pmTitle: 'AI Project',
   pmTotal: '{n} projects',
@@ -341,6 +349,13 @@ const en: ZhDict = {
   traceAvailable: 'Decision trace available — see conversation trace for the full chain',
   traceEmpty: 'No decision trace (e.g. side effect written outside a conversation)',
   techDetail: 'Technical details',
+  governanceWhy: 'Why allowed',
+  governanceResult: 'Result',
+  governanceIntegrity: 'Integrity',
+  governanceLoading: 'Loading…',
+  governanceLoadFailed: 'Failed to load governance detail',
+  governanceNoData: 'No AI governance record — this action may be manually created',
+  governanceRecorded: 'Recorded',
   whyConfirmed: 'Confirmed by the user',
   whyDeclined: 'Declined by the user',
   whyTimeout: 'Confirmation timed out — not executed',

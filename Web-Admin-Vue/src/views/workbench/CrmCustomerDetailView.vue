@@ -1,6 +1,11 @@
 <template>
   <div>
-    <PageHeader :title="detail?.customer.name ?? t('crmTitle')" :subtitle="subtitle" />
+    <PageHeader :title="detail?.customer.name ?? t('crmTitle')" :subtitle="subtitle">
+      <el-button type="primary" plain @click="showCopilot = true">
+        <template #icon><AppIcon icon="mdi-robot-outline" /></template>
+        {{ t('copilotTitle') }}
+      </el-button>
+    </PageHeader>
 
     <el-row v-if="detail" :gutter="16" class="mb-4">
       <el-col :xs="24" :md="8">
@@ -83,17 +88,29 @@
               </template>
               <div v-for="tk in detail.tasks" :key="tk.id" class="d-flex align-center justify-space-between py-1">
                 <span :class="{ 'text-decoration-line-through text-medium-emphasis': tk.status === 'completed' }">{{ tk.title }}</span>
-                <el-button
-                  v-if="tk.status !== 'completed'"
-                  circle
-                  text
-                  type="success"
-                  size="small"
-                  :title="t('crmTaskCompleted')"
-                  @click="completeTask(tk.id)"
-                >
-                  <AppIcon icon="mdi-check-circle" />
-                </el-button>
+                <div class="d-flex align-center">
+                  <!-- D1 治理钻取：业务动作（crm_task）→ 谁/何时/做了什么/为何允许/结果/影响/完整性 -->
+                  <el-button
+                    circle
+                    text
+                    size="small"
+                    :title="t('governanceDetail')"
+                    @click="openGovernance('crm_task', tk.id)"
+                  >
+                    <AppIcon icon="mdi-shield-search" />
+                  </el-button>
+                  <el-button
+                    v-if="tk.status !== 'completed'"
+                    circle
+                    text
+                    type="success"
+                    size="small"
+                    :title="t('crmTaskCompleted')"
+                    @click="completeTask(tk.id)"
+                  >
+                    <AppIcon icon="mdi-check-circle" />
+                  </el-button>
+                </div>
               </div>
               <div v-if="!detail.tasks.length" class="text-medium-emphasis">{{ t('crmNoTasks') }}</div>
             </el-card>
@@ -109,6 +126,20 @@
         </el-row>
       </el-col>
     </el-row>
+
+    <!-- AI Copilot：当前客户上下文 AI 助手（P0） -->
+    <CrmCopilotDrawer
+      v-model="showCopilot"
+      :customer-name="detail?.customer.name ?? ''"
+      :customer-id="id"
+    />
+
+    <!-- D1 治理钻取：业务动作（crm_task）→ 谁/何时/做了什么/为何允许/结果/影响/完整性 -->
+    <GovernanceActionDrawer
+      v-model="governanceOpen"
+      :result-type="governanceTarget?.resultType ?? ''"
+      :result-id="governanceTarget?.resultId ?? 0"
+    />
 
     <el-dialog v-model="showAdd" :width="420" :title="addTitle">
       <template v-if="addType === 'order'">
@@ -141,6 +172,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
+import CrmCopilotDrawer from '@/components/CrmCopilotDrawer.vue'
+import GovernanceActionDrawer from '@/components/GovernanceActionDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { crmApi, type CrmCustomerDetail, type RiskAnalysis } from '@/api/crm'
 
@@ -152,6 +185,9 @@ const id = Number(route.params.id)
 const detail = ref<CrmCustomerDetail | null>(null)
 const analysis = ref<RiskAnalysis | null>(null)
 const analyzing = ref(false)
+const showCopilot = ref(false)
+const governanceOpen = ref(false)
+const governanceTarget = ref<{ resultType: string; resultId: number } | null>(null)
 const showAdd = ref(false)
 const saving = ref(false)
 const addType = ref('order')
@@ -194,6 +230,12 @@ function openAdd(type: string) {
   addType.value = type
   addValue.value = ''
   showAdd.value = true
+}
+
+/** D1 治理钻取：打开业务动作（resultType:resultId）的治理详情抽屉 */
+function openGovernance(resultType: string, resultId: number) {
+  governanceTarget.value = { resultType, resultId }
+  governanceOpen.value = true
 }
 
 async function onAdd() {
