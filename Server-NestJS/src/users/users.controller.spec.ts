@@ -4,7 +4,7 @@ import { UsersService } from './users.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let service: jest.Mocked<Pick<UsersService, 'create' | 'findAll' | 'findOne' | 'update' | 'updateRole' | 'remove'>>;
+  let service: jest.Mocked<Pick<UsersService, 'create' | 'findAll' | 'findOne' | 'update' | 'updateRole' | 'remove' | 'forceChangePassword'>>;
   let ability: { cannot: jest.Mock; can: jest.Mock };
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -18,6 +18,7 @@ describe('UsersController', () => {
       update: jest.fn(),
       updateRole: jest.fn(),
       remove: jest.fn(),
+      forceChangePassword: jest.fn(),
     };
     ability = { cannot: jest.fn().mockReturnValue(false), can: jest.fn().mockReturnValue(false) };
     controller = new UsersController(service as unknown as UsersService);
@@ -109,6 +110,21 @@ describe('UsersController', () => {
       const other = { sub: 9, username: 'admin', role: 'admin' };
       await expect(controller.remove(2, other as any, ability as any)).resolves.toBeNull();
       expect(service.remove).toHaveBeenCalledWith(2);
+    });
+  });
+
+  describe('mustChangePassword', () => {
+    it('委托 service.forceChangePassword', async () => {
+      service.forceChangePassword.mockResolvedValue(mockUserRecord as never);
+      const other = { sub: 1, username: 'admin' };
+      await expect(controller.mustChangePassword(2, other as any)).resolves.toBe(mockUserRecord);
+      expect(service.forceChangePassword).toHaveBeenCalledWith(2);
+    });
+
+    it('给自己设强制改密抛 BadRequestException', async () => {
+      const self = { sub: 1, username: 'admin' };
+      await expect(controller.mustChangePassword(1, self as any)).rejects.toThrow(BadRequestException);
+      expect(service.forceChangePassword).not.toHaveBeenCalled();
     });
   });
 });
