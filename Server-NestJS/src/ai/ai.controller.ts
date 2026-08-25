@@ -330,13 +330,16 @@ export class AiController {
       }
     }
     return {
+      // D1 Action Detail 七段数据（Who/When/What/Result/Side Effects 后端齐备；Why 在 trace；Integrity 走哈希链 verify）
       effect: {
         id: effect.id,
-        toolName: effect.toolName,
+        userId: effect.userId, // Who
+        toolName: effect.toolName, // What
+        argsHash: effect.argsHash,
         conversationId: effect.conversationId,
-        resultType: effect.resultType,
+        resultType: effect.resultType, // Side Effects
         resultId: effect.resultId,
-        createdAt: effect.createdAt,
+        createdAt: effect.createdAt, // When
       },
       trace,
     };
