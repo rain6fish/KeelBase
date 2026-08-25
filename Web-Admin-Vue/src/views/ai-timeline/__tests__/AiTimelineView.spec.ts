@@ -4,10 +4,11 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, effectsMock, revokeMock, errorMock, successMock } = vi.hoisted(() => ({
+const { logsMock, effectsMock, revokeMock, governanceMock, errorMock, successMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   effectsMock: vi.fn(),
   revokeMock: vi.fn(),
+  governanceMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
 }))
@@ -16,7 +17,7 @@ vi.mock('@/api/audit', () => ({
   auditApi: { logs: logsMock },
 }))
 vi.mock('@/api/aiTools', () => ({
-  aiToolsApi: { effects: effectsMock, revokeEffect: revokeMock },
+  aiToolsApi: { effects: effectsMock, revokeEffect: revokeMock, governanceAction: governanceMock },
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
@@ -114,5 +115,33 @@ describe('AiTimelineView', () => {
 
     expect(revokeMock).toHaveBeenCalledWith(3)
     expect(successMock).toHaveBeenCalledWith('已下线')
+  })
+
+  it('治理详情：点副作用「治理详情」→ 调 governanceAction + 抽屉显示 Who/What', async () => {
+    logsMock.mockResolvedValue([toolCallLog])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 100,
+      items: [
+        { id: 3, toolName: 'create_event', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, argsHash: 'h', createdAt: '2026-08-21T10:00:30Z', targetExists: true, targetSoftDeleted: false, targetTitle: '周会' },
+      ],
+    })
+    governanceMock.mockResolvedValue({
+      effect: { id: 3, userId: 'u1', toolName: 'create_event', argsHash: 'h', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, createdAt: '2026-08-21T10:00:30Z' },
+      trace: null,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const infoBtn = wrapper.find('.el-button--info')
+    expect(infoBtn.exists()).toBe(true)
+    await infoBtn.trigger('click')
+    await flushPromises()
+
+    expect(governanceMock).toHaveBeenCalledWith('event', 50)
+    expect(wrapper.text()).toContain('u1')
+    expect(wrapper.text()).toContain('create_event')
   })
 })
