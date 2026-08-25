@@ -41,9 +41,13 @@
           <el-card shadow="never" class="mb-2">
             <div class="pa-1">
               <div class="d-flex justify-space-between align-center">
-                <span class="text-caption font-weight-medium" :class="stepColorClass(s)">
-                  {{ stepLabel(s) }}
-                </span>
+                <div class="d-flex align-center ga-1">
+                  <!-- D1 Human-Agent-System：步骤来源标签（人 / AI / 系统） -->
+                  <el-tag size="small" :type="sourceTagType(s)" effect="plain">{{ t(sourceLabel(s)) }}</el-tag>
+                  <span class="text-caption font-weight-medium" :class="stepColorClass(s)">
+                    {{ stepLabel(s) }}
+                  </span>
+                </div>
                 <span class="text-caption text-medium-emphasis">{{ formatTime(s.time) }}</span>
               </div>
 
@@ -208,6 +212,23 @@ function stepLabel(s: TraceStep): string {
     case 'effect': return t('stepEffect')
     default: return t('stepNotice')
   }
+}
+
+/** D1 Human-Agent-System Accountability：步骤来源分类（人 / AI / 系统） */
+function sourceOf(s: TraceStep): 'human' | 'agent' | 'system' {
+  if (s.type === 'input' || s.type === 'confirmation') return 'human'
+  if (s.type === 'assistant' || s.type === 'tool_call') return 'agent'
+  return 'system'
+}
+function sourceLabel(s: TraceStep): string {
+  const src = sourceOf(s)
+  return src === 'human' ? 'traceSourceHuman' : src === 'agent' ? 'traceSourceAgent' : 'traceSourceSystem'
+}
+function sourceTagType(s: TraceStep): 'success' | 'primary' | 'info' {
+  const src = sourceOf(s)
+  if (src === 'human') return 'success'
+  if (src === 'agent') return 'primary'
+  return 'info'
 }
 
 function stepColor(s: TraceStep): string {
