@@ -88,4 +88,21 @@ describe('OperationAuditInterceptor', () => {
 
     expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '42', action: 'UPDATE' }));
   });
+
+  it('非写方法（OPTIONS）→ 跳过不审计（WRITE_METHODS 过滤）', async () => {
+    const req = { method: 'OPTIONS', originalUrl: '/api/v1/x', url: '/api/v1/x', body: {}, headers: {}, params: {} };
+
+    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
+  it('body 循环引用（JSON.stringify 抛错）→ 审计仍记录且不抛错（_safeBody catch 兜底）', async () => {
+    const cyclic: any = { name: 'x' };
+    cyclic.self = cyclic;
+    const req = { method: 'POST', originalUrl: '/api/v1/events', url: '/api/v1/events', body: cyclic, headers: {}, params: {}, user: { sub: 1 } };
+
+    await expect(firstValueFrom(interceptor.intercept(mockContext(req), next))).resolves.toEqual({ ok: true });
+    expect(auditService.log).toHaveBeenCalled();
+  });
 });
