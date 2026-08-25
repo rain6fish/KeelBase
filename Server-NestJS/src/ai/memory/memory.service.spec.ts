@@ -109,6 +109,27 @@ describe('MemoriesService', () => {
       await service.extractFromTurn('1', '叫我小美，我喜欢画画');
       expect(store.size).toBe(2);
     });
+
+    it('should extract identity from 我的名字叫 (名字 render)', async () => {
+      await service.extractFromTurn('1', '我的名字叫李雷');
+      const mem = Array.from(store.values())[0];
+      expect(mem.type).toBe('identity');
+      expect(mem.content).toContain('用户名字：李雷');
+    });
+
+    it('should extract preference from 我习惯 (习惯 render)', async () => {
+      await service.extractFromTurn('1', '我习惯早起');
+      const mem = Array.from(store.values())[0];
+      expect(mem.type).toBe('preference');
+      expect(mem.content).toContain('用户习惯：早起');
+    });
+
+    it('should extract fact from 我每周 (规律 render)', async () => {
+      await service.extractFromTurn('1', '我每周跑步三次');
+      const mem = Array.from(store.values())[0];
+      expect(mem.type).toBe('fact');
+      expect(mem.content).toContain('用户规律：跑步三次');
+    });
   });
 
   describe('create dedupe', () => {
@@ -122,6 +143,18 @@ describe('MemoriesService', () => {
       await service.create('1', 'preference', '用户喜欢：咖啡');
       await service.create('2', 'preference', '用户喜欢：咖啡');
       expect(store.size).toBe(2);
+    });
+
+    it('removes oldest memory when exceeding per-user limit', async () => {
+      // findOne 第一次（查重）返回 null；第二次（超上限找最旧）返回 oldest
+      mockRepo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 999, content: '旧记忆', userId: '1' });
+      mockRepo.count.mockResolvedValueOnce(200); // >= MAX_MEMORIES_PER_USER
+
+      await service.create('1', 'fact', '新记忆');
+
+      expect(mockRepo.remove).toHaveBeenCalledWith({ id: 999, content: '旧记忆', userId: '1' });
     });
   });
 
