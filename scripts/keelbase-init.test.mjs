@@ -1240,6 +1240,33 @@ paths:
   assert.equal(tier.type, 'string');
 });
 
+test('端到端：--import-openapi-proxy --list-tools 预览工具清单（不生成）', async () => {
+  const root = await tempRoot();
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  const specPath = `${root}/erp.yaml`;
+  await write(specPath, `openapi: 3.0.0
+paths:
+  /contracts:
+    get: { operationId: listContracts }
+    post: { operationId: createContract }
+`);
+
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, '--import-openapi-proxy', specPath, '--list-tools'], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => (code === 0 ? resolve(o + e) : reject(new Error(`exit ${code}: ${o}${e}`))));
+  });
+
+  assert.match(out, /可用 proxy 工具（2）/);
+  assert.match(out, /list_contracts/);
+  assert.match(out, /create_contract/);
+  // 不写任何文件（纯预览）
+  await assert.rejects(access(`${root}/proxy.json`));
+});
+
 test('端到端：--import-openapi --out 协议含 required/label 透传 + skipped 诊断', async () => {
   const root = await tempRoot();
   const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
