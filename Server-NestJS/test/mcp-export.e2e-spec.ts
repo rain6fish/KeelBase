@@ -1,13 +1,17 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp, registerUser, authHeader } from './helpers';
+import { DataSource } from 'typeorm';
+import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 
 /**
- * HS-10 MCP 出口 HTTP 层 e2e：真实 MCP JSON-RPC 过 JWT 认证 → 控制器 → 治理层。
+ * HS-10 MCP 出口（AR-2：MCP 即 Adapter）e2e：外部 Agent Framework 以 MCP client 身份
+ * 经 JWT 认证 → 控制器 → 治理层，Identity / Permission / Audit 全走通。
  */
-describe('MCP Export (HS-10) e2e', () => {
+describe('MCP Export (HS-10 / AR-2) e2e', () => {
   let app: INestApplication;
   let token: string;
+  let mcpUserId: number;
+  let adminToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -18,6 +22,28 @@ describe('MCP Export (HS-10) e2e', () => {
       nickname: 'McpUser',
     });
     token = accessToken;
+
+    // 操作者用户 id：审计归因断言用（谁做的）
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(token))
+      .expect(200);
+    mcpUserId = me.body.data.id;
+
+    // 管理员：注册 → 提升角色 → 重新登录（审计查询 admin-only）
+    const regAdmin = await registerUser(app, {
+      username: 'mcp_admin',
+      email: 'mcp_admin@example.com',
+      password: 'Passw0rd!',
+      nickname: 'McpAdmin',
+    });
+    const adminMe = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(regAdmin.accessToken))
+      .expect(200);
+    const ds = app.get(DataSource);
+    await ds.getRepository('users').update(adminMe.body.data.id, { role: 'admin' });
+    adminToken = (await loginAs(app, 'mcp_admin', 'Passw0rd!')).accessToken;
   });
 
   afterAll(async () => {
@@ -79,8 +105,47 @@ describe('MCP Export (HS-10) e2e', () => {
     expect(res.body.result.isError).toBe(false);
   });
 
+  it('tools/call 读工具执行 → 审计 provider=mcp 归因到调用者（Identity + Audit）', async () => {
+    await post({
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'query_events', arguments: { start: '2026-01-01', end: '2026-12-31' } },
+    }).expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/audit/logs')
+      .query({ userId: String(mcpUserId) })
+      .set(authHeader(adminToken))
+      .expect(200);
+    const entries: Array<{ provider: string | null; action: string; detail: string | null; username: string | null }> =
+      res.body.data;
+    const mcpCalls = entries.filter((e) => e.provider === 'mcp' && e.action === 'tool_call');
+    expect(mcpCalls.length).toBeGreaterThan(0);
+    expect(mcpCalls.some((e) => (e.detail ?? '').includes('query_events'))).toBe(true);
+    // 原则 3：审计带出用户名
+    expect(entries.some((e) => e.username === 'mcpuser')).toBe(true);
+  });
+
+  it('tools/call 写工具被门控 → 尝试本身也留审计（Permission + Audit）', async () => {
+    await post({
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: { title: 'gated' } },
+    }).expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/audit/logs')
+      .query({ userId: String(mcpUserId) })
+      .set(authHeader(adminToken))
+      .expect(200);
+    const entries: Array<{ provider: string | null; action: string; detail: string | null }> = res.body.data;
+    expect(entries.some((e) => e.provider === 'mcp' && (e.detail ?? '').includes('create_event'))).toBe(true);
+  });
+
   it('未知方法 → -32601', async () => {
-    const res = await post({ jsonrpc: '2.0', id: 5, method: 'bogus' }).expect(201);
+    const res = await post({ jsonrpc: '2.0', id: 7, method: 'bogus' }).expect(201);
     expect(res.body.error.code).toBe(-32601);
   });
 });
