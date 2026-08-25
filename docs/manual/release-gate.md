@@ -96,7 +96,7 @@
 
 ## 4. Private：Offline + Local AI
 
-**实测记录（2026-08-19，本机 Ollama 原生 + CPU）**：Cloud OFF（进程无 DEEPSEEK_API_KEY）→ Ollama `qwen2.5:7b` 本地对话（`/ai/chat/stream` 返回「您好！请问…」）→ bge-m3 本地 embedding（4.7s/条）→ 审计 `provider:ollama` 记录 + 哈希链 `valid:true (20条)`。完整证据见 [private-ai-report.md](private-ai-report.md) + `benchmarks/private-ai.json`。**工具调用**：7B 模型 CPU 上对 30+ 工具集可靠性低（模型能力限制，非代码缺陷）；旗舰 e2e 7/7 证明工具/确认/审计链路。
+**实测记录（2026-08-19，本机 Ollama 原生 + CPU）**：Cloud OFF（进程无 DEEPSEEK_API_KEY）→ Ollama `qwen2.5:7b` 本地对话（`/ai/chat/stream` 返回「您好！请问…」）→ bge-m3 本地 embedding（4.7s/条）→ 审计 `provider:ollama` 记录 + 哈希链 `valid:true (20条)`。完整证据见 [private-ai-report.md](private-ai-report.md) + `docs/benchmark/private-ai.json`。**工具调用**：7B 模型 CPU 上对 30+ 工具集可靠性低（模型能力限制，非代码缺陷）；旗舰 e2e 7/7 证明工具/确认/审计链路。
 
 **指标**：数据不出域——本地 LLM / 本地 embedding / 本地审计全链路。
 
