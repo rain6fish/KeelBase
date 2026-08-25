@@ -43,7 +43,7 @@
               <div class="d-flex justify-space-between align-center">
                 <div class="d-flex align-center ga-1">
                   <!-- D1 Human-Agent-System：步骤来源标签（人 / AI / 系统）+ 子 agent 归责 -->
-                  <el-tag size="small" :type="sourceTagType(s)" effect="plain">{{ t(sourceLabel(s)) }}</el-tag>
+                  <el-tag size="small" :type="traceSourceTagType(traceSource(s.type))" effect="plain">{{ t(traceSourceKey(traceSource(s.type))) }}</el-tag>
                   <span v-if="s.agentId" class="text-caption text-medium-emphasis">· {{ s.agentId }}</span>
                   <span class="text-caption font-weight-medium" :class="stepColorClass(s)">
                     {{ stepLabel(s) }}
@@ -122,6 +122,7 @@ import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
+import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
 import type { ConversationSummary, TraceEffect, TraceStep } from '@/types/workbench'
 
 const { t } = useI18n()
@@ -215,22 +216,7 @@ function stepLabel(s: TraceStep): string {
   }
 }
 
-/** D1 Human-Agent-System Accountability：步骤来源分类（人 / AI / 系统） */
-function sourceOf(s: TraceStep): 'human' | 'agent' | 'system' {
-  if (s.type === 'input' || s.type === 'confirmation') return 'human'
-  if (s.type === 'assistant' || s.type === 'tool_call') return 'agent'
-  return 'system'
-}
-function sourceLabel(s: TraceStep): string {
-  const src = sourceOf(s)
-  return src === 'human' ? 'traceSourceHuman' : src === 'agent' ? 'traceSourceAgent' : 'traceSourceSystem'
-}
-function sourceTagType(s: TraceStep): 'success' | 'primary' | 'info' {
-  const src = sourceOf(s)
-  if (src === 'human') return 'success'
-  if (src === 'agent') return 'primary'
-  return 'info'
-}
+/** D1 Human-Agent-System Accountability：来源分类复用 utils/traceSource */
 
 function stepColor(s: TraceStep): string {
   switch (s.type) {
