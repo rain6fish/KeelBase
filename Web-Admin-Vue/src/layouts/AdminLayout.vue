@@ -117,8 +117,8 @@ function updateNavScrollbar() {
     return
   }
   const ratio = viewH / contentH
-  // 滑块高度大幅缩短：按比例再 ×0.22（最短 8px），尽量不遮菜单项
-  scrollBarHeight.value = Math.max(8, ratio * viewH * 0.22)
+  // 滑块高度：按比例 ×0.5（最短 20px），位于右侧空隙不遮菜单
+  scrollBarHeight.value = Math.max(20, ratio * viewH * 0.5)
   const maxScroll = contentH - viewH
   scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
   scrollBarVisible.value = true
@@ -266,6 +266,8 @@ const activeGroup = computed(
   /* 菜单底色与侧边栏/整体一致（浅灰），由激活项/悬停色块提供悬浮感 */
   background: transparent;
   --el-menu-bg-color: transparent;
+  /* 右侧留出滑块空隙（8px），自定义滚动条不覆盖菜单项，避免误点 */
+  padding-right: 8px;
 }
 .nav-group-label {
   padding: 8px 16px 4px;

@@ -54,7 +54,7 @@ body {
   width: 0;
   height: 0;
 }
-// 自定义菜单滑块：宽 6px、高度大幅缩短（由 JS 计算比例 ×0.22），滑过/滚动时短暂显示；pointer-events:none 不拦截菜单点击
+// 自定义菜单滑块：宽 6px、高（JS 计算比例 ×0.5），位于菜单右侧 8px 空隙内（不覆盖菜单项）；滑过/滚动时短暂显示
 .nav-scrollbar {
   position: absolute;
   right: 1px;
