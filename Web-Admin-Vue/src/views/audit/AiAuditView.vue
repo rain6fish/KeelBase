@@ -28,6 +28,7 @@
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
       <template #item.model="{ item }">{{ item.provider ? t('providerModel', { provider: item.provider, model: item.model || '-' }) : (item.model || '-') }}</template>
       <template #item.tokens="{ item }">{{ ((item.promptTokens ?? 0) + (item.completionTokens ?? 0)) || '-' }}</template>
+      <template #item.action="{ item }">{{ actionLabel(item) }}</template>
       <template #item.isError="{ item }">
         <StatusChip :status="item.isError ? 'error' : 'ok'" :label-map="errorLabelMap" />
       </template>
@@ -75,7 +76,7 @@ import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import type { AuditLog, UsageStats } from '@/types/audit'
 
-const { t } = useI18n()
+const { t, messages, locale } = useI18n()
 const snackbar = useSnackbarStore()
 
 const logs = ref<AuditLog[]>([])
@@ -131,6 +132,16 @@ function toggleExpand(id: number) {
   expanded.value = expanded.value?.id === id ? null : (log ?? null)
 }
 
+/** D2 人类语言审计标签：actionKey 查 i18n feature 容器（与操作审计 feature-map 同源），fallback 到后端 actionLabel/原始 action */
+function actionLabel(log: AuditLog): string {
+  if (log.actionKey) {
+    const msg = messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined
+    const localized = msg?.feature?.[log.actionKey]
+    if (localized) return localized
+  }
+  return log.actionLabel || log.action || '-'
+}
+
 function onExport() {
   downloadCsv(
     'ai-audit',
@@ -138,7 +149,7 @@ function onExport() {
     logs.value.map((l) => [
       formatTime(l.createdAt),
       l.username || l.userId || '',
-      l.action,
+      actionLabel(l),
       l.provider ? `${l.provider}/${l.model}` : (l.model || ''),
       (l.promptTokens ?? 0) + (l.completionTokens ?? 0),
       l.isError ? t('error') : t('ok'),

@@ -3,6 +3,8 @@ export interface AuditLog {
   userId: string
   conversationId?: string | null
   action: string
+  actionKey?: string | null
+  actionLabel?: string | null
   detail?: string | null
   model?: string | null
   provider?: string | null
