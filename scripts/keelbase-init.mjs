@@ -68,6 +68,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --import-schema <file>    从 SQL CREATE TABLE 提取表 → Protocol
   --schema <name>      OpenAPI 中选定的 schema 名（默认第一个）
   --list-schemas       列出 OpenAPI 中可用 schema（配合 --import-openapi）
+  --list-tools         列出 OpenAPI 将生成的 proxy 工具（配合 --import-openapi-proxy，不生成）
   --table <name>       SQL 中选定的表名（默认第一张）
   --out <file>         配合 --import-* 只写 Protocol JSON（供 --spec 复用）
   --brand <name>       替换应用品牌名（写 app_constants.dart）
@@ -88,6 +89,7 @@ function parseArgs(argv) {
     else if (a === '--tab') args.tab = true;
     else if (a === '--force') args.force = true;
     else if (a === '--list-schemas') args['list-schemas'] = true;
+    else if (a === '--list-tools') args['list-tools'] = true;
     else if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq < 0 ? undefined : eq);
@@ -206,6 +208,18 @@ async function main() {
     spec = await resolveLocalRefs(spec, importOpenApiProxy);
     const proxy = parseOpenApiProxy(spec, { baseUrl: args['base-url'], audience: args.audience });
     if (proxy.error) fail(proxy.error);
+
+    // --list-tools：预览将生成的 proxy 工具清单（不生成/不写，供 Java 团队选路/评审）
+    if (args['list-tools']) {
+      console.log(`可用 proxy 工具（${proxy.tools.length}）：`);
+      for (const t of proxy.tools) {
+        console.log(`  ${t.name.padEnd(28)} ${t.method} ${t.path}（${t.riskLevel}${t.revokePath ? `，撤销 ${t.revokePath}` : ''}）`);
+      }
+      if (proxy.skipped?.length) {
+        console.log(`${C.cyan}  跳过：${proxy.skipped.map((s) => `${s.tool}.${s.name}（${s.reason}）`).join('；')}${C.reset}`);
+      }
+      return;
+    }
 
     if (args.out) {
       await writeGenerated(args.out, JSON.stringify({ baseUrl: proxy.baseUrl, audience: proxy.audience, tools: proxy.tools }, null, 2) + '\n');
