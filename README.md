@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/branding/keelbase-logo-light.png" alt="KeelBase" width="300">
+</p>
+
 # KeelBase — Build and Run Business-safe AI Applications
 
 > **Open-source Enterprise AI Trust Runtime** — connect AI agents with existing business systems, adding identity, governance, auditability, and private deployment **without replacing existing technology stacks**. Build and run business-safe AI applications from new business models or existing systems.

@@ -2,8 +2,8 @@
   <div class="login-bg d-flex align-center justify-center">
     <el-card class="login-card" shadow="always">
       <div class="text-center pt-4">
-        <AppLogo :size="40" class="mb-1" />
-        <div class="text-h5 font-weight-bold">{{ t('appName') }}</div>
+        <img src="/logo.png" alt="KeelBase" class="login-logo" />
+        <img src="/logo-white.png" alt="KeelBase" class="login-logo login-logo-dark" />
         <div class="text-caption text-medium-emphasis mt-1">{{ t('appTagline') }}</div>
       </div>
       <div class="px-6 py-4">
@@ -64,7 +64,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import LangToggle from '@/components/LangToggle.vue'
-import AppLogo from '@/components/AppLogo.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -102,5 +101,19 @@ async function onSubmit() {
   width: 420px;
   max-width: 92vw;
   border-radius: var(--keel-radius-md);
+}
+.login-logo {
+  width: 210px;
+  height: auto;
+  margin-bottom: 4px;
+}
+.login-logo-dark {
+  display: none;
+}
+html.dark .login-logo:not(.login-logo-dark) {
+  display: none;
+}
+html.dark .login-logo-dark {
+  display: inline-block;
 }
 </style>
