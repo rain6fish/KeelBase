@@ -43,6 +43,13 @@ body {
   height: 8px;
 }
 
+// 内容区（右下主要显示部分）滚动条加宽 2 倍（4px → 8px），更易抓取
+.el-main::-webkit-scrollbar,
+.v-content-pad::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
 // 侧边栏菜单滚动条：原生滚动条（拖动灵敏丝滑由浏览器处理），滑块平时透明隐藏，鼠标滑过/滚动时显示 1.6s 后隐藏
 .admin-nav::-webkit-scrollbar,
 .admin-aside::-webkit-scrollbar {
