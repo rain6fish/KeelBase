@@ -72,7 +72,23 @@ export interface CustomerQuery {
   keyword?: string
 }
 
+/** P0 AI Intelligence Dashboard：AI CRM 业务洞察聚合（GET /crm/dashboard） */
+export interface CrmDashboard {
+  customers: number
+  highRiskCustomers: number
+  opportunities: number
+  pipelineAmount: number
+  weightedAmount: number
+  soonClosing: number
+  overdueOrders: number
+  openTasks: number
+  openRisks: number
+}
+
 export const crmApi = {
+  dashboard(): Promise<CrmDashboard> {
+    return api.get<CrmDashboard>('/crm/dashboard')
+  },
   customers(q: CustomerQuery = {}): Promise<Paginated<CrmCustomer>> {
     const params: Record<string, unknown> = {}
     if (q.page) params.page = q.page
