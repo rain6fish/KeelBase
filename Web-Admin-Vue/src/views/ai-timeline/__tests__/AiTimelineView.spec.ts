@@ -117,6 +117,24 @@ describe('AiTimelineView', () => {
     expect(successMock).toHaveBeenCalledWith('已下线')
   })
 
+  it('EB-2：proxy_call 副作用渲染「外部系统」标识', async () => {
+    logsMock.mockResolvedValue([])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 100,
+      items: [
+        { id: 9, toolName: 'ext_create_customer', conversationId: null, resultType: 'proxy_call', resultId: 7, argsHash: 'h', createdAt: '2026-08-25T10:00:00Z', targetExists: true, targetSoftDeleted: false, targetTitle: '外部系统写调用（B 路径）' },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('ext_create_customer')
+    expect(wrapper.text()).toContain('外部系统（B 路径）')
+  })
+
   it('治理详情：点副作用「治理详情」→ 调 governanceAction + 抽屉显示 Who/What', async () => {
     logsMock.mockResolvedValue([toolCallLog])
     effectsMock.mockResolvedValue({

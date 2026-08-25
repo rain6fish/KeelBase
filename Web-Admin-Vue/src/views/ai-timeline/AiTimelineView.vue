@@ -61,10 +61,11 @@
                   <StatusChip :status="e.outcome === 'approve' ? 'ok' : 'cancelled'" :label-map="outcomeMap" />
                 </div>
 
-                <!-- 副作用（AI 实际创建/修改的记录） -->
+                <!-- 副作用（AI 实际创建/修改的记录；EB-2 proxy_call = 外部系统 B 路径写调用） -->
                 <div v-else-if="e.type === 'effect'" class="mt-1">
                   <div class="d-flex align-center ga-2">
                     <span class="text-body-2">{{ e.toolName }}</span>
+                    <el-tag v-if="e.effect?.resultType === 'proxy_call'" size="small" type="info" effect="plain">{{ t('externalSystem') }}</el-tag>
                     <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
                   </div>
                   <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
