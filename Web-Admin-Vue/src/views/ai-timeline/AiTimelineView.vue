@@ -68,17 +68,27 @@
                     <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
                   </div>
                   <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
-                  <el-button
-                    v-if="e.effect"
-                    size="small"
-                    type="warning"
-                    plain
-                    class="mt-1"
-                    :disabled="!e.effect.targetExists || e.effect.targetSoftDeleted"
-                    @click="onRevoke(e.effect)"
-                  >
-                    {{ t('revoke') }} #{{ e.effect.resultId }}
-                  </el-button>
+                  <div class="d-flex ga-2 mt-1">
+                    <el-button
+                      v-if="e.effect"
+                      size="small"
+                      type="warning"
+                      plain
+                      :disabled="!e.effect.targetExists || e.effect.targetSoftDeleted"
+                      @click="onRevoke(e.effect)"
+                    >
+                      {{ t('revoke') }} #{{ e.effect.resultId }}
+                    </el-button>
+                    <el-button
+                      v-if="e.effect"
+                      size="small"
+                      type="info"
+                      plain
+                      @click="onShowGovernance(e.effect)"
+                    >
+                      {{ t('governanceDetail') }}
+                    </el-button>
+                  </div>
                 </div>
 
                 <!-- chat / error / navigate 摘要 -->
@@ -90,6 +100,37 @@
         </el-collapse-item>
       </el-collapse>
     </template>
+
+    <!-- D1 治理详情：业务动作 → AI 副作用 + 决策轨迹（Who/When/What/Why/Result/Side Effects/Integrity） -->
+    <el-drawer v-model="governanceDrawer" :title="t('governanceDetail')" size="480px">
+      <div v-if="governance" class="d-flex flex-column ga-1">
+        <div class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ t('who') }}</span>
+          <span class="text-body-2">{{ governance.effect.userId }}</span>
+        </div>
+        <div class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ t('when') }}</span>
+          <span class="text-body-2">{{ formatTime(governance.effect.createdAt) }}</span>
+        </div>
+        <div class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ t('what') }}</span>
+          <span class="text-body-2">{{ governance.effect.toolName }}</span>
+        </div>
+        <div v-if="governance.effect.argsHash" class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ t('argsHash') }}</span>
+          <code class="text-caption">{{ governance.effect.argsHash }}</code>
+        </div>
+        <div class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-medium-emphasis">{{ t('sideEffects') }}</span>
+          <span class="text-body-2">{{ governance.effect.resultType }} #{{ governance.effect.resultId }}</span>
+        </div>
+        <el-divider />
+        <div class="text-caption text-medium-emphasis mb-1">{{ t('decisionTrace') }}</div>
+        <div v-if="governance.trace" class="text-body-2 text-success">{{ t('traceAvailable') }}</div>
+        <div v-else class="text-body-2 text-medium-emphasis">{{ t('traceEmpty') }}</div>
+      </div>
+      <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+    </el-drawer>
   </div>
 </template>
 
@@ -103,7 +144,7 @@ import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { formatTime } from '@/utils/format'
 import type { AuditLog } from '@/types/audit'
-import type { ToolEffect } from '@/types/admin'
+import type { GovernanceActionResponse, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
@@ -112,6 +153,8 @@ const userId = ref('')
 const logs = ref<AuditLog[]>([])
 const effects = ref<ToolEffect[]>([])
 const loading = ref(false)
+const governanceDrawer = ref(false)
+const governance = ref<GovernanceActionResponse | null>(null)
 
 const outcomeMap = computed(() => ({ ok: t('approved'), cancelled: t('rejected') }))
 const effectStatusMap = computed(() => ({
@@ -290,6 +333,18 @@ async function onRevoke(effect: ToolEffect) {
     load()
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('revokeFailed'))
+  }
+}
+
+/** D1 治理详情：业务动作 → AI 副作用 + 决策轨迹（Who/When/What/Why/Result/Side Effects/Integrity） */
+async function onShowGovernance(effect: ToolEffect) {
+  governanceDrawer.value = true
+  governance.value = null
+  try {
+    governance.value = await aiToolsApi.governanceAction(effect.resultType, effect.resultId)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+    governanceDrawer.value = false
   }
 }
 
