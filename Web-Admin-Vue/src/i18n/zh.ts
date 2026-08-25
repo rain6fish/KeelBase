@@ -272,6 +272,14 @@ const zh = {
   recommendResolveRisk: '有 {n} 个未解决风险——建议处理',
   allClear: '一切正常——暂无风险/逾期/待处理项',
 
+  // AI Copilot（P0 每业务页 AI 助手）
+  copilotTitle: 'AI 助手',
+  copilotHint: '围绕当前客户「{name}」提问——AI 会在你的数据范围内分析并给出建议（写操作需确认）',
+  copilotPlaceholder: '问：这个客户有什么机会？',
+  copilotQRisk: '分析这个客户的风险',
+  copilotQOrders: '为什么订单下降了？',
+  copilotQFollowup: '给出跟进建议',
+
   // AI Project Management 旗舰应用
   pmTitle: '项目管理',
   pmTotal: '共 {n} 个项目',
@@ -342,6 +350,13 @@ const zh = {
   traceAvailable: '有决策轨迹——完整链路见对话轨迹',
   traceEmpty: '无决策轨迹（如对话外直写的副作用）',
   techDetail: '技术详情',
+  governanceWhy: '为何允许',
+  governanceResult: '结果',
+  governanceIntegrity: '完整性',
+  governanceLoading: '加载中…',
+  governanceLoadFailed: '治理详情加载失败',
+  governanceNoData: '无 AI 治理记录——该业务动作可能为人工创建',
+  governanceRecorded: '已记录',
   whyConfirmed: '✓ 用户已确认',
   whyDeclined: '✗ 用户已拒绝',
   whyTimeout: '确认超时——未执行',
