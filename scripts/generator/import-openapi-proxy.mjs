@@ -110,12 +110,19 @@ function operationToTool(method, path, pathItem, operation, spec) {
   const skipped = [];
 
   const allParams = [...(Array.isArray(pathItem.parameters) ? pathItem.parameters : []), ...(Array.isArray(operation.parameters) ? operation.parameters : [])];
+  let swaggerBodySchema = null; // Swagger 2：body 参数（in: body）→ 兼容提取
   for (const p of allParams) {
     if (!p || typeof p !== 'object') continue;
     const pname = sanitizeParamName(p.name);
     if (!pname || seen.has(pname)) continue;
     if (p.in === 'header') {
       skipped.push({ name: pname, reason: 'header 参数（通常为鉴权/常量，跳过）' });
+      continue;
+    }
+    if (p.in === 'body') {
+      // Swagger 2 请求体：parameters 里 in: body 的 schema（可 $ref）→ body 字段
+      const s = resolveSchema(p.schema);
+      swaggerBodySchema = typeof s === 'object' && s !== null ? deref(s, spec) : null;
       continue;
     }
     if (p.in !== 'path' && p.in !== 'query') continue;
@@ -129,7 +136,7 @@ function operationToTool(method, path, pathItem, operation, spec) {
     });
   }
 
-  const bodySchema = requestBodySchema(operation, spec);
+  const bodySchema = requestBodySchema(operation, spec) ?? swaggerBodySchema;
   if (bodySchema && typeof bodySchema.properties === 'object') {
     const requiredSet = new Set(Array.isArray(bodySchema.required) ? bodySchema.required : []);
     for (const [rawName, prop] of Object.entries(bodySchema.properties)) {
