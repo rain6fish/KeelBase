@@ -1,5 +1,6 @@
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
+import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 
 describe('AuditController', () => {
   let controller: AuditController;
@@ -9,7 +10,7 @@ describe('AuditController', () => {
 
   beforeEach(() => {
     auditService = Object.fromEntries(
-      ['getLogs', 'getUserLogs', 'verifyChain', 'getAllStats', 'getCostBreakdown', 'submitFeedback'].map((m) => [m, jest.fn()]),
+      ['getLogs', 'getUserLogs', 'verifyChain', 'getAllStats', 'getCostBreakdown', 'submitFeedback', 'getActionReport'].map((m) => [m, jest.fn()]),
     );
     controller = new AuditController(auditService as unknown as AuditService);
   });
@@ -59,5 +60,38 @@ describe('AuditController', () => {
       controller.submitFeedback(mockUser as any, { conversationId: 'c1', feedback: 'thumbs_up', note: '有帮助' } as any),
     ).resolves.toEqual({ ok: true });
     expect(auditService.submitFeedback).toHaveBeenCalledWith('1', 'c1', 'thumbs_up', '有帮助');
+  });
+
+  it('Action Report 委托 service（userId/since/limit 解析）', () => {
+    auditService.getActionReport.mockReturnValue({ summary: {}, byDay: [], samples: [] });
+
+    expect(controller.getActionReport('42', '2026-08-01', '20')).toEqual({ summary: {}, byDay: [], samples: [] });
+    expect(auditService.getActionReport).toHaveBeenCalledWith({
+      userId: '42',
+      since: expect.any(Date),
+      limit: 20,
+    });
+  });
+
+  it('Action Report 缺省参数 → userId/since undefined、limit 默认 10', () => {
+    auditService.getActionReport.mockReturnValue({});
+
+    controller.getActionReport();
+
+    expect(auditService.getActionReport).toHaveBeenCalledWith({ userId: undefined, since: undefined, limit: 10 });
+  });
+
+  it('所有管理端点均声明 manage-all 策略（CASL 拒绝非管理员）', () => {
+    // 直接 new 实例不经过装饰器执行路径，从 Reflect metadata 取出策略处理器并调用
+    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport'];
+    for (const m of methods) {
+      const handlers = Reflect.getMetadata(
+        CHECK_POLICIES_KEY,
+        (AuditController.prototype as Record<string, unknown>)[m] as unknown,
+      ) as Array<(ability: { can: (...args: unknown[]) => boolean }) => boolean>;
+      expect(handlers?.length).toBeGreaterThan(0);
+      expect(handlers[0]({ can: () => true })).toBe(true);
+      expect(handlers[0]({ can: () => false })).toBe(false);
+    }
   });
 });
