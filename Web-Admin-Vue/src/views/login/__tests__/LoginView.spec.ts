@@ -39,10 +39,10 @@ beforeEach(() => {
 })
 
 describe('LoginView', () => {
-  it('渲染登录表单（标题/用户名/密码/登录按钮）', () => {
+  it('渲染登录表单（logo/用户名/密码/登录按钮）', () => {
     const wrapper = mountView()
 
-    expect(wrapper.text()).toContain('管理控制台')
+    expect(wrapper.find('img.login-logo').exists()).toBe(true)
     expect(wrapper.findAll('input')).toHaveLength(2)
     expect(wrapper.text()).toContain('登录')
   })
