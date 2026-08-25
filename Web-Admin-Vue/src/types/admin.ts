@@ -267,6 +267,21 @@ export interface ToolEffect {
   targetTitle: string | null
 }
 
+/** D1/B4 治理视图：业务动作 → AI 副作用 + 决策轨迹（GET /ai/governance/action/:resultType/:resultId） */
+export interface GovernanceActionResponse {
+  effect: {
+    id: number
+    userId: string // Who
+    toolName: string // What
+    argsHash: string
+    conversationId: string | null
+    resultType: string // Side Effects
+    resultId: number
+    createdAt: string // When
+  }
+  trace: unknown | null // DecisionTrace（AiTraceView 同源；抽屉内渲染关键步骤，完整轨迹走 AiTraceView）
+}
+
 export interface ToolEffectsResponse {
   total: number
   page: number
