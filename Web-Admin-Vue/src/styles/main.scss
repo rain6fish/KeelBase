@@ -43,33 +43,24 @@ body {
   height: 8px;
 }
 
-// 侧边栏菜单：隐藏原生滚动条，用自定义短滑块（.nav-scrollbar，JS 驱动高度/位置/显隐）
-.admin-nav,
-.admin-aside {
-  scrollbar-width: none; /* Firefox */
-}
+// 侧边栏菜单滚动条：原生滚动条（细 6px、thumb 用边框色、hover 变深）——拖动灵敏丝滑，由浏览器原生处理
 .admin-nav::-webkit-scrollbar,
 .admin-aside::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-// 自定义菜单滑块：宽 6px、高（JS 计算比例 ×0.5），位于菜单右侧 8px 空隙内（不覆盖菜单项）；滑过/滚动时短暂显示
-.nav-scrollbar {
-  position: absolute;
-  right: 2px;
   width: 6px;
-  border-radius: 6px;
+  height: 6px;
+}
+.admin-nav::-webkit-scrollbar-track,
+.admin-aside::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-nav::-webkit-scrollbar-thumb,
+.admin-aside::-webkit-scrollbar-thumb {
   background-color: var(--el-border-color);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  /* 与原生滚动条一致：默认箭头光标，不设特殊 cursor */
+  border-radius: 6px;
 }
-.nav-scrollbar:active {
+.admin-nav::-webkit-scrollbar-thumb:hover,
+.admin-aside::-webkit-scrollbar-thumb:hover {
   background-color: var(--el-text-color-secondary);
-}
-.nav-scrollbar.show {
-  opacity: 1;
 }
 
 // 侧边栏导航分组标题
