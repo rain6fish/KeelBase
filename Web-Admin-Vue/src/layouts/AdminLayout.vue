@@ -131,9 +131,11 @@ function updateNavScrollbar() {
   }, 1600)
 }
 
-// 拖动滑块 → 滚动菜单（标准滚动条行为：按下时记住滑块视口位置与鼠标偏移，拖动时滑块 1:1 跟随鼠标）
+// 拖动滑块 → 滚动菜单（标准滚动条行为；requestAnimationFrame 批处理，每帧只应用一次，更丝滑）
 let barDragging = false
 let dragOffsetY = 0
+let dragLastY = 0
+let dragRaf = 0
 function onBarMouseDown(e: MouseEvent) {
   barDragging = true
   const barRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -142,6 +144,12 @@ function onBarMouseDown(e: MouseEvent) {
   document.addEventListener('mouseup', onBarMouseUp)
 }
 function onBarMouseMove(e: MouseEvent) {
+  dragLastY = e.clientY
+  if (dragRaf) return
+  dragRaf = window.requestAnimationFrame(applyDrag)
+}
+function applyDrag() {
+  dragRaf = 0
   if (!barDragging || !adminNavRef.value) return
   const el = adminNavRef.value
   const navRect = el.getBoundingClientRect()
@@ -150,13 +158,17 @@ function onBarMouseMove(e: MouseEvent) {
   const maxBarTop = viewH - scrollBarHeight.value
   if (maxScroll <= 0 || maxBarTop <= 0) return
   // 滑块视口 top（保持按下时的偏移，1:1 跟随鼠标）→ 相对 .admin-nav 的 top
-  const barTopRel = e.clientY - dragOffsetY - navRect.top
+  const barTopRel = dragLastY - dragOffsetY - navRect.top
   const newTop = Math.max(0, Math.min(maxBarTop, barTopRel))
   el.scrollTop = (newTop / maxBarTop) * maxScroll
   updateNavScrollbar()
 }
 function onBarMouseUp() {
   barDragging = false
+  if (dragRaf) {
+    cancelAnimationFrame(dragRaf)
+    dragRaf = 0
+  }
   document.removeEventListener('mousemove', onBarMouseMove)
   document.removeEventListener('mouseup', onBarMouseUp)
 }
@@ -299,8 +311,8 @@ const activeGroup = computed(
   /* 菜单底色与侧边栏/整体一致（浅灰），由激活项/悬停色块提供悬浮感 */
   background: transparent;
   --el-menu-bg-color: transparent;
-  /* 右侧留出滑块空隙（8px），自定义滚动条不覆盖菜单项，避免误点 */
-  padding-right: 8px;
+  /* 右侧留出滑块空隙（16px），自定义滚动条不覆盖菜单项，避免误点/误选 */
+  padding-right: 16px;
 }
 .nav-group-label {
   padding: 8px 16px 4px;

@@ -57,7 +57,7 @@ body {
 // 自定义菜单滑块：宽 6px、高（JS 计算比例 ×0.5），位于菜单右侧 8px 空隙内（不覆盖菜单项）；滑过/滚动时短暂显示
 .nav-scrollbar {
   position: absolute;
-  right: 1px;
+  right: 2px;
   width: 6px;
   border-radius: 6px;
   background-color: var(--el-border-color);
