@@ -163,7 +163,7 @@ This project recognizes that contributors may use AI-assisted tools (such as Git
 
 ### License
 
-This project is licensed under the [MIT License](./LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
+This project is licensed under the [Apache License 2.0](./LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
 
 ### Patent Grant
 
