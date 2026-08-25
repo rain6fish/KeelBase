@@ -117,13 +117,13 @@ function updateNavScrollbar() {
     scrollBarVisible.value = false
     return
   }
-  // 拖动中保持滑块高度稳定（只更新位置），避免跳动
+  // 拖动中由 applyDrag 直接设置滑块位置，避免经过 scrollTop 重算造成偏差
   if (!barDragging) {
     const ratio = viewH / contentH
     scrollBarHeight.value = Math.max(20, ratio * viewH * 0.5)
+    const maxScroll = contentH - viewH
+    scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
   }
-  const maxScroll = contentH - viewH
-  scrollBarTop.value = maxScroll > 0 ? (el.scrollTop / maxScroll) * (viewH - scrollBarHeight.value) : 0
   scrollBarVisible.value = true
   clearTimeout(scrollFlashTimer)
   scrollFlashTimer = window.setTimeout(() => {
@@ -160,8 +160,14 @@ function applyDrag() {
   // 滑块视口 top（保持按下时的偏移，1:1 跟随鼠标）→ 相对 .admin-nav 的 top
   const barTopRel = dragLastY - dragOffsetY - navRect.top
   const newTop = Math.max(0, Math.min(maxBarTop, barTopRel))
+  // 直接同步滑块位置与内容滚动（不经过 scrollTop 重算，避免偏差）
+  scrollBarTop.value = newTop
   el.scrollTop = (newTop / maxBarTop) * maxScroll
-  updateNavScrollbar()
+  scrollBarVisible.value = true
+  clearTimeout(scrollFlashTimer)
+  scrollFlashTimer = window.setTimeout(() => {
+    scrollBarVisible.value = false
+  }, 1600)
 }
 function onBarMouseUp() {
   barDragging = false
