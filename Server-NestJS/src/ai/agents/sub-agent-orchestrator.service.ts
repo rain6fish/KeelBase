@@ -13,6 +13,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { SkillsRegistry } from '../skills/skills-registry';
 import { SkillDefinition } from '../skills/skill.interface';
 import { SUB_AGENTS, SUB_AGENT_NAMES, SubAgentDefinition } from './sub-agent.types';
+import { actorContext } from '../actor-context';
 
 export interface SubAgentTask {
   subAgent: string;
@@ -134,6 +135,28 @@ export class SubAgentOrchestrator {
   }
 
   private async runSubAgentLoop(
+    agent: SubAgentDefinition,
+    task: SubAgentTask,
+    priorResults: string[],
+    params: {
+      provider: LlmProvider;
+      toolRegistry: ToolRegistry;
+      userId: string;
+      model?: string;
+    },
+  ): Promise<string> {
+    // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）
+    return actorContext.run(
+      {
+        agentId: agent.name,
+        callerAgentId: actorContext.getStore()?.agentId,
+        businessIntent: 'sub-agent',
+      },
+      () => this.runSubAgentLoopInner(agent, task, priorResults, params),
+    );
+  }
+
+  private async runSubAgentLoopInner(
     agent: SubAgentDefinition,
     task: SubAgentTask,
     priorResults: string[],
