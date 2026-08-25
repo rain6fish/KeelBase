@@ -84,4 +84,25 @@ describe('CacheService', () => {
 
     expect(mockCache.del).not.toHaveBeenCalled();
   });
+
+  it('set store error swallowed (degraded, non-blocking)', async () => {
+    mockCache.set.mockRejectedValue(new Error('redis down'));
+    const service = createService();
+
+    await expect(service.set('user:1', { x: 1 })).resolves.toBeUndefined();
+  });
+
+  it('delete store error swallowed (degraded, non-blocking)', async () => {
+    mockCache.del.mockRejectedValue(new Error('redis down'));
+    const service = createService();
+
+    await expect(service.delete('user:1')).resolves.toBeUndefined();
+  });
+
+  it('delByPrefix store error swallowed (degraded, non-blocking)', async () => {
+    mockCache.stores = [{ client: { keys: jest.fn().mockRejectedValue(new Error('redis down')) } }];
+    const service = createService();
+
+    await expect(service.delByPrefix('events:')).resolves.toBeUndefined();
+  });
 });
