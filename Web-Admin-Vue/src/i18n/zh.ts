@@ -279,6 +279,10 @@ const zh = {
   copilotQRisk: '分析这个客户的风险',
   copilotQOrders: '为什么订单下降了？',
   copilotQFollowup: '给出跟进建议',
+  copilotPMHint: '围绕当前项目「{name}」提问——AI 会在你的数据范围内分析并给出建议（写操作需确认）',
+  copilotPMRisk: '分析这个项目的延期风险',
+  copilotPMDelay: '为什么延期了？',
+  copilotPMFollowup: '给出推进建议',
 
   // AI Project Management 旗舰应用
   pmTitle: '项目管理',
