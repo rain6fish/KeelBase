@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Headers, Param, Req, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Headers, Param, Query, Req, HttpCode, HttpStatus, NotFoundException, BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import { ParseIntPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
+import { OAuthService } from './oauth.service';
 import { DelegationTokenService } from './delegation-token.service';
 import { DelegationTokenDto } from './dto/delegation-token.dto';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
@@ -38,6 +39,7 @@ import type { JwtPayload } from './interfaces/jwt-payload.interface';
 export class AuthController {
   constructor(
     private authService: AuthService,
+    private oauthService: OAuthService,
     private providersConfig: OAuthProvidersConfigService,
     private caslFactory: CaslAbilityFactory,
     private delegationTokenService: DelegationTokenService,
@@ -107,6 +109,18 @@ export class AuthController {
   @ApiOkResponse({ description: 'Provider list returned' })
   async getProviders() {
     return this.providersConfig.getConfig();
+  }
+
+  @Public()
+  @FeatureFlag('oauth')
+  @Get('oauth/oidc/url')
+  @ApiOperation({ summary: 'Build OIDC authorization URL (enterprise SSO) — frontend redirects to IdP' })
+  @ApiOkResponse({ description: 'OIDC authorization URL' })
+  async getOidcUrl(@Query('redirectUri') redirectUri?: string) {
+    if (!redirectUri) {
+      throw new BadRequestException('redirectUri is required');
+    }
+    return { url: await this.oauthService.getOidcAuthorizationUrl(redirectUri) };
   }
 
   @Public()

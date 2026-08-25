@@ -89,6 +89,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, public: true },
   },
   {
+    path: '/auth/oidc/callback',
+    name: 'oidc-callback',
+    component: () => import('@/views/login/OidcCallbackView.vue'),
+    meta: { requiresAuth: false, public: true },
+  },
+  {
     path: '/',
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
