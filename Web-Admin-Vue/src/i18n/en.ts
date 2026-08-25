@@ -253,6 +253,24 @@ const en: ZhDict = {
   crmTaskTitleHint: 'Task title',
   crmTaskCompleted: 'Task completed',
 
+  // AI business intelligence (P0 Intelligence Dashboard)
+  aiIntelligence: 'AI Business Intelligence',
+  aiIntelligenceHint: 'AI CRM insights — risk / pipeline / overdue / tasks / risks at a glance',
+  recommendedActions: 'AI Recommended Actions',
+  highRiskCustomers: 'High-risk customers',
+  opportunities: 'Opportunities',
+  pipelineAmount: 'Pipeline amount',
+  weightedAmount: 'Weighted amount',
+  soonClosing: 'Closing in 30 days',
+  overdueOrders: 'Overdue orders',
+  openTasks: 'Open tasks',
+  openRisks: 'Open risks',
+  recommendFollowHighRisk: '{n} high-risk customers — consider reaching out / follow-up first',
+  recommendCollectOverdue: '{n} overdue orders — consider collection / contact',
+  recommendFollowOpportunity: '{n} opportunities closing within 30 days — consider pushing forward',
+  recommendResolveRisk: '{n} open risks — consider resolving',
+  allClear: 'All clear — no risks / overdue / pending items',
+
   // AI Project Management flagship app
   pmTitle: 'AI Project',
   pmTotal: '{n} projects',
