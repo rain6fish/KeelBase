@@ -4,7 +4,7 @@
       <view class="splash__icon">
         <text class="splash__icon-text">A</text>
       </view>
-      <text class="splash__title">App</text>
+      <text class="splash__title">{{ t('splash.title') }}</text>
       <view class="splash__loader" />
     </view>
   </view>
@@ -15,9 +15,11 @@ import { watch, onUnmounted } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../../stores/auth-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = useAuthStore()
 const { status } = storeToRefs(store)
+const { t } = useI18n()
 
 let timer: ReturnType<typeof setTimeout> | null = null
 

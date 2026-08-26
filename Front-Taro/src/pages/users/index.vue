@@ -2,7 +2,7 @@
   <view class="users-page">
     <view v-if="error && users.length === 0" class="users-page__error">
       <text class="users-page__error-text">{{ error }}</text>
-      <button class="users-page__retry" @click="store.loadUsers(true)">Retry</button>
+      <button class="users-page__retry" @click="store.loadUsers(true)">{{ t('users.retry') }}</button>
     </view>
 
     <view v-if="isLoading && users.length === 0" class="users-page__loading">
@@ -42,10 +42,12 @@ import Taro from '@tarojs/taro'
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUsersStore } from '../../stores/users-store'
+import { useI18n } from '../../composables/useI18n'
 import type { UserItem } from '../../types/user'
 
 const store = useUsersStore()
 const { users, isLoading, error, hasMore } = storeToRefs(store)
+const { t } = useI18n()
 
 onMounted(() => {
   store.loadUsers(true)

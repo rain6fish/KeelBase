@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { aiService, type AiChatMessage, type AiConversationSummary } from '../services/ai-service'
+import { translate } from '../i18n/translate'
 
 /** AI 对话状态（MINI-1 + DX-3，Taro→Vue3 迁移：zustand → pinia）：消息 + 会话 + 历史列表/加载/删除。 */
 export const useAiStore = defineStore('ai', {
@@ -28,7 +29,7 @@ export const useAiStore = defineStore('ai', {
         this.conversationId = result.conversationId
         this.isLoading = false
       } catch (err: any) {
-        this.error = err.message || 'AI 回复失败'
+        this.error = err.message || translate('ai.replyFailed')
         this.isLoading = false
       }
     },
@@ -46,7 +47,7 @@ export const useAiStore = defineStore('ai', {
         this.history = await aiService.listConversations()
         this.historyLoading = false
       } catch (err: any) {
-        this.historyError = err.message || '加载历史失败'
+        this.historyError = err.message || translate('ai.historyLoadFailed')
         this.historyLoading = false
       }
     },
@@ -62,7 +63,7 @@ export const useAiStore = defineStore('ai', {
         this.conversationId = id
         this.isLoading = false
       } catch (err: any) {
-        this.error = err.message || '加载对话失败'
+        this.error = err.message || translate('ai.conversationLoadFailed')
         this.isLoading = false
       }
     },
@@ -77,7 +78,7 @@ export const useAiStore = defineStore('ai', {
           this.conversationId = null
         }
       } catch (err: any) {
-        throw new Error(err.message || '删除失败')
+        throw new Error(err.message || translate('ai.deleteFailed'))
       }
     },
   },
