@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import Taro from '@tarojs/taro'
 import { authService } from '../services/auth-service'
 import { setOnAuthFailure } from '../services/api-client'
+import { translate } from '../i18n/translate'
 import type { User, AuthStatus } from '../types/auth'
 
 /** 认证状态（Taro→Vue3 迁移：zustand → pinia）：自动登录/登录/注册/登出 + 401 认证失败回调。 */
@@ -39,7 +40,7 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (err: any) {
         this.status = 'error'
-        this.errorMessage = err.message || 'Login failed'
+        this.errorMessage = err.message || translate('auth.loginFailed')
         return false
       }
     },
@@ -54,7 +55,7 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (err: any) {
         this.status = 'error'
-        this.errorMessage = err.message || 'Registration failed'
+        this.errorMessage = err.message || translate('auth.registrationFailed')
         return false
       }
     },
@@ -62,7 +63,7 @@ export const useAuthStore = defineStore('auth', {
     /** MINI-3：微信一键登录（仅小程序环境；Taro.login → code → /auth/oauth） */
     async wechatLogin() {
       if (process.env.TARO_ENV === 'h5') {
-        this.errorMessage = 'WeChat login is only available in the mini program'
+        this.errorMessage = translate('auth.wechatH5Unavailable')
         return false
       }
       this.status = 'loading'
@@ -70,14 +71,14 @@ export const useAuthStore = defineStore('auth', {
       try {
         const loginRes = await Taro.login()
         const code = loginRes.code
-        if (!code) throw new Error('WeChat login failed')
+        if (!code) throw new Error(translate('auth.wechatLoginFailed'))
         const response = await authService.oauthLogin(code)
         this.user = response.user
         this.status = 'authenticated'
         return true
       } catch (err: any) {
         this.status = 'error'
-        this.errorMessage = err.message || 'WeChat login failed'
+        this.errorMessage = err.message || translate('auth.wechatLoginFailed')
         return false
       }
     },

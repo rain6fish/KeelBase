@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { eventsService } from '../services/events-service'
+import { translate } from '../i18n/translate'
 import type { EventItem, CreateEventRequest } from '../types/event'
 
 /** 事件状态（DX-3，Taro→Vue3 迁移：zustand → pinia）：范围加载 + 增删 + 错误清理。 */
@@ -16,7 +17,7 @@ export const useEventsStore = defineStore('events', {
       try {
         this.events = await eventsService.getEventsForRange(start, end)
       } catch (err: any) {
-        this.error = err.message || 'Failed to load events'
+        this.error = err.message || translate('events.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -27,7 +28,7 @@ export const useEventsStore = defineStore('events', {
         await eventsService.create(dto)
         return true
       } catch (err: any) {
-        this.error = err.message || 'Failed to create event'
+        this.error = err.message || translate('events.createFailed')
         return false
       }
     },
@@ -38,7 +39,7 @@ export const useEventsStore = defineStore('events', {
         this.events = this.events.filter((e) => e.id !== id)
         return true
       } catch (err: any) {
-        this.error = err.message || 'Failed to delete event'
+        this.error = err.message || translate('events.deleteFailed')
         return false
       }
     },

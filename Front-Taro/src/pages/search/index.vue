@@ -5,24 +5,24 @@
       <input
         class="search-page__input"
         v-model="keyword"
-        placeholder="搜索事件、用户…"
+        :placeholder="t('search.placeholder')"
         focus
       />
       <text v-if="keyword" class="search-page__clear" @click="keyword = ''">✕</text>
     </view>
 
     <scroll-view class="search-page__body" scroll-y>
-      <text v-if="loading" class="search-page__hint">搜索中…</text>
+      <text v-if="loading" class="search-page__hint">{{ t('search.searching') }}</text>
 
       <view
         v-if="!loading && searched && events.length === 0 && users.length === 0"
         class="search-page__empty"
       >
-        <text>没有找到相关内容</text>
+        <text>{{ t('search.empty') }}</text>
       </view>
 
       <template v-if="!loading && events.length > 0">
-        <text class="search-page__section">事件（{{ events.length }}）</text>
+        <text class="search-page__section">{{ t('search.eventsSection', { count: events.length }) }}</text>
         <view v-for="e in events" :key="e.id" class="search-page__card" @click="goEvent(e.id)">
           <view class="search-page__color" :style="{ backgroundColor: colorOf(e) }" />
           <view class="search-page__card-main">
@@ -35,7 +35,7 @@
       </template>
 
       <template v-if="!loading && users.length > 0">
-        <text class="search-page__section">用户（{{ users.length }}）</text>
+        <text class="search-page__section">{{ t('search.usersSection', { count: users.length }) }}</text>
         <view v-for="u in users" :key="u.id" class="search-page__card" @click="goUser(u.id)">
           <text class="search-page__avatar">{{ (u.nickname || u.username).charAt(0).toUpperCase() }}</text>
           <view class="search-page__card-main">
@@ -52,9 +52,12 @@
 import { ref, watch } from 'vue'
 import Taro from '@tarojs/taro'
 import { searchService } from '../../services/search-service'
+import { useI18n } from '../../composables/useI18n'
 import { EVENT_COLORS } from '../../utils/constants'
 import type { EventItem } from '../../types/event'
 import type { UserItem } from '../../types/user'
+
+const { t } = useI18n()
 
 /** 全局搜索页（DX-3）：复用 /search 聚合本人事件 + 公开用户。 */
 const keyword = ref('')
@@ -80,7 +83,7 @@ async function run() {
     users.value = res.users.items
   } catch (err: any) {
     if (seq !== searchSeq) return
-    Taro.showToast({ title: err.message || '搜索失败', icon: 'none' })
+    Taro.showToast({ title: err.message || t('search.failed'), icon: 'none' })
   } finally {
     if (seq === searchSeq) {
       loading.value = false
