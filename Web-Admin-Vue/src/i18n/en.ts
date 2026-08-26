@@ -47,7 +47,8 @@ const en: ZhDict = {
   forbiddenHint: 'This account does not have admin privileges. Please log in with an admin account.',
 
   navData: 'Data',
-  navMonitor: 'Monitoring & Audit',
+  navGuard: 'Security Governance',
+  navMonitor: 'Monitoring & Ops',
   navSystem: 'System',
 
   navUsers: 'Users',
