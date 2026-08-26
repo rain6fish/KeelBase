@@ -153,7 +153,7 @@ keelbase init --desc "Customer management"
 
 Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance.
 
-Full flow: [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md)
+Full flow: [Build an AI CRM in 30 minutes](docs/manual/onboarding-30min.md) · [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md)
 
 ---
 
