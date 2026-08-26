@@ -12,23 +12,40 @@
     <div v-else-if="loadError" class="text-error pa-6">{{ loadError }}</div>
 
     <template v-else-if="data">
-      <!-- 七段：Who / When / What / Result / Side Effects / Integrity（Why 单独双层卡片） -->
-      <el-row :gutter="16" class="mb-4">
-        <el-col v-for="item in summaryItems" :key="item.label" :xs="24" :sm="12" :md="8">
-          <el-card shadow="never" class="mb-4">
-            <div class="text-caption text-medium-emphasis mb-1">{{ item.label }}</div>
-            <div class="text-body-1 font-weight-medium" :class="{ 'text-break-all': item.mono }">
-              <code v-if="item.mono" class="text-caption">{{ item.value }}</code>
-              <template v-else>{{ item.value }}</template>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+      <!-- Hero：谁在何时，对什么做了什么，结果如何 —— 业务动作一句话 -->
+      <el-card shadow="never" class="mb-4 action-hero">
+        <div class="d-flex justify-space-between align-start flex-wrap ga-2">
+          <div class="d-flex align-center ga-2">
+            <el-tag :type="decisionBadge.type" effect="dark" size="large">{{ decisionBadge.text }}</el-tag>
+            <span class="text-h6 font-weight-bold">{{ toolLabelText }}</span>
+          </div>
+          <el-tag type="primary" effect="plain">{{ data.effect.resultType }} #{{ data.effect.resultId }}</el-tag>
+        </div>
+        <div class="text-caption text-medium-emphasis mt-2">
+          <code>{{ data.effect.toolName }}</code> · {{ t('governanceResult') }}
+        </div>
+        <el-divider class="my-3" />
+        <div class="d-flex flex-wrap ga-4 text-body-2">
+          <span class="d-flex align-center ga-1">
+            <AppIcon icon="mdi-account-circle" size="18" color="var(--el-color-info)" />
+            <strong class="text-medium-emphasis">{{ t('who') }}:</strong> {{ actorName }}
+          </span>
+          <span class="d-flex align-center ga-1">
+            <AppIcon icon="mdi-clock-outline" size="18" color="var(--el-color-info)" />
+            <strong class="text-medium-emphasis">{{ t('when') }}:</strong> {{ formatTime(data.effect.createdAt) }}
+          </span>
+        </div>
+      </el-card>
 
-      <!-- Why：用户视角 + 技术详情 双层 -->
-      <el-card shadow="never" class="mb-4">
-        <template #header>{{ t('governanceWhy') }}</template>
-        <div class="text-body-2">{{ whySummary }}</div>
+      <!-- Why：双层 —— 用户视角人类语言 + 可展开技术详情 -->
+      <el-card shadow="never" class="mb-4" :class="whyPanelClass">
+        <template #header>
+          <div class="d-flex align-center ga-2">
+            <AppIcon icon="mdi-shield-check-outline" color="var(--el-color-primary)" />
+            <span class="text-subtitle-1">{{ t('governanceWhy') }}</span>
+          </div>
+        </template>
+        <div class="text-body-1 font-weight-medium">{{ whySummary }}</div>
         <div v-if="whyChecks.length" class="mt-2 pa-3" style="background: var(--el-fill-color-light); border-radius: 8px">
           <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('techDetail') }}</div>
           <div v-for="c in whyChecks" :key="c.name" class="d-flex align-center ga-1 text-body-2">
@@ -38,16 +55,42 @@
         </div>
       </el-card>
 
-      <!-- Human–Agent–System 决策轨迹 -->
+      <!-- 事实卡：副作用 / 完整性 -->
+      <el-row :gutter="16" class="mb-4">
+        <el-col :xs="24" :md="12">
+          <el-card shadow="never" class="mb-4">
+            <div class="text-caption text-medium-emphasis mb-1">{{ t('sideEffects') }}</div>
+            <div class="text-body-1 font-weight-medium">
+              <AppIcon icon="mdi-database-check-outline" size="18" color="var(--el-color-success)" />
+              {{ data.effect.conversationId ? t('governanceRecorded') : '-' }}
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :md="12">
+          <el-card shadow="never" class="mb-4">
+            <div class="text-caption text-medium-emphasis mb-1">{{ t('governanceIntegrity') }}</div>
+            <code class="text-caption">{{ data.effect.argsHash || '-' }}</code>
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <!-- Human–Agent–System 决策轨迹（时间线即故事） -->
       <el-card shadow="never">
-        <template #header>{{ t('decisionTrace') }}</template>
+        <template #header>
+          <div class="d-flex align-center ga-2">
+            <AppIcon icon="mdi-account-multiple-outline" color="var(--el-color-primary)" />
+            <span class="text-subtitle-1">{{ t('decisionTrace') }}</span>
+          </div>
+        </template>
         <div v-if="!steps.length" class="text-medium-emphasis text-body-2">{{ t('traceEmpty') }}</div>
         <el-timeline v-else>
           <el-timeline-item v-for="s in steps" :key="s.id" :color="timelineColor(s)">
-            <div class="d-flex align-center ga-1">
+            <div class="d-flex align-center ga-2 flex-wrap">
+              <AppIcon :icon="sourceIcon(traceSource(s.type))" size="18" :color="sourceColor(traceSource(s.type))" />
               <el-tag size="small" :type="traceSourceTagType(traceSource(s.type))" effect="plain">{{ t(traceSourceKey(traceSource(s.type))) }}</el-tag>
               <span v-if="s.agentId" class="text-caption text-medium-emphasis">· {{ s.agentId }}</span>
               <span class="text-caption font-weight-medium text-primary">{{ stepLabel(s) }}</span>
+              <span class="text-caption text-medium-emphasis" style="margin-left:auto">{{ formatTime(s.time) }}</span>
             </div>
             <div v-if="s.type === 'tool_call' || s.type === 'confirmation'" class="mt-1 text-body-2">
               {{ s.toolName }} <code class="text-caption">{{ s.args }}</code>
@@ -75,13 +118,14 @@ import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
 import { ApiError } from '@/api/client'
 import { formatTime } from '@/utils/format'
-import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
+import { traceSource, traceSourceKey, traceSourceTagType, type TraceSource } from '@/utils/traceSource'
+import { toolLabel } from '@/utils/toolLabel'
 import type { GovernanceActionResponse } from '@/types/admin'
 import type { TraceStep } from '@/types/workbench'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, tm } = useI18n()
 const auth = useAuthStore()
 
 const resultType = String(route.params.resultType ?? '')
@@ -94,6 +138,9 @@ const notFound = ref(false)
 
 const steps = computed<TraceStep[]>(() => (data.value?.trace as { steps?: TraceStep[] } | null)?.steps ?? [])
 
+/** D2 人类语言工具标签（feature 命名空间 ai.tool.*），未命中回退原始名 */
+const toolLabelText = computed(() => toolLabel(tm('feature') as Record<string, string> | undefined, data.value?.effect.toolName ?? ''))
+
 /** Who：本人显示用户名，否则回退用户 id */
 const actorName = computed(() => {
   if (!data.value) return ''
@@ -102,18 +149,24 @@ const actorName = computed(() => {
   return `#${uid}`
 })
 
-/** 七段摘要卡（Why 单独双层卡片） */
-const summaryItems = computed(() => {
-  if (!data.value) return []
-  const e = data.value.effect
-  return [
-    { label: t('who'), value: actorName.value, mono: false },
-    { label: t('when'), value: formatTime(e.createdAt), mono: false },
-    { label: t('what'), value: e.toolName, mono: true },
-    { label: t('governanceResult'), value: `${e.resultType} #${e.resultId}`, mono: false },
-    { label: t('sideEffects'), value: e.conversationId ? t('governanceRecorded') : '-', mono: false },
-    { label: t('governanceIntegrity'), value: e.argsHash || '-', mono: true },
-  ]
+/** 决策徽章：批准 / 拒绝 / 阻止 / 允许（颜色随结果） */
+const decisionBadge = computed<{ text: string; type: 'success' | 'danger' | 'warning' | 'info' }>(() => {
+  const confirm = steps.value.find((s) => s.type === 'confirmation')
+  if (confirm?.outcome === 'approve') return { text: t('stepApproved'), type: 'success' }
+  if (confirm?.outcome === 'decline') return { text: t('stepDeclined'), type: 'danger' }
+  if (confirm?.outcome === 'timeout') return { text: t('stepTimedOut'), type: 'warning' }
+  const denied = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
+  if (denied) return { text: t('whyBlocked'), type: 'danger' }
+  if (confirm?.trusted) return { text: t('stepTrusted'), type: 'info' }
+  return { text: t('whyAllowed'), type: 'success' }
+})
+
+/** Why 面板背景色：确认=成功浅色 / 阻止拒绝=警示浅色 / 允许=中性 */
+const whyPanelClass = computed(() => {
+  const badge = decisionBadge.value
+  if (badge.type === 'success') return 'why-panel-ok'
+  if (badge.type === 'danger') return 'why-panel-bad'
+  return 'why-panel-neutral'
 })
 
 /** Why 用户视角：确认结果 / 拒绝 / 信任上下文 人类语言 */
@@ -134,6 +187,18 @@ const whyChecks = computed(() => {
   const deniedTool = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
   return deniedTool?.checks ?? []
 })
+
+/** 时间线来源图标/颜色：人 / AI / 系统 */
+function sourceIcon(src: TraceSource): string {
+  if (src === 'human') return 'mdi-account'
+  if (src === 'agent') return 'mdi-robot-outline'
+  return 'mdi-cog-outline'
+}
+function sourceColor(src: TraceSource): string {
+  if (src === 'human') return 'var(--el-color-success)'
+  if (src === 'agent') return 'var(--el-color-primary)'
+  return 'var(--el-color-info)'
+}
 
 function stepLabel(s: TraceStep): string {
   switch (s.type) {
@@ -183,3 +248,22 @@ async function load() {
 
 onMounted(() => void load())
 </script>
+
+<style scoped>
+.action-hero {
+  background: linear-gradient(135deg, var(--keel-brand-gradient-from, var(--el-color-primary)) 0%, var(--el-bg-color-page) 100%);
+  border-radius: 12px;
+}
+.action-hero .el-card__body {
+  padding: 20px;
+}
+.why-panel-ok {
+  border-left: 4px solid var(--el-color-success);
+}
+.why-panel-bad {
+  border-left: 4px solid var(--el-color-danger);
+}
+.why-panel-neutral {
+  border-left: 4px solid var(--el-color-info);
+}
+</style>
