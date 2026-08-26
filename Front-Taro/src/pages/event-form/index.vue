@@ -2,36 +2,36 @@
   <view class="event-form">
     <view class="event-form__content">
       <view class="form-group">
-        <text class="form-label">Title *</text>
+        <text class="form-label">{{ t('eventForm.titleLabel') }}</text>
         <input
           class="form-input"
           :class="{ 'form-input--error': errors.title }"
-          placeholder="Event title"
+          :placeholder="t('eventForm.titlePlaceholder')"
           v-model="title"
         />
         <text v-if="errors.title" class="form-error">{{ errors.title }}</text>
       </view>
 
       <view class="form-group">
-        <text class="form-label">Description</text>
+        <text class="form-label">{{ t('eventForm.descriptionLabel') }}</text>
         <input
           class="form-input form-input--multiline"
-          placeholder="Event description (optional)"
+          :placeholder="t('eventForm.descriptionPlaceholder')"
           v-model="description"
         />
       </view>
 
       <view class="form-group">
-        <text class="form-label">Location</text>
+        <text class="form-label">{{ t('eventForm.locationLabel') }}</text>
         <input
           class="form-input"
-          placeholder="Event location (optional)"
+          :placeholder="t('eventForm.locationPlaceholder')"
           v-model="location"
         />
       </view>
 
       <!-- Start date/time -->
-      <text class="form-section-title">Start</text>
+      <text class="form-section-title">{{ t('eventForm.start') }}</text>
       <view class="event-form__datetime">
         <picker mode="date" :value="startDate" @change="startDate = $event.detail.value">
           <view class="event-form__picker">
@@ -48,7 +48,7 @@
       </view>
 
       <!-- End date/time -->
-      <text class="form-section-title">End</text>
+      <text class="form-section-title">{{ t('eventForm.end') }}</text>
       <view class="event-form__datetime">
         <picker mode="date" :value="endDate" @change="endDate = $event.detail.value">
           <view class="event-form__picker">
@@ -66,7 +66,7 @@
 
       <!-- Color picker -->
       <view class="form-group">
-        <text class="form-label">Color</text>
+        <text class="form-label">{{ t('eventForm.color') }}</text>
         <view class="event-form__colors">
           <view
             v-for="(color, i) in EVENT_COLORS"
@@ -85,7 +85,7 @@
         :disabled="store.isLoading"
         @click="handleSubmit"
       >
-        {{ isEditing ? 'Update Event' : 'Create Event' }}
+        {{ isEditing ? t('eventForm.update') : t('eventForm.create') }}
       </button>
     </view>
   </view>
@@ -95,10 +95,12 @@
 import { ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { useEventsStore } from '../../stores/events-store'
+import { useI18n } from '../../composables/useI18n'
 import { EVENT_COLORS } from '../../utils/constants'
 import { validateTitle } from '../../utils/validators'
 
 const store = useEventsStore()
+const { t } = useI18n()
 
 const router = Taro.getCurrentInstance().router
 const eventId = router?.params?.id ? Number(router.params.id) : undefined
@@ -133,7 +135,7 @@ async function handleSubmit() {
   const end = new Date(`${endDate.value}T${endTime.value}`)
 
   if (end <= start) {
-    Taro.showToast({ title: 'End time must be after start', icon: 'none' })
+    Taro.showToast({ title: t('eventForm.endBeforeStart'), icon: 'none' })
     return
   }
 
@@ -147,7 +149,7 @@ async function handleSubmit() {
   })
 
   if (success) {
-    Taro.showToast({ title: 'Event created', icon: 'success' })
+    Taro.showToast({ title: t('eventForm.created'), icon: 'success' })
     setTimeout(() => Taro.navigateBack(), 1500)
   }
 }

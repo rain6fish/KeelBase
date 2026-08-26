@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { usersService } from '../services/users-service'
+import { translate } from '../i18n/translate'
 import type { UserItem } from '../types/user'
 
 /** 用户列表状态（Taro→Vue3 迁移：zustand → pinia）：分页加载 + 刷新。 */
@@ -28,7 +29,7 @@ export const useUsersStore = defineStore('users', {
         this.isLoading = false
         this.hasMore = page * 20 < result.total
       } catch (err: any) {
-        this.error = err.message || 'Failed to load users'
+        this.error = err.message || translate('users.loadFailed')
         this.isLoading = false
       }
     },

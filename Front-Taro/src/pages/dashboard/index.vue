@@ -6,7 +6,7 @@
         <text class="dashboard__welcome-avatar-text">{{ avatarInitial }}</text>
       </view>
       <view class="dashboard__welcome-info">
-        <text class="dashboard__welcome-name">Welcome, {{ user?.nickname || 'User' }}</text>
+        <text class="dashboard__welcome-name">{{ t('dashboard.welcome', { name: user?.nickname || t('dashboard.defaultUser') }) }}</text>
         <text class="dashboard__welcome-username">@{{ user?.username || '...' }}</text>
       </view>
     </view>
@@ -32,9 +32,11 @@ import { computed } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../../stores/auth-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = useAuthStore()
 const { user } = storeToRefs(store)
+const { t } = useI18n()
 
 const avatarInitial = computed(() => user.value?.nickname?.[0]?.toUpperCase() || '?')
 
@@ -46,11 +48,11 @@ interface NavItem {
   action?: () => void
 }
 
-const navItems: NavItem[] = [
-  { icon: '📅', title: 'Events', color: '#16A34A', path: '/pages/events/index' },
-  { icon: '📤', title: 'Upload', color: '#F59E0B', path: '/pages/upload/index' },
-  { icon: '🚪', title: 'Sign Out', color: '#DC2626', action: handleLogout },
-]
+const navItems = computed<NavItem[]>(() => [
+  { icon: '📅', title: t('dashboard.events'), color: '#16A34A', path: '/pages/events/index' },
+  { icon: '📤', title: t('dashboard.upload'), color: '#F59E0B', path: '/pages/upload/index' },
+  { icon: '🚪', title: t('dashboard.signOut'), color: '#DC2626', action: handleLogout },
+])
 
 function handleNav(item: NavItem) {
   if (item.action) item.action()

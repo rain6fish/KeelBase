@@ -1,4 +1,5 @@
 import { api } from './api-client'
+import { translate } from '../i18n/translate'
 
 export interface AiChatMessage {
   role: 'user' | 'assistant'
@@ -31,17 +32,20 @@ export interface AiConversationSummary {
   previewTitle: string
 }
 
+/** 新会话默认预览（内部哨兵，展示时经 translate 输出本地化文案）。 */
+const DEFAULT_PREVIEW = '新对话'
+
 /** 从后端返回行解析列表项：取首条 user 消息作预览标题。 */
 function parseConversation(row: any): AiConversationSummary {
   const msgs: AiHistoryMessage[] = row.messages ?? []
-  let preview = '新对话'
+  let preview = DEFAULT_PREVIEW
   for (const m of msgs) {
     if (m.role === 'user' && m.content) {
       preview = m.content.trim()
       break
     }
   }
-  if (preview === '新对话' && row.summary) {
+  if (preview === DEFAULT_PREVIEW && row.summary) {
     preview = row.summary.slice(0, 30)
   }
   if (preview.length > 30) preview = `${preview.slice(0, 30)}…`
@@ -53,7 +57,7 @@ function parseConversation(row: any): AiConversationSummary {
     messages: msgs,
     createdAt: row.createdAt,
     lastActivityAt: row.lastActivityAt,
-    previewTitle: preview,
+    previewTitle: preview === DEFAULT_PREVIEW ? translate('ai.newConversation') : preview,
   }
 }
 
