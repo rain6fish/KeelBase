@@ -12,13 +12,13 @@ describe('CreateFollowupTaskTool', () => {
   });
 
   it('构造 dto 调用 createTask 并返回 id', async () => {
-    crmService.createTask.mockResolvedValue({ id: 11, title: '跟进华润回款', customerId: 1, dueDate: null });
+    crmService.createTask.mockResolvedValue({ id: 11, title: '跟进辰光回款', customerId: 1, dueDate: null });
     const result = await tool.execute(
-      { customerId: 1, title: '跟进华润回款', dueDate: '2026-08-20T10:00:00Z' },
+      { customerId: 1, title: '跟进辰光回款', dueDate: '2026-08-20T10:00:00Z' },
       '3',
     );
     expect(crmService.createTask).toHaveBeenCalledWith(
-      { customerId: 1, title: '跟进华润回款', dueDate: '2026-08-20T10:00:00Z' },
+      { customerId: 1, title: '跟进辰光回款', dueDate: '2026-08-20T10:00:00Z' },
       3,
     );
     expect(result.success).toBe(true);

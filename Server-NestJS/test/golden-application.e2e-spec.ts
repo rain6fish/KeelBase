@@ -81,11 +81,11 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     await app.close();
   });
 
-  it('① Customer：创建临海制造 + 280 万逾期订单 → AI 可读到该客户', async () => {
+  it('① Customer：创建瀚宇制造 + 280 万逾期订单 → AI 可读到该客户', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/crm/customers')
       .set(authHeader(userA.accessToken))
-      .send({ name: '临海制造', company: '临海集团', status: 'active', riskLevel: 'high' })
+      .send({ name: '瀚宇制造', company: '瀚宇集团', status: 'active', riskLevel: 'high' })
       .expect(201);
     customerId = created.body.data.id;
     expect(customerId).toBeDefined();
@@ -107,7 +107,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     expect(res.success).toBe(true);
     const items = (res.data as any).items ?? (res.data as any);
     expect(Array.isArray(items)).toBe(true);
-    expect(items.some((c: any) => c.id === customerId && c.name === '临海制造')).toBe(true);
+    expect(items.some((c: any) => c.id === customerId && c.name === '瀚宇制造')).toBe(true);
   });
 
   it('② Risk Analysis：analyze_customer_risk → critical + 理由', async () => {
@@ -123,7 +123,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     // 真实治理层：写工具经 executeToolForExternal → requiresConfirmation，不自动执行
     const gated = await aiService.executeToolForExternal(
       'create_followup_task',
-      { customerId, title: '跟进临海制造 280 万逾期' },
+      { customerId, title: '跟进瀚宇制造 280 万逾期' },
       String(userAId),
     );
     expect(gated.executed).toBe(false);
@@ -135,14 +135,14 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
       .get('/api/v1/crm/tasks')
       .set(authHeader(userA.accessToken))
       .expect(200);
-    expect(tasks.body.data.items.some((t: any) => t.title === '跟进临海制造 280 万逾期')).toBe(false);
+    expect(tasks.body.data.items.some((t: any) => t.title === '跟进瀚宇制造 280 万逾期')).toBe(false);
   });
 
   it('④ 确认 → 写：任务真实落库 + 副作用登记（可撤销）', async () => {
     // 确认后执行（镜像 _executeWriteTool：execute 成功 → record 副作用）
     const createTool = new CreateFollowupTaskTool(crmService);
     const res = await createTool.execute(
-      { customerId, title: '跟进临海制造 280 万逾期', dueDate: '2026-08-25T10:00:00Z' },
+      { customerId, title: '跟进瀚宇制造 280 万逾期', dueDate: '2026-08-25T10:00:00Z' },
       String(userAId),
     );
     expect(res.success).toBe(true);
@@ -154,7 +154,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
         userId: String(userAId),
         conversationId: 'golden-app-1',
         toolName: 'create_followup_task',
-        args: { customerId, title: '跟进临海制造 280 万逾期' },
+        args: { customerId, title: '跟进瀚宇制造 280 万逾期' },
       } as any,
       'crm_task',
       taskId,
@@ -167,7 +167,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
       .get('/api/v1/crm/tasks')
       .set(authHeader(userA.accessToken))
       .expect(200);
-    expect(tasks.body.data.items.some((t: any) => t.id === taskId && t.title === '跟进临海制造 280 万逾期')).toBe(true);
+    expect(tasks.body.data.items.some((t: any) => t.id === taskId && t.title === '跟进瀚宇制造 280 万逾期')).toBe(true);
   });
 
   it('⑤ 审计：副作用可撤销登记存在 + 管理端审计哈希链 valid', async () => {
@@ -175,7 +175,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
       userId: String(userAId),
       conversationId: 'golden-app-1',
       toolName: 'create_followup_task',
-      args: { customerId, title: '跟进临海制造 280 万逾期' },
+      args: { customerId, title: '跟进瀚宇制造 280 万逾期' },
     });
     const effect = await effectsService.findExisting(key);
     expect(effect.existing).toBe(true);
