@@ -2,7 +2,7 @@
 
 > 目标：README 首页第一屏用真实 Runtime AI 闭环（而非技术栈）让陌生开发者 **60 秒看懂**——AI 不只是聊天，而是在权限和审计边界内真正干活。
 > 本文档是 README 视频/GIF 的**录制脚本**：每个场景 ≤60 秒，完整展示 `Tool → Permission → Confirmation → Audit`。
-> 演示载体：单容器（`./scripts/docker-single.sh`）或在线演示站（`./deploy/demo.sh`），演示账号 `alex / 123456`。
+> 演示载体：`./deploy/demo.sh`（一键起工作台 AI CRM Golden Flow，http://localhost:3000）或单容器（`./scripts/docker-single.sh`），演示账号 `alex / 123456`。
 
 ---
 
@@ -13,11 +13,11 @@
 | 时间 | 画面 | 用户操作 / AI 行为 | 展示点 |
 |---|---|---|---|
 | 0-5s | 登录页 → 工作台 | 输入 `alex / 123456` 登录 | 演示账号 |
-| 5-12s | AI 对话页 | 输入「**哪些客户本周最值得跟进？**」 | 真实业务数据 |
-| 12-30s | 工具步骤卡 | AI 依次调用 `query_customers` → `query_customer_orders` → `analyze_customer_risk` | **读工具**（蓝色「读」徽标）+ 过程可视化 |
+| 5-12s | AI CRM → 客户详情 | 打开客户（如「云帆商贸」）→ 点「AI Copilot」→ 输入「**分析这家客户的风险，值得跟进吗？**」 | 真实业务数据 |
+| 12-30s | 工具步骤卡 | AI 依次调用 `query_customer_orders` → `query_customer_activities` → `analyze_customer_risk` | **读工具**（蓝色「读」徽标）+ 过程可视化 |
 | 30-40s | AI 回复 + 写操作 | AI：「云帆商贸有逾期订单且连续两月未续约，建议跟进」→ 问「要我为云帆创建跟进任务吗？」 | 写操作触发确认 |
 | 40-48s | 确认卡 | 用户点「确认」→ AI 调用 `create_followup_task` | **写工具**（橙色「写」徽标）+ **确认** |
-| 48-55s | 结果 | 「已创建跟进任务 #12」+「已确认 · 可撤销」徽标 | **审计**（管理台可见）|
+| 48-55s | 结果 | 「已创建跟进任务 #12」+ 自动打开**治理轨迹**（谁 / 何时 / 做了什么 / 为什么允许 / 审计） | **审计** |
 
 **一句话字幕**：AI 读你的数据 → 判断风险 → 在你确认后写数据 → 每一步可审计。
 
@@ -27,7 +27,7 @@
 
 | 时间 | 画面 | 操作 / AI 行为 |
 |---|---|---|
-| 0-5s | AI 对话页 | 输入「**帮我看看哪些项目有延期风险**」|
+| 0-5s | AI Project → 项目详情 | 打开项目（如「数据仓库迁移」）→ 点「AI Copilot」→ 输入「**帮我看看这个项目有没有延期风险**」|
 | 5-30s | 工具卡 | AI 调 `query_projects` → `query_project_tasks` → `analyze_project_risk`（读）|
 | 30-45s | 结果 | AI：「官网改版因设计资源紧张 + 2 个任务未完成 → 中风险」，建议建跟进任务（确认后执行）|
 
@@ -53,7 +53,7 @@
 
 | 项 | 建议 |
 |---|---|
-| 载体 | 单容器 `./scripts/docker-single.sh`（Flutter web 主界面 + 工作台）|
+| 载体 | `./deploy/demo.sh`（工作台 AI CRM Golden Flow，http://localhost:3000）或单容器 `./scripts/docker-single.sh` |
 | 分辨率 | 1280×800（浏览器窗口），字号放大 1.25× |
 | 录制工具 | macOS `screencapture -V` / Windows Xbox Game Bar / OBS / Giphy Capture（GIF）|
 | 时长 | 每场景 ≤60s；首屏用「场景 1」（CRM）|
@@ -67,7 +67,7 @@
 
 ### 场景 1：AI CRM「哪些客户本周值得跟进？」
 
-- [ ] AI 调用读工具（`query_customers` → `query_customer_orders` → `analyze_customer_risk`），工具卡显示「读」徽标
+- [ ] AI 调用读工具（`query_customer_orders` → `query_customer_activities` → `analyze_customer_risk`），工具卡显示「读」徽标
 - [ ] 工具调用按 userId 限定数据范围（只查本人客户/订单）
 - [ ] 写操作（`create_followup_task`）触发人工确认，确认后才执行
 - [ ] 管理台「AI 审计」可见本次工具调用记录（谁 / 什么工具 / 结果）
