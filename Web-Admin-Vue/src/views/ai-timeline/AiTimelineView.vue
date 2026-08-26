@@ -10,6 +10,7 @@
     <el-card shadow="never" class="mb-4">
       <div class="d-flex ga-3 flex-wrap align-center">
         <el-input v-model="userId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
+        <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 180px" />
         <el-button type="primary" @click="load">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
           {{ t('filter') }}
@@ -156,6 +157,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusChip from '@/components/StatusChip.vue'
@@ -167,9 +169,11 @@ import type { AuditLog } from '@/types/audit'
 import type { GovernanceActionResponse, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
+const route = useRoute()
 const snackbar = useSnackbarStore()
 
 const userId = ref('')
+const agentId = ref('')
 const logs = ref<AuditLog[]>([])
 const effects = ref<ToolEffect[]>([])
 const loading = ref(false)
@@ -246,7 +250,7 @@ async function load() {
   try {
     const uid = userId.value ? Number(userId.value) : undefined
     const [logsRes, effRes] = await Promise.all([
-      auditApi.logs({ userId: userId.value || undefined, limit: 100 }),
+      auditApi.logs({ userId: userId.value || undefined, agentId: agentId.value || undefined, limit: 100 }),
       aiToolsApi.effects(uid, 1, 100),
     ])
     logs.value = logsRes
@@ -402,5 +406,9 @@ async function onShowGovernance(effect: ToolEffect) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  const q = route.query.agentId
+  if (typeof q === 'string' && q) agentId.value = q
+  load()
+})
 </script>
