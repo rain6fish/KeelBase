@@ -4,9 +4,10 @@
     size="520px"
     :title="t('governanceDetail')"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
-    @open="load"
   >
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('governanceLoading') }}</div>
+    <!-- 404 = 该业务动作无 AI 副作用记录（可能为人工创建） -->
+    <div v-else-if="notFound" class="text-medium-emphasis pa-4">{{ t('governanceNoData') }}</div>
     <div v-else-if="loadError" class="text-error pa-4">{{ loadError }}</div>
 
     <template v-else-if="data">
@@ -86,11 +87,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
+import { ApiError } from '@/api/client'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
 import type { GovernanceActionResponse } from '@/types/admin'
@@ -105,6 +107,7 @@ const auth = useAuthStore()
 const data = ref<GovernanceActionResponse | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+const notFound = ref(false)
 
 const steps = computed<TraceStep[]>(() => (data.value?.trace as { steps?: TraceStep[] } | null)?.steps ?? [])
 
@@ -161,18 +164,31 @@ async function load() {
   if (!props.resultType || !props.resultId) return
   loading.value = true
   loadError.value = ''
+  notFound.value = false
   data.value = null
   try {
     data.value = await aiToolsApi.governanceAction(props.resultType, props.resultId)
   } catch (err) {
-    loadError.value = err instanceof Error ? err.message : t('governanceLoadFailed')
+    // 404 = 该业务动作无 AI 副作用记录（人工创建）→ 友好空态；其他错误显示信息
+    if (err instanceof ApiError && err.statusCode === 404) {
+      notFound.value = true
+    } else {
+      loadError.value = err instanceof Error ? err.message : t('governanceLoadFailed')
+    }
   } finally {
     loading.value = false
   }
 }
 
-// 目标变化时若抽屉已打开则刷新（重试/切换业务动作场景）
+// 抽屉打开时加载治理数据；目标变化时若已打开则刷新（重试/切换业务动作场景）
+watch(() => props.modelValue, (open) => {
+  if (open) void load()
+})
 watch([() => props.resultType, () => props.resultId], () => {
+  if (props.modelValue) void load()
+})
+// 挂载时已打开（父组件先置 open 再渲染本组件）→ 直接加载
+onMounted(() => {
   if (props.modelValue) void load()
 })
 </script>
