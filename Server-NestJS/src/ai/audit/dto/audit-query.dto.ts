@@ -8,6 +8,11 @@ export class AuditQueryDto {
   @IsString()
   userId?: string;
 
+  @ApiPropertyOptional({ description: '按 Agent 过滤（D4 agent_id，Agent Registry → 审计联动）' })
+  @IsOptional()
+  @IsString()
+  agentId?: string;
+
   @ApiPropertyOptional({ description: '按组织 ID 过滤（ORG-5 组织维度审计）' })
   @IsOptional()
   @Type(() => Number)

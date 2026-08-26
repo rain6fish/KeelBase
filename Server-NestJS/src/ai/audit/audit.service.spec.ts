@@ -473,4 +473,52 @@ describe('AuditService', () => {
       expect(report.byDay).toEqual([]);
     });
   });
+
+  describe('getLogs agentId 过滤（Agent Registry → 审计联动）', () => {
+    it('按 log.agent_id 过滤并返回 agentId 字段', async () => {
+      const qb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            log_id: 1,
+            log_user_id: '1',
+            log_conversation_id: null,
+            log_action: 'tool_call',
+            log_detail: 'create_todo({})',
+            log_agent_id: 'sales-agent',
+            log_parent_action_id: null,
+            log_caller_agent_id: null,
+            log_delegation_context: null,
+            log_business_intent: null,
+            log_source: null,
+            log_model: 'm',
+            log_provider: 'p',
+            log_prompt_tokens: 1,
+            log_completion_tokens: 1,
+            log_duration_ms: 1,
+            log_is_error: 0,
+            log_error_message: null,
+            log_authorization: null,
+            log_feedback: null,
+            log_feedback_note: null,
+            log_createdAt: '2026-08-26T00:00:00Z',
+            username: 'alex',
+          },
+        ]),
+      };
+      (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+      const rows = await service.getLogs({ agentId: 'sales-agent' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('log.agent_id = :agentId', { agentId: 'sales-agent' });
+      expect(rows[0].agentId).toBe('sales-agent');
+      expect(rows[0].actionLabel).toBeDefined();
+    });
+  });
 });
