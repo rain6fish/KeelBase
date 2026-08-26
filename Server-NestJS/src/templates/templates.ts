@@ -149,8 +149,8 @@ export const CRM_TEMPLATE: AppTemplate = {
         risks: [{ level: 'low', reason: '长期合作稳定，回款及时' }],
       },
       {
-        name: '云帆商贸',
-        company: '云帆商贸有限公司',
+        name: '叠屿商贸',
+        company: '叠屿商贸有限公司',
         status: 'churn_risk',
         riskLevel: 'high',
         annualValue: 300000,
