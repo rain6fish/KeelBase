@@ -41,6 +41,7 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: 'ai-approvals', name: 'ai-approvals', component: () => import('@/views/ai-approvals/AiApprovalsView.vue'), meta: { title: 'navAiApprovals' } },
   { path: 'security-review', name: 'security-review', component: () => import('@/views/security-review/SecurityReviewView.vue'), meta: { title: 'navSecurityReview' } },
   { path: 'agent-registry', name: 'agent-registry', component: () => import('@/views/agents/AgentRegistryView.vue'), meta: { title: 'navAgents' } },
+  { path: 'policy-center', name: 'policy-center', component: () => import('@/views/policy/PolicyCenterView.vue'), meta: { title: 'navPolicyCenter' } },
   { path: 'mcp', name: 'mcp', component: () => import('@/views/mcp/McpView.vue'), meta: { title: 'navMcp' } },
   { path: 'analytics', name: 'analytics', component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: 'navAnalytics' } },
   { path: 'org', name: 'org', component: () => import('@/views/org/OrgView.vue'), meta: { title: 'navOrg', module: 'org' } },
