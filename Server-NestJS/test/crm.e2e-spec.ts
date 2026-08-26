@@ -26,14 +26,14 @@ describe('AI CRM (e2e)', () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/crm/customers')
       .set(authHeader(userA.accessToken))
-      .send({ name: '华润建材', company: '华润集团', status: 'active', riskLevel: 'high' })
+      .send({ name: '辰光建材', company: '辰光集团', status: 'active', riskLevel: 'high' })
       .expect(201);
     expect(created.body.data.id).toBeDefined();
 
     await request(app.getHttpServer())
       .post('/api/v1/crm/customers')
       .set(authHeader(userB.accessToken))
-      .send({ name: '蓝湾地产', status: 'churn_risk' })
+      .send({ name: '澄海地产', status: 'churn_risk' })
       .expect(201);
 
     const listA = await request(app.getHttpServer())
@@ -41,7 +41,7 @@ describe('AI CRM (e2e)', () => {
       .set(authHeader(userA.accessToken))
       .expect(200);
     expect(listA.body.data.items.length).toBe(1);
-    expect(listA.body.data.items[0].name).toBe('华润建材');
+    expect(listA.body.data.items[0].name).toBe('辰光建材');
   });
 
   it('访问他人客户详情 → 403', async () => {
@@ -62,7 +62,7 @@ describe('AI CRM (e2e)', () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/crm/customers')
       .set(authHeader(userA.accessToken))
-      .send({ name: '临海制造', riskLevel: 'critical' })
+      .send({ name: '瀚宇制造', riskLevel: 'critical' })
       .expect(201);
     const id = created.body.data.id;
 
