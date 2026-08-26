@@ -381,6 +381,8 @@ const en: ZhDict = {
   governanceWhy: 'Why allowed',
   governanceResult: 'Result',
   governanceIntegrity: 'Integrity',
+  workbenchActionDetail: 'Business Action Detail',
+  viewFullTrace: 'View full trace',
   governanceLoading: 'Loading…',
   governanceLoadFailed: 'Failed to load governance detail',
   governanceNoData: 'No AI governance record — this action may be manually created',
