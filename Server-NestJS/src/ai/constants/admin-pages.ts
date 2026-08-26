@@ -35,6 +35,7 @@ export const ADMIN_PAGE_ROUTES: Record<
   'ai-tools': { route: '/ai-tools', description: 'AI 工具与副作用' },
   'security-review': { route: '/security-review', description: '安全审查' },
   'ai-approvals': { route: '/ai-approvals', description: 'AI 审批' },
+  'agent-registry': { route: '/agent-registry', description: 'Agent 注册表' },
   mcp: { route: '/mcp', description: 'MCP 服务' },
   analytics: { route: '/analytics', description: '平台统计' },
   org: { route: '/org', description: '组织管理' },

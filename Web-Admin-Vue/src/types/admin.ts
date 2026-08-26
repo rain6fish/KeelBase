@@ -268,6 +268,21 @@ export interface ToolEffect {
   targetTitle: string | null
 }
 
+/** D5 Agent Registry：已注册 Agent 清单（GET /ai/agents，管理台） */
+export interface AiAgent {
+  id: number
+  name: string
+  ownerId?: number | null
+  purpose?: string | null
+  /** 能力清单（JSON 数组字符串，如 '["read_customer","create_followup"]'） */
+  capabilities?: string | null
+  /** 信任级别 R1-R5（R1 读自动 / R3 写需确认 / R4 双人审批 / R5 阻断） */
+  trustLevel: string
+  description?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 /** D1/B4 治理视图：业务动作 → AI 副作用 + 决策轨迹（GET /ai/governance/action/:resultType/:resultId） */
 export interface GovernanceActionResponse {
   effect: {
