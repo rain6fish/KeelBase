@@ -85,6 +85,8 @@ export interface AiAuditLogWithUser {
   /** D2 人类语言审计标签：语义 key（前端 i18n）+ 兜底人类可读描述（含工具名） */
   actionKey?: string | null;
   actionLabel?: string | null;
+  /** W4-⑤ Agent Identity：调用方 agent（headless key id / 子 agent），Agent Registry name 归责于此 */
+  agentId?: string | null;
   /** D4 Agent Delegation Chain 增量字段（多 Agent 归责） */
   parentActionId?: string | null;
   callerAgentId?: string | null;
@@ -222,7 +224,7 @@ export class AuditService {
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number } = {},
+    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string } = {},
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs(options);
   }
@@ -252,7 +254,7 @@ export class AuditService {
 
   /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number } = {},
+    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string } = {},
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -264,6 +266,7 @@ export class AuditService {
     if (options.userId) qb.where('log.userId = :userId', { userId: options.userId });
     if (options.since) qb.andWhere('log.createdAt >= :since', { since: options.since });
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
+    if (options.agentId) qb.andWhere('log.agent_id = :agentId', { agentId: options.agentId });
     if (options.orgId != null) {
       qb.andWhere(
         'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
@@ -282,6 +285,7 @@ export class AuditService {
       detail: r.log_detail ?? null,
       actionKey: label.key,
       actionLabel: label.fallback,
+      agentId: r.log_agent_id ?? null,
       parentActionId: r.log_parent_action_id ?? null,
       callerAgentId: r.log_caller_agent_id ?? null,
       delegationContext: r.log_delegation_context ?? null,
