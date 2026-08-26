@@ -127,11 +127,12 @@
       </el-col>
     </el-row>
 
-    <!-- AI Copilot：当前客户上下文 AI 助手（P0） -->
+    <!-- AI Copilot：当前客户上下文 AI 助手（P0）；D1 闭环——AI 写操作执行后刷新 + 钻取治理轨迹 -->
     <CrmCopilotDrawer
       v-model="showCopilot"
       :customer-name="detail?.customer.name ?? ''"
       :customer-id="id"
+      @executed="onCopilotExecuted"
     />
 
     <!-- D1 治理钻取：业务动作（crm_task）→ 谁/何时/做了什么/为何允许/结果/影响/完整性 -->
@@ -236,6 +237,12 @@ function openAdd(type: string) {
 function openGovernance(resultType: string, resultId: number) {
   governanceTarget.value = { resultType, resultId }
   governanceOpen.value = true
+}
+
+/** D1 闭环：AI Copilot 执行写操作成功 → 刷新业务数据（新任务出现）+ 自动打开治理轨迹 */
+function onCopilotExecuted(payload: { resultType: string; resultId: number }) {
+  load()
+  openGovernance(payload.resultType, payload.resultId)
 }
 
 async function onAdd() {
