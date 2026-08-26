@@ -273,6 +273,7 @@ const en: ZhDict = {
 
   // AI Copilot (P0 per-business-page AI assistant)
   copilotTitle: 'AI Assistant',
+  thinking: 'Thinking…',
   copilotHint: 'Ask about the current customer "{name}" — AI analyzes within your data scope and suggests (writes need confirmation)',
   copilotPlaceholder: 'Ask: what opportunities does this customer have?',
   copilotQRisk: 'Analyze this customer\'s risk',
@@ -282,6 +283,20 @@ const en: ZhDict = {
   copilotPMRisk: 'Analyze this project\'s delay risk',
   copilotPMDelay: 'Why is it delayed?',
   copilotPMFollowup: 'Suggest next steps',
+
+  // AI confirmation card (D1 closed loop: Copilot writes need human confirmation)
+  confirmTitle: 'Confirmation required',
+  confirmNeedsConfirmation: 'AI proposes this action; it will run only after you confirm',
+  confirmTrustTool: 'Trust this tool for this session',
+  confirmApprove: 'Approve',
+  confirmReject: 'Reject',
+  confirmFailed: 'Confirmation failed, please retry',
+  writeOp: 'Write',
+  readOp: 'Read',
+  toolDone: 'Executed',
+  toolFailed: 'Failed',
+  expandTechDetail: 'View technical details',
+  collapseTechDetail: 'Collapse',
 
   // AI Project Management flagship app
   pmTitle: 'AI Project',
