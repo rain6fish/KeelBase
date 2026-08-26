@@ -5,6 +5,8 @@ export interface AuditLog {
   action: string
   actionKey?: string | null
   actionLabel?: string | null
+  /** W4-⑤ Agent Identity：调用方 agent（Agent Registry name 归责于此） */
+  agentId?: string | null
   detail?: string | null
   model?: string | null
   provider?: string | null
