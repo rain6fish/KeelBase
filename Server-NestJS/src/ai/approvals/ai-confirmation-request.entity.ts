@@ -49,7 +49,8 @@ export class AiConfirmationRequest {
   @Column({ nullable: true, name: 'approver_id' })
   approverId?: string;
 
-  @Column({ type: 'datetime', nullable: true, name: 'decided_at' })
+  // 按方言分支：postgres 用 timestamp，sqlite（dev/test better-sqlite3）用 datetime；单一类型会被另一方拒绝（DataTypeNotSupportedError）
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true, name: 'decided_at' })
   decidedAt?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
