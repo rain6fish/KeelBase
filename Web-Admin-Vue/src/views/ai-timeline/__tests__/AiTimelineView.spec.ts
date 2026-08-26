@@ -13,6 +13,9 @@ const { logsMock, effectsMock, revokeMock, governanceMock, errorMock, successMoc
   successMock: vi.fn(),
 }))
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ query: {} }),
+}))
 vi.mock('@/api/audit', () => ({
   auditApi: { logs: logsMock },
 }))
