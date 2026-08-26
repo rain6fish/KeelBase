@@ -1,6 +1,6 @@
-# 在线 Demo 演示站部署（PM-1）
+# 在线 Demo 演示站部署（PM-1 / P0·产品证明）
 
-> 目标：让评估者**无需安装**即可在线体验全栈基座——Taro H5 主 App + 后端 + 种子演示数据（alex / 123456）。演示站只读，数据随库可随时重置。
+> 目标：让评估者**无需安装**即可在线体验全栈基座——Web 工作台（AI CRM Golden Flow）+ 后端 + 种子演示数据（alex / 123456）。演示站只读，数据随库可随时重置。
 
 ## 一、本地一键演示（最快）
 
@@ -8,48 +8,48 @@
 ./deploy/demo.sh
 ```
 
-脚本做三件事：
-1. 构建 Taro H5 主 App（`build:h5`，`TARO_APP_API_BASE` 默认 `http://localhost:3000/api/v1`，dev CORS 放行跨域）
-2. 启动后端（开发模式；空库首启**自动种演示数据**，见 `src/common/seed.ts` + `demo-data.ts`）
-3. 静态托管 Taro 产物到 `http://localhost:8080`
+脚本做四件事：
+1. 构建 Web-Admin-Vue 工作台（`npm run build` → `dist/admin`；AI CRM Copilot + 写操作确认 + 治理轨迹都在工作台）
+2. 可选：复用 Flutter web 移动预览（`Front-Flutter/build/web` → `/mobile`，未构建自动跳过；`SKIP_MOBILE=1` 显式跳过）
+3. 启动后端（开发模式，`SERVE_STATIC=1` 托管工作台/管理台/移动预览；空库首启**自动种演示数据**，见 `src/common/seed.ts` + `demo-data.ts`）
+4. 打开 `http://localhost:3000` → 自动进入工作台 `/admin/#/workbench`
 
 访问：
-- 主 App `http://localhost:8080` —— 演示账号 `alex / 123456`
+- 工作台 `http://localhost:3000` —— 演示账号 `alex / 123456`（**AI CRM Golden Flow 演示入口**）
 - 管理台 `http://localhost:3000/admin` —— `admin / Admin@1234`
+- 移动预览 `http://localhost:3000/mobile`
 
-自定义：`PORT=8081 ./deploy/demo.sh`、`API_BASE=https://api.example.com/api/v1 ./deploy/demo.sh`
+自定义：`PORT=3000 ./deploy/demo.sh`、`SKIP_MOBILE=1 ./deploy/demo.sh`
 
 ## 二、公网部署（对外体验站）
 
-### 1. 构建前端（指向公网 API）
+### 1. 推荐：单容器（含工作台 + 管理台 + 移动预览）
 
 ```bash
-cd Front-Taro
-TARO_APP_API_BASE=https://api.yourdomain.com/api/v1 npm run build:h5
-# 产物在 dist/
+./scripts/docker-single.sh          # 一键构建并启动，http://localhost:3000
 ```
 
-### 2. 托管 Taro 静态产物
+单容器镜像（`ghcr.io/rain6fish/keelbase`）内嵌 Web 工作台（/admin，AI CRM Golden Flow）+ Flutter 移动预览（/mobile），后端 `SERVE_STATIC=1` 托管，空库首启自动种演示数据与账号。公网部署：映射 80 端口 + 域名 + HTTPS（参考 `docs/manual/one-click-deploy.md`）。
 
-任选（Nginx / 任意静态托管 / CDN）：
+### 2. 备选：Nginx 静态托管工作台（后端单独部署）
+
+```bash
+cd Web-Admin-Vue
+npm run build        # → dist/admin（base /admin/，hash 路由无需 SPA fallback）
+```
 
 ```nginx
-# nginx 示例：/srv/keelbase-demo 放 dist/ 内容
+# nginx 示例：/srv/keelbase-demo 放 dist/admin/ 内容
 server {
   listen 80;
   server_name demo.yourdomain.com;
   root /srv/keelbase-demo;
   index index.html;
-  # hash 路由，无需 SPA fallback
   location / { try_files $uri $uri/ /index.html; }
 }
 ```
 
-### 3. 部署后端（含种子数据）
-
-推荐：单容器（`ghcr.io/rain6fish/keelbase`，含 Flutter Web + 管理台），或生产 compose（`./deploy/deploy.sh`，PostgreSQL + Redis + NestJS + Nginx）。空库首启自动种演示数据与账号；如需手动补种：`npm run seed:demo`。
-
-后端环境 `CORS_ORIGINS` 需允许演示站域名（生产禁通配+凭据，见 DEP-7）。
+后端（含种子数据）：推荐单容器或生产 compose（`./deploy/deploy.sh`，PostgreSQL + Redis + NestJS + Nginx）；`CORS_ORIGINS` 需允许演示站域名（生产禁通配+凭据，见 DEP-7）。
 
 ### 4. 域名 / HTTPS
 
