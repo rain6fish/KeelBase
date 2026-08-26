@@ -49,7 +49,7 @@ describe('OidcCallbackView', () => {
     await flushPromises()
 
     expect(oidcLoginMock).toHaveBeenCalledWith('sso-code-123', expect.stringContaining('#/auth/oidc/callback'))
-    expect(replaceMock).toHaveBeenCalledWith('/403') // admin 构建非 admin → homeFor /403
+    expect(replaceMock).toHaveBeenCalledWith('/workbench') // admin 构建非 admin → homeFor /workbench（并入 workbench 路由后）
   })
 
   it('admin 成功 → 回 /', async () => {
