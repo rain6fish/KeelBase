@@ -9,12 +9,12 @@ describe('QueryCustomersTool', () => {
   it('按 userId 查询并返回精简客户列表', async () => {
     crmService.listCustomers.mockResolvedValue({
       total: 1,
-      items: [{ id: 1, name: '华润建材', company: '华润', status: 'active', riskLevel: 'high', email: 'c@h.cn' }],
+      items: [{ id: 1, name: '辰光建材', company: '辰光', status: 'active', riskLevel: 'high', email: 'c@h.cn' }],
     });
     const result = await tool.execute({ status: 'active' }, '1');
     expect(crmService.listCustomers).toHaveBeenCalledWith(1, { status: 'active', riskLevel: undefined, keyword: undefined });
     expect(result.success).toBe(true);
-    expect((result.data as any).items[0].name).toBe('华润建材');
+    expect((result.data as any).items[0].name).toBe('辰光建材');
   });
 
   it('服务异常 → success:false', async () => {
