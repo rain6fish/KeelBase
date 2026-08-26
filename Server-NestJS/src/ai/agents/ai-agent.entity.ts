@@ -18,7 +18,7 @@ export class AiAgent {
   id!: number;
 
   /** Agent 名（= headless key 名 / 子 agent 名），运行时审计 agent_id 归责到此处 */
-  @Index({ unique: true, name: 'UQ_ai_agents_name' })
+  @Index('UQ_ai_agents_name', { unique: true })
   @Column({ length: 100 })
   name!: string;
 
