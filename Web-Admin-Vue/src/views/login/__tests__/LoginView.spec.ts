@@ -6,6 +6,44 @@ import en from '@/i18n/en'
 
 const loginMock = vi.fn()
 const replaceMock = vi.fn()
+const authRole = vi.hoisted(() => ({ value: 'user' }))
+const oauthMocks = vi.hoisted(() => ({ oauthProviders: vi.fn(), oidcUrl: vi.fn() }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    login: loginMock,
+    get isAdmin() {
+      return authRole.value === 'admin'
+    },
+    errorMessage: '',
+    status: 'idle',
+  }),
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ replace: replaceMock }),
+  useRoute: () => ({ query: {} }),
+}))
+
+vi.mock('@/api/auth', () => ({
+  authApi: { oauthProviders: oauthMocks.oauthProviders, oidcUrl: oauthMocks.oidcUrl },
+}))
+
+import ElementPlus from 'element-plus'
+import LoginView from '../LoginView.vue'
+
+function mountView() {
+  const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+  return mount(LoginView, {
+    global: {
+      plugins: [i18n, ElementPlus],
+      stubs: { AppIcon: true, LangToggle: true },
+    },
+  })
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
   authRole.value = 'user'
   oauthMocks.oauthProviders.mockResolvedValue({
     enabledProviders: [],
