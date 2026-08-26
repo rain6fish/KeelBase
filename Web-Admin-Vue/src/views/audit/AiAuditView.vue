@@ -16,6 +16,7 @@
     <el-card shadow="never" class="mb-4">
       <div class="d-flex ga-3 flex-wrap align-center">
         <el-input v-model="userId" :label="t('filterByUser')" style="max-width: 200px" />
+        <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 200px" />
         <RangeFilter v-model="range" @update:model-value="onRange" />
         <el-button type="primary" @click="load">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
@@ -64,6 +65,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppTable from '@/components/AppTable.vue'
@@ -77,12 +79,14 @@ import { formatTime } from '@/utils/format'
 import type { AuditLog, UsageStats } from '@/types/audit'
 
 const { t, messages, locale } = useI18n()
+const route = useRoute()
 const snackbar = useSnackbarStore()
 
 const logs = ref<AuditLog[]>([])
 const stats = ref<UsageStats | null>(null)
 const loading = ref(false)
 const userId = ref('')
+const agentId = ref('')
 const range = ref('all')
 const since = ref<string | undefined>(undefined)
 const expanded = ref<AuditLog | null>(null)
@@ -91,6 +95,7 @@ const limit = 50
 const headers = computed(() => [
   { key: 'createdAt', title: t('timeCol') },
   { key: 'username', title: t('userCol') },
+  { key: 'agentId', title: t('agentCol') },
   { key: 'action', title: t('featureCol') },
   { key: 'model', title: t('modelCol') },
   { key: 'tokens', title: t('tokenCol') },
@@ -111,7 +116,7 @@ async function load() {
   loading.value = true
   try {
     const [logsRes, statsRes] = await Promise.all([
-      auditApi.logs({ userId: userId.value || undefined, limit, since: since.value }),
+      auditApi.logs({ userId: userId.value || undefined, agentId: agentId.value || undefined, limit, since: since.value }),
       auditApi.stats(since.value),
     ])
     logs.value = logsRes
@@ -158,5 +163,9 @@ function onExport() {
   snackbar.success(t('exportDone'))
 }
 
-onMounted(load)
+onMounted(() => {
+  const q = route.query.agentId
+  if (typeof q === 'string' && q) agentId.value = q
+  load()
+})
 </script>

@@ -49,6 +49,14 @@
         <el-table-column :label="t('agentCreatedAt')" width="170">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
+        <el-table-column :label="t('actionCol')" width="110" align="center">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="router.push({ path: '/audit', query: { agentId: row.name } })">
+              <template #icon><AppIcon icon="mdi-history" /></template>
+              {{ t('viewAudit') }}
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div v-if="!loading && !loadError && !agents.length" class="text-medium-emphasis pa-4">{{ t('agentEmpty') }}</div>
     </el-card>
@@ -57,6 +65,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -66,6 +75,7 @@ import { formatTime } from '@/utils/format'
 import type { AiAgent } from '@/types/admin'
 
 const { t } = useI18n()
+const router = useRouter()
 const snackbar = useSnackbarStore()
 
 const agents = ref<AiAgent[]>([])
