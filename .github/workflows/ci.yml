@@ -300,6 +300,26 @@ jobs:
       - run: npx vitest run --coverage
       - run: npm run build
 
+  # React 管理台预览版（CLAUDE §13.1）：转正决策前补 CI——typecheck/lint/test/build 全绿，不 gate 主发布
+  web-admin-react:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Web-Admin-React
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Web-Admin-React/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # 严格 lint（不带 --fix，避免 CI 悄悄改文件；本地 npm run lint 自动修复）
+      - run: npx eslint .
+      - run: npm test
+      - run: npm run build
+
   taro-build:
     runs-on: ubuntu-latest
     defaults:
