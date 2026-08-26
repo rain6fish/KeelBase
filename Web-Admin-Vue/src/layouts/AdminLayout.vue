@@ -176,6 +176,7 @@ const consoleNavGroups = computed(() => [
     icon: 'mdi-shield-check',
     items: [
       { name: 'agent-registry', to: '/agent-registry', icon: 'mdi-robot-outline', label: t('navAgents') },
+      { name: 'policy-center', to: '/policy-center', icon: 'mdi-shield-key-outline', label: t('navPolicyCenter') },
       { name: 'security-review', to: '/security-review', icon: 'mdi-shield-search-outline', label: t('navSecurityReview') },
       { name: 'ai-approvals', to: '/ai-approvals', icon: 'mdi-shield-check-outline', label: t('navAiApprovals') },
       { name: 'audit', to: '/audit', icon: 'mdi-history', label: t('navAiAudit') },
