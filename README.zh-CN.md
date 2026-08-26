@@ -202,6 +202,7 @@ keelbase init --desc "Customer management"
 - [快速上手（5 分钟不读代码）](docs/manual/quickstart.md) · [FAQ](docs/manual/faq.md) · [从零到部署教程](docs/manual/tutorial.md)
 - [运维手册](docs/manual/operations.md) · [开发手册](docs/manual/development.md) · [私有 AI 验证](docs/manual/private-ai-verification.md)
 - [三旗舰应用规格（AI CRM / 项目 / 审批）](docs/flagship-applications.md) · [企业能力声明](docs/enterprise-capabilities.md)
+- **外部系统对接**：[AI Bridge（Java 存量）](docs/manual/ai-bridge.md) · [轻量能力声明](docs/manual/capability-declaration.md) · [外部 CRM 接入演示](docs/manual/external-crm-demo.md) · [Agent 框架接入（MCP）](docs/manual/framework-adapter.md)
 - [CLAUDE.md](CLAUDE.md)（架构与约定）· [AGENTS.md](AGENTS.md)（AI 构建规则）· [SECURITY.md](SECURITY.md)
 - **浏览全部能力 →** [docs/](docs/)
 

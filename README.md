@@ -202,6 +202,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 - [Quick Start (5-min, no code)](docs/manual/quickstart-en.md) · [FAQ](docs/manual/faq-en.md) · [Tutorial](docs/manual/tutorial.md)
 - [Operations](docs/manual/operations.md) · [Development](docs/manual/development.md) · [Private AI verification](docs/manual/private-ai-verification.md)
 - [Flagship apps spec (AI CRM / PM / Approval)](docs/flagship-applications.md) · [Enterprise capabilities](docs/enterprise-capabilities.md)
+- **External system integration**: [AI Bridge (Java legacy)](docs/manual/ai-bridge.md) · [Capability declaration](docs/manual/capability-declaration.md) · [External CRM demo](docs/manual/external-crm-demo.md) · [Framework adapter (MCP)](docs/manual/framework-adapter.md)
 - [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
 - **Explore all capabilities →** [docs/](docs/)
 

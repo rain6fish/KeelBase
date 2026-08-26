@@ -16,6 +16,11 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Offline Deploy / 离线部署](offline-deploy.md) | Ops / 运维 | 内网/离线环境部署 / on-prem / air-gapped deploy |
 | [Admin Independent Deploy / 管理台独立部署](admin-deploy.md) | Ops / 运维 | 管理台独立域名部署 / standalone admin on its own domain (D.10) |
 | [Blue-Green & Canary Deploy / 蓝绿与金丝雀部署](blue-green-deploy.md) | Ops / 运维 | 零停机发布 + 快速回滚 / zero-downtime release + instant rollback (D.3) |
+| [AI Bridge / AI 桥（Java 存量系统）](ai-bridge.md) | Developers / 集成商 | 外部系统接入 AI——OpenAPI 代理 + 运行时撤销 / Java legacy system to AI: proxy + runtime revoke (EB) |
+| [Capability Declaration / 轻量能力声明](capability-declaration.md) | Developers / 集成商 | 一份 YAML 声明外部系统能力 → Proxy 工具（比 OpenAPI 更轻量）/ declare capabilities for AI (EB-3) |
+| [External CRM Bridge Demo / 外部 CRM 接入演示](external-crm-demo.md) | Developers / Sales | 「不替换系统获得 AI 能力」演示闭环 / connect an external CRM without rewriting (EB-1) |
+| [Framework Adapter / Agent 框架接入](framework-adapter.md) | Developers | 演示 Agent Framework 经 MCP 进入治理（MCP 即 Adapter）/ any agent can enter governance (AR-2) |
+| [Existing System AIization / 存量系统 AI 化](aiization-demo.md) | Developers / Sales | 旧 Schema → Protocol → 模块 → AI 工具 → 治理 / legacy system to AI app (P0-12) |
 
 Also see / 另见：
 - [README.md](../../README.md) — project overview / 项目概览
