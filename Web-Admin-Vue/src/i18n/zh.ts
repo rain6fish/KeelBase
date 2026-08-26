@@ -274,6 +274,7 @@ const zh = {
 
   // AI Copilot（P0 每业务页 AI 助手）
   copilotTitle: 'AI 助手',
+  thinking: '思考中…',
   copilotHint: '围绕当前客户「{name}」提问——AI 会在你的数据范围内分析并给出建议（写操作需确认）',
   copilotPlaceholder: '问：这个客户有什么机会？',
   copilotQRisk: '分析这个客户的风险',
@@ -283,6 +284,20 @@ const zh = {
   copilotPMRisk: '分析这个项目的延期风险',
   copilotPMDelay: '为什么延期了？',
   copilotPMFollowup: '给出推进建议',
+
+  // AI 确认卡（D1 闭环：Copilot 写操作需人工确认）
+  confirmTitle: '需确认的操作',
+  confirmNeedsConfirmation: 'AI 建议执行此操作，需你确认后才执行',
+  confirmTrustTool: '本会话信任此工具，后续不再确认',
+  confirmApprove: '批准',
+  confirmReject: '拒绝',
+  confirmFailed: '确认提交失败，请重试',
+  writeOp: '写操作',
+  readOp: '读操作',
+  toolDone: '已执行',
+  toolFailed: '执行失败',
+  expandTechDetail: '查看技术详情',
+  collapseTechDetail: '收起技术详情',
 
   // AI Project Management 旗舰应用
   pmTitle: '项目管理',
