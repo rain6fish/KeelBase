@@ -743,6 +743,9 @@ const zh = {
   // AI 审计
   aiAuditTitle: 'AI 审计',
   filterByUser: '按用户过滤',
+  filterByAgent: '按 Agent 过滤',
+  agentCol: 'Agent',
+  viewAudit: '查看审计',
   modelCol: '模型',
   tokenCol: 'Token',
   noAiAudit: '暂无日志',

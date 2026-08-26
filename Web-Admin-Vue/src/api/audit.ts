@@ -4,9 +4,10 @@ import type { AuditLog, UsageStats, ActionReport } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 export const auditApi = {
-  logs(params: { userId?: string; limit?: number; offset?: number; since?: string } = {}): Promise<AuditLog[]> {
+  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string } = {}): Promise<AuditLog[]> {
     const query: Record<string, string | number> = {}
     if (params.userId) query.userId = params.userId
+    if (params.agentId) query.agentId = params.agentId
     if (params.limit != null) query.limit = params.limit
     if (params.offset != null) query.offset = params.offset
     if (params.since) query.since = params.since

@@ -733,6 +733,9 @@ const en: ZhDict = {
 
   aiAuditTitle: 'AI Audit',
   filterByUser: 'Filter by user',
+  filterByAgent: 'Filter by agent',
+  agentCol: 'Agent',
+  viewAudit: 'View audit',
   modelCol: 'Model',
   tokenCol: 'Tokens',
   noAiAudit: 'No logs',
