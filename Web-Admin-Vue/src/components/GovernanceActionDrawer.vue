@@ -53,6 +53,13 @@
         </div>
       </div>
 
+      <div class="text-center mt-2">
+        <el-button size="small" plain @click="goFullPage">
+          <template #icon><AppIcon icon="mdi-arrow-expand" /></template>
+          {{ t('viewFullTrace') }}
+        </el-button>
+      </div>
+
       <el-divider />
 
       <!-- Human-Agent-System 决策轨迹 -->
@@ -88,6 +95,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -103,6 +111,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const router = useRouter()
 
 const data = ref<GovernanceActionResponse | null>(null)
 const loading = ref(false)
@@ -178,6 +187,14 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+// 展开到工作台用户侧独立 Action Detail 页面（P0·产品证明 Business Action Trace）
+function goFullPage() {
+  void router.push({
+    name: 'workbench-action-detail',
+    params: { resultType: props.resultType, resultId: props.resultId },
+  })
 }
 
 // 抽屉打开时加载治理数据；目标变化时若已打开则刷新（重试/切换业务动作场景）
