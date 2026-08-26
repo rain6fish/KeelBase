@@ -17,6 +17,7 @@ export class AuditController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'AI 审计日志（管理员）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤' })
+  @ApiQuery({ name: 'agentId', required: false, description: '按 Agent 过滤（Agent Registry → 审计联动）' })
   @ApiQuery({ name: 'orgId', required: false, description: '按组织过滤（ORG-5 组织维度审计）' })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @ApiQuery({ name: 'offset', required: false, example: 0 })
@@ -27,6 +28,7 @@ export class AuditController {
       offset: query.offset,
       since: query.since ? new Date(query.since) : undefined,
       orgId: query.orgId,
+      agentId: query.agentId,
     };
     if (query.userId) {
       return this.auditService.getUserLogs(query.userId, options);
