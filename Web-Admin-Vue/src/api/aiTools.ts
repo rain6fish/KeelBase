@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AdminAiTool, AiApprovalRequest, GovernanceActionResponse, SettingRow, ToolEffectsResponse } from '@/types/admin'
+import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, SettingRow, ToolEffectsResponse } from '@/types/admin'
 
 export const aiToolsApi = {
   tools(): Promise<AdminAiTool[]> {
@@ -18,6 +18,10 @@ export const aiToolsApi = {
   /** D1/B4 治理视图：业务动作 → AI 副作用 + 决策轨迹（Who/When/What/Why/Result/Side Effects/Integrity） */
   governanceAction(resultType: string, resultId: number): Promise<GovernanceActionResponse> {
     return api.get(`/ai/governance/action/${resultType}/${resultId}`)
+  },
+  /** D5 Agent Registry：已注册 Agent 清单（管理台，企业可信可见呈现） */
+  agents(): Promise<AiAgent[]> {
+    return api.get('/ai/agents')
   },
   /** HS-9 治理策略当前存储值（key = ai_governance_policy，JSON 字符串）。 */
   async policy(): Promise<string | undefined> {
