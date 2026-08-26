@@ -49,11 +49,15 @@
         <el-table-column :label="t('agentCreatedAt')" width="170">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column :label="t('actionCol')" width="110" align="center">
+        <el-table-column :label="t('actionCol')" width="200" align="center">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="router.push({ path: '/audit', query: { agentId: row.name } })">
               <template #icon><AppIcon icon="mdi-history" /></template>
               {{ t('viewAudit') }}
+            </el-button>
+            <el-button link type="success" size="small" @click="router.push({ path: '/ai-timeline', query: { agentId: row.name } })">
+              <template #icon><AppIcon icon="mdi-timeline-clock-outline" /></template>
+              {{ t('viewReplay') }}
             </el-button>
           </template>
         </el-table-column>

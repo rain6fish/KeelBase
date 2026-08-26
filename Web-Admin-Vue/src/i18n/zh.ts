@@ -746,6 +746,7 @@ const zh = {
   filterByAgent: '按 Agent 过滤',
   agentCol: 'Agent',
   viewAudit: '查看审计',
+  viewReplay: '行为回放',
   modelCol: '模型',
   tokenCol: 'Token',
   noAiAudit: '暂无日志',
