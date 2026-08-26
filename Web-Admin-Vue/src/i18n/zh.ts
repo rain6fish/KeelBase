@@ -47,7 +47,8 @@ const zh = {
 
   // 导航分组
   navData: '数据管理',
-  navMonitor: '监控审计',
+  navGuard: '安全治理',
+  navMonitor: '监控运维',
   navSystem: '系统',
 
   // 导航项
