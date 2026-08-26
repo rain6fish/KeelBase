@@ -31,7 +31,7 @@ export class CreateFollowupTaskTool implements AiTool {
     {
       name: 'title',
       type: 'string',
-      description: '任务标题，如"跟进华润订单逾期问题"',
+      description: '任务标题，如"跟进辰光订单逾期问题"',
       required: true,
     },
     {
