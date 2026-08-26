@@ -1,16 +1,16 @@
 <template>
   <view class="ai-page">
     <view class="ai-page__header">
-      <text class="ai-page__title">AI 助手</text>
+      <text class="ai-page__title">{{ t('aiChat.title') }}</text>
       <view class="ai-page__actions">
-        <text class="ai-page__history" @click="goHistory">历史</text>
-        <text v-if="messages.length > 0" class="ai-page__clear" @click="handleClear">清空</text>
+        <text class="ai-page__history" @click="goHistory">{{ t('aiChat.history') }}</text>
+        <text v-if="messages.length > 0" class="ai-page__clear" @click="handleClear">{{ t('aiChat.clear') }}</text>
       </view>
     </view>
 
     <scroll-view class="ai-page__messages" scroll-y :scroll-into-view="scrollTarget">
       <view v-if="messages.length === 0" class="ai-page__empty">
-        <text>有什么可以帮你？试试「查一下我今天的事件」</text>
+        <text>{{ t('aiChat.welcomeHint') }}</text>
       </view>
       <view
         v-for="(m, i) in messages"
@@ -22,7 +22,7 @@
         <text class="ai-page__bubble-text" user-select>{{ m.content }}</text>
       </view>
       <view v-if="store.isLoading" class="ai-page__bubble ai-page__bubble--assistant">
-        <text>思考中…</text>
+        <text>{{ t('aiChat.thinking') }}</text>
       </view>
       <view v-if="store.error && !store.isLoading" class="ai-page__error">
         <text>{{ store.error }}</text>
@@ -33,12 +33,12 @@
       <input
         class="ai-page__input"
         v-model="input"
-        placeholder="输入消息…"
+        :placeholder="t('aiChat.placeholder')"
         confirm-type="send"
         @confirm="handleSend"
       />
       <button class="ai-page__send" size="mini" @click="handleSend" :disabled="store.isLoading">
-        发送
+        {{ t('aiChat.send') }}
       </button>
     </view>
   </view>
@@ -49,9 +49,11 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
 import { useAiStore } from '../../stores/ai-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = useAiStore()
 const { messages } = storeToRefs(store)
+const { t } = useI18n()
 const input = ref('')
 
 const scrollTarget = computed(() => {
@@ -68,8 +70,8 @@ function handleSend() {
 
 function handleClear() {
   Taro.showModal({
-    title: '清空对话',
-    content: '确定清空当前对话？',
+    title: t('aiChat.clearTitle'),
+    content: t('aiChat.clearConfirm'),
     success: (res) => {
       if (res.confirm) store.clear()
     },

@@ -1,9 +1,9 @@
 <template>
   <view class="notifications-page">
     <view class="notifications-page__header">
-      <text class="notifications-page__title">Notifications</text>
+      <text class="notifications-page__title">{{ t('notifications.title') }}</text>
       <text v-if="notifications.length > 0" class="notifications-page__mark-all" @click="handleMarkAllRead">
-        Mark All Read
+        {{ t('notifications.markAllRead') }}
       </text>
     </view>
 
@@ -11,7 +11,7 @@
       <view class="spinner" />
     </view>
     <view v-else-if="notifications.length === 0" class="notifications-page__empty">
-      <text class="notifications-page__empty-text">No notifications yet</text>
+      <text class="notifications-page__empty-text">{{ t('notifications.empty') }}</text>
     </view>
     <scroll-view
       v-else
@@ -38,12 +38,12 @@
         </view>
       </view>
       <view v-if="hasMore" class="notifications-page__list-loading">
-        <text>Loading more...</text>
+        <text>{{ t('notifications.loadingMore') }}</text>
       </view>
     </scroll-view>
 
     <view v-if="unreadCount > 0" class="notifications-page__badge">
-      <text>{{ unreadCount }} unread</text>
+      <text>{{ t('notifications.unread', { count: unreadCount }) }}</text>
     </view>
   </view>
 </template>
@@ -53,10 +53,12 @@ import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
 import { useNotificationStore } from '../../stores/notification-store'
+import { useI18n } from '../../composables/useI18n'
 import type { NotificationItem } from '../../types/notification'
 
 const store = useNotificationStore()
 const { notifications, unreadCount, isLoading, hasMore } = storeToRefs(store)
+const { t } = useI18n()
 
 onMounted(() => {
   store.load(true)
@@ -73,8 +75,8 @@ function handleTap(n: NotificationItem) {
 
 function handleMarkAllRead() {
   Taro.showModal({
-    title: 'Mark All Read',
-    content: 'Mark all notifications as read?',
+    title: t('notifications.markAllRead'),
+    content: t('notifications.markAllReadConfirm'),
     success: (res) => {
       if (res.confirm) store.markAllRead()
     },
@@ -83,8 +85,8 @@ function handleMarkAllRead() {
 
 function handleDelete(id: number) {
   Taro.showModal({
-    title: 'Delete',
-    content: 'Delete this notification?',
+    title: t('notifications.deleteTitle'),
+    content: t('notifications.deleteConfirm'),
     success: (res) => {
       if (res.confirm) store.remove(id)
     },

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { contractsService } from '../services/contracts-service'
+import { translate } from '../i18n/translate'
 import type { ContractItem, CreateContractRequest } from '../types/contracts'
 
 /** 合同状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -16,7 +17,7 @@ export const useContractsStore = defineStore('contracts', {
       try {
         this.items = await contractsService.getContracts()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 合同'
+        this.error = err.message || translate('contracts.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -34,7 +35,7 @@ export const useContractsStore = defineStore('contracts', {
         await contractsService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete contract')
+        throw new Error(err.message || translate('contracts.deleteFailed'))
       }
     },
   },

@@ -1,6 +1,7 @@
  import Taro from '@tarojs/taro'
  import { API_BASE_URL, API_TIMEOUT } from '../utils/constants'
  import { storage } from '../utils/storage'
+ import { translate } from '../i18n/translate'
  import type { ApiResponse } from '../types/api'
  
  /** Public endpoints that don't require auth token */
@@ -85,12 +86,12 @@
          return request<T>(method, path, data, options)
        }
        onAuthFailure?.()
-       throw new ApiError('Authentication required', 401)
+       throw new ApiError(translate('api.authRequired'), 401)
      }
  
      if (response.statusCode >= 400) {
        throw new ApiError(
-         (body as any)?.message || 'Request failed',
+         (body as any)?.message || translate('api.requestFailed'),
          response.statusCode,
          (body as any)?.errors,
        )
@@ -100,12 +101,12 @@
    } catch (err: any) {
      if (err instanceof ApiError) throw err
      if (err.errMsg?.includes('timeout')) {
-       throw new ApiError('Connection timed out', 0)
+       throw new ApiError(translate('api.timeout'), 0)
      }
      if (err.errMsg?.includes('fail')) {
-       throw new ApiError('Network error - please check your connection', 0)
+       throw new ApiError(translate('api.networkError'), 0)
      }
-     throw new ApiError(err.message || 'Unexpected error', 0)
+     throw new ApiError(err.message || translate('api.unexpectedError'), 0)
    }
  }
  
@@ -196,21 +197,21 @@
          try {
            body = JSON.parse(res.data as string) as ApiResponse<T>
          } catch {
-           throw new ApiError('Invalid server response', res.statusCode)
+           throw new ApiError(translate('api.invalidResponse'), res.statusCode)
          }
          if (res.statusCode === 401 && !isPublicEndpoint(path)) {
            const refreshed = await tryRefreshToken()
            if (refreshed) return this.upload<T>(path, filePath, fieldName)
            onAuthFailure?.()
-           throw new ApiError('Authentication required', 401)
+           throw new ApiError(translate('api.authRequired'), 401)
          }
          if (res.statusCode >= 400) {
-           throw new ApiError((body as any)?.message || 'Upload failed', res.statusCode, (body as any)?.errors)
+           throw new ApiError((body as any)?.message || translate('api.uploadFailed'), res.statusCode, (body as any)?.errors)
          }
          return body
        } catch (err: any) {
          if (err instanceof ApiError) throw err
-         throw new ApiError(err.errMsg || err.message || 'Upload failed', 0)
+         throw new ApiError(err.errMsg || err.message || translate('api.uploadFailed'), 0)
        }
      })()
    },
