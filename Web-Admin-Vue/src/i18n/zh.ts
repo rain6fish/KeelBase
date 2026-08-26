@@ -86,6 +86,8 @@ const zh = {
   navAiApprovals: 'AI 审批',
   navSecurityReview: '安全审查',
   navAgents: 'Agent 注册表',
+  navPolicyCenter: '策略中心',
+  policyCenterHint: 'HS-9 治理策略——工具启用/确认/角色白名单 + 审计粒度，保存即实时生效',
   agentHint: '已在为企业干活的 Agent 清单——谁、拥有什么能力、什么信任级别',
   agentName: 'Agent',
   agentOwner: '拥有者',
