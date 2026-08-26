@@ -6,7 +6,7 @@
   <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — Enterprise AI Trust Runtime between AI Agents and Business Systems" width="840">
 </p>
 
-> **Build AI applications that can safely act on business data.**
+> **Build · Govern · Deploy** business-safe AI applications — from protocols or existing systems, with every AI action governed, deployable privately.
 
 ---
 
@@ -68,6 +68,8 @@ Two ways to meet KeelBase — one runtime underneath.
 - Bridge existing systems in (OpenAPI / SQL schema / Java service) without rewriting them
 - AI acts as a business assistant on your real data — risk analysis, follow-ups, summaries, approvals
 - Private deployment: Docker / offline / local models — data never leaves your perimeter
+
+> **Can also be used standalone** — KeelBase works as an independent application development platform (generate full-stack business apps from a protocol), not just for connecting existing systems.
 
 ---
 
