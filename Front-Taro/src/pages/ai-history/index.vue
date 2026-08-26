@@ -1,15 +1,15 @@
 <template>
   <view class="ai-history-page">
     <view class="ai-history-page__header">
-      <text class="ai-history-page__title">对话历史</text>
-      <text class="ai-history-page__new" @click="goBack">新对话</text>
+      <text class="ai-history-page__title">{{ t('aiHistory.title') }}</text>
+      <text class="ai-history-page__new" @click="goBack">{{ t('aiHistory.newConversation') }}</text>
     </view>
 
-    <text v-if="historyLoading" class="ai-history-page__hint">加载中…</text>
+    <text v-if="historyLoading" class="ai-history-page__hint">{{ t('common.loading') }}</text>
     <text v-if="historyError" class="ai-history-page__error">{{ historyError }}</text>
 
     <view v-if="!historyLoading && history.length === 0" class="ai-history-page__empty">
-      <text>暂无历史对话</text>
+      <text>{{ t('aiHistory.empty') }}</text>
     </view>
 
     <view
@@ -34,9 +34,11 @@ import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
 import { useAiStore } from '../../stores/ai-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = useAiStore()
 const { history, historyLoading, historyError } = storeToRefs(store)
+const { t } = useI18n()
 
 onMounted(() => {
   store.loadHistory()
@@ -49,14 +51,14 @@ function handleOpen(id: string) {
 
 function handleDelete(item: { id: string; previewTitle: string }) {
   Taro.showModal({
-    title: '删除对话',
-    content: `确定删除「${item.previewTitle}」？`,
+    title: t('aiHistory.deleteTitle'),
+    content: t('common.deleteConfirm', { name: item.previewTitle }),
     success: async (res) => {
       if (!res.confirm) return
       try {
         await store.deleteConversation(item.id)
       } catch (err: any) {
-        Taro.showToast({ title: err.message || '删除失败', icon: 'none' })
+        Taro.showToast({ title: err.message || t('aiHistory.deleteFailed'), icon: 'none' })
       }
     },
   })

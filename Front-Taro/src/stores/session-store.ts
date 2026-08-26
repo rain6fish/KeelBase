@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { sessionService } from '../services/session-service'
+import { translate } from '../i18n/translate'
 import type { SessionItem } from '../types/session'
 
 /** 登录会话状态（Taro→Vue3 迁移：zustand → pinia）：会话列表 + 远程登出。 */
@@ -17,7 +18,7 @@ export const useSessionStore = defineStore('session', {
         this.sessions = await sessionService.getSessions()
         this.isLoading = false
       } catch (err: any) {
-        this.error = err.message || 'Failed to load sessions'
+        this.error = err.message || translate('sessions.loadFailed')
         this.isLoading = false
       }
     },

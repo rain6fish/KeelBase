@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { suppliersService } from '../services/suppliers-service'
+import { translate } from '../i18n/translate'
 import type { SupplierItem, CreateSupplierRequest } from '../types/suppliers'
 
 /** 供应商状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -16,7 +17,7 @@ export const useSuppliersStore = defineStore('suppliers', {
       try {
         this.items = await suppliersService.getSuppliers()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 供应商'
+        this.error = err.message || translate('suppliers.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -34,7 +35,7 @@ export const useSuppliersStore = defineStore('suppliers', {
         await suppliersService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete supplier')
+        throw new Error(err.message || translate('suppliers.deleteFailed'))
       }
     },
   },

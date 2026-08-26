@@ -12,7 +12,7 @@
     <!-- Error state -->
     <view v-if="store.error" class="events-page__error">
       <text class="events-page__error-text">{{ store.error }}</text>
-      <button class="events-page__retry" @click="fetchEvents">Retry</button>
+      <button class="events-page__retry" @click="fetchEvents">{{ t('events.retry') }}</button>
     </view>
 
     <!-- Event list -->
@@ -20,7 +20,7 @@
       <view class="spinner" />
     </view>
     <view v-else-if="events.length === 0" class="events-page__empty">
-      <text class="events-page__empty-text">No events this month</text>
+      <text class="events-page__empty-text">{{ t('events.empty') }}</text>
     </view>
     <scroll-view
       v-else
@@ -53,12 +53,14 @@ import { ref, watch, onMounted } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useEventsStore } from '../../stores/events-store'
+import { useI18n } from '../../composables/useI18n'
 import { EVENT_COLORS } from '../../utils/constants'
 import { formatMonthYear, formatShortDateTime, formatDate } from '../../utils/format'
 import type { EventItem } from '../../types/event'
 
 const store = useEventsStore()
 const { events } = storeToRefs(store)
+const { t } = useI18n()
 
 const now = new Date()
 const currentMonth = ref(new Date(now.getFullYear(), now.getMonth(), 1))
