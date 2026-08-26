@@ -382,6 +382,8 @@ const zh = {
   governanceWhy: '为何允许',
   governanceResult: '结果',
   governanceIntegrity: '完整性',
+  workbenchActionDetail: '业务动作详情',
+  viewFullTrace: '查看完整轨迹',
   governanceLoading: '加载中…',
   governanceLoadFailed: '治理详情加载失败',
   governanceNoData: '无 AI 治理记录——该业务动作可能为人工创建',
