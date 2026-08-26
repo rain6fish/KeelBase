@@ -29,7 +29,7 @@ Then walk the golden path in 6 steps:
 6. Open the audit trace                  (every action recorded & reversible)
 ```
 
-Prefers a read-only live demo? `./deploy/demo.sh` → http://localhost:8080.
+Prefers a local demo? `./deploy/demo.sh` → http://localhost:3000 (opens the AI CRM Golden Flow workbench).
 
 ---
 
