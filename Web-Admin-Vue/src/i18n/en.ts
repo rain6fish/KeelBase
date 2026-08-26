@@ -85,6 +85,8 @@ const en: ZhDict = {
   navAiApprovals: 'AI Approvals',
   navSecurityReview: 'Security Review',
   navAgents: 'Agent Registry',
+  navPolicyCenter: 'Policy Center',
+  policyCenterHint: 'HS-9 governance policy — tool enable / confirmation / role allowlist + audit granularity, applied live on save',
   agentHint: 'Registered agents acting on behalf of the enterprise — who is doing work for your business, with what capability and trust level',
   agentName: 'Agent',
   agentOwner: 'Owner',
