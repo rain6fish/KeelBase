@@ -1,7 +1,7 @@
 import { SummarizeCustomerTool } from './summarize-customer.tool';
 
 const base360 = {
-  customer: { name: '华润建材', status: 'active', riskLevel: 'high' },
+  customer: { name: '辰光建材', status: 'active', riskLevel: 'high' },
   orders: [
     { amount: 2800000, status: 'overdue' },
     { amount: 500000, status: 'paid' },
@@ -17,14 +17,14 @@ const base360 = {
 describe('SummarizeCustomerTool（Customer 360 AI Summary）', () => {
   it('聚合全景 + LLM 生成自然摘要', async () => {
     const crm = { getCustomer360Data: jest.fn().mockResolvedValue(base360) };
-    const provider = { generate: jest.fn().mockResolvedValue({ content: '华润建材：280 万逾期订单，高风险，1 个在谈机会，建议催款并跟进续约。' }) };
+    const provider = { generate: jest.fn().mockResolvedValue({ content: '辰光建材：280 万逾期订单，高风险，1 个在谈机会，建议催款并跟进续约。' }) };
     const factory = { getProvider: jest.fn().mockReturnValue(provider) };
     const tool = new SummarizeCustomerTool(crm as any, factory, 'deepseek');
 
     const res = await tool.execute({ customerId: 1 }, '1');
 
     expect(res.success).toBe(true);
-    expect((res.data as any).summary).toContain('华润建材');
+    expect((res.data as any).summary).toContain('辰光建材');
     // 结构化全景含机会/逾期统计
     expect((res.data as any).structured.overdueOrders).toBe(1);
     expect((res.data as any).structured.opportunities).toHaveLength(1);
@@ -38,7 +38,7 @@ describe('SummarizeCustomerTool（Customer 360 AI Summary）', () => {
     const res = await tool.execute({ customerId: 1 }, '1');
     expect(res.success).toBe(true);
     expect((res.data as any).summary).toBeNull();
-    expect((res.data as any).structured.customer).toBe('华润建材');
+    expect((res.data as any).structured.customer).toBe('辰光建材');
   });
 
   it('越权/不存在 → 拒绝', async () => {
