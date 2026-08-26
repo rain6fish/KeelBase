@@ -298,8 +298,8 @@ describe('crmApi', () => {
 
   it('createCustomer POST', async () => {
     api.post.mockResolvedValue({})
-    await crmApi.createCustomer({ name: '华润' })
-    expect(api.post).toHaveBeenCalledWith('/crm/customers', { name: '华润' })
+    await crmApi.createCustomer({ name: '辰光' })
+    expect(api.post).toHaveBeenCalledWith('/crm/customers', { name: '辰光' })
   })
 
   it('detail / updateCustomer / deleteCustomer', async () => {
