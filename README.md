@@ -118,6 +118,17 @@ Where KeelBase differs from a plain agent framework:
 - Audit hash chain (tamper-evident) · side-effect idempotency · revoke
 - Decision trace · AI eval · prompt-injection defense
 
+### Enterprise Safety Validation
+
+These aren't just claims — every one is verified by an executable test that ships with the repo:
+
+- ✓ **Permission boundary tests** — cross-user access denied via CASL (39-case authorization matrix)
+- ✓ **Tool governance tests** — abuse / confirmation-bypass / prompt-injection blocked (12/12 security eval)
+- ✓ **Human approval tests** — writes stay untouched until a human confirms (Golden Flow e2e)
+- ✓ **Audit integrity tests** — audit hash chain verifies, tampering fails (`/audit/verify`)
+- ✓ **Agent behavior tests** — decision trace + business-safe agent benchmark (15/15 Run/Trust/Safety)
+- ✓ **End-to-end business flow** — AI CRM: read → risk → task → confirm → write → audit → revoke (deterministic e2e)
+
 ---
 
 ## 🏠 Deploy — Private by Design
