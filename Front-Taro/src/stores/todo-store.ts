@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { todosService } from '../services/todos-service'
+import { translate } from '../i18n/translate'
 import type { TodoItem, CreateTodoRequest } from '../types/todo'
 
 /** 待办清单状态（DX-3，Taro→Vue3 迁移：zustand → pinia）：列表 + 增/切换/删，乐观更新。 */
@@ -16,7 +17,7 @@ export const useTodoStore = defineStore('todo', {
       try {
         this.todos = await todosService.getTodos()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load todos'
+        this.error = err.message || translate('todos.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -38,7 +39,7 @@ export const useTodoStore = defineStore('todo', {
         this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t))
       } catch (err: any) {
         this.todos = prev
-        throw new Error(err.message || 'Failed to toggle todo')
+        throw new Error(err.message || translate('todos.toggleFailed'))
       }
     },
 
@@ -49,7 +50,7 @@ export const useTodoStore = defineStore('todo', {
         await todosService.remove(id)
       } catch (err: any) {
         this.todos = prev
-        throw new Error(err.message || 'Failed to delete todo')
+        throw new Error(err.message || translate('todos.deleteFailed'))
       }
     },
   },
