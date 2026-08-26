@@ -5,7 +5,7 @@
     </view>
 
     <view v-else-if="!user" class="user-detail__not-found">
-      <text>User not found</text>
+      <text>{{ t('userDetail.notFound') }}</text>
     </view>
 
     <template v-else>
@@ -23,7 +23,7 @@
           <text class="info-row__value">{{ row.value }}</text>
         </view>
         <view v-if="user.isLocked" class="user-detail__locked">
-          <text>🔒 Account is locked</text>
+          <text>{{ t('userDetail.locked') }}</text>
         </view>
       </view>
     </template>
@@ -34,6 +34,7 @@
 import { computed, onMounted, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { usersService } from '../../services/users-service'
+import { useI18n } from '../../composables/useI18n'
 import type { UserItem } from '../../types/user'
 import { formatDateTime } from '../../utils/format'
 
@@ -42,6 +43,8 @@ const userId = Number(router?.params?.id || 0)
 const user = ref<UserItem | null>(null)
 const loading = ref(true)
 
+const { t } = useI18n()
+
 const avatarInitial = computed(() => user.value?.nickname?.[0]?.toUpperCase() || '?')
 
 const infoRows = computed(() => {
@@ -49,11 +52,11 @@ const infoRows = computed(() => {
   if (!u) return []
   const rows: { label: string; value: string }[] = [
     { label: 'ID', value: String(u.id) },
-    { label: 'Username', value: u.username },
-    { label: 'Nickname', value: u.nickname },
+    { label: t('userDetail.username'), value: u.username },
+    { label: t('userDetail.nickname'), value: u.nickname },
   ]
-  if (u.createdAt) rows.push({ label: 'Created', value: formatDateTime(u.createdAt) })
-  if (u.updatedAt) rows.push({ label: 'Updated', value: formatDateTime(u.updatedAt) })
+  if (u.createdAt) rows.push({ label: t('userDetail.created'), value: formatDateTime(u.createdAt) })
+  if (u.updatedAt) rows.push({ label: t('userDetail.updated'), value: formatDateTime(u.updatedAt) })
   return rows
 })
 

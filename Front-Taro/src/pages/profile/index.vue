@@ -6,8 +6,8 @@
         <text class="profile-page__avatar-text">{{ avatarChar }}</text>
       </view>
       <view class="profile-page__info">
-        <text class="profile-page__name">{{ user?.nickname || 'User' }}</text>
-        <text class="profile-page__username">@{{ user?.username || 'unknown' }}</text>
+        <text class="profile-page__name">{{ user?.nickname || t('profile.defaultUser') }}</text>
+        <text class="profile-page__username">@{{ user?.username || t('profile.unknown') }}</text>
       </view>
     </view>
 
@@ -27,7 +27,7 @@
 
     <!-- Sign out -->
     <view class="profile-page__signout" @click="handleLogout">
-      <text class="profile-page__signout-text">Sign Out</text>
+      <text class="profile-page__signout-text">{{ t('profile.signOut') }}</text>
     </view>
   </view>
 </template>
@@ -37,20 +37,22 @@ import { computed } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../../stores/auth-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = useAuthStore()
 const { user } = storeToRefs(store)
+const { t } = useI18n()
 
 const avatarChar = computed(() => user.value?.nickname?.[0]?.toUpperCase() || '?')
 
-const menuItems = [
-  { icon: '📅', label: 'My Events', path: '/pages/events/index' },
-  { icon: '📤', label: 'Uploads', path: '/pages/upload/index' },
-  { icon: '🔔', label: 'Notifications', path: '/pages/notifications/index' },
-  { icon: '📱', label: 'Login Devices', path: '/pages/sessions/index' },
-  { icon: '🔒', label: 'Privacy Policy', path: '/pages/privacy/index' },
-  { icon: '📄', label: 'Terms of Service', path: '/pages/terms/index' },
-]
+const menuItems = computed(() => [
+  { icon: '📅', label: t('profile.myEvents'), path: '/pages/events/index' },
+  { icon: '📤', label: t('profile.uploads'), path: '/pages/upload/index' },
+  { icon: '🔔', label: t('profile.notifications'), path: '/pages/notifications/index' },
+  { icon: '📱', label: t('profile.loginDevices'), path: '/pages/sessions/index' },
+  { icon: '🔒', label: t('profile.privacyPolicy'), path: '/pages/privacy/index' },
+  { icon: '📄', label: t('profile.terms'), path: '/pages/terms/index' },
+])
 
 function goTo(path: string) {
   Taro.navigateTo({ url: path })
@@ -58,8 +60,8 @@ function goTo(path: string) {
 
 function handleLogout() {
   Taro.showModal({
-    title: 'Sign Out',
-    content: 'Are you sure you want to sign out?',
+    title: t('profile.signOut'),
+    content: t('profile.signOutConfirm'),
     success: async (res) => {
       if (res.confirm) {
         await store.logout()

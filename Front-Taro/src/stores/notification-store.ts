@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { notificationService } from '../services/notification-service'
 import { wsClient } from '../services/ws-client'
+import { translate } from '../i18n/translate'
 import type { NotificationItem } from '../types/notification'
 
 /** 通知状态（Taro→Vue3 迁移：zustand → pinia）：分页加载 + 已读/全部已读/删除。 */
@@ -27,7 +28,7 @@ export const useNotificationStore = defineStore('notification', {
         this.isLoading = false
         this.hasMore = page * 20 < result.total
       } catch (err: any) {
-        this.error = err.message || 'Failed to load notifications'
+        this.error = err.message || translate('notifications.loadFailed')
         this.isLoading = false
       }
     },
@@ -37,7 +38,7 @@ export const useNotificationStore = defineStore('notification', {
         await notificationService.markRead(id)
       } catch (err: any) {
         // CR-26：fire-and-forget 调用防未捕获 rejection
-        this.error = err?.message || 'Failed to mark read'
+        this.error = err?.message || translate('notifications.markReadFailed')
         return
       }
       this.notifications = this.notifications.map((n) =>
@@ -50,7 +51,7 @@ export const useNotificationStore = defineStore('notification', {
       try {
         await notificationService.markAllRead()
       } catch (err: any) {
-        this.error = err?.message || 'Failed to mark all read'
+        this.error = err?.message || translate('notifications.markAllReadFailed')
         return
       }
       this.notifications = this.notifications.map((n) => ({ ...n, isRead: true }))
@@ -61,7 +62,7 @@ export const useNotificationStore = defineStore('notification', {
       try {
         await notificationService.deleteNotification(id)
       } catch (err: any) {
-        this.error = err?.message || 'Failed to delete notification'
+        this.error = err?.message || translate('notifications.deleteFailed')
         return
       }
       this.notifications = this.notifications.filter((n) => n.id !== id)
