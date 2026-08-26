@@ -43,6 +43,9 @@ import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
 import { AiDailyUsage } from './audit/ai-daily-usage.entity';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
+import { AiAgent } from './agents/ai-agent.entity';
+import { AiAgentService } from './agents/ai-agent.service';
+import { AgentsController } from './agents/agents.controller';
 import { CreateModuleTool } from './tools/create-module.tool';
 import { QueryEventsTool } from './tools/query-events.tool';
 import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
@@ -122,12 +125,13 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent]),
   ],
-  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController],
+  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController],
   providers: [
     ConversationService,
     AuditService,
+    AiAgentService,
     InsightsService,
     KnowledgeService,
     EmbeddingsService,
