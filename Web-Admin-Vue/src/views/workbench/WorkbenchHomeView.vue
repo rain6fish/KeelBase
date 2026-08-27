@@ -11,7 +11,7 @@
     <el-row :gutter="16">
       <el-col v-for="card in shortcutCards" :key="card.title" :xs="24" :sm="12" :md="8">
         <el-card
-          class="h-100 mb-4 shortcut-card"
+          class="h-100 shortcut-card"
           shadow="hover"
           :on-click="() => openCard(card)"
         >
