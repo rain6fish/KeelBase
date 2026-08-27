@@ -153,8 +153,18 @@ async function resolveLocalRefs(spec, file) {
   return spec;
 }
 
-async function writeGenerated(rel, content) {
+async function writeGenerated(rel, content, force = false) {
   await mkdir(rel.substring(0, rel.lastIndexOf('/')), { recursive: true });
+  // 幂等：目标文件已存在（如 AI 工具被旗舰/已有模块占用）默认跳过，避免覆盖已有实现；--force 才覆盖
+  if (!force) {
+    try {
+      await access(rel);
+      console.log(`${C.dim}○ 已存在（跳过，--force 覆盖）：${rel}${C.reset}`);
+      return;
+    } catch {
+      // 不存在 → 写入
+    }
+  }
   await writeFile(rel, content, 'utf8');
 }
 
@@ -408,12 +418,12 @@ async function main() {
     return;
   }
 
-  // ── 写文件 ──
-  for (const f of backend) await writeGenerated(f.rel, f.content);
-  for (const f of frontend) await writeGenerated(f.rel, f.content);
-  for (const f of admin) await writeGenerated(f.rel, f.content);
-  for (const f of taro) await writeGenerated(f.rel, f.content);
-  for (const f of ai) await writeGenerated(f.rel, f.content);
+  // ── 写文件（已存在默认跳过，幂等；--force 覆盖）──
+  for (const f of backend) await writeGenerated(f.rel, f.content, args.force);
+  for (const f of frontend) await writeGenerated(f.rel, f.content, args.force);
+  for (const f of admin) await writeGenerated(f.rel, f.content, args.force);
+  for (const f of taro) await writeGenerated(f.rel, f.content, args.force);
+  for (const f of ai) await writeGenerated(f.rel, f.content, args.force);
   console.log(`${C.green}✓ 已生成 ${backend.length + frontend.length + admin.length + taro.length + ai.length} 个文件（后端 + AI 工具 + Flutter + Web-Admin-Vue + Taro）${C.reset}`);
 
   // ── 接线 ──
