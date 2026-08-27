@@ -1517,6 +1517,28 @@ describe('AiService', () => {
       expect(inv[0].riskStrategy).toBe('human_approval');
       expect(inv[0].requiresConfirmation).toBe(true);
     });
+
+    it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't1',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{}',
+          conversationId: 'c',
+          approverId: null,
+          decidedAt: null,
+        }),
+        save: jest.fn(),
+      };
+      (aiService as any).approvalsRepo = repo;
+
+      const res = await aiService.decideApproval('t1', '1', 'approve');
+
+      expect(res).toEqual({ ok: false, message: 'cannot self-approve' });
+      expect(repo.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('HS-10 Agent 对话集成（ExternalToolProvider）', () => {

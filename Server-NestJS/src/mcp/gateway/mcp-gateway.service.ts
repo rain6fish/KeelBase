@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SettingsService } from '../../settings/settings.service';
+import { assertPublicUrl } from '../../common/utils/ssrf';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
 import { AiService } from '../../ai/ai.service';
@@ -141,6 +142,8 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
   }
 
   async registerServer(name: string, url: string): Promise<McpServerConfig[]> {
+    // SSRF 防护（复用 webhook 同套校验）：目标不得为私网/回环/链接本地（含云元数据）
+    await assertPublicUrl(url);
     const servers = await this.listServers();
     if (servers.some((s) => s.name === name)) {
       throw new Error(`MCP server "${name}" already registered`);
