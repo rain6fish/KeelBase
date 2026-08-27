@@ -9,7 +9,7 @@ services:
   server:
     environment:
       - NODE_ENV=production
-      - CORS_ORIGINS=https://front.app
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://front.app}
     restart: always
 
   web:
