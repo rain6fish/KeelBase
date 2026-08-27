@@ -58,7 +58,23 @@ if [ "${DOCKER:-0}" = "1" ]; then
       -e "s/^REDIS_URL=.*/REDIS_URL=redis:\/\/redis:6379/" \
       Server-NestJS/.env.production
     rm -f Server-NestJS/.env.production.bak
+    # 模板可能缺 ENCRYPTION_KEY/AUDIT_HMAC_KEY 行 → 追加缺失行（防配置校验失败）
+    for KEY in ENCRYPTION_KEY AUDIT_HMAC_KEY; do
+      grep -q "^${KEY}=" Server-NestJS/.env.production || echo "${KEY}=$(gen)" >> Server-NestJS/.env.production
+    done
     echo "  ✓ 已生成 Server-NestJS/.env.production（随机密钥）"
+  fi
+  # Docker 镜像依赖宿主机预构建的 Flutter web 产物（Dockerfile 只 COPY build/web）
+  if [ ! -f Front-Flutter/build/web/index.html ]; then
+    if command -v flutter >/dev/null 2>&1; then
+      echo "→ 未发现预构建产物，构建 Flutter web..."
+      (cd Front-Flutter && flutter build web) || { echo "✗ Flutter web 构建失败"; exit 1; }
+    else
+      echo "✗ 缺少 Front-Flutter/build/web 预构建产物，且未安装 Flutter SDK。"
+      echo "  请先在宿主机执行：cd Front-Flutter && flutter build web"
+      echo "  或改用已发布的 Docker 镜像（跳过本地构建）。"
+      exit 1
+    fi
   fi
   echo "→ 用 Docker 一键起服务（首次构建约 10 分钟）..."
   docker compose up --build -d

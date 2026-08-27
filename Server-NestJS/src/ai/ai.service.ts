@@ -515,6 +515,9 @@ export class AiService {
     if (!req || req.status !== 'pending') {
       return { ok: false, message: req ? 'already decided' : 'not found' };
     }
+    if (decision === 'approve' && req.operatorId === approverId) {
+      return { ok: false, message: 'cannot self-approve' };
+    }
     req.status = decision === 'approve' ? 'approved' : 'declined';
     req.approverId = approverId;
     req.decidedAt = new Date();
