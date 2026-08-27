@@ -153,7 +153,7 @@ keelbase init --desc "Customer management"
 
 Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance.
 
-Full flow: [Build an AI CRM in 30 minutes](docs/manual/onboarding-30min.md) · [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md)
+Full flow: [Build an AI CRM in 30 minutes](docs/manual/onboarding-30min.md) · [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md) — 中文 · [EN](docs/manual/onboarding-30min-en.md) · [EN](docs/manual/30min-acceptance-en.md) · [EN](docs/manual/dev-challenge-en.md)
 
 ---
 
@@ -177,7 +177,7 @@ One main thread — **Build → Run → Trust → Private Deploy**:
 - **Run** — *Business-safe Agent Runtime:* user-scoped tools, human-confirmed writes, full audit and revoke
 - **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible
 
-The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([architecture-boundary](docs/architecture-boundary.md)).
+The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([architecture-boundary](docs/architecture-boundary.md) · [EN](docs/architecture-boundary-en.md)).
 
 ## 📍 Where KeelBase Sits
 
@@ -212,10 +212,25 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ## 📚 Documentation
 
-- [Quick Start (5-min, no code)](docs/manual/quickstart-en.md) · [FAQ](docs/manual/faq-en.md) · [Tutorial](docs/manual/tutorial.md)
-- [Operations](docs/manual/operations.md) · [Development](docs/manual/development.md) · [Private AI verification](docs/manual/private-ai-verification.md)
-- [Flagship apps spec (AI CRM / PM / Approval)](docs/flagship-applications.md) · [Enterprise capabilities](docs/enterprise-capabilities.md)
-- **External system integration**: [AI Bridge (Java legacy)](docs/manual/ai-bridge.md) · [Capability declaration](docs/manual/capability-declaration.md) · [External CRM demo](docs/manual/external-crm-demo.md) · [Framework adapter (MCP)](docs/manual/framework-adapter.md)
+> Every guide ships in **中文 and English** — pick your language below.
+
+- **Quick Start 快速开始** — [中文](docs/manual/quickstart.md) · [English](docs/manual/quickstart-en.md)
+- **Tutorial 零基础教程** — [中文](docs/manual/tutorial.md) · [English](docs/manual/tutorial-en.md)
+- **Build an AI CRM in 30 minutes 30 分钟构建 AI CRM** — [中文](docs/manual/onboarding-30min.md) · [English](docs/manual/onboarding-30min-en.md)
+- **30-Minute Acceptance 30 分钟验收** — [中文](docs/manual/30min-acceptance.md) · [English](docs/manual/30min-acceptance-en.md)
+- **Dev Challenge 开发者 30 分钟挑战** — [中文](docs/manual/dev-challenge.md) · [English](docs/manual/dev-challenge-en.md)
+- **FAQ 常见问题** — [中文](docs/manual/faq.md) · [English](docs/manual/faq-en.md)
+- **Operations 运维手册** — [中文](docs/manual/operations-zh.md) · [English](docs/manual/operations.md)
+- **Development 开发手册** — [中文](docs/manual/development-zh.md) · [English](docs/manual/development.md)
+- **Private AI Verification 私有 AI 验证** — [中文](docs/manual/private-ai-verification.md) · [English](docs/manual/private-ai-verification-en.md)
+- **Flagship Apps Spec 旗舰应用规格** — [中文](docs/flagship-applications.md) · [English](docs/flagship-applications-en.md)
+- **Enterprise Capabilities 企业能力声明** — [中文](docs/enterprise-capabilities.md) · [English](docs/enterprise-capabilities-en.md)
+- **Architecture Boundary 架构边界** — [中文](docs/architecture-boundary.md) · [English](docs/architecture-boundary-en.md)
+- **External system integration 外部系统集成**
+  - **AI Bridge 存量系统 AI 化** — [中文](docs/manual/ai-bridge.md) · [English](docs/manual/ai-bridge-en.md)
+  - **Capability Declaration 轻量能力声明** — [中文](docs/manual/capability-declaration.md) · [English](docs/manual/capability-declaration-en.md)
+  - **External CRM Demo 外部 CRM 接入演示** — [中文](docs/manual/external-crm-demo.md) · [English](docs/manual/external-crm-demo-en.md)
+  - **Framework Adapter Agent 框架接入** — [中文](docs/manual/framework-adapter.md) · [English](docs/manual/framework-adapter-en.md)
 - [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
 - **Explore all capabilities →** [docs/](docs/)
 
