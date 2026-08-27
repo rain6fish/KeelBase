@@ -194,6 +194,19 @@ describe('EventsService', () => {
         expect(json).toContain('endTime');
       }
     });
+
+    it('无范围参数时不加时间条件、仅按所有权过滤（postgres Invalid Date 防护）', async () => {
+      mockRepository.find.mockResolvedValue([mockEvent]);
+
+      await service.getEventsForRange(undefined as any, undefined as any, 1);
+
+      const findWhere = mockRepository.find.mock.calls[0][0].where as any[];
+      expect(findWhere).toHaveLength(1);
+      expect(JSON.stringify(findWhere[0])).toContain('userId');
+      // 时间范围条件不应出现（避免 Invalid Date 参数 → postgres 语法错）
+      expect(JSON.stringify(findWhere[0])).not.toContain('startTime');
+      expect(JSON.stringify(findWhere[0])).not.toContain('endTime');
+    });
   });
 
   // ─── Search ────────────────────────────────────────────────────────────────
