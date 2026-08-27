@@ -4,6 +4,30 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.2] - 2026-08-27
+
+> **KeelBase 1.0.2 — Governance & Product-Proof Release / 治理深化与产品证明版**
+>
+> 1.0 后第二个补丁：M2 KeelBase Guard 控制平面成型（Agent Registry / Policy Center / Risk Center / Guard Overview）+ Trust UX 深化（D1 CRM 闭环 / Action Detail / 人类语言审计标签 / 委托字段）+ 产品证明准备（onboarding-30min / 一键 Golden Flow demo / OIDC 企业 SSO / AR-2 MCP）+ 跨端与生成器维护（Taro i18n / README 双语 / React CI / 生成器幂等与锚点修复）。**1.1 仍未触发**（产品证明期 4 项验收未达）。
+
+### Added / 新增
+
+- **M2 KeelBase Guard (M2 deep)**: Agent Registry admin view (D5) + Policy Center standalone (HS-9 策略产品面) + Risk Center (工具风险 R1-R5 / 高风险清单 / 阻断统计) + Guard Overview posture page (一页总览五中心 + 风险分布 + 审计态势 + 哈希链验证) + security-governance nav group + Agent→audit/replay linkage
+  **M2 KeelBase Guard（M2 深化）**：Agent Registry 管理视图（D5）+ Policy Center 独立页（HS-9 策略产品面）+ Risk Center 风险中心（工具风险 R1-R5 / 高风险清单 / 阻断统计）+ Guard Overview 治理总览（一页总览五中心 + 风险分布 + 审计态势 + 哈希链验证）+ 安全治理导航分组 + Agent↔审计/行为回放联动
+- **Trust UX (D1/D2/D4)**: AI CRM closed loop (copilot streaming + inline confirmation + governance drill) + Business Action Detail page (Who/When/What/Why two-layer/Result/Side Effects/Integrity + Human-Agent-System timeline) + tool-level human-readable audit labels (D2) + Agent Delegation Chain fields (D4, parent_action_id/caller_agent_id/…) + `toolLabel` human labels
+  **Trust UX（D1/D2/D4）**：AI CRM 业务闭环（Copilot 流式 + 内联确认卡 + 治理钻取）+ Action Detail 业务动作详情页（七段 + Why 双层 + Human-Agent-System 时间线）+ 工具级人类语言审计标签（D2）+ Agent 委托链字段（D4，parent_action_id/caller_agent_id/…）+ `toolLabel` 人类标签
+- **Product-proof prep (P0·产品证明)**: onboarding-30min (Build an AI module in 30 minutes, invoices sample) + one-command AI CRM Golden Flow workbench demo (`deploy/demo.sh`) + golden-demo recording script aligned to D1 UI + OIDC enterprise SSO frontend + AR-2 MCP-as-Adapter verification
+  **产品证明准备（P0·产品证明）**：onboarding-30min（30 分钟 Build 业务模块，invoices 示例）+ 一键 AI CRM Golden Flow 工作台演示（deploy/demo.sh）+ 录制剧本对齐 D1 UI + OIDC 企业 SSO 前端 + AR-2 MCP 即 Adapter 验证
+- **Cross-client & tooling**: Taro i18n layer (201 keys zh/en) + README/CHANGELOG bilingual + Web-Admin-React CI job + topbar role switch (admin ↔ workbench) + `sync-issues-to-gitee` script + generator DX (idempotent file write / wiring anchor repair / invoices sample spec)
+  **跨端与工具**：Taro i18n 层（zh/en 各 201 键）+ README 双语 + Web-Admin-React CI 接入 + 顶栏角色切换（管理台 ↔ 工作台）+ Gitee issue 同步脚本 + 生成器 DX（文件写入幂等 / 接线锚点修复 / invoices 示例 spec）
+
+### Fixed / 修复
+
+- **GET /events without range crashes on postgres**: `getEventsForRange` 对缺失/非法的 start/end 构造 `Invalid Date`，sqlite 不报错但 postgres 500——start/end 改可选，缺失时仅按所有权过滤
+- **Generator overwrote flagship AI tools**: `writeGenerated` 无条件覆盖已存在的 `query-customers.tool.ts`（AI CRM 旗舰）——加「已存在则跳过」幂等（`--force` 覆盖）
+- **Generator wiring anchors broken by code drift**: applyFile 加 CRLF 归一化（Flutter main.dart）+ modules-manifest todos 条目 description + Taro explore i18n label——生成接线 24/24 无未命中
+- **AiAuditView tests missing useRoute mock**（M2 agentId 过滤引入）：补 mock，281/281 全绿
+
 ## [1.0.1] - 2026-08-22
 
 > **KeelBase 1.0.1 — Maintenance & Coverage Release / 维护与覆盖加固版**
