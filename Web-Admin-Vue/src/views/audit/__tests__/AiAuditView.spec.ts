@@ -20,6 +20,8 @@ vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
 }))
 vi.mock('@/utils/csv', () => ({ downloadCsv: csvMock }))
+// M2 Agent→审计联动（ffe096d）组件读 route.query.agentId，测试需 mock useRoute
+vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
 
 import ElementPlus from 'element-plus'
 import AiAuditView from '../AiAuditView.vue'
