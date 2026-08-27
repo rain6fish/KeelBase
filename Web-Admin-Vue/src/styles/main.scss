@@ -94,6 +94,21 @@ body {
   padding: 24px;
 }
 
+// 内容区统一纵向间距（全局布局规则，替代页面局部 mb）：
+// 1. 相邻卡片/行组（el-card / el-row 兄弟）之间留 24px；
+// 2. el-row 内 el-col 换行时统一留 24px —— 多卡片上下挨着的根因。
+.el-main.v-content-pad {
+  > .el-card + .el-card,
+  > .el-card + .el-row,
+  > .el-row + .el-card,
+  > .el-row + .el-row {
+    margin-top: 24px;
+  }
+  > .el-row .el-col {
+    margin-bottom: 24px;
+  }
+}
+
 // 侧边栏导航项：Materio 间距（紧凑高度 + item 间隔）
 .el-menu-nav .el-menu-item {
   height: 42px;
