@@ -239,6 +239,7 @@ keelbase init --desc "Customer management"
 ## 🤝 社区与贡献
 
 - [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · **Apache-2.0** 协议
+- **问题与需求** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
 - 演示账号：`alex/123456`（工作台 / 移动端）· `admin/Admin@1234`（管理台）
 
 ## 目录结构
