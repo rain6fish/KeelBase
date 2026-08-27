@@ -27,6 +27,12 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **Generator overwrote flagship AI tools**: `writeGenerated` 无条件覆盖已存在的 `query-customers.tool.ts`（AI CRM 旗舰）——加「已存在则跳过」幂等（`--force` 覆盖）
 - **Generator wiring anchors broken by code drift**: applyFile 加 CRLF 归一化（Flutter main.dart）+ modules-manifest todos 条目 description + Taro explore i18n label——生成接线 24/24 无未命中
 - **AiAuditView tests missing useRoute mock**（M2 agentId 过滤引入）：补 mock，281/281 全绿
+- **P0 deployment & security hardening (external review)**: env 模板补 ENCRYPTION_KEY/AUDIT_HMAC_KEY + 部署脚本「替换+追加缺失行」；Docker 依赖宿主 Flutter web 预构建 fail-fast；R4 decideApproval 拒绝 self-approve；SSRF 防护提取 common/utils/ssrf（webhook + MCP registerServer 复用）
+  **P0 部署+安全硬化（外部评审）**：env 模板补 ENCRYPTION_KEY/AUDIT_HMAC_KEY + 部署脚本追加缺失行；Docker 依赖宿主 Flutter web 预构建 fail-fast；R4 审批拒绝自批；SSRF 防护提取 common/utils/ssrf（webhook + MCP 复用）
+- **Deploy no longer hardcodes domain**: docker-compose.prod.yml CORS_ORIGINS 改 `${CORS_ORIGINS}` env 引用；nginx.https.conf server_name 改通配——换域名部署无需改源码
+  **部署不再写死域名**：docker-compose.prod.yml CORS_ORIGINS 改 `${CORS_ORIGINS}` env 引用；nginx.https.conf server_name 改通配——换域名部署无需改源码
+- **Web-Admin fixes**: 业务页 Copilot 按钮改「AI 分析」（与顶栏全局 AI 区分）+ StatCard 长值截断（邮箱溢出）
+  **管理台修复**：业务页 Copilot 按钮改「AI 分析」（与全局 AI 区分）+ StatCard 长值截断（邮箱溢出）
 
 ## [1.0.1] - 2026-08-22
 
