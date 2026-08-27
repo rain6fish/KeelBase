@@ -58,12 +58,28 @@
         </el-button>
         <ThemeSwitcher />
         <LangToggle />
-        <el-avatar :size="26" class="admin-avatar">{{ (auth.user?.username || 'U')[0].toUpperCase() }}</el-avatar>
-        <span class="text-body-2 text-medium-emphasis">{{ auth.user?.username || '' }}</span>
-        <el-button type="primary" plain @click="onLogout">
-          <template #icon><AppIcon icon="mdi-logout" /></template>
-          {{ t('logout') }}
-        </el-button>
+        <el-dropdown trigger="click" @command="onUserCommand">
+          <span class="d-flex align-center ga-1 user-menu" tabindex="0">
+            <el-avatar :size="26" class="admin-avatar">{{ (auth.user?.username || 'U')[0].toUpperCase() }}</el-avatar>
+            <span class="text-body-2 text-medium-emphasis">{{ auth.user?.username || '' }}</span>
+            <AppIcon icon="mdi-chevron-down" size="14" />
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>
+                <span class="text-caption">{{ t('role') }}：{{ auth.user?.role || '-' }}</span>
+              </el-dropdown-item>
+              <el-dropdown-item divided command="switch-surface">
+                <AppIcon icon="mdi-swap-horizontal" size="14" />
+                {{ isUserSurface ? t('switchToAdmin') : t('switchToWorkbench') }}
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
+                <AppIcon icon="mdi-logout" size="14" />
+                {{ t('logout') }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </el-header>
 
       <el-main class="v-content-pad">
@@ -116,6 +132,15 @@ function go(path: string) {
 async function onLogout() {
   await auth.logout()
   router.replace('/login')
+}
+
+/** 右上角用户菜单：切换管理台/工作台（独立构建，token 共享同 localStorage key，跳转保持登录）或登出 */
+function onUserCommand(cmd: string) {
+  if (cmd === 'switch-surface') {
+    window.location.assign(isUserSurface ? '/admin/' : '/user/')
+  } else if (cmd === 'logout') {
+    void onLogout()
+  }
 }
 
 const activeMenu = computed(() => route.path)
