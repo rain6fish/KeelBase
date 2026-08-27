@@ -72,6 +72,7 @@
 |---|---|---|
 | 主 App（Flutter 三端）+ 小程序（Taro）+ 管理台/工作台 Three clients | ✅ | Front-Flutter / Front-Taro / Web-Admin-Vue（同壳两套导航） |
 | 小程序 i18n（Taro 主 app 中英混杂）Mini-program i18n | ⬜ 待办 | CR-25 剩余——小程序渠道文案未走 i18n 层 |
+| 小程序构建链（Taro weapp）Mini-program build | 🚧 部分 | `build:h5` ✅（CI）；`build:weapp` ❌ 已知失败（Taro 3.6.36 postcss-loader v7 × resolve-url-loader v5 组合，GitHub #12）——上线前需升级 Taro 或 webpack 定制 |
 | 邮件 / 站内通知 / SSE / Webhook | ✅ | SMTP + notifications + `/webhooks`（PL-14） |
 | 推送（极光抽象层）Push | 🚧 部分 | PushService 抽象 + 极光实现，真实厂商 SDK 待凭据（MS-2.2/2.3） |
 | 微信订阅消息 / 快捷登录 / 分享（MINI-2/3/4） | ⬜ 待办 | 需微信开放平台凭据 |
