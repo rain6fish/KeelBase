@@ -1,6 +1,6 @@
 {
   "name": "web-admin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "KeelBase Web host: workbench + admin console (Vue3 + Element Plus) — 工作台 + 管理台同一壳",
   "type": "module",
