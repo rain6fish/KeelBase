@@ -2,8 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHmac, randomBytes } from 'crypto';
-import { lookup } from 'dns/promises';
-import { isIP } from 'net';
+import { isBlockedHost } from '../common/utils/ssrf';
 import { WebhookSubscription } from './webhook-subscription.entity';
 
 export interface WebhookRetryConfig {
@@ -138,20 +137,9 @@ export class WebhookService implements WebhookPublisher {
     return { delivered: false, error: lastError };
   }
 
-  /** SSRF：hostname 解析后任一地址落在私网/回环/链接本地（IPv4/IPv6）即阻止；解析失败保守阻止。 */
-  private async _isBlockedHost(hostname: string): Promise<boolean> {
-    let addresses: string[];
-    try {
-      addresses = (await lookup(hostname, { all: true })).map((r) => r.address);
-    } catch {
-      return true;
-    }
-    return addresses.some((addr) => {
-      const version = isIP(addr);
-      if (version === 4) return WebhookService._isPrivateV4(addr);
-      if (version === 6) return WebhookService._isPrivateV6(addr);
-      return true;
-    });
+  /** SSRF：hostname 解析后任一地址落在私网/回环/链接本地（IPv4/IPv6）即阻止；解析失败保守阻止（复用 common/utils/ssrf）。 */
+  private _isBlockedHost(hostname: string): Promise<boolean> {
+    return isBlockedHost(hostname);
   }
 
   /**
@@ -178,23 +166,6 @@ export class WebhookService implements WebhookPublisher {
       return res;
     }
     throw new Error('too-many-redirects');
-  }
-
-  private static _isPrivateV4(ip: string): boolean {
-    const [a, b] = ip.split('.').map(Number);
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 169 && b === 254) || // 云元数据 169.254.169.254 属链接本地
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168)
-    );
-  }
-
-  private static _isPrivateV6(ip: string): boolean {
-    const v = ip.toLowerCase();
-    return v === '::' || v === '::1' || v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd');
   }
 
   private _eventsOf(sub: WebhookSubscription): string[] {

@@ -48,14 +48,20 @@ echo "✓ 关键镜像已就绪"
 if [ ! -f "$ENV_FILE" ]; then
   cp "Server-NestJS/.env.production.example" "$ENV_FILE"
   gen() { openssl rand -hex 32; }
+  DB_PASS=$(gen)
   sed -i.bak \
     -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
     -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
     -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
-    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$(gen)/" \
+    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
+    -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
     -e "s/^DB_NAME=.*/DB_NAME=front_production/" \
     "$ENV_FILE"
   rm -f "$ENV_FILE.bak"
+  # 模板可能缺 ENCRYPTION_KEY/AUDIT_HMAC_KEY 行 → 追加缺失行（防配置校验失败）
+  for KEY in ENCRYPTION_KEY AUDIT_HMAC_KEY; do
+    grep -q "^${KEY}=" "$ENV_FILE" || echo "${KEY}=$(gen)" >> "$ENV_FILE"
+  done
   # 内网默认降级：邮件/推送/短信/OAuth 全关（可后续手动开内网替代）
   cat >> "$ENV_FILE" <<'ENVEOF'
 
