@@ -27,6 +27,7 @@ cd Server-NestJS && npm install
 ## 1. 生成 AI 业务模块（约 1 分钟）
 
 ```bash
+cd ..   # 回到仓库根（第 0 步进入了 Server-NestJS；scripts/ 在仓库根）
 node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
 
@@ -64,7 +65,7 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 
 ## 5. 验收（你完成了）
 
-- ✅ `query_invoices` / `create_invoices` 已注册进 AI 工具（`grep CreateInvoicesTool src/ai/ai.module.ts`）
+- ✅ `query_invoices` / `create_invoices` 已注册进 AI 工具（`grep CreateInvoiceTool src/ai/ai.module.ts`）
 - ✅ 越权：另一账号访问他人发票数据 → 403
 - ✅ 写操作入操作审计 + AI 调用入 AI 审计（哈希链可验证，`GET /audit/operations/verify`）
 - ✅ 生成物是普通源代码，可继续修改
