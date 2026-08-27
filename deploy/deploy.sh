@@ -48,6 +48,10 @@ if [ ! -f "$ENV_FILE" ]; then
     -e "s/^POSTGRES_DB=.*/POSTGRES_DB=front_production/" \
     "$ENV_FILE"
   rm -f "$ENV_FILE.bak"
+  # 模板可能缺 ENCRYPTION_KEY/AUDIT_HMAC_KEY 行 → 追加缺失行（防配置校验失败）
+  for KEY in ENCRYPTION_KEY AUDIT_HMAC_KEY; do
+    grep -q "^${KEY}=" "$ENV_FILE" || echo "${KEY}=$(gen)" >> "$ENV_FILE"
+  done
   # 生产环境数据库走容器内 postgres 服务，host/密码对齐 docker-compose
   sed -i.bak \
     -e "s/^DB_HOST=.*/DB_HOST=postgres/" \
@@ -73,6 +77,19 @@ fi
 echo "✓ 生产模式 + HTTPS（443 + 80）"
 
 # ── 4. 构建并启动 ────────────────────────────────────────────
+# Docker 镜像依赖宿主机预构建的 Flutter web 产物（Dockerfile 只 COPY build/web），缺失则构建或 fail fast
+FLUTTER_WEB=Front-Flutter/build/web/index.html
+if [ ! -f "$FLUTTER_WEB" ]; then
+  if command -v flutter >/dev/null 2>&1; then
+    echo "→ 未发现预构建产物，构建 Flutter web..."
+    (cd Front-Flutter && flutter build web) || { echo "✗ Flutter web 构建失败"; exit 1; }
+  else
+    echo "✗ 缺少 Front-Flutter/build/web 预构建产物，且未安装 Flutter SDK。"
+    echo "  请先在宿主机执行：cd Front-Flutter && flutter build web"
+    echo "  或改用已发布的 Docker 镜像（跳过本地构建）。"
+    exit 1
+  fi
+fi
 echo "→ 构建并启动容器（首次构建耗时较长）..."
 docker compose "${COMPOSE_FILES[@]}" up --build -d
 

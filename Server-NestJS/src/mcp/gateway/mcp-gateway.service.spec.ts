@@ -3,6 +3,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { lookup } from 'dns/promises';
 
 jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
   Client: jest.fn().mockImplementation(() => ({
@@ -19,6 +20,9 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
 }));
 jest.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
   StreamableHTTPClientTransport: jest.fn().mockImplementation(() => ({ close: jest.fn() })),
+}));
+jest.mock('dns/promises', () => ({
+  lookup: jest.fn(),
 }));
 
 describe('McpGatewayService (HS-10 入口)', () => {
@@ -37,6 +41,7 @@ describe('McpGatewayService (HS-10 入口)', () => {
       requiresConfirmation: jest.fn(),
     } as any;
     audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
+    (lookup as unknown as jest.Mock).mockResolvedValue([{ address: '93.184.216.34' }]); // 公网（example.com）
     service = new McpGatewayService(settings as any, governance as any, audit as any);
   });
 
@@ -70,6 +75,11 @@ describe('McpGatewayService (HS-10 入口)', () => {
       // 模拟已持久化：Settings 读回含 wx 的列表 → 重复名报错
       settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x/mcp' }]));
       await expect(service.registerServer('wx', 'http://y')).rejects.toThrow('already registered');
+    });
+
+    it('registerServer 拒绝内网/回环 url（SSRF 防护，复用 webhook 同套校验）', async () => {
+      (lookup as unknown as jest.Mock).mockResolvedValue([{ address: '127.0.0.1' }]); // 回环
+      await expect(service.registerServer('ssrf', 'http://x')).rejects.toThrow('已阻止（防 SSRF）');
     });
 
     it('removeServer 过滤并清缓存', async () => {
