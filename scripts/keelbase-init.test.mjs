@@ -78,7 +78,7 @@ const MIGRATIONS = [
 
 const businessEntries: ModuleManifestEntry[] = [
   { id: 'events', category: 'business', deps: ['notifications'], label: '事件' },
-  { id: 'todos', category: 'business', deps: [], label: '待办' },
+  { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },
 ];`,
   );
   await write(
@@ -669,7 +669,7 @@ test('wireAiModule：ai.module 六处接线 + 幂等', async () => {
 test('wireTaro：app.config pages + explore quickCards', async () => {
   const root = await tempRoot();
   await write(`${root}/Front-Taro/src/app.config.ts`, `    'pages/search/index',`);
-  await write(`${root}/Front-Taro/src/pages/explore/index.vue`, `  { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },`);
+  await write(`${root}/Front-Taro/src/pages/explore/index.vue`, `  { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },`);
 
   const r = await wireTaro(ctx(), root);
   assert.ok(r.filter((x) => x.changed).length >= 2);

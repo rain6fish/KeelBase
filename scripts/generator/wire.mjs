@@ -50,9 +50,13 @@ async function applyFile(file, fn) {
   } catch {
     return { file, changed: false, reason: 'file-not-found' };
   }
-  const { content, changed, reason } = fn(original);
+  // CRLF 文件（如 Flutter main.dart）锚点用 LF 匹配不上 → 归一化后匹配，写回恢复原行尾（避免全文件行尾 diff）
+  const crlf = original.includes('\r\n');
+  const normalized = crlf ? original.replace(/\r\n/g, '\n') : original;
+  const { content, changed, reason } = fn(normalized);
   if (!changed) return { file, changed: false, reason };
-  await writeFile(abs, content, 'utf8');
+  const out = crlf ? content.replace(/\n/g, '\r\n') : content;
+  await writeFile(abs, out, 'utf8');
   return { file, changed: true, reason };
 }
 
@@ -99,7 +103,7 @@ export async function wireBackend(ctx, root = '') {
     await applyFile(`${BE}/common/modules/modules-manifest.ts`, (c) =>
       insertAfter(
         c,
-        `  { id: 'todos', category: 'business', deps: [], label: '待办' },`,
+        `  { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },`,
         `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}', description: '${ctx.label}（${ctx.plural} 模块，keelbase init 生成）' },`,
         `id: '${ctx.plural}'`,
       ),
@@ -405,7 +409,7 @@ export async function wireTaro(ctx, root = '') {
     await applyFile(`${TARO}/pages/explore/index.vue`, (c) =>
       insertAfter(
         c,
-        `  { icon: '⚙️', label: 'Settings', color: '#9333EA', path: '/pages/settings/index' },`,
+        `  { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },`,
         `\n  { icon: '📦', label: '${ctx.label}', color: '#F97316', path: '/pages/${ctx.plural}/index' },`,
         `path: '/pages/${ctx.plural}/index'`,
       ),
