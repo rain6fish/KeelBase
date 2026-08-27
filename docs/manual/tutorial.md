@@ -3,7 +3,7 @@
 > 本文把 KeelBase 从「完全没跑过」走到「部署上线」，按一条完整路径六步走，每步都有验证：
 > **跑起来 → 看懂它 → 改成你的 → 生成新模块 → 部署上线 → 日常运维**。
 > 适合第一次接触基座的人。想查具体问题，看 [FAQ](faq.md) 或各手册索引。
-> 英文版教程（tutorial-en.md）后续跟进；当前英文用户可先看 [Quick Start (EN)](quickstart-en.md)。
+> English: [tutorial-en.md](tutorial-en.md) · 新手可先看 [Quick Start (EN)](quickstart-en.md)。
 
 ## 第一步：跑起来（约 5 分钟）— RUN
 
