@@ -239,6 +239,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 ## 🤝 Community & Contributing
 
 - [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · **Apache-2.0** licensed
+- **Issues & feature requests** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
 - Demo accounts: `alex/123456` (workbench / mobile) · `admin/Admin@1234` (Admin Console)
 
 ## Repositories
