@@ -7,9 +7,9 @@
       >
         <AppIcon :icon="icon" size="26" :color="iconColor" />
       </div>
-      <div>
+      <div style="min-width: 0">
         <div class="text-caption text-medium-emphasis">{{ label }}</div>
-        <div class="text-h5 font-weight-bold text-tabular">{{ value }}</div>
+        <div class="text-h5 font-weight-bold text-tabular text-truncate" :title="String(value)">{{ value }}</div>
         <div v-if="hint" class="text-caption text-medium-emphasis">{{ hint }}</div>
       </div>
     </div>
