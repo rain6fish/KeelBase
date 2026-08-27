@@ -50,7 +50,9 @@
        resolve(__dirname, '../migrations/*AddAiDailyUsage*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAuditHashChain*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditIdentity*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiAuditAuthorization*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditDelegation*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiConfirmationRequests*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*PostgresIncrementalSchema*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddCrm*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddWebhookSubscriptions*').replace(/\\/g, '/'),
@@ -61,6 +63,7 @@
        resolve(__dirname, '../migrations/*AddContracts*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddBooksNotesProtocolFields*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAgents*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*FixAiAgentsNameUniqueIndex*').replace(/\\/g, '/'),
      ],
    };
  } else {
