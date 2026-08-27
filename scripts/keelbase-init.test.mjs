@@ -1393,7 +1393,8 @@ test('specs/ 协议文件全部可被生成器消费（协议生态基础检查�
   const fsp = await import('node:fs/promises');
   const root = fileURLToPath(new URL('..', import.meta.url));
   const dir = join(root, 'specs');
-  const files = (await fsp.readdir(dir)).filter((f) => f.endsWith('.json'));
+  // OpenAPI 文件（external-crm.openapi.json 等）是 --import-openapi 输入，非协议 JSON，跳过
+  const files = (await fsp.readdir(dir)).filter((f) => f.endsWith('.json') && !f.endsWith('.openapi.json'));
   assert.ok(files.length >= 8, `应有 ≥8 份协议，实际 ${files.length}`);
   for (const f of files) {
     const spec = JSON.parse(await fsp.readFile(join(dir, f), 'utf8'));
