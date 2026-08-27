@@ -154,29 +154,30 @@ export class EventsService {
     return !!(filter.keyword || filter.userId != null || filter.isCancelled != null || filter.start || filter.end);
   }
 
-  async getEventsForRange(start: string, end: string, userId?: number): Promise<Event[]> {
-    // 扩展日期范围到全天，避免时区边界问题
-    const startDate = new Date(`${start}T00:00:00`);
-    const endDate = new Date(`${end}T23:59:59.999`);
-
+  async getEventsForRange(start?: string, end?: string, userId?: number): Promise<Event[]> {
     // ORG-3 数据隔离：本人事件 OR 同组织事件（orgId = 用户所属组织）
     const orgId = userId ? await this._userOrgId(userId) : null;
-
-    // 事件与查询范围有交集 = startTime <= 范围末 且 endTime >= 范围始（区间重叠判断，
-    // 覆盖完全包住查询范围的事件——仅 Between(startTime) OR Between(endTime) 会漏掉它们）
     const ownership: Array<Record<string, unknown>> = [];
     if (userId) ownership.push({ userId });
     if (orgId != null) ownership.push({ orgId });
-    const range = { startTime: LessThanOrEqual(endDate), endTime: MoreThanOrEqual(startDate) };
-    const where: any[] = [];
-    if (ownership.length === 0) {
-      where.push(range);
-    } else {
-      for (const o of ownership) where.push({ ...range, ...o });
+
+    const where: any[] = [...ownership];
+    // start/end 缺失或非法时不加时间范围（postgres 对 Invalid Date 参数报语法错，仅按所有权过滤）
+    const startValid = !!start && !Number.isNaN(Date.parse(`${start}T00:00:00`));
+    const endValid = !!end && !Number.isNaN(Date.parse(`${end}T23:59:59.999`));
+    if (startValid && endValid) {
+      // 事件与查询范围有交集 = startTime <= 范围末 且 endTime >= 范围始（区间重叠判断，
+      // 覆盖完全包住查询范围的事件——仅 Between(startTime) OR Between(endTime) 会漏掉它们）
+      const range = {
+        startTime: LessThanOrEqual(new Date(`${end}T23:59:59.999`)),
+        endTime: MoreThanOrEqual(new Date(`${start}T00:00:00`)),
+      };
+      for (const o of ownership) Object.assign(o, range);
+      if (ownership.length === 0) where.push(range);
     }
 
     return this.eventsRepository.find({
-      where,
+      where: where.length ? where : undefined,
       order: { startTime: 'ASC' },
     });
   }
