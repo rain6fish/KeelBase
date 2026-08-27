@@ -97,14 +97,15 @@ body {
 // 内容区统一纵向间距（全局布局规则，替代页面局部 mb）：
 // 1. 相邻卡片/行组（el-card / el-row 兄弟）之间留 24px；
 // 2. el-row 内 el-col 换行时统一留 24px —— 多卡片上下挨着的根因。
+// 注：不用 `>` 直接子——Vue 组件根元素会包裹内容，el-row/el-card 不一定是 .v-content-pad 的直接子。
 .el-main.v-content-pad {
-  > .el-card + .el-card,
-  > .el-card + .el-row,
-  > .el-row + .el-card,
-  > .el-row + .el-row {
+  .el-card + .el-card,
+  .el-card + .el-row,
+  .el-row + .el-card,
+  .el-row + .el-row {
     margin-top: 24px;
   }
-  > .el-row .el-col {
+  .el-row .el-col {
     margin-bottom: 24px;
   }
 }
