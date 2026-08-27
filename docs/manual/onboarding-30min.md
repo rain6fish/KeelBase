@@ -45,7 +45,7 @@ npm run migration:run
 npm test -- customers
 ```
 
-预期输出：**20 passed**（service 5 + controller 6 + query/create 工具 9）。
+预期输出：**20 passed**。注意 `customers` 会**同时匹配 AI CRM 的 customer 工具测试**（analyze/orders/activities/summarize 等）；生成模块自身的测试为 `customers.service` / `customers.controller` / `query-customers` / `create-customers`。
 
 ## 4. 起后端 + 问 AI（约 10 分钟，可选 LLM 环境）
 
