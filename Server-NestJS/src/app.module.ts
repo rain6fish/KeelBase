@@ -150,6 +150,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddContracts*.js',
               'dist/migrations/*AddBooksNotesProtocolFields*.js',
               'dist/migrations/*AddAiAgents*.js',
+              'dist/migrations/*FixAiAgentsNameUniqueIndex*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
