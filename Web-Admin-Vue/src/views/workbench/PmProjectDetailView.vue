@@ -2,8 +2,8 @@
   <div>
     <PageHeader :title="detail?.project.name ?? t('pmTitle')" :subtitle="subtitle">
       <el-button type="primary" plain @click="showCopilot = true">
-        <template #icon><AppIcon icon="mdi-robot-outline" /></template>
-        {{ t('copilotTitle') }}
+        <template #icon><AppIcon icon="mdi-chart-line" /></template>
+        {{ t('copilotAction') }}
       </el-button>
     </PageHeader>
 

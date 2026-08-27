@@ -310,6 +310,7 @@ const zh = {
 
   // AI Copilot（P0 每业务页 AI 助手）
   copilotTitle: 'AI 助手',
+  copilotAction: 'AI 分析',
   thinking: '思考中…',
   copilotHint: '围绕当前客户「{name}」提问——AI 会在你的数据范围内分析并给出建议（写操作需确认）',
   copilotPlaceholder: '问：这个客户有什么机会？',

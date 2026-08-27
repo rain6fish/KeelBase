@@ -309,6 +309,7 @@ const en: ZhDict = {
 
   // AI Copilot (P0 per-business-page AI assistant)
   copilotTitle: 'AI Assistant',
+  copilotAction: 'AI Analyze',
   thinking: 'Thinking…',
   copilotHint: 'Ask about the current customer "{name}" — AI analyzes within your data scope and suggests (writes need confirmation)',
   copilotPlaceholder: 'Ask: what opportunities does this customer have?',
