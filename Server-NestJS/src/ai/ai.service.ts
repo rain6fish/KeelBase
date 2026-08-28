@@ -1429,8 +1429,24 @@ export class AiService {
         return `创建事件：${title}（${args.startTime ?? '?'} 至 ${args.endTime ?? '?'}）`;
       case 'create_todo':
         return `创建待办：${title}${args.dueDate ? `（截止 ${args.dueDate}）` : ''}`;
+      case 'create_customers':
+        return `创建客户：${(args.name as string) ?? ''}`;
+      case 'create_followup_task':
+        return `创建跟进任务：${title}`;
+      case 'create_contract':
+        return `创建合同：${title}`;
+      case 'create_project':
+        return `创建项目：${title}`;
+      case 'create_project_task':
+        return `创建项目任务：${title}`;
+      case 'update_customer_status':
+        return `更新客户状态：${(args.status as string) ?? ''}`;
+      case 'submit_approval_request':
+        return '提交审批请求';
+      case 'create_knowledge':
+        return '创建知识条目';
       default:
-        return `执行操作：${toolName}`;
+        return '执行写操作';
     }
   }
 
