@@ -36,6 +36,7 @@ function argInt(name: string, def: number): number {
 async function main(): Promise<void> {
   const concurrency = argInt('concurrency', 100);
   const perWorker = argInt('per-worker', 10);
+  const instances = argInt('instances', 1);
   const total = concurrency * perWorker;
 
   const ds = new DataSource({
@@ -47,18 +48,23 @@ async function main(): Promise<void> {
   await ds.initialize();
 
   const auditChain = new AuditChainService(new ConfigService());
-  const service = new AuditService(
-    ds.getRepository(AiAuditLog),
-    ds.getRepository(AiDailyUsage),
-    ds.getRepository(AiToolSideEffect),
-    auditChain,
+  // 多实例模式（--instances N>1）：N 个 AuditService 实例各自独立的进程内串行队列（_tail），
+  // 模拟多副本部署——复现「多实例读到同一 lastHash → 审计链分叉」，实证需要 DB 级串行（roadmap §22.10 B）。
+  const services = Array.from({ length: instances }, () =>
+    new AuditService(
+      ds.getRepository(AiAuditLog),
+      ds.getRepository(AiDailyUsage),
+      ds.getRepository(AiToolSideEffect),
+      auditChain,
+    ),
   );
 
   const durations: number[] = [];
   const started = performance.now();
 
   await Promise.all(
-    Array.from({ length: concurrency }, () => (async () => {
+    Array.from({ length: concurrency }, (_, w) => (async () => {
+      const service = services[w % instances];
       for (let i = 0; i < perWorker; i++) {
         const t0 = performance.now();
         await service.log({
@@ -85,13 +91,14 @@ async function main(): Promise<void> {
     const expect = i === 0 ? null : rows[i - 1].hash;
     if (rows[i].prevHash !== expect) forked++;
   }
-  const chain = await service.verifyChain();
+  const chain = await services[0].verifyChain();
 
   const sorted = [...durations].sort((a, b) => a - b);
   const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
 
   console.log('\n=== Audit Chain 并发压测基线 ===');
   console.log(`并发 worker : ${concurrency}`);
+  console.log(`服务实例   : ${instances}`);
   console.log(`总写入条数 : ${total}（${perWorker}/worker）`);
   console.log(`实际落库   : ${rows.length}`);
   console.log(`分叉条数   : ${forked}${forked === 0 ? ' ✅' : ' ❌'}`);
@@ -103,9 +110,19 @@ async function main(): Promise<void> {
 
   await ds.destroy();
 
-  if (forked > 0 || !chain.valid) {
-    process.exitCode = 1;
-    console.error('审计链并发分叉！请检查 AuditService 串行队列 / 横向扩展前升级 DB 级串行。');
+  if (instances === 1) {
+    // 单实例：分叉 = 真实故障
+    if (forked > 0 || !chain.valid) {
+      process.exitCode = 1;
+      console.error('单实例审计链分叉！请检查 AuditService 串行队列。');
+    }
+  } else if (forked === 0) {
+    // 多实例但未分叉（极端时序）：属幸运，但仍证明无跨实例串行保障
+    console.warn('多实例未观察到分叉（时序巧合）——但进程内串行队列不提供跨实例保证，仍需 DB 级串行。');
+  } else {
+    // 多实例分叉 = 预期复现（roadmap §22.10 B 的实证）：横向扩展前需 DB 级串行
+    console.error(`\n✅ 多实例分叉复现（${forked} 条）——实证：进程内串行队列在 ${instances} 副本下不提供链一致性。`);
+    console.error('   横向扩展前必须升级为 DB 级串行（行锁/单写者），见 roadmap §22.10「多副本决策」B 方案。');
   }
 }
 
