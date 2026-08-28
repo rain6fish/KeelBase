@@ -10,7 +10,7 @@
 | 组件 | 状态 | 入口 |
 |---|---|---|
 | **AI Bridge**（存量系统 OpenAPI → AI 工具，读 R1/写 R3 + 委托身份 + revokePath 撤销） | ✅ 已具备 | [ai-bridge.md](manual/ai-bridge.md) |
-| **Java Adapter**（Java 存量系统接入 + 补偿端点） | 🚧 部分（openapi-proxy 生成器已具备；Java 端真实补偿端点待实施） | [ai-bridge.md](manual/ai-bridge.md) §AI Bridge B 路径 |
+| **Java Adapter**（Java 存量系统接入 + 补偿端点） | 🚧 部分（openapi-proxy 生成器 ✅；**补偿端点参考实现已提供**；真实 Java 系统实测待 P1） | [ai-bridge.md](manual/ai-bridge.md) §AI Bridge B 路径 + [java-compensation-example.md](integrator-kit/java-compensation-example.md) |
 | **OpenAPI Import**（`keelbase init --import-openapi`） | ✅ | [development.md](manual/development.md) |
 | **SQL Import**（`keelbase init --import-schema`） | ✅ | [development.md](manual/development.md) |
 | **MCP Gateway**（外部 MCP 出入 + 风险分级 + SSRF 防护） | ✅ | [framework-adapter.md](manual/framework-adapter.md) |
