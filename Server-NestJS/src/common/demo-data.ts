@@ -21,6 +21,20 @@ import { Contract } from '../contracts/contract.entity';
 import { Supplier } from '../suppliers/supplier.entity';
 import { Tag } from '../tags/tag.entity';
 import { Note } from '../notes/note.entity';
+import { Book } from '../books/book.entity';
+import { Post } from '../posts/post.entity';
+import { PostComment } from '../posts/post-comment.entity';
+import { PostLike } from '../posts/post-like.entity';
+import { UserFollow } from '../posts/user-follow.entity';
+import { AiAgent } from '../ai/agents/ai-agent.entity';
+import { FlowDefinition } from '../flows/entities/flow-definition.entity';
+import { FlowInstance } from '../flows/entities/flow-instance.entity';
+import { FlowTask } from '../flows/entities/flow-task.entity';
+import { FormSchema } from '../form-builder/form-schema.entity';
+import { FormSubmission } from '../form-builder/form-submission.entity';
+import { PointsEntry } from '../points/points-entry.entity';
+import { CrmContact } from '../crm/crm-contact.entity';
+import { CrmOpportunity } from '../crm/crm-opportunity.entity';
 import { User } from './entities/user.entity';
 
 /**
@@ -61,6 +75,20 @@ export async function seedDemoData(
   const supplierRepo = dataSource.getRepository(Supplier);
   const tagRepo = dataSource.getRepository(Tag);
   const noteRepo = dataSource.getRepository(Note);
+  const bookRepo = dataSource.getRepository(Book);
+  const postRepo = dataSource.getRepository(Post);
+  const commentRepo = dataSource.getRepository(PostComment);
+  const likeRepo = dataSource.getRepository(PostLike);
+  const followRepo = dataSource.getRepository(UserFollow);
+  const agentRepo = dataSource.getRepository(AiAgent);
+  const flowDefRepo = dataSource.getRepository(FlowDefinition);
+  const flowInstRepo = dataSource.getRepository(FlowInstance);
+  const flowTaskRepo = dataSource.getRepository(FlowTask);
+  const formSchemaRepo = dataSource.getRepository(FormSchema);
+  const formSubRepo = dataSource.getRepository(FormSubmission);
+  const pointsRepo = dataSource.getRepository(PointsEntry);
+  const contactRepo = dataSource.getRepository(CrmContact);
+  const opportunityRepo = dataSource.getRepository(CrmOpportunity);
 
   const day = 24 * 60 * 60 * 1000;
   const today = new Date();
@@ -168,6 +196,22 @@ export async function seedDemoData(
       { userId: uid, customerId: cid('澄海地产'), level: 'high', reason: '两笔订单逾期合计 30.5 万，项目资金承压。', detectedAt: at(-10, 9) },
       { userId: uid, customerId: cid('瀚宇制造'), level: 'critical', reason: '单笔 280 万订单逾期 40 天，客户资金链紧张。', detectedAt: at(-15, 9) },
       { userId: uid, customerId: cid('曜石科技'), level: 'medium', reason: '续约谈判未定，订单临近到期。', detectedAt: at(-5, 9) },
+    ]);
+
+    // CRM 360：联系人 + 商机（中英双语）
+    await contactRepo.save([
+      { userId: uid, customerId: cid('辰光建材'), name: '陈晓峰', email: 'chen@chenguang.example', phone: '138-0000-1101', role: '采购总监', department: '采购部', isPrimary: true },
+      { userId: uid, customerId: cid('辰光建材'), name: 'Grace Liu', email: 'grace@chenguang.example', role: 'Finance Manager', isPrimary: false },
+      { userId: uid, customerId: cid('澄海地产'), name: '周明', email: 'zhou@chenghai.example', phone: '138-0000-1102', role: '项目负责人', department: '工程部', isPrimary: true },
+      { userId: uid, customerId: cid('曜石科技'), name: 'Sarah Chen', email: 'sarah@yaoshi.example', role: 'Procurement Lead', isPrimary: true },
+      { userId: uid, customerId: cid('瀚宇制造'), name: '李总', email: 'li@hanyu.example', role: 'CFO', department: '财务部', isPrimary: true },
+    ]);
+
+    await opportunityRepo.save([
+      { userId: uid, customerId: cid('辰光建材'), name: 'Q4 续约订单', amount: 450000, stage: 'proposal', probability: 60, expectedCloseDate: at(30, 0) },
+      { userId: uid, customerId: cid('澄海地产'), name: '新项目合作协议', amount: 280000, stage: 'negotiation', probability: 40, expectedCloseDate: at(45, 0) },
+      { userId: uid, customerId: cid('曜石科技'), name: 'Annual Renewal', amount: 150000, stage: 'proposal', probability: 70, expectedCloseDate: at(20, 0) },
+      { userId: uid, customerId: cid('瀚宇制造'), name: '分阶段付款方案', amount: 2800000, stage: 'negotiation', probability: 35, expectedCloseDate: at(60, 0) },
     ]);
   }
 
@@ -567,6 +611,96 @@ export async function seedDemoData(
       { userId: user.id, title: '客户拜访要点', content: '澄海置业新项目预算已批，下周约见采购总监确认交付排期。', type: 'work' },
       { userId: user.id, title: 'Project Kickoff Notes', content: 'Define milestones, assign owners, set a weekly sync cadence.', type: 'work' },
       { userId: user.id, title: 'Q3 Review Summary', content: 'Revenue up 12% QoQ; focus on churn-risk accounts and overdue collections.', type: 'work' },
+    ]);
+  }
+
+  // ── 其余业务模块演示数据：书籍 / 帖子 / 关注 / Agent / 流程 / 表单 / 积分（中英双语；幂等）──
+  const userRepo = dataSource.getRepository(User);
+  const admin = await userRepo.findOne({ where: { role: 'admin' } } as any);
+  const otherId = admin?.id ?? user.id;
+
+  const existingBooks = await bookRepo.count({ where: { userId: user.id } as any });
+  if (existingBooks === 0) {
+    await bookRepo.save([
+      { userId: user.id, title: '深入理解软件架构', author: '张三', status: 'read', rating: 5 },
+      { userId: user.id, title: 'AI 应用安全实践', author: '李四', status: 'reading' },
+      { userId: user.id, title: '分布式系统设计', author: '王五', status: 'unread' },
+      { userId: user.id, title: 'Clean Code', author: 'Robert C. Martin', status: 'read', rating: 5 },
+      { userId: user.id, title: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', status: 'reading' },
+      { userId: user.id, title: 'The Pragmatic Programmer', author: 'Hunt & Thomas', status: 'unread' },
+    ]);
+  }
+
+  const existingPosts = await postRepo.count({ where: { userId: user.id } as any });
+  if (existingPosts === 0) {
+    const posts = await postRepo.save([
+      { userId: user.id, title: '用 AI 生成带权限与审计的业务模块', content: '记录 AI 全链路生成：协议 → 代码 → 迁移 → 权限 → 审计。' },
+      { userId: user.id, title: 'Getting Started with KeelBase', content: 'Step-by-step guide to build your first business-safe AI application in 30 minutes.' },
+      { userId: user.id, title: 'AI 治理实践：确认、审计、撤销闭环', content: '业务安全 AI 的关键能力：写操作确认、全链路审计、副作用撤销。' },
+    ]);
+    await commentRepo.save([
+      { postId: posts[0].id, userId: user.id, content: '很实用，正好在学习！' },
+      { postId: posts[0].id, userId: otherId, content: 'Great write-up!' },
+      { postId: posts[1].id, userId: user.id, content: 'Very helpful for onboarding.' },
+    ]);
+    await likeRepo.save(posts.map((p) => ({ postId: p.id, userId: user.id })));
+  }
+
+  const existingFollows = await followRepo.count({ where: { followerId: user.id } as any });
+  if (existingFollows === 0) {
+    await followRepo.save([{ followerId: user.id, followeeId: otherId }]);
+  }
+
+  const existingAgents = await agentRepo.count({ where: { ownerId: user.id } as any });
+  if (existingAgents === 0) {
+    await agentRepo.save([
+      { name: 'sales-agent', ownerId: user.id, purpose: 'CRM 销售分析与跟进建议', trustLevel: 'R2', description: '客户 360 分析助手', capabilities: '["query_customers","create_followup_task"]' },
+      { name: 'project-agent', ownerId: user.id, purpose: '项目延期风险分析', trustLevel: 'R2', description: 'PM 风险助手', capabilities: '["query_projects","analyze_project_risk"]' },
+      { name: 'approval-agent', ownerId: user.id, purpose: '审批请求预审', trustLevel: 'R3', description: '审批预审助手', capabilities: '["review_approval_request"]' },
+      { name: 'research-agent', ownerId: user.id, purpose: '通用数据检索', trustLevel: 'R1', description: 'Research assistant', capabilities: '["query_events","query_todos"]' },
+    ]);
+  }
+
+  const existingFlowDefs = await flowDefRepo.count();
+  if (existingFlowDefs === 0) {
+    const defs = await flowDefRepo.save([
+      {
+        id: 'leave-approval', name: '请假审批流程', version: '1.0',
+        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }] }),
+        audit: true, confirmationRequired: true,
+      },
+      {
+        id: 'crm-followup', name: 'CRM 跟进流程', version: '1.0',
+        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'task', type: 'ai_task' }, { id: 'end', type: 'end' }] }),
+        audit: true, confirmationRequired: false,
+      },
+    ]);
+    const insts = await flowInstRepo.save([
+      { definitionId: defs[0].id, state: 'running', initiatorId: user.id },
+      { definitionId: defs[0].id, state: 'completed', initiatorId: user.id },
+    ]);
+    await flowTaskRepo.save([{ instanceId: insts[0].id, nodeId: 'approve', assigneeId: otherId, status: 'pending' }]);
+  }
+
+  const existingForms = await formSchemaRepo.count();
+  if (existingForms === 0) {
+    const schemas = await formSchemaRepo.save([
+      { title: '活动报名表', slug: 'event-register', schemaJson: JSON.stringify({ fields: [{ name: 'name', label: '姓名', type: 'text', required: true }, { name: 'phone', label: '手机号', type: 'text', required: false }] }), enabled: true },
+      { title: 'Customer Feedback', slug: 'customer-feedback', schemaJson: JSON.stringify({ fields: [{ name: 'email', label: 'Email', type: 'text', required: true }, { name: 'rating', label: 'Rating', type: 'number', required: false }] }), enabled: true },
+    ]);
+    await formSubRepo.save([
+      { schemaId: schemas[0].id, userId: user.id, data: JSON.stringify({ name: 'Alex', phone: '138-0000-0000' }) },
+      { schemaId: schemas[1].id, userId: user.id, data: JSON.stringify({ email: 'alex@example.com', rating: 5 }) },
+    ]);
+  }
+
+  const existingPoints = await pointsRepo.count({ where: { userId: user.id } as any });
+  if (existingPoints === 0) {
+    await pointsRepo.save([
+      { userId: user.id, points: 10, reason: 'checkin', description: '每日签到', checkinDate: dateOnly(-2).toISOString().slice(0, 10) },
+      { userId: user.id, points: 10, reason: 'checkin', description: '每日签到', checkinDate: dateOnly(-1).toISOString().slice(0, 10) },
+      { userId: user.id, points: 5, reason: 'achievement', description: '完成首个 AI 对话' },
+      { userId: user.id, points: 20, reason: 'reward', description: 'Monthly activity reward' },
     ]);
   }
 
