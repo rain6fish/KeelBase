@@ -17,6 +17,10 @@ import { PmTask } from '../pm/pm-task.entity';
 import { PmRisk } from '../pm/pm-risk.entity';
 import { ApprovalRequest } from '../approval/approval-request.entity';
 import { ApprovalPolicy } from '../approval/approval-policy.entity';
+import { Contract } from '../contracts/contract.entity';
+import { Supplier } from '../suppliers/supplier.entity';
+import { Tag } from '../tags/tag.entity';
+import { Note } from '../notes/note.entity';
 import { User } from './entities/user.entity';
 
 /**
@@ -53,6 +57,10 @@ export async function seedDemoData(
   const pmRiskRepo = dataSource.getRepository(PmRisk);
   const approvalRequestRepo = dataSource.getRepository(ApprovalRequest);
   const approvalPolicyRepo = dataSource.getRepository(ApprovalPolicy);
+  const contractRepo = dataSource.getRepository(Contract);
+  const supplierRepo = dataSource.getRepository(Supplier);
+  const tagRepo = dataSource.getRepository(Tag);
+  const noteRepo = dataSource.getRepository(Note);
 
   const day = 24 * 60 * 60 * 1000;
   const today = new Date();
@@ -513,6 +521,52 @@ export async function seedDemoData(
         isRead: false,
         createdAt: new Date(Date.now() - 1 * day),
       },
+    ]);
+  }
+
+  // ── 生成模块演示数据：合同 / 供应商 / 标签 / 笔记（中英双语；幂等守卫）──
+  const existingContracts = await contractRepo.count({ where: { userId: user.id } as any });
+  if (existingContracts === 0) {
+    await contractRepo.save([
+      { userId: user.id, name: '云服务采购合同', counterparty: '辰光建材集团', status: 'active', amount: 120000 },
+      { userId: user.id, name: '年度框架协议', counterparty: '澄海置业', status: 'active', amount: 450000 },
+      { userId: user.id, name: '设备租赁合同', counterparty: '曜石科技', status: 'draft', amount: 68000 },
+      { userId: user.id, name: 'Cloud Service Agreement', counterparty: 'Aurora Tech Inc.', status: 'active', amount: 88000 },
+      { userId: user.id, name: 'Master Supply Agreement', counterparty: 'Northwind Trading', status: 'signed', amount: 260000 },
+      { userId: user.id, name: 'Equipment Lease Contract', counterparty: 'Blue Ocean Logistics', status: 'draft', amount: 95000 },
+    ]);
+  }
+
+  const existingSuppliers = await supplierRepo.count({ where: { userId: user.id } as any });
+  if (existingSuppliers === 0) {
+    await supplierRepo.save([
+      { userId: user.id, name: '华东电子元器件', contact: '张经理 138-0000-2001', status: 'active', riskLevel: 'low', annualSpend: 86000 },
+      { userId: user.id, name: '南方精密制造', contact: '李工 138-0000-2002', status: 'active', riskLevel: 'medium', annualSpend: 156000 },
+      { userId: user.id, name: '西部原材料供应', contact: '王总 138-0000-2003', status: 'inactive', riskLevel: 'high', annualSpend: 42000 },
+      { userId: user.id, name: 'Pacific Components', contact: 'Sarah Chen', status: 'active', riskLevel: 'low', annualSpend: 73000 },
+      { userId: user.id, name: 'Meridian Chemicals', contact: 'Tom Baker', status: 'active', riskLevel: 'medium', annualSpend: 134000 },
+      { userId: user.id, name: 'Global Textiles', contact: 'Lisa Wang', status: 'inactive', riskLevel: 'low', annualSpend: 38000 },
+    ]);
+  }
+
+  const existingTags = await tagRepo.count({ where: { userId: user.id } as any });
+  if (existingTags === 0) {
+    await tagRepo.save([
+      { userId: user.id, name: '重要客户' },
+      { userId: user.id, name: '待跟进' },
+      { userId: user.id, name: 'VIP' },
+      { userId: user.id, name: 'Strategic' },
+      { userId: user.id, name: 'Follow-up' },
+    ]);
+  }
+
+  const existingNotes = await noteRepo.count({ where: { userId: user.id } as any });
+  if (existingNotes === 0) {
+    await noteRepo.save([
+      { userId: user.id, title: 'Q3 销售目标复盘', content: '核心客户推进顺利，重点关注辰光建材的逾期回款与澄海置业的续约。', type: 'work' },
+      { userId: user.id, title: '客户拜访要点', content: '澄海置业新项目预算已批，下周约见采购总监确认交付排期。', type: 'work' },
+      { userId: user.id, title: 'Project Kickoff Notes', content: 'Define milestones, assign owners, set a weekly sync cadence.', type: 'work' },
+      { userId: user.id, title: 'Q3 Review Summary', content: 'Revenue up 12% QoQ; focus on churn-risk accounts and overdue collections.', type: 'work' },
     ]);
   }
 
