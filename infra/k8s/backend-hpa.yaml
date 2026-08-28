@@ -1,4 +1,6 @@
-# D.2 水平自动伸缩：按 CPU 使用率在 2~10 副本间伸缩（滚动更新零中断）。
+# D.2 水平自动伸缩：按 CPU 使用率在 1~10 副本间伸缩（滚动更新零中断）。
+# ⚠️ 默认 minReplicas=1（单副本承诺，见 backend-deployment.yaml 注释）：realtime / R3 确认 / 审计链
+# 为进程内状态，多副本会跨实例失效/分叉；横向扩展前需 Redis pub/sub + 审计链 DB 级串行（roadmap §22.10）。
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -9,7 +11,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: keelbase-backend
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 10
   metrics:
     - type: Resource

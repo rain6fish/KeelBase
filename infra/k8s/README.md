@@ -27,14 +27,20 @@ kubectl -n keelbase rollout status deploy/keelbase-backend
 | configmap.yaml | 非敏感环境变量 |
 | secret.yaml | 敏感配置占位（生产用 k8s secret 注入） |
 | backend-deployment.yaml | 主 Deployment：滚动更新（maxUnavailable 0）、readiness/liveness 探针、资源限制、优雅停机 |
-| backend-hpa.yaml | HPA：CPU 70% → 2~10 副本 |
+| backend-hpa.yaml | HPA：CPU 70% → 1~10 副本（默认单副本承诺） |
 | backend-service.yaml | ClusterIP Service |
 | ingress.yaml | 入口 + TLS + SSE 长连接超时 |
 | canary-ingress.yaml | 金丝雀流量切分（D.3） |
 
 ## 故障恢复 / Failure Recovery（D.2）
 
-- **自动伸缩**：HPA 按 CPU 在 2~10 副本伸缩。
+- **自动伸缩**：HPA 按 CPU 在 1~10 副本伸缩（默认单副本，见下）。
+
+## 多副本限制 / Multi-replica Limitation（Trust Runtime 单副本承诺）
+
+> **默认单副本（minReplicas=1）**：实时连接（realtime）、R3 写确认 token、审计哈希链串行化均为**进程内状态**——多副本会导致实时事件跨实例失效、待确认 token 失效、审计链分叉。
+>
+> **横向扩展前需**（roadmap §22.10「多副本决策」方案 B）：Redis pub/sub（realtime + 确认）+ 审计链 DB 级串行（行锁/单写者）。在完成前，**不要调高 minReplicas**——多副本会牺牲实时与审计一致性保证。
 - **滚动更新**：`maxUnavailable: 0, maxSurge: 1` —— 更新期间保持可用副本不降级。
 - **故障重启**：liveness 探针失效 → kubelet 重启容器；readiness 未就绪 → 不接流量。
 - **节点故障**：ReplicaSet 自动在健康节点补副本。
