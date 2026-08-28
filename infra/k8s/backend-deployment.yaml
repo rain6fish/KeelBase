@@ -15,7 +15,10 @@ spec:
     rollingUpdate:
       maxUnavailable: 0
       maxSurge: 1
-  replicas: 2
+  # 单副本默认（Trust Runtime 承诺）：实时连接 / R3 确认 token / 审计链串行化均为进程内状态，
+  # 多副本会导致实时事件跨实例失效、确认 token 失效、审计链分叉。横向扩展需先做
+  # Redis pub/sub + 审计链 DB 级串行（roadmap §22.10「多副本决策」），当前默认单副本保一致性。
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: keelbase
