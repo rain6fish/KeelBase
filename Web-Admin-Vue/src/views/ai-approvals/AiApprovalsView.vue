@@ -11,6 +11,9 @@
     <el-card shadow="never" class="mb-4">
       <template #header>{{ t('aiApprovalsPending') }}</template>
       <AppTable :headers="pendingHeaders" :items="pending" :loading="loading">
+        <template #item.riskLevel="{ item }">
+          <el-tag size="small" :type="item.riskLevel === 'R4' ? 'warning' : 'info'" effect="light">{{ item.riskLevel }}</el-tag>
+        </template>
         <template #item.args="{ item }">
           <span class="text-caption">{{ shortenArgs(item.args) }}</span>
         </template>
@@ -31,6 +34,9 @@
     <el-card shadow="never">
       <template #header>{{ t('aiApprovalsDecided') }}</template>
       <AppTable :headers="decidedHeaders" :items="decided" :loading="loading">
+        <template #item.riskLevel="{ item }">
+          <el-tag size="small" :type="item.riskLevel === 'R4' ? 'warning' : 'info'" effect="light">{{ item.riskLevel }}</el-tag>
+        </template>
         <template #item.args="{ item }">
           <span class="text-caption">{{ shortenArgs(item.args) }}</span>
         </template>
@@ -38,6 +44,12 @@
           <StatusChip :status="item.status === 'approved' ? 'ok' : 'cancelled'" :label-map="statusMap" />
         </template>
         <template #item.decidedAt="{ item }">{{ item.decidedAt ? formatTime(item.decidedAt) : '-' }}</template>
+        <template #item.audit="{ item }">
+          <el-button link type="primary" size="small" @click="router.push({ path: '/audit', query: { userId: item.operatorId } })">
+            <template #icon><AppIcon icon="mdi-history" /></template>
+            {{ t('viewAudit') }}
+          </el-button>
+        </template>
       </AppTable>
     </el-card>
   </div>
@@ -45,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -56,6 +69,7 @@ import { formatTime } from '@/utils/format'
 import type { AiApprovalRequest } from '@/types/admin'
 
 const { t } = useI18n()
+const router = useRouter()
 const snackbar = useSnackbarStore()
 
 const pending = ref<AiApprovalRequest[]>([])
@@ -67,6 +81,7 @@ const statusMap = computed(() => ({ ok: t('aiApprovalStatusApproved'), cancelled
 const pendingHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('aiApprovalsTool') },
+  { key: 'riskLevel', title: t('riskLevel') },
   { key: 'operatorId', title: t('aiApprovalsOperator') },
   { key: 'args', title: t('aiApprovalsArgs') },
   { key: 'createdAt', title: t('aiApprovalsCreated') },
@@ -75,11 +90,13 @@ const pendingHeaders = computed(() => [
 const decidedHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('aiApprovalsTool') },
+  { key: 'riskLevel', title: t('riskLevel') },
   { key: 'operatorId', title: t('aiApprovalsOperator') },
   { key: 'args', title: t('aiApprovalsArgs') },
   { key: 'status', title: t('aiApprovalsStatus') },
   { key: 'approverId', title: t('aiApprovalsApprover') },
   { key: 'decidedAt', title: t('aiApprovalsDecidedAt') },
+  { key: 'audit', title: t('actionCol') },
 ])
 
 function shortenArgs(args: string): string {
