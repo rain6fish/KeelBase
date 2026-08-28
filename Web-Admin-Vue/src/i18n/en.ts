@@ -26,6 +26,7 @@ const en: ZhDict = {
   send: 'Send',
   loading: 'Loading...',
   loadFailed: 'Failed to load',
+  crmNoAccess: 'No access to this customer',
   noData: 'No data',
   total: '{n} items',
   export: 'Export',
