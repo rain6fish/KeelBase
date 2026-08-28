@@ -20,6 +20,8 @@
 docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 ```
 
+> 无需 LLM API Key 即可体验：未配置云端/本地模型时，AI 以**确定性演示模式**运行——黄金流程（分析→确认→创建→审计→撤销）开箱即用。配置 DeepSeek/Qwen/OpenAI/Ollama Key（`-e DEEPSEEK_API_KEY=...`）后自动切换真实 LLM。
+
 然后按 6 步走完黄金路径：
 
 ```text

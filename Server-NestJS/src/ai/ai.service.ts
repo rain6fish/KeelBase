@@ -57,10 +57,11 @@ import {
 } from './interfaces/llm-provider.interface';
 
 const MAX_TOOL_ROUNDS = 5;
+// demo = 确定性演示 Provider（P0-0）：无任何云 Provider 时兜底，链尾最后尝试
 const FALLBACK_CHAIN: Record<string, string[]> = {
-  deepseek: ['deepseek', 'qwen', 'openai'],
-  qwen: ['qwen', 'deepseek', 'openai'],
-  openai: ['openai', 'qwen', 'deepseek'],
+  deepseek: ['deepseek', 'qwen', 'openai', 'demo'],
+  qwen: ['qwen', 'deepseek', 'openai', 'demo'],
+  openai: ['openai', 'qwen', 'deepseek', 'demo'],
 };
 
 export interface ChatRequest {
