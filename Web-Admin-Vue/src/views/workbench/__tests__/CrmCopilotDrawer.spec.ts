@@ -107,6 +107,34 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
     expect(wrapper.emitted('executed')).toBeUndefined()
   })
 
+  it('首条消息自动注入当前客户上下文（P0-1 差距#2：问「分析这家客户」不反问）', async () => {
+    const wrapper = mountDrawer()
+    const opts = await sendAndCapture(wrapper)
+    expect(opts.message).toContain('当前客户')
+    expect(opts.message).toContain('上海 XX 公司')
+    expect(opts.message).toContain('ID 7')
+    expect(opts.message).toContain('给这个客户建跟进任务')
+  })
+
+  it('后续轮次不重复注入上下文（会话已有上下文）', async () => {
+    const wrapper = mountDrawer()
+    const opts1 = await sendAndCapture(wrapper)
+    expect(opts1.message).toContain('当前客户')
+    opts1.onEvent({ type: 'done', conversationId: 'conv-1' })
+    opts1.onEnd?.()
+    await flushPromises()
+
+    streamChatMock.mockClear()
+    let opts2!: StreamChatOptions
+    streamChatMock.mockImplementation((o: StreamChatOptions) => { opts2 = o; return Promise.resolve() })
+    await wrapper.find('input').setValue('那订单情况呢')
+    await wrapper.find('input').trigger('keyup.enter')
+    await flushPromises()
+    expect(streamChatMock).toHaveBeenCalledTimes(1)
+    expect(opts2.message).toBe('那订单情况呢')
+    expect(opts2.message).not.toContain('当前客户')
+  })
+
   it('写工具已信任（无确认卡）→ tool_end 成功且结果来自 confirmation_decision → emit executed', async () => {
     const wrapper = mountDrawer()
     const opts = await sendAndCapture(wrapper)
