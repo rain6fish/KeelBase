@@ -10,7 +10,7 @@
 | 视频标题 | 《KeelBase：当 AI 开始行动，谁来保证它做对？》 |
 | 副标题 | Business-safe AI Agent Runtime |
 | 成片时长 | 约 4:00 |
-| 目标观众 | 开源项目评审、企业技术决策者 |
+| 目标观众 | 开源开发者、企业技术决策者 |
 | 语言 | 中文旁白；屏幕文字保留英文；字幕中英双语 |
 | 核心信息 | AI can act — but only within explicit business boundaries. |
 | 演示账号 | `alex / 123456`（开发环境自动种子） |
