@@ -25,6 +25,7 @@ const zh = {
   send: '发送',
   loading: '加载中...',
   loadFailed: '加载失败',
+  crmNoAccess: '无权访问该客户',
   noData: '暂无数据',
   total: '共 {n} 条',
   export: '导出',
