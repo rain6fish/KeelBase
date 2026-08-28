@@ -94,6 +94,7 @@ const zh = {
   guardOverviewHint: '一页总览 Agent / Policy / Risk / Audit / Approval 五中心安全态势',
   policyCenterHint: 'HS-9 治理策略——工具启用/确认/角色白名单 + 审计粒度，保存即实时生效',
   riskDistribution: '风险分布',
+  riskTrend: '风险趋势（近 7 天）',
   auditPosture: '审计态势',
   pendingApprovals: '待人工审批',
   aiExecuted: 'AI 执行',
