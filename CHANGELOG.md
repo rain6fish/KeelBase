@@ -4,6 +4,31 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> **KeelBase — 待发布（2026-08-28 提交，随下一 patch）**
+
+### Added / 新增
+
+- **M2 Guard 深化 (M2 deep)**: Risk Center daily trend (7-day executed/blocked bars, reuse `actionReport.byDay`) + Approval Center risk column & audit linkage (→ `/audit?userId=operatorId`) + Risk→Policy linkage (high-risk tool → Policy Center)
+  **M2 Guard 深化**：Risk Center 按日趋势（近 7 天执行/阻断柱状，复用 `actionReport.byDay`）+ Approval Center 风险级列与审计联动（→ `/audit?userId=operatorId`）+ Risk→策略中心联动（高风险工具跳策略治理）
+- **Integrator Kit (roadmap §22.7)**: overview + capability matrix + Java compensation endpoint reference (Spring Boot, delegation JWT verify) + Governance & Deployment Guide + Reference Project manual (legacy Java CRM → AI CRM, 8 steps) + docs index
+  **Integrator Kit（集成商套件）**：总纲 + 能力矩阵 + Java 补偿端点参考实现（委托 JWT 验签）+ 治理与部署指南 + Reference Project 实施手册（传统 Java CRM → AI CRM 8 步）+ 文档索引
+- **Live demo**: cloud demo guide (`docs/manual/demo-live.md`, ECS 三入口) + README live-demo entry
+  **在线演示**：云端 Demo 访问指南（ECS 三入口 + Golden Flow）+ README 首屏在线演示入口
+
+### Fixed / 修复
+
+- **P0 deployment/security hardening (external review)**: production env template missing `ENCRYPTION_KEY`/`AUDIT_HMAC_KEY` + deploy scripts append-missing-keys + offline `POSTGRES_PASSWORD` sync + Docker depends on host-prebuilt Flutter web (fail-fast) + R4 self-approve reject + MCP SSRF (shared `common/utils/ssrf`, webhook reused)
+  **P0 部署/安全加固（外部评审）**：env 模板补 `ENCRYPTION_KEY`/`AUDIT_HMAC_KEY` + 部署脚本「替换+追加缺失」+ offline `POSTGRES_PASSWORD` 同步 + Docker 依赖宿主 Flutter web 预构建（fail-fast）+ R4 拒绝 self-approve + MCP SSRF 防护（提取 `common/utils/ssrf`，webhook 复用）
+- **CORS / multi-replica**: `CORS_ORIGINS` env-driven + nginx `server_name _` wildcard + K8s default single replica (Trust Runtime 单副本承诺, external review #5 decision A)
+  **CORS / 多副本**：`CORS_ORIGINS` env 引用 + nginx `server_name _` 通配 + K8s 默认单副本（Trust Runtime 单副本承诺，外部评审 #5 决策 A）
+
+### Changed / 变更
+
+- **Audit-chain load test in release-gate**: Trust dimension now runs `npm run audit:chain:load` (fork 0 + verify green) + multi-instance `--instances` mode reproduces fork (2 instances → 200/400 forked) as #5 B acceptance baseline
+  **审计链压测入 release-gate**：Trust 维度接入 `npm run audit:chain:load`（分叉 0 + verify 全绿）+ 压测 `--instances` 多实例模式复现分叉（2 实例 400 条分叉 200）作 #5 B 验收基线
+
 ## [1.0.2] - 2026-08-27
 
 > **KeelBase 1.0.2 — Governance & Product-Proof Release / 治理深化与产品证明版**
