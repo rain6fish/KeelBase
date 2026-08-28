@@ -20,9 +20,11 @@
 ```bash
 git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install
+cp .env.example .env    # 仓库不提交 .env（含密钥），从模板复制生成开发配置
 ```
 
 > 只装后端即可完成本次 Build 闭环；要看界面再装 Web-Admin-Vue（`cd Web-Admin-Vue && npm install`）。
+> **缺少 `.env` 时 `npm run start:dev` 会因缺少 JWT_SECRET / ENCRYPTION_KEY 校验失败**，务必先复制模板。
 
 ## 1. 生成 AI 业务模块（约 1 分钟）
 
@@ -33,14 +35,14 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 预期输出：`生成业务模块 invoices` + 接线清单（app.module / ai.module（query+create 工具）/ modules-manifest / navigate-page ...）。
 
-## 2. 编译 + 建库 + 迁移（约 3 分钟）
+## 2. 编译 + 建库（约 3 分钟）
 
 ```bash
 cd Server-NestJS && npm run build
-npm run start:dev     # 首次启动建 SQLite 库 + 种演示账号（alex/123456、admin/Admin@1234），就绪后 Ctrl+C
-npm run migration:generate -- src/migrations/AddInvoices   # 增量迁移（须先起过一次后端建库，见常见失败点）
-npm run migration:run
+npm run start:dev     # 首次启动建 SQLite 库（synchronize 自动建表）+ 种演示账号（alex/123456、admin/Admin@1234），就绪后 Ctrl+C
 ```
+
+> 开发模式用 `synchronize` 自动建表（含刚生成的 `invoices`），**无需手写迁移**。生产部署（`synchronize:false` + `migrationsRun`）才走迁移流程。
 
 ## 3. 测试（约 1 分钟）
 
@@ -75,7 +77,7 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 | 现象 | 处理 |
 |---|---|
 | `目录已存在` | 模块名冲突（可能与已有/旗舰模块撞名），换英文名或 `--force` 覆盖 |
-| 迁移生成出全量 dump | 新鲜 clone 无库——**先 `npm run start:dev` 起一次后端建库**，再 generate 得到增量迁移 |
+| `start:dev` 报「Config validation error: JWT_SECRET is required」 | 未复制 `.env`——执行 `cp .env.example .env` 后重启 |
 | `npm test -- invoices` 只跑 16/20 | 模块未生成完整，重跑第 1 步 |
 | enum 字段报错 | `enum` 数组给 2-10 个小写英文选项 |
 
