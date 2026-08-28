@@ -20,6 +20,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [AI Bridge / AI 桥（Java 存量系统）](ai-bridge.md) | Developers / 集成商 | 外部系统接入 AI——OpenAPI 代理 + 运行时撤销 / Java legacy system to AI: proxy + runtime revoke (EB) |
 | [Capability Declaration / 轻量能力声明](capability-declaration.md) | Developers / 集成商 | 一份 YAML 声明外部系统能力 → Proxy 工具（比 OpenAPI 更轻量）/ declare capabilities for AI (EB-3) |
 | [External CRM Bridge Demo / 外部 CRM 接入演示](external-crm-demo.md) | Developers / Sales | 「不替换系统获得 AI 能力」演示闭环 / connect an external CRM without rewriting (EB-1) |
+| [Live Demo 访问 / 在线演示指南](demo-live.md) | Sales / Everyone | 云端三入口 + Golden Flow（alex 问客户风险 → AI 分析 → 审计）/ cloud demo guide |
 | [Framework Adapter / Agent 框架接入](framework-adapter.md) | Developers | 演示 Agent Framework 经 MCP 进入治理（MCP 即 Adapter）/ any agent can enter governance (AR-2) |
 | [Existing System AIization / 存量系统 AI 化](aiization-demo.md) | Developers / Sales | 旧 Schema → Protocol → 模块 → AI 工具 → 治理 / legacy system to AI app (P0-12) |
 
