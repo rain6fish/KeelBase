@@ -21,9 +21,9 @@
           <div class="d-flex align-center ga-1">
             <AppIcon :icon="m.toolStart.isWrite ? 'mdi-pencil' : 'mdi-magnify'" :color="m.toolStart.isWrite ? 'var(--el-color-primary)' : 'var(--el-text-color-secondary)'" size="16" />
             <el-tag :type="m.toolStart.isWrite ? 'primary' : 'info'" size="small" effect="plain">{{ m.toolStart.isWrite ? t('writeOp') : t('readOp') }}</el-tag>
-            <span class="text-caption font-weight-medium">{{ m.toolStart.name }}</span>
+            <span class="text-caption font-weight-medium">{{ toolLabelText(m.toolStart.name) }}</span>
           </div>
-          <div v-if="m.toolStart.summary" class="text-caption text-medium-emphasis mt-1">{{ m.toolStart.summary }}</div>
+          <div v-if="m.toolStart.isWrite && m.toolStart.summary" class="text-caption text-medium-emphasis mt-1">{{ m.toolStart.summary }}</div>
           <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
             {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
           </div>
@@ -77,6 +77,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import AppIcon from '@/components/AppIcon.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
+import { toolLabel } from '@/utils/toolLabel'
 
 const props = defineProps<{
   modelValue: boolean
@@ -89,7 +90,9 @@ const emit = defineEmits<{
   (e: 'executed', payload: { resultType: string; resultId: number }): void
 }>()
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
+/** 工具名人类标签（D2 feature 命名空间），未命中回退原始名 */
+const toolLabelText = (name: string) => toolLabel(tm('feature') as Record<string, string> | undefined, name)
 const snackbar = useSnackbarStore()
 const scrollRef = ref<HTMLElement>()
 const items = ref<CopilotItem[]>([])
