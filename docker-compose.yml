@@ -36,6 +36,9 @@ services:
       target: server
     ports:
       - "3000:3000"
+    # 持久化 /app/server/data（登录统计 login-stats.log、uploads 等）——容器重建（升级）不丢；reset 清库不碰文件
+    volumes:
+      - server-data:/app/server/data
     # 密钥/密码从 .env.production 注入（deploy.sh / experience.sh 会生成随机密钥）。
     # 容器内 ENCRYPTION_KEY 等缺失时，NestJS 配置校验会失败——因此启动前必须先有该文件。
     env_file:
@@ -71,3 +74,4 @@ services:
 
 volumes:
   pgdata:
+  server-data:
