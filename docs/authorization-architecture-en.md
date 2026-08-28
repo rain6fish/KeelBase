@@ -162,6 +162,29 @@ side_effects:
 | L5 Side-effect Governance (confirmation + revoke + audit hash chain + decision trace) | ✅ Implemented |
 | Authorization Contract protocolization (explicit auth model in Protocol) | ⬜ Direction (currently covered by generated-module auto-wiring) |
 | Heavyweight RBAC products (Keycloak / Casbin / Shiro, etc.) | ⬜ **Explicitly not doing** (consistent with differentiation positioning) |
+| External authorization integration (OIDC enterprise SSO available) | ⬜ Direction (per customer, under evaluation) |
+
+---
+
+## 7. Comparison with mainstream frameworks / enterprise direction
+
+| Dimension | KeelBase | Spring Security | Spring Auth Server / Keycloak | Sa-Token / Shiro | Casbin / MyBatis-Plus |
+|---|---|---|---|---|---|
+| Authentication | ✅ Strong (lockout/MFA/OIDC built-in) | ⚠️ Framework, configure item by item | ✅ IAM suite | ✅ Lightweight | — |
+| Authorization model | CASL declarative + conditions | @PreAuthorize + SpEL + roles | Authorization server (issues tokens) | RBAC annotations/routes | Model-driven ACL/RBAC/ABAC |
+| Row-level data permission | ✅ Built-in (conditions) | ❌ Not native; needs Filter/interceptor | — | ❌ | ✅ MyBatis-Plus interceptor |
+| Dynamic RBAC / permission points | ❌ None (two hard-coded roles) | ⚠️ Self-built tables | ✅ Keycloak has | ✅ Menu permission tables | ✅ Casbin policies in DB |
+| Menu / button / field-level | ❌ None | ⚠️ Self-built | ✅ | ✅ | — |
+| Data scope (own/dept/org) | ⚠️ Own + org partial | ❌ Needs addition | — | ❌ | ✅ Ready-made |
+| Authorization server / IAM | ❌ None (OIDC client) | — | ✅ Is the server | ✅ Has server side | — |
+| Audit | ✅ Hash chain + Explainable | ⚠️ No built-in audit chain | ✅ Events | ⚠️ Weak | — |
+| AI Agent governance | ✅ Unique | ❌ | ❌ | ❌ | ❌ |
+
+**Positioning**: KeelBase is not the same species as mainstream web permission frameworks — it is an **AI Agent governance runtime**. Traditional RBAC (dynamic roles / permission points / menu buttons) is hygiene rather than a selling point for KeelBase (differentiation positioning, §1/§6), so heavyweight RBAC products are explicitly out of scope.
+
+**Enterprise direction (choose per customer)**:
+- **External authorization (recommended for enterprises with existing IAM)**: integrate Keycloak / Spring Authorization Server — KeelBase connects via OIDC enterprise SSO (already supported), keeping IAM/RBAC external and KeelBase as an "AI governance runtime."
+- **Self-built lightweight dynamic RBAC (as a base capability, on demand)**: add roles/permissions tables + admin-side configuration; `CaslAbilityFactory` builds from configuration instead of hard-coded rules; also add a generic data scope (dept/org dimension, reusing the org module). Trigger: a multi-role enterprise customer or on demand after v1.1. Status: under evaluation (2026-08-28).
 
 ---
 
