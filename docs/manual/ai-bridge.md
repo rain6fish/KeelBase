@@ -11,7 +11,7 @@
 | 路径 | 做什么 | 现状 | 适用 |
 |---|---|---|---|
 | **A. Schema 重建** | 老库 Schema → Protocol → 生成新模块（KeelBase 管理同一份数据的 CRUD + AI）| ✅ `--import-schema` / `--import-openapi` 已实测 | 数据可同库接管，想要 KeelBase 管理的 CRUD + AI |
-| **B. API 代理** | OpenAPI operations → 生成代理 Tool → **直接调用已有系统 REST 端点**（携身份、过治理）| 🚧 P1，未实现（仅 `web-search.tool.ts` 有外部 HTTP 先例）| 不能动旧系统、AI 要操作在线已有数据 |
+| **B. API 代理** | OpenAPI operations → 生成代理 Tool → **直接调用已有系统 REST 端点**（携身份、过治理）| ✅ 已实现（§4：ProxyTool + openapi-proxy 生成器 + revokePath 撤销，e2e 6/6）| 不能动旧系统、AI 要操作在线已有数据 |
 
 > **关键诚实说明**：A 是「由 Schema 反推的新开发」，B 才是「操作已有系统」。
 > 市场叙事「不迁移、不重写」只有 **B** 能完整兑现；A 承诺的是「同库接管 + AI 化」。
@@ -123,12 +123,12 @@ OpenAPI（含 operations + securitySchemes）
   if (!"legacy-erp".equals(jws.getBody().getAudience())) throw new AccessDeniedException("audience mismatch");
   ```
 
-- **待做**：B 路径 ProxyTool 注入委托身份头（§4 未实现）+ 模拟 Java 系统端到端验收（收到调用识别到正确用户身份；越权被拒）
+- **已落地**：B 路径 ProxyTool 注入委托身份头（§4）+ 模拟 Java 系统端到端验收（收到调用识别到正确用户身份；越权被拒）
 - 验收：模拟 Java 系统收到调用识别到正确用户身份；越权（他人数据）被目标系统或 KeelBase 拒绝
 
 ---
 
-## 6. Java 团队接入指南（§3 导入加固 + §5 委托 token 已落地；§4 B 路径 ProxyTool 待实现）
+## 6. Java 团队接入指南（§3 导入加固 + §4 B 路径 ProxyTool + §5 委托 token 均已落地）
 
 ### 第 1 步：选路（决策表）
 
