@@ -1782,7 +1782,9 @@ describe('AiService', () => {
       expect(s.summarizeWriteTool('create_event', { title: '评审', startTime: '10:00', endTime: '11:00' })).toBe('创建事件：评审（10:00 至 11:00）');
       expect(s.summarizeWriteTool('create_todo', { title: '周报', dueDate: '2026-08-20' })).toBe('创建待办：周报（截止 2026-08-20）');
       expect(s.summarizeWriteTool('create_todo', { title: '无截止' })).toBe('创建待办：无截止');
-      expect(s.summarizeWriteTool('unknown', {})).toBe('执行操作：unknown');
+      expect(s.summarizeWriteTool('create_customers', { name: '张三' })).toBe('创建客户：张三');
+      expect(s.summarizeWriteTool('create_followup_task', { title: '跟进' })).toBe('创建跟进任务：跟进');
+      expect(s.summarizeWriteTool('unknown', {})).toBe('执行写操作');
     });
 
     it('_streamWithProviderFallback：主 provider 未配置回退下一个', async () => {
