@@ -16,6 +16,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **Integrator Kit（集成商套件）**：总纲 + 能力矩阵 + Java 补偿端点参考实现（委托 JWT 验签）+ 治理与部署指南 + Reference Project 实施手册（传统 Java CRM → AI CRM 8 步）+ 文档索引
 - **Live demo**: cloud demo guide (`docs/manual/demo-live.md`, ECS 三入口) + README live-demo entry
   **在线演示**：云端 Demo 访问指南（ECS 三入口 + Golden Flow）+ README 首屏在线演示入口
+- **P0-0 Deterministic Demo Provider**: when no cloud LLM key / Ollama is configured, auto-register a deterministic demo provider — `docker run` runs the full AI golden flow (analyze → confirm → create → audit → revoke) zero-config; AI text is templated; real keys switch to real LLM (fallback chain deepseek → qwen → openai → demo)
+  **P0-0 确定性演示 Provider**：未配置任何云 LLM Key / Ollama 时自动注册确定性 Demo Provider——`docker run` 零配置跑通 AI 黄金流程（分析→确认→创建→审计→撤销），AI 文本为模板；配置真实 Key 后自动切真实 LLM（降级链 deepseek→qwen→openai→demo）
 
 ### Fixed / 修复
 
