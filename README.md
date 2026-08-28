@@ -20,6 +20,8 @@ Docker only — one command brings up the entire application (backend + workbenc
 docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 ```
 
+> No LLM API key needed to try it: when no cloud/local model is configured, the AI runs in **deterministic demo mode** — the full golden path (analyze → confirm → create → audit → revoke) works out of the box. Bring your own DeepSeek/Qwen/OpenAI/Ollama key (`-e DEEPSEEK_API_KEY=...`) for real LLM responses.
+
 Then walk the golden path in 6 steps:
 
 ```text
