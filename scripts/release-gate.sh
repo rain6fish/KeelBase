@@ -58,6 +58,10 @@ for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" 
   if echo "$E2E_OUT" | grep -q "PASS test/${name}.e2e-spec.ts"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; fi
 done
 
+# ── Trust：审计链并发压测（HS-11 完整性基线：分叉 0 + verify 全绿 + 吞吐/P95）──
+echo "→ [Trust] 审计链并发压测"
+if (cd Server-NestJS && npm run audit:chain:load >/dev/null 2>&1); then gate "Trust(审计链压测)" pass; else gate "Trust(审计链压测)" fail "audit:chain:load"; fi
+
 # ── Private：AIization（已有 Schema → Protocol）+ 迁移一致性 ───────────────────
 echo "→ [Private] 数据不出域链路"
 if ./scripts/verify-aiization.sh >/dev/null 2>&1; then gate "Private(AIization)" pass; else gate "Private(AIization)" fail "verify-aiization"; fi
