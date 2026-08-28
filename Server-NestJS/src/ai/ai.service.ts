@@ -1449,8 +1449,38 @@ export class AiService {
         return '获取用户统计';
       case 'navigate_page':
         return '页面跳转';
+      case 'query_customers':
+        return '查询客户';
+      case 'query_customer_orders':
+        return '查询客户订单';
+      case 'query_customer_activities':
+        return '查询客户跟进';
+      case 'query_contacts':
+        return '查询联系人';
+      case 'query_opportunities':
+        return '查询销售机会';
+      case 'analyze_customer_risk':
+        return '分析客户风险';
+      case 'query_projects':
+        return '查询项目';
+      case 'query_project_tasks':
+        return '查询项目任务';
+      case 'analyze_project_risk':
+        return '分析项目延期风险';
+      case 'query_approval_requests':
+        return '查询审批请求';
+      case 'query_approval_policies':
+        return '查询审批政策';
+      case 'query_knowledge':
+        return '查询知识库';
+      case 'query_contracts':
+        return '查询合同';
+      case 'query_suppliers':
+        return '查询供应商';
+      case 'query_invoices':
+        return '查询发票';
       default:
-        return `执行操作：${toolName}`;
+        return '执行工具调用';
     }
   }
 

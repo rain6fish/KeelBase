@@ -1761,7 +1761,9 @@ describe('AiService', () => {
       expect(s.summarizeReadTool('query_events_by_keyword')).toBe('搜索事件');
       expect(s.summarizeReadTool('get_user_stats')).toBe('获取用户统计');
       expect(s.summarizeReadTool('navigate_page')).toBe('页面跳转');
-      expect(s.summarizeReadTool('unknown_tool')).toBe('执行操作：unknown_tool');
+      expect(s.summarizeReadTool('query_customers')).toBe('查询客户');
+      expect(s.summarizeReadTool('analyze_customer_risk')).toBe('分析客户风险');
+      expect(s.summarizeReadTool('unknown_tool')).toBe('执行工具调用');
     });
 
     it('summarizeToolResult 成功/失败/各工具分支', () => {
