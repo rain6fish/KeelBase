@@ -162,6 +162,29 @@ side_effects:
 | L5 Side-effect Governance（确认 + 撤销 + 审计哈希链 + 决策轨迹） | ✅ 已实现 |
 | Authorization Contract 协议化（Protocol 显式声明授权模型） | ⬜ 方向（当前由生成模块自动接线承担） |
 | 重量级 RBAC 产品（Keycloak / Casbin / Shiro 等） | ⬜ **明确不做**（与差异化定位一致） |
+| 外置授权对接（OIDC 企业 SSO 已具备） | ⬜ 方向（按客户，待评估） |
+
+---
+
+## 7. 与主流框架对比 / 企业落地方向
+
+| 维度 | KeelBase | Spring Security | Spring Auth Server / Keycloak | Sa-Token / Shiro | Casbin / MyBatis-Plus |
+|---|---|---|---|---|---|
+| 认证 | ✅ 强（锁定/MFA/OIDC 内建） | ⚠️ 框架，逐项自配 | ✅ IAM 全家桶 | ✅ 轻量 | — |
+| 授权模型 | CASL 声明式 + 条件 | @PreAuthorize + SpEL + 角色 | 授权服务器（发 token） | RBAC 注解/路由 | 模型驱动 ACL/RBAC/ABAC |
+| 行级数据权限 | ✅ 内建（conditions） | ❌ 原生无，需 Filter/拦截器 | — | ❌ | ✅ MyBatis-Plus 拦截器 |
+| 动态 RBAC / 权限点 | ❌ 无（双角色硬编码） | ⚠️ 需自建表 | ✅ Keycloak 有 | ✅ 菜单权限表 | ✅ Casbin 策略存 DB |
+| 菜单/按钮/字段级权限 | ❌ 无 | ⚠️ 自建 | ✅ | ✅ | — |
+| 数据范围（本人/部门/组织） | ⚠️ 本人 + org 部分 | ❌ 需补 | — | ❌ | ✅ 现成 |
+| 授权服务器 / IAM | ❌ 无（OIDC 客户端） | — | ✅ 是服务器 | ✅ 有服务端 | — |
+| 审计 | ✅ 哈希链 + Explainable | ⚠️ 无内建审计链 | ✅ 有事件 | ⚠️ 弱 | — |
+| AI Agent 治理 | ✅ 独有 | ❌ | ❌ | ❌ | ❌ |
+
+**定位**：KeelBase 与主流 Web 权限框架不是同物种——它是 **AI Agent 治理运行时**。传统 RBAC（动态角色/权限点/菜单按钮）对 KeelBase 是 hygiene 非卖点（差异化定位，§1/§6），因此明确不做重量级 RBAC 产品。
+
+**企业应用落地方向（按客户二选一）**：
+- **外置授权（推荐给已有 IAM 的企业）**：对接 Keycloak / Spring Authorization Server——KeelBase 走 OIDC 企业 SSO（已支持），IAM/RBAC 职责外置，KeelBase 保持「AI 治理运行时」定位。
+- **自建轻量动态 RBAC（作为基座能力，按需）**：加 roles/permissions 表 + 管理端配置，`CaslAbilityFactory` 从配置构建而非硬编码；一并补通用数据范围（部门/组织维度，复用 org 模块）。触发点：出现多角色企业客户或 v1.1 后按需。状态：待评估（2026-08-28）。
 
 ---
 
