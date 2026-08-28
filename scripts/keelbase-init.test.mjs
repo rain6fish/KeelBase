@@ -1267,6 +1267,23 @@ paths:
   await assert.rejects(access(`${root}/proxy.json`));
 });
 
+test('specs/external-crm.openapi.json 可被 import-openapi-proxy 消费（EB-1 示例 spec 健康，读 R1 / 写 R3）', async () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const spec = JSON.parse(await readFile(join(root, 'specs/external-crm.openapi.json'), 'utf8'));
+  const out = parseOpenApiProxy(spec, { baseUrl: 'http://legacy-crm:8080/api', audience: 'legacy-crm' });
+  assert.ok(out.tools, '应解析出工具（而非 error）');
+  const names = out.tools.map((t) => t.name).sort();
+  assert.deepEqual(names, [
+    'create_followup_task',
+    'get_customer',
+    'list_customer_orders',
+    'list_customers',
+    'update_order_amount',
+  ]);
+  assert.equal(out.tools.find((t) => t.name === 'list_customers').riskLevel, 'R1');
+  assert.equal(out.tools.find((t) => t.name === 'create_followup_task').riskLevel, 'R3');
+});
+
 test('端到端：--import-openapi --out 协议含 required/label 透传 + skipped 诊断', async () => {
   const root = await tempRoot();
   const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
