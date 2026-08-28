@@ -65,6 +65,14 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
+            <el-table-column :label="t('actionCol')" width="100" align="center">
+              <template #default>
+                <el-button link type="primary" size="small" @click="goPolicy">
+                  <template #icon><AppIcon icon="mdi-shield-key-outline" /></template>
+                  {{ t('navPolicyCenter') }}
+                </el-button>
+              </template>
+            </el-table-column>
           </el-table>
           <div v-else class="text-medium-emphasis pa-3">{{ t('noData') }}</div>
         </el-card>
@@ -87,6 +95,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -98,6 +107,7 @@ import type { AdminAiTool } from '@/types/admin'
 import type { ActionReport, AuditLog } from '@/types/audit'
 
 const { t } = useI18n()
+const router = useRouter()
 const snackbar = useSnackbarStore()
 
 const tools = ref<AdminAiTool[]>([])
@@ -146,6 +156,10 @@ const trendRows = computed(() => {
 function pct(n: number): number {
   const max = trendRows.value[0]?.max ?? 1
   return Math.round((n / max) * 100)
+}
+
+function goPolicy() {
+  router.push('/policy-center')
 }
 
 async function loadAll() {
