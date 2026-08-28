@@ -138,8 +138,8 @@ async function main() {
   // 0. 起 mock Java 目标 + 写入 ai_proxy_tools 配置
   const mock = await startMockTarget(PROXY_PORT);
   console.log(`→ mock Java 目标已起（${mock.base}）`);
+  const adminToken = await loginAs('admin', ADMIN_PASS);
   if (!SKIP_SETUP) {
-    const adminToken = await loginAs('admin', ADMIN_PASS);
     const proxyCfg = {
       baseUrl: mock.base,
       audience: 'legacy-erp',
