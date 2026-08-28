@@ -93,6 +93,7 @@ const en: ZhDict = {
   guardOverviewHint: 'One-page security posture across Agent / Policy / Risk / Audit / Approval',
   policyCenterHint: 'HS-9 governance policy — tool enable / confirmation / role allowlist + audit granularity, applied live on save',
   riskDistribution: 'Risk distribution',
+  riskTrend: 'Risk trend (7 days)',
   auditPosture: 'Audit posture',
   pendingApprovals: 'Pending approvals',
   aiExecuted: 'AI executed',
