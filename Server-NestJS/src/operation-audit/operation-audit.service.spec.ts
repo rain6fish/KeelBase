@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { OperationAuditService } from './operation-audit.service';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
@@ -7,6 +8,16 @@ import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 describe('OperationAuditService', () => {
   let service: OperationAuditService;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
+  let runner: {
+    connect: jest.Mock;
+    startTransaction: jest.Mock;
+    query: jest.Mock;
+    manager: { save: jest.Mock };
+    commitTransaction: jest.Mock;
+    rollbackTransaction: jest.Mock;
+    release: jest.Mock;
+  };
+  let dataSource: { options: { type: string }; createQueryRunner: jest.Mock };
   const mockRepo = {
     create: jest.fn((d: any) => d),
     save: jest.fn((d: any) => Promise.resolve(d)),
@@ -27,15 +38,36 @@ describe('OperationAuditService', () => {
       computeHash: jest.fn().mockReturnValue('hash-1'),
       verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 0 }),
     };
+    const saved: Array<Record<string, unknown>> = [];
+    runner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      startTransaction: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn().mockResolvedValue([]), // 锁行 + _lastHash 默认空
+      manager: {
+        save: jest.fn((_e: unknown, o: Record<string, unknown>) => {
+          saved.push(o);
+          return Promise.resolve(o);
+        }),
+      },
+      commitTransaction: jest.fn().mockResolvedValue(undefined),
+      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+      release: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource = {
+      options: { type: 'postgres' }, // 测 DB 级串行锁路径（roadmap §22.10 B）；sqlite 走 _tail（单写者）
+      createQueryRunner: jest.fn().mockReturnValue(runner),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OperationAuditService,
         { provide: getRepositoryToken(OperationAuditLog), useValue: mockRepo },
         { provide: AuditChainService, useValue: chain },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
     service = module.get<OperationAuditService>(OperationAuditService);
+    (service as any).__saved = saved;
   });
 
   describe('log（HS-11 哈希链）', () => {
@@ -53,7 +85,7 @@ describe('OperationAuditService', () => {
         statusCode: 201,
       });
 
-      const saved = mockRepo.save.mock.calls[0][0];
+      const saved = (service as any).__saved[0];
       expect(saved.userId).toBe(1);
       expect(saved.action).toBe('CREATE');
       expect(saved.requestBody.length).toBeLessThanOrEqual(2000);
@@ -76,7 +108,7 @@ describe('OperationAuditService', () => {
       chain.computeHash.mockReturnValue('h');
       await service.log({ action: 'CREATE', method: 'POST', path: '/x' });
 
-      const saved = mockRepo.save.mock.calls[0][0];
+      const saved = (service as any).__saved[0];
       expect(saved.userId).toBeNull();
       expect(saved.featureKey).toBeNull();
       expect(saved.featureFallback).toBeNull();
@@ -97,24 +129,23 @@ describe('OperationAuditService', () => {
         requestBody: 'b'.repeat(3000),
       });
 
-      const saved = mockRepo.save.mock.calls[0][0];
+      const saved = (service as any).__saved[0];
       expect(saved.ip.length).toBe(64);
       expect(saved.userAgent.length).toBe(255);
       expect(saved.requestBody.length).toBe(2000);
     });
 
     it('log 链接上一条哈希（prevHash 非空）', async () => {
-      mockRepo.createQueryBuilder.mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-hash' }),
-      });
+      runner.query.mockImplementation((sql: string) =>
+        String(sql).includes('FROM "operation_audit_logs"')
+          ? Promise.resolve([{ hash: 'prev-hash' }])
+          : Promise.resolve([]),
+      );
       chain.computeHash.mockReturnValue('new-hash');
       await service.log({ action: 'CREATE', method: 'POST', path: '/x' });
 
       expect(chain.computeHash).toHaveBeenCalledWith('prev-hash', expect.anything());
-      const saved = mockRepo.save.mock.calls[0][0];
+      const saved = (service as any).__saved[0];
       expect(saved.prevHash).toBe('prev-hash');
       expect(saved.hash).toBe('new-hash');
     });

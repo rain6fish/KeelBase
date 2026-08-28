@@ -28,6 +28,7 @@ import { AiAuditLog } from '../src/ai/audit/ai-audit-log.entity';
 import { AiDailyUsage } from '../src/ai/audit/ai-daily-usage.entity';
 import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
 import { AuditChainService } from '../src/common/audit-chain/audit-chain.service';
+import { AuditChainLock } from '../src/common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../src/ai/audit/audit.service';
 
 function argInt(name: string, def: number): number {
@@ -46,10 +47,12 @@ async function main(): Promise<void> {
   const ds = new DataSource({
     type: 'better-sqlite3',
     database: ':memory:',
-    entities: [AiAuditLog, AiDailyUsage, AiToolSideEffect],
+    entities: [AiAuditLog, AiDailyUsage, AiToolSideEffect, AuditChainLock],
     synchronize: true,
   });
   await ds.initialize();
+  // 锁行 seed（生产由迁移 INSERT；脚本用 synchronize 需手动）
+  await ds.getRepository(AuditChainLock).insert({ id: 1, holder: 'seed' });
 
   const auditChain = new AuditChainService(new ConfigService());
   // 多实例模式（--instances N>1）：N 个 AuditService 实例各自独立的进程内串行队列（_tail），
@@ -60,6 +63,7 @@ async function main(): Promise<void> {
       ds.getRepository(AiDailyUsage),
       ds.getRepository(AiToolSideEffect),
       auditChain,
+      ds, // DataSource：DB 级串行锁（roadmap §22.10 B）
     ),
   );
 

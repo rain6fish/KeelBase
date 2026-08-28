@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
@@ -46,6 +47,18 @@ describe('AuditService', () => {
   let effectsRepo: ReturnType<typeof makeEffectsRepo>;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
 
+  // DB 级串行（roadmap §22.10 B）：log() 用 DataSource runner 事务 + 锁行，spec 需 mock runner
+  let runner: {
+    connect: jest.Mock;
+    startTransaction: jest.Mock;
+    query: jest.Mock;
+    manager: { save: jest.Mock };
+    commitTransaction: jest.Mock;
+    rollbackTransaction: jest.Mock;
+    release: jest.Mock;
+  };
+  let dataSource: { options: { type: string }; createQueryRunner: jest.Mock };
+
   beforeEach(async () => {
     repo = makeLogRepo();
     usageRepo = makeUsageRepo();
@@ -54,6 +67,25 @@ describe('AuditService', () => {
       computeHash: jest.fn().mockReturnValue('hash-1'),
       verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 0 }),
     };
+    const saved: Array<Record<string, unknown>> = [];
+    runner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      startTransaction: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn().mockResolvedValue([]), // 锁行 + _lastHash 默认返回空（首条 hash null）
+      manager: {
+        save: jest.fn((_e: unknown, o: Record<string, unknown>) => {
+          saved.push(o);
+          return Promise.resolve(o);
+        }),
+      },
+      commitTransaction: jest.fn().mockResolvedValue(undefined),
+      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+      release: jest.fn().mockResolvedValue(undefined),
+    };
+    dataSource = {
+      options: { type: 'postgres' }, // 测 DB 级串行锁路径（roadmap §22.10 B）；sqlite 走 _tail（单写者）
+      createQueryRunner: jest.fn().mockReturnValue(runner),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuditService,
@@ -61,9 +93,11 @@ describe('AuditService', () => {
         { provide: getRepositoryToken(AiDailyUsage), useValue: usageRepo },
         { provide: getRepositoryToken(AiToolSideEffect), useValue: effectsRepo },
         { provide: AuditChainService, useValue: chain },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
     service = moduleRef.get(AuditService);
+    (service as any).__saved = saved;
   });
 
   describe('reserveDailyUsage / releaseDailyUsage（RG-2.1 原子预留）', () => {
@@ -104,7 +138,7 @@ describe('AuditService', () => {
       await actorContext.run({ sessionId: 'sess-1', agentId: 'key-legacy-erp' }, () =>
         service.log({ userId: '1', action: 'chat' }),
       );
-      expect(repo.save).toHaveBeenCalledWith(
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
         expect.objectContaining({ sessionId: 'sess-1', agentId: 'key-legacy-erp' }),
       );
     });
@@ -114,7 +148,7 @@ describe('AuditService', () => {
         { agentId: 'research-agent', callerAgentId: 'orchestrator', businessIntent: 'sub-agent' },
         () => service.log({ userId: '1', action: 'tool_call' }),
       );
-      expect(repo.save).toHaveBeenCalledWith(
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
         expect.objectContaining({
           agentId: 'research-agent',
           callerAgentId: 'orchestrator',
@@ -133,7 +167,7 @@ describe('AuditService', () => {
         businessIntent: '跟进高风险客户',
         source: 'headless',
       });
-      expect(repo.save).toHaveBeenCalledWith(
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
         expect.objectContaining({
           parentActionId: 'action-9',
           callerAgentId: 'sub-agent-2',
@@ -144,38 +178,22 @@ describe('AuditService', () => {
       );
     });
 
-    it('并发写不产生链分叉（串行队列，合成陌生人实测发现 brokenIndex）', async () => {
-      // 模拟 DB 语义：_lastHash 读当前最新 hash，save 追加；无串行队列时并发会读到同一 lastHash 分叉
-      (service as any)._tail = Promise.resolve();
-      const stored: Array<{ prevHash: string | null; hash: string }> = [];
-      let seq = 0;
-      (repo.createQueryBuilder as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockImplementation(async () =>
-          stored.length ? { hash: stored[stored.length - 1].hash } : null,
-        ),
-      });
-      repo.save.mockImplementation(async (e: any) => {
-        seq += 1;
-        const record = { ...e, hash: `h-${seq}` };
-        stored.push(record);
-        return record;
-      });
-
+    it('log 走 DB 级串行锁事务（锁 audit_chain_lock + 事务内保存，roadmap §22.10 B）', async () => {
+      // DB 级串行：每次 log 事务内锁行 → 读 lastHash → 保存；跨实例分叉 0 由压测脚本 --instances 验证
       await Promise.all(
         Array.from({ length: 5 }, () =>
           service.log({ userId: '1', conversationId: 'c', action: 'chat', isError: false }),
         ),
       );
 
-      expect(stored).toHaveLength(5);
-      // 串行队列保证：每条 prevHash = 前一条 hash（无分叉）；首条 prevHash = null
-      expect(stored[0].prevHash).toBeNull();
-      for (let i = 1; i < stored.length; i++) {
-        expect(stored[i].prevHash).toBe(stored[i - 1].hash);
-      }
+      expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(5);
+      expect(runner.startTransaction).toHaveBeenCalledTimes(5);
+      expect(runner.commitTransaction).toHaveBeenCalledTimes(5);
+      expect(runner.manager.save).toHaveBeenCalledTimes(5);
+      // 锁行查询被调用（postgres SELECT FOR UPDATE）
+      expect(runner.query).toHaveBeenCalledWith('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
+      // 每条都走了 _lastHash 查询（SELECT FROM ai_audit_logs）
+      expect(runner.query.mock.calls.some((c) => String(c[0]).includes('FROM "ai_audit_logs"'))).toBe(true);
     });
 
     it('保存审计条目并写入 prevHash + hash', async () => {
@@ -185,18 +203,17 @@ describe('AuditService', () => {
         null,
         expect.objectContaining({ userId: '1', action: 'chat', provider: 'deepseek' }),
       );
-      expect(repo.save).toHaveBeenCalledWith(
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
         expect.objectContaining({ prevHash: null, hash: 'computed-hash' }),
       );
     });
 
-    it('取到上一条 hash 后串接', async () => {
-      (repo.createQueryBuilder as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-hash' }),
-      });
+    it('取到上一条 hash 后串接（runner.query 在锁事务内读）', async () => {
+      runner.query.mockImplementation((sql: string) =>
+        String(sql).includes('FROM "ai_audit_logs"')
+          ? Promise.resolve([{ hash: 'prev-hash' }])
+          : Promise.resolve([]),
+      );
       await service.log({ userId: '1', action: 'chat' });
       expect(chain.computeHash).toHaveBeenCalledWith('prev-hash', expect.anything());
     });
