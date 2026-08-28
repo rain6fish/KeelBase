@@ -176,6 +176,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import CrmCopilotDrawer from '@/components/CrmCopilotDrawer.vue'
 import GovernanceActionDrawer from '@/components/GovernanceActionDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { ApiError } from '@/api/client'
 import { crmApi, type CrmCustomerDetail, type RiskAnalysis } from '@/api/crm'
 
 const { t } = useI18n()
@@ -210,8 +211,9 @@ function riskColor(l: string) {
 async function load() {
   try {
     detail.value = await crmApi.detail(id)
-  } catch {
-    snackbar.error(t('loadFailed'))
+  } catch (err) {
+    // P0-2 越权拒绝可视化：403（他人数据）显示明确「无权访问」，其余保留通用加载失败
+    snackbar.error(err instanceof ApiError && err.statusCode === 403 ? t('crmNoAccess') : t('loadFailed'))
   }
 }
 
@@ -220,8 +222,8 @@ async function analyze() {
   try {
     analysis.value = await crmApi.analyze(id)
     snackbar.success(t('crmAnalysisDone'))
-  } catch {
-    snackbar.error(t('loadFailed'))
+  } catch (err) {
+    snackbar.error(err instanceof ApiError && err.statusCode === 403 ? t('crmNoAccess') : t('loadFailed'))
   } finally {
     analyzing.value = false
   }
