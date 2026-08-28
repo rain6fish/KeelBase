@@ -7,13 +7,17 @@
  * 并给出吞吐/P95 基线；横向扩展（多实例需 DB 级串行）或性能优化前后对比用。
  *
  * 用法：
- *   npm run audit:chain:load                        # 默认 100 并发 × 10 条 = 1000 条
+ *   npm run audit:chain:load                        # 默认 100 并发 × 10 条 = 1000 条（单实例基线）
  *   npm run audit:chain:load -- --concurrency 50 --per-worker 20
+ *   npm run audit:chain:load -- --instances 2        # 多实例模式：N 个独立进程内串行队列模拟多副本
  *
  * 说明：
  *   - 内存 sqlite（:memory:）独立 DataSource，零污染、可重复。
  *   - AuditService 内部串行队列（读 lastHash → 计算 → 插入原子化）与生产一致，
  *     并发写入的真实分叉行为可被本脚本复现/拦截。
+ *   - `--instances N>1`（多实例模式）：N 个 AuditService 各自独立 _tail，模拟多副本部署，
+ *     复现「多实例读到同一 lastHash → 审计链分叉」——实证横向扩展需 DB 级串行（roadmap §22.10 B），
+ *     DB 级串行实施后的验收标准 = `--instances 2` 分叉 0。
  *   - 每条 log 耗时含串行排队等待（反映真实用户感知 P95，而非纯写延迟）。
  *   - 绝对数值为机器基线参考（内存 sqlite 不落盘，吞吐偏高），关注相对趋势。
  */

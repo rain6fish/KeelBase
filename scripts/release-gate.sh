@@ -5,6 +5,7 @@
 # 把现有验证脚本串成五维 + Adversarial + Gate 1 Golden Application → PASS/FAIL，
 # 一命令证明「Build / Run / Trust / Private 已可重复验证」。
 # 确定性部分（Build/Gate1/Trust/Private/迁移一致性）可进 CI；LLM 部分（Run/Adversarial）需 LLM_ENV=1（DeepSeek/Ollama）。
+# Trust 维度含：三旗舰 + 生成模块 e2e（越权/写确认/审计）+ 审计链并发压测（npm run audit:chain:load，分叉 0 + verify 全绿）。
 #
 # 用法：
 #   ./scripts/release-gate.sh            # 确定性 Gate（可 CI）

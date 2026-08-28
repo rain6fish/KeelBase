@@ -66,7 +66,7 @@
           <el-button link type="primary" size="small" class="ml-auto" @click="go('/ai-approvals')">{{ t('viewAll') }}</el-button>
         </div>
       </template>
-      <div v-for="a in approvals.slice(0, 6)" :key="a.id" class="d-flex align-center ga-3 mb-2">
+      <div v-for="a in approvals.slice(0, 6)" :key="a.id" class="approval-row d-flex align-center ga-3 mb-2" @click="go('/ai-approvals')">
         <el-tag size="small" :type="a.riskLevel === 'R4' ? 'warning' : 'info'" effect="light">{{ a.riskLevel }}</el-tag>
         <span class="font-weight-medium">{{ a.toolName }}</span>
         <span class="text-caption text-medium-emphasis text-truncate">{{ a.args }}</span>
@@ -159,6 +159,15 @@ onMounted(loadAll)
 .stat-card {
   cursor: pointer;
   transition: box-shadow 0.2s;
+}
+.approval-row {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 6px;
+  transition: background 0.15s;
+}
+.approval-row:hover {
+  background: var(--el-fill-color-light);
 }
 .stat-card:hover {
   box-shadow: var(--el-box-shadow-light);
