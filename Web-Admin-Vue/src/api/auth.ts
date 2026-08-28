@@ -16,6 +16,10 @@ export const authApi = {
   login(username: string, password: string): Promise<LoginResult> {
     return api.post<LoginResult>('/auth/login', { username, password })
   },
+  /** 登录页访问统计：记录 IP/OS/浏览器/时间（服务端写文件，失败静默不影响登录） */
+  loginStats(): Promise<{ ok: boolean }> {
+    return api.post('/auth/login-stats', { userAgent: navigator.userAgent })
+  },
   me(): Promise<AuthUser> {
     return api.get<AuthUser>('/auth/me')
   },
