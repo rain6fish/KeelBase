@@ -228,6 +228,7 @@ keelbase init --desc "Customer management"
 - **三旗舰应用规格** — [中文](docs/flagship-applications.md) · [English](docs/flagship-applications-en.md)
 - **企业能力声明** — [中文](docs/enterprise-capabilities.md) · [English](docs/enterprise-capabilities-en.md)
 - **架构边界** — [中文](docs/architecture-boundary.md) · [English](docs/architecture-boundary-en.md)
+- **权限架构** — [中文](docs/authorization-architecture.md) · [English](docs/authorization-architecture-en.md)
 - **外部系统对接**
   - **AI Bridge 存量系统 AI 化** — [中文](docs/manual/ai-bridge.md) · [English](docs/manual/ai-bridge-en.md)
   - **轻量能力声明** — [中文](docs/manual/capability-declaration.md) · [English](docs/manual/capability-declaration-en.md)
