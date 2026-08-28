@@ -17,7 +17,7 @@
 | **轻量 Capability 声明**（`capability.yaml` → 同构工具，比 OpenAPI 更轻） | ✅ | [capability-declaration.md](manual/capability-declaration.md) |
 | **Governance & Deployment Guide**（接入即治理 + 部署交付） | ✅ 已整合 | [governance-deployment-guide.md](integrator-kit/governance-deployment-guide.md)（索引各部署/安全文档） |
 | **AI Assistant Template**（业务 AI 助手面板模板） | ✅（CRM/PM Copilot 已落地） | [flagship-applications.md](../flagship-applications.md) |
-| **Reference Project：传统 Java CRM → AI CRM** | 🚧 部分（external-crm demo 已具备，待升级为完整样板） | [external-crm-demo.md](manual/external-crm-demo.md) |
+| **Reference Project：传统 Java CRM → AI CRM** | ✅ 实施手册已提供（真实 Java 端到端实测待 P1） | [reference-project-guide.md](integrator-kit/reference-project-guide.md) + [external-crm-demo.md](manual/external-crm-demo.md) |
 
 ## 二、Reference Project：传统 Java CRM → AI CRM（核心样板）
 
