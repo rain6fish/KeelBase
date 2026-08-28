@@ -43,6 +43,10 @@ export class ProxyToolRegistryService {
     }
     const { baseUrl, audience, tools = [] } = cfg ?? {};
     if (!baseUrl || !audience || !Array.isArray(tools)) return { registered, skipped };
+    if (!isValidHttpUrl(baseUrl)) {
+      skipped.push(`<all>(baseUrl "${baseUrl}" 不是合法的 http(s) URL，跳过全部代理工具注册)`);
+      return { registered, skipped };
+    }
 
     for (const t of tools) {
       if (!t?.name) continue;
@@ -69,5 +73,15 @@ export class ProxyToolRegistryService {
     } catch {
       return false;
     }
+  }
+}
+
+/** SSRF 防护（M0）：baseUrl 必须为 http/https URL */
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
   }
 }
