@@ -238,6 +238,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
   - **Capability Declaration 轻量能力声明** — [中文](docs/manual/capability-declaration.md) · [English](docs/manual/capability-declaration-en.md)
   - **External CRM Demo 外部 CRM 接入演示** — [中文](docs/manual/external-crm-demo.md) · [English](docs/manual/external-crm-demo-en.md)
   - **Framework Adapter Agent 框架接入** — [中文](docs/manual/framework-adapter.md) · [English](docs/manual/framework-adapter-en.md)
+  - **Java Starter（Spring Boot 接入）** — [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
 - [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
 - **Explore all capabilities →** [docs/](docs/)
 
