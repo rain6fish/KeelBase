@@ -16,6 +16,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Offline Deploy / 离线部署](offline-deploy.md) | Ops / 运维 | 内网/离线环境部署 / on-prem / air-gapped deploy |
 | [Admin Independent Deploy / 管理台独立部署](admin-deploy.md) | Ops / 运维 | 管理台独立域名部署 / standalone admin on its own domain (D.10) |
 | [Blue-Green & Canary Deploy / 蓝绿与金丝雀部署](blue-green-deploy.md) | Ops / 运维 | 零停机发布 + 快速回滚 / zero-downtime release + instant rollback (D.3) |
+| [Integrator Kit / 集成商套件](../integrator-kit.md) | 集成商 / Software vendors | 把存量系统改造成 AI 业务助手——总纲 + Java 补偿端点 + 治理部署指南 + Reference Project 实施手册 / turn legacy systems into AI assistants (roadmap §22.7) |
 | [AI Bridge / AI 桥（Java 存量系统）](ai-bridge.md) | Developers / 集成商 | 外部系统接入 AI——OpenAPI 代理 + 运行时撤销 / Java legacy system to AI: proxy + runtime revoke (EB) |
 | [Capability Declaration / 轻量能力声明](capability-declaration.md) | Developers / 集成商 | 一份 YAML 声明外部系统能力 → Proxy 工具（比 OpenAPI 更轻量）/ declare capabilities for AI (EB-3) |
 | [External CRM Bridge Demo / 外部 CRM 接入演示](external-crm-demo.md) | Developers / Sales | 「不替换系统获得 AI 能力」演示闭环 / connect an external CRM without rewriting (EB-1) |
