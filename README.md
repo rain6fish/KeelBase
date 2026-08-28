@@ -12,6 +12,8 @@
 
 ## 🚀 Try in 60 Seconds
 
+> Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (`alex/123456` — workbench, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
+
 Docker only — one command brings up the entire application (backend + workbench + Admin Console + mobile preview), no build:
 
 ```bash

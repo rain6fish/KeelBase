@@ -12,6 +12,8 @@
 
 ## 🚀 60 秒体验
 
+> 想立刻体验？**打开在线演示** → [keelbase-demo](http://121.199.30.80/user/)（`alex/123456` 工作台，问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
+
 只装 Docker，一条命令起完整应用（后端 + 工作台 + 管理台 + 移动预览），免构建：
 
 ```bash
