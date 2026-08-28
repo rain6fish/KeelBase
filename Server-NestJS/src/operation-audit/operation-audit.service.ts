@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, QueryRunner, Repository, MoreThanOrEqual } from 'typeorm';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import {
   AuditChainService,
@@ -29,46 +29,48 @@ export class OperationAuditService {
     @InjectRepository(OperationAuditLog)
     private readonly logRepo: Repository<OperationAuditLog>,
     private readonly auditChain: AuditChainService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
    * 记录一条操作审计。落库失败静默（审计失败不应影响业务）。
    * HS-11：写入同时计算哈希链（prev_hash + hash）。
+   * DB 级串行（roadmap §22.10 B）：事务内锁 audit_chain_lock id=1 行，跨实例串行化写链（替代进程内 _tail）。
    */
-  /** 审计写串行队列：杜绝并发写链分叉（HTTP 写操作审计并发频率高，必须串行） */
-  private _tail: Promise<unknown> = Promise.resolve();
-
   async log(entry: OperationAuditEntry): Promise<void> {
-    const job = this._tail.then(async () => {
-      try {
-        const payload = {
-          userId: entry.userId ?? null,
-          action: entry.action,
-          method: entry.method,
-          path: entry.path,
-          featureKey: entry.featureKey ?? null,
-          featureFallback: entry.featureFallback ?? null,
-          targetId: entry.targetId ?? null,
-          requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
-          ip: entry.ip ? entry.ip.slice(0, 64) : null,
-          userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
-          statusCode: entry.statusCode ?? null,
-        };
-        const prevHash = await this._lastHash();
-        const hash = this.auditChain.computeHash(prevHash, payload);
-        const entity = this.logRepo.create({
-          ...payload,
-          prevHash,
-          hash,
-        });
-        await this.logRepo.save(entity);
-      } catch (err) {
-        this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    try {
+      await runner.startTransaction();
+      if (this.dataSource.options.type === 'postgres') {
+        await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
+      } else {
+        await runner.query('UPDATE "audit_chain_lock" SET holder = holder WHERE id = 1');
       }
-    });
-    // 串行链：失败不阻断后续写，但保持顺序
-    this._tail = job.catch(() => {});
-    await job;
+      const payload = {
+        userId: entry.userId ?? null,
+        action: entry.action,
+        method: entry.method,
+        path: entry.path,
+        featureKey: entry.featureKey ?? null,
+        featureFallback: entry.featureFallback ?? null,
+        targetId: entry.targetId ?? null,
+        requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
+        ip: entry.ip ? entry.ip.slice(0, 64) : null,
+        userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
+        statusCode: entry.statusCode ?? null,
+      };
+      const prevHash = await this._lastHash(runner);
+      const hash = this.auditChain.computeHash(prevHash, payload);
+      await runner.manager.save(OperationAuditLog, { ...payload, prevHash, hash });
+      await runner.commitTransaction();
+    } catch (err) {
+      await runner.rollbackTransaction().catch(() => {});
+      this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
+    } finally {
+      await runner.release();
+    }
   }
 
   /** HS-11：沿 id 升序校验操作审计哈希链完整性。 */
@@ -77,7 +79,12 @@ export class OperationAuditService {
     return this.auditChain.verifyChain(rows, (row) => this._payload(row));
   }
 
-  private async _lastHash(): Promise<string | null> {
+  private async _lastHash(runner?: QueryRunner): Promise<string | null> {
+    if (runner) {
+      // DB 级串行：在锁事务内读（与插入同事务，跨实例原子）
+      const rows = await runner.query('SELECT hash FROM "operation_audit_logs" ORDER BY id DESC LIMIT 1');
+      return rows?.[0]?.hash ?? null;
+    }
     const row = await this.logRepo
       .createQueryBuilder('log')
       .select('log.hash', 'hash')

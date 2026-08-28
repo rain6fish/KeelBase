@@ -6,8 +6,8 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThan, MoreThan } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
@@ -115,9 +115,11 @@ export class AuditService {
     @InjectRepository(AiToolSideEffect)
     private readonly effectsRepo: Repository<AiToolSideEffect>,
     private readonly auditChain: AuditChainService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
-  /** 审计写串行队列：保证「读 lastHash → 计算 hash → 插入」原子化，杜绝并发写链分叉（合成陌生人实测发现 brokenIndex:30） */
+  /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
   private _tail: Promise<unknown> = Promise.resolve();
 
   async log(entry: AuditEntry): Promise<void> {
@@ -128,53 +130,72 @@ export class AuditService {
     // D4 多 Agent 归责：callerAgentId/businessIntent 从 ActorContext fallback（子 agent 场景自动填充）
     const callerAgentId = entry.callerAgentId ?? actor?.callerAgentId;
     const businessIntent = entry.businessIntent ?? actor?.businessIntent;
-    // 链式串行：每次 log 排队在前一次之后执行，避免两个并发写同时读到同一 lastHash 造成分叉
-    const job = this._tail.then(async () => {
-      const prevHash = await this._lastHash();
-      const hash = this.auditChain.computeHash(
-        prevHash,
-        this._payload({
-          userId: entry.userId,
-          conversationId: entry.conversationId,
-          action: entry.action,
-          detail: entry.detail ? entry.detail.slice(0, 2000) : null,
-          model: entry.model,
-          provider: entry.provider,
-          promptTokens: entry.promptTokens,
-          completionTokens: entry.completionTokens,
-          durationMs: entry.durationMs,
-          isError: entry.isError ?? false,
-          errorMessage: entry.errorMessage,
-          authorization: entry.authorization,
-        }),
-      );
-      await this.logRepo.save({
-        userId: entry.userId,
-        conversationId: entry.conversationId,
-        action: entry.action,
-        detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
-        model: entry.model,
-        provider: entry.provider,
-        agentId,
-        sessionId,
-        parentActionId: entry.parentActionId,
-        callerAgentId,
-        delegationContext: entry.delegationContext,
-        businessIntent,
-        source: entry.source,
-        promptTokens: entry.promptTokens,
-        completionTokens: entry.completionTokens,
-        durationMs: entry.durationMs,
-        isError: entry.isError ?? false,
-        errorMessage: entry.errorMessage,
-        authorization: entry.authorization,
-        prevHash,
-        hash,
-      });
+
+    // 共享 payload（hash 计算与保存两端一致）
+    const payload = this._payload({
+      userId: entry.userId,
+      conversationId: entry.conversationId,
+      action: entry.action,
+      detail: entry.detail ? entry.detail.slice(0, 2000) : null,
+      model: entry.model,
+      provider: entry.provider,
+      promptTokens: entry.promptTokens,
+      completionTokens: entry.completionTokens,
+      durationMs: entry.durationMs,
+      isError: entry.isError ?? false,
+      errorMessage: entry.errorMessage,
+      authorization: entry.authorization,
     });
-    // 串行链：失败不阻断后续写，但保持顺序
-    this._tail = job.catch(() => {});
-    await job;
+    const entity = {
+      userId: entry.userId,
+      conversationId: entry.conversationId,
+      action: entry.action,
+      detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
+      model: entry.model,
+      provider: entry.provider,
+      agentId,
+      sessionId,
+      parentActionId: entry.parentActionId,
+      callerAgentId,
+      delegationContext: entry.delegationContext,
+      businessIntent,
+      source: entry.source,
+      promptTokens: entry.promptTokens,
+      completionTokens: entry.completionTokens,
+      durationMs: entry.durationMs,
+      isError: entry.isError ?? false,
+      errorMessage: entry.errorMessage,
+      authorization: entry.authorization,
+    };
+
+    if (this.dataSource.options.type === 'postgres') {
+      // DB 级串行（roadmap §22.10 B）：事务内锁 audit_chain_lock id=1（SELECT FOR UPDATE），
+      // 跨实例串行化「读 lastHash → 计算 → 插入」——多副本不再分叉。
+      const runner = this.dataSource.createQueryRunner();
+      await runner.connect();
+      try {
+        await runner.startTransaction();
+        await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
+        const prevHash = await this._lastHash(runner);
+        const hash = this.auditChain.computeHash(prevHash, payload);
+        await runner.manager.save(AiAuditLog, { ...entity, prevHash, hash });
+        await runner.commitTransaction();
+      } catch (err) {
+        await runner.rollbackTransaction().catch(() => {});
+        throw err;
+      } finally {
+        await runner.release();
+      }
+    } else {
+      // sqlite：进程内串行（better-sqlite3 单连接，多 QueryRunner 并发事务不支持；sqlite 单写者）
+      const job = this._tail.then(async () => {
+        const prevHash = await this._lastHash();
+        const hash = this.auditChain.computeHash(prevHash, payload);
+        await this.logRepo.save({ ...entity, prevHash, hash });
+      });
+      this._tail = job.catch(() => {});
+      await job;
+    }
   }
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。 */
@@ -183,7 +204,12 @@ export class AuditService {
     return this.auditChain.verifyChain(rows, (row) => this._payload(row));
   }
 
-  private async _lastHash(): Promise<string | null> {
+  private async _lastHash(runner?: QueryRunner): Promise<string | null> {
+    if (runner) {
+      // DB 级串行：在锁事务内读（与插入同事务，跨实例原子）
+      const rows = await runner.query('SELECT hash FROM "ai_audit_logs" ORDER BY id DESC LIMIT 1');
+      return rows?.[0]?.hash ?? null;
+    }
     const row = await this.logRepo
       .createQueryBuilder('log')
       .select('log.hash', 'hash')
