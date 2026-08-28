@@ -15,8 +15,7 @@
 | **SQL Import**（`keelbase init --import-schema`） | ✅ | [development.md](manual/development.md) |
 | **MCP Gateway**（外部 MCP 出入 + 风险分级 + SSRF 防护） | ✅ | [framework-adapter.md](manual/framework-adapter.md) |
 | **轻量 Capability 声明**（`capability.yaml` → 同构工具，比 OpenAPI 更轻） | ✅ | [capability-declaration.md](manual/capability-declaration.md) |
-| **Governance Guide**（CASL 权限 / 确认 / 审计 / 撤销如何落到接入系统） | 🚧 部分（分散于各文档，待整合） | [external-crm-demo.md](manual/external-crm-demo.md) |
-| **Deployment Guide**（单容器 / 私有化 / 离线部署） | ✅ | [demo-deploy.md](manual/demo-deploy.md) |
+| **Governance & Deployment Guide**（接入即治理 + 部署交付） | ✅ 已整合 | [governance-deployment-guide.md](integrator-kit/governance-deployment-guide.md)（索引各部署/安全文档） |
 | **AI Assistant Template**（业务 AI 助手面板模板） | ✅（CRM/PM Copilot 已落地） | [flagship-applications.md](../flagship-applications.md) |
 | **Reference Project：传统 Java CRM → AI CRM** | 🚧 部分（external-crm demo 已具备，待升级为完整样板） | [external-crm-demo.md](manual/external-crm-demo.md) |
 
