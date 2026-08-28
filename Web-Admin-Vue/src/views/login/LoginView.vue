@@ -86,6 +86,12 @@ const errorMessage = ref('')
 const hasEnterpriseSso = ref(false)
 
 onMounted(async () => {
+  // 登录页访问统计（IP/OS/浏览器/时间 → 服务端文件）；失败静默不影响登录
+  try {
+    await authApi.loginStats()
+  } catch {
+    // 统计失败忽略
+  }
   try {
     const cfg = await authApi.oauthProviders()
     const enterprise = (cfg.groups?.enterprise as Array<{ id?: string }> | undefined) ?? []
