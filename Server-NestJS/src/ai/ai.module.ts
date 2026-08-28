@@ -35,6 +35,7 @@ import { KnowledgeArticle } from './rag/knowledge-article.entity';
 import { RagAgent } from './agents/rag-agent.service';
 import { EmbeddingsService } from './embeddings/embeddings.service';
 import { LlmProviderFactory } from './providers/provider-factory';
+import { DemoProvider } from './providers/demo-provider';
 import { ToolRegistry } from './tools/tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
@@ -227,6 +228,12 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
             maxTokens: configService.get<number>('AI_MAX_TOKENS', 4096),
             temperature: configService.get<number>('AI_TEMPERATURE', 0.7),
           });
+        }
+
+        // P0-0：没有任何云 Provider（无 API Key / 无本地 Ollama）时注册确定性 Demo Provider，
+        // 保证 ghcr 单容器镜像 / 干净环境零配置即可跑通 AI 黄金流程（resolveProvider 链尾兜底到 demo）。
+        if (factory.getAllProviders().length === 0) {
+          factory.registerCustom(new DemoProvider());
         }
 
         // 2. 创建工具注册表

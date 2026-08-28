@@ -44,6 +44,9 @@ COPY --from=flutter-build /build/web ./public/mobile
 COPY --from=admin-build /app/admin/dist ./public/admin
 # 单容器默认 SQLite + 降级 Redis/队列（大项目用 compose 覆盖这些 env）
 # 安全密钥：内置 dev 默认值保证 `docker run` 零配置可用；生产部署请用 -e 覆盖真实密钥
+# AI（P0-0）：未配置 DEEPSEEK/QWEN/OPENAI key 且无 OLLAMA_BASE_URL 时，自动注册确定性 Demo Provider——
+#   `docker run` 零配置即可跑通 AI 黄金流程（分析→确认→创建跟进→审计→撤销），AI 文本为模板化回复；
+#   配置真实 key（-e DEEPSEEK_API_KEY=...）后自动用真实 LLM（默认降级链 deepseek→qwen→openai→demo）。
 ENV NODE_ENV=production \
     DB_TYPE=sqlite \
     CACHE_ENABLED=false \
