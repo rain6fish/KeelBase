@@ -141,8 +141,8 @@ function customerContext(): string {
 }
 
 function sendQuick(q: { key: string; label: string }) {
-  const message = `${customerContext()}。${q.label}`
-  send(message)
+  // 上下文由 send 首条统一注入，避免与手动输入重复前缀
+  send(q.label)
 }
 
 function scrollBottom() {
@@ -165,6 +165,10 @@ function resultTypeFor(toolName: string): string {
 async function send(raw: string) {
   const message = raw.trim()
   if (!message || loading.value) return
+  // P0-1 差距#2：首条消息自动注入当前客户上下文——问「分析这家客户的风险」AI 直接定位当前客户，不再反问
+  // 后续轮次（有对话历史 / conversationId）已有上下文，不重复注入
+  const isFirst = items.value.length === 0
+  const toBackend = isFirst ? `${customerContext()}。${message}` : message
   items.value.push({ kind: 'user', content: message })
   input.value = ''
   loading.value = true
@@ -187,7 +191,7 @@ async function send(raw: string) {
 
   try {
     await streamChat({
-      message,
+      message: toBackend,
       conversationId: conversationId.value,
       signal: ctrl.signal,
       onEvent: (ev) => {
