@@ -1,6 +1,11 @@
  # ---- Backend ----
  FROM node:22-alpine AS server-build
  WORKDIR /app/server
+ # 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
+ ARG NPM_REGISTRY=https://registry.npmmirror.com
+ ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
+ # better-sqlite3 原生编译需要工具链（prebuild 下载受 GitHub 网络影响时回退 node-gyp）
+ RUN apk add --no-cache python3 make g++
  COPY Server-NestJS/package*.json ./
  RUN npm ci
  COPY Server-NestJS/ .
@@ -31,6 +36,9 @@ COPY --from=server-build /app/server/dist ./dist
  # 双 surface 构建：build:user → dist/user（普通用户工作台，/user 子路径）；build:admin → dist/admin（管理台，/admin）
  FROM node:22-alpine AS admin-build
  WORKDIR /app/admin
+ # 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
+ ARG NPM_REGISTRY=https://registry.npmmirror.com
+ ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
  COPY Web-Admin-Vue/package*.json ./
  RUN npm ci
  COPY Web-Admin-Vue/ .
