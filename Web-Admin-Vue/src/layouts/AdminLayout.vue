@@ -71,7 +71,7 @@
               </el-dropdown-item>
               <el-dropdown-item divided command="switch-surface">
                 <AppIcon icon="mdi-swap-horizontal" size="14" />
-                {{ isUserSurface ? t('switchToAdmin') : t('switchToWorkbench') }}
+                {{ isUserSurface ? t('switchToAdmin') : t('switchToUserConsole') }}
               </el-dropdown-item>
               <el-dropdown-item divided command="logout">
                 <AppIcon icon="mdi-logout" size="14" />
@@ -93,6 +93,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -134,10 +135,17 @@ async function onLogout() {
   router.replace('/login')
 }
 
-/** 右上角用户菜单：切换管理台/工作台（独立构建，token 共享同 localStorage key，跳转保持登录）或登出 */
+/** 右上角用户菜单：切换管理端/用户端（独立构建 /admin/ 与 /user/，token 共享同 localStorage key，跳转保持登录）或登出 */
 function onUserCommand(cmd: string) {
   if (cmd === 'switch-surface') {
-    window.location.assign(isUserSurface ? '/admin/' : '/user/')
+    const target = isUserSurface ? '/admin/' : '/user/'
+    // 目标独立构建可能未部署（dev 默认 base /admin/，无 /user/ 产物）：跳转前检测，避免裸 404
+    fetch(target, { method: 'HEAD' })
+      .then((res) => {
+        if (res.ok) window.location.assign(target)
+        else ElMessage.warning(t('surfaceNotDeployed'))
+      })
+      .catch(() => window.location.assign(target)) // 检测异常（CORS 等）仍尝试跳转
   } else if (cmd === 'logout') {
     void onLogout()
   }
