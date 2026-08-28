@@ -7,6 +7,11 @@
 # ---- Backend build ----
 FROM node:22-alpine AS server-build
 WORKDIR /app/server
+# 中国网络 npm 官方 tarball 常不可达；默认阿里镜像，海外构建用 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
+# better-sqlite3 原生编译需要工具链（prebuild 下载受 GitHub 网络影响时回退 node-gyp）
+RUN apk add --no-cache python3 make g++
 COPY Server-NestJS/package*.json ./
 RUN npm ci --include=dev
 COPY Server-NestJS/ .
@@ -23,6 +28,8 @@ COPY Front-Flutter/build/web /build/web
 # ---- Admin console build (Vue3 PC Web, /admin sub-path) ----
 FROM node:22-alpine AS admin-build
 WORKDIR /app/admin
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
 COPY Web-Admin-Vue/package*.json ./
 RUN npm ci
 COPY Web-Admin-Vue/ .
@@ -40,8 +47,9 @@ COPY --from=server-build /app/server/build-seed ./build-seed
 COPY --from=server-build /app/server/node_modules ./node_modules
 COPY --from=server-build /app/server/package*.json ./
 # 内嵌 Flutter web 主 App（根路径） + 管理台（/admin）
+# admin-build outDir=dist/admin，COPY dist ./public → public/admin（SERVE_STATIC adminDir 匹配）
 COPY --from=flutter-build /build/web ./public/mobile
-COPY --from=admin-build /app/admin/dist ./public/admin
+COPY --from=admin-build /app/admin/dist ./public
 # 单容器默认 SQLite + 降级 Redis/队列（大项目用 compose 覆盖这些 env）
 # 安全密钥：内置 dev 默认值保证 `docker run` 零配置可用；生产部署请用 -e 覆盖真实密钥
 # AI（P0-0）：未配置 DEEPSEEK/QWEN/OPENAI key 且无 OLLAMA_BASE_URL 时，自动注册确定性 Demo Provider——
