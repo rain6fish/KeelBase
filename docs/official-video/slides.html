@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>KeelBase Demo Slides</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: radial-gradient(1200px 800px at 50% 40%, #0b1220 0%, #05070d 70%, #02030a 100%);
+      color: #e8ecf4;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #slide { max-width: 1080px; width: 92%; text-align: center; padding: 40px; }
+    .kicker {
+      font-size: 16px; letter-spacing: 6px; color: #60a5fa; text-transform: uppercase;
+      margin-bottom: 26px; font-weight: 600;
+    }
+    h1 { font-size: 46px; line-height: 1.3; font-weight: 700; color: #ffffff; margin-bottom: 18px; }
+    .sub { font-size: 24px; line-height: 1.55; color: #cbd5e1; white-space: pre-line; }
+    .big { font-size: 60px; line-height: 1.25; font-weight: 800; color: #ffffff; }
+    .accent { color: #f59e0b; }
+    .ok { color: #34d399; }
+    .err { color: #f87171; }
+    .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 22px; }
+    .chip {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+      padding: 10px 22px; border-radius: 999px; font-size: 20px; color: #e2e8f0;
+    }
+    .line { margin: 8px 0; }
+    .brand { font-size: 40px; font-weight: 800; color: #ffffff; }
+    .brand-sub { font-size: 22px; color: #94a3b8; margin-top: 8px; }
+    .footer { margin-top: 40px; font-size: 18px; color: #64748b; }
+    .arrow { color: #3b82f6; font-weight: 700; }
+    .fade { animation: fadeIn 1s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body>
+  <div id="slide"></div>
+  <script>
+    const SLIDES = {
+      1: { kicker: 'KeelBase', html: 'AI 已经不只是聊天。', cls: 'sub' },
+      2: { kicker: 'Golden Path', html: 'AI → read customer data<br>→ analyze risk<br>→ create follow-up task<br>→ update CRM', cls: 'sub' },
+      3: { kicker: '0:09', html: '<span class="big" style="color:#f87171">WAIT.</span><br><span class="sub">Can the AI really do that?</span>', cls: '' },
+      4: { kicker: 'Three Questions', html: 'Can it access data it shouldn\'t see?<br><br>Can it write without approval?<br><br>If something goes wrong,<br>can we know what happened — and undo it?', cls: 'sub' },
+      5: { kicker: '', html: '<div class="brand">KeelBase</div><div class="brand-sub">Business-safe AI Agent Runtime</div>', cls: '' },
+      6: { kicker: 'Positioning', html: '<div class="line"><b>AI Agents</b></div><div class="line">MCP / OpenAPI / Tools</div><div class="line arrow">↓</div><div class="line"><b>KeelBase Trust Layer</b></div><div class="line arrow">↓</div><div class="line">CRM · ERP · OA · MES</div>', cls: 'sub' },
+      7: { kicker: 'Trust Layer', html: '<div class="row"><span class="chip">Identity</span><span class="chip">Policy</span><span class="chip">Permission</span><span class="chip">Confirmation</span><span class="chip">Audit</span><span class="chip">Revoke</span></div>', cls: '' },
+      8: { kicker: 'Brand Sentence', html: '<div class="big" style="font-size:44px">AI can act — but only within<br>explicit business boundaries.</div>', cls: '' },
+      9: { kicker: 'Live · Demo 1', html: '登录 alex / 123456 → AI CRM', cls: 'sub' },
+      10: { kicker: 'Live · Demo 1', html: 'Understanding request...<br>→ query_customer_orders<br>→ query_customer_activities<br>→ analyze_customer_risk', cls: 'sub' },
+      11: { kicker: 'Live · Demo 1', html: '发现 3 个需要关注的客户<br><span class="accent">瀚宇制造 · Risk: Critical</span><br>单笔 280 万订单逾期 40 天', cls: 'sub' },
+      12: { kicker: 'Live · Demo 2', html: '建议为瀚宇制造创建销售跟进任务。是否执行？', cls: 'sub' },
+      13: { kicker: 'Live · Demo 2', html: 'Create Follow-up Task<br>Customer: 瀚宇制造 · Owner: Alex<br>[ Reject ] [ Approve ]', cls: 'sub' },
+      14: { kicker: 'Live · Demo 2', html: '点击 Approve', cls: 'sub' },
+      15: { kicker: 'Live · Demo 3', html: '<span class="ok">✓ Permission checked</span><br><span class="ok">✓ Human approval received</span><br><span class="ok">✓ Task created</span>', cls: 'sub' },
+      16: { kicker: 'Live · Demo 3', html: 'New task in CRM Tasks<br>推进瀚宇制造分期方案签约', cls: 'sub' },
+      17: { kicker: 'Live · Demo 4', html: 'User Request → AI Decision → Tool Call<br>→ Authorization → Human Approval<br>→ Database Mutation → Audit Record', cls: 'sub' },
+      18: { kicker: 'Live · Demo 4', html: 'SHA-256 Hash Chain<br><span class="ok">✓ Integrity Verified</span>', cls: 'sub' },
+      19: { kicker: 'Live · Demo 5', html: 'Revoke AI-created task?<br>[ Cancel ] [ Revoke ]', cls: 'sub' },
+      20: { kicker: 'Live · Demo 5', html: '<span class="ok">✓ Side effect revoked</span>', cls: 'sub' },
+      21: { kicker: 'Live · Demo 5', html: 'Read → Decide → Confirm → Act → Audit → Revoke', cls: 'sub' },
+      22: { kicker: 'Trust Runtime', html: '<div class="line"><b>Any AI Agent</b></div><div class="line arrow">↓ Tool / MCP / API</div><div class="line"><b>KeelBase Trust Layer</b></div><div class="line" style="font-size:18px">Identity · Policy · Authorization · Human Approval · Side-effect · Audit · Revoke · Evaluation</div><div class="line arrow">↓</div><div class="line">Any Business System</div>', cls: 'sub' },
+      23: { kicker: 'Brand', html: '<div class="big" style="font-size:42px">Not another Agent Framework.</div><div class="sub" style="margin-top:16px;color:#f59e0b">A Trust Runtime for Business AI.</div>', cls: '' },
+      24: { kicker: 'Live · Overreach', html: 'User: 查看其他销售负责的客户订单', cls: 'sub' },
+      25: { kicker: 'Live · Overreach', html: '<div class="big" style="font-size:40px;color:#f87171">ACCESS DENIED</div><div class="sub" style="font-size:18px">User scope: Owner = Alex<br>Requested resource: Customer owned by Bob<br>Policy: ROW-LEVEL DENY</div>', cls: '' },
+      26: { kicker: 'Enterprise Safety Validation', html: '<span class="ok">✓</span> 39-case Authorization Matrix<br><span class="ok">✓</span> 12/12 Security Evaluation<br><span class="ok">✓</span> Golden Flow E2E<br><span class="ok">✓</span> Audit Integrity Verification<br><span class="ok">✓</span> 15/15 Agent Behavior Benchmark', cls: 'sub' },
+      27: { kicker: '', html: 'Security boundary ≠ Prompt instruction<br><div style="color:#f59e0b;font-weight:700;font-size:30px;margin-top:14px">Runtime enforcement</div>', cls: 'sub' },
+      28: { kicker: 'Build', html: '<code style="font-size:30px;background:rgba(255,255,255,0.08);padding:12px 28px;border-radius:10px;color:#7dd3fc">keelbase init --desc "Customer management"</code>', cls: '' },
+      29: { kicker: 'Build', html: 'Natural Language → Module Spec<br>→ Application Protocol → Application Code<br>→ AI Tools → Governance', cls: 'sub' },
+      30: { kicker: 'Build', html: '<div class="big" style="font-size:40px">Protocol → Code</div><div class="sub">Your application. Your source code.</div>', cls: '' },
+      31: { kicker: 'Build', html: '<div class="big" style="font-size:44px">Protocol → Code</div>', cls: '' },
+      32: { kicker: 'Existing System', html: '<div class="line">Existing CRM / ERP / 10-year-old Java System / Existing Database</div><div class="line arrow">↓ Bridge</div><div class="line">Application Protocol</div><div class="line arrow">↓ KeelBase Trust Runtime</div><div class="line arrow">↓ AI Agent</div>', cls: 'sub' },
+      33: { kicker: 'Existing System', html: '<div class="big" style="font-size:42px">Legacy system, new AI capability.</div>', cls: '' },
+      34: { kicker: 'Private Deploy', html: '<div class="line">Cloud LLM <b>OR</b> Local Model / Ollama</div><div class="line arrow">→ Local Embedding</div><div class="line arrow">→ Local RAG</div><div class="line arrow">→ Business-safe Agent</div><div class="line arrow">→ Local Audit</div>', cls: 'sub' },
+      35: { kicker: 'Private Deploy', html: '<div class="row"><span class="chip">Docker</span><span class="chip">Offline</span><span class="chip">On-Premise</span><span class="chip">Private Data</span></div>', cls: '' },
+      36: { kicker: '', html: '', cls: '' },
+      37: { kicker: '', html: '<div class="brand">KeelBase</div><div class="brand-sub" style="font-size:22px">Build → Run → Trust → Private Deploy</div><div class="sub" style="font-size:20px;margin-top:18px">Business-safe AI Applications</div><div class="sub" style="font-size:20px;margin-top:8px">AI can act — but only within explicit business boundaries.</div><div class="footer">Open Source · Enterprise AI Trust Runtime<br>github.com/rain6fish/KeelBase</div>', cls: '' },
+    };
+    const shot = Number(new URLSearchParams(location.search).get('shot')) || 1;
+    const data = SLIDES[shot] || { kicker: 'KeelBase', html: 'Loading…', cls: 'sub' };
+    document.getElementById('slide').innerHTML =
+      '<div class="fade">' +
+      (data.kicker ? '<div class="kicker">' + data.kicker + '</div>' : '') +
+      '<div class="' + data.cls + '">' + data.html + '</div>' +
+      '</div>';
+  </script>
+</body>
+</html>
