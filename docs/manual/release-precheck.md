@@ -4,16 +4,17 @@
 
 ## 标准程序（三步，顺序执行）
 
-### ① 双重代码审核（整合改进）
+### ① 三方代码审核（整合改进）
 
-**两份独立审核 → 整合结果 → 落地改进**：
+**三份独立审核 → 整合结果 → 落地改进**：
 
 1. **阿里 code review（OpenCodeReview / `ocr` CLI，v1.9.4）**：对本次发布 diff 审查——
    - `ocr review --from <prev-release> --to <release-branch>`（对发布区间 diff）
    - 或 `ocr scan`（全文件审查出报告）
    - 或 Claude Code 会话内 `/open-code-review:delegate-review`（OCR 选文件/规则 + 宿主审查，免 key）
 2. **Claude Code 自带 code review**：对同一 diff 跑 Claude 的多维代码审查（正确性 / 安全 / 性能 / 简化 / 测试覆盖）。
-3. **整合**：合并两份意见，去重、分级（阻塞 / 建议 / 风格），阻塞项必须修复；建议项择优落地；改进提交回 master。
+3. **code-review skill（mattpocock，2026-08-28 安装）**：对同一区间跑双轴评审——Standards（是否符合仓库编码规范）与 Spec（是否符合源 issue/spec 要求），两轴并行子代理，结果并排报告。触发方式：`/code-review <commit|branch|tag|merge-base>`。
+4. **整合**：合并三份意见，去重、分级（阻塞 / 建议 / 风格），阻塞项必须修复；建议项择优落地；改进提交回 master。
 
 ### ② 全量测试
 
@@ -40,7 +41,7 @@
 
 ```text
 Release Precheck（<日期>）：
-- 双重 code review：阿里 X 条 + Claude Y 条 → 修复 Z 条阻塞项
+- 三方 code review：阿里 X 条 + Claude 自带 Y 条 + code-review skill Z 条 → 修复 W 条阻塞项
 - 全量测试：后端单测/e2e/前端/Flutter/生成器 全过（覆盖率 backend xx% / flutter xx%）
 - 覆盖率：较上版 +x.x% / 达标
 ```
