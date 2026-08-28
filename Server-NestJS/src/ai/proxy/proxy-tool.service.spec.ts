@@ -57,6 +57,21 @@ describe('ProxyToolRegistryService（AI Bridge B 路径配置注册）', () => {
     expect(second.skipped).toEqual(['proxy_list']);
   });
 
+  it('baseUrl 非法（非 URL / ftp:）→ 跳过全部注册并记录（SSRF 防护）', async () => {
+    for (const bad of ['not-a-url', 'ftp://x']) {
+      settingsValue = JSON.stringify({
+        baseUrl: bad,
+        audience: 'a',
+        tools: [{ name: 't', description: 'd', method: 'GET', path: '/c', parameters: [] }],
+      });
+      const svc = new ProxyToolRegistryService(mockSettings as any, mockDelegation as any, new ToolRegistry());
+      const r = await svc.loadAndRegister();
+      expect(r.registered).toEqual([]);
+      expect(r.skipped.length).toBeGreaterThan(0);
+      expect(r.skipped[0]).toMatch(/baseUrl/);
+    }
+  });
+
   it('非法 JSON / 缺 baseUrl → 静默跳过', async () => {
     settingsValue = '{bad json';
     const svc = new ProxyToolRegistryService(mockSettings as any, mockDelegation as any, new ToolRegistry());

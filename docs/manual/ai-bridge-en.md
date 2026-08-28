@@ -11,7 +11,7 @@
 | Path | What it does | Status | Use when |
 |---|---|---|---|
 | **A. Schema rebuild** | Legacy DB schema → Protocol → generate a new module (KeelBase manages CRUD + AI on the same data) | ✅ `--import-schema` / `--import-openapi` verified | Data can be taken over in the same DB, and you want KeelBase-managed CRUD + AI |
-| **B. API proxy** | OpenAPI operations → generate proxy tools → **call the existing system's REST endpoints directly** (carrying identity, through governance) | 🚧 P1, not implemented (only `web-search.tool.ts` is an external-HTTP precedent) | You can't touch the legacy system, and AI must operate on live existing data |
+| **B. API proxy** | OpenAPI operations → generate proxy tools → **call the existing system's REST endpoints directly** (carrying identity, through governance) | ✅ implemented (§4: ProxyTool + openapi-proxy generator + revokePath revocation, e2e 6/6) | You can't touch the legacy system, and AI must operate on live existing data |
 
 > **Key honest note**: A is "new development reverse-engineered from a schema"; only B is "operating the existing system".
 > The market narrative "no migration, no rewrite" is only fully delivered by **B**; A promises "same-DB takeover + AI-ization".
@@ -123,12 +123,12 @@ Without solving this, Route B's "Permission" is hollow.
   if (!"legacy-erp".equals(jws.getBody().getAudience())) throw new AccessDeniedException("audience mismatch");
   ```
 
-- **Pending**: Route-B ProxyTool injecting the delegated-identity header (§4 not implemented) + mock-Java-system end-to-end acceptance (the received call recognizes the correct user; cross-user is rejected)
+- **Landed**: Route-B ProxyTool injecting the delegated-identity header (§4) + mock-Java-system end-to-end acceptance (the received call recognizes the correct user; cross-user is rejected)
 - Acceptance: the mock Java system recognizes the correct user identity on the received call; cross-user (other people's data) is rejected by the target system or KeelBase
 
 ---
 
-## 6. Java Team Integration Guide (§3 import hardening + §5 delegated token landed; §4 B-path ProxyTool pending)
+## 6. Java Team Integration Guide (§3 import hardening + §4 B-path ProxyTool + §5 delegated token all landed)
 
 ### Step 1: Pick the Path (decision table)
 

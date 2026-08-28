@@ -77,6 +77,10 @@ export class ProxyTool implements AiTool {
   async execute(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
     // 1. 路径模板 `{param}` 替换（从 args 取，URL 编码）；未提供 → 失败
     let path = this.cfg.path;
+    // SSRF 防护（M0）：path 必须相对——禁止 `//` 前缀与绝对 URL 前缀（防绕过 baseUrl）
+    if (path.startsWith('//') || /^https?:\/\//i.test(path)) {
+      return { success: false, error: '非法目标路径' };
+    }
     // 占位符用任意非花括号字符（生成器 sanitize 后参数名含 _，OpenAPI path 可能是 {customer-id} 等非 \w 形式）
     const pathParams = [...this.cfg.path.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]);
     for (const p of pathParams) {

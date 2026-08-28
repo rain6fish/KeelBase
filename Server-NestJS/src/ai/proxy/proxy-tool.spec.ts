@@ -97,6 +97,20 @@ describe('ProxyTool（AI Bridge B 路径）', () => {
     expect(r.error).toMatch(/缺少路径参数/);
   });
 
+  it('path 含 // 前缀或绝对 URL → 拒绝（SSRF 防护）', async () => {
+    for (const badPath of ['//evil.com/contracts', 'http://evil.com/contracts', 'https://evil.com/contracts']) {
+      const tool = new ProxyTool(
+        { name: 't', description: 'd', method: 'GET', path: badPath, parameters: [] },
+        mockDelegation as any,
+        base,
+        audience,
+      );
+      const r = await tool.execute({}, 'u1');
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/非法目标路径/);
+    }
+  });
+
   it('目标 4xx → 透传错误（供 Agent 回退）', async () => {
     const tool = new ProxyTool(
       {
