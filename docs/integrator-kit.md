@@ -10,7 +10,7 @@
 | 组件 | 状态 | 入口 |
 |---|---|---|
 | **AI Bridge**（存量系统 OpenAPI → AI 工具，读 R1/写 R3 + 委托身份 + revokePath 撤销） | ✅ 已具备 | [ai-bridge.md](manual/ai-bridge.md) |
-| **Java Adapter**（Java 存量系统接入 + 补偿端点） | 🚧 部分（openapi-proxy 生成器 ✅；**补偿端点参考实现已提供**；真实 Java 系统实测待 P1） | [ai-bridge.md](manual/ai-bridge.md) §AI Bridge B 路径 + [java-compensation-example.md](integrator-kit/java-compensation-example.md) |
+| **Java Starter**（Spring Boot 接入：委托验签过滤器 + `@KeelbaseTool` 导出 + 补偿脚手架） | ✅ 核心可用（`KeelBase-java-starter` 已发布双远程，真实 KeelBase 联调全通：确认门控→流式批准→写回→审计→撤销补偿） | [GitHub: KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter) + [java-compensation-example.md](integrator-kit/java-compensation-example.md) |
 | **OpenAPI Import**（`keelbase init --import-openapi`） | ✅ | [development.md](manual/development.md) |
 | **SQL Import**（`keelbase init --import-schema`） | ✅ | [development.md](manual/development.md) |
 | **MCP Gateway**（外部 MCP 出入 + 风险分级 + SSRF 防护） | ✅ | [framework-adapter.md](manual/framework-adapter.md) |
@@ -36,8 +36,8 @@
 3. 业务闭环：用户问「哪些客户值得跟进」→ AI 读外部客户/订单 → 风险分析 → 建跟进任务（R3 确认）→ 写回 → 审计哈希链 → 撤销
 
 **升级为完整样板的剩余**（P1）：
-- Java 端真实补偿端点（revokePath 的 Java 实现）
-- 真实 Java 存量系统端到端实测
+- ~~Java 端真实补偿端点~~ → ✅ `KeelBase-java-starter` 的 `KeelBaseCompensationSupport` 已提供（幂等 + 审计）
+- ~~真实 Java 存量系统端到端实测~~ → ✅ 联调已全通（见 `KeelBase-java-starter` 的 `scripts/verify-java-starter-e2e.mjs`）
 - 集成商分步实施手册（从拿到系统到 AI 助手上线）
 
 ## 三、快速开始（集成商视角） / Quick Start for Integrators
