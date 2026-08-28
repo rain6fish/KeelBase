@@ -28,6 +28,7 @@ import { BindPhoneDto } from './dto/bind-phone.dto';
 import { LoginPhoneDto } from './dto/login-phone.dto';
 import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { Public } from './guards/public.decorator';
+import { recordLoginStats } from './login-stats';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { SkipMaintenance } from '../settings/skip-maintenance.decorator';
@@ -81,6 +82,18 @@ export class AuthController {
       ip: req?.ip,
       userAgent: req?.headers['user-agent'],
     });
+  }
+
+  /** 登录页访问统计（IP/OS/浏览器/时间 → data/login-stats.log）；reset/升级不碰该文件 */
+  @Public()
+  @SkipMaintenance()
+  @Post('login-stats')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @ApiOperation({ summary: 'Record login-page visit stats (IP/OS/browser/time)' })
+  recordLoginPageStats(@Body() body: { userAgent?: string }, @Req() req?: Request) {
+    recordLoginStats(req?.ip, body?.userAgent || req?.headers['user-agent']);
+    return { ok: true };
   }
 
   @Public()
