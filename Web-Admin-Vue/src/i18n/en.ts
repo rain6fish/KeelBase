@@ -7,7 +7,7 @@ const en: ZhDict = {
   loggingIn: 'Logging in...',
   show: 'Show',
   logout: 'Logout',
-  demoAccountsHint: 'Demo: alex / Alex\@2026$Demo (workbench) · admin / Admin\@2026$KeelBase (console)',
+  demoAccountsHint: 'Demo: alex / {alexPw} (workbench) · admin / {adminPw} (console)',
   role: 'Role',
   switchToAdmin: 'Switch to Admin Console',
   switchToUserConsole: 'Switch to User Console',
