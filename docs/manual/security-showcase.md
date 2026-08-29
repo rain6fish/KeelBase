@@ -23,7 +23,7 @@ cp Server-NestJS/.env.example Server-NestJS/.env
 cd Server-NestJS && npm install && npm run start:dev
 ```
 
-账号：`alex / 123456`（工作台）· `admin / Admin@1234`（管理台）· 越权演示再注册一个 `bob`（`POST /auth/register`，任意密码）。
+账号：`alex / 123456`（工作台）· `admin`（管理台，密码已更换为强密码、非默认 `Admin@1234`，向部署方获取）· 越权演示再注册一个 `bob`（`POST /auth/register`，任意密码）。
 
 ## 1. 越权拒绝（Permission Denied，授权矩阵）
 
