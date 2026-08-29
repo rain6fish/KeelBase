@@ -30,7 +30,7 @@ Then walk the golden path in 6 steps:
 
 ```text
 1. Open http://localhost:3000            (workbench) — /admin is the Admin Console
-2. Sign in — alex/123456, or admin/Admin@1234 (local dev defaults)
+2. Sign in — alex/Alex@2026$Demo, or admin/Admin@2026$KeelBase (public demo credentials; local dev defaults see below)
 3. Ask: "Which customers are at the highest risk this week?"
 4. Watch AI analyze real business data
 5. Approve a follow-up task              (human confirmation)
@@ -250,7 +250,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 - [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · **Apache-2.0** licensed
 - **Issues & feature requests** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
-- Demo accounts — local dev: `alex/123456` (workbench / mobile) · `admin/Admin@1234` (Admin Console); **public demo (121.199.30.80): `alex/Alex@2026$Demo` · `admin/Admin@2026$KeelBase`**
+- Demo accounts: `alex/Alex@2026$Demo` (workbench / mobile) · `admin/Admin@2026$KeelBase` (Admin Console) — consistent across all environments
 
 ## Repositories
 
