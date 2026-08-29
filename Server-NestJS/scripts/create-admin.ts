@@ -24,7 +24,7 @@ function arg(name: string): string {
 async function main() {
   const username = arg('username') || 'admin';
   const email = arg('email') || 'admin@example.com';
-  const password = arg('password') || 'Admin@1234';
+  const password = arg('password') || 'Admin@2026$KeelBase';
 
   if (password.length < 8) {
     console.error('Error: password must be at least 8 characters');
