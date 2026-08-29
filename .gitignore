@@ -69,3 +69,6 @@ Server-NestJS/data/backups/
 
 # SBOM（CI 生成的上传产物，不入库）
 Server-NestJS/sbom.spdx.json
+
+# SWC 编译器缓存（Taro 构建产物，不应入库）
+.swc/
