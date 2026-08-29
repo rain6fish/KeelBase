@@ -80,8 +80,12 @@
             {{ s.toolName }} <code class="text-caption">{{ s.args }}</code>
           </div>
           <div v-else-if="s.type === 'input' || s.type === 'assistant'" class="mt-1 text-body-2">{{ s.content }}</div>
-          <div v-else-if="s.type === 'effect' && s.effect" class="mt-1 text-body-2">
-            {{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}
+          <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
+            <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
+            <div v-if="s.effect.before || s.effect.after" class="mt-1">
+              <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
+              <FieldDiff :before="s.effect.before" :after="s.effect.after" />
+            </div>
           </div>
           <div v-if="s.errorMessage" class="mt-1 text-body-2 text-error">{{ s.errorMessage }}</div>
           <div v-if="s.trusted" class="text-caption text-medium-emphasis mt-1">{{ t('stepTrusted') }}</div>
@@ -98,6 +102,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import FieldDiff from '@/components/FieldDiff.vue'
 import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
 import { ApiError } from '@/api/client'

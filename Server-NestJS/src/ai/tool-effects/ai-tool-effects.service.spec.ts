@@ -101,6 +101,36 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(saved.resultId).toBe(42);
       expect(repo.save).toHaveBeenCalled();
     });
+
+    it('E-1：snapshot before/after 写入副作用记录', async () => {
+      repo.save.mockResolvedValue({
+        id: 1, idempotencyKey: 'k', userId: '1', conversationId: 'c',
+        toolName: 'create_event', argsHash: 'abc', resultType: 'event', resultId: 42,
+        beforeSnapshot: null, afterSnapshot: '{"id":42,"title":"晨会"}',
+      });
+      const saved = await service.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: '晨会' } },
+        'event',
+        42,
+        { before: null, after: '{"id":42,"title":"晨会"}' },
+      );
+      expect(saved.afterSnapshot).toBe('{"id":42,"title":"晨会"}');
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ beforeSnapshot: null, afterSnapshot: '{"id":42,"title":"晨会"}' }),
+      );
+    });
+
+    it('E-1：不传 snapshot 时快照列为 null', async () => {
+      repo.save.mockResolvedValue({ id: 1 });
+      await service.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_todo', args: { title: 'X' } },
+        'todo',
+        3,
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ beforeSnapshot: null, afterSnapshot: null }),
+      );
+    });
   });
 
   describe('record', () => {

@@ -126,6 +126,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiEvalCases*.js',
               'dist/migrations/*AddFormBuilder*.js',
               'dist/migrations/*AddAiToolSideEffects*.js',
+              'dist/migrations/*AddAiToolSideEffectSnapshots*.js',
               'dist/migrations/*AddHeadlessApiKeys*.js',
               'dist/migrations/*AddGeneratedModuleSchemas*.js',
               'dist/migrations/*AddOrgStructures*.js',

@@ -146,6 +146,33 @@ describe('DecisionTraceService', () => {
     });
   });
 
+  it('E-1：effect 步骤透出 before/after 快照', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    effectsService.listForConversation.mockResolvedValue([
+      {
+        id: 10,
+        toolName: 'create_followup_task',
+        conversationId: 'conv-1',
+        resultType: 'crm_task',
+        resultId: 3,
+        argsHash: 'abc',
+        createdAt: '2026-08-18T01:04:00.000Z',
+        targetExists: true,
+        targetSoftDeleted: false,
+        targetTitle: '跟进',
+        beforeSnapshot: null,
+        afterSnapshot: '{"id":3,"title":"跟进","status":"open"}',
+      },
+    ]);
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    expect(steps[0].effect).toMatchObject({
+      resultType: 'crm_task',
+      before: null,
+      after: '{"id":3,"title":"跟进","status":"open"}',
+    });
+  });
+
   it('消息合并：user→input、非空 assistant→assistant、tool/system/空内容→跳过', async () => {
     convService.getConversation.mockResolvedValue(
       makeConv({
