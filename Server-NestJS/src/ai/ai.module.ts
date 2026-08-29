@@ -71,11 +71,13 @@ import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from './governance/ai-governance-policy.entity';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance/governance-reporter.service';
+import { InternalEffectsController } from './governance/internal-effects.controller';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
@@ -131,7 +133,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditChainModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
   ],
-  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController],
+  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController],
   providers: [
     ConversationService,
     AuditService,
@@ -144,6 +146,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ConfirmationStore,
     AiEvalService,
     AiToolEffectsService,
+    SideEffectSnapshotCaptor,
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
     GovernancePolicyService,
@@ -176,6 +179,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         approvalService: ApprovalService,
         approvalsRepo,
         delegationTokenService,
+        snapshotCaptor: SideEffectSnapshotCaptor,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -358,9 +362,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           toolEffectsService,
           governancePolicy,
           approvalsRepo,
+          snapshotCaptor,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
