@@ -131,6 +131,25 @@ async function loginAs(frame, username, password) {
   await sleep(1800);
 }
 
+/** Evidence 段：从 alex（工作台）切到 admin（管理台安全验证页） */
+async function loginAsAdmin(frame, username, password) {
+  await frame.evaluate(() => localStorage.clear()).catch(() => {});
+  await setStage(frame, `${BASE_URL}/admin/#/login`);
+  await frame.locator('input[autocomplete="username"]').waitFor({ timeout: 25000 });
+  await sleep(1200);
+  await frame.locator('input[autocomplete="username"]').fill(username);
+  await sleep(500);
+  await frame.locator('input[autocomplete="current-password"]').fill(password);
+  await sleep(500);
+  await frame
+    .getByRole('button', { name: /登\s*录|Log\s*in/i })
+    .first()
+    .click();
+  // admin 登录进控制台（dashboard）
+  await frame.waitForURL(/#\/(dashboard|guard)/, { timeout: 25000 }).catch(() => {});
+  await sleep(1800);
+}
+
 async function openCrmDetail(frame) {
   await frame.locator('.el-table__row').first().waitFor({ timeout: 25000 });
   const row = frame.locator('.el-table__row', { hasText: '瀚宇制造' }).first();
@@ -435,17 +454,43 @@ async function main() {
     boundaries.push({ shot: 25, at: Date.now() - t0 });
     await sleep(6000);
 
-    // Evidence + Build + Bridge + Deploy 26-37
-    await showSlide(page, 26, 5000, boundaries, t0);
-    await showSlide(page, 27, 3000, boundaries, t0);
-    await showSlide(page, 28, 7000, boundaries, t0);
-    await showSlide(page, 29, 12000, boundaries, t0);
-    await showSlide(page, 30, 8000, boundaries, t0);
-    await showSlide(page, 31, 3000, boundaries, t0);
-    await showSlide(page, 32, 13000, boundaries, t0);
-    await showSlide(page, 33, 7000, boundaries, t0);
-    await showSlide(page, 34, 7000, boundaries, t0);
-    await showSlide(page, 35, 4000, boundaries, t0);
+    // Evidence 26-27：管理台安全验证（admin 真实页——AI 审计 + 安全审查）
+    await loginAsAdmin(page, 'admin', 'Admin@1234');
+    boundaries.push({ shot: 26, at: Date.now() - t0 });
+    await setStage(page, `${BASE_URL}/admin/#/audit`);
+    await page.waitForURL(/\/audit/, { timeout: 25000 }).catch(() => {});
+    await sleep(5000);
+    boundaries.push({ shot: 27, at: Date.now() - t0 });
+    await setStage(page, `${BASE_URL}/admin/#/security-review`);
+    await page.waitForURL(/security-review/, { timeout: 25000 }).catch(() => {});
+    await sleep(3000);
+
+    // Build 28-31：真实 keelbase init 终端（生成业务模块）
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=build`);
+    boundaries.push({ shot: 28, at: Date.now() - t0 });
+    await sleep(7000);
+    boundaries.push({ shot: 29, at: Date.now() - t0 });
+    await sleep(12000);
+    boundaries.push({ shot: 30, at: Date.now() - t0 });
+    await sleep(8000);
+    boundaries.push({ shot: 31, at: Date.now() - t0 });
+    await sleep(3000);
+
+    // Existing System 32-33：AI Bridge 终端（不替换系统获得 AI 能力）
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=bridge`);
+    boundaries.push({ shot: 32, at: Date.now() - t0 });
+    await sleep(13000);
+    boundaries.push({ shot: 33, at: Date.now() - t0 });
+    await sleep(7000);
+
+    // Private Deploy 34-35：私有 AI 终端（本地模型，数据不出域）
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=private`);
+    boundaries.push({ shot: 34, at: Date.now() - t0 });
+    await sleep(7000);
+    boundaries.push({ shot: 35, at: Date.now() - t0 });
+    await sleep(4000);
+
+    // 结尾 36-37
     await showSlide(page, 36, 2000, boundaries, t0);
     await showSlide(page, 37, 2000, boundaries, t0);
 
