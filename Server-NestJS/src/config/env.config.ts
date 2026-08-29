@@ -73,7 +73,7 @@ export const envValidationSchema = Joi.object({
   QQ_APP_KEY: Joi.string().allow('').default(''),
 
   // AI Provider 配置
-  AI_PROVIDER: Joi.string().valid('deepseek', 'qwen', 'openai', 'ollama').default('deepseek'),
+  AI_PROVIDER: Joi.string().valid('deepseek', 'qwen', 'openai', 'anthropic', 'gemini', 'ollama').default('deepseek'),
   AI_CHAT_MODEL: Joi.string().default('deepseek-v4-flash'),
   AI_MAX_TOKENS: Joi.number().default(4096),
   AI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
@@ -90,6 +90,14 @@ export const envValidationSchema = Joi.object({
   // OpenAI（预留）
   OPENAI_API_KEY: Joi.string().allow('').default(''),
   OPENAI_BASE_URL: Joi.string().default('https://api.openai.com/v1'),
+
+  // Anthropic Claude（官方 OpenAI 兼容层，tool calling 支持）
+  ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
+  ANTHROPIC_BASE_URL: Joi.string().default('https://api.anthropic.com/v1'),
+
+  // Google Gemini（官方 OpenAI 兼容层 /v1beta/openai，tool calling 支持）
+  GEMINI_API_KEY: Joi.string().allow('').default(''),
+  GEMINI_BASE_URL: Joi.string().default('https://generativelanguage.googleapis.com/v1beta/openai'),
 
   // RAG 向量检索（AI-5）
   VECTOR_SEARCH_ENABLED: Joi.boolean().default(true),
