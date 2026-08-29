@@ -3,6 +3,7 @@ import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApiGuard } from './governance-api.guard';
 import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
+import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 
 /**
  * D2-3 业务系统接入治理台（服务身份）：
@@ -17,6 +18,7 @@ export class ExternalGovernanceController {
   constructor(
     private readonly auditService: AuditService,
     private readonly governancePolicy: GovernancePolicyService,
+    private readonly toolEffects: AiToolEffectsService,
   ) {}
 
   /** 业务系统上报 AI 审计事件（userId/action/tool 等），落治理库审计链 */
@@ -50,5 +52,26 @@ export class ExternalGovernanceController {
   @Public()
   async getPolicy() {
     return this.governancePolicy.getPolicy();
+  }
+
+  /** 业务系统上报 AI 写副作用（D2-3c），落治理库 ai_tool_side_effects（幂等键去重） */
+  @Post('effects')
+  @Public()
+  async reportEffect(@Body() dto: Record<string, unknown>): Promise<{ ok: boolean; effectId?: number }> {
+    const userId = dto.userId != null ? String(dto.userId) : '0';
+    const args = (dto.args as Record<string, unknown> | undefined) ?? {};
+    const resultType = String(dto.resultType ?? 'external');
+    const resultId = Number(dto.resultId ?? 0);
+    const saved = await this.toolEffects.record(
+      {
+        userId,
+        conversationId: dto.conversationId as string | undefined,
+        toolName: String(dto.toolName ?? 'external'),
+        args,
+      },
+      resultType,
+      resultId,
+    );
+    return { ok: true, effectId: saved?.id };
   }
 }
