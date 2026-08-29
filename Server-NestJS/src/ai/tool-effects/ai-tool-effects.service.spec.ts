@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
 
 describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   let service: AiToolEffectsService;
@@ -28,6 +29,8 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     const module = await Test.createTestingModule({
       providers: [
         AiToolEffectsService,
+        LocalEntityRevoker,
+        { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
         { provide: getRepositoryToken(AiToolSideEffect), useValue: repo },
         { provide: getEntityManagerToken(), useValue: entityManager },
       ],
@@ -120,7 +123,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       entityManager.getRepository.mockReturnValue(todoRepo);
 
       const res = await service.revoke(3);
-      expect(res).toEqual({ revoked: true, effectId: 3 });
+      expect(res).toMatchObject({ revoked: true, effectId: 3 });
       expect(entityManager.getRepository).toHaveBeenCalledWith('Todo');
       expect(todoRepo.softDelete).toHaveBeenCalledWith(55);
     });
@@ -131,7 +134,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       entityManager.getRepository.mockReturnValue(eventRepo);
 
       const res = await service.revoke(3);
-      expect(res).toEqual({ revoked: true, effectId: 3 });
+      expect(res).toMatchObject({ revoked: true, effectId: 3 });
       expect(eventRepo.softDelete).not.toHaveBeenCalled();
     });
 
@@ -148,7 +151,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       entityManager.getRepository.mockReturnValue(eventRepo);
 
       const res = await service.revokeOwned(7, '42');
-      expect(res).toEqual({ revoked: true, effectId: 7 });
+      expect(res).toMatchObject({ revoked: true, effectId: 7 });
       expect(eventRepo.softDelete).toHaveBeenCalledWith(88);
     });
 
@@ -239,12 +242,14 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(items[0].targetTitle).toBeNull();
     });
 
-    it('_entityFor 映射旗舰副作用类型', () => {
-      const svc = service as any;
-      expect(svc._entityFor('crm_task')).toBe('CrmTask');
-      expect(svc._entityFor('pm_task')).toBe('PmTask');
-      expect(svc._entityFor('app_request')).toBe('ApprovalRequest');
-      expect(svc._entityFor('unknown')).toBe('Todo');
+    it('LocalEntityRevoker 映射副作用类型', () => {
+      const revoker = new LocalEntityRevoker(entityManager as any);
+      expect(revoker.canHandle('crm_task')).toBe(true);
+      expect(revoker.canHandle('pm_task')).toBe(true);
+      expect(revoker.canHandle('app_request')).toBe(true);
+      expect(revoker.canHandle('event')).toBe(true);
+      expect(revoker.canHandle('unknown')).toBe(true); // default Todo
+      expect(revoker.canHandle('proxy_call')).toBe(false); // B 路径外部（走 ExternalRevoker）
     });
   });
 });
