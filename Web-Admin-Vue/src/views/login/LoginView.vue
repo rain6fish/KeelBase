@@ -55,7 +55,7 @@
         </template>
 
         <div class="text-caption text-medium-emphasis mt-4 text-center">
-          admin / Admin@1234（控制台）· alex / 123456（工作台）
+          {{ t('demoAccountsHint') }}
         </div>
       </div>
       <div class="text-center pb-4">
