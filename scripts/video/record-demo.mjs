@@ -32,7 +32,13 @@ const SHOW_INTRO =
   !process.argv.includes('--no-intro') && process.env.SHOW_INTRO !== '0';
 const INTRO_SECONDS = Number(process.env.INTRO_SECONDS || 10);
 const DEMO_USER = process.env.DEMO_USER || 'alex';
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '123456';
+// demo 环境账号密码已更换为强密码（非默认 123456），录制前必须显式设置：
+// 本地开发环境 `DEMO_PASSWORD=123456`；录 ECS demo 用部署方提供的强密码。
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '';
+if (!DEMO_PASSWORD) {
+  console.error('请设置 DEMO_PASSWORD 环境变量（本地开发可用 123456；录 ECS demo 用新密码）');
+  process.exit(1);
+}
 const DEMO_QUESTION =
   process.env.DEMO_QUESTION || '请为这个客户创建一个跟进任务，标题为：跟进客户风险';
 
