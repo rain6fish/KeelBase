@@ -71,6 +71,7 @@ import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from './governance/ai-governance-policy.entity';
 import { GovernancePolicyService } from './governance/governance-policy.service';
@@ -142,6 +143,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ConfirmationStore,
     AiEvalService,
     AiToolEffectsService,
+    // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
+    { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
     GovernancePolicyService,
     DecisionTraceService,
     {

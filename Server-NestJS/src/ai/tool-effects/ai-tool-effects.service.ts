@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
-import { InjectEntityManager } from '@nestjs/typeorm';
-import { EntityManager } from 'typeorm';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
+import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
+import type { SideEffectRevoker } from './side-effect-revoker';
 
 export interface WriteToolContext {
   userId: string;
@@ -38,8 +38,8 @@ export class AiToolEffectsService {
   constructor(
     @InjectRepository(AiToolSideEffect)
     private readonly effectsRepo: Repository<AiToolSideEffect>,
-    @InjectEntityManager()
-    private readonly entityManager: EntityManager,
+    @Optional() @Inject(SIDE_EFFECT_REVOKER)
+    private readonly revoker?: SideEffectRevoker,
     @Optional() @Inject(EXTERNAL_REVOKER)
     private externalRevoker?: ExternalRevoker,
   ) {}
@@ -181,64 +181,36 @@ export class AiToolEffectsService {
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
-    const entity = this._entityFor(effect.resultType);
-    if (!entity) {
-      // B 路径（proxy_call）：无本地实体可软删——有 revoker 则调 Java 补偿端点，否则返回诚实语义
-      if (this.externalRevoker) {
-        const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
-        return {
-          revoked: r.ok,
-          effectId: effect.id,
-          external: true,
-          compensated: r.ok,
-          message: r.ok ? `Java 端已补偿（${r.message}）` : r.message,
-        };
-      }
+    // D2-1f：本地实体撤销走 SideEffectRevoker（可替换为远程补偿 revoker）
+    if (this.revoker?.canHandle(effect.resultType)) {
+      const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
+      this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
+      return { revoked: r.revoked, effectId: effect.id, message: r.message };
+    }
+    // 非本地（proxy_call）：B 路径外部补偿
+    if (this.externalRevoker) {
+      const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
       return {
-        revoked: false,
+        revoked: r.ok,
         effectId: effect.id,
         external: true,
-        message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删）',
+        compensated: r.ok,
+        message: r.ok ? `Java 端已补偿（${r.message}）` : r.message,
       };
     }
-    const repo = this.entityManager.getRepository(entity);
-    const target = await repo.findOne({ where: { id: effect.resultId } } as any);
-    if (target) {
-      await repo.softDelete(effect.resultId);
-    }
-    this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-    return { revoked: true, effectId: effect.id };
+    return {
+      revoked: false,
+      effectId: effect.id,
+      external: true,
+      message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删）',
+    };
   }
 
   private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {
-    const entity = this._entityFor(type);
-    if (!entity) {
-      // B 路径外部写调用：目标存在于 Java 系统（KeelBase 无本地记录，撤销语义在 Java 端）
-      return { title: '外部系统写调用（B 路径）', deletedAt: null };
-    }
-    const repo = this.entityManager.getRepository(entity);
-    return (await repo.findOne({
-      where: { id },
-      withDeleted: true,
-      select: { title: true, deletedAt: true },
-    } as any)) as any;
-  }
-
-  private _entityFor(type: string): string | null {
-    switch (type) {
-      case 'event':
-        return 'Event';
-      case 'crm_task':
-        return 'CrmTask';
-      case 'pm_task':
-        return 'PmTask';
-      case 'app_request':
-        return 'ApprovalRequest';
-      case 'proxy_call':
-        return null; // B 路径外部写调用（目标在 Java 系统，无本地实体）
-      default:
-        return 'Todo';
-    }
+    // D2-1f：目标状态经 SideEffectRevoker（本地软删状态 / 外部系统占位）
+    return (
+      this.revoker?.describeTarget(type, id) ?? { title: '外部系统写调用（B 路径）', deletedAt: null }
+    );
   }
 }
 
