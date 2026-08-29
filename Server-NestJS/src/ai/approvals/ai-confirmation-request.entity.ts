@@ -41,7 +41,7 @@ export class AiConfirmationRequest {
   @Column({ length: 4, name: 'risk_level' })
   riskLevel!: string;
 
-  /** pending | approved | declined */
+  /** pending | approved | declined | timeout（D2-1e：R3 确认超时也落库） */
   @Column({ length: 16, default: 'pending' })
   status!: string;
 
