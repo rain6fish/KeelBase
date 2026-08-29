@@ -219,7 +219,8 @@ Docker 单容器一键启动（`docker run` 一条命令起全栈）、离线 / 
 - **开源许可**：Apache-2.0
 - **仓库**：GitHub `rain6fish/KeelBase`（镜像 Gitee），公开可访问
 - **原创性**：全部代码 / 文档 / 架构为本项目原创开发
-- **合规**：依赖均采用开源许可（MIT / Apache-2.0 等），无闭源组件风险
+- **合规**：依赖均采用开源许可（MIT / Apache-2.0 / ISC / BSD / OFL 为主），无闭源组件风险
+- **版权自查（2026-08-29）**：第三方组件声明见 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)——图像处理 sharp/libvips 为 LGPL-3.0 **独立库未修改使用**（可替换），jszip 按 MIT 选项使用；字体（Noto Sans SC / mdi / fontsource）为 OFL 开源字体；应用图标为项目原创/模板默认素材，演示视频为原创录制，无未授权第三方素材
 
 ---
 
