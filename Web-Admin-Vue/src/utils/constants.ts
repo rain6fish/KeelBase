@@ -4,6 +4,10 @@ export const APP_NAME = 'KeelBase Admin'
 // 相对路径保证同域 nginx 反代 + 单容器 SERVE_STATIC 都可用（避免旧版硬编码 localhost 的 DEP-5 问题）。
 export const API_BASE_URL = import.meta.env.VITE_API_BASE || '/api/v1'
 
+// 治理台基址（D2-5c）：独立治理控制平面地址，如 http://localhost:3100/api/v1
+// 未配置 VITE_GOVERNANCE_URL 时回落主应用（治理端点仍走主应用，行为不变）
+export const GOVERNANCE_BASE_URL = import.meta.env.VITE_GOVERNANCE_URL || API_BASE_URL
+
 export const API_TIMEOUT = 30000
 
 export const STORAGE_KEYS = {
