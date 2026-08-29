@@ -29,6 +29,8 @@ import { GovernanceApprovalService } from './governance-approval.service';
 import { AuditController } from '../ai/audit/audit.controller';
 import { AgentsController } from '../ai/agents/agents.controller';
 import { GovernanceController } from './governance.controller';
+import { ExternalGovernanceController } from './external-governance.controller';
+import { GovernanceApiGuard } from './governance-api.guard';
 
 // 治理台认证：复用 JWT 策略（共享 JWT_SECRET）+ 简化 CASL admin 判定
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
@@ -59,7 +61,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
-  controllers: [AuditController, AgentsController, GovernanceController],
+  controllers: [AuditController, AgentsController, GovernanceController, ExternalGovernanceController],
   providers: [
     // 认证：JWT 策略 + 守卫（复用主应用，共享 JWT_SECRET）+ 简化 CASL（只 admin）
     JwtStrategy,
