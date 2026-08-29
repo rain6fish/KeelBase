@@ -110,7 +110,8 @@ async function setStage(page, url) {
 }
 
 async function showSlide(page, shot, durationMs, boundaries, t0) {
-  await setStage(page, `${SLIDES_URL}/slides.html?shot=${shot}`);
+  // 分镜语言跟随 LANG：zh → slides-zh.js，否则 slides.js（英文）
+  await setStage(page, `${SLIDES_URL}/slides.html?shot=${shot}&lang=${LANG}`);
   boundaries.push({ shot, at: Date.now() - t0 });
   await sleep(durationMs);
 }
@@ -302,6 +303,7 @@ async function main() {
     for (const f of readdirSync(frameDir)) if (f.endsWith('.jpg')) unlinkSync(join(frameDir, f));
     let frameCounter = 0;
     let capturing = true;
+    const frameTimes = []; // 每帧截图时间戳（组装用动态 fps，防视频加速/时长失真）
     const capLoop = (async () => {
       while (capturing) {
         try {
@@ -311,6 +313,7 @@ async function main() {
             type: 'jpeg',
             quality: 85,
           });
+          frameTimes.push(Date.now());
           const dt = Date.now() - st;
           await sleep(Math.max(350, 800 - dt));
         } catch (e) {}
@@ -323,16 +326,21 @@ async function main() {
       try {
         const frames = readdirSync(frameDir).filter((f) => f.endsWith('.jpg')).sort();
         if (!frames.length) throw new Error('无截图帧');
-        const videoOut = join(LOG_DIR, 'official-demo.webm');
+        const videoOut = join(LOG_DIR, `official-demo-${LANG}.webm`);
         // playwright ffmpeg 精简版（n7.0.1-playwright-build）：VP8 编码器名是 libvpx（非 libvpx_vp8）；
         // Windows 上 `-i -`（stdin 短横线）报 "Protocol not found" → 用显式 pipe:0。
         const input = Buffer.concat(frames.map((f) => readFileSync(join(frameDir, f))));
         const ffmpegPath =
           process.env.FFMPEG_PATH ||
           'C:/Users/pc/AppData/Local/ms-playwright/ffmpeg-1011/ffmpeg-win64.exe';
+        // 动态 fps：按截图实际时间戳（间隔 ~800ms），防视频加速/时长失真
+        const fps =
+          frameTimes.length > 1
+            ? (frameTimes.length - 1) / ((frameTimes[frameTimes.length - 1] - frameTimes[0]) / 1000)
+            : 2;
         execFileSync(
           ffmpegPath,
-          ['-y', '-f', 'image2pipe', '-framerate', '2', '-c:v', 'mjpeg', '-i', 'pipe:0', '-c:v', 'libvpx', '-b:v', '2500k', videoOut],
+          ['-y', '-f', 'image2pipe', '-framerate', String(Number(fps.toFixed(2))), '-c:v', 'mjpeg', '-i', 'pipe:0', '-c:v', 'libvpx', '-b:v', '2500k', videoOut],
           { input, stdio: ['pipe', 'inherit', 'inherit'] },
         );
         console.log(`[VIDEO] ${videoOut} (${frames.length} 帧)`);
