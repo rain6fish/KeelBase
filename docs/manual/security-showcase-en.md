@@ -23,7 +23,7 @@ cp Server-NestJS/.env.example Server-NestJS/.env
 cd Server-NestJS && npm install && npm run start:dev
 ```
 
-Accounts: `alex / 123456` (workbench) · `admin` (Admin Console, password rotated to a strong one — not the default `Admin@1234`; obtain from the deployer) · register a second account `bob` (`POST /auth/register`) for the permission-denied demo.
+Accounts: `alex` (workbench, password rotated to a strong one — not the default `123456`; obtain from the deployer) · `admin` (Admin Console, password rotated to a strong one — not the default `Admin@1234`; obtain from the deployer) · register a second account `bob` (`POST /auth/register`) for the permission-denied demo.
 
 ## 1. Permission denied (row-level authorization)
 
