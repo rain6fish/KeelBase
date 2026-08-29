@@ -1,5 +1,6 @@
 import { Controller, Get, Query, Delete, Param, ParseIntPipe } from '@nestjs/common';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
+import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
@@ -15,6 +16,13 @@ export class GovernanceController {
     private readonly governancePolicy: GovernancePolicyService,
     private readonly toolEffects: AiToolEffectsService,
   ) {}
+
+  /** 治理台健康检查（docker 编排用） */
+  @Get('health')
+  @Public()
+  async health() {
+    return { ok: true, service: 'governance' };
+  }
 
   @Get('confirmations/pending')
   @CheckPolicies((ability) => ability.can('manage', 'all'))

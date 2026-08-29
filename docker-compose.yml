@@ -74,6 +74,36 @@ services:
       server:
         condition: service_healthy
 
+  # ---- D2-5 独立治理控制平面（可选编排）----
+  # 业务系统（server）配 GOVERNANCE_URL=http://governance:3100 + GOVERNANCE_API_KEY 后，
+  # AI 审计/副作用双写上报治理台；治理台连独立治理库（postgres 的 governance 库）。
+  # 治理库自动建表（GovernanceDataSource synchronize）；独立容器，与业务 server 解耦部署。
+  governance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+    command: ["node", "dist/governance/main"]
+    ports:
+      - "3100:3100"
+    env_file:
+      - ./Server-NestJS/.env.production
+    environment:
+      - PORT=3100
+      - DB_TYPE=postgres
+      - GOVERNANCE_DB_HOST=postgres
+      - GOVERNANCE_DB_PORT=5432
+      - GOVERNANCE_DB_NAME=governance
+      - GOVERNANCE_TARGET_URL=http://server:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/api/v1/ai/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   # ---- P1-3 私有化 AI：本地模型（可选编排，--profile private-ai 启用）----
   # 验证者 `docker compose --profile private-ai up -d ollama` 一键起本地模型；
   # 后端配 OLLAMA_BASE_URL=http://ollama:11434 + AI_PROVIDER=ollama 即全走本地（数据不出域）。
