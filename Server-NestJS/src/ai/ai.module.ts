@@ -213,6 +213,20 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           availableModels: ['gpt-4o-mini', 'gpt-4o'],
         });
 
+        registerProvider('anthropic', {
+          displayName: 'Anthropic Claude',
+          baseURL: 'https://api.anthropic.com/v1',
+          defaultModel: 'claude-sonnet-4-6',
+          availableModels: ['claude-opus-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+        });
+
+        registerProvider('gemini', {
+          displayName: 'Google Gemini',
+          baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+          defaultModel: 'gemini-2.5-pro',
+          availableModels: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+        });
+
         // POV-1 私有化 AI：Ollama 本地模型（无需 API Key，OLLAMA_BASE_URL 判定启用）
         // 数据不出域；AI_PROVIDER=ollama 时默认走本地，其余仍走云端（降级链）
         const ollamaBase = configService.get<string>('OLLAMA_BASE_URL', '');
