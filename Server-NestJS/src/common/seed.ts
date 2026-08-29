@@ -32,8 +32,9 @@ export class SeedService implements OnApplicationBootstrap {
 
     this.logger.log('Seeding demo user...');
 
-    const hashedPassword = await bcrypt.hash('123456', 12);
-    const hashedAdminPassword = await bcrypt.hash('Admin@1234', 12);
+    // 测试/线上环境账号密码一致（2026-08-29 统一为强密码）
+    const hashedPassword = await bcrypt.hash('Alex@2026$Demo', 12);
+    const hashedAdminPassword = await bcrypt.hash('Admin@2026$KeelBase', 12);
 
     const users = await this.usersRepository.save([
       {
@@ -56,7 +57,7 @@ export class SeedService implements OnApplicationBootstrap {
       },
     ]);
 
-    this.logger.log('Demo users created: alex / 123456, admin / Admin@1234');
+    this.logger.log('Demo users created: alex / Alex@2026$Demo, admin / Admin@2026$KeelBase');
 
     // PM-2 演示数据：为演示用户 alex 种入事件/待办/知识库/对话/通知
     // （仅空库首启时执行，幂等；生产/测试环境不执行——已在开头 NODE_ENV 判断排除）

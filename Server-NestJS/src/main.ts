@@ -125,8 +125,8 @@ async function bootstrap() {
     console.log(`   Swagger 文档 http://localhost:${port}/api/docs`);
     console.log('');
     console.log('   演示账号：');
-    console.log('     普通用户  alex / 123456');
-    console.log('     管理员    admin / Admin@1234');
+    console.log('     普通用户  alex / Alex@2026$Demo');
+    console.log('     管理员    admin / Admin@2026$KeelBase');
     console.log('');
     console.log('   下一步：跑前端 `flutter run -d chrome`，或见 docs/manual/quickstart.md');
     console.log('  ═══════════════════════════════════════════════════');
