@@ -33,6 +33,8 @@ export const envValidationSchema = Joi.object({
   GOVERNANCE_API_KEY: Joi.string().optional().allow(''),
   // D2-3b 治理台地址（业务系统配置后审计双写上报；空则完全本地）
   GOVERNANCE_URL: Joi.string().optional().allow(''),
+  // D2-4 治理台回调业务系统地址（治理台撤销副作用时回调业务系统撤销端点；空则治理台本地 revoker）
+  GOVERNANCE_TARGET_URL: Joi.string().optional().allow(''),
 
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
