@@ -12,7 +12,7 @@
 
 ## 🚀 Try in 60 Seconds
 
-> Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (workbench — public demo passwords are rotated; obtain from the deployer, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
+> Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (`alex/Alex@2026$Demo` — workbench, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
 >
 > Or **watch the demo video** → [English demo (GitHub Pages)](https://rain6fish.github.io/KeelBase/video-en.html) · [China mirror](http://121.199.30.80/demo/video-en.html) (4-min, with real system demos; download: [GitHub release](https://github.com/rain6fish/KeelBase/releases/tag/demo-videos)).
 
@@ -30,7 +30,7 @@ Then walk the golden path in 6 steps:
 
 ```text
 1. Open http://localhost:3000            (workbench) — /admin is the Admin Console
-2. Sign in — local default demo accounts (see "Demo accounts" below; public demo passwords are rotated)
+2. Sign in — alex/123456, or admin/Admin@1234 (local dev defaults)
 3. Ask: "Which customers are at the highest risk this week?"
 4. Watch AI analyze real business data
 5. Approve a follow-up task              (human confirmation)
@@ -250,7 +250,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 - [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · **Apache-2.0** licensed
 - **Issues & feature requests** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
-- Demo accounts: `alex/123456` (workbench / mobile) · `admin/Admin@1234` (Admin Console) — local defaults; **public demo (121.199.30.80) passwords are rotated**, obtain from the deployer
+- Demo accounts — local dev: `alex/123456` (workbench / mobile) · `admin/Admin@1234` (Admin Console); **public demo (121.199.30.80): `alex/Alex@2026$Demo` · `admin/Admin@2026$KeelBase`**
 
 ## Repositories
 
