@@ -11,11 +11,16 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+// BASE_URL = 后端（AI 真实操作）；SLIDES_URL = 分镜服务（serve-official-assets.mjs，SLIDES_PORT 起，
+// 默认 3001 可能与后端冲突——后端在 3001 时用 SLIDES_PORT=3011 起分镜服务 + 本 env 覆盖，否则 Opening 空白）
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SLIDES_URL = process.env.SLIDES_URL || 'http://localhost:3001';
 const OBS_WS_URL = process.env.OBS_WS_URL || 'ws://localhost:4455';
@@ -28,6 +33,7 @@ const CREATE_QUESTION =
 const OVERREACH_QUESTION =
   process.env.OVERREACH_QUESTION || '查看其他销售负责的客户订单';
 const LOG_DIR = resolve(process.env.SHOT_LOG_DIR || 'artifacts/official-demo');
+const LANG = process.env.LANG || 'zh'; // zh | en —— 工作台 UI 语言（分镜屏幕文字本身英文）
 const SHOT_LOG = join(LOG_DIR, 'shot-log.json');
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -98,14 +104,13 @@ async function waitForFrame(page, regex, timeoutMs = 25000) {
 }
 
 async function setStage(page, url) {
-  await page.locator('#stage').evaluate((el, src) => {
-    el.src = src;
-  }, url);
+  // 顶层页直接导航（recordVideo 只捕获顶层内容，iframe 不捕获）
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+  await sleep(600);
 }
 
 async function showSlide(page, shot, durationMs, boundaries, t0) {
   await setStage(page, `${SLIDES_URL}/slides.html?shot=${shot}`);
-  await waitForFrame(page, new RegExp(`slides\\.html\\?shot=${shot}`));
   boundaries.push({ shot, at: Date.now() - t0 });
   await sleep(durationMs);
 }
@@ -273,31 +278,88 @@ async function main() {
 
   try {
     browser = await chromium.launch({
-      headless: false,
+      headless: true,
       executablePath: chromePath(),
       args: ['--window-size=1280,800'],
     });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
+      // 不用 recordVideo（本机合成故障致空白帧）：改用后台截图循环 → ffmpeg 组装成片
     });
     const page = await context.newPage();
-    await page.goto(`${SLIDES_URL}/player.html`, { waitUntil: 'load' });
-    await sleep(3000);
+    // 顶层页直导航（recordVideo 只捕获顶层内容）；首帧即分镜 1
+    await page.goto(`${SLIDES_URL}/slides.html?shot=1`, { waitUntil: 'load' });
+    await sleep(2000);
+    // 设置工作台 UI 语言（slides 与 workbench 同源，localStorage 共享；admin_locale）
+    await page
+      .evaluate((lang) => localStorage.setItem('admin_locale', lang), LANG)
+      .catch(() => {});
+    console.log(`[LANG] 工作台 UI 语言 = ${LANG}`);
 
-    const obsPassword = readObsPassword();
-    if (!obsPassword) throw new Error('未找到 OBS WebSocket 密码');
-    obs = new ObsClient(OBS_WS_URL, obsPassword);
-    await obs.connect();
-    const status = await obs.call('GetRecordStatus');
-    if (status.outputActive) {
-      await obs.call('StopRecord');
-      await sleep(2500);
+    // ── 截图序列成片（绕开本机视频捕获故障）──
+    const frameDir = join(LOG_DIR, 'frames');
+    mkdirSync(frameDir, { recursive: true });
+    for (const f of readdirSync(frameDir)) if (f.endsWith('.jpg')) unlinkSync(join(frameDir, f));
+    let frameCounter = 0;
+    let capturing = true;
+    const capLoop = (async () => {
+      while (capturing) {
+        try {
+          const st = Date.now();
+          await page.screenshot({
+            path: join(frameDir, `frame-${String(frameCounter++).padStart(4, '0')}.jpg`),
+            type: 'jpeg',
+            quality: 85,
+          });
+          const dt = Date.now() - st;
+          await sleep(Math.max(350, 800 - dt));
+        } catch (e) {}
+      }
+    })();
+    const stopCapture = () => {
+      capturing = false;
+    };
+    const assemble = () => {
+      try {
+        const frames = readdirSync(frameDir).filter((f) => f.endsWith('.jpg')).sort();
+        if (!frames.length) throw new Error('无截图帧');
+        const videoOut = join(LOG_DIR, 'official-demo.webm');
+        // playwright ffmpeg 精简版（n7.0.1-playwright-build）：VP8 编码器名是 libvpx（非 libvpx_vp8）；
+        // Windows 上 `-i -`（stdin 短横线）报 "Protocol not found" → 用显式 pipe:0。
+        const input = Buffer.concat(frames.map((f) => readFileSync(join(frameDir, f))));
+        const ffmpegPath =
+          process.env.FFMPEG_PATH ||
+          'C:/Users/pc/AppData/Local/ms-playwright/ffmpeg-1011/ffmpeg-win64.exe';
+        execFileSync(
+          ffmpegPath,
+          ['-y', '-f', 'image2pipe', '-framerate', '2', '-c:v', 'mjpeg', '-i', 'pipe:0', '-c:v', 'libvpx', '-b:v', '2500k', videoOut],
+          { input, stdio: ['pipe', 'inherit', 'inherit'] },
+        );
+        console.log(`[VIDEO] ${videoOut} (${frames.length} 帧)`);
+      } catch (e) {
+        console.log(`[VIDEO] 组装失败: ${e.message.slice(0, 150)}`);
+      }
+    };
+
+    try {
+      const obsPassword = readObsPassword();
+      if (!obsPassword) throw new Error('未找到 OBS WebSocket 密码');
+      obs = new ObsClient(OBS_WS_URL, obsPassword);
+      await obs.connect();
+      const status = await obs.call('GetRecordStatus');
+      if (status.outputActive) {
+        await obs.call('StopRecord');
+        await sleep(2500);
+      }
+      const scene = await ensureObsCapture(obs, 'KeelBase 项目介绍');
+      await obs.call('StartRecord');
+      obsRecording = true;
+      console.log(`[OBS] 开始录制（场景: ${scene}）`);
+    } catch (error) {
+      obs = null;
+      console.log(`[OBS] 跳过 OBS（不可用，用 Playwright webm 兜底）: ${error.message}`);
     }
-    const scene = await ensureObsCapture(obs, 'KeelBase 项目介绍');
-    await obs.call('StartRecord');
     t0 = Date.now();
-    obsRecording = true;
-    console.log(`[OBS] 开始录制（场景: ${scene}）`);
 
     // Opening 1-8
     await showSlide(page, 1, 5000, boundaries, t0);
@@ -309,44 +371,44 @@ async function main() {
     await showSlide(page, 7, 8000, boundaries, t0);
     await showSlide(page, 8, 5000, boundaries, t0);
 
-    // Demo 1-5 (9-21)
+    // Demo 1-5 (9-21) —— 顶层页直导航（page 即内容）
     await setStage(page, `${BASE_URL}/admin/#/login`);
-    let frame = await waitForFrame(page, /admin\/#\/login/);
+    await page.waitForURL(/admin\/#\/login/, { timeout: 25000 }).catch(() => {});
     boundaries.push({ shot: 9, at: Date.now() - t0 });
-    await loginAs(frame, DEMO_USER, DEMO_PASSWORD);
+    await loginAs(page, DEMO_USER, DEMO_PASSWORD);
 
     await setStage(page, `${BASE_URL}/admin/#/workbench/crm`);
-    frame = await waitForFrame(page, /workbench\/crm/);
-    const customerId = await openCrmDetail(frame);
-    frame = await waitForFrame(page, /workbench\/crm\/\d+/);
-    await openAiDrawer(frame);
+    await page.waitForURL(/workbench\/crm/, { timeout: 25000 }).catch(() => {});
+    const customerId = await openCrmDetail(page);
+    await openAiDrawer(page);
 
     boundaries.push({ shot: 10, at: Date.now() - t0 });
-    await askInDrawer(frame, RISK_QUESTION);
-    await waitToolCards(frame);
-    await waitRiskConclusion(frame);
+    await askInDrawer(page, RISK_QUESTION);
+    await waitToolCards(page);
+    await waitRiskConclusion(page);
     await sleep(5000);
     boundaries.push({ shot: 12, at: Date.now() - t0 });
-    await askInDrawer(frame, CREATE_QUESTION);
-    await waitConfirmCard(frame);
+    await askInDrawer(page, CREATE_QUESTION);
+    await waitConfirmCard(page);
     await sleep(7000);
     boundaries.push({ shot: 14, at: Date.now() - t0 });
-    await approveConfirm(frame);
-    await waitGovernance(frame);
+    await approveConfirm(page);
+    await waitGovernance(page);
     await sleep(5000);
     boundaries.push({ shot: 16, at: Date.now() - t0 });
-    await frame.keyboard.press('Escape');
+    // 治理抽屉自动打开后页面可能重载——防御
+    try { await page.keyboard.press('Escape'); } catch (e) {}
     await sleep(1200);
-    await frame.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    try { await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); } catch (e) {}
     await sleep(5000);
 
     boundaries.push({ shot: 17, at: Date.now() - t0 });
     await setStage(page, `${BASE_URL}/admin/#/workbench/ai-trace`);
-    frame = await waitForFrame(page, /workbench\/ai-trace/);
-    await selectAiTraceConversation(frame, RISK_QUESTION);
+    await page.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
+    await selectAiTraceConversation(page, RISK_QUESTION);
     await sleep(6000);
     boundaries.push({ shot: 19, at: Date.now() - t0 });
-    await revokeFirstEffect(frame);
+    await revokeFirstEffect(page);
     await sleep(5000);
     boundaries.push({ shot: 21, at: Date.now() - t0 });
     await sleep(4000);
@@ -357,10 +419,10 @@ async function main() {
 
     // 越权失败 24-25
     await setStage(page, `${BASE_URL}/admin/#/workbench/crm/${customerId}`);
-    frame = await waitForFrame(page, /workbench\/crm\/\d+/);
-    await openAiDrawer(frame);
+    await page.waitForURL(/workbench\/crm\/\d+/, { timeout: 25000 }).catch(() => {});
+    await openAiDrawer(page);
     boundaries.push({ shot: 24, at: Date.now() - t0 });
-    await askInDrawer(frame, OVERREACH_QUESTION);
+    await askInDrawer(page, OVERREACH_QUESTION);
     await sleep(10000);
     boundaries.push({ shot: 25, at: Date.now() - t0 });
     await sleep(6000);
@@ -378,6 +440,10 @@ async function main() {
     await showSlide(page, 35, 4000, boundaries, t0);
     await showSlide(page, 36, 2000, boundaries, t0);
     await showSlide(page, 37, 2000, boundaries, t0);
+
+    stopCapture();
+    await sleep(1000);
+    assemble();
 
     const endAt = Date.now() - t0;
     const log = boundaries.map((entry, index) => ({
