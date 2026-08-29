@@ -53,7 +53,7 @@
 | 敏感数据加密 / 上传安全 / SSRF 防护 Encryption / upload security | ✅ | AES-256-GCM + 魔数校验 + 图片 SSRF 双防 |
 | 数据可携带 / 自助注销 Data portability / deactivation | ✅ | `/auth/export-data`、`/auth/deactivate`（AU-5/6） |
 | 数据主权（私有化 AI / 离线部署）Data sovereignty | ✅ | OLLAMA 本地 LLM + 离线镜像（POV-1/3） |
-| 内容安全 Content safety（AI-23） | ⏸ 押后 | 敏感词/越狱防护——市场相关，目标市场确定后启动 |
+| 内容安全 Content safety（AI-23） | 🚧 轻量版已落地 | `src/ai/security/content-safety.ts`：敏感词（严重违规类别）+ 越狱/无限制模式 + 注入指令检测，AI 对话入口拒绝（chat/chatStream，AI_CONTENT_BLOCKED）；可配置扩展 |
 
 ## 5. 可观测与运维 / Observability & Ops
 
@@ -100,7 +100,7 @@
 |---|---|---|
 | 《数据安全法》/《个人信息保护法》 | 敏感数据静态加密、防爆破、最小化采集、数据可携带、注销 | §4 安全与合规 |
 | 等保参考要求（审计 / 备份 / 访问控制） | 全链路审计（哈希链）、备份恢复、CASL 访问控制 | §1/§4/§5 |
-| 生成式 AI 合规（网信办《生成式 AI 服务管理暂行办法》） | AI-23 押后——目标市场确定后启动（内容审核 + 数据出境声明） | §4 |
+| 生成式 AI 合规（网信办《生成式 AI 服务管理暂行办法》） | AI-23 轻量版已落地（敏感词/越狱/注入检测 + 对话拒绝）；内容审核深度化与数据出境声明按市场启动 | §4 |
 | 数据不出域 / 私有化 | 本地 LLM/embedding + 离线镜像 + 外部依赖降级（POV-1/3） | §4 |
 
 ---
