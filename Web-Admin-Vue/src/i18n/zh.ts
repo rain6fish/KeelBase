@@ -421,6 +421,12 @@ const zh = {
   governanceWhy: '为何允许',
   governanceResult: '结果',
   governanceIntegrity: '完整性',
+  // E-1 字段级变更审计
+  fieldChange: '字段变更',
+  diffField: '字段',
+  diffBefore: '变更前',
+  diffAfter: '变更后',
+  diffNoChange: '无字段变更',
   workbenchActionDetail: '业务动作详情',
   viewFullTrace: '查看完整轨迹',
   governanceLoading: '加载中…',
@@ -517,6 +523,7 @@ const zh = {
   resultId: '目标 ID',
   revokeEffect: '撤销',
   revokeEffectConfirm: '确定撤销「{title}」？将软删对应记录（可经回收站恢复）',
+  diffFields: '处字段变更',
 
   // 治理策略（HS-9）
   governancePolicy: '治理策略',

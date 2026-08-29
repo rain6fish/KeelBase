@@ -319,6 +319,7 @@ describe('AiService', () => {
         expect.objectContaining({ userId: '1', toolName: 'create_event', conversationId: 'c1' }),
         'event',
         100,
+        { before: null, after: null }, // E-1 快照（测试未注入 captor → null）
       );
       (aiService as any).toolEffectsService = undefined;
     });

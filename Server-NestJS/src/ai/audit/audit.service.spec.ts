@@ -489,6 +489,43 @@ describe('AuditService', () => {
       expect(report.samples).toEqual([]);
       expect(report.byDay).toEqual([]);
     });
+
+    it('E-1：effectDiffs 解析副作用 before/after 快照', async () => {
+      repo.find.mockResolvedValue([]);
+      effectsRepo.count.mockResolvedValue(1);
+      effectsRepo.find.mockResolvedValue([
+        {
+          id: 7,
+          toolName: 'create_followup_task',
+          resultType: 'crm_task',
+          resultId: 3,
+          createdAt: new Date('2026-08-30T00:00:00Z'),
+          beforeSnapshot: null,
+          afterSnapshot: '{"id":3,"title":"跟进","status":"open"}',
+        },
+      ]);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 0 });
+
+      const report = await service.getActionReport({ userId: '1' });
+      expect(report.effectDiffs).toHaveLength(1);
+      expect(report.effectDiffs[0]).toMatchObject({
+        resultType: 'crm_task',
+        before: null,
+        after: { id: 3, title: '跟进', status: 'open' },
+      });
+    });
+
+    it('E-1：快照非法 JSON 降级 null（不破坏证据包）', async () => {
+      repo.find.mockResolvedValue([]);
+      effectsRepo.count.mockResolvedValue(1);
+      effectsRepo.find.mockResolvedValue([
+        { id: 8, toolName: 'create_todo', resultType: 'todo', resultId: 1, createdAt: new Date(), beforeSnapshot: 'not-json', afterSnapshot: null },
+      ]);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 0 });
+
+      const report = await service.getActionReport();
+      expect(report.effectDiffs[0]).toMatchObject({ before: null, after: null });
+    });
   });
 
   describe('getLogs agentId 过滤（Agent Registry → 审计联动）', () => {

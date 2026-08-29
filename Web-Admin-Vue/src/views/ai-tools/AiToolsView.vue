@@ -115,6 +115,12 @@
       </template>
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
       <template #item.targetTitle="{ item }">{{ item.targetTitle || '-' }}</template>
+      <template #item.fieldDiff="{ item }">
+        <el-button v-if="item.afterSnapshot" text size="small" type="primary" @click="showDiff(item)">
+          {{ diffCount(item) }} {{ t('diffFields') }}
+        </el-button>
+        <span v-else class="text-medium-emphasis">—</span>
+      </template>
       <template #item.status="{ item }">
         <StatusChip v-if="item.targetExists && !item.targetSoftDeleted" status="ok" :label-map="effectStatusMap" />
         <StatusChip v-else-if="item.targetSoftDeleted" status="cancelled" :label-map="effectStatusMap" />
@@ -142,6 +148,11 @@
       :content="t('revokeEffectConfirm', { title: pending?.targetTitle || `#${pending?.resultId}` })"
       @confirm="onRevoke"
     />
+
+    <!-- E-1 字段级变更审计：副作用目标记录 before/after diff -->
+    <el-dialog v-model="showDiffDialog" :title="t('fieldChange')" width="600px">
+      <FieldDiff v-if="diffTarget" :before="diffTarget.beforeSnapshot" :after="diffTarget.afterSnapshot" />
+    </el-dialog>
   </div>
 </template>
 
@@ -153,6 +164,7 @@ import AppTable from '@/components/AppTable.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import FieldDiff from '@/components/FieldDiff.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import { buildGovernancePolicy, parseGovernancePolicy } from '@/utils/governance'
@@ -170,6 +182,9 @@ const effectPage = ref(1)
 const limit = 20
 const effectsLoading = ref(false)
 const effectUserId = ref<number | undefined>(undefined)
+// E-1 字段级变更审计：查看目标记录 before/after diff
+const diffTarget = ref<ToolEffect | null>(null)
+const showDiffDialog = ref(false)
 
 // HS-9 治理策略编辑状态
 const rows = ref<PolicyToolState[]>([])
@@ -182,6 +197,25 @@ const roleOptions = computed(() => [
 
 const resultTypeMap = computed(() => ({ event: t('events'), todo: t('todos') }))
 const effectStatusMap = computed(() => ({ ok: t('active'), cancelled: t('cancelled'), down: t('deleted') }))
+
+/** E-1：副作用目标记录字段变更数（无快照 0；非法 JSON 0） */
+function diffCount(item: ToolEffect): number {
+  if (!item.afterSnapshot) return 0
+  try {
+    const after = JSON.parse(item.afterSnapshot) as Record<string, unknown>
+    if (!item.beforeSnapshot) return Object.keys(after).length
+    const before = JSON.parse(item.beforeSnapshot) as Record<string, unknown>
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+    return [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).length
+  } catch {
+    return 0
+  }
+}
+
+function showDiff(item: ToolEffect) {
+  diffTarget.value = item
+  showDiffDialog.value = true
+}
 
 /** W5 风险级标签：R5 阻断（红）/ R4 人工审批（橙）/ R3 需确认（橙）/ R0-R2 自动（绿） */
 function riskTag(tool: AdminAiTool) {
@@ -204,6 +238,7 @@ const effectHeaders = computed(() => [
   { key: 'resultType', title: t('resultType') },
   { key: 'resultId', title: t('resultId') },
   { key: 'targetTitle', title: t('titleLabel') },
+  { key: 'fieldDiff', title: t('fieldChange') },
   { key: 'status', title: t('statusCol') },
   { key: 'createdAt', title: t('createdAt') },
   { key: 'actions', title: t('actionCol') },
