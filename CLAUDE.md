@@ -633,6 +633,7 @@ npm run migration:run
 | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | 生产启动 |
 | `docker compose -f docker-compose.observability.yml up -d` | 可观测性栈（Prometheus/Grafana/Jaeger/Loki，本地 server 在宿主机时用） |
 | `docker compose up redis` | 单独起 Redis（本地 server 在宿主机时用，缓存层） |
+| `docker compose --profile private-ai up -d ollama` | 单独起本地模型 Ollama（P1-3 私有化 AI：server 已配 `OLLAMA_BASE_URL=http://ollama:11434`，`AI_PROVIDER=ollama` 全走本地数据不出域） |
 | `docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build` | 完整编排 + 监控（server 也在容器，需改 prometheus.yml targets 为 `server:3000`） |
 
 **可观测性栈访问**（详见 `docker-compose.observability.yml` 注释）：
