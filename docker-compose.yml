@@ -50,6 +50,8 @@ services:
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379
       - CACHE_ENABLED=true
+      # P1-3：本地模型编排（--profile private-ai 起 ollama 后生效；AI_PROVIDER=ollama 全走本地，数据不出域）
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +74,20 @@ services:
       server:
         condition: service_healthy
 
+  # ---- P1-3 私有化 AI：本地模型（可选编排，--profile private-ai 启用）----
+  # 验证者 `docker compose --profile private-ai up -d ollama` 一键起本地模型；
+  # 后端配 OLLAMA_BASE_URL=http://ollama:11434 + AI_PROVIDER=ollama 即全走本地（数据不出域）。
+  # 注意：中国网络拉 Docker Hub ollama 镜像可能受限；也可用宿主机原生 Ollama
+  #       （OLLAMA_BASE_URL=http://host.docker.internal:11434 指向宿主，见 verify-private-ai.sh）。
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["private-ai"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
 volumes:
   pgdata:
   server-data:
+  ollama-data:
