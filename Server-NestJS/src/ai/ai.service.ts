@@ -62,6 +62,8 @@ const FALLBACK_CHAIN: Record<string, string[]> = {
   deepseek: ['deepseek', 'qwen', 'openai', 'demo'],
   qwen: ['qwen', 'deepseek', 'openai', 'demo'],
   openai: ['openai', 'qwen', 'deepseek', 'demo'],
+  anthropic: ['anthropic', 'deepseek', 'qwen', 'openai', 'demo'],
+  gemini: ['gemini', 'deepseek', 'qwen', 'openai', 'demo'],
 };
 
 export interface ChatRequest {
