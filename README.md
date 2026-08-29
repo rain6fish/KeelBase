@@ -14,7 +14,7 @@
 
 > Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (`alex/123456` — workbench, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
 >
-> Or **watch the demo video** → [English demo](https://github.com/rain6fish/KeelBase/releases/download/demo-videos/official-demo-en.webm) (4-min, with real system demos).
+> Or **watch the demo video** → [English demo (online)](http://121.199.30.80/demo/video-en.html) (4-min, with real system demos; download: [GitHub release](https://github.com/rain6fish/KeelBase/releases/tag/demo-videos)).
 
 Docker only — one command brings up the entire application (backend + workbench + Admin Console + mobile preview), no build:
 
