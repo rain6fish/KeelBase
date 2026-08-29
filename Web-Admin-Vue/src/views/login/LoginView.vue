@@ -55,7 +55,8 @@
         </template>
 
         <div class="text-caption text-medium-emphasis mt-4 text-center">
-          {{ t('demoAccountsHint') }}
+          <!-- 密码经命名插值传入：i18n message 不含 @（vue-i18n 会把 @ 当 linked message 语法），避免登录页编译崩溃 -->
+          {{ t('demoAccountsHint', { alexPw: 'Alex@2026$Demo', adminPw: 'Admin@2026$KeelBase' }) }}
         </div>
       </div>
       <div class="text-center pb-4">
