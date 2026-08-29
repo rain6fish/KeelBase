@@ -47,7 +47,7 @@
         {{ formatTime(item.createdAt) }}
       </template>
       <template #item.actions="{ item }">
-        <el-button text size="small" type="danger" @click="confirmDelete(item)">
+        <el-button v-permission="'user.manage'" text size="small" type="danger" @click="confirmDelete(item)">
           <AppIcon icon="mdi-delete-outline" />
         </el-button>
       </template>

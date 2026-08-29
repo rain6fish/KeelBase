@@ -12,6 +12,13 @@ export interface ExplainTargetResult {
   deniedBy: 'casl' | null
 }
 
+/** Explainable Authz：当前用户能力清单（GET /auth/me/permissions） */
+export interface MyPermissions {
+  role: string
+  basis: string
+  resources: { subject: string; scope: 'all' | 'own'; reason: string }[]
+}
+
 export const authApi = {
   login(username: string, password: string): Promise<LoginResult> {
     return api.post<LoginResult>('/auth/login', { username, password })
@@ -22,6 +29,9 @@ export const authApi = {
   },
   me(): Promise<AuthUser> {
     return api.get<AuthUser>('/auth/me')
+  },
+  myPermissions(): Promise<MyPermissions> {
+    return api.get<MyPermissions>('/auth/me/permissions')
   },
   logout(): Promise<null> {
     return api.post<null>('/auth/logout')
