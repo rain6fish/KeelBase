@@ -31,6 +31,9 @@ export interface TraceEffect {
   resultId: number;
   targetTitle?: string | null;
   revocable: boolean;
+  /** E-1 字段级变更快照（JSON 字符串；create 类 before 为 null） */
+  before?: string | null;
+  after?: string | null;
 }
 
 export interface TraceStep {
@@ -164,6 +167,8 @@ export class DecisionTraceService {
           resultId: eff.resultId,
           targetTitle: eff.targetTitle ?? null,
           revocable: eff.targetExists && !eff.targetSoftDeleted,
+          before: eff.beforeSnapshot ?? null,
+          after: eff.afterSnapshot ?? null,
         },
       });
     }
