@@ -16,6 +16,12 @@ export interface WriteToolContext {
   args: Record<string, unknown>;
 }
 
+/** E-1 字段级变更快照（JSON 字符串；create 类 before 为 null） */
+export interface SideEffectSnapshot {
+  before?: string | null;
+  after?: string | null;
+}
+
 /** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
 export const EXTERNAL_REVOKER = 'EXTERNAL_REVOKER';
 
@@ -75,8 +81,13 @@ export class AiToolEffectsService {
     return { existing: false };
   }
 
-  /** 记录写工具副作用（execute 成功后调用）；resultType: event/todo/crm_task */
-  async record(ctx: WriteToolContext, resultType: string, resultId: number): Promise<AiToolSideEffect> {
+  /** 记录写工具副作用（execute 成功后调用）；resultType: event/todo/crm_task；snapshot 为 E-1 字段级变更快照 */
+  async record(
+    ctx: WriteToolContext,
+    resultType: string,
+    resultId: number,
+    snapshot?: SideEffectSnapshot,
+  ): Promise<AiToolSideEffect> {
     const key = AiToolEffectsService.buildKey(ctx);
     // 幂等：并发下可能已插入，命中唯一冲突则跳过
     try {
@@ -89,6 +100,8 @@ export class AiToolEffectsService {
           argsHash: createHash('sha256').update(JSON.stringify(sortKeys(ctx.args))).digest('hex').slice(0, 16),
           resultType,
           resultId,
+          beforeSnapshot: snapshot?.before ?? null,
+          afterSnapshot: snapshot?.after ?? null,
         } as Partial<AiToolSideEffect>),
       );
       this._reportEffect(ctx, resultType, resultId);
@@ -145,6 +158,8 @@ export class AiToolEffectsService {
           targetExists: !!target,
           targetSoftDeleted: target?.deletedAt != null,
           targetTitle: target?.title ?? null,
+          beforeSnapshot: effect.beforeSnapshot ?? null,
+          afterSnapshot: effect.afterSnapshot ?? null,
         };
       }),
     );
@@ -180,6 +195,8 @@ export class AiToolEffectsService {
           targetExists: !!target,
           targetSoftDeleted: target?.deletedAt != null,
           targetTitle: target?.title ?? null,
+          beforeSnapshot: effect.beforeSnapshot ?? null,
+          afterSnapshot: effect.afterSnapshot ?? null,
         };
       }),
     );

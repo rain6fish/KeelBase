@@ -34,6 +34,7 @@ import {
   AuthorizationDeniedError,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
 import {
@@ -138,6 +139,7 @@ export class AiService {
     private readonly toolEffectsService?: AiToolEffectsService,
     private readonly governancePolicy?: GovernancePolicyService,
     private readonly approvalsRepo?: Repository<AiConfirmationRequest>,
+    private readonly snapshotCaptor?: SideEffectSnapshotCaptor,
   ) {}
 
   /**
@@ -444,10 +446,15 @@ export class AiService {
             ? (result.data as any).id
             : proxyResultId(toolName, args)
           : (result.data as any).id;
+        // E-1 字段级变更审计：抓写操作目标记录 after 快照（本地实体全量 / 外部写用返回数据兜底）
+        const after = this.snapshotCaptor
+          ? await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)
+          : null;
         await this.toolEffectsService.record(
           { userId, conversationId, toolName, args },
           resultType,
           resultId,
+          { before: null, after },
         );
       }
     }

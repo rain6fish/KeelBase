@@ -420,6 +420,12 @@ const en: ZhDict = {
   governanceWhy: 'Why allowed',
   governanceResult: 'Result',
   governanceIntegrity: 'Integrity',
+  // E-1 field-level change audit
+  fieldChange: 'Field changes',
+  diffField: 'Field',
+  diffBefore: 'Before',
+  diffAfter: 'After',
+  diffNoChange: 'No field changes',
   workbenchActionDetail: 'Business Action Detail',
   viewFullTrace: 'View full trace',
   governanceLoading: 'Loading…',
@@ -516,6 +522,7 @@ const en: ZhDict = {
   resultId: 'Target ID',
   revokeEffect: 'Revoke',
   revokeEffectConfirm: 'Revoke "{title}"? Soft-deletes the record (recoverable via Trash)',
+  diffFields: 'field changes',
 
   // Governance policy (HS-9)
   governancePolicy: 'Governance Policy',

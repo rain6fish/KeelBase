@@ -29,8 +29,8 @@ export interface SideEffectRevoker {
   ): Promise<{ title?: string; deletedAt?: Date | null } | null>;
 }
 
-/** resultType → 本地业务实体名（无映射 = 外部系统目标，非本地） */
-function entityFor(type: string): string | null {
+/** resultType → 本地业务实体名（无映射 = 外部系统目标，非本地）；E-1 快照捕获复用 */
+export function entityFor(type: string): string | null {
   switch (type) {
     case 'event':
       return 'Event';

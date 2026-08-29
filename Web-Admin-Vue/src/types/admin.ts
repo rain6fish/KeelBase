@@ -266,6 +266,9 @@ export interface ToolEffect {
   targetExists: boolean
   targetSoftDeleted: boolean
   targetTitle: string | null
+  /** E-1 字段级变更审计：before/after 快照（JSON 字符串；create 类 before 为 null） */
+  beforeSnapshot?: string | null
+  afterSnapshot?: string | null
 }
 
 /** D5 Agent Registry：已注册 Agent 清单（GET /ai/agents，管理台） */
