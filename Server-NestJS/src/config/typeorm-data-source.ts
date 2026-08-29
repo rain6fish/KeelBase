@@ -94,17 +94,19 @@
  * 供独立治理台服务使用；业务系统仍用主 AppDataSource（上报接入见 D2-3）。
  */
 export const GovernanceDataSource = new DataSource({
-  type: dbType,
+  type: dbType === 'postgres' ? 'postgres' : 'better-sqlite3',
   ...(dbType === 'postgres'
     ? {
         host: process.env.GOVERNANCE_DB_HOST || process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.GOVERNANCE_DB_PORT || process.env.DB_PORT || '5432', 10),
         username: process.env.GOVERNANCE_DB_USER || process.env.DB_USER || 'postgres',
         password: process.env.GOVERNANCE_DB_PASSWORD || process.env.DB_PASSWORD || 'postgres',
-        database: process.env.GOVERNANCE_DB_NAME || process.env.DB_NAME || 'governance',
+        // 治理库名必须独立（不回落到主库 DB_NAME，避免治理台连业务库）
+        database: process.env.GOVERNANCE_DB_NAME || 'governance',
       }
     : {
-        database: process.env.GOVERNANCE_DB_PATH || process.env.DB_PATH || './data/governance.sqlite',
+        // 独立路径（不回落到主库 DB_PATH）
+        database: process.env.GOVERNANCE_DB_PATH || './data/governance.sqlite',
       }),
   entities: [
     AiAuditLog,
