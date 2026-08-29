@@ -239,6 +239,7 @@ const consoleNavGroups = computed(() => [
       { name: 'system-ai-assistant', to: '/system-ai-assistant', icon: 'mdi-robot-outline', label: t('navSystemAssistant') },
       { name: 'observability', to: '/observability', icon: 'mdi-lan', label: t('navObservability') },
       { name: 'system', to: '/system', icon: 'mdi-cog-outline', label: t('navSystemInfo') },
+      { name: 'permissions', to: '/permissions', icon: 'mdi-shield-account-outline', label: t('navPermissions') },
       { name: 'templates', to: '/templates', icon: 'mdi-view-grid-plus-outline', label: t('navTemplates') },
     ],
   },
