@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, SettingRow, ToolEffectsResponse } from '@/types/admin'
+import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse } from '@/types/admin'
 
 export const aiToolsApi = {
   tools(): Promise<AdminAiTool[]> {
@@ -23,14 +23,14 @@ export const aiToolsApi = {
   agents(): Promise<AiAgent[]> {
     return api.get('/ai/agents')
   },
-  /** HS-9 治理策略当前存储值（key = ai_governance_policy，JSON 字符串）。 */
+  /** D2-1d 治理策略（自有表 ai_governance_policy，JSON 字符串接口保持调用方不变）。 */
   async policy(): Promise<string | undefined> {
-    const rows = await api.get<SettingRow[]>('/settings')
-    return rows.find((r) => r.key === 'ai_governance_policy')?.value
+    const p = await api.get<{ tools: Record<string, unknown>; audit: { granularity: string } }>('/ai/governance/policy')
+    return JSON.stringify(p)
   },
-  /** HS-9 保存治理策略（写 Settings 即实时生效，无需发版）。 */
+  /** D2-1d 保存治理策略（PUT /ai/governance/policy 写自有表，实时生效）。 */
   savePolicy(value: string): Promise<unknown> {
-    return api.put('/settings/ai_governance_policy', { value, type: 'string' })
+    return api.put('/ai/governance/policy', JSON.parse(value))
   },
   /** R4 双人审批：待审批列表（管理员） */
   approvals(): Promise<AiApprovalRequest[]> {
