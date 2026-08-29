@@ -19,6 +19,10 @@ export class AiAuditLog {
   @Column({ name: 'conversation_id', nullable: true })
   conversationId?: string;
 
+  /** D2-1c username 快照：独立治理库后审计查询不依赖业务 users 表（写审计时快照，查询读本列） */
+  @Column({ length: 64, nullable: true, name: 'username' })
+  username?: string;
+
   @Column({ length: 32 })
   action!: string; // chat | tool_call | navigate | error | login
 
