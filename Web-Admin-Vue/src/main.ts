@@ -18,11 +18,13 @@ import AppIcon from './components/AppIcon.vue'
 import { i18n } from './i18n'
 import { setOnAuthFailure } from './api/client'
 import { useAuthStore } from './stores/auth'
+import { vPermission } from './directives/permission'
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.component('AppIcon', AppIcon)
+app.directive('permission', vPermission)
 app.use(i18n)
 
 // 401 刷新失败 → 重置会话并回登录页（token 失效/被撤销/角色变更）
