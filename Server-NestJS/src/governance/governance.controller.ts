@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Delete, Param, ParseIntPipe } from '@nestjs/common';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
@@ -46,5 +46,28 @@ export class GovernanceController {
       page: Number(page) || 1,
       limit: Number(limit) || 20,
     });
+  }
+
+  /** D2-4 撤销副作用：优先回调业务系统撤销端点（GOVERNANCE_TARGET_URL）；未配置回退本地 revoker（proxy_call 等） */
+  @Delete('tool-effects/:id')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async revokeEffect(@Param('id', ParseIntPipe) id: number): Promise<unknown> {
+    const target = process.env.GOVERNANCE_TARGET_URL;
+    if (target) {
+      try {
+        const res = await fetch(`${target}/api/v1/internal/effects/revoke`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.GOVERNANCE_API_KEY || '',
+          },
+          body: JSON.stringify({ effectId: id }),
+        });
+        if (res.ok) return await res.json();
+      } catch {
+        // 回调失败回退本地 revoker
+      }
+    }
+    return this.toolEffects.revoke(id);
   }
 }
