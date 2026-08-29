@@ -35,6 +35,14 @@ ollama pull qwen2.5:7b      # 对话模型（可用任意 OpenAI 兼容本地模
 ollama pull bge-m3          # 本地 embedding
 ```
 
+**方式 B — Docker Compose 编排（P1-3，可选）**：
+
+```bash
+docker compose --profile private-ai up -d ollama   # 起本地模型（ollama:11434）
+docker compose up -d                                # 起 postgres / redis / server / web
+```
+> `docker-compose.yml` 已内置 ollama 服务（`profiles: ["private-ai"]`）+ server 的 `OLLAMA_BASE_URL=http://ollama:11434`；`AI_PROVIDER=ollama` 时对话/工具全走本地（数据不出域）。默认 `docker compose up` 不起 ollama（避免国内拉镜像）。中国网络拉 Docker Hub `ollama/ollama` 可能受限——也可用宿主机原生 Ollama（方式 A，`OLLAMA_BASE_URL=http://host.docker.internal:11434`）。
+
 ## 手动验证步骤
 
 ### 1. Cloud Provider OFF
