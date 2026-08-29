@@ -12,7 +12,7 @@
 
 ## 🚀 60 秒体验
 
-> 想立刻体验？**打开在线演示** → [keelbase-demo](http://121.199.30.80/user/)（工作台——公网演示密码已更换，向部署方获取；问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
+> 想立刻体验？**打开在线演示** → [keelbase-demo](http://121.199.30.80/user/)（`alex/Alex@2026$Demo` 工作台，问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
 >
 > 或者**在线观看演示视频** → [官方中文演示（国内）](http://121.199.30.80/demo/video-zh.html) · [GitHub Pages](https://rain6fish.github.io/KeelBase/video-zh.html)（约 4 分钟，含真实系统演示；下载：GitHub release）。
 
@@ -30,7 +30,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 ```text
 1. 打开 http://localhost:3000           （工作台）——/admin 是管理台
-2. 登录——本地默认演示账号（见下方「演示账号」；公网演示密码已更换）
+2. 登录——alex/123456，或 admin/Admin@1234（本地开发默认）
 3. 提问：「本周哪些客户风险最高？」
 4. 看 AI 分析真实业务数据
 5. 批准一个跟进任务             （人工确认）
@@ -250,7 +250,7 @@ keelbase init --desc "Customer management"
 
 - [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · **Apache-2.0** 协议
 - **问题与需求** → [github.com/rain6fish/KeelBase/issues](https://github.com/rain6fish/KeelBase/issues)
-- 演示账号：`alex/123456`（工作台 / 移动端）· `admin/Admin@1234`（管理台）——本地默认；**公网演示（121.199.30.80）密码已更换**，向部署方获取
+- 演示账号——本地开发：`alex/123456`（工作台 / 移动端）· `admin/Admin@1234`（管理台）；**公网演示（121.199.30.80）：`alex/Alex@2026$Demo` · `admin/Admin@2026$KeelBase`**
 
 ## 目录结构
 
