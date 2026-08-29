@@ -263,4 +263,4 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ## Tech Stack
 
-Flutter 3.x · Vue3 + Element Plus · React 19 (preview) · NestJS 11 + TypeORM · SQLite / PostgreSQL · Redis + BullMQ · JWT + CASL · OpenAI-compatible LLMs (DeepSeek / Qwen / OpenAI) · pino + Prometheus + OpenTelemetry · Docker / Nginx · CI (GitHub Actions)
+Flutter 3.x · Vue3 + Element Plus · React 19 (preview) · NestJS 11 + TypeORM · SQLite / PostgreSQL · Redis + BullMQ · JWT + CASL · OpenAI-compatible LLMs (DeepSeek / Qwen / OpenAI / Claude / Gemini) · pino + Prometheus + OpenTelemetry · Docker / Nginx · CI (GitHub Actions)
