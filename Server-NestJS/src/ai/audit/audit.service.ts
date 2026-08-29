@@ -6,7 +6,7 @@
  */
 
 import { createHmac } from 'crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
@@ -18,6 +18,8 @@ import {
   ChainVerification,
 } from '../../common/audit-chain/audit-chain.service';
 import { aiActionLabel } from './ai-feature-map';
+import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
+import type { GovernanceReporter } from '../governance/governance-reporter.service';
 
 export interface AuditEntry {
   userId: string;
@@ -132,6 +134,9 @@ export class AuditService {
     private readonly auditChain: AuditChainService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    // D2-3b：可选治理上报（主应用配 GOVERNANCE_URL 时双写上报；治理台自身不提供 → 不上报）
+    @Optional() @Inject(GOVERNANCE_REPORTER)
+    private readonly reporter?: GovernanceReporter,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
@@ -213,6 +218,28 @@ export class AuditService {
       });
       this._tail = job.catch(() => {});
       await job;
+    }
+    // D2-3b：审计双写上报治理台（配置 GOVERNANCE_URL 时；治理台自身不配不启用）
+    if (this.reporter?.enabled) {
+      void this.reporter
+        .reportAudit({
+          userId: entry.userId,
+          username,
+          action: entry.action,
+          detail: entry.detail,
+          model: entry.model,
+          provider: entry.provider,
+          agentId,
+          conversationId: entry.conversationId,
+          source: entry.source,
+          promptTokens: entry.promptTokens,
+          completionTokens: entry.completionTokens,
+          durationMs: entry.durationMs,
+          isError: entry.isError ?? false,
+          errorMessage: entry.errorMessage,
+          authorization: entry.authorization,
+        })
+        .catch(() => {});
     }
   }
 
