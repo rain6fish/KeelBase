@@ -4,6 +4,8 @@
 > This is the Java-side compensation endpoint that KeelBase calls to undo an AI-created side effect.
 >
 > 位置：本示例是「集成商在 Java 存量系统侧实现的参考」，KeelBase 侧撤销机制已具备（`proxy-revoker.service.ts`）。
+>
+> **Spring Boot 3.x / Java 17+ 请优先用 [keelbase-java-starter](https://github.com/rain6fish/KeelBase-java-starter) 的 `KeelBaseCompensationSupport`**——本页手写的委托验签 + 幂等 + 审计样板已被脚手架封装（文档：仓库 `docs/compensation.md` / `docs/compensation.zh-CN.md`）；本示例仅作 Java 8 / Spring Boot 2 存量系统兜底。
 
 ## 一、调用约定 / Contract
 
