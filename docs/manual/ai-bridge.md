@@ -105,7 +105,7 @@ OpenAPI（含 operations + securitySchemes）
 
 ---
 
-## 5. 身份 / 权限桥接（✅ KeelBase 侧落地；Java 侧 + B 路径待做）
+## 5. 身份 / 权限桥接（✅ KeelBase 侧落地 + ✅ Java 侧由 keelbase-java-starter 封装）
 
 问题：**Java 系统登录用户在 KeelBase 里是谁？AI 以谁的权限操作 Java 数据？**
 不解决它，B 路径的「Permission」是空心的。
@@ -122,6 +122,8 @@ OpenAPI（含 operations + securitySchemes）
   String oidcSub = jws.getBody().get("oidcSub", String.class); // 映射本地用户
   if (!"legacy-erp".equals(jws.getBody().getAudience())) throw new AccessDeniedException("audience mismatch");
   ```
+
+  > **Java 侧免手写（首选）**：验签 / aud·iss·过期校验 / 身份映射已由 [KeelBase Java Starter](https://github.com/rain6fish/KeelBase-java-starter) 封装为 `DelegationAuthFilter` + `@DelegationUser` + `KeelBaseUserMapper`（仓库 `docs/` 有中英开发对接文档）；上面的手写示例仅作 Java 8 / Spring Boot 2 存量系统兜底。
 
 - **已落地**：B 路径 ProxyTool 注入委托身份头（§4）+ 模拟 Java 系统端到端验收（收到调用识别到正确用户身份；越权被拒）
 - 验收：模拟 Java 系统收到调用识别到正确用户身份；越权（他人数据）被目标系统或 KeelBase 拒绝
@@ -159,6 +161,7 @@ node scripts/keelbase-init.mjs --import-openapi-proxy ./legacy-openapi.yaml --ba
 - KeelBase 用户签发短期委托 token：`POST /auth/delegation-token`（body `{ audience: '<目标系统>' }`）
 - Java 端共享 `DELEGATION_SECRET` 验签 → 用 `oidcSub`（OIDC subject）或 `local:<userId>` 映射本地用户 → 越权拒绝
 - 默认 300s 短时有效 + audience 限定目标系统，防跨系统冒用
+- **Java 侧接入首选 [keelbase-java-starter 快速开始](https://github.com/rain6fish/KeelBase-java-starter/blob/main/docs/quickstart.md)**——`@KeelbaseTool` 声明 + 委托验签 + 撤销补偿脚手架，含 `GET /keelbase/status` 诊断与中英文档；本步手写示例兜底 Java 8 / Boot 2 存量系统
 
 ### 第 4 步：治理
 
@@ -180,6 +183,7 @@ node scripts/keelbase-init.mjs --import-openapi-proxy ./legacy-openapi.yaml --ba
 
 ## 相关
 
+- [KeelBase Java Starter](https://github.com/rain6fish/KeelBase-java-starter) — Java 侧一等公民接入层（Spring Boot Starter：委托验签 / `@KeelbaseTool` 导出 / 撤销补偿），仓库 `docs/` 含中英开发对接文档（quickstart / configuration / delegated-identity / tool-declaration / compensation / troubleshooting）
 - [aiization-demo.md](aiization-demo.md) — 已有系统 AI 化演示（A 路径）
 - [synthetic-stranger.md](synthetic-stranger.md) — 合成陌生人验证 harness（含 Java 团队视角场景）
 - [30min-acceptance.md](30min-acceptance.md) — 生成器验收
