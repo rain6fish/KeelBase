@@ -18,6 +18,7 @@ import {
   HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
+  Put,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
@@ -38,6 +39,8 @@ import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
+import { GovernancePolicyService } from './governance/governance-policy.service';
+import type { GovernancePolicy } from './governance/governance-policy.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -53,6 +56,7 @@ export class AiController {
     private readonly memoriesService: MemoriesService,
     private readonly toolEffectsService: AiToolEffectsService,
     private readonly decisionTraceService: DecisionTraceService,
+    private readonly governancePolicy: GovernancePolicyService,
   ) {}
 
   /**
@@ -343,6 +347,26 @@ export class AiController {
       },
       trace,
     };
+  }
+
+  /**
+   * D2-1d 治理策略（admin）：读当前策略（工具开关/确认/角色白名单/审计粒度），策略中心实时生效。
+   */
+  @Get('governance/policy')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '治理策略（admin）' })
+  async getGovernancePolicy(): Promise<GovernancePolicy> {
+    return this.governancePolicy.getPolicy();
+  }
+
+  /**
+   * D2-1d 治理策略（admin）：写策略（自有表 ai_governance_policy），实时生效，无需发版。
+   */
+  @Put('governance/policy')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '更新治理策略（admin，实时生效）' })
+  async setGovernancePolicy(@Body() dto: GovernancePolicy): Promise<GovernancePolicy> {
+    return this.governancePolicy.setPolicy(dto);
   }
 
   /**

@@ -184,21 +184,17 @@ describe('aiToolsApi', () => {
     expect(api.delete).toHaveBeenCalledWith('/ai/tool-effects/1')
   })
 
-  it('policy 从 settings 提取治理策略', async () => {
-    api.get.mockResolvedValue([{ key: 'ai_governance_policy', value: '{"tools":{}}' }, { key: 'other', value: 'x' }])
+  it('policy GET /ai/governance/policy 返回 JSON 字符串', async () => {
+    api.get.mockResolvedValue({ tools: {}, audit: { granularity: 'all' } })
     const v = await aiToolsApi.policy()
-    expect(v).toBe('{"tools":{}}')
+    expect(api.get).toHaveBeenCalledWith('/ai/governance/policy')
+    expect(JSON.parse(v as string)).toEqual({ tools: {}, audit: { granularity: 'all' } })
   })
 
-  it('policy 无匹配返回 undefined', async () => {
-    api.get.mockResolvedValue([{ key: 'other', value: 'x' }])
-    expect(await aiToolsApi.policy()).toBeUndefined()
-  })
-
-  it('savePolicy PUT settings', async () => {
+  it('savePolicy PUT /ai/governance/policy', async () => {
     api.put.mockResolvedValue({})
     await aiToolsApi.savePolicy('{"tools":{}}')
-    expect(api.put).toHaveBeenCalledWith('/settings/ai_governance_policy', { value: '{"tools":{}}', type: 'string' })
+    expect(api.put).toHaveBeenCalledWith('/ai/governance/policy', { tools: {} })
   })
 })
 
