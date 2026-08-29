@@ -29,7 +29,7 @@ dotenv.config();
 
 const API_URL = (process.env.API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@1234';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@2026$KeelBase';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 const GREEN = '\x1b[32m';
