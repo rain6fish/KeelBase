@@ -40,6 +40,14 @@ export class AiToolSideEffect {
   @Column({ name: 'result_id' })
   resultId!: number;
 
+  /** E-1 字段级变更审计：写操作目标记录变更前快照（JSON 字符串；create 类为 null，B 路径外部写无本地快照） */
+  @Column({ type: 'text', nullable: true, name: 'before_snapshot' })
+  beforeSnapshot?: string | null;
+
+  /** E-1 字段级变更审计：写操作目标记录变更后快照（JSON 字符串，目标实体全量字段） */
+  @Column({ type: 'text', nullable: true, name: 'after_snapshot' })
+  afterSnapshot?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

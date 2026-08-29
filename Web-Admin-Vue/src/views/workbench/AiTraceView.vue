@@ -87,6 +87,10 @@
               <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
                 <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
                 <div v-if="s.effect.targetTitle" class="text-body-2 text-medium-emphasis mt-1">{{ s.effect.targetTitle }}</div>
+                <div v-if="s.effect.before || s.effect.after" class="mt-1">
+                  <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
+                  <FieldDiff :before="s.effect.before" :after="s.effect.after" />
+                </div>
                 <el-button
                   v-if="s.effect.revocable"
                   size="small"
@@ -119,6 +123,7 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import FieldDiff from '@/components/FieldDiff.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
