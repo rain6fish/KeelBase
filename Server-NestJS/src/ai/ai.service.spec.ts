@@ -1862,5 +1862,17 @@ describe('AiService', () => {
       mockProviderFactory.getProvider.mockImplementation(() => { throw new Error('down'); });
       expect(() => (aiService as any).resolveProvider({ message: 'hi', provider: 'openai' })).toThrow('No provider available');
     });
+
+    it('anthropic 可用 → 返回 anthropic（FALLBACK 链含降级）', () => {
+      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'anthropic' });
+      expect(r.providerName).toBe('anthropic');
+      expect(r.provider).toBe(mockProvider);
+    });
+
+    it('gemini 可用 → 返回 gemini', () => {
+      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'gemini' });
+      expect(r.providerName).toBe('gemini');
+      expect(r.provider).toBe(mockProvider);
+    });
   });
 });

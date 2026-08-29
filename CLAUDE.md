@@ -502,7 +502,7 @@ CACHE_TTL=300                      # 默认缓存 TTL（秒）
 QUEUE_ENABLED=true                 # 是否启用队列（false 降级同步执行）
 
 # AI 模型配置（可选，不配置则 AI 功能降级不可用；详见 docs/ai-agent.spec.md §环境变量）
-AI_PROVIDER=deepseek               # deepseek | qwen | openai
+AI_PROVIDER=deepseek               # deepseek | qwen | openai | anthropic | gemini
 AI_CHAT_MODEL=deepseek-v4-flash    # 默认对话模型
 AI_MAX_TOKENS=4096
 AI_TEMPERATURE=0.7
@@ -513,6 +513,10 @@ QWEN_API_KEY=
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 OPENAI_API_KEY=
 OPENAI_BASE_URL=https://api.openai.com/v1
+ANTHROPIC_API_KEY=                 # Anthropic Claude（官方 OpenAI 兼容层，tool calling 支持）
+ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
+GEMINI_API_KEY=                    # Google Gemini（官方 OpenAI 兼容层 /v1beta/openai）
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 
 # RAG 向量检索（AI-5，postgres + vector 扩展时可用）
 VECTOR_SEARCH_ENABLED=true

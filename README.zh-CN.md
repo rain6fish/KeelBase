@@ -263,4 +263,4 @@ keelbase init --desc "Customer management"
 
 ## 技术栈
 
-Flutter 3.x · Vue3 + Element Plus · React 19（预览）· NestJS 11 + TypeORM · SQLite / PostgreSQL · Redis + BullMQ · JWT + CASL · OpenAI 兼容 LLM（DeepSeek / Qwen / OpenAI）· pino + Prometheus + OpenTelemetry · Docker / Nginx · CI（GitHub Actions）
+Flutter 3.x · Vue3 + Element Plus · React 19（预览）· NestJS 11 + TypeORM · SQLite / PostgreSQL · Redis + BullMQ · JWT + CASL · OpenAI 兼容 LLM（DeepSeek / Qwen / OpenAI / Claude / Gemini）· pino + Prometheus + OpenTelemetry · Docker / Nginx · CI（GitHub Actions）
