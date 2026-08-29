@@ -65,6 +65,7 @@
        resolve(__dirname, '../migrations/*AddAiAgents*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*FixAiAgentsNameUniqueIndex*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAuditChainLock*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiAuditUsername*').replace(/\\/g, '/'),
      ],
    };
  } else {

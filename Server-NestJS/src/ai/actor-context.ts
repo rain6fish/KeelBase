@@ -14,6 +14,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export interface ActorContext {
   sessionId?: string;
   agentId?: string;
+  /** D2-1c username 快照：审计写时从请求级上下文带出用户名（独立治理库后查询无需 users 表） */
+  username?: string;
   /** D4 多 Agent 归责：父 agent 标识（子 agent 由谁调用） */
   callerAgentId?: string;
   /** D4：本次委托/子代理执行的业务意图 */
