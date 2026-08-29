@@ -153,7 +153,7 @@ export class AiController {
     @Body() dto: ConfirmDecisionDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const ok = this.confirmationStore.resolve(
+    const ok = await this.confirmationStore.resolve(
       token,
       String(user.sub),
       dto.decision,

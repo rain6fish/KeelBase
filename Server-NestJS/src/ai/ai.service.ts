@@ -491,7 +491,8 @@ export class AiService {
   async listPendingApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
     if (!this.approvalsRepo) return [];
     return this.approvalsRepo.find({
-      where: { status: 'pending' },
+      // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入
+      where: { status: 'pending', riskLevel: 'R4' },
       order: { createdAt: 'DESC' },
       take: limit,
     });
@@ -501,7 +502,7 @@ export class AiService {
   async listDecidedApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
     if (!this.approvalsRepo) return [];
     return this.approvalsRepo.find({
-      where: { status: In(['approved', 'declined']) },
+      where: { status: In(['approved', 'declined']), riskLevel: 'R4' },
       order: { decidedAt: 'DESC' },
       take: limit,
     });
@@ -1226,7 +1227,7 @@ export class AiService {
                   ),
                 )
               : 60;
-            const { token, decision } = this.confirmationStore.create(
+            const { token, decision } = await this.confirmationStore.create(
               userId,
               tc.name,
               parsed,
