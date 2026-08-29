@@ -37,9 +37,17 @@ export class GovernanceReporter {
     }
   }
 
-  /** 上报副作用到治理台 /external/effects（D2-3 后续端点） */
-  async reportEffect(_effect: Record<string, unknown>): Promise<void> {
+  /** 上报 AI 写副作用到治理台 /external/effects（幂等键去重，失败静默） */
+  async reportEffect(effect: Record<string, unknown>): Promise<void> {
     if (!this.enabled) return;
-    // D2-3 effects 上报端点待扩展（当前审计上报先行）
+    try {
+      await fetch(`${this.baseUrl}/api/v1/external/effects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey },
+        body: JSON.stringify(effect),
+      });
+    } catch {
+      // 上报失败不阻塞本地副作用
+    }
   }
 }
