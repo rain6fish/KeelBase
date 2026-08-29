@@ -22,6 +22,14 @@ export const envValidationSchema = Joi.object({
   DB_PASSWORD: Joi.string().default('postgres'),
   DB_PATH: Joi.string().default('./data/front.sqlite'),
 
+  // 治理独立库（D2-2 独立治理控制平面）：治理台服务独立库，schema 从治理实体生成；不配置时回落主库配置
+  GOVERNANCE_DB_HOST: Joi.string().optional().allow(''),
+  GOVERNANCE_DB_PORT: Joi.number().optional(),
+  GOVERNANCE_DB_NAME: Joi.string().optional().allow(''),
+  GOVERNANCE_DB_USER: Joi.string().optional().allow(''),
+  GOVERNANCE_DB_PASSWORD: Joi.string().optional().allow(''),
+  GOVERNANCE_DB_PATH: Joi.string().optional().allow(''),
+
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
   DB_POOL_MIN: Joi.number().default(5),
