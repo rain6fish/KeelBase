@@ -56,6 +56,9 @@ export interface TraceEffect {
   resultId: number
   targetTitle?: string | null
   revocable: boolean
+  /** E-1 字段级变更审计：before/after 快照（JSON 字符串；create 类 before 为 null） */
+  before?: string | null
+  after?: string | null
 }
 
 export type TraceStepType = 'input' | 'assistant' | 'tool_call' | 'confirmation' | 'effect' | 'notice'

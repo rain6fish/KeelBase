@@ -79,6 +79,16 @@ export interface ActionReport {
     errorMessage?: string | null;
     createdAt: Date;
   }>;
+  /** E-1 字段级变更审计：副作用 before/after 快照（limit 50，供证据包人工复核） */
+  effectDiffs: Array<{
+    id: number;
+    toolName: string;
+    resultType: string;
+    resultId: number;
+    createdAt: Date;
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown> | null;
+  }>;
 }
 
 /** D4 审计证据包：可提交审计机构的合规证据（报告 + 哈希链校验 + 导出时间戳 + 签名） */
@@ -491,6 +501,21 @@ export class AuditService {
     if (options.userId) effWhere.userId = options.userId;
     if (options.since) effWhere.createdAt = Between(options.since, new Date());
     const effects = await this.effectsRepo.count({ where: effWhere });
+    // E-1 字段级变更审计：副作用 before/after 快照示例（证据包人工复核；解析失败降级 null）
+    const effectRows = await this.effectsRepo.find({
+      where: effWhere,
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    const effectDiffs = effectRows.map((e) => ({
+      id: e.id,
+      toolName: e.toolName,
+      resultType: e.resultType,
+      resultId: e.resultId,
+      createdAt: e.createdAt,
+      before: parseSnapshot(e.beforeSnapshot),
+      after: parseSnapshot(e.afterSnapshot),
+    }));
 
     const chain = await this.verifyChain();
     const limit = Math.min(options.limit ?? 10, 50);
@@ -512,6 +537,7 @@ export class AuditService {
       byDay: Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date)),
       hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
       samples,
+      effectDiffs,
     };
   }
 
@@ -522,7 +548,12 @@ export class AuditService {
     const report = await this.getActionReport(options);
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
-    const canonical = JSON.stringify({ summary: report.summary, hashChain: report.hashChain, exportedAt });
+    const canonical = JSON.stringify({
+      summary: report.summary,
+      hashChain: report.hashChain,
+      effectDiffs: report.effectDiffs,
+      exportedAt,
+    });
     const signature = signingKey
       ? createHmac('sha256', signingKey).update(canonical).digest('hex')
       : null;
@@ -615,5 +646,16 @@ export class AuditService {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
     };
+  }
+}
+
+/** E-1：副作用快照 JSON 安全解析（非法/非对象降级 null） */
+function parseSnapshot(raw?: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
 }
