@@ -30,7 +30,7 @@ Then walk the golden path in 6 steps:
 
 ```text
 1. Open http://localhost:3000            (workbench) — /admin is the Admin Console
-2. Sign in — alex/123456, or admin/Admin@1234
+2. Sign in — local default demo accounts (see "Demo accounts" below; public demo passwords are rotated)
 3. Ask: "Which customers are at the highest risk this week?"
 4. Watch AI analyze real business data
 5. Approve a follow-up task              (human confirmation)
