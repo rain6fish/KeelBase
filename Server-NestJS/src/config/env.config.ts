@@ -29,6 +29,8 @@ export const envValidationSchema = Joi.object({
   GOVERNANCE_DB_USER: Joi.string().optional().allow(''),
   GOVERNANCE_DB_PASSWORD: Joi.string().optional().allow(''),
   GOVERNANCE_DB_PATH: Joi.string().optional().allow(''),
+  // D2-3 治理台接入密钥（业务系统上报/拉策略共享；空则治理台 external 端点 401）
+  GOVERNANCE_API_KEY: Joi.string().optional().allow(''),
 
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
