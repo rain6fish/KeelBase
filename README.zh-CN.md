@@ -14,7 +14,7 @@
 
 > 想立刻体验？**打开在线演示** → [keelbase-demo](http://121.199.30.80/user/)（`alex/123456` 工作台，问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
 >
-> 或者**观看演示视频** → [官方中文演示](https://github.com/rain6fish/KeelBase/releases/download/demo-videos/official-demo-zh.webm)（约 4 分钟，含真实系统演示）。
+> 或者**在线观看演示视频** → [官方中文演示](http://121.199.30.80/demo/video-zh.html)（约 4 分钟，含真实系统演示；下载：GitHub release）。
 
 只装 Docker，一条命令起完整应用（后端 + 工作台 + 管理台 + 移动预览），免构建：
 
