@@ -50,7 +50,7 @@ async function ensureDemoUser(
 
 async function main() {
   const username = arg('username') || 'alex';
-  const password = arg('password') || '123456';
+  const password = arg('password') || 'Alex@2026$Demo';
 
   await AppDataSource.initialize();
   // 全新数据库（单容器首启）无表：synchronize 幂等建表（对齐主程序 DB_SYNCHRONIZE=true 的 synchronize，避免迁移重复建表冲突）
