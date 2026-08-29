@@ -49,7 +49,7 @@ async function run(name, { method = 'GET', path, body, auth = true }) {
   return {
     name,
     requestsPerSec: Math.round(result.requests.average),
-    latencyP95Ms: Math.round(result.latency.p95),
+    latencyP99Ms: Math.round(result.latency?.p99 ?? 0),
     latencyAvgMs: Math.round(result.latency.average),
     errors: result.errors || 0,
     non2xx: result.non2xx || 0,
@@ -60,10 +60,12 @@ const token = await login();
 console.log(`登录成功 (${USER}) — 压测 ${SECONDS}s × ${CONNECTIONS} 并发 → ${BASE}\n`);
 
 const scenarios = [
-  { name: 'GET /health（公开）', method: 'GET', path: '/health', auth: false },
-  { name: 'GET /auth/me（认证）', method: 'GET', path: '/auth/me', auth: true },
-  { name: 'GET /events（分页）', method: 'GET', path: '/events?page=1&limit=20', auth: true },
-  { name: 'POST /ai/chat（非流式）', method: 'POST', path: '/ai/chat', auth: true, body: { message: '你好，简单介绍一下你自己' } },
+  // 注：POST /auth/login（路由级 @Throttle 20/min + bcrypt）与 GET /health（路由级 60/min）受路由级限流，
+  //     不作为并发压测场景——前置单次登录已覆盖认证可用性；公开场景用 app/version（全局限流，可放开）。
+  { name: 'GET /app/version（公开）', method: 'GET', path: '/app/version', auth: false },
+  { name: 'GET /auth/me（认证读）', method: 'GET', path: '/auth/me', auth: true },
+  { name: 'GET /events（列表分页）', method: 'GET', path: '/events?page=1&limit=20', auth: true },
+  { name: 'POST /ai/chat（AI 对话·非流式）', method: 'POST', path: '/ai/chat', auth: true, body: { message: '你好，简单介绍一下你自己' } },
 ];
 
 const results = [];
@@ -71,7 +73,7 @@ for (const s of scenarios) {
   try {
     const r = await run(s.name, s);
     results.push(r);
-    console.log(`  ${r.name.padEnd(28)} req/s=${String(r.requestsPerSec).padEnd(6)} p95=${r.latencyP95Ms}ms avg=${r.latencyAvgMs}ms err=${r.errors} non2xx=${r.non2xx}`);
+    console.log(`  ${r.name.padEnd(28)} req/s=${String(r.requestsPerSec).padEnd(6)} p99=${r.latencyP99Ms}ms avg=${r.latencyAvgMs}ms err=${r.errors} non2xx=${r.non2xx}`);
   } catch (err) {
     console.log(`  ${s.name}: 失败 — ${err.message}`);
     results.push({ name: s.name, error: err.message });
@@ -116,6 +118,20 @@ const md = [
   `- 目标：\`${BASE}\`（` + (process.env.NODE_ENV || 'development') + '）',
   `- 时长：${SECONDS}s × ${CONNECTIONS} 并发`,
   `- 用户：${USER}`,
+  '',
+  '## 方法',
+  '',
+  `- **限流**：后端建议以 \`THROTTLE_LIMIT=100000\` 启动（当前环境：${process.env.THROTTLE_LIMIT || '默认 60/min'}）——放开限流避免 429 干扰吞吐/P95 测量；`,
+  `- **AI 场景**：确定性 demo provider（无云 key 时）或真实 LLM（配 key 时，延迟/成本波动）；`,
+  '- **SSE 流式**：单次计时（首字节/总耗时/字节），非并发。',
+  '',
+  '## 场景集',
+  '',
+  '| 场景 | 说明 |',
+  '|------|------|',
+  ...scenarios.map((s) => `| ${s.name} | \`${s.method} ${s.path}\` |`),
+  '',
+  '## 结果',
   '',
   '| 场景 | 结果 |',
   '|------|------|',
