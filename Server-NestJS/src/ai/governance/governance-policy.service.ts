@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { SettingsService } from '../../settings/settings.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AiGovernancePolicy } from './ai-governance-policy.entity';
 
 export interface ToolPolicy {
   enabled: boolean;
@@ -14,8 +16,9 @@ export interface GovernancePolicy {
 
 /**
  * HS-9 治理策略层：工具权限 / 确认规则 / 审计粒度从代码硬编码升级为数据驱动。
- * 策略存于 Settings（RG-2 动态配置，key = ai_governance_policy，JSON 字符串），
- * 管理台可写 PUT /settings/:key 实时生效，无需发版。
+ * 策略存于自有表 ai_governance_policy（D2-1d，单行 id=1，value JSON）——从 Settings 迁出，
+ * 治理台独立持有策略，不依赖业务 settings 表（独立治理库前提）。
+ * 管理台可写实时生效（PUT /api/v1/ai/governance/policy），无需发版。
  *
  * 策略形状：
  * {
@@ -30,18 +33,16 @@ export interface GovernancePolicy {
  */
 @Injectable()
 export class GovernancePolicyService {
-  static readonly SETTING_KEY = 'ai_governance_policy';
-
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    @InjectRepository(AiGovernancePolicy)
+    private readonly policyRepo: Repository<AiGovernancePolicy>,
+  ) {}
 
   async getPolicy(): Promise<GovernancePolicy> {
-    const raw = await this.settingsService.get(GovernancePolicyService.SETTING_KEY);
-    if (!raw) return { tools: {}, audit: { granularity: 'all' } };
+    const row = await this.policyRepo.findOne({ where: { id: 1 } });
+    if (!row) return { tools: {}, audit: { granularity: 'all' } };
     try {
-      const parsed =
-        typeof raw === 'string'
-          ? (JSON.parse(raw) as Record<string, unknown>)
-          : (raw as Record<string, unknown>);
+      const parsed = JSON.parse(row.value) as Record<string, unknown>;
       const tools = (parsed?.tools ?? {}) as Record<string, Partial<ToolPolicy>>;
       const granularity =
         (parsed?.audit as { granularity?: string } | undefined)?.granularity ?? 'all';
@@ -54,7 +55,17 @@ export class GovernancePolicyService {
     }
   }
 
-  /** 工具策略：默认值来自工具定义，Settings 同名键覆盖。 */
+  /** 写策略（upsert 单行 id=1），管理台策略中心调用，实时生效。 */
+  async setPolicy(value: GovernancePolicy): Promise<GovernancePolicy> {
+    const normalized: GovernancePolicy = {
+      tools: value.tools ?? {},
+      audit: { granularity: value.audit?.granularity ?? 'all' },
+    };
+    await this.policyRepo.save({ id: 1, value: JSON.stringify(normalized) });
+    return normalized;
+  }
+
+  /** 工具策略：默认值来自工具定义，策略表同名键覆盖。 */
   async getToolPolicy(
     name: string,
     defaults: { enabled?: boolean; requiresConfirmation?: boolean } = {},
