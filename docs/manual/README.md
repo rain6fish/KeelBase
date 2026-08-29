@@ -23,6 +23,7 @@ Bilingual (EN/ZH) manuals for KeelBase. 中英双语手册。
 | [Live Demo 访问 / 在线演示指南](demo-live.md) | Sales / Everyone | 云端三入口 + Golden Flow（alex 问客户风险 → AI 分析 → 审计）/ cloud demo guide |
 | [Framework Adapter / Agent 框架接入](framework-adapter.md) | Developers | 演示 Agent Framework 经 MCP 进入治理（MCP 即 Adapter）/ any agent can enter governance (AR-2) |
 | [Existing System AIization / 存量系统 AI 化](aiization-demo.md) | Developers / Sales | 旧 Schema → Protocol → 模块 → AI 工具 → 治理 / legacy system to AI app (P0-12) |
+| [Security Showcase / 安全验证展示](security-showcase.md) | Reviewers / 评审·验证者 | 可自行运行的安全证明路径——越权拒绝 / 工具治理 / 人工批准 / 审计哈希链 / Agent 基准 / self-service security verification tour (P1-1) |
 
 Also see / 另见：
 - [README.md](../../README.md) — project overview / 项目概览
