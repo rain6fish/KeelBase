@@ -9,6 +9,12 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // base 与 nginx location（/user/ | /admin/）对齐；产物资源走绝对路径，两套部署链都命中。
 // router 的 createWebHashHistory(import.meta.env.BASE_URL) 同步跟随 base。
 export default defineConfig(({ mode }) => {
+  // 自定义 surface mode（user/admin）：vite 只为 production/development 设 NODE_ENV，
+  // 自定义 mode 下 NODE_ENV 保持非 production，导致 vue 插件输出 dev 风格 chunk
+  // （*.vue_vue_type_script_setup_true_lang-*）混入生产产物。构建时强制生产模式。
+  if (mode !== 'production' && mode !== 'development' && process.env.NODE_ENV !== 'production') {
+    process.env.NODE_ENV = 'production'
+  }
   const isUser = mode === 'user'
   return {
     base: isUser ? '/user/' : '/admin/',
