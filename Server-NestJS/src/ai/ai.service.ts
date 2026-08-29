@@ -41,6 +41,7 @@ import {
   sanitizeExternalContent,
   sanitizeMemoryEntry,
 } from './security/injection-guard';
+import { checkContentSafety } from './security/content-safety';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
@@ -698,6 +699,11 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): Promise<ChatResponse> {
+    // AI-23 内容安全：用户输入敏感词/越狱/注入 → 拒绝（不进入 LLM）
+    const safety = checkContentSafety(request.message);
+    if (safety.blocked) {
+      throw BusinessException.of('AI_CONTENT_BLOCKED', `内容安全检查未通过（${safety.reason}）`);
+    }
     const { conversation, providerName, provider } =
       this.resolveProvider(request);
 
@@ -1009,6 +1015,11 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): AsyncIterable<StreamChunk> {
+    // AI-23 内容安全：用户输入敏感词/越狱/注入 → 拒绝（不进入 LLM）
+    const safety = checkContentSafety(request.message);
+    if (safety.blocked) {
+      throw BusinessException.of('AI_CONTENT_BLOCKED', `内容安全检查未通过（${safety.reason}）`);
+    }
     // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
     const trustedTools = new Set<string>();
     const { providerName } = this.resolveProvider(request);
