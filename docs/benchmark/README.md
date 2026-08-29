@@ -16,7 +16,7 @@ node scripts/benchmark/run-benchmark.mjs
 # 自定义：BENCH_SECONDS=20 BENCH_CONNECTIONS=50 BASE_URL=... node scripts/benchmark/run-benchmark.mjs
 ```
 
-报告落 `docs/benchmark/benchmark-<时间戳>.md`；结果用 avg 延迟为准（高频短窗口下 p95 可能为 NaN）。
+报告落 `docs/benchmark/benchmark-<时间戳>.md`；结果含 **p99 延迟**（autocannon，比 p95 更严苛）与 avg。公开场景用 `GET /app/version`（`/health` 与 `/auth/login` 有路由级限流，压测反映限流器而非系统能力）。
 
 ## 2026-08-16 基线（SQLite dev、8s × 8 并发）
 
@@ -27,6 +27,16 @@ node scripts/benchmark/run-benchmark.mjs
 | POST /ai/chat（非流式） | 323 | 24ms | 受 AI 每日限额保护（超限 429） |
 | GET /health | 689 | 11ms | 受 `/health` 独立 60/min 限流（超限 429） |
 | POST /ai/chat/stream（SSE） | — | 首字节 27ms | 单次实测 |
+
+## 2026-08-29 基线（SQLite dev、8s × 8 并发、THROTTLE_LIMIT=100000）
+
+| 场景 | req/s | avg | p99 | 说明 |
+|------|-------|-----|-----|------|
+| GET /app/version（公开） | 789 | 10ms | 45ms | 公开端点（替代 `/health`——路由级 60/min） |
+| GET /auth/me（认证读） | 412 | 19ms | 60ms | 真实吞吐（全局限流放宽，non2xx=0） |
+| GET /events（列表分页） | 341 | 23ms | 100ms | 真实吞吐 + DB 查询 |
+| POST /ai/chat（非流式） | 2 | 3378ms | 4508ms | 真实 DeepSeek LLM（延迟/成本波动，非吞吐瓶颈） |
+| POST /ai/chat/stream（SSE） | — | 首字节 820ms | — | 单次实测 |
 
 ## Redis 开/关对比（2026-08-16）
 
