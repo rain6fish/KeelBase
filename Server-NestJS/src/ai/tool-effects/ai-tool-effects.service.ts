@@ -6,6 +6,8 @@ import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
 import type { SideEffectRevoker } from './side-effect-revoker';
+import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
+import type { GovernanceReporter } from '../governance/governance-reporter.service';
 
 export interface WriteToolContext {
   userId: string;
@@ -42,6 +44,9 @@ export class AiToolEffectsService {
     private readonly revoker?: SideEffectRevoker,
     @Optional() @Inject(EXTERNAL_REVOKER)
     private externalRevoker?: ExternalRevoker,
+    // D2-3c：可选治理上报（业务系统配 GOVERNANCE_URL 时副作用双写）
+    @Optional() @Inject(GOVERNANCE_REPORTER)
+    private readonly reporter?: GovernanceReporter,
   ) {}
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
@@ -86,12 +91,29 @@ export class AiToolEffectsService {
           resultId,
         } as Partial<AiToolSideEffect>),
       );
+      this._reportEffect(ctx, resultType, resultId);
       return saved;
     } catch (err) {
       this.logger.warn(`[AiToolEffects] record conflict (idempotent skip): ${(err as Error).message}`);
       const existing = await this.effectsRepo.findOne({ where: { idempotencyKey: key } });
+      this._reportEffect(ctx, resultType, resultId);
       return existing!;
     }
+  }
+
+  /** D2-3c：副作用双写上报治理台（配置 GOVERNANCE_URL 时；失败静默） */
+  private _reportEffect(ctx: WriteToolContext, resultType: string, resultId: number): void {
+    if (!this.reporter?.enabled) return;
+    void this.reporter
+      .reportEffect({
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        toolName: ctx.toolName,
+        args: ctx.args,
+        resultType,
+        resultId,
+      })
+      .catch(() => {});
   }
 
   /** 管理台：按用户/类型列出 AI 创建的副作用（含目标记录当前状态） */
