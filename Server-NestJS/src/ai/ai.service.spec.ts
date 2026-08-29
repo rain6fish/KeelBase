@@ -114,7 +114,14 @@ describe('AiService', () => {
       pruneExpired: jest.fn(),
     };
 
-    confirmationStore = new ConfirmationStore(5000);
+    confirmationStore = new ConfirmationStore(
+      {
+        save: jest.fn().mockResolvedValue({}),
+        create: jest.fn((i: unknown) => i),
+        update: jest.fn().mockResolvedValue({}),
+      } as any,
+      5000,
+    );
 
     mockSubAgentOrchestrator = {
       matchSkill: jest.fn().mockReturnValue(null),
@@ -826,8 +833,8 @@ describe('AiService', () => {
       // spy create 以拿到 token
       const originalCreate = confirmationStore.create.bind(confirmationStore);
       let pendingToken: string | undefined;
-      jest.spyOn(confirmationStore, 'create').mockImplementation((userId, toolName, args) => {
-        const r = originalCreate(userId, toolName, args);
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
         pendingToken = r.token;
         return r;
       });
@@ -903,8 +910,8 @@ describe('AiService', () => {
 
       const originalCreate = confirmationStore.create.bind(confirmationStore);
       let pendingToken: string | undefined;
-      jest.spyOn(confirmationStore, 'create').mockImplementation((userId, toolName, args) => {
-        const r = originalCreate(userId, toolName, args);
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
         pendingToken = r.token;
         return r;
       });
