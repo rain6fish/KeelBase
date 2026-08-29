@@ -6,7 +6,7 @@ const zh = {
   loggingIn: '登录中...',
   show: '显示',
   logout: '登出',
-  demoAccountsHint: '演示账号：alex（工作台）· admin（管理台）——公网演示密码已更换，本地默认见 README',
+  demoAccountsHint: '演示账号：alex / Alex@2026$Demo（工作台）· admin / Admin@2026$KeelBase（管理台）',
   role: '角色',
   switchToAdmin: '切换到管理端',
   switchToUserConsole: '切换到用户端',
