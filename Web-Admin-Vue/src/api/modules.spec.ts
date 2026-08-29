@@ -6,7 +6,8 @@ const { api } = vi.hoisted(() => {
 
 // 所有 api 模块都复用统一 client：mock 掉 get/post/put/patch/delete。
 // import.ts / knowledge.ts 直接用默认导出 instance，同样指向同一 mock。
-vi.mock('@/api/client', () => ({ api, default: api }))
+// D2-5c：governanceApi（治理台 client）复用同一 mock 对象，治理端点断言仍走 api。
+vi.mock('@/api/client', () => ({ api, governanceApi: api, default: api }))
 
 import { adminApi } from './admin'
 import { aiEvalApi } from './aiEval'

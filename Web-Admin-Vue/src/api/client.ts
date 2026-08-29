@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
-import { API_BASE_URL, API_TIMEOUT } from '@/utils/constants'
+import { API_BASE_URL, API_TIMEOUT, GOVERNANCE_BASE_URL } from '@/utils/constants'
 import { storage } from '@/utils/storage'
 import type { ApiResponse, TokenPair } from '@/types/api'
 
@@ -146,6 +146,51 @@ export const api = {
   },
   delete<T = unknown>(path: string): Promise<T> {
     return instance.delete(path) as Promise<T>
+  },
+}
+
+/**
+ * D2-5c 治理台专用 client：VITE_GOVERNANCE_URL 配置时治理端点指向独立治理控制平面；
+ * 未配置回落主应用（GOVERNANCE_BASE_URL = API_BASE_URL，行为不变）。
+ * 治理台认证用共享 admin JWT（与主应用同 JWT_SECRET）；治理台无 refresh 端点，不做 401 刷新。
+ */
+const governanceInstance: AxiosInstance = axios.create({
+  baseURL: GOVERNANCE_BASE_URL,
+  timeout: API_TIMEOUT,
+})
+
+governanceInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const { accessToken } = storage.readTokens()
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return config
+})
+
+governanceInstance.interceptors.response.use(
+  (response) => {
+    const body = response.data as ApiResponse
+    if (body && typeof body === 'object' && 'data' in body) {
+      return body.data as never
+    }
+    return body as never
+  },
+  (error) => Promise.reject(normalizeError(error)),
+)
+
+/** D2-5c 治理台 client：与 api 同调用面（解包 data），VITE_GOVERNANCE_URL 未配置回落主应用 */
+export const governanceApi = {
+  get<T = unknown>(path: string, params?: Record<string, unknown>): Promise<T> {
+    return governanceInstance.get(path, { params }) as Promise<T>
+  },
+  post<T = unknown>(path: string, data?: unknown): Promise<T> {
+    return governanceInstance.post(path, data) as Promise<T>
+  },
+  put<T = unknown>(path: string, data?: unknown): Promise<T> {
+    return governanceInstance.put(path, data) as Promise<T>
+  },
+  delete<T = unknown>(path: string): Promise<T> {
+    return governanceInstance.delete(path) as Promise<T>
   },
 }
 
