@@ -67,7 +67,7 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
   ) {
     // Agent Identity（评审二 §5）：access token 会话标识贯穿审计
-    return actorContext.run({ sessionId: user.sessionId }, () =>
+    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
       this.aiService.chat(String(user.sub), {
         message: dto.message,
         provider: dto.provider,
@@ -114,7 +114,7 @@ export class AiController {
     });
 
     // Agent Identity（评审二 §5）：access token 会话标识贯穿审计（流创建 + 消费均在 ALS 上下文内）
-    await actorContext.run({ sessionId: user.sessionId }, async () => {
+    await actorContext.run({ sessionId: user.sessionId, username: user.username }, async () => {
       try {
         for await (const chunk of stream) {
           if (aborted) break;

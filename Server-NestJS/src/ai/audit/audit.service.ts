@@ -20,6 +20,8 @@ import { aiActionLabel } from './ai-feature-map';
 
 export interface AuditEntry {
   userId: string;
+  /** D2-1c username 快照：写审计时快照用户名（独立治理库后查询无需左联 users） */
+  username?: string;
   conversationId?: string;
   action: 'chat' | 'tool_call' | 'navigate' | 'error' | 'login' | 'plan' | 'analyze' | 'knowledge' | 'delegate' | 'tool_confirmation' | 'flow_node';
   detail?: string;
@@ -127,6 +129,8 @@ export class AuditService {
     const actor = actorContext.getStore();
     const sessionId = entry.sessionId ?? actor?.sessionId;
     const agentId = entry.agentId ?? actor?.agentId;
+    // D2-1c username 快照：entry 显式传值优先，fallback 请求级 actor 上下文（JWT username）
+    const username = entry.username ?? actor?.username;
     // D4 多 Agent 归责：callerAgentId/businessIntent 从 ActorContext fallback（子 agent 场景自动填充）
     const callerAgentId = entry.callerAgentId ?? actor?.callerAgentId;
     const businessIntent = entry.businessIntent ?? actor?.businessIntent;
@@ -148,6 +152,7 @@ export class AuditService {
     });
     const entity = {
       userId: entry.userId,
+      username,
       conversationId: entry.conversationId,
       action: entry.action,
       detail: entry.detail ? entry.detail.slice(0, 2000) : undefined,
@@ -284,8 +289,8 @@ export class AuditService {
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
-      .leftJoin('users', 'u', 'CAST(log.userId AS INTEGER) = u.id')
-      .addSelect('u.username', 'username')
+      // D2-1c username 快照：读快照列，不再左联业务 users 表（独立治理库后无 users）
+      .addSelect('log.username', 'username')
       .orderBy('log.createdAt', 'DESC')
       .take(options.limit ?? 50)
       .skip(options.offset ?? 0);
