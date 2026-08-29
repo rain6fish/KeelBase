@@ -5,6 +5,7 @@
  * 数据持久化到 ai_audit_logs 表，支持后续的用量分析和安全审计。
  */
 
+import { createHmac } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
@@ -76,6 +77,18 @@ export interface ActionReport {
     errorMessage?: string | null;
     createdAt: Date;
   }>;
+}
+
+/** D4 审计证据包：可提交审计机构的合规证据（报告 + 哈希链校验 + 导出时间戳 + 签名） */
+export interface ActionReportExport {
+  /** 证据包生成时间（ISO 8601） */
+  exportedAt: string;
+  /** 生成的工具（AUDIT_HMAC_KEY 或 ENCRYPTION_KEY，非空时） */
+  generator: string;
+  /** ActionReport 全量（含 hashChain verify） */
+  report: ActionReport;
+  /** 证据包签名：对 summary + hashChain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
+  signature: string | null;
 }
 
 export interface AiAuditLogWithUser {
@@ -473,6 +486,20 @@ export class AuditService {
       hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
       samples,
     };
+  }
+
+  /** D4 审计证据包导出：ActionReport + 哈希链校验 + 导出时间戳 + 签名（可提交审计机构） */
+  async getActionReportExport(
+    options: { userId?: string; since?: Date; limit?: number } = {},
+  ): Promise<ActionReportExport> {
+    const report = await this.getActionReport(options);
+    const exportedAt = new Date().toISOString();
+    const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
+    const canonical = JSON.stringify({ summary: report.summary, hashChain: report.hashChain, exportedAt });
+    const signature = signingKey
+      ? createHmac('sha256', signingKey).update(canonical).digest('hex')
+      : null;
+    return { exportedAt, generator: 'keelbase-audit-export', report, signature };
   }
 
   /** 从审计 detail（"create_followup_task({...})"）提取工具名 */

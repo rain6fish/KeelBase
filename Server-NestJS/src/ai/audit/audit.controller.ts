@@ -79,6 +79,24 @@ export class AuditController {
     });
   }
 
+  @Get('action-report/export')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'D4 审计证据包导出：ActionReport + 哈希链校验 + 时间戳 + 签名（可提交审计机构）' })
+  @ApiQuery({ name: 'userId', required: false, description: '按用户过滤（数字 id）' })
+  @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
+  @ApiQuery({ name: 'limit', required: false, description: '明细样本数（默认 10，最大 50）' })
+  getActionReportExport(
+    @Query('userId') userId?: string,
+    @Query('since') since?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.auditService.getActionReportExport({
+      userId: userId ? String(Number(userId)) : undefined,
+      since: since ? new Date(since) : undefined,
+      limit: limit ? Number(limit) : 10,
+    });
+  }
+
   @Post('feedback')
   @ApiOperation({ summary: 'AI-18 对话反馈：对某次对话点赞/点踩' })
   async submitFeedback(
