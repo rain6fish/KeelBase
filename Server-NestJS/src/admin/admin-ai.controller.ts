@@ -28,7 +28,7 @@ export class AdminAiController {
   async chat(@Body() dto: AdminAiChatDto, @CurrentUser() user: JwtPayload) {
     // 用真实管理员身份：会话/记忆/限额/审计按管理员隔离（不再共享系统账号 '0'）
     // Agent Identity：包 actorContext 让 sessionId（JWT jti）落入 ai_audit_logs（对齐 ai.controller chat/stream，否则系统 AI 会话审计 session_id 恒 null）
-    return actorContext.run({ sessionId: user.sessionId }, () =>
+    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
       this.adminAiService.assistantChat(user.sub, dto));
   }
 
@@ -57,7 +57,7 @@ export class AdminAiController {
     });
 
     // Agent Identity：管理员会话标识贯穿审计（对齐 ai.controller chat/stream）
-    await actorContext.run({ sessionId: user.sessionId }, async () => {
+    await actorContext.run({ sessionId: user.sessionId, username: user.username }, async () => {
       try {
         for await (const chunk of this.adminAiService.assistantChatStream(user.sub, dto)) {
           if (aborted) break;
