@@ -12,7 +12,7 @@
 
 ## 🚀 Try in 60 Seconds
 
-> Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (`alex/123456` — workbench, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
+> Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (workbench — public demo passwords are rotated; obtain from the deployer, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
 >
 > Or **watch the demo video** → [English demo (GitHub Pages)](https://rain6fish.github.io/KeelBase/video-en.html) · [China mirror](http://121.199.30.80/demo/video-en.html) (4-min, with real system demos; download: [GitHub release](https://github.com/rain6fish/KeelBase/releases/tag/demo-videos)).
 
