@@ -109,10 +109,16 @@
           <template #header>
             <div class="d-flex justify-space-between align-center">
               <span>{{ t('secActionReportHint') }}</span>
-              <el-button size="small" @click="loadActionReport()">
-                <template #icon><AppIcon icon="mdi-refresh" /></template>
-                {{ t('refresh') }}
-              </el-button>
+              <div class="d-flex align-center ga-2">
+                <el-button size="small" type="primary" @click="exportEvidencePackage">
+                  <template #icon><AppIcon icon="mdi-download" /></template>
+                  {{ t('secExportEvidence') }}
+                </el-button>
+                <el-button size="small" @click="loadActionReport()">
+                  <template #icon><AppIcon icon="mdi-refresh" /></template>
+                  {{ t('refresh') }}
+                </el-button>
+              </div>
             </div>
           </template>
           <div v-if="actionReport" class="d-flex flex-wrap ga-3 mb-3">
@@ -237,6 +243,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppTable from '@/components/AppTable.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import AiTraceView from '@/views/workbench/AiTraceView.vue'
+import { ElMessage } from 'element-plus'
 import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { aiEvalApi } from '@/api/aiEval'
@@ -409,6 +416,23 @@ async function loadActionReport() {
     actionReport.value = await auditApi.actionReport({ limit: 10 })
   } catch {
     actionReport.value = null
+  }
+}
+
+/** D4 审计证据包导出：下载含哈希链校验 + 时间戳 + 签名的 JSON 证据包（可提交审计机构） */
+async function exportEvidencePackage() {
+  try {
+    const pkg = await auditApi.exportActionReport({ limit: 10 })
+    const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `keelbase-evidence-${pkg.exportedAt.slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('exportDone'))
+  } catch {
+    ElMessage.error(t('loadFailed'))
   }
 }
 

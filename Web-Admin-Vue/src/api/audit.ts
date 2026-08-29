@@ -3,6 +3,14 @@ import type { Paginated } from '@/types/api'
 import type { AuditLog, UsageStats, ActionReport } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
+/** D4 审计证据包导出（GET /audit/action-report/export） */
+export interface ActionReportExport {
+  exportedAt: string
+  generator: string
+  report: ActionReport
+  signature: string | null
+}
+
 export const auditApi = {
   logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string } = {}): Promise<AuditLog[]> {
     const query: Record<string, string | number> = {}
@@ -27,6 +35,14 @@ export const auditApi = {
     if (params.since) query.since = params.since
     if (params.limit != null) query.limit = params.limit
     return api.get<ActionReport>('/audit/action-report', query)
+  },
+  /** D4 审计证据包导出：ActionReport + 哈希链校验 + 时间戳 + 签名 */
+  exportActionReport(params: { userId?: string; since?: string; limit?: number } = {}): Promise<ActionReportExport> {
+    const query: Record<string, string | number> = {}
+    if (params.userId) query.userId = params.userId
+    if (params.since) query.since = params.since
+    if (params.limit != null) query.limit = params.limit
+    return api.get<ActionReportExport>('/audit/action-report/export', query)
   },
   opLogs(page = 1, limit = 20, userId?: string, since?: string): Promise<Paginated<OperationAuditLog>> {
     return api.get<Paginated<OperationAuditLog>>('/audit/operations/logs', {
