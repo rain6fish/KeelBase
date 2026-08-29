@@ -1,9 +1,0 @@
-{
-  "module": "notes",
-  "label": "笔记",
-  "fields": [
-    { "name": "title", "type": "string", "label": "标题", "required": true },
-    { "name": "content", "type": "string", "label": "内容" },
-    { "name": "category", "type": "enum", "label": "分类", "enum": ["work", "personal", "idea", "archive"] }
-  ]
-}
