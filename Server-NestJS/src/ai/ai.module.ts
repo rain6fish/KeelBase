@@ -75,6 +75,7 @@ import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-eff
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from './governance/ai-governance-policy.entity';
 import { GovernancePolicyService } from './governance/governance-policy.service';
+import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance/governance-reporter.service';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
@@ -146,6 +147,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
     GovernancePolicyService,
+    // D2-3b 治理上报（GOVERNANCE_URL 配置时审计双写；未配置 enabled=false 完全本地）
+    GovernanceReporter,
+    { provide: GOVERNANCE_REPORTER, useClass: GovernanceReporter },
     DecisionTraceService,
     {
       provide: AiService,

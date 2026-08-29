@@ -31,6 +31,8 @@ export const envValidationSchema = Joi.object({
   GOVERNANCE_DB_PATH: Joi.string().optional().allow(''),
   // D2-3 治理台接入密钥（业务系统上报/拉策略共享；空则治理台 external 端点 401）
   GOVERNANCE_API_KEY: Joi.string().optional().allow(''),
+  // D2-3b 治理台地址（业务系统配置后审计双写上报；空则完全本地）
+  GOVERNANCE_URL: Joi.string().optional().allow(''),
 
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
