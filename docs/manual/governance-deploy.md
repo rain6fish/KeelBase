@@ -18,9 +18,11 @@ GOVERNANCE_PORT=3100 npm run start:governance
 ### Docker / Compose
 
 ```bash
-docker compose up governance
-# 复用 Dockerfile server target，独立容器连 postgres 的 governance 库（自动建表）
-# 健康检查：GET /api/v1/ai/health
+# 一键：治理控制平面 + sidecar（零代码接入网关）
+docker compose up governance sidecar
+# governance：复用 Dockerfile server target，独立容器连 postgres 的 governance 库（自动建表）；健康 GET /api/v1/ai/health
+# sidecar：业务系统 LLM base_url → http://sidecar:3200/v1 即零代码接入（审计 + 工具门控）；健康 GET /v1/health
+#   env 覆盖：SIDECAR_UPSTREAM_URL/KEY（转发真实 LLM）、SIDECAR_TOOLS（工具风险级清单，默认全 R1 自动）
 ```
 
 > 治理库连接配置：`GOVERNANCE_DB_PATH`（sqlite）或 `GOVERNANCE_DB_HOST/PORT/NAME`（postgres，默认库名 `governance`）。未配置时回落主库连接信息，但**库名/路径独立**（避免治理台连业务库）。
