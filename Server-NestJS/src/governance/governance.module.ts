@@ -6,7 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { DataSourceOptions } from 'typeorm';
 
 // 治理库连接（独立 DataSource，schema 从治理实体生成）
-import { GovernanceDataSource } from '../config/typeorm-data-source';
+import { GovernanceDataSource } from '../config/governance-data-source';
 
 // 治理实体
 import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
