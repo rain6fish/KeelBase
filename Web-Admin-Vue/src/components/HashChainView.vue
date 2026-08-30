@@ -46,7 +46,8 @@ const props = withDefaults(
 
 const { t } = useI18n()
 
-const visibleNodes = computed(() => props.chain.slice(0, props.maxNodes))
+// 链是 id 升序（旧→新，链尾最后）；slice(-n) 保留最近 n 条（最新证据），而非最旧
+const visibleNodes = computed(() => props.chain.slice(-props.maxNodes))
 
 function shortHash(h: string | null): string {
   return h ? h.slice(0, 8) : '—'

@@ -37,6 +37,8 @@ export interface OpAuditChainNode {
 @Injectable()
 export class OperationAuditService {
   private readonly logger = new Logger(OperationAuditService.name);
+  /** sqlite 分支进程内串行（better-sqlite3 单连接，多 QueryRunner 并发事务不支持；sqlite 单写者） */
+  private _tail: Promise<unknown> = Promise.resolve();
 
   constructor(
     @InjectRepository(OperationAuditLog)
@@ -52,37 +54,53 @@ export class OperationAuditService {
    * DB 级串行（roadmap §22.10 B）：事务内锁 audit_chain_lock id=1 行，跨实例串行化写链（替代进程内 _tail）。
    */
   async log(entry: OperationAuditEntry): Promise<void> {
-    const runner = this.dataSource.createQueryRunner();
-    await runner.connect();
-    try {
-      await runner.startTransaction();
-      if (this.dataSource.options.type === 'postgres') {
+    const payload = {
+      userId: entry.userId ?? null,
+      action: entry.action,
+      method: entry.method,
+      path: entry.path,
+      featureKey: entry.featureKey ?? null,
+      featureFallback: entry.featureFallback ?? null,
+      targetId: entry.targetId ?? null,
+      requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
+      ip: entry.ip ? entry.ip.slice(0, 64) : null,
+      userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
+      statusCode: entry.statusCode ?? null,
+    };
+    if (this.dataSource.options.type === 'postgres') {
+      // postgres：DB 级串行（事务内锁 audit_chain_lock id=1），跨实例串行化写链
+      const runner = this.dataSource.createQueryRunner();
+      await runner.connect();
+      try {
+        await runner.startTransaction();
+        // 锁行可能缺失（synchronize 建表不 seed / 治理台独立库）→ 先幂等 ensure，再取行锁
+        await runner.query(
+          `INSERT INTO "audit_chain_lock" (id, holder) VALUES (1, 'seed') ON CONFLICT (id) DO NOTHING`,
+        );
         await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
-      } else {
-        await runner.query('UPDATE "audit_chain_lock" SET holder = holder WHERE id = 1');
+        const prevHash = await this._lastHash(runner);
+        const hash = this.auditChain.computeHash(prevHash, payload);
+        await runner.manager.save(OperationAuditLog, { ...payload, prevHash, hash });
+        await runner.commitTransaction();
+      } catch (err) {
+        await runner.rollbackTransaction().catch(() => {});
+        this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
+      } finally {
+        await runner.release();
       }
-      const payload = {
-        userId: entry.userId ?? null,
-        action: entry.action,
-        method: entry.method,
-        path: entry.path,
-        featureKey: entry.featureKey ?? null,
-        featureFallback: entry.featureFallback ?? null,
-        targetId: entry.targetId ?? null,
-        requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
-        ip: entry.ip ? entry.ip.slice(0, 64) : null,
-        userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
-        statusCode: entry.statusCode ?? null,
-      };
-      const prevHash = await this._lastHash(runner);
-      const hash = this.auditChain.computeHash(prevHash, payload);
-      await runner.manager.save(OperationAuditLog, { ...payload, prevHash, hash });
-      await runner.commitTransaction();
-    } catch (err) {
-      await runner.rollbackTransaction().catch(() => {});
-      this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
-    } finally {
-      await runner.release();
+    } else {
+      // sqlite：进程内串行（better-sqlite3 单连接，多 QueryRunner 并发事务不支持；sqlite 单写者）
+      const job = this._tail.then(async () => {
+        const prevHash = await this._lastHash();
+        const hash = this.auditChain.computeHash(prevHash, payload);
+        await this.logRepo.save({ ...payload, prevHash, hash });
+      });
+      this._tail = job.catch(() => {});
+      try {
+        await job;
+      } catch (err) {
+        this.logger.warn(`[OperationAudit] log failed: ${(err as Error).message}`);
+      }
     }
   }
 

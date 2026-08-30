@@ -33,9 +33,18 @@ describe('SidecarController（/v1 端点接线）', () => {
     expect(out).toEqual({ id: 'approved' });
   });
 
-  it('POST /v1/confirmations 列待确认项', async () => {
-    await expect(controller.pending()).resolves.toEqual({
-      pending: [{ token: 'tok', tools: ['send_email'], expiresAt: 1 }],
-    });
+  it('POST /v1/confirmations 列待确认项（需共享服务密钥）', async () => {
+    const orig = process.env.GOVERNANCE_API_KEY;
+    process.env.GOVERNANCE_API_KEY = 'test-key';
+    try {
+      await expect(controller.pending('test-key')).resolves.toEqual({
+        pending: [{ token: 'tok', tools: ['send_email'], expiresAt: 1 }],
+      });
+      // 无 key / 错误 key → 401（防内网枚举 token）
+      await expect(controller.pending(undefined)).rejects.toThrow();
+      await expect(controller.pending('wrong')).rejects.toThrow();
+    } finally {
+      process.env.GOVERNANCE_API_KEY = orig;
+    }
   });
 });
