@@ -94,8 +94,8 @@ if [ "${DOCKER:-0}" = "1" ]; then
   健康检查  http://localhost:3000/api/v1/health
 
   演示账号：
-    普通用户  alex / 123456
-    管理员    admin / Admin@1234 （管理台 http://localhost/admin 需自行部署管理台）
+    普通用户  alex / Alex@2026$Demo
+    管理员    admin / Admin@2026$KeelBase （管理台 http://localhost/admin 需自行部署管理台）
 
   停止：docker compose down
 EOF
@@ -190,8 +190,8 @@ cat <<EOF
   主 App     $FLUTTER_URL
 
   演示账号：
-    普通用户  alex / 123456     → 主 App 登录
-    管理员    admin / Admin@1234 → 管理台登录
+    普通用户  alex / Alex@2026\$Demo     → 主 App 登录
+    管理员    admin / Admin@2026\$KeelBase → 管理台登录
 
   停止：kill $BACKEND_PID $ADMIN_PID ${FLUTTER_PID:-}   （或关终端）
   后端日志：.experience-backend.log
@@ -233,5 +233,5 @@ if [ "${OPEN_BROWSER:-1}" = "1" ]; then
   (open_browser "$ADMIN_URL" >/dev/null 2>&1 || true)
 fi
 echo ""
-echo "→ 下一步：浏览器打开管理台 → 用 admin / Admin@1234 登录 → 看概览页的数据"
+echo "→ 下一步：浏览器打开管理台 → 用 admin / Admin@2026\$KeelBase 登录 → 看概览页的数据"
 echo "  主 App（Flutter）见上面地址（或加 FLUTTER=1 重启本脚本启动）"

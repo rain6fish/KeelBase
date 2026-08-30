@@ -25,8 +25,8 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 | Account | Password | Purpose |
 |------|------|------|
-| `alex` | `123456` | Workbench / mobile preview normal user |
-| `admin` | `Admin@1234` | Admin Console administrator |
+| `alex` | `Alex@2026$Demo` | Workbench / mobile preview normal user |
+| `admin` | `Admin@2026$KeelBase` | Admin Console administrator |
 
 > See logs: `docker logs -f keelbase`; stop and remove: `docker stop keelbase && docker rm keelbase` (data stays in the named volume `keelbase_data`).
 > To modify code, use local development: `./scripts/dev.sh experience` (starts backend + Admin Console, opens the browser). See [Quick Start](quickstart-en.md).
