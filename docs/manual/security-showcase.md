@@ -31,6 +31,7 @@ cd Server-NestJS && npm install && npm run start:dev
 
 - 跑：工作台登录 `bob` → 直接打开 `/workbench/crm/1`（alex 的客户详情）→ 前端显示「**无权访问该客户**」
 - 或 API：`GET /crm/customers/1`（bob token）→ `403 无权访问此客户`
+- **一键自动验证（V-2）**：`node Server-NestJS/scripts/verify-permission-denied.mjs`（注册 bob → 越权访问 CRM 客户/事件/用户详情 403 + admin 200 对照 + 本人 200 对照，实测 8/8，报告 `docs/benchmark/permission-denied-*`）
 - 系统化覆盖：[security-verification-matrix.md](security-verification-matrix.md)——敏感资源 × 越权场景，13 个 e2e suite（跨用户读写删 / 非管理员访问 / 跨组织 / AI 工具越权）
 
 ## 2. 工具治理与风险分级
