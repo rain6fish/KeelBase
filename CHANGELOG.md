@@ -33,6 +33,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **weapp 专项**：i18n 全量 + 构建修复 + CI 防回归
 - **Product proof**: V-2 permission-denied verification (8/8) + V-4 one-command demo reset + V-6 30-min build instrument + verification-index
   **产品证明**：越权 V-2 + 演示复位 V-4 + 30min V-6 + 验证索引
+- **Demo video production**: unified 37-shot demo video (brand / golden-path / trust / terminal) via `scripts/record-demo-full.mjs` + live system-demo & confirmation-gate shots
+  **演示视频制作**：37 镜统一演示视频（品牌/黄金路径/信任/终端，`record-demo-full.mjs`）+ 系统演示/确认门控实机镜
 - （承接既有）M2 Guard 深化 / Integrator Kit / Live demo / P0-0 DemoProvider / 部署加固 / CORS / 审计链压测
 
 ### Fixed / 修复
