@@ -6,6 +6,8 @@ import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { AiMessage } from '../ai/conversation/ai-message.entity';
 import { Notification } from '../notifications/notification.entity';
 import { CrmCustomer } from '../crm/crm-customer.entity';
+import { CrmContact } from '../crm/crm-contact.entity';
+import { CrmOpportunity } from '../crm/crm-opportunity.entity';
 import { CrmOrder } from '../crm/crm-order.entity';
 import { CrmActivity } from '../crm/crm-activity.entity';
 import { CrmTask } from '../crm/crm-task.entity';
@@ -24,17 +26,23 @@ function mockRepo() {
     save: jest.fn((d: any) => d),
     create: jest.fn((d: any) => d),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
+    findOne: jest.fn().mockResolvedValue(null),
+    find: jest.fn().mockResolvedValue([]),
   };
 }
 
 describe('seedDemoData（PM-2 演示数据）', () => {
   function makeDataSource() {
     const repos = new Map<unknown, ReturnType<typeof mockRepo>>();
-    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification, CrmCustomer, CrmOrder, CrmActivity, CrmTask, CrmRisk, PmProject, PmMilestone, PmTask, PmRisk, ApprovalRequest, ApprovalPolicy]) {
+    for (const entity of [Event, Todo, KnowledgeArticle, AiConversation, AiMessage, Notification, CrmCustomer, CrmContact, CrmOpportunity, CrmOrder, CrmActivity, CrmTask, CrmRisk, PmProject, PmMilestone, PmTask, PmRisk, ApprovalRequest, ApprovalPolicy]) {
       repos.set(entity, mockRepo());
     }
     const dataSource = {
-      getRepository: jest.fn((entity: unknown) => repos.get(entity)!),
+      getRepository: jest.fn((entity: unknown) => {
+        // 惰性补 mock：demo-data 后续新增实体（Contract/Supplier/Book/Post/Flow…）无需同步枚举
+        if (!repos.has(entity)) repos.set(entity, mockRepo());
+        return repos.get(entity)!;
+      }),
     };
     return { dataSource, repos };
   }
