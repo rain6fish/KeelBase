@@ -22,8 +22,8 @@ import { createServer } from 'node:http';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000/api/v1';
 const USER = process.env.BENCH_USER || 'alex';
-const PASS = process.env.BENCH_PASS || '123456';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'Admin@1234';
+const PASS = process.env.BENCH_PASS || 'Alex@2026$Demo';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'Admin@2026$KeelBase';
 const PROVIDER = process.env.PROVIDER || 'deepseek';
 const MODEL = process.env.MODEL || 'deepseek-v4-flash';
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4310', 10);

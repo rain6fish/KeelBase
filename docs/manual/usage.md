@@ -70,8 +70,8 @@ Seeded automatically on first backend start (dev only) / 后端首次启动自�
 
 | Role / 角色 | Username / 用户名 | Password / 密码 | Purpose / 用途 |
 |-------------|-------------------|-----------------|----------------|
-| User / 普通用户 | `alex` | `123456` | Main app / 主 App |
-| Admin / 管理员 | `admin` | `Admin@1234` | Admin console / 管理台 |
+| User / 普通用户 | `alex` | `Alex@2026$Demo` | Main app / 主 App |
+| Admin / 管理员 | `admin` | `Admin@2026$KeelBase` | Admin console / 管理台 |
 
 ---
 
@@ -169,7 +169,7 @@ All API routes are prefixed `/api/v1`. Auth required unless marked. / 所有接�
 
 1. Open the app → splash auto-checks login / 打开 App → 启动页自动检测登录
 2. Tap register / 点击注册 → fill username + password (8+ chars, letters + numbers) / 填写用户名 + 密码（至少 8 位，字母+数字）
-3. Login with demo account `alex / 123456` / 用演示账号 `alex / 123456` 登录
+3. Login with demo account `alex / Alex@2026$Demo` / 用演示账号 `alex / Alex@2026$Demo` 登录
 
 ### 4.2 Email Verification / 邮箱验证
 
@@ -223,7 +223,7 @@ curl -X POST "$BASE/ai/confirmations/<token>" -H "Authorization: Bearer $TOKEN" 
 ### 4.6 Admin Console / 管理台
 
 1. 一键部署后访问 `http://<域名>/admin`；本地用 `./scripts/dev.sh dev-admin` / Production: visit `/admin` after one-click deploy; locally `./scripts/dev.sh dev-admin`
-2. Login with `admin / Admin@1234` / 用 `admin / Admin@1234` 登录
+2. Login with `admin / Admin@2026$KeelBase` / 用 `admin / Admin@2026$KeelBase` 登录
 3. Modules: overview, user management, event management, audit monitoring / 模块：概览、用户管理、事件管理、审计监控
 
 ---

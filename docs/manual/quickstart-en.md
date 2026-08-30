@@ -36,8 +36,8 @@
 
 4. Verify: open http://localhost:3000/api/v1/health → `{"status":"ok"}`; open http://localhost:3000.
 5. Log in with auto-created demo accounts:
-   - Main app http://localhost:3000 → `alex` / `123456`
-   - Admin console http://localhost:3000/admin → `admin` / `Admin@1234`
+   - Main app http://localhost:3000 → `alex` / `Alex@2026$Demo`
+   - Admin console http://localhost:3000/admin → `admin` / `Admin@2026$KeelBase`
 
 Manage the container: `./scripts/docker-single.sh logs | stop | down` (data persists in the `keelbase_data` volume).
 
@@ -70,7 +70,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-✅ Verify: login page appears; log in with `alex / 123456`.
+✅ Verify: login page appears; log in with `alex / Alex@2026$Demo`.
 ⚠️ Requires [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.12; backend must be running first.
 
 ### Admin Console (Vue3 PC Web)
@@ -81,7 +81,7 @@ npm install
 npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```
 
-✅ Verify: http://localhost:10086/admin/ → log in with `admin / Admin@1234`.
+✅ Verify: http://localhost:10086/admin/ → log in with `admin / Admin@2026$KeelBase`.
 Production: `npm run build` (base=/admin/, output dist/).
 
 ## 3. Demo Accounts
@@ -90,8 +90,8 @@ Auto-created on first backend start (development only):
 
 | Role | Username | Password | Use |
 |------|----------|----------|-----|
-| User | `alex` | `123456` | Main app: events, todos, AI, notifications, search, upload |
-| Admin | `admin` | `Admin@1234` | Admin console: user/event mgmt, audit, monitoring, broadcast |
+| User | `alex` | `Alex@2026$Demo` | Main app: events, todos, AI, notifications, search, upload |
+| Admin | `admin` | `Admin@2026$KeelBase` | Admin console: user/event mgmt, audit, monitoring, broadcast |
 
 **Suggested walkthrough:**
 1. Main app → log in as `alex` → create an event → add a todo.

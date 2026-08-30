@@ -25,7 +25,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SLIDES_URL = process.env.SLIDES_URL || 'http://localhost:3001';
 const OBS_WS_URL = process.env.OBS_WS_URL || 'ws://localhost:4455';
 const DEMO_USER = process.env.DEMO_USER || 'alex';
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || '123456';
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'Alex@2026$Demo';
 const RISK_QUESTION = process.env.RISK_QUESTION || '哪些客户本周最值得跟进？';
 const CREATE_QUESTION =
   process.env.CREATE_QUESTION ||
@@ -455,7 +455,7 @@ async function main() {
     await sleep(6000);
 
     // Evidence 26-27：管理台安全验证（admin 真实页——AI 审计 + 安全审查）
-    await loginAsAdmin(page, 'admin', 'Admin@1234');
+    await loginAsAdmin(page, 'admin', 'Admin@2026$KeelBase');
     boundaries.push({ shot: 26, at: Date.now() - t0 });
     await setStage(page, `${BASE_URL}/admin/#/audit`);
     await page.waitForURL(/\/audit/, { timeout: 25000 }).catch(() => {});

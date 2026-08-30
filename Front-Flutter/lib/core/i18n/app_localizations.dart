@@ -200,8 +200,8 @@ class AppLocalizations {
   String get loginSlogan => _t('Business-safe AI full-stack app base', '业务安全的 AI 全栈应用基座');
   String get loginSloganSub => _t('Where AI does real work, only within your data', 'AI 真的会干活，且只在你授权的数据里');
   String get demoAccounts => _t('Demo accounts:', '演示账号：');
-  String get demoAccountUser => _t('User alex / 123456', '普通用户 alex / 123456');
-  String get demoAccountAdmin => _t('Admin admin / Admin@1234', '管理员 admin / Admin@1234');
+  String get demoAccountUser => _t('User alex / Alex@2026$Demo', '普通用户 alex / Alex@2026$Demo');
+  String get demoAccountAdmin => _t('Admin admin / Admin@2026$KeelBase', '管理员 admin / Admin@2026$KeelBase');
   String get nickname => _t('Nickname', '昵称');
   String get loginSuccess => _t('Login successful', '登录成功');
   String get registerSuccess => _t('Registration successful', '注册成功');

@@ -8,7 +8,7 @@ const SLIDES = {
   6: { kicker: 'Positioning', html: '<div class="line"><b>AI Agents</b></div><div class="line">MCP / OpenAPI / Tools</div><div class="line arrow">↓</div><div class="line"><b>KeelBase Trust Layer</b></div><div class="line arrow">↓</div><div class="line">CRM · ERP · OA · MES</div>', cls: 'sub' },
   7: { kicker: 'Trust Layer', html: '<div class="row"><span class="chip">Identity</span><span class="chip">Policy</span><span class="chip">Permission</span><span class="chip">Confirmation</span><span class="chip">Audit</span><span class="chip">Revoke</span></div>', cls: '' },
   8: { kicker: 'Brand Sentence', html: '<div class="big" style="font-size:44px">AI can act — but only within<br>explicit business boundaries.</div>', cls: '' },
-  9: { kicker: 'Live · Demo 1', html: 'Login alex / 123456 → AI CRM', cls: 'sub' },
+  9: { kicker: 'Live · Demo 1', html: 'Login alex / Alex@2026$Demo → AI CRM', cls: 'sub' },
   10: { kicker: 'Live · Demo 1', html: 'Understanding request...<br>→ query_customer_orders<br>→ query_customer_activities<br>→ analyze_customer_risk', cls: 'sub' },
   11: { kicker: 'Live · Demo 1', html: '3 customers need attention<br><span class="accent">HanYu Manufacturing · Risk: Critical</span><br>¥2.8M order overdue 40 days', cls: 'sub' },
   12: { kicker: 'Live · Demo 2', html: 'AI suggests creating a follow-up task for HanYu Manufacturing. Execute?', cls: 'sub' },

@@ -74,8 +74,8 @@ cat <<EOF
   移动预览 http://localhost:$PORT/mobile
 
   演示账号：
-    普通用户  alex / 123456
-    管理员    admin / Admin@1234
+    普通用户  alex / Alex@2026\$Demo
+    管理员    admin / Admin@2026\$KeelBase
 
   演示路径（60 秒）：
     1. 工作台进入「AI CRM」→ 客户列表
