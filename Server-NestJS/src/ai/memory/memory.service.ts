@@ -5,10 +5,11 @@
  * 抽取为规则式（正则，零 LLM token），fire-and-forget，不阻塞对话。
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { UserMemory } from './user-memory.entity';
+import { ContentSafetyService } from '../security/content-safety.service';
 
 export type MemoryType = 'fact' | 'preference' | 'identity';
 
@@ -57,6 +58,8 @@ export class MemoriesService {
   constructor(
     @InjectRepository(UserMemory)
     private readonly repo: Repository<UserMemory>,
+    // N-6 内容安全：长期记忆写入前拦截（防注入到记忆），blocked → drop + 审计
+    @Optional() private readonly contentSafety?: ContentSafetyService,
   ) {}
 
   /** 按 (userId, content) 去重写入；超上限时删除最旧。 */
@@ -66,6 +69,11 @@ export class MemoriesService {
     content: string,
     source?: string,
   ): Promise<UserMemory | null> {
+    // N-6 内容安全：记忆写入前 check（敏感/越狱/注入不落库）
+    if (this.contentSafety) {
+      const safety = await this.contentSafety.check(content, { userId });
+      if (safety.blocked) return null;
+    }
     const existing = await this.repo.findOne({ where: { userId, content } });
     if (existing) {
       return null;

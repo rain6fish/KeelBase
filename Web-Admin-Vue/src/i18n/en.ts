@@ -532,6 +532,12 @@ const en: ZhDict = {
 
   // Governance policy (HS-9)
   governancePolicy: 'Governance Policy',
+  // N-6 AI-23 content safety config
+  contentSafetyTitle: 'Content Safety',
+  contentSafetyHint: 'Sensitive / jailbreak word lists (newline or comma separated); matches are blocked and audited',
+  contentSensitiveWords: 'Sensitive words (self-harm / violence / illegal / child safety)',
+  contentJailbreakWords: 'Jailbreak / injection patterns',
+  contentWordsPlaceholder: 'One per line, e.g. suicide / jailbreak',
   auditGranularity: 'Audit granularity',
   auditAll: 'All actions',
   auditWrite: 'Write only',
@@ -890,6 +896,7 @@ const en: ZhDict = {
     'ai.flowNode': 'AI · Flow node',
     'ai.login': 'AI · Login',
     'ai.error': 'AI · Error',
+    'ai.contentBlocked': 'AI · Content blocked',
     'ai.tool.createFollowupTask': 'Create follow-up task',
     'ai.tool.createEvent': 'Create event',
     'ai.tool.createTodo': 'Create todo',
