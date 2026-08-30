@@ -240,7 +240,7 @@ keelbase init --desc "Customer management"
   - **轻量能力声明** — [中文](docs/manual/capability-declaration.md) · [English](docs/manual/capability-declaration-en.md)
   - **外部 CRM 接入演示** — [中文](docs/manual/external-crm-demo.md) · [English](docs/manual/external-crm-demo-en.md)
   - **Agent 框架接入** — [中文](docs/manual/framework-adapter.md) · [English](docs/manual/framework-adapter-en.md)
-  - **Java Starter（Spring Boot 接入）** — [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
+  - **Java Starter（Spring Boot 接入）** — 给 Java/Spring 方法加 `@KeelbaseTool` 注解即声明为 KeelBase 治理型 AI 工具：委托身份、读写确认、审计与撤销由 KeelBase 运行时自动落。 → [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
 - [CLAUDE.md](CLAUDE.md)（架构与约定）· [AGENTS.md](AGENTS.md)（AI 构建规则）· [SECURITY.md](SECURITY.md)
 - **浏览全部能力 →** [docs/](docs/)
 
