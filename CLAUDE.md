@@ -537,6 +537,19 @@ OLLAMA_EMBED_MODEL=bge-m3
 # Headless API（AI-19，可选）
 HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头校验；留空则 /headless 端点 401）
 
+# 独立治理控制平面（D-2，护城河 2.2）：治理台独立服务 + 业务系统接入
+GOVERNANCE_DB_HOST=                # 治理台独立库连接（sqlite 用 GOVERNANCE_DB_PATH；postgres 用 HOST/PORT/USER/PASSWORD/NAME，默认库名 governance）
+GOVERNANCE_DB_PATH=                # 治理台 sqlite 路径（默认 ./data/governance.sqlite，独立于业务库）
+GOVERNANCE_API_KEY=                # 治理台服务身份密钥（业务系统上报/拉策略/撤销/审批回调共享，x-api-key）
+GOVERNANCE_URL=                    # 治理台地址（业务系统配置后 AI 审计/副作用双写上报；空则完全本地）
+GOVERNANCE_TARGET_URL=             # 治理台回调业务系统地址（撤销/approve 执行回调；空则治理台本地 revoker）
+GOVERNANCE_PORT=                   # 治理台独立服务端口（默认 3100）
+
+# 治理 sidecar（S-1，护城河 2.0 零代码接入）：AI 网关审计代理（业务系统 LLM base URL → http://sidecar:3200/v1）
+SIDECAR_UPSTREAM_URL=              # sidecar 转发真实 LLM 地址（默认 https://api.deepseek.com）
+SIDECAR_UPSTREAM_KEY=              # 上游 LLM API Key（可选）
+SIDECAR_PORT=                      # sidecar 端口（默认 3200）
+
 # 特性开关（PL-8/EASY-3）：FEATURE_<KEY>_ENABLED；未配置由 APP_PRESET 判定
 FEATURE_AI_ENABLED=
 FEATURE_SEARCH_ENABLED=
@@ -605,6 +618,8 @@ npm run migration:run
 | 命令 | 说明 |
 |------|------|
 | `npm run start:dev` | 开发启动（热重载） |
+| `npm run start:governance` | 启动独立治理控制平面（护城河 2.2，连独立治理库，端口 GOVERNANCE_PORT 默认 3100） |
+| `npm run start:sidecar` | 启动治理 sidecar（AI 网关审计代理，零代码接入，端口 SIDECAR_PORT 默认 3200） |
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |
 | `npm run test:e2e` | 端到端测试（NODE_ENV=test，8 个 suite） |
@@ -771,6 +786,15 @@ npm run migration:run
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§22.10 B4） |
+| GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
+| GET | /api/v1/ai/confirmations/pending\|decided | Yes (ADMIN) | — | R4 审批待办/历史列表（治理台读侧） |
+| POST | /api/v1/ai/confirmations/:token/approve-by | Yes (ADMIN) | — | 治理台裁决审批 → 回调业务系统执行工具（D-2 approve 回调） |
+| GET | /api/v1/ai/health | Yes | — | 治理台健康检查（docker 编排用） |
+| POST | /api/v1/external/audit | 服务身份 | — | 业务系统上报 AI 审计（GOVERNANCE_API_KEY，落治理库哈希链，source=external） |
+| POST | /api/v1/external/effects | 服务身份 | — | 业务系统上报 AI 写副作用（幂等键去重） |
+| GET | /api/v1/external/governance/policy | 服务身份 | — | 业务系统拉取实时治理策略 |
+| POST | /api/v1/internal/approvals/:token/execute | 服务身份 | — | 治理台 approve 回调 → 业务系统执行业务工具 |
+| POST | /api/v1/internal/effects/revoke | 服务身份 | — | 治理台撤销回调 → 业务系统软删副作用目标 |
 | GET | /api/v1/admin/headless-keys | Yes (ADMIN) | — | headless API Key 列表（HS-4） |
 | POST | /api/v1/admin/headless-keys | Yes (ADMIN) | — | 创建 headless API Key（HS-4，返回明文仅此一次） |
 | PATCH | /api/v1/admin/headless-keys/:id | Yes (ADMIN) | — | 更新 headless API Key（HS-4：配额/工具范围/归属/启停） |
