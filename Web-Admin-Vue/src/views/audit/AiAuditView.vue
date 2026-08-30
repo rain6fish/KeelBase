@@ -57,7 +57,7 @@
       <div v-if="errorLogs.length" class="error-list">
         <div v-for="e in errorLogs" :key="e.id" class="error-item">
           <span class="text-caption font-weight-medium">{{ formatTime(e.createdAt) }}</span>
-          <span class="error-msg text-caption">{{ e.errorMessage || actionLabel(e) }}</span>
+          <span class="error-msg text-caption">{{ errorLabel(e.errorMessage, t) || actionLabel(e) }}</span>
         </div>
       </div>
       <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
@@ -95,11 +95,16 @@
       <template #header>{{ t('statistics') }}</template>
       <div v-if="expanded.detail" class="d-flex ga-2 py-1">
         <span class="font-weight-medium" style="min-width: 140px">detail</span>
-        <span class="text-medium-emphasis">{{ expanded.detail }}</span>
+        <template v-if="detailParts(expanded.detail)">
+          <span class="text-medium-emphasis">
+            {{ toolLabel(feature, detailParts(expanded.detail)!.toolName) }}{{ toolArgsSummary(detailParts(expanded.detail)!.toolName, detailParts(expanded.detail)!.args, locale.startsWith('zh')) }}
+          </span>
+        </template>
+        <span v-else class="text-medium-emphasis">{{ expanded.detail }}</span>
       </div>
       <div v-if="expanded.errorMessage" class="d-flex ga-2 py-1">
         <span class="font-weight-medium" style="min-width: 140px">errorMessage</span>
-        <span class="text-medium-emphasis">{{ expanded.errorMessage }}</span>
+        <span class="text-medium-emphasis">{{ errorLabel(expanded.errorMessage, t) }}</span>
       </div>
       <div v-if="expanded.durationMs != null" class="d-flex ga-2 py-1">
         <span class="font-weight-medium" style="min-width: 140px">durationMs</span>
@@ -127,9 +132,11 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
+import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { AuditLog, UsageStats, ChainVerifyResult } from '@/types/audit'
 
 const { t, messages, locale } = useI18n()
+const feature = computed(() => (messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined)?.feature)
 const route = useRoute()
 const snackbar = useSnackbarStore()
 
@@ -214,6 +221,12 @@ function actionLabel(log: AuditLog): string {
     if (localized) return localized
   }
   return log.actionLabel || log.action || '-'
+}
+
+/** 解析工具调用 detail（形如 create_followup_task({"title":...})）→ 工具名 + 参数；非工具调用返回 null */
+function detailParts(detail: string | null | undefined): { toolName: string; args: string } | null {
+  const m = /^([\w]+)\((.*)\)$/s.exec(detail || '')
+  return m ? { toolName: m[1], args: m[2] } : null
 }
 
 function onExport() {
