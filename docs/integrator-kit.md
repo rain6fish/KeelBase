@@ -17,7 +17,7 @@
 | **轻量 Capability 声明**（`capability.yaml` → 同构工具，比 OpenAPI 更轻） | ✅ | [capability-declaration.md](manual/capability-declaration.md) |
 | **Governance & Deployment Guide**（接入即治理 + 部署交付） | ✅ 已整合 | [governance-deployment-guide.md](integrator-kit/governance-deployment-guide.md)（索引各部署/安全文档） |
 | **AI Assistant Template**（业务 AI 助手面板模板） | ✅（CRM/PM Copilot 已落地） | [flagship-applications.md](../flagship-applications.md) |
-| **Reference Project：传统 Java CRM → AI CRM** | ✅ 实施手册已提供（真实 Java 端到端实测待 P1） | [reference-project-guide.md](integrator-kit/reference-project-guide.md) + [external-crm-demo.md](manual/external-crm-demo.md) |
+| **Reference Project：传统 Java CRM → AI CRM** | ✅ 实施手册 + **真实 Java CRM 样板已提供**（`keelbase-java-crm-example`：5 工具读 R1/写 R3 + 补偿，域与 external-crm-demo 对齐，`verify-crm-e2e.mjs` 联调） | [reference-project-guide.md](integrator-kit/reference-project-guide.md) + [external-crm-demo.md](manual/external-crm-demo.md) + [reference-project-crm.md](https://github.com/rain6fish/KeelBase-java-starter/blob/main/docs/reference-project-crm.md) |
 
 ## 二、Reference Project：传统 Java CRM → AI CRM（核心样板）
 
@@ -38,7 +38,8 @@
 **升级为完整样板的剩余**（P1）：
 - ~~Java 端真实补偿端点~~ → ✅ `KeelBase-java-starter` 的 `KeelBaseCompensationSupport` 已提供（幂等 + 审计）
 - ~~真实 Java 存量系统端到端实测~~ → ✅ 联调已全通（见 `KeelBase-java-starter` 的 `scripts/verify-java-starter-e2e.mjs`）
-- 集成商分步实施手册（从拿到系统到 AI 助手上线）
+- ~~集成商分步实施手册~~ → ✅ `reference-project-guide.md`（8 步）
+- ~~真实 Java CRM 实现~~ → ✅ `keelbase-java-crm-example`（5 工具读 R1/写 R3 + 补偿 + `verify-crm-e2e.mjs`，域与 external-crm-demo 对齐）
 
 ## 三、快速开始（集成商视角） / Quick Start for Integrators
 
