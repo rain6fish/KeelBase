@@ -32,6 +32,8 @@ const SHOTS = [
   ['slide', 5, 3500], ['slide', 6, 5000], ['slide', 7, 3500], ['slide', 8, 4500],
   // 实机 golden path（登录 + AI 问客户 + 分析）
   ['ui-golden', 9000],
+  // 实机确认门控：AI 创建跟进任务（写 R3）→ 确认卡 → 批准 → 已执行/已确认
+  ['ui-confirm', 9000],
   // 信任运行时定位
   ['slide', 22, 5500], ['slide', 23, 4500],
   // 企业安全验证
@@ -47,13 +49,20 @@ const SHOTS = [
 ];
 
 // ── UI golden path：登录 → 打开 AI 助手 → 问客户风险 → 等 demo 分析回复 ──
-async function uiGolden(page) {
+// 幂等登录：同一 context 已登录（登录页不出现）则直接跳过。
+async function loginAs(page, user, pass) {
   await page.goto(`${BASE}/admin/`, { waitUntil: 'networkidle', timeout: 30000 });
-  await page.waitForSelector('button[type="submit"]', { timeout: 20000 });
-  await page.locator('input:not([type="password"])').first().fill('alex');
-  await page.locator('input[autocomplete="current-password"]').fill('Alex@2026$Demo');
-  await page.locator('button[type="submit"]').click();
+  const submitBtn = page.locator('button[type="submit"]');
+  if ((await submitBtn.count()) > 0) {
+    await page.locator('input:not([type="password"])').first().fill(user);
+    await page.locator('input[autocomplete="current-password"]').fill(pass);
+    await submitBtn.first().click();
+  }
   await page.waitForSelector('.ai-btn', { timeout: 20000 });
+}
+
+async function uiGolden(page) {
+  await loginAs(page, 'alex', 'Alex@2026$Demo');
   await page.locator('.ai-btn').click();
   await page.locator('.ai-assistant-drawer textarea').first().fill('哪些客户值得跟进？');
   await page.locator('.ai-assistant-drawer .el-button--primary').first().click();
@@ -63,6 +72,26 @@ async function uiGolden(page) {
     .getByText(/值得|风险|customer|客户/i)
     .first()
     .waitFor({ timeout: 25000 });
+}
+
+// ── UI 确认门控：客户详情 → Copilot → AI 创建跟进任务（写 R3）→ 确认卡 → 批准 ──
+async function uiConfirm(page) {
+  await loginAs(page, 'alex', 'Alex@2026$Demo');
+  await page.goto(`${BASE}/admin/#/workbench/crm/1`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(3500);
+  await page.locator('button:has-text("AI 分析"), button:has-text("AI Analyze")').first().click();
+  await page.waitForTimeout(3500);
+  await page.locator('.el-drawer .el-input__inner, .el-drawer input[type="text"]').first().fill('创建跟进任务，标题催收逾期款项');
+  await page.waitForTimeout(600);
+  await page.locator('.el-drawer .el-button--primary').first().click();
+  await page.locator('.ai-confirm-card').first().waitFor({ timeout: 40000 });
+  await page.waitForTimeout(2500); // 展示确认卡（需人工确认）
+  await page
+    .locator('.ai-confirm-card button')
+    .filter({ hasText: /批准|Approve/ })
+    .first()
+    .click({ force: true });
+  await page.waitForTimeout(9000); // 等待执行 + 已确认
 }
 
 // ── 跑单镜（连续录制，镜头间瞬时切换）──
@@ -76,6 +105,9 @@ async function runShot(page, shot) {
     await sleep(b);
   } else if (type === 'ui-golden') {
     await uiGolden(page);
+    await sleep(a);
+  } else if (type === 'ui-confirm') {
+    await uiConfirm(page);
     await sleep(a);
   }
 }
