@@ -1,0 +1,49 @@
+{
+  "gate": "V-2 越权拒绝：双账号行级权限 403",
+  "date": "2026-08-30T06-29-33-399Z",
+  "pass": 8,
+  "total": 8,
+  "elapsedSec": 2,
+  "cases": [
+    {
+      "name": "alex 登录（数据所有者）",
+      "pass": true,
+      "detail": "userId=1"
+    },
+    {
+      "name": "前置：alex 有种子数据",
+      "pass": true,
+      "detail": "customer=1 event=7"
+    },
+    {
+      "name": "注册 bob（POST /auth/register）",
+      "pass": true,
+      "detail": "@bob_72415"
+    },
+    {
+      "name": "bob 访问 alex 的 CRM 客户 → 403",
+      "pass": true,
+      "detail": "GET /crm/customers/1"
+    },
+    {
+      "name": "bob 访问 alex 的事件 → 403",
+      "pass": true,
+      "detail": "GET /events/7"
+    },
+    {
+      "name": "bob 访问 alex 的用户详情 → 403",
+      "pass": true,
+      "detail": "GET /users/1"
+    },
+    {
+      "name": "admin 访问同一客户 → 200（管理员允许，对照）",
+      "pass": true,
+      "detail": "GET /crm/customers/1"
+    },
+    {
+      "name": "bob 访问自己的列表 → 200（本人数据，对照）",
+      "pass": true,
+      "detail": "GET /events"
+    }
+  ]
+}
