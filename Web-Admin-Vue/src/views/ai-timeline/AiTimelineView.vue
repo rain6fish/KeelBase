@@ -34,6 +34,12 @@
               <span class="text-body-2">{{ s.conversationId ? t('conversation') + ' ' + shortId(s.conversationId) : t('adhocChat') }}</span>
               <el-tag size="small" effect="light">{{ s.events.length }} {{ t('events') }}</el-tag>
               <el-tag v-if="s.toolEffects.length" size="small" type="warning" effect="light">{{ s.toolEffects.length }} {{ t('toolEffects') }}</el-tag>
+              <div v-if="sessionToolChain(s).length" class="d-flex align-center ga-1 flex-wrap mt-1" style="width: 100%">
+                <template v-for="(tool, i) in sessionToolChain(s)" :key="i">
+                  <el-tag size="small" effect="plain" type="primary" class="chain-tool">{{ tool }}</el-tag>
+                  <span v-if="i < sessionToolChain(s).length - 1" class="text-caption text-medium-emphasis">→</span>
+                </template>
+              </div>
             </div>
           </template>
           <el-timeline>
@@ -369,6 +375,13 @@ function toEvent(log: AuditLog): TimelineEvent | null {
         label: t(`action.${log.action}`) !== `action.${log.action}` ? t(`action.${log.action}`) : log.action,
       }
   }
+}
+
+/** E-2 行为回放图形化：会话的工具调用链概览（tool_call/confirmation 序列，头部链式展示一眼看出 AI 执行链） */
+function sessionToolChain(s: Session): string[] {
+  return s.events
+    .filter((e) => e.type === 'tool_call' || e.type === 'tool_confirmation')
+    .map((e) => e.toolName || e.type)
 }
 
 function sessionIcon(s: Session): string {
