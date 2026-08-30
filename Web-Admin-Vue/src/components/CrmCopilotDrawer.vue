@@ -234,9 +234,10 @@ async function send(raw: string) {
               (it) => it.kind === 'tool' && it.toolStart.name === ev.toolEnd.name,
             )
             if (match && match.kind === 'tool') match.toolEnd = ev.toolEnd
-            // 写操作成功 → D1 闭环：通知父组件刷新 + 钻取治理轨迹
-            if (ev.toolEnd.success && executed) {
-              emit('executed', executed)
+            // 写操作成功 → D1 闭环：通知父组件刷新 + 钻取治理轨迹。
+            // 无论成败都清除 executed（防工具失败后 stale 残留，被后续无关 tool_end 误触发）
+            if (executed) {
+              if (ev.toolEnd.success) emit('executed', executed)
               executed = null
             }
             scrollBottom()
