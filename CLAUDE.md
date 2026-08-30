@@ -791,7 +791,8 @@ npm run migration:run
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§22.10 B4） |
 | GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
-| GET | /api/v1/ai/confirmations/pending\|decided | Yes (ADMIN) | — | R4 审批待办/历史列表（治理台读侧） |
+| GET | /api/v1/ai/confirmations/pending | Yes (ADMIN) | — | R4 待人工审批列表（治理台读侧） |
+| GET | /api/v1/ai/confirmations/decided | Yes (ADMIN) | — | R4 已审批历史（治理台读侧） |
 | POST | /api/v1/ai/confirmations/:token/approve-by | Yes (ADMIN) | — | 治理台裁决审批 → 回调业务系统执行工具（D-2 approve 回调） |
 | GET | /api/v1/ai/health | Yes | — | 治理台健康检查（docker 编排用） |
 | POST | /api/v1/external/audit | 服务身份 | — | 业务系统上报 AI 审计（GOVERNANCE_API_KEY，落治理库哈希链，source=external） |
