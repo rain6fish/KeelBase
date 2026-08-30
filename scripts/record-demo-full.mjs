@@ -36,8 +36,9 @@ const SHOTS = [
   ['ui-confirm', 9000],
   // 信任运行时定位
   ['slide', 22, 5500], ['slide', 23, 4500],
-  // 企业安全验证
+  // 企业安全验证（slides）+ 系统演示：管理台 AI 审计（防篡改哈希链）→ 系统信息 → 监控中心
   ['slide', 26, 4500], ['slide', 27, 4500],
+  ['ui-system', 9000],
   // 构建：keelbase init（terminal）+ 协议→代码（slides）
   ['terminal', 'build', 12000], ['slide', 30, 4500], ['slide', 31, 3500],
   // 存量系统：AI Bridge（terminal）+ 定位（slides）
@@ -74,6 +75,31 @@ async function uiGolden(page) {
     .waitFor({ timeout: 25000 });
 }
 
+// ── UI 系统演示：admin（API token 注入）→ AI 审计（防篡改哈希链）→ 系统信息 → 监控中心 ──
+async function uiSystem(page) {
+  // 先确保同源页面（当前可能是 file://），再 API 拿 admin token 注入 storage → 管理控制台
+  await page.goto(`${BASE}/admin/`, { waitUntil: 'networkidle' });
+  await page.evaluate(async (base) => {
+    const res = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'Admin@2026$KeelBase' }),
+    });
+    const j = await res.json();
+    localStorage.setItem('admin_access_token', j.data.accessToken);
+    localStorage.setItem('admin_refresh_token', j.data.refreshToken);
+  }, BASE);
+  // AI 审计：防篡改哈希链验证（sleep 等待接口渲染，与探测一致）
+  await page.goto(`${BASE}/admin/#/audit`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(7000);
+  // 系统信息：版本 / 运行环境（脱敏）
+  await page.goto(`${BASE}/admin/#/system`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(5000);
+  // 监控中心：服务 / 依赖 / 数据规模
+  await page.goto(`${BASE}/admin/#/monitor`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(5000);
+}
+
 // ── UI 确认门控：客户详情 → Copilot → AI 创建跟进任务（写 R3）→ 确认卡 → 批准 ──
 async function uiConfirm(page) {
   await loginAs(page, 'alex', 'Alex@2026$Demo');
@@ -108,6 +134,9 @@ async function runShot(page, shot) {
     await sleep(a);
   } else if (type === 'ui-confirm') {
     await uiConfirm(page);
+    await sleep(a);
+  } else if (type === 'ui-system') {
+    await uiSystem(page);
     await sleep(a);
   }
 }
