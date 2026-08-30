@@ -42,3 +42,18 @@
 
 - 后端健康检查：`http://121.199.30.80/api/v1/health`
 - AI 对话依赖 DeepSeek key（已配置）；本地/离线场景走 Ollama（见 `private-ai-verification.md`）
+
+## 数据复位（Demo Reset，V-4）/ Reset Demo Data
+
+演示前把数据复位到干净种子态（删除演示产生的脏数据，重新 seed 演示账号 + AI CRM 客户）：
+
+```bash
+# 本地开发（先停后端）
+./scripts/reset-demo.sh                     # 自动备份到 data/backups/ 再删库，重启后端自动 seed
+# 容器部署（ECS）
+docker compose stop server
+./scripts/reset-demo.sh --docker --no-backup # 容器内复位（见 demo-deploy.md 复位一节）
+docker compose up -d --force-recreate server
+```
+
+复位后：`alex / Alex@2026$Demo`（工作台）、`admin / Admin@2026$KeelBase`（管理台）自动重建，AI CRM 种子客户（辰光建材 / 澄海地产 / 瀚宇制造）恢复。
