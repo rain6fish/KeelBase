@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:front_app/core/i18n/app_localizations.dart';
 import 'package:front_app/features/ai/presentation/pages/ai_chat_page.dart';
 import 'package:front_app/features/ai/presentation/providers/ai_chat_provider.dart';
+import 'package:front_app/core/api/capabilities_provider.dart';
+import 'package:front_app/core/api/capabilities_repository.dart';
 import '../../helpers.dart';
 
 void main() {
@@ -27,16 +29,19 @@ void main() {
 
   Future<void> pumpAiChatPage(WidgetTester tester) async {
     await tester.pumpWidget(
-      ChangeNotifierProvider<AiChatProvider>.value(
-        value: provider,
-        child: CupertinoApp(
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          home: const AiChatPage(),
+      ChangeNotifierProvider<CapabilitiesProvider>.value(
+        value: CapabilitiesProvider(CapabilitiesRepository(api)),
+        child: ChangeNotifierProvider<AiChatProvider>.value(
+          value: provider,
+          child: CupertinoApp(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const AiChatPage(),
+          ),
         ),
       ),
     );
