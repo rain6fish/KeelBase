@@ -17,7 +17,6 @@ describe('DeleteCustomerTool', () => {
     expect(tool.name).toBe('delete_customer');
     expect(tool.riskLevel).toBe('R5');
     expect(tool.requiresConfirmation).toBe(false);
-    expect(tool.permissions?.requireVerifiedEmail).toBe(true);
   });
 
   it('toToolDefinition 暴露 customerId 必填参数', () => {

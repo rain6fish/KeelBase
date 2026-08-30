@@ -119,5 +119,7 @@ export const GovernanceDataSource = new DataSource({
     AiGovernancePolicy,
     AuditChainLock,
   ],
-  synchronize: true,
+  // §5.4 部署安全：仅开发/暂存同步建表；生产关闭（fail fast，避免治理库运行时 schema 漂移）。
+  // 治理台生产迁移策略（AddGovernance*）待补——当前生产部署会因缺表显式失败而非静默漂移。
+  synchronize: nodeEnv !== 'production',
 } as DataSourceOptions);

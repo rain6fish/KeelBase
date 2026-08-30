@@ -14,7 +14,6 @@ export class DeleteCustomerTool implements AiTool {
   readonly name = 'delete_customer';
   readonly requiresConfirmation = false; // R5 阻断，不进入确认
   readonly riskLevel = 'R5';
-  readonly permissions = { requireVerifiedEmail: true };
   readonly description =
     '不可逆删除客户（级联删除该客户的订单/跟进任务/联系人/销售机会）。' +
     '这是不可逆的高风险操作，风险级 R5，会被系统策略阻断，永不执行。';

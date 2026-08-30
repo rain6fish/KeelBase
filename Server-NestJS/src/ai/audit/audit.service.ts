@@ -236,6 +236,10 @@ export class AuditService {
       await runner.connect();
       try {
         await runner.startTransaction();
+        // 锁行可能缺失（synchronize 建表不 seed / 治理台独立库）→ 先幂等 ensure，再取行锁
+        await runner.query(
+          `INSERT INTO "audit_chain_lock" (id, holder) VALUES (1, 'seed') ON CONFLICT (id) DO NOTHING`,
+        );
         await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
         const prevHash = await this._lastHash(runner);
         const hash = this.auditChain.computeHash(prevHash, payload);
@@ -703,7 +707,7 @@ export class AuditService {
     // E-3 性能：列投影——只加载聚合所需列（action/tokens/isError/createdAt），避免大字段（detail/model）全量载内存
     const logs = await this.logRepo.find({
       where,
-      select: { action: true, promptTokens: true, completionTokens: true, isError: true, createdAt: true },
+      select: { action: true, promptTokens: true, completionTokens: true, isError: true, createdAt: true, detail: true, authorization: true, errorMessage: true },
     });
 
     const actionCounts = new Map<string, number>();
