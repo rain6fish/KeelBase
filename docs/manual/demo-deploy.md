@@ -59,7 +59,7 @@ server {
 ### 5. 验证
 
 - `https://demo.yourdomain.com` 用 `alex / Alex@2026$Demo` 登录
-- 数据可随时重置：演示库为非生产库，重建容器/库即恢复初始种子
+- 数据可随时一键复位：`./scripts/reset-demo.sh`（本地备份后删库，重启自动 seed；容器模式 `--docker`），见 [demo-live.md](demo-live.md) 复位一节
 
 ## 三、README 首屏链接
 
