@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000/api/v1';
 const USER = process.env.BENCH_USER || 'alex';
-const PASS = process.env.BENCH_PASS || '123456';
+const PASS = process.env.BENCH_PASS || 'Alex@2026$Demo';
 const PROVIDER = process.env.PROVIDER || 'deepseek';
 const MODEL = process.env.MODEL || 'deepseek-v4-flash';
 const TIMEOUT_MS = parseInt(process.env.GATE_TIMEOUT || '180000', 10);
@@ -224,7 +224,7 @@ async function main() {
   // 7. 撤销：admin 查本人副作用（找本次对话最新 crm_task effect）→ alex 本人删除（软删）
   const t7 = Date.now();
   try {
-    const adminToken = await loginAs('admin', process.env.ADMIN_PASS || 'Admin@1234');
+    const adminToken = await loginAs('admin', process.env.ADMIN_PASS || 'Admin@2026$KeelBase');
     const me = await api(token, '/auth/me');
     const alexId = me.data?.id;
     const fx = await api(adminToken, `/ai/tool-effects?userId=${alexId}`);

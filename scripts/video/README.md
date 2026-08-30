@@ -28,7 +28,7 @@ node scripts/video/record-demo.mjs --obs-info
 | `BASE_URL` | `http://localhost:3000` | 本地应用地址 |
 | `OBS_WS_URL` | `ws://localhost:4455` | OBS WebSocket 地址 |
 | `OBS_WS_PASSWORD` | 自动读取 | OBS WebSocket 密码 |
-| `DEMO_USER` / `DEMO_PASSWORD` | `alex` / `123456` | 演示账号 |
+| `DEMO_USER` / `DEMO_PASSWORD` | `alex` / `Alex@2026$Demo` | 演示账号 |
 | `DEMO_QUESTION` | 创建跟进任务指令 | 发给 AI 的提问 |
 | `CHROME_PATH` | 自动探测 | Chrome/Edge 可执行文件路径 |
 | `VIDEO_OUT` | `artifacts/demo` | Playwright 兜底视频目录 |

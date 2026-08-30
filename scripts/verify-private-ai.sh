@@ -108,7 +108,7 @@ done
 echo "→ [4/4] AI 冒烟（本地 ollama 对话）"
 TOKEN=$(curl -s -X POST "http://localhost:$PORT/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alex","password":"123456"}' | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 if [ -z "$TOKEN" ]; then
   bad "登录失败（演示账号未种？空库首启会自动种）——跳过 AI 冒烟"
   echo ""

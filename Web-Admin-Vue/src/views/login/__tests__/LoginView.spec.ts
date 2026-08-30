@@ -96,11 +96,11 @@ describe('LoginView', () => {
 
     const inputs = wrapper.findAll('input')
     await inputs[0].setValue('alex')
-    await inputs[1].setValue('123456')
+    await inputs[1].setValue('Alex@2026$Demo')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(loginMock).toHaveBeenCalledWith('alex', '123456')
+    expect(loginMock).toHaveBeenCalledWith('alex', 'Alex@2026$Demo')
     expect(replaceMock).toHaveBeenCalledWith('/workbench')
   })
 

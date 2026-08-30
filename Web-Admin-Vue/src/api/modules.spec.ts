@@ -39,8 +39,8 @@ beforeEach(() => {
 describe('authApi', () => {
   it('login POST /auth/login', async () => {
     api.post.mockResolvedValue({})
-    await authApi.login('alex', '123456')
-    expect(api.post).toHaveBeenCalledWith('/auth/login', { username: 'alex', password: '123456' })
+    await authApi.login('alex', 'Alex@2026$Demo')
+    expect(api.post).toHaveBeenCalledWith('/auth/login', { username: 'alex', password: 'Alex@2026$Demo' })
   })
 
   it('me GET /auth/me', async () => {

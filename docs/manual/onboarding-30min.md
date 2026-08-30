@@ -39,7 +39,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ```bash
 cd Server-NestJS && npm run build
-npm run start:dev     # 首次启动建 SQLite 库（synchronize 自动建表）+ 种演示账号（alex/123456、admin/Admin@1234），就绪后 Ctrl+C
+npm run start:dev     # 首次启动建 SQLite 库（synchronize 自动建表）+ 种演示账号（alex/Alex@2026$Demo、admin/Admin@2026$KeelBase），就绪后 Ctrl+C
 ```
 
 > 开发模式用 `synchronize` 自动建表（含刚生成的 `invoices`），**无需手写迁移**。生产部署（`synchronize:false` + `migrationsRun`）才走迁移流程。
@@ -58,7 +58,7 @@ npm test -- invoices
 npm run start:dev    # http://localhost:3000，Swagger /api/docs
 ```
 
-工作台登录 `alex / 123456`，AI 对话输入：
+工作台登录 `alex / Alex@2026$Demo`，AI 对话输入：
 
 - 「**查一下我的发票**」→ AI 调用 `query_invoices`（蓝色「读」工具卡）
 - 「**创建一条发票：INV-001，8000，已开具**」→ AI 调用 `create_invoices`（橙色「写」工具卡）→ 弹出**确认框** → 确认 → 落库 →「已确认 · 可撤销」

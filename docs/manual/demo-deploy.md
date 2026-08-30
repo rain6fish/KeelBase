@@ -1,6 +1,6 @@
 # 在线 Demo 演示站部署（PM-1 / P0·产品证明）
 
-> 目标：让评估者**无需安装**即可在线体验全栈基座——Web 工作台（AI CRM Golden Flow）+ 后端 + 种子演示数据（alex / 123456）。演示站只读，数据随库可随时重置。
+> 目标：让评估者**无需安装**即可在线体验全栈基座——Web 工作台（AI CRM Golden Flow）+ 后端 + 种子演示数据（alex / Alex@2026$Demo）。演示站只读，数据随库可随时重置。
 
 ## 一、本地一键演示（最快）
 
@@ -15,8 +15,8 @@
 4. 打开 `http://localhost:3000` → 自动进入工作台 `/admin/#/workbench`
 
 访问：
-- 工作台 `http://localhost:3000` —— 演示账号 `alex / 123456`（**AI CRM Golden Flow 演示入口**）
-- 管理台 `http://localhost:3000/admin` —— `admin / Admin@1234`
+- 工作台 `http://localhost:3000` —— 演示账号 `alex / Alex@2026$Demo`（**AI CRM Golden Flow 演示入口**）
+- 管理台 `http://localhost:3000/admin` —— `admin / Admin@2026$KeelBase`
 - 移动预览 `http://localhost:3000/mobile`
 
 自定义：`PORT=3000 ./deploy/demo.sh`、`SKIP_MOBILE=1 ./deploy/demo.sh`
@@ -58,7 +58,7 @@ server {
 
 ### 5. 验证
 
-- `https://demo.yourdomain.com` 用 `alex / 123456` 登录
+- `https://demo.yourdomain.com` 用 `alex / Alex@2026$Demo` 登录
 - 数据可随时重置：演示库为非生产库，重建容器/库即恢复初始种子
 
 ## 三、README 首屏链接

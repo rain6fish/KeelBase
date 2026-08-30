@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 
 const BASE = process.env.BASE || 'http://localhost:3000';
 const DEMO_USER = process.env.DEMO_USER || 'alex';
-const DEMO_PASS = process.env.DEMO_PASS || '123456';
+const DEMO_PASS = process.env.DEMO_PASS || 'Alex@2026$Demo';
 
 let pass = 0, fail = 0;
 const ok = (m) => { console.log(`  ✓ ${m}`); pass++; };
@@ -105,7 +105,7 @@ const main = async () => {
   // 5. Audit：审计落库（provider=mcp；/audit/logs 为 admin 端点）
   console.log('→ [5/5] Audit — MCP 调用落 AI 审计');
   try {
-    const admin = await json('/api/v1/auth/login', { method: 'POST', body: { username: 'admin', password: 'Admin@1234' } });
+    const admin = await json('/api/v1/auth/login', { method: 'POST', body: { username: 'admin', password: 'Admin@2026$KeelBase' } });
     const adminToken = admin.json?.data?.accessToken;
     if (!adminToken) { bad('admin 登录失败，无法查审计'); }
     else {
