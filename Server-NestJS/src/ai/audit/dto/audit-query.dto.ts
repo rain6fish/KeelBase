@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min, Max, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max, IsDateString, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -7,6 +7,11 @@ export class AuditQueryDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @ApiPropertyOptional({ description: '按是否错误过滤（E-2 异常视图：true 仅错误日志）' })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  isError?: 'true' | 'false';
 
   @ApiPropertyOptional({ description: '按 Agent 过滤（D4 agent_id，Agent Registry → 审计联动）' })
   @IsOptional()
