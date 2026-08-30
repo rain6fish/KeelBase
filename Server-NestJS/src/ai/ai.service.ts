@@ -443,7 +443,9 @@ export class AiService {
                 ? 'pm_task'
                 : toolName === 'submit_approval_request'
                   ? 'app_request'
-                  : 'todo';
+                  : toolName === 'create_contract'
+                    ? 'contract'
+                    : 'todo';
         const resultId = isProxyWrite
           ? typeof (result.data as any)?.id === 'number'
             ? (result.data as any).id
