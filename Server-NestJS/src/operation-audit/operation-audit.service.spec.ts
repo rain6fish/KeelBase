@@ -169,6 +169,21 @@ describe('OperationAuditService', () => {
       await service.verifyChain();
       expect(chain.verifyChain).toHaveBeenCalled();
     });
+
+    it('E-2：broken 链返回断点窗口切片并标记断点行（含 method/path）', async () => {
+      const rows = Array.from({ length: 30 }, (_, i) => ({
+        id: i + 1, prevHash: i === 0 ? null : `h${i}`, hash: `h${i + 1}`,
+        createdAt: new Date(), action: 'CREATE', method: 'POST', path: '/api/v1/events', statusCode: 201,
+      }));
+      mockRepo.find.mockResolvedValue(rows);
+      chain.verifyChain.mockReturnValue({ valid: false, checked: 10, brokenIndex: 11 });
+      const result = await service.verifyChain();
+      const brokenNode = result.chain.find((n) => n.broken);
+      expect(brokenNode).toBeDefined();
+      expect(brokenNode!.id).toBe(11);
+      expect(brokenNode!.method).toBe('POST');
+      expect(brokenNode!.path).toBe('/api/v1/events');
+    });
   });
 
   describe('getLogs', () => {
