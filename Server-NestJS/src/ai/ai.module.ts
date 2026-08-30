@@ -96,6 +96,7 @@ import { AnalyzeSalesPipelineTool } from './tools/analyze-sales-pipeline.tool';
 import { QueryCustomerActivitiesTool } from './tools/query-customer-activities.tool';
 import { AnalyzeCustomerRiskTool } from './tools/analyze-customer-risk.tool';
 import { CreateFollowupTaskTool } from './tools/create-followup-task.tool';
+import { DeleteCustomerTool } from './tools/delete-customer.tool';
 import { QueryProjectsTool } from './tools/query-projects.tool';
 import { QueryProjectTasksTool } from './tools/query-project-tasks.tool';
 import { AnalyzeProjectRiskTool } from './tools/analyze-project-risk.tool';
@@ -262,11 +263,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           });
         }
 
-        // P0-0：没有任何云 Provider（无 API Key / 无本地 Ollama）时注册确定性 Demo Provider，
-        // 保证 ghcr 单容器镜像 / 干净环境零配置即可跑通 AI 黄金流程（resolveProvider 链尾兜底到 demo）。
-        if (factory.getAllProviders().length === 0) {
-          factory.registerCustom(new DemoProvider());
-        }
+        // P0-0：注册确定性 Demo Provider（resolveProvider 链尾兜底到 demo）。
+        // 干净环境（无 API Key / 无本地 Ollama）默认即用它跑通 AI 黄金流程；
+        // 配置了云 Provider 时仍可显式 provider:'demo' 使用，供确定性验证/演示。
+        factory.registerCustom(new DemoProvider());
 
         // 2. 创建工具注册表
         const toolRegistry = new ToolRegistry();
@@ -302,6 +302,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new AnalyzeSalesPipelineTool(crmService, factory, defaultProvider));
         toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
         toolRegistry.register(new CreateFollowupTaskTool(crmService));
+        // R5 阻断演示载体：不可逆删除客户，被系统策略阻断（风险级 R5），永不执行
+        toolRegistry.register(new DeleteCustomerTool());
         // AI Project Management 旗舰应用：项目/任务/风险/创建项目任务
         toolRegistry.register(new QueryProjectsTool(pmService));
         toolRegistry.register(new QueryProjectTasksTool(pmService));
