@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { useEventsStore } from '../../stores/events-store'
@@ -155,4 +156,3 @@ async function handleSubmit() {
 }
 </script>
 
-<style src="./index.scss" scoped></style>
