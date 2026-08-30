@@ -668,7 +668,11 @@ export class AuditService {
     const where: any = {};
     if (since) where.createdAt = Between(since, new Date());
 
-    const logs = await this.logRepo.find({ where });
+    // E-3 性能：列投影——只加载聚合所需列（action/tokens/isError/createdAt），避免大字段（detail/model）全量载内存
+    const logs = await this.logRepo.find({
+      where,
+      select: { action: true, promptTokens: true, completionTokens: true, isError: true, createdAt: true },
+    });
 
     const actionCounts = new Map<string, number>();
     let totalTokens = 0;
