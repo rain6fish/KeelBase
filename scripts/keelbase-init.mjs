@@ -472,14 +472,24 @@ async function main() {
     );
   }
 
-  // ── 下一步 ──
-  console.log(`\n${C.green}════ 完成！下一步 ════${C.reset}`);
-  console.log(`  cd Server-NestJS && npm run build        # 验证后端编译`);
-  console.log(`  npm test -- ${ctx.plural}.service         # 跑生成模块单测`);
-  console.log(`  npm run migration:generate -- src/migrations/Add${ctx.pluralPascal}  # 生成建表迁移（prod postgres 需要，EASY-2.2 结论）`);
-  console.log(`  cd Front-Flutter && flutter analyze       # 验证前端接线`);
-  console.log(`  flutter run -d chrome                     # 运行看 ${ctx.label} 页`);
-  console.log(`  POST /api/v1/${ctx.plural}                # API：/api/docs 看 Swagger`);
+  // ── 下一步（完整闭环：编译 → 单测 → 迁移 → 前端 → AI 工具 → 运行/部署）──
+  console.log(`\n${C.green}════ 完成！下一步（按顺序） ════${C.reset}`);
+  console.log(`  ① 验证后端`);
+  console.log(`     cd Server-NestJS && npm run build`);
+  console.log(`     npm test -- ${ctx.plural}.service            # 生成模块单测`);
+  console.log(`  ② 生产迁移（prod postgres 需要；TypeORM 索引 hash 名禁止手写）`);
+  console.log(`     npm run migration:generate -- src/migrations/Add${ctx.pluralPascal}`);
+  console.log(`  ③ 验证前端（两端都已接线）`);
+  console.log(`     cd Front-Flutter && flutter analyze`);
+  console.log(`     cd Web-Admin-Vue && npm run dev               # 工作台/管理台出现「${ctx.label}」菜单`);
+  console.log(`  ④ 验证 AI 工具（重启后端后）`);
+  console.log(`     生成器已注册 query_${ctx.plural} / create_${ctx.plural} 为 AI 工具——`);
+  console.log(`     AI 对话问「帮我建一个${ctx.label}」→ 读自动执行 / 写需人工确认 → 审计哈希链可查`);
+  console.log(`  ⑤ 运行 / 部署`);
+  console.log(`     本地: flutter run -d chrome 或 Web-Admin-Vue npm run dev`);
+  console.log(`     一键容器: docker run -d -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`);
+  console.log(`     私有化: ./deploy/deploy.sh（详见 docs/manual/one-click-deploy.md）`);
+  console.log(`  API: GET/POST /api/v1/${ctx.plural}（/api/docs 看 Swagger）`);
   console.log(`${C.dim}  v1 边界：prod(postgres) 需补迁移；未生成底部 Tab；字段仅 5 种类型（见 roadmap EASY-2）${C.reset}\n`);
 }
 
