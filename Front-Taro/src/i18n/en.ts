@@ -251,4 +251,26 @@ export const en: I18nDictionary = {
   // ── todos（追加）──
   'todos.loadFailed': 'Failed to load todos',
   'todos.toggleFailed': 'Failed to update status',
+
+  // ── legal（隐私政策 / 服务条款）──
+  'legal.privacy.title': 'Privacy Policy',
+  'legal.privacy.updated': 'Last updated: July 2026',
+  'legal.privacy.s1h': '1. Information We Collect',
+  'legal.privacy.s1b': 'We collect information you provide when registering an account, including your username, nickname, and password. We also collect usage data to improve our services.',
+  'legal.privacy.s2h': '2. How We Use Your Information',
+  'legal.privacy.s2b': 'Your information is used to provide, maintain, and improve our services. We do not share your personal data with third parties except as required by law.',
+  'legal.privacy.s3h': '3. Data Security',
+  'legal.privacy.s3b': 'We implement industry-standard security measures including encryption and secure storage to protect your data.',
+  'legal.privacy.s4h': '4. Contact Us',
+  'legal.privacy.s4b': 'If you have any questions about this policy, please contact our support team.',
+  'legal.terms.title': 'Terms of Service',
+  'legal.terms.updated': 'Last updated: July 2026',
+  'legal.terms.s1h': '1. Acceptance of Terms',
+  'legal.terms.s1b': 'By using our application, you agree to these terms of service. If you do not agree, please do not use the application.',
+  'legal.terms.s2h': '2. User Responsibilities',
+  'legal.terms.s2b': 'You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.',
+  'legal.terms.s3h': '3. Service Availability',
+  'legal.terms.s3b': 'We strive to provide uninterrupted service but do not guarantee 100% availability. We reserve the right to modify or discontinue services with reasonable notice.',
+  'legal.terms.s4h': '4. Limitation of Liability',
+  'legal.terms.s4b': 'We shall not be liable for any indirect, incidental, or consequential damages arising from your use of the application.',
 }
