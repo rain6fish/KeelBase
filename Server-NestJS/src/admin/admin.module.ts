@@ -15,6 +15,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { QueueModule } from '../queue/queue.module';
 import { EncryptionModule } from '../common/utils/encryption.module';
+import { CacheModule } from '../common/cache/cache.module';
 import { AiModule } from '../ai/ai.module';
 import { AdminAiController } from './admin-ai.controller';
 import { AdminAiService } from './admin-ai.service';
@@ -38,6 +39,7 @@ import { HeadlessModule } from '../headless/headless.module';
     MetricsModule,
     QueueModule.register(),
     EncryptionModule,
+    CacheModule,
     AiModule,
     AppVersionModule,
     HeadlessModule,

@@ -103,6 +103,7 @@ export class User {
   @Column({ nullable: true, name: 'invited_by' })
   invitedBy?: number;
 
+  @Index('IDX_users_created_at')
   @CreateDateColumn()
   createdAt!: Date;
 
