@@ -35,6 +35,7 @@ import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
 import { useAiStore } from '../../stores/ai-store'
 import { useI18n } from '../../composables/useI18n'
+import './index.scss'
 
 const store = useAiStore()
 const { history, historyLoading, historyError } = storeToRefs(store)
@@ -75,4 +76,3 @@ function fmt(iso?: string) {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

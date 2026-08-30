@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { ref, computed } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
@@ -115,4 +116,3 @@ function goBack() {
 }
 </script>
 
-<style src="./index.scss" scoped></style>
