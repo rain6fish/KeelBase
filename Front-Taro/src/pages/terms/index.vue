@@ -31,4 +31,6 @@
   </scroll-view>
 </template>
 
-<style src="../privacy/index.scss" scoped></style>
+<script setup lang="ts">
+import '../privacy/index.scss'
+</script>
