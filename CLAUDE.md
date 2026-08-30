@@ -545,10 +545,14 @@ GOVERNANCE_URL=                    # 治理台地址（业务系统配置后 AI 
 GOVERNANCE_TARGET_URL=             # 治理台回调业务系统地址（撤销/approve 执行回调；空则治理台本地 revoker）
 GOVERNANCE_PORT=                   # 治理台独立服务端口（默认 3100）
 
-# 治理 sidecar（S-1，护城河 2.0 零代码接入）：AI 网关审计代理（业务系统 LLM base URL → http://sidecar:3200/v1）
+# 治理 sidecar（S-1/S-2，护城河 2.0 零代码接入）：AI 网关审计代理 + 工具门控（业务系统 LLM base URL → http://sidecar:3200/v1）
 SIDECAR_UPSTREAM_URL=              # sidecar 转发真实 LLM 地址（默认 https://api.deepseek.com）
 SIDECAR_UPSTREAM_KEY=              # 上游 LLM API Key（可选）
 SIDECAR_PORT=                      # sidecar 端口（默认 3200）
+SIDECAR_TOOLS=                     # S-2 工具门控清单（JSON 数组：[{"name":"send_email","riskLevel":"R3"}]；未配置工具默认 R1 自动）
+SIDECAR_DEFAULT_TOOL_RISK=         # 未登记工具的默认风险级（默认 R1）
+SIDECAR_CONFIRM_TTL_SECONDS=       # R3/R4 确认 hold 的 TTL（默认 300s）
+SIDECAR_POLICY_REFRESH_SECONDS=    # 治理台策略拉取间隔（默认 60s）
 
 # 特性开关（PL-8/EASY-3）：FEATURE_<KEY>_ENABLED；未配置由 APP_PRESET 判定
 FEATURE_AI_ENABLED=

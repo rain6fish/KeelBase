@@ -71,7 +71,19 @@ npm run start:sidecar          # 默认 :3200
 
 **接入**：业务系统 LLM 配置 `base_url = http://<sidecar>:3200/v1`（+ 可选 `x-user-id` 头归因）。AI 调用经 sidecar → 治理台审计（请求消息摘要 + 响应 tokens/耗时，`source=sidecar`）。
 
-**S-2 待续**：工具调用门控 / 确认 / 策略应用（复用 MCP 网关门控模式，对齐 [ai-governance-protocol.md](../protocols/ai-governance-protocol.md) 跨语言清单）。
+**S-2 ✅ 已完成（工具调用门控 / 确认 / 策略应用）**：sidecar 从「审计代理」升级为「策略执行点」——解析 LLM 响应中的 `tool_calls`，按工具风险级（[ai-governance-protocol.md](../protocols/ai-governance-protocol.md) §4.3）门控：
+- **R5 阻断**：工具调用被替换为拒绝说明，不落到业务系统；
+- **R3/R4 确认**：hold-and-release——响应剥离 tool_calls 并附 `confirmation` token，业务系统 `POST /v1/confirmations/:token { decision: "approve" }` 取回原工具调用，`reject` 得拒绝响应；
+- **R0-R2 自动**：原样放行；
+- **治理策略实时生效**：sidecar 周期拉取 `GET /external/governance/policy`（enabled / requiresConfirmation 覆盖），治理台改策略 60s 内生效；
+- 每次工具调用的风险级 + 决策 + 参数摘要上报治理台审计（`action=tool_call` / `confirmation`）。
+
+```bash
+# 业务系统工具清单（name → 风险级，S-2 门控依据；未配置工具默认 R1 自动）
+SIDECAR_TOOLS='[{"name":"send_email","riskLevel":"R3"},{"name":"get_weather","riskLevel":"R1"}]' \
+SIDECAR_DEFAULT_TOOL_RISK=R1 \
+npm run start:sidecar
+```
 
 > **30 分钟上手**：按 [adoption-30min.md](adoption-30min.md) 5 步接入，配套 `verify-moat-adoption.mjs` 一键验收（MOAT-1）。
 
