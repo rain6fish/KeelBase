@@ -6,9 +6,17 @@ export interface BusinessModule {
   label: string
 }
 
+/** 运行时 AI 可用性：enabled = feature flag；providerConfigured = LLM 真的配了 Key/本地模型 */
+export interface AiStatus {
+  enabled: boolean
+  providerConfigured: boolean
+  provider: string
+}
+
 export interface AppCapabilities {
   preset: string
   features: Record<string, boolean>
+  ai?: AiStatus
   businessModules: BusinessModule[]
 }
 
