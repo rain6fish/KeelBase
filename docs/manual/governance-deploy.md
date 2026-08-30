@@ -58,7 +58,22 @@ GOVERNANCE_API_KEY=<shared-key>                 # 与治理台共享的服务身
 
 ---
 
-## 四、相关 / Related
+## 四、治理 sidecar：零代码接入 / Governance Sidecar: Zero-Code Access
+
+> **S-1（护城河 2.0 嵌入广度）**：业务系统**不写任何集成代码**，只把 LLM base URL 指向 sidecar，AI 调用即自动上报治理台审计（AI 流量可见性）。语言无关（任意 OpenAI 兼容 client：LangChain / LangChain4j / 自研）。
+
+```bash
+# 启动 sidecar（转发真实 LLM + 上报治理台审计）
+SIDECAR_UPSTREAM_URL=https://api.deepseek.com SIDECAR_UPSTREAM_KEY=<key> \
+GOVERNANCE_URL=http://<governance>:3100 GOVERNANCE_API_KEY=<shared-key> \
+npm run start:sidecar          # 默认 :3200
+```
+
+**接入**：业务系统 LLM 配置 `base_url = http://<sidecar>:3200/v1`（+ 可选 `x-user-id` 头归因）。AI 调用经 sidecar → 治理台审计（请求消息摘要 + 响应 tokens/耗时，`source=sidecar`）。
+
+**S-2 待续**：工具调用门控 / 确认 / 策略应用（复用 MCP 网关门控模式，对齐 [ai-governance-protocol.md](../protocols/ai-governance-protocol.md) 跨语言清单）。
+
+## 五、相关 / Related
 
 - [governance-capability.md](../governance-capability.md) — 治理能力与演进方向
 - [ai-governance-protocol.md](../protocols/ai-governance-protocol.md) — 治理协议（审计链 / 委托 token / 风险分级）
