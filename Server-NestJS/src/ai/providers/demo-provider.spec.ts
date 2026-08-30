@@ -94,6 +94,20 @@ describe('DemoProvider', () => {
       expect(result.content).toContain('跟进任务已创建');
     });
 
+    it('用户要求删除客户 → 调 delete_customer（R5 阻断演示）', async () => {
+      const messages: ChatMessage[] = [{ role: 'user', content: '查一下删除客户「瀚宇制造」' }];
+      const result = await provider.generate({ messages });
+      expect(result.toolCalls?.[0]?.name).toBe('delete_customer');
+    });
+
+    it('删除请求优先于分析/客户分支（含"客户"仍命中删除）', async () => {
+      const messages: ChatMessage[] = [{ role: 'user', content: '删除客户' }];
+      const result = await provider.generate({ messages });
+      expect(result.toolCalls?.[0]?.name).toBe('delete_customer');
+      const args = JSON.parse(result.toolCalls![0].arguments);
+      expect(args.customerId).toBeDefined();
+    });
+
     it('无关问题 → 引导文案', async () => {
       const messages: ChatMessage[] = [{ role: 'user', content: '你好' }];
       const result = await provider.generate({ messages });

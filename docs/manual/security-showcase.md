@@ -25,6 +25,21 @@ cd Server-NestJS && npm install && npm run start:dev
 
 账号：`alex / Alex@2026$Demo`（工作台）· `admin / Admin@2026$KeelBase`（管理台）· 越权演示再注册一个 `bob`（`POST /auth/register`，任意密码）。
 
+## 0.5 Trust 证明包（六场景一键验证）
+
+**证明**：Business-safe Trust 全链路——正常成功 / 越权拒绝 / R5 阻断 / 人工确认 / 撤销，一条命令、无 LLM 确定性跑通。
+
+- 跑：`node Server-NestJS/scripts/verify-trust-proof.mjs`
+- 六个场景：
+  1. **正常成功** — 客户 → 逾期订单 → AI 风险分析（critical）· Identity + 数据权限 + 读工具
+  2. **越权拒绝** — bob 访问 alex 数据 → 403（行级权限）
+  3. **高风险动作** — AI 尝试删除客户 → **R5 BLOCKED**（不可逆动作策略阻断）
+  4. **人工确认** — AI 写操作 → 确认卡 → 批准 → 落库（R3 确认门控）
+  5. **撤销** — 本人撤销 AI 副作用 → 软删（可经回收站恢复）
+  6. **Java 存量系统** — 引导到 keelbase-java-starter 参考项目独立验证（`verify-crm-e2e.mjs`）
+- 期望：6 场景全 PASS，报告 `docs/benchmark/trust-proof-*`
+- 环境：默认 `PROVIDER=demo`（确定性，无 LLM key 也可跑）；配真实 LLM 时用 `PROVIDER=deepseek` 等
+
 ## 1. 越权拒绝（Permission Denied，授权矩阵）
 
 **证明**：跨用户数据访问被**行级策略**拒绝（运行时边界，非提示建议）。
