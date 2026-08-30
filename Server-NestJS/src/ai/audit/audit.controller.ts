@@ -22,18 +22,22 @@ export class AuditController {
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @ApiQuery({ name: 'offset', required: false, example: 0 })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
+  @ApiQuery({ name: 'isError', required: false, description: '按是否错误过滤（E-2 异常视图）' })
   getLogs(@Query() query: AuditQueryDto) {
-    const options = {
+    const base = {
       limit: query.limit,
       offset: query.offset,
       since: query.since ? new Date(query.since) : undefined,
-      orgId: query.orgId,
-      agentId: query.agentId,
     };
     if (query.userId) {
-      return this.auditService.getUserLogs(query.userId, options);
+      return this.auditService.getUserLogs(query.userId, base);
     }
-    return this.auditService.getLogs(options);
+    return this.auditService.getLogs({
+      ...base,
+      orgId: query.orgId,
+      agentId: query.agentId,
+      isError: query.isError,
+    });
   }
 
   @Get('verify')

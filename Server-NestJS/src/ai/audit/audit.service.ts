@@ -49,12 +49,24 @@ export interface AuditEntry {
   authorization?: string;
 }
 
+/** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
+export interface AuditByDayBucket {
+  date: string;
+  executed: number;
+  approved: number;
+  rejected: number;
+  blocked: number;
+  errors: number;
+}
+
 export interface UsageStats {
   totalConversations: number;
   totalMessages: number;
   totalTokens: number;
   totalErrors: number;
   topActions: Array<{ action: string; count: number }>;
+  /** E-2 趋势：按 UTC 日聚 5 段（executed/approved/rejected/blocked/errors） */
+  byDay: AuditByDayBucket[];
 }
 
 export interface ActionReport {
@@ -69,7 +81,7 @@ export interface ActionReport {
   };
   byAction: Array<{ action: string; count: number }>;
   /** B3 时间趋势：按 UTC 日聚合执行/批准/拒绝/阻断/错误（升序），合规报告可看趋势 */
-  byDay: Array<{ date: string; executed: number; approved: number; rejected: number; blocked: number; errors: number }>;
+  byDay: AuditByDayBucket[];
   hashChain: { valid: boolean; checked: number; brokenIndex: number | null };
   samples: Array<{
     id: number;
@@ -101,6 +113,19 @@ export interface ActionReportExport {
   report: ActionReport;
   /** 证据包签名：对 summary + hashChain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
   signature: string | null;
+}
+
+/** E-2 哈希链可视化：逐行链节点（verify 端点返回的切片） */
+export interface AuditChainNode {
+  id: number;
+  createdAt: Date;
+  action: string;
+  toolName: string | null;
+  prevHash: string | null;
+  hash: string | null;
+  isError: boolean;
+  /** 断链行（prevHash 不连续 / hash 不符） */
+  broken?: boolean;
 }
 
 export interface AiAuditLogWithUser {
@@ -253,10 +278,37 @@ export class AuditService {
     }
   }
 
-  /** HS-11：沿 id 升序校验审计哈希链完整性。 */
-  async verifyChain(): Promise<ChainVerification> {
+  /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。 */
+  async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[] }> {
     const rows = await this.logRepo.find({ order: { id: 'ASC' } });
-    return this.auditChain.verifyChain(rows, (row) => this._payload(row));
+    const result = this.auditChain.verifyChain(rows, (row) => this._payload(row));
+    return { ...result, chain: this._chainSlice(rows, result) };
+  }
+
+  /** E-2：把全量链切成可视窗口——valid 取最近 N；broken 以断点为中心窗口（断点行标 broken）。 */
+  private _chainSlice(rows: AiAuditLog[], result: ChainVerification): AuditChainNode[] {
+    const CHAIN_SLICE = 24;
+    const b = result.brokenIndex ? result.brokenIndex - 1 : -1;
+    let window: AiAuditLog[];
+    let brokenOffset = -1;
+    if (result.valid || b < 0) {
+      window = rows.slice(-CHAIN_SLICE);
+    } else {
+      const start = Math.max(0, b - 6);
+      const end = Math.min(rows.length, b + 4);
+      window = rows.slice(start, end);
+      brokenOffset = b - start;
+    }
+    return window.map((row, i) => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      action: row.action,
+      toolName: this._toolNameFromDetail(row.detail),
+      prevHash: row.prevHash ?? null,
+      hash: row.hash ?? null,
+      isError: row.isError ?? false,
+      broken: i === brokenOffset,
+    }));
   }
 
   private async _lastHash(runner?: QueryRunner): Promise<string | null> {
@@ -305,7 +357,7 @@ export class AuditService {
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string } = {},
+    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false' } = {},
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs(options);
   }
@@ -335,7 +387,7 @@ export class AuditService {
 
   /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string } = {},
+    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false' } = {},
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -348,6 +400,7 @@ export class AuditService {
     if (options.since) qb.andWhere('log.createdAt >= :since', { since: options.since });
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
     if (options.agentId) qb.andWhere('log.agent_id = :agentId', { agentId: options.agentId });
+    if (options.isError) qb.andWhere('log.is_error = :isError', { isError: options.isError === 'true' });
     if (options.orgId != null) {
       qb.andWhere(
         'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
@@ -449,6 +502,7 @@ export class AuditService {
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
+      byDay: this._byDayAggregation(logs),
     };
   }
 
@@ -470,32 +524,22 @@ export class AuditService {
     let blocked = 0;
     let errors = 0;
     const byAction = new Map<string, number>();
-    // B3 时间趋势：按 UTC 日聚合（createdAt.toISOString 与审计链 DB 时区一致，避免本地时区偏移）
-    const byDay = new Map<string, ActionReport['byDay'][number]>();
-    const bucket = (createdAt: Date): ActionReport['byDay'][number] => {
-      const key = createdAt.toISOString().slice(0, 10);
-      let b = byDay.get(key);
-      if (!b) {
-        b = { date: key, executed: 0, approved: 0, rejected: 0, blocked: 0, errors: 0 };
-        byDay.set(key, b);
-      }
-      return b;
-    };
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
-      const b = bucket(l.createdAt);
-      if (l.isError) { errors++; b.errors++; }
+      if (l.isError) { errors++; }
       if (l.action === 'tool_call') {
         // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记：R5/越权/禁用/权限）；
         // 执行失败（无拒绝标记）只算 error，不计 blocked
-        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) { blocked++; b.blocked++; }
-        else if (!l.isError) { executed++; b.executed++; }
+        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) { blocked++; }
+        else if (!l.isError) { executed++; }
       } else if (l.action === 'tool_confirmation') {
-        if (l.isError) { rejected++; b.rejected++; }
+        if (l.isError) { rejected++; }
         // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报
-        else if (!l.detail?.includes('pending_approval')) { approved++; b.approved++; }
+        else if (!l.detail?.includes('pending_approval')) { approved++; }
       }
     }
+    // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）
+    const byDay = this._byDayAggregation(logs);
 
     const effWhere: Record<string, unknown> = {};
     if (options.userId) effWhere.userId = options.userId;
@@ -534,7 +578,7 @@ export class AuditService {
       byAction: Array.from(byAction.entries())
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count),
-      byDay: Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date)),
+      byDay,
       hashChain: { valid: chain.valid, checked: chain.checked, brokenIndex: chain.brokenIndex ?? null },
       samples,
       effectDiffs,
@@ -645,7 +689,35 @@ export class AuditService {
         .map(([action, count]) => ({ action, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
+      byDay: this._byDayAggregation(logs),
     };
+  }
+
+  /** B3/E-2：按 UTC 日聚合 5 段趋势（getActionReport 与 getAllStats 共享，避免重复聚合逻辑）。 */
+  private _byDayAggregation(logs: AiAuditLog[]): AuditByDayBucket[] {
+    const byDay = new Map<string, AuditByDayBucket>();
+    const bucket = (createdAt: Date): AuditByDayBucket => {
+      const key = createdAt.toISOString().slice(0, 10);
+      let b = byDay.get(key);
+      if (!b) {
+        b = { date: key, executed: 0, approved: 0, rejected: 0, blocked: 0, errors: 0 };
+        byDay.set(key, b);
+      }
+      return b;
+    };
+    for (const l of logs) {
+      const b = bucket(l.createdAt);
+      if (l.isError) b.errors++;
+      if (l.action === 'tool_call') {
+        // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记）；执行失败无拒绝标记只算 error
+        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) b.blocked++;
+        else if (!l.isError) b.executed++;
+      } else if (l.action === 'tool_confirmation') {
+        if (l.isError) b.rejected++;
+        else if (!l.detail?.includes('pending_approval')) b.approved++;
+      }
+    }
+    return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));
   }
 }
 
