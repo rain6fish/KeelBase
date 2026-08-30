@@ -65,6 +65,10 @@
                       </span>
                     </template>
                     <div class="text-caption">
+                      <div class="mb-1 text-medium-emphasis">{{ formatTime(s.time) }}</div>
+                      <div class="mb-2">
+                        {{ toolLabel(tm('feature'), s.toolName) }}{{ toolArgsSummary(s.toolName, s.args, locale.startsWith('zh')) }}
+                      </div>
                       <div class="text-medium-emphasis mb-1">{{ t('technicalDetail') }}</div>
                       <div class="mb-1"><b>{{ s.toolName }}</b></div>
                       <pre class="text-caption" style="white-space:pre-wrap;margin:0 0 6px">{{ s.args }}</pre>

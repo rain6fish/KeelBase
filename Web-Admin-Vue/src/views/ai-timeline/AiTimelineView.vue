@@ -65,6 +65,10 @@
                       </span>
                     </template>
                     <div class="text-caption">
+                      <div class="mb-1 text-medium-emphasis">{{ e.username || '-' }} · {{ formatTime(e.time) }}</div>
+                      <div class="mb-2">
+                        {{ toolLabel(tm('feature'), e.toolName) }}{{ toolArgsSummary(e.toolName, e.args, locale.startsWith('zh')) }}
+                      </div>
                       <div class="text-medium-emphasis mb-1">{{ t('technicalDetail') }}</div>
                       <div class="mb-1"><b>{{ e.toolName }}</b></div>
                       <pre class="text-caption" style="white-space:pre-wrap;margin:0 0 6px">{{ e.args }}</pre>
@@ -260,6 +264,7 @@ interface TimelineEvent {
   detail?: string | null
   errorMessage?: string | null
   outcome?: string
+  username?: string | null
   effect?: ToolEffect
   effectStatus?: string
 }
@@ -329,6 +334,7 @@ function toEvent(log: AuditLog): TimelineEvent | null {
     time: log.createdAt,
     detail: log.detail,
     errorMessage: log.errorMessage,
+    username: log.username,
   }
   switch (log.action) {
     case 'tool_call': {
