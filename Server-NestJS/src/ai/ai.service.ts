@@ -43,11 +43,12 @@ import {
   sanitizeMemoryEntry,
 } from './security/injection-guard';
 import { checkContentSafety } from './security/content-safety';
+import { ContentSafetyService } from './security/content-safety.service';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../common/entities/user.entity';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, Optional } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
@@ -140,6 +141,8 @@ export class AiService {
     private readonly governancePolicy?: GovernancePolicyService,
     private readonly approvalsRepo?: Repository<AiConfirmationRequest>,
     private readonly snapshotCaptor?: SideEffectSnapshotCaptor,
+    // N-6 AI-23 深度化：统一内容安全（读 Settings 配置 + 命中审计）；缺省降级静态 checkContentSafety
+    @Optional() private readonly contentSafety?: ContentSafetyService,
   ) {}
 
   /**
@@ -701,16 +704,23 @@ export class AiService {
     }
   }
 
+  /** N-6 统一内容安全：读 Settings 动态配置 + 命中审计 + 抛 AI_CONTENT_BLOCKED（缺省降级静态 check） */
+  private async _checkContentSafety(message: string, userId: string): Promise<void> {
+    const safety = this.contentSafety
+      ? await this.contentSafety.check(message, { userId })
+      : checkContentSafety(message);
+    if (safety.blocked) {
+      throw BusinessException.of('AI_CONTENT_BLOCKED', `内容安全检查未通过（${safety.reason}）`);
+    }
+  }
+
   /** chat 实际实现（被 chat 的业务 span 包装；拆分便于单独加 span 而不影响外部调用方） */
   private async chatImpl(
     userId: string,
     request: ChatRequest,
   ): Promise<ChatResponse> {
-    // AI-23 内容安全：用户输入敏感词/越狱/注入 → 拒绝（不进入 LLM）
-    const safety = checkContentSafety(request.message);
-    if (safety.blocked) {
-      throw BusinessException.of('AI_CONTENT_BLOCKED', `内容安全检查未通过（${safety.reason}）`);
-    }
+    // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
+    await this._checkContentSafety(request.message, userId);
     const { conversation, providerName, provider } =
       this.resolveProvider(request);
 
@@ -793,6 +803,7 @@ export class AiService {
         request.message,
         provider,
         request.model ?? this.config.defaultModel,
+        { userId, conversationId },
       );
 
       await this.conversationService.appendMessage(conversationId, {
@@ -1022,11 +1033,8 @@ export class AiService {
     userId: string,
     request: ChatRequest,
   ): AsyncIterable<StreamChunk> {
-    // AI-23 内容安全：用户输入敏感词/越狱/注入 → 拒绝（不进入 LLM）
-    const safety = checkContentSafety(request.message);
-    if (safety.blocked) {
-      throw BusinessException.of('AI_CONTENT_BLOCKED', `内容安全检查未通过（${safety.reason}）`);
-    }
+    // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
+    await this._checkContentSafety(request.message, userId);
     // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
     const trustedTools = new Set<string>();
     const { providerName } = this.resolveProvider(request);

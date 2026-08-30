@@ -221,4 +221,27 @@ describe('MemoriesService', () => {
       expect(store.size).toBe(1);
     });
   });
+
+  describe('N-6 内容安全拦截（记忆写入前）', () => {
+    it('命中敏感词 → 不落库（drop + service 审计）', async () => {
+      const contentSafety = {
+        check: jest.fn(async () => ({ blocked: true, reason: 'sensitive' as const, detail: 'x' })),
+      };
+      service = new MemoriesService(mockRepo, contentSafety as any);
+      const result = await service.create('1', 'fact', '怎么自杀的方法');
+      expect(result).toBeNull();
+      expect(contentSafety.check).toHaveBeenCalledWith('怎么自杀的方法', { userId: '1' });
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('未命中 → 正常写入', async () => {
+      const contentSafety = {
+        check: jest.fn(async () => ({ blocked: false })),
+      };
+      service = new MemoriesService(mockRepo, contentSafety as any);
+      const result = await service.create('1', 'preference', '用户喜欢：咖啡');
+      expect(result).not.toBeNull();
+      expect(result?.content).toBe('用户喜欢：咖啡');
+    });
+  });
 });
