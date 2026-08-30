@@ -14,6 +14,56 @@
     </el-row>
 
     <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <span>{{ t('hashChain') }}</span>
+          <el-tag v-if="chainVerify" :type="chainVerify.valid ? 'success' : 'danger'" size="small">
+            {{ chainVerify.valid ? t('chainValid') : t('chainBroken', { idx: chainVerify.brokenIndex ?? '-' }) }}
+          </el-tag>
+          <span v-if="chainVerify" class="text-secondary text-sm">{{ t('chainChecked', { n: chainVerify.checked }) }}</span>
+        </div>
+      </template>
+      <div v-if="chainVerify?.chain?.length" class="chain-list">
+        <div v-for="n in chainVerify.chain" :key="n.id" class="chain-node" :class="{ 'chain-broken': n.broken }">
+          <span class="chain-id">#{{ n.id }}</span>
+          <span class="chain-action">{{ n.action }}</span>
+          <code class="chain-hash">{{ (n.prevHash || '—').slice(0, 10) }} → {{ (n.hash || '—').slice(0, 10) }}</code>
+          <el-tag v-if="n.broken" type="danger" size="small">✗ {{ t('broken') }}</el-tag>
+        </div>
+      </div>
+      <el-empty v-else-if="chainVerify" :description="t('noChainData')" />
+    </el-card>
+
+    <!-- E-2 按日趋势（5 段含 errors，纯 CSS 堆叠条） -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>{{ t('auditTrendTitle') }}</template>
+      <TrendBarList :days="stats?.byDay ?? []" />
+    </el-card>
+
+    <!-- E-2 异常概览：errors/blocked 计数 + 最近错误列表 -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>{{ t('auditAbnormalTitle') }}</template>
+      <div class="d-flex ga-6 mb-3">
+        <div>
+          <div class="text-h6 text-error">{{ abnormalCounts.errors }}</div>
+          <div class="text-caption text-medium-emphasis">{{ t('secActionErrors') }}</div>
+        </div>
+        <div>
+          <div class="text-h6">{{ abnormalCounts.blocked }}</div>
+          <div class="text-caption text-medium-emphasis">{{ t('secActionBlocked') }}</div>
+        </div>
+      </div>
+      <div class="text-caption text-medium-emphasis mb-1">{{ t('auditRecentErrors') }}</div>
+      <div v-if="errorLogs.length" class="error-list">
+        <div v-for="e in errorLogs" :key="e.id" class="error-item">
+          <span class="text-caption font-weight-medium">{{ formatTime(e.createdAt) }}</span>
+          <span class="error-msg text-caption">{{ e.errorMessage || actionLabel(e) }}</span>
+        </div>
+      </div>
+      <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
+    </el-card>
+
+    <el-card shadow="never" class="mb-4">
       <div class="d-flex ga-3 flex-wrap align-center">
         <el-input v-model="userId" :label="t('filterByUser')" style="max-width: 200px" />
         <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 200px" />
@@ -72,11 +122,12 @@ import AppTable from '@/components/AppTable.vue'
 import StatCard from '@/components/StatCard.vue'
 import RangeFilter from '@/components/RangeFilter.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import TrendBarList from '@/components/TrendBarList.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
-import type { AuditLog, UsageStats } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult } from '@/types/audit'
 
 const { t, messages, locale } = useI18n()
 const route = useRoute()
@@ -84,12 +135,14 @@ const snackbar = useSnackbarStore()
 
 const logs = ref<AuditLog[]>([])
 const stats = ref<UsageStats | null>(null)
+const chainVerify = ref<ChainVerifyResult | null>(null)
 const loading = ref(false)
 const userId = ref('')
 const agentId = ref('')
 const range = ref('all')
 const since = ref<string | undefined>(undefined)
 const expanded = ref<AuditLog | null>(null)
+const errorLogs = ref<AuditLog[]>([])
 const limit = 50
 
 const headers = computed(() => [
@@ -112,15 +165,31 @@ const statCards = computed(() => [
   { label: t('errors'), value: stats.value?.totalErrors ?? '-', icon: 'mdi-alert-circle-outline', color: 'error' },
 ])
 
+/** E-2 异常概览：按日桶求和 errors/blocked 计数 */
+const abnormalCounts = computed(() => {
+  const days = stats.value?.byDay ?? []
+  let errors = 0
+  let blocked = 0
+  for (const d of days) {
+    errors += d.errors
+    blocked += d.blocked
+  }
+  return { errors, blocked }
+})
+
 async function load() {
   loading.value = true
   try {
-    const [logsRes, statsRes] = await Promise.all([
+    const [logsRes, statsRes, verifyRes, errRes] = await Promise.all([
       auditApi.logs({ userId: userId.value || undefined, agentId: agentId.value || undefined, limit, since: since.value }),
       auditApi.stats(since.value),
+      auditApi.verify().catch(() => null),
+      auditApi.logs({ isError: 'true', limit: 5, since: since.value }).catch(() => [] as AuditLog[]),
     ])
     logs.value = logsRes
     stats.value = statsRes
+    chainVerify.value = verifyRes
+    errorLogs.value = errRes
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   } finally {
@@ -169,3 +238,46 @@ onMounted(() => {
   load()
 })
 </script>
+
+<style scoped>
+.chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.chain-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  font-size: 12px;
+}
+.chain-node.chain-broken {
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
+}
+.chain-id { font-weight: 600; min-width: 36px; }
+.chain-action { flex: 1; }
+.chain-hash { font-family: monospace; color: var(--el-text-color-secondary); }
+.error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.error-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+}
+.error-msg {
+  color: var(--el-color-danger);
+  word-break: break-all;
+}
+</style>
