@@ -78,6 +78,7 @@ import { AiGovernancePolicy } from './governance/ai-governance-policy.entity';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance/governance-reporter.service';
 import { InternalEffectsController } from './governance/internal-effects.controller';
+import { InternalApprovalsController } from './governance/internal-approvals.controller';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
@@ -133,7 +134,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditChainModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
   ],
-  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController],
+  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController],
   providers: [
     ConversationService,
     AuditService,
