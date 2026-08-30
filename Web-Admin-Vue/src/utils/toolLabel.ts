@@ -5,7 +5,7 @@ export function toolKey(toolName: string): string {
   return toolName.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
 }
 
-export function toolLabel(feature: Record<string, string> | undefined, toolName: string): string {
+export function toolLabel(feature: Record<string, string> | undefined, toolName: string | null | undefined): string {
   if (!toolName) return '-'
   const key = `ai.tool.${toolKey(toolName)}`
   return feature?.[key] || toolName

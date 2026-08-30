@@ -85,8 +85,8 @@
         <el-tag size="small" :type="l.isError ? 'danger' : 'warning'" effect="light">
           {{ l.isError ? t('aiBlocked') : t('riskAlert') }}
         </el-tag>
-        <span class="font-weight-medium">{{ l.actionLabel || l.action }}</span>
-        <span class="text-caption text-medium-emphasis text-truncate">{{ l.errorMessage || (l.authorization ? t('deniedReason') : '') }}</span>
+        <span class="font-weight-medium">{{ actionLabel(l.actionKey, l.actionLabel, t) || l.action }}</span>
+        <span class="text-caption text-medium-emphasis text-truncate">{{ errorLabel(l.errorMessage, t) || (l.authorization ? t('deniedReason') : '') }}</span>
         <span class="text-caption text-medium-emphasis ml-auto">{{ formatTime(l.createdAt) }}</span>
       </div>
     </el-card>
@@ -103,6 +103,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import { auditApi } from '@/api/audit'
 import { formatTime } from '@/utils/format'
+import { actionLabel, errorLabel } from '@/utils/businessLabel'
 import type { AdminAiTool } from '@/types/admin'
 import type { ActionReport, AuditLog } from '@/types/audit'
 
