@@ -1,6 +1,6 @@
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport } from '@/types/audit'
+import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4 审计证据包导出（GET /audit/action-report/export） */
@@ -12,21 +12,22 @@ export interface ActionReportExport {
 }
 
 export const auditApi = {
-  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string } = {}): Promise<AuditLog[]> {
+  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string; isError?: 'true' | 'false' } = {}): Promise<AuditLog[]> {
     const query: Record<string, string | number> = {}
     if (params.userId) query.userId = params.userId
     if (params.agentId) query.agentId = params.agentId
     if (params.limit != null) query.limit = params.limit
     if (params.offset != null) query.offset = params.offset
     if (params.since) query.since = params.since
+    if (params.isError) query.isError = params.isError
     return api.get<AuditLog[]>('/audit/logs', query)
   },
   stats(since?: string): Promise<UsageStats> {
     return api.get<UsageStats>('/audit/stats', { ...(since ? { since } : {}) })
   },
-  /** HS-11 审计哈希链完整性校验 */
-  verify(): Promise<{ valid: boolean; brokenIndex?: number; total?: number }> {
-    return api.get('/audit/verify')
+  /** HS-11 审计哈希链完整性校验（E-2：含链切片，前端可视化断链点） */
+  verify(): Promise<ChainVerifyResult> {
+    return api.get<ChainVerifyResult>('/audit/verify')
   },
   /** §10 P1 AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链） */
   actionReport(params: { userId?: string; since?: string; limit?: number } = {}): Promise<ActionReport> {
