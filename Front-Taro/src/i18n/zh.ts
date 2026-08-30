@@ -251,4 +251,26 @@ export const zh: I18nDictionary = {
   // ── todos（追加）──
   'todos.loadFailed': '待办加载失败',
   'todos.toggleFailed': '更新状态失败',
+
+  // ── legal（隐私政策 / 服务条款）──
+  'legal.privacy.title': '隐私政策',
+  'legal.privacy.updated': '最后更新：2026 年 7 月',
+  'legal.privacy.s1h': '1. 我们收集的信息',
+  'legal.privacy.s1b': '我们收集您注册账号时提供的信息，包括用户名、昵称和密码。我们也收集使用数据以改进服务。',
+  'legal.privacy.s2h': '2. 我们如何使用您的信息',
+  'legal.privacy.s2b': '您的信息用于提供、维护和改进我们的服务。除法律要求外，我们不会与第三方分享您的个人数据。',
+  'legal.privacy.s3h': '3. 数据安全',
+  'legal.privacy.s3b': '我们采取行业标准安全措施（包括加密与安全存储）保护您的数据。',
+  'legal.privacy.s4h': '4. 联系我们',
+  'legal.privacy.s4b': '如对本政策有任何疑问，请联系我们的支持团队。',
+  'legal.terms.title': '服务条款',
+  'legal.terms.updated': '最后更新：2026 年 7 月',
+  'legal.terms.s1h': '1. 条款接受',
+  'legal.terms.s1b': '使用本应用即表示您同意本服务条款。如不同意，请勿使用本应用。',
+  'legal.terms.s2h': '2. 用户责任',
+  'legal.terms.s2b': '您有责任保管账号凭据的机密性，并对您账号下的所有活动负责。',
+  'legal.terms.s3h': '3. 服务可用性',
+  'legal.terms.s3b': '我们努力提供不间断服务，但不保证 100% 可用。我们保留在合理通知后修改或终止服务的权利。',
+  'legal.terms.s4h': '4. 责任限制',
+  'legal.terms.s4b': '对于因使用本应用而产生的任何间接、附带或后果性损害，我们概不负责。',
 }
