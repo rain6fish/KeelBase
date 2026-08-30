@@ -40,7 +40,7 @@ export class ExternalGovernanceController {
       promptTokens: dto.promptTokens != null ? Number(dto.promptTokens) : undefined,
       completionTokens: dto.completionTokens != null ? Number(dto.completionTokens) : undefined,
       durationMs: dto.durationMs != null ? Number(dto.durationMs) : undefined,
-      isError: Boolean(dto.isError),
+      isError: dto.isError === true || dto.isError === 'true',
       errorMessage: dto.errorMessage as string | undefined,
       authorization: dto.authorization as string | undefined,
     });

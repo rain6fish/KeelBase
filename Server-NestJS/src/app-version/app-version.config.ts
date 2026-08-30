@@ -3,10 +3,10 @@
  * 发布新版本时更新 latestVersion + changelog；需强制升级时提升 minRequiredVersion。
  */
 export const APP_VERSION = {
-  latestVersion: '1.0.2',
+  latestVersion: '1.0.3',
   minRequiredVersion: '1.0.0',
   updateUrl: 'https://example.com/download',
-  changelog: ['AI 每日限额并发原子化（S3）+ WS 节流窗口命名（S4）', 'System AI 来源身份（读来源清单答「这是什么系统」）+ doctor 兼容矩阵', '测试覆盖大幅提升（后端 92.7% / 前端 vitest 75.5% / Flutter）'],
+  changelog: ['护城河 2.0：独立治理台 + sidecar 零代码接入 + 工具门控 + 多系统单控制面', 'Trust 证明包六场景一键验证 + R5 阻断 + DemoProvider 确定性可用', '审计可视化 E-1/E-2/D4（字段级审计/哈希链视图/证据包导出）+ 关键路径性能 E-3', '发布前三方评审加固：哈希链锁行/操作审计并发/副作用类型映射/侧边车鉴权'],
 } as const;
 
 export type AppVersionInfo = {

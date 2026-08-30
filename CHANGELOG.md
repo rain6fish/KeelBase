@@ -4,32 +4,55 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.3] - 2026-08-30
 
-> **KeelBase — 待发布（2026-08-28 提交，随下一 patch）**
+> **KeelBase 1.0.3 — Trust & Governance Hardening / 治理加固与产品证明版**
+> 1.0 后第三个补丁：护城河 2.0（独立治理台 + sidecar 零代码接入 + 多系统单控制面）+ 审计可视化 E-1/E-2（字段级审计/哈希链视图/证据包导出）+ 关键路径性能 E-3 + 产品证明包（Trust 证明包六场景/越权 V-2/演示复位 V-4）+ 发布前三方评审加固（哈希链锁行/操作审计并发/副作用类型映射/sidecar 鉴权/迁移白名单）。**1.1 仍未触发**（产品证明期 4 项验收未达）。
 
 ### Added / 新增
 
-- **M2 Guard 深化 (M2 deep)**: Risk Center daily trend (7-day executed/blocked bars, reuse `actionReport.byDay`) + Approval Center risk column & audit linkage (→ `/audit?userId=operatorId`) + Risk→Policy linkage (high-risk tool → Policy Center)
-  **M2 Guard 深化**：Risk Center 按日趋势（近 7 天执行/阻断柱状，复用 `actionReport.byDay`）+ Approval Center 风险级列与审计联动（→ `/audit?userId=operatorId`）+ Risk→策略中心联动（高风险工具跳策略治理）
-- **Integrator Kit (roadmap §22.7)**: overview + capability matrix + Java compensation endpoint reference (Spring Boot, delegation JWT verify) + Governance & Deployment Guide + Reference Project manual (legacy Java CRM → AI CRM, 8 steps) + docs index
-  **Integrator Kit（集成商套件）**：总纲 + 能力矩阵 + Java 补偿端点参考实现（委托 JWT 验签）+ 治理与部署指南 + Reference Project 实施手册（传统 Java CRM → AI CRM 8 步）+ 文档索引
-- **Live demo**: cloud demo guide (`docs/manual/demo-live.md`, ECS 三入口) + README live-demo entry
-  **在线演示**：云端 Demo 访问指南（ECS 三入口 + Golden Flow）+ README 首屏在线演示入口
-- **P0-0 Deterministic Demo Provider**: when no cloud LLM key / Ollama is configured, auto-register a deterministic demo provider — `docker run` runs the full AI golden flow (analyze → confirm → create → audit → revoke) zero-config; AI text is templated; real keys switch to real LLM (fallback chain deepseek → qwen → openai → demo)
-  **P0-0 确定性演示 Provider**：未配置任何云 LLM Key / Ollama 时自动注册确定性 Demo Provider——`docker run` 零配置跑通 AI 黄金流程（分析→确认→创建→审计→撤销），AI 文本为模板；配置真实 Key 后自动切真实 LLM（降级链 deepseek→qwen→openai→demo）
+- **Trust Proof Package (P0-6)**: `verify-trust-proof.mjs` six-scenario one-command verification (success / permission-denied 403 / R5 blocked / human confirmation / revoke / Java guidance), verified 15/15 (provider=demo, deterministic no-LLM); new `delete_customer` R5 block tool (irreversible action, policy-blocked, never executes) + DemoProvider always registered (`provider:'demo'` usable even with cloud keys)
+  **Trust 证明包（P0-6）**：六场景一键验证脚本（正常成功/越权 403/R5 阻断/人工确认/撤销/Java 引导，实测 15/15）+ delete_customer R5 阻断工具 + DemoProvider 无条件注册；security-showcase 双语入口 + 60s 视频分镜双语
+- **Java probe observation window**: `check-java-probe.mjs` collects Maven Central/GitHub demand signals (8/8 artifacts @0.1.1) + KeelBase4J trigger definition (integrator feedback "product good but can't bid without all-Java") + observation cadence
+  **Java 探针观察窗口**：keelbase-java-starter 需求信号采集 + KeelBase4J 启动依据（需求驱动）+ 观察节奏
+- **Governance Moat 2.0**: standalone governance control plane (D-2) + external report endpoints (service identity) + audit/effect dual-write + cross-service revoke/approve callbacks + docker orchestration + sidecar AI-gateway audit proxy (S-1) + tool-call gating (S-2: R5 block / R3-4 confirm) + MOAT-1 30-min adoption + MOAT-3 multi-system single control plane (10-entry continuous hash chain verified)
+  **治理护城河 2.0**：独立治理台 + sidecar 零代码接入 + 工具门控 + 多系统单控制面 + 跨服务撤销/审批回调
+- **Audit visualization (E-1/E-2/D4)**: E-1 field-level change audit (before/after snapshot + FieldDiff) + E-2 hash-chain view / daily trend / behavior replay + D4 evidence-package export (HMAC-signed, audit-committee verifiable) + HashChainView component
+  **审计可视化**：字段级审计 + 哈希链可视化 + 行为回放 + 证据包导出
+- **Performance (E-3)**: aggregate-endpoint caching (audit stats/cost/report/verify 60s TTL) + getAllStats column projection + users list cache/index + nginx gzip + vite manualChunks + frontend loading states
+  **关键路径性能（E-3）**：聚合缓存 + 列投影 + gzip + chunk 拆分
+- **AI-23 content safety (deep)**: dynamic sensitive-word/jailbreak table (Settings live) + hit audit + RAG/memory interception + Admin config card
+  **AI 内容安全深度化**：动态词表 + 全链路拦截 + 审计 + 管理台配置卡
+- **AI-config guidance banner**: `/app/capabilities` ai.{enabled,providerConfigured,provider} probe + Flutter/Web AI-page guidance banner
+  **AI 配置引导**：后端能力探测 + 双端 banner
+- **Front-end RBAC (WEB-FRONT-2)**: permission-point constants + `v-permission` directive + permission center page + actionable 403 guidance + first-visit onboarding
+  **前端 RBAC 权限点**：权限点/指令/中心页 + 403 可行动引导 + onboarding
+- **CLI**: generator next-steps full loop (backend/migration/frontend/AI-tool/deploy verification) + `doctor --env` environment preflight
+  **CLI 增强**：next-steps 全闭环 + doctor 环境预检
+- **weapp**: 23-page i18n migration + `build:weapp` fix + CI weapp regression guard
+  **weapp 专项**：i18n 全量 + 构建修复 + CI 防回归
+- **Product proof**: V-2 permission-denied verification (8/8) + V-4 one-command demo reset + V-6 30-min build instrument + verification-index
+  **产品证明**：越权 V-2 + 演示复位 V-4 + 30min V-6 + 验证索引
+- （承接既有）M2 Guard 深化 / Integrator Kit / Live demo / P0-0 DemoProvider / 部署加固 / CORS / 审计链压测
 
 ### Fixed / 修复
 
-- **P0 deployment/security hardening (external review)**: production env template missing `ENCRYPTION_KEY`/`AUDIT_HMAC_KEY` + deploy scripts append-missing-keys + offline `POSTGRES_PASSWORD` sync + Docker depends on host-prebuilt Flutter web (fail-fast) + R4 self-approve reject + MCP SSRF (shared `common/utils/ssrf`, webhook reused)
-  **P0 部署/安全加固（外部评审）**：env 模板补 `ENCRYPTION_KEY`/`AUDIT_HMAC_KEY` + 部署脚本「替换+追加缺失」+ offline `POSTGRES_PASSWORD` 同步 + Docker 依赖宿主 Flutter web 预构建（fail-fast）+ R4 拒绝 self-approve + MCP SSRF 防护（提取 `common/utils/ssrf`，webhook 复用）
-- **CORS / multi-replica**: `CORS_ORIGINS` env-driven + nginx `server_name _` wildcard + K8s default single replica (Trust Runtime 单副本承诺, external review #5 decision A)
-  **CORS / 多副本**：`CORS_ORIGINS` env 引用 + nginx `server_name _` 通配 + K8s 默认单副本（Trust Runtime 单副本承诺，外部评审 #5 决策 A）
+- **Three-way review hardening (2026-08-30, pre-release)**: `create_contract` side-effect resultType mis-recorded as `'todo'` (revoke would soft-delete wrong Todo) → mapped `contract`; `audit_chain_lock` lock row only seeded by migration (dev/governance-standalone locked 0 rows → concurrent hash-chain fork) → idempotent ensure before lock; operation-audit sqlite concurrent-transaction interleave → silent audit loss → process `_tail` serialization; getAllStats projection missing detail/authorization/errorMessage → E-2 trend distortion → completed; sidecar `POST /confirmations` unauthenticated token disclosure → requires shared service key; GovernanceDataSource production `synchronize:true` → non-production only; entityFor unknown type defaulted to `Todo` (wrong delete) → fail closed; sidecar upstream fetch no timeout → 120s; external `isError` string parsing; delete_customer redundant requireVerifiedEmail; app.module postgres migration whitelist missing AddAuditChainLock/AddAiAuditUsername/AddAiGovernancePolicy; `reset-demo.sh --docker` no-op → rebuild postgres business DB
+  **三方评审加固（阿里 ocr + Claude 自带 + code-review skill，2026-08-30）**：12 项后端 + 2 项前端阻塞/关键项修复——哈希链锁行/操作审计并发/副作用类型映射/审计趋势/侧边车鉴权/迁移白名单/演示复位等
+- **Front-end (ocr)**: HashChainView `slice(0,n)` dropped newest chain tip → `slice(-n)`; CrmCopilotDrawer stale `executed` after tool failure → cleared on matched tool_end
+  **前端修复（ocr）**：哈希链可视化保留最新证据 + Copilot executed 防残留
+- （承接既有）P0 部署/安全加固 / CORS / 审计链压测
 
 ### Changed / 变更
 
-- **Audit-chain load test in release-gate**: Trust dimension now runs `npm run audit:chain:load` (fork 0 + verify green) + multi-instance `--instances` mode reproduces fork (2 instances → 200/400 forked) as #5 B acceptance baseline
-  **审计链压测入 release-gate**：Trust 维度接入 `npm run audit:chain:load`（分叉 0 + verify 全绿）+ 压测 `--instances` 多实例模式复现分叉（2 实例 400 条分叉 200）作 #5 B 验收基线
+- （承接既有）审计链压测入 release-gate（多实例模式复现分叉）
+
+## Release Precheck（2026-08-30）
+
+- 三方 code review：**阿里 ocr**（v1.11.0 全区间扫描）+ **Claude 自带多维审查** + **code-review skill**（Standards + Spec 双轴）→ 综合修复 14 项（阻塞项全修，余项记录为已知限制）
+- 全量测试：后端单测 **216 套 / 1873 全绿** + e2e + Web-Admin vitest/typecheck + Flutter + 生成器/CLI + release-gate（详见发布记录）
+
+## [Unreleased]
 
 ## [1.0.2] - 2026-08-27
 

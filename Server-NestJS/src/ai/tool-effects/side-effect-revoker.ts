@@ -40,10 +40,15 @@ export function entityFor(type: string): string | null {
       return 'PmTask';
     case 'app_request':
       return 'ApprovalRequest';
+    case 'contract':
+      return 'Contract';
+    case 'todo':
+      return 'Todo';
     case 'proxy_call':
       return null; // B 路径外部写调用（目标在 Java 系统，无本地实体）
     default:
-      return 'Todo';
+      // 未知 resultType fail closed：不软删本地实体（防把未知类型误当 Todo 行删除）
+      return null;
   }
 }
 

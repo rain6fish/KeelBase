@@ -36,11 +36,20 @@ GOV_DB_FILE="${GOV_DB_FILE:-$SCRIPT_DIR/../Server-NestJS/data/governance.sqlite}
 DB_FILES=("$DB_FILE" "$GOV_DB_FILE")
 
 if [ "$MODE" = "docker" ]; then
-  echo "→ 容器模式：将在 docker compose 的 server 容器内复位（server-data volume）"
-  echo "  先停 server 再删库（容器内 WAL 需无并发写）："
+  echo "→ 容器模式：重建 postgres 业务库（生产 docker 用 postgres；server-data volume 仅上传/登录统计，保留）"
+  echo "  先停 server（无并发写，DROP DATABASE 才能成功）："
   docker compose stop server
-  DB_FILES=()
-  echo "  （容器内库文件在 server-data volume，见 demo-deploy.md 复位一节）"
+  DB_FILES=()  # postgres 走库重建，不走本地文件备份
+  PG_USER="$(grep -E '^POSTGRES_USER=' Server-NestJS/.env.production 2>/dev/null | head -1 | cut -d= -f2 | tr -d '\r')"
+  PG_USER="${PG_USER:-postgres}"
+  PG_DB="$(grep -E '^POSTGRES_DB=' Server-NestJS/.env.production 2>/dev/null | head -1 | cut -d= -f2 | tr -d '\r')"
+  PG_DB="${PG_DB:-front}"
+  echo "  DROP/CREATE DATABASE \"$PG_DB\"（user=$PG_USER）"
+  docker compose exec -T postgres psql -U "$PG_USER" -v ON_ERROR_STOP=1 \
+    -c "DROP DATABASE IF EXISTS \"$PG_DB\";" \
+    -c "CREATE DATABASE \"$PG_DB\";" \
+    || { echo "  ✗ 业务库重建失败——确认 postgres 容器健康（docker compose up -d postgres）后重试"; exit 1; }
+  echo "  → 业务库已重建；重启 server 自动跑 migration + seed 重建演示账号"
 fi
 
 # 0. 本地模式：检测后端是否在跑（3000 端口）——在跑则提示先停，避免 WAL/占用删除失败

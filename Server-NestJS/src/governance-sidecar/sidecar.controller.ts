@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, Param, Get } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Param, Get, UnauthorizedException } from '@nestjs/common';
 import { IsIn, IsString } from 'class-validator';
 import { SidecarService } from './sidecar.service';
 
@@ -43,9 +43,13 @@ export class SidecarController {
     return this.sidecar.confirm(token, dto.decision, userId);
   }
 
-  /** 待确认列表（诊断用） */
+  /** 待确认列表（诊断用）：需共享服务密钥——防内网邻近攻击者枚举 token 后 approve 门控调用 */
   @Post('confirmations')
-  async pending() {
+  async pending(@Headers('x-api-key') apiKey?: string) {
+    const expected = process.env.GOVERNANCE_API_KEY || '';
+    if (!expected || apiKey !== expected) {
+      throw new UnauthorizedException('sidecar 服务身份无效（GOVERNANCE_API_KEY）');
+    }
     return { pending: this.sidecar.pendingConfirmations() };
   }
 }
