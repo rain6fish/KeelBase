@@ -27,6 +27,7 @@ const ACTION_LABELS: Record<string, AiActionLabel> = {
   flow_node: { key: 'ai.flowNode', fallback: 'AI · Flow node' },
   login: { key: 'ai.login', fallback: 'AI · Login' },
   error: { key: 'ai.error', fallback: 'AI · Error' },
+  content_blocked: { key: 'ai.contentBlocked', fallback: 'AI · Content blocked' },
 };
 
 /** AI 工具名 → 人类可读标签（D2 工具名级映射：create_followup_task → Create follow-up task）。 */

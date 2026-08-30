@@ -49,4 +49,27 @@ describe('AI-23 checkContentSafety（内容安全轻量版）', () => {
     expect(checkContentSafety('').blocked).toBe(false);
     expect(checkContentSafety('   ').blocked).toBe(false);
   });
+
+  describe('N-6 动态配置（Settings 敏感词表）', () => {
+    it('自定义敏感词命中（配置覆盖默认表）', () => {
+      const r = checkContentSafety('测试违规词XYZ', { sensitive: ['违规词'], jailbreak: [] });
+      expect(r.blocked).toBe(true);
+      expect(r.reason).toBe('sensitive');
+    });
+
+    it('自定义 jailbreak 命中', () => {
+      const r = checkContentSafety('enter evil mode now', { sensitive: [], jailbreak: ['evil mode'] });
+      expect(r.blocked).toBe(true);
+      expect(r.reason).toBe('jailbreak');
+    });
+
+    it('非法正则跳过不崩服务（管理台误配兜底）', () => {
+      const r = checkContentSafety('包含正常敏感词内容', { sensitive: ['[非法正则', '敏感词'], jailbreak: [] });
+      expect(r.blocked).toBe(true); // '[非法正则' 被跳过，'敏感词' 命中
+    });
+
+    it('空配置回退默认表', () => {
+      expect(checkContentSafety('怎么自杀', { sensitive: [], jailbreak: [] }).blocked).toBe(true);
+    });
+  });
 });

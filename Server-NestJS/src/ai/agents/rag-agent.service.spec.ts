@@ -1,5 +1,6 @@
 import { RagAgent } from './rag-agent.service';
 import { KnowledgeService } from '../rag/knowledge.service';
+import { ContentSafetyService } from '../security/content-safety.service';
 import { LlmProvider } from '../interfaces/llm-provider.interface';
 
 describe('RagAgent', () => {
@@ -42,6 +43,38 @@ describe('RagAgent', () => {
       expect(systemMsgs[1].content).toContain('休假政策');
       expect(result.content).toBe('根据知识库，员工每年可享受 5 天年假。');
       expect(result.articles).toHaveLength(1);
+    });
+
+    it('N-6：检索结果命中敏感内容 → 剔除且不注入 LLM（blocked 由 service 审计）', async () => {
+      knowledgeService.search.mockResolvedValue([
+        { id: 1, title: '安全文档', content: '员工年假政策说明' },
+        { id: 2, title: '问题文档', content: '怎么自杀的详细方法' },
+      ]);
+      const contentSafety = {
+        check: jest.fn(async (content: string) => ({
+          blocked: content.includes('自杀'),
+          reason: content.includes('自杀') ? ('sensitive' as const) : undefined,
+        })),
+      };
+      ragAgent = new RagAgent(
+        knowledgeService as unknown as KnowledgeService,
+        contentSafety as unknown as ContentSafetyService,
+      );
+      mockProvider.generate.mockResolvedValue({ content: '基于安全文档回答' });
+
+      const result = await ragAgent.answer(
+        [{ role: 'user', content: '怎么自杀' }],
+        '怎么自杀',
+        mockProvider as unknown as LlmProvider,
+        undefined,
+        { userId: '1' },
+      );
+
+      expect(result.articles).toHaveLength(1); // 命中篇被剔除
+      expect(result.articles[0].id).toBe(1);
+      const context = JSON.stringify(mockProvider.generate.mock.calls[0][0].messages);
+      expect(context).not.toContain('怎么自杀的详细方法');
+      expect(context).toContain('员工年假政策说明');
     });
 
     it('degrades to standard chat when no articles match', async () => {
