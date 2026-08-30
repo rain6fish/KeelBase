@@ -55,15 +55,29 @@
               <!-- 输入 / AI 回复 -->
               <div v-if="s.type === 'input' || s.type === 'assistant'" class="mt-1 text-body-2">{{ s.content }}</div>
 
-              <!-- 工具调用 -->
+              <!-- 工具调用（业务语言；技术参数点击展开） -->
               <div v-else-if="s.type === 'tool_call'" class="mt-1">
-                <div class="text-body-2">{{ s.toolName }} <code class="text-caption">{{ s.args }}</code></div>
+                <div class="text-body-2">
+                  <el-popover placement="top" :width="380" trigger="click">
+                    <template #reference>
+                      <span class="font-weight-medium" style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                        {{ toolLabel(tm('feature'), s.toolName) }}{{ toolArgsSummary(s.toolName, s.args, locale.startsWith('zh')) }}
+                      </span>
+                    </template>
+                    <div class="text-caption">
+                      <div class="text-medium-emphasis mb-1">{{ t('technicalDetail') }}</div>
+                      <div class="mb-1"><b>{{ s.toolName }}</b></div>
+                      <pre class="text-caption" style="white-space:pre-wrap;margin:0 0 6px">{{ s.args }}</pre>
+                      <div v-if="s.errorMessage" class="text-error">{{ s.errorMessage }}</div>
+                    </div>
+                  </el-popover>
+                </div>
                 <StatusChip
                   :status="s.success ? 'ok' : 'cancelled'"
                   :label-map="{ ok: t('stepSuccess'), cancelled: t('stepFailed') }"
                   class="mt-1"
                 />
-                <div v-if="!s.success && s.errorMessage" class="text-body-2 text-error mt-1">{{ s.errorMessage }}</div>
+                <div v-if="!s.success && s.errorMessage" class="text-body-2 text-error mt-1">{{ errorLabel(s.errorMessage, t) }}</div>
                 <!-- W5-⑦ Explainable Authz：被拒工具的结构化检查清单（为何阻止） -->
                 <div v-if="s.checks && s.checks.length" class="mt-1 pa-2" style="background: var(--el-fill-color-light); border-radius: 4px">
                   <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('traceDeniedTitle') }}</div>
@@ -76,7 +90,7 @@
 
               <!-- 写操作确认 -->
               <div v-else-if="s.type === 'confirmation'" class="mt-1">
-                <div class="text-body-2">{{ s.toolName }} <code class="text-caption">{{ s.args }}</code></div>
+                <div class="text-body-2">{{ toolLabel(tm('feature'), s.toolName) }}{{ toolArgsSummary(s.toolName, s.args, locale.startsWith('zh')) }}</div>
                 <div class="mt-1">
                   <StatusChip :status="confirmStatus(s)" :label-map="confirmLabels" />
                   <span v-if="s.trusted" class="text-caption text-medium-emphasis ms-2">{{ t('stepTrusted') }}</span>
@@ -85,7 +99,7 @@
 
               <!-- 创建记录（副作用） -->
               <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
-                <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
+                <div class="text-body-2">{{ toolLabel(tm('feature'), s.toolName) }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
                 <div v-if="s.effect.targetTitle" class="text-body-2 text-medium-emphasis mt-1">{{ s.effect.targetTitle }}</div>
                 <div v-if="s.effect.before || s.effect.after" class="mt-1">
                   <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
@@ -107,7 +121,7 @@
               <!-- 摘要类（chat/knowledge/error 等） -->
               <div v-else-if="s.type === 'notice'">
                 <div v-if="s.detail" class="text-body-2 text-medium-emphasis mt-1">{{ s.detail }}</div>
-                <div v-if="s.errorMessage" class="text-body-2 text-error mt-1">{{ s.errorMessage }}</div>
+                <div v-if="s.errorMessage" class="text-body-2 text-error mt-1">{{ errorLabel(s.errorMessage, t) }}</div>
               </div>
             </div>
           </el-card>
@@ -128,9 +142,10 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
+import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { ConversationSummary, TraceEffect, TraceStep } from '@/types/workbench'
 
-const { t } = useI18n()
+const { t, tm, locale } = useI18n()
 const snackbar = useSnackbarStore()
 
 const conversations = ref<ConversationSummary[]>([])
