@@ -190,6 +190,14 @@ node scripts/keelbase-init.mjs doctor   # 或 node scripts/keelbase-doctor.mjs
 
 用途：CI 门禁（`cli-test` job 断言仓库 doctor PASS）+ 生成器升级前体检 + 交接排查。
 
+**环境预检 `--env`**：起容器/起服务前跑一次，一次查出「起不来」的环境缺口并给修复指引：
+
+```bash
+node scripts/keelbase-init.mjs doctor --env
+```
+
+检查：Node 版本（≥20）/ Docker（CLI 与守护进程）/ 常用端口 3000·10086 占用 / `Server-NestJS/.env` 与 JWT 密钥 / LLM 配置（API Key 或本地 Ollama，缺则提示 AI 降级）/ DB 类型（postgres 需服务、sqlite 零配置）。每项 FAIL/WARN 带 `→ 修复指引`；单容器路径（无本地仓库目录）自动跳过 .env 相关检查。
+
 ### 6.4 边界
 
 - **已实现**：运行时来源指纹 `GET /app/provenance`（来源身份 + 能力清单 + AI 工具指纹，2026-08-21）；`Built with KeelBase` badge 规范见 [built-with-keelbase.md](manual/built-with-keelbase.md)
