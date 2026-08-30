@@ -8,7 +8,7 @@ const SLIDES = {
   6: { kicker: '定位', html: '<div class="line"><b>AI 代理</b></div><div class="line">MCP / OpenAPI / 工具</div><div class="line arrow">↓</div><div class="line"><b>KeelBase 信任层</b></div><div class="line arrow">↓</div><div class="line">CRM · ERP · OA · MES</div>', cls: 'sub' },
   7: { kicker: '信任层', html: '<div class="row"><span class="chip">身份</span><span class="chip">策略</span><span class="chip">权限</span><span class="chip">确认</span><span class="chip">审计</span><span class="chip">撤销</span></div>', cls: '' },
   8: { kicker: '品牌句', html: '<div class="big" style="font-size:44px">AI 可以行动——但只在<br>明确的业务边界内。</div>', cls: '' },
-  9: { kicker: '实机 · 演示 1', html: '登录 alex / 123456 → AI CRM', cls: 'sub' },
+  9: { kicker: '实机 · 演示 1', html: '登录 alex / Alex@2026$Demo → AI CRM', cls: 'sub' },
   10: { kicker: '实机 · 演示 1', html: '理解请求...<br>→ query_customer_orders<br>→ query_customer_activities<br>→ analyze_customer_risk', cls: 'sub' },
   11: { kicker: '实机 · 演示 1', html: '3 个客户需要关注<br><span class="accent">瀚宇制造 · 风险：严重</span><br>¥280 万订单逾期 40 天', cls: 'sub' },
   12: { kicker: '实机 · 演示 2', html: 'AI 建议为瀚宇制造创建跟进任务。执行吗？', cls: 'sub' },

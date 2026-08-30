@@ -379,7 +379,7 @@ async function fullTour(page) {
   });
   await sleep(1500);
   console.log('[FullTour] 开始：管理员控制台');
-  await loginAs(page, 'admin', 'Admin@1234');
+  await loginAs(page, 'admin', 'Admin@2026$KeelBase');
 
   const adminRoutes = [
     { path: '/', label: '控制台概览' },

@@ -25,7 +25,7 @@ describe('useAuthStore 角色分流', () => {
     mocks.login.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt', user: adminUser })
     const store = useAuthStore()
 
-    const ok = await store.login('admin', 'Admin@1234')
+    const ok = await store.login('admin', 'Admin@2026$KeelBase')
 
     expect(ok).toBe(true)
     expect(store.status).toBe('authenticated')
@@ -38,7 +38,7 @@ describe('useAuthStore 角色分流', () => {
     mocks.login.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt', user: userUser })
     const store = useAuthStore()
 
-    const ok = await store.login('alex', '123456')
+    const ok = await store.login('alex', 'Alex@2026$Demo')
 
     expect(ok).toBe(true)
     expect(store.status).toBe('authenticated')

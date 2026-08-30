@@ -15,7 +15,7 @@
 ```bash
 # Option A: single container (Docker only, fastest)
 docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
-# Visit http://localhost:3000 (workbench), /admin (Admin Console); demo accounts alex/123456
+# Visit http://localhost:3000 (workbench), /admin (Admin Console); demo accounts alex/Alex@2026$Demo
 
 # Option B: local development (to change code)
 git clone <repo> && cd KeelBase && cd Server-NestJS && npm install

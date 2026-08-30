@@ -43,7 +43,7 @@ Then set `DB_TYPE=postgres` + DB_* in `.env`. Redis is optional — `CACHE_ENABL
 A: **10 consecutive failures → locked 15 min** (anti-brute-force). Wait, or restart backend in dev to reset.
 
 **Q: Demo accounts? Why can't my registered account enter the admin console?**
-A: Demo: `alex / 123456` (user), `admin / Admin@1234` (admin). Admin console requires the **admin role** — non-admins get 403. Promote a user via admin console → User Management → change role.
+A: Demo: `alex / Alex@2026$Demo` (user), `admin / Admin@2026$KeelBase` (admin). Admin console requires the **admin role** — non-admins get 403. Promote a user via admin console → User Management → change role.
 
 **Q: Not receiving verification / reset emails?**
 A: Email needs SMTP (`MAIL_ENABLED=true` + `SMTP_*` in `.env`). **Dev works without SMTP** — registration proceeds, just no email; skip the verification page.

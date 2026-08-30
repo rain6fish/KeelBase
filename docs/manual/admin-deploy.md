@@ -107,8 +107,8 @@ The admin defaults to same-origin `/api/v1` (`import.meta.env.VITE_API_BASE || '
 curl -I https://admin.example.com/admin/          # 200，HTML SPA
 curl -I https://admin.example.com/admin/assets/…  # 200，静态资源
 curl -X POST https://admin.example.com/api/v1/auth/login -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Admin@1234"}'   # 200，后端可达
+  -d '{"username":"admin","password":"Admin@2026$KeelBase"}'   # 200，后端可达
 ```
 
-- Log in as `admin` / `Admin@1234`（first-boot demo account）→ the console loads with data.
-  用 `admin` / `Admin@1234`（首启演示账号）登录 → 控制台正常加载数据。
+- Log in as `admin` / `Admin@2026$KeelBase`（first-boot demo account）→ the console loads with data.
+  用 `admin` / `Admin@2026$KeelBase`（首启演示账号）登录 → 控制台正常加载数据。

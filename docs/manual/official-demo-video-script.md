@@ -1,7 +1,7 @@
 # KeelBase 官方 Demo 视频脚本（4 分钟版）
 
 > 依据 `KeelBase官方 Demo 视频脚本方案.md` 落地为可执行分镜脚本。
-> 录制前请先运行 `npm run seed:demo`，确保演示账号 `alex / 123456` 有真实种子数据。
+> 录制前请先运行 `npm run seed:demo`，确保演示账号 `alex / Alex@2026$Demo` 有真实种子数据。
 
 ## 1. 成片信息
 
@@ -13,7 +13,7 @@
 | 目标观众 | 开源开发者、企业技术决策者 |
 | 语言 | 中文旁白；屏幕文字保留英文；字幕中英双语 |
 | 核心信息 | AI can act — but only within explicit business boundaries. |
-| 演示账号 | `alex / 123456`（开发环境自动种子） |
+| 演示账号 | `alex / Alex@2026$Demo`（开发环境自动种子） |
 | 画幅 | 16:9，1920x1080 |
 
 ---
@@ -61,7 +61,7 @@
 
 | 镜头 | 时间 | 画面 | 屏幕文字 | 旁白 | 音效/操作 |
 |---|---|---|---|---|---|
-| 09 | 0:45–0:52 | 打开 Workbench，进入 AI CRM，直接打开 AI 对话 | 登录 `alex / 123456`，进入 `AI CRM` | 在 KeelBase 中，AI 不只是回答问题。 | 真实系统录制，不切菜单 |
+| 09 | 0:45–0:52 | 打开 Workbench，进入 AI CRM，直接打开 AI 对话 | 登录 `alex / Alex@2026$Demo`，进入 `AI CRM` | 在 KeelBase 中，AI 不只是回答问题。 | 真实系统录制，不切菜单 |
 | 10 | 0:52–0:58 | 输入问题，AI 开始显示工具步骤卡 | `Understanding request...`<br>`→ query_customer_orders`<br>`→ query_customer_activities`<br>`→ analyze_customer_risk` | 它可以真正读取业务数据，并根据业务规则进行分析。 | 工具卡带「读」徽标 |
 | 11 | 0:58–1:05 | 风险结论卡片出现 | `发现 3 个需要关注的客户`<br>`瀚宇制造 · Risk: Critical`<br>`原因：单笔 280 万订单逾期 40 天；资金链紧张` | 例如这里，AI 找到了高风险客户，并解释了风险来自哪里。 | 结论停留 2 秒；逾期天数以界面实际为准 |
 
@@ -214,7 +214,7 @@ AI 可以行动，但只在明确的业务边界内行动。
 ## 6. 录制操作清单
 
 1. 准备环境：`cd Server-NestJS && npm run seed:demo`，确认输出包含 CRM/PM/Approval 等数据。
-2. 登录演示账号 `alex / 123456`，确认工作台有客户、订单、风险、待办、通知数据。
+2. 登录演示账号 `alex / Alex@2026$Demo`，确认工作台有客户、订单、风险、待办、通知数据。
 3. 录制 Demo 1：进入 AI CRM，使用 AI Copilot 提问「哪些客户本周最值得跟进？」，等待工具卡与风险结论。
 4. 录制 Demo 2：让 AI 提议创建跟进任务，展示确认卡片后点击 Approve。
 5. 录制 Demo 3：切到 CRM Tasks，高亮新创建的任务，停留 3 秒。

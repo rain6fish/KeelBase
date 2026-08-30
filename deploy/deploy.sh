@@ -12,7 +12,7 @@
 # 用法：
 #   ./deploy/deploy.sh                 # HTTP 部署
 #   HTTPS=1 ./deploy/deploy.sh         # HTTPS 部署（自动生成自签名证书）
-#   ADMIN_PASSWORD='xxx' ./deploy/deploy.sh   # 指定初始管理员密码（默认 Admin@1234）
+#   ADMIN_PASSWORD='xxx' ./deploy/deploy.sh   # 指定初始管理员密码（默认 Admin@2026$KeelBase）
 #
 # 云厂商轻量服务器（阿里云/腾讯云）部署指南见 docs/manual/one-click-deploy.md
 
@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 
 ENV_FILE="Server-NestJS/.env.production"
 export NODE_ENV=production
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@1234}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@2026\$KeelBase}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 
@@ -124,7 +124,7 @@ else
   echo "   前端     http://<服务器IP>/"
 fi
 echo "   管理员   ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}"
-if [ "${ADMIN_PASSWORD}" = "Admin@1234" ]; then
+if [ "${ADMIN_PASSWORD}" = "Admin@2026\$KeelBase" ]; then
   echo "   ⚠ 正在使用默认管理员密码，请立即登录管理台修改！建议重跑：ADMIN_PASSWORD='<强密码>' ./deploy/deploy.sh"
 fi
 echo ""

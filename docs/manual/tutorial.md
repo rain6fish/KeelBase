@@ -26,8 +26,8 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 | 账号 | 密码 | 用途 |
 |------|------|------|
-| `alex` | `123456` | 工作台 / 移动预览 普通用户 |
-| `admin` | `Admin@1234` | 管理台管理员 |
+| `alex` | `Alex@2026$Demo` | 工作台 / 移动预览 普通用户 |
+| `admin` | `Admin@2026$KeelBase` | 管理台管理员 |
 
 > 看日志 `docker logs -f keelbase`；停止并删除 `docker stop keelbase && docker rm keelbase`（数据留在命名卷 `keelbase_data`）。
 > 想改代码时用本地开发模式：`./scripts/dev.sh experience`（起后端 + 管理台，自动开浏览器）。详见 [快速上手](quickstart.md)。
