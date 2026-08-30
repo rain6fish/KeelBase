@@ -225,6 +225,35 @@ describe('AuditService', () => {
       expect(chain.verifyChain).toHaveBeenCalled();
     });
 
+    it('E-2：valid 链返回最近 24 条切片', async () => {
+      const rows = Array.from({ length: 30 }, (_, i) => ({
+        id: i + 1, prevHash: i === 0 ? null : `h${i}`, hash: `h${i + 1}`,
+        createdAt: new Date(), action: 'chat', detail: null, isError: false,
+      }));
+      repo.find.mockResolvedValue(rows);
+      (chain.verifyChain as jest.Mock).mockReturnValue({ valid: true, checked: 30 });
+      const result = await service.verifyChain();
+      expect(result.chain).toHaveLength(24);
+      expect(result.chain[0].id).toBe(7); // 30-24+1
+      expect(result.chain[23].id).toBe(30);
+      expect(result.chain.every((n) => !n.broken)).toBe(true);
+    });
+
+    it('E-2：broken 链以断点为中心切片并标记断点行', async () => {
+      const rows = Array.from({ length: 30 }, (_, i) => ({
+        id: i + 1, prevHash: i === 0 ? null : `h${i}`, hash: `h${i + 1}`,
+        createdAt: new Date(), action: 'tool_call', detail: 'query_customers({})', isError: false,
+      }));
+      repo.find.mockResolvedValue(rows);
+      (chain.verifyChain as jest.Mock).mockReturnValue({ valid: false, checked: 10, brokenIndex: 11 });
+      const result = await service.verifyChain();
+      expect(result.chain.length).toBeLessThan(30); // 断点窗口而非全量
+      const brokenNode = result.chain.find((n) => n.broken);
+      expect(brokenNode).toBeDefined();
+      expect(brokenNode!.id).toBe(11);
+      expect(brokenNode!.toolName).toBe('query_customers');
+    });
+
     it('feedback 后置写入不参与哈希 payload（submitFeedback 不断链，HS-11）', async () => {
       repo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
       let payloadFor: ((row: Record<string, unknown>) => Record<string, unknown>) | undefined;
@@ -364,6 +393,15 @@ describe('AuditService', () => {
       expect(qb.skip).toHaveBeenCalledWith(5);
     });
 
+    it('E-2：getLogs isError 过滤加 andWhere 条件', async () => {
+      const qb = mockQueryBuilder();
+      await service.getLogs({ isError: 'true' });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('log.is_error'),
+        expect.objectContaining({ isError: true }),
+      );
+    });
+
     it('getLogs 带 since/feedback 追加 andWhere', async () => {
       const qb = mockQueryBuilder();
       await service.getLogs({ since: new Date('2026-08-01'), feedback: 'thumbs_down' });
@@ -389,9 +427,9 @@ describe('AuditService', () => {
 
   describe('getStats / getAllStats', () => {
     const logs = [
-      { action: 'chat', promptTokens: 100, completionTokens: 50, isError: false },
-      { action: 'tool_call', promptTokens: 10, completionTokens: 5, isError: false },
-      { action: 'chat', promptTokens: 30, completionTokens: 10, isError: true },
+      { action: 'chat', promptTokens: 100, completionTokens: 50, isError: false, createdAt: new Date('2026-08-30T01:00:00Z') },
+      { action: 'tool_call', promptTokens: 10, completionTokens: 5, isError: false, createdAt: new Date('2026-08-30T02:00:00Z') },
+      { action: 'chat', promptTokens: 30, completionTokens: 10, isError: true, createdAt: new Date('2026-08-30T03:00:00Z') },
     ];
 
     it('getStats 聚合 token/错误/动作分布并按次数排序', async () => {
@@ -419,6 +457,17 @@ describe('AuditService', () => {
       expect(result.totalMessages).toBe(3);
       expect(result.totalErrors).toBe(1);
       expect(repo.find).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it('E-2：getAllStats 返回 byDay 趋势（含 errors/blocked 段）', async () => {
+      repo.find.mockResolvedValue([
+        { action: 'tool_call', detail: 'query_customers({})', isError: false, createdAt: new Date('2026-08-30T10:00:00Z') },
+        { action: 'tool_call', detail: 'create_followup_task({})', isError: false, createdAt: new Date('2026-08-30T11:00:00Z') },
+        { action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-30T12:00:00Z') },
+      ]);
+      const result = await service.getAllStats();
+      expect(result.byDay).toHaveLength(1);
+      expect(result.byDay[0]).toMatchObject({ date: '2026-08-30', executed: 2, approved: 0, rejected: 0, blocked: 1, errors: 1 });
     });
 
     it('getAllStats 带 since 过滤', async () => {
