@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, Param } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Param, Get } from '@nestjs/common';
 import { IsIn, IsString } from 'class-validator';
 import { SidecarService } from './sidecar.service';
 
@@ -18,6 +18,12 @@ export class ConfirmDecisionDto {
 @Controller('v1')
 export class SidecarController {
   constructor(private readonly sidecar: SidecarService) {}
+
+  /** 健康检查（docker healthcheck / 编排用） */
+  @Get('health')
+  async health() {
+    return { ok: true, service: 'sidecar' };
+  }
 
   @Post('chat/completions')
   async chatCompletions(
