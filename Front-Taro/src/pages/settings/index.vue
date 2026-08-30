@@ -98,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { computed, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
@@ -170,4 +171,3 @@ function handleLogout() {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

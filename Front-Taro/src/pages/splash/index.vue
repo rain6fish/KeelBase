@@ -11,6 +11,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { watch, onUnmounted } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
@@ -42,4 +43,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style src="./index.scss" scoped></style>

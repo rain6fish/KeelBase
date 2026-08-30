@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
@@ -83,4 +84,3 @@ function goHistory() {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

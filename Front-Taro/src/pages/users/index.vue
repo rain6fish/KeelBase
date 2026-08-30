@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import Taro from '@tarojs/taro'
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -68,4 +69,3 @@ function goToDetail(id: number) {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

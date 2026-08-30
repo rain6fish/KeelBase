@@ -31,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { computed, onMounted, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { usersService } from '../../services/users-service'
@@ -77,4 +78,3 @@ onMounted(() => {
 })
 </script>
 
-<style src="./index.scss" scoped></style>
