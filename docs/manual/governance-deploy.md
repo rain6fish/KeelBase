@@ -86,6 +86,7 @@ npm run start:sidecar
 ```
 
 > **30 分钟上手**：按 [adoption-30min.md](adoption-30min.md) 5 步接入，配套 `verify-moat-adoption.mjs` 一键验收（MOAT-1）。
+> **多系统演示**：`demo-multi-system.mjs` 一个治理台管两个异构业务系统（统一审计 + 共享门控 + 跨系统哈希链），见 [multi-system-demo.md](multi-system-demo.md)（MOAT-3）。
 
 ## 五、相关 / Related
 
