@@ -89,9 +89,10 @@ export class McpExportController {
 
     const out = await this.aiService.executeToolForExternal(toolName, toolArgs, userId);
 
-    // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源）
+    // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源；username 快照 D2-1c——非 actor 路径，显式带出）
     await this.auditService.log({
       userId,
+      username: user.username,
       action: 'tool_call',
       detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)})`,
       provider: 'mcp',

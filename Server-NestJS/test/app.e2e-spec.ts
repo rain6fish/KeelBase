@@ -1830,7 +1830,7 @@ describe('App (e2e)', () => {
 
     it('POST /ai/confirmations/:token approve resolves pending (确认→批准)', async () => {
       // 直接注入 pending confirmation（真实流式 chat 需 LLM，测试直连 store）
-      const { token } = confirmationStore.create(String(userId), 'create_event', {
+      const { token } = await confirmationStore.create(String(userId), 'create_event', {
         title: 'AI 确认流测试事件',
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600_000).toISOString(),
@@ -1852,7 +1852,7 @@ describe('App (e2e)', () => {
         password: 'T7Other1',
         nickname: 'T7Other',
       });
-      const { token } = confirmationStore.create(String(userId), 'create_todo', {
+      const { token } = await confirmationStore.create(String(userId), 'create_todo', {
         title: '他人不可确认',
       });
       // 另一用户拿 token 确认 → 404（token 属于他人）
@@ -1870,7 +1870,7 @@ describe('App (e2e)', () => {
     });
 
     it('POST /ai/confirmations/:token reject (拒绝→decline)', async () => {
-      const { token } = confirmationStore.create(String(userId), 'create_event', {
+      const { token } = await confirmationStore.create(String(userId), 'create_event', {
         title: '拒绝测试',
       });
       const res = await request(app.getHttpServer())
