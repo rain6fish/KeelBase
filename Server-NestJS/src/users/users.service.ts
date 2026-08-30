@@ -45,6 +45,7 @@ export class UsersService {
       lastName: dto.lastName,
     });
     const saved = await this.usersRepository.save(user);
+    await this.cacheService.delByPrefix('users:');
     return this.sanitizeUser(saved);
   }
 
@@ -54,13 +55,19 @@ export class UsersService {
     sort = 'createdAt',
     order: 'asc' | 'desc' = 'desc',
   ): Promise<{ items: Partial<User>[]; total: number; page: number; limit: number }> {
+    // E-3 列表缓存（照抄 events 模式：key 含分页/排序，写操作 delByPrefix('users:') 失效）
+    const cacheKey = `users:list:${page}:${limit}:${sort}:${order}`;
+    const cached = await this.cacheService?.get<any>(cacheKey);
+    if (cached) return cached;
     const [users, total] = await this.usersRepository.findAndCount({
       skip: (page - 1) * limit,
       take: limit,
       order: { [sort]: order },
     });
     const items = users.map((u) => this.sanitizeForAdmin(u));
-    return { items, total, page, limit };
+    const result = { items, total, page, limit };
+    await this.cacheService?.set(cacheKey, result, 60_000);
+    return result;
   }
 
   /**
@@ -114,6 +121,7 @@ export class UsersService {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     await this.usersRepository.update(id, { mustChangePassword: true });
+    await this.cacheService.delByPrefix('users:');
     return { flagged: true };
   }
 
@@ -157,6 +165,7 @@ export class UsersService {
     const saved = await this.usersRepository.save(user);
     const result = this.sanitizeUser(saved);
     await this.cacheService.delete(`user:${id}`);
+    await this.cacheService.delByPrefix('users:');
     return result;
   }
 
@@ -168,6 +177,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     await this.cacheService.delete(`user:${id}`);
+    await this.cacheService.delByPrefix('users:');
   }
 
   async updateRole(id: number, role: UserRole): Promise<Partial<User>> {
@@ -185,6 +195,7 @@ export class UsersService {
     const saved = await this.usersRepository.save(user);
     const result = this.sanitizeUser(saved);
     await this.cacheService.delete(`user:${id}`);
+    await this.cacheService.delByPrefix('users:');
     return result;
   }
 

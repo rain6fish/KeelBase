@@ -80,6 +80,7 @@ import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance/governance
 import { InternalEffectsController } from './governance/internal-effects.controller';
 import { InternalApprovalsController } from './governance/internal-approvals.controller';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
+import { CacheModule } from '../common/cache/cache.module';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
@@ -132,6 +133,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,
+    CacheModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController],

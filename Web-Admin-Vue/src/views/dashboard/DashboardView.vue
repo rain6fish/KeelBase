@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-loading="loading">
     <PageHeader :title="t('overview')" />
 
     <!-- E-3 onboarding：首次进入引导（可关闭） -->
@@ -71,12 +71,14 @@ function dismissOnboard() {
   showOnboard.value = false
   localStorage.setItem(ONBOARD_KEY, '1')
 }
+const loading = ref(false)
 const counts = ref<Record<string, number>>({})
 const storage = ref<{ driver: string; bytes: number | null }>({ driver: '-', bytes: null })
 const trend = ref<Array<{ date: string; count: number }>>([])
 const topActions = ref<Array<{ action: string; count: number }>>([])
 
 async function load() {
+  loading.value = true
   try {
     const [overview, stats] = await Promise.all([adminApi.overview(7), auditApi.stats()])
     counts.value = overview.counts as Record<string, number>
@@ -85,6 +87,8 @@ async function load() {
     topActions.value = stats.topActions
   } catch {
     // snackbar handled globally
+  } finally {
+    loading.value = false
   }
 }
 
