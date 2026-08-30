@@ -34,7 +34,7 @@ Expected output: `生成业务模块 customers` (generated module customers) + t
 
 ```bash
 cd Server-NestJS && npm run build
-npm run start:dev     # first start creates the SQLite DB + seeds demo accounts (alex/123456, admin/Admin@1234), Ctrl+C when ready
+npm run start:dev     # first start creates the SQLite DB + seeds demo accounts (alex/Alex@2026$Demo, admin/Admin@2026$KeelBase), Ctrl+C when ready
 npm run migration:generate -- src/migrations/AddCustomers   # incremental migration (start the backend once first — see common failures)
 npm run migration:run
 ```
@@ -53,7 +53,7 @@ Expected output: **20 passed** (service 5 + controller 6 + query/create tools 9)
 npm run start:dev    # http://localhost:3000, Swagger at /api/docs
 ```
 
-Sign in to the workbench as `alex / 123456`, then in the AI chat:
+Sign in to the workbench as `alex / Alex@2026$Demo`, then in the AI chat:
 
 - "**Show me my customers**" → AI calls `query_customers` (blue "read" tool card)
 - "**Create a customer: Zhang San, lead**" → AI calls `create_customers` (orange "write" tool card) → **confirmation dialog** → confirm → persisted → "confirmed · revocable"

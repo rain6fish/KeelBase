@@ -2,7 +2,7 @@
 
 > 目标：README 首页第一屏用真实 Runtime AI 闭环（而非技术栈）让陌生开发者 **60 秒看懂**——AI 不只是聊天，而是在权限和审计边界内真正干活。
 > 本文档是 README 视频/GIF 的**录制脚本**：每个场景 ≤60 秒，完整展示 `Tool → Permission → Confirmation → Audit`。
-> 演示载体：`./deploy/demo.sh`（一键起工作台 AI CRM Golden Flow，http://localhost:3000）或单容器（`./scripts/docker-single.sh`），演示账号 `alex / 123456`。
+> 演示载体：`./deploy/demo.sh`（一键起工作台 AI CRM Golden Flow，http://localhost:3000）或单容器（`./scripts/docker-single.sh`），演示账号 `alex / Alex@2026$Demo`。
 
 ---
 
@@ -12,7 +12,7 @@
 
 | 时间 | 画面 | 用户操作 / AI 行为 | 展示点 |
 |---|---|---|---|
-| 0-5s | 登录页 → 工作台 | 输入 `alex / 123456` 登录 | 演示账号 |
+| 0-5s | 登录页 → 工作台 | 输入 `alex / Alex@2026$Demo` 登录 | 演示账号 |
 | 5-12s | AI CRM → 客户详情 | 打开客户 → 点「AI 助手」按钮（AI Copilot）→ 输入「**分析这家客户的风险，值得跟进吗？**」 | 真实业务数据 |
 | 12-30s | 工具步骤卡 | AI 依次调用 `query_customer_orders` → `query_customer_activities` → `analyze_customer_risk` | **读工具**（蓝色「读」徽标）+ 过程可视化 |
 | 30-40s | AI 回复 + 写操作 | AI：「云帆商贸有逾期订单且连续两月未续约，建议跟进」→ 问「要我为云帆创建跟进任务吗？」 | 写操作触发确认 |

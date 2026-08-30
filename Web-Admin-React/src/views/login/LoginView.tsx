@@ -133,7 +133,7 @@ export default function LoginView() {
           </form>
 
           <Typography variant="caption" color="text.secondary" mt={2} textAlign="center" display="block">
-            admin / Admin@1234（控制台）· alex / 123456（工作台）
+            admin / Admin@2026$KeelBase（控制台）· alex / Alex@2026$Demo（工作台）
           </Typography>
         </CardContent>
         <Divider />

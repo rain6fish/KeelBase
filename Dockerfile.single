@@ -69,4 +69,4 @@ ENV NODE_ENV=production \
 EXPOSE 3000
 USER keelbase
 # 一键部署零配置：先补种演示账号（admin + alex，幂等），再启动后端
-CMD ["sh", "-c", "node build-seed/scripts/seed-demo.js --username admin --password 'Admin@1234' || true; node build-seed/scripts/seed-demo.js --username alex --password '123456' || true; node dist/main"]
+CMD ["sh", "-c", "node build-seed/scripts/seed-demo.js --username admin --password 'Admin@2026$KeelBase' || true; node build-seed/scripts/seed-demo.js --username alex --password 'Alex@2026$Demo' || true; node dist/main"]

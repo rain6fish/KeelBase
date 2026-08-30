@@ -244,7 +244,7 @@ Docker 单容器一键启动（`docker run` 一条命令起全栈）、离线 / 
 ## 11. 演示
 
 - **一键体验**：`docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`
-- **演示账号**：`alex / 123456`（工作台）· `admin / Admin@1234`（管理台）——本地默认；**公网演示（121.199.30.80）密码已更换**，向部署方获取
+- **演示账号**：`alex / Alex@2026$Demo`（工作台）· `admin / Admin@2026$KeelBase`（管理台）——所有环境统一
 - **黄金流程**：登录 → AI CRM → 「哪些客户本周最值得跟进？」→ 观察 AI 分析 → 确认跟进任务 → 查看审计轨迹
 
 ---

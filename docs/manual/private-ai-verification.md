@@ -85,7 +85,7 @@ curl http://localhost:3000/api/v1/health?detail=true   # db/redis/storage 正常
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alex","password":"123456"}' | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 
 curl -s -X POST http://localhost:3000/api/v1/ai/chat \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \

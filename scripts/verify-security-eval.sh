@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 BASE="${BASE_URL:-http://localhost:3000/api/v1}"
 THRESHOLD="${THRESHOLD:-0.9}"
 ADMIN_USER="${ADMIN_USER:-admin}"
-ADMIN_PASS="${ADMIN_PASS:-Admin@1234}"
+ADMIN_PASS="${ADMIN_PASS:-Admin@2026\$KeelBase}"
 PASS=0; FAIL=0
 ok()  { echo "  ✓ $1"; PASS=$((PASS+1)); }
 bad() { echo "  ✗ $1"; FAIL=$((FAIL+1)); }

@@ -18,7 +18,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:3000/api/v1';
 const SECONDS = parseInt(process.env.BENCH_SECONDS || '10', 10);
 const CONNECTIONS = parseInt(process.env.BENCH_CONNECTIONS || '10', 10);
 const USER = process.env.BENCH_USER || 'alex';
-const PASS = process.env.BENCH_PASS || '123456';
+const PASS = process.env.BENCH_PASS || 'Alex@2026$Demo';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 
 ENV_FILE="Server-NestJS/.env.production"
 export NODE_ENV=production
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@1234}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin@2026\$KeelBase}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 REGISTRY="${IMAGE_REGISTRY:-}"
