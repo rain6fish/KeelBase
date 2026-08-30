@@ -13,6 +13,7 @@ const en: ZhDict = {
   errWriteStreaming: 'Write operations require confirmation',
   errDenied: 'Access denied',
   technicalDetail: 'Technical details',
+  aiApprovalsPath: 'Approval path',
   role: 'Role',
   switchToAdmin: 'Switch to Admin Console',
   switchToUserConsole: 'Switch to User Console',
