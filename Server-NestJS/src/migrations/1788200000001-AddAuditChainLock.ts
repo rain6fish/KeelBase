@@ -11,10 +11,11 @@ export class AddAuditChainLock1788200000001 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         const isPg = queryRunner.connection.driver.options.type === 'postgres';
-        const ts = isPg ? 'timestamptz' : 'datetime';
+        // touched_at 与实体 AuditChainLock.@UpdateDateColumn 一致（NOT NULL DEFAULT now），避免迁移一致性漂移
+        const touchedDef = isPg ? 'timestamptz NOT NULL DEFAULT now()' : `datetime NOT NULL DEFAULT (datetime('now'))`;
         await queryRunner.query(
             `CREATE TABLE IF NOT EXISTS "audit_chain_lock" (` +
-            `id integer PRIMARY KEY, holder varchar(64), touched_at ${ts})`,
+            `id integer PRIMARY KEY NOT NULL, holder varchar(64), touched_at ${touchedDef})`,
         );
         await queryRunner.query(`INSERT INTO "audit_chain_lock" (id, holder) VALUES (1, 'seed')`);
     }
