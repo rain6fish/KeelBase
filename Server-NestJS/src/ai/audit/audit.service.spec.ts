@@ -456,7 +456,7 @@ describe('AuditService', () => {
       const result = await service.getAllStats();
       expect(result.totalMessages).toBe(3);
       expect(result.totalErrors).toBe(1);
-      expect(repo.find).toHaveBeenCalledWith({ where: {} });
+      expect(repo.find).toHaveBeenCalledWith({ where: {}, select: expect.objectContaining({ action: true }) });
     });
 
     it('E-2：getAllStats 返回 byDay 趋势（含 errors/blocked 段）', async () => {
