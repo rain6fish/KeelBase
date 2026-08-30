@@ -8,6 +8,8 @@
 > - **30min Build**：本页验证的技术链路——协议 → 模块 → API → 权限 → 工具 → 确认 → 审计（证明「能造」）。
 > - **60min Business**：真实业务闭环——模块 + 真实数据 → AI 查询 → AI 分析 → AI Action → Confirmation → Audit（证明「能落地业务」）。
 > 前者是生成器闭环，后者是业务价值闭环；对外指标 = **30min to Build / 60min to Business Outcome**。
+>
+> **外部验证（V-6）**：让陌生开发者亲自计时实测 30min Build——用 [30min-build-verification.md](30min-build-verification.md) 计时记录表（步骤/实际耗时/判定门槛）。
 
 ## 0. 前置条件
 
