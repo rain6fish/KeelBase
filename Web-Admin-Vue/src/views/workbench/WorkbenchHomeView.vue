@@ -2,6 +2,17 @@
   <div v-loading="loading">
     <PageHeader :title="t('navWorkbench')" :subtitle="t('workbenchSubtitle')" />
 
+    <!-- 首启引导（P0-6）：非 full 预设提示用户「为何部分功能缺失」 -->
+    <el-alert
+      v-if="presetName && presetName !== 'full'"
+      :title="t('presetHintTitle', { preset: presetName })"
+      type="info"
+      :closable="false"
+      class="mb-4"
+    >
+      <div class="text-caption">{{ presetDescription }}</div>
+    </el-alert>
+
     <el-row :gutter="16">
       <el-col v-for="card in infoCards" :key="card.label" :xs="24" :sm="12" :md="6">
         <StatCard v-bind="card" />
@@ -34,6 +45,7 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { authApi } from '@/api/auth'
 import { workbenchApi } from '@/api/workbench'
 
@@ -50,6 +62,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const unread = ref(0)
 const loading = ref(false)
+const caps = useCapabilitiesStore()
 
 function openCard(card: ShortcutCard) {
   if (card.href) {
@@ -61,6 +74,7 @@ function openCard(card: ShortcutCard) {
 
 // E-3 加载体验：me 与 unread 并行请求（Promise.allSettled——me 失败不阻塞 unread），挂载时刷新完整资料
 onMounted(async () => {
+  caps.load() // 幂等：preset 已在布局层加载则直接复用，未加载则拉取（banner 响应式出现）
   loading.value = true
   const [me, unreadRes] = await Promise.allSettled([authApi.me(), workbenchApi.unreadCount()])
   if (me.status === 'fulfilled') auth.user = me.value
@@ -69,6 +83,19 @@ onMounted(async () => {
 })
 
 const user = computed(() => auth.user)
+
+// 首启引导（P0-6）：当前 preset 与精简预设说明（full 不提示；small/lite 解释为何部分功能缺失）
+const presetName = computed(() => caps.caps?.preset ?? '')
+const presetDescription = computed(() => {
+  switch (presetName.value) {
+    case 'small':
+      return t('presetSmallDesc')
+    case 'lite':
+      return t('presetLiteDesc')
+    default:
+      return ''
+  }
+})
 
 const infoCards = computed(() => [
   { label: t('username'), value: user.value?.username ?? '-', icon: 'mdi-account-outline', color: 'primary' },

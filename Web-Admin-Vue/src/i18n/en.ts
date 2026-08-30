@@ -155,6 +155,9 @@ const en: ZhDict = {
 
   // Workbench (application side)
   workbenchSubtitle: 'Enterprise application workbench — regular user entry; management lives in the console',
+  presetHintTitle: 'Current preset: {preset}',
+  presetSmallDesc: 'External integrations (push/SMS/OAuth) are off; core AI stays available.',
+  presetLiteDesc: 'Minimal preset: search & generated modules are off; the core app remains usable.',
   workbenchMobilePreview: 'Mobile app preview',
   workbenchMobilePreviewDesc: 'Preview the main app (Flutter web) in mobile form',
   workbenchMyEvents: 'My Events',
