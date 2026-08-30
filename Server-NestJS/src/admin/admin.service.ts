@@ -17,6 +17,7 @@ import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { CacheService } from '../common/cache/cache.service';
 
 @Injectable()
 export class AdminService {
@@ -38,9 +39,13 @@ export class AdminService {
     private readonly dataSource: DataSource,
     private readonly encryption: EncryptionService,
     @Optional() @InjectQueue('push') private readonly pushQueue: Queue | null,
+    // E-3 聚合端点缓存（admin 读全库 count，30s 短 TTL 自过期；未启用/不可用时直查库）
+    @Optional() private readonly cacheService?: CacheService,
   ) {}
 
   async getMonitorSummary() {
+    const cached = await this.cacheService?.get<any>('admin:monitor');
+    if (cached) return cached;
     const [users, events, notifications, sessions, opAudit, aiAudit, conversations, knowledge] = await Promise.all([
       this.usersRepo.count(),
       this.eventsRepo.count(),
@@ -56,7 +61,7 @@ export class AdminService {
     const metrics = await this._readMetrics();
     const redis = await this._checkRedis();
 
-    return {
+    const result = {
       health: {
         status: 'ok',
         uptimeSec: Math.round(uptime),
@@ -88,9 +93,14 @@ export class AdminService {
         inFlight: metrics.inFlight,
       },
     };
+    await this.cacheService?.set('admin:monitor', result, 30_000);
+    return result;
   }
 
   async getOverview(since: Date) {
+    const sinceDay = Math.round((Date.now() - since.getTime()) / 86400000);
+    const cached = await this.cacheService?.get<any>(`admin:overview:${sinceDay}`);
+    if (cached) return cached;
     const [users, events, todos, notifications, opAudit, aiAudit] = await Promise.all([
       this.usersRepo.count(),
       this.eventsRepo.count(),
@@ -102,11 +112,13 @@ export class AdminService {
     const storage = await this._getStorageUsage();
     const trend = await this._getCountsByDay('users', since);
 
-    return {
+    const result = {
       counts: { users, events, todos, notifications, operationAuditLogs: opAudit, aiAuditLogs: aiAudit },
       storage,
       trend,
     };
+    await this.cacheService?.set(`admin:overview:${sinceDay}`, result, 30_000);
+    return result;
   }
 
   async getUserDetail(id: number) {

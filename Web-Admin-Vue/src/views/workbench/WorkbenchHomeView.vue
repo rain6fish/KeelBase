@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-loading="loading">
     <PageHeader :title="t('navWorkbench')" :subtitle="t('workbenchSubtitle')" />
 
     <el-row :gutter="16">
@@ -49,6 +49,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const unread = ref(0)
+const loading = ref(false)
 
 function openCard(card: ShortcutCard) {
   if (card.href) {
@@ -58,19 +59,13 @@ function openCard(card: ShortcutCard) {
   }
 }
 
-// 登录响应不含 email 等完整字段，挂载时用 /auth/me 刷新完整资料；未读数失败静默
+// E-3 加载体验：me 与 unread 并行请求（Promise.allSettled——me 失败不阻塞 unread），挂载时刷新完整资料
 onMounted(async () => {
-  try {
-    auth.user = await authApi.me()
-  } catch {
-    // 忽略：守卫已保证 user 存在
-  }
-  try {
-    const res = await workbenchApi.unreadCount()
-    unread.value = res.count
-  } catch {
-    // 忽略：未读数为附加信息
-  }
+  loading.value = true
+  const [me, unreadRes] = await Promise.allSettled([authApi.me(), workbenchApi.unreadCount()])
+  if (me.status === 'fulfilled') auth.user = me.value
+  if (unreadRes.status === 'fulfilled') unread.value = unreadRes.value.count
+  loading.value = false
 })
 
 const user = computed(() => auth.user)
