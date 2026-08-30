@@ -33,7 +33,9 @@ After integration (only change = point LLM base URL at the sidecar):
 
 ## 步骤 / Steps（约 30 分钟）
 
-### 1. 起治理控制平面（≈2 分钟 / ~2 min）
+### 1. 起治理控制平面 + sidecar（≈2 分钟 / ~2 min）
+
+**方式 A：本地进程（开发）**
 
 ```bash
 cd Server-NestJS
@@ -41,7 +43,14 @@ GOVERNANCE_PORT=3100 GOVERNANCE_API_KEY=my-shared-key npm run start:governance
 # 独立治理库 data/governance.sqlite 自动建表；健康检查 GET /api/v1/ai/health
 ```
 
-### 2. 起治理 sidecar（≈2 分钟 / ~2 min）
+**方式 B：Docker 一键（部署）**
+
+```bash
+SIDECAR_UPSTREAM_URL=https://api.deepseek.com SIDECAR_UPSTREAM_KEY=<llm-key> docker compose up governance sidecar
+# 治理台 :3100 + sidecar :3200 一起起；健康 GET /api/v1/ai/health 与 GET /v1/health
+```
+
+### 2. 起治理 sidecar（本地进程方式才需要这一步）
 
 ```bash
 GOVERNANCE_URL=http://localhost:3100 GOVERNANCE_API_KEY=my-shared-key \
