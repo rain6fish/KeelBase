@@ -81,6 +81,7 @@ import { InternalEffectsController } from './governance/internal-effects.control
 import { InternalApprovalsController } from './governance/internal-approvals.controller';
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { CacheModule } from '../common/cache/cache.module';
+import { ContentSafetyService } from './security/content-safety.service';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
@@ -150,6 +151,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiEvalService,
     AiToolEffectsService,
     SideEffectSnapshotCaptor,
+    ContentSafetyService,
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
     GovernancePolicyService,
@@ -183,6 +185,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         approvalsRepo,
         delegationTokenService,
         snapshotCaptor: SideEffectSnapshotCaptor,
+        contentSafety: ContentSafetyService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -310,8 +313,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new SubmitApprovalRequestTool(approvalService));
         toolRegistry.register(new ReviewApprovalRequestTool(approvalService));
 
-        // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装）
-        const ragAgent = new RagAgent(knowledgeService);
+        // 3. 创建 RagAgent（依赖 KnowledgeService，同 ToolRegistry 模式手动组装；N-6 注入内容安全）
+        const ragAgent = new RagAgent(knowledgeService, contentSafety);
 
         // 4. 创建 ConversationCompactor（长对话上下文压缩，手动组装）
         const aiConfig = {
@@ -366,9 +369,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           governancePolicy,
           approvalsRepo,
           snapshotCaptor,
+          contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],

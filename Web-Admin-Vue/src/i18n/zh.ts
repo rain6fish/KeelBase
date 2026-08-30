@@ -533,6 +533,12 @@ const zh = {
 
   // 治理策略（HS-9）
   governancePolicy: '治理策略',
+  // N-6 AI-23 内容安全配置
+  contentSafetyTitle: '内容安全',
+  contentSafetyHint: '敏感词/越狱词表（换行或逗号分隔）；命中敏感内容将被拦截并记录审计',
+  contentSensitiveWords: '敏感词（严重违规：自残/暴力/违法/儿童安全等）',
+  contentJailbreakWords: '越狱 / 注入特征词',
+  contentWordsPlaceholder: '每行一条，如：自杀 / jailbreak',
   auditGranularity: '审计粒度',
   auditAll: '全部操作',
   auditWrite: '仅写操作',
@@ -904,6 +910,7 @@ const zh = {
     'ai.flowNode': 'AI · 流程节点',
     'ai.login': 'AI · 登录',
     'ai.error': 'AI · 错误',
+    'ai.contentBlocked': 'AI · 内容安全拦截',
     'ai.tool.createFollowupTask': '创建跟进任务',
     'ai.tool.createEvent': '创建事件',
     'ai.tool.createTodo': '创建待办',
