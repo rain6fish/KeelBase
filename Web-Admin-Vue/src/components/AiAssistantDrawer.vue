@@ -56,6 +56,15 @@
 
         <!-- 聊天 -->
         <template v-else>
+          <el-alert
+            v-if="aiNotReady"
+            :title="t('aiNotReadyTitle')"
+            type="warning"
+            :closable="false"
+            class="mb-3 ai-not-ready"
+          >
+            <div class="text-caption">{{ t('aiNotReadyBody') }}</div>
+          </el-alert>
           <div v-if="!messages.length" class="text-center text-medium-emphasis pa-6">{{ t('assWelcome') }}</div>
           <div
             v-for="(m, i) in messages"
@@ -110,6 +119,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { useAuthStore } from '@/stores/auth'
 import { adminApi } from '@/api/admin'
 import { aiApi } from '@/api/ai'
+import { capabilitiesApi } from '@/api/capabilities'
 import type { AiConversationSummary } from '@/types/admin'
 
 interface ChatMsg {
@@ -140,6 +150,9 @@ const showDelete = ref(false)
 const deleting = ref(false)
 const pendingDelete = ref<AiConversationSummary | null>(null)
 
+// 运行时 AI 可用性：feature 开了但没配 LLM → 顶栏提示配置指引
+const aiNotReady = ref(false)
+
 async function onOpen() {
   // 打开抽屉刷新历史列表（聊天状态保留在内存）
   historyLoading.value = true
@@ -149,6 +162,12 @@ async function onOpen() {
     snackbar.error(t('assLoadFailed'))
   } finally {
     historyLoading.value = false
+  }
+  try {
+    const caps = await capabilitiesApi.get()
+    aiNotReady.value = caps.ai ? caps.ai.enabled && !caps.ai.providerConfigured : false
+  } catch {
+    aiNotReady.value = false
   }
 }
 
