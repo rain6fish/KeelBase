@@ -13,6 +13,8 @@ const en: ZhDict = {
   switchToUserConsole: 'Switch to User Console',
   surfaceNotDeployed: 'Target surface not deployed (build & deploy the /user/ or /admin/ build first)',
   overview: 'Overview',
+  onboardTitle: 'Welcome to KeelBase Console',
+  onboardContent: 'The System AI assistant can explain features and navigate; Guard Overview shows security posture at a glance. Try asking it to analyze the platform:',
   search: 'Search',
   reset: 'Reset',
   refresh: 'Refresh',
