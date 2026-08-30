@@ -77,3 +77,4 @@ cd Server-NestJS && npm install && npm run start:dev
 
 - 越权矩阵：[security-verification-matrix.md](security-verification-matrix.md) · 内部门禁：[release-gate.md](release-gate.md)
 - 演示脚本：[golden-demo-script.md](golden-demo-script.md) · 30min Build：[onboarding-30min.md](onboarding-30min.md)
+- **全部可复现验证一站式清单**：[verification-index.md](verification-index.md)（护城河 + 产品证明 + 私有化，命令/前置/报告）
