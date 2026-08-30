@@ -1,0 +1,15 @@
+{
+  "gate": "MOAT-3 多系统单控制面演示",
+  "date": "2026-08-30T04-53-29-627Z",
+  "topology": {
+    "governance": ":3100",
+    "systemA": ":3200 (Node 商城, mall-bot)",
+    "systemB": ":3201 (Java CRM, crm-bot)",
+    "mockLLM": ":4390"
+  },
+  "unifiedAudit": {
+    "systemA": 5,
+    "systemB": 5,
+    "chainValid": true
+  }
+}
