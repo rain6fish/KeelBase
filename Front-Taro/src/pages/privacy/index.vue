@@ -30,4 +30,6 @@
   </scroll-view>
 </template>
 
-<style src="./index.scss" scoped></style>
+<script setup lang="ts">
+import './index.scss'
+</script>

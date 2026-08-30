@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { ref, watch } from 'vue'
 import Taro from '@tarojs/taro'
 import { searchService } from '../../services/search-service'
@@ -115,4 +116,3 @@ function colorOf(e: EventItem): string {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

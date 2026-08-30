@@ -27,6 +27,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { onMounted } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
@@ -67,4 +68,3 @@ function handleRevoke(session: { id: number; deviceName?: string }) {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

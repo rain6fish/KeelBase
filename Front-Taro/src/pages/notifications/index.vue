@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import Taro from '@tarojs/taro'
@@ -105,4 +106,3 @@ function formatTime(iso?: string) {
 }
 </script>
 
-<style src="./index.scss" scoped></style>

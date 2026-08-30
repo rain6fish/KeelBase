@@ -31,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { computed } from 'vue'
 import Taro from '@tarojs/taro'
 import { useI18n } from '../../composables/useI18n'
@@ -58,4 +59,3 @@ function goTo(path: string) {
 }
 </script>
 
-<style src="./index.scss" scoped></style>
