@@ -22,12 +22,48 @@ export interface AuditLog {
   username?: string | null
 }
 
+/** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
+export interface AuditByDayBucket {
+  date: string
+  executed: number
+  approved: number
+  rejected: number
+  blocked: number
+  errors: number
+}
+
 export interface UsageStats {
   totalConversations: number
   totalMessages: number
   totalTokens: number
   totalErrors: number
   topActions: Array<{ action: string; count: number }>
+  /** E-2 趋势：按 UTC 日聚 5 段 */
+  byDay: AuditByDayBucket[]
+}
+
+/** E-2 哈希链可视化：逐行链节点（verify 端点返回的切片；AI 链有 toolName，op 链有 method/path） */
+export interface HashNode {
+  id: number
+  createdAt: string
+  action: string
+  toolName?: string | null
+  method?: string
+  path?: string
+  statusCode?: number | null
+  prevHash: string | null
+  hash: string | null
+  isError?: boolean
+  /** 断链行（prevHash 不连续 / hash 不符） */
+  broken?: boolean
+}
+
+/** HS-11 审计哈希链校验结果（含逐行链切片） */
+export interface ChainVerifyResult {
+  valid: boolean
+  checked: number
+  brokenIndex?: number | null
+  chain: HashNode[]
 }
 
 /** §10 P1 AI Action Report：合规证据包 */
@@ -43,7 +79,7 @@ export interface ActionReport {
   }
   byAction: Array<{ action: string; count: number }>
   /** B3 时间趋势：按日聚合执行/批准/拒绝/阻断/错误（升序） */
-  byDay: Array<{ date: string; executed: number; approved: number; rejected: number; blocked: number; errors: number }>
+  byDay: AuditByDayBucket[]
   hashChain: { valid: boolean; checked: number; brokenIndex: number | null }
   samples: Array<{
     id: number

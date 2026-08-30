@@ -5,16 +5,17 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, statsMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
+const { logsMock, statsMock, verifyMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   statsMock: vi.fn(),
+  verifyMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
   csvMock: vi.fn(),
 }))
 
 vi.mock('@/api/audit', () => ({
-  auditApi: { logs: logsMock, stats: statsMock },
+  auditApi: { logs: logsMock, stats: statsMock, verify: verifyMock },
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
@@ -53,6 +54,7 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  verifyMock.mockResolvedValue({ valid: true, checked: 0, brokenIndex: null, chain: [] })
 })
 
 describe('AiAuditView', () => {
