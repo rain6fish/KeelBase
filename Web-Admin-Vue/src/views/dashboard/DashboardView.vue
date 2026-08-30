@@ -2,6 +2,16 @@
   <div>
     <PageHeader :title="t('overview')" />
 
+    <!-- E-3 onboarding：首次进入引导（可关闭） -->
+    <el-alert v-if="showOnboard" type="info" show-icon :closable="true" class="mb-4" @close="dismissOnboard">
+      <template #title>{{ t('onboardTitle') }}</template>
+      <div class="text-body-2">
+        {{ t('onboardContent') }}
+        <el-link type="primary" class="mx-1" @click="$router.push('/ai/chat')">{{ t('sysAssistant') }}</el-link>·
+        <el-link type="primary" class="mx-1" @click="$router.push('/guard-overview')">{{ t('navGuardOverview') }}</el-link>
+      </div>
+    </el-alert>
+
     <!-- 统计卡：与 AI 审计一致（xs 2 列 + 底部间距） -->
     <el-row :gutter="16" class="mb-2">
       <el-col v-for="card in statCards" :key="card.label" :xs="12" :md="6">
@@ -54,6 +64,13 @@ import { adminApi } from '@/api/admin'
 import { auditApi } from '@/api/audit'
 
 const { t } = useI18n()
+// E-3 onboarding：首次进入控制台显示引导横幅（可关闭，localStorage 记忆）
+const ONBOARD_KEY = 'keelbase_console_onboarded'
+const showOnboard = ref(typeof window !== 'undefined' && !localStorage.getItem(ONBOARD_KEY))
+function dismissOnboard() {
+  showOnboard.value = false
+  localStorage.setItem(ONBOARD_KEY, '1')
+}
 const counts = ref<Record<string, number>>({})
 const storage = ref<{ driver: string; bytes: number | null }>({ driver: '-', bytes: null })
 const trend = ref<Array<{ date: string; count: number }>>([])
