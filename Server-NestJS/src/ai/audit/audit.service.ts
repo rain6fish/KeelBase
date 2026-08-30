@@ -20,6 +20,7 @@ import {
 import { aiActionLabel } from './ai-feature-map';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
+import { CacheService } from '../../common/cache/cache.service';
 
 export interface AuditEntry {
   userId: string;
@@ -172,6 +173,8 @@ export class AuditService {
     // D2-3b：可选治理上报（主应用配 GOVERNANCE_URL 时双写上报；治理台自身不提供 → 不上报）
     @Optional() @Inject(GOVERNANCE_REPORTER)
     private readonly reporter?: GovernanceReporter,
+    // E-3 聚合缓存（审计统计/成本/报告/verify 短 TTL；log 热路径只失效 verify 单 key 族）
+    @Optional() private readonly cacheService?: CacheService,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
@@ -276,13 +279,19 @@ export class AuditService {
         })
         .catch(() => {});
     }
+    // E-3：新审计入链 → 哈希链 verify 缓存失效（聚合 stats/cost/report 靠 60s TTL 自过期，不做热路径失效）
+    await this.cacheService?.delByPrefix('audit:verify');
   }
 
-  /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。 */
+  /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
   async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[] }> {
+    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[] }>('audit:verify');
+    if (cached) return cached;
     const rows = await this.logRepo.find({ order: { id: 'ASC' } });
     const result = this.auditChain.verifyChain(rows, (row) => this._payload(row));
-    return { ...result, chain: this._chainSlice(rows, result) };
+    const detailed = { ...result, chain: this._chainSlice(rows, result) };
+    await this.cacheService?.set('audit:verify', detailed, 60_000);
+    return detailed;
   }
 
   /** E-2：把全量链切成可视窗口——valid 取最近 N；broken 以断点为中心窗口（断点行标 broken）。 */
@@ -512,11 +521,24 @@ export class AuditService {
    */
   async getActionReport(
     options: { userId?: string; since?: Date; limit?: number } = {},
+    fresh = false,
   ): Promise<ActionReport> {
+    // E-3 聚合缓存：60s TTL；证据包导出（fresh）绕缓存直算（hashChain 必须当前）
+    const sinceDay = options.since ? options.since.toISOString().slice(0, 10) : 'all';
+    const cacheKey = `audit:report:${options.userId ?? 'all'}:${sinceDay}:${options.limit ?? 10}`;
+    if (!fresh) {
+      const cached = await this.cacheService?.get<ActionReport>(cacheKey);
+      if (cached) return cached;
+    }
     const where: Record<string, unknown> = {};
     if (options.userId) where.userId = options.userId;
     if (options.since) where.createdAt = Between(options.since, new Date());
-    const logs = await this.logRepo.find({ where, order: { createdAt: 'DESC' } });
+    // E-3 列投影：只载聚合所需列（detail/errorMessage/authorization 保留——samples 工具名解析 + blocked 正则）
+    const logs = await this.logRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      select: { id: true, action: true, detail: true, isError: true, errorMessage: true, authorization: true, createdAt: true },
+    });
 
     let executed = 0;
     let approved = 0;
@@ -572,7 +594,7 @@ export class AuditService {
       createdAt: l.createdAt,
     }));
 
-    return {
+    const result = {
       period: { since: options.since ? options.since.toISOString() : null, to: new Date().toISOString() },
       summary: { executed, approved, rejected, blocked, errors, effects },
       byAction: Array.from(byAction.entries())
@@ -583,13 +605,15 @@ export class AuditService {
       samples,
       effectDiffs,
     };
+    if (!fresh) await this.cacheService?.set(cacheKey, result, 60_000);
+    return result;
   }
 
   /** D4 审计证据包导出：ActionReport + 哈希链校验 + 导出时间戳 + 签名（可提交审计机构） */
   async getActionReportExport(
     options: { userId?: string; since?: Date; limit?: number } = {},
   ): Promise<ActionReportExport> {
-    const report = await this.getActionReport(options);
+    const report = await this.getActionReport(options, true);
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
     const canonical = JSON.stringify({
@@ -616,6 +640,9 @@ export class AuditService {
    * 不含 error 日志；token 计费近似（prompt 单价低于 completion，此处给出原始量）。
    */
   async getCostBreakdown(since?: Date) {
+    const sinceDay = since ? since.toISOString().slice(0, 10) : 'all';
+    const cached = await this.cacheService?.get<any>(`audit:cost:${sinceDay}`);
+    if (cached) return cached;
     const where: any = {};
     if (since) where.createdAt = Between(since, new Date());
 
@@ -650,7 +677,7 @@ export class AuditService {
       byUser.set(log.userId, u);
     }
 
-    return {
+    const result = {
       summary: { totalCalls, totalTokens, since: since?.toISOString() ?? null },
       byModel: Array.from(byModel.entries())
         .map(([model, v]) => ({ model, ...v }))
@@ -662,9 +689,14 @@ export class AuditService {
         .map(([userId, v]) => ({ userId, ...v }))
         .sort((a, b) => b.tokens - a.tokens),
     };
+    await this.cacheService?.set(`audit:cost:${sinceDay}`, result, 60_000);
+    return result;
   }
 
   async getAllStats(since?: Date): Promise<UsageStats> {
+    const sinceDay = since ? since.toISOString().slice(0, 10) : 'all';
+    const cached = await this.cacheService?.get<UsageStats>(`audit:stats:${sinceDay}`);
+    if (cached) return cached;
     const where: any = {};
     if (since) where.createdAt = Between(since, new Date());
 
@@ -684,7 +716,7 @@ export class AuditService {
       if (log.isError) totalErrors++;
     }
 
-    return {
+    const result = {
       totalConversations: actionCounts.get('chat') ?? 0,
       totalMessages: logs.length,
       totalTokens,
@@ -695,6 +727,8 @@ export class AuditService {
         .slice(0, 10),
       byDay: this._byDayAggregation(logs),
     };
+    await this.cacheService?.set(`audit:stats:${sinceDay}`, result, 60_000);
+    return result;
   }
 
   /** B3/E-2：按 UTC 日聚合 5 段趋势（getActionReport 与 getAllStats 共享，避免重复聚合逻辑）。 */

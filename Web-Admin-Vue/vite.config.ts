@@ -47,6 +47,15 @@ export default defineConfig(({ mode }) => {
     build: {
       chunkSizeWarningLimit: 1024,
       outDir: isUser ? 'dist/user' : 'dist/admin',
+      rollupOptions: {
+        output: {
+          // E-3 性能：vue 全家桶拆成稳定 vendor chunk（长期缓存命中 + 首屏并行加载）。
+          // 勿把 element-plus 塞入——unplugin 已按需拆散，整体塞入会破坏 tree-shake。
+          manualChunks: {
+            'vue-vendor': ['vue', 'vue-router', 'pinia', 'axios', 'vue-i18n', 'dayjs'],
+          },
+        },
+      },
     },
   }
 })
