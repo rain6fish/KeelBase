@@ -56,22 +56,34 @@
                   <span class="text-caption text-medium-emphasis">{{ formatTime(e.time) }}</span>
                 </div>
 
-                <!-- 工具调用详情 -->
+                <!-- 工具调用详情（业务语言；技术参数点击展开） -->
                 <div v-if="e.type === 'tool_call'" class="mt-1">
-                  <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
-                  <div v-if="e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
+                  <el-popover placement="top" :width="380" trigger="click">
+                    <template #reference>
+                      <span class="font-weight-medium" style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                        {{ toolLabel(tm('feature'), e.toolName) }}{{ toolArgsSummary(e.toolName, e.args, locale.startsWith('zh')) }}
+                      </span>
+                    </template>
+                    <div class="text-caption">
+                      <div class="text-medium-emphasis mb-1">{{ t('technicalDetail') }}</div>
+                      <div class="mb-1"><b>{{ e.toolName }}</b></div>
+                      <pre class="text-caption" style="white-space:pre-wrap;margin:0 0 6px">{{ e.args }}</pre>
+                      <div v-if="e.errorMessage" class="text-error">{{ e.errorMessage }}</div>
+                    </div>
+                  </el-popover>
+                  <div v-if="e.errorMessage" class="text-body-2 text-error mt-1">{{ errorLabel(e.errorMessage, t) }}</div>
                 </div>
 
                 <!-- 确认决策 -->
                 <div v-else-if="e.type === 'tool_confirmation'" class="mt-1">
-                  <div class="text-body-2">{{ e.toolName }} <code class="text-caption">{{ e.args }}</code></div>
+                  <div class="text-body-2">{{ toolLabel(tm('feature'), e.toolName) }}{{ toolArgsSummary(e.toolName, e.args, locale.startsWith('zh')) }}</div>
                   <StatusChip :status="e.outcome === 'approve' ? 'ok' : 'cancelled'" :label-map="outcomeMap" />
                 </div>
 
                 <!-- 副作用（AI 实际创建/修改的记录；EB-2 proxy_call = 外部系统 B 路径写调用） -->
                 <div v-else-if="e.type === 'effect'" class="mt-1">
                   <div class="d-flex align-center ga-2">
-                    <span class="text-body-2">{{ e.toolName }}</span>
+                    <span class="text-body-2">{{ toolLabel(tm('feature'), e.toolName) }}</span>
                     <el-tag v-if="e.effect?.resultType === 'proxy_call'" size="small" type="info" effect="plain">{{ t('externalSystem') }}</el-tag>
                     <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
                   </div>
@@ -101,7 +113,7 @@
 
                 <!-- chat / error / navigate 摘要 -->
                 <div v-else-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
-                <div v-if="e.type === 'error' && e.errorMessage" class="text-body-2 text-error mt-1">{{ e.errorMessage }}</div>
+                <div v-if="e.type === 'error' && e.errorMessage" class="text-body-2 text-error mt-1">{{ errorLabel(e.errorMessage, t) }}</div>
               </el-card>
             </el-timeline-item>
           </el-timeline>
@@ -171,10 +183,11 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
 import { aiToolsApi } from '@/api/aiTools'
 import { formatTime } from '@/utils/format'
+import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { AuditLog } from '@/types/audit'
 import type { GovernanceActionResponse, ToolEffect } from '@/types/admin'
 
-const { t } = useI18n()
+const { t, tm, locale } = useI18n()
 const route = useRoute()
 const snackbar = useSnackbarStore()
 
