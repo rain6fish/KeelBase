@@ -3,6 +3,9 @@ import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { AiService } from '../ai/ai.service';
 
 jest.mock('fs', () => ({
+  // spread 真实 fs：控制器导入链（→ ai.service → rag → document-parser → mammoth）在模块加载期
+  // 需要 fs.readFile 等真实 API，只覆盖被测的 existsSync/readFileSync
+  ...jest.requireActual('fs'),
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
 }));
