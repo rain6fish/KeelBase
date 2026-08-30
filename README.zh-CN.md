@@ -30,7 +30,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 ```text
 1. 打开 http://localhost:3000           （工作台）——/admin 是管理台
-2. 登录——alex/123456，或 admin/Admin@1234（本地开发默认）
+2. 登录——alex/Alex@2026$Demo，或 admin/Admin@2026$KeelBase（所有环境一致）
 3. 提问：「本周哪些客户风险最高？」
 4. 看 AI 分析真实业务数据
 5. 批准一个跟进任务             （人工确认）
