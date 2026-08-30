@@ -12,6 +12,8 @@ const zh = {
   switchToUserConsole: '切换到用户端',
   surfaceNotDeployed: '目标端未部署（需构建并部署 /user/ 或 /admin/ 独立端）',
   overview: '概览',
+  onboardTitle: '欢迎使用 KeelBase 控制台',
+  onboardContent: '系统 AI 助手可解答平台功能并跳转页面；治理总览一页查看安全态势。试试让 AI 助手分析平台运行情况：',
   search: '搜索',
   reset: '重置',
   refresh: '刷新',
