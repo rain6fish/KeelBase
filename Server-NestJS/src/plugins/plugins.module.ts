@@ -5,12 +5,16 @@ import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { PluginsService } from './plugins.service';
 import { PluginsController } from './plugins.controller';
 import { HELLO_PLUGIN } from './plugins/hello.plugin';
+import { GITHUB_PLUGIN } from './plugins/github.plugin';
+import { FEISHU_PLUGIN } from './plugins/feishu.plugin';
+import { WECOM_PLUGIN } from './plugins/wecom.plugin';
 
 /**
  * PL-11 插件模块。
  * 启用插件清单在此声明（编译期注册）。新增插件：import manifest 并加入 PLUGINS 数组。
+ * 官方首批插件：github / feishu / wecom（见 docs/manual/plugin-registry.md）。
  */
-const PLUGINS = [HELLO_PLUGIN];
+const PLUGINS = [HELLO_PLUGIN, GITHUB_PLUGIN, FEISHU_PLUGIN, WECOM_PLUGIN];
 
 @Module({
   imports: [FeatureFlagsModule],
