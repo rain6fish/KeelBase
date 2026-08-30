@@ -44,6 +44,7 @@ const HELP = `KeelBase CLI — 按基座约定生成业务模块（EASY-2）
   node scripts/keelbase-init.mjs --module posts --label 帖子 --fields title:string,content:text
   node scripts/keelbase-init.mjs inspect              # 识别 KeelBase 应用（来源 + 能力指纹）
   node scripts/keelbase-init.mjs doctor               # 诊断 KeelBase 应用（完整性/一致性/运行时/版本）
+  node scripts/keelbase-init.mjs doctor --env         # 环境预检（起容器/起服务前：Node/Docker/端口/.env/LLM/DB）
 
 已有系统 AI 化入口（P0-12，OpenAPI / SQL DDL → Protocol；AI Bridge B 路径 → Proxy 配置）：
   node scripts/keelbase-init.mjs --import-openapi swagger.json --out specs/customer.json   # 转换→协议文件
