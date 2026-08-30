@@ -93,7 +93,7 @@ node scripts/verify-moat-adoption.mjs
 - **审计证据包**：管理台「合规报告」导出 Action Report + 哈希链校验 + 签名（D-4，可提交审计机构）
 - **策略下发**：业务系统可拉取治理台实时策略（`GET /api/v1/external/governance/policy`）
 - **副作用 + 撤销**：写操作副作用上报治理台，可跨系统撤销（D-2）
-- **S-2 待续**：sidecar 工具调用门控 / 确认 / 策略应用（复用 MCP 网关门控模式）
+- **工具门控（S-2）**：sidecar 解析 `tool_calls` 按风险级门控——R5 阻断 / R3-R4 确认（hold-and-release）/ R0-R2 自动；治理策略实时生效（`SIDECAR_TOOLS` 配置工具风险级，见 [governance-deploy.md](governance-deploy.md)）
 
 ---
 
