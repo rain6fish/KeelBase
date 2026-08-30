@@ -25,6 +25,21 @@ cd Server-NestJS && npm install && npm run start:dev
 
 Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (Admin Console) · register a second account `bob` (`POST /auth/register`) for the permission-denied demo.
 
+## 0.5 Trust Proof Package (one-command, six scenarios)
+
+**Proof**: the full Business-safe Trust chain — success / permission denied / R5 block / human confirmation / revoke — in one command, deterministic, no LLM.
+
+- Run: `node Server-NestJS/scripts/verify-trust-proof.mjs`
+- Six scenarios:
+  1. **Success** — customer → overdue orders → AI risk analysis (`critical`) · Identity + data scope + read tool
+  2. **Permission denied** — bob accessing alex's data → 403 (row-level policy)
+  3. **High-risk action** — AI tries to delete a customer → **R5 BLOCKED** (irreversible action blocked by policy)
+  4. **Human confirmation** — AI write → confirmation card → approve → persisted (R3 gate)
+  5. **Revoke** — the owner revokes an AI side effect → soft-delete (restorable via trash)
+  6. **Existing Java system** — points to the keelbase-java-starter reference project (`verify-crm-e2e.mjs`)
+- Expect: all scenarios PASS, report at `docs/benchmark/trust-proof-*`
+- Env: default `PROVIDER=demo` (deterministic, no LLM key needed); with a real LLM use `PROVIDER=deepseek` etc.
+
 ## 1. Permission denied (row-level authorization)
 
 **Proof**: cross-user data access is rejected by **row-level policy** at runtime (a real boundary, not a prompt suggestion).
