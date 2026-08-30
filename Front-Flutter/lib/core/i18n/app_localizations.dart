@@ -200,8 +200,8 @@ class AppLocalizations {
   String get loginSlogan => _t('Business-safe AI full-stack app base', '业务安全的 AI 全栈应用基座');
   String get loginSloganSub => _t('Where AI does real work, only within your data', 'AI 真的会干活，且只在你授权的数据里');
   String get demoAccounts => _t('Demo accounts:', '演示账号：');
-  String get demoAccountUser => _t('User alex / Alex@2026$Demo', '普通用户 alex / Alex@2026$Demo');
-  String get demoAccountAdmin => _t('Admin admin / Admin@2026$KeelBase', '管理员 admin / Admin@2026$KeelBase');
+  String get demoAccountUser => _t('User alex / Alex@2026\$Demo', '普通用户 alex / Alex@2026\$Demo');
+  String get demoAccountAdmin => _t('Admin admin / Admin@2026\$KeelBase', '管理员 admin / Admin@2026\$KeelBase');
   String get nickname => _t('Nickname', '昵称');
   String get loginSuccess => _t('Login successful', '登录成功');
   String get registerSuccess => _t('Registration successful', '注册成功');
@@ -563,6 +563,11 @@ class AppLocalizations {
   // --- AI ---
   String get tabAi => _t('AI', 'AI');
   String get aiTitle => _t('AI Assistant', 'AI 助手');
+  String get aiNotConfiguredTitle => _t('AI not configured', 'AI 尚未配置');
+  String get aiNotConfiguredBody => _t(
+        'Add an API key (AI_PROVIDER + matching key) or local Ollama, then restart the backend. Diagnose: keelbase doctor --env',
+        '配置 API Key（AI_PROVIDER + 对应 Key）或本地 Ollama 后重启后端即可用。环境排查：keelbase doctor --env',
+      );
   String get aiInputHint => _t('Type a message...', '输入消息...');
   String get aiThinking => _t('Thinking...', '思考中…');
   String get aiSearching => _t('Searching data...', '正在查询数据…');
