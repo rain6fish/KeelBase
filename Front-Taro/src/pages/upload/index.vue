@@ -32,6 +32,7 @@
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useUploadStore } from '../../stores/upload-store'
@@ -68,4 +69,3 @@ const handlePickAndUpload = async () => {
 }
 </script>
 
-<style src="./index.scss" scoped></style>
