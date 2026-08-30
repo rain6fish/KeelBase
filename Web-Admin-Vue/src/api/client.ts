@@ -118,15 +118,32 @@ instance.interceptors.response.use(
   },
 )
 
+/** E-3 可行动错误提示：403 拒绝原因（Explainable Authz deniedBy）→ 「怎么办」引导 */
+function guidanceFor(deniedBy?: string): string {
+  switch (deniedBy) {
+    case 'casl':
+      return ' · 需要管理员权限，请切换管理员账号或联系管理员'
+    case 'risk_policy':
+      return ' · 该操作被风险策略阻断，请联系管理员调整策略'
+    case 'user_scoped':
+      return ' · 只能访问本人的数据'
+    default:
+      return ' · 请检查权限或联系管理员'
+  }
+}
+
 function normalizeError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   const axiosErr = error as {
-    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]> } }
+    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]>; explanation?: { deniedBy?: string } } }
     message?: string
   }
   const status = axiosErr.response?.status ?? 0
-  const message =
+  let message =
     axiosErr.response?.data?.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
+  if (status === 403) {
+    message += guidanceFor(axiosErr.response?.data?.explanation?.deniedBy)
+  }
   return new ApiError(message, status, axiosErr.response?.data?.errorCode, axiosErr.response?.data?.errors)
 }
 
