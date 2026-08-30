@@ -21,6 +21,19 @@ export interface OperationAuditEntry {
   statusCode?: number | null;
 }
 
+/** E-2 操作审计哈希链可视化：逐行链节点（verify 端点返回的切片） */
+export interface OpAuditChainNode {
+  id: number;
+  createdAt: Date;
+  action: string;
+  method: string;
+  path: string;
+  statusCode?: number | null;
+  prevHash: string | null;
+  hash: string | null;
+  broken?: boolean;
+}
+
 @Injectable()
 export class OperationAuditService {
   private readonly logger = new Logger(OperationAuditService.name);
@@ -73,10 +86,38 @@ export class OperationAuditService {
     }
   }
 
-  /** HS-11：沿 id 升序校验操作审计哈希链完整性。 */
-  async verifyChain(): Promise<ChainVerification> {
+  /** HS-11：沿 id 升序校验操作审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。 */
+  async verifyChain(): Promise<ChainVerification & { chain: OpAuditChainNode[] }> {
     const rows = await this.logRepo.find({ order: { id: 'ASC' } });
-    return this.auditChain.verifyChain(rows, (row) => this._payload(row));
+    const result = this.auditChain.verifyChain(rows, (row) => this._payload(row));
+    return { ...result, chain: this._chainSlice(rows, result) };
+  }
+
+  /** E-2：把全量链切成可视窗口——valid 取最近 N；broken 以断点为中心窗口（断点行标 broken）。 */
+  private _chainSlice(rows: OperationAuditLog[], result: ChainVerification): OpAuditChainNode[] {
+    const CHAIN_SLICE = 24;
+    const b = result.brokenIndex ? result.brokenIndex - 1 : -1;
+    let window: OperationAuditLog[];
+    let brokenOffset = -1;
+    if (result.valid || b < 0) {
+      window = rows.slice(-CHAIN_SLICE);
+    } else {
+      const start = Math.max(0, b - 6);
+      const end = Math.min(rows.length, b + 4);
+      window = rows.slice(start, end);
+      brokenOffset = b - start;
+    }
+    return window.map((row, i) => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      action: row.action,
+      method: row.method,
+      path: row.path,
+      statusCode: row.statusCode ?? null,
+      prevHash: row.prevHash ?? null,
+      hash: row.hash ?? null,
+      broken: i === brokenOffset,
+    }));
   }
 
   private async _lastHash(runner?: QueryRunner): Promise<string | null> {
