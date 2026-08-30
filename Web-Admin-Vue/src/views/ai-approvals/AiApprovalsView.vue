@@ -14,8 +14,19 @@
         <template #item.riskLevel="{ item }">
           <el-tag size="small" :type="item.riskLevel === 'R4' ? 'warning' : 'info'" effect="light">{{ item.riskLevel }}</el-tag>
         </template>
+        <template #item.toolName="{ item }">{{ toolLabel(tm('feature'), item.toolName) }}</template>
+        <template #item.path="{ item }">
+          <span class="text-body-2">{{ item.operatorName || item.operatorId }} → {{ t('aiApprovalsPending') }}</span>
+        </template>
         <template #item.args="{ item }">
-          <span class="text-caption">{{ shortenArgs(item.args) }}</span>
+          <el-popover placement="top" :width="380" trigger="click">
+            <template #reference>
+              <span class="text-caption" style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                {{ toolArgsSummary(item.toolName, item.args, locale.startsWith('zh')) || t('aiApprovalsArgs') }}
+              </span>
+            </template>
+            <pre class="text-caption" style="white-space:pre-wrap;margin:0">{{ item.args }}</pre>
+          </el-popover>
         </template>
         <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
         <template #item.actions="{ item }">
@@ -37,8 +48,19 @@
         <template #item.riskLevel="{ item }">
           <el-tag size="small" :type="item.riskLevel === 'R4' ? 'warning' : 'info'" effect="light">{{ item.riskLevel }}</el-tag>
         </template>
+        <template #item.toolName="{ item }">{{ toolLabel(tm('feature'), item.toolName) }}</template>
+        <template #item.path="{ item }">
+          <span class="text-body-2">{{ item.operatorName || item.operatorId }} → {{ item.approverName || item.approverId || '-' }}</span>
+        </template>
         <template #item.args="{ item }">
-          <span class="text-caption">{{ shortenArgs(item.args) }}</span>
+          <el-popover placement="top" :width="380" trigger="click">
+            <template #reference>
+              <span class="text-caption" style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                {{ toolArgsSummary(item.toolName, item.args, locale.startsWith('zh')) || t('aiApprovalsArgs') }}
+              </span>
+            </template>
+            <pre class="text-caption" style="white-space:pre-wrap;margin:0">{{ item.args }}</pre>
+          </el-popover>
         </template>
         <template #item.status="{ item }">
           <StatusChip :status="item.status === 'approved' ? 'ok' : 'cancelled'" :label-map="statusMap" />
@@ -66,9 +88,10 @@ import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import { formatTime } from '@/utils/format'
+import { toolLabel, toolArgsSummary } from '@/utils/businessLabel'
 import type { AiApprovalRequest } from '@/types/admin'
 
-const { t } = useI18n()
+const { t, tm, locale } = useI18n()
 const router = useRouter()
 const snackbar = useSnackbarStore()
 
@@ -82,7 +105,7 @@ const pendingHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('aiApprovalsTool') },
   { key: 'riskLevel', title: t('riskLevel') },
-  { key: 'operatorId', title: t('aiApprovalsOperator') },
+  { key: 'path', title: t('aiApprovalsPath') },
   { key: 'args', title: t('aiApprovalsArgs') },
   { key: 'createdAt', title: t('aiApprovalsCreated') },
   { key: 'actions', title: t('actionCol') },
@@ -91,18 +114,12 @@ const decidedHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('aiApprovalsTool') },
   { key: 'riskLevel', title: t('riskLevel') },
-  { key: 'operatorId', title: t('aiApprovalsOperator') },
+  { key: 'path', title: t('aiApprovalsPath') },
   { key: 'args', title: t('aiApprovalsArgs') },
   { key: 'status', title: t('aiApprovalsStatus') },
-  { key: 'approverId', title: t('aiApprovalsApprover') },
   { key: 'decidedAt', title: t('aiApprovalsDecidedAt') },
   { key: 'audit', title: t('actionCol') },
 ])
-
-function shortenArgs(args: string): string {
-  const s = args?.replace(/\s+/g, '') ?? ''
-  return s.length > 80 ? `${s.slice(0, 80)}…` : (s || '-')
-}
 
 async function loadAll() {
   loading.value = true

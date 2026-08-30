@@ -501,24 +501,52 @@ export class AiService {
   }
 
   /** 待审批 R4 列表（管理端审批页）。 */
-  async listPendingApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+  async listPendingApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
     if (!this.approvalsRepo) return [];
-    return this.approvalsRepo.find({
+    const items = await this.approvalsRepo.find({
       // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入
       where: { status: 'pending', riskLevel: 'R4' },
       order: { createdAt: 'DESC' },
       take: limit,
     });
+    return this.withUserNames(items);
   }
 
   /** 已审批历史（管理端审批页）。 */
-  async listDecidedApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+  async listDecidedApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
     if (!this.approvalsRepo) return [];
-    return this.approvalsRepo.find({
+    const items = await this.approvalsRepo.find({
       where: { status: In(['approved', 'declined']), riskLevel: 'R4' },
       order: { decidedAt: 'DESC' },
       take: limit,
     });
+    return this.withUserNames(items);
+  }
+
+  /** 审批路径可见：为审批列表附提交人/审批人用户名（operator → approver），审批路上的人可读。 */
+  private async withUserNames(items: AiConfirmationRequest[]): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
+    if (!this.usersService) return items;
+    const ids = [
+      ...new Set(
+        items.flatMap((i) => [Number(i.operatorId), i.approverId ? Number(i.approverId) : null].filter((x): x is number => x != null)),
+      ),
+    ];
+    const nameById = new Map<string, string>();
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const u = await this.usersService!.findOne(id, true);
+          if (u.username) nameById.set(String(id), u.username);
+        } catch {
+          // 用户可能已删除
+        }
+      }),
+    );
+    return items.map((i) => ({
+      ...i,
+      operatorName: nameById.get(String(i.operatorId)) || String(i.operatorId),
+      approverName: i.approverId ? nameById.get(String(i.approverId)) || String(i.approverId) : undefined,
+    }));
   }
 
   /** approver 决策：approve → 以 operator 维度执行工具；decline → 拒绝。 */

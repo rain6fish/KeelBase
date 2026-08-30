@@ -12,6 +12,7 @@ const zh = {
   errWriteStreaming: '写操作需人工确认后执行',
   errDenied: '无权限执行',
   technicalDetail: '技术详情',
+  aiApprovalsPath: '审批路径',
   role: '角色',
   switchToAdmin: '切换到管理端',
   switchToUserConsole: '切换到用户端',
