@@ -59,6 +59,37 @@
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
     </el-card>
 
+    <!-- N-6 AI-23 内容安全配置（Settings ai_content_safety，实时生效） -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center justify-space-between">
+          <span>{{ t('contentSafetyTitle') }}</span>
+          <div>
+            <el-button text :disabled="savingSafety" @click="loadContentSafety()">
+              <template #icon><AppIcon icon="mdi-restore" /></template>
+              {{ t('resetPolicy') }}
+            </el-button>
+            <el-button type="primary" :loading="savingSafety" @click="onSaveContentSafety()">
+              <template #icon><AppIcon icon="mdi-content-save" /></template>
+              {{ t('savePolicy') }}
+            </el-button>
+          </div>
+        </div>
+      </template>
+      <div class="d-flex align-center ga-2 mb-3">
+        <el-switch v-model="contentSafety.enabled" />
+        <span class="text-caption text-medium-emphasis">{{ t('contentSafetyHint') }}</span>
+      </div>
+      <div class="mb-3">
+        <div class="text-caption font-weight-medium mb-1">{{ t('contentSensitiveWords') }}</div>
+        <el-input v-model="contentSafety.sensitiveText" type="textarea" :rows="4" :placeholder="t('contentWordsPlaceholder')" />
+      </div>
+      <div>
+        <div class="text-caption font-weight-medium mb-1">{{ t('contentJailbreakWords') }}</div>
+        <el-input v-model="contentSafety.jailbreakText" type="textarea" :rows="3" :placeholder="t('contentWordsPlaceholder')" />
+      </div>
+    </el-card>
+
     <el-card shadow="never" class="mb-4">
       <template #header>{{ t('toolInventory') }}</template>
       <div v-if="tools.length">
@@ -167,6 +198,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FieldDiff from '@/components/FieldDiff.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
+import { settingsApi } from '@/api/settings'
 import { buildGovernancePolicy, parseGovernancePolicy } from '@/utils/governance'
 import { formatTime } from '@/utils/format'
 import type { AdminAiTool, ToolEffect } from '@/types/admin'
@@ -190,6 +222,9 @@ const showDiffDialog = ref(false)
 const rows = ref<PolicyToolState[]>([])
 const granularity = ref<AuditGranularity>('all')
 const saving = ref(false)
+// N-6 内容安全配置编辑状态（textarea 用文本，保存时 split）
+const contentSafety = ref<{ enabled: boolean; sensitiveText: string; jailbreakText: string }>({ enabled: true, sensitiveText: '', jailbreakText: '' })
+const savingSafety = ref(false)
 const roleOptions = computed(() => [
   { title: t('roleUser'), value: 'user' },
   { title: t('roleAdmin'), value: 'admin' },
@@ -277,6 +312,47 @@ async function onSavePolicy() {
   }
 }
 
+/** N-6 加载内容安全配置（Settings ai_content_safety） */
+async function loadContentSafety() {
+  try {
+    const rows = await settingsApi.list()
+    const row = rows.find((r) => r.key === 'ai_content_safety')
+    if (row) {
+      const parsed = JSON.parse(row.value || '{}') as { enabled?: boolean; sensitive?: string[]; jailbreak?: string[] }
+      contentSafety.value = {
+        enabled: parsed.enabled !== false,
+        sensitiveText: Array.isArray(parsed.sensitive) ? parsed.sensitive.join('\n') : '',
+        jailbreakText: Array.isArray(parsed.jailbreak) ? parsed.jailbreak.join('\n') : '',
+      }
+    } else {
+      contentSafety.value = { enabled: true, sensitiveText: '', jailbreakText: '' }
+    }
+  } catch {
+    // 缺省不填（默认表由后端兜底）
+  }
+}
+
+/** N-6 保存内容安全配置（换行/逗号分隔 → JSON → PUT 实时生效） */
+async function onSaveContentSafety() {
+  savingSafety.value = true
+  try {
+    const split = (s: string) => s.split(/\n|,/).map((x) => x.trim()).filter(Boolean)
+    await settingsApi.update(
+      'ai_content_safety',
+      JSON.stringify({
+        enabled: contentSafety.value.enabled,
+        sensitive: split(contentSafety.value.sensitiveText),
+        jailbreak: split(contentSafety.value.jailbreakText),
+      }),
+    )
+    snackbar.success(t('policySaved'))
+  } catch {
+    snackbar.error(t('loadFailed'))
+  } finally {
+    savingSafety.value = false
+  }
+}
+
 async function loadEffects(p = 1) {
   effectsLoading.value = true
   try {
@@ -313,5 +389,6 @@ async function onRevoke() {
 onMounted(() => {
   loadAll()
   loadEffects()
+  loadContentSafety()
 })
 </script>

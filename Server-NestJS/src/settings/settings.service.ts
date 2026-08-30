@@ -9,6 +9,8 @@ export const SETTING_KEYS = {
   CONFIRMATION_TTL: 'confirmation_ttl_seconds',
   /** AI Bridge B 路径：proxy 工具配置（JSON：{ baseUrl, audience, tools[] }） */
   PROXY_TOOLS: 'ai_proxy_tools',
+  /** N-6 AI-23 内容安全配置（JSON：{ enabled, sensitive[], jailbreak[] }，敏感词/越狱词表可配） */
+  CONTENT_SAFETY: 'ai_content_safety',
 } as const;
 
 interface ParsedValue {

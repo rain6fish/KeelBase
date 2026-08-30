@@ -7,10 +7,11 @@
  * 后续接入 Embedding + 向量数据库时替换 KnowledgeService.search 实现。
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ChatMessage, LlmProvider } from '../interfaces/llm-provider.interface';
 import { KnowledgeService } from '../rag/knowledge.service';
 import { markSystemBoundary, sanitizeExternalContent } from '../security/injection-guard';
+import { ContentSafetyService } from '../security/content-safety.service';
 
 export interface KnowledgeArticle {
   id: number;
@@ -29,7 +30,11 @@ const RAG_SYSTEM_PROMPT = `你是一个基于知识库的智能助手。请根�
 
 @Injectable()
 export class RagAgent {
-  constructor(private readonly knowledgeService: KnowledgeService) {}
+  constructor(
+    private readonly knowledgeService: KnowledgeService,
+    // N-6 内容安全：检索结果逐篇 check（注入到知识库的敏感内容不进入 LLM 上下文）
+    @Optional() private readonly contentSafety?: ContentSafetyService,
+  ) {}
 
   /**
    * 检索知识库并基于检索结果回答
@@ -39,13 +44,23 @@ export class RagAgent {
     userMessage: string,
     provider: LlmProvider,
     model?: string,
+    ctx?: { userId?: string; conversationId?: string },
   ): Promise<{ content: string; articles: KnowledgeArticle[] }> {
     // Step 1: 检索知识库（全文搜索降级，后续替换为向量检索）
     const articles = await this.search(userMessage);
+    // N-6 内容安全：逐篇 check，命中剔除 + 审计（blocked 已由 service 写审计；不整答阻断防误伤）
+    let safeArticles = articles;
+    if (this.contentSafety) {
+      safeArticles = [];
+      for (const a of articles) {
+        const safety = await this.contentSafety.check(a.content, ctx);
+        if (!safety.blocked) safeArticles.push(a);
+      }
+    }
 
     // Step 2: 构建增强 Prompt
     // HS-8：检索结果注入前掩码敏感字段 + 系统边界标注（知识库内容非用户指令）
-    const contextContent = articles
+    const contextContent = safeArticles
       .map((a) => `[${a.title}] ${sanitizeExternalContent(a.content)}`)
       .join('\n\n');
 
@@ -70,7 +85,7 @@ export class RagAgent {
 
     return {
       content: result.content,
-      articles,
+      articles: safeArticles,
     };
   }
 
