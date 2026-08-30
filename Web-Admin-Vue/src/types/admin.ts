@@ -246,6 +246,9 @@ export interface AiApprovalRequest {
   approverId?: string | null
   decidedAt?: string | null
   createdAt: string
+  /** 审批路径可见：提交人 / 审批人用户名（后端联用户表附） */
+  operatorName?: string
+  approverName?: string
 }
 
 export interface SettingRow {
