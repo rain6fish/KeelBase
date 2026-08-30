@@ -23,7 +23,7 @@
         </div>
         <div class="d-flex justify-space-between mb-1">
           <span class="text-caption text-medium-emphasis">{{ t('what') }}</span>
-          <span class="text-body-2">{{ data.effect.toolName }}</span>
+          <span class="text-body-2">{{ toolLabel(tm('feature'), data.effect.toolName) }}</span>
         </div>
 
         <!-- Why：两层（用户视角 + 技术详情） -->
@@ -77,17 +77,27 @@
             <span class="text-caption font-weight-medium text-primary">{{ stepLabel(s) }}</span>
           </div>
           <div v-if="s.type === 'tool_call' || s.type === 'confirmation'" class="mt-1 text-body-2">
-            {{ s.toolName }} <code class="text-caption">{{ s.args }}</code>
+            <el-popover placement="top" :width="360" trigger="click">
+              <template #reference>
+                <span style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                  {{ toolLabel(tm('feature'), s.toolName) }}{{ toolArgsSummary(s.toolName, s.args, locale.startsWith('zh')) }}
+                </span>
+              </template>
+              <div class="text-caption">
+                <div class="mb-1"><b>{{ s.toolName }}</b></div>
+                <pre class="text-caption" style="white-space:pre-wrap;margin:0">{{ s.args }}</pre>
+              </div>
+            </el-popover>
           </div>
           <div v-else-if="s.type === 'input' || s.type === 'assistant'" class="mt-1 text-body-2">{{ s.content }}</div>
           <div v-else-if="s.type === 'effect' && s.effect" class="mt-1">
-            <div class="text-body-2">{{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
+            <div class="text-body-2">{{ toolLabel(tm('feature'), s.toolName) }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}</div>
             <div v-if="s.effect.before || s.effect.after" class="mt-1">
               <div class="text-caption text-medium-emphasis mb-1">{{ t('fieldChange') }}</div>
               <FieldDiff :before="s.effect.before" :after="s.effect.after" />
             </div>
           </div>
-          <div v-if="s.errorMessage" class="mt-1 text-body-2 text-error">{{ s.errorMessage }}</div>
+          <div v-if="s.errorMessage" class="mt-1 text-body-2 text-error">{{ errorLabel(s.errorMessage, t) }}</div>
           <div v-if="s.trusted" class="text-caption text-medium-emphasis mt-1">{{ t('stepTrusted') }}</div>
         </el-timeline-item>
       </el-timeline>
@@ -108,13 +118,14 @@ import { aiToolsApi } from '@/api/aiTools'
 import { ApiError } from '@/api/client'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
+import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { GovernanceActionResponse } from '@/types/admin'
 import type { TraceStep } from '@/types/workbench'
 
 const props = defineProps<{ modelValue: boolean; resultType: string; resultId: number }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
-const { t } = useI18n()
+const { t, tm, locale } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 

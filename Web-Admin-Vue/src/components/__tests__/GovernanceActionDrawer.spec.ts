@@ -53,7 +53,7 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
 
     expect(governanceMock).toHaveBeenCalledWith('crm_task', 42)
     expect(wrapper.text()).toContain('alex') // Who
-    expect(wrapper.text()).toContain('create_followup_task') // What
+    expect(wrapper.text()).toContain('创建跟进任务') // What（业务语言化：工具名 → 人类标签）
     expect(wrapper.text()).toContain('crm_task #42') // Result / Side Effects
     expect(wrapper.text()).toContain('abc123') // Integrity
   })
