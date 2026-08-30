@@ -155,30 +155,30 @@
           <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
         </el-card>
 
-        <!-- B3 时间趋势：按日迷你柱状图（无图表库，纯 CSS 分段条） -->
+        <!-- E-2 审计哈希链明细：可展开的逐行链可视化（verify 返回链切片） -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex justify-space-between align-center">
+              <span>{{ t('hashChainTitle') }}</span>
+              <el-button v-if="verify?.chain?.length" text size="small" @click="showChain = !showChain">
+                {{ showChain ? t('collapse') : t('expand') }}
+              </el-button>
+            </div>
+          </template>
+          <HashChainView
+            v-if="showChain && verify"
+            :chain="verify.chain ?? []"
+            :valid="verify.valid"
+            :checked="verify.checked"
+            :broken-index="verify.brokenIndex ?? null"
+          />
+          <div v-else class="text-medium-emphasis text-caption">{{ t('hashChainHint') }}</div>
+        </el-card>
+
+        <!-- B3/E-2 时间趋势：按日 5 段堆叠条（无图表库，纯 CSS；含 errors 段） -->
         <el-card shadow="never" class="mb-4">
           <template #header>{{ t('secTrendTitle') }}</template>
-          <div v-if="actionReport?.byDay?.length">
-            <div v-for="d in actionReport.byDay" :key="d.date" class="mb-2">
-              <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis">
-                <span>{{ d.date }}</span>
-                <span>{{ d.executed + d.approved + d.rejected + d.blocked }}</span>
-              </div>
-              <div class="d-flex" style="height: 14px; border-radius: 3px; overflow: hidden; background: var(--el-fill-color-light)">
-                <div v-if="d.executed" :style="{ width: pct(d.executed) + '%', background: 'var(--el-color-primary)' }" :title="`${t('secActionExecuted')}: ${d.executed}`" />
-                <div v-if="d.approved" :style="{ width: pct(d.approved) + '%', background: 'var(--el-color-success)' }" :title="`${t('secActionApproved')}: ${d.approved}`" />
-                <div v-if="d.rejected" :style="{ width: pct(d.rejected) + '%', background: 'var(--el-color-warning)' }" :title="`${t('secActionRejected')}: ${d.rejected}`" />
-                <div v-if="d.blocked" :style="{ width: pct(d.blocked) + '%', background: 'var(--el-color-danger)' }" :title="`${t('secActionBlocked')}: ${d.blocked}`" />
-              </div>
-            </div>
-            <div class="d-flex flex-wrap ga-3 text-caption text-medium-emphasis mt-1">
-              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-primary)"></span>{{ t('secActionExecuted') }}</span>
-              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-success)"></span>{{ t('secActionApproved') }}</span>
-              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-warning)"></span>{{ t('secActionRejected') }}</span>
-              <span class="d-flex align-center ga-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--el-color-danger)"></span>{{ t('secActionBlocked') }}</span>
-            </div>
-          </div>
-          <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
+          <TrendBarList :days="actionReport?.byDay ?? []" />
         </el-card>
 
         <el-card shadow="never" class="mb-4">
@@ -220,12 +220,13 @@
           <el-col :md="12" :xs="24">
             <el-card shadow="never">
               <template #header>{{ t('secAuditChain') }}</template>
-              <div v-if="verify" class="d-flex align-center ga-2">
-                <StatusChip :status="verify.valid ? 'ok' : 'cancelled'" :label-map="chainMap" />
-                <span class="text-body-2 text-medium-emphasis">
-                  {{ verify.valid ? t('secChainValid') : `${t('secChainBroken')} @${verify.brokenIndex ?? '?'}` }}
-                </span>
-              </div>
+              <HashChainView
+                v-if="verify"
+                :chain="verify.chain ?? []"
+                :valid="verify.valid"
+                :checked="verify.checked"
+                :broken-index="verify.brokenIndex ?? null"
+              />
               <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
             </el-card>
           </el-col>
@@ -242,6 +243,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppTable from '@/components/AppTable.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import HashChainView from '@/components/HashChainView.vue'
+import TrendBarList from '@/components/TrendBarList.vue'
 import AiTraceView from '@/views/workbench/AiTraceView.vue'
 import { ElMessage } from 'element-plus'
 import { auditApi } from '@/api/audit'
@@ -250,7 +253,7 @@ import { aiEvalApi } from '@/api/aiEval'
 import { usersApi } from '@/api/users'
 import { authApi } from '@/api/auth'
 import { formatTime } from '@/utils/format'
-import type { AuditLog, ActionReport } from '@/types/audit'
+import type { AuditLog, ActionReport, ChainVerifyResult } from '@/types/audit'
 import type { AdminAiTool } from '@/types/admin'
 import type { EvalRunReport } from '@/types/eval'
 
@@ -372,8 +375,8 @@ async function loadSecurity() {
 
 // ── Posture tab ──
 const policy = ref<string | undefined>(undefined)
-const verify = ref<{ valid: boolean; brokenIndex?: number; total?: number } | null>(null)
-const chainMap = computed(() => ({ ok: t('secChainOk'), cancelled: t('secChainFail') }))
+const verify = ref<ChainVerifyResult | null>(null)
+const showChain = ref(false)
 
 async function loadPosture() {
   try {
@@ -389,20 +392,6 @@ async function loadPosture() {
 // ── Action Report tab（§10 P1 合规证据包）──
 const actionReport = ref<ActionReport | null>(null)
 
-/** B3 时间趋势：当日各段总数最大值（分段条宽度基准） */
-const maxDailyTotal = computed(() => {
-  const days = actionReport.value?.byDay ?? []
-  let m = 0
-  for (const d of days) {
-    const tot = d.executed + d.approved + d.rejected + d.blocked
-    if (tot > m) m = tot
-  }
-  return m
-})
-/** B3 时间趋势：分段宽度百分比（相对最大日总数） */
-function pct(count: number): number {
-  return maxDailyTotal.value === 0 ? 0 : Math.round((100 * count) / maxDailyTotal.value)
-}
 const sampleHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('secActionTool') },
