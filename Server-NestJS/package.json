@@ -10,6 +10,8 @@
     "start:prod": "node dist/main",
     "start:governance": "nest start --entryFile governance/main",
     "start:governance:prod": "node dist/governance/main",
+    "start:sidecar": "nest start --entryFile governance-sidecar/main",
+    "start:sidecar:prod": "node dist/governance-sidecar/main",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest --forceExit",
