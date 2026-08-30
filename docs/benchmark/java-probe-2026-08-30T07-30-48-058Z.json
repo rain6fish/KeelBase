@@ -1,0 +1,98 @@
+{
+  "gate": "Java 探针观察：keelbase-java-starter 需求信号快照",
+  "date": "2026-08-30T07-30-48-058Z",
+  "repo": "rain6fish/KeelBase-java-starter",
+  "groupPath": "cn/com/keelbase",
+  "artifactsOnline": "8/8",
+  "artifacts": [
+    {
+      "artifactId": "keelbase-client",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-compensation",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-delegation-filter",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-java-starter-parent",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-spring-boot-autoconfigure",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-spring-boot-starter",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-tools-annotation",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    },
+    {
+      "artifactId": "keelbase-tools-export",
+      "online": true,
+      "status": 200,
+      "latest": "0.1.1",
+      "versions": [
+        "0.1.0",
+        "0.1.1"
+      ]
+    }
+  ],
+  "github": {
+    "repo": "rain6fish/KeelBase-java-starter",
+    "stars": 0,
+    "forks": 0,
+    "openIssues": 0,
+    "createdAt": "2026-08-28T14:22:17Z",
+    "pushedAt": "2026-08-30T07:20:49Z",
+    "description": "Spring Boot starter: connect Java/Spring systems to KeelBase as governed AI tools — delegated identity, proxy-tool export, compensation endpoints."
+  },
+  "note": "触发 KeelBase4J 启动的信号 = 集成商反馈「产品好，但整体不是 Java 无法立项」（需求驱动，非可行性驱动）；采纳信号（下载量/star/集成商 PoC）达门槛前不另立 Java 版模块。"
+}
