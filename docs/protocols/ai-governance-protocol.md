@@ -117,19 +117,23 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 ---
 
-## 5. 跨语言实现对齐清单 / Cross-Language Conformance
+## 5. 兼容实现清单 / Compatible Implementations
 
-实现应满足（KeelBase-java-starter 已对齐标注 ✅）：
+**兼容含义**：实现对三大协议（审计链 / 委托 token / 风险分级）中任一协议的算法、格式、语义与本文档一致，即可与 KeelBase 治理体系互操作——进同一审计链、识别同一委托身份、按同一风险策略门控。清单随实现演进维护；新增实现按 §2–§4 对齐后在此登记（✅=对齐，🔶=部分对齐，⬜=待续）。
 
-| 协议 | 对齐要求 | Java Starter |
-|---|---|---|
-| 审计链 | HMAC-SHA256 + 域分离 key + canonical JSON + verify 升序 | 补偿脚手架含幂等账本（审计上报待扩展） |
-| 委托 token | HS256 验签 + `aud` 校验 + `sub` 映射 + `exp` | ✅ `DelegationAuthFilter`（HS256+aud/iss/exp，fail-open+保护路径 fail-closed） |
-| 风险分级 | R0–R5 语义 + riskStrategy 派生 | ✅ `@KeelbaseTool` 类型/风险级口径对齐生成器 |
+| 实现 | 语言/形态 | 审计哈希链 | 委托 token | 工具风险分级 | 说明 |
+|---|---|---|---|---|---|
+| **Server-NestJS**（参考实现） | TypeScript / NestJS | ✅ HS-11 全链 + verify | ✅ 签发 + 验签（ai-bridge §5） | ✅ R0–R5 + 门控/确认/审批（HS-9/R4） | 治理体系权威实现（src/ai、src/auth、src/ai/governance） |
+| **KeelBase-java-starter** | Java / Spring Boot | 🔶 补偿脚手架幂等账本 + 审计上报（扩展中） | ✅ `DelegationAuthFilter`（HS256 + aud/iss/exp，fail-open + 保护路径 fail-closed） | ✅ `@KeelbaseTool` 类型/风险级口径对齐生成器 | 存量 Java 系统接入层（Maven Central 待发布） |
+| **governance-sidecar** | TypeScript / 独立服务 | 🔶 审计上报治理台（source=sidecar，落治理库链） | —（服务身份 `GOVERNANCE_API_KEY`，非委托 token） | ⬜ S-2 工具门控待续 | 零代码接入：业务系统 LLM base URL → sidecar → 治理台 |
+| **Secure MCP Gateway** | TypeScript / NestJS | ✅ 每次调用落 AI 审计（provider=mcp 归因） | —（调用者 JWT 身份） | ✅ 工具声明 riskLevel/riskStrategy（A2）+ 写需确认不自动执行 | MCP 出口，以调用者身份过治理管线 |
+| **headless API** | TypeScript / NestJS | ✅ 复用 Agent 审计（key 归属用户身份） | —（API Key 身份，归属 owner 用户） | ✅ 复用 Agent 工具门控（HS-4） | 第三方集成入口（x-api-key 认证） |
+
+**对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-moat-adoption.mjs`）验收接入闭环。
 
 ---
 
 ## 6. 相关 / Related
 
 - [hs11-audit-chain.spec.md](../hs11-audit-chain.spec.md) · [hs9-governance-policy.spec.md](../hs9-governance-policy.spec.md) · [hs10-mcp-adapter.spec.md](../hs10-mcp-adapter.spec.md)
-- [ai-bridge.md](../manual/ai-bridge.md)（§5 委托身份）· [governance-capability.md](../governance-capability.md)
+- [ai-bridge.md](../manual/ai-bridge.md)（§5 委托身份）· [governance-capability.md](../governance-capability.md) · [governance-deploy.md](../manual/governance-deploy.md)

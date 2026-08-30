@@ -73,6 +73,8 @@ npm run start:sidecar          # 默认 :3200
 
 **S-2 待续**：工具调用门控 / 确认 / 策略应用（复用 MCP 网关门控模式，对齐 [ai-governance-protocol.md](../protocols/ai-governance-protocol.md) 跨语言清单）。
 
+> **30 分钟上手**：按 [adoption-30min.md](adoption-30min.md) 5 步接入，配套 `verify-moat-adoption.mjs` 一键验收（MOAT-1）。
+
 ## 五、相关 / Related
 
 - [governance-capability.md](../governance-capability.md) — 治理能力与演进方向

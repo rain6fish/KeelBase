@@ -1,0 +1,54 @@
+{
+  "gate": "MOAT-1 30 分钟接入验证：业务系统零代码接进治理（sidecar → 治理台审计）",
+  "date": "2026-08-30T04-38-03-095Z",
+  "pass": 8,
+  "total": 8,
+  "elapsedSec": 14,
+  "topology": {
+    "governance": ":3100",
+    "sidecar": ":3200",
+    "mockUpstream": ":4390"
+  },
+  "cases": [
+    {
+      "name": "治理台启动（GET /ai/health）",
+      "pass": true,
+      "detail": ":3100 独立库 C:\\Users\\pc\\AppData\\Local\\Temp\\keelbase-moat-adoption-13376.sqlite"
+    },
+    {
+      "name": "sidecar 启动（AI 网关审计代理）",
+      "pass": true,
+      "detail": ":3200"
+    },
+    {
+      "name": "业务系统调用（base_url → sidecar）",
+      "pass": true,
+      "detail": "HTTP 201，498ms，收到 mock-model 响应"
+    },
+    {
+      "name": "sidecar 转发真实 LLM（mock upstream）",
+      "pass": true,
+      "detail": "upstream 收到 model=mock-model，usage tokens=19"
+    },
+    {
+      "name": "治理审计落地（source=sidecar）",
+      "pass": true,
+      "detail": "治理库 2 条 sidecar 审计（请求 + 响应）"
+    },
+    {
+      "name": "审计内容（请求摘要 + 归因 + 模型 + 耗时）",
+      "pass": true,
+      "detail": "chat｜userId=ops-bot model=mock-model"
+    },
+    {
+      "name": "x-user-id 归因（业务系统标识调用者）",
+      "pass": true,
+      "detail": "ops-bot"
+    },
+    {
+      "name": "审计哈希链连续（可验证完整性）",
+      "pass": true,
+      "detail": "2 条全部 hash 非空 + prev_hash 连续"
+    }
+  ]
+}
