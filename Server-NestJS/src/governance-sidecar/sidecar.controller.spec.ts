@@ -1,0 +1,41 @@
+import { SidecarController } from './sidecar.controller';
+import { SidecarService } from './sidecar.service';
+
+describe('SidecarController（/v1 端点接线）', () => {
+  let controller: SidecarController;
+  let service: {
+    proxyChat: jest.Mock;
+    confirm: jest.Mock;
+    pendingConfirmations: jest.Mock;
+  };
+
+  beforeEach(() => {
+    service = {
+      proxyChat: jest.fn().mockResolvedValue({ id: 'chatcmpl-1' }),
+      confirm: jest.fn().mockReturnValue({ id: 'approved' }),
+      pendingConfirmations: jest.fn().mockReturnValue([{ token: 'tok', tools: ['send_email'], expiresAt: 1 }]),
+    };
+    controller = new SidecarController(service as unknown as SidecarService);
+  });
+
+  it('GET /v1/health → 健康状态（docker healthcheck 用）', async () => {
+    await expect(controller.health()).resolves.toEqual({ ok: true, service: 'sidecar' });
+  });
+
+  it('POST /v1/chat/completions 透传 body + x-user-id', async () => {
+    await controller.chatCompletions({ model: 'mock' } as never, 'ops-bot');
+    expect(service.proxyChat).toHaveBeenCalledWith({ model: 'mock' }, 'ops-bot');
+  });
+
+  it('POST /v1/confirmations/:token 透传决策', async () => {
+    const out = await controller.confirm('tok', { decision: 'approve' }, 'ops-bot');
+    expect(service.confirm).toHaveBeenCalledWith('tok', 'approve', 'ops-bot');
+    expect(out).toEqual({ id: 'approved' });
+  });
+
+  it('POST /v1/confirmations 列待确认项', async () => {
+    await expect(controller.pending()).resolves.toEqual({
+      pending: [{ token: 'tok', tools: ['send_email'], expiresAt: 1 }],
+    });
+  });
+});

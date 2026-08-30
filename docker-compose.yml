@@ -104,6 +104,38 @@ services:
       timeout: 5s
       retries: 3
 
+  # ---- S-1/S-2 治理 sidecar（零代码接入，可选编排）----
+  # 业务系统 LLM base_url → http://sidecar:3200/v1 即零代码接入治理台（审计 + 工具门控）。
+  # 配 SIDECAR_UPSTREAM_URL/KEY（转发真实 LLM，env 覆盖）+ GOVERNANCE_URL=http://governance:3100（同一治理台）；
+  # SIDECAR_TOOLS 为工具风险级清单（默认空→全 R1 自动）。依赖 governance 健康后启动。
+  sidecar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+    command: ["node", "dist/governance-sidecar/main"]
+    ports:
+      - "3200:3200"
+    env_file:
+      - ./Server-NestJS/.env.production
+    environment:
+      - SIDECAR_PORT=3200
+      - SIDECAR_UPSTREAM_URL=${SIDECAR_UPSTREAM_URL:-https://api.deepseek.com}
+      - SIDECAR_UPSTREAM_KEY=${SIDECAR_UPSTREAM_KEY:-}
+      - GOVERNANCE_URL=http://governance:3100
+      - SIDECAR_TOOLS=${SIDECAR_TOOLS:-[]}
+      - SIDECAR_DEFAULT_TOOL_RISK=${SIDECAR_DEFAULT_TOOL_RISK:-R1}
+      - SIDECAR_CONFIRM_TTL_SECONDS=${SIDECAR_CONFIRM_TTL_SECONDS:-300}
+      - SIDECAR_POLICY_REFRESH_SECONDS=${SIDECAR_POLICY_REFRESH_SECONDS:-60}
+    depends_on:
+      governance:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   # ---- P1-3 私有化 AI：本地模型（可选编排，--profile private-ai 启用）----
   # 验证者 `docker compose --profile private-ai up -d ollama` 一键起本地模型；
   # 后端配 OLLAMA_BASE_URL=http://ollama:11434 + AI_PROVIDER=ollama 即全走本地（数据不出域）。
