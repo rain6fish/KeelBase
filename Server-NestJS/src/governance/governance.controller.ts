@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Delete, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Query, Delete, Param, ParseIntPipe, Post, Body, BadRequestException } from '@nestjs/common';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApprovalService } from './governance-approval.service';
@@ -54,6 +54,27 @@ export class GovernanceController {
       page: Number(page) || 1,
       limit: Number(limit) || 20,
     });
+  }
+
+  /** D2-4 approve 回调执行：治理台裁决审批 → 回调业务系统执行端点（approve 后执行业务工具） */
+  @Post('confirmations/:token/approve-by')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async approveBy(
+    @Param('token') token: string,
+    @Body() dto?: { decision?: 'approve' | 'decline' },
+  ): Promise<unknown> {
+    const target = process.env.GOVERNANCE_TARGET_URL;
+    if (!target) throw new BadRequestException('治理台未配置业务系统回调地址（GOVERNANCE_TARGET_URL）');
+    const res = await fetch(`${target}/api/v1/internal/approvals/${encodeURIComponent(token)}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.GOVERNANCE_API_KEY || '',
+      },
+      body: JSON.stringify({ decision: dto?.decision ?? 'approve', approverId: 'governance' }),
+    });
+    if (!res.ok) throw new BadRequestException('业务系统审批执行回调失败');
+    return await res.json();
   }
 
   /** D2-4 撤销副作用：优先回调业务系统撤销端点（GOVERNANCE_TARGET_URL）；未配置回退本地 revoker（proxy_call 等） */
