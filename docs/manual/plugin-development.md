@@ -93,3 +93,7 @@ const PLUGINS = [HELLO_PLUGIN, GITHUB_PLUGIN];
 - 插件单测：`src/plugins/plugins.service.spec.ts` 覆盖 manifest 加载、路由注册、生命周期
 - 端点集成：`POST /api/v1/plugins/:path`（见 `plugins.controller.ts`）
 - 参考：`src/plugins/plugins/hello.plugin.ts`（最小示例）+ `plugins.module.spec.ts`（引导测试）
+
+## 6. 官方插件 / Official plugins
+
+官方首批插件（github / feishu / wecom）在 `src/plugins/plugins/`，索引与契约见 [plugin-registry.md](plugin-registry.md)——每个提供 `/plugins/<name>/status`（配置引导）与业务端点，未配置凭据时不产生外部副作用。投稿新插件走 Registry 登记 + PR。
