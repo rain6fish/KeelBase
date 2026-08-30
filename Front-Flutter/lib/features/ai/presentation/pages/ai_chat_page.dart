@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/api/capabilities_provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../providers/ai_chat_provider.dart';
 import '../widgets/chat_bubble.dart';
@@ -148,6 +149,46 @@ class _AiChatPageState extends State<AiChatPage> {
     });
   }
 
+  /// AI 功能启用但未配置 LLM 时的顶部引导（对齐 Web-Admin 的 aiNotReady banner）。
+  Widget _buildAiConfigBanner(AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF5C518).withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1, right: 8),
+            child: Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                size: 18, color: Color(0xFFB8860B)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.aiNotConfiguredTitle,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8A6D1D))),
+                const SizedBox(height: 2),
+                Text(l10n.aiNotConfiguredBody,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF8A6D1D))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -159,6 +200,10 @@ class _AiChatPageState extends State<AiChatPage> {
     _maybeScrollToBottom(isStreaming);
     // 流式时已有一条占位消息在列表里，不需要额外 TypingIndicator
     final showTyping = isLoading && !isStreaming && messages.isEmpty;
+    // 运行时 AI 可用性：feature 开了但没配 LLM → 顶部引导配置
+    final aiStatus = context.watch<CapabilitiesProvider>().capabilities?.ai;
+    final aiNotConfigured =
+        aiStatus != null && aiStatus.enabled && !aiStatus.providerConfigured;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -228,6 +273,7 @@ class _AiChatPageState extends State<AiChatPage> {
       ),
       child: Column(
         children: [
+          if (aiNotConfigured) _buildAiConfigBanner(l10n),
           // 消息列表
           Expanded(
             child: messages.isEmpty && !isLoading
