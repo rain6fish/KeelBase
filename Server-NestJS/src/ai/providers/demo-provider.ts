@@ -95,6 +95,15 @@ export class DemoProvider implements LlmProvider {
   ): { content: string; toolCalls?: ToolCall[] } {
     const lower = msg.toLowerCase();
 
+    // AI CRM：不可逆删除客户（R5 阻断演示）— 高风险动作应被系统策略阻断，永不执行
+    if (/删除|delete/i.test(lower)) {
+      return this.toolCall(
+        'delete_customer',
+        { customerId: this.findCustomerId(messages), reason: msg },
+        '删除客户是不可逆的高风险操作（风险级 R5），将被系统策略阻断，不会执行…',
+      );
+    }
+
     // AI CRM：分析客户风险 / 哪些客户值得关注 → 先查客户列表
     if (/风险|分析|客户|customer|值得跟进|重点关注|risk|analyze/i.test(lower)) {
       const keyword = this.extractKeyword(msg);
