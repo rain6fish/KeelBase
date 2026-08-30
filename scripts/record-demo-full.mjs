@@ -34,11 +34,15 @@ const SHOTS = [
   ['ui-golden', 9000],
   // 实机确认门控：AI 创建跟进任务（写 R3）→ 确认卡 → 批准 → 已执行/已确认
   ['ui-confirm', 9000],
+  // 实机旗舰应用：PM 延期风险（Copilot）+ Approval AI 预审（政策分级自动通过）
+  ['ui-pm', 9000], ['ui-approval', 9000],
   // 信任运行时定位
   ['slide', 22, 5500], ['slide', 23, 4500],
   // 企业安全验证（slides）+ 系统演示：管理台 AI 审计（防篡改哈希链）→ 系统信息 → 监控中心
   ['slide', 26, 4500], ['slide', 27, 4500],
   ['ui-system', 9000],
+  // 治理巡礼：管理台概览（治理总览 / AI 用量 / 操作分布）→ AI 审批
+  ['ui-governance', 9000],
   // 构建：keelbase init（terminal）+ 协议→代码（slides）
   ['terminal', 'build', 12000], ['slide', 30, 4500], ['slide', 31, 3500],
   // 存量系统：AI Bridge（terminal）+ 定位（slides）
@@ -100,6 +104,48 @@ async function uiSystem(page) {
   await page.waitForTimeout(5000);
 }
 
+// ── UI PM 旗舰：项目详情 → Copilot → 判断延期风险（demo 返回项目列表 + 引导）──
+async function uiPm(page) {
+  await loginAs(page, 'alex', 'Alex@2026$Demo');
+  await page.goto(`${BASE}/admin/#/workbench/pm/1`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(4000);
+  await page.locator('button:has-text("AI 分析"), button:has-text("AI Analyze")').first().click();
+  await page.waitForTimeout(3000);
+  await page.locator('.el-drawer .el-input__inner, .el-drawer input[type="text"]').first().fill('判断这个项目的延期风险');
+  await page.waitForTimeout(500);
+  await page.locator('.el-drawer .el-button--primary').first().click();
+  await page.waitForTimeout(12000); // 等 demo 响应（项目列表 + 引导）
+}
+
+// ── UI Approval 旗舰：审批详情 → AI 预审（按政策分级，自动通过/转人工）──
+async function uiApproval(page) {
+  await loginAs(page, 'alex', 'Alex@2026$Demo');
+  // id=1 已被探测预审为 auto_approved；用 id=2（¥12000 pending，待预审）
+  await page.goto(`${BASE}/admin/#/workbench/approval/2`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(4000);
+  await page.locator('button:has-text("AI 预审")').first().click();
+  await page.waitForTimeout(10000); // 等预审结果（政策分级）
+}
+
+// ── UI 治理巡礼：admin 概览（治理总览 / AI 用量 / 操作分布）→ AI 审批 ──
+async function uiGovernance(page) {
+  await page.goto(`${BASE}/admin/`, { waitUntil: 'networkidle' });
+  await page.evaluate(async (base) => {
+    const res = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'Admin@2026$KeelBase' }),
+    });
+    const j = await res.json();
+    localStorage.setItem('admin_access_token', j.data.accessToken);
+    localStorage.setItem('admin_refresh_token', j.data.refreshToken);
+  }, BASE);
+  await page.goto(`${BASE}/admin/#/overview`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(6000);
+  await page.goto(`${BASE}/admin/#/ai-approvals`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(5000);
+}
+
 // ── UI 确认门控：客户详情 → Copilot → AI 创建跟进任务（写 R3）→ 确认卡 → 批准 ──
 async function uiConfirm(page) {
   await loginAs(page, 'alex', 'Alex@2026$Demo');
@@ -137,6 +183,15 @@ async function runShot(page, shot) {
     await sleep(a);
   } else if (type === 'ui-system') {
     await uiSystem(page);
+    await sleep(a);
+  } else if (type === 'ui-pm') {
+    await uiPm(page);
+    await sleep(a);
+  } else if (type === 'ui-approval') {
+    await uiApproval(page);
+    await sleep(a);
+  } else if (type === 'ui-governance') {
+    await uiGovernance(page);
     await sleep(a);
   }
 }
