@@ -106,7 +106,7 @@ fi
 # ── AI Bridge B 路径（LLM 对话端到端：读 R1 自动 / 写 R3 确认 / 委托身份 / 审计）──
 echo ""
 echo "→ AI Bridge B 路径（verify-proxy-bridge：ProxyTool × mock Java 系统）"
-ADMIN_TOKEN=$(curl -s -m 5 -X POST "$BASE/auth/login" -H 'Content-Type: application/json' -d '{"username":"admin","password":"Admin@1234"}' | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).data.accessToken)}catch{console.log('FAIL')}})")
+ADMIN_TOKEN=$(curl -s -m 5 -X POST "$BASE/auth/login" -H 'Content-Type: application/json' -d '{"username":"admin","password":"Admin@2026$KeelBase"}' | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).data.accessToken)}catch{console.log('FAIL')}})")
 if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "FAIL" ]; then
   # 预配置 ai_proxy_tools（指向 mock 4310，mock 由 verify-proxy-bridge 起）→ 重启后端使 ProxyTool 注册
   CFG='{"baseUrl":"http://localhost:4310/api","audience":"legacy-erp","tools":[{"name":"proxy_list_contract","description":"查询 legacy 系统合同列表","method":"GET","path":"/contracts","parameters":[{"name":"keyword","type":"string","description":"关键字","required":false}],"riskLevel":"R1"},{"name":"proxy_create_contract","description":"在 legacy 系统创建合同","method":"POST","path":"/contracts","parameters":[{"name":"title","type":"string","description":"标题","required":true}],"riskLevel":"R3"}]}'

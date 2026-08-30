@@ -54,8 +54,8 @@ open http://localhost:3000/mobile # 移动主 App 预览
 ```
 
 **第四步：登录体验（演示账号首次启动自动创建）**
-- 工作台 / 移动预览：`alex` / `123456`
-- 管理台：http://localhost:3000/admin → `admin` / `Admin@1234`
+- 工作台 / 移动预览：`alex` / `Alex@2026$Demo`
+- 管理台：http://localhost:3000/admin → `admin` / `Admin@2026$KeelBase`
 
 **管理容器**
 ```bash
@@ -104,7 +104,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-- ✅ 验证：浏览器弹出登录页；用 `alex / 123456` 登录进首页
+- ✅ 验证：浏览器弹出登录页；用 `alex / Alex@2026$Demo` 登录进首页
 - ⚠️ 需先装 [Flutter SDK](https://docs.flutter.dev/get-started/install)（≥ 3.12）
 - ⚠️ 默认对接 `http://localhost:3000/api/v1`，后端须先启动
 
@@ -120,7 +120,7 @@ npm install
 npm run dev                   # Vite dev server → http://localhost:10086/admin/
 ```
 
-- ✅ 验证：http://localhost:10086/admin/ 打开管理台 → 用 `admin / Admin@1234` 登录
+- ✅ 验证：http://localhost:10086/admin/ 打开管理台 → 用 `admin / Admin@2026$KeelBase` 登录
 - 生产构建：`npm run build`（base=/admin/，产物 dist/）
 
 **卡住了？**
@@ -135,8 +135,8 @@ npm run dev                   # Vite dev server → http://localhost:10086/admin
 
 | 角色 | 用户名 | 密码 | 用途 |
 |------|--------|------|------|
-| 普通用户 | `alex` | `123456` | 主 App：事件、待办、AI、通知、搜索、上传 |
-| 管理员 | `admin` | `Admin@1234` | 管理台：用户/事件管理、审计、监控、广播 |
+| 普通用户 | `alex` | `Alex@2026$Demo` | 主 App：事件、待办、AI、通知、搜索、上传 |
+| 管理员 | `admin` | `Admin@2026$KeelBase` | 管理台：用户/事件管理、审计、监控、广播 |
 
 **建议体验路径**：
 1. 主 App 登录 `alex` → 首页看数据洞察 → 事件页创建一条日程 → 待办页加个任务

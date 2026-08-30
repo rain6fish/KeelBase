@@ -16,7 +16,7 @@
 #   主 App      http://localhost:3000
 #   管理台      http://localhost:3000/admin
 #   后端 API    http://localhost:3000/api/v1   （Swagger: /api/docs，dev 仅）
-#   演示账号    alex / 123456（主 App）、admin / Admin@1234（管理台）
+#   演示账号    alex / Alex@2026$Demo（主 App）、admin / Admin@2026$KeelBase（管理台）
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -83,8 +83,8 @@ case "$cmd" in
   健康检查    http://localhost:$PORT/api/v1/health
 
   演示账号：
-    普通用户  alex / 123456
-    管理员    admin / Admin@1234
+    普通用户  alex / Alex@2026\$Demo
+    管理员    admin / Admin@2026\$KeelBase
 
   停止：./scripts/docker-single.sh stop
   数据：SQLite 存于命名卷 $VOLUME（持久化）

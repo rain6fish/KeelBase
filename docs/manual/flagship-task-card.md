@@ -1,7 +1,7 @@
 # 三旗舰 LLM 实测任务卡（阶段 2 Run/Private 维度）
 
 > 目的：在**真实 LLM（本地 Ollama 或云端）**下，用演示账号把三旗舰各跑一个真实业务任务，验证「AI 真正干活 + 安全干活」，并记录 **Agent Success Rate**（Release Gate Run 维度）。
-> 前置：单容器或本地后端已起 + 演示账号（alex / 123456，空库首启自动种 seed）。LLM 配置见 [private-ai-verification.md](private-ai-verification.md)（AI_PROVIDER=ollama 或云端）。
+> 前置：单容器或本地后端已起 + 演示账号（alex / Alex@2026$Demo，空库首启自动种 seed）。LLM 配置见 [private-ai-verification.md](private-ai-verification.md)（AI_PROVIDER=ollama 或云端）。
 > 无 LLM 的验收（CRUD/CASL/确认/审计 HTTP 层）见 [verify-flagships.sh](../../scripts/verify-flagships.sh)。
 
 ---

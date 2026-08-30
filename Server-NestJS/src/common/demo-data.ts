@@ -413,7 +413,7 @@ export async function seedDemoData(
         title: '如何启动后端',
         category: '开发指南',
         content:
-          '进入 Server-NestJS 目录，cp .env.example .env，npm install，npm run start:dev 即可启动开发后端，默认 SQLite 零配置，首次启动自动创建演示账号 alex / 123456。',
+          '进入 Server-NestJS 目录，cp .env.example .env，npm install，npm run start:dev 即可启动开发后端，默认 SQLite 零配置，首次启动自动创建演示账号 alex / Alex@2026$Demo。',
       },
       {
         title: 'AI 助手支持哪些能力',

@@ -26,7 +26,7 @@ cd Server-NestJS && npm run seed:demo
 
 # 无 LLM 依赖（读工具查询 + 确认门控均确定性）
 node scripts/verify-framework-adapter.mjs
-# BASE=... DEMO_USER=... DEMO_PASS=... 可覆盖默认（localhost:3000 + alex/123456）
+# BASE=... DEMO_USER=... DEMO_PASS=... 可覆盖默认（localhost:3000 + alex/Alex@2026$Demo）
 ```
 
 脚本验证 5 项：

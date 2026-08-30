@@ -26,7 +26,7 @@ cd Server-NestJS && npm run seed:demo
 
 # No LLM dependency (read-tool query + confirmation gate are deterministic)
 node scripts/verify-framework-adapter.mjs
-# BASE=... DEMO_USER=... DEMO_PASS=... override defaults (localhost:3000 + alex/123456)
+# BASE=... DEMO_USER=... DEMO_PASS=... override defaults (localhost:3000 + alex/Alex@2026$Demo)
 ```
 
 The script verifies 5 dimensions:

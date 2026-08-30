@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.BASE_URL || 'http://localhost:3000/api/v1';
 const USER = process.env.BENCH_USER || 'alex';
-const PASS = process.env.BENCH_PASS || '123456';
+const PASS = process.env.BENCH_PASS || 'Alex@2026$Demo';
 const PROVIDER = process.env.PROVIDER || 'ollama';
 const MODEL = process.env.MODEL || 'qwen2.5:7b';
 const TIMEOUT_MS = parseInt(process.env.BENCH_TIMEOUT || '300000', 10);
