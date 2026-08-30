@@ -278,7 +278,8 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(revoker.canHandle('pm_task')).toBe(true);
       expect(revoker.canHandle('app_request')).toBe(true);
       expect(revoker.canHandle('event')).toBe(true);
-      expect(revoker.canHandle('unknown')).toBe(true); // default Todo
+      expect(revoker.canHandle('todo')).toBe(true); // create_todo 显式映射
+      expect(revoker.canHandle('unknown')).toBe(false); // fail closed（未知类型不软删本地实体）
       expect(revoker.canHandle('proxy_call')).toBe(false); // B 路径外部（走 ExternalRevoker）
     });
   });

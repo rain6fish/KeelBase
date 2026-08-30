@@ -56,11 +56,12 @@ export class SidecarService {
       source: 'sidecar',
     });
 
-    // 转发真实 LLM
+    // 转发真实 LLM（超时 120s，防上游挂起导致代理请求无限阻塞）
     const res = await fetch(`${this.upstream}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: process.env.SIDECAR_UPSTREAM_KEY ? `Bearer ${process.env.SIDECAR_UPSTREAM_KEY}` : '' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => '');

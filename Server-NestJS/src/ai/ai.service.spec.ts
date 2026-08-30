@@ -324,6 +324,27 @@ describe('AiService', () => {
       (aiService as any).toolEffectsService = undefined;
     });
 
+    it('HS-3: create_contract 副作用 resultType 记 contract（非兜底 todo）', async () => {
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('new-key-contract'),
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+      };
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 200 } });
+
+      const result = await (aiService as any)._executeWriteTool('create_contract', { name: 'X' }, '1', 'c1');
+
+      expect(result).toEqual({ success: true, data: { id: 200 } });
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '1', toolName: 'create_contract', conversationId: 'c1' }),
+        'contract',
+        200,
+        { before: null, after: null },
+      );
+      (aiService as any).toolEffectsService = undefined;
+    });
+
     it('HS-3: _executeWriteTool 无 toolEffectsService 时直接执行不记录', async () => {
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
       (aiService as any).toolEffectsService = undefined;
