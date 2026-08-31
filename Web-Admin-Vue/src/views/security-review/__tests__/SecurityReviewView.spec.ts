@@ -98,7 +98,7 @@ describe('SecurityReviewView', () => {
     await wrapper.findAll('.el-tabs__item')[1].trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('create_event')
+    expect(wrapper.text()).toContain('创建事件') // 业务语言化：工具名 → 人类标签
     expect(wrapper.text()).toContain('不是本人资源')
   })
 
