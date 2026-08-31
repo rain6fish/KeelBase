@@ -279,6 +279,13 @@ const en: ZhDict = {
   permissionSubject: 'Resource',
   permissionScope: 'Scope',
   permissionReason: 'Reason',
+  // §22.16 A-5 authorization chain
+  authChain: 'Authorization Chain',
+  authChainUser: 'User',
+  authChainRole: 'Role',
+  authChainBasis: 'Authorization basis',
+  authChainResources: 'Capabilities',
+  authChainResourceHint: 'items (role-based CASL rules)',
   permissionRenderOnly: 'Render-layer only (hiding ≠ authorization); backend CASL is the sole source of truth',
   inviteCreate: 'Invite',
   inviteList: 'Invite codes',
