@@ -47,7 +47,7 @@ Expose the existing AI tools (registered in ToolRegistry: query_events / create_
 |------------|------------------|
 | `initialize` | 返回协议版本 / capabilities（tools）/ serverInfo。Returns protocol version / capabilities (tools) / serverInfo. |
 | `ping` | 健康。Heartbeat. |
-| `tools/list` | 返回现有工具（尊重 HS-9 策略 enabled 开关）为 MCP 工具。Lists existing tools (respecting HS-9 enabled policy) as MCP tools. |
+| `tools/list` | 返回现有工具（尊重 HS-9 策略 enabled 开关）为 MCP 工具，声明携带治理契约扩展（§4.4：`annotations` + `_meta.keelbase` 的 R0-R5 风险级/策略/确认要求）。Lists existing tools (respecting HS-9 enabled policy) as MCP tools, each carrying the governance contract extension (ai-governance-protocol §4.4: `annotations` + `_meta.keelbase` risk level / strategy / confirmation requirement). |
 | `tools/call` | 执行工具。Executes a tool. |
 | `notifications/initialized` / `notifications/cancelled` | 通知 ack，无响应。Notification ack, no response. |
 
