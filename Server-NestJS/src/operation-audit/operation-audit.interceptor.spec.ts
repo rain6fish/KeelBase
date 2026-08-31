@@ -55,6 +55,53 @@ describe('OperationAuditInterceptor', () => {
     );
   });
 
+  it('A-1 captures field changes + business event on PATCH', async () => {
+    const req = {
+      method: 'PATCH',
+      originalUrl: '/api/v1/crm/customers/3',
+      url: '/api/v1/crm/customers/3',
+      body: { status: 'active', riskLevel: 'high' },
+      ip: '1.1.1.1',
+      headers: {},
+      params: { id: '3' },
+      user: { sub: 5 },
+    };
+
+    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessEvent: 'CustomerUpdated',
+        changes: JSON.stringify([
+          { field: 'status', before: null, after: 'active' },
+          { field: 'riskLevel', before: null, after: 'high' },
+        ]),
+      }),
+    );
+  });
+
+  it('A-1 skips sensitive/noise fields in changes', async () => {
+    const req = {
+      method: 'PUT',
+      originalUrl: '/api/v1/users/7',
+      url: '/api/v1/users/7',
+      body: { nickname: 'New', password: 'secret', createdAt: '2026-01-01', id: 7 },
+      ip: '1.1.1.1',
+      headers: {},
+      params: { id: '7' },
+      user: { sub: 5 },
+    };
+
+    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessEvent: 'UserUpdated',
+        changes: JSON.stringify([{ field: 'nickname', before: null, after: 'New' }]),
+      }),
+    );
+  });
+
   it('skips GET requests', async () => {
     const req = { method: 'GET', originalUrl: '/x', url: '/x', body: null, headers: {}, params: {} };
 
