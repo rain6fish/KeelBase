@@ -18,8 +18,47 @@ interface McpJsonRpc {
   params?: Record<string, unknown>;
 }
 
+/** listMcpTools() 返回的治理契约字段（A2 风险分级 + 确认策略） */
+interface McpToolGovernance {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  riskLevel: string;
+  riskStrategy: string;
+  requiresConfirmation: boolean;
+}
+
 const MCP_SERVER_INFO = { name: 'keelbase', version: '0.9.1' };
 const MCP_PROTOCOL_VERSION = '2025-03-26';
+
+const READ_ONLY_RISKS = ['R0', 'R1', 'R2'];
+
+/**
+ * 护城河 2.1「MCP 工具声明治理扩展」（ai-governance-protocol §4.4）：
+ * MCP SDK 的 ToolSchema 无 passthrough，顶层 riskLevel 等自定义字段会被 Zod 剥掉；
+ * 治理契约经 MCP 标准字段透出——
+ *   - `annotations.readOnlyHint / destructiveHint`：MCP 标准提示（粗粒度）
+ *   - `_meta.keelbase`：规范扩展槽（z.record 保留），携带权威的 R0-R5 契约
+ */
+function toMcpTool(tool: McpToolGovernance) {
+  const readOnly = READ_ONLY_RISKS.includes(tool.riskLevel);
+  return {
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    annotations: {
+      readOnlyHint: readOnly,
+      destructiveHint: tool.riskLevel === 'R5',
+    },
+    _meta: {
+      keelbase: {
+        riskLevel: tool.riskLevel,
+        riskStrategy: tool.riskStrategy,
+        requiresConfirmation: tool.requiresConfirmation,
+      },
+    },
+  };
+}
 
 /**
  * HS-10 MCP 出口（HTTP JSON-RPC 子集）：
@@ -61,7 +100,7 @@ export class McpExportController {
           return this._result(id, {});
         case 'tools/list':
           return this._result(id, ListToolsResultSchema.parse({
-            tools: await this.aiService.listMcpTools(),
+            tools: (await this.aiService.listMcpTools()).map(toMcpTool),
           }));
         case 'tools/call':
           return await this._callTool(user, id, body.params);
