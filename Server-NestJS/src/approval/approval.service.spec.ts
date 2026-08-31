@@ -31,6 +31,7 @@ describe('ApprovalService', () => {
   let service: ApprovalService;
   let requests: any;
   let policies: any;
+  let users: any;
 
   const request = (id: number, userId = 1, overrides: Record<string, unknown> = {}) =>
     ({ id, title: `申请${id}`, type: 'reimbursement', amount: 500, reason: 'r', status: 'pending', riskLevel: 'low', requesterId: userId, ...overrides });
@@ -38,7 +39,8 @@ describe('ApprovalService', () => {
   beforeEach(() => {
     requests = makeRepo([request(1), request(2, 2)]);
     policies = makeRepo([{ id: 1, type: 'reimbursement', maxAmount: 1000, active: true }]);
-    service = new ApprovalService(requests as any, policies as any);
+    users = makeRepo([{ id: 1, username: 'alex' }, { id: 2, username: 'bob' }]);
+    service = new ApprovalService(requests as any, policies as any, users as any);
   });
 
   it('createRequest 归属 requesterId 且 pending', async () => {
