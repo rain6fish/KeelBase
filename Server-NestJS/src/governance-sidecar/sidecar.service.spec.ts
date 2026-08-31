@@ -157,4 +157,28 @@ describe('SidecarService（S-2 工具门控流）', () => {
     expect(() => service.confirm('nope', 'approve')).toThrow();
     expect(service.pendingConfirmations()).toHaveLength(0);
   });
+
+  it('B2 applyPushedPolicy：治理台推送禁用 → 工具调用实时被阻断', async () => {
+    // 初始：write_y（R3）→ confirm；推送禁用后 → block（门控流真实行为）
+    currentUpstream = upstreamRes([toolCall('write_y')]);
+    const out = service.applyPushedPolicy({ tools: { write_y: { enabled: false } } }, '2026-09-01T00:00:00Z');
+    expect(out).toEqual({ accepted: true, pushedAt: '2026-09-01T00:00:00Z' });
+    const gated = (await service.proxyChat({ model: 'mock', messages: [] })) as Record<string, unknown>;
+    const msg = (gated.choices as Array<{ message: { content: string; tool_calls: unknown } }>)[0].message;
+    expect(msg.tool_calls).toBeNull();
+    expect(msg.content).toContain('阻断');
+    // 未推送工具不受影响：read_x 仍 auto 放行
+    currentUpstream = upstreamRes([toolCall('read_x')]);
+    const auto = (await service.proxyChat({ model: 'mock', messages: [] })) as Record<string, unknown>;
+    expect((auto.choices as Array<{ message: { tool_calls?: Array<unknown> } }>)[0].message.tool_calls).toHaveLength(1);
+  });
+
+  it('B2 applyPushedPolicy：requiresConfirmation 覆盖 → 读工具被强制确认', async () => {
+    currentUpstream = upstreamRes([toolCall('read_x')]);
+    service.applyPushedPolicy({ tools: { read_x: { requiresConfirmation: true } } });
+    const out = (await service.proxyChat({ model: 'mock', messages: [] })) as Record<string, unknown>;
+    const msg = (out.choices as Array<{ message: { confirmation: { tools: string[] } } }>)[0].message;
+    expect(msg.confirmation.tools).toEqual(['read_x']);
+    expect(service.pendingConfirmations()).toHaveLength(1);
+  });
 });

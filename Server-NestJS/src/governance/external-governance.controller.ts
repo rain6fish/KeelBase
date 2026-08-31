@@ -4,11 +4,13 @@ import { GovernanceApiGuard } from './governance-api.guard';
 import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { SidecarRegistryService } from './sidecar-registry.service';
 
 /**
  * D2-3 业务系统接入治理台（服务身份）：
  * - POST /external/audit：业务系统上报 AI 审计事件（落治理库审计哈希链）
  * - GET  /external/governance/policy：业务系统拉取实时治理策略
+ * - POST /external/governance/sidecars/register：sidecar 注册回调（B2 策略实时推送）
  * 认证：GOVERNANCE_API_KEY（x-api-key / Bearer），服务端到服务端，不经用户 JWT。
  * 副作用/轨迹上报（D2-3 后续）与跨服务确认/撤销（D2-4）按此端点模式扩展。
  */
@@ -19,6 +21,7 @@ export class ExternalGovernanceController {
     private readonly auditService: AuditService,
     private readonly governancePolicy: GovernancePolicyService,
     private readonly toolEffects: AiToolEffectsService,
+    private readonly sidecars: SidecarRegistryService,
   ) {}
 
   /** 业务系统上报 AI 审计事件（userId/action/tool 等），落治理库审计链 */
@@ -52,6 +55,13 @@ export class ExternalGovernanceController {
   @Public()
   async getPolicy() {
     return this.governancePolicy.getPolicy();
+  }
+
+  /** B2：sidecar 注册回调（策略变更后治理台实时推送，替代/兜底 60s 轮询） */
+  @Post('governance/sidecars/register')
+  @Public()
+  async registerSidecar(@Body('callbackUrl') callbackUrl: string) {
+    return this.sidecars.register(callbackUrl);
   }
 
   /** 业务系统上报 AI 写副作用（D2-3c），落治理库 ai_tool_side_effects（幂等键去重） */
