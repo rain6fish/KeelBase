@@ -52,8 +52,19 @@
             </div>
           </template>
           <AppTable :headers="reviewHeaders" :items="riskLogs" :loading="loading">
+            <template #item.action="{ item }">{{ actionLabel(item.actionKey, item.actionLabel, t, tm('feature')) || item.action }}</template>
             <template #item.detail="{ item }">
-              <span class="text-caption">{{ item.detail }}</span>
+              <template v-if="detailParts(item.detail)">
+                <el-popover placement="top" :width="380" trigger="click">
+                  <template #reference>
+                    <span class="text-caption" style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                      {{ toolLabel(tm('feature'), detailParts(item.detail)!.toolName) }}{{ toolArgsSummary(detailParts(item.detail)!.toolName, detailParts(item.detail)!.args, locale.startsWith('zh')) }}
+                    </span>
+                  </template>
+                  <pre class="text-caption" style="white-space:pre-wrap;margin:0">{{ item.detail }}</pre>
+                </el-popover>
+              </template>
+              <span v-else class="text-caption">{{ item.detail }}</span>
             </template>
             <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
             <template #item.reason="{ item }">
@@ -197,7 +208,7 @@
           <AppTable :headers="sampleHeaders" :items="actionReport?.samples ?? []" :loading="loading">
             <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
             <template #item.errorMessage="{ item }">
-              <span class="text-caption text-error">{{ item.errorMessage || '-' }}</span>
+              <span class="text-caption text-error">{{ errorLabel(item.errorMessage, t) || '-' }}</span>
             </template>
           </AppTable>
           <div v-if="!loading && !actionReport?.samples.length" class="text-medium-emphasis pa-3">{{ t('secNoActionLog') }}</div>
@@ -256,8 +267,9 @@ import { formatTime } from '@/utils/format'
 import type { AuditLog, ActionReport, ChainVerifyResult } from '@/types/audit'
 import type { AdminAiTool } from '@/types/admin'
 import type { EvalRunReport } from '@/types/eval'
+import { toolLabel, toolArgsSummary, errorLabel, actionLabel } from '@/utils/businessLabel'
 
-const { t } = useI18n()
+const { t, tm, locale } = useI18n()
 
 const tab = ref('trace')
 const loading = ref(false)
@@ -282,6 +294,12 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
   } catch {
     return undefined
   }
+}
+
+/** 解析工具调用 detail（tool_call({args})）→ 工具名 + 参数；非工具调用返回 null */
+function detailParts(detail: string | null | undefined): { toolName: string; args: string } | null {
+  const m = /^([\w]+)\((.*)\)$/s.exec(detail || '')
+  return m ? { toolName: m[1], args: m[2] } : null
 }
 
 async function loadReview() {
