@@ -17,6 +17,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - 全链路审计（操作审计 + AI 审计）
 - 敏感字段掩码（管理端不返回明文 email/phone）
 
+**AI 开发宪法（顶层总纲，开发前必读）**：`.agents/skills/keelbase-development-constitution/SKILL.md` —— 产品/体验/架构工程三篇宪法 + 开发流程与完成定义(DoD) + 三方评审 + 决策规则。本文件与 `CLAUDE.md` 是它的细则；开发、设计、评审任何功能前先读宪法。
+
 ## 2. 分层说明
 
 | 目录 | 规则来源 |
