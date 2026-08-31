@@ -1,6 +1,6 @@
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation } from '@/types/audit'
+import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4 审计证据包导出（GET /audit/action-report/export） */
@@ -32,6 +32,10 @@ export const auditApi = {
   /** §22.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计 */
   interpretation(id: number): Promise<AuditInterpretation> {
     return api.get(`/audit/logs/${id}/interpretation`)
+  },
+  /** §22.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 */
+  chain(id: number): Promise<IdentityChain> {
+    return api.get(`/audit/logs/${id}/chain`)
   },
   /** §10 P1 AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链） */
   actionReport(params: { userId?: string; since?: string; limit?: number } = {}): Promise<ActionReport> {

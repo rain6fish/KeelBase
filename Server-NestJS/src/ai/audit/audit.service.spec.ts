@@ -674,4 +674,40 @@ describe('AuditService', () => {
       }
     });
   });
+
+  describe('getChain（§22.16 A-5 跨系统身份链）', () => {
+    it('聚合 Human→Intent→Agent→Tool→Action + 会话工具序列 + source', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 1, userId: '42', username: 'bob', action: 'tool_call',
+        detail: 'create_followup_task({"customerId":7})',
+        businessEvent: 'FollowupTaskCreated', agentId: 'key-legacy-erp', callerAgentId: 'research',
+        businessIntent: '跟进高风险客户', source: 'bridge',
+        conversationId: 'c1', createdAt: new Date(),
+      });
+      repo.find.mockResolvedValue([
+        { id: 1, action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated', agentId: 'key-legacy-erp', createdAt: new Date() },
+      ]);
+      const res = await service.getChain(1);
+      expect(res.human.username).toBe('bob');
+      expect(res.agent.agentId).toBe('key-legacy-erp');
+      expect(res.agent.callerAgentId).toBe('research');
+      expect(res.intent).toBe('跟进高风险客户');
+      expect(res.source).toBe('bridge');
+      expect(res.tool.toolName).toBe('create_followup_task');
+      expect(res.action.businessEvent).toBe('FollowupTaskCreated');
+      expect(res.chain).toHaveLength(1);
+    });
+
+    it('拒绝场景：解析 authorization checks 为授权依据', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 2, userId: '42', action: 'tool_call', detail: 'query_evil({})',
+        authorization: JSON.stringify([{ name: 'risk_policy', ok: false, note: 'R5 阻断' }]),
+        createdAt: new Date(),
+      });
+      repo.find.mockResolvedValue([]);
+      const res = await service.getChain(2);
+      expect(res.authorization.denied).toEqual([{ name: 'risk_policy', ok: false, note: 'R5 阻断' }]);
+      expect(res.authorization.allowed).toBeNull();
+    });
+  });
 });

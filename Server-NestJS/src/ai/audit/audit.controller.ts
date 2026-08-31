@@ -47,6 +47,13 @@ export class AuditController {
     return this.auditService.getInterpretation(id);
   }
 
+  @Get('logs/:id/chain')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '§22.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员）' })
+  chain(@Param('id', ParseIntPipe) id: number) {
+    return this.auditService.getChain(id);
+  }
+
   @Get('verify')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员）' })

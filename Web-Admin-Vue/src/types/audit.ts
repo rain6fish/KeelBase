@@ -24,6 +24,26 @@ export interface AuditLog {
   businessEvent?: string | null
   /** §22.16 A-1 Decision Evidence（JSON 字符串） */
   evidence?: string | null
+  /** §22.16 A-5 跨系统身份链：D4 委托链字段 */
+  parentActionId?: string | null
+  callerAgentId?: string | null
+  businessIntent?: string | null
+  source?: string | null
+}
+
+/** §22.16 A-5 跨系统身份链：Human→Intent→Agent→Tool→Action + 授权依据 */
+export interface IdentityChain {
+  human: { userId: string; username: string | null }
+  intent: string | null
+  agent: { agentId: string | null; agentName: string | null; trustLevel: string | null; callerAgentId: string | null }
+  tool: { toolName: string | null }
+  action: { businessEvent: string | null; evidence: string | null }
+  source: string | null
+  authorization: {
+    denied: Array<{ name: string; ok: boolean; note?: string }> | null
+    allowed: Record<string, unknown> | null
+  }
+  chain: Array<{ id: number; action: string; toolName: string | null; businessEvent?: string | null; agentId?: string | null; createdAt: string }>
 }
 
 /** §22.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计 */

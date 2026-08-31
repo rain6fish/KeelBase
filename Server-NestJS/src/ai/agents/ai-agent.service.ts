@@ -24,6 +24,13 @@ export class AiAgentService {
     return this.repo.find({ order: { name: 'ASC' } });
   }
 
+  /** §22.16 A-5 跨系统身份链：audit agentId（= headless key 名 / AiAgent.name 唯一键）→ Agent 名称/信任级/用途 */
+  async findByAgentId(agentId: string): Promise<{ name: string; trustLevel: string; purpose?: string | null } | null> {
+    if (!agentId) return null;
+    const agent = await this.repo.findOne({ where: { name: agentId } });
+    return agent ? { name: agent.name, trustLevel: agent.trustLevel, purpose: agent.purpose ?? null } : null;
+  }
+
   /** 从 headless keys 幂等注册：存在则更新 owner/purpose，不存在则创建（trustLevel 默认 R1）。 */
   async upsertFromHeadless(sources: AgentSource[]): Promise<number> {
     let created = 0;
