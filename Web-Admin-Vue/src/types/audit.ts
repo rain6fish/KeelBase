@@ -20,6 +20,10 @@ export interface AuditLog {
   createdAt: string
   /** 所属用户名（管理端审计 JOIN 用户表返回） */
   username?: string | null
+  /** §22.16 A-1 业务事件名（CustomerRiskAssessed 等） */
+  businessEvent?: string | null
+  /** §22.16 A-1 Decision Evidence（JSON 字符串） */
+  evidence?: string | null
 }
 
 /** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */

@@ -57,6 +57,8 @@
 
               <!-- 工具调用（业务语言；技术参数点击展开） -->
               <div v-else-if="s.type === 'tool_call'" class="mt-1">
+                <!-- §22.16 A-1 业务事件名（业务行为取证主标签） -->
+                <div v-if="s.businessEvent" class="text-caption font-weight-medium text-primary mb-1">{{ s.businessEvent }}</div>
                 <div class="text-body-2">
                   <el-popover placement="top" :width="380" trigger="click">
                     <template #reference>
@@ -89,6 +91,12 @@
                     <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="16" />
                     <span :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
                   </div>
+                </div>
+                <!-- §22.16 A-1 Decision Evidence（决策依据，不记 CoT） -->
+                <div v-if="evidenceOf(s)" class="mt-1 pa-2" style="background: var(--el-fill-color-light); border-radius: 4px">
+                  <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('decisionEvidence') }}</div>
+                  <div v-for="e in evidenceOf(s)!.evidence" :key="e" class="text-caption">· {{ e }}</div>
+                  <div v-if="evidenceOf(s)!.policy" class="text-caption text-medium-emphasis mt-1">{{ t('decisionPolicy') }}</div>
                 </div>
               </div>
 
@@ -147,9 +155,20 @@ import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType } from '@/utils/traceSource'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { ConversationSummary, TraceEffect, TraceStep } from '@/types/workbench'
+import type { ConversationSummary, TraceEffect, TraceStep, DecisionEvidence } from '@/types/workbench'
 
 const { t, tm, locale } = useI18n()
+
+/** §22.16 A-1：解析 TraceStep.evidence（DecisionEvidence JSON），非法/缺失返回 null */
+function evidenceOf(s: TraceStep): DecisionEvidence | null {
+  if (!s.evidence) return null
+  try {
+    const p = JSON.parse(s.evidence) as DecisionEvidence
+    return p && typeof p === 'object' ? p : null
+  } catch {
+    return null
+  }
+}
 const snackbar = useSnackbarStore()
 
 const conversations = ref<ConversationSummary[]>([])

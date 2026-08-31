@@ -25,7 +25,7 @@
 > **状态（2026-08-30）**：演进方向全部落地——协议 spec ✅、字段级审计 ✅、审计可视化 ✅、独立治理控制平面 ✅、可行动错误提示 ✅、sidecar 零代码接入 + **工具门控 ✅（S-1+S-2）**。剩余为生态深化（集成商模板）。
 
 1. **治理协议标准化** ✅ —— 审计哈希链（算法 / 格式 / verify 语义）、委托 token（claim 语义）、工具风险分级 R1–R5 的 **spec 公开文档化**，供跨语言实现（Java Starter / Node 等）对齐与互通。
-2. **审计粒度增强** ✅ —— AI 写操作**字段级变更审计**（before/after diff 入链）+ **行为级审计**（参数 / 上下文 / 决策依据完整入链），支撑更细粒度的合规证据。
+2. **审计粒度增强** ✅ —— AI 写操作**字段级变更审计**（before/after diff，快照存副作用表独立列、**链外**）+ **行为级审计**（参数 / 上下文 / 决策依据完整入链），支撑更细粒度的合规证据。§22.16 A-1 增 **Decision Evidence**（决策依据：decision/evidence/policy/confidence，链外列）+ **业务事件归一化**（CustomerRiskAssessed / FollowupTaskCreated 等跨系统统一业务语言）。
 3. **审计可视化** ✅ —— AI 行为回放图形化（工具调用链 / 决策树）、审计哈希链 **verify 结果可视化**、审计趋势与异常视图。
 4. **独立治理控制平面** ✅ —— 治理能力（Agent Registry / 策略中心 / 风险中心 / 审计）可作为**独立部署的治理台**（`npm run start:governance` / docker compose），统一管理多个业务系统的 AI 操作（审计/副作用上报、策略下发、撤销/approve 双向跨服务回调，见 [governance-deploy.md](manual/governance-deploy.md)）。
 5. **易用性 / 可用性** ✅（部分）—— 新手引导（onboarding）、可行动的错误提示（拒绝原因附「怎么办」）、关键路径性能优化。

@@ -25,7 +25,12 @@ describe('OperationAuditInterceptor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (reflector as any).getAllAndOverride.mockReturnValue(false);
-    interceptor = new OperationAuditInterceptor(reflector, auditService as any);
+    interceptor = new OperationAuditInterceptor(
+      reflector,
+      auditService as any,
+      // §22.16 A-1 before 查询：默认无行（before null → 退化记录 after 值）
+      { getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }) } as any,
+    );
   });
 
   it('records a write request (POST)', async () => {
@@ -40,7 +45,7 @@ describe('OperationAuditInterceptor', () => {
       user: { sub: 5 },
     };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -67,7 +72,7 @@ describe('OperationAuditInterceptor', () => {
       user: { sub: 5 },
     };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -92,7 +97,7 @@ describe('OperationAuditInterceptor', () => {
       user: { sub: 5 },
     };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -105,7 +110,7 @@ describe('OperationAuditInterceptor', () => {
   it('skips GET requests', async () => {
     const req = { method: 'GET', originalUrl: '/x', url: '/x', body: null, headers: {}, params: {} };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).not.toHaveBeenCalled();
   });
@@ -114,7 +119,7 @@ describe('OperationAuditInterceptor', () => {
     (reflector as any).getAllAndOverride.mockReturnValue(true);
     const req = { method: 'POST', originalUrl: '/x', url: '/x', body: {}, headers: {}, params: {} };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).not.toHaveBeenCalled();
   });
@@ -123,7 +128,7 @@ describe('OperationAuditInterceptor', () => {
     auditService.log.mockRejectedValue(new Error('db down'));
     const req = { method: 'DELETE', originalUrl: '/api/v1/events/1', url: '/api/v1/events/1', body: {}, headers: {}, params: { id: '1' }, user: { sub: 1 } };
 
-    const result = await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    const result = await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(result).toEqual({ ok: true });
   });
@@ -131,7 +136,7 @@ describe('OperationAuditInterceptor', () => {
   it('derives targetId from path params', async () => {
     const req = { method: 'PATCH', originalUrl: '/api/v1/events/42', url: '/api/v1/events/42', body: {}, headers: {}, params: { id: '42' }, user: { sub: 1 } };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '42', action: 'UPDATE' }));
   });
@@ -139,7 +144,7 @@ describe('OperationAuditInterceptor', () => {
   it('非写方法（OPTIONS）→ 跳过不审计（WRITE_METHODS 过滤）', async () => {
     const req = { method: 'OPTIONS', originalUrl: '/api/v1/x', url: '/api/v1/x', body: {}, headers: {}, params: {} };
 
-    await firstValueFrom(interceptor.intercept(mockContext(req), next));
+    await firstValueFrom(await interceptor.intercept(mockContext(req), next));
 
     expect(auditService.log).not.toHaveBeenCalled();
   });
@@ -149,7 +154,7 @@ describe('OperationAuditInterceptor', () => {
     cyclic.self = cyclic;
     const req = { method: 'POST', originalUrl: '/api/v1/events', url: '/api/v1/events', body: cyclic, headers: {}, params: {}, user: { sub: 1 } };
 
-    await expect(firstValueFrom(interceptor.intercept(mockContext(req), next))).resolves.toEqual({ ok: true });
+    await expect(firstValueFrom(await interceptor.intercept(mockContext(req), next))).resolves.toEqual({ ok: true });
     expect(auditService.log).toHaveBeenCalled();
   });
 });

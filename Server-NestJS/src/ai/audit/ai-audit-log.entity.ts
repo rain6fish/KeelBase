@@ -78,6 +78,14 @@ export class AiAuditLog {
   @Column({ type: 'text', nullable: true, name: 'authorization' })
   authorization?: string;
 
+  /** §22.16 A-1 业务行为取证：业务事件名（CustomerRiskAssessed/FollowupTaskCreated 等跨系统归一）；不入哈希链 payload（同 agent_id，防破坏历史链） */
+  @Column({ length: 64, nullable: true, name: 'business_event' })
+  businessEvent?: string;
+
+  /** §22.16 A-1 Decision Evidence（JSON：{decision, evidence[], policy, confidence}）；不入哈希链 payload（推理型展示数据，同 feedback 前例） */
+  @Column({ type: 'text', nullable: true, name: 'evidence' })
+  evidence?: string;
+
   /** AI-18 对话反馈：thumbs_up | thumbs_down（用户赞/踩后记录） */
   @Column({ length: 16, nullable: true })
   feedback?: string;

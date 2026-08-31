@@ -48,6 +48,10 @@ export interface AuditEntry {
   errorMessage?: string;
   /** W5-⑦ Explainable Authz：工具被拒时 AuthorizationDeniedError.reasons 的 JSON（checks[]） */
   authorization?: string;
+  /** §22.16 A-1 业务事件名（CustomerRiskAssessed/FollowupTaskCreated 等，跨系统归一；链外） */
+  businessEvent?: string;
+  /** §22.16 A-1 Decision Evidence（JSON：{decision, evidence[], policy, confidence}；链外） */
+  evidence?: string;
 }
 
 /** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
@@ -156,6 +160,10 @@ export interface AiAuditLogWithUser {
   authorization?: string | null;
   createdAt: string;
   username?: string | null;
+  /** §22.16 A-1 业务事件名（CustomerRiskAssessed 等；链外） */
+  businessEvent?: string | null;
+  /** §22.16 A-1 Decision Evidence（JSON 字符串；链外） */
+  evidence?: string | null;
 }
 
 @Injectable()
@@ -227,6 +235,8 @@ export class AuditService {
       isError: entry.isError ?? false,
       errorMessage: entry.errorMessage,
       authorization: entry.authorization,
+      businessEvent: entry.businessEvent,
+      evidence: entry.evidence,
     };
 
     if (this.dataSource.options.type === 'postgres') {
@@ -359,6 +369,10 @@ export class AuditService {
       // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止反馈写入断链（HS-11）
       feedback: null,
       feedbackNote: null,
+      // §22.16 A-1 business_event/evidence 是链外注解列（业务事件名 + Decision Evidence JSON，推理型展示数据）：
+      // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止写入断链（同 feedback 前例）
+      businessEvent: null,
+      evidence: null,
     };
   }
 
@@ -450,6 +464,9 @@ export class AuditService {
       feedbackNote: r.log_feedback_note ?? null,
       createdAt: String(r.log_createdAt),
       username: r.username ?? null,
+      // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外透出）
+      businessEvent: r.log_business_event ?? null,
+      evidence: r.log_evidence ?? null,
     };
     });
   }

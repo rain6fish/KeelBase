@@ -188,6 +188,9 @@ const zh = {
   traceSourceAgent: 'AI',
   traceSourceSystem: '系统',
   stepToolCall: '工具调用',
+  // §22.16 A-1 业务行为取证
+  decisionEvidence: '决策依据',
+  decisionPolicy: '策略',
   stepConfirmation: '确认决策',
   stepEffect: '创建记录',
   stepNotice: 'AI 处理',

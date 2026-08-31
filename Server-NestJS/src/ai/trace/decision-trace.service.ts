@@ -57,6 +57,10 @@ export interface TraceStep {
   /** D4 多 Agent 归责：执行该步骤的子 agent 标识 / 调用方 agent */
   agentId?: string;
   callerAgentId?: string;
+  /** §22.16 A-1 业务事件名（CustomerRiskAssessed 等） */
+  businessEvent?: string | null;
+  /** §22.16 A-1 Decision Evidence（JSON 字符串：{decision, evidence[], policy, confidence}） */
+  evidence?: string | null;
 }
 
 export interface DecisionTrace {
@@ -122,6 +126,9 @@ export class DecisionTraceService {
           checks: parseChecks(log.authorization),
           agentId: log.agentId,
           callerAgentId: log.callerAgentId,
+          // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外透出）
+          businessEvent: log.businessEvent ?? null,
+          evidence: log.evidence ?? null,
         });
       } else if (log.action === 'tool_confirmation') {
         const parsed = parseConfirmation(log.detail);

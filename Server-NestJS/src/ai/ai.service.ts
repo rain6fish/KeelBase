@@ -44,6 +44,7 @@ import {
 } from './security/injection-guard';
 import { checkContentSafety } from './security/content-safety';
 import { ContentSafetyService } from './security/content-safety.service';
+import { deriveAiBusinessEvent } from './audit/ai-business-event';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
@@ -387,6 +388,19 @@ export class AiService {
     return true;
   }
 
+  /** §22.16 A-1 Decision Evidence：analyze_* 确定性打分 → {decision, evidence[], policy, confidence} JSON（链外）。 */
+  private _captureDecisionEvidence(toolName: string, result: ToolResult): string | null {
+    if (toolName !== 'analyze_customer_risk' && toolName !== 'analyze_project_risk') return null;
+    const data = result.data as { level?: string; score?: number; reasons?: string[] } | undefined;
+    if (!data || typeof data.score !== 'number' || typeof data.level !== 'string') return null;
+    return JSON.stringify({
+      decision: data.level,
+      evidence: Array.isArray(data.reasons) ? data.reasons.slice(0, 20) : [],
+      policy: '风险评分阈值：score≥10 critical / ≥6 high / ≥3 medium',
+      confidence: Math.min(data.score / 12, 1),
+    });
+  }
+
   /**
    * HS-3 写工具执行（幂等 + 副作用记录）：
    * - 同会话同工具同参数重复调用返回已有结果（防 LLM 重试/并发重复创建）
@@ -426,11 +440,13 @@ export class AiService {
         },
       };
     }
+    // §22.16 A-1：update 类写工具 execute 前抓 before（本地实体重查 / proxy 用 args 摘要）；create 类返回 null
+    const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
     const result = await this.toolRegistry.execute(toolName, args, userId);
     const isProxyWrite = this.isProxyTool(toolName);
     if (result.success && result.data && ((result.data as any).id !== undefined || isProxyWrite)) {
-      // 状态变更型写工具（AI 预审）不创建可撤销记录，仅确认 + 审计
-      if (toolName !== 'review_approval_request') {
+      // 状态变更型写工具（AI 预审）与 dry-run 只读预览（create_module）不创建可撤销记录，仅确认 + 审计
+      if (!['review_approval_request', 'create_module'].includes(toolName)) {
         // B 路径（ProxyTool 写）：登记 proxy_call 副作用（目标在外部系统，可见/可审计；撤销需 Java 端补偿）
         // AI 旗舰应用：写工具 → 对应实体 resultType（撤销走软删）
         const resultType = isProxyWrite
@@ -459,7 +475,7 @@ export class AiService {
           { userId, conversationId, toolName, args },
           resultType,
           resultId,
-          { before: null, after },
+          { before, after },
         );
       }
     }
@@ -598,6 +614,8 @@ export class AiService {
       errorMessage: result.success
         ? `R4 approved by approver ${req.approverId}`
         : `R4 approved by approver ${req.approverId}; execution failed: ${result.error}`,
+      // §22.16 A-1 业务事件名
+      businessEvent: deriveAiBusinessEvent(req.toolName) ?? undefined,
     });
     return result;
   }
@@ -1389,6 +1407,9 @@ export class AiService {
               // R4 pending（已提交审批）不算失败：否则单次审批被计 approved+blocked+errors 三重误报
               isError: !result.success && !pendingApproval,
               errorMessage: result.error,
+              // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
+              businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
+              evidence: this._captureDecisionEvidence(tc.name, result) ?? undefined,
             });
           }
         } catch (err) {
@@ -1754,6 +1775,9 @@ export class AiService {
               detail: `${tc.name}(${tc.arguments})`,
               isError: !resolvedResult.success,
               errorMessage: resolvedResult.error,
+              // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
+              businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
+              evidence: this._captureDecisionEvidence(tc.name, resolvedResult) ?? undefined,
             });
           }
 
