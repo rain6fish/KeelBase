@@ -4,13 +4,15 @@ import { toolLabel } from './toolLabel'
 
 export { toolLabel }
 
-/** 审计动作语义 key（actionKey）→ 双语标签；i18n 未命中回退英文 fallback / 原始 action */
+/** 审计动作语义 key（actionKey）→ 双语标签；查 i18n feature 容器（ai.tool.* / ai.*），未命中回退英文 fallback / 原始 action */
 export function actionLabel(
   key: string | null | undefined,
   fallback: string | null | undefined,
   t: (k: string) => string,
+  feature?: Record<string, string> | undefined,
 ): string {
   if (key) {
+    if (feature?.[key]) return feature[key]
     const s = t(key)
     if (s && s !== key) return s
   }
@@ -23,6 +25,7 @@ export function errorLabel(message: string | null | undefined, t: (k: string) =>
   if (/did not respond in time/i.test(message)) return t('errConfirmTimeout')
   if (/declined the operation|user declined/i.test(message)) return t('errConfirmDeclined')
   if (/streaming chat/i.test(message)) return t('errWriteStreaming')
+  if (/blocked \(risk level|is blocked/i.test(message)) return t('errToolBlocked')
   if (/permission denied|not authorized|forbidden|无权访问/i.test(message)) return t('errDenied')
   return message
 }
