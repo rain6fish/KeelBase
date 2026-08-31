@@ -53,6 +53,12 @@
           </div>
         </div>
 
+        <!-- A-3 生命周期状态机：这件事现在到哪一步 -->
+        <div v-if="lifecycleState" class="mb-2">
+          <div class="text-caption text-medium-emphasis mb-1">{{ t('lifecycle') }}</div>
+          <el-tag size="small" :type="lifecycleTag(lifecycleState)" effect="dark">{{ lifecycleLabel(lifecycleState) }}</el-tag>
+        </div>
+
         <div class="d-flex justify-space-between mb-1">
           <span class="text-caption text-medium-emphasis">{{ t('governanceResult') }}</span>
           <span class="text-body-2">{{ data.effect.resultType }} #{{ data.effect.resultId }}</span>
@@ -160,6 +166,23 @@ const actorName = computed(() => {
 
 /** A-5 身份链：Agent 名（从决策轨迹步骤取非空 agentId；无子 agent 时空，身份链退化为 Human→Tool→Action） */
 const agentName = computed(() => steps.value.find((s) => s.agentId)?.agentId ?? '')
+
+/** A-3 生命周期状态机：从决策轨迹推导「这件事现在到哪一步」 */
+const lifecycleState = computed(() => {
+  if (!data.value) return ''
+  const effect = data.value.effect as { targetSoftDeleted?: boolean }
+  if (effect.targetSoftDeleted) return 'revoked'
+  const confirm = steps.value.find((s) => s.type === 'confirmation')
+  if (confirm?.outcome === 'decline') return 'declined'
+  const denied = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
+  if (denied) return 'blocked'
+  if (confirm?.outcome === 'approve') return 'confirmed'
+  return 'executed'
+})
+const lifecycleLabel = (s: string) =>
+  ({ revoked: t('lifecycleRevoked'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
+const lifecycleTag = (s: string) =>
+  ({ revoked: 'danger', declined: 'danger', blocked: 'warning', confirmed: 'success', executed: 'success' })[s] ?? 'info'
 
 /** Why 用户视角：确认结果 / 拒绝 / 信任上下文 人类语言 */
 const whySummary = computed(() => {
