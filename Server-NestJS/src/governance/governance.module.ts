@@ -24,6 +24,7 @@ import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
 import { GovernanceApprovalService } from './governance-approval.service';
+import { SidecarRegistryService } from './sidecar-registry.service';
 
 // 治理 controller
 import { AuditController } from '../ai/audit/audit.controller';
@@ -78,6 +79,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     LocalEntityRevoker,
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
     AuditChainService,
+    SidecarRegistryService,
   ],
 })
 export class GovernanceModule {}
