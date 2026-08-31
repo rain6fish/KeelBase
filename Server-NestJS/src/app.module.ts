@@ -153,6 +153,8 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAiAgents*.js',
               'dist/migrations/*FixAiAgentsNameUniqueIndex*.js',
               'dist/migrations/*AddUsersCreatedAtIndex*.js',
+              'dist/migrations/*AddOperationAuditChanges*.js',
+              'dist/migrations/*AddAiAuditBusinessEventEvidence*.js',
               'dist/migrations/*AddAuditChainLock*.js',
               'dist/migrations/*AddAiAuditUsername*.js',
               'dist/migrations/*AddAiGovernancePolicy*.js',
