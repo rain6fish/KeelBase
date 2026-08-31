@@ -68,6 +68,12 @@
         <el-input v-model="userId" :label="t('filterByUser')" style="max-width: 200px" />
         <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 200px" />
         <RangeFilter v-model="range" @update:model-value="onRange" />
+        <el-select v-model="behaviorFilter" :placeholder="t('filterBehavior')" clearable style="width: 170px">
+          <el-option :label="t('behaviorExecute')" value="execute" />
+          <el-option :label="t('behaviorFailed')" value="failed" />
+          <el-option :label="t('behaviorDenied')" value="denied" />
+          <el-option :label="t('behaviorChat')" value="chat" />
+        </el-select>
         <el-button type="primary" @click="load">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
           {{ t('filter') }}
@@ -75,7 +81,7 @@
       </div>
     </el-card>
 
-    <AppTable :headers="headers" :items="logs" :loading="loading" :total="logs.length" :items-per-page="limit" :hide-footer="true">
+    <AppTable :headers="headers" :items="filteredLogs" :loading="loading" :total="filteredLogs.length" :items-per-page="limit" :hide-footer="true">
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
       <template #item.model="{ item }">{{ item.provider ? t('providerModel', { provider: item.provider, model: item.model || '-' }) : (item.model || '-') }}</template>
       <template #item.tokens="{ item }">{{ ((item.promptTokens ?? 0) + (item.completionTokens ?? 0)) || '-' }}</template>
@@ -219,6 +225,19 @@ const loading = ref(false)
 const userId = ref('')
 const agentId = ref('')
 const range = ref('all')
+const behaviorFilter = ref('')
+
+/** A-8 行为类型判定：AI 执行 / AI 被拒 / AI 越权 / AI 阻断 / 对话（「AI 没做什么」同样是安全证据） */
+function behaviorType(l: AuditLog): string {
+  if (l.action === 'tool_call' && !l.isError) return 'execute'
+  if (l.action === 'tool_call' && l.isError && !l.authorization) return 'failed'
+  if (l.action === 'tool_call' && l.isError && l.authorization) return 'denied'
+  if (l.action === 'chat') return 'chat'
+  return 'other'
+}
+const filteredLogs = computed(() =>
+  behaviorFilter.value ? logs.value.filter((l) => behaviorType(l) === behaviorFilter.value) : logs.value,
+)
 const since = ref<string | undefined>(undefined)
 const expanded = ref<AuditLog | null>(null)
 const errorLogs = ref<AuditLog[]>([])
