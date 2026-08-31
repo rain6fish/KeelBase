@@ -18,9 +18,12 @@ import { join } from 'node:path';
 
 const BASE = process.env.KB_BASE || 'http://localhost:3002';
 const CHROME = process.env.KB_CHROME || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const LANG = process.env.KB_LANG || 'zh'; // zh | en（英文：UI 切 EN + slides/terminal/bridge 英文化）
 const REPO = process.cwd();
-const SLIDES_URL = `file:///${REPO.replace(/\\/g, '/')}/docs/official-video/slides.html`;
-const TERMINAL_URL = `file:///${REPO.replace(/\\/g, '/')}/docs/official-video/terminal.html`;
+const VIDEO_DIR = 'docs/official-video';
+const SLIDES_URL = `file:///${REPO.replace(/\\/g, '/')}/${VIDEO_DIR}/slides.html${LANG === 'zh' ? '?lang=zh' : ''}`;
+const TERMINAL_URL = `file:///${REPO.replace(/\\/g, '/')}/${VIDEO_DIR}/terminal.html`;
+const BRIDGE_URL = `file:///${REPO.replace(/\\/g, '/')}/${VIDEO_DIR}/bridge.html${LANG === 'zh' ? '?lang=zh' : ''}`;
 const OUT_DIR = join(tmpdir(), 'keelbase-demo-full');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -28,33 +31,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ── 镜头序列：[type, ...args]；时长 = 中英解说 max + 缓冲（配音驱动节奏，画面与解说对齐）──
 const SHOTS = [
   // 品牌 / 定位（slides）
-  ['slide', 1, 3500], ['slide', 2, 5000], ['slide', 3, 4000], ['slide', 4, 8000],
-  ['slide', 5, 5000], ['slide', 6, 8500], ['slide', 7, 6000], ['slide', 8, 5000],
-  // 存量系统桥接（提前：不替换系统获得 AI 能力——核心差异化前置）
-  ['terminal', 'bridge', 11500], ['slide', 33, 6500],
+  ['slide', 1, 5000], ['slide', 2, 7500], ['slide', 3, 4500], ['slide', 4, 9000],
+  ['slide', 5, 5500], ['slide', 6, 11000], ['slide', 7, 8500], ['slide', 8, 5500],
+  // 存量系统桥接（提前：核心差异化前置）+ 桥接流程视觉
+  ['terminal', 'bridge', 15000], ['bridge', 15000], ['slide', 33, 7500],
   // 实机 AI CRM：读分析（golden path）
-  ['ui-golden', 8000],
+  ['ui-golden', 12500],
   // 实机确认门控：写 R3 确认 → 批准 → 已执行/已确认
-  ['ui-confirm', 8000],
+  ['ui-confirm', 12000],
   // 实机旗舰应用：PM 延期风险 + Approval AI 预审
-  ['ui-pm', 6500], ['ui-approval', 9500],
+  ['ui-pm', 9000], ['ui-approval', 11000],
   // 信任运行时定位
-  ['slide', 22, 7000], ['slide', 23, 6500],
+  ['slide', 22, 7500], ['slide', 23, 7500],
   // 企业安全验证 + 系统演示（审计哈希链 / 系统信息 / 监控）
-  ['slide', 26, 6500], ['slide', 27, 6500],
+  ['slide', 26, 8000], ['slide', 27, 7000],
   ['ui-system', 8000],
   // 治理巡礼
-  ['ui-governance', 7000],
+  ['ui-governance', 10500],
   // 构建：keelbase init + 协议→代码
-  ['terminal', 'build', 9000], ['slide', 30, 5000], ['slide', 31, 3500],
+  ['terminal', 'build', 8500], ['slide', 30, 6000], ['slide', 31, 4000],
   // 私有部署
-  ['terminal', 'private', 9000], ['slide', 35, 6000],
+  ['terminal', 'private', 9500], ['slide', 35, 6500],
   // 收尾
-  ['slide', 36, 7000], ['slide', 37, 9000],
+  ['slide', 36, 7500], ['slide', 37, 7500],
 ];
 
 // ── UI golden path：登录 → 打开 AI 助手 → 问客户风险 → 等 demo 分析回复 ──
-// 幂等登录：同一 context 已登录（登录页不出现）则直接跳过。
+// 幂等登录：同一 context 已登录（登录页不出现）则直接跳过。英文版登录后切 EN UI。
 async function loginAs(page, user, pass) {
   await page.goto(`${BASE}/admin/`, { waitUntil: 'networkidle', timeout: 30000 });
   const submitBtn = page.locator('button[type="submit"]');
@@ -64,6 +67,10 @@ async function loginAs(page, user, pass) {
     await submitBtn.first().click();
   }
   await page.waitForSelector('.ai-btn', { timeout: 20000 });
+  if (LANG === 'en') {
+    const enBtn = page.locator('button:has-text("EN")').first();
+    if ((await enBtn.count()) > 0) { await enBtn.click(); await page.waitForTimeout(1000); }
+  }
 }
 
 async function uiGolden(page) {
@@ -123,7 +130,10 @@ async function uiApproval(page) {
   // id=1 已重置为 pending（¥800 ≤ 阈值 → 演示自动通过）
   await page.goto(`${BASE}/admin/#/workbench/approval/1`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
-  await page.locator('button:has-text("AI 预审")').first().click();
+  await page
+    .locator('button:has-text("AI 预审"), button:has-text("AI review"), button:has-text("AI Review")')
+    .first()
+    .click();
   await page.waitForTimeout(10000); // 等预审结果（政策分级）
 }
 
@@ -170,10 +180,13 @@ async function uiConfirm(page) {
 async function runShot(page, shot) {
   const [type, a, b] = shot;
   if (type === 'slide') {
-    await page.goto(`${SLIDES_URL}?shot=${a}&lang=zh`, { waitUntil: 'load' });
+    await page.goto(`${SLIDES_URL}${SLIDES_URL.includes('?') ? '&' : '?'}shot=${a}`, { waitUntil: 'load' });
     await sleep(b);
   } else if (type === 'terminal') {
-    await page.goto(`${TERMINAL_URL}?type=${a}`, { waitUntil: 'load' });
+    await page.goto(`${TERMINAL_URL}?type=${a}&lang=${LANG}`, { waitUntil: 'load' });
+    await sleep(b);
+  } else if (type === 'bridge') {
+    await page.goto(BRIDGE_URL, { waitUntil: 'load' });
     await sleep(b);
   } else if (type === 'ui-golden') {
     await uiGolden(page);

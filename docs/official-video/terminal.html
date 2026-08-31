@@ -70,8 +70,56 @@
       ],
     };
 
+    // English scenes (en = default)
+    const SCENES_EN = {
+      build: [
+        ['cmd', 'keelbase init --spec specs/invoices.json'],
+        ['out', 'Generating business module: invoices'],
+        ['out', '  singular=invoice plural=invoices class=Invoices fields=[invoiceNo, amount, status]'],
+        ['ok', '✓ wired: Server-NestJS/src/app.module.ts'],
+        ['ok', '✓ wired: Server-NestJS/src/ai/ai.module.ts (query_invoices read + create_invoices write needs approval)'],
+        ['ok', '✓ wired: Server-NestJS/src/common/modules/modules-manifest.ts'],
+        ['ok', '✓ wired: Flutter / Web workbench / Taro + routes + i18n'],
+        ['out', 'Generated:'],
+        ['out', '  invoice.entity.ts + dto + service + controller + module'],
+        ['out', '  ai/tools/query-invoices.tool.ts (read)'],
+        ['out', '  ai/tools/create-invoices.tool.ts (write, needs human approval)'],
+        ['dim', 'Next: npm run build && npm test -- invoices → 20 passed'],
+      ],
+      bridge: [
+        ['cmd', 'node scripts/keelbase-init.mjs --import-openapi-proxy specs/external-crm.openapi.json --base-url http://localhost:8082 --audience legacy-crm'],
+        ['out', '{'],
+        ['out', '  "baseUrl": "http://localhost:8082",'],
+        ['out', '  "audience": "legacy-crm",'],
+        ['out', '  "tools": ['],
+        ['ok', '    GET  /customers          → list_customers       | R1 auto (read)'],
+        ['ok', '    GET  /customers/{id}     → get_customer         | R1 auto (read)'],
+        ['ok', '    GET  /customers/{id}/orders → list_customer_orders | R1 auto (read)'],
+        ['warn', '    POST /customers/{id}/followups → create_followup_task | R3 needs approval (write)'],
+        ['warn', '    PATCH /customers/{id}/orders/{orderId} → update_order_amount | R3 needs approval (write)'],
+        ['out', '  ]'],
+        ['out', '}'],
+        ['dim', '▲ B-path proxy tools: external OpenAPI → governed tools (read auto / write approved)'],
+        ['out', 'Loop: read external CRM → assess risk → create follow-up (R3 approval)'],
+        ['out', '  → write back (proxy side effect) → audit chain → revoke (Java compensation)'],
+      ],
+      private: [
+        ['cmd', './scripts/verify-private-ai.sh'],
+        ['out', '═══ KeelBase private AI verification (data stays in-domain) ═══'],
+        ['ok', '✓ Cloud Provider OFF (no external LLM key)'],
+        ['ok', '✓ Ollama local model (AI_PROVIDER=ollama)'],
+        ['ok', '✓ Local embeddings (bge-m3) + local RAG'],
+        ['ok', '✓ Agent tool calls (data never leaves domain)'],
+        ['ok', '✓ Audit recorded (provider=ollama)'],
+        ['dim', 'Config: OLLAMA_BASE_URL=http://localhost:11434  AI_CHAT_MODEL=qwen2.5:7b'],
+        ['dim', 'Deploy: Docker · Offline · On-Premise · Private Data'],
+      ],
+    };
+
     const type = new URLSearchParams(location.search).get('type') || 'build';
-    const lines = SCENES[type] || SCENES.build;
+    const lang = new URLSearchParams(location.search).get('lang') || 'en';
+    const SC = lang === 'zh' ? SCENES : SCENES_EN;
+    const lines = SC[type] || SC.build;
     const term = document.getElementById('term');
 
     async function render() {
