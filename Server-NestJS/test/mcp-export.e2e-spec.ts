@@ -81,6 +81,24 @@ describe('MCP Export (HS-10 / AR-2) e2e', () => {
     expect(names.some((n: string) => n.startsWith('mcp_'))).toBe(false); // 未注册外部 server
   });
 
+  it('tools/list 工具声明携带治理契约扩展（§4.4：annotations + _meta.keelbase）', async () => {
+    const res = await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }).expect(201);
+    const tools = res.body.result.tools as Array<{
+      name: string;
+      annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+      _meta?: { keelbase?: { riskLevel: string; riskStrategy: string; requiresConfirmation: boolean } };
+    }>;
+    const query = tools.find((t) => t.name === 'query_events');
+    expect(query?._meta?.keelbase?.riskLevel).toBe('R1');
+    expect(query?._meta?.keelbase?.requiresConfirmation).toBe(false);
+    expect(query?.annotations?.readOnlyHint).toBe(true);
+    const create = tools.find((t) => t.name === 'create_event');
+    expect(create?._meta?.keelbase?.riskLevel).toBe('R3');
+    expect(create?._meta?.keelbase?.riskStrategy).toBe('confirmation');
+    expect(create?._meta?.keelbase?.requiresConfirmation).toBe(true);
+    expect(create?.annotations?.readOnlyHint).toBe(false);
+  });
+
   it('tools/call 读工具 query_events 以当前用户身份执行', async () => {
     const res = await post({
       jsonrpc: '2.0',

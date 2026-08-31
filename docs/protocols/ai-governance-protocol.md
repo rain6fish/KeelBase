@@ -115,6 +115,40 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
   → 副作用登记（可撤销）→ 审计哈希链 + 决策轨迹
 ```
 
+### 4.4 MCP 工具声明治理扩展 / MCP Tool Declaration Governance Extension
+
+**目的**：让治理契约跨 MCP 生态可读——任何 MCP 客户端（Agent Framework / Gateway / 工具注册表）在 `tools/list` 即可看到每个工具的风险级与执行策略，从而按治理策略编排。KeelBase 对外 MCP 出口（HS-10）与接入外部 MCP server 的网关（Secure MCP Gateway）共用同一套声明语义。
+
+**KeelBase 出口声明格式**（每个工具的 MCP Tool 对象；SDK `ToolSchema` 无 passthrough，自定义字段必须走标准扩展槽）：
+
+```json
+{
+  "name": "create_followup_task",
+  "description": "...",
+  "inputSchema": { "type": "object", "properties": {} },
+  "annotations": { "readOnlyHint": false, "destructiveHint": false },
+  "_meta": {
+    "keelbase": {
+      "riskLevel": "R3",
+      "riskStrategy": "confirmation",
+      "requiresConfirmation": true
+    }
+  }
+}
+```
+
+**字段语义 / Field Semantics**：
+
+| 字段 | 类型 | 语义 |
+|---|---|---|
+| `annotations.readOnlyHint` | boolean | R0–R2（自动/读）→ `true`；R3–R5 → `false`（MCP 标准 hint，粗粒度） |
+| `annotations.destructiveHint` | boolean | 仅 R5（不可逆/外部动作）→ `true`；其余 → `false`（R3/R4 为 additive 写，标注非破坏性；权威值以 `_meta.keelbase.riskLevel` 为准） |
+| `_meta.keelbase.riskLevel` | string | **权威值**：R0–R5（§4.1 分级表） |
+| `_meta.keelbase.riskStrategy` | string | `auto` / `policy` / `confirmation` / `human_approval` / `block`（§4.1） |
+| `_meta.keelbase.requiresConfirmation` | boolean | 是否需人工确认（R3/R4） |
+
+**实现要求**：对齐本协议的实现将工具暴露为 MCP server 时，应在 `_meta.keelbase` 携带上述三项（`annotations` 为可选的 MCP 标准提示）；消费外部 MCP server 工具时，若对方声明了 `_meta.keelbase` 或等价风险级，应以其门控；未声明则按 §4.2 派生规则判定（写 → R3，读 → R1）。
+
 ---
 
 ## 5. 兼容实现清单 / Compatible Implementations
@@ -126,7 +160,7 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 | **Server-NestJS**（参考实现） | TypeScript / NestJS | ✅ HS-11 全链 + verify | ✅ 签发 + 验签（ai-bridge §5） | ✅ R0–R5 + 门控/确认/审批（HS-9/R4） | 治理体系权威实现（src/ai、src/auth、src/ai/governance） |
 | **KeelBase-java-starter** | Java / Spring Boot | 🔶 补偿脚手架幂等账本 + 审计上报（扩展中） | ✅ `DelegationAuthFilter`（HS256 + aud/iss/exp，fail-open + 保护路径 fail-closed） | ✅ `@KeelbaseTool` 类型/风险级口径对齐生成器 | 存量 Java 系统接入层（Maven Central 待发布） |
 | **governance-sidecar** | TypeScript / 独立服务 | ✅ 审计上报治理台（source=sidecar，落治理库链，含工具调用决策） | —（服务身份 `GOVERNANCE_API_KEY`，非委托 token） | ✅ S-2 工具门控/确认/策略应用（§4.3 R5 阻断 / R3-R4 hold-and-release / 策略覆盖） | 零代码接入：业务系统 LLM base URL → sidecar → 治理台 |
-| **Secure MCP Gateway** | TypeScript / NestJS | ✅ 每次调用落 AI 审计（provider=mcp 归因） | —（调用者 JWT 身份） | ✅ 工具声明 riskLevel/riskStrategy（A2）+ 写需确认不自动执行 | MCP 出口，以调用者身份过治理管线 |
+| **Secure MCP Gateway** | TypeScript / NestJS | ✅ 每次调用落 AI 审计（provider=mcp 归因） | —（调用者 JWT 身份） | ✅ 工具声明 riskLevel/riskStrategy（A2）+ **§4.4 MCP 声明扩展**（annotations + `_meta.keelbase`）+ 写需确认不自动执行 | MCP 出口，以调用者身份过治理管线 |
 | **headless API** | TypeScript / NestJS | ✅ 复用 Agent 审计（key 归属用户身份） | —（API Key 身份，归属 owner 用户） | ✅ 复用 Agent 工具门控（HS-4） | 第三方集成入口（x-api-key 认证） |
 
 **对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-moat-adoption.mjs`）验收接入闭环。
