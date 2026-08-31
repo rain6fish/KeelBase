@@ -233,6 +233,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 - **Private AI Verification 私有 AI 验证** — [中文](docs/manual/private-ai-verification.md) · [English](docs/manual/private-ai-verification-en.md)
 - **Flagship Apps Spec 旗舰应用规格** — [中文](docs/flagship-applications.md) · [English](docs/flagship-applications-en.md)
 - **Enterprise Capabilities 企业能力声明** — [中文](docs/enterprise-capabilities.md) · [English](docs/enterprise-capabilities-en.md)
+- **Compliance Mapping 合规映射** — [中文](docs/manual/compliance-mapping.md) · [English](docs/manual/compliance-mapping-en.md)
 - **Architecture Boundary 架构边界** — [中文](docs/architecture-boundary.md) · [English](docs/architecture-boundary-en.md)
 - **Authorization Architecture 权限架构** — [中文](docs/authorization-architecture.md) · [English](docs/authorization-architecture-en.md)
 - **External system integration 外部系统集成**
