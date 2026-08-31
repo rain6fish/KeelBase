@@ -64,6 +64,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **协议合规认证套件（护城河 2.1 / A1）**：`scripts/verify-protocol-conformance.mjs` 独立实现三大治理协议（审计链 canonical/hash/链校验、委托 token HS256 验签、风险分级派生）+ 篡改检测测试向量；`npm run conformance`；协议文档 §2.2/§2.3 修正为精确匹配参考实现（genesis 字面量、`|` 分隔符、legacy HMAC 派生、AUDIT_HMAC_KEY 轮换语义）；§5.1 新增第三方自认证说明。参考实现 22/22 通过。
 - **Audit evidence package offline verification (Moat 2.3 / A2)**: `GET /audit/action-report/export` now returns `format=keelbase-audit-evidence/1` + full chain rows (id/prevHash/hash/payload) with the signature covering the chain; `scripts/verify-evidence.mjs` verifies the package offline — chain structure without keys (deletion/reorder/break detection), full payload recompute + signature with `--key <AUDIT_HMAC_KEY>` (content-tamper detection). Auditors can verify without installing KeelBase.
   **审计证据包离线机器验证（护城河 2.3 / A2）**：`GET /audit/action-report/export` 现返回 `format=keelbase-audit-evidence/1` + 全量链行（id/prevHash/hash/payload），签名覆盖 chain；`scripts/verify-evidence.mjs` 离线验证证据包——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算 payload + 验签（内容篡改检测）。审计机构不装 KeelBase 即可复核。
+- **Governance policy realtime push (Moat 2.2 / B2)**: sidecar registers a callback (`SIDECAR_CALLBACK_URL`) with the governance console on startup; policy changes (apply-preset / PUT policy) are pushed to registered sidecars in real time (`POST /v1/policy`, service identity), taking effect in seconds instead of the 60s polling interval (kept as fallback).
+  **治理策略实时推送（护城河 2.2 / B2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`）；策略变更（apply-preset / PUT policy）后治理台实时推送（`POST /v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底。
 
 ## [1.0.2] - 2026-08-27
 

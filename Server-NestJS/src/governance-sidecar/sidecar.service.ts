@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { SidecarToolRegistry, type SidecarToolDef, type ToolDecision } from './sidecar-tool-registry';
+import { SidecarToolRegistry, type SidecarToolDef, type ToolDecision, type ToolOverride } from './sidecar-tool-registry';
 
 /**
  * 治理 sidecar（护城河 2.0 嵌入广度）：
@@ -36,6 +36,10 @@ export class SidecarService {
     const refreshSec = parseInt(process.env.SIDECAR_POLICY_REFRESH_SECONDS || '60', 10);
     setInterval(() => void this.refreshPolicy(), refreshSec * 1000).unref();
     setInterval(() => this.purgeHeld(), this.confirmTtlMs).unref();
+
+    // B2：启动时向治理台注册回调（SIDECAR_CALLBACK_URL），策略变更秒级推送；注册失败/重启由 60s 轮询兜底
+    const callbackUrl = process.env.SIDECAR_CALLBACK_URL || '';
+    if (callbackUrl && this.govUrl) void this.registerCallback(callbackUrl);
   }
 
   /** 拦截 + 上报 + 转发真实 LLM + 工具门控（S-2） */
@@ -152,6 +156,26 @@ export class SidecarService {
     } catch {
       /* 治理台不可达：沿用本地 SIDECAR_TOOLS 风险级 */
     }
+  }
+
+  /** B2：向治理台注册回调（fire-and-forget；失败静默，靠轮询兜底） */
+  private async registerCallback(callbackUrl: string): Promise<void> {
+    try {
+      await fetch(`${this.govUrl}/api/v1/external/governance/sidecars/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': this.govKey },
+        body: JSON.stringify({ callbackUrl }),
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      /* 治理台不可达：靠轮询兜底 */
+    }
+  }
+
+  /** B2：接收治理台策略推送（实时生效），返回确认 */
+  applyPushedPolicy(policy: unknown, pushedAt?: string): { accepted: boolean; pushedAt?: string } {
+    this.registry.setPolicy((policy ?? null) as { tools?: Record<string, ToolOverride> } | null);
+    return { accepted: true, pushedAt };
   }
 
   /**
