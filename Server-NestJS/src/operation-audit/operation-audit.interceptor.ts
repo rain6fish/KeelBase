@@ -5,6 +5,7 @@ import { Request } from 'express';
 import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
+import { deriveBusinessEvent } from './business-event';
 import { redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
@@ -37,6 +38,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
     const userId = user?.sub ?? null;
     const targetId = this._extractTargetId(req.params);
     const feature = deriveFeature(method, path);
+    const businessEvent = deriveBusinessEvent(path, method);
 
     return next.handle().pipe(
       tap(() => {
@@ -50,6 +52,9 @@ export class OperationAuditInterceptor implements NestInterceptor {
           featureFallback: feature.fallback,
           targetId,
           requestBody: this._safeBody(req.body),
+          // A-1 字段级变更留痕 + 业务事件归一化（PATCH/PUT 记录变更字段 → after 值；before 精确值后续经实体快照增强）
+          changes: this._extractChanges(req.body),
+          businessEvent,
           ip: req.ip,
           userAgent: req.headers['user-agent'],
           statusCode: ctx.getResponse().statusCode,
@@ -95,5 +100,19 @@ export class OperationAuditInterceptor implements NestInterceptor {
     } catch {
       return null;
     }
+  }
+
+  /** A-1 字段级变更留痕：从请求体提取「变更字段 → after 值」，生成 [{ field, before, after }] JSON。before 精确值经实体快照增强，首增量标 null。 */
+  private _extractChanges(body: unknown): string | null {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+    const SKIP = new Set(['password', 'refreshToken', 'createdAt', 'updatedAt', 'id']);
+    const entries: Array<{ field: string; before: string | null; after: string }> = [];
+    for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+      if (SKIP.has(k)) continue;
+      if (v == null || typeof v === 'object') continue; // 忽略 null/嵌套对象（首增量）
+      entries.push({ field: k, before: null, after: String(v) });
+    }
+    if (!entries.length) return null;
+    return JSON.stringify(entries);
   }
 }

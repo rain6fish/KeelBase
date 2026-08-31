@@ -40,6 +40,14 @@ export class OperationAuditLog {
   @Column({ type: 'text', nullable: true, name: 'request_body' })
   requestBody?: string | null;
 
+  /** A-1 字段级变更留痕（before/after diff）：JSON 数组 [{ field, before, after }]——「改了什么字段、从什么到什么」 */
+  @Column({ type: 'text', nullable: true })
+  changes?: string | null;
+
+  /** A-1 业务事件归一化（如 CustomerUpdated / FollowupTaskCreated）——跨系统统一业务语言 */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'business_event' })
+  businessEvent?: string | null;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   ip?: string | null;
 
