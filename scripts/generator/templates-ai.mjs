@@ -6,6 +6,16 @@
  * 固定安全接线：写工具确认 + 审计由 AiService 统一处理，工具只需返回 data.id。
  */
 
+import { aiToolsFlags } from './validate.mjs';
+
+/** create 工具风险级/确认声明（Protocol 2.0）：缺省 R3 + 需确认；R1/R2 不强制确认；显式覆盖优先。 */
+function createToolMeta(ctx) {
+  const c = ctx.aiTools && typeof ctx.aiTools.create === 'object' ? ctx.aiTools.create : {};
+  const riskLevel = c.riskLevel || 'R3';
+  const confirm = c.requiresConfirmation !== undefined ? c.requiresConfirmation : ['R3', 'R4'].includes(riskLevel);
+  return { riskLevel, confirm };
+}
+
 /** 只读字段映射（不含 enum 之外的类型差异——读端统一返回原始值）。 */
 function readParams(fields) {
   const props = fields
@@ -31,6 +41,8 @@ function whitelistReads(fields) {
 
 export function queryToolTemplate(ctx) {
   const fields = ctx.fields;
+  const q = ctx.aiTools && typeof ctx.aiTools.query === 'object' ? ctx.aiTools.query : {};
+  const riskLine = q.riskLevel ? `  readonly riskLevel = '${q.riskLevel}';\n` : '';
   const props = readParams(fields);
   return `/**
  * 查询${ctx.label}工具 — query_${ctx.plural}（只读）
@@ -46,7 +58,7 @@ interface ${ctx.pluralPascal}ServiceLike {
 
 export class Query${ctx.pluralPascal}Tool implements AiTool {
   readonly name = 'query_${ctx.plural}';
-  readonly description = '查询${ctx.label}列表（本人数据）。用户问"有哪些${ctx.label}"时使用。';
+${riskLine}  readonly description = '查询${ctx.label}列表（本人数据）。用户问"有哪些${ctx.label}"时使用。';
   readonly parameters: ToolParameter[] = [
     { name: 'keyword', type: 'string', description: '关键字（可选）', required: false },
   ];
@@ -82,6 +94,7 @@ export class Query${ctx.pluralPascal}Tool implements AiTool {
 }
 
 export function createToolTemplate(ctx) {
+  const { riskLevel: createRisk, confirm: createConfirm } = createToolMeta(ctx);
   const titleField = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
   const params = ctx.fields.map((f) => ({
     name: f.name,
@@ -110,8 +123,7 @@ interface ${ctx.pluralPascal}ServiceLike {
 
 export class Create${ctx.singlePascal}Tool implements AiTool {
   readonly name = 'create_${ctx.singular}';
-  readonly requiresConfirmation = true;
-  readonly permissions = { requireVerifiedEmail: true };
+${createRisk ? `  readonly riskLevel = '${createRisk}';\n` : ''}${createConfirm ? '  readonly requiresConfirmation = true;\n' : ''}  readonly permissions = { requireVerifiedEmail: true };
   readonly description = '创建${ctx.label}（${ctx.fields.map((f) => f.label ?? f.name).join('、')}）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
 ${paramLines}
@@ -209,6 +221,7 @@ describe('Query${ctx.pluralPascal}Tool', () => {
 }
 
 export function createToolSpecTemplate(ctx) {
+  const { riskLevel: createRisk, confirm: createConfirm } = createToolMeta(ctx);
   const firstField = ctx.fields.length > 0 ? ctx.fields[0] : null;
   const mockData = firstField ? `{ id: 7, ${firstField.name}: 'sample' }` : '{ id: 7 }';
   const argsLiteral = firstField ? `{ ${firstField.name}: 'sample' }` : '{}';
@@ -224,10 +237,10 @@ describe('Create${ctx.singlePascal}Tool', () => {
     jest.clearAllMocks();
   });
 
-  it('should have name and require confirmation + verified email', () => {
+  it('should have name and ${createConfirm ? 'require confirmation' : 'risk level'} + verified email', () => {
     const tool = new Create${ctx.singlePascal}Tool(mockService as any);
     expect(tool.name).toBe('create_${ctx.singular}');
-    expect(tool.requiresConfirmation).toBe(true);
+${createConfirm ? `    expect(tool.requiresConfirmation).toBe(true);` : `    expect(tool.riskLevel).toBe('${createRisk}');`}
     expect(tool.permissions.requireVerifiedEmail).toBe(true);
   });
 
@@ -261,12 +274,21 @@ describe('Create${ctx.singlePascal}Tool', () => {
 `;
 }
 
-/** 全部 AI 工具文件：{ relativePath, content }。 */
+/** 全部 AI 工具文件：{ relativePath, content }。按 ctx.aiTools 声明开关（Protocol 2.0）。 */
 export function aiFiles(ctx) {
-  return [
-    { path: `ai/tools/query-${ctx.plural}.tool.ts`, content: queryToolTemplate(ctx) },
-    { path: `ai/tools/create-${ctx.plural}.tool.ts`, content: createToolTemplate(ctx) },
-    { path: `ai/tools/query-${ctx.plural}.tool.spec.ts`, content: queryToolSpecTemplate(ctx) },
-    { path: `ai/tools/create-${ctx.plural}.tool.spec.ts`, content: createToolSpecTemplate(ctx) },
-  ];
+  const flags = aiToolsFlags(ctx.aiTools);
+  const files = [];
+  if (flags.query) {
+    files.push(
+      { path: `ai/tools/query-${ctx.plural}.tool.ts`, content: queryToolTemplate(ctx) },
+      { path: `ai/tools/query-${ctx.plural}.tool.spec.ts`, content: queryToolSpecTemplate(ctx) },
+    );
+  }
+  if (flags.create) {
+    files.push(
+      { path: `ai/tools/create-${ctx.plural}.tool.ts`, content: createToolTemplate(ctx) },
+      { path: `ai/tools/create-${ctx.plural}.tool.spec.ts`, content: createToolSpecTemplate(ctx) },
+    );
+  }
+  return files;
 }
