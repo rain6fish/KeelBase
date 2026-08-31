@@ -12,7 +12,7 @@
  * 转 mp4 需完整 ffmpeg（playwright 自带版仅 webm/libvpx）。
  */
 import { chromium } from 'playwright-core';
-import { mkdirSync, readdirSync, renameSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,32 +25,32 @@ const OUT_DIR = join(tmpdir(), 'keelbase-demo-full');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ── 镜头序列：[type, ...args] ──
+// ── 镜头序列：[type, ...args]；时长 = 中英解说 max + 缓冲（配音驱动节奏，画面与解说对齐）──
 const SHOTS = [
   // 品牌 / 定位（slides）
-  ['slide', 1, 3500], ['slide', 2, 4500], ['slide', 3, 3500], ['slide', 4, 4500],
-  ['slide', 5, 3500], ['slide', 6, 5000], ['slide', 7, 3500], ['slide', 8, 4500],
-  // 实机 golden path（登录 + AI 问客户 + 分析）
-  ['ui-golden', 9000],
-  // 实机确认门控：AI 创建跟进任务（写 R3）→ 确认卡 → 批准 → 已执行/已确认
-  ['ui-confirm', 9000],
-  // 实机旗舰应用：PM 延期风险（Copilot）+ Approval AI 预审（政策分级自动通过）
-  ['ui-pm', 9000], ['ui-approval', 9000],
+  ['slide', 1, 3500], ['slide', 2, 5000], ['slide', 3, 4000], ['slide', 4, 8000],
+  ['slide', 5, 5000], ['slide', 6, 8500], ['slide', 7, 6000], ['slide', 8, 5000],
+  // 存量系统桥接（提前：不替换系统获得 AI 能力——核心差异化前置）
+  ['terminal', 'bridge', 11500], ['slide', 33, 6500],
+  // 实机 AI CRM：读分析（golden path）
+  ['ui-golden', 8000],
+  // 实机确认门控：写 R3 确认 → 批准 → 已执行/已确认
+  ['ui-confirm', 8000],
+  // 实机旗舰应用：PM 延期风险 + Approval AI 预审
+  ['ui-pm', 6500], ['ui-approval', 9500],
   // 信任运行时定位
-  ['slide', 22, 5500], ['slide', 23, 4500],
-  // 企业安全验证（slides）+ 系统演示：管理台 AI 审计（防篡改哈希链）→ 系统信息 → 监控中心
-  ['slide', 26, 4500], ['slide', 27, 4500],
-  ['ui-system', 9000],
-  // 治理巡礼：管理台概览（治理总览 / AI 用量 / 操作分布）→ AI 审批
-  ['ui-governance', 9000],
-  // 构建：keelbase init（terminal）+ 协议→代码（slides）
-  ['terminal', 'build', 12000], ['slide', 30, 4500], ['slide', 31, 3500],
-  // 存量系统：AI Bridge（terminal）+ 定位（slides）
-  ['terminal', 'bridge', 14000], ['slide', 33, 4500],
-  // 私有部署（terminal + slides）
-  ['terminal', 'private', 12000], ['slide', 35, 4500],
+  ['slide', 22, 7000], ['slide', 23, 6500],
+  // 企业安全验证 + 系统演示（审计哈希链 / 系统信息 / 监控）
+  ['slide', 26, 6500], ['slide', 27, 6500],
+  ['ui-system', 8000],
+  // 治理巡礼
+  ['ui-governance', 7000],
+  // 构建：keelbase init + 协议→代码
+  ['terminal', 'build', 9000], ['slide', 30, 5000], ['slide', 31, 3500],
+  // 私有部署
+  ['terminal', 'private', 9000], ['slide', 35, 6000],
   // 收尾
-  ['slide', 36, 3500], ['slide', 37, 5500],
+  ['slide', 36, 7000], ['slide', 37, 9000],
 ];
 
 // ── UI golden path：登录 → 打开 AI 助手 → 问客户风险 → 等 demo 分析回复 ──
@@ -120,8 +120,8 @@ async function uiPm(page) {
 // ── UI Approval 旗舰：审批详情 → AI 预审（按政策分级，自动通过/转人工）──
 async function uiApproval(page) {
   await loginAs(page, 'alex', 'Alex@2026$Demo');
-  // id=1 已被探测预审为 auto_approved；用 id=2（¥12000 pending，待预审）
-  await page.goto(`${BASE}/admin/#/workbench/approval/2`, { waitUntil: 'domcontentloaded' });
+  // id=1 已重置为 pending（¥800 ≤ 阈值 → 演示自动通过）
+  await page.goto(`${BASE}/admin/#/workbench/approval/1`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
   await page.locator('button:has-text("AI 预审")').first().click();
   await page.waitForTimeout(10000); // 等预审结果（政策分级）
@@ -210,16 +210,29 @@ async function main() {
   });
   const page = await context.newPage();
 
+  // 每镜时间戳（配音/字幕对齐：相对视频开始的毫秒）
+  const t0 = process.hrtime.bigint();
+  const timeline = [];
   let idx = 0;
   for (const shot of SHOTS) {
     idx += 1;
+    const startMs = Number(process.hrtime.bigint() - t0) / 1e6;
     try {
       await runShot(page, shot);
       console.log(`  [${idx}/${SHOTS.length}] ${shot[0]} ${shot[1] ?? ''} ok`);
     } catch (e) {
       console.log(`  [${idx}/${SHOTS.length}] ${shot[0]} ${shot[1] ?? ''} FAILED: ${e.message}`);
     }
+    const endMs = Number(process.hrtime.bigint() - t0) / 1e6;
+    timeline.push({
+      shot: idx,
+      type: shot[0],
+      arg: shot[1] ?? '',
+      startMs: Math.round(startMs),
+      endMs: Math.round(endMs),
+    });
   }
+  writeFileSync(join(OUT_DIR, 'timeline.json'), JSON.stringify(timeline, null, 2));
 
   await context.close(); // finalize video
   await browser.close();
