@@ -17,6 +17,8 @@
 4. **AI Code Economy Review（`/ai-code-economy-review` skill）**：对同一区间跑 Code Economy 审查（第四层，**不重复**前三层职责）——只检查 Necessity / Reuse / Simplicity / Proportionality / Deletion / Maintainability，重点发现 unnecessary code、reuse opportunity、AI-generated duplication、unnecessary abstraction、speculative engineering、wrapper、dead code、excessive complexity、disproportionate code expansion、deletion opportunity。判断原则：LOC 是信号非质量分（结合 Requirement/Implementation Complexity 判断 Proportionality）；KeelBase 的 Security/Governance/Audit/Transaction/Domain/Plugin/Protocol/External integration 边界 abstraction 不因「单一实现」判垃圾，需具体证据；Finding 必须区分 FACT/SUSPECTED + 给出 Severity/Category/File/Line/Evidence/Reason/Recommendation/Confidence；推荐动作按 `DELETE > REUSE > SIMPLIFY > CONSOLIDATE > REFACTOR > ADD`；默认 review-only 不改码。输出 Verdict：PASS / WARN / REFACTOR / REJECT。
 5. **整合**：合并四层意见，去重、分级（阻塞 / 建议 / 风格），阻塞项必须修复；建议项择优落地；改进提交回 master。
 
+> **四层固定（2026-08-31 定案）**：Code Review 只保留这四层——`OpenCodeReview → Claude Review → mattpocock Standards+Spec → AI Code Economy → Consolidated Decision`。**不继续增加第五/第六层 Review**（四层已足够重；Code Economy 是横向判断层，不是第五个垂直检查器）。
+
 ### ② 全量测试
 
 | 套件 | 命令 | 门槛 |
@@ -45,6 +47,30 @@ Release Precheck（<日期>）：
 - 四层 code review：阿里 X 条 + Claude 自带 Y 条 + code-review skill Z 条 + Code Economy K 条 → 修复 W 条阻塞项
 - 全量测试：后端单测/e2e/前端/Flutter/生成器 全过（覆盖率 backend xx% / flutter xx%）
 - 覆盖率：较上版 +x.x% / 达标
+```
+
+**Code Economy 观察记录**（v0.1 Observation，2026-08-31 起）：
+
+```text
+Release（<版本/日期>）：
+
+Code Economy:
+- Findings: N（High X / Medium Y / Low Z）
+- 动作分布：Delete D / Reuse R / Simplify S / Consolidate C
+- Critical: 0（必须为 0，否则阻塞发布）
+
+Code Expansion Signal:
+- AI generated: +X LOC
+- Review deleted: -Y LOC
+- Net: +Z LOC
+- 观察：若长期「generated +1000 / deleted -20」→ AI 已干净；若「generated +1500 / deleted -500」→ 本层价值高（未来可形成 AI Code Waste Ratio，暂不做）
+
+三维评估（观察期重点）：
+- False Positive：是否误杀合理架构？（尤其 Audit/Governance/Security/Protocol 边界）
+- False Negative：是否漏掉明显 AI Slop？
+- Actionability：发现的问题最终是否真的 删除/复用/简化/合并？
+
+连续积累 5～10 个 Release 后，据此决定是否升 v0.2（自动修复 / Score 等）。当前**冻结功能，只观察**。
 ```
 
 ## 相关
