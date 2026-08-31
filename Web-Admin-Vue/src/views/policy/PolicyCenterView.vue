@@ -7,6 +7,30 @@
       </el-button>
     </PageHeader>
 
+    <!-- §22.15 策略模板库：金融/政务/通用三档预设，一键导入实时生效（联动信创「开箱合规」） -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <AppIcon icon="mdi-layers-triple-outline" />
+          <span>{{ t('policyPresets') }}</span>
+        </div>
+      </template>
+      <el-row v-if="presets.length" :gutter="16">
+        <el-col v-for="p in presets" :key="p.id" :xs="24" :md="8">
+          <el-card shadow="hover" class="mb-3 preset-card" style="border-color: var(--el-border-color-lighter)">
+            <div class="d-flex align-center justify-space-between mb-1">
+              <span class="text-subtitle-1 font-weight-medium">{{ t(p.labelKey) }}</span>
+              <el-button size="small" type="primary" plain :loading="applying === p.id" @click="onApplyPreset(p.id)">
+                {{ t('applyPreset') }}
+              </el-button>
+            </div>
+            <div class="text-caption text-medium-emphasis">{{ t(p.descriptionKey) }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
+      <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+    </el-card>
+
     <el-card shadow="never" class="mb-4">
       <div class="text-caption text-medium-emphasis mb-3">{{ t('policyHint') }}</div>
       <div class="mb-2 d-flex align-center ga-3">
@@ -71,6 +95,8 @@ const tools = ref<AdminAiTool[]>([])
 const rows = ref<PolicyToolState[]>([])
 const granularity = ref<AuditGranularity>('all')
 const saving = ref(false)
+const presets = ref<Array<{ id: string; labelKey: string; descriptionKey: string }>>([])
+const applying = ref('')
 const roleOptions = computed(() => [
   { title: t('roleUser'), value: 'user' },
   { title: t('roleAdmin'), value: 'admin' },
@@ -124,5 +150,25 @@ async function onSavePolicy() {
   }
 }
 
-onMounted(loadAll)
+async function onApplyPreset(id: string) {
+  applying.value = id
+  try {
+    await aiToolsApi.applyPolicyPreset(id)
+    snackbar.success(t('presetApplied'))
+    await loadAll()
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('presetApplyFailed'))
+  } finally {
+    applying.value = ''
+  }
+}
+
+onMounted(async () => {
+  loadAll()
+  try {
+    presets.value = await aiToolsApi.policyPresets()
+  } catch {
+    presets.value = []
+  }
+})
 </script>
