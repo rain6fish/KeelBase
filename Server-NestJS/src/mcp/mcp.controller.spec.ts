@@ -13,7 +13,22 @@ describe('McpExportController (HS-10)', () => {
   beforeEach(async () => {
     ai = {
       listMcpTools: jest.fn().mockResolvedValue([
-        { name: 'query_events', description: '查询事件', inputSchema: { type: 'object', properties: {} } },
+        {
+          name: 'query_events',
+          description: '查询事件',
+          inputSchema: { type: 'object', properties: {} },
+          riskLevel: 'R1',
+          riskStrategy: 'auto',
+          requiresConfirmation: false,
+        },
+        {
+          name: 'create_event',
+          description: '创建事件',
+          inputSchema: { type: 'object', properties: {} },
+          riskLevel: 'R3',
+          riskStrategy: 'confirmation',
+          requiresConfirmation: true,
+        },
       ]),
       executeToolForExternal: jest.fn(),
     };
@@ -40,11 +55,20 @@ describe('McpExportController (HS-10)', () => {
     expect((res as any).result).toEqual({});
   });
 
-  it('tools/list 返回工具清单', async () => {
+  it('tools/list 返回工具清单 + 治理契约扩展（§4.4）', async () => {
     const res = await controller.handle(user, { jsonrpc: '2.0', id: 3, method: 'tools/list' });
-    expect((res as any).result.tools).toHaveLength(1);
-    expect((res as any).result.tools[0].name).toBe('query_events');
-    expect((res as any).result.tools[0].inputSchema.type).toBe('object');
+    const tools = (res as any).result.tools;
+    expect(tools).toHaveLength(2);
+    const q = tools.find((t: { name: string }) => t.name === 'query_events');
+    expect(q.inputSchema.type).toBe('object');
+    // 读工具 R1：annotations.readOnlyHint + _meta.keelbase 契约透出
+    expect(q.annotations.readOnlyHint).toBe(true);
+    expect(q.annotations.destructiveHint).toBe(false);
+    expect(q._meta.keelbase).toEqual({ riskLevel: 'R1', riskStrategy: 'auto', requiresConfirmation: false });
+    // 写工具 R3：非只读 + 需确认
+    const c = tools.find((t: { name: string }) => t.name === 'create_event');
+    expect(c.annotations.readOnlyHint).toBe(false);
+    expect(c._meta.keelbase).toEqual({ riskLevel: 'R3', riskStrategy: 'confirmation', requiresConfirmation: true });
   });
 
   it('tools/call 读工具 → 执行 + 审计，返回结果', async () => {
