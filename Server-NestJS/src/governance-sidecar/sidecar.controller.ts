@@ -52,4 +52,17 @@ export class SidecarController {
     }
     return { pending: this.sidecar.pendingConfirmations() };
   }
+
+  /** B2：接收治理台策略推送（实时生效；服务身份校验，防未授权篡改策略） */
+  @Post('policy')
+  async policy(
+    @Body() dto: { policy?: Record<string, unknown>; pushedAt?: string },
+    @Headers('x-api-key') apiKey?: string,
+  ) {
+    const expected = process.env.GOVERNANCE_API_KEY || '';
+    if (!expected || apiKey !== expected) {
+      throw new UnauthorizedException('sidecar 服务身份无效（GOVERNANCE_API_KEY）');
+    }
+    return this.sidecar.applyPushedPolicy(dto.policy, dto.pushedAt);
+  }
 }

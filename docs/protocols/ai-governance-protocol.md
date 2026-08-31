@@ -180,6 +180,8 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 **审计证据包离线验证（A2，护城河 2.3）**：`Server-NestJS/scripts/verify-evidence.mjs` 可独立验证导出的证据包（`GET /audit/action-report/export`，`format=keelbase-audit-evidence/1`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
 
+**治理策略实时推送（B2，护城河 2.2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`，`POST /external/governance/sidecars/register`）；策略变更（apply-preset / PUT policy）后治理台向已注册 sidecar 实时推送（`POST {cb}/v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底（推送失败 / sidecar 重启 / 漏注册）。
+
 ---
 
 ## 6. 相关 / Related

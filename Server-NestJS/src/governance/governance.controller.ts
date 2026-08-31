@@ -4,6 +4,7 @@ import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApprovalService } from './governance-approval.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
+import { SidecarRegistryService } from './sidecar-registry.service';
 
 /**
  * D2-2 独立治理台：治理端点（读侧）——审批列表 / 策略 / 副作用查询。
@@ -15,6 +16,7 @@ export class GovernanceController {
     private readonly approvals: GovernanceApprovalService,
     private readonly governancePolicy: GovernancePolicyService,
     private readonly toolEffects: AiToolEffectsService,
+    private readonly sidecars: SidecarRegistryService,
   ) {}
 
   /** 治理台健康检查（docker 编排用） */
@@ -53,7 +55,10 @@ export class GovernanceController {
   @Post('governance/policy/apply-preset')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   async applyPolicyPreset(@Body('presetId') presetId: string) {
-    return this.governancePolicy.applyPreset(presetId);
+    const policy = await this.governancePolicy.applyPreset(presetId);
+    // B2：策略变更后向已注册 sidecar 实时推送（秒级生效；失败由 sidecar 60s 轮询兜底）
+    void this.sidecars.pushPolicy(policy);
+    return policy;
   }
 
   @Get('tool-effects')
