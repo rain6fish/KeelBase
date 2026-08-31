@@ -90,30 +90,74 @@
       </template>
     </AppTable>
 
-    <!-- 展开详情 -->
+    <!-- §22.16 A-4 展开详情：L1 业务摘要 → L2 证据统计 → L3 技术详情 -->
     <el-card v-if="expanded" shadow="never" class="mt-2">
       <template #header>{{ t('statistics') }}</template>
-      <div v-if="expanded.detail" class="d-flex ga-2 py-1">
-        <span class="font-weight-medium" style="min-width: 140px">detail</span>
-        <template v-if="detailParts(expanded.detail)">
-          <span class="text-medium-emphasis">
-            {{ toolLabel(feature, detailParts(expanded.detail)!.toolName) }}{{ toolArgsSummary(detailParts(expanded.detail)!.toolName, detailParts(expanded.detail)!.args, locale.startsWith('zh')) }}
-          </span>
-        </template>
-        <span v-else class="text-medium-emphasis">{{ expanded.detail }}</span>
+
+      <!-- L1 业务语言摘要（审计解释器） -->
+      <div v-if="interpretation" class="pa-2 mb-2" style="background: var(--el-fill-color-light); border-radius: 8px">
+        <div class="text-body-2 font-weight-medium">{{ interpretation.summary.sentence }}</div>
+        <el-tag v-if="interpretation.summary.businessEvent" size="small" effect="plain" class="mt-1">{{ interpretation.summary.businessEvent }}</el-tag>
       </div>
-      <div v-if="expanded.errorMessage" class="d-flex ga-2 py-1">
-        <span class="font-weight-medium" style="min-width: 140px">errorMessage</span>
-        <span class="text-medium-emphasis">{{ errorLabel(expanded.errorMessage, t) }}</span>
+
+      <!-- L2 证据统计 -->
+      <div v-if="interpretation?.stats && hasStats(interpretation.stats)" class="mb-2">
+        <el-popover placement="top" :width="400" trigger="click" :teleported="false">
+          <template #reference>
+            <el-button text size="small" type="primary">{{ t('viewEvidence') }}</el-button>
+          </template>
+          <div class="pa-1">
+            <div v-if="interpretation.stats.businessEvents.length" class="mb-2">
+              <div class="text-caption font-weight-medium mb-1">{{ t('evidenceStats') }}</div>
+              <div v-for="b in interpretation.stats.businessEvents" :key="b.event" class="d-flex justify-space-between align-center text-caption mb-1">
+                <span>{{ b.event }}</span>
+                <el-tag size="small">{{ b.count }}</el-tag>
+              </div>
+            </div>
+            <div v-if="interpretation.stats.evidence.length" class="mb-2">
+              <div class="text-caption font-weight-medium mb-1">{{ t('decisionEvidence') }}</div>
+              <div v-for="(ev, i) in interpretation.stats.evidence" :key="i" class="mb-2 text-caption">
+                <div>决策: <b>{{ ev.decision }}</b> · {{ t('confidence') }} {{ ev.confidence != null ? ev.confidence.toFixed(2) : '-' }}</div>
+                <div v-for="(e, j) in ev.evidence" :key="j" class="text-medium-emphasis">· {{ e }}</div>
+                <div v-if="ev.policy" class="text-medium-emphasis">{{ ev.policy }}</div>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap ga-2">
+              <el-tag v-if="interpretation.stats.confirmations.approved" type="success" size="small">{{ t('confirmedCount', { n: interpretation.stats.confirmations.approved }) }}</el-tag>
+              <el-tag v-if="interpretation.stats.confirmations.declined" type="danger" size="small">{{ t('declinedCount', { n: interpretation.stats.confirmations.declined }) }}</el-tag>
+              <el-tag v-if="interpretation.stats.blocked" type="warning" size="small">{{ t('blockedCount', { n: interpretation.stats.blocked }) }}</el-tag>
+              <el-tag v-if="interpretation.stats.errors" size="small">{{ t('errorCount', { n: interpretation.stats.errors }) }}</el-tag>
+            </div>
+          </div>
+        </el-popover>
       </div>
-      <div v-if="expanded.durationMs != null" class="d-flex ga-2 py-1">
-        <span class="font-weight-medium" style="min-width: 140px">durationMs</span>
-        <span class="text-medium-emphasis">{{ expanded.durationMs }} ms</span>
-      </div>
-      <div v-if="expanded.conversationId" class="d-flex ga-2 py-1">
-        <span class="font-weight-medium" style="min-width: 140px">conversationId</span>
-        <span class="text-medium-emphasis">{{ expanded.conversationId }}</span>
-      </div>
+
+      <!-- L3 技术详情 -->
+      <el-collapse>
+        <el-collapse-item :title="t('technicalDetail')" name="tech">
+          <div v-if="expanded.detail" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">detail</span>
+            <template v-if="detailParts(expanded.detail)">
+              <span class="text-medium-emphasis">
+                {{ toolLabel(feature, detailParts(expanded.detail)!.toolName) }}{{ toolArgsSummary(detailParts(expanded.detail)!.toolName, detailParts(expanded.detail)!.args, locale.startsWith('zh')) }}
+              </span>
+            </template>
+            <span v-else class="text-medium-emphasis">{{ expanded.detail }}</span>
+          </div>
+          <div v-if="expanded.errorMessage" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">errorMessage</span>
+            <span class="text-medium-emphasis">{{ errorLabel(expanded.errorMessage, t) }}</span>
+          </div>
+          <div v-if="expanded.durationMs != null" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">durationMs</span>
+            <span class="text-medium-emphasis">{{ expanded.durationMs }} ms</span>
+          </div>
+          <div v-if="expanded.conversationId" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">conversationId</span>
+            <span class="text-medium-emphasis">{{ expanded.conversationId }}</span>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-card>
   </div>
 </template>
@@ -133,7 +177,7 @@ import { auditApi } from '@/api/audit'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation } from '@/types/audit'
 
 const { t, messages, locale } = useI18n()
 const feature = computed(() => (messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined)?.feature)
@@ -210,7 +254,19 @@ function onRange(key: string, s?: string) {
 }
 function toggleExpand(id: number) {
   const log = logs.value.find((l) => l.id === id)
-  expanded.value = expanded.value?.id === id ? null : (log ?? null)
+  const isSame = expanded.value?.id === id
+  expanded.value = isSame ? null : (log ?? null)
+  interpretation.value = null
+  if (!isSame && log) {
+    auditApi.interpretation(id).then((r) => { interpretation.value = r }).catch(() => { interpretation.value = null })
+  }
+}
+
+/** §22.16 A-4 审计解释器：展开行的业务摘要 + 证据统计 */
+const interpretation = ref<AuditInterpretation | null>(null)
+
+function hasStats(s: AuditInterpretation['stats']): boolean {
+  return s.businessEvents.length > 0 || s.evidence.length > 0 || s.confirmations.approved > 0 || s.confirmations.declined > 0 || s.blocked > 0 || s.errors > 0
 }
 
 /** D2 人类语言审计标签：actionKey 查 i18n feature 容器（与操作审计 feature-map 同源），fallback 到后端 actionLabel/原始 action */

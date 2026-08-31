@@ -26,6 +26,22 @@ export interface AuditLog {
   evidence?: string | null
 }
 
+/** §22.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计 */
+export interface AuditInterpretation {
+  summary: {
+    sentence: string
+    key: string | null
+    businessEvent: string | null
+  }
+  stats: {
+    businessEvents: Array<{ event: string; count: number }>
+    evidence: Array<{ decision?: string; evidence?: string[]; policy?: string; confidence?: number }>
+    confirmations: { approved: number; declined: number }
+    blocked: number
+    errors: number
+  }
+}
+
 /** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
 export interface AuditByDayBucket {
   date: string

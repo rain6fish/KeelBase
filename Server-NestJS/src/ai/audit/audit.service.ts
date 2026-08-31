@@ -6,7 +6,7 @@
  */
 
 import { createHmac } from 'crypto';
-import { Injectable, Optional, Inject } from '@nestjs/common';
+import { Injectable, Optional, Inject, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
@@ -18,6 +18,7 @@ import {
   ChainVerification,
 } from '../../common/audit-chain/audit-chain.service';
 import { aiActionLabel } from './ai-feature-map';
+import { summarizeAudit, AuditInterpretation, AuditInterpretationRow } from './audit-interpreter.service';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -744,6 +745,30 @@ export class AuditService {
     };
     await this.cacheService?.set(`audit:cost:${sinceDay}`, result, 60_000);
     return result;
+  }
+
+  /** §22.16 A-4 审计解释器：单行审计 + 同对话上下文 → 业务摘要 + 证据统计（demo 可用，无 LLM 依赖） */
+  async getInterpretation(id: number): Promise<{
+    row: AiAuditLog;
+    summary: AuditInterpretation;
+    conversation: Array<{
+      id: number; action: string; detail?: string | null; businessEvent?: string | null;
+      evidence?: string | null; isError: boolean; errorMessage?: string | null; createdAt: Date;
+    }>;
+  }> {
+    const row = await this.logRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('审计记录不存在');
+    const where = row.conversationId ? { conversationId: row.conversationId } : {};
+    const convRows = await this.logRepo.find({
+      where,
+      select: {
+        id: true, userId: true, username: true, action: true, detail: true,
+        businessEvent: true, evidence: true, isError: true, errorMessage: true, createdAt: true,
+      },
+      order: { createdAt: 'ASC' },
+    });
+    const summary = summarizeAudit(row, convRows as unknown as AuditInterpretationRow[]);
+    return { row, summary, conversation: convRows };
   }
 
   async getAllStats(since?: Date): Promise<UsageStats> {
