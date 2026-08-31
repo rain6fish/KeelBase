@@ -807,9 +807,12 @@ const en: ZhDict = {
   timeCol: 'Time',
   userCol: 'User',
   methodCol: 'Method',
+  businessEventCol: 'Business Event',
   featureCol: 'Feature',
   pathCol: 'Path',
   statusCol: 'Status',
+  changesLabel: 'Changed fields',
+  wasLabel: 'was',
 
   aiAuditTitle: 'AI Audit',
   filterByUser: 'Filter by user',
