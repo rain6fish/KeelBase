@@ -16,6 +16,8 @@ export interface OperationAuditEntry {
   featureFallback?: string | null;
   targetId?: string | null;
   requestBody?: string | null;
+  changes?: string | null;
+  businessEvent?: string | null;
   ip?: string | null;
   userAgent?: string | null;
   statusCode?: number | null;
@@ -63,6 +65,8 @@ export class OperationAuditService {
       featureFallback: entry.featureFallback ?? null,
       targetId: entry.targetId ?? null,
       requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
+      changes: entry.changes ? entry.changes.slice(0, 4000) : null,
+      businessEvent: entry.businessEvent ?? null,
       ip: entry.ip ? entry.ip.slice(0, 64) : null,
       userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
       statusCode: entry.statusCode ?? null,
