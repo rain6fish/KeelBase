@@ -42,6 +42,20 @@ export class GovernanceController {
     return this.governancePolicy.getPolicy();
   }
 
+  /** §22.15 策略模板库：三档预设（金融/政务/通用），治理台读侧 */
+  @Get('governance/policy/presets')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async getPolicyPresets() {
+    return this.governancePolicy.getPresets();
+  }
+
+  /** §22.15 策略模板库：一键应用预设（写 ai_governance_policy 实时生效） */
+  @Post('governance/policy/apply-preset')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  async applyPolicyPreset(@Body('presetId') presetId: string) {
+    return this.governancePolicy.applyPreset(presetId);
+  }
+
   @Get('tool-effects')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   async listEffects(
