@@ -127,6 +127,10 @@ export interface ActionReport {
     toolName: string | null
     isError: boolean
     errorMessage?: string | null
+    /** §22.16 A-6 合规：Decision Evidence + 责任链展示字段 */
+    businessEvent?: string | null
+    evidence?: string | null
+    agentId?: string | null
     createdAt: string
   }>
 }

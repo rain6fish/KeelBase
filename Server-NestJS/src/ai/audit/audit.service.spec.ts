@@ -659,8 +659,9 @@ describe('AuditService', () => {
           { id: 2, userId: '42', conversationId: null, action: 'chat', detail: 'hello', model: null, provider: null, promptTokens: null, completionTokens: null, durationMs: null, isError: false, errorMessage: null, authorization: null, prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
         ]);
         const out = await service.getActionReportExport({});
-        expect(out.format).toBe('keelbase-audit-evidence/1');
+        expect(out.format).toBe('keelbase-audit-evidence/2');
         expect(out.generator).toBe('keelbase-audit-export');
+        expect(out.compliance).toEqual([]); // mock report 无 samples → 空合规段
         expect(out.chain).toHaveLength(2);
         expect(out.chain[0]).toMatchObject({ seq: 1, id: 1, prevHash: null, hash: 'a'.repeat(64) });
         expect(out.chain[1].seq).toBe(2);
@@ -668,6 +669,33 @@ describe('AuditService', () => {
         // payload 与写入侧一致（feedback/businessEvent 恒 null，供离线重算）
         expect(out.chain[0].payload).toMatchObject({ userId: '42', action: 'tool_call', completionTokens: 5, feedback: null, businessEvent: null, evidence: null });
         expect(out.signature).toMatch(/^[0-9a-f]{64}$/);
+      } finally {
+        if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
+        else process.env.AUDIT_HMAC_KEY = prevKey;
+      }
+    });
+
+    it('§22.16 A-6 合规段：samples 业务摘要 + 责任链（签名覆盖 compliance）', async () => {
+      (service as any).getActionReport = jest.fn().mockResolvedValue({
+        summary: { executed: 1 },
+        hashChain: { valid: true, checked: 1, brokenIndex: null },
+        effectDiffs: [],
+        samples: [{ id: 1, action: 'tool_call', toolName: 'analyze_customer_risk', isError: false, createdAt: new Date() }],
+      });
+      const prevKey = process.env.AUDIT_HMAC_KEY;
+      process.env.AUDIT_HMAC_KEY = 'ab'.repeat(32);
+      try {
+        repo.find.mockResolvedValue([
+          { id: 1, userId: '42', username: 'alex', conversationId: 'c1', action: 'tool_call', detail: 'analyze_customer_risk({"id":7})', businessEvent: 'CustomerRiskAssessed', evidence: '{"decision":"high","evidence":["订单降42%"]}', agentId: 'key-a', prevHash: null, hash: 'a'.repeat(64) },
+          { id: 2, userId: '42', username: 'alex', conversationId: 'c1', action: 'chat', detail: 'hi', prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
+        ]);
+        const out = await service.getActionReportExport({});
+        expect(out.compliance).toHaveLength(1);
+        expect(out.compliance[0].summary.sentence).toContain('alex');
+        expect(out.compliance[0].summary.sentence).toContain('high');
+        expect(out.compliance[0].businessEvent).toBe('CustomerRiskAssessed');
+        expect(out.compliance[0].identityChain.human.username).toBe('alex');
+        expect(out.compliance[0].identityChain.tool.toolName).toBe('analyze_customer_risk');
       } finally {
         if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
         else process.env.AUDIT_HMAC_KEY = prevKey;

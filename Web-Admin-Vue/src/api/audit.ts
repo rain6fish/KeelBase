@@ -3,11 +3,21 @@ import type { Paginated } from '@/types/api'
 import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
-/** D4 审计证据包导出（GET /audit/action-report/export） */
+/** D4/A-6 审计证据包导出（GET /audit/action-report/export；v2 含 compliance 合规段） */
 export interface ActionReportExport {
   exportedAt: string
   generator: string
+  format: string
   report: ActionReport
+  /** §22.16 A-6 合规：samples 每条的业务摘要 + 责任链 + 授权依据（签名覆盖） */
+  compliance: Array<{
+    id: number
+    businessEvent: string | null
+    evidence: string | null
+    summary: { sentence: string; stats: unknown } | null
+    identityChain: unknown | null
+  }>
+  chain: Array<{ seq: number; id: number; prevHash: string | null; hash: string; payload: Record<string, unknown> }>
   signature: string | null
 }
 
