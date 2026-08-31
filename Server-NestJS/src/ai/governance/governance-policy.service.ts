@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiGovernancePolicy } from './ai-governance-policy.entity';
+import { getPolicyPreset, getPolicyPresets, type PolicyPreset } from './governance-policy-presets';
 
 export interface ToolPolicy {
   enabled: boolean;
@@ -96,5 +97,17 @@ export class GovernancePolicyService {
 
   async getAuditGranularity(): Promise<'all' | 'write' | 'off'> {
     return (await this.getPolicy()).audit.granularity;
+  }
+
+  /** §22.15 策略模板库：返回三档预设（金融/政务/通用），供管理台一键导入。 */
+  getPresets(): PolicyPreset[] {
+    return getPolicyPresets();
+  }
+
+  /** §22.15 策略模板库：一键应用预设（写 ai_governance_policy 实时生效）。 */
+  async applyPreset(id: string): Promise<GovernancePolicy> {
+    const preset = getPolicyPreset(id);
+    if (!preset) throw new NotFoundException(`策略预设不存在: ${id}`);
+    return this.setPolicy(preset.policy);
   }
 }
