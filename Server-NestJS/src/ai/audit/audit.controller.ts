@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
@@ -38,6 +38,13 @@ export class AuditController {
       agentId: query.agentId,
       isError: query.isError,
     });
+  }
+
+  @Get('logs/:id/interpretation')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '§22.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计（管理员）' })
+  interpretation(@Param('id', ParseIntPipe) id: number) {
+    return this.auditService.getInterpretation(id);
   }
 
   @Get('verify')

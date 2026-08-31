@@ -1,6 +1,6 @@
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult } from '@/types/audit'
+import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4 审计证据包导出（GET /audit/action-report/export） */
@@ -28,6 +28,10 @@ export const auditApi = {
   /** HS-11 审计哈希链完整性校验（E-2：含链切片，前端可视化断链点） */
   verify(): Promise<ChainVerifyResult> {
     return api.get<ChainVerifyResult>('/audit/verify')
+  },
+  /** §22.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计 */
+  interpretation(id: number): Promise<AuditInterpretation> {
+    return api.get(`/audit/logs/${id}/interpretation`)
   },
   /** §10 P1 AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链） */
   actionReport(params: { userId?: string; since?: string; limit?: number } = {}): Promise<ActionReport> {
