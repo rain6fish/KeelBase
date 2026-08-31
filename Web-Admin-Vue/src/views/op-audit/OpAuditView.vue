@@ -30,6 +30,10 @@
 
     <AppTable :headers="headers" :items="logs" :loading="loading" :total="total" :items-per-page="limit">
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
+      <template #item.businessEvent="{ item }">
+        <el-tag v-if="item.businessEvent" size="small" effect="plain">{{ item.businessEvent }}</el-tag>
+        <span v-else>-</span>
+      </template>
       <template #item.feature="{ item }">{{ tFeature(item.featureKey, item.featureFallback) }}</template>
       <template #item.statusCode="{ item }">
         <span :class="(item.statusCode ?? 200) >= 400 ? 'text-error' : ''">{{ item.statusCode ?? '-' }}</span>
@@ -47,6 +51,23 @@
     <el-card v-if="expanded" shadow="never" class="mt-2">
       <template #header>{{ t('statistics') }}</template>
       <div class="d-flex flex-column ga-3">
+        <!-- A-1 字段级变更留痕（业务语言：字段 X 从 A → B） -->
+        <div v-if="changes.length" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">{{ t('changesLabel') }}</span>
+          <div class="d-flex flex-column ga-1">
+            <div v-for="(c, i) in changes" :key="i" class="d-flex ga-1 align-center">
+              <code class="text-body-2">{{ c.field }}</code>
+              <span class="text-medium-emphasis">→</span>
+              <span class="text-body-2 font-weight-medium">{{ c.after }}</span>
+              <span v-if="c.before != null" class="text-caption text-medium-emphasis">({{ t('wasLabel') }} {{ c.before }})</span>
+            </div>
+          </div>
+        </div>
+        <!-- L3 技术详情：请求体折叠（业务化原则：技术信息点击详情再查看） -->
+        <div v-if="expanded.requestBody" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">requestBody</span>
+          <pre class="text-body-2 ma-0">{{ prettyJson(expanded.requestBody) }}</pre>
+        </div>
         <div v-if="expanded.ip" class="d-flex ga-2">
           <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">IP</span>
           <span class="text-body-2">{{ expanded.ip }}</span>
@@ -54,10 +75,6 @@
         <div v-if="expanded.userAgent" class="d-flex ga-2">
           <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">User-Agent</span>
           <span class="text-body-2">{{ expanded.userAgent }}</span>
-        </div>
-        <div v-if="expanded.requestBody" class="d-flex ga-2">
-          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">requestBody</span>
-          <pre class="text-body-2 ma-0">{{ prettyJson(expanded.requestBody) }}</pre>
         </div>
       </div>
     </el-card>
@@ -95,11 +112,23 @@ const headers = computed(() => [
   { key: 'createdAt', title: t('timeCol') },
   { key: 'username', title: t('userCol') },
   { key: 'method', title: t('methodCol') },
+  { key: 'businessEvent', title: t('businessEventCol') },
   { key: 'feature', title: t('featureCol') },
   { key: 'path', title: t('pathCol') },
   { key: 'statusCode', title: t('statusCol') },
   { key: 'actions', title: '' },
 ])
+
+/** A-1 字段级变更留痕：解析 changes JSON 为 [{ field, before, after }] */
+const changes = computed<Array<{ field: string; before: string | null; after: string }>>(() => {
+  if (!expanded.value?.changes) return []
+  try {
+    const parsed = JSON.parse(expanded.value.changes)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+})
 
 async function load(p = 1) {
   loading.value = true
