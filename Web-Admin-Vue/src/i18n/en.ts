@@ -15,6 +15,8 @@ const en: ZhDict = {
   errToolBlocked: 'Blocked by security policy (high-risk)',
   technicalDetail: 'Technical details',
   aiApprovalsPath: 'Approval path',
+  identityChain: 'Identity chain',
+  businessAction: 'Business action',
   role: 'Role',
   switchToAdmin: 'Switch to Admin Console',
   switchToUserConsole: 'Switch to User Console',

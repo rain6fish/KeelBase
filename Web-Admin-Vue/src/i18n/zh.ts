@@ -14,6 +14,8 @@ const zh = {
   errToolBlocked: '该操作已被安全策略阻断（高风险）',
   technicalDetail: '技术详情',
   aiApprovalsPath: '审批路径',
+  identityChain: '身份链',
+  businessAction: '业务动作',
   role: '角色',
   switchToAdmin: '切换到管理端',
   switchToUserConsole: '切换到用户端',
