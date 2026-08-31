@@ -12,7 +12,7 @@
 |---|---|
 | Identity & Access | JWT (access+refresh rotation, SHA-256 hashed storage), MFA (TOTP), login lockout, CASL row-level authorization, roles, OIDC, Explainable Authz, cross-system delegation tokens (audience-limited, short-lived) |
 | Data Protection | AES-256-GCM encryption at rest (phone/providerId), admin-side field masking (sanitizeForAdmin), audit-log sensitive-field redaction, self-hosted deployment (data never leaves the domain), local models (Ollama) |
-| Audit | AI audit hash chain (HMAC-SHA256 + prev_hash, tamper-evident, verifiable), operation audit, field-level change diff (before/after), business-event normalization, Decision Trace, signed audit evidence export, cross-system aggregated audit (governance console) |
+| Audit | AI audit hash chain (HMAC-SHA256 + prev_hash, tamper-evident, verifiable), operation audit, field-level change diff (before/after), business-event normalization, Decision Trace, signed audit evidence export (full chain rows, **offline-machine-verifiable** via `verify-evidence.mjs`), cross-system aggregated audit (governance console) |
 | Governance | Tool risk levels R0–R5, tool gating, human confirmation (R3), two-person approval (R4), side-effect registration & revocation (incl. cross-system callbacks), live governance policy, Agent Registry, standalone governance console (Guard), zero-code sidecar adoption |
 | Security Hardening | Prompt-injection defense, content safety (sensitive-word/jailbreak detection), SSRF protection, upload MIME/magic-byte validation, rate limiting, Helmet headers, allow-list validation, dependency updates |
 | Privacy & User Rights | Data portability export (/auth/export-data), account deactivation cascade, AI memory clearing, masked leaderboards |
@@ -47,7 +47,7 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 | Risk management (Art. 9) | R0–R5 tool risk levels + gating + block (R5) | ✅ | Tool-level risk model = risk-mitigation vehicle |
 | Data governance (Art. 10) | Field masking, encryption at rest, data-sovereign deployment | ✅ | Data governance & minimization |
 | Technical documentation (Art. 11) | Bilingual docs, /app/provenance fingerprint, capability list | ✅ | Traceable system provenance |
-| **Record-keeping / logging (Art. 12)** | **Audit hash chain (tamper-evident) + decision trace + field-level diff + business events + signed evidence export** | ✅ | **Primary alignment**: full, verifiable, exportable AI decision logging |
+| **Record-keeping / logging (Art. 12)** | **Audit hash chain (tamper-evident) + decision trace + field-level diff + business events + signed evidence export (offline-machine-verifiable)** | ✅ | **Primary alignment**: full, verifiable, exportable AI decision logging |
 | Transparency to deployers (Art. 13) | Explainable Authz (why allowed/denied), decision trace, layered "why" in audit | ✅ | Explainable decisions |
 | **Human oversight (Art. 14)** | **Human confirmation (R3), two-person approval (R4), revocation, manually configured policies** | ✅ | **Secondary alignment**: human-in-the-loop is core design |
 | Accuracy/robustness/cybersecurity (Art. 15) | AI Eval suite, safety evals, injection defense, SSRF/upload protection, rate limiting | 🔶 | Tool-level evals; model-level robustness depends on the chosen LLM |
@@ -61,7 +61,7 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 |---|---|---|---|
 | Identity authentication | JWT + password strength + lockout + MFA (TOTP) + session management | ✅ | 2FA + brute-force protection |
 | Access control | CASL row-level authorization + roles + ownership checks + frontend permission points | ✅ | Least privilege + row-level isolation |
-| **Security audit** | **AI/operation audit hash chain + field-level change + trend/anomaly views + evidence export** | ✅ | Tamper-evident, exportable audit records |
+| **Security audit** | **AI/operation audit hash chain + field-level change + trend/anomaly views + evidence export (offline-verifiable)** | ✅ | Tamper-evident, independently verifiable audit records |
 | Data integrity | Audit hash chain (HMAC verification), upload magic-byte validation | ✅ | Record & file integrity |
 | Data confidentiality | AES-256-GCM encryption at rest, masking, sensitive-field redaction | ✅ | At-rest encryption + display masking |
 | Personal information protection | Admin-side masking, data portability export, deactivation cleanup, privacy policy | ✅ | Minimization + rights response |
