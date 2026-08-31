@@ -13,7 +13,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiAuditLog } from '../audit/ai-audit-log.entity';
-import { ConversationService } from '../conversation/conversation.service';
+import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import type { AppAbility } from '../../common/casl/casl-ability.factory';
 
@@ -91,7 +91,16 @@ export class DecisionTraceService {
   ): Promise<DecisionTrace> {
     // 所有权闸门：非本人/不存在在此抛出 404/403
     const conv = await this.conversationService.getConversation(id, userId, ability);
+    return this._buildTrace(conv, id);
+  }
 
+  /** §22.16 A-2 业务实体账本：跳所有权闸门（授权由实体级兜底），跨用户会话读取步骤 */
+  async getConversationTracePeek(id: string): Promise<DecisionTrace> {
+    const conv = await this.conversationService.peekConversation(id);
+    return this._buildTrace(conv, id);
+  }
+
+  private async _buildTrace(conv: ConversationData, id: string): Promise<DecisionTrace> {
     const [logs, effects] = await Promise.all([
       this.auditRepo.find({
         where: { conversationId: id },

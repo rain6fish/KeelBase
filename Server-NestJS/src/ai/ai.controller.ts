@@ -41,6 +41,7 @@ import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.service';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import type { GovernancePolicy } from './governance/governance-policy.service';
+import { BusinessHistoryService } from './governance/business-history.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -57,6 +58,7 @@ export class AiController {
     private readonly toolEffectsService: AiToolEffectsService,
     private readonly decisionTraceService: DecisionTraceService,
     private readonly governancePolicy: GovernancePolicyService,
+    private readonly businessHistoryService: BusinessHistoryService,
   ) {}
 
   /**
@@ -350,6 +352,26 @@ export class AiController {
   }
 
   /**
+   * §22.16 A-2 业务实体行为史：按业务对象（resultType+resultId）聚合跨来源行为史
+   * （AI 副作用 + AI 决策轨迹 + REST 写操作）。admin 或实体所有者。
+   */
+  @Get('governance/entity/:resultType/:resultId')
+  @ApiOperation({ summary: '业务实体行为史（Business History，§22.16 A-2）' })
+  async businessHistory(
+    @Param('resultType') resultType: string,
+    @Param('resultId', ParseIntPipe) resultId: number,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    return this.businessHistoryService.historyForEntity(
+      resultType,
+      resultId,
+      String(user.sub),
+      ability.can('manage', 'all'),
+    );
+  }
+
+  /**
    * D2-1d 治理策略（admin）：读当前策略（工具开关/确认/角色白名单/审计粒度），策略中心实时生效。
    */
   @Get('governance/policy')
@@ -367,6 +389,26 @@ export class AiController {
   @ApiOperation({ summary: '更新治理策略（admin，实时生效）' })
   async setGovernancePolicy(@Body() dto: GovernancePolicy): Promise<GovernancePolicy> {
     return this.governancePolicy.setPolicy(dto);
+  }
+
+  /**
+   * §22.15 策略模板库（admin）：三档预设（金融/政务/通用），供管理台一键导入，联动信创「开箱合规」。
+   */
+  @Get('governance/policy/presets')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '治理策略预设模板（admin，金融/政务/通用）' })
+  getPolicyPresets() {
+    return this.governancePolicy.getPresets();
+  }
+
+  /**
+   * §22.15 策略模板库（admin）：一键应用预设，写 ai_governance_policy 实时生效。
+   */
+  @Post('governance/policy/apply-preset')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '应用治理策略预设（admin，实时生效）' })
+  async applyPolicyPreset(@Body('presetId') presetId: string): Promise<GovernancePolicy> {
+    return this.governancePolicy.applyPreset(presetId);
   }
 
   /**

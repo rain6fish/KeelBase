@@ -78,6 +78,15 @@
                 >
                   <AppIcon icon="mdi-check-circle" />
                 </el-button>
+                <el-button
+                  circle
+                  text
+                  size="small"
+                  :title="t('bhOpen')"
+                  @click="openHistory('pm_task', tk.id)"
+                >
+                  <AppIcon icon="mdi-history" />
+                </el-button>
               </div>
               <div v-if="!detail.tasks.length" class="text-medium-emphasis">{{ t('pmNoTasks') }}</div>
             </el-card>
@@ -112,6 +121,13 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- §22.16 A-2 业务实体行为史 -->
+    <BusinessHistoryDrawer
+      v-model="historyOpen"
+      :result-type="historyTarget?.resultType ?? ''"
+      :result-id="historyTarget?.resultId ?? 0"
+    />
   </div>
 </template>
 
@@ -121,6 +137,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import PmCopilotDrawer from '@/components/PmCopilotDrawer.vue'
+import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { pmApi, type PmProjectDetail, type PmRiskAnalysis } from '@/api/pm'
 
@@ -130,6 +147,13 @@ const snackbar = useSnackbarStore()
 const id = Number(route.params.id)
 
 const detail = ref<PmProjectDetail | null>(null)
+// §22.16 A-2 业务实体行为史
+const historyOpen = ref(false)
+const historyTarget = ref<{ resultType: string; resultId: number } | null>(null)
+function openHistory(resultType: string, resultId: number) {
+  historyTarget.value = { resultType, resultId }
+  historyOpen.value = true
+}
 const analysis = ref<PmRiskAnalysis | null>(null)
 const analyzing = ref(false)
 const showCopilot = ref(false)

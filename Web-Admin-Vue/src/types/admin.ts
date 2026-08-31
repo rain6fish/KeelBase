@@ -308,6 +308,32 @@ export interface GovernanceActionResponse {
   trace: unknown | null // DecisionTrace（AiTraceView 同源；抽屉内渲染关键步骤，完整轨迹走 AiTraceView）
 }
 
+/** §22.16 A-2 业务实体行为史（Business History） */
+export interface BusinessHistoryEvent {
+  id: string
+  source: 'ai-side-effect' | 'ai-trace' | 'rest-write'
+  time: string
+  actorId?: string | null
+  toolName?: string | null
+  businessEvent?: string | null
+  args?: string | null
+  outcome?: string | null
+  evidence?: string | null
+  before?: string | null
+  after?: string | null
+  changes?: string | null
+  action?: string | null
+  method?: string | null
+  path?: string | null
+  steps?: unknown[] | null
+  effectId?: number
+}
+
+export interface BusinessHistoryResponse {
+  target: { exists: boolean; title?: string | null; status?: string | null; deletedAt?: string | null }
+  events: BusinessHistoryEvent[]
+}
+
 export interface ToolEffectsResponse {
   total: number
   page: number

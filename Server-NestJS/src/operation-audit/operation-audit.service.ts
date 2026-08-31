@@ -214,6 +214,8 @@ export class OperationAuditService {
       featureFallback: r.log_feature_fallback ?? null,
       targetId: r.log_target_id ?? null,
       requestBody: r.log_request_body ?? null,
+      changes: r.log_changes ?? null,
+      businessEvent: r.log_business_event ?? null,
       ip: r.log_ip ?? null,
       userAgent: r.log_user_agent ?? null,
       statusCode: r.log_status_code != null ? Number(r.log_status_code) : null,
@@ -221,6 +223,29 @@ export class OperationAuditService {
       username: r.username ?? null,
     }));
     return { items, total, page, limit };
+  }
+
+  /**
+   * §22.16 A-2 业务实体行为史：按 target_id + path 资源子串反查 REST 写操作。
+   * target_id 是 varchar（路径参数提取），需 String(resultId) 匹配；pathSubstrings 防跨资源 id 碰撞。
+   */
+  async findByTargetId(
+    targetId: string,
+    pathSubstrings: string[],
+    since?: Date,
+  ): Promise<Array<OperationAuditLog & { changes?: string | null; businessEvent?: string | null }>> {
+    const qb = this.logRepo
+      .createQueryBuilder('log')
+      .where('log.targetId = :targetId', { targetId: String(targetId) })
+      .orderBy('log.createdAt', 'ASC');
+    if (since) qb.andWhere('log.createdAt >= :since', { since });
+    if (pathSubstrings.length) {
+      const clause = pathSubstrings.map((_, i) => `log.path LIKE :p${i}`).join(' OR ');
+      const params: Record<string, string> = {};
+      pathSubstrings.forEach((s, i) => { params[`p${i}`] = `%${s}%`; });
+      qb.andWhere(`(${clause})`, params);
+    }
+    return qb.getMany();
   }
 
   /**
