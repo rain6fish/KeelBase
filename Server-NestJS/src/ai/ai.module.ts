@@ -82,6 +82,8 @@ import { InternalApprovalsController } from './governance/internal-approvals.con
 import { AuditChainModule } from '../common/audit-chain/audit-chain.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { ContentSafetyService } from './security/content-safety.service';
+import { OperationAuditModule } from '../operation-audit/operation-audit.module';
+import { BusinessHistoryService } from './governance/business-history.service';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
@@ -136,6 +138,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     FeatureFlagsModule,
     AuditChainModule,
     CacheModule,
+    OperationAuditModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController],
@@ -160,6 +163,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     GovernanceReporter,
     { provide: GOVERNANCE_REPORTER, useClass: GovernanceReporter },
     DecisionTraceService,
+    BusinessHistoryService,
     {
       provide: AiService,
       useFactory: (
