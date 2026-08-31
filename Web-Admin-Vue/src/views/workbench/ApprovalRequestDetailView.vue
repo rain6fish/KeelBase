@@ -1,6 +1,11 @@
 <template>
   <div>
-    <PageHeader :title="req?.title ?? t('apTitle')" :subtitle="req ? t('apStatusLabel', { s: statusLabel(req.status) }) : ''" />
+    <PageHeader :title="req?.title ?? t('apTitle')" :subtitle="req ? t('apStatusLabel', { s: statusLabel(req.status) }) : ''">
+      <el-button v-if="req" text size="small" @click="openHistory('app_request', req.id)">
+        <template #icon><AppIcon icon="mdi-history" /></template>
+        {{ t('bhOpen') }}
+      </el-button>
+    </PageHeader>
 
     <el-row v-if="req" :gutter="16" class="mb-4">
       <el-col :xs="24" :md="12">
@@ -38,6 +43,13 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- §22.16 A-2 业务实体行为史 -->
+    <BusinessHistoryDrawer
+      v-model="historyOpen"
+      :result-type="historyTarget?.resultType ?? ''"
+      :result-id="historyTarget?.resultId ?? 0"
+    />
   </div>
 </template>
 
@@ -46,6 +58,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
+import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { approvalApi, type ApprovalRequest } from '@/api/approval'
 
@@ -55,6 +68,13 @@ const snackbar = useSnackbarStore()
 const id = Number(route.params.id)
 
 const req = ref<ApprovalRequest | null>(null)
+// §22.16 A-2 业务实体行为史
+const historyOpen = ref(false)
+const historyTarget = ref<{ resultType: string; resultId: number } | null>(null)
+function openHistory(resultType: string, resultId: number) {
+  historyTarget.value = { resultType, resultId }
+  historyOpen.value = true
+}
 const working = ref(false)
 
 function statusLabel(s: string) {

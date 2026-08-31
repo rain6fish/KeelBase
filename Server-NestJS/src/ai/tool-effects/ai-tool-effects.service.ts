@@ -176,6 +176,14 @@ export class AiToolEffectsService {
     return this.effectsRepo.findOne({ where: { resultType, resultId } as any });
   }
 
+  /** §22.16 A-2 业务实体账本：按实体取全部 AI 副作用（时间升序，供行为史聚合） */
+  async findManyByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect[]> {
+    return this.effectsRepo.find({
+      where: { resultType, resultId } as any,
+      order: { createdAt: 'ASC' },
+    });
+  }
+
   async listForConversation(conversationId: string) {
     const items = await this.effectsRepo.find({
       where: { conversationId },

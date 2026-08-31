@@ -99,6 +99,16 @@
                   >
                     <AppIcon icon="mdi-shield-search" />
                   </el-button>
+                  <!-- §22.16 A-2 业务实体行为史 -->
+                  <el-button
+                    circle
+                    text
+                    size="small"
+                    :title="t('bhOpen')"
+                    @click="openHistory('crm_task', tk.id)"
+                  >
+                    <AppIcon icon="mdi-history" />
+                  </el-button>
                   <el-button
                     v-if="tk.status !== 'completed'"
                     circle
@@ -142,6 +152,13 @@
       :result-id="governanceTarget?.resultId ?? 0"
     />
 
+    <!-- §22.16 A-2 业务实体行为史：跨来源聚合 -->
+    <BusinessHistoryDrawer
+      v-model="historyOpen"
+      :result-type="historyTarget?.resultType ?? ''"
+      :result-id="historyTarget?.resultId ?? 0"
+    />
+
     <el-dialog v-model="showAdd" :width="420" :title="addTitle">
       <template v-if="addType === 'order'">
         <el-form-item :label="t('crmOrderAmountHint')">
@@ -175,6 +192,7 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import CrmCopilotDrawer from '@/components/CrmCopilotDrawer.vue'
 import GovernanceActionDrawer from '@/components/GovernanceActionDrawer.vue'
+import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/api/client'
 import { crmApi, type CrmCustomerDetail, type RiskAnalysis } from '@/api/crm'
@@ -239,6 +257,14 @@ function openAdd(type: string) {
 function openGovernance(resultType: string, resultId: number) {
   governanceTarget.value = { resultType, resultId }
   governanceOpen.value = true
+}
+
+/** §22.16 A-2 业务实体行为史 */
+const historyOpen = ref(false)
+const historyTarget = ref<{ resultType: string; resultId: number } | null>(null)
+function openHistory(resultType: string, resultId: number) {
+  historyTarget.value = { resultType, resultId }
+  historyOpen.value = true
 }
 
 /** D1 闭环：AI Copilot 执行写操作成功 → 刷新业务数据（新任务出现）+ 自动打开治理轨迹 */
