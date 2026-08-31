@@ -1151,3 +1151,59 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
+
+> 来源：私库《KeelBase_AI_Code_Economy_Review方案》（专家组）。目标：**AI 生成代码时就知道不能怎么写**，比事后 Review 更有效。核心四动作：**Search Before Create → Detect Duplicate → Detect Unnecessary Abstraction → Delete Before Add**。
+
+### 15.1 Requirement Before Code
+
+先理解 `Requirement → Existing Architecture → Existing Capability → Minimal Implementation`，禁止在没有需求依据的情况下增加功能。
+
+### 15.2 Search Before Create
+
+创建 Service / Utility / Component / Helper / Interface / Type / Adapter / Repository / Guard / Strategy 之前，**必须先搜索仓库**：是否已有可复用的实现？有则优先复用。
+
+### 15.3 Delete Before Add
+
+已有代码无法满足需求时，优先级：`Modify > Reuse > Simplify > Refactor > Add`——不要直接新增平行实现。
+
+### 15.4 No Speculative Abstraction
+
+禁止为「以后可能需要 / 未来扩展 / 保持架构灵活」创建 abstraction，除非当前 Spec 已需要。**一个实际用例不自动需要 Interface + Implementation + Factory + Strategy。**
+
+### 15.5 Avoid Wrapper Layers
+
+如果 class/function 只是 `收参 → 调另一个 → 返回`，不要新增这一层——除非它提供明确的业务逻辑 / 安全边界 / 治理 / 事务 / 架构边界。
+
+### 15.6 Avoid Duplicate Utilities
+
+创建 Utility 前搜索 `utils / helpers / common / shared / services / existing modules`，禁止生成语义相同的多个工具。
+
+### 15.7 Business Rules Single-Sourced
+
+同一业务规则尽量只存在一个权威实现，不要复制到 Controller / Service / Agent Tool / Frontend / Prompt 多处。
+
+### 15.8 Defensive Programming Has a Reason
+
+不要为「安全」无限增加 null check / fallback / try-catch / default / guard——每个额外防御逻辑要有真实风险依据。
+
+### 15.9 Prefer Existing Platform Capability
+
+KeelBase 已有 CASL / Governance / Audit / AI Tools / Protocol / Memory / RAG / MCP / FLOW 等能力——能解决就不要重新实现一套。
+
+### 15.10 Before Finishing a Task（自问清单）
+
+完成前主动自问：
+
+```text
+What code did I add?
+What code did I duplicate?
+What abstraction did I introduce?
+What existing code could I reuse?
+What code can now be deleted?
+Did I implement anything not required by the Spec?
+Did the implementation become more complex than the requirement?
+```
+
+发现可删除的代码：**优先删除，而不是继续增加**。
