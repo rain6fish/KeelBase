@@ -132,6 +132,34 @@
         </el-popover>
       </div>
 
+      <!-- §22.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 -->
+      <div v-if="identityChain" class="pa-2 mb-2" style="background: var(--el-fill-color-light); border-radius: 8px">
+        <div class="text-caption font-weight-medium mb-1">{{ t('identityChain') }}</div>
+        <div class="d-flex align-center ga-1 flex-wrap">
+          <el-tag size="small" effect="plain">{{ identityChain.human.username || identityChain.human.userId }}</el-tag>
+          <el-tag v-if="identityChain.agent.agentId" size="small" type="warning" effect="plain">
+            {{ identityChain.agent.agentName || identityChain.agent.agentId }}{{ identityChain.agent.trustLevel ? ` (${identityChain.agent.trustLevel})` : '' }}
+          </el-tag>
+          <el-tag v-if="identityChain.tool.toolName" size="small" type="primary" effect="plain">{{ identityChain.tool.toolName }}</el-tag>
+          <el-tag v-if="identityChain.action.businessEvent" size="small" type="success" effect="plain">{{ identityChain.action.businessEvent }}</el-tag>
+          <el-tag v-if="identityChain.source" size="small" effect="dark" class="ms-1">{{ identityChain.source }}</el-tag>
+        </div>
+        <div v-if="identityChain.authorization.denied" class="mt-1">
+          <div class="text-caption text-medium-emphasis mb-1">{{ t('deniedReason') }}</div>
+          <div v-for="c in identityChain.authorization.denied" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+            <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="14" />
+            <span class="text-caption" :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
+          </div>
+        </div>
+        <div v-else-if="identityChain.authorization.allowed" class="mt-1">
+          <div class="text-caption text-medium-emphasis mb-1">{{ t('authorizedBy') }}</div>
+          <div v-for="c in identityChain.authorization.allowed.checks as Array<{name:string;ok:boolean;note?:string}>" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+            <AppIcon icon="mdi-check-circle" color="var(--el-color-success)" size="14" />
+            <span class="text-caption">{{ c.note || c.name }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- L3 技术详情 -->
       <el-collapse>
         <el-collapse-item :title="t('technicalDetail')" name="tech">
@@ -177,7 +205,7 @@ import { auditApi } from '@/api/audit'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
 
 const { t, messages, locale } = useI18n()
 const feature = computed(() => (messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined)?.feature)
@@ -257,13 +285,17 @@ function toggleExpand(id: number) {
   const isSame = expanded.value?.id === id
   expanded.value = isSame ? null : (log ?? null)
   interpretation.value = null
+  identityChain.value = null
   if (!isSame && log) {
     auditApi.interpretation(id).then((r) => { interpretation.value = r }).catch(() => { interpretation.value = null })
+    auditApi.chain(id).then((c) => { identityChain.value = c }).catch(() => { identityChain.value = null })
   }
 }
 
 /** §22.16 A-4 审计解释器：展开行的业务摘要 + 证据统计 */
 const interpretation = ref<AuditInterpretation | null>(null)
+/** §22.16 A-5 跨系统身份链：展开行的 Human→Agent→Tool→Action + 授权依据 */
+const identityChain = ref<IdentityChain | null>(null)
 
 function hasStats(s: AuditInterpretation['stats']): boolean {
   return s.businessEvents.length > 0 || s.evidence.length > 0 || s.confirmations.approved > 0 || s.confirmations.declined > 0 || s.blocked > 0 || s.errors > 0

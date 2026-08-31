@@ -209,6 +209,8 @@ const en: ZhDict = {
   declinedCount: 'Declined {n}',
   blockedCount: 'Blocked {n}',
   errorCount: 'Errors {n}',
+  // §22.16 A-5 cross-system identity chain
+  authorizedBy: 'Allowed by',
   decisionPolicy: 'Policy',
   stepConfirmation: 'Confirmation',
   stepEffect: 'Created record',

@@ -6,7 +6,9 @@
  */
 
 import { createHmac } from 'crypto';
-import { Injectable, Optional, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Optional, Inject, NotFoundException, forwardRef } from '@nestjs/common';
+import { AiService } from '../ai.service';
+import { AiAgentService } from '../agents/ai-agent.service';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
@@ -199,6 +201,10 @@ export class AuditService {
     private readonly reporter?: GovernanceReporter,
     // E-3 聚合缓存（审计统计/成本/报告/verify 短 TTL；log 热路径只失效 verify 单 key 族）
     @Optional() private readonly cacheService?: CacheService,
+    // §22.16 A-5 跨系统身份链：授权依据（AiService.explainAuthorization）+ Agent 解析
+    @Optional() @Inject(forwardRef(() => AiService))
+    private readonly aiService?: AiService,
+    @Optional() private readonly agentService?: AiAgentService,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
@@ -771,6 +777,59 @@ export class AuditService {
     return { row, summary, conversation: convRows };
   }
 
+  /** §22.16 A-5 跨系统身份链：审计行 → Human→Intent→Agent→Tool→Action + 授权依据（拒绝 checks / 放行 explain）+ 同会话工具序列 */
+  async getChain(id: number): Promise<{
+    row: { id: number; userId: string; username?: string | null; action: string; createdAt: Date };
+    human: { userId: string; username: string | null };
+    intent: string | null;
+    agent: { agentId: string | null; agentName: string | null; trustLevel: string | null; callerAgentId: string | null };
+    tool: { toolName: string | null };
+    action: { businessEvent: string | null; evidence: string | null };
+    source: string | null;
+    authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
+    chain: Array<{ id: number; action: string; toolName: string | null; businessEvent?: string | null; agentId?: string | null; createdAt: Date }>;
+  }> {
+    const row = await this.logRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('审计记录不存在');
+    const convRows = row.conversationId
+      ? await this.logRepo.find({ where: { conversationId: row.conversationId }, order: { createdAt: 'ASC' }, take: 50 })
+      : [];
+    const toolName = this._toolNameFromDetail(row.detail);
+    const agent = row.agentId ? await this.agentService?.findByAgentId(row.agentId) : null;
+    const denied = parseChecks(row.authorization);
+    let allowed: Record<string, unknown> | null = null;
+    if (!denied && toolName) {
+      try {
+        allowed = (await this.aiService?.explainAuthorization(toolName, row.userId)) ?? null;
+      } catch {
+        allowed = null;
+      }
+    }
+    return {
+      row: { id: row.id, userId: row.userId, username: row.username ?? null, action: row.action, createdAt: row.createdAt },
+      human: { userId: row.userId, username: row.username ?? null },
+      intent: row.businessIntent ?? null,
+      agent: {
+        agentId: row.agentId ?? null,
+        agentName: agent?.name ?? null,
+        trustLevel: agent?.trustLevel ?? null,
+        callerAgentId: row.callerAgentId ?? null,
+      },
+      tool: { toolName },
+      action: { businessEvent: row.businessEvent ?? null, evidence: row.evidence ?? null },
+      source: row.source ?? null,
+      authorization: { denied, allowed },
+      chain: convRows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        toolName: this._toolNameFromDetail(r.detail),
+        businessEvent: r.businessEvent ?? null,
+        agentId: r.agentId ?? null,
+        createdAt: r.createdAt,
+      })),
+    };
+  }
+
   async getAllStats(since?: Date): Promise<UsageStats> {
     const sinceDay = since ? since.toISOString().slice(0, 10) : 'all';
     const cached = await this.cacheService?.get<UsageStats>(`audit:stats:${sinceDay}`);
@@ -834,6 +893,17 @@ export class AuditService {
       }
     }
     return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }
+}
+
+/** §22.16 A-5：authorization 列 checks[] JSON 安全解析（非法/非数组降级 null） */
+function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; note?: string }> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Array<{ name: string; ok: boolean; note?: string }>) : null;
+  } catch {
+    return null;
   }
 }
 

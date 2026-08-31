@@ -61,4 +61,20 @@ describe('AiAgentService（D5 Agent Registry）', () => {
     expect(created).toBe(0);
     expect((await svc.list()).length).toBe(0);
   });
+
+  describe('findByAgentId（§22.16 A-5 身份链）', () => {
+    it('按 name 反查 Agent 名称/信任级/用途', async () => {
+      const repo = makeRepo();
+      const svc = new AiAgentService(repo as any);
+      await svc.upsertFromHeadless([{ name: 'key-legacy-erp', ownerUserId: 1 }]);
+      const agent = await svc.findByAgentId('key-legacy-erp');
+      expect(agent).toMatchObject({ name: 'key-legacy-erp', trustLevel: 'R1' });
+    });
+
+    it('未注册 → null（审计 agentId 兜底）', async () => {
+      const repo = makeRepo();
+      const svc = new AiAgentService(repo as any);
+      expect(await svc.findByAgentId('unknown-agent')).toBeNull();
+    });
+  });
 });

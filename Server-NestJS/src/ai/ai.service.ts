@@ -340,6 +340,31 @@ export class AiService {
     };
   }
 
+  /** §22.16 A-5 授权链：放行场景的「为什么允许」依据（tool 治理 checks + 角色 CASL 决策） */
+  async explainAuthorization(toolName: string, userId: string): Promise<{
+    tool: string;
+    riskLevel?: string;
+    riskStrategy?: string;
+    requiresConfirmation?: boolean;
+    checks: AuthorizationCheck[];
+    casl?: { action: string; subject: string; allowed: boolean; reason: string; deniedBy?: string | null };
+  }> {
+    const isWrite = RISK_STRATEGY[this.toolRegistry.riskLevel(toolName)] !== 'auto';
+    const reasons = await this._authorizationReasons(toolName, userId, isWrite);
+    let casl: { action: string; subject: string; allowed: boolean; reason: string; deniedBy?: string | null } | undefined;
+    try {
+      const user = this.usersService ? await this.usersService.findOne(Number(userId)) : null;
+      casl = this.abilityFactory.explainForTarget(
+        { role: (user?.role as any) ?? 'user', sub: Number(userId) },
+        'manage',
+        toolName,
+      );
+    } catch {
+      casl = undefined;
+    }
+    return { ...reasons, casl };
+  }
+
   /**
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
    */
@@ -1410,6 +1435,8 @@ export class AiService {
               // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
               businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
               evidence: this._captureDecisionEvidence(tc.name, result) ?? undefined,
+              // §22.16 A-5 跨系统身份链：B 路径（ProxyTool 写向外部系统）标记 source=bridge
+              source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
             });
           }
         } catch (err) {

@@ -210,6 +210,8 @@ const zh = {
   declinedCount: '人工拒绝 {n}',
   blockedCount: '阻断 {n}',
   errorCount: '错误 {n}',
+  // §22.16 A-5 跨系统身份链
+  authorizedBy: '允许依据',
   decisionPolicy: '策略',
   stepConfirmation: '确认决策',
   stepEffect: '创建记录',
