@@ -87,6 +87,38 @@
 
 **验证结论（第 9-10 周）**：协议 → `keelbase init --spec` → 普通源代码（实体/DTO/API/权限/审计/Flutter 页）闭环成立，30 分钟内可生成带 enum + CASL + 审计的业务模块。
 
+### 3.6 AI 工具层声明 / AI Tools Declaration（Protocol 2.0 增量，2026-09）
+
+协议可选 `aiTools` 字段声明模块的 AI 工具层，生成器消费它生成**带治理的读/写工具**（对齐 Unified Authorization Contract 的 `agent` 维度——R0-R5 风险级 / 确认 / 审计由 ToolRegistry 统一处理）：
+
+```json
+{
+  "module": "contracts",
+  "fields": [
+    { "name": "title", "type": "string", "label": "标题", "required": true }
+  ],
+  "aiTools": {
+    "enabled": true,
+    "query": { "riskLevel": "R1" },
+    "create": { "riskLevel": "R4", "requiresConfirmation": true }
+  }
+}
+```
+
+| 声明 | 缺省 | 语义 |
+|---|---|---|
+| `aiTools.enabled: false` | 生成 query+create | 关闭全部 AI 工具（只读敏感模块） |
+| `aiTools.query: false` | 生成 | 不生成 query 工具 |
+| `aiTools.query.riskLevel` | R1（读派生） | query 工具显式风险级 |
+| `aiTools.create: false` | 生成 | 不生成 create 工具（只读模块） |
+| `aiTools.create.riskLevel` | R3 | create 工具显式风险级（R2=policy / R4=双人审批） |
+| `aiTools.create.requiresConfirmation` | R3/R4 时 true | 覆盖确认要求（false 需显式配 R1/R2） |
+
+- **缺省行为与旧协议完全一致**（query R1 自动 + create R3 需确认）——增量字段向后兼容，既有 spec 生成的模块行为不变（一致性测试锁定）。
+- create 文件名用复数（`create-contracts.tool.ts`）、工具名用单数（`create_contract`），与生成器既有约定一致。
+- 工具风险级经 ToolRegistry 进入 R0-R5 治理管线（门控 / 确认 / 双人审批 / 审计 / 撤销）——生成模块即「AI 可调用 + 治理」。
+- **分析/更新等复杂工具仍手写**（协议红线：只自动化高频 CRUD 工具）。
+
 ## 4. 如何用协议生成
 
 **方式 A：CLI（标准 CRUD）**

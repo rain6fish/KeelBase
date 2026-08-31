@@ -108,6 +108,41 @@ export function validateFields(fields) {
 }
 
 /**
+ * Protocol 2.0 aiTools 声明校验（可选；缺省 = 生成默认 query R1 + create R3 确认，兼容旧协议）。
+ * 形态：{ enabled?: boolean, query?: false | { riskLevel?: 'R0'-'R5', requiresConfirmation?: boolean },
+ *        create?: false | { riskLevel?: 'R0'-'R5', requiresConfirmation?: boolean } }
+ */
+export function validateAiTools(aiTools) {
+  if (aiTools == null) return null;
+  if (typeof aiTools !== 'object' || Array.isArray(aiTools)) return 'aiTools 必须是对象';
+  if (aiTools.enabled !== undefined && typeof aiTools.enabled !== 'boolean') return 'aiTools.enabled 必须是布尔';
+  for (const key of ['query', 'create']) {
+    const v = aiTools[key];
+    if (v === undefined || v === true) continue;
+    if (v === false) continue;
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      if (v.riskLevel !== undefined && !/^R[0-5]$/.test(v.riskLevel)) return `aiTools.${key}.riskLevel 必须是 R0-R5`;
+      if (v.requiresConfirmation !== undefined && typeof v.requiresConfirmation !== 'boolean') return `aiTools.${key}.requiresConfirmation 必须是布尔`;
+      if (v.requiresConfirmation === false && (!v.riskLevel || !['R1', 'R2'].includes(v.riskLevel))) {
+        return `aiTools.${key}: requiresConfirmation=false 需显式配 R1/R2 风险级`;
+      }
+      continue;
+    }
+    return `aiTools.${key} 必须是 false 或 { riskLevel, requiresConfirmation }`;
+  }
+  return null;
+}
+
+/** 工具开关（单一来源，templates-ai 与 wire 共用）：enabled 关全部；query/create false 关单个；缺省开。 */
+export function aiToolsFlags(aiTools) {
+  const enabled = aiTools?.enabled !== false;
+  return {
+    query: enabled && aiTools?.query !== false,
+    create: enabled && aiTools?.create !== false,
+  };
+}
+
+/**
  * 归一化为生成上下文：{ singular, plural, singlePascal, pluralPascal, camel, label, fields }
  */
 export function buildContext(name, label, fields) {

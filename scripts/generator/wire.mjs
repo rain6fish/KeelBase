@@ -5,6 +5,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { adminI18nKeys } from './templates-admin.mjs';
+import { aiToolsFlags } from './validate.mjs';
 
 /** 在 anchor 之后插入；marker 已存在则幂等跳过。 */
 function insertAfter(content, anchor, insertion, marker) {
@@ -274,6 +275,7 @@ export async function wireFrontend(ctx, root = '') {
 /** AI 工具接线（第 11-12 周）：ai.module.ts 注册生成的 query/create 工具。 */
 export async function wireAiModule(ctx, root = '') {
   const results = [];
+  const flags = aiToolsFlags(ctx.aiTools);
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
   const BE = `${root}${sep}Server-NestJS/src`;
   const AI = `${BE}/ai/ai.module.ts`;
@@ -289,17 +291,23 @@ export async function wireAiModule(ctx, root = '') {
       ),
     ),
   );
-  // 2) 工具文件 import
-  results.push(
-    await applyFile(AI, (c) =>
-      insertAfter(
-        c,
-        `import { CreateTodoTool } from './tools/create-todo.tool';`,
-        `\nimport { Query${ctx.pluralPascal}Tool } from './tools/query-${ctx.plural}.tool';\nimport { Create${ctx.singlePascal}Tool } from './tools/create-${ctx.plural}.tool';`,
-        `./tools/query-${ctx.plural}.tool`,
+  // 2) 工具文件 import（按 aiTools 声明开关，Protocol 2.0）
+  const toolImports = [
+    flags.query ? `import { Query${ctx.pluralPascal}Tool } from './tools/query-${ctx.plural}.tool';` : '',
+    flags.create ? `import { Create${ctx.singlePascal}Tool } from './tools/create-${ctx.plural}.tool';` : '',
+  ].filter(Boolean);
+  if (toolImports.length > 0) {
+    results.push(
+      await applyFile(AI, (c) =>
+        insertAfter(
+          c,
+          `import { CreateTodoTool } from './tools/create-todo.tool';`,
+          `\n${toolImports.join('\n')}`,
+          toolImports[0],
+        ),
       ),
-    ),
-  );
+    );
+  }
   // 3) imports 数组
   results.push(
     await applyFile(AI, (c) =>
@@ -328,17 +336,23 @@ export async function wireAiModule(ctx, root = '') {
       ),
     ),
   );
-  // 6) 注册 query + create 工具
-  results.push(
-    await applyFile(AI, (c) =>
-      insertAfter(
-        c,
-        `        toolRegistry.register(new CreateTodoTool(todosService));`,
-        `\n        // ${ctx.label}（EASY-2 自动生成 AI 工具：读 + 写需确认）\n        toolRegistry.register(new Query${ctx.pluralPascal}Tool(${ctx.plural}Service));\n        toolRegistry.register(new Create${ctx.singlePascal}Tool(${ctx.plural}Service));`,
-        `new Query${ctx.pluralPascal}Tool(`,
+  // 6) 注册 query + create 工具（按 aiTools 声明开关，Protocol 2.0）
+  const toolRegs = [
+    flags.query ? `        toolRegistry.register(new Query${ctx.pluralPascal}Tool(${ctx.plural}Service));` : '',
+    flags.create ? `        toolRegistry.register(new Create${ctx.singlePascal}Tool(${ctx.plural}Service));` : '',
+  ].filter(Boolean);
+  if (toolRegs.length > 0) {
+    results.push(
+      await applyFile(AI, (c) =>
+        insertAfter(
+          c,
+          `        toolRegistry.register(new CreateTodoTool(todosService));`,
+          `\n        // ${ctx.label}（EASY-2 自动生成 AI 工具）\n${toolRegs.join('\n')}`,
+          toolRegs[0],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   return results;
 }
