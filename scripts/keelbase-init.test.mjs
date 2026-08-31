@@ -15,6 +15,7 @@ import {
   validateLabel,
   parseFields,
   validateFields,
+  validateAiTools,
   buildContext,
   toSingular,
   toPlural,
@@ -1443,4 +1444,63 @@ test('生成模块一致性：协议字段 ⊆ 实体字段（books/notes/contra
       assert.ok(entity.includes(f.name), `${module}: 实体缺协议字段 ${f.name}`);
     }
   }
+});
+
+test('validateAiTools（Protocol 2.0）：合法/非法形态', () => {
+  assert.equal(validateAiTools(null), null);
+  assert.equal(validateAiTools(undefined), null);
+  assert.equal(validateAiTools({ enabled: true, query: { riskLevel: 'R1' }, create: { riskLevel: 'R4' } }), null);
+  assert.equal(validateAiTools({ create: false, query: false }), null);
+  assert.equal(validateAiTools({ create: { riskLevel: 'R2' } }), null);
+  assert.equal(validateAiTools({ create: 'yes' }), 'aiTools.create 必须是 false 或 { riskLevel, requiresConfirmation }');
+  assert.equal(validateAiTools({ create: { riskLevel: 'R9' } }), 'aiTools.create.riskLevel 必须是 R0-R5');
+  assert.equal(validateAiTools({ query: { riskLevel: 'r1' } }), 'aiTools.query.riskLevel 必须是 R0-R5');
+  assert.equal(validateAiTools({ enabled: 'true' }), 'aiTools.enabled 必须是布尔');
+  // requiresConfirmation=false 需显式 R1/R2（写工具不确认 = 低风险写）
+  assert.equal(
+    validateAiTools({ create: { requiresConfirmation: false } }),
+    'aiTools.create: requiresConfirmation=false 需显式配 R1/R2 风险级',
+  );
+  assert.equal(
+    validateAiTools({ create: { requiresConfirmation: false, riskLevel: 'R4' } }),
+    'aiTools.create: requiresConfirmation=false 需显式配 R1/R2 风险级',
+  );
+});
+
+test('aiFiles（Protocol 2.0）：aiTools 开关过滤 + create/query riskLevel 透出', () => {
+  const ctx = buildContext('posts', '帖子', [{ name: 'title', type: 'string', label: '标题', required: true }]);
+
+  // 缺省：query + create 都生成（create R3 + 确认，与旧协议一致；create 文件名复数、工具名单数）
+  let files = aiFiles(ctx);
+  assert.ok(files.some((f) => f.path === 'ai/tools/query-posts.tool.ts'));
+  let create = files.find((f) => f.path === 'ai/tools/create-posts.tool.ts').content;
+  assert.match(create, /readonly riskLevel = 'R3';/);
+  assert.match(create, /readonly requiresConfirmation = true;/);
+
+  // enabled:false → 全部不生成（只读敏感模块）
+  assert.equal(aiFiles({ ...ctx, aiTools: { enabled: false } }).length, 0);
+
+  // create:false → 只生成 query
+  files = aiFiles({ ...ctx, aiTools: { create: false } });
+  assert.equal(files.filter((f) => f.path.includes('create-posts.tool')).length, 0);
+  assert.ok(files.some((f) => f.path === 'ai/tools/query-posts.tool.ts'));
+
+  // query:false → 只生成 create
+  files = aiFiles({ ...ctx, aiTools: { query: false } });
+  assert.ok(files.some((f) => f.path === 'ai/tools/create-posts.tool.ts'));
+  assert.equal(files.filter((f) => f.path.includes('query-posts.tool')).length, 0);
+
+  // create R4（双人审批）+ query R2（策略决定）→ 风险级透出
+  files = aiFiles({ ...ctx, aiTools: { create: { riskLevel: 'R4' }, query: { riskLevel: 'R2' } } });
+  create = files.find((f) => f.path === 'ai/tools/create-posts.tool.ts').content;
+  assert.match(create, /readonly riskLevel = 'R4';/);
+  assert.match(create, /readonly requiresConfirmation = true;/);
+  const query = files.find((f) => f.path === 'ai/tools/query-posts.tool.ts').content;
+  assert.match(query, /readonly riskLevel = 'R2';/);
+
+  // create R2 + requiresConfirmation:false → 不设确认行（自动/策略决定）
+  files = aiFiles({ ...ctx, aiTools: { create: { riskLevel: 'R2', requiresConfirmation: false } } });
+  create = files.find((f) => f.path === 'ai/tools/create-posts.tool.ts').content;
+  assert.match(create, /readonly riskLevel = 'R2';/);
+  assert.doesNotMatch(create, /readonly requiresConfirmation = true;/);
 });
