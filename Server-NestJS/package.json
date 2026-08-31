@@ -28,7 +28,8 @@
     "seed:demo": "ts-node scripts/seed-demo.ts",
     "healthcheck": "ts-node scripts/healthcheck.ts",
     "audit:chain:load": "ts-node scripts/audit-chain-load-test.ts",
-    "conformance": "node scripts/verify-protocol-conformance.mjs"
+    "conformance": "node scripts/verify-protocol-conformance.mjs",
+    "verify:evidence": "node scripts/verify-evidence.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",
