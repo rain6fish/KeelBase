@@ -97,6 +97,10 @@ export interface ActionReport {
     toolName: string | null;
     isError: boolean;
     errorMessage?: string | null;
+    /** §22.16 A-6 合规：Decision Evidence + 责任链展示字段 */
+    businessEvent?: string | null;
+    evidence?: string | null;
+    agentId?: string | null;
     createdAt: Date;
   }>;
   /** E-1 字段级变更审计：副作用 before/after 快照（limit 50，供证据包人工复核） */
@@ -128,13 +132,21 @@ export interface ActionReportExport {
   exportedAt: string;
   /** 生成的工具（AUDIT_HMAC_KEY 或 ENCRYPTION_KEY，非空时） */
   generator: string;
-  /** A2：证据包格式版本（'keelbase-audit-evidence/1'） */
+  /** A2：证据包格式版本（'keelbase-audit-evidence/2'——A-6 含 compliance 段） */
   format: string;
   /** ActionReport 全量（含 hashChain verify） */
   report: ActionReport;
+  /** §22.16 A-6 合规：samples 每条的业务摘要 + 责任链 + 授权依据（签名覆盖防篡改） */
+  compliance: Array<{
+    id: number;
+    businessEvent: string | null;
+    evidence: string | null;
+    summary: { sentence: string; stats: unknown } | null;
+    identityChain: unknown | null;
+  }>;
   /** A2：链上原始行全量（id/prevHash/hash + payload），供 verify-evidence.mjs 离线重算 */
   chain: EvidenceChainRow[];
-  /** 证据包签名：对 summary + hashChain + effectDiffs + chain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
+  /** 证据包签名：对 summary + hashChain + effectDiffs + compliance + chain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
   signature: string | null;
 }
 
@@ -577,10 +589,14 @@ export class AuditService {
     if (options.userId) where.userId = options.userId;
     if (options.since) where.createdAt = Between(options.since, new Date());
     // E-3 列投影：只载聚合所需列（detail/errorMessage/authorization 保留——samples 工具名解析 + blocked 正则）
+    // §22.16 A-6 合规：补 businessEvent/evidence/agentId（Decision Evidence + 责任链）
     const logs = await this.logRepo.find({
       where,
       order: { createdAt: 'DESC' },
-      select: { id: true, action: true, detail: true, isError: true, errorMessage: true, authorization: true, createdAt: true },
+      select: {
+        id: true, action: true, detail: true, isError: true, errorMessage: true, authorization: true,
+        businessEvent: true, evidence: true, agentId: true, createdAt: true,
+      },
     });
 
     let executed = 0;
@@ -634,6 +650,9 @@ export class AuditService {
       toolName: this._toolNameFromDetail(l.detail),
       isError: l.isError,
       errorMessage: l.errorMessage,
+      businessEvent: l.businessEvent ?? null,
+      evidence: l.evidence ?? null,
+      agentId: l.agentId ?? null,
       createdAt: l.createdAt,
     }));
 
@@ -668,10 +687,39 @@ export class AuditService {
       hash: row.hash ?? '',
       payload: this._payload(row),
     }));
+    // §22.16 A-6 合规：内存批建（byId/byConv/agentCache，零额外查询）——samples 每条出业务摘要 + 责任链 + 授权依据
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const byConv = new Map<string, AiAuditLog[]>();
+    for (const r of rows) {
+      if (r.conversationId) {
+        const list = byConv.get(r.conversationId) ?? [];
+        list.push(r);
+        byConv.set(r.conversationId, list);
+      }
+    }
+    const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
+    const compliance = [];
+    for (const s of report.samples ?? []) {
+      const row = byId.get(s.id);
+      if (!row) {
+        compliance.push({ id: s.id, businessEvent: null, evidence: null, summary: null, identityChain: null });
+        continue;
+      }
+      const convRows = row.conversationId ? (byConv.get(row.conversationId) ?? []) : [];
+      const summary = summarizeAudit(row, convRows as unknown as AuditInterpretationRow[]);
+      compliance.push({
+        id: s.id,
+        businessEvent: row.businessEvent ?? null,
+        evidence: row.evidence ?? null,
+        summary: { sentence: summary.sentence, stats: summary.stats },
+        identityChain: await this._identityChainFromRow(row, convRows, agentCache),
+      });
+    }
     const canonical = JSON.stringify({
       summary: report.summary,
       hashChain: report.hashChain,
       effectDiffs: report.effectDiffs,
+      compliance,
       chain,
       exportedAt,
     });
@@ -681,8 +729,9 @@ export class AuditService {
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
-      format: 'keelbase-audit-evidence/1',
+      format: 'keelbase-audit-evidence/2',
       report,
+      compliance,
       chain,
       signature,
     };
@@ -794,8 +843,40 @@ export class AuditService {
     const convRows = row.conversationId
       ? await this.logRepo.find({ where: { conversationId: row.conversationId }, order: { createdAt: 'ASC' }, take: 50 })
       : [];
+    const identity = await this._identityChainFromRow(row, convRows);
+    return {
+      row: { id: row.id, userId: row.userId, username: row.username ?? null, action: row.action, createdAt: row.createdAt },
+      ...identity,
+      chain: convRows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        toolName: this._toolNameFromDetail(r.detail),
+        businessEvent: r.businessEvent ?? null,
+        agentId: r.agentId ?? null,
+        createdAt: r.createdAt,
+      })),
+    };
+  }
+
+  /** §22.16 A-6 合规：从行构建身份链（Human→Agent→Tool→Action + 授权依据）；agentCache 供批量复用去重 */
+  private async _identityChainFromRow(
+    row: AiAuditLog,
+    _convRows: AiAuditLog[],
+    agentCache?: Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>,
+  ): Promise<{
+    human: { userId: string; username: string | null };
+    intent: string | null;
+    agent: { agentId: string | null; agentName: string | null; trustLevel: string | null; callerAgentId: string | null };
+    tool: { toolName: string | null };
+    action: { businessEvent: string | null; evidence: string | null };
+    source: string | null;
+    authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
+  }> {
     const toolName = this._toolNameFromDetail(row.detail);
-    const agent = row.agentId ? await this.agentService?.findByAgentId(row.agentId) : null;
+    const agent = row.agentId
+      ? (agentCache?.get(row.agentId) ?? (await this.agentService?.findByAgentId(row.agentId)))
+      : null;
+    if (row.agentId && agentCache && !agentCache.has(row.agentId)) agentCache.set(row.agentId, agent ?? null);
     const denied = parseChecks(row.authorization);
     let allowed: Record<string, unknown> | null = null;
     if (!denied && toolName) {
@@ -806,7 +887,6 @@ export class AuditService {
       }
     }
     return {
-      row: { id: row.id, userId: row.userId, username: row.username ?? null, action: row.action, createdAt: row.createdAt },
       human: { userId: row.userId, username: row.username ?? null },
       intent: row.businessIntent ?? null,
       agent: {
@@ -819,14 +899,6 @@ export class AuditService {
       action: { businessEvent: row.businessEvent ?? null, evidence: row.evidence ?? null },
       source: row.source ?? null,
       authorization: { denied, allowed },
-      chain: convRows.map((r) => ({
-        id: r.id,
-        action: r.action,
-        toolName: this._toolNameFromDetail(r.detail),
-        businessEvent: r.businessEvent ?? null,
-        agentId: r.agentId ?? null,
-        createdAt: r.createdAt,
-      })),
     };
   }
 

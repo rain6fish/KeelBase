@@ -52,8 +52,8 @@ catch (e) { console.error(`✗ 无法读取证据包 JSON：${e.message}`); proc
 console.log('═══ A2 审计证据包离线验证（不依赖 KeelBase）═══\n');
 console.log(`证据包：${fileArg}`);
 
-// 0. 格式
-if (ev.format === 'keelbase-audit-evidence/1') ok('格式版本（keelbase-audit-evidence/1）', ev.format);
+// 0. 格式（v1 基础；v2 = §22.16 A-6 合规段，canonical 加 compliance）
+if (ev.format === 'keelbase-audit-evidence/1' || ev.format === 'keelbase-audit-evidence/2') ok('格式版本', ev.format);
 else bad('格式版本', ev.format ?? '(缺失)');
 
 const rows = ev.chain ?? [];
@@ -91,11 +91,12 @@ if (keys.length === 0) {
       summary: ev.report?.summary,
       hashChain: ev.report?.hashChain,
       effectDiffs: ev.report?.effectDiffs,
+      compliance: ev.compliance,
       chain: ev.chain,
       exportedAt: ev.exportedAt,
     });
     const sigOk = keys.some((k) => createHmac('sha256', k).update(canonical).digest('hex') === ev.signature);
-    sigOk ? ok('证据包签名（HMAC-SHA256 覆盖 summary+hashChain+effectDiffs+chain+exportedAt）', '导出后未被改动') : bad('证据包签名', '签名不匹配（导出后被改动或密钥不符）');
+    sigOk ? ok('证据包签名（HMAC-SHA256 覆盖 summary+hashChain+effectDiffs+compliance+chain+exportedAt）', '导出后未被改动') : bad('证据包签名', '签名不匹配（导出后被改动或密钥不符）');
   } else {
     console.log('  — 证据包无 signature（导出时未配 AUDIT_HMAC_KEY/ENCRYPTION_KEY）。');
   }
