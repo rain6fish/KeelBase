@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { ApprovalRequest } from './approval-request.entity';
 import { ApprovalPolicy } from './approval-policy.entity';
+import { User } from '../common/entities/user.entity';
 import { CreateRequestDto, CreatePolicyDto } from './dto/approval.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -19,6 +20,8 @@ export class ApprovalService {
     private readonly requests: Repository<ApprovalRequest>,
     @InjectRepository(ApprovalPolicy)
     private readonly policies: Repository<ApprovalPolicy>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
   // ── Request ───────────────────────────────────────────────
@@ -52,7 +55,16 @@ export class ApprovalService {
     if (ability.cannot('read', subject('ApprovalRequest', entity))) {
       throw new ForbiddenException('无权访问此审批请求');
     }
-    return entity;
+    // A-7 审批链可视化：联用户表带发起人/审批人用户名（「谁」要具体）
+    const [requester, reviewer] = await Promise.all([
+      entity.requesterId ? this.users.findOne({ where: { id: entity.requesterId } }) : null,
+      entity.reviewerId ? this.users.findOne({ where: { id: entity.reviewerId } }) : null,
+    ]);
+    return {
+      ...entity,
+      requesterName: requester?.username ?? null,
+      reviewerName: reviewer?.username ?? null,
+    } as ApprovalRequest;
   }
 
   async removeRequest(id: number, ability: AppAbility): Promise<void> {
