@@ -21,7 +21,7 @@
     <div v-if="loading" class="text-medium-emphasis pa-4">{{ t('loading') }}</div>
 
     <template v-else>
-      <div v-if="sessions.length === 0" class="text-medium-emphasis pa-4">{{ t('noTimeline') }}</div>
+      <el-empty v-if="sessions.length === 0" :description="t('noTimeline')" :image-size="80" />
 
       <el-collapse v-for="s in sessions" :key="s.conversationId || 'no-conv'" accordion class="mb-3">
         <el-collapse-item>
