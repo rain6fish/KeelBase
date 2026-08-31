@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KeelBase Bridge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); overflow: hidden; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #e2e8f0; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .title { font-size: 30px; font-weight: 700; margin-bottom: 36px; letter-spacing: 1px; text-align: center; }
+  .title small { display: block; font-size: 16px; color: #94a3b8; font-weight: 400; margin-top: 8px; }
+  .flow { display: flex; align-items: center; gap: 22px; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+  .box {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 16px 22px; text-align: center; min-width: 230px;
+  }
+  .box b { font-size: 20px; display: block; }
+  .box small { color: #94a3b8; font-size: 13px; line-height: 1.6; display: block; margin-top: 6px; }
+  .box.java { border-color: #f59e0b; }
+  .box.api { border-color: #38bdf8; }
+  .box.keelbase { border-color: #34d399; background: rgba(52,211,153,0.08); }
+  .box.ai { border-color: #a78bfa; }
+  .arrow { font-size: 40px; color: #64748b; font-weight: 300; }
+  .caption { margin-top: 30px; font-size: 17px; color: #cbd5e1; }
+  .caption b { color: #34d399; }
+</style>
+</head>
+<body>
+  <div class="title" id="title">桥接存量系统 · 获得 AI 能力<small>不替换系统 · 不重写代码</small></div>
+  <div class="flow">
+    <div class="col">
+      <div class="box java"><b id="l1">Java 存量系统</b><small id="s1">Spring Boot CRM<br>运行十年的业务系统</small></div>
+      <div class="box api"><b id="l2">现有接口</b><small id="s2">GET /customers<br>POST /followups</small></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box keelbase"><b id="l3">KeelBase 治理层</b><small id="s3">读操作 · 自动执行<br>写操作 · 人工批准<br>全链路 · 审计可撤销</small></div>
+    <div class="arrow">→</div>
+    <div class="box ai"><b id="l4">AI 助手</b><small id="s4">查客户 · 控风险 · 建任务<br>在您允许的边界内干活</small></div>
+  </div>
+  <div class="caption" id="cap">一个接口描述 → 受管控的 AI 工具 → <b>业务安全的 AI 能力</b></div>
+<script>
+  const EN = {
+    title: 'Bridge Legacy Systems · Gain AI<small>No replacement · No rewrite</small>',
+    l1: 'Java Legacy System', s1: 'Spring Boot CRM<br>A system running for a decade',
+    l2: 'Existing APIs', s2: 'GET /customers<br>POST /followups',
+    l3: 'KeelBase Governance', s3: 'Reads · run automatically<br>Writes · human approval<br>Full audit · revocable',
+    l4: 'AI Assistant', s4: 'Query · assess risk · create tasks<br>Acts only within your boundaries',
+    cap: 'One API spec → governed AI tools → <b>business-safe AI capability</b>',
+  };
+  const lang = new URLSearchParams(location.search).get('lang') || 'en';
+  if (lang === 'en') {
+    document.getElementById('title').innerHTML = EN.title;
+    document.getElementById('l1').textContent = EN.l1; document.getElementById('s1').innerHTML = EN.s1;
+    document.getElementById('l2').textContent = EN.l2; document.getElementById('s2').innerHTML = EN.s2;
+    document.getElementById('l3').textContent = EN.l3; document.getElementById('s3').innerHTML = EN.s3;
+    document.getElementById('l4').textContent = EN.l4; document.getElementById('s4').innerHTML = EN.s4;
+    document.getElementById('cap').innerHTML = EN.cap;
+  }
+</script>
+</body>
+</html>
