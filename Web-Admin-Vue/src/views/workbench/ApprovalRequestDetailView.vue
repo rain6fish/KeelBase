@@ -44,6 +44,28 @@
       </el-col>
     </el-row>
 
+    <!-- A-7 审批链可视化：发起 → AI 预审 → 终态（每级「谁/何时/结果」） -->
+    <el-card v-if="req && approvalChain.length" shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <AppIcon icon="mdi-lan" />
+          <span>{{ t('approvalChain') }}</span>
+        </div>
+      </template>
+      <el-timeline>
+        <el-timeline-item
+          v-for="(step, i) in approvalChain"
+          :key="i"
+          :type="step.type"
+          :timestamp="step.time"
+          :hollow="step.type === 'primary'"
+        >
+          <span class="text-body-2">{{ step.label }}</span>
+          <div v-if="step.detail" class="text-caption text-medium-emphasis">{{ step.detail }}</div>
+        </el-timeline-item>
+      </el-timeline>
+    </el-card>
+
     <!-- §22.16 A-2 业务实体行为史 -->
     <BusinessHistoryDrawer
       v-model="historyOpen"
@@ -54,12 +76,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { formatTime } from '@/utils/format'
 import { approvalApi, type ApprovalRequest } from '@/api/approval'
 
 const { t } = useI18n()
@@ -76,6 +100,47 @@ function openHistory(resultType: string, resultId: number) {
   historyOpen.value = true
 }
 const working = ref(false)
+
+/** A-7 审批链可视化：发起 → AI 预审 → 终态（谁/何时/每级结果） */
+const approvalChain = computed<Array<{ label: string; time: string; detail?: string; type: 'primary' | 'success' | 'danger' | 'warning' | 'info' }>>(() => {
+  if (!req.value) return []
+  const r = req.value
+  const steps: Array<{ label: string; time: string; detail?: string; type: 'primary' | 'success' | 'danger' | 'warning' | 'info' }> = []
+  // 1. 发起
+  steps.push({
+    type: 'primary',
+    label: t('apChainSubmitted', { name: r.requesterName ?? r.requesterId ?? '—' }),
+    time: r.createdAt ? formatTime(r.createdAt) : '',
+  })
+  // 2. AI 预审
+  if (r.aiRecommendation) {
+    steps.push({
+      type: 'warning',
+      label: `${t('apChainAiReview')} · ${riskLabel(r.riskLevel)}`,
+      time: r.createdAt ? formatTime(r.createdAt) : '',
+      detail: r.aiRecommendation,
+    })
+  }
+  // 3. 终态
+  if (r.status === 'auto_approved') {
+    steps.push({ type: 'success', label: t('apChainAutoApproved'), time: r.decidedAt ? formatTime(r.decidedAt) : '' })
+  } else if (r.status === 'needs_review') {
+    steps.push({ type: 'warning', label: t('apChainNeedsReview'), time: r.decidedAt ? formatTime(r.decidedAt) : '' })
+  } else if (r.status === 'approved') {
+    steps.push({
+      type: 'success',
+      label: t('apChainDecided', { name: r.reviewerName ?? r.reviewerId ?? '—', d: t('apApprove') }),
+      time: r.decidedAt ? formatTime(r.decidedAt) : '',
+    })
+  } else if (r.status === 'rejected') {
+    steps.push({
+      type: 'danger',
+      label: t('apChainDecided', { name: r.reviewerName ?? r.reviewerId ?? '—', d: t('apReject') }),
+      time: r.decidedAt ? formatTime(r.decidedAt) : '',
+    })
+  }
+  return steps
+})
 
 function statusLabel(s: string) {
   return {

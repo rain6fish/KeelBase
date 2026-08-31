@@ -13,6 +13,12 @@ export interface ApprovalRequest {
   riskLevel: string
   aiRecommendation?: string | null
   createdAt?: string
+  decidedAt?: string | null
+  /** A-7 审批链：发起人/审批人 id + 用户名（后端联用户表带出） */
+  requesterId?: number | null
+  reviewerId?: number | null
+  requesterName?: string | null
+  reviewerName?: string | null
 }
 
 export interface ApprovalPolicy {
