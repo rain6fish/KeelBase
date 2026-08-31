@@ -60,6 +60,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - **MCP tool declaration governance extension (Moat 2.1)**: KeelBase MCP export (`tools/list`) now carries per-tool governance contract over standard MCP fields — `annotations.readOnlyHint/destructiveHint` hints + `_meta.keelbase` namespace (`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`), standardized in ai-governance-protocol §4.4; previously computed metadata was stripped by the SDK `ToolSchema` (no passthrough). Any MCP client can now read each tool's risk profile before invoking.
   **MCP 工具声明治理扩展（护城河 2.1）**：KeelBase MCP 出口 `tools/list` 经 MCP 标准字段透出每个工具的治理契约——`annotations.readOnlyHint/destructiveHint` 提示 + `_meta.keelbase` 命名空间（`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`），写入 ai-governance-protocol §4.4 标准；此前元数据被 SDK `ToolSchema`（无 passthrough）剥掉，客户端不可见。任何 MCP 客户端在调用前即可读到工具风险画像。
+- **Protocol conformance suite (Moat 2.1 / A1)**: `scripts/verify-protocol-conformance.mjs` independently re-implements the three governance protocols (audit hash chain canonical/hash/verify, delegation-token HS256 verification, risk-level derivation) with tamper-detection test vectors; `npm run conformance`; protocol doc §2.2/§2.3 corrected to exactly match the reference implementation (literal `genesis`, `|` separator, legacy HMAC derivation, AUDIT_HMAC_KEY rotation semantics); §5.1 certification notes for third-party self-audit.
+  **协议合规认证套件（护城河 2.1 / A1）**：`scripts/verify-protocol-conformance.mjs` 独立实现三大治理协议（审计链 canonical/hash/链校验、委托 token HS256 验签、风险分级派生）+ 篡改检测测试向量；`npm run conformance`；协议文档 §2.2/§2.3 修正为精确匹配参考实现（genesis 字面量、`|` 分隔符、legacy HMAC 派生、AUDIT_HMAC_KEY 轮换语义）；§5.1 新增第三方自认证说明。参考实现 22/22 通过。
 
 ## [1.0.2] - 2026-08-27
 

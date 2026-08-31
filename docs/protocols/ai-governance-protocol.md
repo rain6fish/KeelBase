@@ -32,22 +32,27 @@
 ### 2.2 哈希算法 / Hashing Algorithm
 
 ```
-hash = HMAC-SHA256( hmacKey, prevHash || canonicalJSON(payload) )
-hmacKey = SHA-256( "keelbase:audit-chain:v1" || secret )
-secret  = ENCRYPTION_KEY || JWT_SECRET        # 缺省回退；密钥域分离
+key            = AUDIT_HMAC_KEY                         # 当前签名密钥（64 hex，独立配置）
+legacy         = HMAC-SHA256( "keelbase:audit-chain:v1", secret )   # 历史密钥派生（secret = ENCRYPTION_KEY || JWT_SECRET）
+candidateKeys  = [ AUDIT_HMAC_KEY, AUDIT_HMAC_KEY_PREVIOUS, legacy ]  # 去重；current 签名、候选集验证
+hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(payload)}` )
 ```
 
-- `prevHash` 为前一条 hash（hex）；genesis 记录 `prevHash` 为空串。
-- `||` = 字节拼接。payload 序列化见 2.3。
-- **密钥域分离**：链密钥由固定域字符串 `keelbase:audit-chain:v1` HMAC 派生，与数据加密密钥隔离——无密钥者无法伪造合法链。
+- `prevHash` 为前一条 hash（hex）；**genesis 记录计算时用字面量 `'genesis'`**（DB 存 NULL）——与空串区分。
+- 分隔符为单个竖线 `|`（`prevHash` + `|` + canonical）。payload 序列化见 2.3。
+- **密钥域分离**：current 用独立 `AUDIT_HMAC_KEY`（64 hex）；legacy 以固定域字符串 `keelbase:audit-chain:v1` 作 HMAC key 对 secret 派生——与数据加密密钥隔离，无密钥者无法伪造合法链。
+- **轮换**：`AUDIT_HMAC_KEY_PREVIOUS` 保留旧密钥；verify 用候选密钥集任一匹配即通过——换 key 后旧记录仍可验证，新记录用 current 签名。
 
 ### 2.3 Canonical Payload / Canonical JSON
 
 写入与校验共用同一 payload，保证两端一致：
 
-- 字段**按名称排序**（字典序）；
+```
+canonical = JSON.stringify( payload, Object.keys(payload).filter(k => payload[k] !== undefined).sort() )
+```
+
+- **顶层键按名称排序**（字典序），经 `JSON.stringify` 的 replacer 数组实现（replacer 作用于对象各层；审计 payload 为扁平结构，嵌套对象不在排序键集内会被过滤——实现语义以此为准）；
 - **undefined 剔除**（null 保留）；
-- 标准 JSON 序列化；
 - **排除 `id` 与 `createdAt`**（id 为自增、createdAt 由 DB 生成）；链式顺序由 `prevHash` 绑定。
 
 ### 2.4 校验流程 / Verify Procedure
@@ -164,6 +169,14 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 | **headless API** | TypeScript / NestJS | ✅ 复用 Agent 审计（key 归属用户身份） | —（API Key 身份，归属 owner 用户） | ✅ 复用 Agent 工具门控（HS-4） | 第三方集成入口（x-api-key 认证） |
 
 **对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-moat-adoption.mjs`）验收接入闭环。
+
+### 5.1 认证 / Certification
+
+**协议合规认证套件（护城河 2.1 / A1）**：`Server-NestJS/scripts/verify-protocol-conformance.mjs` **独立实现**三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4），用测试向量 + 篡改检测锁定协议语义（篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝），输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。
+
+**用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）。参考实现当前 **22/22 通过**（2026-08-31）。
+
+**第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与向量复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与协议测试向量比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
 ---
 
