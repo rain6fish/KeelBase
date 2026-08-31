@@ -280,6 +280,13 @@ const zh = {
   permissionSubject: '资源',
   permissionScope: '范围',
   permissionReason: '授权依据',
+  // §22.16 A-5 授权链可视化
+  authChain: '授权链',
+  authChainUser: '用户',
+  authChainRole: '角色',
+  authChainBasis: '授权依据',
+  authChainResources: '能力资源',
+  authChainResourceHint: '项（基于角色的 CASL 规则）',
   permissionRenderOnly: '仅渲染层控制（隐藏 ≠ 越权）；后端 CASL 是唯一授权来源',
   inviteCreate: '邀请',
   inviteList: '邀请码列表',
