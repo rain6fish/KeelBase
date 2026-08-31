@@ -77,13 +77,14 @@ npm run start:sidecar          # 默认 :3200
 - **R5 阻断**：工具调用被替换为拒绝说明，不落到业务系统；
 - **R3/R4 确认**：hold-and-release——响应剥离 tool_calls 并附 `confirmation` token，业务系统 `POST /v1/confirmations/:token { decision: "approve" }` 取回原工具调用，`reject` 得拒绝响应；
 - **R0-R2 自动**：原样放行；
-- **治理策略实时生效**：sidecar 周期拉取 `GET /external/governance/policy`（enabled / requiresConfirmation 覆盖），治理台改策略 60s 内生效；
+- **治理策略实时生效**：sidecar 周期拉取 `GET /external/governance/policy`（enabled / requiresConfirmation 覆盖），治理台改策略 60s 内生效；**B2 实时推送**：配置 `SIDECAR_CALLBACK_URL`（sidecar 可访问地址）后，启动时向治理台注册回调，策略变更（apply-preset / PUT policy）**秒级推送**到 sidecar（`POST /v1/policy`，服务身份），轮询保留作兜底；
 - 每次工具调用的风险级 + 决策 + 参数摘要上报治理台审计（`action=tool_call` / `confirmation`）。
 
 ```bash
 # 业务系统工具清单（name → 风险级，S-2 门控依据；未配置工具默认 R1 自动）
 SIDECAR_TOOLS='[{"name":"send_email","riskLevel":"R3"},{"name":"get_weather","riskLevel":"R1"}]' \
 SIDECAR_DEFAULT_TOOL_RISK=R1 \
+SIDECAR_CALLBACK_URL=http://sidecar:3200 \
 npm run start:sidecar
 ```
 

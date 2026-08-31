@@ -7,6 +7,7 @@ describe('SidecarController（/v1 端点接线）', () => {
     proxyChat: jest.Mock;
     confirm: jest.Mock;
     pendingConfirmations: jest.Mock;
+    applyPushedPolicy: jest.Mock;
   };
 
   beforeEach(() => {
@@ -14,6 +15,7 @@ describe('SidecarController（/v1 端点接线）', () => {
       proxyChat: jest.fn().mockResolvedValue({ id: 'chatcmpl-1' }),
       confirm: jest.fn().mockReturnValue({ id: 'approved' }),
       pendingConfirmations: jest.fn().mockReturnValue([{ token: 'tok', tools: ['send_email'], expiresAt: 1 }]),
+      applyPushedPolicy: jest.fn().mockReturnValue({ accepted: true, pushedAt: '2026-09-01T00:00:00Z' }),
     };
     controller = new SidecarController(service as unknown as SidecarService);
   });
@@ -43,6 +45,24 @@ describe('SidecarController（/v1 端点接线）', () => {
       // 无 key / 错误 key → 401（防内网枚举 token）
       await expect(controller.pending(undefined)).rejects.toThrow();
       await expect(controller.pending('wrong')).rejects.toThrow();
+    } finally {
+      process.env.GOVERNANCE_API_KEY = orig;
+    }
+  });
+
+  it('B2 POST /v1/policy 透传策略推送（需共享服务密钥）', async () => {
+    const orig = process.env.GOVERNANCE_API_KEY;
+    process.env.GOVERNANCE_API_KEY = 'test-key';
+    try {
+      const policy = { tools: { send_email: { enabled: false } } };
+      await expect(controller.policy({ policy, pushedAt: '2026-09-01T00:00:00Z' }, 'test-key')).resolves.toEqual({
+        accepted: true,
+        pushedAt: '2026-09-01T00:00:00Z',
+      });
+      expect(service.applyPushedPolicy).toHaveBeenCalledWith(policy, '2026-09-01T00:00:00Z');
+      // 无 key / 错误 key → 401（防未授权篡改策略）
+      await expect(controller.policy({ policy }, undefined)).rejects.toThrow();
+      await expect(controller.policy({ policy }, 'wrong')).rejects.toThrow();
     } finally {
       process.env.GOVERNANCE_API_KEY = orig;
     }
