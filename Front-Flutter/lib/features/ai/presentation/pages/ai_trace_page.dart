@@ -5,6 +5,7 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/ai_trace_models.dart';
 import '../providers/conversation_provider.dart';
+import '../utils/ai_tool_label.dart';
 
 /// P0-14 Agent Decision Trace：单条对话的用户可见执行轨迹。
 /// 从对话历史列表进入，展示工具调用 / 确认决策 / 创建记录 / 结果。
@@ -145,7 +146,7 @@ class _StepCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  ..._body(),
+                  ..._body(context),
                 ],
               ),
             ),
@@ -186,7 +187,7 @@ class _StepCard extends StatelessWidget {
     return '${d.month}/${d.day} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  List<Widget> _body() {
+  List<Widget> _body(BuildContext context) {
     const caption = TextStyle(fontSize: 13, color: CupertinoColors.systemGrey);
     const body = TextStyle(fontSize: 14);
     const bodyMuted = TextStyle(fontSize: 13, color: CupertinoColors.systemGrey);
@@ -202,10 +203,21 @@ class _StepCard extends StatelessWidget {
         break;
       case 'tool_call':
         if (step.toolName != null) {
+          final summary = aiToolArgsSummary(step.toolName, step.args);
           list.add(Text.rich(TextSpan(children: [
-            TextSpan(text: step.toolName!, style: body),
+            TextSpan(text: aiToolLabel(step.toolName), style: body),
+            if (summary.isNotEmpty) TextSpan(text: summary, style: bodyMuted),
             if (step.args != null && step.args!.isNotEmpty)
-              TextSpan(text: ' (${step.args})', style: caption),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: GestureDetector(
+                  onTap: () => _showArgs(context),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Text('ⓘ', style: caption),
+                  ),
+                ),
+              ),
           ])));
         }
         list.add(const SizedBox(height: 4));
@@ -220,7 +232,7 @@ class _StepCard extends StatelessWidget {
         break;
       case 'confirmation':
         if (step.toolName != null) {
-          list.add(Text(step.toolName!, style: body));
+          list.add(Text(aiToolLabel(step.toolName), style: body));
         }
         list.add(const SizedBox(height: 4));
         final outcomeText = switch (step.outcome) {
@@ -237,7 +249,7 @@ class _StepCard extends StatelessWidget {
         final effect = step.effect;
         if (effect != null) {
           list.add(Text(
-            '${step.toolName ?? ''} → ${effect.resultType} #${effect.resultId}',
+            '${aiToolLabel(step.toolName)} → ${effect.resultType} #${effect.resultId}',
             style: body,
           ));
           if (effect.targetTitle != null && effect.targetTitle!.isNotEmpty) {
@@ -278,5 +290,34 @@ class _StepCard extends StatelessWidget {
       list.add(Text('—', style: bodyMuted));
     }
     return list;
+  }
+
+  /// 技术参数详情（ⓘ 点击弹出原始 JSON，业务语言化：列表不暴露技术信息）
+  void _showArgs(BuildContext context) {
+    if (step.args == null || step.args!.isEmpty) return;
+    showCupertinoModalPopup(
+      context: context,
+      builder: (c) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              aiToolLabel(step.toolName),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              child: Text(
+                step.args!,
+                style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
