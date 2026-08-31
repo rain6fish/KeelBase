@@ -108,15 +108,30 @@ export interface ActionReport {
   }>;
 }
 
+/** A2 证据包 v2：链上原始行（payload 供离线重算），审计机构可独立机器验证 */
+export interface EvidenceChainRow {
+  /** 链序号（1 起，沿 id 升序） */
+  seq: number;
+  id: number;
+  prevHash: string | null;
+  hash: string;
+  /** 链 payload（canonical 输入，与写入侧一致——verify-evidence.mjs 离线重算用） */
+  payload: Record<string, unknown>;
+}
+
 /** D4 审计证据包：可提交审计机构的合规证据（报告 + 哈希链校验 + 导出时间戳 + 签名） */
 export interface ActionReportExport {
   /** 证据包生成时间（ISO 8601） */
   exportedAt: string;
   /** 生成的工具（AUDIT_HMAC_KEY 或 ENCRYPTION_KEY，非空时） */
   generator: string;
+  /** A2：证据包格式版本（'keelbase-audit-evidence/1'） */
+  format: string;
   /** ActionReport 全量（含 hashChain verify） */
   report: ActionReport;
-  /** 证据包签名：对 summary + hashChain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
+  /** A2：链上原始行全量（id/prevHash/hash + payload），供 verify-evidence.mjs 离线重算 */
+  chain: EvidenceChainRow[];
+  /** 证据包签名：对 summary + hashChain + effectDiffs + chain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
   signature: string | null;
 }
 
@@ -630,23 +645,40 @@ export class AuditService {
     return result;
   }
 
-  /** D4 审计证据包导出：ActionReport + 哈希链校验 + 导出时间戳 + 签名（可提交审计机构） */
+  /** D4 审计证据包导出：ActionReport + 哈希链校验 + 导出时间戳 + 签名（可提交审计机构）。A2：含全量链原始行，可离线机器验证。 */
   async getActionReportExport(
     options: { userId?: string; since?: Date; limit?: number } = {},
   ): Promise<ActionReportExport> {
     const report = await this.getActionReport(options, true);
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
+    // A2：全量链原始行（payload 与写入侧 _payload 一致，供 scripts/verify-evidence.mjs 离线重算）
+    const rows = await this.logRepo.find({ order: { id: 'ASC' } });
+    const chain: EvidenceChainRow[] = rows.map((row, i) => ({
+      seq: i + 1,
+      id: row.id,
+      prevHash: row.prevHash ?? null,
+      hash: row.hash ?? '',
+      payload: this._payload(row),
+    }));
     const canonical = JSON.stringify({
       summary: report.summary,
       hashChain: report.hashChain,
       effectDiffs: report.effectDiffs,
+      chain,
       exportedAt,
     });
     const signature = signingKey
       ? createHmac('sha256', signingKey).update(canonical).digest('hex')
       : null;
-    return { exportedAt, generator: 'keelbase-audit-export', report, signature };
+    return {
+      exportedAt,
+      generator: 'keelbase-audit-export',
+      format: 'keelbase-audit-evidence/1',
+      report,
+      chain,
+      signature,
+    };
   }
 
   /** 从审计 detail（"create_followup_task({...})"）提取工具名 */
