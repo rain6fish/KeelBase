@@ -643,4 +643,35 @@ describe('AuditService', () => {
       expect(rows[0].actionLabel).toBeDefined();
     });
   });
+
+  describe('getActionReportExport（D4/A2 证据包：format + chain + 签名）', () => {
+    it('导出含 format / 全量 chain（payload 供离线重算）/ 签名覆盖 chain', async () => {
+      (service as any).getActionReport = jest.fn().mockResolvedValue({
+        summary: { totalCalls: 1 },
+        hashChain: { valid: true, checked: 2, brokenIndex: null },
+        effectDiffs: [],
+      });
+      const prevKey = process.env.AUDIT_HMAC_KEY;
+      process.env.AUDIT_HMAC_KEY = 'ab'.repeat(32);
+      try {
+        repo.find.mockResolvedValue([
+          { id: 1, userId: '42', conversationId: null, action: 'tool_call', detail: 'query_customers({})', model: 'deepseek-v4-flash', provider: 'deepseek', promptTokens: 10, completionTokens: 5, durationMs: 100, isError: false, errorMessage: null, authorization: null, prevHash: null, hash: 'a'.repeat(64) },
+          { id: 2, userId: '42', conversationId: null, action: 'chat', detail: 'hello', model: null, provider: null, promptTokens: null, completionTokens: null, durationMs: null, isError: false, errorMessage: null, authorization: null, prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
+        ]);
+        const out = await service.getActionReportExport({});
+        expect(out.format).toBe('keelbase-audit-evidence/1');
+        expect(out.generator).toBe('keelbase-audit-export');
+        expect(out.chain).toHaveLength(2);
+        expect(out.chain[0]).toMatchObject({ seq: 1, id: 1, prevHash: null, hash: 'a'.repeat(64) });
+        expect(out.chain[1].seq).toBe(2);
+        expect(out.chain[1].prevHash).toBe('a'.repeat(64));
+        // payload 与写入侧一致（feedback/businessEvent 恒 null，供离线重算）
+        expect(out.chain[0].payload).toMatchObject({ userId: '42', action: 'tool_call', completionTokens: 5, feedback: null, businessEvent: null, evidence: null });
+        expect(out.signature).toMatch(/^[0-9a-f]{64}$/);
+      } finally {
+        if (prevKey === undefined) delete process.env.AUDIT_HMAC_KEY;
+        else process.env.AUDIT_HMAC_KEY = prevKey;
+      }
+    });
+  });
 });
