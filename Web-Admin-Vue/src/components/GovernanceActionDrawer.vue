@@ -39,6 +39,20 @@
           </div>
         </div>
 
+        <!-- A-5 身份链：Human → Agent → Tool → Business Action（谁发起→谁执行→哪个工具→业务动作） -->
+        <div class="mb-2">
+          <div class="text-caption text-medium-emphasis mb-1">{{ t('identityChain') }}</div>
+          <div class="d-flex align-center flex-wrap" style="gap:6px">
+            <el-tag size="small" effect="plain" type="primary">{{ actorName }}</el-tag>
+            <AppIcon icon="mdi-arrow-right" size="14" />
+            <el-tag v-if="agentName" size="small" effect="plain" type="info">{{ agentName }}</el-tag>
+            <AppIcon v-if="agentName" icon="mdi-arrow-right" size="14" />
+            <el-tag size="small" effect="plain">{{ toolLabel(tm('feature'), data.effect.toolName) }}</el-tag>
+            <AppIcon icon="mdi-arrow-right" size="14" />
+            <el-tag size="small" type="success" effect="dark">{{ t('businessAction') }}</el-tag>
+          </div>
+        </div>
+
         <div class="d-flex justify-space-between mb-1">
           <span class="text-caption text-medium-emphasis">{{ t('governanceResult') }}</span>
           <span class="text-body-2">{{ data.effect.resultType }} #{{ data.effect.resultId }}</span>
@@ -143,6 +157,9 @@ const actorName = computed(() => {
   if (auth.user && String(auth.user.id) === uid) return auth.user.username
   return `#${uid}`
 })
+
+/** A-5 身份链：Agent 名（从决策轨迹步骤取非空 agentId；无子 agent 时空，身份链退化为 Human→Tool→Action） */
+const agentName = computed(() => steps.value.find((s) => s.agentId)?.agentId ?? '')
 
 /** Why 用户视角：确认结果 / 拒绝 / 信任上下文 人类语言 */
 const whySummary = computed(() => {
