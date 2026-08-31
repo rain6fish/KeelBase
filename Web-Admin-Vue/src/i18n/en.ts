@@ -187,6 +187,9 @@ const en: ZhDict = {
   traceSourceAgent: 'AI',
   traceSourceSystem: 'System',
   stepToolCall: 'Tool call',
+  // §22.16 A-1 business action ledger
+  decisionEvidence: 'Decision evidence',
+  decisionPolicy: 'Policy',
   stepConfirmation: 'Confirmation',
   stepEffect: 'Created record',
   stepNotice: 'AI action',

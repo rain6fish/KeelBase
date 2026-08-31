@@ -273,6 +273,25 @@ describe('AuditService', () => {
       expect(payload.feedback).toBeNull();
       expect(payload.feedbackNote).toBeNull();
     });
+
+    it('§22.16 A-1：business_event/evidence 不入哈希 payload（链外，_payload 恒 null）', async () => {
+      repo.find.mockResolvedValue([{ id: 1, prevHash: null, hash: 'a' }]);
+      let payloadFor: ((row: Record<string, unknown>) => Record<string, unknown>) | undefined;
+      (chain.verifyChain as jest.Mock).mockImplementation((_rows, cb) => {
+        payloadFor = cb;
+        return { valid: true, checked: 1 };
+      });
+      await service.verifyChain();
+      const payload = payloadFor!({
+        id: 1,
+        prevHash: null,
+        hash: 'a',
+        businessEvent: 'CustomerRiskAssessed',
+        evidence: '{"decision":"high"}',
+      });
+      expect(payload.businessEvent).toBeNull();
+      expect(payload.evidence).toBeNull();
+    });
   });
 
   describe('getCostBreakdown（AI-21）', () => {

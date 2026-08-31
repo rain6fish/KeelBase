@@ -56,7 +56,9 @@ export class OperationAuditService {
    * DB 级串行（roadmap §22.10 B）：事务内锁 audit_chain_lock id=1 行，跨实例串行化写链（替代进程内 _tail）。
    */
   async log(entry: OperationAuditEntry): Promise<void> {
-    const payload = {
+    // §22.16 A-1：changes/businessEvent 是链外注解列（字段 diff + 业务事件，展示用非写操作本身事实）——
+    // hash payload 不含它们（computeHash 与 _payload verify 两端一致，防破链）；存库时保留
+    const hashPayload = {
       userId: entry.userId ?? null,
       action: entry.action,
       method: entry.method,
@@ -65,11 +67,14 @@ export class OperationAuditService {
       featureFallback: entry.featureFallback ?? null,
       targetId: entry.targetId ?? null,
       requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
-      changes: entry.changes ? entry.changes.slice(0, 4000) : null,
-      businessEvent: entry.businessEvent ?? null,
       ip: entry.ip ? entry.ip.slice(0, 64) : null,
       userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
       statusCode: entry.statusCode ?? null,
+    };
+    const savePayload = {
+      ...hashPayload,
+      changes: entry.changes ? entry.changes.slice(0, 4000) : null,
+      businessEvent: entry.businessEvent ?? null,
     };
     if (this.dataSource.options.type === 'postgres') {
       // postgres：DB 级串行（事务内锁 audit_chain_lock id=1），跨实例串行化写链
@@ -83,8 +88,8 @@ export class OperationAuditService {
         );
         await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
         const prevHash = await this._lastHash(runner);
-        const hash = this.auditChain.computeHash(prevHash, payload);
-        await runner.manager.save(OperationAuditLog, { ...payload, prevHash, hash });
+        const hash = this.auditChain.computeHash(prevHash, hashPayload);
+        await runner.manager.save(OperationAuditLog, { ...savePayload, prevHash, hash });
         await runner.commitTransaction();
       } catch (err) {
         await runner.rollbackTransaction().catch(() => {});
@@ -96,8 +101,8 @@ export class OperationAuditService {
       // sqlite：进程内串行（better-sqlite3 单连接，多 QueryRunner 并发事务不支持；sqlite 单写者）
       const job = this._tail.then(async () => {
         const prevHash = await this._lastHash();
-        const hash = this.auditChain.computeHash(prevHash, payload);
-        await this.logRepo.save({ ...payload, prevHash, hash });
+        const hash = this.auditChain.computeHash(prevHash, hashPayload);
+        await this.logRepo.save({ ...savePayload, prevHash, hash });
       });
       this._tail = job.catch(() => {});
       try {

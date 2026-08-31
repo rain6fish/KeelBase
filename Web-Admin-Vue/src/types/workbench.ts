@@ -84,6 +84,18 @@ export interface TraceStep {
   /** D4 多 Agent 归责：执行该步骤的子 agent / 调用方 agent */
   agentId?: string
   callerAgentId?: string
+  /** §22.16 A-1 业务事件名（CustomerRiskAssessed 等） */
+  businessEvent?: string | null
+  /** §22.16 A-1 Decision Evidence（JSON 字符串：{decision, evidence[], policy, confidence}） */
+  evidence?: string | null
+}
+
+/** §22.16 A-1 Decision Evidence：AI 决策依据（不记 CoT） */
+export interface DecisionEvidence {
+  decision: string
+  evidence: string[]
+  policy: string
+  confidence: number
 }
 
 export interface ConversationSummary {
