@@ -74,6 +74,10 @@ export interface OperationAuditLog {
   featureFallback?: string | null
   targetId?: string | null
   requestBody?: string | null
+  /** A-1 字段级变更留痕（JSON：[{ field, before, after }]） */
+  changes?: string | null
+  /** A-1 业务事件归一化（如 CustomerUpdated） */
+  businessEvent?: string | null
   ip?: string | null
   userAgent?: string | null
   statusCode?: number | null

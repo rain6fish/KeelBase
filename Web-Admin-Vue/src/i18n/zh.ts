@@ -816,9 +816,12 @@ const zh = {
   timeCol: '时间',
   userCol: '用户',
   methodCol: '方法',
+  businessEventCol: '业务事件',
   featureCol: '功能',
   pathCol: '路径',
   statusCol: '状态',
+  changesLabel: '变更字段',
+  wasLabel: '原为',
 
   // AI 审计
   aiAuditTitle: 'AI 审计',
