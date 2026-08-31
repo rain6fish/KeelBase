@@ -66,6 +66,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **审计证据包离线机器验证（护城河 2.3 / A2）**：`GET /audit/action-report/export` 现返回 `format=keelbase-audit-evidence/1` + 全量链行（id/prevHash/hash/payload），签名覆盖 chain；`scripts/verify-evidence.mjs` 离线验证证据包——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算 payload + 验签（内容篡改检测）。审计机构不装 KeelBase 即可复核。
 - **Governance policy realtime push (Moat 2.2 / B2)**: sidecar registers a callback (`SIDECAR_CALLBACK_URL`) with the governance console on startup; policy changes (apply-preset / PUT policy) are pushed to registered sidecars in real time (`POST /v1/policy`, service identity), taking effect in seconds instead of the 60s polling interval (kept as fallback).
   **治理策略实时推送（护城河 2.2 / B2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`）；策略变更（apply-preset / PUT policy）后治理台实时推送（`POST /v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底。
+- **Protocol 2.0 aiTools declaration (Q2)**: Module Protocol gains an optional `aiTools` field (enabled switch + query/create riskLevel & confirmation overrides); the generator consumes it to produce governed AI tools (query R1 auto / create R3 confirm by default, R2=policy / R4=two-person approval overrides, full disable for read-only modules); wiring skips disabled tools; validate + docs + generator tests (59 green).
+  **协议 2.0 aiTools 声明（Q2 主线）**：Module Protocol 新增可选 `aiTools` 字段（enabled 开关 + query/create 的 riskLevel/requiresConfirmation 覆盖）；生成器消费它生成带治理的 AI 工具（缺省 query R1 自动 + create R3 确认；R2=策略决定 / R4=双人审批 覆盖；只读模块可整体关闭）；接线按开关跳过；校验 + 文档 + 生成器测试 59 全绿。
 
 ## [1.0.2] - 2026-08-27
 

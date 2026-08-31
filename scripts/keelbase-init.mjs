@@ -18,6 +18,7 @@ import {
   validateLabel,
   parseFields,
   validateFields,
+  validateAiTools,
 } from './generator/validate.mjs';
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
@@ -252,6 +253,7 @@ async function main() {
   let fieldsStr = args.fields;
   // --spec 提供的结构化字段（保留 enum 选项）；非空则优先于 parseFields 字符串解析。
   let specFields = null;
+  let specAiTools = null;
 
   // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
   if (args.spec) {
@@ -272,6 +274,8 @@ async function main() {
         ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
       }));
     }
+    // Protocol 2.0：AI 工具层声明（enabled / query / create 风险级与确认）
+    if (spec.aiTools) specAiTools = spec.aiTools;
   }
 
   // P0-12 多输入通道：OpenAPI / SQL DDL → Module Protocol
@@ -378,10 +382,13 @@ async function main() {
   const fields = specFields ?? parseFields(fieldsStr);
   const fieldsErr = validateFields(fields);
   if (fieldsErr) fail(fieldsErr);
+  const aiToolsErr = validateAiTools(specAiTools);
+  if (aiToolsErr) fail(aiToolsErr);
 
   const ctx = buildContext(name, label, fields);
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
+  if (specAiTools) ctx.aiTools = specAiTools;
 
   // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）
   const beDir = `Server-NestJS/src/${ctx.plural}`;
@@ -413,7 +420,8 @@ async function main() {
     for (const f of admin) console.log(`  ${f.rel}`);
     for (const f of taro) console.log(`  ${f.rel}`);
     const tabNote = ctx.isTab ? ' + app_shell 底部 Tab' : '';
-    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ai.module（query+create 工具）${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）+ Taro（app.config/explore）${C.reset}`);
+    const aiNote = ai.length > 0 ? `ai.module（${ai.length / 2} 个工具）` : 'ai.module（aiTools 关闭，不接工具）';
+    console.log(`${C.yellow}[dry-run] 将接线：app.module / modules-manifest / feature-flags / main.dart / app_router / i18n / navigate-page.tool / ${aiNote}${tabNote} + Web-Admin-Vue（routes/navGroups/i18n）+ Taro（app.config/explore）${C.reset}`);
     if (args.brand) console.log(`${C.yellow}[dry-run] 将替换品牌 → ${args.brand}${C.reset}`);
     console.log(`${C.yellow}[dry-run] 将写 .keelbase/manifest.json（来源身份：generator/version/protocol/modules）${C.reset}`);
     return;
