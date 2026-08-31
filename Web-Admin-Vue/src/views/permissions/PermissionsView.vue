@@ -1,12 +1,24 @@
 <template>
   <div class="permissions-view">
+    <!-- A-5 授权链可视化：用户 → 角色 → CASL 规则 → 资源（谁、基于什么授权、能做什么） -->
     <el-card shadow="never" class="mb-4">
-      <div class="flex items-center gap-3 flex-wrap">
-        <el-tag :type="isAdmin ? 'danger' : 'info'" effect="dark" data-testid="permission-role">
-          {{ roleLabel }}
-        </el-tag>
-        <span class="text-caption text-medium-emphasis">{{ permissions?.basis || t('permissionBasis') }}</span>
-      </div>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <AppIcon icon="mdi-link-variant" />
+          <span>{{ t('authChain') }}</span>
+        </div>
+      </template>
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item :label="t('authChainUser')">{{ auth.user?.username ?? '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('authChainRole')">
+          <el-tag :type="isAdmin ? 'danger' : 'info'" effect="dark" data-testid="permission-role">{{ roleLabel }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('authChainBasis')" :span="2">{{ permissions?.basis || t('permissionBasis') }}</el-descriptions-item>
+        <el-descriptions-item :label="t('authChainResources')" :span="2">
+          <span class="font-weight-medium">{{ resources.length }}</span>
+          <span class="text-caption text-medium-emphasis ml-1">{{ t('authChainResourceHint') }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
     </el-card>
 
     <el-card shadow="never">
@@ -37,6 +49,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppIcon from '@/components/AppIcon.vue'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 
