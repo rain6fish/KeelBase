@@ -85,7 +85,7 @@
         <el-tag size="small" :type="l.isError ? 'danger' : 'warning'" effect="light">
           {{ l.isError ? t('aiBlocked') : t('riskAlert') }}
         </el-tag>
-        <span class="font-weight-medium">{{ actionLabel(l.actionKey, l.actionLabel, t) || l.action }}</span>
+        <span class="font-weight-medium">{{ actionLabel(l.actionKey, l.actionLabel, t, tm('feature')) || l.action }}</span>
         <span class="text-caption text-medium-emphasis text-truncate">{{ errorLabel(l.errorMessage, t) || (l.authorization ? t('deniedReason') : '') }}</span>
         <span class="text-caption text-medium-emphasis ml-auto">{{ formatTime(l.createdAt) }}</span>
       </div>
@@ -107,7 +107,7 @@ import { actionLabel, errorLabel } from '@/utils/businessLabel'
 import type { AdminAiTool } from '@/types/admin'
 import type { ActionReport, AuditLog } from '@/types/audit'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 const router = useRouter()
 const snackbar = useSnackbarStore()
 
