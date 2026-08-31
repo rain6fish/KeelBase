@@ -12,6 +12,7 @@ const en: ZhDict = {
   errConfirmDeclined: 'Operation declined by user',
   errWriteStreaming: 'Write operations require confirmation',
   errDenied: 'Access denied',
+  errToolBlocked: 'Blocked by security policy (high-risk)',
   technicalDetail: 'Technical details',
   aiApprovalsPath: 'Approval path',
   role: 'Role',

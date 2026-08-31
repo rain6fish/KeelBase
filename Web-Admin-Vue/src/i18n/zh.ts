@@ -11,6 +11,7 @@ const zh = {
   errConfirmDeclined: '用户拒绝了该操作',
   errWriteStreaming: '写操作需人工确认后执行',
   errDenied: '无权限执行',
+  errToolBlocked: '该操作已被安全策略阻断（高风险）',
   technicalDetail: '技术详情',
   aiApprovalsPath: '审批路径',
   role: '角色',
