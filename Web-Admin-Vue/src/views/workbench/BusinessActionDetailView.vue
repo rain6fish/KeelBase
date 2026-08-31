@@ -93,13 +93,23 @@
               <span class="text-caption text-medium-emphasis" style="margin-left:auto">{{ formatTime(s.time) }}</span>
             </div>
             <div v-if="s.type === 'tool_call' || s.type === 'confirmation'" class="mt-1 text-body-2">
-              {{ s.toolName }} <code class="text-caption">{{ s.args }}</code>
+              <el-popover placement="top" :width="380" trigger="click">
+                <template #reference>
+                  <span style="cursor:pointer;border-bottom:1px dashed #cbd5e1">
+                    {{ toolLabel(tm('feature'), s.toolName) }}{{ toolArgsSummary(s.toolName, s.args, locale.startsWith('zh')) }}
+                  </span>
+                </template>
+                <div class="text-caption">
+                  <div class="mb-1"><b>{{ s.toolName }}</b></div>
+                  <pre class="text-caption" style="white-space:pre-wrap;margin:0">{{ s.args }}</pre>
+                </div>
+              </el-popover>
             </div>
             <div v-else-if="s.type === 'input' || s.type === 'assistant'" class="mt-1 text-body-2">{{ s.content }}</div>
             <div v-else-if="s.type === 'effect' && s.effect" class="mt-1 text-body-2">
-              {{ s.toolName }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}
+              {{ toolLabel(tm('feature'), s.toolName) }} → {{ s.effect.resultType }} #{{ s.effect.resultId }}
             </div>
-            <div v-if="s.errorMessage" class="mt-1 text-body-2 text-error">{{ s.errorMessage }}</div>
+            <div v-if="s.errorMessage" class="mt-1 text-body-2 text-error">{{ errorLabel(s.errorMessage, t) }}</div>
             <div v-if="s.trusted" class="text-caption text-medium-emphasis mt-1">{{ t('stepTrusted') }}</div>
           </el-timeline-item>
         </el-timeline>
@@ -120,12 +130,13 @@ import { ApiError } from '@/api/client'
 import { formatTime } from '@/utils/format'
 import { traceSource, traceSourceKey, traceSourceTagType, type TraceSource } from '@/utils/traceSource'
 import { toolLabel } from '@/utils/toolLabel'
+import { toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { GovernanceActionResponse } from '@/types/admin'
 import type { TraceStep } from '@/types/workbench'
 
 const route = useRoute()
 const router = useRouter()
-const { t, tm } = useI18n()
+const { t, tm, locale } = useI18n()
 const auth = useAuthStore()
 
 const resultType = String(route.params.resultType ?? '')
