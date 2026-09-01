@@ -23,6 +23,9 @@ const FORBIDDEN_IMPORT_FRAGMENTS = [
   'Front-Taro',
 ];
 
+/** 完整正则转义（CodeQL js/incomplete-string-encoding：防片段含 .*+?^$()[]{}|\ 时语义被破坏） */
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const ROOT = join(process.cwd(), 'Server-NestJS');
 const errors = [];
 
@@ -66,7 +69,7 @@ async function checkSourceImports() {
     const content = await readFile(file, 'utf8');
     // 匹配 import 路径里含前端目录的引用（形如 ../Front-Flutter、/Web-Admin-Vue）
     for (const frag of FORBIDDEN_IMPORT_FRAGMENTS) {
-      const re = new RegExp(`(from\\s+['"][^'"]*${frag.replace(/[-/]/g, '\\$&')}[^'"]*['"]|import\\s*\\(\\s*['"][^'"]*${frag.replace(/[-/]/g, '\\$&')}[^'"]*['"])`);
+      const re = new RegExp(`(from\\s+['"][^'"]*${escapeRegExp(frag)}[^'"]*['"]|import\\s*\\(\\s*['"][^'"]*${escapeRegExp(frag)}[^'"]*['"])`);
       if (re.test(content)) {
         errors.push(`架构边界违规：Core 文件引用了前端路径「${frag}」：${relative(ROOT, file)}`);
       }
