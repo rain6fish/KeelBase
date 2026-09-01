@@ -7,9 +7,10 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { meMock, unreadCountMock } = vi.hoisted(() => ({
+const { meMock, unreadCountMock, pushMock } = vi.hoisted(() => ({
   meMock: vi.fn(),
   unreadCountMock: vi.fn(),
+  pushMock: vi.fn(),
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -22,7 +23,7 @@ vi.mock('@/api/admin', () => ({
   adminApi: { appVersion: vi.fn().mockResolvedValue({ latestVersion: '1.0.4' }) },
 }))
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: pushMock }),
 }))
 
 import ElementPlus from 'element-plus'
@@ -88,5 +89,21 @@ describe('WorkbenchHomeView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('alex')
+  })
+
+  it('快捷卡片点击跳转（@click 事件绑定，回归：:on-click 不生效）', async () => {
+    meMock.mockResolvedValue({ id: 1, username: 'alex', nickname: 'A', email: 'a@a.com', role: 'user' })
+    unreadCountMock.mockResolvedValue({ count: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const cards = wrapper.findAll('.shortcut-card')
+    expect(cards.length).toBe(6)
+    for (const c of cards) await c.trigger('click')
+    // 6 张卡：5 张 to 走 router.push，1 张 href（移动预览）走 window.open
+    expect(pushMock).toHaveBeenCalledTimes(5)
+    const paths = pushMock.mock.calls.map((c: unknown[]) => c[0])
+    expect(paths).toEqual(['/workbench/events', '/workbench/todos', '/workbench/notifications', '/workbench/ai-trace', '/workbench/crm-dashboard'])
   })
 })

@@ -106,14 +106,52 @@ export class NotificationsService {
     try {
       const queued = this.configService.get<boolean>('QUEUE_ENABLED', true);
       if (queued && this.pushQueue) {
-        await this.pushQueue.add('send', { userId, title, body, type, link, targetType, targetId }, { removeOnComplete: true });
-        return;
+        const queuedOk = await this._enqueuePush(userId, title, body, type, link, targetType, targetId);
+        if (queuedOk) return;
       }
-      // 降级：同步执行（同 PushProcessor 逻辑）
+      // 队列不可用/入队超时 → 降级同步执行（同 PushProcessor 逻辑）
       await this._doPush(userId, title, body, type, link, targetType, targetId);
     } catch (err) {
       this.logger.warn(`[Push] enqueue failed: ${(err as Error).message}`);
     }
+  }
+
+  /** BullMQ add 在 redis 不可用时会一直挂起等待连接 → 3s 超时保护，超时/失败降级同步推送（不阻塞业务）。 */
+  private _enqueuePush(
+    userId: number,
+    title: string,
+    body?: string | null,
+    type?: string | null,
+    link?: string | null,
+    targetType?: string | null,
+    targetId?: string | null,
+  ): Promise<boolean> {
+    const TIMEOUT_MS = 3000;
+    return new Promise((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      }, TIMEOUT_MS);
+      this.pushQueue!
+        .add('send', { userId, title, body, type, link, targetType, targetId }, { removeOnComplete: true })
+        .then(() => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve(true);
+          }
+        })
+        .catch(() => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve(false);
+          }
+        });
+    });
   }
 
   private async _doPush(
