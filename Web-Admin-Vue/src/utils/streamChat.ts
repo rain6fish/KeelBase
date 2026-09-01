@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * AI 流式对话客户端（SSE）：POST /ai/chat/stream，逐事件回调；D1 CRM 闭环的确认卡数据通道。
  * 与后端 ai.controller chatStream 事件契约对齐：text / tool_start / confirmation_request /

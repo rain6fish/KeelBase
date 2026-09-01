@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 时间 → YYYY-MM-DD HH:mm（本地时区） */
 export function formatTime(input?: string | Date | null): string {
   if (!input) return '-'

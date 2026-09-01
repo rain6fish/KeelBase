@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * W5-⑦ Explainable Authz e2e：GET /auth/me/permissions + POST /auth/permissions/explain
  *

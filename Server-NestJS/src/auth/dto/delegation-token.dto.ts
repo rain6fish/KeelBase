@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 委托 token 请求 DTO（AI Bridge §5 身份桥接）——audience 指定目标系统
  */

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { BadRequestException, HttpStatus, InternalServerErrorException } from '@nestjs/common';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { BusinessException } from '../errors/business.exception';

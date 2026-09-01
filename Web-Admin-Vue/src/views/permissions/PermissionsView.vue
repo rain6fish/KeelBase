@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="permissions-view">
     <!-- §22.16 A-5 授权链图：授权者 → 被授权者 → 策略 → 资源 → 生效期 -->

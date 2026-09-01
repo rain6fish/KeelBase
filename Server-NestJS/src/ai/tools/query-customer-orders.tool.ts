@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询客户订单工具 — query_customer_orders（只读）
  *

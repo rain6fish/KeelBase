@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 私有 AI 验证（P1-10）：证明「数据不出域」闭环
 #

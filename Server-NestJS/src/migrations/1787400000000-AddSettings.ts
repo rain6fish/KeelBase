@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** RG-2 动态配置中心：settings 表（sqlite + postgres 双驱动，postgres 也需加载）。 */

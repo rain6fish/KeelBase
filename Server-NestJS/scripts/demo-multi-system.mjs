@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * MOAT-3「多系统单控制面」演示（护城河 2.2 收口实证）：
  * 一个独立治理控制平面同时管 N 个异构业务系统的 AI——

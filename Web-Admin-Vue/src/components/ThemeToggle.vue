@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-button circle :title="t('toggleTheme')" @click="ui.toggleTheme()">
     <AppIcon :icon="ui.theme === 'light' ? 'mdi-weather-night' : 'mdi-white-balance-sunny'" />

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * typeorm-data-source 是模块级配置（加载 env + 构造 DataSourceOptions），
  * 用 jest.isolateModules 重新加载以分别验证 sqlite / postgres 分支。

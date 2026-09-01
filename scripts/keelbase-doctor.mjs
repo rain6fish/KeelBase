@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase doctor — 诊断 KeelBase 应用（来源清单 + 运行时能力体检）。
  *

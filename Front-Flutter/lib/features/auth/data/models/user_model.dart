@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 class UserModel {
   final int id;
   final String username;

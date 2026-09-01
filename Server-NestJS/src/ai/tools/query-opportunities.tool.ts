@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询客户销售机会工具 — query_customer_opportunities（只读，Customer 360 P0 §10）
  *

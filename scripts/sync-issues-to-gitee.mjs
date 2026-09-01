@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 同步 GitHub issues → Gitee（用户通知时手动执行一次，不做定时）。
  *

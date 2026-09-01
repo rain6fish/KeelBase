@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 

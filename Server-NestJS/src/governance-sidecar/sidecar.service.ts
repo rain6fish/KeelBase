@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { SidecarToolRegistry, type SidecarToolDef, type ToolDecision, type ToolOverride } from './sidecar-tool-registry';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const { api } = vi.hoisted(() => {

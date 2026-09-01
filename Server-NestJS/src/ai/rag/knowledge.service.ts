@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 知识库服务 — 管理知识条目 + 检索（向量优先，全文降级）
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/cupertino.dart';
 import '../providers/ai_chat_provider.dart';
 

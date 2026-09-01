@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ToolRegistry } from './tool-registry';
 import { AiTool } from '../interfaces/tool.interface';
 

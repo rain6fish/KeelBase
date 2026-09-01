@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { getPolicyPreset, getPolicyPresets } from './governance-policy-presets';
 
 describe('governance-policy-presets (§22.15 策略模板库)', () => {

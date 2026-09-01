@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EB-3 轻量 Capability 声明解析测试（node:test，零依赖）。
  * 运行：node --test scripts/keelbase-capability.test.mjs

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 客户风险分析工具 — analyze_customer_risk（只读）
  *

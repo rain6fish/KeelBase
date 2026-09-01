@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 委托 token（AI Bridge §5 身份/权限桥接）：Java 会话 → KeelBase 用户作用域。
  *

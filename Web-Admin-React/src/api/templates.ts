@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 import type { AdminTemplate, TemplateImportResult } from '@/types/admin'
 

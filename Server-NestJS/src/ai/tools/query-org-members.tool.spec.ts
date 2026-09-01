@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryOrgMembersTool } from './query-org-members.tool';
 
 describe('QueryOrgMembersTool (ORG-5)', () => {

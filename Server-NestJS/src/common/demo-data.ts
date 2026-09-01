@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { DataSource } from 'typeorm';
 import { Event } from '../events/event.entity';
 import { EventColorRole } from '../events/event-color-role.enum';

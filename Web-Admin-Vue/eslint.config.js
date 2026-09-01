@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Department, DeptTreeNode } from '@/types/org'
 
 /** 扁平部门列表 → 嵌套树（根 = parentId 为 null 或父不在列表中） */

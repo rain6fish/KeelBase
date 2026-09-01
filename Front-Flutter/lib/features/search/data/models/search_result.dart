@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import '../../../events/data/models/event_model.dart';
 import '../../../auth/data/models/user_model.dart';
 

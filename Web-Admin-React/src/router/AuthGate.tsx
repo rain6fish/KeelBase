@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Box, CircularProgress } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'

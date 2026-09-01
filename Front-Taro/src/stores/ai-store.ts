@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { aiService, type AiChatMessage, type AiConversationSummary } from '../services/ai-service'
 import { translate } from '../i18n/translate'

@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-tag size="small" :type="tagType" effect="plain">{{ label }}</el-tag>
 </template>

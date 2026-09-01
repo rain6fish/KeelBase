@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Logger as TypeOrmLogger, QueryRunner } from 'typeorm';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 

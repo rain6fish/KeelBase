@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
@@ -17,7 +19,7 @@ export default defineConfig({
     testTimeout: 10000,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov'],
       thresholds: {
         // 2026-08-20 提高：锁住当前水平（实际 36.1/81.1/59.2/36.1，留 4-6 点余量防 CI 波动）
         statements: 32,

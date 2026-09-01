@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** WS 信封协议：每文本帧一个 JSON { event, data }（对齐 @nestjs/platform-ws 的 event 约定）。协议详见 docs/ws-realtime.spec.md */
 
 export interface WsEnvelope<T = unknown> {

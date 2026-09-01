@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 为演示用户补种演示数据（PM-2 / DX-1）。
  *

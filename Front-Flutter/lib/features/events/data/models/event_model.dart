@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 enum EventColorRole { blue, red, green, orange, purple, cyan }
 
 class EventModel {

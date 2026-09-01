@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2.1：自然语言描述 → 业务模块规格（module/label/fields）。
  * 调用 OpenAI 兼容 LLM（DeepSeek 或本地 Ollama），零依赖（fetch）。

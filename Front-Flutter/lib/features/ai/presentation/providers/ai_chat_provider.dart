@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../data/models/tool_step_model.dart';

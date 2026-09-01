@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { notificationService } from '../services/notification-service'
 import { wsClient } from '../services/ws-client'

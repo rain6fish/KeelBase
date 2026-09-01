@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 知识库控制器 — 管理员维护知识条目
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI Project Management：项目模型
 class ProjectModel {
   final int id;

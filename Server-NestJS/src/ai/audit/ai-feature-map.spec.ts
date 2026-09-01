@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { aiActionLabel } from './ai-feature-map';
 
 describe('aiActionLabel（D2 人类语言审计标签）', () => {

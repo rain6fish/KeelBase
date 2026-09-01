@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Embeddings 服务 — 生成文本向量（OpenAI 兼容 /embeddings）
  *

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Gate 1：Golden Application = AI CRM 一次跑通验收（development-plan §7.3，2026-08-21）
  *

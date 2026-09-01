@@ -1,4 +1,6 @@
-﻿import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+﻿// SPDX-License-Identifier: Apache-2.0
+
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 export const CurrentUser = createParamDecorator(

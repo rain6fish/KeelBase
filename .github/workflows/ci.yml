@@ -28,6 +28,19 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  # 密钥泄漏扫描（gitleaks）：防真实密钥/令牌/私钥入库。
+  # demo 凭据（README/docs 中故意公开的演示账号）在 .gitleaks.toml 白名单内，属预期。
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks@v8.18.4
+        with:
+          args: detect --source . --no-banner --config .gitleaks.toml
+
   test:
     runs-on: ubuntu-latest
     defaults:
@@ -51,6 +64,13 @@ jobs:
         env:
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
           ENCRYPTION_HMAC_KEY: ${{ env.ENCRYPTION_HMAC_KEY }}
+      # 覆盖率产物公开上传：第三方/选型核查可下载真实覆盖率（lcov），打破「覆盖率 0%」测量缺口
+      - name: 上传后端覆盖率报告（lcov）
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: Server-NestJS/coverage/lcov.info
+          if-no-files-found: warn
       - run: npm run test:e2e
         env:
           NODE_ENV: test
@@ -298,6 +318,12 @@ jobs:
       - run: npx eslint . --ext .vue,.ts
       # vitest + coverage 门槛（statements/branches/functions/lines ≥ 30/50/25/30，见 vitest.config.ts）
       - run: npx vitest run --coverage
+      - name: 上传 Web 端覆盖率报告（lcov）
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-web-admin
+          path: Web-Admin-Vue/coverage/lcov.info
+          if-no-files-found: warn
       - run: npm run build
 
   # React 管理台预览版（CLAUDE §13.1）：转正决策前补 CI——typecheck/lint/test/build 全绿，不 gate 主发布
@@ -361,3 +387,9 @@ jobs:
             printf "Line coverage: %.1f%%\n", pct;
             if (pct < 45) { print "Coverage below 45% threshold"; exit 1 }
           }' coverage/lcov.info
+      - name: 上传 Flutter 覆盖率报告（lcov）
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-flutter
+          path: Front-Flutter/coverage/lcov.info
+          if-no-files-found: warn

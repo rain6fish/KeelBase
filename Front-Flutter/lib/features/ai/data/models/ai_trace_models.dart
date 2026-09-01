@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // P0-14 Agent Decision Trace：单条对话的执行轨迹（工具调用/确认/副作用/结果）。
 // 对应后端 GET /ai/conversations/:id/trace 返回结构。
 

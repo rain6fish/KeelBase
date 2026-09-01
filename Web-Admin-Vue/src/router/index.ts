@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createRouter, createWebHashHistory } from 'vue-router'
 import routes from './routes'
 import { setupGuards } from './guards'

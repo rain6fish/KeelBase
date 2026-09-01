@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { authApi, type MyPermissions } from '@/api/auth'
 import { storage } from '@/utils/storage'

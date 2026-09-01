@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { storage } from '../utils/storage'

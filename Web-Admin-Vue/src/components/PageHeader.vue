@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="d-flex justify-space-between align-center mb-4 flex-wrap ga-2">
     <div>

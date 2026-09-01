@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { UploadSignService } from './upload-sign.service';
 import { EncryptionService } from '../common/utils/encryption';
 

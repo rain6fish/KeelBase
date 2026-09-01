@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { EncryptionService } from '../common/utils/encryption';

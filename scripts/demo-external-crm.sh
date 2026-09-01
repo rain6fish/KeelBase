@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # EB-1 Enterprise Capability Bridge Demo：外部 CRM 接入（不替换系统，获得 AI 能力）
 #

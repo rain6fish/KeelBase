@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ZhDict } from './zh'
 
 const en: ZhDict = {

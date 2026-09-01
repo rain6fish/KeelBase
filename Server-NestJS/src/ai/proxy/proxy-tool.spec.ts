@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProxyTool } from './proxy-tool';
 
 /** mock 委托服务：签发固定 token */

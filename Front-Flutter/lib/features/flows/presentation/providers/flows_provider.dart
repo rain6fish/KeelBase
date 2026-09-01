@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 import '../../data/models/flow_task_model.dart';
 import '../../data/repositories/flows_repository.dart';

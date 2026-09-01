@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { seedDemoData } from './demo-data';
 import { Event } from '../events/event.entity';
 import { Todo } from '../todos/todo.entity';

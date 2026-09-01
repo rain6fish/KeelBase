@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 应用版本元数据（基座静态配置）。
  * 发布新版本时更新 latestVersion + changelog；需强制升级时提升 minRequiredVersion。

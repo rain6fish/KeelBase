@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AnalyzeSalesPipelineTool } from './analyze-sales-pipeline.tool';
 
 const opps = [

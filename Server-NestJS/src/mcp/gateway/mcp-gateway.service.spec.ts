@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { McpGatewayService, ExternalMcpTool, ExternalToolCallResult } from './mcp-gateway.service';
 import { SettingsService } from '../../settings/settings.service';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';

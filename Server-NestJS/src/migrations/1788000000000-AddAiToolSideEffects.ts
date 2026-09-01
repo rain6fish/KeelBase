@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HS-3 建 ai_tool_side_effects 表（sqlite + postgres 双驱动）。列名下划线，与 TypeORM 默认映射一致。 */

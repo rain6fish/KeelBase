@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 示例第三方插件 crm-import-webhook（企业集成：CRM 客户导入标准化）。
  *

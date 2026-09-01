@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 合成陌生人挑战 runner（W3）：干净 clone + 起后端 + 打印挑战卡 + 记录模板。
 #

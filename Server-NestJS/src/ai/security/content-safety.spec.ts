@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { checkContentSafety } from './content-safety';
 
 describe('AI-23 checkContentSafety（内容安全轻量版）', () => {

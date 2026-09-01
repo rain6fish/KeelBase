@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SkillsRegistry, DEFAULT_SKILLS, WEEK_PLAN_SKILL } from './skills-registry';
 
 describe('SkillsRegistry', () => {

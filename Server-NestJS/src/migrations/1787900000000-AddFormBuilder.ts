@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** PL-10 低代码表单：form_schemas + form_submissions 表（sqlite + postgres 双驱动）。 */

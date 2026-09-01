@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProxyToolRegistryService } from './proxy-tool.service';
 import { ToolRegistry } from '../tools/tool-registry';
 

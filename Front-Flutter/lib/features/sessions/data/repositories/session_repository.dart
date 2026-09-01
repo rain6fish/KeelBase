@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
 import '../models/device_session_model.dart';

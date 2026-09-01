@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 示例第三方插件 approval-escalation（业务增强：审批 SLA 升级评估）。
  *

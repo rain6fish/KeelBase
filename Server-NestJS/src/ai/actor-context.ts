@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Agent Identity 完整化首步（评审二 §5）：ActorContext——AI 执行时的身份/会话上下文。
  *

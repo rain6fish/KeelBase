@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * ORG-5 组织成员目录工具 — query_org_members
  *

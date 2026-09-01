@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * AI 审计「人类可读动作」映射（roadmap §22.10 D2：人类语言审计标签）。
  *

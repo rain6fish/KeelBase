@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * PL-9 模板与示例应用：内置垂直 demo 种子数据，供管理台「一键导入」演示。
  * 每个模板含事件/待办种子，导入到指定用户（默认 admin）。
