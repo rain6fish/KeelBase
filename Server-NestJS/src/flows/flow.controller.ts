@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import {
   Controller,
   Get,
@@ -52,6 +54,12 @@ export class FlowController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.runtime.start(definitionId, body.data ?? {}, user.sub);
+  }
+
+  @Get('my')
+  @ApiOperation({ summary: '我的流程实例列表（A-7：含定义名 + 待审批任务数）' })
+  async myInstances(@CurrentUser() user: JwtPayload) {
+    return this.runtime.getMyInstances(user.sub);
   }
 
   @Get('tasks')

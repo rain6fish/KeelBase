@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { summarizeAudit, aggregateConversation } from './audit-interpreter.service';
 
 describe('Audit Interpreter（§22.16 A-4 审计解释器）', () => {
@@ -35,6 +37,36 @@ describe('Audit Interpreter（§22.16 A-4 审计解释器）', () => {
     const row = { userId: '1', username: 'alex', action: 'content_blocked', detail: 'content_safety:sensitive' };
     const s = summarizeAudit(row, [row]);
     expect(s.sentence).toContain('阻断');
+  });
+
+  it('A-7 flow_node 审批 → 审批链业务摘要句（发起/通过/驳回/完成）', () => {
+    const start = summarizeAudit(
+      { userId: '5', username: 'alice', action: 'flow_node', businessEvent: 'FlowInstanceStarted', evidence: JSON.stringify({ definitionId: 'leave_approval', definitionName: '请假审批', event: 'start' }) },
+      [],
+    );
+    expect(start.sentence).toContain('alice');
+    expect(start.sentence).toContain('发起流程');
+    expect(start.sentence).toContain('请假审批');
+
+    const approve = summarizeAudit(
+      { userId: '7', username: 'bob', action: 'flow_node', businessEvent: 'FlowTaskApproved', evidence: JSON.stringify({ nodeId: 'b', nodeName: '经理审批', decision: 'approve', event: 'resolve' }) },
+      [],
+    );
+    expect(approve.sentence).toContain('bob');
+    expect(approve.sentence).toContain('审批通过');
+    expect(approve.sentence).toContain('经理审批');
+
+    const reject = summarizeAudit(
+      { userId: '7', username: 'bob', action: 'flow_node', isError: true, businessEvent: 'FlowTaskRejected', evidence: JSON.stringify({ nodeId: 'b', nodeName: '经理审批', decision: 'reject', event: 'resolve' }) },
+      [],
+    );
+    expect(reject.sentence).toContain('驳回');
+
+    const done = summarizeAudit(
+      { userId: '5', username: 'alice', action: 'flow_node', businessEvent: 'FlowInstanceCompleted', evidence: JSON.stringify({ definitionId: 'leave_approval', event: 'completed' }) },
+      [],
+    );
+    expect(done.sentence).toContain('已完成');
   });
 
   it('aggregateConversation：业务事件计数 + 确认分布 + 阻断', () => {

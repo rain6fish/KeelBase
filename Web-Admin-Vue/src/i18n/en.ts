@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ZhDict } from './zh'
 
 const en: ZhDict = {
@@ -470,6 +472,27 @@ const en: ZhDict = {
   apChainDecided: '{name} decided: {d}',
   apReviewed: 'AI review complete',
   apDecided: 'Decision saved',
+  workbenchFlows: 'My Flows',
+  flowInstanceInfo: 'Flow Info',
+  flowChainTitle: 'Approval Chain',
+  flowChainInitiated: '{name} initiated',
+  flowChainNode: 'Approval node',
+  flowChainDecide: '{name} {d}',
+  flowChainApproved: 'approved',
+  flowChainRejected: 'rejected',
+  flowChainPending: 'pending',
+  flowState: 'Status',
+  flowStateLabel: 'Status: {s}',
+  flowDefinition: 'Flow definition',
+  flowInitiator: 'Initiator',
+  flowPending: 'Pending',
+  flowPendingTasks: '{n} pending',
+  flowOpenChain: 'View chain',
+  flowStatePending: 'pending',
+  flowStateRunning: 'running',
+  flowStateCompleted: 'completed',
+  flowStateFailed: 'failed',
+  flowStateRolledBack: 'rolled back',
   apAiRecommendation: 'AI recommendation',
   apStatusPending: 'Pending',
   apStatusNeedsReview: 'Needs review',
