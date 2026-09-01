@@ -22,7 +22,7 @@ describe('BusinessHistoryDrawer（§22.16 A-2 业务实体行为史）', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('渲染目标状态卡 + 聚合时间线（source 标签 + 业务事件 + REST）', async () => {
-    ;(aiToolsApi.entityHistory as any).mockResolvedValue({
+    vi.mocked(aiToolsApi.entityHistory).mockResolvedValue({
       target: { exists: true, title: '跟进', status: 'open', deletedAt: null },
       events: [
         { id: 'ai-trace-1', source: 'ai-trace', time: '2026-08-31T00:30:00Z', businessEvent: 'CustomerRiskAssessed', toolName: 'analyze_customer_risk', evidence: '{"decision":"high"}' },
@@ -44,14 +44,14 @@ describe('BusinessHistoryDrawer（§22.16 A-2 业务实体行为史）', () => {
   })
 
   it('空态', async () => {
-    ;(aiToolsApi.entityHistory as any).mockResolvedValue({ target: { exists: false }, events: [] })
+    vi.mocked(aiToolsApi.entityHistory).mockResolvedValue({ target: { exists: false }, events: [] })
     const wrapper = mountDrawer()
     await flushPromises()
     expect(wrapper.text()).toContain('暂无 AI/REST 行为记录')
   })
 
   it('目标已删除显示软删提示', async () => {
-    ;(aiToolsApi.entityHistory as any).mockResolvedValue({
+    vi.mocked(aiToolsApi.entityHistory).mockResolvedValue({
       target: { exists: true, title: '跟进', status: null, deletedAt: '2026-08-31T03:00:00Z' },
       events: [],
     })
