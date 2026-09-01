@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase inspect — 识别 KeelBase 应用（Provenance 工具，设计建议 §十五）。
  *
