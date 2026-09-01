@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryProjectsTool } from './query-projects.tool';
 import { QueryProjectTasksTool } from './query-project-tasks.tool';
 import { AnalyzeProjectRiskTool } from './analyze-project-risk.tool';

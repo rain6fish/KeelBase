@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 邮件服务 — SMTP 发送 + 事务邮件模板
  *

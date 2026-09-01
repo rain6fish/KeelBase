@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { NotificationsGateway } from './notifications.gateway';
 import type { Response } from 'express';
 

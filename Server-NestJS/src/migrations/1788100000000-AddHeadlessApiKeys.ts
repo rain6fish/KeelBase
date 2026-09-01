@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HS-4 建 headless_api_keys 表（sqlite + postgres 双驱动）。 */

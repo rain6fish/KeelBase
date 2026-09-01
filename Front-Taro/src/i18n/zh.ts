@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */

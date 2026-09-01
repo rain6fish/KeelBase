@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 管理台可导航页面映射 — System AI Assistant 的 navigate_admin_page 工具使用。
  *

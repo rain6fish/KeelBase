@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { GovernanceController } from './governance.controller';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';

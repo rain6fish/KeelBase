@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';

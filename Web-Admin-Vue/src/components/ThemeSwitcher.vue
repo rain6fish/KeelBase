@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-popover placement="top" :width="240" trigger="click">
     <template #reference>

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase Release Gate 统一入口（W3，专家 08-21 建议）
 #

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Alert, Box, Snackbar } from '@mui/material'
 import { useSnackbarStore } from '@/stores/snackbar'
 

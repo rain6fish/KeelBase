@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * AI 预审批复工具 — review_approval_request（写操作）
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 import type { Paginated } from '@/types/api'
 import type { CreateTodoInput, MyEvent, MyEventQuery, MyNotification, MyTodo } from '@/types/workbench'

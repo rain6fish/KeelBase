@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
 import { SettingsModule } from '../settings/settings.module';

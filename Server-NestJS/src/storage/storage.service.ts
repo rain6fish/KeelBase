@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 对象存储抽象接口 + DI token。
  * 实现：LocalStorageService（本地磁盘）/ S3StorageService（S3/MinIO/OSS 兼容）。

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 # =====================================================================
 # D.3 蓝绿/金丝雀部署 — 两套 server 容器 + Nginx upstream 权重切换 + 回滚
 #

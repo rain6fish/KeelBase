@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Controller, Get, Query, Delete, Param, ParseIntPipe, Post, Body, BadRequestException } from '@nestjs/common';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { Public } from '../auth/guards/public.decorator';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryApprovalRequestsTool } from './query-approval-requests.tool';
 import { QueryApprovalPoliciesTool } from './query-approval-policies.tool';
 import { SubmitApprovalRequestTool } from './submit-approval-request.tool';

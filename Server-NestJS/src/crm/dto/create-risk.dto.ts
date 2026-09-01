@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { RISK_LEVELS } from '../crm-customer.entity';

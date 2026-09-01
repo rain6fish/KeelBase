@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 管理台权限点（WEB-FRONT-2 渲染层）。
  *

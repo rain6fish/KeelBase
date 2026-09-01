@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { McpGatewayController } from './mcp-gateway.controller';
 import { McpGatewayService } from './mcp-gateway.service';

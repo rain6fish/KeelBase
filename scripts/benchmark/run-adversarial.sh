@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # Run/Adversarial 云端实证（§7.4 #2）：起后端 → seed → agent-benchmark + verify-security-eval。
 # 证明平台不依赖人在场——真实 LLM 对话（Run/Safety）+ 攻击集回归（Adversarial）。

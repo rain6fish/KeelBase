@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PluginsService } from './plugins.service';
 import { PluginsController } from './plugins.controller';
 import { PluginManifest } from './plugin.interface';

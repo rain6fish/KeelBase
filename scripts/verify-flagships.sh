@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # 三旗舰严格验收（阶段 2 Phase 1）：自动化跑「无 LLM」验收点，LLM 部分标注需环境
 #

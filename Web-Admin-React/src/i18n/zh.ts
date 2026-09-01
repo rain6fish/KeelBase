@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const zh = {
   // 通用
   appName: '管理控制台',

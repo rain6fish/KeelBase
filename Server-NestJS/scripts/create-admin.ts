@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 创建管理员账号（D.7 一键部署用）。
  *

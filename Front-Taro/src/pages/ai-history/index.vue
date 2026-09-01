@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <view class="ai-history-page">
     <view class="ai-history-page__header">

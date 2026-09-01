@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  import Taro from '@tarojs/taro'
  import { API_BASE_URL, API_TIMEOUT } from '../utils/constants'
  import { storage } from '../utils/storage'

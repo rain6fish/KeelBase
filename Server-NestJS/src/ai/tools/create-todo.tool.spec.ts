@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CreateTodoTool } from './create-todo.tool';
 
 describe('CreateTodoTool', () => {

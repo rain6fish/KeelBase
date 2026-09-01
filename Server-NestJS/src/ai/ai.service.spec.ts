@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AiService } from './ai.service';
 import { NotFoundException } from '@nestjs/common';
 import { LlmProviderFactory } from './providers/provider-factory';

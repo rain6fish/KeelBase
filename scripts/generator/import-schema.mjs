@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * P0-12 输入通道：SQL DDL → Module Protocol。
  *

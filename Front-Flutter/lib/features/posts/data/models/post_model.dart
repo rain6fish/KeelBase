@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 class PostModel {
   final int id;
   final String title;

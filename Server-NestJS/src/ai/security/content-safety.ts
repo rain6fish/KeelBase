@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * AI-23 内容安全（轻量先行版）：用户输入的内容安全检查。
  *

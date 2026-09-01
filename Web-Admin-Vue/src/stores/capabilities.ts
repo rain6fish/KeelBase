@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { capabilitiesApi, type AppCapabilities } from '@/api/capabilities'
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * keelbase-doctor 单测（node:test，零依赖）——覆盖 --env 环境预检纯逻辑。
  * 运行：node --test scripts/keelbase-doctor.test.mjs

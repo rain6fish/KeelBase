@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 jest.mock('@opentelemetry/api', () => {
   const spans: any[] = [];
   const startSpan = jest.fn((name: string, options: any) => {

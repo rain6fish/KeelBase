@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { AdminAiService } from './admin-ai.service';
 import { AdminAiController } from './admin-ai.controller';

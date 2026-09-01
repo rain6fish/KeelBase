@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # EASY-1 单容器 all-in-one 交付
 # 一条命令起全栈（后端 API + Flutter web 主 App + 管理台），只需装 Docker。

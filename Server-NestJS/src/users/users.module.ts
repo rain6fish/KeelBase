@@ -1,4 +1,6 @@
-﻿import { Module } from '@nestjs/common';
+﻿// SPDX-License-Identifier: Apache-2.0
+
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * GovernanceReporter（D2-3b 审计/副作用双写上报）单元测试
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** GROWTH-2 社区动态流：post_likes / post_comments / user_follows 表（sqlite + postgres 双驱动）。 */

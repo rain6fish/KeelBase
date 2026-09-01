@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # 用 edge-tts 生成每镜旁白音频（中/英各一套）
 import asyncio, json, os, subprocess, sys
 import edge_tts

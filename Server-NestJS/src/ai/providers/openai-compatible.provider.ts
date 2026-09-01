@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * OpenAI 兼容格式的 LLM Provider 实现
  *

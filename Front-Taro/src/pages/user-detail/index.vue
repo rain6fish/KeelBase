@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <view class="user-detail">
     <view v-if="loading" class="user-detail__loading">

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { zh } from './zh'
 import { en } from './en'
 import type { Locale, I18nDictionary } from './types'

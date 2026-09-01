@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { BusinessException } from '../common/errors/business.exception';
 import { MaintenanceGuard } from './maintenance.guard';
 import { SettingsService } from './settings.service';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AlertWebhookService } from './alert-webhook.service';
 
 function makeConfig(overrides: Record<string, unknown> = {}) {

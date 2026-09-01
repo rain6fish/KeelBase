@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * System AI Assistant 专属系统提示词（管理端，L1 Explain + L2 Guide + L3 Navigate）。
  *

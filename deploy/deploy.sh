@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 一键部署脚本（D.7，私有化定位）
 #

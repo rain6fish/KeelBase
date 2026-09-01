@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 事件搜索工具 — query_events_by_keyword
  *

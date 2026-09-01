@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */

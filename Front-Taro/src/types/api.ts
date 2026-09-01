@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  /** Generic API response wrapper matching the backend format */
  export interface ApiResponse<T = any> {
    code: number

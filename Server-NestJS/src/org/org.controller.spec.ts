@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { OrgController } from './org.controller';
 import { OrgService } from './org.service';
 import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, type ComponentType } from 'react'
 import {
   AppBar,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from 'react'
 import { Box, Button, IconButton } from '@mui/material'
 import FilterAltIcon from '@mui/icons-material/FilterAlt'

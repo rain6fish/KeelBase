@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SetMetadata } from '@nestjs/common';
 import { AppAbility } from './casl-ability.factory';
 

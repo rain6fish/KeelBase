@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createI18n } from 'vue-i18n'
 import { defineStore } from 'pinia'
 import zh from './zh'

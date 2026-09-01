@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Internal governance callbacks（D2-4 跨服务回调端点）单元测试
  *

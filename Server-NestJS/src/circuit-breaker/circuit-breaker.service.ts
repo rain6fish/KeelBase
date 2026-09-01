@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Optional, Inject } from '@nestjs/common';
 
 /** 熔断配置注入 token；未提供时用 DEFAULT_CONFIG。 */

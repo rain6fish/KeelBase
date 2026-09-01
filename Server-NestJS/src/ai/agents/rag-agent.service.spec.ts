@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { RagAgent } from './rag-agent.service';
 import { KnowledgeService } from '../rag/knowledge.service';
 import { ContentSafetyService } from '../security/content-safety.service';

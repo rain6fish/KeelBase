@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 

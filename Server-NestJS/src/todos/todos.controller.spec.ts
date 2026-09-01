@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { TodosController } from './todos.controller';
 import { TodosService } from './todos.service';
 import { Todo } from './todo.entity';

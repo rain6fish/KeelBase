@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SidecarController } from './sidecar.controller';
 import { SidecarService } from './sidecar.service';
 

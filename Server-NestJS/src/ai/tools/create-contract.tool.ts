@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 创建合同工具 — create_contract（写操作，需人工确认）
  *

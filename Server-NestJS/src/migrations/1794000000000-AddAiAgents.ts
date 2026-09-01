@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /** D5 Agent Registry：ai_agents 表（已注册 Agent 定义，最小版从 headless key 注册） */

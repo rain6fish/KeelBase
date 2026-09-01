@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { runHumanTask } from './human-task.node';
 import { OrgMemberRole } from '../../org/org-member-role.enum';
 

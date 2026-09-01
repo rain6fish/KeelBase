@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { BooksController } from './books.controller';
 import { BooksService } from './books.service';
 

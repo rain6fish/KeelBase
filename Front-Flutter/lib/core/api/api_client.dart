@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:dio/dio.dart';
 import '../constants/app_constants.dart';
 import '../errors/exceptions.dart';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/i18n/app_localizations.dart';

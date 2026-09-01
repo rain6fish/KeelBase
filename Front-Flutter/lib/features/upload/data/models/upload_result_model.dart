@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 class UploadResultModel {
   final String url;
   final String filename;

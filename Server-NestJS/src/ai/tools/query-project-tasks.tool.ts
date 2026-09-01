@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询项目任务工具 — query_project_tasks（只读）
  *

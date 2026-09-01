@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { HttpException } from '@nestjs/common';
 import { API_ERROR_CODES } from './api-error-codes';
 

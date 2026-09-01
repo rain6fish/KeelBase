@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { LlmProviderFactory } from '../../ai/providers/provider-factory';
 import { AiTaskNode } from '../flow-definition.types';
 

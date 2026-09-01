@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ConfigService } from '@nestjs/config';
 import { Params } from 'nestjs-pino';
 import pino from 'pino';

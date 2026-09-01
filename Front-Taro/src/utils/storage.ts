@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  import Taro from '@tarojs/taro'
  
  /** Typed storage wrapper using Taro's storage API */

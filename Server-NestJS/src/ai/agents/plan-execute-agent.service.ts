@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Plan-and-Execute Agent — 多步推理
  *

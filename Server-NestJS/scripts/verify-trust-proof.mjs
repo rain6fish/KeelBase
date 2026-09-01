@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Trust 证明包 — 六场景一键验证（P0 产品证明 / security-showcase §Trust 证明包）
  *

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 在线 Demo 演示站 —— AI CRM Golden Flow 一键体验（P0·产品证明）
 #

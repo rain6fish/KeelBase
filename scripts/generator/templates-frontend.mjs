@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 前端模板：按 todos feature 约定生成 4 个文件。
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。

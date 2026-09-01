@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 语义化版本号（SemVer 风格）比较。
 /// 返回：a < b → -1；a == b → 0；a > b → 1。
 ///

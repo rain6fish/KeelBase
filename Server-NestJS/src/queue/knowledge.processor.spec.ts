@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Job } from 'bullmq';
 import { KnowledgeIngestionProcessor } from './knowledge.processor';
 import { KnowledgeIngestionService } from '../ai/rag/knowledge-ingestion.service';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { HeadlessKeysService } from '../headless/headless-keys.service';
