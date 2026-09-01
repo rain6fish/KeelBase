@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 
 export interface SettingRow {
@@ -14,5 +16,9 @@ export const settingsApi = {
   },
   update(key: string, value: string, type: 'string' | 'number' | 'boolean' = 'string'): Promise<unknown> {
     return api.put(`/settings/${key}`, { value, type })
+  },
+  /** EASY-5 首启预设：应用 full/small/lite → 返回应用后 feature flags */
+  applyPreset(preset: 'full' | 'small' | 'lite'): Promise<Record<string, boolean>> {
+    return api.post('/settings/preset', { preset })
   },
 }
