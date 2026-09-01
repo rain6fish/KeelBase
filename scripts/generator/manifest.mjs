@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Provenance：.keelbase/manifest.json 的来源身份清单（设计建议 §八）。
  *
