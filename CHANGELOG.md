@@ -4,10 +4,10 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.4] - 2026-09-01
 
-> **§22.16 Business Action Ledger — AI 业务行为取证系统（审计升级）**
-> 从「技术日志」升级为「AI 业务行为取证系统」：三层信息模型（L1 业务事实 / L2 决策治理 / L3 技术证据）——字段级留痕 + 决策依据 + 业务事件归一化 + 业务实体行为史账本 + 审计解释器业务摘要 + 跨系统身份链与授权依据 + 合规证据包 v2。**「谁、基于什么授权、做了什么、每级怎么批的」完整业务叙事可现场演示。**
+> **KeelBase 1.0.4 — Business Action Ledger & Governance Moat 2.x / 业务行为取证与治理护城河版**
+> 1.0 后第四个补丁：§22.16 业务行为取证系统完整落地（A-1~A-8）——字段级留痕 + 决策依据 + 业务事件归一化 + 实体行为史账本 + 审计解释器 + 跨系统身份链与授权依据 + 合规证据包 v2 + 越权专门视图 + FLOW 审批链入审计；治理护城河 2.1/2.2/2.3（协议合规套件 / MCP 治理契约 / 策略实时推送 / 策略模板库 / 合规映射 / 证据包离线验证）；四端业务语言化；产品语言统一（Business-safe AI Runtime + DNA + Trust Manifesto）；EASY-5 首启引导 preset（v1.1 P0-6 第一刀）；Apache-2.0 开源可信包装。**「谁、基于什么授权、做了什么、每级怎么批的」完整业务叙事可现场演示 + 离线可复核证据。**
 
 ### Added / 新增
 
@@ -19,11 +19,55 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **A-7 FLOW 审批链（§22.16）**：FLOW human_task 审批链可视化——`GET /flows/my`（本人实例 + 定义名 + 待审批数）+ `GET /flows/:id` 带出审批链（发起人 + 每级审批人用户名/结果/意见/时间）；工作台「我的流程」列表 + 实例详情 el-timeline 审批链（发起 → 每级 human_task → 终态）；**审批链入审计**——flow 审计富化 businessEvent（FlowInstanceStarted/FlowNodeReached/FlowTaskApproved/FlowTaskRejected/FlowInstanceCompleted）+ evidence（节点/审批人/决策/意见），审计解释器加 flow_node 分支还原审批链业务摘要
 - **Weapp build unblocked (N-1)**: 23 page `<style src scoped>` → script `import scss` (workaround vue-loader scoped-style entry into mini postcss-loader chain crash); CI `taro-build` now includes `build:weapp`
   **小程序构建修复（N-1）**：23 页 scoped 外链样式改 script import 绕开构建崩溃（rpx 转换验证正常）+ CI taro-build 常驻校验 build:weapp
+- **A-3 lifecycle state machine + A-5 auth chain graph (§22.16)**: 治理抽屉生命周期段（从决策轨迹推导当前态：已执行/已确认执行/被阻断/已拒绝/已撤销，撤销看 effect.targetSoftDeleted）(A-3)；授权链图（`GET /auth/permissions/chain` grantor→grantee→policy→resource→effective）+ 身份链 Intent 节点（Human→Intent→Agent→Tool→Business Action）+ 「为什么被允许」授权依据（放行 checks / 拒绝阻止原因）(A-5)
+  **A-3 生命周期状态机 + A-5 授权链可视化（§22.16）**：生命周期段（当前态推导）+ 授权链图（授权者→被授权者→策略→资源→生效期）+ 身份链 Intent 节点 + 授权依据
+- **MCP tool declaration governance extension (Moat 2.1)**: KeelBase MCP export (`tools/list`) now carries per-tool governance contract over standard MCP fields — `annotations.readOnlyHint/destructiveHint` hints + `_meta.keelbase` namespace (`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`), standardized in ai-governance-protocol §4.4; previously computed metadata was stripped by the SDK `ToolSchema` (no passthrough). Any MCP client can now read each tool's risk profile before invoking.
+  **MCP 工具声明治理扩展（护城河 2.1）**：KeelBase MCP 出口 `tools/list` 经 MCP 标准字段透出每个工具的治理契约——`annotations.readOnlyHint/destructiveHint` 提示 + `_meta.keelbase` 命名空间（`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`），写入 ai-governance-protocol §4.4 标准；此前元数据被 SDK `ToolSchema`（无 passthrough）剥掉，客户端不可见。任何 MCP 客户端在调用前即可读到工具风险画像。
+- **Protocol conformance suite (Moat 2.1 / A1)**: `scripts/verify-protocol-conformance.mjs` independently re-implements the three governance protocols (audit hash chain canonical/hash/verify, delegation-token HS256 verification, risk-level derivation) with tamper-detection test vectors; `npm run conformance`; protocol doc §2.2/§2.3 corrected to exactly match the reference implementation (literal `genesis`, `|` separator, legacy HMAC derivation, AUDIT_HMAC_KEY rotation semantics); §5.1 certification notes for third-party self-audit. Reference implementation 22/22.
+  **协议合规认证套件（护城河 2.1 / A1）**：`scripts/verify-protocol-conformance.mjs` 独立实现三大治理协议（审计链 canonical/hash/链校验、委托 token HS256 验签、风险分级派生）+ 篡改检测测试向量；`npm run conformance`；协议文档 §2.2/§2.3 修正为精确匹配参考实现（genesis 字面量、`|` 分隔符、legacy HMAC 派生、AUDIT_HMAC_KEY 轮换语义）；§5.1 新增第三方自认证说明。参考实现 22/22 通过。
+- **Audit evidence package offline verification (Moat 2.3 / A2)**: `GET /audit/action-report/export` now returns `format=keelbase-audit-evidence/1` + full chain rows (id/prevHash/hash/payload) with the signature covering the chain; `scripts/verify-evidence.mjs` verifies the package offline — chain structure without keys (deletion/reorder/break detection), full payload recompute + signature with `--key <AUDIT_HMAC_KEY>` (content-tamper detection). Auditors can verify without installing KeelBase.
+  **审计证据包离线机器验证（护城河 2.3 / A2）**：`GET /audit/action-report/export` 现返回 `format=keelbase-audit-evidence/1` + 全量链行（id/prevHash/hash/payload），签名覆盖 chain；`scripts/verify-evidence.mjs` 离线验证证据包——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算 payload + 验签（内容篡改检测）。审计机构不装 KeelBase 即可复核。
+- **Governance policy realtime push (Moat 2.2 / B2)**: sidecar registers a callback (`SIDECAR_CALLBACK_URL`) with the governance console on startup; policy changes (apply-preset / PUT policy) are pushed to registered sidecars in real time (`POST /v1/policy`, service identity), taking effect in seconds instead of the 60s polling interval (kept as fallback).
+  **治理策略实时推送（护城河 2.2 / B2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`）；策略变更（apply-preset / PUT policy）后治理台实时推送（`POST /v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底。
+- **Governance policy preset library (§22.15)**: finance/government/general one-click presets — 金融=审计全量+全部写工具确认 / 政务=审计写+核心写工具确认 / 通用=默认；Policy Center preset cards 一键导入实时生效（联动信创「开箱合规」）
+  **策略模板库（§22.15）**：金融/政务/通用三档预设一键导入实时生效 + Policy Center 预设卡片
+- **Compliance Mapping (Moat 2.3 / C1)**: KeelBase capability ↔ 中国《智能体互联》7 项国标 / EU AI Act（记录保存·人类监督）/ 等保 2.0 / 个保法数安法 factual mapping; honest gaps marked (国密 SM2/3/4 / 国产数据库 / SAML-LDAP) = 信创适配认证服务规划输入; bilingual
+  **合规映射表（护城河 2.3 / C1）**：KeelBase 能力 ↔《智能体互联》国标 / EU AI Act / 等保 2.0 事实性对照，诚实标注信创差距（国密/国产库/SAML-LDAP）
+- **Protocol 2.0 aiTools declaration (Q2)**: Module Protocol gains an optional `aiTools` field (enabled switch + query/create riskLevel & confirmation overrides); the generator consumes it to produce governed AI tools (query R1 auto / create R3 confirm by default, R2=policy / R4=two-person approval overrides, full disable for read-only modules); wiring skips disabled tools; validate + docs + generator tests (59 green).
+  **协议 2.0 aiTools 声明（Q2 主线）**：Module Protocol 新增可选 `aiTools` 字段（enabled 开关 + query/create 的 riskLevel/requiresConfirmation 覆盖）；生成器消费它生成带治理的 AI 工具（缺省 query R1 自动 + create R3 确认；R2=策略决定 / R4=双人审批 覆盖；只读模块可整体关闭）；接线按开关跳过；校验 + 文档 + 生成器测试 59 全绿。
+- **Business-language rendering（四端业务语言化）**: AI 审计 / 行为回放 / 执行轨迹 / 风险中心 / 安全审查 / AI 审批 / 工作台 Action Detail / Flutter 主 App AI 轨迹——工具调用/确认/副作用全部业务语言（toolLabel 双语 + 参数业务摘要 + 技术参数 popover 折叠），R5 阻断错误业务化（「该操作已被安全策略阻断（高风险）」）
+  **四端业务语言化**：AI 审计/轨迹/风险/审批/安全审查/工作台/Flutter 工具动作业务语言化，技术细节折叠，R5 阻断双语
+- **EASY-5 first-run preset guide (v1.1 P0-6)**: FeatureFlagsService 动态化——applyPreset(full/small/lite) 内存 overrides + Settings 持久化（feature_<key>）+ 重启 loadOverrides 恢复；判定优先级 运行时覆盖 > env > 预设；`POST /settings/preset`（admin，返回应用后 flags）+ 管理员首启三卡片 preset 弹窗
+  **EASY-5 首启引导 preset（v1.1 P0-6）**：FeatureFlags 运行时 preset 应用（full/small/lite）+ Settings 持久化 + `POST /settings/preset` + 管理台首启引导弹窗
+- **Product language & DNA (P0-4)**: 定位句统一「Business-safe AI Runtime」+ 词汇表 v0.1 + KeelBase engineering DNA 定稿（docs/keelbase-dna.md）+ CLAUDE.md §15.11 DNA 自检入开发流程 + Enterprise AI Trust Manifesto（采购/选型四问）+ README DNA 声明 + 社区文章《AI 生成的代码，凭什么信任？》草稿
+  **产品语言与 DNA（P0-4）**：Business-safe AI Runtime 定位统一 + DNA 定稿 + Trust Manifesto + 词汇表 + DNA 自检
+- **Developer constitution skill**: 产品/体验/架构工程三 skill 整合为单一宪法（keelbase-development-constitution，含开发生命周期/DoD/三方评审）+ CLAUDE.md §15 AI Coding Rules（反垃圾代码 10 条）+ release-precheck 固定四层评审（Code Economy 第四层 + 观察指标 v0.1）
+  **开发者宪法 skill**：三合一宪法 + AI Coding Rules + Code Economy 第四层评审
+- **Module generation provenance**: keelbase init 每个生成模块目录写 `.keelbase-provenance.json`（来源/生成器版本/协议/时刻）+ inspect 展示——工程侧「代码可溯源」对应运行时 Business Action 链
+  **生成模块 provenance**：生成出生证明 + inspect 溯源（DNA「代码可溯源」落地）
+- **Demo video v9**: 面向决策者双语言旁白演示（28 镜中英 mp4）+ PM/Approval/治理巡礼三镜 + 桥接视觉镜（Java 存量→治理→AI 工具）+ 配音/字幕/合成流水线入库
+  **演示视频 v9**：双语言旁白 + 桥接视觉 + 录制/配音/字幕流水线
+- **Apache-2.0 OSS trust packaging**: 全仓 1515 源码文件 SPDX 许可头（幂等脚本 scripts/add-license-headers.mjs）+ DCO 签名约定 + 公开版本计划 docs/versioning.md + README badge + CI 安全扫描（gitleaks 密钥扫描 + CodeQL）+ THIRD_PARTY_NOTICES SPDX 声明
+  **Apache-2.0 开源可信包装**：全仓 SPDX 许可头 + DCO + 版本计划公开 + gitleaks/CodeQL 扫描
+- **java-starter Maven Central**: KeelBase-java-starter 0.1.2 已发布，兼容矩阵不再标「待发布」
+  **java-starter**：Maven Central 发布状态入兼容矩阵
 
 ### Fixed / 修复
 
 - **Operation-audit hash-chain break**: `changes`/`businessEvent` accidentally included in hash payload (chain-external columns) → split hash/save payload; golden e2e hash-chain verify restored to valid
   **操作审计哈希链破链修复**：changes/businessEvent 误入 hash payload 致 verify 失败——拆 hash/save payload 链外，哈希链 valid 恢复
+- **audit_chain_lock postgres touched_at type drift**: TIMESTAMP（无时区）匹配实体 `@UpdateDateColumn` 的 TypeORM 生成，修复 CI migration-consistency-postgres 漂移
+  **audit_chain_lock postgres 类型漂移**：touched_at 改 TIMESTAMP 匹配 TypeORM，修 CI 迁移一致性
+- **Flutter ai_chat_page tests missing CapabilitiesProvider**: 补 provider（94928a2 新增依赖后），修复 4 个 AI 聊天页测试（导航栏默认模型/模型切换/确认卡/工具步骤卡）
+  **Flutter AI 聊天页测试修复**：补 CapabilitiesProvider，4 测试恢复
+- **A-5 auth chain EN keys re-added**: 权限中心授权链英文 key 补回（并发会话覆盖 en.ts 后丢失）
+  **A-5 授权链英文 key 补回**：并发 i18n 覆盖恢复
+
+## Release Precheck（2026-09-01）
+
+- 四层 code review：**阿里 OCR**（7 条——scoped 单提交评审，全区间因网络环境停摆）+ **Claude 自带多维审查**（安全核查 0 阻塞 + 2 条 SUSPECTED）+ **code-review skill**（Standards：auth 双模式内联判权评估为有意设计 / Spec：孤儿 skill 回灌等）+ **Code Economy**（WARN 4 条）→ 修复 3 类：孤儿 skill 删除（merge 回灌死文件）+ operation-audit 覆盖补测 + 2 处 spec 随实现同步；OCR 低成本修复 4 条（agent 负缓存 miss / 死参数 / 双重强转 / 证据包 v1-v2 兼容分支）
+- 全量测试：后端单测 **1947**（安全模块 statements 全 ≥85%，operation-audit 83.5%→**97.7%**）+ e2e **259** + Web-Admin vitest **304**（补 guard 超时 20s）+ Flutter **623**（行覆盖 **76.5%**，ai_trace 断言同步业务语言）+ 生成器/CLI **81** + endpoint-docs 0 缺失 + **release-gate 12/12 PASS**
+- 覆盖率：较 v1.0.3 无降级；operation-audit 门控修复（补 10 测试）、Flutter ≥45% 门槛达标
 
 ## [1.0.3] - 2026-08-30
 
@@ -74,21 +118,6 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - 三方 code review：**阿里 ocr**（v1.11.0 全区间扫描）+ **Claude 自带多维审查** + **code-review skill**（Standards + Spec 双轴）→ 综合修复 14 项（阻塞项全修，余项记录为已知限制）
 - 全量测试：后端单测 **216 套 / 1873 全绿** + e2e + Web-Admin vitest/typecheck + Flutter + 生成器/CLI + release-gate（详见发布记录）
-
-## [Unreleased]
-
-### Added / 新增
-
-- **MCP tool declaration governance extension (Moat 2.1)**: KeelBase MCP export (`tools/list`) now carries per-tool governance contract over standard MCP fields — `annotations.readOnlyHint/destructiveHint` hints + `_meta.keelbase` namespace (`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`), standardized in ai-governance-protocol §4.4; previously computed metadata was stripped by the SDK `ToolSchema` (no passthrough). Any MCP client can now read each tool's risk profile before invoking.
-  **MCP 工具声明治理扩展（护城河 2.1）**：KeelBase MCP 出口 `tools/list` 经 MCP 标准字段透出每个工具的治理契约——`annotations.readOnlyHint/destructiveHint` 提示 + `_meta.keelbase` 命名空间（`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`），写入 ai-governance-protocol §4.4 标准；此前元数据被 SDK `ToolSchema`（无 passthrough）剥掉，客户端不可见。任何 MCP 客户端在调用前即可读到工具风险画像。
-- **Protocol conformance suite (Moat 2.1 / A1)**: `scripts/verify-protocol-conformance.mjs` independently re-implements the three governance protocols (audit hash chain canonical/hash/verify, delegation-token HS256 verification, risk-level derivation) with tamper-detection test vectors; `npm run conformance`; protocol doc §2.2/§2.3 corrected to exactly match the reference implementation (literal `genesis`, `|` separator, legacy HMAC derivation, AUDIT_HMAC_KEY rotation semantics); §5.1 certification notes for third-party self-audit.
-  **协议合规认证套件（护城河 2.1 / A1）**：`scripts/verify-protocol-conformance.mjs` 独立实现三大治理协议（审计链 canonical/hash/链校验、委托 token HS256 验签、风险分级派生）+ 篡改检测测试向量；`npm run conformance`；协议文档 §2.2/§2.3 修正为精确匹配参考实现（genesis 字面量、`|` 分隔符、legacy HMAC 派生、AUDIT_HMAC_KEY 轮换语义）；§5.1 新增第三方自认证说明。参考实现 22/22 通过。
-- **Audit evidence package offline verification (Moat 2.3 / A2)**: `GET /audit/action-report/export` now returns `format=keelbase-audit-evidence/1` + full chain rows (id/prevHash/hash/payload) with the signature covering the chain; `scripts/verify-evidence.mjs` verifies the package offline — chain structure without keys (deletion/reorder/break detection), full payload recompute + signature with `--key <AUDIT_HMAC_KEY>` (content-tamper detection). Auditors can verify without installing KeelBase.
-  **审计证据包离线机器验证（护城河 2.3 / A2）**：`GET /audit/action-report/export` 现返回 `format=keelbase-audit-evidence/1` + 全量链行（id/prevHash/hash/payload），签名覆盖 chain；`scripts/verify-evidence.mjs` 离线验证证据包——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算 payload + 验签（内容篡改检测）。审计机构不装 KeelBase 即可复核。
-- **Governance policy realtime push (Moat 2.2 / B2)**: sidecar registers a callback (`SIDECAR_CALLBACK_URL`) with the governance console on startup; policy changes (apply-preset / PUT policy) are pushed to registered sidecars in real time (`POST /v1/policy`, service identity), taking effect in seconds instead of the 60s polling interval (kept as fallback).
-  **治理策略实时推送（护城河 2.2 / B2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`）；策略变更（apply-preset / PUT policy）后治理台实时推送（`POST /v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底。
-- **Protocol 2.0 aiTools declaration (Q2)**: Module Protocol gains an optional `aiTools` field (enabled switch + query/create riskLevel & confirmation overrides); the generator consumes it to produce governed AI tools (query R1 auto / create R3 confirm by default, R2=policy / R4=two-person approval overrides, full disable for read-only modules); wiring skips disabled tools; validate + docs + generator tests (59 green).
-  **协议 2.0 aiTools 声明（Q2 主线）**：Module Protocol 新增可选 `aiTools` 字段（enabled 开关 + query/create 的 riskLevel/requiresConfirmation 覆盖）；生成器消费它生成带治理的 AI 工具（缺省 query R1 自动 + create R3 确认；R2=策略决定 / R4=双人审批 覆盖；只读模块可整体关闭）；接线按开关跳过；校验 + 文档 + 生成器测试 59 全绿。
 
 ## [1.0.2] - 2026-08-27
 
