@@ -18,6 +18,7 @@
 
 | # | 验证 | 命令 | 前置 | 报告 |
 |---|---|---|---|---|
+| T | **Trust 证明包六场景**（正常成功/越权 403/R5 阻断/人工确认/撤销/Java 引导——**DNA 四原则**的聚合证明） | `node Server-NestJS/scripts/verify-trust-proof.mjs` | 后端已起（默认 `PROVIDER=demo` 确定性，无 LLM key 也可跑） | `docs/benchmark/trust-proof-*`（实测 **15/15**） |
 | V2 | **越权拒绝 403**（双账号行级权限） | `node Server-NestJS/scripts/verify-permission-denied.mjs` | 后端已起（alex/admin seed 账号） | `Server-NestJS/docs/benchmark/permission-denied-*`（实测 **8/8**） |
 | S | **Security Showcase 五项**（越权/工具治理/人工批准/哈希链/Agent 攻击集） | 按 `docs/manual/security-showcase.md` | 一键起环境（docker run 内置 demo provider） | `docs/manual/security-showcase.md` 验收清单 |
 | E | **AI 攻击集 + 黄金 8-8**（prompt 注入/越权/确认绕过/撤销绕过） | `./scripts/verify-security-eval.sh` | 后端已起 + LLM key | `docs/benchmark/security-eval-*` |
@@ -55,6 +56,8 @@ node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 ## 相关 / Related
 
 - [security-showcase.md](security-showcase.md) — 安全展示五项（人工演示路径）
+- [ai-trust-manifesto.md](../ai-trust-manifesto.md) — 企业 AI 信任宣言（DNA 四原则 → 采购/选型四问，参考实现验证映射）
+- [keelbase-dna.md](../keelbase-dna.md) — 工程哲学（四原则出处）
 - [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理（MOAT-1 指南）
 - [multi-system-demo.md](multi-system-demo.md) — 多系统单控制面演示（MOAT-3）
 - [30min-build-verification.md](30min-build-verification.md) — 30min Build 外部验证（V-6）
