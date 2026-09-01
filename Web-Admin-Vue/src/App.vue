@@ -1,13 +1,16 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-config-provider>
     <router-view />
     <GlobalSnackbar />
+    <PresetGuideDialog />
   </el-config-provider>
 </template>
 
 <script setup lang="ts">
 import { watch } from 'vue'
 import GlobalSnackbar from '@/components/GlobalSnackbar.vue'
+import PresetGuideDialog from '@/components/PresetGuideDialog.vue'
 import { useUiStore } from '@/stores/ui'
 import { applyTheme } from '@/utils/theme'
 
