@@ -94,7 +94,7 @@ export async function wireBackend(ctx, root = '') {
   // 2) modules-manifest.ts：BUSINESS_MODULES + businessEntries
   results.push(
     await applyFile(`${BE}/common/modules/modules-manifest.ts`, (c) => {
-      if (new RegExp(`'${ctx.plural}'`).test(c)) return { content: c, changed: false, reason: 'already-wired' };
+      if (c.includes(`'${ctx.plural}'`)) return { content: c, changed: false, reason: 'already-wired' };
       const m = c.match(/(export const BUSINESS_MODULES = \[)([^\]]*)(\])/);
       if (!m) return { content: c, changed: false, reason: 'anchor-not-found' };
       const inner = m[2].trim();

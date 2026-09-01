@@ -18,9 +18,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
   const port = Number(process.env.GOVERNANCE_PORT || 3100);
-  // 启动诊断（保留：打印关键 env，便于排查认证/库连接）
+  // 启动诊断（保留：打印关键 env，便于排查认证/库连接；不打印密钥本身/前缀——CodeQL csharp/clear-text-logging）
   const cfg = app.get(ConfigService);
-  console.log(`[Governance] cwd=${process.cwd()} env.JWT_SECRET=${(process.env.JWT_SECRET || '').slice(0, 8)}… cfg.JWT_SECRET=${(cfg.get<string>('JWT_SECRET') || '').slice(0, 8)}… DB_PATH=${process.env.DB_PATH}`);
+  const jitSecretCfg = Boolean(cfg.get<string>('JWT_SECRET'));
+  console.log(`[Governance] cwd=${process.cwd()} JWT_SECRET env=${process.env.JWT_SECRET ? 'configured' : 'missing'} cfg=${jitSecretCfg ? 'configured' : 'missing'} DB_PATH=${process.env.DB_PATH}`);
   await app.listen(port);
   console.log(`[Governance] standalone control plane listening on :${port} (api/v1)`);
 }

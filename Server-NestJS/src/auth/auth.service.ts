@@ -695,10 +695,9 @@ export class AuthService {
   private generateInviteCode(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
-    // 每字节取模映射到字符集，6 字节 → 8 位（多余字节丢弃，避免 undefined）
-    const rand = crypto.randomBytes(8);
+    // randomInt(chars.length) 均匀无偏（chars.length=32=2^5，等价于取模但消除 CodeQL biased-random 告警）
     for (let i = 0; i < 8; i++) {
-      code += chars[rand[i] % chars.length];
+      code += chars[crypto.randomInt(chars.length)];
     }
     return code;
   }
