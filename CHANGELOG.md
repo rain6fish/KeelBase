@@ -4,6 +4,23 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> **§22.16 Business Action Ledger — AI 业务行为取证系统（审计升级）**
+> 从「技术日志」升级为「AI 业务行为取证系统」：三层信息模型（L1 业务事实 / L2 决策治理 / L3 技术证据）——字段级留痕 + 决策依据 + 业务事件归一化 + 业务实体行为史账本 + 审计解释器业务摘要 + 跨系统身份链与授权依据 + 合规证据包 v2。**「谁、基于什么授权、做了什么、每级怎么批的」完整业务叙事可现场演示。**
+
+### Added / 新增
+
+- **Business Action Ledger (§22.16 A-1/A-2/A-4/A-5/A-6)**: field-level change diff (before/after incl. generic operation audit PATCH/PUT) + Decision Evidence (analyze_* deterministic scoring → {decision,evidence[],policy,confidence}) + Business Event normalization (tool→event name, chain-external columns) (A-1); business entity history ledger (BusinessHistoryService three-source aggregation + BusinessHistoryDrawer + crm_task/pm_task/app_request entries) (A-2); audit interpreter business-language summary + three-layer expand (summary / evidence stats / technical detail) (A-4); cross-system identity chain (Human→Intent→Agent→Tool→Action) + authorization basis (denied checks / allowed explainAuthorization) + source=bridge (A-5); compliance evidence package v2 (`keelbase-audit-evidence/2` — compliance segment with per-sample summary + identity chain, signature-covered; verify-evidence.mjs v1/v2 backward compatible) (A-6)
+  **业务行为取证系统（§22.16 A-1/A-2/A-4/A-5/A-6）**：字段级变更留痕（含通用操作审计 before/after）+ 决策依据 + 业务事件归一化 + 实体行为史账本 + 审计解释器业务摘要（三层展开）+ 跨系统身份链与授权依据（含 B 路径 source=bridge）+ 合规证据包 v2（compliance 段入签名防篡改，离线验证脚本向后兼容）
+- **Weapp build unblocked (N-1)**: 23 page `<style src scoped>` → script `import scss` (workaround vue-loader scoped-style entry into mini postcss-loader chain crash); CI `taro-build` now includes `build:weapp`
+  **小程序构建修复（N-1）**：23 页 scoped 外链样式改 script import 绕开构建崩溃（rpx 转换验证正常）+ CI taro-build 常驻校验 build:weapp
+
+### Fixed / 修复
+
+- **Operation-audit hash-chain break**: `changes`/`businessEvent` accidentally included in hash payload (chain-external columns) → split hash/save payload; golden e2e hash-chain verify restored to valid
+  **操作审计哈希链破链修复**：changes/businessEvent 误入 hash payload 致 verify 失败——拆 hash/save payload 链外，哈希链 valid 恢复
+
 ## [1.0.3] - 2026-08-30
 
 > **KeelBase 1.0.3 — Trust & Governance Hardening / 治理加固与产品证明版**
