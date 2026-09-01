@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { FeatureFlagsService } from './feature-flags.service';
+import { SettingsService } from '../settings/settings.service';
 
 describe('FeatureFlagsService', () => {
   const mockConfig = (values: Record<string, unknown>) => ({
@@ -98,5 +101,83 @@ describe('FeatureFlagsService', () => {
     const svc = moduleRef.get(FeatureFlagsService);
     expect(svc.isEnabled('push')).toBe(true);
     expect(svc.isEnabled('sms')).toBe(false);
+  });
+
+  const mockSettings = (findAll: unknown[] = []) => ({
+    set: jest.fn().mockResolvedValue({}),
+    get: jest.fn().mockResolvedValue(undefined),
+    findAll: jest.fn().mockResolvedValue(findAll),
+  });
+
+  describe('EASY-5 首启 preset（applyPreset / 运行时覆盖）', () => {
+    it('applyPreset small：内存覆盖生效 + 持久化 Settings + 返回应用后 flags', async () => {
+      const settings = mockSettings();
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          FeatureFlagsService,
+          { provide: ConfigService, useValue: mockConfig({}) },
+          { provide: SettingsService, useValue: settings },
+        ],
+      }).compile();
+      const svc = moduleRef.get(FeatureFlagsService);
+      const flags = await svc.applyPreset('small');
+      expect(flags.push).toBe(false);
+      expect(flags.sms).toBe(false);
+      expect(flags.oauth).toBe(false);
+      expect(flags.ai).toBe(true);
+      expect(flags.todos).toBe(true);
+      // 持久化：关闭清单写入 feature_* + 标记
+      expect(settings.set).toHaveBeenCalledWith('feature_push', false, 'boolean');
+      expect(settings.set).toHaveBeenCalledWith('feature_flags_selected', 'small', 'string');
+      // 运行时覆盖（不依赖 env/preset）
+      expect(svc.isEnabled('push')).toBe(false);
+      expect(svc.isEnabled('todos')).toBe(true);
+    });
+
+    it('applyPreset 非法 preset → BadRequestException', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          FeatureFlagsService,
+          { provide: ConfigService, useValue: mockConfig({}) },
+          { provide: SettingsService, useValue: mockSettings() },
+        ],
+      }).compile();
+      const svc = moduleRef.get(FeatureFlagsService);
+      await expect(svc.applyPreset('bogus')).rejects.toThrow('preset 非法');
+    });
+
+    it('loadOverrides 恢复持久化覆盖（重启后首启 preset 仍生效）', async () => {
+      const settings = mockSettings([
+        { key: 'feature_push', value: 'false', type: 'boolean' },
+        { key: 'feature_ai', value: 'true', type: 'boolean' },
+        { key: 'feature_flags_selected', value: 'small', type: 'string' },
+      ]);
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          FeatureFlagsService,
+          { provide: ConfigService, useValue: mockConfig({}) },
+          { provide: SettingsService, useValue: settings },
+        ],
+      }).compile();
+      await moduleRef.init(); // 触发 onModuleInit → loadOverrides
+      const svc = moduleRef.get(FeatureFlagsService);
+      expect(svc.isEnabled('push')).toBe(false);
+      expect(svc.isEnabled('ai')).toBe(true);
+      expect(svc.isEnabled('todos')).toBe(true);
+    });
+
+    it('isPresetSelected：Settings 有记录 → true', async () => {
+      const settings = mockSettings();
+      settings.get.mockResolvedValue('small');
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          FeatureFlagsService,
+          { provide: ConfigService, useValue: mockConfig({}) },
+          { provide: SettingsService, useValue: settings },
+        ],
+      }).compile();
+      const svc = moduleRef.get(FeatureFlagsService);
+      expect(await svc.isPresetSelected()).toBe(true);
+    });
   });
 });
