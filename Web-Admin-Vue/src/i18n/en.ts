@@ -17,6 +17,7 @@ const en: ZhDict = {
   aiApprovalsPath: 'Approval path',
   identityChain: 'Identity chain',
   businessAction: 'Business action',
+  businessIntent: 'Intent',
   lifecycle: 'Lifecycle',
   lifecycleRevoked: 'Revoked',
   lifecycleDeclined: 'Declined',
