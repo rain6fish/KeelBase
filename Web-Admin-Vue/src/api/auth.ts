@@ -19,6 +19,14 @@ export interface MyPermissions {
   resources: { subject: string; scope: 'all' | 'own'; reason: string }[]
 }
 
+/** §22.16 A-5 授权链图：授权者→被授权者→策略→资源→生效期 */
+export interface AuthorizationChain {
+  user: { id: number; username: string | null; role: string }
+  grants: Array<{ policy: string; resource: string; scope: string }>
+  toolPolicies: Array<{ toolName: string; enabled: boolean; allowedRoles: string[]; riskLevel?: string }>
+  effectiveSince: string | null
+}
+
 export const authApi = {
   login(username: string, password: string): Promise<LoginResult> {
     return api.post<LoginResult>('/auth/login', { username, password })
@@ -32,6 +40,10 @@ export const authApi = {
   },
   myPermissions(): Promise<MyPermissions> {
     return api.get<MyPermissions>('/auth/me/permissions')
+  },
+  /** §22.16 A-5 授权链图：本人（或 admin ?userId 反查）完整授权链 */
+  authorizationChain(userId?: number): Promise<AuthorizationChain> {
+    return api.get<AuthorizationChain>('/auth/permissions/chain', { ...(userId ? { userId } : {}) })
   },
   logout(): Promise<null> {
     return api.post<null>('/auth/logout')

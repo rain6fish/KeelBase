@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Headers, Param, Query, Req, HttpCode, HttpStatus, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Headers, Param, Query, Req, HttpCode, HttpStatus, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { Request } from 'express';
 import { ParseIntPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
+import { AiService } from '../ai/ai.service';
 import { OAuthService } from './oauth.service';
 import { DelegationTokenService } from './delegation-token.service';
 import { DelegationTokenDto } from './dto/delegation-token.dto';
@@ -44,6 +45,7 @@ export class AuthController {
     private providersConfig: OAuthProvidersConfigService,
     private caslFactory: CaslAbilityFactory,
     private delegationTokenService: DelegationTokenService,
+    private aiService: AiService,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
@@ -319,6 +321,35 @@ export class AuthController {
         body.subject,
       ),
     };
+  }
+
+  /** §22.16 A-5 授权链图：本人（或 admin ?userId 反查）完整授权链（授权者→被授权者→策略→资源→生效期） */
+  @Get('permissions/chain')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Authorization chain: 本人或 admin 反查目标用户的完整授权链（角色→CASL 资源 + 工具策略 + 生效期）' })
+  @ApiOkResponse({ description: 'Authorization chain for user' })
+  async authorizationChain(@CurrentUser() user: JwtPayload, @Query('userId') userId?: string) {
+    if (userId) {
+      // 反查目标用户需管理员（非端点级 CheckPolicies，本人路径普通用户也可访问）
+      if (user.role !== 'admin') {
+        throw new ForbiddenException('仅管理员可反查其他用户的授权链');
+      }
+      const target = await this.usersRepo.findOne({
+        where: { id: Number(userId) },
+        select: { id: true, role: true, username: true },
+      });
+      if (!target) throw new NotFoundException('用户不存在');
+      return this.aiService.getAuthorizationChain({
+        role: target.role as 'admin' | 'user',
+        sub: target.id,
+        username: target.username,
+      });
+    }
+    return this.aiService.getAuthorizationChain({
+      role: user.role as 'admin' | 'user',
+      sub: Number(user.sub),
+      username: user.username,
+    });
   }
 
   @Post('logout')
