@@ -149,6 +149,22 @@ export async function seedDemoData(
         phone: '138-0000-1008', status: 'inactive', riskLevel: 'low',
         notes: '去年订单已结清，今年无新需求，保持低强度触达。',
       },
+      // 英文样例（中英双语演示；无订单/跟进，仅演示客户列表）
+      {
+        userId: user.id, name: 'Aurora Tech', company: 'Aurora Technology Inc.', email: 'procure@aurora.example',
+        phone: '138-0000-2001', status: 'active', riskLevel: 'medium',
+        notes: 'Key enterprise account in the EMEA region; annual framework agreement under negotiation.',
+      },
+      {
+        userId: user.id, name: 'Northwind Trading', company: 'Northwind Trading Co.', email: 'ops@northwind.example',
+        phone: '138-0000-2002', status: 'churn_risk', riskLevel: 'high',
+        notes: 'Two overdue invoices beyond 30 days; urgent collections follow-up required.',
+      },
+      {
+        userId: user.id, name: 'Blue Ocean Logistics', company: 'Blue Ocean Logistics Ltd.', email: 'contact@blueocean.example',
+        phone: '138-0000-2003', status: 'active', riskLevel: 'low',
+        notes: 'Long-term customer with on-time payment history.',
+      },
     ]);
 
     const cid = (name: string) => customers.find((c) => c.name === name)!.id;
@@ -237,6 +253,11 @@ export async function seedDemoData(
         userId: user.id, name: '数据仓库迁移', status: 'on_hold', riskLevel: 'medium',
         description: '从自建 Hive 迁移至云数仓，等待资源审批。', startDate: dateOnly(-45),
       },
+      // 英文样例（中英双语演示）
+      {
+        userId: user.id, name: 'AI Compliance Platform', status: 'active', riskLevel: 'medium',
+        description: 'Build an audit-ready AI governance dashboard for the financial vertical.', startDate: dateOnly(-15), endDate: dateOnly(50),
+      },
     ]);
 
     const pid = (name: string) => projects.find((p) => p.name === name)!.id;
@@ -249,6 +270,7 @@ export async function seedDemoData(
       { projectId: pid('移动端 App 发布'), title: '应用商店上架', dueDate: dateOnly(15), status: 'pending' },
       { projectId: pid('内部 BI 看板'), title: '看板一期交付', dueDate: dateOnly(-15), status: 'completed' },
       { projectId: pid('数据仓库迁移'), title: '资源申请批复', dueDate: dateOnly(-3), status: 'pending' },
+      { projectId: pid('AI Compliance Platform'), title: 'Design review', dueDate: dateOnly(5), status: 'in_progress' },
     ]);
 
     await pmTaskRepo.save([
@@ -275,12 +297,14 @@ export async function seedDemoData(
       { userId: user.id, title: '差旅报销自动通过政策', type: 'reimbursement', maxAmount: 1000, description: '单笔差旅报销 ≤ 1000 元自动通过，超出转人工复核。' },
       { userId: user.id, title: '办公采购自动通过政策', type: 'purchase', maxAmount: 5000, description: '办公采购 ≤ 5000 元自动通过，超出转人工复核。' },
       { userId: user.id, title: '请假审批政策', type: 'leave', maxAmount: 0, description: '请假一律转人工复核。' },
+      { userId: user.id, title: 'Travel Reimbursement Auto-approval', type: 'reimbursement', maxAmount: 1000, description: 'Reimbursements ≤ 1000 auto-approve; above that requires human review.' },
     ]);
 
     await approvalRequestRepo.save([
       { requesterId: user.id, title: '8 月差旅报销', type: 'reimbursement', amount: 800, reason: '客户拜访交通与住宿费', status: 'pending', riskLevel: 'low' },
       { requesterId: user.id, title: '研发服务器采购', type: 'purchase', amount: 12000, reason: 'Q3 上线扩容，采购 2 台高配服务器', status: 'pending', riskLevel: 'low' },
       { requesterId: user.id, title: '本周五事假半天', type: 'leave', amount: 0, reason: '家中有事，请假半天', status: 'needs_review', riskLevel: 'medium', aiRecommendation: '请假类型无自动通过政策，转人工复核。' },
+      { requesterId: user.id, title: 'Marketing Campaign Budget', type: 'purchase', amount: 35000, reason: 'Q4 digital campaign media budget', status: 'pending', riskLevel: 'medium' },
     ]);
   }
 
@@ -359,6 +383,36 @@ export async function seedDemoData(
       isCancelled: true,
       colorRole: EventColorRole.red,
     },
+    // 英文样例（中英双语演示）
+    {
+      userId: user.id,
+      title: 'Client Kickoff',
+      description: 'Kickoff meeting with a new enterprise customer; walk through the business-safe AI runtime demo.',
+      startTime: at(4, 14, 0),
+      endTime: at(4, 15, 30),
+      location: 'Online',
+      colorRole: EventColorRole.blue,
+      reminderMinutes: 30,
+    },
+    {
+      userId: user.id,
+      title: 'Engineering Sync',
+      description: 'Weekly engineering sync: review sprint progress and AI governance backlog.',
+      startTime: at(5, 9, 30),
+      endTime: at(5, 10, 0),
+      colorRole: EventColorRole.purple,
+      isRecurring: true,
+    },
+    {
+      userId: user.id,
+      title: 'RAG Tech Talk',
+      description: 'Internal sharing on vector search and RAG best practices.',
+      startTime: at(6, 15, 0),
+      endTime: at(6, 16, 30),
+      location: 'Online',
+      colorRole: EventColorRole.cyan,
+      reminderMinutes: 10,
+    },
   ]);
 
   // ── 待办：部分完成，带截止日期 ────────────────────────────
@@ -397,6 +451,25 @@ export async function seedDemoData(
     {
       userId: user.id,
       title: '预约体检',
+      completed: true,
+    },
+    // 英文样例（中英双语演示）
+    {
+      userId: user.id,
+      title: 'Prepare private-cloud deployment demo',
+      description: 'Walk through Docker + demo data + one-click scripts.',
+      completed: false,
+      dueDate: at(0, 18, 0),
+    },
+    {
+      userId: user.id,
+      title: 'Review AI governance policy',
+      completed: false,
+      dueDate: at(1, 17, 0),
+    },
+    {
+      userId: user.id,
+      title: 'Send weekly report',
       completed: true,
     },
   ]);
@@ -447,6 +520,22 @@ export async function seedDemoData(
         category: '审批政策',
         content:
           '差旅报销审批规则：单笔金额 ≤ 2000 元且符合差旅标准 → AI 自动通过；超过 2000 元 → 转人工复核；金额 ≥ 10000 元需部门负责人审批。报销需附发票与事由说明。',
+      },
+      // 英文样例（中英双语演示）
+      {
+        title: 'What is KeelBase',
+        category: 'Product',
+        content: 'KeelBase is a production-grade, AI-native full-stack application base covering Flutter/Taro three clients + NestJS backend + AI orchestration, with private-cloud deployment and enterprise-grade security.',
+      },
+      {
+        title: 'AI Governance in Practice',
+        category: 'Governance',
+        content: 'Business-safe AI relies on three capabilities: write-action confirmation, full-chain audit, and reversible side effects. Every AI action is traceable to who authorized what, and can be revoked.',
+      },
+      {
+        title: 'Getting Started in 30 Minutes',
+        category: 'Guide',
+        content: 'Start the backend, run seed:demo, and use keelbase init to generate a governed business module with CASL permissions and audit in minutes.',
       },
     ]);
   }
@@ -535,6 +624,24 @@ export async function seedDemoData(
       { id: c3.id },
       { messageCount: 2, summary: '用户询问本周值得跟进的客户，助手基于订单逾期与风险分级给出建议并提议创建跟进任务。' },
     );
+
+    // 英文样例对话（中英双语演示）
+    const c4 = await convRepo.save(
+      convRepo.create({
+        userId: String(user.id),
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        lastActivityAt: new Date(Date.now() - 2 * 3600 * 1000),
+      }),
+    );
+    await msgRepo.save([
+      { conversationId: c4.id, role: 'user', content: 'Which customers need the most attention this week?' },
+      { conversationId: c4.id, role: 'assistant', content: 'Based on overdue orders and risk levels: HanYu Manufacturing has a 2.8M overdue order (critical) and ChengHai Real Estate has two overdue orders (high). I recommend prioritizing collections for both — shall I create follow-up tasks (requires your confirmation)?' },
+    ]);
+    await convRepo.update(
+      { id: c4.id },
+      { messageCount: 2, summary: 'User asked which customers to prioritize; assistant suggested based on overdue orders and risk levels.' },
+    );
   }
 
   // ── 通知：欢迎 + 提醒 + 公告（含已读/未读）───────────────
@@ -566,6 +673,15 @@ export async function seedDemoData(
         type: 'broadcast',
         isRead: false,
         createdAt: new Date(Date.now() - 1 * day),
+      },
+      // 英文样例（中英双语演示）
+      {
+        userId: user.id,
+        title: 'Welcome to KeelBase',
+        body: 'This is a demo notification in English. Explore events, todos, the AI assistant, and the governance console.',
+        type: 'system',
+        isRead: false,
+        createdAt: new Date(Date.now() - 2 * day),
       },
     ]);
   }
@@ -660,6 +776,7 @@ export async function seedDemoData(
       { name: 'project-agent', ownerId: user.id, purpose: '项目延期风险分析', trustLevel: 'R2', description: 'PM 风险助手', capabilities: '["query_projects","analyze_project_risk"]' },
       { name: 'approval-agent', ownerId: user.id, purpose: '审批请求预审', trustLevel: 'R3', description: '审批预审助手', capabilities: '["review_approval_request"]' },
       { name: 'research-agent', ownerId: user.id, purpose: '通用数据检索', trustLevel: 'R1', description: 'Research assistant', capabilities: '["query_events","query_todos"]' },
+      { name: 'compliance-agent', ownerId: user.id, purpose: 'Audit & compliance evidence retrieval', trustLevel: 'R1', description: 'Compliance assistant', capabilities: '["query_events","query_customers"]' },
     ]);
   }
 
@@ -675,6 +792,11 @@ export async function seedDemoData(
         id: 'crm-followup', name: 'CRM 跟进流程', version: '1.0',
         nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'task', type: 'ai_task' }, { id: 'end', type: 'end' }] }),
         audit: true, confirmationRequired: false,
+      },
+      {
+        id: 'expense-approval', name: 'Expense Approval Flow', version: '1.0',
+        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }] }),
+        audit: true, confirmationRequired: true,
       },
     ]);
     const insts = await flowInstRepo.save([
