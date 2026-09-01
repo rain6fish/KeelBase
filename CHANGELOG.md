@@ -10,6 +10,15 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 - **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry` 加 `unregister` + `ProxyToolRegistryService` 加 `reload`（反注册旧工具重载）+ `SettingsService` 加 `onChange` 观察者（`set` 成功后按 key 触发）+ ai.module 注册监听——写 `ai_proxy_tools` 配置即生效，无需重启 KeelBase；配套单测 3 spec + e2e 热更新用例；`docs/manual/ai-bridge.md` 更新「免重启」表述。
 
+### Fixed / 修复
+
+- **工作台快捷卡片点击不跳转** — `WorkbenchHomeView` 的 `el-card` 用 `:on-click`（v-bind 属性绑定，不会注册为事件监听器）导致整卡点击无效；改 `@click` + 卡片内加「打开」跳转链接（el-link + 箭头）+ `cursor:pointer`；回归测试点 6 卡 → 5 次 router.push 正确路由 + 1 次 window.open
+  **工作台快捷卡片点击不跳转**：`:on-click` → `@click`（v-bind 不注册事件），卡片加跳转链接；回归测试覆盖
+- **流程实例详情 500（demo-data seed 格式 bug）** — `demo-data.ts` seed 流程定义把 `nodes_json` 写成 `{nodes:[...]}` 包装对象，而 `getDefinition` 期望裸数组 → 有审批任务（human_task 挂起）的实例详情 `def.nodes.find` 抛 `TypeError` 500（completed 无任务正常）；修复 seed 改裸数组 + `getDefinition` 兼容两种格式（ECS 已存错误数据免迁移即恢复）；回归测试 + 端到端验证
+  **流程实例详情 500**：demo-data seed nodes_json 格式错误（`{nodes:[...]}` vs 裸数组），getDefinition 兼容两种格式；回归测试 + 端到端验证
+- **redis 不可用时通知队列挂起** — `_pushToDevices` 的 BullMQ `pushQueue.add` 在 redis 连不上时无限挂起（不 reject，try/catch 捕获不了），阻塞发起流程/审批等业务请求；加 3s 超时保护，超时/失败降级同步推送；降级路径回归测试 2 个
+  **redis 不可用通知队列挂起**：pushQueue.add 加 3s 超时，超时/失败降级同步推送；回归测试 2 个
+
 ## [1.0.4] - 2026-09-01
 
 > **KeelBase 1.0.4 — Business Action Ledger & Governance Moat 2.x / 业务行为取证与治理护城河版**
