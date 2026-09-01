@@ -5,7 +5,8 @@
  ARG NPM_REGISTRY=https://registry.npmmirror.com
  ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
  # better-sqlite3 原生编译需要工具链（prebuild 下载受 GitHub 网络影响时回退 node-gyp）
- RUN apk add --no-cache python3 make g++
+ RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
+    apk add --no-cache python3 make g++
  COPY Server-NestJS/package*.json ./
  RUN npm ci
  COPY Server-NestJS/ .
@@ -13,7 +14,8 @@
 
 FROM node:22-alpine AS server
 WORKDIR /app/server
-RUN apk add --no-cache wget
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
+    apk add --no-cache wget
 RUN addgroup -S keelbase && adduser -S keelbase -G keelbase && \
     mkdir -p /app/server/uploads /app/server/data && \
     chown -R keelbase:keelbase /app/server
