@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 文本切块 — 纯函数，按段落贪心打包 + overlap 续接。
  * 面向中文无需 tokenizer，按字符切分足够。

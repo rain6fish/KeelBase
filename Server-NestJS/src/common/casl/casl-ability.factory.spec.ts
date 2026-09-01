@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { subject } from '@casl/ability';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import { UserRole } from '../entities/user.entity';

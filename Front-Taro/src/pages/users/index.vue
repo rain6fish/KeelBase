@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <view class="users-page">
     <view v-if="error && users.length === 0" class="users-page__error">

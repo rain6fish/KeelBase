@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-drawer v-model="open" :title="t('copilotTitle')" size="420px" @closed="onClosed">
     <!-- 对话区 -->

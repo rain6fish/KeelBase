@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * D2-2 独立治理控制平面启动入口：
  *   npm run start:governance

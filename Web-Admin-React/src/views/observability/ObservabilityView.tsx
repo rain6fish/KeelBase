@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Alert, Box, Card, CardContent, Grid, Typography } from '@mui/material'
 import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'

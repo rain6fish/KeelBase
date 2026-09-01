@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * B 路径（AI Bridge §4）运行时撤销：ProxyTool 写副作用撤销时，调用 Java 端补偿端点。
  *

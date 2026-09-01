@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
 

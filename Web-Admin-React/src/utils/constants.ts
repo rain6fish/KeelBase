@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export const APP_NAME = 'KeelBase Admin'
 
 // API 基址：开发走相对 /api/v1（Vite proxy → localhost:3000）；跨域部署用 VITE_API_BASE 覆盖。

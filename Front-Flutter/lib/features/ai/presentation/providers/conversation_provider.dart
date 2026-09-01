@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 import '../../data/models/ai_trace_models.dart';
 import '../../data/models/conversation_summary.dart';

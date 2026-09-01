@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * SSRF 防护（webhook W4-④ 提取，MCP 复用）：hostname 解析后任一地址落在私网/回环/链接本地
  * （含云元数据 169.254.169.254）即阻止；解析失败保守阻止。

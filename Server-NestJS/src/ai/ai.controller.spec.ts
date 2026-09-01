@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { NotFoundException } from '@nestjs/common';
 import { AiController } from './ai.controller';
 import { AiService, ChatResponse } from './ai.service';

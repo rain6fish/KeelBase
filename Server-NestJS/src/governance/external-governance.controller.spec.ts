@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ExternalGovernanceController } from './external-governance.controller';
 import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';

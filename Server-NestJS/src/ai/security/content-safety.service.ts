@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Optional } from '@nestjs/common';
 import { SettingsService } from '../../settings/settings.service';
 import {

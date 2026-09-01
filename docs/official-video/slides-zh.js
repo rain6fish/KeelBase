@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /* KeelBase 官方 Demo 分镜渲染（中文版）——与 slides.js 同构，内容为中文 */
 const SLIDES = {
   1: { kicker: 'KeelBase', html: 'AI 已经不只是聊天。', cls: 'sub' },

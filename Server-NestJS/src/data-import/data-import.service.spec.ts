@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// Abstract time provider for testability.
 ///
 /// `now()` 统一返回 **UTC** 时间，避免时区/DST 导致的时间不一致；

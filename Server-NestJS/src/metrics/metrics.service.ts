@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import client from 'prom-client';
 

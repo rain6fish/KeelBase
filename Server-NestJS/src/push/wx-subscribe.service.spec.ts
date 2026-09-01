@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { WxSubscribeService } from './wx-subscribe.service';
 import { ConfigService } from '@nestjs/config';
 

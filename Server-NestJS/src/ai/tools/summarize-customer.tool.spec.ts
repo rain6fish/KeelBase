@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SummarizeCustomerTool } from './summarize-customer.tool';
 
 const base360 = {

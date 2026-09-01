@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AppVersionController } from './app-version.controller';
 import { AppVersionService } from './app-version.service';
 

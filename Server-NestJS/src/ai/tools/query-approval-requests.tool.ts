@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询审批请求工具 — query_approval_requests（只读）
  *

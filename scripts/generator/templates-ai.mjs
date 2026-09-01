@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 AI 工具模板（第 11-12 周）：生成模块自动附带 AI 工具，
  * 让 Runtime Agent 能安全调用生成模块（P0-13 验收的 AI Tool 环节）。

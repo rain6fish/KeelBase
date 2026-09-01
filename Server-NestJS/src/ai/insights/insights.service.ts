@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Logger } from '@nestjs/common';
 import { EventsService } from '../../events/events.service';
 import { Event } from '../../events/event.entity';

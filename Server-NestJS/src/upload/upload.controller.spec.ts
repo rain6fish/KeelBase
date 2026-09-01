@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { BadRequestException } from '@nestjs/common';
 import { UploadController } from './upload.controller';
 import type { StorageService } from '../storage/storage.service';

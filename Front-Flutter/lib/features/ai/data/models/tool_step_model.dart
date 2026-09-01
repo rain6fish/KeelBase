@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 工具步骤卡状态
 enum ToolStepStatus { running, success, error }
 

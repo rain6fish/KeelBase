@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 发布前一致性核对（§7.4 #5）— 全仓文档 ↔ 端点核对。
  *

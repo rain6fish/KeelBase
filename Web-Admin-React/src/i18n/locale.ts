@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { create } from 'zustand'
 import { i18n, initialLocale, type Locale } from './index'
 import { storage } from '@/utils/storage'

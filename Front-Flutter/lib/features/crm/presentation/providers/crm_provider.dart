@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 import '../../data/repositories/crm_repository.dart';
 import '../../data/models/customer_model.dart';

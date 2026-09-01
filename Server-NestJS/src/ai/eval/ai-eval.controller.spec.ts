@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AiEvalController } from './ai-eval.controller';
 import { AiEvalService } from './ai-eval.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';

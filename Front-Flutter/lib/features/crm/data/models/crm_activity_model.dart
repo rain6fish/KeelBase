@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI CRM：跟进记录模型
 class CrmActivityModel {
   final int id;

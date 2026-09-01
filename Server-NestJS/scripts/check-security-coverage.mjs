@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // T.5 关键安全模块分档覆盖率门控：在 test:cov 后执行，防止专项覆盖被整体稀释后回退。
 // 阈值：statements ≥ 85（auth / casl / operation-audit / ai-tools / headless；2026-08-20 由 60 提高）。
 // 原因：jest coverageThreshold 的目录 glob 在 Windows 反斜杠绝对路径下无法匹配（jest 已知问题），

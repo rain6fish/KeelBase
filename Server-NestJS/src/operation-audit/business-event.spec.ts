@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { deriveBusinessEvent } from './business-event';
 
 describe('deriveBusinessEvent (A-1 业务事件归一化)', () => {

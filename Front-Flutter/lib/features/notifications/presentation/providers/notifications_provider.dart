@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/sse_client.dart';

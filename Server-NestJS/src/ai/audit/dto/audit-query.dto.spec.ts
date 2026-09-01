@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { AuditQueryDto } from './audit-query.dto';

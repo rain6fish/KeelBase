@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 工作台（应用侧）本人数据模型 —— 对应后端 user-scoped 端点 */
 
 export interface MyEvent {

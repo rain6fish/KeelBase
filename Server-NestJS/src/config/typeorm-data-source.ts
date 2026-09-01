@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  import { DataSource, DataSourceOptions } from 'typeorm';
  import { config } from 'dotenv';
  import { resolve } from 'path';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { WebhookController } from './webhook.controller';
 import { WebhookService } from './webhook.service';
 

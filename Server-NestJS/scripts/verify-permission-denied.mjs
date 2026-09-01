@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * V-2「越权拒绝」验证（产品证明 / security-showcase §1 的可复现自动化）：
  * 双账号演示行级权限边界——bob 访问 alex 的数据被 403 拒绝，admin 可访问（对照）。

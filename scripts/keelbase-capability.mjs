@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * EB-3 轻量 Capability 声明层（Enterprise Capability Bridge，internal-roadmap §internal.11）。
  *

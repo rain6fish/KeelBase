@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProactiveAiService } from './proactive-ai.service';
 
 function mockRepo(overrides: Record<string, jest.Mock> = {}) {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 审批待办任务（FLOW-7：GET /flows/tasks 返回，含节点名/流程名）。
 class FlowTaskModel {
   final int id;

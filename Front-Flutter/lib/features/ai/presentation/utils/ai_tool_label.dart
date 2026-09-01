@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'dart:convert';
 
 // AI 工具名 → 业务可读标签（D2 业务语言化：create_followup_task → 创建跟进任务）

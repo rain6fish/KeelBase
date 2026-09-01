@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useMemo, useState } from 'react'
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Card, CardContent, Chip, TextField, Typography } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'

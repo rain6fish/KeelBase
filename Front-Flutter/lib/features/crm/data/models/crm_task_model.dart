@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI CRM：跟进任务模型（AI 写工具 create_followup_task 的目标）
 class CrmTaskModel {
   final int id;

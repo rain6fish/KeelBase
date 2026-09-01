@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 治理 sidecar 工具注册表 + 门控决策（S-2，对齐 ai-governance-protocol.md §4 风险分级）。
  *

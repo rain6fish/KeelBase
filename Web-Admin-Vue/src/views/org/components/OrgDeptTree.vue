@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <!-- 有子部门：可展开的 details 分组 -->
   <details v-if="node.children.length" class="dept-tree-group" open>

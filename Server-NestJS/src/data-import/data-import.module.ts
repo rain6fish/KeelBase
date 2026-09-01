@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Module } from '@nestjs/common';
 import { UsersModule } from '../users/users.module';
 import { EventsModule } from '../events/events.module';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PushProcessor, PushJobData } from './push.processor';
 import { PUSH_SERVICE } from '../push/push.service';
 import { PushTokenService } from '../push/push-token.service';

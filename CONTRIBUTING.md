@@ -121,6 +121,7 @@ feat(ai): add RAG query endpoint
 - [ ] Documentation updated (if applicable)
 - [ ] No debug code or console.logs in production code
 - [ ] Commit messages follow Conventional Commits
+- [ ] Commits include the DCO `Signed-off-by` trailer (`git commit -s`)
 
 ---
 
@@ -164,6 +165,20 @@ This project recognizes that contributors may use AI-assisted tools (such as Git
 ### License
 
 This project is licensed under the [Apache License 2.0](./LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
+
+### Developer Certificate of Origin (DCO)
+
+By contributing, you certify your contributions under the [Developer Certificate of Origin](./DCO.txt) (DCO v1.1).
+
+- Every commit must include the `Signed-off-by:` trailer, which `git` adds for you:
+  ```bash
+  git commit -s
+  ```
+- Pull requests whose commits lack the sign-off trailer will not be merged.
+- To make `git` sign off by default in this repository:
+  ```bash
+  git config commit.signOff true
+  ```
 
 ### Patent Grant
 

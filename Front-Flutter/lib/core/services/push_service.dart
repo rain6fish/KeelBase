@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 
 /// 推送服务抽象（GROWTH-1 / MS-2.3）

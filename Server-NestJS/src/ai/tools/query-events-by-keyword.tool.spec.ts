@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryEventsByKeywordTool } from './query-events-by-keyword.tool';
 
 describe('QueryEventsByKeywordTool', () => {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // ORG-7：我的组织 / 通讯录 数据模型（消费 /org/my, /org/my/tree, /org/my/members）。
 
 class MyOrgInfo {

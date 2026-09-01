@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_app/core/constants/app_constants.dart';
 import 'package:front_app/core/security/secure_storage_service.dart';

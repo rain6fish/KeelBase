@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PluginsService } from './plugins.service';
 import { GITHUB_PLUGIN } from './plugins/github.plugin';
 import { FEISHU_PLUGIN } from './plugins/feishu.plugin';

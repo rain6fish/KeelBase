@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <view class="sessions-page">
     <text class="sessions-page__title">{{ t('sessions.title') }}</text>

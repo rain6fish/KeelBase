@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ReflectionAgent } from './reflection-agent.service';
 
 const mockProvider = {

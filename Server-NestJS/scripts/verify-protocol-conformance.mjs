@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * AI Governance Protocol Conformance (Moat 2.1 / A1)：协议合规认证套件。
  *

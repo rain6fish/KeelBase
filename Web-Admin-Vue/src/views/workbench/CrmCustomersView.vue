@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div>
     <PageHeader :title="t('crmTitle')" :subtitle="t('crmTotal', { n: total })" />

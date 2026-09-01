@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * FLOW 流程定义类型（护栏优先混合编排 v1）。
  * 显式节点只锁死合规步骤，其余路由交给 AI 动态决策（v1.5 扩展）。

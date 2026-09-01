@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="d-flex align-center justify-center" style="min-height: 100vh">
     <el-card shadow="never" class="text-center px-10 py-8">

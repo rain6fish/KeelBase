@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CrmController } from './crm.controller';
 import { CrmService } from './crm.service';
 

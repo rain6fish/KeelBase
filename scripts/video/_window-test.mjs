@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { chromium } from 'playwright-core';
 import OBSWebSocket from 'obs-websocket-js';
 import { readFileSync } from 'node:fs';

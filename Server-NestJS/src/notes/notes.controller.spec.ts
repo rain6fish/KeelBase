@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { NotesController } from './notes.controller';
 import { NotesService } from './notes.service';
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** AI-18 对话反馈：ai_audit_logs 加 feedback / feedback_note 列（sqlite + postgres 双驱动）。 */

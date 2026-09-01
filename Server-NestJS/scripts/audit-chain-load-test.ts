@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 审计哈希链并发压测（HS-11 持续压测基线工具，2026-08-25）。
  *

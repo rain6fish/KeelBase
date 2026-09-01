@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase demo 自动录制：登录 → 工作台 → AI golden path（问客户风险 → 分析 → 确认）。
  *
