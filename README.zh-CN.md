@@ -3,10 +3,10 @@
 > **构建企业可以信任的 AI 应用——从零构建，或从存量系统出发。** 默认可治理、可审计、可私有部署。
 
 <p align="center">
-  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的企业 AI 信任运行时" width="840">
+  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的业务安全 AI 运行时" width="840">
 </p>
 
-> **开源企业 AI 信任运行时（Enterprise AI Trust Runtime）**——连接 AI Agent 与现有业务系统，**不替换现有技术体系**。
+> **开源业务安全 AI 运行时（Business-safe AI Runtime）**——连接 AI Agent 与现有业务系统，**不替换现有技术体系**。
 
 ---
 
@@ -77,7 +77,7 @@ KeelBase AI：
 - AI 在你真实数据之上做业务助手——风险分析、跟进建议、自动总结、审批
 - 私有化部署：Docker / 离线 / 本地模型——数据不出域
 
-> **独立平台，或连接存量系统**——KeelBase 本身即完整的应用开发平台（从协议生成全栈业务应用），同时也是面向存量系统的 AI 信任运行时。无需已有系统。
+> **独立平台，或连接存量系统**——KeelBase 本身即完整的应用开发平台（从协议生成全栈业务应用），同时也是面向存量系统的业务安全 AI 运行时。无需已有系统。
 
 ---
 
