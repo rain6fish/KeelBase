@@ -32,9 +32,9 @@ Upgrade AI Agent tool permissions, confirmation rules, and audit granularity fro
 
 ## 2. 数据规格 / 2. Data Specification
 
-策略存于 Settings 表，key = `ai_governance_policy`，值为 JSON 字符串。
+策略存于独立表 `ai_governance_policy`（治理台独立持有，不依赖业务 settings 表——独立治理库前提），单行 JSON 值实时生效。`rg-2` 动态配置仍负责其余开关（维护模式等）。
 
-The policy lives in the Settings table under key `ai_governance_policy` as a JSON string.
+The policy lives in its own `ai_governance_policy` table (held by the governance console, independent of the business Settings table — a prerequisite of the standalone governance DB), a single JSON value row taking effect in real time. RG-2 dynamic config still covers the other switches (e.g. maintenance mode).
 
 ```json
 {

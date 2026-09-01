@@ -34,4 +34,12 @@ describe('deriveBusinessEvent (A-1 业务事件归一化)', () => {
   it('returns null for GET (no write action)', () => {
     expect(deriveBusinessEvent('/api/v1/crm/customers', 'GET')).toBeNull();
   });
+
+  it('maps pm task patch → ProjectTaskUpdated', () => {
+    expect(deriveBusinessEvent('/api/v1/pm/tasks/42', 'PATCH')).toBe('ProjectTaskUpdated');
+  });
+
+  it('returns null for resource path not in registry (fall-through)', () => {
+    expect(deriveBusinessEvent('/api/v1/custom-nodes/9', 'POST')).toBeNull();
+  });
 });
