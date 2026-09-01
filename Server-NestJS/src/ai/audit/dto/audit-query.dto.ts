@@ -13,6 +13,11 @@ export class AuditQueryDto {
   @IsIn(['true', 'false'])
   isError?: 'true' | 'false';
 
+  @ApiPropertyOptional({ description: '仅越权/阻断事件（A-8：isError + authorization 非空）' })
+  @IsOptional()
+  @IsIn(['true'])
+  denied?: 'true';
+
   @ApiPropertyOptional({ description: '按 Agent 过滤（D4 agent_id，Agent Registry → 审计联动）' })
   @IsOptional()
   @IsString()
