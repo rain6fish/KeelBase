@@ -12,6 +12,7 @@ describe('AuthController', () => {
   let providersConfig: { getConfig: jest.Mock };
   let caslFactory: { explain: jest.Mock };
   let delegationTokenService: { sign: jest.Mock };
+  let aiService: { getAuthorizationChain: jest.Mock };
   let usersRepo: { findOne: jest.Mock };
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -33,6 +34,7 @@ describe('AuthController', () => {
     providersConfig = { getConfig: jest.fn() };
     caslFactory = { explain: jest.fn(), describeForUser: jest.fn(), explainForTarget: jest.fn() };
     delegationTokenService = { sign: jest.fn() };
+    aiService = { getAuthorizationChain: jest.fn() };
     usersRepo = { findOne: jest.fn() };
     oauthService = { getOidcAuthorizationUrl: jest.fn() };
     controller = new AuthController(
@@ -41,6 +43,7 @@ describe('AuthController', () => {
       providersConfig as unknown as OAuthProvidersConfigService,
       caslFactory as unknown as CaslAbilityFactory,
       delegationTokenService as unknown as DelegationTokenService,
+      aiService as unknown as import('../ai/ai.service').AiService,
       usersRepo as unknown as import('typeorm').Repository<any>,
     );
   });

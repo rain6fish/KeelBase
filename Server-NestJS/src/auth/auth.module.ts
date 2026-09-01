@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { DelegationTokenService } from './delegation-token.service';
 import { PassportModule } from '@nestjs/passport';
@@ -25,6 +25,7 @@ import { MailModule } from '../mail/mail.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { SmsModule } from '../sms/sms.module';
 import { OrgModule } from '../org/org.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { OrgModule } from '../org/org.module';
     CacheModule,
     SmsModule,
     OrgModule,
+    forwardRef(() => AiModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService, UploadSignService, DelegationTokenService],
