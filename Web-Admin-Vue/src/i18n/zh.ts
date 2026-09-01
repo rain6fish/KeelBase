@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const zh = {
   // 通用
   appName: '管理控制台',
@@ -471,6 +473,27 @@ const zh = {
   apChainDecided: '{name} 决定：{d}',
   apReviewed: 'AI 预审完成',
   apDecided: '已决定',
+  workbenchFlows: '我的流程',
+  flowInstanceInfo: '流程信息',
+  flowChainTitle: '审批链',
+  flowChainInitiated: '{name} 发起流程',
+  flowChainNode: '审批节点',
+  flowChainDecide: '{name} {d}',
+  flowChainApproved: '通过',
+  flowChainRejected: '驳回',
+  flowChainPending: '待审批',
+  flowState: '状态',
+  flowStateLabel: '状态：{s}',
+  flowDefinition: '流程定义',
+  flowInitiator: '发起人',
+  flowPending: '待审批',
+  flowPendingTasks: '待审批 {n}',
+  flowOpenChain: '查看审批链',
+  flowStatePending: '待处理',
+  flowStateRunning: '进行中',
+  flowStateCompleted: '已完成',
+  flowStateFailed: '失败',
+  flowStateRolledBack: '已回滚',
   apAiRecommendation: 'AI 预审建议',
   apStatusPending: '待预审',
   apStatusNeedsReview: '待人工复核',

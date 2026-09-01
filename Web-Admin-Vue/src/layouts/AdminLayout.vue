@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-container class="admin-shell">
     <el-aside :width="rail ? '64px' : '240px'" class="admin-aside">
@@ -180,6 +181,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-crm', to: '/workbench/crm', icon: 'mdi-account-star-outline', label: t('crmTitle') },
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle') },
       { name: 'workbench-approval', to: '/workbench/approval', icon: 'mdi-check-decagram-outline', label: t('apTitle') },
+      { name: 'workbench-flows', to: '/workbench/flows', icon: 'mdi-lan-outline', label: t('workbenchFlows') },
     ],
   },
 ])
