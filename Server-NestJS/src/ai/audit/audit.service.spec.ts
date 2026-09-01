@@ -421,6 +421,15 @@ describe('AuditService', () => {
       );
     });
 
+    it('A-8：getLogs denied 过滤（越权/阻断 = is_error true + authorization 非空）', async () => {
+      const qb = mockQueryBuilder();
+      await service.getLogs({ denied: 'true' });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.is_error = :deniedIsErr', { deniedIsErr: true });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "log.authorization IS NOT NULL AND log.authorization <> ''",
+      );
+    });
+
     it('getLogs 带 since/feedback 追加 andWhere', async () => {
       const qb = mockQueryBuilder();
       await service.getLogs({ since: new Date('2026-08-01'), feedback: 'thumbs_down' });

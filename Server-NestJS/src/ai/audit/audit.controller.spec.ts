@@ -34,6 +34,20 @@ describe('AuditController', () => {
     expect(auditService.getUserLogs).toHaveBeenCalledWith('42', { limit: 20, offset: 0, since: undefined });
   });
 
+  it('日志列表 denied 过滤透传 service（A-8 越权专门视图）', () => {
+    auditService.getLogs.mockReturnValue({ items: [], total: 0 });
+    expect(controller.getLogs({ limit: 50, offset: 0, denied: 'true' } as any)).toEqual({ items: [], total: 0 });
+    expect(auditService.getLogs).toHaveBeenLastCalledWith({
+      limit: 50,
+      offset: 0,
+      since: undefined,
+      orgId: undefined,
+      agentId: undefined,
+      isError: undefined,
+      denied: 'true',
+    });
+  });
+
   it('哈希链校验委托 service', () => {
     auditService.verifyChain.mockReturnValue({ valid: true });
     expect(controller.verify()).toEqual({ valid: true });
