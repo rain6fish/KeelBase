@@ -16,6 +16,7 @@ const zh = {
   aiApprovalsPath: '审批路径',
   identityChain: '身份链',
   businessAction: '业务动作',
+  businessIntent: '业务意图',
   lifecycle: '生命周期',
   lifecycleRevoked: '已撤销',
   lifecycleDeclined: '已拒绝',
