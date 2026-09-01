@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
@@ -27,14 +29,14 @@ describe('FlowRuntimeService', () => {
     ],
   };
 
-  const mockDefRepo = { create: (x: any) => x, findOne: jest.fn(), save: jest.fn((x: any) => Promise.resolve(x)) };
+  const mockDefRepo = { create: (x: any) => x, findOne: jest.fn(), find: jest.fn(), save: jest.fn((x: any) => Promise.resolve(x)) };
   const mockInstRepo = {
     create: (x: any) => x,
     save: jest.fn((i: any) => Promise.resolve(i)),
     find: jest.fn(),
     findOne: jest.fn(),
   };
-  const mockTaskRepo = { create: (x: any) => x, save: jest.fn((t: any) => Promise.resolve(t)), find: jest.fn(), findOne: jest.fn() };
+  const mockTaskRepo = { create: (x: any) => x, save: jest.fn((t: any) => Promise.resolve(t)), find: jest.fn(), findOne: jest.fn(), createQueryBuilder: jest.fn() };
   const mockUsersRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockOrgMemberRepo = { findOne: jest.fn(), find: jest.fn() };
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -268,6 +270,8 @@ describe('FlowRuntimeService', () => {
 
   it('getInstance：本人/管理员可看，他人禁止，不存在 404', async () => {
     const forbidAbility = { cannot: jest.fn().mockReturnValue(true) };
+    mockTaskRepo.find.mockResolvedValue([]);
+    mockUsersRepo.find.mockResolvedValue([]);
     mockInstRepo.findOne.mockResolvedValueOnce({ id: 1, initiatorId: 5 });
     await expect(service.getInstance(1, 5, forbidAbility as any)).resolves.toMatchObject({ id: 1 });
     expect(forbidAbility.cannot).not.toHaveBeenCalled(); // 本人直接通过
@@ -281,6 +285,71 @@ describe('FlowRuntimeService', () => {
 
     mockInstRepo.findOne.mockResolvedValueOnce(null);
     await expect(service.getInstance(99, 5, adminAbility as any)).rejects.toThrow('流程实例不存在');
+  });
+
+  it('getInstance：A-7 审批链带出任务（审批人/节点名/结果/意见）', async () => {
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: def.id, state: 'completed', initiatorId: 5, dataJson: '{}' });
+    mockTaskRepo.find.mockResolvedValue([
+      { id: 10, instanceId: 1, nodeId: 'b', assigneeId: 7, status: 'approved', decisionNote: '同意', createdAt: new Date('2026-08-31'), updatedAt: new Date('2026-09-01') },
+    ]);
+    mockUsersRepo.find.mockResolvedValue([
+      { id: 5, username: 'alice' },
+      { id: 7, username: 'bob' },
+    ]);
+    const inst = await service.getInstance(1, 5, { cannot: jest.fn().mockReturnValue(false) } as any);
+    expect(inst.initiatorName).toBe('alice');
+    expect(inst.tasks?.[0]).toMatchObject({
+      taskId: 10,
+      nodeName: '经理审批',
+      assigneeName: 'bob',
+      status: 'approved',
+      decisionNote: '同意',
+    });
+  });
+
+  it('resolveTask：A-7 审批入审计带 businessEvent/evidence', async () => {
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'b', assigneeId: 5, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: def.id, state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'b' });
+    mockInstRepo.save.mockImplementation((i: any) => Promise.resolve(i));
+    mockDefRepo.findOne.mockResolvedValue({ id: def.id, name: def.name, version: def.version, nodesJson: JSON.stringify(def.nodes), audit: true, confirmationRequired: true });
+    await service.resolveTask(1, 'approve', 5, '同意');
+    // approve 后 advance→completed 会再写 FlowInstanceCompleted；用 objectContaining 精确命中审批那条
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessEvent: 'FlowTaskApproved',
+        isError: false,
+        evidence: expect.stringContaining('"taskId":1'),
+      }),
+    );
+    const approveEntry = mockAudit.log.mock.calls.find((c: any[]) => c[0]?.businessEvent === 'FlowTaskApproved')?.[0];
+    expect(JSON.parse(approveEntry.evidence)).toMatchObject({
+      taskId: 1,
+      nodeId: 'b',
+      nodeName: '经理审批',
+      decision: 'approve',
+      note: '同意',
+      approverId: 5,
+    });
+  });
+
+  it('getMyInstances：本人实例 + 定义名 + 待审批任务数', async () => {
+    mockInstRepo.find.mockResolvedValue([
+      { id: 1, definitionId: def.id, state: 'running', initiatorId: 5, createdAt: new Date('2026-08-31'), updatedAt: new Date('2026-09-01') },
+      { id: 2, definitionId: 'missing_def', state: 'completed', initiatorId: 5, createdAt: new Date('2026-08-30'), updatedAt: new Date('2026-08-30') },
+    ]);
+    mockDefRepo.find.mockResolvedValue([{ id: def.id, name: def.name }]);
+    mockTaskRepo.createQueryBuilder.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([{ instanceId: '1', cnt: '2' }]),
+    });
+    const rows = await service.getMyInstances(5);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ id: 1, definitionName: '请假审批', state: 'running', pendingTasks: 2 });
+    expect(rows[1]).toMatchObject({ id: 2, definitionName: null, pendingTasks: 0 });
   });
 
   it('rollback：标记 rolled_back', async () => {
