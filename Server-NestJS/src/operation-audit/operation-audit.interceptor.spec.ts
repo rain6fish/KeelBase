@@ -159,4 +159,86 @@ describe('OperationAuditInterceptor', () => {
     await expect(firstValueFrom(await interceptor.intercept(mockContext(req), next))).resolves.toEqual({ ok: true });
     expect(auditService.log).toHaveBeenCalled();
   });
+
+  describe('A-1 before 快照（PATCH/PUT 字段级 diff）', () => {
+    function interceptorWithRepo(repo: { findOne: jest.Mock }) {
+      return new OperationAuditInterceptor(
+        reflector,
+        auditService as any,
+        { getRepository: jest.fn().mockReturnValue(repo) } as any,
+      );
+    }
+
+    it('带 before 快照 → 真 diff + 敏感字段打码（[REDACTED]）', async () => {
+      const ic = interceptorWithRepo({
+        findOne: jest.fn().mockResolvedValue({
+          id: 3,
+          status: 'lead',
+          riskLevel: 'low',
+          title: 'Acme',
+          apiToken: 'secret-tok',
+          password: 'x',
+          refreshTokenHash: 'y',
+          createdAt: new Date(),
+        }),
+      });
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/crm/customers/3',
+        url: '/api/v1/crm/customers/3',
+        body: { status: 'active', riskLevel: 'high', title: 'Acme' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '3' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: JSON.stringify([
+            { field: 'status', before: 'lead', after: 'active' },
+            { field: 'riskLevel', before: 'low', after: 'high' },
+          ]),
+        }),
+      );
+    });
+
+    it('before 查询抛错 → 降级 null（catch 不阻塞）', async () => {
+      const ic = interceptorWithRepo({ findOne: jest.fn().mockRejectedValue(new Error('db down')) });
+      const req = {
+        method: 'PUT',
+        originalUrl: '/api/v1/events/9',
+        url: '/api/v1/events/9',
+        body: { title: 'New' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '9' },
+        user: { sub: 1 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalled();
+    });
+
+    it('非资源路径（无实体映射）→ 不查 before 仍记录', async () => {
+      const ic = interceptorWithRepo({ findOne: jest.fn().mockResolvedValue({ id: 5, name: 'X' }) });
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/contracts/5',
+        url: '/api/v1/contracts/5',
+        body: { name: 'New' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '5' },
+        user: { sub: 1 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '5' }));
+    });
+  });
 });

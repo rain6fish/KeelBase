@@ -93,7 +93,7 @@ if (keys.length === 0) {
       summary: ev.report?.summary,
       hashChain: ev.report?.hashChain,
       effectDiffs: ev.report?.effectDiffs,
-      compliance: ev.compliance,
+      ...(ev.format === 'keelbase-audit-evidence/2' ? { compliance: ev.compliance } : {}),
       chain: ev.chain,
       exportedAt: ev.exportedAt,
     });
