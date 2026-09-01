@@ -45,6 +45,10 @@
           <div class="d-flex align-center flex-wrap" style="gap:6px">
             <el-tag size="small" effect="plain" type="primary">{{ actorName }}</el-tag>
             <AppIcon icon="mdi-arrow-right" size="14" />
+            <el-tooltip v-if="businessIntent" :content="businessIntent" placement="top">
+              <el-tag size="small" effect="plain" type="warning" class="intent-tag">{{ t('businessIntent') }}</el-tag>
+            </el-tooltip>
+            <template v-if="businessIntent"><AppIcon icon="mdi-arrow-right" size="14" /></template>
             <el-tag v-if="agentName" size="small" effect="plain" type="info">{{ agentName }}</el-tag>
             <AppIcon v-if="agentName" icon="mdi-arrow-right" size="14" />
             <el-tag size="small" effect="plain">{{ toolLabel(tm('feature'), data.effect.toolName) }}</el-tag>
@@ -166,6 +170,9 @@ const actorName = computed(() => {
 
 /** A-5 身份链：Agent 名（从决策轨迹步骤取非空 agentId；无子 agent 时空，身份链退化为 Human→Tool→Action） */
 const agentName = computed(() => steps.value.find((s) => s.agentId)?.agentId ?? '')
+
+/** A-5 身份链：Intent（业务意图 = 首个用户请求；补全 Human→Intent→Agent→Tool→Action） */
+const businessIntent = computed(() => steps.value.find((s) => s.type === 'input' && s.content?.trim())?.content?.trim() ?? '')
 
 /** A-3 生命周期状态机：从决策轨迹推导「这件事现在到哪一步」 */
 const lifecycleState = computed(() => {
