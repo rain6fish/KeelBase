@@ -6,7 +6,16 @@
   <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — Business-safe AI Runtime between AI Agents and Business Systems" width="840">
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0"></a>
+  <a href="https://github.com/rain6fish/KeelBase/releases"><img src="https://img.shields.io/github/v/release/rain6fish/KeelBase" alt="GitHub release"></a>
+  <a href="https://github.com/rain6fish/KeelBase/actions"><img src="https://github.com/rain6fish/KeelBase/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="docs/versioning.md"><img src="https://img.shields.io/badge/Versioning-public_plan-brightgreen" alt="Versioning: public plan"></a>
+</p>
+
 > **Open-source Business-safe AI Runtime** — connect AI agents with existing business systems, **without replacing existing technology stacks**.
+
+**The KeelBase DNA** — *AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.* Business boundaries are enforced by the **Runtime**, not prompts; an Agent's **capability ≠ its authority**; trust is **proven by runnable verification**, not claimed; important actions are **recoverable**. Full engineering philosophy: [docs/keelbase-dna.md](docs/keelbase-dna.md).
 
 ---
 
@@ -243,6 +252,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
   - **Framework Adapter Agent 框架接入** — [中文](docs/manual/framework-adapter.md) · [English](docs/manual/framework-adapter-en.md)
   - **Java Starter (Spring Boot)** — turn Java/Spring methods into governed KeelBase AI tools with `@KeelbaseTool`: delegated identity, read/write confirmation, audit and revocation are all handled by the KeelBase runtime. → [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
 - [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
+- **Versioning 版本策略（公开版本计划）** — [docs/versioning.md](docs/versioning.md)（中英双语）
 - **Explore all capabilities →** [docs/](docs/)
 
 ---
