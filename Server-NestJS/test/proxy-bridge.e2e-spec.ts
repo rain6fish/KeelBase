@@ -28,6 +28,20 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
   let userAId: string;
   let userAToken: string;
 
+  /** 等真实 app 的 proxyRegistry 热更新（SettingsService.onChange → reload）把工具注册进 registry */
+  async function waitUntilRegistered(registry: ToolRegistry, name: string, timeoutMs = 3000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        registry.getTool(name);
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    }
+    throw new Error(`工具 ${name} 未在 ${timeoutMs}ms 内被热更新注册`);
+  }
+
   beforeAll(async () => {
     // 模拟 Java 系统：验 Authorization（Bearer）→ echo 请求用户/方法/路径/body；无 token 或 /forbidden → 401
     server = createServer((req, res) => {
@@ -172,19 +186,52 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(defs).toContain('proxy_gen_create');
   });
 
+  it('热更新：Settings 变更 → reload → 旧工具移除、新工具注册（免重启）', async () => {
+    const settings = app.get(SettingsService);
+    const registry = new ToolRegistry();
+    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, registry);
+
+    // 配置 A
+    await settings.set('ai_proxy_tools', JSON.stringify({
+      baseUrl: base,
+      audience: 'legacy-erp',
+      tools: [{ name: 'proxy_hot_old', description: '旧工具', method: 'GET', path: '/contracts', parameters: [] }],
+    }), 'json');
+    const first = await proxyRegistry.loadAndRegister();
+    expect(first.registered).toEqual(['proxy_hot_old']);
+
+    // 配置 B（改名 + 新增）——模拟 Java 团队改工具后只写 Settings、不重启
+    await settings.set('ai_proxy_tools', JSON.stringify({
+      baseUrl: base,
+      audience: 'legacy-erp',
+      tools: [
+        { name: 'proxy_hot_new', description: '新工具', method: 'GET', path: '/contracts', parameters: [] },
+        { name: 'proxy_hot_write', description: '新写工具', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' },
+      ],
+    }), 'json');
+    const r = await proxyRegistry.reload();
+    expect(r.registered).toEqual(['proxy_hot_new', 'proxy_hot_write']);
+
+    // 旧工具已移除、新工具 LLM 可见
+    expect(() => registry.getTool('proxy_hot_old')).toThrow('Tool "proxy_hot_old" not found');
+    const defs = registry.getToolDefinitions().map((d) => d.function.name);
+    expect(defs).toContain('proxy_hot_new');
+    expect(defs).toContain('proxy_hot_write');
+    // 新写工具仍受确认门控
+    expect(registry.requiresConfirmation('proxy_hot_write')).toBe(true);
+  });
+
   it('写工具（ProxyTool）经确认后执行 → 登记 proxy_call 副作用；撤销返回外部补偿语义', async () => {
     const settings = app.get(SettingsService);
     const aiService = app.get(AiService);
-    // 注册进 app 的实际 ToolRegistry（_executeWriteTool 走 AiService 的注册表执行）
+    // 写 Settings → 真实 proxyRegistry 热更新（onChange → reload）自动注册到 app 实际 registry
     const appRegistry = (aiService as any).toolRegistry;
-    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, appRegistry);
     await settings.set('ai_proxy_tools', JSON.stringify({
       baseUrl: base,
       audience: 'legacy-erp',
       tools: [{ name: 'proxy_side_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3', revokePath: 'POST /contracts/{id}/cancel' }],
     }), 'json');
-    const reg = await proxyRegistry.loadAndRegister();
-    expect(reg.registered).toEqual(['proxy_side_create']);
+    await waitUntilRegistered(appRegistry, 'proxy_side_create');
 
     // 经 AiService._executeWriteTool（AI 确认后执行路径）→ 工具注册表执行（ProxyTool → mock 目标）+ 副作用登记
     const effectsService = (aiService as any).toolEffectsService;
@@ -206,17 +253,16 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
   });
 
   it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 403', async () => {
-    // 注册一个 B 路径写工具 + 触发副作用（B4：透过业务动作反查治理轨迹）
+    // 写 Settings → 热更新注册 B 路径写工具 → 触发副作用（B4：透过业务动作反查治理轨迹）
     const settings = app.get(SettingsService);
     const aiService = app.get(AiService);
     const appRegistry = (aiService as any).toolRegistry;
-    const proxyRegistry = new ProxyToolRegistryService(settings, delegation, appRegistry);
     await settings.set('ai_proxy_tools', JSON.stringify({
       baseUrl: base,
       audience: 'legacy-erp',
       tools: [{ name: 'proxy_gov_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' }],
     }), 'json');
-    await proxyRegistry.loadAndRegister();
+    await waitUntilRegistered(appRegistry, 'proxy_gov_create');
     await (aiService as any)._executeWriteTool('proxy_gov_create', { title: '治理视图合同' }, userAId, 'conv-gov');
     const effectsService = (aiService as any).toolEffectsService;
     const list = await effectsService.list({ userId: Number(userAId) });

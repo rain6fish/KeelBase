@@ -29,6 +29,13 @@ export class ToolRegistry {
   }
 
   /**
+   * 反注册一个工具（热更新：配置变更后移除旧工具）。返回是否确实存在。
+   */
+  unregister(name: string): boolean {
+    return this.tools.delete(name);
+  }
+
+  /**
    * 工具是否为写操作（需人工确认）。
    * W5 风险模型：R3（业务敏感写）/ R4（高影响动作）需确认；R0-R2 自动；R5 阻断。
    */

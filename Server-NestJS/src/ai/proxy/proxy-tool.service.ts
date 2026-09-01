@@ -2,8 +2,8 @@
 
 /**
  * B 路径 ProxyTool 注册（AI Bridge §4）：从 Settings `ai_proxy_tools` 动态创建
- * ProxyTool 实例并注册到 ToolRegistry。配置变更后重启/重载即生效（fire-and-forget 于
- * ai.module useFactory 启动时加载；无运行时热更新——MVP）。
+ * ProxyTool 实例并注册到 ToolRegistry。配置变更即热更新：SettingsService.onChange
+ * 触发 reload（先反注册旧工具再重新加载），无需重启。
  *
  * 配置形态：
  * {
@@ -24,6 +24,9 @@ export interface ProxyToolsConfig {
 }
 
 export class ProxyToolRegistryService {
+  /** 本服务注册过的工具名——reload 时据此反注册旧工具 */
+  private readonly registeredNames = new Set<string>();
+
   constructor(
     private readonly settingsService: SettingsService,
     private readonly delegationService: DelegationTokenService,
@@ -60,12 +63,22 @@ export class ProxyToolRegistryService {
         this.toolRegistry.register(
           new ProxyTool(t, this.delegationService, baseUrl, audience),
         );
+        this.registeredNames.add(t.name);
         registered.push(t.name);
       } catch (err) {
         skipped.push(`${t.name}(${(err as Error).message})`);
       }
     }
     return { registered, skipped };
+  }
+
+  /** 热更新：反注册本服务已注册的全部工具后重新加载（Settings 变更时由 onChange 触发）。 */
+  async reload(): Promise<{ registered: string[]; skipped: string[] }> {
+    for (const name of this.registeredNames) {
+      this.toolRegistry.unregister(name);
+    }
+    this.registeredNames.clear();
+    return this.loadAndRegister();
   }
 
   private toolExists(name: string): boolean {
