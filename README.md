@@ -3,10 +3,10 @@
 > **Build AI applications that enterprises can trust — from scratch or from existing systems.** Governed, auditable and private by default.
 
 <p align="center">
-  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — Enterprise AI Trust Runtime between AI Agents and Business Systems" width="840">
+  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — Business-safe AI Runtime between AI Agents and Business Systems" width="840">
 </p>
 
-> **Open-source Enterprise AI Trust Runtime** — connect AI agents with existing business systems, **without replacing existing technology stacks**.
+> **Open-source Business-safe AI Runtime** — connect AI agents with existing business systems, **without replacing existing technology stacks**.
 
 ---
 
@@ -77,7 +77,7 @@ Two ways to meet KeelBase — one runtime underneath.
 - AI acts as a business assistant on your real data — risk analysis, follow-ups, summaries, approvals
 - Private deployment: Docker / offline / local models — data never leaves your perimeter
 
-> **Standalone or connected** — KeelBase is a complete application development platform in its own right (generate full-stack business apps from a protocol), and an AI Trust Runtime for existing systems. No legacy system required.
+> **Standalone or connected** — KeelBase is a complete application development platform in its own right (generate full-stack business apps from a protocol), and a Business-safe AI Runtime for existing systems. No legacy system required.
 
 ---
 
@@ -189,7 +189,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ## 📍 Where KeelBase Sits
 
-> **KeelBase is an Enterprise AI Trust Runtime** — it connects AI agents with existing business systems, adding identity, governance, auditability, and private deployment, **without replacing existing technology stacks**.
+> **KeelBase is an Business-safe AI Runtime** — it connects AI agents with existing business systems, adding identity, governance, auditability, and private deployment, **without replacing existing technology stacks**.
 
 ```text
       AI Applications / Agents
