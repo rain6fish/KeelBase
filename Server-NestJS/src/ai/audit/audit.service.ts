@@ -713,13 +713,13 @@ export class AuditService {
         continue;
       }
       const convRows = row.conversationId ? (byConv.get(row.conversationId) ?? []) : [];
-      const summary = summarizeAudit(row, convRows as unknown as AuditInterpretationRow[]);
+      const summary = summarizeAudit(row, convRows);
       compliance.push({
         id: s.id,
         businessEvent: row.businessEvent ?? null,
         evidence: row.evidence ?? null,
         summary: { sentence: summary.sentence, stats: summary.stats },
-        identityChain: await this._identityChainFromRow(row, convRows, agentCache),
+        identityChain: await this._identityChainFromRow(row, agentCache),
       });
     }
     const canonical = JSON.stringify({
@@ -850,7 +850,7 @@ export class AuditService {
     const convRows = row.conversationId
       ? await this.logRepo.find({ where: { conversationId: row.conversationId }, order: { createdAt: 'ASC' }, take: 50 })
       : [];
-    const identity = await this._identityChainFromRow(row, convRows);
+    const identity = await this._identityChainFromRow(row);
     return {
       row: { id: row.id, userId: row.userId, username: row.username ?? null, action: row.action, createdAt: row.createdAt },
       ...identity,
@@ -868,7 +868,6 @@ export class AuditService {
   /** §22.16 A-6 合规：从行构建身份链（Human→Agent→Tool→Action + 授权依据）；agentCache 供批量复用去重 */
   private async _identityChainFromRow(
     row: AiAuditLog,
-    _convRows: AiAuditLog[],
     agentCache?: Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>,
   ): Promise<{
     human: { userId: string; username: string | null };
@@ -880,8 +879,11 @@ export class AuditService {
     authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
   }> {
     const toolName = this._toolNameFromDetail(row.detail);
+    // agentCache 可能缓存 null（未知 agent）——用 has() 区分「缓存 miss」与「已缓存 null」，避免每样本重复查库
     const agent = row.agentId
-      ? (agentCache?.get(row.agentId) ?? (await this.agentService?.findByAgentId(row.agentId)))
+      ? agentCache?.has(row.agentId)
+        ? (agentCache.get(row.agentId) ?? null)
+        : ((await this.agentService?.findByAgentId(row.agentId)) ?? null)
       : null;
     if (row.agentId && agentCache && !agentCache.has(row.agentId)) agentCache.set(row.agentId, agent ?? null);
     const denied = parseChecks(row.authorization);

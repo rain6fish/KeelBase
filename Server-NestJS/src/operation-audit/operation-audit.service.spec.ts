@@ -303,4 +303,76 @@ describe('OperationAuditService', () => {
       expect(stats).toEqual({});
     });
   });
+
+  describe('log sqlite 分支（进程内串行 _tail）', () => {
+    function sqliteMock() {
+      (dataSource.options as any).type = 'sqlite';
+      mockRepo.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ hash: 'prev-h' }),
+      });
+    }
+
+    it('走 _tail 串行写链 + queryBuilder _lastHash', async () => {
+      sqliteMock();
+      chain.computeHash.mockReturnValue('sqlite-hash');
+      await service.log({ action: 'CREATE', method: 'POST', path: '/x', userId: 7 });
+
+      expect(mockRepo.save).toHaveBeenCalled();
+      const saved = mockRepo.save.mock.calls[0][0];
+      expect(saved.prevHash).toBe('prev-h');
+      expect(saved.hash).toBe('sqlite-hash');
+      expect(saved.userId).toBe(7);
+    });
+
+    it('落库失败静默（sqlite catch 不抛）', async () => {
+      sqliteMock();
+      mockRepo.save.mockRejectedValue(new Error('sqlite down'));
+      await expect(service.log({ action: 'CREATE', method: 'POST', path: '/x' }))
+        .resolves.toBeUndefined();
+    });
+  });
+
+  describe('log postgres 回滚错误分支', () => {
+    it('写链失败 → rollback + 静默', async () => {
+      runner.manager.save.mockRejectedValue(new Error('pg down'));
+      await expect(service.log({ action: 'CREATE', method: 'POST', path: '/x' }))
+        .resolves.toBeUndefined();
+      expect(runner.rollbackTransaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('findByTargetId (A-2 业务实体行为史)', () => {
+    function qbMock(rows: any[] = []) {
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(rows),
+      };
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    }
+
+    it('基础查询：targetId 过滤 + id 升序', async () => {
+      const qb = qbMock([{ id: 1 }]);
+      const rows = await service.findByTargetId('1', []);
+      expect(qb.where).toHaveBeenCalledWith('log.targetId = :targetId', { targetId: '1' });
+      expect(qb.orderBy).toHaveBeenCalledWith('log.createdAt', 'ASC');
+      expect(rows).toHaveLength(1);
+    });
+
+    it('since + pathSubstrings 组合（AND 拼接防跨资源碰撞）', async () => {
+      const qb = qbMock();
+      await service.findByTargetId('3', ['/crm/tasks/', '/pm/tasks/'], new Date('2026-08-01'));
+      expect(qb.andWhere).toHaveBeenCalledWith('log.createdAt >= :since', { since: expect.anything() });
+      expect(qb.andWhere).toHaveBeenCalledWith('(log.path LIKE :p0 OR log.path LIKE :p1)', {
+        p0: '%/crm/tasks/%',
+        p1: '%/pm/tasks/%',
+      });
+      expect(qb.getMany).toHaveBeenCalled();
+    });
+  });
 });
