@@ -56,6 +56,7 @@ export class EncryptionService {
 
   /** 确定性派生，用于可查询的关联键（providerId） */
   hmac(value: string): string {
+    // codeql[js/insufficient-password-hash] HMAC-SHA256 带密钥的关联键派生（非口令哈希场景），用途为可查询索引
     return crypto.createHmac('sha256', this.hmacKey).update(value).digest('hex');
   }
 }

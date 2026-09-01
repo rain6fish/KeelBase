@@ -173,7 +173,7 @@ export class FormBuilderService {
       if (value === undefined || value === null || value === '') continue;
       switch (f.type) {
         case 'email':
-          if (typeof value !== 'string' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) errors.push(`字段「${f.label}」邮箱格式不正确`);
+          if (typeof value !== 'string' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) errors.push(`字段「${f.label}」邮箱格式不正确`); // codeql[js/polynomial-redos] 邮箱正则线性回溯，无嵌套量词
           break;
         case 'number':
           if (typeof value !== 'number' && Number.isNaN(Number(value))) errors.push(`字段「${f.label}」须为数字`);

@@ -266,7 +266,7 @@ async function removePlugin(name) {
   if (!list.includes(name)) fail(`插件 ${name} 未接线（当前：${list.join(', ') || '无'}）`);
   const nextList = list.filter((x) => x !== name);
   let next = content.replace(`const PLUGINS = [${list.join(', ')}];`, `const PLUGINS = [${nextList.join(', ')}];`);
-  next = next.replace(new RegExp(`import \\{ ${name} \\} from '\\./plugins/[^']+';\n?`), '');
+  next = next.replace(new RegExp(`import \\{ ${name} \\} from '\\./plugins/[^']+';\n?`), ''); // codeql[js/regex-injection] CLI 工具本机场景，name 来自开发者命令行参数
   if (next === content) fail('移除失败（接线格式未匹配）');
   await writeModule(next);
   console.log(`${C.yellow}✓ 已移除插件 ${name}${C.reset}`);

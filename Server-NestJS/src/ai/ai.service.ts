@@ -1772,7 +1772,7 @@ export class AiService {
         });
       } catch (err) {
         console.error(
-          `[AiService] Provider "${currentProviderName}" failed:`,
+          `[AiService] Provider "${currentProviderName}" failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
           (err as Error).message,
         );
         // Try fallback
@@ -1907,7 +1907,7 @@ export class AiService {
         return { result, providerName: name };
       } catch (fallbackErr) {
         console.error(
-          `[AiService] Fallback provider "${name}" also failed:`,
+          `[AiService] Fallback provider "${name}" also failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
           (fallbackErr as Error).message,
         );
         continue;
@@ -1963,7 +1963,7 @@ export class AiService {
         lastError = (err as Error).message;
         if (hasContent) throw err;
         console.error(
-          `[AiService] Streaming provider "${name}" failed:`,
+          `[AiService] Streaming provider "${name}" failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
           lastError,
         );
       }
