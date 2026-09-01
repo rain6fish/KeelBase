@@ -22,7 +22,7 @@ export interface ActionReportExport {
 }
 
 export const auditApi = {
-  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string; isError?: 'true' | 'false' } = {}): Promise<AuditLog[]> {
+  logs(params: { userId?: string; agentId?: string; limit?: number; offset?: number; since?: string; isError?: 'true' | 'false'; denied?: 'true' } = {}): Promise<AuditLog[]> {
     const query: Record<string, string | number> = {}
     if (params.userId) query.userId = params.userId
     if (params.agentId) query.agentId = params.agentId
@@ -30,6 +30,7 @@ export const auditApi = {
     if (params.offset != null) query.offset = params.offset
     if (params.since) query.since = params.since
     if (params.isError) query.isError = params.isError
+    if (params.denied) query.denied = params.denied
     return api.get<AuditLog[]>('/audit/logs', query)
   },
   stats(since?: string): Promise<UsageStats> {

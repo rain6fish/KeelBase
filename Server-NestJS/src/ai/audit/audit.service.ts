@@ -418,7 +418,7 @@ export class AuditService {
   }
 
   async getLogs(
-    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false' } = {},
+    options: { limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false'; denied?: 'true' } = {},
   ): Promise<AiAuditLogWithUser[]> {
     return this._queryLogs(options);
   }
@@ -448,7 +448,7 @@ export class AuditService {
 
   /** 查询审计日志并左联用户表带出 username（原则 3：审计显示用户名）。userId 存的是数字字符串，需 CAST。ORG-5 支持按组织维度过滤。 */
   private async _queryLogs(
-    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false' } = {},
+    options: { userId?: string; limit?: number; offset?: number; since?: Date; feedback?: string; orgId?: number; agentId?: string; isError?: 'true' | 'false'; denied?: 'true' } = {},
   ): Promise<AiAuditLogWithUser[]> {
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -462,6 +462,11 @@ export class AuditService {
     if (options.feedback) qb.andWhere('log.feedback = :feedback', { feedback: options.feedback });
     if (options.agentId) qb.andWhere('log.agent_id = :agentId', { agentId: options.agentId });
     if (options.isError) qb.andWhere('log.is_error = :isError', { isError: options.isError === 'true' });
+    // A-8 越权专门视图：错误事件 + 携带授权数据（越权/阻断而非普通失败——「AI 被拒」同样是安全证据）
+    if (options.denied) {
+      qb.andWhere('log.is_error = :deniedIsErr', { deniedIsErr: true });
+      qb.andWhere("log.authorization IS NOT NULL AND log.authorization <> ''");
+    }
     if (options.orgId != null) {
       qb.andWhere(
         'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
