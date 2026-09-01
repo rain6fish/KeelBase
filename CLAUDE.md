@@ -1208,3 +1208,16 @@ Did the implementation become more complex than the requirement?
 ```
 
 发现可删除的代码：**优先删除，而不是继续增加**。
+
+### 15.11 DNA 自检（工程哲学，见 [docs/keelbase-dna.md](docs/keelbase-dna.md)）
+
+编码完成前，对改动过 DNA 四问：
+
+```text
+1. 边界是 Runtime 强制执行，还是只依赖 Prompt / 文档？（Runtime over Prompt）
+2. 新增能力/工具，授权边界是否与能力边界分离？（Capability ≠ Authority）
+3. 这个改动的正确性/安全性，是否有可运行的验证？（Trust Verifiable）
+4. AI 能产生的副作用，是否可撤销 / 可补偿？（Design for Recovery）
+```
+
+任何一问答否，都是**拒绝合并**的理由，而不是"先这样后面补"。生成代码需带 provenance（`keelbase init` 自动写 `.keelbase-provenance.json`，`keelbase inspect` 可查）。
