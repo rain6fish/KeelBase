@@ -18,6 +18,9 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/workbench', () => ({
   workbenchApi: { unreadCount: unreadCountMock },
 }))
+vi.mock('@/api/admin', () => ({
+  adminApi: { appVersion: vi.fn().mockResolvedValue({ latestVersion: '1.0.4' }) },
+}))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))

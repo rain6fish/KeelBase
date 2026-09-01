@@ -36,6 +36,8 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <div v-if="version" class="version-badge" title="KeelBase">{{ version }}</div>
   </div>
 </template>
 
@@ -49,6 +51,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { authApi } from '@/api/auth'
 import { workbenchApi } from '@/api/workbench'
+import { adminApi } from '@/api/admin'
 
 interface ShortcutCard {
   title: string
@@ -64,6 +67,7 @@ const router = useRouter()
 const unread = ref(0)
 const loading = ref(false)
 const caps = useCapabilitiesStore()
+const version = ref('')
 
 function openCard(card: ShortcutCard) {
   if (card.href) {
@@ -82,6 +86,9 @@ onMounted(async () => {
   if (unreadRes.status === 'fulfilled') unread.value = unreadRes.value.count
   loading.value = false
 })
+
+// 版本徽标：读 /app/version（公开端点）显示当前部署版本，固定于右下角
+adminApi.appVersion().then((v) => { version.value = `v${v.latestVersion}` }).catch(() => {})
 
 const user = computed(() => auth.user)
 
@@ -117,3 +124,17 @@ const shortcutCards = computed(() => [
   { title: t('workbenchMobilePreview'), desc: t('workbenchMobilePreviewDesc'), icon: 'mdi-cellphone', href: '/mobile/' },
 ])
 </script>
+
+<style scoped>
+.version-badge {
+  position: fixed;
+  right: 16px;
+  bottom: 12px;
+  z-index: 100;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--el-text-color-placeholder);
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+</style>
