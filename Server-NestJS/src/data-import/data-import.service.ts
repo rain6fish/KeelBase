@@ -43,7 +43,7 @@ export class DataImportService {
     let row: string[] = [];
     let field = '';
     let inQuotes = false;
-    for (let i = 0; i < csv.length; i++) {
+    for (let i = 0; i < csv.length; i++) { // codeql[js/loop-bound-injection] csv 为内存字符串，length 是固定上限非外部循环参数
       const ch = csv[i];
       if (inQuotes) {
         if (ch === '"') {

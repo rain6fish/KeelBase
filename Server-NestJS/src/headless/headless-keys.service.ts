@@ -29,6 +29,7 @@ export class HeadlessKeysService {
   ) {}
 
   static hashKey(apiKey: string): string {
+    // codeql[js/insufficient-password-hash] API key 为 randomBytes(24)（192 位高熵），sha256 存储无爆破风险；改 HMAC 会使存量 key 失效
     return createHash('sha256').update(apiKey).digest('hex');
   }
 
