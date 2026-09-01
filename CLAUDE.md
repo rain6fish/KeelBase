@@ -5,6 +5,7 @@
 > ① **Build 开发期 AI**：Application Protocol 协议化配置 → AI 生成业务模块（entity/DTO/API/页面/权限/审计）；系统只提供约定，AI 负责生成，**不做内建低代码/代码生成器**；
 > ② **Run 运行时 AI**：业务安全的 Agent harness——Agent 工具调用限定用户数据范围、写操作需人工确认、CASL 行级权限 + 全链路审计；
 > ③ **Trust / Private Deploy**：数据主权与私有化部署，AI 全程可审计、可撤销。
+> **工程哲学（DNA）**：`AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.`——四核心原则（Runtime over Prompt / Capability ≠ Authority / Trust Verifiable / Design for Recovery）是架构决策检查清单，见 [docs/keelbase-dna.md](docs/keelbase-dna.md)。
 > 写代码之前，请先阅读此文件了解架构、约定和安全规则。
 
 > 致谢：本项目由 Claude Code（Anthropic）协助开发，架构设计、代码实现与文档均有 Claude 的贡献。
