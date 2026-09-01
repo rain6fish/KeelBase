@@ -279,7 +279,14 @@ async function load() {
   loading.value = true
   try {
     const [logsRes, statsRes, verifyRes, errRes] = await Promise.all([
-      auditApi.logs({ userId: userId.value || undefined, agentId: agentId.value || undefined, limit, since: since.value }),
+      auditApi.logs({
+        userId: userId.value || undefined,
+        agentId: agentId.value || undefined,
+        limit,
+        since: since.value,
+        // A-8 越权专门视图：选「越权/被拒」时走服务端 denied 过滤（is_error + authorization 非空），而非仅过滤已加载的 50 行
+        denied: behaviorFilter.value === 'denied' ? 'true' : undefined,
+      }),
       auditApi.stats(since.value),
       auditApi.verify().catch(() => null),
       auditApi.logs({ isError: 'true', limit: 5, since: since.value }).catch(() => [] as AuditLog[]),
