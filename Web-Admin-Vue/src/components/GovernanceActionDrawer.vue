@@ -31,7 +31,7 @@
           <div class="text-caption text-medium-emphasis mb-1">{{ t('governanceWhy') }}</div>
           <div class="text-body-2">{{ whySummary }}</div>
           <div v-if="whyChecks.length" class="mt-1 pa-2" style="background: var(--el-fill-color-light); border-radius: 4px">
-            <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('techDetail') }}</div>
+            <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('authzBasis') }}</div>
             <div v-for="c in whyChecks" :key="c.name" class="d-flex align-center ga-1 text-body-2">
               <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="16" />
               <span :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
@@ -203,11 +203,11 @@ const whySummary = computed(() => {
   return t('whyAllowed')
 })
 
-/** Why 技术详情：被拒工具的结构化检查清单 */
+/** A-5 授权依据：本次操作的授权链检查清单（放行 = 为什么允许；拒绝 = 为什么阻止；取首个工具步骤） */
 const whyChecks = computed(() => {
   if (!data.value) return []
-  const deniedTool = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
-  return deniedTool?.checks ?? []
+  const toolStep = steps.value.find((s) => s.type === 'tool_call')
+  return toolStep?.checks ?? []
 })
 
 function stepLabel(s: TraceStep): string {
