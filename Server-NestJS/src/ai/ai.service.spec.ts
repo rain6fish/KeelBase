@@ -1678,6 +1678,32 @@ describe('AiService', () => {
       await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('restricted to roles');
     });
 
+    it('§22.16 A-5 getAuthorizationChain：聚合角色 grants + 工具策略 + 生效期', async () => {
+      (aiService as any).abilityFactory = {
+        describeForUser: jest.fn().mockReturnValue({
+          role: 'user',
+          basis: '普通用户：可管理本人拥有的资源',
+          resources: [
+            { subject: 'Event', scope: 'own', reason: '只能操作自己的数据' },
+            { subject: 'Todo', scope: 'own', reason: '只能操作自己的数据' },
+          ],
+        }),
+      };
+      (aiService as any).governancePolicy = {
+        getPolicy: jest.fn().mockResolvedValue({
+          tools: { query_customers: { enabled: true, allowedRoles: ['user', 'admin'] } },
+          audit: { granularity: 'all' },
+          updatedAt: new Date('2026-08-31T00:00:00Z'),
+        }),
+      };
+      const chain = await (aiService as any).getAuthorizationChain({ role: 'user', sub: 42, username: 'alex' });
+      expect(chain.user.username).toBe('alex');
+      expect(chain.grants).toHaveLength(2);
+      expect(chain.grants[0]).toMatchObject({ resource: 'Event', scope: 'own' });
+      expect(chain.toolPolicies[0]).toMatchObject({ toolName: 'query_customers', enabled: true, riskLevel: 'R1' });
+      expect(chain.effectiveSince).toEqual(new Date('2026-08-31T00:00:00Z'));
+    });
+
     it("_assertToolAllowed：headless 系统账号 '0' 跳过邮箱校验", async () => {
       mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
       (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 0, emailVerified: false }) };

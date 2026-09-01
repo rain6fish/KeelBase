@@ -299,6 +299,14 @@ const zh = {
   permissionReason: '授权依据',
   // §22.16 A-5 授权链可视化
   authChain: '授权链',
+  // §22.16 A-5 授权链图
+  authChainAuthorizer: '授权者',
+  authChainGrantee: '被授权者',
+  authChainPolicy: '策略',
+  authChainResource: '资源',
+  authChainToolPolicy: '工具策略',
+  authChainEffectiveSince: '生效期',
+  permissionLive: '当前实时生效',
   authChainUser: '用户',
   authChainRole: '角色',
   authChainBasis: '授权依据',

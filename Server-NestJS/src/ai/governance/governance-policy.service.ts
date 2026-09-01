@@ -13,6 +13,8 @@ export interface ToolPolicy {
 export interface GovernancePolicy {
   tools: Record<string, Partial<ToolPolicy>>;
   audit: { granularity: 'all' | 'write' | 'off' };
+  /** §22.16 A-5 授权链图：策略生效时间（无历史版本，取当前行 updatedAt；无策略行时 null） */
+  updatedAt?: Date | null;
 }
 
 /**
@@ -41,7 +43,7 @@ export class GovernancePolicyService {
 
   async getPolicy(): Promise<GovernancePolicy> {
     const row = await this.policyRepo.findOne({ where: { id: 1 } });
-    if (!row) return { tools: {}, audit: { granularity: 'all' } };
+    if (!row) return { tools: {}, audit: { granularity: 'all' }, updatedAt: null };
     try {
       const parsed = JSON.parse(row.value) as Record<string, unknown>;
       const tools = (parsed?.tools ?? {}) as Record<string, Partial<ToolPolicy>>;
@@ -50,9 +52,10 @@ export class GovernancePolicyService {
       return {
         tools,
         audit: { granularity: granularity === 'write' || granularity === 'off' ? granularity : 'all' },
+        updatedAt: row.updatedAt ?? null,
       };
     } catch {
-      return { tools: {}, audit: { granularity: 'all' } };
+      return { tools: {}, audit: { granularity: 'all' }, updatedAt: row.updatedAt ?? null };
     }
   }
 

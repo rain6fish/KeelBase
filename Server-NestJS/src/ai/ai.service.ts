@@ -365,6 +365,43 @@ export class AiService {
     return { ...reasons, casl };
   }
 
+  /** §22.16 A-5 授权链图：按用户聚合完整授权链（角色→CASL 资源 + 工具策略 + 生效期） */
+  async getAuthorizationChain(user: { role: 'admin' | 'user'; sub: number; username?: string | null }): Promise<{
+    user: { id: number; username: string | null; role: string };
+    grants: Array<{ policy: string; resource: string; scope: string }>;
+    toolPolicies: Array<{ toolName: string; enabled: boolean; allowedRoles: string[]; riskLevel?: string }>;
+    effectiveSince: Date | string | null;
+  }> {
+    const described = this.abilityFactory.describeForUser({ sub: user.sub, role: user.role } as never);
+    const grants = (described.resources ?? []).map((r) => ({
+      policy: described.basis ?? '角色授权',
+      resource: r.subject,
+      scope: r.scope,
+    }));
+    let toolPolicies: Array<{ toolName: string; enabled: boolean; allowedRoles: string[]; riskLevel?: string }> = [];
+    let effectiveSince: Date | string | null = null;
+    try {
+      const policy = await this.governancePolicy?.getPolicy();
+      if (policy) {
+        effectiveSince = policy.updatedAt ?? null;
+        toolPolicies = Object.entries(policy.tools ?? {}).map(([toolName, cfg]) => ({
+          toolName,
+          enabled: cfg.enabled ?? true,
+          allowedRoles: cfg.allowedRoles ?? [],
+          riskLevel: this.toolRegistry.riskLevel(toolName) || undefined,
+        }));
+      }
+    } catch {
+      // 策略不可用时工具策略空（授权链图仍显示角色级 grants）
+    }
+    return {
+      user: { id: user.sub, username: user.username ?? null, role: user.role },
+      grants,
+      toolPolicies,
+      effectiveSince,
+    };
+  }
+
   /**
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
    */

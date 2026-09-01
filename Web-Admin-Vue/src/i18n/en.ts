@@ -298,6 +298,14 @@ const en: ZhDict = {
   permissionReason: 'Reason',
   // §22.16 A-5 authorization chain
   authChain: 'Authorization Chain',
+  // §22.16 A-5 authorization chain graph
+  authChainAuthorizer: 'Authorizer',
+  authChainGrantee: 'Grantee',
+  authChainPolicy: 'Policy',
+  authChainResource: 'Resource',
+  authChainToolPolicy: 'Tool policies',
+  authChainEffectiveSince: 'Effective since',
+  permissionLive: 'Live (effective now)',
   authChainUser: 'User',
   authChainRole: 'Role',
   authChainBasis: 'Authorization basis',
