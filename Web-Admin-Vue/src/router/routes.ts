@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { RouteRecordRaw } from 'vue-router'
 
 declare module 'vue-router' {
@@ -78,6 +80,8 @@ const workbenchRoute: RouteRecordRaw = {
     { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle' } },
     { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle' } },
     { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle' } },
+    { path: 'flows', name: 'workbench-flows', component: () => import('@/views/workbench/FlowInstancesView.vue'), meta: { title: 'workbenchFlows' } },
+    { path: 'flows/:id', name: 'workbench-flow-detail', component: () => import('@/views/workbench/FlowInstanceDetailView.vue'), meta: { title: 'workbenchFlows' } },
   ],
 }
 
