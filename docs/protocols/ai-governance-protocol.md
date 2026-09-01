@@ -16,6 +16,8 @@
 | 2 | **委托 token** | 跨系统身份桥接（存量系统识别调用者） | 短期 JWT + audience 限定 + 统一身份映射键 |
 | 3 | **工具风险分级** | AI 工具执行策略统一（读自动 / 写确认 / 阻断） | R0–R5 + riskStrategy → 执行策略 |
 
+> 审计证据包（§2.5）是**审计哈希链的应用层导出**（链数据 + 合规摘要，离线可复核），不单列为第四协议。
+
 ---
 
 ## 2. 审计哈希链协议 / Audit Hash Chain
@@ -64,6 +66,43 @@ canonical = JSON.stringify( payload, Object.keys(payload).filter(k => payload[k]
 **篡改语义**：改业务字段 → 本条 hash 不匹配；改 hash → 下条 prevHash 不匹配；删 / 换序 → prevHash 连续性断裂。并发写极小概率分叉（两条同 prevHash），verify 标为断链。
 
 **genesis 兼容**：迁移前历史记录 `hash/prev_hash` 为 NULL；verify 将**首个有 hash 的记录**作为新起点校验后续（历史段视为链前）。
+
+### 2.5 审计证据包协议 / Audit Evidence Package
+
+**定位**：审计哈希链（§2）的**应用层导出**——把链数据 + 合规摘要打包成可提交审计机构的证据，**离线机器可验证**（不依赖 KeelBase）。参考实现：`GET /audit/action-report/export` + `Server-NestJS/scripts/verify-evidence.mjs`。
+
+**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）。`verify-evidence.mjs` 接受 v1/v2 向后兼容。
+
+**结构 / Schema**：
+
+| 字段 | 类型 | 语义 |
+|---|---|---|
+| `format` | string | 格式版本 |
+| `exportedAt` | ISO 8601 | 导出时间 |
+| `generator` | string | 生成工具标识（`keelbase-audit-export`） |
+| `report` | object | ActionReport（summary / hashChain / byAction / byDay / samples / effectDiffs） |
+| `compliance` | array(opt) | v2：samples 每条的业务摘要 + 责任链 + 授权依据（合规叙事） |
+| `chain` | array | **全量链行**（见下）——离线重算的原始数据 |
+| `signature` | string\|null | 证据包签名（见下）；未配密钥时为 null |
+
+**chain 行 / Chain Row**：
+
+| 字段 | 类型 | 语义 |
+|---|---|---|
+| `seq` | int | 链序号（1 起，沿 id 升序） |
+| `id` | int | 审计记录 id |
+| `prevHash` | string\|null | 前一条 hash；首条为 null（genesis） |
+| `hash` | string | 本条 hash（64 hex，§2.2 算法） |
+| `payload` | object | 链 payload（canonical 输入，§2.3）——离线重算用，必须与写入侧一致 |
+
+**签名 / Signature**：`HMAC-SHA256( key, canonicalJSON({ summary, hashChain, effectDiffs, compliance, chain, exportedAt }) )`，`key = AUDIT_HMAC_KEY || ENCRYPTION_KEY`。签名覆盖证据包全部证据内容——导出后任何改动 → 验签失败。
+
+**离线验证 / Offline Verification**（独立实现，只依赖 §2 算法）：
+- **无密钥**：结构验证——`seq` 连续 / `hash` 64 hex / `prevHash` 连续 / 首行 genesis。能检测**删行、换序、断链**。
+- **`--key <AUDIT_HMAC_KEY>`**：全量重算每条 `payload` 的 hash（§2.2）+ 证据包验签。能检测**内容篡改**与导出后改动。
+- 审计机构持有密钥或部署方提供 verify 报告即可独立复核（合规场景：等保 / 密评配合材料）。
+
+**与 §2 的关系**：`chain` 行即审计链原始数据（id / prevHash / hash / payload），`payload` 复用 §2.3 canonicalJSON——证据包是链的**可导出、可离线复核的应用层**，不引入新算法。
 
 ---
 
@@ -178,7 +217,7 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 **第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与向量复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与协议测试向量比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
-**审计证据包离线验证（A2，护城河 2.3）**：`Server-NestJS/scripts/verify-evidence.mjs` 可独立验证导出的证据包（`GET /audit/action-report/export`，`format=keelbase-audit-evidence/1`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
+**审计证据包离线验证（A2，护城河 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
 
 **治理策略实时推送（B2，护城河 2.2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`，`POST /external/governance/sidecars/register`）；策略变更（apply-preset / PUT policy）后治理台向已注册 sidecar 实时推送（`POST {cb}/v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底（推送失败 / sidecar 重启 / 漏注册）。
 
