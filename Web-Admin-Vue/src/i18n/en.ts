@@ -80,6 +80,19 @@ const en: ZhDict = {
 
   navData: 'Data',
   navGuard: 'Security Governance',
+  // EASY-5 first-run preset
+  presetTitle: 'Choose platform scale',
+  presetDesc: 'First run: pick a preset that decides which features are on by default (adjustable later in Settings).',
+  presetCardFullTitle: 'Full',
+  presetCardFullDesc: 'All features enabled',
+  presetFAll: 'All modules on',
+  presetCardSmallTitle: 'Small',
+  presetCardSmallDesc: 'External integrations off',
+  presetFSmall: 'Push / SMS / third-party login off',
+  presetCardLiteTitle: 'Lite',
+  presetCardLiteDesc: 'Core only',
+  presetFLite: 'Also off: search & generated modules',
+  presetApply: 'Apply preset',
   navMonitor: 'Monitoring & Ops',
   navSystem: 'System',
 
