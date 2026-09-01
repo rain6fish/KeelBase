@@ -31,7 +31,7 @@ import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
-import { writeManifest } from './generator/manifest.mjs';
+import { writeManifest, writeModuleProvenance } from './generator/manifest.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', dim: '\x1b[2m',
@@ -468,6 +468,16 @@ async function main() {
     }
   } catch (err) {
     console.log(`${C.yellow}△ 写来源清单跳过：${err.message}${C.reset}`);
+  }
+
+  // ── 模块级生成证明（DNA：AI-generated code is untrusted by default）──
+  // 每个生成模块的目录写 .keelbase-provenance.json（来源/生成器版本/协议/时刻）——出生证明，供 inspect 溯源。
+  try {
+    const source = args.spec ? `spec:${args.spec}` : args['import-openapi'] ? `openapi:${args['import-openapi']}` : args['import-schema'] ? `schema:${args['import-schema']}` : 'cli(--module/--fields)';
+    const prov = await writeModuleProvenance(ctx.plural, source);
+    console.log(`${C.green}✓ ${prov.file}${C.reset}（来源 ${source} · keelbase v${prov.provenance.generatorVersion}）`);
+  } catch (err) {
+    console.log(`${C.yellow}△ 写模块生成证明跳过：${err.message}${C.reset}`);
   }
 
   // ── 品牌 ──

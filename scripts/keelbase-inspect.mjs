@@ -12,8 +12,8 @@
  *
  * 退出码：0 = KeelBase 应用（manifest 存在且 schema 有效）；1 = 非 KeelBase / 清单缺失或无效。
  */
-import { readFile, access } from 'node:fs/promises';
-import { readManifest, manifestPath, MANIFEST_SCHEMA } from './generator/manifest.mjs';
+import { readFile, access, readdir } from 'node:fs/promises';
+import { readManifest, manifestPath, MANIFEST_SCHEMA, readModuleProvenance } from './generator/manifest.mjs';
 
 const C = { reset: '\x1b[0m', green: '\x1b[32m', red: '\x1b[31m', dim: '\x1b[2m' };
 
@@ -85,7 +85,27 @@ export async function runInspect(argv = []) {
   console.log(`Protocol:    ${man.protocol}`);
   console.log(`Modules:     ${Array.isArray(man.modules) && man.modules.length ? man.modules.join(', ') : '—'}`);
   console.log(`Identity:    ${man.identity} (schema ${man.schema})`);
-  console.log('');
+
+  // 模块级生成证明（DNA：AI-generated code is untrusted by default——代码可溯源）
+  let modDirs = [];
+  try {
+    modDirs = (await readdir('Server-NestJS/src', { withFileTypes: true }))
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+  } catch { /* 目录缺失不报错 */ }
+  const provenances = [];
+  for (const mod of modDirs) {
+    const p = await readModuleProvenance(mod);
+    if (p) provenances.push(p);
+  }
+  if (provenances.length) {
+    console.log('Module Provenance（生成证明）:');
+    for (const p of provenances.sort((a, b) => a.module.localeCompare(b.module))) {
+      console.log(`  ${C.green}${p.module}${C.reset}   ${p.source} · keelbase v${p.generatorVersion} · ${p.generatedAt ? p.generatedAt.slice(0, 10) : '?'}`);
+    }
+    console.log('');
+  }
+
   console.log('Capabilities:');
   for (const cap of CAPABILITIES) {
     const res = await probeResult(cap.probe);
