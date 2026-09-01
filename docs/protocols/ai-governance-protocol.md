@@ -193,6 +193,33 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 **实现要求**：对齐本协议的实现将工具暴露为 MCP server 时，应在 `_meta.keelbase` 携带上述三项（`annotations` 为可选的 MCP 标准提示）；消费外部 MCP server 工具时，若对方声明了 `_meta.keelbase` 或等价风险级，应以其门控；未声明则按 §4.2 派生规则判定（写 → R3，读 → R1）。
 
+### 4.5 治理 sidecar 零代码接入协议 / Sidecar Zero-code Adoption
+
+**定位**（护城河 2.0 嵌入广度）：业务系统**不改代码**把 AI 调用接进治理——唯一改动 = 把 LLM base URL 指向 sidecar。sidecar 拦截 → 上报治理台审计 + 转发真实 LLM + 工具门控（S-1/S-2）。参考实现：`Server-NestJS/src/governance-sidecar/` + [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)。
+
+**端点 / Endpoints**（业务系统 → sidecar；sidecar 默认端口 3200）：
+
+| 端点 | 语义 |
+|---|---|
+| `POST /v1/chat/completions` | OpenAI 兼容转发（业务系统 LLM 调用原样转发真实上游）+ 上报治理台审计（source=sidecar）+ 工具门控（S-2） |
+| `POST /v1/confirmations/:token` | 确认决策：`approve` → 返回含原 `tool_calls` 的响应；`reject` → 返回拒绝响应 |
+| `POST /v1/policy` | 接收治理台策略推送（B2，服务身份 `x-api-key` = `GOVERNANCE_API_KEY`），实时覆盖门控策略 |
+| `POST /v1/confirmations` | 待确认列表（诊断，服务身份） |
+
+**用户归因**：`x-user-id` 请求头（业务系统可选传；缺省 `sidecar`）——审计归因到调用者。
+
+**门控语义**（对齐 §4.3，在 sidecar 落点）：
+- **R5** → `block`：剥离 `tool_calls`，注入阻断说明（该操作被安全策略阻断）。
+- **R3/R4** → `confirm`（hold-and-release）：剥离 `tool_calls`，在 `message.confirmation` 携带 `{ token, tools }`；业务系统 `POST /v1/confirmations/:token` 批准后取回**原响应**（含 tool_calls）执行，拒绝则返回拒绝说明。
+- **R0-R2** → `auto`：原样放行。
+- 策略覆盖：`enabled=false` → block；`requiresConfirmation=true` → confirm（覆盖 R0-R2）；`SIDECAR_TOOLS` 未登记工具用默认风险级（`SIDECAR_DEFAULT_TOOL_RISK`，缺省 R1）。
+
+**审计上报**：每条 chat（请求/响应）与每次工具调用决策（`tool_call`）落治理台审计（`source=sidecar`），含请求摘要（首条 user 内容前 60 字符）、tokens、耗时、门控决策（risk + decision）——入同一哈希链。
+
+**服务身份**：sidecar → 治理台用 `GOVERNANCE_API_KEY`（`x-api-key`）；治理台 → sidecar 策略推送同密钥校验——防未授权篡改策略/枚举确认。
+
+**与 §5 的关系**：sidecar 是「零代码接入」的渠道实现；接入方业务系统本身不实现协议（透明代理），sidecar 作为治理体系的接入端点对齐本协议。
+
 ---
 
 ## 5. 兼容实现清单 / Compatible Implementations
