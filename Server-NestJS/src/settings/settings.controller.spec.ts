@@ -1,13 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SettingsController } from './settings.controller';
 import { SettingsService } from './settings.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 
 describe('SettingsController', () => {
   let controller: SettingsController;
   let service: jest.Mocked<Pick<SettingsService, 'findAll' | 'set'>>;
+  let featureFlags: jest.Mocked<Pick<FeatureFlagsService, 'applyPreset'>>;
 
   beforeEach(() => {
     service = { findAll: jest.fn(), set: jest.fn() };
-    controller = new SettingsController(service as unknown as SettingsService);
+    featureFlags = { applyPreset: jest.fn() };
+    controller = new SettingsController(
+      service as unknown as SettingsService,
+      featureFlags as unknown as FeatureFlagsService,
+    );
   });
 
   it('findAll 委托 service', async () => {
@@ -23,5 +31,12 @@ describe('SettingsController', () => {
     const dto = { value: 'true', type: 'boolean' };
     await expect(controller.update('maintenanceMode', dto as any)).resolves.toEqual(updated);
     expect(service.set).toHaveBeenCalledWith('maintenanceMode', 'true', 'boolean');
+  });
+
+  it('applyPreset 委托 featureFlags.applyPreset 并返回 flags', async () => {
+    const flags = { ai: true, push: false } as never;
+    featureFlags.applyPreset.mockResolvedValue(flags);
+    await expect(controller.applyPreset({ preset: 'small' })).resolves.toEqual(flags);
+    expect(featureFlags.applyPreset).toHaveBeenCalledWith('small');
   });
 });
