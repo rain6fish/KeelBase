@@ -198,6 +198,7 @@ final res = await ApiClient().post('/auth/login', data: {...});
 - 功能内使用 Clean Architecture 分层：`data/`, `domain/`, `presentation/`
 - 禁止在 `core/` 放功能逻辑
 - 文件名: `snake_case.dart` | 类名: `PascalCase` | 变量: `camelCase`
+- **所有源码文件必须带 `SPDX-License-Identifier: Apache-2.0` 头**（生成器 `keelbase init` 自动加；手写 / AI 生成的新文件需带上，遗漏时用 `node scripts/add-license-headers.mjs` 补齐）
 
 ### 3.7 通用组件
 
