@@ -85,7 +85,7 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('技术详情')
+    expect(wrapper.text()).toContain('授权依据') // A-5：为什么允许/阻止
     expect(wrapper.text()).toContain('无权访问该客户')
   })
 
