@@ -4,6 +4,12 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added / 新增
+
+- **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry` 加 `unregister` + `ProxyToolRegistryService` 加 `reload`（反注册旧工具重载）+ `SettingsService` 加 `onChange` 观察者（`set` 成功后按 key 触发）+ ai.module 注册监听——写 `ai_proxy_tools` 配置即生效，无需重启 KeelBase；配套单测 3 spec + e2e 热更新用例；`docs/manual/ai-bridge.md` 更新「免重启」表述。
+
 ## [1.0.4] - 2026-09-01
 
 > **KeelBase 1.0.4 — Business Action Ledger & Governance Moat 2.x / 业务行为取证与治理护城河版**
