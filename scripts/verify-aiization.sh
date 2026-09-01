@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # Existing System AIization 验证（P0-12 / 0819 评估 P1）
 #

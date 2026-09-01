@@ -1,0 +1,37 @@
+# KeelBase gitleaks 配置
+#
+# 默认规则 + 白名单。白名单全部为「故意公开的占位 / 演示 / 测试值」，非真实密钥。
+# 逐项对应 `gitleaks detect --verbose` 实证命中（2026-09-01 全量扫描 907 commits / 28 命中，全部为误报）：
+# - .env(.production).example / Dockerfile.single 里的全零序列占位密钥
+# - 测试固定密钥（test/helpers.ts 等，确定性测试环境用，非生产）
+# - OAuth 文档示例占位、e2e 测试值、公开演示账号
+# - oauth.service.ts 构造 / 解析 Alipay PEM 的源代码字符串（文件级豁免）
+# 真实密钥一旦入库，白名单之外仍会被拦截。
+title = "KeelBase gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "公开占位/演示/测试值（非密钥）"
+regexes = [
+  # .env 示例与 Dockerfile 的全零占位密钥（32/64 位全零序列，32 位正则同时匹配 64 位）
+  '''0123456789abcdef0123456789abcdef''',
+  '''00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff''',
+  '''REPLACE_ME''',
+  # 测试固定密钥（确定性测试环境用，test/helpers.ts）
+  '''e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4''',
+  '''c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd''',
+  # 测试/文档示例值
+  '''abcdef123456''',
+  '''delegation-secret-0123456789abcdef''',
+  '''wrong-key-123''',
+  '''eyJhbGciOiJSUzI1NiIs''',
+  # 公开演示账号（各环境一致，见 README / CLAUDE.md §12）
+  '''Alex@2026\$Demo''',
+  '''Admin@2026\$KeelBase''',
+]
+paths = [
+  # 构造/解析 Alipay OAuth PEM 的源代码，非提交的私钥（Server-Nodejs 为历史目录名）
+  '''(Server-NestJS|Server-Nodejs)/src/auth/oauth.service.ts''',
+]

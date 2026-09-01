@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api, governanceApi } from './client'
 import type { AdminAiTool, AiAgent, AiApprovalRequest, GovernanceActionResponse, ToolEffectsResponse, BusinessHistoryResponse } from '@/types/admin'
 

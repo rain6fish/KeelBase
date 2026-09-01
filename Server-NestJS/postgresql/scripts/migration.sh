@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
  #!/bin/bash
  # =============================================================
  # TypeORM 迁移命令集

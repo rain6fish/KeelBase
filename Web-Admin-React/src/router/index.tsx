@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHashRouter, Navigate, Outlet } from 'react-router-dom'
 import { AuthGate } from './AuthGate'
 import AdminLayout from '@/layouts/AdminLayout'

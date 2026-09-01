@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 图像生成工具 — generate_image（AI-12.1）
  *

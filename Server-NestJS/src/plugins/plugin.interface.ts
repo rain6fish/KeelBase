@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * PL-11 插件机制：插件清单 + 生命周期钩子 + 能力注入。
  *

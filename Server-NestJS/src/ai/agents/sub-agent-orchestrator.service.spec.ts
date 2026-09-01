@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SubAgentOrchestrator } from './sub-agent-orchestrator.service';
 import { SkillsRegistry, WEEK_PLAN_SKILL } from '../skills/skills-registry';
 

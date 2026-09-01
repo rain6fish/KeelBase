@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// MOD-4 capabilities 端点返回：当前预设 + 功能开关 + 启用业务模块。
 /// 三端按此隐藏未启用模块的导航入口（EASY-5 预设引导同用）。
 class AppCapabilities {

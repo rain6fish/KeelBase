@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AppProvenanceController } from './app-provenance.controller';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { AiService } from '../ai/ai.service';

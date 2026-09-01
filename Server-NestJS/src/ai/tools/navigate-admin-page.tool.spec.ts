@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { AdminNavigatePageTool } from './navigate-admin-page.tool';
 
 describe('AdminNavigatePageTool（System AI Assistant L3）', () => {

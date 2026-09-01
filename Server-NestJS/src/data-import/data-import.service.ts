@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';

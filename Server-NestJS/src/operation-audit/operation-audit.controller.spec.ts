@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { OperationAuditController } from './operation-audit.controller';
 import { OperationAuditService } from './operation-audit.service';
 import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';

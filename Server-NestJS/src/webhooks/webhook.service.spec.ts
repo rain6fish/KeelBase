@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { WebhookService } from './webhook.service';
 import { WebhookSubscription } from './webhook-subscription.entity';
 import { lookup } from 'dns/promises';

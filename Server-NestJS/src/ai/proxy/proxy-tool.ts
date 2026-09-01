@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * B 路径 ProxyTool（AI Bridge §4）：把已有系统 REST 端点暴露为 AI 工具。
  *

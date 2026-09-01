@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';

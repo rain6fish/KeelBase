@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 示例插件 hello-plugin（PL-11）。
  *

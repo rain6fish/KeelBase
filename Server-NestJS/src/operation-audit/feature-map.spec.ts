@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { deriveFeature } from './feature-map';
 
 describe('deriveFeature（操作审计功能名映射）', () => {

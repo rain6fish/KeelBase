@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 主题工具：`<html>` 上双轴——`dark` class（亮/暗）+ `data-theme`（indigo/teal/graphite 变体）。
  * 由 App.vue 集中调用（首个 paint 前），保证登录页等任意路由都正确应用。

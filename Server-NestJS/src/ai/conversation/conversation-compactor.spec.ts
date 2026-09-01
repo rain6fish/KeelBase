@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ConversationCompactor } from './conversation-compactor';
 import { ConversationData } from './conversation.service';
 

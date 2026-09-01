@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddEventReminder1785978305379 implements MigrationInterface {

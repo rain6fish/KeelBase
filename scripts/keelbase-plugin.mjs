@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase 插件 CLI（P1-7）：安装/卸载/列出源码级插件。
  *

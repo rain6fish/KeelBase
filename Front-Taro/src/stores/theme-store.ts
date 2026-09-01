@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { storage } from '../utils/storage'
 import { STORAGE_KEYS } from '../utils/constants'

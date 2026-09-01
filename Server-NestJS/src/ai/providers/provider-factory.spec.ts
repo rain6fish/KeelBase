@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { LlmProviderFactory } from './provider-factory';
 import { LlmProvider } from '../interfaces/llm-provider.interface';
 import { LlmProviderConfig } from '../interfaces/provider-config.interface';

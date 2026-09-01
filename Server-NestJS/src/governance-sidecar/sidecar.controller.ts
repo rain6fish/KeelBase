@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Controller, Post, Body, Headers, Param, Get, UnauthorizedException } from '@nestjs/common';
 import { IsIn, IsString } from 'class-validator';
 import { SidecarService } from './sidecar.service';

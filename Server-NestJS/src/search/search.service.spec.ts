@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchService } from './search.service';
 import { EventsService } from '../events/events.service';

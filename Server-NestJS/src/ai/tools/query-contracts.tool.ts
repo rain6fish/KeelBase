@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询合同工具 — query_contracts（只读）
  *

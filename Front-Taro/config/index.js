@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  const config = {
    projectName: 'front-taro',
    date: '2026-7-27',

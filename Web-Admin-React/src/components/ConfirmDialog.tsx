@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ReactNode } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'

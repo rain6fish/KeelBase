@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Java 探针观察 — keelbase-java-starter 需求信号采集（Java 版 启动的触发依据）
  *

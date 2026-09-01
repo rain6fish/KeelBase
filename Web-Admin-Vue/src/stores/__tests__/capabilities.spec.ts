@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useCapabilitiesStore } from '@/stores/capabilities'

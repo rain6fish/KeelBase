@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createTheme, type Theme } from '@mui/material/styles'
 
 // Materio 风格复刻：Material Design 3，卡片圆角 + 轻阴影 + 品牌主色（与 Vue 版 plugins/vuetify.ts 配色对齐）

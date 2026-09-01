@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 特性开关（Feature Flags）key 集合。
  *

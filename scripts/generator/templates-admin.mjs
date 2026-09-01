@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 Web-Admin-Vue（Vue3 + Vuetify3）管理 CRUD 页模板（⑤-2）。
  * 管理端复用 KnowledgeView 骨架（PageHeader + AppTable + ConfirmDialog + useSnackbarStore）。

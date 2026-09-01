@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// Base class for all app domain exceptions.
 ///
 /// Keeps the wrapped [cause] and [stackTrace] when available so chained

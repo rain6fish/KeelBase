@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  /** Form-validation helpers aligned with backend constraints */
  
  export function validateUsername(value?: string): string | null {

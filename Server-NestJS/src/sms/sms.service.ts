@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Inject, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SMS_PROVIDER } from './sms.constants';

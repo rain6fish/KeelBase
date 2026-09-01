@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart' show Listenable;
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';

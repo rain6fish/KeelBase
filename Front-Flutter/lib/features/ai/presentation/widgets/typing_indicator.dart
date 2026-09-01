@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/cupertino.dart';
 
 /// AI 正在输入中的指示器（三个弹跳圆点）

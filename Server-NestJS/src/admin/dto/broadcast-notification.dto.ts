@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IsString, IsNotEmpty, IsOptional, IsArray, IsNumber } from 'class-validator';
 
 export class BroadcastNotificationDto {

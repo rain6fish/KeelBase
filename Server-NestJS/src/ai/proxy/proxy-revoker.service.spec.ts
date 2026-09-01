@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProxyToolRevokerService } from './proxy-revoker.service';
 import { ProxyTool } from './proxy-tool';
 import { ToolRegistry } from '../tools/tool-registry';

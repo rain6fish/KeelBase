@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 示例旗舰插件 approval-intake（PL-11 第三方安装路径演示）。
  *

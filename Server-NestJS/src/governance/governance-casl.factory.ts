@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable } from '@nestjs/common';
 import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 import { CaslAbilityFactory, AppAbility } from '../common/casl/casl-ability.factory';

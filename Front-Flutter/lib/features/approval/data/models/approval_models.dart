@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI Approval：审批请求模型
 class ApprovalRequestModel {
   final int id;

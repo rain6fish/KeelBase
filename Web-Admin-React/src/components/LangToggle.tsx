@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Button } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useLocaleStore } from '@/i18n/locale'

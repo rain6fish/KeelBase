@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 对话历史摘要（列表页用）。后端 GET /ai/conversations 返回的每条。
 class ConversationSummary {
   final String id;

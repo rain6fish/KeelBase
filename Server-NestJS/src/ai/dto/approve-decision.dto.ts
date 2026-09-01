@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * R4 双人审批决策 DTO（approver 对 pending 审批请求 approve/decline）
  */

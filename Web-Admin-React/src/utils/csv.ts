@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 前端生成 CSV 下载（无后端依赖）。Blob + a[download]。 */
 
 function escapeCell(value: unknown): string {

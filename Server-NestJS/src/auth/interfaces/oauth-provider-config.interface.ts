@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Provider info returned to the frontend for UI rendering.
  */

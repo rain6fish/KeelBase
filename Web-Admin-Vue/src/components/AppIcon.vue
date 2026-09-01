@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <i :class="['mdi', iconClass]" :style="style" aria-hidden="true" />
 </template>

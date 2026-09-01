@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Reflector } from '@nestjs/core';
 import { of, firstValueFrom } from 'rxjs';
 import { OperationAuditInterceptor } from './operation-audit.interceptor';

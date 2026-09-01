@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ValidationPipe } from '@nestjs/common';
 import { CallExternalToolDto, RegisterServerDto } from './mcp-gateway.controller';
 

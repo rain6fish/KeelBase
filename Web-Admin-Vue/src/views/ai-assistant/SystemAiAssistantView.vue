@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="d-flex flex-column" style="height: calc(100vh - 64px)">
     <PageHeader :title="t('navSystemAssistant')" :subtitle="t('assHint')" />

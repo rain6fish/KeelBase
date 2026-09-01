@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 法律文本数据源 — 隐私政策 & 服务条款 中英文全文
 ///
 /// 修改指引：修改下方 _privacyEN / _privacyZH / _termsEN / _termsZH 四个常量即可。

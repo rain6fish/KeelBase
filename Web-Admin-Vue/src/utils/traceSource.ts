@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** D1 Human-Agent-System Accountability：trace 步骤来源分类（人 / AI / 系统） */
 
 export type TraceSource = 'human' | 'agent' | 'system'

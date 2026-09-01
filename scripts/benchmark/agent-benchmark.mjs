@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * W2 Business-safe Agent Benchmark v1 — 五类任务 × 三旗舰 → Run/Trust/Safety Score。
  *

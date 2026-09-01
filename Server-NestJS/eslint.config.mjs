@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import eslint from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { PluginContext, PluginManifest, PluginInstance } from './plugin.interface';

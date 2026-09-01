@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="login-bg d-flex align-center justify-center">
     <el-card class="login-card" shadow="always">

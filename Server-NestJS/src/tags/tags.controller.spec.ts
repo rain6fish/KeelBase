@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { TagsController } from './tags.controller';
 import { TagsService } from './tags.service';
 

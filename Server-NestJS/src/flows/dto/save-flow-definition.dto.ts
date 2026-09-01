@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import type { FlowDefinition } from '../flow-definition.types';

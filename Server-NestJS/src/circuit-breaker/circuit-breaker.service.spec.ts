@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CircuitBreakerService, CircuitOpenException } from './circuit-breaker.service';
 
 const CFG = { failThreshold: 3, timeoutMs: 50, successThreshold: 2 };

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 # KeelBase Demo Reset（V-4：数据一键复位）
 #
 # 复位 = 备份当前库 → 删除数据库 → 重启后端自动重种演示数据（空库首启自动 seed，见 src/common/seed.ts）。

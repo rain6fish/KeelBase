@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI CRM：风险记录模型
 class CrmRiskModel {
   final int id;

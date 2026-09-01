@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from 'react'
 import { Box, Card, CardContent, CardHeader, Grid, Typography } from '@mui/material'
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ReminderProcessor } from './reminder.processor';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WxSubscribeService } from '../push/wx-subscribe.service';

@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-dialog v-model="show" :title="title" width="420" :close-on-click-modal="false">
     <div class="d-flex align-center ga-2">

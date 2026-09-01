@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 CLI 单测（node:test，零依赖）。
  * 运行：node --test scripts/keelbase-init.test.mjs

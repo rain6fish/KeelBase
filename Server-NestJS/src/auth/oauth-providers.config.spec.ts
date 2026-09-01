@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { OAuthProvidersConfigService } from './oauth-providers.config';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../common/cache/cache.service';

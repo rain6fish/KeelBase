@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';

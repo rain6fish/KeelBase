@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 事件状态统计工具 — count_events_by_status
  *

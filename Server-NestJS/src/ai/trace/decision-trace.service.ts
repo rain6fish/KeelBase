@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * P0-14 Agent Decision Trace：用户可见的 AI 执行轨迹。
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { SmsModule } from './sms.module';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export type AuditGranularity = 'all' | 'write' | 'off'
 
 export interface PolicyToolOverride {

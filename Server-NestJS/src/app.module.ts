@@ -1,4 +1,6 @@
-﻿import { Module, ValidationPipe } from '@nestjs/common';
+﻿// SPDX-License-Identifier: Apache-2.0
+
+import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { LogLevel } from 'typeorm';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { HeadlessController } from './headless.controller';
 import { AiService } from '../ai/ai.service';
 
