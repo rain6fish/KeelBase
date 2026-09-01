@@ -18,6 +18,7 @@ const en: ZhDict = {
   identityChain: 'Identity chain',
   businessAction: 'Business action',
   businessIntent: 'Intent',
+  authzBasis: 'Authorization basis (why allowed)',
   lifecycle: 'Lifecycle',
   lifecycleRevoked: 'Revoked',
   lifecycleDeclined: 'Declined',

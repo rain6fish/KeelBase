@@ -17,6 +17,7 @@ const zh = {
   identityChain: '身份链',
   businessAction: '业务动作',
   businessIntent: '业务意图',
+  authzBasis: '授权依据（为什么允许）',
   lifecycle: '生命周期',
   lifecycleRevoked: '已撤销',
   lifecycleDeclined: '已拒绝',
