@@ -157,6 +157,24 @@ async function resolveLocalRefs(spec, file) {
   return spec;
 }
 
+// 生成文件统一带 Apache-2.0 SPDX 许可头（输出是 Apache-2.0 模板的衍生作品，合法合规要求保留来源声明）。
+// 按扩展名选注释语法；.json 等无注释文件不加。
+const SPDX_HEADERS = {
+  ts: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  tsx: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  js: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  mjs: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  cjs: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  dart: '// SPDX-License-Identifier: Apache-2.0\n\n',
+  py: '# SPDX-License-Identifier: Apache-2.0\n\n',
+  sh: '# SPDX-License-Identifier: Apache-2.0\n\n',
+  vue: '<!-- SPDX-License-Identifier: Apache-2.0 -->\n',
+};
+
+function spdxHeader(rel) {
+  return SPDX_HEADERS[rel.split('.').pop()] || '';
+}
+
 async function writeGenerated(rel, content, force = false) {
   await mkdir(rel.substring(0, rel.lastIndexOf('/')), { recursive: true });
   // 幂等：目标文件已存在（如 AI 工具被旗舰/已有模块占用）默认跳过，避免覆盖已有实现；--force 才覆盖
@@ -169,7 +187,8 @@ async function writeGenerated(rel, content, force = false) {
       // 不存在 → 写入
     }
   }
-  await writeFile(rel, content, 'utf8');
+  const header = content.includes('SPDX-License-Identifier') ? '' : spdxHeader(rel);
+  await writeFile(rel, header + content, 'utf8');
 }
 
 async function brandReplace(brand, dryRun) {
