@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * §22.16 A-4 审计解释器（Audit Interpreter）：把技术审计记录翻译成业务语言摘要。
  * 纯函数、无 DI——demo 可用（聚合真实审计表数据，不依赖 LLM）。
@@ -61,6 +63,9 @@ export function summarizeAudit(row: AuditInterpretationRow, convRows: AuditInter
     sentence = `${username}${outcome === 'approve' ? '批准' : outcome === 'decline' ? '拒绝' : '确认超时'}了该操作`;
   } else if (row.action === 'content_blocked' || (row.action === 'tool_call' && row.isError && BLOCKED_RE.test(row.errorMessage ?? ''))) {
     sentence = `${username}的操作被安全策略阻断`;
+  } else if (row.action === 'flow_node') {
+    // A-7 审批链入审计：从 evidence 还原流程事件（发起/节点/审批通过/驳回/完成）
+    sentence = summarizeFlowNode(username, row);
   } else if (toolName === 'analyze_customer_risk' || toolName === 'analyze_project_risk') {
     const ev = parseEvidence(row.evidence);
     sentence = ev
@@ -105,6 +110,35 @@ export function aggregateConversation(convRows: AuditInterpretationRow[]): Audit
     blocked,
     errors,
   };
+}
+
+/** flow_node evidence 结构：{ event: start|node|resolve|completed; decision?: approve|reject; definitionName?; nodeName? } */
+interface FlowNodeEvidence {
+  event?: string;
+  decision?: string;
+  definitionName?: string | null;
+  nodeName?: string | null;
+}
+
+function parseFlowEvidence(raw?: string | null): FlowNodeEvidence | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as FlowNodeEvidence;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function summarizeFlowNode(username: string, row: AuditInterpretationRow): string {
+  const ev = parseFlowEvidence(row.evidence);
+  if (!ev) return `${username}执行流程节点，${row.isError ? '失败' : '完成'}`;
+  if (ev.event === 'start') return `${username}发起流程${ev.definitionName ? `「${ev.definitionName}」` : ''}`;
+  if (ev.event === 'completed') return `流程${ev.definitionName ? `「${ev.definitionName}」` : ''}已完成`;
+  if (ev.event === 'node') return `${username}进入流程节点${ev.nodeName ? `「${ev.nodeName}」` : ''}`;
+  if (ev.decision === 'approve') return `${username}审批通过${ev.nodeName ? `「${ev.nodeName}」` : ''}`;
+  if (ev.decision === 'reject') return `${username}驳回${ev.nodeName ? `「${ev.nodeName}」` : ''}`;
+  return `${username}执行流程操作，${row.isError ? '失败' : '完成'}`;
 }
 
 function parseEvidence(raw?: string | null): AuditEvidence | null {

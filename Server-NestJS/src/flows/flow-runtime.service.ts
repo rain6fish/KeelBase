@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import {
   Injectable,
   NotFoundException,
@@ -97,6 +99,8 @@ export class FlowRuntimeService {
       userId: String(initiatorId),
       action: 'flow_node',
       detail: `flow:${definitionId} start`,
+      businessEvent: 'FlowInstanceStarted',
+      evidence: JSON.stringify({ definitionId, definitionName: def.name, event: 'start' }),
     });
     await this.executeNode(inst, def.nodes[0], data);
     return inst;
@@ -116,6 +120,14 @@ export class FlowRuntimeService {
       userId: String(inst.initiatorId),
       action: 'flow_node',
       detail: `flow:${inst.definitionId} node:${node.id} (${node.type})`,
+      businessEvent: 'FlowNodeReached',
+      evidence: JSON.stringify({
+        definitionId: inst.definitionId,
+        nodeId: node.id,
+        nodeName: node.name ?? null,
+        nodeType: node.type,
+        event: 'node',
+      }),
     });
 
     try {
@@ -162,6 +174,8 @@ export class FlowRuntimeService {
         userId: String(inst.initiatorId),
         action: 'flow_node',
         detail: `flow:${inst.definitionId} completed`,
+        businessEvent: 'FlowInstanceCompleted',
+        evidence: JSON.stringify({ definitionId: inst.definitionId, event: 'completed' }),
       });
       await this._notifyResult(inst, true);
       return;
@@ -214,6 +228,18 @@ export class FlowRuntimeService {
       action: 'flow_node',
       detail: `flow:${inst.definitionId} task:${task.id} ${decision}`,
       isError: decision === 'reject',
+      businessEvent: decision === 'approve' ? 'FlowTaskApproved' : 'FlowTaskRejected',
+      evidence: JSON.stringify({
+        definitionId: inst.definitionId,
+        instanceId: inst.id,
+        taskId: task.id,
+        nodeId: task.nodeId,
+        nodeName: roleNode?.name ?? task.nodeId,
+        decision,
+        note: note ?? null,
+        approverId: userId,
+        event: 'resolve',
+      }),
     });
 
     if (decision === 'reject') {
@@ -227,6 +253,52 @@ export class FlowRuntimeService {
     const data = JSON.parse(inst.dataJson || '{}') as Record<string, unknown>;
     await this.advance(inst, node?.next, data);
     return inst;
+  }
+
+  /** A-7：本人发起的流程实例列表（含定义名 + 待审批任务数，前端「我的流程」导航入口）。 */
+  async getMyInstances(
+    userId: number,
+  ): Promise<
+    Array<{
+      id: number;
+      definitionId: string;
+      definitionName: string | null;
+      state: string;
+      initiatorId: number;
+      pendingTasks: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }>
+  > {
+    const insts = await this.instRepo.find({
+      where: { initiatorId: userId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    if (insts.length === 0) return [];
+    const defs = await this.defRepo.find({
+      where: { id: In([...new Set(insts.map((i) => i.definitionId))]) },
+    });
+    const defMap = new Map(defs.map((d) => [d.id, d.name]));
+    const pendingRows = await this.taskRepo
+      .createQueryBuilder('t')
+      .select('t.instanceId', 'instanceId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('t.status = :pending', { pending: 'pending' })
+      .andWhere('t.instanceId IN (:...ids)', { ids: insts.map((i) => i.id) })
+      .groupBy('t.instanceId')
+      .getRawMany();
+    const pendingMap = new Map(pendingRows.map((c) => [Number(c.instanceId), Number(c.cnt)]));
+    return insts.map((i) => ({
+      id: i.id,
+      definitionId: i.definitionId,
+      definitionName: defMap.get(i.definitionId) ?? null,
+      state: i.state,
+      initiatorId: i.initiatorId,
+      pendingTasks: pendingMap.get(i.id) ?? 0,
+      createdAt: i.createdAt,
+      updatedAt: i.updatedAt,
+    }));
   }
 
   /** 我的待办（pending 审批任务，附带节点名/流程名供 UI 展示）。 */
@@ -255,13 +327,54 @@ export class FlowRuntimeService {
   }
 
   /** 实例详情（本人或 admin）。 */
-  async getInstance(id: number, userId: number, ability: AppAbility): Promise<FlowInstance> {
+  async getInstance(
+    id: number,
+    userId: number,
+    ability: AppAbility,
+  ): Promise<
+    FlowInstance & {
+      initiatorName?: string | null;
+      definitionName?: string | null;
+      tasks?: Array<{
+        taskId: number;
+        nodeId: string;
+        nodeName: string;
+        assigneeId: number;
+        assigneeName: string | null;
+        status: string;
+        decisionNote: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>;
+    }
+  > {
     const inst = await this.instRepo.findOne({ where: { id } });
     if (!inst) throw new NotFoundException('流程实例不存在');
     if (inst.initiatorId !== userId && ability.cannot('manage', 'all')) {
       throw new ForbiddenException('无权查看该流程实例');
     }
-    return inst;
+    // A-7 审批链：实例全部 human_task 任务（发起人 → 每级审批人/结果/意见 → 终态），联用户表带用户名
+    const def = await this.getDefinition(inst.definitionId);
+    const tasks = await this.taskRepo.find({ where: { instanceId: id }, order: { createdAt: 'ASC' } });
+    const ids = [...new Set([inst.initiatorId, ...tasks.map((t) => t.assigneeId)])];
+    const users = await this.usersRepo.find({ where: { id: In(ids) } });
+    const nameMap = new Map(users.map((u) => [u.id, u.username]));
+    return {
+      ...inst,
+      initiatorName: nameMap.get(inst.initiatorId) ?? null,
+      definitionName: def?.name ?? null,
+      tasks: tasks.map((t) => ({
+        taskId: t.id,
+        nodeId: t.nodeId,
+        nodeName: def?.nodes.find((n) => n.id === t.nodeId)?.name ?? t.nodeId,
+        assigneeId: t.assigneeId,
+        assigneeName: nameMap.get(t.assigneeId) ?? null,
+        status: t.status,
+        decisionNote: t.decisionNote ?? null,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      })),
+    };
   }
 
   /** 回滚（v1 仅状态标记，衔接 HS-3 副作用撤销思路）。 */
