@@ -25,14 +25,17 @@
         <el-card
           class="h-100 shortcut-card"
           shadow="hover"
-          :on-click="() => openCard(card)"
+          @click="openCard(card)"
         >
           <div class="d-flex align-center ga-2">
             <AppIcon :icon="card.icon" size="22" color="var(--el-color-primary)" />
             <span class="text-h6">{{ card.title }}</span>
           </div>
           <p class="text-body-2 text-medium-emphasis my-2">{{ card.desc }}</p>
-          <el-tag size="small" type="primary" effect="light">{{ t('open') }}</el-tag>
+          <el-link type="primary" :underline="false" class="mt-2">
+            {{ t('open') }}
+            <AppIcon icon="mdi-arrow-right" class="ml-1" />
+          </el-link>
         </el-card>
       </el-col>
     </el-row>
@@ -126,6 +129,10 @@ const shortcutCards = computed(() => [
 </script>
 
 <style scoped>
+.shortcut-card {
+  cursor: pointer;
+}
+
 .version-badge {
   position: fixed;
   right: 16px;

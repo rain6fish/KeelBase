@@ -52,11 +52,14 @@ export class FlowRuntimeService {
   async getDefinition(id: string): Promise<FlowDef | null> {
     const def = await this.defRepo.findOne({ where: { id } });
     if (!def) return null;
+    // 兼容历史错误格式：nodes_json 曾写入 {nodes:[...]} 包装对象（demo-data seed）；正常为裸数组
+    const parsed = JSON.parse(def.nodesJson) as FlowNode[] | { nodes: FlowNode[] };
+    const nodes = Array.isArray(parsed) ? parsed : (parsed as { nodes: FlowNode[] }).nodes;
     return {
       id: def.id,
       name: def.name,
       version: def.version,
-      nodes: JSON.parse(def.nodesJson) as FlowNode[],
+      nodes,
       security: { audit: def.audit, confirmationRequired: def.confirmationRequired },
     };
   }

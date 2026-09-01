@@ -209,6 +209,41 @@ describe('NotificationsService', () => {
       // 队列启用时不同步推
       expect(mockPush.sendToDevice).not.toHaveBeenCalled();
     });
+
+    it('pushQueue.add 失败（redis 不可用）→ 降级同步推（不抛错）', async () => {
+      mockConfig.get.mockImplementation((key: string, def?: any) =>
+        key === 'QUEUE_ENABLED' ? true : def,
+      );
+      mockRepository.create.mockReturnValue(mockNotification);
+      mockRepository.save.mockResolvedValue(mockNotification);
+      mockPushTokenService.getTokensForUser.mockResolvedValue([{ token: 'reg-1' }]);
+      mockPushQueue.add.mockRejectedValue(new Error('redis down'));
+
+      await service.create({ userId: 1, title: 'Test' });
+
+      expect(mockPush.sendToDevice).toHaveBeenCalled();
+    });
+
+    it('pushQueue.add 挂起（redis 连不上）→ 3s 超时降级同步推', async () => {
+      jest.useFakeTimers();
+      try {
+        mockConfig.get.mockImplementation((key: string, def?: any) =>
+          key === 'QUEUE_ENABLED' ? true : def,
+        );
+        mockRepository.create.mockReturnValue(mockNotification);
+        mockRepository.save.mockResolvedValue(mockNotification);
+        mockPushTokenService.getTokensForUser.mockResolvedValue([{ token: 'reg-1' }]);
+        mockPushQueue.add.mockReturnValue(new Promise(() => {})); // 永不 resolve，模拟 redis 挂起
+
+        const p = service.create({ userId: 1, title: 'Test' });
+        await jest.advanceTimersByTimeAsync(3000);
+        await p;
+
+        expect(mockPush.sendToDevice).toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('findAll', () => {
