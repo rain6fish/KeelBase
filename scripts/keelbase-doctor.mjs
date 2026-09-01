@@ -101,7 +101,7 @@ export function parseEnv(text) {
   for (const raw of String(text ?? '').split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
-    const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line); // codeql[js/polynomial-redos] 锚定线性正则，本地 .env 行解析无 ReDoS
     if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, '').trim();
   }
   return out;

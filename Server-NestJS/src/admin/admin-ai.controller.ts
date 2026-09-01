@@ -63,7 +63,7 @@ export class AdminAiController {
       try {
         for await (const chunk of this.adminAiService.assistantChatStream(user.sub, dto)) {
           if (aborted) break;
-          response.write(`event: ${chunk.type}\n`);
+          response.write(`event: ${chunk.type}\n`); // codeql[js/reflected-xss] SSE 流式 JSON 序列化，客户端解析非 HTML 渲染
           response.write(`data: ${JSON.stringify(chunk)}\n\n`);
         }
       } catch {

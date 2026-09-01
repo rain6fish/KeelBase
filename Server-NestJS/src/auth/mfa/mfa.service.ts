@@ -75,7 +75,7 @@ export class MfaService {
   }
 
   private _base32Decode(str: string): Buffer {
-    const clean = str.toUpperCase().replace(/=+$/, '');
+    const clean = str.toUpperCase().replace(/=+$/, ''); // codeql[js/polynomial-redos] 锚定线性正则，base32 解码无 ReDoS
     let bits = 0;
     let value = 0;
     const bytes: number[] = [];
