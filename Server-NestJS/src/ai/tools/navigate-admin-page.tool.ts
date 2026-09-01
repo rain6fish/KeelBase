@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 管理台导航工具 — navigate_admin_page（System AI Assistant，L3 Navigate）
  *

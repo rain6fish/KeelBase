@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureDisabledGuard } from './feature-disabled.guard';

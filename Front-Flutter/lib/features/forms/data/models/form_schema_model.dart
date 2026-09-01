@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// PL-10 动态表单定义（从后端 GET /forms/:slug 解析）。
 class FormFieldModel {
   final String key;

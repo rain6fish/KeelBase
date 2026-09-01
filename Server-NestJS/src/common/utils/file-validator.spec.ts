@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import { validateFileMagicBytes, validateMagicBytes } from './file-validator';

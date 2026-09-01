@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 业务语言化：把技术性信息映射为业务人员可读的双语文案（D2 + 业务化改造）。
  *  原则：列表展示业务语言，技术信息（原始工具名/参数 JSON/英语错误）点击详情再展开。 */
 import { toolLabel } from './toolLabel'

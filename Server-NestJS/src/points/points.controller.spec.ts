@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PointsController } from './points.controller';
 import { PointsService } from './points.service';
 

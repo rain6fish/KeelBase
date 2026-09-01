@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useRef, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, CardHeader, Grid, Typography } from '@mui/material'
 import UploadIcon from '@mui/icons-material/Upload'

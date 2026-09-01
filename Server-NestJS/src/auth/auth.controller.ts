@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Controller, Post, Get, Delete, Body, Headers, Param, Query, Req, HttpCode, HttpStatus, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { Request } from 'express';
 import { ParseIntPipe } from '@nestjs/common';

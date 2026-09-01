@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { OpenAICompatibleProvider } from './openai-compatible.provider';
 import { LlmProviderConfig } from '../interfaces/provider-config.interface';
 import { GenerateParams, StreamChunk } from '../interfaces/llm-provider.interface';

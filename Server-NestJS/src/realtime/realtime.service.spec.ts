@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { WebSocket } from 'ws';
 import { RealtimeService } from './realtime.service';
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /** 动态配置（RG-2）：运营参数实时可改，无需重启。value 统一存字符串，按 type 解析。 */

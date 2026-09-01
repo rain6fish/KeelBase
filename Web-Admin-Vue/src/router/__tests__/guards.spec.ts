@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'

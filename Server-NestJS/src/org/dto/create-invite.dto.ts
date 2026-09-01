@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsIn, IsInt, Min, IsDateString } from 'class-validator';
 import { OrgMemberRole } from '../org-member-role.enum';

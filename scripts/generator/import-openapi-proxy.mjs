@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * B 路径 openapi-proxy 生成器（AI Bridge §4 完整 B）：OpenAPI operations → 代理工具配置。
  *

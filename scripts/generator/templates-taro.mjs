@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 Taro（Vue3）用户 CRUD 页模板（⑤-3）。
  * 参考迁移后的 Taro Vue3 黄金样例（todos/index.vue + pinia store + api-client service）。

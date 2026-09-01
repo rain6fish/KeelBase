@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * B 路径 ProxyTool 注册（AI Bridge §4）：从 Settings `ai_proxy_tools` 动态创建
  * ProxyTool 实例并注册到 ToolRegistry。配置变更后重启/重载即生效（fire-and-forget 于

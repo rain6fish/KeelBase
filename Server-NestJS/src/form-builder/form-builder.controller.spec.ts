@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { FormBuilderController } from './form-builder.controller';
 import { FormBuilderService } from './form-builder.service';
 

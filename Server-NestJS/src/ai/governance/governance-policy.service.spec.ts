@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { GovernancePolicyService } from './governance-policy.service';
 
 describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {

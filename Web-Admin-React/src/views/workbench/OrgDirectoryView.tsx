@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from 'react'
 import { Avatar, Box, Card, CardContent, CardHeader, Chip, Grid, List, Typography } from '@mui/material'
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined'

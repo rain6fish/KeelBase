@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SidecarRegistryService } from './sidecar-registry.service';
 
 describe('SidecarRegistryService（B2 治理策略实时推送）', () => {

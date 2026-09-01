@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** PL-14 建 webhook_subscriptions 表（sqlite + postgres 双驱动）。 */

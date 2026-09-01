@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';

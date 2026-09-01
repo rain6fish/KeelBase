@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  /** Application-wide constants aligned with backend */
  export const APP_NAME = 'App'
  // DEP-5：H5 走同源相对路径 /api/v1（Nginx/单容器反代天然可用）；小程序需绝对地址用 TARO_APP_API_BASE 覆盖

@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <scroll-view class="legal-page" scroll-y>
     <view class="legal-page__content">

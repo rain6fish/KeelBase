@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** ORG-3 二期组织级数据隔离：todos 加 org_id 列（sqlite + postgres 双驱动）。 */

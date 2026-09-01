@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// Server response envelope wrapper.
 class ApiResponse<T> {
   final int code;

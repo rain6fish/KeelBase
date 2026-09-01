@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 class SupplierModel {
   final int id;
   final String name;

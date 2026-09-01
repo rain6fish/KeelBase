@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 知识库文档摄入服务 — 切块 + 向量化 + 持久化 chunks
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 /** WEB-FRONT-4 MFA：验证绑定 code 并启用（secret 来自 /mfa/setup）。 */

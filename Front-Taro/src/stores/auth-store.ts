@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import Taro from '@tarojs/taro'
 import { authService } from '../services/auth-service'

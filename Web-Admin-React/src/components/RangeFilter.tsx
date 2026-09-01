@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { RANGE_OPTIONS, sinceForOption, type RangeOption } from '@/utils/range'

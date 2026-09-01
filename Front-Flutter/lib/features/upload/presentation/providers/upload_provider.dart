@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 import '../../data/repositories/upload_repository.dart';
 import '../../data/models/upload_result_model.dart';

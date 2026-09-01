@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 统一命令入口（Windows/Linux/Mac 通用，不依赖 make）
 #

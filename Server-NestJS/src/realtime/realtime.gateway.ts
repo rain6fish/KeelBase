@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';

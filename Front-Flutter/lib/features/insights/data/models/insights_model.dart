@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// 数据洞察（UX-5）：复用 POST /ai/insights 的聚合结果渲染图表。
 class InsightsModel {
   final int totalEvents;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * P1-7 插件 CLI 单测（node:test，临时目录验证接线）。
  * 运行：node --test scripts/keelbase-plugin.test.mjs

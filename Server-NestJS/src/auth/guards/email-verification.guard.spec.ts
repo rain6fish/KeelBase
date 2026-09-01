@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { EmailVerificationGuard } from './email-verification.guard';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { SKIP_EMAIL_VERIFICATION_KEY } from './skip-email-verification.decorator';

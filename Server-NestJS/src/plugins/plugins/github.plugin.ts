@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 官方首批插件：GitHub 集成（P1-7）。
  *

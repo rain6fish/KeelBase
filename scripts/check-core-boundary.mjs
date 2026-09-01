@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 架构边界门禁（docs/architecture-boundary.md）：
  * 1. Core（Server-NestJS）package.json 不得引入 UI 框架依赖

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 模块清单与依赖图谱（MOD-1）。
  *

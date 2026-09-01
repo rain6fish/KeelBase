@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 

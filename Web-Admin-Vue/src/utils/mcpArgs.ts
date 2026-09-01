@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 从 JSON Schema 生成参数模板（空值占位），供 MCP 调用对话框预填。 */
 export function buildArgumentsTemplate(schema?: Record<string, unknown>): string {
   const props = (schema?.properties ?? {}) as Record<

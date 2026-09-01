@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 写入操作人工确认存储 — ConfirmationStore
  *

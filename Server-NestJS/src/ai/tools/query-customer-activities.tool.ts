@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询客户跟进记录工具 — query_customer_activities（只读）
  *

@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-button :title="t('toggleLang')" @click="locale.toggle()">
     {{ locale.locale === 'zh' ? 'EN' : '中文' }}

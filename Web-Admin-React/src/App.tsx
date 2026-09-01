@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import { RouterProvider } from 'react-router-dom'
 import { useUiStore } from '@/stores/ui'

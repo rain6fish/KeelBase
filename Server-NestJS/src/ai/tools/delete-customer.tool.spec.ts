@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * delete_customer 工具（R5 阻断演示载体）单元测试
  *

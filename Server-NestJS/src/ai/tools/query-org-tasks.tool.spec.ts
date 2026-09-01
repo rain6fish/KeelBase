@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryOrgTasksTool } from './query-org-tasks.tool';
 
 describe('QueryOrgTasksTool (ORG-5)', () => {

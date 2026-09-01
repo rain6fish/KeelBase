@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Chip, type ChipProps } from '@mui/material'
 
 interface StatusChipProps {

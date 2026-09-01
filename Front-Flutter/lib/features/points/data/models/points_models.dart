@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // GROWTH-3：积分 / 签到 / 排行榜 / 成就 数据模型（消费 /points/*）。
 
 class PointsOverview {

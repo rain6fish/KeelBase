@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * OpenTelemetry 初始化入口（副作用模块）。
  *

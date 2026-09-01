@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * EASY-2 生成器：校验 + 命名变换 + 字段解析。
  * 零依赖，供 keelbase-init.mjs 与单测使用。

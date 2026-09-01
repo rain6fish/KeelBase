@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 import instance from './client'
 import type { Paginated } from '@/types/api'

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CountEventsByStatusTool } from './count-events-by-status.tool';
 
 describe('CountEventsByStatusTool', () => {

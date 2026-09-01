@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PlanExecuteAgent } from './plan-execute-agent.service';
 
 const mockProvider = {

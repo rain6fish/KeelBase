@@ -1,0 +1,12 @@
+# ScanCode 忽略清单 — 防止自动化许可证检测误判
+#
+# 这两份文件被排除在自动化许可证检测之外：
+# - THIRD_PARTY_NOTICES.md：按用途就是列出*第三方*依赖的许可证。项目自身许可是 Apache-2.0（见 LICENSE），
+#   其中的 gpl-1.0-plus / lgpl-3.0 / mpl-2.0 等表达式描述的是依赖组件，不是项目自身许可。
+# - CONTRIBUTING.md：包含 Apache-2.0 法律样板（Patent Grant / Contributor Warranty 等），
+#   会被扫描器误分类为 "unknown" 许可引用。
+#
+# 项目自身的许可证（Apache-2.0，OSI 批准）已由 LICENSE / README / package.json 明确声明。
+
+THIRD_PARTY_NOTICES.md
+CONTRIBUTING.md

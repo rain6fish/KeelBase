@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SetMetadata } from '@nestjs/common';
 
 export const SKIP_AUDIT_KEY = 'skip_operation_audit';

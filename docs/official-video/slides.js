@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /* KeelBase 官方 Demo 分镜渲染（外置脚本：作为 'self' 资源放行后端 CSP script-src 'self'） */
 const SLIDES = {
   1: { kicker: 'KeelBase', html: 'AI 已经不只是聊天。', cls: 'sub' },

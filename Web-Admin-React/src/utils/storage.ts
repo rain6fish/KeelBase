@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { STORAGE_KEYS } from './constants'
 import type { TokenPair } from '@/types/api'
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import '../../../../core/api/api_client.dart';
 
 /// Repository for splash-screen initialization logic.

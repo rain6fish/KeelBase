@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Repository, In, Not } from 'typeorm';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { User } from '../../common/entities/user.entity';

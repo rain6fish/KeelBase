@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 治理 sidecar 启动入口：
  *   npm run start:sidecar

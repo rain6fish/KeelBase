@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  import { api } from './api-client'
  import type { EventItem, CreateEventRequest, UpdateEventRequest } from '../types/event'
  

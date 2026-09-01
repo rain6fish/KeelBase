@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import {
   Controller,

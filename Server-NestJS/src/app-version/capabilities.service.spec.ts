@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CapabilitiesService } from './capabilities.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 

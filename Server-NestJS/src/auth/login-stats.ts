@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 登录页访问统计（ECS demo 需求）：记录 IP / 操作系统 / 浏览器 / 时间，追加写入 data/login-stats.log。
  * 文件在 /app/server/data（容器 volume 持久化），定时初始化（reset 清库）与容器重建（升级）都不触碰该文件。

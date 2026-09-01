@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/cupertino.dart';
 
 /// A clean form section without the iOS grouped gray background.

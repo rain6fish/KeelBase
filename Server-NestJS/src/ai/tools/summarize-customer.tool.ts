@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 客户 360 全景摘要工具 — summarize_customer_360（只读，Customer 360 P0 §10）
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryOrgAvailabilityTool } from './query-org-availability.tool';
 
 describe('QueryOrgAvailabilityTool (ORG-5)', () => {

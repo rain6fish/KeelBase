@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 创建跟进任务工具 — create_followup_task（写操作）
  *

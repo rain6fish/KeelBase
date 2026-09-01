@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="d-flex align-center justify-end ga-2 py-2">
     <span class="text-caption text-medium-emphasis">{{ t('total', { n: total }) }}</span>

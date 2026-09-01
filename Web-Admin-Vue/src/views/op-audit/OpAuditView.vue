@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div>
     <PageHeader :title="t('opAuditTitle')" :subtitle="t('total', { n: total })">
