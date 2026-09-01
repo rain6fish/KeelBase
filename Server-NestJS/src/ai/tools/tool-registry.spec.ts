@@ -212,6 +212,28 @@ describe('ToolRegistry', () => {
     });
   });
 
+  describe('unregister()（热更新）', () => {
+    it('反注册已存在工具 → 返回 true 且不再可见', () => {
+      registry.register(mockTool);
+      expect(registry.unregister('query_events')).toBe(true);
+      expect(() => registry.getTool('query_events')).toThrow(
+        'Tool "query_events" not found',
+      );
+      expect(registry.getAllTools()).toHaveLength(0);
+    });
+
+    it('反注册不存在的工具 → 返回 false', () => {
+      expect(registry.unregister('nonexistent')).toBe(false);
+    });
+
+    it('不影响其他工具', () => {
+      registry.register(mockTool);
+      registry.register(anotherTool);
+      registry.unregister('query_events');
+      expect(registry.getTool('get_user_stats')).toBe(anotherTool);
+    });
+  });
+
   describe('getAllTools()', () => {
     it('should return empty array when no tools registered', () => {
       expect(registry.getAllTools()).toEqual([]);

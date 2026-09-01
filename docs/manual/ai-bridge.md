@@ -84,12 +84,12 @@ OpenAPI（含 operations + securitySchemes）
 **✅ openapi-proxy 生成器（2026-08-23）**：`keelbase-init --import-openapi-proxy <spec> --base-url <url> --audience <id> [--out proxy.json]`——从 OpenAPI `paths` operations **自动生成** `ai_proxy_tools` 配置（替代手写 JSON）：
 - 每条 operation → 一个工具：`name`（operationId 优先，camelCase → snake_case；冲突去重）+ `method` + `path`（OpenAPI 路径模板 `{param}` 与 ProxyTool 占位同构直传）+ `parameters`（path 必填 + query + requestBody JSON schema 属性，required 透传）+ `riskLevel`（读 GET=R1 / 写 POST·PUT·PATCH·DELETE=R3；`x-keelbase-risk-level` 扩展可覆盖，如删除 R4）
 - 支持 YAML/JSON + 本地相对 `$ref` 多文件合并（复用 §3 加载器）；flow-map 字符串 schema 防御性解析
-- 产物可直接 `PUT /settings/ai_proxy_tools`（或管理台「设置」粘贴）→ ProxyToolRegistryService 重启后注册为 AI 工具
+- 产物可直接 `PUT /settings/ai_proxy_tools`（或管理台「设置」粘贴）→ ProxyToolRegistryService 注册为 AI 工具（写配置即热更新，无需重启）
 - 覆盖：CLI 端到端 + `parseOpenApiProxy` 单测（类型映射 / riskLevel 覆盖 / body required / 名称去重）
 
 **✅ 确定性整链 e2e（2026-08-23）**：`test/proxy-bridge.e2e-spec.ts` 扩至 4 用例——新增「生成器产物 → Settings → 运行时注册 → 读自动/写确认 + 委托身份可调用」（`ProxyToolRegistryService.loadAndRegister` 读真实 Settings + mock 目标收到 GET + 委托 JWT，CI 可跑）。
 
-**✅ AI 对话端到端脚本（2026-08-23，`scripts/verify-proxy-bridge.mjs`）**：真实 LLM 对话驱动——读（R1 自动，LLM 调 `proxy_list_contract` → mock 目标收到 + 委托身份）/ 写（R3 确认门控 → `confirmation_request` → approve → 目标收到 POST + body）+ 决策轨迹审计。前置：后端已起 + `ai_proxy_tools` 已配置（重启后端使生效）+ DeepSeek key；报告落 `docs/benchmark/proxy-bridge-<ts>.md`。
+**✅ AI 对话端到端脚本（2026-08-23，`scripts/verify-proxy-bridge.mjs`）**：真实 LLM 对话驱动——读（R1 自动，LLM 调 `proxy_list_contract` → mock 目标收到 + 委托身份）/ 写（R3 确认门控 → `confirmation_request` → approve → 目标收到 POST + body）+ 决策轨迹审计。前置：后端已起 + `ai_proxy_tools` 已配置（写配置即热更新生效，无需重启）+ DeepSeek key；报告落 `docs/benchmark/proxy-bridge-<ts>.md`。
 
 **✅ 写副作用登记 + 外部撤销语义（2026-08-23）**：ProxyTool 写经确认后执行 → `AiService._executeWriteTool` 登记 `proxy_call` 副作用（`/ai/tool-effects` 可见，审计完整）；撤销外部副作用返回 `{ revoked:false, external:true, message:'B 路径外部副作用撤销需 Java 端补偿' }`（诚实语义，无本地实体可软删）。e2e 5/5。
 
@@ -153,7 +153,7 @@ node scripts/keelbase-init.mjs --spec specs/contract.json --label 合同
 
 # B 路径（代理已有系统 REST）：OpenAPI operations → ai_proxy_tools 配置
 node scripts/keelbase-init.mjs --import-openapi-proxy ./legacy-openapi.yaml --base-url http://legacy-erp:8080/api --audience legacy-erp --out proxy-config.json
-# 产物粘贴到管理台「设置」/ PUT /settings/ai_proxy_tools → 重启后 ProxyTool 生效
+# 产物粘贴到管理台「设置」/ PUT /settings/ai_proxy_tools → 写配置即热更新生效（无需重启）
 ```
 
 ### 第 3 步：身份桥接（B 路径前提；A 路径可选）

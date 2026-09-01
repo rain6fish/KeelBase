@@ -71,4 +71,22 @@ describe('SettingsService', () => {
     repo.findOne.mockResolvedValue(null);
     expect(await service.getWithDefault('k', 5)).toBe(5);
   });
+
+  it('onChange：每次 set 成功都触发监听器（key 过滤由调用方负责，如热更新只认 ai_proxy_tools）', async () => {
+    const listener = jest.fn();
+    service.onChange(listener);
+    await service.set('ai_proxy_tools', '{"tools":[]}');
+    await service.set('other_key', 'x');
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenNthCalledWith(1, 'ai_proxy_tools');
+    expect(listener).toHaveBeenNthCalledWith(2, 'other_key');
+  });
+
+  it('onChange：监听器抛异常不阻断 set（fire-and-forget）', async () => {
+    service.onChange(() => {
+      throw new Error('reload 失败');
+    });
+    await expect(service.set('maintenance_mode', true)).resolves.toBeDefined();
+    expect(await service.isMaintenanceMode()).toBe(true);
+  });
 });
