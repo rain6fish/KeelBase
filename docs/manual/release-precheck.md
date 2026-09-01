@@ -23,9 +23,9 @@
 
 | 套件 | 命令 | 门槛 |
 |------|------|------|
-| 后端单测 + 覆盖率 | `cd Server-NestJS && npm run test:cov` | statements≥65 / branches≥55 / functions≥60 / lines≥65 + 安全模块分档门控（statements≥60） |
-| 后端 e2e | `npm run test:e2e` | 14 个 suite 全过 |
-| 前端 vitest（Web-Admin-Vue） | `cd Web-Admin-Vue && npm test` | 行覆盖 ≥30% |
+| 后端单测 + 覆盖率 | `cd Server-NestJS && npm run test:cov` | statements≥85 / branches≥70 / functions≥80 / lines≥85 + 安全模块分档门控（statements≥85） |
+| 后端 e2e | `npm run test:e2e` | suite 全过 |
+| 前端 vitest（Web-Admin-Vue） | `cd Web-Admin-Vue && npm test` | statements≥32 / branches≥75 / functions≥54 / lines≥32 |
 | Flutter 测试 | `cd Front-Flutter && flutter test --coverage` | 行覆盖 ≥45% |
 | 生成器/CLI | `node --test scripts/keelbase-init.test.mjs` + `node --test scripts/keelbase-plugin.test.mjs` | 全过 |
 | Gate 1 Golden Application | `./scripts/verify-golden-application.sh` | 9 项 PASS（AI CRM 一次跑通闭环 + Build + Provenance）|
