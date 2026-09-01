@@ -21,6 +21,8 @@ The `operation_audit_logs` table:
 | path | varchar(255) | 请求路径（去 query） / Request path (query stripped) |
 | targetId | varchar(64) | 从路径参数提取（如 /events/123 → 123） / Extracted from path params (e.g. /events/123 → 123) |
 | requestBody | text | 请求体 JSON（截断 2000 字符） / Request body JSON (truncated to 2000 chars) |
+| changes | text | A-1 字段级变更留痕（[{field,before,after}] JSON，截断 4000；敏感字段打码） / A-1 field-level change trail ([{field,before,after}] JSON, truncated to 4000; sensitive fields redacted) |
+| businessEvent | varchar(128) | A-1 业务事件归一化（CustomerUpdated 等） / A-1 normalized business event (e.g. CustomerUpdated) |
 | ip | varchar(64) | 来源 IP / Source IP |
 | userAgent | varchar(255) | UA（截断 255） / UA (truncated to 255) |
 | statusCode | int | 响应状态码 / Response status code |
@@ -39,6 +41,7 @@ Index: `userId + createdAt`.
 | @SkipAudit() | 排除端点：`/auth/refresh`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/verify-email`、`/auth/resend-verification`、notifications 的 PATCH/DELETE（幂等读操作）、AI chat/stream/insights（已被 AI 审计覆盖） / Excluded endpoints: `/auth/refresh`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`, `/auth/resend-verification`, notifications PATCH/DELETE (idempotent read operations), AI chat/stream/insights (already covered by AI audit) |
 | 失败静默 / Silent failure | 审计落库失败不影响业务请求（service 内部 try/catch + 拦截器 `.catch()` 双重兜底） / Audit write failure does not affect the business request (double fallback: try/catch inside the service + `.catch()` in the interceptor) |
 | 异步 / Async | `tap()` fire-and-forget，不阻塞响应 / `tap()` fire-and-forget; does not block the response |
+| A-1 字段 diff | PATCH/PUT 对可解析资源执行前查 before 快照，落 `changes`（敏感字段打码；无快照退化记录 after 值）；`businessEvent` 统一业务语言 / A-1 field diff: for PATCH/PUT on resolvable resources, query a before snapshot before execution and write `changes` (sensitive fields redacted; without a snapshot falls back to recording after values); `businessEvent` normalizes the business language |
 
 ## 4. API 规格（admin-only）/ 4. API Specification (admin-only)
 

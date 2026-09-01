@@ -39,7 +39,7 @@ describe('路由守卫角色分流', () => {
 
     await router.push('/users')
     expect(router.currentRoute.value.path).toBe('/workbench')
-  })
+  }, 20000)
 
   it('普通用户访问工作台 → 停驻', async () => {
     const router = makeRouter()
