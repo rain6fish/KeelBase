@@ -30,6 +30,8 @@ jobs:
 
   # 密钥泄漏扫描（gitleaks）：防真实密钥/令牌/私钥入库。
   # demo 凭据（README/docs 中故意公开的演示账号）在 .gitleaks.toml 白名单内，属预期。
+  # 用 gitleaks/gitleaks-action@v3（Node 24 运行时 + 预编译二进制）替代 v8.x action——
+  # 旧 action 每次从源码 Docker 构建（git describe --tags 无 tag 时报 128），GitHub 换 runner 后持续失败。
   security-scan:
     runs-on: ubuntu-latest
     steps:
@@ -37,9 +39,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: gitleaks
-        uses: gitleaks/gitleaks@v8.18.4
-        with:
-          args: detect --source . --no-banner --config .gitleaks.toml
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
   test:
     runs-on: ubuntu-latest
