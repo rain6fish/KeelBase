@@ -785,17 +785,17 @@ export async function seedDemoData(
     const defs = await flowDefRepo.save([
       {
         id: 'leave-approval', name: '请假审批流程', version: '1.0',
-        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }] }),
+        nodesJson: JSON.stringify([{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }]),
         audit: true, confirmationRequired: true,
       },
       {
         id: 'crm-followup', name: 'CRM 跟进流程', version: '1.0',
-        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'task', type: 'ai_task' }, { id: 'end', type: 'end' }] }),
+        nodesJson: JSON.stringify([{ id: 'start', type: 'start' }, { id: 'task', type: 'ai_task' }, { id: 'end', type: 'end' }]),
         audit: true, confirmationRequired: false,
       },
       {
         id: 'expense-approval', name: 'Expense Approval Flow', version: '1.0',
-        nodesJson: JSON.stringify({ nodes: [{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }] }),
+        nodesJson: JSON.stringify([{ id: 'start', type: 'start' }, { id: 'approve', type: 'human_task' }, { id: 'end', type: 'end' }]),
         audit: true, confirmationRequired: true,
       },
     ]);

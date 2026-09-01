@@ -307,6 +307,21 @@ describe('FlowRuntimeService', () => {
     });
   });
 
+  it('getInstance：兼容历史错误 nodes_json 格式（{nodes:[...]} 包装对象，demo-data seed bug）', async () => {
+    // ECS 上 demo-data 曾把 nodesJson 写成 JSON.stringify({nodes:[...]})；getDefinition 需兼容裸数组与包装对象
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: def.id, state: 'running', initiatorId: 5, dataJson: '{}' });
+    mockTaskRepo.find.mockResolvedValue([
+      { id: 10, instanceId: 1, nodeId: 'b', assigneeId: 7, status: 'pending', decisionNote: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    mockUsersRepo.find.mockResolvedValue([{ id: 5, username: 'alice' }, { id: 7, username: 'bob' }]);
+    mockDefRepo.findOne.mockResolvedValue({
+      id: def.id, name: def.name, version: def.version,
+      nodesJson: JSON.stringify({ nodes: def.nodes }), audit: true, confirmationRequired: true,
+    });
+    const inst = await service.getInstance(1, 5, { cannot: jest.fn().mockReturnValue(false) } as any);
+    expect(inst.tasks?.[0].nodeName).toBe('经理审批');
+  });
+
   it('resolveTask：A-7 审批入审计带 businessEvent/evidence', async () => {
     mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'b', assigneeId: 5, status: 'pending' });
     mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: def.id, state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'b' });
