@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-card shadow="never" class="stat-card">
     <div class="d-flex align-center ga-3">

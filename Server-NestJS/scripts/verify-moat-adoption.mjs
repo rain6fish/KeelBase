@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * MOAT-1「30 分钟接入验证」：零代码接入治理的自包含验收（护城河 2.0 嵌入广度）。
  *

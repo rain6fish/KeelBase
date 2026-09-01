@@ -1,5 +1,12 @@
 # Third-Party Notices / 第三方声明
 
+SPDX-License-Identifier: Apache-2.0
+
+> **This file is a third-party attribution notice, not the project's own license.** License expressions
+> below describe *dependencies*, not KeelBase. The project's own license is Apache-2.0 — see [LICENSE](LICENSE).
+>
+> **本文件为第三方署名声明，非本项目自身许可。** 下文许可证表达式描述的是*依赖组件*，而非 KeelBase 本身。项目自身许可为 Apache-2.0，见 [LICENSE](LICENSE)。
+
 KeelBase is licensed under the Apache License 2.0 (see [LICENSE](LICENSE)). This notice lists third-party
 components distributed with or referenced by KeelBase, to satisfy license attribution obligations.
 

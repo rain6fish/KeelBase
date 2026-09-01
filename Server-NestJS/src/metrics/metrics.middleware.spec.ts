@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { EventEmitter } from 'events';
 import client from 'prom-client';
 import { MetricsMiddleware } from './metrics.middleware';

@@ -1,0 +1,36 @@
+# CodeQL 静态安全分析（GitHub 内置，公开仓库免费）
+# 结果进 Security → Code scanning 页；不 gate PR（仅在 push 到默认分支 + 每周定时触发）。
+# JS/TS/Python 为解释型语言，无需 build step。
+
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '23 4 * * 1'  # 每周一 04:23 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript', 'python']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

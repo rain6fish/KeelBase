@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # Agent Security Eval 安全回归（W4 对抗性证明）：seed 攻击用例 → 跑评测批 → 断言通过率门槛。
 # 覆盖：越权 / Prompt Injection / Confirmation Bypass / Revoke Bypass / Cross-org / PII / 写拒绝。

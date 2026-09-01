@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from 'react'
 import { Box, IconButton } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'

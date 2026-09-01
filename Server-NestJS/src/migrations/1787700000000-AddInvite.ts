@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** G-2 邀请奖励：users 加 invite_code / invited_by 列（sqlite + postgres 双驱动）。 */

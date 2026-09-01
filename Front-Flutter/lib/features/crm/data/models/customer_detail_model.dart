@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'customer_model.dart';
 import 'crm_order_model.dart';
 import 'crm_activity_model.dart';

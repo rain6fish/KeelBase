@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { Public } from '../auth/guards/public.decorator';
 import { GovernanceApiGuard } from './governance-api.guard';

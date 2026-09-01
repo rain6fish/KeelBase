@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 一键体验脚本（傻瓜化）
 #

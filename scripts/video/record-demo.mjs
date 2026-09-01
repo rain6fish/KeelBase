@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase 自动演示录制脚本
  *

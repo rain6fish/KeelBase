@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable } from '@nestjs/common';
 import { AbilityBuilder, createMongoAbility, MongoAbility } from '@casl/ability';
 import { UserRole } from '../entities/user.entity';

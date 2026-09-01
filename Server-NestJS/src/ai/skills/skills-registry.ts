@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Skills 注册表 — 命名任务模板
  *

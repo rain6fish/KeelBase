@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * A2 审计证据包离线机器验证（护城河 2.3）：审计机构/第三方不装 KeelBase 即可独立验证证据包。
  *

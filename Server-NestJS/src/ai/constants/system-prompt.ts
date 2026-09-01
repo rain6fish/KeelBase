@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * AI 助手 System Prompt
  *

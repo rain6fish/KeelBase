@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryUserStatsTool } from './query-user-stats.tool';
 
 describe('QueryUserStatsTool', () => {

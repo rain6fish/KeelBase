@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationsController } from './notifications.controller';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Entity, PrimaryColumn, Column, CreateDateColumn } from 'typeorm';
 
 /** 流程定义快照（nodes 存 JSON 文本，跨 sqlite/postgres）。 */

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 根据录制时的镜头时间轴（shot-log.json）重排官方分镜字幕，并可选烧录进 MP4。
  */

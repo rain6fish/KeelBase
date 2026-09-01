@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 创建项目任务工具 — create_project_task（写操作）
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 查询客户联系人工具 — query_customer_contacts（只读，Customer 360 P0 §10）
  *

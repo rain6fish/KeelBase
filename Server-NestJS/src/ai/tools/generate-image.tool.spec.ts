@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { GenerateImageTool } from './generate-image.tool';
 
 function makeFactory(overrides: Record<string, unknown> = {}) {

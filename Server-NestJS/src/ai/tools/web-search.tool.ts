@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 联网搜索工具 — web_search（AI-14）
  *

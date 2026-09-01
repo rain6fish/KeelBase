@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * AR-2 Framework 接入验证（roadmap §22.2，MCP 即 Adapter）：
  * 模拟一个 Agent Framework 的 MCP client（HTTP JSON-RPC）连接 KeelBase MCP 出口，

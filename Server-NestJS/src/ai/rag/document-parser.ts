@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 文档解析 — PDF/DOCX 文本抽取（无 DI，纯函数）
  *

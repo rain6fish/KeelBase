@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from './cache.module';

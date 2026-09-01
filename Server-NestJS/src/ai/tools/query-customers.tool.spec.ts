@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryCustomersTool } from './query-customers.tool';
 
 describe('QueryCustomersTool', () => {

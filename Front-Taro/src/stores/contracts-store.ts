@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineStore } from 'pinia'
 import { contractsService } from '../services/contracts-service'
 import { translate } from '../i18n/translate'

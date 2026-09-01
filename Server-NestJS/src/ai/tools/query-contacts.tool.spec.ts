@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryCustomerContactsTool } from './query-contacts.tool';
 
 describe('QueryCustomerContactsTool', () => {

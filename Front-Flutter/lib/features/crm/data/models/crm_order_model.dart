@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /// AI CRM：订单模型
 class CrmOrderModel {
   final int id;

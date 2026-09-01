@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase 完整 demo 统一视频编排：37 个分镜集成到一个视频。
  *

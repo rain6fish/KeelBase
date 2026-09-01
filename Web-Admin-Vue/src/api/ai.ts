@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 
 /** 普通用户 AI 对话（本人数据作用域，非流式） */

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // 必须第一个 import：OpenTelemetry 需要在 http/express 模块加载前 patch
 import './tracing-init';
 import { NestFactory } from '@nestjs/core';

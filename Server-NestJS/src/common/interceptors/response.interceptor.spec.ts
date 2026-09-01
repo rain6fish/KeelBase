@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { lastValueFrom, of } from 'rxjs';
 import { Reflector } from '@nestjs/core';
 import { ResponseInterceptor } from './response.interceptor';

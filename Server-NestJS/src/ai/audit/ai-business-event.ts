@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * §22.16 A-1 业务事件归一化（AI 侧）：AI 工具调用 → 业务事件名（CustomerRiskAssessed / FollowupTaskCreated 等）。
  * 目的：AI / Java / REST / MCP / DB 底层日志不同，审计人员看到的都是统一业务语言。

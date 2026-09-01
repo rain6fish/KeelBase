@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MemoriesService } from './memory.service';
 
 describe('MemoriesService', () => {

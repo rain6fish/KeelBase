@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
  /** Date formatting helpers */
  
  export function formatDate(dateStr: string | Date): string {

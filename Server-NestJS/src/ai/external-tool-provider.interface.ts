@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * HS-10 Agent 对话集成：外部工具提供者接口。
  * AiService 不直接依赖 McpGatewayService（避免 AiModule↔McpModule 循环依赖），

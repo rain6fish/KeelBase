@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test } from '@nestjs/testing';
 import { getEntityManagerToken } from '@nestjs/typeorm';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';

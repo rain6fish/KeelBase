@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <el-select :model-value="modelValue" style="max-width: 160px" @update:model-value="onChange">
     <el-option v-for="o in rangeOptions" :key="o.key" :label="o.label" :value="o.key" />

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Controller, Get, Post, Delete, Param, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsNotEmpty, IsObject, IsString } from 'class-validator';

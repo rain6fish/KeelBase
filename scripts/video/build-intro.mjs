@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 把 docs/intro/keelbase-project-intro.md 渲染成视频开头展示页 HTML。
  * 输出：docs/intro/keelbase-project-intro.html

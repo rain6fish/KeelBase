@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase 离线/内网部署脚本（POV-3）
 #

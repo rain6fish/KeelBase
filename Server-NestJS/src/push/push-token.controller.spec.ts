@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { PushTokenController } from './push-token.controller';
 import { PushTokenService } from './push-token.service';
 

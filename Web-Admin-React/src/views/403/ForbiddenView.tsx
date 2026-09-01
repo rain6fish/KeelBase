@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Box, Button, Card, Typography } from '@mui/material'
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined'
 import { useNavigate } from 'react-router-dom'

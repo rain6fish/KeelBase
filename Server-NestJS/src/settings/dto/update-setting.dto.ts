@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IsString, IsOptional, IsIn, MaxLength } from 'class-validator';
 
 export class UpdateSettingDto {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { TemplatesController } from './templates.controller';
 import { TemplatesService } from './templates.service';
 import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';

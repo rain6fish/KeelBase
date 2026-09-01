@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # KeelBase Business-safe Agent Benchmark（W2，2026-08-19）— 确定性 Trust 部分
 #

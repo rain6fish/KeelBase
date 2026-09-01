@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './api-client'
 import { translate } from '../i18n/translate'
 

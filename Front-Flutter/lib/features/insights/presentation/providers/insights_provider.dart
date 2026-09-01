@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/foundation.dart';
 import '../../data/models/insights_model.dart';
 import '../../data/repositories/insights_repository.dart';

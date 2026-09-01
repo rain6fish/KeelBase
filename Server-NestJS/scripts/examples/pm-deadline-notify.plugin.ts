@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 示例第三方插件 pm-deadline-notify（业务增强：项目截止预警）。
  *

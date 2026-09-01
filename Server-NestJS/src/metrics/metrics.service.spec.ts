@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import client from 'prom-client';
 import { MetricsService } from './metrics.service';
 

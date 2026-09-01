@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // 本地 mock Embeddings 服务（AI-5 实测用）
 // 返回基于输入文本哈希的确定性 1536 维向量；相似文本 → 相似向量（cosine 距离小）。
 // 用法: node scripts/mock-embeddings.mjs   （监听 9999，POST /v1/embeddings）

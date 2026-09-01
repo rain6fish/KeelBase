@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * AI Bridge B 路径（§4 完整 B）：AI 对话端到端验收（确认 → 执行 → 审计 → 委托身份注入目标）。
  *

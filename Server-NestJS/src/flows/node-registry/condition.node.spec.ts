@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { evalCondition } from './condition.node';
 
 describe('evalCondition（FLOW-2 条件节点）', () => {

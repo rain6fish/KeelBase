@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 销售管道分析工具 — analyze_sales_pipeline（只读，AI Sales Agent P0 §10）
  *

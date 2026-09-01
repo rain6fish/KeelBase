@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <view class="profile-page">
     <!-- User info card -->

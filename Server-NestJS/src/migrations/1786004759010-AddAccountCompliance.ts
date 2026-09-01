@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddAccountCompliance1786004759010 implements MigrationInterface {

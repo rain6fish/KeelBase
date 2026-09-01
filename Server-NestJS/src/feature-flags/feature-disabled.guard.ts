@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CanActivate, ExecutionContext, Injectable, NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureFlagsService } from './feature-flags.service';

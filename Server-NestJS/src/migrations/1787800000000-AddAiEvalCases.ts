@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** AI-20 评测集：ai_eval_cases 表（sqlite + postgres 双驱动）。 */

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';

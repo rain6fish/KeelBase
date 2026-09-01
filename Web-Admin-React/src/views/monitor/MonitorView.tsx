@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState, type ReactNode } from 'react'
 import { Box, Card, CardContent, CardHeader, Grid, Typography } from '@mui/material'
 import SpeedIcon from '@mui/icons-material/Speed'

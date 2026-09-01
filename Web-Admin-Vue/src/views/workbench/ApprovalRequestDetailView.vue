@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div>
     <PageHeader :title="req?.title ?? t('apTitle')" :subtitle="req ? t('apStatusLabel', { s: statusLabel(req.status) }) : ''">

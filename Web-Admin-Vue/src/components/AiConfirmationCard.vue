@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="ai-confirm-card pa-3" :class="{ 'border-left': true }">
     <!-- 标题：写操作需确认 + 工具名 -->

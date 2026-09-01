@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { api } from './client'
 
 /** MOD-4 capabilities：当前预设 + 功能开关 + 启用业务模块 */

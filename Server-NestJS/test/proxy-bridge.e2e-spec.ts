@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createServer, Server } from 'http';

@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="field-diff">
     <table v-if="rows.length" class="field-diff-table">

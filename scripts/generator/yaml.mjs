@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 精简 YAML 子集解析器（零依赖，供 --import-openapi 解析 .yaml/.yml）。
  *

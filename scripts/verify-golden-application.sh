@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# SPDX-License-Identifier: Apache-2.0
 #
 # 1.0 Gate 1 — Golden Application = AI CRM 单一验收脚本（development-plan §7.3）
 #

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PROJECT_STATUSES } from '../pm-project.entity';

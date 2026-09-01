@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Chip, IconButton, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'

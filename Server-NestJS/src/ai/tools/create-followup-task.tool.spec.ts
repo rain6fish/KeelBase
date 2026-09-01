@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CreateFollowupTaskTool } from './create-followup-task.tool';
 
 describe('CreateFollowupTaskTool', () => {

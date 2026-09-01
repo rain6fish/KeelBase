@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IsString, IsNotEmpty, MaxLength, Matches, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 

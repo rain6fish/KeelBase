@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import * as Joi from 'joi';
 import { FlowDefinition } from './flow-definition.types';
 

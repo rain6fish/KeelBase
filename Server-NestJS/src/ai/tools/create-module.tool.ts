@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * System AI L4 Act（roadmap §5）：管理端 AI 预览创建业务模块。
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';

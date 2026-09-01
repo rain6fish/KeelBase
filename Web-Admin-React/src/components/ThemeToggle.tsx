@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { IconButton } from '@mui/material'
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined'

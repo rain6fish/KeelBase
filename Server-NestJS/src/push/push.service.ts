@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 推送通知抽象接口 + DI token。
  * 实现：NoopPushService（未配置降级）/ JPushService（极光，国内）。

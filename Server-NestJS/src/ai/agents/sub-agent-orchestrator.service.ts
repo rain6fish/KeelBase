@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 子代理编排器 — SubAgentOrchestrator
  *

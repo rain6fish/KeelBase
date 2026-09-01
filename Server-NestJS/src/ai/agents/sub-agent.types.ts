@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * 子代理定义 — 每个子代理有独立的 system prompt + 受限工具子集。
  * 子代理只读（不包含写工具），写操作由主线程走流式确认。

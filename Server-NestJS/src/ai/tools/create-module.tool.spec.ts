@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { CreateModuleTool } from './create-module.tool';
 
 describe('CreateModuleTool（System AI L4 Act：dry-run 预览）', () => {

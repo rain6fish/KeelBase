@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ReactNode } from 'react'
 import { Card, CircularProgress, LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 

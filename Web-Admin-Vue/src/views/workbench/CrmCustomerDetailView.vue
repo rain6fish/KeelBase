@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div>
     <PageHeader :title="detail?.customer.name ?? t('crmTitle')" :subtitle="subtitle">

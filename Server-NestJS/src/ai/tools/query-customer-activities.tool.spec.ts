@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { QueryCustomerActivitiesTool } from './query-customer-activities.tool';
 
 describe('QueryCustomerActivitiesTool（CRM 只读工具）', () => {

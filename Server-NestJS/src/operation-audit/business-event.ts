@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * A-1 业务事件归一化：把 method + path 归一为「业务事件名」（如 CustomerUpdated / FollowupTaskCreated）。
  * 目的：跨系统（Java / REST / MCP / DB / Node）底层日志不同，审计人员看到的都是统一业务语言。

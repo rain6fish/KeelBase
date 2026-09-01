@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Injectable, Logger } from '@nestjs/common';
 import { join } from 'path';
 import { promises as fs } from 'fs';

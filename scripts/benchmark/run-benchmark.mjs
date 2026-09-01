@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * 3.4 性能压测基准 — 常规 API + AI 并发 + SSE 流式。
  * 用 autocannon（node 压测工具）跑各场景，输出汇总到 stdout + 落 docs/benchmark/。

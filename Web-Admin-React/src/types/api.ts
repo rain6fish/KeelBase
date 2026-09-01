@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** 后端统一响应包装 {code, message, data, timestamp} */
 export interface ApiResponse<T = unknown> {
   code: number

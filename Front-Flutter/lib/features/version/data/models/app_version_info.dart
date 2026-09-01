@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 class AppVersionInfo {
   final String latestVersion;
   final String minRequiredVersion;
