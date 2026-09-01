@@ -119,7 +119,7 @@ import { SkillsRegistry, DEFAULT_SKILLS } from './skills/skills-registry';
 import { SYSTEM_PROMPT } from './constants/system-prompt';
 import { LlmProviderConfig } from './interfaces/provider-config.interface';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
-import { SettingsService } from '../settings/settings.service';
+import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
 import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 @Module({
@@ -342,13 +342,17 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         );
 
         // 4.5 B 路径 ProxyTool（AI Bridge §4）：从 Settings ai_proxy_tools 动态注册代理工具
-        // fire-and-forget——启动后注册，LLM 后续对话可见（MVP 无运行时热更新）
+        // fire-and-forget——启动后注册，LLM 后续对话可见；Settings 变更即热更新（免重启）
         const proxyRegistry = new ProxyToolRegistryService(
           settingsService,
           delegationTokenService,
           toolRegistry,
         );
         void proxyRegistry.loadAndRegister();
+        // 热更新：ai_proxy_tools 配置变更 → 反注册旧工具 + 重新加载（无需重启 KeelBase）
+        settingsService.onChange((key) => {
+          if (key === SETTING_KEYS.PROXY_TOOLS) void proxyRegistry.reload();
+        });
 
         // 4.6 B 路径运行时撤销：ProxyTool 写副作用撤销 → 调 Java 补偿端点（revokePath 约定，AI Bridge §4）
         if (toolEffectsService) {

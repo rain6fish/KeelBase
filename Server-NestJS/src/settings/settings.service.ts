@@ -26,6 +26,8 @@ export class SettingsService implements OnModuleInit {
   private readonly logger = new Logger(SettingsService.name);
   private cache = new Map<string, ParsedValue>();
   private cacheReady = false;
+  /** 配置变更监听器（观察者模式）：set() 成功后按 key 触发；用于免重启热更新（如 ai_proxy_tools） */
+  private readonly changeListeners: Array<(key: string) => void> = [];
 
   constructor(
     @InjectRepository(Setting) private readonly settingsRepo: Repository<Setting>,
@@ -98,7 +100,23 @@ export class SettingsService implements OnModuleInit {
     }
     row = await this.settingsRepo.save(row);
     this.cache.set(key, { value: this.parse(raw, resolvedType), type: resolvedType });
+    this.notifyChange(key);
     return row;
+  }
+
+  /** 注册配置变更监听器：每次 set() 成功后触发（fire-and-forget，监听器异常不阻断设置）。 */
+  onChange(listener: (key: string) => void): void {
+    this.changeListeners.push(listener);
+  }
+
+  private notifyChange(key: string): void {
+    for (const listener of this.changeListeners) {
+      try {
+        listener(key);
+      } catch (err) {
+        this.logger.warn(`Settings 变更监听器执行失败 (key=${key}): ${(err as Error).message}`);
+      }
+    }
   }
 
   async findAll(): Promise<Setting[]> {
