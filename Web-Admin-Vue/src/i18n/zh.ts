@@ -80,6 +80,19 @@ const zh = {
   // 导航分组
   navData: '数据管理',
   navGuard: '安全治理',
+  // EASY-5 首启 preset
+  presetTitle: '选择平台规模',
+  presetDesc: '首次进入可选一个预设：决定默认开启哪些功能（后续可在设置中调整）。',
+  presetCardFullTitle: '完整版',
+  presetCardFullDesc: '全功能默认开启',
+  presetFAll: '全部模块开启',
+  presetCardSmallTitle: '精简版',
+  presetCardSmallDesc: '关闭外部集成',
+  presetFSmall: '关闭推送 / 短信 / 第三方登录',
+  presetCardLiteTitle: '最小版',
+  presetCardLiteDesc: '仅核心功能',
+  presetFLite: '在精简版基础上再关搜索与生成模块',
+  presetApply: '应用此预设',
   navMonitor: '监控运维',
   navSystem: '系统',
 
