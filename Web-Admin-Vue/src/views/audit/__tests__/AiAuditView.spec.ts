@@ -69,6 +69,24 @@ describe('AiAuditView', () => {
     expect(statsMock).toHaveBeenCalledWith(undefined)
   })
 
+  it('A-8：选「AI 越权/被拒」→ 携带 denied=true 走服务端越权专门视图', async () => {
+    logsMock.mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 100 })
+
+    const wrapper = mountView()
+    await flushPromises()
+    // 初始 load：主日志查询不带 denied（errorLogs 并行调用是 limit:5 的 isError 查询，用 limit:50 区分）
+    expect(logsMock).toHaveBeenCalledWith({ limit: 50, denied: undefined })
+
+    // 选择行为类型「denied」→ 点筛选按钮 → load 携带 denied=true
+    await wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'denied')
+    await wrapper.find('button.el-button--primary').trigger('click')
+    await flushPromises()
+
+    expect(logsMock).toHaveBeenCalledWith({ limit: 50, denied: 'true' })
+    wrapper.unmount()
+  })
+
   it('加载失败 → snackbar.error 提示', async () => {
     logsMock.mockRejectedValue(new Error('审计服务异常'))
 

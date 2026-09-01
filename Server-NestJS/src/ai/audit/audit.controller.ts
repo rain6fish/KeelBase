@@ -23,6 +23,7 @@ export class AuditController {
   @ApiQuery({ name: 'offset', required: false, example: 0 })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   @ApiQuery({ name: 'isError', required: false, description: '按是否错误过滤（E-2 异常视图）' })
+  @ApiQuery({ name: 'denied', required: false, description: '仅越权/阻断事件（A-8：isError + authorization 非空）' })
   getLogs(@Query() query: AuditQueryDto) {
     const base = {
       limit: query.limit,
@@ -37,6 +38,7 @@ export class AuditController {
       orgId: query.orgId,
       agentId: query.agentId,
       isError: query.isError,
+      denied: query.denied,
     });
   }
 
