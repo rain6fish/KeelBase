@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+// SPDX-License-Identifier: Apache-2.0
 /**
  * KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）。
  *
