@@ -483,9 +483,8 @@ export class OrgService {
 
   private _generateInviteCode(): string {
     const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const bytes = crypto.randomBytes(8);
     let code = '';
-    for (const b of bytes) code += charset[b % charset.length];
+    for (let i = 0; i < 8; i++) code += charset[crypto.randomInt(charset.length)];
     return code;
   }
 
