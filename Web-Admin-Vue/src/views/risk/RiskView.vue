@@ -84,7 +84,7 @@
       <template #header>{{ t('recentRiskOps') }}</template>
       <div v-for="l in riskLogs.slice(0, 8)" :key="l.id" class="d-flex align-center ga-3 mb-2">
         <el-tag size="small" :type="l.isError ? 'danger' : 'warning'" effect="light">
-          {{ l.isError ? t('aiBlocked') : t('riskAlert') }}
+          {{ riskTagLabel(l, t) }}
         </el-tag>
         <span class="font-weight-medium">{{ actionLabel(l.actionKey, l.actionLabel, t, tm('feature')) || l.action }}</span>
         <span class="text-caption text-medium-emphasis text-truncate">{{ errorLabel(l.errorMessage, t) || (l.authorization ? t('deniedReason') : '') }}</span>
@@ -122,6 +122,17 @@ function riskTag(tool: AdminAiTool) {
   if (lv === 'R4') return { label: t('riskApproval'), type: 'warning' as const }
   if (lv === 'R3') return { label: t('riskConfirm'), type: 'warning' as const }
   return { label: t('riskAuto'), type: 'success' as const }
+}
+
+/** A-8 越权尝试一级事件业务化：denied 日志标签区分「越权尝试 / 高风险阻断 / 被阻断」（与后端 audit-interpreter 判定一致） */
+function riskTagLabel(l: { isError?: boolean; errorMessage?: string | null }, tt: (k: string) => string) {
+  if (!l.isError) return tt('riskAlert')
+  const msg = l.errorMessage ?? ''
+  const highRisk = /R5|不可逆|高风险|blocked/i.test(msg)
+  const unauthorized = /越权|无权|403|permission|access|不是你的|不是属主|其他用户|不属于/i.test(msg)
+  if (unauthorized && !highRisk) return tt('unauthorizedAttempt')
+  if (highRisk) return tt('highRiskBlocked')
+  return tt('aiBlocked')
 }
 
 const statCards = computed(() => [

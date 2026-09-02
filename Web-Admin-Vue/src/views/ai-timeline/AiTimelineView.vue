@@ -12,6 +12,9 @@
       <div class="d-flex ga-3 flex-wrap align-center">
         <el-input v-model="userId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
         <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 180px" />
+        <el-select v-model="filterBehavior" :placeholder="t('filterBehavior')" clearable style="width: 170px">
+          <el-option :label="t('behaviorDenied')" value="denied" />
+        </el-select>
         <el-button type="primary" @click="load">
           <template #icon><AppIcon icon="mdi-filter-variant" /></template>
           {{ t('filter') }}
@@ -198,6 +201,8 @@ const snackbar = useSnackbarStore()
 
 const userId = ref('')
 const agentId = ref('')
+// A-8 行为类型筛选：空=全部，denied=仅「AI 被拒/越权」事件（「AI 没做什么」同样是安全证据）
+const filterBehavior = ref('')
 const logs = ref<AuditLog[]>([])
 const effects = ref<ToolEffect[]>([])
 const loading = ref(false)
@@ -414,6 +419,10 @@ function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 12)}…` : id
 }
 function timelineEvents(s: Session): TimelineEvent[] {
+  if (filterBehavior.value === 'denied') {
+    // A-8：仅「AI 被拒/越权」事件（error 红）——被拒同样是安全证据
+    return s.events.filter((e) => e.color === 'error')
+  }
   return s.events
 }
 
