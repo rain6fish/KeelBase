@@ -16,7 +16,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],
     // 2026-08-28：guards.spec 全量并行时首次 transform/初始化 >5s 超时（单独跑约 4-5s）——全局放宽到 10s
-    testTimeout: 10000,
+    // 2026-09-01：guard 测试满载时仍可达 11s+（collect 慢机 17min）→ 放宽到 20s 消除 CI flake
+    testTimeout: 20000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

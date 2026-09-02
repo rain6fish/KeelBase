@@ -71,6 +71,8 @@ import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import { EvalCase } from './eval/eval-case.entity';
 import { AiEvalService } from './eval/ai-eval.service';
 import { AiEvalController } from './eval/ai-eval.controller';
+import { SecurityShowcaseService } from './security-showcase/security-showcase.service';
+import { SecurityShowcaseController } from './security-showcase/security-showcase.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
@@ -143,7 +145,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     OperationAuditModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
   ],
-  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController],
+  controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
     ConversationService,
     AuditService,
@@ -155,6 +157,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MemoriesService,
     ConfirmationStore,
     AiEvalService,
+    SecurityShowcaseService,
     AiToolEffectsService,
     SideEffectSnapshotCaptor,
     ContentSafetyService,
