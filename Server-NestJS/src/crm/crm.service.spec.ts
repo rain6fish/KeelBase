@@ -174,6 +174,55 @@ describe('CrmService', () => {
     });
   });
 
+  describe('detectIdleCustomers（AI Follow-up Agent）', () => {
+    it('activity 旧/从未联系命中，30 天内未命中，按 userId 过滤', async () => {
+      const old = new Date(Date.now() - 40 * 86400000);
+      const recent = new Date(Date.now() - 10 * 86400000);
+      // mock 模拟 repo 已按 userId=1 过滤（真实 find({where:{userId}}) 不含他人客户 id9）
+      customers.find.mockResolvedValue([
+        { id: 1, name: '辰光', company: '辰光集团', status: 'active', riskLevel: 'medium', userId: 1 },
+        { id: 2, name: '从未联系', company: null, status: 'lead', riskLevel: 'low', userId: 1 },
+        { id: 3, name: '活跃客户', company: 'X', status: 'active', riskLevel: 'low', userId: 1 },
+      ]);
+      activities.find.mockResolvedValue([
+        { customerId: 1, happenedAt: old },
+        { customerId: 3, happenedAt: recent },
+      ]);
+      const result = await service.detectIdleCustomers(1, 30);
+      // userId 范围查询参数正确传递
+      expect(customers.find).toHaveBeenCalledWith({ where: { userId: 1 } });
+      expect(activities.find).toHaveBeenCalledWith({ where: { userId: 1 } });
+      expect(result.count).toBe(2);
+      expect(result.items[0].customerId).toBe(2); // 从未联系最优先
+      expect(result.items[0].neverContacted).toBe(true);
+      expect(result.items[0].lastContactAt).toBeNull();
+      expect(result.items[1].customerId).toBe(1); // 40 天未联系命中
+      expect(result.items[1].idleDays).toBe(40);
+      expect(result.items[1].lastContactAt).not.toBeNull();
+      // 10 天内活跃客户不命中；他人客户本就不在结果集
+      expect(result.items.find((i: any) => i.customerId === 3)).toBeUndefined();
+    });
+
+    it('limit 钳制 ≤50，且 minIdleDays 生效（阈值更大时少命中）', async () => {
+      const old = new Date(Date.now() - 40 * 86400000);
+      const mid = new Date(Date.now() - 20 * 86400000);
+      customers.find.mockResolvedValue([
+        { id: 1, name: 'A', status: 'active', riskLevel: 'low', userId: 1 },
+        { id: 2, name: 'B', status: 'active', riskLevel: 'low', userId: 1 },
+      ]);
+      activities.find.mockResolvedValue([
+        { customerId: 1, happenedAt: old },
+        { customerId: 2, happenedAt: mid },
+      ]);
+      const strict = await service.detectIdleCustomers(1, 30);
+      expect(strict.count).toBe(1); // 仅 40 天的命中
+      expect(strict.items[0].customerId).toBe(1);
+      const loose = await service.detectIdleCustomers(1, 10, 999);
+      expect(loose.count).toBe(2);
+      expect(loose.items.length).toBeLessThanOrEqual(50); // limit 钳制到 50
+    });
+  });
+
   it('listCustomers 状态/风险/关键词过滤 + 分页钳制', async () => {
     const qb: any = {
       andWhere: jest.fn(() => qb),
