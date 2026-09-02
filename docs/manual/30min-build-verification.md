@@ -68,4 +68,4 @@ npm run start:dev      # 或单容器
 
 - [30min-acceptance.md](30min-acceptance.md) — 30min Build 技术链路与验收基准（本验证的上游定义）
 - [verify-golden-crm.mjs](../../Server-NestJS/scripts/verify-golden-crm.mjs) — 步骤 8-10 的自动化校验
-- [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理（运行时侧，MOAT-1，与此构建侧互补）
+- [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理（运行时侧，与此构建侧互补）
