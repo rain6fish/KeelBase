@@ -241,4 +241,63 @@ describe('OperationAuditInterceptor', () => {
       expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '5' }));
     });
   });
+
+  describe('approval 审批动作入审计（decide/review 语义，非误记 Created）', () => {
+    it('decide approve → action DECIDE + ApprovalRequestApproved', async () => {
+      const req = {
+        method: 'POST',
+        originalUrl: '/api/v1/approval/requests/3/decide',
+        url: '/api/v1/approval/requests/3/decide',
+        body: { decision: 'approve' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '3' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await interceptor.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'DECIDE', businessEvent: 'ApprovalRequestApproved' }),
+      );
+    });
+
+    it('decide reject → action DECIDE + ApprovalRequestRejected', async () => {
+      const req = {
+        method: 'POST',
+        originalUrl: '/api/v1/approval/requests/3/decide',
+        url: '/api/v1/approval/requests/3/decide',
+        body: { decision: 'reject' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '3' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await interceptor.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'DECIDE', businessEvent: 'ApprovalRequestRejected' }),
+      );
+    });
+
+    it('review → action REVIEW + ApprovalRequestReviewed', async () => {
+      const req = {
+        method: 'POST',
+        originalUrl: '/api/v1/approval/requests/3/review',
+        url: '/api/v1/approval/requests/3/review',
+        body: {},
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '3' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await interceptor.intercept(mockContext(req), next));
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'REVIEW', businessEvent: 'ApprovalRequestReviewed' }),
+      );
+    });
+  });
 });

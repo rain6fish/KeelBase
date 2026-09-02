@@ -71,7 +71,8 @@ export class OperationAuditInterceptor implements NestInterceptor {
     const userId = user?.sub ?? null;
     const targetId = this._extractTargetId(req.params);
     const feature = deriveFeature(method, path);
-    const businessEvent = deriveBusinessEvent(path, method);
+    // approval 审批动作（decide/review）业务事件细分（decision 需读 body）——优先于纯 path+method 派生，避免误记 Created
+    const businessEvent = this._deriveApprovalBusinessEvent(path, method, req.body) ?? deriveBusinessEvent(path, method);
 
     // §22.16 A-1 字段级 diff：PATCH/PUT + 可解析资源 → 执行前查 before（变更前状态）；查询失败降级 null
     let before: Record<string, unknown> | null = null;
@@ -135,6 +136,10 @@ export class OperationAuditInterceptor implements NestInterceptor {
     if (p.endsWith('/auth/login')) return 'LOGIN';
     if (p.endsWith('/auth/logout')) return 'LOGOUT';
     if (p.endsWith('/upload')) return 'UPLOAD';
+    // approval 审批动作（decide/review）是业务决策而非资源创建——语义对齐（Approval 入审计）
+    if (/\/approval\/requests\/\d+\/(decide|review)$/.test(p)) {
+      return p.endsWith('/decide') ? 'DECIDE' : 'REVIEW';
+    }
     switch (method) {
       case 'POST':
         return 'CREATE';
@@ -148,6 +153,20 @@ export class OperationAuditInterceptor implements NestInterceptor {
         /* istanbul ignore next */
         return method;
     }
+  }
+
+  /** approval 审批动作业务事件细分：decide 依 decision（approve/reject）分派；review=Reviewed。读 body 故在此特例，不污染纯 path+method 的 deriveBusinessEvent。 */
+  private _deriveApprovalBusinessEvent(path: string, method: string, body: unknown): string | null {
+    if (method !== 'POST') return null;
+    const p = path.split('?')[0];
+    if (/\/approval\/requests\/\d+\/decide$/.test(p)) {
+      const decision = (body as { decision?: string } | null)?.decision;
+      if (decision === 'approve') return 'ApprovalRequestApproved';
+      if (decision === 'reject') return 'ApprovalRequestRejected';
+      return 'ApprovalRequestDecided';
+    }
+    if (/\/approval\/requests\/\d+\/review$/.test(p)) return 'ApprovalRequestReviewed';
+    return null;
   }
 
   private _safeBody(body: unknown): string | null {
