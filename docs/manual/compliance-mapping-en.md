@@ -81,7 +81,32 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 
 ---
 
-## 5. National crypto (GM/T 0054) & Xinchuang gaps
+## 5. Content-safety regulation for generative AI (CN)
+
+**Position**: CN regulators require generative-AI service providers to strictly fulfil content-safety duties and restrict non-compliant outputs (framework: 《Interim Measures for the Management of Generative Artificial Intelligence Services》, effective 2023; specific requirements evolve with regulator policy — the official text governs). KeelBase is a runtime/middleware — **it does not replace model-layer content moderation**. This section states the responsibility split and how KeelBase helps deployers evidence that "AI output was vetted".
+
+### Responsibility split
+
+| Layer | Content-safety responsibility |
+|---|---|
+| Model layer (service provider) | Model content moderation, blocking non-compliant outputs — deployers should choose model services that pass content-safety review |
+| Content-moderation service (optional, deployer-managed) | Real-time moderation of sensitive words / jailbreaks / non-compliant content (third-party moderation API or on-prem) |
+| **KeelBase** | **Action governance + audit trail: produces no content and does not replace content moderation, but folds moderation events into the unified audit chain for evidentiary tracing** |
+
+### How KeelBase helps
+
+| Regulatory concern | Existing KeelBase capability | Note |
+|---|---|---|
+| Prove "output was vetted" | AI audit hash chain + Decision Trace | Deployers can record "moderation call / hit / block" as audit events on the tamper-evident, offline-verifiable chain — self-evidence that output is vetted and traceable |
+| Lightweight first-line content check | Sensitive-word / jailbreak detection (see §0 Security Hardening) | Input-side lightweight defense; **not a substitute** for a professional moderation service |
+| Backstop for high-risk output | Human confirmation (R3) / two-person approval (R4) | Key business actions are human-gated, narrowing the automated-output risk surface |
+| Clear responsibility boundary | Self-hosted deployment; models/policies controlled by the deployer | Whoever supplies the model owns content responsibility; KeelBase makes "enterprise control + auditable" real |
+
+> **Boundary note**: content-compliance obligations sit at the model layer; KeelBase is not a content-moderation engine. Its value is turning "was it vetted, against what, and what was the result" into a tamper-evident evidence chain — helping deployers evidence compliance rather than substituting for it.
+
+---
+
+## 6. National crypto (GM/T 0054) & Xinchuang gaps
 
 > **Honest disclosure**: these are real current gaps, not claimed as met. Gaps are the planning input for the "Xinchuang adaptation certification" service card.
 
@@ -96,6 +121,6 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 
 ---
 
-## 6. Conclusion
+## 7. Conclusion
 
 > KeelBase aligns strongly with the Agent-Interconnection national standards, the EU AI Act logging/human-oversight obligations, and MLPS security-audit requirements on four dimensions: **governed tool invocation, audit hash chain, human-in-the-loop, and data-sovereign deployment**. Main gaps: **national crypto (SM2/3/4), domestic databases, SAML/LDAP** — the inputs for the Xinchuang adaptation certification service. Authoritative legal texts govern.
