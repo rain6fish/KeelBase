@@ -58,10 +58,21 @@
           </div>
         </div>
 
-        <!-- A-3 生命周期状态机：这件事现在到哪一步 -->
+        <!-- A-3 生命周期：当前态概览 + 完整历史流转（el-steps 多节点） -->
         <div v-if="lifecycleState" class="mb-2">
-          <div class="text-caption text-medium-emphasis mb-1">{{ t('lifecycle') }}</div>
-          <el-tag size="small" :type="lifecycleTag(lifecycleState)" effect="dark">{{ lifecycleLabel(lifecycleState) }}</el-tag>
+          <div class="text-caption text-medium-emphasis mb-1">
+            {{ t('lifecycle') }}
+            <el-tag size="small" :type="lifecycleTag(lifecycleState)" effect="dark" class="ml-2">{{ lifecycleLabel(lifecycleState) }}</el-tag>
+          </div>
+          <el-steps v-if="lifecycleSteps.length" direction="vertical" class="lifecycle-steps mt-1">
+            <el-step
+              v-for="s in lifecycleSteps"
+              :key="s.key"
+              :title="s.label"
+              :status="s.status"
+              :description="s.description"
+            />
+          </el-steps>
         </div>
 
         <div class="d-flex justify-space-between mb-1">
@@ -186,6 +197,41 @@ const lifecycleState = computed(() => {
   if (denied) return 'blocked'
   if (confirm?.outcome === 'approve') return 'confirmed'
   return 'executed'
+})
+
+/** A-3 生命周期完整历史流转：发起→授权→确认→执行→撤销→恢复（el-steps 多节点；读工具无确认/撤销，被拒停在执行 error） */
+const lifecycleSteps = computed(() => {
+  if (!data.value) return []
+  const effect = data.value.effect as { targetSoftDeleted?: boolean }
+  const sList = steps.value
+  const input = sList.find((s) => s.type === 'input')
+  const toolCall = sList.find((s) => s.type === 'tool_call')
+  const confirm = sList.find((s) => s.type === 'confirmation')
+  const denied = !!toolCall && toolCall.success === false
+  const revoked = !!effect.targetSoftDeleted
+  const out: Array<{ key: string; label: string; description: string; status: 'finish' | 'error' | 'process' | 'wait' }> = [
+    { key: 'initiate', label: t('stepInitiate'), description: input?.content?.trim() ? input.content.trim().slice(0, 40) : '', status: input ? 'finish' : 'process' },
+    { key: 'authorize', label: t('stepAuthorize'), description: '', status: toolCall?.checks?.length ? 'finish' : 'wait' },
+  ]
+  if (confirm) {
+    const ok = confirm.outcome === 'approve' || confirm.trusted
+    out.push({
+      key: 'confirm',
+      label: t('stepConfirm'),
+      description: ok ? (confirm.trusted ? t('stepTrusted') : t('stepApproved')) : confirm.outcome === 'timeout' ? t('stepTimedOut') : t('stepDeclined'),
+      status: ok ? 'finish' : 'error',
+    })
+  }
+  if (denied) {
+    out.push({ key: 'execute', label: t('stepExecute'), description: toolCall?.errorMessage ?? '', status: 'error' })
+  } else {
+    out.push({ key: 'execute', label: t('stepExecute'), description: '', status: revoked || toolCall?.success ? 'finish' : 'process' })
+  }
+  if (confirm && !denied) {
+    out.push({ key: 'revoke', label: t('stepRevoke'), description: revoked ? t('lifecycleRevoked') : '', status: revoked ? 'finish' : 'wait' })
+    out.push({ key: 'restore', label: t('stepRestore'), description: '', status: 'wait' })
+  }
+  return out
 })
 const lifecycleLabel = (s: string) =>
   ({ revoked: t('lifecycleRevoked'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
