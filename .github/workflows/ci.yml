@@ -191,6 +191,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-core-boundary.mjs
 
+  # 治理协议合规认证（护城河 A1，零依赖 node 内置）：独立复现三协议（审计哈希链/委托 token/风险分级）
+  # 22 断言（篡改 payload/断链/aud 不匹配/过期/签名篡改必须拒绝）——任何协议实现或算法改动必须保持 conformance 绿
+  protocol-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
+
   # 生成器/导入 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema 导入防回归
   cli-test:
     runs-on: ubuntu-latest
