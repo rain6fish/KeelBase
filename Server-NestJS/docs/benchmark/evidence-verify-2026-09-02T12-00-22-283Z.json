@@ -1,0 +1,38 @@
+{
+  "gate": "A2 审计证据包离线验证（证据分层 L1）",
+  "source": "../.evidence-tmp/evidence-pkg.json",
+  "format": "keelbase-audit-evidence/2",
+  "mode": "full (structure + content recompute + signature)",
+  "verdict": "PASS",
+  "rows": 86,
+  "recomputed": 86,
+  "exportedAt": "2026-09-02T11:51:31.759Z",
+  "cases": [
+    {
+      "name": "格式版本",
+      "pass": true,
+      "detail": "keelbase-audit-evidence/2"
+    },
+    {
+      "name": "链行数",
+      "pass": true,
+      "detail": "86 条（seq 1–86）"
+    },
+    {
+      "name": "链结构：seq 连续 + hash 64 hex + prevHash 连续",
+      "pass": true,
+      "detail": "可检测删行/换序/断链"
+    },
+    {
+      "name": "内容重算（--key）：86 条 payload 重算全部匹配",
+      "pass": true,
+      "detail": "密钥数=1"
+    },
+    {
+      "name": "证据包签名（HMAC-SHA256 覆盖 summary+hashChain+effectDiffs+compliance+chain+exportedAt）",
+      "pass": true,
+      "detail": "导出后未被改动"
+    }
+  ],
+  "elapsedSec": 0
+}
