@@ -39,6 +39,33 @@ describe('Audit Interpreter（§22.16 A-4 审计解释器）', () => {
     expect(s.sentence).toContain('阻断');
   });
 
+  it('A-8 越权尝试：errorMessage 无权/越权 → 「越权尝试」业务摘要', () => {
+    const s = summarizeAudit(
+      { userId: '1', username: 'alex', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: '无权访问此客户' },
+      [],
+    );
+    expect(s.sentence).toContain('越权尝试');
+    expect(s.sentence).toContain('受限数据');
+  });
+
+  it('A-8 高风险阻断：R5 blocked → 「高风险操作」摘要', () => {
+    const s = summarizeAudit(
+      { userId: '1', username: 'alex', action: 'tool_call', detail: 'delete_customer({})', isError: true, errorMessage: 'Tool "delete_customer" is blocked (risk level R5)' },
+      [],
+    );
+    expect(s.sentence).toContain('高风险操作');
+    expect(s.sentence).toContain('阻断');
+  });
+
+  it('A-8 门控拒绝：治理禁用 → 通用「安全策略阻断」摘要', () => {
+    const s = summarizeAudit(
+      { userId: '1', username: 'alex', action: 'tool_call', detail: 'generate_image({})', isError: true, errorMessage: '工具被治理策略禁用' },
+      [],
+    );
+    expect(s.sentence).toContain('安全策略阻断');
+    expect(s.sentence).not.toContain('越权尝试');
+  });
+
   it('A-7 flow_node 审批 → 审批链业务摘要句（发起/通过/驳回/完成）', () => {
     const start = summarizeAudit(
       { userId: '5', username: 'alice', action: 'flow_node', businessEvent: 'FlowInstanceStarted', evidence: JSON.stringify({ definitionId: 'leave_approval', definitionName: '请假审批', event: 'start' }) },
