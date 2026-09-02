@@ -1476,6 +1476,15 @@ export class AiService {
               evidence: this._captureDecisionEvidence(tc.name, result) ?? undefined,
               // §22.16 A-5 跨系统身份链：B 路径（ProxyTool 写向外部系统）标记 source=bridge
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
+              // §22.16 A-5 事件时点放行授权依据快照：对象格式（parseChecks 只认数组 → 不误判为拒绝）；
+              // 导出侧优先用快照而非当前策略重算，保证证据包「为什么允许」是事发时的真实评估
+              authorization: JSON.stringify({
+                allowed: true,
+                tool: tc.name,
+                riskLevel: authz.riskLevel,
+                strategy: authz.riskStrategy,
+                checks: authz.checks,
+              }),
             });
           }
         } catch (err) {

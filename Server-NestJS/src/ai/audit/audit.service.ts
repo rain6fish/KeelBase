@@ -888,11 +888,18 @@ export class AuditService {
     if (row.agentId && agentCache && !agentCache.has(row.agentId)) agentCache.set(row.agentId, agent ?? null);
     const denied = parseChecks(row.authorization);
     let allowed: Record<string, unknown> | null = null;
-    if (!denied && toolName) {
-      try {
-        allowed = (await this.aiService?.explainAuthorization(toolName, row.userId)) ?? null;
-      } catch {
-        allowed = null;
+    if (!denied) {
+      // §22.16 A-5 事件时点放行快照优先（写入侧已存 allowed:true 对象）——证据包「为什么允许」是事发时真实评估；
+      // 历史数据无快照 → 降级为当前策略重算（向后兼容）
+      const snap = parseAllowedSnapshot(row.authorization);
+      if (snap) {
+        allowed = { checks: snap.checks, riskLevel: snap.riskLevel };
+      } else if (toolName) {
+        try {
+          allowed = (await this.aiService?.explainAuthorization(toolName, row.userId)) ?? null;
+        } catch {
+          allowed = null;
+        }
       }
     }
     return {
@@ -983,6 +990,21 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
   try {
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as Array<{ name: string; ok: boolean; note?: string }>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** §22.16 A-5 放行授权快照解析：对象含 allowed:true（事件时点 checks/riskLevel）；拒绝数组/非放行/非法 → null */
+function parseAllowedSnapshot(raw?: string | null): { checks: unknown; riskLevel?: string } | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const o = parsed as { allowed?: boolean; checks?: unknown; riskLevel?: string };
+      return o.allowed === true ? { checks: o.checks, riskLevel: o.riskLevel } : null;
+    }
+    return null;
   } catch {
     return null;
   }

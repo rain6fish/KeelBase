@@ -8,6 +8,7 @@ import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
+import { AiService } from '../ai.service';
 import { actorContext } from '../actor-context';
 
 function makeLogRepo() {
@@ -96,6 +97,16 @@ describe('AuditService', () => {
         { provide: getRepositoryToken(AiToolSideEffect), useValue: effectsRepo },
         { provide: AuditChainService, useValue: chain },
         { provide: DataSource, useValue: dataSource },
+        // §22.16 A-5 放行快照：aiService 供「无快照降级重算」场景（快照场景不应调用）
+        {
+          provide: AiService,
+          useValue: {
+            explainAuthorization: jest.fn().mockResolvedValue({
+              tool: 'query_customers',
+              checks: [{ name: 'RECOMPUTED', ok: true }],
+            }),
+          },
+        },
       ],
     }).compile();
     service = moduleRef.get(AuditService);
@@ -747,6 +758,34 @@ describe('AuditService', () => {
       const res = await service.getChain(2);
       expect(res.authorization.denied).toEqual([{ name: 'risk_policy', ok: false, note: 'R5 阻断' }]);
       expect(res.authorization.allowed).toBeNull();
+    });
+
+    it('放行快照优先：allowed 用事件时点快照（不重算当前策略）', async () => {
+      const snapshotChecks = [{ name: 'user_scoped', ok: true, note: '仅本人数据' }];
+      repo.findOne.mockResolvedValue({
+        id: 3, userId: '42', action: 'tool_call', detail: 'query_customers({})',
+        authorization: JSON.stringify({ allowed: true, tool: 'query_customers', riskLevel: 'R1', strategy: 'auto', checks: snapshotChecks }),
+        createdAt: new Date(),
+      });
+      repo.find.mockResolvedValue([]);
+      const res = await service.getChain(3);
+      expect(res.authorization.denied).toBeNull();
+      // allowed 取快照 checks（而非 aiService.explainAuthorization 的 RECOMPUTED）→ 证明快照优先、未重算
+      expect(res.authorization.allowed).toEqual({ checks: snapshotChecks, riskLevel: 'R1' });
+    });
+
+    it('历史数据无放行快照 → 降级当前策略重算（向后兼容）', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 4, userId: '42', action: 'tool_call', detail: 'query_customers({})', authorization: null,
+        createdAt: new Date(),
+      });
+      repo.find.mockResolvedValue([]);
+      const res = await service.getChain(4);
+      expect(res.authorization.denied).toBeNull();
+      expect(res.authorization.allowed).toEqual({
+        tool: 'query_customers',
+        checks: [{ name: 'RECOMPUTED', ok: true }],
+      });
     });
   });
 });
