@@ -36,7 +36,7 @@ const MCP_PROTOCOL_VERSION = '2025-03-26';
 const READ_ONLY_RISKS = ['R0', 'R1', 'R2'];
 
 /**
- * 护城河 2.1「MCP 工具声明治理扩展」（ai-governance-protocol §4.4）：
+ * 治理能力 2.1「MCP 工具声明治理扩展」（ai-governance-protocol §4.4）：
  * MCP SDK 的 ToolSchema 无 passthrough，顶层 riskLevel 等自定义字段会被 Zod 剥掉；
  * 治理契约经 MCP 标准字段透出——
  *   - `annotations.readOnlyHint / destructiveHint`：MCP 标准提示（粗粒度）

@@ -3,7 +3,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 
 /**
- * B2 治理策略实时推送（护城河 2.2 控制平面实时性）：
+ * B2 治理策略实时推送（治理能力 2.2 控制平面实时性）：
  * sidecar 启动时注册回调地址（SIDECAR_CALLBACK_URL）→ 治理台策略变更（apply-preset / PUT policy）
  * 后广播 POST {callbackUrl}/v1/policy，sidecar 秒级生效（无需等 60s 轮询）。
  * 轮询（SIDECAR_POLICY_REFRESH_SECONDS）仍保留作兜底（推送失败 / sidecar 重启 / 漏注册）。

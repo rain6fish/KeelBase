@@ -195,7 +195,7 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 ### 4.5 治理 sidecar 零代码接入协议 / Sidecar Zero-code Adoption
 
-**定位**（护城河 2.0 嵌入广度）：业务系统**不改代码**把 AI 调用接进治理——唯一改动 = 把 LLM base URL 指向 sidecar。sidecar 拦截 → 上报治理台审计 + 转发真实 LLM + 工具门控（S-1/S-2）。参考实现：`Server-NestJS/src/governance-sidecar/` + [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)。
+**定位**（治理能力 2.0 嵌入广度）：业务系统**不改代码**把 AI 调用接进治理——唯一改动 = 把 LLM base URL 指向 sidecar。sidecar 拦截 → 上报治理台审计 + 转发真实 LLM + 工具门控（S-1/S-2）。参考实现：`Server-NestJS/src/governance-sidecar/` + [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)。
 
 **端点 / Endpoints**（业务系统 → sidecar；sidecar 默认端口 3200）：
 
@@ -238,15 +238,15 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 ### 5.1 认证 / Certification
 
-**协议合规认证套件（护城河 2.1 / A1）**：`Server-NestJS/scripts/verify-protocol-conformance.mjs` **独立实现**三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4），用测试向量 + 篡改检测锁定协议语义（篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝），输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。
+**协议合规认证套件（治理能力 2.1 / A1）**：`Server-NestJS/scripts/verify-protocol-conformance.mjs` **独立实现**三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4），用测试向量 + 篡改检测锁定协议语义（篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝），输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。
 
 **用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）。参考实现当前 **22/22 通过**（2026-08-31）。
 
 **第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与向量复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与协议测试向量比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
-**审计证据包离线验证（A2，护城河 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
+**审计证据包离线验证（A2，治理能力 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
 
-**治理策略实时推送（B2，护城河 2.2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`，`POST /external/governance/sidecars/register`）；策略变更（apply-preset / PUT policy）后治理台向已注册 sidecar 实时推送（`POST {cb}/v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底（推送失败 / sidecar 重启 / 漏注册）。
+**治理策略实时推送（B2，治理能力 2.2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`，`POST /external/governance/sidecars/register`）；策略变更（apply-preset / PUT policy）后治理台向已注册 sidecar 实时推送（`POST {cb}/v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底（推送失败 / sidecar 重启 / 漏注册）。
 
 ---
 

@@ -1,11 +1,11 @@
 # 可复现验证清单 / Reproducible Verification Index
 
-> **定位**：M1 演示 / 评审 / 集成商选型用的一站式验证清单——每条「命令 + 前置 + 报告位置」，全部可现场复现。对应产品证明项（V-2/3/4/6）与护城河资产（MOAT-1/2/3、S-1/S-2）。
+> **定位**：M1 演示 / 评审 / 集成商选型用的一站式验证清单——每条「命令 + 前置 + 报告位置」，全部可现场复现。对应产品证明项（V-2/3/4/6）与核心能力资产（MOAT-1/2/3、S-1/S-2）。
 > **Positioning**: one-stop verification checklist for M1 demos / reviews / integrator evaluation — each entry has command + prerequisite + report location, all reproducible on-site.
 
 ---
 
-## 一、护城河：运行时治理 / Runtime Governance
+## 一、运行时治理 / Runtime Governance
 
 | # | 验证 | 命令（仓库根） | 前置 | 报告 |
 |---|---|---|---|---|

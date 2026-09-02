@@ -3,7 +3,7 @@
 /**
  * 治理 sidecar 启动入口：
  *   npm run start:sidecar
- * 独立、语言无关的 AI 网关审计代理（护城河 2.0 嵌入广度）。
+ * 独立、语言无关的 AI 网关审计代理（治理能力 2.0 嵌入广度）。
  * 端口：SIDECAR_PORT（默认 3200）。
  * 业务系统 LLM base URL → http://sidecar:3200/v1，AI 调用自动上报治理台审计。
  */

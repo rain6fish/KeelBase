@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { SidecarToolRegistry, type SidecarToolDef, type ToolDecision, type ToolOverride } from './sidecar-tool-registry';
 
 /**
- * 治理 sidecar（护城河 2.0 嵌入广度）：
+ * 治理 sidecar（治理能力 2.0 嵌入广度）：
  * - S-1：拦截业务系统 LLM 请求（OpenAI 兼容），上报治理台审计 + 转发真实 LLM
  * - S-2：工具调用门控（对齐 ai-governance-protocol.md §4 风险分级）——
  *   R5 阻断 / R3-R4 确认（hold-and-release）/ R0-R2 自动；治理台策略覆盖实时生效

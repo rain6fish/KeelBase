@@ -61,7 +61,7 @@ node scripts/benchmark/run-benchmark.mjs
 
 # Business-safe Agent Benchmark（W2，2026-08-19）
 
-> Agent 可靠性基准——**五类任务 × 三旗舰 → Run / Trust / Safety 三分数**。把「ASR 单点样本」升级为可复现、可回归的治理证据（0819 评估建议的核心护城河方向）。
+> Agent 可靠性基准——**五类任务 × 三旗舰 → Run / Trust / Safety 三分数**。把「ASR 单点样本」升级为可复现、可回归的治理证据（0819 评估建议的核心能力方向）。
 
 ## 方法
 

@@ -1,7 +1,7 @@
 # 多系统单控制面演示 / Multi-System, One Control Plane
 
-> **定位（MOAT-3，护城河 2.2 收口实证）**：演示「一个独立治理控制平面同时管住 N 个异构业务系统的 AI」——统一审计、共享门控、跨系统决策进同一哈希链。这是 D-2 控制平面「最强锁定」的可运行证明。
-> **Positioning (MOAT-3, moat 2.2 closure proof)**: demonstrate one standalone governance control plane governing the AI of N heterogeneous business systems — unified audit, shared gating, cross-system decisions in a single hash chain. A runnable proof of the D-2 control plane's strongest lock-in.
+> **定位（MOAT-3，治理能力 2.2 收口实证）**：演示「一个独立治理控制平面同时管住 N 个异构业务系统的 AI」——统一审计、共享门控、跨系统决策进同一哈希链。这是 D-2 控制平面「最强锁定」的可运行证明。
+> **Positioning (MOAT-3, capabilities 2.2 closure proof)**: demonstrate one standalone governance control plane governing the AI of N heterogeneous business systems — unified audit, shared gating, cross-system decisions in a single hash chain. A runnable proof of the D-2 control plane's strongest lock-in.
 
 ## 拓扑 / Topology
 

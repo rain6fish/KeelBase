@@ -62,7 +62,7 @@ GOVERNANCE_API_KEY=<shared-key>                 # 与治理台共享的服务身
 
 ## 四、治理 sidecar：零代码接入 / Governance Sidecar: Zero-Code Access
 
-> **S-1（护城河 2.0 嵌入广度）**：业务系统**不写任何集成代码**，只把 LLM base URL 指向 sidecar，AI 调用即自动上报治理台审计（AI 流量可见性）。语言无关（任意 OpenAI 兼容 client：LangChain / LangChain4j / 自研）。
+> **S-1（治理能力 2.0 嵌入广度）**：业务系统**不写任何集成代码**，只把 LLM base URL 指向 sidecar，AI 调用即自动上报治理台审计（AI 流量可见性）。语言无关（任意 OpenAI 兼容 client：LangChain / LangChain4j / 自研）。
 
 ```bash
 # 启动 sidecar（转发真实 LLM + 上报治理台审计）
