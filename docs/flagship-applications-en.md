@@ -56,6 +56,7 @@ The three flagships have evolved from "demos proving platform capability" into *
 | `query_customer_orders` | read | own customers |
 | `query_customer_activities` | read | own customers |
 | `analyze_customer_risk` | read | own customers; risk scoring |
+| `detect_idle_customers` | read | own customers; last-contact derived from activities (no migration) — proactive "who needs follow-up" (AI Follow-up Agent, see `docs/ai-crm-followup-agent.spec.md`) |
 | `create_followup_task` | write | requires confirmation + side effect `crm_task` revocable |
 
 ### 1.4 Risk Scoring
@@ -64,7 +65,7 @@ Overdue >1M +5 / overdue +3 / total order value >500k +2 / unresolved risk +2 / 
 
 ### 1.5 Seed & Demo
 
-`npm run seed:demo` seeds 8 customers + overdue orders + risks. Sign in and ask "which customers deserve follow-up this week?" → AI analyzes risk → suggests creating a follow-up task.
+`npm run seed:demo` seeds 8 customers + overdue orders + risks. Sign in and ask "which customers deserve follow-up this week?" → AI analyzes risk → suggests creating a follow-up task. Ask "which customers have gone silent?" → `detect_idle_customers` surfaces 30-day-idle / never-contacted customers → AI suggests follow-up → confirm then `create_followup_task` (AI Follow-up Agent).
 
 ---
 

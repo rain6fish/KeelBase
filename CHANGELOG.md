@@ -9,6 +9,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 ### Added / 新增
 
 - **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry` 加 `unregister` + `ProxyToolRegistryService` 加 `reload`（反注册旧工具重载）+ `SettingsService` 加 `onChange` 观察者（`set` 成功后按 key 触发）+ ai.module 注册监听——写 `ai_proxy_tools` 配置即生效，无需重启 KeelBase；配套单测 3 spec + e2e 热更新用例；`docs/manual/ai-bridge.md` 更新「免重启」表述。
+- **AI Follow-up Agent（A1，roadmap §18.3）** — AI 主动发现「该跟进谁」：`detect_idle_customers` 只读工具（R1，默认 30 天无跟进活动含从未联系；最近联系时间从 `crm_activities.happenedAt` 派生，**无迁移**；userId 范围）→ LLM 汇总建议 → 用户确认 → 复用 `create_followup_task`（R3 确认门控 + 副作用可撤销）→ 审计。补 Golden Flow「AI 主动发现问题」一环（纯后端确定性聚合，AI 只解释建议）；规格 `docs/ai-crm-followup-agent.spec.md`；真实 LLM 端到端验证（问「哪些客户很久没跟进了」→ 正确调 detect_idle_customers 返回从未联系客户并建议建任务）；单测 6（service 判定/排序/钳制 + 工具参数/异常）
+  **AI Follow-up Agent（A1）**：新增 detect_idle_customers 只读工具检测长期未跟进客户（activity 派生最近联系，无迁移）→ AI 建议 → 确认后建跟进任务；规格 + 端到端验证
 
 ### Fixed / 修复
 
