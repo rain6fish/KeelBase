@@ -73,6 +73,14 @@ export function deriveFeature(method: string, url: string): FeatureAction {
     }
   }
 
+  // approval 审批决策（带 :id——decide/review 是业务决策非资源创建，避免兜底成 approval.create）
+  const decision = /^\/approval\/requests\/\d+\/(decide|review)$/.exec(path);
+  if (decision) {
+    return decision[1] === 'decide'
+      ? { key: 'approval.decide', fallback: 'Approval · Decide' }
+      : { key: 'approval.review', fallback: 'Approval · Review' };
+  }
+
   // 2) 按模块取第一段
   const segs = path.split('/').filter(Boolean);
   const module = segs[0];

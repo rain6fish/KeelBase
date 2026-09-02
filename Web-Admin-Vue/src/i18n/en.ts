@@ -1099,6 +1099,8 @@ const en: ZhDict = {
     'todos.create': 'Todos · Create',
     'todos.update': 'Todos · Update',
     'todos.delete': 'Todos · Delete',
+    'approval.decide': 'Approval · Decide',
+    'approval.review': 'Approval · Review',
     'notifications.create': 'Notifications · Create',
     'unknown.unknown': 'Unknown action',
   },
