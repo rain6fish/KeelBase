@@ -1,7 +1,7 @@
 # 30 分钟接入 AI 治理 / Adopt AI Governance in 30 Minutes
 
-> **定位**：让不熟悉 KeelBase 的工程师（Java / Node / Python / Go）在 **30 分钟内**把自己的业务系统 AI 调用接进治理——零代码、不改业务逻辑。本文是 MOAT-1「可验证承诺」的落地指南，配套一键验收脚本 `Server-NestJS/scripts/verify-moat-adoption.mjs`。
-> **Positioning**: Enable an engineer unfamiliar with KeelBase (Java / Node / Python / Go) to connect their business system's AI calls into governance within **30 minutes** — zero code, no business logic change. This is the MOAT-1 "verifiable promise" guide, with a one-command acceptance script `Server-NestJS/scripts/verify-moat-adoption.mjs`.
+> **定位**：让不熟悉 KeelBase 的工程师（Java / Node / Python / Go）在 **30 分钟内**把自己的业务系统 AI 调用接进治理——零代码、不改业务逻辑。本文是「可验证承诺」的落地指南，配套一键验收脚本 `Server-NestJS/scripts/verify-moat-adoption.mjs`。
+> **Positioning**: Enable an engineer unfamiliar with KeelBase (Java / Node / Python / Go) to connect their business system's AI calls into governance within **30 minutes** — zero code, no business logic change. This is the "verifiable promise" guide, with a one-command acceptance script `Server-NestJS/scripts/verify-moat-adoption.mjs`.
 
 ---
 

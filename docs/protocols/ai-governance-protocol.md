@@ -195,7 +195,7 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 ### 4.5 治理 sidecar 零代码接入协议 / Sidecar Zero-code Adoption
 
-**定位**（治理能力 2.0 嵌入广度）：业务系统**不改代码**把 AI 调用接进治理——唯一改动 = 把 LLM base URL 指向 sidecar。sidecar 拦截 → 上报治理台审计 + 转发真实 LLM + 工具门控（S-1/S-2）。参考实现：`Server-NestJS/src/governance-sidecar/` + [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)。
+**定位**（治理能力 2.0 嵌入广度）：业务系统**不改代码**把 AI 调用接进治理——唯一改动 = 把 LLM base URL 指向 sidecar。sidecar 拦截 → 上报治理台审计 + 转发真实 LLM + 工具门控。参考实现：`Server-NestJS/src/governance-sidecar/` + [「30 分钟接入验证」](../manual/adoption-30min.md)。
 
 **端点 / Endpoints**（业务系统 → sidecar；sidecar 默认端口 3200）：
 
@@ -234,7 +234,7 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 | **Secure MCP Gateway** | TypeScript / NestJS | ✅ 每次调用落 AI 审计（provider=mcp 归因） | —（调用者 JWT 身份） | ✅ 工具声明 riskLevel/riskStrategy（A2）+ **§4.4 MCP 声明扩展**（annotations + `_meta.keelbase`）+ 写需确认不自动执行 | MCP 出口，以调用者身份过治理管线 |
 | **headless API** | TypeScript / NestJS | ✅ 复用 Agent 审计（key 归属用户身份） | —（API Key 身份，归属 owner 用户） | ✅ 复用 Agent 工具门控（HS-4） | 第三方集成入口（x-api-key 认证） |
 
-**对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [MOAT-1「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-moat-adoption.mjs`）验收接入闭环。
+**对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-moat-adoption.mjs`）验收接入闭环。
 
 ### 5.1 认证 / Certification
 

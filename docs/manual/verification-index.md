@@ -1,6 +1,6 @@
 # 可复现验证清单 / Reproducible Verification Index
 
-> **定位**：M1 演示 / 评审 / 集成商选型用的一站式验证清单——每条「命令 + 前置 + 报告位置」，全部可现场复现。对应产品证明项（V-2/3/4/6）与核心能力资产（MOAT-1/2/3、S-1/S-2）。
+> **定位**：M1 演示 / 评审 / 集成商选型用的一站式验证清单——每条「命令 + 前置 + 报告位置」，全部可现场复现。对应产品证明项（V-2/3/4/6）与核心能力资产。
 > **Positioning**: one-stop verification checklist for M1 demos / reviews / integrator evaluation — each entry has command + prerequisite + report location, all reproducible on-site.
 
 ---
@@ -45,8 +45,8 @@
 
 ```bash
 npm run build   # 一次
-node Server-NestJS/scripts/verify-moat-adoption.mjs     # MOAT-1：零代码接入治理
-node Server-NestJS/scripts/demo-multi-system.mjs        # MOAT-3：多系统单控制面
+node Server-NestJS/scripts/verify-moat-adoption.mjs     # 零代码接入治理
+node Server-NestJS/scripts/demo-multi-system.mjs        # 多系统单控制面
 # 起后端后：
 node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 ```
@@ -58,7 +58,7 @@ node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 - [security-showcase.md](security-showcase.md) — 安全展示五项（人工演示路径）
 - [ai-trust-manifesto.md](../ai-trust-manifesto.md) — 企业 AI 信任宣言（DNA 四原则 → 采购/选型四问，参考实现验证映射）
 - [keelbase-dna.md](../keelbase-dna.md) — 工程哲学（四原则出处）
-- [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理（MOAT-1 指南）
-- [multi-system-demo.md](multi-system-demo.md) — 多系统单控制面演示（MOAT-3）
+- [adoption-30min.md](adoption-30min.md) — 30 分钟接入治理
+- [multi-system-demo.md](multi-system-demo.md) — 多系统单控制面演示
 - [30min-build-verification.md](30min-build-verification.md) — 30min Build 外部验证（V-6）
 - [demo-live.md](demo-live.md) — 在线 demo 引导 + 数据复位（V-4）

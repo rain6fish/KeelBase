@@ -539,7 +539,7 @@ OLLAMA_EMBED_MODEL=bge-m3
 # Headless API（AI-19，可选）
 HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头校验；留空则 /headless 端点 401）
 
-# 独立治理控制平面（D-2，治理能力 2.2）：治理台独立服务 + 业务系统接入
+# 独立治理控制平面：治理台独立服务 + 业务系统接入
 GOVERNANCE_DB_HOST=                # 治理台独立库连接（sqlite 用 GOVERNANCE_DB_PATH；postgres 用 HOST/PORT/USER/PASSWORD/NAME，默认库名 governance）
 GOVERNANCE_DB_PATH=                # 治理台 sqlite 路径（默认 ./data/governance.sqlite，独立于业务库）
 GOVERNANCE_API_KEY=                # 治理台服务身份密钥（业务系统上报/拉策略/撤销/审批回调共享，x-api-key）
@@ -547,7 +547,7 @@ GOVERNANCE_URL=                    # 治理台地址（业务系统配置后 AI 
 GOVERNANCE_TARGET_URL=             # 治理台回调业务系统地址（撤销/approve 执行回调；空则治理台本地 revoker）
 GOVERNANCE_PORT=                   # 治理台独立服务端口（默认 3100）
 
-# 治理 sidecar（S-1/S-2，治理能力 2.0 零代码接入）：AI 网关审计代理 + 工具门控（业务系统 LLM base URL → http://sidecar:3200/v1）
+# 治理 sidecar：AI 网关审计代理 + 工具门控（业务系统 LLM base URL → http://sidecar:3200/v1）
 SIDECAR_UPSTREAM_URL=              # sidecar 转发真实 LLM 地址（默认 https://api.deepseek.com）
 SIDECAR_UPSTREAM_KEY=              # 上游 LLM API Key（可选）
 SIDECAR_PORT=                      # sidecar 端口（默认 3200）
@@ -631,7 +631,7 @@ npm run migration:run
 | 命令 | 说明 |
 |------|------|
 | `npm run start:dev` | 开发启动（热重载） |
-| `npm run start:governance` | 启动独立治理控制平面（治理能力 2.2，连独立治理库，端口 GOVERNANCE_PORT 默认 3100） |
+| `npm run start:governance` | 启动独立治理控制平面（连独立治理库，端口 GOVERNANCE_PORT 默认 3100） |
 | `npm run start:sidecar` | 启动治理 sidecar（AI 网关审计代理，零代码接入，端口 SIDECAR_PORT 默认 3200） |
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |

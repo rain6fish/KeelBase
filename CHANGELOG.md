@@ -95,7 +95,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **Trust 证明包（P0-6）**：六场景一键验证脚本（正常成功/越权 403/R5 阻断/人工确认/撤销/Java 引导，实测 15/15）+ delete_customer R5 阻断工具 + DemoProvider 无条件注册；security-showcase 双语入口 + 60s 视频分镜双语
 - **Java probe observation window**: `check-java-probe.mjs` collects Maven Central/GitHub demand signals (8/8 artifacts @0.1.1) + KeelBase4J trigger definition (integrator feedback "product good but can't bid without all-Java") + observation cadence
   **Java 探针观察窗口**：keelbase-java-starter 需求信号采集 + KeelBase4J 启动依据（需求驱动）+ 观察节奏
-- **Governance Capabilities 2.0**: standalone governance control plane (D-2) + external report endpoints (service identity) + audit/effect dual-write + cross-service revoke/approve callbacks + docker orchestration + sidecar AI-gateway audit proxy (S-1) + tool-call gating (S-2: R5 block / R3-4 confirm) + MOAT-1 30-min adoption + MOAT-3 multi-system single control plane (10-entry continuous hash chain verified)
+- **Governance Capabilities 2.0**: standalone governance control plane + external report endpoints (service identity) + audit/effect dual-write + cross-service revoke/approve callbacks + docker orchestration + sidecar AI-gateway audit proxy + tool-call gating (R5 block / R3-4 confirm) + 30-min adoption + multi-system single control plane (10-entry continuous hash chain verified)
   **治理能力体系 2.0**：独立治理台 + sidecar 零代码接入 + 工具门控 + 多系统单控制面 + 跨服务撤销/审批回调
 - **Audit visualization (E-1/E-2/D4)**: E-1 field-level change audit (before/after snapshot + FieldDiff) + E-2 hash-chain view / daily trend / behavior replay + D4 evidence-package export (HMAC-signed, audit-committee verifiable) + HashChainView component
   **审计可视化**：字段级审计 + 哈希链可视化 + 行为回放 + 证据包导出
