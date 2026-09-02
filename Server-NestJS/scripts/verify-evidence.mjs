@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * A2 审计证据包离线机器验证（护城河 2.3）：审计机构/第三方不装 KeelBase 即可独立验证证据包。
+ * A2 审计证据包离线机器验证（证据分层 L1 离线复核）：审计机构/第三方不装 KeelBase 即可独立验证证据包。
  *
  * 输入：GET /audit/action-report/export 导出的证据包 JSON（format = 'keelbase-audit-evidence/1'）。
  *
@@ -118,7 +118,7 @@ console.log(chainValid
 const elapsed = Date.now() - startMs;
 const ts = new Date().toISOString().replace(/[:.]/g, '-');
 const report = {
-  gate: 'A2 审计证据包离线验证（护城河 2.3）',
+  gate: 'A2 审计证据包离线验证（证据分层 L1）',
   source: fileArg,
   format: ev.format,
   mode: keys.length ? 'full (structure + content recompute + signature)' : 'structure-only',
