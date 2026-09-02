@@ -595,15 +595,22 @@ SMS_DRIVER=console                 # console（控制台打印）| aliyun | none
 ### 7.1 Docker 部署（生产）
 
 ```bash
-# 1. 准备证书
+# 1. 准备证书（二选一）
+#    手动证书：
 mkdir certs && cp your-cert.crt certs/server.crt && cp your-key.key certs/server.key
+#    Let's Encrypt webroot 自动续期（推荐，nginx.https.conf 已暴露 /.well-known/acme-challenge/）：
+mkdir -p certs webroot
+certbot certonly --webroot -w ./webroot -d yourdomain.com --non-interactive --agree-tos
+cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem certs/server.crt
+cp /etc/letsencrypt/live/yourdomain.com/privkey.pem certs/server.key
+#   续期：cron 跑 `certbot renew` + deploy hook 复制新证书到 ./certs 并 reload nginx
 
 # 2. 配置生产环境
 cp Server-NestJS/.env.production.example Server-NestJS/.env.production
-# 编辑 .env.production 填入真实值
+# 编辑 .env.production 填入真实值；CORS_ORIGINS 与 APP_BASE_URL 必须指向实际前端源
 
-# 3. 启动
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# 3. 启动（prod 覆盖会重建 server 且把 CORS_ORIGINS 置为占位符，需显式传真实源）
+CORS_ORIGINS=https://yourdomain.com docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
 ### 7.2 数据库迁移
@@ -792,6 +799,8 @@ npm run migration:run
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§22.10 B4） |
+| GET | /api/v1/ai/security-showcase/scenarios | Yes (ADMIN) | — | 安全演示（A2 对抗性证明）：确定性对抗场景清单（注入/越权/R5/确认） |
+| POST | /api/v1/ai/security-showcase/run/:scenarioId | Yes (ADMIN) | — | 运行对抗场景，返回 outcome + 决策轨迹（无 LLM，复用 HS-8/CASL/W5 真实逻辑） |
 | GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
 | GET | /api/v1/ai/confirmations/pending | Yes (ADMIN) | — | R4 待人工审批列表（治理台读侧） |
 | GET | /api/v1/ai/confirmations/decided | Yes (ADMIN) | — | R4 已审批历史（治理台读侧） |
