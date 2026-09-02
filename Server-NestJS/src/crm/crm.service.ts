@@ -502,4 +502,70 @@ export class CrmService {
       },
     };
   }
+
+  // ── AI Follow-up Agent：长期未跟进客户检测（activity 派生最近联系时间，无迁移）──
+
+  /**
+   * 检测长期未跟进客户（AI Follow-up Agent，A1）：
+   * 最近联系时间 = 该客户 crm_activities.happenedAt 的最大值（call/meeting/email/note 全部类型）。
+   * 从未联系（无任何 activity）同样命中「需跟进」。仅请求用户本人数据范围，无迁移。
+   */
+  async detectIdleCustomers(
+    userId: number,
+    minIdleDays = 30,
+    limit = 20,
+  ): Promise<{
+    thresholdDays: number;
+    count: number;
+    items: Array<{
+      customerId: number;
+      customerName: string;
+      company: string | null;
+      status: string;
+      riskLevel: string;
+      lastContactAt: string | null;
+      idleDays: number | null;
+      neverContacted: boolean;
+    }>;
+  }> {
+    const cap = Math.min(Math.max(limit, 1), 50);
+    const [customers, activities] = await Promise.all([
+      this.customers.find({ where: { userId } }),
+      this.activities.find({ where: { userId } }),
+    ]);
+    const lastContactByCustomer = new Map<number, Date>();
+    for (const a of activities) {
+      const prev = lastContactByCustomer.get(a.customerId);
+      if (!prev || a.happenedAt.getTime() > prev.getTime()) {
+        lastContactByCustomer.set(a.customerId, a.happenedAt);
+      }
+    }
+    const now = Date.now();
+    const items = customers
+      .map((c) => {
+        const lastContactAt = lastContactByCustomer.get(c.id) ?? null;
+        const idleDays = lastContactAt
+          ? Math.floor((now - lastContactAt.getTime()) / 86400000)
+          : null;
+        return {
+          customerId: c.id,
+          customerName: c.name,
+          company: c.company ?? null,
+          status: c.status,
+          riskLevel: c.riskLevel,
+          lastContactAt: lastContactAt ? lastContactAt.toISOString() : null,
+          idleDays,
+          neverContacted: lastContactAt == null,
+        };
+      })
+      .filter((i) => i.neverContacted || (i.idleDays != null && i.idleDays >= minIdleDays))
+      .sort((a, b) => {
+        // 从未联系最优先 → idleDays 降序
+        if (a.neverContacted !== b.neverContacted) return a.neverContacted ? -1 : 1;
+        if (a.idleDays == null || b.idleDays == null) return 0;
+        return b.idleDays - a.idleDays;
+      })
+      .slice(0, cap);
+    return { thresholdDays: minIdleDays, count: items.length, items };
+  }
 }

@@ -102,6 +102,7 @@ import { AnalyzeSalesPipelineTool } from './tools/analyze-sales-pipeline.tool';
 import { QueryCustomerActivitiesTool } from './tools/query-customer-activities.tool';
 import { AnalyzeCustomerRiskTool } from './tools/analyze-customer-risk.tool';
 import { CreateFollowupTaskTool } from './tools/create-followup-task.tool';
+import { DetectIdleCustomersTool } from './tools/detect-idle-customers.tool';
 import { DeleteCustomerTool } from './tools/delete-customer.tool';
 import { QueryProjectsTool } from './tools/query-projects.tool';
 import { QueryProjectTasksTool } from './tools/query-project-tasks.tool';
@@ -310,6 +311,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryCustomerContactsTool(crmService));
         toolRegistry.register(new AnalyzeSalesPipelineTool(crmService, factory, defaultProvider));
         toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
+        toolRegistry.register(new DetectIdleCustomersTool(crmService));
         toolRegistry.register(new CreateFollowupTaskTool(crmService));
         // R5 阻断演示载体：不可逆删除客户，被系统策略阻断（风险级 R5），永不执行
         toolRegistry.register(new DeleteCustomerTool());

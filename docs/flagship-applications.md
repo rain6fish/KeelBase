@@ -58,6 +58,7 @@
 | `query_customer_orders` | 读 | 本人客户 |
 | `query_customer_activities` | 读 | 本人客户 |
 | `analyze_customer_risk` | 读 | 本人客户；风险打分 |
+| `detect_idle_customers` | 读 | 本人客户；activity 派生最近联系时间（无迁移）——「该跟进谁」主动发现（AI Follow-up Agent，见 `docs/ai-crm-followup-agent.spec.md`） |
 | `create_followup_task` | 写 | 需确认 + 副作用 `crm_task` 可撤销 |
 
 ### 1.4 风险打分 / Risk Scoring
@@ -66,7 +67,7 @@
 
 ### 1.5 Seed & 演示
 
-`npm run seed:demo` 种 8 客户 + 逾期订单 + 风险。登录问「哪些客户本周最值得跟进？」→ AI 分析风险 → 建议建跟进任务。
+`npm run seed:demo` 种 8 客户 + 逾期订单 + 风险。登录问「哪些客户本周最值得跟进？」→ AI 分析风险 → 建议建跟进任务。问「哪些客户很久没跟进了？」→ `detect_idle_customers` 主动检出 30 天未联系/从未联系客户 → AI 建议跟进 → 确认后 `create_followup_task`（AI Follow-up Agent）。
 
 ---
 
