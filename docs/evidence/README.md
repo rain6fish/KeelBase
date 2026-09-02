@@ -44,7 +44,7 @@
   # 无 --key：链结构验证（seq/prevHash/genesis，检删行换序断链）
   # 有 --key：全量重算 canonicalJSON + HMAC + 签名（检内容篡改）
   ```
-- **产物**：`docs/benchmark/evidence-verify-<ts>.md`（脚本输出离线验证报告，随跑随留档）。
+- **产物**：`Server-NestJS/docs/benchmark/evidence-verify-<ts>.md`（verify-*.mjs 机器验证报告同族落点，随跑随留档）。
 - **最近证据（2026-09-02）**：ECS demo 实测 `valid:true`——AI 审计链 83 行（曾断链 genesis：密钥轮换后旧密钥不可推导，已用当前密钥重签修复，改动前已备份）、操作审计链 284 行；哈希链恢复不依赖任何代码版本。
 
 ### 2.2 越权拒绝（CASL 行级）
