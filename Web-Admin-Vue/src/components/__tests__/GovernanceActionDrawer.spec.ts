@@ -91,6 +91,42 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     expect(wrapper.text()).toContain('无权访问该客户')
   })
 
+  it('A-3 生命周期：写工具已确认 → el-steps 六节点（发起/授权/确认/执行/撤销/恢复）', async () => {
+    const wrapper = makeDrawer({
+      steps: [
+        { id: 'in-1', type: 'input', time: '2026-08-25T10:00:00Z', content: '为辰光建材创建跟进任务' },
+        { id: 'auth-1', type: 'tool_call', time: '2026-08-25T10:00:01Z', toolName: 'create_followup_task', args: '{}', success: true, checks: [{ name: 'user_scoped', ok: true }] },
+        { id: 'conf-1', type: 'confirmation', time: '2026-08-25T10:00:02Z', toolName: 'create_followup_task', args: '{}', outcome: 'approve' },
+      ],
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('.el-step').length).toBe(6)
+    for (const label of ['发起', '授权', '确认', '执行', '撤销', '恢复']) {
+      expect(wrapper.text()).toContain(label)
+    }
+  })
+
+  it('A-3 生命周期：被拒场景 → 执行节点 error 态（无确认/撤销）', async () => {
+    const wrapper = makeDrawer({
+      steps: [
+        {
+          id: 'tool-1',
+          type: 'tool_call',
+          time: '2026-08-25T10:00:01Z',
+          toolName: 'query_customers',
+          args: '{}',
+          success: false,
+          checks: [{ name: 'ownership', ok: false, note: '无权访问该客户' }],
+        },
+      ],
+    })
+    await flushPromises()
+
+    // 发起(process) + 授权(finish) + 执行(error) = 3 节点；无确认/撤销/恢复
+    expect(wrapper.findAll('.el-step').length).toBe(3)
+  })
+
   // 注：404（人工创建任务 → 无 AI 治理记录）路径已实测验证（组件 catch 后渲染友好空态），
   // 但因 vitest 对 el-drawer 内 async 加载的 mock rejection 存在 unhandled 误报，不在本 spec 覆盖。
 })
