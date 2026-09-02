@@ -130,5 +130,5 @@ KeelBase 的 DNA 不只约束 Agent 与 AI 生成代码——**也约束开发 K
 - [ai-trust-manifesto.md](ai-trust-manifesto.md) — 企业 AI 信任宣言（四原则 → 采购/选型四问）
 - [verification-index.md](manual/verification-index.md) — 可复现验证清单（P3 的落地）
 - [security-showcase.md](manual/security-showcase.md) — 安全展示（P1/P2/P3 的可运行证明）
-- [adoption-30min.md](manual/adoption-30min.md) — 30 分钟接入治理（MOAT-1）
+- [adoption-30min.md](manual/adoption-30min.md) — 30 分钟接入治理
 - [keelbase-java-starter](https://github.com/rain6fish/KeelBase-java-starter) — 产业原则的 Java 侧落地
