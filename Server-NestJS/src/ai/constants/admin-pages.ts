@@ -36,6 +36,7 @@ export const ADMIN_PAGE_ROUTES: Record<
   'ai-timeline': { route: '/ai-timeline', description: 'AI 执行轨迹' },
   'ai-tools': { route: '/ai-tools', description: 'AI 工具与副作用' },
   'security-review': { route: '/security-review', description: '安全审查' },
+  'security-showcase': { route: '/security-showcase', description: '安全演示（对抗性证明）' },
   'ai-approvals': { route: '/ai-approvals', description: 'AI 审批' },
   'agent-registry': { route: '/agent-registry', description: 'Agent 注册表' },
   'guard-overview': { route: '/guard-overview', description: '治理总览（KeelBase Guard）' },
