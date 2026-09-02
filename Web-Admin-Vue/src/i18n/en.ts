@@ -181,6 +181,8 @@ const en: ZhDict = {
   aiApproved: 'Approved',
   aiRejected: 'Rejected',
   aiBlocked: 'Blocked',
+  unauthorizedAttempt: 'Unauthorized attempt',
+  highRiskBlocked: 'High-risk blocked',
   aiErrors: 'Errors',
   chainValid: 'Audit chain valid',
   chainBroken: 'Audit chain broken',

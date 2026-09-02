@@ -182,6 +182,8 @@ const zh = {
   aiApproved: '人工批准',
   aiRejected: '人工拒绝',
   aiBlocked: '被阻断',
+  unauthorizedAttempt: 'AI 越权尝试',
+  highRiskBlocked: '高风险阻断',
   aiErrors: '错误',
   chainValid: '审计哈希链有效',
   chainBroken: '审计哈希链异常',

@@ -50,6 +50,12 @@ export interface AuditInterpretationRow {
 
 const BLOCKED_RE = /blocked|denied|拒绝|越狱|越权|R5|禁用|禁止|无权/i;
 
+/** A-8 越权尝试特征（数据级：AI 试图访问/操作他人数据，工具内 ForbiddenException，authorization 列为 null） */
+const UNAUTHORIZED_RE = /越权|无权|403|permission|access|不是你的|不是属主|其他用户|不属于/i;
+
+/** A-8 高风险动作阻断（R5 不可逆/外部动作，errorMessage 含 blocked + R5） */
+const HIGH_RISK_RE = /R5|不可逆|高风险|blocked/i;
+
 /** L1：单行审计 → 业务语言摘要句。按 toolName 分派模板，未覆盖 action 走兜底。 */
 export function summarizeAudit(row: AuditInterpretationRow, convRows: AuditInterpretationRow[]): AuditInterpretation {
   const stats = aggregateConversation(convRows);
@@ -62,7 +68,15 @@ export function summarizeAudit(row: AuditInterpretationRow, convRows: AuditInter
     const { outcome } = parseConfirmation(row.detail);
     sentence = `${username}${outcome === 'approve' ? '批准' : outcome === 'decline' ? '拒绝' : '确认超时'}了该操作`;
   } else if (row.action === 'content_blocked' || (row.action === 'tool_call' && row.isError && BLOCKED_RE.test(row.errorMessage ?? ''))) {
-    sentence = `${username}的操作被安全策略阻断`;
+    // A-8 越权尝试一级事件业务化：区分「越权尝试 / 高风险阻断 / 通用阻断」——「AI 没做什么」同样是安全证据
+    const msg = row.errorMessage ?? '';
+    if (UNAUTHORIZED_RE.test(msg) && !HIGH_RISK_RE.test(msg)) {
+      sentence = `${username}的 AI 尝试访问受限数据，已被策略拒绝（越权尝试）`;
+    } else if (HIGH_RISK_RE.test(msg)) {
+      sentence = `${username}的 AI 尝试高风险操作，已被安全策略阻断`;
+    } else {
+      sentence = `${username}的操作被安全策略阻断`;
+    }
   } else if (row.action === 'flow_node') {
     // A-7 审批链入审计：从 evidence 还原流程事件（发起/节点/审批通过/驳回/完成）
     sentence = summarizeFlowNode(username, row);
