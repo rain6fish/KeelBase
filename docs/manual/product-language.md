@@ -63,8 +63,8 @@
 ## 4. 待办（W1 收口前）
 
 - [x] 按第 3 节回改 UI 文案：业务页 Copilot → AI 助手（copilotTitle=「AI 助手」/ 业务按钮=「AI 分析」）；导航 Guard → 治理（navGuard=「安全治理」/ navGuardOverview=「治理总览」）——**2026-09-01 已收口**：用户可见文案统一；CrmCopilotDrawer.vue 组件名 / CopilotItem 类型 / copilot-* class 等内部标识符保留（非用户可见，不重构）
-- [ ] 按第 2 节校对 README 与快速开始文档术语
-- [ ] 词汇表 v0.1 定稿后建英文版 + README 登记（双语配对）
+- [x] 英文版 + README 登记（双语配对）——**2026-09-02 完成**：product-language-en.md + README Documentation 双链接
+- [ ] 按第 2 节校对 README 与快速开始文档术语（README/快速开始已核实干净——术语校对实测无待改项，保留此核对项作发版前确认）
 
 ---
 
