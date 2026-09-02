@@ -1113,6 +1113,8 @@ const zh = {
     'todos.create': '待办 · 创建',
     'todos.update': '待办 · 更新',
     'todos.delete': '待办 · 删除',
+    'approval.decide': '审批 · 人工决定',
+    'approval.review': '审批 · 人工复核',
     'notifications.create': '通知 · 创建',
     'unknown.unknown': '未知操作',
   },

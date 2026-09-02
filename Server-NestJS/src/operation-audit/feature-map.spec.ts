@@ -37,4 +37,9 @@ describe('deriveFeature（操作审计功能名映射）', () => {
   it('PATCH 精确匹配子路径：/ai/knowledge/123 → ai.updateKnowledge', () => {
     expect(deriveFeature('PATCH', '/api/v1/ai/knowledge/123')).toEqual({ key: 'ai.updateKnowledge', fallback: 'AI · Update knowledge' });
   });
+
+  it('approval decide/review（带 :id）→ approval.decide/review（非 approval.create）', () => {
+    expect(deriveFeature('POST', '/api/v1/approval/requests/3/decide')).toEqual({ key: 'approval.decide', fallback: 'Approval · Decide' });
+    expect(deriveFeature('POST', '/api/v1/approval/requests/3/review')).toEqual({ key: 'approval.review', fallback: 'Approval · Review' });
+  });
 });
