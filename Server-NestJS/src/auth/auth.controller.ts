@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBearerAuth
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
-import { AiService } from '../ai/ai.service';
+import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
 import { OAuthService } from './oauth.service';
 import { DelegationTokenService } from './delegation-token.service';
 import { DelegationTokenDto } from './dto/delegation-token.dto';
@@ -47,7 +47,7 @@ export class AuthController {
     private providersConfig: OAuthProvidersConfigService,
     private caslFactory: CaslAbilityFactory,
     private delegationTokenService: DelegationTokenService,
-    private aiService: AiService,
+    private authorizationExplainer: AuthorizationExplainerService,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
@@ -341,13 +341,13 @@ export class AuthController {
         select: { id: true, role: true, username: true },
       });
       if (!target) throw new NotFoundException('用户不存在');
-      return this.aiService.getAuthorizationChain({
+      return this.authorizationExplainer.getAuthorizationChain({
         role: target.role as 'admin' | 'user',
         sub: target.id,
         username: target.username,
       });
     }
-    return this.aiService.getAuthorizationChain({
+    return this.authorizationExplainer.getAuthorizationChain({
       role: user.role as 'admin' | 'user',
       sub: Number(user.sub),
       username: user.username,
