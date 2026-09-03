@@ -189,7 +189,7 @@ const businessIntent = computed(() => steps.value.find((s) => s.type === 'input'
 /** A-3 生命周期状态机：从决策轨迹推导「这件事现在到哪一步」 */
 const lifecycleState = computed(() => {
   if (!data.value) return ''
-  const effect = data.value.effect as { targetSoftDeleted?: boolean }
+  const effect = data.value.effect
   if (effect.targetSoftDeleted) return 'revoked'
   const confirm = steps.value.find((s) => s.type === 'confirmation')
   if (confirm?.outcome === 'decline') return 'declined'
@@ -202,7 +202,7 @@ const lifecycleState = computed(() => {
 /** A-3 生命周期完整历史流转：发起→授权→确认→执行→撤销→恢复（el-steps 多节点；读工具无确认/撤销，被拒停在执行 error） */
 const lifecycleSteps = computed(() => {
   if (!data.value) return []
-  const effect = data.value.effect as { targetSoftDeleted?: boolean }
+  const effect = data.value.effect
   const sList = steps.value
   const input = sList.find((s) => s.type === 'input')
   const toolCall = sList.find((s) => s.type === 'tool_call')
@@ -211,7 +211,9 @@ const lifecycleSteps = computed(() => {
   const revoked = !!effect.targetSoftDeleted
   const out: Array<{ key: string; label: string; description: string; status: 'finish' | 'error' | 'process' | 'wait' }> = [
     { key: 'initiate', label: t('stepInitiate'), description: input?.content?.trim() ? input.content.trim().slice(0, 40) : '', status: input ? 'finish' : 'process' },
-    { key: 'authorize', label: t('stepAuthorize'), description: '', status: toolCall?.checks?.length ? 'finish' : 'wait' },
+    // A-3 authorize：授权结论以 tool_call 是否已发生为准（放行且执行的快照是对象格式，parseChecks 只认数组→checks 为空，
+    // 不能再用 checks 判 authorize）；被拒的 tool_call 同样已完成授权（拒绝）→ finish，execute 步显示 error
+    { key: 'authorize', label: t('stepAuthorize'), description: '', status: toolCall ? 'finish' : 'wait' },
   ]
   if (confirm) {
     const ok = confirm.outcome === 'approve' || confirm.trusted

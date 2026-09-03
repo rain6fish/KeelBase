@@ -127,6 +127,30 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     expect(wrapper.findAll('.el-step').length).toBe(3)
   })
 
+  it('A-3 生命周期：目标已软删 → 撤销态可达（FIX-B：B4 effect 带 targetSoftDeleted）', async () => {
+    governanceMock.mockReset()
+    governanceMock.mockResolvedValue({
+      effect: { ...effect, targetExists: true, targetSoftDeleted: true, targetTitle: '跟进任务 #42' },
+      trace: {
+        steps: [
+          { id: 'in-1', type: 'input', time: '2026-08-25T10:00:00Z', content: '为辰光建材创建跟进任务' },
+          { id: 'auth-1', type: 'tool_call', time: '2026-08-25T10:00:01Z', toolName: 'create_followup_task', args: '{}', success: true },
+          { id: 'conf-1', type: 'confirmation', time: '2026-08-25T10:00:02Z', toolName: 'create_followup_task', args: '{}', outcome: 'approve' },
+        ],
+      },
+    })
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+    const wrapper = mount(GovernanceActionDrawer, {
+      global: { plugins: [ElementPlus, i18n] },
+      props: { modelValue: true, resultType: 'crm_task', resultId: 42 },
+    })
+    await flushPromises()
+
+    // 撤销态：当前态 tag「已撤销」+ 六节点中 revoke finish（撤销已完成）
+    expect(wrapper.text()).toContain('已撤销')
+    expect(wrapper.findAll('.el-step').length).toBe(6)
+  })
+
   // 注：404（人工创建任务 → 无 AI 治理记录）路径已实测验证（组件 catch 后渲染友好空态），
   // 但因 vitest 对 el-drawer 内 async 加载的 mock rejection 存在 unhandled 误报，不在本 spec 覆盖。
 })
