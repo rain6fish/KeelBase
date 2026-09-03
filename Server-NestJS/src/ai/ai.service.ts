@@ -1359,15 +1359,19 @@ export class AiService {
               evidence: this._captureDecisionEvidence(tc.name, result) ?? undefined,
               // §22.16 A-5 跨系统身份链：B 路径（ProxyTool 写向外部系统）标记 source=bridge
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
-              // §22.16 A-5 事件时点放行授权依据快照：对象格式（parseChecks 只认数组 → 不误判为拒绝）；
-              // 导出侧优先用快照而非当前策略重算，保证证据包「为什么允许」是事发时的真实评估
-              authorization: JSON.stringify({
-                allowed: true,
-                tool: tc.name,
-                riskLevel: authz.riskLevel,
-                strategy: authz.riskStrategy,
-                checks: authz.checks,
-              }),
+              // §22.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
+              // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
+              // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
+              authorization:
+                result.success
+                  ? JSON.stringify({
+                      allowed: true,
+                      tool: tc.name,
+                      riskLevel: authz.riskLevel,
+                      strategy: authz.riskStrategy,
+                      checks: authz.checks,
+                    })
+                  : undefined,
             });
           }
         } catch (err) {
@@ -1726,13 +1730,16 @@ export class AiService {
 
           // 审计日志：工具调用（HS-9 粒度门控：tool 级在 off 时不记录）
           if (await this._shouldAudit('tool')) {
-            // §22.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝），
-            // 非流式放行审计同样落「为什么允许」，保证证据包导出用事发快照而非当前策略重算
-            const authz = await this.authorizationExplainer.getAuthorizationReasons(
-              tc.name,
-              params.userId,
-              await this._requiresConfirmation(tc.name),
-            );
+            // §22.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝）。
+            // 非流式路径写工具一律被拒（返回「请用流式」），读工具失败亦不落快照——快照仅当实际放行并成功执行才写，
+            // 避免 isError+authorization 非空被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
+            const authz = resolvedResult.success
+              ? await this.authorizationExplainer.getAuthorizationReasons(
+                  tc.name,
+                  params.userId,
+                  await this._requiresConfirmation(tc.name),
+                )
+              : null;
             this.auditService.log({
               userId: params.userId,
               conversationId: params.conversationId,
@@ -1743,13 +1750,15 @@ export class AiService {
               // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
               businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
               evidence: this._captureDecisionEvidence(tc.name, resolvedResult) ?? undefined,
-              authorization: JSON.stringify({
-                allowed: true,
-                tool: tc.name,
-                riskLevel: authz.riskLevel,
-                strategy: authz.riskStrategy,
-                checks: authz.checks,
-              }),
+              authorization: authz
+                ? JSON.stringify({
+                    allowed: true,
+                    tool: tc.name,
+                    riskLevel: authz.riskLevel,
+                    strategy: authz.riskStrategy,
+                    checks: authz.checks,
+                  })
+                : undefined,
             });
           }
 
