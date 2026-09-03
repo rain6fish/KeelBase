@@ -5,6 +5,10 @@
  ARG NPM_REGISTRY=https://registry.npmmirror.com
  ENV NPM_CONFIG_REGISTRY=$NPM_REGISTRY
  # better-sqlite3 原生编译需要工具链（prebuild 下载受 GitHub 网络影响时回退 node-gyp）
+ # node-gyp 拉 Node headers：alpine 镜像来自 unofficial-builds，默认 base 国内常超时；
+ # 默认官方 dist（海外/CI 快），中国区构建用 --build-arg NODE_HEADERS_MIRROR=https://registry.npmmirror.com/-/binary/node 覆盖
+ ARG NODE_HEADERS_MIRROR=https://nodejs.org/dist
+ ENV npm_config_disturl=$NODE_HEADERS_MIRROR
  RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
     apk add --no-cache python3 make g++
  COPY Server-NestJS/package*.json ./
