@@ -1,0 +1,52 @@
+#!/bin/sh
+# 非工作时间时间映射：merge 产生的 merge commit（post-merge hook）
+# 背景：git merge 触发 post-merge（不触发 post-commit），merge commit 的时间戳不会
+#       被 post-commit 映射；若在工作日 05-19 点执行 merge，merge commit 的
+#       author/committer 会落在工作时间。
+# 规则：仅处理真正产生新 merge commit（≥2 个 parent）的合并；快进合并（无新提交）不动。
+#       与 post-commit 相同：工作日 05:00-19:00 → 线性映射到当天 19:00 至次日 03:00。
+# 递归保护：amend 触发 post-commit，用 NONWORKING_HOOK_AMENDED 让 post-commit 直接退出。
+
+if [ -n "$NONWORKING_HOOK_AMENDED" ]; then
+  exit 0
+fi
+
+PARENT_COUNT=$(git cat-file -p HEAD | grep -c '^parent ')
+if [ "$PARENT_COUNT" -lt 2 ]; then
+  exit 0
+fi
+
+AUTHOR_ISO=$(git log -1 --format=%ai)
+COMMITTER_ISO=$(git log -1 --format=%ci)
+
+NEW_DATES=$(node "$(dirname "$0")/nonworking-map.js" "$AUTHOR_ISO" "$COMMITTER_ISO")
+NEW_AUTHOR=$(echo "$NEW_DATES" | awk -F'|' '{print $1}')
+NEW_COMMITTER=$(echo "$NEW_DATES" | awk -F'|' '{print $2}')
+
+if [ "$NEW_AUTHOR" = "KEEP" ] && [ "$NEW_COMMITTER" = "KEEP" ]; then
+  exit 0
+fi
+
+if [ "$NEW_COMMITTER" = "KEEP" ]; then
+  export GIT_COMMITTER_DATE="$COMMITTER_ISO"
+else
+  export GIT_COMMITTER_DATE="$NEW_COMMITTER"
+fi
+
+# post-merge 触发时 MERGE_HEAD/MERGE_MSG 等残留状态仍在，git 拒绝「在 merge 中 amend」；
+# merge 本身已成功，临时移除残留状态后再 amend（merge 结束后 git 不再需要这些文件）。
+rm -f "$(git rev-parse --git-path MERGE_HEAD)" "$(git rev-parse --git-path MERGE_MSG)" "$(git rev-parse --git-path MERGE_MODE)"
+
+if [ "$NEW_AUTHOR" != "KEEP" ]; then
+  NONWORKING_HOOK_AMENDED=1 git commit --amend --allow-empty --no-edit --date="$NEW_AUTHOR" >/dev/null 2>&1
+else
+  NONWORKING_HOOK_AMENDED=1 git commit --amend --allow-empty --no-edit >/dev/null 2>&1
+fi
+
+# 与 post-commit 一致：工作时间产生的提交写标记，工作时间 push 由 pre-push 拦截
+IS_WORKING=$(node -e 'const d=new Date();const dow=d.getDay();const h=d.getHours();process.stdout.write((dow>=1&&dow<=5&&h>=5&&h<19)?"1":"0")')
+if [ "$IS_WORKING" = "1" ]; then
+  echo "$(date +%s)" > .git/NONWORKING_PUSH_BLOCK
+  echo "[post-merge] 工作时间 merge 已记录 → 当前时段 push 将被拦截（工作时间只提交不推送）"
+fi
+exit 0

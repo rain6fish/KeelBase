@@ -1,0 +1,35 @@
+#!/bin/sh
+# 拦截对 GitHub master 分支的直接推送，强制所有提交走 main。
+# 仅拦截 github remote，不影响 Gitee (origin) 的 master 推送。
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$1" = "github" ] && [ "$remote_ref" = "refs/heads/master" ]; then
+    echo "ERROR: 已阻止推送 GitHub 'master' 分支。请改用："
+    echo "  git push github master:main"
+    exit 1
+  fi
+done
+
+# ---- 工作时间只提交不推送（2026-08-10）----
+# post-commit 在 工作时间提交时 写下 .git/NONWORKING_PUSH_BLOCK 标记；
+# 这里若标记存在且仍处工作时间 → 拦截 push。非工作时间 push 时清除标记。
+# 手动豁免：export SKIP_NONWORKING_PUSH_GUARD=1
+if [ -n "$SKIP_NONWORKING_PUSH_GUARD" ]; then
+  exit 0
+fi
+
+MARKER=".git/NONWORKING_PUSH_BLOCK"
+if [ -f "$MARKER" ]; then
+  IS_WORKING=$(node -e 'const d=new Date();const dow=d.getDay();const h=d.getHours();process.stdout.write((dow>=1&&dow<=5&&h>=5&&h<19)?"1":"0")')
+  if [ "$IS_WORKING" = "1" ]; then
+    echo ""
+    echo "✗ 工作时间只提交不推送：当前处于工作时间，push 被拦截。"
+    echo "  提交已在本地（commit 时间已映射到晚间）。"
+    echo "  请到非工作时间再 push，或确需立即推送时："
+    echo "    export SKIP_NONWORKING_PUSH_GUARD=1 && git push ..."
+    echo ""
+    exit 1
+  fi
+  # 非工作时间：清除标记，表示这批工作时间提交已补推
+  rm -f "$MARKER"
+fi
+exit 0
