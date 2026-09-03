@@ -50,7 +50,7 @@ dependencies:
 
   # Third-party OAuth login (International)
   google_sign_in: ^6.3.0
-  sign_in_with_apple: ^6.1.4
+  sign_in_with_apple: ^8.2.0
 
   # Third-party OAuth login (China)
   fluwx: ^4.0.0                       # 微信登录: https://pub.dev/packages/fluwx (当前代码按 v3 API 编写, 联调时需确认 v4 API)
