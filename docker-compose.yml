@@ -34,6 +34,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: server
+      args:
+        # node-gyp headers 下载源：中国区构建设 NODE_HEADERS_MIRROR=https://registry.npmmirror.com/-/binary/node
+        NODE_HEADERS_MIRROR: ${NODE_HEADERS_MIRROR:-https://nodejs.org/dist}
     ports:
       - "3000:3000"
     # 持久化 /app/server/data（登录统计 login-stats.log、uploads 等）——容器重建（升级）不丢；reset 清库不碰文件
