@@ -49,7 +49,7 @@ dependencies:
   local_auth: ^2.3.0
 
   # Third-party OAuth login (International)
-  google_sign_in: ^6.3.0
+  google_sign_in: ^7.2.0
   sign_in_with_apple: ^6.1.4
 
   # Third-party OAuth login (China)
