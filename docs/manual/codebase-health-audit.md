@@ -94,6 +94,17 @@ auth.service 1111 行、30 方法横跨 8 子域，但**共享私有 helpers 混
 
 > 附注：audit.service（1022，排序下一）实际比 auth 更接近 ai.service explain 形态（哈希链/log/stats/cost/report/chain 子域较独立、依赖已模块化），届时可更快见效。
 
+### 阶段 3 执行策略（2026-09-03 调整，用户采纳）
+
+god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
+
+- **优先级调整**：audit.service → ai.service（主战场）→ crm/admin/org；**auth 地基刀不再作为固定优先动作**，改为**触发条件驱动**（auth 是稳定域，近期无扩展，纯偿还收益低）。
+- **auth 地基刀触发条件**（任一出现即按 §3a 蓝图执行）：
+  1. 下次改 auth 认证流程 / 加新认证方式（顺带按蓝图拆，一次回归验证）
+  2. auth.service 膨胀超 ~1300 行，或四层评审在 auth 区域连续出难定位 findings
+  3. 启动认证域独立扩展（如多租户会话策略）
+- **变更驱动原则**：只在模块即将扩展或已出现真实维护痛点时动手拆分；其余时候维持现状，把精力留给功能与验证。
+
 ### 阶段 4 — 架构决策（H4 governance 整合 + M4 常量单源 + M5 i18n 迁移 + React 去留）
 单独立项，每个先做影响分析再动代码。
 
@@ -121,7 +132,7 @@ auth.service 1111 行、30 方法横跨 8 子域，但**共享私有 helpers 混
 ## 5. 待办（未做项）
 
 - [ ] 阶段 2 残余：环 1 compactor `AiServiceConfig` import 改 `import type`（低优先级，类型级）；module 级 forwardRef 环（ai↔auth↔org↔flows）为已知架构权衡——根治需 Explainable Authz 端点归属调整（auth controller 的 explainable 端点迁出 ai 域）+ 共享 provider 梳理，**建议并入阶段 3/4 统一做**
-- [ ] 阶段 3：god service 拆分（auth → audit → ai.service → crm/admin/org，先拆小后拆大；ai.service 拆分时可复用本批 AuthorizationExplainerService 下沉经验）
+- [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：governance/audit 语义整合架构立项；状态/风险词汇常量单源；Flutter i18n 中文映射迁移；React 预览版去留
 - [ ] M3：demo-data.ts 832 行 seed 拆分评估
 
