@@ -82,7 +82,10 @@ export class DetectIdleCustomersTool implements AiTool {
         return { success: false, error: 'minIdleDays 必须是 ≥1 的数字' };
       }
       const limit = args.limit !== undefined ? Number(args.limit) : 20;
-      const result = await this.crmService.detectIdleCustomers(Number(userId), minIdleDays, Number.isFinite(limit) ? limit : 20);
+      if (!Number.isFinite(limit) || limit < 1 || limit > 50) {
+        return { success: false, error: 'limit 必须是 1–50 之间的数字' };
+      }
+      const result = await this.crmService.detectIdleCustomers(Number(userId), minIdleDays, limit);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
