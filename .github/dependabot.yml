@@ -1,0 +1,69 @@
+# Dependabot 自动依赖更新（Security and quality：漏洞依赖自动升版）
+# 依赖提醒（Dependabot alerts）由 GitHub 自动开启（公开仓库免费）；此处配置 version updates。
+# 更新 PR 合并后由 CI（ci.yml）验证；高严重度依赖告警优先处理。
+
+version: 2
+updates:
+  # 后端 NestJS（npm，依赖最多，安全重点）
+  - package-ecosystem: npm
+    directory: /Server-NestJS
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    versioning-strategy: increase-if-necessary
+
+  # Web 管理台 / 工作台（Vue3，npm）
+  - package-ecosystem: npm
+    directory: /Web-Admin-Vue
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 8
+    versioning-strategy: increase-if-necessary
+
+  # React 预览版（npm，保持跟进主版本）
+  - package-ecosystem: npm
+    directory: /Web-Admin-React
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "04:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+
+  # Taro 小程序 / H5（pnpm——dependabot npm ecosystem 识别 pnpm-lock.yaml）
+  - package-ecosystem: npm
+    directory: /Front-Taro
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 8
+    versioning-strategy: increase-if-necessary
+
+  # Flutter 主 App（Dart pub）
+  - package-ecosystem: pub
+    directory: /Front-Flutter
+    schedule:
+      interval: weekly
+      day: thursday
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 8
+
+  # Docker 基础镜像（多阶段构建）
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: friday
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5

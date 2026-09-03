@@ -1843,6 +1843,13 @@ export class AiService {
 
           // 审计日志：工具调用（HS-9 粒度门控：tool 级在 off 时不记录）
           if (await this._shouldAudit('tool')) {
+            // §22.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝），
+            // 非流式放行审计同样落「为什么允许」，保证证据包导出用事发快照而非当前策略重算
+            const authz = await this._authorizationReasons(
+              tc.name,
+              params.userId,
+              await this._requiresConfirmation(tc.name),
+            );
             this.auditService.log({
               userId: params.userId,
               conversationId: params.conversationId,
@@ -1853,6 +1860,13 @@ export class AiService {
               // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
               businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
               evidence: this._captureDecisionEvidence(tc.name, resolvedResult) ?? undefined,
+              authorization: JSON.stringify({
+                allowed: true,
+                tool: tc.name,
+                riskLevel: authz.riskLevel,
+                strategy: authz.riskStrategy,
+                checks: authz.checks,
+              }),
             });
           }
 
