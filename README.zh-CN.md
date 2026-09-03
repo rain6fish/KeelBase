@@ -216,6 +216,10 @@ keelbase init --desc "Customer management"
 - **下（企业世界，southbound）**：任何业务系统都能具备 AI 能力。业务系统经 **Bridge（协议 + 能力映射）** 接入——无需替换
 - **中间（信任层）**：identity · policy · permission · 人工确认 · 副作用控制 · 审计与撤销 · 私有部署
 
+<img src="docs/branding/keelbase-governance-landscape-zh.svg" alt="KeelBase 企业 AI 治理架构与价值全景" width="840">
+
+> *全貌：企业应用（存量业务系统 + 由 KeelBase 构建的 AI 化应用）→ KeelBase 治理运行时（接入能力 / AI 执行链 / 治理信任 / 平台能力）→ 它所调用的模型服务。*
+
 ---
 
 ## 📚 文档
