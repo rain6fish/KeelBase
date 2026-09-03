@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **智谱 GLM**（glm-4-flash，open.bigmodel.cn/api/paas/v4） | ✅ | ✅ **标准**（触发 + 结果回填闭环） | ✅ **可靠第二 provider** |
 | Qwen DashScope（/compatible-mode） | ✅ | ❌ 不触发（finish:None + tool_calls:null，多模型多参数复现） | ⚠️ 需适配 |
-| Kimi Moonshot（api.moonshot.cn） | ❌ | — | ❌ key 无效（Invalid Authentication） |
+| Kimi Moonshot（api.moonshot.cn，**kimi-k2.6**） | ✅ | ✅ **标准**（触发 + 结果回填闭环） | ✅ 可靠 provider（标准平台 key） |
 | **Gemini**（原生 + OpenAI 兼容，AQ Auth Key） | ⚠️ 生成 403 | — | ❌ **Google 项目级 denied**（2026-09-03 诊断） |
 
 **Gemini AQ Auth Key 专项诊断（2026-09-03，纠正 AIza 误判）**：Google 2026 已从 `AIza` Standard Key 迁移到 `AQ` Auth Key（AI Studio 新 key 默认 AQ，官方文档确认，2026-09 将拒绝 Standard Key）——**AQ 前缀正常，非异常**。区分测试：
@@ -37,7 +37,7 @@
 
 - **GLM 可用 `AI_PROVIDER=openai` + `OPENAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4` + `OPENAI_API_KEY`（智谱 key）+ `AI_CHAT_MODEL=glm-4-flash`**——任意 OpenAI 兼容端点走既有 openai provider + base_url 覆盖，无需新 provider 注册。工具调用链路与 DeepSeek（golden-crm 8/8）同标准。
 - **Qwen DashScope `/compatible-mode` 工具调用不兼容**（openai-compatible 标准 tools 透传不触发）；`AI_PROVIDER=qwen` 声明需打标，真支持需评估 DashScope 原生协议或 Qwen 专用 tools 格式——需求驱动。
-- Kimi 待有效 key 复验（本 key Invalid Authentication，无法判定兼容性）。
+- Kimi：**kimi-k2.6（标准平台 key）已验证 ✅** 工具调用 + agent 闭环（2026-09-03）——注意会员 key（`sk-kimi-` 前缀）不走平台端点，需 platform.moonshot.cn 标准 `sk-` key。
 
 ## 建议 / Next
 
