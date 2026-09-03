@@ -20,13 +20,13 @@
 | H2 | `Server-NestJS/src/auth/auth.service.ts`（1111）/ `src/ai/audit/audit.service.ts`（1022） | 巨型 service，天然子域边界明显（auth: 登录/锁定/OAuth/MFA/SSO/会话；audit: 写入/哈希链/统计/报表） | 阶段 3 先拆这两个（先拆小后拆大） |
 | H3 | `src/crm/crm.service.ts`（571）/ `src/admin/admin.service.ts`（598）/ `src/org/org.service.ts`（568） | 中型膨胀（500+） | 阶段 3 后续 |
 | H4 | audit/governance 语义分散：`src/operation-audit` / `src/ai/audit` / `src/ai/governance` / `src/governance` / `src/governance-sidecar` | 治理+审计+审批语义切 4+1 处，`governance` 与 `ai/governance` 命名直接平行；sidecar 疑可独立进程又与 ai-tool-effects 交叉 | 阶段 4 独立架构立项（牵涉独立治理台进程，**不在本次范围**） |
-| H5 | 5 个 import 环（FACT）：`ai.service↔conversation-compactor`；`rag-agent→content-safety→audit→ai.service`；`governance-policy.service↔presets`；`ai.module↔auth.module`；`ai→auth→org→flows→ai` | Nest 循环 DI 隐患，启动时序风险 | 阶段 2 修复 |
+| H5 | import 环（5 处）| 阶段 2（2026-09-03）已切 **service 级两条反向运行时环**：新建 `AuthorizationExplainerService`（授权解释子域），audit.service / auth.controller 不再依赖 AiService；环 1 compactor、环 3 presets 核实为类型级 import（改 import type / 已 import type，无运行时环）；**剩余 module 级 forwardRef 环**（ai↔auth↔org↔flows）为已知架构权衡，保留 |
 
 ### MEDIUM — 质量（阶段 2/后续）
 
 | # | 位置 | 说明 |
 |---|------|------|
-| M1 | `src/ai/providers/demo-provider.ts`（322）+ `ai.module.ts:279` | 离线演示 provider **生产常驻注册**，疑应 dev-only（阶段 2） |
+| M1 | ~~demo-provider dev-only~~ | ❌ **取消**：`ai.module.ts:276-279` 注释明确——是 resolveProvider 链尾**确定性兜底**（无 key 干净环境跑通 AI 黄金流程 + 确定性验证/演示），非生产泄漏，不改 |
 | M2 | ~~3 个孤儿导出~~ | **已清理 2026-09-03**（见 §4） |
 | M3 | `src/common/demo-data.ts`（832）+ `flow-runtime.service.ts:55` | seed 膨胀 + 历史坏数据兼容注释（后续评估拆分/清理） |
 | M4 | 状态/词汇单源化不足：crm/pm 任务状态枚举重复、`riskLevel` 词汇 crm/approval/ai-governance 三处独立、分页 DTO 仅 2 模块使用、`@Column default` 写字面量 | 后续收敛到单源（阶段 4 或随手件清理） |
@@ -82,10 +82,20 @@
 
 **验证**：清理后后端 build + 全量单测通过（见提交记录）。
 
+### 2026-09-03 — 阶段 2：授权子域下沉（AuthorizationExplainerService）
+- ✅ 新建 `Server-NestJS/src/ai/authorization-explainer.service.ts`：从 AiService 迁入 `explainAuthorization` / `getAuthorizationChain` / `getAuthorizationReasons`（原 `_authorizationReasons`），逻辑逐字不变，只读授权解释。
+- ✅ `ToolRegistry` 提为模块级 `useClass` provider（AiService useFactory 注入后仍在原处注册工具，**87 行工具注册零搬迁**）；explainer 共享同一实例查工具风险级。
+- ✅ `audit.service:899` 与 `auth.controller:344/350` 从 `AiService` 切到 `AuthorizationExplainerService`——切断两条 service 级反向运行时依赖（环 2/4/5 的 service 部分）。
+- ✅ `ai.service.ts` 净减 131 行；热路径 4 处 `_authorizationReasons` 改经 explainer。
+- ✅ spec 同步（4 处 new AiService 补参、getAuthorizationChain 测试迁 explainer、audit provider token 换）。
+- ⏭️ M1 demo-provider dev-only **取消**（有意的确定性兜底）；环 1/环 3 核实为类型级（无运行时环，环 1 compactor import 改 import type 可选做）。
+
+**验证**：`npm run build` 过 + 全量 **231 suite / 1993 tests 全过**（阶段 1 后无回归）。
+
 ## 5. 待办（未做项）
 
-- [ ] 阶段 2：修复 5 个 import 环 + demo-provider dev-only（报告给出位置与方向，待用户批准启动）
-- [ ] 阶段 3：god service 拆分（auth → audit → ai.service → crm/admin/org，先拆小后拆大）
+- [ ] 阶段 2 残余：环 1 compactor `AiServiceConfig` import 改 `import type`（低优先级，类型级）；module 级 forwardRef 环（ai↔auth↔org↔flows）为已知架构权衡——根治需 Explainable Authz 端点归属调整（auth controller 的 explainable 端点迁出 ai 域）+ 共享 provider 梳理，**建议并入阶段 3/4 统一做**
+- [ ] 阶段 3：god service 拆分（auth → audit → ai.service → crm/admin/org，先拆小后拆大；ai.service 拆分时可复用本批 AuthorizationExplainerService 下沉经验）
 - [ ] 阶段 4：governance/audit 语义整合架构立项；状态/风险词汇常量单源；Flutter i18n 中文映射迁移；React 预览版去留
 - [ ] M3：demo-data.ts 832 行 seed 拆分评估
 

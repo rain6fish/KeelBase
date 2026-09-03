@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AiService } from './ai.service';
+import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { NotFoundException } from '@nestjs/common';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
@@ -16,6 +17,7 @@ describe('AiService', () => {
   let mockRagAgent: { answer: jest.Mock };
   let mockMemoriesService: any;
   let mockSubAgentOrchestrator: any;
+  let mockAuthorizationExplainer: any;
   let confirmationStore: ConfirmationStore;
   let mockProvider: jest.Mocked<{
     name: string;
@@ -130,6 +132,13 @@ describe('AiService', () => {
       run: jest.fn().mockResolvedValue({ content: '', stepResults: [] }),
     };
 
+    // 真实 explainer（注入 mockToolRegistry：riskLevel 动态 R1，测试可覆写 R3）——
+    // 热路径 getAuthorizationReasons 产出真实 user_scoped / risk_policy checks，供工具事件断言
+    mockAuthorizationExplainer = new AuthorizationExplainerService(
+      mockToolRegistry as any,
+      { explainForTarget: jest.fn().mockReturnValue({ action: 'manage', subject: '', allowed: true, reason: '' }) } as any,
+    ) as any;
+
     aiService = new AiService(
       mockProviderFactory as any,
       mockToolRegistry as any,
@@ -142,6 +151,7 @@ describe('AiService', () => {
       confirmationStore,
       { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
       mockSubAgentOrchestrator as any,
+      mockAuthorizationExplainer as any,
       mockSettingsService as any,
     );
   });
@@ -661,6 +671,7 @@ describe('AiService', () => {
         confirmationStore,
         mockCompactor as any,
         { matchSkill: jest.fn().mockReturnValue(null), run: jest.fn() } as any,
+        mockAuthorizationExplainer as any,
       );
       mockProvider.generate.mockResolvedValue({ content: '好的' });
 
@@ -1284,6 +1295,7 @@ describe('AiService', () => {
         confirmationStore,
         { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
         mockSubAgentOrchestrator as any,
+        mockAuthorizationExplainer as any,
       );
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
@@ -1647,6 +1659,7 @@ describe('AiService', () => {
         confirmationStore,
         {} as any,
         mockSubAgentOrchestrator as any,
+        mockAuthorizationExplainer as any,
       );
       const defs = await (plain as any)._buildToolDefs();
       expect(defs.every((d: any) => !d.function.name.startsWith('mcp_'))).toBe(true);
@@ -1710,24 +1723,27 @@ describe('AiService', () => {
     });
 
     it('§22.16 A-5 getAuthorizationChain：聚合角色 grants + 工具策略 + 生效期', async () => {
-      (aiService as any).abilityFactory = {
-        describeForUser: jest.fn().mockReturnValue({
-          role: 'user',
-          basis: '普通用户：可管理本人拥有的资源',
-          resources: [
-            { subject: 'Event', scope: 'own', reason: '只能操作自己的数据' },
-            { subject: 'Todo', scope: 'own', reason: '只能操作自己的数据' },
-          ],
-        }),
-      };
-      (aiService as any).governancePolicy = {
-        getPolicy: jest.fn().mockResolvedValue({
-          tools: { query_customers: { enabled: true, allowedRoles: ['user', 'admin'] } },
-          audit: { granularity: 'all' },
-          updatedAt: new Date('2026-08-31T00:00:00Z'),
-        }),
-      };
-      const chain = await (aiService as any).getAuthorizationChain({ role: 'user', sub: 42, username: 'alex' });
+      const explainer = new AuthorizationExplainerService(
+        mockToolRegistry as any,
+        {
+          describeForUser: jest.fn().mockReturnValue({
+            role: 'user',
+            basis: '普通用户：可管理本人拥有的资源',
+            resources: [
+              { subject: 'Event', scope: 'own', reason: '只能操作自己的数据' },
+              { subject: 'Todo', scope: 'own', reason: '只能操作自己的数据' },
+            ],
+          }),
+        } as any,
+        {
+          getPolicy: jest.fn().mockResolvedValue({
+            tools: { query_customers: { enabled: true, allowedRoles: ['user', 'admin'] } },
+            audit: { granularity: 'all' },
+            updatedAt: new Date('2026-08-31T00:00:00Z'),
+          }),
+        } as any,
+      );
+      const chain = await explainer.getAuthorizationChain({ role: 'user', sub: 42, username: 'alex' });
       expect(chain.user.username).toBe('alex');
       expect(chain.grants).toHaveLength(2);
       expect(chain.grants[0]).toMatchObject({ resource: 'Event', scope: 'own' });

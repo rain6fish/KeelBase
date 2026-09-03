@@ -8,8 +8,8 @@
  */
 
 import { createHmac } from 'crypto';
-import { Injectable, Optional, Inject, NotFoundException, forwardRef } from '@nestjs/common';
-import { AiService } from '../ai.service';
+import { Injectable, Optional, Inject, NotFoundException } from '@nestjs/common';
+import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { AiAgentService } from '../agents/ai-agent.service';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
@@ -215,9 +215,8 @@ export class AuditService {
     private readonly reporter?: GovernanceReporter,
     // E-3 聚合缓存（审计统计/成本/报告/verify 短 TTL；log 热路径只失效 verify 单 key 族）
     @Optional() private readonly cacheService?: CacheService,
-    // §22.16 A-5 跨系统身份链：授权依据（AiService.explainAuthorization）+ Agent 解析
-    @Optional() @Inject(forwardRef(() => AiService))
-    private readonly aiService?: AiService,
+    // §22.16 A-5 跨系统身份链：授权依据（AuthorizationExplainerService.explainAuthorization，阶段 2 切环）
+    @Optional() private readonly authorizationExplainer?: AuthorizationExplainerService,
     @Optional() private readonly agentService?: AiAgentService,
   ) {}
 
@@ -896,7 +895,7 @@ export class AuditService {
         allowed = { checks: snap.checks, riskLevel: snap.riskLevel };
       } else if (toolName) {
         try {
-          allowed = (await this.aiService?.explainAuthorization(toolName, row.userId)) ?? null;
+          allowed = (await this.authorizationExplainer?.explainAuthorization(toolName, row.userId)) ?? null;
         } catch {
           allowed = null;
         }

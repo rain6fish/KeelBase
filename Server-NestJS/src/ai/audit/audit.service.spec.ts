@@ -8,7 +8,7 @@ import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
-import { AiService } from '../ai.service';
+import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { actorContext } from '../actor-context';
 
 function makeLogRepo() {
@@ -97,9 +97,9 @@ describe('AuditService', () => {
         { provide: getRepositoryToken(AiToolSideEffect), useValue: effectsRepo },
         { provide: AuditChainService, useValue: chain },
         { provide: DataSource, useValue: dataSource },
-        // §22.16 A-5 放行快照：aiService 供「无快照降级重算」场景（快照场景不应调用）
+        // §22.16 A-5 放行快照：authorizationExplainer 供「无快照降级重算」场景（快照场景不应调用）
         {
-          provide: AiService,
+          provide: AuthorizationExplainerService,
           useValue: {
             explainAuthorization: jest.fn().mockResolvedValue({
               tool: 'query_customers',

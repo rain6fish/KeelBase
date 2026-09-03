@@ -12,6 +12,7 @@ import { randomUUID, createHash } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
+import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
@@ -31,8 +32,6 @@ import {
   ToolDefinition,
   ToolResult,
   RISK_STRATEGY,
-  AuthorizationCheck,
-  AuthorizationReasons,
   AuthorizationDeniedError,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
@@ -137,6 +136,7 @@ export class AiService {
     private readonly confirmationStore: ConfirmationStore,
     private readonly compactor: ConversationCompactor,
     private readonly subAgentOrchestrator: SubAgentOrchestrator,
+    private readonly authorizationExplainer: AuthorizationExplainerService,
     private readonly settingsService?: SettingsService,
     private readonly featureFlagsService?: FeatureFlagsService,
     private readonly usersService?: UsersService,
@@ -286,124 +286,7 @@ export class AiService {
     return this.governancePolicy.requiresConfirmation(name, fallback);
   }
 
-  /**
-   * W5-⑦ Explainable Authorization（评审四）：生成「为何允许 / 为何需确认」的结构化依据。
-   * 由 tool_start / confirmation_request 事件携带，供前端渲染治理可解释性。
-   * 调用时机在 _assertToolAllowed 之后，故 tool_enabled / role_allowed 反映已生效的门控。
-   */
-  private async _authorizationReasons(
-    toolName: string,
-    userId: string,
-    isWrite: boolean,
-  ): Promise<AuthorizationReasons> {
-    const riskLevel = this.toolRegistry.riskLevel(toolName);
-    const riskStrategy = RISK_STRATEGY[riskLevel];
-    const checks: AuthorizationCheck[] = [];
-    if (this.governancePolicy) {
-      const enabled = await this.governancePolicy.isToolEnabled(toolName);
-      checks.push({
-        name: 'tool_enabled',
-        ok: enabled,
-        note: enabled ? '治理策略已启用' : '治理策略禁用',
-      });
-      const roles = await this.governancePolicy.getAllowedRoles(toolName);
-      if (roles.length > 0) {
-        const user = this.usersService
-          ? await this.usersService.findOne(Number(userId))
-          : null;
-        const ok = !!user && !!user.role && roles.includes(user.role);
-        checks.push({
-          name: 'role_allowed',
-          ok,
-          note: ok
-            ? `角色 ${user.role} ∈ [${roles.join(', ')}]`
-            : `需要角色 [${roles.join(', ')}]`,
-        });
-      } else {
-        checks.push({ name: 'role_allowed', ok: true, note: '无角色限制' });
-      }
-    }
-    checks.push({
-      name: 'user_scoped',
-      ok: true,
-      note: '执行时注入调用者 userId，仅操作本人数据',
-    });
-    checks.push({
-      name: 'risk_policy',
-      ok: isWrite,
-      note: `风险级 ${riskLevel}（${riskStrategy}）${isWrite ? '→ 需人工确认' : '→ 自动执行'}`,
-    });
-    return {
-      tool: toolName,
-      riskLevel,
-      riskStrategy,
-      requiresConfirmation: isWrite,
-      checks,
-    };
-  }
-
-  /** §22.16 A-5 授权链：放行场景的「为什么允许」依据（tool 治理 checks + 角色 CASL 决策） */
-  async explainAuthorization(toolName: string, userId: string): Promise<{
-    tool: string;
-    riskLevel?: string;
-    riskStrategy?: string;
-    requiresConfirmation?: boolean;
-    checks: AuthorizationCheck[];
-    casl?: { action: string; subject: string; allowed: boolean; reason: string; deniedBy?: string | null };
-  }> {
-    const isWrite = RISK_STRATEGY[this.toolRegistry.riskLevel(toolName)] !== 'auto';
-    const reasons = await this._authorizationReasons(toolName, userId, isWrite);
-    let casl: { action: string; subject: string; allowed: boolean; reason: string; deniedBy?: string | null } | undefined;
-    try {
-      const user = this.usersService ? await this.usersService.findOne(Number(userId)) : null;
-      casl = this.abilityFactory.explainForTarget(
-        { role: (user?.role as any) ?? 'user', sub: Number(userId) },
-        'manage',
-        toolName,
-      );
-    } catch {
-      casl = undefined;
-    }
-    return { ...reasons, casl };
-  }
-
-  /** §22.16 A-5 授权链图：按用户聚合完整授权链（角色→CASL 资源 + 工具策略 + 生效期） */
-  async getAuthorizationChain(user: { role: 'admin' | 'user'; sub: number; username?: string | null }): Promise<{
-    user: { id: number; username: string | null; role: string };
-    grants: Array<{ policy: string; resource: string; scope: string }>;
-    toolPolicies: Array<{ toolName: string; enabled: boolean; allowedRoles: string[]; riskLevel?: string }>;
-    effectiveSince: Date | string | null;
-  }> {
-    const described = this.abilityFactory.describeForUser({ sub: user.sub, role: user.role } as never);
-    const grants = (described.resources ?? []).map((r) => ({
-      policy: described.basis ?? '角色授权',
-      resource: r.subject,
-      scope: r.scope,
-    }));
-    let toolPolicies: Array<{ toolName: string; enabled: boolean; allowedRoles: string[]; riskLevel?: string }> = [];
-    let effectiveSince: Date | string | null = null;
-    try {
-      const policy = await this.governancePolicy?.getPolicy();
-      if (policy) {
-        effectiveSince = policy.updatedAt ?? null;
-        toolPolicies = Object.entries(policy.tools ?? {}).map(([toolName, cfg]) => ({
-          toolName,
-          enabled: cfg.enabled ?? true,
-          allowedRoles: cfg.allowedRoles ?? [],
-          riskLevel: this.toolRegistry.riskLevel(toolName) || undefined,
-        }));
-      }
-    } catch {
-      // 策略不可用时工具策略空（授权链图仍显示角色级 grants）
-    }
-    return {
-      user: { id: user.sub, username: user.username ?? null, role: user.role },
-      grants,
-      toolPolicies,
-      effectiveSince,
-    };
-  }
-
+  /** §22.16 A-5 Explainable Authorization 已拆至 AuthorizationExplainerService（阶段 2 切环） */
   /**
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
    */
@@ -1311,7 +1194,7 @@ export class AiService {
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
           // ADT（P0-14）：isWrite 让前端标注读/写，写操作需确认、可撤销
           // W5-⑦ Explainable Authz：携带 riskLevel + authorization（为何允许/为何需确认）
-          const authz = await this._authorizationReasons(tc.name, userId, isWrite);
+          const authz = await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, isWrite);
           yield {
             type: 'tool_start',
             toolStart: {
@@ -1342,7 +1225,7 @@ export class AiService {
                   summary: this.summarizeWriteTool(tc.name, parsed),
                   arguments: parsed,
                   mode: 'approval',
-                  authorization: await this._authorizationReasons(tc.name, userId, true),
+                  authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                 },
               };
               result = { success: false, error: '已提交人工审批，等待审批人决策（R4 高影响动作）' };
@@ -1379,7 +1262,7 @@ export class AiService {
                 summary: this.summarizeWriteTool(tc.name, parsed),
                 arguments: parsed,
                 // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
-                authorization: await this._authorizationReasons(tc.name, userId, true),
+                authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
               },
             };
             const { outcome, trustTool } = await decision;
@@ -1845,7 +1728,7 @@ export class AiService {
           if (await this._shouldAudit('tool')) {
             // §22.16 A-5 事件时点放行授权依据快照：对齐流式路径（对象格式 parseChecks 不误判为拒绝），
             // 非流式放行审计同样落「为什么允许」，保证证据包导出用事发快照而非当前策略重算
-            const authz = await this._authorizationReasons(
+            const authz = await this.authorizationExplainer.getAuthorizationReasons(
               tc.name,
               params.userId,
               await this._requiresConfirmation(tc.name),
