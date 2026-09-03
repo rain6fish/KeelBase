@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="672" viewBox="0 0 1200 672" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- ══════════ Title (centered) ══════════ -->
+  <text x="600" y="34" font-size="22" font-weight="700" fill="#111827" text-anchor="middle">KeelBase — Enterprise AI Development &amp; Governance Platform</text>
+  <text x="600" y="59" font-size="13" fill="#4b5563" text-anchor="middle">The governance runtime connecting business systems and AI Agents (Business-safe AI Runtime) — AI truly enters business, executes correctly, and stays traceable &amp; reversible</text>
+
+  <!-- ══════════ Top: Enterprise Applications (business side) ══════════ -->
+  <rect x="20" y="84" width="800" height="72" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="40" y="102" font-size="11" font-weight="700" fill="#475569">Enterprise Applications (business side)</text>
+  <text x="40" y="125" font-size="12.5" fill="#1e293b">Existing systems: ERP · CRM · OA · MES · Databases · Third-party SaaS · Files/MQ</text>
+  <text x="40" y="148" font-size="11" fill="#2563eb">AI-enabled apps: AI CRM · AI Approvals · AI Projects · Knowledge Workbench — augment existing, or build new with KeelBase</text>
+  <line x1="420" y1="162" x2="420" y2="172" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ══════════ KeelBase Governance Runtime ══════════ -->
+  <rect x="20" y="176" width="800" height="334" rx="12" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.5"/>
+  <rect x="20" y="176" width="800" height="30" rx="12" fill="#1d4ed8"/>
+  <rect x="20" y="196" width="800" height="10" fill="#1d4ed8"/>
+  <text x="420" y="196" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">KeelBase — Business-safe AI Runtime (governance runtime)</text>
+
+  <!-- Onboarding capabilities (provided by KeelBase) -->
+  <text x="40" y="222" font-size="11" font-weight="700" fill="#c2410c">Onboarding (provided by KeelBase) — how business systems connect to the runtime</text>
+  <g font-size="10.5" fill="#431407" text-anchor="middle">
+    <rect x="40" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fb923c" stroke-width="1.2"/>
+    <text x="160.5" y="248">KeelBase-java-starter (existing Java)</text>
+    <rect x="289" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fdba74"/>
+    <text x="409.5" y="248">Governance sidecar (zero-code)</text>
+    <rect x="538" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fdba74"/>
+    <text x="658.5" y="248">AI Bridge (OpenAPI/SQL)</text>
+  </g>
+
+  <!-- ① AI Execution Chain -->
+  <text x="40" y="278" font-size="12" font-weight="700" fill="#374151">① AI Execution Chain — every agent step completes correctly under KeelBase governance</text>
+  <g font-size="10.5" fill="#1f2937" text-anchor="middle">
+    <rect x="40" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="84.5" y="308">Understand</text>
+    <rect x="133" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="177.5" y="308">Plan</text>
+    <rect x="226" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="270.5" y="308">Tools</text>
+    <rect x="319" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="363.5" y="308">Permissions</text>
+    <rect x="412" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="456.5" y="308">Risk</text>
+    <rect x="505" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="549.5" y="308">Confirm HITL</text>
+    <rect x="598" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="642.5" y="308">Execute</text>
+    <rect x="691" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="735.5" y="308">Audit</text>
+  </g>
+
+  <!-- ② Governance & Trust Layer -->
+  <text x="40" y="342" font-size="12" font-weight="700" fill="#374151">② Governance &amp; Trust Layer — make AI trustworthy</text>
+  <g font-size="10.5" fill="#3b0764" text-anchor="middle">
+    <rect x="40" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="160.5" y="368">Tool Registry · discovery</text>
+    <rect x="289" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="409.5" y="368">Permission Policy · data scope</text>
+    <rect x="538" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="658.5" y="368">Risk Control · rules</text>
+    <rect x="40" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="160.5" y="400">Audit &amp; Evidence · hash chain</text>
+    <rect x="289" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="409.5" y="400">Agent Registry · mgmt</text>
+    <rect x="538" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="658.5" y="400">Policy Config · set &amp; push</text>
+  </g>
+
+  <!-- ③ Platform Capabilities -->
+  <text x="40" y="428" font-size="12" font-weight="700" fill="#374151">③ Platform Capabilities — solid foundation</text>
+  <g font-size="10.5" fill="#164e63" text-anchor="middle">
+    <rect x="40" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="110" y="457">Application Protocol</text>
+    <rect x="188" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="258" y="457">Generator</text>
+    <rect x="336" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="406" y="457">Private Deploy</text>
+    <rect x="484" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="554" y="457">Observability</text>
+    <rect x="632" y="436" width="148" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="706" y="457">Webhooks · MCP</text>
+  </g>
+
+  <!-- ↓ to model services -->
+  <line x1="420" y1="516" x2="420" y2="526" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ══════════ Model services (what KeelBase calls) ══════════ -->
+  <rect x="20" y="530" width="800" height="52" rx="10" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="40" y="550" font-size="12" font-weight="700" fill="#15803d">Model services — the LLM inference KeelBase calls (OpenAI-compatible)</text>
+  <text x="40" y="572" font-size="12.5" fill="#166534">DeepSeek · Claude · Qwen · Gemini · Ollama (on-prem optional) · Embedding — KeelBase builds no models; providers are swappable</text>
+
+  <!-- ══════════ Core promise ══════════ -->
+  <rect x="20" y="600" width="800" height="52" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="420" y="622" font-size="13.5" font-weight="700" fill="#92400e" text-anchor="middle">Core promise: any enterprise turns its business system into a safe, controlled, auditable AI app within 30 minutes</text>
+  <text x="420" y="642" font-size="11" fill="#b45309" text-anchor="middle">Connect any business → understand semantics → govern every decision → execute safely → fully traceable &amp; verifiable</text>
+
+  <!-- ══════════ Right value panel ══════════ -->
+  <rect x="840" y="84" width="340" height="568" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="1010" y="112" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Value Landscape</text>
+  <line x1="870" y1="124" x2="1150" y2="124" stroke="#e2e8f0"/>
+
+  <!-- Value for business -->
+  <text x="865" y="146" font-size="12.5" font-weight="700" fill="#1d4ed8">Value for business</text>
+  <text x="865" y="166" font-size="10.5" fill="#4b5563">· AI truly enters business — lower risk, higher efficiency</text>
+  <text x="865" y="183" font-size="10.5" fill="#4b5563">· Auditable · compliant · data security &amp; sovereignty</text>
+  <text x="865" y="200" font-size="10.5" fill="#4b5563">· Users work in natural language; AI stays in control</text>
+
+  <!-- Value for developers -->
+  <text x="865" y="228" font-size="12.5" font-weight="700" fill="#1d4ed8">Value for developers (Builders)</text>
+  <text x="865" y="248" font-size="10.5" fill="#4b5563">· Build AI apps fast, focus on business innovation</text>
+  <text x="865" y="265" font-size="10.5" fill="#4b5563">· Quick integration · auto-generation · secure by default</text>
+
+  <!-- Core value summary -->
+  <text x="865" y="295" font-size="12.5" font-weight="700" fill="#1d4ed8">Core values</text>
+  <rect x="865" y="303" width="290" height="22" rx="6" fill="#eff6ff"/>
+  <text x="875" y="319" font-size="10.5" fill="#1e40af">Trustworthy AI execution — permission + risk + confirm</text>
+  <rect x="865" y="329" width="290" height="22" rx="6" fill="#eff6ff"/>
+  <text x="875" y="345" font-size="10.5" fill="#1e40af">Full governance loop — audit + evidence + revoke</text>
+  <rect x="865" y="355" width="290" height="22" rx="6" fill="#eff6ff"/>
+  <text x="875" y="371" font-size="10.5" fill="#1e40af">Open &amp; extensible — Protocol + MCP + ecosystem</text>
+  <rect x="865" y="381" width="290" height="22" rx="6" fill="#eff6ff"/>
+  <text x="875" y="397" font-size="10.5" fill="#1e40af">Business-friendly — natural-language interaction</text>
+
+  <!-- Outcomes -->
+  <text x="865" y="434" font-size="12.5" font-weight="700" fill="#1d4ed8">Outcomes of safe AI execution</text>
+  <text x="865" y="454" font-size="10.5" fill="#4b5563">Business ops · data changes · task creation · reports</text>
+  <rect x="865" y="466" width="290" height="48" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="875" y="484" font-size="11" font-weight="700" fill="#991b1b">End-to-end traceable &amp; reversible</text>
+  <text x="875" y="503" font-size="10" fill="#7f1d1d">every step evidenced · replayable · audit-compliant</text>
+
+  <!-- Where it sits -->
+  <text x="865" y="544" font-size="12.5" font-weight="700" fill="#1d4ed8">Where it sits in the enterprise AI stack</text>
+  <text x="865" y="564" font-size="10.5" fill="#4b5563">Enterprise apps → KeelBase → Model services</text>
+  <text x="865" y="581" font-size="10.5" fill="#4b5563">No rip-and-replace — keep your existing stack</text>
+  <text x="865" y="598" font-size="10.5" fill="#4b5563">Faster connect · faster build (Protocol + Generator)</text>
+</svg>
