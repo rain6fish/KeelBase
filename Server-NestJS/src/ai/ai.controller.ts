@@ -337,8 +337,10 @@ export class AiController {
         trace = null;
       }
     }
+    const target = await this.toolEffectsService.describeTarget(resultType, resultId);
     return {
       // D1 Action Detail 七段数据（Who/When/What/Result/Side Effects 后端齐备；Why 在 trace；Integrity 走哈希链 verify）
+      // A-3 生命周期：targetSoftDeleted 供前端推导「已撤销」态（撤销 = 目标软删）
       effect: {
         id: effect.id,
         userId: effect.userId, // Who
@@ -348,6 +350,9 @@ export class AiController {
         resultType: effect.resultType, // Side Effects
         resultId: effect.resultId,
         createdAt: effect.createdAt, // When
+        targetExists: target.targetExists,
+        targetSoftDeleted: target.targetSoftDeleted,
+        targetTitle: target.targetTitle,
       },
       trace,
     };
