@@ -46,7 +46,7 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.3.0
   fl_chart: ^1.1.0
-  local_auth: ^2.3.0
+  local_auth: ^3.0.2
 
   # Third-party OAuth login (International)
   google_sign_in: ^6.3.0
