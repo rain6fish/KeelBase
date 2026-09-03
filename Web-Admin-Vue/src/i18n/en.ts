@@ -158,6 +158,38 @@ const en: ZhDict = {
   },
   outcome: { refused: 'Refused', denied: 'Denied (unauthorized)', blocked: 'Blocked (high-risk)', requiresConfirmation: 'Awaiting approval' },
   step: { input: 'Input', guard: 'Guard boundary', decision: 'Decision', outcome: 'Outcome' },
+  scReason: {
+    injection: { reason: 'HS-8 injection defense hit signature "{feature}" → refused as a user instruction' },
+    unauthorized: { reason: 'CASL row-level ownership: bob is not the customer owner → DENY' },
+    r5: { reason: 'delete_customer is risk tier {level} (irreversible) → governance policy blocks it outright' },
+    confirmation: { reason: 'create_followup_task is risk tier {level} → confirmation gate: nothing executes before human approval' },
+  },
+  scStep: {
+    injection: {
+      input: 'External content (customer note) passes sanitizeExternalContent (sensitive-field masking) before entering context',
+      guardHit: 'detectInjection hit signature "{feature}"',
+      decision: 'Classified as injection instruction → refused as a user instruction',
+      outcome: 'Agent refuses; the injection instruction stays as reference material only',
+    },
+    unauthorized: {
+      input: 'bob requests alex\'s CrmCustomer #1',
+      guard: 'CASL builds bob\'s ability: can manage CrmCustomer only within { userId: bob.sub }',
+      decision: "subject('CrmCustomer', {userId:1}) → denied",
+      outcome: '403 unauthorized; no data returned',
+    },
+    r5: {
+      input: 'AI calls delete_customer (customerId=1, reason="account closed")',
+      guard: 'Tool registry risk tier: delete_customer = {level}',
+      decision: 'R5 irreversible action → blocked by policy',
+      outcome: 'Tool does not run; returns "blocked by security policy (high-risk)"',
+    },
+    confirmation: {
+      input: 'AI calls create_followup_task (follow-up task for Chenguang Building Materials)',
+      guard: 'Tool risk tier: create_followup_task = {level}',
+      decision: 'R3 write → requiresConfirmation gate',
+      outcome: 'Confirmation card waits for human approve/decline; nothing written without approval',
+    },
+  },
   navAgents: 'Agent Registry',
   navPolicyCenter: 'Policy Center',
   navGuardOverview: 'Governance Overview',

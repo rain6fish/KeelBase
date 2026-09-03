@@ -35,13 +35,13 @@
         </div>
       </template>
       <p class="mb-4">
-        <strong>{{ t('reason') }}:</strong> {{ result.reason }}
+        <strong>{{ t('reason') }}:</strong> {{ loc(`scReason.${result.reasonKey}`, result.reasonParams) }}
       </p>
       <el-timeline>
-        <el-timeline-item v-for="step in result.trace" :key="step.step" :timestamp="step.step" placement="top">
+        <el-timeline-item v-for="step in result.trace" :key="step.step + '-' + step.key" :timestamp="t(`step.${step.step}`)" placement="top">
           <div class="d-flex align-center ga-2">
             <el-tag size="small" :type="stepTagType(step.step)">{{ t(`step.${step.step}`) }}</el-tag>
-            <span class="text-body-2">{{ step.detail }}</span>
+            <span class="text-body-2">{{ loc(`scStep.${step.key}`, step.params) }}</span>
           </div>
         </el-timeline-item>
       </el-timeline>
@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { securityShowcaseApi } from '@/api/securityShowcase'
@@ -75,10 +76,18 @@ function stepTagType(step: string) {
   return ({ input: 'info', guard: 'warning', decision: 'primary', outcome: 'success' } as Record<string, string>)[step] ?? 'info'
 }
 
+/** i18n 插值：reason/trace 文案带可选动态参数（feature/risk level 等） */
+function loc(key: string, params?: Record<string, string | number>) {
+  return params ? t(key, params as unknown as Record<string, unknown>) : t(key)
+}
+
 async function run(id: string) {
   running.value = id
   try {
     result.value = await securityShowcaseApi.run(id)
+  } catch (err) {
+    // 运行失败（含防线漂移 fail-loud）：明确提示而非无反馈静默
+    ElMessage.error(err instanceof Error && err.message ? err.message : t('loadFailed'))
   } finally {
     running.value = ''
   }
@@ -87,8 +96,10 @@ async function run(id: string) {
 onMounted(async () => {
   try {
     scenarios.value = await securityShowcaseApi.scenarios()
-  } finally {
     loaded.value = true
+  } catch {
+    // 加载失败不置 loaded=true，避免误显「暂无对抗场景」空态
+    ElMessage.error(t('loadFailed'))
   }
 })
 </script>
