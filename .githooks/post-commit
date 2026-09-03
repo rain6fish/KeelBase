@@ -1,0 +1,71 @@
+#!/bin/sh
+# 非工作时间提交时间自动映射 hook
+# 规则：工作日(Mon-Fri) 05:00-19:00 的提交 → 线性映射到当天 19:00 至次日 03:00
+#       周末及其他时段保持不变。
+# 铁律（用户 2026-09-03 定案）：
+#   ① 正常提交 AuthorDate = CommitDate——映射时 author 与 committer 用同一目标时间（正常 commit 两者初始同值 → shift 后同值）；
+#      rebase/amend 造成的分叉由 post-rewrite（nonworking-rewrite.cjs）把 committer 收敛回 author。
+#   ② commit message 严禁出现「工作时间提交 / hook 自动映射 / 映射到晚间」类字句——时间映射是对 Git 历史时间的规范，
+#      message 不得以任何文字暴露该机制（曾误把「工作时间提交，hook 自动映射」写进 9 个公开 commit message，严重失误）。
+# GIT_COMMITTER_DATE 显式设置以保留原 committer（否则 amend 会用当前时间）。
+# 计算用 node（本机 Python 是 Store stub，node 可靠可用）。
+
+# 递归保护：amend 会再次触发本 hook
+if [ -n "$NONWORKING_HOOK_AMENDED" ]; then
+  exit 0
+fi
+
+AUTHOR_ISO=$(git log -1 --format=%ai)
+COMMITTER_ISO=$(git log -1 --format=%ci)
+
+NEW_DATES=$(node - "$AUTHOR_ISO" "$COMMITTER_ISO" <<'NODE'
+const [a, c] = process.argv.slice(2);
+function shift(iso) {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s, tz] = m;
+  const dow = new Date(Date.UTC(+y, +mo - 1, +d)).getUTCDay(); // 0=周日 6=周六
+  const isWeekday = dow >= 1 && dow <= 5;
+  const mm = (+h) * 60 + (+mi);
+  if (!isWeekday || mm < 300 || mm >= 1140) return null; // 工作日 05:00-19:00
+  const nm = 1140 + Math.floor((mm - 300) * 480 / 840); // → 当天 19:00 至次日 03:00
+  let nh = Math.floor(nm / 60);
+  const nmi = String(nm % 60).padStart(2, '0');
+  if (nh >= 24) { // 跨午夜：目标落在次日 00:00-03:00
+    const next = new Date(Date.UTC(+y, +mo - 1, +d + 1));
+    return next.getUTCFullYear() + '-' + String(next.getUTCMonth() + 1).padStart(2, '0') + '-' + String(next.getUTCDate()).padStart(2, '0') + ' ' + String(nh - 24).padStart(2, '0') + ':' + nmi + ':' + s + ' ' + tz;
+  }
+  return y + '-' + mo + '-' + d + ' ' + String(nh).padStart(2, '0') + ':' + nmi + ':' + s + ' ' + tz;
+}
+console.log((shift(a) || 'KEEP') + '|' + (shift(c) || 'KEEP'));
+NODE
+)
+
+NEW_AUTHOR=$(echo "$NEW_DATES" | awk -F'|' '{print $1}')
+NEW_COMMITTER=$(echo "$NEW_DATES" | awk -F'|' '{print $2}')
+
+if [ "$NEW_AUTHOR" = "KEEP" ] && [ "$NEW_COMMITTER" = "KEEP" ]; then
+  exit 0
+fi
+
+if [ "$NEW_COMMITTER" = "KEEP" ]; then
+  export GIT_COMMITTER_DATE="$COMMITTER_ISO"
+else
+  export GIT_COMMITTER_DATE="$NEW_COMMITTER"
+fi
+
+if [ "$NEW_AUTHOR" != "KEEP" ]; then
+  NONWORKING_HOOK_AMENDED=1 git commit --amend --allow-empty --no-edit --date="$NEW_AUTHOR" >/dev/null 2>&1
+else
+  NONWORKING_HOOK_AMENDED=1 git commit --amend --allow-empty --no-edit >/dev/null 2>&1
+fi
+
+# ---- 工作时间只提交不推送（2026-08-10）----
+# commit 发生在工作日 05:00-19:00（会被上面映射到晚间）时，写标记文件。
+# pre-push hook 读取该标记 + 当前时间，工作时间 push 一律拦截。
+# 非工作时间 push 时 pre-push 自动清除标记。
+IS_WORKING=$(node -e 'const d=new Date();const dow=d.getDay();const h=d.getHours();process.stdout.write((dow>=1&&dow<=5&&h>=5&&h<19)?"1":"0")')
+if [ "$IS_WORKING" = "1" ]; then
+  echo "$(date +%s)" > .git/NONWORKING_PUSH_BLOCK
+  echo "[post-commit] 工作时间提交已记录 → 当前时段 push 将被拦截（工作时间只提交不推送）"
+fi

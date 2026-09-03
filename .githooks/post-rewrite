@@ -1,0 +1,22 @@
+#!/bin/sh
+# 非工作时间时间映射：rebase / cherry-pick 重写（post-rewrite hook）
+# 背景：rebase 触发 post-rewrite（不触发 post-commit），并把重写 commit 的 committer
+#       重置为当前系统时间；若在工作日 05-19 点执行，committer 会落在工作时间。
+# 逻辑：读取 git 传入 stdin 的 <old-sha> <new-sha> 重写对，由 nonworking-rewrite.cjs
+#       修正 committer 落在工作时间的重写 commit（committer → author date）。
+#       修正只影响刚重写、尚未 push 的历史，reflog 保留旧链可恢复。
+
+node "$(dirname "$0")/nonworking-rewrite.cjs"
+RC=$?
+if [ "$RC" -ne 0 ]; then
+  echo "[post-rewrite] 时间修正失败（历史未改动，可用 reflog 恢复），请检查" >&2
+  exit "$RC"
+fi
+
+# 与 post-commit 一致：工作时间产生的提交写标记，工作时间 push 由 pre-push 拦截
+IS_WORKING=$(node -e 'const d=new Date();const dow=d.getDay();const h=d.getHours();process.stdout.write((dow>=1&&dow<=5&&h>=5&&h<19)?"1":"0")')
+if [ "$IS_WORKING" = "1" ]; then
+  echo "$(date +%s)" > .git/NONWORKING_PUSH_BLOCK
+  echo "[post-rewrite] 工作时间 rebase/cherry-pick 已记录 → 当前时段 push 将被拦截（工作时间只提交不推送）"
+fi
+exit 0
