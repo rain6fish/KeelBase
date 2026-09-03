@@ -159,6 +159,38 @@ const zh = {
   },
   outcome: { refused: '已拒绝', denied: '已拒绝（越权）', blocked: '已阻断（高风险）', requiresConfirmation: '待人工确认' },
   step: { input: '输入', guard: '防护边界', decision: '决策', outcome: '结果' },
+  scReason: {
+    injection: { reason: 'HS-8 注入防线命中注入特征「{feature}」→ 拒绝作为用户指令' },
+    unauthorized: { reason: 'CASL 行级所有权：bob 非客户属主 → DENY' },
+    r5: { reason: 'delete_customer 风险级 {level}（不可逆动作）→ 治理策略直接阻断' },
+    confirmation: { reason: 'create_followup_task 风险级 {level} → 确认门控：未获人工批准不执行' },
+  },
+  scStep: {
+    injection: {
+      input: '外部资料（客户备注）进入上下文前，先过 sanitizeExternalContent（敏感字段掩码）',
+      guardHit: 'detectInjection 命中特征「{feature}」',
+      decision: '判定为注入指令 → 拒绝作为用户指令执行',
+      outcome: 'Agent 拒绝执行，注入指令仅作资料参考',
+    },
+    unauthorized: {
+      input: 'bob 请求读取 alex 名下 CrmCustomer#1',
+      guard: 'CASL 构造 bob 能力：can manage CrmCustomer 仅限 { userId: bob.sub }',
+      decision: "subject('CrmCustomer', {userId:1}) → 拒绝",
+      outcome: '403 无权访问，数据不返回',
+    },
+    r5: {
+      input: 'AI 调用 delete_customer（customerId=1, reason="已注销"）',
+      guard: '工具注册表风险分级：delete_customer = {level}',
+      decision: 'R5 不可逆动作 → 策略阻断',
+      outcome: '工具不执行，返回「该操作已被安全策略阻断（高风险）」',
+    },
+    confirmation: {
+      input: 'AI 调用 create_followup_task（为辰光建材建跟进任务）',
+      guard: '工具风险分级：create_followup_task = {level}',
+      decision: 'R3 写操作 → requiresConfirmation 确认门控',
+      outcome: '挂起确认卡，等待人工批准/拒绝；未批准不写库',
+    },
+  },
   navAgents: 'Agent 注册表',
   navPolicyCenter: '策略中心',
   navGuardOverview: '治理总览',
