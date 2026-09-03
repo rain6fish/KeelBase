@@ -53,7 +53,7 @@ dependencies:
   sign_in_with_apple: ^6.1.4
 
   # Third-party OAuth login (China)
-  fluwx: ^4.0.0                       # 微信登录: https://pub.dev/packages/fluwx (当前代码按 v3 API 编写, 联调时需确认 v4 API)
+  fluwx: ^6.0.2                       # 微信登录: https://pub.dev/packages/fluwx (当前代码按 v3 API 编写, 联调时需确认 v4 API)
   tobias: ^3.0.0                      # 支付宝登录: https://pub.dev/packages/tobias (集成时解注释 import 并调整 _alipayAuth)
   web_socket_channel: ^3.0.3
 
