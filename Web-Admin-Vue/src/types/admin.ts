@@ -306,6 +306,9 @@ export interface GovernanceActionResponse {
     resultType: string // Side Effects
     resultId: number
     createdAt: string // When
+    targetExists: boolean // A-3 生命周期：目标当前状态
+    targetSoftDeleted: boolean // 撤销 = 目标软删
+    targetTitle: string | null
   }
   trace: unknown | null // DecisionTrace（AiTraceView 同源；抽屉内渲染关键步骤，完整轨迹走 AiTraceView）
 }

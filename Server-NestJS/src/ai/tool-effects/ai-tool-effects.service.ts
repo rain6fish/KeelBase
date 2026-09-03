@@ -178,6 +178,19 @@ export class AiToolEffectsService {
     return this.effectsRepo.findOne({ where: { resultType, resultId } as any });
   }
 
+  /** B4/A-3 生命周期富化：副作用目标记录当前状态（是否存在/软删/标题）——撤销态判定依赖 targetSoftDeleted */
+  async describeTarget(
+    resultType: string,
+    resultId: number,
+  ): Promise<{ targetExists: boolean; targetSoftDeleted: boolean; targetTitle: string | null }> {
+    const target = await this._loadTarget(resultType, resultId);
+    return {
+      targetExists: !!target,
+      targetSoftDeleted: target?.deletedAt != null,
+      targetTitle: target?.title ?? null,
+    };
+  }
+
   /** §22.16 A-2 业务实体账本：按实体取全部 AI 副作用（时间升序，供行为史聚合） */
   async findManyByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect[]> {
     return this.effectsRepo.find({
