@@ -13,6 +13,7 @@
         <el-input v-model="userId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
         <el-input v-model="agentId" :label="t('filterByAgent')" style="max-width: 180px" />
         <el-select v-model="filterBehavior" :placeholder="t('filterBehavior')" clearable style="width: 170px">
+          <el-option :label="t('behaviorExecute')" value="executed" />
           <el-option :label="t('behaviorDenied')" value="denied" />
         </el-select>
         <el-button type="primary" @click="load">
@@ -270,6 +271,10 @@ interface TimelineEvent {
   detail?: string | null
   errorMessage?: string | null
   outcome?: string
+  /** A-8 行为类型筛选：审计行是否失败（isError） */
+  isError?: boolean
+  /** A-8 行为类型筛选：策略越权/阻断 = isError 且 authorization 非空（拒绝原因），见 audit-unauthorized-view.spec.md */
+  denied?: boolean
   username?: string | null
   effect?: ToolEffect
   effectStatus?: string
@@ -341,6 +346,9 @@ function toEvent(log: AuditLog): TimelineEvent | null {
     detail: log.detail,
     errorMessage: log.errorMessage,
     username: log.username,
+    // A-8：拒绝判定 = isError 且 authorization 非空（拒绝原因数组），与后端 denied 过滤同一语义
+    isError: log.isError,
+    denied: log.isError && !!log.authorization,
   }
   switch (log.action) {
     case 'tool_call': {
@@ -419,9 +427,14 @@ function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 12)}…` : id
 }
 function timelineEvents(s: Session): TimelineEvent[] {
+  if (filterBehavior.value === 'executed') {
+    // AI 执行：实际成功执行的工具调用（tool_call 非 error）
+    return s.events.filter((e) => e.type === 'tool_call' && e.isError === false)
+  }
   if (filterBehavior.value === 'denied') {
-    // A-8：仅「AI 被拒/越权」事件（error 红）——被拒同样是安全证据
-    return s.events.filter((e) => e.color === 'error')
+    // A-8：仅「AI 被拒/越权」事件——策略拒绝（isError + authorization 非空），被拒同样是安全证据。
+    // 不能用颜色判定：tool_call 一律 primary，普通 error（LLM 超时等）会被误入选
+    return s.events.filter((e) => e.denied)
   }
   return s.events
 }
