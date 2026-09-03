@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="672" viewBox="0 0 1200 672" font-family="PingFang SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" font-family="PingFang SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
@@ -87,21 +87,29 @@
     <text x="706" y="456">集成 Webhook · MCP</text>
   </g>
 
-  <!-- ↓ 到外部 AI 能力 -->
-  <line x1="420" y1="516" x2="420" y2="526" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- ↓ 到 AI Agent 层 -->
+  <line x1="420" y1="516" x2="420" y2="528" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
 
-  <!-- ══════════ 外部 AI 能力（底，KeelBase 编排）══════════ -->
-  <rect x="20" y="530" width="800" height="52" rx="10" fill="#f0fdf4" stroke="#86efac"/>
-  <text x="40" y="550" font-size="12.5" font-weight="700" fill="#15803d">模型服务 —— KeelBase 调用的 LLM 推理能力（OpenAI 兼容 API）</text>
-  <text x="40" y="572" font-size="13" fill="#166534">DeepSeek · Claude · Qwen · Gemini · Ollama（本地私有化可选）· Embedding 向量化 —— 不自建模型，多 Provider 按需切换</text>
+  <!-- ══════════ AI Agent 层（进入 KeelBase 治理）══════════ -->
+  <rect x="20" y="532" width="800" height="48" rx="10" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="40" y="552" font-size="12" font-weight="700" fill="#3730a3">AI Agent —— 进入 KeelBase 治理的应用 / 框架（northbound）</text>
+  <text x="40" y="573" font-size="12.5" fill="#4338ca">LangGraph · AutoGen · CrewAI · 自定义 Agent · MCP 客户端 —— 安全调用业务工具，需经过 KeelBase 治理</text>
+
+  <!-- ↓ 到模型服务 -->
+  <line x1="420" y1="586" x2="420" y2="596" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ══════════ 模型服务（KeelBase 运行时调用）══════════ -->
+  <rect x="20" y="600" width="800" height="50" rx="10" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="40" y="620" font-size="12" font-weight="700" fill="#15803d">模型服务 —— KeelBase 运行时调用的 LLM 推理（OpenAI 兼容 API）</text>
+  <text x="40" y="642" font-size="12.5" fill="#166534">DeepSeek · Claude · Qwen · Gemini · Ollama（本地私有化可选）· Embedding —— 不自建模型，多 Provider 按需切换</text>
 
   <!-- ══════════ 核心价值宣言 ══════════ -->
-  <rect x="20" y="600" width="800" height="52" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
-  <text x="420" y="622" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">核心价值宣言：让任何企业都能在 30 分钟内，把自己的业务系统变成一个安全、可控、可审计的 AI 应用</text>
-  <text x="420" y="642" font-size="11.5" fill="#b45309" text-anchor="middle">连接一切业务 → 理解业务语义 → 治理每一次决策 → 安全执行业务操作 → 全程可追溯可验证</text>
+  <rect x="20" y="662" width="800" height="52" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="420" y="684" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">核心价值宣言：让任何企业都能在 30 分钟内，把自己的业务系统变成一个安全、可控、可审计的 AI 应用</text>
+  <text x="420" y="704" font-size="11.5" fill="#b45309" text-anchor="middle">连接一切业务 → 理解业务语义 → 治理每一次决策 → 安全执行业务操作 → 全程可追溯可验证</text>
 
   <!-- ══════════ 右侧价值带 ══════════ -->
-  <rect x="840" y="84" width="340" height="568" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="840" y="84" width="340" height="630" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
   <text x="1010" y="112" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">价值全景</text>
   <line x1="870" y1="124" x2="1150" y2="124" stroke="#e2e8f0"/>
 

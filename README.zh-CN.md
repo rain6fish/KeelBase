@@ -3,7 +3,7 @@
 > **构建企业可以信任的 AI 应用——从零构建，或从存量系统出发。** 默认可治理、可审计、可私有部署。
 
 <p align="center">
-  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — 连接 AI Agent 与业务系统的业务安全 AI 运行时" width="840">
+  <img src="docs/branding/keelbase-governance-landscape-zh.svg" alt="KeelBase 企业 AI 治理架构与价值全景 —— 企业应用（存量 + AI 化，可由 KeelBase 构建）→ Business-safe AI Runtime → AI Agent 与模型服务" width="840">
 </p>
 
 > **开源业务安全 AI 运行时（Business-safe AI Runtime）**——连接 AI Agent 与现有业务系统，**不替换现有技术体系**。
@@ -215,10 +215,6 @@ keelbase init --desc "Customer management"
 - **上（AI 世界，northbound）**：任何 Agent 都能进入治理。Agent 框架经**开放标准（MCP / OpenAPI / 函数调用）**接入——KeelBase 不重造编排、Agent 循环或记忆策略
 - **下（企业世界，southbound）**：任何业务系统都能具备 AI 能力。业务系统经 **Bridge（协议 + 能力映射）** 接入——无需替换
 - **中间（信任层）**：identity · policy · permission · 人工确认 · 副作用控制 · 审计与撤销 · 私有部署
-
-<img src="docs/branding/keelbase-governance-landscape-zh.svg" alt="KeelBase 企业 AI 治理架构与价值全景" width="840">
-
-> *全貌：企业应用（存量业务系统 + 由 KeelBase 构建的 AI 化应用）→ KeelBase 治理运行时（接入能力 / AI 执行链 / 治理信任 / 平台能力）→ 它所调用的模型服务。*
 
 ---
 
