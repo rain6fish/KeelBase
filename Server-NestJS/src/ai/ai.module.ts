@@ -39,6 +39,7 @@ import { EmbeddingsService } from './embeddings/embeddings.service';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { DemoProvider } from './providers/demo-provider';
 import { ToolRegistry } from './tools/tool-registry';
+import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { AiConversation } from './conversation/ai-conversation.entity';
@@ -148,6 +149,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
+    ToolRegistry,
+    AuthorizationExplainerService,
     ConversationService,
     AuditService,
     AiAgentService,
@@ -197,6 +200,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         delegationTokenService,
         snapshotCaptor: SideEffectSnapshotCaptor,
         contentSafety: ContentSafetyService,
+        toolRegistry: ToolRegistry,
+        authorizationExplainer: AuthorizationExplainerService,
       ) => {
         // 1. 创建 Provider 工厂并注册 LLM 供应商
         const factory = new LlmProviderFactory(circuitBreaker);
@@ -278,8 +283,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         // 配置了云 Provider 时仍可显式 provider:'demo' 使用，供确定性验证/演示。
         factory.registerCustom(new DemoProvider());
 
-        // 2. 创建工具注册表
-        const toolRegistry = new ToolRegistry();
+        // 2. 创建工具注册表（ToolRegistry 为模块级 provider，AiService useFactory 注入后在此注册工具；
+        // AuthorizationExplainerService 共享同一实例查询工具风险级，切断 audit/auth → AiService 反向依赖）
         toolRegistry.register(new QueryEventsTool(eventsService));
         toolRegistry.register(new CountEventsByStatusTool(eventsService));
         toolRegistry.register(new QueryUserStatsTool(usersService, eventsService));
@@ -379,6 +384,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           confirmationStore,
           compactor,
           subAgentOrchestrator,
+          authorizationExplainer,
           settingsService,
           featureFlagsService,
           usersService,
@@ -389,9 +395,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService],
 })
 export class AiModule {}
