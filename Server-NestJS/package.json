@@ -53,7 +53,7 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "bcrypt": "^6.0.0",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.3",
     "bullmq": "^6.0.8",
     "cache-manager": "^7.2.9",
     "cache-manager-ioredis-yet": "^2.1.2",
