@@ -24,7 +24,7 @@
     "@babel/plugin-transform-runtime": "^7.25.0",
     "@babel/preset-env": "^7.25.0",
     "@babel/preset-typescript": "^7.25.0",
-    "@tarojs/cli": "3.6.36",
+    "@tarojs/cli": "4.2.1",
     "@tarojs/webpack5-runner": "3.6.36",
     "@vue/babel-plugin-jsx": "^2.0.1",
     "@vue/compiler-sfc": "^3.4.0",
