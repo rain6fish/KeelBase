@@ -19,6 +19,17 @@
 
 > **四层固定（2026-08-31 定案）**：Code Review 只保留这四层——`OpenCodeReview → Claude Review → mattpocock Standards+Spec → AI Code Economy → Consolidated Decision`。**不继续增加第五/第六层 Review**（四层已足够重；Code Economy 是横向判断层，不是第五个垂直检查器）。
 
+#### 四层速查对照（避免混淆）
+
+| 层 | 工具 | 常见误记 / 别名 | 说明 |
+|---|---|---|---|
+| 1 | OpenCodeReview（阿里 `ocr` CLI） | 「三方代码规范/质量 Review」 | 对发布区间 diff 审查；delegate 模式免 key |
+| 2 | Claude 自带 code review | —（常被遗漏） | 正确性 / 安全 / 性能 / 简化 / 测试覆盖多维审查 |
+| 3 | code-review skill（mattpocock） | 误拆成「规范 Review + Spec Review 两层」 | **一层的双轴**：Standards（仓库编码规范）‖ Spec（源 issue/spec 符合性），两轴并行子代理并排报告 |
+| 4 | AI Code Economy Review | 常被误记为「Fowler Code Smells / 结构性 Review」 | 横向判断层：Necessity / Reuse / Simplicity / Proportionality / Deletion / Maintainability；结构性坏味道（死代码/过度抽象/复杂膨胀）归此层判断，**无单列 Fowler 层** |
+
+> **对照要点**：① Standards 与 Spec 是第 3 层**同一层的两个轴**，不是两层；② 没有单列的「Fowler Code Smells」层——坏味道判断归 Code Economy 层（Code Economy 是横向判断层，非第五个垂直检查器）；③ 第 1、2 层（OCR + Claude 自带）最常被遗漏，别只记 mattpocock + Code Economy 两层。
+
 ### ② 全量测试
 
 | 套件 | 命令 | 门槛 |
