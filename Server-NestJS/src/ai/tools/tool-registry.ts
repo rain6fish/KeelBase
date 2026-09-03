@@ -7,6 +7,7 @@
  * 工具执行时自动校验必填参数。
  */
 
+import { Injectable } from '@nestjs/common';
 import {
   AiTool,
   ToolDefinition,
@@ -15,6 +16,7 @@ import {
   resolveRiskLevel,
 } from '../interfaces/tool.interface';
 
+@Injectable()
 export class ToolRegistry {
   private readonly tools = new Map<string, AiTool>();
 

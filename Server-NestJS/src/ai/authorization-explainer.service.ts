@@ -8,7 +8,7 @@
  * 不改变任何业务状态。依赖 ToolRegistry（风险级权威源）+ CaslAbilityFactory + 治理策略。
  */
 
-import { Optional } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { UsersService } from '../users/users.service';
 import { ToolRegistry } from './tools/tool-registry';
@@ -19,6 +19,7 @@ import {
 } from './interfaces/tool.interface';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 
+@Injectable()
 export class AuthorizationExplainerService {
   constructor(
     private readonly toolRegistry: ToolRegistry,
