@@ -5,10 +5,10 @@
  * 发布新版本时更新 latestVersion + changelog；需强制升级时提升 minRequiredVersion。
  */
 export const APP_VERSION = {
-  latestVersion: '1.0.4',
+  latestVersion: '1.0.5',
   minRequiredVersion: '1.0.0',
   updateUrl: 'https://example.com/download',
-  changelog: ['§22.16 业务行为取证系统：字段级留痕 + 决策依据 + 业务事件归一化 + 实体行为史账本 + 审计解释器 + 身份链授权依据 + 合规证据包 v2', '治理能力体系 2.1/2.2/2.3：协议合规套件 + MCP 治理契约 + 策略实时推送 + 模板库 + 合规映射 + 证据包离线验证', '四端业务语言化 + 产品语言统一（Business-safe AI Runtime + DNA + Trust Manifesto）', 'EASY-5 首启引导 preset + Apache-2.0 开源可信包装'],
+  changelog: ['AI Follow-up Agent：AI 主动发现长期未跟进客户并建议跟进', 'AI Bridge 代理工具免重启热更新', 'AI 审计证据语义：放行授权快照 + 越权尝试一级事件 + 审批语义 + 生命周期流转', '安全演示（对抗性证明）：确定性场景一键运行，防线漂移即 fail-loud', '全库健康体检 + 授权子域下沉切 import 环 + 协议合规认证进 CI'],
 } as const;
 
 export type AppVersionInfo = {

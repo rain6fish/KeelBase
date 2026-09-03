@@ -4,22 +4,49 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.5] - 2026-09-03
+
+> **KeelBase 1.0.5 — AI Follow-up & Audit Evidence Hardening / AI 主动跟进与审计证据加固版**
+> 1.0 后第五个补丁：AI Follow-up Agent（主动发现该跟进谁）+ AI Bridge 代理工具免重启热更新 + 审计语义收尾（A-2/A-3/A-5/A-7/A-8 事件时点放行快照·越权尝试一级事件·审批语义·生命周期 el-steps）+ Security Showcase 对抗性证明产品化（canary 防线漂移即变红）+ 证据体系（protocol-conformance CI / 证据包离线复核 / 合规映射）+ 全库健康体检阶段 1/2（授权子域下沉切断 import 环）+ 发布前四层评审修复（证据语义/撤销态可达/越权筛选语义等）。**审计与治理证据链的语义在发布评审中进一步修正并全量回归。**
 
 ### Added / 新增
 
-- **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry` 加 `unregister` + `ProxyToolRegistryService` 加 `reload`（反注册旧工具重载）+ `SettingsService` 加 `onChange` 观察者（`set` 成功后按 key 触发）+ ai.module 注册监听——写 `ai_proxy_tools` 配置即生效，无需重启 KeelBase；配套单测 3 spec + e2e 热更新用例；`docs/manual/ai-bridge.md` 更新「免重启」表述。
-- **AI Follow-up Agent（A1，roadmap §18.3）** — AI 主动发现「该跟进谁」：`detect_idle_customers` 只读工具（R1，默认 30 天无跟进活动含从未联系；最近联系时间从 `crm_activities.happenedAt` 派生，**无迁移**；userId 范围）→ LLM 汇总建议 → 用户确认 → 复用 `create_followup_task`（R3 确认门控 + 副作用可撤销）→ 审计。补 Golden Flow「AI 主动发现问题」一环（纯后端确定性聚合，AI 只解释建议）；规格 `docs/ai-crm-followup-agent.spec.md`；真实 LLM 端到端验证（问「哪些客户很久没跟进了」→ 正确调 detect_idle_customers 返回从未联系客户并建议建任务）；单测 6（service 判定/排序/钳制 + 工具参数/异常）
-  **AI Follow-up Agent（A1）**：新增 detect_idle_customers 只读工具检测长期未跟进客户（activity 派生最近联系，无迁移）→ AI 建议 → 确认后建跟进任务；规格 + 端到端验证
+- **AI Follow-up Agent（A1，roadmap §18.3）** — AI 主动发现「该跟进谁」：`detect_idle_customers` 只读工具（R1，默认 30 天无跟进活动含从未联系；最近联系时间从 `crm_activities.happenedAt` 派生，**无迁移**；userId 范围）→ LLM 汇总建议 → 用户确认 → 复用 `create_followup_task`（R3 确认门控 + 副作用可撤销）→ 审计。补 Golden Flow「AI 主动发现问题」一环；规格 `docs/ai-crm-followup-agent.spec.md`；真实 LLM 端到端验证（DeepSeek：问「哪些客户很久没跟进了」→ 正确返回从未联系客户并建议建任务）
+  **AI Follow-up Agent（A1）**：detect_idle_customers 检测长期未跟进客户 → AI 建议 → 确认后建跟进任务；多 provider 实测
+- **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry.unregister` + `ProxyToolRegistryService.reload` + `SettingsService.onChange` 观察者——写配置即生效，无需重启；配套单测 + e2e 热更新用例；`docs/manual/ai-bridge.md` 同步
+  **ai_proxy_tools 免重启热更新**：写 `ai_proxy_tools` 配置即 reload，工具热更新无需重启
+- **Security Showcase（§22.16 A2 对抗性证明产品化）** — 管理台「安全演示」页一键运行确定性对抗场景（注入 HS-8 / CASL 行级越权 / R5 阻断 / R3 确认门控），直接复用真实防护逻辑、无 LLM；**canary 语义**：防线漂移（注入样本不再命中 / CASL 放行 / 风险级变更）即 fail-loud 变红；reason/trace 走 i18n 双语（`reasonKey`/`params`，后端不产用户可见文案）；前端补失败提示与加载错误态；规格 `docs/security-showcase.spec.md`
+  **安全演示（A2 产品化）**：确定性对抗场景一键运行 + 决策轨迹业务语言 + 双语；防线漂移 fail-loud（canary）
+- **AI 审计证据语义收尾（A-3/A-5/A-7/A-8）** — 事件时点放行授权快照（放行 tool_call 落 `authorization={allowed,checks,…}`，导出优先事发快照而非当前策略重算）+ 越权尝试一级事件业务化（越权/高风险阻断/通用阻断三分）+ approval 人工 decide/review 入审计语义正确（businessEvent 细分）+ 治理抽屉生命周期 el-steps（发起→授权→确认→执行→撤销→恢复）+ A-8 denied 视图/行为回放筛选；各带 spec
+  **审计证据语义收尾**：放行快照 + 越权一级事件 + 审批语义 + 生命周期流转 + denied 筛选
+- **证据与协议体系** — `scripts/verify-protocol-conformance.mjs`（三大治理协议独立实现 + 篡改向量，22/22）+ CI protocol-conformance job；`docs/evidence` 证据体系总览（L0/L1/L2 三层）；证据包离线复核留档（86 条链 PASS）
+  **证据与协议体系**：conformance 进 CI + 证据三层索引 + 离线复核留档
+- **合规映射（国内生成式 AI 内容安全）** — compliance-mapping 新增生成式 AI 内容安全监管节（责任边界 + 审核事件落哈希链自证），纯事实对照
+- **代码库健康体检阶段 1/2** — 全库体检报告入库（`docs/manual/codebase-health-audit.md`，~1232 文件）；删除 3 孤儿导出；**AuthorizationExplainerService 授权子域下沉**（从 AiService 迁出，净减 131 行，切断 audit/auth 反向运行时 import 环）+ ToolRegistry 提模块 provider
+  **全库健康体检阶段 1/2**：体检报告入库 + 授权子域下沉切 import 环
+- **演示与 UX** — 全模块中英文演示 seed（events/todos/CRM/PM/approval/flows 等）+ 工作台版本徽标（读 `/app/version`）+ 工作台快捷卡片按 feature-flag module 过滤（lite preset 隐藏旗舰入口）
+- **生成器** — keelbase init 生成模块自动带 Apache-2.0 SPDX 头（按扩展名选注释语法）+ Module Protocol `required` 透传（DTO/model 必填一致）
+- **安全清理** — CodeQL 6 个 High 真问题修复（治理台启动不再打印 JWT_SECRET / 验证码邀请码 `randomInt` 无偏 / 防 RegExp 注入 / 完整 escapeRegExp）+ 12 个已知误报官方注释抑制；docker apk 步骤切阿里云镜像；prod HTTPS 三入口配置
+- **Provider 兼容基准** — verification-index 三真实 provider（DeepSeek / GLM-5.1 / Kimi-k2.6）golden-crm 各 8/8 + tool-calling 实测记录
+- **.githooks 统一基线** — 非工作时间提交映射 hooks（post-commit/merge/rewrite/pre-push + node 实现）入库 + `install-hooks.sh` 一键启用
+- **文档/语言** — README 治理全景图（EN/ZH SVG）+ 词汇表英文版 + Guard→Governance/Copilot→AI 助手用户可见文案回改 + 内部代号（MOAT 等）清理
 
 ### Fixed / 修复
 
+- **发布前四层评审修复（2026-09-03）** — ①AI 审计放行授权快照仅写「放行且成功执行」分支（此前用户拒绝/超时/非流式写拒绝被 A-8 denied 视图与 blocked 聚合误计为越权/阻断，证据语义污染）②治理抽屉撤销态可达（B4 effect 补 targetSoftDeleted）+ authorize 节点不再误显 wait ③AI 时间线「越权/被拒」筛选改 isError+authorization 语义（原按颜色滤错行）并补「AI 执行」选项 ④Security-Showcase 假绿修复 + 结构化双语 + 错误提示 ⑤detect_idle count 截断前统计 / 未联系 createdAt tie-break / limit 1–50 显式校验 ⑥AuthorizationExplainerService/ToolRegistry 补 `@Injectable()`、.githooks 补 SPDX 头
+  **发布前四层评审修复**：快照门控 / 撤销态可达 / 越权筛选语义 / showcase canary+双语 / detect_idle 计数排序 / DI 装饰器
 - **工作台快捷卡片点击不跳转** — `WorkbenchHomeView` 的 `el-card` 用 `:on-click`（v-bind 属性绑定，不会注册为事件监听器）导致整卡点击无效；改 `@click` + 卡片内加「打开」跳转链接（el-link + 箭头）+ `cursor:pointer`；回归测试点 6 卡 → 5 次 router.push 正确路由 + 1 次 window.open
   **工作台快捷卡片点击不跳转**：`:on-click` → `@click`（v-bind 不注册事件），卡片加跳转链接；回归测试覆盖
 - **流程实例详情 500（demo-data seed 格式 bug）** — `demo-data.ts` seed 流程定义把 `nodes_json` 写成 `{nodes:[...]}` 包装对象，而 `getDefinition` 期望裸数组 → 有审批任务（human_task 挂起）的实例详情 `def.nodes.find` 抛 `TypeError` 500（completed 无任务正常）；修复 seed 改裸数组 + `getDefinition` 兼容两种格式（ECS 已存错误数据免迁移即恢复）；回归测试 + 端到端验证
   **流程实例详情 500**：demo-data seed nodes_json 格式错误（`{nodes:[...]}` vs 裸数组），getDefinition 兼容两种格式；回归测试 + 端到端验证
 - **redis 不可用时通知队列挂起** — `_pushToDevices` 的 BullMQ `pushQueue.add` 在 redis 连不上时无限挂起（不 reject，try/catch 捕获不了），阻塞发起流程/审批等业务请求；加 3s 超时保护，超时/失败降级同步推送；降级路径回归测试 2 个
   **redis 不可用通知队列挂起**：pushQueue.add 加 3s 超时，超时/失败降级同步推送；回归测试 2 个
+
+## Release Precheck（2026-09-03）
+
+- 四层 code review：**阿里 OCR**（5 提交 scoped，16 条——含 0c16bc2 快照污染 HIGH）+ **Claude 自带多维审查**（AI/审计/前端/基础设施 4 组并行，19 条——含 A-8 误计回归 + GovernanceActionDrawer 撤销态不可达 2×HIGH）+ **code-review skill**（Standards 7 条：双语红线/showcase 二次注册/规则多重编码；Spec：7 特性逐一对 spec，簇 A 确认为 spec-wrong）+ **Code Economy**（WARN：规模相称，Reuse 项——showcase 二次 ToolRegistry）→ 去重分级后 **修复 6 类阻塞/高价值**（快照门控 / 撤销态可达 / 时间线筛选语义 / showcase canary+双语+错误处理 / detect_idle 计数排序校验 / @Injectable+SPDX）；核实干净：AuthorizationExplainerService 重构逐字搬迁+DI 接线、CodeQL 0 finding、flow 兼容、SPDX 注入、双语 seed 纯增量
+- 全量测试：后端单测 **1997**（+4 评审回归；安全模块 statements 全 ≥85%）+ e2e **17 套/260** + Web-Admin vitest **312** + Flutter **623**（行覆盖 **76.5%**）+ 生成器/CLI **81** + conformance **22/22** + endpoint-docs 0 缺失 + **release-gate 12/12 PASS**
+- 覆盖率：All files Stmts **90.15** / Branch **75.05** / Lines **90.84**，较 v1.0.4 无降级、全部达标（statements≥85 + 安全模块分档）
 
 ## [1.0.4] - 2026-09-01
 
