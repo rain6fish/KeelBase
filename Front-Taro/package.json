@@ -31,6 +31,6 @@
     "babel-preset-taro": "3.6.36",
     "typescript": "^5.6.0",
     "vue-loader": "^17.4.2",
-    "webpack": "5.91.0"
+    "webpack": "5.110.2"
   }
 }
