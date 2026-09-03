@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | M1 | **30 分钟接入治理**（零代码 sidecar → 治理台审计 + 哈希链） | `node Server-NestJS/scripts/verify-moat-adoption.mjs` | `npm run build`（自起治理台+sidecar+mock LLM，无需真实 key） | `Server-NestJS/docs/benchmark/moat-adoption-*`（实测 **8/8**） |
 | M3 | **多系统单控制面**（一个治理台管 Node+Java 两系统） | `node Server-NestJS/scripts/demo-multi-system.mjs` | 同上（自包含） | `Server-NestJS/docs/benchmark/moat3-multisystem-*`（实测 10 条哈希链连续） |
-| G | **AI 黄金流程**（分析→确认→创建→审计→撤销） | `node scripts/verify-golden-crm.mjs` | 后端已起 + DeepSeek key | `docs/benchmark/golden-crm-*`（实测 **8/8**） |
+| G | **AI 黄金流程**（分析→确认→创建→审计→撤销） | `node scripts/verify-golden-crm.mjs` | 后端已起 + LLM key（`PROVIDER/MODEL` env 指定） | `docs/benchmark/golden-crm-*`——**实测 8/8 × 三真实 provider**：DeepSeek（2026-08-29）/ GLM-5.1（2026-09-03，`golden-crm-2026-09-03T04-22-57`）/ Kimi-k2.6（2026-09-03，`golden-crm-2026-09-03T05-14-55`）；国内 provider 工具调用兼容对比见 [domestic-provider-toolcalling](../benchmark/domestic-provider-toolcalling-2026-09-02.md) |
 | B | **存量系统 AI 化 B 路径**（OpenAPI→Proxy 工具→委托身份→确认→写回→撤销） | `node Server-NestJS/scripts/verify-proxy-bridge.mjs` | 后端已起 + DeepSeek key | `docs/benchmark/proxy-bridge-*`（实测 **8/8**） |
 
 ## 二、产品证明：安全边界 / Security Boundary
