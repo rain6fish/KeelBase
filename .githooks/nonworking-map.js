@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 // 非工作时间时间映射工具（post-commit / post-merge 共用）
 // 输入：<author-iso> <committer-iso>（git log --format=%ai / %ci 格式）
 // 输出：<映射后author>|<映射后committer>；不需要映射的时间输出 KEEP

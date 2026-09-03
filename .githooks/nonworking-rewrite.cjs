@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 // 非工作时间时间映射：rebase / cherry-pick 重写后的 committer 修正（post-rewrite hook 核心）
 // 背景：git rebase 会保留 author date、把 committer date 重置为「rebase 运行的当前系统时间」，
 //       且 rebase 触发 post-rewrite（不触发 post-commit）。若 rebase 发生在工作日 05-19 点，
