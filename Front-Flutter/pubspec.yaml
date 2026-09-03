@@ -43,7 +43,7 @@ dependencies:
   go_router: ^17.3.0
   flutter_secure_storage: ^10.3.1
   shared_preferences: ^2.5.5
-  intl: ^0.20.2
+  intl: ^0.20.3
   url_launcher: ^6.3.0
   fl_chart: ^1.1.0
   local_auth: ^2.3.0
