@@ -3,7 +3,7 @@
 > **Build AI applications that enterprises can trust — from scratch or from existing systems.** Governed, auditable and private by default.
 
 <p align="center">
-  <img src="docs/branding/keelbase-architecture.svg" alt="KeelBase — Business-safe AI Runtime between AI Agents and Business Systems" width="840">
+  <img src="docs/branding/keelbase-governance-landscape-en.svg" alt="KeelBase governance and value landscape — enterprise applications (existing + AI-enabled, built with KeelBase) → Business-safe AI Runtime (onboarding · AI execution chain · governance · platform) → AI Agents & model services" width="840">
 </p>
 
 <p align="center">
@@ -224,10 +224,6 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 - **Up — the AI world (northbound):** any agent can enter governance. Agent frameworks connect via **open standards (MCP / OpenAPI / function calling)** — KeelBase does not re-build orchestration, agent loops, or memory strategies
 - **Down — the business world (southbound):** any existing system can become AI-capable. Business systems connect via the **Bridge** (protocol + capability mapping) — no rip-and-replace
 - **In between — the trust layer:** identity, policy, permission, human confirmation, side-effect control, audit & revoke, private deployment
-
-<img src="docs/branding/keelbase-governance-landscape-en.svg" alt="KeelBase governance architecture and value landscape — enterprise apps (existing + AI-enabled) → KeelBase governance runtime → model services" width="840">
-
-> *Full landscape: enterprise applications (existing systems + AI-enabled apps built with KeelBase) → the KeelBase runtime (onboarding, AI execution chain, governance, platform) → the model services it calls.*
 
 ---
 
