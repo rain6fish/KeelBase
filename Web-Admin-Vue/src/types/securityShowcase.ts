@@ -8,14 +8,17 @@ export interface ShowcaseScenario {
   category: ShowcaseCategory
 }
 
+/** 对抗场景 trace 步：key + params 由前端 i18n 双语渲染（后端不产用户可见文案，守 §5.5 #3 双语红线） */
 export interface ShowcaseStep {
   step: 'input' | 'guard' | 'decision' | 'outcome'
-  detail: string
+  key: string
+  params?: Record<string, string | number>
 }
 
 export interface ShowcaseResult {
   scenarioId: string
   outcome: ShowcaseOutcome
-  reason: string
+  reasonKey: string
+  reasonParams?: Record<string, string | number>
   trace: ShowcaseStep[]
 }
