@@ -16,7 +16,7 @@
     "@tarojs/plugin-platform-h5": "3.6.36",
     "@tarojs/runtime": "3.6.36",
     "@tarojs/taro": "3.6.36",
-    "pinia": "^2.1.0",
+    "pinia": "^4.0.3",
     "vue": "^3.4.0"
   },
   "devDependencies": {
