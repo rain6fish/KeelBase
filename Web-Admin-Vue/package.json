@@ -34,7 +34,7 @@
     "globals": "^17.11.0",
     "jsdom": "^25.0.1",
     "sass": "^1.83.0",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.67.0",
     "unplugin-auto-import": "^21.1.0",
     "unplugin-vue-components": "^32.1.0",
