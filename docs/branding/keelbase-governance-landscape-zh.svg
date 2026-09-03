@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="672" viewBox="0 0 1200 672" font-family="PingFang SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- ══════════ 标题（居中）══════════ -->
+  <text x="600" y="34" font-size="23" font-weight="700" fill="#111827" text-anchor="middle">KeelBase — 企业 AI 应用开发与治理平台</text>
+  <text x="600" y="60" font-size="13.5" fill="#4b5563" text-anchor="middle">连接业务系统与 AI Agent 的治理运行时（Business-safe AI Runtime）· 让 AI 真正进入业务、正确执行、可追溯、可撤销</text>
+
+  <!-- ══════════ 顶部：企业应用（业务侧，含 AI 化形态）══════════ -->
+  <rect x="20" y="84" width="800" height="72" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="40" y="102" font-size="11" font-weight="700" fill="#475569">企业应用（业务侧）</text>
+  <text x="40" y="126" font-size="13" fill="#1e293b">存量业务系统：ERP · CRM · OA · MES · 数据库 · 第三方 SaaS · 文件/消息/MQ</text>
+  <text x="40" y="148" font-size="12" fill="#2563eb">AI 化企业应用：AI CRM · AI 审批 · AI 项目管理 · 知识工作台（存量增强 · KeelBase 新构）</text>
+  <line x1="420" y1="162" x2="420" y2="172" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ══════════ KeelBase 治理运行时 ══════════ -->
+  <rect x="20" y="176" width="800" height="334" rx="12" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.5"/>
+  <rect x="20" y="176" width="800" height="30" rx="12" fill="#1d4ed8"/>
+  <rect x="20" y="196" width="800" height="10" fill="#1d4ed8"/>
+  <text x="420" y="196" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">KeelBase — Business-safe AI Runtime（治理运行时）</text>
+
+  <!-- 接入能力（KeelBase 提供，连接企业系统） -->
+  <text x="40" y="222" font-size="11" font-weight="700" fill="#c2410c">接入能力（KeelBase 提供）—— 企业系统如何连入治理运行时</text>
+  <g font-size="11" fill="#431407" text-anchor="middle">
+    <rect x="40" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fb923c" stroke-width="1.2"/>
+    <text x="160.5" y="248">KeelBase-java-starter（存量 Java）</text>
+    <rect x="289" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fdba74"/>
+    <text x="409.5" y="248">治理 sidecar（零代码）</text>
+    <rect x="538" y="230" width="241" height="26" rx="13" fill="#fff7ed" stroke="#fdba74"/>
+    <text x="658.5" y="248">AI Bridge（OpenAPI/SQL）</text>
+  </g>
+
+  <!-- ① Agent Runtime 核心引擎 -->
+  <text x="40" y="278" font-size="12" font-weight="700" fill="#374151">① AI 执行链 —— Agent 的每一步，都在 KeelBase 治理下正确完成</text>
+  <g font-size="10.5" fill="#1f2937" text-anchor="middle">
+    <rect x="40" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="84.5" y="308">理解 Intent</text>
+    <rect x="133" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="177.5" y="308">规划 Plan</text>
+    <rect x="226" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="270.5" y="308">工具 Tool</text>
+    <rect x="319" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="363.5" y="308">权限 CASL</text>
+    <rect x="412" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="456.5" y="308">风险 Risk</text>
+    <rect x="505" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="549.5" y="308">人工确认 HITL</text>
+    <rect x="598" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="642.5" y="308">执行 Execute</text>
+    <rect x="691" y="286" width="89" height="34" rx="7" fill="#eff6ff" stroke="#93c5fd"/>
+    <text x="735.5" y="308">审计 Audit</text>
+  </g>
+
+  <!-- ② 治理与信任层 -->
+  <text x="40" y="342" font-size="12" font-weight="700" fill="#374151">② 治理与信任层 —— 让 AI 值得信任</text>
+  <g font-size="11" fill="#3b0764" text-anchor="middle">
+    <rect x="40" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="160.5" y="368">工具注册 · 治理与发现</text>
+    <rect x="289" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="409.5" y="368">权限策略 · 数据权限</text>
+    <rect x="538" y="350" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="658.5" y="368">风险控制 · 规则评估</text>
+    <rect x="40" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="160.5" y="400">审计与证据链 · 哈希链</text>
+    <rect x="289" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="409.5" y="400">Agent 注册 · 管理与控制</text>
+    <rect x="538" y="382" width="241" height="26" rx="13" fill="#f5f3ff" stroke="#c4b5fd"/>
+    <text x="658.5" y="400">策略配置 · 配置与下发</text>
+  </g>
+
+  <!-- ③ 平台能力层 -->
+  <text x="40" y="428" font-size="12" font-weight="700" fill="#374151">③ 平台能力层 —— 坚实的基础设施</text>
+  <g font-size="11" fill="#164e63" text-anchor="middle">
+    <rect x="40" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="110" y="456">应用协议 Protocol</text>
+    <rect x="188" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="258" y="456">生成器 Generator</text>
+    <rect x="336" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="406" y="456">私有化部署 Self-host</text>
+    <rect x="484" y="436" width="140" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="554" y="456">可观测性 Observability</text>
+    <rect x="632" y="436" width="148" height="30" rx="7" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="706" y="456">集成 Webhook · MCP</text>
+  </g>
+
+  <!-- ↓ 到外部 AI 能力 -->
+  <line x1="420" y1="516" x2="420" y2="526" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ══════════ 外部 AI 能力（底，KeelBase 编排）══════════ -->
+  <rect x="20" y="530" width="800" height="52" rx="10" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="40" y="550" font-size="12.5" font-weight="700" fill="#15803d">模型服务 —— KeelBase 调用的 LLM 推理能力（OpenAI 兼容 API）</text>
+  <text x="40" y="572" font-size="13" fill="#166534">DeepSeek · Claude · Qwen · Gemini · Ollama（本地私有化可选）· Embedding 向量化 —— 不自建模型，多 Provider 按需切换</text>
+
+  <!-- ══════════ 核心价值宣言 ══════════ -->
+  <rect x="20" y="600" width="800" height="52" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="420" y="622" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">核心价值宣言：让任何企业都能在 30 分钟内，把自己的业务系统变成一个安全、可控、可审计的 AI 应用</text>
+  <text x="420" y="642" font-size="11.5" fill="#b45309" text-anchor="middle">连接一切业务 → 理解业务语义 → 治理每一次决策 → 安全执行业务操作 → 全程可追溯可验证</text>
+
+  <!-- ══════════ 右侧价值带 ══════════ -->
+  <rect x="840" y="84" width="340" height="568" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="1010" y="112" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">价值全景</text>
+  <line x1="870" y1="124" x2="1150" y2="124" stroke="#e2e8f0"/>
+
+  <!-- 为业务方创造的价值 -->
+  <text x="865" y="148" font-size="13" font-weight="700" fill="#1d4ed8">为业务方创造的价值</text>
+  <text x="865" y="168" font-size="11.5" fill="#4b5563">· AI 真正进入业务，降低风险、提升效率</text>
+  <text x="865" y="186" font-size="11.5" fill="#4b5563">· 可审计 · 可合规 · 数据安全与主权</text>
+  <text x="865" y="204" font-size="11.5" fill="#4b5563">· 业务使用者自然语言完成工作，AI 可控可信</text>
+
+  <!-- 为开发者创造的价值 -->
+  <text x="865" y="236" font-size="13" font-weight="700" fill="#1d4ed8">为开发者（Builder）创造的价值</text>
+  <text x="865" y="256" font-size="11.5" fill="#4b5563">· 快速构建 AI 应用，专注业务创新</text>
+  <text x="865" y="274" font-size="11.5" fill="#4b5563">· 快速集成 · 自动生成 · 安全默认 · 可扩展</text>
+
+  <!-- 核心价值总结 -->
+  <text x="865" y="306" font-size="13" font-weight="700" fill="#1d4ed8">核心价值总结</text>
+  <rect x="865" y="314" width="290" height="24" rx="6" fill="#eff6ff"/>
+  <text x="875" y="331" font-size="11" fill="#1e40af">可信任的 AI 执行 —— 权限 + 风险 + 确认</text>
+  <rect x="865" y="344" width="290" height="24" rx="6" fill="#eff6ff"/>
+  <text x="875" y="361" font-size="11" fill="#1e40af">完整的治理闭环 —— 审计 + 证据链 + 撤销</text>
+  <rect x="865" y="374" width="290" height="24" rx="6" fill="#eff6ff"/>
+  <text x="875" y="391" font-size="11" fill="#1e40af">开放与可扩展 —— 协议 + MCP + 生态</text>
+  <rect x="865" y="404" width="290" height="24" rx="6" fill="#eff6ff"/>
+  <text x="875" y="421" font-size="11" fill="#1e40af">面向业务的易用性 —— 自然语言交互</text>
+
+  <!-- AI 安全执行的结果 -->
+  <text x="865" y="456" font-size="13" font-weight="700" fill="#1d4ed8">AI 安全执行的结果</text>
+  <text x="865" y="476" font-size="11" fill="#4b5563">业务操作执行 · 数据变更 · 任务创建 · 消息发送 · 报告生成</text>
+  <rect x="865" y="486" width="290" height="44" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="875" y="505" font-size="11" font-weight="700" fill="#991b1b">全链路可追溯 · 可撤销</text>
+  <text x="875" y="521" font-size="10.5" fill="#7f1d1d">每一步都有证据 · 可回放 · 可撤销 · 符合审计合规</text>
+
+  <!-- 生态位置 -->
+  <text x="865" y="558" font-size="13" font-weight="700" fill="#1d4ed8">在企业 AI 生态中的位置</text>
+  <text x="865" y="578" font-size="11.5" fill="#4b5563">企业应用 → KeelBase（治理运行时）→ 模型服务</text>
+  <text x="865" y="596" font-size="11.5" fill="#4b5563">不替换任何存量技术栈（no rip-and-replace）</text>
+  <text x="865" y="616" font-size="11.5" fill="#4b5563">更快接入 · 更快开发（协议+生成器）· 全程可控</text>
+</svg>

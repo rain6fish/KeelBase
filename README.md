@@ -225,6 +225,10 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 - **Down — the business world (southbound):** any existing system can become AI-capable. Business systems connect via the **Bridge** (protocol + capability mapping) — no rip-and-replace
 - **In between — the trust layer:** identity, policy, permission, human confirmation, side-effect control, audit & revoke, private deployment
 
+<img src="docs/branding/keelbase-governance-landscape-en.svg" alt="KeelBase governance architecture and value landscape — enterprise apps (existing + AI-enabled) → KeelBase governance runtime → model services" width="840">
+
+> *Full landscape: enterprise applications (existing systems + AI-enabled apps built with KeelBase) → the KeelBase runtime (onboarding, AI execution chain, governance, platform) → the model services it calls.*
+
 ---
 
 ## 📚 Documentation
