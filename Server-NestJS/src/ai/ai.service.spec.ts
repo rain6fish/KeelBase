@@ -212,6 +212,35 @@ describe('AiService', () => {
       expect(result.reply).toBe('You have 1 event this month: Meeting on July 15.');
     });
 
+    it('A-5: 非流式放行工具审计落事件时点授权快照（allowed:true，对齐流式路径）', async () => {
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [
+          {
+            id: 'call_1',
+            name: 'query_events',
+            arguments: '{"startDate":"2026-07-01","endDate":"2026-07-31"}',
+          },
+        ],
+      });
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: [{ id: 1, title: 'Meeting' }],
+      });
+      mockProvider.generate.mockResolvedValueOnce({ content: 'You have 1 event.' });
+
+      await aiService.chat('1', { message: '查询我的事件' });
+
+      const auditCall = (mockAuditService.log as jest.Mock).mock.calls.find(
+        (c) => c[0]?.action === 'tool_call' && String(c[0]?.detail ?? '').startsWith('query_events'),
+      );
+      expect(auditCall).toBeDefined();
+      const snapshot = JSON.parse(auditCall![0].authorization);
+      expect(snapshot.allowed).toBe(true);
+      expect(snapshot.tool).toBe('query_events');
+      expect(snapshot.checks.some((c: any) => c.name === 'user_scoped' && c.ok)).toBe(true);
+    });
+
     it('HS-2: should reject tool when feature flag is off', async () => {
       mockToolRegistry.getTool.mockReturnValue({
         name: 'web_search',
