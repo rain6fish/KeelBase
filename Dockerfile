@@ -16,7 +16,7 @@
  COPY Server-NestJS/ .
  RUN npm run build
 
-FROM node:22-alpine AS server
+FROM node:26-alpine AS server
 WORKDIR /app/server
 RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
     apk add --no-cache wget
