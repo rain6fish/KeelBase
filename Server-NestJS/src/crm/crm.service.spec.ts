@@ -189,8 +189,8 @@ describe('CrmService', () => {
         { customerId: 3, happenedAt: recent },
       ]);
       const result = await service.detectIdleCustomers(1, 30);
-      // userId 范围查询参数正确传递
-      expect(customers.find).toHaveBeenCalledWith({ where: { userId: 1 } });
+      // userId 范围查询参数正确传递（未联系内部按 createdAt 升序，稳定排序保持最早建立优先）
+      expect(customers.find).toHaveBeenCalledWith({ where: { userId: 1 }, order: { createdAt: 'ASC' } });
       expect(activities.find).toHaveBeenCalledWith({ where: { userId: 1 } });
       expect(result.count).toBe(2);
       expect(result.items[0].customerId).toBe(2); // 从未联系最优先
@@ -220,6 +220,22 @@ describe('CrmService', () => {
       const loose = await service.detectIdleCustomers(1, 10, 999);
       expect(loose.count).toBe(2);
       expect(loose.items.length).toBeLessThanOrEqual(50); // limit 钳制到 50
+    });
+
+    it('命中数超 limit：count 报真实存量（截断前），未联系内部按 createdAt 升序（最早建立优先）', async () => {
+      const base = Date.now() - 90 * 86400000;
+      customers.find.mockResolvedValue([
+        { id: 3, name: 'C', status: 'lead', riskLevel: 'low', userId: 1, createdAt: new Date(base + 20 * 86400000) },
+        { id: 1, name: 'A', status: 'lead', riskLevel: 'low', userId: 1, createdAt: new Date(base) },
+        { id: 2, name: 'B', status: 'lead', riskLevel: 'low', userId: 1, createdAt: new Date(base + 10 * 86400000) },
+      ]);
+      activities.find.mockResolvedValue([]);
+      const result = await service.detectIdleCustomers(1, 30, 2);
+      // count = 真实命中存量（3），截断只影响 items
+      expect(result.count).toBe(3);
+      expect(result.items.length).toBe(2);
+      // 全部从未联系 → 最早建立（id1）最优先，其次 id2
+      expect(result.items.map((i: any) => i.customerId)).toEqual([1, 2]);
     });
   });
 

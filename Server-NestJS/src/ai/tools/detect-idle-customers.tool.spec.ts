@@ -45,6 +45,16 @@ describe('DetectIdleCustomersTool', () => {
     expect(result.error).toContain('≥1');
   });
 
+  it('limit 越界（0 / 51 / 非数字）→ 参数错误，不静默钳制', async () => {
+    const zero = await tool.execute({ limit: 0 }, '1');
+    expect(zero.success).toBe(false);
+    expect(zero.error).toContain('limit');
+    const over = await tool.execute({ limit: 51 }, '1');
+    expect(over.success).toBe(false);
+    const nan = await tool.execute({ limit: 'abc' }, '1');
+    expect(nan.success).toBe(false);
+  });
+
   it('服务异常 → success:false', async () => {
     crmService.detectIdleCustomers.mockRejectedValue(new Error('no access'));
     const result = await tool.execute({}, '1');
