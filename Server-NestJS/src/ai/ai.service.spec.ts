@@ -1002,6 +1002,16 @@ describe('AiService', () => {
       const chunks = [];
       for await (const c of it) chunks.push(c);
       expect(chunks[chunks.length - 1].type).toBe('done');
+
+      // FIX-A 回归：拒绝/未执行的写工具 tool_call 审计行不带「放行快照」——
+      // 否则 isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断
+      const declinedAudit = (mockAuditService.log as jest.Mock).mock.calls.find(
+        (c: any[]) => c[0].action === 'tool_call' && c[0].detail?.startsWith('create_event'),
+      );
+      expect(declinedAudit).toBeDefined();
+      expect(declinedAudit![0].isError).toBe(true);
+      expect(declinedAudit![0].errorMessage).toBe('User declined the operation');
+      expect(declinedAudit![0].authorization).toBeUndefined();
     });
 
     it('should emit tool_start/tool_end around a read tool call', async () => {
