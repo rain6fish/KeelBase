@@ -530,7 +530,7 @@ export class CrmService {
   }> {
     const cap = Math.min(Math.max(limit, 1), 50);
     const [customers, activities] = await Promise.all([
-      this.customers.find({ where: { userId } }),
+      this.customers.find({ where: { userId }, order: { createdAt: 'ASC' } }),
       this.activities.find({ where: { userId } }),
     ]);
     const lastContactByCustomer = new Map<number, Date>();
@@ -541,13 +541,14 @@ export class CrmService {
       }
     }
     const now = Date.now();
-    const items = customers
-      .map((c) => {
-        const lastContactAt = lastContactByCustomer.get(c.id) ?? null;
-        const idleDays = lastContactAt
-          ? Math.floor((now - lastContactAt.getTime()) / 86400000)
-          : null;
-        return {
+    const scored = customers.map((c) => {
+      const lastContactAt = lastContactByCustomer.get(c.id) ?? null;
+      const idleDays = lastContactAt
+        ? Math.floor((now - lastContactAt.getTime()) / 86400000)
+        : null;
+      return {
+        createdAtMs: c.createdAt ? c.createdAt.getTime() : 0,
+        item: {
           customerId: c.id,
           customerName: c.name,
           company: c.company ?? null,
@@ -556,16 +557,26 @@ export class CrmService {
           lastContactAt: lastContactAt ? lastContactAt.toISOString() : null,
           idleDays,
           neverContacted: lastContactAt == null,
-        };
-      })
-      .filter((i) => i.neverContacted || (i.idleDays != null && i.idleDays >= minIdleDays))
+        },
+      };
+    });
+    const matched = scored.filter(
+      (s) => s.item.neverContacted || (s.item.idleDays != null && s.item.idleDays >= minIdleDays),
+    );
+    // count = 真实命中待跟进数（截断前）——若在 slice 之后算 items.length，命中超 limit 时会低估存量、误导 LLM 汇总
+    const count = matched.length;
+    const items = matched
       .sort((a, b) => {
-        // 从未联系最优先 → idleDays 降序
-        if (a.neverContacted !== b.neverContacted) return a.neverContacted ? -1 : 1;
-        if (a.idleDays == null || b.idleDays == null) return 0;
-        return b.idleDays - a.idleDays;
+        // 从未联系最优先 → idleDays 降序；从未联系内部按 createdAt 升序（越早建立越该优先，spec §2.1）
+        if (a.item.neverContacted !== b.item.neverContacted) return a.item.neverContacted ? -1 : 1;
+        if (a.item.idleDays == null || b.item.idleDays == null) {
+          if (a.createdAtMs !== b.createdAtMs) return a.createdAtMs - b.createdAtMs;
+          return 0;
+        }
+        return (b.item.idleDays as number) - (a.item.idleDays as number);
       })
-      .slice(0, cap);
-    return { thresholdDays: minIdleDays, count: items.length, items };
+      .slice(0, cap)
+      .map((s) => s.item);
+    return { thresholdDays: minIdleDays, count, items };
   }
 }
