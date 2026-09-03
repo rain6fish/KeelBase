@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.25.0",
-    "@tarojs/components": "3.6.36",
+    "@tarojs/components": "3.6.40",
     "@tarojs/plugin-framework-vue3": "3.6.36",
     "@tarojs/plugin-platform-h5": "3.6.36",
     "@tarojs/runtime": "3.6.36",
