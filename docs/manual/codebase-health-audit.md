@@ -67,6 +67,32 @@
 - **优点**：消除最大结构性屎山——可读性/单一职责/测试隔离/并行开发全面提升；ai.service 文件内分段注释已是天然边界。
 - **缺点**：大重构回归风险高；需「行为不变」纪律（先抽方法不动逻辑 → 测试绿 → 再挪文件）；工作量大跨多批次；**过度拆分反而制造碎片化新屎山**（拆出的 service 需高内聚低耦合，避免跨类调用爆炸）。
 - **纪律**：每一步行为不变，测试作护栏；拆分后四层评审 findings 会更精准。
+- **经验（2026-09-03 阶段 2 实测）**：ai.service 的 explain 子域是「独立块可整搬」——直接下沉成功。auth.service 不是这种形态（见下蓝图），需先抽共享层再拆域。
+
+### 阶段 3a — auth.service 拆分蓝图（2026-09-03 实测）
+
+auth.service 1111 行、30 方法横跨 8 子域，但**共享私有 helpers 混合**是拆分的真障碍（与 ai.service explain 的一次性整搬不同）：
+
+共享私有 helper：`delay()`（防时序）、`hashToken()`（SHA-256）、`decryptPhone()`、`signedAvatar()`、`generateAccessToken()`、`generateRefreshToken()`、`_sendVerification()`、user 呈现（脱敏 email/phone 解密/avatar 签名内联于各 token 返回）。
+
+子域分布（方法行号）：
+- 认证核心：`register` 111 / `login` 286 / `oAuthLogin` 428（`oAuthService` 已独立注入；MFA 已独立 `MfaService`）
+- Token/会话：`refreshToken` 583 / `getSessions` 644 / `revokeSession` 664 / `logout` 737
+- 邮箱恢复：`forgotPassword` 186 / `resetPassword` 215 / `verifyEmail` 240 / `resendVerification` 272
+- 手机号：`sendSmsCode` 920 / `bindPhone` 945 / `loginPhone` 964
+- 生命周期：`deactivateAccount` 1016 / `exportData` 1055
+- 设备限流私有区 752-818 / helpers 区 820-914
+
+**拆分路径（地基先行）**：
+1. **地基刀：抽 `AuthTokenService`**——迁 `generateAccessToken`/`hashToken`/`generateRefreshToken`/JWT 签发验证 + user 呈现 DTO。auth.service 所有方法改为注入调用（login/register/oauth/reset/refresh 等 ~15 处机械替换）。这一步解开 token/session 域与邮箱/手机号域共享的结。
+2. **域刀 A `SessionTokenService`**：refreshToken/getSessions/revokeSession/logout + deviceStore 迁入。
+3. **域刀 B `AccountRecoveryService`**：forgot/reset/verify/resend + `_sendVerification`（依赖 mailService + 已共享的 hashToken/delay）。
+4. **域刀 C `AccountLifecycleService`**：deactivate/export（8 repo 级联清理，注入面大但逻辑独立）。
+5. **域刀 D `PhoneAuthService`**：sendSms/bind/loginPhone。
+- login/register/oAuthLogin 留在 auth.service 作认证核心，token 生成走 AuthTokenService。
+- 每刀独立提交 + 聚焦 spec + 全量回归；**不可多刀同批**（回归定位难）。
+
+> 附注：audit.service（1022，排序下一）实际比 auth 更接近 ai.service explain 形态（哈希链/log/stats/cost/report/chain 子域较独立、依赖已模块化），届时可更快见效。
 
 ### 阶段 4 — 架构决策（H4 governance 整合 + M4 常量单源 + M5 i18n 迁移 + React 去留）
 单独立项，每个先做影响分析再动代码。
