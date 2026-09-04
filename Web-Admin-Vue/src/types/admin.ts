@@ -397,3 +397,35 @@ export interface AiConversationSummary {
   createdAt: string
   lastActivityAt: string
 }
+
+/** B-proxy 外部系统（Java 集成）接入状态（GET /ai/proxy/integrations/status，管理台监控中心） */
+export interface ProxyIntegrationStatus {
+  configured: boolean
+  baseUrl?: string
+  audience?: string
+  configuredTools?: number
+  reachable?: boolean
+  statusEnabled?: boolean
+  fetchedAt?: string
+  error?: string
+  // Java /keelbase/status 面板透传（部分字段；Secret 不外泄）
+  provenance?: string
+  delegation?: {
+    configured?: boolean
+    secretConfigured?: boolean
+    audience?: string
+    issuer?: string
+    protectedPaths?: string[]
+  }
+  export?: { enabled?: boolean; baseUrl?: string; audience?: string }
+  audit?: { enabled?: boolean; configured?: boolean; baseUrl?: string }
+  tools?: {
+    count?: number
+    names?: string[]
+    riskDistribution?: Record<string, number>
+    revokeCovered?: number
+  }
+  warnings?: string[]
+  errors?: string[]
+  health?: { status?: 'UP' | 'DOWN' | 'UNKNOWN'; summary?: string }
+}

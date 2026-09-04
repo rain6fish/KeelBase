@@ -1,0 +1,54 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "外部审批流（存量审批系统沙箱）",
+    "version": "1.0.0",
+    "description": "Reference Project 域对照：模拟一个既有审批系统（不替换），经 AI Bridge（--import-openapi-proxy）接入 KeelBase，让 AI 在治理约束下读取/写回。读操作 = R1（自动执行），写操作 = R3（需人工确认）。对应 keelbase-java-approval-example（端口 8084，audience legacy-approval）。"
+  },
+  "paths": {
+    "/approval-requests": {
+      "get": {
+        "operationId": "listApprovalRequests",
+        "summary": "审批请求列表（读）",
+        "description": "类型/金额/状态/申请人——AI 预审分级的依据",
+        "responses": { "200": { "description": "审批请求数组" } }
+      }
+    },
+    "/approval-requests/{id}": {
+      "get": {
+        "operationId": "getApprovalRequest",
+        "summary": "审批请求详情（读）",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "审批请求详情（含 decidedBy 委托身份）" } }
+      }
+    },
+    "/approval-requests/{id}/decision": {
+      "patch": {
+        "operationId": "decideApprovalRequest",
+        "summary": "审批决定（写，R3 需人工确认）",
+        "description": "AI 审批决定（approve/reject）写回外部系统——走确认门控 + 副作用登记（B 路径 proxy_call，撤销走 Java 补偿端点 DELETE /api/compensation/approval-decisions/{id}，委托身份写回 decidedBy）",
+        "x-keelbase-risk-level": "R3",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["approve"],
+                "properties": {
+                  "approve": { "type": "boolean", "description": "是否批准" },
+                  "needsReview": { "type": "boolean", "description": "approve 时是否转人工复核" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "审批决定结果（含 decidedBy 委托身份 + 状态）" } }
+      }
+    }
+  }
+}

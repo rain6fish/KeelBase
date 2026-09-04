@@ -1,0 +1,54 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "外部 PM（存量项目管理系统沙箱）",
+    "version": "1.0.0",
+    "description": "Reference Project 域对照：模拟一个既有 PM/项目管理系统（不替换），经 AI Bridge（--import-openapi-proxy）接入 KeelBase，让 AI 在治理约束下读取/写回。读操作 = R1（自动执行），写操作 = R3（需人工确认）。对应 keelbase-java-pm-example（端口 8083，audience legacy-pm）。"
+  },
+  "paths": {
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "项目列表（读）",
+        "description": "项目状态/风险等级/描述——AI 延期风险分析的依据",
+        "responses": { "200": { "description": "项目数组" } }
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "项目详情（读）",
+        "description": "含里程碑/任务清单",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "项目详情" } }
+      }
+    },
+    "/projects/{id}/tasks": {
+      "post": {
+        "operationId": "createPmTask",
+        "summary": "为项目创建任务（写，R3 需人工确认）",
+        "description": "AI 写回外部 PM 创建任务——走确认门控 + 副作用登记（B 路径 proxy_call，撤销走 Java 补偿端点 DELETE /api/compensation/pm-tasks/{id}，委托身份写回 createdBy）",
+        "x-keelbase-risk-level": "R3",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string", "description": "任务标题" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "创建的任务（含 createdBy 委托身份）" } }
+      }
+    }
+  }
+}
