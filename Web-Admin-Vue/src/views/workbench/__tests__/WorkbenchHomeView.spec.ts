@@ -99,11 +99,11 @@ describe('WorkbenchHomeView', () => {
     await flushPromises()
 
     const cards = wrapper.findAll('.shortcut-card')
-    expect(cards.length).toBe(6)
+    expect(cards.length).toBe(7)
     for (const c of cards) await c.trigger('click')
-    // 6 张卡：5 张 to 走 router.push，1 张 href（移动预览）走 window.open
-    expect(pushMock).toHaveBeenCalledTimes(5)
+    // 7 张卡：6 张 to 走 router.push，1 张 href（移动预览）走 window.open
+    expect(pushMock).toHaveBeenCalledTimes(6)
     const paths = pushMock.mock.calls.map((c: unknown[]) => c[0])
-    expect(paths).toEqual(['/workbench/events', '/workbench/todos', '/workbench/notifications', '/workbench/ai-trace', '/workbench/crm-dashboard'])
+    expect(paths).toEqual(['/workbench/events', '/workbench/todos', '/workbench/notifications', '/workbench/ai-trace', '/workbench/my-ai-actions', '/workbench/crm-dashboard'])
   })
 })

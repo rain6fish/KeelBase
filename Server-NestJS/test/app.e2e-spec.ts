@@ -1951,6 +1951,66 @@ describe('App (e2e)', () => {
       expect(Array.isArray(res.body.data.items)).toBe(true);
     });
 
+    it('AI Action Center GET /ai/my/tool-effects 本人清单：隔离 + 数据最小化 + 撤销后 status=revoked', async () => {
+      const owner = await registerUser(app, { username: 'ac_owner', email: 'acowner@test.com', password: 'ActionPw123', nickname: 'ACOwner' });
+      const other = await registerUser(app, { username: 'ac_other', email: 'acother@test.com', password: 'ActionPw123', nickname: 'ACOther' });
+      const meOwner = (await request(app.getHttpServer()).get('/api/v1/auth/me').set(authHeader(owner.accessToken)).expect(200)).body.data;
+      const meOther = (await request(app.getHttpServer()).get('/api/v1/auth/me').set(authHeader(other.accessToken)).expect(200)).body.data;
+      const eventRepo = ds.getRepository('Event');
+      const evtOwner = await eventRepo.save({ title: '我的 AI 事件', startTime: new Date(), endTime: new Date(Date.now() + 3600_000), userId: meOwner.id });
+      const evtOther = await eventRepo.save({ title: '他人 AI 事件', startTime: new Date(), endTime: new Date(Date.now() + 3600_000), userId: meOther.id });
+      const effectOwner = await effectsService.record(
+        { userId: String(meOwner.id), conversationId: 'ac-conv-1', toolName: 'create_event', args: { title: '我的 AI 事件' } },
+        'event',
+        evtOwner.id,
+      );
+      await effectsService.record(
+        { userId: String(meOther.id), conversationId: 'ac-conv-2', toolName: 'create_event', args: { title: '他人 AI 事件' } },
+        'event',
+        evtOther.id,
+      );
+
+      // 未认证 → 401
+      await request(app.getHttpServer()).get('/api/v1/ai/my/tool-effects').expect(401);
+
+      // 本人清单：只见自己的副作用，目标富化 + status=executed，数据最小化（不回显 argsHash/快照）
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/ai/my/tool-effects')
+        .set(authHeader(owner.accessToken))
+        .expect(200);
+      expect(res.body.data.items.length).toBe(1);
+      const row = res.body.data.items[0];
+      expect(row.id).toBe(effectOwner.id);
+      expect(row.resultType).toBe('event');
+      expect(row.resultId).toBe(evtOwner.id);
+      expect(row.targetTitle).toBe('我的 AI 事件');
+      expect(row.status).toBe('executed');
+      expect(row).not.toHaveProperty('argsHash');
+      expect(row).not.toHaveProperty('beforeSnapshot');
+      expect(row).not.toHaveProperty('afterSnapshot');
+
+      // 隔离：他人清单不含我的 effect
+      const otherRes = await request(app.getHttpServer())
+        .get('/api/v1/ai/my/tool-effects')
+        .set(authHeader(other.accessToken))
+        .expect(200);
+      expect(otherRes.body.data.items.map((i: any) => i.id)).not.toContain(effectOwner.id);
+      expect(otherRes.body.data.items.length).toBe(1);
+
+      // 本人撤销后 → status=revoked（服务端归一，目标软删）
+      await request(app.getHttpServer())
+        .delete(`/api/v1/ai/my/tool-effects/${effectOwner.id}`)
+        .set(authHeader(owner.accessToken))
+        .expect(200);
+      const afterRevoke = await request(app.getHttpServer())
+        .get('/api/v1/ai/my/tool-effects')
+        .set(authHeader(owner.accessToken))
+        .expect(200);
+      const revokedRow = afterRevoke.body.data.items.find((i: any) => i.id === effectOwner.id);
+      expect(revokedRow.status).toBe('revoked');
+      expect(revokedRow.targetSoftDeleted).toBe(true);
+    });
+
     it('P0-14 GET /ai/conversations/:id/trace 本人可见执行轨迹，他人 403', async () => {
       const owner = await registerUser(app, { username: 'trace_owner', email: 'traceowner@test.com', password: 'TracePw123', nickname: 'TraceOwner' });
       const other = await registerUser(app, { username: 'trace_other', email: 'traceother@test.com', password: 'TracePw123', nickname: 'TraceOther' });

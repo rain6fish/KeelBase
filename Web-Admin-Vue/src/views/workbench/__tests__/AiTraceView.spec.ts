@@ -6,10 +6,11 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { conversationsMock, traceMock, revokeMock } = vi.hoisted(() => ({
+const { conversationsMock, traceMock, revokeMock, useRouteMock } = vi.hoisted(() => ({
   conversationsMock: vi.fn(),
   traceMock: vi.fn(),
   revokeMock: vi.fn(),
+  useRouteMock: vi.fn(),
 }))
 
 vi.mock('@/api/aiTrace', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/stores/snackbar', () => ({
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => useRouteMock(),
 }))
 
 import ElementPlus from 'element-plus'
@@ -69,6 +71,7 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  useRouteMock.mockReturnValue({ query: {} })
 })
 
 describe('AiTraceView', () => {
@@ -100,6 +103,19 @@ describe('AiTraceView', () => {
     expect(tags).toContain('人')
     expect(tags).toContain('AI')
     expect(tags).toContain('系统')
+    expect(wrapper.text()).toContain('research-agent')
+  })
+
+  it('深链 ?conv=<id> → 自动定位并加载该会话轨迹', async () => {
+    conversationsMock.mockResolvedValue([conv])
+    traceMock.mockResolvedValue({ conversation: conv, steps })
+    useRouteMock.mockReturnValue({ query: { conv: 'conv-1' } })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(traceMock).toHaveBeenCalledWith('conv-1')
+    // 不需要手动选中即可渲染步骤（工具调用步骤渲染子 agent 归责）
     expect(wrapper.text()).toContain('research-agent')
   })
 
