@@ -51,6 +51,35 @@
           </div>
         </el-card>
       </el-col>
+
+      <el-col :xs="24">
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="d-flex justify-space-between align-center">
+              <span>{{ t('externalSystems') }}</span>
+              <el-button size="small" text type="primary" @click="loadProxy">{{ t('refresh') }}</el-button>
+            </div>
+          </template>
+          <div v-if="proxyInt && proxyInt.configured" class="d-flex flex-column ga-3">
+            <div class="d-flex flex-wrap ga-6 align-center">
+              <div class="d-flex align-center ga-2">
+                <StatusChip :status="proxyChip(proxyInt)" :label-map="proxyLabelMap" />
+                <span class="text-body-2">{{ proxyInt.audience ?? '-' }}</span>
+              </div>
+              <div class="text-body-2 text-medium-emphasis">{{ proxyInt.baseUrl }}</div>
+              <div class="text-body-2">{{ t('configuredTools', { n: proxyInt.configuredTools ?? 0 }) }}</div>
+              <div v-if="proxyInt.delegation?.configured" class="text-body-2">
+                <el-tag size="small" type="success" effect="plain">Delegation</el-tag>
+              </div>
+              <div v-if="proxyInt.audit?.configured" class="text-body-2">
+                <el-tag size="small" type="success" effect="plain">Audit</el-tag>
+              </div>
+            </div>
+            <el-alert v-if="proxyInt.error" :title="proxyInt.error" type="warning" :closable="false" />
+          </div>
+          <div v-else class="text-body-2 text-medium-emphasis">{{ t('noExternalSystem') }}</div>
+        </el-card>
+      </el-col>
     </el-row>
 
     <div v-else-if="loading" class="text-medium-emphasis pa-4">{{ t('loading') }}</div>
@@ -65,15 +94,28 @@ import StatCard from '@/components/StatCard.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import { adminApi } from '@/api/admin'
 import { formatUptime } from '@/utils/format'
-import type { MonitorSummary } from '@/types/admin'
+import type { MonitorSummary, ProxyIntegrationStatus } from '@/types/admin'
 
 const { t } = useI18n()
 const summary = ref<MonitorSummary | null>(null)
+const proxyInt = ref<ProxyIntegrationStatus | null>(null)
 const loading = ref(true)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const statusLabelMap = computed(() => ({ ok: t('statusOk'), error: t('statusError'), degraded: t('statusError') }))
 const depLabelMap = computed(() => ({ up: t('ok'), ok: t('ok'), down: t('statusError'), error: t('statusError') }))
+// Java /keelbase/status 接入状态 → StatusChip 状态 + 文案
+const proxyLabelMap = computed(() => ({
+  ok: t('proxyHealthy'),
+  error: t('statusError'),
+  unreachable: t('proxyUnreachable'),
+  noStatus: t('proxyNoStatus'),
+}))
+function proxyChip(p: ProxyIntegrationStatus): string {
+  if (!p.reachable) return 'unreachable'
+  if (!p.statusEnabled) return 'noStatus'
+  return p.health?.status === 'DOWN' ? 'error' : 'ok'
+}
 
 const metrics = computed(() => {
   const m = summary.value?.metrics
@@ -95,8 +137,17 @@ async function load() {
   }
 }
 
+async function loadProxy() {
+  try {
+    proxyInt.value = await adminApi.proxyIntegrationsStatus()
+  } catch {
+    // global snackbar
+  }
+}
+
 onMounted(() => {
   load()
+  loadProxy()
   timer = setInterval(load, 15000)
 })
 onUnmounted(() => {
