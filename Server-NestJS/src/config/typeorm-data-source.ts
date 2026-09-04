@@ -73,6 +73,7 @@
        resolve(__dirname, '../migrations/*AddAiAuditBusinessEventEvidence*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAuditChainLock*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditUsername*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiAuditPayloadVersion*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiGovernancePolicy*').replace(/\\/g, '/'),
      ],
    };
