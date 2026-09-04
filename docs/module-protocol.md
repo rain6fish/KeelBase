@@ -49,7 +49,7 @@
 | `label` | 中文名（Swagger/i18n） | 页面标题（i18n） |
 | `fields[].name` | entity 列名 + DTO 字段 | model 字段 + 表单字段 |
 | `fields[].type` | TypeORM 列类型 | Flutter 输入控件 |
-| `fields[].required` | DTO `@IsNotEmpty` | 表单必填校验 |
+| `fields[].required` | DTO `@IsNotEmpty` | 表单必填校验；**默认按类型**：`string`/`enum` 默认必填，`text`/`int`/`bool`/`date` 默认可选。要改默认可显式标 `required: true/false`（如短文本字段可选写 `"required": false`） |
 | `searchable` | 列表搜索 + `/search` 索引 | 搜索入口 |
 
 **固定的安全接线（协议不含，AI 必须补）**：
