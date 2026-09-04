@@ -121,6 +121,29 @@ describe('OperationAuditService', () => {
       expect(saved.statusCode).toBeNull();
     });
 
+    it('G-1：authorization 授权依据快照落库，但链外（不入 hash payload，防破链）', async () => {
+      chain.computeHash.mockReturnValue('g1-hash');
+      const snapshot = JSON.stringify({ allowed: true, role: 'user', basis: 'casl:own-scope(handler-enforced)', feature: 'crm.customer.update', statusCode: 200 });
+      await service.log({
+        userId: 7,
+        action: 'UPDATE',
+        method: 'PATCH',
+        path: '/crm/customers/42',
+        changes: '[{"field":"status","before":"active","after":"inactive"}]',
+        businessEvent: 'CustomerStatusUpdated',
+        authorization: snapshot,
+        statusCode: 200,
+      });
+
+      const saved = (service as any).__saved[0];
+      expect(saved.authorization).toBe(snapshot); // 存库保留
+      const hashPayload = chain.computeHash.mock.calls[0][1] as Record<string, unknown>;
+      expect(hashPayload).not.toHaveProperty('authorization');
+      expect(hashPayload).not.toHaveProperty('changes');
+      expect(hashPayload).not.toHaveProperty('businessEvent');
+      expect(saved.hash).toBe('g1-hash');
+    });
+
     it('log 截断 ip/userAgent/requestBody 至安全上限', async () => {
       await service.log({
         action: 'CREATE',

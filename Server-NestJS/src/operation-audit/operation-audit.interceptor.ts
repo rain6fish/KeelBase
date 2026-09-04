@@ -91,6 +91,16 @@ export class OperationAuditInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
+        const statusCode = ctx.getResponse().statusCode;
+        const role = (user as { role?: string } | undefined)?.role ?? null;
+        // G-1（§22.17 ① G-1）：事件时点授权依据快照——「人类这条写凭什么允许/是否成」（CASL 角色作用域 + 行级由 handler 强制）；链外注解
+        const authorization = JSON.stringify({
+          allowed: statusCode < 400,
+          role,
+          basis: role === 'admin' ? 'casl:manage-all' : 'casl:own-scope(handler-enforced)',
+          feature: feature.key ?? null,
+          statusCode,
+        });
         // 异步落库，不阻塞响应；失败静默（审计不影响业务）
         this.auditService.log({
           userId,
@@ -104,9 +114,10 @@ export class OperationAuditInterceptor implements NestInterceptor {
           // §22.16 A-1 字段级变更留痕：有 before → 真 diff（[{field,before,after}]）；无 before 退化记录 after 值
           changes: this._extractChanges(req.body, before),
           businessEvent,
+          authorization,
           ip: req.ip,
           userAgent: req.headers['user-agent'],
-          statusCode: ctx.getResponse().statusCode,
+          statusCode,
         }).catch(() => undefined);
       }),
     );

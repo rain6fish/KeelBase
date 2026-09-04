@@ -50,6 +50,10 @@ export class OperationAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'business_event' })
   businessEvent?: string | null;
 
+  /** G-1（§22.17 ① G-1）：事件时点授权依据快照（JSON：{allowed, role, basis, statusCode}）——REST 人类写「凭什么允许/是否成」；链外注解（不入 hash payload 防破链，对齐 changes/businessEvent） */
+  @Column({ type: 'text', nullable: true })
+  authorization?: string | null;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   ip?: string | null;
 

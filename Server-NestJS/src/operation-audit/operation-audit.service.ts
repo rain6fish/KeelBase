@@ -20,6 +20,8 @@ export interface OperationAuditEntry {
   requestBody?: string | null;
   changes?: string | null;
   businessEvent?: string | null;
+  /** G-1（§22.17 ① G-1）：事件时点授权依据快照（JSON）——链外注解列 */
+  authorization?: string | null;
   ip?: string | null;
   userAgent?: string | null;
   statusCode?: number | null;
@@ -77,6 +79,7 @@ export class OperationAuditService {
       ...hashPayload,
       changes: entry.changes ? entry.changes.slice(0, 4000) : null,
       businessEvent: entry.businessEvent ?? null,
+      authorization: entry.authorization ? entry.authorization.slice(0, 2000) : null,
     };
     if (this.dataSource.options.type === 'postgres') {
       // postgres：DB 级串行（事务内锁 audit_chain_lock id=1），跨实例串行化写链
@@ -236,6 +239,7 @@ export class OperationAuditService {
       requestBody: r.log_request_body ?? null,
       changes: r.log_changes ?? null,
       businessEvent: r.log_business_event ?? null,
+      authorization: r.log_authorization ?? null,
       ip: r.log_ip ?? null,
       userAgent: r.log_user_agent ?? null,
       statusCode: r.log_status_code != null ? Number(r.log_status_code) : null,
