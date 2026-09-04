@@ -3,7 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { entityFor } from './side-effect-revoker';
+import { resolveLocalEntity } from './side-effect-revoker';
 
 /** 敏感键掩码：快照不落明文密钥/口令/token（与审计 redactSensitive 同源思路） */
 const SENSITIVE_KEY = /password|passwd|secret|token|salt|api[_-]?key|refresh/i;
@@ -38,14 +38,14 @@ export class SideEffectSnapshotCaptor {
     try {
       const spec = BEFORE_CAPTURE_TOOLS[toolName];
       if (!spec) return null;
-      const entity = entityFor(spec.resultType);
-      if (!entity) {
+      const target = resolveLocalEntity(this.entityManager, spec.resultType);
+      if (!target) {
         // B 路径外部写：无本地实体可查，用 args 摘要（变更请求输入，非完整状态）
         return this.normalize(args);
       }
       const id = args[spec.idKey];
       if (typeof id !== 'number') return null;
-      const repo = this.entityManager.getRepository(entity);
+      const repo = this.entityManager.getRepository(target.name);
       const row = await repo.findOne({ where: { id } } as any);
       return this.normalize(row);
     } catch (err) {
@@ -61,11 +61,11 @@ export class SideEffectSnapshotCaptor {
     fallback?: unknown,
   ): Promise<string | null> {
     try {
-      const entity = entityFor(resultType);
-      if (!entity) {
+      const target = resolveLocalEntity(this.entityManager, resultType);
+      if (!target) {
         return this.normalize(fallback);
       }
-      const repo = this.entityManager.getRepository(entity);
+      const repo = this.entityManager.getRepository(target.name);
       const row = await repo.findOne({ where: { id: resultId } } as any);
       return this.normalize(row);
     } catch (err) {
