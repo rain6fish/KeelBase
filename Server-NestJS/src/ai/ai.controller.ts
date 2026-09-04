@@ -294,6 +294,17 @@ export class AiController {
   }
 
   /**
+   * B-proxy 外部系统（Java 集成）接入状态（管理台监控中心）：
+   * 读 ai_proxy_tools baseUrl → 拉取 Java example /keelbase/status 健康度面板。
+   */
+  @Get('proxy/integrations/status')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '外部系统（Java 集成）接入状态（管理员）' })
+  getProxyIntegrationStatus() {
+    return this.aiService.getProxyIntegrationStatus();
+  }
+
+  /**
    * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
    */
   @Get('tool-effects')

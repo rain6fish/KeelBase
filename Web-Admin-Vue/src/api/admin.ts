@@ -13,6 +13,7 @@ import type {
   MonitorSummary,
   OpsSummary,
   PlatformOverview,
+  ProxyIntegrationStatus,
   TrashResponse,
   TrashRestoreResult,
 } from '@/types/admin'
@@ -28,6 +29,10 @@ function validateConversationId(id: string): string {
 export const adminApi = {
   monitorSummary(): Promise<MonitorSummary> {
     return api.get<MonitorSummary>('/admin/monitor/summary')
+  },
+  /** B-proxy 外部系统（Java 集成）接入状态（监控中心） */
+  proxyIntegrationsStatus(): Promise<ProxyIntegrationStatus> {
+    return api.get<ProxyIntegrationStatus>('/ai/proxy/integrations/status')
   },
   opsSummary(): Promise<OpsSummary> {
     return api.get<OpsSummary>('/admin/ops/summary')

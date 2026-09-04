@@ -678,6 +678,53 @@ export class AiService {
   }
 
   /**
+   * B-proxy 外部系统（Java 集成）接入诊断：读 Settings ai_proxy_tools 的 baseUrl，
+   * 拉取 Java example 的 /keelbase/status 健康度面板，供管理台监控中心聚合显示。
+   * 未配置 → { configured:false }；非 Java 源（OpenAPI 代理等无 status 端点）→ statusEnabled:false。
+   * Secret 不外泄（面板本就只给布尔/状态）。baseUrl 限定 http(s)，防 SSRF。
+   */
+  async getProxyIntegrationStatus(): Promise<Record<string, unknown>> {
+    const raw = this.settingsService
+      ? await this.settingsService.getWithDefault(SETTING_KEYS.PROXY_TOOLS, null)
+      : null;
+    if (!raw) return { configured: false };
+    let cfg: Record<string, unknown>;
+    try {
+      cfg = typeof raw === 'string' ? JSON.parse(raw) : (raw as object);
+    } catch {
+      return { configured: false };
+    }
+    const baseUrl = String(cfg?.baseUrl ?? '');
+    const audience = String(cfg?.audience ?? '');
+    const configuredTools = Array.isArray(cfg?.tools) ? (cfg.tools as unknown[]).length : 0;
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      return { configured: true, error: 'baseUrl 非法（仅 http(s)）', reachable: false };
+    }
+    try {
+      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/keelbase/status`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) {
+        return {
+          configured: true, baseUrl, audience, configuredTools,
+          reachable: true, statusEnabled: false, error: `HTTP ${res.status}`,
+        };
+      }
+      const status = await res.json().catch(() => ({}));
+      return {
+        configured: true, baseUrl, audience, configuredTools,
+        reachable: true, statusEnabled: true, fetchedAt: new Date().toISOString(),
+        ...(status as object),
+      };
+    } catch (err) {
+      return {
+        configured: true, baseUrl, audience, configuredTools,
+        reachable: false, error: (err as Error).message,
+      };
+    }
+  }
+
+  /**
    * 非流式对话：发送消息，处理工具调用，返回完整回复
    */
   async chat(

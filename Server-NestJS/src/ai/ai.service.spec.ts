@@ -1600,6 +1600,68 @@ describe('AiService', () => {
       expect(inv[0].requiresConfirmation).toBe(true);
     });
 
+    it('getProxyIntegrationStatus：未配置 → configured:false', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue(null);
+      const r = await aiService.getProxyIntegrationStatus();
+      expect(r.configured).toBe(false);
+    });
+
+    it('getProxyIntegrationStatus：配置 + status 可达 → 透传面板字段', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue(
+        JSON.stringify({ baseUrl: 'http://localhost:8082', audience: 'legacy-crm', tools: [{ name: 'x' }, { name: 'y' }] }),
+      );
+      const orig = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ health: { status: 'UP' }, tools: { count: 2 } }),
+      }) as any;
+      try {
+        const r = await aiService.getProxyIntegrationStatus();
+        expect(r.configured).toBe(true);
+        expect(r.reachable).toBe(true);
+        expect(r.statusEnabled).toBe(true);
+        expect(r.configuredTools).toBe(2);
+        expect((r.health as any).status).toBe('UP');
+        expect(global.fetch).toHaveBeenCalledWith(
+          'http://localhost:8082/keelbase/status',
+          expect.objectContaining({ signal: expect.anything() }),
+        );
+      } finally {
+        global.fetch = orig;
+      }
+    });
+
+    it('getProxyIntegrationStatus：非 200 → statusEnabled:false + error', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue(
+        JSON.stringify({ baseUrl: 'http://localhost:8082', tools: [] }),
+      );
+      const orig = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as any;
+      try {
+        const r = await aiService.getProxyIntegrationStatus();
+        expect(r.reachable).toBe(true);
+        expect(r.statusEnabled).toBe(false);
+        expect(r.error).toContain('404');
+      } finally {
+        global.fetch = orig;
+      }
+    });
+
+    it('getProxyIntegrationStatus：网络失败 → reachable:false', async () => {
+      mockSettingsService.getWithDefault.mockResolvedValue(
+        JSON.stringify({ baseUrl: 'http://localhost:8082', tools: [] }),
+      );
+      const orig = global.fetch;
+      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) as any;
+      try {
+        const r = await aiService.getProxyIntegrationStatus();
+        expect(r.reachable).toBe(false);
+        expect(r.configured).toBe(true);
+      } finally {
+        global.fetch = orig;
+      }
+    });
+
     it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {
       const repo = {
         findOne: jest.fn().mockResolvedValue({
