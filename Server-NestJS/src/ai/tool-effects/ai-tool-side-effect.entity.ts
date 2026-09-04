@@ -34,9 +34,9 @@ export class AiToolSideEffect {
   @Column({ length: 64, name: 'args_hash' })
   argsHash!: string;
 
-  /** 副作用类型：event | todo */
-  @Column({ length: 16, name: 'result_type' })
-  resultType!: 'event' | 'todo';
+  /** 副作用类型（旗舰别名 event/todo/crm_task/pm_task/app_request/contract/proxy_call；生成模块为其模块名，如 invoice） */
+  @Column({ length: 64, name: 'result_type' })
+  resultType!: string;
 
   /** 副作用目标记录 id（events/todos 主键） */
   @Column({ name: 'result_id' })

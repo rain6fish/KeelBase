@@ -275,7 +275,10 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
 
     it('LocalEntityRevoker 映射副作用类型', () => {
-      const revoker = new LocalEntityRevoker(entityManager as any);
+      const revoker = new LocalEntityRevoker({
+        ...entityManager,
+        connection: { entityMetadatas: [] },
+      } as any);
       expect(revoker.canHandle('crm_task')).toBe(true);
       expect(revoker.canHandle('pm_task')).toBe(true);
       expect(revoker.canHandle('app_request')).toBe(true);

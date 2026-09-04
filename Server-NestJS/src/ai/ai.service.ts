@@ -35,6 +35,7 @@ import {
   AuthorizationDeniedError,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { writeEffectTypeFor } from './tool-effects/write-effect-type';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
@@ -394,21 +395,12 @@ export class AiService {
     if (result.success && result.data && ((result.data as any).id !== undefined || isProxyWrite)) {
       // 状态变更型写工具（AI 预审）与 dry-run 只读预览（create_module）不创建可撤销记录，仅确认 + 审计
       if (!['review_approval_request', 'create_module'].includes(toolName)) {
-        // B 路径（ProxyTool 写）：登记 proxy_call 副作用（目标在外部系统，可见/可审计；撤销需 Java 端补偿）
-        // AI 旗舰应用：写工具 → 对应实体 resultType（撤销走软删）
-        const resultType = isProxyWrite
-          ? 'proxy_call'
-          : toolName === 'create_event'
-            ? 'event'
-            : toolName === 'create_followup_task'
-              ? 'crm_task'
-              : toolName === 'create_project_task'
-                ? 'pm_task'
-                : toolName === 'submit_approval_request'
-                  ? 'app_request'
-                  : toolName === 'create_contract'
-                    ? 'contract'
-                    : 'todo';
+        // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
+        const resultType = isProxyWrite ? 'proxy_call' : writeEffectTypeFor(toolName);
+        if (!resultType) {
+          // 无法推导类型（非 create 且无别名）——fail-closed：不登记副作用，避免错指记录（旧逻辑兜底 'todo' 为 bug）
+          return result;
+        }
         const resultId = isProxyWrite
           ? typeof (result.data as any)?.id === 'number'
             ? (result.data as any).id
