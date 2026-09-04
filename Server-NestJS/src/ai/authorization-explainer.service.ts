@@ -41,12 +41,17 @@ export class AuthorizationExplainerService {
     const riskLevel = this.toolRegistry.riskLevel(toolName);
     const riskStrategy = RISK_STRATEGY[riskLevel];
     const checks: AuthorizationCheck[] = [];
-    // §22.17 ③ Policy Evidence：单次取策略 → 决策输入（tool_enabled/role_allowed）+ 决策时策略版本同源，
-    // 快照落库即冻结「当时是哪一版规则允许的」（无策略行 → policyVersion null，语义等同「默认策略」）。
-    let policyVersion: string | null = null;
+    // §22.17③ Policy Evidence：单次取策略 → 决策输入（tool_enabled/role_allowed）与决策时策略版本（内容指纹 revision）同源，
+    // 快照即冻结「当时是哪一版规则允许的」；无策略行/revision 则不附 policy（默认策略语义，向后兼容旧快照）。
+    let policyMeta: { revision: string; updatedAt?: string | null } | undefined;
     if (this.governancePolicy) {
       const policy = await this.governancePolicy.getPolicy();
-      policyVersion = policy.updatedAt ? new Date(policy.updatedAt).toISOString() : null;
+      if (policy?.revision) {
+        policyMeta = {
+          revision: policy.revision,
+          updatedAt: policy.updatedAt ? new Date(policy.updatedAt).toISOString() : null,
+        };
+      }
       const cfg = policy.tools?.[toolName] ?? {};
       const enabled = cfg.enabled ?? true;
       checks.push({
@@ -87,7 +92,7 @@ export class AuthorizationExplainerService {
       riskStrategy,
       requiresConfirmation: isWrite,
       checks,
-      policyVersion,
+      ...(policyMeta ? { policy: policyMeta } : {}),
     };
   }
 

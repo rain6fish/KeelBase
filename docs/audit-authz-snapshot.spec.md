@@ -65,37 +65,50 @@ if (!denied) {
 
 > 承接 roadmap §22.17 ③「Policy 版本冻结 + 决策可复现」：不仅知道「为什么允许」，还知道**当时依据的是哪一版治理规则**。
 
+> **口径收敛（2026-09-04）**：策略版本采用**内容指纹 revision**（#51，`ai_governance_policy.value` → sha256 前缀、normalize 排序 key，同内容恒同号、变更必变号；无迁移）；审计身份链/合规投影移植自平行实现的 updatedAt 口径——统一为 `policy = { revision, updatedAt }` 嵌套（revision 是权威版本、updatedAt 供人读）。
+
 ### 5.1 写入侧：事件时点策略版本入快照
 
-`AuthorizationExplainerService.getAuthorizationReasons` 改为**单次取策略**（读 `GovernancePolicyService.getPolicy()`），把决策输入（`tool_enabled`/`role_allowed` checks，由同一份策略派生）与**决策时策略版本**同源带回：
+`AuthorizationExplainerService.getAuthorizationReasons` **单次取策略**（`GovernancePolicyService.getPolicy()`），把决策输入（`tool_enabled`/`role_allowed` checks）与**决策时策略内容指纹 revision** 同源带回：
 
-- `policyVersion = policy.updatedAt ISO`（无策略行/未配治理 → `null`，语义等同「默认策略」）
-- 返回对象新增 `policyVersion`，随 `tool_start`/`confirmation_request` 事件与放行快照自动携带
-- 放行 `tool_call` 审计快照（ai.service 成功分支）补 `policyVersion`：
+- `policy = { revision, updatedAt }`：`revision` = 策略内容指纹（sha256 前缀 12 hex），`updatedAt` ISO 供人读；无策略行/未配治理 → **不附 policy**（默认策略语义，向后兼容旧快照）。
+- 返回对象带 `policy`，随 `tool_start`/`confirmation_request` 事件与放行快照自动携带。
+- 放行 `tool_call` 审计快照（ai.service 成功分支）写 `policy`：
 
 ```json
 { "allowed": true, "tool": "...", "riskLevel": "R3", "strategy": "confirmation",
-  "checks": [...], "policyVersion": "2026-09-04T09:20:00.000Z" }
+  "checks": [...], "policy": { "revision": "a1b2c3d4e5f6", "updatedAt": "2026-09-04T09:20:00.000Z" } }
 ```
 
 - **拒绝路径不变**（`authorization` 仍为 checks 数组——A-8/parseChecks 判拒依赖数组形态，不因本项破坏）
 
 ### 5.2 导出侧：版本随 allowed 投影携带
 
-`parseAllowedSnapshot` 解析 `policyVersion`；`_identityChainFromRow` 的 `allowed` 在快照含版本时带 `policyVersion`（历史行无版本 → 不注入键，消费端可选）。身份链/合规证据包由此可回答「哪一版规则允许」。
+`parseAllowedSnapshot` 解析嵌套 `policy`；`_identityChainFromRow` 的 `allowed` 在快照含 `policy.revision` 时带 `policy`（历史行无版本 → 不注入键，消费端可选）。身份链/合规证据包由此可回答「哪一版规则允许」。
 
-### 5.3 语义与边界
+### 5.3 决策可复现（verifyReproducible）
 
-- **决策输入已冻结**：checks（tool_enabled/role_allowed/risk）在事件时点与 `policyVersion` 同源写入 → 证据不随当前策略漂移（与 §1「不复算过去」同源）。
-- **可复现口径**：冻结的 checks 即"该版本下的决策记录"；重读恒同（快照优先、不重算）。**跨策略版本真正回放**（拿历史 policy 对象重演决策）需**策略历史表**支撑——超出当前范围，记为后续项（见 roadmap §22.17 ①证据根 / 策略版本化）。
-- 前端「为什么允许」可展示 `allowed.policyVersion`（治理抽屉/身份链卡片可选字段）；漂移提示（现策略 ≠ 快照版本 → "决策基于旧版规则"）为后续 UI 增量。
+`GovernancePolicyService.verifyReproducible(recorded)`（recorded = 审计 authorization 快照解析：`tool` + `checks[]` + `policyRevision`）用**当前**策略重放该放行：
 
-### 5.4 测试
+- 快照无 `policyRevision`（历史记录）→ `verifiable:false`
+- 当前 revision === 记录 revision → 未漂移，可复现
+- revision 漂移但该工具 `tool_enabled` 放行判定未受影响 → `toolDecisionChanged:false`，仍可复现
+- 漂移且该工具现被禁用 → `toolDecisionChanged:true`，不可复现
+- 返回 `{ verifiable, reproducible, policyChanged, toolDecisionChanged, recordedRevision, currentRevision, note }`
 
-- `authorization-explainer.service.spec`（新）：单次取策略产出 checks + `policyVersion`；禁用工具仍带版本；无治理 → `policyVersion` null
-- `audit.service.spec`：快照带 `policyVersion` → `getChain` 的 `allowed.policyVersion` 透出；无版本历史行形态不变（向后兼容）
+### 5.4 语义与边界
 
-## 5. 相关
+- **决策输入已冻结**：checks 与 `policy.revision` 在事件时点同源写入 → 证据不随当前策略漂移（与 §1「不复算过去」同源）。
+- **可复现 = 快照优先 + verifyReproducible**：读侧不再重算（§5.2）；要判断「当时为何允许是否仍成立」走 verifyReproducible（对当前策略）。**拿历史 policy 对象真正重演决策**需策略历史表——超出范围，记为后续项（roadmap §22.17 ①证据根 / 策略版本化）。
+- 前端「为什么允许」可展示 `allowed.policy.revision`；漂移提示 UI 为后续增量。
+
+### 5.5 测试
+
+- `governance-policy.service.spec`：revision 无行恒同 / 同内容恒同号 / key 顺序无关 / setPolicy 与再读一致；verifyReproducible 四态
+- `authorization-explainer.service.spec`：单次取策略产出 checks + `policy.revision`；禁用工具仍带版本；无治理 → 不附 policy
+- `audit.service.spec`：快照带 `policy.revision` → `getChain` 的 `allowed.policy` 透出；无版本历史行形态不变（向后兼容）
+
+## 6. 相关
 
 - [security-showcase.spec.md](security-showcase.spec.md) — A2 对抗性证明（运行时边界演示）
 - [adversarial-proof.md](benchmark/adversarial-proof.md) — Gate 2 证据链

@@ -774,19 +774,19 @@ describe('AuditService', () => {
       expect(res.authorization.allowed).toEqual({ checks: snapshotChecks, riskLevel: 'R1' });
     });
 
-    it('§22.17 ③ Policy Evidence：快照带 policyVersion → allowed 投影携带「哪一版规则允许」', async () => {
+    it('§22.17 ③ Policy Evidence：快照带 policy.revision → allowed 投影携带「哪一版规则允许」', async () => {
       repo.findOne.mockResolvedValue({
         id: 5, userId: '42', action: 'tool_call', detail: 'create_followup_task({})',
         authorization: JSON.stringify({
           allowed: true, tool: 'create_followup_task', riskLevel: 'R3', strategy: 'confirmation',
           checks: [{ name: 'user_scoped', ok: true, note: '仅本人数据' }],
-          policyVersion: '2026-09-04T09:20:00.000Z',
+          policy: { revision: 'a1b2c3d4e5f6', updatedAt: '2026-09-04T09:20:00.000Z' },
         }),
         createdAt: new Date(),
       });
       repo.find.mockResolvedValue([]);
       const res = await service.getChain(5);
-      expect(res.authorization.allowed?.policyVersion).toBe('2026-09-04T09:20:00.000Z');
+      expect(res.authorization.allowed?.policy).toEqual({ revision: 'a1b2c3d4e5f6', updatedAt: '2026-09-04T09:20:00.000Z' });
       // 无版本的历史行仍不注入键（向后兼容，见放行快照测试）
     });
 

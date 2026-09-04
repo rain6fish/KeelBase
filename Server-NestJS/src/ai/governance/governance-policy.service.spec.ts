@@ -4,6 +4,7 @@ import {
   GovernancePolicyService,
   declaredGateMode,
   effectiveGateMode,
+  policyRevisionOf,
 } from './governance-policy.service';
 
 describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
@@ -177,6 +178,108 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       await expect(service.requiresConfirmation('a', false)).resolves.toBe(true);
       await expect(service.requiresConfirmation('b', true)).resolves.toBe(false);
       await expect(service.requiresConfirmation('legacy_off', true)).resolves.toBe(true);
+    });
+  });
+
+  describe('§22.17③ policy revision（内容指纹版本）', () => {
+    it('无行 → 固定空策略指纹', async () => {
+      mockRow(null);
+      const a = await service.getPolicy();
+      const b = await service.getPolicy();
+      expect(a.revision).toBe(policyRevisionOf(undefined));
+      expect(a.revision).toBe(b.revision);
+    });
+
+    it('同内容恒同号、改内容变号', async () => {
+      const v1 = JSON.stringify({
+        tools: { create_event: { enabled: false } },
+        audit: { granularity: 'write' },
+      });
+      mockRow(v1);
+      const r1a = (await service.getPolicy()).revision;
+      mockRow(v1);
+      const r1b = (await service.getPolicy()).revision;
+      expect(r1b).toBe(r1a);
+      mockRow(
+        JSON.stringify({
+          tools: { create_event: { enabled: true } },
+          audit: { granularity: 'write' },
+        }),
+      );
+      const r2 = (await service.getPolicy()).revision;
+      expect(r2).not.toBe(r1a);
+    });
+
+    it('key 顺序无关（normalize 排序）', async () => {
+      mockRow(JSON.stringify({ tools: { b: { allowedRoles: ['admin'] }, a: { enabled: false } } }));
+      const r1 = (await service.getPolicy()).revision;
+      mockRow(JSON.stringify({ tools: { a: { enabled: false }, b: { allowedRoles: ['admin'] } } }));
+      const r2 = (await service.getPolicy()).revision;
+      expect(r2).toBe(r1);
+    });
+
+    it('setPolicy 返回带 revision，与 getPolicy 再读一致', async () => {
+      let stored: string | null = null;
+      repo.save.mockImplementation(async (args: any) => {
+        stored = args.value;
+        return { id: 1, value: args.value, updatedAt: new Date('2026-09-04T12:00:00Z') };
+      });
+      const result = await service.setPolicy({ tools: { create_event: { enabled: false } } });
+      expect(result.revision).toBeTruthy();
+      mockRow(stored!);
+      const reread = await service.getPolicy();
+      expect(reread.revision).toBe(result.revision);
+    });
+  });
+
+  describe('§22.17③ verifyReproducible（决策可复现）', () => {
+    it('无 policyRevision → verifiable false（历史记录）', async () => {
+      const res = await service.verifyReproducible({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+      });
+      expect(res.verifiable).toBe(false);
+      expect(res.note).toContain('历史');
+    });
+
+    it('策略未漂移 → 可复现', async () => {
+      const stored = JSON.stringify({ tools: { create_event: { enabled: true } } });
+      mockRow(stored);
+      const ra = (await service.getPolicy()).revision as string;
+      const res = await service.verifyReproducible({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: ra,
+      });
+      expect(res.verifiable).toBe(true);
+      expect(res.policyChanged).toBe(false);
+      expect(res.reproducible).toBe(true);
+    });
+
+    it('策略漂移但该工具放行判定未变 → 仍可复现', async () => {
+      mockRow(JSON.stringify({ tools: { web_search: { enabled: false } } }));
+      const res = await service.verifyReproducible({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: 'oldhash',
+      });
+      expect(res.verifiable).toBe(true);
+      expect(res.policyChanged).toBe(true);
+      expect(res.toolDecisionChanged).toBe(false);
+      expect(res.reproducible).toBe(true);
+    });
+
+    it('策略漂移且该工具被禁用 → 不可复现', async () => {
+      mockRow(JSON.stringify({ tools: { create_event: { enabled: false } } }));
+      const res = await service.verifyReproducible({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: 'oldhash',
+      });
+      expect(res.verifiable).toBe(true);
+      expect(res.policyChanged).toBe(true);
+      expect(res.toolDecisionChanged).toBe(true);
+      expect(res.reproducible).toBe(false);
     });
   });
 });
