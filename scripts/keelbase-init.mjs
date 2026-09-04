@@ -21,6 +21,7 @@ import {
   parseFields,
   validateFields,
   validateAiTools,
+  normalizeSpecFields,
 } from './generator/validate.mjs';
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
@@ -288,12 +289,8 @@ async function main() {
     if (spec.plural && !name) name = spec.plural;
     if (spec.label) label = spec.label;
     if (Array.isArray(spec.fields)) {
-      // 协议反推：直接保留结构化字段（name/type/enum），避免字符串转换丢失 enum 选项
-      specFields = spec.fields.map((f) => ({
-        name: f.name,
-        type: f.type || 'string',
-        ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
-      }));
+      // 协议反推：直接保留结构化字段（name/type/enum/required），避免字符串转换丢失 enum/required
+      specFields = normalizeSpecFields(spec.fields);
     }
     // Protocol 2.0：AI 工具层声明（enabled / query / create 风险级与确认）
     if (spec.aiTools) specAiTools = spec.aiTools;
