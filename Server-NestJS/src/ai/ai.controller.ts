@@ -45,6 +45,7 @@ import { DecisionTraceService, DecisionTrace } from './trace/decision-trace.serv
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import type { GovernancePolicy } from './governance/governance-policy.service';
 import { BusinessHistoryService } from './governance/business-history.service';
+import { AuditService } from './audit/audit.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
@@ -63,6 +64,7 @@ export class AiController {
     private readonly governancePolicy: GovernancePolicyService,
     private readonly businessHistoryService: BusinessHistoryService,
     private readonly trustSandbox: TrustSandboxService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -389,6 +391,22 @@ export class AiController {
       },
       trace,
     };
+  }
+
+  /**
+   * ① 证据根（§22.17 ①，docs/evidence-root.spec.md）：单条 Business Action 跨链证据根
+   * keelbase-audit-evidence/3（授权快照含 policy.revision + Decision Evidence + AI/operation 链行 + 副作用 + 根锚）。
+   * 本人或管理员；无副作用 404、非本人非 admin 403。
+   */
+  @Get('governance/evidence-root/:resultType/:resultId')
+  @ApiOperation({ summary: '业务动作证据根（AUDIT-ID，keelbase-audit-evidence/3，跨链离线验证）' })
+  async evidenceRoot(
+    @Param('resultType') resultType: string,
+    @Param('resultId', ParseIntPipe) resultId: number,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    return this.auditService.getEvidenceRoot(resultType, resultId, String(user.sub), ability.can('manage', 'all'));
   }
 
   /**

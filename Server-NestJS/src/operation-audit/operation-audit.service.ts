@@ -149,6 +149,24 @@ export class OperationAuditService {
     }));
   }
 
+  /**
+   * ① 证据根（§22.17 ①，docs/evidence-root.spec.md）：按业务对象（target_id + path 资源子串）取 REST 写链行，
+   * payload 复用本服务 canonical（与写入侧一致），供跨链证据根整包离线验。
+   */
+  async chainRowsByTarget(
+    resultId: string | number,
+    pathSubstrings: string[],
+  ): Promise<Array<{ seq: number; id: number; prevHash: string | null; hash: string; payload: Record<string, unknown> }>> {
+    const rows = await this.findByTargetId(String(resultId), pathSubstrings);
+    return rows.map((r, i) => ({
+      seq: i + 1,
+      id: r.id,
+      prevHash: r.prevHash ?? null,
+      hash: r.hash ?? '',
+      payload: this._payload(r as unknown as object),
+    }));
+  }
+
   private async _lastHash(runner?: QueryRunner): Promise<string | null> {
     if (runner) {
       // DB 级串行：在锁事务内读（与插入同事务，跨实例原子）

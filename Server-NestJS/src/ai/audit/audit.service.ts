@@ -7,10 +7,11 @@
  * 数据持久化到 ai_audit_logs 表，支持后续的用量分析和安全审计。
  */
 
-import { createHmac } from 'crypto';
-import { Injectable, Optional, Inject, NotFoundException } from '@nestjs/common';
+import { createHmac, createHash } from 'crypto';
+import { Injectable, Optional, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { AiAgentService } from '../agents/ai-agent.service';
+import type { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
@@ -152,6 +153,27 @@ export interface ActionReportExport {
   signature: string | null;
 }
 
+/** ① 证据根（§22.17 ①，keelbase-audit-evidence/3）：单条 Business Action 跨链证据根（AUDIT-ID），离线整包验 */
+export interface EvidenceRootExport {
+  exportedAt: string;
+  generator: string;
+  format: string;
+  action: { id: string; resultType: string; resultId: number; effectId: number; userId: string; conversationId: string | null };
+  authorization: { denied: unknown; allowed: unknown } | null;
+  decision: { businessEvent: string | null; evidence: string | null };
+  effect: { id: number; toolName: string; before: unknown; after: unknown };
+  chains: {
+    aiAudit: EvidenceChainRow[];
+    operationAudit: EvidenceChainRow[];
+  };
+  root: {
+    algorithm: string;
+    anchors: Array<{ kind: string; rowId: number; hash: string }>;
+    digest: string;
+  };
+  signature: string | null;
+}
+
 /** E-2 哈希链可视化：逐行链节点（verify 端点返回的切片） */
 export interface AuditChainNode {
   id: number;
@@ -218,6 +240,8 @@ export class AuditService {
     // §22.16 A-5 跨系统身份链：授权依据（AuthorizationExplainerService.explainAuthorization，阶段 2 切环）
     @Optional() private readonly authorizationExplainer?: AuthorizationExplainerService,
     @Optional() private readonly agentService?: AiAgentService,
+    // ① 证据根（§22.17 ①）：operation-audit 链行（OperationAuditModule 已由 ai.module import，注入可用；缺失降级）
+    @Optional() private readonly operationAudit?: OperationAuditService,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
@@ -741,6 +765,113 @@ export class AuditService {
       chain,
       signature,
     };
+  }
+
+  /**
+   * ① 证据根（§22.17 ①，docs/evidence-root.spec.md）：单条 Business Action（resultType:resultId）→ keelbase-audit-evidence/3
+   * 跨链证据根——授权快照(含 policy.revision) + Decision Evidence + AI 审计链行 + 副作用行 + operation_audit 链行 + 跨链根锚。
+   * 鉴权：本人（effect.userId===viewer）或管理员；无副作用 404、非本人非 admin 403。
+   */
+  async getEvidenceRoot(
+    resultType: string,
+    resultId: number,
+    viewerUserId: string,
+    isAdmin: boolean,
+  ): Promise<EvidenceRootExport> {
+    const effect = await this.effectsRepo.findOne({ where: { resultType, resultId } as any });
+    if (!effect) throw new NotFoundException('AI 副作用记录不存在');
+    if (effect.userId !== viewerUserId && !isAdmin) {
+      throw new ForbiddenException('无权访问此业务动作的证据根');
+    }
+    const exportedAt = new Date().toISOString();
+    const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
+
+    const convRows: AiAuditLog[] = effect.conversationId
+      ? await this.logRepo.find({ where: { conversationId: effect.conversationId }, order: { id: 'ASC' } })
+      : [];
+    const trigger =
+      convRows.find(
+        (l) => l.action === 'tool_call' && !l.isError && this._toolNameFromDetail(l.detail) === effect.toolName,
+      ) ??
+      [...convRows].reverse().find((l) => !l.isError && l.action === 'tool_call') ??
+      null;
+    const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
+    const identity = trigger ? await this._identityChainFromRow(trigger, agentCache) : null;
+
+    const aiChain: EvidenceChainRow[] = convRows.map((row, i) => ({
+      seq: i + 1,
+      id: row.id,
+      prevHash: row.prevHash ?? null,
+      hash: row.hash ?? '',
+      payload: this._payload(row),
+    }));
+
+    let opChain: EvidenceChainRow[] = [];
+    const opPaths = this._evidenceRootRestPaths(resultType);
+    if (this.operationAudit && opPaths) {
+      opChain = await this.operationAudit.chainRowsByTarget(String(resultId), opPaths);
+    }
+
+    // 副作用锚（无链）：bundle 自洽摘要（投影 canonical；JSON.stringify 键序固定）
+    const effectProj = {
+      id: effect.id,
+      toolName: effect.toolName,
+      before: parseSnapshot(effect.beforeSnapshot),
+      after: parseSnapshot(effect.afterSnapshot),
+    };
+    const sideHash = createHash('sha256').update(JSON.stringify(effectProj)).digest('hex');
+
+    const anchors = [
+      ...(trigger ? [{ kind: 'ai-audit', rowId: trigger.id, hash: trigger.hash ?? '' }] : []),
+      { kind: 'side-effect', rowId: effect.id, hash: sideHash },
+      ...opChain.filter((r) => r.hash).map((r) => ({ kind: 'op-audit', rowId: r.id, hash: r.hash })),
+    ].sort((a, b) => (a.kind + ':' + a.rowId).localeCompare(b.kind + ':' + b.rowId));
+    const root = {
+      algorithm: 'keelbase-evidence-root/1',
+      anchors,
+      digest: createHash('sha256').update(JSON.stringify(anchors)).digest('hex'),
+    };
+
+    const action = {
+      id: `${resultType}:${resultId}`,
+      resultType,
+      resultId,
+      effectId: effect.id,
+      userId: effect.userId,
+      conversationId: effect.conversationId ?? null,
+    };
+    const decision = { businessEvent: trigger?.businessEvent ?? null, evidence: trigger?.evidence ?? null };
+    const chains = { aiAudit: aiChain, operationAudit: opChain };
+    // v3 canonical（与 scripts/verify-evidence.mjs 严格一致）：action/authorization/decision/effect/chains/root/exportedAt
+    const canonical = JSON.stringify({ action, authorization: identity?.authorization ?? null, decision, effect: effectProj, chains, root, exportedAt });
+    const signature = signingKey
+      ? createHmac('sha256', signingKey).update(canonical).digest('hex')
+      : null;
+    return {
+      exportedAt,
+      generator: 'keelbase-audit-export',
+      format: 'keelbase-audit-evidence/3',
+      action,
+      authorization: identity?.authorization ?? null,
+      decision,
+      effect: effectProj,
+      chains,
+      root,
+      signature,
+    };
+  }
+
+  /** ① 证据根：resultType → REST 资源 path 子串（对齐 business-history REST_RESOURCE_PATHS；未知类型不反查） */
+  private _evidenceRootRestPaths(resultType: string): string[] | null {
+    const map: Record<string, string[]> = {
+      crm_task: ['/crm/tasks/'],
+      pm_task: ['/pm/tasks/'],
+      app_request: ['/approval/requests/'],
+      event: ['/api/v1/events/', '/events/'],
+      contract: ['/contracts/'],
+      todo: ['/todos/'],
+    };
+    return map[resultType] ?? null;
   }
 
   /** 从审计 detail（"create_followup_task({...})"）提取工具名 */
