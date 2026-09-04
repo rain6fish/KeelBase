@@ -147,6 +147,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import StatusChip from '@/components/StatusChip.vue'
@@ -159,6 +160,7 @@ import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { ConversationSummary, TraceEffect, TraceStep, DecisionEvidence } from '@/types/workbench'
 
 const { t, tm, locale } = useI18n()
+const route = useRoute()
 
 /** §22.16 A-1：解析 TraceStep.evidence（DecisionEvidence JSON），非法/缺失返回 null */
 function evidenceOf(s: TraceStep): DecisionEvidence | null {
@@ -281,5 +283,13 @@ function stepColorClass(s: TraceStep): string {
   return 'text-primary'
 }
 
-onMounted(loadConversations)
+/** AI Action Center 深链：?conv=<conversationId> → 加载后自动定位该会话轨迹 */
+onMounted(async () => {
+  await loadConversations()
+  const qc = route.query.conv
+  if (typeof qc === 'string' && conversations.value.some((c) => c.id === qc)) {
+    selectedId.value = qc
+    void loadTrace(qc)
+  }
+})
 </script>

@@ -4,6 +4,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased / 未发布
+
+### Added / 新增
+
+- **AI Action Center — "My AI Activity" business-user Trust surface (§22.17 North-Star slice, docs/ai-action-center.spec.md)** — new user-scoped endpoint `GET /ai/my/tool-effects` (own AI write side-effect list, status normalized `executed`/`revoked` from target soft-delete + target enrichment; **no args/hash/before-after snapshot echo** — data minimization; owner-isolated, no admin query surface) + workbench page (route `/workbench/my-ai-actions`, "My" menu group, home shortcut, bilingual i18n) with per-row revoke (P0-15) / full evidence (B4 action detail) / object history (A-2 drawer); recent-conversation module deep-links into the trace page via `?conv=`; the `GET /ai/governance/action` contract stays locked on `effectId`+`resultType/resultId` so the future evidence root (AUDIT-ID, §22.17 ①) upgrades without touching this page; service/controller/vitest/e2e coverage (owner isolation, 401, data minimization, revoke → `revoked` state)
+  **AI Action Center（我的 AI 行为）业务用户 Trust 面（§22.17 北极星切片）**：新本人端点 GET /ai/my/tool-effects（写副作用清单，目标软删→status 归一 executed/revoked + 目标富化；不回显 args/快照——数据最小化；本人隔离，无 admin 查询面）+ 工作台页（/workbench/my-ai-actions，行内撤销 P0-15 / 完整证据 B4 / 对象历史 A-2 抽屉；会话深链 ?conv=）；契约锁定 effectId + resultType/resultId，未来证据根（AUDIT-ID）升级不破本页；spec 见 docs/ai-action-center.spec.md；单测/vitest/e2e 覆盖（隔离/401/数据最小化/撤销后 revoked）
+
 ## [1.0.5] - 2026-09-03
 
 > **KeelBase 1.0.5 — AI Follow-up & Audit Evidence Hardening / AI 主动跟进与审计证据加固版**

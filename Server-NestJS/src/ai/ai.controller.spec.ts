@@ -21,6 +21,7 @@ describe('AiController', () => {
   let mockGetToolInventory: jest.Mock;
   let mockListToolEffects: jest.Mock;
   let mockRevokeToolEffect: jest.Mock;
+  let mockListOwnedToolEffects: jest.Mock;
   let mockAbility: any;
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -39,6 +40,7 @@ describe('AiController', () => {
     mockGetToolInventory = jest.fn();
     mockListToolEffects = jest.fn();
     mockRevokeToolEffect = jest.fn();
+    mockListOwnedToolEffects = jest.fn();
     mockAbility = { cannot: () => false };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream, getToolInventory: mockGetToolInventory } as unknown as AiService;
     const mockConversationService = {
@@ -52,7 +54,12 @@ describe('AiController', () => {
       create: jest.fn(),
     } as any;
     const mockMemoriesService = { deleteAllForUser: mockDeleteAllForUser } as any;
-    const mockToolEffectsService = { list: mockListToolEffects, revoke: mockRevokeToolEffect, revokeOwned: mockRevokeOwned } as any;
+    const mockToolEffectsService = {
+      list: mockListToolEffects,
+      revoke: mockRevokeToolEffect,
+      revokeOwned: mockRevokeOwned,
+      listOwned: mockListOwnedToolEffects,
+    } as any;
     const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
       mockAiService,
@@ -262,6 +269,13 @@ describe('AiController', () => {
 
       expect(mockGetConversationTrace).toHaveBeenCalledWith('conv-1', '1', mockAbility);
       expect(result).toEqual(mockTrace);
+    });
+
+    it('GET my/tool-effects 本人清单（AI Action Center）→ 委托 listOwned(userId) + 透传分页', async () => {
+      mockListOwnedToolEffects.mockResolvedValue({ total: 1, page: 1, limit: 20, items: [{ id: 9, status: 'executed' }] });
+      const result = await controller.listMyToolEffects(mockUser as any, 1, 20);
+      expect(mockListOwnedToolEffects).toHaveBeenCalledWith('1', { page: 1, limit: 20 });
+      expect(result.items[0]).toEqual({ id: 9, status: 'executed' });
     });
 
     it('DELETE my/tool-effects/:id 本人撤销（P0-15）→ 委托 revokeOwned + 非本人 404', async () => {

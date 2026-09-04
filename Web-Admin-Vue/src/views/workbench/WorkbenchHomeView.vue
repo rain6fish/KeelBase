@@ -123,6 +123,8 @@ const shortcutCards = computed(() => [
   { title: t('workbenchNotifications'), desc: t('workbenchNotificationsDesc'), icon: 'mdi-bell-outline', to: '/workbench/notifications' },
   // AI 执行轨迹（P0-14）：用户可见的 AI 行为
   { title: t('aiTraceTitle'), desc: t('aiTraceDesc'), icon: 'mdi-robot-outline', to: '/workbench/ai-trace' },
+  // AI Action Center（§22.17）：我的 AI 行为——写操作看状态/撤销/查证据
+  { title: t('aiCenterTitle'), desc: t('aiCenterDesc'), icon: 'mdi-creation-outline', to: '/workbench/my-ai-actions' },
   // AI 业务洞察（P0 AI Intelligence Dashboard）：风险/管道/逾期/任务/风险一键总览——lite preset 关 crm 时隐藏
   { title: t('aiIntelligence'), desc: t('aiIntelligenceHint'), icon: 'mdi-chart-box-outline', to: '/workbench/crm-dashboard', module: 'crm' },
   // 移动主 App 预览（Flutter web，/mobile/ 新窗口）——Web 业务 UI 归工作台，Flutter 专注移动

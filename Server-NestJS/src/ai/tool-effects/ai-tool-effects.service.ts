@@ -170,6 +170,44 @@ export class AiToolEffectsService {
   }
 
   /**
+   * AI Action Center（§22.17 北极星用户侧，docs/ai-action-center.spec.md）：本人 AI 写副作用清单 + 归一状态 + 目标富化。
+   * 数据最小化：不回显 args/argsHash/before/after 快照（字段级证据走 B4/审计面）；人类标签由前端按 toolName 映射（D2 toolLabel）。
+   * status 归一：目标软删（targetSoftDeleted=true）→ revoked，否则 executed。
+   */
+  async listOwned(userId: string, options: { page?: number; limit?: number } = {}) {
+    const page = options.page ?? 1;
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
+
+    const [items, total] = await this.effectsRepo.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const enriched = await Promise.all(
+      items.map(async (effect) => {
+        const target = await this._loadTarget(effect.resultType, effect.resultId);
+        const targetSoftDeleted = target?.deletedAt != null;
+        return {
+          id: effect.id,
+          toolName: effect.toolName,
+          conversationId: effect.conversationId,
+          resultType: effect.resultType,
+          resultId: effect.resultId,
+          createdAt: effect.createdAt,
+          targetExists: !!target,
+          targetSoftDeleted,
+          targetTitle: target?.title ?? null,
+          status: targetSoftDeleted ? 'revoked' : 'executed',
+        };
+      }),
+    );
+
+    return { total, page, limit, items: enriched };
+  }
+
+  /**
    * P0-14：按对话取副作用（含目标记录当前状态），供用户可见的执行轨迹用。
    * 复用 _loadTarget 富化，按 createdAt 升序。
    */

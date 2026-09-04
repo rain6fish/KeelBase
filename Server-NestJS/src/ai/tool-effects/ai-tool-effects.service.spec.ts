@@ -243,6 +243,59 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  describe('listOwned（AI Action Center 本人清单）', () => {
+    const baseEffect = (id: number, resultType: string, resultId: number) => ({
+      id, userId: '42', toolName: 'create_event', conversationId: 'c',
+      resultType, resultId, argsHash: 'h', createdAt: new Date(),
+    });
+
+    it('只查本人（where userId）并富化目标 + 状态归一（软删→revoked）', async () => {
+      repo.findAndCount.mockResolvedValue([
+        [baseEffect(1, 'event', 42), baseEffect(2, 'todo', 7)],
+        2,
+      ]);
+      entityManager.getRepository
+        .mockReturnValueOnce({ findOne: jest.fn().mockResolvedValue({ title: '晨会', deletedAt: null }) }) // event 未删 → executed
+        .mockReturnValueOnce({ findOne: jest.fn().mockResolvedValue({ title: '买牛奶', deletedAt: new Date() }) }); // todo 软删 → revoked
+
+      const result = await service.listOwned('42', { page: 1, limit: 20 });
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: '42' }, order: { createdAt: 'DESC' } }),
+      );
+      expect(result.total).toBe(2);
+      expect(result.items[0]).toMatchObject({ status: 'executed', targetExists: true, targetSoftDeleted: false, targetTitle: '晨会' });
+      expect(result.items[1]).toMatchObject({ status: 'revoked', targetExists: true, targetSoftDeleted: true, targetTitle: '买牛奶' });
+      // 数据最小化：清单不回显 argsHash / before/after 快照
+      expect(result.items[0]).not.toHaveProperty('argsHash');
+      expect(result.items[0]).not.toHaveProperty('beforeSnapshot');
+      expect(result.items[0]).not.toHaveProperty('afterSnapshot');
+    });
+
+    it('目标不存在 → targetExists=false 且 status=executed（无软删记录）', async () => {
+      repo.findAndCount.mockResolvedValue([[baseEffect(1, 'pm_task', 99)], 1]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      const result = await service.listOwned('42', {});
+      expect(result.items[0]).toMatchObject({ targetExists: false, targetSoftDeleted: false, status: 'executed', targetTitle: null });
+    });
+
+    it('空清单 → total 0 items []', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      const result = await service.listOwned('42', {});
+      expect(result.total).toBe(0);
+      expect(result.items).toEqual([]);
+    });
+
+    it('limit 钳制 1–50', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      await service.listOwned('42', { limit: 999 });
+      expect(repo.findAndCount).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
+      await service.listOwned('42', { limit: 0 });
+      expect(repo.findAndCount).toHaveBeenLastCalledWith(expect.objectContaining({ take: 1 }));
+    });
+  });
+
   describe('listForConversation（P0-14 轨迹副作用）', () => {
     it('按对话取副作用并富化目标当前状态', async () => {
       repo.find.mockResolvedValue([

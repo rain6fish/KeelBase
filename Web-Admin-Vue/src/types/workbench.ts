@@ -114,3 +114,18 @@ export interface TraceResponse {
   conversation: ConversationSummary
   steps: TraceStep[]
 }
+
+/** AI Action Center（§22.17 / docs/ai-action-center.spec.md）：本人 AI 写副作用清单行 */
+export interface MyAiEffect {
+  id: number
+  toolName: string
+  conversationId?: string | null
+  resultType: string
+  resultId: number
+  createdAt: string
+  targetExists: boolean
+  targetSoftDeleted: boolean
+  targetTitle?: string | null
+  /** 服务端归一：目标软删 → revoked，否则 executed */
+  status: 'executed' | 'revoked'
+}
