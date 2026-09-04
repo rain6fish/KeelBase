@@ -73,12 +73,20 @@ export interface AuthorizationCheck {
   note?: string;
 }
 
+/** §22.17③ Policy Evidence：授权时点生效的治理策略内容指纹（policy 版本）。 */
+export interface PolicyEvidence {
+  revision: string;
+  updatedAt?: string | null;
+}
+
 export interface AuthorizationReasons {
   tool: string;
   riskLevel: ToolRiskLevel;
   riskStrategy: string;
   requiresConfirmation: boolean;
   checks: AuthorizationCheck[];
+  /** §22.17③ 决策可复现：授权快照携带当时策略版本（同内容恒同号、变更必变号） */
+  policy?: PolicyEvidence;
 }
 
 /**
