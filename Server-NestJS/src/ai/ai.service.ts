@@ -1401,6 +1401,7 @@ export class AiService {
               // §22.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
               // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
               // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
+              // §22.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
               authorization:
                 result.success
                   ? JSON.stringify({
@@ -1409,6 +1410,7 @@ export class AiService {
                       riskLevel: authz.riskLevel,
                       strategy: authz.riskStrategy,
                       checks: authz.checks,
+                      ...(authz.policy ? { policy: authz.policy } : {}),
                     })
                   : undefined,
             });

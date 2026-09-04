@@ -75,12 +75,28 @@ export class AuthorizationExplainerService {
       ok: isWrite,
       note: `风险级 ${riskLevel}（${riskStrategy}）${isWrite ? '→ 需人工确认' : '→ 自动执行'}`,
     });
+    // §22.17③ Policy Evidence：附授权时点治理策略的内容指纹（无策略/无 revision 则不附，向后兼容旧快照）
+    let policyMeta: { revision: string; updatedAt?: string | null } | undefined;
+    try {
+      if (this.governancePolicy && typeof this.governancePolicy.getPolicy === 'function') {
+        const policy = await this.governancePolicy.getPolicy();
+        if (policy?.revision) {
+          policyMeta = {
+            revision: policy.revision,
+            updatedAt: policy.updatedAt ? new Date(policy.updatedAt).toISOString() : null,
+          };
+        }
+      }
+    } catch {
+      policyMeta = undefined;
+    }
     return {
       tool: toolName,
       riskLevel,
       riskStrategy,
       requiresConfirmation: isWrite,
       checks,
+      ...(policyMeta ? { policy: policyMeta } : {}),
     };
   }
 
