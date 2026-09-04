@@ -5,42 +5,86 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
+// required 语义（#3 修复）：按类型默认 + 显式可覆盖。
+// - string/enum 默认必填（业务标题/状态类）；显式 required:false → 可选。
+// - text/int/bool/date 默认可选；显式 required:true → 必填。
+// 此前 spec 路径丢弃 required 且 string/enum 无视 required:false，生成物与协议语义不符（陌生人实测卡点）。
+// 必填 = 列 NOT NULL + DTO @IsNotEmpty；可选 = 列 nullable + DTO @IsOptional。
+const REQUIRED_BY_DEFAULT = new Set(['string', 'enum']);
+const isRequired = (f) =>
+  REQUIRED_BY_DEFAULT.has(f.type) ? f.required !== false : f.required === true;
+
 const FIELD_COLUMNS = {
-  string: (c) => `  @Column({ length: 200 })\n  ${c}!: string;`,
-  text: (c) => `  @Column({ type: 'text', nullable: true })\n  ${c}?: string | null;`,
-  int: (c) => `  @Column({ nullable: true })\n  ${c}?: number;`,
-  bool: (c) => `  @Column({ default: false })\n  ${c}!: boolean;`,
-  date: (c) => `  @Column({ type: Date, nullable: true })\n  ${c}?: Date | null;`,
-  enum: (c, f) => `  @Column({ length: 32, default: '${f.enum[0]}' })\n  ${c}!: string;`,
+  string: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ length: 200 })\n  ${c}!: string;`
+      : `  @Column({ length: 200, nullable: true })\n  ${c}?: string | null;`,
+  text: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ type: 'text' })\n  ${c}!: string;`
+      : `  @Column({ type: 'text', nullable: true })\n  ${c}?: string | null;`,
+  int: (c, f) =>
+    isRequired(f)
+      ? `  @Column()\n  ${c}!: number;`
+      : `  @Column({ nullable: true })\n  ${c}?: number;`,
+  bool: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ default: false })\n  ${c}!: boolean;`
+      : `  @Column({ type: 'boolean', nullable: true })\n  ${c}?: boolean;`,
+  date: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ type: Date })\n  ${c}!: Date;`
+      : `  @Column({ type: Date, nullable: true })\n  ${c}?: Date | null;`,
+  enum: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ length: 32, default: '${f.enum[0]}' })\n  ${c}!: string;`
+      : `  @Column({ length: 32, default: '${f.enum[0]}', nullable: true })\n  ${c}?: string | null;`,
 };
 
 const FIELD_DTO_PROPS = {
-  // f.required === true → 必填形式（@ApiProperty + @IsNotEmpty + 非可选）；否则保持现状
   string: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @IsNotEmpty()\n  @MinLength(1)\n  @MaxLength(200)\n  ${c}!: string;`
-      : `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @MinLength(1)\n  @MaxLength(200)\n  ${c}!: string;`,
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsString()\n  @IsOptional()\n  @MaxLength(200)\n  ${c}?: string;`,
   text: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsString()\n  @IsNotEmpty()\n  ${c}!: string;`
       : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsString()\n  @IsOptional()\n  ${c}?: string;`,
   int: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsInt()\n  @IsNotEmpty()\n  ${c}!: number;`
       : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsInt()\n  @IsOptional()\n  ${c}?: number;`,
   bool: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsBoolean()\n  @IsNotEmpty()\n  ${c}!: boolean;`
       : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsBoolean()\n  @IsOptional()\n  ${c}?: boolean;`,
   date: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsDateString()\n  @IsNotEmpty()\n  ${c}!: string;`
       : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsDateString()\n  @IsOptional()\n  ${c}?: string;`,
   enum: (c, f) =>
-    f.required === true
+    isRequired(f)
       ? `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsNotEmpty()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`
-      : `  @ApiProperty({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}!: string;`,
+      : `  @ApiPropertyOptional({ description: '${c}', enum: [${f.enum.map((o) => `'${o}'`).join(', ')}] })\n  @IsString()\n  @IsOptional()\n  @IsIn([${f.enum.map((o) => `'${o}'`).join(', ')}])\n  ${c}?: string;`,
 };
+
+/** class-validator import 名集合：按实际用到的装饰器最小化，避免 noUnusedLocals/lint 报未用导入。 */
+function dtoValidatorImports(fields) {
+  const names = new Set();
+  for (const f of fields) {
+    const req = isRequired(f);
+    if (!req) names.add('IsOptional');
+    if (req) names.add('IsNotEmpty');
+    if (f.type === 'string' || f.type === 'text' || f.type === 'enum') names.add('IsString');
+    if (f.type === 'string') names.add('MaxLength');
+    if (f.type === 'string' && req) names.add('MinLength');
+    if (f.type === 'int') names.add('IsInt');
+    if (f.type === 'bool') names.add('IsBoolean');
+    if (f.type === 'date') names.add('IsDateString');
+    if (f.type === 'enum') names.add('IsIn');
+  }
+  return names;
+}
 
 export function entityTemplate(ctx) {
   const fieldCols = ctx.fields.map((f) => FIELD_COLUMNS[f.type](f.name, f)).join('\n\n');
@@ -80,12 +124,12 @@ ${fieldCols}
 
 export function createDtoTemplate(ctx) {
   const props = ctx.fields.map((f) => FIELD_DTO_PROPS[f.type](f.name, f)).join('\n\n');
-  const hasEnum = ctx.fields.some((f) => f.type === 'enum');
-  const isInImport = hasEnum ? ', IsIn' : '';
-  const hasRequired = ctx.fields.some((f) => f.required === true);
-  const notEmptyImport = hasRequired ? ', IsNotEmpty' : '';
-  return `import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength${isInImport}${notEmptyImport} } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+  const imports = [...dtoValidatorImports(ctx.fields)].sort().join(', ');
+  const swaggerImport = ctx.fields.some((f) => !isRequired(f))
+    ? 'ApiProperty, ApiPropertyOptional'
+    : 'ApiProperty';
+  return `import { ${imports} } from 'class-validator';
+import { ${swaggerImport} } from '@nestjs/swagger';
 
 export class Create${ctx.singlePascal}Dto {
 ${props}

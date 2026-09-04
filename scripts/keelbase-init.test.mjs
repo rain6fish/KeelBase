@@ -18,6 +18,7 @@ import {
   parseFields,
   validateFields,
   validateAiTools,
+  normalizeSpecFields,
   buildContext,
   toSingular,
   toPlural,
@@ -243,6 +244,58 @@ test('required 透传：create DTO @IsNotEmpty + 非可选；前端 model requir
   assert.match(model, /amount: json\['amount'\] as int,/);
   assert.match(model, /final String\? note;/);
   assert.doesNotMatch(model, /required this\.note/);
+});
+
+test('#3 string/enum 显式 required:false 生成可选（nullable + IsOptional）；默认/required:true 必填', () => {
+  const c = buildContext('invoices', '发票', [
+    { name: 'invoiceNo', type: 'string', required: true },
+    { name: 'customerName', type: 'string', required: false },
+    { name: 'amount', type: 'int' },
+    { name: 'status', type: 'enum', enum: ['draft', 'issued', 'paid', 'void'], required: false },
+  ]);
+  const files = backendFiles({ ...c, featureFlag: true });
+  const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
+  const dto = files.find((f) => f.path.includes('create-')).content;
+
+  // required:true string：列 NOT NULL + DTO IsNotEmpty/MinLength
+  assert.match(entity, /invoiceNo!: string;/);
+  assert.doesNotMatch(entity, /invoiceNo\?:/);
+  assert.match(dto, /@IsNotEmpty\(\)\n  @MinLength\(1\)\n  @MaxLength\(200\)\n  invoiceNo!: string;/);
+
+  // string required:false → nullable 列 + IsOptional DTO（允许空串：无 MinLength）
+  assert.match(entity, /@Column\(\{ length: 200, nullable: true \}\)\n  customerName\?: string \| null;/);
+  assert.match(dto, /@ApiPropertyOptional\(\{ description: 'customerName' \}\)\n  @IsString\(\)\n  @IsOptional\(\)\n  @MaxLength\(200\)\n  customerName\?: string;/);
+
+  // int 默认可选（无 required 键）→ nullable + IsOptional
+  assert.match(entity, /@Column\(\{ nullable: true \}\)\n  amount\?: number;/);
+  assert.match(dto, /@IsOptional\(\)\n  amount\?: number;/);
+
+  // enum required:false → nullable（保留首选项 default）+ DTO IsOptional
+  assert.match(entity, /@Column\(\{ length: 32, default: 'draft', nullable: true \}\)\n  status\?: string \| null;/);
+  assert.match(dto, /@IsOptional\(\)\n  @IsIn\(\[\'draft\', \'issued\', \'paid\', \'void\'\]\)\n  status\?: string;/);
+});
+
+test('#3 string 默认必填、text 默认可选（类型默认语义保留）', () => {
+  const c = buildContext('posts', '帖子', [
+    { name: 'title', type: 'string' },
+    { name: 'content', type: 'text' },
+  ]);
+  const entity = backendFiles({ ...c, featureFlag: true })
+    .find((f) => f.path.endsWith('.entity.ts')).content;
+  assert.match(entity, /title!: string;/); // string 缺省 → 必填（列 NOT NULL）
+  assert.match(entity, /content\?: string \| null;/); // text 缺省 → 可选
+});
+
+test('#3 normalizeSpecFields 透传 required（spec 不再丢弃必填标记）', () => {
+  const out = normalizeSpecFields([
+    { name: 'a', type: 'string', required: true },
+    { name: 'b', type: 'string' },
+    { name: 'c', type: 'enum', enum: ['x', 'y'], required: false },
+  ]);
+  assert.equal(out[0].required, true);
+  assert.equal(out[1].required, undefined);
+  assert.equal(out[2].required, false);
+  assert.deepEqual(out[2].enum, ['x', 'y']);
 });
 
 test('命名变换：posts/post 归一', () => {

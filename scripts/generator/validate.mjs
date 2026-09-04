@@ -110,6 +110,19 @@ export function validateFields(fields) {
 }
 
 /**
+ * 协议 JSON spec.fields → 结构化字段：保留 name/type/enum，并透传 required（required:true=必填；
+ * 缺省/required:false=可选）。此前丢弃 required 会让 string/enum 误按必填生成（#3 陌生人实测卡点）。
+ */
+export function normalizeSpecFields(fields) {
+  return (fields ?? []).map((f) => ({
+    name: f.name,
+    type: f.type || 'string',
+    ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
+    ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
+  }));
+}
+
+/**
  * Protocol 2.0 aiTools 声明校验（可选；缺省 = 生成默认 query R1 + create R3 确认，兼容旧协议）。
  * 形态：{ enabled?: boolean, query?: false | { riskLevel?: 'R0'-'R5', requiresConfirmation?: boolean },
  *        create?: false | { riskLevel?: 'R0'-'R5', requiresConfirmation?: boolean } }

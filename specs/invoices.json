@@ -3,9 +3,9 @@
   "label": "发票",
   "fields": [
     { "name": "invoiceNo", "type": "string", "label": "发票号", "required": true },
-    { "name": "customerName", "type": "string", "label": "客户" },
-    { "name": "amount", "type": "int", "label": "金额" },
-    { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "issued", "paid", "void"] },
-    { "name": "dueDate", "type": "string", "label": "到期日" }
+    { "name": "customerName", "type": "string", "label": "客户", "required": false },
+    { "name": "amount", "type": "int", "label": "金额", "required": false },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "issued", "paid", "void"], "required": false },
+    { "name": "dueDate", "type": "string", "label": "到期日", "required": false }
   ]
 }
