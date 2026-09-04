@@ -262,16 +262,16 @@ test('#3 string/enum 显式 required:false 生成可选（nullable + IsOptional�
   assert.doesNotMatch(entity, /invoiceNo\?:/);
   assert.match(dto, /@IsNotEmpty\(\)\n  @MinLength\(1\)\n  @MaxLength\(200\)\n  invoiceNo!: string;/);
 
-  // string required:false → nullable 列 + IsOptional DTO（允许空串：无 MinLength）
-  assert.match(entity, /@Column\(\{ length: 200, nullable: true \}\)\n  customerName\?: string \| null;/);
+  // string required:false → 显式 varchar nullable 列 + IsOptional DTO（无 MinLength：允许空串）
+  assert.match(entity, /@Column\(\{ type: 'varchar', length: 200, nullable: true \}\)\n  customerName\?: string \| null;/);
   assert.match(dto, /@ApiPropertyOptional\(\{ description: 'customerName' \}\)\n  @IsString\(\)\n  @IsOptional\(\)\n  @MaxLength\(200\)\n  customerName\?: string;/);
 
   // int 默认可选（无 required 键）→ nullable + IsOptional
   assert.match(entity, /@Column\(\{ nullable: true \}\)\n  amount\?: number;/);
   assert.match(dto, /@IsOptional\(\)\n  amount\?: number;/);
 
-  // enum required:false → nullable（保留首选项 default）+ DTO IsOptional
-  assert.match(entity, /@Column\(\{ length: 32, default: 'draft', nullable: true \}\)\n  status\?: string \| null;/);
+  // enum required:false → 显式 varchar nullable（保留首选项 default）+ DTO IsOptional
+  assert.match(entity, /@Column\(\{ type: 'varchar', length: 32, default: 'draft', nullable: true \}\)\n  status\?: string \| null;/);
   assert.match(dto, /@IsOptional\(\)\n  @IsIn\(\[\'draft\', \'issued\', \'paid\', \'void\'\]\)\n  status\?: string;/);
 });
 

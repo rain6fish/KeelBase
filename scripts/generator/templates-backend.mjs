@@ -18,7 +18,8 @@ const FIELD_COLUMNS = {
   string: (c, f) =>
     isRequired(f)
       ? `  @Column({ length: 200 })\n  ${c}!: string;`
-      : `  @Column({ length: 200, nullable: true })\n  ${c}?: string | null;`,
+      // 可选 string 是 `?: string | null`（design:type 记 Object），必须显式 type，否则 TypeORM 报 "Data type Object not supported"
+      : `  @Column({ type: 'varchar', length: 200, nullable: true })\n  ${c}?: string | null;`,
   text: (c, f) =>
     isRequired(f)
       ? `  @Column({ type: 'text' })\n  ${c}!: string;`
@@ -38,7 +39,8 @@ const FIELD_COLUMNS = {
   enum: (c, f) =>
     isRequired(f)
       ? `  @Column({ length: 32, default: '${f.enum[0]}' })\n  ${c}!: string;`
-      : `  @Column({ length: 32, default: '${f.enum[0]}', nullable: true })\n  ${c}?: string | null;`,
+      // 可选 enum 同理需显式 type（`?: string | null` → Object）
+      : `  @Column({ type: 'varchar', length: 32, default: '${f.enum[0]}', nullable: true })\n  ${c}?: string | null;`,
 };
 
 const FIELD_DTO_PROPS = {
