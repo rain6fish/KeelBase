@@ -11,34 +11,40 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Added / 新增
 
-- **AI Follow-up Agent（A1，roadmap §18.3）** — AI 主动发现「该跟进谁」：`detect_idle_customers` 只读工具（R1，默认 30 天无跟进活动含从未联系；最近联系时间从 `crm_activities.happenedAt` 派生，**无迁移**；userId 范围）→ LLM 汇总建议 → 用户确认 → 复用 `create_followup_task`（R3 确认门控 + 副作用可撤销）→ 审计。补 Golden Flow「AI 主动发现问题」一环；规格 `docs/ai-crm-followup-agent.spec.md`；真实 LLM 端到端验证（DeepSeek：问「哪些客户很久没跟进了」→ 正确返回从未联系客户并建议建任务）
+- **AI Follow-up Agent (A1, roadmap §18.3)** — AI proactively surfaces "who needs follow-up": read-only `detect_idle_customers` tool (R1, default = 30 days with no follow-up activity incl. never-contacted; last-contact derived from `crm_activities.happenedAt`, **no migration**; userId-scoped) → LLM aggregates suggestions → user confirms → reuses `create_followup_task` (R3 confirmation gate + revocable side effect) → audited; adds an "AI proactively finds problems" step to the Golden Flow; spec `docs/ai-crm-followup-agent.spec.md`; end-to-end verified with a real LLM (DeepSeek: "which customers haven't been followed up" → correctly returned never-contacted customers and suggested a task)
   **AI Follow-up Agent（A1）**：detect_idle_customers 检测长期未跟进客户 → AI 建议 → 确认后建跟进任务；多 provider 实测
-- **ai_proxy_tools 免重启热更新（AI Bridge B 路径）** — `ToolRegistry.unregister` + `ProxyToolRegistryService.reload` + `SettingsService.onChange` 观察者——写配置即生效，无需重启；配套单测 + e2e 热更新用例；`docs/manual/ai-bridge.md` 同步
+- **ai_proxy_tools no-restart hot reload (AI Bridge B path)** — `ToolRegistry.unregister` + `ProxyToolRegistryService.reload` + `SettingsService.onChange` observer — takes effect as soon as config is written, no restart needed; matching unit tests + e2e hot-reload case; `docs/manual/ai-bridge.md` synced
   **ai_proxy_tools 免重启热更新**：写 `ai_proxy_tools` 配置即 reload，工具热更新无需重启
-- **Security Showcase（§22.16 A2 对抗性证明产品化）** — 管理台「安全演示」页一键运行确定性对抗场景（注入 HS-8 / CASL 行级越权 / R5 阻断 / R3 确认门控），直接复用真实防护逻辑、无 LLM；**canary 语义**：防线漂移（注入样本不再命中 / CASL 放行 / 风险级变更）即 fail-loud 变红；reason/trace 走 i18n 双语（`reasonKey`/`params`，后端不产用户可见文案）；前端补失败提示与加载错误态；规格 `docs/security-showcase.spec.md`
+- **Security Showcase (§22.16 A2 adversarial-proof productization)** — admin "security demo" page runs deterministic adversarial scenarios in one click (injection HS-8 / CASL row-level authorization / R5 blocked / R3 confirmation gate), directly reusing the real defense logic, no LLM; **canary semantics**: defense drift (injection samples no longer hit / CASL allows / risk level changes) fail-loud turns red; reason/trace uses bilingual i18n (`reasonKey`/`params`, backend never emits user-facing copy); frontend adds failure toasts and loading error states; spec `docs/security-showcase.spec.md`
   **安全演示（A2 产品化）**：确定性对抗场景一键运行 + 决策轨迹业务语言 + 双语；防线漂移 fail-loud（canary）
-- **AI 审计证据语义收尾（A-3/A-5/A-7/A-8）** — 事件时点放行授权快照（放行 tool_call 落 `authorization={allowed,checks,…}`，导出优先事发快照而非当前策略重算）+ 越权尝试一级事件业务化（越权/高风险阻断/通用阻断三分）+ approval 人工 decide/review 入审计语义正确（businessEvent 细分）+ 治理抽屉生命周期 el-steps（发起→授权→确认→执行→撤销→恢复）+ A-8 denied 视图/行为回放筛选；各带 spec
+- **AI audit evidence semantics wrap-up (A-3/A-5/A-7/A-8)** — event-time authorization snapshot on grant (a granted tool_call records `authorization={allowed,checks,…}`, export prefers the snapshot at event time over recomputing from current policy) + authorization-denial attempts promoted to first-class events (unauthorized / high-risk-blocked / generic-blocked three-way split) + approval manual decide/review recorded with correct audit semantics (businessEvent breakdown) + governance-drawer lifecycle el-steps (initiated→authorized→confirmed→executed→revoked→restored) + A-8 denied view / behavior-replay filtering; each has a spec
   **审计证据语义收尾**：放行快照 + 越权一级事件 + 审批语义 + 生命周期流转 + denied 筛选
-- **证据与协议体系** — `scripts/verify-protocol-conformance.mjs`（三大治理协议独立实现 + 篡改向量，22/22）+ CI protocol-conformance job；`docs/evidence` 证据体系总览（L0/L1/L2 三层）；证据包离线复核留档（86 条链 PASS）
+- **Evidence & protocol suite** — `scripts/verify-protocol-conformance.mjs` (independent re-implementation of the three governance protocols + tamper vectors, 22/22) + CI protocol-conformance job; `docs/evidence` evidence-system overview (L0/L1/L2 layers); offline re-verification of evidence packages retained (86 chains PASS)
   **证据与协议体系**：conformance 进 CI + 证据三层索引 + 离线复核留档
-- **合规映射（国内生成式 AI 内容安全）** — compliance-mapping 新增生成式 AI 内容安全监管节（责任边界 + 审核事件落哈希链自证），纯事实对照
-- **代码库健康体检阶段 1/2** — 全库体检报告入库（`docs/manual/codebase-health-audit.md`，~1232 文件）；删除 3 孤儿导出；**AuthorizationExplainerService 授权子域下沉**（从 AiService 迁出，净减 131 行，切断 audit/auth 反向运行时 import 环）+ ToolRegistry 提模块 provider
+- **Compliance mapping (CN GenAI content-safety)** — adds a GenAI content-safety regulatory section (responsibility boundary + audit events landing on the hash chain for self-attestation); factual mapping only
+  **合规映射（国内生成式 AI 内容安全）**：compliance-mapping 新增生成式 AI 内容安全监管节（责任边界 + 审核事件落哈希链自证），纯事实对照
+- **Codebase health audit phase 1/2** — full-repo audit report committed (`docs/manual/codebase-health-audit.md`, ~1232 files); removed 3 orphan exports; **AuthorizationExplainerService authorization sub-domain extracted** (moved out of AiService, net −131 lines, cuts the audit/auth reverse runtime import cycle) + ToolRegistry promoted to a module provider
   **全库健康体检阶段 1/2**：体检报告入库 + 授权子域下沉切 import 环
-- **演示与 UX** — 全模块中英文演示 seed（events/todos/CRM/PM/approval/flows 等）+ 工作台版本徽标（读 `/app/version`）+ 工作台快捷卡片按 feature-flag module 过滤（lite preset 隐藏旗舰入口）
-- **生成器** — keelbase init 生成模块自动带 Apache-2.0 SPDX 头（按扩展名选注释语法）+ Module Protocol `required` 透传（DTO/model 必填一致）
-- **安全清理** — CodeQL 6 个 High 真问题修复（治理台启动不再打印 JWT_SECRET / 验证码邀请码 `randomInt` 无偏 / 防 RegExp 注入 / 完整 escapeRegExp）+ 12 个已知误报官方注释抑制；docker apk 步骤切阿里云镜像；prod HTTPS 三入口配置
-- **Provider 兼容基准** — verification-index 三真实 provider（DeepSeek / GLM-5.1 / Kimi-k2.6）golden-crm 各 8/8 + tool-calling 实测记录
-- **文档/语言** — README 治理全景图（EN/ZH SVG）+ 词汇表英文版 + Guard→Governance/Copilot→AI 助手用户可见文案回改 + 内部代号（MOAT 等）清理
+- **Demo & UX** — bilingual demo seeds for all modules (events/todos/CRM/PM/approval/flows etc.) + workbench version badge (reads `/app/version`) + workbench quick cards filtered by feature-flagged modules (lite preset hides flagship entries)
+  **演示与 UX**：全模块中英文演示 seed（events/todos/CRM/PM/approval/flows 等）+ 工作台版本徽标（读 `/app/version`）+ 工作台快捷卡片按 feature-flag module 过滤（lite preset 隐藏旗舰入口）
+- **Generator** — `keelbase init` generated modules now carry an Apache-2.0 SPDX header (comment syntax chosen per file extension) + Module Protocol `required` propagated (DTO/model mandatory fields stay in sync)
+  **生成器**：keelbase init 生成模块自动带 Apache-2.0 SPDX 头（按扩展名选注释语法）+ Module Protocol `required` 透传（DTO/model 必填一致）
+- **Security cleanup** — fixed 6 genuine CodeQL High findings (governance-console startup no longer prints JWT_SECRET / unbiased `randomInt` for verification codes & invite codes / RegExp-injection guard / complete escapeRegExp) + suppressed 12 known false positives via official comments; docker apk steps switched to the Aliyun mirror; prod HTTPS three-entry config
+  **安全清理**：CodeQL 6 个 High 真问题修复（治理台启动不再打印 JWT_SECRET / 验证码邀请码 `randomInt` 无偏 / 防 RegExp 注入 / 完整 escapeRegExp）+ 12 个已知误报官方注释抑制；docker apk 步骤切阿里云镜像；prod HTTPS 三入口配置
+- **Provider compatibility baseline** — verification-index covers three real providers (DeepSeek / GLM-5.1 / Kimi-k2.6), golden-crm 8/8 each + recorded real tool-calling runs
+  **Provider 兼容基准**：verification-index 三真实 provider（DeepSeek / GLM-5.1 / Kimi-k2.6）golden-crm 各 8/8 + tool-calling 实测记录
+- **Docs & language** — README governance overview diagram (EN/ZH SVG) + English glossary + user-visible copy reverted Guard→Governance / Copilot→AI 助手 + internal codenames (MOAT etc.) cleaned up
+  **文档/语言**：README 治理全景图（EN/ZH SVG）+ 词汇表英文版 + Guard→Governance/Copilot→AI 助手用户可见文案回改 + 内部代号（MOAT 等）清理
 
 ### Fixed / 修复
 
-- **发布前四层评审修复（2026-09-03）** — ①AI 审计放行授权快照仅写「放行且成功执行」分支（此前用户拒绝/超时/非流式写拒绝被 A-8 denied 视图与 blocked 聚合误计为越权/阻断，证据语义污染）②治理抽屉撤销态可达（B4 effect 补 targetSoftDeleted）+ authorize 节点不再误显 wait ③AI 时间线「越权/被拒」筛选改 isError+authorization 语义（原按颜色滤错行）并补「AI 执行」选项 ④Security-Showcase 假绿修复 + 结构化双语 + 错误提示 ⑤detect_idle count 截断前统计 / 未联系 createdAt tie-break / limit 1–50 显式校验 ⑥AuthorizationExplainerService/ToolRegistry 补 `@Injectable()`
+- **Pre-release four-layer review fixes (2026-09-03)** — ① audit-grant authorization snapshot written only for the "granted and executed successfully" branch (user rejection / timeout / non-streaming write-denials had been mis-counted as unauthorized/blocked by the A-8 denied view and blocked aggregates, polluting evidence semantics) ② governance-drawer revocation state reachable (B4 effect adds targetSoftDeleted) + authorize node no longer wrongly shows wait ③ AI timeline "unauthorized/denied" filter re-keyed to isError+authorization semantics (previously filtered the wrong rows by color) + added an "AI executed" option ④ Security-Showcase false-green fix + structured bilingual + error toasts ⑤ detect_idle counts before truncation / never-contacted createdAt tie-break / explicit limit 1–50 validation ⑥ AuthorizationExplainerService/ToolRegistry gain `@Injectable()`
   **发布前四层评审修复**：快照门控 / 撤销态可达 / 越权筛选语义 / showcase canary+双语 / detect_idle 计数排序 / DI 装饰器
-- **工作台快捷卡片点击不跳转** — `WorkbenchHomeView` 的 `el-card` 用 `:on-click`（v-bind 属性绑定，不会注册为事件监听器）导致整卡点击无效；改 `@click` + 卡片内加「打开」跳转链接（el-link + 箭头）+ `cursor:pointer`；回归测试点 6 卡 → 5 次 router.push 正确路由 + 1 次 window.open
+- **Workbench quick cards do not navigate on click** — `WorkbenchHomeView` put `:on-click` on its `el-card` (a v-bind attribute binding, which does not register as an event listener), making the whole card ignore clicks; changed to `@click` + added an "open" link inside the card (el-link + arrow) + `cursor:pointer`; regression tests 6 cards → 5 correct router.push routes + 1 window.open
   **工作台快捷卡片点击不跳转**：`:on-click` → `@click`（v-bind 不注册事件），卡片加跳转链接；回归测试覆盖
-- **流程实例详情 500（demo-data seed 格式 bug）** — `demo-data.ts` seed 流程定义把 `nodes_json` 写成 `{nodes:[...]}` 包装对象，而 `getDefinition` 期望裸数组 → 有审批任务（human_task 挂起）的实例详情 `def.nodes.find` 抛 `TypeError` 500（completed 无任务正常）；修复 seed 改裸数组 + `getDefinition` 兼容两种格式（ECS 已存错误数据免迁移即恢复）；回归测试 + 端到端验证
+- **Flow-instance detail 500 (demo-data seed format bug)** — `demo-data.ts` seeded flow definitions with `nodes_json` as a wrapped `{nodes:[...]}` object while `getDefinition` expects a bare array → instance detail with pending approval tasks (hanging human_task) threw a `TypeError` 500 in `def.nodes.find` (completed instances without tasks were fine); fixed the seed to a bare array + made `getDefinition` accept both formats (bad data already on ECS recovered with no migration); regression test + end-to-end verification
   **流程实例详情 500**：demo-data seed nodes_json 格式错误（`{nodes:[...]}` vs 裸数组），getDefinition 兼容两种格式；回归测试 + 端到端验证
-- **redis 不可用时通知队列挂起** — `_pushToDevices` 的 BullMQ `pushQueue.add` 在 redis 连不上时无限挂起（不 reject，try/catch 捕获不了），阻塞发起流程/审批等业务请求；加 3s 超时保护，超时/失败降级同步推送；降级路径回归测试 2 个
+- **Notification queue hangs when redis is unavailable** — `_pushToDevices`'s BullMQ `pushQueue.add` hangs indefinitely when redis is unreachable (never rejects, so try/catch cannot catch it), blocking business requests such as starting flows / approvals; added a 3s timeout guard — on timeout/failure it degrades to synchronous push; 2 regression tests for the degraded path
   **redis 不可用通知队列挂起**：pushQueue.add 加 3s 超时，超时/失败降级同步推送；回归测试 2 个
 
 ## Release Precheck（2026-09-03）
@@ -58,11 +64,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **业务行为取证系统（§22.16 A-1/A-2/A-4/A-5/A-6）**：字段级变更留痕（含通用操作审计 before/after）+ 决策依据 + 业务事件归一化 + 实体行为史账本 + 审计解释器业务摘要（三层展开）+ 跨系统身份链与授权依据（含 B 路径 source=bridge）+ 合规证据包 v2（compliance 段入签名防篡改，离线验证脚本向后兼容）
 - **A-8 unauthorized-access dedicated view (§22.16)**: `GET /audit/logs?denied=true` filters 越权/阻断 events (is_error=true AND authorization non-empty — "AI denied" is safety evidence too); admin AI-audit「行为类型」selecting denied now queries the server-side filter instead of filtering only the loaded 50 rows
   **A-8 越权专门视图（§22.16）**：`GET /audit/logs?denied=true` 服务端过滤越权/阻断事件（is_error + authorization 非空——「AI 被拒」同样是安全证据）；管理台 AI 审计「行为类型」选「AI 越权/被拒」时走服务端 denied 过滤，而非仅过滤已加载的 50 行
-- **A-7 FLOW approval chain (§22.16)**: FLOW human_task 审批链可视化——`GET /flows/my`（本人实例 + 定义名 + 待审批数）+ `GET /flows/:id` 带出审批链（发起人 + 每级审批人用户名/结果/意见/时间）；workbench「我的流程」列表 + 实例详情 el-timeline 审批链（发起 → 每级 human_task → 终态）；**审批链入审计**——flow 审计富化 businessEvent（FlowInstanceStarted/FlowNodeReached/FlowTaskApproved/FlowTaskRejected/FlowInstanceCompleted）+ evidence（节点/审批人/决策/意见），audit-interpreter 加 flow_node 分支还原审批链业务摘要
+- **A-7 FLOW approval chain (§22.16)**: visualize FLOW human_task approval chains — `GET /flows/my` (own instances + definition name + pending-approval count) + `GET /flows/:id` returns the approval chain (initiator + each approver's username/result/comment/time); workbench "my flows" list + instance-detail el-timeline approval chain (initiated → each human_task → terminal state); **approval chains enter the audit** — flow audit enriched with businessEvent (FlowInstanceStarted/FlowNodeReached/FlowTaskApproved/FlowTaskRejected/FlowInstanceCompleted) + evidence (node/approver/decision/comment), the audit-interpreter gains a flow_node branch that reconstructs the approval-chain business summary
   **A-7 FLOW 审批链（§22.16）**：FLOW human_task 审批链可视化——`GET /flows/my`（本人实例 + 定义名 + 待审批数）+ `GET /flows/:id` 带出审批链（发起人 + 每级审批人用户名/结果/意见/时间）；工作台「我的流程」列表 + 实例详情 el-timeline 审批链（发起 → 每级 human_task → 终态）；**审批链入审计**——flow 审计富化 businessEvent（FlowInstanceStarted/FlowNodeReached/FlowTaskApproved/FlowTaskRejected/FlowInstanceCompleted）+ evidence（节点/审批人/决策/意见），审计解释器加 flow_node 分支还原审批链业务摘要
 - **Weapp build unblocked (N-1)**: 23 page `<style src scoped>` → script `import scss` (workaround vue-loader scoped-style entry into mini postcss-loader chain crash); CI `taro-build` now includes `build:weapp`
   **小程序构建修复（N-1）**：23 页 scoped 外链样式改 script import 绕开构建崩溃（rpx 转换验证正常）+ CI taro-build 常驻校验 build:weapp
-- **A-3 lifecycle state machine + A-5 auth chain graph (§22.16)**: 治理抽屉生命周期段（从决策轨迹推导当前态：已执行/已确认执行/被阻断/已拒绝/已撤销，撤销看 effect.targetSoftDeleted）(A-3)；授权链图（`GET /auth/permissions/chain` grantor→grantee→policy→resource→effective）+ 身份链 Intent 节点（Human→Intent→Agent→Tool→Business Action）+ 「为什么被允许」授权依据（放行 checks / 拒绝阻止原因）(A-5)
+- **A-3 lifecycle state machine + A-5 auth chain graph (§22.16)**: governance-drawer lifecycle section (current state derived from the decision trace: executed / confirmed-executed / blocked / rejected / revoked, revocation reads effect.targetSoftDeleted) (A-3); authorization-chain graph (`GET /auth/permissions/chain` grantor→grantee→policy→resource→effective) + identity-chain Intent node (Human→Intent→Agent→Tool→Business Action) + "why allowed" authorization basis (granted checks / rejection reasons) (A-5)
   **A-3 生命周期状态机 + A-5 授权链可视化（§22.16）**：生命周期段（当前态推导）+ 授权链图（授权者→被授权者→策略→资源→生效期）+ 身份链 Intent 节点 + 授权依据
 - **MCP tool declaration governance extension (Capabilities 2.1)**: KeelBase MCP export (`tools/list`) now carries per-tool governance contract over standard MCP fields — `annotations.readOnlyHint/destructiveHint` hints + `_meta.keelbase` namespace (`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`), standardized in ai-governance-protocol §4.4; previously computed metadata was stripped by the SDK `ToolSchema` (no passthrough). Any MCP client can now read each tool's risk profile before invoking.
   **MCP 工具声明治理扩展（治理能力 2.1）**：KeelBase MCP 出口 `tools/list` 经 MCP 标准字段透出每个工具的治理契约——`annotations.readOnlyHint/destructiveHint` 提示 + `_meta.keelbase` 命名空间（`riskLevel` R0-R5 / `riskStrategy` / `requiresConfirmation`），写入 ai-governance-protocol §4.4 标准；此前元数据被 SDK `ToolSchema`（无 passthrough）剥掉，客户端不可见。任何 MCP 客户端在调用前即可读到工具风险画像。
@@ -72,38 +78,38 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **审计证据包离线机器验证（治理能力 2.3 / A2）**：`GET /audit/action-report/export` 现返回 `format=keelbase-audit-evidence/1` + 全量链行（id/prevHash/hash/payload），签名覆盖 chain；`scripts/verify-evidence.mjs` 离线验证证据包——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算 payload + 验签（内容篡改检测）。审计机构不装 KeelBase 即可复核。
 - **Governance policy realtime push (Capabilities 2.2 / B2)**: sidecar registers a callback (`SIDECAR_CALLBACK_URL`) with the governance console on startup; policy changes (apply-preset / PUT policy) are pushed to registered sidecars in real time (`POST /v1/policy`, service identity), taking effect in seconds instead of the 60s polling interval (kept as fallback).
   **治理策略实时推送（治理能力 2.2 / B2）**：sidecar 启动时向治理台注册回调（`SIDECAR_CALLBACK_URL`）；策略变更（apply-preset / PUT policy）后治理台实时推送（`POST /v1/policy`，服务身份），秒级生效；60s 轮询保留作兜底。
-- **Governance policy preset library (§22.15)**: finance/government/general one-click presets — 金融=审计全量+全部写工具确认 / 政务=审计写+核心写工具确认 / 通用=默认；Policy Center preset cards 一键导入实时生效（联动信创「开箱合规」）
+- **Governance policy preset library (§22.15)**: finance/government/general one-click presets — finance = full audit + confirmation on every write tool / government = audit writes + confirmation on core write tools / general = default; Policy Center preset cards import in one click and take effect immediately (ties into Xinchuang "out-of-the-box compliance")
   **策略模板库（§22.15）**：金融/政务/通用三档预设一键导入实时生效 + Policy Center 预设卡片
-- **Compliance Mapping (Capabilities 2.3 / C1)**: KeelBase capability ↔ 中国《智能体互联》7 项国标 / EU AI Act（记录保存·人类监督）/ 等保 2.0 / 个保法数安法 factual mapping; honest gaps marked (国密 SM2/3/4 / 国产数据库 / SAML-LDAP) = 信创适配认证服务规划输入; bilingual
+- **Compliance Mapping (Capabilities 2.3 / C1)**: factual mapping of KeelBase capabilities ↔ the 7 national standards under China's Agent-Interconnect regime / EU AI Act (record-keeping · human oversight) / MLPS 2.0 (等保) / PIPL & DSL; honest gaps marked (国密 SM2/3/4, domestic databases, SAML-LDAP) = input to the Xinchuang adaptation & certification service plan; bilingual
   **合规映射表（治理能力 2.3 / C1）**：KeelBase 能力 ↔《智能体互联》国标 / EU AI Act / 等保 2.0 事实性对照，诚实标注信创差距（国密/国产库/SAML-LDAP）
 - **Protocol 2.0 aiTools declaration (Q2)**: Module Protocol gains an optional `aiTools` field (enabled switch + query/create riskLevel & confirmation overrides); the generator consumes it to produce governed AI tools (query R1 auto / create R3 confirm by default, R2=policy / R4=two-person approval overrides, full disable for read-only modules); wiring skips disabled tools; validate + docs + generator tests (59 green).
   **协议 2.0 aiTools 声明（Q2 主线）**：Module Protocol 新增可选 `aiTools` 字段（enabled 开关 + query/create 的 riskLevel/requiresConfirmation 覆盖）；生成器消费它生成带治理的 AI 工具（缺省 query R1 自动 + create R3 确认；R2=策略决定 / R4=双人审批 覆盖；只读模块可整体关闭）；接线按开关跳过；校验 + 文档 + 生成器测试 59 全绿。
-- **Business-language rendering（四端业务语言化）**: AI 审计 / 行为回放 / 执行轨迹 / 风险中心 / 安全审查 / AI 审批 / 工作台 Action Detail / Flutter 主 App AI 轨迹——工具调用/确认/副作用全部业务语言（toolLabel 双语 + 参数业务摘要 + 技术参数 popover 折叠），R5 阻断错误业务化（「该操作已被安全策略阻断（高风险）」）
+- **Business-language rendering across the four ends**: AI audit / behavior replay / execution trace / risk center / security review / AI approval / workbench Action Detail / Flutter main-app AI trace — tool calls, confirmations and side effects are all rendered in business language (bilingual toolLabel + parameter business summary + technical params collapsed behind a popover); R5-block errors productized ("this operation was blocked by the security policy (high risk)")
   **四端业务语言化**：AI 审计/轨迹/风险/审批/安全审查/工作台/Flutter 工具动作业务语言化，技术细节折叠，R5 阻断双语
-- **EASY-5 first-run preset guide (v1.1 P0-6)**: FeatureFlagsService 动态化——applyPreset(full/small/lite) 内存 overrides + Settings 持久化（feature_<key>）+ 重启 loadOverrides 恢复；判定优先级 运行时覆盖 > env > 预设；`POST /settings/preset`（admin，返回应用后 flags）+ 管理员首启三卡片 preset 弹窗
+- **EASY-5 first-run preset guide (v1.1 P0-6)**: FeatureFlagsService dynamized — applyPreset(full/small/lite) applies in-memory overrides + persists to Settings (feature_<key>) + reload restores overrides on restart; precedence runtime-override > env > preset; `POST /settings/preset` (admin, returns post-apply flags) + admin first-run three-card preset dialog
   **EASY-5 首启引导 preset（v1.1 P0-6）**：FeatureFlags 运行时 preset 应用（full/small/lite）+ Settings 持久化 + `POST /settings/preset` + 管理台首启引导弹窗
-- **Product language & DNA (P0-4)**: 定位句统一「Business-safe AI Runtime」+ 词汇表 v0.1 + KeelBase engineering DNA 定稿（docs/keelbase-dna.md）+ CLAUDE.md §15.11 DNA 自检入开发流程 + Enterprise AI Trust Manifesto（采购/选型四问）+ README DNA 声明 + 社区文章《AI 生成的代码，凭什么信任？》草稿
+- **Product language & DNA (P0-4)**: unified positioning line "Business-safe AI Runtime" + glossary v0.1 + KeelBase engineering DNA finalized (docs/keelbase-dna.md) + CLAUDE.md §15.11 DNA self-check into the dev flow + Enterprise AI Trust Manifesto (four procurement/selection questions) + README DNA statement + draft community article《AI 生成的代码，凭什么信任？》
   **产品语言与 DNA（P0-4）**：Business-safe AI Runtime 定位统一 + DNA 定稿 + Trust Manifesto + 词汇表 + DNA 自检
-- **Developer constitution skill**: 产品/体验/架构工程三 skill 整合为单一宪法（keelbase-development-constitution，含开发生命周期/DoD/三方评审）+ CLAUDE.md §15 AI Coding Rules（反垃圾代码 10 条）+ release-precheck 固定四层评审（Code Economy 第四层 + 观察指标 v0.1）
+- **Developer constitution skill**: consolidated the product/UX/architecture-engineering skills into a single constitution (keelbase-development-constitution, incl. development lifecycle / DoD / three-way review) + CLAUDE.md §15 AI Coding Rules (10 anti-code-slop rules) + release-precheck fixed four-layer review (Code Economy as the 4th layer + observation metrics v0.1)
   **开发者宪法 skill**：三合一宪法 + AI Coding Rules + Code Economy 第四层评审
-- **Module generation provenance**: keelbase init 每个生成模块目录写 `.keelbase-provenance.json`（来源/生成器版本/协议/时刻）+ inspect 展示——工程侧「代码可溯源」对应运行时 Business Action 链
+- **Module generation provenance**: `keelbase init` writes `.keelbase-provenance.json` into every generated module directory (source / generator version / protocol / timestamp) + inspect displays it — the engineering-side "code is traceable" counterpart to the runtime Business Action chain
   **生成模块 provenance**：生成出生证明 + inspect 溯源（DNA「代码可溯源」落地）
-- **Demo video v9**: 面向决策者双语言旁白演示（28 镜中英 mp4）+ PM/Approval/治理巡礼三镜 + 桥接视觉镜（Java 存量→治理→AI 工具）+ 配音/字幕/合成流水线入库
+- **Demo video v9**: decision-maker-oriented bilingual-narration demo (28-shot EN/ZH mp4) + PM/Approval/governance walk-through shots + bridge visual shot (legacy Java → governance → AI tools) + dubbing/subtitle/assembly pipeline committed
   **演示视频 v9**：双语言旁白 + 桥接视觉 + 录制/配音/字幕流水线
-- **Apache-2.0 OSS trust packaging**: 全仓 1515 源码文件 SPDX 许可头（幂等脚本 scripts/add-license-headers.mjs）+ DCO 签名约定 + 公开版本计划 docs/versioning.md + README badge + CI 安全扫描（gitleaks 密钥扫描 + CodeQL）+ THIRD_PARTY_NOTICES SPDX 声明
+- **Apache-2.0 OSS trust packaging**: Apache-2.0 SPDX headers on all 1515 source files (idempotent `scripts/add-license-headers.mjs`) + DCO sign-off convention + public release plan docs/versioning.md + README badge + CI security scanning (gitleaks secret scan + CodeQL) + THIRD_PARTY_NOTICES SPDX declarations
   **Apache-2.0 开源可信包装**：全仓 SPDX 许可头 + DCO + 版本计划公开 + gitleaks/CodeQL 扫描
-- **java-starter Maven Central**: KeelBase-java-starter 0.1.2 已发布，兼容矩阵不再标「待发布」
+- **java-starter Maven Central**: KeelBase-java-starter 0.1.2 released; the compatibility matrix no longer marks "pending release"
   **java-starter**：Maven Central 发布状态入兼容矩阵
 
 ### Fixed / 修复
 
 - **Operation-audit hash-chain break**: `changes`/`businessEvent` accidentally included in hash payload (chain-external columns) → split hash/save payload; golden e2e hash-chain verify restored to valid
   **操作审计哈希链破链修复**：changes/businessEvent 误入 hash payload 致 verify 失败——拆 hash/save payload 链外，哈希链 valid 恢复
-- **audit_chain_lock postgres touched_at type drift**: TIMESTAMP（无时区）匹配实体 `@UpdateDateColumn` 的 TypeORM 生成，修复 CI migration-consistency-postgres 漂移
+- **audit_chain_lock postgres touched_at type drift**: TIMESTAMP (no timezone) no longer matches the `@UpdateDateColumn` type TypeORM generates, so the column was re-declared to match — fixes the CI migration-consistency-postgres drift
   **audit_chain_lock postgres 类型漂移**：touched_at 改 TIMESTAMP 匹配 TypeORM，修 CI 迁移一致性
-- **Flutter ai_chat_page tests missing CapabilitiesProvider**: 补 provider（94928a2 新增依赖后），修复 4 个 AI 聊天页测试（导航栏默认模型/模型切换/确认卡/工具步骤卡）
+- **Flutter ai_chat_page tests missing CapabilitiesProvider**: added the provider (a dependency introduced in 94928a2), fixing 4 AI chat page tests (default model in the nav bar / model switch / confirmation card / tool-step card)
   **Flutter AI 聊天页测试修复**：补 CapabilitiesProvider，4 测试恢复
-- **A-5 auth chain EN keys re-added**: 权限中心授权链英文 key 补回（并发会话覆盖 en.ts 后丢失）
+- **A-5 auth chain EN keys re-added**: restored the English keys of the permission-center authorization-chain page (lost when a concurrent session overwrote en.ts)
   **A-5 授权链英文 key 补回**：并发 i18n 覆盖恢复
 
 ## Release Precheck（2026-09-01）
@@ -143,7 +149,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **产品证明**：越权 V-2 + 演示复位 V-4 + 30min V-6 + 验证索引
 - **Demo video production**: unified 37-shot demo video (brand / golden-path / trust / terminal) via `scripts/record-demo-full.mjs` + live system-demo & confirmation-gate shots
   **演示视频制作**：37 镜统一演示视频（品牌/黄金路径/信任/终端，`record-demo-full.mjs`）+ 系统演示/确认门控实机镜
-- （承接既有）M2 Guard 深化 / Integrator Kit / Live demo / P0-0 DemoProvider / 部署加固 / CORS / 审计链压测
+- (Carried over from existing work) M2 Guard deepening / Integrator Kit / Live demo / P0-0 DemoProvider / deploy hardening / CORS / audit-chain load testing
+  （承接既有）M2 Guard 深化 / Integrator Kit / Live demo / P0-0 DemoProvider / 部署加固 / CORS / 审计链压测
 
 ### Fixed / 修复
 
@@ -151,11 +158,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **三方评审加固（阿里 ocr + Claude 自带 + code-review skill，2026-08-30）**：12 项后端 + 2 项前端阻塞/关键项修复——哈希链锁行/操作审计并发/副作用类型映射/审计趋势/侧边车鉴权/迁移白名单/演示复位等
 - **Front-end (ocr)**: HashChainView `slice(0,n)` dropped newest chain tip → `slice(-n)`; CrmCopilotDrawer stale `executed` after tool failure → cleared on matched tool_end
   **前端修复（ocr）**：哈希链可视化保留最新证据 + Copilot executed 防残留
-- （承接既有）P0 部署/安全加固 / CORS / 审计链压测
+- (Carried over from existing work) P0 deployment/security hardening / CORS / audit-chain load testing
+  （承接既有）P0 部署/安全加固 / CORS / 审计链压测
 
 ### Changed / 变更
 
-- （承接既有）审计链压测入 release-gate（多实例模式复现分叉）
+- (Carried over) audit-chain load testing added to release-gate (multi-instance mode reproduces forks)
+  （承接既有）审计链压测入 release-gate（多实例模式复现分叉）
 
 ## Release Precheck（2026-08-30）
 
@@ -181,15 +190,19 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Fixed / 修复
 
-- **GET /events without range crashes on postgres**: `getEventsForRange` 对缺失/非法的 start/end 构造 `Invalid Date`，sqlite 不报错但 postgres 500——start/end 改可选，缺失时仅按所有权过滤
-- **Generator overwrote flagship AI tools**: `writeGenerated` 无条件覆盖已存在的 `query-customers.tool.ts`（AI CRM 旗舰）——加「已存在则跳过」幂等（`--force` 覆盖）
-- **Generator wiring anchors broken by code drift**: applyFile 加 CRLF 归一化（Flutter main.dart）+ modules-manifest todos 条目 description + Taro explore i18n label——生成接线 24/24 无未命中
-- **AiAuditView tests missing useRoute mock**（M2 agentId 过滤引入）：补 mock，281/281 全绿
-- **P0 deployment & security hardening (external review)**: env 模板补 ENCRYPTION_KEY/AUDIT_HMAC_KEY + 部署脚本「替换+追加缺失行」；Docker 依赖宿主 Flutter web 预构建 fail-fast；R4 decideApproval 拒绝 self-approve；SSRF 防护提取 common/utils/ssrf（webhook + MCP registerServer 复用）
+- **GET /events without range crashes on postgres**: `getEventsForRange` built an `Invalid Date` from missing/invalid start/end — silently fine on sqlite but a 500 on postgres; start/end made optional, missing values now filter by ownership only
+  **GET /events 未传时间范围在 postgres 上报 500**：`getEventsForRange` 对缺失/非法的 start/end 构造 `Invalid Date`——sqlite 不报错但 postgres 500；start/end 改可选，缺失时仅按所有权过滤
+- **Generator overwrote flagship AI tools**: `writeGenerated` unconditionally overwrote the existing `query-customers.tool.ts` (the AI CRM flagship) — added "skip if exists" idempotency (`--force` overrides)
+  **生成器覆盖旗舰 AI 工具**：`writeGenerated` 无条件覆盖已存在的 `query-customers.tool.ts`（AI CRM 旗舰）——加「已存在则跳过」幂等（`--force` 覆盖）
+- **Generator wiring anchors broken by code drift**: applyFile gains CRLF normalization (Flutter main.dart) + modules-manifest todos entry description + Taro explore i18n label — generated wiring 24/24 with no misses
+  **生成器接线锚点修复**：applyFile 加 CRLF 归一化（Flutter main.dart）+ modules-manifest todos 条目 description + Taro explore i18n label——生成接线 24/24 无未命中
+- **AiAuditView tests missing useRoute mock** (introduced by the M2 agentId filter): mock added, 281/281 all green
+  **AiAuditView 测试缺 useRoute mock**（M2 agentId 过滤引入）：补 mock，281/281 全绿
+- **P0 deployment & security hardening (external review)**: env templates gain ENCRYPTION_KEY/AUDIT_HMAC_KEY + the deploy script "replaces and appends missing lines"; Docker fails fast when it depends on a host Flutter web prebuild; R4 decideApproval rejects self-approval; SSRF protection extracted into common/utils/ssrf (reused by webhook + MCP registerServer)
   **P0 部署+安全硬化（外部评审）**：env 模板补 ENCRYPTION_KEY/AUDIT_HMAC_KEY + 部署脚本追加缺失行；Docker 依赖宿主 Flutter web 预构建 fail-fast；R4 审批拒绝自批；SSRF 防护提取 common/utils/ssrf（webhook + MCP 复用）
-- **Deploy no longer hardcodes domain**: docker-compose.prod.yml CORS_ORIGINS 改 `${CORS_ORIGINS}` env 引用；nginx.https.conf server_name 改通配——换域名部署无需改源码
+- **Deploy no longer hardcodes domain**: docker-compose.prod.yml CORS_ORIGINS switched to a `${CORS_ORIGINS}` env reference; nginx.https.conf server_name switched to a wildcard — deploying on another domain needs no source change
   **部署不再写死域名**：docker-compose.prod.yml CORS_ORIGINS 改 `${CORS_ORIGINS}` env 引用；nginx.https.conf server_name 改通配——换域名部署无需改源码
-- **Web-Admin fixes**: 业务页 Copilot 按钮改「AI 分析」（与顶栏全局 AI 区分）+ StatCard 长值截断（邮箱溢出）
+- **Web-Admin fixes**: business-page Copilot button renamed to「AI 分析」(to distinguish it from the top-bar global AI) + StatCard truncates long values (email overflow)
   **管理台修复**：业务页 Copilot 按钮改「AI 分析」（与全局 AI 区分）+ StatCard 长值截断（邮箱溢出）
 
 ## [1.0.1] - 2026-08-22
