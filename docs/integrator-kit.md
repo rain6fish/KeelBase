@@ -19,6 +19,7 @@
 | **AI Assistant Template**（业务 AI 助手面板模板） | ✅（CRM/PM Copilot 已落地） | [flagship-applications.md](../flagship-applications.md) |
 | **Reference Project：传统 Java CRM → AI CRM** | ✅ 实施手册 + **真实 Java CRM 样板已提供**（`keelbase-java-crm-example`：5 工具读 R1/写 R3 + 补偿，域与 external-crm-demo 对齐，`verify-crm-e2e.mjs` 联调） | [reference-project-guide.md](integrator-kit/reference-project-guide.md) + [external-crm-demo.md](manual/external-crm-demo.md) + [reference-project-crm.md](https://github.com/rain6fish/KeelBase-java-starter/blob/main/docs/reference-project-crm.md) |
 | **Java 探针观察窗口**（keelbase-java-starter 需求信号采集 + KeelBase4J 启动依据，需求驱动） | ✅ 已建立（`scripts/check-java-probe.mjs` 快照 + 触发信号定义） | [java-probe-observation.md](integrator-kit/java-probe-observation.md) |
+| **客户场景样板：存量 Java CRM × LangChain4j 推荐 Agent**（一页拓扑 + 分阶段 PoC 计划，中英双语） | ✅ 已提供 | 内部版：[java-crm-langchain4j-solution.md](integrator-kit/java-crm-langchain4j-solution.md)（含验收脚本/文档引用）· 纯客户版：[java-crm-langchain4j-customer.md](integrator-kit/java-crm-langchain4j-customer.md)（去内部引用，可直接发对方） |
 
 ## 二、Reference Project：传统 Java CRM → AI CRM（核心样板）
 
