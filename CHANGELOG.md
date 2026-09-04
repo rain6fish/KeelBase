@@ -28,12 +28,11 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **生成器** — keelbase init 生成模块自动带 Apache-2.0 SPDX 头（按扩展名选注释语法）+ Module Protocol `required` 透传（DTO/model 必填一致）
 - **安全清理** — CodeQL 6 个 High 真问题修复（治理台启动不再打印 JWT_SECRET / 验证码邀请码 `randomInt` 无偏 / 防 RegExp 注入 / 完整 escapeRegExp）+ 12 个已知误报官方注释抑制；docker apk 步骤切阿里云镜像；prod HTTPS 三入口配置
 - **Provider 兼容基准** — verification-index 三真实 provider（DeepSeek / GLM-5.1 / Kimi-k2.6）golden-crm 各 8/8 + tool-calling 实测记录
-- **.githooks 统一基线** — 非工作时间提交映射 hooks（post-commit/merge/rewrite/pre-push + node 实现）入库 + `install-hooks.sh` 一键启用
 - **文档/语言** — README 治理全景图（EN/ZH SVG）+ 词汇表英文版 + Guard→Governance/Copilot→AI 助手用户可见文案回改 + 内部代号（MOAT 等）清理
 
 ### Fixed / 修复
 
-- **发布前四层评审修复（2026-09-03）** — ①AI 审计放行授权快照仅写「放行且成功执行」分支（此前用户拒绝/超时/非流式写拒绝被 A-8 denied 视图与 blocked 聚合误计为越权/阻断，证据语义污染）②治理抽屉撤销态可达（B4 effect 补 targetSoftDeleted）+ authorize 节点不再误显 wait ③AI 时间线「越权/被拒」筛选改 isError+authorization 语义（原按颜色滤错行）并补「AI 执行」选项 ④Security-Showcase 假绿修复 + 结构化双语 + 错误提示 ⑤detect_idle count 截断前统计 / 未联系 createdAt tie-break / limit 1–50 显式校验 ⑥AuthorizationExplainerService/ToolRegistry 补 `@Injectable()`、.githooks 补 SPDX 头
+- **发布前四层评审修复（2026-09-03）** — ①AI 审计放行授权快照仅写「放行且成功执行」分支（此前用户拒绝/超时/非流式写拒绝被 A-8 denied 视图与 blocked 聚合误计为越权/阻断，证据语义污染）②治理抽屉撤销态可达（B4 effect 补 targetSoftDeleted）+ authorize 节点不再误显 wait ③AI 时间线「越权/被拒」筛选改 isError+authorization 语义（原按颜色滤错行）并补「AI 执行」选项 ④Security-Showcase 假绿修复 + 结构化双语 + 错误提示 ⑤detect_idle count 截断前统计 / 未联系 createdAt tie-break / limit 1–50 显式校验 ⑥AuthorizationExplainerService/ToolRegistry 补 `@Injectable()`
   **发布前四层评审修复**：快照门控 / 撤销态可达 / 越权筛选语义 / showcase canary+双语 / detect_idle 计数排序 / DI 装饰器
 - **工作台快捷卡片点击不跳转** — `WorkbenchHomeView` 的 `el-card` 用 `:on-click`（v-bind 属性绑定，不会注册为事件监听器）导致整卡点击无效；改 `@click` + 卡片内加「打开」跳转链接（el-link + 箭头）+ `cursor:pointer`；回归测试点 6 卡 → 5 次 router.push 正确路由 + 1 次 window.open
   **工作台快捷卡片点击不跳转**：`:on-click` → `@click`（v-bind 不注册事件），卡片加跳转链接；回归测试覆盖
