@@ -221,6 +221,41 @@ describe('AuditService', () => {
       );
     });
 
+    it('G-2：v2 行链 payload 含链外归责/业务注解列真实值 + payloadVersion=2', async () => {
+      chain.computeHash.mockReturnValue('v2-hash');
+      await service.log({
+        userId: '42',
+        action: 'tool_call',
+        detail: 'create_followup_task({"customerId":7})',
+        conversationId: 'c1',
+        agentId: 'agent-1',
+        sessionId: 'sess-1',
+        parentActionId: '38171',
+        callerAgentId: 'research',
+        businessIntent: '跟进高风险客户',
+        source: 'bridge',
+        businessEvent: 'FollowupTaskCreated',
+        evidence: JSON.stringify({ decision: 'create', evidence: [], policy: 'p' }),
+        isError: false,
+      });
+      const payload = chain.computeHash.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload).toEqual(
+        expect.objectContaining({
+          businessEvent: 'FollowupTaskCreated',
+          evidence: expect.any(String),
+          agentId: 'agent-1',
+          sessionId: 'sess-1',
+          parentActionId: '38171',
+          callerAgentId: 'research',
+          businessIntent: '跟进高风险客户',
+          source: 'bridge',
+        }),
+      );
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
+        expect.objectContaining({ payloadVersion: 2, hash: 'v2-hash' }),
+      );
+    });
+
     it('取到上一条 hash 后串接（runner.query 在锁事务内读）', async () => {
       runner.query.mockImplementation((sql: string) =>
         String(sql).includes('FROM "ai_audit_logs"')

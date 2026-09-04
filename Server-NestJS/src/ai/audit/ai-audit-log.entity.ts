@@ -104,6 +104,10 @@ export class AiAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'hash' })
   hash?: string | null;
 
+  /** G-2（§22.17 ① G-2）：链 payload 版本——2 = 链外归责/业务注解列以真实值入 payload；null = 历史 v1（恒空），不破坏既有链 */
+  @Column({ type: 'int', nullable: true, name: 'payload_version' })
+  payloadVersion?: number | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }

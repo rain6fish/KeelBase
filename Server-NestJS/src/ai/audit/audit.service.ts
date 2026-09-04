@@ -258,8 +258,10 @@ export class AuditService {
     const callerAgentId = entry.callerAgentId ?? actor?.callerAgentId;
     const businessIntent = entry.businessIntent ?? actor?.businessIntent;
 
-    // 共享 payload（hash 计算与保存两端一致）
+    // G-2（§22.17 ① G-2）：payload v2 = 既有字段 + 链外归责/意图/来源/业务注解列（businessEvent/evidence/agentId/...）。
+    // 新行 payloadVersion=2 → _payload 走 v2 含真实注解值（DB 层篡改链外列会破链）；历史行 null → v1 恒空（不破坏既有链）。
     const payload = this._payload({
+      payloadVersion: 2,
       userId: entry.userId,
       conversationId: entry.conversationId,
       action: entry.action,
@@ -272,6 +274,15 @@ export class AuditService {
       isError: entry.isError ?? false,
       errorMessage: entry.errorMessage,
       authorization: entry.authorization,
+      agentId,
+      sessionId,
+      parentActionId: entry.parentActionId,
+      callerAgentId,
+      delegationContext: entry.delegationContext,
+      businessIntent,
+      source: entry.source,
+      businessEvent: entry.businessEvent,
+      evidence: entry.evidence,
     });
     const entity = {
       userId: entry.userId,
@@ -296,6 +307,7 @@ export class AuditService {
       authorization: entry.authorization,
       businessEvent: entry.businessEvent,
       evidence: entry.evidence,
+      payloadVersion: 2,
     };
 
     if (this.dataSource.options.type === 'postgres') {
@@ -408,9 +420,14 @@ export class AuditService {
     return row?.hash ?? null;
   }
 
-  /** 链 payload 的规范形态：写入与校验共用，保证两端一致。 */
+  /** 链 payload 规范形态：写入/校验/导出共用。G-2（§22.17 ① G-2）分版本：
+   *  - payloadVersion === 2（新行）→ 链外归责/意图/来源/业务注解列以真实值入 payload（DB 层篡改即破链）；
+   *  - 历史行（无 payload_version）→ 维持 v1（上述注解恒空），既有链不破。
+   *  feedback/feedbackNote 恒 null（submitFeedback 后置更新不重算 hash，防断链，同前）。
+   */
   private _payload(row: object): Record<string, unknown> {
     const r = row as Record<string, unknown>;
+    const v2 = r.payloadVersion === 2;
     return {
       userId: r.userId ?? null,
       conversationId: r.conversationId ?? null,
@@ -424,14 +441,21 @@ export class AuditService {
       isError: r.isError ?? false,
       errorMessage: r.errorMessage ?? null,
       authorization: r.authorization ?? null,
-      // feedback/feedbackNote 是链外注解列（submitFeedback 后置更新且不重算 hash）：
-      // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止反馈写入断链（HS-11）
       feedback: null,
       feedbackNote: null,
-      // §22.16 A-1 business_event/evidence 是链外注解列（业务事件名 + Decision Evidence JSON，推理型展示数据）：
-      // 写入与校验两侧恒置 null，保证 canonical payload 一致，防止写入断链（同 feedback 前例）
-      businessEvent: null,
-      evidence: null,
+      businessEvent: v2 ? (r.businessEvent ?? null) : null,
+      evidence: v2 ? (r.evidence ?? null) : null,
+      ...(v2
+        ? {
+            agentId: r.agentId ?? null,
+            sessionId: r.sessionId ?? null,
+            parentActionId: r.parentActionId ?? null,
+            callerAgentId: r.callerAgentId ?? null,
+            delegationContext: r.delegationContext ?? null,
+            businessIntent: r.businessIntent ?? null,
+            source: r.source ?? null,
+          }
+        : {}),
     };
   }
 
