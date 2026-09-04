@@ -6,10 +6,13 @@ import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 
 describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
   let captor: SideEffectSnapshotCaptor;
-  let entityManager: { getRepository: jest.Mock };
+  let entityManager: { getRepository: jest.Mock; connection: { entityMetadatas: any[] } };
 
   beforeEach(async () => {
-    entityManager = { getRepository: jest.fn() };
+    entityManager = {
+      getRepository: jest.fn(),
+      connection: { entityMetadatas: [] },
+    };
     const module = await Test.createTestingModule({
       providers: [
         SideEffectSnapshotCaptor,
@@ -88,6 +91,39 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
         findOne: jest.fn().mockRejectedValue(new Error('db down')),
       }));
       expect(await captor.captureAfter('event', 1)).toBeNull();
+    });
+
+    it('#4 生成模块（invoice）按元数据解析实体并捕获快照', async () => {
+      entityManager.connection.entityMetadatas = [
+        {
+          name: 'Invoice',
+          targetName: 'Invoice',
+          tableName: 'invoices',
+          deleteDateColumn: { propertyName: 'deletedAt' },
+          columns: [{ propertyName: 'invoiceNo' }, { propertyName: 'dueDate' }],
+        },
+      ];
+      const invoiceRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, invoiceNo: 'INV-001', dueDate: null }) };
+      entityManager.getRepository.mockReturnValue(invoiceRepo);
+      const out = await captor.captureAfter('invoice', 7);
+      expect(entityManager.getRepository).toHaveBeenCalledWith('Invoice');
+      const parsed = JSON.parse(out!);
+      expect(parsed.invoiceNo).toBe('INV-001');
+    });
+
+    it('#4 无软删列且非显式别名的类型 → 无本地实体，走 fallback（不误查）', async () => {
+      entityManager.connection.entityMetadatas = [
+        {
+          name: 'SomeReadOnly',
+          targetName: 'SomeReadOnly',
+          tableName: 'some_read_only',
+          deleteDateColumn: null,
+          columns: [],
+        },
+      ];
+      const out = await captor.captureAfter('some_read_only', 3, { fallback: true });
+      expect(entityManager.getRepository).not.toHaveBeenCalled();
+      expect(JSON.parse(out!).fallback).toBe(true);
     });
   });
 });
