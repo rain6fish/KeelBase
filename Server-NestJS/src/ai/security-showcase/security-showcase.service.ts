@@ -73,17 +73,20 @@ export class SecurityShowcaseService {
   }
 
   runScenario(scenarioId: string): ShowcaseResult {
-    const runner = this.runners[scenarioId];
-    if (!runner) throw new NotFoundException(`未知对抗场景：${scenarioId}`);
-    return runner();
+    // CodeQL：拒绝「用户可控 id → 动态方法调用」（Unvalidated dynamic method call）——用白名单 switch，未知 id 404
+    switch (scenarioId) {
+      case 'injection':
+        return this.runInjection();
+      case 'unauthorized':
+        return this.runUnauthorized();
+      case 'r5-block':
+        return this.runR5Block();
+      case 'confirmation':
+        return this.runConfirmation();
+      default:
+        throw new NotFoundException(`未知对抗场景：${scenarioId}`);
+    }
   }
-
-  private readonly runners: Record<string, () => ShowcaseResult> = {
-    injection: () => this.runInjection(),
-    unauthorized: () => this.runUnauthorized(),
-    'r5-block': () => this.runR5Block(),
-    confirmation: () => this.runConfirmation(),
-  };
 
   /** 场景 1：HS-8 注入防线——外部资料夹带恶意指令 → 命中 → 拒绝作为用户指令 */
   private runInjection(): ShowcaseResult {
