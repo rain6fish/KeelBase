@@ -1409,6 +1409,8 @@ export class AiService {
                       riskLevel: authz.riskLevel,
                       strategy: authz.riskStrategy,
                       checks: authz.checks,
+                      // §22.17 ③ Policy Evidence：事件时点生效的治理策略版本（冻结「哪一版规则允许」）
+                      policyVersion: authz.policyVersion ?? null,
                     })
                   : undefined,
             });

@@ -892,7 +892,11 @@ export class AuditService {
       // 历史数据无快照 → 降级为当前策略重算（向后兼容）
       const snap = parseAllowedSnapshot(row.authorization);
       if (snap) {
-        allowed = { checks: snap.checks, riskLevel: snap.riskLevel };
+        // §22.17 ③ Policy Evidence：快照带策略版本时，allowed 投影携带（evidence/合规「哪一版规则允许」）；
+        // 历史行无版本 → 不注入键（向后兼容，消费端可选）
+        allowed = snap.policyVersion
+          ? { checks: snap.checks, riskLevel: snap.riskLevel, policyVersion: snap.policyVersion }
+          : { checks: snap.checks, riskLevel: snap.riskLevel };
       } else if (toolName) {
         try {
           allowed = (await this.authorizationExplainer?.explainAuthorization(toolName, row.userId)) ?? null;
@@ -994,14 +998,18 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
   }
 }
 
-/** §22.16 A-5 放行授权快照解析：对象含 allowed:true（事件时点 checks/riskLevel）；拒绝数组/非放行/非法 → null */
-function parseAllowedSnapshot(raw?: string | null): { checks: unknown; riskLevel?: string } | null {
+/** §22.16 A-5 放行授权快照解析：对象含 allowed:true（事件时点 checks/riskLevel/policyVersion）；拒绝数组/非放行/非法 → null */
+function parseAllowedSnapshot(
+  raw?: string | null,
+): { checks: unknown; riskLevel?: string; policyVersion?: string | null } | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') {
-      const o = parsed as { allowed?: boolean; checks?: unknown; riskLevel?: string };
-      return o.allowed === true ? { checks: o.checks, riskLevel: o.riskLevel } : null;
+      const o = parsed as { allowed?: boolean; checks?: unknown; riskLevel?: string; policyVersion?: string | null };
+      return o.allowed === true
+        ? { checks: o.checks, riskLevel: o.riskLevel, policyVersion: o.policyVersion ?? null }
+        : null;
     }
     return null;
   } catch {

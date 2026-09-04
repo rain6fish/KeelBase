@@ -79,6 +79,8 @@ export interface AuthorizationReasons {
   riskStrategy: string;
   requiresConfirmation: boolean;
   checks: AuthorizationCheck[];
+  /** §22.17 ③ Policy Evidence：决策时生效的治理策略版本（policy.updatedAt ISO；无策略行/未配治理时 null）。 */
+  policyVersion?: string | null;
 }
 
 /**

@@ -41,14 +41,20 @@ export class AuthorizationExplainerService {
     const riskLevel = this.toolRegistry.riskLevel(toolName);
     const riskStrategy = RISK_STRATEGY[riskLevel];
     const checks: AuthorizationCheck[] = [];
+    // §22.17 ③ Policy Evidence：单次取策略 → 决策输入（tool_enabled/role_allowed）+ 决策时策略版本同源，
+    // 快照落库即冻结「当时是哪一版规则允许的」（无策略行 → policyVersion null，语义等同「默认策略」）。
+    let policyVersion: string | null = null;
     if (this.governancePolicy) {
-      const enabled = await this.governancePolicy.isToolEnabled(toolName);
+      const policy = await this.governancePolicy.getPolicy();
+      policyVersion = policy.updatedAt ? new Date(policy.updatedAt).toISOString() : null;
+      const cfg = policy.tools?.[toolName] ?? {};
+      const enabled = cfg.enabled ?? true;
       checks.push({
         name: 'tool_enabled',
         ok: enabled,
         note: enabled ? '治理策略已启用' : '治理策略禁用',
       });
-      const roles = await this.governancePolicy.getAllowedRoles(toolName);
+      const roles = cfg.allowedRoles ?? [];
       if (roles.length > 0) {
         const user = this.usersService
           ? await this.usersService.findOne(Number(userId))
@@ -81,6 +87,7 @@ export class AuthorizationExplainerService {
       riskStrategy,
       requiresConfirmation: isWrite,
       checks,
+      policyVersion,
     };
   }
 
