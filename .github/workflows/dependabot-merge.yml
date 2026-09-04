@@ -1,7 +1,6 @@
-# Dependabot 依赖 PR 批量合并（仅非工作时间落库）
-# 背景：GitHub 侧合并（gh pr merge / 网页）不走本地 .githooks 非工作时间守卫，曾致工作时间内
-#       多批 dependabot PR 合入 main。此 workflow 用时间门兜底：Asia/Shanghai 周一至五 05:00-18:59
-#       （与非工作时间 hook 同口径）一律跳过合并，攒到夜间/周末由 CI 全绿后批量 squash 合入。
+# Dependabot 依赖 PR 批量合并（低峰时段统一落库）
+# 目的：避免零散依赖 PR 频繁打断主分支节奏——Asia/Shanghai 周一至五 05:00-18:59 视为日间高峰，
+#       一律跳过合并，攒批到低峰（夜间/周末）由 CI 全绿后批量 squash 合入。
 # 手动触发：workflow_dispatch；也可在 GitHub 网页直接跑。
 name: Dependabot Merge
 
@@ -19,13 +18,13 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     steps:
-      - name: 时间门——工作时间不合并
+      - name: 时间门——日间高峰不合并
         id: gate
         run: |
           DOW=$(TZ='Asia/Shanghai' date +%u)        # 1=Mon … 7=Sun
           H=$(TZ='Asia/Shanghai' date +%-H)         # 0-23（本地小时，无前导零）
           if [ "$DOW" -le 5 ] && [ "$H" -ge 5 ] && [ "$H" -lt 19 ]; then
-            echo "Asia/Shanghai 工作日 ${H}:xx → 工作时间，跳过合并"
+            echo "Asia/Shanghai 日间高峰 ${H}:xx，跳过合并，攒批到低峰"
             echo "work_time=1" >> "$GITHUB_OUTPUT"
           else
             echo "work_time=0" >> "$GITHUB_OUTPUT"

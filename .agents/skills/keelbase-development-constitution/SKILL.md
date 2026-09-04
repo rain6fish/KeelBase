@@ -337,7 +337,7 @@ Protocol 是业务能力与 AI 应用生成/运行时之间的稳定契约。扩
 
 ### 4.5 项目执行约定
 
-- **git 纪律**：工作时间（工作日 05:00–19:00 北京时间）只提交不推送；提交后 `git log -1 --format='%h %ad'` 验证映射；推送前检查时间并获用户明确授权；rebase/amend/cherry-pick 后同时查 author 与 committer 两个时间。
+- **git 纪律**：提交遵循仓库 commit 规范（中英双语，不带 Co-Authored-By）；提交后 `git log -1 --format='%h %ai %ci'` 核对 author 与 committer 时间一致；push 前检查状态并获用户明确授权；rebase/amend/cherry-pick 后同时核对 author 与 committer 两个时间。
 - **提交前审计**：commit 前 `git status` + `git diff` 自查 + 相关测试 + 安全面审查。
 - **隐私**：管理端接口 `sanitizeForAdmin` 脱敏；审计 `requestBody` 敏感字段打码；App 本人路径可明文。
 - **双语**：所有用户可见文案走 i18n（App `app_localizations` 中英 / 管理端 `src/i18n/` 中英）。
