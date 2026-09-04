@@ -37,7 +37,7 @@ import {
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor } from './tool-effects/write-effect-type';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
-import { GovernancePolicyService } from './governance/governance-policy.service';
+import { GovernancePolicyService, effectiveGateMode } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
 import {
   markSystemBoundary,
@@ -285,6 +285,16 @@ export class AiService {
     const fallback = this.toolRegistry.requiresConfirmation(name);
     if (!this.governancePolicy) return fallback;
     return this.governancePolicy.requiresConfirmation(name, fallback);
+  }
+
+  /**
+   * §22.15(4) R4 审批档判定：策略覆盖档位（mode=approval）或声明风险级 R4 都走双人审批。
+   * 未注入 GovernancePolicyService（单测/降级）时回落声明风险级 R4。
+   */
+  private async _requiresApproval(name: string): Promise<boolean> {
+    const riskLevel = this.toolRegistry.riskLevel(name);
+    if (!this.governancePolicy) return riskLevel === 'R4';
+    return this.governancePolicy.requiresApproval(name, riskLevel);
   }
 
   /** §22.16 A-5 Explainable Authorization 已拆至 AuthorizationExplainerService（阶段 2 切环） */
@@ -650,6 +660,9 @@ export class AiService {
     const tools = policy?.tools ?? {};
     return this.toolRegistry.getAllTools().map((tool) => {
       const override = tools[tool.name] ?? {};
+      const riskLevel = this.toolRegistry.riskLevel(tool.name);
+      // §22.15(4)：生效门控档位（策略 mode > legacy 布尔 > 声明风险级）；R5 恒 'blocked'
+      const mode = effectiveGateMode(override, riskLevel);
       return {
         name: tool.name,
         description: tool.description,
@@ -659,12 +672,13 @@ export class AiService {
           required: p.required,
         })),
         enabled: override.enabled ?? true,
-        requiresConfirmation:
-          override.requiresConfirmation ?? tool.requiresConfirmation ?? false,
+        requiresConfirmation: mode === 'confirm' || mode === 'approval',
+        requiresApproval: mode === 'approval',
+        gateMode: mode,
         allowedRoles: override.allowedRoles ?? [],
         permissions: tool.permissions ?? null,
-        riskLevel: this.toolRegistry.riskLevel(tool.name),
-        riskStrategy: RISK_STRATEGY[this.toolRegistry.riskLevel(tool.name)],
+        riskLevel,
+        riskStrategy: RISK_STRATEGY[riskLevel],
       };
     });
   }
@@ -1253,8 +1267,9 @@ export class AiService {
             // HS-6：本会话已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
             if (trustedTools.has(tc.name)) {
               result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
-            } else if (this.toolRegistry.riskLevel(tc.name) === 'R4') {
+            } else if (await this._requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
+              // §22.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
               const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
               yield {
                 type: 'confirmation_request',

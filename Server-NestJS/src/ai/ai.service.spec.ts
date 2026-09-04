@@ -1598,6 +1598,21 @@ describe('AiService', () => {
       expect(inv[0].riskLevel).toBe('R4');
       expect(inv[0].riskStrategy).toBe('human_approval');
       expect(inv[0].requiresConfirmation).toBe(true);
+      // §22.15(4)：R4 声明 → 生效档位 approval + 需审批
+      expect(inv[0].gateMode).toBe('approval');
+      expect(inv[0].requiresApproval).toBe(true);
+    });
+
+    it('getToolInventory：策略 mode=approval 把 R3 工具升档为审批档（§22.15(4)）', async () => {
+      (aiService as any).governancePolicy = {
+        getPolicy: jest.fn().mockResolvedValue({ tools: { create_customer: { mode: 'approval' } } }),
+      };
+      mockToolRegistry.getAllTools.mockReturnValue([{ name: 'create_customer', description: 'd', parameters: [] }] as any);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      const inv = await aiService.getToolInventory();
+      expect(inv[0].requiresApproval).toBe(true);
+      expect(inv[0].gateMode).toBe('approval');
+      expect(inv[0].requiresConfirmation).toBe(true);
     });
 
     it('getProxyIntegrationStatus：未配置 → configured:false', async () => {
@@ -1859,6 +1874,17 @@ describe('AiService', () => {
     it('_requiresConfirmation：治理策略覆盖工具默认', async () => {
       (aiService as any).governancePolicy = { requiresConfirmation: jest.fn().mockResolvedValue(true) };
       await expect((aiService as any)._requiresConfirmation('query_events')).resolves.toBe(true);
+    });
+
+    it('_requiresApproval：声明 R4→true；R3→false；无策略回落声明；策略 mode 可升档（§22.15(4)）', async () => {
+      (aiService as any).governancePolicy = undefined;
+      mockToolRegistry.riskLevel.mockReturnValue('R4');
+      await expect((aiService as any)._requiresApproval('review_approval_request')).resolves.toBe(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      await expect((aiService as any)._requiresApproval('create_event')).resolves.toBe(false);
+      (aiService as any).governancePolicy = { requiresApproval: jest.fn().mockResolvedValue(true) };
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      await expect((aiService as any)._requiresApproval('create_event')).resolves.toBe(true);
     });
 
     it('getToolInventory：治理策略覆盖开关', async () => {

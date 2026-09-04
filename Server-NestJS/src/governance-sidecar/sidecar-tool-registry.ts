@@ -5,8 +5,8 @@
  *
  * 纯逻辑、无 IO，便于单测：
  * - 工具风险级来源：SIDECAR_TOOLS（业务系统工具清单，name → riskLevel）
- * - 策略覆盖来源：治理台 GET /external/governance/policy（enabled / requiresConfirmation 覆盖）
- * - 决策：R5 阻断 / R3-R4 确认 / R0-R2 自动；策略可强制确认或禁用
+ * - 策略覆盖来源：治理台 GET /external/governance/policy（enabled / requiresConfirmation / mode 覆盖）
+ * - 决策：R5 阻断 / R3-R4 确认 / R0-R2 自动；策略可强制确认/放宽（§22.15(4) mode）或禁用
  */
 
 export interface SidecarToolDef {
@@ -18,6 +18,8 @@ export interface SidecarToolDef {
 export interface ToolOverride {
   enabled?: boolean;
   requiresConfirmation?: boolean;
+  /** §22.15(4) 门控档位覆盖：auto 放宽 / confirm·approval 强制确认（approval 在 sidecar 仍回落确认信号，双人审批在主控制面） */
+  mode?: 'auto' | 'confirm' | 'approval';
 }
 
 export type ToolDecision =
@@ -53,6 +55,7 @@ export class SidecarToolRegistry {
    * 门控决策（协议 §4.3 治理管线在 sidecar 的落点）：
    *   R5 → block（不可逆/外部动作，直接阻断）
    *   策略 enabled=false → block
+   *   策略 mode/requiresConfirmation 覆盖（§22.15(4)：auto 放宽 / confirm·approval 强制确认）
    *   R3/R4 或策略 requiresConfirmation=true → confirm
    *   其余（R0-R2）→ auto
    */
@@ -65,8 +68,22 @@ export class SidecarToolRegistry {
     if (risk === 'R5') {
       return { decision: 'block', risk, reason: 'R5 irreversible/external action' };
     }
-    if (override?.requiresConfirmation === true) {
-      return { decision: 'confirm', risk, reason: 'governance policy requires confirmation' };
+    if (override?.mode === 'auto' || override?.requiresConfirmation === false) {
+      return { decision: 'auto', risk };
+    }
+    if (
+      override?.mode === 'confirm' ||
+      override?.mode === 'approval' ||
+      override?.requiresConfirmation === true
+    ) {
+      return {
+        decision: 'confirm',
+        risk,
+        reason:
+          override?.mode === 'approval'
+            ? 'governance policy requires approval gate'
+            : 'governance policy requires confirmation',
+      };
     }
     if (risk === 'R3' || risk === 'R4') {
       return { decision: 'confirm', risk, reason: `${risk} business-sensitive/high-impact write` };

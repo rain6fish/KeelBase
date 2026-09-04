@@ -228,6 +228,10 @@ export interface AdminAiTool {
   parameters: Array<{ name: string; type: string; required: boolean }>
   enabled: boolean
   requiresConfirmation: boolean
+  /** §22.15(4) R4 审批档（双人审批）：true 表示需审批人而非本人即时确认 */
+  requiresApproval?: boolean
+  /** §22.15(4) 生效门控档位：auto | confirm | approval | blocked（R5 恒阻断） */
+  gateMode?: 'auto' | 'confirm' | 'approval' | 'blocked'
   allowedRoles: string[]
   /** W5 Risk-based Tool Contract：R0-R5 风险级 + 策略（auto/policy/confirmation/human_approval/block） */
   riskLevel?: string

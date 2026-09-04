@@ -1,7 +1,7 @@
 # HS-9 治理策略化 — 功能规格说明 (Spec) / HS-9 Governance-as-Policy — Functional Specification
 
-> 版本：v1.0
-> Version: v1.0
+> 版本：v1.1（§22.15(4) 治理策略可视化编辑扩展：门控档位 mode + R4 审批策略化 + 差异化保存）
+> Version: v1.1 (§22.15(4) visual policy editing: gate-mode `mode` + policy-driven R4 approval + diff-save)
 
 > 基于：私有 roadmap「HS 系列（业务安全的 Agent harness）」章节
 > Based on: "HS series (business-safe Agent harness)" section of the private roadmap
@@ -41,6 +41,7 @@ The policy lives in its own `ai_governance_policy` table (held by the governance
   "tools": {
     "create_event": { "enabled": false },
     "create_todo": { "requiresConfirmation": false },
+    "create_customer": { "mode": "approval" },
     "web_search": { "allowedRoles": ["admin"] }
   },
   "audit": { "granularity": "all" }
@@ -50,7 +51,8 @@ The policy lives in its own `ai_governance_policy` table (held by the governance
 | 字段 Field | 类型 Type | 说明 Description |
 |-----------|----------|------------------|
 | `tools.<name>.enabled` | boolean | 工具开关；`false` 禁用该工具（默认 `true`）。Tool on/off; `false` disables it (default `true`). |
-| `tools.<name>.requiresConfirmation` | boolean | 覆盖工具定义的确认规则（默认取工具定义）。Overrides the tool's declared confirmation rule (defaults to the tool definition). |
+| `tools.<name>.mode` | `"auto" \| "confirm" \| "approval"` | **§22.15(4) 门控档位覆盖**：`auto`=自动执行 / `confirm`=需本人确认(R3) / `approval`=需审批人双人审批(R4)。缺省 = 按工具声明风险级推导（R5→阻断、R4→approval、R3→confirm、R0-2→auto）。Gate-mode override: auto / confirm (R3) / approval (R4, two-person). Defaults derive from the tool's declared risk (R5→blocked, R4→approval, R3→confirm, R0-2→auto). |
+| `tools.<name>.requiresConfirmation` | boolean | **legacy**（HS-9 布尔确认覆盖）：§22.15(4) 起新保存改用 `mode`，本键保留以兼容解析旧数据/预设。`false`=降级到 auto；`true`（R0-2 工具）=提升到 confirm。Legacy boolean override (new saves use `mode`); kept for compatibility. |
 | `tools.<name>.allowedRoles` | string[] | 角色白名单；非空时仅列内角色可调，空数组=不限制。Role allowlist; when non-empty, only listed roles may call it; empty = unrestricted. |
 | `audit.granularity` | `"all" \| "write" \| "off"` | 审计粒度：`all`=对话+工具全记；`write`=只记工具/确认事件；`off`=不记 AI 审计。Audit granularity: `all`=log conversations+tools; `write`=log only tool/confirmation events; `off`=no AI audit. |
 
@@ -77,14 +79,16 @@ The `GET /api/v1/ai/tools` (admin) inventory response is extended:
   "parameters": [...],
   "enabled": false,
   "requiresConfirmation": true,
+  "requiresApproval": false,
+  "gateMode": "confirm",
   "allowedRoles": [],
   "permissions": { ... }
 }
 ```
 
-新增 `enabled`、`allowedRoles` 字段，`requiresConfirmation` 反映策略实际生效值。
+新增 `enabled`、`allowedRoles` 字段，`requiresConfirmation` / `requiresApproval` / `gateMode` 反映策略实际生效的**门控档位**（策略覆盖 mode > legacy 布尔 > 工具声明风险级推导；R5 工具 `gateMode: "blocked"`）。
 
-New `enabled` and `allowedRoles` fields; `requiresConfirmation` reflects the effective policy value.
+New `enabled` / `allowedRoles` fields; `requiresConfirmation` / `requiresApproval` / `gateMode` reflect the **effective gate mode** (policy `mode` > legacy boolean > declared-risk derivation; R5 tools report `gateMode: "blocked"`).
 
 ---
 
@@ -100,6 +104,12 @@ New `enabled` and `allowedRoles` fields; `requiresConfirmation` reflects the eff
    **Headless system account** (userId `0`): authenticated via headless API Key, role allowlist not re-applied; confirmation rules still apply.
 5. **子代理边界**：Sub-agent 不执行需确认的写工具（沿用工具定义默认，策略放宽免确认不影响子代理的安全边界）。
    **Sub-agent boundary**: sub-agents never run write tools requiring confirmation (tool-definition default applies; policy relaxation to no-confirmation does not widen the sub-agent safety boundary).
+6. **门控档位（§22.15(4) 治理策略可视化编辑）**：生效档位 = 策略 `mode`（auto/confirm/approval）> legacy `requiresConfirmation` 布尔 > 工具声明风险级推导。**R4 审批档可由策略把任意 R3 及以下写工具升档/设置**——运行层 R4 双人审批分支（创建持久化审批请求、不阻塞 operator）改读策略档位，不再只认工具声明 R4；工具清单暴露 `gateMode`/`requiresApproval` 供管理台可视化。
+   **Gate mode (visual policy editor)**: effective mode = policy `mode` (auto/confirm/approval) > legacy `requiresConfirmation` boolean > declared-risk derivation. **The R4 two-person-approval gate can be policy-escalated onto any R3-or-lower write tool** — the runtime approval branch reads the policy tier instead of only the declared R4; the tool inventory exposes `gateMode`/`requiresApproval` for the console UI.
+7. **R5 不可放宽**：声明 R5（阻断）的工具恒阻断，策略/可视化编辑不可把其改为 auto/confirm/approval；策略中心对该行只读展示。
+   **R5 is immutable**: tools declared R5 (block) stay blocked regardless of policy; the policy editor shows them read-only.
+8. **差异化保存**：管理台保存只写入与工具默认不同的覆盖项（`enabled:false` / 档位≠声明 / `allowedRoles` 非空），未列出工具沿用声明默认——避免全量显式覆盖把未来默认升级卡死。
+   **Diff-save**: the console persists only overrides differing from defaults; unlisted tools keep declared defaults, so future default changes still propagate.
 
 ---
 

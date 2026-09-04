@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { GovernancePolicyService } from './governance-policy.service';
+import {
+  GovernancePolicyService,
+  declaredGateMode,
+  effectiveGateMode,
+} from './governance-policy.service';
 
 describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
   let service: GovernancePolicyService;
@@ -115,6 +119,64 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
     it('getAuditGranularity 返回配置值', async () => {
       mockRow(JSON.stringify({ audit: { granularity: 'off' } }));
       await expect(service.getAuditGranularity()).resolves.toBe('off');
+    });
+  });
+
+  describe('effectiveGateMode / declaredGateMode（§22.15(4) 门控档位）', () => {
+    it('声明风险级推导默认档：R5→blocked / R4→approval / R3→confirm / R0-R2→auto', () => {
+      expect(effectiveGateMode(undefined, 'R5')).toBe('blocked');
+      expect(declaredGateMode('R4')).toBe('approval');
+      expect(declaredGateMode('R3')).toBe('confirm');
+      expect(declaredGateMode('R2')).toBe('auto');
+      expect(declaredGateMode('R1')).toBe('auto');
+      expect(declaredGateMode('R0')).toBe('auto');
+    });
+
+    it('mode 覆盖优先于声明档位：可升档 R3→approval、R2→confirm，可降档 R4→auto', () => {
+      expect(effectiveGateMode({ mode: 'approval' }, 'R3')).toBe('approval');
+      expect(effectiveGateMode({ mode: 'confirm' }, 'R2')).toBe('confirm');
+      expect(effectiveGateMode({ mode: 'auto' }, 'R4')).toBe('auto');
+    });
+
+    it('R5 恒 blocked：即使写了 mode 覆盖也不可放宽', () => {
+      expect(effectiveGateMode({ mode: 'auto' }, 'R5')).toBe('blocked');
+      expect(effectiveGateMode({ mode: 'confirm' }, 'R5')).toBe('blocked');
+    });
+
+    it('legacy requiresConfirmation 布尔兼容：false→auto（降级）；true 在 R2 工具上→confirm', () => {
+      expect(effectiveGateMode({ requiresConfirmation: false }, 'R4')).toBe('auto');
+      expect(effectiveGateMode({ requiresConfirmation: false }, 'R3')).toBe('auto');
+      expect(effectiveGateMode({ requiresConfirmation: true }, 'R2')).toBe('confirm');
+      expect(effectiveGateMode({ requiresConfirmation: true }, 'R4')).toBe('approval');
+    });
+  });
+
+  describe('resolveGateMode / requiresApproval / requiresConfirmation（§22.15(4) 档位读策略）', () => {
+    it('无覆盖时按声明：R4→approval / R3→confirm', async () => {
+      mockRow(null);
+      await expect(service.resolveGateMode('review_approval_request', 'R4')).resolves.toBe('approval');
+      await expect(service.requiresApproval('review_approval_request', 'R4')).resolves.toBe(true);
+      await expect(service.resolveGateMode('create_event', 'R3')).resolves.toBe('confirm');
+      await expect(service.requiresApproval('create_event', 'R3')).resolves.toBe(false);
+    });
+
+    it('策略把 R3 工具升档 approval → 判为需审批', async () => {
+      mockRow(JSON.stringify({ tools: { create_customer: { mode: 'approval' } } }));
+      await expect(service.resolveGateMode('create_customer', 'R3')).resolves.toBe('approval');
+      await expect(service.requiresApproval('create_customer', 'R3')).resolves.toBe(true);
+    });
+
+    it('策略把 R4 工具降档 confirm/auto → 不再走审批', async () => {
+      mockRow(JSON.stringify({ tools: { review_approval_request: { mode: 'auto' } } }));
+      await expect(service.resolveGateMode('review_approval_request', 'R4')).resolves.toBe('auto');
+      await expect(service.requiresApproval('review_approval_request', 'R4')).resolves.toBe(false);
+    });
+
+    it('requiresConfirmation（模式）在档位下正确：approval/confirm→需确认，auto→免确认', async () => {
+      mockRow(JSON.stringify({ tools: { a: { mode: 'approval' }, b: { mode: 'auto' } } }));
+      await expect(service.requiresConfirmation('a', false)).resolves.toBe(true);
+      await expect(service.requiresConfirmation('b', true)).resolves.toBe(false);
+      await expect(service.requiresConfirmation('legacy_off', true)).resolves.toBe(true);
     });
   });
 });

@@ -81,16 +81,15 @@ beforeEach(() => {
 })
 
 describe('AiToolsView', () => {
-  it('挂载 → 并行加载工具清单 + 治理策略 + 副作用', async () => {
+  it('挂载 → 加载工具清单 + 副作用（治理策略编辑已收敛至策略中心）', async () => {
     toolsMock.mockResolvedValue([tool])
-    policyMock.mockResolvedValue('{"tools":{},"audit":{"granularity":"all"}}')
     effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
 
     mountView()
     await flushPromises()
 
     expect(toolsMock).toHaveBeenCalledTimes(1)
-    expect(policyMock).toHaveBeenCalledTimes(1)
+    expect(policyMock).not.toHaveBeenCalled()
     expect(effectsMock).toHaveBeenCalledWith(undefined, 1, 20)
   })
 
@@ -103,26 +102,8 @@ describe('AiToolsView', () => {
     expect(errorMock).toHaveBeenCalledWith('工具服务异常')
   })
 
-  it('保存治理策略 → savePolicy + success + 重新加载', async () => {
-    toolsMock.mockResolvedValue([tool])
-    policyMock.mockResolvedValue(undefined)
-    effectsMock.mockResolvedValue({ total: 0, page: 1, limit: 20, items: [] })
-    savePolicyMock.mockResolvedValue(null)
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    await wrapper.findAll('.el-button--primary')[0].trigger('click')
-    await flushPromises()
-
-    expect(savePolicyMock).toHaveBeenCalledTimes(1)
-    expect(successMock).toHaveBeenCalledWith('治理策略已保存，实时生效')
-    expect(toolsMock).toHaveBeenCalledTimes(2)
-  })
-
   it('撤销副作用确认 → revokeEffect(id) + success + 刷新', async () => {
     toolsMock.mockResolvedValue([tool])
-    policyMock.mockResolvedValue(undefined)
     effectsMock.mockResolvedValue({
       total: 1,
       page: 1,
