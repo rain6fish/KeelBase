@@ -26,6 +26,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
+import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -61,6 +62,7 @@ export class AiController {
     private readonly decisionTraceService: DecisionTraceService,
     private readonly governancePolicy: GovernancePolicyService,
     private readonly businessHistoryService: BusinessHistoryService,
+    private readonly trustSandbox: TrustSandboxService,
   ) {}
 
   /**
@@ -304,6 +306,26 @@ export class AiController {
     return this.aiService.getProxyIntegrationStatus();
   }
 
+  /** Trust 沙盘（roadmap §22.15 可视化 P0）：场景清单 */
+  @Get('trust-sandbox/scenarios')
+  @ApiOperation({ summary: 'Trust 沙盘：场景清单（本人）' })
+  getTrustSandboxScenarios() {
+    return this.trustSandbox.scenarios;
+  }
+
+  /** Trust 沙盘：工作台一键重放 Trust 六场景（本人身份，确定性 demo provider） */
+  @Post('trust-sandbox/run/:scenarioId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Trust 沙盘：运行场景（本人）' })
+  async runTrustSandbox(
+    @Param('scenarioId') scenarioId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+      this.trustSandbox.run(scenarioId, String(user.sub)),
+    );
+  }
+
   /**
    * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
    */
@@ -439,6 +461,20 @@ export class AiController {
     const result = await this.toolEffectsService.revoke(id);
     if (!result) throw new NotFoundException('副作用记录不存在');
     return result;
+  }
+
+  /**
+   * AI Action Center（§22.17 北极星用户侧，docs/ai-action-center.spec.md）：本人 AI 写副作用清单。
+   * 本人作用域（service listOwned where userId）；无 admin 策略；数据最小化不回显 args/快照。
+   */
+  @Get('my/tool-effects')
+  @ApiOperation({ summary: '我的 AI 写副作用清单（本人，AI Action Center）' })
+  async listMyToolEffects(
+    @CurrentUser() user: JwtPayload,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.toolEffectsService.listOwned(String(user.sub), { page, limit });
   }
 
   /**

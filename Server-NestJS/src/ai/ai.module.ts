@@ -76,6 +76,7 @@ import { SecurityShowcaseService } from './security-showcase/security-showcase.s
 import { SecurityShowcaseController } from './security-showcase/security-showcase.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
 import { DecisionTraceService } from './trace/decision-trace.service';
@@ -163,6 +164,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiEvalService,
     SecurityShowcaseService,
     AiToolEffectsService,
+    // Trust 沙盘（roadmap §22.15 可视化 P0）：工作台一键重放 Trust 六场景
+    TrustSandboxService,
     SideEffectSnapshotCaptor,
     ContentSafetyService,
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
