@@ -3,63 +3,6 @@
   <div>
     <PageHeader :title="t('navAiTools')" />
 
-    <!-- HS-9 治理策略（写 Settings 实时生效） -->
-    <el-card shadow="never" class="mb-4">
-      <template #header>
-        <div class="d-flex align-center justify-space-between">
-          <span>{{ t('governancePolicy') }}</span>
-          <div>
-            <el-button text :disabled="saving" @click="loadAll()">
-              <template #icon><AppIcon icon="mdi-restore" /></template>
-              {{ t('resetPolicy') }}
-            </el-button>
-            <el-button type="primary" :loading="saving" @click="onSavePolicy()">
-              <template #icon><AppIcon icon="mdi-content-save" /></template>
-              {{ t('savePolicy') }}
-            </el-button>
-          </div>
-        </div>
-      </template>
-      <div class="text-caption text-medium-emphasis mb-3">{{ t('policyHint') }}</div>
-      <el-radio-group v-model="granularity" class="mb-2">
-        <el-radio value="all">{{ t('auditAll') }}</el-radio>
-        <el-radio value="write">{{ t('auditWrite') }}</el-radio>
-        <el-radio value="off">{{ t('auditOff') }}</el-radio>
-      </el-radio-group>
-      <table v-if="rows.length" class="w-100 border">
-        <thead>
-          <tr>
-            <th class="pa-2 text-left">{{ t('tool') }}</th>
-            <th class="text-center pa-2">{{ t('riskLevel') }}</th>
-            <th class="text-center pa-2">{{ t('enabled') }}</th>
-            <th class="text-center pa-2">{{ t('requiresConfirmation') }}</th>
-            <th class="pa-2 text-left">{{ t('allowedRoles') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.name">
-            <td class="pa-2">
-              <div class="font-weight-medium">{{ row.name }}</div>
-              <div class="text-caption text-medium-emphasis">{{ row.description }}</div>
-            </td>
-            <td class="text-center pa-2">
-              <el-tag v-if="toolRisk[row.name]" :type="riskTag(toolRisk[row.name]).type" size="small" effect="light">
-                {{ toolRisk[row.name].riskLevel }} · {{ riskTag(toolRisk[row.name]).label }}
-              </el-tag>
-            </td>
-            <td class="text-center pa-2"><el-switch v-model="row.enabled" /></td>
-            <td class="text-center pa-2"><el-switch v-model="row.requiresConfirmation" style="--el-switch-on-color: var(--el-color-warning)" /></td>
-            <td class="pa-2" style="max-width: 240px">
-              <el-select v-model="row.allowedRoles" multiple clearable :placeholder="t('noRestriction')">
-                <el-option v-for="o in roleOptions" :key="o.value" :label="o.title" :value="o.value" />
-              </el-select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
-    </el-card>
-
     <!-- N-6 AI-23 内容安全配置（Settings ai_content_safety，实时生效） -->
     <el-card shadow="never" class="mb-4">
       <template #header>
@@ -200,10 +143,8 @@ import FieldDiff from '@/components/FieldDiff.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
-import { buildGovernancePolicy, parseGovernancePolicy } from '@/utils/governance'
 import { formatTime } from '@/utils/format'
 import type { AdminAiTool, ToolEffect } from '@/types/admin'
-import type { AuditGranularity, PolicyToolState } from '@/utils/governance'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
@@ -219,17 +160,9 @@ const effectUserId = ref<number | undefined>(undefined)
 const diffTarget = ref<ToolEffect | null>(null)
 const showDiffDialog = ref(false)
 
-// HS-9 治理策略编辑状态
-const rows = ref<PolicyToolState[]>([])
-const granularity = ref<AuditGranularity>('all')
-const saving = ref(false)
 // N-6 内容安全配置编辑状态（textarea 用文本，保存时 split）
 const contentSafety = ref<{ enabled: boolean; sensitiveText: string; jailbreakText: string }>({ enabled: true, sensitiveText: '', jailbreakText: '' })
 const savingSafety = ref(false)
-const roleOptions = computed(() => [
-  { title: t('roleUser'), value: 'user' },
-  { title: t('roleAdmin'), value: 'admin' },
-])
 
 const resultTypeMap = computed(() => ({ event: t('events'), todo: t('todos') }))
 const effectStatusMap = computed(() => ({ ok: t('active'), cancelled: t('cancelled'), down: t('deleted') }))
@@ -261,12 +194,6 @@ function riskTag(tool: AdminAiTool) {
   if (lv === 'R3') return { label: t('riskConfirm'), type: 'warning' as const }
   return { label: t('riskAuto'), type: 'success' as const }
 }
-/** 工具名 → 风险级（治理表只读列用） */
-const toolRisk = computed(() => {
-  const m: Record<string, AdminAiTool> = {}
-  for (const t of tools.value) m[t.name] = t
-  return m
-})
 
 const effectHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
@@ -280,36 +207,12 @@ const effectHeaders = computed(() => [
   { key: 'actions', title: t('actionCol') },
 ])
 
-/** 加载工具清单 + 治理策略，初始化编辑区（清单返回合并默认后的生效状态）。 */
-async function loadAll() {
+/** 加载工具清单（治理策略编辑已收敛至独立「策略中心」，不在此维护双编辑器）。 */
+async function loadTools() {
   try {
-    const [toolList, rawPolicy] = await Promise.all([aiToolsApi.tools(), aiToolsApi.policy()])
-    tools.value = toolList
-    const policy = parseGovernancePolicy(rawPolicy)
-    rows.value = toolList.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      enabled: tool.enabled,
-      requiresConfirmation: tool.requiresConfirmation,
-      allowedRoles: tool.allowedRoles ?? [],
-    }))
-    granularity.value = policy.audit.granularity
+    tools.value = await aiToolsApi.tools()
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
-  }
-}
-
-async function onSavePolicy() {
-  saving.value = true
-  try {
-    const policy = buildGovernancePolicy(rows.value, granularity.value)
-    await aiToolsApi.savePolicy(JSON.stringify(policy))
-    snackbar.success(t('policySaved'))
-    await loadAll()
-  } catch (err) {
-    snackbar.error(err instanceof Error ? err.message : t('policySaveFailed'))
-  } finally {
-    saving.value = false
   }
 }
 
@@ -388,7 +291,7 @@ async function onRevoke() {
 }
 
 onMounted(() => {
-  loadAll()
+  loadTools()
   loadEffects()
   loadContentSafety()
 })
