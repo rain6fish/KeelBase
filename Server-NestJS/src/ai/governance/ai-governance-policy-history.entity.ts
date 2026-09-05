@@ -23,8 +23,8 @@ export class AiGovernancePolicyHistory {
   @Column({ type: 'text' })
   value!: string;
 
-  /** 写入时间（= setPolicy 时点） */
-  @Column({ type: 'datetime', name: 'applied_at' })
+  /** 写入时间（= setPolicy 时点）。不写死方言类型：sqlite→datetime / postgres→timestamp，避免 pg 启动 metadata 校验报 DataTypeNotSupported */
+  @Column({ name: 'applied_at' })
   appliedAt!: Date;
 
   @CreateDateColumn({ name: 'created_at' })
