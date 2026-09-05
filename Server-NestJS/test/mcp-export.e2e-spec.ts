@@ -164,6 +164,39 @@ describe('MCP Export (HS-10 / AR-2) e2e', () => {
     expect(entries.some((e) => e.provider === 'mcp' && (e.detail ?? '').includes('create_event'))).toBe(true);
   });
 
+  it('T5 tools/call 授权拒绝（普通用户调 adminOnly 工具）→ deny 审计落库 authorization=JSON(reasons)', async () => {
+    const res = await post({
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'tools/call',
+      params: { name: 'navigate_admin_page', arguments: {} },
+    }).expect(201);
+    // deny → JSON-RPC error，message 为拒绝语义（admin-only/disabled 等），而非「需确认」门控提示
+    expect(res.body.error?.code).toBe(-32603);
+    expect(res.body.error?.message ?? '').not.toContain('requires confirmation');
+
+    const r2 = await request(app.getHttpServer())
+      .get('/api/v1/audit/logs')
+      .query({ userId: String(mcpUserId) })
+      .set(authHeader(adminToken))
+      .expect(200);
+    const entries: Array<{
+      provider: string | null;
+      action: string;
+      detail: string | null;
+      isError: boolean;
+      authorization: string | null;
+    }> = r2.body.data;
+    const deny = entries.find(
+      (e) => e.provider === 'mcp' && (e.detail ?? '').includes('authorization denied'),
+    );
+    expect(deny).toBeDefined();
+    expect(deny!.isError).toBe(true);
+    const reasons = JSON.parse(deny!.authorization ?? '[]');
+    expect(Array.isArray(reasons)).toBe(true);
+    expect(reasons.some((r: { ok: boolean }) => r.ok === false)).toBe(true);
+  });
+
   it('未知方法 → -32601', async () => {
     const res = await post({ jsonrpc: '2.0', id: 7, method: 'bogus' }).expect(201);
     expect(res.body.error.code).toBe(-32601);

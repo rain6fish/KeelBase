@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { McpExportController } from './mcp.controller';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
+import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 
 describe('McpExportController (HS-10)', () => {
   let controller: McpExportController;
@@ -139,6 +140,36 @@ describe('McpExportController (HS-10)', () => {
     });
     expect((res as any).error.code).toBe(-32603);
     expect((res as any).error.message).toContain('disabled by policy');
+  });
+
+  it('T5 tools/call 授权拒绝 → 写 deny 审计（authorization 序列化 reasons）+ -32603 原始文案', async () => {
+    const reasons = [
+      { name: 'policy', ok: false, note: 'tool disabled by governance policy' },
+      { name: 'risk_level', ok: true },
+    ];
+    ai.executeToolForExternal.mockRejectedValue(new AuthorizationDeniedError('无权访问此工具', reasons));
+    const res = await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: { name: 'create_event', arguments: { title: 'x' } },
+    });
+    // deny 分支只记一次审计，authorization 带结构化 reasons（对齐 REST/SSE deny 分支形状）
+    expect(audit.log).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: '1',
+        username: 'alex',
+        action: 'tool_call',
+        provider: 'mcp',
+        isError: true,
+        errorMessage: '无权访问此工具',
+        detail: expect.stringContaining('authorization denied'),
+        authorization: JSON.stringify(reasons),
+      }),
+    );
+    expect((res as any).error.code).toBe(-32603);
+    expect((res as any).error.message).toBe('无权访问此工具');
   });
 
   it('通知类方法无响应', async () => {
