@@ -9,6 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
+import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Raw } from '../common/decorators/raw.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -128,14 +129,34 @@ export class McpExportController {
     const toolArgs = (parsed.params?.arguments ?? {}) as Record<string, unknown>;
     const userId = String(user.sub);
 
-    const out = await this.aiService.executeToolForExternal(toolName, toolArgs, userId);
+    let out;
+    try {
+      out = await this.aiService.executeToolForExternal(toolName, toolArgs, userId);
+    } catch (e) {
+      // T5 跨入口一致：MCP deny 也写审计 + 结构化 reasons（对齐 REST/SSE deny 分支 ai.service：authorization=JSON.stringify(reasons)）
+      if (e instanceof AuthorizationDeniedError) {
+        await this.auditService.log({
+          userId,
+          username: user.username,
+          action: 'tool_call',
+          detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)}) — authorization denied`,
+          provider: 'mcp',
+          isError: true,
+          errorMessage: e.message,
+          authorization: JSON.stringify(e.reasons),
+        });
+        return this._error(id, -32603, e.message);
+      }
+      throw e;
+    }
 
     // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源；username 快照 D2-1c——非 actor 路径，显式带出）
     await this.auditService.log({
       userId,
       username: user.username,
       action: 'tool_call',
-      detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)})`,
+      // T5：确认门控（未执行）在 detail 标注，可被审计辨识（区别于普通读/成功写）
+      detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)})${out.executed ? '' : ' — requiresConfirmation, not executed'}`,
       provider: 'mcp',
       isError: out.executed ? !out.result?.success : false,
       errorMessage: out.executed && !out.result?.success ? out.result?.error : undefined,
