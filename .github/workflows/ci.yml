@@ -19,8 +19,8 @@ jobs:
       run:
         working-directory: Server-NestJS
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -35,7 +35,7 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: gitleaks
@@ -52,8 +52,8 @@ jobs:
       run:
         working-directory: Server-NestJS
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -92,8 +92,8 @@ jobs:
       run:
         working-directory: Server-NestJS
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -139,8 +139,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -154,17 +154,9 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           DB_NAME: keelbase_ci
-        run: |
-          export ENCRYPTION_KEY=$(openssl rand -hex 32)
-          export ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)
-          npm run migration:run
-          # migration:generate 对「无变化」返回退出码 1；同 sqlite job 用 || true + 文件判断
-          OUTPUT=$(npm run migration:generate -- src/migrations/_PgConsistencyCheck 2>&1 || true)
-          echo "$OUTPUT"
-          if ls src/migrations/*_PgConsistencyCheck* 2>/dev/null; then
-            echo "::error::postgres 实体新增了未迁移的变更，请运行 migration:generate 提交迁移"
-            exit 1
-          fi
+        # 复用 scripts/check-pg-migration-consistency.mjs（本地 npm run migration:consistency:pg 同源，
+        # 消除 CI/本地两处逻辑漂移——sqlite 绿不代表 pg 无漂移，本脚本是 pg 方言防线）
+        run: node scripts/check-pg-migration-consistency.mjs
 
   build:
     runs-on: ubuntu-latest
@@ -172,8 +164,8 @@ jobs:
       run:
         working-directory: Server-NestJS
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -185,8 +177,8 @@ jobs:
   core-boundary:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-core-boundary.mjs
@@ -196,8 +188,8 @@ jobs:
   protocol-conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
@@ -206,8 +198,8 @@ jobs:
   cli-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node --test scripts/keelbase-init.test.mjs
@@ -220,8 +212,8 @@ jobs:
   stranger-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -239,8 +231,8 @@ jobs:
       run:
         working-directory: Server-NestJS
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -263,8 +255,8 @@ jobs:
   release-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -296,8 +288,8 @@ jobs:
     env:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -322,8 +314,8 @@ jobs:
       run:
         working-directory: Web-Admin-Vue
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -349,8 +341,8 @@ jobs:
       run:
         working-directory: Web-Admin-React
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -368,8 +360,8 @@ jobs:
       run:
         working-directory: Front-Taro
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -385,7 +377,7 @@ jobs:
       run:
         working-directory: Front-Flutter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'

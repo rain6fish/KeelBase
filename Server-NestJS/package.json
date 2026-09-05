@@ -22,6 +22,7 @@
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/typeorm-data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/typeorm-data-source.ts",
+    "migration:consistency:pg": "node scripts/check-pg-migration-consistency.mjs",
     "backup": "ts-node scripts/backup.ts",
     "restore": "ts-node scripts/restore.ts",
     "create:admin": "ts-node scripts/create-admin.ts",
