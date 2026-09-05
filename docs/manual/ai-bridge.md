@@ -103,6 +103,8 @@ OpenAPI（含 operations + securitySchemes）
 
 **✅ 运行时撤销调用（2026-08-24）**：副作用撤销时若工具配置带 `revokePath` → `ProxyToolRevokerService`（ai.module useFactory 组装，注入 AiToolEffectsService）从已注册 ProxyTool 取 baseUrl/audience/revokePath + 签发委托 token → HTTP 调补偿端点（`{id}` 占位=副作用 resultId）。撤销结果 `{ revoked:true, external:true, compensated:true, message:'Java 端已补偿（POST /contracts/…/cancel）' }`；未配置 revokePath → `{ revoked:false, external:true, message:'…需 Java 端补偿接口' }`（诚实语义）。proxy-bridge e2e 5/5 覆盖。
 
+**✅ 服务身份查询副作用状态（2026-09-02，`GET /api/v1/external/effects/:resultType/:resultId`）**：Java 接入方反向对账——查某业务动作（如 `followup/7`）的 AI 副作用是否存在 + 是否已撤销。认证 `GOVERNANCE_API_KEY`（x-api-key/Bearer，同治理台回调钥）。返回 `{ effect, target:{targetExists,targetSoftDeleted,targetTitle}, revoked, revokeHint? }`；本地实体 `revoked = targetSoftDeleted`（撤销真值在主应用，治理库无业务实体）；B 路径 `proxy_call` 主库 effect 无撤销列、撤销经 Java 补偿端点 → `revokeHint` 明示「撤销态需在 Java 侧确认」（诚实边界）。starter 侧 `KeelbaseClient.querySideEffect` 封装。
+
 ---
 
 ## 5. 身份 / 权限桥接（✅ KeelBase 侧落地 + ✅ Java 侧由 keelbase-java-starter 封装）
