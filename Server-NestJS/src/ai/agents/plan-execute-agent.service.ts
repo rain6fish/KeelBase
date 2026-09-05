@@ -12,7 +12,15 @@ import {
   LlmProvider,
   ToolCall,
 } from '../interfaces/llm-provider.interface';
+import { ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
+
+/** 只读门控执行器：由 AiService 注入（_assertToolAllowed + 只读强制），缺省回落直调 registry.execute。 */
+export type ReadOnlyToolExecutor = (
+  toolName: string,
+  args: Record<string, unknown>,
+  userId: string,
+) => Promise<ToolResult>;
 
 interface PlanStep {
   description: string;
@@ -52,6 +60,7 @@ export class PlanExecuteAgent {
     toolRegistry: ToolRegistry,
     userId: string,
     model?: string,
+    readOnlyExecutor?: ReadOnlyToolExecutor,
   ): Promise<{ content: string; stepResults: string[] }> {
     // Step 1: 让 LLM 生成执行计划
     const planResult = await provider.generate({
@@ -76,6 +85,9 @@ export class PlanExecuteAgent {
     }
 
     // Step 2: 按顺序执行
+    // NC-3 只读门控：AiService 注入 readOnlyExecutor（_assertToolAllowed + 写工具拒绝）时经其执行，
+    // 防 LLM 计划的步骤直调写/被治理禁用的工具（Runtime over Prompt——prompt 只约束不执行）。
+    const execute = readOnlyExecutor ?? ((tool: string, args: Record<string, unknown>, uid: string) => toolRegistry.execute(tool, args, uid));
     const stepResults: string[] = new Array(steps.length).fill('');
 
     for (let i = 0; i < steps.length; i++) {
@@ -91,7 +103,7 @@ export class PlanExecuteAgent {
       }
 
       try {
-        const result = await toolRegistry.execute(step.tool, step.args, userId);
+        const result = await execute(step.tool, step.args, userId);
         stepResults[i] = result.success
           ? JSON.stringify(result.data)
           : `ERROR: ${result.error}`;

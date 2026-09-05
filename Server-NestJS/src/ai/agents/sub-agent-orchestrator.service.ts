@@ -15,6 +15,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { SkillsRegistry } from '../skills/skills-registry';
 import { SkillDefinition } from '../skills/skill.interface';
 import { SUB_AGENTS, SUB_AGENT_NAMES, SubAgentDefinition } from './sub-agent.types';
+import { ReadOnlyToolExecutor } from './plan-execute-agent.service';
 import { actorContext } from '../actor-context';
 
 export interface SubAgentTask {
@@ -67,6 +68,7 @@ export class SubAgentOrchestrator {
     toolRegistry: ToolRegistry;
     userId: string;
     model?: string;
+    readOnlyExecutor?: ReadOnlyToolExecutor;
   }): Promise<SubAgentOrchestratorResult> {
     // 1. 技能命中 → 固定任务组合；否则 LLM 分解
     const skill = this.skillsRegistry.match(params.userRequest);
@@ -145,6 +147,7 @@ export class SubAgentOrchestrator {
       toolRegistry: ToolRegistry;
       userId: string;
       model?: string;
+      readOnlyExecutor?: ReadOnlyToolExecutor;
     },
   ): Promise<string> {
     // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）
@@ -167,6 +170,7 @@ export class SubAgentOrchestrator {
       toolRegistry: ToolRegistry;
       userId: string;
       model?: string;
+      readOnlyExecutor?: ReadOnlyToolExecutor;
     },
   ): Promise<string> {
     const messages: ChatMessage[] = [{ role: 'system', content: agent.systemPrompt }];
@@ -218,7 +222,13 @@ export class SubAgentOrchestrator {
   private async executeSafe(
     tc: ToolCall,
     agent: SubAgentDefinition,
-    params: { provider: LlmProvider; toolRegistry: ToolRegistry; userId: string; model?: string },
+    params: {
+      provider: LlmProvider;
+      toolRegistry: ToolRegistry;
+      userId: string;
+      model?: string;
+      readOnlyExecutor?: ReadOnlyToolExecutor;
+    },
   ): Promise<{ success: boolean; data?: unknown; error?: string }> {
     // 安全守卫：只允许该子代理工具集内的只读工具
     if (!agent.tools.includes(tc.name) || params.toolRegistry.requiresConfirmation(tc.name)) {
@@ -226,7 +236,12 @@ export class SubAgentOrchestrator {
     }
     try {
       const args = JSON.parse(tc.arguments);
-      return await params.toolRegistry.execute(tc.name, args, params.userId);
+      // NC-3 只读门控：注入 executor 时经其执行（_assertToolAllowed + 写工具拒绝），
+      // 防治理策略禁用/角色受限的只读工具被子代理直调执行。
+      const execute =
+        params.readOnlyExecutor ??
+        ((tool: string, a: Record<string, unknown>, uid: string) => params.toolRegistry.execute(tool, a, uid));
+      return await execute(tc.name, args, params.userId);
     } catch {
       return { success: false, error: `Failed to execute tool "${tc.name}"` };
     }
