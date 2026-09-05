@@ -75,8 +75,9 @@
        resolve(__dirname, '../migrations/*AddAuditChainLock*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditUsername*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditPayloadVersion*').replace(/\\/g, '/'),
+       // NC-4：`*AddAiGovernancePolicy*` 前缀已覆盖 AddAiGovernancePolicyHistory（同前缀）——
+       // 单独列 History 会同一文件入列两次 → pg migration:run Duplicate migrations（2026-09-05 CI）
        resolve(__dirname, '../migrations/*AddAiGovernancePolicy*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiGovernancePolicyHistory*').replace(/\\/g, '/'),
      ],
    };
  } else {
