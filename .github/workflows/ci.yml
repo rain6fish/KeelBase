@@ -71,7 +71,7 @@ jobs:
           ENCRYPTION_HMAC_KEY: ${{ env.ENCRYPTION_HMAC_KEY }}
       # 覆盖率产物公开上传：第三方/选型核查可下载真实覆盖率（lcov），打破「覆盖率 0%」测量缺口
       - name: 上传后端覆盖率报告（lcov）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-backend
           path: Server-NestJS/coverage/lcov.info
@@ -245,7 +245,7 @@ jobs:
       # SBOM（SPDX）生成并上传，供供应链核查（npm sbom 输出到 stdout，重定向落盘；--output 不写文件）
       - name: 生成 SBOM
         run: npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: keelbase-sbom
           path: Server-NestJS/sbom.spdx.json
@@ -301,7 +301,7 @@ jobs:
       - name: 缺 key 跳过标注
         if: env.DEEPSEEK_API_KEY == ''
         run: echo "DEEPSEEK_API_KEY 未配置——Run/Adversarial 跳过（配置 secrets 后自动启用）"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: env.DEEPSEEK_API_KEY != ''
         with:
           name: adversarial-reports
@@ -327,7 +327,7 @@ jobs:
       # vitest + coverage 门槛（statements/branches/functions/lines ≥ 30/50/25/30，见 vitest.config.ts）
       - run: npx vitest run --coverage
       - name: 上传 Web 端覆盖率报告（lcov）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-web-admin
           path: Web-Admin-Vue/coverage/lcov.info
@@ -396,7 +396,7 @@ jobs:
             if (pct < 45) { print "Coverage below 45% threshold"; exit 1 }
           }' coverage/lcov.info
       - name: 上传 Flutter 覆盖率报告（lcov）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-flutter
           path: Front-Flutter/coverage/lcov.info
