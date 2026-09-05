@@ -2,17 +2,25 @@
 
 import { defineStore } from 'pinia'
 import { authApi, type MyPermissions } from '@/api/auth'
+import { ApiError } from '@/api/client'
 import { storage } from '@/utils/storage'
 import { PERMISSION_MAP } from '@/constants/permissions'
 import type { AuthUser } from '@/types/api'
 
 export type AuthStatus = 'initial' | 'loading' | 'authenticated' | 'unauthenticated'
 
+export interface LoginErrorDetails {
+  reason?: string
+  impact?: string
+  nextStep?: string
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     status: 'initial' as AuthStatus,
     user: null as AuthUser | null,
     errorMessage: '',
+    loginDetails: null as LoginErrorDetails | null,
     permissions: null as MyPermissions | null,
   }),
   getters: {
@@ -65,6 +73,8 @@ export const useAuthStore = defineStore('auth', {
       } catch (err) {
         this.status = 'unauthenticated'
         this.errorMessage = err instanceof Error ? err.message : '登录失败'
+        // NC-2：登录失败带可执行指引（EMAIL_NOT_VERIFIED「查收邮箱」/ ACCOUNT_LOCKED「等解锁」等）
+        this.loginDetails = err instanceof ApiError ? { reason: err.reason, impact: err.impact, nextStep: err.nextStep } : null
         return false
       }
     },

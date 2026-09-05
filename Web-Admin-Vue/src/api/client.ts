@@ -22,6 +22,12 @@ export class ApiError extends Error {
   statusCode: number
   errorCode?: string
   errors?: Record<string, string[]>
+  /** NC-2：为什么（后端按 Accept-Language 返回，缺省无） */
+  reason?: string
+  /** NC-2：影响 */
+  impact?: string
+  /** NC-2：下一步怎么办 */
+  nextStep?: string
 
   constructor(message: string, statusCode: number, errorCode?: string, errors?: Record<string, string[]>) {
     super(message)
@@ -29,6 +35,11 @@ export class ApiError extends Error {
     this.errorCode = errorCode
     this.errors = errors
   }
+}
+
+/** NC-2：错误带可执行指引（reason/impact/nextStep 任一存在）→ 前端走错误卡而非单句 toast */
+export function isActionableApiError(err: unknown): boolean {
+  return err instanceof ApiError && !!(err.reason || err.impact || err.nextStep)
 }
 
 /** 后端业务错误码判断：写操作邮箱未验证 403 */
@@ -71,6 +82,9 @@ const instance: AxiosInstance = axios.create({
 })
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // NC-2：让后端按用户语言返回 message/reason/impact/nextStep（后端 Accept-Language 协商）
+  const locale = typeof localStorage !== 'undefined' ? localStorage.getItem('locale') : null
+  config.headers['Accept-Language'] = locale === 'zh' ? 'zh-CN' : 'en-US'
   if (!isPublicEndpoint(config.url ?? '')) {
     const { accessToken } = storage.readTokens()
     if (accessToken) {
@@ -137,16 +151,22 @@ function guidanceFor(deniedBy?: string): string {
 function normalizeError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   const axiosErr = error as {
-    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]>; explanation?: { deniedBy?: string } } }
+    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]>; explanation?: { deniedBy?: string }; reason?: string; impact?: string; nextStep?: string } }
     message?: string
   }
   const status = axiosErr.response?.status ?? 0
+  const data = axiosErr.response?.data
   let message =
-    axiosErr.response?.data?.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
+    data?.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
   if (status === 403) {
-    message += guidanceFor(axiosErr.response?.data?.explanation?.deniedBy)
+    message += guidanceFor(data?.explanation?.deniedBy)
   }
-  return new ApiError(message, status, axiosErr.response?.data?.errorCode, axiosErr.response?.data?.errors)
+  const err = new ApiError(message, status, data?.errorCode, data?.errors)
+  // NC-2：透传后端可执行指引（reason/impact/nextStep）
+  err.reason = data?.reason
+  err.impact = data?.impact
+  err.nextStep = data?.nextStep
+  return err
 }
 
 /** 与旧 api 封装对齐的调用面：get/post/patch/delete */
