@@ -10,8 +10,11 @@
       <div class="px-6 py-4">
         <div class="text-subtitle-2 mb-4 text-center">{{ t('loginTitle') }}</div>
 
-        <el-alert v-if="errorMessage" type="error" :closable="false" class="mb-4">
-          {{ errorMessage }}
+        <el-alert v-if="errorMessage || auth.loginDetails" type="error" :closable="false" class="mb-4">
+          <template v-if="errorMessage"><div style="font-weight:600">{{ errorMessage }}</div></template>
+          <div v-if="auth.loginDetails?.reason" style="margin-top:4px">{{ t('errorReason') }}{{ auth.loginDetails.reason }}</div>
+          <div v-if="auth.loginDetails?.impact" style="margin-top:2px">{{ t('errorImpact') }}{{ auth.loginDetails.impact }}</div>
+          <div v-if="auth.loginDetails?.nextStep" style="margin-top:2px;color:var(--el-color-error)">{{ t('errorNextStep') }}{{ auth.loginDetails.nextStep }}</div>
         </el-alert>
 
         <el-form @submit.prevent="onSubmit">

@@ -118,6 +118,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
 import { aiApi } from '@/api/ai'
 import { capabilitiesApi } from '@/api/capabilities'
@@ -230,7 +231,10 @@ async function send() {
     conversationId.value = res.conversationId
     await scrollBottom()
   } catch (err) {
-    snackbar.error(err instanceof Error ? err.message : t('assLoadFailed'))
+    // NC-2：ApiError 带可执行指引（LLM_UNAVAILABLE 等）→ 错误卡；否则单句 toast
+    snackbar.error(
+      err instanceof ApiError ? err : err instanceof Error ? err.message : t('assLoadFailed'),
+    )
   } finally {
     sending.value = false
     await scrollBottom()
