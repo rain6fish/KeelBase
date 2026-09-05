@@ -440,6 +440,30 @@ export class AiController {
   }
 
   /**
+   * P-③（§22.17 ① P-③）：治理策略历史快照列表（admin，供「当时哪版规则」查看/回放比对）。
+   */
+  @Get('governance/policy/history')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '治理策略历史列表（admin，P-③）' })
+  async getPolicyHistory(
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+  ) {
+    return this.governancePolicy.getPolicyRevisionHistory(limit);
+  }
+
+  /**
+   * P-③（§22.17 ① P-③）：单版本策略快照（admin，回放/人读比对）。
+   */
+  @Get('governance/policy/history/:revision')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '治理策略历史快照（admin，P-③）' })
+  async getPolicyHistoryRevision(@Param('revision') revision: string) {
+    const snap = await this.governancePolicy.getPolicySnapshotByRevision(revision);
+    if (!snap) throw new NotFoundException('该策略版本不存在');
+    return snap;
+  }
+
+  /**
    * D2-1d 治理策略（admin）：写策略（自有表 ai_governance_policy），实时生效，无需发版。
    */
   @Put('governance/policy')

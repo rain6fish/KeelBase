@@ -81,6 +81,7 @@ import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-ca
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
 import { DecisionTraceService } from './trace/decision-trace.service';
 import { AiGovernancePolicy } from './governance/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from './governance/ai-governance-policy-history.entity';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 import { GovernanceReporter, GOVERNANCE_REPORTER } from './governance/governance-reporter.service';
 import { InternalEffectsController } from './governance/internal-effects.controller';
@@ -146,7 +147,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditChainModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [

@@ -75,6 +75,7 @@
        resolve(__dirname, '../migrations/*AddAiAuditUsername*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditPayloadVersion*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiGovernancePolicy*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiGovernancePolicyHistory*').replace(/\\/g, '/'),
      ],
    };
  } else {

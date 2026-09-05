@@ -10,10 +10,12 @@ import {
 describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
   let service: GovernancePolicyService;
   let repo: { findOne: jest.Mock; save: jest.Mock };
+  let historyRepo: { findOne: jest.Mock; find: jest.Mock; save: jest.Mock; create: jest.Mock };
 
   beforeEach(() => {
     repo = { findOne: jest.fn(), save: jest.fn() };
-    service = new GovernancePolicyService(repo as any);
+    historyRepo = { findOne: jest.fn(), find: jest.fn(), save: jest.fn(), create: jest.fn((x: any) => x) };
+    service = new GovernancePolicyService(repo as any, historyRepo as any);
   });
 
   const mockRow = (value: string | null) =>
@@ -280,6 +282,84 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       expect(res.policyChanged).toBe(true);
       expect(res.toolDecisionChanged).toBe(true);
       expect(res.reproducible).toBe(false);
+    });
+  });
+
+  describe('P-③ 策略历史表 + replayDecision（跨版本回放）', () => {
+    it('setPolicy 同步落历史快照行（revision + value + appliedAt）', async () => {
+      const stored = JSON.stringify({ tools: {}, audit: { granularity: 'all' } });
+      repo.save.mockResolvedValue({ id: 1, value: stored, updatedAt: new Date('2026-09-04T12:00:00Z') });
+      await service.setPolicy({ tools: { create_event: { enabled: false } } });
+      expect(historyRepo.save).toHaveBeenCalledTimes(1);
+      const saved = historyRepo.save.mock.calls[0][0] as { revision: string; value: string; appliedAt: Date };
+      expect(saved.revision).toMatch(/^[0-9a-f]{12}$/);
+      expect(saved.appliedAt).toBeInstanceOf(Date);
+    });
+
+    it('replayDecision 历史命中 → 拿当时策略真重演（当时禁用 vs 记录放行 → 不可复现）', async () => {
+      // 历史快照：当时 create_event 禁用
+      historyRepo.findOne.mockResolvedValue({
+        id: 1,
+        revision: 'ab12cd34ef56',
+        value: JSON.stringify({ tools: { create_event: { enabled: false } } }),
+        appliedAt: new Date('2026-09-04T09:00:00Z'),
+      });
+      // 当前策略：create_event 启用（已漂移）
+      mockRow(JSON.stringify({ tools: { create_event: { enabled: true } } }));
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: 'ab12cd34ef56',
+      });
+      expect(res.mode).toBe('history');
+      expect(res.snapshotRevision).toBe('ab12cd34ef56');
+      expect(res.policyChanged).toBe(true);
+      expect(res.toolDecisionChanged).toBe(true);
+      expect(res.reproducible).toBe(false);
+    });
+
+    it('replayDecision 历史命中且当时仍放行 → 可复现（跨版本一致）', async () => {
+      historyRepo.findOne.mockResolvedValue({
+        id: 1,
+        revision: 'ab12cd34ef56',
+        value: JSON.stringify({ tools: { create_event: { enabled: true } } }),
+        appliedAt: new Date('2026-09-04T09:00:00Z'),
+      });
+      mockRow(JSON.stringify({ tools: { create_event: { enabled: false } } }));
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: 'ab12cd34ef56',
+      });
+      expect(res.mode).toBe('history');
+      expect(res.policyChanged).toBe(true);
+      expect(res.toolDecisionChanged).toBe(false);
+      expect(res.reproducible).toBe(true);
+    });
+
+    it('历史未命中 → mode current-fallback（原 verifyReproducible 语义）', async () => {
+      historyRepo.findOne.mockResolvedValue(undefined);
+      mockRow(JSON.stringify({ tools: { create_event: { enabled: false } } }));
+      const res = await service.replayDecision({
+        tool: 'create_event',
+        checks: [{ name: 'tool_enabled', ok: true }],
+        policyRevision: 'oldhash',
+      });
+      expect(res.mode).toBe('current-fallback');
+      expect(res.policyChanged).toBe(true);
+      expect(res.toolDecisionChanged).toBe(true);
+      expect(res.reproducible).toBe(false);
+    });
+
+    it('getPolicyRevisionHistory 返回列表（不含整包 value）', async () => {
+      historyRepo.find.mockResolvedValue([
+        { id: 2, revision: 'ab12cd34ef56', appliedAt: new Date('2026-09-04T12:00:00Z') },
+        { id: 1, revision: '000000000000', appliedAt: new Date('2026-09-04T09:00:00Z') },
+      ]);
+      const list = await service.getPolicyRevisionHistory(50);
+      expect(list).toHaveLength(2);
+      expect(list[0]).toEqual({ id: 2, revision: 'ab12cd34ef56', appliedAt: expect.any(Date) });
+      expect(list[0]).not.toHaveProperty('value');
     });
   });
 });

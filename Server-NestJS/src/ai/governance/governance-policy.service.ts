@@ -5,6 +5,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiGovernancePolicy } from './ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from './ai-governance-policy-history.entity';
 import { getPolicyPreset, getPolicyPresets, type PolicyPreset } from './governance-policy-presets';
 import type { ToolRiskLevel } from '../interfaces/tool.interface';
 
@@ -129,6 +130,8 @@ export class GovernancePolicyService {
   constructor(
     @InjectRepository(AiGovernancePolicy)
     private readonly policyRepo: Repository<AiGovernancePolicy>,
+    @InjectRepository(AiGovernancePolicyHistory)
+    private readonly historyRepo: Repository<AiGovernancePolicyHistory>,
   ) {}
 
   async getPolicy(): Promise<GovernancePolicy> {
@@ -150,15 +153,34 @@ export class GovernancePolicyService {
     }
   }
 
-  /** 写策略（upsert 单行 id=1），管理台策略中心调用，实时生效。 */
+  /** 写策略（upsert 单行 id=1），管理台策略中心调用，实时生效。P-③：同步落历史快照行。 */
   async setPolicy(value: GovernancePolicy): Promise<GovernancePolicy> {
     const normalized = normalizePolicy(value);
-    const entity = await this.policyRepo.save({ id: 1, value: JSON.stringify(normalized) });
+    const valueStr = JSON.stringify(normalized);
+    const entity = await this.policyRepo.save({ id: 1, value: valueStr });
+    const revision = policyRevisionOf(entity.value);
+    const appliedAt = new Date();
+    await this.historyRepo.save(
+      this.historyRepo.create({ revision, value: entity.value, appliedAt }),
+    );
     return {
       ...normalized,
-      updatedAt: entity.updatedAt ?? null,
-      revision: policyRevisionOf(entity.value),
+      updatedAt: entity.updatedAt ?? appliedAt,
+      revision,
     };
+  }
+
+  /** P-③：历史快照列表（倒序，仅 revision/appliedAt——不暴露整包 value）。 */
+  async getPolicyRevisionHistory(limit = 50): Promise<Array<{ id: number; revision: string; appliedAt: Date }>> {
+    const rows = await this.historyRepo.find({ order: { id: 'DESC' }, take: Math.min(Math.max(limit, 1), 200) });
+    return rows.map((r) => ({ id: r.id, revision: r.revision, appliedAt: r.appliedAt }));
+  }
+
+  /** P-③：按 revision 取当时策略快照（同 revision 多行取最新；未命中 → null）。 */
+  async getPolicySnapshotByRevision(revision: string): Promise<{ revision: string; policy: GovernancePolicy; appliedAt: Date | null } | null> {
+    const row = await this.historyRepo.findOne({ where: { revision }, order: { id: 'DESC' } });
+    if (!row) return null;
+    return { revision: row.revision, policy: parsePolicyValue(row.value), appliedAt: row.appliedAt ?? null };
   }
 
   /** 工具策略：默认值来自工具定义/调用方，策略表同名键覆盖；含门控档位（mode）解析。 */
@@ -232,11 +254,79 @@ export class GovernancePolicyService {
     return this.setPolicy(preset.policy);
   }
 
-  /**
-   * §22.17③ 决策可复现（Policy Evidence）：用当前策略重放一条审计记录的授权放行，
-   * 判断「当时为什么允许」是否仍成立。recorded 来自审计 authorization 快照 JSON 解析。
-   * 可复现 = 策略内容指纹未漂移；或已漂移但该工具「放行/禁用」判定未受影响。
-   */
+  /** P-③（§22.17 ① P-③，docs/policy-history-reproducible.spec.md）：跨版本回放。
+   *  历史优先——按 recorded.policyRevision 查 ai_governance_policy_history，「拿当时策略对象真重演」该工具放行判定
+   *  （tool_enabled；role_allowed 需当时用户角色、不在策略内 → 以 recorded checks 冻结结果为准，不夸大整条可重演）；
+   *  历史未命中回落「当前策略重放 + 漂移检出」（原 verifyReproducible 语义）。 */
+  async replayDecision(recorded: {
+    tool?: string;
+    checks?: Array<{ name: string; ok?: boolean }>;
+    policyRevision?: string;
+  }): Promise<{
+    mode: 'history' | 'current-fallback';
+    verifiable: boolean;
+    reproducible: boolean;
+    policyChanged: boolean;
+    toolDecisionChanged: boolean;
+    recordedRevision: string | null;
+    snapshotRevision?: string | null;
+    appliedAt?: Date | null;
+    currentRevision: string;
+    note: string;
+  }> {
+    if (!recorded?.policyRevision) {
+      return { mode: 'current-fallback', verifiable: false, reproducible: false, policyChanged: false, toolDecisionChanged: false, recordedRevision: null, currentRevision: policyRevisionOf(undefined), note: '快照无策略版本（历史记录），无法校验' };
+    }
+    const snapshot = await this.getPolicySnapshotByRevision(recorded.policyRevision);
+    const current = await this.getPolicy();
+    const currentRevision = current.revision ?? policyRevisionOf(undefined);
+    const policyChanged = recorded.policyRevision !== currentRevision;
+    let toolDecisionChanged = false;
+    const decisionEnabled = (cfg?: Partial<ToolPolicyOverride>): boolean => cfg?.enabled ?? true;
+    if (recorded.tool) {
+      const recordedEnabled = recorded.checks?.find((c) => c.name === 'tool_enabled')?.ok;
+      if (typeof recordedEnabled === 'boolean') {
+        const under =
+          snapshot && snapshot.policy ? decisionEnabled(snapshot.policy.tools?.[recorded.tool]) : (await this.getToolPolicy(recorded.tool)).enabled;
+        if (recordedEnabled !== under) toolDecisionChanged = true;
+      }
+    }
+    const reproducible = !toolDecisionChanged;
+    if (snapshot) {
+      return {
+        mode: 'history',
+        verifiable: true,
+        reproducible,
+        policyChanged,
+        toolDecisionChanged,
+        recordedRevision: recorded.policyRevision,
+        snapshotRevision: snapshot.revision,
+        appliedAt: snapshot.appliedAt,
+        currentRevision,
+        note: policyChanged
+          ? toolDecisionChanged
+            ? `历史版重演不符：当时策略 ${snapshot.revision} 下该工具放行判定与记录不一致（现策略 ${currentRevision}）`
+            : `历史版重演一致：当时策略 ${snapshot.revision} 下该工具仍放行（现策略已变 ${currentRevision}）`
+          : `历史版重演一致（策略未变 ${snapshot.revision}）`,
+      };
+    }
+    return {
+      mode: 'current-fallback',
+      verifiable: true,
+      reproducible,
+      policyChanged,
+      toolDecisionChanged,
+      recordedRevision: recorded.policyRevision,
+      currentRevision,
+      note: policyChanged
+        ? toolDecisionChanged
+          ? `策略已漂移（${recorded.policyRevision} → ${currentRevision}）且该工具放行判定已变，不可复现`
+          : `策略已漂移（${recorded.policyRevision} → ${currentRevision}），但该工具放行判定未受影响，仍可复现`
+        : '策略未变，该放行按记录版本可复现',
+    };
+  }
+
+  /** §22.17③ 决策可复现（向后兼容视图，历史优先）：返回原 verifyReproducible 形状。 */
   async verifyReproducible(recorded: {
     tool?: string;
     checks?: Array<{ name: string; ok?: boolean }>;
@@ -250,42 +340,15 @@ export class GovernancePolicyService {
     currentRevision: string;
     note: string;
   }> {
-    if (!recorded?.policyRevision) {
-      return {
-        verifiable: false,
-        reproducible: false,
-        policyChanged: false,
-        toolDecisionChanged: false,
-        recordedRevision: null,
-        currentRevision: policyRevisionOf(undefined),
-        note: '快照无策略版本（历史记录），无法校验',
-      };
-    }
-    const current = await this.getPolicy();
-    const currentRevision = current.revision ?? policyRevisionOf(undefined);
-    const policyChanged = recorded.policyRevision !== currentRevision;
-    let toolDecisionChanged = false;
-    if (recorded.tool) {
-      const recordedEnabled = recorded.checks?.find((c) => c.name === 'tool_enabled')?.ok;
-      const currentTool = await this.getToolPolicy(recorded.tool);
-      if (typeof recordedEnabled === 'boolean' && recordedEnabled !== currentTool.enabled) {
-        toolDecisionChanged = true;
-      }
-    }
-    const reproducible = !toolDecisionChanged;
-    const note = policyChanged
-      ? toolDecisionChanged
-        ? `策略已漂移（${recorded.policyRevision} → ${currentRevision}）且该工具放行判定已变，不可复现`
-        : `策略已漂移（${recorded.policyRevision} → ${currentRevision}），但该工具放行判定未受影响，仍可复现`
-      : '策略未变，该放行按记录版本可复现';
+    const r = await this.replayDecision(recorded);
     return {
-      verifiable: true,
-      reproducible,
-      policyChanged,
-      toolDecisionChanged,
-      recordedRevision: recorded.policyRevision,
-      currentRevision,
-      note,
+      verifiable: r.verifiable,
+      reproducible: r.reproducible,
+      policyChanged: r.policyChanged,
+      toolDecisionChanged: r.toolDecisionChanged,
+      recordedRevision: r.recordedRevision,
+      currentRevision: r.currentRevision,
+      note: r.note,
     };
   }
 }
