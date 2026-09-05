@@ -1469,6 +1469,8 @@ export class AiService {
               conversationId,
               action: 'tool_call',
               detail: `${tc.name}(${tc.args})`,
+              // T5 跨入口一致：流式 deny 也标 source=bridge（对齐非流式 deny :1849 与两路成功分支）
+              source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
               isError: true,
               errorMessage: deniedMsg,
               authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
