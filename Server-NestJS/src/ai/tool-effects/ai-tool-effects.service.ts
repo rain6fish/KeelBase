@@ -10,6 +10,7 @@ import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
 import type { SideEffectRevoker } from './side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
+import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 
 export interface WriteToolContext {
   userId: string;
@@ -55,6 +56,8 @@ export class AiToolEffectsService {
     // D2-3c：可选治理上报（业务系统配 GOVERNANCE_URL 时副作用双写）
     @Optional() @Inject(GOVERNANCE_REPORTER)
     private readonly reporter?: GovernanceReporter,
+    // G-3（§22.17 ① G-3）：副作用哈希链（AuditChainService，ai.module 已 import AuditChainModule；缺失降级不链化）
+    @Optional() private readonly auditChain?: AuditChainService,
   ) {}
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
@@ -91,20 +94,27 @@ export class AiToolEffectsService {
     snapshot?: SideEffectSnapshot,
   ): Promise<AiToolSideEffect> {
     const key = AiToolEffectsService.buildKey(ctx);
+    const base = {
+      idempotencyKey: key,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      toolName: ctx.toolName,
+      argsHash: createHash('sha256').update(JSON.stringify(sortKeys(ctx.args))).digest('hex').slice(0, 16),
+      resultType,
+      resultId,
+      beforeSnapshot: snapshot?.before ?? null,
+      afterSnapshot: snapshot?.after ?? null,
+    };
+    // G-3（§22.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）
+    let chain: { prevHash: string | null; hash: string } | undefined;
+    if (this.auditChain) {
+      const prev = await this._lastSideEffectHash();
+      chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
+    }
     // 幂等：并发下可能已插入，命中唯一冲突则跳过
     try {
       const saved = await this.effectsRepo.save(
-        this.effectsRepo.create({
-          idempotencyKey: key,
-          userId: ctx.userId,
-          conversationId: ctx.conversationId,
-          toolName: ctx.toolName,
-          argsHash: createHash('sha256').update(JSON.stringify(sortKeys(ctx.args))).digest('hex').slice(0, 16),
-          resultType,
-          resultId,
-          beforeSnapshot: snapshot?.before ?? null,
-          afterSnapshot: snapshot?.after ?? null,
-        } as Partial<AiToolSideEffect>),
+        this.effectsRepo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>),
       );
       this._reportEffect(ctx, resultType, resultId);
       return saved;
@@ -114,6 +124,45 @@ export class AiToolEffectsService {
       this._reportEffect(ctx, resultType, resultId);
       return existing!;
     }
+  }
+
+  /** G-3：副作用链 canonical payload（稳定字段；AuditChainService canonical 排序键 → 写入/校验一致） */
+  private _chainPayload(row: Record<string, unknown>): Record<string, unknown> {
+    return {
+      idempotencyKey: row.idempotencyKey ?? null,
+      userId: row.userId ?? null,
+      conversationId: row.conversationId ?? null,
+      toolName: row.toolName ?? null,
+      argsHash: row.argsHash ?? null,
+      resultType: row.resultType ?? null,
+      resultId: row.resultId ?? null,
+      beforeSnapshot: row.beforeSnapshot ?? null,
+      afterSnapshot: row.afterSnapshot ?? null,
+    };
+  }
+
+  /** G-3：最近一条已哈希副作用行的 hash（接链用；无 → null genesis） */
+  private async _lastSideEffectHash(): Promise<string | null> {
+    const row = await this.effectsRepo
+      .createQueryBuilder('e')
+      .select('e.hash', 'hash')
+      .where('e.hash IS NOT NULL')
+      .orderBy('e.id', 'DESC')
+      .limit(1)
+      .getRawOne<{ hash: string }>();
+    return row?.hash ?? null;
+  }
+
+  /** G-3：副作用哈希链完整性校验（仅校验已哈希行；历史 null 行不在链内） */
+  async verifySideEffectChain(): Promise<{ valid: boolean; checked: number; hashed: number; firstHashedId: number | null }> {
+    if (!this.auditChain) return { valid: true, checked: 0, hashed: 0, firstHashedId: null };
+    const rows = await this.effectsRepo.find({ order: { id: 'ASC' } });
+    const hashed = rows.filter((r) => r.hash);
+    const res = this.auditChain.verifyChain(
+      hashed,
+      (row) => this._chainPayload(row as unknown as Record<string, unknown>),
+    );
+    return { valid: res.valid, checked: res.checked, hashed: hashed.length, firstHashedId: hashed[0]?.id ?? null };
   }
 
   /** D2-3c：副作用双写上报治理台（配置 GOVERNANCE_URL 时；失败静默） */

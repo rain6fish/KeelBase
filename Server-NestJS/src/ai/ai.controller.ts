@@ -347,6 +347,16 @@ export class AiController {
   }
 
   /**
+   * G-3（§22.17 ① G-3）：副作用哈希链完整性校验（admin；历史 null 行不在链内，仅校验新链化行）。
+   */
+  @Get('tool-effects/verify')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI 副作用哈希链校验（admin，G-3）' })
+  verifySideEffects() {
+    return this.toolEffectsService.verifySideEffectChain();
+  }
+
+  /**
    * B4 治理可视化：给定业务动作（resultType+resultId，如 crm_task:42）→ 反查 AI 副作用 + 决策轨迹
    * （决策轨迹 / 权限依据 / 确认 / 审计，供前端「透过 AI CRM 活展示」；本人或管理员）
    */

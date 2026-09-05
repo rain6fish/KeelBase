@@ -49,6 +49,18 @@
 - 不做（已定案）：待我确认中心（需 R3 落库，冻结后）、跨会话被拒聚合、AI 口头导航到工作台页（page registry 未成）、Policy Evidence 漂移徽标 UI（后续）、④ 影响预览（用户 2026-09-04 定案冻结前不做）。
 - 冻结后 backlog（不占演示窗口）：① 证据根跨链锚定 / ② 国密+时间锚 / ④ 级联撤销 / R3 确认落库。
 
+## 2026-09-05 增补（P0 ② 段后新证据面 + 前置版本）
+
+> 环境前置版本再提高：需含 **① 证据根 v3（9964ecf）/ G-1 REST 授权快照（5512b0a）/ G-2 payload v2（6256b83）/ P-③ Policy 历史回放（f6f1c3d）**，且新迁移已跑（`payload_version`、operation `authorization`、`ai_governance_policy_history`）。
+
+| # | 增补验证点 | 入口/操作 | 期望 |
+|---|---|---|---|
+| T11 | **证据根 v3 离线验**（①，可选加分） | 本人/admin 调 `GET /ai/governance/evidence-root/:resultType/:resultId`（如 crm_task:42）→ 存包 → `node scripts/verify-evidence.mjs <包> --key <AUDIT_HMAC_KEY>` | format `/3`；PASS（structure + --key 全量子链重算 + 副作用锚 + 签名）|
+| T12 | **Policy 历史回放**（P-③） | admin：改两次策略 → `GET /ai/governance/policy/history` 见快照；取某 revision 的放行记录 →（重放语义见 service.replayDecision）| history 列表含 revision/appliedAt；快照可取 |
+| T13 | **REST 写授权快照**（G-1） | admin 操作审计详情看某条写 | `authorization` 字段含 {allowed, role, basis}（链外展示）|
+
+**红线不变**：9/25 冻结纪律；本清单只走查/录素材，不新增核心功能；④/BA/GA/PF/②信创 仍触发后置；**G-3（副作用链列）定案冻结后**（2026-09-05 用户：先演示留白，完成后续 G-3）。
+
 ## 相关 / Related
 
-golden-demo-script.md ｜ trust-proof-video-script ｜ official-demo-video-script ｜ docs/ai-action-center.spec.md ｜ docs/audit-authz-snapshot.spec.md §5 ｜ 私库 roadmap §22.17 执行记录（2026-09-04）
+golden-demo-script.md ｜ trust-proof-video-script ｜ official-demo-video-script ｜ docs/ai-action-center.spec.md ｜ docs/evidence-root.spec.md ｜ docs/audit-authz-snapshot.spec.md §5 ｜ docs/policy-history-reproducible.spec.md ｜ 私库 roadmap §22.17 执行记录（2026-09-04/05）

@@ -50,6 +50,14 @@ export class AiToolSideEffect {
   @Column({ type: 'text', nullable: true, name: 'after_snapshot' })
   afterSnapshot?: string | null;
 
+  /** G-3（§22.17 ① G-3）：副作用行哈希链——前一条已哈希行 hash（历史行 null → 不参与链；首个哈希行 genesis） */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'prev_hash' })
+  prevHash?: string | null;
+
+  /** G-3（§22.17 ① G-3）：本条副作用内容 HMAC（防篡改/防插入；仅新行有值） */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'hash' })
+  hash?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
