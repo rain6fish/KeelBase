@@ -341,4 +341,55 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(revoker.canHandle('proxy_call')).toBe(false); // B 路径外部（走 ExternalRevoker）
     });
   });
+
+  describe('G-3 副作用哈希链（side_effect 入链）', () => {
+    function buildChained(over?: { find?: unknown; save?: unknown }) {
+      const cRepo = {
+        save: over?.save ?? jest.fn().mockResolvedValue({ id: 9, hash: 'h' }),
+        find: over?.find ?? jest.fn(),
+        findOne: jest.fn(),
+        create: jest.fn((d: any) => d),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          getRawOne: jest.fn().mockResolvedValue(null), // 无既有已哈希行 → genesis
+        })),
+      };
+      const auditChain = {
+        computeHash: jest.fn().mockReturnValue('chain-hash'),
+        verifyChain: jest.fn().mockReturnValue({ valid: true, checked: 1 }),
+      } as any;
+      const s = new AiToolEffectsService(cRepo as any, undefined, undefined, undefined, auditChain);
+      return { service: s, cRepo, auditChain };
+    }
+
+    it('record：无既有已哈希行 → 首行 genesis（prevHash null）+ 写 hash', async () => {
+      const { service, cRepo } = buildChained();
+      await service.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'X' } },
+        'event',
+        42,
+      );
+      expect(cRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: expect.any(String), prevHash: null, hash: 'chain-hash' }),
+      );
+    });
+
+    it('verifySideEffectChain：仅校验已哈希行（历史 null 行跳过），无 auditChain 时降级 valid', async () => {
+      const hashedRows = [
+        { id: 3, prevHash: null, hash: 'h3' },
+        { id: 5, prevHash: 'h3', hash: 'h5' },
+      ];
+      const unhashed = [{ id: 1, prevHash: null, hash: null }, { id: 2, prevHash: null, hash: null }];
+      const { service, auditChain } = buildChained({ find: jest.fn().mockResolvedValue([...unhashed, ...hashedRows]) });
+      const res = await service.verifySideEffectChain();
+      expect(res.valid).toBe(true);
+      expect(res.hashed).toBe(2);
+      expect(res.firstHashedId).toBe(3);
+      // verifyChain 只收到已哈希行
+      expect(auditChain.verifyChain).toHaveBeenCalledWith(hashedRows, expect.any(Function));
+    });
+  });
 });
