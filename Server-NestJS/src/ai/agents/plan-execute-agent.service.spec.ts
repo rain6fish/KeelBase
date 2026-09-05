@@ -85,4 +85,29 @@ describe('PlanExecuteAgent', () => {
     expect(result.stepResults).toHaveLength(1);
     expect(toolRegistry.execute).toHaveBeenCalledWith('get_user_stats', {}, userId);
   });
+
+  it('NC-3 注入只读 executor：写工具步骤被拒且不经 toolRegistry.execute 直调', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: JSON.stringify([
+        { description: '创建事件', tool: 'create_event', args: { title: 'x' }, dependsOn: [] },
+        { description: '查事件', tool: 'query_events', args: {}, dependsOn: [] },
+      ]),
+    });
+    const exec = jest.fn(async (tool: string) => {
+      if (tool === 'create_event') {
+        throw new Error('Tool "create_event" is write/confirmation-gated; plan and sub-agent steps are read-only');
+      }
+      return { success: true, data: { total: 2 } };
+    });
+
+    const result = await agent.planAndExecute(messages, mockProvider as any, toolRegistry as any, userId, undefined, exec);
+
+    // 写工具步骤被门控 → ERROR；读工具步骤经 executor 正常执行；底层 registry 未被绕过直调
+    expect(toolRegistry.execute).not.toHaveBeenCalled();
+    expect(result.stepResults[0]).toContain('ERROR');
+    expect(result.stepResults[0]).toContain('write/confirmation-gated');
+    expect(result.stepResults[1]).toContain('2');
+    expect(exec).toHaveBeenNthCalledWith(1, 'create_event', { title: 'x' }, userId);
+    expect(exec).toHaveBeenNthCalledWith(2, 'query_events', {}, userId);
+  });
 });
