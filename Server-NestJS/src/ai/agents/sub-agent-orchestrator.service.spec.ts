@@ -228,6 +228,37 @@ describe('SubAgentOrchestrator', () => {
       expect(mockRegistry.execute).toHaveBeenCalledWith('query_events', expect.anything(), '42');
       expect(result.stepResults[0]).toContain('日程');
     });
+
+    it('NC-3 注入 readOnlyExecutor：子代理经 executor 执行，不直调 toolRegistry.execute', async () => {
+      mockRegistry.getAllTools.mockReturnValue([
+        { name: 'query_events', toToolDefinition: () => ({ name: 'query_events' }) },
+        { name: 'count_events_by_status', toToolDefinition: () => ({ name: 'count_events_by_status' }) },
+        { name: 'get_user_stats', toToolDefinition: () => ({ name: 'get_user_stats' }) },
+      ]);
+      const calls = [
+        { content: '', toolCalls: [{ id: 'call_1', name: 'query_events', arguments: '{}' }] },
+        { content: '日程', toolCalls: [] },
+        { content: '统计', toolCalls: [] },
+        { content: '建议', toolCalls: [] },
+      ];
+      let callIdx = 0;
+      mockProvider.generate.mockImplementation(async () => calls[Math.min(callIdx++, calls.length - 1)]);
+      const exec = jest.fn().mockResolvedValue({ success: true, data: 'gated-ok' });
+
+      const result = await orchestrator.run({
+        messages: [{ role: 'system', content: 'sys' }],
+        userRequest: '帮我安排本周',
+        provider: mockProvider,
+        toolRegistry: mockRegistry as any,
+        userId: '42',
+        readOnlyExecutor: exec,
+      });
+
+      // 工具执行改走 AiService 注入的门控 executor（_assertToolAllowed + 只读强制），不再绕过直调 registry
+      expect(mockRegistry.execute).not.toHaveBeenCalled();
+      expect(exec).toHaveBeenCalledWith('query_events', {}, '42');
+      expect(result.stepResults[0]).toContain('日程');
+    });
   });
 
   describe('补充覆盖', () => {
