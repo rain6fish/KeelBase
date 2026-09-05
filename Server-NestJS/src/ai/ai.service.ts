@@ -1801,6 +1801,8 @@ export class AiService {
               conversationId: params.conversationId,
               action: 'tool_call',
               detail: `${tc.name}(${tc.arguments})`,
+              // T5 跨入口一致：B 路径 proxy 工具经非流式也标 source=bridge（对齐 stream :1415）
+              source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
               isError: !resolvedResult.success,
               errorMessage: resolvedResult.error,
               // §22.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
@@ -1843,6 +1845,8 @@ export class AiService {
               conversationId: params.conversationId,
               action: 'tool_call',
               detail: `${tc.name}(${tc.arguments})`,
+              // T5 跨入口一致：B 路径 proxy 工具 deny 也标 source=bridge（对齐成功分支与 stream）
+              source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
               isError: true,
               errorMessage: deniedMsg,
               authorization: denied ? JSON.stringify(err.reasons) : undefined,
