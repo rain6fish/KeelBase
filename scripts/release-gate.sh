@@ -55,8 +55,9 @@ echo "→ [Trust] 越权 / 写确认 / 审计"
 (cd Server-NestJS && rm -f data/test.sqlite)
 E2E_OUT=$(cd Server-NestJS && npx jest --config test/jest-e2e.json \
   test/crm.e2e-spec.ts test/pm.e2e-spec.ts test/approval.e2e-spec.ts \
-  test/generated-modules.e2e-spec.ts test/explainable-authz.e2e-spec.ts 2>&1) || true
-for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz"; do
+  test/generated-modules.e2e-spec.ts test/explainable-authz.e2e-spec.ts \
+  test/cross-entry-consistency.e2e-spec.ts 2>&1) || true
+for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)"; do
   name="${t%%:*}"; label="${t##*:}"
   if echo "$E2E_OUT" | grep -q "PASS test/${name}.e2e-spec.ts"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; fi
 done
