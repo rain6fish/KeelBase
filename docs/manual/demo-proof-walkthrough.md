@@ -20,10 +20,10 @@
 | **T6** | 1:15 | 行操作 | 点该行「查看证据」→ B4 详情；（可选）「对象历史」抽屉 | 同一行可直达完整证据 / 该业务对象的跨来源行为史（A-2） |
 | **T7** | 1:40 | 撤销演示 | 回「我的 AI 行为」点该行「撤销」→ 确认 | chip 变「已撤销」；目标软删（回收站可恢复语义）——**Design for Recovery 可演示** |
 | **T8** | 2:10 | Trust 沙盘（新） | 工作台「Trust 沙盘」→ 依次 run：越权拒绝 / R5 阻断 / 确认门控 | 每条 outcome 业务语言（无 LLM 确定性），可一键复现"运行时边界拒绝" |
-| **T9** | 3:30 | Policy Evidence（后端级） | 管理台 admin 登录 → 合规证据 / AI Action Report 导出（或审计身份链 `allowed.policyVersion`） | 「为什么允许」带**当时哪一版规则**（`policyVersion`=policy.updatedAt）——合规取证的版本依据 |
+| **T9** | 3:30 | Policy Evidence（后端级） | 管理台 admin 登录 → 合规证据 / AI Action Report 导出（或审计身份链 `allowed.policy.revision`） | 「为什么允许」带**当时哪一版规则**（`policy.revision`＝策略内容指纹，同内容恒同号）——合规取证的版本依据 |
 | T10 | 4:00+ | 收口 | 若录视频：以上为素材，切 60s 短版选 T1→T5→T7→T8 | 主线即"读→判断→确认→写→查→撤→拒"闭环 |
 
-> **诚实边界**：Policy Evidence v1 落在**后端/合规证据**（identity chain `allowed.policyVersion` + 证据包 JSON）；工作台「为什么允许」面板的**漂移徽标**（现策略 ≠ 快照版本 → "决策基于旧版规则"）为后续 UI 项，不在本走查画面承诺。
+> **诚实边界**：Policy Evidence 落在**后端/合规证据**（identity chain `allowed.policy.revision` + 证据包 JSON）；工作台「为什么允许」面板的**漂移徽标**（现策略 revision ≠ 快照 revision → "决策基于旧版规则"）为后续 UI 项，不在本走查画面承诺。
 
 ## 二、冻结前勾选清单（活环境逐项走）
 
@@ -33,7 +33,7 @@
 - [ ] T7：撤销 → chip 变「已撤销」；业务对象列表不再见该条；管理台回收站可恢复（admin 验证一次）
 - [ ] 隔离：第二个普通账号登录 → 我的 AI 行为为空（看不到 alex 的动作）；未登录 401
 - [ ] T8：Trust 沙盘六场景逐一 run，outcome 均业务语言、越权/R5/确认各自不同文案
-- [ ] T9：管理台合规导出 JSON 中某条 `allowed.policyVersion` 与当时策略 `updatedAt` 一致（取一次管理台「策略中心」的生效时间比对）
+- [ ] T9：管理台合规导出 JSON 中某条 `allowed.policy.revision` 与「策略中心」当前生效策略的内容指纹 `revision` 一致（策略未漂移时比对一致；漂移则走 verifyReproducible 返回 recorded/current revision）
 - [ ] 双语：中/英界面各走一遍 T5–T7 文案（无硬编码中文）
 - [ ] 录屏素材打点：T1 读工具 / T3 确认卡 / T4 完整证据 / T5 清单 / T7 撤销 / T8 拒
 
