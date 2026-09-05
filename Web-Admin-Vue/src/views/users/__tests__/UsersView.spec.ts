@@ -35,6 +35,11 @@ function mountView() {
   return mount(UsersView, {
     global: {
       plugins: [i18n, ElementPlus],
+      // 生产在 main.ts 全局注册 v-permission；测试挂载补注册以消「Failed to resolve directive」告警
+      // （渲染层隐藏非测试关注点，no-op 即可；授权唯一来源仍是后端 CASL）
+      directives: {
+        permission: { mounted() {}, updated() {} },
+      },
       stubs: {
         PageHeader: true,
         AppTable: true,
