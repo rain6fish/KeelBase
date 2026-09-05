@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 /**
  * P-③（§22.17 ① P-③，docs/policy-history-reproducible.spec.md）：治理策略历史快照。
@@ -8,6 +8,9 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
  * 「拿当时策略对象真重演」。同内容重复写 → 同 revision（语义幂等，查找取最新；保留「何时改过」痕迹）。
  */
 @Entity('ai_governance_policy_history')
+// revision 精确回放 / applied_at 历史列表查询索引（与迁移 1812000000000 显式 IDX_gph_* 对齐，防 TypeORM 判漂移）
+@Index('IDX_gph_revision', ['revision'])
+@Index('IDX_gph_applied_at', ['appliedAt'])
 export class AiGovernancePolicyHistory {
   @PrimaryGeneratedColumn()
   id!: number;
