@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest'
-import { ApiError, isEmailNotVerified } from './client'
+import { ApiError, isActionableApiError, isEmailNotVerified } from './client'
 
 describe('ApiError', () => {
   it('构造时保存状态码与业务码', () => {
@@ -29,5 +29,20 @@ describe('isEmailNotVerified', () => {
     expect(isEmailNotVerified(new ApiError('x', 403))).toBe(false)
     expect(isEmailNotVerified(new Error('普通错误'))).toBe(false)
     expect(isEmailNotVerified('string')).toBe(false)
+  })
+})
+
+describe('isActionableApiError（NC-2 可执行错误）', () => {
+  it('带 reason/impact/nextStep 任一 → true', () => {
+    const err = new ApiError('AI 服务暂不可用', 502, 'LLM_UNAVAILABLE')
+    err.reason = '没有可用的模型 provider'
+    err.nextStep = '检查 API Key 配置'
+    expect(isActionableApiError(err)).toBe(true)
+  })
+
+  it('无三字段或非 ApiError → false', () => {
+    expect(isActionableApiError(new ApiError('x', 400))).toBe(false)
+    expect(isActionableApiError(new Error('普通错误'))).toBe(false)
+    expect(isActionableApiError('string')).toBe(false)
   })
 })
