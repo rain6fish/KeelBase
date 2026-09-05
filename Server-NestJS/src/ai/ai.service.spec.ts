@@ -8,6 +8,7 @@ import { ToolRegistry } from './tools/tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { StreamChunk } from './interfaces/llm-provider.interface';
+import { AuthorizationDeniedError } from './interfaces/tool.interface';
 
 describe('AiService', () => {
   let aiService: AiService;
@@ -279,6 +280,36 @@ describe('AiService', () => {
         { query: 'weather' },
         '1',
       );
+    });
+
+    it('T5 非流式 deny 落审计：authorization 序列化 reasons（决策轨迹「为何阻止」）', async () => {
+      mockToolRegistry.getTool.mockReturnValue({
+        name: 'web_search',
+        permissions: { featureFlag: 'ai' },
+      } as any);
+      (aiService as any).featureFlagsService = {
+        isEnabled: jest.fn().mockReturnValue(false),
+      };
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [{ id: 'call_1', name: 'web_search', arguments: '{"query":"weather"}' }],
+      });
+      mockProvider.generate.mockResolvedValueOnce({ content: 'I cannot search right now.' });
+
+      await aiService.chat('1', { message: '查一下天气' });
+
+      // W5-⑦：deny 审计行 isError + authorization 序列化真实 reasons（与 executeToolForExternal/MCP/流式同形状）
+      const denyAudit = (mockAuditService.log as jest.Mock).mock.calls.find(
+        (c) =>
+          c[0]?.action === 'tool_call' &&
+          c[0]?.isError === true &&
+          String(c[0]?.detail ?? '').startsWith('web_search'),
+      );
+      expect(denyAudit).toBeDefined();
+      expect(denyAudit![0].errorMessage).toContain('disabled');
+      const reasons = JSON.parse(denyAudit![0].authorization);
+      expect(Array.isArray(reasons)).toBe(true);
+      expect(reasons.some((r: { name: string; ok: boolean }) => r.name === 'feature_flag' && r.ok === false)).toBe(true);
     });
 
     it('HS-2: should reject write tool when email not verified', async () => {
@@ -1123,6 +1154,50 @@ describe('AiService', () => {
       expect(starts).toHaveLength(1);
       expect(ends).toHaveLength(1);
       expect(ends[0].toolEnd?.success).toBe(false);
+    });
+
+    it('T5 流式 deny：tool_end 透出 authorizationDenied + 审计 authorization 序列化 reasons + proxy 标 source=bridge', async () => {
+      async function* mockStreamWithReadTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'call_1', name: 'query_events', arguments: '{}' },
+        };
+      }
+      async function* mockStreamAfterError() {
+        yield { type: 'text' as const, content: 'sorry' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithReadTool())
+        .mockReturnValueOnce(mockStreamAfterError());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+      // proxy 工具 deny：对齐非流式 deny 与成功分支，审计 source=bridge
+      jest.spyOn(aiService as any, 'isProxyTool').mockReturnValue(true);
+      mockToolRegistry.execute.mockRejectedValue(
+        new AuthorizationDeniedError('Tool "query_events" is restricted to roles: admin', [
+          { name: 'role_allowed', ok: false, note: '需要角色 [admin]，当前 user' },
+        ]),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of aiService.chatStream('1', { message: 'query' })) {
+        chunks.push(chunk);
+      }
+
+      // 前端决策轨迹：tool_end.authorizationDenied 带结构化 reasons
+      const deniedEnd = chunks.find(
+        (c) => c.type === 'tool_end' && (c.toolEnd as { authorizationDenied?: unknown })?.authorizationDenied,
+      );
+      expect((deniedEnd as any)?.toolEnd?.authorizationDenied?.checks[0].name).toBe('role_allowed');
+      // 审计行：isError + authorization 序列化 reasons + proxy 工具 source=bridge
+      const denyAudit = (mockAuditService.log as jest.Mock).mock.calls.find(
+        (c) => c[0]?.action === 'tool_call' && c[0]?.isError === true,
+      );
+      expect(denyAudit).toBeDefined();
+      expect(denyAudit![0].source).toBe('bridge');
+      expect(denyAudit![0].authorization).toBe(
+        JSON.stringify([{ name: 'role_allowed', ok: false, note: '需要角色 [admin]，当前 user' }]),
+      );
     });
 
     it('should not hijack a write request containing a page keyword (帮我创建事件)', async () => {

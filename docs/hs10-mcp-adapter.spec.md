@@ -83,8 +83,8 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
    **Identity**: tools execute as the JWT user (userId passed in); data isolation follows existing ownership rules.
 3. **写工具安全**：MCP v1 不自动执行写工具——无交互确认通道时返回需确认信号，防止绕过确认的无感写操作。
    **Write-tool safety**: MCP v1 never auto-executes write tools — without an interactive confirmation channel it returns a confirmation-required signal, preventing silent writes that bypass confirmation.
-4. **审计**：每次 `tools/call` 落审计（provider=mcp 区分来源），HS-11 哈希链自动生效。
-   **Audit**: every `tools/call` is audited (provider=mcp to distinguish source); the HS-11 hash chain applies automatically.
+4. **审计**：每次 `tools/call` 落审计（provider=mcp 区分来源），HS-11 哈希链自动生效。T5 跨入口一致——**授权拒绝（AuthorizationDeniedError）也写审计行**：`isError=true` + `errorMessage` 拒绝文案 + `authorization=JSON(reasons)`（结构化检查清单，对齐 REST/SSE deny 分支 ai.service），detail 标 `— authorization denied`；**确认门控（未执行）行**在 detail 标 `— requiresConfirmation, not executed`，可与普通读/成功写辨识。username 快照 D2-1c（非 actor 路径显式带出）。
+   **Audit**: every `tools/call` is audited (provider=mcp to distinguish source); the HS-11 hash chain applies automatically. Cross-entry consistent (T5) — an **authorization denial (`AuthorizationDeniedError`) also writes an audit row**: `isError=true` + `errorMessage` denial text + `authorization=JSON(reasons)` (structured checklist, aligned with the REST/SSE deny branches in ai.service), with `detail` marked `— authorization denied`; a **confirmation-gated (not executed) row** is marked in `detail` with `— requiresConfirmation, not executed` to distinguish it from plain reads / successful writes. Username is snapshotted (D2-1c — non-actor path, set explicitly).
 5. **错误码**：`-32601` 未知方法，`-32603` 内部/权限/确认异常。
    **Error codes**: `-32601` method not found, `-32603` internal/permission/confirmation error.
 
@@ -114,6 +114,7 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
 
 ## 7. 测试 / 7. Tests
 
-- `mcp.controller.spec.ts`：initialize / ping / tools/list / tools/call（读执行 / 写需确认 / 失败 isError / 异常 -32603）/ 未知方法 / 通知 ack（9 用例）。
-- `ai.service.spec.ts`：listMcpTools 映射 + executeToolForExternal（读执行 / 写需确认）。
-- 全量：863 后端单测 + build 0 error。
+- `mcp.controller.spec.ts`：initialize / ping / tools/list / tools/call（读执行 / 写需确认 / 失败 isError / 异常 -32603 / **T5 deny 审计：authorization=JSON(reasons) + 只记一次**）/ 未知方法 / 通知 ack（10 用例）。
+- `ai.service.spec.ts`：listMcpTools 映射 + executeToolForExternal（读执行 / 写需确认）+ **T5 非流式与流式 deny 落审计（authorization 序列化 reasons；流式 proxy 工具 deny 标 source=bridge）**。
+- `test/mcp-export.e2e-spec.ts`：全链 e2e 含 **T5 授权拒绝场景（普通用户经 MCP 调 adminOnly 工具 navigate_admin_page → -32603 + 审计行 provider=mcp + authorization reasons）**。
+- 全量：2071 后端单测（2026-09-05 实测）+ build 0 error。
