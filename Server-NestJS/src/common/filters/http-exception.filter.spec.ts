@@ -60,6 +60,35 @@ describe('AllExceptionsFilter', () => {
     expect(body.message).toBe('自定义');
   });
 
+  it('NC-2：带 reason/impact/nextStep 的码 → zh 透传可执行指引', () => {
+    const { response, host } = makeHost('zh-CN,zh;q=0.9');
+    filter.catch(new BusinessException('LLM_UNAVAILABLE'), host);
+    const body = response.json.mock.calls[0][0];
+    expect(body.code).toBe(HttpStatus.BAD_GATEWAY);
+    expect(body.errorCode).toBe('LLM_UNAVAILABLE');
+    expect(body.reason).toContain('模型 provider');
+    expect(body.impact).toContain('无法生成');
+    expect(body.nextStep).toContain('API Key');
+  });
+
+  it('NC-2：en 语言 → 英文 reason/impact/nextStep', () => {
+    const { response, host } = makeHost('en-US,en;q=0.9');
+    filter.catch(new BusinessException('LLM_UNAVAILABLE'), host);
+    const body = response.json.mock.calls[0][0];
+    expect(body.message).toBe('AI service temporarily unavailable');
+    expect(body.reason).toContain('No available model provider');
+    expect(body.nextStep).toContain('API key');
+  });
+
+  it('NC-2：码未填 reason/impact/nextStep → 响应省略这些字段（不空串）', () => {
+    const { response, host } = makeHost('zh-CN');
+    filter.catch(new BusinessException('EVENT_NOT_FOUND'), host);
+    const body = response.json.mock.calls[0][0];
+    expect(body.reason).toBeUndefined();
+    expect(body.impact).toBeUndefined();
+    expect(body.nextStep).toBeUndefined();
+  });
+
   it('普通 HttpException 无 errorCode，message 透传', () => {
     const { response, host } = makeHost('zh-CN');
     filter.catch(new BadRequestException('bad input'), host);

@@ -553,7 +553,7 @@ describe('AiService', () => {
 
       await expect(
         aiService.chat('1', { message: 'Hi' }),
-      ).rejects.toThrow('All providers failed after 1 attempts');
+      ).rejects.toMatchObject({ errorCode: 'LLM_UNAVAILABLE' });
     });
 
     it('should include tool definitions in LLM call when tools are registered', async () => {
@@ -1331,7 +1331,8 @@ describe('AiService', () => {
       mockAuditService.reserveDailyUsage.mockResolvedValue(true);
       mockProvider.generate.mockRejectedValue(new Error('provider down'));
 
-      await expect(aiService.chat('1', { message: 'hi' })).rejects.toThrow('provider down');
+      await expect(aiService.chat('1', { message: 'hi' }))
+        .rejects.toMatchObject({ errorCode: 'LLM_UNAVAILABLE' });
       expect(mockAuditService.releaseDailyUsage).toHaveBeenCalledWith('1');
     });
 
@@ -1655,6 +1656,39 @@ describe('AiService', () => {
         expect(out.executed).toBe(false);
         expect(out.requiresConfirmation).toBe(true);
       });
+    });
+  });
+
+  describe('NC-3 plan/子代理只读门控（_executeAgentReadTool）', () => {
+    it('写/需确认工具 → 拒绝（agent_read_only reasons），不经 toolRegistry.execute', async () => {
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      const err = await (aiService as any)
+        ._executeAgentReadTool('create_event', { title: 'x' }, '1')
+        .catch((e: any) => e);
+      expect(err.message).toContain('write/confirmation-gated');
+      expect(err.reasons.some((c: any) => c.name === 'agent_read_only' && c.ok === false)).toBe(true);
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('治理策略禁用的只读工具 → 拒绝（tool_enabled），不执行', async () => {
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+      (aiService as any).governancePolicy = {
+        isToolEnabled: jest.fn().mockResolvedValue(false),
+        getAllowedRoles: jest.fn().mockResolvedValue([]),
+      };
+      const err = await (aiService as any)
+        ._executeAgentReadTool('web_search', { q: 'x' }, '1')
+        .catch((e: any) => e);
+      expect(err.message).toContain('disabled by governance policy');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('放行的只读工具 → 经 _executeReadTool 同源执行', async () => {
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 3 } });
+      const res = await (aiService as any)._executeAgentReadTool('query_events', { start: 'x' }, '1');
+      expect(res.success).toBe(true);
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { start: 'x' }, '1');
     });
   });
 
@@ -2135,7 +2169,13 @@ describe('AiService', () => {
 
     it('链上全部抛错 → throw 汇总错误', () => {
       mockProviderFactory.getProvider.mockImplementation(() => { throw new Error('down'); });
-      expect(() => (aiService as any).resolveProvider({ message: 'hi', provider: 'openai' })).toThrow('No provider available');
+      let caught: unknown;
+      try {
+        (aiService as any).resolveProvider({ message: 'hi', provider: 'openai' });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toMatchObject({ errorCode: 'LLM_UNAVAILABLE' });
     });
 
     it('anthropic 可用 → 返回 anthropic（FALLBACK 链含降级）', () => {
