@@ -41,6 +41,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let code = HttpStatus.INTERNAL_SERVER_ERROR;
     let errorCode: string | undefined;
     let logDetail = message;
+    // NC-2 DX 错误可执行化：为什么/影响/下一步（业务码带则透传，缺省省略）
+    let reason: string | undefined;
+    let impact: string | undefined;
+    let nextStep: string | undefined;
 
     if (exception instanceof BusinessException) {
       // 业务错误码：按 Accept-Language 本地化；显式覆盖 message 时用覆盖值
@@ -51,6 +55,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message =
         exception.customMessage ??
         (def ? (lang === 'zh' ? def.zh : def.en) : exception.message);
+      if (def) {
+        reason = lang === 'zh' ? def.reason?.zh : def.reason?.en;
+        impact = lang === 'zh' ? def.impact?.zh : def.impact?.en;
+        nextStep = lang === 'zh' ? def.nextStep?.zh : def.nextStep?.en;
+      }
       logDetail = message;
     } else if (exception instanceof HttpException) {
       httpStatus = exception.getStatus();
@@ -107,6 +116,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (errorCode != null) {
       body.errorCode = errorCode;
     }
+
+    // NC-2：把「报错」变「向导」——原因/影响/下一步（业务码带则透传）
+    if (reason != null) body.reason = reason;
+    if (impact != null) body.impact = impact;
+    if (nextStep != null) body.nextStep = nextStep;
 
     // Pass through extra fields from the exception (e.g. retryAfter, explanation)
     if (exception instanceof HttpException) {

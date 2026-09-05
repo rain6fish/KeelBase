@@ -632,6 +632,34 @@ export class AiService {
   }
 
   /**
+   * NC-3 plan/子代理只读执行器：注入 plan-execute 与 sub-agent（同 gate + 只读强制）。
+   * - 与主循环同 gate：_assertToolAllowed（R5 / 治理策略 enabled / 角色白名单 / featureFlag / adminOnly）
+   * - 只读强制：写/需确认工具（R3/R4，含外部非只读）直接拒——子代理/plan 不得绕过确认与副作用登记执行写工具
+   * - 通过后走 _executeReadTool（内置/外部 provider 同源）
+   * 内部读不单落 tool_call 行（对话级 delegate/plan 审计行已取证；此处只堵授权旁路，不改变审计语义）。
+   */
+  private async _executeAgentReadTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<ToolResult> {
+    await this._assertToolAllowed(toolName, userId);
+    if (await this._requiresConfirmation(toolName)) {
+      throw new AuthorizationDeniedError(
+        `Tool "${toolName}" is write/confirmation-gated; plan and sub-agent steps are read-only`,
+        [
+          {
+            name: 'agent_read_only',
+            ok: false,
+            note: 'plan/子代理仅执行只读工具；写操作请在主对话发起并人工确认',
+          },
+        ],
+      );
+    }
+    return this._executeReadTool(toolName, args, userId);
+  }
+
+  /**
    * Runtime provenance 工具指纹（§13.1 后置项①，公开命名 provenance）：
    * 只暴露「多少个工具 / 读写分类 / 风险级分布」的汇总指纹，不含参数/权限详情（admin 专属）。
    * 供 GET /app/provenance（公开）回答「这个 AI 系统有哪些能力」。
@@ -887,6 +915,8 @@ export class AiService {
         toolRegistry: this.toolRegistry,
         userId,
         model: request.model ?? this.config.defaultModel,
+        // NC-3 只读门控：子代理经同一治理层执行（R5/策略/角色/adminOnly + 写工具拒绝）
+        readOnlyExecutor: (tool, args, uid) => this._executeAgentReadTool(tool, args, uid),
       });
 
       if (delegateResult.stepResults.length > 0) {
@@ -942,6 +972,8 @@ export class AiService {
         this.toolRegistry,
         userId,
         request.model ?? this.config.defaultModel,
+        // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调
+        (tool, args, uid) => this._executeAgentReadTool(tool, args, uid),
       );
 
       if (planResult.stepResults.length > 0) {
@@ -1688,9 +1720,9 @@ export class AiService {
     }
 
     // Can't happen since getProvider throws but let's be safe
-    throw new Error(
-      `No provider available: ${errors.join('; ')}`,
-    );
+    // NC-2：无可用 provider（未配置/找不到）→ 可执行码而非裸 500（CR-5 细节只进日志）
+    console.warn(`[AiService] No provider available: ${errors.join('; ')}`);
+    throw BusinessException.of('LLM_UNAVAILABLE');
   }
 
   /**
@@ -1736,9 +1768,9 @@ export class AiService {
           { messages, tools: tools.length > 0 ? tools : undefined },
         );
         if (!fallbackResult) {
-          throw new Error(
-            `All providers failed after ${round + 1} attempts. Last error: ${(err as Error).message}`,
-          );
+          // NC-2：全 provider 失败 → 可执行码（CR-5 细节只进日志）
+          console.warn(`[AiService] All providers failed after ${round + 1} attempts: ${(err as Error).message}`);
+          throw BusinessException.of('LLM_UNAVAILABLE');
         }
         result = fallbackResult.result;
         // CR-28：后续轮次用「实际成功」的 provider，而非回退链首（可能也是失败的）
