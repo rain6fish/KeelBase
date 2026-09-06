@@ -9,6 +9,7 @@ import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity'
 import { AiAgent } from '../ai/agents/ai-agent.entity';
 import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
 import { AiGovernancePolicy } from '../ai/governance/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../ai/governance/ai-governance-policy-history.entity';
 import { AuditChainLock } from '../common/audit-chain/audit-chain-lock.entity';
 
 // 加载 .env 文件（根据 NODE_ENV 选择环境文件）
@@ -49,6 +50,7 @@ export const GovernanceDataSource = new DataSource({
     AiAgent,
     AiConfirmationRequest,
     AiGovernancePolicy,
+    AiGovernancePolicyHistory,
     AuditChainLock,
   ],
   // §5.4 部署安全：仅开发/暂存同步建表；生产关闭（fail fast，避免治理库运行时 schema 漂移）。
