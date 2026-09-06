@@ -6,7 +6,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ## [Unreleased] / 未发布（草案）
 
-> 版本号待定：v1.0.7（维护线增量）或并入 v1.1（产品证明达成版，见 roadmap §18.0）。基线 = v1.0.6 tag（d7c9d9e0）后的 master，共 8 commits（`git log v1.0.6..HEAD`）。注：其中治理评审收口与 Evidence Root v3 深化内容已并入 [1.0.6] 条目描述（tag 时序错位）；若决定并入 v1.0.6 重新打 tag，本段移除。
+> 将发布为 **v1.0.7**（维护线增量；正式发版时写日期、bump package version 并打 tag）。基线 = v1.0.6 tag（d7c9d9e0）后的 master，共 8 commits。注：治理评审收口与 Evidence Root v3 深化内容已并入 [1.0.6] 条目描述（tag 时序错位）。1.1（产品证明达成版）另按 roadmap §18.0 触发，不含本段。
 
 ### Fixed / 修复
 
