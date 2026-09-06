@@ -44,18 +44,12 @@ export function declaredGateMode(riskLevel?: string): ResolvedGateMode {
   return 'auto'
 }
 
-/** 清单行 → 生效门控档位：优先后端 gateMode；无则按 requiresApproval/requiresConfirmation/声明推导。 */
+/** 清单行 → 生效门控档位：后端 getToolInventory 恒返回 gateMode（effectiveGateMode 唯一源）；此处仅防御性兜底声明档。 */
 export function effectiveGate(tool: {
-  requiresApproval?: boolean
-  requiresConfirmation: boolean
   gateMode?: ResolvedGateMode
   riskLevel?: string
 }): ResolvedGateMode {
-  if (tool.gateMode) return tool.gateMode
-  const declared = declaredGateMode(tool.riskLevel)
-  if (tool.requiresApproval) return 'approval'
-  if (tool.requiresConfirmation) return 'confirm'
-  return declared
+  return tool.gateMode ?? declaredGateMode(tool.riskLevel)
 }
 
 /** 解析 Settings/治理表中存储的治理策略 JSON（容忍缺省/非法，回退空策略）。与后端 GovernancePolicyService.getPolicy 语义对齐。 */

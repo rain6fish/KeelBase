@@ -60,11 +60,12 @@ describe('declaredGateMode / effectiveGate（§internal.15(4) 档位默认）', 
     expect(declaredGateMode(undefined)).toBe('auto')
   })
 
-  it('生效档优先后端 gateMode；缺省由 requiresApproval/requiresConfirmation 推导', () => {
-    expect(effectiveGate({ requiresConfirmation: true, gateMode: 'approval', riskLevel: 'R3' })).toBe('approval')
-    expect(effectiveGate({ requiresApproval: true, requiresConfirmation: true, riskLevel: 'R3' })).toBe('approval')
-    expect(effectiveGate({ requiresConfirmation: true, riskLevel: 'R2' })).toBe('confirm')
-    expect(effectiveGate({ requiresConfirmation: false, riskLevel: 'R3' })).toBe('confirm')
+  it('生效档优先后端 gateMode；缺省回落声明档 declaredGateMode', () => {
+    expect(effectiveGate({ gateMode: 'approval', riskLevel: 'R3' })).toBe('approval')
+    expect(effectiveGate({ riskLevel: 'R3' })).toBe('confirm')
+    expect(effectiveGate({ riskLevel: 'R4' })).toBe('approval')
+    expect(effectiveGate({ riskLevel: 'R2' })).toBe('auto')
+    expect(effectiveGate({})).toBe('auto')
   })
 })
 

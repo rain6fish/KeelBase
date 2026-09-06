@@ -102,11 +102,6 @@ export function effectiveGateMode(
   return 'auto';
 }
 
-/** 工具声明风险级对应的默认门控档位（策略编辑器显示「默认档」用）。 */
-export function declaredGateMode(riskLevel: ToolRiskLevel): ToolGateMode | 'blocked' {
-  return effectiveGateMode(undefined, riskLevel);
-}
-
 /**
  * HS-9 治理策略层：工具权限 / 确认规则 / 审计粒度从代码硬编码升级为数据驱动。
  * 策略存于自有表 ai_governance_policy（D2-1d，单行 id=1，value JSON）——从 Settings 迁出，
