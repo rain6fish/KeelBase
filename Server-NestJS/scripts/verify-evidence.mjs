@@ -127,7 +127,8 @@ else {
   rowsCount = allRows.length;
   const anchors = Array.isArray(ev.root?.anchors) ? ev.root.anchors : [];
 
-  ok('动作标识（AUDIT-ID）', `${ev.action?.id ?? '(缺失)'}（resultType:resultId → effectId ${ev.action?.effectId ?? '-'}）`);
+  if (ev.action?.effectId) ok('动作标识（AUDIT-ID）', `${ev.action?.id ?? '(缺失)'}（resultType:resultId → effectId ${ev.action.effectId}）`);
+  else bad('动作标识（AUDIT-ID）', ev.action?.id ? '缺 effectId（证据根须锚定具体副作用目标）' : '缺 action 段');
   if (ev.action && ev.action.id === `${ev.action.resultType}:${ev.action.resultId}`) ok('action.id 与 resultType:resultId 一致');
   else bad('action.id 与 resultType:resultId 一致', ev.action?.id ?? '(缺失)');
 

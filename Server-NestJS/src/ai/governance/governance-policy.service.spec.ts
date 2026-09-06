@@ -350,15 +350,19 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       expect(res.reproducible).toBe(false);
     });
 
-    it('getPolicyRevisionHistory 返回列表（不含整包 value）', async () => {
+    it('getPolicyRevisionHistory 返回列表含规范化 value（spec §5 value 摘要，供「当时策略」展示/比对人读）', async () => {
       historyRepo.find.mockResolvedValue([
-        { id: 2, revision: 'ab12cd34ef56', appliedAt: new Date('2026-09-04T12:00:00Z') },
-        { id: 1, revision: '000000000000', appliedAt: new Date('2026-09-04T09:00:00Z') },
+        { id: 2, revision: 'ab12cd34ef56', value: JSON.stringify({ tools: { create_event: { enabled: false } } }), appliedAt: new Date('2026-09-04T12:00:00Z') },
+        { id: 1, revision: '000000000000', value: JSON.stringify({ tools: {} }), appliedAt: new Date('2026-09-04T09:00:00Z') },
       ]);
       const list = await service.getPolicyRevisionHistory(50);
       expect(list).toHaveLength(2);
-      expect(list[0]).toEqual({ id: 2, revision: 'ab12cd34ef56', appliedAt: expect.any(Date) });
-      expect(list[0]).not.toHaveProperty('value');
+      expect(list[0]).toEqual({
+        id: 2,
+        revision: 'ab12cd34ef56',
+        value: expect.stringContaining('"enabled":false'),
+        appliedAt: expect.any(Date),
+      });
     });
   });
 });
