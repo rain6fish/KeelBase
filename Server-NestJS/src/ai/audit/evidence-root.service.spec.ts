@@ -8,7 +8,7 @@ import { AuditService } from './audit.service';
 describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
   const AUDIT_HMAC_KEY = 'test-evidence-root-key';
 
-  function build(opts: { effect?: any | null; viewer?: string; isAdmin?: boolean; convRows?: any[] } = {}) {
+  function build(opts: { effect?: any | null; viewer?: string; isAdmin?: boolean; convRows?: any[]; governancePolicy?: any } = {}) {
     const logRepo = {
       find: jest.fn().mockResolvedValue(opts.convRows ?? []),
       findOne: jest.fn(),
@@ -20,6 +20,7 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
         { seq: 1, id: 500, prevHash: null, hash: 'a'.repeat(64), payload: { method: 'PATCH', path: '/crm/tasks/7' } },
       ]),
     } as any;
+    const governancePolicy = opts.governancePolicy ?? (undefined as any);
     const service = new AuditService(
       logRepo as any,
       usageRepo,
@@ -31,8 +32,9 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
       undefined,
       undefined,
       operationAudit,
+      governancePolicy,
     );
-    return { service, logRepo, effectsRepo, operationAudit };
+    return { service, logRepo, effectsRepo, operationAudit, governancePolicy };
   }
 
   const allowedSnapshot = JSON.stringify({
@@ -92,7 +94,13 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
     const sideAnchor = out.root.anchors.find((a: any) => a.kind === 'side-effect')!;
     expect(sideAnchor.hash).toBe(createHash('sha256').update(JSON.stringify(out.effect)).digest('hex'));
     expect(out.root.digest).toBe(createHash('sha256').update(JSON.stringify(out.root.anchors)).digest('hex'));
-    // 签名（v3 canonical 可复现）
+    // ① spec 对齐：业务摘要（trigger 存在时经 summarizeAudit）
+    expect(out.summary).toBeTruthy();
+    expect(typeof out.summary?.sentence).toBe('string');
+    expect(out.summary?.stats).toBeDefined();
+    // replay：无 governancePolicy 注入 → 省略（replayDecision 不调）
+    expect(out.replay).toBeNull();
+    // 签名（v3 canonical 可复现：含 summary——存在才含，与导出同源）
     const canonical = JSON.stringify({
       action: out.action,
       authorization: out.authorization ?? null,
@@ -101,8 +109,31 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
       chains: out.chains,
       root: out.root,
       exportedAt: out.exportedAt,
+      ...(out.summary ? { summary: out.summary } : {}),
+      ...(out.replay ? { replay: out.replay } : {}),
     });
     expect(out.signature).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+  });
+
+  it('replay wire：授权快照 policy.revision → replayDecision 被调 + replay 段入包', async () => {
+    const replayDecision = jest.fn().mockResolvedValue({
+      mode: 'history', verifiable: true, reproducible: true, policyChanged: false, toolDecisionChanged: false,
+      recordedRevision: 'ab12cd34ef56', currentRevision: 'ab12cd34ef56',
+    });
+    const { service, governancePolicy } = build({
+      effect,
+      viewer: '42',
+      convRows: [convRow],
+      governancePolicy: { replayDecision },
+    });
+    const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+    // 授权快照带 policy.revision + effect.toolName → replayDecision 被调
+    expect(replayDecision).toHaveBeenCalledWith(expect.objectContaining({
+      tool: 'create_followup_task',
+      checks: expect.any(Array),
+      policyRevision: 'ab12cd34ef56',
+    }));
+    expect(out.replay).toMatchObject({ reproducible: true, recordedRevision: 'ab12cd34ef56' });
   });
 
   it('副作用不存在 → 404', async () => {

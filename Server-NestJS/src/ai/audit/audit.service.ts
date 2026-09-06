@@ -23,7 +23,8 @@ import {
   ChainVerification,
 } from '../../common/audit-chain/audit-chain.service';
 import { aiActionLabel } from './ai-feature-map';
-import { summarizeAudit, AuditInterpretation, AuditInterpretationRow } from './audit-interpreter.service';
+import { summarizeAudit, AuditInterpretation, AuditInterpretationRow, AuditInterpreterStats } from './audit-interpreter.service';
+import { GovernancePolicyService } from '../governance/governance-policy.service';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -171,6 +172,10 @@ export interface EvidenceRootExport {
     anchors: Array<{ kind: string; rowId: number; hash: string }>;
     digest: string;
   };
+  /** ① spec 对齐：业务摘要（trigger 存在时经 summarizeAudit，可读叙事） */
+  summary?: { sentence: string; stats: AuditInterpreterStats } | null;
+  /** ① spec 装配：授权快照 policy.revision 下的决策可复现重放（governancePolicy 注入时） */
+  replay?: Record<string, unknown> | null;
   signature: string | null;
 }
 
@@ -242,6 +247,8 @@ export class AuditService {
     @Optional() private readonly agentService?: AiAgentService,
     // ① 证据根（§22.17 ①）：operation-audit 链行（OperationAuditModule 已由 ai.module import，注入可用；缺失降级）
     @Optional() private readonly operationAudit?: OperationAuditService,
+    // ① replay wire：证据根装配点调 replayDecision（governance-policy 只注 repo 无循环；缺失降级 → replay 段省略）
+    @Optional() private readonly governancePolicy?: GovernancePolicyService,
   ) {}
 
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（roadmap §22.10 B） */
@@ -866,8 +873,52 @@ export class AuditService {
     };
     const decision = { businessEvent: trigger?.businessEvent ?? null, evidence: trigger?.evidence ?? null };
     const chains = { aiAudit: aiChain, operationAudit: opChain };
-    // v3 canonical（与 scripts/verify-evidence.mjs 严格一致）：action/authorization/decision/effect/chains/root/exportedAt
-    const canonical = JSON.stringify({ action, authorization: identity?.authorization ?? null, decision, effect: effectProj, chains, root, exportedAt });
+
+    // ① spec 对齐：业务摘要（复用 summarizeAudit，trigger 存在时给「这条 AI 行为做了什么」可读叙事）
+    let summary: EvidenceRootExport['summary'] = null;
+    if (trigger) {
+      try {
+        const s = summarizeAudit(
+          trigger as unknown as AuditInterpretationRow,
+          convRows as unknown as AuditInterpretationRow[],
+        );
+        summary = { sentence: s.sentence, stats: s.stats };
+      } catch {
+        summary = null;
+      }
+    }
+
+    // ① replay wire（装配点，policy-history spec §4）：授权快照携带的 policy.revision 下重放该放行——决策是否仍可复现
+    let replay: EvidenceRootExport['replay'] = null;
+    const allowedObj = identity?.authorization && typeof identity.authorization === 'object'
+      ? (identity.authorization as { allowed?: { tool?: string; checks?: Array<{ name: string }>; policy?: { revision?: string } } }).allowed
+      : undefined;
+    if (this.governancePolicy && allowedObj && effect.toolName && allowedObj.policy?.revision) {
+      try {
+        // tool 从副作用行取（授权快照 allowed 未必携带 tool，effect.toolName 是真实触发工具）
+        replay = (await this.governancePolicy.replayDecision({
+          tool: effect.toolName,
+          checks: allowedObj.checks as Array<{ name: string; ok?: boolean }>,
+          policyRevision: allowedObj.policy.revision,
+        })) as unknown as Record<string, unknown>;
+      } catch {
+        replay = null;
+      }
+    }
+
+    // v3 canonical（与 scripts/verify-evidence.mjs 严格一致）：action/authorization/decision/effect/chains/root/exportedAt + summary/replay（存在才含，向后兼容已导出无新段的 v3）
+    const canonicalObj: Record<string, unknown> = {
+      action,
+      authorization: identity?.authorization ?? null,
+      decision,
+      effect: effectProj,
+      chains,
+      root,
+      exportedAt,
+    };
+    if (summary) canonicalObj.summary = summary;
+    if (replay) canonicalObj.replay = replay;
+    const canonical = JSON.stringify(canonicalObj);
     const signature = signingKey
       ? createHmac('sha256', signingKey).update(canonical).digest('hex')
       : null;
@@ -881,6 +932,8 @@ export class AuditService {
       effect: effectProj,
       chains,
       root,
+      summary,
+      replay,
       signature,
     };
   }
