@@ -126,4 +126,27 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
       expect(JSON.parse(out!).fallback).toBe(true);
     });
   });
+
+  describe('captureBefore', () => {
+    it('非 update 类工具（create 类）→ null，不解析实体', async () => {
+      expect(await captor.captureBefore('create_event', { title: 'x' })).toBeNull();
+      expect(entityManager.getRepository).not.toHaveBeenCalled();
+    });
+
+    it('proxy 写（update_customer_status）无本地实体 → args 摘要并脱敏敏感键', async () => {
+      const out = await captor.captureBefore('update_customer_status', {
+        customerId: 1,
+        apiKey: 'sk-123',
+        status: 'active',
+        remark: '催款',
+      });
+      expect(entityManager.getRepository).not.toHaveBeenCalled();
+      const parsed = JSON.parse(out!);
+      expect(parsed.customerId).toBe(1);
+      expect(parsed.apiKey).toBe('[REDACTED]');
+      expect(parsed.status).toBe('active');
+      expect(out).not.toContain('sk-123');
+    });
+
+  });
 });
