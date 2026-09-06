@@ -290,6 +290,7 @@ const zh = {
   trustSandboxIntro: '每个场景以你的身份真实运行（确定性 demo provider，无需 LLM）：AI 读取 / 写回 / 被拒 / 被阻断都发生在真实业务数据上，并留下可查看的治理轨迹。',
   trustSandboxScenario: '场景',
   trustSandboxResult: '运行结果',
+  trustSandboxResultHint: '在左侧选一张场景卡点「运行演示」，结果会显示在右侧。',
   trustSandboxViewAction: '查看业务动作治理详情',
   trustSandboxConvHint: '已产生对话留痕——可到「AI 执行轨迹」查看该会话完整决策轨迹。',
   tsOutcome: { passed: '通过', check: '待核对', guide: '指引', unknown: '未知' },
