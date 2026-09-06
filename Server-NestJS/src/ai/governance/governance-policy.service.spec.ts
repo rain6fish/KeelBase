@@ -2,7 +2,6 @@
 
 import {
   GovernancePolicyService,
-  declaredGateMode,
   effectiveGateMode,
   policyRevisionOf,
 } from './governance-policy.service';
@@ -125,14 +124,14 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
     });
   });
 
-  describe('effectiveGateMode / declaredGateMode（§22.15(4) 门控档位）', () => {
-    it('声明风险级推导默认档：R5→blocked / R4→approval / R3→confirm / R0-R2→auto', () => {
+  describe('effectiveGateMode（§22.15(4) 门控档位，唯一权威口径）', () => {
+    it('无覆盖时声明风险级推导默认档：R5→blocked / R4→approval / R3→confirm / R0-R2→auto', () => {
       expect(effectiveGateMode(undefined, 'R5')).toBe('blocked');
-      expect(declaredGateMode('R4')).toBe('approval');
-      expect(declaredGateMode('R3')).toBe('confirm');
-      expect(declaredGateMode('R2')).toBe('auto');
-      expect(declaredGateMode('R1')).toBe('auto');
-      expect(declaredGateMode('R0')).toBe('auto');
+      expect(effectiveGateMode(undefined, 'R4')).toBe('approval');
+      expect(effectiveGateMode(undefined, 'R3')).toBe('confirm');
+      expect(effectiveGateMode(undefined, 'R2')).toBe('auto');
+      expect(effectiveGateMode(undefined, 'R1')).toBe('auto');
+      expect(effectiveGateMode(undefined, 'R0')).toBe('auto');
     });
 
     it('mode 覆盖优先于声明档位：可升档 R3→approval、R2→confirm，可降档 R4→auto', () => {
