@@ -159,3 +159,11 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 ## 9. 关联 / 9. Related
 
 roadmap §22.17 ①（本规格即其设计先行）｜P-③ Policy 历史表（跨版本真回放，衔接 verifyReproducible）｜§22.17 ② SM2/时间锚（v3 包后续加国密签名）｜docs/audit-authz-snapshot.spec.md §5 ｜ docs/ai-action-center.spec.md §5.3 ｜ docs/protocols/ai-governance-protocol.md §2.5
+
+---
+
+## 10. 实现采纳差异登记 / 10. Implemented-delta Notes（v1.0.6 评审后）
+
+- **`effect.revoked` 未投影（§3 schema 有）**：副作用实体无 revoked 列，撤销态由目标软删推导；v3 证据根聚焦「链完整性 + 副作用行快照」，撤销态显式表达由 B4 治理视图 / AI Action Center（`/ai/my/tool-effects`）承担，本包不重复。若后续需证据根内显式撤销态，加跨 service target 查询（backlog）。
+- **§5.4 副作用锚列集未按 10 列实现**：实现锚用投影 `{id,toolName,before,after}`（canonical 摘要自洽 + 整包 HMAC 兜底防篡改）；spec 的 10 列集（含 argsHash/snapshot 等）是冗余增强——argsHash/快照内容已隐含于 before/after 摘要，不重复入锚。
+- **v1.0.6 补充实现（对齐本 spec）**：导出加 `summary`（复用 summarizeAudit，trigger 存在时业务摘要）+ `replay`（装配点调 `GovernancePolicyService.replayDecision`——授权快照 policy.revision + effect.toolName → 决策可复现重放，衔接 §9 Related 的 P-③）；canonical 动态含非空段，向后兼容已导出的无新段 v3 包。
