@@ -123,6 +123,44 @@
       </table>
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
     </el-card>
+
+    <!-- P-③（§internal.17 ①）：策略历史快照（每次 setPolicy 落一行；「当时哪版规则」可查看/比对） -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center justify-space-between">
+          <div class="d-flex align-center ga-2">
+            <AppIcon icon="mdi-history" />
+            <span>{{ t('policyHistory') }}</span>
+            <el-tag size="small" effect="plain">{{ t('policyHistoryHint') }}</el-tag>
+          </div>
+          <el-button text size="small" :loading="historyLoading" @click="loadHistory">
+            <template #icon><AppIcon icon="mdi-refresh" /></template>
+            {{ t('refresh') }}
+          </el-button>
+        </div>
+      </template>
+      <el-table v-if="history.length" :data="history" size="small" style="width: 100%">
+        <el-table-column label="revision" min-width="170">
+          <template #default="{ row }"><code>{{ row.revision }}</code></template>
+        </el-table-column>
+        <el-table-column :label="t('policyAppliedAt')" min-width="210">
+          <template #default="{ row }">{{ formatTime(row.appliedAt) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('viewSnapshot')" width="150" align="right">
+          <template #default="{ row }">
+            <el-button size="small" text :loading="snapshotLoadingId === row.id" @click="viewSnapshot(row.id, row.revision)">
+              <template #icon><AppIcon icon="mdi-file-eye-outline" /></template>
+              {{ t('viewSnapshot') }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-else class="text-medium-emphasis">{{ historyEmpty ? t('policyHistoryEmpty') : t('loading') }}</div>
+      <div v-if="snapshot" class="mt-2">
+        <div class="text-caption font-weight-medium text-medium-emphasis mb-1">{{ t('snapshotOf', { revision: snapshot.revision }) }}</div>
+        <pre class="pa-3 text-caption" style="background: var(--el-fill-color-light); border-radius: 8px; white-space: pre-wrap; max-height: 260px; overflow:auto">{{ snapshotText }}</pre>
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -131,6 +169,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import { formatTime } from '@/utils/format'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import {
@@ -151,6 +190,13 @@ const saving = ref(false)
 const presets = ref<Array<{ id: string; labelKey: string; descriptionKey: string }>>([])
 const applying = ref('')
 const rawOverrides = ref<Record<string, PolicyToolOverride>>({})
+// P-③ 策略历史（只读）
+const history = ref<Array<{ id: number; revision: string; appliedAt: string }>>([])
+const historyLoading = ref(false)
+const historyEmpty = ref(false)
+const snapshot = ref<{ revision: string; policy: unknown; appliedAt: string | null } | null>(null)
+const snapshotLoadingId = ref<number | null>(null)
+const snapshotText = computed(() => (snapshot.value ? JSON.stringify(snapshot.value.policy, null, 2) : ''))
 
 const roleOptions = computed(() => [
   { title: t('roleUser'), value: 'user' },
@@ -242,8 +288,34 @@ async function onApplyPreset(id: string) {
   }
 }
 
+/** P-③ 策略历史列表（admin，每次 setPolicy 快照） */
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    history.value = await aiToolsApi.policyHistory(50)
+    historyEmpty.value = history.value.length === 0
+  } catch {
+    historyEmpty.value = true
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+/** P-③ 查看某 revision 的策略快照（「当时哪版规则」） */
+async function viewSnapshot(id: number, revision: string) {
+  snapshotLoadingId.value = id
+  try {
+    snapshot.value = await aiToolsApi.policyHistoryRevision(revision)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('policyHistoryFailed'))
+  } finally {
+    snapshotLoadingId.value = null
+  }
+}
+
 onMounted(async () => {
   loadAll()
+  loadHistory()
   try {
     presets.value = await aiToolsApi.policyPresets()
   } catch {

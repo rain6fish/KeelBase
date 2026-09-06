@@ -29,6 +29,10 @@ export const aiToolsApi = {
   governanceAction(resultType: string, resultId: number): Promise<GovernanceActionResponse> {
     return api.get(`/ai/governance/action/${resultType}/${resultId}`)
   },
+  /** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/3 单文件证据包（供 verify-evidence.mjs 离线验） */
+  evidenceRoot(resultType: string, resultId: number): Promise<Record<string, unknown>> {
+    return api.get(`/ai/governance/evidence-root/${resultType}/${resultId}`)
+  },
   /** §internal.16 A-2 业务实体行为史：按实体聚合跨来源行为史 */
   entityHistory(resultType: string, resultId: number): Promise<BusinessHistoryResponse> {
     return api.get(`/ai/governance/entity/${resultType}/${resultId}`)
@@ -53,6 +57,14 @@ export const aiToolsApi = {
   /** §internal.15 策略模板库：一键应用预设（治理台，实时生效） */
   applyPolicyPreset(presetId: string): Promise<unknown> {
     return governanceApi.post('/ai/governance/policy/apply-preset', { presetId })
+  },
+  /** P-③（§internal.17 ①）策略历史列表（admin） */
+  policyHistory(limit = 50): Promise<Array<{ id: number; revision: string; appliedAt: string }>> {
+    return governanceApi.get('/ai/governance/policy/history', { limit })
+  },
+  /** P-③（§internal.17 ①）单版本策略快照（admin，供「当时哪版规则」查看） */
+  policyHistoryRevision(revision: string): Promise<{ revision: string; policy: unknown; appliedAt: string | null }> {
+    return governanceApi.get(`/ai/governance/policy/history/${encodeURIComponent(revision)}`)
   },
   /** R4 双人审批：待审批列表（治理台） */
   approvals(): Promise<AiApprovalRequest[]> {
