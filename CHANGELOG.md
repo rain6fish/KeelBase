@@ -4,6 +4,30 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased] / 未发布（草案）
+
+> 版本号待定：v1.0.7（维护线增量）或并入 v1.1（产品证明达成版，见 roadmap §18.0）。基线 = v1.0.6 tag（d7c9d9e0）后的 master，共 8 commits（`git log v1.0.6..HEAD`）。注：其中治理评审收口与 Evidence Root v3 深化内容已并入 [1.0.6] 条目描述（tag 时序错位）；若决定并入 v1.0.6 重新打 tag，本段移除。
+
+### Fixed / 修复
+
+- **fix(deploy): Serve official demo video under /demo (China mirror)** — nginx `/demo/` 静态 location + docker-compose.prod.yml 挂载宿主 `./demo`（official-demo-en/zh.webm + video html）→ 国内镜像 `https://demo.keelbase.com.cn/demo/video-en.html` 恢复真实可播（此前被 `location /` SPA 兜底到 admin，200 假象）；README China mirror 同步 https 正式域（3b3e87ef）
+  **国内镜像恢复官方演示视频**：/demo 静态服务 + prod 挂载，README 指向 https 正式域
+- **fix(governance): v1.0.6 release-precheck review fixes (group A)** — external-effects GET 非法 resultId 404→400（BadRequest，REST 语义，spec 同步）；CLAUDE.md §9 API 表补 v1.0.6 新端点（my/tool-effects GET / evidence-root / policy/history / external/effects GET）；docs/evidence + ai-governance-protocol 登记 `keelbase-audit-evidence/3`
+  **发布前评审修复（A 组）**：external-effects 非法 id 语义 + API 表/证据协议补登 /3
+- **refactor(governance): v1.0.6 review B3 — effectiveGateMode 唯一权威** — 删 spec-only `declaredGateMode`（纯委托，生产零引用）；FE 死兜底收敛为 `gateMode ?? declaredGateMode(riskLevel)`；`getToolPolicy` 不 consolidate（不自知 riskLevel，统一会改 R3/R4 运行时门槛 → 记 1.1 策略层重构 backlog）；BE spec 33/33 + FE governance 12/12
+  **评审 B3 收敛**：删声明式死代码，门控口径统一到 effectiveGateMode
+
+### Added / 新增
+
+- **feat(governance): Evidence Root v3 spec alignment — summary + replay（§22.17① 评审 B1/B2）** — 证据根导出加 `summary`（复用 summarizeAudit，trigger 存在时业务摘要）+ `replay`（装配点调 `governancePolicy.replayDecision`：授权快照 policy.revision + effect.toolName → 用该策略版本重放决策，可复现入证据包）；canonical 动态含非空段（向后兼容已导出无新段的 v3）；verify-evidence /3 同步（summary/replay 存在才含）
+  **证据根 v3 加 summary/replay**：业务摘要 + 决策可复现重放装配（评审 B1/B2）
+- **feat(web): P0 evidence surfaces clickable** — Business Action Detail 加「导出证据根」（下载 v3 证据包 + 离线验提示）；管理台策略中心加「策略历史」区（policy/history 列表 + 按 revision 查看快照）；i18n 双语；typecheck + vitest（policy 2 / api 89）
+  **证据面接入 UI（可点击）**：导出证据根 + 策略历史/快照查看
+- **docs(spec): Evidence Root v3 implemented-delta 诚实边界登记（评审 B3）** — `effect.revoked` 未投影（撤销态由 B4/AI Action Center 表达，证据根聚焦链完整性）；§5.4 副作用锚列集未按 10 列（投影摘要 + 整包 HMAC 兜底）；v1.0.6 补充实现登记
+  **证据根 v3 诚实边界文档**：不投影撤销态、副作用锚投影摘要的取舍登记
+- **docs(capability): 对外能力声明移除内部 roadmap 溯源**（对外语言自检，1.1 gate③ G3-3）
+  **对外文档净化**：capability-declaration 移除内部编号引用
+
 ## [1.0.6] - 2026-09-06
 
 > **KeelBase 1.0.6 — AI Action Center North-Star & Cross-entry Decision Consistency / AI 行为中心北极星与跨入口决策一致版**
