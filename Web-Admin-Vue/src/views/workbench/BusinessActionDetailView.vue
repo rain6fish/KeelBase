@@ -2,6 +2,10 @@
 <template>
   <div>
     <PageHeader :title="t('workbenchActionDetail')" :subtitle="`${resultType} #${resultId}`">
+      <el-button plain :loading="exporting" :disabled="!data" @click="onExportEvidenceRoot">
+        <template #icon><AppIcon icon="mdi-download-outline" /></template>
+        {{ t('exportEvidenceRoot') }}
+      </el-button>
       <el-button plain @click="goBack">
         <template #icon><AppIcon icon="mdi-arrow-left" /></template>
         {{ t('back') }}
@@ -123,6 +127,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -147,6 +152,7 @@ const data = ref<GovernanceActionResponse | null>(null)
 const loading = ref(false)
 const loadError = ref('')
 const notFound = ref(false)
+const exporting = ref(false)
 
 const steps = computed<TraceStep[]>(() => (data.value?.trace as { steps?: TraceStep[] } | null)?.steps ?? [])
 
@@ -237,6 +243,29 @@ function timelineColor(s: TraceStep): string {
 function goBack() {
   if (window.history.length > 1) router.back()
   else router.replace('/workbench')
+}
+
+/** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/3 单文件包 → 下载，供 verify-evidence.mjs 离线验 */
+async function onExportEvidenceRoot() {
+  if (!resultType || !resultId) return
+  exporting.value = true
+  try {
+    const pkg = await aiToolsApi.evidenceRoot(resultType, resultId)
+    const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `evidence-root-${resultType}-${resultId}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('evidenceRootExported'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('evidenceRootExportFailed'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 async function load() {
