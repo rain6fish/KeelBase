@@ -48,6 +48,23 @@ describe('AuthorizationExplainerService (§22.17③ Policy Evidence)', () => {
     expect(res.policy?.revision).toBe('f0e1d2c3b4a5');
   });
 
+  it('治理注入但无策略行（getPolicy 空库形态：updatedAt null + 空指纹）→ policy 不附，tool_enabled 默认启用', async () => {
+    // §5：无策略行/未配治理 → 不附 policy（getPolicy 恒返回空 value 内容指纹，revision 非空信号不可用，须以 updatedAt 判「有行」）
+    const governancePolicy = {
+      getPolicy: jest.fn().mockResolvedValue({
+        tools: {},
+        audit: { granularity: 'all' },
+        updatedAt: null,
+        revision: '0a1b2c3d4e5f', // 空库也返回的空指纹——旧守卫 if(policy?.revision) 会误附
+      }),
+    };
+    const { service } = build(governancePolicy);
+    const res = await service.getAuthorizationReasons('create_event', '7', true);
+    expect(res.policy).toBeUndefined();
+    const toolEnabled = res.checks.find((c) => c.name === 'tool_enabled')!;
+    expect(toolEnabled.ok).toBe(true);
+  });
+
   it('无治理策略 → policy 不附（默认策略语义），checks 缺省 governance 项', async () => {
     const { service } = build(undefined);
     const res = await service.getAuthorizationReasons('query_events', '7', false);

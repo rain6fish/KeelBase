@@ -46,7 +46,9 @@ export class AuthorizationExplainerService {
     let policyMeta: { revision: string; updatedAt?: string | null } | undefined;
     if (this.governancePolicy) {
       const policy = await this.governancePolicy.getPolicy();
-      if (policy?.revision) {
+      // 无策略行（getPolicy 恒返回空 value 的内容指纹 revision）→ 不附 policy（audit-authz-snapshot §5：默认策略语义，
+      // 向后兼容旧快照）。updatedAt 作为「策略行存在」信号——无行显式 null，有行由 save 落时间戳。
+      if (policy?.revision && policy.updatedAt) {
         policyMeta = {
           revision: policy.revision,
           updatedAt: policy.updatedAt ? new Date(policy.updatedAt).toISOString() : null,
