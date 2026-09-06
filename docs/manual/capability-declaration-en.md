@@ -1,7 +1,7 @@
 # Lightweight Capability Declaration (EB-3 Capability Declaration)
 
 > A low-friction entry to the **Enterprise Capability Bridge**: an external system (CRM/ERP/OA) declares "what this business system can do" in one lightweight YAML, and KeelBase generates B-path Proxy tools from it (AI-callable + governance-graded) — simpler than writing a full OpenAPI, focused on business capabilities rather than API structure.
-> roadmap §22.11 EB-3: **lightweight declarative, not a metadata-driven mapping platform** (staying in bounds — no iPaaS / ETL / data sync).
+> **Boundary**: lightweight declarative, not a metadata-driven mapping platform (no iPaaS / ETL / data sync).
 
 ## In One Sentence
 

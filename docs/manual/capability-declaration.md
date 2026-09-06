@@ -1,7 +1,7 @@
 # 轻量能力声明（EB-3 Capability Declaration）
 
 > **Enterprise Capability Bridge** 的低门槛接入方式：外部系统（CRM/ERP/OA）用一份轻量 YAML 声明「这个业务系统能做什么」，KeelBase 据此生成 B 路径 Proxy 工具（AI 可调用 + 治理分级）——比写完整 OpenAPI 更简单，聚焦业务能力而非 API 结构。
-> roadmap §22.11 EB-3：**轻量声明式，非元数据驱动映射大平台**（守住边界，不做 iPaaS / ETL / 数据同步）。
+> **边界**：轻量声明式，非元数据驱动映射大平台（不做 iPaaS / ETL / 数据同步）。
 
 ## 一句话
 
