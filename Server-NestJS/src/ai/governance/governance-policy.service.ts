@@ -165,10 +165,10 @@ export class GovernancePolicyService {
     };
   }
 
-  /** P-③：历史快照列表（倒序，仅 revision/appliedAt——不暴露整包 value）。 */
-  async getPolicyRevisionHistory(limit = 50): Promise<Array<{ id: number; revision: string; appliedAt: Date }>> {
+  /** P-③：历史快照列表（倒序，含规范化 value 供「当时策略」展示/比对人读——policy-history spec §5 value 摘要）。 */
+  async getPolicyRevisionHistory(limit = 50): Promise<Array<{ id: number; revision: string; value: string; appliedAt: Date }>> {
     const rows = await this.historyRepo.find({ order: { id: 'DESC' }, take: Math.min(Math.max(limit, 1), 200) });
-    return rows.map((r) => ({ id: r.id, revision: r.revision, appliedAt: r.appliedAt }));
+    return rows.map((r) => ({ id: r.id, revision: r.revision, value: r.value, appliedAt: r.appliedAt }));
   }
 
   /** P-③：按 revision 取当时策略快照（同 revision 多行取最新；未命中 → null）。 */
