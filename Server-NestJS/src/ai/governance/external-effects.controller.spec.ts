@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExternalEffectsController } from './external-effects.controller';
 
 describe('ExternalEffectsController（服务身份查 AI 副作用状态）', () => {
@@ -60,9 +60,9 @@ describe('ExternalEffectsController（服务身份查 AI 副作用状态）', ()
     await expect(controller.status('followup', '99')).rejects.toThrow(NotFoundException);
   });
 
-  it('resultId 非法（非正整数）→ 404', async () => {
-    await expect(controller.status('followup', 'abc')).rejects.toThrow(NotFoundException);
-    await expect(controller.status('followup', '0')).rejects.toThrow(NotFoundException);
+  it('resultId 非法（非正整数）→ 400', async () => {
+    await expect(controller.status('followup', 'abc')).rejects.toThrow(BadRequestException);
+    await expect(controller.status('followup', '0')).rejects.toThrow(BadRequestException);
     expect(mockEffects.findByTarget).not.toHaveBeenCalled();
   });
 });

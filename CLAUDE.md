@@ -799,6 +799,9 @@ npm run migration:run
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4） |
+| GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化，§internal.17 北极星） |
+| GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验） |
+| GET | /api/v1/ai/governance/policy/history[/:revision] | Yes (ADMIN) | — | 治理策略历史快照 + 按 revision 单条（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/security-showcase/scenarios | Yes (ADMIN) | — | 安全演示（A2 对抗性证明）：确定性对抗场景清单（注入/越权/R5/确认） |
 | POST | /api/v1/ai/security-showcase/run/:scenarioId | Yes (ADMIN) | — | 运行对抗场景，返回 outcome + 决策轨迹（无 LLM，复用 HS-8/CASL/W5 真实逻辑） |
 | GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
@@ -808,6 +811,7 @@ npm run migration:run
 | GET | /api/v1/ai/health | Yes | — | 治理台健康检查（docker 编排用） |
 | POST | /api/v1/external/audit | 服务身份 | — | 业务系统上报 AI 审计（GOVERNANCE_API_KEY，落治理库哈希链，source=external） |
 | POST | /api/v1/external/effects | 服务身份 | — | 业务系统上报 AI 写副作用（幂等键去重） |
+| GET | /api/v1/external/effects/:resultType/:resultId | 服务身份 | — | 服务身份查副作用状态（主应用 external/effects：本地实体 revoked=目标软删；B 路径 proxy_call 诚实 revokeHint「撤销态在 Java 侧」） |
 | GET | /api/v1/external/governance/policy | 服务身份 | — | 业务系统拉取实时治理策略 |
 | POST | /api/v1/internal/approvals/:token/execute | 服务身份 | — | 治理台 approve 回调 → 业务系统执行业务工具 |
 | POST | /api/v1/internal/effects/revoke | 服务身份 | — | 治理台撤销回调 → 业务系统软删副作用目标 |
