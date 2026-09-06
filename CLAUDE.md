@@ -801,7 +801,8 @@ npm run migration:run
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§22.10 B4） |
 | GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化，§22.17 北极星） |
 | GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验） |
-| GET | /api/v1/ai/governance/policy/history[/:revision] | Yes (ADMIN) | — | 治理策略历史快照 + 按 revision 单条（P-③，跨版本回放决策可复现） |
+| GET | /api/v1/ai/governance/policy/history | Yes (ADMIN) | — | 治理策略历史快照列表（P-③，跨版本回放决策可复现） |
+| GET | /api/v1/ai/governance/policy/history/:revision | Yes (ADMIN) | — | 按 revision 查询单条策略快照（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/security-showcase/scenarios | Yes (ADMIN) | — | 安全演示（A2 对抗性证明）：确定性对抗场景清单（注入/越权/R5/确认） |
 | POST | /api/v1/ai/security-showcase/run/:scenarioId | Yes (ADMIN) | — | 运行对抗场景，返回 outcome + 决策轨迹（无 LLM，复用 HS-8/CASL/W5 真实逻辑） |
 | GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
