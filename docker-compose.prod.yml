@@ -23,4 +23,5 @@ services:
       - ./certs/server.crt:/etc/ssl/certs/server.crt:ro
       - ./certs/server.key:/etc/ssl/certs/server.key:ro
       - ./webroot:/var/www/certbot:ro
+      - ./demo:/usr/share/nginx/html/demo:ro   # 官方演示视频静态资产（nginx /demo location）
     restart: always
