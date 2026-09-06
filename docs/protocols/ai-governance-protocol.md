@@ -71,7 +71,7 @@ canonical = JSON.stringify( payload, Object.keys(payload).filter(k => payload[k]
 
 **定位**：审计哈希链（§2）的**应用层导出**——把链数据 + 合规摘要打包成可提交审计机构的证据，**离线机器可验证**（不依赖 KeelBase）。参考实现：`GET /audit/action-report/export` + `Server-NestJS/scripts/verify-evidence.mjs`。
 
-**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）。`verify-evidence.mjs` 接受 v1/v2 向后兼容。
+**格式版本 / Format**：`keelbase-audit-evidence/1`（基础：summary + hashChain + effectDiffs + chain + signature）；`keelbase-audit-evidence/2`（A-6 合规段 `compliance`，签名覆盖）；`keelbase-audit-evidence/3`（§internal.17 ① 证据根 AUDIT-ID——单动作跨链证据包：授权快照含 policy.revision + Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行 + root 跨链根锚 + v3 canonical 整包 HMAC，经 `GET /ai/governance/evidence-root/:resultType/:resultId` 导出）。`verify-evidence.mjs` 接受 v1/v2/v3（v3 为 `--key` 全量子链重算 + 副作用摘要 + 签名）向后兼容。
 
 **结构 / Schema**：
 
