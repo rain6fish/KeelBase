@@ -104,6 +104,7 @@
 ### 2.7 合规证据包（A-6 / D4）
 
 - **声明**：一键导出可提交审计机构的证据包（业务摘要 + 责任链 + 权限判断 + 审批 + 数据 diff + 技术 trace + 哈希链 + 签名），格式 `keelbase-audit-evidence/2`，第三方离线可验。
+- **证据根 v3（§22.17 ① AUDIT-ID）**：`GET /api/v1/ai/governance/evidence-root/:resultType/:resultId`（本人/管理员）导出**单动作跨链证据包** `keelbase-audit-evidence/3`——授权快照（含 policy.revision）+ Decision Evidence + 同会话 AI 审计链行 + operation_audit 链行 + 副作用行，`root` 跨链根锚（sha256 排序锚）+ v3 canonical 整包 HMAC；`verify-evidence.mjs` 加 `/3` 分支（structure，或 `--key` 全量子链重算 + 副作用摘要 + 签名；v1/v2 不变）。
 - **怎么证明**：
   ```bash
   GET /api/v1/audit/action-report/export       # 导出证据包（admin，可带 userId/since/limit）

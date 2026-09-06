@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { Public } from '../../auth/guards/public.decorator';
 import { GovernanceApiGuard } from '../../governance/governance-api.guard';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
@@ -27,7 +27,7 @@ export class ExternalEffectsController {
   ): Promise<unknown> {
     const id = Number(resultId);
     if (!Number.isFinite(id) || id <= 0) {
-      throw new NotFoundException('resultId 非法（须为正整数）');
+      throw new BadRequestException('resultId 非法（须为正整数）');
     }
     const effect = await this.toolEffects.findByTarget(resultType, id);
     if (!effect) {
