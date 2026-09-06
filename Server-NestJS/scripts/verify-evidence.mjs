@@ -164,7 +164,7 @@ else {
       console.log('  — 无 side-effect 锚（副作用缺失或选择不含）。');
     }
 
-    // 整包签名（v3 canonical：action/authorization/decision/effect/chains/root/exportedAt）
+    // 整包签名（v3 canonical：action/authorization/decision/effect/chains/root/exportedAt + summary/replay——存在才含，向后兼容已导出无新段的 v3）
     if (ev.signature) {
       const canonical = JSON.stringify({
         action: ev.action,
@@ -174,6 +174,8 @@ else {
         chains: ev.chains,
         root: ev.root,
         exportedAt: ev.exportedAt,
+        ...(ev.summary ? { summary: ev.summary } : {}),
+        ...(ev.replay ? { replay: ev.replay } : {}),
       });
       const sigOk = keys.some((k) => createHmac('sha256', k).update(canonical).digest('hex') === ev.signature);
       sigOk ? ok('证据根签名（HMAC-SHA256 覆盖 action/authorization/decision/effect/chains/root/exportedAt）', '导出后未被改动') : bad('证据根签名', '签名不匹配（导出后被改动或密钥不符）');
