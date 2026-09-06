@@ -17,6 +17,7 @@ import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity'
 import { AiAgent } from '../ai/agents/ai-agent.entity';
 import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
 import { AiGovernancePolicy } from '../ai/governance/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../ai/governance/ai-governance-policy-history.entity';
 
 // 治理服务
 import { AuditService } from '../ai/audit/audit.service';
@@ -61,6 +62,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
       AiAgent,
       AiConfirmationRequest,
       AiGovernancePolicy,
+      AiGovernancePolicyHistory,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
