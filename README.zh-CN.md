@@ -137,6 +137,8 @@ KeelBase 与普通 Agent 框架的区别所在：
 - ✓ **Agent 行为测试**——决策轨迹 + 业务安全 Agent 基准（15/15 Run/Trust/Safety）
 - ✓ **端到端业务流**——AI CRM：读 → 风险 → 建任务 → 确认 → 写 → 审计 → 撤销（确定性 e2e）
 
+> **边界同样重要**——「审计 / 撤销 / 篡改即断链」承诺什么、**不**承诺什么（如仅应用边界内、不防 DBA/root；撤销按 `revokeClass` 档位，不是跨系统回滚）：[SECURITY.md → 信任边界与不承诺清单（Not-a-*）](SECURITY.md)
+
 ---
 
 ## 🏠 Deploy — 私有化设计
