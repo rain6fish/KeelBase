@@ -80,7 +80,7 @@
               <AppIcon icon="mdi-account-group-outline" class="me-2" />
               {{ t('memberTitle') }}
               <div class="flex-grow-1" />
-              <el-button @click="openInvite" class="me-2">
+              <el-button class="me-2" @click="openInvite">
                 <template #icon><AppIcon icon="mdi-link-variant" /></template>
                 {{ t('inviteCreate') }}
               </el-button>

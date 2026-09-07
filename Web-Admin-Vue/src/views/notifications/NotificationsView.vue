@@ -5,7 +5,7 @@
 
     <el-card shadow="never" class="mx-auto" style="max-width: 720px">
       <div class="pa-4">
-        <el-form @submit.prevent="onSend" label-position="top">
+        <el-form label-position="top" @submit.prevent="onSend">
           <el-form-item :label="t('broadcastTitle')">
             <el-input v-model="form.title" required />
           </el-form-item>
