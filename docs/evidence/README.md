@@ -110,7 +110,7 @@
   GET /api/v1/audit/action-report/export       # 导出证据包（admin，可带 userId/since/limit）
   npm run verify:evidence -- 包.json --key ...  # 离线验证签名与哈希链（见 2.1）
   ```
-- **文档**：§internal.16 A-6（内部 roadmap 执行记录）。
+- **文档**：§internal.16 A-6（内部 roadmap 执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
 
 ---
 
