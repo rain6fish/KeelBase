@@ -3,6 +3,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { getQueueToken } from '@nestjs/bullmq';
 import { HealthController } from './health.controller';
 import { STORAGE_SERVICE } from '../storage/storage.service';
 
@@ -143,5 +144,44 @@ describe('HealthController', () => {
     }).compile();
     const c = module.get<HealthController>(HealthController);
     await expect((c as any)._checkStorage()).resolves.toBe('down');
+  });
+
+  // ── 补充覆盖：pushQueue 注入 / db connect 失败 / redis 可解析 URL / 非 "true" detail ──
+  describe('补充覆盖：依赖注入组合与降级', () => {
+    it('pushQueue 注入 → dependencies.queue = up', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        controllers: [HealthController],
+        providers: [
+          { provide: DataSource, useValue: dataSource },
+          { provide: ConfigService, useValue: configService },
+          { provide: getQueueToken('push'), useValue: { name: 'push' } },
+        ],
+      }).compile();
+      const c = module.get<HealthController>(HealthController);
+      const result = await c.check('true');
+      expect((result as any).dependencies.queue).toBe('up');
+    });
+
+    it('数据库 connect 失败 → 降级 down 且 query runner 仍 release', async () => {
+      runner.connect.mockRejectedValue(new Error('cannot connect'));
+      const result = await controller.check('true');
+      expect((result as any).dependencies.database).toBe('down');
+      expect(runner.release).toHaveBeenCalled();
+    });
+
+    it('_checkRedis：REDIS_URL 可解析 → 进入 TCP 探测段（本地端口拒连 → down）', async () => {
+      configService.get.mockImplementation((k: string, d?: unknown) =>
+        k === 'REDIS_URL' ? 'redis://127.0.0.1:1' : d,
+      );
+      // 127.0.0.1:1 无服务监听：连接被拒 → error 分支 resolve(false)；
+      // 即便 jest 下动态 import('net') 抛错也被外层 catch 吞掉 → 同样稳定降级 down。
+      await expect((controller as any)._checkRedis()).resolves.toBe('down');
+    });
+
+    it('detail 非 "true" 的值 → 仍返回轻量响应（不含 dependencies）', async () => {
+      const result = await controller.check('false');
+      expect(result).toHaveProperty('status', 'ok');
+      expect(result).not.toHaveProperty('dependencies');
+    });
   });
 });

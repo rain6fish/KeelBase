@@ -61,6 +61,62 @@ describe('resolveLocalEntity（#4 元数据兜底）', () => {
       }) as any;
     expect(resolveLocalEntity(emNoDelete(), 'some_read_only')).toBeNull();
   });
+
+  it('元数据无 title/name/subject/label 展示列 → displayCol null（describeTarget 不强取 title）', () => {
+    const noDisplayMeta = {
+      name: 'Invoice',
+      targetName: 'Invoice',
+      tableName: 'invoices',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'invoiceNo' }],
+    };
+    const emNoDisplay = () =>
+      ({ connection: { entityMetadatas: [noDisplayMeta] } }) as any;
+    expect(resolveLocalEntity(emNoDisplay(), 'invoice')).toEqual({ name: 'Invoice', displayCol: null });
+  });
+
+  it('md.name 不匹配但表名命中 + 大小写不敏感（type=Orders → tableName orders）', () => {
+    const meta = {
+      name: 'OrderArchive',
+      targetName: 'OrderArchive',
+      tableName: 'orders',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    };
+    const emT = () => ({ connection: { entityMetadatas: [meta] } }) as any;
+    expect(resolveLocalEntity(emT(), 'Orders')).toEqual({ name: 'OrderArchive', displayCol: 'title' });
+  });
+
+  it('md.name/tableName 均不匹配但 targetName 命中 → 解析（subject 作展示列）', () => {
+    const meta = {
+      name: 'CustomerEntity',
+      targetName: 'CustomerProfile',
+      tableName: 'customer_profiles',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'subject' }],
+    };
+    const emT = () => ({ connection: { entityMetadatas: [meta] } }) as any;
+    expect(resolveLocalEntity(emT(), 'CustomerProfile')).toEqual({ name: 'CustomerEntity', displayCol: 'subject' });
+  });
+
+  it('前序元数据不命中 → continue 继续扫描，命中后续带软删列的元数据', () => {
+    const noMatch = {
+      name: 'Invoice',
+      targetName: 'Invoice',
+      tableName: 'invoices',
+      deleteDateColumn: null,
+      columns: [],
+    };
+    const later = {
+      name: 'InvoiceDraft',
+      targetName: 'InvoiceDraft',
+      tableName: 'invoice_drafts',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    };
+    const emT = () => ({ connection: { entityMetadatas: [noMatch, later] } }) as any;
+    expect(resolveLocalEntity(emT(), 'invoice_drafts')).toEqual({ name: 'InvoiceDraft', displayCol: 'title' });
+  });
 });
 
 describe('LocalEntityRevoker（#4 生成模块撤销）', () => {
@@ -78,6 +134,20 @@ describe('LocalEntityRevoker（#4 生成模块撤销）', () => {
     };
     return { revoker: new LocalEntityRevoker(em as any), em };
   }
+  function makeRevokerWith(meta: Record<string, unknown>, repo: Record<string, jest.Mock>) {
+    const em = {
+      connection: { entityMetadatas: [meta] },
+      getRepository: jest.fn().mockReturnValue(repo),
+    };
+    return { revoker: new LocalEntityRevoker(em as any), em };
+  }
+  const orderMeta = {
+    name: 'Order',
+    targetName: 'Order',
+    tableName: 'orders',
+    deleteDateColumn: { propertyName: 'deletedAt' },
+    columns: [{ propertyName: 'orderNo' }, { propertyName: 'title' }],
+  };
 
   it('canHandle(invoice)=true（元数据解析）；proxy_call/未知=false', async () => {
     const { revoker } = makeRevoker({ findOne: jest.fn() });
@@ -112,5 +182,56 @@ describe('LocalEntityRevoker（#4 生成模块撤销）', () => {
     const { revoker } = makeRevoker(repo);
     const out = await revoker.describeTarget('proxy_call', 0);
     expect(out).toEqual({ title: '外部系统写调用（B 路径）', deletedAt: null });
+  });
+
+  it('revoke 无本地实体（proxy_call）→ { revoked:false, message }，不查库不软删', async () => {
+    const repo = { findOne: jest.fn(), softDelete: jest.fn() };
+    const { revoker, em } = makeRevoker(repo);
+    const out = await revoker.revoke('proxy_call', 1, '1');
+    expect(out).toEqual({ revoked: false, message: '无本地实体可软删' });
+    expect(em.getRepository).not.toHaveBeenCalled();
+    expect(repo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('revoke 目标行不存在（已被删/并发删）→ 跳过 softDelete，仍报 revoked', async () => {
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      softDelete: jest.fn().mockResolvedValue({ affected: 0 }),
+    };
+    const { revoker } = makeRevoker(repo);
+    expect(await revoker.revoke('invoice', 404, '1')).toEqual({ revoked: true });
+    expect(repo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('describeTarget 目标行不存在 → null', async () => {
+    const repo = { findOne: jest.fn().mockResolvedValue(null) };
+    const { revoker } = makeRevoker(repo);
+    expect(await revoker.describeTarget('invoice', 404)).toBeNull();
+  });
+
+  it('describeTarget 有展示列：select 带 title + withDeleted，返回 title 文本与 deletedAt', async () => {
+    const deletedAt = new Date('2026-09-01T00:00:00Z');
+    const repo = {
+      findOne: jest.fn().mockResolvedValue({ id: 9, title: '合同续签单', deletedAt }),
+    };
+    const { revoker, em } = makeRevokerWith(orderMeta, repo);
+    const out = await revoker.describeTarget('order', 9);
+    expect(out).toEqual({ title: '合同续签单', deletedAt });
+    expect(em.getRepository).toHaveBeenCalledWith('Order');
+    expect(repo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 9 },
+        withDeleted: true,
+        select: { id: true, deletedAt: true, title: true },
+      }),
+    );
+  });
+
+  it('describeTarget 有展示列但值为 null → title undefined（不强取，防生成模块缺值）', async () => {
+    const repo = {
+      findOne: jest.fn().mockResolvedValue({ id: 9, title: null, deletedAt: null }),
+    };
+    const { revoker } = makeRevokerWith(orderMeta, repo);
+    expect(await revoker.describeTarget('order', 9)).toEqual({ title: undefined, deletedAt: null });
   });
 });
