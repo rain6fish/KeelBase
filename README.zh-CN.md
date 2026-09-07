@@ -93,7 +93,7 @@ KeelBase AI：
 
 - **数据范围限定**——每次工具调用携带登录用户上下文，AI 只能操作该用户的数据
 - **写操作人工确认**——写操作执行前需用户明确批准
-- **审计与撤销**——每个动作落在防篡改的审计哈希链上；AI 创建的副作用可追踪、可撤销
+- **审计与撤销**——每个动作落在篡改即断链的审计哈希链上（应用边界内可验证）；AI 创建的副作用可追踪、可撤销
 - **可解释**——「AI 为什么这么做？」由决策轨迹回答，不是黑盒
 
 ---
@@ -123,7 +123,7 @@ KeelBase AI：
 KeelBase 与普通 Agent 框架的区别所在：
 
 - CASL 行级权限 · 工具治理 · 写操作确认
-- 审计哈希链（防篡改）· 副作用幂等 · 撤销
+- 审计哈希链（篡改即断链）· 副作用幂等 · 撤销
 - 决策轨迹 · AI 评测 · 提示词注入防御
 
 ### 企业安全验证（Enterprise Safety Validation）
@@ -189,7 +189,7 @@ keelbase init --desc "Customer management"
 
 ## 📍 KeelBase 的位置
 
-> **KeelBase 是企业 AI 信任运行时（Enterprise AI Trust Runtime）**——连接 AI Agent 与现有业务系统，在不替换现有技术体系的前提下，提供身份、治理、审计与私有部署能力。
+> **KeelBase 是业务安全 AI 运行时（Business-safe AI Runtime）**——连接 AI Agent 与现有业务系统，在不替换现有技术体系的前提下，提供身份、治理、审计与私有部署能力。
 
 ```text
       AI 应用 / Agent
@@ -201,9 +201,6 @@ keelbase init --desc "Customer management"
                     │ audit · runtime · deployment
               ┌─────────────┐
               │  KeelBase   │
-              │ Enterprise  │
-              │ AI Trust    │
-              │ Runtime     │
               └─────────────┘
                     │
                     │ bridge · protocol · capability mapping

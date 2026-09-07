@@ -31,9 +31,9 @@
 | **Risk level** | 风险分级 | R0-R5 | Execution strategy per tool (read auto / write confirm / block) |
 | **Confirmation** | 确认 | `confirmation` | Write operations require human confirmation (R3) |
 | **Approval** | 审批 | R4 `human_approval` | High-impact actions require two-person approval |
-| **Revoke** | 撤销 | `tool-effects` revoke | AI-created side effects can be revoked |
+| **Revoke** | 撤销 | `tool-effects` revoke | AI-created side effects (own data domain) are revocable per the `revokeClass` tier; external-system side effects are never loosely called "revocable" — they are declared via the capability matrix |
 | **Audit** | 审计 | `audit` / `ai_audit_logs` | Record of AI actions |
-| **Audit Hash Chain** | 审计哈希链 | `audit-chain` | Tamper-evident chain; altering any record breaks it |
+| **Audit Hash Chain** | 审计哈希链 | `audit-chain` | Tamper-evident, offline-verifiable audit evidence chain (within the application boundary; not a defense against direct DB/root-level tampering) |
 | **Decision Trace** | 决策轨迹 | `decision-trace` | Full chain of one AI action: request→intent→tool→permission→approval→execution→audit |
 | **AI Action Log** | AI 行为记录 | `ai-timeline` / audit logs | History list of AI actions (who / when / what) |
 | **Business Action** | 业务动作 | `businessAction` | An action the AI completed in a business system (e.g. created a follow-up task) |
@@ -63,6 +63,7 @@
 ## 4. Todos
 
 - [x] Back-fix UI copy per §3 (2026-09-01): business-page Copilot → AI Assistant (copilotTitle="AI 助手" / action button="AI 分析"); Guard → Governance in user-visible text (navGuard=安全治理 / navGuardOverview=治理总览→Governance Overview)
+- [x] KB-1 glossary calibration v2 (2026-09-07): README EN/ZH primary name unified to Business-safe AI Runtime (removed Enterprise AI Trust Runtime mixing + ASCII box label), 中文「防篡改」→「篡改即断链（应用边界内）」, Revoke definition scoped by `revokeClass` tier, Audit Hash Chain definition states "not a defense against DB/root-level tampering"
 - [ ] Audit README & quick-start docs against §2 terminology
 - [ ] Freeze v0.1, register bilingual pair in README
 
