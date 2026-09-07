@@ -30,7 +30,7 @@
 
 | 国标方向 | KeelBase 对应能力 | 满足度 | 说明 |
 |---|---|---|---|
-| 总体架构 | 三层模型（Agent Framework → KeelBase Trust 层 → 业务系统）+ 五层 Trust 模型（L1 Identity→L5 Side-effect） | ✅ | 运行时即「智能体互联」的中间信任层，架构天然对齐 |
+| 总体架构 | 三层模型（Agent Framework → KeelBase 治理层 → 业务系统）+ 五层治理模型（L1 Identity→L5 Side-effect） | ✅ | 运行时即「智能体互联」的中间治理层，架构天然对齐 |
 | 身份码 / 身份管理 | Agent Identity（agent_id/session_id 落审计）、Agent Registry、OIDC 身份源、跨系统委托 token（aud/iss/oidcSub 语义）、SHA-256 哈希存储 | ✅ | 智能体身份标识与跨系统身份映射具备；与国标「身份码/身份管理」方向对应 |
 | 智能体描述 | Agent Registry 能力 JSON、工具 JSON Schema 声明、R0-R5 风险级声明、§4.4 MCP 声明扩展（`_meta.keelbase`） | ✅ | 智能体/工具能力描述可机器消费 |
 | 智能体发现 | MCP 出口（tools/list）、能力清单（/app/capabilities）、工具清单 | ✅ | 标准化发现协议（MCP） |
