@@ -253,6 +253,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
   - **Java Starter (Spring Boot)** — turn Java/Spring methods into governed KeelBase AI tools with `@KeelbaseTool`: delegated identity, read/write confirmation, audit and revocation are all handled by the KeelBase runtime. → [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
   - **Customer scenario — legacy Java CRM × LangChain4j agent 客户场景样板** — one-page topology + phased PoC plan (bilingual) → [integrator-kit/java-crm-langchain4j-solution.md](docs/integrator-kit/java-crm-langchain4j-solution.md)
 - [CLAUDE.md](CLAUDE.md) (architecture & conventions) · [AGENTS.md](AGENTS.md) (AI build rules) · [SECURITY.md](SECURITY.md)
+- **Threat Model & Trust Boundaries 威胁模型与信任边界** — [中文](docs/security/threat-model.md) · [English](docs/security/threat-model-en.md)
 - **Versioning 版本策略（公开版本计划）** — [docs/versioning.md](docs/versioning.md)（中英双语）
 - **Explore all capabilities →** [docs/](docs/)
 
