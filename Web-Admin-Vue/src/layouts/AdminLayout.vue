@@ -179,6 +179,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-trust-sandbox', to: '/workbench/trust-sandbox', icon: 'mdi-flask-outline', label: t('trustSandboxTitle') },
       { name: 'workbench-my-ai-actions', to: '/workbench/my-ai-actions', icon: 'mdi-creation-outline', label: t('aiCenterTitle') },
       { name: 'workbench-org', to: '/workbench/org', icon: 'mdi-account-group-outline', label: t('workbenchOrgDir'), module: 'org' },
+      { name: 'workbench-crm-dashboard', to: '/workbench/crm-dashboard', icon: 'mdi-chart-box-outline', label: t('aiIntelligence'), module: 'crm' },
       { name: 'workbench-crm', to: '/workbench/crm', icon: 'mdi-account-star-outline', label: t('crmTitle'), module: 'crm' },
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle'), module: 'pm' },
       { name: 'workbench-approval', to: '/workbench/approval', icon: 'mdi-check-decagram-outline', label: t('apTitle'), module: 'approval' },

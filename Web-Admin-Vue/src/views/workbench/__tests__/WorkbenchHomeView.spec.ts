@@ -106,4 +106,17 @@ describe('WorkbenchHomeView', () => {
     const paths = pushMock.mock.calls.map((c: unknown[]) => c[0])
     expect(paths).toEqual(['/workbench/events', '/workbench/todos', '/workbench/notifications', '/workbench/ai-trace', '/workbench/my-ai-actions', '/workbench/crm-dashboard'])
   })
+
+  it('Trust 之旅入口 → 跳到 Trust 沙盘（首访 3 分钟闭环入口）', async () => {
+    meMock.mockResolvedValue({ id: 1, username: 'alex', nickname: 'A', email: 'a@a.com', role: 'user' })
+    unreadCountMock.mockResolvedValue({ count: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const startBtn = wrapper.findAll('button').find((b) => b.text().includes('开始 3 分钟体验'))
+    expect(startBtn).toBeTruthy()
+    await startBtn!.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith('/workbench/trust-sandbox')
+  })
 })
