@@ -13,6 +13,7 @@ import { Injectable } from '@nestjs/common';
 import { ToolRegistry } from '../tools/tool-registry';
 import { ProxyTool } from './proxy-tool';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
+import { proxyFetch, proxyErrorText } from './proxy-http';
 
 export interface ExternalRevokeResult {
   ok: boolean;
@@ -29,6 +30,8 @@ export class ProxyToolRevokerService implements ExternalRevoker {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly delegationService: DelegationTokenService,
+    /** 补偿端点调用超时（ms）；缺省 PROXY_TIMEOUT_MS（KB-4 FP-3） */
+    private readonly timeoutMs?: number,
   ) {}
 
   async revoke(toolName: string, resultId: number, userId: string): Promise<ExternalRevokeResult> {
@@ -61,17 +64,22 @@ export class ProxyToolRevokerService implements ExternalRevoker {
     }
 
     try {
-      const res = await fetch(tool.baseUrl + path, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      });
+      const res = await proxyFetch(
+        tool.baseUrl + path,
+        {
+          method,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        },
+        this.timeoutMs,
+      );
       if (!res.ok) {
         const body = await res.text().catch(() => '');
         return { ok: false, message: `补偿端点 ${method} ${path} 返回 ${res.status} ${body.slice(0, 120)}` };
       }
       return { ok: true, message: `${method} ${path}` };
     } catch (err) {
-      return { ok: false, message: `补偿端点不可达: ${(err as Error).message}` };
+      // KB-4 FP-3：补偿端点超时 → 报"超时"；其余"不可达"
+      return { ok: false, message: proxyErrorText(err, '补偿端点') };
     }
   }
 }

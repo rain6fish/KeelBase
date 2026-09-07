@@ -37,6 +37,18 @@ export type RevokeResult = {
   message?: string;
 };
 
+/** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
+function isUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: string }).code ?? '';
+  const msg = (err as Error).message ?? '';
+  return (
+    code === '23505' ||
+    code.includes('SQLITE_CONSTRAINT') ||
+    msg.includes('SQLITE_CONSTRAINT') ||
+    /UNIQUE constraint failed/i.test(msg)
+  );
+}
+
 /**
  * HS-3 写工具幂等与补偿：
  * - 幂等：同会话同工具同参数（idempotencyKey）重复调用返回已有结果，防 LLM 重试/并发重复创建
@@ -111,7 +123,7 @@ export class AiToolEffectsService {
       const prev = await this._lastSideEffectHash();
       chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
     }
-    // 幂等：并发下可能已插入，命中唯一冲突则跳过
+    // 幂等：并发下可能已插入，命中唯一冲突则跳过（KB-4 FP-4：仅唯一冲突才 skip，DB 错误如实上抛不吞）
     try {
       const saved = await this.effectsRepo.save(
         this.effectsRepo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>),
@@ -119,6 +131,10 @@ export class AiToolEffectsService {
       this._reportEffect(ctx, resultType, resultId);
       return saved;
     } catch (err) {
+      if (!isUniqueViolation(err)) {
+        // 非唯一冲突（DB down / 连接中断等）：不伪装幂等命中——副作用未落库却报成功会造成重复执行，必须上抛
+        throw err;
+      }
       this.logger.warn(`[AiToolEffects] record conflict (idempotent skip): ${(err as Error).message}`);
       const existing = await this.effectsRepo.findOne({ where: { idempotencyKey: key } });
       this._reportEffect(ctx, resultType, resultId);
