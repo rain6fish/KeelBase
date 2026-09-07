@@ -289,7 +289,7 @@ const en: ZhDict = {
   trustSandboxIntro: 'Each scenario runs under your identity (deterministic demo provider, no LLM needed): AI reads / writes / gets denied / gets blocked on real business data, leaving viewable governance traces.',
   trustSandboxScenario: 'Scenario',
   trustSandboxResult: 'Run result',
-  trustSandboxResultHint: 'Pick a scenario on the left and press "Run demo" — its result appears here.',
+  trustSandboxDialogClose: 'Close',
   trustSandboxViewAction: 'View business-action governance detail',
   trustSandboxConvHint: 'Conversation recorded — open "AI Execution Trace" to see the full decision trace.',
   tsOutcome: { passed: 'Passed', check: 'To verify', guide: 'Guide', unknown: 'Unknown' },
