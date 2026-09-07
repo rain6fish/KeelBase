@@ -49,7 +49,7 @@
 
 ### Shot 7 — Outro (55-60s)
 - **Visual**: six scenarios all checked (S1-S6) + line: existing systems can plug in too — keep Java, add the AI Runtime. GitHub / site in the corner
-- **VO (EN)**: Open-source, private-deployable, works with your existing systems. KeelBase — the Trust Runtime for AI in real business systems.
+- **VO (EN)**: Open-source, private-deployable, works with your existing systems. KeelBase — the Business-safe AI Runtime for AI in real business systems.
 
 ## Recording tips
 
