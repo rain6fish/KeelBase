@@ -267,7 +267,8 @@ export class AiService {
 
     if (perms.requireVerifiedEmail && this.usersService) {
       const user = await this.usersService.findOne(Number(userId));
-      if (user && !user.emailVerified) {
+      // 与 EmailVerificationGuard 一致：admin 视为已验证（headless '0' 已在上面返回）
+      if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
         throw new BusinessException('EMAIL_NOT_VERIFIED');
       }
     }
