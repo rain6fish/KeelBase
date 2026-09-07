@@ -69,6 +69,7 @@ cd Server-NestJS && npm install && npm run start:dev
 **证明**：所有 AI 调用 / 工具执行入审计，哈希链可验证（篡改即断链、应用边界内 tamper-evident、可纠错）。
 
 - 跑：管理台 → **AI 审计**（`/admin/#/audit`）→ `GET /audit/verify` → `valid:true`
+- 哈希链锚在哪（KB-3 一键离线复核）：`cd Server-NestJS && npm run verify:evidence-root`——自举隔离后端跑 trust-proof S7，导出单动作证据根 v3 → `verify-evidence.mjs` 离线 PASS → 篡改锚即 FAIL；产物 `docs/benchmark/evidence-root-<ts>.json`（`node scripts/verify-evidence.mjs <包> --key <AUDIT_HMAC_KEY>` 复核）
 - 并发压测：`cd Server-NestJS && npm run audit:chain:load`（1000 条基线：分叉 0 + verify 全绿 + 吞吐 / P95）
 - 撤销：AI 创建记录可在 AI 执行轨迹页一键撤销（软删，可经回收站恢复）
 
