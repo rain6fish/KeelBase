@@ -152,4 +152,4 @@
 
 | 日期 | 变更 | commit |
 |---|---|---|
-| 2026-09-07 | 规格首版（T1，worktree `feat/protocol-proof-card`，未合并） | 分支 `feat/protocol-proof-card`（合并回 master 时以真实 hash 更新） |
+| 2026-09-07 | 规格首版（T1，worktree `feat/protocol-proof-card`） | `652800f6`（并入 master） |
