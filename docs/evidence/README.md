@@ -77,6 +77,7 @@
   # 对抗场景：security-showcase「不可逆动作 R5 阻断」「写操作 R3 确认门控」
   ```
 - **最近证据（2026-09-02）**：ECS demo 已种 2 条副作用（create_event/create_todo 指向真实事件/待办），管理台可现场演示撤销闭环。
+- **run-level approval（KB-5，批量确认不可规模化回应）** 🔶 spec 定稿、实现排 1.1：同一轮 ≥2 需即时确认写工具 → 聚成一个计划批（`mode:'run'`），逐条 diff 摘要 + 风险分层后一次授权；decline 整批跳过、逐条执行仍逐条审计/可撤销。规范：[run-level-approval.spec.md](../run-level-approval.spec.md)。验收测试随 1.1 实现落地（聚合/单条兼容/混合风险 max/R5 不并入/无摘要工具降级单独确认）。
 
 ### 2.5 工具权限与治理策略（HS-2 / HS-9）
 
