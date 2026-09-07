@@ -47,7 +47,7 @@
 
 | 能力 Capability | 状态 | 证据 Evidence |
 |---|---|---|
-| 操作审计 + AI 审计（哈希链防篡改）Audit (tamper-evident hash chain) | ✅ | `/audit/*`、`/audit/operations/*`；HS-11 [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md) |
+| 操作审计 + AI 审计（哈希链篡改即断链，应用边界内）Audit (tamper-evident within app boundary) | ✅ | `/audit/*`、`/audit/operations/*`；HS-11 [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md) |
 | AI 治理策略（工具开关 / 确认规则 / 角色白名单 / 审计粒度）Governance policy | ✅ | `ai_governance_policy` 动态配置 + 管理台可视化编辑（HS-9 [hs9-governance-policy.spec.md](hs9-governance-policy.spec.md)） |
 | MCP 集成（外部工具过同一治理层）MCP integration | ✅ | `/api/v1/mcp` 出口 + `/admin/mcp/*` 入口 + 管理台页面（HS-10） |
 | 敏感数据加密 / 上传安全 / SSRF 防护 Encryption / upload security | ✅ | AES-256-GCM + 魔数校验 + 图片 SSRF 双防 |
