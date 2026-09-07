@@ -29,7 +29,7 @@
 
 ## 4. Audit
 
-**Capability**: operation audit (write ops who/what/when/IP) + AI audit (tool calls / confirmation decisions / side effects) + **HMAC hash chain anti-tampering (HS-11)** + user/org/feedback filters + cost dashboard.
+**Capability**: operation audit (write ops who/what/when/IP) + AI audit (tool calls / confirmation decisions / side effects) + **HMAC hash chain tamper-evident within the application boundary (HS-11)** + user/org/feedback filters + cost dashboard.
 
 **Evidence**: `/audit/logs`, `/audit/operations/logs`, `/audit/verify`, `/audit/operations/verify`, `/audit/cost`; [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md).
 
@@ -59,7 +59,7 @@
 
 ## 9. Agent Governance
 
-**Capability**: tool-level permissions (role/email/feature-flag gates) + human confirmation for writes (configurable TTL / session trust) + side-effect idempotency and revocation + context-injection defenses (sensitive masking / system boundaries / injection detection) + tool-result token budgets + configurable governance policy (enabled/requiresConfirmation/allowedRoles/audit granularity) + MCP import/export under the same governance layer + decision trace (user-side read/write labels) + AI eval loop + behavior replay.
+**Capability**: tool-level permissions (role/email/feature-flag gates) + human confirmation for writes (configurable TTL / session trust) + side-effect idempotency and revocation (**system-created data is revocable via soft-delete/recycle bin; external-system side effects are truthfully labeled through compensation endpoints**) + context-injection defenses (sensitive masking / system boundaries / injection detection) + tool-result token budgets + configurable governance policy (enabled/requiresConfirmation/allowedRoles/audit granularity) + MCP import/export under the same governance layer + decision trace (user-side read/write labels) + AI eval loop + behavior replay.
 
 **Evidence**: HS-1~HS-11 ([hs9-governance-policy.spec.md](hs9-governance-policy.spec.md), [hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md), [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)); `/admin/ai/tools`, `/ai/tool-effects`, `/ai/eval/*`, Web-Admin "AI behavior replay".
 

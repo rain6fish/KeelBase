@@ -30,7 +30,7 @@
 
 ## 4. 审计 / Audit
 
-**能力**：操作审计（写操作 who/what/when/IP）+ AI 审计（工具调用 / 确认决策 / 副作用）+ **HMAC 哈希链防篡改（HS-11）** + 按用户/组织/反馈过滤 + 成本看板。
+**能力**：操作审计（写操作 who/what/when/IP）+ AI 审计（工具调用 / 确认决策 / 副作用）+ **HMAC 哈希链篡改即断链（tamper-evident，应用边界内；HS-11）** + 按用户/组织/反馈过滤 + 成本看板。
 
 **证据**：`/audit/logs`、`/audit/operations/logs`、`/audit/verify`、`/audit/operations/verify`、`/audit/cost`；[hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)。
 
@@ -60,7 +60,7 @@
 
 ## 9. Agent 治理 / Agent Governance
 
-**能力**：工具级权限（角色/邮箱/feature-flag 门控）+ 写操作人工确认（TTL 可配/会话信任）+ 副作用幂等与可撤销 + 上下文注入防线（敏感掩码/系统边界/注入检测）+ 工具结果 token 预算 + 治理策略可配置（enabled/requiresConfirmation/allowedRoles/审计粒度）+ MCP 出口入口同治理层 + 决策轨迹（用户侧读/写标注）+ AI 评测闭环 + 行为回放。
+**能力**：工具级权限（角色/邮箱/feature-flag 门控）+ 写操作人工确认（TTL 可配/会话信任）+ 副作用幂等与撤销（**本系统创建数据可撤销，软删可恢复；外部系统副作用经补偿端点如实标注**）+ 上下文注入防线（敏感掩码/系统边界/注入检测）+ 工具结果 token 预算 + 治理策略可配置（enabled/requiresConfirmation/allowedRoles/审计粒度）+ MCP 出口入口同治理层 + 决策轨迹（用户侧读/写标注）+ AI 评测闭环 + 行为回放。
 
 **证据**：HS-1~HS-11（[hs9-governance-policy.spec.md](hs9-governance-policy.spec.md)、[hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md)、[hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)）；`/admin/ai/tools`、`/ai/tool-effects`、`/ai/eval/*`、Web-Admin「AI 行为回放」。
 
