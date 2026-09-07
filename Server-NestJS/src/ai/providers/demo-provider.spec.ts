@@ -10,6 +10,18 @@
 import { DemoProvider } from './demo-provider';
 import { ChatMessage } from '../interfaces/llm-provider.interface';
 
+/** 构造「assistant 发起工具调用 + 紧跟其 tool 结果」两轮消息（末条为 tool 角色） */
+function toolRound(name: string, result: unknown, args = '{}'): ChatMessage[] {
+  return [
+    { role: 'assistant', content: '', tool_calls: [{ id: 'call_t', name, arguments: args }] },
+    {
+      role: 'tool',
+      tool_call_id: 'call_t',
+      content: typeof result === 'string' ? result : JSON.stringify(result),
+    },
+  ];
+}
+
 describe('DemoProvider', () => {
   let provider: DemoProvider;
 
@@ -138,6 +150,206 @@ describe('DemoProvider', () => {
       }
       expect(chunks.some((c) => c.type === 'text')).toBe(true);
       expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+  });
+
+  // ── 补充覆盖：各意图分支（订单/活动/项目/审批/待办）与首轮兜底 ──────────────
+  describe('补充覆盖：decideFromUser 全意图', () => {
+    it('空消息 → 演示默认问候', async () => {
+      const result = await provider.generate({ messages: [] });
+      expect(result.toolCalls ?? []).toHaveLength(0);
+      expect(result.content).toContain('演示模式助手');
+    });
+
+    it('末条消息是 system/assistant（非 tool/user）→ 提示语', async () => {
+      const sys = await provider.generate({ messages: [{ role: 'system', content: 'be terse' }] });
+      expect(sys.content).toContain('请告诉我你想做什么');
+      const asst = await provider.generate({ messages: [{ role: 'assistant', content: '…' }] });
+      expect(asst.content).toContain('请告诉我你想做什么');
+    });
+
+    it('用户提订单 → query_customer_orders', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '看看最近的订单' }] });
+      expect(r.toolCalls?.[0]?.name).toBe('query_customer_orders');
+    });
+
+    it('用户提活动/跟进记录 → query_customer_activities', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '最近有哪些活动' }] });
+      expect(r.toolCalls?.[0]?.name).toBe('query_customer_activities');
+    });
+
+    it('用户提项目 → query_projects', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '我有哪些项目' }] });
+      expect(r.toolCalls?.[0]?.name).toBe('query_projects');
+    });
+
+    it('用户提审批 → query_approval_requests', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '有没有待我审批的请求' }] });
+      expect(r.toolCalls?.[0]?.name).toBe('query_approval_requests');
+    });
+
+    it('用户提待办/事件 → query_events', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '查看今天的事件' }] });
+      expect(r.toolCalls?.[0]?.name).toBe('query_events');
+    });
+
+    it('generate 返回 usage 0 计数', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '你好' }] });
+      expect(r.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
+    });
+
+    it('toolCall id 每次自增（call_demo_N）', async () => {
+      const a = await provider.generate({ messages: [{ role: 'user', content: '分析客户风险' }] });
+      const b = await provider.generate({ messages: [{ role: 'user', content: '看看最近的订单' }] });
+      const idA = a.toolCalls![0].id;
+      const idB = b.toolCalls![0].id;
+      expect(idA).toMatch(/^call_demo_\d+$/);
+      expect(idB).not.toBe(idA);
+    });
+
+    it('双引号/单引号客户名 → 提取为 keyword', async () => {
+      const dq = await provider.generate({ messages: [{ role: 'user', content: '分析 "蓝湾地产" 的风险' }] });
+      expect(JSON.parse(dq.toolCalls![0].arguments).keyword).toBe('蓝湾地产');
+      const sq = await provider.generate({ messages: [{ role: 'user', content: "分析 '晨星' 的风险" }] });
+      expect(JSON.parse(sq.toolCalls![0].arguments).keyword).toBe('晨星');
+    });
+
+    it('客户名无引号紧跟 → 走否定前瞻抽取规则', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '分析客户acme的风险' }] });
+      const kw = JSON.parse(r.toolCalls![0].arguments).keyword;
+      expect(kw).toBeDefined();
+      expect(String(kw)).toContain('acme');
+    });
+
+    it('extractTitle：无「创建X」片段 → 用默认标题', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: 'please create a followup task' }] });
+      const args = JSON.parse(r.toolCalls![0].arguments);
+      expect(args.title).toBe('跟进高风险客户');
+    });
+
+    it('extractTitle：标题未含「跟进」时自动补前缀', async () => {
+      const r = await provider.generate({ messages: [{ role: 'user', content: '创建任务提醒' }] });
+      const args = JSON.parse(r.toolCalls![0].arguments);
+      expect(args.title).toBe('跟进任务提醒');
+    });
+
+    it('历史含 query_customers 命中 → 后续写操作复用该客户 id', async () => {
+      const msgs: ChatMessage[] = [
+        { role: 'user', content: '分析客户' },
+        { role: 'assistant', content: '', tool_calls: [{ id: 'c1', name: 'query_customers', arguments: '{}' }] },
+        { role: 'tool', tool_call_id: 'c1', content: JSON.stringify({ success: true, data: { items: [{ id: 77, name: '东湖' }] } }) },
+        { role: 'user', content: '好的 给这家建个跟进任务' },
+      ];
+      const r = await provider.generate({ messages: msgs });
+      expect(r.toolCalls?.[0]?.name).toBe('create_followup_task');
+      expect(JSON.parse(r.toolCalls![0].arguments).customerId).toBe(77);
+    });
+  });
+
+  // ── 补充覆盖：工具结果后处理（decideAfterTool）各 case ─────────────────────
+  describe('补充覆盖：decideAfterTool 分支', () => {
+    it('仅 tool 消息、无前置 assistant 工具调用 → 已完成兜底', async () => {
+      const r = await provider.generate({ messages: [{ role: 'tool', tool_call_id: 'x', content: '{}' }] });
+      expect(r.content).toContain('这一步已完成');
+    });
+
+    it('query_customers 空结果 → 提示无匹配客户', async () => {
+      const r = await provider.generate({
+        messages: toolRound('query_customers', { success: true, data: { items: [] } }),
+      });
+      expect(r.content).toContain('没有找到匹配的客户');
+    });
+
+    it('query_customers 结果非 JSON → 宽松解析兜底为无匹配', async () => {
+      const r = await provider.generate({ messages: toolRound('query_customers', 'not-json') });
+      expect(r.content).toContain('没有找到匹配的客户');
+    });
+
+    it('query_customers 命中但客户无 name → 以「客户 #id」兜底命名并分析', async () => {
+      const r = await provider.generate({
+        messages: toolRound('query_customers', { success: true, data: { items: [{ id: 99 }] } }),
+      });
+      expect(r.toolCalls?.[0]?.name).toBe('analyze_customer_risk');
+      expect(JSON.parse(r.toolCalls![0].arguments).customerId).toBe(99);
+      expect(r.content).toContain('客户 #99');
+    });
+
+    it('analyze_customer_risk 无 data → 完成兜底文案', async () => {
+      const r = await provider.generate({ messages: toolRound('analyze_customer_risk', { success: true }) });
+      expect(r.content).toContain('风险分析完成');
+    });
+
+    it('analyze_customer_risk 仅 level、无 score/reasons → 默认占位', async () => {
+      const r = await provider.generate({
+        messages: toolRound('analyze_customer_risk', { success: true, data: { level: 'low' } }),
+      });
+      expect(r.content).toContain('风险等级：low');
+      expect(r.content).toContain('评分 -');
+      expect(r.content).not.toContain('主要依据');
+    });
+
+    it('工具参数 arguments 非法 JSON → args 兜底为空不抛', async () => {
+      const msgs: ChatMessage[] = [
+        {
+          role: 'assistant',
+          content: '',
+          tool_calls: [{ id: 'c', name: 'analyze_customer_risk', arguments: '{bad' }],
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'c',
+          content: JSON.stringify({ success: true, data: { level: 'high', score: 3, reasons: ['x'] } }),
+        },
+      ];
+      const r = await provider.generate({ messages: msgs });
+      expect(r.content).toContain('风险等级：high');
+    });
+
+    it('create_followup_task 未通过（success 假）→ 确认门控文案', async () => {
+      const r = await provider.generate({ messages: toolRound('create_followup_task', { success: false }) });
+      expect(r.content).toContain('确认门控');
+    });
+
+    it.each([
+      'query_customer_orders',
+      'query_customer_activities',
+      'query_customer_contacts',
+      'query_customer_opportunities',
+      'summarize_customer_360',
+      'analyze_sales_pipeline',
+      'query_projects',
+      'query_project_tasks',
+      'query_approval_requests',
+      'query_events',
+    ])('%s 结果 → 汇总「共 N 条」', async (tool) => {
+      const r = await provider.generate({
+        messages: toolRound(tool, { success: true, data: { total: 3, rows: [{ id: 1 }] } }),
+      });
+      expect(r.content).toContain('共 3 条');
+    });
+
+    it('未知工具名 + 超长原始结果 → 默认文案 + truncate 省略', async () => {
+      const long = 'x'.repeat(400);
+      const r = await provider.generate({ messages: toolRound('some_unknown_tool', long) });
+      expect(r.content).toContain('已执行 some_unknown_tool');
+      expect(r.content).toContain('…');
+      expect(r.content.length).toBeLessThan(400);
+    });
+  });
+
+  // ── 补充覆盖：流式长文本分块 ───────────────────────────────────────────────
+  describe('补充覆盖：stream 长文本', () => {
+    it('长文本 → 拆成多段 text 且拼接完整，以 done 收尾', async () => {
+      const messages: ChatMessage[] = [{ role: 'user', content: '你好' }];
+      const text: string[] = [];
+      const types: string[] = [];
+      for await (const chunk of provider.stream({ messages })) {
+        types.push(chunk.type);
+        if (chunk.type === 'text' && chunk.content) text.push(chunk.content);
+      }
+      expect(text.length).toBeGreaterThan(1);
+      expect(text.join('')).toContain('演示模式');
+      expect(types[types.length - 1]).toBe('done');
     });
   });
 });
