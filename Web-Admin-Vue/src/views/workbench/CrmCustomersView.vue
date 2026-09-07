@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppTable from '@/components/AppTable.vue'
@@ -83,6 +83,7 @@ import { crmApi, type CrmCustomer } from '@/api/crm'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const snackbar = useSnackbarStore()
 
 const customers = ref<CrmCustomer[]>([])
@@ -201,5 +202,12 @@ async function onDelete() {
   showDelete.value = false
 }
 
-onMounted(() => load())
+// AI 业务洞察/其它页深链钻取：?risk=&status=&keyword= 作为首次筛选预设（只接受合法枚举，防脏 query 干扰列表）
+onMounted(() => {
+  const q = route.query
+  if (typeof q.keyword === 'string' && q.keyword.trim()) keyword.value = q.keyword.trim()
+  if (typeof q.status === 'string' && statusOptions.some((o) => o.value === q.status)) statusFilter.value = q.status
+  if (typeof q.risk === 'string' && riskOptions.some((o) => o.value === q.risk)) riskFilter.value = q.risk
+  load()
+})
 </script>

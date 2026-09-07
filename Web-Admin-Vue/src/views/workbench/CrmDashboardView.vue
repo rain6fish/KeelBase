@@ -13,7 +13,11 @@
     <template v-else>
       <el-row :gutter="16" class="mb-4">
         <el-col v-for="card in cards" :key="card.label" :xs="12" :sm="8" :md="6" :lg="4" class="mb-4">
-          <StatCard v-bind="card" />
+          <StatCard
+            v-bind="{ label: card.label, value: card.value, icon: card.icon, color: card.color }"
+            :clickable="!!card.to"
+            @click="card.to && go(card.to)"
+          />
         </el-col>
       </el-row>
 
@@ -53,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
@@ -60,6 +65,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { crmApi, type CrmDashboard } from '@/api/crm'
 
 const { t } = useI18n()
+const router = useRouter()
 const snackbar = useSnackbarStore()
 const d = ref<CrmDashboard>({
   customers: 0, highRiskCustomers: 0, opportunities: 0, pipelineAmount: 0,
@@ -67,10 +73,11 @@ const d = ref<CrmDashboard>({
 })
 const loading = ref(false)
 
+// 指标卡 = 业务功能入口：有明确目标页的卡可点（钻取对应业务页），其余无独立子页的暂保持展示
 const cards = computed(() => [
-  { label: t('crmCustomers'), value: d.value.customers, icon: 'mdi-account-group-outline', color: 'primary' },
-  { label: t('highRiskCustomers'), value: d.value.highRiskCustomers, icon: 'mdi-alert-octagon-outline', color: d.value.highRiskCustomers > 0 ? 'error' : 'success' },
-  { label: t('opportunities'), value: d.value.opportunities, icon: 'mdi-target', color: 'info' },
+  { label: t('crmCustomers'), value: d.value.customers, icon: 'mdi-account-group-outline', color: 'primary', to: '/workbench/crm' },
+  { label: t('highRiskCustomers'), value: d.value.highRiskCustomers, icon: 'mdi-alert-octagon-outline', color: d.value.highRiskCustomers > 0 ? 'error' : 'success', to: '/workbench/crm?risk=high' },
+  { label: t('opportunities'), value: d.value.opportunities, icon: 'mdi-target', color: 'info', to: '/workbench/crm' },
   { label: t('pipelineAmount'), value: formatMoney(d.value.pipelineAmount), icon: 'mdi-currency-cny', color: 'primary' },
   { label: t('weightedAmount'), value: formatMoney(d.value.weightedAmount), icon: 'mdi-chart-line', color: 'info' },
   { label: t('soonClosing'), value: d.value.soonClosing, icon: 'mdi-calendar-clock', color: 'success' },
@@ -78,6 +85,10 @@ const cards = computed(() => [
   { label: t('openTasks'), value: d.value.openTasks, icon: 'mdi-clipboard-text-outline', color: 'warning' },
   { label: t('openRisks'), value: d.value.openRisks, icon: 'mdi-shield-alert-outline', color: d.value.openRisks > 0 ? 'warning' : 'success' },
 ])
+
+function go(path: string) {
+  router.push(path)
+}
 
 function formatMoney(n: number): string {
   return n >= 10000 ? `${(n / 10000).toFixed(1)}w` : String(n)

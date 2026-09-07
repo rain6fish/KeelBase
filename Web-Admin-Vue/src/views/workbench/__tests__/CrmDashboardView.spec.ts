@@ -2,13 +2,15 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { defineComponent } from 'vue'
 import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { dashboardMock, errorMock } = vi.hoisted(() => ({
+const { dashboardMock, errorMock, pushMock } = vi.hoisted(() => ({
   dashboardMock: vi.fn(),
   errorMock: vi.fn(),
+  pushMock: vi.fn(),
 }))
 
 vi.mock('@/api/crm', () => ({
@@ -16,6 +18,9 @@ vi.mock('@/api/crm', () => ({
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock }),
+}))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: pushMock }),
 }))
 
 import ElementPlus from 'element-plus'
@@ -26,12 +31,19 @@ const base = {
   weightedAmount: 720000, soonClosing: 1, overdueOrders: 2, openTasks: 5, openRisks: 3,
 }
 
+// StatCard stub：渲染 label 并把父级 @click 落到根节点（供「可点卡」钻取断言）
+const StatCardStub = defineComponent({
+  name: 'StatCard',
+  props: ['label', 'value'],
+  template: '<div class="stat-stub"><span class="stat-label">{{ label }}</span></div>',
+})
+
 function mountView() {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(CrmDashboardView, {
     global: {
       plugins: [i18n, ElementPlus],
-      stubs: { PageHeader: true, StatCard: true },
+      stubs: { PageHeader: true, StatCard: StatCardStub },
     },
   })
 }
@@ -46,6 +58,7 @@ describe('CrmDashboardView（P0 AI Intelligence Dashboard）', () => {
 
     expect(dashboardMock).toHaveBeenCalled()
     expect(wrapper.text()).toContain('AI 建议动作')
+    expect(wrapper.findAll('.stat-stub').length).toBe(9)
   })
 
   it('渲染 AI 建议动作（高风险客户 / 逾期订单 / 即将成交 / 未解决风险）', async () => {
@@ -66,6 +79,26 @@ describe('CrmDashboardView（P0 AI Intelligence Dashboard）', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('一切正常')
+  })
+
+  it('指标卡是功能入口：客户/高风险客户/商机点击跳 CRM 页；无目标页的卡不跳转', async () => {
+    dashboardMock.mockResolvedValue(base)
+    const wrapper = mountView()
+    await flushPromises()
+
+    const cards = wrapper.findAll('.stat-stub')
+    expect(cards.length).toBe(9)
+    // 顺序 = customers / highRisk / opportunities / pipeline / weighted / soonClosing / overdue / tasks / risks
+    await cards[0].trigger('click')
+    expect(pushMock).toHaveBeenLastCalledWith('/workbench/crm')
+    await cards[1].trigger('click')
+    expect(pushMock).toHaveBeenLastCalledWith('/workbench/crm?risk=high')
+    await cards[2].trigger('click')
+    expect(pushMock).toHaveBeenLastCalledWith('/workbench/crm')
+
+    pushMock.mockClear()
+    await cards[3].trigger('click') // pipelineAmount 无独立子页 → 不跳转
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('加载失败 → snackbar.error', async () => {

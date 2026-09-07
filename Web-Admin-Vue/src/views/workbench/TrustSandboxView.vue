@@ -51,8 +51,13 @@
             <AppIcon icon="mdi-creation-outline" class="mr-1" />{{ t('trustSandboxViewAction') }}
           </el-button>
         </div>
-        <div v-if="result.conversationId" class="text-body-2 text-medium-emphasis">
-          <AppIcon icon="mdi-robot-outline" class="mr-1" />{{ t('trustSandboxConvHint') }}
+        <div v-if="result.conversationId" class="d-flex align-center justify-space-between flex-wrap gap-2 text-body-2 text-medium-emphasis">
+          <span class="d-flex align-center">
+            <AppIcon icon="mdi-robot-outline" class="mr-1" />{{ t('trustSandboxConvHint') }}
+          </span>
+          <el-button size="small" text type="primary" @click="openTrace(result)">
+            <AppIcon icon="mdi-timeline-clock-outline" class="mr-1" />{{ t('trustSandboxViewTrace') }}
+          </el-button>
         </div>
       </template>
       <template #footer>
@@ -110,6 +115,13 @@ async function run(id: string) {
 function openAction(r: TrustSandboxRunResult) {
   dialogVisible.value = false
   router.push(`/workbench/action/${r.resultType}/${r.resultId}`)
+}
+
+/** 直达该会话的 AI 执行轨迹（AiTraceView 支持 ?conv= 深链自动定位） */
+function openTrace(r: TrustSandboxRunResult) {
+  if (!r.conversationId) return
+  dialogVisible.value = false
+  router.push(`/workbench/ai-trace?conv=${r.conversationId}`)
 }
 </script>
 

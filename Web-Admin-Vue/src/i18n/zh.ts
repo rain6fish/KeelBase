@@ -136,6 +136,10 @@ const zh = {
   securityShowcaseIntro: '每个场景直接调用真实防护逻辑（HS-8 注入防线 / CASL 行级 / W5 风险分级），确定性可重复、无需 LLM。点击「运行演示」查看运行时边界如何拒绝。',
   securityShowcaseEmpty: '暂无对抗场景',
   runDemo: '运行演示',
+  // Trust 之旅（First-time Demo Journey）：首屏可亲历的 3 分钟 Trust 闭环入口
+  trustJourneyTitle: '体验 KeelBase：Trust 之旅',
+  trustJourneySubtitle: '让 AI 读取真实业务、提议写操作、被越权拒绝 / 高风险阻断——每条决策都能打开完整执行轨迹。确定性演示，无需 LLM 密钥。',
+  trustJourneyStart: '开始 3 分钟体验',
   demoResult: '演示结果',
   reason: '依据',
   scenarioCategory: { injection: '提示注入', unauthorized: '越权', risk: '高风险', confirmation: '写操作' },
@@ -292,6 +296,7 @@ const zh = {
   trustSandboxResult: '运行结果',
   trustSandboxDialogClose: '关闭',
   trustSandboxViewAction: '查看业务动作治理详情',
+  trustSandboxViewTrace: '查看执行轨迹',
   trustSandboxConvHint: '已产生对话留痕——可到「AI 执行轨迹」查看该会话完整决策轨迹。',
   tsOutcome: { passed: '通过', check: '待核对', guide: '指引', unknown: '未知' },
   tsScenario: {
@@ -492,6 +497,9 @@ const zh = {
   // AI 业务洞察（P0 Intelligence Dashboard）
   aiIntelligence: 'AI 业务洞察',
   aiIntelligenceHint: 'AI CRM 业务洞察聚合——风险/管道/逾期/任务/风险一键总览',
+  crmCustomers: '客户',
+  highRisk: '高风险',
+  overdue: '逾期',
   recommendedActions: 'AI 建议动作',
   highRiskCustomers: '高风险客户',
   opportunities: '商机',

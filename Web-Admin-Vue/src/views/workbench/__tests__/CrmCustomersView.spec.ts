@@ -6,11 +6,12 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { customersMock, createMock, snackMock, pushMock } = vi.hoisted(() => ({
+const { customersMock, createMock, snackMock, pushMock, routeQuery } = vi.hoisted(() => ({
   customersMock: vi.fn(),
   createMock: vi.fn(),
   snackMock: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
   pushMock: vi.fn(),
+  routeQuery: { value: {} as Record<string, string> },
 }))
 
 vi.mock('@/api/crm', () => ({
@@ -21,6 +22,7 @@ vi.mock('@/stores/snackbar', () => ({
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
+  useRoute: () => ({ query: routeQuery.value }),
 }))
 
 import ElementPlus from 'element-plus'
@@ -51,6 +53,7 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  routeQuery.value = {}
   customersMock.mockResolvedValue({ items: [], total: 0 })
 })
 
@@ -76,6 +79,32 @@ describe('CrmCustomersView（工作台·客户管理）', () => {
     expect(customersMock).toHaveBeenCalledTimes(1)
     expect(wrapper.exists()).toBe(true)
     expect(wrapper.text()).not.toContain('云启科技')
+  })
+
+  it('AI 业务洞察深链 ?risk=high → 客户列表按高风险预筛', async () => {
+    routeQuery.value = { risk: 'high' }
+    customersMock.mockResolvedValue({ items: [], total: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(customersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ riskLevel: 'high', keyword: undefined, status: undefined }),
+    )
+    expect(wrapper.exists()).toBe(true)
+  })
+
+  it('深链 query 为非法枚举值 → 忽略预筛，按全量加载', async () => {
+    routeQuery.value = { risk: 'bogus', status: 'nope' }
+    customersMock.mockResolvedValue({ items: [], total: 0 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(customersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ riskLevel: undefined, status: undefined }),
+    )
+    expect(wrapper.exists()).toBe(true)
   })
 
   it('加载失败 → snackbar.error(加载失败)，不抛错', async () => {

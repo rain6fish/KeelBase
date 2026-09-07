@@ -135,6 +135,10 @@ const en: ZhDict = {
   securityShowcaseIntro: 'Each scenario invokes the real guard logic (HS-8 injection defense / CASL row-level / W5 risk tiers) — deterministic, repeatable, no LLM needed. Click "Run demo" to see the runtime boundary refuse.',
   securityShowcaseEmpty: 'No adversarial scenarios',
   runDemo: 'Run demo',
+  // Trust Journey (First-time Demo Journey): a first-run 3-minute Trust loop on the home screen
+  trustJourneyTitle: 'Experience KeelBase: The Trust Journey',
+  trustJourneySubtitle: 'Let AI read real business data, propose a write, get denied / blocked — every decision opens a full execution trace. Deterministic demo, no LLM key needed.',
+  trustJourneyStart: 'Start the 3-minute journey',
   demoResult: 'Demo result',
   reason: 'Basis',
   scenarioCategory: { injection: 'Prompt injection', unauthorized: 'Unauthorized', risk: 'High-risk', confirmation: 'Write' },
@@ -291,6 +295,7 @@ const en: ZhDict = {
   trustSandboxResult: 'Run result',
   trustSandboxDialogClose: 'Close',
   trustSandboxViewAction: 'View business-action governance detail',
+  trustSandboxViewTrace: 'View execution trace',
   trustSandboxConvHint: 'Conversation recorded — open "AI Execution Trace" to see the full decision trace.',
   tsOutcome: { passed: 'Passed', check: 'To verify', guide: 'Guide', unknown: 'Unknown' },
   tsScenario: {
@@ -491,6 +496,9 @@ const en: ZhDict = {
   // AI business intelligence (P0 Intelligence Dashboard)
   aiIntelligence: 'AI Business Intelligence',
   aiIntelligenceHint: 'AI CRM insights — risk / pipeline / overdue / tasks / risks at a glance',
+  crmCustomers: 'Customers',
+  highRisk: 'High risk',
+  overdue: 'Overdue',
   recommendedActions: 'AI Recommended Actions',
   highRiskCustomers: 'High-risk customers',
   opportunities: 'Opportunities',
