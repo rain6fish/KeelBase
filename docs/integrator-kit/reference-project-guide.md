@@ -3,7 +3,7 @@
 > 分步指南：集成商把「一个存量业务系统」改造成「Business-safe AI 业务助手」。
 > Step-by-step: turn an existing system into a business-safe AI assistant.
 >
-> 场景：传统 Java CRM（有 REST API / 数据库 / 业务能力），目标 = AI 能读、能分析、能写（确认后）、全程可审计可撤销。
+> 场景：传统 Java CRM（有 REST API / 数据库 / 业务能力），目标 = AI 能读、能分析、能写（确认后）、全程可审计；本系统副作用可撤销、外部写经补偿端点如实呈现。
 
 ## 总览 / Overview
 
@@ -88,4 +88,4 @@ node scripts/keelbase-capability.mjs --list   # 预览将生成的工具
 
 ## 完成定义 / Definition of Done
 
-> 一个陌生集成商拿到本手册，能把一个存量系统在合理时间内改造成可交付的「Business-safe AI 业务助手」——AI 能读、能写（确认）、可审计、可撤销、可私有化部署。
+> 一个陌生集成商拿到本手册，能把一个存量系统在合理时间内改造成可交付的「Business-safe AI 业务助手」——AI 能读、能写（确认）、可审计、本系统副作用可撤销、可私有化部署。
