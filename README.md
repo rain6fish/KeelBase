@@ -146,6 +146,8 @@ These aren't just claims — every one is verified by an executable test that sh
 - ✓ **Agent behavior tests** — decision trace + business-safe agent benchmark (15/15 Run/Trust/Safety)
 - ✓ **End-to-end business flow** — AI CRM: read → risk → task → confirm → write → audit → revoke (deterministic e2e)
 
+> **Boundaries matter** — what "audit / revoke / tamper-evident" does and does **not** promise (e.g. within-application only, not vs. DBA/root; revoke is scoped per `revokeClass`, not a cross-system rollback): [SECURITY.md → Trust Boundaries (Not-a-*)](SECURITY.md)
+
 ---
 
 ## 🏠 Deploy — Private by Design

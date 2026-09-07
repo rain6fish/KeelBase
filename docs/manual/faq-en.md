@@ -104,6 +104,9 @@ A: Admin console → User Management → find user → change role. Users can't 
 **Q: How to back up / restore data?**
 A: `cd Server-NestJS && npm run backup` (to `data/backups/`); restore: `npm run restore -- <file>`. See [Operations Manual](operations.md).
 
+**Q: What is the boundary of "tamper-evident audit hash chain / revocable AI writes"?**
+A: In short: **tampering breaks the chain and is detectable offline — but this only covers write paths inside the application boundary; it is not a defense against DBA/root, and revoke is not a cross-system rollback**. Full boundary: [SECURITY.md → Trust Boundaries — Not-a-*](../../SECURITY.md): N-1/N-3 define the tamper-evidence boundary (within-application; not vs. DB/root-holding admins); N-4/N-5 define that "revoke" applies only to side effects in KeelBase's own data domain with declared compensation endpoints — external systems (e.g. the Java side) have their revoke state shown honestly.
+
 ---
 
 ## 7. Still stuck?
