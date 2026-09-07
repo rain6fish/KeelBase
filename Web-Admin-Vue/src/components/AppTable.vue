@@ -2,8 +2,8 @@
 <template>
   <el-card shadow="never" class="app-table">
     <el-table
-      :data="items"
       v-loading="loading"
+      :data="items"
       :row-key="'id'"
       style="width: 100%"
     >
