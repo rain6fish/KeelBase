@@ -55,8 +55,8 @@
 
 ### 镜 7 — 片尾（55-60s）
 - **画面**：六场景完成打勾列表（S1-S6）+ 一行字：存量系统也能接——Java 不动，AI Runtime 外挂。右下角 GitHub / 官网
-- **旁白（中）**：开源、私有部署、存量系统也能接。KeelBase —— AI 进入真实业务系统时的 Trust Runtime。
-- **旁白（英）**：Open-source, private-deployable, works with your existing systems. KeelBase — the Trust Runtime for AI in real business systems.
+- **旁白（中）**：开源、私有部署、存量系统也能接。KeelBase —— AI 进入真实业务系统时的 Business-safe AI Runtime。
+- **旁白（英）**：Open-source, private-deployable, works with your existing systems. KeelBase — the Business-safe AI Runtime for AI in real business systems.
 
 ## 录制建议
 
