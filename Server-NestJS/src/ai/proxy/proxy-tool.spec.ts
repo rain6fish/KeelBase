@@ -133,4 +133,36 @@ describe('ProxyTool（AI Bridge B 路径）', () => {
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/401/);
   });
+
+  it('外部调用超时（KB-4 FP-3）→ 返回带"超时"失败，不无限挂起', async () => {
+    const tool = new ProxyTool(
+      {
+        name: 'proxy_get_contract',
+        description: '查合同',
+        method: 'GET',
+        path: '/contracts/{id}',
+        parameters: [{ name: 'id', type: 'string', description: '合同 id', required: true }],
+        riskLevel: 'R1',
+      },
+      mockDelegation as any,
+      base,
+      audience,
+      30, // 短超时注入，避免真实 30s
+    );
+    const origFetch = global.fetch;
+    // 永不返回但尊重 AbortSignal：abort → reject AbortError（模拟真实 fetch 挂起被中止）
+    global.fetch = ((_url: unknown, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+        );
+      })) as unknown as typeof fetch;
+    try {
+      const r = await tool.execute({ id: '42' }, 'u1');
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/超时/);
+    } finally {
+      global.fetch = origFetch;
+    }
+  });
 });

@@ -146,6 +146,18 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       );
       expect(saved.id).toBe(9);
     });
+
+    it('KB-4 FP-4：非唯一冲突（DB down）→ 如实上抛，不伪装幂等跳过', async () => {
+      repo.save.mockRejectedValueOnce(new Error('connection refused'));
+      await expect(
+        service.record(
+          { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'X' } },
+          'event',
+          7,
+        ),
+      ).rejects.toThrow('connection refused');
+      expect(repo.findOne).not.toHaveBeenCalled();
+    });
   });
 
   describe('revoke', () => {

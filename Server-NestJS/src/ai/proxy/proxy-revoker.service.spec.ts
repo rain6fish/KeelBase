@@ -3,7 +3,6 @@
 import { ProxyToolRevokerService } from './proxy-revoker.service';
 import { ProxyTool } from './proxy-tool';
 import { ToolRegistry } from '../tools/tool-registry';
-import { DelegationTokenService } from '../../auth/delegation-token.service';
 
 describe('ProxyToolRevokerService', () => {
   const mockFetch = jest.fn();
@@ -78,6 +77,7 @@ describe('ProxyToolRevokerService', () => {
     expect(mockFetch).toHaveBeenCalledWith('http://java-crm:8080/contracts/42', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer delegation-token' },
+      signal: expect.anything(),
     });
     expect(result).toEqual({ ok: true, message: 'DELETE /contracts/42' });
   });
@@ -123,5 +123,25 @@ describe('ProxyToolRevokerService', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('http://java-crm:8080/contracts/7/cancel', expect.objectContaining({ method: 'POST' }));
     expect(result.ok).toBe(true);
+  });
+
+  it('补偿端点超时（KB-4 FP-3）→ 如实返回"超时"，不无限挂起', async () => {
+    registry.getTool.mockReturnValue(makeProxy());
+    delegation.sign.mockResolvedValue({ token: 't' });
+    // 永不返回但尊重 AbortSignal：abort → reject AbortError（模拟真实 fetch 挂起被中止）
+    mockFetch.mockImplementation(
+      (_url: unknown, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        }),
+    );
+    const revokerTimeout = new ProxyToolRevokerService(registry as unknown as ToolRegistry, delegation as any, 30);
+
+    const result = await revokerTimeout.revoke('proxy_create_contract', 7, '1');
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('超时');
   });
 });

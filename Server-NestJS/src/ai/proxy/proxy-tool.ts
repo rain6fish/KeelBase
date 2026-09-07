@@ -17,6 +17,7 @@ import {
   ToolRiskLevel,
 } from '../interfaces/tool.interface';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
+import { proxyFetch, proxyErrorText } from './proxy-http';
 
 export interface ProxyToolConfig {
   name: string;
@@ -50,6 +51,8 @@ export class ProxyTool implements AiTool {
     readonly baseUrl: string,
     /** 目标系统 audience（委托 token 限定） */
     readonly audience: string,
+    /** 外部调用超时（ms）；缺省 PROXY_TIMEOUT_MS（KB-4 FP-3） */
+    readonly timeoutMs?: number,
   ) {
     this.name = cfg.name;
     this.description = cfg.description;
@@ -118,11 +121,15 @@ export class ProxyTool implements AiTool {
     const url = this.baseUrl + path + this.toQuery(query);
 
     try {
-      const res = await fetch(url, {
-        method: this.cfg.method,
-        headers,
-        ...(isWrite ? { body: JSON.stringify(body) } : {}),
-      });
+      const res = await proxyFetch(
+        url,
+        {
+          method: this.cfg.method,
+          headers,
+          ...(isWrite ? { body: JSON.stringify(body) } : {}),
+        },
+        this.timeoutMs,
+      );
       if (!res.ok) {
         const body = await res.text().catch(() => '');
         return { success: false, error: `目标系统错误: ${res.status} ${body.slice(0, 200)}` };
@@ -130,7 +137,8 @@ export class ProxyTool implements AiTool {
       const data = res.status === 204 ? null : await res.json().catch(() => null);
       return { success: true, data };
     } catch (err) {
-      return { success: false, error: `目标系统不可达: ${(err as Error).message}` };
+      // KB-4 FP-3：proxyFetch 超时抛 ProxyTimeoutError → 报"超时"；其余"不可达"
+      return { success: false, error: proxyErrorText(err, '目标系统') };
     }
   }
 
