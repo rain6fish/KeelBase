@@ -19,8 +19,10 @@
  * 前置：后端已启动（含 delete_customer R5 工具 + demo provider）；alex/admin 账号存在（首启自动 seed）。
  * 报告：docs/benchmark/trust-proof-<ts>.json
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { dirname, resolve, join } from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000/api/v1';
@@ -114,6 +116,20 @@ async function streamChat(token, message, { onConfirmation } = {}) {
     clearTimeout(timer);
   }
   return { text: texts.join('').replace(/\s+/g, ' ').trim(), toolNames: [...new Set(toolNames)], confirmations, decisions, error, conversationId };
+}
+
+/** 离线验证（KB-3）：调用同仓 verify-evidence.mjs（只 Node 内置），返回 stdout/退出码。证据包 path 必传，key 可选 */
+function offlineVerify(pkgPath, key) {
+  const args = [resolve(__dirname, 'verify-evidence.mjs'), pkgPath];
+  if (key) args.push('--key', key);
+  const r = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 30000 });
+  return { status: r.status, out: r.stdout || '', err: r.stderr || '' };
+}
+
+/** 篡改一位 hex（用于 tamper 检测：改锚内容后 digest 必不匹配） */
+function flipHex(h) {
+  if (!/^[0-9a-f]{64}$/.test(h || '')) return (h || '').slice(0, 64);
+  return (h[0] === '0' ? '1' : '0') + h.slice(1);
 }
 
 async function main() {
@@ -244,6 +260,60 @@ async function main() {
       ok('AI 写操作确认 → 批准 → 落库', `confirmation_request ×${confirmCount} → task #${approvedResultId} ${taskTitle}`);
     } else {
       bad('确认后任务落库', `taskId=${approvedResultId} 未在 /crm/tasks 可见（总数 ${beforeCount}→${afterList.length}）`);
+    }
+  }
+
+  // ── S7 证据根（KB-3）：单动作导出 v3 → 离线验证 PASS → 篡改即现形（回应"哈希链锚在哪"）──
+  console.log('\n[S7] 证据根（跨链锚定）：AI 写动作导出 v3 → 离线验证 PASS → 篡改检测 FAIL');
+  if (!approvedResultId) {
+    bad('S7 证据根导出', '跳过：S4 未产生 AI 写动作（无 approvedResultId）');
+  } else {
+    const gov7 = await api(`/ai/governance/action/crm_task/${approvedResultId}`, { token: alice.token });
+    const effectId7 = gov7.data?.effect?.id;
+    if (!effectId7) {
+      bad('S7 反查副作用（effectId）', `GET /ai/governance/action/crm_task/${approvedResultId} 无 effect.id`);
+    } else {
+      const exp = await api(`/ai/governance/evidence-root/crm_task/${approvedResultId}`, { token: alice.token });
+      if (exp.status !== 200 || !exp.data) {
+        bad('导出证据根 v3', `GET /ai/governance/evidence-root/crm_task/${approvedResultId} status=${exp.status}`);
+      } else if (!String(exp.data?.format ?? '').includes('/3')) {
+        bad('证据根格式 v3', `format=${exp.data?.format ?? '(缺失)'}`);
+      } else {
+        const ts7 = new Date().toISOString().replace(/[:.]/g, '-');
+        const benchDir = resolve(__dirname, '../docs/benchmark');
+        mkdirSync(benchDir, { recursive: true });
+        const pkgPath = join(benchDir, `evidence-root-${ts7}.json`);
+        writeFileSync(pkgPath, JSON.stringify(exp.data, null, 2));
+        // 离线验证（structure + root.digest 免钥；配 AUDIT_HMAC_KEY 则全量子链重算 + 副作用锚 + 签名）
+        const hmKey = process.env.AUDIT_HMAC_KEY || '';
+        const vr = offlineVerify(pkgPath, hmKey || undefined);
+        const verified = /验证结论：PASS/.test(vr.out);
+        if (verified) {
+          ok('离线验证 PASS（verify-evidence.mjs）', `${hmKey ? '含 --key 全量子链重算/副作用锚/签名' : 'structure + root.digest（未配 AUDIT_HMAC_KEY）'} → 包 docs/benchmark/evidence-root-${ts7}.json`);
+        } else {
+          bad('离线验证 PASS', (vr.out || vr.err).slice(-260));
+        }
+        // 篡改检测：翻 root.anchors[0].hash 一位 → 重验应 FAIL（改锚即现形）
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        const anchors = Array.isArray(pkg?.root?.anchors) ? pkg.root.anchors : [];
+        if (!anchors.length) {
+          bad('S7 篡改检测', '证据根无 root.anchors 可篡改');
+        } else {
+          const tampered = {
+            ...pkg,
+            root: { ...pkg.root, anchors: anchors.map((a, i) => (i === 0 ? { ...a, hash: flipHex(a.hash) } : a)) },
+          };
+          const tmpPath = join(os.tmpdir(), `evidence-root-tampered-${ts7}.json`);
+          writeFileSync(tmpPath, JSON.stringify(tampered, null, 2));
+          const tr = offlineVerify(tmpPath, undefined); // 结构验即可检出 digest 不匹配
+          rmSync(tmpPath, { force: true });
+          if (/验证结论：FAIL/.test(tr.out)) {
+            ok('篡改检测（改 root.anchors[0].hash → 离线验 FAIL）', '改锚即断锚，digest 不匹配可离线检出');
+          } else {
+            bad('篡改检测', (tr.out || tr.err).slice(-200));
+          }
+        }
+      }
     }
   }
 

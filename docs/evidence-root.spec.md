@@ -140,7 +140,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 - 单元：装配（findByTarget 无副作用→404/鉴权）；authorization 投影含 `policy.revision`；operation 命中（findByTargetId path 子串正确）；root.digest 计算纯函数。
 - verify-evidence v3：structure 误报（缺 action/锚格式坏）；`--key` 正确重算 PASS；篡改任一锚内容/换行/改 digest → FAIL；`--key` 错误键 → FAIL；v1/v2 包仍按旧分支验（向后兼容断言）。
-- e2e：seed 一条 AI 写（确认→执行→REST 记录）→ 导出 v3 → `verify-evidence.mjs --key` 全 PASS；改一行后再验 FAIL。
+- e2e：seed 一条 AI 写（确认→执行→REST 记录）→ 导出 v3 → `verify-evidence.mjs --key` 全 PASS；改一行后再验 FAIL。**✅ 已实现（2026-09-07，KB-3）**：`test/evidence-root.e2e-spec.ts`（导出 v3 结构 + root.digest 复算 PASS + 非本人 403 + 撬锚检测 FAIL 分支）+ trust-proof S7（造→导→离线 PASS→篡改 FAIL→留档 `docs/benchmark/evidence-root-<ts>.json`，`npm run verify:evidence-root` 一键复现）。
 - 文档：docs/evidence/README.md §2.7 加 v3 行；docs/protocols/ai-governance-protocol.md §2.5 补 v3 小节。
 
 ---
