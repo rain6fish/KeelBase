@@ -103,7 +103,7 @@ Permission（CASL 行级 + HS-9 治理策略）             ← 最终防线 ①
     ↓
 Confirmation（requiresConfirmation + 确认流）       ← 最终防线 ②：写操作人工确认
     ↓
-Audit（HS-11 哈希链，无条件记录）                   ← 最终防线 ③：全程可审计可撤销
+Audit（HS-11 哈希链，无条件记录）                   ← 最终防线 ③：全程可审计；本系统副作用可撤销（应用边界内）
 ```
 
 **原则**：

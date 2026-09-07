@@ -9,7 +9,7 @@
 
 | 能力 | 说明 | 入口 |
 |---|---|---|
-| **审计哈希链** | AI 审计 + 操作审计链式 SHA-256，`/audit/verify` 可验证完整性，篡改即失败 | [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md) |
+| **审计哈希链** | AI 审计 + 操作审计链式 SHA-256，`/audit/verify` 可验证完整性；应用边界内篡改即断链 | [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md) |
 | **AI 写操作确认 + 撤销** | 写工具需人工确认（不确认不执行）；副作用登记可撤销（软删 + 回收站恢复） | `/ai/confirmations/:token` · `/ai/tool-effects` |
 | **工具风险分级 + 策略中心** | 工具注册 R1–R5 风险级；启用开关 / 角色白名单 / 审计粒度可配置，实时生效 | [hs9-governance-policy.spec.md](hs9-governance-policy.spec.md) |
 | **决策轨迹 + Explainable Authz** | 用户请求 → 工具调用 → 授权检查（含拒绝原因）→ 确认 → 数据变化全链路可追溯；权限决策附依据 | `/ai/conversations/:id/trace` · `/auth/permissions/explain` |
