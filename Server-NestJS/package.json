@@ -31,7 +31,9 @@
     "healthcheck": "ts-node scripts/healthcheck.ts",
     "audit:chain:load": "ts-node scripts/audit-chain-load-test.ts",
     "conformance": "node scripts/verify-protocol-conformance.mjs",
-    "verify:evidence": "node scripts/verify-evidence.mjs"
+    "verify:evidence": "node scripts/verify-evidence.mjs",
+    "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
+    "verify:evidence-root": "bash scripts/verify-evidence-root.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

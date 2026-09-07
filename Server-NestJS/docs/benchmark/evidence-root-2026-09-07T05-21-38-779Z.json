@@ -1,0 +1,197 @@
+{
+  "exportedAt": "2026-09-07T05:21:38.769Z",
+  "generator": "keelbase-audit-export",
+  "format": "keelbase-audit-evidence/3",
+  "action": {
+    "id": "crm_task:10",
+    "resultType": "crm_task",
+    "resultId": 10,
+    "effectId": 1,
+    "userId": "1",
+    "conversationId": "9637500c-0150-486a-96d0-a4b15a96cdb6"
+  },
+  "authorization": {
+    "denied": null,
+    "allowed": {
+      "checks": [
+        {
+          "name": "tool_enabled",
+          "ok": true,
+          "note": "治理策略已启用"
+        },
+        {
+          "name": "role_allowed",
+          "ok": true,
+          "note": "无角色限制"
+        },
+        {
+          "name": "user_scoped",
+          "ok": true,
+          "note": "执行时注入调用者 userId，仅操作本人数据"
+        },
+        {
+          "name": "risk_policy",
+          "ok": true,
+          "note": "风险级 R3（confirmation）→ 需人工确认"
+        }
+      ],
+      "riskLevel": "R3"
+    }
+  },
+  "decision": {
+    "businessEvent": "FollowupTaskCreated",
+    "evidence": null
+  },
+  "effect": {
+    "id": 1,
+    "toolName": "create_followup_task",
+    "before": null,
+    "after": {
+      "id": 10,
+      "customerId": 1,
+      "customer": null,
+      "title": "跟进任务：跟进瀚宇制造497373逾期",
+      "description": null,
+      "dueDate": null,
+      "status": "pending",
+      "userId": 1,
+      "createdAt": "2026-09-07T05:21:38.000Z",
+      "updatedAt": "2026-09-07T05:21:38.000Z",
+      "deletedAt": null
+    }
+  },
+  "chains": {
+    "aiAudit": [
+      {
+        "seq": 1,
+        "id": 6,
+        "prevHash": "35e1019375fdb65ee90437bfd48554c2626f20ad26d96e7e2efa90fad5face6c",
+        "hash": "e262a3231454c064b126e358c9d4defea5da1710887392ab6a00e1e9b8027970",
+        "payload": {
+          "userId": "1",
+          "conversationId": "9637500c-0150-486a-96d0-a4b15a96cdb6",
+          "action": "tool_confirmation",
+          "detail": "create_followup_task({\"customerId\":1,\"title\":\"跟进任务：跟进瀚宇制造497373逾期\"}) → approve",
+          "model": null,
+          "provider": null,
+          "promptTokens": null,
+          "completionTokens": null,
+          "durationMs": null,
+          "isError": false,
+          "errorMessage": null,
+          "authorization": null,
+          "feedback": null,
+          "feedbackNote": null,
+          "businessEvent": null,
+          "evidence": null,
+          "agentId": null,
+          "sessionId": "9cb76edfb9d66622",
+          "parentActionId": null,
+          "callerAgentId": null,
+          "delegationContext": null,
+          "businessIntent": null,
+          "source": null
+        }
+      },
+      {
+        "seq": 2,
+        "id": 7,
+        "prevHash": "e262a3231454c064b126e358c9d4defea5da1710887392ab6a00e1e9b8027970",
+        "hash": "0f98f9ac103cfa27a9e0469bdf26f24593c584054e5eda7e0028b3591ce793bc",
+        "payload": {
+          "userId": "1",
+          "conversationId": "9637500c-0150-486a-96d0-a4b15a96cdb6",
+          "action": "tool_call",
+          "detail": "create_followup_task({\"customerId\":1,\"title\":\"跟进任务：跟进瀚宇制造497373逾期\"})",
+          "model": null,
+          "provider": null,
+          "promptTokens": null,
+          "completionTokens": null,
+          "durationMs": null,
+          "isError": false,
+          "errorMessage": null,
+          "authorization": "{\"allowed\":true,\"tool\":\"create_followup_task\",\"riskLevel\":\"R3\",\"strategy\":\"confirmation\",\"checks\":[{\"name\":\"tool_enabled\",\"ok\":true,\"note\":\"治理策略已启用\"},{\"name\":\"role_allowed\",\"ok\":true,\"note\":\"无角色限制\"},{\"name\":\"user_scoped\",\"ok\":true,\"note\":\"执行时注入调用者 userId，仅操作本人数据\"},{\"name\":\"risk_policy\",\"ok\":true,\"note\":\"风险级 R3（confirmation）→ 需人工确认\"}]}",
+          "feedback": null,
+          "feedbackNote": null,
+          "businessEvent": "FollowupTaskCreated",
+          "evidence": null,
+          "agentId": null,
+          "sessionId": "9cb76edfb9d66622",
+          "parentActionId": null,
+          "callerAgentId": null,
+          "delegationContext": null,
+          "businessIntent": null,
+          "source": null
+        }
+      },
+      {
+        "seq": 3,
+        "id": 8,
+        "prevHash": "0f98f9ac103cfa27a9e0469bdf26f24593c584054e5eda7e0028b3591ce793bc",
+        "hash": "1340e6431481e94f3815d7750a2b1ed210c71721312c0ba027b3bbdc7e80af2a",
+        "payload": {
+          "userId": "1",
+          "conversationId": "9637500c-0150-486a-96d0-a4b15a96cdb6",
+          "action": "chat",
+          "detail": null,
+          "model": "deepseek-v4-flash",
+          "provider": "demo",
+          "promptTokens": null,
+          "completionTokens": null,
+          "durationMs": null,
+          "isError": false,
+          "errorMessage": null,
+          "authorization": null,
+          "feedback": null,
+          "feedbackNote": null,
+          "businessEvent": null,
+          "evidence": null,
+          "agentId": null,
+          "sessionId": "9cb76edfb9d66622",
+          "parentActionId": null,
+          "callerAgentId": null,
+          "delegationContext": null,
+          "businessIntent": null,
+          "source": null
+        }
+      }
+    ],
+    "operationAudit": []
+  },
+  "root": {
+    "algorithm": "keelbase-evidence-root/1",
+    "anchors": [
+      {
+        "kind": "ai-audit",
+        "rowId": 7,
+        "hash": "0f98f9ac103cfa27a9e0469bdf26f24593c584054e5eda7e0028b3591ce793bc"
+      },
+      {
+        "kind": "side-effect",
+        "rowId": 1,
+        "hash": "c7a41238919b85bf5fd3a71f38157cbe77578217bbd6e7e7128276f470780db9"
+      }
+    ],
+    "digest": "3befcbbc1c46a19f47f543c448294b52a470b388053c8a37394d7fd765679067"
+  },
+  "summary": {
+    "sentence": "alex执行「FollowupTaskCreated」",
+    "stats": {
+      "businessEvents": [
+        {
+          "event": "FollowupTaskCreated",
+          "count": 1
+        }
+      ],
+      "evidence": [],
+      "confirmations": {
+        "approved": 1,
+        "declined": 0
+      },
+      "blocked": 0,
+      "errors": 0
+    }
+  },
+  "replay": null,
+  "signature": "acb8de889d2b8526586ea5a63a986c53aa2afdd383ee4acf8332d2a87a1fbe33"
+}

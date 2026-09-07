@@ -1,0 +1,96 @@
+{
+  "gate": "Trust 证明包：六场景一键验证",
+  "date": "2026-09-07T05-21-39-119Z",
+  "pass": 17,
+  "total": 17,
+  "elapsedSec": 2,
+  "provider": "demo",
+  "baseUrl": "http://localhost:3199/api/v1",
+  "cases": [
+    {
+      "name": "alex 登录（数据所有者）",
+      "pass": true,
+      "detail": "userId=1"
+    },
+    {
+      "name": "创建客户（REST）",
+      "pass": true,
+      "detail": "#12 瀚宇制造497373"
+    },
+    {
+      "name": "写入 2 笔逾期订单（数据准备）",
+      "pass": true,
+      "detail": "280 万 + 80 万 overdue"
+    },
+    {
+      "name": "AI 风险分析（query_customers → analyze_customer_risk）",
+      "pass": true,
+      "detail": "critical 判定 + 工具调用 query_customers,analyze_customer_risk"
+    },
+    {
+      "name": "注册 bob（POST /auth/register）",
+      "pass": true,
+      "detail": "@bob_497373"
+    },
+    {
+      "name": "bob 访问 alex 的 CRM 客户 → 403",
+      "pass": true,
+      "detail": "GET /crm/customers/12"
+    },
+    {
+      "name": "bob 访问 alex 的用户详情 → 403",
+      "pass": true,
+      "detail": "他人个人数据"
+    },
+    {
+      "name": "admin 访问同一客户 → 200（管理员对照）",
+      "pass": true,
+      "detail": "GET 200"
+    },
+    {
+      "name": "bob 访问自己的列表 → 200（本人数据对照）",
+      "pass": true,
+      "detail": "GET /events"
+    },
+    {
+      "name": "AI 删除客户 → R5 阻断（不执行）",
+      "pass": true,
+      "detail": "reply=已执行 delete_customer：{\"success\":false,\"error\":\"Tool \\\"delete_customer\\\" is blocked (risk level R5)\",\""
+    },
+    {
+      "name": "客户数据未被删除（阻断生效）",
+      "pass": true,
+      "detail": "GET /crm/customers/12 仍 200"
+    },
+    {
+      "name": "AI 写操作确认 → 批准 → 落库",
+      "pass": true,
+      "detail": "confirmation_request ×1 → task #10 跟进瀚宇制造497373逾期"
+    },
+    {
+      "name": "离线验证 PASS（verify-evidence.mjs）",
+      "pass": true,
+      "detail": "含 --key 全量子链重算/副作用锚/签名 → 包 docs/benchmark/evidence-root-2026-09-07T05-21-38-779Z.json"
+    },
+    {
+      "name": "篡改检测（改 root.anchors[0].hash → 离线验 FAIL）",
+      "pass": true,
+      "detail": "改锚即断锚，digest 不匹配可离线检出"
+    },
+    {
+      "name": "治理视图反查副作用（B4 贯通）",
+      "pass": true,
+      "detail": "effect #1 → resultType=crm_task resultId=10"
+    },
+    {
+      "name": "撤销后任务软删不可见",
+      "pass": true,
+      "detail": "task #10 已不在列表（可经回收站恢复）"
+    },
+    {
+      "name": "S6 Java 存量系统（引导标注）",
+      "pass": true,
+      "detail": "主仓脚本不跨仓调用，详见 java-starter 参考项目验证"
+    }
+  ]
+}

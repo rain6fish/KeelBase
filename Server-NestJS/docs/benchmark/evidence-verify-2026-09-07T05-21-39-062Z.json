@@ -1,0 +1,38 @@
+{
+  "gate": "A2 审计证据包离线验证（证据分层 L1）",
+  "source": "C:\\Users\\pc\\AppData\\Local\\Temp\\evidence-root-tampered-2026-09-07T05-21-38-779Z.json",
+  "format": "keelbase-audit-evidence/3",
+  "mode": "structure-only",
+  "verdict": "FAIL",
+  "rows": 3,
+  "recomputed": 0,
+  "exportedAt": "2026-09-07T05:21:38.769Z",
+  "cases": [
+    {
+      "name": "格式版本",
+      "pass": true,
+      "detail": "keelbase-audit-evidence/3"
+    },
+    {
+      "name": "动作标识（AUDIT-ID）",
+      "pass": true,
+      "detail": "crm_task:10（resultType:resultId → effectId 1）"
+    },
+    {
+      "name": "action.id 与 resultType:resultId 一致",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "root.digest 自洽",
+      "pass": false,
+      "detail": "digest 不匹配（anchors 被改动）"
+    },
+    {
+      "name": "证据根结构：锚非空 + hash 64hex",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "elapsedSec": 0
+}

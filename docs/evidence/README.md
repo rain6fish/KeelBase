@@ -111,6 +111,14 @@
   GET /api/v1/audit/action-report/export       # 导出证据包（admin，可带 userId/since/limit）
   npm run verify:evidence -- 包.json --key ...  # 离线验证签名与哈希链（见 2.1）
   ```
+- **证据根 v3 一键复现（KB-3，回应"哈希链锚在哪"）**：造一条确定性 AI 写动作 → 导出 v3 证据根 → 离线验证 PASS → 篡改检测 FAIL：
+  ```bash
+  cd Server-NestJS
+  npm run verify:evidence-root   # 自举隔离后端（fresh sqlite + demo provider）跑 trust-proof S7，产出 docs/benchmark/evidence-root-<ts>.json
+  # 复核（任意审计机构/第三方，离线）：
+  node scripts/verify-evidence.mjs docs/benchmark/evidence-root-<ts>.json --key <AUDIT_HMAC_KEY>
+  ```
+  边界与 N-1/N-2/N-3 一致：证据根为**应用边界内篡改即断链 + 离线可复核**的完整性证据，非防 DBA/root、非不可抵赖存储。
 - **文档**：§22.16 A-6（私库 roadmap 执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
 
 ---
