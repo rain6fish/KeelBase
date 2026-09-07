@@ -65,7 +65,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 ## 4. Audit hash chain
 
-**Proof**: every AI call / tool execution is audited; the hash chain is verifiable (tamper-proof, correctable).
+**Proof**: every AI call / tool execution is audited; the hash chain is verifiable (tamper-evident within the application boundary, correctable).
 
 - Run: Admin Console → **AI Audit** (`/admin/#/audit`) → `GET /audit/verify` → `valid:true`
 - Concurrency stress: `cd Server-NestJS && npm run audit:chain:load` (1000-entry baseline: 0 forks + verify green + throughput/P95)
@@ -73,7 +73,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 ## 5. Agent behavior baseline (attack suite + golden loop)
 
-**Proof**: AI agents **block all attacks** (prompt injection / authorization bypass / confirmation bypass / revoke bypass); the golden loop reproduces end-to-end.
+**Proof**: AI agents **block all attacks within the deterministic attack corpus** (prompt injection / authorization bypass / confirmation bypass / revoke bypass); the golden loop reproduces end-to-end.
 
 - Attack suite: `./scripts/verify-security-eval.sh` → **12/12 blocked** (reject 8/8 + confirmation-bypass / cross-org-read / revoke-bypass)
 - Golden loop: `./scripts/verify-golden-application.sh` → **8/8** (customer → risk → follow-up task → confirm → write → audit → revoke)
