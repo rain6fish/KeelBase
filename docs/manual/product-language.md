@@ -31,9 +31,9 @@
 | **Risk level** | 风险分级 | R0-R5 | 工具执行策略（读自动 / 写确认 / 阻断） |
 | **Confirmation** | 确认 | `confirmation` | 写操作需人工确认（R3） |
 | **Approval** | 审批 | R4 `human_approval` | 高影响动作双人审批 |
-| **Revoke** | 撤销 | `tool-effects` revoke | AI 写副作用可撤销 |
+| **Revoke** | 撤销 | `tool-effects` revoke | AI 写副作用（自身数据域）按 `revokeClass` 档位可撤销；外部系统副作用不裸称「可撤销」，按能力矩阵如实标注 |
 | **Audit** | 审计 | `audit` / `ai_audit_logs` | AI 操作记录 |
-| **Audit Hash Chain** | 审计哈希链 | `audit-chain` | 篡改即断链的防篡改证据链 |
+| **Audit Hash Chain** | 审计哈希链 | `audit-chain` | 篡改即断链、可离线验证的审计证据链（应用边界内；不承诺防御库/root 级直接改写） |
 | **Decision Trace** | 决策轨迹 | `decision-trace` | 单次 AI 动作完整链：请求→意图→工具→权限→审批→执行→审计 |
 | **AI Action Log** | AI 行为记录 | `ai-timeline` / audit logs | AI 操作的历史列表（谁/何时/做了什么） |
 | **Business Action** | 业务动作 | `businessAction` | AI 在业务系统里完成的动作（如创建跟进任务） |
@@ -65,6 +65,7 @@
 - [x] 按第 3 节回改 UI 文案：业务页 Copilot → AI 助手（copilotTitle=「AI 助手」/ 业务按钮=「AI 分析」）；导航 Guard → 治理（navGuard=「安全治理」/ navGuardOverview=「治理总览」）——**2026-09-01 已收口**：用户可见文案统一；CrmCopilotDrawer.vue 组件名 / CopilotItem 类型 / copilot-* class 等内部标识符保留（非用户可见，不重构）
 - [x] 英文版 + README 登记（双语配对）——**2026-09-02 完成**：product-language-en.md + README Documentation 双链接
 - [ ] 按第 2 节校对 README 与快速开始文档术语（README/快速开始已核实干净——术语校对实测无待改项，保留此核对项作发版前确认）
+- [x] KB-1 词汇表校准 v2（2026-09-07）：README 中英主名统一 Business-safe AI Runtime（移除 Enterprise AI Trust Runtime 混用与图中框）、「防篡改」→「篡改即断链（应用边界内）」、Revoke 定义补 `revokeClass` 档位边界、Audit Hash Chain 定义补「不承诺防御库/root 级直接改写」
 
 ---
 
