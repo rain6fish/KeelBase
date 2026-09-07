@@ -65,7 +65,8 @@
 - [x] 按第 3 节回改 UI 文案：业务页 Copilot → AI 助手（copilotTitle=「AI 助手」/ 业务按钮=「AI 分析」）；导航 Guard → 治理（navGuard=「安全治理」/ navGuardOverview=「治理总览」）——**2026-09-01 已收口**：用户可见文案统一；CrmCopilotDrawer.vue 组件名 / CopilotItem 类型 / copilot-* class 等内部标识符保留（非用户可见，不重构）
 - [x] 英文版 + README 登记（双语配对）——**2026-09-02 完成**：product-language-en.md + README Documentation 双链接
 - [ ] 按第 2 节校对 README 与快速开始文档术语（README/快速开始已核实干净——术语校对实测无待改项，保留此核对项作发版前确认）
-- [x] KB-1 词汇表校准 v2（2026-09-07）：README 中英主名统一 Business-safe AI Runtime（移除 Enterprise AI Trust Runtime 混用与图中框）、「防篡改」→「篡改即断链（应用边界内）」、Revoke 定义补 `revokeClass` 档位边界、Audit Hash Chain 定义补「不承诺防御库/root 级直接改写」
+- [x] KB-1 词汇表校准 v2·**第一批**（2026-09-07）：README 中英主名统一 Business-safe AI Runtime（移除 Enterprise AI Trust Runtime 混用与图中框）、「防篡改」→「篡改即断链（应用边界内）」、Revoke 定义补 `revokeClass` 档位边界、Audit Hash Chain 定义补「不承诺防御库/root 级直接改写」
+- [x] KB-1 词汇表校准 v2·**第二批全量文档**（2026-09-07）：把上表铺到全量越界处——intro/capabilities(.en)/readiness/flagship、manual（security-showcase(.en) 禁词 tamper-proof、external-crm-demo、compliance-mapping）、evidence/architecture-boundary/governance-capability、integrator-kit 客户材料（可撤销分句 + 100% 限定化）、demo 视频脚本(.en)/framework-adapter(.en)/protocols/manifesto 正文（主名 Business-safe AI Runtime + Governance Layer、篡改即断链、撤销按档位/外部如实标注）。自检扫描通过（见 execution-log KB-1 记录）
 
 ---
 
