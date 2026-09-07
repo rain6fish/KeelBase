@@ -63,7 +63,8 @@
 ## 4. Todos
 
 - [x] Back-fix UI copy per §3 (2026-09-01): business-page Copilot → AI Assistant (copilotTitle="AI 助手" / action button="AI 分析"); Guard → Governance in user-visible text (navGuard=安全治理 / navGuardOverview=治理总览→Governance Overview)
-- [x] KB-1 glossary calibration v2 (2026-09-07): README EN/ZH primary name unified to Business-safe AI Runtime (removed Enterprise AI Trust Runtime mixing + ASCII box label), 中文「防篡改」→「篡改即断链（应用边界内）」, Revoke definition scoped by `revokeClass` tier, Audit Hash Chain definition states "not a defense against DB/root-level tampering"
+- [x] KB-1 glossary calibration v2 · **batch 1** (2026-09-07): README EN/ZH primary name unified to Business-safe AI Runtime (removed Enterprise AI Trust Runtime mixing + ASCII box label), 中文「防篡改」→「篡改即断链（应用边界内）」, Revoke definition scoped by `revokeClass` tier, Audit Hash Chain definition states "not a defense against DB/root-level tampering"
+- [x] KB-1 glossary calibration v2 · **batch 2 full-doc sweep** (2026-09-07): intro/capabilities(.en)/readiness/flagship, manual (security-showcase(.en) banned word tamper-proof, external-crm-demo, compliance-mapping), evidence/architecture-boundary/governance-capability, integrator-kit client materials (revoke scoped per tier + 100% scoped to governance path), demo video scripts(.en)/framework-adapter(.en)/protocols/manifesto body (primary name Business-safe AI Runtime + Governance Layer, tamper-evident within app boundary, revoke truthful per tier). Self-check scan passed (see execution-log KB-1 record)
 - [ ] Audit README & quick-start docs against §2 terminology
 - [ ] Freeze v0.1, register bilingual pair in README
 
