@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
-  <el-card shadow="never" class="stat-card">
+  <el-card
+    shadow="never"
+    class="stat-card"
+    :class="{ 'stat-card--clickable': clickable }"
+    :tabindex="clickable ? 0 : undefined"
+    @click="onClick"
+    @keyup.enter="onClick"
+  >
     <div class="d-flex align-center ga-3">
       <div
         class="flex-shrink-0 d-flex align-center justify-center"
@@ -36,12 +43,36 @@ const props = withDefaults(
     icon: string
     color?: string
     hint?: string
+    /** 可点指标卡：作为对应功能的入口（页面监听 click 导航） */
+    clickable?: boolean
   }>(),
   { color: 'primary' },
 )
+
+const emit = defineEmits<{ (e: 'click'): void }>()
+
+function onClick() {
+  if (props.clickable) emit('click')
+}
 
 const iconColor = computed(() => colorVar[props.color] ?? 'var(--el-color-primary)')
 const lightBg = computed(
   () => `var(--el-color-${props.color === 'error' ? 'danger' : props.color}-light-9)`,
 )
 </script>
+
+<style scoped>
+.stat-card--clickable {
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+}
+.stat-card--clickable:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: var(--el-box-shadow-light);
+  transform: translateY(-1px);
+}
+.stat-card--clickable:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+</style>

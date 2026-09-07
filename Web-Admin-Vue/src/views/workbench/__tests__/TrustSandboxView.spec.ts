@@ -110,6 +110,31 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     wrapper.unmount()
   })
 
+  it('运行演示(带 conversationId) → 弹窗「查看执行轨迹」直达 ?conv= 深链', async () => {
+    runMock.mockResolvedValue({
+      scenario: 's3_r5_block',
+      outcome: 'passed',
+      detail: 'AI 尝试删除客户被阻断（R5）',
+      conversationId: 'conv-s3',
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const buttons = runButtons(wrapper)
+    await buttons[2].trigger('click')
+    await flushPromises()
+
+    const dlg = resultDialog(wrapper)
+    expect(dlg.exists()).toBe(true)
+    const traceBtn = dlg.findAll('button').find((b) => b.text().includes('查看执行轨迹'))
+    expect(traceBtn).toBeTruthy()
+    await traceBtn!.trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/workbench/ai-trace?conv=conv-s3')
+    wrapper.unmount()
+  })
+
   it('无 resultType/resultId 的场景（如 s6 Java 指引）→ 弹窗不显示治理详情入口', async () => {
     runMock.mockResolvedValue({ scenario: 's6_java', outcome: 'guide', detail: 'Java 存量系统接入说明' })
 

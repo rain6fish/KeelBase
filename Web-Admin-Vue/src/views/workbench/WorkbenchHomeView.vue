@@ -14,6 +14,22 @@
       <div class="text-caption">{{ presetDescription }}</div>
     </el-alert>
 
+    <!-- Trust 之旅（First-time Demo Journey，P0）：首屏把「AI 被治理」做成一个可亲历的 3 分钟闭环入口 -->
+    <el-card class="trust-journey mb-4" shadow="hover">
+      <div class="d-flex align-center flex-wrap ga-4">
+        <div class="flex-shrink-0 trust-journey-badge d-flex align-center justify-center">
+          <AppIcon icon="mdi-shield-check-outline" size="30" color="var(--el-color-primary)" />
+        </div>
+        <div style="flex: 1; min-width: 260px">
+          <div class="text-h6">{{ t('trustJourneyTitle') }}</div>
+          <div class="text-body-2 text-medium-emphasis mt-1">{{ t('trustJourneySubtitle') }}</div>
+        </div>
+        <el-button type="primary" size="large" @click="router.push('/workbench/trust-sandbox')">
+          <AppIcon icon="mdi-play" class="mr-1" />{{ t('trustJourneyStart') }}
+        </el-button>
+      </div>
+    </el-card>
+
     <el-row :gutter="16">
       <el-col v-for="card in infoCards" :key="card.label" :xs="24" :sm="12" :md="6">
         <StatCard v-bind="card" />
@@ -135,6 +151,16 @@ const shortcutCards = computed(() => [
 <style scoped>
 .shortcut-card {
   cursor: pointer;
+}
+
+.trust-journey {
+  border-left: 4px solid var(--el-color-primary);
+}
+.trust-journey-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--el-color-primary-light-9);
 }
 
 .version-badge {
