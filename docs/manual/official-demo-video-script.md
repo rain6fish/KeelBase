@@ -2,6 +2,7 @@
 
 > 依据 `KeelBase官方 Demo 视频脚本方案.md` 落地为可执行分镜脚本。
 > 录制前请先运行 `npm run seed:demo`，确保演示账号 `alex / Alex@2026$Demo` 有真实种子数据。
+> 术语注（2026-09-07 KB-1）：已发布成片语言以成品为准；**后续 60s/字幕/物料统一采用主名 Business-safe AI Runtime（治理层 Governance Layer）**，本脚本已同步。
 
 ## 1. 成片信息
 
@@ -29,7 +30,7 @@
 | 1:25–1:40 | Demo 3：真正写入 CRM | 展示真实数据变化，证据镜头 |
 | 1:40–1:58 | Demo 4：审计轨迹 | 展示完整决策链与哈希链 |
 | 1:58–2:15 | Demo 5：撤销副作用 | 展示 AI 行动可纠错 |
-| 2:15–2:35 | Trust Runtime 升维 | 从 CRM 泛化到任意 Agent/业务系统 |
+| 2:15–2:35 | Business-safe Runtime 升维 | 从 CRM 泛化到任意 Agent/业务系统 |
 | 2:35–2:55 | 越权失败 + Test Evidence | 证明权限是运行时强制，不是 Prompt |
 | 2:55–3:25 | Build：30 分钟构建 | 展示 Protocol → Code |
 | 3:25–3:45 | Existing System：Bridge | 展示不替换存量系统 |
@@ -53,9 +54,9 @@
 
 | 镜头 | 时间 | 画面 | 屏幕文字 | 旁白 | 音效/操作 |
 |---|---|---|---|---|---|
-| 06 | 0:20–0:32 | 架构简化动画：AI Agents → MCP/OpenAPI/Tools → KeelBase Trust Layer → CRM/ERP/OA/MES | `AI Agents`<br>`MCP / OpenAPI / Tools`<br>`KeelBase Trust Layer`<br>`CRM · ERP · OA · MES` | KeelBase 是一个开源的 Enterprise AI Trust Runtime。它连接 AI Agent 与真实业务系统。 | 节点逐个点亮 |
-| 07 | 0:32–0:40 | 中间 Trust Layer 展开 6 个能力词 | `Identity` `Policy` `Permission` `Confirmation` `Audit` `Revoke` | 向上，它可以接入 MCP、OpenAPI、Function Calling 和现有 Agent；向下，它可以连接 CRM、ERP、OA、数据库以及存量系统。 | 能力词逐个出现 |
-| 08 | 0:40–0:45 | 能力词收拢到 Trust Layer，最后一句放慢 | `AI can act — but only within explicit business boundaries.` | 而在中间，KeelBase 负责让 AI 的每一次业务行动，都处在明确的边界之内。 | Brand Sentence 单独停留 |
+| 06 | 0:20–0:32 | 架构简化动画：AI Agents → MCP/OpenAPI/Tools → KeelBase Governance Layer → CRM/ERP/OA/MES | `AI Agents`<br>`MCP / OpenAPI / Tools`<br>`KeelBase Governance Layer`<br>`CRM · ERP · OA · MES` | KeelBase 是一个开源的 Business-safe AI Runtime。它连接 AI Agent 与真实业务系统。 | 节点逐个点亮 |
+| 07 | 0:32–0:40 | 中间 Governance Layer 展开 6 个能力词 | `Identity` `Policy` `Permission` `Confirmation` `Audit` `Revoke` | 向上，它可以接入 MCP、OpenAPI、Function Calling 和现有 Agent；向下，它可以连接 CRM、ERP、OA、数据库以及存量系统。 | 能力词逐个出现 |
+| 08 | 0:40–0:45 | 能力词收拢到 Governance Layer，最后一句放慢 | `AI can act — but only within explicit business boundaries.` | 而在中间，KeelBase 负责让 AI 的每一次业务行动，都处在明确的边界之内。 | Brand Sentence 单独停留 |
 
 ### 3.3 0:45–1:05 Demo 1：AI 发现业务风险
 
@@ -97,12 +98,12 @@
 | 20 | 2:05–2:10 | 点击 Revoke | `✓ Side effect revoked` | 对支持撤销的操作，KeelBase 可以追踪并撤销 AI 创建的业务记录。 | 撤销成功音效 |
 | 21 | 2:10–2:15 | 画面缩小，出现主线 | `Read → Decide → Confirm → Act → Audit → Revoke` | 让 AI 的行动不仅可控，也可纠错。 | 主线定格 1 秒 |
 
-### 3.8 2:15–2:35 Trust Runtime 升维
+### 3.8 2:15–2:35 Business-safe Runtime 升维
 
 | 镜头 | 时间 | 画面 | 屏幕文字 | 旁白 | 音效/操作 |
 |---|---|---|---|---|---|
-| 22 | 2:15–2:28 | 从刚才的 Demo 流程抽象为通用架构 | `Any AI Agent`<br>`↓ Tool / MCP / API`<br>`KeelBase Trust Layer`<br>`Identity · Policy · Authorization · Human Approval · Side-effect · Audit · Revoke · Evaluation`<br>`↓ Any Business System` | 这就是 KeelBase 与普通 Agent Framework 的区别。KeelBase 不重新发明 Agent 的编排方式，它提供的是 Agent 与企业业务之间的信任层。 | 架构图动画，节奏平稳 |
-| 23 | 2:28–2:35 | 两张品牌字卡 | `Not another Agent Framework.`<br>`A Trust Runtime for Business AI.` | 每一次 Tool Call 都可以进入统一的身份、权限、治理和审计体系；AI 可以连接真实业务，但不能绕过业务边界。 | 字卡居中，配重低音 |
+| 22 | 2:15–2:28 | 从刚才的 Demo 流程抽象为通用架构 | `Any AI Agent`<br>`↓ Tool / MCP / API`<br>`KeelBase Governance Layer`<br>`Identity · Policy · Authorization · Human Approval · Side-effect · Audit · Revoke · Evaluation`<br>`↓ Any Business System` | 这就是 KeelBase 与普通 Agent Framework 的区别。KeelBase 不重新发明 Agent 的编排方式，它提供的是 Agent 与企业业务之间的治理运行时层。 | 架构图动画，节奏平稳 |
+| 23 | 2:28–2:35 | 两张品牌字卡 | `Not another Agent Framework.`<br>`A Business-safe AI Runtime.` | 每一次 Tool Call 都可以进入统一的身份、权限、治理和审计体系；AI 可以连接真实业务，但不能绕过业务边界。 | 字卡居中，配重低音 |
 
 ### 3.9 2:35–2:55 越权失败 + Test Evidence
 
@@ -128,7 +129,7 @@
 
 | 镜头 | 时间 | 画面 | 屏幕文字 | 旁白 | 音效/操作 |
 |---|---|---|---|---|---|
-| 32 | 3:25–3:38 | 存量系统桥接图 | `Existing CRM / ERP / 10-year-old Java System / Existing Database`<br>`↓ Bridge`<br>`Application Protocol`<br>`↓ KeelBase Trust Runtime`<br>`↓ AI Agent` | 企业也不需要推倒重来。KeelBase 可以通过 Bridge 连接既有数据库、OpenAPI 或 Java 系统。 | 图从左到右流动 |
+| 32 | 3:25–3:38 | 存量系统桥接图 | `Existing CRM / ERP / 10-year-old Java System / Existing Database`<br>`↓ Bridge`<br>`Application Protocol`<br>`↓ KeelBase Business-safe AI Runtime`<br>`↓ AI Agent` | 企业也不需要推倒重来。KeelBase 可以通过 Bridge 连接既有数据库、OpenAPI 或 Java 系统。 | 图从左到右流动 |
 | 33 | 3:38–3:45 | 收束一句 | `Legacy system, new AI capability.` | 让十年前的业务系统获得 AI 能力，而不是因为 AI 而重新建设整个系统。 | 音乐渐柔 |
 
 ### 3.12 3:45–4:00 Private Deploy + 收尾
@@ -138,7 +139,7 @@
 | 34 | 3:45–3:52 | 私有化部署链路 | `Cloud LLM OR Local Model / Ollama`<br>`→ Local Embedding`<br>`→ Local RAG`<br>`→ Business-safe Agent`<br>`→ Local Audit` | 对数据敏感的企业，KeelBase 支持 Docker、离线和本地模型部署。 | 链路逐级点亮 |
 | 35 | 3:52–3:56 | 部署标签 | `Docker` `Offline` `On-Premise` `Private Data` | 数据可以留在自己的环境，AI 仍然可以真正完成业务工作。 | 标签淡入 |
 | 36 | 3:56–3:58 | 黑屏 | （无文字） | （无旁白） | 音乐收住 |
-| 37 | 3:58–4:00 | 最终品牌尾板 | `KeelBase`<br>`Build → Run → Trust → Private Deploy`<br>`Business-safe AI Applications`<br>`AI can act — but only within explicit business boundaries.`<br>`Open Source · Enterprise AI Trust Runtime`<br>`github.com/rain6fish/KeelBase` | （无旁白） | 尾板定格 |
+| 37 | 3:58–4:00 | 最终品牌尾板 | `KeelBase`<br>`Build → Run → Trust → Private Deploy`<br>`Business-safe AI Applications`<br>`AI can act — but only within explicit business boundaries.`<br>`Open Source · Business-safe AI Runtime`<br>`github.com/rain6fish/KeelBase` | （无旁白） | 尾板定格 |
 
 ---
 
@@ -152,7 +153,7 @@ AI 已经不只是聊天。
 
 但当 AI 真正开始行动，企业缺少的可能不是一个更聪明的 Agent，而是一层信任。
 
-KeelBase，是一个开源的 Enterprise AI Trust Runtime。
+KeelBase，是一个开源的 Business-safe AI Runtime。
 
 它连接 AI Agent 与真实业务系统，在身份、权限、人工确认、审计和撤销的边界内，让 AI 真正完成业务工作。
 
@@ -182,7 +183,7 @@ KeelBase AI 会读取授权范围内的客户、订单和跟进数据，分析�
 
 我们不重新发明 Agent。
 
-KeelBase 提供的是 AI 与企业业务之间的信任层。
+KeelBase 提供的是 AI 与企业业务之间的治理运行时层。
 
 同时，开发者可以通过 Application Protocol 和 `keelbase init`，从自然语言、SQL Schema 或 OpenAPI 出发生成真实的业务源码。
 
@@ -232,7 +233,7 @@ AI 可以行动，但只在明确的业务边界内行动。
 |---|---|---|
 | 系统画面 | Workbench / AI CRM / 工具卡 / 确认卡 / 审计轨迹 / Revoke | 本地运行实录 |
 | 终端画面 | `keelbase init` 与生成过程 | 本地终端实录 |
-| 架构动画 | Agent → Trust Layer → Business System | 可基于 `docs/branding/keelbase-architecture.svg` 重绘 |
+| 架构动画 | Agent → Governance Layer → Business System | 可基于 `docs/branding/keelbase-architecture.svg` 重绘 |
 | 品牌尾板 | KeelBase Logo + Build → Run → Trust → Private Deploy | `README.md` / 品牌资源 |
 | 测试证据 | 39-case / 12/12 / E2E / Audit / 15/15 | README「Enterprise Safety Validation」 |
 | 音乐 | 低沉科技感、中性渐强、结尾收束 | 版权音乐库 |
