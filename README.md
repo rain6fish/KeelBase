@@ -198,7 +198,7 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ## 📍 Where KeelBase Sits
 
-> **KeelBase is an Business-safe AI Runtime** — it connects AI agents with existing business systems, adding identity, governance, auditability, and private deployment, **without replacing existing technology stacks**.
+> **KeelBase is a Business-safe AI Runtime** — it connects AI agents with existing business systems, adding identity, governance, auditability, and private deployment, **without replacing existing technology stacks**.
 
 ```text
       AI Applications / Agents
@@ -210,9 +210,6 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
                     │ audit · runtime · deployment
               ┌─────────────┐
               │  KeelBase   │
-              │ Enterprise  │
-              │ AI Trust    │
-              │ Runtime     │
               └─────────────┘
                     │
                     │ bridge · protocol · capability mapping
