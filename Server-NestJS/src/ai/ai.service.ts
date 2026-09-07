@@ -1850,6 +1850,7 @@ export class AiService {
                     riskLevel: authz.riskLevel,
                     strategy: authz.riskStrategy,
                     checks: authz.checks,
+                    ...(authz.policy ? { policy: authz.policy } : {}),
                   })
                 : undefined,
             });
