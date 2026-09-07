@@ -1954,6 +1954,12 @@ describe('AiService', () => {
       expect((aiService as any).usersService.findOne).not.toHaveBeenCalled();
     });
 
+    it("_assertToolAllowed：admin 视为已验证（对齐 EmailVerificationGuard）", async () => {
+      mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
+      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'admin', emailVerified: false }) };
+      await expect((aiService as any)._assertToolAllowed('query_events', '1')).resolves.toBeUndefined();
+    });
+
     it('_assertToolAllowed：requireVerifiedEmail 未验证抛 EMAIL_NOT_VERIFIED', async () => {
       mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
       (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }) };
