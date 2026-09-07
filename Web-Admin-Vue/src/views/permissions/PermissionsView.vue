@@ -66,7 +66,7 @@
         </div>
       </template>
 
-      <el-table :data="resources" v-loading="loading" empty-text="—">
+      <el-table v-loading="loading" :data="resources" empty-text="—">
         <el-table-column prop="subject" :label="t('permissionSubject')" min-width="180" />
         <el-table-column :label="t('permissionScope')" width="110">
           <template #default="{ row }">

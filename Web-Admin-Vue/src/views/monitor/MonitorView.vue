@@ -3,7 +3,7 @@
   <div>
     <PageHeader :title="t('monitorTitle')" />
 
-    <el-row :gutter="16" v-if="summary">
+    <el-row v-if="summary" :gutter="16">
       <el-col :xs="24">
         <el-card shadow="never" class="mb-4">
           <div class="d-flex flex-wrap ga-6 align-center">
