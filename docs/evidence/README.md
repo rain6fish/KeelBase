@@ -132,6 +132,21 @@
 - **声明**：可全本地部署（Ollama），数据不出域。
 - **怎么证明**：私有 AI 验证脚本 + 留档 `docs/benchmark/private-ai.json`；`docker compose --profile private-ai up -d ollama` 后配 `AI_PROVIDER=ollama`。
 
+### 3.3 失败路径可信（KB-4）
+
+- **声明**：在失败分支（超时 / DB 故障 / 补偿失败 / 未知结果 / 重复执行 / 审计中断）下 Runtime 仍可信——**如实记录状态、不假装成功、不重复副作用、证据不丢**；外部调用有界（超时不无限挂起）。
+- **怎么证明（确定性，无 LLM）**：
+  ```bash
+  cd Server-NestJS
+  npm run test:failure-path   # A 层 fault-injection 语料（src/ai/failure-path/failure-path-corpus.spec.ts）
+  npx jest --config test/jest-e2e.json test/failure-path.e2e-spec.ts   # B 层真实链路
+  # 全绿断言：FP-1/5 幂等（唯一冲突 skip）、FP-2 确认 token 一次性、FP-3 超时有界、
+  #           FP-4 DB 故障不吞、FP-6 审计 fail-closed、FP-7 补偿失败如实、FP-8 未知结果如实
+  ```
+- **文档**：`docs/failure-path-corpus.spec.md`（语料清单 + Known limits：execute→record 非原子窗口如实记录，不修）。
+- **产物**：`docs/benchmark/failure-path-*.md`。
+- **最近证据**：KB-4 落地（2026-09-07，F1 超时守卫 + F2 record 不吞 DB 错误 + 语料）。
+
 ---
 
 ## 4. Build / 质量能力证据
