@@ -66,7 +66,7 @@ cd Server-NestJS && npm install && npm run start:dev
 
 ## 4. 审计哈希链
 
-**证明**：所有 AI 调用 / 工具执行入审计，哈希链可验证（防篡改、可纠错）。
+**证明**：所有 AI 调用 / 工具执行入审计，哈希链可验证（篡改即断链、应用边界内 tamper-evident、可纠错）。
 
 - 跑：管理台 → **AI 审计**（`/admin/#/audit`）→ `GET /audit/verify` → `valid:true`
 - 并发压测：`cd Server-NestJS && npm run audit:chain:load`（1000 条基线：分叉 0 + verify 全绿 + 吞吐 / P95）
@@ -74,7 +74,7 @@ cd Server-NestJS && npm install && npm run start:dev
 
 ## 5. Agent 行为基准（攻击集 + Golden 闭环）
 
-**证明**：AI Agent 对攻击（prompt 注入 / 越权 / 确认绕过 / 撤销绕过）**全挡**；黄金流程闭环可复现。
+**证明**：AI Agent 对攻击（prompt 注入 / 越权 / 确认绕过 / 撤销绕过）在确定性攻击语料范围内**全挡**；黄金流程闭环可复现。
 
 - 攻击集：`./scripts/verify-security-eval.sh` → **12/12 全挡**（reject 8/8 + confirmation-bypass / cross-org-read / revoke-bypass 等）
 - Golden 闭环：`./scripts/verify-golden-application.sh` → **8/8**（客户→风险→建跟进→确认→写→审计→撤销）
