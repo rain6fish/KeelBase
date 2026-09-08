@@ -129,12 +129,14 @@ async function main() {
   if (!alice || !admin) { fail('R5', `登录失败 alex=${!!alice} admin=${!!admin}`); return finish(); }
   console.log(`  ✓ 登录 alex + admin`);
 
-  // bob（跨用户隔离用）——注册 + 登录
+  // bob（跨用户隔离用）——注册即返回 accessToken（register 要求 nickname，参考 verify-trust-proof.mjs S2）
   const bobUser = `bobcard${Date.now() % 100000}`;
   const bobPass = 'Bob@2026$Card';
-  await api('/auth/register', { method: 'POST', body: { username: bobUser, password: bobPass, email: `${bobUser}@example.com` } });
-  const bobLogin = await api('/auth/login', { method: 'POST', body: { username: bobUser, password: bobPass } });
-  const bob = pickToken(bobLogin.data);
+  const bobReg = await api('/auth/register', {
+    method: 'POST',
+    body: { username: bobUser, nickname: 'Bob Card', password: bobPass, email: `${bobUser}@example.com` },
+  });
+  const bob = pickToken(bobReg.data);
 
   // ── R5 运行模块：REST 建/查 ────────────────────────────────────────────────
   const no = `INV-CARD-${Date.now()}`;
