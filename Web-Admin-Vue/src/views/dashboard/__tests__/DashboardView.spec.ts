@@ -7,13 +7,15 @@ import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
 // vi.mock 工厂被 hoist，mock 变量必须用 vi.hoisted 定义（否则 ReferenceError）
-const { overviewMock, statsMock } = vi.hoisted(() => ({
+const { overviewMock, statsMock, journeyStatsMock } = vi.hoisted(() => ({
   overviewMock: vi.fn(),
   statsMock: vi.fn(),
+  journeyStatsMock: vi.fn(),
 }))
 
 vi.mock('@/api/admin', () => ({ adminApi: { overview: overviewMock } }))
 vi.mock('@/api/audit', () => ({ auditApi: { stats: statsMock } }))
+vi.mock('@/api/ai', () => ({ aiApi: { trustSandboxJourneyStats: journeyStatsMock } }))
 
 import ElementPlus from 'element-plus'
 import DashboardView from '../DashboardView.vue'
@@ -30,6 +32,7 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  journeyStatsMock.mockResolvedValue({ today: 0, total: 0, todayDate: '' })
 })
 
 describe('DashboardView', () => {
@@ -53,6 +56,9 @@ describe('DashboardView', () => {
     expect(wrapper.findAll('div[style*="height"]').length).toBeGreaterThan(0)
     expect(overviewMock).toHaveBeenCalledWith(7)
     expect(statsMock).toHaveBeenCalled()
+    // P2③ admin 可看：Trust 旅程统计卡
+    expect(journeyStatsMock).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Trust 之旅')
   })
 
   it('空数据 → 显示无趋势空态', async () => {

@@ -20,6 +20,22 @@
       </el-col>
     </el-row>
 
+    <!-- P2③ admin 可看：Trust 旅程跨访客完成统计（今日 / 累计），一键去沙盘 -->
+    <el-card shadow="never" class="mb-4">
+      <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+        <span class="d-flex align-center ga-2 flex-wrap">
+          <AppIcon icon="mdi-shield-check-outline" color="var(--el-color-primary)" />
+          <span class="text-subtitle-1">{{ t('trustJourneyTitle') }}</span>
+          <span class="text-body-2 text-medium-emphasis">
+            {{ t('journeyServerStats', { t: journeyStats.today, n: journeyStats.total }) }}
+          </span>
+        </span>
+        <el-button size="small" plain @click="$router.push('/workbench/trust-sandbox')">
+          <AppIcon icon="mdi-rocket-launch-outline" class="mr-1" />{{ t('trustJourneyStart') }}
+        </el-button>
+      </div>
+    </el-card>
+
     <el-row :gutter="16">
       <el-col :xs="24" :md="16">
         <el-card shadow="never" class="mb-4">
@@ -61,8 +77,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { adminApi } from '@/api/admin'
 import { auditApi } from '@/api/audit'
+import { aiApi } from '@/api/ai'
 
 const { t } = useI18n()
 // E-3 onboarding：首次进入控制台显示引导横幅（可关闭，localStorage 记忆）
@@ -77,6 +95,7 @@ const counts = ref<Record<string, number>>({})
 const storage = ref<{ driver: string; bytes: number | null }>({ driver: '-', bytes: null })
 const trend = ref<Array<{ date: string; count: number }>>([])
 const topActions = ref<Array<{ action: string; count: number }>>([])
+const journeyStats = ref<{ today: number; total: number }>({ today: 0, total: 0 })
 
 async function load() {
   loading.value = true
@@ -105,7 +124,15 @@ function barHeight(n: number): number {
   return Math.max(4, (n / maxCount.value) * 100)
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  aiApi
+    .trustSandboxJourneyStats()
+    .then((js) => {
+      journeyStats.value = { today: js.today, total: js.total }
+    })
+    .catch(() => {})
+})
 </script>
 
 <style scoped>
