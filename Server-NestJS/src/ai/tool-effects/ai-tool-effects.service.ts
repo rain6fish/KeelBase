@@ -32,6 +32,28 @@ export interface SideEffectSnapshot {
 /** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
 export const EXTERNAL_REVOKER = 'EXTERNAL_REVOKER';
 
+/** G1 会话级批量撤销：单条结果（skipped 时 revoked=false + reason） */
+export type RevokeBatchItem = {
+  effectId: number;
+  revoked: boolean;
+  skipped?: boolean;
+  reason?: 'already_revoked' | 'compensating';
+  revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed' | null;
+  external?: boolean;
+  message?: string;
+  error?: string;
+};
+
+/** G1 会话级批量撤销：汇总 + 逐条结果 */
+export type RevokeBatchResult = {
+  conversationId: string;
+  total: number;
+  revoked: number;
+  skipped: number;
+  failed: number;
+  results: RevokeBatchItem[];
+};
+
 /** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）external=true（Java 端补偿 / 或诚实语义） */
 export type RevokeResult = {
   revoked: boolean;
@@ -409,6 +431,64 @@ export class AiToolEffectsService {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect || effect.userId !== userId) return null;
     return this._doRevoke(effect);
+  }
+
+  /**
+   * G1 会话级批量撤销（revoke-contract §3 Case B）：一键撤销某会话（一次对话/run 近似）的 AI 写副作用。
+   * - ownerId 提供 → 只撤该用户本人的（AI Action Center 本人作用域）；否则（admin）撤该会话全部
+   * - 逐条复用 _doRevoke（档位门控 none 拒绝 / local 软删 / external 补偿），已撤销或已请求外部补偿
+   *   （revokeStatus revoked/compensating）跳过不重复触发；revoke_failed 视为可重试
+   * - 返回逐条结果 + 汇总，便于前端一键撤销后展示部分失败
+   */
+  async revokeConversation(
+    conversationId: string,
+    opts?: { ownerId?: string },
+  ): Promise<RevokeBatchResult> {
+    const effects = await this.effectsRepo.find({
+      where: { conversationId } as any,
+      order: { createdAt: 'ASC' },
+    });
+    const scoped = opts?.ownerId ? effects.filter((e) => e.userId === opts.ownerId) : effects;
+    const results: RevokeBatchItem[] = [];
+    let revoked = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const effect of scoped) {
+      const skipReason =
+        effect.revokeStatus === 'revoked'
+          ? 'already_revoked'
+          : effect.revokeStatus === 'compensating'
+            ? 'compensating'
+            : null;
+      if (skipReason) {
+        skipped++;
+        results.push({ effectId: effect.id, revoked: false, skipped: true, reason: skipReason });
+        continue;
+      }
+      try {
+        const r = await this._doRevoke(effect);
+        if (r.revoked) revoked++;
+        else failed++;
+        results.push({
+          effectId: effect.id,
+          revoked: r.revoked,
+          revokeStatus: r.revokeStatus ?? null,
+          external: r.external ?? false,
+          message: r.message,
+        });
+      } catch (err) {
+        failed++;
+        results.push({ effectId: effect.id, revoked: false, error: (err as Error).message });
+      }
+    }
+    return {
+      conversationId,
+      total: scoped.length,
+      revoked,
+      skipped,
+      failed,
+      results,
+    };
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {

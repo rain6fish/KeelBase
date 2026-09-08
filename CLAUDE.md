@@ -797,7 +797,9 @@ npm run migration:run
 | POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
+| DELETE | /api/v1/ai/tool-effects?conversationId= | Yes (ADMIN) | — | 会话级批量撤销某会话全部 AI 副作用（G1：逐条本地软删/外部补偿 + 汇总，docs/revoke-contract.spec.md §3 Case B） |
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
+| DELETE | /api/v1/ai/my/tool-effects?conversationId= | Yes | 本人 | 撤销本人在某会话的全部 AI 副作用（会话级批量，G1，owner 过滤，逐条汇总） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4） |
 | GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化，§internal.17 北极星） |
 | GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验） |
