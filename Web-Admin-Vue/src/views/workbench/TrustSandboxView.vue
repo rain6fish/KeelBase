@@ -11,6 +11,7 @@
     </PageHeader>
 
     <div v-if="journeyStatLine" class="text-caption text-medium-emphasis mb-2">{{ journeyStatLine }}</div>
+    <div v-if="journeyServerLine" class="text-caption text-medium-emphasis mb-2">{{ journeyServerLine }}</div>
 
     <el-alert type="info" :closable="false" class="mb-4">
       {{ t('trustSandboxIntro') }}
@@ -211,6 +212,13 @@ const journeyStats = ref<JourneyStats>(readJourneyStats())
 const journeyStatLine = computed(() =>
   journeyStats.value.completed > 0 ? t('journeyStats', { n: journeyStats.value.completed }) : '',
 )
+// P2 ③ 跨访客：服务器聚合的旅程完成统计（今日 / 累计）
+const serverStats = ref<{ today: number; total: number }>({ today: 0, total: 0 })
+const journeyServerLine = computed(() =>
+  serverStats.value.total > 0
+    ? t('journeyServerStats', { t: serverStats.value.today, n: serverStats.value.total })
+    : '',
+)
 function persistJourneyStats() {
   storage.set(STORAGE_KEYS.TRUST_JOURNEY_STATS, JSON.stringify(journeyStats.value))
 }
@@ -410,12 +418,26 @@ watch(journeyDone, (done) => {
   if (now - lastJourneyCompleteAt < 2000) return
   lastJourneyCompleteAt = now
   bumpJourneyCompleted()
+  // P2 ③ 跨访客：上报服务器并乐观更新今日/累计
+  void aiApi
+    .trustSandboxJourneyComplete()
+    .then(() => {
+      serverStats.value.today++
+      serverStats.value.total++
+    })
+    .catch(() => {})
 })
 
 // hero「开始 3 分钟体验」带 ?journey=1 落地 → 自动一键连跑
 onMounted(() => {
   const q = route.query.journey
   if (q === '1' || q === 'true') void startJourney()
+  aiApi
+    .trustSandboxJourneyStats()
+    .then((s) => {
+      serverStats.value = { today: s.today, total: s.total }
+    })
+    .catch(() => {})
 })
 
 onUnmounted(clearJourneyTimers)

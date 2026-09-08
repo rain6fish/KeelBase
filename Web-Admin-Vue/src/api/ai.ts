@@ -58,6 +58,13 @@ export interface TrustSandboxCleanupResult {
   removedBobUsers: number
 }
 
+/** P2 ③ 跨访客旅程完成统计 */
+export interface JourneyStats {
+  today: number
+  total: number
+  todayDate: string
+}
+
 export const aiApi = {
   chat(data: UserAiChatRequest): Promise<UserAiChatResponse> {
     return api.post<UserAiChatResponse>('/ai/chat', data)
@@ -73,5 +80,11 @@ export const aiApi = {
   },
   trustSandboxCleanup(): Promise<TrustSandboxCleanupResult> {
     return api.post<TrustSandboxCleanupResult>('/ai/trust-sandbox/cleanup')
+  },
+  trustSandboxJourneyComplete(): Promise<{ ok: boolean }> {
+    return api.post<{ ok: boolean }>('/ai/trust-sandbox/journey/complete')
+  },
+  trustSandboxJourneyStats(): Promise<JourneyStats> {
+    return api.get<JourneyStats>('/ai/trust-sandbox/journey/stats')
   },
 }

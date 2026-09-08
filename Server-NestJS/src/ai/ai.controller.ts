@@ -348,6 +348,24 @@ export class AiController {
     );
   }
 
+  /** P2 ③ 旅程完成计数上报（跨访客按北京日聚合到 settings） */
+  @Post('trust-sandbox/journey/complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Trust 沙盘：记一次旅程完成（本人）' })
+  async completeTrustSandboxJourney(@CurrentUser() user: JwtPayload) {
+    await actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+      this.trustSandbox.recordJourneyCompleted(),
+    );
+    return { ok: true };
+  }
+
+  /** P2 ③ 旅程完成统计（今日 + 累计，跨访客） */
+  @Get('trust-sandbox/journey/stats')
+  @ApiOperation({ summary: 'Trust 沙盘：旅程完成统计' })
+  getTrustSandboxJourneyStats() {
+    return this.trustSandbox.journeyStats();
+  }
+
   /**
    * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
    */

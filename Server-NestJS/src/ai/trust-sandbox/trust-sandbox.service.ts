@@ -9,6 +9,7 @@ import { UsersService } from '../../users/users.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { User } from '../../common/entities/user.entity';
 import { CaslAbilityFactory } from '../../common/casl/casl-ability.factory';
+import { SettingsService } from '../../settings/settings.service';
 
 /** Trust 旅程一键连跑（P0-2）的编排步骤：Ask → 人工确认 → 越权拒绝 → 高风险阻断 */
 export interface TrustSandboxJourneyStep {
@@ -47,6 +48,7 @@ export class TrustSandboxService {
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
     private readonly abilityFactory: CaslAbilityFactory,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /** 场景清单（前端沙盘卡渲染用） */
@@ -173,6 +175,50 @@ export class TrustSandboxService {
       removedBobUsers++;
     }
     return { removedCustomers, skippedCustomers, removedBobUsers };
+  }
+
+  /** P2 ③ 旅程完成计数 settings 键（值为 Record<北京日 yyyy-mm-dd, number> JSON） */
+  private static readonly JOURNEY_COMPLETED_KEY = 'trust_journey_completed';
+
+  /** 北京日（服务容器多用 UTC；计数口径与全仓一致按 UTC+8） */
+  private _beijingDay(d = new Date()): string {
+    const b = new Date(d.getTime() + 8 * 3600 * 1000);
+    const y = b.getUTCFullYear();
+    const m = String(b.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(b.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private async _readCompletedMap(): Promise<Record<string, number>> {
+    const raw = (await this.settingsService.getWithDefault(
+      TrustSandboxService.JOURNEY_COMPLETED_KEY,
+      '{}',
+    )) as string;
+    try {
+      const m = JSON.parse(raw) as Record<string, number>;
+      return m && typeof m === 'object' ? m : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /** P2 ③：记一次旅程完成（跨访客按北京日聚合到 settings） */
+  async recordJourneyCompleted(): Promise<void> {
+    const map = await this._readCompletedMap();
+    const today = this._beijingDay();
+    map[today] = (Number(map[today]) || 0) + 1;
+    await this.settingsService.set(
+      TrustSandboxService.JOURNEY_COMPLETED_KEY,
+      JSON.stringify(map),
+    );
+  }
+
+  /** P2 ③：旅程完成统计（今日 + 累计） */
+  async journeyStats(): Promise<{ today: number; total: number; todayDate: string }> {
+    const map = await this._readCompletedMap();
+    const today = this._beijingDay();
+    const total = Object.values(map).reduce((s, n) => s + (Number(n) || 0), 0);
+    return { today: Number(map[today]) || 0, total, todayDate: today };
   }
 
   /** S1 正常成功：建客户+2 笔逾期订单 → AI 风险分析（critical） */
