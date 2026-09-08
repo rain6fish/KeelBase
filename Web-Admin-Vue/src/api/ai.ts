@@ -51,6 +51,13 @@ export interface TrustSandboxJourneyResult {
   steps: TrustSandboxJourneyStep[]
 }
 
+/** P2 ④ 沙盘数据自清理结果 */
+export interface TrustSandboxCleanupResult {
+  removedCustomers: string[]
+  skippedCustomers: string[]
+  removedBobUsers: number
+}
+
 export const aiApi = {
   chat(data: UserAiChatRequest): Promise<UserAiChatResponse> {
     return api.post<UserAiChatResponse>('/ai/chat', data)
@@ -63,5 +70,8 @@ export const aiApi = {
   },
   trustSandboxJourney(): Promise<TrustSandboxJourneyResult> {
     return api.post<TrustSandboxJourneyResult>('/ai/trust-sandbox/journey')
+  },
+  trustSandboxCleanup(): Promise<TrustSandboxCleanupResult> {
+    return api.post<TrustSandboxCleanupResult>('/ai/trust-sandbox/cleanup')
   },
 }

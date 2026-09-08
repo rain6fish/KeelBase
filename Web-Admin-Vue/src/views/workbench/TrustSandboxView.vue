@@ -2,6 +2,9 @@
 <template>
   <div>
     <PageHeader :title="t('trustSandboxTitle')" :subtitle="t('trustSandboxSubtitle')">
+      <el-button :loading="cleaning" text type="danger" @click="confirmCleanup">
+        <AppIcon icon="mdi-broom" class="mr-1" />{{ t('sandboxCleanup') }}
+      </el-button>
       <el-button type="primary" :loading="journeyLoading" @click="startJourney">
         <AppIcon icon="mdi-play" class="mr-1" />{{ t('trustJourneyStart') }}
       </el-button>
@@ -154,7 +157,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { storage } from '@/utils/storage'
@@ -182,6 +185,7 @@ const dialogVisible = ref(false)
 const JOURNEY_REVEAL_MS = 900
 const journeyVisible = ref(false)
 const journeyLoading = ref(false)
+const cleaning = ref(false)
 const journeySteps = ref<TrustSandboxJourneyStep[]>([])
 const journeyRevealed = ref(0)
 let journeyTimer: number | undefined
@@ -370,6 +374,32 @@ function openCreateLive() {
 function goMyAiActions() {
   journeyVisible.value = false
   router.push('/workbench/my-ai-actions')
+}
+
+/** P2 ④ 沙盘数据自清理：手动按钮，确认后删本人沙盘合成行 + bob 演示账号（保留证据与真实副作用） */
+async function confirmCleanup() {
+  try {
+    await ElMessageBox.confirm(t('sandboxCleanupConfirm'), t('sandboxCleanup'), {
+      type: 'warning',
+      confirmButtonText: t('sandboxCleanup'),
+      cancelButtonText: t('cancel'),
+    })
+  } catch {
+    return // 取消
+  }
+  cleaning.value = true
+  try {
+    const r = await aiApi.trustSandboxCleanup()
+    let msg = t('sandboxCleanupDone', { c: r.removedCustomers.length, b: r.removedBobUsers })
+    if (r.skippedCustomers.length) {
+      msg += ` ${t('sandboxCleanupSkipped', { n: r.skippedCustomers.length })}`
+    }
+    ElMessage.success(msg)
+  } catch (err) {
+    ElMessage.error(err instanceof Error && err.message ? err.message : t('loadFailed'))
+  } finally {
+    cleaning.value = false
+  }
 }
 
 // P2 轻埋点：旅程完成（到达完成态）记一次（去重：同一次 run 完成态抖动兜底）

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { AiService } from '../ai.service';
 import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { User } from '../../common/entities/user.entity';
+import { CaslAbilityFactory } from '../../common/casl/casl-ability.factory';
 
 /** Trust 旅程一键连跑（P0-2）的编排步骤：Ask → 人工确认 → 越权拒绝 → 高风险阻断 */
 export interface TrustSandboxJourneyStep {
@@ -40,6 +44,9 @@ export class TrustSandboxService {
     private readonly crmService: CrmService,
     private readonly usersService: UsersService,
     private readonly effectsService: AiToolEffectsService,
+    @InjectRepository(User)
+    private readonly usersRepo: Repository<User>,
+    private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
   /** 场景清单（前端沙盘卡渲染用） */
@@ -107,6 +114,65 @@ export class TrustSandboxService {
       toStep('break_block', await this.s3(userId, ts)),
     ];
     return { journey: 'trust', steps };
+  }
+
+  /**
+   * P0-2 ④ 沙盘数据自清理（手动按钮）：删除当前用户沙盘运行产生的合成行——沙盘客户/越权目标
+   * （订单先行软删客户，CRM 列表自动隐藏）与 bob 演示账号。守卫：
+   * - 只动本人客户（crmService owner 域）；名字必须匹配 沙盘客户/越权目标 + 数字 的合成模式；
+   * - 客户若有真实子行（AI 跟进任务/活动/商机/联系人/风险）→ 视为「做」成果，跳过不删；
+   * - 保留 AI 对话留痕/审计与真实副作用；bob 只删 role!=admin 且非本人。
+   */
+  async cleanup(userId: string): Promise<{
+    removedCustomers: string[];
+    skippedCustomers: string[];
+    removedBobUsers: number;
+  }> {
+    const uid = Number(userId);
+    const ability = this.abilityFactory.createForUser({
+      sub: uid,
+      username: '',
+      role: 'user' as never,
+    });
+    const removedCustomers: string[] = [];
+    const skippedCustomers: string[] = [];
+    for (const kw of ['沙盘客户', '越权目标']) {
+      const { items } = await this.crmService.listCustomers(uid, {
+        keyword: kw,
+        limit: 100,
+        page: 1,
+      });
+      for (const c of items) {
+        if (!/^(沙盘客户|越权目标)\d+/.test(c.name)) continue;
+        const data = await this.crmService.getCustomer360Data(c.id, uid).catch(() => null);
+        if (!data) continue;
+        if (
+          data.tasks.length ||
+          data.activities.length ||
+          data.opportunities.length ||
+          data.contacts.length ||
+          data.risks.length
+        ) {
+          skippedCustomers.push(c.name);
+          continue;
+        }
+        await this.crmService.removeCustomer(c.id, ability).catch(() => {});
+        removedCustomers.push(c.name);
+      }
+    }
+    let removedBobUsers = 0;
+    const bobs = await this.usersRepo
+      .createQueryBuilder('u')
+      .where('u.username LIKE :p', { p: 'bob_sandbox_%' })
+      .andWhere('u.role != :admin', { admin: 'admin' })
+      .getMany()
+      .catch(() => [] as User[]);
+    for (const b of bobs) {
+      if (String(b.id) === userId) continue;
+      await this.usersService.remove(b.id).catch(() => {});
+      removedBobUsers++;
+    }
+    return { removedCustomers, skippedCustomers, removedBobUsers };
   }
 
   /** S1 正常成功：建客户+2 笔逾期订单 → AI 风险分析（critical） */

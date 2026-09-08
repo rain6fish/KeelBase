@@ -65,6 +65,7 @@ import { WebSearchTool } from './tools/web-search.tool';
 import { GenerateImageTool } from './tools/generate-image.tool';
 import { MemoriesService } from './memory/memory.service';
 import { UserMemory } from './memory/user-memory.entity';
+import { User } from '../common/entities/user.entity';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { KnowledgeIngestionService } from './rag/knowledge-ingestion.service';
@@ -148,7 +149,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditChainModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, User]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
