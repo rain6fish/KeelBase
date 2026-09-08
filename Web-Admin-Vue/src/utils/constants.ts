@@ -18,6 +18,9 @@ export const STORAGE_KEYS = {
   LOCALE: 'admin_locale',
   THEME: 'admin_theme',
   THEME_VARIANT: 'admin_theme_variant',
+  // P2 体验收尾：Trust 之旅首屏引导可收起；旅程完成度轻埋点（本机计数）
+  TRUST_JOURNEY_HIDDEN: 'trust_journey_hidden',
+  TRUST_JOURNEY_STATS: 'trust_journey_stats',
 } as const
 
 export const DEFAULT_PAGE_SIZE = 20

@@ -14,8 +14,11 @@
       <div class="text-caption">{{ presetDescription }}</div>
     </el-alert>
 
-    <!-- Trust 之旅（First-time Demo Journey，P0）：首屏把「AI 被治理」做成一个可亲历的 3 分钟闭环入口 -->
-    <el-card class="trust-journey mb-4" shadow="hover">
+    <!-- Trust 之旅（First-time Demo Journey，P0）：首屏把「AI 被治理」做成一个可亲历的 3 分钟闭环入口（P2 可收起） -->
+    <el-card v-if="!journeyHidden" class="trust-journey mb-4" shadow="hover">
+      <el-button class="journey-dismiss" text circle :title="t('journeyDismiss')" @click="dismissJourney">
+        <AppIcon icon="mdi-close" />
+      </el-button>
       <div class="d-flex align-center flex-wrap ga-4">
         <div class="flex-shrink-0 trust-journey-badge d-flex align-center justify-center">
           <AppIcon icon="mdi-shield-check-outline" size="30" color="var(--el-color-primary)" />
@@ -29,6 +32,10 @@
         </el-button>
       </div>
     </el-card>
+    <!-- 收起后保留「恢复体验」入口（老用户无打扰、一键找回） -->
+    <el-button v-else class="mb-4" text @click="restoreJourney">
+      <AppIcon icon="mdi-rocket-launch-outline" class="mr-1" />{{ t('journeyRestore') }}
+    </el-button>
 
     <el-row :gutter="16">
       <el-col v-for="card in infoCards" :key="card.label" :xs="24" :sm="12" :md="6">
@@ -71,6 +78,8 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 import { authApi } from '@/api/auth'
 import { workbenchApi } from '@/api/workbench'
 import { adminApi } from '@/api/admin'
+import { storage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/utils/constants'
 
 interface ShortcutCard {
   title: string
@@ -89,6 +98,17 @@ const unread = ref(0)
 const loading = ref(false)
 const caps = useCapabilitiesStore()
 const version = ref('')
+
+// P2 引导可跳过：Trust 之旅 hero 可收起（持久化），老用户不打扰；保留一处「恢复」入口
+const journeyHidden = ref(storage.get(STORAGE_KEYS.TRUST_JOURNEY_HIDDEN) === '1')
+function dismissJourney() {
+  journeyHidden.value = true
+  storage.set(STORAGE_KEYS.TRUST_JOURNEY_HIDDEN, '1')
+}
+function restoreJourney() {
+  journeyHidden.value = false
+  storage.removeKey(STORAGE_KEYS.TRUST_JOURNEY_HIDDEN)
+}
 
 function openCard(card: ShortcutCard) {
   if (card.href) {
@@ -154,7 +174,13 @@ const shortcutCards = computed(() => [
 }
 
 .trust-journey {
+  position: relative;
   border-left: 4px solid var(--el-color-primary);
+}
+.journey-dismiss {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 .trust-journey-badge {
   width: 56px;
