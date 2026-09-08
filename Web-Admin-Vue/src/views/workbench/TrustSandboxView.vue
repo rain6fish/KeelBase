@@ -57,7 +57,7 @@
           </el-tag>
         </div>
         <p class="tsd-detail mb-3">{{ result.detail || '—' }}</p>
-        <div v-if="result.resultType && result.resultId" class="mb-2">
+        <div v-if="result.governed && result.resultType && result.resultId" class="mb-2">
           <el-button size="small" type="primary" text @click="openAction(result)">
             <AppIcon icon="mdi-creation-outline" class="mr-1" />{{ t('trustSandboxViewAction') }}
           </el-button>
@@ -297,7 +297,7 @@ const journeyProgress = computed(() =>
 const journeyTrace = computed(() => journeySteps.value.find((s) => s.conversationId)?.conversationId)
 const journeyAction = computed(() => {
   const ask = journeySteps.value.find((s) => s.step === 'ask')
-  return ask?.resultType && ask.resultId ? { resultType: ask.resultType, resultId: ask.resultId } : null
+  return ask?.governed && ask?.resultType && ask.resultId ? { resultType: ask.resultType, resultId: ask.resultId } : null
 })
 /** P1-1：旅程 ask 步刚建的沙盘客户（crm_customer）作为「真实落库」目标 */
 const journeyCreateTarget = computed(() => {

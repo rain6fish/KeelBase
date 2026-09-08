@@ -344,7 +344,7 @@ export class AiController {
   @ApiOperation({ summary: 'Trust 沙盘：清理本次演示数据（本人）' })
   async cleanupTrustSandbox(@CurrentUser() user: JwtPayload) {
     return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
-      this.trustSandbox.cleanup(String(user.sub)),
+      this.trustSandbox.cleanup(String(user.sub), user.role === 'admin'),
     );
   }
 

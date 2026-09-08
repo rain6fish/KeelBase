@@ -4,29 +4,43 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased] / 未发布（草案）
+## [1.0.7] - 2026-09-08
 
-> 将发布为 **v1.0.7**（维护线增量；正式发版时写日期、bump package version 并打 tag）。基线 = v1.0.6 tag（d7c9d9e0）后的 master，共 8 commits。注：治理评审收口与 Evidence Root v3 深化内容已并入 [1.0.6] 条目描述（tag 时序错位）。1.1（产品证明达成版）另按 internal-roadmap §internal.0 触发，不含本段。
-
-### Fixed / 修复
-
-- **fix(deploy): Serve official demo video under /demo (China mirror)** — nginx `/demo/` 静态 location + docker-compose.prod.yml 挂载宿主 `./demo`（official-demo-en/zh.webm + video html）→ 国内镜像 `https://demo.keelbase.com.cn/demo/video-en.html` 恢复真实可播（此前被 `location /` SPA 兜底到 admin，200 假象）；README China mirror 同步 https 正式域（3b3e87ef）
-  **国内镜像恢复官方演示视频**：/demo 静态服务 + prod 挂载，README 指向 https 正式域
-- **fix(governance): v1.0.6 release-precheck review fixes (group A)** — external-effects GET 非法 resultId 404→400（BadRequest，REST 语义，spec 同步）；CLAUDE.md §9 API 表补 v1.0.6 新端点（my/tool-effects GET / evidence-root / policy/history / external/effects GET）；docs/evidence + ai-governance-protocol 登记 `keelbase-audit-evidence/3`
-  **发布前评审修复（A 组）**：external-effects 非法 id 语义 + API 表/证据协议补登 /3
-- **refactor(governance): v1.0.6 review B3 — effectiveGateMode 唯一权威** — 删 spec-only `declaredGateMode`（纯委托，生产零引用）；FE 死兜底收敛为 `gateMode ?? declaredGateMode(riskLevel)`；`getToolPolicy` 不 consolidate（不自知 riskLevel，统一会改 R3/R4 运行时门槛 → 记 1.1 策略层重构 backlog）；BE spec 33/33 + FE governance 12/12
-  **评审 B3 收敛**：删声明式死代码，门控口径统一到 effectiveGateMode
+> **KeelBase 1.0.7 — Trust Journey & AI Proof Cards / Trust 旅程与对抗评测 Proof 收口版**
+> 维护线第七个增量：业务用户 Trust 旅程「从看到做」闭环（真实 Copilot 批准 → 落库 → 撤销 → 看证据）+ Proof Cards（T1/T2/T3，陌生人可复现验证）+ KB-1..8 对抗评测文档收口 + revokeClass 撤销语义契约 + AI 门控修复 + 依赖安全更新。基线 = v1.0.6 tag（d7c9d9e0）后的 master（83 commits）。注：治理评审收口与 Evidence Root v3 深化（summary/replay、策略历史、G-1~G-3、effectiveGateMode 收敛等 v1.0.6-post 批次）已在 [1.0.6] 条目描述并于此版随代码发出，本段不再重复列明细。
 
 ### Added / 新增
 
-- **feat(governance): Evidence Root v3 spec alignment — summary + replay（§internal.17① 评审 B1/B2）** — 证据根导出加 `summary`（复用 summarizeAudit，trigger 存在时业务摘要）+ `replay`（装配点调 `governancePolicy.replayDecision`：授权快照 policy.revision + effect.toolName → 用该策略版本重放决策，可复现入证据包）；canonical 动态含非空段（向后兼容已导出无新段的 v3）；verify-evidence /3 同步（summary/replay 存在才含）
-  **证据根 v3 加 summary/replay**：业务摘要 + 决策可复现重放装配（评审 B1/B2）
-- **feat(web): P0 evidence surfaces clickable** — Business Action Detail 加「导出证据根」（下载 v3 证据包 + 离线验提示）；管理台策略中心加「策略历史」区（policy/history 列表 + 按 revision 查看快照）；i18n 双语；typecheck + vitest（policy 2 / api 89）
-  **证据面接入 UI（可点击）**：导出证据根 + 策略历史/快照查看
-- **docs(spec): Evidence Root v3 implemented-delta 诚实边界登记（评审 B3）** — `effect.revoked` 未投影（撤销态由 B4/AI Action Center 表达，证据根聚焦链完整性）；§5.4 副作用锚列集未按 10 列（投影摘要 + 整包 HMAC 兜底）；v1.0.6 补充实现登记
-  **证据根 v3 诚实边界文档**：不投影撤销态、副作用锚投影摘要的取舍登记
-- **docs(capability): 对外能力声明移除内部 roadmap 溯源**（对外语言自检，1.1 gate③ G3-3）
-  **对外文档净化**：capability-declaration 移除内部编号引用
+- **Trust 旅程「从看到做」闭环（P0-1 → P2）** — P0-1 admin 控制台壳内直达 Trust 旅程（评审路径可达）；P0-2 一键连跑（Ask → 人工确认 → 越权拒绝 → 高风险阻断自动推进）；P1-1 引导真实 Copilot 批准 → 落库 → 撤销 → 看证据；P2 体验收尾（引导可收起 + 完成度轻埋点 + 每步 Powered by 能力标签）；P2② AI 写执行成功后详情页「撤销/管理」直达我的 AI 行为；Demo Journey v1（AI 业务洞察补菜单/卡可点钻取 + Trust 之旅首屏入口 + 沙盘结果直达执行轨迹）
+  **Trust 旅程闭环**：控制台直达 → 一键连跑 → 真实批准落库 → 撤销看证据
+- **Trust 沙盘（Sandbox）** — 运行结果改弹窗 / 右侧常驻面板展示（十六场景卡 + sticky 结果区，窄屏回落）；沙盘数据自清理（P2④，手动清理本人合成客户/订单与 bob 演示账号）；跨访客旅程完成计数（服务器按北京日聚合今日/累计）与管理台概览「Trust 旅程今日/累计」卡（P2③）+ 旅程统计 TrustSandbox spec
+  **Trust 沙盘可运营**：结果面板 + 自清理 + 跨访客旅程统计上管理台
+- **revokeClass 撤销能力语义契约 + 可视化（KB-6）** — 工具元数据声明撤销能力档（none / local_compensate / governed_external / transactional）+ 注册强制校验；副作用实体加 revoke_class / revoke_status 列 + migration；撤销 2xx 仅落 compensating（结果未知、禁 revoked）、status 归一扩 4 值；`/ai/tools` 带档位；管理台 / 用户 Action Center / AiTimeline 据档位诚实渲染撤销钮与状态（proxy 外部副作用不再误示可撤）
+  **撤销能力四档语义契约**：声明即校验，UI 诚实渲染「能撤/不能撤」
+- **Proof Cards（T1/T2/T3，陌生人可复现验证）** — T1 Protocol×Trust Proof Card 规格（§internal.7）；T2 一键编排跑通（生成 invoices MUT → 隔离后端 → R5-R9 驱动 → R10 幂等 → 记分卡留档）+ demo provider 通用生成 create 路由；T3 CRM Reference（leads 生成轨红0 + AI CRM 旗舰轨 17/17，三证明显式化）+ Stranger Kit 外部验证指南（docs/proof-card-verification.md，R2=green 才算外部 PASS）
+  **Proof Card 体系**：T2/T3 跑卡通过，陌生人可按公开文档复现验证
+- **KB 对抗评测文档收口（KB-1..8）** — KB-1 对外词汇表校准 v2（Business-safe AI Runtime 主名统一等）；KB-2 Not-a-* 不承诺清单转公开双语（SECURITY.md Trust Boundaries N-1..13）+ 每项挂 spec/测试引用；KB-3 威胁模型 + 信任边界双语（docs/security/threat-model）+ evidence-root v3 公开一键复现验证程序；KB-4 失败路径回归语料（failure path 仍可信可回归）；KB-5 run-level approval spec 定稿（同轮多写工具聚合为一个 run）；KB-7 前端战略表态（Web=Vue 主版本 / React 预览非候选，转正/移除由真实需求触发）；KB-8 参考部署路径核对收口 + 首次使用 30 分钟验收清单（seed → alex 工作台 → CRM AI 建跟进 → approve → 撤销 → 证据）
+  **KB-1..8 对抗评测收口**：词汇表/不承诺清单/威胁模型/Proof 卡文档全部双语化并对齐 spec/测试
+- **AI 门控修复** — 未验证 admin 写工具不再误报 EMAIL_NOT_VERIFIED（admin 视为已验证）
+  **门控修复**：admin 角色写工具不再被未验证邮箱误拦
+
+### Fixed / 修复
+
+- **fix(trust-sandbox): release-precheck review — cleanup 授权边界 + s5 撤销诚实文案 + governed 去死链** — ① `POST /ai/trust-sandbox/cleanup`：非 admin 仅删本人归属前缀 `bob_sandbox_<uid>_%`（bob 演示账号改为归属命名 `bob_sandbox_<uid>_<ts>`），admin 才清全量 `bob_sandbox_%`——消除任意登录用户经沙盘清理硬删他用户账号的越权（usersService.remove 无归属守卫）；② s5 撤销 detail 按 revoke 真值分句（未生效不再误报「目标软删可恢复」，改为提示不可本地撤销）；③ 场景结果补 `governed` 标记——确定性演示直建客户非 AI 工具副作用，前端据此隐藏会 404 的「业务动作治理详情」CTA（执行轨迹 / P1-1 真实落库钻取保留）；BE spec 12 + FE typecheck 全绿
+  **Trust 沙盘评审修复**：cleanup 越权收敛 + s5 撤销诚实文案 + 治理详情去死链
+- **fix(deploy): Serve official demo video under /demo (China mirror)** — nginx `/demo/` 静态 location + docker-compose.prod.yml 挂载宿主 `./demo`（official-demo-en/zh.webm + video html）→ 国内镜像 `https://demo.keelbase.com.cn/demo/video-en.html` 恢复真实可播（此前被 `location /` SPA 兜底到 admin，200 假象）；README China mirror 同步 https 正式域
+  **国内镜像恢复官方演示视频**：/demo 静态服务 + prod 挂载
+- **fix(governance): register AiGovernancePolicyHistory in governance standalone module** — P-③ 新增实体未在 GovernanceModule forFeature 与 GovernanceDataSource entities 注册 → 治理台进程（`start:governance` / docker governance）Nest UnknownDependenciesException 启动失败修复（ECS v1.0.6 部署实测暴露）
+  **治理台独立进程启动修复**：策略历史实体补注册
+
+### Changed / 变更（依赖与安全）
+
+- **Dependabot security-first 策略** — 普通 version updates 关闭（open-pull-requests-limit: 0，避免依赖漂移影响 Golden Demo / E2E / Agent Benchmark），保留 Security Updates + 补 github-actions 依赖监控
+  **Dependabot 安全优先**：普通升级关 PR，只留安全更新与 Actions 监控
+- **Web-Admin-Vue 测试链与依赖** — vitest / @vitest/coverage-v8 2 → 3.2.7（清 2 个 critical dev 漏洞，400 测试全绿）；vue 3.5.42 / sass / globals / typescript-eslint / @vue/test-utils minor·patch 更新
+  **前端测试链升级**：vitest 3.2.7 清 dev 漏洞；Vue 系 minor/patch 跟进
+- **Server-NestJS 依赖** — @opentelemetry 系（sdk-node / auto-instrumentations / exporter-trace-otlp-http）、nestjs-pino 5.1、bullmq 6.3.4、@aws-sdk/client-s3、sharp 0.35.4、@nestjs/cli 等 bump
+  **后端依赖跟进**：otel / pino / bullmq / aws-sdk / sharp 等 bump
 
 ## [1.0.6] - 2026-09-06
 

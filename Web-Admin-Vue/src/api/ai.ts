@@ -25,6 +25,8 @@ export interface TrustSandboxRunResult {
   resultId?: number
   effectId?: number
   requiresConfirmation?: boolean
+  /** 仅当 resultType/resultId 对应真实 AI 工具副作用时 true，决定是否显示「业务动作治理详情」 */
+  governed?: boolean
   error?: string
 }
 
@@ -44,6 +46,7 @@ export interface TrustSandboxJourneyStep {
   resultType?: string
   resultId?: number
   requiresConfirmation?: boolean
+  governed?: boolean
 }
 
 export interface TrustSandboxJourneyResult {
