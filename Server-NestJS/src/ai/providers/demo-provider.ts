@@ -86,7 +86,7 @@ export class DemoProvider implements LlmProvider {
     if (!last) return { content: '你好，我是演示模式助手。' };
 
     if (last.role === 'tool') return this.decideAfterTool(messages);
-    if (last.role === 'user') return this.decideFromUser(last.content, messages);
+    if (last.role === 'user') return this.decideFromUser(last.content, messages, tools);
     return { content: '（演示模式）请告诉我你想做什么。' };
   }
 
@@ -94,8 +94,14 @@ export class DemoProvider implements LlmProvider {
   private decideFromUser(
     msg: string,
     messages: ChatMessage[],
+    tools?: ToolDefinition[],
   ): { content: string; toolCalls?: ToolCall[] } {
     const lower = msg.toLowerCase();
+
+    // 通用生成模块写工具路由（internal-roadmap §internal.7 Proof Card R7）：消息含明确创建意图 + `参数=值` 且
+    // 某生成 create_<x> 的必填参数被覆盖 → 优先路由（须在旗舰分支前，避免字段名如 customerName 撞 CRM 关键词）。
+    const generatedWrite = this.decideGeneratedCreate(msg, tools);
+    if (generatedWrite) return generatedWrite;
 
     // AI CRM：不可逆删除客户（R5 阻断演示）— 高风险动作应被系统策略阻断，永不执行
     if (/删除|delete/i.test(lower)) {
@@ -157,6 +163,64 @@ export class DemoProvider implements LlmProvider {
         '· 为「蓝湾地产」创建跟进任务\n' +
         '· 看看哪些客户值得重点关注',
     };
+  }
+
+  /**
+   * 通用生成模块写工具路由（决定链路，无 LLM 确定性演示）：
+   * 仅当 ①消息含创建意图 ②存在非旗舰 create_<x> 工具 ③消息里以 `参数=值` 覆盖其全部必填参数时路由——
+   * 避免劫持旗舰 demo（create_followup_task 等在 denylist）。支持 keelbase-init 生成模块的
+   * create 工具（生成物进入治理管线的演示入口）。工具结构为 OpenAI JSON-schema（function.parameters）。
+   */
+  private decideGeneratedCreate(
+    msg: string,
+    tools?: ToolDefinition[],
+  ): { content: string; toolCalls?: ToolCall[] } | null {
+    if (!tools?.length) return null;
+    if (!/(创建|新增|建立|录入|创建一张|create|add)/i.test(msg)) return null;
+    // 旗舰 demo 已硬编码处理，不走通用路由（防回退分支劫持既有黄金流程）
+    const flagship = new Set(['create_followup_task', 'delete_customer']);
+
+    const tokens = new Map<string, string>();
+    const re = /([A-Za-z][A-Za-z0-9]*)\s*=\s*([^，,。、;；\s]+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(msg)) !== null) tokens.set(m[1].toLowerCase(), m[2].trim());
+    if (tokens.size === 0) return null;
+
+    let best: { name: string; props: Record<string, { type?: string }>; required: string[]; covered: string[] } | null = null;
+    let bestScore = -1;
+    for (const t of tools) {
+      const fn = t.function;
+      const name = fn?.name ?? (t as { name?: string }).name;
+      if (!name || !/^create_/.test(name) || flagship.has(name)) continue;
+      const props = (fn?.parameters?.properties ?? {}) as Record<string, { type?: string }>;
+      const required = (Array.isArray(fn?.parameters?.required) ? fn.parameters.required : []) as string[];
+      const covered = Object.keys(props).filter((k) => tokens.has(k.toLowerCase()));
+      if (covered.length === 0) continue;
+      const allRequired = required.length === 0 || required.every((r) => tokens.has(r.toLowerCase()));
+      if (!allRequired) continue;
+      const score = covered.length;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { name, props, required, covered };
+      }
+    }
+    if (!best) return null;
+
+    const args: Record<string, unknown> = {};
+    for (const [key, val] of tokens) {
+      const propName = best.covered.find((c) => c.toLowerCase() === key);
+      if (!propName) continue;
+      const type = best.props[propName]?.type ?? 'string';
+      if (type === 'integer' || type === 'number') {
+        const n = Number(val);
+        if (!Number.isNaN(n)) args[propName] = n;
+      } else if (type === 'boolean') {
+        args[propName] = val.toLowerCase() === 'true';
+      } else {
+        args[propName] = val;
+      }
+    }
+    return this.toolCall(best.name, args, `好的，我来创建${best.name.replace(/^create_/, '')}（写操作需要你确认）…`);
   }
 
   /** 工具执行后：根据上一步工具结果决定总结或下一步工具 */
