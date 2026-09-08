@@ -1,12 +1,12 @@
-# Dependabot 自动依赖更新（Security and quality：漏洞依赖自动升版）
-# 依赖提醒（Dependabot alerts）由 GitHub 自动开启（公开仓库免费）；此处配置 version updates。
-# 更新 PR 合并后由 CI（ci.yml）验证；高严重度依赖告警优先处理。
-# 大版本（semver-major）统一不做自动升版（下方各 update 块 ignore 配置）；需升级主版本时人工操作/临时移除 ignore。
-# dependabot-merge 低峰自动合入仅针对 CI 全绿的小版本（minor/patch）。
+# Dependabot：KeelBase 采用「Security-first」依赖策略
+# - 保留 Security Updates：发现可修复漏洞时仍可创建安全 PR。
+# - 普通 Version Updates 不持续制造 PR：open-pull-requests-limit: 0。
+# - 普通依赖升级改为按项目阶段人工、批量处理，避免依赖漂移影响 Golden Demo / E2E / Agent Benchmark。
+# - Dependabot alerts 由 GitHub Security 设置独立管理。
 
 version: 2
 updates:
-  # 后端 NestJS（npm，依赖最多，安全重点）
+  # 后端 NestJS（npm）
   - package-ecosystem: npm
     directory: /Server-NestJS
     schedule:
@@ -14,12 +14,7 @@ updates:
       day: monday
       time: "02:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
-    versioning-strategy: increase-if-necessary
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
 
   # Web 管理台 / 工作台（Vue3，npm）
   - package-ecosystem: npm
@@ -29,14 +24,9 @@ updates:
       day: tuesday
       time: "02:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 8
-    versioning-strategy: increase-if-necessary
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
 
-  # React 预览版（npm，保持跟进主版本）
+  # React 预览版——安全更新保留，普通升级关闭
   - package-ecosystem: npm
     directory: /Web-Admin-React
     schedule:
@@ -44,14 +34,9 @@ updates:
       day: tuesday
       time: "04:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
-    versioning-strategy: increase-if-necessary
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
 
-  # Taro 小程序 / H5（pnpm——dependabot npm ecosystem 识别 pnpm-lock.yaml）
+  # Taro 小程序 / H5（npm / pnpm lockfile）
   - package-ecosystem: npm
     directory: /Front-Taro
     schedule:
@@ -59,12 +44,7 @@ updates:
       day: wednesday
       time: "02:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 8
-    versioning-strategy: increase-if-necessary
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
 
   # Flutter 主 App（Dart pub）
   - package-ecosystem: pub
@@ -74,13 +54,9 @@ updates:
       day: thursday
       time: "02:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 8
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
 
-  # Docker 基础镜像（多阶段构建）
+  # Docker 基础镜像——安全更新保留，普通升级人工处理
   - package-ecosystem: docker
     directory: /
     schedule:
@@ -88,8 +64,14 @@ updates:
       day: friday
       time: "02:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
+    open-pull-requests-limit: 0
+
+  # GitHub Actions——补上 Actions 依赖安全监控
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: friday
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 0
