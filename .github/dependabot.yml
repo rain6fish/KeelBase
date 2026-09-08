@@ -1,6 +1,8 @@
 # Dependabot 自动依赖更新（Security and quality：漏洞依赖自动升版）
 # 依赖提醒（Dependabot alerts）由 GitHub 自动开启（公开仓库免费）；此处配置 version updates。
 # 更新 PR 合并后由 CI（ci.yml）验证；高严重度依赖告警优先处理。
+# 大版本（semver-major）统一不做自动升版（下方各 update 块 ignore 配置）；需升级主版本时人工操作/临时移除 ignore。
+# dependabot-merge 低峰自动合入仅针对 CI 全绿的小版本（minor/patch）。
 
 version: 2
 updates:
@@ -14,6 +16,10 @@ updates:
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 10
     versioning-strategy: increase-if-necessary
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # Web 管理台 / 工作台（Vue3，npm）
   - package-ecosystem: npm
@@ -25,6 +31,10 @@ updates:
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 8
     versioning-strategy: increase-if-necessary
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # React 预览版（npm，保持跟进主版本）
   - package-ecosystem: npm
@@ -36,6 +46,10 @@ updates:
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
     versioning-strategy: increase-if-necessary
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # Taro 小程序 / H5（pnpm——dependabot npm ecosystem 识别 pnpm-lock.yaml）
   - package-ecosystem: npm
@@ -47,6 +61,10 @@ updates:
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 8
     versioning-strategy: increase-if-necessary
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # Flutter 主 App（Dart pub）
   - package-ecosystem: pub
@@ -57,6 +75,10 @@ updates:
       time: "02:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 8
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # Docker 基础镜像（多阶段构建）
   - package-ecosystem: docker
@@ -67,3 +89,7 @@ updates:
       time: "02:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
