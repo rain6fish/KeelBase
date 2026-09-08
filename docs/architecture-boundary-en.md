@@ -92,6 +92,25 @@ UI frameworks are Core's **Renderers** (see §3) — **a new framework = a new R
 
 > Principle: **Renderer / Protocol is the main line, not any single UI framework**. No long-term multi-frontend sync just to "complete the stack" (capability drift); a new renderer = new generator per-framework template + consuming the same Core contract, not on the Core roadmap. Element Plus is the official renderer of the mainstream enterprise-app UI library.
 
+### 4.1 Maintenance commitment (KB-7, 2026-09-07) / 4.1 维护承诺
+
+The primary front-end and per-renderer maintenance commitments are as follows — **decided, nothing is "pending"**:
+
+| Renderer | Status | Maintenance commitment |
+|---|---|---|
+| **Web-Admin-Vue** | Official (primary version) | **Long-term maintained**; sole host of the web business UI (workbench + admin console in one shell); new enterprise-web capabilities **land on this renderer by default** |
+| **Front-Flutter** | Official Mobile (primary mobile app) | **Long-term maintained** (iOS/Android main app; Flutter Web is preview-only, not the primary path) |
+| **Front-Taro** | Channel (channel renderer) | **Maintained per channel needs** (H5 / mini-program distribution); accepts feature lag behind Official, no forced sync catch-up |
+| **Web-Admin-React** | Experimental (preview) | **Preview positioning, no promise of long-term sync with the primary version**; promotion to Official or removal is **driven by real international user demand — not presumed, not on a schedule**; before that trigger, no new-feature development that maintains a second admin in parallel |
+
+Commitment details:
+- **New enterprise-web capabilities land on Vue (Official) by default**; the React preview is not kept in lockstep, avoiding dual-admin capability drift (consistent with the §4 principle).
+- The React preview is **not a candidate primary version** — the primary decision is made (Vue, 2026-08-12); its role is a **preview** to evaluate the React approach, not a "second, undecided primary".
+- Any renderer change (major upgrade / deprecation / promotion) updates this table and is announced; enterprise selection is governed by this table.
+- The consumer-sync obligation (§6 acceptance red line) constrains **Official** renderers only; Experimental/Channel may lag without breaching it.
+
+> Response to the 2026-09-07 adversarial review's "four frontends = direction unclear" claim: the direction **is decided** — web primary = Vue, mobile primary = Flutter; React is an explicitly-marked preview (not a candidate primary), Taro is a channel. Commitments are as above — not four stacks in long-term parallel sync.
+
 ## 5. Defense-in-Depth: the Injection Guard is an aid, governance is the final line of defense
 
 AI security uses **defense in depth** — regex/detection guards are only an auxiliary layer that "reduces inducement"; they are **never the final line of defense** (clarified 2026-08-20):

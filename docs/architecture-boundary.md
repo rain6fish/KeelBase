@@ -92,6 +92,25 @@ UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer�
 
 > 原则：**Renderer / Protocol 是主线，不是某个 UI 框架**。不为"技术栈完整"维护多前端长期同步（Capability Drift）；新增渲染器 = 新增生成器 per-framework 模板 + 消费同一 Core 契约，不进 Core 路线。Element Plus 是企业应用主流 UI 库的官方渲染器。
 
+### 4.1 维护承诺 / Maintenance commitment（KB-7，2026-09-07）
+
+主前端与各渲染器的维护承诺如下——**决策已定，无"待定"项**：
+
+| Renderer | 状态 | 维护承诺 |
+|---|---|---|
+| **Web-Admin-Vue** | Official（主版本） | **长期维护**；Web 业务 UI 唯一宿主（工作台 + 管理台同一壳）；新增面向企业 Web 的能力**缺省只落此渲染器** |
+| **Front-Flutter** | Official Mobile（移动主 App） | **长期维护**（iOS/Android 主 App；Flutter Web 仅预览形态，非主路径） |
+| **Front-Taro** | Channel（渠道渲染器） | **按渠道需求维护**（H5/小程序分发渠道）；接受功能滞后于 Official，不做强制同步追赶 |
+| **Web-Admin-React** | Experimental（预览版） | **预览定位，不承诺与主版本长期同步**；转正（成为官方）或移除**由真实国际用户需求触发，不预设、不按时间表**；在触发前不做为它维护双 admin 的新增功能开发 |
+
+承诺细则：
+- **新增企业 Web 能力缺省只落 Vue（Official）**；React 预览不追平，避免双 admin Capability Drift（与 §4 原则一致）。
+- React 预览版**不是候选主版本**——主版本决策已定（Vue，2026-08-12）；它的角色是评估 React 技术路线的**预览**，不是"待定的第二个主版本"。
+- 任何渲染器变更（升级主版本/停维护/转正）会更新本表并公告；企业选型以此表为准。
+- 消费端同步义务（§6 验收红线）只约束 **Official** 渲染器；Experimental/Channel 接受滞后不违约。
+
+> 回应 2026-09-07 对抗评测「四套前端 = 方向不定」指控：方向**已定**——Web 主 = Vue、移动主 = Flutter，React 是明确标记的预览（非候选主版本）、Taro 是渠道。维护承诺如上表，不是四套并列长期同步。
+
 ## 5. 安全分层防线：Injection Guard 是辅助，治理层是最终防线
 
 AI 安全采用**纵深防御**——正则/检测类防护只是「减少诱导」的辅助层，**绝不作为最终防线**（2026-08-20 明确）：
