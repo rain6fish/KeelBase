@@ -151,6 +151,8 @@ const en: ZhDict = {
   createGuideBody: 'The four steps above are a deterministic "proof". To land one real AI write: ① open the real AI assistant on the customer just created and ask it to create a follow-up task ② press Approve on the confirmation card — the task is really created ③ revoke it in My AI Actions (soft-delete, restorable) ④ open that effect governance evidence / full trace.',
   createGuideStart: 'Open real AI assistant (approve & land)',
   createGuideActions: 'Go to My AI Actions — revoke / evidence',
+  copilotExecutedBanner: 'AI write really executed (side effect recorded) — revoke or view evidence in My AI Actions',
+  copilotGoRevoke: 'Revoke / manage (My AI Actions)',
   journeyDismiss: 'Hide experience entry',
   journeyRestore: 'Re-show "Experience KeelBase" entry',
   journeyStats: 'Trust journey completed {n}× on this browser',
