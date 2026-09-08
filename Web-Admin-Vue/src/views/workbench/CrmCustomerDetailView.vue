@@ -311,5 +311,10 @@ async function completeTask(taskId: number) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  // P1-1 深链：Trust 旅程「做一次真的」→ 打开本客户即自动唤起 AI Copilot（真实批准→落库）
+  const ai = route.query.ai
+  if (ai === '1' || ai === 'true') showCopilot.value = true
+})
 </script>

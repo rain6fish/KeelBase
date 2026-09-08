@@ -93,6 +93,24 @@
             <p class="tsd-detail mb-2">{{ st.detail || '—' }}</p>
           </div>
         </div>
+
+        <!-- P1-1 从看到做：确定性命门证明之外，引导真实 Copilot 批准→落库→撤销→看证据 -->
+        <div v-if="journeyDone && journeyCreateTarget" class="ts-create-guide mt-3">
+          <el-divider />
+          <div class="d-flex align-center ga-2 mb-1">
+            <AppIcon icon="mdi-creation-outline" color="var(--el-color-success)" />
+            <span class="text-subtitle-1">{{ t('createGuideTitle') }}</span>
+          </div>
+          <p class="text-body-2 text-medium-emphasis mb-3">{{ t('createGuideBody') }}</p>
+          <div class="d-flex align-center ga-2 flex-wrap">
+            <el-button type="success" plain @click="openCreateLive">
+              <AppIcon icon="mdi-robot-happy-outline" class="mr-1" />{{ t('createGuideStart') }}
+            </el-button>
+            <el-button @click="goMyAiActions">
+              <AppIcon icon="mdi-creation-outline" class="mr-1" />{{ t('createGuideActions') }}
+            </el-button>
+          </div>
+        </div>
       </template>
       <div v-else class="text-body-2 text-medium-emphasis pa-3">{{ t('loading') }}</div>
 
@@ -212,6 +230,11 @@ const journeyAction = computed(() => {
   const ask = journeySteps.value.find((s) => s.step === 'ask')
   return ask?.resultType && ask.resultId ? { resultType: ask.resultType, resultId: ask.resultId } : null
 })
+/** P1-1：旅程 ask 步刚建的沙盘客户（crm_customer）作为「真实落库」目标 */
+const journeyCreateTarget = computed(() => {
+  const ask = journeySteps.value.find((s) => s.step === 'ask')
+  return ask?.resultType === 'crm_customer' && ask.resultId ? ask.resultId : null
+})
 
 function clearJourneyTimers() {
   if (journeyTimer !== undefined) {
@@ -276,6 +299,19 @@ function openJourneyAction() {
   if (!journeyAction.value) return
   journeyVisible.value = false
   router.push(`/workbench/action/${journeyAction.value.resultType}/${journeyAction.value.resultId}`)
+}
+
+/** P1-1：跳刚建沙盘客户详情并自动唤起真实 AI Copilot（批准→真落库） */
+function openCreateLive() {
+  if (!journeyCreateTarget.value) return
+  journeyVisible.value = false
+  router.push(`/workbench/crm/${journeyCreateTarget.value}?ai=1`)
+}
+
+/** P1-1：到「我的 AI 行为」撤销 / 看证据 */
+function goMyAiActions() {
+  journeyVisible.value = false
+  router.push('/workbench/my-ai-actions')
 }
 
 // hero「开始 3 分钟体验」带 ?journey=1 落地 → 自动一键连跑

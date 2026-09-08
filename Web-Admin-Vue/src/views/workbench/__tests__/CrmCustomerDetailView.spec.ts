@@ -70,8 +70,8 @@ const detailMinimal = {
   risks: [],
 }
 
-function mountView() {
-  useRouteMock.mockReturnValue({ params: { id: '1' }, query: {} })
+function mountView(query: Record<string, string> = {}) {
+  useRouteMock.mockReturnValue({ params: { id: '1' }, query })
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(CrmCustomerDetailView, {
     global: {
@@ -126,6 +126,18 @@ describe('CrmCustomerDetailView（AI CRM 客户详情）', () => {
 
     expect(snackMock.error).toHaveBeenCalledWith('加载失败')
     expect(wrapper.exists()).toBe(true)
+  })
+
+  it('P1-1 ?ai=1 深链 → 挂载即自动打开 AI Copilot', async () => {
+    detailMock.mockResolvedValue(detailMinimal)
+
+    const wrapper = mountView({ ai: '1' })
+    await flushPromises()
+
+    const copilot = wrapper.findComponent({ name: 'CrmCopilotDrawer' })
+    expect(copilot.exists()).toBe(true)
+    expect(copilot.props('modelValue')).toBe(true)
+    wrapper.unmount()
   })
 
   it('风险分析 → 调 analyze(id) + 成功提示 + 渲染风险理由', async () => {
