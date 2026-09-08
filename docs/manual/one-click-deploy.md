@@ -91,3 +91,28 @@ docker compose exec server npx ts-node scripts/create-admin.ts --username admin 
 
 > Private-deployment positioning: data sovereignty stays with the customer; the PostgreSQL data volume + backup script satisfy compliance.
 > 私有化定位说明：数据主权在客户侧，PostgreSQL 数据卷 + 备份脚本即可满足合规。
+
+## 6. First-use verification (~30 min) / 首次使用验证（约 30 分钟，确认"一次真实使用"）
+
+Deployment alone does not prove a usable system. To confirm "one real AI use" end-to-end (the KB-8 reference-deployment acceptance), follow this check list against your fresh deployment / 部署成功 ≠ 复现真实使用。要确认端到端「一次真实 AI 使用」（KB-8 参考部署验收），在刚部署的环境上照此清单走一遍：
+
+```bash
+# ① Import demo data (creates the `alex` workbench account + CRM/PM demo rows) / 导入演示数据（建 alex 工作台账号 + 演示业务数据）
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T server npx ts-node scripts/seed-demo.ts
+
+# ② Health + both surfaces respond / 健康 + 两端可达
+curl -k https://<server-IP>/api/v1/health          # {"status":"ok"}
+#   Workbench (Vue shell, includes admin console at /admin) / 工作台（Vue 壳，管理台在 /admin）
+#   → open https://<server-IP>/admin and log in as `alex` (see CLAUDE.md §12 demo credentials)
+```
+
+Then in the browser, as the `alex` workbench user / 然后浏览器里以 alex 工作台用户操作：
+
+1. **AI proposes a write** / AI 提议写：open a CRM customer → AI assistant → ask it to create a follow-up task. A confirmation card appears (R3) / 打开 CRM 客户 → AI 助手 → 让它「为该客户创建跟进任务」→ 出现确认卡（R3）。
+2. **Approve** / 批准：the task is really created; a side effect is recorded / 任务真实落库并记副作用。
+3. **Revoke** / 撤销：go to「我的 AI 行为 / My AI Actions」→ 撤销该任务（软删，回收站可恢复）→ status flips to「已撤销 / Revoked」/ 状态变「已撤销」。
+4. **Evidence** / 证据：open that action's governance evidence / trace (B4) — decision chain + authorization basis + audit integrity visible / 打开该动作的治理证据 / 完整轨迹，可看决策链 + 授权依据 + 审计完整性。
+
+Pass criteria / 通过判据：confirmation card appeared → approve really landed the write → revoke flipped the status → evidence page opened with the decision trace. Any of these failing = environment problem, not user error / 确认卡出现 → 批准后真实落库 → 撤销后状态翻转 → 证据页可开且含决策轨迹。任一步失败即环境问题，非操作问题。
+
+> This mirrors the demo environment (`https://demo.keelbase.com.cn`) — a fresh deploy following §2 should behave identically / 这与 demo 环境行为一致——按 §2 新部署应表现相同。
