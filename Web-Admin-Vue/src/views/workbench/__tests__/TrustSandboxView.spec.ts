@@ -107,6 +107,8 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
       conversationId: 'conv-s1',
       resultType: 'crm_customer',
       resultId: 42,
+      // governed:true 表示该结果对应真实 AI 工具副作用——仅在此时展示「业务动作治理详情」
+      governed: true,
     })
 
     const wrapper = mountView()

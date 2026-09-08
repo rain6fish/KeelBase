@@ -132,7 +132,7 @@ describe('TrustSandboxService', () => {
     qb.getMany.mockResolvedValue([{ id: 77, role: 'user' }]);
     usersService.remove.mockResolvedValue(undefined);
 
-    const r = await sandbox.cleanup('42');
+    const r = await sandbox.cleanup('42', true);
 
     // 沙盘客户123 无真实子行 → 删除；越权目标55 有 tasks → 跳过；bob(77) 删除
     expect(r.removedCustomers).toEqual(['沙盘客户123']);
@@ -141,23 +141,30 @@ describe('TrustSandboxService', () => {
     expect(crmService.removeCustomer).toHaveBeenCalledTimes(1);
     expect(usersService.remove).toHaveBeenCalledWith(77);
     expect(abilityFactory.createForUser).toHaveBeenCalled();
+    // admin 清全量 bob_sandbox_%
+    expect(qb.where).toHaveBeenCalledWith('u.username LIKE :p', { p: 'bob_sandbox_%' });
   });
 
-  it('P0-2 ④ cleanup：bob 若非本人则删；本人 id 跳过', async () => {
+  it('P0-2 ④ cleanup：非 admin 只删本人归属前缀 bob_sandbox_<uid>_%；本人 id 跳过', async () => {
     crmService.listCustomers.mockResolvedValue({ items: [], total: 0 });
     const qb = usersRepo.createQueryBuilder() as unknown as {
       where: jest.Mock;
       andWhere: jest.Mock;
       getMany: jest.Mock;
     };
-    qb.getMany.mockResolvedValue([{ id: 42, role: 'user' }, { id: 43, role: 'user' }]);
+    qb.getMany.mockResolvedValue([
+      { id: 42, role: 'user', username: 'bob_sandbox_42_x' },
+      { id: 43, role: 'user', username: 'bob_sandbox_42_y' },
+    ]);
     usersService.remove.mockResolvedValue(undefined);
 
-    const r = await sandbox.cleanup('42');
+    const r = await sandbox.cleanup('42', false);
     expect(r.removedCustomers).toEqual([]);
     expect(r.removedBobUsers).toBe(1); // 43 删，42 本人跳过
     expect(usersService.remove).toHaveBeenCalledWith(43);
     expect(usersService.remove).not.toHaveBeenCalledWith(42);
+    // 非 admin 查询前缀限定本人归属，杜绝跨用户删号（bob_sandbox_43_* 等不被命中）
+    expect(qb.where).toHaveBeenCalledWith('u.username LIKE :p', { p: 'bob_sandbox_42_%' });
   });
 
   it('P2 ③ recordJourneyCompleted / journeyStats：今日完成 +1、累计递增（跨访客聚合）', async () => {
@@ -181,6 +188,8 @@ describe('TrustSandboxService', () => {
     expect(r.outcome).toBe('passed');
     expect(r.conversationId).toBe('conv-1');
     expect(r.resultType).toBe('crm_customer');
+    // 确定性演示直建客户无 AI 副作用 → governed:false（不展示会 404 的「业务动作治理详情」）
+    expect(r.governed).toBe(false);
     expect(crmService.createOrder).toHaveBeenCalledTimes(2);
   });
 
@@ -222,6 +231,13 @@ describe('TrustSandboxService', () => {
     effectsService.listOwned.mockResolvedValue({ items: [] });
     const r2 = await sandbox.run('s5_revoke', '43');
     expect(r2.outcome).toBe('guide');
+
+    // revoke 未生效 → outcome check + 诚实文案（不误报「已软删」）
+    effectsService.listOwned.mockResolvedValue({ items: [{ id: 5, resultType: 'crm_task' }] });
+    effectsService.revokeOwned.mockResolvedValue({ revoked: false, effectId: 5, revokeStatus: 'revoke_failed' });
+    const r3 = await sandbox.run('s5_revoke', '42');
+    expect(r3.outcome).toBe('check');
+    expect(String(r3.detail)).toContain('未生效');
   });
 
   it('s6_java：返回 Java 引导', async () => {

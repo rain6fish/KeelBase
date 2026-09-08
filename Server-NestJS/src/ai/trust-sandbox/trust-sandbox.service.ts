@@ -21,6 +21,8 @@ export interface TrustSandboxJourneyStep {
   resultType?: string;
   resultId?: number;
   requiresConfirmation?: boolean;
+  /** 仅当 resultType/resultId 对应真实 AI 工具副作用/业务动作时 true（否则「业务动作治理详情」是死链） */
+  governed?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export class TrustSandboxService {
       resultType: r.resultType as string | undefined,
       resultId: r.resultId as number | undefined,
       requiresConfirmation: r.requiresConfirmation as boolean | undefined,
+      governed: r.governed as boolean | undefined,
     });
     const steps: TrustSandboxJourneyStep[] = [
       toStep('ask', await this.s1(userId, ts)),
@@ -123,9 +126,11 @@ export class TrustSandboxService {
    * （订单先行软删客户，CRM 列表自动隐藏）与 bob 演示账号。守卫：
    * - 只动本人客户（crmService owner 域）；名字必须匹配 沙盘客户/越权目标 + 数字 的合成模式；
    * - 客户若有真实子行（AI 跟进任务/活动/商机/联系人/风险）→ 视为「做」成果，跳过不删；
-   * - 保留 AI 对话留痕/审计与真实副作用；bob 只删 role!=admin 且非本人。
+   * - 保留 AI 对话留痕/审计与真实副作用。
+   * - 授权边界：bob 只删 role!=admin；非 admin 仅删本人归属前缀 bob_sandbox_<userId>_%（杜绝跨用户删号），
+   *   admin 可清全量 bob_sandbox_% 残留（§5.5 用户删除不落入普通用户端点）。
    */
-  async cleanup(userId: string): Promise<{
+  async cleanup(userId: string, isAdmin: boolean): Promise<{
     removedCustomers: string[];
     skippedCustomers: string[];
     removedBobUsers: number;
@@ -163,9 +168,11 @@ export class TrustSandboxService {
       }
     }
     let removedBobUsers = 0;
+    // 非 admin 只删本人归属前缀 bob_sandbox_<userId>_%，admin 清全量 bob_sandbox_% 残留
+    const prefix = isAdmin ? 'bob_sandbox_%' : `bob_sandbox_${userId}_%`;
     const bobs = await this.usersRepo
       .createQueryBuilder('u')
-      .where('u.username LIKE :p', { p: 'bob_sandbox_%' })
+      .where('u.username LIKE :p', { p: prefix })
       .andWhere('u.role != :admin', { admin: 'admin' })
       .getMany()
       .catch(() => [] as User[]);
@@ -243,6 +250,8 @@ export class TrustSandboxService {
       conversationId: chat.conversationId,
       resultType: 'crm_customer',
       resultId: cus.id,
+      // 客户为确定性演示直接建（非 AI 工具副作用），无独立「业务动作治理详情」可看（防死链）
+      governed: false,
     };
   }
 
@@ -254,8 +263,8 @@ export class TrustSandboxService {
       { name: `越权目标${ts}`, company: 'X', status: 'active', riskLevel: 'low' } as never,
       uid,
     );
-    // 注册 bob
-    const bobName = `bob_sandbox_${ts}`;
+    // 注册 bob（归属命名 bob_sandbox_<userId>_<ts>：自清理只删本人前缀，杜绝跨用户删号）
+    const bobName = `bob_sandbox_${userId}_${ts}`;
     const bob = await this.usersService.create({
       username: bobName,
       nickname: 'Bob',
@@ -279,6 +288,8 @@ export class TrustSandboxService {
       detail,
       resultType: 'crm_customer',
       resultId: target.id,
+      // 越权目标为确定性演示直接建（非 AI 工具副作用），无独立「业务动作治理详情」可看
+      governed: false,
     };
   }
 
@@ -321,12 +332,16 @@ export class TrustSandboxService {
     const effect = items.find((e: { resultType?: string }) => e.resultType !== 'proxy_call');
     if (effect) {
       const id = (effect as { id: number }).id;
-      const revoked = await this.effectsService.revokeOwned(id, userId);
+      const res = await this.effectsService.revokeOwned(id, userId);
+      const revoked = Boolean(res?.revoked);
       return {
         scenario: 's5_revoke',
         outcome: revoked ? 'passed' : 'check',
-        detail: `撤销 AI 副作用 effect #${id} → 目标软删（可经回收站恢复）。`,
+        detail: revoked
+          ? `撤销 AI 副作用 effect #${id} 成功：目标软删（可经回收站恢复），AI 轨迹与审计保持完整。`
+          : `撤销 effect #${id} 未生效（该副作用不可本地撤销，按其撤销档位处理）；未做破坏性操作。`,
         effectId: id,
+        revoked,
       };
     }
     return {
