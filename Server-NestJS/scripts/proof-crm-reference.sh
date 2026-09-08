@@ -42,7 +42,8 @@ if ! (cd "$BE" && MUT_SPEC="specs/leads.json" BENCH_PORT="$GEN_PORT" bash script
 fi
 CARD_G="$(ls -t "$REPORT_DIR"/protocol-trust-card-*.md 2>/dev/null | head -1)"
 echo "  ✓ 生成轨记分卡：$CARD_G"
-GEN_REDS=$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || echo 0)
+# grep -c 无匹配时打印 0 且 exit 1，再加 `|| echo 0` 会得到 "0\n0" → 守卫恒 exit 1；用 `|| true` 吞退出码保留 stdout 的 "0"
+GEN_REDS="$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || true)"
 [ -z "$GEN_REDS" ] && GEN_REDS=0
 
 # ── F 旗舰轨：AI CRM 手写旗舰深度治理（trust-proof S1-S5/S7）──────────────
