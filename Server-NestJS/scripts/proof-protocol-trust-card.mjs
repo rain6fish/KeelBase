@@ -20,7 +20,7 @@
  * 前置：后端已启动，含生成的 MUT 模块（本驱动不负责生成/编译，由 proof-protocol-trust.sh 完成）
  * 输出：每行断言打印 ✓/✗；结尾打印机器行 ROW|…（供编排器收集）
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,28 @@ const ALICE_PASS = process.env.ALICE_PASS || 'Alex@2026$Demo';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'Admin@2026$KeelBase';
 const MUT = process.env.MUT || 'invoices'; // plural
 const SINGULAR = process.env.MUT_SINGULAR || MUT.replace(/s$/, ''); // 工具用单数
+// 按被测 spec 的必填字段通用构建 REST 体与 demo 对话 k=v（卡支持任意 specs/*.json，非 invoices 专用）
+const SPEC_ABS = process.env.MUT_SPEC_ABS || null;
+const specMeta = SPEC_ABS ? JSON.parse(readFileSync(SPEC_ABS, 'utf8')) : null;
+const specLabel = specMeta?.label || MUT;
+const specFields = specMeta?.fields ?? [];
+const bodyFields = specFields.filter((f) => f.required);
+const keyFields = bodyFields.length ? bodyFields : specFields.slice(0, 1);
+const keyName = keyFields[0]?.name || 'id';
+function buildCreate(tag) {
+  const body = {};
+  const kvs = [];
+  for (const f of keyFields) {
+    let v;
+    if (f.type === 'int') v = (Date.now() % 100000) + kvs.length;
+    else if (f.type === 'boolean') v = true;
+    else if (f.type === 'enum') v = (f.enum ?? [])[0] ?? `${tag}${Date.now()}`;
+    else v = `${tag}-${Date.now()}-${kvs.length}`;
+    body[f.name] = v;
+    kvs.push(`${f.name}=${v}`);
+  }
+  return { body, kv: kvs.join('，') };
+}
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPORT_DIR = resolve(__dirname, '../docs/benchmark');
 mkdirSync(REPORT_DIR, { recursive: true });
@@ -138,15 +160,15 @@ async function main() {
   });
   const bob = pickToken(bobReg.data);
 
-  // ── R5 运行模块：REST 建/查 ────────────────────────────────────────────────
-  const no = `INV-CARD-${Date.now()}`;
-  const created = await api(`/${MUT}`, { token: alice, method: 'POST', body: { invoiceNo: no, customerName: '张三', amount: 1000, status: 'draft' } });
+  // ── R5 运行模块：REST 建/查（按 spec 必填字段通用构建）──────────────────────
+  const c5 = buildCreate('REST');
+  const created = await api(`/${MUT}`, { token: alice, method: 'POST', body: c5.body });
   const inv = unwrap(created.data);
-  const restId = inv?.id ?? inv?.invoiceNo;
+  const restId = inv?.id ?? inv?.[keyName];
   if (created.status === 201 && restId) {
     const list = await api(`/${MUT}`, { token: alice });
     const items = unwrap(list.data)?.items ?? unwrap(list.data) ?? [];
-    const found = (Array.isArray(items) ? items : []).some((x) => (x.id ?? x.invoiceNo) === (inv.id ?? inv.invoiceNo));
+    const found = (Array.isArray(items) ? items : []).some((x) => (x.id ?? x[keyName]) === (inv.id ?? inv[keyName]));
     pass('R5', found ? `REST 建 #${inv.id ?? restId} 201 + 列表可见` : 'REST 建 201 但列表不可见');
   } else {
     fail('R5', `REST 建 ${MUT} status=${created.status}（确认生成模块已编译进后端）`);
@@ -172,7 +194,8 @@ async function main() {
 
   // ── R7a approve：AI 写 → 确认 → 批准 → 落库 ───────────────────────────────
   let approvedId = null, effectId = null;
-  const askCreate = `请创建一张发票：invoiceNo=${no}-AI，customerName=李四，amount=1200，status=draft。`;
+  const a7 = buildCreate('AI');
+  const askCreate = `请创建一条${specLabel}：${a7.kv}。`;
   const sApprove = await streamChat(alice, askCreate, 'approve');
   const apprDecision = sApprove.decisions.find((d) => d.approved);
   approvedId = apprDecision?.resultId ?? null;
@@ -194,7 +217,8 @@ async function main() {
   }
 
   // ── R7-decline：另一写 → 拒绝 → 不落库 ───────────────────────────────────
-  const sDecline = await streamChat(alice, `再创建一张发票：invoiceNo=${no}-NO，amount=500。`, 'decline');
+  const d7 = buildCreate('NO');
+  const sDecline = await streamChat(alice, `再创建一条${specLabel}：${d7.kv}。`, 'decline');
   const declinedApproved = sDecline.decisions.find((d) => d.approved);
   if (sDecline.confirmations.length === 0) {
     fail('R7d', `未收到 confirmation_request（tools=${sDecline.toolNames.join(',') || '—'}）`);

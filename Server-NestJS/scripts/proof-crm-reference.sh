@@ -42,7 +42,8 @@ if ! (cd "$BE" && MUT_SPEC="specs/leads.json" BENCH_PORT="$GEN_PORT" bash script
 fi
 CARD_G="$(ls -t "$REPORT_DIR"/protocol-trust-card-*.md 2>/dev/null | head -1)"
 echo "  ✓ 生成轨记分卡：$CARD_G"
-GEN_REDS=$(grep -cE '^\| (R|ROW\|R?)[0-9A-Za-z]* \| red \|' "$CARD_G" 2>/dev/null || echo '?')
+GEN_REDS=$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || echo 0)
+[ -z "$GEN_REDS" ] && GEN_REDS=0
 
 # ── F 旗舰轨：AI CRM 手写旗舰深度治理（trust-proof S1-S5/S7）──────────────
 echo ""
@@ -92,4 +93,5 @@ stop_server
 echo ""
 echo "═══ CRM Reference 汇总：生成轨红=$GEN_REDS | 旗舰轨 exit=$TRUST_STATUS ═══"
 echo "产物：$CARD_G / $TRUST_PKG（留档 doc 由后续据实撰写）"
-[ "$TRUST_STATUS" = "0" ] && exit 0 || exit 1
+# 退出码须并入生成轨红数（此前只按旗舰轨判，误导）
+if [ "${GEN_REDS:-1}" != "0" ] || [ "$TRUST_STATUS" != "0" ]; then exit 1; else exit 0; fi
