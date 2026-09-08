@@ -338,6 +338,16 @@ export class AiController {
     );
   }
 
+  /** P2 ④ 沙盘数据自清理（手动按钮）：删本人沙盘合成客户/订单 + bob 演示账号，保留证据与真实副作用 */
+  @Post('trust-sandbox/cleanup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Trust 沙盘：清理本次演示数据（本人）' })
+  async cleanupTrustSandbox(@CurrentUser() user: JwtPayload) {
+    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+      this.trustSandbox.cleanup(String(user.sub)),
+    );
+  }
+
   /**
    * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
    */

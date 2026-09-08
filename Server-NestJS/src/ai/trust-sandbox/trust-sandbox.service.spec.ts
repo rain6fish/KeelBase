@@ -20,12 +20,16 @@ describe('TrustSandboxService', () => {
     createCustomer: jest.Mock;
     createOrder: jest.Mock;
     getCustomer360Data: jest.Mock;
+    listCustomers: jest.Mock;
+    removeCustomer: jest.Mock;
   };
-  let usersService: { create: jest.Mock };
+  let usersService: { create: jest.Mock; remove: jest.Mock };
   let effectsService: {
     listOwned: jest.Mock;
     revokeOwned: jest.Mock;
   };
+  let usersRepo: { createQueryBuilder: jest.Mock };
+  let abilityFactory: { createForUser: jest.Mock };
 
   beforeEach(() => {
     aiService = {
@@ -36,17 +40,31 @@ describe('TrustSandboxService', () => {
       createCustomer: jest.fn(),
       createOrder: jest.fn(),
       getCustomer360Data: jest.fn(),
+      listCustomers: jest.fn(),
+      removeCustomer: jest.fn(),
     };
-    usersService = { create: jest.fn() };
+    usersService = { create: jest.fn(), remove: jest.fn() };
     effectsService = {
       listOwned: jest.fn(),
       revokeOwned: jest.fn(),
     };
+    const qb: { where: jest.Mock; andWhere: jest.Mock; getMany: jest.Mock } = {
+      where: jest.fn(),
+      andWhere: jest.fn(),
+      getMany: jest.fn(),
+    };
+    qb.where.mockReturnValue(qb);
+    qb.andWhere.mockReturnValue(qb);
+    qb.getMany.mockResolvedValue([]);
+    usersRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    abilityFactory = { createForUser: jest.fn().mockReturnValue({}) };
     sandbox = new TrustSandboxService(
       aiService as never,
       crmService as never,
       usersService as never,
       effectsService as never,
+      usersRepo as never,
+      abilityFactory as never,
     );
   });
 
@@ -76,6 +94,56 @@ describe('TrustSandboxService', () => {
     expect(j.steps[0].conversationId).toBe('conv-1'); // ask 留痕供「打开执行轨迹」
     expect(j.steps[1].requiresConfirmation).toBe(true);
     expect(j.steps[3].conversationId).toBe('conv-3');
+  });
+
+  it('P0-2 ④ cleanup：删沙盘合成客户 + bob 演示账号，跳过含真实子行的客户', async () => {
+    crmService.listCustomers.mockImplementation(async (_uid: number, filter: { keyword?: string }) => {
+      const rows =
+        filter.keyword === '沙盘客户'
+          ? [{ id: 10, name: '沙盘客户123' }]
+          : [{ id: 11, name: '越权目标55' }];
+      return { items: rows, total: rows.length };
+    });
+    crmService.getCustomer360Data.mockImplementation(async (id: number) =>
+      id === 10
+        ? { tasks: [], activities: [], opportunities: [], contacts: [], risks: [] }
+        : { tasks: [{ id: 1 }], activities: [], opportunities: [], contacts: [], risks: [] },
+    );
+    crmService.removeCustomer.mockResolvedValue(undefined);
+    const qb = usersRepo.createQueryBuilder() as unknown as {
+      where: jest.Mock;
+      andWhere: jest.Mock;
+      getMany: jest.Mock;
+    };
+    qb.getMany.mockResolvedValue([{ id: 77, role: 'user' }]);
+    usersService.remove.mockResolvedValue(undefined);
+
+    const r = await sandbox.cleanup('42');
+
+    // 沙盘客户123 无真实子行 → 删除；越权目标55 有 tasks → 跳过；bob(77) 删除
+    expect(r.removedCustomers).toEqual(['沙盘客户123']);
+    expect(r.skippedCustomers).toEqual(['越权目标55']);
+    expect(r.removedBobUsers).toBe(1);
+    expect(crmService.removeCustomer).toHaveBeenCalledTimes(1);
+    expect(usersService.remove).toHaveBeenCalledWith(77);
+    expect(abilityFactory.createForUser).toHaveBeenCalled();
+  });
+
+  it('P0-2 ④ cleanup：bob 若非本人则删；本人 id 跳过', async () => {
+    crmService.listCustomers.mockResolvedValue({ items: [], total: 0 });
+    const qb = usersRepo.createQueryBuilder() as unknown as {
+      where: jest.Mock;
+      andWhere: jest.Mock;
+      getMany: jest.Mock;
+    };
+    qb.getMany.mockResolvedValue([{ id: 42, role: 'user' }, { id: 43, role: 'user' }]);
+    usersService.remove.mockResolvedValue(undefined);
+
+    const r = await sandbox.cleanup('42');
+    expect(r.removedCustomers).toEqual([]);
+    expect(r.removedBobUsers).toBe(1); // 43 删，42 本人跳过
+    expect(usersService.remove).toHaveBeenCalledWith(43);
+    expect(usersService.remove).not.toHaveBeenCalledWith(42);
   });
 
   it('s1_normal：建客户+逾期订单 → AI 风险分析 critical → passed + conversationId', async () => {
