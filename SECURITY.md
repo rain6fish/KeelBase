@@ -34,7 +34,9 @@ This project is under active development (pre-1.0). Security fixes are applied t
 
 **Reference deployment / 参考部署（可试跑，非生产 SLA）**
 - 演示环境 `https://demo.keelbase.com.cn`（三入口 `/user/` `/admin/` `/mobile/`，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
-- 自托管一键复现：单容器 `docker run ghcr.io/rain6fish/keelbase` / `docker compose up`（见 CLAUDE.md §7 与 `docs/manual/one-click-deploy.md`）；参考部署升级 = `git pull` + `docker compose build`。
+- 自托管一键复现：
+  - **权威路径（从源码完整复现）**：`./deploy/deploy.sh`（git clone → 一键部署 → 建管理员，见 `docs/manual/one-click-deploy.md`）；升级 = `git pull` + `docker compose build`。首次构建含 Flutter web 产物（10-20 分钟）。
+  - **快捷镜像路径**：单容器 `docker run -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`（随 `v*` tag 由 `.github/workflows/docker-publish.yml` 发布，含最近发布版——演示用，权威复现仍走 deploy.sh）。
 
 ---
 
