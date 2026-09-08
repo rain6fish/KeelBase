@@ -17,6 +17,25 @@ This project is under active development (pre-1.0). Security fixes are applied t
 | main (development) | ✅ Latest fixes applied / 应用最新修复 |
 | < latest release | ⚠️ Upgrade recommended / 建议升级 |
 
+### Maintenance & Sustainability (KB-8) / 维护、兼容与可持续性
+
+**Compatibility & upgrade path / 兼容边界与升级路径**
+- 语义化版本（SemVer）：1.0.x 增量维护；升 1.1 由产品证明期验收触发（非时间表）。当前 pre-1.0：安全修复落 `main` 并随下一版本发布。
+- 生成产物为**普通源码**（NestJS + 前端 + 权限 + 审计接线），不锁定平台——升级 = `npm run migration:run` 前滚 + 源码随仓库演进，无专有运行时升级负担。
+- 端点契约保持统一（REST/SSE/WS + 统一响应包装 + camelCase + ISO8601）；对外能力表述与边界见本文档 Trust Boundaries。
+- **LTS / 长期承诺**：计划于 1.1（产品证明达成）提供公开的兼容承诺与版本策略细化（含哪些契约三年不拆、安全修复节奏）；当前阶段如实标注「不维护 LTS 分支」。
+
+**Sustainability metrics (measurable) / 可持续性三指标（可测）**
+| 指标 Metric | 口径 Definition | 当前基线（2026-09）Baseline |
+|---|---|---|
+| 提交节奏 Commit cadence | 主仓近 30 天提交数（`git log --since`） | 高活跃（日均 ≥1 提交，公开可核） |
+| 贡献者 Contributors | GitHub/Gitee `contributors`（代码提交者） | 以作者为主 + AI 协助；外部按需（真实可核） |
+| 安全响应时限 Response SLA | 私密披露 → 确认 → 修复随发布（Reporting 流程） | 目标 **72h 确认**（见下文 Reporting） |
+
+**Reference deployment / 参考部署（可试跑，非生产 SLA）**
+- 演示环境 `https://demo.keelbase.com.cn`（三入口 `/user/` `/admin/` `/mobile/`，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
+- 自托管一键复现：单容器 `docker run ghcr.io/rain6fish/keelbase` / `docker compose up`（见 CLAUDE.md §7 与 `docs/manual/one-click-deploy.md`）；参考部署升级 = `git pull` + `docker compose build`。
+
 ---
 
 ## Reporting a Vulnerability / 漏洞报告
@@ -152,7 +171,7 @@ The security controls above describe what KeelBase *does*. The list below states
 > - N-8 → 治理策略 / 风险级 = [hs9-governance-policy.spec.md](docs/hs9-governance-policy.spec.md)
 > - N-9 → 合规定位 = [enterprise-capabilities.md](docs/enterprise-capabilities.md)（Compliance Path）+ [compliance-mapping.md](docs/manual/compliance-mapping.md)
 > - N-10 → 覆盖写路径范围 = [hs11-audit-chain.spec.md](docs/hs11-audit-chain.spec.md)（含 operation-audit 覆盖，见 `Server-NestJS/test/`）
-> - N-11 → 维护与披露现状 = 本 SECURITY + [threat-model](docs/security/threat-model.md)（KB-8 落地后更新）
+> - N-11 → 维护与披露现状 = 本 SECURITY（Supported Versions → Maintenance & Sustainability 三指标 + Reporting 流程）+ [threat-model](docs/security/threat-model.md)
 > - N-12 → Java 接入路径 = [integrator-kit](docs/integrator-kit/)（java-starter 为探针）
 > - N-13 → 前端定位 = [product-language.md](docs/manual/product-language.md) + [architecture-boundary.md](docs/architecture-boundary.md)
 
