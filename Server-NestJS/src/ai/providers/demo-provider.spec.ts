@@ -9,6 +9,7 @@
 
 import { DemoProvider } from './demo-provider';
 import { ChatMessage } from '../interfaces/llm-provider.interface';
+import { ToolDefinition } from '../interfaces/tool.interface';
 
 /** 构造「assistant 发起工具调用 + 紧跟其 tool 结果」两轮消息（末条为 tool 角色） */
 function toolRound(name: string, result: unknown, args = '{}'): ChatMessage[] {
@@ -350,6 +351,62 @@ describe('DemoProvider', () => {
       expect(text.length).toBeGreaterThan(1);
       expect(text.join('')).toContain('演示模式');
       expect(types[types.length - 1]).toBe('done');
+    });
+  });
+
+  // ── 通用生成模块 create 路由（Proof Card R7，2026-09-08）──────────────────
+  describe('通用生成模块 create 路由（--spec 生成工具）', () => {
+    const createInvoiceDef = {
+      type: 'function',
+      function: {
+        name: 'create_invoice',
+        description: '创建发票',
+        parameters: {
+          type: 'object',
+          properties: {
+            invoiceNo: { type: 'string' },
+            customerName: { type: 'string' },
+            amount: { type: 'integer' },
+          },
+          required: ['invoiceNo'],
+        },
+      },
+    } as ToolDefinition;
+
+    it('创建意图 + 必填参数=值 → 路由 create_invoice 并解析参数', async () => {
+      const messages: ChatMessage[] = [
+        { role: 'user', content: '请创建一张发票：invoiceNo=INV-X1，customerName=张三，amount=1200，status=draft。' },
+      ];
+      const r = await provider.generate({ messages, tools: [createInvoiceDef] });
+      expect(r.toolCalls?.[0]?.name).toBe('create_invoice');
+      const args = JSON.parse(r.toolCalls![0].arguments);
+      expect(args.invoiceNo).toBe('INV-X1');
+      expect(args.amount).toBe(1200);
+    });
+
+    it('创建意图但缺必填参数 → 不路由，回落默认文案', async () => {
+      const messages: ChatMessage[] = [{ role: 'user', content: '请创建一张发票' }];
+      const r = await provider.generate({ messages, tools: [createInvoiceDef] });
+      expect(r.toolCalls ?? []).toHaveLength(0);
+      expect(r.content).toContain('演示模式');
+    });
+
+    it('旗舰跟进话术不被通用路由劫持（denylist + 无 k=v）', async () => {
+      const followupDef = {
+        type: 'function',
+        function: {
+          name: 'create_followup_task',
+          description: '创建跟进任务',
+          parameters: {
+            type: 'object',
+            properties: { customerId: { type: 'integer' }, title: { type: 'string' } },
+            required: ['customerId', 'title'],
+          },
+        },
+      } as ToolDefinition;
+      const messages: ChatMessage[] = [{ role: 'user', content: '为「蓝湾地产」创建跟进任务：跟进签约' }];
+      const r = await provider.generate({ messages, tools: [followupDef, createInvoiceDef] });
+      expect(r.toolCalls?.[0]?.name).toBe('create_followup_task');
     });
   });
 });
