@@ -8,6 +8,24 @@
       </el-button>
     </PageHeader>
 
+    <!-- ② 真落库衔接：AI 写执行成功后提示「下一步 → 撤销/管理」（我的 AI 行为） -->
+    <el-alert
+      v-if="lastWrite"
+      type="success"
+      :closable="true"
+      class="mb-4"
+      @close="lastWrite = null"
+    >
+      <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+        <span class="d-flex align-center">
+          <AppIcon icon="mdi-creation-outline" class="mr-1" />{{ t('copilotExecutedBanner') }}
+        </span>
+        <el-button size="small" type="success" plain @click="goAiActions">
+          <AppIcon icon="mdi-undo" class="mr-1" />{{ t('copilotGoRevoke') }}
+        </el-button>
+      </div>
+    </el-alert>
+
     <el-row v-if="detail" :gutter="16" class="mb-4">
       <el-col :xs="24" :md="8">
         <el-card shadow="never" class="h-100">
@@ -188,7 +206,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import CrmCopilotDrawer from '@/components/CrmCopilotDrawer.vue'
@@ -200,6 +218,7 @@ import { crmApi, type CrmCustomerDetail, type RiskAnalysis } from '@/api/crm'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const snackbar = useSnackbarStore()
 const id = Number(route.params.id)
 
@@ -268,9 +287,18 @@ function openHistory(resultType: string, resultId: number) {
   historyOpen.value = true
 }
 
+/** ② 真落库衔接：最近一次 AI 写执行成功（写副作用已登记）→ 顶部横幅提示可撤销/管理 */
+const lastWrite = ref<{ resultType: string; resultId: number } | null>(null)
+
+/** ② 去「我的 AI 行为」撤销 / 管理（该写副作用在此软删/看证据） */
+function goAiActions() {
+  router.push('/workbench/my-ai-actions')
+}
+
 /** D1 闭环：AI Copilot 执行写操作成功 → 刷新业务数据（新任务出现）+ 自动打开治理轨迹 */
 function onCopilotExecuted(payload: { resultType: string; resultId: number }) {
   load()
+  lastWrite.value = payload
   openGovernance(payload.resultType, payload.resultId)
 }
 

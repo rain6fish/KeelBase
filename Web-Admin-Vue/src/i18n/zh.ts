@@ -152,6 +152,8 @@ const zh = {
   createGuideBody: '上方四步是确定性「证明」。要让一次 AI 写操作真实落库：① 在刚创建的客户打开真实 AI 助手，发「为这个客户创建一个跟进任务」② 确认卡点「批准」→ 任务真实创建 ③ 到「我的 AI 行为」撤销（软删可恢复）④ 打开该条治理证据 / 完整轨迹。',
   createGuideStart: '打开真实 AI 助手（批准落库）',
   createGuideActions: '到「我的 AI 行为」撤销/看证据',
+  copilotExecutedBanner: 'AI 写操作已真实执行（副作用已登记）——可在「我的 AI 行为」撤销或查看证据',
+  copilotGoRevoke: '撤销 / 管理（我的 AI 行为）',
   journeyDismiss: '不再显示体验入口',
   journeyRestore: '重新显示「体验 KeelBase」入口',
   journeyStats: '已在本机完成旅程 {n} 次',

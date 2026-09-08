@@ -7,11 +7,12 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { detailMock, analyzeMock, snackMock, useRouteMock } = vi.hoisted(() => ({
+const { detailMock, analyzeMock, snackMock, useRouteMock, pushMock } = vi.hoisted(() => ({
   detailMock: vi.fn(),
   analyzeMock: vi.fn(),
   snackMock: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
   useRouteMock: vi.fn(),
+  pushMock: vi.fn(),
 }))
 
 vi.mock('@/api/crm', () => ({
@@ -32,6 +33,7 @@ vi.mock('@/api/client', () => {
 })
 vi.mock('vue-router', () => ({
   useRoute: () => useRouteMock(),
+  useRouter: () => ({ push: pushMock }),
 }))
 
 import ElementPlus from 'element-plus'
@@ -137,6 +139,24 @@ describe('CrmCustomerDetailView（AI CRM 客户详情）', () => {
     const copilot = wrapper.findComponent({ name: 'CrmCopilotDrawer' })
     expect(copilot.exists()).toBe(true)
     expect(copilot.props('modelValue')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('② AI 写执行成功(executed) → 顶部横幅「撤销/管理」，点击去我的 AI 行为', async () => {
+    detailMock.mockResolvedValue(detailMinimal)
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const copilot = wrapper.findComponent({ name: 'CrmCopilotDrawer' })
+    copilot.vm.$emit('executed', { resultType: 'crm_task', resultId: 7 })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('AI 写操作已真实执行')
+    const btn = wrapper.findAll('button').find((b) => b.text().includes('撤销 / 管理'))
+    expect(btn).toBeTruthy()
+    await btn!.trigger('click')
+    expect(pushMock).toHaveBeenCalledWith('/workbench/my-ai-actions')
     wrapper.unmount()
   })
 
