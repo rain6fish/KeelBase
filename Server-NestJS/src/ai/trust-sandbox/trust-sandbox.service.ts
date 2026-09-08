@@ -6,6 +6,18 @@ import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 
+/** Trust 旅程一键连跑（P0-2）的编排步骤：Ask → 人工确认 → 越权拒绝 → 高风险阻断 */
+export interface TrustSandboxJourneyStep {
+  step: 'ask' | 'act' | 'break_deny' | 'break_block';
+  scenario: string;
+  outcome: string;
+  detail?: string;
+  conversationId?: string;
+  resultType?: string;
+  resultId?: number;
+  requiresConfirmation?: boolean;
+}
+
 /**
  * Trust 沙盘（internal-roadmap §internal.15 可视化 P0）：评审/集成商在工作台一键重放
  * Trust 证明包六场景（Business-safe Trust 链路），返回可渲染的活数据
@@ -66,6 +78,35 @@ export class TrustSandboxService {
       default:
         return { scenario: scenarioId, outcome: 'unknown' };
     }
+  }
+
+  /**
+   * P0-2 旅程一键连跑（首次评审 3 分钟闭环）：Ask → 人工确认 → 越权拒绝 → 高风险阻断，
+   * 一次返回四步（确定性 demo provider，无 LLM key）。结尾由前端用 ask 的 conversation/resultId
+   * 直达执行轨迹与业务动作治理详情。
+   */
+  async journey(userId: string): Promise<{ journey: 'trust'; steps: TrustSandboxJourneyStep[] }> {
+    const ts = Date.now() % 1_000_000;
+    const toStep = (
+      step: TrustSandboxJourneyStep['step'],
+      r: Record<string, unknown>,
+    ): TrustSandboxJourneyStep => ({
+      step,
+      scenario: String(r.scenario),
+      outcome: String(r.outcome),
+      detail: r.detail as string | undefined,
+      conversationId: r.conversationId as string | undefined,
+      resultType: r.resultType as string | undefined,
+      resultId: r.resultId as number | undefined,
+      requiresConfirmation: r.requiresConfirmation as boolean | undefined,
+    });
+    const steps: TrustSandboxJourneyStep[] = [
+      toStep('ask', await this.s1(userId, ts)),
+      toStep('act', await this.s4(userId, ts)),
+      toStep('break_deny', await this.s2(userId, ts)),
+      toStep('break_block', await this.s3(userId, ts)),
+    ];
+    return { journey: 'trust', steps };
   }
 
   /** S1 正常成功：建客户+2 笔逾期订单 → AI 风险分析（critical） */

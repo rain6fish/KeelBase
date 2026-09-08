@@ -24,7 +24,7 @@
           <div class="text-h6">{{ t('trustJourneyTitle') }}</div>
           <div class="text-body-2 text-medium-emphasis mt-1">{{ t('trustJourneySubtitle') }}</div>
         </div>
-        <el-button type="primary" size="large" @click="router.push('/workbench/trust-sandbox')">
+        <el-button type="primary" size="large" @click="router.push('/workbench/trust-sandbox?journey=1')">
           <AppIcon icon="mdi-play" class="mr-1" />{{ t('trustJourneyStart') }}
         </el-button>
       </div>

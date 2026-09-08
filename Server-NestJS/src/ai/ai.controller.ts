@@ -328,6 +328,16 @@ export class AiController {
     );
   }
 
+  /** P0-2 旅程一键连跑：Ask→人工确认→越权拒绝→高风险阻断（一次返回四步，确定性 demo provider） */
+  @Post('trust-sandbox/journey')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Trust 沙盘：3 分钟旅程一键连跑（本人）' })
+  async runTrustSandboxJourney(@CurrentUser() user: JwtPayload) {
+    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+      this.trustSandbox.journey(String(user.sub)),
+    );
+  }
+
   /**
    * HS-3 AI 副作用记录（管理台可见）：AI 创建的 event/todo 清单，可定位并撤销
    */

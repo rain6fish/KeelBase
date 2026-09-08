@@ -117,6 +117,7 @@ describe('WorkbenchHomeView', () => {
     const startBtn = wrapper.findAll('button').find((b) => b.text().includes('开始 3 分钟体验'))
     expect(startBtn).toBeTruthy()
     await startBtn!.trigger('click')
-    expect(pushMock).toHaveBeenCalledWith('/workbench/trust-sandbox')
+    // P0-2：带 ?journey=1 落地即自动一键连跑
+    expect(pushMock).toHaveBeenCalledWith('/workbench/trust-sandbox?journey=1')
   })
 })

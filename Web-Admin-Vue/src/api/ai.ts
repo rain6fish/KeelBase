@@ -34,6 +34,23 @@ export interface TrustSandboxScenario {
   outcome: string
 }
 
+/** P0-2 旅程一键连跑的一步（Ask → 人工确认 → 越权拒绝 → 高风险阻断） */
+export interface TrustSandboxJourneyStep {
+  step: 'ask' | 'act' | 'break_deny' | 'break_block'
+  scenario: string
+  outcome: TrustSandboxRunResult['outcome']
+  detail?: string
+  conversationId?: string
+  resultType?: string
+  resultId?: number
+  requiresConfirmation?: boolean
+}
+
+export interface TrustSandboxJourneyResult {
+  journey: 'trust'
+  steps: TrustSandboxJourneyStep[]
+}
+
 export const aiApi = {
   chat(data: UserAiChatRequest): Promise<UserAiChatResponse> {
     return api.post<UserAiChatResponse>('/ai/chat', data)
@@ -43,5 +60,8 @@ export const aiApi = {
   },
   trustSandboxRun(scenarioId: string): Promise<TrustSandboxRunResult> {
     return api.post<TrustSandboxRunResult>(`/ai/trust-sandbox/run/${scenarioId}`)
+  },
+  trustSandboxJourney(): Promise<TrustSandboxJourneyResult> {
+    return api.post<TrustSandboxJourneyResult>('/ai/trust-sandbox/journey')
   },
 }
