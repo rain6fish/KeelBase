@@ -23,7 +23,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
@@ -554,6 +554,20 @@ export class AiController {
   }
 
   /**
+   * G1（docs/revoke-contract.spec.md §3 Case B）：会话级批量撤销——一键撤销某会话全部 AI 写副作用
+   * （本地软删可回收站恢复 / B 路径外部走补偿），返回逐条+汇总。管理员视角任意会话。
+   */
+  @Delete('tool-effects')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '撤销某会话全部 AI 副作用（管理员，会话级批量，G1）' })
+  async revokeConversationEffects(
+    @Query('conversationId') conversationId: string,
+  ) {
+    if (!conversationId) throw new BadRequestException('conversationId 必填');
+    return this.toolEffectsService.revokeConversation(conversationId);
+  }
+
+  /**
    * AI Action Center（§internal.17 北极星用户侧，docs/ai-action-center.spec.md）：本人 AI 写副作用清单。
    * 本人作用域（service listOwned where userId）；无 admin 策略；数据最小化不回显 args/快照。
    */
@@ -580,5 +594,21 @@ export class AiController {
     const result = await this.toolEffectsService.revokeOwned(id, String(user.sub));
     if (!result) throw new NotFoundException('副作用记录不存在');
     return result;
+  }
+
+  /**
+   * G1 用户侧会话级批量撤销（AI Action Center 本人作用域）：一键撤销某会话本人产生的全部 AI 写副作用。
+   * ownerId 过滤在 service（只撤 effect.userId === 当前用户），非本人效果不在此会话 → 结果为空集不算越权。
+   */
+  @Delete('my/tool-effects')
+  @ApiOperation({ summary: '撤销本人在某会话的全部 AI 副作用（会话级批量，G1）' })
+  async revokeMyConversationEffects(
+    @Query('conversationId') conversationId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!conversationId) throw new BadRequestException('conversationId 必填');
+    return this.toolEffectsService.revokeConversation(conversationId, {
+      ownerId: String(user.sub),
+    });
   }
 }

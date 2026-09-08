@@ -30,7 +30,7 @@
 | Case | 场景 | 通过判据 / Pass criterion | 状态 |
 |---|---|---|---|
 | A | 单实体：`create event → revoke → 消失` | 软删 + 回收站可恢复；`revokeStatus=revoked` | ✅ 已实现（LocalEntityRevoker + RG-3） |
-| B | 多实体 / 同次 run 多写 | 一次确认（run）产多 effect，可**一键批量撤销整个 run**，结果逐条汇总、部分失败清晰 | ⚠️ 缺 run/会话级批量撤销（现逐条 `revoke(id)`） |
+| B | 多实体 / 同次 run 多写 | 一键批量撤销（会话/run 粒度），结果逐条汇总、部分失败清晰 | ✅ **会话级批量已实现**（`DELETE /ai/tool-effects?conversationId=` admin / `/ai/my/tool-effects?conversationId=` 本人，逐条软删/外部补偿 + 汇总）；⚠️ run 精确粒度待 KB-5 run 落库后按 run_id |
 | B2 | 级联：单一复合写工具内部建多行/多表 | 撤销级联清理关联行，或显式声明不可级联并防误删 | ⚠️ 未建模（revoke 仅删 `resultId` 单行） |
 | C | 事务 / 部分失败 | 单操作 DB 原子；同批多写部分失败时，已成功部分可被清晰列出并由用户撤销 | ⚠️ 部分：DB 层原子已保证；无"失败自动清扫已成功部分" |
 | D | 异步副作用（AI → 队列 job） | `queued/processing` 中间态建模 + 终态收敛 | ⚠️ 本仓 AI 写暂不异步化；未来触发需补状态机 |
@@ -39,7 +39,7 @@
 
 ## 4. 已知缺口与后续 / Known gaps & follow-ups
 
-- **G1 run/会话级批量撤销**：对一次 run（KB-5 `mode:'run'` 聚合）的所有 effect 一键撤销 + 结果汇总。可先复用 `listForConversation` 做逐条执行聚合，避免引入副作用树。
+- **G1 run/会话级批量撤销**：✅ **会话级已落地（2026-09）**——`DELETE /ai/tool-effects?conversationId=`（admin）与 `/ai/my/tool-effects?conversationId=`（本人，owner 过滤）逐条复用档位门控撤销 + 汇总（service `revokeConversation`）。⚠️ **run 精确粒度待 KB-5 run（单轮聚合）源码落地**：run 授权落库后把 run_id 挂到 effects，再做 run 级批量（现无 run 实体，不加死列）。
 - **G2 外部补偿终态收敛**：`compensating` 长期悬空的展示问题——先做 UI/审计面明确"结果在目标系统"，后续可选轮询/回调。
 - **G3 级联副作用边界**：近期无复合写工具则先文档化；出现时给父子 effect 引用最小契约。
 - **G4 每个非 none 工具的撤销 E2E 纳入 release-gate**：把 §2 验收清单固化成回归，防止新工具"声明可撤但撤不动"。
