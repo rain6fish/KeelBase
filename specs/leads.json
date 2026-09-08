@@ -1,0 +1,11 @@
+{
+  "module": "leads",
+  "label": "线索",
+  "fields": [
+    { "name": "name", "type": "string", "label": "线索名", "required": true },
+    { "name": "company", "type": "string", "label": "公司" },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["new", "contacted", "qualified", "won", "lost"] },
+    { "name": "priority", "type": "enum", "label": "优先级", "enum": ["low", "medium", "high"] },
+    { "name": "estimatedValue", "type": "int", "label": "预估金额" }
+  ]
+}
