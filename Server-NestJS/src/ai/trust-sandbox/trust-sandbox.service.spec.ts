@@ -56,6 +56,28 @@ describe('TrustSandboxService', () => {
     ]);
   });
 
+  it('P0-2 journey：Ask→人工确认→越权拒绝→高风险阻断 四步编排', async () => {
+    crmService.createCustomer.mockResolvedValue({ id: 9, name: '沙盘客户' });
+    crmService.createOrder.mockResolvedValue({});
+    aiService.chat.mockImplementation((_u: string, opts: { message: string }) =>
+      opts.message.includes('删除')
+        ? Promise.resolve({ conversationId: 'conv-3', reply: 'Tool "delete_customer" is blocked (risk level R5)' })
+        : Promise.resolve({ conversationId: 'conv-1', reply: '风险等级：critical（评分 12）' }),
+    );
+    aiService.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    usersService.create.mockResolvedValue({ id: 77 });
+    crmService.getCustomer360Data.mockRejectedValue(new ForbiddenException('无权访问此客户'));
+
+    const j = await sandbox.journey('42');
+    expect(j.journey).toBe('trust');
+    expect(j.steps.map((s) => s.step)).toEqual(['ask', 'act', 'break_deny', 'break_block']);
+    expect(j.steps.map((s) => s.scenario)).toEqual(['s1_normal', 's4_confirm', 's2_denied', 's3_r5_block']);
+    expect(j.steps.every((s) => s.outcome === 'passed')).toBe(true);
+    expect(j.steps[0].conversationId).toBe('conv-1'); // ask 留痕供「打开执行轨迹」
+    expect(j.steps[1].requiresConfirmation).toBe(true);
+    expect(j.steps[3].conversationId).toBe('conv-3');
+  });
+
   it('s1_normal：建客户+逾期订单 → AI 风险分析 critical → passed + conversationId', async () => {
     crmService.createCustomer.mockResolvedValue({ id: 9, name: '沙盘客户123' });
     crmService.createOrder.mockResolvedValue({});

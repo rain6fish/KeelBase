@@ -7,22 +7,25 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { runMock, pushMock } = vi.hoisted(() => ({
+const { runMock, journeyMock, pushMock, routeState } = vi.hoisted(() => ({
   runMock: vi.fn(),
+  journeyMock: vi.fn(),
   pushMock: vi.fn(),
+  routeState: { query: {} as Record<string, string> },
 }))
 
 vi.mock('@/api/ai', () => ({
-  aiApi: { trustSandboxRun: runMock },
+  aiApi: { trustSandboxRun: runMock, trustSandboxJourney: journeyMock },
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
+  useRoute: () => routeState,
 }))
 
 import ElementPlus from 'element-plus'
 import TrustSandboxView from '../TrustSandboxView.vue'
 
-// PageHeader stub：渲染 title/subtitle
+// PageHeader stub：渲染 title/subtitle 与默认槽
 const PageHeaderStub = defineComponent({
   name: 'PageHeader',
   props: ['title', 'subtitle'],
@@ -48,8 +51,21 @@ function resultDialog(wrapper: ReturnType<typeof mountView>) {
   return wrapper.find('.el-dialog')
 }
 
+function journeyStepsPayload() {
+  return {
+    journey: 'trust' as const,
+    steps: [
+      { step: 'ask' as const, scenario: 's1_normal', outcome: 'passed' as const, detail: '风险等级 critical（评分 12）', conversationId: 'conv-ask', resultType: 'crm_customer', resultId: 42 },
+      { step: 'act' as const, scenario: 's4_confirm', outcome: 'passed' as const, detail: '写工具触发确认门控（R3）', requiresConfirmation: true },
+      { step: 'break_deny' as const, scenario: 's2_denied', outcome: 'passed' as const, detail: 'bob 访问客户 #9 被拒' },
+      { step: 'break_block' as const, scenario: 's3_r5_block', outcome: 'passed' as const, detail: 'delete_customer blocked (R5)', conversationId: 'conv-block' },
+    ],
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  routeState.query = {}
 })
 
 afterEach(() => {
@@ -57,7 +73,7 @@ afterEach(() => {
 })
 
 describe('TrustSandboxView（Trust 沙盘）', () => {
-  it('挂载 → 渲染六场景卡（标题/副标题/运行按钮），不弹结果弹窗', async () => {
+  it('挂载 → 渲染六场景卡 + 「开始 3 分钟体验」，不弹结果弹窗', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -67,8 +83,9 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     expect(wrapper.text()).toContain('写操作需人工确认') // s4
     expect(wrapper.text()).toContain('存量 Java 系统接入') // s6
     expect(runButtons(wrapper).length).toBe(6)
-    // 挂载不触发任何 API，也不显示弹窗
+    expect(wrapper.findAll('button').some((b) => b.text().includes('开始 3 分钟体验'))).toBe(true)
     expect(runMock).not.toHaveBeenCalled()
+    expect(journeyMock).not.toHaveBeenCalled()
     expect(resultDialog(wrapper).exists()).toBe(false)
     wrapper.unmount()
   })
@@ -132,6 +149,51 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     await traceBtn!.trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith('/workbench/ai-trace?conv=conv-s3')
+    wrapper.unmount()
+  })
+
+  it('P0-2 一键连跑：开始 → 四步逐条推进，跳过动画后完成，可直达执行轨迹', async () => {
+    journeyMock.mockResolvedValue(journeyStepsPayload())
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const startBtn = wrapper.findAll('button').find((b) => b.text().includes('开始 3 分钟体验'))
+    await startBtn!.trigger('click')
+    await flushPromises()
+
+    expect(journeyMock).toHaveBeenCalled()
+    // 弹窗打开，首步已展示
+    const dlg = wrapper.findAll('.el-dialog').find((d) => d.text().includes('旅程完成') || d.text().includes('① Ask'))
+    expect(dlg).toBeTruthy()
+    expect(dlg!.text()).toContain('① Ask')
+
+    // 跳过动画 → 四步全部展示 + 完成态
+    const skipBtn = wrapper.findAll('button').find((b) => b.text().includes('跳过动画'))
+    expect(skipBtn).toBeTruthy()
+    await skipBtn!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.ts-journey-step').length).toBe(4)
+    expect(wrapper.text()).toContain('旅程完成')
+    const traceBtn = wrapper.findAll('button').find((b) => b.text().includes('查看执行轨迹'))
+    expect(traceBtn).toBeTruthy()
+    await traceBtn!.trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/workbench/ai-trace?conv=conv-ask')
+
+    wrapper.unmount()
+  })
+
+  it('P0-2 ?journey=1 落地 → 自动开始一键连跑', async () => {
+    journeyMock.mockResolvedValue(journeyStepsPayload())
+    routeState.query = { journey: '1' }
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(journeyMock).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('① Ask')
     wrapper.unmount()
   })
 
