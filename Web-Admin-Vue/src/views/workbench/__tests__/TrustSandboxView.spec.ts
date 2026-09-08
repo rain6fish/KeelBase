@@ -7,15 +7,22 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { runMock, journeyMock, pushMock, routeState } = vi.hoisted(() => ({
+const { runMock, journeyMock, journeyCompleteMock, journeyStatsMock, pushMock, routeState } = vi.hoisted(() => ({
   runMock: vi.fn(),
   journeyMock: vi.fn(),
+  journeyCompleteMock: vi.fn(),
+  journeyStatsMock: vi.fn(),
   pushMock: vi.fn(),
   routeState: { query: {} as Record<string, string> },
 }))
 
 vi.mock('@/api/ai', () => ({
-  aiApi: { trustSandboxRun: runMock, trustSandboxJourney: journeyMock },
+  aiApi: {
+    trustSandboxRun: runMock,
+    trustSandboxJourney: journeyMock,
+    trustSandboxJourneyComplete: journeyCompleteMock,
+    trustSandboxJourneyStats: journeyStatsMock,
+  },
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
@@ -66,6 +73,8 @@ function journeyStepsPayload() {
 beforeEach(() => {
   vi.clearAllMocks()
   routeState.query = {}
+  journeyCompleteMock.mockResolvedValue({ ok: true })
+  journeyStatsMock.mockResolvedValue({ today: 0, total: 0, todayDate: '' })
 })
 
 afterEach(() => {
@@ -247,8 +256,12 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     await wrapper.findAll('button').find((b) => b.text().includes('跳过动画'))!.trigger('click')
     await flushPromises()
 
+    await flushPromises()
     expect(wrapper.text()).toContain('已在本机完成旅程 1 次')
     expect(JSON.parse(localStorage.getItem('trust_journey_stats') ?? '{}').completed).toBe(1)
+    // P2 ③ 跨访客：上报服务器 + 页面展示今日/累计
+    expect(journeyCompleteMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('跨访客')
     localStorage.removeItem('trust_journey_stats')
     wrapper.unmount()
   })
