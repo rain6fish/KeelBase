@@ -176,6 +176,11 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
 
     expect(wrapper.findAll('.ts-journey-step').length).toBe(4)
     expect(wrapper.text()).toContain('旅程完成')
+    // Powered by 能力标签（Story→Capability）
+    expect(wrapper.text()).toContain('本人数据作用域')
+    expect(wrapper.text()).toContain('CASL 行级权限')
+    expect(wrapper.text()).toContain('风险策略（阻断）')
+    expect(wrapper.text()).toContain('人工确认（Human Approval）')
     const traceBtn = wrapper.findAll('button').find((b) => b.text().includes('查看执行轨迹'))
     expect(traceBtn).toBeTruthy()
     await traceBtn!.trigger('click')
