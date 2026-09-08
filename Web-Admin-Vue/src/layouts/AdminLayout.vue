@@ -23,6 +23,12 @@
             <template #title>{{ t('overview') }}</template>
           </el-menu-item>
 
+          <!-- P0-1 评审路径：admin 控制台壳内一次点击直达 Trust 之旅（六场景/轨迹/治理详情已对 admin 放开） -->
+          <el-menu-item v-if="showOverview" index="/workbench/trust-sandbox" @click="go('/workbench/trust-sandbox')">
+            <AppIcon icon="mdi-rocket-launch-outline" />
+            <template #title>{{ t('trustJourneyNav') }}</template>
+          </el-menu-item>
+
           <!-- Materio 式二级可折叠菜单：一级分组（图标+标题，可展开/折叠），二级子项；组内有激活子项时一级显示浅色 -->
           <el-sub-menu v-for="group in navGroups" :key="group.label" :index="group.label" :class="{ 'is-active-group': group.label === activeGroup }">
             <template #title>

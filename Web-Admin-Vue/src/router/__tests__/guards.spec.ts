@@ -65,6 +65,28 @@ describe('路由守卫角色分流', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
+  it('P0-1 admin 评审路径：Trust 沙盘/执行轨迹/业务动作详情对 admin 放开（控制台壳内直达）', async () => {
+    const router = makeRouter()
+    await loginAs('admin')
+
+    await router.push('/workbench/trust-sandbox')
+    expect(router.currentRoute.value.path).toBe('/workbench/trust-sandbox')
+
+    await router.push('/workbench/ai-trace')
+    expect(router.currentRoute.value.path).toBe('/workbench/ai-trace')
+
+    await router.push('/workbench/action/crm_customer/42')
+    expect(router.currentRoute.value.path).toBe('/workbench/action/crm_customer/42')
+  })
+
+  it('admin 访问其余工作台页（如事件）仍弹回控制台（不落地日常业务）', async () => {
+    const router = makeRouter()
+    await loginAs('admin')
+
+    await router.push('/workbench/todos')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
   it('admin 访问控制台 → 停驻', async () => {
     const router = makeRouter()
     await loginAs('admin')

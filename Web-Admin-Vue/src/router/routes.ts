@@ -71,10 +71,12 @@ const workbenchRoute: RouteRecordRaw = {
     { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
     { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
     { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
-    { path: 'ai-trace', name: 'workbench-ai-trace', component: () => import('@/views/workbench/AiTraceView.vue'), meta: { title: 'aiTraceTitle' } },
-    { path: 'trust-sandbox', name: 'workbench-trust-sandbox', component: () => import('@/views/workbench/TrustSandboxView.vue'), meta: { title: 'trustSandboxTitle' } },
+    // P0-1 评审路径：Trust 旅程链条（沙盘六场景 → 执行轨迹 → 业务动作治理详情）对 admin 放开，
+    // 使 admin 在控制台壳内一次点击即达（其余工作台页仍限 user，评审默认不落地日常业务）
+    { path: 'ai-trace', name: 'workbench-ai-trace', component: () => import('@/views/workbench/AiTraceView.vue'), meta: { title: 'aiTraceTitle', roles: ['user', 'admin'] } },
+    { path: 'trust-sandbox', name: 'workbench-trust-sandbox', component: () => import('@/views/workbench/TrustSandboxView.vue'), meta: { title: 'trustSandboxTitle', roles: ['user', 'admin'] } },
     { path: 'my-ai-actions', name: 'workbench-my-ai-actions', component: () => import('@/views/workbench/MyAiActionCenterView.vue'), meta: { title: 'aiCenterTitle' } },
-    { path: 'action/:resultType/:resultId', name: 'workbench-action-detail', component: () => import('@/views/workbench/BusinessActionDetailView.vue'), meta: { title: 'workbenchActionDetail' } },
+    { path: 'action/:resultType/:resultId', name: 'workbench-action-detail', component: () => import('@/views/workbench/BusinessActionDetailView.vue'), meta: { title: 'workbenchActionDetail', roles: ['user', 'admin'] } },
     { path: 'org', name: 'workbench-org', component: () => import('@/views/workbench/OrgDirectoryView.vue'), meta: { title: 'workbenchOrgDir' } },
     { path: 'crm', name: 'workbench-crm', component: () => import('@/views/workbench/CrmCustomersView.vue'), meta: { title: 'crmTitle' } },
     { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle' } },

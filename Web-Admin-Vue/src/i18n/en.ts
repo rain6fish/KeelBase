@@ -136,6 +136,7 @@ const en: ZhDict = {
   securityShowcaseEmpty: 'No adversarial scenarios',
   runDemo: 'Run demo',
   // Trust Journey (First-time Demo Journey): a first-run 3-minute Trust loop on the home screen
+  trustJourneyNav: 'Experience KeelBase',
   trustJourneyTitle: 'Experience KeelBase: The Trust Journey',
   trustJourneySubtitle: 'Let AI read real business data, propose a write, get denied / blocked — every decision opens a full execution trace. Deterministic demo, no LLM key needed.',
   trustJourneyStart: 'Start the 3-minute journey',
