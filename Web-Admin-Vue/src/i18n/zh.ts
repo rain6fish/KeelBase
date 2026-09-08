@@ -155,6 +155,7 @@ const zh = {
   journeyDismiss: '不再显示体验入口',
   journeyRestore: '重新显示「体验 KeelBase」入口',
   journeyStats: '已在本机完成旅程 {n} 次',
+  journeyServerStats: '今日完成 {t} 次 · 累计 {n} 次（跨访客）',
   capOwnScope: '本人数据作用域',
   capTrace: 'Decision Trace（全程留痕）',
   capCasl: 'CASL 行级权限',

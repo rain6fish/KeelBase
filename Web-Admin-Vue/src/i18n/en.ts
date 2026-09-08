@@ -154,6 +154,7 @@ const en: ZhDict = {
   journeyDismiss: 'Hide experience entry',
   journeyRestore: 'Re-show "Experience KeelBase" entry',
   journeyStats: 'Trust journey completed {n}× on this browser',
+  journeyServerStats: 'Completed today: {t} · all-time: {n} (across visitors)',
   capOwnScope: 'Own-data scope',
   capTrace: 'Decision Trace (fully recorded)',
   capCasl: 'CASL row-level policy',

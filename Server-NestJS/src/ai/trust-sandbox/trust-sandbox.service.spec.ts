@@ -30,6 +30,19 @@ describe('TrustSandboxService', () => {
   };
   let usersRepo: { createQueryBuilder: jest.Mock };
   let abilityFactory: { createForUser: jest.Mock };
+  let settingsService: { getWithDefault: jest.Mock; set: jest.Mock };
+  let statsStore: string;
+
+  beforeEach(() => {
+    statsStore = '{}';
+    settingsService = {
+      getWithDefault: jest.fn(async () => statsStore),
+      set: jest.fn(async (_k: string, v: unknown) => {
+        statsStore = String(v);
+        return {};
+      }),
+    };
+  });
 
   beforeEach(() => {
     aiService = {
@@ -65,6 +78,7 @@ describe('TrustSandboxService', () => {
       effectsService as never,
       usersRepo as never,
       abilityFactory as never,
+      settingsService as never,
     );
   });
 
@@ -144,6 +158,16 @@ describe('TrustSandboxService', () => {
     expect(r.removedBobUsers).toBe(1); // 43 删，42 本人跳过
     expect(usersService.remove).toHaveBeenCalledWith(43);
     expect(usersService.remove).not.toHaveBeenCalledWith(42);
+  });
+
+  it('P2 ③ recordJourneyCompleted / journeyStats：今日完成 +1、累计递增（跨访客聚合）', async () => {
+    await sandbox.recordJourneyCompleted();
+    await sandbox.recordJourneyCompleted();
+    const s = await sandbox.journeyStats();
+    expect(s.total).toBe(2);
+    expect(s.today).toBe(2);
+    expect(s.todayDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(settingsService.set).toHaveBeenCalledTimes(2);
   });
 
   it('s1_normal：建客户+逾期订单 → AI 风险分析 critical → passed + conversationId', async () => {
