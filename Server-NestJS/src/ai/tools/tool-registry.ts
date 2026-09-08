@@ -13,6 +13,7 @@ import {
   ToolDefinition,
   ToolResult,
   ToolRiskLevel,
+  resolveRevokeClass,
   resolveRiskLevel,
 } from '../interfaces/tool.interface';
 
@@ -26,6 +27,27 @@ export class ToolRegistry {
   register(tool: AiTool): void {
     if (this.tools.has(tool.name)) {
       throw new Error(`Tool "${tool.name}" is already registered`);
+    }
+    // KB-6 revokeClass 强制校验：确认写工具若**未显式声明**且被**静默推导**为 none（不可撤）必须显式声明——
+    // 否则副作用列表会声称可撤、撤销时却只能失败（做空"revoke≠rollback/外部撤销态"指控的诚实边界）。
+    // - 正常确认写（requiresConfirmation）被推导 local_compensate，不触发；
+    // - 显式声明 revokeClass（含 none/governed_external）放行——工具作者已诚实声明撤销能力；
+    // - 触发的是「riskLevel R3/R4 表达写语义、requiresConfirmation 未设且 revokeClass 未声明」的工具，
+    //   其 revokeClass 被静默推导 none，须显式声明。R5（永不执行）/ 读工具 / 干跑允许静默 none。
+    const risk = resolveRiskLevel(tool);
+    const semanticWrite =
+      tool.requiresConfirmation === true || risk === 'R3' || risk === 'R4';
+    if (
+      semanticWrite &&
+      tool.revokeClass === undefined &&
+      resolveRevokeClass(tool) === 'none'
+    ) {
+      throw new Error(
+        `Tool "${tool.name}" is a write (${risk}) but its revokeClass is silently derived as 'none' ` +
+          '(not revocable). Declare revokeClass explicitly (local_compensate if revocable via local ' +
+          'soft-delete, governed_external if revoked via a target-system compensation endpoint, none ' +
+          'only if truly irrevocable) — a silent `none` would misreport its side effects as revocable.',
+      );
     }
     this.tools.set(tool.name, tool);
   }

@@ -50,6 +50,7 @@
                   {{ tool.name }}
                   <el-tag v-if="tool.requiresConfirmation" size="small" type="warning" effect="light">{{ t('requiresConfirmation') }}</el-tag>
                   <el-tag v-if="tool.riskLevel" size="small" :type="riskTag(tool).type" effect="light">{{ tool.riskLevel }} · {{ riskTag(tool).label }}</el-tag>
+                  <el-tag v-if="tool.revokeClass" size="small" :type="revokeClassTag(tool.revokeClass).type" effect="plain">{{ revokeClassTag(tool.revokeClass).label }}</el-tag>
                 </div>
               </template>
               <div class="text-caption">
@@ -97,21 +98,26 @@
         <span v-else class="text-medium-emphasis">—</span>
       </template>
       <template #item.status="{ item }">
-        <StatusChip v-if="item.targetExists && !item.targetSoftDeleted" status="ok" :label-map="effectStatusMap" />
-        <StatusChip v-else-if="item.targetSoftDeleted" status="cancelled" :label-map="effectStatusMap" />
-        <StatusChip v-else status="down" :label-map="effectStatusMap" />
+        <!-- KB-6 据档位诚实渲染：none 不承诺可撤；governed_external 撤销后显示"已请求补偿/结果未知"而非已撤销 -->
+        <StatusChip v-if="item.status === 'revoked'" status="cancelled" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <StatusChip v-else-if="item.status === 'revoking_external'" status="revoking" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <StatusChip v-else-if="item.status === 'revoke_failed'" status="error" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <StatusChip v-else status="ok" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
       </template>
       <template #item.actions="{ item }">
         <el-button
+          v-if="canRevoke(item)"
           text
           size="small"
           type="danger"
-          :disabled="!item.targetExists || item.targetSoftDeleted"
           :title="t('revokeEffect')"
           @click="confirmRevoke(item)"
         >
           <AppIcon icon="mdi-undo-variant" />
         </el-button>
+        <span v-else-if="item.status === 'revoking_external'" class="text-medium-emphasis text-caption">{{ t('revokingExternalHint') }}</span>
+        <span v-else-if="item.status === 'revoke_failed'" class="text-error text-caption">{{ t('revokeFailed') }}</span>
+        <span v-else class="text-medium-emphasis text-caption">—</span>
       </template>
     </AppTable>
 
@@ -165,7 +171,34 @@ const contentSafety = ref<{ enabled: boolean; sensitiveText: string; jailbreakTe
 const savingSafety = ref(false)
 
 const resultTypeMap = computed(() => ({ event: t('events'), todo: t('todos') }))
-const effectStatusMap = computed(() => ({ ok: t('active'), cancelled: t('cancelled'), down: t('deleted') }))
+// KB-6：副作用归一状态文案 + 色（revoking_external = 已请求外部补偿/结果未知，禁显示 revoked）
+const effectStatusMap = computed(() => ({
+  ok: t('active'),
+  cancelled: t('cancelled'),
+  revoking: t('statusRevokingExternal'),
+  error: t('statusRevokeFailed'),
+}))
+const effectStatusColorMap = computed(() => ({
+  ok: 'success',
+  cancelled: 'warning',
+  revoking: 'warning',
+  error: 'danger',
+}))
+
+/** KB-6：撤销能力档位 tag（工具治理面可见分档） */
+function revokeClassTag(rk: string) {
+  if (rk === 'local_compensate') return { label: t('revokeClassLocal'), type: 'success' as const }
+  if (rk === 'governed_external') return { label: t('revokeClassGoverned'), type: 'warning' as const }
+  if (rk === 'transactional') return { label: t('revokeClassTransactional'), type: 'primary' as const }
+  return { label: t('revokeClassNone'), type: 'info' as const }
+}
+
+/** KB-6：仅本地可撤且未撤的动作显示撤销钮；none（不可撤）不显示；revoking_external/revoke_failed 已进入撤销流程不再显示 */
+function canRevoke(item: ToolEffect): boolean {
+  if (item.status && item.status !== 'executed') return false
+  const rk = item.revokeClass
+  return rk === 'local_compensate' || rk === 'transactional' || rk === 'governed_external'
+}
 
 /** E-1：副作用目标记录字段变更数（无快照 0；非法 JSON 0） */
 function diffCount(item: ToolEffect): number {

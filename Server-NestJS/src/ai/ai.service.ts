@@ -33,6 +33,7 @@ import {
   ToolResult,
   RISK_STRATEGY,
   AuthorizationDeniedError,
+  resolveRevokeClass,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor } from './tool-effects/write-effect-type';
@@ -708,6 +709,8 @@ export class AiService {
         permissions: tool.permissions ?? null,
         riskLevel,
         riskStrategy: RISK_STRATEGY[riskLevel],
+        // KB-6：撤销能力档位（none / local_compensate / governed_external / transactional）——工具治理面可见分档
+        revokeClass: resolveRevokeClass(tool),
       };
     });
   }

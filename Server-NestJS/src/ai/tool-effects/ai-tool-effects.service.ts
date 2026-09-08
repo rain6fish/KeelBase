@@ -11,12 +11,16 @@ import type { SideEffectRevoker } from './side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
 import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
+import { ToolRegistry } from '../tools/tool-registry';
+import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 
 export interface WriteToolContext {
   userId: string;
   conversationId?: string;
   toolName: string;
   args: Record<string, unknown>;
+  /** KB-6：副作用撤销能力档位（可直传；缺省由服务内按工具注册/resultType 兜底解析） */
+  revokeClass?: RevokeClass;
 }
 
 /** E-1 字段级变更快照（JSON 字符串；create 类 before 为 null） */
@@ -35,6 +39,8 @@ export type RevokeResult = {
   external?: boolean;
   compensated?: boolean;
   message?: string;
+  /** KB-6：撤销后回写的运维态（revoked=本地软删 / compensating=已请求外部补偿·结果未知 / revoke_failed=补偿失败） */
+  revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed';
 };
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
@@ -70,6 +76,8 @@ export class AiToolEffectsService {
     private readonly reporter?: GovernanceReporter,
     // G-3（§internal.17 ① G-3）：副作用哈希链（AuditChainService，ai.module 已 import AuditChainModule；缺失降级不链化）
     @Optional() private readonly auditChain?: AuditChainService,
+    // KB-6：工具注册表（解析副作用撤销能力档位快照；ToolRegistry 为 AiModule provider，构造器注入）
+    @Optional() private readonly toolRegistry?: ToolRegistry,
   ) {}
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
@@ -116,6 +124,8 @@ export class AiToolEffectsService {
       resultId,
       beforeSnapshot: snapshot?.before ?? null,
       afterSnapshot: snapshot?.after ?? null,
+      // KB-6：副作用发生时刻的撤销能力档位快照（ctx 直传优先；否则按工具注册/resultType 兜底）
+      revokeClass: ctx.revokeClass ?? this._resolveSnapshotClass(ctx.toolName, resultType),
     };
     // G-3（§internal.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）
     let chain: { prevHash: string | null; hash: string } | undefined;
@@ -140,6 +150,22 @@ export class AiToolEffectsService {
       this._reportEffect(ctx, resultType, resultId);
       return existing!;
     }
+  }
+
+  /**
+   * KB-6：解析副作用撤销能力档位快照。工具注册表命中 → 用工具显式/推导值（含 ProxyTool 显式档位）；
+   * 未注册（生成模块等动态工具）→ 按 revoker.canHandle(resultType) 兜底（本地可软删 → local_compensate，否则 none）。
+   */
+  private _resolveSnapshotClass(toolName: string, resultType: string): RevokeClass {
+    try {
+      const tool = this.toolRegistry?.getTool(toolName);
+      if (tool) return resolveRevokeClass(tool);
+    } catch {
+      // tool 未注册：落入 resultType 兜底
+    }
+    return this.revoker?.canHandle(resultType)
+      ? 'local_compensate'
+      : 'none';
   }
 
   /** G-3：副作用链 canonical payload（稳定字段；AuditChainService canonical 排序键 → 写入/校验一致） */
@@ -214,6 +240,7 @@ export class AiToolEffectsService {
     const enriched = await Promise.all(
       items.map(async (effect) => {
         const target = await this._loadTarget(effect.resultType, effect.resultId);
+        const targetSoftDeleted = target?.deletedAt != null;
         return {
           id: effect.id,
           toolName: effect.toolName,
@@ -223,10 +250,14 @@ export class AiToolEffectsService {
           argsHash: effect.argsHash,
           createdAt: effect.createdAt,
           targetExists: !!target,
-          targetSoftDeleted: target?.deletedAt != null,
+          targetSoftDeleted,
           targetTitle: target?.title ?? null,
           beforeSnapshot: effect.beforeSnapshot ?? null,
           afterSnapshot: effect.afterSnapshot ?? null,
+          // KB-6：撤销能力档位 + 归一状态（4 值），供前端据档位诚实渲染（none 不显示撤销钮）
+          revokeClass: this._readRevokeClass(effect),
+          revokeStatus: effect.revokeStatus ?? null,
+          status: this._normalizeStatus(effect, targetSoftDeleted),
         };
       }),
     );
@@ -264,7 +295,10 @@ export class AiToolEffectsService {
           targetExists: !!target,
           targetSoftDeleted,
           targetTitle: target?.title ?? null,
-          status: targetSoftDeleted ? 'revoked' : 'executed',
+          // KB-6：撤销能力档位 + 归一状态（4 值，禁把 governed_external 显示为 revoked）
+          revokeClass: this._readRevokeClass(effect),
+          revokeStatus: effect.revokeStatus ?? null,
+          status: this._normalizeStatus(effect, targetSoftDeleted),
         };
       }),
     );
@@ -294,6 +328,33 @@ export class AiToolEffectsService {
     };
   }
 
+  /**
+   * KB-6：读时 revokeClass 兜底（旧行/未快照行）。工具注册命中优先；否则按本地可软删推导。
+   */
+  private _readRevokeClass(effect: AiToolSideEffect): RevokeClass {
+    if (effect.revokeClass) return effect.revokeClass as RevokeClass;
+    return this._resolveSnapshotClass(effect.toolName, effect.resultType);
+  }
+
+  /**
+   * KB-6：status 归一（4 值），供 list/listOwned/listForConversation 共用。
+   * - targetSoftDeleted（本地 live 信号权威，RG-3 回收站恢复后自动回 executed）→ revoked
+   * - 否则按 revoke_status：compensating → revoking_external（已请求外部补偿·结果未知，禁 revoked）；
+   *   revoke_failed → revoke_failed；null/其他 → executed
+   * 兼容：旧本地已撤行经 targetSoftDeleted 仍 revoked；旧 proxy 行 class 兜底 none → executed（前端据此藏钮）。
+   */
+  private _normalizeStatus(effect: AiToolSideEffect, targetSoftDeleted: boolean): string {
+    if (targetSoftDeleted) return 'revoked';
+    switch (effect.revokeStatus) {
+      case 'compensating':
+        return 'revoking_external';
+      case 'revoke_failed':
+        return 'revoke_failed';
+      default:
+        return 'executed';
+    }
+  }
+
   /** §internal.16 A-2 业务实体账本：按实体取全部 AI 副作用（时间升序，供行为史聚合） */
   async findManyByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect[]> {
     return this.effectsRepo.find({
@@ -310,6 +371,7 @@ export class AiToolEffectsService {
     return Promise.all(
       items.map(async (effect) => {
         const target = await this._loadTarget(effect.resultType, effect.resultId);
+        const targetSoftDeleted = target?.deletedAt != null;
         return {
           id: effect.id,
           toolName: effect.toolName,
@@ -319,10 +381,14 @@ export class AiToolEffectsService {
           argsHash: effect.argsHash,
           createdAt: effect.createdAt.toISOString(),
           targetExists: !!target,
-          targetSoftDeleted: target?.deletedAt != null,
+          targetSoftDeleted,
           targetTitle: target?.title ?? null,
           beforeSnapshot: effect.beforeSnapshot ?? null,
           afterSnapshot: effect.afterSnapshot ?? null,
+          // KB-6：撤销能力档位 + 归一状态（执行轨迹面同样据档位诚实渲染）
+          revokeClass: this._readRevokeClass(effect),
+          revokeStatus: effect.revokeStatus ?? null,
+          status: this._normalizeStatus(effect, targetSoftDeleted),
         };
       }),
     );
@@ -346,29 +412,56 @@ export class AiToolEffectsService {
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
+    // KB-6：撤销能力档位门控——none（不可撤/外部未知）直接拒绝，不再误走 externalRevoker
+    // 制造"可撤销"假象。旧行 revokeClass 为 null 时按工具/resultType 兜底解析。
+    const revokeClass: RevokeClass =
+      (effect.revokeClass as RevokeClass) ??
+      this._resolveSnapshotClass(effect.toolName, effect.resultType);
+    if (revokeClass === 'none') {
+      return {
+        revoked: false,
+        effectId: effect.id,
+        external: effect.resultType === 'proxy_call',
+        message: '该副作用无撤销接口（revokeClass=none：不可撤 / 目标系统无补偿端点）',
+      };
+    }
+
     // D2-1f：本地实体撤销走 SideEffectRevoker（可替换为远程补偿 revoker）
-    if (this.revoker?.canHandle(effect.resultType)) {
+    if (revokeClass === 'local_compensate' && this.revoker?.canHandle(effect.resultType)) {
       const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
       this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-      return { revoked: r.revoked, effectId: effect.id, message: r.message };
+      if (r.revoked) await this._setRevokeStatus(effect, 'revoked');
+      return { revoked: r.revoked, effectId: effect.id, message: r.message, revokeStatus: r.revoked ? 'revoked' : 'revoke_failed' };
     }
-    // 非本地（proxy_call）：B 路径外部补偿
+    // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿
     if (this.externalRevoker) {
       const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
+      // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明"已请求"，Java 端结果未知 → 落 compensating 而非 revoked
+      await this._setRevokeStatus(effect, r.ok ? 'compensating' : 'revoke_failed');
       return {
         revoked: r.ok,
         effectId: effect.id,
         external: true,
         compensated: r.ok,
-        message: r.ok ? `Java 端已补偿（${r.message}）` : r.message,
+        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
+        message: r.ok ? `Java 端已请求补偿（${r.message}）；结果以目标系统为准` : r.message,
       };
     }
     return {
       revoked: false,
       effectId: effect.id,
       external: true,
-      message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删）',
+      message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删 / 未配置补偿执行器）',
     };
+  }
+
+  /** KB-6：回写 revoke_status 运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。 */
+  private async _setRevokeStatus(effect: AiToolSideEffect, status: 'revoked' | 'compensating' | 'revoke_failed'): Promise<void> {
+    try {
+      await this.effectsRepo.update(effect.id, { revokeStatus: status });
+    } catch (err) {
+      this.logger.warn(`[AiToolEffects] revoke_status update failed (effect ${effect.id}): ${(err as Error).message}`);
+    }
   }
 
   private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {

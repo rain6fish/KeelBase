@@ -126,6 +126,9 @@ export interface MyAiEffect {
   targetExists: boolean
   targetSoftDeleted: boolean
   targetTitle?: string | null
-  /** 服务端归一：目标软删 → revoked，否则 executed */
-  status: 'executed' | 'revoked'
+  /** KB-6：撤销能力档位（none / local_compensate / governed_external / transactional）——据档位决定是否可撤 */
+  revokeClass?: string
+  revokeStatus?: string | null
+  /** KB-6 服务端归一：executed / revoked / revoking_external（已请求外部补偿·结果未知）/ revoke_failed */
+  status: 'executed' | 'revoked' | 'revoking_external' | 'revoke_failed'
 }

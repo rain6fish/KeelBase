@@ -99,11 +99,10 @@
                   <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>
                   <div class="d-flex ga-2 mt-1">
                     <el-button
-                      v-if="e.effect"
+                      v-if="e.effect && canRevokeEffect(e.effect)"
                       size="small"
                       type="warning"
                       plain
-                      :disabled="!e.effect.targetExists || e.effect.targetSoftDeleted"
                       @click="onRevoke(e.effect)"
                     >
                       {{ t('revoke') }} #{{ e.effect.resultId }}
@@ -249,12 +248,23 @@ const effectStatusMap = computed(() => ({
   ok: t('active'),
   cancelled: t('cancelled'),
   down: t('deleted'),
+  // KB-6：外部副作用撤销中（结果未知，禁显示已撤销）
+  revoking: t('statusRevokingExternal'),
+  error: t('statusRevokeFailed'),
 }))
 
 function effectStatus(eff: ToolEffect): string {
-  if (eff.targetExists && !eff.targetSoftDeleted) return 'ok'
-  if (eff.targetSoftDeleted) return 'cancelled'
-  return 'down'
+  // KB-6：优先用服务端归一状态（4 值）；旧数据无 status 时回落两态
+  if (eff.status === 'revoked') return 'cancelled'
+  if (eff.status === 'revoking_external') return 'revoking'
+  if (eff.status === 'revoke_failed') return 'error'
+  return 'ok'
+}
+
+/** KB-6：撤销钮仅对"可撤且未进入撤销流程"的动作显示；revokeClass none 一律不显示（外部副作用不误示可撤） */
+function canRevokeEffect(eff: ToolEffect): boolean {
+  if (!eff.status || eff.status !== 'executed') return false
+  return eff.revokeClass === 'local_compensate' || eff.revokeClass === 'governed_external' || eff.revokeClass === 'transactional'
 }
 
 // 单个时间线事件（AI 日志 + 副作用合并）
@@ -322,8 +332,8 @@ const sessions = computed<Session[]>(() => {
       type: 'effect',
       time: eff.createdAt,
       icon: 'mdi-content-save-outline',
-      color: eff.targetExists && !eff.targetSoftDeleted ? 'success' : 'grey',
-      colorClass: eff.targetExists && !eff.targetSoftDeleted ? 'text-success' : '',
+      color: eff.status === 'executed' ? 'success' : eff.status === 'revoking_external' ? 'warning' : 'grey',
+      colorClass: eff.status === 'executed' ? 'text-success' : eff.status === 'revoking_external' ? 'text-warning' : '',
       label: t('toolEffect'),
       toolName: eff.toolName,
       detail: eff.targetTitle || `#${eff.resultId}`,

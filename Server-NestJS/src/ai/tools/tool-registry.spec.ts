@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ToolRegistry } from './tool-registry';
-import { AiTool } from '../interfaces/tool.interface';
+import { AiTool, resolveRevokeClass } from '../interfaces/tool.interface';
 
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
@@ -71,6 +71,75 @@ describe('ToolRegistry', () => {
       registry.register(mockTool);
       registry.register(anotherTool);
       expect(registry.getAllTools()).toHaveLength(2);
+    });
+
+    it('KB-6: 确认写工具静默归 none（不可撤）→ 注册抛错（须显式声明撤销能力）', () => {
+      const confirmedWriteWithoutRevoke: AiTool = {
+        ...mockTool,
+        name: 'silent_write',
+        description: '写',
+        requiresConfirmation: true,
+        // 未声明 revokeClass + 无 riskLevel 覆盖 → 推导 local_compensate（不抛）……
+        // 但 riskLevel R3 + requiresConfirmation=false 的场景 → 推导 none → 抛
+      };
+      // requiresConfirmation:true → 推导 local_compensate，注册通过
+      registry.register(confirmedWriteWithoutRevoke);
+      expect(registry.getTool('silent_write')).toBeDefined();
+    });
+
+    it('KB-6: R3/R4 写语义但 requiresConfirmation=false → 解析 none → 注册抛错', () => {
+      const writeWithoutFlag: AiTool = {
+        ...mockTool,
+        name: 'write_by_risk_only',
+        description: '写',
+        requiresConfirmation: false,
+        riskLevel: 'R4',
+      };
+      expect(() => registry.register(writeWithoutFlag)).toThrow(
+        'write_by_risk_only',
+      );
+      expect(() => registry.register(writeWithoutFlag)).toThrow(
+        /silently derived as 'none'/,
+      );
+    });
+
+    it('KB-6: 显式声明 revokeClass 的确认写 → 注册通过', () => {
+      const writeDeclared: AiTool = {
+        ...mockTool,
+        name: 'write_declared',
+        description: '写',
+        requiresConfirmation: false,
+        riskLevel: 'R4',
+        revokeClass: 'governed_external',
+      };
+      registry.register(writeDeclared);
+      expect(registry.getTool('write_declared')).toBeDefined();
+    });
+
+    it('KB-6: R5 阻断工具（不执行不记录）允许静默 none', () => {
+      const irreversible: AiTool = {
+        ...mockTool,
+        name: 'delete_customer_x',
+        description: '不可逆删除',
+        requiresConfirmation: false,
+        riskLevel: 'R5',
+      };
+      registry.register(irreversible);
+      expect(registry.getTool('delete_customer_x')).toBeDefined();
+    });
+  });
+
+  describe('resolveRevokeClass()（KB-6 派生）', () => {
+    it('显式声明优先', () => {
+      expect(resolveRevokeClass({ revokeClass: 'governed_external', requiresConfirmation: true })).toBe('governed_external');
+      expect(resolveRevokeClass({ revokeClass: 'none', requiresConfirmation: true })).toBe('none');
+    });
+    it('确认写缺省推导 local_compensate', () => {
+      expect(resolveRevokeClass({ requiresConfirmation: true })).toBe('local_compensate');
+    });
+    it('读/非确认缺省推导 none', () => {
+      expect(resolveRevokeClass({ requiresConfirmation: false })).toBe('none');
+      expect(resolveRevokeClass({})).toBe('none');
     });
   });
 
@@ -200,7 +269,8 @@ describe('ToolRegistry', () => {
     });
 
     it('R4 虽未声明 requiresConfirmation 也需确认', () => {
-      registry.register({ ...mockTool, name: 'high_impact', requiresConfirmation: false, riskLevel: 'R4' });
+      // revokeClass 显式声明（KB-6 契约：R4 写工具须声明撤销能力，local_compensate=本地可撤）
+      registry.register({ ...mockTool, name: 'high_impact', requiresConfirmation: false, riskLevel: 'R4', revokeClass: 'local_compensate' });
       expect(registry.requiresConfirmation('high_impact')).toBe(true);
     });
 

@@ -102,7 +102,7 @@ describe('AiTimelineView', () => {
       page: 1,
       limit: 100,
       items: [
-        { id: 3, toolName: 'create_event', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, argsHash: 'h', createdAt: '2026-08-21T10:00:30Z', targetExists: true, targetSoftDeleted: false, targetTitle: '周会' },
+        { id: 3, toolName: 'create_event', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, argsHash: 'h', createdAt: '2026-08-21T10:00:30Z', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate' },
       ],
     })
 
@@ -147,7 +147,7 @@ describe('AiTimelineView', () => {
       page: 1,
       limit: 100,
       items: [
-        { id: 3, toolName: 'create_event', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, argsHash: 'h', createdAt: '2026-08-21T10:00:30Z', targetExists: true, targetSoftDeleted: false, targetTitle: '周会' },
+        { id: 3, toolName: 'create_event', conversationId: 'conv-1234567890123', resultType: 'event', resultId: 50, argsHash: 'h', createdAt: '2026-08-21T10:00:30Z', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate' },
       ],
     })
     governanceMock.mockResolvedValue({

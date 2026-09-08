@@ -236,6 +236,8 @@ export interface AdminAiTool {
   /** W5 Risk-based Tool Contract：R0-R5 风险级 + 策略（auto/policy/confirmation/human_approval/block） */
   riskLevel?: string
   riskStrategy?: string
+  /** KB-6：副作用撤销能力档位（none / local_compensate / governed_external / transactional）——治理面可见分档 */
+  revokeClass?: string
   permissions: {
     requireVerifiedEmail?: boolean
     featureFlag?: string
@@ -272,7 +274,7 @@ export interface ToolEffect {
   toolName: string
   conversationId: string | null
   /** EB-2 Bridge Audit：proxy_call = 外部系统（B 路径）写副作用（撤销走 Java 补偿，无本地实体） */
-  resultType: 'event' | 'todo' | 'proxy_call'
+  resultType: string
   resultId: number
   argsHash: string
   createdAt: string
@@ -282,6 +284,11 @@ export interface ToolEffect {
   /** E-1 字段级变更审计：before/after 快照（JSON 字符串；create 类 before 为 null） */
   beforeSnapshot?: string | null
   afterSnapshot?: string | null
+  /** KB-6：撤销能力档位 + 撤销结果运维态（服务端回传；据档位诚实渲染，none 不显示撤销钮） */
+  revokeClass?: string
+  revokeStatus?: string | null
+  /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
+  status?: string
 }
 
 /** D5 Agent Registry：已注册 Agent 清单（GET /ai/agents，管理台） */

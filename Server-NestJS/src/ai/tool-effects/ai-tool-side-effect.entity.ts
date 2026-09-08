@@ -58,6 +58,21 @@ export class AiToolSideEffect {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'hash' })
   hash?: string | null;
 
+  /**
+   * KB-6：副作用发生时刻的撤销能力分档快照（none / local_compensate / governed_external / transactional）。
+   * 工具/ProxyTool 配置可随 ai_proxy_tools 变更，副作用是历史事实须固化当时档位（语义源 protocol-trust-proof-card R9）。
+   * 不入副作用哈希链 payload（防旧链化行验链失败）。
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'revoke_class' })
+  revokeClass?: string | null;
+
+  /**
+   * KB-6：撤销结果运维态（null=未撤 / revoked=本地软删 / compensating=已请求外部补偿·结果未知 / revoke_failed=补偿失败）。
+   * 不入哈希链 payload（可变运维态）。
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'revoke_status' })
+  revokeStatus?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

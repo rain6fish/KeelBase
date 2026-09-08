@@ -32,6 +32,7 @@
 | **Confirmation** | 确认 | `confirmation` | Write operations require human confirmation (R3) |
 | **Approval** | 审批 | R4 `human_approval` | High-impact actions require two-person approval |
 | **Revoke** | 撤销 | `tool-effects` revoke | AI-created side effects (own data domain) are revocable per the `revokeClass` tier; external-system side effects are never loosely called "revocable" — they are declared via the capability matrix |
+| **Revoke class** | 撤销能力档 | `revoke_class` / `revokeClass` | Revocation capability tier declared on tool metadata: `none` (not revocable — never called "revocable") / `local_compensate` (local soft-delete compensation) / `governed_external` (governed external compensation — after revoke the state is "compensation requested / result unknown", **never shown as revoked**) / `transactional` (target exposes a rollback interface; in-target rollback) |
 | **Audit** | 审计 | `audit` / `ai_audit_logs` | Record of AI actions |
 | **Audit Hash Chain** | 审计哈希链 | `audit-chain` | Tamper-evident, offline-verifiable audit evidence chain (within the application boundary; not a defense against direct DB/root-level tampering) |
 | **Decision Trace** | 决策轨迹 | `decision-trace` | Full chain of one AI action: request→intent→tool→permission→approval→execution→audit |

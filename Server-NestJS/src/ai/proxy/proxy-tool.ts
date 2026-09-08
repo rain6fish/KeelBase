@@ -15,6 +15,7 @@ import {
   ToolResult,
   ToolParameter,
   ToolRiskLevel,
+  RevokeClass,
 } from '../interfaces/tool.interface';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
 import { proxyFetch, proxyErrorText } from './proxy-http';
@@ -32,6 +33,8 @@ export interface ProxyToolConfig {
   queryParams?: string[];
   /** Java 端补偿端点路径（相对 baseUrl）——撤销时调用（带委托身份），`{param}` 占位取自副作用 resultId；缺省无本地撤销（AI Bridge §4） */
   revokePath?: string;
+  /** KB-6：撤销能力档位显式覆盖；缺省按 method/revokePath 派生（写+revokePath→governed_external，读恒 none，写无 revokePath→none） */
+  revokeClass?: RevokeClass;
 }
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -43,6 +46,7 @@ export class ProxyTool implements AiTool {
   readonly riskLevel?: ToolRiskLevel;
   readonly requiresConfirmation: boolean;
   readonly revokePath?: string;
+  readonly revokeClass: RevokeClass;
 
   constructor(
     private readonly cfg: ProxyToolConfig,
@@ -60,6 +64,14 @@ export class ProxyTool implements AiTool {
     this.riskLevel = cfg.riskLevel ?? (WRITE_METHODS.includes(cfg.method) ? 'R3' : 'R1');
     this.requiresConfirmation = this.riskLevel === 'R3' || this.riskLevel === 'R4';
     this.revokePath = cfg.revokePath;
+    // KB-6 撤销能力档位（语义源 protocol-trust-proof-card R9）：
+    // 显式覆盖优先；读恒 none；写 + revokePath → governed_external（补偿 2xx 仅"已请求"，结果以目标为准）；
+    // 写无 revokePath → none（诚实：有撤销钮却只能失败即真缺陷源）。transactional 不用——REST 代理无法表达目标事务内回滚。
+    this.revokeClass =
+      cfg.revokeClass ??
+      (!WRITE_METHODS.includes(cfg.method) || !cfg.revokePath
+        ? 'none'
+        : 'governed_external');
   }
 
   toToolDefinition(): ToolDefinition {

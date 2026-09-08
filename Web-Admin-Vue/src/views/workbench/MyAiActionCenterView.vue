@@ -28,9 +28,8 @@
             <div class="flex-grow-1">
               <div class="d-flex align-center ga-2 flex-wrap">
                 <span class="font-weight-medium">{{ labelOf(e.toolName) }}</span>
-                <el-tag size="small" effect="plain" :type="e.status === 'revoked' ? 'info' : 'success'">
-                  {{ e.status === 'revoked' ? t('statusRevoked') : t('statusExecuted') }}
-                </el-tag>
+                <el-tag size="small" effect="plain" :type="statusTag(e.status).type">{{ statusTag(e.status).label }}</el-tag>
+                <el-tag v-if="e.status === 'revoking_external'" size="small" type="warning" effect="plain">{{ t('revokingExternalHint') }}</el-tag>
               </div>
               <div class="text-body-2 text-medium-emphasis mt-1">
                 {{ e.targetTitle || `#${e.resultId}` }}
@@ -40,7 +39,7 @@
             </div>
             <div class="d-flex align-center ga-1 flex-shrink-0">
               <el-button
-                v-if="e.status === 'executed'"
+                v-if="canRevoke(e)"
                 size="small"
                 plain
                 type="warning"
@@ -148,6 +147,20 @@ const historyTarget = ref<{ resultType: string; resultId: number } | null>(null)
 /** D2 人类工具标签：feature 命名空间未命中回退原始 toolName */
 function labelOf(name: string): string {
   return toolLabel(tm('feature') as Record<string, string> | undefined, name)
+}
+
+/** KB-6：归一状态 chip（governed_external 撤销后 = revoking_external，禁显示 revoked/已撤销） */
+function statusTag(status: string) {
+  if (status === 'revoked') return { label: t('statusRevoked'), type: 'info' as const }
+  if (status === 'revoking_external') return { label: t('statusRevokingExternal'), type: 'warning' as const }
+  if (status === 'revoke_failed') return { label: t('statusRevokeFailed'), type: 'danger' as const }
+  return { label: t('statusExecuted'), type: 'success' as const }
+}
+
+/** KB-6：可撤条件 = 本地可撤/受治理外部可撤 且 未进入撤销流程；none 一律不可撤 */
+function canRevoke(e: MyAiEffect): boolean {
+  if (e.status !== 'executed') return false
+  return e.revokeClass === 'local_compensate' || e.revokeClass === 'governed_external' || e.revokeClass === 'transactional'
 }
 
 async function loadEffects() {
