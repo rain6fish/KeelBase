@@ -5,7 +5,8 @@ import asyncio, json, os, subprocess, sys
 import edge_tts
 
 BASE = r'C:\Users\pc\AppData\Local\Temp'
-narration = json.load(open(os.path.join(BASE, 'keelbase-narration.json'), encoding='utf-8'))
+with open(os.path.join(BASE, 'keelbase-narration.json'), encoding='utf-8') as f:
+    narration = json.load(f)
 VOICES = {'zh': 'zh-CN-XiaoxiaoNeural', 'en': 'en-US-GuyNeural'}
 
 async def gen(lang):
