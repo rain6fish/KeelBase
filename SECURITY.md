@@ -144,6 +144,18 @@ The security controls above describe what KeelBase *does*. The list below states
 | N-12 | No full Java-native edition (Java 版) / 不承诺 Java 原生全套（Java 版） | Existing-system access via OpenAPI / MCP / bridge proxy; java-starter is an access-layer probe; a full Java port is demand-triggered / 存量系统接入走 OpenAPI / MCP / 代理桥；java-starter 为接入层探针；整体 Java 移植由需求信号触发 |
 | N-13 | Not all Renderers are maintained in lockstep / 不承诺所有 Renderer 同步同等维护 | Primary front-end = Vue web host (workbench + admin console one shell); Flutter = primary mobile app; React preview / Taro positioning & maintenance commitment is stated before 1.1 (KB-7) / 主前端 = Vue Web 宿主（工作台 + 管理台同一壳）；Flutter = 移动主 App；React preview / Taro 的定位与维护承诺在 1.1 前表态（KB-7） |
 
+> **How each item is verified / 每项如何复核（挂 spec / 测试引用，KB-2）**：
+> - N-1 / N-2 / N-3 → 信任边界声明 [threat-model.md](docs/security/threat-model.md)；篡改即断链的可运行证明 = 证据根一键复现 [evidence-root.spec.md](docs/evidence-root.spec.md) §7（`npm run verify:evidence-root`） + `/audit/verify`（[hs11-audit-chain.spec.md](docs/hs11-audit-chain.spec.md)）
+> - N-4 / N-6 → 外部撤销如实语义 = [failure-path-corpus.spec.md](docs/failure-path-corpus.spec.md) FP-7；跨系统一致边界见 [external-crm-demo](docs/manual/external-crm-demo.md) 与 [evidence README](docs/evidence/README.md) §2.7
+> - N-5 → 补偿端点（revokePath）约定 = [java-compensation-example.md](docs/integrator-kit/java-compensation-example.md) + `Server-NestJS/src/ai/proxy/proxy-revoker.service.spec.ts`
+> - N-7 → 计划级确认尚未提供 = [run-level-approval.spec.md](docs/run-level-approval.spec.md)；token 一次性防 replay = [failure-path-corpus.spec.md](docs/failure-path-corpus.spec.md) FP-2
+> - N-8 → 治理策略 / 风险级 = [hs9-governance-policy.spec.md](docs/hs9-governance-policy.spec.md)
+> - N-9 → 合规定位 = [enterprise-capabilities.md](docs/enterprise-capabilities.md)（Compliance Path）+ [compliance-mapping.md](docs/manual/compliance-mapping.md)
+> - N-10 → 覆盖写路径范围 = [hs11-audit-chain.spec.md](docs/hs11-audit-chain.spec.md)（含 operation-audit 覆盖，见 `Server-NestJS/test/`）
+> - N-11 → 维护与披露现状 = 本 SECURITY + [threat-model](docs/security/threat-model.md)（KB-8 落地后更新）
+> - N-12 → Java 接入路径 = [integrator-kit](docs/integrator-kit/)（java-starter 为探针）
+> - N-13 → 前端定位 = [product-language.md](docs/manual/product-language.md) + [architecture-boundary.md](docs/architecture-boundary.md)
+
 > This list is derived from an adversarial review of the project's own claims (2026-09-07) and is mirrored in the public FAQ / 本清单源自对本项目自身表述的对抗性评审（2026-09-07），并与公开 FAQ 保持一致。
 
 ---
