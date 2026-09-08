@@ -37,6 +37,7 @@ const effectExecuted = {
   targetSoftDeleted: false,
   targetTitle: '跟进：辰光建材 逾期回款',
   status: 'executed',
+  revokeClass: 'local_compensate',
 }
 const effectRevoked = {
   id: 2,
@@ -49,6 +50,36 @@ const effectRevoked = {
   targetSoftDeleted: true,
   targetTitle: '跟进：澄海地产',
   status: 'revoked',
+  revokeClass: 'local_compensate',
+}
+/** KB-6：governed_external 撤销后 = 外部撤销中（结果未知），禁显示"已撤销" */
+const effectRevokingExternal = {
+  id: 3,
+  toolName: 'java_ext_order',
+  conversationId: 'conv-1',
+  resultType: 'proxy_call',
+  resultId: 7,
+  createdAt: '2026-09-04T09:32:00Z',
+  targetExists: true,
+  targetSoftDeleted: false,
+  targetTitle: '外部系统写调用（B 路径）',
+  status: 'revoking_external',
+  revokeClass: 'governed_external',
+  revokeStatus: 'compensating',
+}
+/** KB-6：revokeClass=none（不可撤）→ 即使 executed 也不显示撤销钮 */
+const effectNotRevocable = {
+  id: 4,
+  toolName: 'external_write_no_path',
+  conversationId: 'conv-1',
+  resultType: 'proxy_call',
+  resultId: 8,
+  createdAt: '2026-09-04T09:33:00Z',
+  targetExists: true,
+  targetSoftDeleted: false,
+  targetTitle: '外部系统写调用（B 路径）',
+  status: 'executed',
+  revokeClass: 'none',
 }
 
 function mountView() {
@@ -129,5 +160,30 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
     const openBtn = wrapper.findAll('button').find((b) => b.text().includes('打开轨迹'))!
     await openBtn.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/workbench/ai-trace', query: { conv: 'conv-1' } })
+  })
+
+  it('KB-6: governed_external 撤销后 → 显示「外部撤销中」+ 补偿提示，禁显示「已撤销」且无撤销钮', async () => {
+    myEffectsMock.mockResolvedValue({ items: [effectRevokingExternal], total: 1, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('外部撤销中')
+    expect(wrapper.text()).toContain('补偿已请求')
+    expect(wrapper.text()).not.toContain('已撤销')
+    // 无撤销钮（已进入撤销流程）
+    expect(wrapper.findAll('button').filter((b) => b.text().includes('撤销'))).toHaveLength(0)
+  })
+
+  it('KB-6: revokeClass=none（不可撤）→ executed 也不显示撤销钮', async () => {
+    myEffectsMock.mockResolvedValue({ items: [effectNotRevocable], total: 1, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已执行')
+    expect(wrapper.findAll('button').filter((b) => b.text().includes('撤销'))).toHaveLength(0)
   })
 })

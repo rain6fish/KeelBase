@@ -5,6 +5,8 @@ import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
+import { ToolRegistry } from '../tools/tool-registry';
+import { resolveRevokeClass } from '../interfaces/tool.interface';
 
 describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   let service: AiToolEffectsService;
@@ -14,6 +16,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     save: jest.Mock;
     findAndCount: jest.Mock;
     create: jest.Mock;
+    update?: jest.Mock;
   };
   let entityManager: { getRepository: jest.Mock };
 
@@ -24,6 +27,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       save: jest.fn(),
       findAndCount: jest.fn(),
       create: jest.fn((d: any) => d),
+      update: jest.fn(),
     };
     entityManager = {
       getRepository: jest.fn(),
@@ -402,6 +406,138 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res.firstHashedId).toBe(3);
       // verifyChain 只收到已哈希行
       expect(auditChain.verifyChain).toHaveBeenCalledWith(hashedRows, expect.any(Function));
+    });
+  });
+
+  describe('KB-6 revokeClass（撤销能力档位 + 状态归一）', () => {
+    let svc: AiToolEffectsService;
+    let registry: ToolRegistry;
+    let revokerStub: {
+      canHandle: jest.Mock;
+      revoke: jest.Mock;
+      describeTarget: jest.Mock;
+    };
+
+    // 直接 new（依赖全 @Optional；ToolRegistry 手动装；SIDE_EFFECT_REVOKER 用 stub）
+    const makeService = (opts?: { withRevoker?: boolean }) => {
+      revokerStub = {
+        canHandle: jest.fn().mockReturnValue(opts?.withRevoker ? true : false),
+        revoke: jest.fn().mockResolvedValue({ revoked: true }),
+        describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+      };
+      const externalRevoker = {
+        revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }),
+      };
+      svc = new AiToolEffectsService(
+        repo as never,
+        opts?.withRevoker ? (revokerStub as never) : undefined,
+        externalRevoker as never,
+        undefined,
+        undefined,
+        registry as never,
+      );
+    };
+
+    beforeEach(() => {
+      registry = new ToolRegistry();
+      registry.register({
+        name: 'create_event',
+        description: '创建事件',
+        parameters: [],
+        requiresConfirmation: true,
+        toToolDefinition: () => ({ type: 'function' } as never),
+        execute: async () => ({ success: true }),
+      });
+    });
+
+    it('record：确认写工具（registry 命中）→ 落 revokeClass 快照 local_compensate', async () => {
+      makeService();
+      repo.save.mockImplementation((d: never) => Promise.resolve({ id: 1, ...(d as object) }));
+      const saved = await svc.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'X' } },
+        'event',
+        42,
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ revokeClass: 'local_compensate' }),
+      );
+      expect(saved.revokeClass).toBe('local_compensate');
+    });
+
+    it('record：未注册工具 + 无本地 revoker → revokeClass 快照 none', async () => {
+      makeService();
+      repo.save.mockImplementation((d: never) => Promise.resolve({ id: 1, ...(d as object) }));
+      const saved = await svc.record(
+        { userId: '1', toolName: 'external_write', args: { id: 1 } },
+        'proxy_call',
+        9,
+      );
+      expect(saved.revokeClass).toBe('none');
+    });
+
+    it('_doRevoke：revokeClass=none → 拒绝且不改列（none 门控，不误走 externalRevoker）', async () => {
+      makeService();
+      repo.findOne.mockResolvedValue({
+        id: 7,
+        toolName: 'ext_no_path',
+        resultType: 'proxy_call',
+        resultId: 9,
+        userId: '1',
+        revokeClass: 'none',
+      });
+      repo.update = jest.fn();
+      const res = await svc.revoke(7);
+      expect(res?.revoked).toBe(false);
+      expect(res?.message).toMatch(/无撤销接口/);
+      expect(repo.update).not.toHaveBeenCalled();
+      expect(revokerStub.canHandle).not.toHaveBeenCalled();
+    });
+
+    it('_doRevoke：外部补偿 2xx → 回写 revoke_status=compensating（非 revoked，2xx≠确认回滚）', async () => {
+      makeService();
+      repo.findOne.mockResolvedValue({
+        id: 8,
+        toolName: 'java_ext',
+        resultType: 'proxy_call',
+        resultId: 10,
+        userId: '1',
+        revokeClass: 'governed_external',
+      });
+      repo.update = jest.fn().mockResolvedValue({ affected: 1 });
+      const res = await svc.revoke(8);
+      expect(res?.revoked).toBe(true);
+      expect(res?.revokeStatus).toBe('compensating');
+      expect(repo.update).toHaveBeenCalledWith(8, { revokeStatus: 'compensating' });
+    });
+
+    it('listOwned：proxy compensating 后 status=revoking_external（≠ revoked）', async () => {
+      makeService();
+      repo.findAndCount.mockResolvedValue([
+        [
+          {
+            id: 8,
+            toolName: 'java_ext',
+            resultType: 'proxy_call',
+            resultId: 10,
+            userId: '1',
+            revokeClass: 'governed_external',
+            revokeStatus: 'compensating',
+            createdAt: new Date(),
+          },
+        ],
+        1,
+      ]);
+      revokerStub.describeTarget.mockResolvedValue({ deletedAt: null });
+      const res = await svc.listOwned('1', { page: 1, limit: 20 });
+      expect(res.items[0].status).toBe('revoking_external');
+      expect(res.items[0].status).not.toBe('revoked');
+      expect(res.items[0].revokeClass).toBe('governed_external');
+    });
+
+    it('resolveRevokeClass 派生：确认写→local_compensate、读→none、显式优先', () => {
+      expect(resolveRevokeClass({ requiresConfirmation: true })).toBe('local_compensate');
+      expect(resolveRevokeClass({ requiresConfirmation: false })).toBe('none');
+      expect(resolveRevokeClass({ revokeClass: 'governed_external', requiresConfirmation: false })).toBe('governed_external');
     });
   });
 });

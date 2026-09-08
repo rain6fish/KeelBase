@@ -32,6 +32,7 @@
 | **Confirmation** | 确认 | `confirmation` | 写操作需人工确认（R3） |
 | **Approval** | 审批 | R4 `human_approval` | 高影响动作双人审批 |
 | **Revoke** | 撤销 | `tool-effects` revoke | AI 写副作用（自身数据域）按 `revokeClass` 档位可撤销；外部系统副作用不裸称「可撤销」，按能力矩阵如实标注 |
+| **Revoke class** | 撤销能力档 | `revoke_class` / `revokeClass` | 工具元数据声明的撤销能力档：`none`（不可撤，不称可撤销）/ `local_compensate`（本地软删补偿）/ `governed_external`（受治理外部补偿，撤销后=「已请求补偿/结果未知」，**不显示 revoked**）/ `transactional`（目标暴露可回滚接口，事务内回滚） |
 | **Audit** | 审计 | `audit` / `ai_audit_logs` | AI 操作记录 |
 | **Audit Hash Chain** | 审计哈希链 | `audit-chain` | 篡改即断链、可离线验证的审计证据链（应用边界内；不承诺防御库/root 级直接改写） |
 | **Decision Trace** | 决策轨迹 | `decision-trace` | 单次 AI 动作完整链：请求→意图→工具→权限→审批→执行→审计 |

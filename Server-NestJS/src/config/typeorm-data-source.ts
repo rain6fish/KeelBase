@@ -44,6 +44,7 @@
        resolve(__dirname, '../migrations/*AddAiToolSideEffectSnapshots*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiToolSideEffectChain*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiToolSideEffectResultTypeLength*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiToolSideEffectRevokeColumns*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddHeadlessApiKeys*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddGeneratedModuleSchemas*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddOrgStructures*').replace(/\\/g, '/'),

@@ -64,6 +64,33 @@ export function resolveRiskLevel(
 }
 
 /**
+ * 副作用撤销能力分档（KB-6，语义源 docs/protocol-trust-proof-card.spec.md R9 / failure-path FP-3·FP-10）：
+ *   none              — 不可撤 / 外部未知（前端不显示撤销钮，不称"可撤销"）
+ *   local_compensate  — 本地软删补偿（自身副作用，可经 RG-3 回收站恢复）
+ *   governed_external — 受治理外部补偿（调目标系统补偿端点；"已请求补偿/结果未知"，禁止显示 revoked）
+ *   transactional     — 目标暴露可回滚接口、目标事务内回滚（现仅枚举预留，REST 代理不用）
+ * 与 run-level（KB-5）风险级/确认无关；仅服务端关切，不暴露给 LLM。
+ */
+export type RevokeClass =
+  | 'none'
+  | 'local_compensate'
+  | 'governed_external'
+  | 'transactional';
+
+/**
+ * 解析工具撤销能力档位：显式声明优先；否则按既有语义派生——
+ * ProxyTool 构造器已具现显式值（走 tool.revokeClass）；
+ * builtin 确认写工具（requiresConfirmation）默认 local_compensate（当前确认写均映射本地软删实体）；
+ * R5 / 读 / 干跑（create_module R1）→ none（不产生可撤副作用或永不执行）。
+ */
+export function resolveRevokeClass(
+  tool: Pick<AiTool, 'revokeClass' | 'requiresConfirmation'>,
+): RevokeClass {
+  if (tool.revokeClass) return tool.revokeClass;
+  return tool.requiresConfirmation ? 'local_compensate' : 'none';
+}
+
+/**
  * Explainable Authorization（W5-⑦，评审四）：单条授权依据。
  * 供 tool_start / confirmation_request 事件携带，前端渲染「为何允许 / 为何需确认」。
  */
@@ -125,6 +152,12 @@ export interface AiTool {
 
   /** 风险等级（W5）：显式声明优先，未声明时由 requiresConfirmation 派生（R3/R1）。R5 = 阻断。 */
   readonly riskLevel?: ToolRiskLevel;
+
+  /**
+   * 副作用撤销能力档位（KB-6）：未声明由 resolveRevokeClass 派生（确认写→local_compensate）。
+   * 写工具若确无本地软删目标（外部/不可撤），须显式声明 none 或 governed_external，避免误报"可撤销"。
+   */
+  readonly revokeClass?: RevokeClass;
 
   /** 权限元数据（HS-2）：未声明则默认允许（数据隔离已由 execute 的 userId 保证） */
   readonly permissions?: ToolPermissions;
