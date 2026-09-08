@@ -197,6 +197,40 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     wrapper.unmount()
   })
 
+  it('P1-1 旅程完成 → 「从看到做」引导可跳真实 Copilot 与我的 AI 行为', async () => {
+    journeyMock.mockResolvedValue(journeyStepsPayload())
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const startBtn = wrapper.findAll('button').find((b) => b.text().includes('开始 3 分钟体验'))
+    await startBtn!.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('跳过动画'))!.trigger('click')
+    await flushPromises()
+
+    // 引导（P1-1）：真落库目标 = ask 步刚建的沙盘客户（resultId 42）
+    expect(wrapper.text()).toContain('从看到做')
+    const liveBtn = wrapper.findAll('button').find((b) => b.text().includes('打开真实 AI 助手'))
+    expect(liveBtn).toBeTruthy()
+    await liveBtn!.trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/workbench/crm/42?ai=1')
+
+    // 再跑一次 → 「我的 AI 行为」撤销/证据入口
+    await wrapper.findAll('button').find((b) => b.text().includes('再跑一次'))!.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('跳过动画'))!.trigger('click')
+    await flushPromises()
+    const actBtn = wrapper.findAll('button').find((b) => b.text().includes('我的 AI 行为'))
+    expect(actBtn).toBeTruthy()
+    await actBtn!.trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenLastCalledWith('/workbench/my-ai-actions')
+
+    wrapper.unmount()
+  })
+
   it('无 resultType/resultId 的场景（如 s6 Java 指引）→ 弹窗不显示治理详情入口', async () => {
     runMock.mockResolvedValue({ scenario: 's6_java', outcome: 'guide', detail: 'Java 存量系统接入说明' })
 
