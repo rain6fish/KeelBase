@@ -120,4 +120,28 @@ describe('WorkbenchHomeView', () => {
     // P0-2：带 ?journey=1 落地即自动一键连跑
     expect(pushMock).toHaveBeenCalledWith('/workbench/trust-sandbox?journey=1')
   })
+
+  it('P2 引导可收起：收起后不再打扰，可一键恢复', async () => {
+    meMock.mockResolvedValue({ id: 1, username: 'alex', nickname: 'A', email: 'a@a.com', role: 'user' })
+    unreadCountMock.mockResolvedValue({ count: 0 })
+    localStorage.removeItem('trust_journey_hidden')
+
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('.trust-journey').exists()).toBe(true)
+
+    const dismiss = wrapper.findAll('button').find((b) => (b.attributes('title') ?? '').includes('不再显示'))
+    expect(dismiss).toBeTruthy()
+    await dismiss!.trigger('click')
+    expect(wrapper.find('.trust-journey').exists()).toBe(false)
+    expect(localStorage.getItem('trust_journey_hidden')).toBe('1')
+
+    const restore = wrapper.findAll('button').find((b) => b.text().includes('重新显示'))
+    expect(restore).toBeTruthy()
+    await restore!.trigger('click')
+    expect(wrapper.find('.trust-journey').exists()).toBe(true)
+    expect(localStorage.getItem('trust_journey_hidden')).toBeNull()
+    localStorage.removeItem('trust_journey_hidden')
+    wrapper.unmount()
+  })
 })

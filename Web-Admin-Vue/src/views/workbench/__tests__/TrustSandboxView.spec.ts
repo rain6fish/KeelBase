@@ -231,6 +231,23 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     wrapper.unmount()
   })
 
+  it('P2 轻埋点：旅程完成 → 本机完成次数 +1 并展示', async () => {
+    journeyMock.mockResolvedValue(journeyStepsPayload())
+    localStorage.removeItem('trust_journey_stats')
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('开始 3 分钟体验'))!.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('跳过动画'))!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已在本机完成旅程 1 次')
+    expect(JSON.parse(localStorage.getItem('trust_journey_stats') ?? '{}').completed).toBe(1)
+    localStorage.removeItem('trust_journey_stats')
+    wrapper.unmount()
+  })
+
   it('无 resultType/resultId 的场景（如 s6 Java 指引）→ 弹窗不显示治理详情入口', async () => {
     runMock.mockResolvedValue({ scenario: 's6_java', outcome: 'guide', detail: 'Java 存量系统接入说明' })
 

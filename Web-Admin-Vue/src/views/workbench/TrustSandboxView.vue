@@ -7,6 +7,8 @@
       </el-button>
     </PageHeader>
 
+    <div v-if="journeyStatLine" class="text-caption text-medium-emphasis mb-2">{{ journeyStatLine }}</div>
+
     <el-alert type="info" :closable="false" class="mb-4">
       {{ t('trustSandboxIntro') }}
     </el-alert>
@@ -143,12 +145,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import { storage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/utils/constants'
 import { aiApi, type TrustSandboxJourneyStep, type TrustSandboxRunResult } from '@/api/ai'
 
 const { t } = useI18n()
@@ -175,6 +179,39 @@ const journeyLoading = ref(false)
 const journeySteps = ref<TrustSandboxJourneyStep[]>([])
 const journeyRevealed = ref(0)
 let journeyTimer: number | undefined
+
+// P2 轻埋点：旅程完成度（本机 localStorage 计数，非跨访客聚合）
+interface JourneyStats {
+  started: number
+  completed: number
+}
+function readJourneyStats(): JourneyStats {
+  try {
+    const raw = storage.get(STORAGE_KEYS.TRUST_JOURNEY_STATS)
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<JourneyStats>
+      return { started: Number(p.started) || 0, completed: Number(p.completed) || 0 }
+    }
+  } catch {
+    /* 解析失败视为无统计 */
+  }
+  return { started: 0, completed: 0 }
+}
+const journeyStats = ref<JourneyStats>(readJourneyStats())
+const journeyStatLine = computed(() =>
+  journeyStats.value.completed > 0 ? t('journeyStats', { n: journeyStats.value.completed }) : '',
+)
+function persistJourneyStats() {
+  storage.set(STORAGE_KEYS.TRUST_JOURNEY_STATS, JSON.stringify(journeyStats.value))
+}
+function bumpJourneyStarted() {
+  journeyStats.value.started++
+  persistJourneyStats()
+}
+function bumpJourneyCompleted() {
+  journeyStats.value.completed++
+  persistJourneyStats()
+}
 
 function outcomeTag(o: TrustSandboxRunResult['outcome']) {
   return ({ passed: 'success', check: 'warning', guide: 'info', unknown: 'info' } as Record<string, string>)[o] ?? 'info'
@@ -263,6 +300,7 @@ async function startJourney() {
   clearJourneyTimers()
   journeySteps.value = []
   journeyRevealed.value = 0
+  bumpJourneyStarted()
   try {
     const res = await aiApi.trustSandboxJourney()
     journeySteps.value = res.steps
@@ -313,6 +351,16 @@ function goMyAiActions() {
   journeyVisible.value = false
   router.push('/workbench/my-ai-actions')
 }
+
+// P2 轻埋点：旅程完成（到达完成态）记一次（去重：同一次 run 完成态抖动兜底）
+let lastJourneyCompleteAt = 0
+watch(journeyDone, (done) => {
+  if (!done || journeySteps.value.length === 0) return
+  const now = Date.now()
+  if (now - lastJourneyCompleteAt < 2000) return
+  lastJourneyCompleteAt = now
+  bumpJourneyCompleted()
+})
 
 // hero「开始 3 分钟体验」带 ?journey=1 落地 → 自动一键连跑
 onMounted(() => {
