@@ -184,12 +184,13 @@ async function main() {
     const gov = await api(`/ai/governance/action/${SINGULAR}/${approvedId}`, { token: alice });
     const govData = unwrap(gov.data);
     effectId = govData?.effect?.id ?? govData?.effectId ?? null;
-    const audit = govData?.audit || govData?.decisions;
+    const trace = govData?.trace;
+    const hasTrace = trace !== null && trace !== undefined && (!Array.isArray(trace) || trace.length > 0);
     pass('R7', `AI create_${SINGULAR} → confirmation_request ×${sApprove.confirmations.length} → approve → ${SINGULAR}#${approvedId}（effect=${effectId || '—'}）`);
     if (!effectId) fail('R7b', `治理视图无 effect.id（副作用未记录）`);
     else pass('R7b', `副作用已记录 effect #${effectId}`);
-    if (!audit) fail('R7c', '治理视图无审计/决策轨迹');
-    else pass('R7c', '决策轨迹贯通');
+    if (!hasTrace) fail('R7c', `治理视图无决策轨迹（trace=${trace === null ? 'null' : typeof trace}）`);
+    else pass('R7c', '决策轨迹贯通（B4 trace）');
   }
 
   // ── R7-decline：另一写 → 拒绝 → 不落库 ───────────────────────────────────
@@ -227,17 +228,18 @@ async function main() {
       const v = offlineVerify(evPath, process.env.AUDIT_HMAC_KEY);
       if (v.status === 0) pass('R8', `evidence-root v3 导出 + 离线验证 PASS（${evPath}）`);
       else fail('R8', `离线验证非 0（status=${v.status} out=${v.out.slice(-200)}）`);
-      // 篡改锚 → 必须 FAIL
+      // 篡改根锚 → 必须 FAIL（keelbase-audit-evidence/3 的锚在 root.anchors）
       const tampered = JSON.parse(JSON.stringify(pkg));
-      if (tampered.anchors?.[0]?.hash) {
-        tampered.anchors[0].hash = flipHex(tampered.anchors[0].hash);
+      const anchor = tampered.root?.anchors?.[0] ?? tampered.anchors?.[0];
+      if (anchor?.hash) {
+        anchor.hash = flipHex(anchor.hash);
         const tPath = join(REPORT_DIR, `proof-evidence-tampered-${ts}.json`);
         writeFileSync(tPath, JSON.stringify(tampered, null, 2));
         const tv = offlineVerify(tPath, process.env.AUDIT_HMAC_KEY);
-        if (tv.status !== 0) pass('R8b', '篡改锚 hash → 离线验证 FAIL（tamper-evident）');
+        if (tv.status !== 0) pass('R8b', '篡改根锚 hash → 离线验证 FAIL（tamper-evident）');
         else fail('R8b', '篡改锚后验证仍 PASS（篡改未被检出！）');
       } else {
-        fail('R8b', '证据包无 anchors[0].hash，无法做篡改检测');
+        fail('R8b', '证据包无 root.anchors[0].hash，无法做篡改检测');
       }
     }
   } else {
@@ -249,10 +251,11 @@ async function main() {
     const rev = await api(`/ai/my/tool-effects/${effectId}`, { token: alice, method: 'DELETE' });
     const again = await api(`/ai/governance/action/${SINGULAR}/${approvedId}`, { token: alice });
     const againData = unwrap(again.data);
-    const status = againData?.effect?.status ?? againData?.status ?? (rev.status === 200 ? 'revoked?' : 'unknown');
-    pass('R9', `撤销 effect #${effectId} → DELETE ${rev.status}，反查状态=${status}`);
+    const softDeleted = againData?.effect?.targetSoftDeleted === true;
+    pass('R9', `撤销 effect #${effectId} → DELETE ${rev.status}，反查 targetSoftDeleted=${softDeleted}`);
     if (rev.status !== 200) fail('R9b', `DELETE status=${rev.status}`);
-    else pass('R9b', '撤销请求成功');
+    else if (!softDeleted) fail('R9b', '撤销请求 200 但目标未软删（状态未如实为 revoked）');
+    else pass('R9b', '撤销后目标软删 = revoked（真实生效）');
   } else {
     fail('R9', '无 effectId，跳过撤销（R7 前置失败）');
   }

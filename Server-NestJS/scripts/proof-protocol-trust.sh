@@ -80,9 +80,10 @@ else row "R2" "yellow" "执行者未声明 = 作者自跑（内部预跑，对�
 
 # ── R4 Protocol 生成 ─────────────────────────────────────────────────────────
 GEN_START=$SECONDS
-echo "→ 生成 MUT（$ROOT：node scripts/keelbase-init.mjs --spec $MUT_SPEC）"
+echo "→ 生成 MUT（$ROOT：node scripts/keelbase-init.mjs --spec $MUT_SPEC --force）"
 GEN_LOG="$REPORT_DIR/proof-trust-gen.log"
-if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" >"$GEN_LOG" 2>&1); then
+# --force：覆盖重写生成文件 + 接线幂等——fresh clone 下无副作用，重跑幂等（生成器契约：目录已存在须 --force）
+if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" --force >"$GEN_LOG" 2>&1); then
   GEN_FILES=$(grep -cE '✓ (write|生成|→)|wrote' "$GEN_LOG" 2>/dev/null || echo 0)
   row "R4" "green" "生成成功（$MUT，log=$GEN_LOG）"
 else
