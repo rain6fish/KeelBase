@@ -39,7 +39,24 @@ START=$SECONDS
 
 row() { echo "$1|$2|$3" >> "$SCORE"; }
 driver_rows() { grep '^ROW|' "$DRIVER_OUT" >> "$SCORE" || true; }
-cleanup() { kill "$SERVER_PID" 2>/dev/null || true; rm -f "$BE/data/proof.sqlite"; }
+# 可靠停后端：先 TERM，再等，仍存活则按平台强制结束（git-bash 的 kill 对原生 node 子进程常无效，会遗留占用 sqlite）
+stop_server() {
+  [ -n "$SERVER_PID" ] || return 0
+  kill "$SERVER_PID" 2>/dev/null || true
+  for i in 1 2 3 4 5; do
+    kill -0 "$SERVER_PID" 2>/dev/null || { SERVER_PID=""; return 0; }
+    sleep 1
+  done
+  case "$(uname -s 2>/dev/null)" in
+    *MINGW*|*MSYS*|*CYGWIN*) taskkill //PID "$SERVER_PID" //F >/dev/null 2>&1 || true ;;
+    *) kill -9 "$SERVER_PID" 2>/dev/null || true ;;
+  esac
+  SERVER_PID=""
+}
+cleanup() {
+  stop_server
+  for i in 1 2 3; do rm -f "$BE/data/proof.sqlite" 2>/dev/null && break; sleep 1; done
+}
 SERVER_PID=""
 trap cleanup EXIT
 
@@ -93,7 +110,7 @@ export NODE_ENV=development PORT=$PORT DB_PATH=./data/proof.sqlite
 export JWT_SECRET="$(openssl rand -hex 32)" JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
 export ENCRYPTION_KEY="$KEY_FIX" ENCRYPTION_HMAC_KEY="$KEY_FIX" AUDIT_HMAC_KEY="$KEY_FIX"
 export QUEUE_ENABLED=false CACHE_ENABLED=false
-(cd "$BE" && node dist/main >"$SERVER_LOG" 2>&1) &
+(cd "$BE" && exec node dist/main >"$SERVER_LOG" 2>&1) &
 SERVER_PID=$!
 
 echo "→ 等待后端就绪（$BASE）"
@@ -121,18 +138,21 @@ driver_rows
 if [ "$DRV_STATUS" != "0" ]; then echo "  ⚠ 驱动退出码 $DRV_STATUS（红行=诊断，见下方记分卡）"; else echo "  ✓ 驱动全过"; fi
 
 # ── 停后端 ───────────────────────────────────────────────────────────────────
-kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; SERVER_PID=""
+stop_server
 
 # ── R10 重复生成不破坏（幂等，离线）────────────────────────────────────────
+# 生成器 CLI 契约：模块目录已存在时须 --force（覆盖重写生成文件 + 接线幂等），否则拒绝
 RERUN_LOG="$REPORT_DIR/proof-trust-rerun.log"
-if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" >"$RERUN_LOG" 2>&1); then
-  if grep -qE '已存在|幂等|跳过' "$RERUN_LOG"; then
-    row "R10" "green" "同 spec 重跑幂等（已存在文件跳过，接线不破坏）"
+if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" --force >"$RERUN_LOG" 2>&1); then
+  if grep -qE '✗' "$RERUN_LOG"; then
+    row "R10" "red" "同 spec 重跑（--force）有错误行: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
+  elif grep -qE "Create.*Tool|create-${MUT}" "$BE_AI" && grep -qE "Query.*Tool|query-${MUT}" "$BE_AI"; then
+    row "R10" "green" "同 spec 重跑（--force）幂等成功——生成文件覆盖重写、ai.module 接线未破坏（规格 §7）"
   else
-    row "R10" "green" "同 spec 重跑退出 0（无 skip 标记，产物一致）"
+    row "R10" "red" "同 spec 重跑（--force）退出 0 但 ai.module 工具接线丢失"
   fi
 else
-  row "R10" "red" "同 spec 重跑失败: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
+  row "R10" "red" "同 spec 重跑（--force）失败: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
 fi
 
 # ── R3 计时（分段）───────────────────────────────────────────────────────────
