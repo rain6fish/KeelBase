@@ -137,6 +137,7 @@ const zh = {
   securityShowcaseEmpty: '暂无对抗场景',
   runDemo: '运行演示',
   // Trust 之旅（First-time Demo Journey）：首屏可亲历的 3 分钟 Trust 闭环入口
+  trustJourneyNav: '体验 KeelBase',
   trustJourneyTitle: '体验 KeelBase：Trust 之旅',
   trustJourneySubtitle: '让 AI 读取真实业务、提议写操作、被越权拒绝 / 高风险阻断——每条决策都能打开完整执行轨迹。确定性演示，无需 LLM 密钥。',
   trustJourneyStart: '开始 3 分钟体验',
