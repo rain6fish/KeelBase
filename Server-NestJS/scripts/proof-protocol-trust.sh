@@ -30,7 +30,11 @@ DRIVER_OUT="$(mktemp)"
 mkdir -p "$REPORT_DIR"
 TS="$(date +%Y-%m-%dT%H-%M-%S-UTC)"
 MUT_SPEC="${MUT_SPEC:-specs/invoices.json}"
-MUT="$(node -e "const s=require('$ROOT/$MUT_SPEC');process.stdout.write(s.plural||s.module)" 2>/dev/null || echo invoices)"
+# 平台鲁棒 MUT 解析：git-bash 的 $ROOT 是 POSIX /c/...，Windows Node 读不了 → cygpath -m 转 C:/…
+# （Linux 无 cygpath 直接走 POSIX 路径）；仍失败用 spec 文件名兜底
+MUT_SPEC_ABS="$(cygpath -m "$ROOT/$MUT_SPEC" 2>/dev/null || echo "$ROOT/$MUT_SPEC")"
+MUT="$(node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(s.plural||s.module)" "$MUT_SPEC_ABS" 2>/dev/null || echo "$(basename "$MUT_SPEC" .json)")"
+SINGULAR="${MUT%s}"
 EXECUTOR="${EXECUTOR:-}"
 
 KEY_FIX="$(printf '%s' 'keelbase-proof-trust-demo-key' | sha256sum | cut -d' ' -f1)"
@@ -38,7 +42,8 @@ BASELINE="$(cd "$ROOT" && git rev-parse --short HEAD 2>/dev/null || echo n/a)-$(
 START=$SECONDS
 
 row() { echo "$1|$2|$3" >> "$SCORE"; }
-driver_rows() { grep '^ROW|' "$DRIVER_OUT" >> "$SCORE" || true; }
+# 驱动行统一去 ROW| 前缀（SCORE 约定 3 列 id|st|dt，避免卡表出现多余 ROW 列）
+driver_rows() { grep '^ROW|' "$DRIVER_OUT" | sed 's/^ROW|//' >> "$SCORE" || true; }
 # 可靠停后端：先 TERM，再等，仍存活则按平台强制结束（git-bash 的 kill 对原生 node 子进程常无效，会遗留占用 sqlite）
 stop_server() {
   [ -n "$SERVER_PID" ] || return 0
@@ -130,7 +135,7 @@ echo "  ✓ 就绪"
 # ── R5-R9 驱动 ───────────────────────────────────────────────────────────────
 echo "→ proof-protocol-trust-card（R5-R9，生成模块治理链路）"
 DRV_START=$SECONDS
-(cd "$BE" && BASE_URL="$BASE" PROVIDER=demo AUDIT_HMAC_KEY="$KEY_FIX" \
+(cd "$BE" && BASE_URL="$BASE" PROVIDER=demo AUDIT_HMAC_KEY="$KEY_FIX" MUT="$MUT" MUT_SINGULAR="$SINGULAR" MUT_SPEC_ABS="$MUT_SPEC_ABS" \
   node scripts/proof-protocol-trust-card.mjs >"$DRIVER_OUT" 2>&1)
 DRV_STATUS=$?
 DRV_ELAPSED=$((SECONDS - DRV_START))
