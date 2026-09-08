@@ -3,6 +3,7 @@
 > 关联：internal-roadmap §internal.7 T3；裁决 §5-§7（内部）；规格 docs/protocol-trust-proof-card.spec.md。AI CRM = Enterprise Proof Reference Application 证明器（§internal.6，范围护栏：证明 Business Execution Trust，非 CRM 产品）。
 > 本轮基线：`53a8fecf`（feat/proof-card-t3）。执行者：作者自跑（**内部预跑**，正式 PASS 需真实 stranger 重跑，`EXECUTOR=github_id`）。
 > 复现：`cd Server-NestJS && npm run verify:protocol-trust:crm`（确定性 demo provider，无 LLM）。
+> **想当陌生开发者独立复现本卡**：见 [docs/proof-card-verification.md](../../../docs/proof-card-verification.md)（Stranger Kit 外部验证指南——环境/命令/回交 Issue 模板）。本留档为作者内部预跑，外部 PASS 待真实 stranger 运行。
 
 ## 结论速览
 
