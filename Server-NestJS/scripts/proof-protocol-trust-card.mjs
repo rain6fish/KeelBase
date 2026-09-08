@@ -31,26 +31,27 @@ const ALICE_PASS = process.env.ALICE_PASS || 'Alex@2026$Demo';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'Admin@2026$KeelBase';
 const MUT = process.env.MUT || 'invoices'; // plural
 const SINGULAR = process.env.MUT_SINGULAR || MUT.replace(/s$/, ''); // 工具用单数
-// 按被测 spec 的必填字段通用构建 REST 体与 demo 对话 k=v（卡支持任意 specs/*.json，非 invoices 专用）
+// 按被测 spec 通用构建 REST 体与 demo 对话 k=v（卡支持任意 specs/*.json，非 invoices 专用）。
+// 填**全部**字段合法值：生成器契约下 string/enum 默认必填（除非 required:false，见 templates-backend.mjs），
+// 只填 required===true 会漏掉默认必填的可选标字段 → 400/INSERT 失败（T3 leads 暴露）。
 const SPEC_ABS = process.env.MUT_SPEC_ABS || null;
 const specMeta = SPEC_ABS ? JSON.parse(readFileSync(SPEC_ABS, 'utf8')) : null;
 const specLabel = specMeta?.label || MUT;
 const specFields = specMeta?.fields ?? [];
-const bodyFields = specFields.filter((f) => f.required);
-const keyFields = bodyFields.length ? bodyFields : specFields.slice(0, 1);
-const keyName = keyFields[0]?.name || 'id';
+const keyName = specFields[0]?.name || 'id';
 function buildCreate(tag) {
   const body = {};
   const kvs = [];
-  for (const f of keyFields) {
+  const i = Date.now() % 100000;
+  specFields.forEach((f, idx) => {
     let v;
-    if (f.type === 'int') v = (Date.now() % 100000) + kvs.length;
+    if (f.type === 'int') v = i + idx;
     else if (f.type === 'boolean') v = true;
-    else if (f.type === 'enum') v = (f.enum ?? [])[0] ?? `${tag}${Date.now()}`;
-    else v = `${tag}-${Date.now()}-${kvs.length}`;
+    else if (f.type === 'enum') v = (f.enum ?? [])[0] ?? `${tag}${i}`;
+    else v = `${tag}-${i}-${idx}`;
     body[f.name] = v;
     kvs.push(`${f.name}=${v}`);
-  }
+  });
   return { body, kv: kvs.join('，') };
 }
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -216,9 +217,9 @@ async function main() {
     else pass('R7c', '决策轨迹贯通（B4 trace）');
   }
 
-  // ── R7-decline：另一写 → 拒绝 → 不落库 ───────────────────────────────────
+  // ── R7-reject：另一写 → 拒绝 → 不落库（ConfirmDecisionDto 收 approve|reject，decline 是无效值）─
   const d7 = buildCreate('NO');
-  const sDecline = await streamChat(alice, `再创建一条${specLabel}：${d7.kv}。`, 'decline');
+  const sDecline = await streamChat(alice, `再创建一条${specLabel}：${d7.kv}。`, 'reject');
   const declinedApproved = sDecline.decisions.find((d) => d.approved);
   if (sDecline.confirmations.length === 0) {
     fail('R7d', `未收到 confirmation_request（tools=${sDecline.toolNames.join(',') || '—'}）`);
