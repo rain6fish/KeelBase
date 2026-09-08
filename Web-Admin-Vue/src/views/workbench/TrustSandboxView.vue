@@ -92,6 +92,12 @@
               <el-tag :type="outcomeTag(st.outcome)" effect="dark" size="small">{{ t(`tsOutcome.${st.outcome}`) }}</el-tag>
             </div>
             <div class="text-h6 mb-2">{{ t(`tsScenario.${st.scenario}.title`) }}</div>
+            <!-- Powered by：这一步靠哪个运行时机制保证（Story→Capability） -->
+            <div v-if="capabilitiesFor(st.scenario).length" class="d-flex align-center ga-1 flex-wrap mb-1">
+              <el-tag v-for="cap in capabilitiesFor(st.scenario)" :key="cap.labelKey" size="small" type="info" effect="plain">
+                <AppIcon :icon="cap.icon" class="mr-1" />{{ t(cap.labelKey) }}
+              </el-tag>
+            </div>
             <p class="tsd-detail mb-2">{{ st.detail || '—' }}</p>
           </div>
         </div>
@@ -255,6 +261,20 @@ const JOURNEY_META: Record<TrustSandboxJourneyStep['step'], { icon: string; labe
 
 function journeyMeta(step: TrustSandboxJourneyStep['step']) {
   return JOURNEY_META[step] ?? JOURNEY_META.ask
+}
+
+/** Powered by：每步 outcome 由哪个运行时机制保证（Story→Capability） */
+const CAPABILITY: Record<string, Array<{ icon: string; labelKey: string }>> = {
+  s1_normal: [
+    { icon: 'mdi-account-lock-outline', labelKey: 'capOwnScope' },
+    { icon: 'mdi-timeline-clock-outline', labelKey: 'capTrace' },
+  ],
+  s2_denied: [{ icon: 'mdi-account-key-outline', labelKey: 'capCasl' }],
+  s3_r5_block: [{ icon: 'mdi-shield-alert-outline', labelKey: 'capRiskPolicy' }],
+  s4_confirm: [{ icon: 'mdi-hand-okay', labelKey: 'capHumanApproval' }],
+}
+function capabilitiesFor(scenario: string) {
+  return CAPABILITY[scenario] ?? []
 }
 
 const journeyDone = computed(() => journeySteps.value.length > 0 && journeyRevealed.value >= journeySteps.value.length)
