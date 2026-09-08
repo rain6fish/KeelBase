@@ -11,36 +11,36 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Added / 新增
 
-- **Trust 旅程「从看到做」闭环（P0-1 → P2）** — P0-1 admin 控制台壳内直达 Trust 旅程（评审路径可达）；P0-2 一键连跑（Ask → 人工确认 → 越权拒绝 → 高风险阻断自动推进）；P1-1 引导真实 Copilot 批准 → 落库 → 撤销 → 看证据；P2 体验收尾（引导可收起 + 完成度轻埋点 + 每步 Powered by 能力标签）；P2② AI 写执行成功后详情页「撤销/管理」直达我的 AI 行为；Demo Journey v1（AI 业务洞察补菜单/卡可点钻取 + Trust 之旅首屏入口 + 沙盘结果直达执行轨迹）
-  **Trust 旅程闭环**：控制台直达 → 一键连跑 → 真实批准落库 → 撤销看证据
-- **Trust 沙盘（Sandbox）** — 运行结果改弹窗 / 右侧常驻面板展示（十六场景卡 + sticky 结果区，窄屏回落）；沙盘数据自清理（P2④，手动清理本人合成客户/订单与 bob 演示账号）；跨访客旅程完成计数（服务器按北京日聚合今日/累计）与管理台概览「Trust 旅程今日/累计」卡（P2③）+ 旅程统计 TrustSandbox spec
-  **Trust 沙盘可运营**：结果面板 + 自清理 + 跨访客旅程统计上管理台
-- **revokeClass 撤销能力语义契约 + 可视化（KB-6）** — 工具元数据声明撤销能力档（none / local_compensate / governed_external / transactional）+ 注册强制校验；副作用实体加 revoke_class / revoke_status 列 + migration；撤销 2xx 仅落 compensating（结果未知、禁 revoked）、status 归一扩 4 值；`/ai/tools` 带档位；管理台 / 用户 Action Center / AiTimeline 据档位诚实渲染撤销钮与状态（proxy 外部副作用不再误示可撤）
-  **撤销能力四档语义契约**：声明即校验，UI 诚实渲染「能撤/不能撤」
-- **Proof Cards（T1/T2/T3，陌生人可复现验证）** — T1 Protocol×Trust Proof Card 规格（§internal.7）；T2 一键编排跑通（生成 invoices MUT → 隔离后端 → R5-R9 驱动 → R10 幂等 → 记分卡留档）+ demo provider 通用生成 create 路由；T3 CRM Reference（leads 生成轨红0 + AI CRM 旗舰轨 17/17，三证明显式化）+ Stranger Kit 外部验证指南（docs/proof-card-verification.md，R2=green 才算外部 PASS）
-  **Proof Card 体系**：T2/T3 跑卡通过，陌生人可按公开文档复现验证
-- **KB 对抗评测文档收口（KB-1..8）** — KB-1 对外词汇表校准 v2（Business-safe AI Runtime 主名统一等）；KB-2 Not-a-* 不承诺清单转公开双语（SECURITY.md Trust Boundaries N-1..13）+ 每项挂 spec/测试引用；KB-3 威胁模型 + 信任边界双语（docs/security/threat-model）+ evidence-root v3 公开一键复现验证程序；KB-4 失败路径回归语料（failure path 仍可信可回归）；KB-5 run-level approval spec 定稿（同轮多写工具聚合为一个 run）；KB-7 前端战略表态（Web=Vue 主版本 / React 预览非候选，转正/移除由真实需求触发）；KB-8 参考部署路径核对收口 + 首次使用 30 分钟验收清单（seed → alex 工作台 → CRM AI 建跟进 → approve → 撤销 → 证据）
-  **KB-1..8 对抗评测收口**：词汇表/不承诺清单/威胁模型/Proof 卡文档全部双语化并对齐 spec/测试
-- **AI 门控修复** — 未验证 admin 写工具不再误报 EMAIL_NOT_VERIFIED（admin 视为已验证）
-  **门控修复**：admin 角色写工具不再被未验证邮箱误拦
+- **Trust Journey "see → act" closed loop (P0-1 → P2)** — P0-1: reach the Trust Journey directly inside the admin console shell (review path reachable); P0-2: one-click run of Ask → human confirm → privilege-violation denied → high-risk blocked, auto-advancing; P1-1: guide a real Copilot approval → persisted → revoke → view evidence; P2 polish: collapsible guide + journey-completion light telemetry + per-step "Powered by" capability tags; P2②: AI write success surfaces a "revoke / manage" shortcut into My AI Activity on the detail page; Demo Journey v1: AI business-insight menu/card drill-down + Trust Journey first-screen entry + sandbox result straight to execution trace
+  **Trust 旅程「从看到做」闭环（P0-1 → P2）**：控制台直达 → 一键连跑（Ask → 人工确认 → 越权拒绝 → 高风险阻断）→ 真实 Copilot 批准落库 → 撤销 → 看证据
+- **Operable Trust Sandbox** — run results shown in a popup / right sticky result pane (sixteen scenario cards + sticky result area, stacks on narrow screens); sandbox data self-cleanup (P2④, removes the user's own synthetic customers/orders + their bob demo accounts); cross-visitor journey-completion counting (server aggregates today/cumulative by Beijing day) with a "Trust Journey today/total" card on the admin overview (P2③) + journey-stats TrustSandbox spec
+  **Trust 沙盘可运营**：结果面板/弹窗 + 数据自清理（P2④）+ 跨访客旅程完成计数与管理台今日/累计卡（P2③）
+- **revokeClass revocation-capability contract + visualization (KB-6)** — tool metadata declares a revocation tier (none / local_compensate / governed_external / transactional) with mandatory validation at registration; side-effect entity gains revoke_class / revoke_status columns + migration; revoke 2xx now only records compensating state when outcome is unknown (never a false `revoked`), status normalized to 4 values; `/ai/tools` exposes the tier; admin / user Action Center / AiTimeline render revoke buttons & state honestly per tier (proxy external side effects no longer look revocable)
+  **revokeClass 撤销能力语义契约（KB-6）**：四档声明 + 注册强校验，副作用实体加列迁移、status 归一 4 值，管理台/用户/时间线按档位诚实渲染「能撤/不能撤」
+- **Proof Cards T1/T2/T3 (reproducible by strangers)** — T1 Protocol×Trust Proof Card spec (§internal.7); T2 one-click orchestration passing (invoices MUT → isolated backend → R5-R9 driven → R10 idempotent → scorecard archived) + demo provider generic create route; T3 CRM Reference (leads-generation rail red-0 + AI CRM flagship rail 17/17, three evidence sets explicit) + Stranger Kit external-verification guide (docs/proof-card-verification.md; R2=green counts as external PASS)
+  **Proof Card 体系（T1/T2/T3）**：T2/T3 跑卡通过留档，陌生人可按公开文档复现验证（Stranger Kit）
+- **KB-1..8 antithesis-review doc wrap-up** — KB-1 external glossary v2 calibration; KB-2 Not-a-* claim list made public bilingual (SECURITY.md Trust Boundaries N-1..13) with each item tied to spec/tests; KB-3 threat model + trust boundaries bilingual + public one-click re-verification of evidence-root v3; KB-4 failure-path regression corpus (failure path stays credible & re-runnable); KB-5 run-level approval spec finalized (same-round multi-write tools aggregate into one run); KB-7 frontend positioning (Web = Vue official main / React preview not a candidate main, promotion/removal driven by real demand); KB-8 reference-deploy path reconciliation + first-use 30-minute acceptance checklist (seed → alex workbench → CRM AI follow-up → approve → revoke → evidence)
+  **KB-1..8 对抗评测收口**：词汇表/不承诺清单/威胁模型/Proof 卡文档双语化并对齐 spec/测试，KB-8 首次使用 30 分钟验收清单可执行化
+- **AI gate fix** — admin users are treated as email-verified, so admin write tools no longer misfire EMAIL_NOT_VERIFIED
+  **AI 门控修复**：admin 角色写工具不再被未验证邮箱误拦（admin 视为已验证）
 
 ### Fixed / 修复
 
-- **fix(trust-sandbox): release-precheck review — cleanup 授权边界 + s5 撤销诚实文案 + governed 去死链** — ① `POST /ai/trust-sandbox/cleanup`：非 admin 仅删本人归属前缀 `bob_sandbox_<uid>_%`（bob 演示账号改为归属命名 `bob_sandbox_<uid>_<ts>`），admin 才清全量 `bob_sandbox_%`——消除任意登录用户经沙盘清理硬删他用户账号的越权（usersService.remove 无归属守卫）；② s5 撤销 detail 按 revoke 真值分句（未生效不再误报「目标软删可恢复」，改为提示不可本地撤销）；③ 场景结果补 `governed` 标记——确定性演示直建客户非 AI 工具副作用，前端据此隐藏会 404 的「业务动作治理详情」CTA（执行轨迹 / P1-1 真实落库钻取保留）；BE spec 12 + FE typecheck 全绿
-  **Trust 沙盘评审修复**：cleanup 越权收敛 + s5 撤销诚实文案 + 治理详情去死链
-- **fix(deploy): Serve official demo video under /demo (China mirror)** — nginx `/demo/` 静态 location + docker-compose.prod.yml 挂载宿主 `./demo`（official-demo-en/zh.webm + video html）→ 国内镜像 `https://demo.keelbase.com.cn/demo/video-en.html` 恢复真实可播（此前被 `location /` SPA 兜底到 admin，200 假象）；README China mirror 同步 https 正式域
-  **国内镜像恢复官方演示视频**：/demo 静态服务 + prod 挂载
-- **fix(governance): register AiGovernancePolicyHistory in governance standalone module** — P-③ 新增实体未在 GovernanceModule forFeature 与 GovernanceDataSource entities 注册 → 治理台进程（`start:governance` / docker governance）Nest UnknownDependenciesException 启动失败修复（ECS v1.0.6 部署实测暴露）
-  **治理台独立进程启动修复**：策略历史实体补注册
+- **fix(trust-sandbox): release-precheck review — cleanup authz containment + honest s5 revoke copy + governed dead-link removal** — ① `POST /ai/trust-sandbox/cleanup`: non-admins may only delete bob accounts under their own ownership prefix `bob_sandbox_<uid>_%` (bob demo accounts now use ownership naming `bob_sandbox_<uid>_<ts>`), admins still purge all `bob_sandbox_%` — closes the hole where any signed-in user could hard-delete other users' accounts via sandbox cleanup (usersService.remove has no ownership guard); ② s5 revoke detail now phrases by the actual revoke result (no longer reports "target soft-deleted/restorable" when revocation did not take effect — it says the effect cannot be locally revoked); ③ scenario results carry a `governed` flag — deterministic demo rows created directly are not AI-tool side effects, so the frontend hides the 404-bound "business-action governance detail" CTA (execution trace / P1-1 real-persist drill-down preserved); BE spec 12 + FE typecheck green
+  **Trust 沙盘评审修复**：cleanup 越权收敛（bob 归属命名 + admin 门禁）+ s5 撤销诚实文案 + 治理详情去死链
+- **fix(deploy): Serve official demo video under /demo (China mirror)** — nginx `/demo/` static location + docker-compose.prod.yml mounts host `./demo` (official-demo-en/zh.webm + video html) so the China mirror `https://demo.keelbase.com.cn/demo/video-en.html` plays for real again (previously `location /` SPA fallback served the admin shell, a false 200); README China mirror now points to the https canonical domain
+  **国内镜像恢复官方演示视频**：/demo 静态服务 + prod 挂载，README 指向 https 正式域
+- **fix(governance): register AiGovernancePolicyHistory in the governance standalone module** — the P-③ entity was missing from GovernanceModule forFeature and the GovernanceDataSource entities, crashing the governance process (`npm run start:governance` / docker governance) with Nest UnknownDependenciesException (found on the ECS v1.0.6 deployment)
+  **治理台独立进程启动修复**：策略历史实体补注册（ECS v1.0.6 部署实测暴露）
 
 ### Changed / 变更（依赖与安全）
 
-- **Dependabot security-first 策略** — 普通 version updates 关闭（open-pull-requests-limit: 0，避免依赖漂移影响 Golden Demo / E2E / Agent Benchmark），保留 Security Updates + 补 github-actions 依赖监控
-  **Dependabot 安全优先**：普通升级关 PR，只留安全更新与 Actions 监控
-- **Web-Admin-Vue 测试链与依赖** — vitest / @vitest/coverage-v8 2 → 3.2.7（清 2 个 critical dev 漏洞，400 测试全绿）；vue 3.5.42 / sass / globals / typescript-eslint / @vue/test-utils minor·patch 更新
-  **前端测试链升级**：vitest 3.2.7 清 dev 漏洞；Vue 系 minor/patch 跟进
-- **Server-NestJS 依赖** — @opentelemetry 系（sdk-node / auto-instrumentations / exporter-trace-otlp-http）、nestjs-pino 5.1、bullmq 6.3.4、@aws-sdk/client-s3、sharp 0.35.4、@nestjs/cli 等 bump
-  **后端依赖跟进**：otel / pino / bullmq / aws-sdk / sharp 等 bump
+- **Dependabot security-first policy** — routine version updates are turned off (open-pull-requests-limit: 0, to avoid dependency drift affecting Golden Demo / E2E / Agent Benchmark), Security Updates stay on, and a github-actions dependency watch is added
+  **Dependabot 安全优先策略**：普通升级关 PR，只留安全更新 + 补 github-actions 监控
+- **Web-Admin-Vue test toolchain & deps** — vitest / @vitest/coverage-v8 2 → 3.2.7 (clears 2 critical dev vulnerabilities; 400 tests green); vue 3.5.42 / sass / globals / typescript-eslint / @vue/test-utils minor·patch updates
+  **Web-Admin-Vue 测试链与依赖**：vitest 3.2.7 清 dev 漏洞；Vue 系 minor/patch 跟进
+- **Server-NestJS dependencies** — @opentelemetry family (sdk-node / auto-instrumentations / exporter-trace-otlp-http), nestjs-pino 5.1, bullmq 6.3.4, @aws-sdk/client-s3, sharp 0.35.4, @nestjs/cli and others bumped
+  **Server-NestJS 依赖跟进**：otel / pino / bullmq / aws-sdk / sharp 等 bump
 
 ## [1.0.6] - 2026-09-06
 
