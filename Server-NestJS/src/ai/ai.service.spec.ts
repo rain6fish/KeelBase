@@ -417,6 +417,45 @@ describe('AiService', () => {
       (aiService as any).toolEffectsService = undefined;
     });
 
+    it('FP-8: B 路径写空体成功 → 仍记 proxy_call 副作用锚（proxyResultId），不假装有 data', async () => {
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('fp8-key'),
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+      };
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: null });
+      const origIsProxy = (aiService as any).isProxyTool;
+      (aiService as any).isProxyTool = () => true;
+      try {
+        const result = await (aiService as any)._executeWriteTool('proxy_write_empty', { id: '7' }, '1', 'c1');
+        expect(result).toEqual({ success: true, data: null });
+        expect(record).toHaveBeenCalledTimes(1);
+        const [ctx, resultType, resultId, snap] = record.mock.calls[0];
+        expect(ctx).toMatchObject({ userId: '1', toolName: 'proxy_write_empty', conversationId: 'c1' });
+        expect(resultType).toBe('proxy_call');
+        expect(typeof resultId).toBe('number');
+        expect(resultId).toBeGreaterThan(0); // 稳定 proxyResultId 锚，非空不伪造
+        expect(snap).toEqual({ before: null, after: null });
+      } finally {
+        (aiService as any).isProxyTool = origIsProxy;
+        (aiService as any).toolEffectsService = undefined;
+      }
+    });
+
+    it('FP-8: 非 proxy 写返回空体（无 data）→ 不记录（缺锚不伪造）', async () => {
+      const record = jest.fn();
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('local-empty'),
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+      };
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: null });
+      await (aiService as any)._executeWriteTool('create_event', { title: 'X' }, '1', 'c1');
+      expect(record).not.toHaveBeenCalled();
+      (aiService as any).toolEffectsService = undefined;
+    });
+
     it('HS-3: _executeWriteTool 无 toolEffectsService 时直接执行不记录', async () => {
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
       (aiService as any).toolEffectsService = undefined;

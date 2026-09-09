@@ -404,7 +404,9 @@ export class AiService {
     const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
     const result = await this.toolRegistry.execute(toolName, args, userId);
     const isProxyWrite = this.isProxyTool(toolName);
-    if (result.success && result.data && ((result.data as any).id !== undefined || isProxyWrite)) {
+    // FP-8：B 路径写即使响应空体/未知结果也记 proxy_call 副作用锚（stable proxyResultId），不假装有 data——撤销/证据可定位
+    const proxyAnchor = isProxyWrite && result.success;
+    if (result.success && (proxyAnchor || (result.data && (result.data as any).id !== undefined))) {
       // 状态变更型写工具（AI 预审）与 dry-run 只读预览（create_module）不创建可撤销记录，仅确认 + 审计
       if (!['review_approval_request', 'create_module'].includes(toolName)) {
         // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
