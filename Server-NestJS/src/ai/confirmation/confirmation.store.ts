@@ -20,11 +20,22 @@ import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.enti
 
 export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout';
 
+/** KB-5 run-level approval：run 批内单个动作（工具名 + 参数 + 人读摘要 + 自身风险级） */
+export interface RunItem {
+  toolName: string;
+  args: Record<string, unknown>;
+  /** 人读 diff 摘要（"创建事件：产品评审…"）；无摘要动作不进 run（§3.3 诚实降级） */
+  summary: string;
+  riskLevel: string;
+}
+
 export interface PendingConfirmation {
   token: string;
   userId: string;
   toolName: string;
   args: Record<string, unknown>;
+  /** KB-5：'single'（默认，单动作）/ 'run'（一次授权整批，token = runId） */
+  kind?: 'single' | 'run';
   /** HS-6：本次会话是否信任该工具（后续免确认） */
   trustTool?: boolean;
   resolve: (result: ConfirmationResolveResult) => void;
@@ -66,23 +77,72 @@ export class ConfirmationStore {
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
+    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single' });
+    const timer = this._setupTimer(token, ttlMs);
+    this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
+    return { token, decision };
+  }
 
+  /**
+   * KB-5 run-level approval（docs/run-level-approval.spec.md §2.4）：一次授权整批。
+   * token 即 runId（§2.3 允许 token=runId）；落库单行 kind='run' + run_items 快照 + riskLevel=runRisk。
+   * 前端 POST 同一 run token approve/reject → resolve 该 run 的 decision（一次放行整批/整批跳过）。
+   */
+  async createRun(
+    userId: string,
+    items: RunItem[],
+    riskLevel: string,
+    ttlMs?: number,
+  ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
+    const token = randomUUID();
+    let resolveFn!: (result: ConfirmationResolveResult) => void;
+    const decision = new Promise<ConfirmationResolveResult>((resolve) => {
+      resolveFn = resolve;
+    });
+    await this._persist({
+      token,
+      toolName: 'run',
+      args: '[]',
+      operatorId: userId,
+      riskLevel,
+      kind: 'run',
+      runItems: JSON.stringify(items),
+    });
+    const timer = this._setupTimer(token, ttlMs);
+    this.pending.set(token, { token, userId, toolName: 'run', args: {}, kind: 'run', resolve: resolveFn, timer });
+    return { token, decision };
+  }
+
+  /** 落库待确认记录（create / createRun 共用；失败不阻断内存确认流，记错误供审计排查） */
+  private async _persist(row: {
+    token: string;
+    toolName: string;
+    args: string;
+    operatorId: string;
+    riskLevel: string;
+    kind: 'single' | 'run';
+    runItems?: string;
+  }): Promise<void> {
     await this.reqRepo
       .save(
         this.reqRepo.create({
-          token,
-          toolName,
-          args: JSON.stringify(args),
-          operatorId: userId,
-          riskLevel: 'R3',
+          token: row.token,
+          toolName: row.toolName,
+          args: row.args,
+          operatorId: row.operatorId,
+          riskLevel: row.riskLevel,
+          kind: row.kind,
           status: 'pending',
+          ...(row.runItems !== undefined ? { runItems: row.runItems } : {}),
         }),
       )
       .catch((err) => {
-        // 落库失败不阻断确认流（内存仍可用），记录错误供审计排查
         console.error(`[ConfirmationStore] persist create failed: ${err.message}`);
       });
+  }
 
+  /** TTL 定时器：超时自动 resolve('timeout') + 更新库状态（create / createRun 共用） */
+  private _setupTimer(token: string, ttlMs?: number): NodeJS.Timeout {
     const timer = setTimeout(() => {
       const pending = this.pending.get(token);
       if (pending) {
@@ -94,17 +154,7 @@ export class ConfirmationStore {
       }
     }, ttlMs ?? this.ttlMs);
     timer.unref?.();
-
-    this.pending.set(token, {
-      token,
-      userId,
-      toolName,
-      args,
-      resolve: resolveFn,
-      timer,
-    });
-
-    return { token, decision };
+    return timer;
   }
 
   /**

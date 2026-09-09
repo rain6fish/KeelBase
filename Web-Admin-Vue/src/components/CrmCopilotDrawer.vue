@@ -217,13 +217,15 @@ async function send(raw: string) {
           }
           case 'confirmation_decision': {
             const d = ev.confirmationDecision
+            // KB-5：run 级整体决策关卡（mode:'run'，无 toolName/resultId）只清 pending 槽；
+            // run 逐条 decision 带 toolName+resultId，仅更新 executed（供 tool_end→emit executed）。
             if (pendingConfirmation) {
               pendingConfirmation.status = 'decided'
               pendingConfirmation.result = { approved: d.approved }
               pendingConfirmation = null
             }
-            // 批准且带 resultId → 记住执行结果，待 tool_end 确认后通知父组件
-            if (d.approved && d.resultId !== undefined) {
+            // 批准且带 resultId + toolName → 记住执行结果，待 tool_end 确认后通知父组件
+            if (d.approved && d.resultId !== undefined && d.toolName) {
               executed = { resultType: resultTypeFor(d.toolName), resultId: d.resultId }
             }
             scrollBottom()

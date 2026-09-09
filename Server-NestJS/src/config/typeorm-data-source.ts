@@ -59,6 +59,7 @@
        resolve(__dirname, '../migrations/*AddAiAuditAuthorization*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiAuditDelegation*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddAiConfirmationRequests*').replace(/\\/g, '/'),
+       resolve(__dirname, '../migrations/*AddAiConfirmationRunColumns*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*PostgresIncrementalSchema*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddCrm*').replace(/\\/g, '/'),
        resolve(__dirname, '../migrations/*AddWebhookSubscriptions*').replace(/\\/g, '/'),

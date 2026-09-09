@@ -66,4 +66,39 @@ describe('ConfirmationStore', () => {
       expect.objectContaining({ status: 'timeout' }),
     );
   });
+
+  // KB-5 run-level approval（docs/run-level-approval.spec.md §2.4）
+  it('createRun：落库 kind=run + run_items 快照 + runRisk，一次授权放行整批', async () => {
+    const items = [
+      { toolName: 'create_event', args: { title: 'A' }, summary: '创建事件：A', riskLevel: 'R3' },
+      { toolName: 'create_todo', args: { title: 'B' }, summary: '创建待办：B', riskLevel: 'R3' },
+    ];
+    const { token, decision } = await store.createRun('1', items, 'R3');
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token,
+        toolName: 'run',
+        kind: 'run',
+        riskLevel: 'R3',
+        runItems: JSON.stringify(items),
+        status: 'pending',
+        operatorId: '1',
+      }),
+    );
+    // 一次 resolve（run token）→ decision 放行整批
+    expect(await store.resolve(token, '1', 'approve')).toBe(true);
+    await expect(decision).resolves.toMatchObject({ outcome: 'approve' });
+    expect(store.pendingCount).toBe(0);
+  });
+
+  it('createRun：拒绝整批（decline）', async () => {
+    const items = [
+      { toolName: 'create_event', args: { title: 'A' }, summary: '创建事件：A', riskLevel: 'R3' },
+      { toolName: 'create_todo', args: { title: 'B' }, summary: '创建待办：B', riskLevel: 'R3' },
+    ];
+    const { token, decision } = await store.createRun('1', items, 'R3');
+    expect(await store.resolve(token, '1', 'reject')).toBe(true);
+    await expect(decision).resolves.toMatchObject({ outcome: 'decline' });
+  });
 });

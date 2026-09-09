@@ -53,25 +53,43 @@ export interface GenerateResult {
   };
 }
 
+/** KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心） */
+export interface ConfirmationRunItem {
+  toolName: string;
+  summary: string;
+  riskLevel: string;
+}
+
 /** 写操作待确认请求数据 */
 export interface ConfirmationRequestData {
   token: string;
-  toolName: string;
-  summary: string;
-  arguments: Record<string, unknown>;
+  /** 单动作模式（mode 缺省/approval）必有；mode==='run' 时可空或填 run 主动作 */
+  toolName?: string;
+  summary?: string;
+  arguments?: Record<string, unknown>;
   /** W5-⑦ Explainable Authz：为何需确认（风险级/策略/检查清单） */
   authorization?: AuthorizationReasons;
-  /** R4 双人审批：'approval' = 已提交人工审批（operator 不阻塞）；缺省 = 本人即时确认（R3） */
-  mode?: 'immediate' | 'approval';
+  /** R4 双人审批：'approval' = 已提交人工审批（operator 不阻塞）；缺省 = 本人即时确认（R3）；'run' = 一次授权整批（KB-5） */
+  mode?: 'immediate' | 'approval' | 'run';
+  /** KB-5：mode==='run' 时必有——runId 一次授权对应一组动作；runRisk = 批内最高 */
+  run?: {
+    runId: string;
+    riskLevel: string;
+    items: ConfirmationRunItem[];
+  };
 }
 
 /** 写操作确认结果数据 */
 export interface ConfirmationDecisionData {
-  toolName: string;
+  /** run 模式时为空/省略（整批用 mode='run' 关卡）；逐条决策各自带 toolName */
+  toolName?: string;
   approved: boolean;
   success?: boolean;
   resultId?: number | string;
   error?: string;
+  /** KB-5：run 级整体决策关卡（mode='run' + runId），先于逐条 decision 发出 */
+  mode?: 'run';
+  runId?: string;
 }
 
 /** 工具执行开始（前端进程卡片） */
