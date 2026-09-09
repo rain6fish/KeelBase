@@ -46,6 +46,8 @@ const FROZEN_OBJECT_IDS = [
   'external-effects-query',
   'internal-approvals-execute',
   'sidecar-policy-push',
+  'governance-confirmation-item',
+  'headless-chat-response',
 ];
 
 const failures: string[] = [];

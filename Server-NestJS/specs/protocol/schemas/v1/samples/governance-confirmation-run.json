@@ -1,0 +1,17 @@
+{
+  "id": 56,
+  "token": "run-8a31d0e2",
+  "toolName": "run",
+  "args": "[]",
+  "operatorId": "42",
+  "conversationId": "conv-x-2",
+  "riskLevel": "R3",
+  "status": "approved",
+  "kind": "run",
+  "runItems": "[{\"toolName\":\"create_event\",\"summary\":\"创建事件「产品评审」\",\"riskLevel\":\"R3\"},{\"toolName\":\"create_todo\",\"summary\":\"为「产品评审」创建跟进待办\",\"riskLevel\":\"R3\"}]",
+  "approverId": "99",
+  "decidedAt": "2026-09-09T05:05:00Z",
+  "createdAt": "2026-09-09T05:00:00Z",
+  "operatorName": "alex",
+  "approverName": "admin"
+}

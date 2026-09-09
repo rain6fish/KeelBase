@@ -211,6 +211,22 @@
       "title": "治理台→sidecar 策略推送 POST {cb}/v1/policy（policy $ref governance-policy）",
       "source": "src/governance/sidecar-registry.service.ts:34-56; src/governance-sidecar/sidecar.controller.ts:59-69",
       "samples": ["schemas/v1/samples/sidecar-policy-push.json"]
+    },
+    {
+      "id": "governance-confirmation-item",
+      "version": "v1",
+      "schema": "governance-confirmation-item.schema.json",
+      "title": "治理台确认/审批列表项（ai_confirmation_requests 行视图，single/run + names）",
+      "source": "src/ai/approvals/ai-confirmation-request.entity.ts:19-74; src/ai/ai.service.ts:473-519; src/governance/governance-approval.service.ts:21-36",
+      "samples": ["schemas/v1/samples/governance-confirmation-item.json", "schemas/v1/samples/governance-confirmation-run.json"]
+    },
+    {
+      "id": "headless-chat-response",
+      "version": "v1",
+      "schema": "headless-chat-response.schema.json",
+      "title": "Headless 对话响应 POST /headless/chat（ChatResponse 投影）",
+      "source": "src/headless/headless.controller.ts:14-26,48-59",
+      "samples": ["schemas/v1/samples/headless-chat-response.json"]
     }
   ]
 }

@@ -1,0 +1,16 @@
+{
+  "id": 55,
+  "token": "appr-2f4b9c17",
+  "toolName": "review_approval_request",
+  "args": "{\"requestId\":12}",
+  "operatorId": "42",
+  "conversationId": "conv-x-1",
+  "riskLevel": "R4",
+  "status": "pending",
+  "kind": "single",
+  "runItems": null,
+  "approverId": null,
+  "decidedAt": null,
+  "createdAt": "2026-09-09T05:00:00Z",
+  "operatorName": "alex"
+}
