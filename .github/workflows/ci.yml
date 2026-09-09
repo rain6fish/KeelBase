@@ -206,6 +206,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node Server-NestJS/scripts/check-protocol-language.mjs
+      # 证据根 v3 canonical 手写序防漂移（1.0.8 deferred 收敛）：导出侧(audit.service)与离线验证侧(verify-evidence.mjs)键序须一致
+      - run: node Server-NestJS/scripts/check-evidence-canonical.mjs
 
   # 生成器/导入 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema 导入防回归
   cli-test:

@@ -10,6 +10,21 @@ import { ProxyToolRevokerService } from '../src/ai/proxy/proxy-revoker.service';
 import { ToolRegistry } from '../src/ai/tools/tool-registry';
 import { SettingsService } from '../src/settings/settings.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
+import { AiService } from '../src/ai/ai.service';
+
+/** 等真实 app 的 proxyRegistry 热更新（SettingsService.onChange → reload）把工具注册进 registry */
+async function waitUntilRegistered(registry: ToolRegistry, name: string, timeoutMs = 3000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      registry.getTool(name);
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+  throw new Error(`工具 ${name} 未在 ${timeoutMs}ms 内被热更新注册`);
+}
 
 /**
  * KB-4 失败路径回归语料（B 层·真实链路 e2e）——见 docs/failure-path-corpus.spec.md。
@@ -156,6 +171,37 @@ describe('失败路径回归（KB-4 / B 层真实链路）', () => {
     const r = await revoker.revoke('proxy_fp_cancel', 7, userId);
     expect(r.ok).toBe(false);
     expect(r.message).toContain('500');
+  });
+
+  it('FP-8/写：proxy 写目标 204 空体 → success data:null + 仍记 proxy_call 副作用锚（proxyResultId），语料断言锚存在', async () => {
+    // 真实装配：写 Settings → 热更新把写工具注册进 app 实际 registry → 经 AiService._executeWriteTool（AI 确认后执行路径）触发
+    const aiService = app.get(AiService);
+    const appRegistry = (aiService as any).toolRegistry;
+    const settings = app.get(SettingsService);
+    await settings.set(
+      'ai_proxy_tools',
+      JSON.stringify({
+        baseUrl: base,
+        audience: 'legacy-erp',
+        tools: [
+          { name: 'proxy_fp_204_write', description: '删合同(204)', method: 'DELETE', path: '/no-content', parameters: [{ name: 'id', type: 'string', description: 'id', required: true }], riskLevel: 'R3' },
+        ],
+      }),
+      'json',
+    );
+    await waitUntilRegistered(appRegistry, 'proxy_fp_204_write');
+
+    const effectsService = (aiService as any).toolEffectsService;
+    const res = await (aiService as any)._executeWriteTool('proxy_fp_204_write', { id: '99' }, userId, 'conv-fp8-204');
+    expect(res.success).toBe(true);
+    expect(res.data).toBeNull(); // 未知结果如实空，不编造 data
+
+    // FP-8 spec §2：仍记 proxy_call 锚（稳定 proxyResultId），供撤销/证据定位——语料断言锚存在
+    const list = await effectsService.list({ userId: Number(userId) });
+    const effect = list.items.find((e: any) => e.toolName === 'proxy_fp_204_write');
+    expect(effect).toBeDefined();
+    expect(effect.resultType).toBe('proxy_call');
+    expect(Number(effect.resultId)).toBeGreaterThan(0);
   });
 
   function proxyTool(

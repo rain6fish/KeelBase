@@ -188,16 +188,14 @@ export class TrustSandboxService {
     return { removedCustomers, skippedCustomers, removedBobUsers };
   }
 
-  /** P2 ③ 旅程完成计数 settings 键（值为 Record<北京日 yyyy-mm-dd, number> JSON） */
+  /** P2 ③ 旅程完成计数 settings 键：值为 Record<北京日 yyyy-mm-dd, number> JSON（跨访客按北京日聚合） */
   private static readonly JOURNEY_COMPLETED_KEY = 'trust_journey_completed';
 
-  /** 同用户完成上报冷却（ms）：防前端 reveal 重复/重放刷计数 */
-  private static readonly COMPLETE_COOLDOWN_MS = 1500;
+  /** P2 ③ 旅程完成去重 settings 键：值为 Record<userId, 最后完成北京日>——同用户同日只计一次，计数不可刷（1.0.8 review-deferred） */
+  private static readonly JOURNEY_COMPLETED_USERS_KEY = 'trust_journey_completed_users';
 
   /** 进程内串行化计数写（防 Settings read-modify-write 并发丢更新）；跨进程仍为 best-effort */
   private _completeTail: Promise<void> = Promise.resolve();
-
-  private readonly _lastCompleteAt = new Map<string, number>();
 
   /** 北京日（服务容器多用 UTC；计数口径与全仓一致按 UTC+8） */
   private _beijingDay(d = new Date()): string {
@@ -208,33 +206,36 @@ export class TrustSandboxService {
     return `${y}-${m}-${day}`;
   }
 
-  private async _readCompletedMap(): Promise<Record<string, number>> {
-    const raw = (await this.settingsService.getWithDefault(
-      TrustSandboxService.JOURNEY_COMPLETED_KEY,
-      '{}',
-    )) as string;
+  private async _readMap<T>(key: string): Promise<Record<string, T>> {
+    const raw = (await this.settingsService.getWithDefault(key, '{}')) as string;
     try {
-      const m = JSON.parse(raw) as Record<string, number>;
+      const m = JSON.parse(raw) as Record<string, T>;
       return m && typeof m === 'object' ? m : {};
     } catch {
       return {};
     }
   }
 
-  /** P2 ③：记一次旅程完成（跨访客按北京日聚合到 settings） */
+  private _readCompletedMap(): Promise<Record<string, number>> {
+    return this._readMap<number>(TrustSandboxService.JOURNEY_COMPLETED_KEY);
+  }
+
+  /** P2 ③：记一次旅程完成（同用户同北京日幂等——重复/重放上报不重复计数） */
   async recordJourneyCompleted(userId: string): Promise<void> {
-    const now = Date.now();
-    const last = this._lastCompleteAt.get(userId);
-    // 同用户 1.5s 内重复上报忽略——前端 reveal 完成态抖动/重放不应刷计数
-    if (last !== undefined && now - last < TrustSandboxService.COMPLETE_COOLDOWN_MS) return;
-    this._lastCompleteAt.set(userId, now);
     const run = this._completeTail.then(async () => {
-      const map = await this._readCompletedMap();
+      const users = await this._readMap<string>(TrustSandboxService.JOURNEY_COMPLETED_USERS_KEY);
       const today = this._beijingDay();
+      if (users[userId] === today) return; // 同用户同日已完成 → 幂等忽略
+      const map = await this._readCompletedMap();
       map[today] = (Number(map[today]) || 0) + 1;
+      users[userId] = today;
       await this.settingsService.set(
         TrustSandboxService.JOURNEY_COMPLETED_KEY,
         JSON.stringify(map),
+      );
+      await this.settingsService.set(
+        TrustSandboxService.JOURNEY_COMPLETED_USERS_KEY,
+        JSON.stringify(users),
       );
     });
     this._completeTail = run.catch(() => {});
