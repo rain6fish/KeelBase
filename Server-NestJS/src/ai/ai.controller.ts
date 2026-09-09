@@ -354,7 +354,7 @@ export class AiController {
   @ApiOperation({ summary: 'Trust 沙盘：记一次旅程完成（本人）' })
   async completeTrustSandboxJourney(@CurrentUser() user: JwtPayload) {
     await actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
-      this.trustSandbox.recordJourneyCompleted(),
+      this.trustSandbox.recordJourneyCompleted(String(user.sub)),
     );
     return { ok: true };
   }

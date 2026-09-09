@@ -187,6 +187,14 @@ export class TrustSandboxService {
   /** P2 ③ 旅程完成计数 settings 键（值为 Record<北京日 yyyy-mm-dd, number> JSON） */
   private static readonly JOURNEY_COMPLETED_KEY = 'trust_journey_completed';
 
+  /** 同用户完成上报冷却（ms）：防前端 reveal 重复/重放刷计数 */
+  private static readonly COMPLETE_COOLDOWN_MS = 1500;
+
+  /** 进程内串行化计数写（防 Settings read-modify-write 并发丢更新）；跨进程仍为 best-effort */
+  private _completeTail: Promise<void> = Promise.resolve();
+
+  private readonly _lastCompleteAt = new Map<string, number>();
+
   /** 北京日（服务容器多用 UTC；计数口径与全仓一致按 UTC+8） */
   private _beijingDay(d = new Date()): string {
     const b = new Date(d.getTime() + 8 * 3600 * 1000);
@@ -210,14 +218,23 @@ export class TrustSandboxService {
   }
 
   /** P2 ③：记一次旅程完成（跨访客按北京日聚合到 settings） */
-  async recordJourneyCompleted(): Promise<void> {
-    const map = await this._readCompletedMap();
-    const today = this._beijingDay();
-    map[today] = (Number(map[today]) || 0) + 1;
-    await this.settingsService.set(
-      TrustSandboxService.JOURNEY_COMPLETED_KEY,
-      JSON.stringify(map),
-    );
+  async recordJourneyCompleted(userId: string): Promise<void> {
+    const now = Date.now();
+    const last = this._lastCompleteAt.get(userId);
+    // 同用户 1.5s 内重复上报忽略——前端 reveal 完成态抖动/重放不应刷计数
+    if (last !== undefined && now - last < TrustSandboxService.COMPLETE_COOLDOWN_MS) return;
+    this._lastCompleteAt.set(userId, now);
+    const run = this._completeTail.then(async () => {
+      const map = await this._readCompletedMap();
+      const today = this._beijingDay();
+      map[today] = (Number(map[today]) || 0) + 1;
+      await this.settingsService.set(
+        TrustSandboxService.JOURNEY_COMPLETED_KEY,
+        JSON.stringify(map),
+      );
+    });
+    this._completeTail = run.catch(() => {});
+    await run;
   }
 
   /** P2 ③：旅程完成统计（今日 + 累计） */
