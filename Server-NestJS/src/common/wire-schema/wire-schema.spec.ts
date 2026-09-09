@@ -25,6 +25,7 @@ const registry = JSON.parse(readFileSync(resolve(SPECS, 'wire-schema-registry.js
 /** v1 冻结对象清单（Registry 顺序无关）——增删 wire 对象必须同步此处。 */
 const FROZEN_OBJECT_IDS = [
   'tool-definition',
+  'ai-tool-inventory',
   'sse-event',
   'confirmation-request',
   'confirmation-decision',

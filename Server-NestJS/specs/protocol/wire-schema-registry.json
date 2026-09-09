@@ -4,7 +4,10 @@
   "license": "Apache-2.0",
   "note": "wire 对象 Schema v1 = 固化当前形状（实证优先，非自动派生——人工策展快照）。语义变更必须先升 v2（新增 schemas/v2/ + 本表对应条目）再改实现（CE-1 L3 / C-1 单源规则），否则 wire-schema.spec.ts 的对象清单断言红。来源行号为抽取时锚，可能随代码漂移——权威以 Server-NestJS/src 为准。",
   "schemasDir": "schemas/v1/",
-  "supportSchemas": ["risk-level-ref.schema.json", "authorization.schema.json"],
+  "supportSchemas": [
+    "risk-level-ref.schema.json",
+    "authorization.schema.json"
+  ],
   "objects": [
     {
       "id": "tool-definition",
@@ -12,7 +15,20 @@
       "schema": "tool-definition.schema.json",
       "title": "AI Tool Definition（LLM wire，不含服务端治理关切）",
       "source": "src/ai/interfaces/tool.interface.ts:11-18",
-      "samples": ["schemas/v1/samples/tool-definition.json"]
+      "samples": [
+        "schemas/v1/samples/tool-definition.json"
+      ]
+    },
+    {
+      "id": "ai-tool-inventory",
+      "version": "v1",
+      "schema": "ai-tool-inventory.schema.json",
+      "title": "AI 工具清单治理面项（GET /ai/tools item，getToolInventory）",
+      "source": "src/ai/ai.service.ts:686-716 getToolInventory; src/ai/interfaces/tool.interface.ts",
+      "samples": [
+        "schemas/v1/samples/ai-tool-inventory.json",
+        "schemas/v1/samples/ai-tool-inventory-r5.json"
+      ]
     },
     {
       "id": "sse-event",
@@ -20,7 +36,9 @@
       "schema": "sse-event.schema.json",
       "title": "AI Chat SSE 帧（POST /ai/chat/stream；data=整 chunk）",
       "source": "src/ai/interfaces/llm-provider.interface.ts:125-152; src/ai/ai.controller.ts:99-147",
-      "samples": ["schemas/v1/samples/sse-event.json"]
+      "samples": [
+        "schemas/v1/samples/sse-event.json"
+      ]
     },
     {
       "id": "confirmation-request",
@@ -28,7 +46,9 @@
       "schema": "confirmation-request.schema.json",
       "title": "ConfirmationRequestData（含 KB-5 run 聚合）",
       "source": "src/ai/interfaces/llm-provider.interface.ts:57-80",
-      "samples": ["schemas/v1/samples/confirmation-request.json"]
+      "samples": [
+        "schemas/v1/samples/confirmation-request.json"
+      ]
     },
     {
       "id": "confirmation-decision",
@@ -36,7 +56,10 @@
       "schema": "confirmation-decision.schema.json",
       "title": "ConfirmationDecisionData（单条与 run 关卡）",
       "source": "src/ai/interfaces/llm-provider.interface.ts:83-93",
-      "samples": ["schemas/v1/samples/confirmation-decision.json", "schemas/v1/samples/confirmation-decision-run.json"]
+      "samples": [
+        "schemas/v1/samples/confirmation-decision.json",
+        "schemas/v1/samples/confirmation-decision-run.json"
+      ]
     },
     {
       "id": "confirm-decision-body",
@@ -44,7 +67,9 @@
       "schema": "confirm-decision-body.schema.json",
       "title": "POST /ai/confirmations/:token body（ConfirmDecisionDto）",
       "source": "src/ai/dto/confirm-decision.dto.ts:9-16",
-      "samples": ["schemas/v1/samples/confirm-decision-body.json"]
+      "samples": [
+        "schemas/v1/samples/confirm-decision-body.json"
+      ]
     },
     {
       "id": "trace-step",
@@ -52,7 +77,9 @@
       "schema": "trace-step.schema.json",
       "title": "Conversation Trace Step（GET /ai/conversations/:id/trace data.steps[]）",
       "source": "src/ai/trace/decision-trace.service.ts:22-66",
-      "samples": ["schemas/v1/samples/trace-step.json"]
+      "samples": [
+        "schemas/v1/samples/trace-step.json"
+      ]
     },
     {
       "id": "side-effect-revoke",
@@ -60,7 +87,10 @@
       "schema": "side-effect-revoke.schema.json",
       "title": "AI 写副作用 item / 撤销结果 / 会话批量（KB-6 revokeClass 语义）",
       "source": "src/ai/tool-effects/ai-tool-effects.service.ts:17-66,391-401; src/ai/interfaces/tool.interface.ts:66-91",
-      "samples": ["schemas/v1/samples/side-effect-revoke-item.json", "schemas/v1/samples/side-effect-revoke-result.json"]
+      "samples": [
+        "schemas/v1/samples/side-effect-revoke-item.json",
+        "schemas/v1/samples/side-effect-revoke-result.json"
+      ]
     },
     {
       "id": "audit-payload",
@@ -68,7 +98,9 @@
       "schema": "audit-payload.schema.json",
       "title": "AI 审计哈希链 canonical payload（payloadVersion NULL=v1 / 2=v2）",
       "source": "src/ai/audit/audit.service.ts:435-467; src/ai/audit/ai-audit-log.entity.ts",
-      "samples": ["schemas/v1/samples/audit-payload.json"]
+      "samples": [
+        "schemas/v1/samples/audit-payload.json"
+      ]
     },
     {
       "id": "evidence-package",
@@ -76,7 +108,9 @@
       "schema": "evidence-package.schema.json",
       "title": "审计证据包 keelbase-audit-evidence/1|2|3",
       "source": "src/ai/audit/audit.service.ts:123-180; scripts/verify-evidence.mjs",
-      "samples": ["schemas/v1/samples/evidence-package.json"]
+      "samples": [
+        "schemas/v1/samples/evidence-package.json"
+      ]
     },
     {
       "id": "governance-policy",
@@ -84,7 +118,9 @@
       "schema": "governance-policy.schema.json",
       "title": "治理策略（GET/PUT /ai/governance/policy）",
       "source": "src/ai/governance/governance-policy.service.ts:18-49",
-      "samples": ["schemas/v1/samples/governance-policy.json"]
+      "samples": [
+        "schemas/v1/samples/governance-policy.json"
+      ]
     },
     {
       "id": "delegation-token-claims",
@@ -92,7 +128,9 @@
       "schema": "delegation-token-claims.schema.json",
       "title": "委托 token JWT payload claims（协议 §3.2）",
       "source": "src/auth/delegation-token.service.ts:22-29,48-68; docs/protocols/ai-governance-protocol.md §3.2",
-      "samples": ["schemas/v1/samples/delegation-token-claims.json"]
+      "samples": [
+        "schemas/v1/samples/delegation-token-claims.json"
+      ]
     }
   ]
 }

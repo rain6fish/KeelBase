@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ai-tool-inventory.schema.json",
+  "title": "AI Tool Inventory（治理面工具清单项，GET /ai/tools）— v1",
+  "description": "服务端治理面单工具项（getToolInventory 返回）。与 tool-definition（LLM wire，不含治理关切）互补：gateMode / enabled / requiresConfirmation / requiresApproval / allowedRoles / riskLevel / riskStrategy / revokeClass / permissions 均服务端关切。来源：src/ai/ai.service.ts getToolInventory（686-716）+ src/ai/interfaces/tool.interface.ts（AiTool / ToolParameter / RevokeClass / RISK_STRATEGY）。CE-1 v1 冻结：语义变更先升 v2 再改实现。",
+  "type": "object",
+  "required": ["name", "description", "parameters", "enabled", "requiresConfirmation", "requiresApproval", "gateMode", "allowedRoles", "permissions", "riskLevel", "riskStrategy", "revokeClass"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" },
+    "description": { "type": "string" },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+          "type": { "enum": ["string", "number", "boolean", "array", "object"] },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "enabled": { "type": "boolean" },
+    "requiresConfirmation": { "type": "boolean" },
+    "requiresApproval": { "type": "boolean" },
+    "gateMode": { "enum": ["auto", "confirm", "approval", "blocked"] },
+    "allowedRoles": { "type": "array", "items": { "type": "string" } },
+    "permissions": {
+      "type": ["object", "null"],
+      "properties": {
+        "requireVerifiedEmail": { "type": "boolean" },
+        "featureFlag": { "type": "string" },
+        "adminOnly": { "type": "boolean" }
+      }
+    },
+    "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+    "riskStrategy": { "enum": ["auto", "policy", "confirmation", "human_approval", "block"] },
+    "revokeClass": { "enum": ["none", "local_compensate", "governed_external", "transactional"] }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "create_followup_task",
+  "description": "为 CRM 客户创建跟进任务",
+  "parameters": [
+    { "name": "customerId", "type": "number", "required": true },
+    { "name": "title", "type": "string", "required": true }
+  ],
+  "enabled": true,
+  "requiresConfirmation": true,
+  "requiresApproval": false,
+  "gateMode": "confirm",
+  "allowedRoles": [],
+  "permissions": { "requireVerifiedEmail": true },
+  "riskLevel": "R3",
+  "riskStrategy": "confirmation",
+  "revokeClass": "local_compensate"
+}
