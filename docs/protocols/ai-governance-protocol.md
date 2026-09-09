@@ -238,11 +238,11 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 ### 5.1 认证 / Certification
 
-**协议合规认证套件（治理能力 2.1 / A1）**：`Server-NestJS/scripts/verify-protocol-conformance.mjs` **独立实现**三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4），用测试向量 + 篡改检测锁定协议语义（篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝），输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。
+**协议合规认证套件（治理能力 2.1 / A1 / CE-1）**：三协议语义以 **`specs/protocol/*-vector.json` 机器语料**锁定——`canonical-json-v1-vector.json`（金样本，含 nested/unicode 边界，§2.3 语义以此为准）/ `audit-hash-v1-vector.json` / `delegation-token-v1-vector.json` / `risk-level-v1-vector.json`，由现实现 `Server-NestJS/scripts/generate-protocol-vectors.mjs` 生成（实证优先），`--check` 漂移门禁入 CI。`Server-NestJS/scripts/verify-protocol-conformance.mjs` 从 `scripts/lib/protocol-algorithms.mjs` 单源 import 独立实现、以语料驱动复现三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4）；篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝，输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。生产实现（`src/common/audit-chain`）由 `audit-chain.reproduce.spec.ts` 跑同一语料，锁「现实现 = 金样本 = 生产实现」三方一致（单源规则机器强制）。
 
-**用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）。参考实现当前 **22/22 通过**（2026-08-31）。
+**用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **30/30 通过**（2026-09-09，语料驱动）。
 
-**第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与向量复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与协议测试向量比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
+**第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与语料复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与 `specs/protocol` 语料（canonical 金样本含嵌套边界）比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
 **审计证据包离线验证（A2，治理能力 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。
 

@@ -1,0 +1,122 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol §3 delegation token (JWT HS256)",
+  "license": "Apache-2.0",
+  "note": "相对时间构造（claims + lifetime 偏移），运行时以当前 clock 现签现验 → 语料无时间戳、确定性。跨实现互操作：用同一 secret + claims 模板 + verifier 设置复现同一期望。",
+  "sign": "JWT HS256：header.payload.signature，signature = HMAC-SHA256(secret, header.payload)",
+  "cases": [
+    {
+      "id": "token-valid",
+      "name": "JWT HS256 签发 + 验签通过",
+      "kind": "jwt",
+      "secret": "conformance-delegation-secret-0123456789",
+      "claims": {
+        "sub": "local:42",
+        "oidcSub": "local:42",
+        "aud": "legacy-erp",
+        "iss": "keelbase"
+      },
+      "lifetime": {
+        "iatBeforeSec": 60,
+        "expAfterSec": 240
+      },
+      "verifier": {
+        "audience": "legacy-erp"
+      },
+      "expect": {
+        "ok": true,
+        "sub": "local:42"
+      }
+    },
+    {
+      "id": "token-aud-reject",
+      "name": "aud 限定：跨系统 audience 拒绝",
+      "kind": "jwt",
+      "secret": "conformance-delegation-secret-0123456789",
+      "claims": {
+        "sub": "local:42",
+        "oidcSub": "local:42",
+        "aud": "legacy-erp",
+        "iss": "keelbase"
+      },
+      "lifetime": {
+        "iatBeforeSec": 60,
+        "expAfterSec": 240
+      },
+      "verifier": {
+        "audience": "another-system"
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "token-expired",
+      "name": "过期检测：exp 已过 → 拒绝",
+      "kind": "jwt",
+      "secret": "conformance-delegation-secret-0123456789",
+      "claims": {
+        "sub": "local:42",
+        "oidcSub": "local:42",
+        "aud": "legacy-erp",
+        "iss": "keelbase"
+      },
+      "lifetime": {
+        "iatBeforeSec": 60,
+        "expAfterSec": -300
+      },
+      "verifier": {
+        "audience": "legacy-erp"
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "token-tampered",
+      "name": "篡改检测：payload 被改 → 签名不匹配",
+      "kind": "jwt",
+      "secret": "conformance-delegation-secret-0123456789",
+      "claims": {
+        "sub": "local:42",
+        "oidcSub": "local:42",
+        "aud": "legacy-erp",
+        "iss": "keelbase"
+      },
+      "mutate": "payload",
+      "lifetime": {
+        "iatBeforeSec": 60,
+        "expAfterSec": 240
+      },
+      "verifier": {
+        "audience": "legacy-erp"
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "token-sub-prefix",
+      "name": "sub 前缀语义：local:<userId> 统一身份映射键",
+      "kind": "jwt",
+      "secret": "conformance-delegation-secret-0123456789",
+      "claims": {
+        "sub": "local:42",
+        "oidcSub": "local:42",
+        "aud": "legacy-erp",
+        "iss": "keelbase"
+      },
+      "lifetime": {
+        "iatBeforeSec": 60,
+        "expAfterSec": 240
+      },
+      "verifier": {
+        "audience": "legacy-erp"
+      },
+      "expect": {
+        "ok": true,
+        "subPrefix": "local:"
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol §4 tool risk level",
+  "license": "Apache-2.0",
+  "note": "RISK_STRATEGY 表 + 派生用例。expect.strategy/needsConfirmation 由现实现填充并锁进语料（防表漂移）。",
+  "strategies": {
+    "R0": "auto",
+    "R1": "auto",
+    "R2": "policy",
+    "R3": "confirmation",
+    "R4": "human_approval",
+    "R5": "block"
+  },
+  "cases": [
+    {
+      "id": "r1-read",
+      "name": "R1（读）→ auto / 无需确认",
+      "in": {
+        "riskLevel": "R1",
+        "requiresConfirmation": false
+      },
+      "expect": {
+        "level": "R1",
+        "strategy": "auto",
+        "needsConfirmation": false
+      }
+    },
+    {
+      "id": "r3-sensitive-write",
+      "name": "R3（业务敏感写）→ confirmation / 需确认",
+      "in": {
+        "riskLevel": "R3",
+        "requiresConfirmation": true
+      },
+      "expect": {
+        "level": "R3",
+        "strategy": "confirmation",
+        "needsConfirmation": true
+      }
+    },
+    {
+      "id": "r4-high-impact",
+      "name": "R4（高影响）→ human_approval / 需确认",
+      "in": {
+        "riskLevel": "R4",
+        "requiresConfirmation": true
+      },
+      "expect": {
+        "level": "R4",
+        "strategy": "human_approval",
+        "needsConfirmation": true
+      }
+    },
+    {
+      "id": "r5-irreversible",
+      "name": "R5（不可逆/外部）→ block / 阻断",
+      "in": {
+        "riskLevel": "R5",
+        "requiresConfirmation": false
+      },
+      "expect": {
+        "level": "R5",
+        "strategy": "block",
+        "needsConfirmation": false
+      }
+    },
+    {
+      "id": "derive-write",
+      "name": "派生规则：未声明写工具 → R3 confirmation",
+      "in": {
+        "requiresConfirmation": true
+      },
+      "expect": {
+        "level": "R3",
+        "strategy": "confirmation",
+        "needsConfirmation": true
+      }
+    },
+    {
+      "id": "derive-read",
+      "name": "派生规则：未声明读工具 → R1 auto",
+      "in": {
+        "requiresConfirmation": false
+      },
+      "expect": {
+        "level": "R1",
+        "strategy": "auto",
+        "needsConfirmation": false
+      }
+    }
+  ]
+}
