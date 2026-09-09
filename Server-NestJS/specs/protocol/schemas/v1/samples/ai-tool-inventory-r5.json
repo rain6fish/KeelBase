@@ -1,0 +1,16 @@
+{
+  "name": "delete_customer",
+  "description": "删除客户（不可逆，R5 阻断）",
+  "parameters": [
+    { "name": "customerId", "type": "number", "required": true }
+  ],
+  "enabled": true,
+  "requiresConfirmation": false,
+  "requiresApproval": false,
+  "gateMode": "blocked",
+  "allowedRoles": [],
+  "permissions": null,
+  "riskLevel": "R5",
+  "riskStrategy": "block",
+  "revokeClass": "none"
+}
