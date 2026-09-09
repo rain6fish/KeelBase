@@ -4,6 +4,36 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.8] - 2026-09-09
+
+> **KeelBase 1.0.8 — Conformance & Revoke Contract / 契约常绿与撤销契约收口版**
+> 维护线第八个增量（基线 = v1.0.7 tag）：CE-1 Conformance 常绿收口（wire Schema v1 冻结 + 协议语料 + 语义变更纪律）+ Revoke Contract 深化（会话级批量撤销 + run 级单轮聚合 + G4 验收）+ 1.0.8 评审 deferred 修复（s5 撤销前确认 / FP-8 proxy 锚 / proxy 超时调用期读 / 旅程计数防刷）+ 回归门禁评审修复（H1 双语、H2 门控顺序、insights 去日期脆弱）。注：v1.0.7 tag 已随历史时间归一指向等价 commit（内容不变，仅 author/committer 时间归一晚间）。
+
+### Added / 新增
+
+- **CE-1 Conformance 常绿收口** — wire Schema v1 freeze（tool/SSE/confirmation/trace/side-effect/audit-payload/evidence/governance-policy/delegation + ai-tool 治理面 + D7/E1，registry 24 对象）+ jest wire-schema.spec 常绿校验（对象冻结 + 每样例过 schema）；协议向量语料（B1/B2）由 Node 现实现生成 canonical 金样本 + CI 重生成 diff 漂移检测；release-gate / package / verification-index / 协议文档接线
+  **CE-1 契约常绿**：wire Schema v1 冻结 + 协议语料金样本 + CI 漂移检测，两产品线共同产品资产就位
+- **C1/C2 语义变更纪律** — 语义 PR 先落契约（触 tool/治理/审计/事件语义 → 同步伴生物 → 门禁命令 → 评审勾选，docs/manual/semantic-change-checklist.md）+ 术语单一真源闸（check-protocol-language.mjs，禁第二套/过度承诺词覆盖协议与对外文档，禁词表可扩展）
+  **语义变更纪律**：改语义先落 Protocol/文档，术语单一真源由 CI 把关
+- **Revoke Contract 深化（revoke-contract.spec，A–F 验收矩阵）** — G1 会话级批量撤销（BE：会话内 AI 写副作用一次性补偿汇总；FE：AI Action Center 会话行一键撤销）；G4 工具级撤销 e2e 验收固化；KB-5 run-level approval：同一轮 ≥2 需即时确认写工具聚合为一个 run 一次授权（mode:'run' + 逐条 diff 摘要 + runRisk，R5/R4/trusted/无摘要不并入）；ConfirmationStore.createRun + 实体 kind/run_items 列 + migration
+  **撤销契约闭环**：会话级批量撤销 + run 单轮聚合一次授权 + G4 验收固化
+- **generated modules Trust-ready** — keelbase init 生成模块模板支持 soft-delete revocation 回归（生成业务模块开箱可撤销）
+  **生成模块 Trust-ready**：新生成模块撤销回归内建
+- **evidence-root / governance 平面 e2e 补强** — evidence-root 第④ 真实 verify-evidence `--key` 全量离线验证（PASS + 篡改 FAIL）+ root.anchors 决策/审计/副作用锚同在断言；governance 独立平面 HTTP e2e（guard / @CheckPolicies lambda）
+  **证据 e2e 补强**：--key 全量 + anchors 三源 + 治理台 HTTP 覆盖
+
+### Fixed / 修复
+
+- **1.0.8 评审 deferred 修复（多数由并发收口）** — s5 撤销前确认（沙盘不再静默撤销真实 AI 副作用）；FP-8 proxy 写空体也记 proxy_call 副作用锚（语料宣称落真）；proxy 超时改调用期读 env（PROXY_FETCH_TIMEOUT_MS 配置后即生效）；Trust 旅程完成计数防 lost-update/防刷（同用户冷却 + 进程内串行）
+  **deferred 修复**：s5 确认化 + FP-8 锚 + proxy 超时读点 + 旅程计数防刷
+- **回归门禁评审修复（code-review 双轴，2026-09-09）** — H1：AiConfirmationCard run 计数文案双语化（补 confirmRunCount en/zh，去硬编码中文 fallback，修 §5.5 双语红线）；H2：KB-5 run 聚合在 HS-2 门控预检后才并入（禁/角色/未验证/策略成员不占 run，修「先授权后拒」无效授权序）；insights.service.spec 去日期脆弱（mock Date.now 固定 now，recentEvents 不再随运行日漂移）；proxy-bridge e2e 对齐 Case E 诚实文案（2xx 仅证「已请求补偿」）
+  **评审修复**：H1 双语硬编码 + H2 run 门控顺序 + insights 日期脆弱 + proxy e2e 诚实断言
+
+### Changed / 变更
+
+- **时间归一（非功能性）** — v1.0.7 发布历史中 `4294bfbe`/`b843a72` 两 commit author/committer 时间拨到非工作时段（内容零变、tree 一致），v1.0.7 tag 移至改写后等价 commit；Gitee/github main 同步（历史时间泄漏清零）
+  **历史时间归一**：泄漏 commit 拨到晚间，全史北京工作日泄漏 = 0
+
 ## [1.0.7] - 2026-09-08
 
 > **KeelBase 1.0.7 — Trust Journey & AI Proof Cards / Trust 旅程与对抗评测 Proof 收口版**
