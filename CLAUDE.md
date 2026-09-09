@@ -1032,7 +1032,7 @@ Front-Flutter/lib/features/legal/
 
 ### 11.5 Roadmap 维护（必须遵守）
 
-**完整路线图已移至内部仓库库（2026-08-13，公开仓库不再含 roadmap）。每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到内部仓库库的 `roadmap.md` 对应章节**，供后续按优先级执行。内部仓库：本地 `C:\Rain6fish\internal-roadmap`（推送至 GitHub 私有 `rain6fish/internal-roadmap`）。规则：
+**完整路线图已移至内部仓库库（2026-08-13，公开仓库不再含 roadmap）。每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到内部仓库库的 `KeelBase4TS/roadmap.md` 对应章节**，供后续按优先级执行。内部仓库（2026-09-09 重组为单仓两项目目录，不拆仓）：本地 `C:\Rain6fish\internal-roadmap`（推送至 GitHub 私有 `rain6fish/internal-roadmap`）；TS 主项目文档在 `KeelBase4TS/`（含 `roadmap.md`、`KeelBase-execution-log.md`、`archive/`），Java 产品线文档在 `Java 版/`，根仅留品牌与基础件。规则：
 
 - 每条目标注：说明、依赖、状态（待办/进行中/已完成）
 - 计划执行完毕时，在 roadmap「已完成」表追加一行（阶段 + 内容 + 提交 hash）
