@@ -93,6 +93,14 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
     // 根锚：side-effect 摘要 + digest 自洽
     const sideAnchor = out.root.anchors.find((a: any) => a.kind === 'side-effect')!;
     expect(sideAnchor.hash).toBe(createHash('sha256').update(JSON.stringify(out.effect)).digest('hex'));
+    // 切片一（1.0.8 deferred）：决策/审计链锚（ai-audit）与副作用锚都入根锚——chains 非空，不再只断副作用
+    const aiAnchor = out.root.anchors.find((a: any) => a.kind === 'ai-audit');
+    expect(aiAnchor).toBeTruthy();
+    expect(aiAnchor.rowId).toBe(convRow.id);
+    expect(aiAnchor.hash).toBe('b'.repeat(64));
+    expect(out.root.anchors.map((a: any) => a.kind)).toEqual(
+      expect.arrayContaining(['ai-audit', 'side-effect']),
+    );
     expect(out.root.digest).toBe(createHash('sha256').update(JSON.stringify(out.root.anchors)).digest('hex'));
     // ① spec 对齐：业务摘要（trigger 存在时经 summarizeAudit）
     expect(out.summary).toBeTruthy();
