@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "delegation-token-claims.schema.json",
+  "title": "Delegation Token Claims (JWT HS256 payload) — v1",
+  "description": "委托 token payload claims（协议 §3.2）。sub 统一身份映射键 = OIDC subject 或 local:<userId>；aud 目标系统（/^[\\w.:-]{1,64}$/ 服务端强校验）；iss 恒 keelbase；exp-iat TTL 限幅 [60,3600]s 缺省 300s。签发源：src/auth/delegation-token.service.ts:22-29,48-68。",
+  "type": "object",
+  "required": ["sub", "aud", "iss"],
+  "additionalProperties": false,
+  "properties": {
+    "sub": { "type": "string", "minLength": 1 },
+    "oidcSub": { "type": "string" },
+    "aud": { "type": "string", "pattern": "^[\\w.:-]{1,64}$" },
+    "iss": { "const": "keelbase" },
+    "iat": { "type": "number" },
+    "exp": { "type": "number" }
+  }
+}

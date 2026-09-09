@@ -33,6 +33,8 @@
     "conformance": "node scripts/verify-protocol-conformance.mjs",
     "protocol:vectors": "node scripts/generate-protocol-vectors.mjs",
     "protocol:vectors:check": "node scripts/generate-protocol-vectors.mjs --check",
+    "test:wire-schema": "jest src/common/wire-schema --forceExit",
+    "test:protocol-corpus": "jest src/common/audit-chain/audit-chain.reproduce.spec.ts src/common/wire-schema --forceExit",
     "verify:evidence": "node scripts/verify-evidence.mjs",
     "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
     "verify:evidence-root": "bash scripts/verify-evidence-root.sh",

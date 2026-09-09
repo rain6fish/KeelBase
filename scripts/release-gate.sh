@@ -66,6 +66,14 @@ done
 echo "→ [Trust] 审计链并发压测"
 if (cd Server-NestJS && npm run audit:chain:load >/dev/null 2>&1); then gate "Trust(审计链压测)" pass; else gate "Trust(审计链压测)" fail "audit:chain:load"; fi
 
+# ── Trust：CE-1 协议契约常绿（conformance + 生产金样本复现 + wire Schema v1）──
+echo "→ [Trust] CE-1 协议契约（conformance + canonical/wire）"
+if (cd Server-NestJS && npm run conformance >/dev/null 2>&1 && npm run test:protocol-corpus >/dev/null 2>&1); then
+  gate "Trust(CE-1 协议语料+wire Schema)" pass
+else
+  gate "Trust(CE-1 协议语料+wire Schema)" fail "conformance / test:protocol-corpus"
+fi
+
 # ── Private：AIization（已有 Schema → Protocol）+ 迁移一致性 ───────────────────
 echo "→ [Private] 数据不出域链路"
 if ./scripts/verify-aiization.sh >/dev/null 2>&1; then gate "Private(AIization)" pass; else gate "Private(AIization)" fail "verify-aiization"; fi

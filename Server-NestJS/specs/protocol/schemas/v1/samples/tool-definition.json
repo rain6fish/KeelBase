@@ -1,0 +1,17 @@
+{
+  "type": "function",
+  "function": {
+    "name": "create_todo",
+    "description": "创建待办。用户明确要求添加/创建待办、任务、TODO 时使用。",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "待办标题" },
+        "description": { "type": "string", "description": "待办描述" },
+        "dueDate": { "type": "string", "description": "截止时间 ISO 8601" },
+        "completed": { "type": "boolean", "description": "是否已完成" }
+      },
+      "required": ["title"]
+    }
+  }
+}

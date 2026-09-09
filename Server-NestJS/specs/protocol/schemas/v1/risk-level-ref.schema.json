@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "risk-level-ref.schema.json",
+  "title": "Tool Risk Level R0–R5 — shared ref",
+  "description": "工具风险级（协议 §4）。R0 Informational / R1 Read / R2 Low-risk Write / R3 Business-sensitive Write / R4 High-impact / R5 Irreversible-or-External。",
+  "type": "string",
+  "enum": ["R0", "R1", "R2", "R3", "R4", "R5"]
+}

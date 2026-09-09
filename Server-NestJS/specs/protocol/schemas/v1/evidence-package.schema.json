@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "evidence-package.schema.json",
+  "title": "Audit Evidence Package keelbase-audit-evidence /1 /2 /3 — v1",
+  "description": "审计证据包（协议 §2.5）：/1 基础（summary+hashChain+effectDiffs+chain+signature，无 compliance）→ /2（A-6 增 compliance，签名覆盖）→ /3 证据根（action/authorization/decision/effect/chains/root，签名 canonical 键集不同）。v3 effect 投影仅 {id,toolName,before,after}（代码为准，audit.service.ts:847-852）。整包签名 canonical 随版本变化——按 format 条件化。来源：src/ai/audit/audit.service.ts:123-180、scripts/verify-evidence.mjs。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["exportedAt", "generator", "format", "report", "chain", "signature"],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": { "type": "string", "format": "date-time" },
+        "generator": { "const": "keelbase-audit-export" },
+        "format": { "const": "keelbase-audit-evidence/1" },
+        "report": { "$ref": "#/definitions/report" },
+        "chain": { "type": "array", "items": { "$ref": "#/definitions/chainRow" } },
+        "signature": { "type": ["string", "null"] }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["exportedAt", "generator", "format", "report", "compliance", "chain", "signature"],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": { "type": "string", "format": "date-time" },
+        "generator": { "const": "keelbase-audit-export" },
+        "format": { "const": "keelbase-audit-evidence/2" },
+        "report": { "$ref": "#/definitions/report" },
+        "compliance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "number" },
+              "businessEvent": { "type": ["string", "null"] },
+              "evidence": { "type": ["string", "null"] },
+              "summary": { "type": ["object", "null"] },
+              "identityChain": { "type": ["object", "null"] }
+            }
+          }
+        },
+        "chain": { "type": "array", "items": { "$ref": "#/definitions/chainRow" } },
+        "signature": { "type": ["string", "null"] }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["exportedAt", "generator", "format", "action", "authorization", "decision", "effect", "chains", "root", "signature"],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": { "type": "string", "format": "date-time" },
+        "generator": { "const": "keelbase-audit-export" },
+        "format": { "const": "keelbase-audit-evidence/3" },
+        "action": {
+          "type": "object",
+          "required": ["id", "resultType", "resultId", "effectId"],
+          "properties": {
+            "id": { "type": "string" },
+            "resultType": { "type": "string" },
+            "resultId": { "type": ["number", "string"] },
+            "effectId": { "type": "number" },
+            "userId": { "type": "string" },
+            "conversationId": { "type": ["string", "null"] }
+          }
+        },
+        "authorization": { "type": ["object", "null"] },
+        "decision": {
+          "type": "object",
+          "required": ["businessEvent", "evidence"],
+          "properties": {
+            "businessEvent": { "type": ["string", "null"] },
+            "evidence": { "type": ["string", "null"] }
+          }
+        },
+        "effect": {
+          "type": "object",
+          "required": ["id", "toolName"],
+          "properties": {
+            "id": { "type": "number" },
+            "toolName": { "type": "string" },
+            "before": { "type": ["string", "null"] },
+            "after": { "type": ["string", "null"] }
+          }
+        },
+        "chains": {
+          "type": "object",
+          "required": ["aiAudit", "operationAudit"],
+          "properties": {
+            "aiAudit": { "type": "array", "items": { "$ref": "#/definitions/chainRow" } },
+            "operationAudit": { "type": "array", "items": { "$ref": "#/definitions/chainRow" } }
+          }
+        },
+        "root": {
+          "type": "object",
+          "required": ["algorithm", "anchors", "digest"],
+          "properties": {
+            "algorithm": { "type": "string" },
+            "anchors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["kind", "rowId", "hash"],
+                "properties": {
+                  "kind": { "enum": ["ai-audit", "side-effect", "op-audit"] },
+                  "rowId": { "type": "number" },
+                  "hash": { "type": "string" }
+                }
+              }
+            },
+            "digest": { "type": "string" }
+          }
+        },
+        "summary": { "type": ["object", "null"] },
+        "replay": { "type": ["object", "null"] },
+        "signature": { "type": ["string", "null"] }
+      }
+    }
+  ],
+  "definitions": {
+    "chainRow": {
+      "type": "object",
+      "required": ["seq", "id", "prevHash", "hash", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "seq": { "type": "integer", "minimum": 1 },
+        "id": { "type": "integer" },
+        "prevHash": { "type": ["string", "null"], "pattern": "^(?:[0-9a-f]{64}|)$" },
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "payload": { "type": "object" }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["period", "summary", "hashChain", "byAction", "byDay", "samples", "effectDiffs"],
+      "additionalProperties": true,
+      "properties": {
+        "period": { "type": "object" },
+        "summary": { "type": "object" },
+        "hashChain": {
+          "type": "object",
+          "required": ["valid"],
+          "properties": {
+            "valid": { "type": "boolean" },
+            "checked": { "type": "number" },
+            "brokenIndex": { "type": ["number", "null"] }
+          }
+        },
+        "byAction": { "type": "array" },
+        "byDay": { "type": "array" },
+        "samples": { "type": "array" },
+        "effectDiffs": { "type": "array" }
+      }
+    }
+  }
+}

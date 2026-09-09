@@ -1,0 +1,8 @@
+{
+  "sub": "local:42",
+  "oidcSub": "local:42",
+  "aud": "legacy-erp",
+  "iss": "keelbase",
+  "iat": 1724990000,
+  "exp": 1724990300
+}

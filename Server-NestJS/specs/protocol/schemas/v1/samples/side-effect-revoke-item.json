@@ -1,0 +1,15 @@
+{
+  "id": 9281,
+  "toolName": "create_followup_task",
+  "conversationId": "conv-318-abc",
+  "resultType": "crm_task",
+  "resultId": 42,
+  "createdAt": "2026-09-04T09:30:00Z",
+  "targetExists": true,
+  "targetSoftDeleted": false,
+  "targetTitle": "跟进：辰光建材 逾期回款",
+  "revokeClass": "local_compensate",
+  "revokeStatus": null,
+  "status": "executed",
+  "revocable": true
+}

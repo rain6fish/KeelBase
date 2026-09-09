@@ -1,0 +1,9 @@
+{
+  "tools": {
+    "create_event": { "enabled": false },
+    "create_todo": { "requiresConfirmation": false },
+    "create_customer": { "mode": "approval" },
+    "web_search": { "allowedRoles": ["admin"] }
+  },
+  "audit": { "granularity": "all" }
+}

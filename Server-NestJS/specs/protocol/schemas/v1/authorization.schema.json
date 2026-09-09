@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "authorization.schema.json",
+  "title": "AuthorizationReasons (W5-⑦ Explainable Authz) — v1",
+  "description": "工具调用授权依据（可解释授权）：工具/风险/策略 + 逐条 checks。来源：src/ai/interfaces/tool.interface.ts:97-117。",
+  "type": "object",
+  "required": ["tool", "riskLevel", "riskStrategy", "requiresConfirmation", "checks"],
+  "additionalProperties": true,
+  "properties": {
+    "tool": { "type": "string" },
+    "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+    "riskStrategy": { "enum": ["auto", "policy", "confirmation", "human_approval", "block"] },
+    "requiresConfirmation": { "type": "boolean" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ok"],
+        "properties": {
+          "name": { "type": "string" },
+          "ok": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["revision"],
+      "properties": {
+        "revision": { "type": "string" },
+        "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}

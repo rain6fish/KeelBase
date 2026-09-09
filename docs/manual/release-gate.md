@@ -17,6 +17,7 @@
 | **Private** | Offline + Local AI（数据不出域）| ✅ 本地实测（Cloud OFF + Ollama 对话 + bge-m3 embedding + 审计链 valid）| [private-ai-report.md](private-ai-report.md) + [verify-private-ai.sh](../../scripts/verify-private-ai.sh) |
 | **对抗性证明** | 越权矩阵 + Agent Security Eval 攻击测试集 + 合成陌生人验证 | 🔶 待 W3-W5 建立 | [agent-benchmark.mjs](../../scripts/benchmark/agent-benchmark.mjs) + 越权矩阵 + 合成陌生人 harness |
 | **External（1.0 后增长里程碑）** | 5-10 人 + 至少一个真实项目 | ⬜ 需社区 | [dev-challenge.md](dev-challenge.md) 反馈表 |
+| **CE-1（协议契约常绿）** | conformance 30/30 + canonical 金样本=生产复现 + wire Schema v1 冻结 | 🟢 已接入 release-gate `Trust(CE-1 …)` | `npm run conformance` + `test:protocol-corpus`（release-gate.sh CE-1 段）+ specs/protocol（见 [README](../../Server-NestJS/specs/protocol/README.md)）|
 
 **判定**：Build / Run / Trust / Private 四维全绿 + 对抗性证明通过 → 发 v1.0；任何一维不达标 → 记录差距，不发布。**External 为 1.0 后增长里程碑，不阻塞发布。**
 

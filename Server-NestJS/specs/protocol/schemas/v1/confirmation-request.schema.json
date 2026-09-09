@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "confirmation-request.schema.json",
+  "title": "AI Confirmation Request Data — v1",
+  "description": "SSE confirmation_request 的 data.confirmation 载荷（ConfirmationRequestData）。单条 mode 缺省/approval 或 run 聚合（KB-5：mode='run' + run.items[]）。来源：src/ai/interfaces/llm-provider.interface.ts:57-80。",
+  "type": "object",
+  "required": ["token"],
+  "additionalProperties": false,
+  "properties": {
+    "token": { "type": "string", "minLength": 8 },
+    "toolName": { "type": "string" },
+    "summary": { "type": "string" },
+    "arguments": { "type": "object" },
+    "authorization": { "$ref": "authorization.schema.json" },
+    "mode": { "enum": ["immediate", "approval", "run"] },
+    "run": {
+      "type": "object",
+      "required": ["runId", "riskLevel", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "runId": { "type": "string", "minLength": 1 },
+        "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["toolName", "summary", "riskLevel"],
+            "additionalProperties": false,
+            "properties": {
+              "toolName": { "type": "string" },
+              "summary": { "type": "string" },
+              "riskLevel": { "$ref": "risk-level-ref.schema.json" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
