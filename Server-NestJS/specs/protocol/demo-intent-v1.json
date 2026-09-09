@@ -1,0 +1,80 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "demo-provider 用户首轮意图表（CE-1 B4-demo）",
+  "license": "Apache-2.0",
+  "note": "运行时行为源 = src/ai/providers/demo-intents.ts DEMO_USER_INTENTS（表驱动，保序 = 原 if 链）；本语料为其机器副本（跨语言可消费）。双向漂移由 demo-intents.spec.ts 断言（declare 序列化 == cases）强制——任一侧变更须先同步对侧（CE-1 L3 单源规则）。",
+  "cases": [
+    {
+      "key": "delete_customer",
+      "name": "删除客户（R5 阻断演示）",
+      "pattern": "删除|delete",
+      "tool": "delete_customer",
+      "content": "删除客户是不可逆的高风险操作（风险级 R5），将被系统策略阻断，不会执行…",
+      "argsKind": "delete",
+      "write": false
+    },
+    {
+      "key": "query_customers",
+      "name": "分析客户风险 / 哪些客户值得关注",
+      "pattern": "风险|分析|客户|customer|值得跟进|重点关注|risk|analyze",
+      "tool": "query_customers",
+      "content": "好的，我先查询客户列表…",
+      "argsKind": "keyword",
+      "write": false
+    },
+    {
+      "key": "create_followup_task",
+      "name": "创建跟进任务",
+      "pattern": "跟进|任务|follow.?up|create.*task",
+      "tool": "create_followup_task",
+      "content": "好的，我来为这位客户创建跟进任务（写操作需要你确认）…",
+      "argsKind": "followup",
+      "write": true
+    },
+    {
+      "key": "query_customer_orders",
+      "name": "查询客户订单",
+      "pattern": "订单|order",
+      "tool": "query_customer_orders",
+      "content": "好的，查询该客户的订单…",
+      "argsKind": "customer",
+      "write": false
+    },
+    {
+      "key": "query_customer_activities",
+      "name": "查询客户跟进记录",
+      "pattern": "活动|跟进记录|activity",
+      "tool": "query_customer_activities",
+      "content": "好的，查询该客户的跟进记录…",
+      "argsKind": "customer",
+      "write": false
+    },
+    {
+      "key": "query_projects",
+      "name": "查询项目",
+      "pattern": "项目|project",
+      "tool": "query_projects",
+      "content": "好的，查询项目列表…",
+      "argsKind": "none",
+      "write": false
+    },
+    {
+      "key": "query_approval_requests",
+      "name": "查询审批请求",
+      "pattern": "审批|approval",
+      "tool": "query_approval_requests",
+      "content": "好的，查询审批请求…",
+      "argsKind": "none",
+      "write": false
+    },
+    {
+      "key": "query_events",
+      "name": "查询待办 / 事件",
+      "pattern": "待办|事件|event|todo",
+      "tool": "query_events",
+      "content": "好的，查询你的待办…",
+      "argsKind": "none",
+      "write": false
+    }
+  ]
+}
