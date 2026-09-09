@@ -196,6 +196,17 @@ jobs:
       - run: node Server-NestJS/scripts/generate-protocol-vectors.mjs --check
       - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
 
+  # 术语单一真源闸（CE-1 C2，零依赖 node 内置，root 跑）：协议文档 + 对外文档无第二套表述/
+  # 过度承诺词（审计哈希链不承诺不可篡改/不可抵赖、≠ 区块链）。词表 = docs/manual/product-language.md
+  terminology-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node Server-NestJS/scripts/check-protocol-language.mjs
+
   # 生成器/导入 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema 导入防回归
   cli-test:
     runs-on: ubuntu-latest

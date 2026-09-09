@@ -36,6 +36,7 @@ specs/protocol/
 
 - **单源（CE-1 L3 / C-1）**：语义变更必须先落本目录（升语料/Schema 版本）再改实现；金样本由现实现生成（实证优先，不预设"正确答案"）。语料文件与 schema 文件名均含版本段，**不含时间戳**——确定性、可 CI diff。
 - **wire Schema v1 = 固化当前形状**（人工策展快照，非自动派生）。新增 wire 对象或形状变更 → 先加 `schemas/v2/` 并更新 `wire-schema-registry.json` + 冻结清单断言，再改代码。
+- **语义变更评审清单**：触 tool/治理/审计/事件语义的改动 → 先按 [docs/manual/semantic-change-checklist.md](../../docs/manual/semantic-change-checklist.md) 落语料/Schema/协议文档再改代码（评审闸）。
 - 来源锚见各 schema 的 `description` 与 `wire-schema-registry.json` 的 `source`（抽取时点行号，权威以 `src/` 为准）。
 
 ## 第三方自认证 / Third-party Self-cert

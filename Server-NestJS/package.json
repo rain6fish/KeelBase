@@ -35,6 +35,7 @@
     "protocol:vectors:check": "node scripts/generate-protocol-vectors.mjs --check",
     "test:wire-schema": "jest src/common/wire-schema --forceExit",
     "test:protocol-corpus": "jest src/common/audit-chain/audit-chain.reproduce.spec.ts src/common/wire-schema --forceExit",
+    "language:guard": "node scripts/check-protocol-language.mjs",
     "verify:evidence": "node scripts/verify-evidence.mjs",
     "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
     "verify:evidence-root": "bash scripts/verify-evidence-root.sh",
