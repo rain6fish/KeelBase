@@ -1308,6 +1308,13 @@ export class AiService {
             /* registry 未含该工具 → 默认 R3 */
           }
           if (risk === 'R5') continue; // R5 留循环内逐条 block
+          // 评审 H2 修复：HS-2 门控在聚合前预检——禁用/角色白名单/未验证/策略禁用的成员不并入 run，
+          // 避免「run 先获授权、成员执行时才拒」的无效授权序（与逐条 1380 断言同 gate）
+          try {
+            await this._assertToolAllowed(tc.name, userId);
+          } catch {
+            continue; // 留逐条路径由 1380 断言如实报错，不并入 run
+          }
           cands.push({ idx, name: tc.name, parsed, summary: this.writeToolSummary(tc.name, parsed), risk });
         }
         // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）

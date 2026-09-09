@@ -249,7 +249,9 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(revoke.external).toBe(true);
     expect(revoke.compensated).toBe(true);
     expect(revoke.revoked).toBe(true);
-    expect(revoke.message).toMatch(/已补偿/);
+    // Case E 诚实文案：2xx 仅证「已请求补偿」，结果以目标系统为准（不声称已撤销）
+    expect(revoke.message).toMatch(/已请求补偿/);
+    expect(revoke.message).toContain('结果以目标系统为准');
   });
 
   it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 403', async () => {
