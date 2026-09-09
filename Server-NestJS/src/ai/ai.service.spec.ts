@@ -898,6 +898,68 @@ describe('AiService', () => {
       expect(done.conversationId).toBe('conv-1');
     });
 
+    it('KB-5: two write tools in one round aggregate into a single run confirmation; approve executes both', async () => {
+      async function* mockStreamWithTwoWrites() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'c1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"2026-08-10T09:00:00Z","endTime":"2026-08-10T10:00:00Z"}',
+          },
+        };
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 1, id: 'c2', name: 'create_todo', arguments: '{"title":"待办A","dueDate":"2026-08-11"}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithTwoWrites())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const originalCreateRun = confirmationStore.createRun.bind(confirmationStore);
+      let runToken: string | undefined;
+      jest.spyOn(confirmationStore, 'createRun').mockImplementation(async (userId, items, risk) => {
+        const r = await originalCreateRun(userId, items, risk);
+        runToken = r.token;
+        return r;
+      });
+
+      const it = aiService.chatStream('1', { message: 'create an event and a todo' });
+      // 预扫描聚合：第一个确认事件 = mode:'run'（含 2 items），非两条单条 confirmation
+      const first = await it.next();
+      expect(first.value.type).toBe('confirmation_request');
+      const req = first.value.confirmation;
+      expect(req?.mode).toBe('run');
+      expect(req?.run?.items).toHaveLength(2);
+      expect(req?.run?.riskLevel).toBe('R3');
+
+      confirmationStore.resolve(runToken!, '1', 'approve');
+      const chunks = [];
+      for await (const c of it) chunks.push(c);
+      // 两工具都执行；整批只出这一次 confirmation_request（无第二条单条）
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(2);
+      expect(chunks.filter((c: any) => c.type === 'confirmation_request')).toHaveLength(0);
+      // run 级整体决策关卡先于逐条 decision（spec §2.3）
+      expect(
+        chunks.some(
+          (c: any) =>
+            c.type === 'confirmation_decision' &&
+            c.confirmationDecision?.mode === 'run' &&
+            c.confirmationDecision?.approved,
+        ),
+      ).toBe(true);
+      expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
     it('should yield confirmation_request before executing a write tool, then execute on approve', async () => {
       async function* mockStreamWithWriteTool() {
         yield {

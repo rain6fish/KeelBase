@@ -1270,8 +1270,106 @@ export class AiService {
         });
       }
 
+      // KB-5 run-level approval：预扫描本轮需即时确认写工具，≥2 且均有具体摘要 → 聚成一个 run 一次授权
+      // （docs/run-level-approval.spec.md §2：R5/R4/trusted/无摘要均不并入，各自走原路径；run 决策先于逐条 decision）
+      let runState: { idxSet: Set<number>; approved: boolean; token: string } | undefined;
+      {
+        const ttlSeconds = this.settingsService
+          ? Number(
+              await this.settingsService.getWithDefault(
+                SETTING_KEYS.CONFIRMATION_TTL,
+                60,
+              ),
+            )
+          : 60;
+        const cands: Array<{
+          idx: number;
+          name: string;
+          parsed: Record<string, unknown>;
+          summary: string | null;
+          risk: string;
+        }> = [];
+        for (const [idx, tc] of accumulatedToolCalls) {
+          if (trustedTools.has(tc.name)) continue; // HS-6 免确认
+          if (!(await this._requiresConfirmation(tc.name))) continue; // 读工具
+          if (await this._requiresApproval(tc.name)) continue; // R4 异步审批不混入
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(tc.args);
+          } catch {
+            continue; // 解析失败留循环原样报错
+          }
+          let risk = 'R3';
+          try {
+            risk = this.toolRegistry?.riskLevel(tc.name) ?? 'R3';
+          } catch {
+            /* registry 未含该工具 → 默认 R3 */
+          }
+          if (risk === 'R5') continue; // R5 留循环内逐条 block
+          cands.push({ idx, name: tc.name, parsed, summary: this.writeToolSummary(tc.name, parsed), risk });
+        }
+        // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
+        const aggregable = cands.filter((c) => c.summary !== null);
+        if (aggregable.length >= 2) {
+          // runRisk = 批内最高风险级（R3 run 成员通常恒 R3，max 保持通用）
+          const RISK_ORDER = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+          const runRisk = aggregable.reduce(
+            (max, c) =>
+              RISK_ORDER.indexOf(c.risk) > RISK_ORDER.indexOf(max)
+                ? c.risk
+                : max,
+            'R0',
+          );
+          const { token, decision } = await this.confirmationStore.createRun(
+            userId,
+            aggregable.map((c) => ({
+              toolName: c.name,
+              args: c.parsed,
+              summary: c.summary!,
+              riskLevel: c.risk,
+            })),
+            runRisk,
+            ttlSeconds * 1000,
+          );
+          yield {
+            type: 'confirmation_request',
+            confirmation: {
+              token,
+              mode: 'run',
+              run: {
+                runId: token,
+                riskLevel: runRisk,
+                items: aggregable.map((c) => ({
+                  toolName: c.name,
+                  summary: c.summary!,
+                  riskLevel: c.risk,
+                })),
+              },
+            },
+          };
+          const { outcome } = await decision;
+          const approved = outcome === 'approve';
+          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), approved, token };
+          // run 级整体决策关卡先于逐条 decision（spec §2.3）
+          yield {
+            type: 'confirmation_decision',
+            confirmationDecision: { mode: 'run', runId: token, approved },
+          };
+          if (await this._shouldAudit('tool')) {
+            this.auditService.log({
+              userId,
+              conversationId,
+              action: 'tool_confirmation',
+              detail: `run(${token}) ${aggregable.length} items → ${outcome}`,
+              isError: !approved,
+              errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
+            });
+          }
+        }
+      }
+
       // Execute accumulated tool calls
-      for (const [, tc] of accumulatedToolCalls) {
+      for (const [idx, tc] of accumulatedToolCalls) {
         let started = false;
         let pendingApproval = false; // R4 高影响动作（已提交审批）——通用 tool_call 审计不算失败
         try {
@@ -1330,33 +1428,42 @@ export class AiService {
               }
             } else {
               // 写操作：先发 confirmation_request，等待用户确认后才执行
-            const ttlSeconds = this.settingsService
-              ? Number(
-                  await this.settingsService.getWithDefault(
-                    SETTING_KEYS.CONFIRMATION_TTL,
-                    60,
-                  ),
-                )
-              : 60;
-            const { token, decision } = await this.confirmationStore.create(
-              userId,
-              tc.name,
-              parsed,
-              ttlSeconds * 1000,
-            );
-            yield {
-              type: 'confirmation_request',
-              confirmation: {
-                token,
-                toolName: tc.name,
-                summary: this.summarizeWriteTool(tc.name, parsed),
-                arguments: parsed,
-                // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
-                authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
-              },
-            };
-            const { outcome, trustTool } = await decision;
-            // HS-6：用户勾选「本会话信任此工具」→ 后续免确认
+              // KB-5：本工具若是已聚合成 run 的成员（idx ∈ runState.idxSet）→ run 已一次授权/拒绝，
+              // 不再重复发单条 confirmation_request、不再 await——直接用 run 结果进入下方 approve/decline 公共逻辑
+              // （spec §2.5：approve 整批逐条执行、decline 整批跳过；run 级 decision 关卡已由预扫描先行发出）
+              let outcome: 'approve' | 'decline' | 'timeout';
+              let trustTool: boolean | undefined;
+              if (runState?.idxSet.has(idx)) {
+                outcome = runState.approved ? 'approve' : 'decline';
+              } else {
+                const ttlSeconds = this.settingsService
+                  ? Number(
+                      await this.settingsService.getWithDefault(
+                        SETTING_KEYS.CONFIRMATION_TTL,
+                        60,
+                      ),
+                    )
+                  : 60;
+                const { token, decision } = await this.confirmationStore.create(
+                  userId,
+                  tc.name,
+                  parsed,
+                  ttlSeconds * 1000,
+                );
+                yield {
+                  type: 'confirmation_request',
+                  confirmation: {
+                    token,
+                    toolName: tc.name,
+                    summary: this.summarizeWriteTool(tc.name, parsed),
+                    arguments: parsed,
+                    // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
+                    authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
+                  },
+                };
+                ({ outcome, trustTool } = await decision);
+              }
+              // HS-6：用户勾选「本会话信任此工具」→ 后续免确认
             if (trustTool && outcome === 'approve') {
               trustedTools.add(tc.name);
             }
@@ -1554,12 +1661,14 @@ export class AiService {
   }
 
   /**
-   * 生成写操作的人工可读摘要（用于确认卡片）。
+   * KB-5：写工具的"人读 diff 摘要"（run 卡"有 diff 而非盲批"前提，docs/run-level-approval.spec.md §3）。
+   * 返回 null 表示该工具暂无具体摘要（诚实降级：单条确认卡仍显示通用文案，run 聚合不并入该条）。
+   * 未来演进：每工具自带 summarize(args)（spec §3.2），此处 switch 随之退位。
    */
-  private summarizeWriteTool(
+  private writeToolSummary(
     toolName: string,
     args: Record<string, unknown>,
-  ): string {
+  ): string | null {
     const title = (args.title as string) ?? '';
     switch (toolName) {
       case 'create_event':
@@ -1583,8 +1692,18 @@ export class AiService {
       case 'create_knowledge':
         return '创建知识条目';
       default:
-        return '执行写操作';
+        return null;
     }
+  }
+
+  /**
+   * 生成写操作的人工可读摘要（用于单条确认卡）。
+   */
+  private summarizeWriteTool(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): string {
+    return this.writeToolSummary(toolName, args) ?? '执行写操作';
   }
 
   /**

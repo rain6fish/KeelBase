@@ -85,13 +85,38 @@ class AuthorizationReasons {
       );
 }
 
+/// KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心）
+class RunConfirmationItem {
+  final String toolName;
+  final String summary;
+  final String riskLevel;
+
+  const RunConfirmationItem({
+    required this.toolName,
+    required this.summary,
+    this.riskLevel = '',
+  });
+
+  factory RunConfirmationItem.fromJson(Map<String, dynamic> json) =>
+      RunConfirmationItem(
+        toolName: json['toolName'] as String? ?? '',
+        summary: json['summary'] as String? ?? '',
+        riskLevel: json['riskLevel'] as String? ?? '',
+      );
+}
+
 /// 待人工确认的 AI 写操作（来自 SSE confirmation_request 事件）
+/// KB-5：mode==='run' 时表示一次授权整批（runItems 多动作），token 即 runId。
 class PendingConfirmation {
   final String token;
   final String toolName;
   final String summary;
   final Map<String, dynamic> arguments;
   final AuthorizationReasons? authorization;
+  /// KB-5 确认形态：'confirmation'（缺省，R3 单动作）| 'approval'（R4）| 'run'（整批）
+  final String mode;
+  /// mode==='run' 时的逐条动作（run 卡渲染）
+  final List<RunConfirmationItem> runItems;
 
   const PendingConfirmation({
     required this.token,
@@ -99,7 +124,11 @@ class PendingConfirmation {
     required this.summary,
     this.arguments = const {},
     this.authorization,
+    this.mode = 'confirmation',
+    this.runItems = const [],
   });
+
+  bool get isRun => mode == 'run' && runItems.isNotEmpty;
 }
 
 /// AI 对话状态管理
@@ -348,6 +377,15 @@ class AiChatProvider extends ChangeNotifier {
       case 'confirmation_request':
         final c = data?['confirmation'] as Map<String, dynamic>?;
         if (c != null) {
+          // KB-5：读 mode/run（run = 一次授权整批，token 即 runId）
+          final mode = c['mode'] as String? ?? 'confirmation';
+          final runMap = c['run'] as Map<String, dynamic>?;
+          final runItems = <RunConfirmationItem>[
+            if (runMap?['items'] is List)
+              ...(runMap!['items'] as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(RunConfirmationItem.fromJson),
+          ];
           final pending = PendingConfirmation(
             token: c['token'] as String,
             toolName: c['toolName'] as String? ?? '',
@@ -358,6 +396,8 @@ class AiChatProvider extends ChangeNotifier {
                 ? AuthorizationReasons.fromJson(
                     c['authorization'] as Map<String, dynamic>)
                 : null,
+            mode: mode,
+            runItems: runItems,
           );
           _currentConfirmation = pending;
           if (_messages.isNotEmpty) {

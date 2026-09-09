@@ -47,6 +47,20 @@ export class AiConfirmationRequest {
   @Column({ length: 16, default: 'pending' })
   status!: string;
 
+  /**
+   * KB-5 run-level approval（docs/run-level-approval.spec.md）：记录形态判别。
+   * 'single'（默认）= 单动作确认（R3 即时 / R4 审批）；'run' = 一次授权整批（run token = 单行，items 快照在 run_items）。
+   */
+  @Column({ length: 16, default: 'single' })
+  kind!: string;
+
+  /**
+   * KB-5 run：批内动作快照 JSON（RunItem[] = {toolName, args, summary, riskLevel}）。
+   * single 行为 null；run 行 tool_name='run'、args='[]' 占位（NOT NULL 约束）、risk_level 复用为 runRisk。
+   */
+  @Column({ type: 'text', nullable: true, name: 'run_items' })
+  runItems?: string | null;
+
   /** 审批人（approver）——决策后记录 */
   @Column({ nullable: true, name: 'approver_id' })
   approverId?: string;

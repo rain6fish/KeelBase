@@ -35,21 +35,40 @@ export interface AiToolStart {
   authorization?: AiAuthorization
 }
 
+/** KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心） */
+export interface AiRunItem {
+  toolName: string
+  summary: string
+  riskLevel: string
+}
+
 export interface AiConfirmation {
   token: string
-  toolName: string
+  /** run 模式时可空（整批用 run.items 展示）；单动作模式（confirmation/approval）必有 */
+  toolName?: string
   summary?: string
   arguments?: Record<string, unknown>
-  mode?: 'confirmation' | 'approval'
+  /** 'confirmation' = R3 本人即时确认；'approval' = R4 已提交人工审批；'run' = KB-5 一次授权整批 */
+  mode?: 'confirmation' | 'approval' | 'run'
   authorization?: AiAuthorization
+  /** KB-5：mode==='run' 时必有——runId + runRisk + 逐条动作摘要 */
+  run?: {
+    runId: string
+    riskLevel: string
+    items: AiRunItem[]
+  }
 }
 
 export interface AiConfirmationDecision {
-  toolName: string
+  /** run 级整体决策（mode='run'）时为空；逐条决策带 toolName */
+  toolName?: string
   approved: boolean
   success?: boolean
   resultId?: number
   error?: string
+  /** KB-5：run 级整体决策关卡（先于逐条 decision） */
+  mode?: 'run'
+  runId?: string
 }
 
 export interface AiToolEnd {

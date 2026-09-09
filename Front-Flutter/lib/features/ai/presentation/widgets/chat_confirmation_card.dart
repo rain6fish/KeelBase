@@ -66,15 +66,69 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   color: CupertinoTheme.of(context).primaryColor,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                conf.summary,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: CupertinoTheme.of(context).textTheme.textStyle.color,
+              // KB-5 run 卡：整批动作列表 + 数量（一次授权）；run 卡隐藏 HS-6 信任勾选（per-tool 语义不被批内模糊）
+              if (conf.isRun) ...[
+                const SizedBox(height: 6),
+                Text(
+                  l10n.aiConfirmRunWillExecute,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: CupertinoTheme.of(context).textTheme.textStyle.color,
+                  ),
                 ),
-              ),
-              if (conf.arguments.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                ...conf.runItems.map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(CupertinoIcons.chevron_right, size: 13),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          item.summary.isNotEmpty ? item.summary : item.toolName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: CupertinoTheme.of(context).textTheme.textStyle.color,
+                          ),
+                        ),
+                      ),
+                      if (item.riskLevel.isNotEmpty)
+                        Text(
+                          ' ${item.riskLevel}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle
+                                .color
+                                ?.withValues(alpha: 0.6),
+                          ),
+                        ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.aiConfirmRunCount(conf.runItems.length),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoTheme.of(context).primaryColor,
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 6),
+                Text(
+                  conf.summary,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: CupertinoTheme.of(context).textTheme.textStyle.color,
+                  ),
+                ),
+              ],
+              // KB-5：单动作卡才显示参数/授权/信任勾选；run 卡仅动作列表 + 数量
+              if (!conf.isRun && conf.arguments.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   l10n.aiConfirmArgsTitle,
@@ -88,12 +142,13 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                 _ArgsPreview(arguments: conf.arguments),
               ],
               // W5-⑦ Explainable Authz：展示「为何需确认」（风险级/策略/检查清单）
-              if (conf.authorization != null) ...[
+              if (!conf.isRun && conf.authorization != null) ...[
                 const SizedBox(height: 8),
                 _AuthzSection(authorization: conf.authorization!),
               ],
-              const SizedBox(height: 10),
-              CupertinoButton(
+              if (!conf.isRun) ...[
+                const SizedBox(height: 10),
+                CupertinoButton(
                 padding: EdgeInsets.zero,
                 onPressed: () => setState(() => _trustTool = !_trustTool),
                 child: Row(
@@ -123,6 +178,7 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   ],
                 ),
               ),
+              ],
               const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
