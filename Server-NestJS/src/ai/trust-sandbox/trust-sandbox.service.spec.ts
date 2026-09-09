@@ -167,14 +167,22 @@ describe('TrustSandboxService', () => {
     expect(qb.where).toHaveBeenCalledWith('u.username LIKE :p', { p: 'bob_sandbox_42_%' });
   });
 
-  it('P2 ③ recordJourneyCompleted / journeyStats：今日完成 +1、累计递增（跨访客聚合）', async () => {
-    await sandbox.recordJourneyCompleted();
-    await sandbox.recordJourneyCompleted();
+  it('P2 ③ recordJourneyCompleted / journeyStats：跨访客今日完成 +1、累计递增', async () => {
+    await sandbox.recordJourneyCompleted('alice');
+    await sandbox.recordJourneyCompleted('bob');
     const s = await sandbox.journeyStats();
     expect(s.total).toBe(2);
     expect(s.today).toBe(2);
     expect(s.todayDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(settingsService.set).toHaveBeenCalledTimes(2);
+  });
+
+  it('P2 ③ 同用户 1.5s 内重复上报 → 忽略（防刷，不重复计数）', async () => {
+    await sandbox.recordJourneyCompleted('u1');
+    await sandbox.recordJourneyCompleted('u1');
+    const s = await sandbox.journeyStats();
+    expect(s.total).toBe(1);
+    expect(settingsService.set).toHaveBeenCalledTimes(1);
   });
 
   it('s1_normal：建客户+逾期订单 → AI 风险分析 critical → passed + conversationId', async () => {

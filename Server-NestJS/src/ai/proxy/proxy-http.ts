@@ -9,8 +9,18 @@
  * 调用方据此返回"超时"而非一般"不可达"，上层能如实记录失败。
  */
 
-/** 默认超时（ms），env `PROXY_FETCH_TIMEOUT_MS` 可覆盖 */
-export const PROXY_TIMEOUT_MS = Number(process.env.PROXY_FETCH_TIMEOUT_MS ?? 30_000);
+/** 默认超时（ms）；env `PROXY_FETCH_TIMEOUT_MS` 可覆盖 */
+const DEFAULT_PROXY_TIMEOUT_MS = 30_000;
+
+/**
+ * 外部调用超时（ms）——**调用期**读取 env：模块导入期 .env 尚未注入，此处改为每次调用取值，
+ * 使 `PROXY_FETCH_TIMEOUT_MS` 实际生效（配置后无需重启即换默认）。非法/未配 → 默认 30000。
+ */
+export function getProxyTimeout(): number {
+  const raw = process.env.PROXY_FETCH_TIMEOUT_MS;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_PROXY_TIMEOUT_MS;
+}
 
 /** 超时标记错误：name = 'ProxyTimeoutError'，供调用方/测试辨识 timeout 与网络错误 */
 export class ProxyTimeoutError extends Error {
@@ -26,7 +36,7 @@ export class ProxyTimeoutError extends Error {
 export async function proxyFetch(
   url: string,
   init: RequestInit = {},
-  timeoutMs: number = PROXY_TIMEOUT_MS,
+  timeoutMs: number = getProxyTimeout(),
 ): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

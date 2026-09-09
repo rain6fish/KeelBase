@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProxyTimeoutError, proxyFetch, proxyErrorText, PROXY_TIMEOUT_MS } from './proxy-http';
+import { ProxyTimeoutError, proxyFetch, proxyErrorText, getProxyTimeout } from './proxy-http';
 
 describe('proxy-http（B 路径外部调用超时守卫，KB-4 FP-3）', () => {
   const origFetch = global.fetch;
@@ -43,8 +43,18 @@ describe('proxy-http（B 路径外部调用超时守卫，KB-4 FP-3）', () => {
     expect(proxyErrorText(new Error('reset'), '补偿端点')).toContain('不可达');
   });
 
-  it('默认超时取 PROXY_FETCH_TIMEOUT_MS（未配 → 30000）', () => {
-    expect(Number.isFinite(PROXY_TIMEOUT_MS)).toBe(true);
-    expect(PROXY_TIMEOUT_MS).toBeGreaterThan(0);
+  it('getProxyTimeout：调用期读取 PROXY_FETCH_TIMEOUT_MS（未配/非法 → 30000）', () => {
+    const prev = process.env.PROXY_FETCH_TIMEOUT_MS;
+    try {
+      delete process.env.PROXY_FETCH_TIMEOUT_MS;
+      expect(getProxyTimeout()).toBe(30_000);
+      process.env.PROXY_FETCH_TIMEOUT_MS = '5000';
+      expect(getProxyTimeout()).toBe(5000);
+      process.env.PROXY_FETCH_TIMEOUT_MS = 'not-a-number';
+      expect(getProxyTimeout()).toBe(30_000);
+    } finally {
+      if (prev === undefined) delete process.env.PROXY_FETCH_TIMEOUT_MS;
+      else process.env.PROXY_FETCH_TIMEOUT_MS = prev;
+    }
   });
 });
