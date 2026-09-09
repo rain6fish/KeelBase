@@ -825,6 +825,7 @@ const zh = {
   riskConfirm: '需确认',
   riskApproval: '人工审批',
   riskBlocked: '阻断',
+  confirmRunCount: '本次将执行 {n} 个操作',
   // §internal.15(4) 治理策略可视化编辑：门控档位
   gateModeColumn: '生效门控档位',
   gateAuto: '自动',
