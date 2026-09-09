@@ -131,6 +131,8 @@ export interface MyAiEffect {
   revokeStatus?: string | null
   /** KB-6 服务端归一：executed / revoked / revoking_external（已请求外部补偿·结果未知）/ revoke_failed */
   status: 'executed' | 'revoked' | 'revoking_external' | 'revoke_failed'
+  /** 服务端单一权威的撤销可点（status=executed 且档位非 none） */
+  revocable?: boolean
 }
 
 /** G1 会话级批量撤销结果（DELETE /ai/my/tool-effects?conversationId=） */

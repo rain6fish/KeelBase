@@ -244,6 +244,19 @@ export class AiToolEffectsService {
       .catch(() => {});
   }
 
+  /** KB-6/deferred④：撤销可点 = 服务端单一权威（status=executed 且档位非 none）；三端据此渲染，不各自复制判定 */
+  private _isRevocable(
+    revokeClass: string | null | undefined,
+    status: string,
+  ): boolean {
+    if (status !== 'executed') return false;
+    return (
+      revokeClass === 'local_compensate' ||
+      revokeClass === 'governed_external' ||
+      revokeClass === 'transactional'
+    );
+  }
+
   /** 管理台：按用户/类型列出 AI 创建的副作用（含目标记录当前状态） */
   async list(options: { userId?: number; page?: number; limit?: number } = {}) {
     const page = options.page ?? 1;
@@ -280,6 +293,11 @@ export class AiToolEffectsService {
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
+          // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
+          revocable: this._isRevocable(
+            this._readRevokeClass(effect),
+            this._normalizeStatus(effect, targetSoftDeleted),
+          ),
         };
       }),
     );
@@ -321,6 +339,11 @@ export class AiToolEffectsService {
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
+          // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
+          revocable: this._isRevocable(
+            this._readRevokeClass(effect),
+            this._normalizeStatus(effect, targetSoftDeleted),
+          ),
         };
       }),
     );
@@ -411,6 +434,11 @@ export class AiToolEffectsService {
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
+          // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
+          revocable: this._isRevocable(
+            this._readRevokeClass(effect),
+            this._normalizeStatus(effect, targetSoftDeleted),
+          ),
         };
       }),
     );
