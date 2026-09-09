@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "external-audit.schema.json",
+  "title": "治理台上报体 POST /external/audit — v1",
+  "description": "业务系统→治理台 AI 审计上报体（GovernanceApiGuard：x-api-key=GOVERNANCE_API_KEY）。camelCase 传输视图 + username（与 frozen audit-payload 的 canonical 链 payload 语义对齐但形态不同，非重叠）。服务端缺省：userId='0'、source='external'、isError=false。来源：src/governance/external-governance.controller.ts:30-53。",
+  "type": "object",
+  "required": ["action"],
+  "additionalProperties": true,
+  "properties": {
+    "action": { "type": "string" },
+    "userId": { "type": "string" },
+    "username": { "type": "string" },
+    "conversationId": { "type": ["string", "null"] },
+    "detail": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "agentId": { "type": ["string", "null"] },
+    "source": { "type": "string" },
+    "promptTokens": { "type": "number" },
+    "completionTokens": { "type": "number" },
+    "durationMs": { "type": "number" },
+    "isError": { "type": ["boolean", "string"] },
+    "errorMessage": { "type": ["string", "null"] },
+    "authorization": { "type": ["string", "null"] }
+  }
+}

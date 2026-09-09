@@ -1,0 +1,8 @@
+{
+  "userId": "42",
+  "args": { "customerId": 7, "title": "跟进：逾期回款" },
+  "resultType": "crm_task",
+  "resultId": 42,
+  "conversationId": "conv-java-1",
+  "toolName": "create_followup_task"
+}

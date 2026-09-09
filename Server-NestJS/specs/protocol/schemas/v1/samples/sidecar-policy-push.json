@@ -1,0 +1,10 @@
+{
+  "policy": {
+    "tools": {
+      "create_event": { "enabled": false },
+      "create_customer": { "mode": "approval" }
+    },
+    "audit": { "granularity": "all" }
+  },
+  "pushedAt": "2026-09-09T04:12:00Z"
+}

@@ -1,0 +1,17 @@
+{
+  "effect": {
+    "id": 3,
+    "toolName": "create_followup_task",
+    "userId": "42",
+    "conversationId": null,
+    "resultType": "crm_task",
+    "resultId": 42,
+    "createdAt": "2026-09-09T04:10:00Z"
+  },
+  "target": {
+    "targetExists": true,
+    "targetSoftDeleted": false,
+    "targetTitle": "跟进：辰光建材 逾期回款"
+  },
+  "revoked": false
+}

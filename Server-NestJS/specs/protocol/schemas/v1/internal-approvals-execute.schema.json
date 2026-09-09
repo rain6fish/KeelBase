@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "internal-approvals-execute.schema.json",
+  "title": "治理台→业务 POST /internal/approvals/:token/execute 请求体 — v1",
+  "description": "治理台 approve 回调业务系统执行业务工具（R4 双人审批，服务身份）。决策枚举 approve|decline（区别于 frozen confirm-decision-body 的 R3 approve|reject+trustTool——不重叠）。服务端缺省 approverId='governance'、decision='approve'。响应 = decideApproval 结果 { ok:boolean; message?; success?; resultId?:unknown }。来源：src/ai/governance/internal-approvals.controller.ts:19-30、src/ai/ai.service.ts:522-526。",
+  "type": "object",
+  "required": ["decision"],
+  "additionalProperties": false,
+  "properties": {
+    "approverId": { "type": "string" },
+    "decision": { "enum": ["approve", "decline"] }
+  }
+}

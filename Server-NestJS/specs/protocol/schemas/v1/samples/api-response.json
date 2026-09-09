@@ -1,0 +1,6 @@
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": { "conversationId": "conv-1", "reply": "本月你有 5 个事件" },
+  "timestamp": "2026-09-09T04:00:00Z"
+}

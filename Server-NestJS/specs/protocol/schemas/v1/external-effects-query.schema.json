@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "external-effects-query.schema.json",
+  "title": "治理台查询返回 GET /external/effects/:resultType/:resultId — v1",
+  "description": "服务身份查副作用状态（Java 对账契约）。effect 薄投影（无 status/revocable/revokeClass，区别于 frozen side-effect-revoke.item）；revoked = targetSoftDeleted；revokeHint 仅 proxy_call 时（B 路径诚实语义：撤销态可能在 Java 侧）。来源：src/ai/governance/external-effects.controller.ts:22-54。",
+  "type": "object",
+  "required": ["effect", "target", "revoked"],
+  "additionalProperties": true,
+  "properties": {
+    "effect": {
+      "type": "object",
+      "required": ["id", "toolName", "resultType", "resultId", "createdAt"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "number" },
+        "toolName": { "type": "string" },
+        "userId": { "type": "string" },
+        "conversationId": { "type": ["string", "null"] },
+        "resultType": { "type": "string" },
+        "resultId": { "type": ["number", "string"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["targetExists", "targetSoftDeleted"],
+      "additionalProperties": true,
+      "properties": {
+        "targetExists": { "type": "boolean" },
+        "targetSoftDeleted": { "type": "boolean" },
+        "targetTitle": { "type": ["string", "null"] }
+      }
+    },
+    "revoked": { "type": "boolean" },
+    "revokeHint": { "type": "string" }
+  }
+}

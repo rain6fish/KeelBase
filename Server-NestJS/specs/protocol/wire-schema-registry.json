@@ -131,6 +131,86 @@
       "samples": [
         "schemas/v1/samples/delegation-token-claims.json"
       ]
+    },
+    {
+      "id": "api-response",
+      "version": "v1",
+      "schema": "api-response.schema.json",
+      "title": "统一 REST 成功信封 ApiResponse",
+      "source": "src/common/interfaces/api-response.interface.ts:3-8; src/common/interceptors/response.interceptor.ts:39-45",
+      "samples": ["schemas/v1/samples/api-response.json"]
+    },
+    {
+      "id": "error-body",
+      "version": "v1",
+      "schema": "error-body.schema.json",
+      "title": "统一 REST 错误信封 AllExceptionsFilter（含 NC-2 DX / W5-⑦ explanation）",
+      "source": "src/common/filters/http-exception.filter.ts:109-140",
+      "samples": ["schemas/v1/samples/error-body.json"]
+    },
+    {
+      "id": "chat-response",
+      "version": "v1",
+      "schema": "chat-response.schema.json",
+      "title": "AI 对话响应 data（POST /ai/chat，ChatResponse）",
+      "source": "src/ai/ai.service.ts:89-99,1071-1079",
+      "samples": ["schemas/v1/samples/chat-response.json"]
+    },
+    {
+      "id": "conversation-data",
+      "version": "v1",
+      "schema": "conversation-data.schema.json",
+      "title": "AI 会话视图 ConversationData + Message（role 枚举）",
+      "source": "src/ai/conversation/conversation.service.ts:23-38,202-222",
+      "samples": ["schemas/v1/samples/conversation-data.json"]
+    },
+    {
+      "id": "ws-frame",
+      "version": "v1",
+      "schema": "ws-frame.schema.json",
+      "title": "WS 实时传输帧 WsEnvelope（事件名全集 + connected/notification/error/ai:* 帧）",
+      "source": "src/realtime/realtime.types.ts:5-44; src/realtime/realtime.gateway.ts",
+      "samples": ["schemas/v1/samples/ws-frame.json", "schemas/v1/samples/ws-frame-ai-done.json"]
+    },
+    {
+      "id": "external-audit",
+      "version": "v1",
+      "schema": "external-audit.schema.json",
+      "title": "治理台上报体 POST /external/audit（业务→治理台 AI 审计）",
+      "source": "src/governance/external-governance.controller.ts:30-53",
+      "samples": ["schemas/v1/samples/external-audit.json"]
+    },
+    {
+      "id": "external-effects-report",
+      "version": "v1",
+      "schema": "external-effects-report.schema.json",
+      "title": "治理台上报体 POST /external/effects（AI 写副作用）",
+      "source": "src/governance/external-governance.controller.ts:70-88",
+      "samples": ["schemas/v1/samples/external-effects-report.json"]
+    },
+    {
+      "id": "external-effects-query",
+      "version": "v1",
+      "schema": "external-effects-query.schema.json",
+      "title": "服务身份副作用查询返回 GET /external/effects/:resultType/:resultId",
+      "source": "src/ai/governance/external-effects.controller.ts:22-54",
+      "samples": ["schemas/v1/samples/external-effects-query.json"]
+    },
+    {
+      "id": "internal-approvals-execute",
+      "version": "v1",
+      "schema": "internal-approvals-execute.schema.json",
+      "title": "治理台 approve 回调 POST /internal/approvals/:token/execute（R4，decision approve|decline）",
+      "source": "src/ai/governance/internal-approvals.controller.ts:19-30",
+      "samples": ["schemas/v1/samples/internal-approvals-execute.json"]
+    },
+    {
+      "id": "sidecar-policy-push",
+      "version": "v1",
+      "schema": "sidecar-policy-push.schema.json",
+      "title": "治理台→sidecar 策略推送 POST {cb}/v1/policy（policy $ref governance-policy）",
+      "source": "src/governance/sidecar-registry.service.ts:34-56; src/governance-sidecar/sidecar.controller.ts:59-69",
+      "samples": ["schemas/v1/samples/sidecar-policy-push.json"]
     }
   ]
 }

@@ -36,6 +36,16 @@ const FROZEN_OBJECT_IDS = [
   'evidence-package',
   'governance-policy',
   'delegation-token-claims',
+  'api-response',
+  'error-body',
+  'chat-response',
+  'conversation-data',
+  'ws-frame',
+  'external-audit',
+  'external-effects-report',
+  'external-effects-query',
+  'internal-approvals-execute',
+  'sidecar-policy-push',
 ];
 
 const failures: string[] = [];

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "api-response.schema.json",
+  "title": "REST 成功信封 ApiResponse — v1",
+  "description": "统一成功响应信封（ResponseInterceptor 包装；@Raw() 端点跳过）。所有 REST/跨系统/headless 客户端解析 data 的前提。data 恒存在（可能 null）。来源：src/common/interfaces/api-response.interface.ts:3-8 + src/common/interceptors/response.interceptor.ts:39-45。",
+  "type": "object",
+  "required": ["code", "message", "data", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "code": { "type": "number" },
+    "message": { "type": "string" },
+    "data": {},
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

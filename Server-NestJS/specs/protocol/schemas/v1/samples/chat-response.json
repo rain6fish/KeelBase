@@ -1,0 +1,7 @@
+{
+  "conversationId": "conv-1",
+  "reply": "本周你有 3 个事件待办",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "usage": { "promptTokens": 320, "completionTokens": 64 }
+}
