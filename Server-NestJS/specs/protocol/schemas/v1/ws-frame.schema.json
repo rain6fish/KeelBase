@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ws-frame.schema.json",
+  "title": "WS 实时传输帧 WsEnvelope — v1",
+  "description": "WS 服务端→客户端帧信封 {event, data}（realtime.types.ts WS_EVENTS + AI chunk→事件映射）。ai:* 各帧的 data = 完整 StreamChunk（含顶层 type，与 SSE 同载荷，见 sse-event.schema.json）；notification data 与 SSE notifications 同构；error data = {code,message}；connected data = {userId,ts}；ai:done data={}。事件名枚举跨端硬编码——冻结敏感点（曾现 gateway 注释 {type,data} 与实现 {event,data} 漂移）。来源：src/realtime/realtime.types.ts:5-44、src/realtime/realtime.gateway.ts。",
+  "type": "object",
+  "required": ["event"],
+  "additionalProperties": false,
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "notification",
+        "message",
+        "pong",
+        "error",
+        "ai:text",
+        "ai:reasoning",
+        "ai:tool_call",
+        "ai:tool_start",
+        "ai:tool_end",
+        "ai:confirmation_request",
+        "ai:confirmation_decision",
+        "ai:navigate",
+        "ai:done",
+        "ai:error"
+      ]
+    },
+    "data": {}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "code": 403,
+  "message": "无权访问",
+  "data": null,
+  "timestamp": "2026-09-09T04:00:00Z",
+  "errorCode": "FORBIDDEN",
+  "reason": "当前角色无权执行该操作",
+  "impact": "该工具调用未执行",
+  "nextStep": "联系管理员开通权限后重试"
+}

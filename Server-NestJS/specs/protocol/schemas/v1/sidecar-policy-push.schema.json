@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "sidecar-policy-push.schema.json",
+  "title": "治理台→sidecar 策略推送 POST {cb}/v1/policy — v1",
+  "description": "治理台策略变更后向已注册 sidecar 实时推送（服务身份；60s 轮询兜底）。policy 本体 = frozen governance-policy。响应 { accepted:boolean; pushedAt?:string }。来源：src/governance/sidecar-registry.service.ts:34-56、src/governance-sidecar/sidecar.controller.ts:59-69。",
+  "type": "object",
+  "required": ["policy"],
+  "additionalProperties": true,
+  "properties": {
+    "policy": { "$ref": "governance-policy.schema.json" },
+    "pushedAt": { "type": "string", "format": "date-time" }
+  }
+}

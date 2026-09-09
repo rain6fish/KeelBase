@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "external-effects-report.schema.json",
+  "title": "治理台上报体 POST /external/effects — v1",
+  "description": "业务系统→治理台 AI 写副作用上报体（服务身份）。幂等键由服务端内部计算（无客户端幂等键字段）。服务端缺省：userId='0'、resultType='external'、resultId=0、toolName='external'、args={}。响应 { ok:true, effectId?:number }。来源：src/governance/external-governance.controller.ts:70-88。",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "userId": { "type": "string" },
+    "args": { "type": "object" },
+    "resultType": { "type": "string" },
+    "resultId": { "type": ["number", "string"] },
+    "conversationId": { "type": ["string", "null"] },
+    "toolName": { "type": "string" }
+  }
+}

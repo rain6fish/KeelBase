@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "error-body.schema.json",
+  "title": "REST 错误信封 AllExceptionsFilter — v1",
+  "description": "统一错误响应体（控制器抛错不经 ResponseInterceptor，由 AllExceptionsFilter 直出；与成功信封同构扩展 code/message/data/timestamp）。errorCode 仅 BusinessException；reason/impact/nextStep 为 NC-2 DX（errorCode 定义时随附）；explanation 为 W5-⑦ Explainable Authz（403）；retryAfter 由 HttpException response 透传。validator 数组 message 以 '; ' join；5xx 不泄内部细节。来源：src/common/filters/http-exception.filter.ts:109-140。",
+  "type": "object",
+  "required": ["code", "message", "data", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "code": { "type": "number" },
+    "message": { "type": "string" },
+    "data": { "type": "null" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "errorCode": { "type": "string" },
+    "reason": { "type": "string" },
+    "impact": { "type": "string" },
+    "nextStep": { "type": "string" },
+    "explanation": { "type": ["object", "string"] },
+    "retryAfter": { "type": "number" }
+  }
+}

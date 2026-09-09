@@ -1,0 +1,12 @@
+{
+  "event": "notification",
+  "data": {
+    "id": 1,
+    "title": "事件提醒",
+    "body": "明天 10:00 产品评审",
+    "type": "event",
+    "targetType": "event",
+    "targetId": 7,
+    "createdAt": "2026-09-09T04:00:00Z"
+  }
+}

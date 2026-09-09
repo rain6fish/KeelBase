@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "chat-response.schema.json",
+  "title": "AI 对话响应 POST /ai/chat data（ChatResponse）— v1",
+  "description": "非流式对话响应 data。usage 主路径含、navigate/knowledge 短路分支缺省；navigateTo（系统 AI 导航）/toolCalls 可选。外层仍有 ApiResponse 包装。来源：src/ai/ai.service.ts:89-99、:1071-1079。",
+  "type": "object",
+  "required": ["conversationId", "reply", "provider", "model"],
+  "additionalProperties": false,
+  "properties": {
+    "conversationId": { "type": "string" },
+    "reply": { "type": "string" },
+    "provider": { "type": "string" },
+    "model": { "type": "string" },
+    "usage": {
+      "type": "object",
+      "required": ["promptTokens", "completionTokens"],
+      "additionalProperties": false,
+      "properties": {
+        "promptTokens": { "type": "number" },
+        "completionTokens": { "type": "number" }
+      }
+    },
+    "navigateTo": { "type": "string" },
+    "toolCalls": { "type": "array", "items": { "type": "string" } }
+  }
+}

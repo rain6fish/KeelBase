@@ -1,0 +1,15 @@
+{
+  "action": "tool_call",
+  "userId": "42",
+  "username": "alex",
+  "conversationId": "conv-java-1",
+  "detail": "query_customers",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "agentId": "crm-bot",
+  "source": "java-crm",
+  "promptTokens": 120,
+  "completionTokens": 30,
+  "durationMs": 240,
+  "isError": false
+}

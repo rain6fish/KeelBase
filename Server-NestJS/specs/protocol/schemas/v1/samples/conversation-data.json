@@ -1,0 +1,13 @@
+{
+  "id": "conv-1",
+  "userId": "42",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "summary": "本周日程",
+  "createdAt": "2026-09-09T03:50:00Z",
+  "lastActivityAt": "2026-09-09T03:52:00Z",
+  "messages": [
+    { "role": "user", "content": "本周有哪些事件？", "timestamp": "2026-09-09T03:50:00Z" },
+    { "role": "assistant", "content": "本周你有 3 个事件。", "timestamp": "2026-09-09T03:52:00Z" }
+  ]
+}
