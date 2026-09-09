@@ -117,7 +117,11 @@ ${fieldCols}
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  /** RG-3 软删除：删除后仍保留行，管理台回收站可恢复 */
+  /**
+   * Trust-ready（生成模块默认可撤销）：RG-3 软删除——删除仅置 deleted_at 保留行，管理台回收站可恢复；
+   * AI 写工具 create_${ctx.singular} 副作用 resultType=${ctx.singular} 可按本实体元数据软删撤销
+   * （SideEffectRevoker.resolveLocalEntity 匹配本实体 + DeleteDateColumn → revokeClass=local_compensate）。
+   */
   @DeleteDateColumn({ type: Date, name: 'deleted_at' })
   deletedAt?: Date | null;
 }
@@ -440,6 +444,22 @@ describe('${ctx.pluralPascal}Service', () => {
     mockRepo.softDelete.mockResolvedValue({ affected: 1 });
 
     await service.remove(1, mockAbility(true));
+
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
+  });
+
+  it('does not soft-delete when CASL forbids (remove)', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+
+    await expect(service.remove(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
+
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('removeAsAdmin soft-deletes without ownership (RG-3 recovery)', async () => {
+    mockRepo.softDelete.mockResolvedValue({ affected: 1 });
+
+    await service.removeAsAdmin(1);
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
