@@ -132,3 +132,24 @@ export interface MyAiEffect {
   /** KB-6 服务端归一：executed / revoked / revoking_external（已请求外部补偿·结果未知）/ revoke_failed */
   status: 'executed' | 'revoked' | 'revoking_external' | 'revoke_failed'
 }
+
+/** G1 会话级批量撤销结果（DELETE /ai/my/tool-effects?conversationId=） */
+export interface BatchRevokeItem {
+  effectId: number
+  revoked: boolean
+  skipped?: boolean
+  reason?: 'already_revoked' | 'compensating'
+  revokeStatus?: string | null
+  external?: boolean
+  message?: string
+  error?: string
+}
+
+export interface BatchRevokeResult {
+  conversationId: string
+  total: number
+  revoked: number
+  skipped: number
+  failed: number
+  results: BatchRevokeItem[]
+}
