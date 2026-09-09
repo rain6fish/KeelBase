@@ -3,6 +3,10 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createHash } from 'crypto';
+import { execFileSync } from 'child_process';
+import { tmpdir } from 'os';
+import { writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
@@ -114,5 +118,33 @@ describe('证据根 v3 契约（KB-3）', () => {
     const tampered = [flipped, ...anchors.slice(1)];
     // 改锚后 digest 不再等于 sha256(tampered)——等于 verify-evidence 的 FAIL 判定
     expect(digestOf(tampered)).not.toBe(pkg.root.digest);
+  });
+
+  it('④ 真实 verify-evidence.mjs --key 离线全量验证：整包 canonical HMAC + 各链重算 PASS，篡改 exportedAt 后 FAIL（deferred 缺口闭合）', async () => {
+    // 签名键 = AUDIT_HMAC_KEY || ENCRYPTION_KEY（evidence-root 导出同源）；.env.test 提供 ENCRYPTION_KEY
+    const key = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
+    expect(key.length).toBe(64); // 配置缺口暴露为失败而非静默跳过
+    const res = await exportRoot(userA.accessToken, 200);
+    const pkg = res.body.data as any;
+    const file = join(tmpdir(), `evroot-key-${Date.now()}.json`);
+    const script = join(__dirname, '../scripts/verify-evidence.mjs');
+    try {
+      writeFileSync(file, JSON.stringify(pkg));
+      // PASS：真实离线脚本 --key 全量子链内容重算 + 整包 canonical HMAC 签名验证（exit 0）
+      const out = execFileSync(process.execPath, [script, file, '--key', key], { encoding: 'utf8' });
+      expect(out).toContain('PASS');
+      // 篡改 canonical 内 exportedAt → 整包 HMAC 重算不匹配 → FAIL（exit 1）
+      const tampered = { ...pkg, exportedAt: '2999-01-01T00:00:00.000Z' };
+      writeFileSync(file, JSON.stringify(tampered));
+      let failed = false;
+      try {
+        execFileSync(process.execPath, [script, file, '--key', key], { encoding: 'utf8' });
+      } catch {
+        failed = true;
+      }
+      expect(failed).toBe(true);
+    } finally {
+      rmSync(file, { force: true });
+    }
   });
 });
