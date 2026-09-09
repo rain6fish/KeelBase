@@ -824,6 +824,7 @@ const en: ZhDict = {
   riskConfirm: 'Confirmation',
   riskApproval: 'Human approval',
   riskBlocked: 'Blocked',
+  confirmRunCount: 'This will run {n} operation(s).',
   // §internal.15(4) governance policy visual editing: gate mode
   gateModeColumn: 'Effective gate',
   gateAuto: 'Auto',

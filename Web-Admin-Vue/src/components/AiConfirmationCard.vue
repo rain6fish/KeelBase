@@ -87,7 +87,7 @@ const emit = defineEmits<{
   rejected: []
 }>()
 
-const { t, te } = useI18n()
+const { t } = useI18n()
 const trustTool = ref(false)
 const showDetail = ref(false)
 
@@ -104,8 +104,7 @@ const runRiskLabel = computed(() => {
 })
 const runCountLabel = computed(() => {
   const n = runItems.value.length
-  // i18n key 随并发提交后提为正式 zh/en；此前用带 key 的 fallback（KB-5 实现避开被占用 i18n 文件）
-  return te('confirmRunCount') ? t('confirmRunCount', { n }) : `本次将执行 ${n} 个操作`
+  return t('confirmRunCount', { n })
 })
 
 const hasArgs = computed(() => {
