@@ -84,21 +84,40 @@
               <div class="text-body-2">{{ convTitle(c) }}</div>
               <div class="text-caption text-medium-emphasis mt-1">{{ formatTime(c.lastActivityAt) }}</div>
             </div>
-            <el-button text size="small" type="primary" @click="openConversation(c)">
-              <template #icon><AppIcon icon="mdi-play-circle-outline" /></template>
-              {{ t('aiCenterConvOpen') }}
-            </el-button>
+            <div class="d-flex align-center ga-1 flex-shrink-0">
+              <el-button
+                size="small"
+                plain
+                type="warning"
+                :loading="revokingConvId === c.id"
+                :disabled="revokingConvId !== null && revokingConvId !== c.id"
+                @click="confirmRevokeConversation(c)"
+              >
+                <template #icon><AppIcon icon="mdi-undo-variant" /></template>
+                {{ t('aiCenterConvRevoke') }}
+              </el-button>
+              <el-button text size="small" type="primary" @click="openConversation(c)">
+                <template #icon><AppIcon icon="mdi-play-circle-outline" /></template>
+                {{ t('aiCenterConvOpen') }}
+              </el-button>
+            </div>
           </div>
         </div>
       </template>
     </el-card>
 
-    <!-- 撤销确认 + 对象历史抽屉 -->
+    <!-- 撤销确认（单条 + 会话批量）+ 对象历史抽屉 -->
     <ConfirmDialog
       v-model="showRevoke"
       :title="t('revokeEffect')"
       :content="t('revokeEffectConfirm', { title: pending?.targetTitle || `#${pending?.resultId}` })"
       @confirm="onRevoke"
+    />
+    <ConfirmDialog
+      v-model="showRevokeConv"
+      :title="t('aiCenterConvRevokeTitle')"
+      :content="t('aiCenterConvRevokeConfirm')"
+      @confirm="onRevokeConversation"
     />
     <BusinessHistoryDrawer
       v-model="historyOpen"
@@ -140,6 +159,10 @@ const convLoading = ref(false)
 const revokingId = ref<number | null>(null)
 const showRevoke = ref(false)
 const pending = ref<MyAiEffect | null>(null)
+
+const revokingConvId = ref<string | null>(null)
+const showRevokeConv = ref(false)
+const pendingConv = ref<ConversationSummary | null>(null)
 
 const historyOpen = ref(false)
 const historyTarget = ref<{ resultType: string; resultId: number } | null>(null)
@@ -229,6 +252,30 @@ async function onRevoke() {
   } finally {
     revokingId.value = null
     pending.value = null
+  }
+}
+
+/** G1：确认撤销某会话本人全部 AI 写副作用 */
+function confirmRevokeConversation(c: ConversationSummary) {
+  pendingConv.value = c
+  showRevokeConv.value = true
+}
+
+async function onRevokeConversation() {
+  const conv = pendingConv.value
+  if (!conv) return
+  showRevokeConv.value = false
+  revokingConvId.value = conv.id
+  try {
+    const r = await aiTraceApi.revokeConversationEffects(conv.id)
+    if (r.total === 0) snackbar.success(t('aiCenterConvRevokeEmpty'))
+    else snackbar.success(t('aiCenterConvRevokeDone', { revoked: r.revoked, skipped: r.skipped, failed: r.failed }))
+    await loadEffects()
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('aiCenterConvRevokeEmpty'))
+  } finally {
+    revokingConvId.value = null
+    pendingConv.value = null
   }
 }
 

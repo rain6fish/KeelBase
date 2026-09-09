@@ -6,15 +6,21 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { myEffectsMock, conversationsMock, revokeMock, pushMock } = vi.hoisted(() => ({
+const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock } = vi.hoisted(() => ({
   myEffectsMock: vi.fn(),
   conversationsMock: vi.fn(),
   revokeMock: vi.fn(),
+  revokeConvMock: vi.fn(),
   pushMock: vi.fn(),
 }))
 
 vi.mock('@/api/aiTrace', () => ({
-  aiTraceApi: { myEffects: myEffectsMock, conversations: conversationsMock, revokeEffect: revokeMock },
+  aiTraceApi: {
+    myEffects: myEffectsMock,
+    conversations: conversationsMock,
+    revokeEffect: revokeMock,
+    revokeConversationEffects: revokeConvMock,
+  },
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -185,5 +191,18 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
 
     expect(wrapper.text()).toContain('已执行')
     expect(wrapper.findAll('button').filter((b) => b.text().includes('撤销'))).toHaveLength(0)
+  })
+
+  it('G1: 会话行提供「撤销本会话写操作」批量入口', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([
+      { id: 'conv-x', messages: [{ role: 'user', content: '帮我改价格' }], lastActivityAt: '2026-09-01T00:00:00Z' },
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const revokeConvBtns = wrapper.findAll('button').filter((b) => b.text().includes('撤销本会话写操作'))
+    expect(revokeConvBtns).toHaveLength(1)
   })
 })
