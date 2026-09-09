@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "governance-confirmation-item.schema.json",
+  "title": "治理台确认/审批列表项（ai_confirmation_requests 行视图）— v1",
+  "description": "GET /ai/confirmations/pending|decided（治理台读侧）列表项：R4 审批请求（riskLevel=R4）或 R3 确认落库行。单条 = kind 'single'（runItems null）；run 行 = kind 'run'、toolName='run'、args='[]' 占位、riskLevel 复用为 runRisk、runItems 为 RunItem[] JSON 文本（{toolName,args,summary,riskLevel}）。主应用列表（ai.service withUserNames）追加 operatorName/approverName（fallback 到 id 字符串；治理台独立服务返回裸实体行，无 names）。来源：src/ai/approvals/ai-confirmation-request.entity.ts:19-74、src/ai/ai.service.ts:473-519、src/governance/governance-approval.service.ts:21-36。",
+  "type": "object",
+  "required": ["id", "token", "toolName", "args", "operatorId", "riskLevel", "status", "kind", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number" },
+    "token": { "type": "string", "minLength": 8 },
+    "toolName": { "type": "string" },
+    "args": { "type": "string" },
+    "operatorId": { "type": "string" },
+    "conversationId": { "type": ["string", "null"] },
+    "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+    "status": { "enum": ["pending", "approved", "declined", "timeout"] },
+    "kind": { "enum": ["single", "run"] },
+    "runItems": { "type": ["string", "null"] },
+    "approverId": { "type": ["string", "null"] },
+    "decidedAt": { "type": ["string", "null"], "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "operatorName": { "type": "string" },
+    "approverName": { "type": ["string", "null"] }
+  }
+}

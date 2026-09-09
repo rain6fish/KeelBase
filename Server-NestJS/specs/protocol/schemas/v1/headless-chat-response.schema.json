@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "headless-chat-response.schema.json",
+  "title": "Headless 对话响应 POST /headless/chat — v1",
+  "description": "第三方 API（x-api-key）对话响应：ChatResponse 的投影（reply+conversationId，剥离 provider/model/usage）。HTTP 外层仍包 ApiResponse 信封（端点非 @Raw）。请求 HeadlessChatDto：message(≤2000) req + provider?/model?。来源：src/headless/headless.controller.ts:14-26、:48-59。",
+  "type": "object",
+  "required": ["reply", "conversationId"],
+  "additionalProperties": false,
+  "properties": {
+    "reply": { "type": "string" },
+    "conversationId": { "type": "string" }
+  }
+}
