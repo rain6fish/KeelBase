@@ -53,8 +53,15 @@ describe('InsightsService', () => {
         makeEvent(2, new Date('2026-08-15T09:00:00Z')),
         makeEvent(3, new Date('2026-07-01T09:00:00Z'), true),
       ]);
-
-      const result = await service.generateInsights(1, 30);
+      // recentEvents 用滚动 now-30d 窗口——固定事件日期会随运行日漂移（08-10 出窗即红）；
+      // 固定 "now" 使 recent/月度断言确定化。
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-08-20T12:00:00Z'));
+      let result: Awaited<ReturnType<InsightsService['generateInsights']>>;
+      try {
+        result = await service.generateInsights(1, 30);
+      } finally {
+        nowSpy.mockRestore();
+      }
 
       expect(result.stats.totalEvents).toBe(3);
       expect(result.stats.activeEvents).toBe(2);
