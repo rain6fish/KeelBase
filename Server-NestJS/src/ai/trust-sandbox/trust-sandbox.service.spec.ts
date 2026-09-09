@@ -228,24 +228,35 @@ describe('TrustSandboxService', () => {
     expect(r.requiresConfirmation).toBe(true);
   });
 
-  it('s5_revoke：本人有可撤销副作用 → 撤销 passed；无则 guide', async () => {
-    effectsService.listOwned.mockResolvedValue({ items: [{ id: 5, resultType: 'crm_task' }] });
+  it('s5_revoke：命中真实 AI 副作用 → 无确认给指引（不静默撤销）；confirm=1 才撤销', async () => {
+    effectsService.listOwned.mockResolvedValue({
+      items: [{ id: 5, resultType: 'crm_task', targetTitle: '跟进回款' }],
+    });
     effectsService.revokeOwned.mockResolvedValue({ revoked: true, effectId: 5 });
+
+    // 无 confirm：guide 指引，指向真实 effect 但不撤销
     const r = await sandbox.run('s5_revoke', '42');
-    expect(r.outcome).toBe('passed');
+    expect(r.outcome).toBe('guide');
     expect(r.effectId).toBe(5);
+    expect(effectsService.revokeOwned).not.toHaveBeenCalled();
+
+    // confirm=true：真实撤销 → passed
+    const r2 = await sandbox.run('s5_revoke', '42', { confirm: true });
+    expect(r2.outcome).toBe('passed');
+    expect(r2.effectId).toBe(5);
     expect(effectsService.revokeOwned).toHaveBeenCalledWith(5, '42');
 
+    // 无副作用 → guide
     effectsService.listOwned.mockResolvedValue({ items: [] });
-    const r2 = await sandbox.run('s5_revoke', '43');
-    expect(r2.outcome).toBe('guide');
+    const r3 = await sandbox.run('s5_revoke', '43');
+    expect(r3.outcome).toBe('guide');
 
     // revoke 未生效 → outcome check + 诚实文案（不误报「已软删」）
     effectsService.listOwned.mockResolvedValue({ items: [{ id: 5, resultType: 'crm_task' }] });
     effectsService.revokeOwned.mockResolvedValue({ revoked: false, effectId: 5, revokeStatus: 'revoke_failed' });
-    const r3 = await sandbox.run('s5_revoke', '42');
-    expect(r3.outcome).toBe('check');
-    expect(String(r3.detail)).toContain('未生效');
+    const r4 = await sandbox.run('s5_revoke', '42', { confirm: true });
+    expect(r4.outcome).toBe('check');
+    expect(String(r4.detail)).toContain('未生效');
   });
 
   it('s6_java：返回 Java 引导', async () => {

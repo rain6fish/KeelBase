@@ -240,9 +240,21 @@ function scenarioIcon(id: string) {
 }
 
 async function run(id: string) {
+  // 1.0.8 deferred：s5 撤销会命中真实 AI 副作用——运行前先经弹窗确认（不静默撤销）
+  if (id === 's5_revoke') {
+    try {
+      await ElMessageBox.confirm(t('s5RevokeConfirm'), t('trustSandboxScenario'), {
+        type: 'warning',
+        confirmButtonText: t('runDemo'),
+        cancelButtonText: t('cancel'),
+      })
+    } catch {
+      return // 取消：不执行撤销
+    }
+  }
   running.value = id
   try {
-    result.value = await aiApi.trustSandboxRun(id)
+    result.value = await aiApi.trustSandboxRun(id, { confirm: id === 's5_revoke' })
     dialogVisible.value = true
   } catch (err) {
     ElMessage.error(err instanceof Error && err.message ? err.message : t('loadFailed'))

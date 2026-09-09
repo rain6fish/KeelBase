@@ -65,7 +65,11 @@ export class TrustSandboxService {
     ];
   }
 
-  async run(scenarioId: string, userId: string): Promise<Record<string, unknown>> {
+  async run(
+    scenarioId: string,
+    userId: string,
+    opts: { confirm?: boolean } = {},
+  ): Promise<Record<string, unknown>> {
     const ts = Date.now() % 1_000_000;
     switch (scenarioId) {
       case 's1_normal':
@@ -77,7 +81,7 @@ export class TrustSandboxService {
       case 's4_confirm':
         return this.s4(userId, ts);
       case 's5_revoke':
-        return this.s5(userId);
+        return this.s5(userId, opts?.confirm === true);
       case 's6_java':
         return {
           scenario: 's6_java',
@@ -342,30 +346,42 @@ export class TrustSandboxService {
     };
   }
 
-  /** S5 撤销：指引（有副作用时列出最近可撤销项） */
-  private async s5(userId: string): Promise<Record<string, unknown>> {
+  /** S5 撤销：命中真实 AI 副作用须显式 confirm（不静默撤销真实效果）；无副作用给指引 */
+  private async s5(userId: string, confirm = false): Promise<Record<string, unknown>> {
     const owned = await this.effectsService.listOwned(userId, { limit: 5 }).catch(() => null);
     const items = owned?.items ?? [];
     const effect = items.find((e: { resultType?: string }) => e.resultType !== 'proxy_call');
-    if (effect) {
-      const id = (effect as { id: number }).id;
-      const res = await this.effectsService.revokeOwned(id, userId);
-      const revoked = Boolean(res?.revoked);
+    if (!effect) {
       return {
         scenario: 's5_revoke',
-        outcome: revoked ? 'passed' : 'check',
-        detail: revoked
-          ? `撤销 AI 副作用 effect #${id} 成功：目标软删（可经回收站恢复），AI 轨迹与审计保持完整。`
-          : `撤销 effect #${id} 未生效（该副作用不可本地撤销，按其撤销档位处理）；未做破坏性操作。`,
-        effectId: id,
-        revoked,
+        outcome: 'guide',
+        detail:
+          '尚无本人可撤销的 AI 副作用。先到 AI Copilot 确认创建一个跟进任务，再到 AI 轨迹页撤销（软删，可经回收站恢复）。',
       };
     }
+    const id = (effect as { id: number }).id;
+    const title = (effect as { targetTitle?: string | null }).targetTitle ?? null;
+    // 1.0.8 deferred：沙盘不静默撤销真实效果——须调用方显式 confirm（软删虽可恢复，仍先确认）
+    if (!confirm) {
+      return {
+        scenario: 's5_revoke',
+        outcome: 'guide',
+        effectId: id,
+        detail: title
+          ? `找到本人最近真实 AI 副作用 #${id}「${title}」（软删可恢复）——沙盘不自动撤销真实效果。演示撤销：到「我的 AI 行为」执行（带确认），或再跑本场景并在弹窗确认。`
+          : `找到本人最近真实 AI 副作用 #${id}（软删可恢复）——沙盘不自动撤销真实效果。演示撤销：到「我的 AI 行为」执行（带确认），或再跑本场景并在弹窗确认。`,
+      };
+    }
+    const res = await this.effectsService.revokeOwned(id, userId);
+    const revoked = Boolean(res?.revoked);
     return {
       scenario: 's5_revoke',
-      outcome: 'guide',
-      detail:
-        '尚无本人可撤销的 AI 副作用。先到 AI Copilot 确认创建一个跟进任务，再到 AI 轨迹页撤销（软删，可经回收站恢复）。',
+      outcome: revoked ? 'passed' : 'check',
+      detail: revoked
+        ? `撤销 AI 副作用 effect #${id} 成功：目标软删（可经回收站恢复），AI 轨迹与审计保持完整。`
+        : `撤销 effect #${id} 未生效（该副作用不可本地撤销，按其撤销档位处理）；未做破坏性操作。`,
+      effectId: id,
+      revoked,
     };
   }
 }
