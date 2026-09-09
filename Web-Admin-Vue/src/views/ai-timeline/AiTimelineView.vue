@@ -261,10 +261,12 @@ function effectStatus(eff: ToolEffect): string {
   return 'ok'
 }
 
-/** KB-6：撤销钮仅对"可撤且未进入撤销流程"的动作显示；revokeClass none 一律不显示（外部副作用不误示可撤） */
+/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
 function canRevokeEffect(eff: ToolEffect): boolean {
+  if (eff.revocable !== undefined) return eff.revocable
   if (!eff.status || eff.status !== 'executed') return false
-  return eff.revokeClass === 'local_compensate' || eff.revokeClass === 'governed_external' || eff.revokeClass === 'transactional'
+  const rk = eff.revokeClass
+  return rk === 'local_compensate' || rk === 'governed_external' || rk === 'transactional'
 }
 
 // 单个时间线事件（AI 日志 + 副作用合并）

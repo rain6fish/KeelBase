@@ -289,6 +289,8 @@ export interface ToolEffect {
   revokeStatus?: string | null
   /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
   status?: string
+  /** 服务端单一权威的撤销可点（status=executed 且档位非 none）；三端据此渲染 */
+  revocable?: boolean
 }
 
 /** D5 Agent Registry：已注册 Agent 清单（GET /ai/agents，管理台） */

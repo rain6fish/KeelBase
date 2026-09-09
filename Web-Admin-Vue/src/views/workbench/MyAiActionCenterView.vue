@@ -180,10 +180,12 @@ function statusTag(status: string) {
   return { label: t('statusExecuted'), type: 'success' as const }
 }
 
-/** KB-6：可撤条件 = 本地可撤/受治理外部可撤 且 未进入撤销流程；none 一律不可撤 */
+/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
 function canRevoke(e: MyAiEffect): boolean {
+  if (e.revocable !== undefined) return e.revocable
   if (e.status !== 'executed') return false
-  return e.revokeClass === 'local_compensate' || e.revokeClass === 'governed_external' || e.revokeClass === 'transactional'
+  const rk = e.revokeClass
+  return rk === 'local_compensate' || rk === 'governed_external' || rk === 'transactional'
 }
 
 async function loadEffects() {

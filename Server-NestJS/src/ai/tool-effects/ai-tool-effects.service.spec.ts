@@ -534,6 +534,23 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res.items[0].revokeClass).toBe('governed_external');
     });
 
+    it('listOwned：revocable = 服务端判定（executed+可撤档 true；none / revoking_external false）', async () => {
+      makeService();
+      repo.findAndCount.mockResolvedValue([
+        [
+          { id: 1, toolName: 'create_event', resultType: 'event', resultId: 11, userId: '1', revokeClass: 'local_compensate', createdAt: new Date() },
+          { id: 2, toolName: 'ext', resultType: 'proxy_call', resultId: 9, userId: '1', revokeClass: 'none', createdAt: new Date() },
+          { id: 3, toolName: 'java', resultType: 'proxy_call', resultId: 8, userId: '1', revokeClass: 'governed_external', revokeStatus: 'compensating', createdAt: new Date() },
+        ],
+        3,
+      ]);
+      revokerStub.describeTarget.mockResolvedValue({ deletedAt: null });
+      const res = await svc.listOwned('1', { page: 1, limit: 50 });
+      expect(res.items[0].revocable).toBe(true); // executed + local_compensate
+      expect(res.items[1].revocable).toBe(false); // none
+      expect(res.items[2].revocable).toBe(false); // revoking_external（补偿中，禁可撤）
+    });
+
     it('resolveRevokeClass 派生：确认写→local_compensate、读→none、显式优先', () => {
       expect(resolveRevokeClass({ requiresConfirmation: true })).toBe('local_compensate');
       expect(resolveRevokeClass({ requiresConfirmation: false })).toBe('none');

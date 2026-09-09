@@ -193,8 +193,9 @@ function revokeClassTag(rk: string) {
   return { label: t('revokeClassNone'), type: 'info' as const }
 }
 
-/** KB-6：仅本地可撤且未撤的动作显示撤销钮；none（不可撤）不显示；revoking_external/revoke_failed 已进入撤销流程不再显示 */
+/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
 function canRevoke(item: ToolEffect): boolean {
+  if (item.revocable !== undefined) return item.revocable
   if (item.status && item.status !== 'executed') return false
   const rk = item.revokeClass
   return rk === 'local_compensate' || rk === 'transactional' || rk === 'governed_external'
