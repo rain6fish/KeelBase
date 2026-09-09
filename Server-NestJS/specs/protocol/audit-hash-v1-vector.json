@@ -1,0 +1,249 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol §2 audit hash chain",
+  "license": "Apache-2.0",
+  "note": "生成器产出。kind=chain 的 rows.payload 为业务 payload（不含 prevHash/hash/id）；hash 由现实现按序构建。",
+  "keyMaterial": {
+    "currentKey": "abababababababababababababababababababababababababababababababab",
+    "altKey": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "chainSecret": "conformance-test-secret-0123456789",
+    "delegationSecret": "conformance-delegation-secret-0123456789",
+    "legacyKey": "19342038247375f08f509edc991b0a38532d748612532ae14bda3febfe076d23"
+  },
+  "cases": [
+    {
+      "id": "hash-hex-format",
+      "name": "chainHash 输出 64 hex",
+      "kind": "hex",
+      "key": "abababababababababababababababababababababababababababababababab",
+      "prevHash": null,
+      "payload": {
+        "action": "tool_call",
+        "userId": "42",
+        "detail": "query_customers"
+      },
+      "expectHex": "a83bca33206eed0c854b0a82b85b7211c54b6883c3cff6b9e0b7f599170290e4"
+    },
+    {
+      "id": "hash-deterministic",
+      "name": "chainHash 确定性（同输入同输出）",
+      "kind": "determinism",
+      "key": "abababababababababababababababababababababababababababababababab",
+      "prevHash": null,
+      "payload": {
+        "action": "tool_call",
+        "userId": "42",
+        "detail": "query_customers"
+      },
+      "expectHex": "a83bca33206eed0c854b0a82b85b7211c54b6883c3cff6b9e0b7f599170290e4"
+    },
+    {
+      "id": "hash-tamper-sensitive",
+      "name": "篡改 payload → hash 变化（防篡改）",
+      "kind": "tamper",
+      "key": "abababababababababababababababababababababababababababababababab",
+      "prevHash": null,
+      "payloadA": {
+        "action": "tool_call",
+        "userId": "42",
+        "detail": "query_customers"
+      },
+      "payloadB": {
+        "action": "tool_call",
+        "userId": "42",
+        "detail": "query_contracts"
+      }
+    },
+    {
+      "id": "genesis-literal",
+      "name": "genesis 语义：prevHash 缺省用字面量 `genesis`（与空串区分）",
+      "kind": "genesis",
+      "key": "abababababababababababababababababababababababababababababababab",
+      "payload": {
+        "action": "a",
+        "detail": "genesis-sample"
+      }
+    },
+    {
+      "id": "legacy-key-derivation",
+      "name": "legacy key 派生 = HMAC-SHA256(keelbase:audit-chain:v1, secret)",
+      "kind": "legacy",
+      "secret": "conformance-test-secret-0123456789",
+      "expectHex": "19342038247375f08f509edc991b0a38532d748612532ae14bda3febfe076d23"
+    },
+    {
+      "id": "chain-ok",
+      "name": "链校验：3 条连续记录全过",
+      "kind": "chain",
+      "keys": [
+        "abababababababababababababababababababababababababababababababab"
+      ],
+      "rows": [
+        {
+          "id": 1,
+          "prevHash": null,
+          "hash": "8bfeaea5b7480f576cf09e82eff6a56179fbde1ed2abe2bca463540c1c6ff5d4",
+          "payload": {
+            "action": "a1",
+            "detail": "row-1"
+          }
+        },
+        {
+          "id": 2,
+          "prevHash": "8bfeaea5b7480f576cf09e82eff6a56179fbde1ed2abe2bca463540c1c6ff5d4",
+          "hash": "74d363bd38ab952241edac95770482f30858f4c516bf3ac00e8ff9abc24b8e8f",
+          "payload": {
+            "action": "a2",
+            "detail": "row-2"
+          }
+        },
+        {
+          "id": 3,
+          "prevHash": "74d363bd38ab952241edac95770482f30858f4c516bf3ac00e8ff9abc24b8e8f",
+          "hash": "9e0cb43dbff7728191d588f1fdf39f8d7a89a20fb74b7be4e291f173e3c21307",
+          "payload": {
+            "action": "a3",
+            "detail": "row-3"
+          }
+        }
+      ],
+      "expect": {
+        "valid": true,
+        "checked": 3
+      }
+    },
+    {
+      "id": "chain-tamper-broken2",
+      "name": "篡改检测：改中间记录 → 断链@2",
+      "kind": "chain",
+      "keys": [
+        "abababababababababababababababababababababababababababababababab"
+      ],
+      "rows": [
+        {
+          "id": 1,
+          "prevHash": null,
+          "hash": "8bfeaea5b7480f576cf09e82eff6a56179fbde1ed2abe2bca463540c1c6ff5d4",
+          "payload": {
+            "action": "a1",
+            "detail": "row-1"
+          }
+        },
+        {
+          "id": 2,
+          "prevHash": "8bfeaea5b7480f576cf09e82eff6a56179fbde1ed2abe2bca463540c1c6ff5d4",
+          "hash": "74d363bd38ab952241edac95770482f30858f4c516bf3ac00e8ff9abc24b8e8f",
+          "payload": {
+            "action": "a2",
+            "detail": "row-2"
+          }
+        },
+        {
+          "id": 3,
+          "prevHash": "74d363bd38ab952241edac95770482f30858f4c516bf3ac00e8ff9abc24b8e8f",
+          "hash": "9e0cb43dbff7728191d588f1fdf39f8d7a89a20fb74b7be4e291f173e3c21307",
+          "payload": {
+            "action": "a3",
+            "detail": "row-3"
+          }
+        }
+      ],
+      "payloadOverrides": [
+        {
+          "id": 2,
+          "payload": {
+            "action": "a2",
+            "detail": "TAMPERED"
+          }
+        }
+      ],
+      "expect": {
+        "valid": false,
+        "brokenIndex": 2
+      }
+    },
+    {
+      "id": "chain-key-rotation",
+      "name": "密钥轮换：候选密钥集 [current, legacy] 可验 legacy 旧链",
+      "kind": "chain",
+      "keys": [
+        "abababababababababababababababababababababababababababababababab",
+        "19342038247375f08f509edc991b0a38532d748612532ae14bda3febfe076d23"
+      ],
+      "rows": [
+        {
+          "id": 1,
+          "prevHash": null,
+          "hash": "29932f12ce3130e31c1081d0d98126dc026255e6c0e517331e458fa694a28708",
+          "payload": {
+            "action": "a1",
+            "detail": "row-1"
+          }
+        },
+        {
+          "id": 2,
+          "prevHash": "29932f12ce3130e31c1081d0d98126dc026255e6c0e517331e458fa694a28708",
+          "hash": "d9cf609662f1aa39e5ef07d6cf7982642848c491a77a4b99684a79249e692247",
+          "payload": {
+            "action": "a2",
+            "detail": "row-2"
+          }
+        },
+        {
+          "id": 3,
+          "prevHash": "d9cf609662f1aa39e5ef07d6cf7982642848c491a77a4b99684a79249e692247",
+          "hash": "758511d3ff3b9a419aec77420e23536b4192610cf8533b35ab99d6165761e9d1",
+          "payload": {
+            "action": "a3",
+            "detail": "row-3"
+          }
+        }
+      ],
+      "expect": {
+        "valid": true,
+        "checked": 3
+      }
+    },
+    {
+      "id": "chain-key-domain-separation",
+      "name": "密钥域分离：current key 不能验 legacy 链（密钥隔离生效）",
+      "kind": "chain",
+      "keys": [
+        "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+      ],
+      "rows": [
+        {
+          "id": 1,
+          "prevHash": null,
+          "hash": "29932f12ce3130e31c1081d0d98126dc026255e6c0e517331e458fa694a28708",
+          "payload": {
+            "action": "a1",
+            "detail": "row-1"
+          }
+        },
+        {
+          "id": 2,
+          "prevHash": "29932f12ce3130e31c1081d0d98126dc026255e6c0e517331e458fa694a28708",
+          "hash": "d9cf609662f1aa39e5ef07d6cf7982642848c491a77a4b99684a79249e692247",
+          "payload": {
+            "action": "a2",
+            "detail": "row-2"
+          }
+        },
+        {
+          "id": 3,
+          "prevHash": "d9cf609662f1aa39e5ef07d6cf7982642848c491a77a4b99684a79249e692247",
+          "hash": "758511d3ff3b9a419aec77420e23536b4192610cf8533b35ab99d6165761e9d1",
+          "payload": {
+            "action": "a3",
+            "detail": "row-3"
+          }
+        }
+      ],
+      "expect": {
+        "valid": false,
+        "brokenIndex": 1
+      }
+    }
+  ]
+}

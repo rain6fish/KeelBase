@@ -31,6 +31,8 @@
     "healthcheck": "ts-node scripts/healthcheck.ts",
     "audit:chain:load": "ts-node scripts/audit-chain-load-test.ts",
     "conformance": "node scripts/verify-protocol-conformance.mjs",
+    "protocol:vectors": "node scripts/generate-protocol-vectors.mjs",
+    "protocol:vectors:check": "node scripts/generate-protocol-vectors.mjs --check",
     "verify:evidence": "node scripts/verify-evidence.mjs",
     "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
     "verify:evidence-root": "bash scripts/verify-evidence-root.sh",

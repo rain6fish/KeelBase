@@ -1,0 +1,121 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol §2.3 canonicalJSON",
+  "license": "Apache-2.0",
+  "note": "由 node scripts/generate-protocol-vectors.mjs 生成，勿手改。语义变更先升 v2 再改实现（CE-1 L3 单源规则）。",
+  "algorithm": "canonicalJSON(payload) = JSON.stringify(payload, sortedKeys)；sortedKeys = 顶层键剔除 undefined 后字典序。",
+  "cases": [
+    {
+      "id": "sort-flat",
+      "name": "canonicalJSON 顶层键按名称排序",
+      "comment": "扁平对象：replacer 数组即排序后顶层键集，输出按字典序。",
+      "input": {
+        "b": 1,
+        "a": 2
+      },
+      "canonicalBytes": "{\"a\":2,\"b\":1}"
+    },
+    {
+      "id": "undefined-null-flat",
+      "name": "canonicalJSON undefined 剔除 + null 保留（扁平 payload）",
+      "comment": "值为 undefined 的键不进排序键集；null 保留。JSON 语料无法表达 undefined 值（序列化即丢），金样本由生成时含 c:undefined 的内存对象产出；语料侧输入为剔除后的等价对象。真实 undefined 剔除由 TS 复现测试覆盖。",
+      "input": {
+        "b": null,
+        "a": 1
+      },
+      "canonicalBytes": "{\"a\":1,\"b\":null}"
+    },
+    {
+      "id": "unicode",
+      "name": "canonicalJSON unicode 键排序与值保真",
+      "comment": "键按 UTF-16 code unit 排序（ASCII 键 < CJK 键 < 代理对 emoji 键）；非 ASCII 值不经转义保留。",
+      "input": {
+        "z": 9,
+        "name": "张三",
+        "备注": "值",
+        "🐟": "🐟"
+      },
+      "canonicalBytes": "{\"name\":\"张三\",\"z\":9,\"备注\":\"值\",\"🐟\":\"🐟\"}"
+    },
+    {
+      "id": "nested-filtered",
+      "name": "canonicalJSON 嵌套对象不在排序键集内的键被过滤",
+      "comment": "replacer 数组作用于各层：a 的值 {x,y} 中 x/y 不在顶层键集 → 丢弃 → 空对象。",
+      "input": {
+        "a": {
+          "x": 1,
+          "y": 2
+        },
+        "b": 5
+      },
+      "canonicalBytes": "{\"a\":{},\"b\":5}"
+    },
+    {
+      "id": "nested-same-name-kept",
+      "name": "canonicalJSON 嵌套对象与排序键同名的键被保留",
+      "comment": "边界：嵌套键恰与排序键集内某键同名时被 replacer 保留（a:{a,c} → a 保留、c 丢弃）。",
+      "input": {
+        "a": {
+          "a": 1,
+          "c": 2
+        },
+        "b": 3
+      },
+      "canonicalBytes": "{\"a\":{\"a\":1},\"b\":3}"
+    },
+    {
+      "id": "array-element-filtered",
+      "name": "canonicalJSON 数组元素对象的属性同样被名单过滤、null/标量保留",
+      "comment": "数组整体序列化；元素对象属性不在排序键集 → 过滤为 {}。",
+      "input": {
+        "a": [
+          {
+            "x": 1,
+            "y": 2
+          },
+          null,
+          7
+        ],
+        "b": 3
+      },
+      "canonicalBytes": "{\"a\":[{},null,7],\"b\":3}"
+    },
+    {
+      "id": "numeric-edges",
+      "name": "canonicalJSON 数值序列化边界（-0/指数/小数/负）",
+      "comment": "JSON.stringify 语义：-0 → 0、1e21 → 1e+21。",
+      "input": {
+        "a": 0,
+        "b": 1e+21,
+        "c": 1.5,
+        "d": -2
+      },
+      "canonicalBytes": "{\"a\":0,\"b\":1e+21,\"c\":1.5,\"d\":-2}"
+    },
+    {
+      "id": "empty-and-bool",
+      "name": "canonicalJSON 空对象/空串/false/null 保真",
+      "comment": "falsy 值全部保留，仅 undefined 剔除。",
+      "input": {
+        "a": {},
+        "b": "",
+        "c": false,
+        "d": null
+      },
+      "canonicalBytes": "{\"a\":{},\"b\":\"\",\"c\":false,\"d\":null}"
+    },
+    {
+      "id": "many-keys-sorted",
+      "name": "canonicalJSON 多键字典序排序稳定",
+      "comment": "乱序声明 → 稳定字典序输出。",
+      "input": {
+        "z": 9,
+        "y": 8,
+        "a": 1,
+        "m": 13,
+        "b": 2
+      },
+      "canonicalBytes": "{\"a\":1,\"b\":2,\"m\":13,\"y\":8,\"z\":9}"
+    }
+  ]
+}
