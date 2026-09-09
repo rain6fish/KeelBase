@@ -322,9 +322,13 @@ export class AiController {
   async runTrustSandbox(
     @Param('scenarioId') scenarioId: string,
     @CurrentUser() user: JwtPayload,
+    // 1.0.8 deferred：s5 撤销命中真实效果须显式 confirm=1（沙盘不静默撤销真实 AI 副作用）
+    @Query('confirm') confirm?: string,
   ) {
     return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
-      this.trustSandbox.run(scenarioId, String(user.sub)),
+      this.trustSandbox.run(scenarioId, String(user.sub), {
+        confirm: confirm === '1',
+      }),
     );
   }
 

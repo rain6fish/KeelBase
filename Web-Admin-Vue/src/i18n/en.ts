@@ -166,6 +166,7 @@ const en: ZhDict = {
   sandboxCleanupConfirm: 'Delete sandbox customers/orders and bob demo accounts created by your demos. Real data, AI traces and effects from "from-watch-to-do" are untouched; customers with real follow-up tasks are kept. This cannot be undone. Clean now?',
   sandboxCleanupDone: 'Cleaned {c} sandbox customers and {b} bob demo accounts',
   sandboxCleanupSkipped: '({n} customers with real data kept)',
+  s5RevokeConfirm: 'This revokes your most recent real AI side effect (soft-delete, restorable; AI trace & audit kept). Confirm to run the revoke demo?',
   demoResult: 'Demo result',
   reason: 'Basis',
   scenarioCategory: { injection: 'Prompt injection', unauthorized: 'Unauthorized', risk: 'High-risk', confirmation: 'Write' },

@@ -118,7 +118,7 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     await buttons[0].trigger('click')
     await flushPromises()
 
-    expect(runMock).toHaveBeenCalledWith('s1_normal')
+    expect(runMock).toHaveBeenCalledWith('s1_normal', { confirm: false })
     const dlg = resultDialog(wrapper)
     expect(dlg.exists()).toBe(true)
     const text = dlg.text()
@@ -295,7 +295,7 @@ describe('TrustSandboxView（Trust 沙盘）', () => {
     await buttons[0].trigger('click')
     await flushPromises()
 
-    expect(runMock).toHaveBeenCalledWith('s1_normal')
+    expect(runMock).toHaveBeenCalledWith('s1_normal', { confirm: false })
     expect(document.body.textContent).toContain('网络错误')
     expect(resultDialog(wrapper).exists()).toBe(false)
     expect(wrapper.findAll('button').length).toBeGreaterThan(0) // 页面仍可用（running 已复位）

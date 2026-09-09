@@ -75,8 +75,9 @@ export const aiApi = {
   trustSandboxScenarios(): Promise<TrustSandboxScenario[]> {
     return api.get<TrustSandboxScenario[]>('/ai/trust-sandbox/scenarios')
   },
-  trustSandboxRun(scenarioId: string): Promise<TrustSandboxRunResult> {
-    return api.post<TrustSandboxRunResult>(`/ai/trust-sandbox/run/${scenarioId}`)
+  trustSandboxRun(scenarioId: string, opts: { confirm?: boolean } = {}): Promise<TrustSandboxRunResult> {
+    const query = opts.confirm ? '?confirm=1' : ''
+    return api.post<TrustSandboxRunResult>(`/ai/trust-sandbox/run/${scenarioId}${query}`)
   },
   trustSandboxJourney(): Promise<TrustSandboxJourneyResult> {
     return api.post<TrustSandboxJourneyResult>('/ai/trust-sandbox/journey')

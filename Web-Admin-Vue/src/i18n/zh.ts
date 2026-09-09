@@ -167,6 +167,7 @@ const zh = {
   sandboxCleanupConfirm: '将删除本人演示产生的沙盘客户/订单与 bob 演示账号。真实数据、AI 对话留痕与「从看到做」的副作用不受影响；含真实跟进任务的客户会保留。此操作不可撤销，确认清理？',
   sandboxCleanupDone: '已清理 {c} 个沙盘客户、{b} 个 bob 演示账号',
   sandboxCleanupSkipped: '（{n} 个含真实数据的客户已保留）',
+  s5RevokeConfirm: '将撤销你最近一条真实 AI 副作用（软删，可经回收站恢复；AI 轨迹与审计保留）。确认运行撤销演示？',
   demoResult: '演示结果',
   reason: '依据',
   scenarioCategory: { injection: '提示注入', unauthorized: '越权', risk: '高风险', confirmation: '写操作' },
