@@ -31,14 +31,14 @@ describe('TrustSandboxService', () => {
   let usersRepo: { createQueryBuilder: jest.Mock };
   let abilityFactory: { createForUser: jest.Mock };
   let settingsService: { getWithDefault: jest.Mock; set: jest.Mock };
-  let statsStore: string;
+  let settingsStore: Map<string, string>;
 
   beforeEach(() => {
-    statsStore = '{}';
+    settingsStore = new Map();
     settingsService = {
-      getWithDefault: jest.fn(async () => statsStore),
-      set: jest.fn(async (_k: string, v: unknown) => {
-        statsStore = String(v);
+      getWithDefault: jest.fn(async (k: string) => settingsStore.get(k) ?? '{}'),
+      set: jest.fn(async (k: string, v: unknown) => {
+        settingsStore.set(k, String(v));
         return {};
       }),
     };
@@ -174,15 +174,31 @@ describe('TrustSandboxService', () => {
     expect(s.total).toBe(2);
     expect(s.today).toBe(2);
     expect(s.todayDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(settingsService.set).toHaveBeenCalledTimes(2);
+    // 每次幂等完成写两个 settings 键（计数 + 去重）
+    expect(settingsService.set).toHaveBeenCalledTimes(4);
   });
 
-  it('P2 ③ 同用户 1.5s 内重复上报 → 忽略（防刷，不重复计数）', async () => {
+  it('P2 ③ 同用户同日重复上报 → 幂等忽略（计数不可刷）', async () => {
+    await sandbox.recordJourneyCompleted('u1');
     await sandbox.recordJourneyCompleted('u1');
     await sandbox.recordJourneyCompleted('u1');
     const s = await sandbox.journeyStats();
     expect(s.total).toBe(1);
-    expect(settingsService.set).toHaveBeenCalledTimes(1);
+    expect(s.today).toBe(1);
+    expect(settingsService.set).toHaveBeenCalledTimes(2); // 仅首次写计数+去重，重复全部跳过
+  });
+
+  it('P2 ③ 去重按（用户×北京日）而非全生命周期：跨日后同一用户重新计数', async () => {
+    await sandbox.recordJourneyCompleted('u1');
+    await sandbox.recordJourneyCompleted('u1'); // 同日重复忽略
+    let s = await sandbox.journeyStats();
+    expect(s.total).toBe(1);
+    // 模拟跨日：清除该用户最后完成日 → 再次上报应重新计数
+    settingsStore.set('trust_journey_completed_users', '{}');
+    await sandbox.recordJourneyCompleted('u1');
+    s = await sandbox.journeyStats();
+    expect(s.total).toBe(2);
+    expect(s.today).toBe(2);
   });
 
   it('s1_normal：建客户+逾期订单 → AI 风险分析 critical → passed + conversationId', async () => {
