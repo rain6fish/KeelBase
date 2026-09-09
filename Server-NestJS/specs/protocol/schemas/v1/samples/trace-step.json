@@ -1,0 +1,15 @@
+{
+  "id": "effect-9",
+  "type": "effect",
+  "time": "2026-07-28T10:00:05Z",
+  "toolName": "create_event",
+  "effect": {
+    "effectId": 9,
+    "resultType": "event",
+    "resultId": 7,
+    "targetTitle": "meeting",
+    "revocable": true,
+    "before": null,
+    "after": null
+  }
+}

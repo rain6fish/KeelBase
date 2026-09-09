@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "tool-definition.schema.json",
+  "title": "AI Tool Definition (LLM wire) — v1",
+  "description": "传给 LLM 的工具 wire 形状（ToolDefinition）。服务端关切（requiresConfirmation / riskLevel / revokeClass / permissions）不进 LLM wire。来源：src/ai/interfaces/tool.interface.ts:11-18。CE-1 v1 冻结：语义变更先升 v2 再改实现。",
+  "type": "object",
+  "required": ["type", "function"],
+  "additionalProperties": false,
+  "properties": {
+    "type": { "const": "function" },
+    "function": {
+      "type": "object",
+      "required": ["name", "description", "parameters"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" },
+        "description": { "type": "string" },
+        "parameters": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "object" },
+            "properties": { "type": "object" },
+            "required": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

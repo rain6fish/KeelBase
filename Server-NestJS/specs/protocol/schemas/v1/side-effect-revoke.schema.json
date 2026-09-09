@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "side-effect-revoke.schema.json",
+  "title": "AI Tool Side-Effect & Revoke — v1",
+  "description": "AI 写副作用清单 item / 单条撤销结果 / 会话级批量结果（G1）。枚举冻结：status=executed|revoked|revoking_external|revoke_failed；revokeClass=none|local_compensate|governed_external|transactional（KB-6：local_compensate≠governed_external，永不谎称 revoked）；revokeStatus=revoked|compensating|revoke_failed。来源：src/ai/tool-effects/ai-tool-effects.service.ts:17-66、:391-401；src/ai/interfaces/tool.interface.ts:66-91。",
+  "oneOf": [
+    { "$ref": "#/definitions/item" },
+    { "$ref": "#/definitions/revokeResult" },
+    { "$ref": "#/definitions/revokeBatch" }
+  ],
+  "definitions": {
+    "item": {
+      "type": "object",
+      "required": ["id", "toolName", "resultType", "resultId", "createdAt", "targetExists", "targetSoftDeleted", "targetTitle", "revokeClass", "revokeStatus", "status", "revocable"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "number" },
+        "toolName": { "type": "string" },
+        "conversationId": { "type": ["string", "null"] },
+        "resultType": { "type": "string" },
+        "resultId": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "targetExists": { "type": "boolean" },
+        "targetSoftDeleted": { "type": "boolean" },
+        "targetTitle": { "type": ["string", "null"] },
+        "revokeClass": { "enum": ["none", "local_compensate", "governed_external", "transactional"] },
+        "revokeStatus": { "type": ["string", "null"], "enum": ["revoked", "compensating", "revoke_failed", null] },
+        "status": { "enum": ["executed", "revoked", "revoking_external", "revoke_failed"] },
+        "revocable": { "type": "boolean" }
+      }
+    },
+    "revokeResult": {
+      "type": "object",
+      "required": ["revoked", "effectId"],
+      "additionalProperties": true,
+      "properties": {
+        "revoked": { "type": "boolean" },
+        "effectId": { "type": "number" },
+        "external": { "type": "boolean" },
+        "compensated": { "type": "boolean" },
+        "message": { "type": "string" },
+        "revokeStatus": { "type": "string", "enum": ["revoked", "compensating", "revoke_failed"] }
+      }
+    },
+    "revokeBatch": {
+      "type": "object",
+      "required": ["conversationId", "total", "revoked", "skipped", "failed", "results"],
+      "additionalProperties": false,
+      "properties": {
+        "conversationId": { "type": "string" },
+        "total": { "type": "number" },
+        "revoked": { "type": "number" },
+        "skipped": { "type": "number" },
+        "failed": { "type": "number" },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["effectId", "revoked"],
+            "additionalProperties": true,
+            "properties": {
+              "effectId": { "type": "number" },
+              "revoked": { "type": "boolean" },
+              "skipped": { "type": "boolean" },
+              "reason": { "enum": ["already_revoked", "compensating"] },
+              "revokeStatus": { "type": "string" },
+              "external": { "type": "boolean" },
+              "message": { "type": "string" },
+              "error": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

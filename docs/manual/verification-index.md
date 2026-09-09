@@ -39,14 +39,27 @@
 | P | **私有 AI 黄金路径**（数据不出域） | `./scripts/verify-private-ai.sh` | Ollama（qwen2.5:7b + bge-m3） | `docs/benchmark/private-ai.json` |
 | A | **对抗实证**（Run/Safety/攻击回归，真实 LLM） | `./scripts/benchmark/run-adversarial.sh` | DeepSeek key | `docs/benchmark/adversarial-proof.md` |
 
+## 五、协议契约常绿 / Protocol Contract Evergreen (CE-1)
+
+| # | 验证 | 命令 | 前置 | 门禁 |
+|---|---|---|---|---|
+| CE-1B | **协议向量语料漂移**（现实现重算 vs 已提交金样本） | `node Server-NestJS/scripts/generate-protocol-vectors.mjs --check` | 无需后端（零依赖 node） | CI `protocol-conformance` job（generate --check → verify） |
+| CE-1A | **语料驱动 conformance**（canonical/hash/delegation/risk，30/30） | `cd Server-NestJS && npm run conformance` | 同上 | CI `protocol-conformance` job |
+| CE-1C | **生产 AuditChainService = 金样本**（canonical/hash/链/篡改） | `cd Server-NestJS && npm run test:protocol-corpus` | 同上 | CI `test` job（jest） |
+| CE-1S | **wire Schema v1 冻结**（registry + 每样例过 schema + 清单冻结） | `cd Server-NestJS && npm run test:wire-schema` | 同上 | CI `test` job + release-gate `Trust(CE-1 …)` |
+
+> 语料/样例宿主：`Server-NestJS/specs/protocol/`（README 见 [specs/protocol/README.md](../../Server-NestJS/specs/protocol/README.md)）。语义变更必须先落语料/Schema 版本再改实现（CE-1 L3 / C-1）。
+
 ---
 
-## 快速上手（无 key 可跑 3 条）/ Zero-key Quick Run
+## 快速上手（无 key 可跑 4 条）/ Zero-key Quick Run
 
 ```bash
 npm run build   # 一次
 node Server-NestJS/scripts/verify-governance-adoption.mjs     # 零代码接入治理
 node Server-NestJS/scripts/demo-multi-system.mjs        # 多系统单控制面
+node Server-NestJS/scripts/generate-protocol-vectors.mjs --check   # CE-1 语料漂移门禁（零 key）
+(cd Server-NestJS && npm run conformance)               # CE-1 conformance 30/30（零 key）
 # 起后端后：
 node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 ```

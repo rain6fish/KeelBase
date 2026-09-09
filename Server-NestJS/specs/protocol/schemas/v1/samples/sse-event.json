@@ -1,0 +1,15 @@
+{
+  "type": "confirmation_request",
+  "confirmation": {
+    "token": "run-4f8a2c9e",
+    "mode": "run",
+    "run": {
+      "runId": "run-4f8a2c9e",
+      "riskLevel": "R3",
+      "items": [
+        { "toolName": "create_event", "summary": "创建事件「产品评审」（明天 10:00）", "riskLevel": "R3" },
+        { "toolName": "create_todo", "summary": "为「产品评审」创建跟进待办", "riskLevel": "R3" }
+      ]
+    }
+  }
+}

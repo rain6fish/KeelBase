@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "confirmation-decision.schema.json",
+  "title": "AI Confirmation Decision Data — v1",
+  "description": "SSE confirmation_decision 的 data.confirmationDecision 载荷（ConfirmationDecisionData）。单条 approve 带 success/resultId；run 整体关卡只带 {mode:'run', runId, approved}。来源：src/ai/interfaces/llm-provider.interface.ts:83-93。",
+  "type": "object",
+  "required": ["approved"],
+  "additionalProperties": false,
+  "properties": {
+    "toolName": { "type": "string" },
+    "approved": { "type": "boolean" },
+    "success": { "type": "boolean" },
+    "resultId": { "type": ["number", "string"] },
+    "error": { "type": "string" },
+    "mode": { "const": "run" },
+    "runId": { "type": "string" }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "confirm-decision-body.schema.json",
+  "title": "POST /ai/confirmations/:token body (ConfirmDecisionDto) — v1",
+  "description": "确认 AI 写操作（approve/reject）的请求体。trustTool=HS-6 会话内免确认。R4 双人审批走 approve-by（decision approve/decline，approve-decision.dto）。来源：src/ai/dto/confirm-decision.dto.ts:9-16。",
+  "type": "object",
+  "required": ["decision"],
+  "additionalProperties": false,
+  "properties": {
+    "decision": { "enum": ["approve", "reject"] },
+    "trustTool": { "type": "boolean" }
+  }
+}

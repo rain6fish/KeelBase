@@ -242,6 +242,8 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 **用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **30/30 通过**（2026-09-09，语料驱动）。
 
+**wire 对象 Schema v1 冻结（CE-1，`Server-NestJS/specs/protocol/schemas/v1/`）**：tool 定义 / SSE 事件 / confirmation request·decision / trace step / side-effect·revoke / audit payload（v1·v2）/ 证据包 /1·2·3 / 治理策略 / 委托 token claims 各一份 JSON Schema（固化当前形状，含枚举冻结；来源锚见各 schema description）。`wire-schema-registry.json` 登记对象→schema→已提交样例；`wire-schema.spec.ts`（jest，入 `test` job 与 release-gate `Trust(CE-1 …)`）强制「schema 可解析 + 每样例过 schema + 对象清单冻结」——wire 形状增删必须先升 v2（同 CE-1 L3 / C-1 纪律）再改代码。
+
 **第三方自认证**：声明兼容本协议的实现（java-starter / sidecar / 新实现）可用同一套算法与语料复现——以自身实现复算 §2.2 hash、§3 委托 token 验签、§4 风险派生，与 `specs/protocol` 语料（canonical 金样本含嵌套边界）比对一致即视为通过；通过后在 §5 兼容清单登记并附 conformance 报告日期。
 
 **审计证据包离线验证（A2，治理能力 2.3）**：证据包格式见 **§2.5 审计证据包协议**（`keelbase-audit-evidence/1|2`）。`Server-NestJS/scripts/verify-evidence.mjs` 独立验证导出的证据包（`GET /audit/action-report/export`）——无密钥验链结构（删行/换序/断链），`--key <AUDIT_HMAC_KEY>` 全量重算每条 payload + 证据包验签（内容篡改检测）。审计机构不依赖 KeelBase 即可复核（见 [compliance-mapping](../manual/compliance-mapping.md)）。

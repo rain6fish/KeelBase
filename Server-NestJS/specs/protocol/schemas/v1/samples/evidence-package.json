@@ -1,0 +1,63 @@
+{
+  "exportedAt": "2026-09-08T04:24:18Z",
+  "generator": "keelbase-audit-export",
+  "format": "keelbase-audit-evidence/3",
+  "action": {
+    "id": "crm_task:42",
+    "resultType": "crm_task",
+    "resultId": 42,
+    "effectId": 9281,
+    "userId": "42",
+    "conversationId": null
+  },
+  "authorization": {
+    "allowed": true,
+    "tool": "create_followup_task",
+    "riskLevel": "R3",
+    "strategy": "confirmation",
+    "checks": [{ "name": "owner-scope", "ok": true }],
+    "policy": { "revision": "a1b2c3d4e5f6" }
+  },
+  "decision": {
+    "businessEvent": null,
+    "evidence": null
+  },
+  "effect": {
+    "id": 9281,
+    "toolName": "create_followup_task",
+    "before": null,
+    "after": null
+  },
+  "chains": {
+    "aiAudit": [
+      {
+        "seq": 1,
+        "id": 90211,
+        "prevHash": null,
+        "hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+        "payload": { "userId": "42", "action": "tool_call" }
+      }
+    ],
+    "operationAudit": [
+      {
+        "seq": 1,
+        "id": 731,
+        "prevHash": null,
+        "hash": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "payload": { "action": "create" }
+      }
+    ]
+  },
+  "root": {
+    "algorithm": "keelbase-evidence-root/1",
+    "anchors": [
+      { "kind": "ai-audit", "rowId": 90211, "hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899" },
+      { "kind": "side-effect", "rowId": 9281, "hash": "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd" },
+      { "kind": "op-audit", "rowId": 731, "hash": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd" }
+    ],
+    "digest": "1111111122222222333333334444444455555555666666667777777788888888"
+  },
+  "summary": null,
+  "replay": null,
+  "signature": null
+}

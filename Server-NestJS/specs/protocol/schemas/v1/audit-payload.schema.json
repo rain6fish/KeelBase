@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "audit-payload.schema.json",
+  "title": "AI Audit Chain Payload — v1/v2",
+  "description": "审计哈希链 canonical payload（§2.3，写入/校验/导出共用）。payloadVersion 列：NULL=历史 v1（businessEvent/evidence 恒 null、无归责列）；2=新行（v2 追加 agentId/sessionId/parentActionId/callerAgentId/delegationContext/businessIntent/source，业务注解取真实值）。action 值域建议冻结。键均已剔除 undefined；id/createdAt 不入 payload。来源：src/ai/audit/audit.service.ts:435-467、src/ai/audit/ai-audit-log.entity.ts。",
+  "type": "object",
+  "required": ["userId", "action"],
+  "additionalProperties": false,
+  "properties": {
+    "userId": { "type": "string" },
+    "conversationId": { "type": ["string", "null"] },
+    "action": {
+      "type": "string",
+      "enum": ["chat", "tool_call", "navigate", "error", "login", "plan", "analyze", "knowledge", "delegate", "tool_confirmation", "flow_node", "content_blocked"]
+    },
+    "detail": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "promptTokens": { "type": "number" },
+    "completionTokens": { "type": "number" },
+    "durationMs": { "type": "number" },
+    "isError": { "type": "boolean" },
+    "errorMessage": { "type": ["string", "null"] },
+    "authorization": { "type": ["string", "null"] },
+    "feedback": { "type": "null" },
+    "feedbackNote": { "type": "null" },
+    "businessEvent": { "type": ["string", "null"] },
+    "evidence": { "type": ["string", "null"] },
+    "agentId": { "type": ["string", "null"] },
+    "sessionId": { "type": ["string", "null"] },
+    "parentActionId": { "type": ["string", "null"] },
+    "callerAgentId": { "type": ["string", "null"] },
+    "delegationContext": { "type": ["string", "null"] },
+    "businessIntent": { "type": ["string", "null"] },
+    "source": { "type": ["string", "null"] }
+  }
+}

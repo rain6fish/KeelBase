@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "sse-event.schema.json",
+  "title": "AI Chat SSE Event (POST /ai/chat/stream) — v1",
+  "description": "SSE 流式帧：event: <type>；data 为整个 chunk 对象（含 type 顶层 + 嵌套载荷）。事件名全集 10 个（现发射 7 个：text/error/done/confirmation_request/confirmation_decision/tool_start/tool_end；reasoning/tool_call 收进内存不回吐；navigate 声明但无发射点，导航经文本+navigate_page 工具表达）。来源：src/ai/interfaces/llm-provider.interface.ts:125-152、src/ai/ai.controller.ts:99-147。KB-5 run 聚合经 mode:'run' 表达，不新增事件名。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "content"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "text" }, "content": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "content"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "reasoning" }, "content": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolCall"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_call" },
+        "toolCall": {
+          "type": "object",
+          "required": ["id", "name", "arguments"],
+          "additionalProperties": true,
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "arguments": { "type": "string" },
+            "index": { "type": "number" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "conversationId"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "done" }, "conversationId": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "error"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "error" }, "error": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "route"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "navigate" }, "route": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "confirmation"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "confirmation_request" }, "confirmation": { "$ref": "confirmation-request.schema.json" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "confirmationDecision"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "confirmation_decision" }, "confirmationDecision": { "$ref": "confirmation-decision.schema.json" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolStart"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_start" },
+        "toolStart": {
+          "type": "object",
+          "required": ["name", "summary"],
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string" },
+            "summary": { "type": "string" },
+            "arguments": { "type": "object" },
+            "isWrite": { "type": "boolean" },
+            "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+            "authorization": { "$ref": "authorization.schema.json" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolEnd"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_end" },
+        "toolEnd": {
+          "type": "object",
+          "required": ["name", "success"],
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string" },
+            "success": { "type": "boolean" },
+            "summary": { "type": "string" },
+            "error": { "type": "string" },
+            "authorizationDenied": {
+              "type": "object",
+              "required": ["reason", "checks"],
+              "properties": {
+                "reason": { "type": "string" },
+                "checks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "ok"],
+                    "properties": {
+                      "name": { "type": "string" },
+                      "ok": { "type": "boolean" },
+                      "note": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
