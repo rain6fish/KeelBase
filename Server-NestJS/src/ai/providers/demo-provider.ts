@@ -23,6 +23,7 @@ import {
   ToolCall,
 } from '../interfaces/llm-provider.interface';
 import { ToolDefinition } from '../interfaces/tool.interface';
+import { DEMO_USER_INTENTS, type DemoIntentPattern } from './demo-intents';
 
 interface ParsedToolResult {
   success?: boolean;
@@ -103,57 +104,11 @@ export class DemoProvider implements LlmProvider {
     const generatedWrite = this.decideGeneratedCreate(msg, tools);
     if (generatedWrite) return generatedWrite;
 
-    // AI CRM：不可逆删除客户（R5 阻断演示）— 高风险动作应被系统策略阻断，永不执行
-    if (/删除|delete/i.test(lower)) {
-      return this.toolCall(
-        'delete_customer',
-        { customerId: this.findCustomerId(messages), reason: msg },
-        '删除客户是不可逆的高风险操作（风险级 R5），将被系统策略阻断，不会执行…',
-      );
-    }
-
-    // AI CRM：分析客户风险 / 哪些客户值得关注 → 先查客户列表
-    if (/风险|分析|客户|customer|值得跟进|重点关注|risk|analyze/i.test(lower)) {
-      const keyword = this.extractKeyword(msg);
-      const args = keyword ? { keyword } : {};
-      return this.toolCall('query_customers', args, '好的，我先查询客户列表…');
-    }
-
-    // AI CRM：创建跟进任务（写，触发确认门控）
-    if (/跟进|任务|follow.?up|create.*task/i.test(lower)) {
-      return this.toolCall(
-        'create_followup_task',
-        {
-          customerId: this.findCustomerId(messages),
-          title: this.extractTitle(msg),
-        },
-        '好的，我来为这位客户创建跟进任务（写操作需要你确认）…',
-      );
-    }
-
-    // AI CRM：订单
-    if (/订单|order/i.test(lower)) {
-      return this.toolCall('query_customer_orders', { customerId: this.findCustomerId(messages) }, '好的，查询该客户的订单…');
-    }
-
-    // AI CRM：跟进记录 / 活动
-    if (/活动|跟进记录|activity/i.test(lower)) {
-      return this.toolCall('query_customer_activities', { customerId: this.findCustomerId(messages) }, '好的，查询该客户的跟进记录…');
-    }
-
-    // AI Project：项目
-    if (/项目|project/i.test(lower)) {
-      return this.toolCall('query_projects', {}, '好的，查询项目列表…');
-    }
-
-    // AI Approval：审批请求
-    if (/审批|approval/i.test(lower)) {
-      return this.toolCall('query_approval_requests', {}, '好的，查询审批请求…');
-    }
-
-    // 待办 / 事件
-    if (/待办|事件|event|todo/i.test(lower)) {
-      return this.toolCall('query_events', {}, '好的，查询你的待办…');
+    // 表驱动首轮意图（CE-1 B4-demo：DEMO_USER_INTENTS 单源 declare，保序 = 原 if 链语义；
+    // pattern/文案/参数类别进 specs/protocol/demo-intent-v1.json，demo-intents.spec.ts 防漂移）
+    for (const intent of DEMO_USER_INTENTS) {
+      if (!new RegExp(intent.pattern, 'i').test(lower)) continue;
+      return this.toolCall(intent.tool, this.buildUserIntentArgs(intent, msg, messages), intent.content);
     }
 
     return {
@@ -301,6 +256,28 @@ export class DemoProvider implements LlmProvider {
   // ---------------------------------------------------------------------------
   // 工具调用 / 解析辅助
   // ---------------------------------------------------------------------------
+
+  /** CE-1 B4-demo：按意图 argsKind 构造参数（语义 = 原 if 链各分支参数构造）。 */
+  private buildUserIntentArgs(
+    intent: DemoIntentPattern,
+    msg: string,
+    messages: ChatMessage[],
+  ): Record<string, unknown> {
+    switch (intent.argsKind) {
+      case 'delete':
+        return { customerId: this.findCustomerId(messages), reason: msg };
+      case 'keyword': {
+        const keyword = this.extractKeyword(msg);
+        return keyword ? { keyword } : {};
+      }
+      case 'customer':
+        return { customerId: this.findCustomerId(messages) };
+      case 'followup':
+        return { customerId: this.findCustomerId(messages), title: this.extractTitle(msg) };
+      default:
+        return {};
+    }
+  }
 
   private toolCall(
     name: string,
