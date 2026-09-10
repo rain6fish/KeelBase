@@ -83,6 +83,9 @@ export interface ConfirmationRequestData {
 export interface ConfirmationDecisionData {
   /** run 模式时为空/省略（整批用 mode='run' 关卡）；逐条决策各自带 toolName */
   toolName?: string;
+  /** 规范决策词（v2，CE-1 B3b）：approve | decline | timeout —— 忠实镜像 outcome，与 trace/audit 超时语义一致 */
+  decision: 'approve' | 'decline' | 'timeout';
+  /** @deprecated v1 遗留；= decision === 'approve'。过渡期保留，客户端优先读 decision。 */
   approved: boolean;
   success?: boolean;
   resultId?: number | string;

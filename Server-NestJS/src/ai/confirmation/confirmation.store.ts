@@ -165,9 +165,11 @@ export class ConfirmationStore {
   async resolve(
     token: string,
     requestUserId: string,
-    decision: 'approve' | 'reject',
+    decision: 'approve' | 'decline' | 'reject',
     trustTool?: boolean,
   ): Promise<boolean> {
+    // 决策词统一（CE-1 B3b）：规范集 approve | decline；legacy `reject` 归一为 decline。
+    const outcome: 'approve' | 'decline' = decision === 'approve' ? 'approve' : 'decline';
     const pending = this.pending.get(token);
     if (!pending || pending.userId !== requestUserId) {
       return false;
@@ -177,13 +179,13 @@ export class ConfirmationStore {
     await this.reqRepo
       .update(
         { token, status: 'pending' },
-        { status: decision === 'approve' ? 'approved' : 'declined', decidedAt: new Date() },
+        { status: outcome === 'approve' ? 'approved' : 'declined', decidedAt: new Date() },
       )
       .catch((err) => {
         console.error(`[ConfirmationStore] persist resolve failed: ${err.message}`);
       });
     pending.resolve({
-      outcome: decision === 'approve' ? 'approve' : 'decline',
+      outcome,
       trustTool,
     });
     return true;

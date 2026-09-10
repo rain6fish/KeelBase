@@ -34,8 +34,19 @@ describe('ConfirmationStore', () => {
   it('should resolve decline for the owning user', async () => {
     const { token, decision } = await store.create('1', 'create_event', { title: 'T' });
 
+    expect(await store.resolve(token, '1', 'decline')).toBe(true);
+    await expect(decision).resolves.toMatchObject({ outcome: 'decline' });
+  });
+
+  it('legacy reject 归一为 decline（CE-1 B3b 决策词统一兼容别名）', async () => {
+    const { token, decision } = await store.create('1', 'create_event', { title: 'T' });
+
     expect(await store.resolve(token, '1', 'reject')).toBe(true);
     await expect(decision).resolves.toMatchObject({ outcome: 'decline' });
+    expect(repo.update).toHaveBeenCalledWith(
+      { token, status: 'pending' },
+      expect.objectContaining({ status: 'declined' }),
+    );
   });
 
   it('should reject a different user (cross-user attempt)', async () => {

@@ -63,6 +63,9 @@ export interface AiConfirmation {
 export interface AiConfirmationDecision {
   /** run 级整体决策（mode='run'）时为空；逐条决策带 toolName */
   toolName?: string
+  /** 规范决策词（v2，CE-1 B3b）：approve | decline | timeout —— 客户端优先读此字段 */
+  decision?: 'approve' | 'decline' | 'timeout'
+  /** @deprecated v1 遗留；客户端优先读 decision */
   approved: boolean
   success?: boolean
   resultId?: number
@@ -170,6 +173,6 @@ export async function streamChat(options: StreamChatOptions): Promise<void> {
 }
 
 /** 确认 AI 写操作：approve 后服务器继续执行并推流（confirmation_decision / tool_end） */
-export async function confirmTool(token: string, decision: 'approve' | 'reject', trustTool?: boolean): Promise<void> {
+export async function confirmTool(token: string, decision: 'approve' | 'decline', trustTool?: boolean): Promise<void> {
   await api.post(`/ai/confirmations/${encodeURIComponent(token)}`, { decision, trustTool })
 }

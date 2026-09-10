@@ -217,15 +217,17 @@ async function send(raw: string) {
           }
           case 'confirmation_decision': {
             const d = ev.confirmationDecision
+            // 规范决策词优先（v2：decision），回落 v1 approved（deprecated）
+            const approved = d.decision ? d.decision === 'approve' : d.approved
             // KB-5：run 级整体决策关卡（mode:'run'，无 toolName/resultId）只清 pending 槽；
             // run 逐条 decision 带 toolName+resultId，仅更新 executed（供 tool_end→emit executed）。
             if (pendingConfirmation) {
               pendingConfirmation.status = 'decided'
-              pendingConfirmation.result = { approved: d.approved }
+              pendingConfirmation.result = { approved }
               pendingConfirmation = null
             }
             // 批准且带 resultId + toolName → 记住执行结果，待 tool_end 确认后通知父组件
-            if (d.approved && d.resultId !== undefined && d.toolName) {
+            if (approved && d.resultId !== undefined && d.toolName) {
               executed = { resultType: resultTypeFor(d.toolName), resultId: d.resultId }
             }
             scrollBottom()
@@ -291,7 +293,7 @@ async function onReject(item: CopilotItem & { kind: 'confirmation' }) {
   item.status = 'decided'
   item.result = { approved: false }
   try {
-    await confirmTool(item.confirmation.token, 'reject')
+    await confirmTool(item.confirmation.token, 'decline')
   } catch {
     snackbar.error(t('confirmFailed'))
     item.status = 'pending'
