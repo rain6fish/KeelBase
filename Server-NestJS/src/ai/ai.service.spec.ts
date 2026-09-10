@@ -2014,6 +2014,30 @@ describe('AiService', () => {
       expect(res).toEqual({ ok: false, message: 'cannot self-approve' });
       expect(repo.save).not.toHaveBeenCalled();
     });
+
+    it('KB-5：run 聚合行（kind=run）不可经审批入口裁决（越权改状态 + 绕 run 语义）', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 'run-1',
+          operatorId: '1',
+          status: 'pending',
+          kind: 'run',
+          toolName: 'run',
+          args: '[]',
+          conversationId: 'c',
+          approverId: null,
+          decidedAt: null,
+        }),
+        save: jest.fn(),
+      };
+      (aiService as any).approvalsRepo = repo;
+
+      const res = await aiService.decideApproval('run-1', 'admin', 'approve');
+
+      expect(res.ok).toBe(false);
+      expect(res.message).toContain('run confirmation cannot be decided');
+      expect(repo.save).not.toHaveBeenCalled(); // 未翻状态
+    });
   });
 
   describe('HS-10 Agent 对话集成（ExternalToolProvider）', () => {
