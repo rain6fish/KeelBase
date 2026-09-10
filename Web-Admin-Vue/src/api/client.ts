@@ -3,7 +3,8 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import { API_BASE_URL, API_TIMEOUT, GOVERNANCE_BASE_URL } from '@/utils/constants'
 import { storage } from '@/utils/storage'
-import type { ApiResponse, TokenPair } from '@/types/api'
+import { unwrapEnvelope, readErrorBody, deniedByOf } from './envelope'
+import { refreshAccessToken } from './session'
 
 const PUBLIC_ENDPOINTS = ['/auth/login', '/auth/refresh']
 
@@ -21,7 +22,6 @@ function isPublicEndpoint(path: string): boolean {
 export class ApiError extends Error {
   statusCode: number
   errorCode?: string
-  errors?: Record<string, string[]>
   /** NC-2：为什么（后端按 Accept-Language 返回，缺省无） */
   reason?: string
   /** NC-2：影响 */
@@ -29,11 +29,10 @@ export class ApiError extends Error {
   /** NC-2：下一步怎么办 */
   nextStep?: string
 
-  constructor(message: string, statusCode: number, errorCode?: string, errors?: Record<string, string[]>) {
+  constructor(message: string, statusCode: number, errorCode?: string) {
     super(message)
     this.statusCode = statusCode
     this.errorCode = errorCode
-    this.errors = errors
   }
 }
 
@@ -45,35 +44,6 @@ export function isActionableApiError(err: unknown): boolean {
 /** 后端业务错误码判断：写操作邮箱未验证 403 */
 export function isEmailNotVerified(err: unknown): boolean {
   return err instanceof ApiError && err.errorCode === 'EMAIL_NOT_VERIFIED'
-}
-
-// 共享刷新 Promise：并发 401 时只发一次刷新请求（防 stampede）
-let refreshPromise: Promise<boolean> | null = null
-
-async function tryRefreshToken(): Promise<boolean> {
-  if (refreshPromise) return refreshPromise
-  refreshPromise = (async () => {
-    try {
-      const { refreshToken } = storage.readTokens()
-      if (!refreshToken) return false
-      const res = await axios.post<ApiResponse<TokenPair>>(
-        `${API_BASE_URL}/auth/refresh`,
-        { refreshToken },
-        { timeout: API_TIMEOUT },
-      )
-      const data = res.data?.data
-      if (data?.accessToken && data?.refreshToken) {
-        storage.saveTokens(data.accessToken, data.refreshToken)
-        return true
-      }
-      return false
-    } catch {
-      return false
-    } finally {
-      refreshPromise = null
-    }
-  })()
-  return refreshPromise
 }
 
 const instance: AxiosInstance = axios.create({
@@ -96,12 +66,8 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 instance.interceptors.response.use(
   (response) => {
-    // 统一解包 { code, message, data, timestamp }；HTTP 2xx + code 0 → data
-    const body = response.data as ApiResponse
-    if (body && typeof body === 'object' && 'data' in body) {
-      return body.data as never
-    }
-    return body as never
+    // 统一解包 { code, message, data, timestamp }：HTTP 2xx + code 0 → data（契约见 envelope.ts）
+    return unwrapEnvelope(response.data) as never
   },
   async (error) => {
     const config = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined
@@ -111,7 +77,7 @@ instance.interceptors.response.use(
     // 401 且非公开端点 → 刷新一次重试
     if (status === 401 && config && !config._retry && !isPublicEndpoint(path)) {
       config._retry = true
-      const refreshed = await tryRefreshToken()
+      const refreshed = await refreshAccessToken()
       if (refreshed) {
         const { accessToken } = storage.readTokens()
         config.headers = { ...(config.headers ?? {}), Authorization: `Bearer ${accessToken}` }
@@ -150,22 +116,19 @@ function guidanceFor(deniedBy?: string): string {
 
 function normalizeError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
-  const axiosErr = error as {
-    response?: { status?: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]>; explanation?: { deniedBy?: string }; reason?: string; impact?: string; nextStep?: string } }
-    message?: string
-  }
+  const axiosErr = error as { response?: { status?: number; data?: unknown }; message?: string }
   const status = axiosErr.response?.status ?? 0
-  const data = axiosErr.response?.data
+  const data = readErrorBody(axiosErr.response?.data)
   let message =
-    data?.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
+    data.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
   if (status === 403) {
-    message += guidanceFor(data?.explanation?.deniedBy)
+    message += guidanceFor(deniedByOf(data.explanation))
   }
-  const err = new ApiError(message, status, data?.errorCode, data?.errors)
+  const err = new ApiError(message, status, data.errorCode)
   // NC-2：透传后端可执行指引（reason/impact/nextStep）
-  err.reason = data?.reason
-  err.impact = data?.impact
-  err.nextStep = data?.nextStep
+  err.reason = data.reason
+  err.impact = data.impact
+  err.nextStep = data.nextStep
   return err
 }
 
@@ -207,13 +170,7 @@ governanceInstance.interceptors.request.use((config: InternalAxiosRequestConfig)
 })
 
 governanceInstance.interceptors.response.use(
-  (response) => {
-    const body = response.data as ApiResponse
-    if (body && typeof body === 'object' && 'data' in body) {
-      return body.data as never
-    }
-    return body as never
-  },
+  (response) => unwrapEnvelope(response.data) as never,
   (error) => Promise.reject(normalizeError(error)),
 )
 
