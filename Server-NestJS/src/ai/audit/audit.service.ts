@@ -11,7 +11,7 @@ import { createHmac, createHash } from 'crypto';
 import { Injectable, Optional, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { AiAgentService } from '../agents/ai-agent.service';
-import type { OperationAuditService } from '../../operation-audit/operation-audit.service';
+import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, Between, LessThan, MoreThan } from 'typeorm';
 import { AiAuditLog } from './ai-audit-log.entity';
