@@ -20,24 +20,27 @@ All existing migration files are written in SQLite dialect (`AUTOINCREMENT`/`dat
 > 时间戳规则：postgres 基线用 `1785800000000`（早于所有 sqlite 迁移的 `1785822337546`），TypeORM 按文件名排序执行，保证基线先建表。
 > Timestamp rule: the postgres baseline uses `1785800000000` (earlier than all sqlite migrations' `1785822337546`), and TypeORM executes migrations sorted by filename, so the baseline creates tables first.
 
+> 上表只列最早的两个；**完整 postgres 清单（当前 ~46 条）以单一权威源为准**：`Server-NestJS/src/config/postgres-migrations.ts` 的 `POSTGRES_MIGRATION_GLOBS`（+ `POSTGRES_EXCLUDED_MIGRATIONS`），守卫测试 `src/config/postgres-migrations.spec.ts` 强制每个迁移被二者之一覆盖。
+> The table lists only the two earliest; the **full postgres list (~46 entries) is defined by the single authority** `Server-NestJS/src/config/postgres-migrations.ts` (`POSTGRES_MIGRATION_GLOBS` + `POSTGRES_EXCLUDED_MIGRATIONS`), enforced by the guard spec `src/config/postgres-migrations.spec.ts`.
+
 ## 3. 迁移加载过滤 / Migration Loading Filter
 
-三个 data source 的 postgres 分支只加载 postgres 迁移：
+postgres 迁移清单是**单一权威源** `src/config/postgres-migrations.ts`——运行时（`app.module.ts`）、CLI（`typeorm-data-source.ts`）与测试（`test/helpers.ts`）的 postgres 分支**均由此派生**（历史上的三处手工平行列表已消除；此前漂移曾致 6 个迁移漏进运行时清单 → 生产 `migrationsRun` 永不执行）。
 
-The postgres branch of all three data sources loads only postgres migrations:
+The postgres migration list is a **single authority** (`src/config/postgres-migrations.ts`): the postgres branches of runtime (`app.module.ts`), CLI (`typeorm-data-source.ts`) and tests (`test/helpers.ts`) all **derive from it** (the former three hand-maintained parallel lists are gone; a past drift dropped 6 migrations from the runtime list, so production `migrationsRun` never executed them).
 
 ```typescript
-// typeorm-data-source.ts / app.module.ts / test/helpers.ts
-migrations: [
-  '*PostgresInitialSchema*',  // 需 +.replace(/\\/g, '/')（Windows 反斜杠 glob bug）
-  '*AddKnowledgeEmbeddings*',
-],
+import { POSTGRES_MIGRATION_GLOBS } from '<src|dist>/config/postgres-migrations';
+// 运行时/测试用 `dist/migrations/${g}.js`；CLI 用 resolve(__dirname, `../migrations/${g}`).replace(/\\/g, '/')
+migrations: POSTGRES_MIGRATION_GLOBS.map((g) => `dist/migrations/${g}.js`),
 ```
 
 - sqlite 分支不变：`migrations: ['*{.ts,.js}']` 加载全部（含 postgres 迁移，但它们在 sqlite 下 no-op）
   The sqlite branch is unchanged: `migrations: ['*{.ts,.js}']` loads everything (including postgres migrations, but they are no-ops under sqlite)
-- **Windows glob 坑**：tinyglobby 对 `resolve()` 生成的 `D:\...` 反斜杠绝对路径不匹配，需 `.replace(/\\/g, '/')`
-  **Windows glob pitfall**: tinyglobby does not match the `D:\...` backslash absolute paths produced by `resolve()`, so you must apply `.replace(/\\/g, '/')`
+- **Windows glob 坑**：tinyglobby 对 `resolve()` 生成的 `D:\...` 反斜杠绝对路径不匹配，需 `.replace(/\\/g, '/')`（仅 CLI 走 `resolve()`，故只在那里需要）
+  **Windows glob pitfall**: tinyglobby does not match the `D:\...` backslash absolute paths produced by `resolve()`, so apply `.replace(/\\/g, '/')` (only the CLI uses `resolve()`, so only there)
+- 新增迁移登记见 `.claude/skills/write-migration/SKILL.md`「生产白名单」
+  For registering new migrations see the "生产白名单" section of `.claude/skills/write-migration/SKILL.md`
 
 ## 4. 实体跨库类型修复 / Cross-Database Entity Type Fix
 
