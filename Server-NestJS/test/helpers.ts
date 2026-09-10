@@ -58,6 +58,42 @@ import { envValidationSchema } from '../src/config/env.config';
 import request from 'supertest';
 
 /**
+ * 测试环境配置：ConfigModule 只从 .env.test 读值（@nestjs/config v4 对 process.env 的同名键不生效）。
+ * 该文件被 .gitignore 排除、CI 缺失 → QUEUE_ENABLED/CACHE_ENABLED 走 Joi 默认 true → 无 Redis 时
+ * BullMQ pushQueue.add 阻塞重试导致 e2e 挂起（CI 上曾广播 >120s 超时 + app.close 挂起）。
+ */
+const TEST_ENV_CONTENT = `# 测试环境配置（自动生成，不入库）
+NODE_ENV=test
+PORT=3001
+JWT_SECRET=test-jwt-secret-at-least-32-characters!!
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=test-refresh-secret-at-least-32-chars!!
+JWT_REFRESH_EXPIRES_IN=7d
+DB_TYPE=sqlite
+DB_PATH=./data/test.sqlite
+LOCKOUT_THRESHOLD=10
+LOCKOUT_DURATION=15
+ENCRYPTION_KEY=e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
+ENCRYPTION_HMAC_KEY=c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
+AUDIT_HMAC_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+MAIL_ENABLED=false
+STORAGE_DRIVER=local
+CACHE_ENABLED=false
+QUEUE_ENABLED=false
+`;
+
+function ensureTestEnvFile(): void {
+  const testEnvPath = path.resolve(__dirname, '../.env.test');
+  if (fs.existsSync(testEnvPath)) return;
+  fs.writeFileSync(testEnvPath, TEST_ENV_CONTENT, 'utf8');
+}
+
+// **必须在 @Module 之前调用**：下方 ConfigModule.forRoot 在**模块加载期**（装饰器求值）就读 .env.test 并跑
+// Joi 校验；若等到 createTestApp 才生成，全新检出（clone 后无 .env.test；CI 靠 workflow 注入 env 掩盖）
+// 会直接抛「JWT_SECRET is required」——且是否触发取决于哪个 e2e 套件先加载 helpers（不稳定）。此处提前落盘。
+ensureTestEnvFile();
+
+/**
  * Test app module — mirrors AppModule (all modules) with a
  * test-friendly throttle limit and a fresh SQLite database.
  */
@@ -164,36 +200,6 @@ import request from 'supertest';
   ],
 })
 class TestAppModule {}
-
-// 测试环境配置：ConfigModule 只从 .env.test 读值（@nestjs/config v4 对 process.env 的同名键不生效）。
-// 该文件被 .gitignore 排除、CI 缺失 → QUEUE_ENABLED/CACHE_ENABLED 走 Joi 默认 true → 无 Redis 时
-// BullMQ pushQueue.add 阻塞重试导致 e2e 挂起（CI 上曾广播 >120s 超时 + app.close 挂起）。
-// 缺失时生成，保证本地/CI 一致（CI 的 env 块会覆盖 JWT_SECRET/ENCRYPTION_KEY/DB_PATH）。
-const TEST_ENV_CONTENT = `# 测试环境配置（createTestApp 缺失时自动生成，不入库）
-NODE_ENV=test
-PORT=3001
-JWT_SECRET=test-jwt-secret-at-least-32-characters!!
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=test-refresh-secret-at-least-32-chars!!
-JWT_REFRESH_EXPIRES_IN=7d
-DB_TYPE=sqlite
-DB_PATH=./data/test.sqlite
-LOCKOUT_THRESHOLD=10
-LOCKOUT_DURATION=15
-ENCRYPTION_KEY=e640ea00aa5e1e0425b174fdbd2c56cd07c56b7f12daa57a6180bce226bcb1c4
-ENCRYPTION_HMAC_KEY=c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd
-AUDIT_HMAC_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
-MAIL_ENABLED=false
-STORAGE_DRIVER=local
-CACHE_ENABLED=false
-QUEUE_ENABLED=false
-`;
-
-function ensureTestEnvFile(): void {
-  const testEnvPath = path.resolve(__dirname, '../.env.test');
-  if (fs.existsSync(testEnvPath)) return;
-  fs.writeFileSync(testEnvPath, TEST_ENV_CONTENT, 'utf8');
-}
 
 export async function createTestApp(): Promise<INestApplication> {
   // Ensure a fresh database for each test run
