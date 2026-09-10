@@ -13,9 +13,9 @@ class ExplorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final caps = context.watch<CapabilitiesProvider>();
     // MOD-4：search 禁用时隐藏全局搜索入口
-    final searchEnabled =
-        context.watch<CapabilitiesProvider>().isFeatureEnabled('search');
+    final searchEnabled = caps.isFeatureEnabled('search');
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -66,42 +66,48 @@ class ExplorePage extends StatelessWidget {
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => context.push('/notifications'),
               ),
-              CupertinoListTile(
-                leading: const Icon(CupertinoIcons.calendar, color: CupertinoColors.systemRed),
-                title: Text(l10n.tabEvents),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => context.push('/events'),
-              ),
-              CupertinoListTile(
-                leading: const Icon(CupertinoIcons.checkmark_square, color: CupertinoColors.systemGreen),
-                title: Text(l10n.tabTodos),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => context.go('/todos'),
-              ),
+              // MOD-4：业务模块项按 /app/capabilities 显隐（未加载/失败 → 全显）
+              if (caps.hasBusinessModule('events'))
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.calendar, color: CupertinoColors.systemRed),
+                  title: Text(l10n.tabEvents),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => context.push('/events'),
+                ),
+              if (caps.hasBusinessModule('todos'))
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.checkmark_square, color: CupertinoColors.systemGreen),
+                  title: Text(l10n.tabTodos),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => context.go('/todos'),
+                ),
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.cloud_upload, color: CupertinoColors.systemBlue),
                 title: Text(l10n.uploadFile),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => context.push('/explore/upload'),
               ),
-              CupertinoListTile(
-                leading: const Icon(CupertinoIcons.person_3, color: CupertinoColors.systemIndigo),
-                title: Text(l10n.crmExploreEntry),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => context.push('/crm'),
-              ),
-              CupertinoListTile(
-                leading: const Icon(CupertinoIcons.briefcase, color: CupertinoColors.systemTeal),
-                title: Text(l10n.pmExploreEntry),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => context.push('/pm'),
-              ),
-              CupertinoListTile(
-                leading: const Icon(CupertinoIcons.checkmark_seal, color: CupertinoColors.systemGreen),
-                title: Text(l10n.apExploreEntry),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => context.push('/approval'),
-              ),
+              if (caps.hasBusinessModule('crm'))
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.person_3, color: CupertinoColors.systemIndigo),
+                  title: Text(l10n.crmExploreEntry),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => context.push('/crm'),
+                ),
+              if (caps.hasBusinessModule('pm'))
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.briefcase, color: CupertinoColors.systemTeal),
+                  title: Text(l10n.pmExploreEntry),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => context.push('/pm'),
+                ),
+              if (caps.hasBusinessModule('approval'))
+                CupertinoListTile(
+                  leading: const Icon(CupertinoIcons.checkmark_seal, color: CupertinoColors.systemGreen),
+                  title: Text(l10n.apExploreEntry),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => context.push('/approval'),
+                ),
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.pencil, color: CupertinoColors.systemOrange),
                 title: Text(l10n.editProfile),
