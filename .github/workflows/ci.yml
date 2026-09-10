@@ -209,6 +209,21 @@ jobs:
       # 证据根 v3 canonical 手写序防漂移（1.0.8 deferred 收敛）：导出侧(audit.service)与离线验证侧(verify-evidence.mjs)键序须一致
       - run: node Server-NestJS/scripts/check-evidence-canonical.mjs
 
+  # 语义单源规则闸（CE-1 C1，advisory）：触及 tool/治理/审计/事件语义的实现改动须同批落 specs/protocol 或 schemas
+  # （「先落契约再改代码」）；无契约变更 → 提示。v1 先 advisory（continue-on-error），观察稳定后收紧为硬门禁。
+  semantic-guard:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # 需要 diff base
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: 语义单源闸（advisory）
+        run: node Server-NestJS/scripts/check-semantic-single-source.mjs --base "${{ github.event.before }}"
+
   # 生成器/导入/映射 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema/Business Spec 导入防回归
   cli-test:
     runs-on: ubuntu-latest
