@@ -72,5 +72,10 @@ Server-NestJS/data/backups/
 # SBOM（CI 生成的上传产物，不入库）
 Server-NestJS/sbom.spdx.json
 
+# 验证报告运行产物（脚本每次跑产出一对 md+json，会持续堆积刷屏 git status）
+# 已入库的代表性报告不受影响（gitignore 不取消已跟踪文件）；需发布某次证据时用 git add -f
+Server-NestJS/docs/benchmark/evidence-verify-*
+Server-NestJS/docs/benchmark/protocol-conformance-*
+
 # SWC 编译器缓存（Taro 构建产物，不应入库）
 .swc/
