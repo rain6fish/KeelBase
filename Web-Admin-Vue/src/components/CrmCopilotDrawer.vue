@@ -25,8 +25,13 @@
             <span class="text-caption font-weight-medium">{{ toolLabelText(m.toolStart.name) }}</span>
           </div>
           <div v-if="m.toolStart.isWrite && m.toolStart.summary" class="text-caption text-medium-emphasis mt-1">{{ m.toolStart.summary }}</div>
+          <!-- §internal.6 四问（写操作）：发生了什么(summary 上方) / 现在什么状态 / 能保证什么 / 不能保证什么 -->
           <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
-            {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
+            <template v-if="m.toolStart.isWrite">
+              {{ m.toolEnd.success ? t('copilotWriteDone') : t('copilotWriteFailed') }}
+              <span v-if="!m.toolEnd.success && m.toolEnd.error"> — {{ m.toolEnd.error }}</span>
+            </template>
+            <template v-else>{{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}</template>
           </div>
         </div>
 
