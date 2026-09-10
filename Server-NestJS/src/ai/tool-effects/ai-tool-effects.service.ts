@@ -476,7 +476,10 @@ export class AiToolEffectsService {
       where: { conversationId } as any,
       order: { createdAt: 'ASC' },
     });
-    const scoped = opts?.ownerId ? effects.filter((e) => e.userId === opts.ownerId) : effects;
+    // 以「未提供」判据而非真值判据：ownerId 为空串等 falsy 值时不得静默升级为 admin 全作用域
+    const ownerFilter = opts?.ownerId;
+    const scoped =
+      ownerFilter !== undefined ? effects.filter((e) => e.userId === ownerFilter) : effects;
     const results: RevokeBatchItem[] = [];
     let revoked = 0;
     let skipped = 0;

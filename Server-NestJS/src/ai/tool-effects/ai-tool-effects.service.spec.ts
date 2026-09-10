@@ -219,6 +219,40 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  describe('revokeConversation（G1 会话级批量撤销：作用域判定）', () => {
+    const eff = (id: number, userId: string) => ({
+      id, userId, resultType: 'event', resultId: 100 + id, conversationId: 'c',
+      toolName: 'create_event', argsHash: 'h', createdAt: new Date(),
+    });
+
+    it('提供 ownerId → 只纳入该用户的效果（本人作用域）', async () => {
+      repo.find.mockResolvedValue([eff(1, '42'), eff(2, '99')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeConversation('c', { ownerId: '42' });
+      expect(res.total).toBe(1);
+      expect(res.results.map((r) => r.effectId)).toEqual([1]);
+    });
+
+    it('ownerId 为空串（falsy）→ 不升级为 admin 全作用域（按「未提供」判据而非真值判据）', async () => {
+      repo.find.mockResolvedValue([eff(1, '42'), eff(2, '99')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeConversation('c', { ownerId: '' });
+      // 修复前：'' falsy → 走 else 分支撤全部（total=2）；修复后无人匹配 '' → total=0
+      expect(res.total).toBe(0);
+      expect(res.results).toEqual([]);
+    });
+
+    it('不提供 opts → admin 全作用域（撤该会话全部）', async () => {
+      repo.find.mockResolvedValue([eff(1, '42'), eff(2, '99')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeConversation('c');
+      expect(res.total).toBe(2);
+    });
+  });
+
   describe('list（含目标状态富化）', () => {
     const baseEffect = (id: number, resultType: string, resultId: number) => ({
       id, userId: '1', toolName: 'create_event', conversationId: 'c',
