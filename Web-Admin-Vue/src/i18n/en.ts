@@ -362,6 +362,7 @@ const en: ZhDict = {
   aiCenterConvRevokeConfirm: 'This will revoke every AI write side effect from this conversation (revocable items are soft-deleted; B-path writes go through external compensation). Continue?',
   aiCenterConvRevokeEmpty: 'No revocable AI writes in this conversation',
   aiCenterConvRevokeDone: 'Revoked {revoked}, skipped {skipped}, failed {failed}',
+  aiCenterConvRevokeTruncated: 'This conversation has many items; only the first {total} were processed — click revoke again to continue',
   stepInput: 'Your input',
   stepAssistant: 'AI reply',
   traceSourceHuman: 'Human',
