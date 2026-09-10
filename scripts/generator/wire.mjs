@@ -328,13 +328,15 @@ export async function wireAiModule(ctx, root = '') {
     ),
   );
   // 5) inject 数组：`TodosService, `（大写 + 逗号 + 空格）仅在 inject 数组出现（useFactory 参数是逗号+换行），唯一锚点
+  // 幂等守卫须与插入 token 同形：插入后 inject 为 `TodosService, XService, ContractsService, …`，
+  // 故 marker = `${X}Service, `（provider 行是 `: XService,` + 换行，无尾空格，不误命中）。
   results.push(
     await applyFile(AI, (c) =>
       insertAfter(
         c,
         `TodosService, `,
         `${ctx.pluralPascal}Service, `,
-        `${ctx.pluralPascal}Service, MemoriesService`,
+        `${ctx.pluralPascal}Service, `,
       ),
     ),
   );
