@@ -1,0 +1,52 @@
+{
+  "feature": "followup-plans",
+  "goal": "让销售知道本周该优先跟进哪些客户，并能把判断落成可执行的跟进计划",
+  "actors": ["sales"],
+  "objects": [
+    {
+      "name": "followup_plan",
+      "label": "跟进计划",
+      "module": "followup_plans",
+      "searchable": true,
+      "fields": [
+        { "name": "title", "type": "string", "label": "标题", "required": true },
+        { "name": "priority", "type": "enum", "enum": ["low", "medium", "high", "critical"], "label": "优先级" },
+        { "name": "reason", "type": "text", "label": "判断依据" },
+        { "name": "dueDate", "type": "date", "label": "计划跟进日" },
+        { "name": "status", "type": "enum", "enum": ["planned", "done", "cancelled"], "label": "状态" }
+      ]
+    }
+  ],
+  "aiCapabilities": [
+    { "object": "followup_plan", "kind": "read", "intent": "查询跟进计划" },
+    {
+      "object": "followup_plan",
+      "kind": "write",
+      "riskLevel": "R3",
+      "requiresConfirmation": true,
+      "intent": "建立跟进计划"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "什么叫「值得优先跟进」？",
+      "choice": "风险等级 high/critical 的客户",
+      "reason": "复用现有客户风险打分口径，不另立标准"
+    },
+    {
+      "question": "跟进计划归谁所有？",
+      "choice": "创建它的销售本人",
+      "reason": "与基座本人所有权模型一致"
+    }
+  ],
+  "rules": [
+    "同一客户同一周内不重复建立跟进计划",
+    "计划日期必须落在未来 7 天内"
+  ],
+  "acceptance": [
+    "销售一句话可得到风险最高的客户清单",
+    "建立计划需人工确认，确认后可在列表看到"
+  ],
+  "outOfScope": ["自动向客户发送消息", "跨团队共享计划"],
+  "evidenceRef": ".keelbase/interview/followup-plans.md"
+}

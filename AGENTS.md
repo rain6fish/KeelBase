@@ -62,6 +62,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 | `generate-module` | 新增业务模块（调 `keelbase init` CLI 或按第 3 节手工） |
 | `add-api` | 给现有模块加 API 端点（含 CASL/审计/Swagger/测试） |
 | `write-migration` | 新实体或改列后生成/校验迁移（禁止手写，见 EASY-2.2） |
+| `keelbase-discovery` | 业务访谈 → Business Spec（把模糊诉求问成可实施的业务规格） |
+| `consulting-to-build` | 端到端编排：诉求 → Business Spec → 协议 → 生成 → 验证 → Run |
 | `crm-customer-risk` | 客户风险分析（AI CRM 旗舰业务规则：打分公式 + 分级） |
 | `pm-deadline-risk` | 项目延期风险（AI Project 旗舰业务规则） |
 | `approval-policy-review` | 审批政策分级预审（AI Approval 旗舰业务规则） |
@@ -69,6 +71,7 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 ## 5. AI 生成 vs 手工
 
 - **标准 CRUD 模块**：用 `npx keelbase init`（零依赖确定性模板 + 自动接线）；可从协议 JSON 读规格：`--spec module.json`（见 [docs/module-protocol.md](docs/module-protocol.md)）
+- **从业务需求出发**：业务访谈 → Business Spec → 确定性映射为协议 → `--spec` 生成；映射器 `scripts/generator/business-spec.mjs` 会把协议表达不了的（关联/业务规则/多角色/分析类工具）显式列入手写清单，见 [docs/business-spec.md](docs/business-spec.md)
 - **复杂/非 CRUD**：AI 按第 3 节清单手工实现，遵循基座约定
 - **业务模块协议**（EASY-7）：协议只覆盖高频 20% 字段（string/text/int/bool/date），复杂字段/业务走手写；见 [docs/module-protocol.md](docs/module-protocol.md)
 - 生成的代码必须「AI 可继续扩展」：结构符合约定 + 测试骨架 + 模块清单登记

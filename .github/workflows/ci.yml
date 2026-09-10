@@ -209,7 +209,7 @@ jobs:
       # 证据根 v3 canonical 手写序防漂移（1.0.8 deferred 收敛）：导出侧(audit.service)与离线验证侧(verify-evidence.mjs)键序须一致
       - run: node Server-NestJS/scripts/check-evidence-canonical.mjs
 
-  # 生成器/导入 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema 导入防回归
+  # 生成器/导入/映射 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema/Business Spec 导入防回归
   cli-test:
     runs-on: ubuntu-latest
     steps:
@@ -217,7 +217,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - run: node --test scripts/keelbase-init.test.mjs
+      # 单一来源：与本地同跑 cli:test（新增生成器/导入测试挂 package.json 即可，不在 CI 硬编码）
+      - run: npm run cli:test
       # Provenance：仓库自带 manifest，inspect 应识别为 KeelBase 应用并退出 0
       - run: node scripts/keelbase-init.mjs inspect
       # Provenance：doctor 四查（完整性/一致性/运行时/版本）应 PASS 退出 0
