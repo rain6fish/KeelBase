@@ -24,7 +24,12 @@ build/
 *.swo
 
 # AI Tooling / Agent workspace
-.claude/
+# .claude/ 其余内容保留本地状态不追踪；但项目技能目录（AGENTS.md §skill / ecosystem-pack 指引 stranger 复制）纳入版本控制
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/consulting-to-build/
+!.claude/skills/keelbase-discovery/
 claude/
 .codebase-memory/
 task_plan.md
