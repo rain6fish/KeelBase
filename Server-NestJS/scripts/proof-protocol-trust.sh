@@ -28,7 +28,7 @@ SERVER_LOG="$REPORT_DIR/proof-trust-server.log"
 SCORE="$(mktemp)"
 DRIVER_OUT="$(mktemp)"
 mkdir -p "$REPORT_DIR"
-TS="$(date +%Y-%m-%dT%H-%M-%S-UTC)"
+TS="$(date -u +%Y-%m-%dT%H-%M-%S-UTC)"
 MUT_SPEC="${MUT_SPEC:-specs/invoices.json}"
 # 平台鲁棒 MUT 解析：git-bash 的 $ROOT 是 POSIX /c/...，Windows Node 读不了 → cygpath -m 转 C:/…
 # （Linux 无 cygpath 直接走 POSIX 路径）；仍失败用 spec 文件名兜底
@@ -106,10 +106,12 @@ GEN_ELAPSED=$((SECONDS - GEN_START))
 
 # ── 编译 + 起隔离后端 ────────────────────────────────────────────────────────
 echo "→ build"
+BUILD_START=$SECONDS
 if ! (cd "$BE" && npm run build >/dev/null 2>>"$SERVER_LOG"); then
   row "R1b" "red" "后端编译失败（tail $SERVER_LOG）"; driver_rows; cat "$SCORE"; exit 1
 fi
-echo "  ✓ 编译通过"
+BUILD_ELAPSED=$((SECONDS - BUILD_START))
+echo "  ✓ 编译通过（${BUILD_ELAPSED}s）"
 
 rm -f "$BE/data/proof.sqlite"
 export NODE_ENV=development PORT=$PORT DB_PATH=./data/proof.sqlite
@@ -148,12 +150,17 @@ stop_server
 
 # ── R10 重复生成不破坏（幂等，离线）────────────────────────────────────────
 # 生成器 CLI 契约：模块目录已存在时须 --force（覆盖重写生成文件 + 接线幂等），否则拒绝
+# 加固：仅 grep 工具关键词会漏「inject 数组重复插入」这类假绿（2026-09-10 陌生模拟暴露）——显式计 inject 内 service 出现次数须恰好 1。
 RERUN_LOG="$REPORT_DIR/proof-trust-rerun.log"
+SVC_TOKEN="$(echo "${MUT^}")Service, "   # inject 形态 `XService, `（尾空格；provider 行是 `: XService,` 无尾空格，不误计）
 if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" --force >"$RERUN_LOG" 2>&1); then
+  SVC_COUNT="$(grep -oF "$SVC_TOKEN" "$BE_AI" | wc -l | tr -d ' ')"
   if grep -qE '✗' "$RERUN_LOG"; then
     row "R10" "red" "同 spec 重跑（--force）有错误行: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
+  elif [ "$SVC_COUNT" != "1" ]; then
+    row "R10" "red" "重跑后 ai.module inject 内 ${SVC_TOKEN% } 出现 ${SVC_COUNT} 次（应 1）——接线非幂等（重复 inject 会致位置式 DI 错位）"
   elif grep -qE "Create.*Tool|create-${MUT}" "$BE_AI" && grep -qE "Query.*Tool|query-${MUT}" "$BE_AI"; then
-    row "R10" "green" "同 spec 重跑（--force）幂等成功——生成文件覆盖重写、ai.module 接线未破坏（规格 §7）"
+    row "R10" "green" "同 spec 重跑（--force）幂等成功——生成文件覆盖重写、ai.module 接线未破坏（inject 无重复；规格 §7）"
   else
     row "R10" "red" "同 spec 重跑（--force）退出 0 但 ai.module 工具接线丢失"
   fi
@@ -163,7 +170,7 @@ fi
 
 # ── R3 计时（分段）───────────────────────────────────────────────────────────
 TOTAL=$((SECONDS - START))
-row "R3" "green" "T_exec=$TOTAL s（生成 ${GEN_ELAPSED}s + 编译+起服+驱动 ${DRV_ELAPSED}s）；T_read 由执行者自报（不合并）"
+row "R3" "green" "T_exec=${TOTAL}s（生成 ${GEN_ELAPSED}s + 编译 ${BUILD_ELAPSED}s + 起服+驱动 ${DRV_ELAPSED}s）；T_read 由执行者自报（不合并）"
 
 # ── 汇总记分卡 ───────────────────────────────────────────────────────────────
 CARD="$REPORT_DIR/protocol-trust-card-$TS.md"
@@ -179,7 +186,7 @@ YELLOWS=$(grep -cE '\|yellow\|' "$SCORE" || true)
   echo "| 场景 | A（依赖预装，隔离后端 + fresh sqlite + demo provider，确定性无 LLM） |"
   echo "| MUT | $MUT（$MUT_SPEC） |"
   echo "| 执行者 | ${EXECUTOR:-作者自跑（内部预跑，非有效 stranger）} |"
-  echo "| T_exec | ${TOTAL}s（生成 ${GEN_ELAPSED}s；驱动 ${DRV_ELAPSED}s） |"
+  echo "| T_exec | ${TOTAL}s（生成 ${GEN_ELAPSED}s；编译 ${BUILD_ELAPSED}s；起服+驱动 ${DRV_ELAPSED}s） |"
   echo "| 红行 | ${REDS} |"
   echo ""
   echo "## 十行状态"

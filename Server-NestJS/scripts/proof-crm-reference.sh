@@ -29,7 +29,7 @@ mkdir -p "$REPORT_DIR"
 EXECUTOR="${EXECUTOR:-}"
 
 KEY_FIX="$(printf '%s' 'keelbase-crm-reference-demo-key' | sha256sum | cut -d' ' -f1)"
-TS="$(date +%Y-%m-%dT%H-%M-%S-UTC)"
+TS="$(date -u +%Y-%m-%dT%H-%M-%S-UTC)"
 echo "═══ Protocol×Trust CRM Reference（T3，MUT=leads 生成轨 + AI CRM 旗舰轨）═══"
 echo "base=$BASE | executor=${EXECUTOR:-作者自跑（内部预跑）}"
 
@@ -37,14 +37,17 @@ echo "base=$BASE | executor=${EXECUTOR:-作者自跑（内部预跑）}"
 echo ""
 echo "── [G] 生成轨：leads（specs/leads.json）→ proof-protocol-trust.sh ──"
 GEN_PORT=$((PORT - 20)) # 避免与后续旗舰轨同端（proof 脚本默认 3399，用独立端口）
+MARK="$(mktemp)"; touch "$MARK"   # 时间基线：只认本次新产出的卡，避免失败时回退到旧卡（2026-09-10 陌生模拟暴露）
 if ! (cd "$BE" && MUT_SPEC="specs/leads.json" BENCH_PORT="$GEN_PORT" bash scripts/proof-protocol-trust.sh); then
   echo "  ✗ 生成轨（leads）有红行或失败" >&2
 fi
-CARD_G="$(ls -t "$REPORT_DIR"/protocol-trust-card-*.md 2>/dev/null | head -1)"
-echo "  ✓ 生成轨记分卡：$CARD_G"
+# 只取比 MARK 更新的卡（-newer）；无则说明生成轨未产出新卡（早失败），不用旧卡冒充
+CARD_G="$(find "$REPORT_DIR" -name 'protocol-trust-card-*.md' -newer "$MARK" 2>/dev/null | sort | tail -1)"
+rm -f "$MARK"
+if [ -n "$CARD_G" ]; then echo "  ✓ 生成轨记分卡：$CARD_G"; else echo "  ✗ 生成轨未产出新记分卡（早失败）" >&2; fi
 # grep -c 无匹配时打印 0 且 exit 1，再加 `|| echo 0` 会得到 "0\n0" → 守卫恒 exit 1；用 `|| true` 吞退出码保留 stdout 的 "0"
-GEN_REDS="$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || true)"
-[ -z "$GEN_REDS" ] && GEN_REDS=0
+if [ -z "$CARD_G" ]; then GEN_REDS="N/A";
+else GEN_REDS="$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || true)"; [ -z "$GEN_REDS" ] && GEN_REDS=0; fi
 
 # ── F 旗舰轨：AI CRM 手写旗舰深度治理（trust-proof S1-S5/S7）──────────────
 echo ""
