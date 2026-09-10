@@ -3,6 +3,7 @@
  import { DataSource, DataSourceOptions } from 'typeorm';
  import { config } from 'dotenv';
  import { resolve } from 'path';
+import { POSTGRES_MIGRATION_GLOBS } from './postgres-migrations';
  
  // 加载 .env 文件（根据 NODE_ENV 选择环境文件）
  const nodeEnv = process.env.NODE_ENV || 'development';
@@ -25,63 +26,9 @@
      password: process.env.DB_PASSWORD || 'postgres',
      database: process.env.DB_NAME || 'front',
      entities: [resolve(__dirname, '../**/*.entity{.ts,.js}')],
-     migrations: [
-       resolve(__dirname, '../migrations/*PostgresInitialSchema*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddKnowledgeEmbeddings*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddOperationAuditFeatureColumns*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAccountCompliance*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddUserMemory*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddConversationSummary*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddKnowledgeDocumentColumns*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddKnowledgeChunks*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddSettings*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddSoftDelete*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiFeedback*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddInvite*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiEvalCases*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddFormBuilder*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiToolSideEffects*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiToolSideEffectSnapshots*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiToolSideEffectChain*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiToolSideEffectResultTypeLength*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiToolSideEffectRevokeColumns*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddHeadlessApiKeys*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddGeneratedModuleSchemas*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddOrgStructures*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddGrowthCommunity*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddEventOrgId*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddTodoOrgId*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddPoints*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddCheckinDateToPointsEntries*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiDailyUsage*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAuditHashChain*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditIdentity*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditAuthorization*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditDelegation*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiConfirmationRequests*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiConfirmationRunColumns*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*PostgresIncrementalSchema*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddCrm*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddWebhookSubscriptions*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*FixWebhookIndex*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddPm*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddApproval*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddSuppliers*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddContracts*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddBooksNotesProtocolFields*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAgents*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*FixAiAgentsNameUniqueIndex*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddUsersCreatedAtIndex*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddOperationAuditChanges*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddOperationAuditAuthorization*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditBusinessEventEvidence*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAuditChainLock*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditUsername*').replace(/\\/g, '/'),
-       resolve(__dirname, '../migrations/*AddAiAuditPayloadVersion*').replace(/\\/g, '/'),
-       // NC-4：`*AddAiGovernancePolicy*` 前缀已覆盖 AddAiGovernancePolicyHistory（同前缀）——
-       // 单独列 History 会同一文件入列两次 → pg migration:run Duplicate migrations（2026-09-05 CI）
-       resolve(__dirname, '../migrations/*AddAiGovernancePolicy*').replace(/\\/g, '/'),
-     ],
+     migrations: POSTGRES_MIGRATION_GLOBS.map((g) =>
+       resolve(__dirname, `../migrations/${g}`).replace(/\\/g, '/'),
+     ),
    };
  } else {
    dataSourceOptions = {

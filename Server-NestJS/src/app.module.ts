@@ -70,6 +70,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { envValidationSchema } from './config/env.config';
 import { createLoggerOptions } from './config/logging';
 import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
+import { POSTGRES_MIGRATION_GLOBS } from './config/postgres-migrations';
 
 @Module({
   imports: [
@@ -112,64 +113,7 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
             logging: (otelOn ? ['query', 'error'] : ['error', 'warn', 'schema']) as LogLevel[],
             logger: createTypeOrmLogger(otelOn),
             // postgres 用独立基线 + 向量迁移（sqlite 方言迁移不加载）
-            migrations: [
-              'dist/migrations/*PostgresInitialSchema*.js',
-              'dist/migrations/*AddKnowledgeEmbeddings*.js',
-              'dist/migrations/*AddOperationAuditFeatureColumns*.js',
-              'dist/migrations/*AddAccountCompliance*.js',
-              'dist/migrations/*AddUserMemory*.js',
-              'dist/migrations/*AddConversationSummary*.js',
-              'dist/migrations/*AddKnowledgeDocumentColumns*.js',
-              'dist/migrations/*AddKnowledgeChunks*.js',
-              'dist/migrations/*AddSettings*.js',
-              'dist/migrations/*AddSoftDelete*.js',
-              'dist/migrations/*AddAiFeedback*.js',
-              'dist/migrations/*AddInvite*.js',
-              'dist/migrations/*AddAiEvalCases*.js',
-              'dist/migrations/*AddFormBuilder*.js',
-              'dist/migrations/*AddAiToolSideEffects*.js',
-              'dist/migrations/*AddAiToolSideEffectSnapshots*.js',
-              'dist/migrations/*AddHeadlessApiKeys*.js',
-              'dist/migrations/*AddGeneratedModuleSchemas*.js',
-              'dist/migrations/*AddOrgStructures*.js',
-              'dist/migrations/*AddGrowthCommunity*.js',
-              'dist/migrations/*AddEventOrgId*.js',
-              'dist/migrations/*AddTodoOrgId*.js',
-              'dist/migrations/*AddPoints*.js',
-              'dist/migrations/*AddCheckinDateToPointsEntries*.js',
-              'dist/migrations/*AddAiDailyUsage*.js',
-              'dist/migrations/*AddAuditHashChain*.js',
-              'dist/migrations/*AddAiAuditIdentity*.js',
-              'dist/migrations/*AddAiAuditAuthorization*.js',
-              'dist/migrations/*AddAiAuditDelegation*.js',
-              'dist/migrations/*AddAiConfirmationRequests*.js',
-              'dist/migrations/*PostgresIncrementalSchema*.js',
-              'dist/migrations/*AddCrm*.js',
-              'dist/migrations/*AddWebhookSubscriptions*.js',
-              'dist/migrations/*FixWebhookIndex*.js',
-              'dist/migrations/*AddPm*.js',
-              'dist/migrations/*AddApproval*.js',
-              'dist/migrations/*AddSuppliers*.js',
-              'dist/migrations/*AddContracts*.js',
-              'dist/migrations/*AddBooksNotesProtocolFields*.js',
-              'dist/migrations/*AddAiAgents*.js',
-              'dist/migrations/*FixAiAgentsNameUniqueIndex*.js',
-              'dist/migrations/*AddUsersCreatedAtIndex*.js',
-              'dist/migrations/*AddOperationAuditChanges*.js',
-              'dist/migrations/*AddAiAuditBusinessEventEvidence*.js',
-              'dist/migrations/*AddAuditChainLock*.js',
-              'dist/migrations/*AddAiAuditUsername*.js',
-              'dist/migrations/*AddAiGovernancePolicy*.js',
-              // 2026-09-10 生产漂移修复：以下 6 个迁移曾漏加入 postgres 运行时清单（typeorm-data-source 有、app.module 无）
-              // → 生产 migrationsRun 永不执行，ECS ai_tool_side_effects.revoke_class 缺失致 /ai/conversations/:id/trace 500。
-              // 与 src/config/typeorm-data-source.ts 的 postgres 清单保持一致。
-              'dist/migrations/*AddOperationAuditAuthorization*.js',
-              'dist/migrations/*AddAiAuditPayloadVersion*.js',
-              'dist/migrations/*AddAiToolSideEffectChain*.js',
-              'dist/migrations/*AddAiToolSideEffectResultTypeLength*.js',
-              'dist/migrations/*AddAiToolSideEffectRevokeColumns*.js',
-              'dist/migrations/*AddAiConfirmationRunColumns*.js',
-            ],
+            migrations: POSTGRES_MIGRATION_GLOBS.map((g) => `dist/migrations/${g}.js`),
             migrationsRun: !isDev && !useSync,
             extra: {
               max: configService.get<number>('DB_POOL_MAX', 20),
