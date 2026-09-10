@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_list_section.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../version/presentation/providers/version_check_provider.dart';
 import '../../../version/presentation/widgets/update_dialog.dart';
+import '../../../../core/api/provenance_provider.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -22,6 +23,8 @@ class SettingsPage extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final localeProvider = context.watch<LocaleProvider>();
     final appLockProvider = context.watch<AppLockProvider>();
+    // FE-1：运行时来源指纹（未加载/失败 → null，隐藏该行）
+    final provenance = context.watch<ProvenanceProvider>().provenance;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -126,6 +129,23 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () => _checkForUpdate(context),
               ),
+              // FE-1：运行时来源指纹（/app/provenance）—— 「这是什么系统」
+              if (provenance != null)
+                CupertinoListTile(
+                  title: Text(l10n.provenanceTitle),
+                  subtitle: Text(
+                    l10n.provenanceMeta(
+                      provenance.source.identity ?? '-',
+                      provenance.preset,
+                      provenance.moduleCount,
+                      provenance.tools.total,
+                    ),
+                    style: TextStyle(
+                      color: CupertinoColors.systemGrey.resolveFrom(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 40),

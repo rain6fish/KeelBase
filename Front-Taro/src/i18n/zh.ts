@@ -49,6 +49,8 @@ export const zh: I18nDictionary = {
   'settings.terms': '服务条款',
   'settings.appInfo': '应用信息',
   'settings.version': '版本',
+  'settings.provenance': '运行时来源指纹',
+  'settings.provenanceMeta': '{identity} · 预设 {preset} · {modules} 模块 · {tools} 工具',
   'settings.wechatReminderH5Only': '微信提醒仅小程序可用',
   'settings.wechatReminderNotConfigured': '提醒模板未配置',
   'settings.wechatReminderEnabled': '已启用微信提醒',

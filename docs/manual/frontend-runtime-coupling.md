@@ -123,7 +123,7 @@
 | 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ✅ 已核对对齐（HTTP 2xx + `data.accessToken/refreshToken`，本就正确） | ✅ 已核对对齐（信封 `data`=TokenPair，本就正确；单飞刷新已在） |
 | 5.4 实时事件手写 switch | `sse-event`（已冻结） | ✅ 已核对对齐（7 发射名全符；`data` 内含 type，FE-1a「忽略 `event:` 行即断」被契约化解） | ✅ 已核对对齐（switch 名全符 schema） | ✅ 已核对对齐（事件名全符） |
 | 5.5 capabilities 消费 | `/app/capabilities` | ✅ 已按 capabilities 过滤导航（`module` id 与后端 MODULES_MANIFEST **全匹配**；补 `workbench-events/todos` 缺失标签） | ✅ explore 业务模块项按 capabilities 显隐（底部 nav 结构性绑 router branch，保持静态；`hasBusinessModule` 默认全显） | ✅ explore 宫格按 capabilities 显隐（新增 service+pinia store） |
-| 5.6 provenance 消费 | `/app/provenance` | ✅ 切片六（`SystemView` 来源指纹卡：来源身份/preset/模块/工具指纹） | ⬜ 零消费 | ⬜ 零消费 |
+| 5.6 provenance 消费 | `/app/provenance` | ✅ 切片六（`SystemView` 来源指纹卡：来源身份/preset/模块/工具指纹） | ✅ 切片六（设置页「关于」来源指纹行 + provider） | ✅ 切片六（设置页 appInfo 来源指纹行 + store） |
 
 ### 8.3 后续切片（按 §6 优先序）
 
@@ -138,8 +138,8 @@
   - `build:h5` 绿。
 - **FE-1b-4 ✅（2026-09-10，核对，无代码改动）**：事件 model 隔离 —— 见 §8.6。三端事件名/形状**均符合冻结 `sse-event` schema**（Web `StreamChatEvent` 7 名、Flutter provider switch、Taro WS 名）；FE-1a 的「Web 忽略 `event:` 行即断」被「`data` 内含 `type`」的契约化解；余下仅「抽类型化 model」的代码组织（非正确性，Code Economy 下不投机抽象）。
 - **FE-1b-5 🔶（2026-09-10，部分）**：capabilities 导航 —— Web **已按 capabilities 过滤**（`module` id 与后端全匹配）+ 补 `workbench-events/todos` 缺失标签；Flutter 有 plumbing 但主导航静态；Taro 零消费（⬜ 留待）。
-- **FE-1b-6 🔶（2026-09-10，Web 先行）**：provenance 消费 —— 新增 `api/provenance.ts`（`/app/provenance`）+ `SystemView` 「运行时来源指纹」卡（来源身份 / preset / 业务模块 / AI 工具指纹；`manifestPresent:false` 优雅降级）；线上实测形状一致。Flutter/Taro 待续。
-- **FE-1 余**：Flutter 主导航 capabilities 静态 / Taro capabilities 零消费 / Flutter+Taro provenance 消费。
+- **FE-1b-6 ✅（2026-09-10，三端）**：provenance 消费 —— Web `api/provenance.ts` + `SystemView` 来源指纹卡；Flutter `app_provenance`/`provenance_repository`/`provenance_provider` + 设置页「关于」来源指纹行；Taro `provenance-service`/`provenance-store` + 设置页 appInfo 来源指纹行（均未加载/失败优雅隐藏）。线上实测形状一致。
+- **FE-1b 收口**：5.1–5.6 **三端全覆盖**。**FE-1 净余**：Flutter 底部 tab 若未来要按能力显隐需重构 router branch 结构（现为设计性静态）；生成器前端模板 Runtime-neutral（本已 LOW）；Java 目标模板守 Demand-Gate。
 
 ### 8.6 FE-1b-4 核对明细（事件，2026-09-10）
 
