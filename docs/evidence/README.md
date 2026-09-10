@@ -119,6 +119,7 @@
   node scripts/verify-evidence.mjs docs/benchmark/evidence-root-<ts>.json --key <AUDIT_HMAC_KEY>
   ```
   边界与 N-1/N-2/N-3 一致：证据根为**应用边界内篡改即断链 + 离线可复核**的完整性证据，非防 DBA/root、非不可抵赖存储。
+- **国密 SM2 + 可信时间锚（§internal.17 ②，规格先行，未实现）**：证据包签名从对称 HMAC 扩展到非对称 **SM2（SM2-with-SM3）**——第三方持公钥离线独立验签，配定期根锚 + 可选 RFC3161 时间戳（法律级可举证；信创/等保弹药）。算法与格式已冻结于 [`docs/evidence-root.spec.md`](../evidence-root.spec.md) §11（防返工）；实现触发 = 合规卡② / 密评客户 / 首个等保现场。
 - **文档**：§internal.16 A-6（内部 roadmap 执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
 
 ---
