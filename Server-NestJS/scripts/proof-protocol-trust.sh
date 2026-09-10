@@ -152,7 +152,9 @@ stop_server
 # 生成器 CLI 契约：模块目录已存在时须 --force（覆盖重写生成文件 + 接线幂等），否则拒绝
 # 加固：仅 grep 工具关键词会漏「inject 数组重复插入」这类假绿（2026-09-10 陌生模拟暴露）——显式计 inject 内 service 出现次数须恰好 1。
 RERUN_LOG="$REPORT_DIR/proof-trust-rerun.log"
-SVC_TOKEN="$(echo "${MUT^}")Service, "   # inject 形态 `XService, `（尾空格；provider 行是 `: XService,` 无尾空格，不误计）
+# 首字母大写用 node（macOS 自带 bash 3.2 不支持 ${var^}；node 是脚本既有依赖）
+MUT_PASCAL="$(node -e "process.stdout.write(process.argv[1].charAt(0).toUpperCase()+process.argv[1].slice(1))" "$MUT")"
+SVC_TOKEN="${MUT_PASCAL}Service, "   # inject 形态 `XService, `（尾空格；provider 行是 `: XService,` 无尾空格，不误计）
 if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" --force >"$RERUN_LOG" 2>&1); then
   SVC_COUNT="$(grep -oF "$SVC_TOKEN" "$BE_AI" | wc -l | tr -d ' ')"
   if grep -qE '✗' "$RERUN_LOG"; then
