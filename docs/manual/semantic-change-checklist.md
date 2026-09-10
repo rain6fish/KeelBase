@@ -1,9 +1,10 @@
 # 语义变更检查单 / Semantic-change Checklist
 
-> **目的**：让「语义变更必须先落契约（Protocol / 向量语料 / Schema / 文档单一真源）再改代码」成为可评审的流程闸（roadmap CE-1 C1 语义化载体；公开仓不含内部编号）。机器闸（金样本 diff / conformance / wire Schema 冻结 / 术语闸）已常绿，本检查单补**评审清单**一环。
-> **Purpose**: make "land the contract (Protocol / vector corpus / Schema / single-source doc) BEFORE the code for any semantic change" a reviewable gate. Machine gates are already evergreen; this checklist adds the human review layer.
+> **目的**：让「语义变更必须先落契约（Protocol / 向量语料 / Schema / 文档单一真源）再改代码」成为可评审的流程闸（CE-1 C1 语义化载体；公开仓不含内部编号）。机器闸（金样本 diff / conformance / wire Schema 冻结 / 术语闸）已常绿，本检查单补**评审操作面（reviewer-facing）**一环。
+> **Purpose**: the reviewer-facing companion to the single-source rule — a per-face mapping + review checklist. Machine gates are already evergreen; this adds the human review layer.
 >
-> 单源规则细节见 [specs/protocol/README.md](../../Server-NestJS/specs/protocol/README.md) 与 [ai-governance-protocol.md](../protocols/ai-governance-protocol.md)。
+> **规则真源 = [semantic-single-source.md](semantic-single-source.md)**（规则 + 语义源清单 + `check-semantic-single-source.mjs` 机器闸）。本文件是其**操作面**（语义面→伴生物映射 + reviewer 勾选），不另立第二套规则表述。
+> 语料/金样本用法见 [specs/protocol/README.md](../../Server-NestJS/specs/protocol/README.md)；协议真源见 [ai-governance-protocol.md](../protocols/ai-governance-protocol.md)。
 
 ---
 

@@ -39,6 +39,7 @@ npm run check:semantic-single-source --list                 # print source/contr
 
 - B1 vector corpus / B2 canonical golden samples (`generate --check` CI drift gate) / B3 wire Schema v1 freeze — this gate is their **process side** (who lands first); B1/B2/B3 are the **artifact side** (what lands).
 - C2 terminology single-source (`check-protocol-language.mjs`) governs **external wording**; this gate governs **implementation ↔ contract**.
+- **Reviewer checklist (companion)**: [semantic-change-checklist.md](semantic-change-checklist.md) — turns this rule into a per-face mapping (semantic face → artifact to sync → gate command → reviewer checkbox). This file is the **rule source**; the checklist is its operational face — no second rule statement.
 
 ## Scope notes
 
