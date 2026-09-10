@@ -972,6 +972,14 @@ describe('AiService', () => {
         return r;
       });
 
+      // §4 G1：捕获 run 成员副作用登记，断言 runId 从执行点透传到 record（run 级撤销依赖它精确圈定）
+      const recordSpy = jest.fn().mockResolvedValue({ id: 1 });
+      (aiService as any).toolEffectsService = {
+        buildKey: jest.fn().mockReturnValue('k'),
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record: recordSpy,
+      };
+
       const it = aiService.chatStream('1', { message: 'create an event and a todo' });
       // 预扫描聚合：第一个确认事件 = mode:'run'（含 2 items），非两条单条 confirmation
       const first = await it.next();
@@ -997,6 +1005,12 @@ describe('AiService', () => {
         ),
       ).toBe(true);
       expect(chunks[chunks.length - 1].type).toBe('done');
+      // §4 G1：两条 run 成员副作用都带 runId = run token（run 级批量撤销据此圈定）
+      expect(recordSpy).toHaveBeenCalledTimes(2);
+      for (const call of recordSpy.mock.calls) {
+        expect(call[0]).toMatchObject({ runId: runToken });
+      }
+      (aiService as any).toolEffectsService = undefined;
     });
 
     it('KB-5 修复：预扫描遇未注册工具名（LLM 幻觉 / 外部 mcp_*）不中断整条 SSE 流，降级继续', async () => {
