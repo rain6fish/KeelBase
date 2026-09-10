@@ -535,6 +535,12 @@ export class AiService {
     if (!req || req.status !== 'pending') {
       return { ok: false, message: req ? 'already decided' : 'not found' };
     }
+    // KB-5：run 聚合行（kind='run'，toolName='run'）不是单个审批请求——生命周期由 ConfirmationStore 的
+    // run token 决策驱动。此处放行会把 run 行状态越权翻成 approved/declined，绕过 run 语义（且在途 SSE 决策
+    // 仍挂在内存 promise 上）。该端点服务身份可达，故在边界拒绝，不依赖「列表不显示 run 行」这层约定。
+    if (req.kind === 'run') {
+      return { ok: false, message: 'run confirmation cannot be decided via approval endpoint' };
+    }
     if (decision === 'approve' && req.operatorId === approverId) {
       return { ok: false, message: 'cannot self-approve' };
     }
