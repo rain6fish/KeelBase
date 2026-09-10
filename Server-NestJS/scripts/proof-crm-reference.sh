@@ -44,10 +44,13 @@ fi
 # 只取比 MARK 更新的卡（-newer）；无则说明生成轨未产出新卡（早失败），不用旧卡冒充
 CARD_G="$(find "$REPORT_DIR" -name 'protocol-trust-card-*.md' -newer "$MARK" 2>/dev/null | sort | tail -1)"
 rm -f "$MARK"
-if [ -n "$CARD_G" ]; then echo "  ✓ 生成轨记分卡：$CARD_G"; else echo "  ✗ 生成轨未产出新记分卡（早失败）" >&2; fi
-# grep -c 无匹配时打印 0 且 exit 1，再加 `|| echo 0` 会得到 "0\n0" → 守卫恒 exit 1；用 `|| true` 吞退出码保留 stdout 的 "0"
-if [ -z "$CARD_G" ]; then GEN_REDS="N/A";
-else GEN_REDS="$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || true)"; [ -z "$GEN_REDS" ] && GEN_REDS=0; fi
+if [ -n "$CARD_G" ]; then
+  echo "  ✓ 生成轨记分卡：$CARD_G"
+  # grep -c 无匹配时打印 0 且 exit 1，用 `|| true` 吞退出码保留 stdout 的 "0"
+  GEN_REDS="$(grep -cE '\| red \|' "$CARD_G" 2>/dev/null || true)"; [ -z "$GEN_REDS" ] && GEN_REDS=0
+else
+  echo "  ✗ 生成轨未产出新记分卡（早失败）" >&2; GEN_REDS="N/A"
+fi
 
 # ── F 旗舰轨：AI CRM 手写旗舰深度治理（trust-proof S1-S5/S7）──────────────
 echo ""
