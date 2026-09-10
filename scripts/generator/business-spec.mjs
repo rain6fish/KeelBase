@@ -18,7 +18,8 @@
  */
 
 import { pathToFileURL } from 'node:url';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import {
   FIELD_TYPES,
   validateModuleName,
@@ -52,7 +53,12 @@ export function validateBusinessSpec(spec) {
 
 /**
  * Business Spec → Module Protocol。
- * @returns {{ error: string } | { protocol: object, unmapped: Array, notes: Array }}
+ * 三类回报，语义不同（CI 门禁只认前两类）：
+ *   - error       硬失败，不产出协议
+ *   - warnings    可生成的缺陷（如 evidenceRef 悬空）——生成不阻断，但**已提交的 spec 不该带着它**
+ *   - unmapped    协议表达不了的，需手写补全（合法的范围边界，非缺陷）
+ *   - notes       纯信息（哪些字段留在 Business Spec / Evidence）
+ * @returns {{ error: string } | { protocol: object, unmapped: Array, notes: Array, warnings: Array }}
  */
 export function mapBusinessSpec(spec) {
   const invalid = validateBusinessSpec(spec);
@@ -69,6 +75,7 @@ export function mapBusinessSpec(spec) {
 
   const unmapped = [];
   const notes = [];
+  const warnings = [];
 
   // 多对象：薄协议一次一个模块
   for (const extra of spec.objects.slice(1)) {
@@ -149,6 +156,14 @@ export function mapBusinessSpec(spec) {
     }
   }
 
+  // 溯源链完整性：evidenceRef 指向的访谈 Evidence 必须真实存在，否则「这条规则来自哪次访谈」是死链
+  if (typeof spec.evidenceRef === 'string' && spec.evidenceRef.trim()) {
+    const ref = spec.evidenceRef.trim();
+    if (!existsSync(resolve(process.cwd(), ref))) {
+      warnings.push(`evidenceRef 指向的文件不存在（相对仓库根）：${ref} —— 交付溯源链在此断开`);
+    }
+  }
+
   const protocol = {
     module,
     plural: toPlural(module),
@@ -158,7 +173,7 @@ export function mapBusinessSpec(spec) {
     ...(aiTools ? { aiTools } : {}),
   };
 
-  return { protocol, unmapped, notes };
+  return { protocol, unmapped, notes, warnings };
 }
 
 /** aiCapabilities → aiTools；返回 undefined 表示不声明（走生成器默认）。 */
@@ -221,9 +236,10 @@ function main() {
     process.exit(1);
   }
 
-  const { protocol, unmapped, notes } = result;
+  const { protocol, unmapped, notes, warnings } = result;
   console.log(`✓ ${spec.feature} → 模块协议「${protocol.module}」(${protocol.fields.length} 字段)`);
   for (const n of notes) console.log(`  · ${n}`);
+  for (const w of warnings) console.log(`  ⚠ ${w}`);
   if (unmapped.length > 0) {
     console.log(`  ⚠ ${unmapped.length} 项不可映射（需手写补全）：`);
     for (const u of unmapped) console.log(`    - ${u.name}：${u.reason} → ${u.action}`);

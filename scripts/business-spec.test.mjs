@@ -155,6 +155,27 @@ test('fail-closed：decisions/acceptance/outOfScope 进 notes，不进 unmapped'
   }
 });
 
+/* ═══════════ 交付溯源链 ═══════════ */
+
+test('溯源链：evidenceRef 指向存在的文件 → 无告警', () => {
+  const r = mapBusinessSpec(baseSpec({ evidenceRef: 'package.json' }));
+  assert.equal(r.error, undefined);
+  assert.equal(r.warnings.length, 0);
+});
+
+test('溯源链：evidenceRef 指向不存在的文件 → 进 warnings（可生成，但缺陷可见）', () => {
+  const r = mapBusinessSpec(baseSpec({ evidenceRef: '.keelbase/interview/does-not-exist.md' }));
+  assert.equal(r.error, undefined);
+  assert.equal(r.protocol.module, 'items');
+  assert.equal(r.warnings.length, 1);
+  assert.ok(r.warnings[0].includes('evidenceRef') && r.warnings[0].includes('不存在'));
+});
+
+test('溯源链：未声明 evidenceRef → 不产生告警', () => {
+  const r = mapBusinessSpec(baseSpec());
+  assert.equal(r.warnings.length, 0);
+});
+
 /* ═══════════ 非法输入（硬失败） ═══════════ */
 
 test('非法：结构缺失逐一拒绝', () => {

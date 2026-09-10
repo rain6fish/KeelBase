@@ -81,7 +81,7 @@ Business Spec 补的就是这一跳：**业务语义 → 薄协议**，且这一
 | `rules` | — | 业务规则（进不可映射清单，手写实现 + 测试覆盖） |
 | `acceptance` | — | 验收标准（进 Evidence，供测试规格引用） |
 | `outOfScope` | — | 明确不做（进 Evidence，防范围漂移） |
-| `evidenceRef` | — | 访谈 Evidence 文件路径，构成交付溯源链 |
+| `evidenceRef` | — | 访谈 Evidence 文件路径（相对仓库根），构成交付溯源链。映射器会校验该文件存在；缺失不阻断生成，但会在 `notes` 里告警——溯源链断在哪一眼可见。格式样例见 [.keelbase/interview/followup-plans.md](../.keelbase/interview/followup-plans.md) |
 
 字段其余可选键：`required`（布尔，缺省按类型）、`relation`（标记关联，见 §4）、`label`（中文名，1-12 字符）。
 
@@ -151,3 +151,43 @@ node scripts/keelbase-init.mjs --spec specs/followup-plans.json
 - 不扩 Module Protocol 字段（[module-protocol.md §5](module-protocol.md) 红线）
 - 不自动化分析类/关联类工具（保留手写）
 - 不产出交付文档（那是可选的人工/写作 skill 职责）
+
+## 8. 端到端怎么跑（Consulting → Build → Run）
+
+编排 skill 是 `consulting-to-build`，访谈 skill 是 `keelbase-discovery`。全链命令：
+
+```bash
+# ① 访谈（skill: keelbase-discovery）→ 产出两份文件
+#    .keelbase/business-spec/<feature>.json   （机器可消费的业务规格）
+#    .keelbase/interview/<feature>.md         （访谈 Evidence，逐轮假设/原话/确认）
+
+# ② 映射 + 门禁（零依赖、确定性；unmapped 清单要逐条过目）
+node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<feature>.json --check
+node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<feature>.json --out specs/<module>.json
+
+# ③ 生成（复用既有生成器，含 7 处接线 + AI 工具注册）
+node scripts/keelbase-init.mjs --spec specs/<module>.json
+cd Server-NestJS && npm run build && npm test -- <module>
+
+# ④ 运行（生成的模块自带 aiTools，直接过治理链）
+#    起后端 → AI 对话触发写工具 → R3 确认 → 副作用 → 审计链 → 撤销
+```
+
+**可复现的部分**：② 与 ③ 是确定性命令，随时可跑。两道 CI 门禁（都在 `cli-test` job）：
+
+```bash
+npm run cli:test     # 映射器单测（构造数据）
+npm run spec:check   # 扫 .keelbase/business-spec/*.json 逐个映射：有 error 或告警即失败；unmapped 不算失败
+```
+
+> `spec:check` 门禁的是**已提交的真实 spec**——单测用的是构造数据，管不到仓库里这份。改坏了（字段类型越界 / enum 选项非法 / evidenceRef 悬空）CI 直接红，而不是等生成时才发现。
+
+**④ 需要环境**：后端 + LLM key（或 `PROVIDER=demo`）。用仓库内脚本一键验收（12 项断言：确认闸 / Explainable Authz / 副作用 resultType / 落库 / 决策轨迹 / 两条审计链 / 撤销软删）：
+
+```bash
+MODULE=followup_plans BASE_URL=http://localhost:3100/api/v1 node scripts/verify-generated-module.mjs
+```
+
+前置是模块已生成、后端已起；报告落在 `docs/benchmark/generated-module-*.md`。
+
+**回归提醒**：验证撤销相关改动时，**必须用多字（snake_case）模块名**（如 `followup_plans`）——单字模块名（`invoices`）会掩盖一类解析缺陷。
