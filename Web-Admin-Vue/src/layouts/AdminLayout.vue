@@ -178,8 +178,8 @@ const workspaceNavGroups = computed(() => [
     label: t('navMy'),
     icon: 'mdi-account-circle-outline',
     items: [
-      { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents') },
-      { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos') },
+      { name: 'workbench-events', to: '/workbench/events', icon: 'mdi-calendar-blank-outline', label: t('workbenchMyEvents'), module: 'events' },
+      { name: 'workbench-todos', to: '/workbench/todos', icon: 'mdi-checkbox-marked-circle-outline', label: t('workbenchMyTodos'), module: 'todos' },
       { name: 'workbench-notifications', to: '/workbench/notifications', icon: 'mdi-bell-outline', label: t('workbenchNotifications') },
       { name: 'workbench-ai-trace', to: '/workbench/ai-trace', icon: 'mdi-robot-outline', label: t('aiTraceTitle') },
       { name: 'workbench-trust-sandbox', to: '/workbench/trust-sandbox', icon: 'mdi-flask-outline', label: t('trustSandboxTitle') },

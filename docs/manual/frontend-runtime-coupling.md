@@ -121,9 +121,9 @@
 | 5.1 信封 `code` 语义 | `api-response` | ✅ 切片一（单点解包） | ✅ 切片二（统一 `isSuccess`=2xx；五处判定收敛） | ✅ 切片三（`isSuccess`=2xx 由死契约启用；信封失败判定） |
 | 5.2 错误体 Nest 假设 | `error-body` | ✅ 切片一（去 `errors`，顶层字段） | ✅ 已核对对齐（顶层 `message`/`retryAfter`，本就正确） | ✅ 切片三（去 `errors` 字典——契约无该字段） |
 | 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ✅ 已核对对齐（HTTP 2xx + `data.accessToken/refreshToken`，本就正确） | ✅ 已核对对齐（信封 `data`=TokenPair，本就正确；单飞刷新已在） |
-| 5.4 实时事件手写 switch | SSE/WS 帧 schema（已冻结） | ⬜ 事件 model 隔离 + 兼容 `event:` 行 | ⬜ UI provider 内 switch 待抽 model | ⬜ 事件名硬编码待归一 |
-| 5.5 capabilities 消费 | `/app/capabilities` | ⬜ gating 已用、导航静态枚举 | ⬜ 导航零消费 | ⬜ 零消费 |
-| 5.6 provenance 消费 | `/app/provenance` | ⬜ | ⬜ | ⬜ |
+| 5.4 实时事件手写 switch | `sse-event`（已冻结） | ✅ 已核对对齐（7 发射名全符；`data` 内含 type，FE-1a「忽略 `event:` 行即断」被契约化解） | ✅ 已核对对齐（switch 名全符 schema） | ✅ 已核对对齐（事件名全符） |
+| 5.5 capabilities 消费 | `/app/capabilities` | ✅ 已按 capabilities 过滤导航（`module` id 与后端 MODULES_MANIFEST **全匹配**；补 `workbench-events/todos` 缺失标签） | 🔶 有 plumbing（`app_capabilities`+provider），explore 用 feature flag，主导航静态 | ⬜ 零消费 |
+| 5.6 provenance 消费 | `/app/provenance` | ⬜ 零消费 | ⬜ 零消费 | ⬜ 零消费 |
 
 ### 8.3 后续切片（按 §6 优先序）
 
@@ -136,9 +136,16 @@
   - `isSuccess`（2xx）此前为**死函数**（零引用）→ 启用为信封成功判定（`request`/`upload` 统一 `!isSuccess(body.code)`）；
   - **去契约外 `errors` 字典**（`ApiError.errors` + 两处 throw 传参；契约 `error-body` 无该字段，validator 错误 join 进 `message`）；
   - `build:h5` 绿。
-- **FE-1b-4**：SSE/WS 事件 model 隔离（抽共享事件类型，解析兼容 wire `event:` 行）
-- **FE-1b-5**：capabilities 驱动导航（三端模块清单/底部 Tab/Explore/模型列表）
-- **FE-1b-6**：provenance 消费（三端 runtime 来源指纹入口）
+- **FE-1b-4 ✅（2026-09-10，核对，无代码改动）**：事件 model 隔离 —— 见 §8.6。三端事件名/形状**均符合冻结 `sse-event` schema**（Web `StreamChatEvent` 7 名、Flutter provider switch、Taro WS 名）；FE-1a 的「Web 忽略 `event:` 行即断」被「`data` 内含 `type`」的契约化解；余下仅「抽类型化 model」的代码组织（非正确性，Code Economy 下不投机抽象）。
+- **FE-1b-5 🔶（2026-09-10，部分）**：capabilities 导航 —— Web **已按 capabilities 过滤**（`module` id 与后端全匹配）+ 补 `workbench-events/todos` 缺失标签；Flutter 有 plumbing 但主导航静态；Taro 零消费（⬜ 留待）。
+- **FE-1b-6**：provenance 消费（三端 runtime 来源指纹入口）⬜
+
+### 8.6 FE-1b-4 核对明细（事件，2026-09-10）
+
+- **结论：无真实缺陷**。冻结 `sse-event` schema 定义帧为 `event: <type>` + `data` 为**含 `type` 顶层**的 chunk（10 名，7 发射）。三端解析均以 `data.type` 为准——与契约一致。
+- **Web** `StreamChatEvent` union 名（text/tool_start/confirmation_request/confirmation_decision/tool_end/done/error）＝ schema 发射集 ✓；`handleBlock` 只解 `data:` 行（契约保证 type 在 data 内）。
+- **Flutter** provider switch 名全符；**Taro** WS 事件名全符。
+- **不改理由**（Code Economy §15.4）：抽「共享类型化 model」是组织优化，非正确性修复；wire 已冻结 → 无「切 Runtime 事件形状变」的现实风险 → 不做投机抽象。
 
 ### 8.5 FE-1b-3 明细（Taro，2026-09-10）
 
