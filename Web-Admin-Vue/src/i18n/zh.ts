@@ -581,6 +581,9 @@ const zh = {
   readOp: '读操作',
   toolDone: '已执行',
   toolFailed: '执行失败',
+  // §internal.6 四问（CRM 写操作：状态 / 能保证 / 不能保证）
+  copilotWriteDone: '已执行并落库 · 已登记 AI 副作用，可在治理详情查看/撤销（软删可恢复）',
+  copilotWriteFailed: '未执行 · 数据未变更 · 失败已如实上报（无静默成功）',
   expandTechDetail: '查看技术详情',
   collapseTechDetail: '收起技术详情',
 

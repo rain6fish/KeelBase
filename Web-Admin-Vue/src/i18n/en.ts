@@ -580,6 +580,9 @@ const en: ZhDict = {
   readOp: 'Read',
   toolDone: 'Executed',
   toolFailed: 'Failed',
+  // §internal.6 four questions (CRM write: state / guaranteed / not guaranteed)
+  copilotWriteDone: 'Executed and persisted · AI side effect logged; view/revoke in governance detail (soft-delete, restorable)',
+  copilotWriteFailed: 'Not executed · no data changed · failure reported truthfully (no silent success)',
   expandTechDetail: 'View technical details',
   collapseTechDetail: 'Collapse',
 

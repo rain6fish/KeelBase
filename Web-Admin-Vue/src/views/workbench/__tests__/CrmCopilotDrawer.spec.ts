@@ -154,4 +154,38 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
     // 无 confirmation_decision → 无 resultId → 仅刷新不钻取
     expect(wrapper.emitted('executed')).toBeUndefined()
   })
+
+  it('§internal.6 四问（写成功）：表达「已执行并落库 + 可撤销」（非裸「已执行」）', async () => {
+    const wrapper = mountDrawer()
+    const opts = await sendAndCapture(wrapper)
+
+    opts.onEvent({
+      type: 'tool_start',
+      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true },
+    })
+    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: '已创建' } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已执行并落库')
+    expect(wrapper.text()).toContain('可')
+  })
+
+  it('§internal.6 四问（写失败）：表达「未执行 · 数据未变更 · 如实上报」+ 原始错误', async () => {
+    const wrapper = mountDrawer()
+    const opts = await sendAndCapture(wrapper)
+
+    opts.onEvent({
+      type: 'tool_start',
+      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true },
+    })
+    opts.onEvent({
+      type: 'tool_end',
+      toolEnd: { name: 'create_followup_task', success: false, error: '权限不足' },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未执行')
+    expect(wrapper.text()).toContain('数据未变更')
+    expect(wrapper.text()).toContain('权限不足')
+  })
 })
