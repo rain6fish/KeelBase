@@ -33,7 +33,7 @@ npm run check:semantic-single-source --list                 # print source/contr
 ```
 
 - No usable base (first push / shallow clone) → skip, no false positives.
-- CI: `semantic-guard` job (**advisory**: `continue-on-error`, observe before tightening to a hard gate).
+- CI: `semantic-guard` job (**hard gate**: red without a same-batch contract change; pure refactors exempt via the `[no-semantic-change]` trailer). No usable diff base (first push/shallow) → the script skips itself.
 
 ## Related
 
