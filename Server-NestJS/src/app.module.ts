@@ -160,6 +160,15 @@ import { createTypeOrmLogger } from './common/tracing/typeorm-tracing.logger';
               'dist/migrations/*AddAuditChainLock*.js',
               'dist/migrations/*AddAiAuditUsername*.js',
               'dist/migrations/*AddAiGovernancePolicy*.js',
+              // 2026-09-10 生产漂移修复：以下 6 个迁移曾漏加入 postgres 运行时清单（typeorm-data-source 有、app.module 无）
+              // → 生产 migrationsRun 永不执行，ECS ai_tool_side_effects.revoke_class 缺失致 /ai/conversations/:id/trace 500。
+              // 与 src/config/typeorm-data-source.ts 的 postgres 清单保持一致。
+              'dist/migrations/*AddOperationAuditAuthorization*.js',
+              'dist/migrations/*AddAiAuditPayloadVersion*.js',
+              'dist/migrations/*AddAiToolSideEffectChain*.js',
+              'dist/migrations/*AddAiToolSideEffectResultTypeLength*.js',
+              'dist/migrations/*AddAiToolSideEffectRevokeColumns*.js',
+              'dist/migrations/*AddAiConfirmationRunColumns*.js',
             ],
             migrationsRun: !isDev && !useSync,
             extra: {
