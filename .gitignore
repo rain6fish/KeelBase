@@ -77,6 +77,11 @@ Server-NestJS/sbom.spdx.json
 Server-NestJS/docs/benchmark/evidence-verify-*
 Server-NestJS/docs/benchmark/protocol-conformance-*
 docs/benchmark/generated-module-*
+# 运行产物文件名含 UTC 时刻（如 T04-04-31 → 北京 12:04）会泄露工作时间 → 默认整目录不入库，
+# 仅保留人工留档报告（date-only，无时刻）
+Server-NestJS/docs/benchmark/*
+!Server-NestJS/docs/benchmark/protocol-trust-card-crm-2026-09-08.md
+!Server-NestJS/docs/benchmark/protocol-trust-card-crm-2026-09-10.md
 
 # SWC 编译器缓存（Taro 构建产物，不应入库）
 .swc/
