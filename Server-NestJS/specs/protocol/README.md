@@ -11,11 +11,15 @@ specs/protocol/
 ├── audit-hash-v1-vector.json        # §2 hash / legacy 派生 / 链校验 / 篡改反例
 ├── delegation-token-v1-vector.json  # §3 委托 token（相对时间构造 → 确定性、无时间戳）
 ├── risk-level-v1-vector.json        # §4 风险分级派生 + RISK_STRATEGY 表
-├── wire-schema-registry.json        # wire 对象 Schema v1 冻结清单（对象 → schema → 样例）
-└── schemas/v1/
-    ├── *.schema.json                # 每 wire 对象一份 JSON Schema（draft-07，self-contained/$id 互引用）
-    └── samples/*.json               # 每对象一份已提交代表样例
+├── wire-schema-registry.json        # wire 对象 Schema 冻结清单（对象 → schema($id) → 样例）
+├── schemas/v1/
+│   ├── *.schema.json                # v1 冻结形状（draft-07，$id 互引用）
+│   └── samples/*.json               # 每对象代表样例
+└── schemas/v2/                        # 语义升级后的新形状（先落 v2 再改码）
+    ├── *.schema.json                # $id 带 v2/ 前缀（与 v1 同名文件不冲突）
+    └── samples/*.json
 ```
+> v2 现存：`confirm-decision-body` / `confirmation-decision`（decision 词汇统一，CE-1 B3b）。v1 保留为冻结历史。
 
 ## 用法 / Usage（`cd Server-NestJS`）
 
