@@ -18,6 +18,7 @@ import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 
 const SPECS_DIR = resolve(__dirname, '../../specs/scenarios');
 const FAILURE_PATH_DOC = resolve(__dirname, '../../../docs/failure-path-corpus.spec.md');
+const GOLDEN_E2E = resolve(__dirname, '../../test/golden-application.e2e-spec.ts');
 
 interface ScenarioPack {
   vectorVersion: string;
@@ -82,6 +83,34 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
       expect([...new Set(packIds)].sort()).toEqual([...new Set(docIds)].sort());
     });
 
+    it('pack case 各字段 == doc 表格行（id/title/scenario/expected/status/layer 逐字段）', () => {
+      const rows = doc
+        .split(/\r?\n/)
+        .map((line) => /^\|\s*(FP-\d+)\s*\|(.*)$/.exec(line))
+        .filter((m): m is RegExpExecArray => !!m)
+        .map((m) => {
+          const cells = m[2].split('|').map((c) => c.trim());
+          return {
+            id: m[1],
+            title: cells[0],
+            scenario: cells[1],
+            expected: cells[2],
+            status: cells[3],
+            layer: cells[4],
+          };
+        });
+      const packCases = failurePack.cases.map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        scenario: c.scenario,
+        expected: c.expected,
+        status: c.status,
+        layer: c.layer,
+      }));
+      expect(rows.length).toBeGreaterThan(0);
+      expect(packCases).toEqual(rows);
+    });
+
     it('FP id 唯一且含 FP-1..FP-9', () => {
       const packIds = failurePack.cases.map((c: any) => c.id);
       expect(new Set(packIds).size).toBe(packIds.length);
@@ -94,18 +123,31 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
     });
   });
 
-  describe('golden-application-v1 · 结构 sanity（e2e 无机器源，为索引）', () => {
-    it('index 连续 1..8 且每步有唯一 key + title', () => {
-      const steps = goldenPack.steps;
-      expect(steps.length).toBe(8);
-      expect(steps.map((s: any) => s.index)).toEqual(steps.map((_: any, i: number) => i + 1));
-      for (const s of steps) {
-        expect(typeof s.key).toBe('string');
-        expect(s.key.length).toBeGreaterThan(0);
-        expect(typeof s.title).toBe('string');
-        expect(s.title.length).toBeGreaterThan(0);
-      }
-      const keys = steps.map((s: any) => s.key);
+  describe('golden-application-v1 · pack↔e2e 漂移门', () => {
+    // 真源 = test/golden-application.e2e-spec.ts 的 it('<①..⑧> <标题>') —— 解析为结构化步骤，与 pack 逐字比对
+    const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+    const e2eSteps = readFileSync(GOLDEN_E2E, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => /it\('([①②③④⑤⑥⑦⑧⑨])\s*([^']*)'/.exec(line))
+      .filter((m): m is RegExpExecArray => !!m)
+      .map((m) => ({ mark: m[1], title: m[2] }));
+
+    it('pack 步数 == e2e 步骤数（任一方增删步骤→红）', () => {
+      expect(e2eSteps.length).toBeGreaterThan(0);
+      expect(goldenPack.steps.length).toBe(e2eSteps.length);
+    });
+
+    it('每步 index 连续、序号标记对应、title 与 e2e it() 标题逐字一致', () => {
+      goldenPack.steps.forEach((s: any, i: number) => {
+        expect(s.index).toBe(i + 1);
+        expect(s.mark ?? CIRCLED[i]).toBe(e2eSteps[i].mark);
+        expect(s.title).toBe(e2eSteps[i].title);
+      });
+    });
+
+    it('每步 key 非空且唯一', () => {
+      const keys = goldenPack.steps.map((s: any) => s.key);
+      keys.forEach((k: string) => expect(typeof k === 'string' && k.length > 0).toBe(true));
       expect(new Set(keys).size).toBe(keys.length);
     });
   });
