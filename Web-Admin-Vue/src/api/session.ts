@@ -22,7 +22,7 @@ let refreshPromise: Promise<boolean> | null = null
  */
 export function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise
-  refreshPromise = (async () => {
+  const p = (async () => {
     try {
       const { refreshToken } = storage.readTokens()
       if (!refreshToken) return false
@@ -39,9 +39,14 @@ export function refreshAccessToken(): Promise<boolean> {
       return false
     } catch {
       return false
-    } finally {
-      refreshPromise = null
     }
   })()
-  return refreshPromise
+  // 复位必须挂在本函数内、赋值之后：若放进 IIFE 的 finally，同步完成路径（无 refreshToken / readTokens
+  // 同步抛错）会让 finally 先于赋值执行 → refreshPromise 永远停在已 settle 的 promise，后续刷新恒 false
+  // （直到刷新页面）。附在 p 之后的 finally 才保证复位晚于赋值。
+  refreshPromise = p
+  void p.finally(() => {
+    if (refreshPromise === p) refreshPromise = null
+  })
+  return p
 }

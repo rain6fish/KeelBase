@@ -103,4 +103,22 @@ void main() {
       );
     });
   });
+
+  group('isSuccess 边界（信封 code 统一为 2xx 语义）', () {
+    ApiResponse<int> withCode(int code) => ApiResponse<int>.fromJson(
+        {'code': code, 'message': 'm', 'data': 1, 'timestamp': 't'},
+        (d) => d as int);
+
+    test('2xx（200/201/204/299）→ true', () {
+      for (final c in [200, 201, 204, 299]) {
+        expect(withCode(c).isSuccess, isTrue, reason: 'code=$c 应视为成功');
+      }
+    });
+
+    test('非 2xx（0/199/300/400/1001）→ false', () {
+      for (final c in [0, 199, 300, 400, 1001]) {
+        expect(withCode(c).isSuccess, isFalse, reason: 'code=$c 不应视为成功');
+      }
+    });
+  });
 }

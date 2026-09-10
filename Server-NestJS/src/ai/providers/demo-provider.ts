@@ -25,6 +25,9 @@ import {
 import { ToolDefinition } from '../interfaces/tool.interface';
 import { DEMO_USER_INTENTS, type DemoIntentPattern } from './demo-intents';
 
+/** 意图正则预编译一次（DEMO_USER_INTENTS 的 pattern 仍为单一真源；避免每次 decideFromUser 循环重编译） */
+const DEMO_INTENT_MATCHERS: RegExp[] = DEMO_USER_INTENTS.map((i) => new RegExp(i.pattern, 'i'));
+
 interface ParsedToolResult {
   success?: boolean;
   error?: string;
@@ -106,8 +109,9 @@ export class DemoProvider implements LlmProvider {
 
     // 表驱动首轮意图（CE-1 B4-demo：DEMO_USER_INTENTS 单源 declare，保序 = 原 if 链语义；
     // pattern/文案/参数类别进 specs/protocol/demo-intent-v1.json，demo-intents.spec.ts 防漂移）
-    for (const intent of DEMO_USER_INTENTS) {
-      if (!new RegExp(intent.pattern, 'i').test(lower)) continue;
+    for (let k = 0; k < DEMO_USER_INTENTS.length; k++) {
+      if (!DEMO_INTENT_MATCHERS[k].test(lower)) continue;
+      const intent = DEMO_USER_INTENTS[k];
       return this.toolCall(intent.tool, this.buildUserIntentArgs(intent, msg, messages), intent.content);
     }
 
