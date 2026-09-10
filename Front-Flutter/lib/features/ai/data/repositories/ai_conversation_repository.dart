@@ -12,9 +12,9 @@ class AiConversationRepository {
 
   AiConversationRepository(this._client);
 
-  /// 后端统一响应以 HTTP 状态码作为业务 code，2xx 视为成功（与 EventsRepository 一致）。
+  /// 校验统一响应成功（契约见 ApiResponse.isSuccess：code=HTTP 状态码，2xx 成功）。
   void _requireSuccess(ApiResponse response) {
-    if (response.code < 200 || response.code >= 300) {
+    if (!response.isSuccess) {
       throw NetworkException(response.message);
     }
   }

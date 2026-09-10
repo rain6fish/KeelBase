@@ -12,19 +12,19 @@ class AuthRepository {
 
   AuthRepository(this._client);
 
-  /// 解析统一响应并校验业务 code；code != 0 或 data 为空时抛 [AuthException]。
+  /// 解析统一响应并校验；非 2xx 或 data 为空时抛 [AuthException]。
   T _unwrapData<T>(Map<String, dynamic> json, T Function(dynamic) fromData) {
     final response = ApiResponse<T>.fromJson(json, fromData);
-    if (response.code != 0 || response.data == null) {
+    if (!response.isSuccess || response.data == null) {
       throw AuthException(response.message);
     }
     return response.data!;
   }
 
-  /// 校验统一响应业务 code（无 data 的 void 接口用），失败抛 [AuthException]。
+  /// 校验统一响应（无 data 的 void 接口用），非 2xx 抛 [AuthException]。
   void _requireSuccess(Map<String, dynamic> json) {
     final response = ApiResponse<dynamic>.fromJson(json, (data) => data);
-    if (response.code != 0) {
+    if (!response.isSuccess) {
       throw AuthException(response.message);
     }
   }
@@ -187,7 +187,7 @@ class AuthRepository {
       json,
       (data) => data is Map<String, dynamic> ? Map<String, dynamic>.from(data) : null,
     );
-    if (response.code != 0 || response.data == null) {
+    if (!response.isSuccess || response.data == null) {
       throw AuthException(response.message);
     }
     return response.data!;
