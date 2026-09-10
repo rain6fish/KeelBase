@@ -33,7 +33,7 @@ npm run check:semantic-single-source --list                 # 打印语义源/�
 ```
 
 - 无可用 base（首推 / shallow clone）→ 跳过，不误伤。
-- CI：`semantic-guard` job（**advisory**：`continue-on-error`，先观察再收紧为硬门禁）。
+- CI：`semantic-guard` job（**硬门禁**：无契约变更即红；纯重构加 trailer `[no-semantic-change]` 豁免）。无可用 diff base（首推/shallow）→ 脚本自行跳过。
 
 ## 与 CE-1 其他件的关系 / Related
 
