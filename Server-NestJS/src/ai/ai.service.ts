@@ -1333,7 +1333,8 @@ export class AiService {
         const aggregable = cands.filter((c) => c.summary !== null);
         if (aggregable.length >= 2) {
           // runRisk = 批内最高风险级（R3 run 成员通常恒 R3，max 保持通用）
-          const RISK_ORDER = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+          // 键序取自权威表（R0→R5 升序声明）——本地硬编码副本会在新增/改名风险级时静默漂移，使 runRisk 取错
+          const RISK_ORDER = Object.keys(RISK_STRATEGY);
           const runRisk = aggregable.reduce(
             (max, c) =>
               RISK_ORDER.indexOf(c.risk) > RISK_ORDER.indexOf(max)
