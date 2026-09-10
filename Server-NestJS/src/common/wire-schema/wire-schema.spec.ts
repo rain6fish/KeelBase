@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * CE-1 wire Schema v1 冻结校验（specs/protocol/wire-schema-registry.json）。
+ * CE-1 wire Schema 冻结校验（specs/protocol/wire-schema-registry.json）。
  *
  * 把 wire 形状锁成常绿门禁（语义变更必须先落语料/Schema 版本再改实现，CE-1 L3 / C-1）：
- *   1. registry 每个对象 schema 存在且为合法 JSON Schema（ajv addSchema 即校验 meta）＋版本 v1；
+ *   1. registry 每个对象 schema 存在且可被 ajv 解析（跨版本按 $id 索引）＋版本 ∈ {v1,v2}；
  *   2. 每份代表样例通过其对象 schema（跨文件 $id 引用已全局注册）；
- *   3. 对象清单冻结（增删 wire 对象必须同步本测试——新增形状先升 v2 再改代码）。
+ *   3. 对象清单冻结（增删 wire 对象必须同步本测试——形状变更先升 v2 再改代码）。
  *
  * schema 为人工策展快照（非自动派生）；来源锚见各 schema description 与 registry.source。
  * 仅依赖 ajv / ajv-formats（package-lock 内既有传递依赖，版本锁定）。
@@ -22,7 +22,7 @@ const registry = JSON.parse(readFileSync(resolve(SPECS, 'wire-schema-registry.js
   objects: Array<{ id: string; version: string; schema: string; samples: string[] }>;
 };
 
-/** v1 冻结对象清单（Registry 顺序无关）——增删 wire 对象必须同步此处。 */
+/** 对象清单冻结（Registry 顺序无关）——增删 wire 对象必须同步此处。 */
 const FROZEN_OBJECT_IDS = [
   'tool-definition',
   'ai-tool-inventory',
@@ -55,36 +55,41 @@ const check = (cond: boolean, label: string) => {
   if (!cond) failures.push(label);
 };
 
-describe('CE-1 wire Schema v1 冻结（specs/protocol/schemas + registry）', () => {
-  const dir = resolve(SPECS, registry.schemasDir);
+describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2 + registry）', () => {
+  // 递归扫描 schemas/ 下所有版本目录（v1/v2/...），以各 schema 的 $id 为键（版本间同名文件不冲突）。
+  const root = resolve(SPECS, registry.schemasDir);
   const schemas = new Map<string, object>();
-  for (const f of readdirSync(dir)) {
-    if (f.endsWith('.schema.json')) {
-      schemas.set(f, JSON.parse(readFileSync(resolve(dir, f), 'utf8')) as object);
+  for (const f of readdirSync(root, { recursive: true }) as string[]) {
+    if (!f.endsWith('.schema.json')) continue;
+    const schema = JSON.parse(readFileSync(resolve(root, f), 'utf8')) as { $id?: string };
+    if (!schema.$id) {
+      failures.push(`schema 缺 $id: ${f}`);
+      continue;
     }
+    schemas.set(schema.$id, schema);
   }
 
   // validateSchema:false —— 不加载/套用 draft-07 meta 校验 schema 本体（schema 自述 $schema 仅供文档；
   // 结构非法仍会在 validate 时对样例失败暴露）。样例语义校验不受影响。
   const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
   addFormats(ajv);
-  // 注册全部 schema（含 support，供 $ref）
-  for (const [name, schema] of schemas) {
+  // 注册全部 schema（含 support，供 $ref）——以 $id 为键
+  for (const [id, schema] of schemas) {
     try {
-      ajv.addSchema(schema, name);
+      ajv.addSchema(schema, id);
     } catch (e) {
-      failures.push(`schema 非法: ${name} — ${String(e)}`);
+      failures.push(`schema 非法: ${id} — ${String(e)}`);
     }
   }
 
-  it('registry：对象清单冻结（v1，增删必须同步本测试）', () => {
+  it('registry：对象清单冻结（增删必须同步本测试）', () => {
     const ids = registry.objects.map((o) => o.id).sort();
     check(JSON.stringify(ids) === JSON.stringify([...FROZEN_OBJECT_IDS].sort()), `对象清单漂移: ${ids.join(',')}`);
   });
 
-  it('registry：每对象 version=v1、schema 存在、样例非空且在盘', () => {
+  it('registry：每对象 version ∈ {v1,v2}、schema($id) 存在、样例非空且在盘', () => {
     for (const o of registry.objects) {
-      check(o.version === 'v1', `${o.id}: version≠v1`);
+      check(o.version === 'v1' || o.version === 'v2', `${o.id}: version 非法（${o.version}）`);
       check(schemas.has(o.schema), `${o.id}: schema ${o.schema} 缺失`);
       check(Array.isArray(o.samples) && o.samples.length > 0, `${o.id}: 样例为空`);
       for (const rel of o.samples) {
