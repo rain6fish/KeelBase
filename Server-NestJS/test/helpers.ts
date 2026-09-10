@@ -13,6 +13,7 @@ import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AuthModule } from '../src/auth/auth.module';
+import { POSTGRES_MIGRATION_GLOBS } from '../src/config/postgres-migrations';
 import { UsersModule } from '../src/users/users.module';
 import { HealthModule } from '../src/health/health.module';
 import { EventsModule } from '../src/events/events.module';
@@ -81,10 +82,10 @@ import request from 'supertest';
             autoLoadEntities: true,
             synchronize: isDev,
             logging: ['error', 'warn'],
-            migrations: [
-              'dist/migrations/*PostgresInitialSchema*.js',
-              'dist/migrations/*AddKnowledgeEmbeddings*.js',
-            ],
+            // 单一权威清单（src/config/postgres-migrations.ts）——勿在此复制第二份列表
+            migrations: POSTGRES_MIGRATION_GLOBS.map(
+              (g) => `dist/migrations/${g}.js`,
+            ),
             migrationsRun: false,
             host: configService.get<string>('DB_HOST', 'localhost'),
             port: configService.get<number>('DB_PORT', 5432),
