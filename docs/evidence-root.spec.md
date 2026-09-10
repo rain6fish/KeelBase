@@ -167,3 +167,62 @@ internal-roadmap §internal.17 ①（本规格即其设计先行）｜P-③ Poli
 - **`effect.revoked` 未投影（§3 schema 有）**：副作用实体无 revoked 列，撤销态由目标软删推导；v3 证据根聚焦「链完整性 + 副作用行快照」，撤销态显式表达由 B4 治理视图 / AI Action Center（`/ai/my/tool-effects`）承担，本包不重复。若后续需证据根内显式撤销态，加跨 service target 查询（backlog）。
 - **§5.4 副作用锚列集未按 10 列实现**：实现锚用投影 `{id,toolName,before,after}`（canonical 摘要自洽 + 整包 HMAC 兜底防篡改）；spec 的 10 列集（含 argsHash/snapshot 等）是冗余增强——argsHash/快照内容已隐含于 before/after 摘要，不重复入锚。
 - **v1.0.6 补充实现（对齐本 spec）**：导出加 `summary`（复用 summarizeAudit，trigger 存在时业务摘要）+ `replay`（装配点调 `GovernancePolicyService.replayDecision`——授权快照 policy.revision + effect.toolName → 决策可复现重放，衔接 §9 Related 的 P-③）；canonical 动态含非空段，向后兼容已导出的无新段 v3 包。
+
+---
+
+## 11. SM2 国密签名 + 可信时间锚（规格先行）/ 11. SM2 (GM) Signature + Trusted Timestamp Anchor（spec-first）
+
+> **归属**：internal-roadmap §internal.17 **②**（支撑件·合规弹药）：技术防篡改 → 法律级可举证；难以复制中、叠加中、演示弱、**信创高**（等保/密评直接弹药）。
+> **窗口**：本小节为「规格先行」——**现在只把算法与时间戳格式写进本规格定死，防未来返工**；**不实现**（实现触发 = 合规卡② / 密评客户问询 / 首个等保现场）。与 §3 现签名（HMAC-SHA256，对称，仅应用内可验）互补：SM2 是非对称，**第三方持公钥即可离线独立验签**。
+
+### 11.1 目标 / Goal
+- `verify-evidence.mjs` 除现有 HMAC 分支外，增加**国密 SM2 验签**与**可信时间锚**校验；导出侧证据包可携带 SM2 签名与时间锚。
+- 「技术防篡改（现 HMAC + 哈希链）」→「**法律级可举证**」：第三方在无共享密钥前提下可验证「此证据包自某时点起未被改动」。
+
+### 11.2 SM2 签名 / SM2 signature（锁定算法与格式）
+
+落在 §3 顶层 `signature` 的对象形态（现为字符串 HMAC；未来签名段升级为对象，HMAC 保留于 `signature.hmac`）：
+
+```jsonc
+"signature": {
+  "hmac": "<HMAC-SHA256(key, canonical)>",            // 既有，保留（应用内对称验）
+  "sm2": {                                             // 新增（对外非对称验；实现触发后填充）
+    "alg": "SM2-with-SM3",                             // 固定：SM3 摘要 + SM2 签名（GB/T 32918.2-2016 / GM/T 0003.2-2012）
+    "encoding": "raw",                                 // "raw"（r||s，各 32 字节 → 128 hex，默认）| "der"
+    "userId": "1234567812345678",                      // SM2 区分标识 Z 的默认值（国标默认；可配置）
+    "publicKey": "<04||x||y 非压缩点 hex>",            // 验签公钥（uncompressed；compressed 亦可）
+    "keyId": "<可选，KMS/证书指纹>",                    // 便于轮换与追溯
+    "certChain": ["<可选，PEM/Base64 X.509>"],          // 有企业 CA 时附链
+    "value": "<SM2 签名值 hex>"                          // 对 canonical 的签名（见下）
+  }
+}
+```
+
+- **签名对象（canonical）**：与 §3 现 HMAC canonical **完全一致**——`canonicalJSON(整包)` 且**剔除 `signature` 段自身**（防自签自引用）；即 `sm2.value = SM2_Sign(privKey, SM3(canonicalJSON(pkg \ {signature})))`。canonical 复用既有 `canonicalJSON`（顶层键排序 / undefined 剔除 / null 保留），**不新引入**。
+- **摘要算法固定 SM3**（非 SHA-256）：`alg` 固定为 `SM2-with-SM3`，避免实现歧义/返工。
+- **验签落点**：`verify-evidence.mjs` 加 `--sm2-pubkey <pem|hex>` 分支（structure 分支不做 SM2 校验；无 `--sm2-pubkey` 时仅校验 `signature.sm2` 结构合规）。Node 无内置 SM2 → 验签用独立实现（如 `sm-crypto`）或委托外部（`gmssl`/国密网关）；**保持 verify 脚本无第三方依赖**：默认仅结构校验 + 打印可复制的验签命令，`--sm2-pubkey` 时若依赖不可用则明确报「需国密库」而非静默 PASS。
+- **密钥管理**：私钥不落代码库；建议 KMS/HSM 或环境注入，`keyId` 记录指纹；轮换时旧包仍可凭其 `publicKey`/`certChain` 验证。
+
+### 11.3 可信时间锚 / Trusted timestamp anchor
+
+- **包内时间 vs 时间锚**：包内 `exportedAt` 是**声明时间**（可伪造）；时间锚是**第三方可验的时间证明**。
+- **时间戳格式**：`timestamp` 一律 **RFC3339 / ISO-8601 UTC**（`2026-09-25T12:00:00.000Z`）——与 §3 `exportedAt` 一致，不引入新格式。
+- **定期根锚发布**（可选能力，实现触发后）：`anchor` 记录 = `{ period: "daily", date: "<YYYY-MM-DD>", rootDigest: "<64hex>", sm2: {…对 rootDigest 的 SM2 签名…}, tsa: { tokenUrl?: "<RFC3161 TSA>", token?: "<TimeStampToken base64>" } }`；rootDigest 取自当日每个证据包的 `root.digest`（§5）集合聚合。
+- **RFC3161 可选**：有合规 TSA 时附 `tsa.token`；无则退化为「自签时间锚 + 对外发布根锚摘要」（弱一档，仍可证「不早于某发布时间」）。
+
+### 11.4 与现 §3 的关系 / Relationship
+- **向后兼容**：`signature` 由字符串升级为对象时，`verify-evidence.mjs` 对旧「字符串签名」/ `/1` `/2` `/3` 包保持可验（认字符串=HMAC）。
+- **双签策略**：默认 **HMAC（应用内快验）+ SM2（对外独立验）并存**；不强制单签名替换。
+- **canonical 不因 SM2 改变**：签名对象仍是 `pkg \ {signature}` 的 canonicalJSON，SM2 只是对同一 canonical 的非对称签名（换算法不换对象）。
+
+### 11.5 非目标 / Non-goals
+- 现在**不实现**（无密钥生成/签名/验签代码、无 TSA 接入、无 UI）；本小节仅**冻结算法与格式**。
+- 不承诺「不可篡改」措辞（对齐不承诺清单 N-x：应用边界内 tamper-evident）；SM2/时间锚提升的是**第三方可验性**，非「物理不可改」。
+
+### 11.6 验收（实现触发后）/ Acceptance（when implemented）
+- 单元：`signature.sm2` 结构校验；`--sm2-pubkey` 正/负样例（改一字节 canonical → 验签 FAIL）。
+- 离线：`verify-evidence.mjs --sm2-pubkey <pub>` 对导出包 PASS；篡改锚/digest → FAIL；无 `--sm2-pubkey` 时仅结构校验且明确标注「未验签」。
+- 时间锚：`anchor.rootDigest` 与当日包 `root.digest` 聚合一致；RFC3161 token（若配）可独立验。
+
+### 11.7 关联 / Related
+internal-roadmap §internal.17 ②（本小节即其设计先行）｜§9 Related ①（证据根 v3=SM2 签名对象载体）｜§5 离线验证语义（SM2 分支挂靠 `--key`/structure 分层）｜docs/manual/compliance-mapping.md（等保/密评映射）｜不承诺清单（N-x 防篡改措辞边界）
