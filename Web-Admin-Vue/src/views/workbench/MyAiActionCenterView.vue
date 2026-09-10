@@ -269,6 +269,8 @@ async function onRevokeConversation() {
     const r = await aiTraceApi.revokeConversationEffects(conv.id)
     if (r.total === 0) snackbar.success(t('aiCenterConvRevokeEmpty'))
     else snackbar.success(t('aiCenterConvRevokeDone', { revoked: r.revoked, skipped: r.skipped, failed: r.failed }))
+    // 服务端单次上限截断（truncated）：如实告知未处理完，避免用户误以为整会话已撤净
+    if (r.truncated) snackbar.warning(t('aiCenterConvRevokeTruncated', { total: r.total }))
     await loadEffects()
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('aiCenterConvRevokeEmpty'))

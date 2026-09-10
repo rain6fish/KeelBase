@@ -6,12 +6,14 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock } = vi.hoisted(() => ({
+const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock, snackSuccessMock, snackWarningMock } = vi.hoisted(() => ({
   myEffectsMock: vi.fn(),
   conversationsMock: vi.fn(),
   revokeMock: vi.fn(),
   revokeConvMock: vi.fn(),
   pushMock: vi.fn(),
+  snackSuccessMock: vi.fn(),
+  snackWarningMock: vi.fn(),
 }))
 
 vi.mock('@/api/aiTrace', () => ({
@@ -23,7 +25,7 @@ vi.mock('@/api/aiTrace', () => ({
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
-  useSnackbarStore: () => ({ success: vi.fn(), error: vi.fn() }),
+  useSnackbarStore: () => ({ success: snackSuccessMock, error: vi.fn(), warning: snackWarningMock }),
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
@@ -208,5 +210,38 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
 
     const revokeConvBtns = wrapper.findAll('button').filter((b) => b.text().includes('撤销本会话写操作'))
     expect(revokeConvBtns).toHaveLength(1)
+  })
+
+  it('G1: 会话批量撤销被服务端截断（truncated）→ 提示续处理，不谎报已撤净', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([
+      { id: 'conv-big', messages: [{ role: 'user', content: '批量撤销' }], lastActivityAt: '2026-09-01T00:00:00Z' },
+    ])
+    revokeConvMock.mockResolvedValue({
+      conversationId: 'conv-big',
+      total: 500,
+      revoked: 500,
+      skipped: 0,
+      failed: 0,
+      results: [],
+      truncated: true,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const btn = wrapper.findAll('button').find((b) => b.text().includes('撤销本会话写操作'))
+    expect(btn).toBeDefined()
+    await btn!.trigger('click')
+    await flushPromises()
+
+    // 页面有两个 ConfirmDialog（单条撤销 / 会话批量撤销）——取第二个（批量）
+    const dialogs = wrapper.findAllComponents({ name: 'ConfirmDialog' })
+    expect(dialogs.length).toBeGreaterThanOrEqual(2)
+    dialogs[1].vm.$emit('confirm')
+    await flushPromises()
+
+    expect(revokeConvMock).toHaveBeenCalledWith('conv-big')
+    expect(snackWarningMock).toHaveBeenCalled()
   })
 })
