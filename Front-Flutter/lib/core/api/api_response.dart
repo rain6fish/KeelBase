@@ -28,8 +28,12 @@ class ApiResponse<T> {
     );
   }
 
-  /// True when the server reported a successful envelope (code == 200).
-  bool get isSuccess => code == 200;
+  /// True when the server reported a successful envelope.
+  ///
+  /// 契约（CE-1 wire v1 `api-response`）：信封 `code` = HTTP 状态码
+  /// （后端 ResponseInterceptor 设 `code: httpStatus`），故成功 = 2xx
+  /// （200 查询 / 201 创建 / 204 无体）。
+  bool get isSuccess => code >= 200 && code < 300;
 
   /// Returns the non-null payload, throwing a descriptive [StateError] when the
   /// envelope carried no `data` (e.g. the caller expected a payload but none

@@ -483,7 +483,7 @@ class AiChatProvider extends ChangeNotifier {
     try {
       final json = await _apiClient.post('/ai/chat', data: body);
       final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
-      if (response.code < 200 || response.code >= 300) {
+      if (!response.isSuccess) {
         throw NetworkException(response.message);
       }
       if (gen != _streamGeneration) return; // 已被 clear/load 取消
@@ -582,7 +582,7 @@ class AiChatProvider extends ChangeNotifier {
     try {
       final json = await _apiClient.get('/ai/conversations/$id');
       final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
-      if (response.code < 200 || response.code >= 300) {
+      if (!response.isSuccess) {
         throw NetworkException(response.message);
       }
       final data = response.data;

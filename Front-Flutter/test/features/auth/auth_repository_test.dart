@@ -18,7 +18,8 @@ void main() {
   });
 
   Map<String, dynamic> okEnvelope([Map<String, dynamic>? data]) => {
-        'code': 0,
+        // 契约：信封 code = HTTP 状态码（成功 = 2xx）
+        'code': 200,
         'message': 'ok',
         'data': data,
         'timestamp': '2026-08-22T00:00:00Z',
@@ -31,7 +32,7 @@ void main() {
       });
 
   Map<String, dynamic> errEnvelope() => {
-        'code': 1001,
+        'code': 401,
         'message': '用户名或密码错误',
         'data': null,
         'timestamp': '2026-08-22T00:00:00Z',
@@ -55,7 +56,7 @@ void main() {
       expect(data['deviceName'], isNotEmpty);
     });
 
-    test('业务 code 非 0 抛 AuthException', () async {
+    test('非 2xx 信封抛 AuthException', () async {
       when(() => api.post('/auth/login', data: any(named: 'data')))
           .thenAnswer((_) async => errEnvelope());
 
