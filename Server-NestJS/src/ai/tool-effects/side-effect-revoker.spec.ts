@@ -99,6 +99,52 @@ describe('resolveLocalEntity（#4 元数据兜底）', () => {
     expect(resolveLocalEntity(emT(), 'CustomerProfile')).toEqual({ name: 'CustomerEntity', displayCol: 'subject' });
   });
 
+  // 多字（snake_case）模块名：resultType=followup_plan 保留下划线，实体类名 FollowupPlan 吞掉下划线、表名复数，
+  // 精确比对三者都不相等——必须靠「去下划线」归一兜住，否则生成模块撤销失败（落外部分支 revoke_failed）
+  it('多字模块名：type=followup_plan 命中 FollowupPlan（精确比对不漏）', () => {
+    const meta = {
+      name: 'FollowupPlan',
+      targetName: 'FollowupPlan',
+      tableName: 'followup_plans',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    };
+    const emT = () => ({ connection: { entityMetadatas: [meta] } }) as any;
+    expect(resolveLocalEntity(emT(), 'followup_plan')).toEqual({ name: 'FollowupPlan', displayCol: 'title' });
+  });
+
+  it('归一同名歧义（FooBar 与 Foobar）→ 多命中不猜，fail-closed 返回 null（绝不误删别的记录）', () => {
+    const mk = (name: string, table: string) => ({
+      name,
+      targetName: name,
+      tableName: table,
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    });
+    const emT = () =>
+      ({ connection: { entityMetadatas: [mk('FooBar', 'foo_bars'), mk('Foobar', 'foobars')] } }) as any;
+    expect(resolveLocalEntity(emT(), 'foo_bar')).toBeNull();
+  });
+
+  it('精确命中优先于归一命中（不让归一改写既有解析）', () => {
+    const normalizedOnly = {
+      name: 'FollowupPlan',
+      targetName: 'FollowupPlan',
+      tableName: 'followup_plans',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'name' }],
+    };
+    const exact = {
+      name: 'FollowupPlanDraft',
+      targetName: 'FollowupPlanDraft',
+      tableName: 'followup_plan',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    };
+    const emT = () => ({ connection: { entityMetadatas: [normalizedOnly, exact] } }) as any;
+    expect(resolveLocalEntity(emT(), 'followup_plan')).toEqual({ name: 'FollowupPlanDraft', displayCol: 'title' });
+  });
+
   it('前序元数据不命中 → continue 继续扫描，命中后续带软删列的元数据', () => {
     const noMatch = {
       name: 'Invoice',
@@ -154,6 +200,25 @@ describe('LocalEntityRevoker（#4 生成模块撤销）', () => {
     expect(revoker.canHandle('invoice')).toBe(true);
     expect(revoker.canHandle('proxy_call')).toBe(false);
     expect(revoker.canHandle('unknown_type')).toBe(false);
+  });
+
+  it('canHandle 多字模块名（followup_plan）→ true，且 revoke 软删该行', async () => {
+    const meta = {
+      name: 'FollowupPlan',
+      targetName: 'FollowupPlan',
+      tableName: 'followup_plans',
+      deleteDateColumn: { propertyName: 'deletedAt' },
+      columns: [{ propertyName: 'title' }],
+    };
+    const repo = {
+      findOne: jest.fn().mockResolvedValue({ id: 5, title: '跟进 Acme 客户' }),
+      softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const { revoker, em } = makeRevokerWith(meta, repo);
+    expect(revoker.canHandle('followup_plan')).toBe(true);
+    expect(await revoker.revoke('followup_plan', 5, '1')).toEqual({ revoked: true });
+    expect(em.getRepository).toHaveBeenCalledWith('FollowupPlan');
+    expect(repo.softDelete).toHaveBeenCalledWith(5);
   });
 
   it('revoke(invoice, id) 软删该行（不是 todo）', async () => {

@@ -234,6 +234,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       # 单一来源：与本地同跑 cli:test（新增生成器/导入测试挂 package.json 即可，不在 CI 硬编码）
       - run: npm run cli:test
+      # Business Spec 门禁：.keelbase/business-spec/*.json 必须可映射且无告警（unmapped 是合法范围边界，不算失败）
+      - run: npm run spec:check
       # Provenance：仓库自带 manifest，inspect 应识别为 KeelBase 应用并退出 0
       - run: node scripts/keelbase-init.mjs inspect
       # Provenance：doctor 四查（完整性/一致性/运行时/版本）应 PASS 退出 0

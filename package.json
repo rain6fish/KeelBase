@@ -31,6 +31,7 @@
   },
   "scripts": {
     "cli:test": "node --test scripts/keelbase-init.test.mjs scripts/business-spec.test.mjs",
+    "spec:check": "node scripts/check-business-specs.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs"
   },
   "devDependencies": {
