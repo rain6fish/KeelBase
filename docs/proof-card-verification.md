@@ -11,12 +11,12 @@
 | 项 | 值 |
 |---|---|
 | 验证什么 | 一条 spec（如 `specs/leads.json` / `specs/invoices.json`）→ keelbase-init 生成普通源码 → 编译运行 → **生成物自带的 AI 工具自动进入治理**（写需确认/只读自动）→ 确认/拒绝 → 证据根离线可验 + 篡改即断 → 撤销软删 → 重跑幂等 |
-| 你要做什么 | clone → `npm ci` → 跑 1~2 条命令 → 把记分卡贴回 GitHub Issue |
-| 时长 | npm ci 数分钟；单卡 ~60s；CRM 参考卡 ~4-6 分钟 |
+| 你要做什么 | clone → `npm ci` → 跑 1 条命令 → 把记分卡贴回 GitHub Issue |
+| 时长 | `npm ci` 数分钟；**干净 clone 首次跑卡 ≈10-12 分钟（绝大部分是后端 `npm run build`，不是卡逻辑）**；已有 `dist` 时增量重跑才 ~1-2 分钟 |
 | 需要 LLM key 吗 | **不需要**（确定性 demo provider，无外部依赖） |
 | 需要数据库吗 | 不需要（SQLite 自动；后端自起隔离端口，不动你机器上已有的 3000） |
 | OS | macOS / Ubuntu 22.04+ / Windows 10+（Git Bash） |
-| 前置 | Node.js ≥ 20 + npm + git |
+| 前置 | Node.js ≥ 20 + npm + git；脚本另需 `openssl` `sha256sum` `curl` `mktemp`（Windows Git Bash 另需 `cygpath`、停服走 `taskkill`）——这些通常随 Git Bash 自带 |
 
 ## 1. 你是谁（陌生开发者判定，规格 §3）
 
@@ -41,26 +41,33 @@ npm ci                 # 装依赖（数分钟）
 
 > **当前基线**：请在**最新 release tag** 上运行（card 会自行记录实际 baseline）。若你 clone 的是 master，记分卡会带上 master 的 commit hash——同样有效，只要如实。
 
-## 3. 跑卡（二选一或都跑）
+> **⚠️ 跑卡会改写工作树**：这不是只读操作。生成器会**新增生成模块文件**并**改写一批已跟踪的接线文件**（`.keelbase/manifest.json`，以及后端/Flutter/Taro/Vue 的接线文件——实测约十余个，随模块而定）。请在**一次性 clone** 里跑、跑完丢弃，别在你正在开发的分支上跑。
 
-### 3a. 生成模块卡（invoices，~60s）
+## 3. 跑卡（任选一条即可）
+
+> **两条卡请各用一个全新 clone**（同一 clone 里连跑会让第二条继承第一条的生成物；虽然 R10 幂等已修，仍建议 clone 隔离以保证干净）。
+
+### 3a. 生成模块卡（invoices）
 
 ```bash
 cd Server-NestJS
 EXECUTOR=<your-github-id> npm run verify:protocol-trust
 ```
 
-### 3b. CRM Reference 卡（leads 生成轨 + AI CRM 旗舰轨，~4-6 min，推荐）
+### 3b. CRM Reference 卡（leads 生成轨 + AI CRM 旗舰轨，推荐）
 
 ```bash
 cd Server-NestJS
 EXECUTOR=<your-github-id> npm run verify:protocol-trust:crm
 ```
 
-> 若提示端口被占用：`BENCH_PORT=3429 EXECUTOR=<id> npm run ...`。Windows 请用 Git Bash。
-> 跑完记分卡在 `Server-NestJS/docs/benchmark/protocol-trust-card-<UTC时间>.md`（CRM 卡另有汇总 `protocol-trust-card-crm-2026-09-08.md`）。
+> **端口**：`verify:protocol-trust` 默认占 **3399**（`BENCH_PORT` 可改）；`verify:protocol-trust:crm` 用 **3419**（内部生成轨用其 -20 即 3379）。若这些端口被占，脚本**不会**主动报错——可能静默连到外来 server 得到错误结果。跑前请确认端口空闲，或显式 `BENCH_PORT=<空端口>`。
+> **Windows 请用 Git Bash**（脚本用 `cygpath`/`taskkill`）。
+> 跑完记分卡在 `Server-NestJS/docs/benchmark/protocol-trust-card-<UTC时间>.md`（**真 UTC**）。CRM 卡另产独立的生成轨卡；committed 的 `protocol-trust-card-crm-2026-09-08.md` 是作者写的汇总说明，不是每次跑自动更新。
 
 ## 4. 怎么读懂结果
+
+> 规格定义的十行是 **R1-R10**；记分卡实际显示约 **20 行**——因为把关键行拆了子断言（如 R6b/R6c 写确认/读自动、R7b/R7c 副作用/轨迹、R8b 篡改检测、R9b 撤销生效）。看红行即可，不必逐行对号。
 
 - **PASS**：R1-R10 无红行，且 R2 = green（`github=<你的id>`）。
 - **R2 = yellow**：你没有填 `EXECUTOR`，或自我判定不满足 S-1..S-4 → 结果仍有效但记为「内部预跑」，不是外部 PASS。
