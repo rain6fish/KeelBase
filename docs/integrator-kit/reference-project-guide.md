@@ -58,7 +58,7 @@ node scripts/keelbase-capability.mjs --list   # 预览将生成的工具
 
 ### 5. 接入 AI 助手 / Connect the AI Assistant
 
-- 用 AI CRM Copilot 面板模式（[flagship-applications.md](../../flagship-applications.md)）：
+- 用 AI CRM Copilot 面板模式（[flagship-applications.md](../flagship-applications.md)）：
   预置问题（「哪些客户值得跟进？」）+ 多轮对话 + 本人数据作用域
 - AI 能调用外部工具：读客户 → 分析风险 → 建议 → 确认 → 写回
 - 产物：业务 AI 助手可用

@@ -35,5 +35,5 @@ docker run -p 80:80 keelbase/keelbase:0.9.0   # single-container full stack (ava
 
 ### Docs & Security / 文档与安全
 
-- [README](https://github.com/rain6fish/KeelBase) · [CHANGELOG](CHANGELOG.md) · [SECURITY.md](SECURITY.md)（漏洞披露流程 + SBOM 生成方式 / vulnerability disclosure + SBOM generation）
+- [README](https://github.com/rain6fish/KeelBase) · [CHANGELOG](../CHANGELOG.md) · [SECURITY.md](../SECURITY.md)（漏洞披露流程 + SBOM 生成方式 / vulnerability disclosure + SBOM generation）
 - Full roadmap is maintained in a private space (strategic/security details are not public) / 完整路线图维护于私有空间（战略/安全细节不公开）
