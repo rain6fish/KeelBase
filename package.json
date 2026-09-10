@@ -30,7 +30,7 @@
     "url": "https://github.com/rain6fish/KeelBase.git"
   },
   "scripts": {
-    "cli:test": "node --test scripts/keelbase-init.test.mjs",
+    "cli:test": "node --test scripts/keelbase-init.test.mjs scripts/business-spec.test.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs"
   },
   "devDependencies": {

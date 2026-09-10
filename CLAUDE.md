@@ -914,6 +914,20 @@ npm run migration:run
 // 5. 在 controller 中添加 @CurrentUser() 参数做所有权校验
 ```
 
+### 从业务需求到模块（Consulting → Build）
+
+业务方只给一句诉求、还没到工程规格时，走这条链（编排 skill：`consulting-to-build`）：
+
+```bash
+# 1. 访谈（skill: keelbase-discovery）→ 产出 .keelbase/business-spec/<feature>.json
+# 2. 确定性映射（协议表达不了的会进 unmapped 手写清单）
+node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<feature>.json --out specs/<module>.json
+# 3. 生成（同常规路径）
+node scripts/keelbase-init.mjs --spec specs/<module>.json
+```
+
+见 [docs/business-spec.md](docs/business-spec.md)。Business Spec 是构建期上游模型，不进 CE-1 wire Schema。
+
 ### AI 导航注册
 
 新增功能页面时（无论是底部 Tab、顶层路由还是「更多」菜单），**必须同步注册到 AI 导航工具**，确保用户可以通过 AI 对话跳转到新页面：
@@ -980,6 +994,8 @@ docs/
 ├── oauth-config.md            # OAuth 第三方登录配置文档
 ├── architecture-boundary.md   # 架构边界：Core 与 UI 无关 + Renderer 契约 + 前端战略
 ├── protocol-models.md         # Application/Runtime/Trust 三模型协议
+├── module-protocol.md         # 业务模块协议（构建期，keelbase init --spec 的输入）
+├── business-spec.md           # 业务规格 → 模块协议（Consulting → Build 中间层）
 └── ...                        # 后续功能文档
 ```
 
