@@ -39,6 +39,7 @@ npm run check:semantic-single-source --list                 # 打印语义源/�
 
 - B1 向量语料 / B2 canonical 金样本（`generate --check` CI 漂移门）/ B3 wire Schema v1 冻结——本闸是其**流程侧**（谁先落），B1/B2/B3 是**产物侧**（落什么）。
 - C2 术语单源（`check-protocol-language.mjs`）管**对外措辞**；本闸管**实现↔契约**。
+- **评审清单（reviewer-facing，互补件）**：[semantic-change-checklist.md](semantic-change-checklist.md)——把本规则落成「语义面 → 须同步伴生物 → 门禁命令 → reviewer 勾选」的操作表；本文件是**规则真源**，清单是其操作面，二者不另立第二套表述。
 
 ## 口径 / Scope notes
 
