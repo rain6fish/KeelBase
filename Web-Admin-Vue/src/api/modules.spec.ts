@@ -19,6 +19,7 @@ import { approvalApi } from './approval'
 import { auditApi } from './audit'
 import { authApi } from './auth'
 import { capabilitiesApi } from './capabilities'
+import { provenanceApi } from './provenance'
 import { contractsApi } from './contracts'
 import { crmApi } from './crm'
 import { eventsApi } from './events'
@@ -64,6 +65,18 @@ describe('capabilitiesApi', () => {
     const caps = await capabilitiesApi.get()
     expect(api.get).toHaveBeenCalledWith('/app/capabilities')
     expect(caps.preset).toBe('full')
+  })
+})
+
+describe('provenanceApi', () => {
+  it('get GET /app/provenance', async () => {
+    api.get.mockResolvedValue({
+      source: { manifestPresent: true },
+      runtime: { preset: 'full', businessModules: [], aiToolFingerprint: { total: 0, read: 0, write: 0, byRisk: {} } },
+    })
+    const p = await provenanceApi.get()
+    expect(api.get).toHaveBeenCalledWith('/app/provenance')
+    expect(p.runtime.preset).toBe('full')
   })
 })
 
