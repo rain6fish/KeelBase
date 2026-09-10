@@ -18,7 +18,9 @@
 |---|---|---|---|
 | L0 运行时可验证 | 任何带管理员 token 的人 | 调在线验证端点，现算现验 | `/audit/verify`、`/ai/eval/report` 等 |
 | L1 离线独立复核 | 审计机构 / 第三方 | 证据包 + 独立实现脚本重算，不装系统 | `verify-evidence.mjs`（只依赖 Node 内置） |
-| L2 静态留档 | 评估人 / 发布流程 | 可重复运行的评测/基准报告落仓 | `docs/benchmark/*.md`、`evidence-verify-*.md` |
+| L2 静态留档 | 评估人 / 发布流程 | 可重复运行的评测/基准报告**代表样本**落仓 | `docs/benchmark/*.md`、`Server-NestJS/docs/benchmark/*.md`（代表性报告已入库） |
+
+> ⚠ 运行产物默认**不进仓**：`Server-NestJS/docs/benchmark/evidence-verify-*` / `protocol-conformance-*` / `docs/benchmark/generated-module-*` 已被 `.gitignore` 忽略（脚本每次跑产出一对 md+json，会持续堆积）。**已入库的代表性报告不受影响**（gitignore 不取消已跟踪文件）；要发布某次具体证据用 `git add -f <file>`。
 
 原则：**能现算的用端点，能导出的离线复核，能留档的定期跑**。证据要「说得出、跑得动、拿得走」。
 
@@ -44,7 +46,7 @@
   # 无 --key：链结构验证（seq/prevHash/genesis，检删行换序断链）
   # 有 --key：全量重算 canonicalJSON + HMAC + 签名（检内容篡改）
   ```
-- **产物**：`Server-NestJS/docs/benchmark/evidence-verify-<ts>.md`（verify-*.mjs 机器验证报告同族落点，随跑随留档）。
+- **产物**：`Server-NestJS/docs/benchmark/evidence-verify-<ts>.md`（verify-*.mjs 机器验证报告同族落点）。**默认不进仓**（被 .gitignore 忽略，防运行产物堆积）；发布某次证据用 `git add -f`。
 - **最近证据（2026-09-02）**：ECS demo 实测 `valid:true`——AI 审计链 83 行（曾断链 genesis：密钥轮换后旧密钥不可推导，已用当前密钥重签修复，改动前已备份）、操作审计链 284 行；哈希链恢复不依赖任何代码版本。
 
 ### 2.2 越权拒绝（CASL 行级）
