@@ -54,6 +54,8 @@ export type RevokeBatchResult = {
   skipped: number;
   failed: number;
   results: RevokeBatchItem[];
+  /** 作用域内超过单次上限被截断（尚有未处理行）——调用方可再次调用续处理（已撤销行会 skip→already_revoked） */
+  truncated: boolean;
 };
 
 /** §4 G1：run 级批量撤销结果（同会话级形状，作用域键换成 runId） */
@@ -482,6 +484,8 @@ export class AiToolEffectsService {
     const effects = await this.effectsRepo.find({
       where: { conversationId } as any,
       order: { createdAt: 'ASC' },
+      // 有界加载：多取 1 条探测是否被截断（防一次请求把作用域全部行载入内存 + 串行撤销无界）
+      take: AiToolEffectsService.MAX_BATCH + 1,
     });
     return { conversationId, ...(await this._revokeBatch(effects, opts)) };
   }
@@ -494,11 +498,15 @@ export class AiToolEffectsService {
     const effects = await this.effectsRepo.find({
       where: { runId } as any,
       order: { createdAt: 'ASC' },
+      take: AiToolEffectsService.MAX_BATCH + 1,
     });
     return { runId, ...(await this._revokeBatch(effects, opts)) };
   }
 
-  /** 批量撤销公共循环（revokeConversation / revokeRun 共用；owner 过滤 + 逐条档位门控 + 汇总） */
+  /** 批量撤销单次处理上限：超出即截断并在结果置 truncated（调用方可分次续，避免无界载入/串行撤销） */
+  private static readonly MAX_BATCH = 500;
+
+  /** 批量撤销公共循环（revokeConversation / revokeRun 共用；owner 过滤 + 逐条档位门控 + 汇总 + 截断上报） */
   private async _revokeBatch(
     effects: AiToolSideEffect[],
     opts?: { ownerId?: string },
@@ -508,11 +516,15 @@ export class AiToolEffectsService {
     skipped: number;
     failed: number;
     results: RevokeBatchItem[];
+    truncated: boolean;
   }> {
+    // 调用方多取 1 条探测截断：> 上限即说明尚有未处理行（如实上报，不静默丢）
+    const truncated = effects.length > AiToolEffectsService.MAX_BATCH;
+    const capped = truncated ? effects.slice(0, AiToolEffectsService.MAX_BATCH) : effects;
     // 以「未提供」判据而非真值判据：ownerId 为空串等 falsy 值时不得静默升级为 admin 全作用域
     const ownerFilter = opts?.ownerId;
     const scoped =
-      ownerFilter !== undefined ? effects.filter((e) => e.userId === ownerFilter) : effects;
+      ownerFilter !== undefined ? capped.filter((e) => e.userId === ownerFilter) : capped;
     const results: RevokeBatchItem[] = [];
     let revoked = 0;
     let skipped = 0;
@@ -545,7 +557,7 @@ export class AiToolEffectsService {
         results.push({ effectId: effect.id, revoked: false, error: (err as Error).message });
       }
     }
-    return { total: scoped.length, revoked, skipped, failed, results };
+    return { total: scoped.length, revoked, skipped, failed, results, truncated };
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {

@@ -293,10 +293,26 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
 
       const res = await service.revokeRun('run-a', { ownerId: '42' });
-      expect(repo.find).toHaveBeenCalledWith({ where: { runId: 'run-a' }, order: { createdAt: 'ASC' } });
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { runId: 'run-a' },
+        order: { createdAt: 'ASC' },
+        take: 501, // MAX_BATCH + 1：多取 1 条探测截断
+      });
       expect(res.runId).toBe('run-a');
       expect(res.total).toBe(1);
+      expect(res.truncated).toBe(false);
       expect(res.results.map((r) => r.effectId)).toEqual([1]);
+    });
+
+    it('超过单次上限 → 只处理 500 条并置 truncated（不静默丢）', async () => {
+      const many = Array.from({ length: 501 }, (_, i) => eff(i + 1, '42', 'run-big'));
+      repo.find.mockResolvedValue(many);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeRun('run-big');
+      expect(res.truncated).toBe(true);
+      expect(res.total).toBe(500);
+      expect(res.results).toHaveLength(500);
     });
 
     it('ownerId 为空串（falsy）→ 不升级为全作用域', async () => {
