@@ -152,11 +152,12 @@ stop_server
 # 生成器 CLI 契约：模块目录已存在时须 --force（覆盖重写生成文件 + 接线幂等），否则拒绝
 # 加固：仅 grep 工具关键词会漏「inject 数组重复插入」这类假绿（2026-09-10 陌生模拟暴露）——显式计 inject 内 service 出现次数须恰好 1。
 RERUN_LOG="$REPORT_DIR/proof-trust-rerun.log"
-# 首字母大写用 node（macOS 自带 bash 3.2 不支持 ${var^}；node 是脚本既有依赖）
-MUT_PASCAL="$(node -e "process.stdout.write(process.argv[1].charAt(0).toUpperCase()+process.argv[1].slice(1))" "$MUT")"
-SVC_TOKEN="${MUT_PASCAL}Service, "   # inject 形态 `XService, `（尾空格；provider 行是 `: XService,` 无尾空格，不误计）
+# service 名 PascalCase 用 node 计算（分词，多词/snake_case 亦正确：approval_requests→ApprovalRequests；macOS bash 3.2 不支持 ${var^}）
+MUT_PASCAL="$(node -e "process.stdout.write(process.argv[1].split(/[^A-Za-z0-9]+/).filter(Boolean).map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(''))" "$MUT")"
+SVC_TOKEN="${MUT_PASCAL}Service, "   # inject 形态 `XService, `
 if (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" --force >"$RERUN_LOG" 2>&1); then
-  SVC_COUNT="$(grep -oF "$SVC_TOKEN" "$BE_AI" | wc -l | tr -d ' ')"
+  # 只计 inject 数组行内出现次数（不 file-wide；不依赖 provider 行多行无尾空格的巧合）
+  SVC_COUNT="$(grep -E '^[[:space:]]*inject: \[' "$BE_AI" | grep -oF "$SVC_TOKEN" | wc -l | tr -d ' ')"
   if grep -qE '✗' "$RERUN_LOG"; then
     row "R10" "red" "同 spec 重跑（--force）有错误行: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
   elif [ "$SVC_COUNT" != "1" ]; then
