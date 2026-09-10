@@ -5,13 +5,16 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 
 /**
  * HS-3 AI 写操作副作用记录：每次 AI 写工具（create_event/create_todo）成功执行后落一条。
  * - idempotencyKey 唯一 → 同会话同参数重复调用返回已有结果（幂等），防 LLM 重试/并发重复创建
  * - resultType + resultId → 管理台可定位并软删对应记录（AI 副作用可撤销，衔接 RG-3 回收站）
+ * - conversationId 索引：会话级批量撤销（revokeConversation）/轨迹查询按会话过滤，表随每次 AI 写单调增长
  */
+@Index(['conversationId'])
 @Entity('ai_tool_side_effects')
 export class AiToolSideEffect {
   @PrimaryGeneratedColumn()
