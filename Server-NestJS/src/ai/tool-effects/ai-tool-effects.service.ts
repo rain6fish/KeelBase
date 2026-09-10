@@ -17,6 +17,8 @@ import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interfa
 export interface WriteToolContext {
   userId: string;
   conversationId?: string;
+  /** KB-5 run 授权 id（run 成员写才有，= run 确认 token；docs/revoke-contract.spec.md §4 G1）。链外注解，不入 _chainPayload */
+  runId?: string;
   toolName: string;
   args: Record<string, unknown>;
   /** KB-6：副作用撤销能力档位（可直传；缺省由服务内按工具注册/resultType 兜底解析） */
@@ -53,6 +55,9 @@ export type RevokeBatchResult = {
   failed: number;
   results: RevokeBatchItem[];
 };
+
+/** §4 G1：run 级批量撤销结果（同会话级形状，作用域键换成 runId） */
+export type RevokeRunBatchResult = Omit<RevokeBatchResult, 'conversationId'> & { runId: string };
 
 /** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）external=true（Java 端补偿 / 或诚实语义） */
 export type RevokeResult = {
@@ -140,6 +145,8 @@ export class AiToolEffectsService {
       idempotencyKey: key,
       userId: ctx.userId,
       conversationId: ctx.conversationId,
+      // §4 G1：run 成员副作用记 runId（链外列，_chainPayload 白名单不含 → 不入链，不破历史链）
+      runId: ctx.runId ?? null,
       toolName: ctx.toolName,
       argsHash: createHash('sha256').update(JSON.stringify(sortKeys(ctx.args))).digest('hex').slice(0, 16),
       resultType,
@@ -476,6 +483,32 @@ export class AiToolEffectsService {
       where: { conversationId } as any,
       order: { createdAt: 'ASC' },
     });
+    return { conversationId, ...(await this._revokeBatch(effects, opts)) };
+  }
+
+  /**
+   * §4 G1：run 级批量撤销——精确撤销「某次 run 一次性授权」产生的全部副作用（比会话级更细：
+   * 一个对话可含多次 run）。逐条复用档位门控撤销（同 revokeConversation），汇总逐条结果。
+   */
+  async revokeRun(runId: string, opts?: { ownerId?: string }): Promise<RevokeRunBatchResult> {
+    const effects = await this.effectsRepo.find({
+      where: { runId } as any,
+      order: { createdAt: 'ASC' },
+    });
+    return { runId, ...(await this._revokeBatch(effects, opts)) };
+  }
+
+  /** 批量撤销公共循环（revokeConversation / revokeRun 共用；owner 过滤 + 逐条档位门控 + 汇总） */
+  private async _revokeBatch(
+    effects: AiToolSideEffect[],
+    opts?: { ownerId?: string },
+  ): Promise<{
+    total: number;
+    revoked: number;
+    skipped: number;
+    failed: number;
+    results: RevokeBatchItem[];
+  }> {
     // 以「未提供」判据而非真值判据：ownerId 为空串等 falsy 值时不得静默升级为 admin 全作用域
     const ownerFilter = opts?.ownerId;
     const scoped =
@@ -512,14 +545,7 @@ export class AiToolEffectsService {
         results.push({ effectId: effect.id, revoked: false, error: (err as Error).message });
       }
     }
-    return {
-      conversationId,
-      total: scoped.length,
-      revoked,
-      skipped,
-      failed,
-      results,
-    };
+    return { total: scoped.length, revoked, skipped, failed, results };
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {

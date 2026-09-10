@@ -39,7 +39,7 @@
 
 ## 4. 已知缺口与后续 / Known gaps & follow-ups
 
-- **G1 run/会话级批量撤销**：✅ **会话级已落地（2026-09）**——`DELETE /ai/tool-effects?conversationId=`（admin）与 `/ai/my/tool-effects?conversationId=`（本人，owner 过滤）逐条复用档位门控撤销 + 汇总（service `revokeConversation`）。⚠️ **run 精确粒度待 KB-5 run（单轮聚合）源码落地**：run 授权落库后把 run_id 挂到 effects，再做 run 级批量（现无 run 实体，不加死列）。
+- **G1 run/会话级批量撤销**：✅ **会话级 + run 级均已落地**——`DELETE /ai/tool-effects?conversationId=|runId=`（admin）与 `/ai/my/tool-effects?conversationId=|runId=`（本人，owner 过滤）逐条复用档位门控撤销 + 汇总（service `revokeConversation` / `revokeRun`，共用 `_revokeBatch` 循环）。run 精确粒度：KB-5 run 一次授权执行时把 runId（= run 确认 token）挂到成员的副作用行（`ai_tool_side_effects.run_id`，迁移 `1818000000000`；**链外列**，不入 G-3 哈希链 payload 故加列不破历史链），比会话级更细（一个对话可含多次 run）。
 - **G2 外部补偿终态收敛**：`compensating` 长期悬空的展示问题——先做 UI/审计面明确"结果在目标系统"，后续可选轮询/回调。
 - **G3 级联副作用边界**：近期无复合写工具则先文档化；出现时给父子 effect 引用最小契约。
 - **G4 每个非 none 工具的撤销 E2E**：✅ **本地可撤档已固化**（`test/revoke-acceptance.e2e-spec.ts`，真实 create→record→本人撤销→软删+回收站 restore→状态回 executed + 所有权 404，6 例）；外部补偿由 `proxy-bridge.e2e-spec.ts` 覆盖、`none` 拒绝由 revoke-conversation.spec 单测兜底。新写工具验收回归时按 §2 清单在此套件扩展。

@@ -558,16 +558,19 @@ export class AiController {
   }
 
   /**
-   * G1（docs/revoke-contract.spec.md §3 Case B）：会话级批量撤销——一键撤销某会话全部 AI 写副作用
-   * （本地软删可回收站恢复 / B 路径外部走补偿），返回逐条+汇总。管理员视角任意会话。
+   * G1（docs/revoke-contract.spec.md §3 Case B / §4 G1）：批量撤销——一键撤销某会话（?conversationId=）
+   * 或某次 run 一次性授权（?runId=）产生的全部 AI 写副作用（本地软删可回收站恢复 / B 路径外部走补偿），
+   * 返回逐条+汇总。二选一，管理员视角任意作用域。
    */
   @Delete('tool-effects')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: '撤销某会话全部 AI 副作用（管理员，会话级批量，G1）' })
+  @ApiOperation({ summary: '撤销某会话/某次 run 的全部 AI 副作用（管理员，批量，G1）' })
   async revokeConversationEffects(
-    @Query('conversationId') conversationId: string,
+    @Query('conversationId') conversationId?: string,
+    @Query('runId') runId?: string,
   ) {
-    if (!conversationId) throw new BadRequestException('conversationId 必填');
+    if (runId) return this.toolEffectsService.revokeRun(runId);
+    if (!conversationId) throw new BadRequestException('conversationId 或 runId 必填');
     return this.toolEffectsService.revokeConversation(conversationId);
   }
 
@@ -601,18 +604,20 @@ export class AiController {
   }
 
   /**
-   * G1 用户侧会话级批量撤销（AI Action Center 本人作用域）：一键撤销某会话本人产生的全部 AI 写副作用。
-   * ownerId 过滤在 service（只撤 effect.userId === 当前用户），非本人效果不在此会话 → 结果为空集不算越权。
+   * G1 用户侧批量撤销（AI Action Center 本人作用域）：一键撤销本人在某会话（?conversationId=）
+   * 或某次 run（?runId=）产生的全部 AI 写副作用。
+   * ownerId 过滤在 service（只撤 effect.userId === 当前用户），非本人效果不在作用域 → 结果为空集不算越权。
    */
   @Delete('my/tool-effects')
-  @ApiOperation({ summary: '撤销本人在某会话的全部 AI 副作用（会话级批量，G1）' })
+  @ApiOperation({ summary: '撤销本人在某会话/某次 run 的全部 AI 副作用（批量，G1）' })
   async revokeMyConversationEffects(
-    @Query('conversationId') conversationId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('conversationId') conversationId?: string,
+    @Query('runId') runId?: string,
   ) {
-    if (!conversationId) throw new BadRequestException('conversationId 必填');
-    return this.toolEffectsService.revokeConversation(conversationId, {
-      ownerId: String(user.sub),
-    });
+    const ownerId = String(user.sub);
+    if (runId) return this.toolEffectsService.revokeRun(runId, { ownerId });
+    if (!conversationId) throw new BadRequestException('conversationId 或 runId 必填');
+    return this.toolEffectsService.revokeConversation(conversationId, { ownerId });
   }
 }
