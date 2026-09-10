@@ -2,7 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
 
 /**
@@ -19,8 +19,12 @@ export class GovernanceApprovalService {
 
   /** 待审批列表（R4 高影响请求，管理台审批页） */
   async listPendingApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+    // KB-5：排除 kind='run' 的整批授权聚合行——run 的 runRisk 可能为 'R4'，但它不是单个审批请求
+    // （toolName='run'），混入即「伪审批」（可被 approve-by 误裁决）。与主应用 AiService.listPendingApprovals 同规则。
+    // 单条行 kind='single'，迁移前旧行为 NULL——两者都保留。
+    const base = { status: 'pending' as const, riskLevel: 'R4' as const };
     return this.approvalsRepo.find({
-      where: { status: 'pending', riskLevel: 'R4' },
+      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
       order: { createdAt: 'DESC' },
       take: limit,
     });
@@ -28,8 +32,9 @@ export class GovernanceApprovalService {
 
   /** 已审批历史（管理台审批页） */
   async listDecidedApprovals(limit = 50): Promise<AiConfirmationRequest[]> {
+    const base = { status: In(['approved', 'declined'] as const), riskLevel: 'R4' as const };
     return this.approvalsRepo.find({
-      where: { status: In(['approved', 'declined']), riskLevel: 'R4' },
+      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
       order: { decidedAt: 'DESC' },
       take: limit,
     });
