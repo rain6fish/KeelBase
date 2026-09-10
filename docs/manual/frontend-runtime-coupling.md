@@ -118,9 +118,9 @@
 
 | FE-1a 耦合 | 对应 wire Schema v1 | Web | Flutter | Taro |
 |---|---|---|---|---|
-| 5.1 信封 `code` 语义 | `api-response` | ✅ 切片一（单点解包） | ✅ 切片二（统一 `isSuccess`=2xx；五处判定收敛） | ⬜ 死契约待启用 |
-| 5.2 错误体 Nest 假设 | `error-body` | ✅ 切片一（去 `errors`，顶层字段） | ✅ 已核对对齐（顶层 `message`/`retryAfter`，本就正确） | ⬜ `errors` 字典待去 |
-| 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ✅ 已核对对齐（HTTP 2xx + `data.accessToken/refreshToken`，本就正确） | ⬜ 双层解包待归一 |
+| 5.1 信封 `code` 语义 | `api-response` | ✅ 切片一（单点解包） | ✅ 切片二（统一 `isSuccess`=2xx；五处判定收敛） | ✅ 切片三（`isSuccess`=2xx 由死契约启用；信封失败判定） |
+| 5.2 错误体 Nest 假设 | `error-body` | ✅ 切片一（去 `errors`，顶层字段） | ✅ 已核对对齐（顶层 `message`/`retryAfter`，本就正确） | ✅ 切片三（去 `errors` 字典——契约无该字段） |
+| 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ✅ 已核对对齐（HTTP 2xx + `data.accessToken/refreshToken`，本就正确） | ✅ 已核对对齐（信封 `data`=TokenPair，本就正确；单飞刷新已在） |
 | 5.4 实时事件手写 switch | SSE/WS 帧 schema（已冻结） | ⬜ 事件 model 隔离 + 兼容 `event:` 行 | ⬜ UI provider 内 switch 待抽 model | ⬜ 事件名硬编码待归一 |
 | 5.5 capabilities 消费 | `/app/capabilities` | ⬜ gating 已用、导航静态枚举 | ⬜ 导航零消费 | ⬜ 零消费 |
 | 5.6 provenance 消费 | `/app/provenance` | ⬜ | ⬜ | ⬜ |
@@ -132,10 +132,19 @@
   - **修复 `auth_repository` 的 `code != 0` 漂移**（后端从不发 0 → `code(200) != 0` 恒真 → 真实后端下 login/register/oauth/getProfile 恒抛 `AuthException`；测试夹具用 `code:0` 掩盖了该缺陷）；三处改用 `isSuccess`；
   - 收敛 `ai_conversation_repository`/`events_repository`/`books_repository` 的 `_requireSuccess` + `ai_chat_provider` 两处内联判定（共 5 处 `code < 200 || code >= 300`）到 `ApiResponse.isSuccess`（单一语义）；
   - 测试夹具改契约值（`code: 0→200` / `1001→401`）；Flutter 623 测试绿。
-- **FE-1b-3**：Taro 信封/错误（死契约 `isSuccess` 启用；`errors` 字典去）
+- **FE-1b-3 ✅（2026-09-10）**：Taro 信封/错误 —— 见 §8.5：
+  - `isSuccess`（2xx）此前为**死函数**（零引用）→ 启用为信封成功判定（`request`/`upload` 统一 `!isSuccess(body.code)`）；
+  - **去契约外 `errors` 字典**（`ApiError.errors` + 两处 throw 传参；契约 `error-body` 无该字段，validator 错误 join 进 `message`）；
+  - `build:h5` 绿。
 - **FE-1b-4**：SSE/WS 事件 model 隔离（抽共享事件类型，解析兼容 wire `event:` 行）
 - **FE-1b-5**：capabilities 驱动导航（三端模块清单/底部 Tab/Explore/模型列表）
 - **FE-1b-6**：provenance 消费（三端 runtime 来源指纹入口）
+
+### 8.5 FE-1b-3 明细（Taro，2026-09-10）
+
+- **去契约外字段**：`ApiError.errors?: Record<string,string[]>` 及其两处 throw 传参（`request` 错误分支 + `upload` 错误分支）移除——`error-body` schema 无 `errors`（validator 错误已 `'; '` join 进 `message`），且全仓无消费者。
+- **启用死契约**：`isSuccess(code)`（已为 2xx，与契约一致）此前零引用；现用于 `request`/`upload` 的失败判定（`HTTP >= 400 || (typeof body?.code === 'number' && !isSuccess(body.code))`），使信封 `code` 成为契约化成功判据（不再只信 HTTP 状态）。
+- **已核对无需改**：refresh 读 `body.data`（=TokenPair，契约正确）；单飞刷新已在（CR-16）。
 
 ### 8.4 FE-1b-2 明细（Flutter，2026-09-10）
 

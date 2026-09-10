@@ -4,7 +4,7 @@
  import { API_BASE_URL, API_TIMEOUT } from '../utils/constants'
  import { storage } from '../utils/storage'
  import { translate } from '../i18n/translate'
- import type { ApiResponse } from '../types/api'
+ import { isSuccess, type ApiResponse } from '../types/api'
  
  /** Public endpoints that don't require auth token */
  const PUBLIC_ENDPOINTS = [
@@ -91,12 +91,9 @@
        throw new ApiError(translate('api.authRequired'), 401)
      }
  
-     if (response.statusCode >= 400) {
-       throw new ApiError(
-         (body as any)?.message || translate('api.requestFailed'),
-         response.statusCode,
-         (body as any)?.errors,
-       )
+     // 失败判定：HTTP >= 400，或信封 code 非 2xx（契约 api-response：code = HTTP 状态码）
+     if (response.statusCode >= 400 || (typeof body?.code === 'number' && !isSuccess(body.code))) {
+       throw new ApiError((body as any)?.message || translate('api.requestFailed'), response.statusCode)
      }
  
      return body
@@ -148,12 +145,10 @@
  
  export class ApiError extends Error {
    statusCode: number
-   errors?: Record<string, string[]>
- 
-   constructor(message: string, statusCode: number, errors?: Record<string, string[]>) {
+
+   constructor(message: string, statusCode: number) {
      super(message)
      this.statusCode = statusCode
-     this.errors = errors
    }
  }
  
@@ -207,8 +202,8 @@
            onAuthFailure?.()
            throw new ApiError(translate('api.authRequired'), 401)
          }
-         if (res.statusCode >= 400) {
-           throw new ApiError((body as any)?.message || translate('api.uploadFailed'), res.statusCode, (body as any)?.errors)
+         if (res.statusCode >= 400 || (typeof body?.code === 'number' && !isSuccess(body.code))) {
+           throw new ApiError((body as any)?.message || translate('api.uploadFailed'), res.statusCode)
          }
          return body
        } catch (err: any) {
