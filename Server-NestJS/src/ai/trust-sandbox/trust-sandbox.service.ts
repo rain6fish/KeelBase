@@ -228,14 +228,17 @@ export class TrustSandboxService {
       if (users[userId] === today) return; // 同用户同日已完成 → 幂等忽略
       const map = await this._readCompletedMap();
       map[today] = (Number(map[today]) || 0) + 1;
-      users[userId] = today;
+      // 去重表裁剪：只保留「今日」条目（旧日条目永不再读，留着只让 JSON 随用户数无限增长、抬高每次读写成本）
+      const prunedUsers: Record<string, string> = {};
+      for (const [u, d] of Object.entries(users)) if (d === today) prunedUsers[u] = d;
+      prunedUsers[userId] = today;
       await this.settingsService.set(
         TrustSandboxService.JOURNEY_COMPLETED_KEY,
         JSON.stringify(map),
       );
       await this.settingsService.set(
         TrustSandboxService.JOURNEY_COMPLETED_USERS_KEY,
-        JSON.stringify(users),
+        JSON.stringify(prunedUsers),
       );
     });
     this._completeTail = run.catch(() => {});

@@ -135,6 +135,8 @@ describe('DecisionTraceService', () => {
         targetExists: true,
         targetSoftDeleted: false,
         targetTitle: 'meeting',
+        // listForConversation 恒下发服务端单一权威的 revocable（decision-trace 不再自算档位）
+        revocable: true,
       },
     ]);
 

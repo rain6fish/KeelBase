@@ -261,12 +261,9 @@ function effectStatus(eff: ToolEffect): string {
   return 'ok'
 }
 
-/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
+/** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevokeEffect(eff: ToolEffect): boolean {
-  if (eff.revocable !== undefined) return eff.revocable
-  if (!eff.status || eff.status !== 'executed') return false
-  const rk = eff.revokeClass
-  return rk === 'local_compensate' || rk === 'governed_external' || rk === 'transactional'
+  return eff.revocable ?? false
 }
 
 // 单个时间线事件（AI 日志 + 副作用合并）

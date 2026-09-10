@@ -999,6 +999,84 @@ describe('AiService', () => {
       expect(chunks[chunks.length - 1].type).toBe('done');
     });
 
+    it('KB-5 修复：预扫描遇未注册工具名（LLM 幻觉 / 外部 mcp_*）不中断整条 SSE 流，降级继续', async () => {
+      async function* mockStreamWithPhantom() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'hallucinated_tool', arguments: '{}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithPhantom())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      // 未注册工具名：registry 抛（与真实 ToolRegistry.getTool 同语义）
+      const notFound = (name: string): never => {
+        throw new Error(`Tool "${name}" not found`);
+      };
+      mockToolRegistry.requiresConfirmation.mockImplementation((name: string) => {
+        if (name === 'hallucinated_tool') notFound(name);
+        return true;
+      });
+      mockToolRegistry.riskLevel.mockImplementation((name: string) => {
+        if (name === 'hallucinated_tool') notFound(name);
+        return 'R3';
+      });
+
+      const chunks: any[] = [];
+      // 修复前：预扫描裸调用抛异常 → 逸出 chatStream → 控制器以 Internal stream error 终止流（无 done）
+      for await (const c of aiService.chatStream('1', { message: 'phantom' })) chunks.push(c);
+      expect(chunks[chunks.length - 1].type).toBe('done');
+      // 未注册工具不并入 run（无 run 级 confirmation_request）
+      expect(
+        chunks.some((c: any) => c.type === 'confirmation_request' && c.confirmation?.mode === 'run'),
+      ).toBe(false);
+    });
+
+    it('KB-5 修复：run 超时如实回放为「超时未确认」（不塌缩成用户 decline）', async () => {
+      async function* mockStreamWithTwoWrites() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'c1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"2026-08-10T09:00:00Z","endTime":"2026-08-10T10:00:00Z"}',
+          },
+        };
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 1, id: 'c2', name: 'create_todo', arguments: '{"title":"待办A","dueDate":"2026-08-11"}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithTwoWrites())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+      // run 决策以 timeout 结束（TTL 到期）
+      jest.spyOn(confirmationStore, 'createRun').mockResolvedValue({
+        token: 'run-timeout',
+        decision: Promise.resolve({ outcome: 'timeout' } as never),
+      });
+
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'x' })) chunks.push(c);
+      const toolEnds = chunks.filter((c: any) => c.type === 'tool_end');
+      expect(toolEnds).toHaveLength(2);
+      // 修复前 outcome 被塌缩为 'decline' → 此处会是「操作已取消」
+      expect(toolEnds.map((c: any) => c.toolEnd.summary)).toEqual(['操作超时未确认', '操作超时未确认']);
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
     it('should yield confirmation_request before executing a write tool, then execute on approve', async () => {
       async function* mockStreamWithWriteTool() {
         yield {
@@ -1885,6 +1963,20 @@ describe('AiService', () => {
       } finally {
         global.fetch = orig;
       }
+    });
+
+    it('KB-5 修复：R4 审批箱排除 kind=run 聚合行（只列单条请求，并保留迁移前 NULL）', async () => {
+      const find = jest.fn().mockResolvedValue([]);
+      (aiService as any).approvalsRepo = { find };
+
+      await aiService.listPendingApprovals(50);
+
+      const arg = find.mock.calls[0][0] as { where: Array<Record<string, unknown>> };
+      // 两条件 OR：kind='single' 与 kind IS NULL（迁移前旧行）——两者都保留，kind='run' 被排除
+      expect(arg.where).toHaveLength(2);
+      expect(arg.where[0]).toMatchObject({ status: 'pending', riskLevel: 'R4', kind: 'single' });
+      expect(arg.where[1]).toMatchObject({ status: 'pending', riskLevel: 'R4' });
+      expect(arg.where[1].kind).toBeDefined(); // IsNull() 操作符（非 'run'）
     });
 
     it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {

@@ -109,7 +109,7 @@ describe('AiToolsView', () => {
       page: 1,
       limit: 20,
       items: [
-        { id: 9, toolName: 'create_event', conversationId: null, resultType: 'event', resultId: 100, argsHash: 'h', createdAt: '2026-08-21', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate' },
+        { id: 9, toolName: 'create_event', conversationId: null, resultType: 'event', resultId: 100, argsHash: 'h', createdAt: '2026-08-21', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate', revocable: true },
       ],
     })
     revokeMock.mockResolvedValue({ revoked: true, effectId: 9 })

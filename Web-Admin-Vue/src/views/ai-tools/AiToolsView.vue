@@ -193,12 +193,9 @@ function revokeClassTag(rk: string) {
   return { label: t('revokeClassNone'), type: 'info' as const }
 }
 
-/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
+/** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(item: ToolEffect): boolean {
-  if (item.revocable !== undefined) return item.revocable
-  if (item.status && item.status !== 'executed') return false
-  const rk = item.revokeClass
-  return rk === 'local_compensate' || rk === 'transactional' || rk === 'governed_external'
+  return item.revocable ?? false
 }
 
 /** E-1：副作用目标记录字段变更数（无快照 0；非法 JSON 0） */

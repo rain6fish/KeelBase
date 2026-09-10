@@ -184,11 +184,9 @@ export class DecisionTraceService {
           resultType: eff.resultType,
           resultId: eff.resultId,
           targetTitle: eff.targetTitle ?? null,
-          // KB-6：可撤 = 归一状态 executed 且 revokeClass 非 none（外部副作用不误示可撤）。
-          // 旧数据无 status 时回落 targetExists/targetSoftDeleted（本地两态）。
-          revocable: eff.status
-            ? eff.status === 'executed' && eff.revokeClass !== 'none'
-            : eff.targetExists && !eff.targetSoftDeleted,
+          // KB-6：可撤以服务端单一权威判定（listForConversation 已按 _isRevocable 下发 revocable）——
+          // 此处不再自算（原 `status==='executed' && revokeClass!=='none'` 是第二套规则，新增档位即漂移）
+          revocable: eff.revocable,
           before: eff.beforeSnapshot ?? null,
           after: eff.afterSnapshot ?? null,
         },

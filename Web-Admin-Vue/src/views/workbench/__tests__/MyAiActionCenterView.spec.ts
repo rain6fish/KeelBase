@@ -44,6 +44,7 @@ const effectExecuted = {
   targetTitle: '跟进：辰光建材 逾期回款',
   status: 'executed',
   revokeClass: 'local_compensate',
+  revocable: true,
 }
 const effectRevoked = {
   id: 2,
@@ -57,6 +58,7 @@ const effectRevoked = {
   targetTitle: '跟进：澄海地产',
   status: 'revoked',
   revokeClass: 'local_compensate',
+  revocable: false,
 }
 /** KB-6：governed_external 撤销后 = 外部撤销中（结果未知），禁显示"已撤销" */
 const effectRevokingExternal = {
@@ -72,6 +74,7 @@ const effectRevokingExternal = {
   status: 'revoking_external',
   revokeClass: 'governed_external',
   revokeStatus: 'compensating',
+  revocable: false,
 }
 /** KB-6：revokeClass=none（不可撤）→ 即使 executed 也不显示撤销钮 */
 const effectNotRevocable = {
@@ -86,6 +89,7 @@ const effectNotRevocable = {
   targetTitle: '外部系统写调用（B 路径）',
   status: 'executed',
   revokeClass: 'none',
+  revocable: false,
 }
 
 function mountView() {
