@@ -71,13 +71,14 @@ export class ConfirmationStore {
     toolName: string,
     args: Record<string, unknown>,
     ttlMs?: number,
+    conversationId?: string,
   ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
     const token = randomUUID();
     let resolveFn!: (result: ConfirmationResolveResult) => void;
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
-    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single' });
+    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
     return { token, decision };
@@ -93,6 +94,7 @@ export class ConfirmationStore {
     items: RunItem[],
     riskLevel: string,
     ttlMs?: number,
+    conversationId?: string,
   ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
     const token = randomUUID();
     let resolveFn!: (result: ConfirmationResolveResult) => void;
@@ -107,6 +109,7 @@ export class ConfirmationStore {
       riskLevel,
       kind: 'run',
       runItems: JSON.stringify(items),
+      conversationId,
     });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName: 'run', args: {}, kind: 'run', resolve: resolveFn, timer });
@@ -122,6 +125,7 @@ export class ConfirmationStore {
     riskLevel: string;
     kind: 'single' | 'run';
     runItems?: string;
+    conversationId?: string;
   }): Promise<void> {
     await this.reqRepo
       .save(
@@ -134,6 +138,8 @@ export class ConfirmationStore {
           kind: row.kind,
           status: 'pending',
           ...(row.runItems !== undefined ? { runItems: row.runItems } : {}),
+          // docs/run-level-approval.spec.md §2.4：run 记录须携带 conversationId，服务器重启后按会话可查可裁决
+          ...(row.conversationId !== undefined ? { conversationId: row.conversationId } : {}),
         }),
       )
       .catch((err) => {

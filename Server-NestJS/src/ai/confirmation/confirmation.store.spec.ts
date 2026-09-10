@@ -49,6 +49,25 @@ describe('ConfirmationStore', () => {
     );
   });
 
+  it('落库携带 conversationId（docs/run-level-approval.spec.md §2.4：重启后按会话可查可裁决）', async () => {
+    await store.create('1', 'create_event', { title: 'T' }, undefined, 'conv-single');
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'single', conversationId: 'conv-single' }),
+    );
+
+    repo.create.mockClear();
+    await store.createRun(
+      '1',
+      [{ toolName: 'create_event', args: {}, summary: 's', riskLevel: 'R3' }],
+      'R3',
+      undefined,
+      'conv-run',
+    );
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'run', conversationId: 'conv-run' }),
+    );
+  });
+
   it('should reject a different user (cross-user attempt)', async () => {
     const { token, decision } = await store.create('1', 'create_event', { title: 'T' });
 

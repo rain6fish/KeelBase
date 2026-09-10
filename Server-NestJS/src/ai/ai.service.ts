@@ -1352,6 +1352,7 @@ export class AiService {
             })),
             runRisk,
             ttlSeconds * 1000,
+            conversationId,
           );
           yield {
             type: 'confirmation_request',
@@ -1472,6 +1473,7 @@ export class AiService {
                   tc.name,
                   parsed,
                   ttlSeconds * 1000,
+                  conversationId,
                 );
                 yield {
                   type: 'confirmation_request',
