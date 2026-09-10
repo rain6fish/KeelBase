@@ -122,7 +122,7 @@
 | 5.2 错误体 Nest 假设 | `error-body` | ✅ 切片一（去 `errors`，顶层字段） | ✅ 已核对对齐（顶层 `message`/`retryAfter`，本就正确） | ✅ 切片三（去 `errors` 字典——契约无该字段） |
 | 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ✅ 已核对对齐（HTTP 2xx + `data.accessToken/refreshToken`，本就正确） | ✅ 已核对对齐（信封 `data`=TokenPair，本就正确；单飞刷新已在） |
 | 5.4 实时事件手写 switch | `sse-event`（已冻结） | ✅ 已核对对齐（7 发射名全符；`data` 内含 type，FE-1a「忽略 `event:` 行即断」被契约化解） | ✅ 已核对对齐（switch 名全符 schema） | ✅ 已核对对齐（事件名全符） |
-| 5.5 capabilities 消费 | `/app/capabilities` | ✅ 已按 capabilities 过滤导航（`module` id 与后端 MODULES_MANIFEST **全匹配**；补 `workbench-events/todos` 缺失标签） | 🔶 有 plumbing（`app_capabilities`+provider），explore 用 feature flag，主导航静态 | ⬜ 零消费 |
+| 5.5 capabilities 消费 | `/app/capabilities` | ✅ 已按 capabilities 过滤导航（`module` id 与后端 MODULES_MANIFEST **全匹配**；补 `workbench-events/todos` 缺失标签） | ✅ explore 业务模块项按 capabilities 显隐（底部 nav 结构性绑 router branch，保持静态；`hasBusinessModule` 默认全显） | ✅ explore 宫格按 capabilities 显隐（新增 service+pinia store） |
 | 5.6 provenance 消费 | `/app/provenance` | ✅ 切片六（`SystemView` 来源指纹卡：来源身份/preset/模块/工具指纹） | ⬜ 零消费 | ⬜ 零消费 |
 
 ### 8.3 后续切片（按 §6 优先序）
