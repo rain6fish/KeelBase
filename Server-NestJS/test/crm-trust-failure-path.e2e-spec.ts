@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { INestApplication } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { AiService } from '../src/ai/ai.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
+import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
+import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
 
 /**
  * A2「AI CRM 作 Business Execution Trust 证明器——失败路径场景化」（Enterprise Proof 证据）。
@@ -17,11 +19,17 @@ import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
  *   ② 越权「写」（客户本体 PATCH/DELETE）→ 403（CASL 行级）且数据未被篡改/未被删
  *   ③ R5 危险动作（delete_customer 会级联删除）经治理层阻断 → 客户实体零变更（不级联删）
  *   ④ 风险分析边界：低数据客户 → 确定 low；单笔小额逾期 → medium（不崩、理由可解释）
+ *   ⑤ 重复请求幂等（KB-4 duplicate，CRM 语境）：同会话同参数 AI 跟进任务登记两次 → 归并同一副作用（不产生重复可撤锚）
+ *   ⑥ 部分失败（KB-4 partial，CRM 语境）：会话级批量撤销先单撤一条 → 汇总 {revoked,skipped} 如实 + CRM 详情可见性递减
+ *   ⑦ 撤销诚实（KB-4 unknown 边界，CRM 语境）：撤销后 CRM 详情不可见（软删）+ 再撤幂等成功（不谎报状态）
+ * KB-4 的 timeout / 补偿失败 依赖外部目标系统（proxy），CRM 本地实体无此路径，由 failure-path/proxy-bridge 覆盖。
  */
 describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
   let app: INestApplication;
   let ds: DataSource;
   let aiService: AiService;
+  let effectsService: AiToolEffectsService;
+  let effectsRepo: Repository<AiToolSideEffect>;
   let tokenA: string;
   let tokenB: string;
   let userAId: number;
@@ -39,10 +47,29 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
     return (res.body.data as { id: number }).id;
   }
 
+  async function createTask(token: string, customerId: number, title: string): Promise<number> {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/crm/tasks')
+      .set(authHeader(token))
+      .send({ customerId, title })
+      .expect(201);
+    return (res.body.data as { id: number }).id;
+  }
+
+  async function tasksOfCustomer(token: string, customerId: number): Promise<unknown[]> {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/crm/customers/${customerId}`)
+      .set(authHeader(token))
+      .expect(200);
+    return (res.body.data as { tasks: unknown[] }).tasks;
+  }
+
   beforeAll(async () => {
     app = await createTestApp();
     ds = app.get(DataSource);
     aiService = app.get(AiService);
+    effectsService = app.get(AiToolEffectsService);
+    effectsRepo = ds.getRepository(AiToolSideEffect);
 
     const a = await registerUser(app, {
       username: 'a2_crm_a',
@@ -197,5 +224,98 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
     expect(medData.score).toBe(3);
     expect(medData.dataPoints.overdueOrders).toBe(1);
     expect(medData.reasons.length).toBeGreaterThan(0);
+  });
+
+  it('⑤ 重复请求幂等（KB-4 duplicate）：同会话同参数 AI 跟进任务登记两次 → 归并同一副作用，不产生重复可撤锚', async () => {
+    const customerId = await createCustomer(tokenA, '幂等目标客户');
+    // 两次真实任务（模拟两次执行）+ 同参数登记 → 幂等键相同 → 归并
+    const t1 = await createTask(tokenA, customerId, '跟进-幂等');
+    const t2 = await createTask(tokenA, customerId, '跟进-幂等');
+    const ctx = {
+      userId: String(userAId),
+      conversationId: 'a2-crm-idem',
+      toolName: 'create_followup_task',
+      args: { customerId, title: '跟进-幂等' },
+    };
+    const first = await effectsService.record(ctx, 'crm_task', t1);
+    const second = await effectsService.record(ctx, 'crm_task', t2);
+
+    // 幂等核心：第二次归并到同一条副作用（不新增行、不指向第二条任务）
+    expect(first.id).toBeGreaterThan(0);
+    expect(second.id).toBe(first.id);
+    expect((second as { resultId: number }).resultId).toBe(t1);
+    expect(await effectsRepo.count({ where: { idempotencyKey: AiToolEffectsService.buildKey(ctx) } })).toBe(1);
+  });
+
+  it('⑥ 部分失败（KB-4 partial）：会话级批量撤销部分成功 → 汇总如实 + CRM 详情任务递减', async () => {
+    const customerId = await createCustomer(tokenA, '批量撤销目标客户');
+    const t1 = await createTask(tokenA, customerId, '跟进-批撤-1');
+    const t2 = await createTask(tokenA, customerId, '跟进-批撤-2');
+    const record = (title: string, resultId: number) =>
+      effectsService.record(
+        { userId: String(userAId), conversationId: 'a2-crm-batch', toolName: 'create_followup_task', args: { customerId, title } },
+        'crm_task',
+        resultId,
+      );
+    const e1 = await record('跟进-批撤-1', t1);
+    const e2 = await record('跟进-批撤-2', t2);
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(2);
+
+    // 先单撤 e1（制造部分态）
+    await request(app.getHttpServer())
+      .delete(`/api/v1/ai/my/tool-effects/${e1.id}`)
+      .set(authHeader(tokenA))
+      .expect(200);
+
+    // 会话级批量撤销：e1 已撤 → skipped；e2 未撤 → revoked（汇总如实，非「全部成功」）
+    const res = await request(app.getHttpServer())
+      .delete('/api/v1/ai/my/tool-effects?conversationId=a2-crm-batch')
+      .set(authHeader(tokenA))
+      .expect(200);
+    const summary = res.body.data as {
+      total: number;
+      revoked: number;
+      skipped: number;
+      failed: number;
+      results?: Array<{ effectId: number; revoked: boolean; revokeStatus?: string }>;
+    };
+    // 逐字段断言（响应另含 results 明细，不用 toEqual 以免过严耦合）
+    expect(summary.total).toBe(2);
+    expect(summary.revoked).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.failed).toBe(0);
+    // 明细如实：e2 真撤（revoked/revokeStatus=revoked），e1 已撤跳过
+    const detail = summary.results?.find((r) => r.effectId === e2.id);
+    expect(detail?.revoked).toBe(true);
+    expect(detail?.revokeStatus).toBe('revoked');
+
+    // CRM 详情：两条 AI 任务均软删不可见（部分撤销后状态一致收敛）
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(0);
+  });
+
+  it('⑦ 撤销诚实（KB-4 unknown 边界）：撤销后 CRM 详情不可见（软删）+ 再撤幂等成功', async () => {
+    const customerId = await createCustomer(tokenA, '撤销诚实目标客户');
+    const tid = await createTask(tokenA, customerId, '跟进-撤销诚实');
+    const e = await effectsService.record(
+      { userId: String(userAId), conversationId: 'a2-crm-revoke', toolName: 'create_followup_task', args: { customerId, title: '跟进-撤销诚实' } },
+      'crm_task',
+      tid,
+    );
+
+    // 撤销前：CRM 详情可见该任务（证明撤销确有可观察效果，而非空操作）
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(1);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/ai/my/tool-effects/${e.id}`)
+      .set(authHeader(tokenA))
+      .expect(200);
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(0);
+
+    // 再撤一次：幂等成功（200，不新增行、不谎报为「未找到」或失败）
+    await request(app.getHttpServer())
+      .delete(`/api/v1/ai/my/tool-effects/${e.id}`)
+      .set(authHeader(tokenA))
+      .expect(200);
+    expect(await effectsRepo.count({ where: { id: e.id } })).toBe(1);
   });
 });
