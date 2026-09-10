@@ -7,7 +7,7 @@
  * 处理多轮工具调用循环、Fallback 机制、对话保存。
  */
 
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { randomUUID, createHash } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
@@ -472,9 +472,13 @@ export class AiService {
   /** 待审批 R4 列表（管理端审批页）。 */
   async listPendingApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
     if (!this.approvalsRepo) return [];
+    // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入。
+    // KB-5：另排除 kind='run' 的整批授权聚合行——R4 工具经策略降为同步确认并入 run 后，
+    // 该行 riskLevel=runRisk 可能为 'R4'，但它不是单个审批请求（toolName='run'），混入即伪审批。
+    // 单条行 kind 为 'single'，迁移前旧行为 NULL——两者都保留。
+    const base = { status: 'pending' as const, riskLevel: 'R4' as const };
     const items = await this.approvalsRepo.find({
-      // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入
-      where: { status: 'pending', riskLevel: 'R4' },
+      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
       order: { createdAt: 'DESC' },
       take: limit,
     });
@@ -484,8 +488,9 @@ export class AiService {
   /** 已审批历史（管理端审批页）。 */
   async listDecidedApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
     if (!this.approvalsRepo) return [];
+    const base = { status: In(['approved', 'declined']), riskLevel: 'R4' };
     const items = await this.approvalsRepo.find({
-      where: { status: In(['approved', 'declined']), riskLevel: 'R4' },
+      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
       order: { decidedAt: 'DESC' },
       take: limit,
     });
@@ -1274,7 +1279,7 @@ export class AiService {
 
       // KB-5 run-level approval：预扫描本轮需即时确认写工具，≥2 且均有具体摘要 → 聚成一个 run 一次授权
       // （docs/run-level-approval.spec.md §2：R5/R4/trusted/无摘要均不并入，各自走原路径；run 决策先于逐条 decision）
-      let runState: { idxSet: Set<number>; approved: boolean; token: string } | undefined;
+      let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout' } | undefined;
       {
         const ttlSeconds = this.settingsService
           ? Number(
@@ -1293,8 +1298,15 @@ export class AiService {
         }> = [];
         for (const [idx, tc] of accumulatedToolCalls) {
           if (trustedTools.has(tc.name)) continue; // HS-6 免确认
-          if (!(await this._requiresConfirmation(tc.name))) continue; // 读工具
-          if (await this._requiresApproval(tc.name)) continue; // R4 异步审批不混入
+          // 未注册工具（LLM 幻觉名 / 外部 mcp_* 工具，ExternalToolProvider 不入 ToolRegistry）会让
+          // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
+          // 须与循环内逐条路径同样容错——否则异常逸出 chatStream 会中断整条 SSE 流（而非降级为该工具失败）
+          try {
+            if (!(await this._requiresConfirmation(tc.name))) continue; // 读工具
+            if (await this._requiresApproval(tc.name)) continue; // R4 异步审批不混入
+          } catch {
+            continue; // 注册/解析异常的工具留给逐条路径如实报错，不中断流
+          }
           let parsed: Record<string, unknown>;
           try {
             parsed = JSON.parse(tc.args);
@@ -1358,7 +1370,8 @@ export class AiService {
           };
           const { outcome } = await decision;
           const approved = outcome === 'approve';
-          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), approved, token };
+          // 保留完整 outcome（含 'timeout'）——成员逐条回放时不得把 run 超时塌缩成用户 decline（spec §2.4 沿用超时语义）
+          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), outcome };
           // run 级整体决策关卡先于逐条 decision（spec §2.3）
           yield {
             type: 'confirmation_decision',
@@ -1443,7 +1456,7 @@ export class AiService {
               let outcome: 'approve' | 'decline' | 'timeout';
               let trustTool: boolean | undefined;
               if (runState?.idxSet.has(idx)) {
-                outcome = runState.approved ? 'approve' : 'decline';
+                outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
               } else {
                 const ttlSeconds = this.settingsService
                   ? Number(

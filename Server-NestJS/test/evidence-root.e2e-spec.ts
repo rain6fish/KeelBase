@@ -95,14 +95,14 @@ describe('证据根 v3 契约（KB-3）', () => {
       action: 'chat',
       detail: '证据根导出：请给该客户建跟进任务',
       isError: false,
-    } as never);
+    });
     await audit.log({
       userId: String(userAId),
       conversationId: 'evidence-root-e2e-1',
       action: 'tool_call',
       detail: `create_followup_task({"customerId":${customerId},"title":"证据根导出用跟进任务"})`,
       isError: false,
-    } as never);
+    });
   });
 
   afterAll(async () => {
@@ -150,8 +150,10 @@ describe('证据根 v3 契约（KB-3）', () => {
   });
 
   it('④ 真实 verify-evidence.mjs --key 离线全量验证：整包 canonical HMAC + 真实 AI/op 链行全量重算 PASS，篡改 exportedAt 后 FAIL', async () => {
-    // 链签名键 = AUDIT_HMAC_KEY（.env.test 显式配置，W4-②/HS-11）；离线全量重算与写入同 key
-    const key = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
+    // 链签名键 = AUDIT_HMAC_KEY（.env.test 显式配置，W4-②/HS-11）；离线全量重算与写入同 key。
+    // 不可回退 ENCRYPTION_KEY：链实际用 legacy 派生键 HMAC('keelbase:audit-chain:v1', ENCRYPTION_KEY)，
+    // 回退会把「缺 AUDIT_HMAC_KEY」误报成「子链重算不匹配」而非清晰的配置缺口。
+    const key = process.env.AUDIT_HMAC_KEY ?? '';
     expect(key.length).toBe(64); // 配置缺口暴露为失败而非静默跳过
     const res = await exportRoot(userA.accessToken, 200);
     const pkg = res.body.data as any;
@@ -162,17 +164,21 @@ describe('证据根 v3 契约（KB-3）', () => {
       // PASS：真实离线脚本 --key 全量重算真实三源链行（AI + operationAudit）+ 整包 canonical HMAC 签名验证（exit 0）
       const out = execFileSync(process.execPath, [script, file, '--key', key], { encoding: 'utf8' });
       expect(out).toContain('PASS');
-      expect(out).toContain('子链内容重算'); // 真实非空子链被全量重算（非 vacuous）
-      // 篡改 canonical 内 exportedAt → 整包 HMAC 重算不匹配 → FAIL（exit 1）
+      // 非 vacuous：断言子链确有 ≥1 行被重算（空子链时脚本同样打印「0 行…全部匹配」并 PASS）
+      expect(out).toMatch(/子链内容重算（--key）：[1-9]\d* 行 payload 全部匹配/);
+      // 篡改 canonical 内 exportedAt → 整包 HMAC 重算不匹配 → FAIL（exit 1；原因须为签名不匹配，而非脚本异常）
       const tampered = { ...pkg, exportedAt: '2999-01-01T00:00:00.000Z' };
       writeFileSync(file, JSON.stringify(tampered));
-      let failed = false;
+      let status: number | undefined;
+      let stdout = '';
       try {
         execFileSync(process.execPath, [script, file, '--key', key], { encoding: 'utf8' });
-      } catch {
-        failed = true;
+      } catch (err) {
+        status = (err as { status?: number }).status;
+        stdout = String((err as { stdout?: string }).stdout ?? '');
       }
-      expect(failed).toBe(true);
+      expect(status).toBe(1);
+      expect(stdout).toContain('证据根签名'); // FAIL 原因 = 签名不匹配，而非脚本异常/缺文件
     } finally {
       rmSync(file, { force: true });
     }

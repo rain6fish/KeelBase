@@ -180,12 +180,9 @@ function statusTag(status: string) {
   return { label: t('statusExecuted'), type: 'success' as const }
 }
 
-/** 撤销可点：优先用服务端下发的 revocable（单一权威）；旧负载缺省时按档位+状态兜底 */
+/** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(e: MyAiEffect): boolean {
-  if (e.revocable !== undefined) return e.revocable
-  if (e.status !== 'executed') return false
-  const rk = e.revokeClass
-  return rk === 'local_compensate' || rk === 'governed_external' || rk === 'transactional'
+  return e.revocable ?? false
 }
 
 async function loadEffects() {

@@ -109,13 +109,33 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   ),
                 )),
                 const SizedBox(height: 6),
-                Text(
-                  l10n.aiConfirmRunCount(conf.runItems.length),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: CupertinoTheme.of(context).primaryColor,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      l10n.aiConfirmRunCount(conf.runItems.length),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: CupertinoTheme.of(context).primaryColor,
+                      ),
+                    ),
+                    // spec §2.2/§2.5：批级最高风险（runRisk）——整批授权的决策依据，须与逐条档位并列可见
+                    if (conf.runRisk.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.aiConfirmRunRisk(conf.runRisk),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: CupertinoTheme.of(context)
+                              .textTheme
+                              .textStyle
+                              .color
+                              ?.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ] else ...[
                 const SizedBox(height: 6),
@@ -149,35 +169,35 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
               if (!conf.isRun) ...[
                 const SizedBox(height: 10),
                 CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => setState(() => _trustTool = !_trustTool),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _trustTool
-                          ? CupertinoIcons.checkmark_square_fill
-                          : CupertinoIcons.square,
-                      size: 18,
-                      color: CupertinoTheme.of(context).primaryColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        l10n.aiConfirmTrustTool,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: CupertinoTheme.of(context)
-                              .textTheme
-                              .textStyle
-                              .color
-                              ?.withValues(alpha: 0.78),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => setState(() => _trustTool = !_trustTool),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _trustTool
+                            ? CupertinoIcons.checkmark_square_fill
+                            : CupertinoIcons.square,
+                        size: 18,
+                        color: CupertinoTheme.of(context).primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          l10n.aiConfirmTrustTool,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle
+                                .color
+                                ?.withValues(alpha: 0.78),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               ],
               const SizedBox(height: 6),
               Row(

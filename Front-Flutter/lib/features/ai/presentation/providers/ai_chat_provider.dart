@@ -117,6 +117,8 @@ class PendingConfirmation {
   final String mode;
   /// mode==='run' 时的逐条动作（run 卡渲染）
   final List<RunConfirmationItem> runItems;
+  /// mode==='run' 时批级最高风险（spec §2.2 runRisk，用户据此做整批授权决定）；缺省空
+  final String runRisk;
 
   const PendingConfirmation({
     required this.token,
@@ -126,9 +128,11 @@ class PendingConfirmation {
     this.authorization,
     this.mode = 'confirmation',
     this.runItems = const [],
+    this.runRisk = '',
   });
 
-  bool get isRun => mode == 'run' && runItems.isNotEmpty;
+  /// run 卡以 mode 为准（不因 runItems 为空退化成单动作卡——那会以空摘要误导用户，而批准仍放行整批）
+  bool get isRun => mode == 'run';
 }
 
 /// AI 对话状态管理
@@ -398,6 +402,7 @@ class AiChatProvider extends ChangeNotifier {
                 : null,
             mode: mode,
             runItems: runItems,
+            runRisk: runMap?['riskLevel'] as String? ?? '',
           );
           _currentConfirmation = pending;
           if (_messages.isNotEmpty) {

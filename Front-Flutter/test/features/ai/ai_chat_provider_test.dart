@@ -203,6 +203,80 @@ void main() {
       await sendFuture;
     });
 
+    test('run 模式：解析 mode=run + runItems + runRisk（一次授权整批）', () async {
+      final gate = Completer<void>();
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) async* {
+        yield {
+          'type': 'confirmation_request',
+          'data': {
+            'type': 'confirmation_request',
+            'confirmation': {
+              'token': 'run-1',
+              'toolName': 'run',
+              'summary': '',
+              'arguments': <String, dynamic>{},
+              'mode': 'run',
+              'run': {
+                'runId': 'run-1',
+                'riskLevel': 'R4',
+                'items': [
+                  {'toolName': 'create_event', 'summary': '创建事件：A', 'riskLevel': 'R3'},
+                  {'toolName': 'create_todo', 'summary': '创建待办：B', 'riskLevel': 'R3'},
+                ],
+              },
+            },
+          },
+        };
+        await gate.future;
+      });
+
+      final sendFuture = provider.sendMessage('批量执行');
+      await pumpEventQueue();
+
+      final conf = provider.currentConfirmation!;
+      expect(conf.isRun, isTrue);
+      expect(conf.runItems, hasLength(2));
+      expect(conf.runItems.first.summary, '创建事件：A');
+      expect(conf.runRisk, 'R4'); // spec §2.2/§2.5：批级最高风险随卡下发
+
+      gate.complete();
+      await sendFuture;
+    });
+
+    test('run 模式：runItems 缺失仍认定为 run 卡（不退化成误导性单动作卡）', () async {
+      final gate = Completer<void>();
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) async* {
+        yield {
+          'type': 'confirmation_request',
+          'data': {
+            'type': 'confirmation_request',
+            'confirmation': {
+              'token': 'run-2',
+              'toolName': 'run',
+              'summary': '',
+              'arguments': <String, dynamic>{},
+              'mode': 'run',
+              'run': {'runId': 'run-2', 'riskLevel': 'R3', 'items': <dynamic>[]},
+            },
+          },
+        };
+        await gate.future;
+      });
+
+      final sendFuture = provider.sendMessage('批量执行');
+      await pumpEventQueue();
+
+      final conf = provider.currentConfirmation!;
+      expect(conf.isRun, isTrue); // 以 mode 为准
+      expect(conf.runItems, isEmpty);
+      expect(conf.runRisk, 'R3');
+
+      gate.complete();
+      await sendFuture;
+    });
+
     test('工具步骤卡：text → tool_start → tool_end → text 交错渲染', () async {
       when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
           .thenAnswer((_) => Stream.fromIterable([
