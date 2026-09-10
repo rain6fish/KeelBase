@@ -1166,6 +1166,13 @@ const zh = {
 
   // 系统信息
   sysTitle: '系统信息',
+  provenanceTitle: '运行时来源指纹',
+  provenanceSource: '来源身份',
+  provenancePreset: '预设',
+  provenanceModules: '业务模块',
+  provenanceTools: 'AI 工具指纹',
+  provenanceToolsDetail: '{total} 个（读 {read} / 写 {write}）',
+  provenanceManifestMissing: '未找到 manifest（开发运行）',
   appInfo: '应用信息',
   adminConsole: '管理控制台',
   latestVersion: '最新版本',

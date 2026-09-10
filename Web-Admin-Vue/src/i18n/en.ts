@@ -1153,6 +1153,13 @@ const en: ZhDict = {
   opsToolLoki: 'Logs: search all service logs by keyword and time range',
 
   sysTitle: 'System Info',
+  provenanceTitle: 'Runtime provenance',
+  provenanceSource: 'Source identity',
+  provenancePreset: 'Preset',
+  provenanceModules: 'Business modules',
+  provenanceTools: 'AI tool fingerprint',
+  provenanceToolsDetail: '{total} tools ({read} read / {write} write)',
+  provenanceManifestMissing: 'manifest not found (dev run)',
   appInfo: 'Application',
   adminConsole: 'Admin Console',
   latestVersion: 'Latest version',

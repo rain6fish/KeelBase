@@ -38,6 +38,35 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- FE-1：运行时来源指纹（/app/provenance）—— 「这是什么系统」的运行时自述 -->
+    <el-row :gutter="16" class="mt-4">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <template #header>{{ t('provenanceTitle') }}</template>
+          <div v-if="provenance" class="d-flex flex-column ga-2">
+            <div class="text-body-2">
+              {{ t('provenanceSource') }}：
+              <template v-if="provenance.source.manifestPresent">
+                {{ provenance.source.identity || '-' }}
+                <span v-if="provenance.source.generatorVersion"> · {{ provenance.source.generator }} {{ provenance.source.generatorVersion }}</span>
+                <span v-if="provenance.source.protocol"> · protocol {{ provenance.source.protocol }}</span>
+              </template>
+              <span v-else class="text-medium-emphasis">{{ t('provenanceManifestMissing') }}</span>
+            </div>
+            <div class="text-body-2">{{ t('provenancePreset') }}：{{ provenance.runtime.preset || '-' }}</div>
+            <div class="text-body-2">
+              {{ t('provenanceModules') }}（{{ provenance.runtime.businessModules.length }}）：
+              {{ provenance.runtime.businessModules.map((m) => m.label).join(' / ') || '-' }}
+            </div>
+            <div class="text-body-2">
+              {{ t('provenanceTools') }}：{{ t('provenanceToolsDetail', { total: provenance.runtime.aiToolFingerprint.total, read: provenance.runtime.aiToolFingerprint.read, write: provenance.runtime.aiToolFingerprint.write }) }}
+            </div>
+          </div>
+          <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -46,12 +75,14 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import { adminApi } from '@/api/admin'
+import { provenanceApi, type AppProvenance } from '@/api/provenance'
 import { formatUptime } from '@/utils/format'
 import type { AppVersionInfo, MonitorSummary } from '@/types/admin'
 
 const { t } = useI18n()
 const version = ref<AppVersionInfo | null>(null)
 const monitor = ref<MonitorSummary | null>(null)
+const provenance = ref<AppProvenance | null>(null)
 
 async function load() {
   try {
@@ -60,6 +91,11 @@ async function load() {
     monitor.value = m
   } catch {
     // global snackbar
+  }
+  try {
+    provenance.value = await provenanceApi.get()
+  } catch {
+    // 来源指纹失败不阻断系统页（降级为占位）
   }
 }
 
