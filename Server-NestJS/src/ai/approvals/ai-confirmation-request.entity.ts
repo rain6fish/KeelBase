@@ -50,9 +50,11 @@ export class AiConfirmationRequest {
   /**
    * KB-5 run-level approval（docs/run-level-approval.spec.md）：记录形态判别。
    * 'single'（默认）= 单动作确认（R3 即时 / R4 审批）；'run' = 一次授权整批（run token = 单行，items 快照在 run_items）。
+   * nullable: 迁移 1816000000000 以可空列 ADD（无 NOT NULL），实体对齐之（应用始终写值 + DB 默认 'single'）；
+   * 修 migration-consistency 漂移（曾实体 NOT NULL ↔ 迁移可空）。
    */
-  @Column({ length: 16, default: 'single' })
-  kind!: string;
+  @Column({ length: 16, default: 'single', nullable: true })
+  kind?: string;
 
   /**
    * KB-5 run：批内动作快照 JSON（RunItem[] = {toolName, args, summary, riskLevel}）。
