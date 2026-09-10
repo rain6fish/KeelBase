@@ -7,6 +7,7 @@
  */
 import { API_BASE_URL } from '@/utils/constants'
 import { storage } from '@/utils/storage'
+import { refreshAccessToken } from '@/api/session'
 import { api } from '@/api/client'
 
 // ── 流式事件类型（与后端 ai.service.ts chatStream 对齐）──────────────────────
@@ -94,29 +95,6 @@ export interface StreamChatOptions {
   onEvent: (event: StreamChatEvent) => void
   onEnd?: () => void
   onError?: (err: Error) => void
-}
-
-/** 刷新 access token（轻量版；对齐 client.ts 语义：HTTP 200 + data.accessToken/refreshToken） */
-async function refreshAccessToken(): Promise<boolean> {
-  const { refreshToken } = storage.readTokens()
-  if (!refreshToken) return false
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    })
-    const body = (await res.json().catch(() => null)) as {
-      data?: { accessToken?: string; refreshToken?: string }
-    } | null
-    if (body?.data?.accessToken && body.data.refreshToken) {
-      storage.saveTokens(body.data.accessToken, body.data.refreshToken)
-      return true
-    }
-  } catch {
-    // 刷新失败（网络/过期）→ 返回 false，上层抛错
-  }
-  return false
 }
 
 function postStream(

@@ -98,3 +98,37 @@
 ## 7. 局限
 
 盘点为静态只读（grep + 通读关键文件 + agent 三路并行），证据基于现状文件：行；wire Contract v1 精确 schema 覆盖范围需对照 CE-1-B3 registry（12→24 对象）。未逐一验证各端点是否已被 wire schema 覆盖——那是 FE-1 下一步（耦合项 ↔ contract 覆盖矩阵）。
+
+## 8. FE-1b 落地记录（2026-09-10，切片一：Web-Admin-Vue 信封/错误/刷新收敛）
+
+> §7 的「覆盖矩阵」与首个收敛切片同步落地。契约源 = `Server-NestJS/specs/protocol/schemas/v1/{api-response,error-body}.schema.json`。
+
+### 8.1 切片一（Web-Admin-Vue）
+
+- **新增 `src/api/envelope.ts`** —— neutral 信封/错误 adapter，对齐 wire v1：
+  - `unwrapEnvelope()`：单点解包成功信封（`client.ts` 主/治理两处 + 拦截器统一走此）；
+  - `readErrorBody()`：按契约取**顶层** `message/errorCode/reason/impact/nextStep/explanation/retryAfter`；
+  - **去契约外字段 `errors` 字典**（后端 `AllExceptionsFilter` 不发，validator 错误已 `'; '` join 进 `message`；FE-1a 5.2 的「Nest 假设」实证为契约外漂移）；
+  - `deniedByOf()`：`explanation` 兼容 object|string（原硬取 `.deniedBy`）。
+- **新增 `src/api/session.ts`** —— token 刷新**唯一实现**（原 `client.ts`（axios）+ `utils/streamChat.ts`（裸 fetch）双份并存、语义靠人工对齐）；共享 `refreshPromise` 防并发 stampede。
+- `client.ts` / `streamChat.ts` 改消费二者；`ApiError` 移除 `errors` 字段（仅 spec 引用，无视图消费）。
+- 测试：`envelope.spec` 8 + `client.spec` 6 绿；typecheck 绿。
+
+### 8.2 耦合项 ↔ wire Contract v1 覆盖矩阵（FE-1a §5 × CE-1-B3 registry）
+
+| FE-1a 耦合 | 对应 wire Schema v1 | Web | Flutter | Taro |
+|---|---|---|---|---|
+| 5.1 信封 `code` 语义 | `api-response` | ✅ 切片一（单点解包） | ⬜ `==200/==0/[200,300)` 三义待收敛 | ⬜ 死契约待启用 |
+| 5.2 错误体 Nest 假设 | `error-body` | ✅ 切片一（去 `errors`，顶层字段） | ⬜ 顶层 message/retryAfter 待归一 | ⬜ `errors` 字典待去 |
+| 5.3 401-refresh + 轮换 | `api-response`（data=TokenPair） | ✅ 切片一（单一实现） | ⬜ refresh 双值+轮换待契约化 | ⬜ 双层解包待归一 |
+| 5.4 实时事件手写 switch | SSE/WS 帧 schema（已冻结） | ⬜ 事件 model 隔离 + 兼容 `event:` 行 | ⬜ UI provider 内 switch 待抽 model | ⬜ 事件名硬编码待归一 |
+| 5.5 capabilities 消费 | `/app/capabilities` | ⬜ gating 已用、导航静态枚举 | ⬜ 导航零消费 | ⬜ 零消费 |
+| 5.6 provenance 消费 | `/app/provenance` | ⬜ | ⬜ | ⬜ |
+
+### 8.3 后续切片（按 §6 优先序）
+
+- **FE-1b-2**：Flutter 信封/错误/refresh（`code` 三义收敛到 adapter；错误体去 Nest 假设）
+- **FE-1b-3**：Taro 信封/错误（死契约 `isSuccess` 启用；`errors` 字典去）
+- **FE-1b-4**：SSE/WS 事件 model 隔离（抽共享事件类型，解析兼容 wire `event:` 行）
+- **FE-1b-5**：capabilities 驱动导航（三端模块清单/底部 Tab/Explore/模型列表）
+- **FE-1b-6**：provenance 消费（三端 runtime 来源指纹入口）
