@@ -193,11 +193,11 @@ void main() {
       final sendFuture = provider.sendMessage('帮我创建待办');
       await pumpEventQueue();
 
-      when(() => api.post('/ai/confirmations/tok-2', data: {'decision': 'reject'}))
+      when(() => api.post('/ai/confirmations/tok-2', data: {'decision': 'decline'}))
           .thenAnswer((_) async => {'code': 200, 'message': 'ok', 'timestamp': '', 'data': null});
       await provider.confirmPending(approved: false);
 
-      verify(() => api.post('/ai/confirmations/tok-2', data: {'decision': 'reject'})).called(1);
+      verify(() => api.post('/ai/confirmations/tok-2', data: {'decision': 'decline'})).called(1);
 
       gate.complete();
       await sendFuture;

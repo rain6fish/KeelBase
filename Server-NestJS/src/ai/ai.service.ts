@@ -1375,7 +1375,7 @@ export class AiService {
           // run 级整体决策关卡先于逐条 decision（spec §2.3）
           yield {
             type: 'confirmation_decision',
-            confirmationDecision: { mode: 'run', runId: token, approved },
+            confirmationDecision: { mode: 'run', runId: token, decision: outcome, approved },
           };
           if (await this._shouldAudit('tool')) {
             this.auditService.log({
@@ -1507,6 +1507,7 @@ export class AiService {
                 type: 'confirmation_decision',
                 confirmationDecision: {
                   toolName: tc.name,
+                  decision: 'approve',
                   approved: true,
                   success: result.success,
                   resultId: (result.data as any)?.id,
@@ -1532,7 +1533,7 @@ export class AiService {
               };
               yield {
                 type: 'confirmation_decision',
-                confirmationDecision: { toolName: tc.name, approved: false },
+                confirmationDecision: { toolName: tc.name, decision: outcome, approved: false },
               };
               yield {
                 type: 'tool_end',

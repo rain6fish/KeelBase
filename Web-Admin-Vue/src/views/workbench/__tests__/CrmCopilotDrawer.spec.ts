@@ -84,7 +84,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
     expect(wrapper.emitted('executed')?.[0]).toEqual([{ resultType: 'crm_task', resultId: 42 }])
   })
 
-  it('拒绝 → 调 confirmTool(reject)，不 emit executed', async () => {
+  it('拒绝 → 调 confirmTool(decline)，不 emit executed', async () => {
     const wrapper = mountDrawer()
     const opts = await sendAndCapture(wrapper)
 
@@ -96,7 +96,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     await confirmCardButton(wrapper, '拒绝')!.trigger('click')
     await flushPromises()
-    expect(confirmToolMock).toHaveBeenCalledWith('tok-2', 'reject')
+    expect(confirmToolMock).toHaveBeenCalledWith('tok-2', 'decline')
 
     opts.onEvent({
       type: 'confirmation_decision',

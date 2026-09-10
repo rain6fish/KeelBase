@@ -304,10 +304,17 @@ describe('AiController', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('decision 为 reject 时透传 trustTool 默认 false', async () => {
+    it('decision 为 decline 时透传 trustTool 默认 false', async () => {
       mockConfirmResolve.mockReturnValue(true);
-      const result = await controller.confirm('tok-2', { decision: 'reject' }, mockUser as any);
-      expect(mockConfirmResolve).toHaveBeenCalledWith('tok-2', '1', 'reject', undefined);
+      const result = await controller.confirm('tok-2', { decision: 'decline' }, mockUser as any);
+      expect(mockConfirmResolve).toHaveBeenCalledWith('tok-2', '1', 'decline', undefined);
+      expect(result).toEqual({ ok: true, trustTool: false });
+    });
+
+    it('legacy decision=reject 透传到 store（store 侧归一为 decline）', async () => {
+      mockConfirmResolve.mockReturnValue(true);
+      const result = await controller.confirm('tok-3', { decision: 'reject' }, mockUser as any);
+      expect(mockConfirmResolve).toHaveBeenCalledWith('tok-3', '1', 'reject', undefined);
       expect(result).toEqual({ ok: true, trustTool: false });
     });
   });

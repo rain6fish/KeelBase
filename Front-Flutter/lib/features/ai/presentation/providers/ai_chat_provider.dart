@@ -538,7 +538,7 @@ class AiChatProvider extends ChangeNotifier {
       await _apiClient.post(
         '/ai/confirmations/${conf.token}',
         data: {
-          'decision': approved ? 'approve' : 'reject',
+          'decision': approved ? 'approve' : 'decline',
           // 仅批准时传播信任标记：拒绝时忽略，避免 Reject 误把工具标记为已信任
           if (approved && trustTool) 'trustTool': true,
         },
