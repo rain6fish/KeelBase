@@ -90,7 +90,7 @@ export function resolveLocalEntity(em: EntityManager, type: string): LocalEntity
   const byNormalized = (md: any) =>
     namesOf(md).some((n) => typeof n === 'string' && n.toLowerCase().replace(/_/g, '') === normalized);
   const toTarget = (md: any): LocalEntityTarget => {
-    const display = md.columns.find((col) =>
+    const display = md.columns.find((col: { propertyName: string }) =>
       ['title', 'name', 'subject', 'label'].includes(col.propertyName),
     );
     return { name: md.name, displayCol: display ? display.propertyName : null };
