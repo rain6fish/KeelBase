@@ -7,7 +7,8 @@
 # 把现有验证脚本串成五维 + Adversarial + Gate 1 Golden Application → PASS/FAIL，
 # 一命令证明「Build / Run / Trust / Private 已可重复验证」。
 # 确定性部分（Build/Gate1/Trust/Private/迁移一致性）可进 CI；LLM 部分（Run/Adversarial）需 LLM_ENV=1（DeepSeek/Ollama）。
-# Trust 维度含：三旗舰 + 生成模块 e2e（越权/写确认/审计）+ 审计链并发压测（npm run audit:chain:load，分叉 0 + verify 全绿）。
+# Trust 维度含：三旗舰 + 生成模块 + 跨入口一致性(T5) + 失败路径(KB-4) + 撤销验收(G4) +
+# 信任行为矩阵(§14 Duplicate/Concurrent/Partial) + 治理台 HTTP e2e + 审计链并发压测（分叉 0 + verify 全绿）。
 #
 # 用法：
 #   ./scripts/release-gate.sh            # 确定性 Gate（可 CI）
@@ -56,8 +57,10 @@ echo "→ [Trust] 越权 / 写确认 / 审计"
 E2E_OUT=$(cd Server-NestJS && npx jest --config test/jest-e2e.json \
   test/crm.e2e-spec.ts test/pm.e2e-spec.ts test/approval.e2e-spec.ts \
   test/generated-modules.e2e-spec.ts test/explainable-authz.e2e-spec.ts \
-  test/cross-entry-consistency.e2e-spec.ts test/failure-path.e2e-spec.ts 2>&1) || true
-for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)"; do
+  test/cross-entry-consistency.e2e-spec.ts test/failure-path.e2e-spec.ts \
+  test/revoke-acceptance.e2e-spec.ts test/trust-behavior-matrix.e2e-spec.ts \
+  test/governance-plane.e2e-spec.ts 2>&1) || true
+for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)" "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)" "governance-plane:治理台HTTP"; do
   name="${t%%:*}"; label="${t##*:}"
   if echo "$E2E_OUT" | grep -q "PASS test/${name}.e2e-spec.ts"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; fi
 done
