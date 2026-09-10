@@ -139,7 +139,7 @@ export class AiModule {
         toolRegistry.register(new CreateTodoTool(todosService));
   }
 }
-inject: [TodosService, MemoriesService, ConfirmationStore],
+inject: [TodosService, ContractsService, MemoriesService, ConfirmationStore],
 `,
   );
 }
