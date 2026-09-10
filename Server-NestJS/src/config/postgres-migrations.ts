@@ -30,6 +30,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddFormBuilder*',
   '*AddAiToolSideEffects*',
   '*AddAiToolSideEffectSnapshots*',
+  '*AddToolEffectConversationIndex*',
   '*AddHeadlessApiKeys*',
   '*AddGeneratedModuleSchemas*',
   '*AddOrgStructures*',
