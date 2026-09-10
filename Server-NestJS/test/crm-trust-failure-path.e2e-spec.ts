@@ -293,6 +293,42 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
     expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(0);
   });
 
+  it('⑧ §4 G1 run 级批量撤销：只圈定该 run 的副作用（同会话其它 run 不受影响）', async () => {
+    const customerId = await createCustomer(tokenA, 'run 级撤销目标客户');
+    const t1 = await createTask(tokenA, customerId, 'run撤-1');
+    const t2 = await createTask(tokenA, customerId, 'run撤-2');
+    const tOther = await createTask(tokenA, customerId, 'run撤-其它');
+    const record = (title: string, resultId: number, runId: string) =>
+      effectsService.record(
+        { userId: String(userAId), conversationId: 'a2-run-batch', runId, toolName: 'create_followup_task', args: { customerId, title } },
+        'crm_task',
+        resultId,
+      );
+    // 同一会话下两个 run：run-batch-1 含 2 条、run-batch-2 含 1 条
+    await record('run撤-1', t1, 'run-batch-1');
+    await record('run撤-2', t2, 'run-batch-1');
+    await record('run撤-其它', tOther, 'run-batch-2');
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(3);
+
+    const res = await request(app.getHttpServer())
+      .delete('/api/v1/ai/my/tool-effects?runId=run-batch-1')
+      .set(authHeader(tokenA))
+      .expect(200);
+    const summary = res.body.data as {
+      runId?: string;
+      total: number;
+      revoked: number;
+      truncated?: boolean;
+    };
+    expect(summary.runId).toBe('run-batch-1');
+    expect(summary.total).toBe(2); // 只圈 run-batch-1 的 2 条（非整个会话的 3 条）
+    expect(summary.revoked).toBe(2);
+    expect(summary.truncated).toBe(false);
+
+    // 精确圈定：run-batch-2 的 1 条仍在（run 级比会话级细，不误伤同会话其它 run）
+    expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(1);
+  });
+
   it('⑦ 撤销诚实（KB-4 unknown 边界）：撤销后 CRM 详情不可见（软删）+ 再撤幂等成功', async () => {
     const customerId = await createCustomer(tokenA, '撤销诚实目标客户');
     const tid = await createTask(tokenA, customerId, '跟进-撤销诚实');
