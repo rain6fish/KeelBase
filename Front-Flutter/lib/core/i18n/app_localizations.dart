@@ -422,6 +422,13 @@ class AppLocalizations {
   String get language => _t('Language', '语言');
   String get version => _t('Version', '版本');
   String get about => _t('About', '关于');
+  String get provenanceTitle => _t('Runtime provenance', '运行时来源指纹');
+  /// FE-1：来源指纹摘要（来源身份 · 预设 · N 模块 · N 工具）
+  String Function(String identity, String preset, int modules, int tools) get provenanceMeta =>
+      (identity, preset, modules, tools) => _t(
+            '$identity · preset $preset · $modules modules · $tools tools',
+            '$identity · 预设 $preset · $modules 模块 · $tools 工具',
+          );
   String get sectionAppearance => _t('APPEARANCE', '外观');
   String get sectionRegion => _t('REGION', '地区');
   String get sectionAbout => _t('ABOUT', '关于');

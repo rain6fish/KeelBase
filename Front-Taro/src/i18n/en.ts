@@ -49,6 +49,8 @@ export const en: I18nDictionary = {
   'settings.terms': 'Terms of Service',
   'settings.appInfo': 'App Info',
   'settings.version': 'Version',
+  'settings.provenance': 'Runtime provenance',
+  'settings.provenanceMeta': '{identity} · preset {preset} · {modules} modules · {tools} tools',
   'settings.wechatReminderH5Only': 'WeChat reminders are only available in the mini program',
   'settings.wechatReminderNotConfigured': 'Reminder template not configured',
   'settings.wechatReminderEnabled': 'WeChat reminders enabled',

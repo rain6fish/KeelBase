@@ -10,6 +10,8 @@ import 'app.dart';
 import 'core/api/api_client.dart';
 import 'core/api/capabilities_provider.dart';
 import 'core/api/capabilities_repository.dart';
+import 'core/api/provenance_provider.dart';
+import 'core/api/provenance_repository.dart';
 import 'core/api/sse_client.dart';
 import 'core/api/ws_client.dart';
 import 'core/security/secure_storage_service.dart';
@@ -127,6 +129,9 @@ Future<void> _initApp() async {
   // MOD-4 capabilities：预设 + 功能开关（EASY-5 预设引导 / 导航隐藏共用）
   final capabilitiesProvider =
       CapabilitiesProvider(CapabilitiesRepository(apiClient));
+  // FE-1 provenance：运行时来源指纹（关于页展示）
+  final provenanceProvider =
+      ProvenanceProvider(ProvenanceRepository(apiClient));
 
   // Auth failure handler — must be set before any API calls
   AuthProvider? authProvider;
@@ -160,6 +165,8 @@ Future<void> _initApp() async {
 
   // MOD-4：启动即拉取 capabilities（Public），供导航隐藏 + 预设引导
   capabilitiesProvider.load();
+  // FE-1：启动即拉取 provenance（Public），供关于页来源指纹
+  provenanceProvider.load();
 
   runApp(
     MultiProvider(
@@ -173,6 +180,9 @@ Future<void> _initApp() async {
         Provider<AuthRepository>.value(value: authRepository),
         ChangeNotifierProvider<CapabilitiesProvider>.value(
           value: capabilitiesProvider,
+        ),
+        ChangeNotifierProvider<ProvenanceProvider>.value(
+          value: provenanceProvider,
         ),
 
         // GROWTH-1 推送：默认 Noop（未接厂商），真实 JPush/FCM 接入后替换实现

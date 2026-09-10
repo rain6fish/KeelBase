@@ -94,18 +94,25 @@
         <text class="settings-page__row-label">{{ t('settings.version') }}</text>
         <text class="settings-page__row-value">v{{ appVersion }}</text>
       </view>
+      <!-- FE-1：运行时来源指纹（/app/provenance），未加载/失败则隐藏 -->
+      <view v-if="provenance" class="settings-page__row">
+        <text class="settings-page__row-icon">🧬</text>
+        <text class="settings-page__row-label">{{ t('settings.provenance') }}</text>
+        <text class="settings-page__row-value">{{ provenanceMeta }}</text>
+      </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import './index.scss'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { useThemeStore, type ThemeMode } from '../../stores/theme-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { useI18nStore } from '../../stores/i18n-store'
+import { useProvenanceStore } from '../../stores/provenance-store'
 import { useI18n } from '../../composables/useI18n'
 import type { Locale } from '../../i18n/types'
 
@@ -113,8 +120,26 @@ const themeStore = useThemeStore()
 const { themeMode } = storeToRefs(themeStore)
 const authStore = useAuthStore()
 const i18n = useI18nStore()
+const provenanceStore = useProvenanceStore()
+const { provenance } = storeToRefs(provenanceStore)
 const { t } = useI18n()
 const appVersion = ref('1.0.0')
+
+// FE-1：来源指纹摘要（来源身份 · 预设 · N 模块 · N 工具）
+const provenanceMeta = computed(() =>
+  provenance.value
+    ? t('settings.provenanceMeta', {
+        identity: provenance.value.source.identity || '-',
+        preset: provenance.value.preset,
+        modules: provenance.value.moduleCount,
+        tools: provenance.value.tools.total,
+      })
+    : '',
+)
+
+onMounted(() => {
+  void provenanceStore.load()
+})
 
 const isH5 = process.env.TARO_ENV === 'h5'
 // MINI-2：构建时注入微信订阅消息模板 id（需与后端 WECHAT_REMIND_TEMPLATE_ID 一致）
