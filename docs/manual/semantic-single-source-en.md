@@ -1,6 +1,6 @@
 # Semantic Single-Source Rule (CE-1 C1)
 
-> **Rule**: implementation changes that touch **tool / governance / audit / event** semantics must land alongside `specs/protocol` (vectors / golden samples) or `schemas` (wire Schema) — i.e. **land the contract first, then the code**. This fights "the same semantic implemented in two places, drifting apart".
+> **Rule**: implementation changes that touch **tool / governance / audit / event** semantics must land alongside `specs/protocol` (vectors / golden samples) or `specs/protocol/schemas` (wire Schema) — i.e. **land the contract first, then the code**. This fights "the same semantic implemented in two places, drifting apart".
 
 ## Why
 
@@ -15,7 +15,7 @@ KeelBase's moat is one Application Semantic Layer joining Build and Run (ADR-000
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 risk tiers + strategy table |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | business-event naming |
 
-**Contract sources** (any change here satisfies the rule): `Server-NestJS/specs/protocol/` (vectors / golden samples / registry), `Server-NestJS/schemas/` (wire Schema v1).
+**Contract sources** (any change here satisfies the rule): `Server-NestJS/specs/protocol/` (vectors / golden samples / registry), `Server-NestJS/specs/protocol/schemas/` (wire Schema v1).
 
 ## Workflow
 

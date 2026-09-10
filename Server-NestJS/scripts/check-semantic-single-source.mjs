@@ -33,7 +33,7 @@ const SEMANTIC_SOURCES = [
 /** 契约真源目录（任一变更即视为已落契约） */
 const CONTRACT_DIRS = [
   'Server-NestJS/specs/protocol/',
-  'Server-NestJS/schemas/',
+  'Server-NestJS/specs/protocol/schemas/',
 ];
 
 const EXEMPT_TRAILER = '[no-semantic-change]';
