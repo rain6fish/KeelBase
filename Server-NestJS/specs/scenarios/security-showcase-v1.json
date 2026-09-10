@@ -1,0 +1,28 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "AI 治理 · 对抗性安全演示场景表（CE-1 B4-scenarios）",
+  "license": "Apache-2.0",
+  "note": "运行时行为源 = src/ai/security-showcase/security-showcase.service.ts SecurityShowcaseService.listScenarios()（id+category）与 runScenario() 各场景 outcome（injection→refused / unauthorized→denied / r5-block→blocked / confirmation→requiresConfirmation）；本语料为其机器副本（跨语言可消费）。双向漂移由 src/ai/scenarios-pack.spec.ts 断言（listScenarios 集合 == cases；runScenario(id).outcome == cases.outcome）强制——任一侧变更须先同步对侧（CE-1 L3 单源规则）。",
+  "cases": [
+    {
+      "id": "injection",
+      "category": "injection",
+      "outcome": "refused"
+    },
+    {
+      "id": "unauthorized",
+      "category": "unauthorized",
+      "outcome": "denied"
+    },
+    {
+      "id": "r5-block",
+      "category": "risk",
+      "outcome": "blocked"
+    },
+    {
+      "id": "confirmation",
+      "category": "confirmation",
+      "outcome": "requiresConfirmation"
+    }
+  ]
+}

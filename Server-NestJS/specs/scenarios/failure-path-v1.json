@@ -1,0 +1,80 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "失败路径回归语料（KB-4）清单（CE-1 B4-failure-path）",
+  "license": "Apache-2.0",
+  "note": "源 = docs/failure-path-corpus.spec.md §2 表格「失败形态 × 语料清单」FP-1..FP-9（doc 为权威真源）。本语料为 doc 行机器副本（id/title/scenario/expected/status/layer）；doc↔pack 漂移由 src/ai/scenarios-pack.spec.ts 断言（pack FP id 集合 == 从 doc 解析出的 FP-数字 行集合）强制。A/B 层：A 层 src/ai/failure-path/failure-path-corpus.spec.ts（确定性 fault-injection），B 层 test/failure-path.e2e-spec.ts（真实 app + fresh sqlite + supertest）。FP-9 由 CI migration-consistency job 覆盖，本语料引用不重复造。",
+  "cases": [
+    {
+      "id": "FP-1",
+      "title": "重复执行 / 幂等",
+      "scenario": "同会话同工具同参数二次调用",
+      "expected": "只 execute 一次；二次返回既有 effect + `idempotent:true`",
+      "status": "已安全（idempotencyKey 唯一 + findExisting 守卫）",
+      "layer": "A + B"
+    },
+    {
+      "id": "FP-2",
+      "title": "确认重放（replay）",
+      "scenario": "同一 token 二次 resolve",
+      "expected": "二次 resolve → false/404，不二次执行",
+      "status": "已安全（token 一次性 + 条件更新）",
+      "layer": "A"
+    },
+    {
+      "id": "FP-3",
+      "title": "超时（外部写/补偿）",
+      "scenario": "fetch 永不返回 + 短超时",
+      "expected": "在超时上限内以**带超时标记**的错误返回；不无限挂起；上层不落伪成功副作用",
+      "status": "**F1 修复**（现无超时守卫）",
+      "layer": "A + B"
+    },
+    {
+      "id": "FP-4",
+      "title": "DB 错误被误判幂等",
+      "scenario": "effectsRepo.save 抛非唯一冲突（DB down）",
+      "expected": "非唯一冲突 **rethrow**（不伪装幂等 skip）；仅唯一约束冲突走 skip+findOne",
+      "status": "**F2 修复**（现任意错误当 skip）",
+      "layer": "A"
+    },
+    {
+      "id": "FP-5",
+      "title": "DB 唯一冲突（真并发重复落库）",
+      "scenario": "save 抛唯一约束",
+      "expected": "幂等 skip → 返回既有行，不重复",
+      "status": "已安全（G-3 并发兜底）",
+      "layer": "A"
+    },
+    {
+      "id": "FP-6",
+      "title": "审计中断",
+      "scenario": "audit repo save / postgres runner 抛错",
+      "expected": "fail-closed：错误传播给调用方（不悄悄丢审计）；治理双写失败隔离不阻断主链",
+      "status": "已安全（postgres rollback+throw；sqlite 队列 `await job` 上抛；双写静默 `.catch`）",
+      "layer": "A"
+    },
+    {
+      "id": "FP-7",
+      "title": "外部补偿失败",
+      "scenario": "补偿端点 5xx / 不可达 / 无 revokePath",
+      "expected": "返回如实 `ok:false` + status/消息；副作用不显示 revoked",
+      "status": "已安全（ProxyToolRevokerService 如实语义 + spec）",
+      "layer": "A + B"
+    },
+    {
+      "id": "FP-8",
+      "title": "未知结果（调用成功响应丢失）",
+      "scenario": "proxy 返回 200/204 空体",
+      "expected": "仍记 `proxy_call` 副作用锚（proxyResultId），不假装有 data",
+      "status": "已安全（ai.service.ts proxyResultId）",
+      "layer": "A"
+    },
+    {
+      "id": "FP-9",
+      "title": "迁移中断",
+      "scenario": "迁移重复执行 / 中途失败",
+      "expected": "幂等可重跑 + 前滚一致性",
+      "status": "由既有 migration-consistency CI job（sqlite+postgres）覆盖，本语料引用不重复造",
+      "layer": "—"
+    }
+  ]
+}

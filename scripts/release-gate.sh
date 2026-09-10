@@ -69,12 +69,12 @@ done
 echo "→ [Trust] 审计链并发压测"
 if (cd Server-NestJS && npm run audit:chain:load >/dev/null 2>&1); then gate "Trust(审计链压测)" pass; else gate "Trust(审计链压测)" fail "audit:chain:load"; fi
 
-# ── Trust：CE-1 协议契约常绿（conformance + 生产金样本复现 + wire Schema v1 + 术语闸 + evidence canonical 防漂移）──
-echo "→ [Trust] CE-1 协议契约（conformance + canonical/wire + 语言 + evidence-canonical）"
-if (cd Server-NestJS && npm run conformance >/dev/null 2>&1 && npm run test:protocol-corpus >/dev/null 2>&1 && npm run language:guard >/dev/null 2>&1 && npm run check:evidence-canonical >/dev/null 2>&1); then
-  gate "Trust(CE-1 协议语料+wire Schema+术语+证据canonical)" pass
+# ── Trust：CE-1 协议契约常绿（conformance + 生产金样本复现 + wire Schema v1 + 术语闸 + evidence canonical + 场景包漂移）──
+echo "→ [Trust] CE-1 协议契约（conformance + canonical/wire + 语言 + evidence-canonical + 场景包）"
+if (cd Server-NestJS && npm run conformance >/dev/null 2>&1 && npm run test:protocol-corpus >/dev/null 2>&1 && npm run language:guard >/dev/null 2>&1 && npm run check:evidence-canonical >/dev/null 2>&1 && npm run scenarios:check >/dev/null 2>&1); then
+  gate "Trust(CE-1 协议语料+wire Schema+术语+证据canonical+场景包)" pass
 else
-  gate "Trust(CE-1 协议语料+wire Schema+术语+证据canonical)" fail "conformance / test:protocol-corpus / language:guard / check:evidence-canonical"
+  gate "Trust(CE-1 协议语料+wire Schema+术语+证据canonical+场景包)" fail "conformance / test:protocol-corpus / language:guard / check:evidence-canonical / scenarios:check"
 fi
 
 # ── Private：AIization（已有 Schema → Protocol）+ 迁移一致性 ───────────────────
