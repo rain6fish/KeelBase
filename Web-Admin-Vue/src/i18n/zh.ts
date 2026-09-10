@@ -363,7 +363,6 @@ const zh = {
   aiCenterConvRevokeConfirm: '将撤销本会话产生的全部 AI 写副作用（可撤销项软删，B 路径走外部补偿）。确定撤销？',
   aiCenterConvRevokeEmpty: '该会话没有可撤销的 AI 写副作用',
   aiCenterConvRevokeDone: '已撤销 {revoked} 项，跳过 {skipped} 项，失败 {failed} 项',
-  aiCenterConvRevokeTruncated: '本会话撤销项较多，本次只处理了前 {total} 项——请再次点击撤销继续处理剩余项',
   stepInput: '你的提问',
   stepAssistant: 'AI 回复',
   traceSourceHuman: '人',

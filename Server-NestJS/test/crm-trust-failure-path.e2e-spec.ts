@@ -318,12 +318,10 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
       runId?: string;
       total: number;
       revoked: number;
-      truncated?: boolean;
     };
     expect(summary.runId).toBe('run-batch-1');
     expect(summary.total).toBe(2); // 只圈 run-batch-1 的 2 条（非整个会话的 3 条）
     expect(summary.revoked).toBe(2);
-    expect(summary.truncated).toBe(false);
 
     // 精确圈定：run-batch-2 的 1 条仍在（run 级比会话级细，不误伤同会话其它 run）
     expect(await tasksOfCustomer(tokenA, customerId)).toHaveLength(1);

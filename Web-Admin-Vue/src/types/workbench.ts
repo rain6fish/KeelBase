@@ -154,6 +154,4 @@ export interface BatchRevokeResult {
   skipped: number
   failed: number
   results: BatchRevokeItem[]
-  /** 作用域内超过单次上限被截断（尚有未处理行）——调用方应再次执行以续处理 */
-  truncated?: boolean
 }
