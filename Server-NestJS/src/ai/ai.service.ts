@@ -373,6 +373,7 @@ export class AiService {
     args: Record<string, unknown>,
     userId: string,
     conversationId?: string,
+    runId?: string,
   ): Promise<ToolResult> {
     if (this.externalToolProvider?.isExternal(toolName)) {
       const out = await this.externalToolProvider.callTool(toolName, args, userId);
@@ -425,7 +426,7 @@ export class AiService {
           ? await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)
           : null;
         await this.toolEffectsService.record(
-          { userId, conversationId, toolName, args },
+          { userId, conversationId, runId, toolName, args },
           resultType,
           resultId,
           { before, after },
@@ -1279,7 +1280,7 @@ export class AiService {
 
       // KB-5 run-level approval：预扫描本轮需即时确认写工具，≥2 且均有具体摘要 → 聚成一个 run 一次授权
       // （docs/run-level-approval.spec.md §2：R5/R4/trusted/无摘要均不并入，各自走原路径；run 决策先于逐条 decision）
-      let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout' } | undefined;
+      let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout'; runId: string } | undefined;
       {
         const ttlSeconds = this.settingsService
           ? Number(
@@ -1373,7 +1374,7 @@ export class AiService {
           const { outcome } = await decision;
           const approved = outcome === 'approve';
           // 保留完整 outcome（含 'timeout'）——成员逐条回放时不得把 run 超时塌缩成用户 decline（spec §2.4 沿用超时语义）
-          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), outcome };
+          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), outcome, runId: token };
           // run 级整体决策关卡先于逐条 decision（spec §2.3）
           yield {
             type: 'confirmation_decision',
@@ -1505,7 +1506,9 @@ export class AiService {
               });
             }
             if (outcome === 'approve') {
-              result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
+              // §4 G1：run 成员执行的副作用挂 runId（供 run 级批量撤销精确圈定）
+              const execRunId = runState?.idxSet.has(idx) ? runState.runId : undefined;
+              result = await this._executeWriteTool(tc.name, parsed, userId, conversationId, execRunId);
               yield {
                 type: 'confirmation_decision',
                 confirmationDecision: {

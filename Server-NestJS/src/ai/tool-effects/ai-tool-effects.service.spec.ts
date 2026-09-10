@@ -108,6 +108,35 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(repo.save).toHaveBeenCalled();
     });
 
+    it('§4 G1：ctx.runId 落 run_id 列；未给 runId → null（单条/免确认写）', async () => {
+      repo.save.mockResolvedValue({ id: 1 });
+      await service.record(
+        { userId: '1', conversationId: 'c', runId: 'run-a', toolName: 'create_event', args: { title: 'X' } },
+        'event',
+        42,
+      );
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ runId: 'run-a' }));
+
+      repo.create.mockClear();
+      await service.record(
+        { userId: '1', conversationId: 'c', toolName: 'create_event', args: { title: 'Y' } },
+        'event',
+        43,
+      );
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ runId: null }));
+    });
+
+    it('§4 G1：run_id 不入副作用哈希链 payload（白名单外 → 加列不破历史链）', () => {
+      // _chainPayload 是白名单：即使行对象带 runId，入链 payload 也不含它 —— 故加列不改变历史行重算值
+      const payload = (service as any)._chainPayload({
+        runId: 'run-a',
+        toolName: 'create_event',
+        userId: '1',
+      });
+      expect(payload).not.toHaveProperty('runId');
+      expect(payload).toHaveProperty('toolName', 'create_event');
+    });
+
     it('E-1：snapshot before/after 写入副作用记录', async () => {
       repo.save.mockResolvedValue({
         id: 1, idempotencyKey: 'k', userId: '1', conversationId: 'c',
@@ -249,6 +278,41 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
 
       const res = await service.revokeConversation('c');
+      expect(res.total).toBe(2);
+    });
+  });
+
+  describe('revokeRun（§4 G1 run 级批量撤销：按 runId 精确圈定比会话更细）', () => {
+    const eff = (id: number, userId: string, runId: string) => ({
+      id, userId, resultType: 'event', resultId: 100 + id, conversationId: 'c', runId,
+      toolName: 'create_event', argsHash: 'h', createdAt: new Date(),
+    });
+
+    it('按 runId 查询（非按会话）+ owner 过滤生效', async () => {
+      repo.find.mockResolvedValue([eff(1, '42', 'run-a'), eff(2, '99', 'run-a')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeRun('run-a', { ownerId: '42' });
+      expect(repo.find).toHaveBeenCalledWith({ where: { runId: 'run-a' }, order: { createdAt: 'ASC' } });
+      expect(res.runId).toBe('run-a');
+      expect(res.total).toBe(1);
+      expect(res.results.map((r) => r.effectId)).toEqual([1]);
+    });
+
+    it('ownerId 为空串（falsy）→ 不升级为全作用域', async () => {
+      repo.find.mockResolvedValue([eff(1, '42', 'run-a')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeRun('run-a', { ownerId: '' });
+      expect(res.total).toBe(0);
+      expect(res.results).toEqual([]);
+    });
+
+    it('不提供 opts → admin 全作用域（撤该 run 全部）', async () => {
+      repo.find.mockResolvedValue([eff(1, '42', 'run-a'), eff(2, '99', 'run-a')]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+
+      const res = await service.revokeRun('run-a');
       expect(res.total).toBe(2);
     });
   });

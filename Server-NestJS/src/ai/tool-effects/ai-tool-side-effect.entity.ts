@@ -30,6 +30,13 @@ export class AiToolSideEffect {
   @Column({ name: 'conversation_id', nullable: true })
   conversationId?: string;
 
+  /**
+   * KB-5 run 授权 id（= run 确认 token；docs/revoke-contract.spec.md §4 G1）——该副作用由哪次 run 一次性授权产生。
+   * 仅 run 成员的副作用有值；单条确认/免确认写为 null。供 run 级批量撤销精确圈定（比 conversationId 更细）。
+   */
+  @Column({ length: 64, name: 'run_id', nullable: true })
+  runId?: string;
+
   @Column({ length: 64, name: 'tool_name' })
   toolName!: string;
 
