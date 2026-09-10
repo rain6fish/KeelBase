@@ -1,0 +1,48 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "Golden Application = AI CRM 一次跑通闭环步骤表（CE-1 B4-golden）",
+  "license": "Apache-2.0",
+  "note": "源 = test/golden-application.e2e-spec.ts 的 8 个 it('①..⑧ …') 步骤标题（人工索引，非运行时机器源——e2e 步骤以自然语言断言表达，无结构化 declare）。本语料为步骤索引（index/key/title），供跨语言消费与展示；无强双向漂移门，仅结构 sanity（index 连续 1..8 且 key/title 齐备），与 e2e 文本的一致性由人工维护。",
+  "steps": [
+    {
+      "index": 1,
+      "key": "customer",
+      "title": "Customer：创建瀚宇制造 + 280 万逾期订单 → AI 可读到该客户"
+    },
+    {
+      "index": 2,
+      "key": "risk_analysis",
+      "title": "Risk Analysis：analyze_customer_risk → critical + 理由"
+    },
+    {
+      "index": 3,
+      "key": "create_followup_task_confirmation",
+      "title": "Create Follow-up Task：确认门控（不确认不执行）"
+    },
+    {
+      "index": 4,
+      "key": "confirmed_write",
+      "title": "确认 → 写：任务真实落库 + 副作用登记（可撤销）"
+    },
+    {
+      "index": 5,
+      "key": "audit_verifiable",
+      "title": "审计：副作用可撤销登记存在 + 管理端审计哈希链 valid"
+    },
+    {
+      "index": 6,
+      "key": "revoke_effect",
+      "title": "撤销：本人撤销 AI 副作用 → 任务软删不可见"
+    },
+    {
+      "index": 7,
+      "key": "ownership_check",
+      "title": "所有权：B 撤销 A 的副作用 → 404（越权拒绝）"
+    },
+    {
+      "index": 8,
+      "key": "governance_view",
+      "title": "治理视图：CRM 业务动作（crm_task）经 governance 端点反查（EB-2/B4 贯通）"
+    }
+  ]
+}
