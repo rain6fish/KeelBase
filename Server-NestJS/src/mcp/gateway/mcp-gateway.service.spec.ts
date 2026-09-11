@@ -122,18 +122,36 @@ describe('McpGatewayService (HS-10 入口)', () => {
   });
 
   describe('callTool（治理层）', () => {
-    it('未注册 server → error', async () => {
+    it('未注册 server → error + deny 留审计（T5：治理拒绝无痕是缺口）', async () => {
       settings.get.mockResolvedValue(null);
       const out = await service.callExternalTool('nope', 't', {}, '1');
       expect(out.error).toContain('not registered');
       expect(out.executed).toBe(false);
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: '1',
+          action: 'tool_call',
+          provider: 'mcp',
+          isError: true,
+          detail: expect.stringContaining('authorization denied'),
+        }),
+      );
+      const logged = audit.log.mock.calls.at(-1)![0] as { authorization?: string };
+      expect(JSON.parse(logged.authorization!)).toEqual([
+        expect.objectContaining({ name: 'mcp_server_registered', ok: false }),
+      ]);
     });
 
-    it('策略禁用 → error', async () => {
+    it('策略禁用 → error + deny 留审计（reasons 含 tool_enabled 失败）', async () => {
       settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x' }]));
       governance.isToolEnabled.mockResolvedValue(false);
       const out = await service.callExternalTool('wx', 'get_weather', {}, '1');
       expect(out.error).toContain('disabled by governance policy');
+      const logged = audit.log.mock.calls.at(-1)![0] as { authorization?: string; isError?: boolean };
+      expect(logged.isError).toBe(true);
+      expect(JSON.parse(logged.authorization!)).toEqual([
+        expect.objectContaining({ name: 'tool_enabled', ok: false }),
+      ]);
     });
 
     it('只读工具 → 默认不确认，转发 + 审计', async () => {
