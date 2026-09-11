@@ -322,6 +322,7 @@ Protocol 是业务能力与 AI 应用生成/运行时之间的稳定契约。扩
 - [ ] 模块接线完整：`app.module` / `modules-manifest` / AI 导航（`navigate-page.tool`）等按 AGENTS.md 清单
 - [ ] 双语齐全（管理端 `src/i18n/`；App `app_localizations`），无硬编码中文
 - [ ] 文档同步：新 API/字段/规则/环境变量已更新对应 spec 与 CLAUDE.md §9 端点表（§11.2）
+- [ ] **roadmap 回填**：本次若把某能力从「未做 / 部分」变为「已做」，**同一提交周期内**把私有 `roadmap.md` §2 对应行状态翻为 ✅（附提交 hash）；受影响的 clist（方向快照）与 §internal.17 backlog 同步。缺失即产生**假待办**（已落地但表仍标 ⬜，状态巡检反复误判——2026-09-11 一次巡检即清出 P0-4/P0-16 两条）
 - [ ] 构建通过：后端 `npm run build` + 前端 typecheck / `flutter analyze` 0 error
 - [ ] 未意外扩大范围
 
