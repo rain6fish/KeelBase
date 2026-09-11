@@ -204,14 +204,12 @@ class _LoginPageState extends State<LoginPage> {
     bool? enabled,
   }) {
     final isEnabled = enabled ?? true;
-    final t = CupertinoTheme.of(context);
     return SizedBox(
       width: 60,
       child: CupertinoButton(
         padding: EdgeInsets.zero,
         borderRadius: const BorderRadius.all(Radius.circular(30)),
-        minSize: 0,
-        onPressed: (isLoading || !isEnabled) ? null : () => _onOAuthLogin(provider.id),
+        onPressed: (isLoading || !isEnabled) ? null : () => _onOAuthLogin(provider.id), minimumSize: Size(0, 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -288,12 +286,11 @@ class _LoginPageState extends State<LoginPage> {
         suffix: showToggle
             ? CupertinoButton(
                 padding: const EdgeInsets.only(right: 6),
-                minSize: 32,
+                onPressed: onToggle, minimumSize: Size(32, 32),
                 child: Icon(
                   obscure ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
                   size: 20, color: CupertinoColors.systemGrey,
                 ),
-                onPressed: onToggle,
               )
             : null,
         textInputAction: action,
@@ -454,7 +451,7 @@ class _LoginPageState extends State<LoginPage> {
     final cfg = auth.providerConfig;
 
     // Filter providers by platform availability
-    List<OAuthProviderMeta> _available(List<OAuthProviderMeta> list) {
+    List<OAuthProviderMeta> available(List<OAuthProviderMeta> list) {
       return list.where((p) {
         if (p.id == 'apple' && !_appleAvailable) return false;
         if (p.id == 'wechat' && !_weChatAvailable) return false;
@@ -464,8 +461,8 @@ class _LoginPageState extends State<LoginPage> {
       }).toList();
     }
 
-    final international = _available(cfg.international);
-    final china = _available(cfg.china);
+    final international = available(cfg.international);
+    final china = available(cfg.china);
     final showInternational = international.isNotEmpty;
     final showChina = china.isNotEmpty;
     final showOAuth = showInternational || showChina;

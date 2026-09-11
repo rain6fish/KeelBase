@@ -22,7 +22,7 @@ class TagModel {
       };
 
   TagModel copyWith({
-    name = const Object()
+    Object? name = const Object()
   }) {
     return TagModel(
       id: id,

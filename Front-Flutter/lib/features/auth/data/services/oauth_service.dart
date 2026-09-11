@@ -55,10 +55,9 @@ class OAuthService {
   Completer<String>? _weChatCompleter;
 
   OAuthService({
-    String? googleClientId,
-    GoogleSignIn? googleSignIn,
-  }) : _googleClientId = googleClientId,
-       _googleSignIn = googleSignIn;
+    this._googleClientId,
+    this._googleSignIn,
+  });
 
   // ─── Init ─────────────────────────────────────────────────────────────
 
@@ -220,13 +219,6 @@ class OAuthService {
       '联调时: (1) 取消顶部 import fluwx 的注释 '
       '(2) 实现 _fluwxRegister() 和 _fluwxSendAuth() 中的调用。',
     );
-  }
-
-  void _onWeChatResponse(dynamic resp) {
-    // TODO: 集成 fluwx 后替换为:
-    // if (resp.errCode == 0 && resp.code != null) _weChatCompleter!.complete(resp.code);
-    // else if (resp.errCode == -2) ... completeError(OAuthException('取消'));
-    // else ... completeError(OAuthException('失败'));
   }
 
   // ─── Alipay (via tobias) ─────────────────────────────────────────────

@@ -56,7 +56,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     final user = context.read<AuthProvider>().user;
     if (user == null || user.id == _lastUserId) return;
     _lastUserId = user.id;
-    _emailCtrl.text = user.email ?? '';
+    _emailCtrl.text = user.email;
     _firstNameCtrl.text = user.firstName ?? '';
     _lastNameCtrl.text = user.lastName ?? '';
     _nicknameCtrl.text = user.nickname;

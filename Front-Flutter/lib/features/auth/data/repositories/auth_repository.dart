@@ -70,10 +70,10 @@ class AuthRepository {
       'email': email,
       'password': password,
       'nickname': nickname,
-      if (firstName != null) 'firstName': firstName,
-      if (lastName != null) 'lastName': lastName,
-      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
-      if (phone != null) 'phone': phone,
+      'firstName': ?firstName,
+      'lastName': ?lastName,
+      'dateOfBirth': ?dateOfBirth,
+      'phone': ?phone,
     });
     return _unwrapData(json, (data) => TokenModel.fromJson(data));
   }
@@ -98,10 +98,10 @@ class AuthRepository {
     }
     final json = await _client.post('/auth/oauth', data: {
       'provider': provider,
-      if (idToken != null) 'idToken': idToken,
-      if (authorizationCode != null) 'authorizationCode': authorizationCode,
-      if (clientId != null) 'clientId': clientId,
-      if (redirectUri != null) 'redirectUri': redirectUri,
+      'idToken': ?idToken,
+      'authorizationCode': ?authorizationCode,
+      'clientId': ?clientId,
+      'redirectUri': ?redirectUri,
     });
     return _unwrapData(json, (data) => TokenModel.fromJson(data));
   }

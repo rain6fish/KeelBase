@@ -528,7 +528,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
   Color get _currentColor => HSVColor.fromAHSV(1, _hue, _saturation, _brightness).toColor();
 
   String _colorToHex(Color c) =>
-      c.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+      c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
 
   void _apply() {
     widget.onPicked(_colorToHex(_currentColor));
@@ -632,8 +632,8 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 borderRadius: BorderRadius.circular(10),
                 color: CupertinoColors.systemBlue,
-                child: Text(context.l10n.apply, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.white)),
                 onPressed: _apply,
+                child: Text(context.l10n.apply, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.white)),
               ),
             ]),
           ]),

@@ -48,10 +48,10 @@ void main() {
     router = GoRouter(
       initialLocation: '/home',
       routes: [
-        GoRoute(path: '/home', builder: (_, __) => const SizedBox.shrink()),
+        GoRoute(path: '/home', builder: (_, _) => const SizedBox.shrink()),
         GoRoute(
           path: '/events/create',
-          builder: (_, __) => const EventFormPage(),
+          builder: (_, _) => const EventFormPage(),
         ),
         GoRoute(
           path: '/events/:id/edit',

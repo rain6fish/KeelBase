@@ -2,7 +2,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:front_app/core/api/api_client.dart';
 import 'package:front_app/features/books/data/repositories/books_repository.dart';
 import '../../helpers.dart';
 

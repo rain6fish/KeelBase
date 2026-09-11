@@ -38,11 +38,11 @@ class SupplierModel {
       };
 
   SupplierModel copyWith({
-    name = const Object(),
-    contact = const Object(),
-    status = const Object(),
-    riskLevel = const Object(),
-    annualSpend = const Object()
+    Object? name = const Object(),
+    Object? contact = const Object(),
+    Object? status = const Object(),
+    Object? riskLevel = const Object(),
+    Object? annualSpend = const Object()
   }) {
     return SupplierModel(
       id: id,

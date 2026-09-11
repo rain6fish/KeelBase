@@ -10,7 +10,6 @@ import 'package:front_app/core/services/app_cache.dart';
 import 'package:front_app/features/suppliers/data/models/supplier_model.dart';
 import 'package:front_app/features/suppliers/data/repositories/suppliers_repository.dart';
 import 'package:front_app/features/suppliers/presentation/providers/suppliers_provider.dart';
-import '../../helpers.dart';
 
 class MockSuppliersRepository extends Mock implements SuppliersRepository {}
 

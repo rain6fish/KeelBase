@@ -30,9 +30,9 @@ class NoteModel {
       };
 
   NoteModel copyWith({
-    title = const Object(),
-    content = const Object(),
-    category = const Object(),
+    Object? title = const Object(),
+    Object? content = const Object(),
+    Object? category = const Object(),
   }) {
     return NoteModel(
       id: id,

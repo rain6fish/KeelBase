@@ -80,6 +80,7 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
                 'amount': amount,
                 'reason': reason,
               });
+              if (!mounted) return;
               if (ok) AppToast.success(context, l10n.crmCreated);
             },
             child: Text(l10n.save),
@@ -99,8 +100,8 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
         middle: Text(l10n.apTitle),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.add),
           onPressed: _showCreateSheet,
+          child: const Icon(CupertinoIcons.add),
         ),
       ),
       child: provider.loading && provider.requests.isEmpty

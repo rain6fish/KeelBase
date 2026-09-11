@@ -2,12 +2,10 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:front_app/core/services/app_cache.dart';
 import 'package:front_app/features/crm/data/models/customer_model.dart';
 import 'package:front_app/features/crm/data/models/customer_detail_model.dart';
 import 'package:front_app/features/crm/data/repositories/crm_repository.dart';
 import 'package:front_app/features/crm/presentation/providers/crm_provider.dart';
-import '../../helpers.dart';
 
 class MockCrmRepository extends Mock implements CrmRepository {}
 

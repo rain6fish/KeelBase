@@ -152,7 +152,7 @@ void main() {
 
   group('delete', () {
     test('成功 → 返回 true', () async {
-      when(() => repository.deleteEvent(any())).thenAnswer((_) async => null);
+      when(() => repository.deleteEvent(any())).thenAnswer((_) async {});
       when(() => repository.getEvents(any(), any())).thenAnswer((_) async => []);
 
       final ok = await provider.delete(1);

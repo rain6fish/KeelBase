@@ -47,7 +47,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: '/dashboard',
-                  builder: (_, __) => const Text('DASH_PAGE'),
+                  builder: (_, _) => const Text('DASH_PAGE'),
                 ),
               ],
             ),
@@ -55,7 +55,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: '/events',
-                  builder: (_, __) => const Text('EVENTS_PAGE'),
+                  builder: (_, _) => const Text('EVENTS_PAGE'),
                 ),
               ],
             ),
@@ -63,7 +63,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: '/explore',
-                  builder: (_, __) => const Text('EXPLORE_PAGE'),
+                  builder: (_, _) => const Text('EXPLORE_PAGE'),
                 ),
               ],
             ),
@@ -71,7 +71,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: '/ai',
-                  builder: (_, __) => const Text('AI_PAGE'),
+                  builder: (_, _) => const Text('AI_PAGE'),
                 ),
               ],
             ),
@@ -79,7 +79,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: '/todos',
-                  builder: (_, __) => const Text('TODOS_PAGE'),
+                  builder: (_, _) => const Text('TODOS_PAGE'),
                 ),
               ],
             ),
@@ -87,19 +87,19 @@ void main() {
         ),
         GoRoute(
           path: '/events/create',
-          builder: (_, __) => const Text('CREATE_PAGE'),
+          builder: (_, _) => const Text('CREATE_PAGE'),
         ),
-        GoRoute(path: '/profile', builder: (_, __) => const Text('PROFILE_PAGE')),
+        GoRoute(path: '/profile', builder: (_, _) => const Text('PROFILE_PAGE')),
         GoRoute(
           path: '/profile/edit',
-          builder: (_, __) => const Text('EDIT_PROFILE_PAGE'),
+          builder: (_, _) => const Text('EDIT_PROFILE_PAGE'),
         ),
         GoRoute(
           path: '/settings',
-          builder: (_, __) => const Text('SETTINGS_PAGE'),
+          builder: (_, _) => const Text('SETTINGS_PAGE'),
         ),
-        GoRoute(path: '/privacy', builder: (_, __) => const Text('PRIVACY_PAGE')),
-        GoRoute(path: '/terms', builder: (_, __) => const Text('TERMS_PAGE')),
+        GoRoute(path: '/privacy', builder: (_, _) => const Text('PRIVACY_PAGE')),
+        GoRoute(path: '/terms', builder: (_, _) => const Text('TERMS_PAGE')),
       ],
     );
     return MultiProvider(

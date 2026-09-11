@@ -84,23 +84,23 @@ class ProfilePage extends StatelessWidget {
           // Info fields
           AppListSection(
             children: [
-              if (user?.email != null && user!.email!.isNotEmpty)
+              if (user?.email != null && user!.email.isNotEmpty)
                 CupertinoListTile(
                   leading: const Icon(CupertinoIcons.mail, color: CupertinoColors.systemBlue),
                   title: Text(l10n.email),
-                  trailing: Text(user!.email!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
+                  trailing: Text(user.email, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
                 ),
               if (user?.phone != null && user!.phone!.isNotEmpty)
                 CupertinoListTile(
                   leading: const Icon(CupertinoIcons.phone, color: CupertinoColors.systemGreen),
                   title: Text(l10n.phone),
-                  trailing: Text(user!.phone!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
+                  trailing: Text(user.phone!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
                 ),
               if (user?.dateOfBirth != null && user!.dateOfBirth!.isNotEmpty)
                 CupertinoListTile(
                   leading: const Icon(CupertinoIcons.calendar, color: CupertinoColors.systemOrange),
                   title: Text(l10n.dateOfBirth),
-                  trailing: Text(user!.dateOfBirth!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
+                  trailing: Text(user.dateOfBirth!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context))),
                 ),
               if (user?.bio != null && user!.bio!.isNotEmpty)
                 CupertinoListTile(
@@ -108,7 +108,7 @@ class ProfilePage extends StatelessWidget {
                   title: Text(l10n.bio),
                   trailing: SizedBox(
                     width: 200,
-                    child: Text(user!.bio!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context)),
+                    child: Text(user.bio!, style: TextStyle(color: CupertinoColors.systemGrey.resolveFrom(context)),
                       textAlign: TextAlign.right, maxLines: 2, overflow: TextOverflow.ellipsis),
                   ),
                 ),
@@ -143,7 +143,7 @@ class ProfilePage extends StatelessWidget {
             header: Text(l10n.sectionAccount),
             children: [
               // 未验证邮箱提示
-              if (user != null && !user!.emailVerified)
+              if (user != null && !user.emailVerified)
                 CupertinoListTile(
                   leading: Icon(CupertinoIcons.exclamationmark_circle, color: CupertinoColors.systemOrange),
                   title: Text(
@@ -164,7 +164,7 @@ class ProfilePage extends StatelessWidget {
                     ],
                   ),
                   onTap: () => context.push(
-                    '/verify-email?email=${Uri.encodeQueryComponent(user!.email)}',
+                    '/verify-email?email=${Uri.encodeQueryComponent(user.email)}',
                   ),
                 ),
               CupertinoListTile(

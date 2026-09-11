@@ -57,7 +57,7 @@ void main() {
       when(() => repository.getSessions()).thenAnswer((_) async => [current, remote]);
       await provider.load();
 
-      when(() => repository.revokeSession(2)).thenAnswer((_) async => null);
+      when(() => repository.revokeSession(2)).thenAnswer((_) async {});
 
       final ok = await provider.revoke(2);
 

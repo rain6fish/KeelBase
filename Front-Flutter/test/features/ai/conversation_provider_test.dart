@@ -54,7 +54,7 @@ void main() {
           ]);
       await provider.load();
 
-      when(() => repository.deleteConversation('c1')).thenAnswer((_) async => null);
+      when(() => repository.deleteConversation('c1')).thenAnswer((_) async {});
 
       await provider.delete('c1');
 
@@ -65,7 +65,7 @@ void main() {
 
   group('previewTitle', () {
     test('无 user 消息 → 新对话', () {
-      const c = ConversationSummary(id: 'c1', messages: const []);
+      const c = ConversationSummary(id: 'c1', messages: []);
       expect(c.previewTitle, '新对话');
     });
 

@@ -28,6 +28,7 @@ class _ApprovalRequestDetailPageState extends State<ApprovalRequestDetailPage> {
   Future<void> _review() async {
     final provider = context.read<ApprovalProvider>();
     final updated = await provider.reviewRequest(widget.requestId);
+    if (!mounted) return;
     if (updated != null) {
       AppToast.success(context, context.l10n.apReviewed);
     } else {
@@ -38,6 +39,7 @@ class _ApprovalRequestDetailPageState extends State<ApprovalRequestDetailPage> {
   Future<void> _decide(String decision) async {
     final provider = context.read<ApprovalProvider>();
     final updated = await provider.decideRequest(widget.requestId, decision);
+    if (!mounted) return;
     if (updated != null) {
       AppToast.success(context, context.l10n.apDecided);
     } else {
@@ -65,8 +67,8 @@ class _ApprovalRequestDetailPageState extends State<ApprovalRequestDetailPage> {
                 const SizedBox(height: 16),
                 if (req.status == 'pending')
                   CupertinoButton.filled(
-                    child: Text(l10n.apReview),
                     onPressed: _review,
+                    child: Text(l10n.apReview),
                   ),
                 if (req.status == 'needs_review') ...[
                   CupertinoButton.filled(
