@@ -9,6 +9,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
+import {
+  AuthorizationExplainerService,
+  buildAllowSnapshot,
+} from '../ai/authorization-explainer.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Raw } from '../common/decorators/raw.decorator';
@@ -79,6 +83,7 @@ export class McpExportController {
   constructor(
     private readonly aiService: AiService,
     private readonly auditService: AuditService,
+    private readonly authorizationExplainer: AuthorizationExplainerService,
   ) {}
 
   @Post()
@@ -151,6 +156,13 @@ export class McpExportController {
     }
 
     // HS-10：MCP 调用落 AI 审计（provider=mcp 便于区分来源；username 快照 D2-1c——非 actor 路径，显式带出）
+    // T5 跨入口一致：放行依据快照与 REST/SSE 同形（buildAllowSnapshot 单一构造）——仅实际放行且成功才写，
+    // 否则 isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断。
+    // executed ⇒ 未经确认门控 ⇒ 非写路径（写工具在 executeToolForExternal 里就返回 executed:false）→ isWrite=false。
+    const allowSnapshot =
+      out.executed && out.result?.success
+        ? buildAllowSnapshot(toolName, await this.authorizationExplainer.getAuthorizationReasons(toolName, userId, false))
+        : undefined;
     await this.auditService.log({
       userId,
       username: user.username,
@@ -160,6 +172,7 @@ export class McpExportController {
       provider: 'mcp',
       isError: out.executed ? !out.result?.success : false,
       errorMessage: out.executed && !out.result?.success ? out.result?.error : undefined,
+      authorization: allowSnapshot,
     });
 
     if (!out.executed) {
