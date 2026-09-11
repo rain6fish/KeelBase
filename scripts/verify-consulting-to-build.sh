@@ -92,7 +92,8 @@ log "③ 编译 + 生成模块单测"
 ( cd Server-NestJS && npm test --silent -- "$PLURAL" >/tmp/_c2b_jest.log 2>&1 ) || {
   cat /tmp/_c2b_jest.log; fail "生成模块单测未过"; }
 grep -qE "Tests:.*[1-9][0-9]* passed" /tmp/_c2b_jest.log || { cat /tmp/_c2b_jest.log; fail "生成模块单测未跑出用例"; }
-printf '   %s\n' "$(grep -E 'Tests:' /tmp/_c2b_jest.log | tail -1 | tr -s ' ')"
+JEST_LINE="$(grep -E 'Tests:' /tmp/_c2b_jest.log | tail -1 | tr -s ' ')"
+printf '   %s\n' "$JEST_LINE"
 
 # ── 4. 迁移一致性（roadmap S4：migration:generate 无漂移）──────────────────────
 # 语义：生成模块自带实体但**不带迁移**（`migration:generate` 因此首轮应产出该模块的迁移）；
@@ -115,5 +116,29 @@ log "④ 迁移：首轮生成该模块迁移 → 应用 → 复生成应为 No 
   rm -f src/migrations/*_c2b_gen* src/migrations/*_c2b_recheck* 2>/dev/null || true
 )
 
+# ── 5. 「天生可治理」断言（S5：与 Build 快在**同一次运行**里一起证明）────────────
+# 生成物不是「裸 CRUD」——写工具自带确认门控 + 邮箱验证门，且其单测**断言了**该门控（声明即受测），
+# 读工具无门控（自动放行），模块已接线进 ai.module（工具真注册）。全部机器可验，非散文声称。
+log "⑤ 天生可治理：生成物自带治理（非事后补）"
+WRITE_TOOL="$(printf '%s\n' "${PLANNED[@]}" | grep -E '/ai/tools/create-.*\.tool\.ts$' | head -1)"
+READ_TOOL="$(printf '%s\n' "${PLANNED[@]}" | grep -E '/ai/tools/query-.*\.tool\.ts$' | head -1)"
+[ -n "$WRITE_TOOL" ] && [ -n "$READ_TOOL" ] || fail "生成清单缺 AI 读写工具"
+
+grep -qE 'requiresConfirmation = true' "$WRITE_TOOL" || fail "写工具未声明 requiresConfirmation（生成即带治理被破坏）"
+grep -qE 'requireVerifiedEmail' "$WRITE_TOOL" || fail "写工具未声明 requireVerifiedEmail 门（HS-2）"
+WRITE_SPEC="${WRITE_TOOL%.ts}.spec.ts"
+[ -f "$WRITE_SPEC" ] || fail "写工具缺单测（治理声明未受测）"
+grep -qE 'requiresConfirmation\)\.toBe\(true\)' "$WRITE_SPEC" || fail "写工具单测未断言确认门控"
+if grep -qE 'requiresConfirmation' "$READ_TOOL"; then fail "读工具不应声明确认门控（应自动放行）"; fi
+grep -q "'\.\./$PLURAL/$PLURAL\.module'" Server-NestJS/src/ai/ai.module.ts \
+  || fail "生成模块未接线进 ai.module（AI 工具未注册）"
+
+printf '   写工具 %s：requiresConfirmation=true + requireVerifiedEmail ✓（其单测已断言）\n' "$(basename "$WRITE_TOOL")"
+printf '   读工具 %s：无确认门控（自动放行）✓；模块已接线 ai.module ✓\n' "$(basename "$READ_TOOL")"
+
 rm -f /tmp/_c2b_jest.log
-printf '\n═══ S4 全链路验收：PASS（映射 → 生成 → 编译 → 单测 → 迁移自洽）═══\n'
+printf '\n═══ S4+S5 全链路验收：PASS ═══\n'
+printf '  Build 快：访谈产物 →（确定性映射）→ 生成 %s 文件 → 编译 → 单测 %s\n' \
+  "${#PLANNED[@]}" "$(printf '%s' "$JEST_LINE" | sed 's/^ *//')"
+printf '  天生可治理：写工具确认门控 + 邮箱验证门（单测断言）· 读工具自动放行 · 已注册 · 迁移自洽\n'
+printf '  两主张一次运行同证（Spec→Run 证据，§internal.6 Enterprise Proof 出口判据）\n'
