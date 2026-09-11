@@ -59,9 +59,9 @@
 
 ## 9. Agent Governance
 
-**Capability**: tool-level permissions (role/email/feature-flag gates) + human confirmation for writes (configurable TTL / session trust) + side-effect idempotency and revocation (**system-created data is revocable via soft-delete/recycle bin; external-system side effects are truthfully labeled through compensation endpoints**) + context-injection defenses (sensitive masking / system boundaries / injection detection) + tool-result token budgets + configurable governance policy (enabled/requiresConfirmation/allowedRoles/audit granularity) + MCP import/export under the same governance layer + decision trace (user-side read/write labels) + AI eval loop + behavior replay.
+**Capability**: tool-level permissions (role/email/feature-flag gates) + human confirmation for writes (configurable TTL / session trust) + side-effect idempotency and revocation (**system-created data is revocable via soft-delete/recycle bin; external-system side effects are truthfully labeled through compensation endpoints**) + context-injection defenses (sensitive masking / system boundaries / injection detection) + tool-result token budgets + configurable governance policy (enabled/requiresConfirmation/allowedRoles/audit granularity) + MCP import/export under the same governance layer + decision trace (user-side read/write labels) + AI eval loop + behavior replay + **evidence root v3 (cross-chain proof for a single business action, offline-verifiable)** + **policy version history & reproducible decision replay** + **run-level (plan-level) batch confirmation** + **Explainable Authz (capability list + decision rationale)**.
 
-**Evidence**: HS-1~HS-11 ([hs9-governance-policy.spec.md](hs9-governance-policy.spec.md), [hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md), [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)); `/admin/ai/tools`, `/ai/tool-effects`, `/ai/eval/*`, Web-Admin "AI behavior replay".
+**Evidence**: HS-1~HS-11 ([hs9-governance-policy.spec.md](hs9-governance-policy.spec.md), [hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md), [hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)); `/admin/ai/tools`, `/ai/tool-effects`, `/ai/eval/*`, `/ai/governance/action/:resultType/:resultId` (evidence root), `/ai/governance/policy/history` (policy history), `/auth/permissions/explain` (Explainable Authz), Web-Admin "AI behavior replay".
 
 ## 10. Private AI
 
@@ -71,7 +71,7 @@
 
 ## 11. Testing & Quality
 
-**Capability**: 1300+ backend unit tests / 126+ e2e (real HTTP) + coverage thresholds (global 65/55/60/65 + **security-module tiered gate** statements≥60) + e2e coverage + migration-consistency CI check + CLI generator tests + 290+ Flutter tests / analyze + Web-Admin typecheck/lint/vitest.
+**Capability**: 2200+ backend tests (2026-09-10 Gate 4 record: **2264 passing**) + e2e (24 suites, real HTTP) + coverage thresholds (global statements≥85 / branches≥70 / functions≥80 / lines≥85) + **security-module tiered gate** (auth · casl · operation-audit · ai-tools · governance · headless, statements≥85) + e2e coverage + migration-consistency CI check + CLI generator / Business Spec mapping tests + 600+ Flutter tests / analyze + Web-Admin typecheck/lint/vitest.
 
 **Evidence**: `npm run test:cov`, `scripts/check-security-coverage.mjs`, `.github/workflows/ci.yml`; [30min-acceptance.md](manual/30min-acceptance.md).
 

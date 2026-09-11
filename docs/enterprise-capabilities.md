@@ -60,9 +60,9 @@
 
 ## 9. Agent 治理 / Agent Governance
 
-**能力**：工具级权限（角色/邮箱/feature-flag 门控）+ 写操作人工确认（TTL 可配/会话信任）+ 副作用幂等与撤销（**本系统创建数据可撤销，软删可恢复；外部系统副作用经补偿端点如实标注**）+ 上下文注入防线（敏感掩码/系统边界/注入检测）+ 工具结果 token 预算 + 治理策略可配置（enabled/requiresConfirmation/allowedRoles/审计粒度）+ MCP 出口入口同治理层 + 决策轨迹（用户侧读/写标注）+ AI 评测闭环 + 行为回放。
+**能力**：工具级权限（角色/邮箱/feature-flag 门控）+ 写操作人工确认（TTL 可配/会话信任）+ 副作用幂等与撤销（**本系统创建数据可撤销，软删可恢复；外部系统副作用经补偿端点如实标注**）+ 上下文注入防线（敏感掩码/系统边界/注入检测）+ 工具结果 token 预算 + 治理策略可配置（enabled/requiresConfirmation/allowedRoles/审计粒度）+ MCP 出口入口同治理层 + 决策轨迹（用户侧读/写标注）+ AI 评测闭环 + 行为回放 + **证据根 v3（单业务动作跨链取证，离线可验）** + **策略版本历史与决策可复现重放** + **run 级（计划级）批量确认** + **Explainable Authz（能力清单 + 决策依据解释）**。
 
-**证据**：HS-1~HS-11（[hs9-governance-policy.spec.md](hs9-governance-policy.spec.md)、[hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md)、[hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)）；`/admin/ai/tools`、`/ai/tool-effects`、`/ai/eval/*`、Web-Admin「AI 行为回放」。
+**证据**：HS-1~HS-11（[hs9-governance-policy.spec.md](hs9-governance-policy.spec.md)、[hs10-mcp-adapter.spec.md](hs10-mcp-adapter.spec.md)、[hs11-audit-chain.spec.md](hs11-audit-chain.spec.md)）；`/admin/ai/tools`、`/ai/tool-effects`、`/ai/eval/*`、`/ai/governance/action/:resultType/:resultId`（证据根）、`/ai/governance/policy/history`（策略历史）、`/auth/permissions/explain`（Explainable Authz）、Web-Admin「AI 行为回放」。
 
 ## 10. 私有 AI / Private AI
 
@@ -72,7 +72,7 @@
 
 ## 11. 测试与质量 / Testing & Quality
 
-**能力**：后端单测 1300+ / e2e 126+（真实 HTTP）+ 覆盖率门槛（全局 65/55/60/65 + **安全模块分档门控** statements≥60）+ e2e 计覆盖率 + 迁移一致性 CI 校验 + CLI 生成器测试 + Flutter 测试 290+ / analyze + Web-Admin typecheck/lint/vitest。
+**能力**：后端测试 2200+（2026-09-10 Gate 4 记录 **2264 全过**）+ e2e（24 suite，真实 HTTP）+ 覆盖率门槛（全局 statements≥85 / branches≥70 / functions≥80 / lines≥85）+ **安全模块分档门控**（auth · casl · operation-audit · ai-tools · governance · headless，statements≥85）+ e2e 计覆盖率 + 迁移一致性 CI 校验 + CLI 生成器 / Business Spec 映射测试 + Flutter 测试 600+ / analyze + Web-Admin typecheck/lint/vitest。
 
 **证据**：`npm run test:cov`、`scripts/check-security-coverage.mjs`、`.github/workflows/ci.yml`；[30min-acceptance.md](manual/30min-acceptance.md)。
 
