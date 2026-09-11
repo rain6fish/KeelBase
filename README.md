@@ -107,7 +107,7 @@ User Request → AI Understanding → Business Data → Tool Call
 
 ---
 
-## 🏗 Build — AI Application Engineering
+## 🏗 Build — Protocol-Driven Generation
 
 Build AI applications from new business models or existing systems:
 
@@ -192,7 +192,7 @@ Give a 10-year-old business system AI capability without rewriting it.
 
 One main thread — **Build → Run → Trust → Private Deploy**:
 
-- **Build** — *AI Application Engineering:* Application Protocol (conventions); AI generates the business modules — no low-code engine
+- **Build** — *Protocol-driven generation:* Application Protocol (conventions); AI generates the business modules — no low-code engine
 - **Run** — *Business-safe Agent Runtime:* user-scoped tools, human-confirmed writes, full audit and revoke
 - **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible
 

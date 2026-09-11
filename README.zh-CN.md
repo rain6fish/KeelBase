@@ -98,7 +98,7 @@ KeelBase AI：
 
 ---
 
-## 🏗 Build — AI 应用工程
+## 🏗 Build — 协议驱动生成
 
 从新业务模型或已有系统构建 AI 应用：
 
@@ -183,7 +183,7 @@ keelbase init --desc "Customer management"
 
 一条主线——**Build → Run → Trust → Private Deploy**：
 
-- **Build（AI 应用工程）**：Application Protocol（约定）；AI 生成业务模块——不做低代码引擎
+- **Build（协议驱动生成）**：Application Protocol（约定）；AI 生成业务模块——不做低代码引擎
 - **Run（业务安全 Agent 运行时）**：工具调用限定数据范围、写操作人工确认、全链路审计 + 可撤销
 - **Trust / Private Deploy（数据主权）**：数据不出域，AI 每步可查、可撤销
 
