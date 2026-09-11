@@ -30,7 +30,7 @@ echo "═══ KeelBase Release Gate（W3 统一入口）═══"
 echo "模式：$([ "${LLM_ENV:-}" = "1" ] && echo 'LLM 全量（需 LLM + 后端）' || echo '确定性（可 CI）')"
 echo ""
 
-# ── Gate 1：Golden Application = AI CRM 一次跑通闭环（internal-plan §7.3）──
+# ── Gate 1：Golden Application = AI CRM 一次跑通闭环──
 echo "→ [Gate 1] Golden Application = AI CRM（Customer → Risk → 建跟进 → 确认 → 写 → 审计 → 撤销）"
 if ./scripts/verify-golden-application.sh >/dev/null 2>&1; then
   gate "Gate1(Golden 闭环 + Build)" pass

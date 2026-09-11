@@ -1,6 +1,6 @@
 # 失败路径回归语料（KB-4）规格 — Failure-path Corpus Spec
 
-> 关联：internal-roadmap §internal.5 KB-4（1.1 前置 gate）；§internal.17 T5（跨入口一致性回归，本语料为其失败分支子集）。非 ai-eval（那是 LLM 安全评测）；本语料是**确定性、无 LLM** 的基础设施失败断言。
+> 关联：跨入口一致性回归（本语料为其失败分支子集）。非 ai-eval（那是 LLM 安全评测）；本语料是**确定性、无 LLM** 的基础设施失败断言。
 > 目标：把验证从「happy path 自证」推进到「**failure path 仍可信**」——系统在失败下**如实记录状态、不假装成功、不重复副作用、证据不丢**。
 
 ---
@@ -64,7 +64,7 @@ npm run test:e2e -- failure-path   # B 层
 **验收**：
 - A/B 全绿（CI 常绿：A 层随 `npm test`，B 层随 `test:e2e`，并加入 release-gate.sh Trust e2e 列表）。
 - 证据页：`docs/evidence/README.md` §3.3 + 留档 `docs/benchmark/failure-path-<ts>.md`。
-- internal-roadmap §internal.5 KB-4 → ✅，execution-log 追加。
+- 跨入口一致性回归 → ✅。
 
 **文件改动**：
 - 新：`src/ai/proxy/proxy-http.ts`(+spec)、`src/ai/failure-path/failure-path-corpus.spec.ts`、`test/failure-path.e2e-spec.ts`、`docs/failure-path-corpus.spec.md`、`docs/benchmark/failure-path-*.md`

@@ -1,6 +1,6 @@
 # 企业应用 Web 端（WEB-FRONT）— 多角色骨架 / Enterprise Web Frontend (WEB-FRONT) — Multi-Role Skeleton
 
-> 范围：WEB-FRONT-1（多角色身份骨架）。完整路线见内部路线图 WEB-FRONT 章节。
+> 范围：多角色身份骨架。
 > Scope: WEB-FRONT-1 (multi-role identity skeleton). Full roadmap lives in the private WEB-FRONT chapter.
 
 ## 1. 定位 / Positioning

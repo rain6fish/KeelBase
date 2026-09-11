@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Gate 1：Golden Application = AI CRM 一次跑通验收（internal-plan §7.3，2026-08-21）
+ * Gate 1：Golden Application = AI CRM 一次跑通验收（2026-08-21）
  *
  * 用真实 LLM（DeepSeek）后端一次跑通 AI CRM 完整业务闭环：
  *   Customer 就绪 → AI 风险分析 → Create Follow-up Task → 确认门控 → 执行 → 审计 → 撤销

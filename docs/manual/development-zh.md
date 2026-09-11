@@ -206,7 +206,7 @@ Text(context.l10n.myLabel);
 
 ### 5.4 Roadmap 维护
 
-完整路线图现在存放在**内部仓库库**（2026-08-13；公开仓库不再包含）。每个计划评审/完成后，把未做/「后续」项追加到内部路线图（本地 `C:\Rain6fish\internal-roadmap\roadmap.md`，推送至 GitHub 内部仓库库 `rain6fish/internal-roadmap`）；完成项带 commit hash 追加到归档表。
+完整路线图不在本公开仓库（2026-08-13）。每个计划评审/完成后，把未做/「后续」项追加到内部路线图；完成项带 commit hash 追加到归档表。
 
 ---
 

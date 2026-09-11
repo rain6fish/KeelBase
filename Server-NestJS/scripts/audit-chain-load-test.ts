@@ -18,7 +18,7 @@
  *   - AuditService 内部串行队列（读 lastHash → 计算 → 插入原子化）与生产一致，
  *     并发写入的真实分叉行为可被本脚本复现/拦截。
  *   - `--instances N>1`（多实例模式）：N 个 AuditService 各自独立 _tail，模拟多副本部署，
- *     复现「多实例读到同一 lastHash → 审计链分叉」——实证横向扩展需 DB 级串行（internal-roadmap §internal.10 B），
+ *     复现「多实例读到同一 lastHash → 审计链分叉」——实证横向扩展需 DB 级串行，
  *     DB 级串行实施后的验收标准 = `--instances 2` 分叉 0。
  *   - 每条 log 耗时含串行排队等待（反映真实用户感知 P95，而非纯写延迟）。
  *   - 绝对数值为机器基线参考（内存 sqlite 不落盘，吞吐偏高），关注相对趋势。
@@ -58,14 +58,14 @@ async function main(): Promise<void> {
 
   const auditChain = new AuditChainService(new ConfigService());
   // 多实例模式（--instances N>1）：N 个 AuditService 实例各自独立的进程内串行队列（_tail），
-  // 模拟多副本部署——复现「多实例读到同一 lastHash → 审计链分叉」，实证需要 DB 级串行（internal-roadmap §internal.10 B）。
+  // 模拟多副本部署——复现「多实例读到同一 lastHash → 审计链分叉」，实证需要 DB 级串行。
   const services = Array.from({ length: instances }, () =>
     new AuditService(
       ds.getRepository(AiAuditLog),
       ds.getRepository(AiDailyUsage),
       ds.getRepository(AiToolSideEffect),
       auditChain,
-      ds, // DataSource：DB 级串行锁（internal-roadmap §internal.10 B）
+      ds, // DataSource：DB 级串行锁
     ),
   );
 
@@ -130,9 +130,9 @@ async function main(): Promise<void> {
     // 多实例但未分叉（极端时序）：属幸运，但仍证明无跨实例串行保障
     console.warn('多实例未观察到分叉（时序巧合）——但进程内串行队列不提供跨实例保证，仍需 DB 级串行。');
   } else {
-    // 多实例分叉 = 预期复现（internal-roadmap §internal.10 B 的实证）：横向扩展前需 DB 级串行
+    // 多实例分叉 = 预期复现（实证）：横向扩展前需 DB 级串行
     console.error(`\n✅ 多实例分叉复现（${forked} 条）——实证：进程内串行队列在 ${instances} 副本下不提供链一致性。`);
-    console.error('   横向扩展前必须升级为 DB 级串行（行锁/单写者），见 internal-roadmap §internal.10「多副本决策」B 方案。');
+    console.error('   横向扩展前必须升级为 DB 级串行（行锁/单写者），见「多副本扩展前提」。');
   }
 }
 

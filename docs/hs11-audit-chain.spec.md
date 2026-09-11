@@ -3,7 +3,7 @@
 > 版本：v1.0
 > Version: v1.0
 
-> 基于：内部路线图「HS 系列（业务安全的 Agent harness）」章节
+> 基于：业务安全的 Agent harness（审计哈希链）
 > Based on: "HS series (business-safe Agent harness)" section of the private roadmap
 
 > 关联项目：KeelBase（App 全栈开发平台）

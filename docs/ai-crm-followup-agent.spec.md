@@ -1,7 +1,7 @@
 # AI CRM AI Follow-up Agent — 功能规格说明 (Spec) / AI Follow-up Agent — Functional Specification
 
 > 版本 / Version：v1.0
-> 基于 / Based on：内部路线图 §internal.3「A1 — AI Follow-up Agent」（2026-09-01 定案：不做全面升级、纵向打穿）
+> 基于 / Based on：AI 主动发现待跟进客户（纵向打穿，非全面升级）
 > 关联项目 / Related project：KeelBase（Business-safe AI Application Platform）
 
 ---
@@ -20,7 +20,7 @@ This closes the "AI proactively finds problems" loop in the Golden Flow — prev
 
 ### 1.2 关联需求 / 1.2 Related Requirements
 
-- 内部路线图 §internal.3「A1 — AI Follow-up Agent」（采纳纵向打穿，非全面升级）
+- AI 主动发现待跟进客户（纵向打穿，非全面升级）
 - `create_followup_task`（既有写工具：R3 确认门控 + 副作用 `crm_task` 可撤销）
 - `query_customers` / `analyze_customer_risk`（既有读工具，数据同源）
 - Human-in-loop（SPC §5.3）：所有写操作须人工确认

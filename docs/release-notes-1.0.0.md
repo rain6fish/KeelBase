@@ -56,4 +56,4 @@
 
 ---
 
-**Docs / 文档**：`docs/manual/release-1.0-candidate.md`（Gate 4 冻结清单 + Exit Criteria 10 项）、`docs/manual/release-gate.md`（Build/Run/Trust/Private 四维 + Gate 1）、`docs/manual/release-precheck.md`（发布前标准程序）、`docs/enterprise-capabilities.md`（双叙事：AI 能力 + 数据主权）。内部仓库 roadmap / internal-plan 已同步。
+**Docs / 文档**：`docs/manual/release-1.0-candidate.md`（Gate 4 冻结清单 + Exit Criteria 10 项）、`docs/manual/release-gate.md`（Build/Run/Trust/Private 四维 + Gate 1）、`docs/manual/release-precheck.md`（发布前标准程序）、`docs/enterprise-capabilities.md`（双叙事：AI 能力 + 数据主权）。

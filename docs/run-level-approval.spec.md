@@ -2,11 +2,11 @@
 
 > 版本 / Version: v0.1（Spec 定稿；实现排 1.1 发版前，Feature Freeze 纪律）
 > 日期 / Date: 2026-09-07
-> 状态 / Status: Spec 定稿（KB-5，internal-roadmap §internal.5，1.1 前置 gate）/ Spec locked (KB-5, internal-roadmap §internal.5, pre-1.1 gate). Implementation is a separate 1.1 task — this document fixes the protocol contract first.
+> 状态 / Status: Spec 定稿（1.1 前置门禁）/ Spec locked (pre-1.1 gate). Implementation is a separate 1.1 task — this document fixes the protocol contract first.
 > 定位 / Positioning: 响应 2026-09-07 对抗性评测命中「Human Confirmation 不可规模化」指控的**协议级设计**；与 KB-6（revokeClass，副作用撤销能力分档）分离、不冲突。
 
-> 输入 / Based on：2026-09-07 对抗性评审报告（human-confirmation 规模化矛盾）+ 会话两轮评估校准 + 处置文档 KB-5 行（用户定案：**A 先行单轮聚合、B 跨轮计划协议列 Out、三端方向、Spec 先行不动代码**）。
-> 关联 / Related：docs/ws-realtime.spec.md（确认流权威协议信封，§3.2/§5）｜docs/hs9-governance-policy.spec.md（R4 门控档位 §4）｜docs/ai-action-center.spec.md（NC-1 北极星，三端 UI 落地宿主）｜docs/failure-path-corpus.spec.md（KB-4）｜内部 internal-roadmap §internal.5 KB-5/KB-6。
+> 输入 / Based on：human-confirmation 规模化矛盾评估（**先行单轮聚合、跨轮计划暂列 Out、Spec 先行不动代码**）。
+> 关联 / Related：docs/ws-realtime.spec.md（确认流权威协议信封，§3.2/§5）｜docs/hs9-governance-policy.spec.md（R4 门控档位 §4）｜docs/ai-action-center.spec.md（三端 UI 落地宿主）｜docs/failure-path-corpus.spec.md。
 
 ---
 
@@ -14,10 +14,10 @@
 
 ### 1.1 问题 / 1.1 Problem
 
-对抗性评审报告批评的规模化困境（当前现状）：
+规模化确认困境（当前现状）：
 - AI 一次回复可能携带**多个写工具调用**（`accumulatedToolCalls` → for 循环逐个执行，`ai.service.ts` ~1271）；
 - R3 写工具**逐个** `confirmation_request` → **逐个阻塞 await decision**（~1355）→ 前端同刻只见一张确认卡，逐卡确认、逐卡执行；
-- 若 AI 要"为 200 个客户建跟进任务"，人被迫点 200 次；而若为省事做成"一键批 N 条且无 diff 摘要/风险分层"，人实际没在逐项确认 → **Trust 语义崩坏**（对抗性评审报告 Option A/B 二选一死结）。
+- 若 AI 要"为 200 个客户建跟进任务"，人被迫点 200 次；而若为省事做成"一键批 N 条且无 diff 摘要/风险分层"，人实际没在逐项确认 → **Trust 语义崩坏**（A/B 二选一死结）。
 
 现状已核实：后端无一键全批；管理端审批页逐行独立按钮；pending 硬过滤 R4。→ **KB-5 ①（审计现形反模式）结论 = 当前无无语义批量批准**，本 spec 是预防性 + 正向设计：批量授权**必须**带逐条 diff 摘要与风险分层，否则就是新的盲批反模式。
 
@@ -29,7 +29,7 @@
 3. 逐条执行仍走既有审计/副作用链路（**逐条可撤销不变**，与 KB-6 revokeClass 无关——那是撤销能力档）；
 4. 与现有**逐条即时确认（R3）完全兼容**：单写工具走原路径，不破坏存量契约。
 
-### 1.3 范围分层（用户定案）/ 1.3 Scope tiers
+### 1.3 范围分层 / 1.3 Scope tiers
 
 | 层 | 内容 | 状态 |
 |---|---|---|
@@ -143,7 +143,7 @@ run 卡"有 diff 而非盲批"的**前提**是每个动作能被转成人类可�
 
 ## 4. 三端消费契约（方向契约）/ 4. Three-surface Consumption Contract
 
-> UI 完整落地随 NC-1（AI Action Center 北极星）迭代；本 spec 固定"run 事件怎么被消费"的契约，避免三端实现时各自造语义。以下为各端**需最终支持**的形态（本次只定契约，不实现）。
+> UI 完整落地随 AI Action Center 迭代；本 spec 固定"run 事件怎么被消费"的契约，避免三端实现时各自造语义。以下为各端**需最终支持**的形态（本次只定契约，不实现）。
 
 ### 4.1 后端 WS/SSE 透传 / 4.1 Backend passthrough
 
@@ -208,7 +208,7 @@ run 卡文案（"本次将执行 N 个操作 / 计划风险：R4 / 批准该计�
 
 - `docs/ws-realtime.spec.md` —— SSE/WS 确认流信封（§3.2 映射、§5 确认流）
 - `docs/hs9-governance-policy.spec.md` —— R4 门控档位（§4，auto/confirm/approval）
-- `docs/ai-action-center.spec.md` —— NC-1 北极星（三端 UI 落地宿主；§5.3 契约锁定惯例）
+- `docs/ai-action-center.spec.md` —— 三端 UI 落地宿主（§5.3 契约锁定惯例）
 - `docs/failure-path-corpus.spec.md` —— KB-4（逐条失败语义参照）
 - `docs/security/threat-model.md` —— KB-3（N-8 边界：风险级 ≠ 业务正确性）
 - `SECURITY.md` Trust Boundaries Not-a-* N-7（批量确认尚未提供 → 本 spec 落地后同步更新该 N-7 措辞）

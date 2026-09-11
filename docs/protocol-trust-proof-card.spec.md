@@ -1,8 +1,8 @@
 # Protocol × Trust Proof Card 规格 — Protocol-trust Proof Card Spec
 
-> 关联：内部 internal-roadmap §internal.7 T1（Proof Card 规格公开化）；内部《Protocol_Trust_三层叙事与ProofCard裁决_2026-09-07.md》§5-§7；§internal.6 Enterprise Proof（AI CRM = Reference Application）；§internal.5 KB-1 词表纪律 / KB-6 revokeClass。
-> 目标：把「Protocol × Trust 路径是否已达到可公开证明的程度」变成一个**陌生开发者按公开文档可复现的测试规格**。它是测试规格，不是宣传材料——不回答「Protocol 强不强 / 是不是关键能力」，只回答「现在能不能对公众说『任何人都可在 X 分钟内复现』」。
-> 状态：⬜ Spec 草稿（T1）；T2 自动化 / T3 CRM 实证 / T4 对外叙事未做（internal-roadmap §internal.7 表）。
+> 关联：Proof Card 规格公开化；AI CRM = Reference Application；词表纪律 / revokeClass 语义。
+> 目标：把「Protocol × Trust 路径是否已达到可公开证明的程度」变成一个**陌生开发者按公开文档可复现的测试规格**。它是测试规格，不是宣传材料——不回答「Protocol 强不强」，只回答「现在能不能对公众说『任何人都可在 X 分钟内复现』」。
+> 状态：⬜ Spec 草稿；自动化编排 / CRM 实证 / 对外叙事未做。
 
 ---
 
@@ -66,7 +66,7 @@
 | S-1 | **非项目作者 / 从未向本项目提交代码** | 自报 + GitHub 无贡献记录（留档记 github id） |
 | S-2 | **只按公开文档执行**：README + 本卡 + 关联 spec（docs/*.spec.md + Swagger），不读 `src/` 实现 | 执行者声明 + 观察 |
 | S-3 | **熟练 NestJS/TS**（排除"不会写代码"的无效卡），对 KeelBase 零经验 | 自报技术背景 |
-| S-4 | 执行期间**不询问作者 / 不查内部** | 自报 |
+| S-4 | 执行期间**不询问作者 / 不查内部资料** | 自报 |
 
 > 结论档位：真实 stranger 跑出全绿 = **PASS（对外可声明）**；作者自跑全绿 = **内部预跑（待外部验证）**，不能对外说"已验证"。
 
@@ -116,7 +116,7 @@
 - 重跑语义 = **幂等跳过 + `--force` 覆盖**：目标文件已存在默认跳过（保留既有实现，含手改），`--force` 覆盖生成文件；接线幂等。
 - **手改生成文件后重跑**：不加 `--force` → 该文件跳过（手改保留但不随新 spec 同步）；加 `--force` → 被覆盖（手改丢失）。**这是产品契约，如实记录，不承诺三方合并。**
 - **手写文件（非生成清单内）不受重跑影响**——手写复杂逻辑与生成脚手架按文件边界隔离。
-- 裁决关联：内部裁决「不建 Diff/Merge Engine（现在）」即本边界的可测表述；未来真实需求证明需要合并时重开评估（P0-9 需求驱动）。
+- 关联：当前「不建 Diff/Merge Engine」即本边界的可测表述；未来真实需求证明需要合并时重开评估。
 
 ## 8. 诚实边界（不承诺清单，进卡即防营销）
 

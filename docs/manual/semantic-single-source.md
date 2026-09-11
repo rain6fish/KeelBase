@@ -4,7 +4,7 @@
 
 ## 为什么 / Why
 
-KeelBase 关键能力 = 同一 Application Semantic Layer 连 Build 与 Run（ADR-0002）。语义散落两处实现（TS 实现 + 契约）时，二者会静默分叉——审计哈希链、R0-R5 风险分级、业务事件命名、wire Schema 一旦分叉，"跨语言可复现"就失效。单源规则把它变成**机器可判定的纪律**（CE-1 三作用②：能力进化仲裁桥）。
+KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run（ADR-0002）。语义散落两处实现（TS 实现 + 契约）时，二者会静默分叉——审计哈希链、R0-R5 风险分级、业务事件命名、wire Schema 一旦分叉，"跨语言可复现"就失效。单源规则把它变成**机器可判定的纪律**（CE-1 三作用②：能力进化仲裁桥）。
 
 ## 语义源清单 / Semantic sources（变更需同批契约）
 

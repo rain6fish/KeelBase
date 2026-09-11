@@ -4,8 +4,8 @@
 > 日期 / Date: 2026-09-04
 > 状态 / Status: Implemented（2026-09-04，后端 `GET /ai/my/tool-effects` + 工作台页已落地，单测/vitest/e2e 全绿；「待我确认中心」等 Out 项按 §9 排冻结后）/ Implemented (2026-09-04; backend endpoint + workbench page shipped; unit/vitest/e2e green; Out-scope items deferred per §9)
 
-> 基于 / Based on：内部 internal-roadmap §internal.17（审计证据线深化收口，2026-09-04 决策记录）；外部评审 09-03《产品深化阶段策略文档》「1 北极星：AI Action Center」；现有用户侧两面（AiTraceView / BusinessActionDetailView）。
-> Related: private internal-roadmap §internal.17; 2026-09-03 expert report (North Star: AI Action Center); existing user-side surfaces AiTraceView / BusinessActionDetailView.
+> 基于 / Based on：证据线深化（副作用 → 决策轨迹 → 授权依据 → 审计链）的产品化；现有用户侧两面（AiTraceView / BusinessActionDetailView）。
+> Related: productization of the evidence line (side effect → decision trace → authorization → audit chain); existing user-side surfaces AiTraceView / BusinessActionDetailView.
 
 > 关联文档 / Related docs：docs/audit-authz-snapshot.spec.md、docs/operation-audit.spec.md、docs/system-ai-assistant.spec.md（机制复用，非改接口）
 
@@ -21,7 +21,7 @@ Provide business users (non-admin, workbench surface) a unified "My AI Activity"
 
 ### 1.2 定位 / 1.2 Positioning
 
-- 这是 **Trust 北极星的产品化切片**：同一后端证据线（副作用 → 决策轨迹 → 授权依据 → 审计链），从「管理端可查」延伸到「本人可行动」。
+- 这是 **Trust 证据线的产品化切片**：同一后端证据线（副作用 → 决策轨迹 → 授权依据 → 审计链），从「管理端可查」延伸到「本人可行动」。
 - 不是新的审计页面：不展示 HTTP/JSON/UUID/tool 底层技术噪声；列表只给业务语言（目标对象标题 + 人类工具标签 + 状态）。
 - 只服务 **user 工作台**，不进 admin 控制台（admin 已有 AI 审计/工具与副作用页）。
 
@@ -175,5 +175,5 @@ This is the productized slice of the Trust North Star: the same backend evidence
 
 ## 10. 文档与 roadmap 关联 / 10. Doc & Roadmap Linkage
 
-- 本 spec 评审通过后实施；实施完成后：主仓 CHANGELOG Unreleased 补记；内部路线图 §internal.17 相关项标进展、NC-1（AI Action Center）拆分子项回填状态。
+- 本 spec 评审通过后实施；实施完成后：主仓 CHANGELOG Unreleased 补记。
 - 数据面边界与 §5.5 产品红线一致：本页仅本人数据，管理端脱敏/掩码纪律不受影响。

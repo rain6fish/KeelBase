@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Java 探针观察 — keelbase-java-starter 需求信号采集（Java 版 启动的触发依据）
+ * Java 接入层信号观察 — keelbase-java-starter 发布状态采集
  *
  * 观察对象：keelbase-java-starter（Maven Central `cn.com.keelbase:*` 7 构件 + GitHub `rain6fish/KeelBase-java-starter`）。
  * 信号：
@@ -10,9 +10,9 @@
  *   - 采纳信号：GitHub stars / forks / open issues / 活跃度；Maven 下载量（如需精确值，人工查 mvnrepository 页面）
  *   - 关键触发信号（人工补充）：集成商反馈「产品好，但整体不是 Java 无法立项」——这是启动 Java 版 KeelBase 的唯一依据
  *
- * 用法：node scripts/check-java-starter.mjs
+ * 用法：node scripts/check-java-starter-signals.mjs
  * 环境变量：GH_TOKEN（可选，GitHub API 匿名限流 60/h 通常够用）
- * 报告：docs/benchmark/java-starter-<ts>.json
+ * 报告：docs/benchmark/java-starter-signals-<ts>.json
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -107,12 +107,12 @@ async function main() {
     artifactsOnline: `${onlineCount}/${ARTIFACTS.length}`,
     artifacts,
     github,
-    note: '触发 Java 版 启动的信号 = 集成商反馈「产品好，但整体不是 Java 无法立项」（需求驱动，非可行性驱动）；采纳信号（下载量/star/集成商 PoC）达门槛前不另立 Java 版模块。',
+    note: '观察集成商对整体 Java 版的需求信号（需求驱动，非可行性驱动）。',
   };
   mkdirSync(resolve(__dirname, '../docs/benchmark'), { recursive: true });
-  writeFileSync(resolve(__dirname, `../docs/benchmark/java-starter-${timestamp}.json`), JSON.stringify(snapshot, null, 2));
+  writeFileSync(resolve(__dirname, `../docs/benchmark/java-starter-signals-${timestamp}.json`), JSON.stringify(snapshot, null, 2));
   log(`\n═══ 探针快照：构件 ${onlineCount}/${ARTIFACTS.length} 在线（${Math.round((Date.now() - startMs) / 1000)}s）═══`);
-  log(`报告：docs/benchmark/java-starter-${timestamp}.json`);
+  log(`报告：docs/benchmark/java-starter-signals-${timestamp}.json`);
   process.exit(onlineCount === ARTIFACTS.length ? 0 : 1);
 }
 

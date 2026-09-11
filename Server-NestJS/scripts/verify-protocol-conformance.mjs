@@ -41,7 +41,7 @@ const results = [];
 const ok = (name, detail = '') => { results.push({ name, pass: true, detail }); console.log(`  ✓ ${name}${detail ? ` — ${detail}` : ''}`); };
 const bad = (name, detail = '') => { results.push({ name, pass: false, detail }); console.log(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`); };
 
-console.log('═══ AI Governance Protocol Conformance（关键能力 2.1 / A1 · CE-1 语料驱动）═══\n');
+console.log('═══ AI Governance Protocol Conformance（A1 · CE-1 语料驱动）═══\n');
 
 /* ═══════════ 审计哈希链（协议 §2）——canonical 金样本 + hash 向量 ═══════════ */
 
@@ -195,7 +195,7 @@ const passCount = results.filter((r) => r.pass).length;
 const elapsed = Date.now() - startMs;
 const ts = new Date().toISOString().replace(/[:.]/g, '-');
 const report = {
-  gate: 'AI Governance Protocol Conformance（协议合规认证套件，关键能力 2.1 / A1 · CE-1 语料驱动）',
+  gate: 'AI Governance Protocol Conformance（协议合规认证套件，A1 · CE-1 语料驱动）',
   protocol: 'ai-governance-protocol（审计链 / 委托 token / 工具风险分级）',
   vectors: {
     canonical: canonicalVectors.vectorVersion,

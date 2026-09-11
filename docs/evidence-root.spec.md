@@ -1,10 +1,10 @@
 # Evidence Root（AUDIT-ID）跨链证据根 — 功能规格 (Spec) / Evidence Root (AUDIT-ID) Cross-Chain Evidence Root — Functional Specification
 
-> 版本 / Version: v0.1（设计，internal-roadmap §internal.17 ① 冻结后主项）
+> 版本 / Version: v0.1（设计，冻结后主项）
 > 日期 / Date: 2026-09-04
-> 状态 / Status: Draft（9/25 冻结前只出规格，落地在冻结后）/ Draft (spec only before freeze; implementation post-freeze)
+> 状态 / Status: Draft（只出规格，落地在冻结后）/ Draft (spec only; implementation post-freeze)
 
-> 基于 / Based on：内部 internal-roadmap §internal.17 ①（Business Action 证据根 / 跨链锚定）+ 冻结后 backlog P-③（Policy 历史表）；现有证据线 L0/L1/L2 分层（docs/evidence/README.md §1）+ A-6 证据包 v2（keelbase-audit-evidence/2）+ Policy Evidence（docs/audit-authz-snapshot.spec.md §5）。
+> 基于 / Based on：Business Action 证据根 / 跨链锚定 + Policy 历史表；现有证据线 L0/L1/L2 分层（docs/evidence/README.md §1）+ A-6 证据包 v2（keelbase-audit-evidence/2）+ Policy Evidence（docs/audit-authz-snapshot.spec.md §5）。
 > Related: docs/evidence/README.md ｜ docs/protocols/ai-governance-protocol.md §2.5 ｜ docs/audit-authz-snapshot.spec.md ｜ docs/ai-action-center.spec.md §5.3（契约锁定）｜ Server-NestJS/scripts/verify-evidence.mjs
 
 ---
@@ -13,7 +13,7 @@
 
 ### 1.1 问题 / 1.1 Problem
 
-审计报告认定的关键能力级缺口：**证据之间还没做成不可分割的强关联**。现状（实证）：
+审计链审阅认定的关键缺口：**证据之间还没做成不可分割的强关联**。现状（实证）：
 - `ai_audit_logs` 与 `operation_audit_logs` 是**两条独立哈希链**；证据包 v2 的 `chain` 只含 ai_audit_logs 一条（操作审计链、副作用行都不在包内）。
 - `ai_tool_side_effects` **没有 hash/prevHash**——副作用行不在任何链里。
 - 三表之间**无直接 FK**：现链接靠 `conversationId` / `businessEvent` / REST `path→targetId` 反查（`OperationAuditService.findByTargetId` + `BusinessHistoryService` 三源聚合）。
@@ -31,7 +31,7 @@
 - ❌ 导出全量两条链（体积失控）；只导出该动作相关的**定向子链行**。
 - ❌ 改 Action Center / B4 前端契约（`effectId`+`resultType:resultId` 不变，见 ai-action-center.spec.md §5.3）。
 - ❌ Policy 历史表 / 跨版本真回放（另立 P-③，本规格只承载"当时 `policy.revision`"）。
-- ❌ 国密 SM2 / 可信时间戳（internal-roadmap §internal.17 ② 另立）。
+- ❌ 国密 SM2 / 可信时间戳（另立项）。
 
 ---
 
@@ -122,7 +122,7 @@
 - side_effect 行无链 → 锚定 `hash = sha256(canonicalJSON({id,userId,conversationId,toolName,argsHash,resultType,resultId,beforeSnapshot,afterSnapshot,createdAt}))`（**bundle 自洽摘要**：由包内投影重算，防行内容被改；行唯一性/存在性由 `id` 锚定）。
 - `root.digest = sha256(canonicalJSON(anchors))`——任一锚行内容或选择被改 → digest 变。
 - 整包签名 canonical **含 root.digest 与 anchors** → HMAC 比对失败即整包被改。
-- **诚实边界**：side_effect 锚是「自洽 + 整包签名」而非链内 prevHash 防插入；side_effect 行的防删除/防插入由 AI 审计链（tool_call 已记 `argsHash`/detail，链内在案）与包签名共同覆盖。真「防篡改插入副作用」需加链列——记 internal-roadmap §internal.17 ① 后续可选（非本规格范围）。
+- **诚实边界**：side_effect 锚是「自洽 + 整包签名」而非链内 prevHash 防插入；side_effect 行的防删除/防插入由 AI 审计链（tool_call 已记 `argsHash`/detail，链内在案）与包签名共同覆盖。真「防篡改插入副作用」需加链列——记为后续可选（非本规格范围）。
 
 ### 5.5 L0/L1/L2 分层对齐 / 5.5 L0/L1/L2
 L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本 v3 为 L1 离线**逐动作**证据根（定向子链 + 根锚 + 签名）。留档产物沿用 `docs/benchmark/evidence-root-<ts>.json/.md`（L2）。
@@ -158,7 +158,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 ## 9. 关联 / 9. Related
 
-internal-roadmap §internal.17 ①（本规格即其设计先行）｜P-③ Policy 历史表（跨版本真回放，衔接 verifyReproducible）｜§internal.17 ② SM2/时间锚（v3 包后续加国密签名）｜docs/audit-authz-snapshot.spec.md §5 ｜ docs/ai-action-center.spec.md §5.3 ｜ docs/protocols/ai-governance-protocol.md §2.5
+本规格即其设计先行｜Policy 历史表（跨版本真回放，衔接 verifyReproducible）｜SM2/时间锚（v3 包后续加国密签名）｜docs/audit-authz-snapshot.spec.md §5 ｜ docs/ai-action-center.spec.md §5.3 ｜ docs/protocols/ai-governance-protocol.md §2.5
 
 ---
 
@@ -172,8 +172,8 @@ internal-roadmap §internal.17 ①（本规格即其设计先行）｜P-③ Poli
 
 ## 11. SM2 国密签名 + 可信时间锚（规格先行）/ 11. SM2 (GM) Signature + Trusted Timestamp Anchor（spec-first）
 
-> **归属**：internal-roadmap §internal.17 **②**（支撑件·合规弹药）：技术防篡改 → 法律级可举证；难以复制中、叠加中、演示弱、**信创高**（等保/密评直接弹药）。
-> **窗口**：本小节为「规格先行」——**现在只把算法与时间戳格式写进本规格定死，防未来返工**；**不实现**（实现触发 = 合规卡② / 密评客户问询 / 首个等保现场）。与 §3 现签名（HMAC-SHA256，对称，仅应用内可验）互补：SM2 是非对称，**第三方持公钥即可离线独立验签**。
+> **归属**：支撑件·合规能力：技术防篡改 → 法律级可举证；面向等保 / 密评场景。
+> **窗口**：本小节为「规格先行」——**现在只把算法与时间戳格式写进本规格定死，防未来返工**；**不实现**（实现触发 = 密评客户问询 / 首个等保现场）。与 §3 现签名（HMAC-SHA256，对称，仅应用内可验）互补：SM2 是非对称，**第三方持公钥即可离线独立验签**。
 
 ### 11.1 目标 / Goal
 - `verify-evidence.mjs` 除现有 HMAC 分支外，增加**国密 SM2 验签**与**可信时间锚**校验；导出侧证据包可携带 SM2 签名与时间锚。
@@ -225,4 +225,4 @@ internal-roadmap §internal.17 ①（本规格即其设计先行）｜P-③ Poli
 - 时间锚：`anchor.rootDigest` 与当日包 `root.digest` 聚合一致；RFC3161 token（若配）可独立验。
 
 ### 11.7 关联 / Related
-internal-roadmap §internal.17 ②（本小节即其设计先行）｜§9 Related ①（证据根 v3=SM2 签名对象载体）｜§5 离线验证语义（SM2 分支挂靠 `--key`/structure 分层）｜docs/manual/compliance-mapping.md（等保/密评映射）｜不承诺清单（N-x 防篡改措辞边界）
+本小节即其设计先行｜§9 Related ①（证据根 v3=SM2 签名对象载体）｜§5 离线验证语义（SM2 分支挂靠 `--key`/structure 分层）｜docs/manual/compliance-mapping.md（等保/密评映射）｜不承诺清单（N-x 防篡改措辞边界）

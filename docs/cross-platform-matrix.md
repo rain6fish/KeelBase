@@ -1,6 +1,6 @@
 # Cross-platform Capability Matrix（多端能力对齐矩阵）
 
-> 2026-08-23 依据 internal-roadmap §10 正式化 + 代码核对。多端是工程优势，但不能演变成 Capability Drift——新能力必须明确各端支持情况。
+> 2026-08-23 正式化 + 代码核对。多端是工程优势，但不能演变成 Capability Drift——新能力必须明确各端支持情况。
 
 ## 1. 端定位
 
@@ -24,7 +24,7 @@
 | Approval（旗舰） | ✅ | ✅ | ✗ | ✅（工作台审批） |
 | AI CRM / PM（旗舰） | ✅ | ✅ | ✗ | ✅（工作台） |
 
-> 注：与 internal-roadmap §10 原表的差异（2026-08-23 核对更正）：Taro 的 Tool Confirmation / Audit / Trace 为 ✗（Taro `ai` 页无确认卡）；Web-Admin 工作台无用户 AI 对话页（原表 AI Chat ✓ 属乐观标记）。
+> 注：早期版本的差异（2026-08-23 核对更正）：Taro 的 Tool Confirmation / Audit / Trace 为 ✗（Taro `ai` 页无确认卡）；Web-Admin 工作台无用户 AI 对话页（原表 AI Chat ✓ 属乐观标记）。
 
 ## 3. 新增能力时的核对方法（防 Capability Drift）
 

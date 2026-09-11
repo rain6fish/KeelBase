@@ -1,6 +1,6 @@
 # Agent Framework Integration Verification (AR-2, MCP as the Adapter)
 
-> **Positioning (internal-roadmap §internal.2 ecosystem convergence)**: KeelBase = a **Business-safe AI Runtime** on top of AI frameworks — it does not re-build orchestration. Any mainstream Agent Framework (LangChain / OpenAI / Claude etc.) integrates via **MCP (open standard)** and automatically enters the KeelBase governance layer: Identity / Permission / Confirmation / Audit all work. This page demonstrates and verifies that "MCP-as-Adapter" chain.
+> **Positioning**: KeelBase = a **Business-safe AI Runtime** on top of AI frameworks — it does not re-build orchestration. Any mainstream Agent Framework (LangChain / OpenAI / Claude etc.) integrates via **MCP (open standard)** and automatically enters the KeelBase governance layer: Identity / Permission / Confirmation / Audit all work. This page demonstrates and verifies that "MCP-as-Adapter" chain.
 
 ## Why MCP
 

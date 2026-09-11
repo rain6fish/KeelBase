@@ -43,7 +43,7 @@
 | L3 | `Server-NestJS/data/` 实验 sqlite（ct/ct2/ct3/ct4/consistency，0 引用）+ `data/backups/*.bak`（乱码残留，backup.ts 轮转只认 .backup） | ✅ 已删 2026-09-03 |
 | L4 | `Server-NestJS/uploads/` 数百个 <1k stub jpg/webp（测试/演示占位） | ✅ 已清 2026-09-03 |
 | L5 | ~~verify-golden-crm.mjs 重复~~ | ❌ **取消**：与 verify-golden-application.sh 非重复——.mjs 是真实 LLM（DeepSeek）对话视角 8/8，.sh 是确定性 CI 9 项，被 ai-trust-manifesto/adversarial-proof/keelbase-dna 多处引用 |
-| L7 | scripts 一次性：`sync-issues-to-gitee.mjs` / `check-java-starter.mjs` / demo 视频链（record-demo*/video/*） | 保留（有参考价值，标注一次性；不占仓库维护成本） |
+| L7 | scripts 一次性：`sync-issues-to-gitee.mjs` / `check-java-starter-signals.mjs` / demo 视频链（record-demo*/video/*） | 保留（有参考价值，标注一次性；不占仓库维护成本） |
 
 ### 已排除（不是屎山）
 

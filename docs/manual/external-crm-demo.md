@@ -1,7 +1,7 @@
 # EB-1 演示：外部 CRM 接入（不替换系统，获得 AI 能力）
 
 > **Enterprise Capability Bridge（企业能力桥）**：企业已有系统（CRM/ERP/OA）不替换，作为 AI Agent 的 **Business-safe 能力来源**。本演示用「一个既有 CRM 系统」的 OpenAPI 描述，经 AI Bridge（`--import-openapi-proxy`）接入 KeelBase——AI 在治理约束下读取外部客户/订单（R1 自动）、写回跟进任务/改价（R3 需人工确认），全程审计；撤销经 Java 补偿端点（revokePath）如实呈现。
-> 面向「中国企业 AI 增强层」路线的旗舰展示（internal-roadmap §internal.7 / §internal.11 EB-1）。
+> AI CRM 旗舰展示。
 
 ## 一句话
 

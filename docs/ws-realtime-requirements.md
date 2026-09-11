@@ -1,7 +1,7 @@
 # RG-6 WebSocket 双向通道 — 需求确认书 / RG-6 WebSocket Realtime Channel — Requirements
 
 > 版本：v1.0 / Version: v1.0
-> 基于：内部路线图「RG 系列（基座体验与工程化）」RG-6
+> 基于：基座体验与工程化（实时双向通道）
 > 关联项目：KeelBase（App 全栈开发平台）
 
 ---

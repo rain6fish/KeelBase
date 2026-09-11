@@ -1,6 +1,6 @@
 # Agent Framework 接入验证（AR-2，MCP 即 Adapter）
 
-> **定位（internal-roadmap §internal.2 生态定位收敛）**：KeelBase = AI Framework 之上的 **Business-safe AI Runtime（业务安全 AI 运行时）**——不重造编排。任意主流 Agent Framework（LangChain / OpenAI / Claude 等）通过 **MCP（开放标准）** 接入，即自动进入 KeelBase 治理层：Identity / Permission / Confirmation / Audit 全走通。本页演示并验证这条「MCP 即 Adapter」链路。
+> **定位**：KeelBase = AI Framework 之上的 **Business-safe AI Runtime（业务安全 AI 运行时）**——不重造编排。任意主流 Agent Framework（LangChain / OpenAI / Claude 等）通过 **MCP（开放标准）** 接入，即自动进入 KeelBase 治理层：Identity / Permission / Confirmation / Audit 全走通。本页演示并验证这条「MCP 即 Adapter」链路。
 
 ## 为什么是 MCP
 

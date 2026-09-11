@@ -1,10 +1,10 @@
 # Policy History & Cross-Version Replay（策略历史表 + 跨版本回放）— 功能规格 (Spec)
 
-> 版本 / Version: v0.1（设计，internal-roadmap §internal.17 冻结后 P-③）
+> 版本 / Version: v0.1（设计，冻结后）
 > 日期 / Date: 2026-09-04
-> 状态 / Status: Draft（9/25 冻结前只出规格，落地含迁移，排冻结后）/ Draft (spec only pre-freeze; implementation incl. migration post-freeze)
+> 状态 / Status: Draft（只出规格，落地含迁移，排冻结后）/ Draft (spec only; implementation incl. migration post-freeze)
 
-> 基于 / Based on：internal-roadmap §internal.17 P-③；Policy Evidence（docs/audit-authz-snapshot.spec.md §5，`verifyReproducible` 边界）；Evidence Root（docs/evidence-root.spec.md §5.3 衔接点）。
+> 基于 / Based on：Policy Evidence（docs/audit-authz-snapshot.spec.md §5，`verifyReproducible` 边界）；Evidence Root（docs/evidence-root.spec.md §5.3 衔接点）。
 > Related: docs/audit-authz-snapshot.spec.md ｜ docs/evidence-root.spec.md ｜ Server-NestJS/src/ai/governance/governance-policy.service.ts
 
 ---
@@ -81,4 +81,4 @@
 
 ## 9. 关联 / 9. Related
 
-internal-roadmap §internal.17 P-③（本规格）｜③（audit-authz-snapshot §5 verifyReproducible）｜① 证据根（evidence-root.spec §5.3）｜§internal.17 ② SM2（历史包加签后续）
+本规格｜③（audit-authz-snapshot §5 verifyReproducible）｜① 证据根（evidence-root.spec §5.3）｜SM2（历史包加签后续）

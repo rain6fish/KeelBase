@@ -99,7 +99,7 @@ The admin defaults to same-origin `/api/v1` (`import.meta.env.VITE_API_BASE || '
 - TLS：reuse `nginx.https.conf`'s HSTS headers (`Strict-Transport-Security: max-age=31536000; includeSubDomains`) on the admin server block.
   TLS：在管理台 server 块复用 `nginx.https.conf` 的 HSTS 头（`Strict-Transport-Security: max-age=31536000; includeSubDomains`）。
 - Access control / 访问控制：the console checks `role === 'admin'` after login; for stricter perimeter control, restrict by IP allow-list or a VPN in front of `admin.example.com` (see private roadmap D.1).
-  管理台登录后校验 `role === 'admin'`；更严格的外围控制可在 `admin.example.com` 前置 IP 白名单或 VPN（见内部路线图 D.1）。
+  管理台登录后校验 `role === 'admin'`；更严格的外围控制可在 `admin.example.com` 前置 IP 白名单或 VPN。
 
 ## 7. Verify / 验证
 

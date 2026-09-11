@@ -3,7 +3,7 @@
 > 版本：v1.1（§internal.15(4) 治理策略可视化编辑扩展：门控档位 mode + R4 审批策略化 + 差异化保存）
 > Version: v1.1 (§internal.15(4) visual policy editing: gate-mode `mode` + policy-driven R4 approval + diff-save)
 
-> 基于：内部路线图「HS 系列（业务安全的 Agent harness）」章节
+> 基于：业务安全的 Agent harness（治理策略）
 > Based on: "HS series (business-safe Agent harness)" section of the private roadmap
 
 > 关联项目：KeelBase（App 全栈开发平台）

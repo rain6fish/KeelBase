@@ -1,6 +1,6 @@
 # KeelBase Evidence System — 证据体系：每项能力「你怎么证明」
 
-> Proof Mode（2026-09-02 外部评审处置）：**Capability Complete / Proof Incomplete** 是当前阶段主缺口——
+> Proof Mode：**Capability Complete / Proof Incomplete** 是当前阶段主缺口——
 > 能力已声明（见 [enterprise-capabilities.md](../enterprise-capabilities.md)，对外企业级能力声明），
 > 本目录回答另一半问题：**每一项能力，用什么可运行的验证来证明它真实有效、可被第三方复核**。
 >
@@ -121,8 +121,8 @@
   node scripts/verify-evidence.mjs docs/benchmark/evidence-root-<ts>.json --key <AUDIT_HMAC_KEY>
   ```
   边界与 N-1/N-2/N-3 一致：证据根为**应用边界内篡改即断链 + 离线可复核**的完整性证据，非防 DBA/root、非不可抵赖存储。
-- **国密 SM2 + 可信时间锚（§internal.17 ②，规格先行，未实现）**：证据包签名从对称 HMAC 扩展到非对称 **SM2（SM2-with-SM3）**——第三方持公钥离线独立验签，配定期根锚 + 可选 RFC3161 时间戳（法律级可举证；信创/等保弹药）。算法与格式已冻结于 [`docs/evidence-root.spec.md`](../evidence-root.spec.md) §11（防返工）；实现触发 = 合规卡② / 密评客户 / 首个等保现场。
-- **文档**：§internal.16 A-6（内部 roadmap 执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
+- **国密 SM2 + 可信时间锚（规格先行，未实现）**：证据包签名从对称 HMAC 扩展到非对称 **SM2（SM2-with-SM3）**——第三方持公钥离线独立验签，配定期根锚 + 可选 RFC3161 时间戳（法律级可举证；信创/等保弹药）。算法与格式已冻结于 [`docs/evidence-root.spec.md`](../evidence-root.spec.md) §11（防返工）；实现触发 = 密评客户 / 首个等保现场。
+- **文档**：A-6（执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
 
 ---
 
@@ -192,7 +192,7 @@
 
 - **现场演示**（带管理员账号，在线环境）：2.1 链 verify → 2.2/2.3 安全演示 → 2.4 撤销闭环 → 2.7 证据包导出 + 离线验证。demo 环境已含 2.1/2.4/2.5 的种子证据（ECS `reset-test-data.js` 每日重种，见 CLAUDE.md）。
 - **写新证据**：新增能力按本目录格式补一行「声明 → 怎么证明 → 产物」；能用既有端点/脚本的组织，不另造证明体系。
-- **对外语言红线**：本目录只用能力语言（证明/证据/可信/可复核），不使用竞争性措辞或内部规划代号（对外语言决策见内部）。
+- **对外语言红线**：本目录只用能力语言（证明/证据/可信/可复核），不使用竞争性措辞或内部规划代号。
 
 ## 相关文档 / Related Docs
 

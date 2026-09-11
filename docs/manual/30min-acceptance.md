@@ -1,6 +1,6 @@
 # 30 分钟验收项目（30-Minute Acceptance）/ 旗舰应用驱动的开发闭环
 
-> 目标（V2 P0-13 / internal-plan 第 11-12 周）：一个陌生开发者从零创建一个业务模块，并让 Runtime Agent 能安全调用该模块。
+> 目标：一个陌生开发者从零创建一个业务模块，并让 Runtime Agent 能安全调用该模块。
 > 验收基准：**30 分钟内完成带 权限(CASL) + AI Tool + Confirmation + Audit 的业务模块**。
 > 依据协议：`docs/module-protocol.md`（协议 → `keelbase init --spec` → 普通源代码）。
 

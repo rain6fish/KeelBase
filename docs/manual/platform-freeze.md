@@ -1,6 +1,6 @@
 # 平台冻结清单（阶段 2 Phase 1）
 
-> 依据 internal-plan §7.1「Capability Validation Cycle」：Code Complete ≠ Product Validated。进入 v1.0 决策前，冻结功能，聚焦验证与平台抽象。本文件记录 2026-08-18 全仓扫描的冻结项——**不是 backlog**，是「当前不做/已做/冻结」的显式记录。
+> 依据「Capability Validation Cycle」：Code Complete ≠ Product Validated。进入 v1.0 决策前，冻结功能，聚焦验证与平台抽象。本文件记录 2026-08-18 全仓扫描的冻结项——**不是 backlog**，是「当前不做/已做/冻结」的显式记录。
 > 扫描范围：Server-NestJS / Front-Flutter / scripts / docs（Web-Admin 由 Element Plus 迁移会话处理，不在本次范围）。
 
 ---
@@ -25,7 +25,7 @@
 
 以下模块有代码、无独立 spec（现有 project.spec.md 仅覆盖 auth/users/events/upload/ai/push/todo/search 等）：
 approval / crm / contracts / data-import / feature-flags / flows / form-builder / marketing / plugins / queue / settings / sms / suppliers / tags / templates。
-> **冻结决策**：不逐个补 spec（量大、且 v1.0 验证期以「能力验证」优先）；三旗舰的规格已在 `flagship-applications.md`（内部仓库）覆盖。
+> **冻结决策**：不逐个补 spec（量大、且 v1.0 验证期以「能力验证」优先）；三旗舰的规格已在 `flagship-applications.md` 覆盖。
 
 冗余文档组：`enterprise-capabilities.md` / `enterprise-readiness.md` / `flagship-applications.md` 内容有重叠——各自定位不同（对外声明 / 内部差距 / 旗舰基准），**保留**，不合并。
 

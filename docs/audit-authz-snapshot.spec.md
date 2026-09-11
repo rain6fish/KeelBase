@@ -63,7 +63,7 @@ if (!denied) {
 
 ## 5. Policy Evidence（§internal.17 ③，2026-09-04 增量）
 
-> 承接 internal-roadmap §internal.17 ③「Policy 版本冻结 + 决策可复现」：不仅知道「为什么允许」，还知道**当时依据的是哪一版治理规则**。
+> 承接「Policy 版本冻结 + 决策可复现」：不仅知道「为什么允许」，还知道**当时依据的是哪一版治理规则**。
 
 > **口径收敛（2026-09-04）**：策略版本采用**内容指纹 revision**（#51，`ai_governance_policy.value` → sha256 前缀、normalize 排序 key，同内容恒同号、变更必变号；无迁移）；审计身份链/合规投影移植自平行实现的 updatedAt 口径——统一为 `policy = { revision, updatedAt }` 嵌套（revision 是权威版本、updatedAt 供人读）。
 
@@ -99,7 +99,7 @@ if (!denied) {
 ### 5.4 语义与边界
 
 - **决策输入已冻结**：checks 与 `policy.revision` 在事件时点同源写入 → 证据不随当前策略漂移（与 §1「不复算过去」同源）。
-- **可复现 = 快照优先 + verifyReproducible**：读侧不再重算（§5.2）；要判断「当时为何允许是否仍成立」走 verifyReproducible（对当前策略）。**拿历史 policy 对象真正重演决策**需策略历史表——超出范围，记为后续项（internal-roadmap §internal.17 ①证据根 / 策略版本化）。
+- **可复现 = 快照优先 + verifyReproducible**：读侧不再重算（§5.2）；要判断「当时为何允许是否仍成立」走 verifyReproducible（对当前策略）。**拿历史 policy 对象真正重演决策**需策略历史表——超出范围，记为后续项（策略版本化）。
 - 前端「为什么允许」可展示 `allowed.policy.revision`；漂移提示 UI 为后续增量。
 
 ### 5.5 测试

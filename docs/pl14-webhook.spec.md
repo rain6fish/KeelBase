@@ -3,7 +3,7 @@
 > 版本：v1.0
 > Version: v1.0
 
-> 基于：内部路线图「PL 平台通用能力」章节
+> 基于：平台通用能力（Webhook 订阅）
 > Based on: "PL platform capabilities" section of the private roadmap
 
 > 关联项目：KeelBase（App 全栈开发平台）

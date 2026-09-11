@@ -64,7 +64,7 @@
 
 ## Phase 1 旗舰验证清单（可勾选）
 
-> 跑三旗舰 Golden Demo 时按此清单核对（internal-plan §7.1 Phase 1），每项勾选确认。
+> 跑三旗舰 Golden Demo 时按此清单核对，每项勾选确认。
 > 配合 [30min-acceptance.md](30min-acceptance.md) 与 `scripts/verify-private-ai.sh`（Private AI Golden Path）。
 
 ### 场景 1：AI CRM「哪些客户本周值得跟进？」
@@ -90,7 +90,7 @@
 - [ ] 人工复核 `decide` 通过 / 驳回生效
 - [ ] 全程审计哈希链完整（HS-11，`GET /audit/verify`）
 
-> **通过标准**：三场景全部勾选 = 旗舰验证通过（Capability Validated）；任一不通过 → 记录差距进下迭代（internal-plan §7.1 平台冻结原则：只修 bug 不加功能）。
+> **通过标准**：三场景全部勾选 = 旗舰验证通过（Capability Validated）；任一不通过 → 记录差距进下迭代（只修 bug 不加功能）。
 
 ## 相关
 

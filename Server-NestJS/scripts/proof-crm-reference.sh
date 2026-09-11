@@ -2,7 +2,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 #
-# Protocol × Trust Proof Card — CRM Reference Application（internal-roadmap §internal.7 T3）
+# Protocol × Trust Proof Card — CRM Reference Application
 #
 # 三轨合一，全部确定性（demo provider，无 LLM）：
 #   G 生成轨：MUT=leads（specs/leads.json，CRM 级双 enum 生成模块）→ 委托 proof-protocol-trust.sh

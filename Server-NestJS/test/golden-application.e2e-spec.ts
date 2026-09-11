@@ -12,7 +12,7 @@ import { AnalyzeCustomerRiskTool } from '../src/ai/tools/analyze-customer-risk.t
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 
 /**
- * 1.0 Gate 1 — Golden Application = AI CRM（internal-plan §7.3「一次跑通闭环」）
+ * 1.0 Gate 1 — Golden Application = AI CRM（「一次跑通闭环」）
  *
  * 一次跑通：Customer → Risk Analysis → Create Follow-up Task → 确认 → 写 → 审计 → 撤销。
  * 确定性验证（无 LLM，可进 CI）：

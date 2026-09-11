@@ -1,6 +1,6 @@
 # Protocol × Trust Proof Card — CRM Reference Application 留档（2026-09-10，修复后复跑）
 
-> 关联：internal-roadmap §internal.7 **T3**（T3 留档 = Enterprise Proof 阶段出口判据）；裁决 §5-§7（内部）；规格 `docs/protocol-trust-proof-card.spec.md`。AI CRM = Enterprise Proof Reference Application 证明器（§internal.6 范围护栏：证明 Business Execution Trust，**非 CRM 产品**）。
+> 关联：规格 `docs/protocol-trust-proof-card.spec.md`。AI CRM = Reference Application 证明器（证明 Business Execution Trust，**非 CRM 产品**）。
 > 本轮基线：**`623ab44d`（master）**，含生成器接线幂等修复的合并 `7efcf624`（`feat/proof-card-fix`）。执行者：作者自跑（**内部预跑**；正式对外 PASS 仍待真实 stranger，`EXECUTOR=github_id`）。
 > 复现：**干净 clone** → `cd Server-NestJS && npm ci && npm run verify:protocol-trust:crm`（确定性 demo provider，无 LLM）——本版即按此方式在独立 clone 复跑。
 > 上一版留档 [`protocol-trust-card-crm-2026-09-08.md`](protocol-trust-card-crm-2026-09-08.md) 的「R10 重跑幂等」经 2026-09-10 陌生模拟**证伪**后修复——**本版为修复后复跑**。
