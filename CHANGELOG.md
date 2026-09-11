@@ -4,6 +4,46 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.9] - 2026-09-11
+
+> **KeelBase 1.0.9 — Consulting→Build & Enterprise Proof / 业务访谈直生成与两主张同证版**
+> 维护线第九个增量（基线 = v1.0.8 tag）：S4 Consulting→Build 业务访谈直生成（Business Spec 中间层 + 确定性映射器 + CI 全链路）· §internal.6 Enterprise Proof 与 S5 合流（两主张一次运行同证断言化）· CE-1 B4 场景包（行为语料版本化 + 逐字漂移门）· CE-3 Runtime Model 四薄片契约化 · T5 跨入口决策一致深化（sidecar 结构化依据 + MCP 拒绝留痕 + 放行快照单一构造）· FE-1 前端 Runtime-Neutrality（信封/错误/刷新 neutral adapter + capabilities/provenance 三端消费 + 边界门禁）· §4 G1 run 级批量撤销 · B3b 决策词汇统一（approve|decline，wire Schema v2）· NC-3 首次运行就绪清单 · 迁移清单单源化 · 本版四层评审阻塞项修复。**注：本次发布随历史清理——benchmark 运行产物文件名/内容的工作时段时刻已从全史移除（含各 tag 重指，双端 force-push），v1.0.9 建在干净历史上。**
+
+### Added / 新增
+
+- **S4 Consulting→Build（业务访谈直生成）** — `docs/business-spec.md` 中间层 + 确定性映射器（`scripts/generator/business-spec.mjs`，Business Spec → Module Protocol）+ CLI 接线 + `check-business-specs` 门禁 + CI `consulting-to-build` job（真实访谈产物 → 协议 → 生成模块 → 编译/单测/迁移自洽）
+  **Consulting→Build**：业务方一句诉求 → 结构化 Business Spec → 确定性协议 → 生成模块，全链路可验证
+- **§internal.6 Enterprise Proof × S5 合流** — `verify-consulting-to-build.sh`：Build 与 Trust「两主张一次运行同证」断言化
+- **CE-1 B4 场景包** — 行为级语料版本化（golden / trust / failure 三包）+ 漂移门（pack↔e2e 逐字断言、failure doc↔pack 逐字段）
+- **CE-1 C1 语义单源执行化** — 语义变更须先落契约：语义源清单 + 机器闸 `check-semantic-single-source.mjs` + CI 硬门禁（纯重构走 `[no-semantic-change]` trailer 豁免）
+- **CE-3 Runtime Model 四薄片契约化** — capability declaration / invocation semantics / governance binding / failure semantics 落 `specs/protocol`（conformance 33/33）；AI 管道按 Rev-4 显式排除
+- **T5 跨入口决策一致（§internal.17）** — governance sidecar 决策依据结构化（auto/confirm/block → 结构化 authorization）；外部 MCP 工具调用的治理拒绝补审计留痕；放行依据快照单一构造 `buildAllowSnapshot`（SSE/非流式/MCP 共用）
+- **FE-1 前端 Runtime-Neutrality** — 信封/错误/刷新收敛为 neutral adapter（`isSuccess` 2xx 判定、统一 unwrap、单飞刷新）；Web/Flutter/Taro 消费 `/app/capabilities`（导航显隐）与 `/app/provenance`（运行时来源指纹）；前端边界门禁 `check-frontend-boundary`（573 文件）；`docs/manual/frontend-runtime-coupling.md` 只读基线
+- **§4 G1 run 级批量撤销** — 副作用挂 `run_id` + `revokeRun` + 双端 API（`DELETE /ai/(my/)tool-effects?runId=`），同会话内其它 run 不误伤
+- **B3b 决策词汇统一** — `approve|decline`（先落 wire Schema v2 再迁代码；`reject` 为服务端兼容别名）+ 三端迁移；SSE `decision` 忠实镜像 outcome（timeout 不再塌缩为 decline）
+- **NC-3 首次运行就绪清单** — `GET /app/readiness` 五维（runtime/db/ai/governance/demo）+ 每维可执行下一步 + 管理台首屏就绪卡
+- **证据根 v3 / P-③ 策略历史** — 单动作跨链证据包、策略历史快照回放、op-audit 源注入修复、离线 `--key` 全量重算
+
+### Fixed / 修复
+
+- **app-version `latestVersion` 单源化** — 改读 package.json（此前手写常量，1.0.7 / 1.0.8 两次 bump 均漏更新，对外版本落后两版）
+- **NODE_ENV 环境文件** — dev 回退 `.env`（不再因缺 `.env.development` 启动失败）
+- **迁移清单单源化 + 漂移守卫** — postgres 迁移白名单收敛到 `src/config/postgres-migrations.ts` 单一权威 + drift guard；`ai_confirmation_requests.kind` nullable 对齐
+- **`ai_conversation` 落库** — 确认记录补 `conversationId`（实体列此前为死列）；`ai_tool_side_effects` 加 `conversation_id` 索引
+- **审批边界** — 治理台审批列表排除 `kind='run'` 行；审批执行入口拒绝 run token
+- **批量撤销上限回退** — 撤销「500 上限 + truncated 续处理」（重跑返回同批 → 死循环）
+- **v1.0.9 四层评审阻塞项** — 就绪端点限流 / 脱敏 / Ollama 判据单源 / 设置容错；MCP 执行后富化失败不再冒泡（fail-after-execute）；sidecar `confirm` 不再写「拒绝形态」数组；语义单源闸扫全区间提交信息；S4 映射器 fail-closed；生成模块验收脚本防假 PASS + SSE 读绑超时；Taro capabilities 守卫 + 信封状态码；CRM Copilot 保留 timeout 语义 + 服务端决策响应式更新
+- **生产依赖安全** — multer override 2.3.0 + `npm audit fix` + Nest 11.2.3 对齐，清生产漏洞
+
+### Changed / 变更
+
+- **历史清理（非功能性）** — benchmark 运行产物（80 条路径）文件名含工作时段 UTC 时刻从**全史移除**（含各 tag 树重指、双端 force-push）；`followup-plans.md` 确认时刻内容侧清零；`.gitignore` 忽略可再生的验证报告产物。**HEAD 树零变**，仅历史与 tag 重指。
+- **项目 skills 纳入版本控制** — `.claude/skills/` 定向放开 ignore
+
+### 发布前评审（Release Precheck）
+
+Release Precheck（2026-09-11）：四层 code review —— OpenCodeReview 186 文件（75 条，最高为已修的就绪端点信息泄露）+ Claude 自带多维（无 BLOCKER）+ code-review skill 双轴（Standards 2 硬违规 / Spec PASS WITH FIXES）+ Code Economy（WARN，Critical 0）→ 整合后修复 **15 处阻塞项**。全量测试：后端单测 254 套件 / 2325 用例 + e2e 24/319 + 安全覆盖率门控 + release-gate 19/0；Vue typecheck + 424 用例；Flutter analyze + 628 用例；生成器 104；conformance 33/33 —— 全过。
+
 ## [1.0.8] - 2026-09-09
 
 > **KeelBase 1.0.8 — Conformance & Revoke Contract / 契约常绿与撤销契约收口版**
