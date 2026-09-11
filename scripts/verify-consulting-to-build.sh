@@ -61,21 +61,30 @@ PLURAL="$(node -e "process.stdout.write(require('./$SPEC').plural||require('./$S
 printf '   模块=%s（复数 %s）\n' "$MODULE" "$PLURAL"
 
 # ── 2. 模块协议 → 生成模块（真实写盘）──────────────────────────────────────────
+# 断言以 `--dry-run` 列出的清单为准（生成器命名不齐一：实体用**单数**、service/controller 用复数、
+# Web 视图用 Pascal 复数）——不猜命名，避免断言自身成为脆弱源。
 log "② 生成：keelbase init --spec $SPEC"
+DRY="$(node scripts/keelbase-init.mjs --spec "$SPEC" --dry-run 2>/dev/null)"
+SINGULAR="$(printf '%s\n' "$DRY" | sed -n 's/.*singular=\([A-Za-z0-9_]*\).*/\1/p' | head -1)"
+[ -n "$SINGULAR" ] || fail "无法从 dry-run 解析单数名（生成器输出格式已变？）"
+PLANNED=()
+while IFS= read -r line; do PLANNED+=("$line"); done < <(
+  printf '%s\n' "$DRY" | grep -oE '[A-Za-z][A-Za-z0-9_/.-]*\.(ts|dart|vue|scss)$'
+)
+[ "${#PLANNED[@]}" -gt 0 ] || fail "dry-run 未列出待生成文件"
+
 node scripts/keelbase-init.mjs --spec "$SPEC" >/dev/null
 
-for f in \
-  "Server-NestJS/src/$PLURAL/$MODULE.entity.ts" \
-  "Server-NestJS/src/$PLURAL/$PLURAL.service.ts" \
-  "Server-NestJS/src/$PLURAL/$PLURAL.controller.ts" \
-  "Server-NestJS/src/$PLURAL/$PLURAL.module.ts" \
-  "Server-NestJS/src/ai/tools/query-$PLURAL.tool.ts" \
-  "Server-NestJS/src/ai/tools/create-$PLURAL.tool.ts" \
-  "Front-Flutter/lib/features/$PLURAL/presentation/pages/${PLURAL}_page.dart" \
-  "Web-Admin-Vue/src/views/$PLURAL/${MODULE^}View.vue" ; do
-  [ -f "$f" ] || fail "生成物缺失：$f"
+missing=()
+for f in "${PLANNED[@]}"; do [ -f "$f" ] || missing+=("$f"); done
+[ "${#missing[@]}" -eq 0 ] || { printf '   缺失：\n'; printf '     %s\n' "${missing[@]}"; fail "生成物与 dry-run 清单不一致"; }
+# 结构完整性：后端四件套（实体用**单数**）+ AI 工具 + 三前端都在清单里
+for pat in "/$SINGULAR\.entity\.ts$" "/$PLURAL\.service\.ts$" "/$PLURAL\.controller\.ts$" "/$PLURAL\.module\.ts$" \
+           "/ai/tools/query-$PLURAL\.tool\.ts$" "/ai/tools/create-$PLURAL\.tool\.ts$" \
+           "^Front-Flutter/lib/features/$PLURAL/" "^Web-Admin-Vue/" "^Front-Taro/"; do
+  printf '%s\n' "${PLANNED[@]}" | grep -qE "$pat" || fail "生成清单缺结构件：/${pat}/"
 done
-printf '   生成物齐（后端 4 + AI 工具 2 + 三前端）\n'
+printf '   生成物齐（%s 个文件：后端四件套 + AI 读写工具 + 三前端）\n' "${#PLANNED[@]}"
 
 # ── 3. 编译 + 生成模块单测（roadmap S4：单测绿）────────────────────────────────
 log "③ 编译 + 生成模块单测"
