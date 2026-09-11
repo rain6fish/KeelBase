@@ -6,8 +6,10 @@
  *   + runScenario(id).outcome == 语料 cases（强双向漂移门，本包核心单一真源保证）。
  * - failure-path-v1.json：pack 的 FP id 集合 == docs/failure-path-corpus.spec.md 解析出的 `FP-数字` 行集合
  *   （doc↔pack 漂移门）。
- * - golden-application-v1.json：结构 sanity（index 1..8 连续、key/title 齐备）——e2e 步骤为自然语言断言，
- *   无结构化 declare，故此处为索引而非强漂移。
+ * - golden-application-v1.json：pack 步骤（index/序号/title）== test/golden-application.e2e-spec.ts
+ *   的 it('①..⑧ …') 标题**逐字门**（机器解析 it 标题为结构化步骤）。
+ * - trust-proof-v1.json：pack 场景（seq/title）== scripts/verify-trust-proof.mjs 的 console.log('[S<n>] …') 标签（逐字）。
+ * - cross-entry-v1.json：pack 步骤（index/title）== test/cross-entry-consistency.e2e-spec.ts 的 it('①..④ …')（逐字）。
  * 随 npm test 入 CI；任一侧变更都先红，须先同步运行时/文档真源（CE-1 L3 单源规则）。
  */
 
@@ -19,6 +21,8 @@ import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 const SPECS_DIR = resolve(__dirname, '../../specs/scenarios');
 const FAILURE_PATH_DOC = resolve(__dirname, '../../../docs/failure-path-corpus.spec.md');
 const GOLDEN_E2E = resolve(__dirname, '../../test/golden-application.e2e-spec.ts');
+const TRUST_PROOF_SCRIPT = resolve(__dirname, '../../scripts/verify-trust-proof.mjs');
+const CROSS_ENTRY_E2E = resolve(__dirname, '../../test/cross-entry-consistency.e2e-spec.ts');
 
 interface ScenarioPack {
   vectorVersion: string;
@@ -34,6 +38,8 @@ function loadPack(file: string): any {
 const showcasePack = loadPack('security-showcase-v1.json');
 const goldenPack = loadPack('golden-application-v1.json');
 const failurePack = loadPack('failure-path-v1.json');
+const trustPack = loadPack('trust-proof-v1.json');
+const crossEntryPack = loadPack('cross-entry-v1.json');
 
 describe('CE-1 B4 场景包 · 语料漂移门', () => {
   describe('共同字段 / common fields', () => {
@@ -41,6 +47,8 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
       ['security-showcase-v1.json', showcasePack],
       ['golden-application-v1.json', goldenPack],
       ['failure-path-v1.json', failurePack],
+      ['trust-proof-v1.json', trustPack],
+      ['cross-entry-v1.json', crossEntryPack],
     ];
 
     it.each(packs)('%s 含 vectorVersion/protocol/license/note 且 license=Apache-2.0', (_name, pack) => {
@@ -147,6 +155,62 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
 
     it('每步 key 非空且唯一', () => {
       const keys = goldenPack.steps.map((s: any) => s.key);
+      keys.forEach((k: string) => expect(typeof k === 'string' && k.length > 0).toBe(true));
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+  });
+
+  describe('trust-proof-v1 · pack↔脚本 漂移门', () => {
+    // 真源 = scripts/verify-trust-proof.mjs 的 console.log('\n[S<n>] <标题>') 场景标签（保序 = 脚本发射序）
+    const scriptScenarios = readFileSync(TRUST_PROOF_SCRIPT, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => /console\.log\('\\n\[(S\d+)\]\s*([^']*)'\)/.exec(line))
+      .filter((m): m is RegExpExecArray => !!m)
+      .map((m) => ({ seq: m[1], title: m[2] }));
+
+    it('pack 场景数 == 脚本发射数（任一增删→红）', () => {
+      expect(scriptScenarios.length).toBeGreaterThan(0);
+      expect(trustPack.scenarios.length).toBe(scriptScenarios.length);
+    });
+
+    it('每场景 seq/title 与脚本标签逐字一致', () => {
+      trustPack.scenarios.forEach((s: any, i: number) => {
+        expect(s.seq).toBe(scriptScenarios[i].seq);
+        expect(s.title).toBe(scriptScenarios[i].title);
+      });
+    });
+
+    it('每场景 key 非空且唯一', () => {
+      const keys = trustPack.scenarios.map((s: any) => s.key);
+      keys.forEach((k: string) => expect(typeof k === 'string' && k.length > 0).toBe(true));
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+  });
+
+  describe('cross-entry-v1 · pack↔e2e 漂移门', () => {
+    // 真源 = test/cross-entry-consistency.e2e-spec.ts 的 it('<①..④> <标题>')（§internal.17 T5）
+    const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+    const e2eSteps = readFileSync(CROSS_ENTRY_E2E, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => /it\('([①②③④⑤⑥⑦⑧⑨])\s*([^']*)'/.exec(line))
+      .filter((m): m is RegExpExecArray => !!m)
+      .map((m) => ({ mark: m[1], title: m[2] }));
+
+    it('pack 步数 == e2e 步骤数（任一方增删步骤→红）', () => {
+      expect(e2eSteps.length).toBeGreaterThan(0);
+      expect(crossEntryPack.steps.length).toBe(e2eSteps.length);
+    });
+
+    it('每步 index 连续、序号标记对应、title 与 e2e it() 标题逐字一致', () => {
+      crossEntryPack.steps.forEach((s: any, i: number) => {
+        expect(s.index).toBe(i + 1);
+        expect(CIRCLED[i]).toBe(e2eSteps[i].mark);
+        expect(s.title).toBe(e2eSteps[i].title);
+      });
+    });
+
+    it('每步 key 非空且唯一', () => {
+      const keys = crossEntryPack.steps.map((s: any) => s.key);
       keys.forEach((k: string) => expect(typeof k === 'string' && k.length > 0).toBe(true));
       expect(new Set(keys).size).toBe(keys.length);
     });
