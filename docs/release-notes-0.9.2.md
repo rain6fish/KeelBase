@@ -48,4 +48,4 @@ v0.9.2 聚焦首启体验（预设引导 + capabilities 导航联动）、流式
 
 ---
 
-**Docs / 文档**：`docs/manual/tutorial.md`（从零到部署）、`docs/enterprise-readiness.md`（企业就绪度）、`docs/manual/blue-green-deploy.md`、`docs/manual/demo-deploy.md`、`docs/manual/admin-deploy.md`；Roadmap V2 已启用（内部仓库）。
+**Docs / 文档**：`docs/manual/tutorial.md`（从零到部署）、`docs/enterprise-readiness.md`（企业就绪度）、`docs/manual/blue-green-deploy.md`、`docs/manual/demo-deploy.md`、`docs/manual/admin-deploy.md`。

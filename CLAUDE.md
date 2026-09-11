@@ -684,7 +684,7 @@ npm run migration:run
 1. 本地提交后执行 `git push github master:main`
 2. 结果在 GitHub Actions 控制台查看
 
-> 曾尝试 Gitee Go，因其免费版 node 版本过老、网页端配置受限已放弃（见内部路线图 D.5）。`.workflow/` 目录已删除。
+> 曾尝试 Gitee Go，因其免费版 node 版本过老、网页端配置受限已放弃。`.workflow/` 目录已删除。
 
 ---
 
@@ -802,7 +802,7 @@ npm run migration:run
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
 | DELETE | /api/v1/ai/my/tool-effects?conversationId=\|=runId= | Yes | 本人 | 批量撤销本人在某会话（conversationId）或某次 run（runId）产生的全部 AI 副作用（G1，owner 过滤，逐条汇总） |
 | GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4） |
-| GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化，§internal.17 北极星） |
+| GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化） |
 | GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验） |
 | GET | /api/v1/ai/governance/policy/history | Yes (ADMIN) | — | 治理策略历史快照列表（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/governance/policy/history/:revision | Yes (ADMIN) | — | 按 revision 查询单条策略快照（P-③，跨版本回放决策可复现） |
@@ -1049,12 +1049,11 @@ Front-Flutter/lib/features/legal/
 
 ### 11.5 Roadmap 维护（必须遵守）
 
-**完整路线图已移至内部仓库库（2026-08-13，公开仓库不再含 roadmap）。每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到内部仓库库的 `KeelBase4TS/roadmap.md` 对应章节**，供后续按优先级执行。内部仓库（2026-09-09 重组为单仓两项目目录，不拆仓）：本地 `C:\Rain6fish\internal-roadmap`（推送至 GitHub 私有 `rain6fish/internal-roadmap`）；TS 主项目文档在 `KeelBase4TS/`（含 `roadmap.md`、`KeelBase-execution-log.md`、`archive/`），Java 产品线文档在 `Java 版/`，根仅留品牌与基础件。规则：
+**完整路线图不在本公开仓库（2026-08-13）。每个计划评审/完成后，把计划中未做、标记为「后续/不做」的工作追加到内部路线图对应章节**，供后续按优先级执行。规则：
 
 - 每条目标注：说明、依赖、状态（待办/进行中/已完成）
 - 计划执行完毕时，在 roadmap「已完成」表追加一行（阶段 + 内容 + 提交 hash）
 - 新增功能若产生新的「未做项」，同样追加；避免遗漏与重复
-- 维护后推送：`cd C:\Rain6fish\internal-roadmap && git add -A && git commit -m "docs: ..." && git push`
 
 ---
 
@@ -1080,7 +1079,7 @@ Role: admin
 
 ## 13. 企业 Web 端（Web-Admin-Vue：工作台 + 管理台同一壳）
 
-> **技术栈（2026-08-12 决策，见内部路线图「WEB-ADMIN」章节）**：Web 端为 **PC Web 宿主（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
+> **技术栈（2026-08-12 决策）**：Web 端为 **PC Web 宿主（Vue3 + Element Plus + Vite + Pinia + TS，MIT 合规）**。已取代并废弃原 Taro-Admin（React H5）。后端 Admin API 完全复用。
 
 **Web 端宿主（Vue3 + Element Plus）**：企业用户工作台与管理员控制台同一壳、两套导航（WEB-FRONT-1）；与 `Front-Flutter` / `Front-Taro`（移动主 App）代码/构建/部署分离，移动端不携带任何管理逻辑或入口。
 
@@ -1089,7 +1088,7 @@ Role: admin
 - 所有管理 API 带 `@CheckPolicies((a) => a.can('manage', 'all'))`（CASL），普通用户 token 返回 403
 - `GET /auth/me` 返回 `role` 字段，供管理台判断管理员身份
 - 路由 hash 模式（`createWebHashHistory`）——单容器 Nest 静态托管无 SPA fallback，hash 让 nginx + 单容器两套部署链零改动
-- 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA（见内部路线图 D.1）
+- 部署建议：独立域名（如 `admin.example.com`）+ 可选 IP 白名单/VPN + MFA
 
 **视觉与交互（2026-08-25 UI 改造）**：
 - **三主题可切换**：深蓝（默认，信任蓝 `#1d4ed8`）/ 青绿 / 石墨，各含亮/暗变体；`<html data-theme>` + `dark` class 驱动，侧边栏底部主题切换器持久化（`admin_theme_variant`）
@@ -1190,7 +1189,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
 
-> 来源：内部《KeelBase_AI_Code_Economy_Review方案》（专家组）。目标：**AI 生成代码时就知道不能怎么写**，比事后 Review 更有效。核心四动作：**Search Before Create → Detect Duplicate → Detect Unnecessary Abstraction → Delete Before Add**。
+> 来源：AI Code Economy Review。目标：**AI 生成代码时就知道不能怎么写**，比事后 Review 更有效。核心四动作：**Search Before Create → Detect Duplicate → Detect Unnecessary Abstraction → Delete Before Add**。
 
 ### 15.1 Requirement Before Code
 

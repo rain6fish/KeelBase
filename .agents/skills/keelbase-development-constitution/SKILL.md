@@ -13,7 +13,7 @@ description: KeelBase AI 开发宪法——规划、设计、实现、评审或�
 - `keelbase-ux-experience`（体验篇）
 - `keelbase-architecture-engineering`（架构与工程篇）
 
-整合时对比了 Anthropic 官方 skill 体系（spec-driven / test-driven / code-review / security-review / system-design）与 mattpocock engineering skills（implement→to-spec→to-tickets→code-review 流程、完成定义），补齐了原三篇缺失的**开发生命周期流程**、**完成定义 DoD** 与**项目实际执行约定**，并去重了三篇之间重复的条目（北极星目标、双用户模型、单开发者约束、参考应用规则等，均只保留一份定义）。
+整合时对比了 Anthropic 官方 skill 体系（spec-driven / test-driven / code-review / security-review / system-design）与 mattpocock engineering skills（implement→to-spec→to-tickets→code-review 流程、完成定义），补齐了原三篇缺失的**开发生命周期流程**、**完成定义 DoD** 与**项目实际执行约定**，并去重了三篇之间重复的条目（目标、用户模型、参考应用规则等，均只保留一份定义）。
 
 **配套文档（按需查阅，不重复收录细则）**：
 
@@ -22,7 +22,7 @@ description: KeelBase AI 开发宪法——规划、设计、实现、评审或�
 | `CLAUDE.md` | 技术栈、API 规范、安全规则、§5.5 产品架构红线、§9 端点汇总 |
 | `AGENTS.md` | 新增业务模块的 7 处接线清单、预置 Skills 表 |
 | `docs/*.spec.md` / `docs/adr/` | 各功能规格与架构决策记录 |
-| 内部路线图 | 未做项/后续项追踪 |
+| 待办追踪 | 未做项/后续项追踪 |
 
 **适用与触发**：开发、设计、实现、评审、重构任何 KeelBase 相关代码或配置前，先读本宪法；对非平凡改动，必须先在答复中给出第 4.2 节的「开发前必答」评估，再动工。
 

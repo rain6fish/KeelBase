@@ -1,6 +1,6 @@
 # System AI Assistant（系统 AI 助手）— 需求确认书 / Requirements Confirmation
 
-> 基于内部仓库评估文档《KeelBase_System_AI_Assistant_定位与架构建议》立项。本功能是既有 AI-22（管理端 AI 助手 `POST /admin/ai/chat`）的演进，不是从零新增。
+> 基于：管理端 AI 助手（`POST /admin/ai/chat`）的演进，不是从零新增。
 
 ## 1. 功能概述 / 1. Feature Overview
 
@@ -28,7 +28,7 @@ Evolve AI-22 (admin AI chat) into a **System AI Assistant** for the admin consol
 | 6 | 管理端导航 / Admin Navigation | 新增 `navigate_admin_page` 工具 + `ADMIN_PAGE_ROUTES`（镜像前端 `routes.ts`），`adminOnly` 元数据首次强制执行；`adminMode` 关闭 Flutter 关键词导航短路 / New `navigate_admin_page` tool + page map; `adminOnly` metadata enforced for the first time; `adminMode` disables the Flutter nav keyword shortcut |
 | 7 | 会话身份 / Identity | **真实管理员身份**（`@CurrentUser().sub`），会话/记忆/限额/审计按管理员隔离；`navigate_admin_page` 的 `adminOnly` 门按角色（`role === 'admin'`）放行，`'0'` 仅 eval/兼容保留 / **Real admin identity**; `adminOnly` gate checks role; `'0'` kept only for eval/compat |
 | 8 | 前端 / Frontend | Web-Admin-Vue 从零新建「系统 AI 助手」聊天页（当前无任何 admin chat UI）/ Greenfield admin chat page in Web-Admin-Vue |
-| 9 | 文档 / Docs | 先文档后编码（§11.3）；接口表、模块列表、内部路线图 同步（§11.2/§11.5）/ Docs before code; sync endpoint tables, module list, private roadmap |
+| 9 | 文档 / Docs | 先文档后编码（§11.3）；接口表、模块列表同步 / Docs before code; sync endpoint tables, module list |
 
 ## 4. 功能点列表 / 4. Feature List
 

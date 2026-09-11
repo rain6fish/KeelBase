@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * EB-3 轻量 Capability 声明层（Enterprise Capability Bridge，internal-roadmap §internal.11）。
+ * EB-3 轻量 Capability 声明层（Enterprise Capability Bridge）。
  *
  * 外部系统「能力声明」（YAML，比 OpenAPI 更轻量）→ B 路径 Proxy 工具配置
  * （与 openapi-proxy 同构 `{ baseUrl, audience, tools }`，运行时 ProxyToolRegistryService 注册）。

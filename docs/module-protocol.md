@@ -171,7 +171,7 @@ node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 
 
 ## 6. 生成来源身份（Provenance）
 
-> 2026-08-21 落地（内部仓库架构/生态身份设计建议的最小切片）：**不给源码贴水印**，只保留一份项目级来源清单。原则：`Visible by default` / `Removable by choice` / `Verifiable when retained` / `No hidden telemetry` / `No lock-in` / `Project-level first`。
+> 2026-08-21 落地：**不给源码贴水印**，只保留一份项目级来源清单。原则：`Visible by default` / `Removable by choice` / `Verifiable when retained` / `No hidden telemetry` / `No lock-in` / `Project-level first`。
 
 ### 6.1 `.keelbase/manifest.json`
 

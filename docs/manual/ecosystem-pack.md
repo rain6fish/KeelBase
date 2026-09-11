@@ -1,6 +1,6 @@
 # 生态包组装（Phase 2：官方按第三方方式构建）
 
-> 依据 internal-plan §7.1 Phase 2：**官方按第三方的方式**构建三旗舰生态包（CRM Template + Customer Risk/Follow-up Skill；Project Template + Deadline Risk Skill；Approval Template + Policy Review Skill）。若官方无法主要靠这套机制构建 → 说明 Extension API 未成熟，优先修补。
+> **官方按第三方的方式**构建三旗舰生态包（CRM Template + Customer Risk/Follow-up Skill；Project Template + Deadline Risk Skill；Approval Template + Policy Review Skill）。若官方无法主要靠这套机制构建 → 说明 Extension API 未成熟，优先修补。
 > 本文档记录四件套组装机制 + 三旗舰包清单 + Extension API 成熟度评估。
 
 ---

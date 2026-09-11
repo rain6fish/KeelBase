@@ -2,9 +2,9 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * MOAT-1「30 分钟接入验证」：零代码接入治理的自包含验收（关键能力 2.0 嵌入广度）。
+ * 「30 分钟接入验证」：零代码接入治理的自包含验收。
  *
- * 一个命令证明关键能力承诺——不熟 KeelBase 的工程师按 docs/manual/adoption-30min.md
+ * 一个命令验证治理接入——不熟 KeelBase 的工程师按 docs/manual/adoption-30min.md
  * 在 30 分钟内把业务系统接进治理：
  *
  *   业务系统（Node 的 OpenAI 兼容 LLM 调用） → base_url 指向 sidecar

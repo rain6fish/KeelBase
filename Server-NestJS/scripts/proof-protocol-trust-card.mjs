@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Protocol × Trust Proof Card — 生成模块治理驱动（R5-R9，internal-roadmap §internal.7 T2）
+ * Protocol × Trust Proof Card — 生成模块治理驱动（R5-R9）
  *
  * 对「由 keelbase-init 生成、编译进后端的生成模块（MUT，默认 invoices）」用纯 REST +
  * 确定性 demo provider 验证治理链路。与 verify-trust-proof.mjs 的差别：对象是**生成产物**

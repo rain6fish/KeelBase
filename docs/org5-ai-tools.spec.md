@@ -3,7 +3,7 @@
 > 版本：v1.0
 > Version: v1.0
 
-> 基于：内部路线图「ORG 组织架构」章节
+> 基于：组织架构（ORG）AI 工具集
 > Based on: "ORG organization" section of the private roadmap
 
 > 关联项目：KeelBase（App 全栈开发平台）

@@ -31,4 +31,4 @@
 
 ---
 
-**Docs / 文档**：CHANGELOG `[1.0.1] - 2026-08-22`、`docs/manual/release-gate.md`（v1.0.0 结论 + 1.0.1 记录）、`docs/system-ai-assistant.spec.md`（来源身份上下文块）、`docs/module-protocol.md` §6.3（doctor 五查）、`docs/manual/built-with-keelbase.md`（CLI 识别五查）。内部仓库 internal-roadmap §13.1 ③⑤ 已标记完成。
+**Docs / 文档**：CHANGELOG `[1.0.1] - 2026-08-22`、`docs/manual/release-gate.md`（v1.0.0 结论 + 1.0.1 记录）、`docs/system-ai-assistant.spec.md`（来源身份上下文块）、`docs/module-protocol.md` §6.3（doctor 五查）、`docs/manual/built-with-keelbase.md`（CLI 识别五查）。

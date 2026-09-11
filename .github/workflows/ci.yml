@@ -186,7 +186,7 @@ jobs:
       - run: node scripts/check-core-boundary.mjs
       - run: node scripts/check-frontend-boundary.mjs
 
-  # 治理协议合规认证（关键能力 A1 / CE-1，零依赖 node 内置）：先跑 specs/protocol 金样本漂移门禁（generate --check），
+  # 治理协议合规认证（A1 / CE-1，零依赖 node 内置）：先跑 specs/protocol 金样本漂移门禁（generate --check），
   # 再以语料驱动复现三协议（审计哈希链/委托 token/风险分级）——篡改/断链/aud 不匹配/过期/签名篡改必须拒绝。
   # 语义变更必须先落 specs/protocol 语料版本再改实现（CE-1 L3 单源规则），否则金样本 diff 红。
   protocol-conformance:

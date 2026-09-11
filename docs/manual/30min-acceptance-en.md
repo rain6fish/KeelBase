@@ -1,6 +1,6 @@
 # 30-Minute Acceptance / Flagship-Driven Development Loop
 
-> Goal (V2 P0-13 / internal-plan weeks 11-12): a stranger developer creates a business module from scratch, and the Runtime Agent can safely operate it.
+> Goal: a stranger developer creates a business module from scratch, and the Runtime Agent can safely operate it.
 > Acceptance bar: **a business module with Permissions (CASL) + AI Tool + Confirmation + Audit built within 30 minutes**.
 > Based on the protocol: `docs/module-protocol.md` (protocol → `keelbase init --spec` → plain source code).
 

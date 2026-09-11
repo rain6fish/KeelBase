@@ -2,7 +2,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 #
-# 1.0 Gate 1 — Golden Application = AI CRM 单一验收脚本（internal-plan §7.3）
+# 1.0 Gate 1 — Golden Application = AI CRM 单一验收脚本
 #
 # 「一次跑通」9 项同时验证：Customer → Risk Analysis → Create Follow-up Task
 #   → 确认 → 写 → 审计 → 撤销（7 步业务闭环，e2e）+ Build 30min（keelbase init → 编译）

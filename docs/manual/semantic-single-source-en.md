@@ -4,7 +4,7 @@
 
 ## Why
 
-KeelBase's moat is one Application Semantic Layer joining Build and Run (ADR-0002). When semantics live in two implementations (TS code + contract) they silently diverge — audit hash chain, R0-R5 risk tiers, business-event naming, wire Schema — and "cross-language reproducible" breaks. The single-source rule makes this a **machine-checkable discipline** (CE-1 role ②: the capability-evolution arbitration bridge).
+KeelBase's key capability is one Application Semantic Layer joining Build and Run (ADR-0002). When semantics live in two implementations (TS code + contract) they silently diverge — audit hash chain, R0-R5 risk tiers, business-event naming, wire Schema — and "cross-language reproducible" breaks. The single-source rule makes this a **machine-checkable discipline** (CE-1 role ②: the capability-evolution arbitration bridge).
 
 ## Semantic sources (changes need a companion contract change)
 

@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * MOAT-3「多系统单控制面」演示（关键能力 2.2 收口实证）：
+ * 「多系统单控制面」演示：
  * 一个独立治理控制平面同时管 N 个异构业务系统的 AI——
  *   System A「Node 商城」→ sidecar A（:3200）
  *   System B「Java CRM」→ sidecar B（:3201）   ← 语言无关，任意 OpenAI 兼容 client
@@ -32,12 +32,12 @@ const GOV_PORT = parseInt(process.env.GOV_PORT || '3100', 10);
 const PORT_A = parseInt(process.env.SIDECAR_PORT_A || '3200', 10);
 const PORT_B = parseInt(process.env.SIDECAR_PORT_B || '3201', 10);
 const MOCK_PORT = parseInt(process.env.MOCK_PORT || '4390', 10);
-const GOV_KEY = 'moat3-demo-governance-key';
+const GOV_KEY = 'multisystem-demo-governance-key';
 const JWT_SECRET = 'adoption-test-jwt-secret-0123456789abcdef';
 const AUDIT_HMAC_KEY = 'ab'.repeat(32);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = resolve(__dirname, '..');
-const TEMP_DB = resolve(tmpdir(), `moat3-demo-${process.pid}.sqlite`);
+const TEMP_DB = resolve(tmpdir(), `multisystem-demo-${process.pid}.sqlite`);
 
 const line = (t) => console.log(`\n── ${t} ──`);
 

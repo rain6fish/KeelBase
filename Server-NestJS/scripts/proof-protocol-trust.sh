@@ -2,7 +2,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 #
-# Protocol × Trust Proof Card — 一键编排（internal-roadmap §internal.7 T2，规格 docs/protocol-trust-proof-card.spec.md）
+# Protocol × Trust Proof Card — 一键编排（规格 docs/protocol-trust-proof-card.spec.md）
 #
 # 陌生人可复现：生成 MUT（默认 invoices，specs/invoices.json）→ 编译进后端 → 起隔离后端
 # （fresh sqlite + development 自动种 alex/admin + demo provider，确定性无 LLM）→ 跑驱动
@@ -181,7 +181,7 @@ REDS=$(grep -cE '\|red\|' "$SCORE" || true)
 YELLOWS=$(grep -cE '\|yellow\|' "$SCORE" || true)
 { echo "# Protocol × Trust Proof Card — $TS"
   echo ""
-  echo "> 关联：internal-roadmap §internal.7 T2 · 规格 docs/protocol-trust-proof-card.spec.md · 裁决 §5-§7（内部）"
+  echo "> 关联：规格 docs/protocol-trust-proof-card.spec.md"
   echo ""
   echo "| 项 | 值 |"
   echo "|---|---|"

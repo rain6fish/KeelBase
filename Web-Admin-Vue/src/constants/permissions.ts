@@ -5,7 +5,7 @@
  *
  * 定位：仅渲染层（路由/按钮显隐），授权唯一来源仍是后端 CASL（隐藏 ≠ 越权）。
  * 权限点 → 后端资源要求映射：admin（resources 含 all/all）自动拥有全部；
- * 普通用户按 resources 中对应 subject 的 scope 判定。动态 RBAC 为 v1.1 触发（内部路线图），
+ * 普通用户按 resources 中对应 subject 的 scope 判定。动态 RBAC 为 v1.1 触发，
  * 当前双角色阶段本清单即覆盖管理台功能。
  */
 export const PERMISSIONS = {

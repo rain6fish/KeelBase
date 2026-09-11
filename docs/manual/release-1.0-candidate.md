@@ -1,6 +1,6 @@
 # 1.0 Candidate（Gate 4）：冻结清单 + Exit Criteria 状态
 
-> internal-plan §7.3 Gate 4：**冻结核心架构（Protocol / Generator / Runtime / Governance）→ RC → Full Acceptance → v1.0.0**。
+> Gate 4：**冻结核心架构（Protocol / Generator / Runtime / Governance）→ RC → Full Acceptance → v1.0.0**。
 > Gate 1（Golden Application = AI CRM 一次跑通）已于 2026-08-21 完成（确定性 9/9 + LLM 8/8），本文件解锁。
 > 依据 §7.4 内部评估 #1「1.0 边界瘦身」+ §7.3「1.0 Candidate Exit Criteria」——**本文件是 Gate 4 的执行清单与状态跟踪**。
 

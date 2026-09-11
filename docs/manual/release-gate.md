@@ -1,6 +1,6 @@
 # Release Gate（0.9.x 里程碑质量门禁 / 阶段 2 Phase 4）
 
-> 依据 internal-plan §7.1 Phase 4：**Code Complete ≠ Product Validated**。本文件把 Release Gate 落地为可执行检查单。
+> **Code Complete ≠ Product Validated**。本文件把 Release Gate 落地为可执行检查单。
 > **版本策略（2026-08-18 用户决定）**：先不发行 1.0，**继续 0.9.x 版本线**——本 Gate 作为 0.9.x 里程碑质量检查。
 > **版本门重校（2026-08-20 用户确认，外部短期不可得）**：1.0 由 **Build / Run / Trust / Private 四维全绿 + 对抗性证明（越权矩阵 + Agent Security Eval 攻击测试集 + 合成陌生人验证）** 触发；**External 降级为「1.0 后增长里程碑」**，不阻塞发布。
 
@@ -25,7 +25,7 @@
 
 ## 0. Gate 1：Golden Application = AI CRM（一次跑通闭环）
 
-> internal-plan §7.3：**Golden Demo ≠ Golden Application**——Demo 是 60s 最小能力展示，Golden Application 是 1.0 完整产品证明 = AI CRM（Customer → Risk Analysis → Create Follow-up Task → 确认 → 写 → 审计 → 撤销）。**缺「一次跑通」聚焦闭环 → 2026-08-21 补齐**。
+> **Golden Demo ≠ Golden Application**——Demo 是 60s 最小能力展示，Golden Application 是 1.0 完整产品证明 = AI CRM（Customer → Risk Analysis → Create Follow-up Task → 确认 → 写 → 审计 → 撤销）。**缺「一次跑通」聚焦闭环 → 2026-08-21 补齐**。
 
 **单一验收脚本**：`./scripts/verify-golden-application.sh`（8 项同时验证，确定性可进 CI）
 

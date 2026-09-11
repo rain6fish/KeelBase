@@ -1,7 +1,7 @@
 # EB-1 Demo: External CRM Integration (AI capability without replacing the system)
 
 > **Enterprise Capability Bridge**: an enterprise's existing systems (CRM/ERP/OA) are not replaced — they become the **business-safe capability source** for AI agents. This demo takes an existing CRM system's OpenAPI description and connects it to KeelBase via the AI Bridge (`--import-openapi-proxy`) — AI reads external customers/orders under governance (R1 automatic), writes back follow-up tasks / price changes (R3 requires human confirmation), fully audited and revocable.
-> The flagship showcase for the "China enterprise AI enhancement layer" route (internal-roadmap §internal.7 / §internal.11 EB-1).
+> Flagship AI CRM showcase.
 
 ## In One Sentence
 

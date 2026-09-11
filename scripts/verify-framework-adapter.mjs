@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * AR-2 Framework 接入验证（internal-roadmap §internal.2，MCP 即 Adapter）：
+ * AR-2 Framework 接入验证（MCP 即 Adapter）：
  * 模拟一个 Agent Framework 的 MCP client（HTTP JSON-RPC）连接 KeelBase MCP 出口，
  * 验证「任意 MCP-compatible Agent Framework 经 MCP 进入治理」链路：
  *   Identity  → JWT 登录，tools/call 以调用者身份执行（本人数据范围）
