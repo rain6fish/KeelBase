@@ -1,0 +1,121 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol §4.3/§4.4 tool→policy→decision binding",
+  "license": "Apache-2.0",
+  "note": "策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 scripts/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。",
+  "riskStrategy": {
+    "R0": "auto",
+    "R1": "auto",
+    "R2": "policy",
+    "R3": "confirmation",
+    "R4": "human_approval",
+    "R5": "block"
+  },
+  "gateOutcomeByStrategy": {
+    "auto": {
+      "outcome": "allow",
+      "executes": true,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": false
+    },
+    "policy": {
+      "outcome": "allow_unless_policy_denies",
+      "executes": true,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": false
+    },
+    "confirmation": {
+      "outcome": "requiresConfirmation",
+      "executes": false,
+      "requiresConfirmation": true,
+      "requiresApproval": false,
+      "blocked": false
+    },
+    "human_approval": {
+      "outcome": "requiresApproval",
+      "executes": false,
+      "requiresConfirmation": false,
+      "requiresApproval": true,
+      "blocked": false
+    },
+    "block": {
+      "outcome": "denied",
+      "executes": false,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": true
+    }
+  },
+  "denyChecks": [
+    "risk_policy",
+    "tool_enabled",
+    "role_allowed",
+    "feature_flag",
+    "admin_only",
+    "agent_read_only"
+  ],
+  "derivation": [
+    {
+      "riskLevel": "R0",
+      "strategy": "auto",
+      "outcome": "allow",
+      "executes": true,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": false,
+      "needsConfirmation": false
+    },
+    {
+      "riskLevel": "R1",
+      "strategy": "auto",
+      "outcome": "allow",
+      "executes": true,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": false,
+      "needsConfirmation": false
+    },
+    {
+      "riskLevel": "R2",
+      "strategy": "policy",
+      "outcome": "allow_unless_policy_denies",
+      "executes": true,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": false,
+      "needsConfirmation": false
+    },
+    {
+      "riskLevel": "R3",
+      "strategy": "confirmation",
+      "outcome": "requiresConfirmation",
+      "executes": false,
+      "requiresConfirmation": true,
+      "requiresApproval": false,
+      "blocked": false,
+      "needsConfirmation": true
+    },
+    {
+      "riskLevel": "R4",
+      "strategy": "human_approval",
+      "outcome": "requiresApproval",
+      "executes": false,
+      "requiresConfirmation": false,
+      "requiresApproval": true,
+      "blocked": false,
+      "needsConfirmation": true
+    },
+    {
+      "riskLevel": "R5",
+      "strategy": "block",
+      "outcome": "denied",
+      "executes": false,
+      "requiresConfirmation": false,
+      "requiresApproval": false,
+      "blocked": true,
+      "needsConfirmation": false
+    }
+  ]
+}

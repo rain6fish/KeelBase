@@ -1,0 +1,10 @@
+{
+  "request": {
+    "tool": "create_followup_task",
+    "args": { "customerId": 1, "title": "跟进瀚宇制造 280 万逾期" }
+  },
+  "response": {
+    "executed": false,
+    "requiresConfirmation": true
+  }
+}

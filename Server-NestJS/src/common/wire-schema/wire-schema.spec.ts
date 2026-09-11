@@ -48,6 +48,8 @@ const FROZEN_OBJECT_IDS = [
   'sidecar-policy-push',
   'governance-confirmation-item',
   'headless-chat-response',
+  'capabilities',
+  'tool-invocation',
 ];
 
 const failures: string[] = [];

@@ -1,0 +1,11 @@
+{
+  "request": {
+    "tool": "query_customers",
+    "args": { "keyword": "瀚宇" }
+  },
+  "response": {
+    "executed": true,
+    "requiresConfirmation": false,
+    "result": { "success": true, "data": { "items": [] } }
+  }
+}

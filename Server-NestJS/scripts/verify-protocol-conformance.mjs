@@ -8,6 +8,7 @@
  *   1. 审计哈希链（§2）：canonicalJSON / hash / legacy 派生 / 链校验（篡改检测）。
  *   2. 委托 token（§3）：JWT HS256 签发 + 独立验签（aud 限定 / iss / exp / sub 前缀）。
  *   3. 工具风险分级（§4）：resolveRiskLevel 派生 + RISK_STRATEGY + requiresConfirmation。
+ *   4. 治理绑定（§4.3/§4.4，CE-3 薄片）：策略→放行决策语义 + 授权拒绝依据词表。
  *
  * CE-1（2026-09-09）：断言数据源改为 specs/protocol/*-vector.json 机器可校验语料
  * （由 node scripts/generate-protocol-vectors.mjs 从现实现生成）——算法实现从
@@ -150,6 +151,44 @@ for (const c of riskVectors.cases) {
     : bad(c.name, `期望 ${JSON.stringify(c.expect)}，实得 ${level}/${RISK_STRATEGY[level]}`);
 }
 
+/* ═══════════ 治理绑定（协议 §4.3/§4.4，CE-3 薄片） ═══════════ */
+
+console.log('\n─ 治理绑定（协议 §4.3/§4.4）─');
+
+const bindingVectors = SPECS('governance-binding-v1-vector.json');
+{
+  const strategies = [...new Set(Object.values(RISK_STRATEGY))].sort();
+  const bound = Object.keys(bindingVectors.gateOutcomeByStrategy).sort();
+  JSON.stringify(bound) === JSON.stringify(strategies)
+    ? ok('gateOutcomeByStrategy 覆盖 RISK_STRATEGY 全部策略值', bound.join(','))
+    : bad('gateOutcomeByStrategy 覆盖 RISK_STRATEGY 全部策略值', `期望 ${strategies}，实得 ${bound}`);
+
+  let allOk = true;
+  for (const d of bindingVectors.derivation) {
+    const o = bindingVectors.gateOutcomeByStrategy[d.strategy];
+    const consistent =
+      !!o &&
+      o.requiresConfirmation === d.requiresConfirmation &&
+      (o.requiresConfirmation || o.requiresApproval) === needsConfirmation(d.riskLevel) &&
+      o.blocked === (d.strategy === 'block') &&
+      o.executes === !(o.requiresConfirmation || o.requiresApproval || o.blocked);
+    if (!consistent) {
+      allOk = false;
+      bad(`绑定一致 ${d.riskLevel}`, JSON.stringify({ derivation: d, outcome: o }));
+    }
+  }
+  allOk &&
+    ok(
+      'R0..R5 → 策略 → 放行决策 逐级一致（executes/确认/审批/阻断 与 needsConfirmation 互洽）',
+      `${bindingVectors.derivation.length} 级`,
+    );
+
+  const denies = bindingVectors.denyChecks;
+  denies.length > 0 && new Set(denies).size === denies.length
+    ? ok('授权拒绝依据词表唯一且非空（可解释授权封闭词汇）', denies.join(','))
+    : bad('授权拒绝依据词表唯一且非空', JSON.stringify(denies));
+}
+
 /* ═══════════ 报告 ═══════════ */
 
 const passCount = results.filter((r) => r.pass).length;
@@ -163,6 +202,7 @@ const report = {
     auditHash: hashVectors.vectorVersion,
     delegationToken: tokenVectors.vectorVersion,
     riskLevel: riskVectors.vectorVersion,
+    governanceBinding: bindingVectors.vectorVersion,
   },
   date: ts,
   pass: passCount,
