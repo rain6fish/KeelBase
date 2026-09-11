@@ -109,6 +109,29 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
     expect(wrapper.emitted('executed')).toBeUndefined()
   })
 
+  it('确认超时（decision=timeout）→ 显示「已超时」而非「已拒绝」（v2 不塌缩超时）', async () => {
+    const wrapper = mountDrawer()
+    const opts = await sendAndCapture(wrapper)
+
+    opts.onEvent({
+      type: 'confirmation_request',
+      confirmation: { token: 'tok-3', toolName: 'create_followup_task', summary: '创建跟进任务', arguments: { customerId: 7, title: '跟进' } },
+    })
+    await flushPromises()
+
+    opts.onEvent({
+      type: 'confirmation_decision',
+      confirmationDecision: { toolName: 'create_followup_task', decision: 'timeout', approved: false },
+    })
+    opts.onEvent({ type: 'done', conversationId: 'conv-3' })
+    opts.onEnd?.()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已超时')
+    expect(wrapper.text()).not.toContain('已拒绝')
+    expect(wrapper.emitted('executed')).toBeUndefined()
+  })
+
   it('首条消息自动注入当前客户上下文（P0-1 差距#2：问「分析这家客户」不反问）', async () => {
     const wrapper = mountDrawer()
     const opts = await sendAndCapture(wrapper)

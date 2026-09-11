@@ -184,7 +184,16 @@ function mapAiCapabilities(capabilities, objectName, unmapped) {
   let declared = false;
   for (const cap of capabilities) {
     if (cap == null || typeof cap !== 'object') continue;
-    if (cap.object && cap.object !== objectName) continue;
+    if (cap.object && cap.object !== objectName) {
+      // fail-closed：对象名对不上不静默丢弃（否则该能力既不入 aiTools 也不进清单，
+      // 生成器会静默回退默认风险/确认策略，与 spec 显式声明相反且门禁仍全绿）。
+      unmapped.push({
+        name: `${cap.kind ?? '(未指定)'}@${cap.object}`,
+        reason: `AI 能力声明的对象「${cap.object}」不是本次映射的业务对象「${objectName}」`,
+        action: '修正 object 名，或拆分为独立 Business Spec 后生成',
+      });
+      continue;
+    }
     if (!AI_KINDS.has(cap.kind)) {
       unmapped.push({
         name: `${cap.kind ?? '(未指定)'}@${cap.object ?? objectName}`,

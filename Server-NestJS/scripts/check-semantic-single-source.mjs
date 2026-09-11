@@ -31,10 +31,7 @@ const SEMANTIC_SOURCES = [
 ];
 
 /** 契约真源目录（任一变更即视为已落契约） */
-const CONTRACT_DIRS = [
-  'Server-NestJS/specs/protocol/',
-  'Server-NestJS/specs/protocol/schemas/',
-];
+const CONTRACT_DIRS = ['Server-NestJS/specs/protocol/'];
 
 const EXEMPT_TRAILER = '[no-semantic-change]';
 
@@ -61,9 +58,15 @@ function changedFiles(base) {
   }
 }
 
-function headMessage() {
+/**
+ * 本批（`base...HEAD`）全部提交信息。**必须扫全区间**：changedFiles 取的是整批 diff，
+ * 若只看 HEAD 一条，多提交 PR 里把 trailer 放在非头提交会被静默忽略 → 硬门禁假红。
+ * 无 base（`--files` 直给/首推）→ 退化为 HEAD 一条。
+ */
+function rangeMessages(base) {
+  const range = base ? `${base}...HEAD` : '-1';
   try {
-    return execSync('git log -1 --pretty=%B', { cwd: ROOT, encoding: 'utf8' });
+    return execSync(`git log ${range} --pretty=%B`, { cwd: ROOT, encoding: 'utf8' });
   } catch {
     return '';
   }
@@ -114,7 +117,7 @@ function main() {
     return 0;
   }
 
-  if (headMessage().includes(EXEMPT_TRAILER)) {
+  if (rangeMessages(args.base).includes(EXEMPT_TRAILER)) {
     console.log(`[semantic-single-source] 命中豁免 trailer ${EXEMPT_TRAILER} → PASS（评审须可见理由）`);
     console.log('  语义源: ' + touchedSemantic.join(', '));
     return 0;

@@ -11,6 +11,7 @@ describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
     query?: jest.Mock;
     policy?: unknown;
     demoSeeded?: string;
+    settingsReject?: boolean;
   } = {}) => {
     const dataSource = {
       options: { type: 'better-sqlite3' },
@@ -23,7 +24,9 @@ describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
       ),
     };
     const settings = {
-      getWithDefault: jest.fn().mockResolvedValue(opts.demoSeeded ?? ''),
+      getWithDefault: opts.settingsReject
+        ? jest.fn().mockRejectedValue(new Error('redis down'))
+        : jest.fn().mockResolvedValue(opts.demoSeeded ?? ''),
     };
     return new ReadinessService(
       dataSource,
@@ -51,11 +54,13 @@ describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
     expect(r.dimensions.demo.nextStep).toBeNull();
   });
 
-  it('DB 探测失败 → db 不 ready + 给出下一步；整体 ready=false', async () => {
+  it('DB 探测失败 → db 不 ready + 给出下一步；整体 ready=false，且不泄露原始错误', async () => {
     env.DEEPSEEK_API_KEY = 'sk-x';
-    const r = await build({ query: jest.fn().mockRejectedValue(new Error('boom')) }).check();
+    const r = await build({ query: jest.fn().mockRejectedValue(new Error('boom ECONNREFUSED')) }).check();
     expect(r.dimensions.db.ready).toBe(false);
-    expect(r.dimensions.db.detail).toContain('boom');
+    expect(r.dimensions.db.detail).toBe('数据库不可用');
+    // 公开端点不得回显驱动原始错误（主机/端口等）
+    expect(r.dimensions.db.detail).not.toContain('boom');
     expect(r.dimensions.db.nextStep).toBeTruthy();
     expect(r.ready).toBe(false);
   });
@@ -67,11 +72,26 @@ describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
     expect(r.dimensions.ai.nextStep).toContain('DEEPSEEK_API_KEY');
   });
 
-  it('配了本地 Ollama（无云端 key）→ ai ready（数据不出域路径）', async () => {
+  it('AI_PROVIDER=ollama → ai ready（数据不出域路径）', async () => {
+    env.AI_PROVIDER = 'ollama';
     env.OLLAMA_BASE_URL = 'http://localhost:11434';
     const r = await build().check();
     expect(r.dimensions.ai.ready).toBe(true);
     expect(r.dimensions.ai.detail).toContain('Ollama');
+  });
+
+  it('仅设 OLLAMA_BASE_URL 但 AI_PROVIDER 仍默认 deepseek → ai 不 ready（Ollama 非生效路径，不误报就绪）', async () => {
+    env.OLLAMA_BASE_URL = 'http://localhost:11434';
+    const r = await build().check();
+    expect(r.dimensions.ai.ready).toBe(false);
+  });
+
+  it('演示数据设置读取失败 → demo 降级为「未知」而非抛出（公开端点不 500）', async () => {
+    env.DEEPSEEK_API_KEY = 'sk-x';
+    const r = await build({ settingsReject: true }).check();
+    expect(r.dimensions.demo.ready).toBe(false);
+    expect(r.dimensions.demo.detail).toContain('未知');
+    expect(r.ready).toBe(true); // demo 可选，不影响核心
   });
 
   it('治理策略：有策略行（updatedAt 非空）→ 标「已自定义」并带内容指纹版本', async () => {

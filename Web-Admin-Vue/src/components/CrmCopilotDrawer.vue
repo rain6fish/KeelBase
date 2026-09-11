@@ -44,7 +44,7 @@
             @rejected="() => onReject(m)"
           />
           <div v-else class="pa-2 copilot-bubble copilot-ai" :class="m.result?.approved ? 'text-success' : 'text-error'">
-            {{ m.result?.approved ? t('approved') : t('rejected') }}
+            {{ m.result?.outcome === 'timeout' ? t('stepTimedOut') : m.result?.approved ? t('approved') : t('rejected') }}
           </div>
         </div>
 
@@ -111,7 +111,13 @@ type CopilotItem =
   | { kind: 'user'; content: string }
   | { kind: 'ai'; content: string }
   | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
-  | { kind: 'confirmation'; confirmation: AiConfirmation; status: 'pending' | 'decided'; result?: { approved: boolean } }
+  | {
+      kind: 'confirmation'
+      confirmation: AiConfirmation
+      status: 'pending' | 'decided'
+      // outcome 保留规范决策词（approve|decline|timeout）——timeout 不得塌缩成「已拒绝」（v2 schema 要求）
+      result?: { approved: boolean; outcome?: 'approve' | 'decline' | 'timeout' }
+    }
   | { kind: 'notice'; content: string }
 
 const open = computed({
@@ -215,20 +221,25 @@ async function send(raw: string) {
             break
           }
           case 'confirmation_request': {
-            pendingConfirmation = { kind: 'confirmation', confirmation: ev.confirmation, status: 'pending' }
-            items.value.push(pendingConfirmation)
+            items.value.push({ kind: 'confirmation', confirmation: ev.confirmation, status: 'pending' })
+            // 持有数组返回的**响应式代理**（而非 push 进去的原始对象）：否则 confirmation_decision
+            // 直接改原始对象不会触发重渲染——服务端驱动的决策（如 timeout，无本地点击）时卡片停在「待确认」。
+            pendingConfirmation = items.value[items.value.length - 1] as CopilotItem & { kind: 'confirmation' }
             scrollBottom()
             break
           }
           case 'confirmation_decision': {
             const d = ev.confirmationDecision
-            // 规范决策词优先（v2：decision），回落 v1 approved（deprecated）
-            const approved = d.decision ? d.decision === 'approve' : d.approved
+            // 规范决策词优先（v2：decision），回落 v1 approved（deprecated）。
+            // timeout 与 decline 不同（v2 schema 明确不得塌缩）——保留 outcome 供卡片分别呈现。
+            const outcome: 'approve' | 'decline' | 'timeout' =
+              d.decision ?? (d.approved ? 'approve' : 'decline')
+            const approved = outcome === 'approve'
             // KB-5：run 级整体决策关卡（mode:'run'，无 toolName/resultId）只清 pending 槽；
             // run 逐条 decision 带 toolName+resultId，仅更新 executed（供 tool_end→emit executed）。
             if (pendingConfirmation) {
               pendingConfirmation.status = 'decided'
-              pendingConfirmation.result = { approved }
+              pendingConfirmation.result = { approved, outcome }
               pendingConfirmation = null
             }
             // 批准且带 resultId + toolName → 记住执行结果，待 tool_end 确认后通知父组件
