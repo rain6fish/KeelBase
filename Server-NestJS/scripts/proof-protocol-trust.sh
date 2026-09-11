@@ -171,6 +171,21 @@ else
   row "R10" "red" "同 spec 重跑（--force）失败: $(tail -5 "$RERUN_LOG" | tr '\n' ' ')"
 fi
 
+# ── R10b 手改生成文件后无 --force 重跑：手改须保留（规格 §7 "手写文件不受重跑影响"）──
+HAND_FILE="$(ls "$BE/src/${MUT}"/*.service.ts 2>/dev/null | head -1)"
+if [ -n "$HAND_FILE" ] && [ -f "$HAND_FILE" ]; then
+  printf '\n// HAND-EDIT-MARKER-R10B\n' >> "$HAND_FILE"
+  # 无 --force：生成器契约应拒绝/跳过（不覆盖既有生成文件）
+  (cd "$ROOT" && node scripts/keelbase-init.mjs --spec "$MUT_SPEC" >"$REPORT_DIR/proof-trust-rerun-noforce.log" 2>&1) || true
+  if grep -q "HAND-EDIT-MARKER-R10B" "$HAND_FILE"; then
+    row "R10b" "green" "手改生成文件后无 --force 重跑 → 手改保留（规格 §7）"
+  else
+    row "R10b" "red" "手改被无 --force 重跑覆盖（规格 §7 违背）"
+  fi
+else
+  row "R10b" "yellow" "未见生成文件 src/${MUT}/*.service.ts，跳过 case②"
+fi
+
 # ── R3 计时（分段）───────────────────────────────────────────────────────────
 TOTAL=$((SECONDS - START))
 row "R3" "green" "T_exec=${TOTAL}s（生成 ${GEN_ELAPSED}s + 编译 ${BUILD_ELAPSED}s + 起服+驱动 ${DRV_ELAPSED}s）；T_read 由执行者自报（不合并）"
