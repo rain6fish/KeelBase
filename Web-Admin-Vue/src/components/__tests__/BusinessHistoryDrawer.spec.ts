@@ -5,6 +5,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
+import ElementPlus from 'element-plus'
 import BusinessHistoryDrawer from '../BusinessHistoryDrawer.vue'
 
 vi.mock('@/api/aiTools', () => ({ aiToolsApi: { entityHistory: vi.fn() } }))
@@ -13,7 +14,7 @@ import { aiToolsApi } from '@/api/aiTools'
 function mountDrawer() {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(BusinessHistoryDrawer, {
-    global: { plugins: [i18n] },
+    global: { plugins: [i18n, ElementPlus] },
     props: { modelValue: true, resultType: 'crm_task', resultId: 42 },
   })
 }
