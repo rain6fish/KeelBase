@@ -42,9 +42,9 @@ void main() {
     router = GoRouter(
       initialLocation: path,
       routes: [
-        GoRoute(path: path, builder: (_, __) => page),
-        GoRoute(path: '/login', builder: (_, __) => const Text('LOGIN_PAGE')),
-        GoRoute(path: '/profile', builder: (_, __) => const SizedBox.shrink()),
+        GoRoute(path: path, builder: (_, _) => page),
+        GoRoute(path: '/login', builder: (_, _) => const Text('LOGIN_PAGE')),
+        GoRoute(path: '/profile', builder: (_, _) => const SizedBox.shrink()),
       ],
     );
     return MultiProvider(

@@ -50,7 +50,7 @@ class PmRepository {
     await _client.post('/pm/tasks', data: {
       'projectId': projectId,
       'title': title,
-      if (dueDate != null) 'dueDate': dueDate,
+      'dueDate': ?dueDate,
     });
   }
 

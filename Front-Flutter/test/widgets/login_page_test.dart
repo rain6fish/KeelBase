@@ -77,7 +77,7 @@ void main() {
     when(() => apiClient.setTokens(
       accessToken: any(named: 'accessToken'),
       refreshToken: any(named: 'refreshToken'),
-    )).thenAnswer((_) async => null);
+    )).thenAnswer((_) async {});
 
     await pumpLoginPage(tester);
 

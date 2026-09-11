@@ -10,7 +10,6 @@ import 'package:front_app/core/services/app_cache.dart';
 import 'package:front_app/features/contracts/data/models/contract_model.dart';
 import 'package:front_app/features/contracts/data/repositories/contracts_repository.dart';
 import 'package:front_app/features/contracts/presentation/providers/contracts_provider.dart';
-import '../../helpers.dart';
 
 class MockContractsRepository extends Mock implements ContractsRepository {}
 

@@ -114,7 +114,7 @@ ${tos}
       };
 
   ${ctx.singlePascal}Model copyWith({
-    ${ctx.fields.map((f) => `${f.name} = const Object()`).join(',\n    ')}
+    ${ctx.fields.map((f) => `Object? ${f.name} = const Object()`).join(',\n    ')}
   }) {
     return ${ctx.singlePascal}Model(
       id: id,

@@ -54,8 +54,11 @@ class _EventsListPageState extends State<EventsListPage> {
     if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
       final p = context.read<EventsProvider>();
       if (p.loadingMore) return; // 已有分页请求在途，避免重复触发
-      if (p.mode == EventsMode.all && p.hasMore) p.loadMoreAll();
-      else if (p.mode == EventsMode.search && p.hasMore) p.loadMore();
+      if (p.mode == EventsMode.all && p.hasMore) {
+        p.loadMoreAll();
+      } else if (p.mode == EventsMode.search && p.hasMore) {
+        p.loadMore();
+      }
     }
   }
 
@@ -98,8 +101,8 @@ class _EventsListPageState extends State<EventsListPage> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              child: const Icon(CupertinoIcons.search, size: 22),
               onPressed: _toggleSearch,
+              child: const Icon(CupertinoIcons.search, size: 22),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
@@ -112,7 +115,7 @@ class _EventsListPageState extends State<EventsListPage> {
       child: Stack(
         children: [
           // Main content
-          Consumer<EventsProvider>(builder: (_, p, __) => Column(children: [
+          Consumer<EventsProvider>(builder: (_, p, _) => Column(children: [
             _buildHeader(p),
             _buildViewToggle(p),
             if (p.viewMode == CalendarViewMode.month) _buildMonthGrid(p),
@@ -233,7 +236,7 @@ class _EventsListPageState extends State<EventsListPage> {
                     CupertinoButton(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       borderRadius: BorderRadius.circular(8),
-                      color: t.primaryColor ?? CupertinoColors.systemBlue,
+                      color: t.primaryColor,
                       child: Text(l.allEvents, style: const TextStyle(fontSize: 13, color: CupertinoColors.white, fontWeight: FontWeight.w600)),
                       onPressed: () {
                         context.read<EventsProvider>().loadAll(reload: true);
@@ -244,9 +247,9 @@ class _EventsListPageState extends State<EventsListPage> {
                     CupertinoButton(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       borderRadius: BorderRadius.circular(8),
-                      color: t.primaryColor ?? CupertinoColors.systemBlue,
-                      child: Text(l.searchEvents, style: const TextStyle(fontSize: 13, color: CupertinoColors.white, fontWeight: FontWeight.w600)),
+                      color: t.primaryColor,
                       onPressed: _search,
+                      child: Text(l.searchEvents, style: const TextStyle(fontSize: 13, color: CupertinoColors.white, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -292,9 +295,9 @@ class _EventsListPageState extends State<EventsListPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         decoration: BoxDecoration(
-          color: sel ? (t.primaryColor ?? CupertinoColors.systemBlue) : const Color(0x00000000),
+          color: sel ? (t.primaryColor) : const Color(0x00000000),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: sel ? (t.primaryColor ?? CupertinoColors.systemBlue) : CupertinoColors.systemGrey.withAlpha(100)),
+          border: Border.all(color: sel ? (t.primaryColor) : CupertinoColors.systemGrey.withAlpha(100)),
         ),
         child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: sel ? CupertinoColors.white : t.textTheme.textStyle.color)),
       ),
@@ -328,16 +331,16 @@ class _EventsListPageState extends State<EventsListPage> {
           CupertinoButton(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             borderRadius: BorderRadius.circular(8),
-            color: (t.primaryColor ?? CupertinoColors.systemBlue).withAlpha(25),
-            child: Text(l.today, style: TextStyle(fontSize: 14, color: t.primaryColor ?? CupertinoColors.systemBlue, fontWeight: FontWeight.w600)),
+            color: (t.primaryColor).withAlpha(25),
+            child: Text(l.today, style: TextStyle(fontSize: 14, color: t.primaryColor, fontWeight: FontWeight.w600)),
             onPressed: () => p.goToday(),
           ),
-        CupertinoButton(padding: const EdgeInsets.all(6), minSize: 32,
-          child: Icon(CupertinoIcons.chevron_left, size: 18, color: t.primaryColor ?? CupertinoColors.systemBlue),
-          onPressed: () { p.viewMode == CalendarViewMode.month ? p.prevMonth() : p.prevWeek(); }),
-        CupertinoButton(padding: const EdgeInsets.all(6), minSize: 32,
-          child: Icon(CupertinoIcons.chevron_right, size: 18, color: t.primaryColor ?? CupertinoColors.systemBlue),
-          onPressed: () { p.viewMode == CalendarViewMode.month ? p.nextMonth() : p.nextWeek(); }),
+        CupertinoButton(padding: const EdgeInsets.all(6),
+          onPressed: () { p.viewMode == CalendarViewMode.month ? p.prevMonth() : p.prevWeek(); }, minimumSize: Size(32, 32),
+          child: Icon(CupertinoIcons.chevron_left, size: 18, color: t.primaryColor)),
+        CupertinoButton(padding: const EdgeInsets.all(6),
+          onPressed: () { p.viewMode == CalendarViewMode.month ? p.nextMonth() : p.nextWeek(); }, minimumSize: Size(32, 32),
+          child: Icon(CupertinoIcons.chevron_right, size: 18, color: t.primaryColor)),
       ]),
     );
   }
@@ -379,17 +382,17 @@ class _EventsListPageState extends State<EventsListPage> {
             },
               child: Container(height:36, alignment:Alignment.center, child: Container(width:32, height:32,
                 decoration: BoxDecoration(
-                  color: sel ? t.primaryColor : (isT ? (t.primaryColor ?? CupertinoColors.systemBlue).withAlpha(25) : null),
+                  color: sel ? t.primaryColor : (isT ? (t.primaryColor).withAlpha(25) : null),
                   shape: BoxShape.circle),
                 child: Stack(alignment:Alignment.center, children: [
                   Text(inM ? '$day' : '', style: TextStyle(fontSize:14,
                     fontWeight: sel || isT ? FontWeight.w700 : FontWeight.w400,
                     color: !inM ? CupertinoColors.systemGrey.resolveFrom(context).withAlpha(60)
                         : sel ? CupertinoColors.white
-                        : isT ? (t.primaryColor ?? CupertinoColors.systemBlue)
+                        : isT ? (t.primaryColor)
                         : t.textTheme.textStyle.color)),
                   if(has) Positioned(bottom:2, child: Container(width:4, height:4,
-                    decoration: BoxDecoration(color: sel ? CupertinoColors.white : (t.primaryColor ?? CupertinoColors.systemBlue), shape:BoxShape.circle))),
+                    decoration: BoxDecoration(color: sel ? CupertinoColors.white : (t.primaryColor), shape:BoxShape.circle))),
                 ])),
             )));
           }));
@@ -423,11 +426,11 @@ class _EventsListPageState extends State<EventsListPage> {
             child: Container(width:52, margin:const EdgeInsets.symmetric(horizontal:3),
               decoration: BoxDecoration(color:sel?t.primaryColor:null, borderRadius:BorderRadius.circular(12)),
               child: Column(mainAxisAlignment:MainAxisAlignment.center, children: [
-                Text(wd[i], style:TextStyle(fontSize:12, color:sel?CupertinoColors.white:isT?(t.primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.systemGrey.resolveFrom(context))),
+                Text(wd[i], style:TextStyle(fontSize:12, color:sel?CupertinoColors.white:isT?(t.primaryColor):CupertinoColors.systemGrey.resolveFrom(context))),
                 const SizedBox(height:2),
                 Text('${date.day}', style:TextStyle(fontSize:18, fontWeight:FontWeight.w600, color:sel?CupertinoColors.white:t.textTheme.textStyle.color)),
                 has ? Container(width:5, height:5, margin:const EdgeInsets.only(top:1),
-                  decoration:BoxDecoration(color:sel?CupertinoColors.white:(t.primaryColor ?? CupertinoColors.systemBlue), shape:BoxShape.circle))
+                  decoration:BoxDecoration(color:sel?CupertinoColors.white:(t.primaryColor), shape:BoxShape.circle))
                     : const SizedBox(height:6),
               ]),
             ),
@@ -505,8 +508,14 @@ class _EventsListPageState extends State<EventsListPage> {
       final s = e.startTime.toLocal().millisecondsSinceEpoch.toDouble();
       final end = e.endTime.toLocal().millisecondsSinceEpoch.toDouble();
       int c = 0;
-      while (c < cols.length && cols[c] > s) c++;
-      if (c >= cols.length) cols.add(end); else cols[c] = end;
+      while (c < cols.length && cols[c] > s) {
+        c++;
+      }
+      if (c >= cols.length) {
+        cols.add(end);
+      } else {
+        cols[c] = end;
+      }
       eventCol[e.id] = c;
     }
     final int totalCols = cols.isEmpty ? 1 : cols.length;
@@ -592,7 +601,6 @@ class _EventsListPageState extends State<EventsListPage> {
   List<_SectionItem> _getViewSections(EventsProvider p, bool isWeek) {
     final sections = <_SectionItem>[];
     final range = isWeek ? 7 : 31;
-    final today = DateTime.now();
     for (var i = 0; i < range; i++) {
       DateTime date;
       if (isWeek) {
@@ -669,9 +677,9 @@ class _EventsListPageState extends State<EventsListPage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Row(children: [
                   Container(width:4, height:16, margin:const EdgeInsets.only(right:8),
-                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
+                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
                   Text(label, style:TextStyle(fontSize:14, fontWeight:FontWeight.w700,
-                    color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.label.resolveFrom(context))),
+                    color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.label.resolveFrom(context))),
                   const Spacer(),
                   Text('$cnt', style:TextStyle(fontSize:12, color:CupertinoColors.systemGrey.resolveFrom(context))),
                 ]),
@@ -716,9 +724,9 @@ class _EventsListPageState extends State<EventsListPage> {
                 Text(e.title.isNotEmpty ? e.title : context.l10n.noTitle, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textTheme.textStyle.color), maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text('$s - $en', style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey.resolveFrom(context))),
               ])),
-              CupertinoButton(padding: const EdgeInsets.all(4), minSize: 28,
-                child: Icon(CupertinoIcons.ellipsis, size: 14, color: CupertinoColors.systemGrey),
-                onPressed: () => _actions(e)),
+              CupertinoButton(padding: const EdgeInsets.all(4),
+                onPressed: () => _actions(e), minimumSize: Size(28, 28),
+                child: Icon(CupertinoIcons.ellipsis, size: 14, color: CupertinoColors.systemGrey)),
             ]),
           ),
         )),
@@ -760,9 +768,9 @@ class _EventsListPageState extends State<EventsListPage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Row(children: [
                   Container(width:4, height:16, margin:const EdgeInsets.only(right:8),
-                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
+                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
                   Text(label, style:TextStyle(fontSize:14, fontWeight:FontWeight.w700,
-                    color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.label.resolveFrom(context))),
+                    color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.label.resolveFrom(context))),
                   const Spacer(),
                   Text('$cnt', style:TextStyle(fontSize:12, color:CupertinoColors.systemGrey.resolveFrom(context))),
                 ]),
@@ -817,11 +825,14 @@ class _EventsListPageState extends State<EventsListPage> {
         SliverList(delegate: SliverChildBuilderDelegate((ctx, i) {
           if (i == sections.length) {
             if (loadingMore) return const Padding(padding:EdgeInsets.all(16), child:Center(child:CupertinoActivityIndicator()));
-            if (hasMore) return Padding(padding:const EdgeInsets.all(16), child:Center(child:GestureDetector(
+            if (hasMore) {
+              return Padding(padding:const EdgeInsets.all(16), child:Center(child:GestureDetector(
               onTap: () => p.mode == EventsMode.all ? p.loadMoreAll() : p.loadMore(),
               child: Text(l.loadMore, style:TextStyle(fontSize:13, color:CupertinoColors.systemGrey.resolveFrom(context))))));
-            if (!hasMore && items.isNotEmpty)
+            }
+            if (!hasMore && items.isNotEmpty) {
               return Padding(padding:const EdgeInsets.all(16), child:Center(child:Text(l.noMoreEvents, style:TextStyle(fontSize:13, color:CupertinoColors.systemGrey.resolveFrom(context)))));
+            }
             return const SizedBox.shrink();
           }
           final item = sections[i];
@@ -841,9 +852,9 @@ class _EventsListPageState extends State<EventsListPage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Row(children: [
                   Container(width:4, height:16, margin:const EdgeInsets.only(right:8),
-                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
+                    decoration: BoxDecoration(color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.systemGrey, borderRadius:BorderRadius.circular(2))),
                   Text(label, style:TextStyle(fontSize:14, fontWeight:FontWeight.w700,
-                    color:isToday?(CupertinoTheme.of(context).primaryColor ?? CupertinoColors.systemBlue):CupertinoColors.label.resolveFrom(context))),
+                    color:isToday?(CupertinoTheme.of(context).primaryColor):CupertinoColors.label.resolveFrom(context))),
                 ]),
               ),
             );
@@ -885,8 +896,8 @@ class _EventsListPageState extends State<EventsListPage> {
                     style:TextStyle(fontSize:13, color:CupertinoColors.systemGrey.resolveFrom(context)), maxLines:2, overflow:TextOverflow.ellipsis),
                 ],
               ]))),
-              Padding(padding:const EdgeInsets.only(top:8), child:CupertinoButton(padding:const EdgeInsets.all(4), minSize:32,
-                child:Icon(CupertinoIcons.ellipsis, size:16, color:CupertinoColors.systemGrey), onPressed:()=>_actions(e))),
+              Padding(padding:const EdgeInsets.only(top:8), child:CupertinoButton(padding:const EdgeInsets.all(4), onPressed:()=>_actions(e), minimumSize: Size(32, 32),
+                child:Icon(CupertinoIcons.ellipsis, size:16, color:CupertinoColors.systemGrey))),
             ]),
           ),
         )),
@@ -935,7 +946,13 @@ class _EventsListPageState extends State<EventsListPage> {
           Expanded(child:CupertinoDatePicker(initialDateTime:initial, mode:CupertinoDatePickerMode.date, onDateTimeChanged:(v){local=v;})),
         ]));
     }).then((_){
-      if(picked!=null && mounted) setState((){ if(isStart) _srchStart=picked; else _srchEnd=picked; });
+      if(picked!=null && mounted) {
+        setState((){ if(isStart) {
+        _srchStart=picked;
+      } else {
+        _srchEnd=picked;
+      } });
+      }
     });
   }
 

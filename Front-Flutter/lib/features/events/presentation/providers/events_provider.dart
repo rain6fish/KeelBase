@@ -124,7 +124,7 @@ class EventsProvider extends ChangeNotifier {
       final monthLast = DateTime(_weekStart.year, _weekStart.month + 1, 0);
       final rangeStart = monthFirst.subtract(const Duration(days: 7));
       final rangeEnd = monthLast.add(const Duration(days: 7));
-      final fmt = (DateTime d) =>
+      String fmt(DateTime d) =>
           '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
       final events = await _repository.getEvents(fmt(rangeStart), fmt(rangeEnd));
@@ -166,7 +166,7 @@ class EventsProvider extends ChangeNotifier {
     if (reload) { _page = 1; _pagedEvents = []; _loading = true; } else { _loadingMore = true; }
     _notify();
     try {
-      final fmt = (DateTime d) =>
+      String fmt(DateTime d) =>
           '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
       final requestedPage = _page;
       final r = await _repository.searchEvents(

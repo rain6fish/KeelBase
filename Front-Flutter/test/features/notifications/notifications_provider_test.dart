@@ -64,7 +64,7 @@ void main() {
       when(() => repository.getUnreadCount()).thenAnswer((_) async => 2);
       await provider.load();
 
-      when(() => repository.markRead(1)).thenAnswer((_) async => null);
+      when(() => repository.markRead(1)).thenAnswer((_) async {});
 
       await provider.markRead(1);
 
@@ -80,7 +80,7 @@ void main() {
       when(() => repository.getUnreadCount()).thenAnswer((_) async => 2);
       await provider.load();
 
-      when(() => repository.markAllRead()).thenAnswer((_) async => null);
+      when(() => repository.markAllRead()).thenAnswer((_) async {});
 
       await provider.markAllRead();
 
@@ -99,7 +99,7 @@ void main() {
       when(() => repository.getUnreadCount()).thenAnswer((_) async => 1);
       await provider.load();
 
-      when(() => repository.delete(1)).thenAnswer((_) async => null);
+      when(() => repository.delete(1)).thenAnswer((_) async {});
 
       await provider.delete(1);
 

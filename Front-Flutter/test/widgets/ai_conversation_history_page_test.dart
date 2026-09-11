@@ -53,14 +53,14 @@ void main() {
     router = GoRouter(
       initialLocation: '/home',
       routes: [
-        GoRoute(path: '/home', builder: (_, __) => const SizedBox.shrink()),
+        GoRoute(path: '/home', builder: (_, _) => const SizedBox.shrink()),
         GoRoute(
           path: '/ai/history',
-          builder: (_, __) => const AiConversationHistoryPage(),
+          builder: (_, _) => const AiConversationHistoryPage(),
         ),
         GoRoute(
           path: '/ai/trace/:id',
-          builder: (_, __) => const Text('TRACE_PAGE'),
+          builder: (_, _) => const Text('TRACE_PAGE'),
         ),
       ],
     );

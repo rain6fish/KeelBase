@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/api_client.dart';
-import '../../../../core/api/api_response.dart';
 import '../../../../core/api/capabilities_provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -103,8 +102,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => _importingTemplate = true);
     try {
       final api = context.read<ApiClient>();
-      final json = await api.post('/admin/templates/personal-assistant/import');
-      final response = ApiResponse.fromJson(json, (data) => data);
+      await api.post('/admin/templates/personal-assistant/import');
       if (mounted) {
         AppToast.success(context, context.l10n.templateImported);
         _checkNewUser();
@@ -329,8 +327,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         suffix: CupertinoButton(
           padding: const EdgeInsets.only(left: 4),
-          minSize: 32,
-          onPressed: () => _onAiSubmit(),
+          onPressed: () => _onAiSubmit(), minimumSize: Size(32, 32),
           child: Icon(CupertinoIcons.arrow_up_circle_fill, size: 28, color: theme.primaryColor),
         ),
         textInputAction: TextInputAction.send,

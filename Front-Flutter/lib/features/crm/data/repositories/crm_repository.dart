@@ -70,10 +70,10 @@ class CrmRepository {
 
   Future<void> createTask({int? customerId, required String title, String? description, String? dueDate}) async {
     await _client.post('/crm/tasks', data: {
-      if (customerId != null) 'customerId': customerId,
+      'customerId': ?customerId,
       'title': title,
-      if (description != null) 'description': description,
-      if (dueDate != null) 'dueDate': dueDate,
+      'description': ?description,
+      'dueDate': ?dueDate,
     });
   }
 

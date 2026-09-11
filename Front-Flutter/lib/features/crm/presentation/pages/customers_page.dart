@@ -72,6 +72,7 @@ class _CustomersPageState extends State<CustomersPage> {
               'name': name,
               'company': companyCtrl.text.trim().isEmpty ? null : companyCtrl.text.trim(),
             });
+            if (!mounted) return;
             if (ok) AppToast.success(context, l10n.crmCreated);
           },
           child: Text(l10n.save),
@@ -90,8 +91,8 @@ class _CustomersPageState extends State<CustomersPage> {
         middle: Text(l10n.crmTitle),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.add),
           onPressed: _showCreateSheet,
+          child: const Icon(CupertinoIcons.add),
         ),
       ),
       child: provider.loading && provider.customers.isEmpty

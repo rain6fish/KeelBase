@@ -64,6 +64,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
               Navigator.pop(ctx);
               if (value.isEmpty) return;
               final ok = await onSubmit(value);
+              if (!mounted) return;
               if (ok) AppToast.success(context, l10n.crmCreated);
             },
           ),
@@ -146,8 +147,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           const SizedBox(height: 12),
           CupertinoButton.filled(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Text(l10n.crmAnalyzeRisk),
             onPressed: _analyze,
+            child: Text(l10n.crmAnalyzeRisk),
           ),
           if (analysis != null) ...[
             const SizedBox(height: 10),
@@ -173,8 +174,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
         Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.add, size: 18),
           onPressed: onAdd,
+          child: const Icon(CupertinoIcons.add, size: 18),
         ),
       ],
     );

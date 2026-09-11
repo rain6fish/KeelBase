@@ -111,12 +111,11 @@ class _RegisterPageState extends State<RegisterPage> {
         suffix: showToggle
             ? CupertinoButton(
                 padding: const EdgeInsets.only(right: 6),
-                minSize: 32,
+                onPressed: onToggle, minimumSize: Size(32, 32),
                 child: Icon(
                   obscure ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
                   size: 20, color: CupertinoColors.systemGrey,
                 ),
-                onPressed: onToggle,
               )
             : null,
         textInputAction: action,

@@ -2,7 +2,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:front_app/features/crm/data/models/customer_detail_model.dart';
 import 'package:front_app/features/crm/data/repositories/crm_repository.dart';
 import '../../helpers.dart';
 

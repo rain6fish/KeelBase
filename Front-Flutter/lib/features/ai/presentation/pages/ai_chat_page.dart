@@ -356,9 +356,8 @@ class _AiChatPageState extends State<AiChatPage> {
                     const SizedBox(width: 8),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      minSize: 36,
                       onPressed:
-                          isLoading ? null : () => _sendMessage(_textController.text),
+                          isLoading ? null : () => _sendMessage(_textController.text), minimumSize: Size(36, 36),
                       child: Icon(
                         CupertinoIcons.arrow_up_circle_fill,
                         size: 32,

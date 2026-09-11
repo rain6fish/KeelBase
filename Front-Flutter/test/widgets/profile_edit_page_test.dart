@@ -52,11 +52,11 @@ void main() {
     router = GoRouter(
       initialLocation: '/home',
       routes: [
-        GoRoute(path: '/home', builder: (_, __) => const SizedBox.shrink()),
-        GoRoute(path: '/profile', builder: (_, __) => const SizedBox.shrink()),
+        GoRoute(path: '/home', builder: (_, _) => const SizedBox.shrink()),
+        GoRoute(path: '/profile', builder: (_, _) => const SizedBox.shrink()),
         GoRoute(
           path: '/profile/edit',
-          builder: (_, __) => const ProfileEditPage(),
+          builder: (_, _) => const ProfileEditPage(),
         ),
       ],
     );

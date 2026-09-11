@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:front_app/features/auth/data/models/token_model.dart';
 import 'package:front_app/features/auth/data/models/user_model.dart';
-import 'package:front_app/features/auth/data/services/oauth_providers.dart';
 import 'package:front_app/core/errors/exceptions.dart';
 import 'package:front_app/core/services/app_cache.dart';
 import 'package:front_app/features/auth/presentation/providers/auth_provider.dart';
@@ -37,7 +36,7 @@ void main() {
     authRepository = MockAuthRepository();
     splashRepository = MockSplashRepository();
     cache = MockAppCache();
-    when(() => cache.clearAll()).thenAnswer((_) async => null);
+    when(() => cache.clearAll()).thenAnswer((_) async {});
     provider = AuthProvider(
       authRepository: authRepository,
       splashRepository: splashRepository,
@@ -65,7 +64,7 @@ void main() {
       when(() => apiClient.setTokens(
         accessToken: any(named: 'accessToken'),
         refreshToken: any(named: 'refreshToken'),
-      )).thenAnswer((_) async => null);
+      )).thenAnswer((_) async {});
 
       final ok = await provider.login('testuser', 'pass123');
 
@@ -110,7 +109,7 @@ void main() {
     test('getProfile 失败 → unauthenticated 且清 token', () async {
       when(() => apiClient.refreshToken).thenAnswer((_) async => 'refresh-token');
       when(() => authRepository.getProfile()).thenThrow(AuthException('session expired'));
-      when(() => apiClient.clearTokens()).thenAnswer((_) async => null);
+      when(() => apiClient.clearTokens()).thenAnswer((_) async {});
 
       await provider.tryAutoLogin();
 
@@ -127,9 +126,9 @@ void main() {
       when(() => apiClient.setTokens(
         accessToken: any(named: 'accessToken'),
         refreshToken: any(named: 'refreshToken'),
-      )).thenAnswer((_) async => null);
-      when(() => authRepository.logout()).thenAnswer((_) async => null);
-      when(() => apiClient.clearTokens()).thenAnswer((_) async => null);
+      )).thenAnswer((_) async {});
+      when(() => authRepository.logout()).thenAnswer((_) async {});
+      when(() => apiClient.clearTokens()).thenAnswer((_) async {});
 
       await provider.login('testuser', 'pass123');
       expect(provider.status, AuthStatus.authenticated);
@@ -192,7 +191,7 @@ void main() {
   group('requestPasswordReset', () {
     test('成功 → 返回 true', () async {
       when(() => authRepository.requestPasswordReset('test@example.com'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.requestPasswordReset('test@example.com');
 
@@ -214,7 +213,7 @@ void main() {
   group('resetPassword', () {
     test('成功 → 返回 true', () async {
       when(() => authRepository.resetPassword('tok123', 'NewPass123'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.resetPassword('tok123', 'NewPass123');
 
@@ -236,7 +235,7 @@ void main() {
   group('verifyEmail', () {
     test('成功 → 返回 true', () async {
       when(() => authRepository.verifyEmail('test@example.com', '123456'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.verifyEmail('test@example.com', '123456');
 
@@ -258,7 +257,7 @@ void main() {
   group('resendVerification', () {
     test('成功 → 返回 true', () async {
       when(() => authRepository.resendVerification('test@example.com'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.resendVerification('test@example.com');
 
@@ -283,7 +282,7 @@ void main() {
       when(() => apiClient.setTokens(
         accessToken: any(named: 'accessToken'),
         refreshToken: any(named: 'refreshToken'),
-      )).thenAnswer((_) async => null);
+      )).thenAnswer((_) async {});
 
       final ok = await provider.loginPhone('+8613800138000', '123456');
 
@@ -305,7 +304,7 @@ void main() {
   group('sendSmsCode / bindPhone', () {
     test('sendSmsCode 成功返回 true', () async {
       when(() => authRepository.sendSmsCode('+8613800138000'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.sendSmsCode('+8613800138000');
 
@@ -314,7 +313,7 @@ void main() {
 
     test('bindPhone 成功返回 true', () async {
       when(() => authRepository.bindPhone('+8613800138000', '123456'))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       final ok = await provider.bindPhone('+8613800138000', '123456');
 
@@ -325,8 +324,8 @@ void main() {
   group('deactivate', () {
     test('成功 → 清 token 并 unauthenticated', () async {
       when(() => authRepository.deactivate('pass123'))
-          .thenAnswer((_) async => null);
-      when(() => apiClient.clearTokens()).thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
+      when(() => apiClient.clearTokens()).thenAnswer((_) async {});
 
       final ok = await provider.deactivate('pass123');
 

@@ -34,10 +34,10 @@ class ContractModel {
       };
 
   ContractModel copyWith({
-    name = const Object(),
-    counterparty = const Object(),
-    status = const Object(),
-    amount = const Object()
+    Object? name = const Object(),
+    Object? counterparty = const Object(),
+    Object? status = const Object(),
+    Object? amount = const Object()
   }) {
     return ContractModel(
       id: id,

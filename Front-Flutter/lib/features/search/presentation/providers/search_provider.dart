@@ -28,8 +28,7 @@ class SearchProvider extends ChangeNotifier {
   bool _conversationsLoaded = false;
 
   // ignore: prefer_initializing_formals — 私有命名参数不能用 this._prefs
-  SearchProvider(this._repository, {SharedPreferences? prefs, this._conversationRepository})
-      : _prefs = prefs;
+  SearchProvider(this._repository, {this._prefs, this._conversationRepository});
 
   SearchResult get result => _result;
   bool get loading => _loading;

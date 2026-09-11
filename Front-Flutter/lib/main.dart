@@ -88,8 +88,7 @@ void main() async {
     ));
     runApp(_ErrorApp('App initialization timed out. Please refresh.'));
   } catch (e, stack) {
-    // eslint-disable-next-line no-console
-    print('FATAL: App initialization failed: $e\n$stack');
+    debugPrint('FATAL: App initialization failed: $e\n$stack');
     // Re-throw so the browser console shows the full error
     runApp(_ErrorApp('$e'));
   }
@@ -99,15 +98,16 @@ Future<void> _initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Core services
-  SharedPreferences? prefs;
+  // 平台不支持本地存储时（如无 localStorage 的 Web）降级到内存态空实例，不阻断启动——
+  // setMockInitialValues 是 shared_preferences 提供的唯一兜底入口（生产仅此一处用途）。
+  late SharedPreferences prefs;
   try {
     prefs = await SharedPreferences.getInstance();
   } catch (_) {
+    // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
   }
-  // Ensure prefs is non-null (second catch fallback)
-  prefs ??= await SharedPreferences.getInstance();
   // UX-2 Dev Menu 环境切换：读 dev_base_url 覆盖默认 API 地址（重启生效）
   final devBaseUrl = prefs.getString(AppConstants.keyDevBaseUrl);
   if (devBaseUrl != null && devBaseUrl.isNotEmpty) {
@@ -190,7 +190,7 @@ Future<void> _initApp() async {
           create: (_) => NoopPushService(),
         ),
         ProxyProvider2<ApiClient, PushService, PushTokenProvider>(
-          update: (_, api, push, __) => PushTokenProvider(api, push),
+          update: (_, api, push, _) => PushTokenProvider(api, push),
         ),
 
         // Events
@@ -201,12 +201,12 @@ Future<void> _initApp() async {
 
         // Locale
         ChangeNotifierProvider<LocaleProvider>(
-          create: (_) => LocaleProvider(prefs!),
+          create: (_) => LocaleProvider(prefs),
         ),
 
         // UX-4 应用锁（生物识别）
         ChangeNotifierProvider<AppLockProvider>(
-          create: (_) => AppLockProvider(prefs!),
+          create: (_) => AppLockProvider(prefs),
         ),
 
         // Auth

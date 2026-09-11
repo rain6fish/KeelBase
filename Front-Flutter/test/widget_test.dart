@@ -73,7 +73,7 @@ void main() {
             create: (_) => NoopPushService(),
           ),
           ProxyProvider2<ApiClient, PushService, PushTokenProvider>(
-            update: (_, api, push, __) => PushTokenProvider(api, push),
+            update: (_, api, push, _) => PushTokenProvider(api, push),
           ),
         ],
         child: const App(),

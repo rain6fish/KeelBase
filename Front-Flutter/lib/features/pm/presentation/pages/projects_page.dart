@@ -63,6 +63,7 @@ class _ProjectsPageState extends State<ProjectsPage> {
               return;
             }
             final ok = await context.read<PmProvider>().createProject({'name': name});
+            if (!mounted) return;
             if (ok) AppToast.success(context, l10n.crmCreated);
           },
           child: Text(l10n.save),
@@ -81,8 +82,8 @@ class _ProjectsPageState extends State<ProjectsPage> {
         middle: Text(l10n.pmTitle),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.add),
           onPressed: _showCreateSheet,
+          child: const Icon(CupertinoIcons.add),
         ),
       ),
       child: provider.loading && provider.projects.isEmpty

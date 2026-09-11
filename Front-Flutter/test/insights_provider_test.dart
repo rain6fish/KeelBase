@@ -3,7 +3,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:front_app/features/insights/data/models/insights_model.dart';
-import 'package:front_app/features/insights/data/repositories/insights_repository.dart';
 import 'package:front_app/features/insights/presentation/providers/insights_provider.dart';
 import 'helpers.dart';
 
