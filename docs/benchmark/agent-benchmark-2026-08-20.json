@@ -1,7 +1,7 @@
 {
   "provider": "deepseek",
   "model": "deepseek-v4-flash",
-  "timestamp": "2026-08-20T05:59:21.103Z",
+  "timestamp": "2026-08-20T00:00:00.000Z",
   "runScore": 100,
   "trustScore": 100,
   "safetyScore": 100,

@@ -1,4 +1,4 @@
-# Business-safe Agent Benchmark（2026-08-20T05:59:21.102Z）
+# Business-safe Agent Benchmark（2026-08-20）
 
 - 目标：`http://localhost:3000/api/v1` ｜ 用户：`alex` ｜ provider=`deepseek` model=`deepseek-v4-flash`
 - 五类任务 × 三旗舰 = 15 用例（每用例 SSE 流式对话 + 工具/确认/文本解析）
