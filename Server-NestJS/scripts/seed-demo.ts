@@ -16,6 +16,7 @@ import * as bcrypt from 'bcrypt';
 import { AppDataSource } from '../src/config/typeorm-data-source';
 import { User, UserRole } from '../src/common/entities/user.entity';
 import { seedDemoData } from '../src/common/demo-data';
+import { ReadinessService } from '../src/app-version/readiness.service';
 
 dotenv.config();
 
@@ -72,6 +73,21 @@ async function main() {
     );
     if (created) {
       console.log(`Demo account created: ${username} / ${password}`);
+    }
+    // NC-3 首次运行就绪清单：落「演示数据已种」标记（demo 维度的判据）。幂等 upsert；
+    // 标记写入失败不影响种子结果，仅告警（引导信息缺失不应让 seed 失败）。
+    try {
+      await AppDataSource.getRepository('settings').upsert(
+        {
+          key: ReadinessService.DEMO_SEEDED_KEY,
+          value: new Date().toISOString().slice(0, 10),
+          type: 'string',
+          description: '演示数据播种日期（首次运行就绪清单用）',
+        },
+        ['key'],
+      );
+    } catch (err) {
+      console.warn(`[seed:demo] 就绪标记写入失败（不影响数据）：${(err as Error).message}`);
     }
   } finally {
     await AppDataSource.destroy();

@@ -62,6 +62,32 @@ describe('App (e2e)', () => {
           expect(Array.isArray(res.body.data.changelog)).toBe(true);
         });
     });
+
+    it('GET /api/v1/app/readiness（NC-3 首次运行就绪）免认证返回五维 + 每维 nextStep', () => {
+      return request(app.getHttpServer())
+        .get('/api/v1/app/readiness')
+        .expect(200)
+        .expect((res) => {
+          const d = res.body.data as {
+            ready: boolean;
+            checkedAt: string;
+            dimensions: Record<string, { ready: boolean; detail: string; nextStep: string | null }>;
+          };
+          expect(typeof d.ready).toBe('boolean');
+          expect(d.checkedAt).toBeTruthy();
+          expect(Object.keys(d.dimensions).sort()).toEqual(['ai', 'db', 'demo', 'governance', 'runtime']);
+          // 跑起来即 runtime/db 就绪（e2e 有真实 sqlite）
+          expect(d.dimensions.runtime.ready).toBe(true);
+          expect(d.dimensions.db.ready).toBe(true);
+          expect(d.dimensions.db.detail).toContain('better-sqlite3');
+          // 每维形状：detail 必有、nextStep 为 null 或可执行字符串
+          for (const dim of Object.values(d.dimensions)) {
+            expect(typeof dim.detail).toBe('string');
+            expect(dim.detail.length).toBeGreaterThan(0);
+            expect(dim.nextStep === null || typeof dim.nextStep === 'string').toBe(true);
+          }
+        });
+    });
   });
 
   describe('App Provenance（§13.1 ①，公开来源指纹）', () => {
