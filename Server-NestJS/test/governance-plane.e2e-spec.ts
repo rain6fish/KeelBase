@@ -247,6 +247,38 @@ describe('治理台真实 HTTP e2e（D2-2 独立控制平面）', () => {
     expect(res.body).toEqual({ ok: true });
   });
 
+  it('⑬b 上报携带结构化 authorization → 落治理库行（T5：sidecar 决策依据可机器读取）', async () => {
+    const snap = JSON.stringify({
+      allowed: true,
+      tool: 'read_contracts',
+      riskLevel: 'R1',
+      strategy: 'auto',
+      checks: [{ name: 'sidecar_risk_policy', ok: true, note: 'within auto threshold' }],
+    });
+    await request(govServer())
+      .post('/api/v1/external/audit')
+      .set({ 'x-api-key': GOV_API_KEY })
+      .send({
+        userId: '7',
+        username: 'sidecar',
+        action: 'tool_call',
+        detail: 'tool:read_contracts risk:R1 decision:auto',
+        source: 'sidecar',
+        provider: 'sidecar',
+        authorization: snap,
+      })
+      .expect(201);
+
+    // 治理库确认：该行 authorization 原样落库（@Body Record<string,unknown> → 无 class-validator 剥离）
+    const rows = await ds.getRepository('ai_audit_logs').find({
+      where: { detail: 'tool:read_contracts risk:R1 decision:auto' },
+      order: { id: 'DESC' },
+      take: 1,
+    });
+    expect(rows).toHaveLength(1);
+    expect((rows[0] as { authorization: string }).authorization).toBe(snap);
+  });
+
   it('⑭ GET /api/v1/external/governance/policy：正确 x-api-key → 200 默认策略（服务身份拉策略）', async () => {
     const res = await request(govServer())
       .get('/api/v1/external/governance/policy')

@@ -183,4 +183,39 @@ describe('SidecarService（S-2 工具门控流）', () => {
     expect(msg.confirmation.tools).toEqual(['read_x']);
     expect(service.pendingConfirmations()).toHaveLength(1);
   });
+
+  it('T5：决策依据结构化上报——auto → 放行快照（与主应用同形），block → 拒绝数组 + isError', async () => {
+    // 上报需要治理台地址（缺省 GOVERNANCE_URL='' 会短路）；构造前设置
+    process.env.GOVERNANCE_URL = 'http://gov';
+    process.env.GOVERNANCE_API_KEY = 'k';
+    const s = new SidecarService();
+
+    currentUpstream = upstreamRes([toolCall('read_x')]);
+    await s.proxyChat({ model: 'mock', messages: [] });
+    currentUpstream = upstreamRes([toolCall('do_z')]);
+    await s.proxyChat({ model: 'mock', messages: [] });
+
+    const entries = fetchMock.mock.calls
+      .filter((c) => String(c[0]).includes('/external/audit'))
+      .map((c) => JSON.parse(String((c[1] as { body?: string })?.body ?? '{}')) as Record<string, unknown>);
+
+    const auto = entries.find((e) => String(e.detail).includes('read_x'));
+    expect(auto).toBeDefined();
+    expect(auto!.isError).toBe(false);
+    const snap = JSON.parse(String(auto!.authorization)) as Record<string, unknown>;
+    expect(snap).toMatchObject({ allowed: true, tool: 'read_x', strategy: 'auto' });
+    // 键集与主应用 buildAllowSnapshot 同形（跨入口一致的前提）
+    expect(
+      Object.keys(snap).every((k) =>
+        ['allowed', 'tool', 'riskLevel', 'strategy', 'checks', 'policy'].includes(k),
+      ),
+    ).toBe(true);
+
+    const blocked = entries.find((e) => String(e.detail).includes('do_z'));
+    expect(blocked).toBeDefined();
+    expect(blocked!.isError).toBe(true);
+    const reasons = JSON.parse(String(blocked!.authorization)) as Array<Record<string, unknown>>;
+    expect(Array.isArray(reasons)).toBe(true);
+    expect(reasons[0]).toMatchObject({ name: 'sidecar_risk_policy', ok: false });
+  });
 });

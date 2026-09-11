@@ -239,6 +239,29 @@ export class SidecarService {
     d: ToolDecision,
   ): void {
     const argsSummary = String(tc.function?.arguments ?? '').slice(0, 120);
+    // T5 跨入口一致：决策依据**结构化**（此前只落在 detail 自由文本，消费端无法机器读取「为何放行/为何拦截」）。
+    // 形状与 REST/SSE/MCP 对齐（authorization 列）：
+    //   auto    → 放行快照对象（allowed:true + checks，键集与主应用的 buildAllowSnapshot 同形）
+    //   confirm / block → 拒绝形态的 checks 数组（ok:false，note 为策略给出的原因）
+    // isError 只在 block（真拒绝）置位——confirm 是「待人工放行」，非错误（否则会被 blocked 类聚合误计）。
+    const authorization =
+      d.decision === 'auto'
+        ? JSON.stringify({
+            allowed: true,
+            tool: name,
+            riskLevel: d.risk,
+            strategy: 'auto',
+            checks: [
+              { name: 'sidecar_risk_policy', ok: true, note: `risk ${d.risk} within sidecar auto-allow threshold` },
+            ],
+          })
+        : JSON.stringify([
+            {
+              name: 'sidecar_risk_policy',
+              ok: false,
+              note: d.reason ?? `decision=${d.decision} (risk ${d.risk})`,
+            },
+          ]);
     void this.reportAudit({
       userId: uid,
       username: 'sidecar',
@@ -247,6 +270,8 @@ export class SidecarService {
       model,
       provider: 'sidecar',
       source: 'sidecar',
+      isError: d.decision === 'block',
+      authorization,
     });
   }
 
