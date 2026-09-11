@@ -2,7 +2,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    :size="600"
+    :size="'min(600px, 92vw)'"
     direction="rtl"
     :with-header="false"
     class="ai-assistant-drawer"
