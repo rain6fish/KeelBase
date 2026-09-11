@@ -173,7 +173,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  # 架构边界门禁（docs/architecture-boundary.md）：Core 无 UI 框架依赖、无前端代码引用
+  # 架构边界门禁（docs/architecture-boundary.md）：
+  #   core-boundary     = Core 无 UI 框架依赖、无前端代码引用；
+  #   frontend-boundary = Frontend→Runtime 反向（FE-1-repo / ADR-0002 Rev-8）——前端/旗舰/模板无跨仓 import、无 runtime 身份分支。
   core-boundary:
     runs-on: ubuntu-latest
     steps:
@@ -182,6 +184,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-core-boundary.mjs
+      - run: node scripts/check-frontend-boundary.mjs
 
   # 治理协议合规认证（关键能力 A1 / CE-1，零依赖 node 内置）：先跑 specs/protocol 金样本漂移门禁（generate --check），
   # 再以语料驱动复现三协议（审计哈希链/委托 token/风险分级）——篡改/断链/aud 不匹配/过期/签名篡改必须拒绝。

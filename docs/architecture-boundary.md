@@ -79,6 +79,17 @@ UI 框架全部位于 Core 之下、作为实现层。一个新渲染器的接�
 - **通知 / 审批 UI** 同理：Core 给事件与数据，Renderer 给形态。
 - 新增 Renderer 只需消费这些事件契约 + `GET /app/capabilities` + REST/SSE/WS；**不新增跨端 UI 组件规范**。
 
+### 3.1 Runtime Neutrality 边界（FE-1-repo / ADR-0002 Rev-8）
+
+统一前端 = 产品架构原则（Runtime = Contract 的第二个 Renderer）；**统一前端 ≠ 拆独立前端仓库**——前端 / 旗舰 / 应用模板留在主库，**主库内抽净 Frontend→Runtime 依赖边界**即可。
+
+- **边界面 = 已冻结的 wire Contract v1 + `GET /app/capabilities` + `GET /app/provenance`**（不另建 `/runtime/*` 抽象 API）。前端按**能力**（capabilities.businessModules / features）显隐，**不按 runtime 语言身份分支**；runtime id 仅留 provenance 观测。
+- **机器门禁**：`npm run check:frontend-boundary`（`scripts/check-frontend-boundary.mjs`）——
+  1. 前端 / 旗舰 / `templates-frontend.mjs` **无跨仓 import**（不 import `Server-NestJS` 或其它前端目录的代码）；
+  2. **无 runtime 身份分支**（`if (runtime)` / `runtime === '…'`）。
+  与 `check-core-boundary.mjs`（Core→UI 反向）配对，CI job `core-boundary` 内一并执行。
+- **拆库 = 工程决策**（正交于契约轴）：仅由三条需求触发——① Java Runtime 真实开发；② 同一套前端成功接入 TS+Java 两 Runtime；③ 独立发布/复用需求。当前均不在条件内。
+
 ## 4. Renderer Matrix（前端战略，2026-08-18 / 2026-08-19 升级）
 
 UI 框架是 Core 的 **Renderer**（见 §3）——**新框架 = 新 Renderer，不影响 Core**。核心竞争力不被 UI 技术绑定。当前渲染器矩阵：
@@ -133,6 +144,7 @@ Audit（HS-11 哈希链，无条件记录）                   ← 最终防线 
 
 ## 6. 验收红线
 
-- 后端 `npm run check:boundary` 必须通过（CI 门禁）
+- 后端 `npm run check:boundary` 必须通过（CI 门禁：Core 无 UI 框架依赖、无前端代码引用）
+- 前端 `npm run check:frontend-boundary` 必须通过（CI 门禁：Frontend→Runtime 边界，见 §3.1）
 - 新增前端功能只改 Renderer；Core 契约变更须先更新对应协议文档
 - `navigate-page.tool` 的 route 变更须同步所有消费端

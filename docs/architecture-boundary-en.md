@@ -79,6 +79,17 @@ All UI frameworks sit below Core, as implementation layers. A new renderer integ
 - **notifications / approval UI**: likewise — Core provides the events and data, the Renderer gives them form.
 - A new Renderer only needs to consume these event contracts + `GET /app/capabilities` + REST/SSE/WS; **no cross-client UI component spec is added**.
 
+### 3.1 Runtime Neutrality Boundary (FE-1-repo / ADR-0002 Rev-8)
+
+A unified frontend is a product-architecture principle (the Runtime is the Contract's second Renderer); **unified frontend ≠ a separate frontend repo** — the frontend / flagship / app templates stay in the main repo, and it suffices to **extract a clean Frontend→Runtime dependency boundary inside it**.
+
+- **Boundary surface = the frozen wire Contract v1 + `GET /app/capabilities` + `GET /app/provenance`** (no separate `/runtime/*` abstraction API). The frontend shows/hides by **capability** (capabilities.businessModules / features), **never branches on runtime language identity**; the runtime id is for provenance observation only.
+- **Machine gate**: `npm run check:frontend-boundary` (`scripts/check-frontend-boundary.mjs`) —
+  1. the frontend / flagship / `templates-frontend.mjs` have **no cross-repo imports** (they do not import `Server-NestJS` or another frontend directory's code);
+  2. **no runtime-identity branch** (`if (runtime)` / `runtime === '…'`).
+  Paired with `check-core-boundary.mjs` (the reverse Core→UI direction); both run in the CI job `core-boundary`.
+- **Splitting the repo is an engineering decision** (orthogonal to the contract axis): triggered only by three needs — ① real Java Runtime development; ② the same frontend successfully serving both TS+Java Runtimes; ③ independent release/reuse needs. None currently holds.
+
 ## 4. Renderer Matrix (frontend strategy, 2026-08-18 / 2026-08-19 upgrade)
 
 UI frameworks are Core's **Renderers** (see §3) — **a new framework = a new Renderer, Core unaffected**. Core competence is not bound to any UI technology. Current renderer matrix:
@@ -133,6 +144,7 @@ Audit (HS-11 hash chain, unconditional recording)                     ← final 
 
 ## 6. Acceptance Red Lines
 
-- The backend `npm run check:boundary` must pass (CI gate)
+- The backend `npm run check:boundary` must pass (CI gate: Core has no UI-framework dependency, no frontend code references)
+- The frontend `npm run check:frontend-boundary` must pass (CI gate: Frontend→Runtime boundary, see §3.1)
 - New frontend features only touch the Renderer; Core contract changes must update the corresponding protocol docs first
 - `navigate-page.tool` route changes must sync all consumers

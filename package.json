@@ -32,7 +32,8 @@
   "scripts": {
     "cli:test": "node --test \"scripts/*.test.mjs\"",
     "spec:check": "node scripts/check-business-specs.mjs",
-    "check:boundary": "node scripts/check-core-boundary.mjs"
+    "check:boundary": "node scripts/check-core-boundary.mjs",
+    "check:frontend-boundary": "node scripts/check-frontend-boundary.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"
