@@ -69,7 +69,7 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 
 - ✅ `query_invoices` / `create_invoices` 已注册进 AI 工具（`grep CreateInvoiceTool src/ai/ai.module.ts`）
 - ✅ 越权：另一账号访问他人发票数据 → 403
-- ✅ 写操作入操作审计 + AI 调用入 AI 审计（哈希链可验证，`GET /audit/operations/verify`）
+- ✅ AI 工具写 → AI 审计 + 副作用记录（含确认决策）；REST 人类写 → 操作审计（均哈希链可验证，`GET /audit/operations/verify` 验操作审计链）
 - ✅ 生成物是普通源代码，可继续修改
 
 ## 常见失败点

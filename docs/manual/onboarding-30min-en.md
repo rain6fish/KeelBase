@@ -64,7 +64,7 @@ Sign in to the workbench as `alex / Alex@2026$Demo`, then in the AI chat:
 
 - ✅ `query_customers` / `create_customers` registered as AI tools (`grep CreateCustomersTool src/ai/ai.module.ts`)
 - ✅ Cross-user access to another user's customer data → 403
-- ✅ Writes land in the operation audit + AI calls land in the AI audit (hash chain verifiable, `GET /audit/operations/verify`)
+- ✅ AI tool writes → AI audit + side-effect records (incl. confirmation decisions); REST human writes → operation audit (both hash-chain verifiable; `GET /audit/operations/verify` verifies the operation-audit chain)
 - ✅ The output is plain source code you can keep modifying
 
 ## Common Failures
