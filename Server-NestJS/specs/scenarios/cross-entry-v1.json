@@ -1,0 +1,28 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "跨入口决策一致性场景表（CE-1 B4-cross-entry，§internal.17 T5）",
+  "license": "Apache-2.0",
+  "note": "源 = test/cross-entry-consistency.e2e-spec.ts 的 4 个 it('①..④ …') 标题（机器解析为结构化步骤）。漂移门 = pack↔e2e 逐字比对（步数 / index 连续 / 序号标记 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。场景 = 同一 AI 行为的决策判定（允许/拒绝/确认）跨入口（MCP vs 直调 executeToolForExternal）同源。本语料供跨语言消费与展示。",
+  "steps": [
+    {
+      "index": 1,
+      "key": "mcp_r5_deny",
+      "title": "MCP 调 R5 工具 delete_customer → deny：返回 -32603（决策到达）+ 审计留痕"
+    },
+    {
+      "index": 2,
+      "key": "deny_reasons_same_source",
+      "title": "deny 依据同源——直调 executeToolForExternal 抛的 reasons 含 risk_policy（与 MCP 同一治理判定）"
+    },
+    {
+      "index": 3,
+      "key": "mcp_r3_confirmation",
+      "title": "MCP 调 R3 写工具 create_event → requiresConfirmation 未执行 + 审计 detail 标注"
+    },
+    {
+      "index": 4,
+      "key": "allow_snapshot_same_shape",
+      "title": "allow 依据跨入口同形——MCP 读工具成功也写放行快照，且与既定判定同源（T5）"
+    }
+  ]
+}

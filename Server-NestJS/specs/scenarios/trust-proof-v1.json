@@ -1,0 +1,43 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "Trust 证明包场景表（CE-1 B4-trust）",
+  "license": "Apache-2.0",
+  "note": "源 = scripts/verify-trust-proof.mjs 的场景标签 console.log('[S<n>] <title>')（机器解析为结构化场景，保序 = 脚本发射序：S1/S2/S3/S4/S7/S5/S6）。漂移门 = pack↔脚本逐字比对（数量 / S 序 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。脚本头部注释的 S 摘要（S1..S6）非权威，权威 = 代码标签。本语料供跨语言消费与展示。",
+  "scenarios": [
+    {
+      "seq": "S1",
+      "key": "happy_path",
+      "title": "正常成功：AI 读取业务数据并做风险分析（Identity + 数据权限 + 读工具）"
+    },
+    {
+      "seq": "S2",
+      "key": "cross_user_denied",
+      "title": "越权拒绝：跨用户数据访问被行级策略拒绝（403）"
+    },
+    {
+      "seq": "S3",
+      "key": "r5_blocked",
+      "title": "高风险动作：AI 尝试不可逆删除客户 → R5 BLOCKED"
+    },
+    {
+      "seq": "S4",
+      "key": "r3_confirmation",
+      "title": "人工确认：AI 写操作必须先确认才执行（R3 确认门控）"
+    },
+    {
+      "seq": "S7",
+      "key": "evidence_root",
+      "title": "证据根（跨链锚定）：AI 写动作导出 v3 → 离线验证 PASS → 篡改检测 FAIL"
+    },
+    {
+      "seq": "S5",
+      "key": "revoke_effect",
+      "title": "撤销：本人可撤销 AI 创建的副作用（软删，可经回收站恢复）"
+    },
+    {
+      "seq": "S6",
+      "key": "java_bridge",
+      "title": "Java 存量系统接入：原系统不改，也能接 AI（java-starter 独立验证）"
+    }
+  ]
+}
