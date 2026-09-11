@@ -140,7 +140,7 @@
         </div>
       </template>
       <el-table v-if="history.length" :data="history" size="small" style="width: 100%">
-        <el-table-column label="revision" min-width="170">
+        <el-table-column :label="t('policyRevision')" min-width="170">
           <template #default="{ row }"><code>{{ row.revision }}</code></template>
         </el-table-column>
         <el-table-column :label="t('policyAppliedAt')" min-width="210">

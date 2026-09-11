@@ -38,11 +38,11 @@ const props = withDefaults(
   defineProps<{
     chain: HashNode[]
     valid: boolean
-    checked: number
+    checked?: number
     brokenIndex?: number | null
     maxNodes?: number
   }>(),
-  { maxNodes: 20 },
+  { checked: 0, maxNodes: 20 },
 )
 
 const { t } = useI18n()

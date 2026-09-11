@@ -69,10 +69,10 @@
               <div class="text-body-2 text-medium-emphasis">{{ proxyInt.baseUrl }}</div>
               <div class="text-body-2">{{ t('configuredTools', { n: proxyInt.configuredTools ?? 0 }) }}</div>
               <div v-if="proxyInt.delegation?.configured" class="text-body-2">
-                <el-tag size="small" type="success" effect="plain">Delegation</el-tag>
+                <el-tag size="small" type="success" effect="plain">{{ t('proxyDelegation') }}</el-tag>
               </div>
               <div v-if="proxyInt.audit?.configured" class="text-body-2">
-                <el-tag size="small" type="success" effect="plain">Audit</el-tag>
+                <el-tag size="small" type="success" effect="plain">{{ t('proxyAudit') }}</el-tag>
               </div>
             </div>
             <el-alert v-if="proxyInt.error" :title="proxyInt.error" type="warning" :closable="false" />
