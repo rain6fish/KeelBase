@@ -52,6 +52,7 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - [ ] `npm run build`（后端）+ `flutter analyze` 0 error
 - [ ] 后端单测 / 前端测试通过
 - [ ] 迁移一致性：`migration:generate` 输出 "No changes"
+- [ ] **roadmap 回填**：本次交付若把某能力从「未做/部分」变为「已做」，同周期把私有 `roadmap.md` §2 对应行翻 ✅（附提交 hash）——勿留「已落地但表仍标 ⬜」的假待办（宪法 §4.3 DoD）
 
 ## 4. 预置 Skills（EASY-6 ④）
 
