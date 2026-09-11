@@ -1,0 +1,72 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "failure semantics（CE-3 薄片，wire 级）",
+  "license": "Apache-2.0",
+  "note": "把失败路径从「行为级场景包」提升为「wire 级契约」：封闭的失败处置词汇 + 每类失败在 wire 上的承载 schema + 绑定的语料 FP 用例。本向量不新增 wire 对象（复用 tool-invocation / side-effect-revoke / error-body / confirmation-decision），仅锁定失败语义与承载面；gate = src/ai/failure-semantics.spec.ts（wireSchema ∈ registry 对象 id；failurePath ∈ specs/scenarios/failure-path-v1.json 的 FP id）。行为级真源仍为 docs/failure-path-corpus.spec.md + failure-path-v1.json。",
+  "outcomes": [
+    {
+      "id": "timeout",
+      "when": "外部调用（fetch / 补偿端点）超时",
+      "wireSchema": "tool-invocation",
+      "wire": "result.success=false + result.error 含超时标记；不无限挂起，不落伪成功副作用",
+      "failurePath": "FP-3",
+      "invariant": "有界超时；不假装成功"
+    },
+    {
+      "id": "unavailable",
+      "when": "目标/补偿端点不可达或 5xx",
+      "wireSchema": "side-effect-revoke",
+      "wire": "revoke result ok=false + status/消息；目标状态不呈现为 revoked",
+      "failurePath": "FP-7",
+      "invariant": "不谎报已撤销（KB-6 revokeClass）"
+    },
+    {
+      "id": "unknown_empty",
+      "when": "外部 2xx/204 空体（结果未知）",
+      "wireSchema": "tool-invocation",
+      "wire": "result.success=true + result.data=null（如实空）",
+      "failurePath": "FP-8",
+      "invariant": "不伪造 data"
+    },
+    {
+      "id": "duplicate_idempotent",
+      "when": "同会话同工具同参数二次调用 / DB 唯一冲突",
+      "wireSchema": "side-effect-revoke",
+      "wire": "返回既有 effect（不重复建）",
+      "failurePath": "FP-1",
+      "invariant": "幂等"
+    },
+    {
+      "id": "unique_conflict_idempotent",
+      "when": "并发重复落库（唯一约束冲突）",
+      "wireSchema": "side-effect-revoke",
+      "wire": "幂等 skip → 返回既有行",
+      "failurePath": "FP-5",
+      "invariant": "并发不 fork"
+    },
+    {
+      "id": "db_error_rethrow",
+      "when": "非唯一冲突的 DB 错误（DB down）",
+      "wireSchema": "tool-invocation",
+      "wire": "result.success=false + result.error 如实上抛",
+      "failurePath": "FP-4",
+      "invariant": "不伪装幂等命中"
+    },
+    {
+      "id": "confirmation_replay_rejected",
+      "when": "同一确认 token 二次 resolve",
+      "wireSchema": "confirmation-decision",
+      "wire": "decision 二次 resolve 拒绝（不执行）",
+      "failurePath": "FP-2",
+      "invariant": "token 一次性，不二次执行"
+    },
+    {
+      "id": "audit_fail_closed",
+      "when": "审计写失败（sqlite / postgres）",
+      "wireSchema": "audit-payload",
+      "wire": "错误上抛给调用方（fail-closed）；审计不悄悄丢",
+      "failurePath": "FP-6",
+      "invariant": "证据不丢（宁可报错不吞）"
+    }
+  ]
+}

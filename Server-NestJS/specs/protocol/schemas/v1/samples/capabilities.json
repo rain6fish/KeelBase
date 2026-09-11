@@ -1,0 +1,26 @@
+{
+  "preset": "full",
+  "features": {
+    "ai": true,
+    "search": true,
+    "push": false,
+    "sms": false,
+    "oauth": true,
+    "upload": true,
+    "notifications": true,
+    "todos": true,
+    "crm": true,
+    "pm": true,
+    "approval": true
+  },
+  "ai": {
+    "enabled": true,
+    "providerConfigured": true,
+    "provider": "deepseek"
+  },
+  "businessModules": [
+    { "id": "events", "label": "事件", "description": "日历事件与提醒" },
+    { "id": "todos", "label": "待办", "description": "待办清单与完成状态" },
+    { "id": "crm", "label": "客户管理", "description": "AI CRM：客户/订单/跟进/任务/风险，AI 可分析流失风险并创建跟进任务" }
+  ]
+}

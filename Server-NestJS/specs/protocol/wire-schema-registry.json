@@ -227,6 +227,22 @@
       "title": "Headless 对话响应 POST /headless/chat（ChatResponse 投影）",
       "source": "src/headless/headless.controller.ts:14-26,48-59",
       "samples": ["schemas/v1/samples/headless-chat-response.json"]
+    },
+    {
+      "id": "capabilities",
+      "version": "v1",
+      "schema": "capabilities.schema.json",
+      "title": "能力清单 GET /app/capabilities data（Renderer 原则地基，ADR-0002 Rev-8）",
+      "source": "src/app-version/capabilities.service.ts:36-56; src/feature-flags/feature-flags.constants.ts:9-49; src/common/modules/modules-manifest.ts:75-89",
+      "samples": ["schemas/v1/samples/capabilities.json"]
+    },
+    {
+      "id": "tool-invocation",
+      "version": "v1",
+      "schema": "tool-invocation.schema.json",
+      "title": "受治理工具调用 request/response 语义（executed/requiresConfirmation/result）",
+      "source": "src/ai/ai.service.ts:634-648 executeToolForExternal; src/ai/interfaces/tool.interface.ts:29-34 ToolResult",
+      "samples": ["schemas/v1/samples/tool-invocation.json", "schemas/v1/samples/tool-invocation-confirmation.json"]
     }
   ]
 }

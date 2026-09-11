@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "tool-invocation.schema.json",
+  "title": "受治理工具调用 request/response 语义 — v1",
+  "description": "CE-3 薄片：工具调用的跨 Runtime 语义（REST/SSE/MCP/headless 各入口同一判定）。request = 工具名 + 参数；response = 治理层放行后的结果——executed（是否已执行）/ requiresConfirmation（是否需人工确认，未执行）/ result（ToolResult）。语义不变量：requiresConfirmation=true 时 executed=false 且无 result；写工具不确认不执行（HS-9/HS-10）。来源：src/ai/ai.service.ts:634-648 executeToolForExternal；src/ai/interfaces/tool.interface.ts:29-34 ToolResult；MCP 出口 src/ai/mcp/* 同形。",
+  "type": "object",
+  "required": ["request", "response"],
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": ["tool", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": { "type": "string" },
+        "args": { "type": "object" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["executed", "requiresConfirmation"],
+      "additionalProperties": false,
+      "properties": {
+        "executed": { "type": "boolean" },
+        "requiresConfirmation": { "type": "boolean" },
+        "result": {
+          "type": "object",
+          "required": ["success"],
+          "additionalProperties": false,
+          "properties": {
+            "success": { "type": "boolean" },
+            "data": {},
+            "error": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

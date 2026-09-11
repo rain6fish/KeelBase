@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "capabilities.schema.json",
+  "title": "能力清单 GET /app/capabilities data — v1",
+  "description": "Renderer 原则的地基（ADR-0002 Rev-8 / FE-1）：前端/旗舰/应用模板据 businessModules + features 显隐导航与功能，按能力而非 runtime 语言身份分支。preset ∈ {full,small,lite}（EASY-3 三档）；features = 特性开关 key→bool（key 集见 FEATURE_KEYS，随模块增长，故为开放 boolean 映射）；ai 供前端判定「AI 开了但没配模型」。来源：src/app-version/capabilities.service.ts:36-56 getCapabilities()；src/feature-flags/feature-flags.constants.ts:9-49；src/common/modules/modules-manifest.ts:75-89（businessModules = category==='business' 且 feature flag 未关的 {id,label,description} 投影）。",
+  "type": "object",
+  "required": ["preset", "features", "ai", "businessModules"],
+  "additionalProperties": false,
+  "properties": {
+    "preset": { "type": "string", "enum": ["full", "small", "lite"] },
+    "features": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "ai": {
+      "type": "object",
+      "required": ["enabled", "providerConfigured", "provider"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "providerConfigured": { "type": "boolean" },
+        "provider": { "type": "string" }
+      }
+    },
+    "businessModules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -29,6 +29,8 @@ import {
   RISK_STRATEGY,
   resolveRiskLevel,
   needsConfirmation,
+  GATE_OUTCOME_BY_STRATEGY,
+  DENY_CHECKS,
 } from './lib/protocol-algorithms.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -313,6 +315,25 @@ const riskFile = {
   cases: riskCases,
 };
 
+/* ═══════════ 治理绑定向量（§4.3/§4.4，CE-3 薄片） ═══════════ */
+
+const RISK_LEVELS = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+const governanceBindingFile = {
+  vectorVersion: 'v1',
+  protocol: 'ai-governance-protocol §4.3/§4.4 tool→policy→decision binding',
+  license: 'Apache-2.0',
+  note: '策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 scripts/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。',
+  riskStrategy: RISK_STRATEGY,
+  gateOutcomeByStrategy: GATE_OUTCOME_BY_STRATEGY,
+  denyChecks: DENY_CHECKS,
+  derivation: RISK_LEVELS.map((level) => ({
+    riskLevel: level,
+    strategy: RISK_STRATEGY[level],
+    ...GATE_OUTCOME_BY_STRATEGY[RISK_STRATEGY[level]],
+    needsConfirmation: needsConfirmation(level),
+  })),
+};
+
 /* ═══════════ 写盘 / check ═══════════ */
 
 const FILES = {
@@ -320,6 +341,7 @@ const FILES = {
   'audit-hash-v1-vector.json': auditHashFile,
   'delegation-token-v1-vector.json': delegationTokenFile,
   'risk-level-v1-vector.json': riskFile,
+  'governance-binding-v1-vector.json': governanceBindingFile,
 };
 
 function firstDiffLine(a, b) {

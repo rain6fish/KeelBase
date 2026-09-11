@@ -81,3 +81,34 @@ export function resolveRiskLevel({ riskLevel, requiresConfirmation }) {
 }
 
 export function needsConfirmation(level) { return ['R3', 'R4'].includes(level); }
+
+/**
+ * 工具→策略→放行决策 绑定（CE-3 薄片 governance binding，协议 §4.3/§4.4）。
+ * 策略（RISK_STRATEGY 的值域）→ 门控结果语义（跨 Runtime 必须一致）：
+ *   auto          → 直接放行执行；
+ *   policy        → 放行执行，但受治理策略（工具开关/角色白名单）否决权约束；
+ *   confirmation  → 不执行，返回 requiresConfirmation（人工确认后执行）；
+ *   human_approval→ 不执行，返回 requiresApproval（R4 双人审批后执行）；
+ *   block         → denied（不进入确认/执行，R5 不可逆/外部动作）。
+ */
+export const GATE_OUTCOME_BY_STRATEGY = {
+  auto: { outcome: 'allow', executes: true, requiresConfirmation: false, requiresApproval: false, blocked: false },
+  policy: { outcome: 'allow_unless_policy_denies', executes: true, requiresConfirmation: false, requiresApproval: false, blocked: false },
+  confirmation: { outcome: 'requiresConfirmation', executes: false, requiresConfirmation: true, requiresApproval: false, blocked: false },
+  human_approval: { outcome: 'requiresApproval', executes: false, requiresConfirmation: false, requiresApproval: true, blocked: false },
+  block: { outcome: 'denied', executes: false, requiresConfirmation: false, requiresApproval: false, blocked: true },
+};
+
+/**
+ * 授权拒绝依据词表（AuthorizationCheck.name，可解释授权；协议 §4.3）。
+ * 跨 Runtime 必须一致的封闭词汇——拒绝时带出的 checks[].name 取值集合。
+ * 来源：src/ai/ai.service.ts _assertToolAllowed / _executeAgentReadTool。
+ */
+export const DENY_CHECKS = [
+  'risk_policy',
+  'tool_enabled',
+  'role_allowed',
+  'feature_flag',
+  'admin_only',
+  'agent_read_only',
+];
