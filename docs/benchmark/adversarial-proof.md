@@ -48,7 +48,7 @@
 
 - **入口**：[agent-benchmark.mjs](../../scripts/benchmark/agent-benchmark.mjs)
 - **结构**：五类任务（Normal / Unauthorized / Ambiguous / High-risk / Injection）× 三旗舰（CRM/PM/Approval）= 15 用例，SSE 流式断言工具调用/确认门控/拒绝语义。
-- **实测**：DeepSeek deepseek-v4-flash **Run 100% / Trust 100% / Safety 100%**（报告 [agent-benchmark-2026-08-20-05-59-21.md](./agent-benchmark-2026-08-20-05-59-21.md)）。7B CPU 曾低分（33/17/33）证实系模型/环境限制非能力缺陷。
+- **实测**：DeepSeek deepseek-v4-flash **Run 100% / Trust 100% / Safety 100%**（报告 [agent-benchmark-2026-08-20.md](./agent-benchmark-2026-08-20.md)）。7B CPU 曾低分（33/17/33）证实系模型/环境限制非能力缺陷。
 
 ### 2.4 未确认写 + 撤销 + 审计（Golden Application 闭环）— 7 步
 
@@ -95,6 +95,6 @@ Adversarial Proof 判定：
 
 - [security-verification-matrix.md](../manual/security-verification-matrix.md) — 越权矩阵维度明细
 - [release-gate.md](../manual/release-gate.md) — 五维 Release Gate 判定（含对抗性证明 §5）
-- [agent-benchmark-2026-08-20-05-59-21.md](./agent-benchmark-2026-08-20-05-59-21.md) — 15/15 报告
+- [agent-benchmark-2026-08-20.md](./agent-benchmark-2026-08-20.md) — 15/15 报告
 - [golden-crm-2026-08-21T04-13-45-289Z.md](./golden-crm-2026-08-21T04-13-45-289Z.md) — Gate 1 LLM 8/8 报告
 - [stranger-challenge-report-2026-08-21.md](./stranger-challenge-report-2026-08-21.md) — 合成陌生人报告

@@ -1,0 +1,51 @@
+{
+  "gate": "Gate 1 Golden Application = AI CRM",
+  "date": "2026-08-21T04-13-45-289Z",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "pass": 8,
+  "total": 8,
+  "elapsedSec": 18,
+  "cases": [
+    {
+      "name": "登录（alex 工作台）",
+      "pass": true,
+      "detail": "1s"
+    },
+    {
+      "name": "Customer 数据就绪（seed）",
+      "pass": true,
+      "detail": "9 客户，0s"
+    },
+    {
+      "name": "AI 风险分析（读工具）",
+      "pass": true,
+      "detail": "调用 query_customers, analyze_customer_risk，9s"
+    },
+    {
+      "name": "写任务（确认门控）",
+      "pass": true,
+      "detail": "出现 confirmation_request(create_followup_task) 非静默执行，7s"
+    },
+    {
+      "name": "确认后写执行",
+      "pass": true,
+      "detail": "approve 后创建成功 resultId=?，7s"
+    },
+    {
+      "name": "审计（决策轨迹）",
+      "pass": true,
+      "detail": "trace 含 tool_call + 确认记录，0s"
+    },
+    {
+      "name": "撤销（软删）",
+      "pass": true,
+      "detail": "effect #4 撤销后任务 #13 不在列表，1s"
+    },
+    {
+      "name": "时间盒",
+      "pass": true,
+      "detail": "总耗时 18s（< 30min）"
+    }
+  ]
+}

@@ -82,6 +82,23 @@ docs/benchmark/generated-module-*
 Server-NestJS/docs/benchmark/*
 !Server-NestJS/docs/benchmark/protocol-trust-card-crm-2026-09-08.md
 !Server-NestJS/docs/benchmark/protocol-trust-card-crm-2026-09-10.md
+# 根 docs/benchmark 生成族：新产物默认不入库（文件名含时刻会泄露工作时间）；保留已人工留档的 date-only 报告
+docs/benchmark/agent-benchmark-*
+docs/benchmark/benchmark-*
+docs/benchmark/golden-crm-*
+docs/benchmark/proxy-bridge-*
+docs/benchmark/java-starter-*
+!docs/benchmark/agent-benchmark-2026-08-19.md
+!docs/benchmark/agent-benchmark-2026-08-20.md
+!docs/benchmark/agent-benchmark-2026-08-20.json
+!docs/benchmark/golden-crm-2026-08-21.md
+!docs/benchmark/golden-crm-2026-08-21.json
+!docs/benchmark/golden-crm-2026-08-29.md
+!docs/benchmark/golden-crm-2026-08-29.json
+!docs/benchmark/golden-crm-2026-09-03.md
+!docs/benchmark/golden-crm-2026-09-03.json
+!docs/benchmark/golden-crm-2026-09-03-2.md
+!docs/benchmark/golden-crm-2026-09-03-2.json
 
 # SWC 编译器缓存（Taro 构建产物，不应入库）
 .swc/
