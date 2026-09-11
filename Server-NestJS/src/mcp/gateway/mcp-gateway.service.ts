@@ -202,10 +202,12 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     const extKey = `mcp_${serverName}_${toolName}`;
     const server = (await this.listServers()).find((s) => s.name === serverName);
     if (!server) {
+      await this._auditDenied(userId, serverName, toolName, args, 'mcp_server_registered', `MCP server "${serverName}" not registered`);
       return { executed: false, requiresConfirmation: false, error: `MCP server "${serverName}" not registered` };
     }
 
     if (!(await this.governance.isToolEnabled(extKey))) {
+      await this._auditDenied(userId, serverName, toolName, args, 'tool_enabled', `Tool "${extKey}" is disabled by governance policy`);
       return { executed: false, requiresConfirmation: false, error: `Tool "${extKey}" is disabled by governance policy` };
     }
 
@@ -229,6 +231,30 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     } catch (e) {
       return { executed: true, requiresConfirmation: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * T5 跨入口一致：网关 deny 也留审计（此前两个 deny 分支直接 return → **治理拒绝无痕**）。
+   * reasons 用拒绝数组形状，与 REST/SSE 及 MCP 出口侧 `authorization: JSON.stringify(reasons)` 对齐
+   * （读取侧 parseAllowedSnapshot 对数组返回 null → 不会被误判为放行快照）。
+   */
+  private async _auditDenied(
+    userId: string,
+    serverName: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    checkName: string,
+    message: string,
+  ): Promise<void> {
+    await this.audit.log({
+      userId,
+      action: 'tool_call',
+      detail: `mcp:${serverName}:${toolName}(${JSON.stringify(args).slice(0, 500)}) — authorization denied`,
+      provider: 'mcp',
+      isError: true,
+      errorMessage: message,
+      authorization: JSON.stringify([{ name: checkName, ok: false, note: message }]),
+    });
   }
 
   private async _findTool(server: McpServerConfig, toolName: string): Promise<ExternalMcpTool | undefined> {
