@@ -137,7 +137,7 @@
   - **去契约外 `errors` 字典**（`ApiError.errors` + 两处 throw 传参；契约 `error-body` 无该字段，validator 错误 join 进 `message`）；
   - `build:h5` 绿。
 - **FE-1b-4 ✅（2026-09-10，核对，无代码改动）**：事件 model 隔离 —— 见 §8.6。三端事件名/形状**均符合冻结 `sse-event` schema**（Web `StreamChatEvent` 7 名、Flutter provider switch、Taro WS 名）；FE-1a 的「Web 忽略 `event:` 行即断」被「`data` 内含 `type`」的契约化解；余下仅「抽类型化 model」的代码组织（非正确性，Code Economy 下不投机抽象）。
-- **FE-1b-5 🔶（2026-09-10，部分）**：capabilities 导航 —— Web **已按 capabilities 过滤**（`module` id 与后端全匹配）+ 补 `workbench-events/todos` 缺失标签；Flutter 有 plumbing 但主导航静态；Taro 零消费（⬜ 留待）。
+- **FE-1b-5 ✅（2026-09-10，`316186ed` 补齐）**：capabilities 导航 —— Web **已按 capabilities 过滤**（`module` id 与后端全匹配）+ 补 `workbench-events/todos` 缺失标签；Flutter explore 业务模块项按 capabilities 显隐（底部 tab 结构性绑 router branch，保持静态）；Taro explore 宫格按 capabilities 显隐（新增 service + pinia store）。
 - **FE-1b-6 ✅（2026-09-10，三端）**：provenance 消费 —— Web `api/provenance.ts` + `SystemView` 来源指纹卡；Flutter `app_provenance`/`provenance_repository`/`provenance_provider` + 设置页「关于」来源指纹行；Taro `provenance-service`/`provenance-store` + 设置页 appInfo 来源指纹行（均未加载/失败优雅隐藏）。线上实测形状一致。
 - **FE-1b 收口**：5.1–5.6 **三端全覆盖**。**FE-1 净余**：Flutter 底部 tab 若未来要按能力显隐需重构 router branch 结构（现为设计性静态）；生成器前端模板 Runtime-neutral（本已 LOW）；Java 目标模板守 Demand-Gate。
 
