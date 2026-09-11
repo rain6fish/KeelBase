@@ -240,10 +240,11 @@ export class SidecarService {
   ): void {
     const argsSummary = String(tc.function?.arguments ?? '').slice(0, 120);
     // T5 跨入口一致：决策依据**结构化**（此前只落在 detail 自由文本，消费端无法机器读取「为何放行/为何拦截」）。
-    // 形状与 REST/SSE/MCP 对齐（authorization 列）：
+    // 形状与 REST/SSE/MCP 对齐（authorization 列；读取侧契约：JSON **数组** = 拒绝，对象且 allowed:true = 放行快照）：
     //   auto    → 放行快照对象（allowed:true + checks，键集与主应用的 buildAllowSnapshot 同形）
-    //   confirm / block → 拒绝形态的 checks 数组（ok:false，note 为策略给出的原因）
-    // isError 只在 block（真拒绝）置位——confirm 是「待人工放行」，非错误（否则会被 blocked 类聚合误计）。
+    //   block   → 拒绝形态的 checks 数组（ok:false，note 为策略给出的原因）
+    //   confirm → **不写** authorization：它是「待人工放行」而非拒绝，写成数组会被合规视图误判为越权/阻断
+    // isError 只在 block（真拒绝）置位——confirm 非错误（否则会被 blocked 类聚合误计）。
     const authorization =
       d.decision === 'auto'
         ? JSON.stringify({
@@ -255,13 +256,15 @@ export class SidecarService {
               { name: 'sidecar_risk_policy', ok: true, note: `risk ${d.risk} within sidecar auto-allow threshold` },
             ],
           })
-        : JSON.stringify([
-            {
-              name: 'sidecar_risk_policy',
-              ok: false,
-              note: d.reason ?? `decision=${d.decision} (risk ${d.risk})`,
-            },
-          ]);
+        : d.decision === 'block'
+          ? JSON.stringify([
+              {
+                name: 'sidecar_risk_policy',
+                ok: false,
+                note: d.reason ?? `decision=block (risk ${d.risk})`,
+              },
+            ])
+          : undefined;
     void this.reportAudit({
       userId: uid,
       username: 'sidecar',

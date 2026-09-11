@@ -93,7 +93,15 @@
  
      // 失败判定：HTTP >= 400，或信封 code 非 2xx（契约 api-response：code = HTTP 状态码）
      if (response.statusCode >= 400 || (typeof body?.code === 'number' && !isSuccess(body.code))) {
-       throw new ApiError((body as any)?.message || translate('api.requestFailed'), response.statusCode)
+       // 报「指示失败的那个状态码」：HTTP 失败用 HTTP 码；仅信封失败（HTTP 2xx，运行时分歧场景）
+      // 用信封 code——否则调用方按 err.statusCode 判 401/重试时会拿到一个「成功」码。
+      const failureStatus =
+        response.statusCode >= 400
+          ? response.statusCode
+          : typeof body?.code === 'number'
+            ? body.code
+            : response.statusCode
+      throw new ApiError((body as any)?.message || translate('api.requestFailed'), failureStatus)
      }
  
      return body

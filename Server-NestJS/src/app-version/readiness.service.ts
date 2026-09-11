@@ -83,10 +83,11 @@ export class ReadinessService {
     try {
       await this.dataSource.query('SELECT 1');
       return { ready: true, detail: `数据库连接正常（${type}）`, nextStep: null };
-    } catch (err) {
+    } catch {
+      // 公开端点不泄露驱动原始错误（含主机/端口/凭据线索）——与 /health 一致，只报「不可用」
       return {
         ready: false,
-        detail: `数据库不可用：${(err as Error).message}`,
+        detail: '数据库不可用',
         nextStep: '检查 DB_* 环境变量与数据库可达性，然后重启服务',
       };
     }
@@ -103,13 +104,17 @@ export class ReadinessService {
     if (key) {
       return { ready: true, detail: `已配置模型供应商：${provider}`, nextStep: null };
     }
-    if (this.config.get<string>('OLLAMA_BASE_URL')) {
+    // Ollama 仅在 AI_PROVIDER=ollama 时才是实际生效路径（FALLBACK_CHAIN 无 ollama 项；
+    // docker-compose 无条件注入 OLLAMA_BASE_URL 而 AI_PROVIDER 仍默认 deepseek → 此时实际走 deepseek/demo）。
+    // 判据与 CapabilitiesService.isAiProviderConfigured() 保持单源：provider==='ollama' 即算配置，
+    // 否则查该 provider 的 Key——只看 OLLAMA_BASE_URL 会把「仅 demo」误报成 AI 就绪（本函数要避免的正是这个）。
+    if (provider === 'ollama') {
       return { ready: true, detail: '已配置本地 Ollama（数据不出域）', nextStep: null };
     }
     return {
       ready: false,
       detail: '未配置真实模型——确定性 demo provider 仍可跑通黄金流程（无需密钥）',
-      nextStep: `设置 ${provider.toUpperCase()}_API_KEY，或私有化部署并设置 OLLAMA_BASE_URL`,
+      nextStep: `设置 ${provider.toUpperCase()}_API_KEY，或私有化部署并设 AI_PROVIDER=ollama`,
     };
   }
 
@@ -127,8 +132,9 @@ export class ReadinessService {
         detail: `${custom ? '已自定义' : '默认'}治理策略${rev ? `（revision ${rev}）` : ''}`,
         nextStep: null,
       };
-    } catch (err) {
-      return { ready: false, detail: `治理策略读取失败：${(err as Error).message}`, nextStep: '检查治理策略表可读性' };
+    } catch {
+      // 同上：公开端点不泄露原始错误
+      return { ready: false, detail: '治理策略读取失败', nextStep: '检查治理策略表可读性' };
     }
   }
 
@@ -137,9 +143,14 @@ export class ReadinessService {
     if (!this.settings) {
       return { ready: false, detail: '无法读取设置（演示数据状态未知）', nextStep: 'npm run seed:demo' };
     }
-    const at = await this.settings.getWithDefault(ReadinessService.DEMO_SEEDED_KEY, '');
-    return at
-      ? { ready: true, detail: `演示数据已种（${at}）`, nextStep: null }
-      : { ready: false, detail: '演示数据未种（可选）', nextStep: 'npm run seed:demo' };
+    try {
+      const at = await this.settings.getWithDefault(ReadinessService.DEMO_SEEDED_KEY, '');
+      return at
+        ? { ready: true, detail: `演示数据已种（${at}）`, nextStep: null }
+        : { ready: false, detail: '演示数据未种（可选）', nextStep: 'npm run seed:demo' };
+    } catch {
+      // 设置读取失败（缓存/DB 抖动）不应让公开引导端点 500——与 _db/_governance 同样降级为「未知」
+      return { ready: false, detail: '演示数据状态未知（可选）', nextStep: 'npm run seed:demo' };
+    }
   }
 }

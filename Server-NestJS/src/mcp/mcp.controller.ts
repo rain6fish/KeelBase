@@ -159,10 +159,17 @@ export class McpExportController {
     // T5 跨入口一致：放行依据快照与 REST/SSE 同形（buildAllowSnapshot 单一构造）——仅实际放行且成功才写，
     // 否则 isError+authorization 非空会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断。
     // executed ⇒ 未经确认门控 ⇒ 非写路径（写工具在 executeToolForExternal 里就返回 executed:false）→ isWrite=false。
-    const allowSnapshot =
-      out.executed && out.result?.success
-        ? buildAllowSnapshot(toolName, await this.authorizationExplainer.getAuthorizationReasons(toolName, userId, false))
-        : undefined;
+    let allowSnapshot: string | undefined;
+    if (out.executed && out.result?.success) {
+      // 富化失败不得把「已执行成功」翻成调用方可见的错误（fail-after-execute：副作用已发生却报错，
+      // 且审计不落）——降级为无快照，审计照写（Design for Recovery）。
+      try {
+        const reasons = await this.authorizationExplainer.getAuthorizationReasons(toolName, userId, false);
+        allowSnapshot = buildAllowSnapshot(toolName, reasons);
+      } catch {
+        allowSnapshot = undefined;
+      }
+    }
     await this.auditService.log({
       userId,
       username: user.username,

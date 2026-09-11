@@ -14,7 +14,9 @@ export const useCapabilitiesStore = defineStore('capabilities', {
   }),
   getters: {
     isModuleEnabled: (state) => (id: string) => {
-      if (!state.caps) return true
+      // 未加载/失败/字段缺失或非数组 → 默认可见（fail-open）：不信任原始响应形状，
+      // 否则 `businessModules.some` 会在 computed 里抛错、整页渲染崩掉（对齐 provenance-store 的归一做法）。
+      if (!Array.isArray(state.caps?.businessModules)) return true
       return state.caps.businessModules.some((m) => m.id === id)
     },
   },

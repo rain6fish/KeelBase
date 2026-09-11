@@ -194,6 +194,8 @@ describe('SidecarService（S-2 工具门控流）', () => {
     await s.proxyChat({ model: 'mock', messages: [] });
     currentUpstream = upstreamRes([toolCall('do_z')]);
     await s.proxyChat({ model: 'mock', messages: [] });
+    currentUpstream = upstreamRes([toolCall('write_y')]);
+    await s.proxyChat({ model: 'mock', messages: [] });
 
     const entries = fetchMock.mock.calls
       .filter((c) => String(c[0]).includes('/external/audit'))
@@ -217,5 +219,12 @@ describe('SidecarService（S-2 工具门控流）', () => {
     const reasons = JSON.parse(String(blocked!.authorization)) as Array<Record<string, unknown>>;
     expect(Array.isArray(reasons)).toBe(true);
     expect(reasons[0]).toMatchObject({ name: 'sidecar_risk_policy', ok: false });
+
+    // confirm（待人工放行）不是拒绝 → 不写 authorization：写成 JSON 数组会被读取侧 parseChecks
+    // 判为 denied，在合规视图误呈「越权/阻断」（与代码注释意图相反）。
+    const confirmEntry = entries.find((e) => String(e.detail).includes('write_y'));
+    expect(confirmEntry).toBeDefined();
+    expect(confirmEntry!.isError).toBe(false);
+    expect(confirmEntry!.authorization).toBeUndefined();
   });
 });

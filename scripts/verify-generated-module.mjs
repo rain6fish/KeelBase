@@ -70,12 +70,19 @@ async function runChatWithApproval(H, message) {
 
   let buf = '';
   let approved = false;
+  if (!res.body) throw new Error('SSE 响应无 body');
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   const deadline = Date.now() + TIMEOUT_MS;
 
   while (Date.now() < deadline) {
-    const { value, done } = await reader.read();
+    // 每次 read 绑超时：服务端保持 SSE 打开却不发数据时，裸 read() 会永久挂起，
+    // deadline 永远检查不到 → 脚本（及 CI job）hang 而非超时。
+    const remaining = deadline - Date.now();
+    const { value, done } = await Promise.race([
+      reader.read(),
+      new Promise((resolve) => setTimeout(() => resolve({ done: true }), remaining)),
+    ]);
     if (done) break;
     buf += dec.decode(value, { stream: true });
     let i;
@@ -164,9 +171,16 @@ async function main() {
       ? ok('撤销 revoked=true', `revokeStatus=${rvBody.revokeStatus}`)
       : bad('撤销 revoked=true', JSON.stringify(rvBody));
     const after = (await (await fetch(`${BASE}/${MODULE}`, { headers: H })).json()).data ?? [];
-    !(Array.isArray(after) ? after : []).find((r) => r.id === created?.id)
-      ? ok('撤销后记录从本人列表消失（软删生效）')
-      : bad('撤销后记录从本人列表消失（软删生效）', '仍可见');
+    // created 未定位时不能算通过：`find(r => r.id === undefined)` 永不命中 → 旧写法会空过报 ✅（假证据）。
+    const stillVisible =
+      created?.id != null && (Array.isArray(after) ? after : []).some((r) => r.id === created.id);
+    if (created?.id == null) {
+      bad('撤销后记录从本人列表消失（软删生效）', '未定位到本次记录，无法验证');
+    } else if (!stillVisible) {
+      ok('撤销后记录从本人列表消失（软删生效）');
+    } else {
+      bad('撤销后记录从本人列表消失（软删生效）', '仍可见');
+    }
   } else {
     bad('可撤销', '无副作用记录，跳过');
   }
