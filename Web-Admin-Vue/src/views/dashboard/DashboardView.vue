@@ -13,6 +13,34 @@
       </div>
     </el-alert>
 
+    <!-- NC-3 首次运行就绪清单（五维 + 每维可执行下一步；数据来自公开端点 /app/readiness） -->
+    <el-card v-if="readiness" class="mb-4" shadow="never">
+      <template #header>
+        <div class="d-flex align-center justify-space-between">
+          <span class="font-weight-medium">{{ t('readinessTitle') }}</span>
+          <el-tag :type="readiness.ready ? 'success' : 'warning'" size="small">
+            {{ readiness.ready ? t('readinessCoreReady') : t('readinessCorePending') }}
+          </el-tag>
+        </div>
+      </template>
+      <el-table :data="readinessRows" size="small" :show-header="false">
+        <el-table-column prop="label" width="150" />
+        <el-table-column width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.ready ? 'success' : 'info'" size="small" effect="plain">
+              {{ row.ready ? t('readinessOk') : t('readinessTodo') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="detail" />
+        <el-table-column width="340">
+          <template #default="{ row }">
+            <code v-if="row.nextStep" class="text-caption">{{ row.nextStep }}</code>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- 统计卡：与 AI 审计一致（xs 2 列 + 底部间距） -->
     <el-row :gutter="16" class="mb-2">
       <el-col v-for="card in statCards" :key="card.label" :xs="12" :md="6">
@@ -81,6 +109,20 @@ import AppIcon from '@/components/AppIcon.vue'
 import { adminApi } from '@/api/admin'
 import { auditApi } from '@/api/audit'
 import { aiApi } from '@/api/ai'
+import { api } from '@/api/client'
+
+/** NC-3 就绪清单：单维 {ready, detail, nextStep}（与后端 ReadinessService 同形） */
+type ReadinessDim = { ready: boolean; detail: string; nextStep: string | null }
+type Readiness = { ready: boolean; checkedAt: string; dimensions: Record<string, ReadinessDim> }
+
+/** 维度 key → i18n 标签 key（未知 key 原样显示，便于后端加维度时不静默丢） */
+const READINESS_LABEL_KEYS: Record<string, string> = {
+  runtime: 'readinessRuntime',
+  db: 'readinessDb',
+  ai: 'readinessAi',
+  governance: 'readinessGovernance',
+  demo: 'readinessDemo',
+}
 
 const { t } = useI18n()
 // E-3 onboarding：首次进入控制台显示引导横幅（可关闭，localStorage 记忆）
@@ -96,6 +138,16 @@ const storage = ref<{ driver: string; bytes: number | null }>({ driver: '-', byt
 const trend = ref<Array<{ date: string; count: number }>>([])
 const topActions = ref<Array<{ action: string; count: number }>>([])
 const journeyStats = ref<{ today: number; total: number }>({ today: 0, total: 0 })
+
+/** NC-3 首次运行就绪清单（失败不阻塞概览：卡片整体隐藏） */
+const readiness = ref<Readiness | null>(null)
+const readinessRows = computed(() =>
+  Object.entries(readiness.value?.dimensions ?? {}).map(([key, dim]) => ({
+    key,
+    label: t(READINESS_LABEL_KEYS[key] ?? key),
+    ...dim,
+  })),
+)
 
 async function load() {
   loading.value = true
@@ -126,6 +178,13 @@ function barHeight(n: number): number {
 
 onMounted(async () => {
   await load()
+  // NC-3 就绪清单：补充信息，独立非阻塞取（失败静默隐藏卡片，不拖慢概览主数据）
+  void api
+    .get<Readiness>('/app/readiness')
+    .then((r) => {
+      readiness.value = r
+    })
+    .catch(() => {})
   aiApi
     .trustSandboxJourneyStats()
     .then((js) => {
