@@ -30,7 +30,14 @@ export const APP_VERSION = {
   latestVersion: readPackageVersion(),
   minRequiredVersion: '1.0.0',
   updateUrl: 'https://example.com/download',
-  changelog: ['AI Follow-up Agent：AI 主动发现长期未跟进客户并建议跟进', 'AI Bridge 代理工具免重启热更新', 'AI 审计证据语义：放行授权快照 + 越权尝试一级事件 + 审批语义 + 生命周期流转', '安全演示（对抗性证明）：确定性场景一键运行，防线漂移即 fail-loud', '全库健康体检 + 授权子域下沉切 import 环 + 协议合规认证进 CI'],
+  changelog: [
+    '业务访谈直生成（Consulting→Build）：Business Spec → 确定性协议 → 生成模块，全链路进 CI',
+    'Enterprise Proof 与 S5 合流：两主张一次运行同证（断言化）',
+    '前端 Runtime-Neutrality：信封/错误/刷新增适配层，三端按 capabilities/provenance 驱动导航',
+    '跨入口决策一致（T5）：sidecar 放行依据与 REST/SSE 同形，MCP 拒绝留痕',
+    '首次运行就绪清单：GET /app/readiness 五维 + 每维可执行下一步',
+    'run 级批量撤销 + 决策词汇统一（approve|decline，wire Schema v2）',
+  ],
 };
 
 export type AppVersionInfo = {
