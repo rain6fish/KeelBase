@@ -12,7 +12,7 @@ import { randomUUID, createHash } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
-import { AuthorizationExplainerService } from './authorization-explainer.service';
+import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
@@ -1595,17 +1595,9 @@ export class AiService {
               // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
               // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
               // §internal.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
-              authorization:
-                result.success
-                  ? JSON.stringify({
-                      allowed: true,
-                      tool: tc.name,
-                      riskLevel: authz.riskLevel,
-                      strategy: authz.riskStrategy,
-                      checks: authz.checks,
-                      ...(authz.policy ? { policy: authz.policy } : {}),
-                    })
-                  : undefined,
+              authorization: result.success
+                ? buildAllowSnapshot(tc.name, authz)
+                : undefined,
             });
           }
         } catch (err) {
@@ -2000,16 +1992,7 @@ export class AiService {
               // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
               businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
               evidence: this._captureDecisionEvidence(tc.name, resolvedResult) ?? undefined,
-              authorization: authz
-                ? JSON.stringify({
-                    allowed: true,
-                    tool: tc.name,
-                    riskLevel: authz.riskLevel,
-                    strategy: authz.riskStrategy,
-                    checks: authz.checks,
-                    ...(authz.policy ? { policy: authz.policy } : {}),
-                  })
-                : undefined,
+              authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
             });
           }
 

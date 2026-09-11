@@ -5,6 +5,7 @@ import { McpExportController } from './mcp.controller';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
+import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
 
 describe('McpExportController (HS-10)', () => {
   let controller: McpExportController;
@@ -36,11 +37,21 @@ describe('McpExportController (HS-10)', () => {
       executeToolForExternal: jest.fn(),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
+    const explainer = {
+      getAuthorizationReasons: jest.fn().mockResolvedValue({
+        tool: 'query_events',
+        riskLevel: 'R1',
+        riskStrategy: 'auto',
+        requiresConfirmation: false,
+        checks: [{ name: 'tool_enabled', ok: true }],
+      }),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         McpExportController,
         { provide: AiService, useValue: ai },
         { provide: AuditService, useValue: audit },
+        { provide: AuthorizationExplainerService, useValue: explainer },
       ],
     }).compile();
     controller = moduleRef.get(McpExportController);
@@ -90,8 +101,34 @@ describe('McpExportController (HS-10)', () => {
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'tool_call', provider: 'mcp', userId: '1' }),
     );
+    // T5 跨入口一致：放行/成功也写放行依据快照（与 REST/SSE 同形，buildAllowSnapshot 单一构造）
+    const logged = (audit.log as jest.Mock).mock.calls[0][0] as { authorization?: string };
+    expect(logged.authorization).toBeDefined();
+    expect(JSON.parse(logged.authorization!)).toMatchObject({
+      allowed: true,
+      tool: 'query_events',
+      riskLevel: 'R1',
+      strategy: 'auto',
+    });
     expect((res as any).result.content[0].text).toContain('3');
     expect((res as any).result.isError).toBe(false);
+  });
+
+  it('tools/call 读工具执行失败 → 不写放行快照（避免 isError+authorization 被误判为阻断）', async () => {
+    ai.executeToolForExternal.mockResolvedValue({
+      executed: true,
+      requiresConfirmation: false,
+      result: { success: false, error: 'boom' },
+    });
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 44,
+      method: 'tools/call',
+      params: { name: 'query_events', arguments: {} },
+    });
+    const logged = (audit.log as jest.Mock).mock.calls[0][0] as { authorization?: string; isError?: boolean };
+    expect(logged.isError).toBe(true);
+    expect(logged.authorization).toBeUndefined();
   });
 
   it('tools/call 写工具 → 不执行，返回需确认提示', async () => {

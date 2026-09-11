@@ -19,6 +19,25 @@ import {
 } from './interfaces/tool.interface';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 
+/**
+ * §internal.16 A-5 / T5 跨入口一致：**放行授权依据快照的单一构造**（JSON 字符串）。
+ * 仅当工具**实际放行并成功执行**时写（未放行/失败/待批不写——否则 isError+authorization 非空会被
+ * A-8 denied 视图与 blocked 聚合误判为越权/阻断，见 docs/audit-authz-snapshot.spec.md §「成功分支」）。
+ * SSE 流式 / 非流式 / MCP 三个入口共用本函数，防形状漂移（此前各自内联）。
+ * 注意对外键名为 `strategy`（源字段 riskStrategy）；`allowed/checks/riskLevel/policy` 是读取侧
+ * `parseAllowedSnapshot` 依赖的契约字段。
+ */
+export function buildAllowSnapshot(tool: string, authz: AuthorizationReasons): string {
+  return JSON.stringify({
+    allowed: true,
+    tool,
+    riskLevel: authz.riskLevel,
+    strategy: authz.riskStrategy,
+    checks: authz.checks,
+    ...(authz.policy ? { policy: authz.policy } : {}),
+  });
+}
+
 @Injectable()
 export class AuthorizationExplainerService {
   constructor(
