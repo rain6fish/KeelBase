@@ -76,9 +76,15 @@ import { POSTGRES_MIGRATION_GLOBS } from './config/postgres-migrations';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV
-        ? `.env.${process.env.NODE_ENV}`
-        : '.env',
+      // G2-3①：环境文件解析。
+      // - development（或未设 NODE_ENV）→ ['.env.development', '.env']：缺 .env.development 时回退 .env，
+      //   避免「显式设 NODE_ENV=development 反而读不到随仓的 .env → JWT_SECRET 校验崩」的地雷。
+      // - staging / production / test → 只读 `.env.<env>`（不静默回退到 .env，防开发密钥进生产；
+      //   纯 env-var 部署（Docker）无文件时由进程环境变量提供，ConfigModule 跳过缺失文件即可）。
+      envFilePath:
+        !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
+          ? ['.env.development', '.env']
+          : `.env.${process.env.NODE_ENV}`,
       validationSchema: envValidationSchema,
     }),
     TypeOrmModule.forRootAsync({
