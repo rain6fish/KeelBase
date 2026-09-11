@@ -226,6 +226,7 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 |--------|------|------|------|
 | POST | /ai/chat | 非流式对话 / Non-streaming chat | 登录 / Logged-in |
 | POST | /ai/chat/stream | SSE 流式对话 / SSE streaming chat | 登录 / Logged-in |
+| POST | /ai/confirmations/:token | 确认 AI 写操作（decision `approve`/`decline`；token 来自流式 `confirmation_request`） / Confirm an AI write op (decision `approve`/`decline`; token comes from the streaming `confirmation_request`) | 本人 / Self |
 | GET | /ai/conversations | 对话历史列表 / Conversation history list | 登录 / Logged-in |
 | GET | /ai/conversations/:id | 单个对话完整消息 / Full messages of a single conversation | 本人 / Self |
 | GET | /ai/conversations/:id/trace | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） / Conversation execution trace (tool calls/confirmations/effects/results) | 本人 / Self |
@@ -237,6 +238,13 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 | GET | /ai/knowledge/:id | 知识条目详情 / Knowledge entry details | 管理员 / Admin |
 | PATCH | /ai/knowledge/:id | 更新知识条目 / Update knowledge entry | 管理员 / Admin |
 | DELETE | /ai/knowledge/:id | 删除知识条目 / Delete knowledge entry | 管理员 / Admin |
+
+> **写确认流 / Write-confirmation flow**：需人工确认的写操作（`requiresConfirmation`）**只在流式通道发出确认请求**——
+> ① 客户端 `POST /ai/chat/stream`；② 服务端发 `confirmation_request` 事件（载荷含 `token` + 工具 + 参数摘要）；③ 客户端**另行** `POST /ai/confirmations/:token`（`decision: approve|decline`）→ 批准后服务端才执行写并登记副作用（可撤销）。
+> **非流式 `POST /ai/chat` 不返回确认 token**（同步响应不经确认门控的交互通道）——集成写操作请走流式。
+> **Write-confirmation flow**: write ops needing confirmation (`requiresConfirmation`) **emit their confirmation request only on the streaming channel** —
+> ① client calls `POST /ai/chat/stream`; ② server emits a `confirmation_request` event (payload carries `token` + tool + args summary); ③ the client **separately** calls `POST /ai/confirmations/:token` (`decision: approve|decline`) → only then does the server execute the write and record a revocable side effect.
+> **Non-streaming `POST /ai/chat` does not return a confirmation token** — integrate writes via the streaming channel.
 
 ### 5.2 请求/响应示例 / 5.2 Request/Response Examples
 

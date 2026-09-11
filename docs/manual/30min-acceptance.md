@@ -74,7 +74,7 @@ node scripts/keelbase-init.mjs --spec specs/books.json   # 生成 books 模块�
 - ✅ **30 分钟内**完成 1-7 步（生成/迁移/API/前端/权限/测试）
 - ✅ **AI Tool** 自动附带：`query_<plural>` + `create_<singular>`（写需确认）可在 AI 对话中触发
 - ✅ **Confirmation**：写工具弹出确认框，用户确认后落库
-- ✅ **Audit**：写操作入操作审计 + AI 调用入 AI 审计（哈希链可验证）
+- ✅ **Audit**：AI 工具写 → AI 审计 + 副作用记录（含确认决策）；REST 人类写 → 操作审计（均哈希链可验证）
 - ✅ 生成物是**普通源代码**，开发者可继续修改
 
 ## 5. 常见失败点与处理

@@ -72,7 +72,7 @@ node scripts/keelbase-init.mjs --spec specs/books.json   # generates the books m
 - ✅ Steps 1-7 (generate/migrate/API/frontend/permissions/tests) completed **within 30 minutes**
 - ✅ **AI Tool** auto-included: `query_<plural>` + `create_<singular>` (write requires confirmation) triggerable in AI chat
 - ✅ **Confirmation**: the write tool shows a confirmation dialog; the write lands only after the user confirms
-- ✅ **Audit**: writes land in the operation audit + AI calls land in the AI audit (hash chain verifiable)
+- ✅ **Audit**: AI tool writes → AI audit + side-effect records (incl. confirmation decisions); REST human writes → operation audit (both hash-chain verifiable)
 - ✅ The output is **plain source code** the developer can keep modifying
 
 ## 5. Common Failures
