@@ -5,6 +5,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { AiService } from '../src/ai/ai.service';
+import { AuthorizationExplainerService } from '../src/ai/authorization-explainer.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
 
 /**
@@ -12,10 +13,12 @@ import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
  * （checks/reasons）跨入口应同源。确定性（无 LLM——越权/风险 deny 在
  * AiService._assertToolAllowed、确认在 _requiresConfirmation）。
  *
- * 聚焦 MCP 决策语义补齐（此前 deny → -32603 无审计无 reasons；confirmation 纯文本无标注）：
+ * 聚焦 MCP 决策语义补齐（此前 deny → -32603 无审计无 reasons；confirmation 纯文本无标注；
+ * allow → 不写放行依据快照）：
  *   ① R5 工具 deny → 返回 -32603（决策到达调用方）+ 审计留痕（authorization denied）
  *   ② deny reasons 同源——MCP 与直调 executeToolForExternal 走同一治理判定（risk_policy check）
  *   ③ R3 写工具 confirmation → 未执行 + 审计 detail 标注 requiresConfirmation
+ *   ④ allow → 审计写放行依据快照（与 REST/SSE 同形同源：buildAllowSnapshot 单一构造）
  */
 describe('Cross-entry decision consistency (T5)', () => {
   let app: INestApplication;
@@ -116,5 +119,46 @@ describe('Cross-entry decision consistency (T5)', () => {
     const rows = await mcpAuditRows('requiresConfirmation');
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.some((r) => (r.detail ?? '').includes('create_event'))).toBe(true);
+  });
+
+  it('④ allow 依据跨入口同形——MCP 读工具成功也写放行快照，且与既定判定同源（T5）', async () => {
+    const res = await mcpCall('query_events', {}).expect(201);
+    expect(res.body.error).toBeUndefined();
+
+    // 直读审计行取 authorization（列表 DTO 不透出该列）
+    const repo = app
+      .get(DataSource)
+      .getRepository<{ id: number; provider: string | null; detail: string | null; authorization: string | null }>(
+        'ai_audit_logs',
+      );
+    const rows = await repo.find({
+      where: { userId: String(mcpUserId), provider: 'mcp' },
+      order: { id: 'DESC' },
+      take: 10,
+    });
+    const row = rows.find(
+      (r) => (r.detail ?? '').startsWith('query_events(') && !(r.detail ?? '').includes('requiresConfirmation'),
+    );
+    expect(row).toBeDefined();
+    expect(row!.authorization).toBeTruthy();
+
+    const snap = JSON.parse(row!.authorization!) as Record<string, unknown>;
+    // 形状契约：与 REST/SSE 同形（buildAllowSnapshot 单一构造）——键集不得超出该形状
+    for (const k of ['allowed', 'tool', 'riskLevel', 'strategy', 'checks']) {
+      expect(snap).toHaveProperty(k);
+    }
+    expect(
+      Object.keys(snap).every((k) => ['allowed', 'tool', 'riskLevel', 'strategy', 'checks', 'policy'].includes(k)),
+    ).toBe(true);
+    expect(snap.allowed).toBe(true);
+    expect(snap.tool).toBe('query_events');
+
+    // 依据同源：快照携带的「为何允许」与授权解释器对同一 tool+user 的判定一致
+    const reasons = await app
+      .get(AuthorizationExplainerService)
+      .getAuthorizationReasons('query_events', String(mcpUserId), false);
+    expect(snap.checks).toEqual(reasons.checks);
+    expect(snap.riskLevel).toBe(reasons.riskLevel);
+    expect(snap.strategy).toBe(reasons.riskStrategy);
   });
 });
