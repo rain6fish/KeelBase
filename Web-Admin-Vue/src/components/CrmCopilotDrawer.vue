@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
-  <el-drawer v-model="open" :title="t('copilotTitle')" size="420px" @closed="onClosed">
+  <el-drawer v-model="open" :title="t('copilotTitle')" size="600px" @closed="onClosed">
     <!-- 对话区 -->
     <div ref="scrollRef" class="copilot-chat flex-grow-1 mb-3">
       <div v-if="!items.length" class="text-medium-emphasis pa-2">
