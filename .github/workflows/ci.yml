@@ -261,6 +261,23 @@ jobs:
           node scripts/keelbase-init.mjs --module cismoke --label CI冒烟 --fields title:string,content:text
           cd Server-NestJS && npm run build && npm test -- cismoke
 
+  # S4 全链路验收（Consulting → Build 桥，docs/business-spec.md）：业务访谈产物（Business Spec）
+  # → business-spec.mjs 确定性映射 → 模块协议 → keelbase init --spec → 生成模块（后端+三前端+AI 工具）
+  # → 编译 → 生成模块单测 → 迁移自洽（首轮生成该模块迁移 → 应用 → 复生成 No changes）。
+  # 与 stranger-smoke 的区别：那条走 `--module/--fields` 捷径，本条走「访谈产物 → 协议 → 生成」的真实链路。
+  consulting-to-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      # 脚本自带「脏树拒绝」守卫；CI 检出干净可直接跑
+      - run: bash scripts/verify-consulting-to-build.sh
+
   # 供应链安全（评审三 §6）：依赖完整性 + 漏洞审计 + SBOM
   supply-chain:
     runs-on: ubuntu-latest
