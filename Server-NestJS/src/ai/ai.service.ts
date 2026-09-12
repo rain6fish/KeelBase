@@ -375,6 +375,12 @@ export class AiService {
     conversationId?: string,
     runId?: string,
   ): Promise<ToolResult> {
+    // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
+    // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
+    // 期间策略 `enabled` / 角色白名单 / 特性开关可能变化（策略「实时生效」，见 hs9 spec §0/§5）。此前仅发起时断言：
+    // 已被禁用的工具仍会因「早先批准」而执行，kill-switch 对在途审批失效。此处复查，使执行点与发起点同门。
+    await this._assertToolAllowed(toolName, userId);
+
     if (this.externalToolProvider?.isExternal(toolName)) {
       const out = await this.externalToolProvider.callTool(toolName, args, userId);
       if (!out.executed) {
