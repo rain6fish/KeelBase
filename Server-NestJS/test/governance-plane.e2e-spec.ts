@@ -9,6 +9,9 @@ import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { AiConfirmationRequest } from '../src/ai/approvals/ai-confirmation-request.entity';
 
+// 本套件需启动第二个 Nest app（治理台独立库），CI 慢机冷启易逼近全局 30s testTimeout → 单独放宽。
+jest.setTimeout(60_000);
+
 /**
  * D2-2 独立治理控制平面 —— 真实 HTTP e2e（docs/ai-governance.spec.md / governance-plane）。
  *

@@ -61,10 +61,17 @@ E2E_OUT=$(cd Server-NestJS && npx jest --config test/jest-e2e.json \
   test/revoke-acceptance.e2e-spec.ts test/trust-behavior-matrix.e2e-spec.ts \
   test/governance-plane.e2e-spec.ts test/crm-trust-failure-path.e2e-spec.ts \
   test/pm-trust-failure-path.e2e-spec.ts test/approval-trust-failure-path.e2e-spec.ts 2>&1) || true
+failed_e2e=""
 for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)" "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)" "governance-plane:治理台HTTP" "crm-trust-failure-path:CRM失败路径(A2)" "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"; do
   name="${t%%:*}"; label="${t##*:}"
-  if echo "$E2E_OUT" | grep -q "PASS test/${name}.e2e-spec.ts"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; fi
+  if grep -q "PASS test/${name}.e2e-spec.ts" <<<"$E2E_OUT"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; failed_e2e="${failed_e2e} ${name}"; fi
 done
+# 失败可诊断：回显 jest 输出尾部（否则日志只有 "FAIL — e2e"，无法定位）
+if [ -n "$failed_e2e" ]; then
+  echo "── 失败 e2e 明细（${failed_e2e}）— jest 输出尾部 ──"
+  printf '%s\n' "$E2E_OUT" | tail -n 160
+  echo "── /失败 e2e 明细 ──"
+fi
 
 # ── Trust：审计链并发压测（HS-11 完整性基线：分叉 0 + verify 全绿 + 吞吐/P95）──
 echo "→ [Trust] 审计链并发压测"

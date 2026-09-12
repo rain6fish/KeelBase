@@ -62,4 +62,24 @@ describe('revoke 幂等：单条撤销与批量撤销一致性', () => {
     expect(externalRevoke).not.toHaveBeenCalled();
     expect(res?.revoked).toBe(false);
   });
+
+  it('revokeOwned：已 revoked 的副作用 → 幂等成功（revoked:true + skipped，不再触发）', async () => {
+    const externalRevoke = jest.fn();
+    const effect = {
+      id: 7,
+      userId: '42',
+      toolName: 'create_event',
+      resultType: 'event',
+      resultId: 11,
+      revokeClass: 'local_compensate',
+      revokeStatus: 'revoked',
+    };
+    const { svc } = make(effect, externalRevoke);
+    const res = await svc.revokeOwned(7, '42');
+    // 终态已达成 → 幂等成功；skipped 标记不重复触发
+    expect(res?.revoked).toBe(true);
+    expect(res?.skipped).toBe(true);
+    expect(res?.reason).toBe('already_revoked');
+    expect(externalRevoke).not.toHaveBeenCalled();
+  });
 });

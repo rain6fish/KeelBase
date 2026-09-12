@@ -644,8 +644,11 @@ export class AiToolEffectsService {
     effect: AiToolSideEffect,
     reason: 'already_revoked' | 'compensating',
   ): RevokeResult {
+    // 幂等语义（单条）：已撤销 = 终态已达成 → revoked:true（HTTP DELETE 幂等成功），仅 skipped 标记不重复触发；
+    // 补偿中 = 外部结果未知 → 如实 revoked:false（KB-6：不得显示为已撤销）。
+    const alreadyRevoked = reason === 'already_revoked';
     return {
-      revoked: false,
+      revoked: alreadyRevoked,
       effectId: effect.id,
       skipped: true,
       reason,
@@ -653,7 +656,7 @@ export class AiToolEffectsService {
       revokeStatus: (effect.revokeStatus as RevokeResult['revokeStatus']) ?? undefined,
       message:
         reason === 'already_revoked'
-          ? '该副作用此前已撤销，跳过'
+          ? '该副作用此前已撤销（幂等成功），跳过重复触发'
           : '外部补偿已请求、结果以目标系统为准——跳过重复触发',
     };
   }
