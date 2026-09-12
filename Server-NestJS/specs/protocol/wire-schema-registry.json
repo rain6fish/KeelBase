@@ -374,6 +374,36 @@
       "samples": [
         "schemas/v1/samples/mcp-tool-list.json"
       ]
+    },
+    {
+      "id": "org-membership-scope",
+      "version": "v1",
+      "schema": "org-membership-scope.schema.json",
+      "title": "我的组织成员范围 GET /org/my data（org/orgId 数据范围 membership）",
+      "source": "src/org/org.service.ts:351-366 getMyOrg; src/org/org-member-role.enum.ts",
+      "samples": [
+        "schemas/v1/samples/org-membership-scope.json"
+      ]
+    },
+    {
+      "id": "org-member-item",
+      "version": "v1",
+      "schema": "org-member-item.schema.json",
+      "title": "组织成员项（管理端）GET /org/organizations/:orgId/members item（MemberView，email 掩码）",
+      "source": "src/org/org.service.ts:41-52 MemberView, :491-504 _toMemberView",
+      "samples": [
+        "schemas/v1/samples/org-member-item.json"
+      ]
+    },
+    {
+      "id": "org-member-public",
+      "version": "v1",
+      "schema": "org-member-public.schema.json",
+      "title": "组织成员项（成员只读白名单）GET /org/my/members item（无 email/phone/username）",
+      "source": "src/org/org.service.ts:393-407 listMyMembers",
+      "samples": [
+        "schemas/v1/samples/org-member-public.json"
+      ]
     }
   ]
 }

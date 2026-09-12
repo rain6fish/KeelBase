@@ -1,0 +1,6 @@
+{
+  "org": { "id": 1, "name": "释鱼智汇", "description": "示例组织" },
+  "role": "owner",
+  "deptId": 3,
+  "deptPath": ["总部", "销售部"]
+}

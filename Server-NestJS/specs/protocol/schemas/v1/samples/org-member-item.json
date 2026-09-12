@@ -1,0 +1,12 @@
+{
+  "id": 12,
+  "orgId": 1,
+  "userId": 42,
+  "deptId": 3,
+  "deptName": "销售部",
+  "role": "member",
+  "username": "alex",
+  "nickname": "Alex",
+  "avatarUrl": null,
+  "email": "al***@example.com"
+}

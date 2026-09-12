@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "org-member-public.schema.json",
+  "title": "组织成员项（成员只读白名单）GET /org/my/members item — v1",
+  "description": "PC-3（CE-2 缺口）：成员面向的通讯录白名单行——**数据最小化**：仅 id(=userId)/nickname/avatarUrl/role/deptName，**不含** email/phone/username（与协作管理端 MemberView 的差异即隐私边界，见 CLAUDE.md §5.5 红线 2）。来源：src/org/org.service.ts listMyMembers()。",
+  "type": "object",
+  "required": ["id", "nickname", "avatarUrl", "role", "deptName"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number", "description": "用户 id（= userId，非成员记录 id）" },
+    "nickname": { "type": ["string", "null"] },
+    "avatarUrl": { "type": ["string", "null"] },
+    "role": { "type": "string", "enum": ["owner", "admin", "member"] },
+    "deptName": { "type": ["string", "null"] }
+  }
+}

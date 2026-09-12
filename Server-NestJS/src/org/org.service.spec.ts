@@ -293,6 +293,53 @@ describe('OrgService', () => {
     expect(result.items[0].deptName).toBe('研发部');
   });
 
+  // PC-3（CE-2 缺口）：org/orgId 数据范围 membership wire 形状在**源侧**冻结——与
+  // specs/protocol/schemas/v1/org-*.schema.json（additionalProperties:false + 样例）配合：
+  // 任一侧加/改字段，本断言或 wire-schema 冻结门先红。
+  it('PC-3 wire 形状冻结：成员范围 / 成员项（管理端 / 成员白名单）键 == 冻结 schema 契约', async () => {
+    // ① GET /org/my → org-membership-scope（数据范围描述子）
+    members.findOne.mockResolvedValue({ orgId: 1, role: OrgMemberRole.OWNER, deptId: 2 });
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme', description: 'd' });
+    depts.find.mockResolvedValue([
+      { id: 1, name: '总部', parentId: null },
+      { id: 2, name: '研发部', parentId: 1 },
+    ]);
+    const my = await service.getMyOrg(7);
+    expect(Object.keys(my).sort()).toEqual(['deptId', 'deptPath', 'org', 'role']);
+    expect(Object.keys(my.org).sort()).toEqual(['description', 'id', 'name']);
+    expect(my.deptPath).toEqual(['总部', '研发部']);
+
+    // ② GET /org/organizations/:orgId/members item → org-member-item（管理端，email 掩码）
+    members.createQueryBuilder().getCount.mockResolvedValue(1);
+    members.createQueryBuilder().getMany.mockResolvedValue([
+      {
+        id: 1,
+        orgId: 1,
+        userId: 5,
+        deptId: 2,
+        role: OrgMemberRole.MEMBER,
+        user: { username: 'alice', nickname: 'Alice', avatarUrl: null, email: 'alice@example.com' },
+        dept: { name: '研发部' },
+      },
+    ]);
+    const admin = await service.listMembers(1, 1, 20);
+    expect(Object.keys(admin.items[0]).sort()).toEqual([
+      'avatarUrl', 'deptId', 'deptName', 'email', 'id', 'nickname', 'orgId', 'role', 'userId', 'username',
+    ]);
+
+    // ③ GET /org/my/members item → org-member-public（白名单：无 email/phone/username）
+    members.find.mockResolvedValue([
+      {
+        userId: 5,
+        role: OrgMemberRole.MEMBER,
+        user: { nickname: 'Alice', avatarUrl: null },
+        dept: { name: '研发部' },
+      },
+    ]);
+    const pub = await service.listMyMembers(7);
+    expect(Object.keys(pub[0]).sort()).toEqual(['avatarUrl', 'deptName', 'id', 'nickname', 'role']);
+  });
+
   // ── 邀请（ORG-6） ──
 
   it('兑换邀请码：有效 → 入组织 + 标记已用 + 通知邀请者', async () => {

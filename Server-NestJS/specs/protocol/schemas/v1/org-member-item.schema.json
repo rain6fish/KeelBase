@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "org-member-item.schema.json",
+  "title": "组织成员项（管理端）GET /org/organizations/:orgId/members item — v1",
+  "description": "PC-3（CE-2 缺口）：管理端成员列表行（`MemberView`）。全部键恒在（缺值为 null）。**脱敏**：email 经 maskEmail 掩码；role ∈ OrgMemberRole。来源：src/org/org.service.ts MemberView + _toMemberView()。",
+  "type": "object",
+  "required": ["id", "orgId", "userId", "deptId", "deptName", "role", "username", "nickname", "avatarUrl", "email"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number", "description": "成员记录 id" },
+    "orgId": { "type": "number" },
+    "userId": { "type": "number" },
+    "deptId": { "type": ["number", "null"] },
+    "deptName": { "type": ["string", "null"] },
+    "role": { "type": "string", "enum": ["owner", "admin", "member"] },
+    "username": { "type": ["string", "null"] },
+    "nickname": { "type": ["string", "null"] },
+    "avatarUrl": { "type": ["string", "null"] },
+    "email": { "type": ["string", "null"], "description": "掩码后的邮箱（maskEmail）" }
+  }
+}

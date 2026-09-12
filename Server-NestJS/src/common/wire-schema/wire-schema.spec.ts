@@ -64,6 +64,10 @@ const FROZEN_OBJECT_IDS = [
   'operation-audit-payload',
   // E 收口：MCP 出口 tools/list 治理投影（annotations.readOnlyHint/destructiveHint + _meta.keelbase）
   'mcp-tool-list',
+  // PC-3（CE-2 缺口）：org/orgId 数据范围 membership wire
+  'org-membership-scope',
+  'org-member-item',
+  'org-member-public',
 ];
 
 const failures: string[] = [];
