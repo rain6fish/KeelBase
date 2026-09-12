@@ -769,6 +769,33 @@ test('端到端：非交互 CLI 生成 + 接线', async () => {
   assert.ok(man.modules.includes('posts'));
 });
 
+test('端到端：目标文件撞名（模块目录缺失但工具文件已存在）→ 拒绝且不覆盖', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  // 模拟 AI CRM 旗舰已占用 query-suppliers.tool.ts，而模块目录 src/suppliers 不存在（= 撞名）
+  await write(BE(root, 'ai/tools/query-suppliers.tool.ts'), '// occupied by flagship\nexport class QuerySuppliersTool {}\n');
+  const specPath = `${root}/supplier.json`;
+  await write(
+    specPath,
+    JSON.stringify({ module: 'suppliers', label: '供应商', fields: [{ name: 'name', type: 'string', label: '名称' }] }),
+  );
+
+  const { code, out } = await new Promise((resolve) => {
+    const p = spawn(process.execPath, [cli, '--spec', specPath], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (c) => resolve({ code: c, out: o + e }));
+  });
+  assert.notEqual(code, 0, `撞名应被拒绝，实际 exit=${code}`);
+  assert.match(out, /已被占用|撞名/);
+  // 既有旗舰文件未被覆盖
+  const kept = await readFile(BE(root, 'ai/tools/query-suppliers.tool.ts'), 'utf8');
+  assert.match(kept, /occupied by flagship/);
+});
+
 test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () => {
   const root = await tempRoot();
   await makeFixtures(root);
