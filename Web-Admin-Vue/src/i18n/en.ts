@@ -351,6 +351,9 @@ const en: ZhDict = {
   aiCenterWritesTitle: 'AI write actions',
   aiCenterEffectTotal: 'Total {n}',
   aiCenterEffectCreated: 'Created by AI',
+  // D2: evidence ↔ actual state change
+  aiCenterChangeCreated: 'New record · {n} fields',
+  aiCenterChangeUpdated: 'Changed {n} fields: {fields}',
   aiCenterWritesEmpty: 'No AI write actions yet. Ask the AI in CRM / PM to create a follow-up task or project — it will show up here',
   aiCenterLoading: 'Loading…',
   statusExecuted: 'Executed',

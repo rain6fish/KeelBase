@@ -305,6 +305,8 @@ export class AiToolEffectsService {
             this._readRevokeClass(effect),
             this._normalizeStatus(effect, targetSoftDeleted),
           ),
+          // D2：AI 决策证据 ↔ 实际状态变化——由快照导出紧凑变更摘要（不返回全量值，控载荷）
+          change: this._summarizeChange(effect.beforeSnapshot, effect.afterSnapshot),
         };
       }),
     );
@@ -317,6 +319,35 @@ export class AiToolEffectsService {
    * 数据最小化：不回显 args/argsHash/before/after 快照（字段级证据走 B4/审计面）；人类标签由前端按 toolName 映射（D2 toolLabel）。
    * status 归一：目标软删（targetSoftDeleted=true）→ revoked，否则 executed。
    */
+  /**
+   * D2：从 before/after 快照导出紧凑「实际状态变化」摘要——kind（created/updated/unknown）+ 变更字段名。
+   * 只给字段名（不给全量值），列表载荷可控；详细 diff 仍走动作详情（FieldDiff）。
+   */
+  private _summarizeChange(
+    beforeRaw: string | null | undefined,
+    afterRaw: string | null | undefined,
+  ): { kind: 'created' | 'updated' | 'unknown'; fields: string[] } {
+    const parse = (raw: string | null | undefined): Record<string, unknown> | null => {
+      if (!raw) return null;
+      try {
+        const v = JSON.parse(raw) as unknown;
+        return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    };
+    const before = parse(beforeRaw);
+    const after = parse(afterRaw);
+    if (!before && after) return { kind: 'created', fields: Object.keys(after) };
+    if (before && after) {
+      const fields = Object.keys(after).filter(
+        (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+      );
+      return { kind: 'updated', fields };
+    }
+    return { kind: 'unknown', fields: [] };
+  }
+
   async listOwned(userId: string, options: { page?: number; limit?: number } = {}) {
     const page = options.page ?? 1;
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
@@ -351,6 +382,8 @@ export class AiToolEffectsService {
             this._readRevokeClass(effect),
             this._normalizeStatus(effect, targetSoftDeleted),
           ),
+          // D2：AI 决策证据 ↔ 实际状态变化——由快照导出紧凑变更摘要（不返回全量值，控载荷）
+          change: this._summarizeChange(effect.beforeSnapshot, effect.afterSnapshot),
         };
       }),
     );

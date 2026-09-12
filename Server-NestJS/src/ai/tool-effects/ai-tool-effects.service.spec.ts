@@ -385,6 +385,25 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(result.items[0]).not.toHaveProperty('afterSnapshot');
     });
 
+    it('D2：由快照导出紧凑变更摘要（created / updated 字段名；仍不回显快照值）', async () => {
+      repo.findAndCount.mockResolvedValue([
+        [
+          { ...baseEffect(1, 'event', 42), beforeSnapshot: null, afterSnapshot: JSON.stringify({ title: '新事件', startTime: 'x' }) },
+          { ...baseEffect(2, 'event', 43), beforeSnapshot: JSON.stringify({ title: '旧', status: 'a' }), afterSnapshot: JSON.stringify({ title: '新', status: 'a' }) },
+          { ...baseEffect(3, 'event', 44), beforeSnapshot: null, afterSnapshot: null },
+        ],
+        3,
+      ]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue({ title: 't', deletedAt: null }) });
+
+      const result = await service.listOwned('42', {});
+      expect(result.items[0].change).toEqual({ kind: 'created', fields: ['title', 'startTime'] });
+      expect(result.items[1].change).toEqual({ kind: 'updated', fields: ['title'] }); // status 未变不入
+      expect(result.items[2].change).toEqual({ kind: 'unknown', fields: [] });
+      // 仅字段名，不泄漏快照值（数据最小化口径保持）
+      expect(JSON.stringify(result.items[0].change)).not.toContain('新事件');
+    });
+
     it('目标不存在 → targetExists=false 且 status=executed（无软删记录）', async () => {
       repo.findAndCount.mockResolvedValue([[baseEffect(1, 'pm_task', 99)], 1]);
       entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });

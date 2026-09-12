@@ -133,6 +133,8 @@ export interface MyAiEffect {
   status: 'executed' | 'revoked' | 'revoking_external' | 'revoke_failed'
   /** 服务端单一权威的撤销可点（status=executed 且档位非 none） */
   revocable?: boolean
+  /** D2：AI 决策证据 ↔ 实际状态变化——由快照导出的紧凑变更摘要（created/updated + 变更字段名） */
+  change?: { kind: 'created' | 'updated' | 'unknown'; fields: string[] }
 }
 
 /** G1 会话级批量撤销结果（DELETE /ai/my/tool-effects?conversationId=） */

@@ -45,6 +45,7 @@ const effectExecuted = {
   status: 'executed',
   revokeClass: 'local_compensate',
   revocable: true,
+  change: { kind: 'created', fields: ['title', 'dueDate'] },
 }
 const effectRevoked = {
   id: 2,
@@ -121,6 +122,17 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
     // 撤销按钮仅 executed 行出现（两条中 1 条）→ 只出现 1 次
     expect(wrapper.findAll('button').filter((b) => b.text().includes('撤销'))).toHaveLength(1)
     expect(wrapper.text()).toContain('跟进：辰光建材 逾期回款')
+  })
+
+  it('D2：显示实际状态变化摘要（新建 N 个字段）', async () => {
+    myEffectsMock.mockResolvedValue({ items: [effectExecuted], total: 1, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('新建')
+    expect(wrapper.text()).toContain('2') // 字段数
   })
 
   it('空写副作用 → 空态引导文案', async () => {
