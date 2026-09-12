@@ -177,6 +177,12 @@ keelbase init --desc "Customer management"
 
 让十年前的业务系统拥有 AI 能力，而无需推翻重来。
 
+### Java Starter（Spring Boot 接入）
+
+面向 Java/Spring 团队：给现有 `@RestController` 方法加 `@KeelbaseTool` 注解，即成为 KeelBase 治理型 AI 工具——委托身份、写操作人工确认、审计与撤销均由 KeelBase 运行时自动落。无需推翻重来。要求 Spring Boot 3.x + Java 17+（Boot 2 / Java 8 走 API 代理路径）。
+
+**入口** —— Maven `cn.com.keelbase:keelbase-spring-boot-starter`（[Maven Central](https://central.sonatype.com/artifact/cn.com.keelbase/keelbase-spring-boot-starter)）→ [github.com/rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter) —— 5 分钟试用、参考项目（CRM / PM / Approval）、开发手册。
+
 ---
 
 ## 🧩 架构
