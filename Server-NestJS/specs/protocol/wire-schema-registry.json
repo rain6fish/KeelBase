@@ -364,6 +364,16 @@
       "samples": [
         "schemas/v1/samples/operation-audit-payload.json"
       ]
+    },
+    {
+      "id": "mcp-tool-list",
+      "version": "v1",
+      "schema": "mcp-tool-list.schema.json",
+      "title": "MCP 出口 tools/list 工具项（治理契约投影：annotations + _meta.keelbase）",
+      "source": "src/mcp/mcp.controller.ts:50-68 toMcpTool",
+      "samples": [
+        "schemas/v1/samples/mcp-tool-list.json"
+      ]
     }
   ]
 }

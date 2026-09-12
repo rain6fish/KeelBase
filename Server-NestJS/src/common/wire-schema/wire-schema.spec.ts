@@ -62,6 +62,8 @@ const FROZEN_OBJECT_IDS = [
   'audit-action-report',
   // 审计链 payload 收口：op-audit payload（evidence-package v2 的 chainRow.payload oneOf 依赖它）
   'operation-audit-payload',
+  // E 收口：MCP 出口 tools/list 治理投影（annotations.readOnlyHint/destructiveHint + _meta.keelbase）
+  'mcp-tool-list',
 ];
 
 const failures: string[] = [];

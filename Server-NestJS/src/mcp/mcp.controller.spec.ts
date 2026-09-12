@@ -6,6 +6,8 @@ import { AiService } from '../ai/ai.service';
 import { AuditService } from '../ai/audit/audit.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('McpExportController (HS-10)', () => {
   let controller: McpExportController;
@@ -61,6 +63,8 @@ describe('McpExportController (HS-10)', () => {
     const res = await controller.handle(user, { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } });
     expect((res as any).id).toBe(1);
     expect((res as any).result.serverInfo.name).toBe('keelbase');
+    const pkgVersion = (JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8')) as { version: string }).version;
+    expect((res as any).result.serverInfo.version).toBe(pkgVersion);
     expect((res as any).result.capabilities.tools).toEqual({});
   });
 
@@ -83,6 +87,29 @@ describe('McpExportController (HS-10)', () => {
     const c = tools.find((t: { name: string }) => t.name === 'create_event');
     expect(c.annotations.readOnlyHint).toBe(false);
     expect(c._meta.keelbase).toEqual({ riskLevel: 'R3', riskStrategy: 'confirmation', requiresConfirmation: true });
+  });
+
+  it('E 收口：readOnlyHint/destructiveHint 映射边缘（R0/R2 只读、R5 破坏性）', async () => {
+    const mk = (name: string, riskLevel: string, riskStrategy: string, requiresConfirmation: boolean) => ({
+      name, description: '', inputSchema: { type: 'object' }, riskLevel, riskStrategy, requiresConfirmation,
+    });
+    ai.listMcpTools.mockResolvedValue([
+      mk('r0_read', 'R0', 'auto', false),
+      mk('r2_read', 'R2', 'policy', false),
+      mk('r4_human', 'R4', 'human_approval', true),
+      mk('r5_block', 'R5', 'block', true),
+    ]);
+    const res = await controller.handle(user, { jsonrpc: '2.0', id: 10, method: 'tools/list' });
+    const tools = (res as any).result.tools as Array<{ name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } }>;
+    const by = (n: string) => tools.find((t) => t.name === n)!;
+    // readOnlyHint 边界：READ_ONLY_RISKS = R0/R1/R2
+    expect(by('r0_read').annotations.readOnlyHint).toBe(true);
+    expect(by('r2_read').annotations.readOnlyHint).toBe(true);
+    expect(by('r4_human').annotations.readOnlyHint).toBe(false);
+    expect(by('r5_block').annotations.readOnlyHint).toBe(false);
+    // destructiveHint 边界：仅 R5
+    expect(by('r5_block').annotations.destructiveHint).toBe(true);
+    expect(by('r4_human').annotations.destructiveHint).toBe(false);
   });
 
   it('tools/call 读工具 → 执行 + 审计，返回结果', async () => {

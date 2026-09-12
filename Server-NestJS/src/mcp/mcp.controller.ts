@@ -2,6 +2,8 @@
 
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   CallToolRequestSchema,
   InitializeResultSchema,
@@ -35,7 +37,20 @@ interface McpToolGovernance {
   requiresConfirmation: boolean;
 }
 
-const MCP_SERVER_INFO = { name: 'keelbase', version: '0.9.1' };
+/** MCP serverInfo：版本单一真源 = package.json（此前硬编码 '0.9.1'，与产品版本漂移）。 */
+const MCP_SERVER_INFO = {
+  name: 'keelbase',
+  version: ((): string => {
+    try {
+      const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8')) as {
+        version?: string;
+      };
+      return pkg.version ?? '0.0.0';
+    } catch {
+      return '0.0.0';
+    }
+  })(),
+};
 const MCP_PROTOCOL_VERSION = '2025-03-26';
 
 const READ_ONLY_RISKS = ['R0', 'R1', 'R2'];
