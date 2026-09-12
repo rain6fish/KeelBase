@@ -186,6 +186,12 @@ Existing DB / OpenAPI / Java System
 
 Give a 10-year-old business system AI capability without rewriting it.
 
+### Java Starter (Spring Boot)
+
+For Java/Spring teams: annotate existing `@RestController` methods with `@KeelbaseTool` and they become governed KeelBase AI tools — delegated identity, human-confirmed writes, audit and revocation are handled by the KeelBase runtime. No rewrite. Requires Spring Boot 3.x + Java 17+ (Boot 2 / Java 8 go through the API-proxy path).
+
+**Get started** — Maven `cn.com.keelbase:keelbase-spring-boot-starter` ([Maven Central](https://central.sonatype.com/artifact/cn.com.keelbase/keelbase-spring-boot-starter)) → [github.com/rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter) — 5-minute trial, reference projects (CRM / PM / Approval), development guide.
+
 ---
 
 ## 🧩 Architecture
