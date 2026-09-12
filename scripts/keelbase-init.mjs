@@ -432,6 +432,22 @@ async function main() {
   // AI 工具（第 11-12 周）：让 Runtime Agent 能安全调用生成模块
   const ai = aiFiles(ctx).map((f) => ({ ...f, rel: `Server-NestJS/src/${f.path}` }));
 
+  // 目标文件撞名检查（缺目录但有同名文件 = 被既有模块/旗舰工具占用）：
+  // 模块目录不存在却已有本模块该写的文件 → 该文件属于别的实现（如 AI CRM 的 query-customers.tool.ts）。
+  // 此前只查目录 → 静默接线会重复注册同名工具（并 --force 覆盖手写实现）；此检查一律拒绝（不因 --force 放行），要求改名。
+  if (!args.dryRun && !(await exists(beDir))) {
+    const collided = [];
+    for (const f of [...backend, ...frontend, ...admin, ...taro, ...ai]) {
+      if (await exists(f.rel)) collided.push(f.rel);
+    }
+    if (collided.length) {
+      fail(
+        `目标文件已被占用（与既有模块/旗舰工具撞名，非本模块生成物）：\n  ${collided.join('\n  ')}\n` +
+          `模块「${ctx.plural}」与现有实现冲突——继续会重复接线/覆盖手写文件。请改用其它模块名。`,
+      );
+    }
+  }
+
   if (args.dryRun) {
     console.log(`${C.yellow}[dry-run] 将生成以下文件：${C.reset}`);
     for (const f of [...backend, ...frontend, ...ai]) console.log(`  ${f.rel}`);
