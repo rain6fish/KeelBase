@@ -6,12 +6,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule, buildCacheOptions } from './cache.module';
 import { CacheService } from './cache.service';
 
-// 真实导出是**具名** `redisStore`（旧 spec 误 mock 了不存在的 `default`，等于没测到东西）。
-// 当前实现**不调用**它（适配器与 cache-manager v7 不兼容，见 cache.module.ts 注释）——mock 保留仅为断言之用。
-jest.mock('cache-manager-ioredis-yet', () => ({ redisStore: jest.fn() }));
+jest.mock('@keyv/redis', () => ({ createKeyv: jest.fn() }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { redisStore } = require('cache-manager-ioredis-yet') as { redisStore: jest.Mock };
+const { createKeyv } = require('@keyv/redis') as { createKeyv: jest.Mock };
 
 describe('CacheModule（工厂分支）', () => {
   const values: Record<string, unknown> = {};
@@ -19,13 +17,16 @@ describe('CacheModule（工厂分支）', () => {
     get: jest.fn((key: string, def?: unknown) => values[key] ?? def),
   } as unknown as ConfigService;
   let warnSpy: jest.SpyInstance;
+  let logSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    redisStore.mockReset();
+    createKeyv.mockReset();
     warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
   });
   afterEach(() => {
     warnSpy.mockRestore();
+    logSpy.mockRestore();
     for (const k of Object.keys(values)) delete values[k];
   });
 
@@ -50,31 +51,48 @@ describe('CacheModule（工厂分支）', () => {
     expect(svc.enabled).toBe(false);
   });
 
-  describe('buildCacheOptions（store 形状与「配了 Redis 不生效」告警）', () => {
-    it('未配 REDIS_URL：内存 store 是预期行为，不告警', async () => {
+  describe('buildCacheOptions（store 形状）', () => {
+    it('未配 REDIS_URL：内存 store 是预期行为，不告警、不建 Keyv', async () => {
       const opts = await buildCacheOptions(config);
       expect(opts.ttl).toBe(300);
       expect(opts).not.toHaveProperty('stores');
+      expect(createKeyv).not.toHaveBeenCalled();
       expect(warnSpy).not.toHaveBeenCalled();
     });
 
-    it('配了 REDIS_URL：**显式告警**且仍为内存 store（不再静默降级）', async () => {
+    it('配了 REDIS_URL：用 @keyv/redis 的 createKeyv(url) 放进 stores（v7 只认 stores）', async () => {
       values['REDIS_URL'] = 'redis://cache:6379';
+      const kv = { name: 'keyv-instance' };
+      createKeyv.mockReturnValue(kv);
       const opts = await buildCacheOptions(config);
-      expect(opts).not.toHaveProperty('stores');
+
+      expect(createKeyv).toHaveBeenCalledWith('redis://cache:6379');
+      expect(opts.stores).toEqual([kv]);
       expect(opts.ttl).toBe(300);
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      const msg = String(warnSpy.mock.calls[0][0]);
-      expect(msg).toContain('redis://cache:6379');
-      expect(msg).toContain('不生效');
-      expect(msg).toContain('@keyv/redis'); // 告警给出正确修法指向
+      // 回归守卫：旧写法这两个键会被 cache-manager v7 忽略 → 静默走内存（配了 Redis 实际没用上）
+      expect(opts).not.toHaveProperty('store');
+      expect(opts).not.toHaveProperty('url');
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(String(logSpy.mock.calls[0]?.[0])).toContain('Redis store');
     });
 
-    it('CACHE_ENABLED=false：不告警（本就不读写）', async () => {
+    it('CACHE_ENABLED=false：不建 Redis store（enabled=false 本就不读写）', async () => {
       values['CACHE_ENABLED'] = false;
       values['REDIS_URL'] = 'redis://cache:6379';
-      await buildCacheOptions(config);
-      expect(warnSpy).not.toHaveBeenCalled();
+      const opts = await buildCacheOptions(config);
+      expect(createKeyv).not.toHaveBeenCalled();
+      expect(opts).not.toHaveProperty('stores');
+    });
+
+    it('createKeyv 抛错（URL 非法等）：告警降级内存，不抛', async () => {
+      values['REDIS_URL'] = 'not-a-url';
+      createKeyv.mockImplementation(() => {
+        throw new Error('bad url');
+      });
+      const opts = await buildCacheOptions(config);
+      expect(opts).not.toHaveProperty('stores');
+      expect(opts.ttl).toBe(300);
+      expect(String(warnSpy.mock.calls[0]?.[0])).toContain('降级');
     });
   });
 });

@@ -28,18 +28,23 @@ export async function buildCacheOptions(
   const redisUrl = configService.get<string>('REDIS_URL');
   if (!redisUrl) return { ttl };
 
-  // 配了 REDIS_URL 却仍走内存——**显式告警，不再静默**（此前是静默降级：运维以为在用共享缓存）。
-  // 直接原因：cache-manager v7 是 Keyv 系的，`stores` **只接受 Keyv 适配器**（需 get/set/delete/clear）；
-  // 而依赖中的 cache-manager-ioredis-yet@2.1.2 的 RedisStore 只提供 get/set/mset/mdel/**del**（无 delete/clear）
-  // → 放进 stores 会在启动时抛 "Invalid storage adapter"。故此处不猜、不改适配器（无法在无真实 Redis 环境下验证），
-  // 保留内存 store 并如实告警。正确修法：改用 `@keyv/redis` 的 `createKeyv(url)`（并移除 ioredis-yet 依赖），
-  // 需真实 Redis 端到端验证后再切换。
-  cacheLogger.warn(
-    `REDIS_URL=${redisUrl} 已配置但**不生效**：当前 Redis 适配器与 cache-manager v7 不兼容，缓存仍为进程内内存` +
-      `（多实例不共享、delByPrefix 失效不传播）。如需共享缓存，改用 @keyv/redis 的 createKeyv()` +
-      `（详见 cache.module.ts 注释）`,
-  );
-  return { ttl };
+  // cache-manager v7 是 Keyv 系的：`stores` 只接受 **Keyv 适配器**（get/set/delete/clear）。
+  // 用 @keyv/redis 的 createKeyv(url)（Keyv v5 兼容；namespace 为空 → Redis 键不加前缀）。
+  // 注意：**不能**用 cache-manager-ioredis-yet@2 的 RedisStore——它只有 del/mdel（无 delete/clear），
+  // 放进 stores 会启动即抛 "Invalid storage adapter"（2026-09-12 实测），该依赖已因此移除。
+  const { createKeyv } = require('@keyv/redis') as { createKeyv: (url: string) => unknown };
+  try {
+    const store = createKeyv(redisUrl);
+    cacheLogger.log(`缓存使用 Redis store：${redisUrl}`);
+    return { stores: [store], ttl };
+  } catch (err) {
+    // createKeyv 同步失败（URL 非法等）→ 如实告警后降级内存；连接失败是惰性的、由 CacheService 逐次告警
+    cacheLogger.warn(
+      `REDIS_URL=${redisUrl} 无法建立 Redis store（${(err as Error).message}），降级为进程内内存缓存` +
+        `（多实例不共享、delByPrefix 失效不传播）`,
+    );
+    return { ttl };
+  }
 }
 
 /**
