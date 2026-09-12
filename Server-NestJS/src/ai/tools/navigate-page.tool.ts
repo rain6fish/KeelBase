@@ -25,6 +25,8 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   home: { route: '/', description: '首页/仪表盘' },
   dashboard: { route: '/', description: '首页/仪表盘' },
   events: { route: '/events', description: '事件列表' },
+  notifications: { route: '/notifications', description: '通知' },
+  search: { route: '/search', description: '全局搜索' },
   explore: { route: '/explore', description: '发现页' },
   ai: { route: '/ai', description: 'AI 助手' },
   profile: { route: '/profile', description: '个人资料' },
@@ -48,11 +50,14 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   terms: { route: '/terms', description: '服务条款' },
 };
 
+/** 支持页面清单由 PAGE_ROUTES 派生（单一真源，防陈旧硬编码文案漂移） */
+const SUPPORTED_PAGES = [...new Set(Object.values(PAGE_ROUTES).map((p) => p.description))].join('、');
+
 export class NavigatePageTool implements AiTool {
   readonly name = 'navigate_page';
   readonly description = `【重要】必须使用此工具来执行所有页面跳转请求。当用户说"打开XX"、"去XX"、"跳转到XX"、"帮我到XX"等导航类请求时，你必须调用此工具来实现实际跳转，绝对不要只是文字回复说"已跳转"。调用此工具后系统会自动执行页面跳转，你只需要根据跳转结果给出确认提示即可。
 
-  支持页面：首页、事件列表、发现页、AI助手、个人资料、设置、待办清单、文件上传、积分签到。`;
+  支持页面：${SUPPORTED_PAGES}。`;
   readonly parameters: ToolParameter[] = [
     {
       name: 'page',
