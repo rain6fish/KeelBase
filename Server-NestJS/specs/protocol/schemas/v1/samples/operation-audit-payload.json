@@ -1,0 +1,13 @@
+{
+  "userId": 42,
+  "action": "create",
+  "method": "POST",
+  "path": "/api/v1/crm/customers",
+  "featureKey": "crm.customer.create",
+  "featureFallback": "crm",
+  "targetId": "17",
+  "requestBody": "{\"name\":\"Acme\"}",
+  "ip": "203.0.113.7",
+  "userAgent": "Mozilla/5.0",
+  "statusCode": 201
+}

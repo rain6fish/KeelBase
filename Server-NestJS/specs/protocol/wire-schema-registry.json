@@ -104,12 +104,12 @@
     },
     {
       "id": "evidence-package",
-      "version": "v1",
+      "version": "v2",
       "schema": "evidence-package.schema.json",
-      "title": "审计证据包 keelbase-audit-evidence/1|2|3",
+      "title": "审计证据包 keelbase-audit-evidence/1|2|3（v2：chainRow.payload 收紧为 ai/op payload oneOf）",
       "source": "src/ai/audit/audit.service.ts:123-180; scripts/verify-evidence.mjs",
       "samples": [
-        "schemas/v1/samples/evidence-package.json"
+        "schemas/v2/samples/evidence-package.json"
       ]
     },
     {
@@ -353,6 +353,16 @@
       "source": "src/ai/audit/audit.service.ts:638-732 getActionReport",
       "samples": [
         "schemas/v1/samples/audit-action-report.json"
+      ]
+    },
+    {
+      "id": "operation-audit-payload",
+      "version": "v1",
+      "schema": "operation-audit-payload.schema.json",
+      "title": "操作审计哈希链 canonical payload（_payload）",
+      "source": "src/operation-audit/operation-audit.service.ts:188-203 _payload",
+      "samples": [
+        "schemas/v1/samples/operation-audit-payload.json"
       ]
     }
   ]
