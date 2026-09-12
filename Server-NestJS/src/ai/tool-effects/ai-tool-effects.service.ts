@@ -68,6 +68,9 @@ export type RevokeResult = {
   message?: string;
   /** KB-6：撤销后回写的运维态（revoked=本地软删 / compensating=已请求外部补偿·结果未知 / revoke_failed=补偿失败） */
   revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed';
+  /** 单条撤销的幂等跳过标记（已撤销 / 已请求补偿 → 不重复触发） */
+  skipped?: boolean;
+  reason?: string;
 };
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
@@ -537,6 +540,8 @@ export class AiToolEffectsService {
   async revoke(effectId: number): Promise<RevokeResult | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect) return null;
+    const reason = this._skipReason(effect);
+    if (reason) return this._skippedResult(effect, reason);
     return this._doRevoke(effect);
   }
 
@@ -547,6 +552,8 @@ export class AiToolEffectsService {
   async revokeOwned(effectId: number, userId: string): Promise<RevokeResult | null> {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect || effect.userId !== userId) return null;
+    const reason = this._skipReason(effect);
+    if (reason) return this._skippedResult(effect, reason);
     return this._doRevoke(effect);
   }
 
@@ -600,12 +607,7 @@ export class AiToolEffectsService {
     let skipped = 0;
     let failed = 0;
     for (const effect of scoped) {
-      const skipReason =
-        effect.revokeStatus === 'revoked'
-          ? 'already_revoked'
-          : effect.revokeStatus === 'compensating'
-            ? 'compensating'
-            : null;
+      const skipReason = this._skipReason(effect);
       if (skipReason) {
         skipped++;
         results.push({ effectId: effect.id, revoked: false, skipped: true, reason: skipReason });
@@ -628,6 +630,32 @@ export class AiToolEffectsService {
       }
     }
     return { total: scoped.length, revoked, skipped, failed, results };
+  }
+
+  /** 撤销跳过判据（单条/批量共用）：已软删 revoked / 已请求外部补偿 compensating；revoke_failed 视为可重试 */
+  private _skipReason(effect: AiToolSideEffect): 'already_revoked' | 'compensating' | null {
+    if (effect.revokeStatus === 'revoked') return 'already_revoked';
+    if (effect.revokeStatus === 'compensating') return 'compensating';
+    return null;
+  }
+
+  /** 构建「跳过不重复触发」结果（单条撤销用；批量走 _revokeBatch 的 skip 分支） */
+  private _skippedResult(
+    effect: AiToolSideEffect,
+    reason: 'already_revoked' | 'compensating',
+  ): RevokeResult {
+    return {
+      revoked: false,
+      effectId: effect.id,
+      skipped: true,
+      reason,
+      external: reason === 'compensating',
+      revokeStatus: (effect.revokeStatus as RevokeResult['revokeStatus']) ?? undefined,
+      message:
+        reason === 'already_revoked'
+          ? '该副作用此前已撤销，跳过'
+          : '外部补偿已请求、结果以目标系统为准——跳过重复触发',
+    };
   }
 
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
