@@ -288,15 +288,28 @@ export class TrustSandboxService {
       { name: `越权目标${ts}`, company: 'X', status: 'active', riskLevel: 'low' } as never,
       uid,
     );
-    // 注册 bob（归属命名 bob_sandbox_<userId>_<ts>：自清理只删本人前缀，杜绝跨用户删号）
-    const bobName = `bob_sandbox_${userId}_${ts}`;
-    const bob = await this.usersService.create({
-      username: bobName,
-      nickname: 'Bob',
-      password: 'BobSandbox1',
-      email: `${bobName}@example.com`,
-    } as never);
-    const bobId = (bob as { id: number }).id;
+    // bob 复用：固定名 bob_sandbox_<userId>_reuse（仍匹配 cleanup 前缀 bob_sandbox_<userId>_%）——
+    // 先查既有，避免每次运行都 bcrypt 12 轮注册（demo VM 上秒级耗时）；缺失才建，竞态唯一冲突时再取一次。
+    const bobName = `bob_sandbox_${userId}_reuse`;
+    const existingBob = await this.usersRepo.findOne({ where: { username: bobName } });
+    let bobId: number;
+    if (existingBob) {
+      bobId = existingBob.id;
+    } else {
+      try {
+        const created = await this.usersService.create({
+          username: bobName,
+          nickname: 'Bob',
+          password: 'BobSandbox1',
+          email: `${bobName}@example.com`,
+        } as never);
+        bobId = (created as { id: number }).id;
+      } catch {
+        // 并发下另一请求已创建 → 复读
+        const again = await this.usersRepo.findOne({ where: { username: bobName } });
+        bobId = (again as { id: number }).id;
+      }
+    }
     // bob 越权读 alex 的客户（getCustomer360Data 以 userId 校验归属）
     let denied = false;
     let detail = '';
