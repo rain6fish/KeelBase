@@ -1187,6 +1187,24 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
+### 14.5 Git 提交消息规范（必须遵守）
+
+**每次 commit 消息必须中英双语**（v1.0.9 发版注释为范本）。格式：
+
+```
+<type>(<scope>): <中文摘要>
+
+<中文正文：改了什么 / 为什么>
+
+<English summary paragraph.>          ← 空行后一段英文摘要——必须有
+```
+
+- `type`：`feat` / `fix` / `docs` / `test` / `chore` / `refactor` …
+- **三要素缺一不可**：`type(scope):` + 中文摘要、中文正文、**空行后的英文段落**（最易漏，只写中文即违规）。
+- 中英分开、互不粘连；**禁止** `类型: 英文 — 中文` 同行混排。
+- **不带 `Co-Authored-By`**。
+- 提交前自检：subject 有 `type(scope):` + 中文？正文结尾有**空行 + 英文段**？无 Co-Authored-By？
+
 ## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
 
 > 来源：AI Code Economy Review。目标：**AI 生成代码时就知道不能怎么写**，比事后 Review 更有效。核心四动作：**Search Before Create → Detect Duplicate → Detect Unnecessary Abstraction → Delete Before Add**。
