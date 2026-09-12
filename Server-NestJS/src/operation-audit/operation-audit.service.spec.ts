@@ -21,6 +21,14 @@ describe('OperationAuditService', () => {
     expect([...cols, 'username'].sort()).toEqual(Object.keys(schema.properties).sort());
   });
 
+  it('收口：_payload 键集 == operation-audit-payload 冻结契约（链内 canonical payload）', () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/operation-audit-payload.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    const payload = (service as unknown as { _payload: (r: object) => Record<string, unknown> })._payload({});
+    expect(Object.keys(payload).sort()).toEqual(Object.keys(schema.properties).sort());
+  });
+
   let service: OperationAuditService;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
   let runner: {

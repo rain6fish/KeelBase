@@ -60,6 +60,8 @@ const FROZEN_OBJECT_IDS = [
   'audit-usage-stats',
   'audit-cost-breakdown',
   'audit-action-report',
+  // 审计链 payload 收口：op-audit payload（evidence-package v2 的 chainRow.payload oneOf 依赖它）
+  'operation-audit-payload',
 ];
 
 const failures: string[] = [];

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "operation-audit-payload.schema.json",
+  "title": "Operation Audit Chain Payload — v1",
+  "description": "操作审计哈希链 canonical payload（写入 / 校验 / 导出共用，写入侧 _payload 与 verify 侧同源）。链外注解列 changes/businessEvent/authorization 不入 payload（防破链）。来源：src/operation-audit/operation-audit.service.ts:188-203 _payload。",
+  "type": "object",
+  "required": ["action", "method", "path"],
+  "additionalProperties": false,
+  "properties": {
+    "userId": { "type": ["number", "null"] },
+    "action": { "type": "string" },
+    "method": { "type": "string" },
+    "path": { "type": "string" },
+    "featureKey": { "type": ["string", "null"] },
+    "featureFallback": { "type": ["string", "null"] },
+    "targetId": { "type": ["string", "null"] },
+    "requestBody": { "type": ["string", "null"] },
+    "ip": { "type": ["string", "null"] },
+    "userAgent": { "type": ["string", "null"] },
+    "statusCode": { "type": ["number", "null"] }
+  }
+}
