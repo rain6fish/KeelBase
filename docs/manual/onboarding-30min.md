@@ -9,7 +9,7 @@
 `keelbase init --spec specs/invoices.json` 一键生成 **invoices 发票**模块（后端 + AI 工具 + 4 端页面）：
 
 - 后端 CRUD（entity / dto / service / controller / module）+ CASL 本人所有权 + 全局审计
-- **AI 工具自动附带**：`query_invoices`（读）+ `create_invoices`（写，需人工确认）——直接操作**生成模块自己的数据表**
+- **AI 工具自动附带（治理缺省）**：`query_invoices`（读，**R1 自动放行**，按 userId 过滤本人数据）+ `create_invoice`（写，**R3 需人工确认** + 需已验证邮箱）——直接操作**生成模块自己的数据表**，权限 / 确认 / 审计 / 撤销**无需手写**
 - 前端页自动接线：Flutter / Web 工作台 / Taro + 路由 / 导航 / i18n
 - 生成物是**普通源代码**，可继续修改
 
@@ -61,13 +61,13 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 工作台登录 `alex / Alex@2026$Demo`，AI 对话输入：
 
 - 「**查一下我的发票**」→ AI 调用 `query_invoices`（蓝色「读」工具卡）
-- 「**创建一条发票：INV-001，8000，已开具**」→ AI 调用 `create_invoices`（橙色「写」工具卡）→ 弹出**确认框** → 确认 → 落库 →「已确认 · 可撤销」
+- 「**创建一条发票：INV-001，8000，已开具**」→ AI 调用 `create_invoice`（橙色「写」工具卡）→ 弹出**确认框** → 确认 → 落库 →「已确认 · 可撤销」
 
 > 无 LLM 环境时跳过本步：确定性闭环（生成 → 编译 → 测试 → 工具注册）已证明模块可用。
 
 ## 5. 验收（你完成了）
 
-- ✅ `query_invoices` / `create_invoices` 已注册进 AI 工具（`grep CreateInvoiceTool src/ai/ai.module.ts`）
+- ✅ `query_invoices` / `create_invoice` 已注册进 AI 工具（`grep CreateInvoiceTool src/ai/ai.module.ts`）
 - ✅ 越权：另一账号访问他人发票数据 → 403
 - ✅ AI 工具写 → AI 审计 + 副作用记录（含确认决策）；REST 人类写 → 操作审计（均哈希链可验证，`GET /audit/operations/verify` 验操作审计链）
 - ✅ 生成物是普通源代码，可继续修改
@@ -78,6 +78,7 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 |---|---|
 | `目录已存在` | 模块名冲突（可能与已有/旗舰模块撞名），换英文名或 `--force` 覆盖 |
 | `start:dev` 报「Config validation error: JWT_SECRET is required」 | 未复制 `.env`——执行 `cp .env.example .env` 后重启 |
+| 设了 `NODE_ENV=development` 后同样报缺 `JWT_SECRET` | 本项目只随仓 `.env`（**无 `.env.development`**）——设 `NODE_ENV=development` 会去读不存在的 `.env.development` 致校验失败。**不设 NODE_ENV** 即用默认 `.env`；确需切环境先建对应 `.env.<env>` |
 | `npm test -- invoices` 只跑 16/20 | 模块未生成完整，重跑第 1 步 |
 | enum 字段报错 | `enum` 数组给 2-10 个小写英文选项 |
 
