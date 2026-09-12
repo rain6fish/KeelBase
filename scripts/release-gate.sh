@@ -42,6 +42,8 @@ fi
 echo "→ [Build] 编译 + 生成器"
 if (cd Server-NestJS && npm run build >/dev/null 2>&1); then gate "Build(后端编译)" pass; else gate "Build(后端编译)" fail "npm run build"; fi
 if node scripts/keelbase-init.mjs --module cigate --label 门 --fields title:string --dry-run >/dev/null 2>&1; then gate "Build(生成器 init)" pass; else gate "Build(生成器 init)" fail "keelbase init dry-run"; fi
+# 生成器/CLI 单测（与 CI 的 cli:test 同源；含接线幂等、撞名拒绝等回归）——此前仅 CI 跑、本地发版门禁漏跑
+if npm run cli:test >/dev/null 2>&1; then gate "Build(生成器/CLI 单测)" pass; else gate "Build(生成器/CLI 单测)" fail "npm run cli:test"; fi
 
 # ── Endpoints：文档 ↔ 端点一致性（§7.4 #5 发布前核对）─────────────────────────
 echo "→ [Endpoints] CLAUDE.md §9 声明端点 vs 实际 Controller 路由"
@@ -65,6 +67,10 @@ for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" 
   name="${t%%:*}"; label="${t##*:}"
   if echo "$E2E_OUT" | grep -q "PASS test/${name}.e2e-spec.ts"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; fi
 done
+
+# ── Trust：撤销幂等单元（单条 ↔ 批量一致：已撤销/已补偿不重复触发外部补偿）────────────
+echo "→ [Trust] 撤销幂等单元（tool-effects）"
+if (cd Server-NestJS && npx jest src/ai/tool-effects --forceExit >/dev/null 2>&1); then gate "Trust(撤销幂等单元)" pass; else gate "Trust(撤销幂等单元)" fail "jest src/ai/tool-effects"; fi
 
 # ── Trust：审计链并发压测（HS-11 完整性基线：分叉 0 + verify 全绿 + 吞吐/P95）──
 echo "→ [Trust] 审计链并发压测"
