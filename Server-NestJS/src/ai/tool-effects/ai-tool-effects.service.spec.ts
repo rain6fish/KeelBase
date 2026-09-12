@@ -510,6 +510,45 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       );
     });
 
+    it('并发 record 串行化：链不分叉（每行 prevHash = 前一行 hash）', async () => {
+      // 有状态 fake repo：save 入库、lastHash 读库末行——模拟真实持久化，才能暴露 read-modify-write 竞态
+      const rows: Array<{ id: number; hash: string | null; prevHash: string | null; idempotencyKey: string }> = [];
+      const cRepo = {
+        create: (d: any) => d,
+        save: jest.fn(async (d: any) => {
+          const row = { ...d, id: rows.length + 1 };
+          rows.push(row);
+          return row;
+        }),
+        findOne: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          getRawOne: jest.fn(async () => (rows.length ? { hash: rows[rows.length - 1].hash } : null)),
+        })),
+      };
+      const auditChain = {
+        computeHash: (prev: string | null, payload: any) => `${prev ?? 'genesis'}|${payload.idempotencyKey}`,
+      } as any;
+      const s = new AiToolEffectsService(cRepo as any, undefined, undefined, undefined, auditChain);
+
+      // 5 个并发写（args 不同 → idempotencyKey 不同，不会幂等合并）
+      await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          s.record({ userId: '1', conversationId: 'c', toolName: 'create_event', args: { i } }, 'event', i + 1),
+        ),
+      );
+
+      expect(rows).toHaveLength(5);
+      expect(rows[0].prevHash).toBeNull(); // genesis
+      for (let i = 1; i < rows.length; i++) {
+        // 无串行化时 5 个并发全读到 null → 全部 prevHash null → 此处必失败（链分叉）
+        expect(rows[i].prevHash).toBe(rows[i - 1].hash);
+      }
+    });
+
     it('verifySideEffectChain：仅校验已哈希行（历史 null 行跳过），无 auditChain 时降级 valid', async () => {
       const hashedRows = [
         { id: 3, prevHash: null, hash: 'h3' },
