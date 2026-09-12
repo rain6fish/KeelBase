@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "permission-capability-list.schema.json",
+  "title": "Explainable Authz — 本人能力清单（GET /auth/me/permissions）— v1",
+  "description": "CaslAbilityFactory.describeForUser 的返回：角色 + 判定依据 + 逐资源能力项（subject/scope/reason）。scope=own 表示带行级所有权条件，all 表示无行级限制。来源：src/common/casl/casl-ability.factory.ts describeForUser。",
+  "type": "object",
+  "required": ["role", "basis", "resources"],
+  "additionalProperties": false,
+  "properties": {
+    "role": { "type": "string", "description": "角色（user / admin）" },
+    "basis": { "type": "string", "description": "能力来源的人类可读依据" },
+    "resources": {
+      "type": "array",
+      "description": "逐资源能力项（按 subject 排序）",
+      "items": {
+        "type": "object",
+        "required": ["subject", "scope", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "subject": { "type": "string" },
+          "scope": { "enum": ["all", "own"] },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

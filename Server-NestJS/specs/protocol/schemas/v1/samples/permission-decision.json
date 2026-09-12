@@ -1,0 +1,7 @@
+{
+  "action": "read",
+  "subject": "Event",
+  "allowed": true,
+  "reason": "可操作（本人所有权范围，行级条件）",
+  "deniedBy": null
+}

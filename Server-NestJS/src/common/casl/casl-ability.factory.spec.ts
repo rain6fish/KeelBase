@@ -123,6 +123,17 @@ describe('CaslAbilityFactory', () => {
       expect(denied.deniedBy).toBe('casl');
       expect(denied.reason).toContain('管理员');
     });
+
+    // PC-1（CE-2 缺口）：决策 wire 形状在**源侧**冻结——与 specs/protocol/schemas/v1/permission-*.schema.json
+    // （additionalProperties:false + 样例）配合：任一侧加/改字段，本断言或 wire-schema 冻结门先红。
+    it('PC-1 wire 形状冻结：输出键 == 冻结 schema 契约（describeForUser / explain）', () => {
+      const d = factory.describeForUser(regularUser);
+      expect(Object.keys(d).sort()).toEqual(['basis', 'resources', 'role']);
+      expect(Object.keys(d.resources[0]).sort()).toEqual(['reason', 'scope', 'subject']);
+
+      const e = factory.explain(regularUser, 'read', 'Event');
+      expect(Object.keys(e).sort()).toEqual(['action', 'allowed', 'deniedBy', 'reason', 'subject']);
+    });
   });
 
   describe('explainForTarget (B1 管理员为目标用户反查决策)', () => {
