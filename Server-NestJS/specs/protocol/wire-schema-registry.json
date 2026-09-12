@@ -243,6 +243,22 @@
       "title": "受治理工具调用 request/response 语义（executed/requiresConfirmation/result）",
       "source": "src/ai/ai.service.ts:634-648 executeToolForExternal; src/ai/interfaces/tool.interface.ts:29-34 ToolResult",
       "samples": ["schemas/v1/samples/tool-invocation.json", "schemas/v1/samples/tool-invocation-confirmation.json"]
+    },
+    {
+      "id": "permission-capability-list",
+      "version": "v1",
+      "schema": "permission-capability-list.schema.json",
+      "title": "Explainable Authz — 本人能力清单（GET /auth/me/permissions）",
+      "source": "src/common/casl/casl-ability.factory.ts describeForUser",
+      "samples": ["schemas/v1/samples/permission-capability-list.json"]
+    },
+    {
+      "id": "permission-decision",
+      "version": "v1",
+      "schema": "permission-decision.schema.json",
+      "title": "Explainable Authz — 单决策（POST /auth/permissions/explain）",
+      "source": "src/common/casl/casl-ability.factory.ts _explain",
+      "samples": ["schemas/v1/samples/permission-decision.json"]
     }
   ]
 }

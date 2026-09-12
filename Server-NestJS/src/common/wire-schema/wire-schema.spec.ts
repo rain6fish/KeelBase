@@ -50,6 +50,9 @@ const FROZEN_OBJECT_IDS = [
   'headless-chat-response',
   'capabilities',
   'tool-invocation',
+  // PC-1（CE-2 缺口）：Explainable Authz 决策 wire——本人能力清单 + 单决策
+  'permission-capability-list',
+  'permission-decision',
 ];
 
 const failures: string[] = [];

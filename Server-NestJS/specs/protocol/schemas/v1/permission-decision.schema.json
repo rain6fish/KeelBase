@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "permission-decision.schema.json",
+  "title": "Explainable Authz — 单决策（POST /auth/permissions/explain）— v1",
+  "description": "CaslAbilityFactory.explain 的返回：对 action×subject 给出 allowed + reason + deniedBy（允许时为 null；拒绝时 'casl'）。来源：src/common/casl/casl-ability.factory.ts _explain。",
+  "type": "object",
+  "required": ["action", "subject", "allowed", "reason", "deniedBy"],
+  "additionalProperties": false,
+  "properties": {
+    "action": { "type": "string" },
+    "subject": { "type": "string" },
+    "allowed": { "type": "boolean" },
+    "reason": { "type": "string" },
+    "deniedBy": { "type": ["string", "null"], "description": "拒绝依据（允许为 null；拒绝 'casl'）" }
+  }
+}
