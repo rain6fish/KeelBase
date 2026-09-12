@@ -28,7 +28,7 @@ describe('TrustSandboxService', () => {
     listOwned: jest.Mock;
     revokeOwned: jest.Mock;
   };
-  let usersRepo: { createQueryBuilder: jest.Mock };
+  let usersRepo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
   let abilityFactory: { createForUser: jest.Mock };
   let settingsService: { getWithDefault: jest.Mock; set: jest.Mock };
   let settingsStore: Map<string, string>;
@@ -69,7 +69,7 @@ describe('TrustSandboxService', () => {
     qb.where.mockReturnValue(qb);
     qb.andWhere.mockReturnValue(qb);
     qb.getMany.mockResolvedValue([]);
-    usersRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    usersRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb), findOne: jest.fn() };
     abilityFactory = { createForUser: jest.fn().mockReturnValue({}) };
     sandbox = new TrustSandboxService(
       aiService as never,
@@ -225,6 +225,16 @@ describe('TrustSandboxService', () => {
     expect(r.outcome).toBe('passed');
     expect(String(r.detail)).toContain('被拒');
     expect(usersService.create).toHaveBeenCalled();
+  });
+
+  it('s2_denied：bob 已存在 → 复用不重复注册（免 bcrypt）', async () => {
+    crmService.createCustomer.mockResolvedValue({ id: 9, name: '越权目标' });
+    usersRepo.findOne.mockResolvedValue({ id: 77, username: 'bob_sandbox_42_reuse' });
+    crmService.getCustomer360Data.mockRejectedValue(new ForbiddenException('无权访问此客户'));
+    const r = await sandbox.run('s2_denied', '42');
+    expect(r.outcome).toBe('passed');
+    expect(usersRepo.findOne).toHaveBeenCalledWith({ where: { username: 'bob_sandbox_42_reuse' } });
+    expect(usersService.create).not.toHaveBeenCalled();
   });
 
   it('s3_r5_block：AI 尝试删除客户 → R5 阻断文本 → passed', async () => {
