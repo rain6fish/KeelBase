@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
@@ -105,6 +105,8 @@ export class AiToolEffectsService {
     @Optional() private readonly auditChain?: AuditChainService,
     // KB-6：工具注册表（解析副作用撤销能力档位快照；ToolRegistry 为 AiModule provider，构造器注入）
     @Optional() private readonly toolRegistry?: ToolRegistry,
+    // G-3 链写入串行化（postgres 走 DB 锁事务；缺失则退化为进程内串行）——见 _saveWithChain
+    @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
   ) {}
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
@@ -156,19 +158,61 @@ export class AiToolEffectsService {
       // KB-6：副作用发生时刻的撤销能力档位快照（ctx 直传优先；否则按工具注册/resultType 兜底）
       revokeClass: ctx.revokeClass ?? this._resolveSnapshotClass(ctx.toolName, resultType),
     };
-    // G-3（§internal.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）
-    let chain: { prevHash: string | null; hash: string } | undefined;
-    if (this.auditChain) {
-      const prev = await this._lastSideEffectHash();
-      chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
-    }
-    // 幂等：并发下可能已插入，命中唯一冲突则跳过（KB-4 FP-4：仅唯一冲突才 skip，DB 错误如实上抛不吞）
+    // G-3（§internal.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）。
+    // 链写入 = read(prev) → compute → insert，是 read-modify-write：**必须串行**，否则并发两行读到同一 prev
+    // → 同 prevHash 两分支 → 链分叉（verifySideEffectChain 判 invalid）。见 _saveWithChain。
+    return this._saveWithChain(ctx, base, key, resultType, resultId);
+  }
+
+  /**
+   * 串行化副作用链写入（镜像 AuditService.log 的双保险做法；2026-09-12 补齐——此前本链是裸 read-modify-write，
+   * 并发写会分叉，而链完整性是信任工件）。
+   * - **postgres**：事务内锁 `audit_chain_lock` 行（id=2；与主审计链 id=1 分开，避免两链互相串行）→ 读 prev →
+   *   插入 → 提交。插入必须走 `runner.manager` 且在锁内提交——否则锁释放早于插入落库，后到者仍读到旧 prev。
+   * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行（跨进程仍为 best-effort，与主链 sqlite 分支同）。
+   * 幂等语义不变：唯一冲突 → skip 并回读已有行；其他 DB 错误如实上抛（KB-4 FP-4）。
+   */
+  private async _saveWithChain(
+    ctx: WriteToolContext,
+    base: Record<string, unknown>,
+    key: string,
+    resultType: string,
+    resultId: number,
+  ): Promise<AiToolSideEffect> {
+    const build = async (manager?: EntityManager): Promise<AiToolSideEffect> => {
+      let chain: { prevHash: string | null; hash: string } | undefined;
+      if (this.auditChain) {
+        const prev = await this._lastSideEffectHash(manager);
+        chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
+      }
+      const repo = manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo;
+      return repo.save(repo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>));
+    };
+
+    let saved: AiToolSideEffect | undefined;
     try {
-      const saved = await this.effectsRepo.save(
-        this.effectsRepo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>),
-      );
-      this._reportEffect(ctx, resultType, resultId);
-      return saved;
+      if (this.dataSource?.options.type === 'postgres') {
+        const runner = this.dataSource.createQueryRunner();
+        await runner.connect();
+        try {
+          await runner.startTransaction();
+          await runner.query(
+            `INSERT INTO "audit_chain_lock" (id, holder) VALUES (2, 'side-effect') ON CONFLICT (id) DO NOTHING`,
+          );
+          await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 2 FOR UPDATE');
+          saved = await build(runner.manager);
+          await runner.commitTransaction();
+        } catch (err) {
+          await runner.rollbackTransaction().catch(() => {});
+          throw err;
+        } finally {
+          await runner.release();
+        }
+      } else {
+        const job = this._chainTail.then(() => build());
+        this._chainTail = job.catch(() => {});
+        saved = await job;
+      }
     } catch (err) {
       if (!isUniqueViolation(err)) {
         // 非唯一冲突（DB down / 连接中断等）：不伪装幂等命中——副作用未落库却报成功会造成重复执行，必须上抛
@@ -179,7 +223,12 @@ export class AiToolEffectsService {
       this._reportEffect(ctx, resultType, resultId);
       return existing!;
     }
+    this._reportEffect(ctx, resultType, resultId);
+    return saved!;
   }
+
+  /** G-3 链写入串行队列（sqlite 等单写者；postgres 走 DB 锁，不依赖此队列） */
+  private _chainTail: Promise<unknown> = Promise.resolve();
 
   /**
    * KB-6：解析副作用撤销能力档位快照。工具注册表命中 → 用工具显式/推导值（含 ProxyTool 显式档位）；
@@ -213,8 +262,8 @@ export class AiToolEffectsService {
   }
 
   /** G-3：最近一条已哈希副作用行的 hash（接链用；无 → null genesis） */
-  private async _lastSideEffectHash(): Promise<string | null> {
-    const row = await this.effectsRepo
+  private async _lastSideEffectHash(manager?: EntityManager): Promise<string | null> {
+    const row = await (manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo)
       .createQueryBuilder('e')
       .select('e.hash', 'hash')
       .where('e.hash IS NOT NULL')
