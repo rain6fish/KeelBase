@@ -1,0 +1,27 @@
+{
+  "valid": true,
+  "checked": 128,
+  "brokenIndex": null,
+  "chain": [
+    {
+      "id": 90210,
+      "createdAt": "2026-09-11T09:11:02.000Z",
+      "action": "chat",
+      "toolName": null,
+      "prevHash": null,
+      "hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      "isError": false,
+      "broken": false
+    },
+    {
+      "id": 90211,
+      "createdAt": "2026-09-11T09:12:55.000Z",
+      "action": "tool_call",
+      "toolName": "create_followup_task",
+      "prevHash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      "hash": "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff",
+      "isError": false,
+      "broken": false
+    }
+  ]
+}

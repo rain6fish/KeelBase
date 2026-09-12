@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "audit-usage-stats.schema.json",
+  "title": "AI Usage Stats (GET /audit/stats data) — v1",
+  "description": "全局 AI 用量统计响应 data（UsageStats）。byDay 为 UTC 日聚合 5 段。来源：src/ai/audit/audit.service.ts getAllStats（1132-1168）+ _byDayAggregation。",
+  "type": "object",
+  "required": ["totalConversations", "totalMessages", "totalTokens", "totalErrors", "topActions", "byDay"],
+  "additionalProperties": false,
+  "properties": {
+    "totalConversations": { "type": "number" },
+    "totalMessages": { "type": "number" },
+    "totalTokens": { "type": "number" },
+    "totalErrors": { "type": "number" },
+    "topActions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "count"],
+        "additionalProperties": false,
+        "properties": { "action": { "type": "string" }, "count": { "type": "number" } }
+      }
+    },
+    "byDay": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "executed", "approved", "rejected", "blocked", "errors"],
+        "additionalProperties": false,
+        "properties": {
+          "date": { "type": "string" },
+          "executed": { "type": "number" },
+          "approved": { "type": "number" },
+          "rejected": { "type": "number" },
+          "blocked": { "type": "number" },
+          "errors": { "type": "number" }
+        }
+      }
+    }
+  }
+}

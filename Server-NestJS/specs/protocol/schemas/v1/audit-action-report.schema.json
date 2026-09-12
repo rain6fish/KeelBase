@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "audit-action-report.schema.json",
+  "title": "AI Action Report (GET /audit/action-report data) — v1",
+  "description": "AI Action Report 合规证据包响应 data（ActionReport）：执行/批准/拒绝/阻断 + 副作用计数 + 按日趋势 + 哈希链校验 + 明细样本 + 字段级变更。来源：src/ai/audit/audit.service.ts getActionReport（638-732）。",
+  "type": "object",
+  "required": ["period", "summary", "byAction", "byDay", "hashChain", "samples", "effectDiffs"],
+  "additionalProperties": false,
+  "properties": {
+    "period": {
+      "type": "object",
+      "required": ["since", "to"],
+      "additionalProperties": false,
+      "properties": { "since": { "type": ["string", "null"] }, "to": { "type": "string" } }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["executed", "approved", "rejected", "blocked", "errors", "effects"],
+      "additionalProperties": false,
+      "properties": {
+        "executed": { "type": "number" },
+        "approved": { "type": "number" },
+        "rejected": { "type": "number" },
+        "blocked": { "type": "number" },
+        "errors": { "type": "number" },
+        "effects": { "type": "number" }
+      }
+    },
+    "byAction": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "count"],
+        "additionalProperties": false,
+        "properties": { "action": { "type": "string" }, "count": { "type": "number" } }
+      }
+    },
+    "byDay": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "executed", "approved", "rejected", "blocked", "errors"],
+        "additionalProperties": false,
+        "properties": {
+          "date": { "type": "string" },
+          "executed": { "type": "number" },
+          "approved": { "type": "number" },
+          "rejected": { "type": "number" },
+          "blocked": { "type": "number" },
+          "errors": { "type": "number" }
+        }
+      }
+    },
+    "hashChain": {
+      "type": "object",
+      "required": ["valid", "checked", "brokenIndex"],
+      "additionalProperties": false,
+      "properties": {
+        "valid": { "type": "boolean" },
+        "checked": { "type": "number" },
+        "brokenIndex": { "type": ["number", "null"] }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "isError", "createdAt"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "number" },
+          "action": { "type": "string" },
+          "toolName": { "type": ["string", "null"] },
+          "isError": { "type": "boolean" },
+          "errorMessage": { "type": ["string", "null"] },
+          "businessEvent": { "type": ["string", "null"] },
+          "evidence": { "type": ["string", "null"] },
+          "agentId": { "type": ["string", "null"] },
+          "createdAt": { "type": "string" }
+        }
+      }
+    },
+    "effectDiffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "toolName", "resultType", "resultId", "createdAt"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "number" },
+          "toolName": { "type": "string" },
+          "resultType": { "type": "string" },
+          "resultId": { "type": ["number", "string"] },
+          "createdAt": { "type": "string" },
+          "before": { "description": "parseSnapshot(beforeSnapshot)——对象/标量/null 皆可" },
+          "after": { "description": "parseSnapshot(afterSnapshot)——对象/标量/null 皆可" }
+        }
+      }
+    }
+  }
+}

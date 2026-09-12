@@ -1,0 +1,15 @@
+{
+  "summary": { "totalCalls": 335, "totalTokens": 182340, "since": "2026-09-01T00:00:00.000Z" },
+  "byModel": [
+    { "model": "deepseek-v4-flash", "calls": 300, "promptTokens": 120000, "completionTokens": 40340 },
+    { "model": "unknown", "calls": 35, "promptTokens": 0, "completionTokens": 0 }
+  ],
+  "byIntent": [
+    { "action": "chat", "count": 214 },
+    { "action": "tool_call", "count": 121 }
+  ],
+  "byUser": [
+    { "userId": "42", "calls": 210, "tokens": 121000 },
+    { "userId": "7", "calls": 125, "tokens": 61340 }
+  ]
+}

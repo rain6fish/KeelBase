@@ -10,6 +10,8 @@ import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { actorContext } from '../actor-context';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 function makeLogRepo() {
   const qb = {
@@ -458,6 +460,34 @@ describe('AuditService', () => {
       });
       expect(qb.take).toHaveBeenCalledWith(20);
       expect(qb.skip).toHaveBeenCalledWith(5);
+    });
+
+    it('PC-2：getLogs 运行时行键集 == ai-audit-log-row 冻结契约', async () => {
+      mockQueryBuilder();
+      const result = await service.getLogs({ limit: 20 });
+      const schema = JSON.parse(
+        readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/ai-audit-log-row.schema.json'), 'utf8'),
+      ) as { properties: Record<string, unknown> };
+      expect(Object.keys(result[0]).sort()).toEqual(Object.keys(schema.properties).sort());
+    });
+
+    it('PC-2：verify/stats/cost/action-report 响应无越界键（⊆ 冻结契约）', async () => {
+      (chain.verifyChain as jest.Mock).mockReturnValue({ valid: true, checked: 0 });
+      (repo.find as jest.Mock).mockResolvedValue([]);
+      const propsOf = (name: string) =>
+        Object.keys(
+          (JSON.parse(readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/v1/${name}`), 'utf8')) as {
+            properties: Record<string, unknown>;
+          }).properties,
+        );
+      const noExtra = (obj: Record<string, unknown>, name: string) => {
+        const props = propsOf(name);
+        expect(Object.keys(obj).filter((k) => !props.includes(k))).toEqual([]);
+      };
+      noExtra(await service.verifyChain(), 'audit-chain-verification.schema.json');
+      noExtra(await service.getAllStats(), 'audit-usage-stats.schema.json');
+      noExtra(await service.getCostBreakdown(), 'audit-cost-breakdown.schema.json');
+      noExtra(await service.getActionReport(), 'audit-action-report.schema.json');
     });
 
     it('E-2：getLogs isError 过滤加 andWhere 条件', async () => {

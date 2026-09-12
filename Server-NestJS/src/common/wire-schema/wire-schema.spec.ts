@@ -53,6 +53,13 @@ const FROZEN_OBJECT_IDS = [
   // PC-1（CE-2 缺口）：Explainable Authz 决策 wire——本人能力清单 + 单决策
   'permission-capability-list',
   'permission-decision',
+  // PC-2（CE-2 缺口）：审计查询行 + 聚合端点响应 wire
+  'ai-audit-log-row',
+  'operation-audit-log-row',
+  'audit-chain-verification',
+  'audit-usage-stats',
+  'audit-cost-breakdown',
+  'audit-action-report',
 ];
 
 const failures: string[] = [];

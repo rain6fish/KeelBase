@@ -1,0 +1,21 @@
+{
+  "id": 731,
+  "userId": 42,
+  "action": "create",
+  "method": "POST",
+  "path": "/api/v1/crm/customers",
+  "featureKey": "crm.customer.create",
+  "featureFallback": "crm",
+  "targetId": "17",
+  "requestBody": "{\"name\":\"Acme\"}",
+  "changes": null,
+  "businessEvent": "CustomerCreated",
+  "authorization": "{\"allowed\":true,\"role\":\"user\"}",
+  "ip": "203.0.113.7",
+  "userAgent": "Mozilla/5.0",
+  "statusCode": 201,
+  "prevHash": null,
+  "hash": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+  "createdAt": "2026-09-11T09:12:55.000Z",
+  "username": "alex"
+}

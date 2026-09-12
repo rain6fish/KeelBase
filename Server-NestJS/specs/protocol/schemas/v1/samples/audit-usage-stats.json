@@ -1,0 +1,15 @@
+{
+  "totalConversations": 57,
+  "totalMessages": 412,
+  "totalTokens": 182340,
+  "totalErrors": 9,
+  "topActions": [
+    { "action": "chat", "count": 214 },
+    { "action": "tool_call", "count": 121 },
+    { "action": "tool_confirmation", "count": 43 }
+  ],
+  "byDay": [
+    { "date": "2026-09-10", "executed": 18, "approved": 6, "rejected": 1, "blocked": 2, "errors": 3 },
+    { "date": "2026-09-11", "executed": 22, "approved": 9, "rejected": 0, "blocked": 1, "errors": 2 }
+  ]
+}
