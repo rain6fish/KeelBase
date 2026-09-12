@@ -352,6 +352,9 @@ const zh = {
   aiCenterWritesTitle: 'AI 写操作',
   aiCenterEffectTotal: '共 {n} 条',
   aiCenterEffectCreated: 'AI 创建于',
+  // D2：决策证据 ↔ 实际状态变化
+  aiCenterChangeCreated: '新建 · {n} 个字段',
+  aiCenterChangeUpdated: '变更 {n} 个字段：{fields}',
   aiCenterWritesEmpty: '还没有 AI 写操作。去 CRM / 项目管理让 AI 建个跟进任务或项目，它会出现在这里',
   aiCenterLoading: '加载中…',
   statusExecuted: '已执行',

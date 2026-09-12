@@ -36,6 +36,10 @@
                 <span class="ms-2">· {{ e.resultType }}</span>
                 <span class="ms-2">· {{ t('aiCenterEffectCreated') }} {{ formatTime(e.createdAt) }}</span>
               </div>
+              <!-- D2：AI 决策证据 ↔ 实际状态变化（快照摘要；详细 diff 走动作详情） -->
+              <div v-if="changeText(e)" class="text-caption text-medium-emphasis mt-1">
+                <AppIcon icon="mdi-delta" size="14" class="mr-1" />{{ changeText(e) }}
+              </div>
             </div>
             <div class="d-flex align-center ga-1 flex-shrink-0">
               <el-button
@@ -183,6 +187,14 @@ function statusTag(status: string) {
 /** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(e: MyAiEffect): boolean {
   return e.revocable ?? false
+}
+
+/** D2：实际状态变化摘要文案（created/updated；unknown 不显示）；详细 diff 走动作详情 */
+function changeText(e: MyAiEffect): string {
+  const c = e.change
+  if (!c || c.kind === 'unknown') return ''
+  if (c.kind === 'created') return t('aiCenterChangeCreated', { n: c.fields.length })
+  return t('aiCenterChangeUpdated', { n: c.fields.length, fields: c.fields.join(', ') })
 }
 
 async function loadEffects() {
