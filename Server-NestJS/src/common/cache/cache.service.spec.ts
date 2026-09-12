@@ -66,17 +66,22 @@ describe('CacheService', () => {
     await expect(service.set('user:1', { x: 1 })).resolves.toBeUndefined();
   });
 
-  it('delByPrefix deletes keys via ioredis client', async () => {
-    mockCache.stores = [
-      { client: { keys: jest.fn().mockResolvedValue(['events:list:1:20', 'events:search:1']), del: jest.fn() } },
-    ];
+  it('delByPrefix：经 stores[0].store.client（KeyvRedis → node-redis）scanIterator + 数组 del', async () => {
+    const client = {
+      scanIterator: jest.fn(() => (async function* () {
+        yield 'events:list:1:20';
+        yield 'events:search:1';
+      })()),
+      del: jest.fn().mockResolvedValue(2),
+    };
+    mockCache.stores = [{ store: { client } }];
     const service = createService();
 
     await service.delByPrefix('events:');
 
-    const client = mockCache.stores[0].client;
-    expect(client.keys).toHaveBeenCalledWith('events:*');
-    expect(client.del).toHaveBeenCalledWith('events:list:1:20', 'events:search:1');
+    expect(client.scanIterator).toHaveBeenCalledWith({ MATCH: 'events:*' });
+    // node-redis 的 del 必须传**数组**（spread 只删第一个 key）
+    expect(client.del).toHaveBeenCalledWith(['events:list:1:20', 'events:search:1']);
   });
 
   it('delByPrefix no-ops when disabled', async () => {
