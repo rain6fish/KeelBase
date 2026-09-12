@@ -1,0 +1,17 @@
+{
+  "name": "create_followup_task",
+  "description": "为客户创建一条跟进任务",
+  "inputSchema": {
+    "type": "object",
+    "properties": { "customerId": { "type": "number" }, "note": { "type": "string" } },
+    "required": ["customerId"]
+  },
+  "annotations": { "readOnlyHint": false, "destructiveHint": false },
+  "_meta": {
+    "keelbase": {
+      "riskLevel": "R3",
+      "riskStrategy": "confirmation",
+      "requiresConfirmation": true
+    }
+  }
+}

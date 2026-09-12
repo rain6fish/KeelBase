@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "mcp-tool-list.schema.json",
+  "title": "MCP tools/list item — governance projection — v1",
+  "description": "MCP 出口 tools/list 的工具项：MCP 标准字段 + 治理契约投影。annotations.readOnlyHint 派生自 READ_ONLY_RISKS=['R0','R1','R2']；destructiveHint = (riskLevel==='R5')；_meta.keelbase 携带权威 R0-R5 契约（riskLevel/riskStrategy/requiresConfirmation）。外部 agent 按 readOnlyHint 决策，故映射边界属对外契约。来源：src/mcp/mcp.controller.ts:50-68 toMcpTool。",
+  "type": "object",
+  "required": ["name", "description", "inputSchema", "annotations", "_meta"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "inputSchema": { "type": "object" },
+    "annotations": {
+      "type": "object",
+      "required": ["readOnlyHint", "destructiveHint"],
+      "additionalProperties": false,
+      "properties": {
+        "readOnlyHint": { "type": "boolean" },
+        "destructiveHint": { "type": "boolean" }
+      }
+    },
+    "_meta": {
+      "type": "object",
+      "required": ["keelbase"],
+      "additionalProperties": false,
+      "properties": {
+        "keelbase": {
+          "type": "object",
+          "required": ["riskLevel", "riskStrategy", "requiresConfirmation"],
+          "additionalProperties": false,
+          "properties": {
+            "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+            "riskStrategy": { "enum": ["auto", "policy", "confirmation", "human_approval", "block"] },
+            "requiresConfirmation": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
