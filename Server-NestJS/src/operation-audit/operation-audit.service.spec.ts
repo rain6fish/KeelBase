@@ -2,12 +2,25 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, getMetadataArgsStorage } from 'typeorm';
 import { OperationAuditService } from './operation-audit.service';
 import { OperationAuditLog } from './operation-audit-log.entity';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('OperationAuditService', () => {
+  // PC-2（CE-2 缺口）：行形状 == 冻结 wire 契约（实体列 + username 投影）
+  it('PC-2：OperationAuditLog 列集 + username == operation-audit-log-row 冻结契约', () => {
+    const cols = getMetadataArgsStorage()
+      .columns.filter((c) => c.target === OperationAuditLog)
+      .map((c) => c.propertyName);
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/operation-audit-log-row.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    expect([...cols, 'username'].sort()).toEqual(Object.keys(schema.properties).sort());
+  });
+
   let service: OperationAuditService;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
   let runner: {

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "audit-cost-breakdown.schema.json",
+  "title": "AI Cost Breakdown (GET /audit/cost data) — v1",
+  "description": "AI 成本看板响应 data：按模型×意图×用户聚合 tokens（仅计非 error 行）。来源：src/ai/audit/audit.service.ts getCostBreakdown（965-1017）。",
+  "type": "object",
+  "required": ["summary", "byModel", "byIntent", "byUser"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "object",
+      "required": ["totalCalls", "totalTokens", "since"],
+      "additionalProperties": false,
+      "properties": {
+        "totalCalls": { "type": "number" },
+        "totalTokens": { "type": "number" },
+        "since": { "type": ["string", "null"] }
+      }
+    },
+    "byModel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["model", "calls", "promptTokens", "completionTokens"],
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string" },
+          "calls": { "type": "number" },
+          "promptTokens": { "type": "number" },
+          "completionTokens": { "type": "number" }
+        }
+      }
+    },
+    "byIntent": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "count"],
+        "additionalProperties": false,
+        "properties": { "action": { "type": "string" }, "count": { "type": "number" } }
+      }
+    },
+    "byUser": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["userId", "calls", "tokens"],
+        "additionalProperties": false,
+        "properties": {
+          "userId": { "type": "string" },
+          "calls": { "type": "number" },
+          "tokens": { "type": "number" }
+        }
+      }
+    }
+  }
+}

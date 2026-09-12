@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "audit-chain-verification.schema.json",
+  "title": "Audit Chain Verification (GET /audit/verify data) — v1",
+  "description": "审计哈希链完整性校验响应 data：ChainVerification + chain 可视窗口（E-2）。brokenIndex 仅在断链时存在；chain[].broken 仅断链行标记。来源：src/common/audit-chain/audit-chain.service.ts ChainVerification + src/ai/audit/audit.service.ts verifyChain/_chainSlice。",
+  "type": "object",
+  "required": ["valid", "checked", "chain"],
+  "additionalProperties": false,
+  "properties": {
+    "valid": { "type": "boolean" },
+    "checked": { "type": "number" },
+    "brokenIndex": { "type": ["number", "null"] },
+    "chain": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "createdAt", "action", "isError"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "number" },
+          "createdAt": { "type": "string" },
+          "action": { "type": "string" },
+          "toolName": { "type": ["string", "null"] },
+          "prevHash": { "type": ["string", "null"] },
+          "hash": { "type": ["string", "null"] },
+          "isError": { "type": "boolean" },
+          "broken": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

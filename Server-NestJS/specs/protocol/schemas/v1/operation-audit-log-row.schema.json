@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "operation-audit-log-row.schema.json",
+  "title": "Operation Audit Log Row (GET /audit/operations/logs item) — v1",
+  "description": "审计查询行（操作审计链）：OperationAuditLog + username。hash payload 为该行的 _payload 子集（不含 changes/businessEvent/authorization——链外注解列）；本行 schema 覆盖全列。来源：src/operation-audit/operation-audit-log.entity.ts + operation-audit.service.ts getLogs。",
+  "type": "object",
+  "required": ["id", "action", "method", "path", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number" },
+    "userId": { "type": ["number", "null"] },
+    "action": { "type": "string" },
+    "method": { "type": "string" },
+    "path": { "type": "string" },
+    "featureKey": { "type": ["string", "null"] },
+    "featureFallback": { "type": ["string", "null"] },
+    "targetId": { "type": ["string", "null"] },
+    "requestBody": { "type": ["string", "null"] },
+    "changes": { "type": ["string", "null"] },
+    "businessEvent": { "type": ["string", "null"] },
+    "authorization": { "type": ["string", "null"] },
+    "ip": { "type": ["string", "null"] },
+    "userAgent": { "type": ["string", "null"] },
+    "statusCode": { "type": ["number", "null"] },
+    "prevHash": { "type": ["string", "null"] },
+    "hash": { "type": ["string", "null"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "username": { "type": ["string", "null"] }
+  }
+}

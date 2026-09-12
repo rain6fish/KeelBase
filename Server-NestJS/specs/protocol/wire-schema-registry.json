@@ -138,7 +138,9 @@
       "schema": "api-response.schema.json",
       "title": "统一 REST 成功信封 ApiResponse",
       "source": "src/common/interfaces/api-response.interface.ts:3-8; src/common/interceptors/response.interceptor.ts:39-45",
-      "samples": ["schemas/v1/samples/api-response.json"]
+      "samples": [
+        "schemas/v1/samples/api-response.json"
+      ]
     },
     {
       "id": "error-body",
@@ -146,7 +148,9 @@
       "schema": "error-body.schema.json",
       "title": "统一 REST 错误信封 AllExceptionsFilter（含 NC-2 DX / W5-⑦ explanation）",
       "source": "src/common/filters/http-exception.filter.ts:109-140",
-      "samples": ["schemas/v1/samples/error-body.json"]
+      "samples": [
+        "schemas/v1/samples/error-body.json"
+      ]
     },
     {
       "id": "chat-response",
@@ -154,7 +158,9 @@
       "schema": "chat-response.schema.json",
       "title": "AI 对话响应 data（POST /ai/chat，ChatResponse）",
       "source": "src/ai/ai.service.ts:89-99,1071-1079",
-      "samples": ["schemas/v1/samples/chat-response.json"]
+      "samples": [
+        "schemas/v1/samples/chat-response.json"
+      ]
     },
     {
       "id": "conversation-data",
@@ -162,7 +168,9 @@
       "schema": "conversation-data.schema.json",
       "title": "AI 会话视图 ConversationData + Message（role 枚举）",
       "source": "src/ai/conversation/conversation.service.ts:23-38,202-222",
-      "samples": ["schemas/v1/samples/conversation-data.json"]
+      "samples": [
+        "schemas/v1/samples/conversation-data.json"
+      ]
     },
     {
       "id": "ws-frame",
@@ -170,7 +178,10 @@
       "schema": "ws-frame.schema.json",
       "title": "WS 实时传输帧 WsEnvelope（事件名全集 + connected/notification/error/ai:* 帧）",
       "source": "src/realtime/realtime.types.ts:5-44; src/realtime/realtime.gateway.ts",
-      "samples": ["schemas/v1/samples/ws-frame.json", "schemas/v1/samples/ws-frame-ai-done.json"]
+      "samples": [
+        "schemas/v1/samples/ws-frame.json",
+        "schemas/v1/samples/ws-frame-ai-done.json"
+      ]
     },
     {
       "id": "external-audit",
@@ -178,7 +189,9 @@
       "schema": "external-audit.schema.json",
       "title": "治理台上报体 POST /external/audit（业务→治理台 AI 审计）",
       "source": "src/governance/external-governance.controller.ts:30-53",
-      "samples": ["schemas/v1/samples/external-audit.json"]
+      "samples": [
+        "schemas/v1/samples/external-audit.json"
+      ]
     },
     {
       "id": "external-effects-report",
@@ -186,7 +199,9 @@
       "schema": "external-effects-report.schema.json",
       "title": "治理台上报体 POST /external/effects（AI 写副作用）",
       "source": "src/governance/external-governance.controller.ts:70-88",
-      "samples": ["schemas/v1/samples/external-effects-report.json"]
+      "samples": [
+        "schemas/v1/samples/external-effects-report.json"
+      ]
     },
     {
       "id": "external-effects-query",
@@ -194,7 +209,9 @@
       "schema": "external-effects-query.schema.json",
       "title": "服务身份副作用查询返回 GET /external/effects/:resultType/:resultId",
       "source": "src/ai/governance/external-effects.controller.ts:22-54",
-      "samples": ["schemas/v1/samples/external-effects-query.json"]
+      "samples": [
+        "schemas/v1/samples/external-effects-query.json"
+      ]
     },
     {
       "id": "internal-approvals-execute",
@@ -202,7 +219,9 @@
       "schema": "internal-approvals-execute.schema.json",
       "title": "治理台 approve 回调 POST /internal/approvals/:token/execute（R4，decision approve|decline）",
       "source": "src/ai/governance/internal-approvals.controller.ts:19-30",
-      "samples": ["schemas/v1/samples/internal-approvals-execute.json"]
+      "samples": [
+        "schemas/v1/samples/internal-approvals-execute.json"
+      ]
     },
     {
       "id": "sidecar-policy-push",
@@ -210,7 +229,9 @@
       "schema": "sidecar-policy-push.schema.json",
       "title": "治理台→sidecar 策略推送 POST {cb}/v1/policy（policy $ref governance-policy）",
       "source": "src/governance/sidecar-registry.service.ts:34-56; src/governance-sidecar/sidecar.controller.ts:59-69",
-      "samples": ["schemas/v1/samples/sidecar-policy-push.json"]
+      "samples": [
+        "schemas/v1/samples/sidecar-policy-push.json"
+      ]
     },
     {
       "id": "governance-confirmation-item",
@@ -218,7 +239,10 @@
       "schema": "governance-confirmation-item.schema.json",
       "title": "治理台确认/审批列表项（ai_confirmation_requests 行视图，single/run + names）",
       "source": "src/ai/approvals/ai-confirmation-request.entity.ts:19-74; src/ai/ai.service.ts:473-519; src/governance/governance-approval.service.ts:21-36",
-      "samples": ["schemas/v1/samples/governance-confirmation-item.json", "schemas/v1/samples/governance-confirmation-run.json"]
+      "samples": [
+        "schemas/v1/samples/governance-confirmation-item.json",
+        "schemas/v1/samples/governance-confirmation-run.json"
+      ]
     },
     {
       "id": "headless-chat-response",
@@ -226,7 +250,9 @@
       "schema": "headless-chat-response.schema.json",
       "title": "Headless 对话响应 POST /headless/chat（ChatResponse 投影）",
       "source": "src/headless/headless.controller.ts:14-26,48-59",
-      "samples": ["schemas/v1/samples/headless-chat-response.json"]
+      "samples": [
+        "schemas/v1/samples/headless-chat-response.json"
+      ]
     },
     {
       "id": "capabilities",
@@ -234,7 +260,9 @@
       "schema": "capabilities.schema.json",
       "title": "能力清单 GET /app/capabilities data（Renderer 原则地基，ADR-0002 Rev-8）",
       "source": "src/app-version/capabilities.service.ts:36-56; src/feature-flags/feature-flags.constants.ts:9-49; src/common/modules/modules-manifest.ts:75-89",
-      "samples": ["schemas/v1/samples/capabilities.json"]
+      "samples": [
+        "schemas/v1/samples/capabilities.json"
+      ]
     },
     {
       "id": "tool-invocation",
@@ -242,7 +270,10 @@
       "schema": "tool-invocation.schema.json",
       "title": "受治理工具调用 request/response 语义（executed/requiresConfirmation/result）",
       "source": "src/ai/ai.service.ts:634-648 executeToolForExternal; src/ai/interfaces/tool.interface.ts:29-34 ToolResult",
-      "samples": ["schemas/v1/samples/tool-invocation.json", "schemas/v1/samples/tool-invocation-confirmation.json"]
+      "samples": [
+        "schemas/v1/samples/tool-invocation.json",
+        "schemas/v1/samples/tool-invocation-confirmation.json"
+      ]
     },
     {
       "id": "permission-capability-list",
@@ -250,7 +281,9 @@
       "schema": "permission-capability-list.schema.json",
       "title": "Explainable Authz — 本人能力清单（GET /auth/me/permissions）",
       "source": "src/common/casl/casl-ability.factory.ts describeForUser",
-      "samples": ["schemas/v1/samples/permission-capability-list.json"]
+      "samples": [
+        "schemas/v1/samples/permission-capability-list.json"
+      ]
     },
     {
       "id": "permission-decision",
@@ -258,7 +291,69 @@
       "schema": "permission-decision.schema.json",
       "title": "Explainable Authz — 单决策（POST /auth/permissions/explain）",
       "source": "src/common/casl/casl-ability.factory.ts _explain",
-      "samples": ["schemas/v1/samples/permission-decision.json"]
+      "samples": [
+        "schemas/v1/samples/permission-decision.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "ai-audit-log-row",
+      "schema": "ai-audit-log-row.schema.json",
+      "title": "AI 审计查询行（GET /audit/logs item，AiAuditLog + username 投影）",
+      "source": "src/ai/audit/audit.service.ts:506-567 _queryLogs",
+      "samples": [
+        "schemas/v1/samples/ai-audit-log-row.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "operation-audit-log-row",
+      "schema": "operation-audit-log-row.schema.json",
+      "title": "操作审计查询行（GET /audit/operations/logs item，OperationAuditLog + username）",
+      "source": "src/operation-audit/operation-audit-log.entity.ts:17-76; src/operation-audit/operation-audit.service.ts getLogs",
+      "samples": [
+        "schemas/v1/samples/operation-audit-log-row.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "audit-chain-verification",
+      "schema": "audit-chain-verification.schema.json",
+      "title": "审计哈希链校验响应（GET /audit/verify data）",
+      "source": "src/common/audit-chain/audit-chain.service.ts:13-18; src/ai/audit/audit.service.ts:379-413",
+      "samples": [
+        "schemas/v1/samples/audit-chain-verification.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "audit-usage-stats",
+      "schema": "audit-usage-stats.schema.json",
+      "title": "AI 用量统计（GET /audit/stats data）",
+      "source": "src/ai/audit/audit.service.ts:1132-1168 getAllStats",
+      "samples": [
+        "schemas/v1/samples/audit-usage-stats.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "audit-cost-breakdown",
+      "schema": "audit-cost-breakdown.schema.json",
+      "title": "AI 成本看板（GET /audit/cost data）",
+      "source": "src/ai/audit/audit.service.ts:965-1017 getCostBreakdown",
+      "samples": [
+        "schemas/v1/samples/audit-cost-breakdown.json"
+      ]
+    },
+    {
+      "version": "v1",
+      "id": "audit-action-report",
+      "schema": "audit-action-report.schema.json",
+      "title": "AI Action Report 合规证据包（GET /audit/action-report data）",
+      "source": "src/ai/audit/audit.service.ts:638-732 getActionReport",
+      "samples": [
+        "schemas/v1/samples/audit-action-report.json"
+      ]
     }
   ]
 }
