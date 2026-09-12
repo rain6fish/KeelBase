@@ -2038,6 +2038,33 @@ describe('AiService', () => {
       expect(res.message).toContain('run confirmation cannot be decided');
       expect(repo.save).not.toHaveBeenCalled(); // 未翻状态
     });
+
+    it('§HS-9 执行前门控：审批请求创建后工具被策略禁用 → 批准也不执行（kill-switch 对在途审批生效）', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't2',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{"title":"x"}',
+          conversationId: 'c',
+          approverId: null,
+          decidedAt: null,
+        }),
+        save: jest.fn().mockResolvedValue({}),
+      };
+      (aiService as any).approvalsRepo = repo;
+      // 发起审批后、批准前：治理策略把该工具禁用（策略实时生效）
+      (aiService as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
+      mockToolRegistry.execute.mockClear();
+
+      const res = await aiService.decideApproval('t2', 'admin', 'approve');
+
+      // 执行点复查命中禁用 → 工具未真正执行（此前只在发起时断言，批准仍会执行）
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      expect(res.success).toBe(false);
+      (aiService as any).governancePolicy = undefined;
+    });
   });
 
   describe('HS-10 Agent 对话集成（ExternalToolProvider）', () => {
