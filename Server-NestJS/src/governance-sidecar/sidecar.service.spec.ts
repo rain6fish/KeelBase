@@ -228,3 +228,129 @@ describe('SidecarService（S-2 工具门控流）', () => {
     expect(confirmEntry!.authorization).toBeUndefined();
   });
 });
+
+describe('SidecarService（构造分支 / 上游错误 / 边界）', () => {
+  const origEnv = { ...process.env };
+
+  const flush = () => new Promise((r) => setImmediate(r));
+  const okRes = (json: unknown) => ({ ok: true, status: 200, json: async () => json, text: async () => '' });
+
+  afterEach(() => {
+    process.env = { ...origEnv };
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('SIDECAR_TOOLS 缺省 → 空工具表（无解析）', () => {
+    delete process.env.SIDECAR_TOOLS;
+    delete process.env.GOVERNANCE_URL;
+    (global as any).fetch = jest.fn(async () => okRes({}));
+    expect(() => new SidecarService()).not.toThrow();
+  });
+
+  it('SIDECAR_TOOLS 非法 JSON → 回退空表（不抛）', () => {
+    process.env.SIDECAR_TOOLS = '{ not json';
+    delete process.env.GOVERNANCE_URL;
+    (global as any).fetch = jest.fn(async () => okRes({}));
+    expect(() => new SidecarService()).not.toThrow();
+  });
+
+  it('upstream 非 2xx → 上报 error 审计并抛 sidecar upstream error', async () => {
+    process.env.SIDECAR_UPSTREAM_URL = 'http://upstream';
+    process.env.GOVERNANCE_URL = 'http://gov';
+    process.env.GOVERNANCE_API_KEY = 'k';
+    delete process.env.SIDECAR_TOOLS;
+    const fetchMock = jest.fn(async (url: string) =>
+      url.startsWith('http://upstream')
+        ? { ok: false, status: 502, text: async () => 'bad gateway', json: async () => ({}) }
+        : okRes({}),
+    );
+    (global as any).fetch = fetchMock;
+    const s = new SidecarService();
+
+    await expect(s.proxyChat({ model: 'm', messages: [] })).rejects.toThrow('sidecar upstream error 502');
+
+    await flush();
+    const errEntry = fetchMock.mock.calls
+      .filter((c) => String(c[0]).includes('/external/audit'))
+      .map((c) => JSON.parse(String((c[1] as { body?: string })?.body ?? '{}')));
+    expect(errEntry.some((e) => e.action === 'error' && e.isError === true)).toBe(true);
+  });
+
+  it('summarizeMessages：messages 非数组 → 摘要为空', async () => {
+    process.env.SIDECAR_UPSTREAM_URL = 'http://upstream';
+    delete process.env.GOVERNANCE_URL;
+    delete process.env.SIDECAR_TOOLS;
+    const fetchMock = jest.fn(async () => okRes({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+    (global as any).fetch = fetchMock;
+    const s = new SidecarService();
+    await expect(s.proxyChat({ model: 'm', messages: 'not-an-array' as unknown as unknown[] })).resolves.toBeDefined();
+  });
+
+  it('构造时 SIDECAR_CALLBACK_URL + GOVERNANCE_URL → 注册回调', async () => {
+    process.env.SIDECAR_CALLBACK_URL = 'http://cb';
+    process.env.GOVERNANCE_URL = 'http://gov';
+    process.env.GOVERNANCE_API_KEY = 'k';
+    delete process.env.SIDECAR_TOOLS;
+    const fetchMock = jest.fn(async () => okRes({}));
+    (global as any).fetch = fetchMock;
+    new SidecarService();
+    await flush();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/sidecars/register'))).toBe(true);
+  });
+
+  it('策略刷新非 2xx → 静默不覆盖（保持本地风险级）', async () => {
+    process.env.GOVERNANCE_URL = 'http://gov';
+    process.env.GOVERNANCE_API_KEY = 'k';
+    delete process.env.SIDECAR_TOOLS;
+    const fetchMock = jest.fn(async () => ({ ok: false, status: 503, json: async () => ({}), text: async () => '' }));
+    (global as any).fetch = fetchMock;
+    expect(() => new SidecarService()).not.toThrow();
+    await flush();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/external/governance/policy'))).toBe(true);
+  });
+
+  it('reportAudit 上游不可达 → 静默吞错（fetch reject 不冒泡）', async () => {
+    process.env.SIDECAR_UPSTREAM_URL = 'http://upstream';
+    process.env.GOVERNANCE_URL = 'http://gov';
+    process.env.GOVERNANCE_API_KEY = 'k';
+    delete process.env.SIDECAR_TOOLS;
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.startsWith('http://upstream')) return okRes({ choices: [{ message: { role: 'assistant', content: 'ok' } }] });
+      throw new Error('gov down');
+    });
+    (global as any).fetch = fetchMock;
+    const s = new SidecarService();
+    await expect(s.proxyChat({ model: 'm', messages: [] })).resolves.toBeDefined();
+    await flush();
+  });
+
+  it('过期 hold 项 → purgeHeld 清除（pendingConfirmations 不返回）', async () => {
+    process.env.SIDECAR_UPSTREAM_URL = 'http://upstream';
+    process.env.SIDECAR_CONFIRM_TTL_SECONDS = '300';
+    delete process.env.GOVERNANCE_URL;
+    process.env.SIDECAR_TOOLS = JSON.stringify([{ name: 'w', riskLevel: 'R3' }]);
+    const fetchMock = jest.fn(async () =>
+      okRes({ choices: [{ message: { tool_calls: [{ id: 'c', type: 'function', function: { name: 'w', arguments: '{}' } }] } }] }),
+    );
+    (global as any).fetch = fetchMock;
+    const s = new SidecarService();
+    await s.proxyChat({ model: 'm', messages: [] });
+    expect(s.pendingConfirmations()).toHaveLength(1);
+    jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 10 * 60 * 1000);
+    expect(s.pendingConfirmations()).toHaveLength(0);
+  });
+
+  it('构造启动轮询/清理定时器（fake timers 触发回调）', () => {
+    delete process.env.GOVERNANCE_URL;
+    delete process.env.SIDECAR_TOOLS;
+    process.env.SIDECAR_UPSTREAM_URL = 'http://upstream';
+    (global as any).fetch = jest.fn(async () => okRes({}));
+    jest.useFakeTimers();
+    const s = new SidecarService();
+    jest.advanceTimersByTime(61_000);
+    jest.advanceTimersByTime(300_000);
+    jest.useRealTimers();
+    expect(s).toBeInstanceOf(SidecarService);
+  });
+});

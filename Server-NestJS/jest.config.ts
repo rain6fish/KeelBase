@@ -36,12 +36,12 @@ const config: Config = {
   ],
   coverageDirectory: './coverage',
   coverageThreshold: {
-    // 2026-08-20 提高：锁住当前水平（实际 91.6/77.4/86.0/92.2，留 6-7 点余量防 CI 波动）
+    // 2026-09-13 提高：锁住当前水平（实际 91.5/78.2/87.5，沿用留 ~5-6 点余量防 CI 波动的惯例）
     global: {
-      statements: 85,
-      branches: 70,
-      functions: 80,
-      lines: 85,
+      statements: 86,
+      branches: 72,
+      functions: 81,
+      lines: 86,
     },
     // 关键安全模块分档门槛由 scripts/check-security-coverage.mjs 在 test:cov 后门控
     // （jest coverageThreshold 的目录 glob 在 Windows 反斜杠路径下无法匹配，见 T.5）
