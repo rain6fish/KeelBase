@@ -14,7 +14,10 @@
       "properties": {
         "id": { "type": "number" },
         "name": { "type": "string" },
-        "description": { "type": "string" }
+        "description": {
+          "type": ["string", "null"],
+          "description": "组织描述（Organization.description 列 nullable——运行时可输出 null）"
+        }
       }
     },
     "role": { "type": "string", "enum": ["owner", "admin", "member"] },

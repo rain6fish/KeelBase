@@ -69,6 +69,17 @@ for (const p of dartAbs) {
   }
 }
 
+// 防真空通过：两侧都是从源码正则解析出的集合——若引用格式被重构（引号/写法变化），集合会变空，
+// 双向循环各自「零迭代」，门禁便打出「✓ 0 ↔ 0」假绿。任一集合为空即视为解析失败。
+for (const [label, set] of [
+  ['ADMIN_PAGE_ROUTES', adminRoutes],
+  ['Vue consoleChildren 路由', vuePaths],
+  ['PAGE_ROUTES', pageRoutes],
+  ['Flutter 顶层路由', dartAbs],
+]) {
+  if (set.size === 0) errors.push(`解析为空（${label}）——源格式可能已变，对账不应真空通过（检查解析正则/源文件）`);
+}
+
 if (errors.length > 0) {
   console.error(`✗ 导航对账门禁未通过（${errors.length} 项）：`);
   for (const e of errors) console.error(`  - ${e}`);

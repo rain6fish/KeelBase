@@ -184,6 +184,21 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(callSpy).not.toHaveBeenCalled();
     });
 
+    it('PC-5：外部声明 R5 → 直接阻断（声明即门控），不进入确认/执行且留审计', async () => {
+      settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x' }]));
+      jest.spyOn(service as any, '_listTools').mockResolvedValue([
+        { name: 'purge_records', description: '清库', readOnly: false, riskLevel: 'R5', riskStrategy: 'block' },
+      ]);
+      const callSpy = jest.spyOn(service as any, '_callRemote');
+      governance.requiresConfirmation.mockResolvedValue(false); // 即便策略免确认也不放行 R5
+      const out = await service.callExternalTool('wx', 'purge_records', {}, '1');
+      expect(out.executed).toBe(false);
+      expect(out.requiresConfirmation).toBe(false);
+      expect(out.error).toContain('R5');
+      expect(callSpy).not.toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalled();
+    });
+
     it('策略可覆盖为免确认（非只读工具）', async () => {
       settings.get.mockResolvedValue(JSON.stringify([{ name: 'wx', url: 'http://x' }]));
       jest.spyOn(service as any, '_listTools').mockResolvedValue(tools);
@@ -270,9 +285,10 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(tools).toHaveLength(5);
       expect(tools[0]).toMatchObject({ name: 'get_weather', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
       expect(tools[1]).toMatchObject({ name: 'send_email', readOnly: false, riskLevel: 'R3', riskStrategy: 'confirmation' });
-      // PC-5：`_meta.keelbase` 权威声明被采纳（R5 → block）；声明 R1 时 readOnly 随之归一（声明优先于 hint）
+      // PC-5：`_meta.keelbase` 权威声明被采纳（R5 → block）
       expect(tools[2]).toMatchObject({ name: 'purge_records', readOnly: false, riskLevel: 'R5', riskStrategy: 'block' });
-      expect(tools[3]).toMatchObject({ name: 'fetch_report', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
+      // 声明 R1 优先于 hint 决定 riskLevel；但 readOnly 仍取 hint（不由声明反推，避免把非只读输入放宽成免确认）
+      expect(tools[3]).toMatchObject({ name: 'fetch_report', readOnly: false, riskLevel: 'R1', riskStrategy: 'auto' });
       // 闭集外声明（R9）→ 回落 readOnlyHint 派生
       expect(tools[4]).toMatchObject({ name: 'mystery_tool', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
       expect(close).toHaveBeenCalled();

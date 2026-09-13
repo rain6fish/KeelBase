@@ -38,8 +38,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "pattern": "^[a-z][a-zA-Z0-9_]{0,29}$",
-            "description": "camelCase 或 snake_case（TypeORM 自动映射列名）"
+            "pattern": "^(?!id$|userId$|createdAt$|updatedAt$|deletedAt$)[a-z][a-zA-Z0-9_]{0,29}$",
+            "description": "camelCase 或 snake_case（TypeORM 自动映射列名）；不得为保留列 id/userId/createdAt/updatedAt/deletedAt（见 RESERVED_FIELD_NAMES）"
           },
           "type": {
             "type": "string",

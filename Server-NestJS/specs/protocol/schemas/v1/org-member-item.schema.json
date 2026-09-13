@@ -16,6 +16,10 @@
     "username": { "type": ["string", "null"] },
     "nickname": { "type": ["string", "null"] },
     "avatarUrl": { "type": ["string", "null"] },
-    "email": { "type": ["string", "null"], "description": "掩码后的邮箱（maskEmail）" }
+    "email": {
+      "type": ["string", "null"],
+      "pattern": "^[^@]*\\*[^@]*@",
+      "description": "掩码后的邮箱（maskEmail——本地部分含 `*`；null=无邮箱）"
+    }
   }
 }

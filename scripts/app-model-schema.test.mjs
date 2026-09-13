@@ -7,7 +7,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { validate } from './generator/schema-validate.mjs';
@@ -92,6 +93,21 @@ test('module-spec：business-spec 映射器产出形状通过（module+plural+se
     aiTools: { query: { riskLevel: 'R1' }, create: false },
   };
   assert.deepEqual(validate(moduleSpec, mapped), []);
+});
+
+test('module-provenance：writeModuleProvenance 的真实输出过 schema（防生成↔契约漂移）', async () => {
+  // 仓内无常驻 provenance 文件（可移除制品）→ 门禁的 provenance 分支在本仓恒为空，
+  // 故此处直接跑**真实写入函数**再校验其输出，避免「写出来的形状 ↔ 冻结 schema」静默漂移。
+  const { writeModuleProvenance, moduleProvenancePath } = await import('./generator/manifest.mjs');
+  const root = mkdtempSync(join(os.tmpdir(), 'kb-prov-'));
+  try {
+    await writeModuleProvenance('invoices', 'spec:invoices.json', root);
+    const written = JSON.parse(readFileSync(join(root, moduleProvenancePath('invoices')), 'utf8'));
+    assert.deepEqual(validate(provenance, written), []);
+    assert.equal(written.source, 'spec:invoices.json');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('manifest / module-provenance：真实形状通过 + 常量与必填被强制', () => {

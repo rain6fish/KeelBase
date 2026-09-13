@@ -9,7 +9,7 @@ import { GovernancePolicyService } from '../../ai/governance/governance-policy.s
 import { AuditService } from '../../ai/audit/audit.service';
 import { AiService } from '../../ai/ai.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
-import { ToolRiskLevel, RISK_STRATEGY, READ_ONLY_RISK_LEVELS } from '../../ai/interfaces/tool.interface';
+import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';
 
 export interface McpServerConfig {
   name: string;
@@ -211,7 +211,22 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
       return { executed: false, requiresConfirmation: false, error: `Tool "${extKey}" is disabled by governance policy` };
     }
 
-    const readOnly = (await this._findTool(server, toolName))?.readOnly ?? false;
+    // PC-5：外部声明的风险契约**必须真的用于门控**（协议 §4.4「应以其门控」）——声明 R5（不可逆/外部动作）
+    // 直接阻断，与内部工具 `_assertToolAllowed` 的 R5 语义一致；声明 R3/R4 → readOnly=false → 走确认/审批门。
+    const tool = await this._findTool(server, toolName);
+    if (tool?.riskLevel === 'R5') {
+      await this._auditDenied(
+        userId,
+        serverName,
+        toolName,
+        args,
+        'risk_policy',
+        `Tool "${extKey}" is blocked (declared risk level R5)`,
+      );
+      return { executed: false, requiresConfirmation: false, error: `Tool "${extKey}" is blocked (declared risk level R5)` };
+    }
+
+    const readOnly = tool?.readOnly ?? false;
     const defaultRequires = !readOnly;
     const requiresConfirmation = await this.governance.requiresConfirmation(extKey, defaultRequires);
     if (requiresConfirmation) {
@@ -273,6 +288,8 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
         // PC-5（CE-2 缺口）：导入侧读 `_meta.keelbase`（与导出 §4.4 对称）——外部实现经 MCP 标准
         // 扩展槽声明权威 R0-R5 契约；仅当落在闭集内才采用（防脏值/伪造），否则回落
         // annotations.readOnlyHint 派生（读 R1 / 写 R3，第三方工具安全默认）。
+        // `readOnly` 仍取 readOnlyHint（**不**由声明反推）——避免「声明 R2 但 hint 说非只读」这类
+        // 不自洽输入反而放宽默认确认；声明只用于**收紧**（见 callExternalTool 的 R5 阻断）。
         const declared = (t as { _meta?: { keelbase?: { riskLevel?: unknown } } })._meta?.keelbase
           ?.riskLevel;
         const declaredRisk =
@@ -281,12 +298,11 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
             : undefined;
         const riskLevel: ToolRiskLevel =
           declaredRisk ?? ((t.annotations?.readOnlyHint ?? false) ? 'R1' : 'R3');
-        const readOnly = READ_ONLY_RISK_LEVELS.includes(riskLevel);
         return {
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema as Record<string, unknown> | undefined,
-          readOnly,
+          readOnly: t.annotations?.readOnlyHint ?? false,
           riskLevel,
           riskStrategy: RISK_STRATEGY[riskLevel],
         };

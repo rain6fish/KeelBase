@@ -1,0 +1,6 @@
+{
+  "org": { "id": 2, "name": "Acme", "description": null },
+  "role": "member",
+  "deptId": null,
+  "deptPath": []
+}

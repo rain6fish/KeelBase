@@ -382,7 +382,8 @@
       "title": "我的组织成员范围 GET /org/my data（org/orgId 数据范围 membership）",
       "source": "src/org/org.service.ts:351-366 getMyOrg; src/org/org-member-role.enum.ts",
       "samples": [
-        "schemas/v1/samples/org-membership-scope.json"
+        "schemas/v1/samples/org-membership-scope.json",
+        "schemas/v1/samples/org-membership-scope-null-desc.json"
       ]
     },
     {
