@@ -2,6 +2,9 @@
 
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getMetadataArgsStorage } from 'typeorm';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { AiAgent } from './ai-agent.entity';
 import { AiAgentService } from './ai-agent.service';
 
@@ -26,6 +29,17 @@ function makeRepo() {
 }
 
 describe('AiAgentService（D5 Agent Registry）', () => {
+  // PC-4（CE-2 缺口）：Agent 一级 wire 对象——实体列集 == 冻结契约
+  it('PC-4：AiAgent 列集 == agent-registry-item 冻结契约', () => {
+    const cols = getMetadataArgsStorage()
+      .columns.filter((c) => c.target === AiAgent)
+      .map((c) => c.propertyName);
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/agent-registry-item.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    expect(cols.sort()).toEqual(Object.keys(schema.properties).sort());
+  });
+
   it('list 返回已注册 Agent（按名升序）', async () => {
     const repo = makeRepo();
     const svc = new AiAgentService(repo as any);

@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "name": "key-erp",
+  "ownerId": 3,
+  "purpose": "headless API key「key-erp」",
+  "capabilities": null,
+  "trustLevel": "R1",
+  "description": "ERP 系统集成 agent",
+  "createdAt": "2026-09-11T09:00:00.000Z",
+  "updatedAt": "2026-09-11T09:00:00.000Z"
+}

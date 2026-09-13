@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "agent-registry-item.schema.json",
+  "title": "Agent Registry Item (GET /ai/agents item) — v1",
+  "description": "Agent 一级 wire 对象（D5 Agent Registry）：身份（id/name/ownerId）+ 能力（capabilities）+ 信任级（trustLevel）+ 用途/描述。audit payload 的 agentId/callerAgentId 以 name 为唯一键归责到此对象。capabilities 列当前声明但未填充（预留能力面）。来源：src/ai/agents/ai-agent.entity.ts:18-51 + agents.controller.ts list()。",
+  "type": "object",
+  "required": ["id", "name", "trustLevel", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number" },
+    "name": { "type": "string" },
+    "ownerId": { "type": ["number", "null"] },
+    "purpose": { "type": ["string", "null"] },
+    "capabilities": {
+      "type": ["string", "null"],
+      "description": "能力清单 JSON 数组字符串（如 [\"read_customer\",\"create_followup\"]）"
+    },
+    "trustLevel": { "enum": ["R1", "R2", "R3", "R4", "R5"] },
+    "description": { "type": ["string", "null"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

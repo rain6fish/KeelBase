@@ -404,6 +404,16 @@
       "samples": [
         "schemas/v1/samples/org-member-public.json"
       ]
+    },
+    {
+      "id": "agent-registry-item",
+      "version": "v1",
+      "schema": "agent-registry-item.schema.json",
+      "title": "Agent Registry 列表项（身份 + capability + trustLevel，D5）",
+      "source": "src/ai/agents/ai-agent.entity.ts:18-51; agents.controller.ts list()",
+      "samples": [
+        "schemas/v1/samples/agent-registry-item.json"
+      ]
     }
   ]
 }

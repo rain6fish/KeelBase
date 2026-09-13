@@ -68,6 +68,8 @@ const FROZEN_OBJECT_IDS = [
   'org-membership-scope',
   'org-member-item',
   'org-member-public',
+  // PC-4（CE-2 缺口）：Agent 一级 wire 对象（身份 + capability + trustLevel，D5 Registry）
+  'agent-registry-item',
 ];
 
 const failures: string[] = [];
