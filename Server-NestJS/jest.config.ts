@@ -13,7 +13,8 @@ const config: Config = {
     'src/**/*.(t|j)s',
     // 生成型/入口文件不参与覆盖：TypeORM 自动迁移、进程入口与 tracing 引导
     '!src/migrations/**',
-    '!src/main.ts',
+    // 进程入口（bootstrapping，与 src/main.ts 同类；含 governance/main.ts 与 governance-sidecar/main.ts）
+    '!src/**/main.ts',
     '!src/tracing*.ts',
     '!src/tracing-init.ts',
     // 纯 DI 声明样板 module 排除（2026-08-16 决策）：仅 imports/controllers/providers 声明
