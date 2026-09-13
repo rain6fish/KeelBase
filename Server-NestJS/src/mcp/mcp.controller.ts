@@ -15,7 +15,7 @@ import {
   AuthorizationExplainerService,
   buildAllowSnapshot,
 } from '../ai/authorization-explainer.service';
-import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
+import { AuthorizationDeniedError, READ_ONLY_RISK_LEVELS } from '../ai/interfaces/tool.interface';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Raw } from '../common/decorators/raw.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -53,8 +53,6 @@ const MCP_SERVER_INFO = {
 };
 const MCP_PROTOCOL_VERSION = '2025-03-26';
 
-const READ_ONLY_RISKS = ['R0', 'R1', 'R2'];
-
 /**
  * 治理能力 2.1「MCP 工具声明治理扩展」（ai-governance-protocol §4.4）：
  * MCP SDK 的 ToolSchema 无 passthrough，顶层 riskLevel 等自定义字段会被 Zod 剥掉；
@@ -63,7 +61,7 @@ const READ_ONLY_RISKS = ['R0', 'R1', 'R2'];
  *   - `_meta.keelbase`：规范扩展槽（z.record 保留），携带权威的 R0-R5 契约
  */
 function toMcpTool(tool: McpToolGovernance) {
-  const readOnly = READ_ONLY_RISKS.includes(tool.riskLevel);
+  const readOnly = READ_ONLY_RISK_LEVELS.includes(tool.riskLevel);
   return {
     name: tool.name,
     description: tool.description,

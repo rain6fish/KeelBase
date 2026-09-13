@@ -9,7 +9,7 @@ import { GovernancePolicyService } from '../../ai/governance/governance-policy.s
 import { AuditService } from '../../ai/audit/audit.service';
 import { AiService } from '../../ai/ai.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
-import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';
+import { ToolRiskLevel, RISK_STRATEGY, READ_ONLY_RISK_LEVELS } from '../../ai/interfaces/tool.interface';
 
 export interface McpServerConfig {
   name: string;
@@ -22,7 +22,7 @@ export interface ExternalMcpTool {
   inputSchema?: Record<string, unknown>;
   /** readOnlyHint=true 视为只读；否则默认需确认（第三方工具安全默认） */
   readOnly: boolean;
-  /** A2 风险声明：readOnly→R1(auto)，非只读→R3(confirmation)，对齐内部 R0-R5 模型 */
+  /** A2 风险声明：优先采纳 `_meta.keelbase.riskLevel`（外部权威声明，闭集校验）；否则 readOnly→R1(auto) / 非只读→R3(confirmation) */
   riskLevel: ToolRiskLevel;
   riskStrategy: string;
 }
@@ -270,8 +270,18 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
       await client.connect(transport as never);
       const { tools } = await client.listTools();
       return tools.map((t) => {
-        const readOnly = t.annotations?.readOnlyHint ?? false;
-        const riskLevel: ToolRiskLevel = readOnly ? 'R1' : 'R3';
+        // PC-5（CE-2 缺口）：导入侧读 `_meta.keelbase`（与导出 §4.4 对称）——外部实现经 MCP 标准
+        // 扩展槽声明权威 R0-R5 契约；仅当落在闭集内才采用（防脏值/伪造），否则回落
+        // annotations.readOnlyHint 派生（读 R1 / 写 R3，第三方工具安全默认）。
+        const declared = (t as { _meta?: { keelbase?: { riskLevel?: unknown } } })._meta?.keelbase
+          ?.riskLevel;
+        const declaredRisk =
+          typeof declared === 'string' && Object.prototype.hasOwnProperty.call(RISK_STRATEGY, declared)
+            ? (declared as ToolRiskLevel)
+            : undefined;
+        const riskLevel: ToolRiskLevel =
+          declaredRisk ?? ((t.annotations?.readOnlyHint ?? false) ? 'R1' : 'R3');
+        const readOnly = READ_ONLY_RISK_LEVELS.includes(riskLevel);
         return {
           name: t.name,
           description: t.description,

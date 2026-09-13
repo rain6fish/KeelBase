@@ -53,6 +53,13 @@ export const RISK_STRATEGY: Record<ToolRiskLevel, string> = {
 };
 
 /**
+ * 只读风险级（R0 Informational / R1 Read / R2 Low-risk Write）。
+ * MCP **导出侧** `annotations.readOnlyHint` 与**导入侧** `readOnly` 共用同一判据——
+ * 单一真源，防两处判定漂移（CE-2 PC-5：导入/导出对称）。
+ */
+export const READ_ONLY_RISK_LEVELS: readonly string[] = ['R0', 'R1', 'R2'];
+
+/**
  * 解析工具风险级：显式声明优先；否则按既有语义派生——
  * requiresConfirmation 写工具 → R3（业务敏感写），读工具 → R1（读）。
  */

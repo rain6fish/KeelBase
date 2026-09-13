@@ -14,6 +14,11 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
       tools: [
         { name: 'get_weather', description: '查天气', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
         { name: 'send_email', description: '发邮件', annotations: { readOnlyHint: false } },
+        // PC-5：外部经 `_meta.keelbase` 声明权威 R0-R5 契约（导入侧应采纳，而非回落 readOnlyHint）
+        { name: 'purge_records', description: '清库', annotations: { readOnlyHint: false }, _meta: { keelbase: { riskLevel: 'R5', riskStrategy: 'block', requiresConfirmation: false } } },
+        { name: 'fetch_report', description: '取报表', annotations: { readOnlyHint: false }, _meta: { keelbase: { riskLevel: 'R1', riskStrategy: 'auto', requiresConfirmation: false } } },
+        // 闭集外声明（脏值）→ 回落 readOnlyHint 派生
+        { name: 'mystery_tool', description: '未知', annotations: { readOnlyHint: true }, _meta: { keelbase: { riskLevel: 'R9' } } },
       ],
     }),
     callTool: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '晴 26°C' }], isError: false }),
@@ -257,14 +262,19 @@ describe('McpGatewayService (HS-10 入口)', () => {
       return { s, close, transportFactory };
     }
 
-    it('_listTools 经 transportFactory + Client 拉取并映射 readOnly', async () => {
+    it('_listTools 经 transportFactory + Client 拉取并映射 readOnly + `_meta.keelbase`（PC-5）', async () => {
       const { s, close, transportFactory } = svcWithFactory();
       const tools = await (s as any)._listTools(server);
       expect(transportFactory).toHaveBeenCalledWith(server);
       expect(Client).toHaveBeenCalledWith(expect.objectContaining({ name: 'keelbase-gateway' }));
-      expect(tools).toHaveLength(2);
+      expect(tools).toHaveLength(5);
       expect(tools[0]).toMatchObject({ name: 'get_weather', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
       expect(tools[1]).toMatchObject({ name: 'send_email', readOnly: false, riskLevel: 'R3', riskStrategy: 'confirmation' });
+      // PC-5：`_meta.keelbase` 权威声明被采纳（R5 → block）；声明 R1 时 readOnly 随之归一（声明优先于 hint）
+      expect(tools[2]).toMatchObject({ name: 'purge_records', readOnly: false, riskLevel: 'R5', riskStrategy: 'block' });
+      expect(tools[3]).toMatchObject({ name: 'fetch_report', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
+      // 闭集外声明（R9）→ 回落 readOnlyHint 派生
+      expect(tools[4]).toMatchObject({ name: 'mystery_tool', readOnly: true, riskLevel: 'R1', riskStrategy: 'auto' });
       expect(close).toHaveBeenCalled();
     });
 
