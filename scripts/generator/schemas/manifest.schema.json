@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "manifest.schema.json",
+  "title": "Application Model · 来源身份清单 .keelbase/manifest.json — v1",
+  "description": "PC-7（CE-2 缺口）：manifest 此前只被 doctor 逐字段手查、无声明式 schema。本 schema 与 scripts/generator/manifest.mjs 的写入形状同源（schema/identity/generator 为常量）。消费者：keelbase doctor 完整性检查 + scripts/check-app-model.mjs。",
+  "type": "object",
+  "required": ["schema", "identity", "generator", "generatorVersion", "protocol", "modules"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1, "description": "清单结构版本（MANIFEST_SCHEMA）" },
+    "identity": { "const": "keelbase-application" },
+    "generator": { "const": "keelbase" },
+    "generatorVersion": { "type": "string", "minLength": 1 },
+    "protocol": { "type": "string", "minLength": 1, "description": "模块协议版本（MANIFEST_PROTOCOL）" },
+    "modules": {
+      "type": "array",
+      "description": "已生成模块（复数名，排序去重）",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" }
+    }
+  }
+}

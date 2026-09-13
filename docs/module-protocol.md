@@ -26,6 +26,8 @@
 
 > **字段命名**：用 camelCase（`riskLevel`、`annualValue`）——与代码库跨语言约定一致，TypeORM 自动映射 snake_case 列名。生成器同时兼容 snake_case（会触发 Dart lint info，不推荐）。
 
+> **机读形态（PC-7）**：协议 JSON 的规范形状由 [`scripts/generator/schemas/module-spec.schema.json`](../scripts/generator/schemas/module-spec.schema.json)（draft-07）机器可读地固定——名/标签词法、字段类型闭集、enum 选项与数量、`aiTools` 声明形状。仓内已提交的 `specs/*.json` 由 **`npm run check:app-model`** 常绿校验（`scripts/check-app-model.mjs`，零依赖）；`keelbase doctor` 同源校验 `.keelbase/manifest.json` 与模块生成证明 `.keelbase-provenance.json`。
+
 ## 2. 字段类型（协议词汇表）
 
 | type | entity 列 | 前端组件 | 说明 |

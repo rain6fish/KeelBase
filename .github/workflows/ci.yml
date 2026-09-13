@@ -252,6 +252,8 @@ jobs:
       - run: npm run cli:test
       # Business Spec 门禁：.keelbase/business-spec/*.json 必须可映射且无告警（unmapped 是合法范围边界，不算失败）
       - run: npm run spec:check
+      # Application Model 门禁（CE-2 PC-7）：specs/*.json + manifest + 模块生成证明须过各自 JSON Schema
+      - run: npm run check:app-model
       # Provenance：仓库自带 manifest，inspect 应识别为 KeelBase 应用并退出 0
       - run: node scripts/keelbase-init.mjs inspect
       # Provenance：doctor 四查（完整性/一致性/运行时/版本）应 PASS 退出 0

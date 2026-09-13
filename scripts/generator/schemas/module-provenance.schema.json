@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "module-provenance.schema.json",
+  "title": "Application Model · 模块生成证明 .keelbase-provenance.json — v1",
+  "description": "PC-7（CE-2 缺口）：模块级「出生证明」（DNA：AI 生成代码默认不可信；工程侧代码可溯源）此前从不被任何检查读取。形状与 scripts/generator/manifest.mjs writeModuleProvenance() 同源。消费者：keelbase doctor（存在则校验，缺席不阻断）。generatedAt 为 ISO 8601（format 关键字本仓零依赖校验器不实现，改用前缀 pattern 锁形）。",
+  "type": "object",
+  "required": ["schema", "module", "generator", "generatorVersion", "protocol", "source", "generatedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1, "description": "结构版本（MODULE_PROVENANCE_SCHEMA）" },
+    "module": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" },
+    "generator": { "const": "keelbase" },
+    "generatorVersion": { "type": "string", "minLength": 1 },
+    "protocol": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1, "description": "来源（spec / openapi / schema / cli）" },
+    "generatedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+      "description": "ISO 8601 日期时间（生成时刻）"
+    }
+  }
+}

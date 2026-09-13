@@ -32,6 +32,7 @@
   "scripts": {
     "cli:test": "node --test \"scripts/*.test.mjs\"",
     "spec:check": "node scripts/check-business-specs.mjs",
+    "check:app-model": "node scripts/check-app-model.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs",
     "check:frontend-boundary": "node scripts/check-frontend-boundary.mjs"
   },

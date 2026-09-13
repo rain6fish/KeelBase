@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "module-spec.schema.json",
+  "title": "Application Model · 模块协议 spec（specs/<module>.json，keelbase init 输入）— v1",
+  "description": "PC-7（CE-2 缺口）：把 Application Model 的构建期输入机读化。约束与 scripts/generator/validate.mjs 的运行时校验同源；键集与 keelbase-init 实际消费一致（module/plural/label/fields/aiTools）+ business-spec 映射器产出的 searchable。注意：`plural` 与 `module` 等价可推导（init 在缺 module 时回落 plural），本 schema 以 `module` 为规范键。校验器 = scripts/generator/schema-validate.mjs（零依赖子集）；门禁 = npm run check:app-model。",
+  "type": "object",
+  "required": ["module", "label", "fields"],
+  "additionalProperties": false,
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "模块名（复数，snake_case 小写；如 posts、user_profiles）",
+      "pattern": "^[a-z][a-z0-9_]{0,29}$"
+    },
+    "plural": {
+      "type": "string",
+      "description": "复数名（可选；由 business-spec 映射器产出，init 在缺 module 时回落它）",
+      "pattern": "^[a-z][a-z0-9_]{0,29}$"
+    },
+    "searchable": {
+      "type": "boolean",
+      "description": "列表是否支持搜索（可选；business-spec 映射器产出）"
+    },
+    "label": {
+      "type": "string",
+      "description": "中文/字母数字标签（1-12 字符，禁引号/反斜杠/换行）",
+      "minLength": 1,
+      "maxLength": 12,
+      "pattern": "^[一-龥a-zA-Z0-9 ]+$"
+    },
+    "fields": {
+      "type": "array",
+      "description": "业务字段（不含 id/userId/createdAt/updatedAt/deletedAt 保留列）",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-zA-Z0-9_]{0,29}$",
+            "description": "camelCase 或 snake_case（TypeORM 自动映射列名）"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["string", "text", "int", "bool", "date", "enum"]
+          },
+          "label": { "type": "string" },
+          "required": {
+            "type": "boolean",
+            "description": "true=必填；缺省/false=可选（string/enum 的默认必填语义见 docs/module-protocol.md）"
+          },
+          "enum": {
+            "type": "array",
+            "description": "type=enum 时必填（2-10 个小写英文/下划线选项）",
+            "minItems": 2,
+            "maxItems": 10,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,24}$" }
+          }
+        }
+      }
+    },
+    "aiTools": {
+      "type": "object",
+      "description": "Protocol 2.0 可选声明（缺省 = 生成默认 query R1 + create R3 确认）。query/create 为 false 或 { riskLevel, requiresConfirmation }——布尔分支跳过对象校验，对象分支适用下述 properties。",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "query": {
+          "type": ["boolean", "object"],
+          "additionalProperties": false,
+          "properties": {
+            "riskLevel": { "type": "string", "pattern": "^R[0-5]$" },
+            "requiresConfirmation": { "type": "boolean" }
+          }
+        },
+        "create": {
+          "type": ["boolean", "object"],
+          "additionalProperties": false,
+          "properties": {
+            "riskLevel": { "type": "string", "pattern": "^R[0-5]$" },
+            "requiresConfirmation": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
