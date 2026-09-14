@@ -136,4 +136,26 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - [ ] 阶段 4：governance/audit 语义整合架构立项；状态/风险词汇常量单源；Flutter i18n 中文映射迁移；React 预览版去留
 - [ ] M3：demo-data.ts 832 行 seed 拆分评估
 
+---
+
+## 6. 测试健康（2026-09-14）
+
+全库测试体检：**261 suite / 2412 单元 + 26 suite / 328 e2e 全过**；安全模块分档门控 6/6。本轮 5 提交补齐缺口并把阈值锁档：
+
+| 提交 | 内容 |
+|------|------|
+| `0e0c0945` | `governance-data-source` 0%→100% spec；覆盖率排除口径补 `!src/**/main.ts`（入口文件） |
+| `c71e91b1` | 治理 sidecar 边界用例（88%→98.4%）；阈值 **85/70/80/85 → 86/72/81/86** |
+| `e1bbd521` | CRM Customer 360（90.1%→96.5%）、queue 降级分支（84.3%→98.6%）、proactive-ai 边界 |
+| `880b5b87` | **app.module DB 选项工厂抽到 `config/typeorm-options.ts`（0%→100%）**（postgres 分支此前零覆盖，且是 2026-09-10 生产迁移事故发源地 → 加回归锁）；flows 错误分支；app.module 回归纯装配并排除 |
+| `539b1712` | flows 内建定义一致性校验 + `onModuleInit` 注册；删 `condition.node` 不可达 `default` |
+
+指标：全局 statements/branches/functions `91.2·77.8·87.3` → **`94.2·79.0·88.5`**；关键模块 crm 90→96.5 · queue 84→98.6 · config 60.9→95.7 · flows 86→95 · typeorm-options 0→100。
+
+**两处生产代码改动**（均带回归锁，非纯测试）：`app.module` 抽取 `buildTypeOrmOptions`、`condition.node` 删死分支 + 类型收窄。
+
+**测试侧待办**：
+- [ ] **⑨ `ai.service.spec.ts` 拆分**（2026-09-14 记，**待该文件稳定后再做**）——当前 **2468 行**，且并发会话正在改（有未提交改动）；大文件重排 + 共享 mock 状态会与之冲突，**风险 > 收益**。待 ai 模块并发收口后，按子域拆（chat / stream / tools / memory / confirmations / approvals），共享 setup 提为 helper。
+- [ ] ⑥ 剩余零散分支：`flows/node-registry`、`flow-definition.schema`、若干 entity/dto 的装饰器分支（价值低，可忽略）。
+
 > 每次阶段执行后在此追加记录（比照 release-precheck 执行记录惯例）。
