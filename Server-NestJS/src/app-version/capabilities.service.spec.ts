@@ -2,6 +2,8 @@
 
 import { CapabilitiesService } from './capabilities.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('CapabilitiesService', () => {
   let service: CapabilitiesService;
@@ -22,6 +24,13 @@ describe('CapabilitiesService', () => {
     expect(result.preset).toBe('full');
     expect(result.features).toEqual({ suppliers: true, contracts: false, events: true, ai: true });
     expect(Array.isArray(result.businessModules)).toBe(true);
+  });
+
+  it('② 绑定：getCapabilities 顶层键集 == capabilities 冻结契约', () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/capabilities.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    expect(Object.keys(service.getCapabilities()).sort()).toEqual(Object.keys(schema.properties).sort());
   });
 
   it('ai.providerConfigured：provider 无 Key → false', () => {

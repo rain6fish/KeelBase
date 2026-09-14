@@ -4,6 +4,8 @@ import { lastValueFrom, of } from 'rxjs';
 import { Reflector } from '@nestjs/core';
 import { ResponseInterceptor } from './response.interceptor';
 import { RAW_RESPONSE_KEY } from '../decorators/raw.decorator';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ResponseInterceptor', () => {
   let interceptor: ResponseInterceptor<unknown>;
@@ -32,6 +34,16 @@ describe('ResponseInterceptor', () => {
     );
     expect(result).toMatchObject({ code: 201, message: '操作成功', data: { id: 1 } });
     expect(result).toHaveProperty('timestamp');
+  });
+
+  it('② 绑定：包装信封键集 == api-response 冻结契约（code/message/data/timestamp）', async () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/api-response.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    const result = (await lastValueFrom(
+      interceptor.intercept(makeContext(false), { handle: () => of({ id: 1 }) } as any),
+    )) as Record<string, unknown>;
+    expect(Object.keys(result).sort()).toEqual(Object.keys(schema.properties).sort());
   });
 
   it('data 为 null 时包装 null', async () => {
