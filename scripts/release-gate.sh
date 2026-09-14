@@ -58,13 +58,13 @@ echo "→ [Trust] 越权 / 写确认 / 审计"
 (cd Server-NestJS && rm -f data/test.sqlite)
 E2E_OUT=$(cd Server-NestJS && npx jest --config test/jest-e2e.json \
   test/crm.e2e-spec.ts test/pm.e2e-spec.ts test/approval.e2e-spec.ts \
-  test/generated-modules.e2e-spec.ts test/explainable-authz.e2e-spec.ts \
+  test/generated-modules.e2e-spec.ts test/generated-module-governance.e2e-spec.ts test/explainable-authz.e2e-spec.ts \
   test/cross-entry-consistency.e2e-spec.ts test/failure-path.e2e-spec.ts \
   test/revoke-acceptance.e2e-spec.ts test/trust-behavior-matrix.e2e-spec.ts \
   test/governance-plane.e2e-spec.ts test/crm-trust-failure-path.e2e-spec.ts \
   test/pm-trust-failure-path.e2e-spec.ts test/approval-trust-failure-path.e2e-spec.ts 2>&1) || true
 failed_e2e=""
-for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)" "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)" "governance-plane:治理台HTTP" "crm-trust-failure-path:CRM失败路径(A2)" "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"; do
+for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "generated-module-governance:生成模块治理缺省(30min闭环)" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)" "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)" "governance-plane:治理台HTTP" "crm-trust-failure-path:CRM失败路径(A2)" "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"; do
   name="${t%%:*}"; label="${t##*:}"
   if grep -q "PASS test/${name}.e2e-spec.ts" <<<"$E2E_OUT"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; failed_e2e="${failed_e2e} ${name}"; fi
 done
