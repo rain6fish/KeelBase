@@ -2048,6 +2048,25 @@ describe('AiService', () => {
       expect(arg.where[1].kind).toBeDefined(); // IsNull() 操作符（非 'run'）
     });
 
+    it('② 绑定：审批列表项键集 ⊆ governance-confirmation-item 冻结契约（无越界键）', async () => {
+      const row = {
+        id: 1, token: 't', toolName: 'create_event', args: '{}', operatorId: '5',
+        conversationId: null, riskLevel: 'R4', status: 'pending', kind: 'single',
+        runItems: null, approverId: null, decidedAt: null, createdAt: new Date(),
+      };
+      (aiService as any).approvalsRepo = { find: jest.fn().mockResolvedValue([row]) };
+      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) };
+      const items = await aiService.listPendingApprovals(50);
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/governance-confirmation-item.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      expect(Object.keys(items[0]).filter((k) => !props.includes(k))).toEqual([]);
+    });
+
     it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {
       const repo = {
         findOne: jest.fn().mockResolvedValue({
