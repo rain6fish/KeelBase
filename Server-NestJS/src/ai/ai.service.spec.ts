@@ -9,6 +9,8 @@ import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('AiService', () => {
   let aiService: AiService;
@@ -169,6 +171,15 @@ describe('AiService', () => {
       expect(mockConversationService.appendMessage).toHaveBeenCalledTimes(2); // user + assistant
       expect(result.reply).toBe('Hello! How can I help you?');
       expect(result.conversationId).toBe('conv-1');
+      // ② 绑定：ChatResponse 键集 ⊆ chat-response 冻结契约（navigateTo/toolCalls 可选）
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/chat-response.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      expect(Object.keys(result).filter((k) => !props.includes(k))).toEqual([]);
     });
 
     it('should continue existing conversation when conversationId provided', async () => {

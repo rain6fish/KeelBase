@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConversationService } from './conversation.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ConversationService', () => {
   let service: ConversationService;
@@ -135,6 +137,19 @@ describe('ConversationService', () => {
 
       expect(retrieved).toBeDefined();
       expect(retrieved.id).toBe(created.id);
+    });
+
+    it('② 绑定：ConversationData 键集 == conversation-data 冻结契约', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+      const retrieved = await service.getConversation(created.id, 'user1', mockAbility(true));
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/conversation-data.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      expect(Object.keys(retrieved).sort()).toEqual(props.sort());
     });
 
     it('should throw when conversation does not exist', async () => {

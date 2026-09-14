@@ -3,6 +3,8 @@
 import { BadRequestException, HttpStatus, InternalServerErrorException } from '@nestjs/common';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { BusinessException } from '../errors/business.exception';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 function makeHost(acceptLanguage?: string) {
   const response = { status: jest.fn().mockReturnThis(), json: jest.fn() };
@@ -37,6 +39,15 @@ describe('AllExceptionsFilter', () => {
     expect(body.errorCode).toBe('EVENT_NOT_FOUND');
     expect(body.message).toBe('事件不存在');
     expect(body.data).toBeNull();
+    // ② 绑定：错误体键集 ⊆ error-body 冻结契约（reason/impact/nextStep/explanation/retryAfter 可选）
+    const props = Object.keys(
+      (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/error-body.schema.json'), 'utf8'),
+        ) as { properties: Record<string, unknown> }
+      ).properties,
+    );
+    expect(Object.keys(body).filter((k) => !props.includes(k))).toEqual([]);
   });
 
   it('BusinessException + Accept-Language en → 英文 message', () => {
