@@ -2,6 +2,8 @@
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExternalEffectsController } from './external-effects.controller';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ExternalEffectsController（服务身份查 AI 副作用状态）', () => {
   let mockEffects: { findByTarget: jest.Mock; describeTarget: jest.Mock };
@@ -34,6 +36,15 @@ describe('ExternalEffectsController（服务身份查 AI 副作用状态）', ()
     expect(res['target'].targetExists).toBe(true);
     expect(res['revoked']).toBe(false);
     expect(res['revokeHint']).toBeUndefined();
+    // ② 绑定：查询响应键集 ⊆ external-effects-query 冻结契约（revokeHint 仅外部态出现）
+    const qProps = Object.keys(
+      (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/external-effects-query.schema.json'), 'utf8'),
+        ) as { properties: Record<string, unknown> }
+      ).properties,
+    );
+    expect(Object.keys(res).filter((k) => !qProps.includes(k))).toEqual([]);
   });
 
   it('本地实体已软删 → revoked=true', async () => {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { SidecarRegistryService } from './sidecar-registry.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('SidecarRegistryService（B2 治理策略实时推送）', () => {
   let registry: SidecarRegistryService;
@@ -43,6 +45,15 @@ describe('SidecarRegistryService（B2 治理策略实时推送）', () => {
     const body = JSON.parse((init as { body: string }).body);
     expect(body.policy).toEqual(policy);
     expect(body.pushedAt).toBeDefined();
+    // ② 绑定：策略推送体键集 == sidecar-policy-push 冻结契约
+    const spProps = Object.keys(
+      (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/sidecar-policy-push.schema.json'), 'utf8'),
+        ) as { properties: Record<string, unknown> }
+      ).properties,
+    );
+    expect(Object.keys(body).sort()).toEqual(spProps.sort());
   });
 
   it('pushPolicy：单 sidecar 失败不影响其他（fire-and-forget，轮询兜底）', async () => {
