@@ -35,6 +35,7 @@ function makeRepo<T>(rows: T[] = []) {
     findAndCount: jest.fn(async () => [rows, rows.length]),
     count: jest.fn(async () => rows.length),
     softDelete: jest.fn(),
+    remove: jest.fn(async (e: any) => e),
     createQueryBuilder: jest.fn(() => {
       const qb: any = {};
       qb.where = () => qb;
@@ -384,6 +385,83 @@ describe('CrmService', () => {
       expect(d.overdueOrders).toBe(1);
       expect(d.openTasks).toBe(1);
       expect(d.openRisks).toBe(1);
+    });
+  });
+
+  describe('Customer 360：销售机会（P0 §10）', () => {
+    it('列出本人客户的机会', async () => {
+      opportunities.find.mockResolvedValue([{ id: 1, customerId: 1, userId: 1 }]);
+      const r = await service.listOpportunities(1, 1);
+      expect(r).toHaveLength(1);
+      expect(opportunities.find).toHaveBeenCalledWith({
+        where: { customerId: 1, userId: 1 },
+        order: { expectedCloseDate: 'ASC' },
+      });
+    });
+
+    it('列出用户全部机会（跨客户聚合，AI 管道分析用）', async () => {
+      opportunities.find.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      const r = await service.listAllOpportunities(1);
+      expect(r).toHaveLength(2);
+      expect(opportunities.find).toHaveBeenCalledWith({ where: { userId: 1 }, order: { expectedCloseDate: 'ASC' } });
+    });
+
+    it('创建机会归属 userId + 客户', async () => {
+      const r = await service.createOpportunity(1, { name: '新单', amount: 100 } as any, 1);
+      expect(r).toMatchObject({ name: '新单', amount: 100, customerId: 1, userId: 1 });
+    });
+
+    it('更新机会；不存在 → NotFound', async () => {
+      opportunities.findOne.mockResolvedValue({ id: 5, customerId: 1, userId: 1 });
+      const r = await service.updateOpportunity(1, 5, { stage: 'won' } as any, 1);
+      expect(r).toMatchObject({ id: 5, stage: 'won' });
+
+      opportunities.findOne.mockResolvedValue(null);
+      await expect(service.updateOpportunity(1, 9, {} as any, 1)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('删除机会；不存在 → NotFound', async () => {
+      opportunities.findOne.mockResolvedValue({ id: 5, customerId: 1, userId: 1 });
+      await service.removeOpportunity(1, 5, 1);
+      expect(opportunities.remove).toHaveBeenCalled();
+
+      opportunities.findOne.mockResolvedValue(null);
+      await expect(service.removeOpportunity(1, 9, 1)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('Customer 360：联系人（P0 §10）', () => {
+    it('列出本人客户联系人', async () => {
+      contacts.find.mockResolvedValue([{ id: 1 }]);
+      const r = await service.listContacts(1, 1);
+      expect(r).toHaveLength(1);
+      expect(contacts.find).toHaveBeenCalledWith({
+        where: { customerId: 1, userId: 1 },
+        order: { isPrimary: 'DESC' },
+      });
+    });
+
+    it('创建联系人归属 userId + 客户', async () => {
+      const r = await service.createContact(1, { name: '张三' } as any, 1);
+      expect(r).toMatchObject({ name: '张三', customerId: 1, userId: 1 });
+    });
+
+    it('更新联系人；不存在 → NotFound', async () => {
+      contacts.findOne.mockResolvedValue({ id: 7, customerId: 1, userId: 1 });
+      const r = await service.updateContact(1, 7, { phone: '138' } as any, 1);
+      expect(r).toMatchObject({ id: 7, phone: '138' });
+
+      contacts.findOne.mockResolvedValue(null);
+      await expect(service.updateContact(1, 9, {} as any, 1)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('删除联系人；不存在 → NotFound', async () => {
+      contacts.findOne.mockResolvedValue({ id: 7, customerId: 1, userId: 1 });
+      await service.removeContact(1, 7, 1);
+      expect(contacts.remove).toHaveBeenCalled();
+
+      contacts.findOne.mockResolvedValue(null);
+      await expect(service.removeContact(1, 9, 1)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

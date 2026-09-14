@@ -103,4 +103,57 @@ describe('ProactiveAiService（AI-15）', () => {
     await expect(service.sendDailyDigest()).resolves.toBeUndefined();
     expect(notificationsService.create).toHaveBeenCalledTimes(2);
   });
+
+  it('userId 为空的事件/待办被跳过（系统级记录不归属任何人）', async () => {
+    makeService();
+    const start = new Date();
+    const today = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 10, 0);
+    eventsRepo.find.mockResolvedValue([
+      { id: 1, title: '无主事件', startTime: today, endTime: today, userId: null },
+    ]);
+    todosRepo.find.mockResolvedValue([{ id: 1, title: '无主待办', completed: false, userId: null }]);
+
+    await service.sendDailyDigest();
+
+    // 全部无主 → userIds 空 → 不查用户、不发通知
+    expect(usersRepo.find).not.toHaveBeenCalled();
+    expect(notificationsService.create).not.toHaveBeenCalled();
+  });
+
+  it('多事件按时间升序排列（摘要时间线有序）', async () => {
+    makeService();
+    const t = new Date();
+    const at = (h: number) => new Date(t.getFullYear(), t.getMonth(), t.getDate(), h, 0);
+    eventsRepo.find.mockResolvedValue([
+      { id: 1, title: '下午会', startTime: at(15), endTime: at(15), userId: 1 },
+      { id: 2, title: '晨会', startTime: at(9), endTime: at(9), userId: 1 },
+    ]);
+    todosRepo.find.mockResolvedValue([]);
+    usersRepo.find.mockResolvedValue([{ id: 1, username: 'alice' }]);
+
+    await service.sendDailyDigest();
+
+    const body = notificationsService.create.mock.calls[0][0].body as string;
+    expect(body.indexOf('晨会')).toBeLessThan(body.indexOf('下午会'));
+  });
+
+  it('LLM 润色失败时回退规则式摘要（不中断推送）', async () => {
+    makeService({ withLlm: true });
+    const t = new Date();
+    const at = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 9, 0);
+    eventsRepo.find.mockResolvedValue([
+      { id: 1, title: '晨会', startTime: at, endTime: at, userId: 1 },
+    ]);
+    todosRepo.find.mockResolvedValue([]);
+    usersRepo.find.mockResolvedValue([{ id: 1, username: 'alice' }]);
+    (service as any).providerFactory.getProvider.mockReturnValue({
+      generate: jest.fn().mockRejectedValue(new Error('LLM down')),
+    });
+
+    await service.sendDailyDigest();
+
+    const body = notificationsService.create.mock.calls[0][0].body as string;
+    expect(body).toContain('今日 1 个事件');
+    expect(body).toContain('晨会');
+  });
 });

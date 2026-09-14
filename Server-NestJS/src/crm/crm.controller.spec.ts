@@ -15,6 +15,9 @@ describe('CrmController（AI CRM 旗舰）', () => {
     'removeCustomer', 'analyzeRisk', 'listOrders', 'createOrder',
     'listActivities', 'createActivity', 'listTasks', 'createTask',
     'completeTask', 'listRisks', 'createRisk',
+    // Customer 360（P0 §10）：销售机会 / 联系人 / 洞察看板
+    'getDashboard', 'listOpportunities', 'createOpportunity', 'updateOpportunity',
+    'removeOpportunity', 'listContacts', 'createContact', 'updateContact', 'removeContact',
   ];
 
   beforeEach(() => {
@@ -84,5 +87,45 @@ describe('CrmController（AI CRM 旗舰）', () => {
     expect(crmService.createTask).toHaveBeenCalledWith({ title: '跟进' }, 1);
     expect(crmService.completeTask).toHaveBeenCalledWith(2, 1);
     expect(crmService.createRisk).toHaveBeenCalledWith(1, { level: 'high' }, 1);
+  });
+
+  it('Customer 360：洞察看板委托 service', () => {
+    crmService.getDashboard.mockReturnValue({ customers: 3, pipeline: [] });
+    expect(controller.getDashboard(mockUser as any)).toEqual({ customers: 3, pipeline: [] });
+    expect(crmService.getDashboard).toHaveBeenCalledWith(1);
+  });
+
+  it('Customer 360：销售机会 CRUD 委托 service', async () => {
+    crmService.listOpportunities.mockReturnValue([]);
+    crmService.createOpportunity.mockReturnValue({ id: 1 });
+    crmService.updateOpportunity.mockReturnValue({ id: 1, stage: 'won' });
+    crmService.removeOpportunity.mockResolvedValue(undefined);
+
+    expect(controller.listOpportunities(1, mockUser as any)).toEqual([]);
+    expect(controller.createOpportunity(1, { name: '新单' } as any, mockUser as any)).toEqual({ id: 1 });
+    expect(controller.updateOpportunity(1, 2, { stage: 'won' } as any, mockUser as any)).toEqual({ id: 1, stage: 'won' });
+    await expect(controller.removeOpportunity(1, 2, mockUser as any)).resolves.toBeUndefined();
+
+    expect(crmService.listOpportunities).toHaveBeenCalledWith(1, 1);
+    expect(crmService.createOpportunity).toHaveBeenCalledWith(1, { name: '新单' }, 1);
+    expect(crmService.updateOpportunity).toHaveBeenCalledWith(1, 2, { stage: 'won' }, 1);
+    expect(crmService.removeOpportunity).toHaveBeenCalledWith(1, 2, 1);
+  });
+
+  it('Customer 360：联系人 CRUD 委托 service', async () => {
+    crmService.listContacts.mockReturnValue([]);
+    crmService.createContact.mockReturnValue({ id: 1 });
+    crmService.updateContact.mockReturnValue({ id: 1 });
+    crmService.removeContact.mockResolvedValue(undefined);
+
+    expect(controller.listContacts(1, mockUser as any)).toEqual([]);
+    expect(controller.createContact(1, { name: '张三' } as any, mockUser as any)).toEqual({ id: 1 });
+    expect(controller.updateContact(1, 2, { phone: 'x' } as any, mockUser as any)).toEqual({ id: 1 });
+    await expect(controller.removeContact(1, 2, mockUser as any)).resolves.toBeUndefined();
+
+    expect(crmService.listContacts).toHaveBeenCalledWith(1, 1);
+    expect(crmService.createContact).toHaveBeenCalledWith(1, { name: '张三' }, 1);
+    expect(crmService.updateContact).toHaveBeenCalledWith(1, 2, { phone: 'x' }, 1);
+    expect(crmService.removeContact).toHaveBeenCalledWith(1, 2, 1);
   });
 });
