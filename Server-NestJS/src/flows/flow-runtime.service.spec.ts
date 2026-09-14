@@ -2,7 +2,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { User } from '../common/entities/user.entity';
 import { OrgMember } from '../org/org-member.entity';
 import { FlowRuntimeService } from './flow-runtime.service';
@@ -385,5 +385,59 @@ describe('FlowRuntimeService', () => {
     mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'dept_flow', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
     mockOrgMemberRepo.findOne.mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: null, role: 'member' }); // 发起人无部门
     await expect(service.resolveTask(1, 'approve', 99)).rejects.toThrow('发起人已无部门');
+  });
+
+  // ── 补充覆盖：错误分支（start/resolveTask/getMyInstances/组织角色）──
+
+  it('start：流程定义不存在 → NotFound', async () => {
+    mockDefRepo.findOne.mockResolvedValue(null);
+    await expect(service.start('nope', {}, 5)).rejects.toThrow(NotFoundException);
+  });
+
+  it('start：流程定义无节点 → BadRequest', async () => {
+    mockDefRepo.findOne.mockResolvedValue({ id: 'empty', name: '空流程', version: '1.0', nodesJson: '[]', audit: true, confirmationRequired: true });
+    await expect(service.start('empty', {}, 5)).rejects.toThrow(BadRequestException);
+  });
+
+  it('resolveTask：审批任务不存在 → NotFound', async () => {
+    mockTaskRepo.findOne.mockResolvedValue(null);
+    await expect(service.resolveTask(999, 'approve', 5)).rejects.toThrow(NotFoundException);
+  });
+
+  it('resolveTask：流程实例不存在 → NotFound', async () => {
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 42, nodeId: 'b', assigneeId: 5, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue(null);
+    await expect(service.resolveTask(1, 'approve', 5)).rejects.toThrow(NotFoundException);
+  });
+
+  it('getMyInstances：无实例 → 空数组', async () => {
+    mockInstRepo.find.mockResolvedValue([]);
+    await expect(service.getMyInstances(5)).resolves.toEqual([]);
+  });
+
+  it('ORG-4：发起人已不在组织中 → 拒绝', async () => {
+    const orgDef: FlowDef = {
+      id: 'org_flow_gone', name: '组织审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '组织管理员审批', assigneeOrgRole: { scope: 'org', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'org_flow_gone', name: '组织审批', version: '1.0', nodesJson: JSON.stringify(orgDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 99, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'org_flow_gone', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    mockOrgMemberRepo.findOne.mockResolvedValueOnce(null); // 发起人已不在组织
+    await expect(service.resolveTask(1, 'approve', 99)).rejects.toThrow('发起人已不在组织中');
+  });
+
+  it('ORG-4：部门范围审批且审批人属同部门 → 通过（按部门过滤 where 生效）', async () => {
+    const deptDef: FlowDef = {
+      id: 'dept_flow_ok', name: '部门审批', version: '1.0',
+      nodes: [{ id: 'a', type: 'human_task', name: '部门负责人', assigneeOrgRole: { scope: 'department', role: 'admin' } }],
+    };
+    mockDefRepo.findOne.mockResolvedValue({ id: 'dept_flow_ok', name: '部门审批', version: '1.0', nodesJson: JSON.stringify(deptDef.nodes), audit: true, confirmationRequired: true });
+    mockTaskRepo.findOne.mockResolvedValue({ id: 1, instanceId: 1, nodeId: 'a', assigneeId: 99, status: 'pending' });
+    mockInstRepo.findOne.mockResolvedValue({ id: 1, definitionId: 'dept_flow_ok', state: 'running', initiatorId: 5, dataJson: '{}', currentNodeId: 'a' });
+    mockOrgMemberRepo.findOne
+      .mockResolvedValueOnce({ orgId: 1, userId: 5, deptId: 7, role: 'member' }) // 发起人属部门 7
+      .mockResolvedValueOnce({ orgId: 1, userId: 99, deptId: 7, role: 'admin' }); // 审批人同部门 → 放行
+    await expect(service.resolveTask(1, 'approve', 99)).resolves.toBeDefined();
   });
 });

@@ -19,9 +19,10 @@ const config: Config = {
     '!src/tracing-init.ts',
     // 纯 DI 声明样板 module 排除（2026-08-16 决策）：仅 imports/controllers/providers 声明
     // 的模块不参与统计；含真实逻辑（useFactory/useValue/useClass/条件分支）的 module 重新纳入
+    // （app.module 曾因 DB 选项 useFactory 纳入，2026-09-14 该工厂抽到 config/typeorm-options.ts
+    //   并由同名 spec 覆盖 → app.module 回归纯装配，排除）
     '!src/**/*.module.ts',
     'src/ai/ai.module.ts',
-    'src/app.module.ts',
     'src/auth/auth.module.ts',
     'src/common/cache/cache.module.ts',
     'src/flows/flows.module.ts',
