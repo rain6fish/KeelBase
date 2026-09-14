@@ -188,4 +188,47 @@ side_effects:
 
 ---
 
+## 8. Empirical comparison: Platform A / Platform B (source-level)
+
+> The "hygiene, not a selling point" judgement in §7 is compared against two mainstream Chinese enterprise scaffolds, **verifiably**. Evidence is taken from upstream source, not second-hand descriptions.
+
+**Key finding: for all three layers — page / button / data row — both projects hand-write their own private implementation; there is no off-the-shelf library.**
+
+| Capability | Platform A | Platform B |
+|---|---|---|
+| Page/menu + button | **One `menu table` table**: `menu_type`=`M dir / C menu / F button`, `perms`=permission string, `path`/`component`=route | **One `sys_permission` table**: `menuType`=`0 top menu / 1 sub-menu / 2 button`, `perms`, `component`/`url` |
+| Button authorization | Hand-written `a string-based permission check(...)` string match (class comment: "Platform A's original custom permission implementation") | Same shape, self-implemented |
+| Data row | `the data-scope aspect` (AOP) **builds SQL**: all / custom / own dept / own dept and below / self only (**role-level** `data_scope` enum) | `the permission-data aspect` (AOP) + `the data-rule table` (field + condition + value, **rule attached to the menu**, configured visually in the UI) |
+| Field-level | **None** | **None** |
+
+**Three conclusions**
+
+1. **Nothing to buy**: both share Spring Security only for authentication and enforcement (the same layer KeelBase uses); the permission model for page/button/data-row is entirely hand-written code. So KeelBase building these three layers is "filling a gap", not "reinventing a wheel" — **self-implementation is simply how this class of capability is built**. §6's "explicitly not doing heavyweight RBAC products" means not building a **productized RBAC**, not declining the **capability**.
+2. **"Not becoming a Platform A-style platform" is empirically grounded**: field-level is **absent in both** — an industry-wide gap; if KeelBase only fills page/button/data-row, it becomes "an AI-ified Platform A". The difference must come from the chain in §1 / §5: human + agent dual authorization + risk confirmation + Audit + Revoke + cross-Runtime contract.
+3. **What to borrow**: Platform B's `the data-rule table` ("rule attached to the menu") is more expressive than Platform A's five-level enum and is a reference shape for "configure data scope per delivery"; but its **AOP injection + query-side SQL concatenation** must, in KeelBase, be **structured** (scope descriptors, e.g. the frozen `org-membership-scope`) rather than concatenated SQL strings — avoiding an injection surface and preserving Explainable.
+
+---
+
+## 9. Delivery tiers: a capability subset configured per project delivery
+
+> **Nature**: a **project-delivery mode** (the same product semantics with a capability subset configured per project requirement), **not a product-positioning change** — KeelBase's positioning (Business-safe AI Runtime) is unchanged.
+
+The four layers (page / button / data row / field) are **not all required at once**: a subset is configured per delivery target and **managed centrally by KeelBase** — single capability source = the wire contracts `permission-capability-list` / `permission-decision`; `/app/capabilities` exposes the tiers **actually enabled** for this delivery.
+
+| Tier | Typical project | Capabilities enabled | Rule source | Admin surface |
+|---|---|---|---|---|
+| **A · Lightweight single project** | Small-business standalone system | identity + page/menu + button + API + row(own) + audit | role→capability declared at generation time / in config | none (config changes go through delivery) |
+| **B · Standard enterprise app** | ERP / OA class | A + data scope (dept / org tree / custom) + field-level (optional) | data tables (roles / permissions) | KeelBase Admin (role / org / grant matrix) |
+| **C · Gov-enterprise / existing IAM** | Xinchuang, large enterprise | B + external identity (OIDC / LDAP / AD / MaxKey) + field-level | data tables + external identity facts | KeelBase Admin (coordinates the IdP underneath) |
+
+**Priority order**
+
+1. **First make the capability contract the frontend's single source of enforcement** — both page/menu (currently carried by hard-coded frontend `meta.roles`) and button visibility connect to the frozen `permission-capability-list`. This yields the page + button layers **without building RBAC tables**.
+2. Then build the **generic data scope** (own / dept / org tree / custom) — the actual acceptance point for ERP/OA, and real engineering.
+3. Field-level and the admin surface follow from tiers B / C.
+
+**Relation to §7 "Enterprise direction"**: the "external authorization / self-built lightweight dynamic RBAC" there are two choices at the **identity layer vs the authorization layer**, not mutually exclusive — identity via an adapter (which may be an external IAM), authorization data self-held (needed by tiers B / C). The trigger is unchanged: a multi-role enterprise customer, or on demand after v1.1.
+
+---
+
 *Related docs:* [README](../README.md) · [Flagship Applications Spec](flagship-applications-en.md) · [Architecture Boundary](architecture-boundary-en.md)

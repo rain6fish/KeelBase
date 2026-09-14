@@ -188,4 +188,47 @@ side_effects:
 
 ---
 
+## 8. 对照实证：Platform A / Platform B（源码级）
+
+> §7「hygiene 非卖点」这一判断，用两家中国主流企业脚手架做**可核查**的对照。证据取自上游源码，非二手描述。
+
+**关键发现：页面 / 按钮 / 数据行三层，两家都是各自手写的私有实现，没有现成库。**
+
+| 能力 | Platform A | Platform B |
+|---|---|---|
+| 页面/菜单 + 按钮 | **同一张 `menu table`**：`menu_type`=`M目录/C菜单/F按钮`、`perms`=权限标识、`path`/`component`=路由 | **同一张 `sys_permission`**：`menuType`=`0一级/1子菜单/2按钮权限`、`perms`、`component`/`url` |
+| 按钮判权 | 手写 `a string-based permission check(...)` 字符串匹配（类注释："Platform A首创 自定义权限实现"） | 同构自实现 |
+| 数据行 | `the data-scope aspect`（AOP）**拼 SQL**：全部 / 自定义 / 本部门 / 本部门及以下 / 仅本人（**角色级** `data_scope` 枚举） | `the permission-data aspect`（AOP）+ `the data-rule table`（字段+条件+值，**规则挂菜单**、前端可视化配） |
+| 字段级 | **无** | **无** |
+
+**三条结论**
+
+1. **没有现成库可买**：两家**仅为认证与强制点共用 Spring Security**（与 KeelBase 同层），页面/按钮/数据行的权限模型全是自写代码。故 KeelBase 做这三层是"补齐"而非"重复造轮子"——**这类能力本来的实现方式就是自建**。§6 的"明确不做重量级 RBAC 产品"指的是不做**产品化的 RBAC**，不是不做**能力**。
+2. **"不做同类脚手架式平台"有实证支撑**：字段级**两家皆无**——该层是全行业空缺；若 KeelBase 只补页面/按钮/数据行，即成为"同类平台的 AI 化版本"。差异必须来自 §1 / §5 的那条链：人机双权限 + 风险确认 + Audit + Revoke + 跨 Runtime 契约。
+3. **可借鉴**：Platform B 的 `the data-rule table`「规则挂菜单」比 Platform A 的 5 档枚举表达力强，是"按项目交付配置数据范围"的参考形状；但其 **AOP 注入 + 查询侧拼 SQL** 的做法，KeelBase 须**结构化**（scope 描述子，如已冻结的 `org-membership-scope`），不拼 SQL 串——避免注入面、保住 Explainable。
+
+---
+
+## 9. 交付档位：按项目交付配置的能力子集
+
+> **性质**：这是**项目交付模式**（同一产品语义按不同项目要求配置能力子集），**不是产品定位变更**——KeelBase 的定位（Business-safe AI Runtime）不变。
+
+四层能力（页面 / 按钮 / 数据行 / 字段）**不要求每次全开**：按交付对象配置子集，由 KeelBase **统一管理**——单一能力源 = wire 契约 `permission-capability-list` / `permission-decision`；`/app/capabilities` 暴露本交付**实际开启的档位**。
+
+| 档 | 典型项目 | 开启能力 | 规则来源 | 管理面 |
+|---|---|---|---|---|
+| **A · 轻量单项目** | 小企业独立系统 | 身份 + 页面/菜单 + 按钮 + API + 行级(本人) + 审计 | 生成期 / 配置文件声明的 角色→能力 | 无（改配置走交付流程） |
+| **B · 标准企业应用** | ERP / OA 类 | A + 数据范围（部门 / 组织树 / 自定义）+ 字段级（可选） | 数据表（roles / permissions） | KeelBase Admin（角色 / 组织 / 授权矩阵） |
+| **C · 政企 / 已有 IAM** | 信创、大型企业 | B + 外置身份（OIDC / LDAP / AD / MaxKey）+ 字段级 | 数据表 + 外置身份事实 | KeelBase Admin（底层协调 IdP） |
+
+**优先序**
+
+1. **先让能力契约成为前端唯一裁决输入**——页面/菜单（现由前端 `meta.roles` 硬编码承担）与按钮显隐都接到已冻结的 `permission-capability-list`。**不建 RBAC 表**即可拿到页面 + 按钮两层。
+2. 再做**通用数据范围**（本人 / 部门 / 组织树 / 自定义）——ERP/OA 的实际验收点，也是真工程量。
+3. 字段级与管理面随档 B / C 触发。
+
+**与 §7「企业落地方向」的关系**：§7 的"外置授权 / 自建轻量动态 RBAC"是**身份层与授权层**两个选择，不是二选一——身份走适配器（可外置 IAM），授权数据自持（档 B / C 需要）。触发点不变：出现多角色企业客户或 v1.1 后按需。
+
+---
+
 *相关文档：* [README](../README.md) · [旗舰应用规格](flagship-applications.md) · [架构边界](architecture-boundary.md)
