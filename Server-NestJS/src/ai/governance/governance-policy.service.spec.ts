@@ -5,6 +5,8 @@ import {
   effectiveGateMode,
   policyRevisionOf,
 } from './governance-policy.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
   let service: GovernancePolicyService;
@@ -26,6 +28,15 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       const policy = await service.getPolicy();
       expect(policy.tools).toEqual({});
       expect(policy.audit.granularity).toBe('all');
+      // ② 绑定：策略键集 == governance-policy 冻结契约
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/governance-policy.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      expect(Object.keys(policy).sort()).toEqual(props.sort());
     });
 
     it('JSON 字符串策略被解析', async () => {

@@ -490,6 +490,20 @@ describe('AuditService', () => {
       noExtra(await service.getActionReport(), 'audit-action-report.schema.json');
     });
 
+    it('② 绑定：AI 审计 payload 键集 == audit-payload 冻结契约（v2 行）', () => {
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/audit-payload.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      const payload = (service as unknown as { _payload: (r: object) => Record<string, unknown> })._payload({
+        payloadVersion: 2,
+      });
+      expect(Object.keys(payload).sort()).toEqual(props.sort());
+    });
+
     it('E-2：getLogs isError 过滤加 andWhere 条件', async () => {
       const qb = mockQueryBuilder();
       await service.getLogs({ isError: 'true' });

@@ -1914,6 +1914,15 @@ describe('AiService', () => {
       // §internal.15(4)：R4 声明 → 生效档位 approval + 需审批
       expect(inv[0].gateMode).toBe('approval');
       expect(inv[0].requiresApproval).toBe(true);
+      // ② 绑定：工具清单项键集 == ai-tool-inventory 冻结契约
+      const invProps = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/ai-tool-inventory.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      expect(Object.keys(inv[0]).sort()).toEqual(invProps.sort());
     });
 
     it('getToolInventory：策略 mode=approval 把 R3 工具升档为审批档（§internal.15(4)）', async () => {
