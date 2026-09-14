@@ -7,6 +7,8 @@ import { AiToolEffectsService } from './ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass } from '../interfaces/tool.interface';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   let service: AiToolEffectsService;
@@ -201,6 +203,15 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
 
       const res = await service.revoke(3);
       expect(res).toMatchObject({ revoked: true, effectId: 3 });
+      // ② 绑定：撤销结果键集 ⊆ side-effect-revoke.revokeResult 冻结契约（无越界键）
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/side-effect-revoke.schema.json'), 'utf8'),
+          ) as { definitions: { revokeResult: { properties: Record<string, unknown> } } }
+        ).definitions.revokeResult.properties,
+      );
+      expect(Object.keys(res as object).filter((k) => !props.includes(k))).toEqual([]);
       expect(entityManager.getRepository).toHaveBeenCalledWith('Todo');
       expect(todoRepo.softDelete).toHaveBeenCalledWith(55);
     });

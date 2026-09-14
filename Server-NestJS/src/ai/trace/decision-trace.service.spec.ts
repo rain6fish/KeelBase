@@ -7,6 +7,8 @@ import { AiAuditLog } from '../audit/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { DecisionTraceService } from './decision-trace.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 function makeAuditRepo() {
   return { find: jest.fn().mockResolvedValue([]) };
@@ -239,5 +241,47 @@ describe('DecisionTraceService', () => {
 
     const { steps } = await service.getConversationTrace('conv-1', '42', ability);
     expect(steps.map((s) => s.type)).toEqual(['input', 'tool_call', 'confirmation', 'effect', 'assistant']);
+  });
+
+  it('② 绑定：每步键集 ⊆ trace-step 冻结契约（无越界键）', async () => {
+    convService.getConversation.mockResolvedValue(
+      makeConv({
+        messages: [
+          { role: 'user', content: '创建明天的事件', timestamp: '2026-08-18T01:01:00.000Z' },
+          { role: 'assistant', content: '已创建', timestamp: '2026-08-18T01:04:00.000Z' },
+        ],
+      }),
+    );
+    auditRepo.find.mockResolvedValue([
+      log({ id: 31, action: 'tool_call', detail: 'create_event({"title":"x"})', createdAt: new Date('2026-08-18T01:02:00.000Z') }),
+      log({ id: 32, action: 'tool_confirmation', detail: 'create_event({}) → approve', createdAt: new Date('2026-08-18T01:02:10.000Z') }),
+      log({ id: 33, action: 'chat', model: 'deepseek-v4-flash', promptTokens: 10, completionTokens: 5, createdAt: new Date('2026-08-18T01:05:00.000Z') }),
+    ]);
+    effectsService.listForConversation.mockResolvedValue([
+      {
+        id: 3,
+        toolName: 'create_event',
+        conversationId: 'conv-1',
+        resultType: 'event',
+        resultId: 7,
+        argsHash: 'a',
+        createdAt: '2026-08-18T01:03:00.000Z',
+        targetExists: true,
+        targetSoftDeleted: false,
+        targetTitle: 'x',
+        beforeSnapshot: null,
+        afterSnapshot: null,
+      } as unknown as never,
+    ]);
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    const props = Object.keys(
+      (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/trace-step.schema.json'), 'utf8'),
+        ) as { properties: Record<string, unknown> }
+      ).properties,
+    );
+    expect(steps.length).toBeGreaterThan(0);
+    for (const s of steps) expect(Object.keys(s).filter((k) => !props.includes(k))).toEqual([]);
   });
 });
