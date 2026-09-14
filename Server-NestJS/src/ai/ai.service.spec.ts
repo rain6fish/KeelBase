@@ -1015,6 +1015,32 @@ describe('AiService', () => {
             c.confirmationDecision?.approved,
         ),
       ).toBe(true);
+      // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request 冻结契约
+      const cr = (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/confirmation-request.schema.json'), 'utf8'),
+        ) as {
+          properties: Record<string, unknown> & {
+            run: { properties: { items: { items: { properties: Record<string, unknown> } } } };
+          };
+        }
+      ).properties;
+      expect(Object.keys(req).filter((k) => !(k in cr))).toEqual([]);
+      expect(Object.keys(req.run.items[0]).filter((k) => !(k in cr.run.properties.items.items.properties))).toEqual([]);
+
+      // ② 绑定：run 决策载荷键集 ⊆ confirmation-decision v2 冻结契约
+      const cdProps = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v2/confirmation-decision.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      );
+      const decisionChunk = chunks.find((c: any) => c.type === 'confirmation_decision') as
+        | { confirmationDecision: Record<string, unknown> }
+        | undefined;
+      expect(decisionChunk).toBeDefined();
+      expect(Object.keys(decisionChunk!.confirmationDecision).filter((k) => !cdProps.includes(k))).toEqual([]);
       expect(chunks[chunks.length - 1].type).toBe('done');
       // §4 G1：两条 run 成员副作用都带 runId = run token（run 级批量撤销据此圈定）
       expect(recordSpy).toHaveBeenCalledTimes(2);
@@ -1786,6 +1812,15 @@ describe('AiService', () => {
         expect(out.executed).toBe(true);
         expect(out.requiresConfirmation).toBe(false);
         expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { status: 'active' }, '1');
+        // ② 绑定：工具调用响应键集 ⊆ tool-invocation.response 冻结契约
+        const respProps = Object.keys(
+          (
+            JSON.parse(
+              readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/tool-invocation.schema.json'), 'utf8'),
+            ) as { properties: { response: { properties: Record<string, unknown> } } }
+          ).properties.response.properties,
+        );
+        expect(Object.keys(out).filter((k) => !respProps.includes(k))).toEqual([]);
       });
 
       it('写工具（需确认）→ 不执行，返回需确认信号', async () => {
