@@ -1,0 +1,12 @@
+{
+  "source": {
+    "manifestPresent": true,
+    "generator": "keelbase-init",
+    "modules": ["crm", "pm", "approval"]
+  },
+  "runtime": {
+    "preset": "full",
+    "businessModules": [{ "id": "crm", "label": "AI CRM", "description": "客户管理" }],
+    "aiToolFingerprint": { "total": 42, "readTools": 24, "writeTools": 18 }
+  }
+}

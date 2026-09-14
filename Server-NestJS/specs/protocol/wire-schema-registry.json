@@ -416,6 +416,36 @@
       "samples": [
         "schemas/v1/samples/agent-registry-item.json"
       ]
+    },
+    {
+      "id": "app-version",
+      "title": "应用版本元数据（GET /app/version，PL-5）",
+      "source": "src/app-version/app-version.service.ts getVersionInfo",
+      "samples": [
+        "schemas/v1/samples/app-version.json"
+      ],
+      "version": "v1",
+      "schema": "app-version.schema.json"
+    },
+    {
+      "id": "app-readiness",
+      "title": "首次运行就绪清单（GET /app/readiness，NC-3 DX-1，五维+nextStep）",
+      "source": "src/app-version/readiness.service.ts check()",
+      "samples": [
+        "schemas/v1/samples/app-readiness.json"
+      ],
+      "version": "v1",
+      "schema": "app-readiness.schema.json"
+    },
+    {
+      "id": "app-provenance",
+      "title": "运行时来源指纹（GET /app/provenance，边界三件套之一 FE-1/ADR-0002）",
+      "source": "src/app-version/app-provenance.controller.ts getProvenance",
+      "samples": [
+        "schemas/v1/samples/app-provenance.json"
+      ],
+      "version": "v1",
+      "schema": "app-provenance.schema.json"
     }
   ]
 }

@@ -70,6 +70,10 @@ const FROZEN_OBJECT_IDS = [
   'org-member-public',
   // PC-4（CE-2 缺口）：Agent 一级 wire 对象（身份 + capability + trustLevel，D5 Registry）
   'agent-registry-item',
+  // ①补：app/* 边界端点（边界三件套 capabilities 的对偶；FE-1/ADR-0002 Rev-8 契约面）
+  'app-version',
+  'app-readiness',
+  'app-provenance',
 ];
 
 const failures: string[] = [];

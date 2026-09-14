@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "app-provenance.schema.json",
+  "title": "Runtime Provenance (GET /app/provenance) — v1",
+  "description": "运行时来源指纹（边界三件套之一，FE-1/ADR-0002 Rev-8：前端按能力不按 runtime 身份分支；runtime id 仅留 provenance 观测——本对象的 runtime.preset 等即该观测面）。source = .keelbase/manifest.json 展开（Build 侧来源身份，键不固定）；runtime = 运行时能力指纹（preset / 业务模块 / AI 工具指纹汇总）。公开端点（onboarding）。来源：src/app-version/app-provenance.controller.ts getProvenance。",
+  "type": "object",
+  "required": ["source", "runtime"],
+  "additionalProperties": false,
+  "properties": {
+    "source": {
+      "type": "object",
+      "description": ".keelbase/manifest.json 展开（含 manifestPresent 标记）；Build 侧来源身份，键集由 manifest 决定",
+      "additionalProperties": true
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["preset", "businessModules", "aiToolFingerprint"],
+      "additionalProperties": false,
+      "properties": {
+        "preset": { "type": "string" },
+        "businessModules": { "type": "array" },
+        "aiToolFingerprint": { "type": "object" }
+      }
+    }
+  }
+}

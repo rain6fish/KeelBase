@@ -2,6 +2,8 @@
 
 import { AppVersionService } from './app-version.service';
 import { APP_VERSION } from './app-version.config';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('AppVersionService', () => {
   let service: AppVersionService;
@@ -19,6 +21,15 @@ describe('AppVersionService', () => {
       updateUrl: APP_VERSION.updateUrl,
       changelog: APP_VERSION.changelog,
     });
+    // ①补 绑定：版本元数据键集 == app-version 冻结契约
+    const vProps = Object.keys(
+      (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/app-version.schema.json'), 'utf8'),
+        ) as { properties: Record<string, unknown> }
+      ).properties,
+    );
+    expect(Object.keys(info).sort()).toEqual(vProps.sort());
   });
 
   it('latestVersion 单源于 package.json——防「发版漏更新此处」再发生', () => {

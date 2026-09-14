@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "app-readiness.schema.json",
+  "title": "App Readiness Report (GET /app/readiness) — v1",
+  "description": "首次运行就绪清单（NC-3 DX-1）：五维（runtime/db/ai/governance/demo），每维「可否用 + 说明 + 下一步命令」。ready = 核心四维全就绪（demo 可选不计入）。公开端点（onboarding 引导，与 /health?detail=true 运维探活分工）。来源：src/app-version/readiness.service.ts ReadinessReport/check()。",
+  "type": "object",
+  "required": ["ready", "checkedAt", "dimensions"],
+  "additionalProperties": false,
+  "properties": {
+    "ready": { "type": "boolean" },
+    "checkedAt": { "type": "string", "format": "date-time" },
+    "dimensions": {
+      "type": "object",
+      "required": ["runtime", "db", "ai", "governance", "demo"],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": { "$ref": "#/definitions/dimension" },
+        "db": { "$ref": "#/definitions/dimension" },
+        "ai": { "$ref": "#/definitions/dimension" },
+        "governance": { "$ref": "#/definitions/dimension" },
+        "demo": { "$ref": "#/definitions/dimension" }
+      }
+    }
+  },
+  "definitions": {
+    "dimension": {
+      "type": "object",
+      "required": ["ready", "detail", "nextStep"],
+      "additionalProperties": false,
+      "properties": {
+        "ready": { "type": "boolean" },
+        "detail": { "type": "string" },
+        "nextStep": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

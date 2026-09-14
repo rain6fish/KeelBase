@@ -1,0 +1,15 @@
+{
+  "ready": true,
+  "checkedAt": "2026-09-14T05:30:00.000Z",
+  "dimensions": {
+    "runtime": { "ready": true, "detail": "Node 22 / preset full", "nextStep": null },
+    "db": { "ready": true, "detail": "postgres 连通", "nextStep": null },
+    "ai": {
+      "ready": false,
+      "detail": "未配置模型 provider（确定性 demo provider 仍可跑通黄金流程）",
+      "nextStep": "设置 DEEPSEEK_API_KEY 或 AI_PROVIDER=ollama"
+    },
+    "governance": { "ready": true, "detail": "治理策略可读（默认）", "nextStep": null },
+    "demo": { "ready": false, "detail": "演示数据未种", "nextStep": "npm run seed:demo" }
+  }
+}

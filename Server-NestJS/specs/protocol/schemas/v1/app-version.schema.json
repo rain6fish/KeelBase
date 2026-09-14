@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "app-version.schema.json",
+  "title": "App Version Info (GET /app/version) — v1",
+  "description": "应用版本元数据（PL-5）：最新版 / 最低要求版 / 更新地址 / 变更说明。公开端点（onboarding）。来源：src/app-version/app-version.service.ts getVersionInfo + app-version.config.ts（单一真源 = package.json）。",
+  "type": "object",
+  "required": ["latestVersion", "minRequiredVersion", "updateUrl", "changelog"],
+  "additionalProperties": false,
+  "properties": {
+    "latestVersion": { "type": "string" },
+    "minRequiredVersion": { "type": "string" },
+    "updateUrl": { "type": ["string", "null"] },
+    "changelog": { "type": ["string", "null"] }
+  }
+}

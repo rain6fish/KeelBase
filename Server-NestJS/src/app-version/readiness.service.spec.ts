@@ -3,6 +3,8 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { ReadinessService } from './readiness.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
   const env: Record<string, string> = {};
@@ -52,6 +54,14 @@ describe('ReadinessService（NC-3 首次运行就绪清单）', () => {
     expect(r.dimensions.ai.detail).toContain('deepseek');
     expect(r.dimensions.demo.ready).toBe(true);
     expect(r.dimensions.demo.nextStep).toBeNull();
+    // ①补 绑定：就绪报告键集 == app-readiness 冻结契约（含 dimension 形状）
+    const rSchema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/app-readiness.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown>; definitions: { dimension: { properties: Record<string, unknown> } } };
+    expect(Object.keys(r).sort()).toEqual(Object.keys(rSchema.properties).sort());
+    expect(Object.keys(r.dimensions.runtime).sort()).toEqual(
+      Object.keys(rSchema.definitions.dimension.properties).sort(),
+    );
   });
 
   it('DB 探测失败 → db 不 ready + 给出下一步；整体 ready=false，且不泄露原始错误', async () => {
