@@ -1,0 +1,77 @@
+{
+  "INVALID_CREDENTIALS": {
+    "status": 401
+  },
+  "USER_NOT_FOUND": {
+    "status": 401
+  },
+  "TOKEN_INVALID": {
+    "status": 401
+  },
+  "TOKEN_EXPIRED": {
+    "status": 401
+  },
+  "ACCOUNT_LOCKED": {
+    "status": 423
+  },
+  "EMAIL_NOT_VERIFIED": {
+    "status": 403
+  },
+  "MFA_REQUIRED": {
+    "status": 401
+  },
+  "INVALID_MFA_CODE": {
+    "status": 400
+  },
+  "PASSWORD_SAME_AS_OLD": {
+    "status": 400
+  },
+  "USERNAME_ALREADY_EXISTS": {
+    "status": 409
+  },
+  "EMAIL_ALREADY_EXISTS": {
+    "status": 409
+  },
+  "PHONE_ALREADY_BOUND": {
+    "status": 409
+  },
+  "PHONE_NOT_REGISTERED": {
+    "status": 404
+  },
+  "VERIFICATION_CODE_INVALID": {
+    "status": 400
+  },
+  "RESET_TOKEN_INVALID": {
+    "status": 401
+  },
+  "EVENT_NOT_FOUND": {
+    "status": 404
+  },
+  "TODO_NOT_FOUND": {
+    "status": 404
+  },
+  "NOTIFICATION_NOT_FOUND": {
+    "status": 404
+  },
+  "SESSION_NOT_FOUND": {
+    "status": 401
+  },
+  "LAST_ADMIN_PROTECTED": {
+    "status": 400
+  },
+  "FORBIDDEN": {
+    "status": 403
+  },
+  "RATE_LIMITED": {
+    "status": 429
+  },
+  "MAINTENANCE_MODE": {
+    "status": 503
+  },
+  "AI_DAILY_LIMIT": {
+    "status": 429
+  },
+  "LLM_UNAVAILABLE": {
+    "status": 502
+  }
+}

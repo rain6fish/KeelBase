@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "api-error-code.schema.json",
+  "title": "业务错误码目录 (api-error-codes) — v1",
+  "description": "业务错误码值域 + HTTP 映射（API_ERROR_CODES 单一源）。error-body.errorCode 的取值必须 ∈ 本目录；code 字段 = 对应 status。NC-2 DX：码可附 reason/impact/nextStep（文案为 runtime i18n，不经 wire）。来源：src/common/errors/api-error-codes.ts。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "INVALID_CREDENTIALS",
+    "USER_NOT_FOUND",
+    "TOKEN_INVALID",
+    "TOKEN_EXPIRED",
+    "ACCOUNT_LOCKED",
+    "EMAIL_NOT_VERIFIED",
+    "MFA_REQUIRED",
+    "INVALID_MFA_CODE",
+    "PASSWORD_SAME_AS_OLD",
+    "USERNAME_ALREADY_EXISTS",
+    "EMAIL_ALREADY_EXISTS",
+    "PHONE_ALREADY_BOUND",
+    "PHONE_NOT_REGISTERED",
+    "VERIFICATION_CODE_INVALID",
+    "RESET_TOKEN_INVALID",
+    "EVENT_NOT_FOUND",
+    "TODO_NOT_FOUND",
+    "NOTIFICATION_NOT_FOUND",
+    "SESSION_NOT_FOUND",
+    "LAST_ADMIN_PROTECTED",
+    "FORBIDDEN",
+    "RATE_LIMITED",
+    "MAINTENANCE_MODE",
+    "AI_DAILY_LIMIT",
+    "LLM_UNAVAILABLE"
+  ],
+  "properties": {
+    "INVALID_CREDENTIALS": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "USER_NOT_FOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "TOKEN_INVALID": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "TOKEN_EXPIRED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "ACCOUNT_LOCKED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 423
+        }
+      }
+    },
+    "EMAIL_NOT_VERIFIED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 403
+        }
+      }
+    },
+    "MFA_REQUIRED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "INVALID_MFA_CODE": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 400
+        }
+      }
+    },
+    "PASSWORD_SAME_AS_OLD": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 400
+        }
+      }
+    },
+    "USERNAME_ALREADY_EXISTS": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 409
+        }
+      }
+    },
+    "EMAIL_ALREADY_EXISTS": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 409
+        }
+      }
+    },
+    "PHONE_ALREADY_BOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 409
+        }
+      }
+    },
+    "PHONE_NOT_REGISTERED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 404
+        }
+      }
+    },
+    "VERIFICATION_CODE_INVALID": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 400
+        }
+      }
+    },
+    "RESET_TOKEN_INVALID": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "EVENT_NOT_FOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 404
+        }
+      }
+    },
+    "TODO_NOT_FOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 404
+        }
+      }
+    },
+    "NOTIFICATION_NOT_FOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 404
+        }
+      }
+    },
+    "SESSION_NOT_FOUND": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 401
+        }
+      }
+    },
+    "LAST_ADMIN_PROTECTED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 400
+        }
+      }
+    },
+    "FORBIDDEN": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 403
+        }
+      }
+    },
+    "RATE_LIMITED": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 429
+        }
+      }
+    },
+    "MAINTENANCE_MODE": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 503
+        }
+      }
+    },
+    "AI_DAILY_LIMIT": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 429
+        }
+      }
+    },
+    "LLM_UNAVAILABLE": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": 502
+        }
+      }
+    }
+  }
+}

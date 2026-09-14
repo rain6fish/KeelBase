@@ -2,12 +2,25 @@
 
 import { HttpStatus } from '@nestjs/common';
 import { BusinessException } from './business.exception';
+import { API_ERROR_CODES } from './api-error-codes';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('BusinessException', () => {
   it('按错误码取默认 HTTP 状态码', () => {
     const ex = new BusinessException('EVENT_NOT_FOUND');
     expect(ex.getStatus()).toBe(HttpStatus.NOT_FOUND);
     expect(ex.errorCode).toBe('EVENT_NOT_FOUND');
+  });
+
+  it('①补 绑定：错误码目录值域 == api-error-code 冻结契约（码集 + HTTP 映射全等）', () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/api-error-code.schema.json'), 'utf8'),
+    ) as { required: string[]; properties: Record<string, { properties: { status: { const: number } } }> };
+    expect(Object.keys(API_ERROR_CODES).sort()).toEqual(schema.required.sort());
+    for (const code of schema.required) {
+      expect(API_ERROR_CODES[code].status).toBe(schema.properties[code].properties.status.const);
+    }
   });
 
   it('未知错误码回退 400', () => {

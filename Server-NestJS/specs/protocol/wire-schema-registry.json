@@ -446,6 +446,16 @@
       ],
       "version": "v1",
       "schema": "app-provenance.schema.json"
+    },
+    {
+      "id": "api-error-code",
+      "version": "v1",
+      "schema": "api-error-code.schema.json",
+      "title": "业务错误码目录（值域 + HTTP 映射，NC-2 DX）",
+      "source": "src/common/errors/api-error-codes.ts",
+      "samples": [
+        "schemas/v1/samples/api-error-code.json"
+      ]
     }
   ]
 }

@@ -74,6 +74,8 @@ const FROZEN_OBJECT_IDS = [
   'app-version',
   'app-readiness',
   'app-provenance',
+  // ①补：业务错误码目录（值域 + HTTP 映射）
+  'api-error-code',
 ];
 
 const failures: string[] = [];
