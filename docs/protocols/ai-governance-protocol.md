@@ -256,13 +256,13 @@ pending ──approve(owner)──▶ approved
 | **Secure MCP Gateway** | TypeScript / NestJS | ✅ 每次调用落 AI 审计（provider=mcp 归因） | —（调用者 JWT 身份） | ✅ 工具声明 riskLevel/riskStrategy（A2）+ **§4.4 MCP 声明扩展**（annotations + `_meta.keelbase`）+ 写需确认不自动执行 | MCP 出口，以调用者身份过治理管线 |
 | **headless API** | TypeScript / NestJS | ✅ 复用 Agent 审计（key 归属用户身份） | —（API Key 身份，归属 owner 用户） | ✅ 复用 Agent 工具门控（HS-4） | 第三方集成入口（x-api-key 认证） |
 
-**对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；可运行 [「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-governance-adoption.mjs`）验收接入闭环。
+**对齐路径**：新实现者按 §2–§4 逐条对齐后在此登记；**合规分层与判据见 [conformance-profile.md](conformance-profile.md)**（Core 底线 / Full = Java Phase-1 最低 / Extended）；可运行 [「30 分钟接入验证」](../manual/adoption-30min.md)（`verify-governance-adoption.mjs`）验收接入闭环。
 
 ### 5.1 认证 / Certification
 
 **协议合规认证套件（治理能力 2.1 / A1 / CE-1）**：三协议语义以 **`specs/protocol/*-vector.json` 机器语料**锁定——`canonical-json-v1-vector.json`（金样本，含 nested/unicode 边界，§2.3 语义以此为准）/ `audit-hash-v1-vector.json` / `delegation-token-v1-vector.json` / `risk-level-v1-vector.json`，由现实现 `Server-NestJS/scripts/generate-protocol-vectors.mjs` 生成（实证优先），`--check` 漂移门禁入 CI。`Server-NestJS/scripts/verify-protocol-conformance.mjs` 从 `scripts/lib/protocol-algorithms.mjs` 单源 import 独立实现、以语料驱动复现三大协议——canonicalJSON/hash/链校验（§2）、委托 token HS256 验签（§3）、风险分级派生（§4）；篡改 payload / 断链 / aud 不匹配 / 过期 / 签名篡改均必须拒绝，输出机器可读报告（`docs/benchmark/protocol-conformance-<ts>.json`）。生产实现（`src/common/audit-chain`）由 `audit-chain.reproduce.spec.ts` 跑同一语料，锁「现实现 = 金样本 = 生产实现」三方一致（单源规则机器强制）。
 
-**用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **30/30 通过**（2026-09-09，语料驱动）。
+**用法**：`node scripts/verify-protocol-conformance.mjs`（确定性、无服务依赖，可 CI）；语义变更先 `node scripts/generate-protocol-vectors.mjs` 升语料版本再改实现（CE-1 L3）。参考实现当前 **34/34 通过**（2026-09-14，语料驱动）。**合规分层（Core / Full / Extended）+ 语言中性 runner 判据 + wire 约定（含时间格式）= [conformance-profile.md](conformance-profile.md)**。
 
 **wire 对象 Schema v1 冻结（CE-1，`Server-NestJS/specs/protocol/schemas/v1/`）**：tool 定义 / SSE 事件 / confirmation request·decision / trace step / side-effect·revoke / audit payload（v1·v2）/ 证据包 /1·2·3 / 治理策略 / 委托 token claims 各一份 JSON Schema（固化当前形状，含枚举冻结；来源锚见各 schema description）。`wire-schema-registry.json` 登记对象→schema→已提交样例；`wire-schema.spec.ts`（jest，入 `test` job 与 release-gate `Trust(CE-1 …)`）强制「schema 可解析 + 每样例过 schema + 对象清单冻结」——wire 形状增删必须先升 v2（同 CE-1 L3 / C-1 纪律）再改代码。**语义变更评审清单**见 [docs/manual/semantic-change-checklist.md](../manual/semantic-change-checklist.md)；**对外术语单一真源闸** = `Server-NestJS/scripts/check-protocol-language.mjs`（词表 [docs/manual/product-language.md](../manual/product-language.md)，CI job `terminology-guard`）。
 
