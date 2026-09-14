@@ -198,7 +198,7 @@ For Java/Spring teams: annotate existing `@RestController` methods with `@Keelba
 
 One main thread — **Build → Run → Trust → Private Deploy**:
 
-- **Build** — *Protocol-driven generation:* Application Protocol (conventions); AI generates the business modules — no low-code engine
+- **Build** — *Protocol-driven generation:* Application Protocol (conventions); AI generates the business modules — **AI-native Application Engineering, not a traditional low-code engine**
 - **Run** — *Business-safe Agent Runtime:* user-scoped tools, human-confirmed writes, full audit and revoke
 - **Trust / Private Deploy** — *Data Sovereignty:* data stays on-prem; AI stays accountable and reversible
 

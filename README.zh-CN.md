@@ -189,7 +189,7 @@ keelbase init --desc "Customer management"
 
 一条主线——**Build → Run → Trust → Private Deploy**：
 
-- **Build（协议驱动生成）**：Application Protocol（约定）；AI 生成业务模块——不做低代码引擎
+- **Build（协议驱动生成）**：Application Protocol（约定）；AI 生成业务模块——**AI-native Application Engineering，非传统低代码引擎**
 - **Run（业务安全 Agent 运行时）**：工具调用限定数据范围、写操作人工确认、全链路审计 + 可撤销
 - **Trust / Private Deploy（数据主权）**：数据不出域，AI 每步可查、可撤销
 

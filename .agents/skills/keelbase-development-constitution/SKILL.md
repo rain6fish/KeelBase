@@ -156,6 +156,8 @@ PMF 证据出现前，**不提前**为 SaaS 多租户、计费、市场机制做
 
 首选表述：「AI 业务应用」「业务安全 Agent」「企业 AI Trust Runtime」「Application Protocol」「可信业务动作」「Builder」「业务用户」「参考应用」「方案模板」。避免将 KeelBase 定位成通用 Agent 框架、通用 CRM、通用低代码平台、通用 AI 聊天机器人。
 
+> **区分**（2026-09）：不做的是**传统低代码 / 无代码（拖拽式搭建、配置式应用）**；**允许并鼓励** AI-native Application Engineering（Spec → 生成普通源码 → 运行 + 治理）。权威定义见 `docs/manual/product-language.md §1.1`。
+
 ---
 
 ## 2. 体验篇（UX）

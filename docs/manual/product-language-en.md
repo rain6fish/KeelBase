@@ -16,6 +16,16 @@
 
 > **Divergence handled**: README used both "Build and Run Business-safe AI Applications" and "Open-source Enterprise AI Trust Runtime" — unify on **Business-safe AI Runtime** as the primary name; Trust Runtime is only the trust-layer emphasis substitute; no longer mixed.
 
+### 1.1 Red line (what we do / don't do)
+
+| Category | Statement |
+|---|---|
+| **Don't** | Not a traditional low-code / no-code platform: drag-and-drop pages, forms, business flows or configuration-based app building are **not** our core competence |
+| **Do** | **AI-native Application Engineering** — AI / Protocol / Template / Plugin / Runtime turning a Requirement / Spec into a runnable, verifiable, governable AI Application |
+| **Boundary** | Rapid-development capability serves AI-native Application Engineering; it does **not** turn KeelBase into a general low-code / AI App Builder platform |
+
+> Distinct from the **protocol-thinness discipline** (`docs/module-protocol.md §5`: the protocol covers only the high-frequency 20%; a thick protocol becomes a low-code platform): that constrains *how thick the protocol is*, this constrains *product positioning* — they do not conflict, and **both stand**.
+
 ---
 
 ## 2. Core Concept Glossary

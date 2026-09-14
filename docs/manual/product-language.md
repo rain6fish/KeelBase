@@ -16,6 +16,16 @@
 
 > **分歧处理**：README 首行「Build and Run Business-safe AI Applications」与第 9 行「Open-source Enterprise AI Trust Runtime」并存——统一为「Business-safe AI Runtime」为主名，Trust Runtime 为强调「信任层」时的替代，不再并列混用。
 
+### 1.1 红线（做什么 / 不做什么）
+
+| 类别 | 表述 |
+|---|---|
+| **不做** | 不做传统低代码 / 无代码平台：不以拖拽式页面、表单、业务流程、配置式应用搭建作为核心竞争力 |
+| **做** | 做 **AI-native Application Engineering**：以 AI / Protocol / Template / Plugin / Runtime 为核心，实现从需求 / Spec → 可运行、可验证、可治理的 AI Application |
+| **边界** | 快速开发能力服务于 AI-native Application Engineering，**不**把 KeelBase 转型为通用低代码 / AI App Builder 平台 |
+
+> 与既有**协议薄度纪律**（`docs/module-protocol.md §5`：协议只覆盖高频重复的 20%，厚则成低代码平台）**不同层**：后者约束「协议多厚」，本条约束「产品定位」；两者不冲突，**均保持**。
+
 ---
 
 ## 2. 核心概念词汇表
