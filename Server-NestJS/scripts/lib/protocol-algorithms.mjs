@@ -16,7 +16,11 @@
  */
 import { createHmac } from 'node:crypto';
 
-/** canonicalJSON：顶层键按名称排序、undefined 剔除、null 保留（JSON.stringify replacer 数组，作用于对象各层）。 */
+/**
+ * canonicalJSON：顶层键剔除 undefined 后按 UTF-16 code unit 升序；该键集在每个对象层作键白名单。
+ * **语言中性规格见 `docs/protocols/ai-governance-protocol.md §2.3`**——任何语言据此实现即可对齐；
+ * 本函数即该规格的 JS 参考实现，行为已冻结（改动会断审计链）。
+ */
 export function canonicalJSON(payload) {
   const keys = Object.keys(payload).filter((k) => payload[k] !== undefined).sort();
   return JSON.stringify(payload, keys);

@@ -3,7 +3,7 @@
   "protocol": "ai-governance-protocol §2.3 canonicalJSON",
   "license": "Apache-2.0",
   "note": "由 node scripts/generate-protocol-vectors.mjs 生成，勿手改。语义变更先升 v2 再改实现（CE-1 L3 单源规则）。",
-  "algorithm": "canonicalJSON(payload) = JSON.stringify(payload, sortedKeys)；sortedKeys = 顶层键剔除 undefined 后字典序。",
+  "algorithm": "canonicalJSON（语言中性，§2.3）：K = 顶层键剔除 undefined 后按 UTF-16 code unit 升序；序列化时在每个对象层以 K 作白名单（对象自身键序无关、不在 K 的键丢弃）；null 保留、数组内 undefined → null；数字按 ECMAScript Number::toString 最短往返（-0→0、|x|≥1e21 或 0<|x|<1e-6 用指数形）；字符串按 JSON 必需转义。行为已冻结（审计链依赖），只描述不改。",
   "cases": [
     {
       "id": "sort-flat",
@@ -116,6 +116,18 @@
         "b": 2
       },
       "canonicalBytes": "{\"a\":1,\"b\":2,\"m\":13,\"y\":8,\"z\":9}"
+    },
+    {
+      "id": "array-undefined-to-null",
+      "name": "canonicalJSON 数组内 undefined → null（对象值 undefined 则剔除）",
+      "comment": "JSON.stringify 语义：对象值为 undefined 的键被剔除（见 undefined-null-flat），但**数组元素**为 undefined 序列化为 null。JSON 语料无法表达 undefined（序列化即变 null）；金样本由生成时含 [undefined] 的内存对象产出，语料侧输入为等价 [null]。真实行为由 TS 复现测试覆盖。",
+      "input": {
+        "a": [
+          null
+        ],
+        "b": 3
+      },
+      "canonicalBytes": "{\"a\":[null],\"b\":3}"
     }
   ]
 }

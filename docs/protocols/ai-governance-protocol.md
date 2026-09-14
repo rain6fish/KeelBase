@@ -47,15 +47,19 @@ hash           = HMAC-SHA256( key, `${prevHash ?? 'genesis'}|${canonicalJSON(pay
 
 ### 2.3 Canonical Payload / Canonical JSON
 
-写入与校验共用同一 payload，保证两端一致：
+写入与校验共用同一 payload，保证两端一致。**本规则是跨实现互操作契约**（任何语言须能据此实现，故不以「某语言的某函数」定义）——且**行为已冻结**：审计链既有 hash 依赖它，只描述、**不得改**。
 
-```
-canonical = JSON.stringify( payload, Object.keys(payload).filter(k => payload[k] !== undefined).sort() )
-```
+记 **K** = `{ payload 的键 k | payload[k] !== undefined }`，按键名的 **UTF-16 code unit 升序**（ASCII 键等价字节序；Java `String.compareTo` 即同序）。序列化时**在每个对象层都以 K 作键白名单**：
 
-- **顶层键按名称排序**（字典序），经 `JSON.stringify` 的 replacer 数组实现（replacer 作用于对象各层；审计 payload 为扁平结构，嵌套对象不在排序键集内会被过滤——实现语义以此为准）；
-- **undefined 剔除**（null 保留）；
+1. **对象** → `{` + 对 K 中**存在于该对象**的键（按 K 序）输出 `"键":值`（`,` 分隔）+ `}`；对象中不在 K 的键**丢弃**（对象自身声明顺序无关）。
+2. **数组** → `[` + 逐元素序列化（元素为对象时同样受 K 约束）+ `]`（`,` 分隔）。
+3. **null** → `null`；**布尔** → `true` / `false`。
+4. **字符串** → JSON 字符串（仅必需转义：`"`、`\`、控制字符 U+0000–U+001F）。
+5. **数字** → 最短可往返十进制（等价 ECMAScript `Number::toString`）：`-0` → `0`；`|x| ≥ 1e21` 或 `0 < |x| < 1e-6` → 指数形（`d.ddde±NN`）；其余 → 十进制。
+6. **undefined**：作为对象值时该键已在 K 中剔除（规则 1 不输出）；作为**数组元素**时序列化为 `null`。
+
 - **排除 `id` 与 `createdAt`**（id 为自增、createdAt 由 DB 生成）；链式顺序由 `prevHash` 绑定。
+- **与 JS 的关系**：以上规则**等价于** `JSON.stringify(payload, K)`（K 为排序后键数组）在 JS 引擎下的行为——之所以逐条写明，是因为契约不能以「某语言的某函数」定义。金样本 `specs/protocol/canonical-json-v1-vector.json` 逐条覆盖（排序 / undefined / unicode code-unit / 嵌套白名单 / 数组内对象过滤 / 数字边界 / 数组内 undefined→null）。
 
 ### 2.4 校验流程 / Verify Procedure
 
