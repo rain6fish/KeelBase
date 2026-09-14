@@ -77,4 +77,15 @@ describe('runHumanTask（FLOW-2/FLOW-4 审批节点）', () => {
     await runHumanTask(taskRepo as any, usersRepo as any, orgMemberRepo as any, null, instance as any, node as any);
     expect(taskRepo.save).toHaveBeenCalled();
   });
+
+  it('组织角色解析：发起人已不在组织 → 组织解析返回 undefined（落回发起人）', async () => {
+    const { taskRepo, usersRepo, orgMemberRepo, notify } = mockRepos();
+    orgMemberRepo.findOne.mockResolvedValueOnce(null); // 发起人不是组织成员
+    await runHumanTask(taskRepo as any, usersRepo as any, orgMemberRepo as any, notify as any, instance as any, {
+      ...node,
+      assigneeOrgRole: { role: OrgMemberRole.ADMIN, scope: 'org' },
+    } as any);
+    // 无组织候选、无其它途径 → 兜底为发起人本人
+    expect(taskRepo.save).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: 9 }));
+  });
 });

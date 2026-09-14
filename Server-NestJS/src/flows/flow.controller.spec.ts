@@ -23,7 +23,7 @@ describe('FlowController', () => {
 
   beforeEach(() => {
     runtime = Object.fromEntries(
-      ['upsertDefinition', 'start', 'getTasksForUser', 'resolveTask', 'getInstance', 'rollback']
+      ['upsertDefinition', 'start', 'getTasksForUser', 'getMyInstances', 'resolveTask', 'getInstance', 'rollback']
         .map((m) => [m, jest.fn()]),
     );
     aiFlow = { generateFromDescription: jest.fn() };
@@ -83,5 +83,11 @@ describe('FlowController', () => {
     runtime.rollback.mockResolvedValue({ id: 1 });
     await expect(controller.rollback(1)).resolves.toEqual({ id: 1 });
     expect(runtime.rollback).toHaveBeenCalledWith(1);
+  });
+
+  it('myInstances 委托 runtime 并传本人 userId（A-7：定义名 + 待办数）', async () => {
+    runtime.getMyInstances.mockResolvedValue([{ id: 1, definitionName: '请假审批', pendingTaskCount: 1 }]);
+    await expect(controller.myInstances(mockUser as any)).resolves.toHaveLength(1);
+    expect(runtime.getMyInstances).toHaveBeenCalledWith(1);
   });
 });
