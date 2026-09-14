@@ -2,8 +2,23 @@
 
 import { ToolRegistry } from './tool-registry';
 import { AiTool, resolveRevokeClass } from '../interfaces/tool.interface';
+import { NavigatePageTool } from './navigate-page.tool';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ToolRegistry', () => {
+  // ② 绑定：真实工具产出 == tool-definition 冻结契约（键集）
+  it('② 绑定：toToolDefinition 输出 == tool-definition 冻结契约', () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/tool-definition.schema.json'), 'utf8'),
+    ) as { properties: { function: { properties: Record<string, unknown> } } };
+    const def = new NavigatePageTool().toToolDefinition() as Record<string, unknown>;
+    expect(Object.keys(def).sort()).toEqual(Object.keys(schema.properties).sort());
+    expect(Object.keys(def.function as object).sort()).toEqual(
+      Object.keys(schema.properties.function.properties).sort(),
+    );
+  });
+
   let registry: ToolRegistry;
 
   const mockTool: AiTool = {

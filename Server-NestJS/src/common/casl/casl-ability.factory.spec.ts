@@ -3,6 +3,8 @@
 import { subject } from '@casl/ability';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import { UserRole } from '../entities/user.entity';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('CaslAbilityFactory', () => {
   let factory: CaslAbilityFactory;
@@ -127,12 +129,20 @@ describe('CaslAbilityFactory', () => {
     // PC-1（CE-2 缺口）：决策 wire 形状在**源侧**冻结——与 specs/protocol/schemas/v1/permission-*.schema.json
     // （additionalProperties:false + 样例）配合：任一侧加/改字段，本断言或 wire-schema 冻结门先红。
     it('PC-1 wire 形状冻结：输出键 == 冻结 schema 契约（describeForUser / explain）', () => {
+      const schemaOf = (n: string) =>
+        JSON.parse(readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/v1/${n}`), 'utf8')) as {
+          properties: Record<string, { items?: { properties: Record<string, unknown> } }>;
+        };
+      const capSchema = schemaOf('permission-capability-list.schema.json');
       const d = factory.describeForUser(regularUser);
-      expect(Object.keys(d).sort()).toEqual(['basis', 'resources', 'role']);
-      expect(Object.keys(d.resources[0]).sort()).toEqual(['reason', 'scope', 'subject']);
+      expect(Object.keys(d).sort()).toEqual(Object.keys(capSchema.properties).sort());
+      expect(Object.keys(d.resources[0]).sort()).toEqual(
+        Object.keys(capSchema.properties.resources.items!.properties).sort(),
+      );
 
+      const decSchema = schemaOf('permission-decision.schema.json');
       const e = factory.explain(regularUser, 'read', 'Event');
-      expect(Object.keys(e).sort()).toEqual(['action', 'allowed', 'deniedBy', 'reason', 'subject']);
+      expect(Object.keys(e).sort()).toEqual(Object.keys(decSchema.properties).sort());
     });
   });
 

@@ -10,6 +10,8 @@ import { Department } from './department.entity';
 import { OrgMember } from './org-member.entity';
 import { OrgInvite } from './org-invite.entity';
 import { OrgMemberRole } from './org-member-role.enum';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { User } from '../common/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
@@ -304,9 +306,12 @@ describe('OrgService', () => {
       { id: 1, name: '总部', parentId: null },
       { id: 2, name: '研发部', parentId: 1 },
     ]);
+    const scopeSchema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-membership-scope.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> & { org: { properties: Record<string, unknown> } } };
     const my = await service.getMyOrg(7);
-    expect(Object.keys(my).sort()).toEqual(['deptId', 'deptPath', 'org', 'role']);
-    expect(Object.keys(my.org).sort()).toEqual(['description', 'id', 'name']);
+    expect(Object.keys(my).sort()).toEqual(Object.keys(scopeSchema.properties).sort());
+    expect(Object.keys(my.org).sort()).toEqual(Object.keys(scopeSchema.properties.org.properties).sort());
     expect(my.deptPath).toEqual(['总部', '研发部']);
 
     // ② GET /org/organizations/:orgId/members item → org-member-item（管理端，email 掩码）
@@ -323,9 +328,10 @@ describe('OrgService', () => {
       },
     ]);
     const admin = await service.listMembers(1, 1, 20);
-    expect(Object.keys(admin.items[0]).sort()).toEqual([
-      'avatarUrl', 'deptId', 'deptName', 'email', 'id', 'nickname', 'orgId', 'role', 'userId', 'username',
-    ]);
+    const itemSchema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-member-item.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    expect(Object.keys(admin.items[0]).sort()).toEqual(Object.keys(itemSchema.properties).sort());
 
     // ③ GET /org/my/members item → org-member-public（白名单：无 email/phone/username）
     members.find.mockResolvedValue([
@@ -337,7 +343,10 @@ describe('OrgService', () => {
       },
     ]);
     const pub = await service.listMyMembers(7);
-    expect(Object.keys(pub[0]).sort()).toEqual(['avatarUrl', 'deptName', 'id', 'nickname', 'role']);
+    const pubSchema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-member-public.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown> };
+    expect(Object.keys(pub[0]).sort()).toEqual(Object.keys(pubSchema.properties).sort());
   });
 
   // ── 邀请（ORG-6） ──

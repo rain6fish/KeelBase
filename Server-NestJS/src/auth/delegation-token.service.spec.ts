@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DelegationTokenService } from './delegation-token.service';
 import { User } from '../common/entities/user.entity';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('DelegationTokenService（AI Bridge §5 身份桥接）', () => {
   let service: DelegationTokenService;
@@ -34,6 +36,18 @@ describe('DelegationTokenService（AI Bridge §5 身份桥接）', () => {
     service = moduleRef.get(DelegationTokenService);
     jwt = moduleRef.get(JwtService);
     jest.spyOn(jwt, 'sign');
+  });
+
+  it('② 绑定：委托 claims 键集 ⊆ delegation-token-claims 冻结契约', async () => {
+    users.set(1, { id: 1, providerId: 'oidc-subject-abc' });
+    await service.sign('1', 'legacy-erp');
+    const calls = (jwt.sign as jest.Mock).mock.calls;
+    const payload = calls[calls.length - 1][0] as Record<string, unknown>;
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/delegation-token-claims.schema.json'), 'utf8'),
+    ) as { properties: Record<string, unknown>; required?: string[] };
+    expect(Object.keys(payload).filter((k) => !(k in schema.properties))).toEqual([]);
+    for (const req of schema.required ?? []) expect(payload).toHaveProperty(req);
   });
 
   it('签发委托 JWT：OIDC 用户 subject = providerId；本地用户 = local:<userId>', async () => {
