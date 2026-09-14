@@ -11,5 +11,8 @@
   "revokeClass": "local_compensate",
   "revokeStatus": null,
   "status": "executed",
-  "revocable": true
+  "revocable": true,
+  "argsHash": "9f2c1a7b3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcd",
+  "beforeSnapshot": null,
+  "afterSnapshot": "{\"status\":\"open\",\"assignee\":\"alex\"}"
 }

@@ -207,7 +207,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const props = Object.keys(
         (
           JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/side-effect-revoke.schema.json'), 'utf8'),
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
           ) as { definitions: { revokeResult: { properties: Record<string, unknown> } } }
         ).definitions.revokeResult.properties,
       );
@@ -389,6 +389,13 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       );
       expect(result.total).toBe(2);
       expect(result.items[0]).toMatchObject({ status: 'executed', targetExists: true, targetSoftDeleted: false, targetTitle: '晨会' });
+      // ② 绑定：Action Center item 键集 == side-effect-revoke.item 契约（v2，含 change）
+      const defs = (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
+        ) as { definitions: { item: { properties: Record<string, unknown> } } }
+      ).definitions;
+      expect(Object.keys(result.items[0]).sort()).toEqual(Object.keys(defs.item.properties).sort());
       expect(result.items[1]).toMatchObject({ status: 'revoked', targetExists: true, targetSoftDeleted: true, targetTitle: '买牛奶' });
       // 数据最小化：清单不回显 argsHash / before/after 快照
       expect(result.items[0]).not.toHaveProperty('argsHash');
@@ -458,6 +465,13 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(entityManager.getRepository).toHaveBeenCalledWith('Event');
       expect(entityManager.getRepository).toHaveBeenCalledWith('CrmTask');
       expect(items[0]).toMatchObject({ targetExists: true, targetTitle: '会议' });
+      // ② 绑定：执行轨迹 traceItem 键集 == side-effect-revoke.traceItem 契约（v2，含 argsHash + 快照）
+      const defsT = (
+        JSON.parse(
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
+        ) as { definitions: { traceItem: { properties: Record<string, unknown> } } }
+      ).definitions;
+      expect(Object.keys(items[0]).sort()).toEqual(Object.keys(defsT.traceItem.properties).sort());
       expect(items[1]).toMatchObject({ targetExists: true, targetTitle: '跟进' });
     });
 

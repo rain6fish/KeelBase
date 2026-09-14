@@ -83,13 +83,14 @@
     },
     {
       "id": "side-effect-revoke",
-      "version": "v1",
-      "schema": "side-effect-revoke.schema.json",
-      "title": "AI 写副作用 item / 撤销结果 / 会话批量（KB-6 revokeClass 语义）",
+      "version": "v2",
+      "schema": "v2/side-effect-revoke.schema.json",
+      "title": "AI 写副作用 item / 执行轨迹 traceItem / 撤销结果 / 批量（KB-6 revokeClass，v2：拆 item/traceItem + 收紧 additionalProperties）",
       "source": "src/ai/tool-effects/ai-tool-effects.service.ts:17-66,391-401; src/ai/interfaces/tool.interface.ts:66-91",
       "samples": [
-        "schemas/v1/samples/side-effect-revoke-item.json",
-        "schemas/v1/samples/side-effect-revoke-result.json"
+        "schemas/v2/samples/side-effect-revoke-item.json",
+        "schemas/v2/samples/side-effect-revoke-trace-item.json",
+        "schemas/v2/samples/side-effect-revoke-result.json"
       ]
     },
     {
