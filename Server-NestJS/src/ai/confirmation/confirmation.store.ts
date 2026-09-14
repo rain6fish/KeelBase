@@ -20,6 +20,25 @@ import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.enti
 
 export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout';
 
+/**
+ * 确认生命周期单一源（跨 Runtime 冻结，见 `specs/protocol/confirmation-lifecycle-v1-vector.json`）：
+ * - **状态**（`ai_confirmation_requests.status` 列值域）：`pending → approved | declined | timeout`
+ * - **决策 outcome**（内存/SSE `confirmation_decision`）：`approve | decline | timeout`（legacy `reject` 归一 decline）
+ * - **默认 TTL**：60s（HS-6 可经 Settings `confirmation_ttl_seconds` 覆盖）
+ */
+export const CONFIRMATION_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  DECLINED: 'declined',
+  TIMEOUT: 'timeout',
+} as const;
+export const CONFIRMATION_OUTCOME = {
+  APPROVE: 'approve',
+  DECLINE: 'decline',
+  TIMEOUT: 'timeout',
+} as const;
+export const CONFIRMATION_DEFAULT_TTL_MS = 60_000;
+
 /** KB-5 run-level approval：run 批内单个动作（工具名 + 参数 + 人读摘要 + 自身风险级） */
 export interface RunItem {
   toolName: string;
@@ -57,7 +76,7 @@ export class ConfirmationStore {
     private readonly reqRepo: Repository<AiConfirmationRequest>,
     @Optional() ttlMs?: number,
   ) {
-    this.ttlMs = ttlMs ?? 60_000;
+    this.ttlMs = ttlMs ?? CONFIRMATION_DEFAULT_TTL_MS;
   }
 
   /**
@@ -136,7 +155,7 @@ export class ConfirmationStore {
           operatorId: row.operatorId,
           riskLevel: row.riskLevel,
           kind: row.kind,
-          status: 'pending',
+          status: CONFIRMATION_STATUS.PENDING,
           ...(row.runItems !== undefined ? { runItems: row.runItems } : {}),
           // docs/run-level-approval.spec.md §2.4：run 记录须携带 conversationId，服务器重启后按会话可查可裁决
           ...(row.conversationId !== undefined ? { conversationId: row.conversationId } : {}),
@@ -154,9 +173,12 @@ export class ConfirmationStore {
       if (pending) {
         this.pending.delete(token);
         void this.reqRepo
-          .update({ token, status: 'pending' }, { status: 'timeout', decidedAt: new Date() })
+          .update(
+            { token, status: CONFIRMATION_STATUS.PENDING },
+            { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt: new Date() },
+          )
           .catch(() => {});
-        pending.resolve({ outcome: 'timeout' });
+        pending.resolve({ outcome: CONFIRMATION_OUTCOME.TIMEOUT });
       }
     }, ttlMs ?? this.ttlMs);
     timer.unref?.();
@@ -175,7 +197,8 @@ export class ConfirmationStore {
     trustTool?: boolean,
   ): Promise<boolean> {
     // 决策词统一（CE-1 B3b）：规范集 approve | decline；legacy `reject` 归一为 decline。
-    const outcome: 'approve' | 'decline' = decision === 'approve' ? 'approve' : 'decline';
+    const outcome: 'approve' | 'decline' =
+      decision === CONFIRMATION_OUTCOME.APPROVE ? CONFIRMATION_OUTCOME.APPROVE : CONFIRMATION_OUTCOME.DECLINE;
     const pending = this.pending.get(token);
     if (!pending || pending.userId !== requestUserId) {
       return false;
@@ -184,8 +207,14 @@ export class ConfirmationStore {
     this.pending.delete(token);
     await this.reqRepo
       .update(
-        { token, status: 'pending' },
-        { status: outcome === 'approve' ? 'approved' : 'declined', decidedAt: new Date() },
+        { token, status: CONFIRMATION_STATUS.PENDING },
+        {
+          status:
+            outcome === CONFIRMATION_OUTCOME.APPROVE
+              ? CONFIRMATION_STATUS.APPROVED
+              : CONFIRMATION_STATUS.DECLINED,
+          decidedAt: new Date(),
+        },
       )
       .catch((err) => {
         console.error(`[ConfirmationStore] persist resolve failed: ${err.message}`);

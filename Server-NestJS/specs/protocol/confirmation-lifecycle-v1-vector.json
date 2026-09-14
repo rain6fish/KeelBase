@@ -1,0 +1,22 @@
+{
+  "vectorVersion": "v1",
+  "protocol": "ai-governance-protocol — 确认生命周期（confirmation lifecycle）",
+  "license": "Apache-2.0",
+  "note": "确认（R3/R4 写操作）生命周期的跨 Runtime 冻结语义：状态集 / 决策集 / 允许迁移 / 守卫 / 默认 TTL。实现侧单一源 = src/ai/confirmation/confirmation.store.ts（CONFIRMATION_STATUS / CONFIRMATION_OUTCOME / CONFIRMATION_DEFAULT_TTL_MS），由 confirmation.store.spec 绑定；状态落 ai_confirmation_requests.status，决策经 SSE confirmation_decision（outcome）。",
+  "states": ["pending", "approved", "declined", "timeout"],
+  "outcomes": ["approve", "decline", "timeout"],
+  "initialState": "pending",
+  "terminalStates": ["approved", "declined", "timeout"],
+  "transitions": [
+    { "from": "pending", "event": "approve", "by": "owner", "to": "approved" },
+    { "from": "pending", "event": "decline", "by": "owner", "to": "declined" },
+    { "from": "pending", "event": "ttl_elapsed", "by": "system", "to": "timeout" }
+  ],
+  "guards": {
+    "resolveByNonOwner": "ignored_no_transition",
+    "resolveUnknownToken": "ignored_no_transition",
+    "declineAlias": ["reject"],
+    "note": "非 owner / 未知 token 的 resolve 不改变状态（pending 保留，可被本人继续确认）；`reject` 为 v1 遗留词，服务端归一为 decline"
+  },
+  "defaultTtlSeconds": 60
+}

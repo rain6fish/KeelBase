@@ -224,6 +224,24 @@ JWT（**HS256**），用共享密钥 `DELEGATION_SECRET` 签名（缺省回退 `
 
 **与 §5 的关系**：sidecar 是「零代码接入」的渠道实现；接入方业务系统本身不实现协议（透明代理），sidecar 作为治理体系的接入端点对齐本协议。
 
+### 4.6 确认生命周期 / Confirmation Lifecycle
+
+R3/R4 写操作的确认是一个**显式状态机**（跨 Runtime 冻结；机器语料 `specs/protocol/confirmation-lifecycle-v1-vector.json`）：
+
+```text
+pending ──approve(owner)──▶ approved
+   │
+   ├──── decline(owner) ──▶ declined
+   │
+   └──── ttl_elapsed(sys) ─▶ timeout
+```
+
+- **状态**（`ai_confirmation_requests.status`）：`pending`（初始）→ `approved` / `declined` / `timeout`（终态）。
+- **决策 outcome**（SSE `confirmation_decision`）：`approve` / `decline` / `timeout`；`reject` 为 v1 遗留词，服务端归一为 `decline`。
+- **守卫**：仅 **owner** 可 resolve；未知 token / 非 owner 的 resolve **不改变状态**（pending 保留，可被本人继续确认）。
+- **TTL**：pending 超时（默认 **60s**，可经 Settings `confirmation_ttl_seconds` 覆盖）→ 自动 `timeout` + 落库，防 pending 泄漏。
+- **run 级（KB-5）**：一次授权 = 一计划批（`kind=run` 行）；run 级 decision 关卡先于逐条，`decline` 整批跳过。
+
 ---
 
 ## 5. 兼容实现清单 / Compatible Implementations

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfirmationStore } from './confirmation.store';
+import {
+  ConfirmationStore,
+  CONFIRMATION_STATUS,
+  CONFIRMATION_OUTCOME,
+  CONFIRMATION_DEFAULT_TTL_MS,
+} from './confirmation.store';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ConfirmationStore', () => {
   let repo: { save: jest.Mock; create: jest.Mock; update: jest.Mock };
@@ -13,6 +20,15 @@ describe('ConfirmationStore', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     store = new ConfirmationStore(repo as any, 1000);
+  });
+
+  it('§确认生命周期 绑定：状态集 / 决策集 / 默认 TTL == 冻结语料', () => {
+    const vec = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../specs/protocol/confirmation-lifecycle-v1-vector.json'), 'utf8'),
+    ) as { states: string[]; outcomes: string[]; defaultTtlSeconds: number };
+    expect(Object.values(CONFIRMATION_STATUS).sort()).toEqual([...vec.states].sort());
+    expect(Object.values(CONFIRMATION_OUTCOME).sort()).toEqual([...vec.outcomes].sort());
+    expect(CONFIRMATION_DEFAULT_TTL_MS).toBe(vec.defaultTtlSeconds * 1000);
   });
 
   it('should resolve approve for the owning user', async () => {
