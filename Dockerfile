@@ -28,6 +28,11 @@ COPY --from=server-build /app/server/dist ./dist
  COPY --from=server-build /app/server/package*.json ./
  # CR-23：deploy.sh 容器内 exec `npx ts-node scripts/create-admin.ts`，镜像必须含 scripts/ 才能建管理员
  COPY --from=server-build /app/server/scripts ./scripts
+ # CR-23（补齐 2026-09-14）：上面 scripts/*.ts `import '../src/*'`，且 ts-node 需 tsconfig.json 才能按 CJS 解析
+ #   （无 tsconfig 时容器内 ts-node 走 ESM 解析 → 无扩展名 import 直接 ERR_MODULE_NOT_FOUND）。
+ #   缺 src/ + tsconfig 时 create-admin（deploy.sh 第 5 步，失败被 `||` 吞掉）与 seed-demo（§6 ①）在 prod 必然报错。
+ COPY --from=server-build /app/server/src ./src
+ COPY --from=server-build /app/server/tsconfig.json ./tsconfig.json
  EXPOSE 3000
  USER keelbase
  CMD ["node", "dist/main"]
