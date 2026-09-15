@@ -11,6 +11,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Role } from './role.entity';
+import { User } from '../../common/entities/user.entity';
 
 /**
  * 用户 → 角色分配（权限-2 Step 2）。
@@ -34,6 +35,11 @@ export class UserRoleAssignment {
   @ManyToOne(() => Role, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'role_id' })
   role?: Role;
+
+  /** 用户硬删时级联清分配（与迁移 FK_ur_user 一致；缺此关系会导致实体↔迁移漂移） */
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user?: User;
 
   @CreateDateColumn()
   createdAt!: Date;

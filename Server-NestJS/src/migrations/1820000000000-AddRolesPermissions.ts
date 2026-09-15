@@ -31,19 +31,19 @@ export class AddRolesPermissions1820000000000 implements MigrationInterface {
     if (isPg) {
       await q(`CREATE TABLE "roles" ("id" SERIAL NOT NULL, "code" character varying(32) NOT NULL, "name" character varying(64) NOT NULL, "data_scope" character varying(24) NOT NULL DEFAULT 'own', "custom_dept_ids" text, "is_system" boolean NOT NULL DEFAULT false, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_roles_code" UNIQUE ("code"), CONSTRAINT "PK_roles" PRIMARY KEY ("id"))`);
       await q(`CREATE TABLE "permissions" ("id" SERIAL NOT NULL, "code" character varying(96) NOT NULL, "subject" character varying(64) NOT NULL, "action" character varying(24) NOT NULL DEFAULT 'manage', "description" character varying(200), "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_permissions_code" UNIQUE ("code"), CONSTRAINT "PK_permissions" PRIMARY KEY ("id"))`);
-      await q(`CREATE UNIQUE INDEX "IDX_permissions_subject_action" ON "permissions" ("subject", "action")`);
-      await q(`CREATE TABLE "role_permissions" ("id" SERIAL NOT NULL, "role_id" integer NOT NULL, "permission_id" integer NOT NULL, "owner_field" character varying(32), "stringify_owner" boolean NOT NULL DEFAULT false, "data_scope" character varying(24), CONSTRAINT "UQ_role_permissions" UNIQUE ("role_id", "permission_id"), CONSTRAINT "PK_role_permissions" PRIMARY KEY ("id"), CONSTRAINT "FK_rp_role" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_rp_permission" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE)`);
-      await q(`CREATE INDEX "IDX_role_permissions_role" ON "role_permissions" ("role_id")`);
-      await q(`CREATE TABLE "user_roles" ("id" SERIAL NOT NULL, "user_id" integer NOT NULL, "role_id" integer NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_user_roles" UNIQUE ("user_id", "role_id"), CONSTRAINT "PK_user_roles" PRIMARY KEY ("id"), CONSTRAINT "FK_ur_role" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_ur_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE)`);
-      await q(`CREATE INDEX "IDX_user_roles_user" ON "user_roles" ("user_id")`);
+      await q(`CREATE UNIQUE INDEX "IDX_c9cd48649b85cbed355d3e113f" ON "permissions" ("subject", "action")`);
+      await q(`CREATE TABLE "role_permissions" ("id" SERIAL NOT NULL, "role_id" integer NOT NULL, "permission_id" integer NOT NULL, "owner_field" character varying(32), "stringify_owner" boolean NOT NULL DEFAULT false, "data_scope" character varying(24), CONSTRAINT "UQ_25d24010f53bb80b78e412c9656" UNIQUE ("role_id", "permission_id"), CONSTRAINT "PK_role_permissions" PRIMARY KEY ("id"), CONSTRAINT "FK_178199805b901ccd220ab7740ec" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_17022daf3f885f7d35423e9971e" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE)`);
+      await q(`CREATE INDEX "IDX_178199805b901ccd220ab7740e" ON "role_permissions" ("role_id")`);
+      await q(`CREATE TABLE "user_roles" ("id" SERIAL NOT NULL, "user_id" integer NOT NULL, "role_id" integer NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_23ed6f04fe43066df08379fd034" UNIQUE ("user_id", "role_id"), CONSTRAINT "PK_user_roles" PRIMARY KEY ("id"), CONSTRAINT "FK_b23c65e50a758245a33ee35fda1" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_87b8888186ca9769c960e926870" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE)`);
+      await q(`CREATE INDEX "IDX_87b8888186ca9769c960e92687" ON "user_roles" ("user_id")`);
     } else {
       await q(`CREATE TABLE "roles" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "code" varchar(32) NOT NULL, "name" varchar(64) NOT NULL, "data_scope" varchar(24) NOT NULL DEFAULT ('own'), "custom_dept_ids" text, "is_system" boolean NOT NULL DEFAULT (0), "createdAt" datetime NOT NULL DEFAULT (datetime('now')), "updatedAt" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "UQ_roles_code" UNIQUE ("code"))`);
       await q(`CREATE TABLE "permissions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "code" varchar(96) NOT NULL, "subject" varchar(64) NOT NULL, "action" varchar(24) NOT NULL DEFAULT ('manage'), "description" varchar(200), "createdAt" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "UQ_permissions_code" UNIQUE ("code"))`);
-      await q(`CREATE UNIQUE INDEX "IDX_permissions_subject_action" ON "permissions" ("subject", "action")`);
-      await q(`CREATE TABLE "role_permissions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "role_id" integer NOT NULL, "permission_id" integer NOT NULL, "owner_field" varchar(32), "stringify_owner" boolean NOT NULL DEFAULT (0), "data_scope" varchar(24), CONSTRAINT "UQ_role_permissions" UNIQUE ("role_id", "permission_id"), CONSTRAINT "FK_rp_role" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_rp_permission" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE)`);
-      await q(`CREATE INDEX "IDX_role_permissions_role" ON "role_permissions" ("role_id")`);
-      await q(`CREATE TABLE "user_roles" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" integer NOT NULL, "role_id" integer NOT NULL, "createdAt" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "UQ_user_roles" UNIQUE ("user_id", "role_id"), CONSTRAINT "FK_ur_role" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_ur_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE)`);
-      await q(`CREATE INDEX "IDX_user_roles_user" ON "user_roles" ("user_id")`);
+      await q(`CREATE UNIQUE INDEX "IDX_c9cd48649b85cbed355d3e113f" ON "permissions" ("subject", "action")`);
+      await q(`CREATE TABLE "role_permissions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "role_id" integer NOT NULL, "permission_id" integer NOT NULL, "owner_field" varchar(32), "stringify_owner" boolean NOT NULL DEFAULT (0), "data_scope" varchar(24), CONSTRAINT "UQ_25d24010f53bb80b78e412c9656" UNIQUE ("role_id", "permission_id"), CONSTRAINT "FK_178199805b901ccd220ab7740ec" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_17022daf3f885f7d35423e9971e" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE)`);
+      await q(`CREATE INDEX "IDX_178199805b901ccd220ab7740e" ON "role_permissions" ("role_id")`);
+      await q(`CREATE TABLE "user_roles" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" integer NOT NULL, "role_id" integer NOT NULL, "createdAt" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "UQ_23ed6f04fe43066df08379fd034" UNIQUE ("user_id", "role_id"), CONSTRAINT "FK_b23c65e50a758245a33ee35fda1" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE, CONSTRAINT "FK_87b8888186ca9769c960e926870" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE)`);
+      await q(`CREATE INDEX "IDX_87b8888186ca9769c960e92687" ON "user_roles" ("user_id")`);
     }
 
     await this._seed(queryRunner, isPg);
@@ -53,7 +53,7 @@ export class AddRolesPermissions1820000000000 implements MigrationInterface {
     const q = (sql: string) => queryRunner.query(sql);
     await q(`DROP TABLE "user_roles"`);
     await q(`DROP TABLE "role_permissions"`);
-    await q(`DROP INDEX "IDX_permissions_subject_action"`);
+    await q(`DROP INDEX "IDX_c9cd48649b85cbed355d3e113f"`);
     await q(`DROP TABLE "permissions"`);
     await q(`DROP TABLE "roles"`);
   }

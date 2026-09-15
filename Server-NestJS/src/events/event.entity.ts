@@ -16,6 +16,7 @@ import { EventColorRole } from './event-color-role.enum';
 
 @Entity('events')
 @Index(['userId', 'startTime'])
+@Index(['deptId'])
 export class Event {
   @PrimaryGeneratedColumn()
   id!: number;

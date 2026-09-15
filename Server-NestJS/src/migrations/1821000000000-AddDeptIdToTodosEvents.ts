@@ -12,16 +12,24 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class AddDeptIdToTodosEvents1821000000000 implements MigrationInterface {
   name = 'AddDeptIdToTodosEvents1821000000000';
 
+  /** dept_id 索引名 = TypeORM 由实体 `@Index(['deptId'])` 派生的 hash 名（手写名会与实体漂移，release-gate 迁移一致性会 FAIL） */
+  private static readonly DEPT_INDEX: Record<string, string> = {
+    todos: 'IDX_17452ccf5dd6c8be81ec69bf86',
+    events: 'IDX_f1d3164c694e81ba307f0dc315',
+  };
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     for (const table of ['todos', 'events']) {
       await queryRunner.query(`ALTER TABLE "${table}" ADD "dept_id" integer`);
-      await queryRunner.query(`CREATE INDEX "IDX_scope_${table}_dept" ON "${table}" ("dept_id")`);
+      await queryRunner.query(
+        `CREATE INDEX "${AddDeptIdToTodosEvents1821000000000.DEPT_INDEX[table]}" ON "${table}" ("dept_id")`,
+      );
     }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const table of ['todos', 'events']) {
-      await queryRunner.query(`DROP INDEX "IDX_scope_${table}_dept"`);
+      await queryRunner.query(`DROP INDEX "${AddDeptIdToTodosEvents1821000000000.DEPT_INDEX[table]}"`);
       await queryRunner.query(`ALTER TABLE "${table}" DROP COLUMN "dept_id"`);
     }
   }

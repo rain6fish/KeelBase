@@ -12,6 +12,7 @@ import {
 
 @Entity('todos')
 @Index(['userId', 'completed'])
+@Index(['deptId'])
 export class Todo {
   @PrimaryGeneratedColumn()
   id!: number;
