@@ -79,7 +79,17 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 
 `call`/`expect` 只引用 wire Contract v1（§1 对象 / Schema）。补全后纳入 **Extended** 层判据：第二 Runtime 跑同一 `replay` 序列应得同一 `expect`（behavioral 层的「载体可替换」实证）。
 
-**已试点（格式样板）**：`security-showcase-v1.json` 4 个 case 已补 `replay`（`POST /api/v1/ai/security-showcase/run/:id` → `expect.outcome`），漂移门不受影响。**其余 4 包未中立化**（真源为 TS e2e / 脚本，需逐 case 补 `replay`）——记为 ③ 余项。
+**现状（5 包全部已补 `replay`，草稿）**：
+
+| 包 | replay | 备注 |
+|---|---|---|
+| `security-showcase-v1` | 4 case | `POST /ai/security-showcase/run/:id → expect.outcome` |
+| `golden-application-v1` | 8 步 | HTTP 步骤直写；**工具步骤经 MCP 出口**（§tool-invocation：各入口同一判定） |
+| `cross-entry-v1` | 4 步 | 均 `POST /api/v1/mcp` tools/call |
+| `trust-proof-v1` | 6 场景 | S6（Java 存量系统）为**外部** java-starter 独立验证 → 留空 |
+| `failure-path-v1` | 9 → `replay:null` | **不可 wire 表达**：故障注入类（幂等/重放/超时/DB 错/审计中断/补偿失败/迁移中断），由 A/B 层复现 |
+
+漂移门（`scenarios-pack.spec.ts`，19 断言）不受影响（门只投影已知字段）。**`replay` 为草稿、未经第二载体机器验证**——其准确性由「第二 Runtime 跑同一序列得同一 `expect`」实证；**这是 ③ 唯一余项**。
 
 ---
 
