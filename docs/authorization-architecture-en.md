@@ -187,6 +187,22 @@ side_effects:
 - **External authorization (recommended for enterprises with existing IAM)**: integrate Keycloak / Spring Authorization Server — KeelBase connects via OIDC enterprise SSO (already supported), keeping IAM/RBAC external and KeelBase as an "AI governance runtime."
 - **Self-built lightweight dynamic RBAC (as a base capability, on demand)**: add roles/permissions tables + admin-side configuration; `CaslAbilityFactory` builds from configuration instead of hard-coded rules; also add a generic data scope (dept/org dimension, reusing the org module). Trigger: a multi-role enterprise customer or on demand after v1.1. Status: under evaluation (2026-08-28).
 
+### 7.1 Component stack: CASL is the authorization core, not "Spring Security for Node"
+
+**Goal**: ordinary enterprise apps generated / run by KeelBase should carry the full **Page → Action → API → Row → Field** authorization chain, with **human and AI authorization entering the same Trust Runtime** (the L1–L5 plane in §2). The **capability must exist; a standalone RBAC product is not urgent** — consistent with this section's positioning (no Platform A-style platform); build order per §9.
+
+Authorization has two layers — the **security infrastructure below and the authorization semantics above stay apart**:
+
+| Layer | TS | Java |
+|---|---|---|
+| Request entry & authn | NestJS Guards + Interceptor + Passport / JWT / OIDC | Spring Security + OAuth2 / OIDC / JWT |
+| **Enterprise authorization semantics** | **CASL → KeelBase Authorization → Trust** | **KeelBase Authorization → Trust** |
+
+- **CASL stays the core authorization component** (ability + conditions); it is **not replaced**. CASL ≈ authorization/ability; Spring Security ≈ authentication + request security + authorization infrastructure — **different layers**, so "find a Node Spring Security to replace CASL" is a category error.
+- **Do not chase symmetry (a selection trap)**: Java uses Spring Security because of the Spring ecosystem; the idiomatic Node/Nest combination is framework primitives (guard / interceptor) + Passport strategies + an authorization library. Importing a "one-size-fits-all security framework" for symmetry is a trap.
+- **What KeelBase owns keeps moving up**: enterprise authorization semantics + business-safe AI trust (§1–§5 of this document).
+- **Component assessment**: `@nestjs/passport` / `@nestjs/jwt` / `openid-client` ✅ authentication adapters; Auth.js ⚠️ web-app oriented, not a KB core; Keycloak ⚠️ external IdP, per-customer integration (see "enterprise direction" above); OPA ⚠️ not needed now (same ruling as Java-side ADR-0004 Option E).
+
 ---
 
 ## 8. Empirical comparison: Platform A / Platform B (source-level)

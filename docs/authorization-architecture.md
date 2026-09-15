@@ -187,6 +187,28 @@ side_effects:
 - **外置授权（推荐给已有 IAM 的企业）**：对接 Keycloak / Spring Authorization Server——KeelBase 走 OIDC 企业 SSO（已支持），IAM/RBAC 职责外置，KeelBase 保持「AI 治理运行时」定位。
 - **自建轻量动态 RBAC（作为基座能力，按需）**：加 roles/permissions 表 + 管理端配置，`CaslAbilityFactory` 从配置构建而非硬编码；一并补通用数据范围（部门/组织维度，复用 org 模块）。触发点：出现多角色企业客户或 v1.1 后按需。状态：待评估（2026-08-28）。
 
+### 7.1 组件栈：CASL 是授权核心，不找「Spring Security for Node」/ Component stack: CASL is the authorization core, not "Spring Security for Node"
+
+**目标**：让 KeelBase 生成 / 运行的普通企业应用具备 **Page → Action → API → Row → Field** 的完整授权链，并让 **Human Authorization 与 AI Authorization 进入同一个 Trust Runtime**（§2 的 L1–L5 即该平面）。**能力要有，独立的 RBAC 产品不急着做**——与本节定位一致（不做同类脚手架式平台）；构建顺序见 §9。
+**Goal**: ordinary enterprise apps generated / run by KeelBase should carry the full **Page → Action → API → Row → Field** authorization chain, with **human and AI authorization entering the same Trust Runtime** (the L1–L5 plane in §2). The **capability must exist; a standalone RBAC product is not urgent** (consistent with this section's positioning); build order per §9.
+
+授权分两层——**下层安全基础设施与上层授权语义分开**：
+Authorization has two layers — the **security infrastructure below and the authorization semantics above stay apart**:
+
+| 层 / Layer | TS | Java |
+|---|---|---|
+| 请求入口 / 认证 · Request entry & authn | NestJS Guards + Interceptor + Passport / JWT / OIDC | Spring Security + OAuth2 / OIDC / JWT |
+| **企业授权语义 · Enterprise authorization semantics** | **CASL → KeelBase Authorization → Trust** | **KeelBase Authorization → Trust** |
+
+- **CASL 保持为授权核心组件**（能力声明 + 条件），**不替换**。CASL ≈ Authorization/Ability；Spring Security ≈ Authentication + Request Security + Authorization infrastructure——**两者不同层**，不存在「找个 Node 版 Spring Security 把 CASL 替掉」。
+  **CASL stays the core authorization component** (ability + conditions); it is **not replaced**. CASL ≈ authorization/ability; Spring Security ≈ authentication + request security + authorization infrastructure — **different layers**, so "find a Node Spring Security to replace CASL" is a category error.
+- **不追求对称性（选型陷阱）**：Java 用 Spring Security 是 Spring 生态使然；Node/Nest 的惯用组合本就是「框架原语（Guard / Interceptor）+ Passport 策略 + 授权库」。为对称而引入「大一统安全框架」是陷阱。
+  **Do not chase symmetry (a selection trap)**: Java uses Spring Security because of the Spring ecosystem; the idiomatic Node/Nest combination is framework primitives (guard / interceptor) + Passport strategies + an authorization library. Importing a "one-size-fits-all security framework" for symmetry is a trap.
+- **KeelBase 自持的部分继续向上**：Enterprise Authorization Semantics + Business-safe AI Trust（本文件 §1–§5）。
+  **What KeelBase owns keeps moving up**: enterprise authorization semantics + business-safe AI trust (§1–§5 of this document).
+- **组件评估**：`@nestjs/passport` / `@nestjs/jwt` / `openid-client` ✅ 认证适配层；Auth.js ⚠️ 偏 Web 应用框架，不作 KB 核心；Keycloak ⚠️ 外部 IdP，按客户接（见上「企业落地方向」）；OPA ⚠️ 暂不需要（与 Java 侧 ADR-0004 Option E 同判）。
+  **Component assessment**: `@nestjs/passport` / `@nestjs/jwt` / `openid-client` ✅ authentication adapters; Auth.js ⚠️ web-app oriented, not a KB core; Keycloak ⚠️ external IdP, per-customer integration (see "enterprise direction" above); OPA ⚠️ not needed now (same ruling as Java-side ADR-0004 Option E).
+
 ---
 
 ## 8. 对照实证：Platform A / Platform B（源码级）
