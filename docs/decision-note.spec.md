@@ -2,7 +2,7 @@
 
 > 版本 / Version: v1.0（定稿 / Finalized）
 > 日期 / Date: 2026-09-12
-> 状态 / Status: **定稿（设计先行）** —— 落地在 1.1 后（对齐 roadmap §22.18 D-3）
+> 状态 / Status: **已实现（2026-09-15）** —— `audit-interpreter.service` 加 `explainAuthorization`（单一真源）+ `summarizeAudit` 附 `decisionNote`；/2 导出 compliance 带出 + i18n `authz.*`（见 §8）
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做人读化）
 
 > 基于 / Based on：既有 **审计解释器** `Server-NestJS/src/ai/audit/audit-interpreter.service.ts`（`summarizeAudit` 已把审计行渲染成人读句：谁/做了什么/结果/越权·高风险阻断/流程节点/确认决策），+ 授权快照 `authorization.{allowed,denied}`（W5-⑦：`allowed{tool,checks[],policy{revision,updatedAt}}` / `denied{reasons[]}`）+ **P-③ policy-history 回放**（`replayDecision`，已实现）。

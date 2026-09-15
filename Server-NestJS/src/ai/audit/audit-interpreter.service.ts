@@ -34,6 +34,8 @@ export interface AuditInterpretation {
   businessEvent: string | null;
   /** L2 证据统计 */
   stats: AuditInterpreterStats;
+  /** D-3 人读「决策说明」（仅当该行有授权快照时附；否则省略，避免每行噪音） */
+  decisionNote?: AuthorizationNote;
 }
 
 /** 审计行（getInterpretation 传入的 AiAuditLog 投影子集） */
@@ -46,6 +48,40 @@ export interface AuditInterpretationRow {
   evidence?: string | null;
   isError?: boolean;
   errorMessage?: string | null;
+  /** W5-⑦ 授权快照（放行对象 / 拒绝 checks 数组的 JSON；无快照为 null） */
+  authorization?: string | null;
+}
+
+/** P-③ 策略回放三态（由调用方注入——回放需查 policy-history，非纯函数职责）。 */
+export type AuthzReplayState = 'consistent' | 'drift' | 'unavailable';
+export interface AuthzReplay {
+  state: AuthzReplayState;
+  /** 人读附注（如「策略 a1b2 → c3d4」） */
+  note?: string | null;
+}
+
+/**
+ * D-3 人读「决策说明」：把授权快照（技术结构）翻成审计员读得懂的「凭什么允许 / 为何拒绝」。
+ * 只反映快照记录——缺字段如实标注，**不推断、不回填**（确定性模板，非 LLM）。
+ */
+export interface AuthorizationNote {
+  decision: 'allow' | 'deny' | 'unknown';
+  /** 人读说明句（中文默认） */
+  sentence: string;
+  /** 语义 key（前端 i18n）：authz.allow / authz.deny / authz.unknown */
+  key: string;
+  /** 角色（快照记录则给，否则 null） */
+  role: string | null;
+  /** 行级范围人读（如 user_scoped（仅本人数据）） */
+  scope: string | null;
+  policyRevision: string | null;
+  policyUpdatedAt: string | null;
+  checks: Array<{ name: string; ok: boolean; note?: string }>;
+  failedChecks: Array<{ name: string; ok: boolean; note?: string }>;
+  /** 拒绝原因（failed checks 的 note 汇总） */
+  reasons: string | null;
+  /** P-③ 回放（null = 本次未计算；allow 且快照无 revision → unavailable） */
+  replay: AuthzReplay | null;
 }
 
 const BLOCKED_RE = /blocked|denied|拒绝|越狱|越权|R5|禁用|禁止|无权/i;
@@ -57,7 +93,11 @@ const UNAUTHORIZED_RE = /越权|无权|403|permission|access|不是你的|不是
 const HIGH_RISK_RE = /R5|不可逆|高风险|blocked/i;
 
 /** L1：单行审计 → 业务语言摘要句。按 toolName 分派模板，未覆盖 action 走兜底。 */
-export function summarizeAudit(row: AuditInterpretationRow, convRows: AuditInterpretationRow[]): AuditInterpretation {
+export function summarizeAudit(
+  row: AuditInterpretationRow,
+  convRows: AuditInterpretationRow[],
+  ctx?: { replay?: AuthzReplay | null },
+): AuditInterpretation {
   const stats = aggregateConversation(convRows);
   const username = row.username || `用户#${row.userId}`;
   const { toolName } = parseToolCall(row.detail);
@@ -91,7 +131,148 @@ export function summarizeAudit(row: AuditInterpretationRow, convRows: AuditInter
     sentence = `${username}执行${row.action}，${row.isError ? '失败' : '完成'}`;
   }
 
-  return { sentence, key: null, businessEvent: row.businessEvent ?? null, stats };
+  // D-3：该行有授权快照时附人读「决策说明」（无快照不附——避免每行「未记录」噪音；
+  // 需强制产出 unknown 说明的调用方直接调 explainAuthorization）
+  const hasSnapshot = typeof row.authorization === 'string' && row.authorization.length > 0;
+  return {
+    sentence,
+    key: null,
+    businessEvent: row.businessEvent ?? null,
+    stats,
+    ...(hasSnapshot ? { decisionNote: explainAuthorization(row, ctx?.replay ?? null) } : {}),
+  };
+}
+
+const SCOPE_CHECK_RE = /scope|owner|own\b|本人|属主/i;
+const ROLE_CHECK_RE = /role|角色/i;
+
+/** checks 里挑范围/角色依据（人读短语）；无则 null（不推断）。 */
+function pickScope(checks: Array<{ name: string; ok: boolean; note?: string }>): string | null {
+  const c = checks.find((x) => x && SCOPE_CHECK_RE.test(x.name ?? ''));
+  return c ? (c.note ? `${c.name}（${c.note}）` : c.name) : null;
+}
+function pickRole(checks: Array<{ name: string; ok: boolean; note?: string }>): string | null {
+  const c = checks.find((x) => x && ROLE_CHECK_RE.test(x.name ?? ''));
+  return c ? (c.note ?? c.name) : null;
+}
+
+const REPLAY_KEY: Record<AuthzReplayState, string> = {
+  consistent: 'authz.replay.consistent',
+  drift: 'authz.replay.drift',
+  unavailable: 'authz.replay.unavailable',
+};
+const REPLAY_LABEL: Record<AuthzReplayState, string> = {
+  consistent: '一致',
+  drift: '检出漂移',
+  unavailable: '不可回放',
+};
+/** 回放附注语义 key（供前端 i18n）。 */
+export function replayKey(state: AuthzReplayState): string {
+  return REPLAY_KEY[state];
+}
+
+/**
+ * D-3：授权快照 → 人读「决策说明」（句子 + 语义 key + 结构化字段）。
+ * - 允许：对象快照（`allowed !== false`）→ 角色/范围/策略版本/检查 + 回放附注；
+ * - 拒绝：数组快照（`AuthorizationDeniedError.reasons`）→ 未过检查 + 原因；
+ * - 无快照/不可解析：`decision:'unknown'`，句含「未记录」，**不推断**。
+ * `replay` 由调用方注入（回放需查 policy-history，非纯函数职责）；未注入且快照无 revision → unavailable。
+ */
+export function explainAuthorization(
+  row: AuditInterpretationRow,
+  replay: AuthzReplay | null = null,
+): AuthorizationNote {
+  const username = row.username || `用户#${row.userId}`;
+  const raw = parseAuthorizationRaw(row.authorization);
+
+  // 拒绝：AuthorizationDeniedError.reasons（checks 数组）
+  if (Array.isArray(raw)) {
+    const checks = (raw as Array<{ name: string; ok: boolean; note?: string }>).filter((c) => c && typeof c.name === 'string');
+    const failed = checks.filter((c) => c.ok === false);
+    const reasons = failed.map((c) => c.note ?? c.name).filter(Boolean).join('；') || null;
+    const failedNames = failed.map((c) => c.name).join('、') || '(未记名)';
+    return {
+      decision: 'deny',
+      key: 'authz.deny',
+      sentence: `${username}的该操作被拒绝：检查=${failedNames}未过${reasons ? `（原因：${reasons}）` : ''}`,
+      role: null,
+      scope: null,
+      policyRevision: null,
+      policyUpdatedAt: null,
+      checks,
+      failedChecks: failed,
+      reasons,
+      replay: null,
+    };
+  }
+
+  // 允许：对象快照（allowed !== false）
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const o = raw as {
+      allowed?: boolean;
+      role?: string | null;
+      checks?: unknown;
+      policy?: { revision?: string; updatedAt?: string | null } | null;
+    };
+    if (o.allowed !== false) {
+      const checks = Array.isArray(o.checks)
+        ? (o.checks as Array<{ name: string; ok: boolean; note?: string }>).filter((c) => c && typeof c.name === 'string')
+        : [];
+      const failed = checks.filter((c) => c.ok === false);
+      const role = o.role ?? pickRole(checks);
+      const scope = pickScope(checks);
+      const rev = o.policy?.revision ?? null;
+      const upd = o.policy?.updatedAt ?? null;
+      const parts: string[] = [];
+      if (role) parts.push(`角色=${role}`);
+      if (scope) parts.push(`范围=${scope}`);
+      if (rev) parts.push(`策略版本=${rev}${upd ? `（更新于 ${upd}）` : ''}`);
+      if (checks.length) parts.push(`检查=${checks.map((c) => `${c.name}${c.ok ? '✓' : '✗'}`).join(' / ')}`);
+
+      // 回放：调用方注入优先；无 revision → unavailable（如实降级）；有 revision 未注入 → null（本次未计算）
+      let replayOut: AuthzReplay | null = replay;
+      if (replayOut == null) replayOut = rev ? null : { state: 'unavailable', note: '快照未含策略版本' };
+      const replayClause = replayOut ? `；按当时策略回放：${REPLAY_LABEL[replayOut.state]}` : '';
+
+      return {
+        decision: 'allow',
+        key: 'authz.allow',
+        sentence: `允许：${parts.join('，') || '（快照未记录细节）'}${replayClause}`,
+        role,
+        scope,
+        policyRevision: rev,
+        policyUpdatedAt: upd,
+        checks,
+        failedChecks: failed,
+        reasons: null,
+        replay: replayOut,
+      };
+    }
+  }
+
+  // 无快照 / 不可解析
+  return {
+    decision: 'unknown',
+    key: 'authz.unknown',
+    sentence: '未记录授权依据（该动作早于快照或非治理路径）',
+    role: null,
+    scope: null,
+    policyRevision: null,
+    policyUpdatedAt: null,
+    checks: [],
+    failedChecks: [],
+    reasons: null,
+    replay: null,
+  };
+}
+
+function parseAuthorizationRaw(raw?: string | null): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 /** L2：对话级证据统计——businessEvent 计数 / DecisionEvidence 明细 / 确认分布 / 阻断 / 错误。 */

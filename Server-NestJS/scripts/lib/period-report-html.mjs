@@ -157,7 +157,9 @@ export function renderPeriodHtml(pkg, verdict, opts = {}) {
       items.map((it, i) => {
         const who = it?.identityChain?.human?.username ?? it?.identityChain?.human?.userId ?? it?.username ?? '—';
         const what = [it?.businessEvent, it?.toolName ?? it?.action].filter(present).join(' · ') || '—';
-        const why = present(it?.summary?.sentence) ? escapeHtml(it.summary.sentence) : `<span class="missing">${pair('本包无摘要', 'No summary', lang)}</span>`;
+        // D-3：优先人读「决策说明」（凭什么允许 / 为何拒绝），回退业务摘要句
+        const whyText = present(it?.decisionNote?.sentence) ? it.decisionNote.sentence : it?.summary?.sentence;
+        const why = present(whyText) ? escapeHtml(whyText) : `<span class="missing">${pair('本包无摘要', 'No summary', lang)}</span>`;
         const result = it?.isError ? `<span class="warn">${pair('失败', 'Failed', lang)}</span>` : pair('成功', 'OK', lang);
         const link = href(it);
         const evidence = link

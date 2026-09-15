@@ -50,6 +50,19 @@
         "sentence": "alex 执行「FollowupTaskCreated」（工具 create_followup_task）",
         "stats": { "toolCalls": 1, "durationMs": 842 }
       },
+      "decisionNote": {
+        "decision": "allow",
+        "key": "authz.allow",
+        "sentence": "允许：范围=user_scoped（仅本人数据），策略版本=ab12cd34ef56（更新于 2026-09-04T09:20:00.000Z），检查=user_scoped✓",
+        "role": null,
+        "scope": "user_scoped（仅本人数据）",
+        "policyRevision": "ab12cd34ef56",
+        "policyUpdatedAt": "2026-09-04T09:20:00.000Z",
+        "checks": [{ "name": "user_scoped", "ok": true, "note": "仅本人数据" }],
+        "failedChecks": [],
+        "reasons": null,
+        "replay": null
+      },
       "identityChain": {
         "human": { "userId": "42", "username": "alex" },
         "intent": null,

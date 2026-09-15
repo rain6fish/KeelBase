@@ -146,6 +146,8 @@ export interface ActionReportExport {
     businessEvent: string | null;
     evidence: string | null;
     summary: { sentence: string; stats: unknown } | null;
+    /** D-3 人读「决策说明」（凭什么允许 / 为何拒绝；无授权快照为 null） */
+    decisionNote: unknown | null;
     identityChain: unknown | null;
   }>;
   /** A2：链上原始行全量（id/prevHash/hash + payload），供 verify-evidence.mjs 离线重算 */
@@ -765,7 +767,7 @@ export class AuditService {
     for (const s of report.samples ?? []) {
       const row = byId.get(s.id);
       if (!row) {
-        compliance.push({ id: s.id, businessEvent: null, evidence: null, summary: null, identityChain: null });
+        compliance.push({ id: s.id, businessEvent: null, evidence: null, summary: null, decisionNote: null, identityChain: null });
         continue;
       }
       const convRows = row.conversationId ? (byConv.get(row.conversationId) ?? []) : [];
@@ -775,6 +777,8 @@ export class AuditService {
         businessEvent: row.businessEvent ?? null,
         evidence: row.evidence ?? null,
         summary: { sentence: summary.sentence, stats: summary.stats },
+        // D-3 人读「决策说明」（凭什么允许 / 为何拒绝）；无授权快照为 null
+        decisionNote: summary.decisionNote ?? null,
         identityChain: await this._identityChainFromRow(row, agentCache),
       });
     }
@@ -1035,6 +1039,8 @@ export class AuditService {
       select: {
         id: true, userId: true, username: true, action: true, detail: true,
         businessEvent: true, evidence: true, isError: true, errorMessage: true, createdAt: true,
+        // D-3：带出授权快照 → summary.decisionNote（凭什么允许 / 为何拒绝）
+        authorization: true,
       },
       order: { createdAt: 'ASC' },
     });

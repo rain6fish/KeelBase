@@ -139,7 +139,8 @@
   ```
 - **边界（报告内固定声明）**：明细为样本（显式打印「明细样本 N / 总数 M」）；无 `--key` 为结构验证（**未重算**）；尾行截断不可检（需外部锚 = D-4）；「tamper-evident（应用边界内）」非「物理不可改」。
 - **零外链 / 零依赖**：CSS 内联、无 `<script src>` / 远程字体图片 / `fetch`；仅 Node 内置，**无新增 npm 依赖**。测试：`npm run cli:test`（根 `scripts/*.test.mjs`）。
-- **文档**：[`docs/evidence-report.spec.md`](../evidence-report.spec.md)（D-2）· [`docs/period-audit-report.spec.md`](../period-audit-report.spec.md)（D-1）。
+- **D-3 人读「决策说明」**：授权快照（角色 / 行级范围 / 策略版本 / 检查清单 + P-③ 回放三态）翻成审计员读得懂的「凭什么允许 / 为何拒绝」——由 `audit-interpreter.service` 的 `explainAuthorization` **单一真源**产出（确定性模板、非 LLM），随 AI 审计响应与 `/2` 导出 `compliance[].decisionNote` 下发；语义 key `authz.allow` / `authz.deny` / `authz.unknown` / `authz.replay.*`。
+- **文档**：[`docs/evidence-report.spec.md`](../evidence-report.spec.md)（D-2）· [`docs/period-audit-report.spec.md`](../period-audit-report.spec.md)（D-1）· [`docs/decision-note.spec.md`](../decision-note.spec.md)（D-3）。
 
 ---
 

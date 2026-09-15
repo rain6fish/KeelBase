@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "$id": "evidence-package.schema.json",
   "title": "Audit Evidence Package keelbase-audit-evidence /1 /2 /3 — v2",
-  "description": "审计证据包（协议 §2.5）：/1 基础（summary+hashChain+effectDiffs+chain+signature，无 compliance）→ /2（A-6 增 compliance，签名覆盖）→ /3 证据根（action/authorization/decision/effect/chains/root，签名 canonical 键集不同）。v3 effect 投影仅 {id,toolName,before,after}（代码为准，audit.service.ts:847-852）。整包签名 canonical 随版本变化——按 format 条件化。来源：src/ai/audit/audit.service.ts:123-180、scripts/verify-evidence.mjs。 v2 变更：chainRow.payload 由空 object 收紧为 oneOf[audit-payload, operation-audit-payload]（补上「子链 payload 无约束」缺口）。",
+  "description": "审计证据包（协议 §2.5）：/1 基础（summary+hashChain+effectDiffs+chain+signature，无 compliance）→ /2（A-6 增 compliance，签名覆盖）→ /3 证据根（action/authorization/decision/effect/chains/root，签名 canonical 键集不同）。v3 effect 投影仅 {id,toolName,before,after}（代码为准，audit.service.ts:847-852）。整包签名 canonical 随版本变化——按 format 条件化。来源：src/ai/audit/audit.service.ts:123-180、scripts/verify-evidence.mjs。 v2 变更：chainRow.payload 由空 object 收紧为 oneOf[audit-payload, operation-audit-payload]（补上「子链 payload 无约束」缺口）。 D-3 增：/2 compliance[] 每项加可选 decisionNote（人读「决策说明」：凭什么允许 / 为何拒绝；无授权快照为 null）——由 audit-interpreter.service explainAuthorization 单一真源产出。",
   "oneOf": [
     {
       "type": "object",
@@ -93,6 +93,12 @@
                 ]
               },
               "summary": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "decisionNote": {
                 "type": [
                   "object",
                   "null"

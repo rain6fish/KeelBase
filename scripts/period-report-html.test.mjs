@@ -172,6 +172,11 @@ test('D-1 CLI 拒绝 /3：提示改用 verify-evidence.mjs --format=html', () =>
   assert.match(r.stderr, /verify-evidence\.mjs.*--format=html/);
 });
 
+test('D-1 消费 D-3 决策说明：动作索引「为什么」优先渲染 decisionNote 句', () => {
+  const html = render(signedPkg());
+  assert.match(html, /允许：范围=user_scoped/, '应渲染 decisionNote.sentence（凭什么允许）');
+});
+
 test('D-1 无新依赖：渲染件只 import node: 内置或同目录相对件', () => {
   const src = readFileSync(join(SCRIPTS, 'lib/period-report-html.mjs'), 'utf8');
   const imports = [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
