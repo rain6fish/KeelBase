@@ -80,7 +80,7 @@ KeelBase 按上述四问构建，并公开可运行的验证（[verification-ind
 | 问 | KeelBase 验证 |
 |---|---|
 | 1 Runtime 边界 | `verify-permission-denied.mjs`（越权 403，8/8）· CASL 行级权限 |
-| 2 能力≠授权 | `verify-trust-proof.mjs`（R5 阻断 / 人工确认，15/15）· 工具风险分级 R0-R5 |
+| 2 能力≠授权 | `verify-trust-proof.mjs`（R5 阻断 / 人工确认 / 证据根，17/17）· 工具风险分级 R0-R5 |
 | 3 可信可验证 | 审计哈希链 `verify` · `security-showcase.md` 验收清单 · 全量单测门禁 |
 | 4 可恢复 | 副作用撤销 + 回收站 · java-starter 补偿脚手架 · `verify-golden-crm.mjs` 撤销断言 |
 

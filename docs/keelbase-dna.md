@@ -53,7 +53,7 @@ AI 能调用某个 Tool、知道某个 API、能生成 SQL、能理解数据库�
 - 治理策略表 `ai_governance_policy`（工具开关 / 确认 / 角色白名单，实时生效）
 - sidecar 工具门控（S-2：`SIDECAR_TOOLS` → R5 阻断 / R3-R4 hold-and-release）
 
-**打破它**：`verify-trust-proof.mjs`（正常成功 / 越权 403 / R5 阻断 / 人工确认 / 撤销，六场景实测 15/15）
+**打破它**：`verify-trust-proof.mjs`（正常成功 / 越权 403 / R5 阻断 / 人工确认 / 撤销 / 证据根，七场景实测 17/17）
 
 ### P3 — Trust Must Be Verifiable（可信必须可验证）
 
@@ -64,7 +64,7 @@ KeelBase 不说"很安全"，而是给出可执行的证明：Clone it. Run it. 
 
 **实现证据**：
 - 审计哈希链 `verify`（`/audit/verify` 返回 valid / brokenIndex）
-- 验证资产：`verification-index.md`（一站式可复现清单）+ `security-showcase.md` + `release-gate.sh` + 全量单测门禁（214 套 / 1864+ 测试）
+- 验证资产：`verification-index.md`（一站式可复现清单）+ `security-showcase.md` + `release-gate.sh` + 全量单测门禁（261 套 / 2416 测试）
 - 证据包导出（D-4：ActionReport + 哈希链校验 + HMAC 签名，可提交审计机构）
 
 **打破它**：`verify-trust-proof.mjs` + `security-showcase.md` 验收清单（攻击集 12/12 全挡）

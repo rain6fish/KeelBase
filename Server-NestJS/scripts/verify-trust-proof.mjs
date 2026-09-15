@@ -2,13 +2,14 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Trust 证明包 — 六场景一键验证（P0 产品证明 / security-showcase §Trust 证明包）
+ * Trust 证明包 — 七场景一键验证（P0 产品证明 / security-showcase §Trust 证明包）
  *
  * 用纯 REST + 确定性 Demo Provider 演示并验证 Business-safe Trust 链路：
  *   S1 正常成功：客户 → 逾期订单 → AI 风险分析（Identity + 数据权限 + 读工具）
  *   S2 越权拒绝：bob 访问 alex 数据 → 403（行级权限）
  *   S3 高风险动作：AI 尝试删除客户 → R5 BLOCKED（不可逆动作策略阻断）
  *   S4 人工确认：AI 写操作 → confirmation_request → approve → 落库
+ *   S7 证据根（KB-3）：AI 写动作导出 v3 → verify-evidence.mjs 离线验 PASS → 篡改锚即 FAIL
  *   S5 撤销：本人撤销 AI 副作用 → 软删（可经回收站恢复）
  *   S6 Java 存量系统：引导到 java-starter 独立验证（verify-crm-e2e.mjs）
  *
@@ -133,7 +134,7 @@ function flipHex(h) {
 }
 
 async function main() {
-  console.log('═══ Trust 证明包：六场景一键验证（Business-safe Trust 链路）═══');
+  console.log('═══ Trust 证明包：七场景一键验证（Business-safe Trust 链路）═══');
   console.log(`目标 ${BASE} | provider=${PROVIDER}\n`);
 
   // 0. 健康检查
@@ -358,7 +359,7 @@ function finish() {
   const passCount = results.filter((r) => r.pass).length;
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const report = {
-    gate: 'Trust 证明包：六场景一键验证',
+    gate: 'Trust 证明包：七场景一键验证',
     date: timestamp,
     pass: passCount,
     total: results.length,
