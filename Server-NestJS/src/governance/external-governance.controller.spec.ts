@@ -5,6 +5,18 @@ import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { SidecarRegistryService } from './sidecar-registry.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/** 读冻结 wire 契约的 properties 键集（② 实现侧绑定用）。 */
+const schemaProps = (name: string): string[] =>
+  Object.keys(
+    (
+      JSON.parse(
+        readFileSync(resolve(__dirname, `../../specs/protocol/schemas/v1/${name}.schema.json`), 'utf8'),
+      ) as { properties: Record<string, unknown> }
+    ).properties,
+  ).sort();
 
 describe('ExternalGovernanceController（D2-3 业务接入 / B2 sidecar 注册）', () => {
   let controller: ExternalGovernanceController;
@@ -101,6 +113,12 @@ describe('ExternalGovernanceController（D2-3 业务接入 / B2 sidecar 注册�
       await controller.reportAudit({ isError: 'true' });
       expect(audit.log.mock.calls[1][0].isError).toBe(true);
     });
+
+    it('② 绑定：上报体消费字段集 == external-audit 冻结契约', async () => {
+      await controller.reportAudit({});
+      // 消费面 = audit.log 入参键集（控制器读取的字段）；须与契约 properties 一致
+      expect(Object.keys(audit.log.mock.calls[0][0]).sort()).toEqual(schemaProps('external-audit'));
+    });
   });
 
   it('getPolicy：业务系统拉取实时治理策略', async () => {
@@ -146,6 +164,16 @@ describe('ExternalGovernanceController（D2-3 业务接入 / B2 sidecar 注册�
       toolEffects.record.mockResolvedValueOnce(undefined);
       const out = await controller.reportEffect({ userId: 1, toolName: 'create_event' });
       expect(out).toEqual({ ok: true, effectId: undefined });
+    });
+
+    it('② 绑定：上报体消费字段集 == external-effects-report 冻结契约', async () => {
+      await controller.reportEffect({});
+      const [obj, resultType, resultId] = toolEffects.record.mock.calls[0];
+      // 消费面 = record 的 object 入参键 + 两个位置参数（resultType/resultId）
+      const consumed = [...Object.keys(obj), 'resultType', 'resultId'];
+      expect(resultType).toBeDefined();
+      expect(resultId).toBeDefined();
+      expect(consumed.sort()).toEqual(schemaProps('external-effects-report'));
     });
   });
 });

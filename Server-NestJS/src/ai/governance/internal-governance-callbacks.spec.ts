@@ -10,6 +10,8 @@
 import { NotFoundException } from '@nestjs/common';
 import { InternalApprovalsController } from './internal-approvals.controller';
 import { InternalEffectsController } from './internal-effects.controller';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('Internal governance callbacks（D2-4 跨服务回调端点）', () => {
   describe('InternalApprovalsController', () => {
@@ -26,6 +28,24 @@ describe('Internal governance callbacks（D2-4 跨服务回调端点）', () => 
       const ctrl = new InternalApprovalsController(aiService as any);
       await ctrl.execute('tok-2', undefined);
       expect(aiService.decideApproval).toHaveBeenCalledWith('tok-2', 'governance', 'approve');
+    });
+
+    it('② 绑定：回调消费字段集 == internal-approvals-execute 冻结契约', async () => {
+      const aiService = { decideApproval: jest.fn().mockResolvedValue({ ok: true }) };
+      const ctrl = new InternalApprovalsController(aiService as any);
+      const props = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/internal-approvals-execute.schema.json'), 'utf8'),
+          ) as { properties: Record<string, unknown> }
+        ).properties,
+      ).sort();
+      await ctrl.execute('tok-3', { approverId: 'gov', decision: 'decline' });
+      const call = aiService.decideApproval.mock.calls[0];
+      // 契约两属性 ↔ 消费者两入参（approverId → 位置1，decision → 位置2；位置0 = path token）
+      expect(props).toEqual(['approverId', 'decision']);
+      expect(call[0]).toBe('tok-3');
+      expect([call[1], call[2]]).toEqual(['gov', 'decline']);
     });
   });
 
