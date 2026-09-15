@@ -124,3 +124,54 @@ describe('路由守卫角色分流', () => {
     expect(adminRouter.currentRoute.value.path).toBe('/')
   })
 })
+
+describe('能力细门（WEB-FRONT-2：roles 管壳 + meta.permission 细判）', () => {
+  function cap(subject: string, scope: 'all' | 'own') {
+    return { subject, scope, actions: ['create', 'read', 'update', 'delete'], reason: 'x' }
+  }
+
+  async function loginAsWithCaps(permissions: {
+    role: string
+    basis: string
+    resources: { subject: string; scope: 'all' | 'own'; actions: string[]; reason: string }[]
+  } | null) {
+    storage.saveTokens('at', 'rt')
+    const store = useAuthStore()
+    store.user = userUser
+    store.status = 'authenticated'
+    store.permissions = permissions as never
+    store.permissionsLoaded = true // 已置位 → loadPermissions 不发请求（避免测试打网络）
+  }
+
+  it('user 有 CrmCustomer/own → 声明 permission 的工作台路由可达', async () => {
+    const router = makeRouter()
+    await loginAsWithCaps({ role: 'user', basis: 'x', resources: [cap('CrmCustomer', 'own')] })
+    await router.push('/workbench/crm')
+    expect(router.currentRoute.value.path).toBe('/workbench/crm')
+  })
+
+  it('user 无 CrmCustomer → 声明 permission 的路由弹回工作台', async () => {
+    const router = makeRouter()
+    await loginAsWithCaps({ role: 'user', basis: 'x', resources: [cap('User', 'own')] })
+    await router.push('/workbench/crm')
+    expect(router.currentRoute.value.path).toBe('/workbench')
+  })
+
+  it('清单不可用（null）→ 跳过能力门，roles 仍生效（不因基础设施故障挡人）', async () => {
+    const router = makeRouter()
+    await loginAsWithCaps(null)
+    await router.push('/workbench/crm')
+    expect(router.currentRoute.value.path).toBe('/workbench/crm')
+  })
+
+  it('admin（all/all）不影响壳分流：控制台可达、工作台仍弹回', async () => {
+    const adminRouter = makeRouter()
+    await loginAsWithCaps({ role: 'admin', basis: 'x', resources: [cap('all', 'all')] })
+    const store = useAuthStore()
+    store.user = adminUser
+    await adminRouter.push('/')
+    expect(adminRouter.currentRoute.value.path).toBe('/')
+    await adminRouter.push('/workbench')
+    expect(adminRouter.currentRoute.value.path).toBe('/')
+  })
+})

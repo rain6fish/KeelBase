@@ -39,6 +39,9 @@ A new `roles?: string[]` meta field (default = any authenticated role). The 20 c
 **路由守卫**（`homeFor(role)` = admin→`/`，其余→`/workbench`）：公开页仅 `/login` 在已登录时按角色回首页；无 token 带 `redirect` query 回登录页；有 token 未加载则 `tryAutoLogin`；`to.meta.roles` 不匹配当前角色 → 弹回角色首页。
 **Route guard**: public pages pass through (only `/login` redirects an authenticated user to their role home); no token → `/login` with `redirect` query; token without loaded user → `tryAutoLogin`; `to.meta.roles` mismatch → redirect to the role home.
 
+**能力细门（2026-09-15）**：认证点（`tryAutoLogin` / `login` / `oidcLogin`）拉取 `GET /auth/me/permissions` 能力清单；路由声明 `meta.permission`（权限点，见 `constants/permissions.ts`）时，roles 过门后**再按清单的 subject+scope 细判**一次——roles 管壳（admin 控制台 vs user 工作台，行政分离有意为之），能力是更细的门。清单不可用（未加载 / 请求失败）→ 跳过能力门、不挡人（服务端仍逐请求裁决，隐藏 ≠ 越权）。登出 / 401 / 切换登录用户时清空清单（防跨用户脏授权）。
+**Capability sub-gate (2026-09-15)**: the capability list is fetched at auth points (`tryAutoLogin` / `login` / `oidcLogin`); a route declaring `meta.permission` (a permission point, `constants/permissions.ts`) is gated a second time by the list's subject+scope after passing the role check — roles keep the shell (admin console vs user workbench, a deliberate administrative split), capability is the finer gate. If the list is unavailable, the capability gate is skipped rather than blocking (the server still decides per request; hiding ≠ authorization). The list is cleared on logout / 401 / user switch (prevents stale cross-user grants).
+
 **防循环论证**：每条非 public 路由要么 admin-only 要么 user-only，各角色唯一合法首页，重定向必匹配、无互踢。
 **Anti-loop**: every non-public route is either admin-only or user-only; each role has a unique legal home, so redirects always match and never ping-pong.
 
@@ -46,6 +49,9 @@ A new `roles?: string[]` meta field (default = any authenticated role). The 20 c
 
 AdminLayout 复用同一壳：`navGroups` computed 按 `auth.isAdmin` 返回**控制台 3 组**或**工作台 1 组**；dashboard 独立项 `v-if="isAdmin"`。面包屑 / 用户卡 / 登出不变。
 AdminLayout reuses the same shell: the `navGroups` computed returns the **console 3 groups** or the **workbench 1 group** based on `auth.isAdmin`; the standalone dashboard item is `v-if="isAdmin"`. Breadcrumbs / user card / logout unchanged.
+
+**菜单可见性（2026-09-15）**：菜单项由 `routes.ts` 的同一处声明驱动——`menuItemVisible` 取 `router.resolve({name}).meta.permission` 再按能力清单判定（模块开关仍生效）；菜单与路由不再各写一份。
+**Menu visibility (2026-09-15)**: menu items are driven by the same declaration in `routes.ts` — `menuItemVisible` reads `router.resolve({name}).meta.permission` and checks it against the capability list (the module flag still applies); menu and routes no longer maintain separate rules.
 
 ## 6. 工作台落地页 / Workbench Landing
 
@@ -74,11 +80,11 @@ typecheck / build / test; manually: admin→console, alex (user)→workbench, ty
 
 ## 11. 后续演进 / Next Steps
 
-- WEB-FRONT-2 前端 RBAC（v-permission + 角色/权限点管理页）；WEB-FRONT-5 普通用户业务 API 面（联动 ORG）；WEB-FRONT-6 CI 纳入 lint/test；WEB-FRONT-4 MFA/SSO
+- **WEB-FRONT-2 渲染层能力裁决（2026-09-15 部分落地）**：`v-permission` + `hasPermission` 改为消费服务端能力清单（`GET /auth/me/permissions`，契约 `permission-capability-list` 加 `actions`）；路由 `meta.permission` 细门 + 菜单同源。**仍缺**：权限点管理页（配置"角色 → 能力"，属档 B/C，未承诺）；`PERMISSION_MAP` 现只映射后端 CASL 真实产出的 subject，其余管理台功能仍走角色门。WEB-FRONT-5 普通用户业务 API 面（联动 ORG）；WEB-FRONT-6 CI 纳入 lint/test；WEB-FRONT-4 MFA/SSO
 - WEB-FRONT-3 已完成（§12），后续可补：事件新建/编辑、多标签页、SSE 实时通知
 - ORG-1 落地时第三角色 enum 进 `UserRole`（varchar 列免迁移，CASL else 分支自动覆盖）
 - 工作台写操作受 EmailVerificationGuard 约束（未验证 403），前端已做 `EMAIL_NOT_VERIFIED` 引导（isEmailNotVerified）
-- WEB-FRONT-2 frontend RBAC (v-permission + role/permission-point admin); WEB-FRONT-3 rich workbench pages (reuse user-scoped APIs); WEB-FRONT-5 regular-user business API surface (ties into ORG); WEB-FRONT-6 CI lint/test
+- **WEB-FRONT-2 render-layer capability gating (partially landed 2026-09-15)**: `v-permission` + `hasPermission` now consume the server capability list (`GET /auth/me/permissions`; contract `permission-capability-list` gained `actions`); route `meta.permission` sub-gate + menu from the same source. **Still missing**: a permission-point admin page (configure "role → capability", tier B/C, uncommitted); `PERMISSION_MAP` now maps only subjects the backend CASL actually emits, other console features stay role-gated. WEB-FRONT-3 rich workbench pages (reuse user-scoped APIs); WEB-FRONT-5 regular-user business API surface (ties into ORG); WEB-FRONT-6 CI lint/test
 - When ORG-1 lands, the third role enum joins `UserRole` (varchar column avoids migration; CASL else-branch covers it automatically)
 - Workbench writes are constrained by EmailVerificationGuard (unverified → 403); the frontend guides with `isEmailNotVerified`
 

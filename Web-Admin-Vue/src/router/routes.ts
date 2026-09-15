@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { RouteRecordRaw } from 'vue-router'
+import { PERMISSIONS, type Permission } from '@/constants/permissions'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    /** 允许访问的角色；缺省 = 任意已登录角色 */
+    /** 允许访问的角色；缺省 = 任意已登录角色。能力清单不可用时作为回退门 */
     roles?: string[]
     public?: boolean
     requiresAuth?: boolean
     title?: string
     /** MOD-4：对应业务模块 id；模块被 capabilities 禁用时路由不可达 */
     module?: string
+    /**
+     * WEB-FRONT-2：能力裁决点。清单可用时按 `GET /auth/me/permissions` 的 subject+scope 判定，
+     * 忽略 roles；清单不可用回退 roles（见 router/guards.ts）。留空 = 只按 roles。
+     */
+    permission?: Permission
   }
 }
 
@@ -69,7 +75,7 @@ const workbenchRoute: RouteRecordRaw = {
   children: [
     { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
     { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
-    { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos' } },
+    { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos', permission: PERMISSIONS.TODO_MANAGE } },
     { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },
     // P0-1 评审路径：Trust 旅程链条（沙盘六场景 → 执行轨迹 → 业务动作治理详情）对 admin 放开，
     // 使 admin 在控制台壳内一次点击即达（其余工作台页仍限 user，评审默认不落地日常业务）
@@ -78,13 +84,13 @@ const workbenchRoute: RouteRecordRaw = {
     { path: 'my-ai-actions', name: 'workbench-my-ai-actions', component: () => import('@/views/workbench/MyAiActionCenterView.vue'), meta: { title: 'aiCenterTitle' } },
     { path: 'action/:resultType/:resultId', name: 'workbench-action-detail', component: () => import('@/views/workbench/BusinessActionDetailView.vue'), meta: { title: 'workbenchActionDetail', roles: ['user', 'admin'] } },
     { path: 'org', name: 'workbench-org', component: () => import('@/views/workbench/OrgDirectoryView.vue'), meta: { title: 'workbenchOrgDir' } },
-    { path: 'crm', name: 'workbench-crm', component: () => import('@/views/workbench/CrmCustomersView.vue'), meta: { title: 'crmTitle' } },
-    { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle' } },
-    { path: 'crm-dashboard', name: 'workbench-crm-dashboard', component: () => import('@/views/workbench/CrmDashboardView.vue'), meta: { title: 'aiIntelligence' } },
-    { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle' } },
-    { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle' } },
-    { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle' } },
-    { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle' } },
+    { path: 'crm', name: 'workbench-crm', component: () => import('@/views/workbench/CrmCustomersView.vue'), meta: { title: 'crmTitle', permission: PERMISSIONS.CRM_VIEW } },
+    { path: 'crm/:id', name: 'workbench-crm-detail', component: () => import('@/views/workbench/CrmCustomerDetailView.vue'), meta: { title: 'crmTitle', permission: PERMISSIONS.CRM_VIEW } },
+    { path: 'crm-dashboard', name: 'workbench-crm-dashboard', component: () => import('@/views/workbench/CrmDashboardView.vue'), meta: { title: 'aiIntelligence', permission: PERMISSIONS.CRM_VIEW } },
+    { path: 'pm', name: 'workbench-pm', component: () => import('@/views/workbench/PmProjectsView.vue'), meta: { title: 'pmTitle', permission: PERMISSIONS.PM_VIEW } },
+    { path: 'pm/:id', name: 'workbench-pm-detail', component: () => import('@/views/workbench/PmProjectDetailView.vue'), meta: { title: 'pmTitle', permission: PERMISSIONS.PM_VIEW } },
+    { path: 'approval', name: 'workbench-approval', component: () => import('@/views/workbench/ApprovalRequestsView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
+    { path: 'approval/:id', name: 'workbench-approval-detail', component: () => import('@/views/workbench/ApprovalRequestDetailView.vue'), meta: { title: 'apTitle', permission: PERMISSIONS.APPROVAL_MANAGE } },
     { path: 'flows', name: 'workbench-flows', component: () => import('@/views/workbench/FlowInstancesView.vue'), meta: { title: 'workbenchFlows' } },
     { path: 'flows/:id', name: 'workbench-flow-detail', component: () => import('@/views/workbench/FlowInstanceDetailView.vue'), meta: { title: 'workbenchFlows' } },
   ],

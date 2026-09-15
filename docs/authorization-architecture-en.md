@@ -161,6 +161,7 @@ side_effects:
 | L4 Tool & Data Governance (risk levels + governance policy + data scope + structured denial) | ✅ Implemented |
 | L5 Side-effect Governance (confirmation + revoke + audit hash chain + decision trace) | ✅ Implemented |
 | Authorization Contract protocolization (explicit auth model in Protocol) | ⬜ Direction (currently covered by generated-module auto-wiring) |
+| Frontend capability gating (page / menu / button visibility) | ✅ Implemented (2026-09-15: consumes the `GET /auth/me/permissions` capability list; roles keep the shell, capability is the finer gate — see `docs/web-front.spec.md` §4/§5) |
 | Heavyweight RBAC products (Keycloak / Casbin / Shiro, etc.) | ⬜ **Explicitly not doing** (consistent with differentiation positioning) |
 | External authorization integration (OIDC enterprise SSO available) | ⬜ Direction (per customer, under evaluation) |
 
@@ -174,7 +175,7 @@ side_effects:
 | Authorization model | CASL declarative + conditions | @PreAuthorize + SpEL + roles | Authorization server (issues tokens) | RBAC annotations/routes | Model-driven ACL/RBAC/ABAC |
 | Row-level data permission | ✅ Built-in (conditions) | ❌ Not native; needs Filter/interceptor | — | ❌ | ✅ MyBatis-Plus interceptor |
 | Dynamic RBAC / permission points | ❌ None (two hard-coded roles) | ⚠️ Self-built tables | ✅ Keycloak has | ✅ Menu permission tables | ✅ Casbin policies in DB |
-| Menu / button / field-level | ❌ None | ⚠️ Self-built | ✅ | ✅ | — |
+| Menu / button / field-level | ⚠️ Menu + button: capability-contract driven (2026-09-15); field-level ❌ | ⚠️ Self-built | ✅ | ✅ | — |
 | Data scope (own/dept/org) | ⚠️ Own + org partial | ❌ Needs addition | — | ❌ | ✅ Ready-made |
 | Authorization server / IAM | ❌ None (OIDC client) | — | ✅ Is the server | ✅ Has server side | — |
 | Audit | ✅ Hash chain + Explainable | ⚠️ No built-in audit chain | ✅ Events | ⚠️ Weak | — |

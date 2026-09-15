@@ -54,6 +54,8 @@ describe('Explainable Authz (W5-⑦)', () => {
     expect(data.basis).toContain('本人');
     const event = data.resources.find((r: { subject: string }) => r.subject === 'Event');
     expect(event?.scope).toBe('own');
+    // manage 已展开为显式动作集（capability 契约加 actions，2026-09-15）
+    expect(event?.actions).toEqual(['create', 'read', 'update', 'delete']);
     expect(event?.reason).toContain('自己的数据');
     expect(data.resources.some((r: { subject: string }) => r.subject === 'all')).toBe(false);
   });

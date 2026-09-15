@@ -22,6 +22,7 @@ export const useAuthStore = defineStore('auth', {
     errorMessage: '',
     loginDetails: null as LoginErrorDetails | null,
     permissions: null as MyPermissions | null,
+    permissionsLoaded: false,
   }),
   getters: {
     isAdmin: (state) => state.user?.role === 'admin',
@@ -36,13 +37,24 @@ export const useAuthStore = defineStore('auth', {
     },
   },
   actions: {
-    /** 拉取当前用户能力清单（Explainable Authz）；失败置 null（不阻断，渲染层保守隐藏）。 */
-    async loadPermissions() {
-      if (this.permissions) return
+    /** 清空能力清单（登录切换 / 登出 / 会话失效时调用，防跨用户脏授权）。 */
+    clearPermissions() {
+      this.permissions = null
+      this.permissionsLoaded = false
+    },
+    /**
+     * 拉取当前用户能力清单（Explainable Authz）。
+     * 在**认证点**调用（tryAutoLogin / login / oidcLogin），不在每次导航时调用——避免失败请求被反复重试。
+     * force=false 且已加载过则跳过；失败保持 null 且不置 loaded。调用方在清单为空时回退角色门（见 router/guards.ts）。
+     */
+    async loadPermissions(force = false) {
+      if (this.permissionsLoaded && !force) return
       try {
         this.permissions = await authApi.myPermissions()
+        this.permissionsLoaded = true
       } catch {
         this.permissions = null
+        this.permissionsLoaded = false
       }
     },
     async tryAutoLogin() {
@@ -55,6 +67,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         this.user = await authApi.me()
         this.status = 'authenticated'
+        await this.loadPermissions()
       } catch {
         storage.clearTokens()
         this.status = 'unauthenticated'
@@ -67,8 +80,10 @@ export const useAuthStore = defineStore('auth', {
       try {
         const result = await authApi.login(username, password)
         storage.saveTokens(result.accessToken, result.refreshToken)
+        this.clearPermissions()
         this.user = result.user
         this.status = 'authenticated'
+        await this.loadPermissions(true)
         return true
       } catch (err) {
         this.status = 'unauthenticated'
@@ -84,8 +99,10 @@ export const useAuthStore = defineStore('auth', {
       try {
         const result = await authApi.oidcLogin(code, redirectUri)
         storage.saveTokens(result.accessToken, result.refreshToken)
+        this.clearPermissions()
         this.user = result.user
         this.status = 'authenticated'
+        await this.loadPermissions(true)
         return true
       } catch (err) {
         this.status = 'unauthenticated'
@@ -100,6 +117,7 @@ export const useAuthStore = defineStore('auth', {
         // best-effort：登出失败也继续清本地
       }
       storage.clearTokens()
+      this.clearPermissions()
       this.user = null
       this.status = 'unauthenticated'
     },

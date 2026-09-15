@@ -187,8 +187,21 @@ describe('AuthController', () => {
     });
 
     it('getMyPermissions 委托 caslFactory.describeForUser', async () => {
-      caslFactory.describeForUser.mockReturnValue({ permissions: [] });
-      await expect(controller.getMyPermissions(mockUser as any)).resolves.toEqual({ permissions: [] });
+      // mock 形状对齐冻结契约 permission-capability-list（role/basis/resources[{subject,scope,actions,reason}]）
+      const described = {
+        role: 'user',
+        basis: '普通用户：可管理本人拥有的资源（行级所有权条件）',
+        resources: [
+          {
+            subject: 'Event',
+            scope: 'own',
+            actions: ['create', 'read', 'update', 'delete'],
+            reason: '只能操作自己的数据（行级所有权条件）',
+          },
+        ],
+      };
+      caslFactory.describeForUser.mockReturnValue(described as any);
+      await expect(controller.getMyPermissions(mockUser as any)).resolves.toEqual(described);
       expect(caslFactory.describeForUser).toHaveBeenCalledWith(mockUser);
     });
 

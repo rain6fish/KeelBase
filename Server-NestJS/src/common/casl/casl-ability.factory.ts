@@ -29,6 +29,21 @@ export interface ExplainResult {
  */
 export type AppAbility = MongoAbility<[Action, string | Record<string, any>]>;
 
+/** capability 条目 actions 的规范顺序；`manage` 展开为这四个显式动作（契约见 permission-capability-list.schema.json） */
+const EXPANDED_ACTIONS: Action[] = ['create', 'read', 'update', 'delete'];
+
+function normalizeActions(ruleAction: string | string[]): string[] {
+  const list = Array.isArray(ruleAction) ? ruleAction : [ruleAction];
+  const set = new Set<string>();
+  for (const a of list) {
+    if (a === 'manage') EXPANDED_ACTIONS.forEach((x) => set.add(x));
+    else set.add(a);
+  }
+  return [...set].sort(
+    (a, b) => EXPANDED_ACTIONS.indexOf(a as Action) - EXPANDED_ACTIONS.indexOf(b as Action),
+  );
+}
+
 @Injectable()
 export class CaslAbilityFactory {
   createForUser(user: JwtPayload): AppAbility {
@@ -80,28 +95,43 @@ export class CaslAbilityFactory {
   describeForUser(user: JwtPayload): {
     role: string;
     basis: string;
-    resources: { subject: string; scope: 'all' | 'own'; reason: string }[];
+    resources: { subject: string; scope: 'all' | 'own'; actions: string[]; reason: string }[];
   } {
     const ability = this.createForUser(user);
     const isAdmin = user.role === UserRole.ADMIN;
-    const seen = new Map<string, { subject: string; scope: 'all' | 'own'; reason: string }>();
+    const seen = new Map<
+      string,
+      { subject: string; scope: 'all' | 'own'; actions: string[]; reason: string }
+    >();
 
     for (const rule of ability.rules) {
       const subjects = (Array.isArray(rule.subject) ? rule.subject : [rule.subject]).filter(
         (s): s is string => typeof s === 'string',
       );
+      const actions = normalizeActions(rule.action as unknown as string | string[]);
       for (const s of subjects) {
         if (s === 'all') {
-          seen.set('all', { subject: 'all', scope: 'all', reason: '管理员：可管理全部资源' });
+          seen.set('all', {
+            subject: 'all',
+            scope: 'all',
+            actions: normalizeActions('manage'),
+            reason: '管理员：可管理全部资源',
+          });
           continue;
         }
-        if (seen.has(s)) continue;
+        const existing = seen.get(s);
+        if (existing) {
+          // 同一 subject 多条规则 → 能力取并集（capability = 授予的并集）
+          existing.actions = normalizeActions([...existing.actions, ...actions]);
+          continue;
+        }
         const cond = (rule.conditions ?? {}) as Record<string, unknown>;
         const hasOwn =
           cond.userId !== undefined || cond.id !== undefined || cond.requesterId !== undefined;
         seen.set(s, {
           subject: s,
           scope: hasOwn ? 'own' : 'all',
+          actions,
           reason: hasOwn ? '只能操作自己的数据（行级所有权条件）' : '可访问（无行级限制）',
         });
       }

@@ -14,11 +14,11 @@ export interface ExplainTargetResult {
   deniedBy: 'casl' | null
 }
 
-/** Explainable Authz：当前用户能力清单（GET /auth/me/permissions） */
+/** Explainable Authz：当前用户能力清单（GET /auth/me/permissions，wire schema 见 specs/protocol/schemas/v1/permission-capability-list.schema.json） */
 export interface MyPermissions {
   role: string
   basis: string
-  resources: { subject: string; scope: 'all' | 'own'; reason: string }[]
+  resources: { subject: string; scope: 'all' | 'own'; actions: string[]; reason: string }[]
 }
 
 /** §internal.16 A-5 授权链图：授权者→被授权者→策略→资源→生效期 */

@@ -108,6 +108,7 @@ import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import LangToggle from '@/components/LangToggle.vue'
 import AiAssistantDrawer from '@/components/AiAssistantDrawer.vue'
 import AppLogo from '@/components/AppLogo.vue'
+import type { Permission } from '@/constants/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -167,6 +168,20 @@ const breadcrumbs = computed(() => {
   ]
 })
 
+/**
+ * 菜单项可见性（WEB-FRONT-2）：模块启用 &&（路由声明了 `meta.permission` 时）能力清单放行。
+ * 关键：菜单与路由共用 routes.ts 的同一处声明——不再各写一份（旧实现菜单从不看 meta.roles，两者已经背离）。
+ * 清单不可用时不隐藏（服务端仍逐请求裁决，隐藏 ≠ 越权）。
+ */
+function menuItemVisible(item: { name?: string; module?: string }): boolean {
+  if (item.module && !caps.isModuleEnabled(item.module)) return false
+  const perm = item.name
+    ? (router.resolve({ name: item.name }).meta.permission as Permission | undefined)
+    : undefined
+  if (!perm || !auth.permissions) return true
+  return auth.hasPermission(perm)
+}
+
 // 工作台（应用侧）导航：普通企业用户；WEB-FRONT-3 子页在此追加
 const workspaceNavGroups = computed(() => [
   {
@@ -190,7 +205,7 @@ const workspaceNavGroups = computed(() => [
       { name: 'workbench-pm', to: '/workbench/pm', icon: 'mdi-briefcase-outline', label: t('pmTitle'), module: 'pm' },
       { name: 'workbench-approval', to: '/workbench/approval', icon: 'mdi-check-decagram-outline', label: t('apTitle'), module: 'approval' },
       { name: 'workbench-flows', to: '/workbench/flows', icon: 'mdi-lan-outline', label: t('workbenchFlows') },
-    ].filter((item: { module?: string }) => !item.module || caps.isModuleEnabled(item.module)),
+    ].filter(menuItemVisible),
   },
 ])
 
@@ -212,7 +227,7 @@ const consoleNavGroups = computed(() => [
       { name: 'suppliers', to: '/suppliers', icon: 'mdi-database-outline', label: t('navSuppliers'), module: 'suppliers' },
       { name: 'tags', to: '/tags', icon: 'mdi-database-outline', label: t('navTags'), module: 'tags' },
       { name: 'notes', to: '/notes', icon: 'mdi-database-outline', label: t('navNotes'), module: 'notes' },
-    ].filter((item: { module?: string }) => !item.module || caps.isModuleEnabled(item.module)),
+    ].filter(menuItemVisible),
   },
   {
     label: t('navGuard'),

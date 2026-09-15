@@ -32,6 +32,7 @@ app.use(i18n)
 // 401 刷新失败 → 重置会话并回登录页（token 失效/被撤销/角色变更）
 setOnAuthFailure(() => {
   const auth = useAuthStore()
+  auth.clearPermissions()
   auth.status = 'unauthenticated'
   auth.user = null
   auth.errorMessage = ''

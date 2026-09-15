@@ -38,10 +38,18 @@ export function setupGuards(router: Router) {
       if (auth.status === 'unauthenticated') return { path: '/login', query: { redirect: to.fullPath } }
     }
 
-    // 角色校验：user 构建（/user/）无控制台路由，任何角色回落工作台（防守卫互踢死循环）；
+    // 角色/壳分流：user 构建（/user/）无控制台路由，任何角色回落工作台（防守卫互踢死循环）；
     // 仅 admin 构建按角色校验
     const roles = to.meta.roles
     if (SURFACE !== 'user' && roles && !roles.includes(auth.user!.role)) {
+      return homeFor(auth.user!.role)
+    }
+
+    // 能力细门（WEB-FRONT-2）：清单到手时，声明了 `meta.permission` 的路由再按能力判一次。
+    // roles 仍管壳（admin 控制台 vs user 工作台，行政分离是有意为之），能力是更细的门；
+    // 清单不可用则跳过——服务端仍逐请求裁决（隐藏 ≠ 越权）。
+    const guardPermission = to.meta.permission
+    if (guardPermission && auth.permissions && !auth.hasPermission(guardPermission)) {
       return homeFor(auth.user!.role)
     }
 

@@ -161,6 +161,7 @@ side_effects:
 | L4 Tool & Data Governance（风险级 + 治理策略 + 数据范围 + 结构化拒绝） | ✅ 已实现 |
 | L5 Side-effect Governance（确认 + 撤销 + 审计哈希链 + 决策轨迹） | ✅ 已实现 |
 | Authorization Contract 协议化（Protocol 显式声明授权模型） | ⬜ 方向（当前由生成模块自动接线承担） |
+| 前端能力裁决（页面 / 菜单 / 按钮显隐） | ✅ 已实现（2026-09-15：消费 `GET /auth/me/permissions` 能力清单；roles 管壳 + 能力细门，见 `docs/web-front.spec.md` §4/§5） |
 | 重量级 RBAC 产品（Keycloak / Casbin / Shiro 等） | ⬜ **明确不做**（与差异化定位一致） |
 | 外置授权对接（OIDC 企业 SSO 已具备） | ⬜ 方向（按客户，待评估） |
 
@@ -174,7 +175,7 @@ side_effects:
 | 授权模型 | CASL 声明式 + 条件 | @PreAuthorize + SpEL + 角色 | 授权服务器（发 token） | RBAC 注解/路由 | 模型驱动 ACL/RBAC/ABAC |
 | 行级数据权限 | ✅ 内建（conditions） | ❌ 原生无，需 Filter/拦截器 | — | ❌ | ✅ MyBatis-Plus 拦截器 |
 | 动态 RBAC / 权限点 | ❌ 无（双角色硬编码） | ⚠️ 需自建表 | ✅ Keycloak 有 | ✅ 菜单权限表 | ✅ Casbin 策略存 DB |
-| 菜单/按钮/字段级权限 | ❌ 无 | ⚠️ 自建 | ✅ | ✅ | — |
+| 菜单/按钮/字段级权限 | ⚠️ 菜单 + 按钮：能力契约驱动（2026-09-15）；字段级 ❌ | ⚠️ 自建 | ✅ | ✅ | — |
 | 数据范围（本人/部门/组织） | ⚠️ 本人 + org 部分 | ❌ 需补 | — | ❌ | ✅ 现成 |
 | 授权服务器 / IAM | ❌ 无（OIDC 客户端） | — | ✅ 是服务器 | ✅ 有服务端 | — |
 | 审计 | ✅ 哈希链 + Explainable | ⚠️ 无内建审计链 | ✅ 有事件 | ⚠️ 弱 | — |
