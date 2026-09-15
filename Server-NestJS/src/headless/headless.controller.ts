@@ -48,7 +48,8 @@ export class HeadlessController {
   async chat(@Body() dto: HeadlessChatDto, @Req() req: HeadlessRequest) {
     const ctx = req.headlessKey!;
     // Agent Identity（评审二 §5）：headless 集成以 key 名作 agentId，审计可溯源「哪个集成/代理身份执行」
-    const result = await actorContext.run({ agentId: ctx.name }, () =>
+    // AU-6（§22.19）：入口来源 source=headless（第三方 API key 集成入口）
+    const result = await actorContext.run({ agentId: ctx.name, source: 'headless' }, () =>
       this.aiService.chat(String(ctx.ownerUserId), {
         message: dto.message,
         provider: dto.provider,

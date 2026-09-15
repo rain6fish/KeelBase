@@ -568,6 +568,11 @@ FEATURE_TODOS_ENABLED=
 APP_PRESET=full                    # full（默认全开）| small（关外部集成）| lite（最小可用）
 UPLOAD_REQUIRE_SIGN=false          # =1 时强制校验上传签名 URL（渐进模式默认放行裸 URL）
 
+# 反向代理信任（AU-1 §22.19 审计归因）：令 req.ip = 真实客户端 IP（操作审计 ip 列）
+#   未设/空 → 默认 1 跳（自带 nginx，开箱即得真实 IP）；0/false → 不信任（直连/应用直接暴露）；
+#   数字 = 跳数；CIDR/子网/具名 = 只信这些代理。不得设 true（盲信任意 XFF，可伪造）
+TRUST_PROXY=
+
 # 运维
 BACKUP_KEEP=7                      # npm run backup 轮转保留份数
 NOTIFICATION_RETENTION_DAYS=30     # 已读通知保留天数（定时清理）

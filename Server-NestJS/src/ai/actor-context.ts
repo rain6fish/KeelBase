@@ -22,6 +22,9 @@ export interface ActorContext {
   callerAgentId?: string;
   /** D4：本次委托/子代理执行的业务意图 */
   businessIntent?: string;
+  /** AU-6（§22.19 归因层）：入口来源——web / admin / headless / mcp / sandbox / delegation 等；
+   *  由各入口 actorContext.run() 设置，AuditService.log 自动填充 `source`（entry 显式传值优先）。 */
+  source?: string;
 }
 
 export const actorContext = new AsyncLocalStorage<ActorContext>();

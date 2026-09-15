@@ -172,6 +172,21 @@ describe('AuditService', () => {
       );
     });
 
+    it('AU-6：从 ActorContext fallback source（各入口自动归因；entry 显式传值优先）', async () => {
+      // actor 提供 source → 落库（此前 source 无写入方 → 0/316）
+      await actorContext.run({ source: 'web' }, () => service.log({ userId: '1', action: 'chat' }));
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
+        expect.objectContaining({ source: 'web' }),
+      );
+      // entry 显式 source 优先于 actor（B 路径 bridge 更具体）
+      await actorContext.run({ source: 'web' }, () =>
+        service.log({ userId: '1', action: 'tool_call', source: 'bridge' }),
+      );
+      expect(runner.manager.save).toHaveBeenLastCalledWith(AiAuditLog,
+        expect.objectContaining({ source: 'bridge' }),
+      );
+    });
+
     it('D4 委托链字段填充（parentActionId/callerAgentId/businessIntent/source）', async () => {
       await service.log({
         userId: '1',

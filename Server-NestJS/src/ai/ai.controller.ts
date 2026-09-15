@@ -79,7 +79,8 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
   ) {
     // Agent Identity（评审二 §5）：access token 会话标识贯穿审计
-    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+    // AU-6（§22.19）：入口来源 source=web（首方客户端对话入口）
+    return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'web' }, () =>
       this.aiService.chat(String(user.sub), {
         message: dto.message,
         provider: dto.provider,
@@ -126,7 +127,7 @@ export class AiController {
     });
 
     // Agent Identity（评审二 §5）：access token 会话标识贯穿审计（流创建 + 消费均在 ALS 上下文内）
-    await actorContext.run({ sessionId: user.sessionId, username: user.username }, async () => {
+    await actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'web' }, async () => {
       try {
         for await (const chunk of stream) {
           if (aborted) break;
@@ -325,7 +326,7 @@ export class AiController {
     // 1.0.8 deferred：s5 撤销命中真实效果须显式 confirm=1（沙盘不静默撤销真实 AI 副作用）
     @Query('confirm') confirm?: string,
   ) {
-    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+    return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'sandbox' }, () =>
       this.trustSandbox.run(scenarioId, String(user.sub), {
         confirm: confirm === '1',
       }),
@@ -337,7 +338,7 @@ export class AiController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Trust 沙盘：3 分钟旅程一键连跑（本人）' })
   async runTrustSandboxJourney(@CurrentUser() user: JwtPayload) {
-    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+    return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'sandbox' }, () =>
       this.trustSandbox.journey(String(user.sub)),
     );
   }
@@ -347,7 +348,7 @@ export class AiController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Trust 沙盘：清理本次演示数据（本人）' })
   async cleanupTrustSandbox(@CurrentUser() user: JwtPayload) {
-    return actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+    return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'sandbox' }, () =>
       this.trustSandbox.cleanup(String(user.sub), user.role === 'admin'),
     );
   }
@@ -357,7 +358,7 @@ export class AiController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Trust 沙盘：记一次旅程完成（本人）' })
   async completeTrustSandboxJourney(@CurrentUser() user: JwtPayload) {
-    await actorContext.run({ sessionId: user.sessionId, username: user.username }, () =>
+    await actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'sandbox' }, () =>
       this.trustSandbox.recordJourneyCompleted(String(user.sub)),
     );
     return { ok: true };

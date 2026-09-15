@@ -14,6 +14,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import { join } from 'path';
 import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
 import { UploadSignService } from './upload/upload-sign.service';
+import { parseTrustProxy } from './config/trust-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -21,6 +22,12 @@ async function bootstrap() {
   });
   app.useLogger(app.get(Logger));
   const logger = new NestLogger('Bootstrap');
+
+  // AU-1（§22.19）：信任反代跳数/子网 → req.ip 得真实客户端 IP（操作审计 ip 归因）。
+  // 默认 1（自带 nginx 单层）；绝不设 true（盲信任意 XFF）。见 parseTrustProxy 护栏。
+  const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+  app.set('trust proxy', trustProxy);
+  if (trustProxy !== false) logger.log(`trust proxy = ${JSON.stringify(trustProxy)}（真实客户端 IP 解析已启用）`);
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isDev = nodeEnv === 'development';

@@ -1599,6 +1599,8 @@ export class AiService {
               evidence: this._captureDecisionEvidence(tc.name, result) ?? undefined,
               // §internal.16 A-5 跨系统身份链：B 路径（ProxyTool 写向外部系统）标记 source=bridge
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
+              // AU-6（§22.19）：tool_call 行补 provider（此前仅 chat 行有）
+              provider: providerName,
               // §internal.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
               // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
               // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
@@ -1649,6 +1651,7 @@ export class AiService {
               detail: `${tc.name}(${tc.args})`,
               // T5 跨入口一致：流式 deny 也标 source=bridge（对齐非流式 deny :1849 与两路成功分支）
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
+              provider: providerName,
               isError: true,
               errorMessage: deniedMsg,
               authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
@@ -1995,6 +1998,7 @@ export class AiService {
               detail: `${tc.name}(${tc.arguments})`,
               // T5 跨入口一致：B 路径 proxy 工具经非流式也标 source=bridge（对齐 stream :1415）
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
+              provider: currentProviderName,
               isError: !resolvedResult.success,
               errorMessage: resolvedResult.error,
               // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
@@ -2031,6 +2035,7 @@ export class AiService {
               detail: `${tc.name}(${tc.arguments})`,
               // T5 跨入口一致：B 路径 proxy 工具 deny 也标 source=bridge（对齐成功分支与 stream）
               source: this.isProxyTool(tc.name) ? 'bridge' : undefined,
+              provider: currentProviderName,
               isError: true,
               errorMessage: deniedMsg,
               authorization: denied ? JSON.stringify(err.reasons) : undefined,

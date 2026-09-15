@@ -159,6 +159,7 @@ export class McpExportController {
           action: 'tool_call',
           detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)}) — authorization denied`,
           provider: 'mcp',
+          source: 'mcp',
           isError: true,
           errorMessage: e.message,
           authorization: JSON.stringify(e.reasons),
@@ -190,6 +191,7 @@ export class McpExportController {
       // T5：确认门控（未执行）在 detail 标注，可被审计辨识（区别于普通读/成功写）
       detail: `${toolName}(${JSON.stringify(toolArgs).slice(0, 500)})${out.executed ? '' : ' — requiresConfirmation, not executed'}`,
       provider: 'mcp',
+      source: 'mcp',
       isError: out.executed ? !out.result?.success : false,
       errorMessage: out.executed && !out.result?.success ? out.result?.error : undefined,
       authorization: allowSnapshot,
