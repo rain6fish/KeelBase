@@ -4,7 +4,43 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.10] - 2026-09-15
+
+> **KeelBase 1.0.10 — Attribution & Data Scope / 审计归因与数据范围版**
+> 维护线第十个增量（基线 = v1.0.9 tag）：**权限-2 通用数据范围 + 角色数据范围配置化**（roles/permissions 表 + 动态角色规则注册表，CASL 由配置构建且 fail-safe 回退内置）· **§22.19 审计归因层**（AU-1 真实客户端 IP / AU-2 AI 审计补 IP / AU-5 沙盘补审计去逃逸口 / AU-6 入口来源 source）· **证据交付物层 D-1/D-2/D-3**（离线自包含 HTML 报告：单动作 + 期间 + 人读决策说明）· **CE-2 wire 契约收口**（PC-1…PC-7：CASL 决策 / 审计查询行 / org 数据范围 / Agent 对象 / MCP 投影 / 导航对账 / Application Model 机读）· 生成器防覆盖守卫（`--force` 不覆盖非生成物 + 撞名拒绝）· Web 修复（i18n 响应式 / AI 入口改流式）· Redis 真接线（`@keyv/redis`）· 副作用哈希链写入串行化。**注：本次发布随历史匿名化——竞品名从全史提交消息与历史文件内容移除（双端 force-push，tag 重指），v1.0.10 建在匿名化后的历史上。**
+
+### Added / 新增
+
+- **权限-2 通用数据范围 + 角色数据范围配置化** — `src/authz/`：roles / permissions / role_permissions / user_role 实体 + `RoleRuleRegistry`（装配期载入内存、同步读取；reload 失败 fail-safe 回退内置规则，绝不 fail-open）+ `DataScopeService`（角色配置范围 → `ScopeDescriptor`：own / own_dept_and_below，缺配置回退更紧默认）；CASL 从注册表构建（既有调用点与 spec 零改动）；events/todos 加 `dept_id`（写入盖章）
+  **Data scope**：按角色配置"本人 / 本部门及以下"，改配置即生效、双向可逆
+- **§22.19 审计归因层（AU-1 / AU-2 / AU-5 / AU-6）** — AU-1 真实客户端 IP（`src/config/trust-proxy.ts`，默认 1 跳、可配 CIDR，**绝不盲信 XFF**）；AU-2 AI 审计补 `ip` 列（对齐操作审计）；AU-5 沙盘真改状态补 AI 审计（`effect_revoke` + `source='sandbox'`，fail-closed 不静默丢审计）；AU-6 `ActorContext.source`（web/admin/headless/mcp/sandbox）+ `tool_call` 行补 provider
+- **证据交付物层 D-1 / D-2 / D-3** — 离线自包含 HTML 报告（零外链/零依赖，仅 Node 内置）：D-2 单动作证据报告（`verify-evidence.mjs --format=html`）+ D-1 期间审计报告（`render-period-report.mjs`）+ D-3 人读「决策说明」（`explainAuthorization` 单一真源，随审计响应与 `/2` 导出的 `compliance[].decisionNote` 下发）
+- **CE-2 wire 契约收口（PC-1…PC-7）** — CASL 权限决策 / 审计查询行与聚合端点 / org·orgId 数据范围 membership / Agent 一级对象 / MCP tools-list 治理投影 / AI 导航↔客户端路由双向对账 / Application Model 机读化
+
+### Fixed / 修复
+
+- **迁移 ↔ 实体漂移消除** — 索引/FK/唯一约束对齐 TypeORM 派生名（消除 `migration:generate` 稳定 churn）
+- **生成器防覆盖** — `--force` 不再覆盖非生成器产物（手写/既有模块）；目标文件撞名时拒绝（防静默覆盖旗舰/重复注册）
+- **Web** — 语言切换后表头/筛选/状态标签不重算（i18n 常量改 computed）；三个 AI 入口改走流式（修复非流式下写操作无法弹确认框）
+- **Redis 缓存真接线** — 换 `@keyv/redis` 的 `createKeyv`（移除不兼容的 ioredis-yet）；未接线时显式告警而非静默走内存
+- **副作用哈希链写入串行化** — 修并发分叉（镜像主审计链双保险）；单条撤销幂等守卫（已撤销/已请求补偿不重复触发外部补偿）
+- **部署** — 补 docker/init 建 governance 库（全新部署下治理台/sidecar 起不来）；prod 镜像含 `src/` + tsconfig（修复容器内 create-admin/seed-demo 必然失败）
+
+### Migration / 迁移
+
+- `1820000000000-AddRolesPermissions`（roles/permissions/role_permissions/user_role + pg 白名单单源）
+- `1821000000000-AddDeptIdToTodosEvents`（events/todos 加 dept_id）
+- `1822000000000-AddAiAuditIp`（ai_audit_logs 加 ip，链外列）
+
+### Release Precheck（2026-09-15）
+
+- **全量测试**：后端单测 + 覆盖率（statements≥85 门槛 + 安全模块分档门控）· 后端 e2e · Web-Admin-Vue vitest · Flutter · 生成器 `node --test` · Gate 1 Golden Application · 端点-文档一致性 · **Release Gate 24/24 PASS（确定性）** —— 全过
+- **覆盖率**：达标且不低于 v1.0.9
+- **四层 code review**：本版评审阻塞项已修复（见 `fix(precheck): R-2` 与运行态扫查批提交）；本次发版会话补跑全量测试与 Release Gate 全绿。阿里 OCR 层对 v1.0.9..HEAD 区间（88 提交）两次运行未产出报告——工具在区间内已删/更名路径上停滞，叠发版窗口 GitHub 网络中断；如实记录，不虚报
+- **阻塞项修复**：迁移↔实体漂移（`f5ebd48c`）、data-scope e2e 过期断言（`63fb39f0`）
+
 ## [1.0.9] - 2026-09-11
+
 
 > **KeelBase 1.0.9 — Consulting→Build & Enterprise Proof / 业务访谈直生成与两主张同证版**
 > 维护线第九个增量（基线 = v1.0.8 tag）：S4 Consulting→Build 业务访谈直生成（Business Spec 中间层 + 确定性映射器 + CI 全链路）· §internal.6 Enterprise Proof 与 S5 合流（两主张一次运行同证断言化）· CE-1 B4 场景包（行为语料版本化 + 逐字漂移门）· CE-3 Runtime Model 四薄片契约化 · T5 跨入口决策一致深化（sidecar 结构化依据 + MCP 拒绝留痕 + 放行快照单一构造）· FE-1 前端 Runtime-Neutrality（信封/错误/刷新 neutral adapter + capabilities/provenance 三端消费 + 边界门禁）· §4 G1 run 级批量撤销 · B3b 决策词汇统一（approve|decline，wire Schema v2）· NC-3 首次运行就绪清单 · 迁移清单单源化 · 本版四层评审阻塞项修复。**注：本次发布随历史清理——benchmark 运行产物文件名/内容的工作时段时刻已从全史移除（含各 tag 重指，双端 force-push），v1.0.9 建在干净历史上。**
