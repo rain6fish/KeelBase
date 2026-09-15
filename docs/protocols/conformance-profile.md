@@ -59,6 +59,28 @@ Core **+** 治理运行时语义 **+** 全部 wire 形状冻结——即「第�
 
 Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `external-effects-query` / `internal-approvals-execute` / `sidecar-policy-push` / `governance-confirmation-item` / MCP `_meta.keelbase` 投影（`mcp-tool-list`）。用于治理台 ↔ 业务系统、sidecar、MCP 出口互操作。
 
+### 2.4 行为级场景包 / Scenario Packs（`specs/scenarios/`）
+
+行为级场景的机读包（与 §2.1–2.3 的算法/形状语料互补），各有漂移门（`Server-NestJS/src/ai/scenarios-pack.spec.ts`）：
+
+| 包 | 覆盖 | 真源 | 门 |
+|---|---|---|---|
+| `golden-application-v1` | Golden Flow 8 步闭环 | `test/golden-application.e2e-spec.ts` | pack↔e2e 逐字 |
+| `trust-proof-v1` | Trust 证明 7 场景 | `scripts/verify-trust-proof.mjs` | pack↔脚本 逐字 |
+| `failure-path-v1` | 失败路径 FP-1..9 | `docs/failure-path-corpus.spec.md` | doc↔pack 逐字段 |
+| `security-showcase-v1` | 对抗性安全 4 场景 | `security-showcase.service.ts` | 强双向 |
+| `cross-entry-v1` | 跨入口决策一致 4 步 | `test/cross-entry-consistency.e2e-spec.ts` | pack↔e2e 逐字 |
+
+**中立重放契约（未来工作；出现真实第二载体时补全）**：现包为**声明式副本**（`id`/`title`/`outcome`），**不可被第二 Runtime 直接执行**。使其可重放，需每 case 补 `replay` —— 以 **wire 契约**表达的最小步骤序列（不含任何实现细节）：
+
+```json
+{ "id": "<case>", "replay": [ { "call": "<wire 端点 或 MCP 工具>", "expect": { "<字段>": "<值>" } } ] }
+```
+
+`call`/`expect` 只引用 wire Contract v1（§1 对象 / Schema）。补全后纳入 **Extended** 层判据：第二 Runtime 跑同一 `replay` 序列应得同一 `expect`（behavioral 层的「载体可替换」实证）。
+
+**已试点（格式样板）**：`security-showcase-v1.json` 4 个 case 已补 `replay`（`POST /api/v1/ai/security-showcase/run/:id` → `expect.outcome`），漂移门不受影响。**其余 4 包未中立化**（真源为 TS e2e / 脚本，需逐 case 补 `replay`）——记为 ③ 余项。
+
 ---
 
 ## 3. wire 约定 / Wire Conventions（跨 Runtime 一致）

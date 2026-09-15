@@ -7,22 +7,34 @@
     {
       "id": "injection",
       "category": "injection",
-      "outcome": "refused"
+      "outcome": "refused",
+      "replay": [
+        { "call": "POST /api/v1/ai/security-showcase/run/injection", "expect": { "outcome": "refused" } }
+      ]
     },
     {
       "id": "unauthorized",
       "category": "unauthorized",
-      "outcome": "denied"
+      "outcome": "denied",
+      "replay": [
+        { "call": "POST /api/v1/ai/security-showcase/run/unauthorized", "expect": { "outcome": "denied" } }
+      ]
     },
     {
       "id": "r5-block",
       "category": "risk",
-      "outcome": "blocked"
+      "outcome": "blocked",
+      "replay": [
+        { "call": "POST /api/v1/ai/security-showcase/run/r5-block", "expect": { "outcome": "blocked" } }
+      ]
     },
     {
       "id": "confirmation",
       "category": "confirmation",
-      "outcome": "requiresConfirmation"
+      "outcome": "requiresConfirmation",
+      "replay": [
+        { "call": "POST /api/v1/ai/security-showcase/run/confirmation", "expect": { "outcome": "requiresConfirmation" } }
+      ]
     }
   ]
 }
