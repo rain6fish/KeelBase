@@ -15,6 +15,7 @@ import { join } from 'path';
 import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
 import { UploadSignService } from './upload/upload-sign.service';
 import { parseTrustProxy } from './config/trust-proxy';
+import { requestContext } from './common/request-context';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -28,6 +29,10 @@ async function bootstrap() {
   const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
   app.set('trust proxy', trustProxy);
   if (trustProxy !== false) logger.log(`trust proxy = ${JSON.stringify(trustProxy)}（真实客户端 IP 解析已启用）`);
+
+  // AU-2（§22.19）：请求级客户端 IP → requestContext（AuditService.log 填充 ai_audit_logs.ip）。
+  // 置于 trust proxy 之后 → req.ip 已是真实客户端 IP；ALS 包裹 next() 使上下文贯穿整个请求。
+  app.use((req: Request, _res: Response, next: NextFunction) => requestContext.run({ ip: req.ip }, next));
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isDev = nodeEnv === 'development';

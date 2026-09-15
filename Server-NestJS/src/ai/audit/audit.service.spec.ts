@@ -10,6 +10,7 @@ import { AuditService } from './audit.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { actorContext } from '../actor-context';
+import { requestContext } from '../../common/request-context';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -184,6 +185,20 @@ describe('AuditService', () => {
       );
       expect(runner.manager.save).toHaveBeenLastCalledWith(AiAuditLog,
         expect.objectContaining({ source: 'bridge' }),
+      );
+    });
+
+    it('AU-2：从 requestContext 填 ip（客户端来源；链外列）', async () => {
+      await requestContext.run({ ip: '203.0.113.7' }, () =>
+        service.log({ userId: '1', action: 'chat' }),
+      );
+      expect(runner.manager.save).toHaveBeenCalledWith(AiAuditLog,
+        expect.objectContaining({ ip: '203.0.113.7' }),
+      );
+      // 无 requestContext（如测试/后台任务）→ ip undefined（不抛）
+      await service.log({ userId: '1', action: 'chat' });
+      expect(runner.manager.save).toHaveBeenLastCalledWith(AiAuditLog,
+        expect.objectContaining({ ip: undefined }),
       );
     });
 
@@ -477,11 +492,11 @@ describe('AuditService', () => {
       expect(qb.skip).toHaveBeenCalledWith(5);
     });
 
-    it('PC-2：getLogs 运行时行键集 == ai-audit-log-row 冻结契约', async () => {
+    it('PC-2：getLogs 运行时行键集 == ai-audit-log-row 冻结契约（v2：含 ip，AU-2）', async () => {
       mockQueryBuilder();
       const result = await service.getLogs({ limit: 20 });
       const schema = JSON.parse(
-        readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/ai-audit-log-row.schema.json'), 'utf8'),
+        readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/ai-audit-log-row.schema.json'), 'utf8'),
       ) as { properties: Record<string, unknown> };
       expect(Object.keys(result[0]).sort()).toEqual(Object.keys(schema.properties).sort());
     });

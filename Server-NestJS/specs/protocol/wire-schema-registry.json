@@ -297,13 +297,13 @@
       ]
     },
     {
-      "version": "v1",
+      "version": "v2",
       "id": "ai-audit-log-row",
-      "schema": "ai-audit-log-row.schema.json",
-      "title": "AI 审计查询行（GET /audit/logs item，AiAuditLog + username 投影）",
-      "source": "src/ai/audit/audit.service.ts:506-567 _queryLogs",
+      "schema": "v2/ai-audit-log-row.schema.json",
+      "title": "AI 审计查询行（v2：+ ip 客户端来源，AU-2）",
+      "source": "src/ai/audit/audit.service.ts _queryLogs",
       "samples": [
-        "schemas/v1/samples/ai-audit-log-row.json"
+        "schemas/v2/samples/ai-audit-log-row.json"
       ]
     },
     {

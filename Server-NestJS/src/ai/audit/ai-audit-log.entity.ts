@@ -61,6 +61,10 @@ export class AiAuditLog {
   @Column({ length: 32, nullable: true, name: 'source' })
   source?: string;
 
+  /** AU-2（§22.19 归因层）：客户端来源 IP（真实 IP 由 trust proxy 解析）。链外列——**不入 hash payload**（护栏③） */
+  @Column({ length: 45, nullable: true, name: 'ip' })
+  ip?: string;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 
