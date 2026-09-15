@@ -16,6 +16,7 @@ describe('数据范围（权限-2）', () => {
   let userA: { token: string; id: number };
   let userB: { token: string; id: number };
   let userC: { token: string; id: number };
+  let deptId: number;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -42,6 +43,7 @@ describe('数据范围（权限-2）', () => {
     const dept = await ds
       .getRepository('departments')
       .save({ orgId: org.id, name: '研发', parentId: null, ancestors: '/' });
+    deptId = dept.id;
     await ds.getRepository('org_members').save([
       { orgId: org.id, userId: userA.id, deptId: dept.id, role: 'member' },
       { orgId: org.id, userId: userB.id, deptId: dept.id, role: 'member' },
@@ -62,7 +64,8 @@ describe('数据范围（权限-2）', () => {
     // ① 盖章
     const row = await ds.getRepository('todos').findOne({ where: { userId: userA.id } });
     expect(row?.orgId).toBeTruthy();
-    expect(row?.deptId == null).toBe(true);
+    // 权限-2 Step2：写入时盖章 org_id/dept_id（dept_id 供 own_dept(_and_below) 范围过滤；见 docs/data-scope.spec.md §写入盖章）
+    expect(row?.deptId).toBe(deptId);
 
     // ② 行级范围：同组织 B 可见，非组织 C 不可见
     const listB = await request(app.getHttpServer())
