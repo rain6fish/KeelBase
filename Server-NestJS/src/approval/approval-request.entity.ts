@@ -32,6 +32,7 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 @Entity('app_requests')
 @Index(['requesterId'])
 @Index(['status'])
+@Index('IDX_scope_app_requests_org_dept', ['orgId', 'deptId'])
 export class ApprovalRequest {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -62,6 +63,13 @@ export class ApprovalRequest {
 
   @Column({ type: 'int', nullable: true, name: 'reviewer_id' })
   reviewerId?: number | null;
+
+  /** 权限-2 数据范围：所属组织/部门（null = 仅 owner 可见；写入时盖章） */
+  @Column({ type: 'int', nullable: true, name: 'org_id' })
+  orgId?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'dept_id' })
+  deptId?: number | null;
 
   @Column({ type: Date, nullable: true })
   decidedAt?: Date | null;

@@ -13,6 +13,8 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { CacheService } from '../common/cache/cache.service';
 import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
+import { defaultScopeDescriptor, type OrgContext } from '../common/scope/scope-policy';
+import { buildScopeWhere } from '../common/scope/scope-where';
 
 const EVENT_CACHE_TTL_MS = 60 * 1000;
 
@@ -157,11 +159,13 @@ export class EventsService {
   }
 
   async getEventsForRange(start?: string, end?: string, userId?: number): Promise<Event[]> {
-    // ORG-3 数据隔离：本人事件 OR 同组织事件（orgId = 用户所属组织）
-    const orgId = userId ? await this._userOrgId(userId) : null;
-    const ownership: Array<Record<string, unknown>> = [];
-    if (userId) ownership.push({ userId });
-    if (orgId != null) ownership.push({ orgId });
+    // 权限-2：行级数据范围（Step 1 默认级别 = ORG-3 语义「本人 OR 同组织」）
+    const ownership: Array<Record<string, unknown>> = userId
+      ? ((buildScopeWhere<Record<string, unknown>>(
+          defaultScopeDescriptor(userId, 'Event', await this._orgContext(userId)),
+          'Event',
+        ) ?? []) as Array<Record<string, unknown>>)
+      : [];
 
     const where: any[] = [...ownership];
     // start/end 缺失或非法时不加时间范围（postgres 对 Invalid Date 参数报语法错，仅按所有权过滤）
@@ -192,6 +196,12 @@ export class EventsService {
     } catch {
       return null;
     }
+  }
+
+  /** 权限-2：用户的组织上下文（非成员或未注入 orgService → null） */
+  private async _orgContext(userId?: number): Promise<OrgContext | null> {
+    const orgId = await this._userOrgId(userId);
+    return orgId == null ? null : { orgId, deptId: null };
   }
 
   async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {

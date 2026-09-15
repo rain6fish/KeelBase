@@ -9,6 +9,7 @@ import { ApprovalPolicy } from './approval-policy.entity';
 import { User } from '../common/entities/user.entity';
 import { CreateRequestDto, CreatePolicyDto } from './dto/approval.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { OrgService } from '../org/org.service';
 
 /**
  * AI Approval 旗舰应用：审批请求 + 审批政策 服务。
@@ -24,13 +25,22 @@ export class ApprovalService {
     private readonly policies: Repository<ApprovalPolicy>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    private readonly org: OrgService,
   ) {}
 
   // ── Request ───────────────────────────────────────────────
 
   async createRequest(dto: CreateRequestDto, userId: number): Promise<ApprovalRequest> {
+    // 权限-2：写入时盖章 org/dept（供部门/组织数据范围过滤；null = 仅 owner 可见）
+    const ctx = await this.org.getUserOrgContext(userId);
     return this.requests.save(
-      this.requests.create({ ...dto, requesterId: userId, status: 'pending' }),
+      this.requests.create({
+        ...dto,
+        requesterId: userId,
+        status: 'pending',
+        orgId: ctx?.orgId ?? null,
+        deptId: ctx?.deptId ?? null,
+      }),
     );
   }
 

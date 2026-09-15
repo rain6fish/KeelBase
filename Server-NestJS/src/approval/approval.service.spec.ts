@@ -42,12 +42,14 @@ describe('ApprovalService', () => {
     requests = makeRepo([request(1), request(2, 2)]);
     policies = makeRepo([{ id: 1, type: 'reimbursement', maxAmount: 1000, active: true }]);
     users = makeRepo([{ id: 1, username: 'alex' }, { id: 2, username: 'bob' }]);
-    service = new ApprovalService(requests as any, policies as any, users as any);
+    service = new ApprovalService(requests as any, policies as any, users as any, {
+      getUserOrgContext: jest.fn(async () => null),
+    } as any);
   });
 
   it('createRequest 归属 requesterId 且 pending', async () => {
     await service.createRequest({ title: '报销', amount: 800, reason: '差旅' } as any, 7);
-    expect(requests.create).toHaveBeenCalledWith({ title: '报销', amount: 800, reason: '差旅', requesterId: 7, status: 'pending' });
+    expect(requests.create).toHaveBeenCalledWith({ title: '报销', amount: 800, reason: '差旅', requesterId: 7, status: 'pending', orgId: null, deptId: null });
   });
 
   it('getRequest 本人可读、非本人 Forbidden、不存在 NotFound', async () => {

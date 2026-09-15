@@ -671,4 +671,59 @@ describe('OrgService', () => {
     const bob = result.members.find((m) => m.nickname === 'Bob')!;
     expect(bob).toMatchObject({ pending: 1, processed: 1, total: 2 });
   });
+
+  // ── 权限-2 部门物化路径（ancestors）──
+
+  describe('权限-2 部门物化路径 ancestors', () => {
+    it('createDepartment 子部门 → ancestors = 父路径 + 父 id', async () => {
+      orgs.findOne.mockResolvedValue({ id: 1, name: 'O' });
+      depts.findOne
+        .mockResolvedValueOnce({ id: 3, orgId: 1, name: '父', parentId: null, ancestors: '/' } as any)
+        .mockResolvedValueOnce(null);
+      await service.createDepartment(1, { name: '子', parentId: 3 });
+      expect(depts.save).toHaveBeenCalledWith(expect.objectContaining({ ancestors: '/3/' }));
+    });
+
+    it('createDepartment 根部门 → ancestors = /', async () => {
+      orgs.findOne.mockResolvedValue({ id: 1, name: 'O' });
+      depts.findOne.mockResolvedValue(null);
+      await service.createDepartment(1, { name: '根' });
+      expect(depts.save).toHaveBeenCalledWith(expect.objectContaining({ ancestors: '/' }));
+    });
+
+    it('listDeptSubtreeIds 返回自身 + ancestors 命中的子孙（绑定参数，不拼串）', async () => {
+      const qb = mockQB({ getRawMany: jest.fn().mockResolvedValue([{ id: 7 }, { id: '9' }]) });
+      depts.createQueryBuilder.mockReturnValue(qb);
+
+      await expect(service.listDeptSubtreeIds(1, 3)).resolves.toEqual([3, 7, 9]);
+      expect(qb.andWhere).toHaveBeenCalledWith('d.ancestors LIKE :pattern', { pattern: '%/3/%' });
+    });
+
+    it('updateDepartment 改父级 → 整组织重算 ancestors（子树级联）', async () => {
+      const parent5 = { id: 5, orgId: 1, name: 'P', parentId: null, ancestors: '/' } as any;
+      const self = { id: 3, orgId: 1, name: 'A', parentId: null, ancestors: '/', sortOrder: 0 } as any;
+      const child = { id: 7, orgId: 1, name: 'B', parentId: 3, ancestors: '/3/', sortOrder: 0 } as any;
+
+      depts.findOne
+        .mockResolvedValueOnce(self) // 取自己
+        .mockResolvedValueOnce(parent5); // _ensureDeptInOrg(5)
+      depts.find.mockResolvedValue([parent5, self, child]); // _assertNoCycle + rebuild
+
+      await service.updateDepartment(3, { parentId: 5 });
+
+      // calls[0] = 保存自身；calls[1] = 重算后落库的子树
+      const rebuildArg = (depts.save as jest.Mock).mock.calls[1][0] as any[];
+      expect(rebuildArg.map((d) => d.id).sort()).toEqual([3, 7]);
+      expect(rebuildArg.find((d) => d.id === 3)!.ancestors).toBe('/5/');
+      expect(rebuildArg.find((d) => d.id === 7)!.ancestors).toBe('/5/3/');
+    });
+
+    it('getUserOrgContext 返回 orgId + deptId；非成员 null', async () => {
+      members.findOne.mockResolvedValueOnce({ id: 1, orgId: 1, userId: 9, deptId: 4 } as any);
+      await expect(service.getUserOrgContext(9)).resolves.toEqual({ orgId: 1, deptId: 4 });
+
+      members.findOne.mockResolvedValueOnce(null);
+      await expect(service.getUserOrgContext(9)).resolves.toBeNull();
+    });
+  });
 });

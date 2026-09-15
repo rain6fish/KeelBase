@@ -125,7 +125,8 @@ export class OrgService {
 
   async createDepartment(orgId: number, dto: CreateDepartmentDto): Promise<Department> {
     await this._ensureOrg(orgId);
-    if (dto.parentId != null) await this._ensureDeptInOrg(dto.parentId, orgId);
+    let parent: Department | null = null;
+    if (dto.parentId != null) parent = await this._ensureDeptInOrg(dto.parentId, orgId);
     await this._assertUniqueDeptName(orgId, dto.name);
     return this.deptsRepo.save(
       this.deptsRepo.create({
@@ -133,6 +134,8 @@ export class OrgService {
         name: dto.name,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
+        // 权限-2：物化路径 = 父的路径 + 父 id（根为 '/'）
+        ancestors: parent ? `${parent.ancestors}${parent.id}/` : '/',
       }),
     );
   }
@@ -145,6 +148,7 @@ export class OrgService {
   async updateDepartment(id: number, dto: UpdateDepartmentDto): Promise<Department> {
     const dept = await this.deptsRepo.findOne({ where: { id } });
     if (!dept) throw new NotFoundException('部门不存在');
+    let parentChanged = false;
     if (dto.parentId !== undefined) {
       if (dto.parentId === null) {
         dept.parentId = null;
@@ -153,6 +157,7 @@ export class OrgService {
         await this._assertNoCycle(dept.id, dto.parentId, dept.orgId);
         dept.parentId = dto.parentId;
       }
+      parentChanged = true;
     }
     if (dto.name !== undefined) {
       const dup = await this.deptsRepo.findOne({
@@ -162,7 +167,10 @@ export class OrgService {
       dept.name = dto.name;
     }
     if (dto.sortOrder !== undefined) dept.sortOrder = dto.sortOrder;
-    return this.deptsRepo.save(dept);
+    const saved = await this.deptsRepo.save(dept);
+    // 权限-2：父级变化会改变本部门**及其整棵子树**的物化路径 → 整组织重算（部门 CRUD 低频）
+    if (parentChanged) await this._rebuildAncestorsForOrg(saved.orgId);
+    return saved;
   }
 
   async removeDepartment(id: number): Promise<void> {
@@ -173,6 +181,8 @@ export class OrgService {
     // 成员脱离该部门
     await this.membersRepo.update({ deptId: dept.id }, { deptId: null });
     await this.deptsRepo.softDelete(dept.id);
+    // 权限-2：子部门改挂父级 → 子树物化路径需重算
+    await this._rebuildAncestorsForOrg(dept.orgId);
   }
 
   // ── 成员 ──
@@ -467,6 +477,18 @@ export class OrgService {
     return member?.orgId ?? null;
   }
 
+  /**
+   * 权限-2：取用户的组织上下文（orgId + deptId）；非成员返回 null。
+   * 与 getUserOrgId 同一取舍（多组织取最早加入，A10）。供业务写入路径盖章 org_id/dept_id。
+   */
+  async getUserOrgContext(
+    userId: number,
+  ): Promise<{ orgId: number; deptId: number | null } | null> {
+    const member = await this.membersRepo.findOne({ where: { userId }, order: { id: 'ASC' } });
+    if (!member) return null;
+    return { orgId: member.orgId, deptId: member.deptId ?? null };
+  }
+
   private async _deptPath(orgId: number, deptId: number | null | undefined): Promise<string[]> {
     if (deptId == null) return [];
     const depts = await this.deptsRepo.find({ where: { orgId } });
@@ -479,6 +501,42 @@ export class OrgService {
       cur = cur.parentId != null ? byId.get(cur.parentId) : undefined;
     }
     return path;
+  }
+
+  /**
+   * 权限-2：「本部门及以下」下钻——返回 deptId **及其全部子孙**部门 id（含自身）。
+   * 走 `ancestors` 物化路径（绑定参数，不做字符串拼接），单次查询。
+   */
+  async listDeptSubtreeIds(orgId: number, deptId: number): Promise<number[]> {
+    const rows = await this.deptsRepo
+      .createQueryBuilder('d')
+      .select('d.id', 'id')
+      .where('d.orgId = :orgId', { orgId })
+      .andWhere('d.ancestors LIKE :pattern', { pattern: `%/${deptId}/%` })
+      .getRawMany<{ id: number | string }>();
+    return [deptId, ...rows.map((r) => Number(r.id))];
+  }
+
+  /** 重算某组织全部部门的 ancestors 并落库（仅写入变化行）。部门 CRUD 低频，规模可控。 */
+  private async _rebuildAncestorsForOrg(orgId: number): Promise<void> {
+    const depts = await this.deptsRepo.find({ where: { orgId } });
+    const byId = new Map<number, Department>();
+    for (const d of depts) byId.set(d.id, d);
+
+    const cache = new Map<number, string>();
+    const pathOf = (id: number): string => {
+      const cached = cache.get(id);
+      if (cached !== undefined) return cached;
+      const d = byId.get(id);
+      const parent = d?.parentId != null ? byId.get(d.parentId) : undefined;
+      const path = parent ? `${pathOf(parent.id)}${parent.id}/` : '/';
+      cache.set(id, path);
+      return path;
+    };
+
+    const changed = depts.filter((d) => (d.ancestors ?? '') !== pathOf(d.id));
+    for (const d of changed) d.ancestors = pathOf(d.id);
+    if (changed.length > 0) await this.deptsRepo.save(changed);
   }
 
   private _generateInviteCode(): string {

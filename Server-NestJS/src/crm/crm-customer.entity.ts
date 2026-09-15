@@ -25,6 +25,7 @@ export type RiskLevel = (typeof RISK_LEVELS)[number];
 @Entity('crm_customers')
 @Index(['userId'])
 @Index(['status'])
+@Index('IDX_scope_crm_customers_org_dept', ['orgId', 'deptId'])
 export class CrmCustomer {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -52,6 +53,13 @@ export class CrmCustomer {
 
   @Column({ nullable: true, name: 'user_id' })
   userId?: number;
+
+  /** 权限-2 数据范围：所属组织/部门（null = 仅 owner 可见；写入时盖章） */
+  @Column({ type: 'int', nullable: true, name: 'org_id' })
+  orgId?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'dept_id' })
+  deptId?: number | null;
 
   @CreateDateColumn()
   createdAt!: Date;

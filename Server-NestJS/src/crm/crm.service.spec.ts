@@ -72,13 +72,14 @@ describe('CrmService', () => {
     contacts = makeRepo([]);
     service = new CrmService(
       customers as any, orders as any, activities as any, tasks as any, risks as any, opportunities as any, contacts as any,
+      { getUserOrgContext: jest.fn(async () => null) } as any,
     );
   });
 
   describe('createCustomer', () => {
     it('创建客户并归属 userId', async () => {
       const result = await service.createCustomer({ name: '新客户' } as any, 7);
-      expect(customers.create).toHaveBeenCalledWith({ name: '新客户', userId: 7 });
+      expect(customers.create).toHaveBeenCalledWith({ name: '新客户', userId: 7, orgId: null, deptId: null });
       expect(customers.save).toHaveBeenCalled();
       expect(result).toBeDefined();
     });

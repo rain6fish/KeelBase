@@ -11,6 +11,7 @@ import { PmTask } from './pm-task.entity';
 import { PmRisk } from './pm-risk.entity';
 import { CreateProjectDto, CreateMilestoneDto, CreateTaskDto, CreateRiskDto } from './dto/create-pm.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { OrgService } from '../org/org.service';
 
 /** 项目列表筛选 */
 export interface ProjectFilter {
@@ -50,12 +51,20 @@ export class PmService {
     private readonly tasks: Repository<PmTask>,
     @InjectRepository(PmRisk)
     private readonly risks: Repository<PmRisk>,
+    private readonly org: OrgService,
   ) {}
 
   // ── Project CRUD ──────────────────────────────────────────
 
   async createProject(dto: CreateProjectDto, userId: number): Promise<PmProject> {
-    const entity = this.projects.create({ ...dto, userId });
+    // 权限-2：写入时盖章 org/dept（供部门/组织数据范围过滤；null = 仅 owner 可见）
+    const ctx = await this.org.getUserOrgContext(userId);
+    const entity = this.projects.create({
+      ...dto,
+      userId,
+      orgId: ctx?.orgId ?? null,
+      deptId: ctx?.deptId ?? null,
+    });
     return this.projects.save(entity);
   }
 

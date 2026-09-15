@@ -21,6 +21,7 @@ import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { OrgService } from '../org/org.service';
 
 /** 客户列表筛选 */
 export interface CustomerFilter {
@@ -65,6 +66,7 @@ export class CrmService {
     private readonly opportunities: Repository<CrmOpportunity>,
     @InjectRepository(CrmContact)
     private readonly contacts: Repository<CrmContact>,
+    private readonly org: OrgService,
   ) {}
 
   // ── Customer CRUD ─────────────────────────────────────────
@@ -73,7 +75,14 @@ export class CrmService {
     dto: CreateCustomerDto,
     userId: number,
   ): Promise<CrmCustomer> {
-    const entity = this.customers.create({ ...dto, userId });
+    // 权限-2：写入时盖章 org/dept（供部门/组织数据范围过滤；null = 仅 owner 可见）
+    const ctx = await this.org.getUserOrgContext(userId);
+    const entity = this.customers.create({
+      ...dto,
+      userId,
+      orgId: ctx?.orgId ?? null,
+      deptId: ctx?.deptId ?? null,
+    });
     return this.customers.save(entity);
   }
 

@@ -59,12 +59,15 @@ describe('PmService', () => {
     milestones = makeRepo([]);
     tasks = makeRepo([]);
     risks = makeRepo([]);
-    service = new PmService(projects as any, members as any, milestones as any, tasks as any, risks as any);
+    service = new PmService(
+      projects as any, members as any, milestones as any, tasks as any, risks as any,
+      { getUserOrgContext: jest.fn(async () => null) } as any,
+    );
   });
 
   it('createProject 归属 userId', async () => {
     await service.createProject({ name: '新项目' } as any, 7);
-    expect(projects.create).toHaveBeenCalledWith({ name: '新项目', userId: 7 });
+    expect(projects.create).toHaveBeenCalledWith({ name: '新项目', userId: 7, orgId: null, deptId: null });
   });
 
   it('getProject 本人可读、非本人 Forbidden、不存在 NotFound', async () => {

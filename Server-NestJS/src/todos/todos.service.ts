@@ -10,6 +10,8 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
+import { defaultScopeDescriptor, type OrgContext } from '../common/scope/scope-policy';
+import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
 
 @Injectable()
 export class TodosService {
@@ -42,10 +44,9 @@ export class TodosService {
   }
 
   async findAll(userId: number): Promise<Todo[]> {
-    // ORG-3 二期：本人待办 OR 同组织待办（与 findOne/update/remove 的「同组可读」保持一致）
-    const orgId = await this._userOrgId(userId);
-    const where: any[] = [{ userId }];
-    if (orgId != null) where.push({ orgId });
+    // 权限-2：行级数据范围（Step 1 默认级别 = ORG-3 语义「本人 OR 同组织」；无组织则仅本人）
+    const descriptor = defaultScopeDescriptor(userId, 'Todo', await this._orgContext(userId));
+    const where = (buildScopeWhere<Todo>(descriptor, 'Todo') ?? [{}]) as any;
     return this.todosRepository.find({
       where,
       order: { completed: 'ASC', createdAt: 'DESC' },
@@ -60,6 +61,12 @@ export class TodosService {
     } catch {
       return null;
     }
+  }
+
+  /** 权限-2：用户的组织上下文（非成员或未注入 orgService → null） */
+  private async _orgContext(userId?: number): Promise<OrgContext | null> {
+    const orgId = await this._userOrgId(userId);
+    return orgId == null ? null : { orgId, deptId: null };
   }
 
   async findOne(id: number, ability: AppAbility, userId?: number): Promise<Todo> {
@@ -100,10 +107,9 @@ export class TodosService {
     userId?: number,
   ): Promise<boolean> {
     if (ability.can('read', subject('Todo', todo))) return true;
-    if (todo.orgId != null && userId != null) {
-      const orgId = await this._userOrgId(userId);
-      if (orgId != null && orgId === todo.orgId) return true;
-    }
-    return false;
+    if (userId == null) return false;
+    // 权限-2：范围扩展与列表 where 同源（消除「列表可见但明细 403」的半套隔离）
+    const descriptor = defaultScopeDescriptor(userId, 'Todo', await this._orgContext(userId));
+    return rowInScope(todo as unknown as Record<string, unknown>, descriptor, 'Todo');
   }
 }

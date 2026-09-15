@@ -164,6 +164,7 @@ side_effects:
 | Frontend capability gating (page / menu / button visibility) | ✅ Implemented (2026-09-15: consumes the `GET /auth/me/permissions` capability list; roles keep the shell, capability is the finer gate — see `docs/web-front.spec.md` §4/§5) |
 | Heavyweight RBAC products (Keycloak / Casbin / Shiro, etc.) | ⬜ **Explicitly not doing** (consistent with differentiation positioning) |
 | External authorization integration (OIDC enterprise SSO available) | ⬜ Direction (per customer, under evaluation) |
+| Generic data scope (own / own dept / own dept and below / org / custom) | ⚠️ **Mechanism implemented** (2026-09-15: structural where-builder + `ancestors` subtree drill-down + write-time stamping; **the level source is still the built-in default** — per-role configuration is a later step) — see `docs/data-scope.spec.md` |
 
 ---
 
@@ -176,7 +177,7 @@ side_effects:
 | Row-level data permission | ✅ Built-in (conditions) | ❌ Not native; needs Filter/interceptor | — | ❌ | ✅ MyBatis-Plus interceptor |
 | Dynamic RBAC / permission points | ❌ None (two hard-coded roles) | ⚠️ Self-built tables | ✅ Keycloak has | ✅ Menu permission tables | ✅ Casbin policies in DB |
 | Menu / button / field-level | ⚠️ Menu + button: capability-contract driven (2026-09-15); field-level ❌ | ⚠️ Self-built | ✅ | ✅ | — |
-| Data scope (own/dept/org) | ⚠️ Own + org partial | ❌ Needs addition | — | ❌ | ✅ Ready-made |
+| Data scope (own/dept/org) | ⚠️ Own + org (<br>mechanism supports own-dept/subtree; per-role config pending) | ❌ Needs addition | — | ❌ | ✅ Ready-made |
 | Authorization server / IAM | ❌ None (OIDC client) | — | ✅ Is the server | ✅ Has server side | — |
 | Audit | ✅ Hash chain + Explainable | ⚠️ No built-in audit chain | ✅ Events | ⚠️ Weak | — |
 | AI Agent governance | ✅ Unique | ❌ | ❌ | ❌ | ❌ |
@@ -241,7 +242,7 @@ The four layers (page / button / data row / field) are **not all required at onc
 **Priority order**
 
 1. **First make the capability contract the frontend's single source of enforcement** — both page/menu (currently carried by hard-coded frontend `meta.roles`) and button visibility connect to the frozen `permission-capability-list`. This yields the page + button layers **without building RBAC tables**.
-2. Then build the **generic data scope** (own / dept / org tree / custom) — the actual acceptance point for ERP/OA, and real engineering.
+2. Then build the **generic data scope** (own / dept / org tree / custom) — the actual acceptance point for ERP/OA, and real engineering. (**2026-09-15: mechanism landed**, see `docs/data-scope.spec.md`; a configurable level source is a later step.)
 3. Field-level and the admin surface follow from tiers B / C.
 
 **Relation to §7 "Enterprise direction"**: the "external authorization / self-built lightweight dynamic RBAC" there are two choices at the **identity layer vs the authorization layer**, not mutually exclusive — identity via an adapter (which may be an external IAM), authorization data self-held (needed by tiers B / C). The trigger is unchanged: a multi-role enterprise customer, or on demand after v1.1.
