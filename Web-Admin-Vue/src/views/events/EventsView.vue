@@ -88,11 +88,11 @@ const status = ref<string>('all')
 const range = ref('all')
 const since = ref<string | undefined>(undefined)
 
-const statusOptions = [
+const statusOptions = computed(() => [
   { label: t('allStatus'), value: 'all' },
   { label: t('active'), value: 'active' },
   { label: t('cancelled'), value: 'cancelled' },
-]
+])
 const statusLabelMap = computed(() => ({ active: t('active'), cancelled: t('cancelled') }))
 
 const headers = computed(() => [

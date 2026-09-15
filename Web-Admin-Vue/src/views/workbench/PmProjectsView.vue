@@ -91,12 +91,12 @@ const saving = ref(false)
 const pendingDelete = ref<PmProject | null>(null)
 const form = ref({ name: '', description: '' })
 
-const statusOptions = [
+const statusOptions = computed(() => [
   { label: t('pmStatusPlanned'), value: 'planned' },
   { label: t('pmStatusActive'), value: 'active' },
   { label: t('pmStatusOnHold'), value: 'on_hold' },
   { label: t('pmStatusCompleted'), value: 'completed' },
-]
+])
 
 const headers = computed(() => [
   { title: t('pmProjectName'), key: 'name' },

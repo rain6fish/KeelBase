@@ -100,18 +100,18 @@ const saving = ref(false)
 const pendingDelete = ref<CrmCustomer | null>(null)
 const form = ref({ name: '', company: '', email: '' })
 
-const statusOptions = [
+const statusOptions = computed(() => [
   { label: t('crmStatusLead'), value: 'lead' },
   { label: t('crmStatusActive'), value: 'active' },
   { label: t('crmStatusChurnRisk'), value: 'churn_risk' },
   { label: t('crmStatusInactive'), value: 'inactive' },
-]
-const riskOptions = [
+])
+const riskOptions = computed(() => [
   { label: t('crmRiskLow'), value: 'low' },
   { label: t('crmRiskMedium'), value: 'medium' },
   { label: t('crmRiskHigh'), value: 'high' },
   { label: t('crmRiskCritical'), value: 'critical' },
-]
+])
 
 const headers = computed(() => [
   { title: t('crmCustomerName'), key: 'name' },
@@ -206,8 +206,8 @@ async function onDelete() {
 onMounted(() => {
   const q = route.query
   if (typeof q.keyword === 'string' && q.keyword.trim()) keyword.value = q.keyword.trim()
-  if (typeof q.status === 'string' && statusOptions.some((o) => o.value === q.status)) statusFilter.value = q.status
-  if (typeof q.risk === 'string' && riskOptions.some((o) => o.value === q.risk)) riskFilter.value = q.risk
+  if (typeof q.status === 'string' && statusOptions.value.some((o) => o.value === q.status)) statusFilter.value = q.status
+  if (typeof q.risk === 'string' && riskOptions.value.some((o) => o.value === q.risk)) riskFilter.value = q.risk
   load()
 })
 </script>

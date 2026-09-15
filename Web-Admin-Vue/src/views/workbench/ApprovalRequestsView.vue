@@ -87,18 +87,18 @@ const showCreate = ref(false)
 const saving = ref(false)
 const form = ref({ title: '', type: 'reimbursement', amount: 0, reason: '' })
 
-const statusOptions = [
+const statusOptions = computed(() => [
   { label: t('apStatusPending'), value: 'pending' },
   { label: t('apStatusNeedsReview'), value: 'needs_review' },
   { label: t('apStatusApproved'), value: 'approved' },
   { label: t('apStatusRejected'), value: 'rejected' },
   { label: t('apStatusAutoApproved'), value: 'auto_approved' },
-]
-const typeOptions = [
+])
+const typeOptions = computed(() => [
   { label: t('apTypeReimbursement'), value: 'reimbursement' },
   { label: t('apTypePurchase'), value: 'purchase' },
   { label: t('apTypeLeave'), value: 'leave' },
-]
+])
 
 const headers = computed(() => [
   { title: t('apTitle'), key: 'title' },

@@ -91,8 +91,7 @@ const id = Number(route.params.id)
 const detail = ref<UserDetail | null>(null)
 const loading = ref(true)
 
-const readMap = { read: t('read'), unread: t('unread') }
-
+const readMap = computed(() => ({ read: t('read'), unread: t('unread') }))
 const statCards = computed(() => [
   { label: t('events'), value: detail.value?.counts.events ?? '-', icon: 'mdi-calendar-blank-outline', color: 'success' },
   { label: t('opAuditLogs'), value: detail.value?.counts.operationAuditLogs ?? '-', icon: 'mdi-clipboard-text-outline', color: 'info' },

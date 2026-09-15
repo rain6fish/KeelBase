@@ -105,4 +105,27 @@ describe('FlowInstancesView（工作台·我的流程）', () => {
 
     expect(instancesMock).toHaveBeenCalledTimes(2)
   })
+
+  it('切换语言 → 表头与状态标签随 locale 重算（回归：二者曾为非响应式常量，切英文仍显示中文）', async () => {
+    instancesMock.mockResolvedValue([instance])
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+    // 不 stub StatusChip：状态标签由 stateLabelMap 渲染，正是回归点之一
+    const wrapper = mount(FlowInstancesView, {
+      global: {
+        plugins: [i18n, ElementPlus],
+        stubs: { teleport: true, AppIcon: true, PageHeader: PageHeaderStub },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('流程定义') // zh 表头
+    expect(wrapper.text()).toContain('进行中') // zh 状态标签（running）
+
+    ;(i18n.global.locale as unknown as { value: string }).value = 'en'
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Flow definition')
+    expect(wrapper.text()).toContain('running')
+    expect(wrapper.text()).not.toContain('流程定义')
+    expect(wrapper.text()).not.toContain('进行中')
+  })
 })

@@ -425,11 +425,11 @@ const memberHeaders = computed(() => [
   { key: 'actions', title: t('actionCol') },
 ])
 
-const roleOptions = [
+const roleOptions = computed(() => [
   { value: 'owner', label: t('roleOwner') },
   { value: 'admin', label: t('roleAdmin') },
   { value: 'member', label: t('roleMember') },
-] as const
+] as const)
 
 const deptOptions = computed(() =>
   departments.value.map((d) => ({ label: d.name, value: d.id })),

@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
@@ -45,21 +45,21 @@ const snackbar = useSnackbarStore()
 const items = ref<MyFlowInstance[]>([])
 const loading = ref(false)
 
-const headers = [
+const headers = computed(() => [
   { key: 'definitionName', title: t('flowDefinition') },
   { key: 'state', title: t('flowState') },
   { key: 'pendingTasks', title: t('flowPending') },
   { key: 'createdAt', title: t('createdAt') },
   { key: 'actions', title: '' },
-]
+])
 
-const stateLabelMap = {
+const stateLabelMap = computed(() => ({
   running: t('flowStateRunning'),
   completed: t('flowStateCompleted'),
   failed: t('flowStateFailed'),
   rolled_back: t('flowStateRolledBack'),
   pending: t('flowStatePending'),
-}
+}))
 
 function stateStatus(s: string): 'running' | 'completed' | 'failed' | 'info' {
   return s === 'completed' ? 'completed' : s === 'failed' || s === 'rolled_back' ? 'failed' : s === 'running' ? 'running' : 'info'

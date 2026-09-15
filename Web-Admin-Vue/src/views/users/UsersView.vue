@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
@@ -127,14 +127,14 @@ const limit = 20
 const loading = ref(false)
 const searchInput = ref('')
 
-const headers = [
+const headers = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'username', title: t('usernameCol') },
   { key: 'email', title: t('emailCol') },
   { key: 'role', title: t('roleCol') },
   { key: 'createdAt', title: t('createdAt') },
   { key: 'actions', title: t('actionCol') },
-]
+])
 
 async function load(p = 1) {
   loading.value = true
