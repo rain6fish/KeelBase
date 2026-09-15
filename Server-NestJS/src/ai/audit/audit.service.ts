@@ -34,7 +34,7 @@ export interface AuditEntry {
   /** D2-1c username 快照：写审计时快照用户名（独立治理库后查询无需左联 users） */
   username?: string;
   conversationId?: string;
-  action: 'chat' | 'tool_call' | 'navigate' | 'error' | 'login' | 'plan' | 'analyze' | 'knowledge' | 'delegate' | 'tool_confirmation' | 'flow_node' | 'content_blocked';
+  action: 'chat' | 'tool_call' | 'navigate' | 'error' | 'login' | 'plan' | 'analyze' | 'knowledge' | 'delegate' | 'tool_confirmation' | 'flow_node' | 'content_blocked' | 'effect_revoke';
   detail?: string;
   model?: string;
   provider?: string;

@@ -95,12 +95,12 @@
     },
     {
       "id": "audit-payload",
-      "version": "v1",
-      "schema": "audit-payload.schema.json",
-      "title": "AI 审计哈希链 canonical payload（payloadVersion NULL=v1 / 2=v2）",
+      "version": "v2",
+      "schema": "v2/audit-payload.schema.json",
+      "title": "AI 审计哈希链 canonical payload（v2：action 枚举 + effect_revoke，AU-5）",
       "source": "src/ai/audit/audit.service.ts:435-467; src/ai/audit/ai-audit-log.entity.ts",
       "samples": [
-        "schemas/v1/samples/audit-payload.json"
+        "schemas/v2/samples/audit-payload.json"
       ]
     },
     {

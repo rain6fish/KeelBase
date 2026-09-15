@@ -31,6 +31,7 @@ describe('TrustSandboxService', () => {
   let usersRepo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
   let abilityFactory: { createForUser: jest.Mock };
   let settingsService: { getWithDefault: jest.Mock; set: jest.Mock };
+  let auditService: { log: jest.Mock };
   let settingsStore: Map<string, string>;
 
   beforeEach(() => {
@@ -61,6 +62,7 @@ describe('TrustSandboxService', () => {
       listOwned: jest.fn(),
       revokeOwned: jest.fn(),
     };
+    auditService = { log: jest.fn() };
     const qb: { where: jest.Mock; andWhere: jest.Mock; getMany: jest.Mock } = {
       where: jest.fn(),
       andWhere: jest.fn(),
@@ -79,6 +81,7 @@ describe('TrustSandboxService', () => {
       usersRepo as never,
       abilityFactory as never,
       settingsService as never,
+      auditService as never,
     );
   });
 
@@ -266,11 +269,16 @@ describe('TrustSandboxService', () => {
     expect(r.effectId).toBe(5);
     expect(effectsService.revokeOwned).not.toHaveBeenCalled();
 
-    // confirm=true：真实撤销 → passed
+    // confirm=true：真实撤销 → passed；AU-5：真改状态须补 AI 审计行（action=effect_revoke, source=sandbox）
     const r2 = await sandbox.run('s5_revoke', '42', { confirm: true });
     expect(r2.outcome).toBe('passed');
     expect(r2.effectId).toBe(5);
     expect(effectsService.revokeOwned).toHaveBeenCalledWith(5, '42');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: '42', action: 'effect_revoke', source: 'sandbox' }),
+    );
+    // 未撤销（revoke 未生效）不得写「已撤销」审计行
+    auditService.log.mockClear();
 
     // 无副作用 → guide
     effectsService.listOwned.mockResolvedValue({ items: [] });
@@ -283,6 +291,8 @@ describe('TrustSandboxService', () => {
     const r4 = await sandbox.run('s5_revoke', '42', { confirm: true });
     expect(r4.outcome).toBe('check');
     expect(String(r4.detail)).toContain('未生效');
+    // AU-5：撤销未生效（无状态改变）→ 不写审计行
+    expect(auditService.log).not.toHaveBeenCalled();
   });
 
   it('s6_java：返回 Java 引导', async () => {

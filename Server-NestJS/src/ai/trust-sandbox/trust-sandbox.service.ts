@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai.service';
+import { AuditService } from '../audit/audit.service';
 import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
@@ -51,6 +52,8 @@ export class TrustSandboxService {
     private readonly usersRepo: Repository<User>,
     private readonly abilityFactory: CaslAbilityFactory,
     private readonly settingsService: SettingsService,
+    // AU-5（§22.19）：沙盘撤销**真实**副作用须落 AI 审计——注入（@Optional 容单测/降级）
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   /** 场景清单（前端沙盘卡渲染用） */
@@ -391,6 +394,17 @@ export class TrustSandboxService {
     }
     const res = await this.effectsService.revokeOwned(id, userId);
     const revoked = Boolean(res?.revoked);
+    if (revoked) {
+      // AU-5（§22.19 归因层）：沙盘**真改状态**（软删真实 AI 副作用）→ 补 AI 审计行，
+      // 闭合「改变状态却无任何 AI 审计行」的逃逸口（source=sandbox 归因入口）。fail-closed：
+      // 审计写失败即抛（与主链路一致，不静默丢审计——副作用已软删，错误如实上报）。
+      await this.auditService?.log({
+        userId,
+        action: 'effect_revoke',
+        detail: `revoke effect #${id}${title ? `「${title}」` : ''} → ${res?.revokeStatus ?? 'revoked'}`,
+        source: 'sandbox',
+      });
+    }
     return {
       scenario: 's5_revoke',
       outcome: revoked ? 'passed' : 'check',

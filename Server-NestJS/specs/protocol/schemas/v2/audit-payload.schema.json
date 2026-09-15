@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "v2/audit-payload.schema.json",
+  "title": "AI Audit Chain Payload — v2",
+  "description": "审计哈希链 canonical payload（§2.3，写入/校验/导出共用）。v2（AU-5 §22.19）：`action` 枚举新增 `effect_revoke`——沙盘/撤销端点对**真实** AI 副作用的撤销须在 AI 审计留行（此前「改状态却无任何 AI 审计行」的逃逸口）。其余字段同 v1（payloadVersion NULL=v1 / 2=v2 的注解列见 v1 说明）。v1 → schemas/v1/audit-payload.schema.json（冻结历史）。",
+  "type": "object",
+  "required": ["userId", "action"],
+  "additionalProperties": false,
+  "properties": {
+    "userId": { "type": "string" },
+    "conversationId": { "type": ["string", "null"] },
+    "action": {
+      "type": "string",
+      "enum": ["chat", "tool_call", "navigate", "error", "login", "plan", "analyze", "knowledge", "delegate", "tool_confirmation", "flow_node", "content_blocked", "effect_revoke"]
+    },
+    "detail": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "promptTokens": { "type": ["number", "null"] },
+    "completionTokens": { "type": ["number", "null"] },
+    "durationMs": { "type": ["number", "null"] },
+    "isError": { "type": "boolean" },
+    "errorMessage": { "type": ["string", "null"] },
+    "authorization": { "type": ["string", "null"] },
+    "feedback": { "type": "null" },
+    "feedbackNote": { "type": "null" },
+    "businessEvent": { "type": ["string", "null"] },
+    "evidence": { "type": ["string", "null"] },
+    "agentId": { "type": ["string", "null"] },
+    "sessionId": { "type": ["string", "null"] },
+    "parentActionId": { "type": ["string", "null"] },
+    "callerAgentId": { "type": ["string", "null"] },
+    "delegationContext": { "type": ["string", "null"] },
+    "businessIntent": { "type": ["string", "null"] },
+    "source": { "type": ["string", "null"] }
+  }
+}
