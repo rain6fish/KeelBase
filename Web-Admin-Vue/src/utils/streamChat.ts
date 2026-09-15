@@ -84,6 +84,7 @@ export interface AiToolEnd {
 
 export type StreamChatEvent =
   | { type: 'text'; content: string }
+  | { type: 'navigate'; route: string }
   | { type: 'tool_start'; toolStart: AiToolStart }
   | { type: 'confirmation_request'; confirmation: AiConfirmation }
   | { type: 'confirmation_decision'; confirmationDecision: AiConfirmationDecision }
@@ -94,18 +95,23 @@ export type StreamChatEvent =
 export interface StreamChatOptions {
   message: string
   conversationId?: string
+  /** SSE 端点（相对 API_BASE_URL）；默认 '/ai/chat/stream'（用户）。管理端系统助手传 '/admin/ai/chat/stream' */
+  endpoint?: string
   signal?: AbortSignal
   onEvent: (event: StreamChatEvent) => void
   onEnd?: () => void
   onError?: (err: Error) => void
 }
 
+const DEFAULT_STREAM_ENDPOINT = '/ai/chat/stream'
+
 function postStream(
   tokens: { accessToken: string },
+  endpoint: string,
   payload: { message: string; conversationId?: string },
   signal?: AbortSignal,
 ): Promise<Response> {
-  return fetch(`${API_BASE_URL}/ai/chat/stream`, {
+  return fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -132,11 +138,12 @@ function handleBlock(block: string, onEvent: (event: StreamChatEvent) => void): 
 
 /** 发起流式对话：读完整 SSE，逐事件回调；AbortError 静默返回（关抽屉中止） */
 export async function streamChat(options: StreamChatOptions): Promise<void> {
+  const endpoint = options.endpoint ?? DEFAULT_STREAM_ENDPOINT
   let tokens = storage.readTokens()
-  let res = await postStream(tokens, { message: options.message, conversationId: options.conversationId }, options.signal)
+  let res = await postStream(tokens, endpoint, { message: options.message, conversationId: options.conversationId }, options.signal)
   if (res.status === 401 && (await refreshAccessToken())) {
     tokens = storage.readTokens()
-    res = await postStream(tokens, { message: options.message, conversationId: options.conversationId }, options.signal)
+    res = await postStream(tokens, endpoint, { message: options.message, conversationId: options.conversationId }, options.signal)
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')

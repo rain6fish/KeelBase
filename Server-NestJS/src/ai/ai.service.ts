@@ -1183,6 +1183,8 @@ export class AiService {
         role: 'assistant',
         content: navResult.reply,
       });
+      // 导航事件先于文本下发：流式客户端据此渲染「跳转」入口（与非流式 chat 的 navigateTo 对齐）
+      yield { type: 'navigate', route: navResult.route };
       yield { type: 'text', content: navResult.reply };
       yield { type: 'done', conversationId };
       return;

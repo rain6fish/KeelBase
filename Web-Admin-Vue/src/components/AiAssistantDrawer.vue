@@ -8,6 +8,7 @@
     class="ai-assistant-drawer"
     @update:model-value="emit('update:modelValue', $event)"
     @open="onOpen"
+    @closed="onClosed"
   >
     <div class="d-flex flex-column" style="height: 100%">
       <!-- 头部 -->
@@ -66,22 +67,56 @@
           >
             <div class="text-caption">{{ t('aiNotReadyBody') }}</div>
           </el-alert>
-          <div v-if="!messages.length" class="text-center text-medium-emphasis pa-6">{{ t('assWelcome') }}</div>
-          <div
-            v-for="(m, i) in messages"
-            :key="i"
-            class="d-flex mb-3"
-            :class="m.role === 'user' ? 'justify-content-end' : 'justify-content-start'"
-          >
-            <div class="pa-3 msg-bubble" :class="m.role === 'user' ? 'user-bubble' : 'assistant-bubble'">
-              <div style="white-space: pre-wrap">{{ m.content }}</div>
-              <div v-if="m.role === 'assistant' && m.navigateTo" class="mt-2">
-                <el-button size="small" type="primary" text @click="go(m.navigateTo!)">
-                  {{ t('assNavigate') }} → {{ m.navigateTo }}
-                </el-button>
+          <div v-if="!items.length" class="text-center text-medium-emphasis pa-6">{{ t('assWelcome') }}</div>
+
+          <div v-for="(m, i) in items" :key="i" class="mb-3">
+            <!-- 用户 -->
+            <div v-if="m.kind === 'user'" class="d-flex justify-content-end">
+              <div class="pa-3 msg-bubble user-bubble">{{ m.content }}</div>
+            </div>
+
+            <!-- AI 文本 -->
+            <div v-else-if="m.kind === 'ai'" class="d-flex justify-content-start">
+              <div class="pa-3 msg-bubble assistant-bubble">
+                <div style="white-space: pre-wrap">{{ m.content }}</div>
+                <div v-if="m.navigateTo" class="mt-2">
+                  <el-button size="small" type="primary" text @click="go(m.navigateTo!)">
+                    {{ t('assNavigate') }} → {{ m.navigateTo }}
+                  </el-button>
+                </div>
               </div>
             </div>
+
+            <!-- 工具卡 -->
+            <div v-else-if="m.kind === 'tool'" class="pa-2" style="border-left: 3px solid var(--el-color-primary); border-radius: 4px; background: var(--el-fill-color-light)">
+              <div class="d-flex align-center ga-1">
+                <AppIcon :icon="m.toolStart.isWrite ? 'mdi-pencil' : 'mdi-magnify'" :color="m.toolStart.isWrite ? 'var(--el-color-primary)' : 'var(--el-text-color-secondary)'" size="16" />
+                <el-tag :type="m.toolStart.isWrite ? 'primary' : 'info'" size="small" effect="plain">{{ m.toolStart.isWrite ? t('writeOp') : t('readOp') }}</el-tag>
+                <span class="text-caption font-weight-medium">{{ m.toolStart.name }}</span>
+              </div>
+              <div v-if="m.toolStart.isWrite && m.toolStart.summary" class="text-caption text-medium-emphasis mt-1">{{ m.toolStart.summary }}</div>
+              <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
+                {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
+              </div>
+            </div>
+
+            <!-- 确认卡 -->
+            <div v-else-if="m.kind === 'confirmation'" class="d-flex justify-content-start">
+              <AiConfirmationCard
+                v-if="m.status === 'pending'"
+                :confirmation="m.confirmation"
+                @approved="(trust) => onApprove(m, trust)"
+                @rejected="() => onReject(m)"
+              />
+              <div v-else class="pa-3 msg-bubble assistant-bubble" :class="m.result?.approved ? 'text-success' : 'text-error'">
+                {{ m.result?.approved ? t('approved') : t('rejected') }}
+              </div>
+            </div>
+
+            <!-- 错误/提示 -->
+            <div v-else-if="m.kind === 'notice'" class="text-error text-body-2 pa-1">{{ m.content }}</div>
           </div>
+
           <div v-if="sending" class="text-medium-emphasis pa-2">{{ t('assThinking') }}</div>
         </template>
       </div>
@@ -94,6 +129,7 @@
           :rows="2"
           :placeholder="t('assPlaceholder')"
           resize="none"
+          :disabled="sending"
           @keydown.enter.exact.prevent="send"
         />
         <el-button type="primary" :loading="sending" @click="send">{{ t('send') }}</el-button>
@@ -111,25 +147,26 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { nextTick, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
-import { aiApi } from '@/api/ai'
 import { capabilitiesApi } from '@/api/capabilities'
+import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import type { AiConversationSummary } from '@/types/admin'
 
-interface ChatMsg {
-  role: 'user' | 'assistant'
-  content: string
-  navigateTo?: string
-  toolCalls?: string[]
-}
+type ChatItem =
+  | { kind: 'user'; content: string }
+  | { kind: 'ai'; content: string; navigateTo?: string }
+  | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
+  | { kind: 'confirmation'; confirmation: AiConfirmation; status: 'pending' | 'decided'; result?: { approved: boolean } }
+  | { kind: 'notice'; content: string }
 
 defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
@@ -140,11 +177,12 @@ const snackbar = useSnackbarStore()
 const auth = useAuthStore()
 
 const view = ref<'chat' | 'list'>('chat')
-const messages = ref<ChatMsg[]>([])
+const items = ref<ChatItem[]>([])
 const input = ref('')
 const sending = ref(false)
 const conversationId = ref<string | null>(null)
 const bodyRef = ref<HTMLElement | null>(null)
+const abortCtrl = ref<AbortController | null>(null)
 
 const conversations = ref<AiConversationSummary[]>([])
 const historyLoading = ref(false)
@@ -173,6 +211,17 @@ async function onOpen() {
   }
 }
 
+function onClosed() {
+  abortCtrl.value?.abort()
+  abortCtrl.value = null
+  sending.value = false
+}
+
+onUnmounted(() => {
+  abortCtrl.value?.abort()
+  abortCtrl.value = null
+})
+
 async function scrollBottom() {
   await nextTick()
   if (bodyRef.value) bodyRef.value.scrollTop = bodyRef.value.scrollHeight
@@ -180,22 +229,27 @@ async function scrollBottom() {
 
 function toggleView() {
   view.value = view.value === 'list' ? 'chat' : 'list'
-  if (view.value === 'chat') scrollBottom()
+  if (view.value === 'chat') void scrollBottom()
 }
 
 function newChat() {
-  messages.value = []
+  abortCtrl.value?.abort()
+  abortCtrl.value = null
+  items.value = []
   conversationId.value = null
   input.value = ''
+  sending.value = false
   view.value = 'chat'
 }
 
 async function openConversation(id: string) {
   try {
     const conv = await adminApi.aiConversation(id)
-    messages.value = conv.messages
+    items.value = conv.messages
       .filter((m): m is AiConversationSummary['messages'][number] => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as ChatMsg['role'], content: m.content }))
+      .map((m) => (m.role === 'user'
+        ? ({ kind: 'user', content: m.content } as ChatItem)
+        : ({ kind: 'ai', content: m.content } as ChatItem)))
     conversationId.value = conv.id
     view.value = 'chat'
     await scrollBottom()
@@ -208,36 +262,130 @@ async function send() {
   const text = input.value.trim()
   if (!text || sending.value) return
   input.value = ''
-  messages.value.push({ role: 'user', content: text })
+  items.value.push({ kind: 'user', content: text })
   sending.value = true
   await scrollBottom()
+
+  abortCtrl.value?.abort()
+  const ctrl = new AbortController()
+  abortCtrl.value = ctrl
+
+  let aiIndex = -1
+  let pendingConfirmation: ChatItem & { kind: 'confirmation' } | null = null
+  const pushAi = () => {
+    if (aiIndex === -1) {
+      items.value.push({ kind: 'ai', content: '' })
+      aiIndex = items.value.length - 1
+    }
+  }
+
   try {
-    // 权限区分：管理员 = 系统 AI 助手（平台/治理上下文）；普通用户 = 本人数据作用域 AI
-    const res = auth.isAdmin
-      ? await adminApi.adminAiChat({
-          message: text,
-          conversationId: conversationId.value ?? undefined,
+    // 权限区分：管理员 = 系统 AI 助手（/admin/ai/chat/stream）；普通用户 = 本人数据作用域 AI（/ai/chat/stream）
+    // 必须走流式：写操作（创建任务/事件/待办）依赖 confirmation_request 事件弹确认卡，非流式会被拒。
+    await streamChat({
+      endpoint: auth.isAdmin ? '/admin/ai/chat/stream' : undefined,
+      message: text,
+      conversationId: conversationId.value ?? undefined,
+      signal: ctrl.signal,
+      onEvent: (ev) => {
+        switch (ev.type) {
+          case 'text': {
+            pushAi()
+            const item = items.value[aiIndex]
+            if (item && item.kind === 'ai') item.content += ev.content
+            void scrollBottom()
+            break
+          }
+          case 'navigate': {
+            pushAi()
+            const item = items.value[aiIndex]
+            if (item && item.kind === 'ai') item.navigateTo = ev.route
+            void scrollBottom()
+            break
+          }
+          case 'tool_start': {
+            items.value.push({ kind: 'tool', toolStart: ev.toolStart })
+            void scrollBottom()
+            break
+          }
+          case 'confirmation_request': {
+            pendingConfirmation = { kind: 'confirmation', confirmation: ev.confirmation, status: 'pending' }
+            items.value.push(pendingConfirmation)
+            void scrollBottom()
+            break
+          }
+          case 'confirmation_decision': {
+            const d = ev.confirmationDecision
+            if (pendingConfirmation) {
+              pendingConfirmation.status = 'decided'
+              pendingConfirmation.result = { approved: d.approved }
+              pendingConfirmation = null
+            }
+            void scrollBottom()
+            break
+          }
+          case 'tool_end': {
+            const match = [...items.value].reverse().find(
+              (it) => it.kind === 'tool' && it.toolStart.name === ev.toolEnd.name,
+            )
+            if (match && match.kind === 'tool') match.toolEnd = ev.toolEnd
+            void scrollBottom()
+            break
+          }
+          case 'done': {
+            conversationId.value = ev.conversationId
+            break
+          }
+          case 'error': {
+            if (ev.error) items.value.push({ kind: 'notice', content: ev.error })
+            break
+          }
+        }
+      },
+      onEnd: () => {
+        sending.value = false
+        void scrollBottom()
+      },
+      onError: (err) => {
+        // NC-2：ApiError 带可执行指引（LLM_UNAVAILABLE 等）→ 错误卡；否则聊天内提示
+        items.value.push({
+          kind: 'notice',
+          content: err instanceof ApiError ? err.message : err.message || t('assLoadFailed'),
         })
-      : await aiApi.chat({
-          message: text,
-          conversationId: conversationId.value ?? undefined,
-        })
-    messages.value.push({
-      role: 'assistant',
-      content: res.reply,
-      navigateTo: res.navigateTo,
-      toolCalls: res.toolCalls,
+        sending.value = false
+        void scrollBottom()
+      },
     })
-    conversationId.value = res.conversationId
-    await scrollBottom()
-  } catch (err) {
-    // NC-2：ApiError 带可执行指引（LLM_UNAVAILABLE 等）→ 错误卡；否则单句 toast
-    snackbar.error(
-      err instanceof ApiError ? err : err instanceof Error ? err.message : t('assLoadFailed'),
-    )
+  } catch {
+    sending.value = false
   } finally {
+    abortCtrl.value = null
     sending.value = false
     await scrollBottom()
+  }
+}
+
+async function onApprove(item: ChatItem & { kind: 'confirmation' }, trustTool: boolean) {
+  item.status = 'decided'
+  item.result = { approved: true } // 乐观显示，等服务器 confirmation_decision 收敛
+  try {
+    await confirmTool(item.confirmation.token, 'approve', trustTool)
+  } catch {
+    snackbar.error(t('confirmFailed'))
+    item.status = 'pending'
+    item.result = undefined
+  }
+}
+
+async function onReject(item: ChatItem & { kind: 'confirmation' }) {
+  item.status = 'decided'
+  item.result = { approved: false }
+  try {
+    await confirmTool(item.confirmation.token, 'decline')
+  } catch {
+    snackbar.error(t('confirmFailed'))
+    item.status = 'pending'
+    item.result = undefined
   }
 }
 

@@ -1461,8 +1461,10 @@ describe('AiService', () => {
         chunks.push(chunk);
       }
 
-      // 导航路径只产出 text「已为您跳转到设置」+ done，不调用 provider.stream
+      // 导航路径只产出 navigate + text「已为您跳转到设置」+ done，不调用 provider.stream
       expect(mockProvider.stream).not.toHaveBeenCalled();
+      const navChunk = chunks.find((c) => c.type === 'navigate');
+      expect(navChunk?.route).toBe('/settings');
       const texts = chunks.filter((c) => c.type === 'text').map((c) => c.content);
       expect(texts[0]).toContain('跳转');
     });
