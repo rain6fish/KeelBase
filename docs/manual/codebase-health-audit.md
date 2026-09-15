@@ -155,7 +155,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 **两处生产代码改动**（均带回归锁，非纯测试）：`app.module` 抽取 `buildTypeOrmOptions`、`condition.node` 删死分支 + 类型收窄。
 
 **测试侧待办**：
-- [ ] **⑨ `ai.service.spec.ts` 拆分**（2026-09-14 记，**待该文件稳定后再做**）——当前 **2468 行**，且并发会话正在改（有未提交改动）；大文件重排 + 共享 mock 状态会与之冲突，**风险 > 收益**。待 ai 模块并发收口后，按子域拆（chat / stream / tools / memory / confirmations / approvals），共享 setup 提为 helper。
+- [ ] **⑨ `ai.service.spec.ts` 拆分**（2026-09-14 记；2026-09-15 **触发条件收紧为三条**）——当前 **2533 行**。**触发 = 三条全满足**：① 该文件工作树干净（✅ 已满足）② **相邻 authz/casl 工作流已提交收口**（`src/authz/`、`builtin-role-rules.ts`、`AddRolesPermissions`/`AddDeptIdToTodosEvents` 迁移、casl/scope/events/todos 改动——该线涉及 AI 工具授权，很可能要改本 spec）③ **不在发版窗口内**（B 段历史改写 + v1.0.10 发版优先）。**仅"文件干净"不够**——大文件重排 + 共享 mock 状态与在途工作冲突的返工成本高。触发后按子域拆（chat / stream / tools / memory / confirmations / approvals），共享 setup 提为 helper。
 - [ ] ⑥ 剩余零散分支：`flows/node-registry`、`flow-definition.schema`、若干 entity/dto 的装饰器分支（价值低，可忽略）。
 
 > 每次阶段执行后在此追加记录（比照 release-precheck 执行记录惯例）。
