@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AbilityBuilder, createMongoAbility, MongoAbility } from '@casl/ability';
 import { UserRole } from '../entities/user.entity';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { BUILTIN_ROLE_RULES, RoleRuleSource, type RoleRuleSeed } from './builtin-role-rules';
 
 export type Action =
   | 'manage'
@@ -46,43 +47,29 @@ function normalizeActions(ruleAction: string | string[]): string[] {
 
 @Injectable()
 export class CaslAbilityFactory {
+  /** 可选注入：数据驱动的规则来源（权限-2 Step 2）。缺席 = 用内置常量（单元测试 / 加载失败）。 */
+  constructor(@Optional() private readonly registry?: RoleRuleSource) {}
+  /**
+   * 该角色的规则来源：**注册表优先（数据驱动），缺席则回退内置常量**。
+   * 回退保证两件事：① 单元测试的无参构造 `new CaslAbilityFactory()` 行为不变；
+   * ② 注册表加载失败时不至于无人可用（fail-safe 到内置规则，绝不 fail-open 到无规则）。
+   */
+  private _rulesFor(role: string): RoleRuleSeed[] {
+    const fromRegistry = this.registry?.rulesFor(role);
+    if (fromRegistry && fromRegistry.length > 0) return fromRegistry;
+    return BUILTIN_ROLE_RULES.filter((r) => r.roleCode === role);
+  }
+
   createForUser(user: JwtPayload): AppAbility {
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
-    if (user.role === UserRole.ADMIN) {
-      can('manage', 'all');
-    } else {
-      can('manage', 'User', { id: user.sub });
-      can('manage', 'Event', { userId: user.sub });
-      can('manage', 'Todo', { userId: user.sub });
-      // 注：组织级共享（同组织成员可读/管理待办）在 TodosService 层用 orgService 校验
-      // （JWT payload 不含 orgId，无法在此表达），此处保持本人所有权规则。
-      // AiConversation.userId 是 string UUID，JWT sub 是 number → 需转换
-      can('manage', 'AiConversation', { userId: String(user.sub) });
-      can('manage', 'UserMemory', { userId: String(user.sub) });
-      // AI CRM 旗舰应用：客户/订单/跟进/任务/风险 本人所有权
-      can('manage', 'CrmCustomer', { userId: user.sub });
-      can('manage', 'CrmOrder', { userId: user.sub });
-      can('manage', 'CrmActivity', { userId: user.sub });
-      can('manage', 'CrmTask', { userId: user.sub });
-      can('manage', 'CrmRisk', { userId: user.sub });
-      // AI Project Management 旗舰应用：项目/成员/里程碑/任务/风险 本人所有权
-      can('manage', 'PmProject', { userId: user.sub });
-      can('manage', 'PmMember', { userId: user.sub });
-      can('manage', 'PmMilestone', { userId: user.sub });
-      can('manage', 'PmTask', { userId: user.sub });
-      can('manage', 'PmRisk', { userId: user.sub });
-      // AI Approval 旗舰应用：审批请求/政策 本人所有权
-      can('manage', 'ApprovalRequest', { requesterId: user.sub });
-      can('manage', 'ApprovalPolicy', { userId: user.sub });
-      // keelbase init 生成模块（wireBackend 自动接线，勿手改：wire.mjs 会追加）
-      can('manage', 'Supplier', { userId: user.sub });
-      can('manage', 'Contract', { userId: user.sub });
-      // 早期生成模块（wire 当时未追加，手动补）：本人可管理（否则编辑/删除恒 403）
-      can('manage', 'Book', { userId: user.sub });
-      can('manage', 'Tag', { userId: user.sub });
-      can('manage', 'Note', { userId: user.sub });
-      can('manage', 'Post', { userId: user.sub });
+    for (const rule of this._rulesFor(user.role)) {
+      if (rule.ownerField == null) {
+        can('manage', rule.subject);
+        continue;
+      }
+      const value = rule.stringifyOwner ? String(user.sub) : user.sub;
+      can('manage', rule.subject, { [rule.ownerField]: value } as never);
     }
 
     return build();

@@ -164,7 +164,8 @@ side_effects:
 | 前端能力裁决（页面 / 菜单 / 按钮显隐） | ✅ 已实现（2026-09-15：消费 `GET /auth/me/permissions` 能力清单；roles 管壳 + 能力细门，见 `docs/web-front.spec.md` §4/§5） |
 | 重量级 RBAC 产品（Keycloak / Casbin / Shiro 等） | ⬜ **明确不做**（与差异化定位一致） |
 | 外置授权对接（OIDC 企业 SSO 已具备） | ⬜ 方向（按客户，待评估） |
-| 通用数据范围（本人 / 本部门 / 本部门及以下 / 组织 / 自定义） | ⚠️ **机制已实现**（2026-09-15：结构化 where 构造器 + `ancestors` 子树下钻 + 写入盖章；**级别来源仍为内建默认**，按角色配置待后续）——见 `docs/data-scope.spec.md` |
+| 通用数据范围（本人 / 本部门 / 本部门及以下 / 组织 / 自定义） | ✅ **已实现且可配置**（2026-09-15：结构化 where 构造器 + `ancestors` 子树下钻 + 写入盖章 + **按角色配置 `roles.data_scope`**）——见 `docs/data-scope.spec.md` |
+| 动态 RBAC 数据（`roles` / `permissions` / `role_permissions` / `user_roles`） | ✅ 表 + 种子已落地，`CaslAbilityFactory` 由**数据驱动**（`RoleRuleRegistry` 装配时载入内存，工厂保持同步）；**管理面未做**（权限-4） |
 
 ---
 

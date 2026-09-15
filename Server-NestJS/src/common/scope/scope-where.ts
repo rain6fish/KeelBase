@@ -26,8 +26,8 @@ export interface ScopeColumns {
  * 用 registry map 而非实体装饰器：一个可审阅的文件、实体零改动。
  */
 export const SCOPE_COLUMNS = {
-  Todo: { owner: 'userId', org: 'orgId' },
-  Event: { owner: 'userId', org: 'orgId' },
+  Todo: { owner: 'userId', org: 'orgId', dept: 'deptId' },
+  Event: { owner: 'userId', org: 'orgId', dept: 'deptId' },
   CrmCustomer: { owner: 'userId', org: 'orgId', dept: 'deptId' },
   PmProject: { owner: 'userId', org: 'orgId', dept: 'deptId' },
   ApprovalRequest: { owner: 'requesterId', org: 'orgId', dept: 'deptId' },

@@ -107,7 +107,7 @@ describe('TodosService', () => {
 
   describe('ORG-3 组织级隔离一致性（A3）', () => {
     const noAccessAbility = { cannot: () => true, can: () => false } as any;
-    let orgService: { getUserOrgId: jest.Mock };
+    let orgService: { getUserOrgContext: jest.Mock };
 
     const buildService = async () => {
       jest.clearAllMocks();
@@ -122,17 +122,17 @@ describe('TodosService', () => {
     };
 
     it('同组织成员可读他人待办（列表与明细一致）', async () => {
-      orgService = { getUserOrgId: jest.fn().mockResolvedValue(7) };
+      orgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 7, deptId: null }) };
       const s = await buildService();
       mockRepo.findOne.mockResolvedValue({ id: 2, userId: 99, orgId: 7 });
 
       const todo = await s.findOne(2, noAccessAbility, 5);
       expect(todo.id).toBe(2);
-      expect(orgService.getUserOrgId).toHaveBeenCalledWith(5);
+      expect(orgService.getUserOrgContext).toHaveBeenCalledWith(5);
     });
 
     it('跨组织成员访问他人待办被拒（cross-org 负向）', async () => {
-      orgService = { getUserOrgId: jest.fn().mockResolvedValue(8) };
+      orgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 8, deptId: null }) };
       const s = await buildService();
       mockRepo.findOne.mockResolvedValue({ id: 2, userId: 99, orgId: 7 });
 

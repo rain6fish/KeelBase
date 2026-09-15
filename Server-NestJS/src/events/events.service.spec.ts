@@ -154,14 +154,14 @@ describe('EventsService', () => {
 
     it('ORG-3: 同组织成员事件对用户可见（查询含 orgId 条件）', async () => {
       // 注入 mock OrgService（user 5 属于 org 3）
-      const mockOrgService = { getUserOrgId: jest.fn().mockResolvedValue(3) };
+      const mockOrgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 3, deptId: null }) };
       (service as any).orgService = mockOrgService;
       mockRepository.find.mockResolvedValue([{ ...mockEvent, userId: 9, orgId: 3 }]);
 
       const result = await service.getEventsForRange('2026-08-01', '2026-08-31', 5);
 
       expect(result).toHaveLength(1);
-      expect(mockOrgService.getUserOrgId).toHaveBeenCalledWith(5);
+      expect(mockOrgService.getUserOrgContext).toHaveBeenCalledWith(5);
       // 查询条件应包含 orgId: 3
       const findWhere = mockRepository.find.mock.calls[0][0].where;
       const hasOrgCond = JSON.stringify(findWhere).includes('orgId');

@@ -55,6 +55,10 @@ export class Event {
   @Column({ type: 'int', nullable: true, name: 'org_id' })
   orgId?: number | null;
 
+  /** 权限-2 数据范围：所属部门 id（null = 仅本人/同组织可见；写入时盖章） */
+  @Column({ type: 'int', nullable: true, name: 'dept_id' })
+  deptId?: number | null;
+
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user?: User;

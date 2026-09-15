@@ -12,6 +12,7 @@ import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
 import { defaultScopeDescriptor, type OrgContext } from '../common/scope/scope-policy';
 import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
+import { DataScopeService } from '../authz/data-scope.service';
 
 @Injectable()
 export class TodosService {
@@ -20,18 +21,27 @@ export class TodosService {
     private readonly todosRepository: Repository<Todo>,
     @Optional() private readonly orgService?: OrgService,
     @Optional() private readonly webhookPublisher?: WebhookPublisher,
+    @Optional() private readonly dataScope?: DataScopeService,
   ) {}
+
+  /** 权限-2：范围来源优先角色配置（DataScopeService），缺席回退内置默认（逐 subject 复刻旧行为） */
+  private async _scopeFor(userId: number) {
+    return this.dataScope
+      ? this.dataScope.resolve(userId, 'Todo')
+      : defaultScopeDescriptor(userId, 'Todo', await this._orgContext(userId));
+  }
 
   async create(dto: CreateTodoDto, userId: number): Promise<Todo> {
     // ORG-3 二期：创建时自动归属用户所属组织（同组织成员可见）
     // A11：组织内新待办强制共享是设计（「同组织成员可见」），暂无 per-todo 私有化 opt-out；
     // 非组织成员创建的不带 orgId，仅本人可见。
-    const orgId = await this._userOrgId(userId);
+    const ctx = await this._orgContext(userId);
     const todo = this.todosRepository.create({
       ...dto,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       userId,
-      orgId: orgId ?? undefined,
+      orgId: ctx?.orgId ?? undefined,
+      deptId: ctx?.deptId ?? undefined,
     });
     const saved = await this.todosRepository.save(todo);
     // PL-14：待办创建事件发布（订阅 todo.created 的 webhook 收到投递）
@@ -44,8 +54,8 @@ export class TodosService {
   }
 
   async findAll(userId: number): Promise<Todo[]> {
-    // 权限-2：行级数据范围（Step 1 默认级别 = ORG-3 语义「本人 OR 同组织」；无组织则仅本人）
-    const descriptor = defaultScopeDescriptor(userId, 'Todo', await this._orgContext(userId));
+    // 权限-2：行级数据范围（默认级别 = ORG-3 语义「本人 OR 同组织」；可按角色配置）
+    const descriptor = await this._scopeFor(userId);
     const where = (buildScopeWhere<Todo>(descriptor, 'Todo') ?? [{}]) as any;
     return this.todosRepository.find({
       where,
@@ -53,20 +63,14 @@ export class TodosService {
     });
   }
 
-  /** ORG-3：取用户所属组织 id（非成员或未注入 orgService 返回 null） */
-  private async _userOrgId(userId?: number): Promise<number | null> {
+  /** ORG-3 + 权限-2：用户的组织上下文（orgId + deptId）；非成员或未注入 orgService → null */
+  private async _orgContext(userId?: number): Promise<OrgContext | null> {
     if (!userId || !this.orgService) return null;
     try {
-      return await this.orgService.getUserOrgId(userId);
+      return await this.orgService.getUserOrgContext(userId);
     } catch {
       return null;
     }
-  }
-
-  /** 权限-2：用户的组织上下文（非成员或未注入 orgService → null） */
-  private async _orgContext(userId?: number): Promise<OrgContext | null> {
-    const orgId = await this._userOrgId(userId);
-    return orgId == null ? null : { orgId, deptId: null };
   }
 
   async findOne(id: number, ability: AppAbility, userId?: number): Promise<Todo> {
@@ -109,7 +113,7 @@ export class TodosService {
     if (ability.can('read', subject('Todo', todo))) return true;
     if (userId == null) return false;
     // 权限-2：范围扩展与列表 where 同源（消除「列表可见但明细 403」的半套隔离）
-    const descriptor = defaultScopeDescriptor(userId, 'Todo', await this._orgContext(userId));
+    const descriptor = await this._scopeFor(userId);
     return rowInScope(todo as unknown as Record<string, unknown>, descriptor, 'Todo');
   }
 }

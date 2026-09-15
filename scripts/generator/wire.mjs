@@ -127,14 +127,16 @@ export async function wireBackend(ctx, root = '') {
     );
   }
 
-  // 4) CaslAbilityFactory：生成模块 CASL 规则（本人所有权）——否则本人更新/删除 403
+  // 4) 生成模块的角色规则（本人所有权）——否则本人更新/删除 403。
+  //    权限-2 Step 2 起规则**数据驱动**：生成期无法向部署期 DB 种数据，故写「代码即配置」的
+  //    generated-role-rules.ts，由 RoleRuleRegistry 装配时并入内存注册表。
   results.push(
-    await applyFile(`${BE}/common/casl/casl-ability.factory.ts`, (c) =>
+    await applyFile(`${BE}/authz/generated-role-rules.ts`, (c) =>
       insertAfter(
         c,
-        `      can('manage', 'Todo', { userId: user.sub });`,
-        `\n      // keelbase init 生成模块\n      can('manage', '${ctx.singlePascal}', { userId: user.sub });`,
-        `can('manage', '${ctx.singlePascal}'`,
+        `export const GENERATED_ROLE_RULES: RoleRuleSeed[] = [`,
+        `\n  // keelbase init 生成模块\n  { roleCode: 'user', subject: '${ctx.singlePascal}', ownerField: 'userId' },`,
+        `subject: '${ctx.singlePascal}'`,
       ),
     ),
   );

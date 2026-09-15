@@ -15,6 +15,7 @@ import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
 import { defaultScopeDescriptor, type OrgContext } from '../common/scope/scope-policy';
 import { buildScopeWhere } from '../common/scope/scope-where';
+import { DataScopeService } from '../authz/data-scope.service';
 
 const EVENT_CACHE_TTL_MS = 60 * 1000;
 
@@ -45,17 +46,26 @@ export class EventsService {
     @Optional() @InjectQueue('reminder') private readonly reminderQueue: Queue | null,
     @Optional() private readonly orgService?: OrgService,
     @Optional() private readonly webhookPublisher?: WebhookPublisher,
+    @Optional() private readonly dataScope?: DataScopeService,
   ) {}
 
+  /** 权限-2：范围来源优先角色配置（DataScopeService），缺席回退内置默认（逐 subject 复刻旧行为） */
+  private async _scopeFor(userId: number) {
+    return this.dataScope
+      ? this.dataScope.resolve(userId, 'Event')
+      : defaultScopeDescriptor(userId, 'Event', await this._orgContext(userId));
+  }
+
   async create(dto: CreateEventDto, userId: number): Promise<Event> {
-    // ORG-3：创建时自动归属用户所属组织（同组织成员可见）
-    const orgId = await this._userOrgId(userId);
+    // ORG-3 + 权限-2：创建时归属用户所属组织与部门（供组织/部门数据范围过滤）
+    const ctx = await this._orgContext(userId);
     const event = this.eventsRepository.create({
       ...dto,
       startTime: new Date(dto.startTime),
       endTime: new Date(dto.endTime),
       userId,
-      orgId: orgId ?? undefined,
+      orgId: ctx?.orgId ?? undefined,
+      deptId: ctx?.deptId ?? undefined,
     });
     const saved = await this.eventsRepository.save(event);
     await this.cacheService.delByPrefix('events:');
@@ -159,12 +169,12 @@ export class EventsService {
   }
 
   async getEventsForRange(start?: string, end?: string, userId?: number): Promise<Event[]> {
-    // 权限-2：行级数据范围（Step 1 默认级别 = ORG-3 语义「本人 OR 同组织」）
-    const ownership: Array<Record<string, unknown>> = userId
-      ? ((buildScopeWhere<Record<string, unknown>>(
-          defaultScopeDescriptor(userId, 'Event', await this._orgContext(userId)),
-          'Event',
-        ) ?? []) as Array<Record<string, unknown>>)
+    // 权限-2：行级数据范围（默认级别 = ORG-3 语义「本人 OR 同组织」；可按角色配置）
+    const descriptor = userId ? await this._scopeFor(userId) : null;
+    const ownership: Array<Record<string, unknown>> = descriptor
+      ? ((buildScopeWhere<Record<string, unknown>>(descriptor, 'Event') ?? []) as Array<
+          Record<string, unknown>
+        >)
       : [];
 
     const where: any[] = [...ownership];
@@ -188,20 +198,14 @@ export class EventsService {
     });
   }
 
-  /** ORG-3：取用户所属组织 id（非成员或未注入 orgService 返回 null） */
-  private async _userOrgId(userId?: number): Promise<number | null> {
+  /** ORG-3 + 权限-2：用户的组织上下文（orgId + deptId）；非成员或未注入 orgService → null */
+  private async _orgContext(userId?: number): Promise<OrgContext | null> {
     if (!userId || !this.orgService) return null;
     try {
-      return await this.orgService.getUserOrgId(userId);
+      return await this.orgService.getUserOrgContext(userId);
     } catch {
       return null;
     }
-  }
-
-  /** 权限-2：用户的组织上下文（非成员或未注入 orgService → null） */
-  private async _orgContext(userId?: number): Promise<OrgContext | null> {
-    const orgId = await this._userOrgId(userId);
-    return orgId == null ? null : { orgId, deptId: null };
   }
 
   async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {

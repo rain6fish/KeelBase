@@ -164,7 +164,8 @@ side_effects:
 | Frontend capability gating (page / menu / button visibility) | ✅ Implemented (2026-09-15: consumes the `GET /auth/me/permissions` capability list; roles keep the shell, capability is the finer gate — see `docs/web-front.spec.md` §4/§5) |
 | Heavyweight RBAC products (Keycloak / Casbin / Shiro, etc.) | ⬜ **Explicitly not doing** (consistent with differentiation positioning) |
 | External authorization integration (OIDC enterprise SSO available) | ⬜ Direction (per customer, under evaluation) |
-| Generic data scope (own / own dept / own dept and below / org / custom) | ⚠️ **Mechanism implemented** (2026-09-15: structural where-builder + `ancestors` subtree drill-down + write-time stamping; **the level source is still the built-in default** — per-role configuration is a later step) — see `docs/data-scope.spec.md` |
+| Generic data scope (own / own dept / own dept and below / org / custom) | ✅ **Implemented and configurable** (2026-09-15: structural where-builder + `ancestors` subtree drill-down + write-time stamping + **per-role configuration via `roles.data_scope`**) — see `docs/data-scope.spec.md` |
+| Dynamic RBAC data (`roles` / `permissions` / `role_permissions` / `user_roles`) | ✅ Tables + seed landed; `CaslAbilityFactory` is now **data-driven** (`RoleRuleRegistry` loaded into memory at boot, the factory stays synchronous); **admin UI not built** (权限-4) |
 
 ---
 
