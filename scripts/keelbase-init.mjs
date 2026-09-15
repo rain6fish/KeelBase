@@ -34,7 +34,7 @@ import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
 import { parseSqlDdl } from './generator/import-schema.mjs';
 import { parseYaml } from './generator/yaml.mjs';
-import { writeManifest, writeModuleProvenance } from './generator/manifest.mjs';
+import { readManifest, writeManifest, writeModuleProvenance } from './generator/manifest.mjs';
 
 const C = {
   reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', cyan: '\x1b[36m', dim: '\x1b[2m',
@@ -411,13 +411,22 @@ async function main() {
   // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）
   const beDir = `Server-NestJS/src/${ctx.plural}`;
   if (!args.dryRun && (await exists(beDir))) {
-    if (args.force) {
+    // 生成产物判据：模块须在 .keelbase/manifest.json（源头身份）中 → 才是本生成器产物。
+    // 既有/手写模块不在 manifest（如 events/todos/users/crm）——即使 --force 也拒绝，防覆盖手写实现
+    // （2026-09-15 扫查实证：--force --spec specs/events.json 把手写 events.service.ts 286→64 行）。
+    const manifest = await readManifest();
+    const generated = Array.isArray(manifest?.modules) && manifest.modules.includes(ctx.plural);
+    if (!generated) {
+      fail(
+        `目录已存在且非本生成器产物：${beDir}（模块 ${ctx.plural} 不在 .keelbase/manifest.json）——疑似手写/既有模块，拒绝覆盖（--force 亦不覆盖，防丢代码）；请改用其它模块名。`,
+      );
+    } else if (args.force) {
       console.log(
-        `${C.yellow}⚠ 目录已存在：${beDir}（${args.force ? '--force 覆盖生成' : ''}）——将重写生成文件，接线幂等跳过${C.reset}`,
+        `${C.yellow}⚠ 目录已存在：${beDir}（--force 覆盖生成；模块在 manifest 中=本生成器产物）——将重写生成文件，接线幂等跳过${C.reset}`,
       );
     } else {
       fail(
-        `目录已存在：${beDir}（模块 ${ctx.plural} 似乎已生成过；如确认覆盖请加 --force）`,
+        `目录已存在：${beDir}（模块 ${ctx.plural} 已生成过；如确认覆盖请加 --force）`,
       );
     }
   }

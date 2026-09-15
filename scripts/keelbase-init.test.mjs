@@ -796,6 +796,38 @@ test('端到端：目标文件撞名（模块目录缺失但工具文件已存�
   assert.match(kept, /occupied by flagship/);
 });
 
+test('端到端：--force 不覆盖非生成器产物（既有目录但不在 manifest）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  // 既有目录（模拟手写模块 posts）+ manifest 未登记 posts
+  await write(BE(root, 'posts/posts.service.ts'), '// hand-written\n');
+  const run = (extra = []) =>
+    new Promise((resolve) => {
+      const p = spawn(
+        process.execPath,
+        [cli, '--module', 'posts', '--label', '帖子', '--fields', 'title:string', ...extra],
+        { cwd: root },
+      );
+      let o = '';
+      p.stdout.on('data', (d) => (o += d));
+      p.stderr.on('data', (d) => (o += d));
+      p.on('close', (c) => resolve({ code: c, out: o }));
+    });
+  const refused = await run(['--force']);
+  assert.notEqual(refused.code, 0, `非生成产物 --force 应被拒绝，实际 exit=${refused.code}`);
+  assert.match(refused.out, /非本生成器产物|manifest/);
+  // 手写文件未被覆盖
+  assert.match(await readFile(BE(root, 'posts/posts.service.ts'), 'utf8'), /hand-written/);
+  // 登记为生成产物（manifest）后 → --force 允许
+  await write(
+    `${root}/.keelbase/manifest.json`,
+    JSON.stringify({ schema: 1, identity: 'keelbase-application', generatorVersion: '1.0', protocol: '1.0', modules: ['posts'] }),
+  );
+  const allowed = await run(['--force']);
+  assert.equal(allowed.code, 0, `manifest 登记的模块应允许 --force，实际 exit=${allowed.code}`);
+});
+
 test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () => {
   const root = await tempRoot();
   await makeFixtures(root);
