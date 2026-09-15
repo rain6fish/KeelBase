@@ -121,8 +121,8 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 
 **载体可替换的实证（2026-09-14）**：
 
-- **Java（真实第二载体）**：独立仓 `KeelBase4J`（Java 17 / Spring Boot）以自身实现复现**全部 5 份向量**（canonical / audit-hash / delegation / risk-level / governance-binding），**42/42 绿**（`CanonicalJsonTest` / `AuditChainTest` / `DelegationTokenTest` / `RiskLevelTest` / `GovernanceBindingTest`，不 import Node/KeelBase 源码；向量为 `conformance/vectors/` 的只读快照）。—— 这是 **CE-1「载体可替换」的首个实证**。
-- **Python（额外验证）**：`Server-NestJS/scripts/verify-protocol-conformance.py` 独立实现 §2.2/§2.3，§2 语料 **19/19 通过**；CI job `python-conformance`。作用 = **本仓内**的非 Node 常绿检查（Java 仓独立，其 conformance 不在本仓 CI）。
+- **Java（真实第二载体）**：独立仓 `KeelBase4J`（Java 17 / Spring Boot）以自身实现复现**全部 5 份向量**（canonical / audit-hash / delegation / risk-level / governance-binding），**42/42 绿**（`CanonicalJsonTest` / `AuditChainTest` / `DelegationTokenTest` / `RiskLevelTest` / `GovernanceBindingTest`，不 import Node/KeelBase 源码）。—— 这是 **CE-1「载体可替换」的首个实证**。
+- **跨仓语料单源**：Java 仓的 `conformance/vectors/` 是主仓 `specs/protocol/*-vector.json` 的**只读快照**（vendored）——**主仓语料一变，Java 快照即陈旧**，而两侧 CI 都看不见对方。检测：`node scripts/check-java-vector-sync.mjs`（本地 / 发布前；Java 仓路径经 `--java <dir>` 或 `KEELBASE_JAVA_REPO`；`--sync` 可把主仓向量同步过去）。
 
 ---
 
