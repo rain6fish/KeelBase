@@ -190,7 +190,7 @@ side_effects:
 
 ### 7.1 Component stack: CASL is the authorization core, not "Spring Security for Node"
 
-**Goal**: ordinary enterprise apps generated / run by KeelBase should carry the full **Page → Action → API → Row → Field** authorization chain, with **human and AI authorization entering the same Trust Runtime** (the L1–L5 plane in §2). The **capability must exist; a standalone RBAC product is not urgent** — consistent with this section's positioning (no Platform A-style platform); build order per §9.
+**Goal**: ordinary enterprise apps generated / run by KeelBase should carry the full **Page → Action → API → Row → Field** authorization chain, with **human and AI authorization entering the same Trust Runtime** (the L1–L5 plane in §2). The **capability must exist; a standalone RBAC product is not urgent** — consistent with this section's positioning (no comparable-scaffold-style platform); build order per §9.
 
 Authorization has two layers — the **security infrastructure below and the authorization semantics above stay apart**:
 
@@ -206,7 +206,7 @@ Authorization has two layers — the **security infrastructure below and the aut
 
 ---
 
-## 8. Empirical comparison: Platform A / Platform B (source-level)
+## 8. Empirical comparison: comparable enterprise scaffolds (source-level)
 
 > The "hygiene, not a selling point" judgement in §7 is compared against two mainstream Chinese enterprise scaffolds, **verifiably**. Evidence is taken from upstream source, not second-hand descriptions.
 
@@ -214,16 +214,16 @@ Authorization has two layers — the **security infrastructure below and the aut
 
 | Capability | Platform A | Platform B |
 |---|---|---|
-| Page/menu + button | **One `menu table` table**: `menu_type`=`M dir / C menu / F button`, `perms`=permission string, `path`/`component`=route | **One `sys_permission` table**: `menuType`=`0 top menu / 1 sub-menu / 2 button`, `perms`, `component`/`url` |
-| Button authorization | Hand-written `a string-based permission check(...)` string match (class comment: "Platform A's original custom permission implementation") | Same shape, self-implemented |
-| Data row | `the data-scope aspect` (AOP) **builds SQL**: all / custom / own dept / own dept and below / self only (**role-level** `data_scope` enum) | `the permission-data aspect` (AOP) + `the data-rule table` (field + condition + value, **rule attached to the menu**, configured visually in the UI) |
+| Page/menu + button | **Menu and button in one table**: `menu_type` distinguishes dir/menu/button, `perms` permission string, route fields | **Permission and button in one table**: `menuType` distinguishes top menu / sub-menu / button, `perms`, route fields |
+| Button authorization | Hand-written string-based permission matching (own string check API; class comment calls it "original") | Same shape, self-implemented |
+| Data row | AOP aspect that **builds SQL**: all / custom / own dept / own dept and below / self only (**role-level** enum) | AOP aspect + "rule attached to the menu" data-rule table (field + condition + value, configured visually in the UI) |
 | Field-level | **None** | **None** |
 
 **Three conclusions**
 
 1. **Nothing to buy**: both share Spring Security only for authentication and enforcement (the same layer KeelBase uses); the permission model for page/button/data-row is entirely hand-written code. So KeelBase building these three layers is "filling a gap", not "reinventing a wheel" — **self-implementation is simply how this class of capability is built**. §6's "explicitly not doing heavyweight RBAC products" means not building a **productized RBAC**, not declining the **capability**.
-2. **"Not becoming a Platform A-style platform" is empirically grounded**: field-level is **absent in both** — an industry-wide gap; if KeelBase only fills page/button/data-row, it becomes "an AI-ified Platform A". The difference must come from the chain in §1 / §5: human + agent dual authorization + risk confirmation + Audit + Revoke + cross-Runtime contract.
-3. **What to borrow**: Platform B's `the data-rule table` ("rule attached to the menu") is more expressive than Platform A's five-level enum and is a reference shape for "configure data scope per delivery"; but its **AOP injection + query-side SQL concatenation** must, in KeelBase, be **structured** (scope descriptors, e.g. the frozen `org-membership-scope`) rather than concatenated SQL strings — avoiding an injection surface and preserving Explainable.
+2. **"Not becoming a comparable scaffold-style platform" is empirically grounded**: field-level is **absent in both** — an industry-wide gap; if KeelBase only fills page/button/data-row, it becomes "an AI-ified version of such a platform". The difference must come from the chain in §1 / §5: human + agent dual authorization + risk confirmation + Audit + Revoke + cross-Runtime contract.
+3. **What to borrow**: Platform B's "rule attached to the menu" data-rule table is more expressive than Platform A's five-level enum and is a reference shape for "configure data scope per delivery"; but its **AOP injection + query-side SQL concatenation** must, in KeelBase, be **structured** (scope descriptors, e.g. the frozen `org-membership-scope`) rather than concatenated SQL strings — avoiding an injection surface and preserving Explainable.
 
 ---
 

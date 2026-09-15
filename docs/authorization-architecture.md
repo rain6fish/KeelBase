@@ -212,24 +212,24 @@ Authorization has two layers — the **security infrastructure below and the aut
 
 ---
 
-## 8. 对照实证：Platform A / Platform B（源码级）
+## 8. 对照实证：同类企业脚手架（源码级）
 
 > §7「hygiene 非卖点」这一判断，用两家中国主流企业脚手架做**可核查**的对照。证据取自上游源码，非二手描述。
 
 **关键发现：页面 / 按钮 / 数据行三层，两家都是各自手写的私有实现，没有现成库。**
 
-| 能力 | Platform A | Platform B |
+| 能力 | 平台 A | 平台 B |
 |---|---|---|
-| 页面/菜单 + 按钮 | **同一张 `menu table`**：`menu_type`=`M目录/C菜单/F按钮`、`perms`=权限标识、`path`/`component`=路由 | **同一张 `sys_permission`**：`menuType`=`0一级/1子菜单/2按钮权限`、`perms`、`component`/`url` |
-| 按钮判权 | 手写 `a string-based permission check(...)` 字符串匹配（类注释："Platform A首创 自定义权限实现"） | 同构自实现 |
-| 数据行 | `the data-scope aspect`（AOP）**拼 SQL**：全部 / 自定义 / 本部门 / 本部门及以下 / 仅本人（**角色级** `data_scope` 枚举） | `the permission-data aspect`（AOP）+ `the data-rule table`（字段+条件+值，**规则挂菜单**、前端可视化配） |
+| 页面/菜单 + 按钮 | **菜单与按钮同一张表**：`menu_type` 区分目录/菜单/按钮、`perms` 权限标识、路由字段 | **权限与按钮同一张表**：`menuType` 区分一级/子菜单/按钮、`perms`、路由字段 |
+| 按钮判权 | 手写字符串式权限标识匹配（自有字符串校验 API，类注释自称"首创"） | 同构自实现 |
+| 数据行 | AOP 切面**拼 SQL**：全部 / 自定义 / 本部门 / 本部门及以下 / 仅本人（**角色级**枚举） | AOP 切面 + 「规则挂菜单」式数据规则表（字段+条件+值，前端可视化配置） |
 | 字段级 | **无** | **无** |
 
 **三条结论**
 
 1. **没有现成库可买**：两家**仅为认证与强制点共用 Spring Security**（与 KeelBase 同层），页面/按钮/数据行的权限模型全是自写代码。故 KeelBase 做这三层是"补齐"而非"重复造轮子"——**这类能力本来的实现方式就是自建**。§6 的"明确不做重量级 RBAC 产品"指的是不做**产品化的 RBAC**，不是不做**能力**。
 2. **"不做同类脚手架式平台"有实证支撑**：字段级**两家皆无**——该层是全行业空缺；若 KeelBase 只补页面/按钮/数据行，即成为"同类平台的 AI 化版本"。差异必须来自 §1 / §5 的那条链：人机双权限 + 风险确认 + Audit + Revoke + 跨 Runtime 契约。
-3. **可借鉴**：Platform B 的 `the data-rule table`「规则挂菜单」比 Platform A 的 5 档枚举表达力强，是"按项目交付配置数据范围"的参考形状；但其 **AOP 注入 + 查询侧拼 SQL** 的做法，KeelBase 须**结构化**（scope 描述子，如已冻结的 `org-membership-scope`），不拼 SQL 串——避免注入面、保住 Explainable。
+3. **可借鉴**：平台 B 的「规则挂菜单」式数据规则表比平台 A 的 5 档枚举表达力强，是"按项目交付配置数据范围"的参考形状；但其 **AOP 注入 + 查询侧拼 SQL** 的做法，KeelBase 须**结构化**（scope 描述子，如已冻结的 `org-membership-scope`），不拼 SQL 串——避免注入面、保住 Explainable。
 
 ---
 

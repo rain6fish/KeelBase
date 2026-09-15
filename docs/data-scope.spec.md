@@ -19,7 +19,7 @@
 
 ## 2. 结构化 where，不拼 SQL
 
-范围以**内部描述子**表达，由纯函数翻译成 TypeORM where 对象——**不产 SQL 串**（避免注入面、保住可解释性）。对照：同类/Platform B 用 AOP 注入 + 查询侧拼串；本实现取思路、弃实现。
+范围以**内部描述子**表达，由纯函数翻译成 TypeORM where 对象——**不产 SQL 串**（避免注入面、保住可解释性）。对照：同类企业脚手架用 AOP 注入 + 查询侧拼串；本实现取思路、弃实现。
 
 Scope is expressed as an **internal descriptor** translated by a pure function into a TypeORM where object — **never a SQL string** (no injection surface, explainability preserved).
 

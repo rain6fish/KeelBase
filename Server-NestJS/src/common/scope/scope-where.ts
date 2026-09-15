@@ -7,7 +7,7 @@ import type { ScopeDescriptor } from './scope.types';
  * 权限-2 通用数据范围 · 结构化 where 构造。
  *
  * **只产 TypeORM where 对象，不拼 SQL 串**——避免注入面，保住可解释性。
- * （对照：同类/Platform B 用 AOP 注入 + 查询侧拼串；这里取思路、弃实现。）
+ * （对照：同类企业脚手架用 AOP 注入 + 查询侧拼串；这里取思路、弃实现。）
  */
 
 /** 实体在数据范围中的列映射 */
