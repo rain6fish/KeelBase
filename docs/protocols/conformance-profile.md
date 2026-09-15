@@ -119,9 +119,10 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 
 > 参考 runner（`Server-NestJS/scripts/verify-protocol-conformance.mjs`）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
 
-**已落地的第二语言实现（2026-09-14）**：`Server-NestJS/scripts/verify-protocol-conformance.py` —— **Python 独立实现**协议 §2.2/§2.3（**不 import 任何 KeelBase/Node 源码**），消费 `canonical-json-v1-vector.json` + `audit-hash-v1-vector.json`，**19/19 通过**（含 `JSON.stringify` replacer 的**嵌套键过滤怪癖**、ECMAScript 数字格式 `-0→0`/`1e+21`、UTF-16 键排序、链校验/篡改/密钥轮换/密钥域分离）。
+**载体可替换的实证（2026-09-14）**：
 
-> 这是 **③「载体可替换」的首个算法层实证**：审计链（治理核心）的语义已证明可被**非 TS 实现逐 case 复现**。CI job `python-conformance` 常绿守护（§3 委托 token / §4 风险分级可循同模式补全）。
+- **Java（真实第二载体）**：独立仓 `KeelBase4J`（Java 17 / Spring Boot）以自身实现复现**全部 5 份向量**（canonical / audit-hash / delegation / risk-level / governance-binding），**42/42 绿**（`CanonicalJsonTest` / `AuditChainTest` / `DelegationTokenTest` / `RiskLevelTest` / `GovernanceBindingTest`，不 import Node/KeelBase 源码；向量为 `conformance/vectors/` 的只读快照）。—— 这是 **CE-1「载体可替换」的首个实证**。
+- **Python（额外验证）**：`Server-NestJS/scripts/verify-protocol-conformance.py` 独立实现 §2.2/§2.3，§2 语料 **19/19 通过**；CI job `python-conformance`。作用 = **本仓内**的非 Node 常绿检查（Java 仓独立，其 conformance 不在本仓 CI）。
 
 ---
 
