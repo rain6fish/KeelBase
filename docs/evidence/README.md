@@ -124,6 +124,23 @@
 - **国密 SM2 + 可信时间锚（规格先行，未实现）**：证据包签名从对称 HMAC 扩展到非对称 **SM2（SM2-with-SM3）**——第三方持公钥离线独立验签，配定期根锚 + 可选 RFC3161 时间戳（法律级可举证；信创/等保弹药）。算法与格式已冻结于 [`docs/evidence-root.spec.md`](../evidence-root.spec.md) §11（防返工）；实现触发 = 密评客户 / 首个等保现场。
 - **文档**：A-6（执行记录）。**信任边界与威胁模型**（本目录证据的"不承诺"边界源，N-1/N-2/N-3）：[docs/security/threat-model.md](../security/threat-model.md) · [EN](../security/threat-model-en.md) · [SECURITY.md Not-a-*](../../SECURITY.md)。
 
+### 2.8 审计交付物：离线自包含 HTML 报告（D-1 / D-2，roadmap §22.18）
+
+- **声明**：把**机器可验**的证据（JSON + 离线验签脚本）转成**审计员双击即读、可打印归档**的单文件 HTML——**不新增证据事实**，只做聚合 / 呈现 / 打包；报告由**被验物**在审阅侧产出，服务端不进可信链。
+- **D-2 单动作证据报告**：由证据包（`keelbase-audit-evidence/1|2|3`）渲染**单动作**报告（结论 / 封面 / 摘要 / 授权依据 / 决策 / 副作用 / 链行 / 根锚 / 签名 / 验证步骤 / 诚实边界，默认中英并列）：
+  ```bash
+  cd Server-NestJS
+  node scripts/verify-evidence.mjs <pkg.json> --format=html --out report.html   # 默认 json 行为不变
+  ```
+- **D-1 期间审计报告**：由 `GET /audit/action-report/export` 产物（`keelbase-audit-evidence/2`）渲染**期间**报告——七问（谁 / 何时 / 做了什么 / 为什么 / 凭什么被允许 / 结果 / 可否独立验证）+ 期间摘要 + 动作构成 + **逐条动作索引**（每条**链接**到该动作的 D-2 报告）：
+  ```bash
+  cd Server-NestJS
+  node scripts/render-period-report.mjs <export.json> [--key <AUDIT_HMAC_KEY>] [--lang zh|en] --out report.html
+  ```
+- **边界（报告内固定声明）**：明细为样本（显式打印「明细样本 N / 总数 M」）；无 `--key` 为结构验证（**未重算**）；尾行截断不可检（需外部锚 = D-4）；「tamper-evident（应用边界内）」非「物理不可改」。
+- **零外链 / 零依赖**：CSS 内联、无 `<script src>` / 远程字体图片 / `fetch`；仅 Node 内置，**无新增 npm 依赖**。测试：`npm run cli:test`（根 `scripts/*.test.mjs`）。
+- **文档**：[`docs/evidence-report.spec.md`](../evidence-report.spec.md)（D-2）· [`docs/period-audit-report.spec.md`](../period-audit-report.spec.md)（D-1）。
+
 ---
 
 ## 3. Trust（信任）能力证据

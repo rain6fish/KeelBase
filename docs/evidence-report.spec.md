@@ -2,7 +2,7 @@
 
 > 版本 / Version: v1.0（定稿 / Finalized）
 > 日期 / Date: 2026-09-12
-> 状态 / Status: **定稿（设计先行）** —— 落地在 1.1 后（对齐 roadmap §22.18 D-2）；三项开口问题已决议（见 §10）
+> 状态 / Status: **已实现（2026-09-15）** —— `verify-evidence.mjs --format=html`；渲染件抽为 `scripts/lib/evidence-report-html.mjs`（D-1 复用之，见 §10-3）；三项开口问题已决议（见 §10）
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做呈现/打包）
 
 > 基于 / Based on：证据根 v3（`keelbase-audit-evidence/3`）— docs/evidence-root.spec.md；离线验证器 `Server-NestJS/scripts/verify-evidence.mjs`（结构 / `--key` 全量两模式）。

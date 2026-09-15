@@ -17,20 +17,29 @@
  *
  * 只 import Node 内置（crypto/fs/path），独立实现协议算法，与参考实现无关。
  *
- * 用法：node scripts/verify-evidence.mjs <evidence.json> [--key <key>]
- * 输出：stdout 报告；docs/benchmark/evidence-verify-<ts>.json + .md
+ * 用法：node scripts/verify-evidence.mjs <evidence.json> [--key <key>] [--format=json|html] [--lang zh|en] [--out <file>]
+ * 输出：stdout 报告；docs/benchmark/evidence-verify-<ts>.json + .md（默认 json）。
+ *   --format=html：由证据包生成**单文件自包含 HTML 报告**（交付物层 D-2，docs/evidence-report.spec.md）——
+ *   渲染件复用 scripts/lib/evidence-report-html.mjs；默认 json 行为不变。
  */
 import { createHmac, createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderHtml } from './lib/evidence-report-html.mjs';
+import { parseArgs, keysFromFlags, langFromFlags } from './lib/cli-args.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const [,, fileArg, keyFlag, keyValue] = process.argv;
-const keys = keyFlag === '--key' ? String(keyValue ?? '').split(',').filter(Boolean) : [];
+
+const { positional, flags } = parseArgs(process.argv.slice(2));
+const fileArg = positional[0];
+const keys = keysFromFlags(flags);
+const formatOpt = flags.format === 'html' ? 'html' : 'json'; // 默认 json（与现状一致）
+const langOpt = langFromFlags(flags);
+const outOpt = typeof flags.out === 'string' && flags.out ? flags.out : null;
 
 if (!fileArg) {
-  console.error('用法：node scripts/verify-evidence.mjs <evidence.json> [--key <AUDIT_HMAC_KEY[,PREVIOUS...]>]');
+  console.error('用法：node scripts/verify-evidence.mjs <evidence.json> [--key <AUDIT_HMAC_KEY[,PREVIOUS...]>] [--format=json|html] [--lang zh|en] [--out <file>]');
   process.exit(1);
 }
 
@@ -69,6 +78,8 @@ let chainValid = false;
 let rowsCount = 0;
 let recomputed = 0;
 let sideAnchorOk = true;
+/** 失败定位（供 HTML 报告「断链 @ 行 N」；未失败为 undefined）。 */
+let brokenAt;
 
 if (!isV3) {
   const rows = ev.chain ?? [];
@@ -78,10 +89,11 @@ if (!isV3) {
 
   // 1. 结构验证（无需密钥）
   let structural = true;
-  if (rows.some((r, i) => r.seq !== i + 1)) { structural = false; bad('seq 沿 id 升序（1 起连续）', 'seq 断裂'); }
+  const seqBad = rows.findIndex((r, i) => r.seq !== i + 1);
+  if (seqBad > -1) { structural = false; brokenAt = rows[seqBad]?.seq ?? seqBad + 1; bad('seq 沿 id 升序（1 起连续）', 'seq 断裂'); }
   if (rows.some((r) => !/^[0-9a-f]{64}$/.test(r.hash ?? ''))) { structural = false; bad('每条 hash 为 64 hex', '含非法 hash'); }
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i].prevHash !== rows[i - 1].hash) { structural = false; bad('prevHash 连续', `断链@${rows[i].seq}：${rows[i].prevHash?.slice(0, 12) ?? 'null'} ≠ ${rows[i - 1].hash?.slice(0, 12)}`); break; }
+    if (rows[i].prevHash !== rows[i - 1].hash) { structural = false; brokenAt = rows[i].seq; bad('prevHash 连续', `断链@${rows[i].seq}：${rows[i].prevHash?.slice(0, 12) ?? 'null'} ≠ ${rows[i - 1].hash?.slice(0, 12)}`); break; }
   }
   if (structural) ok('链结构：seq 连续 + hash 64 hex + prevHash 连续', '可检测删行/换序/断链');
   if (rows.length && rows[0].prevHash != null) bad('首行 genesis（prevHash 为 null）', `实得 ${rows[0].prevHash}`);
@@ -98,7 +110,7 @@ if (!isV3) {
       recomputed++;
     }
     if (mismatchAt < 0) ok(`内容重算（--key）：${rows.length} 条 payload 重算全部匹配`, `密钥数=${keys.length}`);
-    else bad('内容重算（--key）', `seq ${mismatchAt} 重算不匹配（内容被篡改或密钥不符）`);
+    else { brokenAt = mismatchAt; bad('内容重算（--key）', `seq ${mismatchAt} 重算不匹配（内容被篡改或密钥不符）`); }
 
     // 3. 证据包签名验证
     if (ev.signature) {
@@ -154,7 +166,7 @@ else {
       recomputed++;
     }
     if (mismatch < 0) ok(`子链内容重算（--key）：${allRows.length} 行 payload 全部匹配`, 'aiAudit + operationAudit');
-    else bad('子链内容重算（--key）', `行 ${mismatch} 重算不匹配（内容被篡改或密钥不符）`);
+    else { brokenAt = mismatch; bad('子链内容重算（--key）', `行 ${mismatch} 重算不匹配（内容被篡改或密钥不符）`); }
 
     // side-effect 锚：effect 投影 canonical 摘要复现
     const sideAnchor = anchors.find((a) => a.kind === 'side-effect');
@@ -195,6 +207,19 @@ console.log(`\n═══ 验证结论：${verdict}（${passCount}/${cases.length
 console.log(chainValid
   ? (isV3 ? `证据根完整：锚自洽` + (keys.length ? ` + ${recomputed}/${rowsCount} 子链行重算一致` : '（未做内容重算）') : `链完整：结构连续` + (keys.length ? ` + ${recomputed}/${rowsCount} 内容重算一致` : '（未做内容重算）'))
   : '不完整：存在篡改/断链');
+
+// ── 交付物层 D-2（docs/evidence-report.spec.md）：--format=html 生成自包含 HTML 报告（默认 json 路径不变）──
+if (formatOpt === 'html') {
+  const html = renderHtml(
+    ev,
+    { ok: verdict === 'PASS', mode: keys.length ? 'full' : 'structure', brokenAt, rowsCount },
+    { lang: langOpt, pkgName: basename(fileArg) },
+  );
+  const outPath = outOpt ?? resolve(dirname(fileArg), `${basename(fileArg).replace(/\.[^.]+$/, '')}.report.html`);
+  writeFileSync(outPath, html);
+  console.log(`报告：${outPath}`);
+  process.exit(verdict === 'PASS' ? 0 : 1);
+}
 
 // 报告
 const elapsed = Date.now() - startMs;

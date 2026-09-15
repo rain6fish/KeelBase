@@ -2,7 +2,7 @@
 
 > 版本 / Version: v1.0（定稿 / Finalized）
 > 日期 / Date: 2026-09-12
-> 状态 / Status: **定稿（设计先行）** —— 落地在 1.1 后（对齐 roadmap §22.18 D-1）
+> 状态 / Status: **已实现（2026-09-15）** —— `scripts/render-period-report.mjs` + `scripts/lib/period-report-html.mjs`（复用 D-2 渲染件，见 §8/§10-3）
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做聚合/呈现/打包）
 
 > 基于 / Based on：既有 `GET /audit/action-report/export`（admin）产物 `ActionReportExport` —— `keelbase-audit-evidence/2`（report.summary/period/byAction/byDay/hashChain + compliance[] + chain[] + signature）。
