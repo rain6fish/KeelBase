@@ -119,6 +119,10 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 
 > 参考 runner（`Server-NestJS/scripts/verify-protocol-conformance.mjs`）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
 
+**已落地的第二语言实现（2026-09-14）**：`Server-NestJS/scripts/verify-protocol-conformance.py` —— **Python 独立实现**协议 §2.2/§2.3（**不 import 任何 KeelBase/Node 源码**），消费 `canonical-json-v1-vector.json` + `audit-hash-v1-vector.json`，**19/19 通过**（含 `JSON.stringify` replacer 的**嵌套键过滤怪癖**、ECMAScript 数字格式 `-0→0`/`1e+21`、UTF-16 键排序、链校验/篡改/密钥轮换/密钥域分离）。
+
+> 这是 **③「载体可替换」的首个算法层实证**：审计链（护城河核心）的语义已证明可被**非 TS 实现逐 case 复现**。CI job `python-conformance` 常绿守护（§3 委托 token / §4 风险分级可循同模式补全）。
+
 ---
 
 ## 5. 关联 / Related

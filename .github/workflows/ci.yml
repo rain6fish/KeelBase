@@ -211,6 +211,17 @@ jobs:
       - run: node Server-NestJS/scripts/generate-protocol-vectors.mjs --check
       - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
 
+  # 语言中性合规（第二语言实证，③「载体可替换」）：Python 独立实现协议 §2（不 import KeelBase/Node 源码），
+  # 消费同一 specs/protocol 语料——证明审计链语义可被非 TS 实现逐 case 复现。规格见 docs/protocols/conformance-profile.md。
+  python-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python Server-NestJS/scripts/verify-protocol-conformance.py
+
   # 术语单一真源闸（CE-1 C2，零依赖 node 内置，root 跑）：协议文档 + 对外文档无第二套表述/
   # 过度承诺词（审计哈希链不承诺不可篡改/不可抵赖、≠ 区块链）。词表 = docs/manual/product-language.md
   terminology-guard:
