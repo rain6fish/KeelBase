@@ -7,7 +7,12 @@
  * 设计为 Provider 无关，支持同步生成和流式生成两种模式。
  */
 
-import { ToolDefinition, AuthorizationCheck, AuthorizationReasons } from './tool.interface';
+import {
+  ToolDefinition,
+  AuthorizationCheck,
+  AuthorizationReasons,
+  ConfirmationImpact,
+} from './tool.interface';
 
 /** 发送给 LLM 的消息 */
 export interface ChatMessage {
@@ -69,6 +74,11 @@ export interface ConfirmationRequestData {
   arguments?: Record<string, unknown>;
   /** W5-⑦ Explainable Authz：为何需确认（风险级/策略/检查清单） */
   authorization?: AuthorizationReasons;
+  /**
+   * §22.17 ④ 影响预览：将执行几个写动作 / 涉及哪些对象类型（估计值）。
+   * 无可解析副作用对象时**省略**本字段（不发 0）。spec docs/impact-preview.spec.md。
+   */
+  impact?: ConfirmationImpact;
   /** R4 双人审批：'approval' = 已提交人工审批（operator 不阻塞）；缺省 = 本人即时确认（R3）；'run' = 一次授权整批（KB-5） */
   mode?: 'immediate' | 'approval' | 'run';
   /** KB-5：mode==='run' 时必有——runId 一次授权对应一组动作；runRisk = 批内最高 */

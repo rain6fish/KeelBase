@@ -66,6 +66,22 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   color: CupertinoTheme.of(context).primaryColor,
                 ),
               ),
+              // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象（估计值；后端省略则整行不渲染）
+              if (conf.impact != null && conf.impact!.targets.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${l10n.aiConfirmImpact(conf.impact!.actions)} · '
+                  '${conf.impact!.targets.map((t) => '${t.resultType} ×${t.count}').join('、')}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: CupertinoTheme.of(context)
+                        .textTheme
+                        .textStyle
+                        .color
+                        ?.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
               // KB-5 run 卡：整批动作列表 + 数量（一次授权）；run 卡隐藏 HS-6 信任勾选（per-tool 语义不被批内模糊）
               if (conf.isRun) ...[
                 const SizedBox(height: 6),

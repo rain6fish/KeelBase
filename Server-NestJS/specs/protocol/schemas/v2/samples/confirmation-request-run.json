@@ -1,0 +1,20 @@
+{
+  "token": "run-4f8a2c9e",
+  "mode": "run",
+  "impact": {
+    "actions": 3,
+    "targets": [
+      { "resultType": "crm_task", "count": 2 },
+      { "resultType": "contract", "count": 1 }
+    ]
+  },
+  "run": {
+    "runId": "run-4f8a2c9e",
+    "riskLevel": "R3",
+    "items": [
+      { "toolName": "create_followup_task", "summary": "创建跟进任务：跟进辰光逾期回款", "riskLevel": "R3" },
+      { "toolName": "create_followup_task", "summary": "创建跟进任务：回访蓝湾地产", "riskLevel": "R3" },
+      { "toolName": "create_contract", "summary": "创建合同：临海制造 2026 年度框架", "riskLevel": "R3" }
+    ]
+  }
+}

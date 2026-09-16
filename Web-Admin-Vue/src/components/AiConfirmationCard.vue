@@ -9,6 +9,12 @@
       <el-tag v-if="confirmation.mode === 'approval'" size="small" type="warning" effect="plain">{{ t('riskApproval') }}</el-tag>
     </div>
 
+    <!-- §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象（估计值，非承诺） -->
+    <div v-if="impactText" class="d-flex align-center ga-1 text-caption mb-2">
+      <AppIcon icon="mdi-chart-timeline-variant" size="16" color="var(--el-color-info)" />
+      <span>{{ impactText }}</span>
+    </div>
+
     <!-- KB-5 run 卡（mode==='run'）：整批动作列表 + runRisk 徽标，一次授权 / 整批跳过 -->
     <template v-if="isRun">
       <div class="d-flex align-center ga-2 mb-2">
@@ -105,6 +111,18 @@ const runRiskLabel = computed(() => {
 const runCountLabel = computed(() => {
   const n = runItems.value.length
   return t('confirmRunCount', { n })
+})
+
+/**
+ * §22.17 ④ 影响预览文案：动作数 + 对象类型分组。
+ * 对象类型按机器标识原样显示（不翻译）——与撤销 / 审计 / 证据页同一口径，避免分叉。
+ * 无 impact（后端无可解析对象时省略）→ 整行不渲染。
+ */
+const impactText = computed(() => {
+  const impact = props.confirmation.impact
+  if (!impact || impact.targets.length === 0) return ''
+  const targets = impact.targets.map((t) => `${t.resultType} ×${t.count}`).join('、')
+  return `${t('confirmImpact', { actions: impact.actions })} · ${targets}`
 })
 
 const hasArgs = computed(() => {

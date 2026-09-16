@@ -843,6 +843,8 @@ const zh = {
   riskApproval: '人工审批',
   riskBlocked: '阻断',
   confirmRunCount: '本次将执行 {n} 个操作',
+  // §22.17 ④ 影响预览：对象类型按机器标识原样显示，与撤销/审计口径一致
+  confirmImpact: '预计影响：{actions} 个写动作',
   // §internal.15(4) 治理策略可视化编辑：门控档位
   gateModeColumn: '生效门控档位',
   gateAuto: '自动',

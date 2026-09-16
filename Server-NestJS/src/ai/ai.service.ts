@@ -33,10 +33,12 @@ import {
   ToolResult,
   RISK_STRATEGY,
   AuthorizationDeniedError,
+  ConfirmationImpact,
   resolveRevokeClass,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor } from './tool-effects/write-effect-type';
+import { deriveWriteImpact } from './tool-effects/write-impact';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { GovernancePolicyService, effectiveGateMode } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
@@ -449,6 +451,16 @@ export class AiService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * §22.17 ④ 影响预览：待确认写动作 → 影响描述符（无可解析副作用对象时返回 null，
+   * 调用方据此**省略** impact 字段而非发 0）。spec docs/impact-preview.spec.md。
+   */
+  private _writeImpact(toolNames: string[]): ConfirmationImpact | null {
+    return deriveWriteImpact(
+      toolNames.map((toolName) => ({ toolName, isProxyWrite: this.isProxyTool(toolName) })),
+    );
   }
 
   // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
@@ -1369,11 +1381,13 @@ export class AiService {
             ttlSeconds * 1000,
             conversationId,
           );
+          const runImpact = this._writeImpact(aggregable.map((c) => c.name));
           yield {
             type: 'confirmation_request',
             confirmation: {
               token,
               mode: 'run',
+              ...(runImpact ? { impact: runImpact } : {}),
               run: {
                 runId: token,
                 riskLevel: runRisk,
@@ -1444,6 +1458,7 @@ export class AiService {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
               const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
+              const approvalImpact = this._writeImpact([tc.name]);
               yield {
                 type: 'confirmation_request',
                 confirmation: {
@@ -1452,6 +1467,7 @@ export class AiService {
                   summary: this.summarizeWriteTool(tc.name, parsed),
                   arguments: parsed,
                   mode: 'approval',
+                  ...(approvalImpact ? { impact: approvalImpact } : {}),
                   authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                 },
               };
@@ -1490,6 +1506,7 @@ export class AiService {
                   ttlSeconds * 1000,
                   conversationId,
                 );
+                const singleImpact = this._writeImpact([tc.name]);
                 yield {
                   type: 'confirmation_request',
                   confirmation: {
@@ -1497,6 +1514,8 @@ export class AiService {
                     toolName: tc.name,
                     summary: this.summarizeWriteTool(tc.name, parsed),
                     arguments: parsed,
+                    // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
+                    ...(singleImpact ? { impact: singleImpact } : {}),
                     // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
                     authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                   },

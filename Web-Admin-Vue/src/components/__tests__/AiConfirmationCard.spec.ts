@@ -36,6 +36,19 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
     expect(wrapper.text()).toContain('customerId')
   })
 
+  // §22.17 ④ 影响预览
+  it('impact → 渲染「预计影响：N 个写动作 · 对象类型 × 条数」', () => {
+    const wrapper = mountCard({ impact: { actions: 3, targets: [{ resultType: 'crm_task', count: 2 }, { resultType: 'contract', count: 1 }] } })
+    expect(wrapper.text()).toContain('预计影响：3 个写动作')
+    expect(wrapper.text()).toContain('crm_task ×2')
+    expect(wrapper.text()).toContain('contract ×1')
+  })
+
+  it('无 impact（后端省略）→ 不渲染影响行', () => {
+    const wrapper = mountCard()
+    expect(wrapper.text()).not.toContain('预计影响')
+  })
+
   it('批准 → emit approved(trustTool=false)', async () => {
     const wrapper = mountCard()
     const approve = wrapper.findAll('button').find((b) => b.text().includes('批准'))!

@@ -42,12 +42,13 @@
     },
     {
       "id": "confirmation-request",
-      "version": "v1",
-      "schema": "confirmation-request.schema.json",
-      "title": "ConfirmationRequestData（含 KB-5 run 聚合）",
-      "source": "src/ai/interfaces/llm-provider.interface.ts:57-80",
+      "version": "v2",
+      "schema": "confirmation-request-v2.schema.json",
+      "title": "ConfirmationRequestData（含 KB-5 run 聚合 + §22.17 ④ 影响预览 impact）",
+      "source": "src/ai/interfaces/llm-provider.interface.ts:64-84; src/ai/tool-effects/write-impact.ts",
       "samples": [
-        "schemas/v1/samples/confirmation-request.json"
+        "schemas/v2/samples/confirmation-request.json",
+        "schemas/v2/samples/confirmation-request-run.json"
       ]
     },
     {

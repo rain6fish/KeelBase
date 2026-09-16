@@ -842,6 +842,8 @@ const en: ZhDict = {
   riskApproval: 'Human approval',
   riskBlocked: 'Blocked',
   confirmRunCount: 'This will run {n} operation(s).',
+  // §22.17 impact preview: object types stay as machine identifiers, matching revoke/audit wording
+  confirmImpact: 'Estimated impact: {actions} write action(s)',
   // §internal.15(4) governance policy visual editing: gate mode
   gateModeColumn: 'Effective gate',
   gateAuto: 'Auto',

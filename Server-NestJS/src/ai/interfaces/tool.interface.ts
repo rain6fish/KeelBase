@@ -136,6 +136,22 @@ export class AuthorizationDeniedError extends Error {
 }
 
 /**
+ * 确认卡影响预览（§22.17 ④「级联撤销 / 业务补偿」的影响预览切片；spec docs/impact-preview.spec.md）。
+ * 写工具执行前告知将执行几个写动作、涉及哪些对象类型。**估计值，非承诺**。
+ * 对象类型取自副作用登记同一单源（`writeEffectTypeFor`），推导见 `src/ai/tool-effects/write-impact.ts`。
+ */
+export interface ConfirmationImpactTarget {
+  resultType: string;
+  count: number;
+}
+
+export interface ConfirmationImpact {
+  /** 写动作数；恒等于 targets 各 count 之和 */
+  actions: number;
+  targets: ConfirmationImpactTarget[];
+}
+
+/**
  * 工具权限元数据（HS-2）：AI 执行工具前的门控依据。
  * 仅服务端关切，不暴露给 LLM。
  */

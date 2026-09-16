@@ -105,6 +105,38 @@ class RunConfirmationItem {
       );
 }
 
+/// 影响预览中的一类对象（§22.17 ④）：resultType 为机器标识，与撤销/审计口径一致，不翻译。
+class ConfirmationImpactTarget {
+  final String resultType;
+  final int count;
+
+  const ConfirmationImpactTarget({required this.resultType, required this.count});
+
+  factory ConfirmationImpactTarget.fromJson(Map<String, dynamic> json) =>
+      ConfirmationImpactTarget(
+        resultType: json['resultType'] as String? ?? '',
+        count: (json['count'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// §22.17 ④ 影响预览（估计值，非承诺）：将执行几个写动作、涉及哪些对象类型。
+class ConfirmationImpact {
+  final int actions;
+  final List<ConfirmationImpactTarget> targets;
+
+  const ConfirmationImpact({required this.actions, this.targets = const []});
+
+  factory ConfirmationImpact.fromJson(Map<String, dynamic> json) => ConfirmationImpact(
+        actions: (json['actions'] as num?)?.toInt() ?? 0,
+        targets: [
+          if (json['targets'] is List)
+            ...(json['targets'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map(ConfirmationImpactTarget.fromJson),
+        ],
+      );
+}
+
 /// 待人工确认的 AI 写操作（来自 SSE confirmation_request 事件）
 /// KB-5：mode==='run' 时表示一次授权整批（runItems 多动作），token 即 runId。
 class PendingConfirmation {
@@ -119,6 +151,8 @@ class PendingConfirmation {
   final List<RunConfirmationItem> runItems;
   /// mode==='run' 时批级最高风险（spec §2.2 runRisk，用户据此做整批授权决定）；缺省空
   final String runRisk;
+  /// §22.17 ④ 影响预览；后端无可解析对象时省略（无该字段 → 卡片不渲染影响行）
+  final ConfirmationImpact? impact;
 
   const PendingConfirmation({
     required this.token,
@@ -129,6 +163,7 @@ class PendingConfirmation {
     this.mode = 'confirmation',
     this.runItems = const [],
     this.runRisk = '',
+    this.impact,
   });
 
   /// run 卡以 mode 为准（不因 runItems 为空退化成单动作卡——那会以空摘要误导用户，而批准仍放行整批）
@@ -403,6 +438,9 @@ class AiChatProvider extends ChangeNotifier {
             mode: mode,
             runItems: runItems,
             runRisk: runMap?['riskLevel'] as String? ?? '',
+            impact: c['impact'] is Map<String, dynamic>
+                ? ConfirmationImpact.fromJson(c['impact'] as Map<String, dynamic>)
+                : null,
           );
           _currentConfirmation = pending;
           if (_messages.isNotEmpty) {

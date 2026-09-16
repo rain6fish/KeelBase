@@ -999,6 +999,14 @@ describe('AiService', () => {
       expect(req?.mode).toBe('run');
       expect(req?.run?.items).toHaveLength(2);
       expect(req?.run?.riskLevel).toBe('R3');
+      // §22.17 ④ 影响预览：批内按对象类型分组（create_event→event、create_todo→todo）
+      expect(req?.impact).toEqual({
+        actions: 2,
+        targets: [
+          { resultType: 'event', count: 1 },
+          { resultType: 'todo', count: 1 },
+        ],
+      });
 
       confirmationStore.resolve(runToken!, '1', 'approve');
       const chunks = [];
@@ -1015,10 +1023,11 @@ describe('AiService', () => {
             c.confirmationDecision?.approved,
         ),
       ).toBe(true);
-      // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request 冻结契约
+      // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request **当前冻结契约**（v2：§22.17 ④ 加 impact；
+      // v1 冻结留档，当前版本以 registry 为准，防契约升版后绑定测试仍盯旧版）
       const cr = (
         JSON.parse(
-          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/confirmation-request.schema.json'), 'utf8'),
+          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v2/confirmation-request.schema.json'), 'utf8'),
         ) as {
           properties: Record<string, unknown> & {
             run: { properties: { items: { items: { properties: Record<string, unknown> } } } };
@@ -1186,6 +1195,11 @@ describe('AiService', () => {
       const second = await it.next();
       expect(second.value.type).toBe('confirmation_request');
       expect(second.value.confirmation?.toolName).toBe('create_event');
+      // §22.17 ④ 影响预览：单条确认也带影响描述符（create_event → event ×1）
+      expect(second.value.confirmation?.impact).toEqual({
+        actions: 1,
+        targets: [{ resultType: 'event', count: 1 }],
+      });
       expect(second.value.confirmation?.summary).toContain('创建事件：评审');
       // W5-⑦ Explainable Authz：确认请求携带为何需确认
       expect(second.value.confirmation?.authorization?.requiresConfirmation).toBe(true);

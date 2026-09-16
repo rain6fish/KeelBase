@@ -609,6 +609,8 @@ class AppLocalizations {
   String get aiConfirmRunWillExecute => _t('The AI will execute all of the following:', 'AI 将一次执行以下全部操作：');
   // spec §2.2/§2.5：run 卡须显示批级最高风险（runRisk），用户据此做整批授权决定
   String Function(String) get aiConfirmRunRisk => (String level) => _t('Batch risk: $level', '本批最高风险：$level');
+  /// §22.17 ④ 影响预览：写动作数；对象类型按机器标识追加，不翻译（与撤销/审计口径一致）
+  String Function(int) get aiConfirmImpact => (int n) => _t('Estimated impact: $n write action(s)', '预计影响：$n 个写动作');
   String get aiConfirmArgsTitle => _t('Details', '操作详情');
   // W5-⑦ Explainable Authz：确认卡展示「为何需确认」（风险级/策略/检查清单）
   String get aiAuthzTitle => _t('Authorization', '授权依据');

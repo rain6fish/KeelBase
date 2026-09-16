@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "confirmation-request-v2.schema.json",
+  "title": "AI Confirmation Request Data — v2",
+  "description": "SSE confirmation_request 的 data.confirmation 载荷（ConfirmationRequestData）。v2（§22.17 ④ 影响预览）：新增可选 `impact`——写工具执行前告知「将执行几个写动作 / 涉及哪些对象类型」，数据源与副作用登记同一单源（src/ai/tool-effects）。其余字段同 v1。v1 → schemas/v1/confirmation-request.schema.json（冻结历史）。**$id 用裸名（不带 v2/ 前缀）**：v1 孪生已占用裸名 `confirmation-request.schema.json`，而本 schema 需沿用 v1 的跨文件相对 $ref（authorization / risk-level-ref）——带斜杠的 $id 会把相对引用解析到不存在的 v2/ 下（先例：schemas/v2/evidence-package.schema.json 亦用裸 $id）。来源：src/ai/interfaces/llm-provider.interface.ts:64-84。",
+  "type": "object",
+  "required": ["token"],
+  "additionalProperties": false,
+  "properties": {
+    "token": { "type": "string", "minLength": 8 },
+    "toolName": { "type": "string" },
+    "summary": { "type": "string" },
+    "arguments": { "type": "object" },
+    "authorization": { "$ref": "authorization.schema.json" },
+    "mode": { "enum": ["immediate", "approval", "run"] },
+    "impact": { "$ref": "#/definitions/impact" },
+    "run": {
+      "type": "object",
+      "required": ["runId", "riskLevel", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "runId": { "type": "string", "minLength": 1 },
+        "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["toolName", "summary", "riskLevel"],
+            "additionalProperties": false,
+            "properties": {
+              "toolName": { "type": "string" },
+              "summary": { "type": "string" },
+              "riskLevel": { "$ref": "risk-level-ref.schema.json" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "impact": {
+      "description": "影响预览（估计值，非承诺）：写动作数与对象类型分组。只统计可解析副作用对象的写动作——无法解析者（review_approval_request / create_module 干跑）本就不产生可撤副作用，不计入。actions 恒等于 targets 各 count 之和。",
+      "type": "object",
+      "required": ["actions", "targets"],
+      "additionalProperties": false,
+      "properties": {
+        "actions": { "type": "integer", "minimum": 1 },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["resultType", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "resultType": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

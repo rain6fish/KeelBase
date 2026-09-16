@@ -52,6 +52,11 @@ export interface AiConfirmation {
   /** 'confirmation' = R3 本人即时确认；'approval' = R4 已提交人工审批；'run' = KB-5 一次授权整批 */
   mode?: 'confirmation' | 'approval' | 'run'
   authorization?: AiAuthorization
+  /** §22.17 ④ 影响预览：将执行几个写动作 / 涉及哪些对象类型（估计值；无可解析对象时后端省略） */
+  impact?: {
+    actions: number
+    targets: Array<{ resultType: string; count: number }>
+  }
   /** KB-5：mode==='run' 时必有——runId + runRisk + 逐条动作摘要 */
   run?: {
     runId: string
