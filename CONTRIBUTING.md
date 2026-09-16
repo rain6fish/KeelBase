@@ -95,6 +95,22 @@ feat(ai): add RAG query endpoint
 
 **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
+**Bilingual requirement**: every commit message is written in both English and Chinese, English
+first. The body is two separate paragraphs — English, then Chinese — and the two are never
+interleaved. The subject line may carry both languages:
+
+```
+feat(auth): reject replayed refresh tokens — 拒绝重放的 refresh token
+
+Track a jti on every issued refresh token and reject any token whose
+jti has already been consumed.
+
+为每个签发的 refresh token 记录 jti，已消费过的 jti 一律拒绝。
+```
+
+Do not switch between the languages inside a body paragraph (proper nouns, code identifiers and
+commands excepted).
+
 ---
 
 ## Pull Request Process

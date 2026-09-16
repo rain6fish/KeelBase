@@ -1194,21 +1194,28 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### 14.5 Git 提交消息规范（必须遵守）
 
-**每次 commit 消息必须中英双语**（v1.0.9 发版注释为范本）。格式：
+**Commit messages, release notes and code comments are bilingual. English comes first; the Chinese
+block follows as its own complete unit. Bodies are never interleaved — the title may be.**
+
+**每次 commit 消息必须中英双语，且英文在前、中文在后，正文各自成完整块（标题允许中英混排）。**
+（2026-09-16 定案；v1.0.9 之前的「中文在前 + 英文尾段」写法已作废）格式：
 
 ```
-<type>(<scope>): <中文摘要>
+<type>(<scope>): <English summary> — <中文摘要>      ← 标题：可中英混排，也可只写英文
+
+<English body: what changed / why>
 
 <中文正文：改了什么 / 为什么>
-
-<English summary paragraph.>          ← 空行后一段英文摘要——必须有
 ```
 
 - `type`：`feat` / `fix` / `docs` / `test` / `chore` / `refactor` …
-- **三要素缺一不可**：`type(scope):` + 中文摘要、中文正文、**空行后的英文段落**（最易漏，只写中文即违规）。
-- 中英分开、互不粘连；**禁止** `类型: 英文 — 中文` 同行混排。
+- **标题行**：`type(scope):` + 英文摘要；中文摘要可选，可 ` — ` 或 ` / ` 接在同一行（**混排仅限标题**）。
+- **正文必须两段**：先一整段英文，空行后一整段中文。**正文内禁止中英夹杂**——不得英文句子里
+  插中文词，也不得中文句子里插英文短语（专有名词、代码标识符、命令除外）。
+- **英文在前、中文在后**。
 - **不带 `Co-Authored-By`**。
-- 提交前自检：subject 有 `type(scope):` + 中文？正文结尾有**空行 + 英文段**？无 Co-Authored-By？
+- 提交前自检：标题是 `type(scope):` 打头？有独立英文正文段？空行后有独立中文正文段？
+  正文两段各自纯语言、无夹杂？无 Co-Authored-By？
 
 ## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
 
