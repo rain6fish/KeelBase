@@ -50,7 +50,7 @@ npm run start:dev     # 首次启动建 SQLite 库（synchronize 自动建表）
 npm test -- invoices
 ```
 
-预期输出：**20 passed**（invoices.service + invoices.controller + query-invoices/create-invoices 工具，均为生成模块自身）。
+预期输出：**22 passed**（invoices.service + invoices.controller + query-invoices/create-invoices 工具，均为生成模块自身）。
 
 ## 4. 起后端 + 问 AI（约 10 分钟，可选 LLM 环境）
 
@@ -63,12 +63,14 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 - 「**查一下我的发票**」→ AI 调用 `query_invoices`（蓝色「读」工具卡）
 - 「**创建一条发票：INV-001，8000，已开具**」→ AI 调用 `create_invoice`（橙色「写」工具卡）→ 弹出**确认框** → 确认 → 落库 →「已确认 · 可撤销」
 
-> 无 LLM 环境时跳过本步：确定性闭环（生成 → 编译 → 测试 → 工具注册）已证明模块可用。
+> **没配 LLM key 时**运行时会落到确定性演示模式——生成模块的写操作要用**显式 `参数=值`**（字段名取协议里的 camelCase）才会命中，例如「创建发票 invoiceNo=INV-002」；旗舰 CRM 黄金链路则无需任何 key 即可跑通。
+>
+> 无 LLM 环境也可直接跳过本步：确定性闭环（生成 → 编译 → 测试 → 工具注册）已证明模块可用。
 
 ## 5. 验收（你完成了）
 
 - ✅ `query_invoices` / `create_invoice` 已注册进 AI 工具（`grep CreateInvoiceTool src/ai/ai.module.ts`）
-- ✅ 越权：另一账号访问他人发票数据 → 403
+- ✅ 所有权：列表接口只返回本人数据（另一账号看到的是空列表，而非他人发票）。生成模块**没有 `GET /:id`**，故用列表接口验证；未验证邮箱的账号执行写操作会**先**被 `EMAIL_NOT_VERIFIED` 拒绝
 - ✅ AI 工具写 → AI 审计 + 副作用记录（含确认决策）；REST 人类写 → 操作审计（均哈希链可验证，`GET /audit/operations/verify` 验操作审计链）
 - ✅ 生成物是普通源代码，可继续修改
 
@@ -76,10 +78,13 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 
 | 现象 | 处理 |
 |---|---|
-| `目录已存在` | 模块名冲突（可能与已有/旗舰模块撞名），换英文名或 `--force` 覆盖 |
+| `目录已存在` | 模块名冲突（可能与已有/旗舰模块撞名），换英文名 |
+| `目标文件已被占用` | 模块名与既有工具撞名（如 `customers`），换一个模块名 |
 | `start:dev` 报「Config validation error: JWT_SECRET is required」 | 未复制 `.env`——执行 `cp .env.example .env` 后重启 |
 | 设了 `NODE_ENV=development` 后同样报缺 `JWT_SECRET` | 本项目只随仓 `.env`（**无 `.env.development`**）——设 `NODE_ENV=development` 会去读不存在的 `.env.development` 致校验失败。**不设 NODE_ENV** 即用默认 `.env`；确需切环境先建对应 `.env.<env>` |
-| `npm test -- invoices` 只跑 16/20 | 模块未生成完整，重跑第 1 步 |
+| `npm test -- invoices` 不足 22 passed | 模块未生成完整，重跑第 1 步 |
+| 端口 3000 已被占用 | 有别的服务占着——用 `PORT=3010 npm run start:dev` 换端口起 |
+| 注册接口报 `nickname should not be empty` | 注册需带 `nickname`（与 username / password / email 一并给） |
 | enum 字段报错 | `enum` 数组给 2-10 个小写英文选项 |
 
 ## 相关

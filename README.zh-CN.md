@@ -157,11 +157,12 @@ Docker 单容器 · 内网/离线部署 · 本地模型与 Embedding。
 ## 🛠 构建你的第一个应用
 
 ```bash
-npm install -g keelbase
-keelbase init --desc "Customer management"
+git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+cd Server-NestJS && npm install && cp .env.example .env && cd ..
+node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
 
-自然语言 → 模块规格 → 协议 → 应用代码 → AI 工具 → 治理。
+自然语言 → 模块规格 → 协议 → 应用代码 → AI 工具 → 治理。CLI 随仓库提供（`scripts/keelbase-init.mjs`），**无需全局安装**；`--desc "…"` 用一句话生成（需配置模型密钥）。
 
 完整流程：[30 分钟验收](docs/manual/30min-acceptance.md) · [开发挑战](docs/manual/dev-challenge.md)
 

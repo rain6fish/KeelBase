@@ -166,11 +166,12 @@ Docker single-container · offline / intranet deploy · local models & embedding
 ## 🛠 Build Your First Application
 
 ```bash
-npm install -g keelbase
-keelbase init --desc "Customer management"
+git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+cd Server-NestJS && npm install && cp .env.example .env && cd ..
+node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
 
-Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance.
+Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance. The CLI ships **with the repo** (`scripts/keelbase-init.mjs`) — no global install; `--desc "…"` generates from a sentence instead of a spec file (needs a model key configured).
 
 Full flow: [Build an AI CRM in 30 minutes](docs/manual/onboarding-30min.md) · [30-minute acceptance](docs/manual/30min-acceptance.md) · [Dev Challenge](docs/manual/dev-challenge.md) — 中文 · [EN](docs/manual/onboarding-30min-en.md) · [EN](docs/manual/30min-acceptance-en.md) · [EN](docs/manual/dev-challenge-en.md)
 
