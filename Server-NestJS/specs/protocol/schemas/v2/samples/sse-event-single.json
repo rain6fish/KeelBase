@@ -1,7 +1,7 @@
 {
   "type": "confirmation_request",
   "confirmation": {
-    "token": "5d1c0f7a-4b2e-4a11-9c3d-8e6f2a90b7c4",
+    "token": "conf-5d1c0f7a",
     "toolName": "create_followup_task",
     "summary": "创建跟进任务：跟进辰光 45 万逾期订单回款",
     "arguments": { "customerId": 12, "title": "跟进辰光 45 万逾期订单回款" },
