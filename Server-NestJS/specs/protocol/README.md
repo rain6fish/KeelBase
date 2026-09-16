@@ -17,11 +17,11 @@ specs/protocol/
 ├── schemas/v1/
 │   ├── *.schema.json                # v1 冻结形状（draft-07，$id 互引用）
 │   └── samples/*.json               # 每对象代表样例
-└── schemas/v2/                        # 语义升级后的新形状（先落 v2 再改码）
-    ├── *.schema.json                # $id 带 v2/ 前缀（与 v1 同名文件不冲突）
+└── schemas/v2/ … schemas/vN/          # 语义升级后的新形状（先落新版本再改码）
+    ├── *.schema.json                # $id 只需**唯一**：**有跨文件相对 $ref 的 schema 必须用裸名**（带 `v<N>/` 前缀会把相对引用解析到不存在的目录下——先例 `confirmation-request` / `evidence-package` / `sse-event`）；无跨文件 ref 的才可用 `v<N>/` 前缀（如 `confirmation-decision`）
     └── samples/*.json
 ```
-> v2 现存：`confirm-decision-body` / `confirmation-decision`（decision 词汇统一，CE-1 B3b）。v1 保留为冻结历史。
+> 版本现状（**以 registry 为准，本行易腐**）：**v2** = `ai-audit-log-row` / `audit-payload` / `confirm-decision-body` / `confirmation-decision` / `evidence-package` / `sse-event`；**v3** = `confirmation-request` / `side-effect-revoke`。v1 保留为冻结历史。查权威版本用 `wire-schema-registry.json` 的 `objects[].version`。
 
 ## 用法 / Usage（`cd Server-NestJS`）
 

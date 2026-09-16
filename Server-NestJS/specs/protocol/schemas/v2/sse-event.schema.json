@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "sse-event-v2.schema.json",
+  "title": "AI Chat SSE Event (POST /ai/chat/stream) — v2",
+  "description": "SSE 流式帧：event: <type>；data 为整个 chunk 对象（含 type 顶层 + 嵌套载荷）。v2（2026-09-16）：**事件名枚举不变**（10 个声明 / 现发射 7 个），只把嵌套载荷的 `$ref` 跟到各 wire 对象的**当前版本**——`confirmation_request.confirmation` → `confirmation-request-v3`（v1→v2 加 impact、v2→v3 加 revokeClass），`confirmation_decision.confirmationDecision` → `v2/confirmation-decision`（decision 词汇统一）。修的是**信封与内层对象版本脱节**：v1 信封的 `$ref` 用裸名解析到**冻结的 v1 载荷**（additionalProperties:false、无 impact / revokeClass），于是带 impact 的确认帧按信封校验会失败——确认载荷升到 v3 而信封不动，就是这个缺口。**$id 用裸名（不带 v2/ 前缀）**：本 schema 需沿用 v1 的跨文件相对 $ref（risk-level-ref / authorization），带斜杠的 $id 会把相对引用解析到不存在的 v2/ 下（先例：schemas/v2/confirmation-request、schemas/v2/evidence-package 均用裸 $id；confirmation-decision 无跨文件 ref 故可用带前缀 $id）。来源：src/ai/interfaces/llm-provider.interface.ts、src/ai/ai.controller.ts。v1 冻结历史见 schemas/v1/sse-event.schema.json。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "content"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "text" }, "content": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "content"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "reasoning" }, "content": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolCall"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_call" },
+        "toolCall": {
+          "type": "object",
+          "required": ["id", "name", "arguments"],
+          "additionalProperties": true,
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "arguments": { "type": "string" },
+            "index": { "type": "number" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "conversationId"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "done" }, "conversationId": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "error"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "error" }, "error": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "route"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "navigate" }, "route": { "type": "string" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "confirmation"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "confirmation_request" }, "confirmation": { "$ref": "confirmation-request-v3.schema.json" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "confirmationDecision"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "confirmation_decision" }, "confirmationDecision": { "$ref": "v2/confirmation-decision.schema.json" } }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolStart"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_start" },
+        "toolStart": {
+          "type": "object",
+          "required": ["name", "summary"],
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string" },
+            "summary": { "type": "string" },
+            "arguments": { "type": "object" },
+            "isWrite": { "type": "boolean" },
+            "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+            "authorization": { "$ref": "authorization.schema.json" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "toolEnd"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tool_end" },
+        "toolEnd": {
+          "type": "object",
+          "required": ["name", "success"],
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string" },
+            "success": { "type": "boolean" },
+            "summary": { "type": "string" },
+            "error": { "type": "string" },
+            "authorizationDenied": {
+              "type": "object",
+              "required": ["reason", "checks"],
+              "properties": {
+                "reason": { "type": "string" },
+                "checks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "ok"],
+                    "properties": {
+                      "name": { "type": "string" },
+                      "ok": { "type": "boolean" },
+                      "note": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
