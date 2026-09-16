@@ -213,11 +213,11 @@ CI 运行在 **GitHub Actions**（仓库镜像到 GitHub），push 到 `main` �
 ### 6.2 双远程推送
 
 ```bash
-git push github master:main    # GitHub（触发 CI）
-git push origin master         # Gitee
+git push github main    # GitHub（触发 CI）
+git push origin main    # Gitee
 ```
 
-> GitHub 统一走 main，Gitee 保持 master（pre-push hook 拦截 master 推 GitHub）。
+> 两侧远端现在统一使用 main。
 
 ### 6.3 发布步骤
 

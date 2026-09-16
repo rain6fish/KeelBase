@@ -214,11 +214,11 @@ CI runs on **GitHub Actions** (repo mirrored to GitHub). Triggered by push to `m
 ### 6.2 Dual-Remote Push / 双远程推送
 
 ```bash
-git push github master:main    # GitHub (triggers CI) / GitHub 触发 CI
-git push origin master         # Gitee
+git push github main    # GitHub (triggers CI) / GitHub 触发 CI
+git push origin main    # Gitee
 ```
 
-> GitHub only uses `main` (master is blocked by pre-push hook). Gitee uses `master` / GitHub 统一走 main，Gitee 保持 master。
+> Both remotes now use `main` / 两侧远端现在统一使用 `main`。
 
 ### 6.3 Release Steps / 发布步骤
 

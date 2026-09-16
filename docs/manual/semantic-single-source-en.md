@@ -27,7 +27,7 @@ KeelBase's key capability is one Application Semantic Layer joining Build and Ru
 
 ```bash
 cd Server-NestJS
-npm run check:semantic-single-source --base origin/master   # diff base...HEAD
+npm run check:semantic-single-source --base origin/main   # diff base...HEAD
 npm run check:semantic-single-source --files "a.ts b.json"  # explicit files (testing)
 npm run check:semantic-single-source --list                 # print source/contract lists
 ```

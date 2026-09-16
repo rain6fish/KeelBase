@@ -15,7 +15,7 @@
 2. **Claude Code 自带 code review**：对同一 diff 跑 Claude 的多维代码审查（正确性 / 安全 / 性能 / 简化 / 测试覆盖）。
 3. **code-review skill（mattpocock，2026-08-28 安装）**：对同一区间跑双轴评审——Standards（是否符合仓库编码规范）与 Spec（是否符合源 issue/spec 要求），两轴并行子代理，结果并排报告。触发方式：`/code-review <commit|branch|tag|merge-base>`。
 4. **AI Code Economy Review（`/ai-code-economy-review` skill）**：对同一区间跑 Code Economy 审查（第四层，**不重复**前三层职责）——只检查 Necessity / Reuse / Simplicity / Proportionality / Deletion / Maintainability，重点发现 unnecessary code、reuse opportunity、AI-generated duplication、unnecessary abstraction、speculative engineering、wrapper、dead code、excessive complexity、disproportionate code expansion、deletion opportunity。判断原则：LOC 是信号非质量分（结合 Requirement/Implementation Complexity 判断 Proportionality）；KeelBase 的 Security/Governance/Audit/Transaction/Domain/Plugin/Protocol/External integration 边界 abstraction 不因「单一实现」判垃圾，需具体证据；Finding 必须区分 FACT/SUSPECTED + 给出 Severity/Category/File/Line/Evidence/Reason/Recommendation/Confidence；推荐动作按 `DELETE > REUSE > SIMPLIFY > CONSOLIDATE > REFACTOR > ADD`；默认 review-only 不改码。输出 Verdict：PASS / WARN / REFACTOR / REJECT。
-5. **整合**：合并四层意见，去重、分级（阻塞 / 建议 / 风格），阻塞项必须修复；建议项择优落地；改进提交回 master。
+5. **整合**：合并四层意见，去重、分级（阻塞 / 建议 / 风格），阻塞项必须修复；建议项择优落地；改进提交回 main。
 
 > **四层固定（2026-08-31 定案）**：Code Review 只保留这四层——`OpenCodeReview → Claude Review → mattpocock Standards+Spec → AI Code Economy → Consolidated Decision`。**不继续增加第五/第六层 Review**（四层已足够重；Code Economy 是横向判断层，不是第五个垂直检查器）。
 

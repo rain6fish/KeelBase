@@ -686,7 +686,7 @@ npm run migration:run
 **CI 运行在 GitHub Actions**（仓库镜像到 GitHub，push 到 `main` 分支自动触发）。配置：`.github/workflows/ci.yml`（后端 lint + 单元/E2E 测试 + 构建 + 管理台构建 + Flutter analyze/test）。
 
 **推送触发**：
-1. 本地提交后执行 `git push github master:main`
+1. 本地提交后执行 `git push github main`
 2. 结果在 GitHub Actions 控制台查看
 
 > 曾尝试 Gitee Go，因其免费版 node 版本过老、网页端配置受限已放弃。`.workflow/` 目录已删除。

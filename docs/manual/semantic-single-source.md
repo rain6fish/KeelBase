@@ -27,7 +27,7 @@ KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run�
 
 ```bash
 cd Server-NestJS
-npm run check:semantic-single-source --base origin/master   # 与 base...HEAD 比对
+npm run check:semantic-single-source --base origin/main   # 与 base...HEAD 比对
 npm run check:semantic-single-source --files "a.ts b.json"  # 直接给变更文件（测试）
 npm run check:semantic-single-source --list                 # 打印语义源/契约清单
 ```
