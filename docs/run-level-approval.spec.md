@@ -1,8 +1,8 @@
 # KB-5 计划级/批量确认（run-level approval）— 功能规格说明 (Spec) / KB-5 Run-level Approval (Plan-level / Batch Confirmation) — Functional Specification
 
-> 版本 / Version: v0.1（Spec 定稿；实现排 1.1 发版前，Feature Freeze 纪律）
-> 日期 / Date: 2026-09-07
-> 状态 / Status: Spec 定稿（1.1 前置门禁）/ Spec locked (pre-1.1 gate). Implementation is a separate 1.1 task — this document fixes the protocol contract first.
+> 版本 / Version: v0.1（Spec 定稿）
+> 日期 / Date: 2026-09-07（2026-09-16 补记实现状态）
+> 状态 / Status: **A 层（单轮 run 聚合）已实现**（KB-5 全栈，主仓 428889a4）；**B 层（跨轮计划协议）仍 Out**。本文件为协议契约定稿 / Tier A (single-run aggregation) **is implemented** (main 428889a4); Tier B (cross-turn plan protocol) remains out of scope. This document fixes the protocol contract.
 > 定位 / Positioning: 响应 2026-09-07 对抗性评测命中「Human Confirmation 不可规模化」指控的**协议级设计**；与 KB-6（revokeClass，副作用撤销能力分档）分离、不冲突。
 
 > 输入 / Based on：human-confirmation 规模化矛盾评估（**先行单轮聚合、跨轮计划暂列 Out、Spec 先行不动代码**）。
