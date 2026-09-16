@@ -505,9 +505,21 @@ export class AiService {
    * §22.17 ④ 影响预览 v1.1 撤销口径：工具 → KB-6 撤销档（`resolveRevokeClass` 单源，显式声明优先）。
    * 与事后撤销页 / 工具治理页同源——批准前看到的档位与事后能做的撤销必须一致，故不另建映射。
    * spec docs/impact-preview.spec.md §3。
+   *
+   * **解析不到就返回 undefined（调用方省略该字段）**，与 `_writeImpact` 解析不到对象类型时同一诚实口径。
+   * 未注册名（外部 `mcp_*` / LLM 幻觉名）在本文件是**被容忍放行**的（`_assertToolAllowed` 明确不拦未注册名），
+   * 而真实注册表对它**抛错**——同段 `_assertToolAllowed` / `isProxyTool` 因此都包了 try/catch，本处同办。
+   * 可达性（2026-09-17 实测）：**当前到不了**——逐条路径在确认前先调 `_requiresApproval`，它对未注册名的
+   * `riskLevel` 调用无守卫、先抛，该工具以「执行失败」收尾（实测 chunk 序列 `tool_end → text → done`）。
+   * 故本容错当前是护栏：失败后果不对称（未捕获异常会打断整条 SSE 确认流，容错只是少显示一行），
+   * 一旦 `_requiresApproval` 改为容错，此处即成必经之路。不解析 ≠ 不可撤销，故不补默认值。详见 spec §3。
    */
-  private _revokeClass(toolName: string): RevokeClass {
-    return resolveRevokeClass(this.toolRegistry.getTool(toolName));
+  private _revokeClass(toolName: string): RevokeClass | undefined {
+    try {
+      return resolveRevokeClass(this.toolRegistry.getTool(toolName));
+    } catch {
+      return undefined;
+    }
   }
 
   // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
@@ -1438,12 +1450,16 @@ export class AiService {
               run: {
                 runId: token,
                 riskLevel: runRisk,
-                items: aggregable.map((c) => ({
-                  toolName: c.name,
-                  summary: c.summary!,
-                  riskLevel: c.risk,
-                  revokeClass: this._revokeClass(c.name),
-                })),
+                items: aggregable.map((c) => {
+                  const revokeClass = this._revokeClass(c.name);
+                  return {
+                    toolName: c.name,
+                    summary: c.summary!,
+                    riskLevel: c.risk,
+                    // §22.17 ④ v1.1：档位解析不到（外部 / 未注册名）则省略，不补默认
+                    ...(revokeClass ? { revokeClass } : {}),
+                  };
+                }),
               },
             },
           };
@@ -1507,6 +1523,7 @@ export class AiService {
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
               const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
               const approvalImpact = this._writeImpact([tc.name]);
+              const approvalRevokeClass = this._revokeClass(tc.name);
               yield {
                 type: 'confirmation_request',
                 confirmation: {
@@ -1516,7 +1533,7 @@ export class AiService {
                   arguments: parsed,
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
-                  revokeClass: this._revokeClass(tc.name),
+                  ...(approvalRevokeClass ? { revokeClass: approvalRevokeClass } : {}),
                   authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                 },
               };
@@ -1556,6 +1573,7 @@ export class AiService {
                   conversationId,
                 );
                 const singleImpact = this._writeImpact([tc.name]);
+                const singleRevokeClass = this._revokeClass(tc.name);
                 yield {
                   type: 'confirmation_request',
                   confirmation: {
@@ -1566,7 +1584,7 @@ export class AiService {
                     // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
                     ...(singleImpact ? { impact: singleImpact } : {}),
                     // §22.17 ④ 影响预览 v1.1：撤销口径——批准前告知这批动作事后能不能撤回
-                    revokeClass: this._revokeClass(tc.name),
+                    ...(singleRevokeClass ? { revokeClass: singleRevokeClass } : {}),
                     // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
                     authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                   },

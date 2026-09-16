@@ -2270,6 +2270,14 @@ describe('AiService', () => {
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
 
+    it('§22.17 ④：撤销口径遇未注册名（外部 mcp_*）不抛错——否则会打挂确认卡', () => {
+      // 真实注册表对未注册名抛错；_revokeClass 必须容错（同 _assertToolAllowed / isProxyTool 的既有约定）
+      mockToolRegistry.getTool.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_send_email" not found');
+      });
+      expect((aiService as any)._revokeClass('mcp_wx_send_email')).toBeUndefined();
+    });
+
     it('外部 provider 调用失败 → success false + error', async () => {
       provider.callTool.mockResolvedValue({ executed: false, error: 'remote down' });
       const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', {}, '1');
