@@ -17,6 +17,8 @@ import { OperationAuditLog } from '../operation-audit/operation-audit-log.entity
 import { AiAuditLog } from '../ai/audit/ai-audit-log.entity';
 import { AiConversation } from '../ai/conversation/ai-conversation.entity';
 import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
+import { PmProject } from '../pm/pm-project.entity';
+import { PmTask } from '../pm/pm-task.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { CacheService } from '../common/cache/cache.service';
@@ -247,7 +249,20 @@ export class AdminService {
    * RG-3 回收站：列出已软删除的 events + todos（带用户名，按删除时间倒序）。
    */
   async getTrash(page = 1, limit = 20) {
-    const [events, todos] = await Promise.all([
+    // 级联撤销的可恢复面（docs/cascade-compensation.spec.md §7）：复合写落在 pm_projects/pm_tasks，
+    // 二者均带 @DeleteDateColumn，若不进回收站则「本地可撤」的「可经 RG-3 恢复」承诺对它们不成立
+    // （create_project_task 早已如此）。用**已注入的 dataSource** 取这两张表，避免为两处只读访问
+    // 给构造函数再加两个 repo 依赖（牵连 5 处测试装配）。
+    const projectsRepo = this.dataSource.getRepository(PmProject);
+    const tasksRepo = this.dataSource.getRepository(PmTask);
+    const softDeleted = {
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+      order: { deletedAt: 'DESC' as const },
+      skip: (page - 1) * limit,
+      take: limit,
+    };
+    const [events, todos, projects, tasks] = await Promise.all([
       this.eventsRepo.find({
         withDeleted: true,
         where: { deletedAt: Not(IsNull()) },
@@ -262,9 +277,15 @@ export class AdminService {
         skip: (page - 1) * limit,
         take: limit,
       }),
+      projectsRepo.find(softDeleted),
+      tasksRepo.find(softDeleted),
     ]);
 
-    const userIds = new Set<number>([...events, ...todos].map((i) => i.userId).filter((v): v is number => v != null));
+    const userIds = new Set<number>(
+      [...events, ...todos, ...projects, ...tasks]
+        .map((i) => i.userId)
+        .filter((v): v is number => v != null),
+    );
     const users = userIds.size
       ? await this.usersRepo.find({ where: { id: In([...userIds]) }, select: { id: true, username: true } })
       : [];
@@ -287,13 +308,32 @@ export class AdminService {
         username: t.userId != null ? usernameById.get(t.userId) ?? null : null,
         deletedAt: t.deletedAt?.toISOString() ?? null,
       })),
+      // 项目展示列是 name（非 title）——与 resolveLocalEntity 的 displayCol 推导同口径
+      ...projects.map((p) => ({
+        type: 'project' as const,
+        id: p.id,
+        title: p.name,
+        userId: p.userId,
+        username: p.userId != null ? usernameById.get(p.userId) ?? null : null,
+        deletedAt: p.deletedAt?.toISOString() ?? null,
+      })),
+      ...tasks.map((t) => ({
+        type: 'task' as const,
+        id: t.id,
+        title: t.title,
+        userId: t.userId,
+        username: t.userId != null ? usernameById.get(t.userId) ?? null : null,
+        deletedAt: t.deletedAt?.toISOString() ?? null,
+      })),
     ].sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
 
-    const [totalEvents, totalTodos] = await Promise.all([
+    const [totalEvents, totalTodos, totalProjects, totalTasks] = await Promise.all([
       this.eventsRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
       this.todosRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
+      projectsRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
+      tasksRepo.count({ withDeleted: true, where: { deletedAt: Not(IsNull()) } }),
     ]);
-    const total = totalEvents + totalTodos;
+    const total = totalEvents + totalTodos + totalProjects + totalTasks;
 
     return {
       items,
@@ -305,8 +345,13 @@ export class AdminService {
   }
 
   /** RG-3 恢复一条软删除记录。 */
-  async restoreTrashItem(type: 'event' | 'todo', id: number) {
-    const repo = type === 'event' ? this.eventsRepo : this.todosRepo;
+  async restoreTrashItem(type: 'event' | 'todo' | 'project' | 'task', id: number) {
+    const repo =
+      type === 'event'
+        ? this.eventsRepo
+        : type === 'todo'
+          ? this.todosRepo
+          : this.dataSource.getRepository(type === 'project' ? PmProject : PmTask);
     const item = await repo.findOne({
       withDeleted: true,
       where: { id, deletedAt: Not(IsNull()) },

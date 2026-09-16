@@ -29,6 +29,12 @@ const effect = {
   resultType: 'crm_task',
   resultId: 42,
   createdAt: '2026-08-25T10:00:00Z',
+  // 级联补偿 + A-3 恢复态（单目标默认值；级联场景见下方专项用例）
+  revokeStatus: null,
+  compensationGroup: null,
+  parentEffectId: null,
+  cascadeSize: 1,
+  restored: false,
 }
 
 function makeDrawer(trace?: unknown) {
@@ -125,6 +131,68 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
 
     // 发起(process) + 授权(finish) + 执行(error) = 3 节点；无确认/撤销/恢复
     expect(wrapper.findAll('.el-step').length).toBe(3)
+  })
+
+  it('级联补偿：多成员组撤销 → 撤销节点写明条数（不是含糊的「已撤销」）', async () => {
+    const confirmTrace = {
+      steps: [
+        { id: 'in-1', type: 'input', time: '2026-08-25T10:00:00Z', content: '建项目并拆任务' },
+        { id: 'auth-1', type: 'tool_call', time: '2026-08-25T10:00:01Z', toolName: 'create_project_with_tasks', args: '{}', success: true },
+        { id: 'conf-1', type: 'confirmation', time: '2026-08-25T10:00:02Z', toolName: 'create_project_with_tasks', args: '{}', outcome: 'approve' },
+      ],
+    };
+    governanceMock.mockReset();
+    governanceMock.mockResolvedValue({
+      effect: {
+        ...effect,
+        toolName: 'create_project_with_tasks',
+        resultType: 'pm_task',
+        targetExists: true,
+        targetSoftDeleted: true,
+        cascadeSize: 3,
+        compensationGroup: 'grp-1',
+        parentEffectId: 9,
+        revokeStatus: 'revoked',
+      },
+      trace: confirmTrace,
+    });
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } });
+    const wrapper = mount(GovernanceActionDrawer, {
+      global: { plugins: [ElementPlus, i18n] },
+      props: { modelValue: true, resultType: 'pm_task', resultId: 88 },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('已撤销 3 条（同一次业务动作级联补偿）');
+  })
+
+  it('A-3 恢复态：restored=true → 恢复节点 finish（不再恒为 wait）', async () => {
+    governanceMock.mockReset();
+    governanceMock.mockResolvedValue({
+      effect: { ...effect, targetExists: true, targetSoftDeleted: false, restored: true, revokeStatus: 'revoked' },
+      trace: {
+        steps: [
+          { id: 'in-1', type: 'input', time: '2026-08-25T10:00:00Z', content: '建项目' },
+          { id: 'auth-1', type: 'tool_call', time: '2026-08-25T10:00:01Z', toolName: 'create_followup_task', args: '{}', success: true },
+          { id: 'conf-1', type: 'confirmation', time: '2026-08-25T10:00:02Z', toolName: 'create_followup_task', args: '{}', outcome: 'approve' },
+        ],
+      },
+    });
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } });
+    const wrapper = mount(GovernanceActionDrawer, {
+      global: { plugins: [ElementPlus, i18n] },
+      props: { modelValue: true, resultType: 'crm_task', resultId: 42 },
+    });
+    await flushPromises();
+
+    // 恢复节点转为 finish 并带说明——此前恒为 wait，A-3「恢复态」无据可依
+    expect(wrapper.text()).toContain('已从回收站恢复');
+    const steps = wrapper.findAll('.el-step');
+    expect(steps.length).toBe(6);
+    // Element Plus 把节点状态挂在 .el-step__head 上
+    expect(steps[5].find('.el-step__head').classes()).toContain('is-finish');
+    // 对照：撤销节点（第 5 个）此时是 wait —— 目标未软删，未撤销
+    expect(steps[4].find('.el-step__head').classes()).toContain('is-wait');
   })
 
   it('A-3 生命周期：目标已软删 → 撤销态可达（FIX-B：B4 effect 带 targetSoftDeleted）', async () => {

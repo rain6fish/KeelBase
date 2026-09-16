@@ -26,6 +26,8 @@ const zh = {
   lifecycleBlocked: '被阻断',
   lifecycleConfirmed: '已确认执行',
   lifecycleExecuted: '已执行',
+  lifecycleRevokedCascade: '已撤销 {n} 条（同一次业务动作级联补偿）',
+  lifecycleRestored: '已从回收站恢复',
   filterBehavior: '行为类型',
   behaviorExecute: 'AI 执行',
   behaviorFailed: 'AI 被拒',
@@ -845,6 +847,8 @@ const zh = {
   confirmRunCount: '本次将执行 {n} 个操作',
   // §22.17 ④ 影响预览：对象类型按机器标识原样显示，与撤销/审计口径一致
   confirmImpact: '预计影响：{actions} 个写动作',
+  // §22.17 ④ 影响预览 v1.1：撤销口径前缀（档位标签复用 revokeClass* 四键，不另立词表）
+  confirmRevoke: '撤销口径：',
   // §internal.15(4) 治理策略可视化编辑：门控档位
   gateModeColumn: '生效门控档位',
   gateAuto: '自动',
@@ -1103,6 +1107,8 @@ const zh = {
   users: '用户',
   events: '事件',
   todos: '待办',
+  projects: '项目',
+  tasks: '任务',
   sessions: '会话',
   notifications: '通知',
   conversations: '对话',

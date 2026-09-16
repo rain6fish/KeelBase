@@ -426,6 +426,10 @@ export class AiController {
       }
     }
     const target = await this.toolEffectsService.describeTarget(resultType, resultId);
+    // 级联补偿（docs/cascade-compensation.spec.md §7）：组大小供 A-3 显示「已撤销 N 条（级联）」
+    const cascadeSize = effect.compensationGroup
+      ? (await this.toolEffectsService.listGroup(effect.compensationGroup)).length
+      : 1;
     return {
       // D1 Action Detail 七段数据（Who/When/What/Result/Side Effects 后端齐备；Why 在 trace；Integrity 走哈希链 verify）
       // A-3 生命周期：targetSoftDeleted 供前端推导「已撤销」态（撤销 = 目标软删）
@@ -441,6 +445,12 @@ export class AiController {
         targetExists: target.targetExists,
         targetSoftDeleted: target.targetSoftDeleted,
         targetTitle: target.targetTitle,
+        // 级联补偿 + A-3 恢复态（服务端单一权威口径，前端不各自复制判定）
+        revokeStatus: effect.revokeStatus ?? null,
+        compensationGroup: effect.compensationGroup ?? null,
+        parentEffectId: effect.parentEffectId ?? null,
+        cascadeSize,
+        restored: this.toolEffectsService.isRestored(effect, target.targetSoftDeleted),
       },
       trace,
     };

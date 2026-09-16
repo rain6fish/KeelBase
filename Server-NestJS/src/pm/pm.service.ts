@@ -68,6 +68,48 @@ export class PmService {
     return this.projects.save(entity);
   }
 
+  /**
+   * 复合写（docs/cascade-compensation.spec.md）：一次业务动作跨表写 `pm_projects` + N × `pm_tasks`。
+   * **单事务**——任一步失败不留「有项目没任务」的半成品，与撤销侧的单事务级联补偿对称。
+   * 返回 { project, tasks } 供 AI 工具声明多目标副作用（`ToolResult.data.effects`）：
+   * 撤销其中任一条即自动补偿整组（同一次业务动作的多表副作用一次补偿）。
+   */
+  async createProjectWithTasks(
+    dto: CreateProjectDto,
+    taskDtos: Array<Omit<CreateTaskDto, 'projectId'>>,
+    userId: number,
+  ): Promise<{ project: PmProject; tasks: PmTask[] }> {
+    // 权限-2：写入时盖章 org/dept（与 createProject 同口径）
+    const ctx = await this.org.getUserOrgContext(userId);
+    // 复用 repository 自带的 manager 起事务——不为一次事务新增 DI 依赖
+    return this.projects.manager.transaction(async (em) => {
+      const projectRepo = em.getRepository(PmProject);
+      const taskRepo = em.getRepository(PmTask);
+      const project = await projectRepo.save(
+        projectRepo.create({
+          ...dto,
+          userId,
+          orgId: ctx?.orgId ?? null,
+          deptId: ctx?.deptId ?? null,
+        }),
+      );
+      const tasks: PmTask[] = [];
+      for (const t of taskDtos) {
+        tasks.push(
+          await taskRepo.save(
+            taskRepo.create({
+              ...t,
+              projectId: project.id,
+              ...(t.dueDate ? { dueDate: new Date(t.dueDate) } : {}),
+              userId,
+            }),
+          ),
+        );
+      }
+      return { project, tasks };
+    });
+  }
+
   async listProjects(
     userId: number,
     filter: ProjectFilter = {},

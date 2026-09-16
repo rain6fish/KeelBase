@@ -33,7 +33,10 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     };
     entityManager = {
       getRepository: jest.fn(),
-    };
+      // resolveLocalEntity 对**无别名**的 resultType（生成模块 / pm_project 等）会扫实体元数据，
+      // 故 mock 需带 connection.entityMetadatas（缺了会 TypeError，与产品逻辑无关）
+      connection: { entityMetadatas: [] },
+    } as { getRepository: jest.Mock };
     const module = await Test.createTestingModule({
       providers: [
         AiToolEffectsService,
@@ -195,6 +198,86 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  describe('recordGroup（复合写工具分组登记，docs/cascade-compensation.spec.md §4）', () => {
+    const ctx = {
+      userId: '42',
+      conversationId: 'conv-9',
+      toolName: 'create_project_with_tasks',
+      args: { title: 'X' },
+    };
+    const group = [
+      { resultType: 'pm_project', resultId: 7 },
+      { resultType: 'pm_task', resultId: 88 },
+      { resultType: 'pm_task', resultId: 89 },
+    ];
+
+    beforeEach(() => {
+      let seq = 0;
+      repo.save.mockImplementation((d: unknown) => Promise.resolve({ ...(d as object), id: ++seq }));
+    });
+
+    it('组内成员键互异、member0 占基键（同键会被唯一约束把整组塌成一行）', async () => {
+      const saved = await service.recordGroup(ctx, group);
+      const base = AiToolEffectsService.buildKey(ctx);
+      const keys = saved.map((s) => s.idempotencyKey);
+      expect(new Set(keys).size).toBe(3);
+      expect(keys[0]).toBe(base);
+      expect(keys.slice(1)).toEqual([
+        AiToolEffectsService.memberKey(base, 1, 'pm_task', 88),
+        AiToolEffectsService.memberKey(base, 2, 'pm_task', 89),
+      ]);
+    });
+
+    it('同组：全员共享 compensationGroup = 基键；parentEffectId 指向根（根为 null）', async () => {
+      const saved = await service.recordGroup(ctx, group);
+      const base = AiToolEffectsService.buildKey(ctx);
+      expect(saved.map((s) => s.compensationGroup)).toEqual([base, base, base]);
+      expect(saved.map((s) => s.parentEffectId)).toEqual([null, 1, 1]);
+      expect(saved.map((s) => s.resultType)).toEqual(['pm_project', 'pm_task', 'pm_task']);
+      expect(saved.map((s) => s.resultId)).toEqual([7, 88, 89]);
+    });
+
+    it('memberKey 按声明下标稳定（重试映射同一键），下标不同则不同', () => {
+      const base = 'b';
+      expect(AiToolEffectsService.memberKey(base, 1, 'pm_task', 88)).toBe(
+        AiToolEffectsService.memberKey(base, 1, 'pm_task', 88),
+      );
+      expect(AiToolEffectsService.memberKey(base, 1, 'pm_task', 88)).not.toBe(
+        AiToolEffectsService.memberKey(base, 2, 'pm_task', 88),
+      );
+      // 同下标但目标不同 → 不同键（同工具重复写同一张表的多个子行才可能撞键）
+      expect(AiToolEffectsService.memberKey(base, 1, 'pm_task', 88)).not.toBe(
+        AiToolEffectsService.memberKey(base, 1, 'pm_task', 89),
+      );
+    });
+
+    it('唯一冲突 → 回放既有整组（幂等重试），不上抛', async () => {
+      const base = AiToolEffectsService.buildKey(ctx);
+      const existing = [
+        { id: 1, idempotencyKey: base, compensationGroup: base, resultType: 'pm_project', resultId: 7 },
+        { id: 2, idempotencyKey: 'x', compensationGroup: base, resultType: 'pm_task', resultId: 88 },
+        { id: 3, idempotencyKey: 'y', compensationGroup: base, resultType: 'pm_task', resultId: 89 },
+      ];
+      repo.save.mockRejectedValue(
+        new Error('SQLITE_CONSTRAINT: UNIQUE constraint failed: ai_tool_side_effects.idempotency_key'),
+      );
+      repo.find.mockResolvedValue(existing);
+
+      const saved = await service.recordGroup(ctx, group);
+      expect(saved).toEqual(existing);
+      // 回放走的是组查询（按 compensationGroup），不是单条 findOne
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { compensationGroup: base } }),
+      );
+    });
+
+    it('非唯一冲突（DB down 等）→ 照实上抛，不伪装幂等命中', async () => {
+      repo.save.mockRejectedValue(new Error('connection terminated unexpectedly'));
+      await expect(service.recordGroup(ctx, group)).rejects.toThrow(/connection terminated/);
+      expect(repo.find).not.toHaveBeenCalled();
+    });
+  });
+
   describe('revoke', () => {
     it('软删目标 todo', async () => {
       repo.findOne.mockResolvedValue({ id: 3, resultType: 'todo', resultId: 55 });
@@ -207,7 +290,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const props = Object.keys(
         (
           JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/side-effect-revoke.schema.json'), 'utf8'),
           ) as { definitions: { revokeResult: { properties: Record<string, unknown> } } }
         ).definitions.revokeResult.properties,
       );
@@ -389,10 +472,10 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       );
       expect(result.total).toBe(2);
       expect(result.items[0]).toMatchObject({ status: 'executed', targetExists: true, targetSoftDeleted: false, targetTitle: '晨会' });
-      // ② 绑定：Action Center item 键集 == side-effect-revoke.item 契约（v2，含 change）
+      // ② 绑定：Action Center item 键集 == side-effect-revoke.item 契约（v3，含 change + 级联组两键）
       const defs = (
         JSON.parse(
-          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/side-effect-revoke.schema.json'), 'utf8'),
         ) as { definitions: { item: { properties: Record<string, unknown> } } }
       ).definitions;
       expect(Object.keys(result.items[0]).sort()).toEqual(Object.keys(defs.item.properties).sort());
@@ -468,7 +551,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       // ② 绑定：执行轨迹 traceItem 键集 == side-effect-revoke.traceItem 契约（v2，含 argsHash + 快照）
       const defsT = (
         JSON.parse(
-          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/side-effect-revoke.schema.json'), 'utf8'),
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/side-effect-revoke.schema.json'), 'utf8'),
         ) as { definitions: { traceItem: { properties: Record<string, unknown> } } }
       ).definitions;
       expect(Object.keys(items[0]).sort()).toEqual(Object.keys(defsT.traceItem.properties).sort());
@@ -587,6 +670,262 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res.firstHashedId).toBe(3);
       // verifyChain 只收到已哈希行
       expect(auditChain.verifyChain).toHaveBeenCalledWith(hashedRows, expect.any(Function));
+    });
+  });
+
+  describe('级联补偿（docs/cascade-compensation.spec.md §5）', () => {
+    const G = 'grp-1';
+    const fx = (
+      id: number,
+      resultType: string,
+      resultId: number,
+      extra: Record<string, unknown> = {},
+    ) => ({
+      id,
+      userId: '42',
+      toolName: 'create_project_with_tasks',
+      resultType,
+      resultId,
+      revokeClass: 'local_compensate',
+      revokeStatus: null,
+      compensationGroup: G,
+      parentEffectId: id === 1 ? null : 1,
+      ...extra,
+    });
+
+    let svc: AiToolEffectsService;
+    let revokerStub: { canHandle: jest.Mock; revoke: jest.Mock; describeTarget: jest.Mock };
+    let extStub: { revoke: jest.Mock };
+    let auditStub: { log: jest.Mock };
+    let tx: jest.Mock;
+    const MANAGER = { id: 'TX_MANAGER' };
+
+    const makeService = (withDataSource = true) => {
+      revokerStub = {
+        canHandle: jest.fn().mockReturnValue(true),
+        revoke: jest.fn().mockResolvedValue({ revoked: true }),
+        describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+      };
+      extStub = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }) };
+      auditStub = { log: jest.fn().mockResolvedValue(undefined) };
+      tx = jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(MANAGER));
+      svc = new AiToolEffectsService(
+        repo as never,
+        revokerStub as never,
+        extStub as never,
+        undefined,
+        undefined,
+        undefined,
+        withDataSource ? ({ options: { type: 'better-sqlite3' }, transaction: tx } as never) : undefined,
+        auditStub as never,
+      );
+    };
+
+    it('撤组内任一条 → 整组一个事务补偿，三条全软删且状态回写 revoked', async () => {
+      makeService();
+      const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
+      repo.findOne.mockResolvedValue(members[1]); // 撤组内第 2 条
+      repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revoke(2);
+
+      expect(tx).toHaveBeenCalledTimes(1); // 一次补偿 ≠ N 次逐条提交
+      expect(revokerStub.revoke).toHaveBeenCalledTimes(3);
+      // 三条都落在**同一个**事务 manager 上（否则回滚覆盖不到它们）
+      expect(revokerStub.revoke.mock.calls.map((c) => c[3])).toEqual([MANAGER, MANAGER, MANAGER]);
+      expect(revokerStub.revoke.mock.calls.map((c) => [c[0], c[1]])).toEqual([
+        ['pm_project', 7],
+        ['pm_task', 88],
+        ['pm_task', 89],
+      ]);
+      expect(res.revoked).toBe(true);
+      expect(res.revokeStatus).toBe('revoked');
+      expect(res.compensationGroup).toBe(G);
+      expect(res.cascade).toEqual({ groupId: G, total: 3, revoked: 3, skipped: 0, failed: 0 });
+      expect(repo.update).toHaveBeenCalledTimes(3);
+    });
+
+    it('组内任一本地成员失败 → 整组零改动：不写 revoked、不触发外部补偿', async () => {
+      makeService();
+      const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
+      repo.findOne.mockResolvedValue(members[0]);
+      repo.find.mockResolvedValue(members);
+      revokerStub.revoke.mockImplementation((_t: string, id: number) =>
+        Promise.resolve(id === 88 ? { revoked: false, message: '目标不可软删' } : { revoked: true }),
+      );
+
+      const res = await svc.revoke(1);
+
+      expect(res.revoked).toBe(false);
+      expect(res.revokeStatus).toBe('revoke_failed');
+      expect(res.cascade).toEqual({ groupId: G, total: 3, revoked: 0, skipped: 0, failed: 3 });
+      // 关键：**没有**任何回写——否则回滚后数据库里会留下假的 revoked 运维态
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('本地回滚时不触发外部成员补偿（避免半补偿）', async () => {
+      makeService();
+      const members = [
+        fx(1, 'pm_project', 7),
+        fx(2, 'proxy_call', 88, { revokeClass: 'governed_external' }),
+      ];
+      repo.findOne.mockResolvedValue(members[0]);
+      repo.find.mockResolvedValue(members);
+      revokerStub.revoke.mockResolvedValue({ revoked: false, message: 'boom' });
+
+      const res = await svc.revoke(1);
+
+      expect(extStub.revoke).not.toHaveBeenCalled();
+      expect(res.revokeStatus).toBe('revoke_failed');
+    });
+
+    it('组内外部成员：本地事务提交后于事务外补偿，诚实落 compensating 且不谎称已撤销', async () => {
+      makeService();
+      const members = [
+        fx(1, 'pm_project', 7),
+        fx(2, 'proxy_call', 88, { revokeClass: 'governed_external' }),
+      ];
+      repo.findOne.mockResolvedValue(members[0]);
+      repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revoke(1);
+
+      expect(extStub.revoke).toHaveBeenCalledTimes(1);
+      // 逐条 revoked = 「撤销调用成功」（既有口径），只有 revokeStatus 承载诚实状态
+      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 2, skipped: 0, failed: 0 });
+      // 但组级结论不得谎称已撤销：外部结果未知 → revoked:false + compensating（KB-6 口径）
+      expect(res.revoked).toBe(false);
+      expect(res.revokeStatus).toBe('compensating');
+    });
+
+    it('单成员组 → 回落单目标路径，不建事务', async () => {
+      makeService();
+      const only = fx(1, 'pm_project', 7);
+      repo.findOne.mockResolvedValue(only);
+      repo.find.mockResolvedValue([only]);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revoke(1);
+
+      expect(tx).not.toHaveBeenCalled();
+      expect(res.cascade).toBeUndefined();
+      expect(revokerStub.revoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('无组的副作用（历史行）→ 单目标路径，行为不变', async () => {
+      makeService();
+      const legacy = fx(1, 'pm_project', 7, { compensationGroup: null });
+      repo.findOne.mockResolvedValue(legacy);
+
+      const res = await svc.revoke(1);
+
+      expect(repo.find).not.toHaveBeenCalled(); // 不查组
+      expect(tx).not.toHaveBeenCalled();
+      expect(res.compensationGroup).toBeUndefined();
+      expect(res.revoked).toBe(true);
+    });
+
+    it('批量（run 级）按组折叠：同组只补偿一次，逐条结果摊平', async () => {
+      makeService();
+      const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
+      repo.find.mockResolvedValue(members); // revokeRun 的按 runId 查询与 listGroup 共用同一 mock
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revokeRun('run-1');
+
+      expect(tx).toHaveBeenCalledTimes(1); // 折叠生效：不是 3 次
+      expect(revokerStub.revoke).toHaveBeenCalledTimes(3);
+      expect(res.results).toHaveLength(3);
+      expect(res.revoked).toBe(3);
+      expect(res.failed).toBe(0);
+      expect(res.results.every((r) => r.compensationGroup === G)).toBe(true);
+    });
+
+    it('批量折叠：首个成员已是可跳过态时整组仍被补偿（不得提前 continue）', async () => {
+      makeService();
+      const members = [
+        fx(1, 'pm_project', 7, { revokeStatus: 'revoked' }), // 已撤销 → 可跳过
+        fx(2, 'pm_task', 88),
+        fx(3, 'pm_task', 89),
+      ];
+      repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revokeRun('run-1');
+
+      expect(tx).toHaveBeenCalledTimes(1);
+      expect(res.skipped).toBe(1);
+      expect(res.revoked).toBe(2); // 另两条确实被补偿了
+    });
+
+    it('补偿自身入 operation_audit：action=COMPENSATE、targetId=根业务 id、逐成员明细进链外 changes', async () => {
+      makeService();
+      const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
+      repo.findOne.mockResolvedValue(members[1]);
+      repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      await svc.revoke(2);
+
+      expect(auditStub.log).toHaveBeenCalledTimes(1);
+      const entry = auditStub.log.mock.calls[0][0] as Record<string, unknown>;
+      expect(entry).toMatchObject({
+        action: 'COMPENSATE',
+        method: 'DELETE',
+        path: '/ai/tool-effects/compensate',
+        targetId: '7', // 根成员 pm_project#7 的**业务 id**（非副作用 id）→ 证据根可按业务对象捞到
+        featureKey: 'ai.compensate',
+        businessEvent: 'AiSideEffectCompensated',
+        userId: 42,
+      });
+      expect(JSON.parse(entry.changes as string)).toEqual([
+        { resultType: 'pm_project', resultId: 7, role: 'root', revoked: true, revokeStatus: 'revoked' },
+        { resultType: 'pm_task', resultId: 88, role: 'child', revoked: true, revokeStatus: 'revoked' },
+        { resultType: 'pm_task', resultId: 89, role: 'child', revoked: true, revokeStatus: 'revoked' },
+      ]);
+    });
+
+    it('补偿失败也留痕（审计要看见「尝试过且失败」，而不是一片空白）', async () => {
+      makeService();
+      const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88)];
+      repo.findOne.mockResolvedValue(members[0]);
+      repo.find.mockResolvedValue(members);
+      revokerStub.revoke.mockResolvedValue({ revoked: false, message: 'boom' });
+
+      await svc.revoke(1);
+
+      expect(auditStub.log).toHaveBeenCalledTimes(1);
+      const entry = auditStub.log.mock.calls[0][0] as { changes: string };
+      expect(JSON.parse(entry.changes).every((d: { revoked: boolean }) => !d.revoked)).toBe(true);
+    });
+
+    it('单目标撤销**不**写显式补偿行（拦截器已有 HTTP 级行，再写只是噪音）', async () => {
+      makeService();
+      const legacy = fx(1, 'pm_project', 7, { compensationGroup: null });
+      repo.findOne.mockResolvedValue(legacy);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      await svc.revoke(1);
+
+      expect(auditStub.log).not.toHaveBeenCalled();
+    });
+
+    it('逐成员明细超 4000 时截断（changes 是 ≤4000 的链外列）', async () => {
+      makeService();
+      const many = Array.from({ length: 60 }, (_, i) =>
+        fx(i + 1, `gen_module_with_a_long_name_${i}`, 1000 + i),
+      );
+      repo.findOne.mockResolvedValue(many[0]);
+      repo.find.mockResolvedValue(many);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      await svc.revoke(1);
+
+      const entry = auditStub.log.mock.calls[0][0] as { changes: string };
+      expect(entry.changes.length).toBeLessThanOrEqual(4000);
+      expect(entry.changes.endsWith('...')).toBe(true);
     });
   });
 

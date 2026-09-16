@@ -83,6 +83,23 @@ export class AiToolSideEffect {
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'revoke_status' })
   revokeStatus?: string | null;
 
+  /**
+   * docs/cascade-compensation.spec.md：级联补偿组 = 该次工具调用的**幂等基键**
+   * （sha256(userId:conversationId:toolName:stableArgs)）——同组即同一次业务动作的多表副作用，
+   * 撤销任一条即补偿整组。用基键而非另生成 uuid：重试天然映射到同一组。
+   * null = 历史/单目标副作用行（行为不变）。**链外注解列**，不入 _chainPayload（加 key 会使历史链验签失败）。
+   */
+  @Index('IDX_ai_tool_side_effects_compensation_group')
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'compensation_group' })
+  compensationGroup?: string | null;
+
+  /**
+   * docs/cascade-compensation.spec.md：组内根成员（主体业务对象）的 effect id；
+   * null = 该行即根成员，或单目标副作用行。**链外注解列**，不入 _chainPayload。
+   */
+  @Column({ type: 'integer', nullable: true, name: 'parent_effect_id' })
+  parentEffectId?: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

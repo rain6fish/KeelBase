@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "v3/side-effect-revoke.schema.json",
+  "title": "AI Tool Side-Effect & Revoke — v3",
+  "description": "AI 写副作用清单 item / 执行轨迹 traceItem / 单条撤销结果 / 会话级批量结果（G1）。枚举冻结：status=executed|revoked|revoking_external|revoke_failed；revokeClass=none|local_compensate|governed_external|transactional（KB-6：local_compensate≠governed_external，永不谎称 revoked）；revokeStatus=revoked|compensating|revoke_failed。**v3 变更**：级联补偿（docs/cascade-compensation.spec.md）——item/traceItem 加 `compensationGroup`（= 该次调用的幂等基键，同组=同一业务动作；null=历史单目标行）与 `parentEffectId`（根副作用的 effect id；null=根成员或单目标行）；revokeResult 加 `cascade` 汇总（组内逐条结果聚合；单目标撤销时不出现）。revokeResult/revokeBatch.results 本就是 additionalProperties:true，故加 cascade 不单独升级对象。来源：src/ai/tool-effects/ai-tool-effects.service.ts listOwned/listForConversation; src/ai/tool-effects/effect-composition.ts; src/ai/interfaces/tool.interface.ts。",
+  "oneOf": [
+    { "$ref": "#/definitions/item" },
+    { "$ref": "#/definitions/traceItem" },
+    { "$ref": "#/definitions/revokeResult" },
+    { "$ref": "#/definitions/revokeBatch" }
+  ],
+  "definitions": {
+    "item": {
+      "type": "object",
+      "required": ["id", "toolName", "resultType", "resultId", "createdAt", "targetExists", "targetSoftDeleted", "targetTitle", "revokeClass", "revokeStatus", "status", "revocable", "change", "compensationGroup", "parentEffectId"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "number" },
+        "toolName": { "type": "string" },
+        "conversationId": { "type": ["string", "null"] },
+        "resultType": { "type": "string" },
+        "resultId": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "targetExists": { "type": "boolean" },
+        "targetSoftDeleted": { "type": "boolean" },
+        "targetTitle": { "type": ["string", "null"] },
+        "revokeClass": { "enum": ["none", "local_compensate", "governed_external", "transactional"] },
+        "revokeStatus": { "type": ["string", "null"], "enum": ["revoked", "compensating", "revoke_failed", null] },
+        "status": { "enum": ["executed", "revoked", "revoking_external", "revoke_failed"] },
+        "revocable": { "type": "boolean" },
+        "change": { "$ref": "#/definitions/changeSummary" },
+        "compensationGroup": {
+          "description": "级联补偿组 = 该次工具调用的幂等基键；同组 = 同一业务动作的多表副作用。null = 历史/单目标副作用行",
+          "type": ["string", "null"]
+        },
+        "parentEffectId": {
+          "description": "根副作用的 effect id（组内主体对象）；null = 该行即根成员，或单目标副作用行",
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "traceItem": {
+      "type": "object",
+      "required": ["id", "toolName", "resultType", "resultId", "createdAt", "targetExists", "targetSoftDeleted", "targetTitle", "revokeClass", "revokeStatus", "status", "revocable", "argsHash", "beforeSnapshot", "afterSnapshot", "compensationGroup", "parentEffectId"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "number" },
+        "toolName": { "type": "string" },
+        "conversationId": { "type": ["string", "null"] },
+        "resultType": { "type": "string" },
+        "resultId": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "targetExists": { "type": "boolean" },
+        "targetSoftDeleted": { "type": "boolean" },
+        "targetTitle": { "type": ["string", "null"] },
+        "revokeClass": { "enum": ["none", "local_compensate", "governed_external", "transactional"] },
+        "revokeStatus": { "type": ["string", "null"], "enum": ["revoked", "compensating", "revoke_failed", null] },
+        "status": { "enum": ["executed", "revoked", "revoking_external", "revoke_failed"] },
+        "revocable": { "type": "boolean" },
+        "argsHash": { "type": "string" },
+        "beforeSnapshot": { "type": ["string", "null"] },
+        "afterSnapshot": { "type": ["string", "null"] },
+        "compensationGroup": { "type": ["string", "null"] },
+        "parentEffectId": { "type": ["number", "null"] }
+      }
+    },
+    "changeSummary": {
+      "description": "D2：AI 决策证据 ↔ 实际状态变化的紧凑摘要（不回显全量快照，控载荷）",
+      "type": "object",
+      "required": ["kind", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["created", "updated", "unknown"] },
+        "fields": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "revokeResult": {
+      "type": "object",
+      "required": ["revoked", "effectId"],
+      "additionalProperties": true,
+      "properties": {
+        "revoked": { "type": "boolean" },
+        "effectId": { "type": "number" },
+        "external": { "type": "boolean" },
+        "compensated": { "type": "boolean" },
+        "message": { "type": "string" },
+        "revokeStatus": { "type": "string", "enum": ["revoked", "compensating", "revoke_failed"] },
+        "compensationGroup": { "type": ["string", "null"] },
+        "cascade": {
+          "description": "级联补偿汇总（仅当该副作用属于多成员组时出现；单目标撤销不返回此键）",
+          "type": "object",
+          "required": ["groupId", "total", "revoked", "skipped", "failed"],
+          "additionalProperties": false,
+          "properties": {
+            "groupId": { "type": "string" },
+            "total": { "type": "number" },
+            "revoked": { "type": "number" },
+            "skipped": { "type": "number" },
+            "failed": { "type": "number" }
+          }
+        }
+      }
+    },
+    "revokeBatch": {
+      "type": "object",
+      "required": ["conversationId", "total", "revoked", "skipped", "failed", "results"],
+      "additionalProperties": false,
+      "properties": {
+        "conversationId": { "type": "string" },
+        "total": { "type": "number" },
+        "revoked": { "type": "number" },
+        "skipped": { "type": "number" },
+        "failed": { "type": "number" },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["effectId", "revoked"],
+            "additionalProperties": true,
+            "properties": {
+              "effectId": { "type": "number" },
+              "revoked": { "type": "boolean" },
+              "skipped": { "type": "boolean" },
+              "reason": { "enum": ["already_revoked", "compensating"] },
+              "revokeStatus": { "type": "string" },
+              "external": { "type": "boolean" },
+              "message": { "type": "string" },
+              "error": { "type": "string" },
+              "compensationGroup": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

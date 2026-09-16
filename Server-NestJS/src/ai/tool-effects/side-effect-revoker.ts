@@ -21,11 +21,16 @@ export const SIDE_EFFECT_REVOKER = 'SIDE_EFFECT_REVOKER';
 export interface SideEffectRevoker {
   /** 该 revoker 是否能处理此 resultType */
   canHandle(resultType: string): boolean;
-  /** 撤销（本地软删 / 外部补偿） */
+  /**
+   * 撤销（本地软删 / 外部补偿）。
+   * `manager`：级联补偿时由调用方传入**已开启的事务** manager——同组本地成员必须落在同一事务里，
+   * 「一次补偿全成或全不成」才成立（否则「一次补偿」只是营销词）。单条撤销不传。
+   */
   revoke(
     resultType: string,
     resultId: number,
     userId: string,
+    manager?: EntityManager,
   ): Promise<{ revoked: boolean; message?: string }>;
   /** 目标记录当前状态（列表富化用） */
   describeTarget(
@@ -118,10 +123,13 @@ export class LocalEntityRevoker implements SideEffectRevoker {
     resultType: string,
     resultId: number,
     _userId: string,
+    manager?: EntityManager,
   ): Promise<{ revoked: boolean; message?: string }> {
-    const target = resolveLocalEntity(this.entityManager, resultType);
+    // 级联补偿传入事务 manager 时，解析与软删都必须走它——否则这一行落在事务外，回滚不覆盖它
+    const em = manager ?? this.entityManager;
+    const target = resolveLocalEntity(em, resultType);
     if (!target) return { revoked: false, message: '无本地实体可软删' };
-    const repo = this.entityManager.getRepository(target.name);
+    const repo = em.getRepository(target.name);
     const row = await repo.findOne({ where: { id: resultId } } as any);
     if (row) {
       await repo.softDelete(resultId);

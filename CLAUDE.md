@@ -802,11 +802,11 @@ npm run migration:run
 | GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新；元数据带 riskLevel/riskStrategy 风险声明，A2） |
 | POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
 | GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
-| DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的 event/todo（HS-3，软删可经回收站恢复） |
-| DELETE | /api/v1/ai/tool-effects?conversationId=\|=runId= | Yes (ADMIN) | — | 批量撤销某会话（conversationId）或某次 run 一次性授权（runId）产生的全部 AI 副作用（G1：逐条本地软删/外部补偿 + 汇总；docs/revoke-contract.spec.md §3 Case B / §4 G1） |
-| DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复） |
-| DELETE | /api/v1/ai/my/tool-effects?conversationId=\|=runId= | Yes | 本人 | 批量撤销本人在某会话（conversationId）或某次 run（runId）产生的全部 AI 副作用（G1，owner 过滤，逐条汇总） |
-| GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4） |
+| DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的记录（HS-3，软删可经回收站恢复）；属**跨表复合写组**时自动**级联补偿整组**（docs/cascade-compensation.spec.md） |
+| DELETE | /api/v1/ai/tool-effects?conversationId=\|=runId= | Yes (ADMIN) | — | 批量撤销某会话（conversationId）或某次 run 一次性授权（runId）产生的全部 AI 副作用（G1：逐条本地软删/外部补偿 + 汇总；**按补偿组折叠，同组只补偿一次**；docs/revoke-contract.spec.md §3 Case B / §4 G1） |
+| DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复）；同上级联语义 |
+| DELETE | /api/v1/ai/my/tool-effects?conversationId=\|=runId= | Yes | 本人 | 批量撤销本人在某会话（conversationId）或某次 run（runId）产生的全部 AI 副作用（G1，owner 过滤，逐条汇总；按补偿组折叠） |
+| GET | /api/v1/ai/governance/action/:resultType/:resultId | Yes | 本人或管理员 | B4 治理视图：从业务动作（如 crm_task:42）反查 AI 副作用 + 决策轨迹（决策轨迹/权限依据/确认/审计，§internal.10 B4）；effect 带 `compensationGroup`/`parentEffectId`/`cascadeSize`/`restored`（A-3 恢复态，服务端单一权威） |
 | GET | /api/v1/ai/my/tool-effects | Yes | 本人 | AI Action Center：本人 AI 写副作用清单（状态归一 executed/revoked + 目标富化，数据最小化） |
 | GET | /api/v1/ai/governance/evidence-root/:resultType/:resultId | Yes | 本人或管理员 | 证据根 v3：单动作跨链证据包 keelbase-audit-evidence/3（授权快照+Decision Evidence+审计链行+副作用行+跨链根锚，离线验） |
 | GET | /api/v1/ai/governance/policy/history | Yes (ADMIN) | — | 治理策略历史快照列表（P-③，跨版本回放决策可复现） |
@@ -851,8 +851,8 @@ npm run migration:run
 | DELETE | /api/v1/admin/sessions/:id | Yes (ADMIN) | — | 远程登出任意会话 |
 | GET | /api/v1/admin/users/:id/detail | Yes (ADMIN) | — | 用户详情聚合（脱敏 + 会话 + 通知 + 统计，AD-6） |
 | POST | /api/v1/admin/notifications/broadcast | Yes (ADMIN) | — | 通知广播（全部或指定用户） |
-| GET | /api/v1/admin/trash | Yes (ADMIN) | — | 回收站：已软删除的事件/待办（RG-3，events/todos 用 @DeleteDateColumn 软删，管理台可恢复；users/notifications 保持硬删） |
-| POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | — | 恢复回收站记录（type: event\|todo） |
+| GET | /api/v1/admin/trash | Yes (ADMIN) | — | 回收站：已软删除的 event / todo / **project / task**（RG-3，均 @DeleteDateColumn 软删，管理台可恢复；users/notifications 硬删）。project/task 覆盖复合写载体——使其「本地可撤」的「可恢复」承诺成立 |
+| POST | /api/v1/admin/trash/:type/:id/restore | Yes (ADMIN) | — | 恢复回收站记录（type: event\|todo\|project\|task） |
 | GET | /api/v1/admin/templates | Yes (ADMIN) | — | 内置示例模板列表（PL-9） |
 | POST | /api/v1/admin/templates/:id/import | Yes (ADMIN) | — | 一键导入模板数据（事件/待办种子，PL-9） |
 | POST | /api/v1/admin/marketing/send | Yes (ADMIN) | — | 发送运营邮件（audience=all/admin/user，周报/活动，G-3） |

@@ -230,8 +230,26 @@ const lifecycleSteps = computed(() => {
     out.push({ key: 'execute', label: t('stepExecute'), description: '', status: revoked || toolCall?.success ? 'finish' : 'process' })
   }
   if (confirm && !denied) {
-    out.push({ key: 'revoke', label: t('stepRevoke'), description: revoked ? t('lifecycleRevoked') : '', status: revoked ? 'finish' : 'wait' })
-    out.push({ key: 'restore', label: t('stepRestore'), description: '', status: 'wait' })
+    // 级联补偿：一次业务动作的多表副作用一次补偿 → 撤销节点显示条数（docs/cascade-compensation.spec.md §7）
+    const cascade = data.value.effect.cascadeSize > 1 ? data.value.effect.cascadeSize : 0
+    out.push({
+      key: 'revoke',
+      label: t('stepRevoke'),
+      description: revoked
+        ? cascade
+          ? t('lifecycleRevokedCascade', { n: cascade })
+          : t('lifecycleRevoked')
+        : '',
+      status: revoked ? 'finish' : 'wait',
+    })
+    // A-3 恢复态：补偿过但目标当前未软删 = 已从回收站恢复（服务端 restored 单一权威）
+    const restored = data.value.effect.restored
+    out.push({
+      key: 'restore',
+      label: t('stepRestore'),
+      description: restored ? t('lifecycleRestored') : '',
+      status: restored ? 'finish' : 'wait',
+    })
   }
   return out
 })

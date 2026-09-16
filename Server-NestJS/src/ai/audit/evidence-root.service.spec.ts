@@ -88,7 +88,11 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
     expect(out.effect.after).toEqual({ id: 7, status: 'open' });
     // 子链 + operation-audit 反查
     expect(out.chains.aiAudit).toHaveLength(1);
-    expect(operationAudit.chainRowsByTarget).toHaveBeenCalledWith('7', ['/crm/tasks/']);
+    // 含补偿锚路径：级联补偿行按根业务 id 落 targetId，不带这条子串会漏掉「被补偿过」的事实
+    expect(operationAudit.chainRowsByTarget).toHaveBeenCalledWith('7', [
+      '/crm/tasks/',
+      '/ai/tool-effects/compensate',
+    ]);
     expect(out.chains.operationAudit).toHaveLength(1);
     // 根锚：side-effect 摘要 + digest 自洽
     const sideAnchor = out.root.anchors.find((a: any) => a.kind === 'side-effect')!;

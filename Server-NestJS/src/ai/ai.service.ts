@@ -38,6 +38,7 @@ import {
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor } from './tool-effects/write-effect-type';
+import { declaredEffects } from './tool-effects/effect-composition';
 import { deriveWriteImpact } from './tool-effects/write-impact';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { GovernancePolicyService, effectiveGateMode } from './governance/governance-policy.service';
@@ -401,11 +402,24 @@ export class AiService {
     });
     const existing = await this.toolEffectsService.findExisting(key);
     if (existing.existing && existing.effect) {
+      // 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放**整组**——
+      // 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测将永不命中 → 工具重复执行。
+      const group = existing.effect.compensationGroup
+        ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
+        : [];
       return {
         success: true,
         data: {
           id: existing.effect.resultId,
           idempotent: true,
+          ...(group.length > 1
+            ? {
+                effects: group.map((e) => ({
+                  resultType: e.resultType,
+                  resultId: e.resultId,
+                })),
+              }
+            : {}),
         },
       };
     }
@@ -415,9 +429,32 @@ export class AiService {
     const isProxyWrite = this.isProxyTool(toolName);
     // FP-8：B 路径写即使响应空体/未知结果也记 proxy_call 副作用锚（stable proxyResultId），不假装有 data——撤销/证据可定位
     const proxyAnchor = isProxyWrite && result.success;
-    if (result.success && (proxyAnchor || (result.data && (result.data as any).id !== undefined))) {
+    // 级联补偿（docs/cascade-compensation.spec.md §3）：复合写工具在 data.effects 声明跨表多目标；
+    // 形状非法 → declaredEffects 返回 null（fail-closed）→ 回落既有单目标路径，绝不猜。
+    const declared = result.success && !isProxyWrite ? declaredEffects(result.data) : null;
+    if (
+      result.success &&
+      (proxyAnchor || declared || (result.data && (result.data as any).id !== undefined))
+    ) {
       // 状态变更型写工具（AI 预审）与 dry-run 只读预览（create_module）不创建可撤销记录，仅确认 + 审计
       if (!['review_approval_request', 'create_module'].includes(toolName)) {
+        // 复合组：一行一目标、同组（组 = 该次调用的幂等基键）→ 撤销任一条即补偿整组
+        if (declared) {
+          const snapshots = await Promise.all(
+            declared.map(async (e) => {
+              const after = this.snapshotCaptor
+                ? await this.snapshotCaptor.captureAfter(e.resultType, e.resultId, result.data)
+                : null;
+              return { before, after };
+            }),
+          );
+          await this.toolEffectsService.recordGroup(
+            { userId, conversationId, runId, toolName, args },
+            declared,
+            snapshots,
+          );
+          return result;
+        }
         // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
         const resultType = isProxyWrite ? 'proxy_call' : writeEffectTypeFor(toolName);
         if (!resultType) {

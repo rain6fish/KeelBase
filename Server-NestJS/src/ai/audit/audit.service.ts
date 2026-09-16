@@ -951,15 +951,22 @@ export class AuditService {
     };
   }
 
-  /** ① 证据根：resultType → REST 资源 path 子串（对齐 business-history REST_RESOURCE_PATHS；未知类型不反查） */
+  /**
+   * ① 证据根：resultType → 该业务对象在 operation_audit 里的 path 子串（对齐 business-history REST_RESOURCE_PATHS；
+   * 未知类型不反查）。除 REST 资源路径外还须含**补偿锚** `/ai/tool-effects/compensate`——
+   * 级联补偿行（docs/cascade-compensation.spec.md §6）的 targetId 记的是根业务 id，不在此列则
+   * 证据包会漏掉「这条业务动作被补偿过」这一事实。
+   */
   private _evidenceRootRestPaths(resultType: string): string[] | null {
+    const compensate = '/ai/tool-effects/compensate';
     const map: Record<string, string[]> = {
-      crm_task: ['/crm/tasks/'],
-      pm_task: ['/pm/tasks/'],
-      app_request: ['/approval/requests/'],
-      event: ['/api/v1/events/', '/events/'],
-      contract: ['/contracts/'],
-      todo: ['/todos/'],
+      crm_task: ['/crm/tasks/', compensate],
+      pm_task: ['/pm/tasks/', compensate],
+      pm_project: ['/pm/projects/', compensate],
+      app_request: ['/approval/requests/', compensate],
+      event: ['/api/v1/events/', '/events/', compensate],
+      contract: ['/contracts/', compensate],
+      todo: ['/todos/', compensate],
     };
     return map[resultType] ?? null;
   }

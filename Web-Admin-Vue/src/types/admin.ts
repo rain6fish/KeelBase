@@ -144,7 +144,7 @@ export interface UserDetail {
 // ---- P3 新增 ----
 
 export interface TrashItem {
-  type: 'event' | 'todo'
+  type: 'event' | 'todo' | 'project' | 'task'
   id: number
   title: string
   userId: number | null
@@ -322,6 +322,12 @@ export interface GovernanceActionResponse {
     targetExists: boolean // A-3 生命周期：目标当前状态
     targetSoftDeleted: boolean // 撤销 = 目标软删
     targetTitle: string | null
+    // 级联补偿 + A-3 恢复态（服务端单一权威；docs/cascade-compensation.spec.md §7）
+    revokeStatus: 'revoked' | 'compensating' | 'revoke_failed' | null
+    compensationGroup: string | null // 同组 = 同一次业务动作的多表副作用
+    parentEffectId: number | null // 根副作用的 effect id（null = 本条即根）
+    cascadeSize: number // 组内条数（1 = 单目标，无级联）
+    restored: boolean // 补偿过但目标当前未软删 → 已恢复
   }
   trace: unknown | null // DecisionTrace（AiTraceView 同源；抽屉内渲染关键步骤，完整轨迹走 AiTraceView）
 }

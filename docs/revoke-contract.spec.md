@@ -16,6 +16,10 @@
 - 幂等：`idempotency_key` 防重复 create（同会话同工具同参数复用结果）。
 - 完整性：副作用表入哈希链（prev_hash/hash）；撤销仅回写 `revoke_status` 运维态，不入哈希链 payload。
 - 归责：本人 `my/tool-effects/:id` 撤销带所有权（`revokeOwned`）；管理端 admin 可撤任意；两路都在 AI Action Center / 决策轨迹留痕。
+- **级联（B2/G3）**：跨表复合写工具的多个副作用共享一个**补偿组**（组 = 该次调用的幂等基键）；
+  撤销组内**任一条**即补偿整组，本地成员落一个事务。组级补偿自身落一行 `action=COMPENSATE` 的
+  operation_audit 行（入哈希链），`targetId` 记**根业务 id** → 证据根可按业务对象捞到。
+  单目标副作用（无组）行为与本节其余条款**逐字节一致**。
 
 ## 2. 工具级撤销契约验收 / Per-tool revocation acceptance
 
@@ -31,8 +35,8 @@
 |---|---|---|---|
 | A | 单实体：`create event → revoke → 消失` | 软删 + 回收站可恢复；`revokeStatus=revoked` | ✅ 已实现（LocalEntityRevoker + RG-3） |
 | B | 多实体 / 同次 run 多写 | 一键批量撤销（会话/run 粒度），结果逐条汇总、部分失败清晰 | ✅ **会话级批量已实现**（`DELETE /ai/tool-effects?conversationId=` admin / `/ai/my/tool-effects?conversationId=` 本人，逐条软删/外部补偿 + 汇总）；⚠️ run 精确粒度待 KB-5 run 落库后按 run_id |
-| B2 | 级联：单一复合写工具内部建多行/多表 | 撤销级联清理关联行，或显式声明不可级联并防误删 | ⚠️ 未建模（revoke 仅删 `resultId` 单行） |
-| C | 事务 / 部分失败 | 单操作 DB 原子；同批多写部分失败时，已成功部分可被清晰列出并由用户撤销 | ⚠️ 部分：DB 层原子已保证；无"失败自动清扫已成功部分" |
+| B2 | 级联：单一复合写工具内部建多行/多表 | 撤销级联清理关联行，或显式声明不可级联并防误删 | ✅ **已实现**（[cascade-compensation.spec.md](cascade-compensation.spec.md)：复合写工具在 `data.effects` 声明多目标 → 按**补偿组**登记 → 撤销**任一条**即补偿整组；本地成员落**一个事务**，全成或全不成） |
+| C | 事务 / 部分失败 | 单操作 DB 原子；同批多写部分失败时，已成功部分可被清晰列出并由用户撤销 | 🔶 **级联场景已闭合**：组内本地成员单事务，任一失败整体回滚、零改动（不产生半补偿），逐条结果如实汇总；**跨组**批量仍为逐组独立（一组失败不影响他组），无"自动清扫已成功部分" |
 | D | 异步副作用（AI → 队列 job） | `queued/processing` 中间态建模 + 终态收敛 | ⚠️ 本仓 AI 写暂不异步化；未来触发需补状态机 |
 | E | 外部 API 补偿 | 补偿已请求（`compensating` 诚实）+ **终态可回读对账**（收敛到 revoked / revoke_failed） | ✅ 补偿请求已实现；⚠️ 终态回读依赖目标系统，主库不轮询收敛 |
 | F | 不可逆（邮件/短信/支付/物理） | R5 阻断或 `revokeClass=none`，不展示可撤销入口 | ✅ 已实现（R5 block + none 拒绝 + UI 分支） |
@@ -41,12 +45,14 @@
 
 - **G1 run/会话级批量撤销**：✅ **会话级 + run 级均已落地**——`DELETE /ai/tool-effects?conversationId=|runId=`（admin）与 `/ai/my/tool-effects?conversationId=|runId=`（本人，owner 过滤）逐条复用档位门控撤销 + 汇总（service `revokeConversation` / `revokeRun`，共用 `_revokeBatch` 循环）。run 精确粒度：KB-5 run 一次授权执行时把 runId（= run 确认 token）挂到成员的副作用行（`ai_tool_side_effects.run_id`，迁移 `1818000000000`；**链外列**，不入 G-3 哈希链 payload 故加列不破历史链），比会话级更细（一个对话可含多次 run）。
 - **G2 外部补偿终态收敛**：`compensating` 长期悬空的展示问题——先做 UI/审计面明确"结果在目标系统"，后续可选轮询/回调。
-- **G3 级联副作用边界**：近期无复合写工具则先文档化；出现时给父子 effect 引用最小契约。
+- **G3 级联副作用边界**：✅ **已闭合**（[cascade-compensation.spec.md](cascade-compensation.spec.md)）——复合写工具出现（`create_project_with_tasks`）时落地了父子引用最小契约：`ai_tool_side_effects` 加 `compensation_group`（= 该次调用的幂等基键，同组即同一业务动作）+ `parent_effect_id`（根成员），两列均为**链外注解列**（不入 G-3 `_chainPayload` 白名单 → 加列不破历史链）；wire 契约升 `side-effect-revoke` v3。
 - **G4 每个非 none 工具的撤销 E2E**：✅ **本地可撤档已固化**（`test/revoke-acceptance.e2e-spec.ts`，真实 create→record→本人撤销→软删+回收站 restore→状态回 executed + 所有权 404，6 例）；外部补偿由 `proxy-bridge.e2e-spec.ts` 覆盖、`none` 拒绝由 revoke-conversation.spec 单测兜底。新写工具验收回归时按 §2 清单在此套件扩展。
 
 ## 5. 相关文档 / Related
 
+- [cascade-compensation.spec.md](cascade-compensation.spec.md)（级联撤销 / 业务级补偿——闭合本契约 B2 / C / G3）
 - docs/evidence-root.spec.md（授权快照 + 证据根；撤销目标状态在证据包内）
 - docs/hs11-audit-chain.spec.md（审计哈希链）· docs/ai-action-center.spec.md（我的 AI 行为/撤销入口）
+- docs/audit-lifecycle-elsteps.spec.md（A-3 生命周期；撤销节点显示级联条数、恢复节点据 `restored` 转 finish）
 - docs/integrator-kit/java-compensation-example.md（B 路径外部补偿示例）
 - docs/manual/code-review-severity.md（把扫描/评审发现分级，本契约归 Trust 核心 P1）

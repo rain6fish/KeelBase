@@ -133,9 +133,9 @@ export class AdminController {
 
   @Post('trash/:type/:id/restore')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: '恢复回收站记录（type: event|todo）' })
+  @ApiOperation({ summary: '恢复回收站记录（type: event|todo|project|task）' })
   restoreTrash(
-    @Param('type') type: 'event' | 'todo',
+    @Param('type') type: 'event' | 'todo' | 'project' | 'task',
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.adminService.restoreTrashItem(type, id);

@@ -27,6 +27,8 @@ const en: ZhDict = {
   lifecycleBlocked: 'Blocked',
   lifecycleConfirmed: 'Confirmed & executed',
   lifecycleExecuted: 'Executed',
+  lifecycleRevokedCascade: 'Revoked {n} rows (one business action, cascaded)',
+  lifecycleRestored: 'Restored from recycle bin',
   filterBehavior: 'Behavior type',
   behaviorExecute: 'AI executed',
   behaviorFailed: 'AI failed',
@@ -844,6 +846,8 @@ const en: ZhDict = {
   confirmRunCount: 'This will run {n} operation(s).',
   // §22.17 impact preview: object types stay as machine identifiers, matching revoke/audit wording
   confirmImpact: 'Estimated impact: {actions} write action(s)',
+  // §22.17 impact-preview v1.1: revocability prefix (class labels reuse the existing revokeClass* keys)
+  confirmRevoke: 'Reversibility:',
   // §internal.15(4) governance policy visual editing: gate mode
   gateModeColumn: 'Effective gate',
   gateAuto: 'Auto',
@@ -1095,6 +1099,8 @@ const en: ZhDict = {
   users: 'Users',
   events: 'Events',
   todos: 'Todos',
+  projects: 'Projects',
+  tasks: 'Tasks',
   sessions: 'Sessions',
   notifications: 'Notifications',
   conversations: 'Conversations',

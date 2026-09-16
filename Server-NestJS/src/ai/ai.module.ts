@@ -113,6 +113,7 @@ import { QueryProjectsTool } from './tools/query-projects.tool';
 import { QueryProjectTasksTool } from './tools/query-project-tasks.tool';
 import { AnalyzeProjectRiskTool } from './tools/analyze-project-risk.tool';
 import { CreateProjectTaskTool } from './tools/create-project-task.tool';
+import { CreateProjectWithTasksTool } from './tools/create-project-with-tasks.tool';
 import { CrmModule } from '../crm/crm.module';
 import { CrmService } from '../crm/crm.service';
 import { PmModule } from '../pm/pm.module';
@@ -331,6 +332,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryProjectTasksTool(pmService));
         toolRegistry.register(new AnalyzeProjectRiskTool(pmService));
         toolRegistry.register(new CreateProjectTaskTool(pmService));
+        // 复合写载体（docs/cascade-compensation.spec.md）：一次写 pm_projects + N × pm_tasks，
+        // 撤销任一条即级联补偿整组——跨表级联撤销的可演示路径
+        toolRegistry.register(new CreateProjectWithTasksTool(pmService));
         // AI Approval 旗舰应用：审批请求/政策/提交/预审
         toolRegistry.register(new QueryApprovalRequestsTool(approvalService));
         toolRegistry.register(new QueryApprovalPoliciesTool(approvalService));

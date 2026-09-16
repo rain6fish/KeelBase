@@ -62,7 +62,13 @@ const headers = computed(() => [
   { key: 'actions', title: t('actionCol') },
 ])
 
-const typeLabelMap = computed(() => ({ event: t('events'), todo: t('todos') }))
+// project/task：复合写载体（级联撤销目标）也在回收站内 —— 否则「本地可撤」的「可恢复」承诺对它们不成立
+const typeLabelMap = computed(() => ({
+  event: t('events'),
+  todo: t('todos'),
+  project: t('projects'),
+  task: t('tasks'),
+}))
 
 async function load(p = 1) {
   loading.value = true

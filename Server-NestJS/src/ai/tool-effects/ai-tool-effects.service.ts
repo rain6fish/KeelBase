@@ -11,8 +11,10 @@ import type { SideEffectRevoker } from './side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
 import type { AuditChainService } from '../../common/audit-chain/audit-chain.service';
+import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
+import type { DeclaredSideEffect } from './effect-composition';
 
 export interface WriteToolContext {
   userId: string;
@@ -34,6 +36,15 @@ export interface SideEffectSnapshot {
 /** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
 export const EXTERNAL_REVOKER = 'EXTERNAL_REVOKER';
 
+/** 级联补偿汇总（docs/cascade-compensation.spec.md §5；wire v3 revokeResult.cascade） */
+export type RevokeCascadeSummary = {
+  groupId: string;
+  total: number;
+  revoked: number;
+  skipped: number;
+  failed: number;
+};
+
 /** G1 会话级批量撤销：单条结果（skipped 时 revoked=false + reason） */
 export type RevokeBatchItem = {
   effectId: number;
@@ -44,6 +55,8 @@ export type RevokeBatchItem = {
   external?: boolean;
   message?: string;
   error?: string;
+  /** 级联补偿（v3）：该结果所属补偿组（null/缺省 = 单目标副作用） */
+  compensationGroup?: string | null;
 };
 
 /** G1 会话级批量撤销：汇总 + 逐条结果 */
@@ -71,6 +84,10 @@ export type RevokeResult = {
   /** 单条撤销的幂等跳过标记（已撤销 / 已请求补偿 → 不重复触发） */
   skipped?: boolean;
   reason?: string;
+  /** 级联补偿（v3）：该副作用所属补偿组（null/缺省 = 单目标副作用） */
+  compensationGroup?: string | null;
+  /** 级联补偿（v3）：整组汇总（仅组内成员数 > 1 时返回） */
+  cascade?: RevokeCascadeSummary;
 };
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
@@ -108,8 +125,13 @@ export class AiToolEffectsService {
     @Optional() private readonly auditChain?: AuditChainService,
     // KB-6：工具注册表（解析副作用撤销能力档位快照；ToolRegistry 为 AiModule provider，构造器注入）
     @Optional() private readonly toolRegistry?: ToolRegistry,
-    // G-3 链写入串行化（postgres 走 DB 锁事务；缺失则退化为进程内串行）——见 _saveWithChain
+    // G-3 链写入串行化（postgres 走 DB 锁事务；缺失则退化为进程内串行）——见 _withChainWrite
     @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
+    /**
+     * docs/cascade-compensation.spec.md §6：补偿自身入 operation_audit（该表入哈希链 → 补偿自动入链）。
+     * @Optional：治理台/单测装配可能没有 OperationAuditModule（缺则该链降级为无显式补偿行）。
+     */
+    @Optional() private readonly operationAudit?: OperationAuditService,
   ) {}
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
@@ -122,6 +144,15 @@ export class AiToolEffectsService {
     const stable = JSON.stringify(sortKeys(ctx.args));
     const seed = `${ctx.userId}:${ctx.conversationId ?? ''}:${ctx.toolName}:${stable}`;
     return createHash('sha256').update(seed).digest('hex');
+  }
+
+  /**
+   * 复合写工具组内成员幂等键（docs/cascade-compensation.spec.md §4）：基键 + 区分度。
+   * 同组多行若共用基键，`idempotency_key` 唯一约束会把整组塌成一行——区分度是必需的，不是优化。
+   * 用**声明下标**而非登记顺序：重试时同一成员映射到同一键（幂等语义才成立）。
+   */
+  static memberKey(baseKey: string, index: number, resultType: string, resultId: number): string {
+    return createHash('sha256').update(`${baseKey}:${index}:${resultType}:${resultId}`).digest('hex');
   }
 
   /**
@@ -153,18 +184,94 @@ export class AiToolEffectsService {
       // §4 G1：run 成员副作用记 runId（链外列，_chainPayload 白名单不含 → 不入链，不破历史链）
       runId: ctx.runId ?? null,
       toolName: ctx.toolName,
-      argsHash: createHash('sha256').update(JSON.stringify(sortKeys(ctx.args))).digest('hex').slice(0, 16),
+      argsHash: this._argsHash(ctx),
       resultType,
       resultId,
       beforeSnapshot: snapshot?.before ?? null,
       afterSnapshot: snapshot?.after ?? null,
       // KB-6：副作用发生时刻的撤销能力档位快照（ctx 直传优先；否则按工具注册/resultType 兜底）
       revokeClass: ctx.revokeClass ?? this._resolveSnapshotClass(ctx.toolName, resultType),
+      // 单目标行不属于任何补偿组（历史语义逐字节不变）
+      compensationGroup: null,
+      parentEffectId: null,
     };
     // G-3（§internal.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）。
     // 链写入 = read(prev) → compute → insert，是 read-modify-write：**必须串行**，否则并发两行读到同一 prev
-    // → 同 prevHash 两分支 → 链分叉（verifySideEffectChain 判 invalid）。见 _saveWithChain。
-    return this._saveWithChain(ctx, base, key, resultType, resultId);
+    // → 同 prevHash 两分支 → 链分叉（verifySideEffectChain 判 invalid）。见 _withChainWrite。
+    return this._saveSingle(ctx, base, key, resultType, resultId);
+  }
+
+  /**
+   * 复合写工具登记（docs/cascade-compensation.spec.md §4）：一次调用跨表落多行，同属一个补偿组。
+   * - 组标识 = 该次调用的**幂等基键** → 重试天然映射同一组，无需另生成 uuid。
+   * - 整组在**一个**链写上下文内登记（postgres 单事务单锁 / sqlite 单队列任务）→ 组内链相邻、登记原子，
+   *   杜绝「N 次独立提交 → 提交一半的半组」。
+   * - 任一成员唯一冲突 → 整组回滚 → 回放既有整组（幂等重试语义）。
+   */
+  async recordGroup(
+    ctx: WriteToolContext,
+    effects: DeclaredSideEffect[],
+    snapshots?: Array<SideEffectSnapshot | undefined>,
+  ): Promise<AiToolSideEffect[]> {
+    const baseKey = AiToolEffectsService.buildKey(ctx);
+    const save = async (manager?: EntityManager): Promise<AiToolSideEffect[]> => {
+      const saved: AiToolSideEffect[] = [];
+      for (let i = 0; i < effects.length; i++) {
+        const e = effects[i];
+        const base = {
+          idempotencyKey:
+            i === 0
+              ? baseKey
+              : AiToolEffectsService.memberKey(baseKey, i, e.resultType, e.resultId),
+          userId: ctx.userId,
+          conversationId: ctx.conversationId,
+          runId: ctx.runId ?? null,
+          toolName: ctx.toolName,
+          argsHash: this._argsHash(ctx),
+          resultType: e.resultType,
+          resultId: e.resultId,
+          beforeSnapshot: snapshots?.[i]?.before ?? null,
+          afterSnapshot: snapshots?.[i]?.after ?? null,
+          revokeClass: ctx.revokeClass ?? this._resolveSnapshotClass(ctx.toolName, e.resultType),
+          compensationGroup: baseKey,
+          // 根成员恒为第 0 条（spec §3）：根 parentEffectId=null，其余指向根（登记序保证根先落库）
+          parentEffectId: i === 0 ? null : (saved[0]?.id ?? null),
+        };
+        saved.push(await this._insertOne(base, manager));
+      }
+      return saved;
+    };
+
+    try {
+      const saved = await this._withChainWrite(save);
+      this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
+      return saved;
+    } catch (err) {
+      if (!isUniqueViolation(err)) {
+        // 非唯一冲突：不伪装幂等命中（与 record 同口径）
+        throw err;
+      }
+      this.logger.warn(`[AiToolEffects] recordGroup conflict (idempotent replay): ${(err as Error).message}`);
+      const existing = await this.listGroup(baseKey);
+      this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
+      return existing;
+    }
+  }
+
+  /** 载入整组副作用（补偿组内全部行，按 id 升序 = 登记序；根在最前） */
+  async listGroup(compensationGroup: string): Promise<AiToolSideEffect[]> {
+    return this.effectsRepo.find({
+      where: { compensationGroup } as any,
+      order: { id: 'ASC' },
+    });
+  }
+
+  /** 参数 hash（幂等键与追溯共用同一摘要口径） */
+  private _argsHash(ctx: WriteToolContext): string {
+    return createHash('sha256')
+      .update(JSON.stringify(sortKeys(ctx.args)))
+      .digest('hex')
+      .slice(0, 16);
   }
 
   /**
@@ -175,47 +282,16 @@ export class AiToolEffectsService {
    * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行（跨进程仍为 best-effort，与主链 sqlite 分支同）。
    * 幂等语义不变：唯一冲突 → skip 并回读已有行；其他 DB 错误如实上抛（KB-4 FP-4）。
    */
-  private async _saveWithChain(
+  private async _saveSingle(
     ctx: WriteToolContext,
     base: Record<string, unknown>,
     key: string,
     resultType: string,
     resultId: number,
   ): Promise<AiToolSideEffect> {
-    const build = async (manager?: EntityManager): Promise<AiToolSideEffect> => {
-      let chain: { prevHash: string | null; hash: string } | undefined;
-      if (this.auditChain) {
-        const prev = await this._lastSideEffectHash(manager);
-        chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
-      }
-      const repo = manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo;
-      return repo.save(repo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>));
-    };
-
     let saved: AiToolSideEffect | undefined;
     try {
-      if (this.dataSource?.options.type === 'postgres') {
-        const runner = this.dataSource.createQueryRunner();
-        await runner.connect();
-        try {
-          await runner.startTransaction();
-          await runner.query(
-            `INSERT INTO "audit_chain_lock" (id, holder) VALUES (2, 'side-effect') ON CONFLICT (id) DO NOTHING`,
-          );
-          await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 2 FOR UPDATE');
-          saved = await build(runner.manager);
-          await runner.commitTransaction();
-        } catch (err) {
-          await runner.rollbackTransaction().catch(() => {});
-          throw err;
-        } finally {
-          await runner.release();
-        }
-      } else {
-        const job = this._chainTail.then(() => build());
-        this._chainTail = job.catch(() => {});
-        saved = await job;
-      }
+      saved = await this._withChainWrite((manager) => this._insertOne(base, manager));
     } catch (err) {
       if (!isUniqueViolation(err)) {
         // 非唯一冲突（DB down / 连接中断等）：不伪装幂等命中——副作用未落库却报成功会造成重复执行，必须上抛
@@ -228,6 +304,53 @@ export class AiToolEffectsService {
     }
     this._reportEffect(ctx, resultType, resultId);
     return saved!;
+  }
+
+  /**
+   * 链写上下文：把一段「读 prev → 算 hash → 插入」的 read-modify-write **串行化**，否则并发写读同一 prev
+   * → 链分叉（verifySideEffectChain 判 invalid）。单行登记与复合组登记共用本上下文：
+   * - **postgres**：事务内锁 `audit_chain_lock` 行（id=2；与主审计链 id=1 分开，避免两链互相串行）→ 执行 fn →
+   *   提交。fn 内的插入必须走 `runner.manager` 且在锁内提交——否则锁释放早于插入落库，后到者仍读到旧 prev。
+   *   传同一个 manager 还能让组内后续成员读到**本事务内**前序成员（组内链相邻 + 登记原子）。
+   * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行（跨进程仍为 best-effort，与主链 sqlite 分支同）。
+   */
+  private async _withChainWrite<T>(fn: (manager?: EntityManager) => Promise<T>): Promise<T> {
+    if (this.dataSource?.options.type === 'postgres') {
+      const runner = this.dataSource.createQueryRunner();
+      await runner.connect();
+      try {
+        await runner.startTransaction();
+        await runner.query(
+          `INSERT INTO "audit_chain_lock" (id, holder) VALUES (2, 'side-effect') ON CONFLICT (id) DO NOTHING`,
+        );
+        await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 2 FOR UPDATE');
+        const out = await fn(runner.manager);
+        await runner.commitTransaction();
+        return out;
+      } catch (err) {
+        await runner.rollbackTransaction().catch(() => {});
+        throw err;
+      } finally {
+        await runner.release();
+      }
+    }
+    const job = this._chainTail.then(() => fn());
+    this._chainTail = job.catch(() => {});
+    return job;
+  }
+
+  /** 链内插入一行（须在 _withChainWrite 提供的上下文内调用，prev 才读到同事务/同批次的前序行） */
+  private async _insertOne(
+    base: Record<string, unknown>,
+    manager?: EntityManager,
+  ): Promise<AiToolSideEffect> {
+    let chain: { prevHash: string | null; hash: string } | undefined;
+    if (this.auditChain) {
+      const prev = await this._lastSideEffectHash(manager);
+      chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
+    }
+    const repo = manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo;
+    return repo.save(repo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>));
   }
 
   /** G-3 链写入串行队列（sqlite 等单写者；postgres 走 DB 锁，不依赖此队列） */
@@ -351,6 +474,9 @@ export class AiToolEffectsService {
           // KB-6：撤销能力档位 + 归一状态（4 值），供前端据档位诚实渲染（none 不显示撤销钮）
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
+          // 级联补偿（v3）：组标识 + 根引用，供前端显示「这是 N 条中的第 M 条」
+          compensationGroup: effect.compensationGroup ?? null,
+          parentEffectId: effect.parentEffectId ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
           // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
           revocable: this._isRevocable(
@@ -428,6 +554,9 @@ export class AiToolEffectsService {
           // KB-6：撤销能力档位 + 归一状态（4 值，禁把 governed_external 显示为 revoked）
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
+          // 级联补偿（v3）：组标识 + 根引用
+          compensationGroup: effect.compensationGroup ?? null,
+          parentEffectId: effect.parentEffectId ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
           // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
           revocable: this._isRevocable(
@@ -450,6 +579,16 @@ export class AiToolEffectsService {
   /** B4 治理视图：按业务动作（resultType+resultId，如 crm_task:42）反查 AI 副作用（供「业务动作 → 治理轨迹」展示） */
   async findByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect | null> {
     return this.effectsRepo.findOne({ where: { resultType, resultId } as any });
+  }
+
+  /**
+   * A-3 恢复态（docs/cascade-compensation.spec.md §7）：**补偿过但目标当前未软删** → 已恢复。
+   * 依据：`revoke_status='revoked'` 证明补偿发生过；`targetSoftDeleted=false` 证明目标现已回到生效态
+   * （回收站 restore 只清 deletedAt、**不动** revoke_status，故两者组合即「撤销后又恢复」这一历史事实）。
+   * 单一权威：规则在此一处，前端不各自复制判定。
+   */
+  isRestored(effect: AiToolSideEffect, targetSoftDeleted: boolean): boolean {
+    return effect.revokeStatus === 'revoked' && !targetSoftDeleted;
   }
 
   /** B4/A-3 生命周期富化：副作用目标记录当前状态（是否存在/软删/标题）——撤销态判定依赖 targetSoftDeleted */
@@ -525,6 +664,9 @@ export class AiToolEffectsService {
           // KB-6：撤销能力档位 + 归一状态（执行轨迹面同样据档位诚实渲染）
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
+          // 级联补偿（v3）：组标识 + 根引用
+          compensationGroup: effect.compensationGroup ?? null,
+          parentEffectId: effect.parentEffectId ?? null,
           status: this._normalizeStatus(effect, targetSoftDeleted),
           // 服务端单一权威的撤销可点判定（status=executed 且档位非 none）
           revocable: this._isRevocable(
@@ -606,11 +748,50 @@ export class AiToolEffectsService {
     let revoked = 0;
     let skipped = 0;
     let failed = 0;
+    // 级联补偿折叠（docs/cascade-compensation.spec.md §5）：同组只补偿一次——否则一个 N 成员组会被补偿 N 次。
+    // 逐条结果按成员摊平，前端仍看到「一条一行」。组分支必须**先于** skipReason 判定：
+    // 若首个成员恰是可跳过态（已撤销/补偿中），提前 continue 会让整组根本不被处理。
+    const processedGroups = new Set<string>();
+    const scopedIds = new Set(scoped.map((e) => e.id));
     for (const effect of scoped) {
+      const groupId = effect.compensationGroup;
+      if (groupId) {
+        if (processedGroups.has(groupId)) continue;
+        processedGroups.add(groupId);
+        try {
+          const members = await this.listGroup(groupId);
+          if (members.length > 1) {
+            const { items } = await this._compensateGroup(effect, groupId, members);
+            for (const it of items) {
+              if (!scopedIds.has(it.effectId)) continue;
+              results.push(it);
+              if (it.revoked) revoked++;
+              else if (it.skipped) skipped++;
+              else failed++;
+            }
+            continue;
+          }
+        } catch (err) {
+          failed++;
+          results.push({
+            effectId: effect.id,
+            revoked: false,
+            error: (err as Error).message,
+            compensationGroup: groupId,
+          });
+          continue;
+        }
+      }
       const skipReason = this._skipReason(effect);
       if (skipReason) {
         skipped++;
-        results.push({ effectId: effect.id, revoked: false, skipped: true, reason: skipReason });
+        results.push({
+          effectId: effect.id,
+          revoked: false,
+          skipped: true,
+          reason: skipReason,
+          compensationGroup: groupId ?? null,
+        });
         continue;
       }
       try {
@@ -623,10 +804,16 @@ export class AiToolEffectsService {
           revokeStatus: r.revokeStatus ?? null,
           external: r.external ?? false,
           message: r.message,
+          compensationGroup: groupId ?? null,
         });
       } catch (err) {
         failed++;
-        results.push({ effectId: effect.id, revoked: false, error: (err as Error).message });
+        results.push({
+          effectId: effect.id,
+          revoked: false,
+          error: (err as Error).message,
+          compensationGroup: groupId ?? null,
+        });
       }
     }
     return { total: scoped.length, revoked, skipped, failed, results };
@@ -661,12 +848,219 @@ export class AiToolEffectsService {
     };
   }
 
+  /**
+   * 撤销派发（docs/cascade-compensation.spec.md §5）：属**多成员补偿组** → 级联补偿整组；
+   * 否则走单目标路径（无组的历史行行为逐字节不变）。
+   */
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
+    if (effect.compensationGroup) {
+      const members = await this.listGroup(effect.compensationGroup);
+      if (members.length > 1) {
+        return (await this._compensateGroup(effect, effect.compensationGroup, members)).result;
+      }
+    }
+    return this._doRevokeSingle(effect);
+  }
+
+  /** 撤销能力档位（KB-6）：行上快照优先；旧行/未快照行按工具注册或 resultType 兜底解析 */
+  private _classOf(effect: AiToolSideEffect): RevokeClass {
+    return (
+      (effect.revokeClass as RevokeClass) ??
+      this._resolveSnapshotClass(effect.toolName, effect.resultType)
+    );
+  }
+
+  /**
+   * 级联补偿整组：本地成员落在**一个 DB 事务**里，任一失败即回滚 → 整组零改动；
+   * 外部成员在本地事务提交后于事务外顺序补偿，诚实落 compensating / revoke_failed。
+   * 本地回滚时**不触发**外部补偿——避免制造「半补偿」（一部分已撤销、一部分原样）的更糟状态。
+   */
+  private async _compensateGroup(
+    requested: AiToolSideEffect,
+    groupId: string,
+    members: AiToolSideEffect[],
+  ): Promise<{ result: RevokeResult; items: RevokeBatchItem[] }> {
+    const results: RevokeBatchItem[] = [];
+    const locals: AiToolSideEffect[] = [];
+    const externals: AiToolSideEffect[] = [];
+
+    for (const m of members) {
+      const reason = this._skipReason(m);
+      if (reason) {
+        results.push({
+          effectId: m.id,
+          revoked: false,
+          skipped: true,
+          reason,
+          revokeStatus: (m.revokeStatus as RevokeBatchItem['revokeStatus']) ?? null,
+          compensationGroup: groupId,
+        });
+        continue;
+      }
+      if (this._classOf(m) === 'local_compensate' && this.revoker?.canHandle(m.resultType)) {
+        locals.push(m);
+      } else {
+        externals.push(m);
+      }
+    }
+
+    if (locals.length) {
+      const run = async (manager?: EntityManager): Promise<void> => {
+        for (const m of locals) {
+          const r = await this.revoker!.revoke(m.resultType, m.resultId, m.userId, manager);
+          if (!r.revoked) {
+            throw new Error(r.message ?? `本地补偿失败：${m.resultType} #${m.resultId}`);
+          }
+        }
+      };
+      try {
+        if (this.dataSource) {
+          await this.dataSource.transaction((manager) => run(manager));
+        } else {
+          // 无 DataSource（单测 / 降级装配）：退化为顺序执行，失去原子性。部署态恒有 DataSource。
+          await run();
+        }
+      } catch (err) {
+        const msg = (err as Error).message;
+        this.logger.warn(`[AiToolEffects] cascade rollback (group ${groupId}): ${msg}`);
+        for (const m of locals) {
+          results.push({ effectId: m.id, revoked: false, error: msg, compensationGroup: groupId });
+        }
+        for (const m of externals) {
+          results.push({
+            effectId: m.id,
+            revoked: false,
+            message: '本地成员补偿失败并已回滚，未触发外部补偿（避免半补偿）',
+            compensationGroup: groupId,
+          });
+        }
+        const rolledBack = this._groupResult(requested, groupId, members, results);
+        // 失败也要留痕：审计要看见「补偿尝试过且失败了」，而不是一片空白
+        await this._auditCompensation(groupId, members, rolledBack.items, requested);
+        return rolledBack;
+      }
+      // 提交成功后才回写运维态（在事务内回写会在回滚后留下假的 revoked）
+      for (const m of locals) {
+        await this._setRevokeStatus(m, 'revoked');
+        results.push({
+          effectId: m.id,
+          revoked: true,
+          revokeStatus: 'revoked',
+          compensationGroup: groupId,
+        });
+      }
+    }
+
+    for (const m of externals) {
+      const r = await this._doRevokeSingle(m);
+      results.push({
+        effectId: m.id,
+        revoked: r.revoked,
+        external: r.external,
+        revokeStatus: r.revokeStatus ?? null,
+        message: r.message,
+        compensationGroup: groupId,
+      });
+    }
+
+    const out = this._groupResult(requested, groupId, members, results);
+    await this._auditCompensation(groupId, members, out.items, requested);
+    return out;
+  }
+
+  /**
+   * 补偿自身入 operation_audit（docs/cascade-compensation.spec.md §6）——该表入哈希链，故补偿自动入链。
+   *
+   * 只对**组级**补偿写显式行：单目标撤销已有全局拦截器行（HTTP 级），再写一行只是噪音；而组级补偿的
+   * 逐成员结果只有服务层知道，拦截器看不见。
+   * 落点 `targetId` = **根成员的业务 id**（不是副作用 id）→ 使其能被 evidence-root / 业务动作视图按业务对象捞到。
+   *
+   * 诚实取舍：`OperationAuditService.log()` 两个方言分支都只 logger.warn 吞掉异常、**永不抛**，
+   * 故这里是 best-effort，**做不到 fail-closed**（本仓 AU-5 的 fail-closed 抛的是另一条链 / AI 审计）。
+   * 但「状态改了却无记录」不会发生：权威运维态是逐条 revoke_status + 目标软删信号，
+   * 本行只是链锚定的人读摘要。
+   */
+  private async _auditCompensation(
+    groupId: string,
+    members: AiToolSideEffect[],
+    items: RevokeBatchItem[],
+    requested: AiToolSideEffect,
+  ): Promise<void> {
+    if (!this.operationAudit) return;
+    const byId = new Map(members.map((m) => [m.id, m]));
+    const root = members.find((m) => m.parentEffectId == null) ?? members[0];
+    const detail = JSON.stringify(
+      items.map((it) => {
+        const m = byId.get(it.effectId);
+        return {
+          resultType: m?.resultType ?? null,
+          resultId: m?.resultId ?? null,
+          role: it.effectId === root.id ? 'root' : 'child',
+          revoked: it.revoked,
+          revokeStatus: it.revokeStatus ?? null,
+        };
+      }),
+    );
+    const uid = Number(requested.userId);
+    await this.operationAudit.log({
+      userId: Number.isFinite(uid) ? uid : null,
+      action: 'COMPENSATE',
+      method: 'DELETE',
+      path: '/ai/tool-effects/compensate',
+      featureKey: 'ai.compensate',
+      featureFallback: 'ai · compensate',
+      targetId: String(root.resultId),
+      requestBody: JSON.stringify({
+        groupId,
+        requestedEffectId: requested.id,
+        total: members.length,
+      }),
+      // changes 是链外列（≤4000）→ 逐成员明细放这里不动 payload 契约；超长截断护栏
+      changes: detail.length > 4000 ? `${detail.slice(0, 3997)}...` : detail,
+      businessEvent: 'AiSideEffectCompensated',
+    });
+  }
+
+  /**
+   * 组级结果汇总：整组全成（或本就是已撤销态）才 `revoked:true`——
+   * 「已请求外部补偿·结果未知」与「有成员失败」都不得伪装成已撤销（KB-6 诚实口径）。
+   */
+  private _groupResult(
+    requested: AiToolSideEffect,
+    groupId: string,
+    members: AiToolSideEffect[],
+    results: RevokeBatchItem[],
+  ): { result: RevokeResult; items: RevokeBatchItem[] } {
+    const skipped = results.filter((r) => r.skipped).length;
+    const failed = results.filter((r) => !r.revoked && !r.skipped).length;
+    const alreadyRevoked = results.filter((r) => r.reason === 'already_revoked').length;
+    const compensating = results.some(
+      (r) => r.reason === 'compensating' || r.revokeStatus === 'compensating',
+    );
+    const revoked = results.filter((r) => r.revoked).length;
+    const allOk = failed === 0 && revoked + alreadyRevoked === results.length;
+    return {
+      result: {
+        revoked: allOk && !compensating,
+        effectId: requested.id,
+        compensationGroup: groupId,
+        cascade: { groupId, total: members.length, revoked, skipped, failed },
+        revokeStatus: failed > 0 ? 'revoke_failed' : compensating ? 'compensating' : 'revoked',
+        message:
+          failed > 0
+            ? `级联补偿失败（${failed}/${members.length} 条未补偿）：本地成员已整体回滚，未产生半补偿状态`
+            : compensating
+              ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
+              : `级联补偿 ${members.length} 条（同一次业务动作）`,
+      },
+      items: results,
+    };
+  }
+
+  private async _doRevokeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
     // KB-6：撤销能力档位门控——none（不可撤/外部未知）直接拒绝，不再误走 externalRevoker
     // 制造"可撤销"假象。旧行 revokeClass 为 null 时按工具/resultType 兜底解析。
-    const revokeClass: RevokeClass =
-      (effect.revokeClass as RevokeClass) ??
-      this._resolveSnapshotClass(effect.toolName, effect.resultType);
+    const revokeClass: RevokeClass = this._classOf(effect);
     if (revokeClass === 'none') {
       return {
         revoked: false,

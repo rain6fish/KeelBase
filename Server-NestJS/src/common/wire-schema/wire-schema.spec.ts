@@ -4,9 +4,9 @@
  * CE-1 wire Schema 冻结校验（specs/protocol/wire-schema-registry.json）。
  *
  * 把 wire 形状锁成常绿门禁（语义变更必须先落语料/Schema 版本再改实现，CE-1 L3 / C-1）：
- *   1. registry 每个对象 schema 存在且可被 ajv 解析（跨版本按 $id 索引）＋版本 ∈ {v1,v2}；
+ *   1. registry 每个对象 schema 存在且可被 ajv 解析（跨版本按 $id 索引）＋版本形如 v<N>；
  *   2. 每份代表样例通过其对象 schema（跨文件 $id 引用已全局注册）；
- *   3. 对象清单冻结（增删 wire 对象必须同步本测试——形状变更先升 v2 再改代码）。
+ *   3. 对象清单冻结（增删 wire 对象必须同步本测试——形状变更先升版本再改代码）。
  *
  * schema 为人工策展快照（非自动派生）；来源锚见各 schema description 与 registry.source。
  * 仅依赖 ajv / ajv-formats（package-lock 内既有传递依赖，版本锁定）。
@@ -83,7 +83,7 @@ const check = (cond: boolean, label: string) => {
   if (!cond) failures.push(label);
 };
 
-describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2 + registry）', () => {
+describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry）', () => {
   // 递归扫描 schemas/ 下所有版本目录（v1/v2/...），以各 schema 的 $id 为键（版本间同名文件不冲突）。
   const root = resolve(SPECS, registry.schemasDir);
   const schemas = new Map<string, object>();
@@ -115,9 +115,10 @@ describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2 + registry）',
     check(JSON.stringify(ids) === JSON.stringify([...FROZEN_OBJECT_IDS].sort()), `对象清单漂移: ${ids.join(',')}`);
   });
 
-  it('registry：每对象 version ∈ {v1,v2}、schema($id) 存在、样例非空且在盘', () => {
+  it('registry：每对象 version 形如 v<N>、schema($id) 存在、样例非空且在盘', () => {
     for (const o of registry.objects) {
-      check(o.version === 'v1' || o.version === 'v2', `${o.id}: version 非法（${o.version}）`);
+      // 形如 v<N> 而非硬编码枚举：升版（v3、v4…）不必再改本断言；拼写错误（v2x / 2 / V2）仍被拦下。
+      check(/^v\d+$/.test(o.version), `${o.id}: version 非法（${o.version}）`);
       check(schemas.has(o.schema), `${o.id}: schema ${o.schema} 缺失`);
       check(Array.isArray(o.samples) && o.samples.length > 0, `${o.id}: 样例为空`);
       for (const rel of o.samples) {

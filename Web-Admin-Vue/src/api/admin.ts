@@ -56,7 +56,7 @@ export const adminApi = {
   trash(page = 1, limit = 20): Promise<TrashResponse> {
     return api.get<TrashResponse>('/admin/trash', { page, limit })
   },
-  restoreTrash(type: 'event' | 'todo', id: number): Promise<TrashRestoreResult> {
+  restoreTrash(type: 'event' | 'todo' | 'project' | 'task', id: number): Promise<TrashRestoreResult> {
     return api.post<TrashRestoreResult>(`/admin/trash/${type}/${id}/restore`)
   },
   analytics(days = 30): Promise<AnalyticsResponse> {
