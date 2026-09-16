@@ -1,6 +1,6 @@
 {
   "name": "keelbase",
-  "version": "1.0.3",
+  "version": "1.0.10",
   "description": "KeelBase CLI — 按基座约定生成业务模块（EASY-2 开发期 AI）。`npx keelbase init` 对话式/自然语言生成全栈 CRUD 模块（NestJS + Flutter）。",
   "type": "module",
   "bin": {
@@ -35,7 +35,8 @@
     "check:app-model": "node scripts/check-app-model.mjs",
     "check:boundary": "node scripts/check-core-boundary.mjs",
     "check:frontend-boundary": "node scripts/check-frontend-boundary.mjs",
-    "check:java-vectors": "node scripts/check-java-vector-sync.mjs"
+    "check:java-vectors": "node scripts/check-java-vector-sync.mjs",
+    "check:version-parity": "node scripts/check-version-parity.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"

@@ -49,6 +49,23 @@
 - **覆盖降级或未达标 → 必须补测试提升**（新增模块/文件的最低覆盖缺口优先）
 - 目标：发布时后端 statements ≥ 门槛且不低于上一版；安全模块分档门控通过
 
+### ④ 版本 bump 与版本对账
+
+发版 bump **必须覆盖发版线全部清单**（漏一个即对外版本信息错版）：
+
+| 清单 | 说明 |
+|------|------|
+| `package.json`（仓库根） | npm `keelbase` CLI 包 + **生成器来源身份读取源**（`scripts/generator/manifest.mjs`）——漏 bump 会让每个 `keelbase init` 产物把旧版本写进 `.keelbase/manifest.json` / `.keelbase-provenance.json` |
+| `Server-NestJS/package.json` | 后端 |
+| `Web-Admin-Vue/package.json` | Web 宿主（工作台 + 管理台） |
+| `Front-Taro/package.json` | Taro |
+| `Front-Flutter/pubspec.yaml` | 移动主 App（`x.y.z+N`） |
+
+外加各 lockfile 的根版本字段（`version` + `packages[""].version`，跟随其清单）。
+
+门禁：`node scripts/check-version-parity.mjs`（CI job `version-parity`）——任一清单或 lockfile 掉队即红，并报出「掉队者 vs 发版线版本」。
+**不随发版线**：`Web-Admin-React/package.json`（预览版，未表态转正前不参与，已在门禁内显式登记）。
+
 ## 执行记录
 
 每次发布前执行后，在 CHANGELOG/发布记录记一笔：

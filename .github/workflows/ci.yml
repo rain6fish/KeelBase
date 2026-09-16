@@ -198,7 +198,18 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-navigation-parity.mjs
 
-  # 治理协议合规认证（A1 / CE-1，零依赖 node 内置）：先跑 specs/protocol 金样本漂移门禁（generate --check），
+  # 版本对账门（零依赖 node 内置）：发版线 5 个清单（根 / Server-NestJS / Web-Admin-Vue / Front-Taro /
+  # Front-Flutter）须同版本，各 lockfile 根版本字段跟随其清单。防「发版只 bump 四端、根 package.json 停更」
+  # ——根 package.json 是生成器来源身份的读取源（scripts/generator/manifest.mjs），掉队即生成物版本错版。
+  version-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-version-parity.mjs
+先跑 specs/protocol 金样本漂移门禁（generate --check），
   # 再以语料驱动复现三协议（审计哈希链/委托 token/风险分级）——篡改/断链/aud 不匹配/过期/签名篡改必须拒绝。
   # 语义变更必须先落 specs/protocol 语料版本再改实现（CE-1 L3 单源规则），否则金样本 diff 红。
   protocol-conformance:
