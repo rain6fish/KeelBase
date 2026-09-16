@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddSideEffectCompensationGroup1823000000000 } from './1823000000000-AddSideEffectCompensationGroup';
+import { AddSideEffectCompensationGroup1823000000000 } from '../1823000000000-AddSideEffectCompensationGroup';
 
 /**
+ * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
+ * postgres 的 `POSTGRES_MIGRATION_GLOBS` 通配项）是**非递归**的，只有放进子目录才能既与迁移同处、
+ * 又不被 TypeORM 当迁移加载。曾经直接放在 `migrations/` 下 → 迁移运行 require 到本文件 →
+ * `describe is not defined` → **迁移链整体崩**（2026-09-16 CI 四个 job 同因失败，见提交说明）。
+ *
  * sqlite 重建回归：本表存的是**哈希链证据行**，重建写错 = 静默丢数据且破链。
  * 仓内已有此类事故史（见 1818 迁移头注释与 migrations 排序规则），故把「重建后列/索引/行俱在」锁成常绿门禁。
  * 用真实 QueryRunner（better-sqlite3）驱动迁移类本身——不手抄 SQL，避免测试与迁移漂移。
