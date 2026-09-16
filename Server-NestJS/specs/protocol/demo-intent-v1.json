@@ -14,15 +14,6 @@
       "write": false
     },
     {
-      "key": "query_customers",
-      "name": "分析客户风险 / 哪些客户值得关注",
-      "pattern": "风险|分析|客户|customer|值得跟进|重点关注|risk|analyze",
-      "tool": "query_customers",
-      "content": "好的，我先查询客户列表…",
-      "argsKind": "keyword",
-      "write": false
-    },
-    {
       "key": "create_followup_task",
       "name": "创建跟进任务",
       "pattern": "跟进|任务|follow.?up|create.*task",
@@ -30,6 +21,15 @@
       "content": "好的，我来为这位客户创建跟进任务（写操作需要你确认）…",
       "argsKind": "followup",
       "write": true
+    },
+    {
+      "key": "query_customers",
+      "name": "分析客户风险 / 哪些客户值得关注",
+      "pattern": "风险|分析|客户|customer|值得跟进|重点关注|risk|analyze",
+      "tool": "query_customers",
+      "content": "好的，我先查询客户列表…",
+      "argsKind": "keyword",
+      "write": false
     },
     {
       "key": "query_customer_orders",

@@ -98,6 +98,14 @@ describe('DemoProvider', () => {
       expect(args.title).toContain('跟进');
     });
 
+    // 回归（A4 冷启动预检 2026-09-16）：写意图话术几乎必然夹带话题词。AI 分析完风险后给的建议
+    // 「可让我"为该客户创建跟进任务"」含「客户」，此前被 query_customers 抢先 → 用户照说走进死胡同。
+    it('AI 自己建议的话术「为该客户创建跟进任务」→ 仍走 create_followup_task', async () => {
+      const messages: ChatMessage[] = [{ role: 'user', content: '为该客户创建跟进任务' }];
+      const result = await provider.generate({ messages });
+      expect(result.toolCalls?.[0]?.name).toBe('create_followup_task');
+    });
+
     it('create_followup_task 结果 → 确认完成文案', async () => {
       const messages: ChatMessage[] = [
         { role: 'user', content: '为「蓝湾地产」创建跟进任务' },

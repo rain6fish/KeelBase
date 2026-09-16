@@ -3,7 +3,8 @@
 /**
  * Demo Provider 用户首轮意图表（CE-1 B4-demo 单源 declare）。
  *
- * 运行时行为源 = 本表（demo-provider.decideFromUser 表驱动遍历，保序 = 原 if 链顺序）；
+ * 运行时行为源 = 本表（demo-provider.decideFromUser 表驱动遍历，**首命中即路由**——数组顺序即匹配优先级，
+ * 更强的动作意图须排在更宽的话题意图之前，见 create_followup_task 处注）；
  * 机器语料副本 = `Server-NestJS/specs/protocol/demo-intent-v1.json`（跨语言可消费、可 diff）。
  * 双向漂移门禁 = `demo-intents.spec.ts`（断言 declare 序列化 == 语料 cases）——任一侧变更
  * 都必须先同步另一侧（CE-1 L3 单源规则）。语义源 = Protocol-freeze 前 Node 实现。
@@ -37,15 +38,9 @@ export const DEMO_USER_INTENTS: DemoIntentPattern[] = [
     argsKind: 'delete',
     write: false,
   },
-  {
-    key: 'query_customers',
-    name: '分析客户风险 / 哪些客户值得关注',
-    pattern: '风险|分析|客户|customer|值得跟进|重点关注|risk|analyze',
-    tool: 'query_customers',
-    content: '好的，我先查询客户列表…',
-    argsKind: 'keyword',
-    write: false,
-  },
+  // 写意图先于话题意图（2026-09-16）：本表首命中即路由，而写意图话术几乎必然夹带话题词——
+  // AI 分析完风险给的建议「可让我"为该客户创建跟进任务"」含「客户」，若 query_customers 在前会被当成查客户，
+  // 用户照说就走进「没有找到匹配的客户」死胡同、写确认卡永不出现（A4 冷启动预检实证）。
   {
     key: 'create_followup_task',
     name: '创建跟进任务',
@@ -54,6 +49,15 @@ export const DEMO_USER_INTENTS: DemoIntentPattern[] = [
     content: '好的，我来为这位客户创建跟进任务（写操作需要你确认）…',
     argsKind: 'followup',
     write: true,
+  },
+  {
+    key: 'query_customers',
+    name: '分析客户风险 / 哪些客户值得关注',
+    pattern: '风险|分析|客户|customer|值得跟进|重点关注|risk|analyze',
+    tool: 'query_customers',
+    content: '好的，我先查询客户列表…',
+    argsKind: 'keyword',
+    write: false,
   },
   {
     key: 'query_customer_orders',
