@@ -15,6 +15,15 @@
       <span>{{ impactText }}</span>
     </div>
 
+    <!-- §22.17 ④ 影响预览 v1.1 撤销口径：能撤才说能撤（KB-6 revokeClass 四档，与撤销/工具治理页同一词表） -->
+    <div v-if="revokeTags.length" class="d-flex align-center ga-1 text-caption mb-2">
+      <AppIcon icon="mdi-undo-variant" size="16" color="var(--el-color-info)" />
+      <span>{{ t('confirmRevoke') }}</span>
+      <el-tag v-for="(tag, i) in revokeTags" :key="i" size="small" :type="tag.type" effect="plain">
+        {{ tag.label }}<template v-if="tag.count > 1"> ×{{ tag.count }}</template>
+      </el-tag>
+    </div>
+
     <!-- KB-5 run 卡（mode==='run'）：整批动作列表 + runRisk 徽标，一次授权 / 整批跳过 -->
     <template v-if="isRun">
       <div class="d-flex align-center ga-2 mb-2">
@@ -85,6 +94,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import { revokeClassTag, type RevokeClassTagType } from '@/utils/revokeClass'
 import type { AiConfirmation } from '@/utils/streamChat'
 
 const props = defineProps<{ confirmation: AiConfirmation }>()
@@ -123,6 +133,25 @@ const impactText = computed(() => {
   if (!impact || impact.targets.length === 0) return ''
   const targets = impact.targets.map((t) => `${t.resultType} ×${t.count}`).join('、')
   return `${t('confirmImpact', { actions: impact.actions })} · ${targets}`
+})
+
+/**
+ * §22.17 ④ 影响预览 v1.1：撤销口径 —— 批准前告诉审批人「这批动作事后能不能撤回」。
+ * 单条 → 该动作一档；run → 按档**分组计数**（如「可撤销（本地）×2、不可撤销」）。
+ * **不发明"批内最弱档"这类汇总规则**（spec §1.3：无规则即无可漂移的第二实现）。
+ * 后端缺省省略 revokeClass（老载荷）→ 整行不渲染，不补默认"可撤销"。
+ */
+const revokeTags = computed(() => {
+  const tally = new Map<string, { label: string; type: RevokeClassTagType; count: number }>()
+  const add = (rk?: string) => {
+    if (!rk) return
+    const cur = tally.get(rk)
+    if (cur) cur.count += 1
+    else tally.set(rk, { ...revokeClassTag(rk, t), count: 1 })
+  }
+  if (isRun.value) runItems.value.forEach((item) => add(item.revokeClass))
+  else add(props.confirmation.revokeClass)
+  return [...tally.values()]
 })
 
 const hasArgs = computed(() => {

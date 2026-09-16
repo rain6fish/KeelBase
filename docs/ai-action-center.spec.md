@@ -54,7 +54,7 @@ This is the productized slice of the Trust North Star: the same backend evidence
 - ❌ **跨会话「AI 被拒 / 越权尝试」聚合**：副作用表只记真实发生的写；拒绝/越权属证据叙事，留在 per-conversation trace 与 admin 审计。诚实边界，不做合并。
 - ❌ **admin 审计视图合并 / 用户查审计**：审计查询保持 admin-only，本页只暴露"本人发生过的写"这一最小面。
 - ❌ **AI 口头导航到本页**：`navigate-page.tool.ts` PAGE_ROUTES 是 App/Flutter 路径、无 /workbench 条目，跨客户端 page registry 未成——记已知限制（§9），不从 MVP 硬接。
-- ❌ **执行前影响预览（§internal.17④ 切片）**：属确认卡体验，独立切片另行排；本页只管"发生后"的动作清单。
+- ❌ **执行前影响预览（§internal.17④ 切片）**：属确认卡体验，**不在本页**——本页只管"发生后"的动作清单。该切片已于 2026-09-16 独立交付（`docs/impact-preview.spec.md`，确认载荷 `impact{actions, targets[]}`），故此处仍标 ❌ 是指**本页不承载**，非"未实现"。
 
 ---
 

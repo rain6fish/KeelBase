@@ -34,6 +34,7 @@ import {
   RISK_STRATEGY,
   AuthorizationDeniedError,
   ConfirmationImpact,
+  RevokeClass,
   resolveRevokeClass,
 } from './interfaces/tool.interface';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
@@ -498,6 +499,15 @@ export class AiService {
     return deriveWriteImpact(
       toolNames.map((toolName) => ({ toolName, isProxyWrite: this.isProxyTool(toolName) })),
     );
+  }
+
+  /**
+   * §22.17 ④ 影响预览 v1.1 撤销口径：工具 → KB-6 撤销档（`resolveRevokeClass` 单源，显式声明优先）。
+   * 与事后撤销页 / 工具治理页同源——批准前看到的档位与事后能做的撤销必须一致，故不另建映射。
+   * spec docs/impact-preview.spec.md §3。
+   */
+  private _revokeClass(toolName: string): RevokeClass {
+    return resolveRevokeClass(this.toolRegistry.getTool(toolName));
   }
 
   // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
@@ -1432,6 +1442,7 @@ export class AiService {
                   toolName: c.name,
                   summary: c.summary!,
                   riskLevel: c.risk,
+                  revokeClass: this._revokeClass(c.name),
                 })),
               },
             },
@@ -1505,6 +1516,7 @@ export class AiService {
                   arguments: parsed,
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
+                  revokeClass: this._revokeClass(tc.name),
                   authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                 },
               };
@@ -1553,6 +1565,8 @@ export class AiService {
                     arguments: parsed,
                     // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
                     ...(singleImpact ? { impact: singleImpact } : {}),
+                    // §22.17 ④ 影响预览 v1.1：撤销口径——批准前告知这批动作事后能不能撤回
+                    revokeClass: this._revokeClass(tc.name),
                     // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
                     authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
                   },

@@ -12,6 +12,7 @@ import {
   AuthorizationCheck,
   AuthorizationReasons,
   ConfirmationImpact,
+  RevokeClass,
 } from './tool.interface';
 
 /** 发送给 LLM 的消息 */
@@ -63,6 +64,11 @@ export interface ConfirmationRunItem {
   toolName: string;
   summary: string;
   riskLevel: string;
+  /**
+   * §22.17 ④ 影响预览 v1.1 撤销口径（KB-6 四档）：该动作事后能不能撤回。
+   * 单源 = resolveRevokeClass（tool.interface.ts）；仅呈现层，不入链不进证据包。
+   */
+  revokeClass?: RevokeClass;
 }
 
 /** 写操作待确认请求数据 */
@@ -79,6 +85,12 @@ export interface ConfirmationRequestData {
    * 无可解析副作用对象时**省略**本字段（不发 0）。spec docs/impact-preview.spec.md。
    */
   impact?: ConfirmationImpact;
+  /**
+   * §22.17 ④ 影响预览 v1.1 撤销口径（KB-6 四档）：本动作事后能不能撤回。
+   * 单条 / R4 审批模式在此字段；run 模式的档位在 `run.items[].revokeClass`。
+   * 单源 = resolveRevokeClass；仅呈现层，不入链不进证据包。
+   */
+  revokeClass?: RevokeClass;
   /** R4 双人审批：'approval' = 已提交人工审批（operator 不阻塞）；缺省 = 本人即时确认（R3）；'run' = 一次授权整批（KB-5） */
   mode?: 'immediate' | 'approval' | 'run';
   /** KB-5：mode==='run' 时必有——runId 一次授权对应一组动作；runRisk = 批内最高 */

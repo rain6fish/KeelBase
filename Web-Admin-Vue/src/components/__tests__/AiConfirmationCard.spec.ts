@@ -49,6 +49,45 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
     expect(wrapper.text()).not.toContain('预计影响')
   })
 
+  // §22.17 ④ 影响预览 v1.1 撤销口径
+  it('revokeClass（单条）→ 渲染撤销口径行，能撤才说能撤', () => {
+    const wrapper = mountCard({ revokeClass: 'local_compensate' })
+    expect(wrapper.text()).toContain('撤销口径')
+    expect(wrapper.text()).toContain('可撤销（本地）')
+  })
+
+  it('revokeClass=none → 如实显示「不可撤销」，不称可撤销', () => {
+    const wrapper = mountCard({ revokeClass: 'none' })
+    expect(wrapper.text()).toContain('不可撤销')
+  })
+
+  it('run 混合档 → 按档分组计数，不塌缩成单档', () => {
+    const wrapper = mountCard({
+      toolName: undefined,
+      summary: undefined,
+      mode: 'run',
+      run: {
+        runId: 'run-1',
+        riskLevel: 'R3',
+        items: [
+          { toolName: 'create_event', summary: '创建事件：评审', riskLevel: 'R3', revokeClass: 'local_compensate' },
+          { toolName: 'create_todo', summary: '创建待办：待办A', riskLevel: 'R3', revokeClass: 'local_compensate' },
+          { toolName: 'proxy_tool_x', summary: '外部结算', riskLevel: 'R3', revokeClass: 'governed_external' },
+        ],
+      },
+    })
+    const text = wrapper.text()
+    expect(text).toContain('可撤销（本地）')
+    expect(text).toContain('×2')
+    expect(text).toContain('可撤销（需外部补偿）')
+    expect(text).not.toContain('不可撤销')
+  })
+
+  it('无 revokeClass（老载荷）→ 不渲染撤销口径行，不补默认"可撤销"', () => {
+    const wrapper = mountCard()
+    expect(wrapper.text()).not.toContain('撤销口径')
+  })
+
   it('批准 → emit approved(trustTool=false)', async () => {
     const wrapper = mountCard()
     const approve = wrapper.findAll('button').find((b) => b.text().includes('批准'))!

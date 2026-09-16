@@ -9,8 +9,34 @@ import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+const SPECS_ROOT = resolve(__dirname, '../../specs/protocol');
+
+/**
+ * 取 wire 对象的**当前版本** schema（版本以 registry 为准，同 wire-schema.spec.ts 的解析口径）。
+ * 绑定测试必须用它而非写死版本目录——否则契约升版（v1→v2 加 impact、v2→v3 加 revokeClass）后
+ * 断言会盯着旧版假绿/假红。
+ */
+function wiredSchema(objectId: string): { $id: string; properties: Record<string, unknown> } {
+  const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry.json'), 'utf8')) as {
+    schemasDir: string;
+    objects: Array<{ id: string; version: string; schema: string }>;
+  };
+  const entry = registry.objects.find((o) => o.id === objectId);
+  if (!entry) throw new Error(`registry 缺对象：${objectId}`);
+  const dir = resolve(SPECS_ROOT, registry.schemasDir, entry.version);
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue;
+    const parsed = JSON.parse(readFileSync(resolve(dir, f), 'utf8')) as {
+      $id?: string;
+      properties?: Record<string, unknown>;
+    };
+    if (parsed.$id === entry.schema) return { $id: parsed.$id, properties: parsed.properties ?? {} };
+  }
+  throw new Error(`未找到 ${objectId} 的 schema（registry $id=${entry.schema}，目录 ${entry.version}）`);
+}
 
 describe('AiService', () => {
   let aiService: AiService;
@@ -973,6 +999,8 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterTool());
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
+      // getTool 返回工具本体（真实 ToolRegistry 从不返回 undefined）——确认载荷的 revokeClass 由它派生
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
 
       const originalCreateRun = confirmationStore.createRun.bind(confirmationStore);
@@ -1023,19 +1051,18 @@ describe('AiService', () => {
             c.confirmationDecision?.approved,
         ),
       ).toBe(true);
-      // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request **当前冻结契约**（v2：§22.17 ④ 加 impact；
-      // v1 冻结留档，当前版本以 registry 为准，防契约升版后绑定测试仍盯旧版）
-      const cr = (
-        JSON.parse(
-          readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v2/confirmation-request.schema.json'), 'utf8'),
-        ) as {
-          properties: Record<string, unknown> & {
-            run: { properties: { items: { items: { properties: Record<string, unknown> } } } };
-          };
-        }
-      ).properties;
+      // ② 绑定：run 聚合确认请求键集 ⊆ confirmation-request **当前契约**（版本随 registry，
+      // 升版自动跟随：v1→v2 加 impact、v2→v3 加 revokeClass 都在此生效）
+      const cr = wiredSchema('confirmation-request').properties as Record<string, unknown> & {
+        run: { properties: { items: { items: { properties: Record<string, unknown> } } } };
+      };
       expect(Object.keys(req).filter((k) => !(k in cr))).toEqual([]);
       expect(Object.keys(req.run.items[0]).filter((k) => !(k in cr.run.properties.items.items.properties))).toEqual([]);
+      // §22.17 ④ 影响预览 v1.1：撤销口径逐条随载荷（create_event / create_todo 均为确认写 → local_compensate）
+      expect((req?.run?.items ?? []).map((i: any) => i.revokeClass)).toEqual([
+        'local_compensate',
+        'local_compensate',
+      ]);
 
       // ② 绑定：run 决策载荷键集 ⊆ confirmation-decision v2 冻结契约
       const cdProps = Object.keys(
@@ -1121,6 +1148,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterTool());
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
       // run 决策以 timeout 结束（TTL 到期）
       jest.spyOn(confirmationStore, 'createRun').mockResolvedValue({
@@ -1159,6 +1187,7 @@ describe('AiService', () => {
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
       mockToolRegistry.execute.mockResolvedValue({
         success: true,
         data: { id: 42, title: '评审' },
@@ -1200,6 +1229,8 @@ describe('AiService', () => {
         actions: 1,
         targets: [{ resultType: 'event', count: 1 }],
       });
+      // §22.17 ④ 影响预览 v1.1：单条确认也带撤销口径（create_event → 确认写 → local_compensate）
+      expect(second.value.confirmation?.revokeClass).toBe('local_compensate');
       expect(second.value.confirmation?.summary).toContain('创建事件：评审');
       // W5-⑦ Explainable Authz：确认请求携带为何需确认
       expect(second.value.confirmation?.authorization?.requiresConfirmation).toBe(true);
@@ -1246,6 +1277,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterDecline());
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
 
       const originalCreate = confirmationStore.create.bind(confirmationStore);
       let pendingToken: string | undefined;

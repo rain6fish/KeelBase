@@ -41,6 +41,8 @@ export interface AiRunItem {
   toolName: string
   summary: string
   riskLevel: string
+  /** §22.17 ④ 影响预览 v1.1：该动作的撤销能力档（KB-6 四档；后端缺省省略 → 不渲染撤销行） */
+  revokeClass?: string
 }
 
 export interface AiConfirmation {
@@ -57,6 +59,8 @@ export interface AiConfirmation {
     actions: number
     targets: Array<{ resultType: string; count: number }>
   }
+  /** §22.17 ④ 影响预览 v1.1：单条模式的撤销能力档（run 模式下档位在 run.items[] 上，后端缺省省略） */
+  revokeClass?: string
   /** KB-5：mode==='run' 时必有——runId + runRisk + 逐条动作摘要 */
   run?: {
     runId: string

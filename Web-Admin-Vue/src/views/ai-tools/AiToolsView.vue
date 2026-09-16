@@ -50,7 +50,7 @@
                   {{ tool.name }}
                   <el-tag v-if="tool.requiresConfirmation" size="small" type="warning" effect="light">{{ t('requiresConfirmation') }}</el-tag>
                   <el-tag v-if="tool.riskLevel" size="small" :type="riskTag(tool).type" effect="light">{{ tool.riskLevel }} · {{ riskTag(tool).label }}</el-tag>
-                  <el-tag v-if="tool.revokeClass" size="small" :type="revokeClassTag(tool.revokeClass).type" effect="plain">{{ revokeClassTag(tool.revokeClass).label }}</el-tag>
+                  <el-tag v-if="tool.revokeClass" size="small" :type="revokeClassTag(tool.revokeClass, t).type" effect="plain">{{ revokeClassTag(tool.revokeClass, t).label }}</el-tag>
                 </div>
               </template>
               <div class="text-caption">
@@ -150,6 +150,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
 import { formatTime } from '@/utils/format'
+import { revokeClassTag } from '@/utils/revokeClass'
 import type { AdminAiTool, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
@@ -185,13 +186,6 @@ const effectStatusColorMap = computed(() => ({
   error: 'danger',
 }))
 
-/** KB-6：撤销能力档位 tag（工具治理面可见分档） */
-function revokeClassTag(rk: string) {
-  if (rk === 'local_compensate') return { label: t('revokeClassLocal'), type: 'success' as const }
-  if (rk === 'governed_external') return { label: t('revokeClassGoverned'), type: 'warning' as const }
-  if (rk === 'transactional') return { label: t('revokeClassTransactional'), type: 'primary' as const }
-  return { label: t('revokeClassNone'), type: 'info' as const }
-}
 
 /** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(item: ToolEffect): boolean {
