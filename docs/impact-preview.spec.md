@@ -94,7 +94,8 @@ run ：items[i].revokeClass = resolveRevokeClass(tool_i)
 - **复用** `resolveRevokeClass(tool)`（`src/ai/interfaces/tool.interface.ts`，KB-6 权威）：显式声明优先；未声明的确认写按既有语义派生 `local_compensate`；读 / 干跑派生 `none`。
 - **不新增档位映射**：注册表 `register()` 已强制"确认写不得静默推成 none"（否则建工具即抛），故此处拿到的档位与事后撤销/工具治理页必然同源。
 - **未注册名容错（外部 `mcp_*` / LLM 幻觉名）**：真实注册表对未注册名抛 `Tool "x" not found`——同段 `_assertToolAllowed` / `isProxyTool` 因此都包 try/catch，本处同办：解析不到 → 返回 undefined，调用方**省略**该字段（与 `_writeImpact` 解析不到对象类型时同一诚实口径），既不抛错也不补默认"可撤销"。
-  - **可达性（2026-09-17 实测，如实记录）**：**当前到不了**——逐条路径在确认之前先调 `_requiresApproval`，而它对未注册名的 `riskLevel` 调用**无守卫、先抛**，该工具以「执行失败」收尾（实测 chunk 序列 `tool_end → text → done`，无 `confirmation_request`）。故本容错**是当前不可达路径上的护栏**，保留理由：① 与同段两处既有约定一致（§14.3 匹配既有风格）；② 失败后果不对称（未捕获异常会打断整条 SSE 确认流，而容错只是少显示一行）；③ 可达性依赖的是**别的方法恰好抛错**这一偶然属性，一旦 `_requiresApproval` 改为容错，此处立即成为必经之路。
+  - **可达性（2026-09-17 实测 + 当日复核）**：写入时**当前到不了**（逐条路径在确认前先调 `_requiresApproval`，它当时对未注册名无守卫、先抛，工具以「执行失败」收尾）；**但同日晚些时候该前提已变**——外部工具修复（`8d6da13f`：`_riskLevelFor` 单点容错 + `_requiresApproval` 改用它）之后，**外部写工具会真正走到确认卡**，本容错因此**成为必经之路**：`_revokeClass` 对 `mcp_*` 必须**省略**而非抛错（否则外部写工具一进确认卡就被打挂）。→ **该守卫是必要的、且有回归覆盖**（`ai.service.spec` 的「外部写工具 → 走到确认卡」用例断言 `revokeClass` 被省略）。
+  - **去留决定（2026-09-17，经用户确认后保留）**：保留。理由：① 失败后果不对称（未捕获异常打断整条 SSE 确认流，容错只是少显示一行）；② 与同段两处既有约定一致（`_assertToolAllowed` / `isProxyTool` 同样包 try/catch，§14.3 匹配既有风格）；③ 上述「已成必经之路」使其不再是「不可达防御」（§15.8 的顾虑不成立）。**不再作为待定项**。
 
 ---
 

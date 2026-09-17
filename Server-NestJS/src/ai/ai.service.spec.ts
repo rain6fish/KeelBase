@@ -766,6 +766,46 @@ describe('AiService', () => {
       expect(result.reply).toBe('已为你安排本周');
     });
 
+    it('非流式 + 外部读工具：经 provider 执行并落 tool_call 审计（与内置工具同形）', async () => {
+      // 强制走 runToolLoop（对齐下一条用例）：编排器返回空
+      mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
+      mockSubAgentOrchestrator.run.mockResolvedValue({ content: '', stepResults: [] });
+      // provider 必须完整（含 listExternalTools）——否则外部工具进不了 tool defs、压根不执行，
+      // 会得出「工具执行了却没审计」的假结论（本用例正是为此而写）
+      aiService.registerExternalToolProvider({
+        listExternalTools: async () => [
+          { name: 'mcp_wx_get_weather', description: '查天气', parameters: { type: 'object' } },
+        ],
+        isExternal: (n: string) => n.startsWith('mcp_'),
+        requiresConfirmation: async () => false,
+        callTool: async () => ({ executed: true, content: '晴 26°C' }),
+      } as any);
+      // 忠实模拟真实注册表：外部名不在本地注册表 → getTool / riskLevel 均抛
+      mockToolRegistry.getTool.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_get_weather" not found');
+      });
+      mockToolRegistry.riskLevel.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_get_weather" not found');
+      });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [{ id: 'c1', name: 'mcp_wx_get_weather', arguments: '{"city":"sz"}' }],
+      });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '深圳晴 26°C。',
+        usage: { promptTokens: 1, completionTokens: 1 },
+      });
+
+      await aiService.chat('1', { message: '深圳天气' });
+
+      const toolCall = (mockAuditService.log as jest.Mock).mock.calls.find(
+        (c) => c[0]?.action === 'tool_call' && String(c[0]?.detail ?? '').includes('mcp_wx_get_weather'),
+      );
+      expect(toolCall).toBeDefined();
+      // 档位由外部判定派生（读 → R1）——覆盖非流式路径那处解释器调用的档位透传
+      expect(JSON.parse(toolCall![0].authorization).riskLevel).toBe('R1');
+    });
+
     it('should fall back to runToolLoop when orchestrator returns empty', async () => {
       mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
       mockSubAgentOrchestrator.run.mockResolvedValue({ content: '', stepResults: [] });
