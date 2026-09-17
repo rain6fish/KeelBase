@@ -71,6 +71,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddAiConfirmationRunColumns*',
   '*AddSideEffectRunId*',
   '*AddSideEffectCompensationGroup*',
+  '*AddAuditGuestId*',
   '*AddDataScopeColumns*',
   '*AddRolesPermissions*',
   '*AddDeptIdToTodosEvents*',

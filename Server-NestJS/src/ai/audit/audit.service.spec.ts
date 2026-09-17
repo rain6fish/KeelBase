@@ -492,11 +492,11 @@ describe('AuditService', () => {
       expect(qb.skip).toHaveBeenCalledWith(5);
     });
 
-    it('PC-2：getLogs 运行时行键集 == ai-audit-log-row 冻结契约（v2：含 ip，AU-2）', async () => {
+    it('PC-2：getLogs 运行时行键集 == ai-audit-log-row 冻结契约（v3：含 ip + guestId）', async () => {
       mockQueryBuilder();
       const result = await service.getLogs({ limit: 20 });
       const schema = JSON.parse(
-        readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/ai-audit-log-row.schema.json'), 'utf8'),
+        readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/ai-audit-log-row.schema.json'), 'utf8'),
       ) as { properties: Record<string, unknown> };
       expect(Object.keys(result[0]).sort()).toEqual(Object.keys(schema.properties).sort());
     });

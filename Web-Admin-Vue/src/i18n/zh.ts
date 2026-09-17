@@ -1131,6 +1131,7 @@ const zh = {
   noOpAudit: '暂无操作日志',
   timeCol: '时间',
   userCol: '用户',
+  guestCol: '访客',
   methodCol: '方法',
   businessEventCol: '业务事件',
   featureCol: '功能',

@@ -57,6 +57,10 @@ export class OperationAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true })
   ip?: string | null;
 
+  /** AU-3（§22.19 归因层）：访客标识（匿名，与账号无关）——区分共享演示账号下的不同访客。链外列（护栏③） */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'guest_id' })
+  guestId?: string | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'user_agent' })
   userAgent?: string | null;
 

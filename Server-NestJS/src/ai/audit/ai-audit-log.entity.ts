@@ -65,6 +65,14 @@ export class AiAuditLog {
   @Column({ length: 45, nullable: true, name: 'ip' })
   ip?: string;
 
+  /**
+   * AU-3（§22.19 归因层）：访客标识（匿名，与账号无关）——演示端访客共享 alex 时用它区分 N 个访客。
+   * 由 main.ts 全局中间件签发/读取 cookie。链外列——**不入 hash payload**（护栏③）。
+   * 必须显式 `type`：`string | null` 联合类型经 TS 反射为 `Object`，TypeORM 会抛 DataTypeNotSupportedError。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'guest_id' })
+  guestId?: string | null;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 

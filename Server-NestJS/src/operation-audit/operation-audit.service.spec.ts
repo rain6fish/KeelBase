@@ -16,7 +16,7 @@ describe('OperationAuditService', () => {
       .columns.filter((c) => c.target === OperationAuditLog)
       .map((c) => c.propertyName);
     const schema = JSON.parse(
-      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/operation-audit-log-row.schema.json'), 'utf8'),
+      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v2/operation-audit-log-row.schema.json'), 'utf8'),
     ) as { properties: Record<string, unknown> };
     expect([...cols, 'username'].sort()).toEqual(Object.keys(schema.properties).sort());
   });

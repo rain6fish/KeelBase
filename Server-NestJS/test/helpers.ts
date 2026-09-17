@@ -26,6 +26,7 @@ import { MailModule } from '../src/mail/mail.module';
 import { SearchModule } from '../src/search/search.module';
 import { OperationAuditModule } from '../src/operation-audit/operation-audit.module';
 import { OperationAuditInterceptor } from '../src/operation-audit/operation-audit.interceptor';
+import { applyRequestContext } from '../src/common/request-context';
 import { PushModule } from '../src/push/push.module';
 import { AppVersionModule } from '../src/app-version/app-version.module';
 import { AdminModule } from '../src/admin/admin.module';
@@ -234,6 +235,10 @@ export async function createTestApp(): Promise<INestApplication> {
   );
   // RG-6：WS 网关（init 前挂 adapter；supertest 走 app.getHttpServer() 不受影响）
   app.useWebSocketAdapter(new WsAdapter(app));
+  // AU-2/AU-3（§22.19）：请求级归因元数据中间件。**必须**在测试里也挂——本函数不经过 main.ts 的
+  // bootstrap，此前该中间件只内联在那里 → 测试中缺失，ip/guestId 永远取不到，且不为测试所察。
+  // 复用同一函数（单一真源），避免再次漂移。此处不设 trust proxy：supertest 直连，Express 默认不信任 ✓
+  applyRequestContext(app);
   await app.init();
   return app;
 }

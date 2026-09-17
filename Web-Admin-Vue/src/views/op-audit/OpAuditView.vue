@@ -69,6 +69,11 @@
           <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">requestBody</span>
           <pre class="text-body-2 ma-0">{{ prettyJson(expanded.requestBody) }}</pre>
         </div>
+        <!-- AU-3（§22.19 归因层）：访客标识——共享演示账号（alex）下区分不同访客 -->
+        <div v-if="expanded.guestId" class="d-flex ga-2">
+          <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">{{ t('guestCol') }}</span>
+          <span class="text-body-2">{{ expanded.guestId }}</span>
+        </div>
         <div v-if="expanded.ip" class="d-flex ga-2">
           <span class="text-body-2 text-medium-emphasis" style="min-width: 100px">IP</span>
           <span class="text-body-2">{{ expanded.ip }}</span>

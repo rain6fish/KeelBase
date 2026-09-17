@@ -191,6 +191,11 @@
             <span class="font-weight-medium" style="min-width: 140px">conversationId</span>
             <span class="text-medium-emphasis">{{ expanded.conversationId }}</span>
           </div>
+          <!-- AU-3（§22.19 归因层）：访客标识——共享演示账号（alex）下区分不同访客 -->
+          <div v-if="expanded.guestId" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">{{ t('guestCol') }}</span>
+            <span class="text-medium-emphasis">{{ expanded.guestId }}</span>
+          </div>
         </el-collapse-item>
       </el-collapse>
     </el-card>

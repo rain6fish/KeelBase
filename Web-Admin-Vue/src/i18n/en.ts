@@ -1122,6 +1122,7 @@ const en: ZhDict = {
   noOpAudit: 'No operation logs',
   timeCol: 'Time',
   userCol: 'User',
+  guestCol: 'Guest',
   methodCol: 'Method',
   businessEventCol: 'Business Event',
   featureCol: 'Feature',

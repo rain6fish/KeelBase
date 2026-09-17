@@ -300,23 +300,23 @@
       ]
     },
     {
-      "version": "v2",
+      "version": "v3",
       "id": "ai-audit-log-row",
-      "schema": "v2/ai-audit-log-row.schema.json",
-      "title": "AI 审计查询行（v2：+ ip 客户端来源，AU-2）",
+      "schema": "v3/ai-audit-log-row.schema.json",
+      "title": "AI 审计查询行（v3：+ guestId 访客标识，AU-3；v2 为 ip）",
       "source": "src/ai/audit/audit.service.ts _queryLogs",
       "samples": [
-        "schemas/v2/samples/ai-audit-log-row.json"
+        "schemas/v3/samples/ai-audit-log-row.json"
       ]
     },
     {
-      "version": "v1",
+      "version": "v2",
       "id": "operation-audit-log-row",
-      "schema": "operation-audit-log-row.schema.json",
-      "title": "操作审计查询行（GET /audit/operations/logs item，OperationAuditLog + username）",
-      "source": "src/operation-audit/operation-audit-log.entity.ts:17-76; src/operation-audit/operation-audit.service.ts getLogs",
+      "schema": "v2/operation-audit-log-row.schema.json",
+      "title": "操作审计查询行（v2：+ guestId 访客标识，AU-3；v1 为全列基线）",
+      "source": "src/operation-audit/operation-audit-log.entity.ts; src/operation-audit/operation-audit.service.ts getLogs",
       "samples": [
-        "schemas/v1/samples/operation-audit-log-row.json"
+        "schemas/v2/samples/operation-audit-log-row.json"
       ]
     },
     {

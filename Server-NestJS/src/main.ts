@@ -15,7 +15,7 @@ import { join } from 'path';
 import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
 import { UploadSignService } from './upload/upload-sign.service';
 import { isBlindTrustValue, parseTrustProxy } from './config/trust-proxy';
-import { requestContext } from './common/request-context';
+import { applyRequestContext } from './common/request-context';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -43,9 +43,11 @@ async function bootstrap() {
     logger.log(`trust proxy = ${JSON.stringify(trustProxy)}（真实客户端 IP 解析已启用）`);
   }
 
-  // AU-2（§22.19）：请求级客户端 IP → requestContext（AuditService.log 填充 ai_audit_logs.ip）。
-  // 置于 trust proxy 之后 → req.ip 已是真实客户端 IP；ALS 包裹 next() 使上下文贯穿整个请求。
-  app.use((req: Request, _res: Response, next: NextFunction) => requestContext.run({ ip: req.ip }, next));
+  // AU-2 / AU-3（§22.19）：请求级归因元数据（客户端 IP + 访客标识）→ requestContext，
+  // 供 AuditService.log 与操作审计拦截器落 ai_audit_logs / operation_audit_logs 的 ip 与 guest_id。
+  // 中间件本体在 common/request-context 单一真源（e2e 的 test helper 共用同一函数，否则测试里会缺失）。
+  // 置于 trust proxy 之后 → req.ip 已是真实客户端 IP。
+  applyRequestContext(app);
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isDev = nodeEnv === 'development';

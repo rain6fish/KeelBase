@@ -22,6 +22,8 @@ export interface AuditLog {
   createdAt: string
   /** 所属用户名（管理端审计 JOIN 用户表返回） */
   username?: string | null
+  /** AU-3（§22.19 归因层）：访客标识——区分共享演示账号（alex）下的不同访客；链外列 */
+  guestId?: string | null
   /** §internal.16 A-1 业务事件名（CustomerRiskAssessed 等） */
   businessEvent?: string | null
   /** §internal.16 A-1 Decision Evidence（JSON 字符串） */

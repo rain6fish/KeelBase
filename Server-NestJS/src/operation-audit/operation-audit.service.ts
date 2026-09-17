@@ -8,6 +8,7 @@ import {
   AuditChainService,
   ChainVerification,
 } from '../common/audit-chain/audit-chain.service';
+import { requestContext } from '../common/request-context';
 
 export interface OperationAuditEntry {
   userId?: number | null;
@@ -23,6 +24,8 @@ export interface OperationAuditEntry {
   /** G-1（§internal.17 ① G-1）：事件时点授权依据快照（JSON）——链外注解列 */
   authorization?: string | null;
   ip?: string | null;
+  /** AU-3（§22.19）：访客标识（链外注解列，与账号无关）——区分共享演示账号下的不同访客 */
+  guestId?: string | null;
   userAgent?: string | null;
   statusCode?: number | null;
 }
@@ -80,6 +83,9 @@ export class OperationAuditService {
       changes: entry.changes ? entry.changes.slice(0, 4000) : null,
       businessEvent: entry.businessEvent ?? null,
       authorization: entry.authorization ? entry.authorization.slice(0, 2000) : null,
+      // AU-3（§22.19）：访客标识——**链外注解列**（同 changes/businessEvent/authorization，不入 hashPayload）；
+      // entry 显式传值优先，否则取请求级 requestContext（main.ts 中间件签发/读取 cookie）
+      guestId: entry.guestId ?? requestContext.getStore()?.guestId ?? null,
     };
     if (this.dataSource.options.type === 'postgres') {
       // postgres：DB 级串行（事务内锁 audit_chain_lock id=1），跨实例串行化写链
@@ -241,6 +247,7 @@ export class OperationAuditService {
       businessEvent: r.log_business_event ?? null,
       authorization: r.log_authorization ?? null,
       ip: r.log_ip ?? null,
+      guestId: r.log_guest_id ?? null,
       userAgent: r.log_user_agent ?? null,
       statusCode: r.log_status_code != null ? Number(r.log_status_code) : null,
       createdAt: r.log_createdAt,

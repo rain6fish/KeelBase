@@ -214,6 +214,8 @@ export interface AiAuditLogWithUser {
   source?: string | null;
   /** AU-2（§22.19）：客户端来源 IP（链外归因列） */
   ip?: string | null;
+  /** AU-3（§22.19）：访客标识（链外归因列，与账号无关——演示端共享账号下区分访客） */
+  guestId?: string | null;
   model?: string | null;
   provider?: string | null;
   promptTokens?: number | null;
@@ -271,8 +273,8 @@ export class AuditService {
     const businessIntent = entry.businessIntent ?? actor?.businessIntent;
     // AU-6（§22.19 归因层）：入口来源 source 从 ActorContext fallback（各入口设置，entry 显式传值优先）
     const source = entry.source ?? actor?.source;
-    // AU-2（§22.19）：客户端 IP 从请求级 requestContext（中间件设置）；链外列，不入 payload
-    const ip = requestContext.getStore()?.ip;
+    // AU-2 / AU-3（§22.19）：客户端 IP 与访客标识从请求级 requestContext（中间件设置）；链外列，不入 payload
+    const { ip, guestId } = requestContext.getStore() ?? {};
 
     // G-2（§internal.17 ① G-2）：payload v2 = 既有字段 + 链外归责/意图/来源/业务注解列（businessEvent/evidence/agentId/...）。
     // 新行 payloadVersion=2 → _payload 走 v2 含真实注解值（DB 层篡改链外列会破链）；历史行 null → v1 恒空（不破坏既有链）。
@@ -316,6 +318,7 @@ export class AuditService {
       businessIntent,
       source,
       ip,
+      guestId,
       promptTokens: entry.promptTokens,
       completionTokens: entry.completionTokens,
       durationMs: entry.durationMs,
@@ -558,6 +561,7 @@ export class AuditService {
       businessIntent: r.log_business_intent ?? null,
       source: r.log_source ?? null,
       ip: r.log_ip ?? null,
+      guestId: r.log_guest_id ?? null,
       model: r.log_model ?? null,
       provider: r.log_provider ?? null,
       promptTokens: r.log_prompt_tokens != null ? Number(r.log_prompt_tokens) : null,

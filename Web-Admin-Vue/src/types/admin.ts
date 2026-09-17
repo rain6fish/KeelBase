@@ -81,6 +81,8 @@ export interface OperationAuditLog {
   /** A-1 业务事件归一化（如 CustomerUpdated） */
   businessEvent?: string | null
   ip?: string | null
+  /** AU-3（§22.19 归因层）：访客标识——区分共享演示账号（alex）下的不同访客；链外列 */
+  guestId?: string | null
   userAgent?: string | null
   statusCode?: number | null
   createdAt: string

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "v2/operation-audit-log-row.schema.json",
+  "title": "Operation Audit Log Row (GET /audit/operations/logs item) — v2",
+  "description": "审计查询行（操作审计链）：OperationAuditLog + username。hash payload 为该行的 _payload 子集（不含 changes/businessEvent/authorization/guestId——链外注解列）；本行 schema 覆盖全列。v2（AU-3 §22.19）：新增 `guestId` 访客标识——演示端共享账号（alex）下区分不同访客的来源维度；**链外列，不入 hash payload**（护栏③，防破链）。v1 → schemas/v1/operation-audit-log-row.schema.json（冻结历史）。来源：src/operation-audit/operation-audit-log.entity.ts + operation-audit.service.ts getLogs。",
+  "type": "object",
+  "required": ["id", "action", "method", "path", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number" },
+    "userId": { "type": ["number", "null"] },
+    "action": { "type": "string" },
+    "method": { "type": "string" },
+    "path": { "type": "string" },
+    "featureKey": { "type": ["string", "null"] },
+    "featureFallback": { "type": ["string", "null"] },
+    "targetId": { "type": ["string", "null"] },
+    "requestBody": { "type": ["string", "null"] },
+    "changes": { "type": ["string", "null"] },
+    "businessEvent": { "type": ["string", "null"] },
+    "authorization": { "type": ["string", "null"] },
+    "ip": { "type": ["string", "null"] },
+    "guestId": {
+      "description": "AU-3（§22.19）：访客标识（匿名，与账号无关）——区分共享演示账号下的不同访客。链外列，不入 hash payload。",
+      "type": ["string", "null"]
+    },
+    "userAgent": { "type": ["string", "null"] },
+    "statusCode": { "type": ["number", "null"] },
+    "prevHash": { "type": ["string", "null"] },
+    "hash": { "type": ["string", "null"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "username": { "type": ["string", "null"] }
+  }
+}
