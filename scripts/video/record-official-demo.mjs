@@ -34,10 +34,17 @@ const CREATE_QUESTION =
   '请为瀚宇制造创建一个跟进任务，标题为：推进瀚宇制造分期方案签约，备注：AI 自动演示';
 const OVERREACH_QUESTION =
   process.env.OVERREACH_QUESTION || '查看其他销售负责的客户订单';
+// 会话标题会被**截断**（且前面还拼了「当前客户…」前缀）→ 用它选会话必须匹配截断后仍在的
+// 短片段。默认取提问前 12 字；英文提问长，需显式给更短的键。
+const RISK_CONV_MATCH =
+  process.env.RISK_CONV_MATCH || RISK_QUESTION.slice(0, 12);
 // 复合写（多表副作用 → 同一补偿组）：一次调用落 pm_project + N 个 pm_task
 const COMPOSITE_QUESTION =
   process.env.COMPOSITE_QUESTION ||
   '帮我创建一个项目叫「瀚宇制造交付」，并添加三个任务：需求梳理、方案开发、验收复盘';
+// 会话标题会被**截断**成「…」（长提问尤甚）→ 用它选会话必须匹配截断后仍在的短片段，
+// 不能匹配整句，否则选不中、时间线为空、撤销按钮永不出现。
+const COMPOSITE_CONV_MATCH = process.env.COMPOSITE_CONV_MATCH || '瀚宇制造交付';
 const LOG_DIR = resolve(process.env.SHOT_LOG_DIR || 'artifacts/official-demo');
 const LANG = process.env.LANG || 'zh'; // zh | en —— 工作台 UI 语言（分镜屏幕文字本身英文）
 const SHOT_LOG = join(LOG_DIR, 'shot-log.json');
@@ -227,12 +234,14 @@ async function selectAiTraceConversation(frame, text) {
 
 async function revokeFirstEffect(frame) {
   const revoke = frame.getByRole('button', { name: /撤\s*销|Revoke/i }).first();
-  await revoke.waitFor({ timeout: 15000 });
+  await revoke.waitFor({ timeout: 25000 });
   await sleep(2000);
   await revoke.click();
+  // toast 3 秒自动消失，抖动不应中断整轮录制 → 拿不到只记一笔
   await frame
     .locator('.el-message', { hasText: /已撤销|Revoked/i })
-    .waitFor({ timeout: 15000 });
+    .waitFor({ timeout: 15000 })
+    .catch(() => console.log('[revoke] 未捕获撤销 toast（可能已自动消失），继续'));
 }
 
 /** 对抗沙盘：跑第一个确定性场景，等结果 + 决策轨迹出现（无 LLM 依赖） */
@@ -253,8 +262,38 @@ async function runFirstShowcaseScenario(frame) {
 async function revokeCompositeAction(frame) {
   await setStage(frame, `${BASE_URL}/admin/#/workbench/ai-trace`);
   await frame.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
-  await selectAiTraceConversation(frame, COMPOSITE_QUESTION).catch(() => {});
-  await sleep(2500);
+  // 选最近一次复合写会话。会话标题会被截断、且前面拼着「当前客户…」前缀（英文前缀就有
+  // 40+ 字符），文本匹配在英文下会落空 → 优先选**列表第一条**（刚做过的动作必排最前），
+  // 若该会话没有可撤销副作用，再退回文本片段匹配。
+  await frame.locator('.el-select').first().waitFor({ timeout: 20000 });
+  await sleep(1500);
+  const pickFirst = async () => {
+    await frame.locator('.el-select').first().click();
+    await sleep(1200);
+    const items = frame.locator('.el-select-dropdown__item');
+    await items.first().waitFor({ timeout: 20000 });
+    await items.first().click();
+    await frame.locator('.el-timeline').waitFor({ timeout: 30000 });
+    await sleep(2000);
+    return frame.getByRole('button', { name: /撤\s*销|Revoke/i }).count();
+  };
+  const pickByText = async () => {
+    await frame.locator('.el-select').first().click();
+    await sleep(1200);
+    const option = frame
+      .locator('.el-select-dropdown__item', { hasText: COMPOSITE_CONV_MATCH })
+      .first();
+    await option.waitFor({ timeout: 20000 });
+    await option.click();
+    await frame.locator('.el-timeline').waitFor({ timeout: 30000 });
+    await sleep(2000);
+  };
+
+  if ((await pickFirst()) === 0) {
+    console.log('[revoke] 最近一条会话无可撤销副作用 → 退回文本匹配');
+    await pickByText();
+  }
+  await sleep(1500);
   await revokeFirstEffect(frame);
   await sleep(2500);
   // 级联提示（若有）——拿不到不阻塞录制
@@ -469,7 +508,7 @@ async function main() {
     boundaries.push({ shot: 17, at: Date.now() - t0 });
     await setStage(page, `${BASE_URL}/admin/#/workbench/ai-trace`);
     await page.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
-    await selectAiTraceConversation(page, RISK_QUESTION);
+    await selectAiTraceConversation(page, RISK_CONV_MATCH);
     await sleep(6000);
     boundaries.push({ shot: 18, at: Date.now() - t0 });
     await sleep(5000);
