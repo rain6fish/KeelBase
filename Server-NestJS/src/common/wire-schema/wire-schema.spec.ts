@@ -40,6 +40,8 @@ const FROZEN_OBJECT_IDS = [
   'error-body',
   'chat-response',
   'conversation-data',
+  // AU-4（§22.19）：会话元数据视图（不含任何消息文本，「引用优先」的服务端落点）
+  'conversation-meta',
   'ws-frame',
   'external-audit',
   'external-effects-report',

@@ -177,6 +177,16 @@
       ]
     },
     {
+      "id": "conversation-meta",
+      "version": "v1",
+      "schema": "conversation-meta.schema.json",
+      "title": "AI 会话元数据（AU-4 下钻第一步；**不含任何消息文本**，正文另请 /conversations/:id）",
+      "source": "src/ai/conversation/conversation.service.ts getConversationMeta; src/ai/ai.controller.ts",
+      "samples": [
+        "schemas/v1/samples/conversation-meta.json"
+      ]
+    },
+    {
       "id": "ws-frame",
       "version": "v1",
       "schema": "ws-frame.schema.json",

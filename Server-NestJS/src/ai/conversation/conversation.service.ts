@@ -37,6 +37,22 @@ export interface ConversationData {
   lastActivityAt: string;
 }
 
+/**
+ * AU-4（§22.19 归因层）：会话**元数据**视图——「从 AI 审计行一跳看对话」的第一步。
+ * 刻意**不含任何消息文本**（连 `summary` 也不含 —— 它是内容摘要）。
+ * 理由：护栏②「引用优先、不落全文」要**真实**成立，元数据就必须由服务端单独给出；
+ * 若让前端先取全文、再只显示元数据，该约束就只是 UI 层装饰。看正文须再显式请求会话本体。
+ */
+export interface ConversationMeta {
+  id: string;
+  userId: string;
+  provider: string;
+  model: string;
+  messageCount: number;
+  createdAt: string;
+  lastActivityAt: string;
+}
+
 @Injectable()
 export class ConversationService {
   constructor(
@@ -73,6 +89,34 @@ export class ConversationService {
       order: { createdAt: 'ASC' },
     });
     return this.toData(conv, messages);
+  }
+
+  /**
+   * AU-4（§22.19）：只取**结构元数据**（条数 / 时间跨度 / 归属），**不取消息正文**。
+   * 权限与 `getConversation` **同源**（同一 ability 闸门 + 同一 404/403 语义），故「管理员/本人权限内」
+   * 由既有 CASL 规则保证（admin 走 manage-all、普通用户走 owner 规则），本方法无需新增鉴权分支。
+   */
+  async getConversationMeta(
+    id: string,
+    userId: string,
+    ability: AppAbility,
+  ): Promise<ConversationMeta> {
+    const conv = await this.convRepo.findOne({ where: { id, isDeleted: false } });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (ability.cannot('read', subject('AiConversation', conv))) {
+      throw new ForbiddenException('无权访问此对话');
+    }
+    const messageCount = await this.msgRepo.count({ where: { conversationId: id } });
+    return {
+      id: conv.id,
+      userId: conv.userId,
+      provider: conv.provider,
+      model: conv.model,
+      messageCount,
+      createdAt: conv.createdAt.toISOString(),
+      // 与 toData 同一时间口径，避免两个视图对「最后活动」给出不同答案
+      lastActivityAt: (conv.lastActivityAt ?? conv.updatedAt).toISOString(),
+    };
   }
 
   async peekConversation(id: string): Promise<ConversationData> {

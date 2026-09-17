@@ -19,6 +19,10 @@ const { logsMock, statsMock, verifyMock, errorMock, successMock, csvMock } = vi.
 vi.mock('@/api/audit', () => ({
   auditApi: { logs: logsMock, stats: statsMock, verify: verifyMock },
 }))
+// AU-4：会话下钻用 adminApi（元数据 + 正文）；mock 掉避免测试里出现真实网络调用
+vi.mock('@/api/admin', () => ({
+  adminApi: { aiConversationMeta: vi.fn(), aiConversation: vi.fn() },
+}))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
 }))

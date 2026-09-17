@@ -250,6 +250,21 @@ export class AiController {
   }
 
   /**
+   * AU-4（§22.19）：会话**元数据**（不含任何消息正文）——AI 审计行「一跳看对话」的第一步。
+   * 「先引用、后正文」要在**服务端**成立（护栏②），否则只是 UI 层装饰：元数据由本端点单独给出，
+   * 正文须再显式请求 `:id`。权限与 `:id` 同源（admin 或 owner），无新增鉴权分支。
+   */
+  @Get('conversations/:id/meta')
+  @ApiOperation({ summary: '会话元数据（AU-4 下钻第一步，不含消息正文）' })
+  async getConversationMeta(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    return this.conversationService.getConversationMeta(id, String(user.sub), ability);
+  }
+
+  /**
    * P0-14 对话执行轨迹（用户可见）：工具调用 / 确认决策 / 副作用 / 结果
    */
   @Get('conversations/:id/trace')

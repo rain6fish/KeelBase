@@ -419,6 +419,20 @@ export interface AiConversationSummary {
   lastActivityAt: string
 }
 
+/**
+ * AU-4（§22.19）：会话**元数据**视图——审计行「一跳看对话」的第一步。
+ * 服务端保证**不含任何消息正文**（无 messages、无 summary），故「引用优先」不是 UI 装饰。
+ */
+export interface AiConversationMeta {
+  id: string
+  userId: string
+  provider: string
+  model: string
+  messageCount: number
+  createdAt: string
+  lastActivityAt: string
+}
+
 /** B-proxy 外部系统（Java 集成）接入状态（GET /ai/proxy/integrations/status，管理台监控中心） */
 export interface ProxyIntegrationStatus {
   configured: boolean

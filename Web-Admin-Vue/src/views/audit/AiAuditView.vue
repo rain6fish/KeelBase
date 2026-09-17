@@ -189,7 +189,10 @@
           </div>
           <div v-if="expanded.conversationId" class="d-flex ga-2 py-1">
             <span class="font-weight-medium" style="min-width: 140px">conversationId</span>
-            <span class="text-medium-emphasis">{{ expanded.conversationId }}</span>
+            <!-- AU-4（§22.19）：一跳看该次对话——先引用（元数据），正文须在抽屉内**显式**再点 -->
+            <el-button link type="primary" size="small" @click="openConversation(expanded.conversationId)">
+              {{ expanded.conversationId }}
+            </el-button>
           </div>
           <!-- AU-3（§22.19 归因层）：访客标识——共享演示账号（alex）下区分不同访客 -->
           <div v-if="expanded.guestId" class="d-flex ga-2 py-1">
@@ -199,6 +202,43 @@
         </el-collapse-item>
       </el-collapse>
     </el-card>
+
+    <!-- AU-4（§22.19）会话下钻：**引用优先**——先元数据，正文需显式「查看正文」才取 -->
+    <el-drawer v-model="convDrawer" :title="t('convDrillTitle')" size="560px">
+      <div v-if="convMeta" class="text-body-2">
+        <div class="d-flex ga-2 py-1">
+          <span class="font-weight-medium" style="min-width: 140px">{{ t('convOwner') }}</span>
+          <span class="text-medium-emphasis">{{ convMeta.userId }}</span>
+        </div>
+        <div class="d-flex ga-2 py-1">
+          <span class="font-weight-medium" style="min-width: 140px">{{ t('convMsgCount') }}</span>
+          <span class="text-medium-emphasis">{{ convMeta.messageCount }}</span>
+        </div>
+        <div class="d-flex ga-2 py-1">
+          <span class="font-weight-medium" style="min-width: 140px">{{ t('convProvider') }}</span>
+          <span class="text-medium-emphasis">{{ convMeta.provider }} / {{ convMeta.model }}</span>
+        </div>
+        <div class="d-flex ga-2 py-1">
+          <span class="font-weight-medium" style="min-width: 140px">{{ t('timeCol') }}</span>
+          <span class="text-medium-emphasis">
+            {{ formatTime(convMeta.createdAt) }} → {{ formatTime(convMeta.lastActivityAt) }}
+          </span>
+        </div>
+      </div>
+      <el-divider />
+      <template v-if="!convMessages">
+        <div class="text-body-2 text-medium-emphasis mb-2">{{ t('convBodyHint') }}</div>
+        <el-button size="small" type="primary" :loading="convLoading" @click="loadConvBody">
+          {{ t('convShowBody') }}
+        </el-button>
+      </template>
+      <div v-else>
+        <div v-for="(m, i) in convMessages" :key="i" class="mb-2 d-flex ga-2">
+          <el-tag size="small" effect="plain">{{ m.role }}</el-tag>
+          <span class="text-body-2">{{ m.content }}</span>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -214,10 +254,12 @@ import StatusChip from '@/components/StatusChip.vue'
 import TrendBarList from '@/components/TrendBarList.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
+import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
 import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
+import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
 const { t, messages, locale } = useI18n()
 const feature = computed(() => (messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined)?.feature)
@@ -248,6 +290,41 @@ const since = ref<string | undefined>(undefined)
 const expanded = ref<AuditLog | null>(null)
 const errorLogs = ref<AuditLog[]>([])
 const limit = 50
+
+/** AU-4（§22.19）会话下钻：**引用优先**——先元数据；正文不预取，须显式点击 */
+const convDrawer = ref(false)
+const convId = ref('')
+const convMeta = ref<AiConversationMeta | null>(null)
+const convMessages = ref<AiConversationMessage[] | null>(null)
+const convLoading = ref(false)
+
+async function openConversation(id: string) {
+  convId.value = id
+  convMeta.value = null
+  convMessages.value = null
+  convDrawer.value = true
+  convLoading.value = true
+  try {
+    convMeta.value = await adminApi.aiConversationMeta(id)
+  } catch {
+    snackbar.error(t('convLoadFailed'))
+  } finally {
+    convLoading.value = false
+  }
+}
+
+/** 正文**不预取**：只有显式点击才请求会话本体（护栏②「引用优先、不落全文」） */
+async function loadConvBody() {
+  convLoading.value = true
+  try {
+    const data = await adminApi.aiConversation(convId.value)
+    convMessages.value = data.messages
+  } catch {
+    snackbar.error(t('convLoadFailed'))
+  } finally {
+    convLoading.value = false
+  }
+}
 
 const headers = computed(() => [
   { key: 'createdAt', title: t('timeCol') },

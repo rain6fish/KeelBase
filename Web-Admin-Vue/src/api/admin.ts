@@ -6,6 +6,7 @@ import type {
   AdminAiChatResponse,
   AdminSession,
   AiConversationMessage,
+  AiConversationMeta,
   AiConversationSummary,
   AnalyticsResponse,
   AppVersionInfo,
@@ -74,6 +75,10 @@ export const adminApi = {
     return api.get<AiConversationSummary & { messages: AiConversationMessage[] }>(
       `/ai/conversations/${validateConversationId(id)}`,
     )
+  },
+  /** AU-4（§22.19）：会话元数据（**不含消息正文**）——审计行下钻的第一步；正文另请 aiConversation(id) */
+  aiConversationMeta(id: string): Promise<AiConversationMeta> {
+    return api.get<AiConversationMeta>(`/ai/conversations/${validateConversationId(id)}/meta`)
   },
   deleteAiConversation(id: string): Promise<null> {
     return api.delete<null>(`/ai/conversations/${validateConversationId(id)}`)

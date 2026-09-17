@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "conversation-meta.schema.json",
+  "title": "AI Conversation Meta (GET /ai/conversations/:id/meta) — v1",
+  "description": "AU-4（§22.19 归因层）会话**元数据**视图：从 AI 审计行「一跳可见该次对话」的**第一步**。刻意**不含任何消息文本**——不含 messages、也不含 summary（summary 是内容摘要，含它即破坏「引用优先」，见 §22.19 护栏②）。要看正文须再显式请求 GET /ai/conversations/:id，使「引用优先」真实成立而非 UI 层装饰。权限与 conversation-data 同源（admin 或 owner）。来源：src/ai/conversation/conversation.service.ts getConversationMeta；src/ai/ai.controller.ts。",
+  "type": "object",
+  "required": ["id", "userId", "provider", "model", "messageCount", "createdAt", "lastActivityAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "userId": { "type": "string", "description": "归属用户（审计归因的「谁」；username 由前端沿用审计行的快照列）" },
+    "provider": { "type": "string" },
+    "model": { "type": "string" },
+    "messageCount": { "type": "number", "description": "消息条数（结构信息，不含内容）" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "lastActivityAt": { "type": "string", "format": "date-time", "description": "末条消息时间（时间跨度末端）" }
+  }
+}
