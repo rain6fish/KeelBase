@@ -155,6 +155,54 @@ test('fail-closed：decisions/acceptance/outOfScope 进 notes，不进 unmapped'
   }
 });
 
+/* ═══════════ 未消费键（不静默丢弃） ═══════════ */
+
+test('未消费键：字段 label / aiCapabilities.intent 进 notes，不静默消失', () => {
+  const r = mapBusinessSpec(baseSpec({
+    objects: [{
+      name: 'item',
+      label: '条目',
+      module: 'items',
+      fields: [{ name: 'title', type: 'string', label: '标题' }],
+    }],
+    aiCapabilities: [{ object: 'item', kind: 'read', intent: '查询条目' }],
+  }));
+
+  assert.equal(r.error, undefined);
+  const note = r.notes.find((n) => n.includes('未被协议消费'));
+  assert.ok(note, '缺少「未被协议消费」note');
+  assert.ok(note.includes('fields[].label'));
+  assert.ok(note.includes('aiCapabilities[].intent'));
+  // 不进 unmapped：它们不是「需手写补全」的范围边界
+  assert.equal(r.unmapped.length, 0);
+});
+
+test('未消费键：多处同键聚合成计数，不逐条刷屏', () => {
+  const r = mapBusinessSpec(baseSpec({
+    objects: [{
+      name: 'item',
+      label: '条目',
+      module: 'items',
+      fields: [
+        { name: 'title', type: 'string', label: '标题' },
+        { name: 'note', type: 'text', label: '备注' },
+      ],
+    }],
+  }));
+
+  const note = r.notes.find((n) => n.includes('未被协议消费'));
+  assert.ok(note.includes('fields[].label（2 处）'), `聚合计数缺失：${note}`);
+});
+
+test('未消费键：拼错的键同样可见；干净 spec 不产生该 note', () => {
+  const typo = mapBusinessSpec(baseSpec({ goals: '拼错的键' }));
+  assert.equal(typo.error, undefined);
+  assert.ok(typo.notes.some((n) => n.includes('未被协议消费') && n.includes('goals')));
+
+  const clean = mapBusinessSpec(baseSpec());
+  assert.equal(clean.notes.some((n) => n.includes('未被协议消费')), false);
+});
+
 /* ═══════════ 交付溯源链 ═══════════ */
 
 test('溯源链：evidenceRef 指向存在的文件 → 无告警', () => {

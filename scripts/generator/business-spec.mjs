@@ -13,6 +13,7 @@
  *   - 关联字段（relation）按 int 列生成，关系查询手写，进 unmapped
  *   - 多角色权限、业务规则、非 read/write 的 AI 能力 → 进 unmapped，走 AGENTS.md §3 手写
  *   - decisions/acceptance/outOfScope 属交付溯源，进 notes，不进协议
+ *   - 未被消费的键（如字段 label、aiCapabilities.intent）进 notes，不静默丢弃
  *
  * unmapped 非空不代表失败——它代表本次生成的范围边界（见 docs/business-spec.md §4）。
  */
@@ -31,6 +32,31 @@ import {
 } from './validate.mjs';
 
 const AI_KINDS = new Set(['read', 'write']);
+
+/** 各层**实际被消费**的键；未列出的键一律进 notes，不静默丢弃。 */
+const KNOWN_SPEC_KEYS = new Set([
+  'feature', 'goal', 'actors', 'objects', 'aiCapabilities',
+  'decisions', 'rules', 'acceptance', 'outOfScope', 'evidenceRef',
+]);
+const KNOWN_OBJECT_KEYS = new Set(['name', 'label', 'module', 'searchable', 'fields']);
+const KNOWN_FIELD_KEYS = new Set(['name', 'type', 'enum', 'required', 'relation']);
+const KNOWN_AI_CAP_KEYS = new Set(['object', 'kind', 'riskLevel', 'requiresConfirmation']);
+
+/** 逐层收集未被消费的键 →「层级.键」（同一键多处出现由调用方聚合计数）。 */
+function collectUnconsumedKeys(spec, primary) {
+  const found = [];
+  const scan = (obj, known, prefix) => {
+    if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return;
+    for (const key of Object.keys(obj)) {
+      if (!known.has(key)) found.push(`${prefix}${key}`);
+    }
+  };
+  scan(spec, KNOWN_SPEC_KEYS, '');
+  scan(primary, KNOWN_OBJECT_KEYS, 'objects[].');
+  for (const f of primary.fields) scan(f, KNOWN_FIELD_KEYS, 'fields[].');
+  for (const c of spec.aiCapabilities ?? []) scan(c, KNOWN_AI_CAP_KEYS, 'aiCapabilities[].');
+  return found;
+}
 
 /** 结构校验：只查 Business Spec 是否成形（字段合法性与映射边界由 mapBusinessSpec 处理）。 */
 export function validateBusinessSpec(spec) {
@@ -154,6 +180,16 @@ export function mapBusinessSpec(spec) {
     if (Array.isArray(items) && items.length > 0) {
       notes.push(`${key}（${items.length} 项）保留在 Business Spec / Evidence，不进协议`);
     }
+  }
+
+  // 未被消费的键：不静默丢弃（「写了没生效」是最难自查的一类缺陷——如字段 label、
+  // aiCapabilities.intent 在协议里无处安放，此前无声消失）
+  const unconsumed = collectUnconsumedKeys(spec, primary);
+  if (unconsumed.length > 0) {
+    const counts = new Map();
+    for (const key of unconsumed) counts.set(key, (counts.get(key) ?? 0) + 1);
+    const parts = [...counts].map(([key, n]) => (n > 1 ? `${key}（${n} 处）` : key));
+    notes.push(`未被协议消费的键：${parts.join('、')}（保留在 Business Spec / Evidence，不进协议）`);
   }
 
   // 溯源链完整性：evidenceRef 指向的访谈 Evidence 必须真实存在，否则「这条规则来自哪次访谈」是死链

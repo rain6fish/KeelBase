@@ -85,6 +85,8 @@ Business Spec 补的就是这一跳：**业务语义 → 薄协议**，且这一
 
 字段其余可选键：`required`（布尔，缺省按类型）、`relation`（标记关联，见 §4）、`label`（中文名，1-12 字符）。
 
+> **未被消费的键不静默丢弃**：`fields[].label` 与 `aiCapabilities[].intent` 只保留在 Business Spec / Evidence——薄协议里没有「字段级标签」和「工具意图」的位置。映射器会把本次未被消费的键（**含拼错的键名**）聚合列进 `notes`，不阻断生成；看到这条 note 属正常，写错键名时它是最快的自查信号。
+
 ---
 
 ## 3. 映射规则（Business Spec → Module Protocol）
@@ -117,6 +119,8 @@ Business Spec 补的就是这一跳：**业务语义 → 薄协议**，且这一
 | `decisions[]` / `acceptance[]` / `outOfScope[]` | 属交付溯源，非工程形状 | 保留在 Business Spec / Evidence |
 
 **语义**：`unmapped[]` 非空**不代表失败**——它代表本次生成的范围边界。生成的模块必须**再叠加**清单里的手写工作才算完整（对齐 `AGENTS.md §3` 的「7 处接线 + 手写补全」）。
+
+另有 `notes`（纯信息，进不了协议但留在 Business Spec / Evidence 的内容——如 `decisions[]`、未被消费的键），同样不阻断生成、不影响门禁判定。
 
 ---
 
