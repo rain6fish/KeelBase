@@ -11,6 +11,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { AuthModule } from '../src/auth/auth.module';
 import { POSTGRES_MIGRATION_GLOBS } from '../src/config/postgres-migrations';
@@ -95,6 +96,24 @@ function ensureTestEnvFile(): void {
 ensureTestEnvFile();
 
 /**
+ * 每个 app 一个**独立**库文件，且**从不 unlink**。
+ *
+ * 原先每个 app 都先把共用的 `data/test.sqlite` 删掉再建——单跑无碍，**并行跑就出事**（多会话在
+ * 同一个检出上各跑各的 e2e 是这里的常态）：一个运行会把另一个**正在用**的库删掉重建，实测表现为
+ * 整片 `expected 201, got 401`（另一运行把用户抹了）与 `database is locked`；Windows 上还会因
+ * 「删一个仍被打开的文件」直接 `EBUSY`（POSIX 允许 unlink 打开中的文件，故 CI 在 Linux 上一直是绿的
+ * ——这是**本地红、CI 绿**的错位）。
+ *
+ * 文件名带 pid + 递增序号：同进程内多套不撞、跨进程（并发运行）也不撞。放在系统临时目录，
+ * 既不往 `data/` 里堆，也不再有「删到别人正在用的文件」这条路。
+ */
+let e2eDbSeq = 0;
+function nextE2eDbPath(): string {
+  e2eDbSeq += 1;
+  return path.join(os.tmpdir(), `keelbase-e2e-${process.pid}-${e2eDbSeq}.sqlite`);
+}
+
+/**
  * Test app module — mirrors AppModule (all modules) with a
  * test-friendly throttle limit and a fresh SQLite database.
  */
@@ -139,7 +158,8 @@ ensureTestEnvFile();
           logging: ['error', 'warn'],
           migrations: ['dist/migrations/*.js'],
           migrationsRun: false,
-          database: configService.get<string>('DB_PATH', './data/test.sqlite'),
+          // 每 app 独立库（见 nextE2eDbPath）：不再读 .env.test 的 DB_PATH —— 固定路径是并行互毁的根源
+          database: nextE2eDbPath(),
         } satisfies TypeOrmModuleOptions;
       },
     }),
@@ -203,11 +223,8 @@ ensureTestEnvFile();
 class TestAppModule {}
 
 export async function createTestApp(): Promise<INestApplication> {
-  // Ensure a fresh database for each test run
-  const testDbPath = path.resolve(__dirname, '../data/test.sqlite');
-  if (fs.existsSync(testDbPath)) {
-    fs.unlinkSync(testDbPath);
-  }
+  // 无需清库：每个 app 拿到一个独立的新库文件（见 nextE2eDbPath）。删共用文件正是并行运行互毁
+  // 数据、以及 Windows 上 EBUSY 的根源，故这里**不做任何 unlink**。
   ensureTestEnvFile();
 
   // 队列 override 为 stub：无论 QUEUE_ENABLED/config 状态如何，pushQueue.add 立即返回，
