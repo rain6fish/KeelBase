@@ -1,0 +1,3 @@
+# 行尾统一 LF（CI 在 Linux 上本就是 LF）：本机 Windows 的 autocrlf 会把工作区落成 CRLF，
+# 导致「工作区 CRLF vs 内存 LF」类门禁假红（vectors / 跨仓语料比对，见 test/helpers 与 scripts）。
+* text=auto eol=lf
