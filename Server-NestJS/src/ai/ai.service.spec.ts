@@ -2321,6 +2321,125 @@ describe('AiService', () => {
       expect(defs.every((d: any) => !d.function.name.startsWith('mcp_'))).toBe(true);
     });
 
+    it('外部写工具 → 走到确认卡（不再以「执行失败」收尾）', async () => {
+      provider.requiresConfirmation.mockResolvedValue(true);
+      provider.callTool.mockResolvedValue({ executed: true, content: 'sent' });
+      async function* mockStreamWithExternalWrite() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'mcp_wx_send_email', arguments: '{"to":"a@b.c"}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '已提交外部写入' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithExternalWrite())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      // 忠实模拟真实注册表：外部名不在本地注册表 → getTool / riskLevel 均抛（修前正是在此处打挂确认流）
+      mockToolRegistry.getTool.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_send_email" not found');
+      });
+      mockToolRegistry.riskLevel.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_send_email" not found');
+      });
+
+      const originalCreate = confirmationStore.create.bind(confirmationStore);
+      let pendingToken: string | undefined;
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
+        pendingToken = r.token;
+        return r;
+      });
+
+      const it = aiService.chatStream('1', { message: 'send an email through the mcp server' });
+      const first = await it.next();
+      expect(first.value.type).toBe('tool_start');
+      expect(first.value.toolStart?.name).toBe('mcp_wx_send_email');
+      expect(first.value.toolStart?.isWrite).toBe(true);
+      // 核心断言：确认卡到达（修前此处是 tool_end「执行失败」）
+      const second = await it.next();
+      expect(second.value.type).toBe('confirmation_request');
+      expect(second.value.confirmation?.toolName).toBe('mcp_wx_send_email');
+      // 档位由外部判定派生：确认写 → R3（走即时确认，不是 R4 审批）
+      expect(second.value.confirmation?.authorization?.riskLevel).toBe('R3');
+      // 副作用对象 / 撤销档都解析不到 → 两字段均省略，不补默认
+      expect(second.value.confirmation?.impact).toBeUndefined();
+      expect('revokeClass' in (second.value.confirmation ?? {})).toBe(false);
+
+      // 批准 → 经 provider 执行（外部写走 callTool，不落本地副作用）
+      confirmationStore.resolve(pendingToken!, '1', 'approve');
+      const third = await it.next();
+      expect(third.value.type).toBe('confirmation_decision');
+      const fourth = await it.next();
+      expect(fourth.value.type).toBe('tool_end');
+      expect(fourth.value.toolEnd?.success).toBe(true);
+      expect(provider.callTool).toHaveBeenCalledWith('mcp_wx_send_email', { to: 'a@b.c' }, '1');
+    });
+
+    it('外部读工具在流式对话里正常完成（tool_start + 成功 tool_end）', async () => {
+      provider.requiresConfirmation.mockResolvedValue(false);
+      provider.callTool.mockResolvedValue({ executed: true, content: '晴 26°C' });
+      async function* mockStreamWithExternalRead() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'mcp_wx_get_weather', arguments: '{"city":"sz"}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '查询完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithExternalRead())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      mockToolRegistry.getTool.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_get_weather" not found');
+      });
+      mockToolRegistry.riskLevel.mockImplementation(() => {
+        throw new Error('Tool "mcp_wx_get_weather" not found');
+      });
+
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'weather please' })) chunks.push(c);
+      const types = chunks.map((c) => c.type);
+      expect(types[0]).toBe('tool_start');
+      expect(types).not.toContain('confirmation_request'); // 读工具无需确认
+      const end = chunks.find((c) => c.type === 'tool_end');
+      expect(end?.toolEnd?.success).toBe(true);
+      expect(provider.callTool).toHaveBeenCalledWith('mcp_wx_get_weather', { city: 'sz' }, '1');
+    });
+
+    it('未注册且非外部的写工具仍失败——不给幻觉名发确认卡（边界不放宽）', async () => {
+      provider.requiresConfirmation.mockResolvedValue(true);
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      async function* mockStreamWithPhantomWrite() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'hallucinated_write', arguments: '{}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithPhantomWrite())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      mockToolRegistry.getTool.mockImplementation(() => {
+        throw new Error('Tool "hallucinated_write" not found');
+      });
+      mockToolRegistry.riskLevel.mockImplementation(() => {
+        throw new Error('Tool "hallucinated_write" not found');
+      });
+      // isExternal → false（provider 只认 mcp_ 前缀）→ 容错不适用，仍抛
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'phantom' })) chunks.push(c);
+      expect(chunks.map((c) => c.type)).not.toContain('confirmation_request');
+      expect(chunks.find((c) => c.type === 'tool_end')?.toolEnd?.success).toBe(false);
+    });
+
     it('外部读工具 → 经 provider 执行并返回文本', async () => {
       provider.callTool.mockResolvedValue({ executed: true, content: '晴 26°C' });
       const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', { city: 'sz' }, '1');

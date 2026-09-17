@@ -32,6 +32,25 @@ describe('AuthorizationExplainerService (§internal.17③ Policy Evidence)', () 
     expect(governancePolicy.getPolicy).toHaveBeenCalledTimes(1);
   });
 
+  it('档位覆盖：注册表取不到时由调用方传入（外部工具）→ 不抛，按该档派生检查', async () => {
+    const toolRegistry = {
+      riskLevel: jest.fn(() => {
+        throw new Error('Tool "mcp_x" not found');
+      }),
+    } as any;
+    const service = new AuthorizationExplainerService(toolRegistry, {} as any, undefined, undefined);
+
+    // 不传 → 注册表抛（外部工具不在本地注册表：这正是调用方必须传档的原因）
+    await expect(service.getAuthorizationReasons('mcp_x', '7', true)).rejects.toThrow('not found');
+
+    // 传了 → 用传入的档，且不再碰注册表（清掉上一步的调用计数再断言）
+    toolRegistry.riskLevel.mockClear();
+    const res = await service.getAuthorizationReasons('mcp_x', '7', true, 'R3');
+    expect(res.riskLevel).toBe('R3');
+    expect(res.riskStrategy).toBe('confirmation');
+    expect(toolRegistry.riskLevel).not.toHaveBeenCalled();
+  });
+
   it('策略禁用工具 → tool_enabled ok:false，仍带 policy.revision', async () => {
     const governancePolicy = {
       getPolicy: jest.fn().mockResolvedValue({

@@ -31,6 +31,7 @@ import {
   AiTool,
   ToolDefinition,
   ToolResult,
+  ToolRiskLevel,
   RISK_STRATEGY,
   AuthorizationDeniedError,
   ConfirmationImpact,
@@ -298,9 +299,31 @@ export class AiService {
    * 未注入 GovernancePolicyService（单测/降级）时回落声明风险级 R4。
    */
   private async _requiresApproval(name: string): Promise<boolean> {
-    const riskLevel = this.toolRegistry.riskLevel(name);
+    const riskLevel = await this._riskLevelFor(name);
     if (!this.governancePolicy) return riskLevel === 'R4';
     return this.governancePolicy.requiresApproval(name, riskLevel);
+  }
+
+  /**
+   * 工具风险级（治理解析用）：**本地注册表为准；取不到时对外部工具容错**。
+   *
+   * 外部工具（`mcp_*`）只由 `ExternalToolProvider` 解析、**不在本地注册表**，而 `ToolRegistry.riskLevel`
+   * 对未注册名**抛错**（`Tool "x" not found`）。此前 `_requiresApproval` 与本文件各处解释器调用都裸调它，
+   * 于是外部工具在对话里**无论读写都在 tool_start 前抛错**、以「执行失败」收尾（2026-09-17 实测：外部读工具
+   * 连 `tool_start` 都发不出），「外部工具过同一治理层（含确认）」的文档承诺实际未生效。
+   *
+   * 外部工具按其**确认判定**派生档位（与 `resolveRiskLevel` 同口径：确认写→R3、读→R1），与预扫描
+   * `?? 'R3'` 同精神。**未注册且非外部（LLM 幻觉名）仍抛**——不给幻觉名发确认卡，保持既有行为。
+   */
+  private async _riskLevelFor(toolName: string): Promise<ToolRiskLevel> {
+    try {
+      return this.toolRegistry.riskLevel(toolName);
+    } catch (err) {
+      if (this.externalToolProvider?.isExternal(toolName)) {
+        return (await this._requiresConfirmation(toolName)) ? 'R3' : 'R1';
+      }
+      throw err;
+    }
   }
 
   /** §internal.16 A-5 Explainable Authorization 已拆至 AuthorizationExplainerService（阶段 2 切环） */
@@ -1508,7 +1531,12 @@ export class AiService {
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
           // ADT（P0-14）：isWrite 让前端标注读/写，写操作需确认、可撤销
           // W5-⑦ Explainable Authz：携带 riskLevel + authorization（为何允许/为何需确认）
-          const authz = await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, isWrite);
+          const authz = await this.authorizationExplainer.getAuthorizationReasons(
+            tc.name,
+            userId,
+            isWrite,
+            await this._riskLevelFor(tc.name),
+          );
           yield {
             type: 'tool_start',
             toolStart: {
@@ -1544,7 +1572,12 @@ export class AiService {
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
                   ...(approvalRevokeClass ? { revokeClass: approvalRevokeClass } : {}),
-                  authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
+                  authorization: await this.authorizationExplainer.getAuthorizationReasons(
+                    tc.name,
+                    userId,
+                    true,
+                    await this._riskLevelFor(tc.name),
+                  ),
                 },
               };
               result = { success: false, error: '已提交人工审批，等待审批人决策（R4 高影响动作）' };
@@ -1596,7 +1629,12 @@ export class AiService {
                     // §22.17 ④ 影响预览 v1.1：撤销口径——批准前告知这批动作事后能不能撤回
                     ...(singleRevokeClass ? { revokeClass: singleRevokeClass } : {}),
                     // W5-⑦ Explainable Authz：让用户理解「为何此操作需确认」（风险级/策略/检查清单）
-                    authorization: await this.authorizationExplainer.getAuthorizationReasons(tc.name, userId, true),
+                    authorization: await this.authorizationExplainer.getAuthorizationReasons(
+                      tc.name,
+                      userId,
+                      true,
+                      await this._riskLevelFor(tc.name),
+                    ),
                   },
                 };
                 ({ outcome, trustTool } = await decision);
@@ -2092,6 +2130,7 @@ export class AiService {
                   tc.name,
                   params.userId,
                   await this._requiresConfirmation(tc.name),
+                  await this._riskLevelFor(tc.name),
                 )
               : null;
             this.auditService.log({

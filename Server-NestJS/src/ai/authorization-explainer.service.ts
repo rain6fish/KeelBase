@@ -16,6 +16,7 @@ import {
   RISK_STRATEGY,
   AuthorizationCheck,
   AuthorizationReasons,
+  ToolRiskLevel,
 } from './interfaces/tool.interface';
 import { GovernancePolicyService } from './governance/governance-policy.service';
 
@@ -56,8 +57,15 @@ export class AuthorizationExplainerService {
     toolName: string,
     userId: string,
     isWrite: boolean,
+    /**
+     * 调用方已解析的档位（可选）。**外部工具（`mcp_*`）必须传**：它们只由 `ExternalToolProvider` 解析、
+     * 不在本地注册表，而本方法内 `toolRegistry.riskLevel` 对未注册名**抛错**——不传就会把「为何允许」的
+     * 解释变成一次抛错。容错归调用方（它才知道外部工具），本服务保持纯解释。
+     * 缺省时仍按注册表取，行为与从前一致。
+     */
+    riskLevelOverride?: ToolRiskLevel,
   ): Promise<AuthorizationReasons> {
-    const riskLevel = this.toolRegistry.riskLevel(toolName);
+    const riskLevel = riskLevelOverride ?? this.toolRegistry.riskLevel(toolName);
     const riskStrategy = RISK_STRATEGY[riskLevel];
     const checks: AuthorizationCheck[] = [];
     // §internal.17③ Policy Evidence：单次取策略 → 决策输入（tool_enabled/role_allowed）与决策时策略版本（内容指纹 revision）同源，

@@ -26,6 +26,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **Trusting a fixed number of proxy hops is not the same as trusting a subnet; the default now names subnets.**
 - **SSE 信封的载荷引用跟到当前版本**（`a9fb7079`）— 信封仍按裸名引用**冻结的 v1** 确认载荷（`additionalProperties:false`、无 `impact` / `revokeClass`），带新字段的确认帧按信封校验会失败；`sse-event` 升 v2（事件名枚举不变），并一并收掉同性质的旧引用（`confirmation-decision` v1→v2）
 - **撤销口径遇不可解析工具名不再打挂确认卡**（`d9a5046c`）— 真实注册表对未注册名抛错，裸调会把整条 SSE 确认流打断；改为**省略**该字段（与影响预览对解析不到的对象同一口径：说不清就不说）
+- **外部工具（`mcp_*`）不再在对话里以「执行失败」收尾**（读工具正常返回、写工具走确认卡）— 外部工具只由 `ExternalToolProvider` 解析、**不在本地注册表**，而 `ToolRegistry.riskLevel` 对未注册名**抛错**；`_requiresApproval` 与授权解释器此前都裸调它，于是外部工具**无论读写都在 `tool_start` 前抛错**（2026-09-17 实测：外部读工具连过程卡都发不出），「外部工具经同一治理层（权限 + 确认 + 审计）」的既有文档承诺实际未生效。现由 `_riskLevelFor` 单点容错——注册表取不到且**确属外部工具**时按其确认判定派生档位（确认写→R3、读→R1，与预扫描同口径）；**未注册且非外部（LLM 幻觉名）仍抛**，不给幻觉名发确认卡（边界不放宽）
+  **External tools now go through the same governance layer as built-ins — reads return, writes reach the confirmation card — instead of both failing before their tool card appears.**
 - **生成器不再静默丢弃 Business Spec 的未消费键**（`e010fb0b`）— 未映射的键改为显式上报，而非悄悄丢掉
 - **迁移 spec 移出它撞坏的 glob**（`bc16a983`）— 该文件曾被迁移 glob 扫到并导致崩溃
 - **demo 路由：写意图优先于话题词**（`dea6c1a8`）— 无模型 key 时 AI 自己建议的「为某客户创建跟进任务」曾被 `query_customers` 抢走，写确认卡永不出现
