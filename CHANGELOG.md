@@ -16,6 +16,8 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   - **撤销口径 v1.1**（`6c7eb4fc`）：确认载荷带 `revokeClass`（KB-6 四档，`resolveRevokeClass` 单源，与撤销页 / 工具治理页同一取值），Web 卡片按档分组计数；**仅呈现层**——不入链、不进证据包、不影响门控；契约 v3
   - **级联撤销主体**（`881d4911`）：多表副作用落**一个事务**、全成或全不成；补偿自身入 `operation_audit` + 哈希链（接 A-3 恢复态）；载体 `create_project_with_tasks`（1 项目 + N 任务）；契约升 `side-effect-revoke` v3；迁移 `1823000000000`（双方言）；顺带把 `pm_project` / `pm_task` 纳入回收站（否则「本地可撤」的「可恢复」承诺对它们不成立）；e2e 8 例常绿
   **One business action's side effects across tables are compensated in a single step, and the confirmation card states the impact and whether it can be taken back.**
+- **§22.19 AU-3 访客标识：共享账号下也能区分访客**（`699c09e4`）— 演示端访客共用 `alex` 登录时，审计 `user_id` 全塌缩成一个、无法分辨谁是谁；新增**与账号无关**的访客标识（cookie `kb_guest` + `X-Guest-Id` 头双载体，不引入 cookie 依赖，**Web 端零改动**），两张审计表落**链外列** `guest_id`（迁移 `1824000000000`，双方言），管理台两个审计页可见；契约先行 `operation-audit-log-row` v1→v2、`ai-audit-log-row` v2→v3；**诚实边界**：该标识由客户端提供、可被清除或伪造，**只是归因标签，从不是凭证**（不用于授权 / 配额 / 风控）
+  **Visitors sharing one demo account are now distinguishable in the audit trail. The identifier is an attribution label, never a credential.**
 - **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
 
 ### Fixed / 修复
