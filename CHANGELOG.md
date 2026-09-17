@@ -18,6 +18,9 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **One business action's side effects across tables are compensated in a single step, and the confirmation card states the impact and whether it can be taken back.**
 - **§22.19 AU-3 访客标识：共享账号下也能区分访客**（`699c09e4`）— 演示端访客共用 `alex` 登录时，审计 `user_id` 全塌缩成一个、无法分辨谁是谁；新增**与账号无关**的访客标识（cookie `kb_guest` + `X-Guest-Id` 头双载体，不引入 cookie 依赖，**Web 端零改动**），两张审计表落**链外列** `guest_id`（迁移 `1824000000000`，双方言），管理台两个审计页可见；契约先行 `operation-audit-log-row` v1→v2、`ai-audit-log-row` v2→v3；**诚实边界**：该标识由客户端提供、可被清除或伪造，**只是归因标签，从不是凭证**（不用于授权 / 配额 / 风控）
   **Visitors sharing one demo account are now distinguishable in the audit trail. The identifier is an attribution label, never a credential.**
+- **§22.19 AU-4 从审计行下钻到该次对话（引用优先）**（`d03003bd`）— AI 审计行此前只把 `conversationId` 显示为纯文本，「问了什么」在审计轨迹上够不着；现点该 id 打开抽屉**先看会话结构**（消息数 / 时间跨度 / 归属 / 模型），正文须**再显式点「查看正文」**才取。**「引用优先、不落全文」落在服务端**（新增 `GET /ai/conversations/:id/meta` 刻意不返回任何消息文本，连 `summary` 也不返回）——若由前端先取全文再只显示元数据，该约束就只是 UI 装饰；权限复用既有闸门（管理员 / 本人可读，他人 403），无迁移；契约先行新增 wire 对象 `conversation-meta` v1
+  **An audit row now jumps to the conversation it came from: structure first, and the message body only on an explicit second request.**
+- **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
 - **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
 
 ### Fixed / 修复
