@@ -351,6 +351,16 @@ const FILES = {
   'governance-binding-v1-vector.json': governanceBindingFile,
 };
 
+/**
+ * 行尾归一（CRLF → LF）后再比。
+ *
+ * **为什么**：本机 `core.autocrlf` 会把工作区的金样本 checkout 成 CRLF，而现实现在内存里产 LF ——
+ * 直接比会**把行尾差异误报成语义漂移**（2026-09-17 实测：本机 7 份里多份假红，差异行显示
+ * `现实现 "{" vs 已提交 "{\r"`，即仅行尾不同）。CI（Linux/LF）不触发，故这也是「本地红、CI 绿」
+ * 的经典错位。归一只影响比较口径，不改变生成侧写出的内容。
+ */
+const normalizeEol = (s) => s.replace(/\r\n/g, '\n');
+
 function firstDiffLine(a, b) {
   const la = a.split('\n');
   const lb = b.split('\n');
@@ -377,8 +387,8 @@ function check() {
       dirty = true;
       continue;
     }
-    const generated = serialize(data);
-    const committed = readFileSync(file, 'utf8');
+    const generated = normalizeEol(serialize(data));
+    const committed = normalizeEol(readFileSync(file, 'utf8'));
     if (generated !== committed) {
       const d = firstDiffLine(generated, committed);
       console.error(`  ✗ ${name} 漂移（现实现输出 ≠ 已提交金样本）`);

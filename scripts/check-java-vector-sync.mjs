@@ -10,13 +10,14 @@
  * 无机制会红（单源纪律在跨仓失守）。
  *
  * 判据：
- *   1. **共同向量逐字节相等**（漂移即失败）——任一内容差异（含今天的 canonical-json 用例/algorithm 串变更）都拦。
+ *   1. **共同向量按行尾归一后逐字节相等**（漂移即失败）——任一内容差异（含今天的 canonical-json 用例/algorithm 串变更）都拦；
+ *      行尾差异不算漂移（见下方 `normalizeEol` 的成因说明）。
  *   2. **主仓独有向量**（Java 快照缺）→ 报告为**覆盖缺口**（退出码 1，可 `--allow-missing` 降级为警告）。
  *
  * 用法（需两仓同机；本检查**不进 CI**——CI 只见单仓）：
  *   node scripts/check-java-vector-sync.mjs [--java <javaRepoDir>] [--allow-missing] [--sync]
  *   默认 Java 仓：../KeelBase4J（或环境变量 KEELBASE_JAVA_REPO）
- *   --sync：把主仓向量**复制**到 Java 快照（仅在确认后手动跑；改的是另一个仓）
+ *   --sync：把主仓向量**复制**到 Java 快照（仅在确认后手动跑；改的是另一个仓；写入按 LF 归一）
  */
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -45,7 +46,16 @@ const vectors = (dir) => readdirSync(dir).filter((f) => /-vector\.json$/.test(f)
 const mainFiles = vectors(MAIN_DIR);
 const javaFiles = vectors(JAVA_DIR);
 
-const read = (dir, f) => readFileSync(join(dir, f), 'utf8');
+/**
+ * 行尾归一（CRLF → LF）后再比 / 再写。
+ *
+ * **为什么必须归一**：本机 `core.autocrlf` 会把工作区置成 CRLF，而 Java 仓（`.gitattributes: *.json text eol=lf`）
+ * 是 LF —— 直接逐字节比会在 Windows 上**把行尾差异误报成内容漂移**（2026-09-17 实测：7/7 全假红），
+ * 且 `--sync` 会把本机 CRLF **写进另一个仓**、制造全文件 diff。归一后，比较与写入都与平台无关。
+ * （与 `protocol:vectors:check` 在本机假红同根；那边另有其修法。）
+ */
+const normalizeEol = (s) => s.replace(/\r\n/g, '\n');
+const read = (dir, f) => normalizeEol(readFileSync(join(dir, f), 'utf8'));
 
 const drift = [];
 const missing = [];
