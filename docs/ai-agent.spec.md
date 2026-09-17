@@ -50,6 +50,8 @@ KeelBase's Agent is not a "toy assistant" but a runtime (harness) that can safel
   **Permission constraints**: underlying entities go through CASL row-level permissions; the Agent cannot access others' data or admin endpoints beyond its authority
 - **全链路审计**：每次对话/工具调用落 `ai_audit_logs`，支持反馈闭环（AI-18）、成本统计（AI-21）与评测（AI-20）
   **End-to-end audit**: every chat/tool call is logged to `ai_audit_logs`, supporting the feedback loop (AI-18), cost statistics (AI-21), and evaluation (AI-20)
+- **token 记账口径**：`chat` 行的 `promptTokens`/`completionTokens` 为**整轮对话**开销——一次用户提问若触发多轮工具调用，各轮 LLM 用量累加计入同一行。流式（`/ai/chat/stream`）与非流式（`/ai/chat`）同口径。流式请求显式下发 `stream_options.include_usage`，否则 OpenAI 兼容供应商不回传 usage，成本统计会静默偏低；用量只在服务端记账，**不进 SSE 帧**（`done` 事件仍只有 `conversationId`，wire 契约不变）
+  **Token accounting**: the `chat` row's `promptTokens`/`completionTokens` cover the **whole turn** — when one user message drives several tool rounds, each round's LLM usage is summed into that single row. Streaming (`/ai/chat/stream`) and non-streaming (`/ai/chat`) share this accounting. Streaming requests explicitly send `stream_options.include_usage`; without it OpenAI-compatible vendors omit usage and cost statistics silently under-report. Usage is recorded server-side only and **never enters an SSE frame** (`done` still carries only `conversationId`, so the wire contract is unchanged)
 
 > 与通用 Agent harness（LangChain/Claude Code 等）的区别：KeelBase 的工具是**有权限边界的业务 API**，而非文件/命令操作——这是"业务安全"的核心。
 > Difference from general Agent harnesses (LangChain/Claude Code, etc.): KeelBase's tools are **permission-bounded business APIs**, not file/command operations — this is the core of "business security".

@@ -174,6 +174,14 @@ export interface StreamChunk {
   toolStart?: ToolStartData;
   /** 工具执行结束 */
   toolEnd?: ToolEndData;
+  /**
+   * 本轮流式调用的 token 用量，随 done 事件携带（provider 未提供 usage 时缺省）。
+   * 单轮 LLM 调用对应用量——工具轮次会产出多个 done，调用方需累加得到整轮对话的真实开销。
+   */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+  };
 }
 
 /** LLM Provider 接口 */

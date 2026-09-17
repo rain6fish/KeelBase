@@ -260,6 +260,65 @@ describe('OpenAICompatibleProvider', () => {
       expect(chunks[2].type).toBe('done');
     });
 
+    it('should ask for usage in streaming requests', async () => {
+      mockFetch.mockResolvedValue(
+        new Response('data: [DONE]', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      );
+
+      for await (const _ of provider.stream(params)) {
+        // drain
+      }
+
+      // 不显式开启的话 OpenAI 兼容流式不回传 usage，审计将拿不到 token
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(requestBody.stream).toBe(true);
+      expect(requestBody.stream_options).toEqual({ include_usage: true });
+    });
+
+    it('should attach usage to the done chunk', async () => {
+      const sseData = [
+        'data: {"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}',
+        'data: {"choices":[],"usage":{"prompt_tokens":1200,"completion_tokens":34}}',
+        'data: [DONE]',
+      ].join('\n');
+
+      mockFetch.mockResolvedValue(
+        new Response(sseData, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of provider.stream(params)) {
+        chunks.push(chunk);
+      }
+
+      const done = chunks.find((c) => c.type === 'done');
+      expect(done?.usage).toEqual({ promptTokens: 1200, completionTokens: 34 });
+    });
+
+    it('should omit usage on done when the stream carries none', async () => {
+      mockFetch.mockResolvedValue(
+        new Response('data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}]}\ndata: [DONE]', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      );
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of provider.stream(params)) {
+        chunks.push(chunk);
+      }
+
+      const done = chunks.find((c) => c.type === 'done');
+      expect(done).toBeDefined();
+      expect(done?.usage).toBeUndefined();
+    });
+
     it('should yield tool_call chunk from SSE stream', async () => {
       const sseData = [
         'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"query_events","arguments":"{\\"startDate\\""}}}]},"finish_reason":null}]}',

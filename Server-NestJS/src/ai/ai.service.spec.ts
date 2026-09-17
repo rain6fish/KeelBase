@@ -541,6 +541,35 @@ describe('AiService', () => {
       expect(result.reply).toBe('You have 1 event and 3 active events total.');
     });
 
+    it('should sum token usage across tool rounds', async () => {
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '',
+        toolCalls: [{ id: 'call_1', name: 'query_events', arguments: '{}' }],
+        usage: { promptTokens: 1000, completionTokens: 20 },
+      });
+      mockToolRegistry.execute.mockResolvedValueOnce({
+        success: true,
+        data: [{ id: 1, title: 'Meeting' }],
+      });
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'You have 1 event.',
+        usage: { promptTokens: 2000, completionTokens: 50 },
+      });
+
+      // 含 query 关键词 → router 关键词短路，不额外消耗一次 generate（保持 2 次调用可断言）
+      const result = await aiService.chat('1', { message: '查我的事件' });
+
+      expect(mockProvider.generate).toHaveBeenCalledTimes(2);
+      // 两轮各是一次真实 LLM 调用 → 整轮开销是两轮之和，只留最后一轮会漏掉首轮
+      expect(result.usage).toEqual({ promptTokens: 3000, completionTokens: 70 });
+
+      const chatAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'chat' && e.conversationId);
+      expect(chatAudit.promptTokens).toBe(3000);
+      expect(chatAudit.completionTokens).toBe(70);
+    });
+
     it('HS-5: should truncate oversized tool results (array)', () => {
       const svc = aiService as any;
       const bigData = Array.from({ length: 500 }, (_, i) => ({ id: i, title: `Event ${i}`.repeat(10) }));
@@ -815,6 +844,57 @@ describe('AiService', () => {
 
       expect(chunks.filter((c) => c.type === 'text').length).toBe(2);
       expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    it('should record token usage from the stream in the chat audit', async () => {
+      async function* mockStream() {
+        yield { type: 'text' as const, content: 'Hello' };
+        yield { type: 'done' as const, usage: { promptTokens: 1200, completionTokens: 34 } };
+      }
+      mockProvider.stream.mockReturnValue(mockStream());
+
+      for await (const _ of aiService.chatStream('1', { message: 'Hi' })) {
+        // drain
+      }
+
+      const chatAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'chat' && e.conversationId);
+      expect(chatAudit).toBeDefined();
+      expect(chatAudit.promptTokens).toBe(1200);
+      expect(chatAudit.completionTokens).toBe(34);
+    });
+
+    it('should sum token usage across tool rounds', async () => {
+      async function* firstRound() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'call_1', name: 'query_events', arguments: '{}' },
+        };
+        yield { type: 'done' as const, usage: { promptTokens: 1000, completionTokens: 20 } };
+      }
+      async function* secondRound() {
+        yield { type: 'text' as const, content: 'Found: Meeting' };
+        yield { type: 'done' as const, usage: { promptTokens: 2000, completionTokens: 50 } };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(firstRound())
+        .mockReturnValueOnce(secondRound());
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: [{ id: 1, title: 'Meeting' }],
+      });
+
+      for await (const _ of aiService.chatStream('1', { message: 'My events' })) {
+        // drain
+      }
+
+      const chatAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'chat' && e.conversationId);
+      // 工具轮次的两次 LLM 调用都要计入——只取最后一轮会漏掉首轮开销
+      expect(chatAudit.promptTokens).toBe(3000);
+      expect(chatAudit.completionTokens).toBe(70);
     });
 
     it('should handle tool calls from stream and continue streaming', async () => {

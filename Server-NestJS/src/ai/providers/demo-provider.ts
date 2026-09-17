@@ -75,7 +75,8 @@ export class DemoProvider implements LlmProvider {
         yield { type: 'tool_call', toolCall: tc };
       }
     }
-    yield { type: 'done' };
+    // 与 generate() 同口径：demo provider 不消耗真实 token，如实报 0
+    yield { type: 'done', usage: { promptTokens: 0, completionTokens: 0 } };
   }
 
   // ---------------------------------------------------------------------------

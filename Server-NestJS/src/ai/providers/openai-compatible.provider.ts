@@ -59,6 +59,8 @@ interface StreamChoice {
 
 interface StreamEvent {
   choices: StreamChoice[];
+  /** stream_options.include_usage 开启时，末帧携带（该帧 choices 为空数组） */
+  usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
 export class OpenAICompatibleProvider implements LlmProvider {
@@ -160,6 +162,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let usage: { promptTokens: number; completionTokens: number } | undefined;
 
     try {
       while (true) {
@@ -177,12 +180,21 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
           const data = trimmed.slice(6).trim();
           if (data === '[DONE]') {
-            yield { type: 'done' };
+            yield { type: 'done', usage };
             return;
           }
 
           try {
             const parsed = JSON.parse(data) as StreamEvent;
+
+            // usage 帧先于 [DONE] 到达（该帧 choices 为空）；漏取则整轮 token 记账为 null
+            if (parsed.usage) {
+              usage = {
+                promptTokens: parsed.usage.prompt_tokens,
+                completionTokens: parsed.usage.completion_tokens,
+              };
+            }
+
             const delta = parsed.choices?.[0]?.delta;
 
             if (delta?.content) {
@@ -218,7 +230,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
       }
 
       // If no [DONE] was encountered, yield done
-      yield { type: 'done' };
+      yield { type: 'done', usage };
     } catch (err) {
       yield { type: 'error', error: (err as Error).message };
     } finally {
@@ -318,6 +330,11 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
     if (params.tools && params.tools.length > 0) {
       body.tools = params.tools;
+    }
+
+    // OpenAI 兼容流式默认不回传 usage：不显式开启的话审计拿不到 token（成本与用量统计系统性偏低）
+    if (stream) {
+      body.stream_options = { include_usage: true };
     }
 
     return body;

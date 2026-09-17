@@ -1264,6 +1264,10 @@ export class AiService {
     let messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
     const model = request.model ?? this.config.defaultModel;
 
+    // 整轮对话的 token 用量：工具轮次每次 LLM 调用各带一份 usage，累加才是这轮的真实开销
+    // （审计的 chat 行每轮对话只写一次，故必须在此聚合，不能只取最后一轮）
+    let turnUsage: { promptTokens: number; completionTokens: number } | undefined;
+
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const tools = await this._buildToolDefs();
       const stream = this.streamWithProviderFallback({
@@ -1303,6 +1307,10 @@ export class AiService {
         } else if (chunk.type === 'error') {
           streamError = chunk.error;
           yield chunk;
+        } else if (chunk.type === 'done' && chunk.usage) {
+          turnUsage = turnUsage ?? { promptTokens: 0, completionTokens: 0 };
+          turnUsage.promptTokens += chunk.usage.promptTokens;
+          turnUsage.completionTokens += chunk.usage.completionTokens;
         }
         // 'done' — handled after the loop
       }
@@ -1334,6 +1342,8 @@ export class AiService {
             action: 'chat',
             provider: providerName,
             model,
+            promptTokens: turnUsage?.promptTokens,
+            completionTokens: turnUsage?.completionTokens,
           });
         }
         // fire-and-forget：规则式抽取用户记忆，不阻塞对话
@@ -1770,6 +1780,8 @@ export class AiService {
         action: 'chat',
         provider: providerName,
         model,
+        promptTokens: turnUsage?.promptTokens,
+        completionTokens: turnUsage?.completionTokens,
         isError: true,
         errorMessage: 'Exceeded max tool rounds',
       });
@@ -2028,7 +2040,10 @@ export class AiService {
       }
 
       if (result.usage) {
-        usage = result.usage;
+        // 整轮对话口径：多轮工具调用时每轮都是一次真实 LLM 调用，只留最后一轮会漏掉前面的开销
+        usage = usage ?? { promptTokens: 0, completionTokens: 0 };
+        usage.promptTokens += result.usage.promptTokens;
+        usage.completionTokens += result.usage.completionTokens;
       }
 
       if (!result.toolCalls || result.toolCalls.length === 0) {
