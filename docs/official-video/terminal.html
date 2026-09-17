@@ -8,7 +8,7 @@
     html, body { width: 100%; height: 100%; background: #0f172a; overflow: hidden; }
     body { font-family: "Cascadia Code", "Consolas", monospace; color: #e2e8f0; }
     #term { width: 100%; height: 100%; padding: 28px 32px; font-size: 21px; line-height: 1.5; }
-    .cmd { color: #93c5fd; font-weight: 700; }
+    .cmd { color: #93c5fd; font-weight: 700; white-space: pre-wrap; overflow-wrap: anywhere; }
     .cmd::before { content: "$ "; color: #34d399; }
     .out { color: #cbd5e1; white-space: pre-wrap; }
     .ok { color: #34d399; }
@@ -21,23 +21,34 @@
 <body>
   <div id="term"></div>
   <script>
-    // 真实命令 + 真实输出（捕获自实际运行）
+    // 真实命令 + 真实输出（捕获自实际运行；省略处以 … 标注）
     const SCENES = {
+      consulting: [
+        ['cmd', 'node scripts/generator/business-spec.mjs --in .keelbase/business-spec/followup-plans.json --out specs/followup-plans.json'],
+        ['ok', '✓ followup-plans → 模块协议「followup_plans」(5 字段)'],
+        ['out', '  · 单一角色「sales」按本人所有权生成'],
+        ['out', '  · decisions（2 项）保留在 Business Spec / Evidence，不进协议'],
+        ['out', '  · acceptance（2 项）保留在 Business Spec / Evidence，不进协议'],
+        ['out', '  · outOfScope（2 项）保留在 Business Spec / Evidence，不进协议'],
+        ['warn', '⚠ 2 项不可映射（需手写补全）：'],
+        ['warn', '  - 同一客户同一周内不重复建立跟进计划 → 服务层手写 + 单测覆盖'],
+        ['warn', '  - 计划日期必须落在未来 7 天内 → 服务层手写 + 单测覆盖'],
+        ['dim', '▲ 业务规格 → 模块协议：能确定的确定性映射，说不清的显式进手写清单'],
+      ],
       build: [
-        ['cmd', 'keelbase init --spec specs/invoices.json'],
+        ['cmd', 'node scripts/keelbase-init.mjs --spec specs/invoices.json'],
         ['out', '生成业务模块：invoices（发票）'],
-        ['out', '  singular=invoice plural=invoices 类=Invoices 字段=[invoiceNo, amount, status]'],
+        ['out', '  singular=invoice plural=invoices 类=Invoices 字段=[invoiceNo, customerName, amount, status, dueDate]'],
+        ['ok', '✓ 已生成 23 个文件（后端 + AI 工具 + Flutter + Web-Admin-Vue + Taro）'],
         ['ok', '✓ 接线：Server-NestJS/src/app.module.ts'],
-        ['ok', '✓ 接线：Server-NestJS/src/ai/ai.module.ts  （query_invoices 读 + create_invoices 写需确认）'],
         ['ok', '✓ 接线：Server-NestJS/src/common/modules/modules-manifest.ts'],
-        ['ok', '✓ 接线：Server-NestJS/src/common/casl/casl-ability.factory.ts'],
-        ['ok', '✓ 接线：Front-Flutter / Web 工作台 / Taro + 路由 + i18n'],
-        ['out', '生成物：'],
-        ['out', '  Server-NestJS/src/invoices/invoice.entity.ts + dto + service + controller + module'],
-        ['out', '  Server-NestJS/src/ai/tools/query-invoices.tool.ts（读）'],
-        ['out', '  Server-NestJS/src/ai/tools/create-invoices.tool.ts（写，需人工确认）'],
-        ['out', '  Front-Flutter/lib/features/invoices/... + Web 工作台页面'],
-        ['dim', '下一步：npm run build && npm test -- invoices  →  20 passed'],
+        ['ok', '✓ 接线：Server-NestJS/src/authz/generated-role-rules.ts'],
+        ['ok', '✓ 接线：Server-NestJS/src/ai/ai.module.ts'],
+        ['ok', '✓ 接线：Web-Admin-Vue/src/router/routes.ts'],
+        ['ok', '✓ 接线：Front-Flutter/lib/core/router/app_router.dart'],
+        ['out', '生成物：query-invoices.tool.ts（读）· create-invoices.tool.ts（写，需人工确认）'],
+        ['ok', '✓ .keelbase/manifest.json（keelbase v1.0.10 / protocol 1.0）'],
+        ['dim', '下一步：cd Server-NestJS && npm run build && npm test -- invoices.service'],
       ],
       bridge: [
         ['cmd', 'node scripts/keelbase-init.mjs --import-openapi-proxy specs/external-crm.openapi.json --base-url http://localhost:8082 --audience legacy-crm'],
@@ -68,23 +79,43 @@
         ['dim', '配置：OLLAMA_BASE_URL=http://localhost:11434  AI_CHAT_MODEL=qwen2.5:7b'],
         ['dim', '部署：Docker · Offline · On-Premise · Private Data'],
       ],
+      evidence: [
+        ['cmd', 'node scripts/render-period-report.mjs export.json --lang zh --out period-report.html'],
+        ['out', '═══ 期间审计报告（D-1，离线自包含）═══'],
+        ['ok', '结论：PASS（模式：结构验证）'],
+        ['out', '报告：period-report.html'],
+        ['dim', '▲ 单文件 HTML，零外链零依赖——审计方离线复核，不必安装 KeelBase'],
+      ],
     };
 
     // English scenes (en = default)
     const SCENES_EN = {
+      consulting: [
+        ['cmd', 'node scripts/generator/business-spec.mjs --in .keelbase/business-spec/followup-plans.json --out specs/followup-plans.json'],
+        ['ok', '✓ followup-plans → module protocol "followup_plans" (5 fields)'],
+        ['out', '  · single role "sales", ownership-scoped'],
+        ['out', '  · decisions (2) kept in Business Spec / Evidence, not the protocol'],
+        ['out', '  · acceptance (2) kept in Business Spec / Evidence, not the protocol'],
+        ['out', '  · outOfScope (2) kept in Business Spec / Evidence, not the protocol'],
+        ['warn', '⚠ 2 items cannot be mapped (need hand-written code):'],
+        ['warn', '  - no duplicate follow-up plan per customer per week → service layer + unit test'],
+        ['warn', '  - planned date must fall within the next 7 days → service layer + unit test'],
+        ['dim', '▲ business spec → module protocol: deterministic where it can be, explicit when it cannot'],
+      ],
       build: [
-        ['cmd', 'keelbase init --spec specs/invoices.json'],
+        ['cmd', 'node scripts/keelbase-init.mjs --spec specs/invoices.json'],
         ['out', 'Generating business module: invoices'],
-        ['out', '  singular=invoice plural=invoices class=Invoices fields=[invoiceNo, amount, status]'],
+        ['out', '  singular=invoice plural=invoices class=Invoices fields=[invoiceNo, customerName, amount, status, dueDate]'],
+        ['ok', '✓ generated 23 files (backend + AI tools + Flutter + Web-Admin-Vue + Taro)'],
         ['ok', '✓ wired: Server-NestJS/src/app.module.ts'],
-        ['ok', '✓ wired: Server-NestJS/src/ai/ai.module.ts (query_invoices read + create_invoices write needs approval)'],
         ['ok', '✓ wired: Server-NestJS/src/common/modules/modules-manifest.ts'],
-        ['ok', '✓ wired: Flutter / Web workbench / Taro + routes + i18n'],
-        ['out', 'Generated:'],
-        ['out', '  invoice.entity.ts + dto + service + controller + module'],
-        ['out', '  ai/tools/query-invoices.tool.ts (read)'],
-        ['out', '  ai/tools/create-invoices.tool.ts (write, needs human approval)'],
-        ['dim', 'Next: npm run build && npm test -- invoices → 20 passed'],
+        ['ok', '✓ wired: Server-NestJS/src/authz/generated-role-rules.ts'],
+        ['ok', '✓ wired: Server-NestJS/src/ai/ai.module.ts'],
+        ['ok', '✓ wired: Web-Admin-Vue/src/router/routes.ts'],
+        ['ok', '✓ wired: Front-Flutter/lib/core/router/app_router.dart'],
+        ['out', 'Generated: query-invoices.tool.ts (read) · create-invoices.tool.ts (write, needs approval)'],
+        ['ok', '✓ .keelbase/manifest.json (keelbase v1.0.10 / protocol 1.0)'],
+        ['dim', 'Next: cd Server-NestJS && npm run build && npm test -- invoices.service'],
       ],
       bridge: [
         ['cmd', 'node scripts/keelbase-init.mjs --import-openapi-proxy specs/external-crm.openapi.json --base-url http://localhost:8082 --audience legacy-crm'],
@@ -107,12 +138,19 @@
         ['cmd', './scripts/verify-private-ai.sh'],
         ['out', '═══ KeelBase private AI verification (data stays in-domain) ═══'],
         ['ok', '✓ Cloud Provider OFF (no external LLM key)'],
-        ['ok', '✓ Ollama local model (AI_PROVIDER=ollama)'],
+        ['ok', '✓ Ollama local model (AI_PROVIDER=ollama, qwen2.5:7b)'],
         ['ok', '✓ Local embeddings (bge-m3) + local RAG'],
         ['ok', '✓ Agent tool calls (data never leaves domain)'],
         ['ok', '✓ Audit recorded (provider=ollama)'],
         ['dim', 'Config: OLLAMA_BASE_URL=http://localhost:11434  AI_CHAT_MODEL=qwen2.5:7b'],
         ['dim', 'Deploy: Docker · Offline · On-Premise · Private Data'],
+      ],
+      evidence: [
+        ['cmd', 'node scripts/render-period-report.mjs export.json --lang en --out period-report.html'],
+        ['out', '═══ Period audit report (D-1, offline, self-contained) ═══'],
+        ['ok', 'Verdict: PASS (mode: structural verification)'],
+        ['out', 'Report: period-report.html'],
+        ['dim', '▲ one self-contained HTML file, zero external links — auditors verify it offline, no KeelBase install'],
       ],
     };
 

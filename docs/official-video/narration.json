@@ -2,143 +2,198 @@
   "shots": [
     {
       "id": 1,
-      "zh": "AI 正在从聊天，走向真正帮企业干活。",
-      "en": "AI is moving beyond chat — into doing real work for your business."
+      "zh": "AI 已经不只是聊天。",
+      "en": "AI is no longer just a chat box."
     },
     {
       "id": 2,
-      "zh": "它读取你的业务数据，判断风险，还能动手创建记录、推进流程。",
-      "en": "It reads your business data, spots risks, and takes action — creating records, moving processes forward."
+      "zh": "它读取业务数据、判断风险、调用工具，甚至直接修改业务系统。",
+      "en": "It reads your business data, assesses risk, calls tools — and writes into your systems."
     },
     {
       "id": 3,
-      "zh": "但是——这样的 AI，你敢放心交给它吗？",
-      "en": "But an AI like this — would you trust it with your business?"
+      "zh": "但当 AI 真正开始行动，企业缺的，可能不是更聪明的 Agent。",
+      "en": "But once AI starts acting, what's missing may not be a smarter agent."
     },
     {
       "id": 4,
-      "zh": "它会不会碰不该碰的数据？会不会没有批准就乱写？出了问题，我们查得清、撤得回吗？",
-      "en": "Could it touch data it shouldn't? Write without approval? If something goes wrong, can we trace it and undo it?"
+      "zh": "而是一层信任：它能碰不该碰的数据吗？会不经批准就写入吗？出了错，我们查得清、撤得回吗？",
+      "en": "It's trust: can it reach data it shouldn't? Write without approval? When something goes wrong, can we trace it — and undo it?"
     },
     {
       "id": 5,
-      "zh": "KeelBase 给出的答案，是一个业务安全的 AI 运行时。",
-      "en": "KeelBase answers with a business-safe AI runtime."
+      "zh": "KeelBase 给出的答案，是一个开源的业务安全 AI 运行时。",
+      "en": "KeelBase answers with an open-source, business-safe AI runtime."
     },
     {
       "id": 6,
-      "zh": "上面是 AI 助手，下面是你的业务系统——CRM、ERP、OA。KeelBase 在中间，守住每一道边界。",
-      "en": "AI assistants on top. Your systems below — CRM, ERP, OA. KeelBase sits between them, guarding every boundary."
+      "zh": "上面是 AI 代理，下面是你的业务系统——CRM、ERP、OA。KeelBase 的治理层在中间，守住每一道边界。",
+      "en": "Agents on top. Your systems below — CRM, ERP, OA. KeelBase's governance layer sits between them, guarding every boundary."
     },
     {
       "id": 7,
-      "zh": "身份、权限、人工确认、审计、撤销——每一步都有规则，每一次都有记录。",
-      "en": "Identity, permissions, human confirmation, audit, revocation — every step has rules, every action leaves a record."
+      "zh": "身份、策略、权限、人工确认、审计、撤销——每一步都有规则，每一次都有记录。",
+      "en": "Identity, policy, permission, human confirmation, audit, revocation — rules for every step, a record for every action."
     },
     {
       "id": 8,
-      "zh": "一句话：AI 可以干活，但只在它被允许的范围内。",
-      "en": "In short: AI can act — but only within the boundaries you set."
+      "zh": "一句话：AI 可以行动，但只在明确的业务边界内。",
+      "en": "In one line: AI can act — but only within explicit business boundaries."
     },
     {
       "id": 9,
-      "zh": "您那些跑了十年的 Java 系统、老 CRM——不用重写。把接口交给 KeelBase，它们立刻变成受管控的 AI 工具：查数据的自动执行，改数据的先请您批准。",
-      "en": "Your ten-year-old Java systems, your legacy CRM — no rewrite needed. Hand their APIs to KeelBase, and they instantly become governed AI tools: reads run automatically, writes ask for your approval."
+      "zh": "我们来跑一遍真实流程。",
+      "en": "Let's run the real flow."
     },
     {
       "id": 10,
-      "zh": "路径就是这样：您的 Java 系统和现有接口，经过 KeelBase 治理层，变成 AI 能安全调用的工具——读操作自动执行，写操作必须批准，全程审计、可撤销。",
-      "en": "Here is the path: your Java systems and existing APIs pass through KeelBase governance and become AI tools it can safely call — reads run automatically, writes require approval, fully audited and revocable."
+      "zh": "问 AI：哪些客户本周最值得跟进？它会真的去读订单和跟进记录。",
+      "en": "Ask which customers deserve attention this week — and it actually reads orders and activity history."
     },
     {
       "id": 11,
-      "zh": "存量系统，焕发新的 AI 能力。核心代码一行不改。",
-      "en": "Legacy systems gain new AI capabilities. Not a single line of core code changes."
+      "zh": "瀚宇制造，逾期两百八十万，风险最高，建议立即跟进。",
+      "en": "HanYu Manufacturing — 2.8 million overdue, highest risk, worth an immediate call."
     },
     {
       "id": 12,
-      "zh": "比如，问 AI 哪些客户最值得跟进。它查的是真实业务数据——瀚宇制造，逾期两百八十万，风险最高，建议立即催收。",
-      "en": "Ask AI which customers deserve attention. It reads real business data — HanYu Manufacturing, 2.8 million overdue, highest risk, worth an immediate call."
+      "zh": "接着，AI 想建一个跟进任务。写入是真实的业务副作用，所以它先停下来问。",
+      "en": "Now the AI wants to create a follow-up task. Writing is a real business side effect, so it stops and asks first."
     },
     {
       "id": 13,
-      "zh": "当 AI 要动手创建任务，它会先停下来，把要做什么讲清楚，请您批准。您点头，它才执行——每一步都留痕、可追溯。",
-      "en": "When AI wants to create a task, it pauses, explains what it will do, and asks for your approval. Only after you approve does it execute — every step traced and auditable."
+      "zh": "确认卡不只说「要做什么」，还会告诉你这次动作会影响什么、能不能撤销。",
+      "en": "The confirmation card doesn't just say what it will do — it shows what the action affects, and how it can be revoked."
     },
     {
       "id": 14,
-      "zh": "项目管理也是一样。AI 帮你预判哪些项目有延期风险，提前介入，而不是事后救火。",
-      "en": "Project management works the same way. AI flags at-risk projects early, so you intervene before delays snowball."
+      "zh": "你批准，它才执行。",
+      "en": "Only after you approve does it act."
     },
     {
       "id": 15,
-      "zh": "审批流自动交给 AI 预审：小额合规的直接通过，大额敏感的转人工复核。又快，又守得住。",
-      "en": "Approvals get AI pre-audit: small compliant requests pass automatically, large or sensitive ones route to human review. Fast, yet still guarded."
+      "zh": "权限检查、人工批准、写入——三步都留下记录。",
+      "en": "Permission checked, approval received, record written — all three leave a trace."
     },
     {
       "id": 16,
-      "zh": "不管接的是哪家的 AI 助手，不管对接什么业务系统——都只走这一个信任层。",
-      "en": "Whatever AI assistant you use, whatever systems you connect — it all flows through this one trust layer."
+      "zh": "CRM 里已经多了一条真实任务。这不是模拟出来的回答。",
+      "en": "A real task now exists in the CRM. This is not a simulated answer."
     },
     {
       "id": 17,
-      "zh": "这不是又一个聊天机器人框架。这是企业 AI 的信任底座。",
-      "en": "This is not another chatbot framework. It is the trust foundation for enterprise AI."
+      "zh": "这条链完整可查：谁发起、AI 怎么决策、调了哪个工具、为什么被允许、谁批准、最后改了什么。",
+      "en": "The chain is fully traceable: who asked, how the AI decided, which tool it called, why it was allowed, who approved, what changed."
     },
     {
       "id": 18,
-      "zh": "权限、工具、审计——安全不是嘴上说说，是可验证、经得起检查的。",
-      "en": "Access, tools, audit — security here is not a promise. It is verifiable and inspectable."
+      "zh": "整条记录进入防篡改的审计链，并且可以离线校验。",
+      "en": "It all lands in a tamper-evident audit chain — verifiable offline."
     },
     {
       "id": 19,
-      "zh": "安全不是靠提示词哄出来的，是运行时强制执行出来的。",
-      "en": "Security is not enforced by prompts. It is enforced at runtime, structurally."
+      "zh": "如果这次动作写了好几张表，撤销不必一条一条点——同一次业务动作的整组写入，会一起补偿。",
+      "en": "If one action wrote to several tables, revocation isn't click-by-click — the whole write group is compensated together."
     },
     {
       "id": 20,
-      "zh": "每一次 AI 操作，都进入一条防篡改的审计链。系统跑得怎么样，一屏看尽。",
-      "en": "Every AI action lands in a tamper-proof audit chain. How the system is running — one glance tells you."
+      "zh": "一次撤销，整组回滚。",
+      "en": "One revoke, the whole group rolls back."
     },
     {
       "id": 21,
-      "zh": "治理看板一屏掌握：AI 助手、策略、风险、审计、审批。整个平台的状况清清楚楚。",
-      "en": "A governance dashboard shows it all at a glance: assistants, policies, risk, audit, approvals. Full visibility across the platform."
+      "zh": "读取、决策、确认、执行、审计、撤销——这是一个闭环。",
+      "en": "Read, decide, confirm, act, audit, revoke — a closed loop."
     },
     {
       "id": 22,
-      "zh": "要建新业务模块？用一句话描述需求，一条命令，直接生成可用的业务代码。",
-      "en": "Need a new business module? Describe it in one sentence, run one command, and get working business code."
+      "zh": "这套治理层不绑定某一家 Agent：MCP、OpenAPI、Function Calling，接进来就受同一套规则管。",
+      "en": "The governance layer isn't tied to one agent. MCP, OpenAPI, function calling — whatever you connect obeys the same rules."
     },
     {
       "id": 23,
-      "zh": "生成的是您自己的源代码——看得懂、改得动、完全可控。",
-      "en": "What you get is your own source code — readable, editable, fully under your control."
+      "zh": "这不是又一个 Agent 框架，而是一个业务安全的 AI 运行时。",
+      "en": "This is not another agent framework. It is a business-safe AI runtime."
     },
     {
       "id": 24,
-      "zh": "从需求描述，到可运行的系统。",
-      "en": "From a description to a running system."
+      "zh": "那如果 AI 越过了自己的数据范围呢？",
+      "en": "What if the AI overreaches beyond its own data scope?"
     },
     {
       "id": 25,
-      "zh": "数据敏感？那就私有化部署。全部数据留在您自己的机房里，一步不出域。",
-      "en": "Data sensitive? Deploy privately. All data stays inside your own infrastructure — never leaves your domain."
+      "zh": "运行时直接拒绝。依据、策略、范围，全部落在审计里——被拒绝不是异常，而是系统正常工作。",
+      "en": "The runtime denies it outright. Reason, policy and scope all land in the audit — a denial here is the system working, not failing."
     },
     {
       "id": 26,
-      "zh": "容器、离线、本地部署——数据主权，完全握在自己手里。",
-      "en": "Containers, offline, on-premise — data sovereignty stays entirely in your hands."
+      "zh": "这些边界不是宣传语。管理台里可以现场跑对抗场景，直接看结果和决策轨迹。",
+      "en": "These boundaries are not marketing. The console runs adversarial scenarios on the spot and shows the outcome and the decision trace."
     },
     {
       "id": 27,
-      "zh": "构建、运行、信任、私有部署。这就是 KeelBase 的完整闭环。",
-      "en": "Build, run, trust, private deployment. This is the complete KeelBase loop."
+      "zh": "安全边界不是靠提示词哄出来的，是运行时强制出来的。",
+      "en": "Security boundaries are not prompt instructions. They are enforced at runtime."
     },
     {
       "id": 28,
-      "zh": "开源，面向业务安全。AI 能干活，但只在您允许的边界内。",
-      "en": "Open source, built for business safety. AI can act — but only within the boundaries you allow."
+      "zh": "要建新业务模块？从一句业务诉求开始，先变成结构化的业务规格。",
+      "en": "Need a new business module? Start from one business request, mapped into a structured business spec."
+    },
+    {
+      "id": 29,
+      "zh": "再确定性映射成模块协议——一条命令，生成真实的业务源码。",
+      "en": "Then deterministically mapped into a module protocol — one command, and real business source code comes out."
+    },
+    {
+      "id": 30,
+      "zh": "生成的是普通源码：看得懂、改得动，留在你自己的仓库里。",
+      "en": "What you get is ordinary source code — readable, editable, in your own repository."
+    },
+    {
+      "id": 31,
+      "zh": "",
+      "en": ""
+    },
+    {
+      "id": 32,
+      "zh": "存量系统也不用推倒重来。把接口交给 KeelBase，它们就变成受治理的 AI 工具。",
+      "en": "Existing systems don't need a rewrite. Hand their APIs to KeelBase and they become governed AI tools."
+    },
+    {
+      "id": 33,
+      "zh": "读操作自动执行，写操作必须批准——核心代码一行不改。",
+      "en": "Reads run automatically, writes require approval — without changing a single line of core code."
+    },
+    {
+      "id": 34,
+      "zh": "数据敏感，就私有化部署：本地模型、本地向量化、本地审计，数据一步不出域。",
+      "en": "Sensitive data? Deploy privately: local model, local embeddings, local audit — data never leaves your domain."
+    },
+    {
+      "id": 35,
+      "zh": "Docker、离线、本地部署——数据主权，握在自己手里。",
+      "en": "Docker, offline, on-premise — data sovereignty stays in your own hands."
+    },
+    {
+      "id": 36,
+      "zh": "每一次业务动作，都能导出成一份自包含的 HTML 证据报告；审计方离线就能复核，不必安装 KeelBase。",
+      "en": "Every business action exports to a self-contained HTML evidence report — auditors verify it offline, without installing KeelBase."
+    },
+    {
+      "id": 37,
+      "zh": "第一次打开就有就绪清单：运行时、数据库、AI、治理、演示——每一维都告诉你下一步该做什么。",
+      "en": "From the first launch, a readiness list shows where you stand — runtime, database, AI, governance, demo — each with its own next step."
+    },
+    {
+      "id": 38,
+      "zh": "",
+      "en": ""
+    },
+    {
+      "id": 39,
+      "zh": "构建、运行、信任、私有部署。KeelBase：AI 可以行动，但只在明确的业务边界内。",
+      "en": "Build, run, trust, private deploy. KeelBase: AI can act — but only within explicit business boundaries."
     }
   ]
 }

@@ -34,6 +34,10 @@ const CREATE_QUESTION =
   '请为瀚宇制造创建一个跟进任务，标题为：推进瀚宇制造分期方案签约，备注：AI 自动演示';
 const OVERREACH_QUESTION =
   process.env.OVERREACH_QUESTION || '查看其他销售负责的客户订单';
+// 复合写（多表副作用 → 同一补偿组）：一次调用落 pm_project + N 个 pm_task
+const COMPOSITE_QUESTION =
+  process.env.COMPOSITE_QUESTION ||
+  '帮我创建一个项目叫「瀚宇制造交付」，并添加三个任务：需求梳理、方案开发、验收复盘';
 const LOG_DIR = resolve(process.env.SHOT_LOG_DIR || 'artifacts/official-demo');
 const LANG = process.env.LANG || 'zh'; // zh | en —— 工作台 UI 语言（分镜屏幕文字本身英文）
 const SHOT_LOG = join(LOG_DIR, 'shot-log.json');
@@ -231,6 +235,37 @@ async function revokeFirstEffect(frame) {
     .waitFor({ timeout: 15000 });
 }
 
+/** 对抗沙盘：跑第一个确定性场景，等结果 + 决策轨迹出现（无 LLM 依赖） */
+async function runFirstShowcaseScenario(frame) {
+  const run = frame.getByRole('button', { name: /运\s*行|Run/i }).first();
+  await run.waitFor({ timeout: 20000 });
+  await sleep(1800); // 先让场景卡片列表露一下脸
+  await run.click();
+  await frame
+    .locator('.el-timeline, .el-tag, .el-step')
+    .first()
+    .waitFor({ timeout: 40000 })
+    .catch(() => {});
+  await sleep(3000);
+}
+
+/** 撤销刚创建的复合写动作 → 整组级联补偿 */
+async function revokeCompositeAction(frame) {
+  await setStage(frame, `${BASE_URL}/admin/#/workbench/ai-trace`);
+  await frame.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
+  await selectAiTraceConversation(frame, COMPOSITE_QUESTION).catch(() => {});
+  await sleep(2500);
+  await revokeFirstEffect(frame);
+  await sleep(2500);
+  // 级联提示（若有）——拿不到不阻塞录制
+  await frame
+    .locator('text=/级联|补偿|compensat/i')
+    .first()
+    .waitFor({ timeout: 8000 })
+    .catch(() => {});
+}
+
+/** 截图帧组装成片（Playwright ffmpeg 精简版；Windows 上 stdin 必须用 pipe:0） */
 async function ensureObsCapture(obs, browserTitle) {
   const scenes = await obs.call('GetSceneList');
   const current = await obs.call('GetCurrentProgramScene');
@@ -436,13 +471,30 @@ async function main() {
     await page.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
     await selectAiTraceConversation(page, RISK_QUESTION);
     await sleep(6000);
-    boundaries.push({ shot: 19, at: Date.now() - t0 });
-    await revokeFirstEffect(page);
+    boundaries.push({ shot: 18, at: Date.now() - t0 });
     await sleep(5000);
+
+    // 19-20 撤销＝级联补偿：先制造一次**复合写**（项目 + 任务同属一个补偿组），再整组撤销
+    await setStage(page, `${BASE_URL}/admin/#/workbench/crm/${customerId}`);
+    await page.waitForURL(/workbench\/crm\/\d+/, { timeout: 25000 }).catch(() => {});
+    await openAiDrawer(page);
+    await askInDrawer(page, COMPOSITE_QUESTION);
+    await waitConfirmCard(page);
+    await sleep(4000);
+    boundaries.push({ shot: 19, at: Date.now() - t0 });
+    await approveConfirm(page);
+    await waitGovernance(page).catch(() => {});
+    await sleep(3000);
+    try { await page.keyboard.press('Escape'); } catch (e) {}
+    await sleep(1200);
+
+    await revokeCompositeAction(page);
+    boundaries.push({ shot: 20, at: Date.now() - t0 });
+    await sleep(6000);
     boundaries.push({ shot: 21, at: Date.now() - t0 });
     await sleep(4000);
 
-    // Trust Runtime 22-23
+    // Governance Layer 22-23
     await showSlide(page, 22, 13000, boundaries, t0);
     await showSlide(page, 23, 7000, boundaries, t0);
 
@@ -456,45 +508,54 @@ async function main() {
     boundaries.push({ shot: 25, at: Date.now() - t0 });
     await sleep(6000);
 
-    // Evidence 26-27：管理台安全验证（admin 真实页——AI 审计 + 安全审查）
+    // Evidence 26-27：对抗沙盘（admin 真实页，现场跑确定性对抗场景 → 结果 + 决策轨迹）
     await loginAsAdmin(page, 'admin', 'Admin@2026$KeelBase');
+    await setStage(page, `${BASE_URL}/admin/#/security-showcase`);
+    await page.waitForURL(/security-showcase/, { timeout: 25000 }).catch(() => {});
     boundaries.push({ shot: 26, at: Date.now() - t0 });
-    await setStage(page, `${BASE_URL}/admin/#/audit`);
-    await page.waitForURL(/\/audit/, { timeout: 25000 }).catch(() => {});
-    await sleep(5000);
-    boundaries.push({ shot: 27, at: Date.now() - t0 });
-    await setStage(page, `${BASE_URL}/admin/#/security-review`);
-    await page.waitForURL(/security-review/, { timeout: 25000 }).catch(() => {});
-    await sleep(3000);
-
-    // Build 28-31：真实 keelbase init 终端（生成业务模块）
-    await setStage(page, `${SLIDES_URL}/terminal.html?type=build`);
-    boundaries.push({ shot: 28, at: Date.now() - t0 });
+    await runFirstShowcaseScenario(page);
     await sleep(7000);
+
+    await showSlide(page, 27, 5000, boundaries, t0);
+
+    // Build 28-31：业务规格 → 协议（consulting）→ 生成源码（build）→ 协议即代码字卡
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=consulting`);
+    boundaries.push({ shot: 28, at: Date.now() - t0 });
+    await sleep(9000);
+
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=build`);
     boundaries.push({ shot: 29, at: Date.now() - t0 });
-    await sleep(12000);
-    boundaries.push({ shot: 30, at: Date.now() - t0 });
-    await sleep(8000);
-    boundaries.push({ shot: 31, at: Date.now() - t0 });
-    await sleep(3000);
+    await sleep(13000);
+
+    await showSlide(page, 30, 8000, boundaries, t0);
+    await showSlide(page, 31, 3000, boundaries, t0);
 
     // Existing System 32-33：AI Bridge 终端（不替换系统获得 AI 能力）
     await setStage(page, `${SLIDES_URL}/terminal.html?type=bridge`);
     boundaries.push({ shot: 32, at: Date.now() - t0 });
     await sleep(13000);
-    boundaries.push({ shot: 33, at: Date.now() - t0 });
-    await sleep(7000);
+    await showSlide(page, 33, 7000, boundaries, t0);
 
     // Private Deploy 34-35：私有 AI 终端（本地模型，数据不出域）
     await setStage(page, `${SLIDES_URL}/terminal.html?type=private`);
     boundaries.push({ shot: 34, at: Date.now() - t0 });
     await sleep(7000);
-    boundaries.push({ shot: 35, at: Date.now() - t0 });
-    await sleep(4000);
+    await showSlide(page, 35, 4000, boundaries, t0);
 
-    // 结尾 36-37
-    await showSlide(page, 36, 2000, boundaries, t0);
-    await showSlide(page, 37, 2000, boundaries, t0);
+    // 36 证据报告（离线自包含 HTML，审计方不必安装）
+    await setStage(page, `${SLIDES_URL}/terminal.html?type=evidence`);
+    boundaries.push({ shot: 36, at: Date.now() - t0 });
+    await sleep(10000);
+
+    // 37 首次运行就绪清单（五维 + 各自下一步）
+    await setStage(page, `${BASE_URL}/admin/#/dashboard`);
+    await page.waitForURL(/dashboard/, { timeout: 25000 }).catch(() => {});
+    boundaries.push({ shot: 37, at: Date.now() - t0 });
+    await sleep(9000);
+
+    // 结尾 38-39
+    await showSlide(page, 38, 2000, boundaries, t0);
+    await showSlide(page, 39, 4000, boundaries, t0);
 
     stopCapture();
     await sleep(1000);
