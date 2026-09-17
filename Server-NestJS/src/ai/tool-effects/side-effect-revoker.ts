@@ -80,8 +80,23 @@ export interface LocalEntityTarget {
  * 猜错就是软删了别的业务记录，而「不误删」正是这层治理的全部价值（fail-closed）。
  */
 export function resolveLocalEntity(em: EntityManager, type: string): LocalEntityTarget | null {
+  const metas = em.connection.entityMetadatas;
+  /** 展示列推导——**别名分支与元数据分支同源**，避免两处口径漂移 */
+  const toTarget = (md: any): LocalEntityTarget => {
+    const display = md.columns.find((col: { propertyName: string }) =>
+      ['title', 'name', 'subject', 'label'].includes(col.propertyName),
+    );
+    return { name: md.name, displayCol: display ? display.propertyName : null };
+  };
+
   const explicit = entityFor(type);
-  if (explicit) return { name: explicit, displayCol: 'title' };
+  if (explicit) {
+    // ⚠ **不可硬编码 displayCol='title'**：别名的展示列并不都是 title —— `Contract` 用 `name`
+    // （无 title 列），硬编码会让 describeTarget 去查不存在的属性 → EntityPropertyNotFoundError
+    // → 「工具与副作用」列表整体 500（一条 contract 副作用即打挂整个列表）。
+    const md = metas.find((m) => m.name === explicit);
+    return md ? toTarget(md) : { name: explicit, displayCol: 'title' };
+  }
 
   const wanted = typeof type === 'string' ? type.toLowerCase() : '';
   const normalized = wanted.replace(/_/g, '');
@@ -94,14 +109,7 @@ export function resolveLocalEntity(em: EntityManager, type: string): LocalEntity
     namesOf(md).some((n) => typeof n === 'string' && n.toLowerCase() === wanted);
   const byNormalized = (md: any) =>
     namesOf(md).some((n) => typeof n === 'string' && n.toLowerCase().replace(/_/g, '') === normalized);
-  const toTarget = (md: any): LocalEntityTarget => {
-    const display = md.columns.find((col: { propertyName: string }) =>
-      ['title', 'name', 'subject', 'label'].includes(col.propertyName),
-    );
-    return { name: md.name, displayCol: display ? display.propertyName : null };
-  };
 
-  const metas = em.connection.entityMetadatas;
   for (const md of metas) {
     if (byExact(md) && md.deleteDateColumn) return toTarget(md);
   }

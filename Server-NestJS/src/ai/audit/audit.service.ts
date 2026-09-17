@@ -392,7 +392,12 @@ export class AuditService {
   async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[] }> {
     const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[] }>('audit:verify');
     if (cached) return cached;
-    const rows = await this.logRepo.find({ order: { id: 'ASC' } });
+    // 只取**已入链**的行：`hash` 为 null 的行从未入链（AddAuditHashChain 迁移前的历史行；
+    // 以及测试/工具直插的行）。让它们参与校验会让 genesis 检查在**第 1 行**即失败
+    // （_matches(null, …) 恒 false）→ 整条链被误判 invalid，而链实际未被破坏。
+    // 与副作用链 verifySideEffectChain 的 `filter(r => r.hash)` **同口径**：两条链对
+    // 「未入链的行不参与校验」必须一致，否则同一份数据在两条链上会得出相反结论。
+    const rows = (await this.logRepo.find({ order: { id: 'ASC' } })).filter((r) => r.hash);
     const result = this.auditChain.verifyChain(rows, (row) => this._payload(row));
     const detailed = { ...result, chain: this._chainSlice(rows, result) };
     await this.cacheService?.set('audit:verify', detailed, 60_000);
@@ -755,7 +760,12 @@ export class AuditService {
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
     // A2：全量链原始行（payload 与写入侧 _payload 一致，供 scripts/verify-evidence.mjs 离线重算）
-    const rows = await this.logRepo.find({ order: { id: 'ASC' } });
+    // 只取**已入链**的行：`hash` 为 null 的行从未入链（AddAuditHashChain 迁移前的历史行；
+    // 以及测试/工具直插的行）。让它们参与校验会让 genesis 检查在**第 1 行**即失败
+    // （_matches(null, …) 恒 false）→ 整条链被误判 invalid，而链实际未被破坏。
+    // 与副作用链 verifySideEffectChain 的 `filter(r => r.hash)` **同口径**：两条链对
+    // 「未入链的行不参与校验」必须一致，否则同一份数据在两条链上会得出相反结论。
+    const rows = (await this.logRepo.find({ order: { id: 'ASC' } })).filter((r) => r.hash);
     const chain: EvidenceChainRow[] = rows.map((row, i) => ({
       seq: i + 1,
       id: row.id,
