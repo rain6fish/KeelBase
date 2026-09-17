@@ -466,13 +466,13 @@ async function main() {
 
     // Opening 1-8
     await showSlide(page, 1, 5000, boundaries, t0);
-    await showSlide(page, 2, 4000, boundaries, t0);
-    await showSlide(page, 3, 4000, boundaries, t0);
-    await showSlide(page, 4, 5000, boundaries, t0);
-    await showSlide(page, 5, 2000, boundaries, t0);
+    await showSlide(page, 2, 7400, boundaries, t0);
+    await showSlide(page, 3, 7000, boundaries, t0);
+    await showSlide(page, 4, 10300, boundaries, t0);
+    await showSlide(page, 5, 6300, boundaries, t0);
     await showSlide(page, 6, 12000, boundaries, t0);
-    await showSlide(page, 7, 8000, boundaries, t0);
-    await showSlide(page, 8, 5000, boundaries, t0);
+    await showSlide(page, 7, 9300, boundaries, t0);
+    await showSlide(page, 8, 6000, boundaries, t0);
 
     // Demo 1-5 (9-21) —— 顶层页直导航（page 即内容）
     await setStage(page, `${BASE_URL}/admin/#/login`);
@@ -489,15 +489,15 @@ async function main() {
     await askInDrawer(page, RISK_QUESTION);
     await waitToolCards(page);
     await waitRiskConclusion(page);
-    await sleep(5000);
+    await sleep(11500);
     boundaries.push({ shot: 12, at: Date.now() - t0 });
     await askInDrawer(page, CREATE_QUESTION);
     await waitConfirmCard(page);
-    await sleep(7000);
+    await sleep(11500);
     boundaries.push({ shot: 14, at: Date.now() - t0 });
     await approveConfirm(page);
     await waitGovernance(page);
-    await sleep(5000);
+    await sleep(9500);
     boundaries.push({ shot: 16, at: Date.now() - t0 });
     // 治理抽屉自动打开后页面可能重载——防御
     try { await page.keyboard.press('Escape'); } catch (e) {}
@@ -509,7 +509,7 @@ async function main() {
     await setStage(page, `${BASE_URL}/admin/#/workbench/ai-trace`);
     await page.waitForURL(/workbench\/ai-trace/, { timeout: 25000 }).catch(() => {});
     await selectAiTraceConversation(page, RISK_CONV_MATCH);
-    await sleep(6000);
+    await sleep(10500);
     boundaries.push({ shot: 18, at: Date.now() - t0 });
     await sleep(5000);
 
@@ -531,7 +531,7 @@ async function main() {
     boundaries.push({ shot: 20, at: Date.now() - t0 });
     await sleep(6000);
     boundaries.push({ shot: 21, at: Date.now() - t0 });
-    await sleep(4000);
+    await sleep(7600);
 
     // Governance Layer 22-23
     await showSlide(page, 22, 13000, boundaries, t0);
@@ -555,7 +555,7 @@ async function main() {
     await runFirstShowcaseScenario(page);
     await sleep(7000);
 
-    await showSlide(page, 27, 5000, boundaries, t0);
+    await showSlide(page, 27, 7100, boundaries, t0);
 
     // Build 28-31：业务规格 → 协议（consulting）→ 生成源码（build）→ 协议即代码字卡
     await setStage(page, `${SLIDES_URL}/terminal.html?type=consulting`);
@@ -578,8 +578,8 @@ async function main() {
     // Private Deploy 34-35：私有 AI 终端（本地模型，数据不出域）
     await setStage(page, `${SLIDES_URL}/terminal.html?type=private`);
     boundaries.push({ shot: 34, at: Date.now() - t0 });
-    await sleep(7000);
-    await showSlide(page, 35, 4000, boundaries, t0);
+    await sleep(8900);
+    await showSlide(page, 35, 6300, boundaries, t0);
 
     // 36 证据报告（离线自包含 HTML，审计方不必安装）
     await setStage(page, `${SLIDES_URL}/terminal.html?type=evidence`);
@@ -590,11 +590,11 @@ async function main() {
     await setStage(page, `${BASE_URL}/admin/#/dashboard`);
     await page.waitForURL(/dashboard/, { timeout: 25000 }).catch(() => {});
     boundaries.push({ shot: 37, at: Date.now() - t0 });
-    await sleep(9000);
+    await sleep(10300);
 
     // 结尾 38-39
     await showSlide(page, 38, 2000, boundaries, t0);
-    await showSlide(page, 39, 4000, boundaries, t0);
+    await showSlide(page, 39, 9600, boundaries, t0);
 
     stopCapture();
     await sleep(1000);
