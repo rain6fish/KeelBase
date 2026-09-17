@@ -14,7 +14,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import { join } from 'path';
 import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
 import { UploadSignService } from './upload/upload-sign.service';
-import { parseTrustProxy } from './config/trust-proxy';
+import { isBlindTrustValue, parseTrustProxy } from './config/trust-proxy';
 import { requestContext } from './common/request-context';
 
 async function bootstrap() {
@@ -25,10 +25,23 @@ async function bootstrap() {
   const logger = new NestLogger('Bootstrap');
 
   // AU-1（§22.19）：信任反代跳数/子网 → req.ip 得真实客户端 IP（操作审计 ip 归因）。
-  // 默认 1（自带 nginx 单层）；绝不设 true（盲信任意 XFF）。见 parseTrustProxy 护栏。
-  const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+  // 默认只信「回环 + 链路本地 + 私有网段」（自带 nginx / 同机反代）→ 公网直连者伪造的 XFF 不被采信。
+  // 显式配跳数则**不校验来源**，仅在应用不可被绕过直连时安全。见 parseTrustProxy。
+  const rawTrustProxy = process.env.TRUST_PROXY;
+  const trustProxy = parseTrustProxy(rawTrustProxy);
   app.set('trust proxy', trustProxy);
-  if (trustProxy !== false) logger.log(`trust proxy = ${JSON.stringify(trustProxy)}（真实客户端 IP 解析已启用）`);
+  // 三个分支都给出实际去向——尤其 `true` 被拒时**必须可见**，否则运维以为「配了信任」而实际是
+  // 「不信任」（静默降级：原实现的日志条件 `!== false` 恰好在此时不打印，配置与生效相反却零提示）。
+  if (isBlindTrustValue(rawTrustProxy)) {
+    logger.warn(
+      'TRUST_PROXY=true 已拒绝并降级为「不信任反代」——true 等于盲信任意上游可伪造的 X-Forwarded-For' +
+        '（审计 IP 可被伪造成任意值）。请改为 CIDR/子网（推荐，如自带 nginx 的容器网段）或跳数。',
+    );
+  } else if (trustProxy === false) {
+    logger.log('trust proxy = false（不信任任何反代；req.ip 取 socket 地址）');
+  } else {
+    logger.log(`trust proxy = ${JSON.stringify(trustProxy)}（真实客户端 IP 解析已启用）`);
+  }
 
   // AU-2（§22.19）：请求级客户端 IP → requestContext（AuditService.log 填充 ai_audit_logs.ip）。
   // 置于 trust proxy 之后 → req.ip 已是真实客户端 IP；ALS 包裹 next() 使上下文贯穿整个请求。
