@@ -13,6 +13,7 @@ import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { randomBytes } from 'crypto';
 import { AuthModule } from '../src/auth/auth.module';
 import { POSTGRES_MIGRATION_GLOBS } from '../src/config/postgres-migrations';
 import { UsersModule } from '../src/users/users.module';
@@ -110,8 +111,37 @@ ensureTestEnvFile();
 let e2eDbSeq = 0;
 function nextE2eDbPath(): string {
   e2eDbSeq += 1;
-  return path.join(os.tmpdir(), `keelbase-e2e-${process.pid}-${e2eDbSeq}.sqlite`);
+  // **随机后缀是必需的**：Windows 会复用 PID，光靠 pid+seq 会撞上上一轮残留的同名库 ——
+  // 而本实现**从不 unlink**，于是新 app 会**继承残留库里的旧数据**（实测症状：新库却报
+  // `Username or email already exists`；以及 idempotency_key 唯一冲突 500）。随机后缀把这个
+  // 窗口压到可忽略。pid+seq 保留只为可读性与事后排查。
+  const uniq = randomBytes(6).toString('hex');
+  return path.join(os.tmpdir(), `keelbase-e2e-${process.pid}-${e2eDbSeq}-${uniq}.sqlite`);
 }
+
+/**
+ * 启动时清理**过期**临时库（>24h）。并发运行产生的文件都是新鲜的，故不会误删别人正在用的；
+ * 而本实现不 unlink 会累积（每轮 ~32 个 × ~0.7MB），这道清理把磁盘占用兜住。
+ */
+function pruneStaleE2eDbs(): void {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(os.tmpdir());
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!name.startsWith('keelbase-e2e-')) continue;
+    try {
+      const p = path.join(os.tmpdir(), name);
+      if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
+    } catch {
+      // 被占用/已删 —— 忽略，不影响测试
+    }
+  }
+}
+pruneStaleE2eDbs();
 
 /**
  * Test app module — mirrors AppModule (all modules) with a
