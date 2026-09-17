@@ -4,6 +4,44 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> 自 v1.0.10（2026-09-15）以来的维护线增量；发版时本段定型为 [1.0.11] 并补日期与版本 bump。
+> Maintenance-line increments since v1.0.10 (2026-09-15); this section becomes [1.0.11] with a date at release.
+
+### Added / 新增
+
+- **§22.17 ④ 业务级补偿：影响预览 + 级联撤销（两半齐备）** — 确认卡在执行前说明「将动到什么、事后能不能收回」；一个业务动作的多表副作用可**一次补偿**
+  - **影响预览 v1.0**（`567fce7d`）：确认载荷带 `impact{actions, targets[]}`（单条 / R4 审批 / run 三处），对象类型取**副作用登记同一单源**，**纯推导不查库不试跑**；契约先行 wire Schema v2 + Web / Flutter 渲染 + 回归
+  - **撤销口径 v1.1**（`6c7eb4fc`）：确认载荷带 `revokeClass`（KB-6 四档，`resolveRevokeClass` 单源，与撤销页 / 工具治理页同一取值），Web 卡片按档分组计数；**仅呈现层**——不入链、不进证据包、不影响门控；契约 v3
+  - **级联撤销主体**（`881d4911`）：多表副作用落**一个事务**、全成或全不成；补偿自身入 `operation_audit` + 哈希链（接 A-3 恢复态）；载体 `create_project_with_tasks`（1 项目 + N 任务）；契约升 `side-effect-revoke` v3；迁移 `1823000000000`（双方言）；顺带把 `pm_project` / `pm_task` 纳入回收站（否则「本地可撤」的「可恢复」承诺对它们不成立）；e2e 8 例常绿
+  **One business action's side effects across tables are compensated in a single step, and the confirmation card states the impact and whether it can be taken back.**
+- **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
+
+### Fixed / 修复
+
+- **AU-1 `trust proxy` 默认值不再盲信 XFF**（`b0429a7c`）— 原「默认 1 跳」**不校验来源**，应用被绕过反代直连时与 `true` 等价（Express 实测）→ 审计 IP 可被伪造成任意值；默认改为子网 `loopback, linklocal, uniquelocal`，`true` 由静默降级改为告警；`.env.production.example` 补该开关（原缺失）
+  **Trusting a fixed number of proxy hops is not the same as trusting a subnet; the default now names subnets.**
+- **SSE 信封的载荷引用跟到当前版本**（`a9fb7079`）— 信封仍按裸名引用**冻结的 v1** 确认载荷（`additionalProperties:false`、无 `impact` / `revokeClass`），带新字段的确认帧按信封校验会失败；`sse-event` 升 v2（事件名枚举不变），并一并收掉同性质的旧引用（`confirmation-decision` v1→v2）
+- **撤销口径遇不可解析工具名不再打挂确认卡**（`d9a5046c`）— 真实注册表对未注册名抛错，裸调会把整条 SSE 确认流打断；改为**省略**该字段（与影响预览对解析不到的对象同一口径：说不清就不说）
+- **生成器不再静默丢弃 Business Spec 的未消费键**（`e010fb0b`）— 未映射的键改为显式上报，而非悄悄丢掉
+- **迁移 spec 移出它撞坏的 glob**（`bc16a983`）— 该文件曾被迁移 glob 扫到并导致崩溃
+- **demo 路由：写意图优先于话题词**（`dea6c1a8`）— 无模型 key 时 AI 自己建议的「为某客户创建跟进任务」曾被 `query_customers` 抢走，写确认卡永不出现
+- **demo 录制脚本适配真实会话标题**（`0fdb0a2f`）— 不再因标题含真实内容而失败
+- **发版版本对账门**（`7f56f8e9`）— 根清单自 1.0.3 起停止随发版 bump，导致生成器把错版来源身份写进生成物、且 `doctor` 拿同一脏源自比成假绿；新增 `scripts/check-version-parity.mjs` + CI job，并把发版线全部清单对齐
+- **CI workflow 复位被吃掉的注释符**（`21683b17`）— 该 workflow 曾因此不可解析
+- **样例值不再触发密钥扫描**（`9dda97d5`）— 确认 token 原为字面 UUID，命中 gitleaks 通用 api-key 规则（只看「token 字段 + 高熵值」、不问上下文）；改为短前缀占位，未放宽扫描规则
+- **两处向量门禁按内容比、不按行尾比**（`4d2e2d3c`）— 本机 autocrlf 使门禁拿 CRLF 工作区文件比 LF 内存产出，把行尾差异误报成语义漂移（跨仓那处曾 7/7 全假红），且其建议的 `--sync` 会把本机行尾写进 Java 仓；现比较前归一行尾，`--sync` 写 LF
+
+### Changed / 变更
+
+- **双语规范改为英文在前、中英各自成块**（`de9c7935`）— 提交消息 / 文档的中英不再交错
+- **文档命令与说明统一到 `main`**（`84839b0c`）+ **移除 workflow 中已失效的 `master` 触发**（`8f29027e`）— 承接 Gitee 主分支改名
+- **对齐 lockfile 版本字段至 1.0.10**（`54a2c9a1`）
+- **`SECURITY.md` N-7 不再声称「批量（计划级）确认尚未提供」**（`34c9069d`）— 公开信任边界声明此前落后于已交付能力（KB-5 run 聚合）
+- **30 分钟 onboarding 指南对齐实际行为**（`8b9ccba0`）— 原走已被旗舰占用的 `customers` 模块（撞名保护会直接拒绝），并补齐测试数、`.env` 复制、演示模式参数语法等漂移
+- **官方 Demo 分镜按当前代码重建**（`0cfccc26`）
+
 ## [1.0.10] - 2026-09-15
 
 > **KeelBase 1.0.10 — Attribution & Data Scope / 审计归因与数据范围版**
