@@ -174,6 +174,8 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 > **归属**：支撑件·合规能力：技术防篡改 → 法律级可举证；面向等保 / 密评场景。
 > **窗口**：本小节为「规格先行」——**现在只把算法与时间戳格式写进本规格定死，防未来返工**；**不实现**（实现触发 = 密评客户问询 / 首个等保现场）。与 §3 现签名（HMAC-SHA256，对称，仅应用内可验）互补：SM2 是非对称，**第三方持公钥即可离线独立验签**。
+>
+> **实现状态（2026-09-18）**：**已实现**——原触发条件未出现，用户**显式解冻**提前落地（决策与红线复核见 §11.8「实现采纳差异登记」）。原「规格先行、不实现」的窗口说明保留于此，作为冻结时点的记录。
 
 ### 11.1 目标 / Goal
 - `verify-evidence.mjs` 除现有 HMAC 分支外，增加**国密 SM2 验签**与**可信时间锚**校验；导出侧证据包可携带 SM2 签名与时间锚。
@@ -216,7 +218,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 - **canonical 不因 SM2 改变**：签名对象仍是 `pkg \ {signature}` 的 canonicalJSON，SM2 只是对同一 canonical 的非对称签名（换算法不换对象）。
 
 ### 11.5 非目标 / Non-goals
-- 现在**不实现**（无密钥生成/签名/验签代码、无 TSA 接入、无 UI）；本小节仅**冻结算法与格式**。
+- ~~现在**不实现**（无密钥生成/签名/验签代码、无 TSA 接入、无 UI）；本小节仅**冻结算法与格式**。~~ **2026-09-18 已解冻并实现**（见 §11.8）；仍**不做**：TSA（RFC3161）实际接入——`tsa` 字段保留，接入需客户自有合规 TSA。
 - 不承诺「不可篡改」措辞（对齐不承诺清单 N-x：应用边界内 tamper-evident）；SM2/时间锚提升的是**第三方可验性**，非「物理不可改」。
 
 ### 11.6 验收（实现触发后）/ Acceptance（when implemented）
@@ -226,3 +228,25 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 ### 11.7 关联 / Related
 本小节即其设计先行｜§9 Related ①（证据根 v3=SM2 签名对象载体）｜§5 离线验证语义（SM2 分支挂靠 `--key`/structure 分层）｜docs/manual/compliance-mapping.md（等保/密评映射）｜不承诺清单（N-x 防篡改措辞边界）
+
+---
+
+### 11.8 实现采纳差异登记（2026-09-18）/ Implemented-delta Notes
+
+> 触发式红线（roadmap §22.18 D-4「无客户/密评触发不实现」+ 私库《D4 触发执行包》§6.3）经**用户显式解冻**后落地；执行包 §6 五条红线逐条复核见 ⑦。
+
+**① 实现载体 = 宿主 openssl CLI**（执行包 §3 选项三），**不引第三方国密库**。实证依据：Node 内置 `crypto` 对 SM2 密钥的 `sign('sm3', …)` **不符合 SM2 语义**——自签的名连 `openssl dgst -sm3 -verify` 都验不过，经 PEM 往返后自身亦不一致，故不可用。
+
+**② distid（`userId`）必须显式传，且包内须如实标注**：openssl CLI 的 SM2 默认区分标识是**空串**，与 §11.2 示例的国标默认值 `1234567812345678` **互不兼容**——同一签名换个 ID 即验不过（实测矩阵：空 ID 与国标 ID 两两互斥）。故签名/验签两侧都显式传 `-sigopt distid:<userId>`（默认取国标值），并写入 `signature.sm2.userId`。**标错 = 第三方必验不过**，非形式字段。
+
+**③ 聚合算法补全（§11.3 原文只列字段、未定算法）**：`anchor.rootDigest = sha256(JSON.stringify(digests))`，`digests` 为**升序去重**的 64hex 数组；anchor 因此新增 `digests` 与 `count` 两字段（wire 契约 `specs/protocol/schemas/v1/evidence-anchor.schema.json`）。不补聚合输入则 rootDigest 无法被第三方复现，锚即不可验。
+
+**④ 签名值编码默认 `raw`**（r||s 各 32 字节 → 128 hex，§11.2 默认值）：openssl 原生输出 DER，实现内做 DER↔raw 转换；`encoding: "der"` 亦支持。
+
+**⑤ verify 脚本新增**：`--sm2-pubkey <hex|pem>`（第三方持公钥独立验签）、`--anchor <anchor.json>`（校验「本包在该日锚覆盖范围内」+ 聚合本地复现 + 锚签名）。**缺 openssl 时明报「需国密库」且 verdict=FAIL，绝不静默 PASS**（执行包 §6.4）。签名段按形态分派：`null` / 字符串（历史包，HMAC 向后兼容）/ 对象 `{hmac, sm2?}`。
+
+**⑥ 未做（保持非目标）**：RFC3161 TSA 实际接入（`tsa` 字段保留，需客户自有合规 TSA——信创场景须国内 TSA）；KMS/HSM 托管（当前经环境 `SM2_PRIVATE_KEY` 注入，私钥不落代码库）；`certChain` 透传（字段保留，有企业 CA 时填）。
+
+**⑦ 红线复核（执行包 §6，逐条）**：措辞——不新增「不可抵赖 / 不可篡改」字样 ✅；信任域——本能力只产出并签名锚，发布/接收渠道由部署方选定，且产出时明示「自持锚不构成可举证材料」✅；不触发不实现——**本条经用户显式解冻**，决策已记入执行日志 ✅；缺库不静默——服务端抛错、verify 侧 FAIL，均不降级 ✅；契约先行——wire 先落（`schemas/v3/evidence-package` + `schemas/v1/evidence-anchor`）再改实现 ✅。
+
+**⑧ 落点与验收**：`src/common/crypto/sm2.ts`（openssl 委托 + DER↔raw + 缺库明报）· `src/ai/audit/audit.service.ts#_buildSignature`（双签产出）· `scripts/verify-evidence.mjs`（形态分派 + 两个新参数）· `src/ai/audit/evidence-anchor.ts` + `scripts/build-evidence-anchor.ts`（锚聚合与签名）。验收：单测 `sm2.spec.ts` / `sm2-unavailable.spec.ts` / `evidence-anchor.spec.ts`；e2e `test/evidence-root.e2e-spec.ts` ⑤⑥（真导出 → 第三方公钥离线独立验签 PASS / 改 canonical 一字节 FAIL → 锚联合校验）。

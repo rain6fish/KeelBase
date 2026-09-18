@@ -29,6 +29,7 @@ import { GovernancePolicyService } from '../governance/governance-policy.service
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
+import { buildSm2Block, sm2ConfigFromEnv, Sm2SignatureBlock } from '../../common/crypto/sm2';
 
 export interface AuditEntry {
   userId: string;
@@ -131,6 +132,17 @@ export interface EvidenceChainRow {
   payload: Record<string, unknown>;
 }
 
+/**
+ * 证据包签名段（docs/evidence-root.spec.md §3 / §11）。
+ * - `hmac`：对称，仅应用内可验（快验路径）；未配 AUDIT_HMAC_KEY/ENCRYPTION_KEY 但配了 SM2 私钥时为 null。
+ * - `sm2`：非对称，第三方持公钥即可离线独立验签（国密 SM2-with-SM3）；未配 SM2_PRIVATE_KEY 时缺席。
+ * 两者并存（双签），不互相替代。历史包该字段为字符串 HMAC —— 契约 v3 的 oneOf 同时接纳旧形态。
+ */
+export interface EvidenceSignature {
+  hmac: string | null;
+  sm2?: Sm2SignatureBlock;
+}
+
 /** D4 审计证据包：可提交审计机构的合规证据（报告 + 哈希链校验 + 导出时间戳 + 签名） */
 export interface ActionReportExport {
   /** 证据包生成时间（ISO 8601） */
@@ -153,8 +165,8 @@ export interface ActionReportExport {
   }>;
   /** A2：链上原始行全量（id/prevHash/hash + payload），供 verify-evidence.mjs 离线重算 */
   chain: EvidenceChainRow[];
-  /** 证据包签名：对 summary + hashChain + effectDiffs + compliance + chain + exportedAt 做 HMAC-SHA256（可复核完整性）；未配密钥时为 null */
-  signature: string | null;
+  /** 证据包签名（§3 / §11）：{hmac=HMAC-SHA256 应用内快验, sm2=非对称第三方独立验签}；未配任何密钥时为 null */
+  signature: EvidenceSignature | null;
 }
 
 /** ① 证据根（§internal.17 ①，keelbase-audit-evidence/3）：单条 Business Action 跨链证据根（AUDIT-ID），离线整包验 */
@@ -179,7 +191,7 @@ export interface EvidenceRootExport {
   summary?: { sentence: string; stats: AuditInterpreterStats } | null;
   /** ① spec 装配：授权快照 policy.revision 下的决策可复现重放（governancePolicy 注入时） */
   replay?: Record<string, unknown> | null;
-  signature: string | null;
+  signature: EvidenceSignature | null;
 }
 
 /** E-2 哈希链可视化：逐行链节点（verify 端点返回的切片） */
@@ -811,9 +823,7 @@ export class AuditService {
       chain,
       exportedAt,
     });
-    const signature = signingKey
-      ? createHmac('sha256', signingKey).update(canonical).digest('hex')
-      : null;
+    const signature = this._buildSignature(canonical, signingKey);
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
@@ -946,9 +956,7 @@ export class AuditService {
     if (summary) canonicalObj.summary = summary;
     if (replay) canonicalObj.replay = replay;
     const canonical = JSON.stringify(canonicalObj);
-    const signature = signingKey
-      ? createHmac('sha256', signingKey).update(canonical).digest('hex')
-      : null;
+    const signature = this._buildSignature(canonical, signingKey);
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
@@ -963,6 +971,18 @@ export class AuditService {
       replay,
       signature,
     };
+  }
+
+  /**
+   * 证据包签名段（§11 双签）：HMAC（应用内快验）+ SM2（第三方持公钥独立验签）并存，互不替代。
+   * 两者皆未配置 → null（与历史「无签名包」行为一致）。SM2 已配置但 openssl 不可用 / 签名失败 → **抛错**，
+   * 绝不产出「看起来已签名」的包（执行包 §6.4「缺库不静默」）。
+   */
+  private _buildSignature(canonical: string, hmacKey: string): EvidenceSignature | null {
+    const sm2 = buildSm2Block(canonical, sm2ConfigFromEnv());
+    const hmac = hmacKey ? createHmac('sha256', hmacKey).update(canonical).digest('hex') : null;
+    if (!hmac && !sm2) return null;
+    return { hmac, ...(sm2 ? { sm2 } : {}) };
   }
 
   /**

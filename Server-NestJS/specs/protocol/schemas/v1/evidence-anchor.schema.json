@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "evidence-anchor.schema.json",
+  "title": "Evidence Anchor（定期根锚记录）— v1",
+  "description": "定期根锚记录（docs/evidence-root.spec.md §11.3，定期根锚发布）：把**某一日全部证据包的 root.digest 集合**聚合成单一 rootDigest 并加国密 SM2 签名，交由**信任域之外**的渠道发布/接收。作用：给散落的证据包一个共同时间点——第三方持公钥即可验「这批包同属该日、发布后未被替换」，配合 SM2 签名把「技术防篡改」推到「可对外举证」。\n\n**与 §11.3 的关系（实现补全，须一并评审）**：规格原文只列 period/date/rootDigest/sm2/tsa 五个字段，未定聚合算法。但若不给聚合输入，rootDigest 无法被第三方复现（锚就不可验），故本 schema 补 `digests`（构成聚合输入的排序集合）与 `count`，并冻结聚合式：`rootDigest = sha256(JSON.stringify(digests))`，digests 为**升序去重**的 64hex 数组。签名对象 = rootDigest 的 UTF-8 字节（§11.3「对 rootDigest 的 SM2 签名」）。\n\n**信任域红线**（执行包 §6.2）：锚必须离开 KeelBase 同信任域才有意义——自持锚 = 空心承诺；本记录只负责**产出与签名**，发布/接收渠道由部署方选定（N-2 已把「可信时间戳/密钥托管」划为部署方义务）。\n\n**措辞红线**（执行包 §6.1）：本能力提升的是**第三方可验性**，不新增「不可抵赖 / 不可篡改」承诺。",
+  "type": "object",
+  "required": ["period", "date", "digests", "count", "rootDigest", "publishedAt", "sm2"],
+  "additionalProperties": false,
+  "properties": {
+    "period": {
+      "description": "锚的周期粒度。当前仅 daily（§11.3 示例值）。",
+      "const": "daily"
+    },
+    "date": {
+      "description": "被锚定的 UTC 日期（YYYY-MM-DD）——取各证据包 exportedAt 的日期部分。",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "digests": {
+      "description": "参与聚合的 root.digest 集合：**升序去重**的 64hex 数组（确定性——同集合必得同 rootDigest，第三方可复现）。",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "count": {
+      "description": "digests 条数（冗余但便于人读与快速自校验：count 必须等于 digests.length）。",
+      "type": "integer",
+      "minimum": 0
+    },
+    "rootDigest": {
+      "description": "聚合根摘要 = sha256(JSON.stringify(digests))（UTC 日期 + 升序去重后的集合）。",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "publishedAt": {
+      "description": "锚记录生成/发布时刻，一律 RFC3339 / ISO-8601 UTC（与 exportedAt 同格式；§11.3 格式冻结）。注意这是**声明时间**，其可验性来自 sm2 签名 + 离开信任域的发布渠道。",
+      "type": "string",
+      "format": "date-time"
+    },
+    "sm2": {
+      "description": "对 rootDigest（UTF-8 字节）的 SM2 签名段（字段语义同 evidence-package.schema.json#/definitions/sm2Signature；此处内联复制定义以免跨版本 $id 冲突）。",
+      "type": "object",
+      "required": ["alg", "encoding", "userId", "publicKey", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": { "const": "SM2-with-SM3" },
+        "encoding": { "enum": ["raw", "der"] },
+        "userId": { "type": "string" },
+        "publicKey": { "type": "string", "pattern": "^(04[0-9a-f]{128}|0[23][0-9a-f]{64})$" },
+        "keyId": { "type": "string" },
+        "certChain": { "type": "array", "items": { "type": "string" } },
+        "value": { "type": "string", "pattern": "^[0-9a-f]+$" }
+      }
+    },
+    "tsa": {
+      "description": "可选 RFC3161 可信时间戳（§11.3 C 档，opt-in）：客户有合规 TSA 时附 token，可独立验时间；未配则退化为「自签锚 + 对外发布摘要」（B 档默认，证「不早于某发布时刻」）。信创场景需国内 TSA。",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokenUrl": { "type": "string" },
+        "token": { "type": "string" }
+      }
+    }
+  }
+}

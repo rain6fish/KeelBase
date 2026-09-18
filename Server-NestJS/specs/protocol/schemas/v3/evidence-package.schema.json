@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "evidence-package.schema.json",
+  "title": "Audit Evidence Package keelbase-audit-evidence /1 /2 /3 — v3",
+  "description": "审计证据包（协议 §2.5）：/1 基础（summary+hashChain+effectDiffs+chain+signature，无 compliance）→ /2（A-6 增 compliance，签名覆盖）→ /3 证据根（action/authorization/decision/effect/chains/root，签名 canonical 键集不同）。v3 effect 投影仅 {id,toolName,before,after}（代码为准，audit.service.ts:847-852）。整包签名 canonical 随版本变化——按 format 条件化。来源：src/ai/audit/audit.service.ts:123-180、scripts/verify-evidence.mjs。 v2 变更：chainRow.payload 由空 object 收紧为 oneOf[audit-payload, operation-audit-payload]（补上「子链 payload 无约束」缺口）。 D-3 增：/2 compliance[] 每项加可选 decisionNote（人读「决策说明」：凭什么允许 / 为何拒绝；无授权快照为 null）——由 audit-interpreter.service explainAuthorization 单一真源产出。 v3 变更：signature 段由「字符串 HMAC 或 null」扩为 oneOf[null, 字符串(历史包), 对象 {hmac, sm2?}] —— 增量非破坏（旧包仍合法）；SM2 为非对称第三方可独立验签（§11 SM2-with-SM3，raw=r||s 各 32 字节；canonical 对象不变，signature 段自身不参与 canonical）。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "exportedAt",
+        "generator",
+        "format",
+        "report",
+        "chain",
+        "signature"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator": {
+          "const": "keelbase-audit-export"
+        },
+        "format": {
+          "const": "keelbase-audit-evidence/1"
+        },
+        "report": {
+          "$ref": "#/definitions/report"
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/chainRow"
+          }
+        },
+        "signature": {
+          "$ref": "#/definitions/signature"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "exportedAt",
+        "generator",
+        "format",
+        "report",
+        "compliance",
+        "chain",
+        "signature"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator": {
+          "const": "keelbase-audit-export"
+        },
+        "format": {
+          "const": "keelbase-audit-evidence/2"
+        },
+        "report": {
+          "$ref": "#/definitions/report"
+        },
+        "compliance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "businessEvent": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidence": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "summary": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "decisionNote": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "identityChain": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/chainRow"
+          }
+        },
+        "signature": {
+          "$ref": "#/definitions/signature"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "exportedAt",
+        "generator",
+        "format",
+        "action",
+        "authorization",
+        "decision",
+        "effect",
+        "chains",
+        "root",
+        "signature"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator": {
+          "const": "keelbase-audit-export"
+        },
+        "format": {
+          "const": "keelbase-audit-evidence/3"
+        },
+        "action": {
+          "type": "object",
+          "required": [
+            "id",
+            "resultType",
+            "resultId",
+            "effectId"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "resultType": {
+              "type": "string"
+            },
+            "resultId": {
+              "type": [
+                "number",
+                "string"
+              ]
+            },
+            "effectId": {
+              "type": "number"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "conversationId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "authorization": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "decision": {
+          "type": "object",
+          "required": [
+            "businessEvent",
+            "evidence"
+          ],
+          "properties": {
+            "businessEvent": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "effect": {
+          "type": "object",
+          "required": [
+            "id",
+            "toolName"
+          ],
+          "properties": {
+            "id": {
+              "type": "number"
+            },
+            "toolName": {
+              "type": "string"
+            },
+            "before": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "after": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "chains": {
+          "type": "object",
+          "required": [
+            "aiAudit",
+            "operationAudit"
+          ],
+          "properties": {
+            "aiAudit": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/chainRow"
+              }
+            },
+            "operationAudit": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/chainRow"
+              }
+            }
+          }
+        },
+        "root": {
+          "type": "object",
+          "required": [
+            "algorithm",
+            "anchors",
+            "digest"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string"
+            },
+            "anchors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "rowId",
+                  "hash"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "ai-audit",
+                      "side-effect",
+                      "op-audit"
+                    ]
+                  },
+                  "rowId": {
+                    "type": "number"
+                  },
+                  "hash": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "digest": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "signature": {
+          "$ref": "#/definitions/signature"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "signature": {
+      "description": "证据包签名段（docs/evidence-root.spec.md §11）：null=未配密钥；字符串=HMAC-SHA256 hex（/1 /2 /3 历史包，向后兼容）；对象={hmac, sm2?}——HMAC 保留于 signature.hmac，SM2 为第三方持公钥可离线独立验签的非对称签名。签名对象（canonical）不因 SM2 改变：仍是整包剔除 signature 段自身。",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        { "$ref": "#/definitions/signatureObject" }
+      ]
+    },
+    "signatureObject": {
+      "type": "object",
+      "required": ["hmac"],
+      "additionalProperties": false,
+      "properties": {
+        "hmac": {
+          "description": "应用内对称验签（HMAC-SHA256）；未配 AUDIT_HMAC_KEY/ENCRYPTION_KEY 但配了 SM2 私钥时为 null。",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sm2": { "$ref": "#/definitions/sm2Signature" }
+      }
+    },
+    "sm2Signature": {
+      "description": "国密 SM2 签名（GB/T 32918.2-2016 / GM/T 0003.2-2012）：摘要固定 SM3，alg 恒为 SM2-with-SM3（不接受 SHA-256 替代）。value = SM2_Sign(privKey, canonical) 的 hex；userId 为实际使用的 Z 区分标识（须如实标注——openssl 默认空 ID ≠ 国标默认值，标错则第三方验签必失败）。",
+      "type": "object",
+      "required": ["alg", "encoding", "userId", "publicKey", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": { "const": "SM2-with-SM3" },
+        "encoding": {
+          "description": "raw = r||s 各 32 字节（64 字节 → 128 hex，默认）；der = ASN.1 DER。",
+          "enum": ["raw", "der"]
+        },
+        "userId": {
+          "description": "SM2 区分标识 Z 的取值（国标默认 1234567812345678，可配置；空串表示未设置 ID）。",
+          "type": "string"
+        },
+        "publicKey": {
+          "description": "验签公钥点：04||x||y 非压缩（65 字节 → 130 hex）或 02/03||x 压缩（33 字节 → 66 hex）。",
+          "type": "string",
+          "pattern": "^(04[0-9a-f]{128}|0[23][0-9a-f]{64})$"
+        },
+        "keyId": {
+          "description": "可选：KMS/证书指纹，便于轮换与追溯。",
+          "type": "string"
+        },
+        "certChain": {
+          "description": "可选：企业 CA 证书链（PEM/Base64 X.509）。",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "value": { "type": "string", "pattern": "^[0-9a-f]+$" }
+      }
+    },
+    "chainRow": {
+      "type": "object",
+      "required": [
+        "seq",
+        "id",
+        "prevHash",
+        "hash",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "integer"
+        },
+        "prevHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(?:[0-9a-f]{64}|)$"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "$ref": "audit-payload.schema.json"
+            },
+            {
+              "$ref": "operation-audit-payload.schema.json"
+            }
+          ]
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "period",
+        "summary",
+        "hashChain",
+        "byAction",
+        "byDay",
+        "samples",
+        "effectDiffs"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "period": {
+          "type": "object"
+        },
+        "summary": {
+          "type": "object"
+        },
+        "hashChain": {
+          "type": "object",
+          "required": [
+            "valid"
+          ],
+          "properties": {
+            "valid": {
+              "type": "boolean"
+            },
+            "checked": {
+              "type": "number"
+            },
+            "brokenIndex": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "byAction": {
+          "type": "array"
+        },
+        "byDay": {
+          "type": "array"
+        },
+        "samples": {
+          "type": "array"
+        },
+        "effectDiffs": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

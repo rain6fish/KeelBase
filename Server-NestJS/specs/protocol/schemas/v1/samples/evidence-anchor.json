@@ -1,0 +1,19 @@
+{
+  "period": "daily",
+  "date": "2026-09-18",
+  "digests": [
+    "1111111111111111111111111111111111111111111111111111111111111111",
+    "2222222222222222222222222222222222222222222222222222222222222222"
+  ],
+  "count": 2,
+  "rootDigest": "c0bc50a7c194b037bb20f4ba06ac3abd017266a630387936ffe1d1eb38949a11",
+  "publishedAt": "2026-09-19T00:05:00.000Z",
+  "sm2": {
+    "alg": "SM2-with-SM3",
+    "encoding": "raw",
+    "userId": "1234567812345678",
+    "publicKey": "04ababababababababababababababababababababababababababababababababcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "keyId": "demo-anchor-2026-09",
+    "value": "5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+  }
+}

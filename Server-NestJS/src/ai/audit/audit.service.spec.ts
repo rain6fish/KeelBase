@@ -799,10 +799,10 @@ describe('AuditService', () => {
         expect(out.chain[1].prevHash).toBe('a'.repeat(64));
         // payload 与写入侧一致（feedback/businessEvent 恒 null，供离线重算）
         expect(out.chain[0].payload).toMatchObject({ userId: '42', action: 'tool_call', completionTokens: 5, feedback: null, businessEvent: null, evidence: null });
-        expect(out.signature).toMatch(/^[0-9a-f]{64}$/);
-        // ② 绑定：证据包(/2)键集 == evidence-package v2 契约的 /2 分支
+        expect(out.signature?.hmac).toMatch(/^[0-9a-f]{64}$/);
+        // ② 绑定：证据包(/2)键集 == evidence-package v3 契约的 /2 分支
         const pkgSchema = JSON.parse(
-          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/evidence-package.schema.json'), 'utf8'),
+          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/evidence-package.schema.json'), 'utf8'),
         ) as { oneOf: Array<{ properties: Record<string, unknown> & { format?: { const: string } } }> };
         const branch = pkgSchema.oneOf.find((b) => b.properties.format?.const === 'keelbase-audit-evidence/2');
         expect(branch).toBeDefined();

@@ -124,7 +124,9 @@ describe('AuditService.getEvidenceRoot（① 证据根 v3）', () => {
       ...(out.summary ? { summary: out.summary } : {}),
       ...(out.replay ? { replay: out.replay } : {}),
     });
-    expect(out.signature).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+    // §11 双签：未配 SM2_PRIVATE_KEY → sm2 段缺席（而不是伪造一个空段）；HMAC 落在 signature.hmac
+    expect(out.signature?.hmac).toBe(createHmac('sha256', AUDIT_HMAC_KEY).update(canonical).digest('hex'));
+    expect(out.signature?.sm2).toBeUndefined();
   });
 
   it('replay wire：授权快照 policy.revision → replayDecision 被调 + replay 段入包', async () => {

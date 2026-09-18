@@ -5,13 +5,14 @@ import request from 'supertest';
 import { createHash } from 'crypto';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
-import { writeFileSync, rmSync } from 'fs';
+import { writeFileSync, rmSync, mkdtempSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { createTestApp, registerUser, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.tool';
 import { AuditService } from '../src/ai/audit/audit.service';
+import { buildAnchor } from '../src/ai/audit/evidence-anchor';
 
 /**
  * KB-3 证据根 v3 契约 e2e（docs/evidence-root.spec.md §7 验收：seed 一条 AI 写 → 导出 v3 → digest 复算 PASS → 撬链 FAIL）。
@@ -181,6 +182,124 @@ describe('证据根 v3 契约（KB-3）', () => {
       expect(stdout).toContain('证据根签名'); // FAIL 原因 = 签名不匹配，而非脚本异常/缺文件
     } finally {
       rmSync(file, { force: true });
+    }
+  });
+
+  /**
+   * ⑤ §11 国密双签（docs/evidence-root.spec.md §11 / 私库《D4 触发执行包》§4 验收）：
+   * 配 SM2_PRIVATE_KEY → 导出包 signature 由字符串升为对象（hmac + sm2）；**第三方持公钥离线独立验签 PASS**；
+   * 改 canonical 一字节 → 验签 FAIL。这是「技术防篡改 → 可对外举证」的落点，故两个方向都要断。
+   */
+  it('⑤ SM2 国密双签：signature={hmac,sm2} 且第三方公钥离线验签 PASS，改 canonical 一字节 → FAIL', async () => {
+    let priv: string;
+    try {
+      execFileSync('openssl', ['version'], { stdio: 'ignore' });
+      const dir = mkdtempSync(join(tmpdir(), 'evroot-sm2-'));
+      const privPath = join(dir, 'k.pem');
+      execFileSync('openssl', ['genpkey', '-algorithm', 'SM2', '-out', privPath]);
+      priv = readFileSync(privPath, 'utf8');
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      console.warn('  — 跳过：宿主无 openssl（SM2 需 openssl 1.1.1+）');
+      return;
+    }
+
+    const key = process.env.AUDIT_HMAC_KEY ?? '';
+    const prevPriv = process.env.SM2_PRIVATE_KEY;
+    const prevKeyId = process.env.SM2_KEY_ID;
+    const file = join(tmpdir(), `evroot-sm2-${Date.now()}.json`);
+    const script = join(__dirname, '../scripts/verify-evidence.mjs');
+
+    try {
+      process.env.SM2_PRIVATE_KEY = priv;
+      process.env.SM2_KEY_ID = 'e2e-sm2-key';
+      const res = await exportRoot(userA.accessToken, 200);
+      const pkg = res.body.data as any;
+
+      // 形态：双签并存（HMAC 保留于 signature.hmac，SM2 为非对称段）
+      expect(typeof pkg.signature).toBe('object');
+      expect(pkg.signature.hmac).toMatch(/^[0-9a-f]{64}$/);
+      expect(pkg.signature.sm2).toMatchObject({ alg: 'SM2-with-SM3', encoding: 'raw', keyId: 'e2e-sm2-key' });
+      expect(pkg.signature.sm2.publicKey).toMatch(/^04[0-9a-f]{128}$/);
+      expect(pkg.signature.sm2.value).toMatch(/^[0-9a-f]{128}$/);
+      writeFileSync(file, JSON.stringify(pkg));
+
+      // 第三方独立验签：只给公钥（不给共享密钥）也必须 PASS —— 这正是非对称签名的意义
+      const out = execFileSync(process.execPath, [script, file, '--sm2-pubkey', pkg.signature.sm2.publicKey], {
+        encoding: 'utf8',
+      });
+      expect(out).toContain('PASS');
+      expect(out).toMatch(/signature\.sm2 验签（SM2-with-SM3，第三方公钥独立验）/);
+
+      // 改 canonical 覆盖的字段 → SM2 验签必 FAIL（无 --key，隔离出 SM2 分支，证明失败源自验签而非 HMAC）
+      writeFileSync(file, JSON.stringify({ ...pkg, exportedAt: '2999-01-01T00:00:00.000Z' }));
+      let status: number | undefined;
+      let stdout = '';
+      try {
+        execFileSync(process.execPath, [script, file, '--sm2-pubkey', pkg.signature.sm2.publicKey], { encoding: 'utf8' });
+      } catch (err) {
+        status = (err as { status?: number }).status;
+        stdout = String((err as { stdout?: string }).stdout ?? '');
+      }
+      expect(status).toBe(1);
+      expect(stdout).toMatch(/signature\.sm2 验签 — 验签不通过/);
+    } finally {
+      rmSync(file, { force: true });
+      if (prevPriv === undefined) delete process.env.SM2_PRIVATE_KEY;
+      else process.env.SM2_PRIVATE_KEY = prevPriv;
+      if (prevKeyId === undefined) delete process.env.SM2_KEY_ID;
+      else process.env.SM2_KEY_ID = prevKeyId;
+    }
+  });
+
+  /**
+   * ⑥ §11.3 定期根锚：当日导出的包 → anchor 覆盖该包 root.digest + 聚合自洽 + 锚签名可独立验。
+   * 锚由 `scripts/build-evidence-anchor.ts` 产出；此处用同一份聚合算法在测试内复现，并跑离线脚本的 --anchor 校验。
+   */
+  it('⑥ 根锚：本包 root.digest 入锚 + 聚合可复现 + --anchor 联合校验通过', async () => {
+    let priv: string;
+    try {
+      execFileSync('openssl', ['version'], { stdio: 'ignore' });
+      const dir = mkdtempSync(join(tmpdir(), 'evroot-anchor-'));
+      const privPath = join(dir, 'k.pem');
+      execFileSync('openssl', ['genpkey', '-algorithm', 'SM2', '-out', privPath]);
+      priv = readFileSync(privPath, 'utf8');
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      console.warn('  — 跳过：宿主无 openssl（SM2 需 openssl 1.1.1+）');
+      return;
+    }
+
+    const prevPriv = process.env.SM2_PRIVATE_KEY;
+    const file = join(tmpdir(), `evroot-anchor-pkg-${Date.now()}.json`);
+    const anchorFile = join(tmpdir(), `evroot-anchor-${Date.now()}.json`);
+    const script = join(__dirname, '../scripts/verify-evidence.mjs');
+
+    try {
+      process.env.SM2_PRIVATE_KEY = priv;
+      const pkg = (await exportRoot(userA.accessToken, 200)).body.data as any;
+      writeFileSync(file, JSON.stringify(pkg));
+
+      // 用与 scripts/build-evidence-anchor.ts 相同的聚合算法产锚（同日集合 = 本包 + 另一枚占位 digest）
+      const anchor = buildAnchor({ date: pkg.exportedAt.slice(0, 10), digests: [pkg.root.digest, 'f'.repeat(64)] });
+      writeFileSync(anchorFile, JSON.stringify(anchor));
+      expect(anchor.digests).toContain(pkg.root.digest);
+      expect(anchor.count).toBe(2);
+
+      const out = execFileSync(
+        process.execPath,
+        [script, file, '--sm2-pubkey', anchor.sm2.publicKey, '--anchor', anchorFile],
+        { encoding: 'utf8' },
+      );
+      expect(out).toMatch(/本包 root\.digest 在该日锚的覆盖范围内/);
+      expect(out).toMatch(/锚 rootDigest 与 digests 聚合一致（本地复现/);
+      expect(out).toMatch(/锚 SM2 验签（rootDigest 的国密签名）/);
+      expect(out).toContain('PASS');
+    } finally {
+      rmSync(file, { force: true });
+      rmSync(anchorFile, { force: true });
+      if (prevPriv === undefined) delete process.env.SM2_PRIVATE_KEY;
+      else process.env.SM2_PRIVATE_KEY = prevPriv;
     }
   });
 });

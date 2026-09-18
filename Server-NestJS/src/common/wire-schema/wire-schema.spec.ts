@@ -78,6 +78,8 @@ const FROZEN_OBJECT_IDS = [
   'app-provenance',
   // ①补：业务错误码目录（值域 + HTTP 映射）
   'api-error-code',
+  // ② SM2 国密 + 时间锚（docs/evidence-root.spec.md §11.3）：当日证据根集合的定期锚记录
+  'evidence-anchor',
 ];
 
 const failures: string[] = [];
