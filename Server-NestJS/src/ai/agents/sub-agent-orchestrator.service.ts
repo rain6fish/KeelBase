@@ -17,6 +17,7 @@ import { SkillDefinition } from '../skills/skill.interface';
 import { SUB_AGENTS, SUB_AGENT_NAMES, SubAgentDefinition } from './sub-agent.types';
 import { ReadOnlyToolExecutor } from './plan-execute-agent.service';
 import { actorContext } from '../actor-context';
+import { LlmUsage, addLlmUsage } from '../llm-usage';
 
 export interface SubAgentTask {
   subAgent: string;
@@ -27,6 +28,8 @@ export interface SubAgentOrchestratorResult {
   content: string;
   stepResults: string[];
   usedSkill?: string;
+  /** 任务分解 + 各子代理多轮工具循环的全部 LLM 用量（调用方并入整轮口径） */
+  usage?: LlmUsage;
 }
 
 const MAX_SUBAGENT_TOOL_ROUNDS = 3;
@@ -71,14 +74,17 @@ export class SubAgentOrchestrator {
     readOnlyExecutor?: ReadOnlyToolExecutor;
   }): Promise<SubAgentOrchestratorResult> {
     // 1. 技能命中 → 固定任务组合；否则 LLM 分解
+    let usage: LlmUsage | undefined;
     const skill = this.skillsRegistry.match(params.userRequest);
     let tasks: SubAgentTask[];
     if (skill) {
       tasks = skill.tasks;
     } else {
-      tasks = await this.decompose(params);
+      const decomposed = await this.decompose(params);
+      usage = decomposed.usage;
+      tasks = decomposed.tasks;
       if (tasks.length === 0) {
-        return { content: '', stepResults: [] };
+        return { content: '', stepResults: [], usage };
       }
     }
 
@@ -93,12 +99,14 @@ export class SubAgentOrchestrator {
         continue;
       }
       const result = await this.runSubAgentLoop(agent, task, priorResults, params);
-      stepResults.push(result);
-      priorResults.push(`[${task.subAgent}] ${result}`);
+      // 每个子代理各自跑多轮 LLM，逐个子代理累加
+      usage = addLlmUsage(usage, result.usage);
+      stepResults.push(result.content);
+      priorResults.push(`[${task.subAgent}] ${result.content}`);
     }
 
     if (stepResults.length === 0) {
-      return { content: '', stepResults: [] };
+      return { content: '', stepResults: [], usage };
     }
 
     // 3. 聚合
@@ -106,7 +114,7 @@ export class SubAgentOrchestrator {
       .map((r, i) => `步骤 ${i + 1}（${tasks[i]?.subAgent ?? '?'}）: ${tasks[i]?.query ?? ''}\n结果: ${r}`)
       .join('\n\n');
 
-    return { content, stepResults, usedSkill: skill?.name };
+    return { content, stepResults, usedSkill: skill?.name, usage };
   }
 
   private async decompose(params: {
@@ -114,9 +122,10 @@ export class SubAgentOrchestrator {
     userRequest: string;
     provider: LlmProvider;
     model?: string;
-  }): Promise<SubAgentTask[]> {
+  }): Promise<{ tasks: SubAgentTask[]; usage?: LlmUsage }> {
+    let result;
     try {
-      const result = await params.provider.generate({
+      result = await params.provider.generate({
         messages: [
           ...params.messages.slice(0, 1),
           { role: 'user', content: `${DECOMPOSITION_PROMPT}\n\n用户请求：${params.userRequest}` },
@@ -127,14 +136,15 @@ export class SubAgentOrchestrator {
       });
       const stripped = result.content.replace(/```(?:json)?/g, '').trim();
       const parsed = JSON.parse(stripped);
-      if (!parsed.tasks || !Array.isArray(parsed.tasks)) return [];
+      if (!parsed.tasks || !Array.isArray(parsed.tasks)) return { tasks: [], usage: result.usage };
       const tasks = parsed.tasks
         .filter((t: any) => t && typeof t.subAgent === 'string' && typeof t.query === 'string')
         .map((t: any) => ({ subAgent: t.subAgent, query: t.query }))
         .filter((t: SubAgentTask) => SUB_AGENT_NAMES.includes(t.subAgent));
-      return tasks.slice(0, MAX_DECOMPOSE_TASKS);
+      return { tasks: tasks.slice(0, MAX_DECOMPOSE_TASKS), usage: result.usage };
     } catch {
-      return [];
+      // provider 抛错时无用量；解析失败时 result 已在手，照样带回那笔已花的 token
+      return { tasks: [], usage: result?.usage };
     }
   }
 
@@ -149,7 +159,7 @@ export class SubAgentOrchestrator {
       model?: string;
       readOnlyExecutor?: ReadOnlyToolExecutor;
     },
-  ): Promise<string> {
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）
     return actorContext.run(
       {
@@ -172,7 +182,7 @@ export class SubAgentOrchestrator {
       model?: string;
       readOnlyExecutor?: ReadOnlyToolExecutor;
     },
-  ): Promise<string> {
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     const messages: ChatMessage[] = [{ role: 'system', content: agent.systemPrompt }];
     if (priorResults.length > 0) {
       messages.push({
@@ -183,6 +193,7 @@ export class SubAgentOrchestrator {
     messages.push({ role: 'user', content: task.query });
 
     const toolDefs = this.filterToolDefs(agent.tools, params.toolRegistry);
+    let usage: LlmUsage | undefined;
 
     for (let round = 0; round < MAX_SUBAGENT_TOOL_ROUNDS; round++) {
       let result;
@@ -193,11 +204,13 @@ export class SubAgentOrchestrator {
           model: params.model ?? params.provider.availableModels[0],
         });
       } catch {
-        return 'ERROR: 子代理执行失败';
+        return { content: 'ERROR: 子代理执行失败', usage };
       }
+      // 每一轮都是一次真实 LLM 调用，逐轮累加
+      usage = addLlmUsage(usage, result.usage);
 
       if (!result.toolCalls || result.toolCalls.length === 0) {
-        return result.content || '';
+        return { content: result.content || '', usage };
       }
 
       messages.push({
@@ -216,7 +229,7 @@ export class SubAgentOrchestrator {
       }
     }
 
-    return '子代理执行超出最大轮数';
+    return { content: '子代理执行超出最大轮数', usage };
   }
 
   private async executeSafe(

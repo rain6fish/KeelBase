@@ -809,6 +809,37 @@ describe('AiService', () => {
       expect(result.reply).toBe('已为你安排本周');
     });
 
+    it('should include the whole delegate pipeline in the turn usage', async () => {
+      mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
+      mockSubAgentOrchestrator.run.mockResolvedValue({
+        content: '子代理结果',
+        stepResults: ['a', 'b'],
+        usedSkill: 'week-plan',
+        usage: { promptTokens: 1500, completionTokens: 90 },
+      });
+      // 汇总调用（回答须 ≥50 字，否则反思会被长度门限跳过）
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '这是一段超过五十个字符的汇总回答，用于触发反思流程并确保长度判断条件成立，从而让反思调用真实发生，不被长度门限跳过。',
+        usage: { promptTokens: 800, completionTokens: 120 },
+      });
+      // 反思调用（判定 OK、保留原文）
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'OK',
+        usage: { promptTokens: 700, completionTokens: 3 },
+      });
+
+      const result = await aiService.chat('1', { message: '帮我安排本周' });
+
+      // 整轮 = 分解+子代理多轮循环(1500) + 汇总(800) + 反思(700)；此前只记了汇总那一次
+      expect(result.usage).toEqual({ promptTokens: 3000, completionTokens: 213 });
+
+      const delegateAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'delegate' && e.conversationId);
+      expect(delegateAudit.promptTokens).toBe(3000);
+      expect(delegateAudit.completionTokens).toBe(213);
+    });
+
     it('非流式 + 外部读工具：经 provider 执行并落 tool_call 审计（与内置工具同形）', async () => {
       // 强制走 runToolLoop（对齐下一条用例）：编排器返回空
       mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
@@ -2715,17 +2746,38 @@ describe('AiService', () => {
     });
 
     it('步骤结果非空：LLM 汇总 + reflection 精化', async () => {
-      const mockPlan = { planAndExecute: jest.fn().mockResolvedValue({ stepResults: ['r1', 'r2'], content: 'plan content' }) };
-      const mockReflect = { reflect: jest.fn().mockResolvedValue('精化后的回答') };
+      const mockPlan = {
+        planAndExecute: jest.fn().mockResolvedValue({
+          stepResults: ['r1', 'r2'],
+          content: 'plan content',
+          usage: { promptTokens: 400, completionTokens: 30 },
+        }),
+      };
+      const mockReflect = {
+        reflect: jest.fn().mockResolvedValue({
+          content: '精化后的回答',
+          usage: { promptTokens: 260, completionTokens: 18 },
+        }),
+      };
       (aiService as any).planExecuteAgent = mockPlan;
       (aiService as any).reflectionAgent = mockReflect;
       mockProvider.generate.mockResolvedValueOnce({ content: 'raw summary', usage: { promptTokens: 10, completionTokens: 5 } });
 
+      // 「计划」命中关键词 → 分类不走 LLM，generate 只被汇总调用
       const result = await aiService.chat('1', { message: '为下个月制定执行计划' });
 
       expect(mockPlan.planAndExecute).toHaveBeenCalled();
       expect(mockReflect.reflect).toHaveBeenCalled();
       expect(result.reply).toBe('精化后的回答');
+
+      // 整轮 = 规划 + 汇总 + 反思；此前只记了汇总那 10/5，规划与反思全部漏计
+      expect(result.usage).toEqual({ promptTokens: 670, completionTokens: 53 });
+
+      const planAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'plan' && e.conversationId);
+      expect(planAudit.promptTokens).toBe(670);
+      expect(planAudit.completionTokens).toBe(53);
     });
 
     it('步骤结果为空：回退标准工具循环', async () => {

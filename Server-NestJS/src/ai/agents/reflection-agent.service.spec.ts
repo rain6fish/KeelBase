@@ -18,7 +18,9 @@ describe('ReflectionAgent', () => {
 
   it('回复过短时不调用 LLM，直接返回原文', async () => {
     const short = '好的';
-    expect(await agent.reflect(messages, short, mockProvider as any)).toBe(short);
+    const result = await agent.reflect(messages, short, mockProvider as any);
+    expect(result.content).toBe(short);
+    expect(result.usage).toBeUndefined();
     expect(mockProvider.generate).not.toHaveBeenCalled();
   });
 
@@ -26,13 +28,14 @@ describe('ReflectionAgent', () => {
 
   it('LLM 返回 OK 时保留原文', async () => {
     mockProvider.generate.mockResolvedValue({ content: 'OK' });
-    expect(await agent.reflect(messages, longReply, mockProvider as any)).toBe(longReply);
+    const result = await agent.reflect(messages, longReply, mockProvider as any);
+    expect(result.content).toBe(longReply);
   });
 
   it('LLM 返回改进版时采用改进版', async () => {
     mockProvider.generate.mockResolvedValue({ content: '  这是改进后的完整版本，更加简洁专业。  ' });
     const result = await agent.reflect(messages, longReply, mockProvider as any);
-    expect(result).toBe('这是改进后的完整版本，更加简洁专业。');
+    expect(result.content).toBe('这是改进后的完整版本，更加简洁专业。');
     expect(mockProvider.generate).toHaveBeenCalledWith(
       expect.objectContaining({
         messages: expect.arrayContaining([
@@ -45,11 +48,27 @@ describe('ReflectionAgent', () => {
 
   it('LLM 返回空内容时保留原文', async () => {
     mockProvider.generate.mockResolvedValue({ content: '   ' });
-    expect(await agent.reflect(messages, longReply, mockProvider as any)).toBe(longReply);
+    const result = await agent.reflect(messages, longReply, mockProvider as any);
+    expect(result.content).toBe(longReply);
   });
 
   it('LLM 异常时回退原文', async () => {
     mockProvider.generate.mockRejectedValue(new Error('llm down'));
-    expect(await agent.reflect(messages, longReply, mockProvider as any)).toBe(longReply);
+    const result = await agent.reflect(messages, longReply, mockProvider as any);
+    expect(result.content).toBe(longReply);
+    expect(result.usage).toBeUndefined();
+  });
+
+  it('反思调用消耗的 token 随结果带回，采纳与否都算', async () => {
+    mockProvider.generate.mockResolvedValue({
+      content: 'OK',
+      usage: { promptTokens: 640, completionTokens: 2 },
+    });
+
+    // 判定为 OK、保留原文——但这次调用确实花了 token，不能因为没采纳就不计
+    const result = await agent.reflect(messages, longReply, mockProvider as any);
+
+    expect(result.content).toBe(longReply);
+    expect(result.usage).toEqual({ promptTokens: 640, completionTokens: 2 });
   });
 });

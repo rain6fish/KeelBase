@@ -14,13 +14,14 @@
  */
 
 import { LlmProvider } from '../interfaces/llm-provider.interface';
+import { LlmUsage } from '../llm-usage';
 
 export type Intent = 'query' | 'analyze' | 'navigate' | 'chat' | 'plan' | 'knowledge' | 'delegate';
 
 /** 分类调用的 LLM 用量（关键词命中时不走 LLM，故缺省） */
 export interface ClassifyResult {
   intent: Intent;
-  usage?: { promptTokens: number; completionTokens: number };
+  usage?: LlmUsage;
 }
 
 const INTENT_CLASSIFICATION_PROMPT = `你是一个意图分类器。分析用户的消息，只返回一个词作为分类结果。

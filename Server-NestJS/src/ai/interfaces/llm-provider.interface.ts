@@ -14,6 +14,7 @@ import {
   ConfirmationImpact,
   RevokeClass,
 } from './tool.interface';
+import { LlmUsage } from '../llm-usage';
 
 /** 发送给 LLM 的消息 */
 export interface ChatMessage {
@@ -53,10 +54,7 @@ export interface GenerateResult {
   /** DeepSeek thinking mode 推理内容（多轮工具调用需回传） */
   reasoningContent?: string;
   toolCalls?: ToolCall[];
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-  };
+  usage?: LlmUsage;
 }
 
 /** KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心） */
@@ -178,10 +176,7 @@ export interface StreamChunk {
    * 本轮流式调用的 token 用量，随 done 事件携带（provider 未提供 usage 时缺省）。
    * 单轮 LLM 调用对应用量——工具轮次会产出多个 done，调用方需累加得到整轮对话的真实开销。
    */
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-  };
+  usage?: LlmUsage;
 }
 
 /** LLM Provider 接口 */

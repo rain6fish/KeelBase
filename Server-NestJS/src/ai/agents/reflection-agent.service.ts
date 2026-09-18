@@ -8,6 +8,7 @@
  */
 
 import { ChatMessage, LlmProvider } from '../interfaces/llm-provider.interface';
+import { LlmUsage } from '../llm-usage';
 
 const REFLECTION_PROMPT = `请审核上一条回答的质量，从以下维度评估：
 1. 准确性：数据是否正确？逻辑是否通顺？
@@ -27,9 +28,9 @@ export class ReflectionAgent {
     originalReply: string,
     provider: LlmProvider,
     model?: string,
-  ): Promise<string> {
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     // 只有较长的回复才有反思的价值
-    if (originalReply.length < 50) return originalReply;
+    if (originalReply.length < 50) return { content: originalReply };
 
     try {
       const result = await provider.generate({
@@ -44,10 +45,11 @@ export class ReflectionAgent {
       });
 
       const improved = result.content.trim();
-      if (improved === 'OK' || !improved) return originalReply;
-      return improved;
+      // 无论是否采纳改进，这次调用都已消耗 token → 用量照样带回，不吞
+      if (improved === 'OK' || !improved) return { content: originalReply, usage: result.usage };
+      return { content: improved, usage: result.usage };
     } catch {
-      return originalReply;
+      return { content: originalReply };
     }
   }
 }

@@ -17,6 +17,7 @@ import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { RouterAgent, Intent } from './agents/router-agent.service';
+import { LlmUsage, addLlmUsage } from './llm-usage';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { ReflectionAgent } from './agents/reflection-agent.service';
 import { tracer, withSpan } from '../common/tracing/tracer';
@@ -69,23 +70,6 @@ import {
 } from './interfaces/llm-provider.interface';
 
 const MAX_TOOL_ROUNDS = 5;
-
-/** 一次 LLM 调用的用量（prompt + completion） */
-type LlmUsage = { promptTokens: number; completionTokens: number };
-
-/**
- * 累加一次对话内的多笔 LLM 用量。
- * 一轮用户提问可能触发意图分类、多轮工具循环、汇总/反思等多次真实调用，
- * 只保留最后一次会漏记前面的开销——这是审计 chat 行 token 记账的唯一权威算法。
- */
-function addLlmUsage(base: LlmUsage | undefined, extra: LlmUsage | undefined): LlmUsage | undefined {
-  if (!extra) return base;
-  if (!base) return { ...extra };
-  return {
-    promptTokens: base.promptTokens + extra.promptTokens,
-    completionTokens: base.completionTokens + extra.completionTokens,
-  };
-}
 
 // demo = 确定性演示 Provider（P0-0）：无任何云 Provider 时兜底，链尾最后尝试
 const FALLBACK_CHAIN: Record<string, string[]> = {
@@ -1087,7 +1071,7 @@ export class AiService {
         finalContent = summary.content;
 
         // Reflection：自我改进
-        finalContent = await this.reflectionAgent.reflect(
+        const reflection = await this.reflectionAgent.reflect(
           [
             ...messages.slice(0, 1),
             { role: 'user', content: request.message },
@@ -1096,7 +1080,11 @@ export class AiService {
           provider,
           request.model ?? this.config.defaultModel,
         );
-        usage = summary.usage;
+        finalContent = reflection.content;
+
+        // 整轮 = 任务分解 + 各子代理多轮循环 + 汇总 + 反思（此前只记了汇总那一次）
+        usage = addLlmUsage(delegateResult.usage, summary.usage);
+        usage = addLlmUsage(usage, reflection.usage);
       } else {
         // 委托失败（分解/全部任务无效）→ 回退标准工具循环
         const fallbackResult = await this.runToolLoop({
@@ -1144,7 +1132,7 @@ export class AiService {
         finalContent = summary.content;
 
         // Reflection：自我改进
-        finalContent = await this.reflectionAgent.reflect(
+        const reflection = await this.reflectionAgent.reflect(
           [
             ...messages.slice(0, 1),
             { role: 'user', content: request.message },
@@ -1153,7 +1141,11 @@ export class AiService {
           provider,
           request.model ?? this.config.defaultModel,
         );
-        usage = summary.usage;
+        finalContent = reflection.content;
+
+        // 整轮 = 规划 + 汇总 + 反思（此前只记了汇总那一次）
+        usage = addLlmUsage(planResult.usage, summary.usage);
+        usage = addLlmUsage(usage, reflection.usage);
       } else {
         // Plan failed, fallback to normal tool loop
         const fallbackResult = await this.runToolLoop({

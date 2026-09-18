@@ -14,6 +14,7 @@ import {
 } from '../interfaces/llm-provider.interface';
 import { ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
+import { LlmUsage } from '../llm-usage';
 
 /** 只读门控执行器：由 AiService 注入（_assertToolAllowed + 只读强制），缺省回落直调 registry.execute。 */
 export type ReadOnlyToolExecutor = (
@@ -61,7 +62,7 @@ export class PlanExecuteAgent {
     userId: string,
     model?: string,
     readOnlyExecutor?: ReadOnlyToolExecutor,
-  ): Promise<{ content: string; stepResults: string[] }> {
+  ): Promise<{ content: string; stepResults: string[]; usage?: LlmUsage }> {
     // Step 1: 让 LLM 生成执行计划
     const planResult = await provider.generate({
       messages: [
@@ -80,8 +81,8 @@ export class PlanExecuteAgent {
       steps = JSON.parse(jsonStr) as PlanStep[];
       if (!Array.isArray(steps)) throw new Error('Not an array');
     } catch {
-      // 规划失败，走普通查询
-      return { content: '', stepResults: [] };
+      // 规划失败，走普通查询；但这次规划调用已经花了 token → 用量照样带回
+      return { content: '', stepResults: [], usage: planResult.usage };
     }
 
     // Step 2: 按顺序执行
@@ -123,6 +124,7 @@ export class PlanExecuteAgent {
     return {
       content: summaryParts.join('\n\n'),
       stepResults,
+      usage: planResult.usage,
     };
   }
 }
