@@ -25,6 +25,7 @@ import {
 } from '../../common/audit-chain/audit-chain.service';
 import { aiActionLabel } from './ai-feature-map';
 import { extractToolName } from './tool-name';
+import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { summarizeAudit, AuditInterpretation, AuditInterpretationRow, AuditInterpreterStats } from './audit-interpreter.service';
 import { GovernancePolicyService } from '../governance/governance-policy.service';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
@@ -62,26 +63,6 @@ export interface AuditEntry {
   businessEvent?: string;
   /** §internal.16 A-1 Decision Evidence（JSON：{decision, evidence[], policy, confidence}；链外） */
   evidence?: string;
-}
-
-/** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
-export interface AuditByDayBucket {
-  date: string;
-  executed: number;
-  approved: number;
-  rejected: number;
-  blocked: number;
-  errors: number;
-}
-
-export interface UsageStats {
-  totalConversations: number;
-  totalMessages: number;
-  totalTokens: number;
-  totalErrors: number;
-  topActions: Array<{ action: string; count: number }>;
-  /** E-2 趋势：按 UTC 日聚 5 段（executed/approved/rejected/blocked/errors） */
-  byDay: AuditByDayBucket[];
 }
 
 export interface ActionReport {
@@ -635,35 +616,6 @@ export class AuditService {
     return `${y}-${m}-${day}`;
   }
 
-  async getStats(userId: string, since?: Date): Promise<UsageStats> {
-    const where: any = { userId };
-    if (since) where.createdAt = Between(since, new Date());
-
-    const logs = await this.logRepo.find({ where });
-
-    const actionCounts = new Map<string, number>();
-    let totalTokens = 0;
-    let totalErrors = 0;
-
-    for (const log of logs) {
-      actionCounts.set(log.action, (actionCounts.get(log.action) ?? 0) + 1);
-      totalTokens += (log.promptTokens ?? 0) + (log.completionTokens ?? 0);
-      if (log.isError) totalErrors++;
-    }
-
-    return {
-      totalConversations: actionCounts.get('chat') ?? 0,
-      totalMessages: logs.length,
-      totalTokens,
-      totalErrors,
-      topActions: Array.from(actionCounts.entries())
-        .map(([action, count]) => ({ action, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10),
-      byDay: this._byDayAggregation(logs),
-    };
-  }
-
   /**
    * §10 P1 AI Action Report：合规证据包——聚合 AI 行为（执行/批准/拒绝/阻断）+ 副作用 + 审计哈希链。
    * 回答「AI 执行了什么写操作 / 谁批准 / 哪些被拒 / 审计链是否可验证」，作为 Business-safe 合规证据。
@@ -714,7 +666,7 @@ export class AuditService {
       }
     }
     // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）
-    const byDay = this._byDayAggregation(logs);
+    const byDay = byDayAggregation(logs);
 
     const effWhere: Record<string, unknown> = {};
     if (options.userId) effWhere.userId = options.userId;
@@ -1010,60 +962,6 @@ export class AuditService {
    * AI-21 成本看板：按 用户×模型×意图 聚合 tokens（复用 ai_audit_logs）。
    * 不含 error 日志；token 计费近似（prompt 单价低于 completion，此处给出原始量）。
    */
-  async getCostBreakdown(since?: Date) {
-    const sinceDay = since ? since.toISOString().slice(0, 10) : 'all';
-    const cached = await this.cacheService?.get<any>(`audit:cost:${sinceDay}`);
-    if (cached) return cached;
-    const where: any = {};
-    if (since) where.createdAt = Between(since, new Date());
-
-    const logs = await this.logRepo.find({ where });
-
-    const byModel = new Map<string, { calls: number; promptTokens: number; completionTokens: number }>();
-    const byIntent = new Map<string, number>();
-    const byUser = new Map<string, { calls: number; tokens: number }>();
-    let totalCalls = 0;
-    let totalTokens = 0;
-
-    for (const log of logs) {
-      if (log.isError) continue;
-      totalCalls++;
-      const pt = log.promptTokens ?? 0;
-      const ct = log.completionTokens ?? 0;
-      const tokens = pt + ct;
-      totalTokens += tokens;
-
-      const model = log.model ?? 'unknown';
-      const m = byModel.get(model) ?? { calls: 0, promptTokens: 0, completionTokens: 0 };
-      m.calls++;
-      m.promptTokens += pt;
-      m.completionTokens += ct;
-      byModel.set(model, m);
-
-      byIntent.set(log.action, (byIntent.get(log.action) ?? 0) + 1);
-
-      const u = byUser.get(log.userId) ?? { calls: 0, tokens: 0 };
-      u.calls++;
-      u.tokens += tokens;
-      byUser.set(log.userId, u);
-    }
-
-    const result = {
-      summary: { totalCalls, totalTokens, since: since?.toISOString() ?? null },
-      byModel: Array.from(byModel.entries())
-        .map(([model, v]) => ({ model, ...v }))
-        .sort((a, b) => b.promptTokens + b.completionTokens - (a.promptTokens + a.completionTokens)),
-      byIntent: Array.from(byIntent.entries())
-        .map(([action, count]) => ({ action, count }))
-        .sort((a, b) => b.count - a.count),
-      byUser: Array.from(byUser.entries())
-        .map(([userId, v]) => ({ userId, ...v }))
-        .sort((a, b) => b.tokens - a.tokens),
-    };
-    await this.cacheService?.set(`audit:cost:${sinceDay}`, result, 60_000);
-    return result;
-  }
-
   /** §internal.16 A-4 审计解释器：单行审计 + 同对话上下文 → 业务摘要 + 证据统计（demo 可用，无 LLM 依赖） */
   async getInterpretation(id: number): Promise<{
     row: AiAuditLog;
@@ -1179,70 +1077,6 @@ export class AuditService {
     };
   }
 
-  async getAllStats(since?: Date): Promise<UsageStats> {
-    const sinceDay = since ? since.toISOString().slice(0, 10) : 'all';
-    const cached = await this.cacheService?.get<UsageStats>(`audit:stats:${sinceDay}`);
-    if (cached) return cached;
-    const where: any = {};
-    if (since) where.createdAt = Between(since, new Date());
-
-    // E-3 性能：列投影——只加载聚合所需列（action/tokens/isError/createdAt），避免大字段（detail/model）全量载内存
-    const logs = await this.logRepo.find({
-      where,
-      select: { action: true, promptTokens: true, completionTokens: true, isError: true, createdAt: true, detail: true, authorization: true, errorMessage: true },
-    });
-
-    const actionCounts = new Map<string, number>();
-    let totalTokens = 0;
-    let totalErrors = 0;
-
-    for (const log of logs) {
-      actionCounts.set(log.action, (actionCounts.get(log.action) ?? 0) + 1);
-      totalTokens += (log.promptTokens ?? 0) + (log.completionTokens ?? 0);
-      if (log.isError) totalErrors++;
-    }
-
-    const result = {
-      totalConversations: actionCounts.get('chat') ?? 0,
-      totalMessages: logs.length,
-      totalTokens,
-      totalErrors,
-      topActions: Array.from(actionCounts.entries())
-        .map(([action, count]) => ({ action, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10),
-      byDay: this._byDayAggregation(logs),
-    };
-    await this.cacheService?.set(`audit:stats:${sinceDay}`, result, 60_000);
-    return result;
-  }
-
-  /** B3/E-2：按 UTC 日聚合 5 段趋势（getActionReport 与 getAllStats 共享，避免重复聚合逻辑）。 */
-  private _byDayAggregation(logs: AiAuditLog[]): AuditByDayBucket[] {
-    const byDay = new Map<string, AuditByDayBucket>();
-    const bucket = (createdAt: Date): AuditByDayBucket => {
-      const key = createdAt.toISOString().slice(0, 10);
-      let b = byDay.get(key);
-      if (!b) {
-        b = { date: key, executed: 0, approved: 0, rejected: 0, blocked: 0, errors: 0 };
-        byDay.set(key, b);
-      }
-      return b;
-    };
-    for (const l of logs) {
-      const b = bucket(l.createdAt);
-      if (l.isError) b.errors++;
-      if (l.action === 'tool_call') {
-        // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记）；执行失败无拒绝标记只算 error
-        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) b.blocked++;
-        else if (!l.isError) b.executed++;
-      } else if (l.action === 'tool_confirmation') {
-        if (l.isError) b.rejected++;
-        else if (!l.detail?.includes('pending_approval')) b.approved++;
-      }
-    }
-    return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }
 }
 
 /** §internal.16 A-5：authorization 列 checks[] JSON 安全解析（非法/非数组降级 null） */

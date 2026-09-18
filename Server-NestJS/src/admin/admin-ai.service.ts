@@ -4,12 +4,12 @@ import { Injectable } from '@nestjs/common';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { AiService } from '../ai/ai.service';
-import { AuditService } from '../ai/audit/audit.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
 import { CapabilitiesService } from '../app-version/capabilities.service';
 import { AdminService } from './admin.service';
+import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
 
 export interface AdminAiChatResponse {
@@ -31,7 +31,8 @@ export class AdminAiService {
   constructor(
     private readonly aiService: AiService,
     private readonly adminService: AdminService,
-    private readonly auditService: AuditService,
+    // 成本聚合来自拆分后的统计服务（本文件不再直接用 AuditService）
+    private readonly auditStats: AuditStatsService,
     private readonly capabilitiesService: CapabilitiesService,
     private readonly governancePolicy: GovernancePolicyService,
   ) {}
@@ -141,7 +142,7 @@ export class AdminAiService {
     // 5-7. 实时统计（沿用 AI-22 三项）
     const [analytics, cost, monitor] = await Promise.all([
       this.adminService.getAnalytics(30).catch(() => null),
-      this.auditService.getCostBreakdown().catch(() => null),
+      this.auditStats.getCostBreakdown().catch(() => null),
       this.adminService.getMonitorSummary().catch(() => null),
     ]);
     if (analytics) {

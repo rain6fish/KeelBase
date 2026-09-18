@@ -3,6 +3,7 @@
 import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
+import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
@@ -13,7 +14,11 @@ import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 @ApiBearerAuth()
 @Controller({ path: 'audit', version: '1' })
 export class AuditController {
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    // 聚合统计已拆到独立服务（健康清单 §3 阶段 3）：写入/链 与 只读聚合 不再挤在同一个类里
+    private readonly auditStats: AuditStatsService,
+  ) {}
 
   @Get('logs')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
@@ -71,7 +76,7 @@ export class AuditController {
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getStats(@Query('since') since?: string) {
     const sinceDate = since ? new Date(since) : undefined;
-    return this.auditService.getAllStats(sinceDate);
+    return this.auditStats.getAllStats(sinceDate);
   }
 
   @Get('cost')
@@ -80,7 +85,7 @@ export class AuditController {
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getCost(@Query('since') since?: string) {
     const sinceDate = since ? new Date(since) : undefined;
-    return this.auditService.getCostBreakdown(sinceDate);
+    return this.auditStats.getCostBreakdown(sinceDate);
   }
 
   @Get('action-report')

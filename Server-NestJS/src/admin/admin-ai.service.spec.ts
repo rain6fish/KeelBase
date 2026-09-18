@@ -2,7 +2,7 @@
 
 import { Test } from '@nestjs/testing';
 import { AiService } from '../ai/ai.service';
-import { AuditService } from '../ai/audit/audit.service';
+import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
@@ -14,7 +14,8 @@ describe('AdminAiService（System AI Assistant）', () => {
   let service: AdminAiService;
   let aiService: { chat: jest.Mock };
   let adminService: { getAnalytics: jest.Mock; getMonitorSummary: jest.Mock };
-  let auditService: { getCostBreakdown: jest.Mock };
+  // 成本聚合在拆分后来自 AuditStatsService（阶段 3）
+  let auditStats: { getCostBreakdown: jest.Mock };
   let capabilitiesService: { getCapabilities: jest.Mock };
   let governancePolicy: { getPolicy: jest.Mock };
 
@@ -55,7 +56,7 @@ describe('AdminAiService（System AI Assistant）', () => {
         counts: { events: 100, notifications: 20 },
       }),
     };
-    auditService = {
+    auditStats = {
       getCostBreakdown: jest.fn().mockResolvedValue({ summary: { totalCalls: 10, totalTokens: 5000 } }),
     };
     capabilitiesService = {
@@ -80,7 +81,7 @@ describe('AdminAiService（System AI Assistant）', () => {
         AdminAiService,
         { provide: AiService, useValue: aiService },
         { provide: AdminService, useValue: adminService },
-        { provide: AuditService, useValue: auditService },
+        { provide: AuditStatsService, useValue: auditStats },
         { provide: CapabilitiesService, useValue: capabilitiesService },
         { provide: GovernancePolicyService, useValue: governancePolicy },
       ],

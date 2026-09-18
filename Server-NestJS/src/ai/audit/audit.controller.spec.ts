@@ -2,19 +2,23 @@
 
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
+import { AuditStatsService } from './audit-stats.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 
 describe('AuditController', () => {
   let controller: AuditController;
+  let auditStats: Record<string, jest.Mock>;
   let auditService: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
 
   beforeEach(() => {
     auditService = Object.fromEntries(
-      ['getLogs', 'getUserLogs', 'verifyChain', 'getAllStats', 'getCostBreakdown', 'submitFeedback', 'getActionReport'].map((m) => [m, jest.fn()]),
+      ['getLogs', 'getUserLogs', 'verifyChain', 'submitFeedback', 'getActionReport'].map((m) => [m, jest.fn()]),
     );
-    controller = new AuditController(auditService as unknown as AuditService);
+    // 聚合统计已拆到 AuditStatsService（阶段 3）——controller 现在分别委托两个服务
+    auditStats = Object.fromEntries(['getStats', 'getAllStats', 'getCostBreakdown'].map((m) => [m, jest.fn()]));
+    controller = new AuditController(auditService as unknown as AuditService, auditStats as unknown as AuditStatsService);
   });
 
   it('日志列表委托 service（无 userId 走全量）', () => {
@@ -57,17 +61,17 @@ describe('AuditController', () => {
   });
 
   it('统计/成本委托 service（since 解析）', () => {
-    auditService.getAllStats.mockReturnValue({ total: 3 });
-    auditService.getCostBreakdown.mockReturnValue({ rows: [] });
+    auditStats.getAllStats.mockReturnValue({ total: 3 });
+    auditStats.getCostBreakdown.mockReturnValue({ rows: [] });
 
     expect(controller.getStats()).toEqual({ total: 3 });
-    expect(auditService.getAllStats).toHaveBeenCalledWith(undefined);
+    expect(auditStats.getAllStats).toHaveBeenCalledWith(undefined);
 
     expect(controller.getStats('2026-08-01T00:00:00Z')).toEqual({ total: 3 });
-    expect(auditService.getAllStats).toHaveBeenLastCalledWith(new Date('2026-08-01T00:00:00Z'));
+    expect(auditStats.getAllStats).toHaveBeenLastCalledWith(new Date('2026-08-01T00:00:00Z'));
 
     expect(controller.getCost()).toEqual({ rows: [] });
-    expect(auditService.getCostBreakdown).toHaveBeenCalledWith(undefined);
+    expect(auditStats.getCostBreakdown).toHaveBeenCalledWith(undefined);
   });
 
   it('提交反馈委托 service', async () => {

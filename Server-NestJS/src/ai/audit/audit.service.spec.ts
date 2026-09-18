@@ -7,6 +7,7 @@ import { AiAuditLog } from './ai-audit-log.entity';
 import { AiDailyUsage } from './ai-daily-usage.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 import { AuditService } from './audit.service';
+import { AuditStatsService } from './audit-stats.service';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
 import { actorContext } from '../actor-context';
@@ -374,46 +375,6 @@ describe('AuditService', () => {
     });
   });
 
-  describe('getCostBreakdown（AI-21）', () => {
-    it('按模型/意图/用户聚合 tokens，跳过错误日志', async () => {
-      repo.find.mockResolvedValue([
-        { userId: '1', action: 'chat', model: 'deepseek-v4-flash', promptTokens: 100, completionTokens: 50, isError: false },
-        { userId: '1', action: 'chat', model: 'deepseek-v4-flash', promptTokens: 200, completionTokens: 100, isError: false },
-        { userId: '2', action: 'knowledge', model: 'qwen-max', promptTokens: 50, completionTokens: 10, isError: false },
-        { userId: '2', action: 'chat', model: 'deepseek-v4-flash', promptTokens: 999, completionTokens: 999, isError: true }, // 跳过
-      ]);
-
-      const result = await service.getCostBreakdown();
-
-      expect(result.summary.totalCalls).toBe(3);
-      expect(result.summary.totalTokens).toBe(100 + 50 + 200 + 100 + 50 + 10);
-      // 按模型：deepseek 2 次 450 tokens 排前
-      expect(result.byModel[0].model).toBe('deepseek-v4-flash');
-      expect(result.byModel[0].calls).toBe(2);
-      expect(result.byModel[0].completionTokens).toBe(150);
-      // 按意图
-      expect(result.byIntent[0]).toEqual({ action: 'chat', count: 2 });
-      // 按用户
-      expect(result.byUser[0].userId).toBe('1');
-      expect(result.byUser[0].tokens).toBe(450);
-    });
-
-    it('空日志返回全零', async () => {
-      repo.find.mockResolvedValue([]);
-      const result = await service.getCostBreakdown();
-      expect(result.summary.totalCalls).toBe(0);
-      expect(result.byModel).toEqual([]);
-    });
-
-    it('since 过滤传入 Between', async () => {
-      repo.find.mockResolvedValue([]);
-      await service.getCostBreakdown(new Date('2026-08-01'));
-      expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ createdAt: expect.anything() }) }),
-      );
-    });
-  });
-
   describe('submitFeedback（AI-18）', () => {
     it('找到该对话最近非错误日志并写反馈', async () => {
       const qb = {
@@ -504,6 +465,7 @@ describe('AuditService', () => {
     it('PC-2：verify/stats/cost/action-report 响应无越界键（⊆ 冻结契约）', async () => {
       (chain.verifyChain as jest.Mock).mockReturnValue({ valid: true, checked: 0 });
       (repo.find as jest.Mock).mockResolvedValue([]);
+      const statsService = new AuditStatsService(repo as never, undefined);
       const propsOf = (name: string) =>
         Object.keys(
           (JSON.parse(readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/v1/${name}`), 'utf8')) as {
@@ -515,8 +477,9 @@ describe('AuditService', () => {
         expect(Object.keys(obj).filter((k) => !props.includes(k))).toEqual([]);
       };
       noExtra(await service.verifyChain(), 'audit-chain-verification.schema.json');
-      noExtra(await service.getAllStats(), 'audit-usage-stats.schema.json');
-      noExtra(await service.getCostBreakdown(), 'audit-cost-breakdown.schema.json');
+      // 聚合响应已由 AuditStatsService 产出（阶段 3 拆分）——契约校验跟着响应走，断言不变
+      noExtra(await statsService.getAllStats(), 'audit-usage-stats.schema.json');
+      noExtra(await statsService.getCostBreakdown(), 'audit-cost-breakdown.schema.json');
       noExtra(await service.getActionReport(), 'audit-action-report.schema.json');
     });
 
@@ -571,60 +534,6 @@ describe('AuditService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith(
         'CAST(log.userId AS INTEGER) IN (SELECT user_id FROM org_members WHERE org_id = :orgId)',
         { orgId: 3 },
-      );
-    });
-  });
-
-  describe('getStats / getAllStats', () => {
-    const logs = [
-      { action: 'chat', promptTokens: 100, completionTokens: 50, isError: false, createdAt: new Date('2026-08-30T01:00:00Z') },
-      { action: 'tool_call', promptTokens: 10, completionTokens: 5, isError: false, createdAt: new Date('2026-08-30T02:00:00Z') },
-      { action: 'chat', promptTokens: 30, completionTokens: 10, isError: true, createdAt: new Date('2026-08-30T03:00:00Z') },
-    ];
-
-    it('getStats 聚合 token/错误/动作分布并按次数排序', async () => {
-      repo.find.mockResolvedValue(logs);
-      const result = await service.getStats('1', new Date('2026-08-01'));
-      expect(result.totalConversations).toBe(2);
-      expect(result.totalMessages).toBe(3);
-      expect(result.totalTokens).toBe(205);
-      expect(result.totalErrors).toBe(1);
-      expect(result.topActions[0]).toEqual({ action: 'chat', count: 2 });
-      expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ userId: '1', createdAt: expect.anything() }) }),
-      );
-    });
-
-    it('getStats 无 since 不设时间过滤', async () => {
-      repo.find.mockResolvedValue([]);
-      await service.getStats('1');
-      expect(repo.find).toHaveBeenCalledWith({ where: { userId: '1' } });
-    });
-
-    it('getAllStats 全量聚合（无 userId）', async () => {
-      repo.find.mockResolvedValue(logs);
-      const result = await service.getAllStats();
-      expect(result.totalMessages).toBe(3);
-      expect(result.totalErrors).toBe(1);
-      expect(repo.find).toHaveBeenCalledWith({ where: {}, select: expect.objectContaining({ action: true }) });
-    });
-
-    it('E-2：getAllStats 返回 byDay 趋势（含 errors/blocked 段）', async () => {
-      repo.find.mockResolvedValue([
-        { action: 'tool_call', detail: 'query_customers({})', isError: false, createdAt: new Date('2026-08-30T10:00:00Z') },
-        { action: 'tool_call', detail: 'create_followup_task({})', isError: false, createdAt: new Date('2026-08-30T11:00:00Z') },
-        { action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-30T12:00:00Z') },
-      ]);
-      const result = await service.getAllStats();
-      expect(result.byDay).toHaveLength(1);
-      expect(result.byDay[0]).toMatchObject({ date: '2026-08-30', executed: 2, approved: 0, rejected: 0, blocked: 1, errors: 1 });
-    });
-
-    it('getAllStats 带 since 过滤', async () => {
-      repo.find.mockResolvedValue([]);
-      await service.getAllStats(new Date('2026-08-01'));
-      expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ createdAt: expect.anything() }) }),
       );
     });
   });

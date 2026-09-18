@@ -42,6 +42,7 @@ import { ToolRegistry } from './tools/tool-registry';
 import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
+import { AuditStatsService } from './audit/audit-stats.service';
 import { AiConversation } from './conversation/ai-conversation.entity';
 import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
@@ -161,6 +162,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuthorizationExplainerService,
     ConversationService,
     AuditService,
+    AuditStatsService,
     AiAgentService,
     InsightsService,
     KnowledgeService,
@@ -413,6 +415,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService],
 })
 export class AiModule {}
