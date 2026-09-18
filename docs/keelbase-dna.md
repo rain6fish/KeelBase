@@ -1,5 +1,10 @@
 # KeelBase DNA — 工程哲学 / Engineering DNA
 
+> **AI does the work. Humans keep control.** · **AI 负责工作，人掌握控制权。**
+>
+> ↳ 对外**浓缩句**（一句话版）。完整表述仍是下方「一句话 / The Sentence」的**五句**——本句是**收敛**，**不替代、不扩充**它们。
+> An outward-facing **condensation**. The full statement remains the **five sentences** under "The Sentence" below; this line condenses them rather than replacing or extending them.
+
 > KeelBase 的工程哲学与产品 DNA。它既是**对外主张**，也是**内部架构决策的检查清单**——每个新功能 / PR / 能力取舍都要过这五句、四原则。
 > The engineering philosophy and product DNA of KeelBase. It is both an **external thesis** and an **internal checklist for architecture decisions** — every feature / PR / capability trade-off is measured against these five sentences and four principles.
 
