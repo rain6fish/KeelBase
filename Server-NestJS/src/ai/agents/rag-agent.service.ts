@@ -47,7 +47,12 @@ export class RagAgent {
     provider: LlmProvider,
     model?: string,
     ctx?: { userId?: string; conversationId?: string },
-  ): Promise<{ content: string; articles: KnowledgeArticle[] }> {
+  ): Promise<{
+    content: string;
+    articles: KnowledgeArticle[];
+    /** 生成回答那次 LLM 调用的用量；调用方据此记账（与 chat/流式同口径） */
+    usage?: { promptTokens: number; completionTokens: number };
+  }> {
     // Step 1: 检索知识库（全文搜索降级，后续替换为向量检索）
     const articles = await this.search(userMessage);
     // N-6 内容安全：逐篇 check，命中剔除 + 审计（blocked 已由 service 写审计；不整答阻断防误伤）
@@ -88,6 +93,7 @@ export class RagAgent {
     return {
       content: result.content,
       articles: safeArticles,
+      usage: result.usage,
     };
   }
 

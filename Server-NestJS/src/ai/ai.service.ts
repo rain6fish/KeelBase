@@ -1005,6 +1005,9 @@ export class AiService {
         content: ragResult.content,
       });
 
+      // 知识库问答同样消耗 LLM token：不记则与被修的流式同类，成本统计静默漏计
+      usage = ragResult.usage;
+
       // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
       if (await this._shouldAudit('conversation')) {
         this.auditService.log({
@@ -1013,6 +1016,8 @@ export class AiService {
           action: 'knowledge',
           provider: providerName,
           model: request.model ?? this.config.defaultModel,
+          promptTokens: usage?.promptTokens,
+          completionTokens: usage?.completionTokens,
         });
       }
       return {
@@ -1020,6 +1025,7 @@ export class AiService {
         reply: ragResult.content,
         provider: providerName,
         model: request.model ?? this.config.defaultModel,
+        usage,
       };
     }
 

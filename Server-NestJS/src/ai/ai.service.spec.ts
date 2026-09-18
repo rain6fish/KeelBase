@@ -707,6 +707,24 @@ describe('AiService', () => {
       expect(mockConversationService.appendMessage).toHaveBeenCalledTimes(2); // user + assistant
     });
 
+    it('should record token usage for the knowledge path', async () => {
+      mockRagAgent.answer.mockResolvedValue({
+        content: '根据知识库，员工每年可享受 5 天年假。',
+        articles: [{ id: 1, title: '休假政策', content: '员工每年可享受 5 天年假' }],
+        usage: { promptTokens: 880, completionTokens: 42 },
+      });
+
+      const result = await aiService.chat('1', { message: '年假政策是什么？' });
+
+      expect(result.usage).toEqual({ promptTokens: 880, completionTokens: 42 });
+
+      const knowledgeAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'knowledge' && e.conversationId);
+      expect(knowledgeAudit.promptTokens).toBe(880);
+      expect(knowledgeAudit.completionTokens).toBe(42);
+    });
+
     it('should NOT auto-execute a write tool in non-streaming chat', async () => {
       // 非流式无确认通道：写工具不执行，返回引导提示
       mockProvider.generate
