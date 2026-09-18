@@ -177,3 +177,16 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **下一刀候选**（按变更驱动原则，不排期）：审计的**查询域**（`getUserLogs`/`getLogs`/`submitFeedback`/`_queryLogs`，纯读、依赖少）
   → **证据/报表域**（`getActionReport*`/`getEvidenceRoot`/`getInterpretation`/`getChain`，依赖 `_payload` 与 `_identityChainFromRow`
   两个共享 helper，需再抽一次地基）。
+
+### 2026-09-18 — 阶段 3 第二刀：审计查询域下沉（AuditQueryService）
+- ✅ 新建 `src/ai/audit/audit-query.service.ts`：迁入 `getUserLogs` / `getLogs` / `submitFeedback` / `_queryLogs`
+  + `AiAuditLogWithUser` 视图类型（依赖仅 logRepo + `aiActionLabel`）——**逻辑逐字不变**。
+- ✅ 接线：`audit.controller` 3 处（列表/本人列表/反馈）改注入新服务；`AiModule` providers + exports。
+- ✅ spec 搬迁**不改断言、不改夹具**：7 条查询用例 + `submitFeedback` 段 + `agentId 过滤` 段整段迁入
+  `audit-query.service.spec.ts`；跨服务契约校验与 payload 绑定那 2 条留在原 spec。
+- ⚠️ **两次过程失误（均未进提交）**：① 提取脚本**静默丢了 7 条被搬用例**——**全量总数正好少 7** 才暴露，
+  从 git 取回补上；② 补回的用例因依赖旧文件里的查询构造替身与行夹具而失败，那些片段**逐字取回**而非重写。
+- **结果**：`audit.service.ts` **1132 → 994 行**（本轮工作累计 1298 → 994，**-304**）；新增 162 行。
+- **验证**：全量 **279 suite / 2638 tests 全过**（与本刀前同数，一条未丢）；三闸全绿。
+- **下一刀候选**：**证据/报表域**（`getActionReport*` / `getEvidenceRoot` / `getInterpretation` / `getChain`）——
+  依赖 `_payload`（写入侧 canonical 定义）与 `_identityChainFromRow` 两块共享 helper，**需先抽地基**（同第一刀的 byDay 处理）。
