@@ -159,3 +159,21 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - [ ] ⑥ 剩余零散分支：`flows/node-registry`、`flow-definition.schema`、若干 entity/dto 的装饰器分支（价值低，可忽略）。
 
 > 每次阶段执行后在此追加记录（比照 release-precheck 执行记录惯例）。
+
+
+### 2026-09-18 — 阶段 3 第一刀：审计聚合域下沉（AuditStatsService）
+- ✅ 新建 `src/ai/audit/audit-stats.service.ts`：从 `AuditService` 迁入 `getStats` / `getAllStats` / `getCostBreakdown`，
+  **逻辑逐字不变**（只读聚合，依赖仅 logRepo + `@Optional` cache）。写入路径与哈希链留在原处。
+- ✅ **地基先行**：新增 `src/ai/audit/by-day.ts` 的纯函数 `byDayAggregation`——它被**报表域**（`getActionReport`）
+  与**统计域**共用，且「什么算 blocked、什么只算 error」的口径就长在里面；复制一份会让两种答案悄悄分叉，故先提为单源。
+- ✅ 接线：`audit.controller` 2 处、`admin-ai.service` 1 处改注入新服务（后者原先只把 `AuditService` 用于成本聚合，
+  故**替换而非叠加**，不留死依赖）；`AiModule` providers + exports 注册。
+- ✅ spec 搬迁**不改断言**：`getCostBreakdown` 与 `getStats/getAllStats` 两段整段迁入 `audit-stats.service.spec.ts`；
+  跨服务的契约校验（PC-2 无越界键 ⊆ 冻结契约）留在原 spec 并改用新实例；controller / admin-ai spec 补依赖。
+- ⚠️ **两次过程失误（均未进提交）**：① 首次删除被迁走的代码时**误删 `ActionReport` 接口**——编译器当场抓到、已加回；
+  ② 防重复插入的守卫断言用子串匹配，被 `ActionReportExport` 命中而拒绝执行，改精确后走通。
+- **结果**：`audit.service.ts` **1298 → 1132 行**（-166）；新增 `audit-stats.service.ts`(169) + `by-day.ts`(47)。
+- **验证**：全量 **278 suite / 2638 tests 全过**；三闸（semantic-single-source / language / evidence-canonical）全绿。
+- **下一刀候选**（按变更驱动原则，不排期）：审计的**查询域**（`getUserLogs`/`getLogs`/`submitFeedback`/`_queryLogs`，纯读、依赖少）
+  → **证据/报表域**（`getActionReport*`/`getEvidenceRoot`/`getInterpretation`/`getChain`，依赖 `_payload` 与 `_identityChainFromRow`
+  两个共享 helper，需再抽一次地基）。
