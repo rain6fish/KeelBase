@@ -14,6 +14,13 @@ import { LlmProviderFactory } from '../providers/provider-factory';
 import { LlmProvider } from '../interfaces/llm-provider.interface';
 import { AiServiceConfig } from '../ai.service';
 import { ConversationService, ConversationData } from './conversation.service';
+import { LlmUsage } from '../llm-usage';
+
+/** 一次压缩的结果：压完的对话 + 本次摘要调用消耗的用量（未实际调用时缺省） */
+export interface CompactionResult {
+  conversation: ConversationData;
+  usage?: LlmUsage;
+}
 
 const COMPACT_THRESHOLD = 40;
 const KEEP_RECENT = 12;
@@ -27,7 +34,7 @@ const SUMMARY_SYSTEM_PROMPT = `你是对话压缩助手。把下面这段对话�
 
 export class ConversationCompactor {
   /** 并发保护：同一对话的压缩只跑一次 LLM 调用 */
-  private readonly inflight = new Map<string, Promise<ConversationData>>();
+  private readonly inflight = new Map<string, Promise<CompactionResult>>();
 
   constructor(
     private readonly providerFactory: LlmProviderFactory,
@@ -39,13 +46,14 @@ export class ConversationCompactor {
    * 确保对话已压缩。消息数 ≤ 阈值时不处理；
    * 超过阈值（无论是否已有摘要）触发折叠式重压缩。
    */
-  async ensureCompacted(conv: ConversationData): Promise<ConversationData> {
-    if (conv.messages.length <= COMPACT_THRESHOLD) return conv;
+  async ensureCompacted(conv: ConversationData): Promise<CompactionResult> {
+    if (conv.messages.length <= COMPACT_THRESHOLD) return { conversation: conv };
 
     const existing = this.inflight.get(conv.id);
     if (existing) {
+      // 压缩已由另一个并发请求触发：那笔 token 记在发起方，此处不重复计
       await existing;
-      return this.conversationService.peekConversation(conv.id);
+      return { conversation: await this.conversationService.peekConversation(conv.id) };
     }
 
     const task = this.doCompact(conv).finally(() => this.inflight.delete(conv.id));
@@ -53,35 +61,39 @@ export class ConversationCompactor {
     return task;
   }
 
-  private async doCompact(conv: ConversationData): Promise<ConversationData> {
+  private async doCompact(conv: ConversationData): Promise<CompactionResult> {
+    let usage: LlmUsage | undefined;
     try {
       // 最近窗口 + 边界 tool 溢出守卫
       let keepStart = Math.max(0, conv.messages.length - KEEP_RECENT);
       while (keepStart > 0 && conv.messages[keepStart].role === 'tool') keepStart--;
 
       const toSummarize = conv.messages.slice(0, keepStart);
-      if (toSummarize.length < 4) return conv; // 太短不值得一次 LLM 调用
+      if (toSummarize.length < 4) return { conversation: conv }; // 太短不值得一次 LLM 调用
 
       const keep = conv.messages.slice(keepStart);
       const provider = this.resolveProvider(conv.provider);
-      const summary = await this.summarize(
+      const summarized = await this.summarize(
         provider,
         conv.model,
         conv.summary,
         toSummarize,
       );
+      usage = summarized.usage;
+      if (!summarized.summary) throw new Error('Empty summary from LLM');
 
       const raw = await this.conversationService.getMessagesForCompaction(conv.id);
       const deleteIds = raw.slice(0, toSummarize.length).map((m) => m.id);
-      await this.conversationService.applyCompaction(conv.id, summary, deleteIds);
+      await this.conversationService.applyCompaction(conv.id, summarized.summary, deleteIds);
 
-      return { ...conv, summary, messages: keep };
+      return { conversation: { ...conv, summary: summarized.summary, messages: keep }, usage };
     } catch (err) {
       console.error(
         `[ConversationCompactor] compaction failed for ${conv.id}:`,
         (err as Error).message,
       );
-      return conv; // 降级：全量回放，下轮重试
+      // 降级：全量回放，下轮重试；但摘要调用可能已经花掉 token（后续写库失败）→ 如实带回
+      return { conversation: conv, usage };
     }
   }
 
@@ -98,7 +110,7 @@ export class ConversationCompactor {
     model: string | undefined,
     priorSummary: string | undefined,
     toSummarize: Array<{ role: string; content: string }>,
-  ): Promise<string> {
+  ): Promise<{ summary: string; usage?: LlmUsage }> {
     const turns = toSummarize
       .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim())
       .map((m) => {
@@ -127,9 +139,7 @@ export class ConversationCompactor {
     });
 
     const summary = (result.content ?? '').trim();
-    if (!summary) {
-      throw new Error('Empty summary from LLM');
-    }
-    return summary;
+    // 空摘要由调用方判失败：本次 generate 已消耗 token，先带出用量再判，不因抛错丢掉
+    return { summary, usage: result.usage };
   }
 }

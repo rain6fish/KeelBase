@@ -66,7 +66,8 @@ describe('ConversationCompactor', () => {
       const conv = makeConv({ messages: makeMessages(10) }); // 20 messages
       const result = await compactor.ensureCompacted(conv);
 
-      expect(result).toBe(conv);
+      expect(result.conversation).toBe(conv);
+      expect(result.usage).toBeUndefined();
       expect(mockProvider.generate).not.toHaveBeenCalled();
       expect(mockConversationService.applyCompaction).not.toHaveBeenCalled();
     });
@@ -91,8 +92,43 @@ describe('ConversationCompactor', () => {
         expect.any(Array),
       );
       // 返回消息 = 最近 KEEP_RECENT(12) 条
-      expect(result.summary).toBe('这是一段摘要。');
-      expect(result.messages.length).toBe(12);
+      expect(result.conversation.summary).toBe('这是一段摘要。');
+      expect(result.conversation.messages.length).toBe(12);
+    });
+
+    it('should report the summary call usage on success', async () => {
+      mockProvider.generate.mockResolvedValue({
+        content: '这是一段摘要。',
+        usage: { promptTokens: 900, completionTokens: 40 },
+      });
+      const messages = makeMessages(25);
+      const conv = makeConv({ messages });
+      mockConversationService.getMessagesForCompaction.mockResolvedValue(
+        messages.map((m, i) => ({ id: i + 1, ...m })),
+      );
+
+      const result = await compactor.ensureCompacted(conv);
+
+      expect(result.usage).toEqual({ promptTokens: 900, completionTokens: 40 });
+    });
+
+    it('并发时只有触发压缩的那个请求记账，等待方不重复计', async () => {
+      mockProvider.generate.mockResolvedValue({
+        content: '这是一段摘要。',
+        usage: { promptTokens: 900, completionTokens: 40 },
+      });
+      const conv = makeConv({ messages: makeMessages(25) });
+      mockConversationService.getMessagesForCompaction.mockResolvedValue([]);
+      mockConversationService.peekConversation.mockResolvedValue(conv);
+
+      const [initiator, waiter] = await Promise.all([
+        compactor.ensureCompacted(conv),
+        compactor.ensureCompacted(conv),
+      ]);
+
+      expect(mockProvider.generate).toHaveBeenCalledTimes(1);
+      expect(initiator.usage).toEqual({ promptTokens: 900, completionTokens: 40 });
+      expect(waiter.usage).toBeUndefined();
     });
 
     it('should NOT delete anything when generate rejects', async () => {
@@ -101,19 +137,21 @@ describe('ConversationCompactor', () => {
 
       const result = await compactor.ensureCompacted(conv);
 
-      expect(result).toBe(conv);
+      expect(result.conversation).toBe(conv);
       expect(mockConversationService.applyCompaction).not.toHaveBeenCalled();
       expect(mockConversationService.getMessagesForCompaction).not.toHaveBeenCalled();
     });
 
     it('should treat empty summary as failure (no persist)', async () => {
-      mockProvider.generate.mockResolvedValue({ content: '   ' });
+      mockProvider.generate.mockResolvedValue({ content: '   ', usage: { promptTokens: 120, completionTokens: 0 } });
       const conv = makeConv({ messages: makeMessages(25) });
 
       const result = await compactor.ensureCompacted(conv);
 
-      expect(result).toBe(conv);
+      expect(result.conversation).toBe(conv);
       expect(mockConversationService.applyCompaction).not.toHaveBeenCalled();
+      // 摘要调用已发生（只是返回空）→ 那笔 token 仍如实带回
+      expect(result.usage).toEqual({ promptTokens: 120, completionTokens: 0 });
     });
 
     it('should fold prior summary into the prompt when one exists', async () => {
@@ -156,7 +194,7 @@ describe('ConversationCompactor', () => {
       mockConversationService.getMessagesForCompaction.mockResolvedValue([]);
 
       const result = await compactor.ensureCompacted(conv);
-      expect(result.summary).toBe('这是一段摘要。');
+      expect(result.conversation.summary).toBe('这是一段摘要。');
     });
   });
 });

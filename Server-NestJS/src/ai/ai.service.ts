@@ -959,8 +959,9 @@ export class AiService {
       ? this.subAgentOrchestrator.matchSkill(request.message)
       : null;
     const hasNav = !request.adminMode && this.detectNavigation(request.message) !== null;
-    // 命中关键词时分类不走 LLM（无用量）；走 LLM 时那次调用同样消耗 token，记下来并入整轮口径
-    let routingUsage: LlmUsage | undefined;
+    // 分类命中关键词时不走 LLM（无用量）；走 LLM 时那次调用同样消耗 token，记下来并入整轮口径。
+    // 同一累加器也承载「上下文压缩」那笔前置开销（见各分支的 buildMessages 调用）。
+    let preflightUsage: LlmUsage | undefined;
     let intent: Intent;
     if (matchedSkill && !hasNav) {
       intent = 'delegate';
@@ -971,7 +972,7 @@ export class AiService {
         request.model ?? this.config.defaultModel,
       );
       intent = routed.intent;
-      routingUsage = routed.usage;
+      preflightUsage = routed.usage;
     }
 
     let finalContent: string;
@@ -979,8 +980,8 @@ export class AiService {
     let navigateTo: string | undefined;
     let toolCalls: string[] | undefined;
 
-    // 各分支只知道自己的那一段开销；分类开销在此统一并入后再记账
-    const turnTotal = (): LlmUsage | undefined => addLlmUsage(usage, routingUsage);
+    // 各分支只知道自己的那一段开销；分类与压缩这些前置开销在此统一并入后再记账
+    const turnTotal = (): LlmUsage | undefined => addLlmUsage(usage, preflightUsage);
 
     if (intent === 'navigate') {
       // 导航请求 — 关键词匹配，不走 LLM
@@ -1002,7 +1003,9 @@ export class AiService {
 
     if (intent === 'knowledge') {
       // 知识库问答 — RAG 检索增强
-      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      preflightUsage = addLlmUsage(preflightUsage, built.usage);
+      const messages = built.messages;
       const ragResult = await this.ragAgent.answer(
         messages,
         request.message,
@@ -1043,7 +1046,9 @@ export class AiService {
 
     if (intent === 'delegate') {
       // 子代理委托：分解为子代理任务顺序执行，聚合后总结 + 反思
-      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      preflightUsage = addLlmUsage(preflightUsage, built.usage);
+      const messages = built.messages;
       const delegateResult = await this.subAgentOrchestrator.run({
         messages,
         userRequest: request.message,
@@ -1105,7 +1110,9 @@ export class AiService {
       }
     } else if (intent === 'analyze' || intent === 'plan') {
       // Plan-and-Execute：多步推理
-      const messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+      preflightUsage = addLlmUsage(preflightUsage, built.usage);
+      const messages = built.messages;
       const planResult = await this.planExecuteAgent.planAndExecute(
         messages,
         provider,
@@ -1312,12 +1319,13 @@ export class AiService {
       return;
     }
 
-    let messages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+    const builtMessages = await this.buildMessages(conversationId, request.images, request.systemPrompt);
+    let messages = builtMessages.messages;
     const model = request.model ?? this.config.defaultModel;
 
-    // 整轮对话的 token 用量：工具轮次每次 LLM 调用各带一份 usage，累加才是这轮的真实开销
+    // 整轮对话的 token 用量：上下文压缩 + 工具轮次每次 LLM 调用各带一份 usage，累加才是这轮的真实开销
     // （审计的 chat 行每轮对话只写一次，故必须在此聚合，不能只取最后一轮）
-    let turnUsage: { promptTokens: number; completionTokens: number } | undefined;
+    let turnUsage: LlmUsage | undefined = builtMessages.usage;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const tools = await this._buildToolDefs();
@@ -2064,10 +2072,12 @@ export class AiService {
     images?: string[];
     systemPrompt?: string;
   }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string; toolCalls?: string[] }> {
-    let messages = await this.buildMessages(params.conversationId, params.images, params.systemPrompt);
+    const builtMessages = await this.buildMessages(params.conversationId, params.images, params.systemPrompt);
+    let messages = builtMessages.messages;
     let currentProvider = params.provider;
     let currentProviderName = params.providerName;
-    let usage: { promptTokens: number; completionTokens: number } | undefined;
+    // 压缩那笔前置开销随之起算；工具各轮在此之上累加
+    let usage: LlmUsage | undefined = builtMessages.usage;
     let navigateTo: string | undefined;
     const toolCalls: string[] = [];
 
@@ -2311,12 +2321,14 @@ export class AiService {
     conversationId: string,
     images?: string[],
     overrideSystemPrompt?: string,
-  ): Promise<ChatMessage[]> {
+  ): Promise<{ messages: ChatMessage[]; usage?: LlmUsage }> {
     const conv = await this.conversationService.peekConversation(conversationId);
     // 上下文压缩：超阈值时把旧轮次折叠进摘要，回放「摘要 + 最近窗口」
-    const effectiveConv = this.compactor
+    // 压缩本身要花一次 LLM 调用 → 用量随消息一起交回，由调用方并入本轮口径
+    const compaction = this.compactor
       ? await this.compactor.ensureCompacted(conv)
-      : conv;
+      : { conversation: conv };
+    const effectiveConv = compaction.conversation;
 
     // AI-17 提示词管理：Settings 里 ai_system_prompt 覆盖默认（热生效，管理台可编辑）
     // 管理员系统助手用固定 ADMIN_SYSTEM_PROMPT（绕过 ai_system_prompt，by design）
@@ -2387,7 +2399,7 @@ export class AiService {
       }
     }
 
-    return messages;
+    return { messages, usage: compaction.usage };
   }
 
   /**

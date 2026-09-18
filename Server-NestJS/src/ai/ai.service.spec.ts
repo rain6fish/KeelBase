@@ -178,7 +178,7 @@ describe('AiService', () => {
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
       mockMemoriesService as any,
       confirmationStore,
-      { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
+      { ensureCompacted: jest.fn().mockImplementation((c: any) => ({ conversation: c })) } as any,
       mockSubAgentOrchestrator as any,
       mockAuthorizationExplainer as any,
       mockSettingsService as any,
@@ -904,9 +904,11 @@ describe('AiService', () => {
     it('should inject the conversation summary as a system message when compactor returns one', async () => {
       const mockCompactor = {
         ensureCompacted: jest.fn().mockResolvedValue({
-          ...mockConversation,
-          summary: '前文摘要内容',
-          messages: [{ role: 'user', content: '最近问题', timestamp: new Date().toISOString() }],
+          conversation: {
+            ...mockConversation,
+            summary: '前文摘要内容',
+            messages: [{ role: 'user', content: '最近问题', timestamp: new Date().toISOString() }],
+          },
         }),
       };
       const withCompactor = new AiService(
@@ -939,6 +941,47 @@ describe('AiService', () => {
       );
       // system + memory(空) + summary → 至少 2 条（memory 为空时不注入），summary 在最后
       expect(systemMsgs[systemMsgs.length - 1].content).toContain('前文摘要内容');
+    });
+
+    it('should include the compaction call in the turn usage', async () => {
+      const mockCompactor = {
+        ensureCompacted: jest.fn().mockResolvedValue({
+          conversation: {
+            ...mockConversation,
+            messages: [{ role: 'user', content: '最近问题', timestamp: new Date().toISOString() }],
+          },
+          usage: { promptTokens: 640, completionTokens: 35 },
+        }),
+      };
+      const withCompactor = new AiService(
+        mockProviderFactory as any,
+        mockToolRegistry as any,
+        mockConversationService as any,
+        config,
+        mockAuditService as any,
+        mockRagAgent as any,
+        { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
+        mockMemoriesService as any,
+        confirmationStore,
+        mockCompactor as any,
+        { matchSkill: jest.fn().mockReturnValue(null), run: jest.fn() } as any,
+        mockAuthorizationExplainer as any,
+      );
+      mockProvider.generate.mockResolvedValue({
+        content: '你有 1 个事件',
+        usage: { promptTokens: 800, completionTokens: 20 },
+      });
+
+      // 「查」命中关键词 → 分类不走 LLM，压缩是唯一的前置开销
+      const result = await withCompactor.chat('1', { message: '查我的事件' });
+
+      // 整轮 = 上下文压缩(640) + 主调用(800)；此前压缩那笔完全不计
+      expect(result.usage).toEqual({ promptTokens: 1440, completionTokens: 55 });
+
+      const chatAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'chat' && e.conversationId);
+      expect(chatAudit.promptTokens).toBe(1440);
     });
   });
 
@@ -1851,7 +1894,7 @@ describe('AiService', () => {
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
         confirmationStore,
-        { ensureCompacted: jest.fn().mockImplementation((c: any) => c) } as any,
+        { ensureCompacted: jest.fn().mockImplementation((c: any) => ({ conversation: c })) } as any,
         mockSubAgentOrchestrator as any,
         mockAuthorizationExplainer as any,
       );
