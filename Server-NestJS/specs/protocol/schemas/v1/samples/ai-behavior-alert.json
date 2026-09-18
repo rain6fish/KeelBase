@@ -1,0 +1,22 @@
+{
+  "id": 41,
+  "rule": "R-2",
+  "level": "critical",
+  "subject": {
+    "kind": "user",
+    "id": "7"
+  },
+  "conversationId": "conv-9f2c41ab",
+  "title": "高危工具被拒后反复尝试",
+  "detail": "10 分钟内 6 次调用 delete_customer 均被策略阻断，超过阈值 3",
+  "evidence": {
+    "count": 6,
+    "threshold": 3,
+    "windowMinutes": 10,
+    "sampleRowIds": [90211, 90213, 90218, 90224, 90231, 90240],
+    "toolName": "delete_customer"
+  },
+  "status": "open",
+  "createdAt": "2026-09-18T03:15:00.000Z",
+  "decidedAt": null
+}

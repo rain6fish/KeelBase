@@ -1,0 +1,21 @@
+{
+  "id": 39,
+  "rule": "R-1",
+  "level": "warning",
+  "subject": {
+    "kind": "conversation",
+    "id": "conv-3b7e0d51"
+  },
+  "conversationId": "conv-3b7e0d51",
+  "title": "单会话工具调用密集",
+  "detail": "10 分钟内该会话调用工具 24 次，超过阈值 20",
+  "evidence": {
+    "count": 24,
+    "threshold": 20,
+    "windowMinutes": 10,
+    "sampleRowIds": [88101, 88102, 88103]
+  },
+  "status": "acknowledged",
+  "createdAt": "2026-09-18T01:40:00.000Z",
+  "decidedAt": "2026-09-18T02:05:12.000Z"
+}

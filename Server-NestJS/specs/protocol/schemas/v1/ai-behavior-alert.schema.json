@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ai-behavior-alert.schema.json",
+  "title": "AI Behavior Alert（AI 异常行为告警）— v1",
+  "description": "规则型异常行为基线的**告警事件**（docs/ai-behavior-baseline.spec.md，Authorization → Behavior 升维）：权限已允许、行为模式仍偏离设定阈值时落一条。\n\n它**只是观测**：不改门控、不拦动作、不宣称「恶意」——`evidence` 是给人自己复算的依据（数了什么、阈值多少、窗口多长、样本行号），没有它告警就不可辩驳，故为必需字段。\n\n`rule` 与规格 §2 同一 ID（R-1 单会话工具调用密集 / R-2 高危工具被拒后反复尝试 / R-3 短时写入规模异常）；`level` 由超出阈值的倍数决定（< 2× warning，≥ 2× critical）；`subject` 是被观测的主体（R-1/R-3 是会话，R-2 是人）。\n\n**诚实边界（规格 §3）**：审计粒度 off 时没有 `tool_call` 行，R-1/R-2 扫不到——那是「看不见」不是「无异常」；工具名从 `detail` 文本还原，格式漂移会静默漏检而非误报。",
+  "type": "object",
+  "required": ["id", "rule", "level", "subject", "title", "detail", "evidence", "status", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "integer", "minimum": 1 },
+    "rule": {
+      "description": "触发规则（与规格 §2 同一 ID）。",
+      "enum": ["R-1", "R-2", "R-3"]
+    },
+    "level": {
+      "description": "由超出阈值的倍数决定：< 2× 为 warning，≥ 2× 为 critical。",
+      "enum": ["warning", "critical"]
+    },
+    "subject": {
+      "description": "被观测主体：R-1/R-3 以会话为主体，R-2 以人为主体（同一人换会话反复试穿不过冷却期）。",
+      "type": "object",
+      "required": ["kind", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["conversation", "user"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "conversationId": {
+      "description": "R-1/R-3 恒有（就是 subject.id）；R-2 命中时若可归属会话则带上，否则 null。",
+      "type": ["string", "null"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "detail": {
+      "description": "人读一句话，说明观测到什么；不含「攻击/入侵/违规」这类结论性措辞（规格 §3.4）。",
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "description": "判定依据（可被人自行复算，故必需）：实际计数、所用阈值、窗口、样本行号。",
+      "type": "object",
+      "required": ["count", "threshold", "windowMinutes"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "threshold": { "type": "integer", "minimum": 1 },
+        "windowMinutes": { "type": "integer", "minimum": 1 },
+        "sampleRowIds": {
+          "description": "构成该计数的样本行 id（审计行或副作用行），供人工抽查。",
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "toolName": {
+          "description": "R-2 专用：被判高危的工具名。",
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "description": "处理态：open 待处理 / acknowledged 已处理（人工标记，本能力不自动处置）。",
+      "enum": ["open", "acknowledged"]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "decidedAt": {
+      "description": "标记已处理的时刻；open 为 null。",
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

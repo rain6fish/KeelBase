@@ -12,6 +12,8 @@ import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
+import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
+import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -70,6 +72,9 @@ describe('MaintenanceTasksService', () => {
             expireStale: jest.fn().mockResolvedValue(0),
           },
         },
+        // BA 异常行为基线：本文件只测其余维护任务，故给最小替身
+        { provide: BehaviorBaselineService, useValue: { scan: jest.fn().mockResolvedValue([]) } },
+        { provide: AlertWebhookService, useValue: { sendAlert: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 

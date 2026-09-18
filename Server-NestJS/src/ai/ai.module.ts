@@ -68,6 +68,8 @@ import { UserMemory } from './memory/user-memory.entity';
 import { User } from '../common/entities/user.entity';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MyConfirmationService } from './confirmation/my-confirmation.service';
+import { AiBehaviorAlert } from './behavior-baseline/behavior-alert.entity';
+import { BehaviorBaselineService } from './behavior-baseline/behavior-baseline.service';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { KnowledgeIngestionService } from './rag/knowledge-ingestion.service';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
@@ -151,7 +153,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditChainModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, User]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
@@ -167,6 +169,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MemoriesService,
     ConfirmationStore,
     MyConfirmationService,
+    BehaviorBaselineService,
     AiEvalService,
     SecurityShowcaseService,
     AiToolEffectsService,
@@ -410,6 +413,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService],
 })
 export class AiModule {}

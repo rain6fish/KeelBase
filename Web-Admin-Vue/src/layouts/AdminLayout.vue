@@ -245,6 +245,7 @@ const consoleNavGroups = computed(() => [
       { name: 'ai-timeline', to: '/ai-timeline', icon: 'mdi-timeline-clock-outline', label: t('navAiTimeline') },
       { name: 'ai-tools', to: '/ai-tools', icon: 'mdi-tools', label: t('navAiTools') },
       { name: 'ai-eval', to: '/ai-eval', icon: 'mdi-flask-outline', label: t('navAiEval') },
+      { name: 'ai-behavior', to: '/ai-behavior', icon: 'mdi-shield-alert', label: t('navAiBehavior') },
       { name: 'mcp', to: '/mcp', icon: 'mdi-connection', label: t('navMcp') },
     ],
   },

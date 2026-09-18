@@ -24,6 +24,7 @@ import {
   ChainVerification,
 } from '../../common/audit-chain/audit-chain.service';
 import { aiActionLabel } from './ai-feature-map';
+import { extractToolName } from './tool-name';
 import { summarizeAudit, AuditInterpretation, AuditInterpretationRow, AuditInterpreterStats } from './audit-interpreter.service';
 import { GovernancePolicyService } from '../governance/governance-policy.service';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
@@ -434,7 +435,7 @@ export class AuditService {
       id: row.id,
       createdAt: row.createdAt,
       action: row.action,
-      toolName: this._toolNameFromDetail(row.detail),
+      toolName: extractToolName(row.detail),
       prevHash: row.prevHash ?? null,
       hash: row.hash ?? null,
       isError: row.isError ?? false,
@@ -740,7 +741,7 @@ export class AuditService {
     const samples = logs.slice(0, limit).map((l) => ({
       id: l.id,
       action: l.action,
-      toolName: this._toolNameFromDetail(l.detail),
+      toolName: extractToolName(l.detail),
       isError: l.isError,
       errorMessage: l.errorMessage,
       businessEvent: l.businessEvent ?? null,
@@ -859,7 +860,7 @@ export class AuditService {
       : [];
     const trigger =
       convRows.find(
-        (l) => l.action === 'tool_call' && !l.isError && this._toolNameFromDetail(l.detail) === effect.toolName,
+        (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
       ) ??
       [...convRows].reverse().find((l) => !l.isError && l.action === 'tool_call') ??
       null;
@@ -1005,13 +1006,6 @@ export class AuditService {
     return map[resultType] ?? null;
   }
 
-  /** 从审计 detail（"create_followup_task({...})"）提取工具名 */
-  private _toolNameFromDetail(detail?: string | null): string | null {
-    if (!detail) return null;
-    const m = /^([a-z_]+)\(/.exec(detail);
-    return m ? m[1] : null;
-  }
-
   /**
    * AI-21 成本看板：按 用户×模型×意图 聚合 tokens（复用 ai_audit_logs）。
    * 不含 error 日志；token 计费近似（prompt 单价低于 completion，此处给出原始量）。
@@ -1120,7 +1114,7 @@ export class AuditService {
       chain: convRows.map((r) => ({
         id: r.id,
         action: r.action,
-        toolName: this._toolNameFromDetail(r.detail),
+        toolName: extractToolName(r.detail),
         businessEvent: r.businessEvent ?? null,
         agentId: r.agentId ?? null,
         createdAt: r.createdAt,
@@ -1141,7 +1135,7 @@ export class AuditService {
     source: string | null;
     authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
   }> {
-    const toolName = this._toolNameFromDetail(row.detail);
+    const toolName = extractToolName(row.detail);
     // agentCache 可能缓存 null（未知 agent）——用 has() 区分「缓存 miss」与「已缓存 null」，避免每样本重复查库
     const agent = row.agentId
       ? agentCache?.has(row.agentId)

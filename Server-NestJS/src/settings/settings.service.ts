@@ -15,6 +15,13 @@ export const SETTING_KEYS = {
    * 两个窗口的语义见 specs/protocol/confirmation-lifecycle-v2-vector.json。
    */
   CONFIRMATION_OFFLINE_TTL: 'confirmation_offline_ttl_seconds',
+  // BA 异常行为基线（docs/ai-behavior-baseline.spec.md §4）：阈值与开关，缺失时用规格默认值
+  AI_BEHAVIOR_SCAN_ENABLED: 'ai_behavior_scan_enabled',
+  AI_BEHAVIOR_WINDOW_MINUTES: 'ai_behavior_window_minutes',
+  AI_BEHAVIOR_MAX_TOOLS_PER_CONVERSATION: 'ai_behavior_max_tools_per_conversation',
+  AI_BEHAVIOR_MAX_FAILED_HIGHRISK: 'ai_behavior_max_failed_highrisk',
+  AI_BEHAVIOR_MAX_SIDE_EFFECTS: 'ai_behavior_max_side_effects',
+  AI_BEHAVIOR_COOLDOWN_MINUTES: 'ai_behavior_cooldown_minutes',
   /** AI Bridge B 路径：proxy 工具配置（JSON：{ baseUrl, audience, tools[] }） */
   PROXY_TOOLS: 'ai_proxy_tools',
   /** N-6 AI-23 内容安全配置（JSON：{ enabled, sensitive[], jailbreak[] }，敏感词/越狱词表可配） */

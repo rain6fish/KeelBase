@@ -132,10 +132,21 @@
       "version": "v1",
       "schema": "my-confirmation-item.schema.json",
       "title": "本人确认记录（GA 待我确认中心：R3/R4 确认的读侧视图，含 status/decidedAt/离线窗口 expiresAt）",
-      "source": "src/ai/ai.service.ts listMyConfirmations; src/ai/approvals/ai-confirmation-request.entity.ts; specs/protocol/confirmation-lifecycle-v2-vector.json",
+      "source": "src/ai/confirmation/my-confirmation.service.ts list(); src/ai/approvals/ai-confirmation-request.entity.ts; specs/protocol/confirmation-lifecycle-v2-vector.json",
       "samples": [
         "schemas/v1/samples/my-confirmation-item.json",
         "schemas/v1/samples/my-confirmation-item-decided.json"
+      ]
+    },
+    {
+      "id": "ai-behavior-alert",
+      "version": "v1",
+      "schema": "ai-behavior-alert.schema.json",
+      "title": "AI 异常行为告警（规则型基线 R-1/R-2/R-3，含可复算的 evidence；权限允许仍告警）",
+      "source": "src/ai/behavior-baseline/behavior-alert.service.ts; docs/ai-behavior-baseline.spec.md",
+      "samples": [
+        "schemas/v1/samples/ai-behavior-alert.json",
+        "schemas/v1/samples/ai-behavior-alert-acknowledged.json"
       ]
     },
     {

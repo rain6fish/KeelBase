@@ -13,6 +13,8 @@ import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
+import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
+import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -33,6 +35,9 @@ export class MaintenanceTasksService {
     private readonly configService: ConfigService,
     // GA 待我确认中心：离线窗口到期的确认转 timeout（与对话内等待共用同一个 store 实例）
     private readonly confirmationStore: ConfirmationStore,
+    // BA 异常行为基线：定时扫描（只读审计与副作用表；不阻断任何动作）
+    private readonly behaviorBaseline: BehaviorBaselineService,
+    private readonly alertWebhook: AlertWebhookService,
   ) {}
 
   /**
@@ -110,6 +115,40 @@ export class MaintenanceTasksService {
         title: '每日平台快照',
         body,
         type: 'daily_snapshot',
+      });
+    }
+  }
+
+  /**
+   * BA 异常行为基线：定时扫出异常 AI 行为并告警（docs/ai-behavior-baseline.spec.md）。
+   *
+   * 只**读**审计与副作用表；命中则落库（scan 内部）+ 通知管理员 + webhook。**不阻断任何动作**——
+   * 本任务与门控完全分离，跑挂了也不影响 AI 能不能做事。
+   * 10 分钟一轮，与扫描窗口（默认 10 分钟）同量级，相邻窗口之间不留大段空白。
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async scanAiBehaviorBaseline() {
+    const alerts = await this.behaviorBaseline.scan();
+    if (alerts.length === 0) return;
+
+    const admins = await this.usersRepo.find({ where: { role: UserRole.ADMIN } });
+    for (const alert of alerts) {
+      const title = `AI 行为异常（${alert.rule}）`;
+      for (const admin of admins) {
+        await this.notificationsService.create({
+          userId: admin.id,
+          title,
+          body: alert.detail,
+          type: 'ai_anomaly_alert',
+        });
+      }
+      // 对外通道：未配 ALERT_WEBHOOK_URL 时 sendAlert 自带静默跳过
+      await this.alertWebhook.sendAlert(title, alert.detail, {
+        rule: alert.rule,
+        level: alert.level,
+        subjectKind: alert.subjectKind,
+        subjectId: alert.subjectId,
+        conversationId: alert.conversationId ?? null,
       });
     }
   }

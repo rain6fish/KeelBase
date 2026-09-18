@@ -20,9 +20,9 @@ describe('AdminController', () => {
     headlessKeysService = Object.fromEntries(
       ['list', 'create', 'update', 'remove'].map((m) => [m, jest.fn()]),
     );
-    controller = new AdminController(
-      adminService as unknown as AdminService,
+    controller = new AdminController(adminService as unknown as AdminService,
       headlessKeysService as unknown as HeadlessKeysService,
+      { list: jest.fn().mockResolvedValue([]), acknowledge: jest.fn() } as any,
     );
   });
 

@@ -82,6 +82,8 @@ const FROZEN_OBJECT_IDS = [
   'evidence-anchor',
   // GA 待我确认中心（docs/ai-action-center.spec.md §9）：本人确认记录（R3/R4 已决策读侧视图）
   'my-confirmation-item',
+  // BA 异常行为基线（docs/ai-behavior-baseline.spec.md）：规则型告警事件
+  'ai-behavior-alert',
 ];
 
 const failures: string[] = [];

@@ -464,3 +464,24 @@ export interface ProxyIntegrationStatus {
   errors?: string[]
   health?: { status?: 'UP' | 'DOWN' | 'UNKNOWN'; summary?: string }
 }
+
+/** BA 异常行为基线：告警行（wire 契约 ai-behavior-alert v1；`evidence` 已是对象，前端不再 parse） */
+export interface BehaviorAlertRow {
+  id: number
+  rule: string
+  level: 'warning' | 'critical'
+  subject: { kind: 'conversation' | 'user'; id: string }
+  conversationId: string | null
+  title: string
+  detail: string
+  evidence: {
+    count: number
+    threshold: number
+    windowMinutes: number
+    sampleRowIds?: number[]
+    toolName?: string
+  }
+  status: 'open' | 'acknowledged'
+  createdAt: string
+  decidedAt: string | null
+}

@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Delete, Patch, Param, Query, Body, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Patch,
+  Param,
+  Query,
+  Body,
+  ParseIntPipe,
+  DefaultValuePipe,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNumber, IsArray, IsBoolean, MaxLength } from 'class-validator';
 import { AdminService } from './admin.service';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 import { HeadlessKeysService } from '../headless/headless-keys.service';
+import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
 
 class CreateHeadlessKeyDto {
   @IsString()
@@ -56,7 +71,37 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly headlessKeysService: HeadlessKeysService,
+    // BA 异常行为基线：告警列表与标记已处理（检测本身跑在定时任务里，此处只读/标记）
+    private readonly behaviorBaseline: BehaviorBaselineService,
   ) {}
+
+  /**
+   * BA 异常行为基线：告警列表（docs/ai-behavior-baseline.spec.md §7）。
+   * 默认只列**未处理**的；`status=all` 看全部，`level` 可按级别过滤。
+   * 这些是**观测**不是判决——UI 与服务端措辞都不做「恶意」断言。
+   */
+  @Get('ai/behavior-alerts')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: 'AI 异常行为告警列表（BA 基线）' })
+  async behaviorAlerts(@Query('status') status?: string, @Query('level') level?: string) {
+    const statuses = ['open', 'acknowledged', 'all'] as const;
+    const statusFilter = statuses.find((s) => s === status);
+    return this.behaviorBaseline.list({
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(level === 'warning' || level === 'critical' ? { level } : {}),
+    });
+  }
+
+  /** BA：标记告警已处理（人工动作；本能力不自动处置）。 */
+  @Post('ai/behavior-alerts/:id/acknowledge')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '标记 AI 异常行为告警已处理（BA 基线）' })
+  async acknowledgeBehaviorAlert(@Param('id', ParseIntPipe) id: number) {
+    const ok = await this.behaviorBaseline.acknowledge(id);
+    if (!ok) throw new NotFoundException('告警不存在或已处理');
+    return { ok: true };
+  }
 
   @Get('monitor/summary')
   @CheckPolicies((ability) => ability.can('manage', 'all'))

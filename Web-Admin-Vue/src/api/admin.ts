@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api } from './client'
-import type {
-  AdminAiChatRequest,
+import type {AdminAiChatRequest,
   AdminAiChatResponse,
   AdminSession,
   AiConversationMessage,
@@ -17,6 +16,7 @@ import type {
   ProxyIntegrationStatus,
   TrashResponse,
   TrashRestoreResult,
+  BehaviorAlertRow,
 } from '@/types/admin'
 
 /** 校验对话 id，防止路径穿越（与 Flutter AiConversationRepository 一致） */
@@ -37,6 +37,14 @@ export const adminApi = {
   },
   opsSummary(): Promise<OpsSummary> {
     return api.get<OpsSummary>('/admin/ops/summary')
+  },
+  /** BA 异常行为基线：告警列表（默认只给未处理；'all' 看全部） */
+  behaviorAlerts(scope: 'open' | 'all' = 'open'): Promise<BehaviorAlertRow[]> {
+    return api.get<BehaviorAlertRow[]>('/admin/ai/behavior-alerts', scope === 'all' ? { status: 'all' } : undefined)
+  },
+  /** BA：标记告警已处理 */
+  acknowledgeBehaviorAlert(id: number): Promise<{ ok: boolean }> {
+    return api.post<{ ok: boolean }>(`/admin/ai/behavior-alerts/${id}/acknowledge`, {})
   },
   overview(days = 7): Promise<PlatformOverview> {
     return api.get<PlatformOverview>('/admin/overview', { days })
