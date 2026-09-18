@@ -570,6 +570,31 @@ describe('AiService', () => {
       expect(chatAudit.completionTokens).toBe(70);
     });
 
+    it('should include the intent-classification tokens in the turn usage', async () => {
+      // 消息不含任何关键词 → 意图分类走 LLM（这是本轮第一笔真实调用）
+      mockProvider.generate.mockResolvedValueOnce({
+        content: 'chat',
+        usage: { promptTokens: 300, completionTokens: 4 },
+      });
+      // 分类为 chat → 默认工具循环，一次 generate 即收尾
+      mockProvider.generate.mockResolvedValueOnce({
+        content: '今天不错',
+        usage: { promptTokens: 900, completionTokens: 60 },
+      });
+
+      const result = await aiService.chat('1', { message: '今天心情挺好' });
+
+      expect(mockProvider.generate).toHaveBeenCalledTimes(2);
+      // 整轮 = 分类 + 对话：分类那笔此前完全不记账
+      expect(result.usage).toEqual({ promptTokens: 1200, completionTokens: 64 });
+
+      const chatAudit = (mockAuditService.log as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find((e) => e.action === 'chat' && e.conversationId);
+      expect(chatAudit.promptTokens).toBe(1200);
+      expect(chatAudit.completionTokens).toBe(64);
+    });
+
     it('HS-5: should truncate oversized tool results (array)', () => {
       const svc = aiService as any;
       const bigData = Array.from({ length: 500 }, (_, i) => ({ id: i, title: `Event ${i}`.repeat(10) }));

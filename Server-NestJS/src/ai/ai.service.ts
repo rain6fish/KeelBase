@@ -16,7 +16,7 @@ import { AuthorizationExplainerService, buildAllowSnapshot } from './authorizati
 import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
-import { RouterAgent } from './agents/router-agent.service';
+import { RouterAgent, Intent } from './agents/router-agent.service';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { ReflectionAgent } from './agents/reflection-agent.service';
 import { tracer, withSpan } from '../common/tracing/tracer';
@@ -69,6 +69,24 @@ import {
 } from './interfaces/llm-provider.interface';
 
 const MAX_TOOL_ROUNDS = 5;
+
+/** 一次 LLM 调用的用量（prompt + completion） */
+type LlmUsage = { promptTokens: number; completionTokens: number };
+
+/**
+ * 累加一次对话内的多笔 LLM 用量。
+ * 一轮用户提问可能触发意图分类、多轮工具循环、汇总/反思等多次真实调用，
+ * 只保留最后一次会漏记前面的开销——这是审计 chat 行 token 记账的唯一权威算法。
+ */
+function addLlmUsage(base: LlmUsage | undefined, extra: LlmUsage | undefined): LlmUsage | undefined {
+  if (!extra) return base;
+  if (!base) return { ...extra };
+  return {
+    promptTokens: base.promptTokens + extra.promptTokens,
+    completionTokens: base.completionTokens + extra.completionTokens,
+  };
+}
+
 // demo = 确定性演示 Provider（P0-0）：无任何云 Provider 时兜底，链尾最后尝试
 const FALLBACK_CHAIN: Record<string, string[]> = {
   deepseek: ['deepseek', 'qwen', 'openai', 'demo'],
@@ -957,19 +975,28 @@ export class AiService {
       ? this.subAgentOrchestrator.matchSkill(request.message)
       : null;
     const hasNav = !request.adminMode && this.detectNavigation(request.message) !== null;
-    const intent =
-      matchedSkill && !hasNav
-        ? ('delegate' as const)
-        : await this.routerAgent.classify(
-            request.message,
-            provider,
-            request.model ?? this.config.defaultModel,
-          );
+    // 命中关键词时分类不走 LLM（无用量）；走 LLM 时那次调用同样消耗 token，记下来并入整轮口径
+    let routingUsage: LlmUsage | undefined;
+    let intent: Intent;
+    if (matchedSkill && !hasNav) {
+      intent = 'delegate';
+    } else {
+      const routed = await this.routerAgent.classify(
+        request.message,
+        provider,
+        request.model ?? this.config.defaultModel,
+      );
+      intent = routed.intent;
+      routingUsage = routed.usage;
+    }
 
     let finalContent: string;
-    let usage: { promptTokens: number; completionTokens: number } | undefined;
+    let usage: LlmUsage | undefined;
     let navigateTo: string | undefined;
     let toolCalls: string[] | undefined;
+
+    // 各分支只知道自己的那一段开销；分类开销在此统一并入后再记账
+    const turnTotal = (): LlmUsage | undefined => addLlmUsage(usage, routingUsage);
 
     if (intent === 'navigate') {
       // 导航请求 — 关键词匹配，不走 LLM
@@ -1007,6 +1034,7 @@ export class AiService {
 
       // 知识库问答同样消耗 LLM token：不记则与被修的流式同类，成本统计静默漏计
       usage = ragResult.usage;
+      const knowledgeTotal = turnTotal();
 
       // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
       if (await this._shouldAudit('conversation')) {
@@ -1016,8 +1044,8 @@ export class AiService {
           action: 'knowledge',
           provider: providerName,
           model: request.model ?? this.config.defaultModel,
-          promptTokens: usage?.promptTokens,
-          completionTokens: usage?.completionTokens,
+          promptTokens: knowledgeTotal?.promptTokens,
+          completionTokens: knowledgeTotal?.completionTokens,
         });
       }
       return {
@@ -1025,7 +1053,7 @@ export class AiService {
         reply: ragResult.content,
         provider: providerName,
         model: request.model ?? this.config.defaultModel,
-        usage,
+        usage: knowledgeTotal,
       };
     }
 
@@ -1174,6 +1202,8 @@ export class AiService {
       .extractFromTurn(userId, request.message, conversationId)
       .catch(() => {});
 
+    const total = turnTotal();
+
     // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
     if (await this._shouldAudit('conversation')) {
       this.auditService.log({
@@ -1182,8 +1212,8 @@ export class AiService {
         action: intent === 'delegate' ? 'delegate' : intent === 'plan' ? 'plan' : intent === 'analyze' ? 'analyze' : 'chat',
         provider: providerName,
         model: request.model ?? this.config.defaultModel,
-        promptTokens: usage?.promptTokens,
-        completionTokens: usage?.completionTokens,
+        promptTokens: total?.promptTokens,
+        completionTokens: total?.completionTokens,
       });
     }
     return {
@@ -1191,7 +1221,7 @@ export class AiService {
       reply: finalContent,
       provider: providerName,
       model: request.model ?? this.config.defaultModel,
-      usage,
+      usage: total,
       navigateTo,
       toolCalls,
     };
@@ -1337,9 +1367,7 @@ export class AiService {
           streamError = chunk.error;
           yield chunk;
         } else if (chunk.type === 'done' && chunk.usage) {
-          turnUsage = turnUsage ?? { promptTokens: 0, completionTokens: 0 };
-          turnUsage.promptTokens += chunk.usage.promptTokens;
-          turnUsage.completionTokens += chunk.usage.completionTokens;
+          turnUsage = addLlmUsage(turnUsage, chunk.usage);
         }
         // 'done' — handled after the loop
       }
@@ -2083,12 +2111,8 @@ export class AiService {
         currentProviderName = fallbackResult.providerName;
       }
 
-      if (result.usage) {
-        // 整轮对话口径：多轮工具调用时每轮都是一次真实 LLM 调用，只留最后一轮会漏掉前面的开销
-        usage = usage ?? { promptTokens: 0, completionTokens: 0 };
-        usage.promptTokens += result.usage.promptTokens;
-        usage.completionTokens += result.usage.completionTokens;
-      }
+      // 整轮对话口径：多轮工具调用时每轮都是一次真实 LLM 调用，只留最后一轮会漏掉前面的开销
+      usage = addLlmUsage(usage, result.usage);
 
       if (!result.toolCalls || result.toolCalls.length === 0) {
         // No more tool calls — done

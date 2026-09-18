@@ -17,6 +17,12 @@ import { LlmProvider } from '../interfaces/llm-provider.interface';
 
 export type Intent = 'query' | 'analyze' | 'navigate' | 'chat' | 'plan' | 'knowledge' | 'delegate';
 
+/** 分类调用的 LLM 用量（关键词命中时不走 LLM，故缺省） */
+export interface ClassifyResult {
+  intent: Intent;
+  usage?: { promptTokens: number; completionTokens: number };
+}
+
 const INTENT_CLASSIFICATION_PROMPT = `你是一个意图分类器。分析用户的消息，只返回一个词作为分类结果。
 
 分类规则：
@@ -47,27 +53,27 @@ export class RouterAgent {
     message: string,
     provider: LlmProvider,
     model?: string,
-  ): Promise<Intent> {
+  ): Promise<ClassifyResult> {
     // 关键词快速匹配 — 不走 LLM，零成本
     // 单字「去」太泛（去年/过去/出去/失去等误判为导航），用否定前瞻仅匹配导航含义
     const navKeywords: Array<string | RegExp> = ['打开', /去(?!年|下|出|掉|过|除)/, '跳转', '转到', '前往', '进入'];
-    if (navKeywords.some((k) => (typeof k === 'string' ? message.includes(k) : k.test(message)))) return 'navigate';
+    if (navKeywords.some((k) => (typeof k === 'string' ? message.includes(k) : k.test(message)))) return { intent: 'navigate' };
 
     // 多域复杂任务（放在 plan 之前：这些措辞的「安排/规划」指综合处理，非单一排期）
     const delegateKeywords = ['综合分析', '综合来看', '分别', '统筹', '全面分析', '盘点', '帮我规划', '做个规划', '汇总一下', '归纳'];
-    if (delegateKeywords.some((k) => message.includes(k))) return 'delegate';
+    if (delegateKeywords.some((k) => message.includes(k))) return { intent: 'delegate' };
 
     const planKeywords = ['安排', '计划', '规划', '排期', '组织'];
-    if (planKeywords.some((k) => message.includes(k))) return 'plan';
+    if (planKeywords.some((k) => message.includes(k))) return { intent: 'plan' };
 
     const analyzeKeywords = ['分析', '趋势', '对比', '总结', '建议', '预测', '统计', '分布'];
-    if (analyzeKeywords.some((k) => message.includes(k))) return 'analyze';
+    if (analyzeKeywords.some((k) => message.includes(k))) return { intent: 'analyze' };
 
     const knowledgeKeywords = ['知识库', '政策', '规定', '手册', '指南', '文档', '说明', '规则'];
-    if (knowledgeKeywords.some((k) => message.includes(k))) return 'knowledge';
+    if (knowledgeKeywords.some((k) => message.includes(k))) return { intent: 'knowledge' };
 
     const queryKeywords = ['查', '找', '事件', '日程', '哪', '有', '多少', '什么'];
-    if (queryKeywords.some((k) => message.includes(k))) return 'query';
+    if (queryKeywords.some((k) => message.includes(k))) return { intent: 'query' };
 
     // 用 LLM 做精确分类
     try {
@@ -81,10 +87,10 @@ export class RouterAgent {
         temperature: 0,
       });
       const intent = result.content.trim().toLowerCase() as Intent;
-      if (['query', 'analyze', 'navigate', 'chat', 'plan', 'knowledge', 'delegate'].includes(intent)) {
-        return intent;
-      }
+      // 分类结果不可识别时回退 chat，但这次调用已消耗 token → 用量照样带回，不吞
+      const valid = ['query', 'analyze', 'navigate', 'chat', 'plan', 'knowledge', 'delegate'].includes(intent);
+      return { intent: valid ? intent : 'chat', usage: result.usage };
     } catch {}
-    return 'chat';
+    return { intent: 'chat' };
   }
 }
