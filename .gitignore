@@ -88,7 +88,7 @@ docs/benchmark/benchmark-*
 docs/benchmark/golden-crm-*
 docs/benchmark/proxy-bridge-*
 docs/benchmark/java-starter-signals-*
-docs/benchmark/full-conformance-*
+docs/benchmark/full-profile-*
 !docs/benchmark/agent-benchmark-2026-08-19.md
 !docs/benchmark/agent-benchmark-2026-08-20.md
 !docs/benchmark/agent-benchmark-2026-08-20.json
