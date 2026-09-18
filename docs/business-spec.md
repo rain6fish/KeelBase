@@ -77,15 +77,31 @@ Business Spec 补的就是这一跳：**业务语义 → 薄协议**，且这一
 | `objects` | ✅ | 业务对象数组；MVP 限 1 个（见 §4） |
 | `objects[].fields` | ✅ | 字段，类型**只能用** `string`/`text`/`int`/`bool`/`date`/`enum` 六种 |
 | `aiCapabilities` | — | 该对象的 AI 能力意图（`read`/`write`），映射为协议 `aiTools` |
-| `decisions` | — | 访谈中的业务决策记录（进 Evidence，不进协议） |
+| `decisions` | — | **决策记录**（进 Evidence，不进协议）：访谈中的业务决策，**及外部产物场景下的抽取决策**——凡原文未写或与原文不符的取值**必须**在此留一条（见 §2.1） |
 | `rules` | — | 业务规则（进不可映射清单，手写实现 + 测试覆盖） |
 | `acceptance` | — | 验收标准（进 Evidence，供测试规格引用） |
 | `outOfScope` | — | 明确不做（进 Evidence，防范围漂移） |
-| `evidenceRef` | — | 访谈 Evidence 文件路径（相对仓库根），构成交付溯源链。映射器会校验该文件存在；缺失不阻断生成，但会在 `notes` 里告警——溯源链断在哪一眼可见。格式样例见 [.keelbase/interview/followup-plans.md](../.keelbase/interview/followup-plans.md) |
+| `evidenceRef` | — | **溯源链锚点**：指向访谈 Evidence（`.keelbase/interview/<feature>.md`）**或外部产物归档件**（`.keelbase/artifacts/<feature>/…`，见 §2.1）的路径，**相对仓库根**。映射器校验该文件存在；**缺失不阻断生成，但进 `warnings`**——而 `spec:check` 把 `warnings` **判为失败**（这正是「溯源链断在哪必红」的设计，不是提示）。格式样例见 [.keelbase/interview/followup-plans.md](../.keelbase/interview/followup-plans.md) |
 
 字段其余可选键：`required`（布尔，缺省按类型）、`relation`（标记关联，见 §4）、`label`（中文名，1-12 字符）。
 
 > **未被消费的键不静默丢弃**：`fields[].label` 与 `aiCapabilities[].intent` 只保留在 Business Spec / Evidence——薄协议里没有「字段级标签」和「工具意图」的位置。映射器会把本次未被消费的键（**含拼错的键名**）聚合列进 `notes`，不阻断生成；看到这条 note 属正常，写错键名时它是最快的自查信号。
+
+### 2.1 外部产物（S6）的填法
+
+S6 = **任意外部产物 → Business Spec**（PRD / 会议纪要 / 存量系统文档 / 对话记录…）。入口不要求客户改用我们的访谈方式，故**产物本身要先进仓**——否则 `evidenceRef` 悬空、`spec:check` 必红（§2 字段表已说明该设计）。四条约定：
+
+1. **归档位** = `<项目仓>/.keelbase/artifacts/<feature>/<原文件名>`，**须随仓提交**（否则 CI 上 `existsSync` 失败）。与 `.keelbase/business-spec/`（规格）· `.keelbase/interview/`（访谈 Evidence）同级——同为构建期上游输入；语义上把「**客户给我的**」与「**我问出来的**」分开。
+2. **`evidenceRef` 指向归档件**。既有校验原样成立，**无需改任何代码**。
+3. **逐条溯源用 `decisions[]`，不新增字段**：凡**原文未写、或与原文不符**的取值**必须**在 `decisions[]` 留一条——`question` = 抽取值 / 分歧点，`choice` = 定下的值，`reason` = 依据（含原文位置，如「§3/§4 分列，故取并集」）。于是「**推测**」与「**原文**」在同一份 Spec 里可区分：前者**必在** `decisions[]`，后者不必。
+4. **锚点语法不做**（如 `evidenceRef: "x.md#L40-52"`）——带 `#` 的路径 `existsSync` 判为不存在，要做须改映射器解析；第 3 条已用 `reason` 承载段号。等真实产物证明不够用再说。
+
+**边界**：
+- 归档进的是**承载该项目的仓**，**不是 KeelBase 公开仓**——客户产物不得进开源仓（许可证 / 隐私）。
+- **二进制 / 大体积**产物（PDF / Excel）：`existsSync` 只问存在性、**不改代码即可支持**，但仓体积与 Git 存储是运维问题 → 可先只收文本类（md / txt / json / csv）。
+- **多产物**：`evidenceRef` 是**单数**字符串；多份时先在 `decisions[].reason` 里标「第几份」。
+
+> **裁决来源**：2026-09-18 采纳方案 A（私库 `KeelBase-S6-归档入仓-裁决方案_2026-09-18.md`）。三条**被否**替代一并记录：新增 `sourceRef`/`confidence` 字段（撞「不新增字段」前置，且无需求支撑）· 放宽 `evidenceRef` 校验（拆护栏换绿灯、断链转为不可见）· 整体推迟（对**抽取器**成立，对**已发布的契约**不成立）。
 
 ---
 
