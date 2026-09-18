@@ -7,6 +7,7 @@
  */
 
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+import { LlmUsage } from '../llm-usage';
 
 interface OpportunityLike {
   name: string;
@@ -22,7 +23,7 @@ interface CrmServiceLike {
 }
 
 interface LlmGenerateLike {
-  generate(p: { messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }): Promise<{ content: string }>;
+  generate(p: { messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }): Promise<{ content: string; usage?: LlmUsage }>;
 }
 
 const OPEN_STAGES = new Set(['qualification', 'proposal', 'negotiation']);
@@ -85,6 +86,7 @@ export class AnalyzeSalesPipelineTool implements AiTool {
       };
 
       let insight: string | null = null;
+      let usage: LlmUsage | undefined;
       try {
         if (this.providerFactory) {
           const provider = this.providerFactory.getProvider(this.defaultProvider);
@@ -101,12 +103,14 @@ export class AnalyzeSalesPipelineTool implements AiTool {
             maxTokens: 300,
           });
           insight = res.content?.trim() || null;
+          usage = res.usage;
         }
       } catch {
         insight = null;
       }
 
-      return { success: true, data: { insight, structured } };
+      // usage 随结果带出，由调用方记到本工具的 tool_call 审计行（不进 LLM 上下文）
+      return { success: true, data: { insight, structured }, usage };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

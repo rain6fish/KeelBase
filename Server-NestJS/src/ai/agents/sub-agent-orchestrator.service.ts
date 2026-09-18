@@ -10,7 +10,7 @@
  */
 
 import { LlmProvider, ChatMessage, ToolCall } from '../interfaces/llm-provider.interface';
-import { ToolDefinition } from '../interfaces/tool.interface';
+import { ToolDefinition, ToolResult } from '../interfaces/tool.interface';
 import { ToolRegistry } from '../tools/tool-registry';
 import { SkillsRegistry } from '../skills/skills-registry';
 import { SkillDefinition } from '../skills/skill.interface';
@@ -221,9 +221,12 @@ export class SubAgentOrchestrator {
 
       for (const tc of result.toolCalls) {
         const toolResult = await this.executeSafe(tc, agent, params);
+        // usage 只供审计记账，不进 LLM 上下文（同 AiService.truncateToolResult）
+        const toolPayload: ToolResult = { ...toolResult };
+        delete toolPayload.usage;
         messages.push({
           role: 'tool',
-          content: JSON.stringify(toolResult),
+          content: JSON.stringify(toolPayload),
           tool_call_id: tc.id,
         });
       }
@@ -242,7 +245,7 @@ export class SubAgentOrchestrator {
       model?: string;
       readOnlyExecutor?: ReadOnlyToolExecutor;
     },
-  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  ): Promise<ToolResult> {
     // 安全守卫：只允许该子代理工具集内的只读工具
     if (!agent.tools.includes(tc.name) || params.toolRegistry.requiresConfirmation(tc.name)) {
       return { success: false, error: `Tool "${tc.name}" not allowed for sub-agent "${agent.name}"` };

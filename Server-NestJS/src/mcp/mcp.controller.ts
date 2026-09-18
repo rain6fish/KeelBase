@@ -194,6 +194,9 @@ export class McpExportController {
       source: 'mcp',
       isError: out.executed ? !out.result?.success : false,
       errorMessage: out.executed && !out.result?.success ? out.result?.error : undefined,
+      // 工具内部自调 LLM 时的开销记在工具自己这行（与 REST/SSE 同形）
+      promptTokens: out.result?.usage?.promptTokens,
+      completionTokens: out.result?.usage?.completionTokens,
       authorization: allowSnapshot,
     });
 

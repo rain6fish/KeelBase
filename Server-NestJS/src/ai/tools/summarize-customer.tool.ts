@@ -8,6 +8,7 @@
  */
 
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+import { LlmUsage } from '../llm-usage';
 
 interface Crm360Data {
   customer: { name: string; status?: string; riskLevel?: string } | null;
@@ -23,7 +24,7 @@ interface CrmServiceLike {
 }
 
 interface LlmGenerateLike {
-  generate(p: { messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }): Promise<{ content: string }>;
+  generate(p: { messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }): Promise<{ content: string; usage?: LlmUsage }>;
 }
 
 export class SummarizeCustomerTool implements AiTool {
@@ -94,6 +95,7 @@ export class SummarizeCustomerTool implements AiTool {
 
       // LLM 生成自然语言摘要（失败降级结构化）
       let summary: string | null = null;
+      let usage: LlmUsage | undefined;
       try {
         if (this.providerFactory) {
           const provider = this.providerFactory.getProvider(this.defaultProvider);
@@ -110,12 +112,14 @@ export class SummarizeCustomerTool implements AiTool {
             maxTokens: 300,
           });
           summary = res.content?.trim() || null;
+          usage = res.usage;
         }
       } catch {
         summary = null; // LLM 不可用 → 降级结构化
       }
 
-      return { success: true, data: { summary, structured } };
+      // usage 随结果带出，由调用方记到本工具的 tool_call 审计行（不进 LLM 上下文）
+      return { success: true, data: { summary, structured }, usage };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

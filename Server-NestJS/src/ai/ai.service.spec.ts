@@ -570,6 +570,45 @@ describe('AiService', () => {
       expect(chatAudit.completionTokens).toBe(70);
     });
 
+    it("should put a tool's internal LLM usage on its tool_call row, not the chat row", async () => {
+      mockProvider.generate
+        .mockResolvedValueOnce({
+          content: '',
+          toolCalls: [
+            { id: 'call_1', name: 'summarize_customer_360', arguments: '{"customerId":1}' },
+          ],
+          usage: { promptTokens: 500, completionTokens: 10 },
+        })
+        .mockResolvedValueOnce({
+          content: '客户概况',
+          usage: { promptTokens: 700, completionTokens: 30 },
+        });
+      // 工具内部自调 LLM，用量随 ToolResult 带出
+      mockToolRegistry.execute.mockResolvedValueOnce({
+        success: true,
+        data: { summary: '客户 A 风险中等' },
+        usage: { promptTokens: 300, completionTokens: 40 },
+      });
+
+      const result = await aiService.chat('1', { message: '查我的事件' });
+
+      // 对话行只含对话自身的两次调用；工具那 300/40 记在工具自己那行，不混进对话
+      expect(result.usage).toEqual({ promptTokens: 1200, completionTokens: 40 });
+
+      const calls = (mockAuditService.log as jest.Mock).mock.calls.map((c) => c[0]);
+      const toolAudit = calls.find((e) => e.action === 'tool_call' && e.conversationId);
+      expect(toolAudit.promptTokens).toBe(300);
+      expect(toolAudit.completionTokens).toBe(40);
+
+      // usage 不得进 LLM 上下文：喂回模型的那条 tool 消息里不能出现它
+      const toolMessage = (
+        mockProvider.generate.mock.calls[1][0] as { messages: Array<{ role: string; content: string }> }
+      ).messages.find((m) => m.role === 'tool');
+      expect(toolMessage).toBeDefined();
+      expect(toolMessage!.content).not.toContain('usage');
+      expect(toolMessage!.content).toContain('客户 A 风险中等');
+    });
+
     it('should include the intent-classification tokens in the turn usage', async () => {
       // 消息不含任何关键词 → 意图分类走 LLM（这是本轮第一笔真实调用）
       mockProvider.generate.mockResolvedValueOnce({
