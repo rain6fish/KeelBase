@@ -4,6 +4,7 @@ import { Controller, Get, Post, Body, Query, Param, ParseIntPipe } from '@nestjs
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
+import { AuditQueryService } from './audit-query.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
@@ -18,6 +19,8 @@ export class AuditController {
     private readonly auditService: AuditService,
     // 聚合统计已拆到独立服务（健康清单 §3 阶段 3）：写入/链 与 只读聚合 不再挤在同一个类里
     private readonly auditStats: AuditStatsService,
+    // 查询域同理（同阶段 3 第二刀）：过滤与行映射独立于写入
+    private readonly auditQuery: AuditQueryService,
   ) {}
 
   @Get('logs')
@@ -38,9 +41,9 @@ export class AuditController {
       since: query.since ? new Date(query.since) : undefined,
     };
     if (query.userId) {
-      return this.auditService.getUserLogs(query.userId, base);
+      return this.auditQuery.getUserLogs(query.userId, base);
     }
-    return this.auditService.getLogs({
+    return this.auditQuery.getLogs({
       ...base,
       orgId: query.orgId,
       agentId: query.agentId,
@@ -130,7 +133,7 @@ export class AuditController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: SubmitFeedbackDto,
   ) {
-    return this.auditService.submitFeedback(
+    return this.auditQuery.submitFeedback(
       String(user.sub),
       dto.conversationId,
       dto.feedback,
