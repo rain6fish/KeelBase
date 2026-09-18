@@ -9,6 +9,12 @@ export const SETTING_KEYS = {
   MAINTENANCE_MODE: 'maintenance_mode',
   AI_DAILY_LIMIT: 'ai_daily_limit',
   CONFIRMATION_TTL: 'confirmation_ttl_seconds',
+  /**
+   * GA 待我确认中心：**离线待办窗口**（秒）。对话内等待（上面那条）结束后，确认行继续保持 pending
+   * 直到本窗口到期，用户可在 Action Center 稍后裁决；到期由维护任务转 timeout。
+   * 两个窗口的语义见 specs/protocol/confirmation-lifecycle-v2-vector.json。
+   */
+  CONFIRMATION_OFFLINE_TTL: 'confirmation_offline_ttl_seconds',
   /** AI Bridge B 路径：proxy 工具配置（JSON：{ baseUrl, audience, tools[] }） */
   PROXY_TOOLS: 'ai_proxy_tools',
   /** N-6 AI-23 内容安全配置（JSON：{ enabled, sensitive[], jailbreak[] }，敏感词/越狱词表可配） */

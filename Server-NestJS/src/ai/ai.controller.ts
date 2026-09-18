@@ -30,6 +30,7 @@ import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
+import { MyConfirmationService } from './confirmation/my-confirmation.service';
 import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
@@ -58,6 +59,7 @@ export class AiController {
     private readonly aiService: AiService,
     private readonly conversationService: ConversationService,
     private readonly confirmationStore: ConfirmationStore,
+    private readonly myConfirmationService: MyConfirmationService,
     private readonly memoriesService: MemoriesService,
     private readonly toolEffectsService: AiToolEffectsService,
     private readonly decisionTraceService: DecisionTraceService,
@@ -612,6 +614,38 @@ export class AiController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.toolEffectsService.listOwned(String(user.sub), { page, limit });
+  }
+
+  /**
+   * GA 待我确认中心（docs/ai-action-center.spec.md §9）：**本人**确认记录。
+   * 返回本人发起的全部确认（待裁决 / 已决策 / 已超时）；`pending` 项带离线窗口截止 `expiresAt`。
+   * 已超离线窗口的 pending 不返回——判据与维护任务一致，避免「显示待确认、点了必然失败」。
+   */
+  @Get('my/confirmations')
+  @ApiOperation({ summary: '本人确认记录（待我确认中心，GA）' })
+  async listMyConfirmations(@CurrentUser() user: JwtPayload, @Query('status') status?: string) {
+    const allowed = ['pending', 'approved', 'declined', 'timeout'] as const;
+    const filter = allowed.find((s) => s === status);
+    return this.myConfirmationService.list(String(user.sub), filter ? { status: filter } : {});
+  }
+
+  /**
+   * GA：**离线裁决**本人确认（对话之外，Action Center）。
+   * 幂等与越权由服务层的条件更新把关（重复点击 / 与对话内并发 → 一律不执行工具）；
+   * 不可离线裁决者（他人 token、R4 待他人审批、run 整批、已决策）→ 404（不泄露存在性）。
+   */
+  @Post('my/confirmations/:token/decide')
+  @SkipAudit()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '离线裁决本人确认（待我确认中心，GA）' })
+  async decideMyConfirmation(
+    @Param('token') token: string,
+    @Body() dto: ConfirmDecisionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const res = await this.myConfirmationService.decide(token, String(user.sub), dto.decision);
+    if (!res.ok) throw new NotFoundException('确认请求不存在、已决策或不可离线裁决');
+    return res;
   }
 
   /**

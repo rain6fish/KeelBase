@@ -12,6 +12,7 @@ import { Event } from '../events/event.entity';
 import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -30,7 +31,23 @@ export class MaintenanceTasksService {
     @InjectRepository(Notification) private readonly notificationsRepo: Repository<Notification>,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
+    // GA 待我确认中心：离线窗口到期的确认转 timeout（与对话内等待共用同一个 store 实例）
+    private readonly confirmationStore: ConfirmationStore,
   ) {}
+
+  /**
+   * GA：把超过**离线待办窗口**仍 `pending` 的确认转 `timeout`（confirmation-lifecycle v2）。
+   * 对话内等待（60s）结束时**不再**改 DB——行的生死由这条清理决定；窗口值取自 store（单源）。
+   * 每小时一次：窗口是小时级（默认 24h），无需更密。
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async expireStaleConfirmations() {
+    const ttlMs = await this.confirmationStore.offlineTtlMs();
+    const expired = await this.confirmationStore.expireStale(ttlMs);
+    if (expired > 0) {
+      this.logger.log(`确认离线窗口到期：${expired} 条 pending → timeout`);
+    }
+  }
 
   @Cron(CronExpression.EVERY_HOUR)
   async cleanupExpiredData() {

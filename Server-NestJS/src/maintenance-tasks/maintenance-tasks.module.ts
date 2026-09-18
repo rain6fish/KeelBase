@@ -10,6 +10,9 @@ import { Event } from '../events/event.entity';
 import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+// GA 待我确认中心：离线窗口到期的确认清理复用 ConfirmationStore（必须**同一实例**——
+// 它持有对话内等待的内存 Map，另起一份会让裁决看不到等待中的确认）
+import { AiModule } from '../ai/ai.module';
 import { LlmProviderFactory } from '../ai/providers/provider-factory';
 import { LlmProviderConfig } from '../ai/interfaces/provider-config.interface';
 import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
@@ -28,6 +31,7 @@ import { ProactiveAiService } from './proactive-ai.service';
       Notification,
     ]),
     NotificationsModule,
+    AiModule,
   ],
   providers: [
     MaintenanceTasksService,

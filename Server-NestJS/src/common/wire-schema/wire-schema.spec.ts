@@ -80,6 +80,8 @@ const FROZEN_OBJECT_IDS = [
   'api-error-code',
   // ② SM2 国密 + 时间锚（docs/evidence-root.spec.md §11.3）：当日证据根集合的定期锚记录
   'evidence-anchor',
+  // GA 待我确认中心（docs/ai-action-center.spec.md §9）：本人确认记录（R3/R4 已决策读侧视图）
+  'my-confirmation-item',
 ];
 
 const failures: string[] = [];

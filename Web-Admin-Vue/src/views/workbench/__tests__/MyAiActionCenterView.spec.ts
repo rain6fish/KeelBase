@@ -6,13 +6,16 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock } = vi.hoisted(() => ({
-  myEffectsMock: vi.fn(),
-  conversationsMock: vi.fn(),
-  revokeMock: vi.fn(),
-  revokeConvMock: vi.fn(),
-  pushMock: vi.fn(),
-}))
+const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock, myConfirmationsMock, decideMock } =
+  vi.hoisted(() => ({
+    myEffectsMock: vi.fn(),
+    conversationsMock: vi.fn(),
+    revokeMock: vi.fn(),
+    revokeConvMock: vi.fn(),
+    pushMock: vi.fn(),
+    myConfirmationsMock: vi.fn(),
+    decideMock: vi.fn(),
+  }))
 
 vi.mock('@/api/aiTrace', () => ({
   aiTraceApi: {
@@ -20,6 +23,8 @@ vi.mock('@/api/aiTrace', () => ({
     conversations: conversationsMock,
     revokeEffect: revokeMock,
     revokeConversationEffects: revokeConvMock,
+    myConfirmations: myConfirmationsMock,
+    decideMyConfirmation: decideMock,
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
@@ -105,6 +110,8 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // 默认「无待确认」——未显式设置的用例不该因 GA 模块拿到 undefined 而炸
+  myConfirmationsMock.mockResolvedValue([])
 })
 
 describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
@@ -182,6 +189,68 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
     const openBtn = wrapper.findAll('button').find((b) => b.text().includes('打开轨迹'))!
     await openBtn.trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/workbench/ai-trace', query: { conv: 'conv-1' } })
+  })
+
+  // GA 待我确认中心（docs/ai-action-center.spec.md §5.4）
+  const confirmation = {
+    token: 'tok-1',
+    toolName: 'create_followup_task',
+    summary: '创建跟进任务：回访 Acme',
+    arguments: { customerId: 17 },
+    mode: 'immediate' as const,
+    riskLevel: 'R3',
+    status: 'pending' as const,
+    impact: { actions: 1, targets: [{ resultType: 'crm_task', count: 1 }] },
+    revokeClass: 'local_compensate',
+    run: null,
+    createdAt: '2026-09-18T02:15:00.000Z',
+    decidedAt: null,
+    expiresAt: '2026-09-19T02:15:00.000Z',
+  }
+
+  it('待确认：有待办时显示模块，批准 → 调离线裁决并刷新', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0 })
+    conversationsMock.mockResolvedValue([])
+    myConfirmationsMock.mockResolvedValue([confirmation])
+    decideMock.mockResolvedValue({ ok: true, success: true })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('待我确认')
+    expect(wrapper.text()).toContain('创建跟进任务：回访 Acme')
+    const approve = wrapper.findAll('button').find((b) => b.text().includes('批准'))
+    expect(approve).toBeTruthy()
+    await approve!.trigger('click')
+    await flushPromises()
+    expect(decideMock).toHaveBeenCalledWith('tok-1', 'approve')
+  })
+
+  it('待确认：无待办时不占版面', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0 })
+    conversationsMock.mockResolvedValue([])
+    myConfirmationsMock.mockResolvedValue([])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('待我确认')
+  })
+
+  it('待确认：run / R4 不在本页裁决——给去处提示而非假按钮', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0 })
+    conversationsMock.mockResolvedValue([])
+    myConfirmationsMock.mockResolvedValue([
+      { ...confirmation, token: 'tok-run', mode: 'run' },
+      { ...confirmation, token: 'tok-r4', mode: 'approval' },
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('请在对话中处理')
+    expect(wrapper.text()).toContain('等待审批人处理')
+    expect(wrapper.findAll('button').filter((b) => b.text().includes('批准'))).toHaveLength(0)
   })
 
   it('KB-6: governed_external 撤销后 → 显示「外部撤销中」+ 补偿提示，禁显示「已撤销」且无撤销钮', async () => {

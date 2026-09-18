@@ -157,3 +157,24 @@ export interface BatchRevokeResult {
   failed: number
   results: BatchRevokeItem[]
 }
+
+/**
+ * GA 待我确认中心：本人确认记录（wire 契约 my-confirmation-item v1）。
+ * `mode`：immediate = R3 本人即时确认（本页可裁决）/ approval = R4 待他人审批 / run = 一次授权整批。
+ * `expiresAt`：离线待办窗口截止（仅 pending 项有）；过了就该行转 timeout。
+ */
+export interface MyConfirmationItem {
+  token: string
+  toolName: string
+  summary: string | null
+  arguments: Record<string, unknown>
+  mode: 'immediate' | 'approval' | 'run'
+  riskLevel: string
+  status: 'pending' | 'approved' | 'declined' | 'timeout'
+  impact: { actions: number; targets: Array<{ resultType: string; count: number }> } | null
+  revokeClass: string | null
+  run: { runId: string; riskLevel: string; items: Array<{ toolName: string; summary: string }> } | null
+  createdAt: string
+  decidedAt: string | null
+  expiresAt?: string
+}

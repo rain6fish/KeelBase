@@ -3,6 +3,67 @@
   <div>
     <PageHeader :title="t('aiCenterTitle')" :subtitle="t('aiCenterDesc')" />
 
+    <!-- GA 第三模块：待我确认（R3 确认的对话外裁决入口，docs/ai-action-center.spec.md §5.4）
+         仅在有待办时出现——没有待确认就不占版面。 -->
+    <el-card v-if="confirmations.length > 0" shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex justify-space-between align-center">
+          <div class="d-flex align-center ga-2">
+            <span class="font-weight-medium">{{ t('aiCenterConfirmTitle') }}</span>
+            <el-tag size="small" type="warning" effect="plain">
+              {{ t('aiCenterConfirmPending', { n: confirmations.length }) }}
+            </el-tag>
+          </div>
+          <el-button plain size="small" :loading="confirmationsLoading" @click="loadConfirmations">
+            <template #icon><AppIcon icon="mdi-refresh" /></template>
+            {{ t('refresh') }}
+          </el-button>
+        </div>
+      </template>
+
+      <div v-for="c in confirmations" :key="c.token" class="effect-row">
+        <div class="d-flex justify-space-between align-start ga-3">
+          <div class="flex-grow-1">
+            <div class="d-flex align-center ga-2 flex-wrap">
+              <span class="font-weight-medium">{{ labelOf(c.toolName) }}</span>
+              <el-tag v-if="c.impact" size="small" effect="plain">
+                {{ t('aiCenterConfirmImpact', { n: c.impact.actions }) }}
+              </el-tag>
+            </div>
+            <div class="text-body-2 mt-1">{{ c.summary }}</div>
+            <div class="text-caption text-medium-emphasis mt-1">
+              {{ formatTime(c.createdAt) }}
+              <template v-if="c.expiresAt"> · {{ t('aiCenterConfirmExpires', { at: formatTime(c.expiresAt) }) }}</template>
+            </div>
+          </div>
+          <div v-if="c.mode === 'immediate'" class="d-flex ga-2">
+            <el-button
+              size="small"
+              type="primary"
+              :loading="decidingToken === c.token"
+              :disabled="decidingToken !== null"
+              @click="onDecide(c, 'approve')"
+            >
+              {{ t('aiCenterConfirmApprove') }}
+            </el-button>
+            <el-button
+              size="small"
+              plain
+              :loading="decidingToken === c.token"
+              :disabled="decidingToken !== null"
+              @click="onDecide(c, 'decline')"
+            >
+              {{ t('aiCenterConfirmDecline') }}
+            </el-button>
+          </div>
+          <!-- run 整批 / R4 待他人审批：不在本页裁决，如实说明去处，不给假按钮 -->
+          <div v-else class="text-caption text-medium-emphasis">
+            {{ c.mode === 'run' ? t('aiCenterConfirmRunHint') : t('aiCenterConfirmApprovalHint') }}
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 主模块：AI 写操作（副作用锚：状态 → 撤销 → 证据） -->
     <el-card shadow="never" class="mb-4">
       <template #header>
@@ -144,7 +205,7 @@ import { useSnackbarStore } from '@/stores/snackbar'
 import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
 import { toolLabel } from '@/utils/toolLabel'
-import type { ConversationSummary, MyAiEffect } from '@/types/workbench'
+import type { ConversationSummary, MyAiEffect, MyConfirmationItem } from '@/types/workbench'
 
 const { t, tm } = useI18n()
 const snackbar = useSnackbarStore()
@@ -159,6 +220,11 @@ const loadError = ref('')
 
 const conversations = ref<ConversationSummary[]>([])
 const convLoading = ref(false)
+
+// GA 待我确认中心：本人待裁决的确认（对话外裁决入口；只取 pending）
+const confirmations = ref<MyConfirmationItem[]>([])
+const confirmationsLoading = ref(false)
+const decidingToken = ref<string | null>(null)
 
 const revokingId = ref<number | null>(null)
 const showRevoke = ref(false)
@@ -296,9 +362,44 @@ function convTitle(c: ConversationSummary): string {
   return t('conversation') + (c.id.length > 10 ? ` ${c.id.slice(0, 10)}…` : c.id)
 }
 
+/**
+ * GA：加载本人待确认的写操作（只取 pending——本模块定位是「待我处理」，不是确认历史）。
+ * 失败不弹错：该模块是辅助信息，主模块（AI 写操作）不应因它红掉。
+ */
+async function loadConfirmations() {
+  confirmationsLoading.value = true
+  try {
+    confirmations.value = await aiTraceApi.myConfirmations('pending')
+  } catch {
+    confirmations.value = []
+  } finally {
+    confirmationsLoading.value = false
+  }
+}
+
+/**
+ * GA：**对话外裁决**（离线裁决）。批准后服务端会真正执行该写操作，
+ * 因此随后一并刷新副作用列表——让刚批准的那条立刻出现在主模块里。
+ * 服务端以条件更新把关幂等：重复点击 / 与对话内并发都只会执行一次。
+ */
+async function onDecide(c: MyConfirmationItem, decision: 'approve' | 'decline') {
+  decidingToken.value = c.token
+  try {
+    await aiTraceApi.decideMyConfirmation(c.token, decision)
+    snackbar.success(t(decision === 'approve' ? 'aiCenterConfirmApproved' : 'aiCenterConfirmDeclined'))
+    await Promise.all([loadConfirmations(), loadEffects()])
+  } catch {
+    snackbar.error(t('aiCenterConfirmFailed'))
+    await loadConfirmations()
+  } finally {
+    decidingToken.value = null
+  }
+}
+
 onMounted(() => {
   void loadEffects()
   void loadConversations()
+  void loadConfirmations()
 })
 </script>
 

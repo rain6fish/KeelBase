@@ -11,6 +11,7 @@ import { Event } from '../events/event.entity';
 import { Todo } from '../todos/todo.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -61,6 +62,14 @@ describe('MaintenanceTasksService', () => {
         { provide: getRepositoryToken(Notification), useValue: notificationsRepo },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(30) } },
+        // GA：离线窗口到期的确认清理要它；本文件只测其余维护任务，故给最小替身
+        {
+          provide: ConfirmationStore,
+          useValue: {
+            offlineTtlMs: jest.fn().mockResolvedValue(86_400_000),
+            expireStale: jest.fn().mockResolvedValue(0),
+          },
+        },
       ],
     }).compile();
 

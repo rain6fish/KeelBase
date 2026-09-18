@@ -53,6 +53,8 @@ describe('AiController', () => {
       resolve: mockConfirmResolve,
       create: jest.fn(),
     } as any;
+    // GA 待我确认中心：本人确认记录与离线裁决（本文件聚焦既有端点，故给最小替身）
+    const mockMyConfirmationService = { list: jest.fn().mockResolvedValue([]), decide: jest.fn() } as any;
     const mockMemoriesService = { deleteAllForUser: mockDeleteAllForUser } as any;
     const mockToolEffectsService = {
       list: mockListToolEffects,
@@ -65,6 +67,7 @@ describe('AiController', () => {
       mockAiService,
       mockConversationService,
       mockConfirmationStore,
+      mockMyConfirmationService,
       mockMemoriesService,
       mockToolEffectsService,
       mockDecisionTraceService,

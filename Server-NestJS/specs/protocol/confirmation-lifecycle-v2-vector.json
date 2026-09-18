@@ -1,0 +1,29 @@
+{
+  "vectorVersion": "v2",
+  "protocol": "ai-governance-protocol — 确认生命周期（confirmation lifecycle）",
+  "license": "Apache-2.0",
+  "note": "确认（R3/R4 写操作）生命周期的跨 Runtime 冻结语义：状态集 / 决策集 / 允许迁移 / 守卫 / 双窗口 TTL。实现侧单一源 = src/ai/confirmation/confirmation.store.ts（CONFIRMATION_STATUS / CONFIRMATION_OUTCOME / CONFIRMATION_DEFAULT_TTL_MS / CONFIRMATION_DEFAULT_OFFLINE_TTL_MS），由 confirmation.store.spec 绑定；状态落 ai_confirmation_requests.status，对话内决策经 SSE confirmation_decision（outcome）。\n\n**v2 变更（GA 待我确认中心，2026-09-18）——状态集不变，只把「一个 TTL」拆成「两个窗口」**：\n- v1 把「SSE 等待窗口」与「DB 行存活期」绑成同一个 60s：超时即把行转 timeout，于是**用户离开对话后该确认就永久不可处理**，且服务重启后 DB 里 status=pending 的行也裁不了（resolve 只认内存）。\n- v2 拆开：**对话内等待**（waitTtl，默认 60s，超时仅结束等待、行保持 pending）与**离线待办**（offlineTtl，默认 86400s，到期才转 timeout）。用户因而可在对话之外、由本人继续裁决（Action Center「待我确认」）。\n- 这**不新增状态值**（复用既有终态 timeout），故 v2 是语义扩展而非状态机重定义；v1 冻结文本保留在 confirmation-lifecycle-v1-vector.json。\n- v1 的 `ttl_elapsed` 在 v2 中一分为二：`wait_ttl_elapsed`（不改状态）与 `offline_ttl_elapsed`（转 timeout）。",
+  "states": ["pending", "approved", "declined", "timeout"],
+  "outcomes": ["approve", "decline", "timeout"],
+  "initialState": "pending",
+  "terminalStates": ["approved", "declined", "timeout"],
+  "transitions": [
+    { "from": "pending", "event": "approve", "by": "owner", "via": "in_band", "to": "approved" },
+    { "from": "pending", "event": "decline", "by": "owner", "via": "in_band", "to": "declined" },
+    { "from": "pending", "event": "approve", "by": "owner", "via": "out_of_band", "to": "approved" },
+    { "from": "pending", "event": "decline", "by": "owner", "via": "out_of_band", "to": "declined" },
+    { "from": "pending", "event": "wait_ttl_elapsed", "by": "system", "to": "pending" },
+    { "from": "pending", "event": "offline_ttl_elapsed", "by": "system", "to": "timeout" }
+  ],
+  "guards": {
+    "resolveByNonOwner": "ignored_no_transition",
+    "resolveUnknownToken": "ignored_no_transition",
+    "decideOutOfBandByNonOwner": "rejected_no_transition",
+    "decideOutOfBandWhenNotPending": "no_op_idempotent",
+    "decideOutOfBandExpired": "rejected_no_transition",
+    "declineAlias": ["reject"],
+    "note": "非 owner / 未知 token 的 resolve 不改变状态（pending 保留，可被本人继续确认）；`reject` 为 v1 遗留词，服务端归一为 decline。**out-of-band（离线）裁决**：只有 operator 本人可裁（他人 → 拒绝且不改状态）；行已非 pending（并发/重复裁决）→ **幂等空操作**，绝不二次执行工具；行已超 offlineTtl → 拒绝且不改状态（该行随后由清理任务转 timeout）。out-of-band 与 in-band 走**同一条** approve/decline 迁移，只是 `via` 不同——状态机不为「在哪儿点的」分叉。"
+  },
+  "defaultTtlSeconds": 60,
+  "defaultOfflineTtlSeconds": 86400
+}

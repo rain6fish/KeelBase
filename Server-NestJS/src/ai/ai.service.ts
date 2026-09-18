@@ -25,13 +25,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { PlanExecuteAgent } from './agents/plan-execute-agent.service';
 import { RagAgent } from './agents/rag-agent.service';
 import { MemoriesService } from './memory/memory.service';
-import {
-  ConfirmationStore,
-  ConfirmationOutcome,
-  CONFIRMATION_STATUS,
-  CONFIRMATION_DEFAULT_OFFLINE_TTL_MS,
-  RunItem,
-} from './confirmation/confirmation.store';
+import { ConfirmationStore, ConfirmationOutcome, RunItem } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import {
@@ -115,27 +109,6 @@ export interface AiServiceConfig {
   defaultProvider: string;
   defaultModel: string;
   systemPrompt: string;
-}
-
-/**
- * GA 待我确认中心：**本人**确认记录（wire 契约 specs/protocol/schemas/v1/my-confirmation-item.schema.json）。
- * `status` 取值来自 confirmation-lifecycle v2 的 states；`mode` 对齐 confirmation-request v3 的同一枚举。
- * `expiresAt` 仅 pending 项有——离线窗口截止，过了就由维护任务转 timeout。
- */
-export interface MyConfirmationItem {
-  token: string;
-  toolName: string;
-  summary: string | null;
-  arguments: Record<string, unknown>;
-  mode: 'immediate' | 'approval' | 'run';
-  riskLevel: string;
-  status: 'pending' | 'approved' | 'declined' | 'timeout';
-  impact: ConfirmationImpact | null;
-  revokeClass: RevokeClass | null;
-  run: { runId: string; riskLevel: string; items: RunItem[] } | null;
-  createdAt: string;
-  decidedAt: string | null;
-  expiresAt?: string;
 }
 
 /** B 路径：外部写无目标 id 时，用稳定 hash 作为副作用 resultId（正整数，48bit，可回溯同参数调用） */
@@ -679,7 +652,7 @@ export class AiService {
     await this.approvalsRepo.save(req);
 
     if (decision === 'approve') {
-      const result = await this._executeApprovedTool(req);
+      const result = await this.executeApprovedTool(req);
       return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
     }
     return { ok: true, success: false };
@@ -689,7 +662,7 @@ export class AiService {
    * 裁决通过后以 operator 维度执行工具：复用写工具执行（幂等 + 副作用登记）+ 审计。
    * `outcomeNote` 记录**谁在哪儿批的**（R4 审批人 / R3 离线裁决），进 `tool_call` 审计行便于追溯。
    */
-  private async _executeApprovedTool(req: AiConfirmationRequest, outcomeNote?: string): Promise<ToolResult> {
+  async executeApprovedTool(req: AiConfirmationRequest, outcomeNote?: string): Promise<ToolResult> {
     let args: Record<string, unknown> = {};
     try {
       args = JSON.parse(req.args || '{}');
@@ -719,70 +692,19 @@ export class AiService {
     return result;
   }
 
-  // ───────────────── GA 待我确认中心（docs/ai-action-center.spec.md §9）─────────────────
-
   /**
-   * **本人**的确认记录（GA「待我确认」）。数据源是与 R4 共用的 `ai_confirmation_requests`，
-   * 按 `operatorId` 收束——本人只看自己发起的确认，不看别人的。
-   *
-   * `pending` 且**已超离线窗口**的行不返回：判据与 `expireStale` 一致，避免出现
-   * 「窗口已过却还显示待确认、点下去必然失败」。
-   * 离线窗口值取自 ConfirmationStore（单源，与裁决 / 清理任务同一个）。
+   * GA 待我确认中心（docs/ai-action-center.spec.md §9）：把一条确认存储行还原成**人读**信息
+   * （摘要 / 影响预览 / 撤销档 / 展示模式）。这些知识都长在本类里（writeToolSummary / _writeImpact /
+   * _revokeClass 均为 private），故由本类对外提供单一真源，而不让调用方各拼一份；
+   * 列表与离线裁决的编排本身在 MyConfirmationService，不在这里。
    */
-  async listMyConfirmations(
-    userId: string,
-    opts: { status?: 'pending' | 'approved' | 'declined' | 'timeout'; limit?: number } = {},
-  ): Promise<MyConfirmationItem[]> {
-    if (!this.approvalsRepo) return [];
-    const offlineTtlMs = await this.confirmationStore.offlineTtlMs();
-    const rows = await this.approvalsRepo.find({
-      where: opts.status ? { operatorId: userId, status: opts.status } : { operatorId: userId },
-      order: { createdAt: 'DESC' },
-      take: opts.limit ?? 50,
-    });
-    const cutoff = Date.now() - offlineTtlMs;
-    return rows
-      .filter((r) => r.status !== CONFIRMATION_STATUS.PENDING || (r.createdAt?.getTime() ?? 0) >= cutoff)
-      .map((r) => this._toMyConfirmationItem(r, offlineTtlMs));
-  }
-
-  /**
-   * 离线裁决（GA；confirmation-lifecycle v2 的 `via: out_of_band`）：用户在对话之外从 Action Center
-   * 处理自己发起的确认。
-   *
-   * **安全热路径，三条硬约束**：
-   * 1. **仲裁在 DB**——由 `ConfirmationStore.decideOutOfBand` 条件更新；`already_decided` 一律不执行工具，
-   *    重复点击与「对话内同时点了」都不会二次执行。
-   * 2. **只收本人单条 R3**——R4 是「待他人审批」（本人无权批，与 decideApproval 的 cannot-self-approve 同源），
-   *    run 是整批授权（离开对话上下文无法完整回放），两者都拒绝。
-   * 3. **执行复用同一条写管道**（`_executeApprovedTool` → `_executeWriteTool`）：门控复查 + 幂等 + 副作用登记。
-   */
-  async decideMyConfirmation(
-    token: string,
-    userId: string,
-    decision: 'approve' | 'decline' | 'reject',
-  ): Promise<{ ok: boolean; message?: string; success?: boolean; resultId?: unknown }> {
-    if (!this.approvalsRepo) return { ok: false, message: 'not supported' };
-    const row = await this.approvalsRepo.findOne({ where: { token } });
-    // 越权与不存在同形（不泄露他人 token 是否存在）
-    if (!row || row.operatorId !== userId) return { ok: false, message: 'not found' };
-    if (row.kind === 'run') return { ok: false, message: 'run confirmation cannot be decided out of band' };
-    if (row.riskLevel !== 'R3') return { ok: false, message: 'only own R3 confirmations can be decided out of band' };
-
-    const res = await this.confirmationStore.decideOutOfBand(token, userId, decision);
-    if (!res.ok) {
-      return { ok: false, message: res.reason === 'already_decided' ? 'already decided' : 'not found' };
-    }
-    // 走到这里 = 本次抢到了 pending→terminal 的转换，故至多执行一次
-    if (decision === 'approve') {
-      const result = await this._executeApprovedTool(row, 'R3 approved out-of-band via Action Center');
-      return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
-    }
-    return { ok: true, success: false };
-  }
-
-  /** 存储行 → 本人视图（wire 契约 specs/protocol/schemas/v1/my-confirmation-item.schema.json）。 */
-  private _toMyConfirmationItem(row: AiConfirmationRequest, offlineTtlMs: number): MyConfirmationItem {
+  describeConfirmation(row: AiConfirmationRequest): {
+    summary: string | null;
+    impact: ConfirmationImpact | null;
+    revokeClass: RevokeClass | null;
+    mode: 'immediate' | 'approval' | 'run';
+    run: { runId: string; riskLevel: string; items: RunItem[] } | null;
+  } {
     let args: Record<string, unknown> = {};
     try {
       args = row.args ? (JSON.parse(row.args) as Record<string, unknown>) : {};
@@ -790,30 +712,18 @@ export class AiService {
       args = {};
     }
     const runItems = row.kind === 'run' ? this._parseRunItems(row.runItems) : null;
-    const mode: MyConfirmationItem['mode'] =
+    const mode: 'immediate' | 'approval' | 'run' =
       row.kind === 'run' ? 'run' : row.riskLevel === 'R4' ? 'approval' : 'immediate';
     const toolNames = mode === 'run' ? (runItems ?? []).map((i) => i.toolName) : [row.toolName];
-    const impact = toolNames.length ? this._writeImpact(toolNames) : null;
-    const createdAt = row.createdAt ?? new Date();
     return {
-      token: row.token,
-      toolName: row.toolName,
       summary:
         mode === 'run'
           ? `一次授权整批（${(runItems ?? []).length} 个动作）`
           : this.writeToolSummary(row.toolName, args),
-      arguments: args,
-      mode,
-      riskLevel: row.riskLevel,
-      status: row.status as MyConfirmationItem['status'],
-      impact: impact ?? null,
+      impact: toolNames.length ? this._writeImpact(toolNames) : null,
       revokeClass: this._revokeClass(row.toolName) ?? null,
+      mode,
       run: runItems ? { runId: row.token, riskLevel: row.riskLevel, items: runItems } : null,
-      createdAt: createdAt.toISOString(),
-      decidedAt: row.decidedAt ? row.decidedAt.toISOString() : null,
-      ...(row.status === CONFIRMATION_STATUS.PENDING
-        ? { expiresAt: new Date(createdAt.getTime() + offlineTtlMs).toISOString() }
-        : {}),
     };
   }
 
@@ -1772,9 +1682,6 @@ export class AiService {
               // （spec §2.5：approve 整批逐条执行、decline 整批跳过；run 级 decision 关卡已由预扫描先行发出）
               let outcome: 'approve' | 'decline' | 'timeout';
               let trustTool: boolean | undefined;
-              // GA 离线裁决：该决策若来自 Action Center（out_of_band），执行已在那边完成——
-              // 这里只告知用户，**绝不**再执行一次（confirmation-lifecycle v2）。
-              let outOfBand = false;
               if (runState?.idxSet.has(idx)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
               } else {
@@ -1815,7 +1722,7 @@ export class AiService {
                     ),
                   },
                 };
-                ({ outcome, trustTool, outOfBand = false } = await decision);
+                ({ outcome, trustTool } = await decision);
               }
               // HS-6：用户勾选「本会话信任此工具」→ 后续免确认
             if (trustTool && outcome === 'approve') {

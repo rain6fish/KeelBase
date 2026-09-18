@@ -67,6 +67,7 @@ import { MemoriesService } from './memory/memory.service';
 import { UserMemory } from './memory/user-memory.entity';
 import { User } from '../common/entities/user.entity';
 import { ConfirmationStore } from './confirmation/confirmation.store';
+import { MyConfirmationService } from './confirmation/my-confirmation.service';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { KnowledgeIngestionService } from './rag/knowledge-ingestion.service';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
@@ -165,6 +166,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     KnowledgeIngestionService,
     MemoriesService,
     ConfirmationStore,
+    MyConfirmationService,
     AiEvalService,
     SecurityShowcaseService,
     AiToolEffectsService,
@@ -408,6 +410,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore],
 })
 export class AiModule {}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "my-confirmation-item.schema.json",
+  "title": "My Confirmation Item（本人确认记录）— v1",
+  "description": "Action Center「待我确认」列表项（GA，docs/ai-action-center.spec.md §9）：**本人**视角的一条确认记录——包含仍待裁决的（status=pending）与已决策/已超时的历史。数据源是 ai_confirmation_requests 表（R3 与 R4 共用），本对象是**已决策的读侧视图**，与 SSE 推送的 confirmation-request（v3，事件载荷）是同一事实的两种呈现：前者含 status/decidedAt 与离线窗口 expiresAt，后者含 authorization/impact 等发起时上下文。\n\n`mode` 与 status 语义对齐既有冻结：mode 取自 confirmation-request v3 的同一枚举（immediate=R3 单条即时 / approval=R4 双人 / run=一次授权整批）；status 取自 confirmation-lifecycle v2 的 states。\n\n**离线窗口**：`expiresAt = createdAt + offlineTtl`（默认 86400s，Settings `confirmation_offline_ttl_seconds` 可配）。到期后该行转终态 timeout，**不可再裁决**——列表不返回已超期的 pending 项。\n\n`impact` / `revokeClass` / `run` 为可选上下文，形状分别对齐 confirmation-request v3 的同名 definitions（此处不跨文件 $ref：仓库内同名 schema 存在多个版本目录，$id 相同会造成解析歧义，与本目录既有规避一致）。",
+  "type": "object",
+  "required": ["token", "toolName", "mode", "status", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "description": "确认请求标识（与 confirmation-request v3 同一 token；离线裁决也用它）。",
+      "type": "string",
+      "minLength": 8
+    },
+    "toolName": { "type": "string" },
+    "summary": {
+      "description": "人读摘要（\"创建事件：产品评审…\"）；无摘要的动作降级为 null（§run-level 诚实降级口径）。",
+      "type": ["string", "null"]
+    },
+    "arguments": {
+      "description": "工具参数对象（由存储行的 args JSON 解析还原）。",
+      "type": "object"
+    },
+    "mode": { "enum": ["immediate", "approval", "run"] },
+    "riskLevel": { "type": "string" },
+    "status": {
+      "description": "对齐 confirmation-lifecycle v2 的状态集（pending 可裁决；其余为终态）。",
+      "enum": ["pending", "approved", "declined", "timeout"]
+    },
+    "impact": {
+      "description": "影响预览（将改 N 行 / 涉及 M 对象），形状同 confirmation-request v3 definitions.impact；不适用时为 null。",
+      "type": ["object", "null"]
+    },
+    "revokeClass": {
+      "description": "撤销档位（KB-6 单源 resolveRevokeClass），取值域同 confirmation-request v3 definitions.revokeClass；不适用时为 null。",
+      "type": ["string", "null"],
+      "enum": ["none", "local_compensate", "governed_external", "transactional", null]
+    },
+    "run": {
+      "description": "run 批量确认的批内动作快照，形状同 confirmation-request v3 properties.run；单条为 null。",
+      "type": ["object", "null"]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "decidedAt": {
+      "description": "决策时刻；pending 为 null。",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "description": "离线窗口截止 = createdAt + offlineTtl；仅 pending 项有此值（终态可省略）。",
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

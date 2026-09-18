@@ -47,6 +47,7 @@ This is the productized slice of the Trust North Star: the same backend evidence
 3. 状态归一（服务端算）：`executed | revoked`（revoked = 目标已软删 `targetSoftDeleted=true`）。
 4. 前端 4 处注册（路由 / 工作台侧边栏 / zh+en i18n / 主页快捷入口卡）。
 5. 文档与测试：单测 + e2e + typecheck + vitest + 手工演示脚本。
+6. **GA「待我确认」第三模块**（2026-09-18）：本人确认记录列表 + **对话外裁决**（见 §5.4）。R3 确认自 D2-1e 起即落库，本模块补齐「本人查询」与「离线裁决」两条通路；**对话内确认路径一行未改**。
 
 ### 2.2 Out（明确不做，防伪深化）/ 2.2 Out (explicitly not in scope)
 
@@ -132,6 +133,18 @@ This is the productized slice of the Trust North Star: the same backend evidence
 
 本列表的行主键 = `effectId`，证据下钻统一走 `resultType+resultId`（B4）。**前端只消费这三个键**——未来证据根（AUDIT-ID 跨链锚定、国密签名、Policy 版本）升级只动后端/导出格式，本页面零改动。实现后在新端点 spec 里登记此契约，供 §internal.17 ① 实现时遵守。
 
+### 5.4 `GET/POST /api/v1/ai/my/confirmations*`（本人，GA）/ 5.4 own confirmations (GA)
+
+把「有哪些 AI 写操作在等我确认」从对话内搬到工作台，并允许**离开对话之后**裁决。
+
+- `GET /api/v1/ai/my/confirmations?status=`——本人确认记录（`operatorId` 收束；`?status` 可选过滤）。返回项含 `status` / `decidedAt` / 离线窗口 `expiresAt`，形状见 wire 契约 **`my-confirmation-item` v1**。**已超离线窗口的 pending 不返回**（判据与维护任务一致，免得「显示待确认、点了必然失败」）。
+- `POST /api/v1/ai/my/confirmations/:token/decide`（body `{decision}`）——**离线裁决**。安全热路径，三条硬约束：
+  1. **仲裁在 DB**（`ConfirmationStore.decideOutOfBand` 条件更新）：重复点击、与对话内裁决并发，一律 `already_decided`，**绝不二次执行工具**；
+  2. **只收本人单条 R3**：R4 是「待他人审批」（本人无权批）、run 是整批授权（离开对话上下文无法完整回放），两者拒绝；
+  3. **执行复用同一条写管道**（`AiService.executeApprovedTool` → 底层写执行器）：门控复查 + 幂等 + 副作用登记一个不少；审计注记 `R3 approved out-of-band via Action Center`。
+- **两个窗口**（契约 `confirmation-lifecycle` **v2**）：对话内等待（默认 60s，超时只让对话不再等，**不改 DB**）+ 离线待办（Settings `confirmation_offline_ttl_seconds`，默认 24h，到期由维护任务转 `timeout`）。**状态集不变**——v2 拆的是窗口，不是状态机。
+- **如实记录的边界**：离线裁决**不触碰**对话内的等待。若那条对话仍开着，它会走到等待窗口超时并显示「超时未确认」，而操作其实已由本路径批准并执行。这样取舍的理由：替对话 resolve 等于给它一次执行机会（可能双执行）；两处显示的不一致由本注记明示，不掩盖。
+
 ---
 
 ## 6. 前端规格 / 6. Frontend Specification
@@ -168,7 +181,7 @@ This is the productized slice of the Trust North Star: the same backend evidence
 
 ## 9. 已知限制与后续 / 9. Known Limitations & Follow-ups
 
-- **待我确认中心**（post-freeze）：需先让 R3 确认事件落库可查 + 新增本人 pending 端点（安全热路径改造，单独立项）。届时 Action Center 增第三模块。
+~~**待我确认中心**（post-freeze）~~ → **✅ 已实现（2026-09-18，GA）**：见 §2.1 第 6 条与 §5.4。R3 确认自 D2-1e 起即落库，本次补齐本人查询与离线裁决两条通路。
 - **跨客户端 AI 导航**：工作台页面清单（Web）与 `navigate-page.tool.ts`（App）尚未统一；记为主仓已知 gap，不阻塞本 MVP（菜单可达）。
 - **恢复态边界**：副作用目标从回收站恢复后 `targetSoftDeleted=false` → chip 显示回「已执行」，与「恢复即回归生效」语义一致（沿用 A-3 状态机推导口径，不引入显式 status 列）。
 - **统计头卡**（近 7 天写操作 N/可撤销 M）：本版不做，若演示需要再补轻量 count 端点。

@@ -10,13 +10,21 @@
  * D2-1e 持久化：R3 确认请求同时落 ai_confirmation_requests 表（riskLevel=R3，status=pending）
  * ——服务器重启 pending 不丢、为独立治理控制平面的跨服务确认铺路（治理台裁决 → 业务系统回调）。
  * 内存 Map 保留用于「决策 Promise 的即时回调」（等待机制），DB 为持久化事实源。
+ *
+ * **GA 待我确认中心（2026-09-18，confirmation-lifecycle v2）：两个窗口**
+ * - **对话内等待**（`CONFIRMATION_DEFAULT_TTL_MS`，默认 60s）：到期只 resolve 内存 promise 让 SSE 继续，
+ *   **不改 DB**；用户在对话里点则走 `resolve`（条件更新裁决）。
+ * - **离线待办**（`CONFIRMATION_DEFAULT_OFFLINE_TTL_MS`，默认 24h）：行在窗口内保持 `pending`，
+ *   用户可离开对话后经 `decideOutOfBand` 裁决；到期由 `expireStale` 转 `timeout`。
+ * 两个窗口的**唯一仲裁点都是 DB 的条件更新**（`status='pending'`），因此并发/重复裁决不会二次执行工具。
  */
 
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
 
 export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout';
 
@@ -38,6 +46,14 @@ export const CONFIRMATION_OUTCOME = {
   TIMEOUT: 'timeout',
 } as const;
 export const CONFIRMATION_DEFAULT_TTL_MS = 60_000;
+
+/**
+ * 离线待办窗口（GA 待我确认中心，confirmation-lifecycle **v2** 的两个窗口）：
+ * 上面那条 TTL 只决定「对话内还要不要再等」（等不到就让 SSE 继续），**不再决定 DB 行的生死**——
+ * 行保持 `pending` 直到本窗口到期，用户可在 Action Center 稍后裁决（`decideOutOfBand`）。
+ * 到期由定时任务转 `timeout`（复用既有终态，不新增状态值）。
+ */
+export const CONFIRMATION_DEFAULT_OFFLINE_TTL_MS = 86_400_000;
 
 /** KB-5 run-level approval：run 批内单个动作（工具名 + 参数 + 人读摘要 + 自身风险级） */
 export interface RunItem {
@@ -75,8 +91,26 @@ export class ConfirmationStore {
     @InjectRepository(AiConfirmationRequest)
     private readonly reqRepo: Repository<AiConfirmationRequest>,
     @Optional() ttlMs?: number,
+    @Optional() private readonly settingsService?: SettingsService,
   ) {
     this.ttlMs = ttlMs ?? CONFIRMATION_DEFAULT_TTL_MS;
+  }
+
+  /**
+   * 离线待办窗口（毫秒）——**单源**：GA 的列表查询、离线裁决、超期清理任务都用这一个值，
+   * 免得三处各读一次 Settings 而漂移。取自 Settings `confirmation_offline_ttl_seconds`，
+   * 缺席 / 配错（非数、非正）时退回冻结语料默认值。
+   */
+  async offlineTtlMs(): Promise<number> {
+    const secs = this.settingsService
+      ? Number(
+          await this.settingsService.getWithDefault(
+            SETTING_KEYS.CONFIRMATION_OFFLINE_TTL,
+            CONFIRMATION_DEFAULT_OFFLINE_TTL_MS / 1000,
+          ),
+        )
+      : Number.NaN;
+    return Number.isFinite(secs) && secs > 0 ? secs * 1000 : CONFIRMATION_DEFAULT_OFFLINE_TTL_MS;
   }
 
   /**
@@ -166,18 +200,16 @@ export class ConfirmationStore {
       });
   }
 
-  /** TTL 定时器：超时自动 resolve('timeout') + 更新库状态（create / createRun 共用） */
+  /**
+   * 等待窗口定时器（create / createRun 共用）：到期只结束**对话内等待**（resolve 内存 promise），
+   * **不写 DB**——行的生死由离线窗口（offline TTL）决定，由 `expireStale` 定时转 timeout。
+   * 这是 confirmation-lifecycle v2 把 v1 的单个 `ttl_elapsed` 拆成两个窗口后的行为。
+   */
   private _setupTimer(token: string, ttlMs?: number): NodeJS.Timeout {
     const timer = setTimeout(() => {
       const pending = this.pending.get(token);
       if (pending) {
         this.pending.delete(token);
-        void this.reqRepo
-          .update(
-            { token, status: CONFIRMATION_STATUS.PENDING },
-            { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt: new Date() },
-          )
-          .catch(() => {});
         pending.resolve({ outcome: CONFIRMATION_OUTCOME.TIMEOUT });
       }
     }, ttlMs ?? this.ttlMs);
@@ -203,11 +235,11 @@ export class ConfirmationStore {
     if (!pending || pending.userId !== requestUserId) {
       return false;
     }
-    clearTimeout(pending.timer);
-    this.pending.delete(token);
-    await this.reqRepo
-      .update(
-        { token, status: CONFIRMATION_STATUS.PENDING },
+    // 条件更新是**唯一仲裁点**：affected=1 才由本次决策执行；离线裁决与对话内裁决并发时只有一方拿得到。
+    let affected: number | undefined;
+    try {
+      const res = await this.reqRepo.update(
+        { token, operatorId: requestUserId, status: CONFIRMATION_STATUS.PENDING },
         {
           status:
             outcome === CONFIRMATION_OUTCOME.APPROVE
@@ -215,15 +247,75 @@ export class ConfirmationStore {
               : CONFIRMATION_STATUS.DECLINED,
           decidedAt: new Date(),
         },
-      )
-      .catch((err) => {
-        console.error(`[ConfirmationStore] persist resolve failed: ${err.message}`);
-      });
+      );
+      affected = res?.affected;
+    } catch (err) {
+      // 落库失败不阻断对话内决策（沿用既有宽容语义）：内存态照常 resolve
+      console.error(`[ConfirmationStore] persist resolve failed: ${(err as Error).message}`);
+    }
+    // 只在**明确** 0 行命中时认定「已被并发裁决」——undefined 表示驱动没给该信息
+    // （真实 TypeORM 的 update 总是带 affected；此处对不放该字段的替身保持宽容）
+    if (affected === 0) {
+      return false;
+    }
+    clearTimeout(pending.timer);
+    this.pending.delete(token);
     pending.resolve({
       outcome,
       trustTool,
     });
     return true;
+  }
+
+  /**
+   * 离线裁决（GA 待我确认中心；confirmation-lifecycle v2 的 `via: out_of_band`）：
+   * 用户离开对话后、在离线窗口内从 Action Center 裁决。**只认 DB 行**（不依赖内存 Map），故服务重启后仍可用。
+   *
+   * 幂等守卫同样是条件更新：`status='pending'` 是唯一闸门——affected=0 一律返回
+   * `already_decided`，**调用方据此绝不执行工具**（重复点击 / 与对话内裁决并发都走这条）。
+   *
+   * **有意不触碰内存里的等待 promise**：若对话流仍在等同一个 token，让它自然走到等待窗口超时，
+   * 而不是替它 resolve 一个「来自别处」的决策。理由有二：① 对话流的执行分支只认 approve，
+   * 替它 resolve 等于给它一次执行机会 → 可能双执行；② 这样对话侧一行都不用改，接缝更小。
+   * 代价（如实记录）：那条对话会显示「超时未确认」，而操作其实已在 Action Center 里被批准并执行。
+   */
+  async decideOutOfBand(
+    token: string,
+    requestUserId: string,
+    decision: 'approve' | 'decline' | 'reject',
+  ): Promise<{ ok: boolean; reason?: 'not_found' | 'already_decided'; status?: string }> {
+    const nextStatus =
+      decision === CONFIRMATION_OUTCOME.APPROVE ? CONFIRMATION_STATUS.APPROVED : CONFIRMATION_STATUS.DECLINED;
+
+    const row = await this.reqRepo.findOne({ where: { token } });
+    // 越权与不存在同形返回（不泄露他人 token 是否存在）
+    if (!row || row.operatorId !== requestUserId) return { ok: false, reason: 'not_found' };
+
+    const res = await this.reqRepo.update(
+      { token, operatorId: requestUserId, status: CONFIRMATION_STATUS.PENDING },
+      { status: nextStatus, decidedAt: new Date() },
+    );
+    // 离线裁决是安全热路径：这里**必须**拿到明确的「命中 0 行」才认幂等，
+    // 拿不到 affected 说明底层没给出可判定的结果 —— 宁可拒绝，也不误执行。
+    if (!res || res.affected === undefined || res.affected === 0) {
+      return { ok: false, reason: 'already_decided', status: row.status };
+    }
+
+    // 有意不 resolve 内存里的等待 promise（见方法注释）——对话侧保持零改动，且不可能双执行
+    return { ok: true, status: nextStatus };
+  }
+
+  /**
+   * 离线窗口到期清理（由 maintenance 定时任务调用）：把创建时间早于 `now - offlineTtlMs` 且仍 `pending`
+   * 的行转 `timeout`（复用既有终态）。返回受影响行数（观测用）。
+   */
+  async expireStale(offlineTtlMs: number = CONFIRMATION_DEFAULT_OFFLINE_TTL_MS): Promise<number> {
+    const cutoff = new Date(Date.now() - offlineTtlMs);
+    const res = await this.reqRepo.update(
+      { status: CONFIRMATION_STATUS.PENDING, createdAt: LessThan(cutoff) },
+      { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt: new Date() },
+    );
+    return res?.affected ?? 0;
   }
 
   /** 当前待确认数量（测试/观测用） */
