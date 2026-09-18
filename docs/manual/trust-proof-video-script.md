@@ -1,7 +1,7 @@
 # Trust 证明包 · 60 秒演示视频分镜
 
 > 定位：给评审 / 集成商 / 社区一个 **60 秒看懂"普通 Agent 能回答，KeelBase 让 Agent 在真实企业系统里安全地做事"** 的演示视频。
-> 前置素材：后端已启动（demo provider + delete_customer R5 工具）；用 [verify-trust-proof.mjs](../../Server-NestJS/scripts/verify-trust-proof.mjs) 的六场景作为每一镜的实际操作脚本。
+> 前置素材：后端已启动（demo provider + delete_customer R5 工具）；用 [verify-trust-proof.mjs](../../Server-NestJS/scripts/verify-trust-proof.mjs) 的七场景作为每一镜的实际操作脚本。
 > 中文 · [English](trust-proof-video-script-en.md)
 
 ## 总览
@@ -54,7 +54,7 @@
 - **旁白（英）**：Everything AI does is traceable and reversible — you stay in control of your data.
 
 ### 镜 7 — 片尾（55-60s）
-- **画面**：六场景完成打勾列表（S1-S6）+ 一行字：存量系统也能接——Java 不动，AI Runtime 外挂。右下角 GitHub / 官网
+- **画面**：七场景完成打勾列表（S1-S7）+ 一行字：存量系统也能接——Java 不动，AI Runtime 外挂。右下角 GitHub / 官网
 - **旁白（中）**：开源、私有部署、存量系统也能接。KeelBase —— AI 进入真实业务系统时的 Business-safe AI Runtime。
 - **旁白（英）**：Open-source, private-deployable, works with your existing systems. KeelBase — the Business-safe AI Runtime for AI in real business systems.
 
