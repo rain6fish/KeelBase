@@ -245,3 +245,37 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   **大头就是那一个方法**。走这一步是因为门控是后两刀（执行 / R4）的前置，不是因为它显著缩小了这个类。
 - **下一刀候选**：执行域（`_executeWriteTool` / `_executeReadTool` / `_captureDecisionEvidence` / `_executeAgentReadTool` / `isProxyTool`，~186 行，依赖本刀的门控）
   → 再下 R4 审批域（~148 行）→ 呈现/摘要域（~152 行，自足）→ 工具清单+MCP（~201 行）→ **最后才轮到 chatImpl**。
+
+### 2026-09-19 — 阶段 3 第六刀：执行域下沉（ToolExecutionService）· **主战场第二刀**
+- ✅ 新建 `src/ai/tools/tool-execution.service.ts`：迁入**读工具**（内置/外部同源）、**写工具**（执行点门控复查 + 幂等
+  + 前后快照 + 副作用登记）、**plan/子代理只读执行器**、`isProxyTool` 判型与 `proxyResultId`。**行为逐字不变**。
+  与门控的分工写进文件头：门控判「能不能跑 / 要不要确认」，本服务只管「跑」——但写工具执行前仍复查门控，
+  因为发起与执行之间有等待窗口（R3 确认 / R4 审批），期间策略可变。
+- ✅ **接线后清掉两个真死依赖**：`toolEffectsService` 与 `snapshotCaptor` 在 `AiService` 内**只被 `_executeWriteTool` 使用**，
+  随执行域离开后成为死参数，一并删除（同第五刀清 `featureFlagsService` 的口径）。
+- ⚠️ **一处偏离上一刀的分组，如实记录**：`_captureDecisionEvidence` 未随执行域搬进服务，而是提为纯模块
+  `src/ai/audit/decision-evidence.ts`。理由：它**无 `this`、无依赖**，与 `ai-business-event.ts` 是同一类东西
+  （把一次工具调用的结果归一成审计行上的一个字段）；挂在执行服务上会让**审计行构造依赖执行服务**，方向反了。
+- ⚠️ **该函数此前没有直接测试**（`analyze_*` 只在 e2e 里被直接实例化过工具，没穿过本函数）→ 补 `decision-evidence.spec.ts`
+  三条护栏。**这不是纯搬迁，是新增测试**，必须写明；拆分纪律要求「行为不变有测试守」，无守护的搬迁等于没搬。
+- ✅ **漂移门再次 fail-loud**：`agent_read_only` 随只读执行器搬走后 `governance-binding.spec.ts` 变红，扫描面补上新文件即恢复
+  （与第五刀同一道闸、同一种"靠会红证明自己在工作"）。
+- ✅ spec 搬迁**不改断言**：6 条写工具用例（幂等 / resultType 推导 / FP-8 空体锚 / 无 effects 直执行 / 外部 MCP）
+  + 3 条 NC-3 只读门控用例整段迁入 `tool-execution.service.spec.ts`（只改调用形：`(aiService as any)._executeWriteTool` →
+  `toolExecution.executeWrite`）。`ai.service.spec` 保留穿 `chat()` 的用例，5 处按位置构造补参、4 处私有戳点重定向到新服务。
+  e2e 四处调用点（failure-path / golden-application / proxy-bridge ×2）改取 `app.get(ToolExecutionService)`。
+- **结果**：`ai.service.ts` **2370 → 2175 行**（−195）；新增两文件（217 + 23）。构造注入净 −1
+  （+执行服务 −2 死依赖），参数个数 **22 → 21**（同一口径实测 HEAD 与现在）。
+- **验证**：全量单测 **283 suite / 2644 tests 全过**（基线 281 suite / 2619 + 未计数的 scenarios-pack 22 = 2641，
+  本刀 +3 条决策证据护栏 = 2644，**逐项对得上、无用例丢失**）；e2e **34/35 suite、346 用例过**；三闸 + `protocol:vectors:check` 全绿；
+  `test:cov` 通过（全局 93.73/78.39/88.33/94.53，安全分档门控过；新文件 execution 85.29/64.7/75/84.84、
+  decision-evidence 100/88.88/100/100）。
+- ⚠️ **连带发现，本刀未修（不属本刀，且该线有并发会话在作业）**：`test/governance-plane.e2e-spec.ts` **红**——
+  `GovernanceModule` 把自己的 `AuditController` 装在模块里，却未提供 audit 三刀拆出的
+  `AuditStatsService` / `AuditQueryService` / `AuditEvidenceService`；Nest 在 `compile()` 即抛
+  UnknownDependenciesException。**不止测试**：治理台独立进程（`npm run start:governance`）走同一条装配，**启动即会失败**。
+  该缺口自第一刀（`8b9379d2`，audit 聚合域下沉）起就存在——`governance.module.ts` 最后修改是 2026-09-06，
+  本刀未动 governance 模块与 `audit.controller.ts`，故非本刀引入。**建议单列一笔修**（补三个 provider + 各自 repo 依赖）。
+- **下一刀候选**（变更驱动、不排期）：**R4 双人审批域**（`createR4ApprovalRequest` / `listPendingApprovals` /
+  `listDecidedApprovals` / `withUserNames` / `decideApproval` / `executeApprovedTool` / `describeConfirmation` / `_parseRunItems`，~148 行）
+  → 呈现/摘要域（~152 行，自足）→ 工具清单+MCP（~201 行）→ **最后才是 `chatImpl`（仍是最大的一块）**。
