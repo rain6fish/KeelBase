@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
+import { AuditEvidenceService } from './audit-evidence.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
@@ -21,6 +22,8 @@ export class AuditController {
     private readonly auditStats: AuditStatsService,
     // 查询域同理（同阶段 3 第二刀）：过滤与行映射独立于写入
     private readonly auditQuery: AuditQueryService,
+    // 证据/报表域（阶段 3 第三刀）：报表、证据包、解释、身份链与链校验——读侧举证能力
+    private readonly auditEvidence: AuditEvidenceService,
   ) {}
 
   @Get('logs')
@@ -56,21 +59,21 @@ export class AuditController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '§internal.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计（管理员）' })
   interpretation(@Param('id', ParseIntPipe) id: number) {
-    return this.auditService.getInterpretation(id);
+    return this.auditEvidence.getInterpretation(id);
   }
 
   @Get('logs/:id/chain')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '§internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员）' })
   chain(@Param('id', ParseIntPipe) id: number) {
-    return this.auditService.getChain(id);
+    return this.auditEvidence.getChain(id);
   }
 
   @Get('verify')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员）' })
   verify() {
-    return this.auditService.verifyChain();
+    return this.auditEvidence.verifyChain();
   }
 
   @Get('stats')
@@ -102,7 +105,7 @@ export class AuditController {
     @Query('since') since?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.auditService.getActionReport({
+    return this.auditEvidence.getActionReport({
       userId: userId ? String(Number(userId)) : undefined,
       since: since ? new Date(since) : undefined,
       limit: limit ? Number(limit) : 10,
@@ -120,7 +123,7 @@ export class AuditController {
     @Query('since') since?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.auditService.getActionReportExport({
+    return this.auditEvidence.getActionReportExport({
       userId: userId ? String(Number(userId)) : undefined,
       since: since ? new Date(since) : undefined,
       limit: limit ? Number(limit) : 10,

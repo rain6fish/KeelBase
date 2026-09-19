@@ -4,27 +4,36 @@ import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
+import { AuditEvidenceService } from './audit-evidence.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 
 describe('AuditController', () => {
   let controller: AuditController;
   let auditStats: Record<string, jest.Mock>;
   let auditQuery: Record<string, jest.Mock>;
+  let auditEvidence: Record<string, jest.Mock>;
   let auditService: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
 
   beforeEach(() => {
-    auditService = Object.fromEntries(
-      ['verifyChain', 'getActionReport'].map((m) => [m, jest.fn()]),
+    // 证据/报表域已拆到 AuditEvidenceService（阶段 3 第三刀）
+    auditEvidence = Object.fromEntries(
+      ['verifyChain', 'getActionReport', 'getActionReportExport', 'getChain', 'getInterpretation'].map((m) => [m, jest.fn()]),
     );
+    auditService = Object.fromEntries([].map((m: string) => [m, jest.fn()]));
     // 查询域已拆到 AuditQueryService（阶段 3 第二刀）
     auditQuery = Object.fromEntries(
       ['getLogs', 'getUserLogs', 'submitFeedback'].map((m) => [m, jest.fn()]),
     );
     // 聚合统计已拆到 AuditStatsService（阶段 3）——controller 现在分别委托两个服务
     auditStats = Object.fromEntries(['getStats', 'getAllStats', 'getCostBreakdown'].map((m) => [m, jest.fn()]));
-    controller = new AuditController(auditService as unknown as AuditService, auditStats as unknown as AuditStatsService, auditQuery as unknown as AuditQueryService);
+    controller = new AuditController(
+      auditService as unknown as AuditService,
+      auditStats as unknown as AuditStatsService,
+      auditQuery as unknown as AuditQueryService,
+      auditEvidence as unknown as AuditEvidenceService,
+    );
   });
 
   it('日志列表委托 service（无 userId 走全量）', () => {
@@ -61,9 +70,9 @@ describe('AuditController', () => {
   });
 
   it('哈希链校验委托 service', () => {
-    auditService.verifyChain.mockReturnValue({ valid: true });
+    auditEvidence.verifyChain.mockReturnValue({ valid: true });
     expect(controller.verify()).toEqual({ valid: true });
-    expect(auditService.verifyChain).toHaveBeenCalled();
+    expect(auditEvidence.verifyChain).toHaveBeenCalled();
   });
 
   it('统计/成本委托 service（since 解析）', () => {
@@ -89,10 +98,10 @@ describe('AuditController', () => {
   });
 
   it('Action Report 委托 service（userId/since/limit 解析）', () => {
-    auditService.getActionReport.mockReturnValue({ summary: {}, byDay: [], samples: [] });
+    auditEvidence.getActionReport.mockReturnValue({ summary: {}, byDay: [], samples: [] });
 
     expect(controller.getActionReport('42', '2026-08-01', '20')).toEqual({ summary: {}, byDay: [], samples: [] });
-    expect(auditService.getActionReport).toHaveBeenCalledWith({
+    expect(auditEvidence.getActionReport).toHaveBeenCalledWith({
       userId: '42',
       since: expect.any(Date),
       limit: 20,
@@ -100,11 +109,11 @@ describe('AuditController', () => {
   });
 
   it('Action Report 缺省参数 → userId/since undefined、limit 默认 10', () => {
-    auditService.getActionReport.mockReturnValue({});
+    auditEvidence.getActionReport.mockReturnValue({});
 
     controller.getActionReport();
 
-    expect(auditService.getActionReport).toHaveBeenCalledWith({ userId: undefined, since: undefined, limit: 10 });
+    expect(auditEvidence.getActionReport).toHaveBeenCalledWith({ userId: undefined, since: undefined, limit: 10 });
   });
 
   it('所有管理端点均声明 manage-all 策略（CASL 拒绝非管理员）', () => {

@@ -31,6 +31,7 @@ import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MyConfirmationService } from './confirmation/my-confirmation.service';
+import { AuditEvidenceService } from './audit/audit-evidence.service';
 import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
@@ -67,6 +68,8 @@ export class AiController {
     private readonly businessHistoryService: BusinessHistoryService,
     private readonly trustSandbox: TrustSandboxService,
     private readonly auditService: AuditService,
+    // 证据根装配（阶段 3 第三刀：证据/报表域已独立）
+    private readonly auditEvidence: AuditEvidenceService,
   ) {}
 
   /**
@@ -486,7 +489,7 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    return this.auditService.getEvidenceRoot(resultType, resultId, String(user.sub), ability.can('manage', 'all'));
+    return this.auditEvidence.getEvidenceRoot(resultType, resultId, String(user.sub), ability.can('manage', 'all'));
   }
 
   /**

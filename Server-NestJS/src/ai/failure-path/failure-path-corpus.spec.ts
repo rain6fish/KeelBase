@@ -239,7 +239,6 @@ describe('失败路径语料（KB-4 / FP）', () => {
       const svc = new AuditService(
         logRepo as any,
         usageRepo as any,
-        effectsRepo as any,
         auditChain as any,
         dataSource as any,
       );
@@ -269,7 +268,6 @@ describe('失败路径语料（KB-4 / FP）', () => {
       const svc = new AuditService(
         logRepo as any,
         usageRepo as any,
-        effectsRepo as any,
         auditChain as any,
         dataSource as any,
       );

@@ -23,9 +23,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
-const auditPath = resolve(ROOT, 'src/ai/audit/audit.service.ts');
+// 导出侧 v3 canonical 已随证据域拆到独立服务（健康清单 §3 阶段 3）；本闸按路径解析，故路径随代码走
+const auditPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.ts');
 const verifierPath = resolve(ROOT, 'scripts/verify-evidence.mjs');
-const specPath = resolve(ROOT, 'src/ai/audit/evidence-root.service.spec.ts');
+const specPath = resolve(ROOT, 'src/ai/audit/audit-evidence.service.spec.ts');
 
 const bad = (msg) => { console.error(`  ✗ ${msg}`); };
 const ok = (msg) => { console.log(`  ✓ ${msg}`); };
