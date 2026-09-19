@@ -57,6 +57,7 @@ describe('AiService', () => {
     stream: jest.Mock;
   }>;
   let mockSettingsService: { getAiDailyLimit: jest.Mock; getWithDefault: jest.Mock };
+  let mockUsageQuota: { reserveDailyUsage: jest.Mock; releaseDailyUsage: jest.Mock };
   let mockAuditService: {
     log: jest.Mock;
     getUserLogs: jest.Mock;
@@ -125,6 +126,9 @@ describe('AiService', () => {
       getUserLogs: jest.fn(),
       getStats: jest.fn(),
       getAllStats: jest.fn(),
+    };
+    // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
+    mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
       releaseDailyUsage: jest.fn().mockResolvedValue(undefined),
     };
@@ -174,6 +178,7 @@ describe('AiService', () => {
       mockConversationService as any,
       config,
       mockAuditService as any,
+      mockUsageQuota as any,
       mockRagAgent as any,
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
       mockMemoriesService as any,
@@ -955,7 +960,8 @@ describe('AiService', () => {
         mockToolRegistry as any,
         mockConversationService as any,
         config,
-        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn(), reserveDailyUsage: jest.fn().mockResolvedValue(true), releaseDailyUsage: jest.fn().mockResolvedValue(undefined) } as any,
+        { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn() } as any,
+        mockUsageQuota as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -998,6 +1004,7 @@ describe('AiService', () => {
         mockConversationService as any,
         config,
         mockAuditService as any,
+      mockUsageQuota as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -1858,22 +1865,22 @@ describe('AiService', () => {
 
       await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
       expect(mockProvider.generate).toHaveBeenCalled();
-      expect(mockAuditService.reserveDailyUsage).not.toHaveBeenCalled();
+      expect(mockUsageQuota.reserveDailyUsage).not.toHaveBeenCalled();
     });
 
     it('limit>0 且预留成功时放行（成功保留不计额外自增）', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
-      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
+      mockUsageQuota.reserveDailyUsage.mockResolvedValue(true);
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
       await expect(aiService.chat('1', { message: 'hi' })).resolves.toBeDefined();
-      expect(mockAuditService.reserveDailyUsage).toHaveBeenCalledWith('1', 10);
-      expect(mockAuditService.releaseDailyUsage).not.toHaveBeenCalled();
+      expect(mockUsageQuota.reserveDailyUsage).toHaveBeenCalledWith('1', 10);
+      expect(mockUsageQuota.releaseDailyUsage).not.toHaveBeenCalled();
     });
 
     it('limit>0 且已达上限（预留失败）时抛 AI_DAILY_LIMIT', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
-      mockAuditService.reserveDailyUsage.mockResolvedValue(false);
+      mockUsageQuota.reserveDailyUsage.mockResolvedValue(false);
 
       await expect(aiService.chat('1', { message: 'hi' }))
         .rejects.toMatchObject({ errorCode: 'AI_DAILY_LIMIT' });
@@ -1882,17 +1889,17 @@ describe('AiService', () => {
 
     it('对话失败时释放预留槽（不占当日额度）', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(10);
-      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
+      mockUsageQuota.reserveDailyUsage.mockResolvedValue(true);
       mockProvider.generate.mockRejectedValue(new Error('provider down'));
 
       await expect(aiService.chat('1', { message: 'hi' }))
         .rejects.toMatchObject({ errorCode: 'LLM_UNAVAILABLE' });
-      expect(mockAuditService.releaseDailyUsage).toHaveBeenCalledWith('1');
+      expect(mockUsageQuota.releaseDailyUsage).toHaveBeenCalledWith('1');
     });
 
     it('流式 chatStream 同样校验限额', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
-      mockAuditService.reserveDailyUsage.mockResolvedValue(false);
+      mockUsageQuota.reserveDailyUsage.mockResolvedValue(false);
 
       const chunks: StreamChunk[] = [];
       for await (const chunk of aiService.chatStream('1', { message: 'hi' })) {
@@ -1904,7 +1911,7 @@ describe('AiService', () => {
 
     it('流式 provider 失败：转 error chunk + done，释放预留（零 token 失败不计入用量）', async () => {
       mockSettingsService.getAiDailyLimit.mockResolvedValue(5);
-      mockAuditService.reserveDailyUsage.mockResolvedValue(true);
+      mockUsageQuota.reserveDailyUsage.mockResolvedValue(true);
       // stream 首块即抛错 → streamWithProviderFallback 内部转 error chunk + done（不抛给调用方）
       mockProvider.stream.mockImplementation(() =>
         (async function* () {
@@ -1918,7 +1925,7 @@ describe('AiService', () => {
       expect(chunks.some((c) => c.type === 'error')).toBe(true);
       expect(chunks[chunks.length - 1].type).toBe('done');
       // 流式零 token 失败释放预留槽（对齐非流式 chat 失败语义），防误计入当日用量误拦
-      expect(mockAuditService.releaseDailyUsage).toHaveBeenCalled();
+      expect(mockUsageQuota.releaseDailyUsage).toHaveBeenCalled();
     });
 
     it('未注入 SettingsService 时跳过限额', async () => {
@@ -1929,6 +1936,7 @@ describe('AiService', () => {
         mockConversationService as any,
         config,
         mockAuditService as any,
+      mockUsageQuota as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -1940,7 +1948,7 @@ describe('AiService', () => {
       mockProvider.generate.mockResolvedValue({ content: 'ok' });
 
       await expect(bare.chat('1', { message: 'hi' })).resolves.toBeDefined();
-      expect(mockAuditService.reserveDailyUsage).not.toHaveBeenCalled();
+      expect(mockUsageQuota.reserveDailyUsage).not.toHaveBeenCalled();
     });
   });
 
@@ -2505,6 +2513,7 @@ describe('AiService', () => {
         mockConversationService as any,
         config,
         mockAuditService as any,
+      mockUsageQuota as any,
         mockRagAgent as any,
         {} as any,
         mockMemoriesService as any,

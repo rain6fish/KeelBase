@@ -42,6 +42,7 @@ import { ToolRegistry } from './tools/tool-registry';
 import { AuthorizationExplainerService } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
+import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
 import { AuditEvidenceService } from './audit/audit-evidence.service';
@@ -164,6 +165,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuthorizationExplainerService,
     ConversationService,
     AuditService,
+    AiDailyUsageService,
     AuditEvidenceService,
     AuditStatsService,
     AuditQueryService,
@@ -200,6 +202,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         orgService: OrgService,
         conversationService: ConversationService,
         auditService: AuditService,
+        aiDailyUsageService: AiDailyUsageService,
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
@@ -399,6 +402,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           conversationService,
           aiConfig,
           auditService,
+          aiDailyUsageService,
           ragAgent,
           abilityFactory,
           memoryService,
@@ -416,9 +420,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService],
 })
 export class AiModule {}

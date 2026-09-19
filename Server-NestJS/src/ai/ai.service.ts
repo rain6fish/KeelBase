@@ -16,6 +16,7 @@ import { AuthorizationExplainerService, buildAllowSnapshot } from './authorizati
 import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
+import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { RouterAgent, Intent } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
@@ -139,6 +140,8 @@ export class AiService {
     private readonly conversationService: ConversationService,
     private readonly config: AiServiceConfig,
     private readonly auditService: AuditService,
+    // 每日配额已从 AuditService 拆出（不属审计职责）；此处只做用量预留/释放
+    private readonly usageQuota: AiDailyUsageService,
     private readonly ragAgent: RagAgent,
     private readonly abilityFactory: CaslAbilityFactory,
     private readonly memoryService: MemoriesService,
@@ -169,7 +172,7 @@ export class AiService {
     const limit = await settings.getAiDailyLimit();
     if (limit <= 0) return false; // 0 = 不限
 
-    const reserved = await this.auditService.reserveDailyUsage(userId, limit);
+    const reserved = await this.usageQuota.reserveDailyUsage(userId, limit);
     if (!reserved) throw BusinessException.of('AI_DAILY_LIMIT');
     return true;
   }
@@ -946,7 +949,7 @@ export class AiService {
         'ai.model': request.model,
       });
     } catch (err) {
-      if (reserved) await this.auditService.releaseDailyUsage(userId).catch(() => {});
+      if (reserved) await this.usageQuota.releaseDailyUsage(userId).catch(() => {});
       throw err;
     }
   }
@@ -1305,7 +1308,7 @@ export class AiService {
       span.end();
     } catch (err) {
       // 对话失败释放预留槽（成功保留 = 计入当日用量）
-      if (reserved) await this.auditService.releaseDailyUsage(userId).catch(() => {});
+      if (reserved) await this.usageQuota.releaseDailyUsage(userId).catch(() => {});
       span.recordException(err as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
       span.end();
@@ -1426,7 +1429,7 @@ export class AiService {
       if (streamError) {
         // 流式失败（yield error 不抛 → 外层 chatStream catch 不触发）：显式释放 daily-limit 预留槽，
         // 防零 token 失败对话计入当日用量、耗尽限额后误拦（对齐非流式 chat 失败释放语义）
-        await this.auditService.releaseDailyUsage(userId).catch(() => {});
+        await this.usageQuota.releaseDailyUsage(userId).catch(() => {});
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
           content: `Error: ${streamError}`,

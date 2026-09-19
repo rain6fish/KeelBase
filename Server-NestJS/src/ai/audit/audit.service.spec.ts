@@ -117,38 +117,6 @@ describe('AuditService', () => {
     (service as any).__saved = saved;
   });
 
-  describe('reserveDailyUsage / releaseDailyUsage（RG-2.1 原子预留）', () => {
-    it('行不存在时先建 count=0 再原子递增 → 预留成功', async () => {
-      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' }); // 首写冲突（行已存在）
-      const ok = await service.reserveDailyUsage('42', 10);
-      expect(ok).toBe(true);
-      expect(usageRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: '42', count: expect.anything() }),
-        { count: expect.any(Function) },
-      );
-    });
-
-    it('已用满（count >= limit）时 where 不命中 → 预留失败', async () => {
-      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' });
-      usageRepo.update.mockResolvedValueOnce({ affected: 0, raw: {} });
-      const ok = await service.reserveDailyUsage('42', 3);
-      expect(ok).toBe(false);
-    });
-
-    it('limit<=0 时无 where count 条件（不限量直接自增）', async () => {
-      usageRepo.save.mockRejectedValueOnce({ code: 'SQLITE_CONSTRAINT' });
-      await service.reserveDailyUsage('42', 0);
-      const [criteria] = usageRepo.update.mock.calls[0];
-      expect(criteria).not.toHaveProperty('count'); // 0 = 不限
-    });
-
-    it('release 只在 count>0 时递减（防负值）', async () => {
-      await service.releaseDailyUsage('42');
-      const [criteria, update] = usageRepo.update.mock.calls[0];
-      expect(criteria).toEqual(expect.objectContaining({ userId: '42' }));
-      expect(update.count).toEqual(expect.any(Function));
-    });
-  });
 
   describe('log（HS-11 哈希链）', () => {
     it('从 ActorContext 读 sessionId/agentId 接线（Agent Identity）', async () => {
