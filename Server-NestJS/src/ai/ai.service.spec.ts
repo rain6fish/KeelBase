@@ -6,6 +6,7 @@ import { NotFoundException } from '@nestjs/common';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
+import { ToolExecutionService } from './tools/tool-execution.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -61,6 +62,7 @@ describe('AiService', () => {
   let mockSettingsService: { getAiDailyLimit: jest.Mock; getWithDefault: jest.Mock };
   let mockUsageQuota: { reserveDailyUsage: jest.Mock; releaseDailyUsage: jest.Mock };
   let mockToolGate: ToolGateService;
+  let toolExecution: ToolExecutionService;
   let mockExternalTools: ExternalToolRegistry;
   let mockAuditService: {
     log: jest.Mock;
@@ -135,6 +137,13 @@ describe('AiService', () => {
     // 这里用**真实实例**而非替身：既有测试是**穿过 chat()** 验门控行为的，mock 掉就丢了被测对象。
     mockExternalTools = new ExternalToolRegistry();
     mockToolGate = new ToolGateService(mockToolRegistry as any, mockExternalTools);
+    // 工具执行已拆到 ToolExecutionService（阶段 3「主战场」第二刀）——共享同一 registry/gate 实例，
+    // 使穿 chat() 的用例（幂等、读工具）走的仍是同一套被测对象。
+    toolExecution = new ToolExecutionService(
+      mockToolRegistry as any,
+      mockToolGate as any,
+      mockExternalTools,
+    );
     // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
     mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
@@ -188,6 +197,7 @@ describe('AiService', () => {
       mockAuditService as any,
       mockUsageQuota as any,
       mockToolGate as any,
+      toolExecution as any,
       mockExternalTools as any,
       mockRagAgent as any,
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -392,7 +402,7 @@ describe('AiService', () => {
 
     it('HS-3: should skip duplicate write tool execution when idempotency hit', async () => {
       // 注入 mock toolEffectsService：findExisting 命中已有副作用
-      (aiService as any).toolEffectsService = {
+      (toolExecution as any).toolEffectsService = {
         buildKey: jest.fn().mockReturnValue('existing-key'),
         findExisting: jest.fn().mockResolvedValue({
           existing: true,
@@ -424,105 +434,7 @@ describe('AiService', () => {
       // 幂等命中：不重复执行，返回已有 resultId 99
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       // 清理注入，避免影响后续测试
-      (aiService as any).toolEffectsService = undefined;
-    });
-
-    it('HS-3: _executeWriteTool 无已有副作用时执行并记录', async () => {
-      const record = jest.fn().mockResolvedValue({ id: 1 });
-      (aiService as any).toolEffectsService = {
-        buildKey: jest.fn().mockReturnValue('new-key'),
-        findExisting: jest.fn().mockResolvedValue({ existing: false }),
-        record,
-      };
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 100 } });
-
-      const result = await (aiService as any)._executeWriteTool('create_event', { title: 'X' }, '1', 'c1');
-
-      expect(result).toEqual({ success: true, data: { id: 100 } });
-      expect(record).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: '1', toolName: 'create_event', conversationId: 'c1' }),
-        'event',
-        100,
-        { before: null, after: null }, // E-1 快照（测试未注入 captor → null）
-      );
-      (aiService as any).toolEffectsService = undefined;
-    });
-
-    it('HS-3: create_contract 副作用 resultType 记 contract（非兜底 todo）', async () => {
-      const record = jest.fn().mockResolvedValue({ id: 1 });
-      (aiService as any).toolEffectsService = {
-        buildKey: jest.fn().mockReturnValue('new-key-contract'),
-        findExisting: jest.fn().mockResolvedValue({ existing: false }),
-        record,
-      };
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 200 } });
-
-      const result = await (aiService as any)._executeWriteTool('create_contract', { name: 'X' }, '1', 'c1');
-
-      expect(result).toEqual({ success: true, data: { id: 200 } });
-      expect(record).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: '1', toolName: 'create_contract', conversationId: 'c1' }),
-        'contract',
-        200,
-        { before: null, after: null },
-      );
-      (aiService as any).toolEffectsService = undefined;
-    });
-
-    it('FP-8: B 路径写空体成功 → 仍记 proxy_call 副作用锚（proxyResultId），不假装有 data', async () => {
-      const record = jest.fn().mockResolvedValue({ id: 1 });
-      (aiService as any).toolEffectsService = {
-        buildKey: jest.fn().mockReturnValue('fp8-key'),
-        findExisting: jest.fn().mockResolvedValue({ existing: false }),
-        record,
-      };
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: null });
-      const origIsProxy = (aiService as any).isProxyTool;
-      (aiService as any).isProxyTool = () => true;
-      try {
-        const result = await (aiService as any)._executeWriteTool('proxy_write_empty', { id: '7' }, '1', 'c1');
-        expect(result).toEqual({ success: true, data: null });
-        expect(record).toHaveBeenCalledTimes(1);
-        const [ctx, resultType, resultId, snap] = record.mock.calls[0];
-        expect(ctx).toMatchObject({ userId: '1', toolName: 'proxy_write_empty', conversationId: 'c1' });
-        expect(resultType).toBe('proxy_call');
-        expect(typeof resultId).toBe('number');
-        expect(resultId).toBeGreaterThan(0); // 稳定 proxyResultId 锚，非空不伪造
-        expect(snap).toEqual({ before: null, after: null });
-      } finally {
-        (aiService as any).isProxyTool = origIsProxy;
-        (aiService as any).toolEffectsService = undefined;
-      }
-    });
-
-    it('FP-8: 非 proxy 写返回空体（无 data）→ 不记录（缺锚不伪造）', async () => {
-      const record = jest.fn();
-      (aiService as any).toolEffectsService = {
-        buildKey: jest.fn().mockReturnValue('local-empty'),
-        findExisting: jest.fn().mockResolvedValue({ existing: false }),
-        record,
-      };
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: null });
-      await (aiService as any)._executeWriteTool('create_event', { title: 'X' }, '1', 'c1');
-      expect(record).not.toHaveBeenCalled();
-      (aiService as any).toolEffectsService = undefined;
-    });
-
-    it('HS-3: _executeWriteTool 无 toolEffectsService 时直接执行不记录', async () => {
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
-      (aiService as any).toolEffectsService = undefined;
-      const result = await (aiService as any)._executeWriteTool('create_event', {}, '1');
-      expect(result).toEqual({ success: true, data: { id: 1 } });
-    });
-
-    it('HS-3: _executeWriteTool 外部 MCP 工具经 provider 调用', async () => {
-      (aiService as any).externalTools.provider = {
-        isExternal: jest.fn().mockReturnValue(true),
-        callTool: jest.fn().mockResolvedValue({ executed: true, content: 'sent' }),
-      };
-      const result = await (aiService as any)._executeWriteTool('mcp_wx_send_email', { to: 'a' }, '1');
-      expect(result).toEqual({ success: true, data: 'sent' });
-      (aiService as any).externalTools.provider = undefined;
+      (toolExecution as any).toolEffectsService = undefined;
     });
 
     it('should handle multiple sequential tool calls', async () => {
@@ -973,6 +885,7 @@ describe('AiService', () => {
         { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn() } as any,
         mockUsageQuota as any,
         mockToolGate as any,
+        toolExecution as any,
         mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -1018,6 +931,7 @@ describe('AiService', () => {
         mockAuditService as any,
       mockUsageQuota as any,
       mockToolGate as any,
+      toolExecution as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -1310,7 +1224,7 @@ describe('AiService', () => {
 
       // §4 G1：捕获 run 成员副作用登记，断言 runId 从执行点透传到 record（run 级撤销依赖它精确圈定）
       const recordSpy = jest.fn().mockResolvedValue({ id: 1 });
-      (aiService as any).toolEffectsService = {
+      (toolExecution as any).toolEffectsService = {
         buildKey: jest.fn().mockReturnValue('k'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record: recordSpy,
@@ -1380,7 +1294,7 @@ describe('AiService', () => {
       for (const call of recordSpy.mock.calls) {
         expect(call[0]).toMatchObject({ runId: runToken });
       }
-      (aiService as any).toolEffectsService = undefined;
+      (toolExecution as any).toolEffectsService = undefined;
     });
 
     it('KB-5 修复：预扫描遇未注册工具名（LLM 幻觉 / 外部 mcp_*）不中断整条 SSE 流，降级继续', async () => {
@@ -1745,7 +1659,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterError());
       mockToolRegistry.requiresConfirmation.mockReturnValue(false);
       // proxy 工具 deny：对齐非流式 deny 与成功分支，审计 source=bridge
-      jest.spyOn(aiService as any, 'isProxyTool').mockReturnValue(true);
+      jest.spyOn(toolExecution, 'isProxyTool').mockReturnValue(true);
       mockToolRegistry.execute.mockRejectedValue(
         new AuthorizationDeniedError('Tool "query_events" is restricted to roles: admin', [
           { name: 'role_allowed', ok: false, note: '需要角色 [admin]，当前 user' },
@@ -1952,6 +1866,7 @@ describe('AiService', () => {
         mockAuditService as any,
       mockUsageQuota as any,
       mockToolGate as any,
+      toolExecution as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -2246,39 +2161,6 @@ describe('AiService', () => {
     });
   });
 
-  describe('NC-3 plan/子代理只读门控（_executeAgentReadTool）', () => {
-    it('写/需确认工具 → 拒绝（agent_read_only reasons），不经 toolRegistry.execute', async () => {
-      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
-      const err = await (aiService as any)
-        ._executeAgentReadTool('create_event', { title: 'x' }, '1')
-        .catch((e: any) => e);
-      expect(err.message).toContain('write/confirmation-gated');
-      expect(err.reasons.some((c: any) => c.name === 'agent_read_only' && c.ok === false)).toBe(true);
-      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
-    });
-
-    it('治理策略禁用的只读工具 → 拒绝（tool_enabled），不执行', async () => {
-      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
-      (mockToolGate as any).governancePolicy = {
-        isToolEnabled: jest.fn().mockResolvedValue(false),
-        getAllowedRoles: jest.fn().mockResolvedValue([]),
-      };
-      const err = await (aiService as any)
-        ._executeAgentReadTool('web_search', { q: 'x' }, '1')
-        .catch((e: any) => e);
-      expect(err.message).toContain('disabled by governance policy');
-      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
-    });
-
-    it('放行的只读工具 → 经 _executeReadTool 同源执行', async () => {
-      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
-      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 3 } });
-      const res = await (aiService as any)._executeAgentReadTool('query_events', { start: 'x' }, '1');
-      expect(res.success).toBe(true);
-      expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { start: 'x' }, '1');
-    });
-  });
-
   describe('getToolInventory（HS-2 工具清单）', () => {
     it('暴露 riskLevel / riskStrategy', async () => {
       const fakeTool = {
@@ -2532,7 +2414,8 @@ describe('AiService', () => {
         config,
         mockAuditService as any,
         mockUsageQuota as any,
-        mockToolGate as any,
+mockToolGate as any,
+        new ToolExecutionService(mockToolRegistry as any, mockToolGate as any, new ExternalToolRegistry()) as any,
         new ExternalToolRegistry() as any,
         mockRagAgent as any,
         {} as any,
@@ -2667,7 +2550,7 @@ describe('AiService', () => {
 
     it('外部读工具 → 经 provider 执行并返回文本', async () => {
       provider.callTool.mockResolvedValue({ executed: true, content: '晴 26°C' });
-      const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', { city: 'sz' }, '1');
+      const result = await toolExecution.executeRead('mcp_wx_get_weather', { city: 'sz' }, '1');
       expect(provider.callTool).toHaveBeenCalledWith('mcp_wx_get_weather', { city: 'sz' }, '1');
       expect(result.success).toBe(true);
       expect(result.data).toBe('晴 26°C');
@@ -2675,7 +2558,7 @@ describe('AiService', () => {
 
     it('内置读工具仍走 toolRegistry', async () => {
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { total: 1 } });
-      const result = await (aiService as any)._executeReadTool('query_events', {}, '1');
+      const result = await toolExecution.executeRead('query_events', {}, '1');
       expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', {}, '1');
       expect(result.data).toEqual({ total: 1 });
     });
@@ -2686,9 +2569,9 @@ describe('AiService', () => {
       expect(provider.requiresConfirmation).toHaveBeenCalledWith('mcp_wx_send_email');
     });
 
-    it('外部写工具经 _executeWriteTool 执行（跳过幂等/副作用）', async () => {
+    it('外部写工具经 executeWrite 执行（跳过幂等/副作用）', async () => {
       provider.callTool.mockResolvedValue({ executed: true, content: 'sent' });
-      const result = await (aiService as any)._executeWriteTool('mcp_wx_send_email', { to: 'a' }, '1');
+      const result = await toolExecution.executeWrite('mcp_wx_send_email', { to: 'a' }, '1');
       expect(result.success).toBe(true);
       expect(result.data).toBe('sent');
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
@@ -2704,7 +2587,7 @@ describe('AiService', () => {
 
     it('外部 provider 调用失败 → success false + error', async () => {
       provider.callTool.mockResolvedValue({ executed: false, error: 'remote down' });
-      const result = await (aiService as any)._executeReadTool('mcp_wx_get_weather', {}, '1');
+      const result = await toolExecution.executeRead('mcp_wx_get_weather', {}, '1');
       expect(result.success).toBe(false);
       expect(result.error).toContain('remote down');
     });

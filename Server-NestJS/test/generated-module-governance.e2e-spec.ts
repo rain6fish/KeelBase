@@ -16,7 +16,7 @@ import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.ser
  *   ④ 撤销：生成模块的副作用可撤（record → DELETE → 生成实体软删；`contract` 在 revoker 映射内）
  *
  * **覆盖边界（诚实）**：本套件证的是生成模块治理的**决策层 + 可撤销层**（确定性、无 LLM）。
- * 「approve → 执行 → 落库」属**引擎通用路径**（`_executeWriteTool`，由等待中的 SSE 流驱动；无流则
+ * 「approve → 执行 → 落库」属**引擎通用路径**（`ToolExecutionService.executeWrite`，由等待中的 SSE 流驱动；无流则
  * `POST /ai/confirmations/:token` 只 resolve），已由旗舰工具覆盖（app.e2e-spec.ts T.7 / golden）。
  * 生成模块的 REST CRUD（含越权 403）另见 generated-modules.e2e-spec.ts。
  */

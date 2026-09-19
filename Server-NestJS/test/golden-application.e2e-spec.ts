@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
 import { AiService } from '../src/ai/ai.service';
+import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
 import { AnalyzeCustomerRiskTool } from '../src/ai/tools/analyze-customer-risk.tool';
@@ -19,7 +20,7 @@ import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.too
  *   - Customer / Order：REST 真实落库；
  *   - Risk Analysis：analyze_customer_risk 工具直接实例化（镜像 Agent 执行路径，同 authorization.e2e）；
  *   - Create Follow-up Task：AiService.executeToolForExternal 走真实治理层 → requiresConfirmation 门控（不确认不执行）；
- *   - 确认 → 写：CreateFollowupTaskTool 执行（同 _executeWriteTool 确认后路径）+ AiToolEffectsService.record 登记副作用；
+ *   - 确认 → 写：CreateFollowupTaskTool 执行（同 executeWrite 确认后路径）+ AiToolEffectsService.record 登记副作用；
  *   - 审计：副作用可撤销登记 + 管理端审计哈希链 verify；
  *   - 撤销：HTTP revokeOwned 软删 + 越权撤销拒绝（所有权）。
  * Build（60s/10m/30m）由 scripts/verify-golden-application.sh 独立验证（keelbase init → 编译）。
@@ -32,6 +33,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
   let userAId: number;
   let crmService: CrmService;
   let aiService: AiService;
+  let toolExecution: ToolExecutionService;
   let effectsService: AiToolEffectsService;
 
   // 闭环数据（跨 it 步骤共享）
@@ -76,6 +78,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
 
     crmService = app.get(CrmService);
     aiService = app.get(AiService);
+    toolExecution = app.get(ToolExecutionService);
     effectsService = app.get(AiToolEffectsService);
   });
 
@@ -141,7 +144,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
   });
 
   it('④ 确认 → 写：任务真实落库 + 副作用登记（可撤销）', async () => {
-    // 确认后执行（镜像 _executeWriteTool：execute 成功 → record 副作用）
+    // 确认后执行（镜像 executeWrite：execute 成功 → record 副作用）
     const createTool = new CreateFollowupTaskTool(crmService);
     const res = await createTool.execute(
       { customerId, title: '跟进瀚宇制造 280 万逾期', dueDate: '2026-08-25T10:00:00Z' },
@@ -237,7 +240,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
 
   it('⑧ 治理视图：CRM 业务动作（crm_task）经 governance 端点反查（EB-2/B4 贯通）', async () => {
     // 经 AI 写执行路径登记 crm_task 副作用（真实 CRM 业务动作）
-    const write = await (aiService as any)._executeWriteTool('create_followup_task', { customerId, title: '治理视图跟进' }, String(userAId), 'gov-crm-conv');
+    const write = await toolExecution.executeWrite('create_followup_task', { customerId, title: '治理视图跟进' }, String(userAId), 'gov-crm-conv');
     expect(write.success).toBe(true);
     const list = await effectsService.list({ userId: userAId });
     const effect = list.items.find((e: any) => e.toolName === 'create_followup_task' && e.targetTitle === '治理视图跟进');

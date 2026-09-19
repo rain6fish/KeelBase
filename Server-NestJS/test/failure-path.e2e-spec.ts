@@ -11,6 +11,7 @@ import { ToolRegistry } from '../src/ai/tools/tool-registry';
 import { SettingsService } from '../src/settings/settings.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
 import { AiService } from '../src/ai/ai.service';
+import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 
 /** 等真实 app 的 proxyRegistry 热更新（SettingsService.onChange → reload）把工具注册进 registry */
 async function waitUntilRegistered(registry: ToolRegistry, name: string, timeoutMs = 3000): Promise<void> {
@@ -174,8 +175,9 @@ describe('失败路径回归（KB-4 / B 层真实链路）', () => {
   });
 
   it('FP-8/写：proxy 写目标 204 空体 → success data:null + 仍记 proxy_call 副作用锚（proxyResultId），语料断言锚存在', async () => {
-    // 真实装配：写 Settings → 热更新把写工具注册进 app 实际 registry → 经 AiService._executeWriteTool（AI 确认后执行路径）触发
+    // 真实装配：写 Settings → 热更新把写工具注册进 app 实际 registry → 经 ToolExecutionService.executeWrite（AI 确认后执行路径）触发
     const aiService = app.get(AiService);
+    const toolExecution = app.get(ToolExecutionService);
     const appRegistry = (aiService as any).toolRegistry;
     const settings = app.get(SettingsService);
     await settings.set(
@@ -191,8 +193,8 @@ describe('失败路径回归（KB-4 / B 层真实链路）', () => {
     );
     await waitUntilRegistered(appRegistry, 'proxy_fp_204_write');
 
-    const effectsService = (aiService as any).toolEffectsService;
-    const res = await (aiService as any)._executeWriteTool('proxy_fp_204_write', { id: '99' }, userId, 'conv-fp8-204');
+    const effectsService = (toolExecution as any).toolEffectsService;
+    const res = await toolExecution.executeWrite('proxy_fp_204_write', { id: '99' }, userId, 'conv-fp8-204');
     expect(res.success).toBe(true);
     expect(res.data).toBeNull(); // 未知结果如实空，不编造 data
 

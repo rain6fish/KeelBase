@@ -9,6 +9,7 @@ import { ProxyToolRegistryService } from '../src/ai/proxy/proxy-tool.service';
 import { ToolRegistry } from '../src/ai/tools/tool-registry';
 import { SettingsService } from '../src/settings/settings.service';
 import { AiService } from '../src/ai/ai.service';
+import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 import { DelegationTokenService } from '../src/auth/delegation-token.service';
 
 /**
@@ -226,6 +227,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     const aiService = app.get(AiService);
     // 写 Settings → 真实 proxyRegistry 热更新（onChange → reload）自动注册到 app 实际 registry
     const appRegistry = (aiService as any).toolRegistry;
+    const toolExecution = app.get(ToolExecutionService);
     await settings.set('ai_proxy_tools', JSON.stringify({
       baseUrl: base,
       audience: 'legacy-erp',
@@ -233,9 +235,9 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     }), 'json');
     await waitUntilRegistered(appRegistry, 'proxy_side_create');
 
-    // 经 AiService._executeWriteTool（AI 确认后执行路径）→ 工具注册表执行（ProxyTool → mock 目标）+ 副作用登记
-    const effectsService = (aiService as any).toolEffectsService;
-    const res = await (aiService as any)._executeWriteTool('proxy_side_create', { title: '外部合同' }, userAId, 'conv-proxy-side');
+    // 经 ToolExecutionService.executeWrite（AI 确认后执行路径）→ 工具注册表执行（ProxyTool → mock 目标）+ 副作用登记
+    const effectsService = (toolExecution as any).toolEffectsService;
+    const res = await toolExecution.executeWrite('proxy_side_create', { title: '外部合同' }, userAId, 'conv-proxy-side');
     expect(res.success).toBe(true);
     const list = await effectsService.list({ userId: Number(userAId) });
     const effect = list.items.find((e: any) => e.toolName === 'proxy_side_create');
@@ -259,14 +261,15 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     const settings = app.get(SettingsService);
     const aiService = app.get(AiService);
     const appRegistry = (aiService as any).toolRegistry;
+    const toolExecution = app.get(ToolExecutionService);
     await settings.set('ai_proxy_tools', JSON.stringify({
       baseUrl: base,
       audience: 'legacy-erp',
       tools: [{ name: 'proxy_gov_create', description: '建合同', method: 'POST', path: '/contracts', parameters: [{ name: 'title', type: 'string', description: '标题', required: true }], riskLevel: 'R3' }],
     }), 'json');
     await waitUntilRegistered(appRegistry, 'proxy_gov_create');
-    await (aiService as any)._executeWriteTool('proxy_gov_create', { title: '治理视图合同' }, userAId, 'conv-gov');
-    const effectsService = (aiService as any).toolEffectsService;
+    await toolExecution.executeWrite('proxy_gov_create', { title: '治理视图合同' }, userAId, 'conv-gov');
+    const effectsService = (toolExecution as any).toolEffectsService;
     const list = await effectsService.list({ userId: Number(userAId) });
     const effect = list.items.find((e: any) => e.toolName === 'proxy_gov_create');
     expect(effect).toBeDefined();

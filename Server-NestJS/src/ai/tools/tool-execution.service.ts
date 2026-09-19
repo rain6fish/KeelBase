@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * 工具执行（从 `AiService` 拆出的第二个领域，健康清单 §3 阶段 3「主战场」）。
+ *
+ * 回答的是：**这个工具、这句参数，现在真的跑起来**——读工具（内置/外部同源）、
+ * 写工具（幂等 + 副作用登记 + 前后快照）、plan/子代理的只读执行器。
+ *
+ * 与 `ToolGateService` 的分工：门控判「能不能跑 / 要不要确认」，本服务只管「跑」。
+ * 写工具执行前仍要过门控——从发起到执行之间有等待窗口（R3 确认 / R4 审批），
+ * 期间策略可能变化，故执行点必须复查（见 `executeWrite` 头注）。
+ *
+ * 拆它的顺序理由（同门控）：对话主循环与 R4 审批域都要调它，先于 R4 域拆出。
+ *
+ * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
+ */
+import { Injectable, Optional } from '@nestjs/common';
+import { createHash } from 'crypto';
+import { ToolRegistry } from './tool-registry';
+import { ToolGateService } from './tool-gate.service';
+import { ExternalToolRegistry } from './external-tool-registry';
+import { ProxyTool } from '../proxy/proxy-tool';
+import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
+import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { writeEffectTypeFor } from '../tool-effects/write-effect-type';
+import { declaredEffects } from '../tool-effects/effect-composition';
+import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
+
+/** B 路径：外部写无目标 id 时，用稳定 hash 作为副作用 resultId（正整数，48bit，可回溯同参数调用） */
+function proxyResultId(toolName: string, args: Record<string, unknown>): number {
+  const h = createHash('sha256')
+    .update(`${toolName}:${JSON.stringify(args)}`)
+    .digest('hex')
+    .slice(0, 12);
+  return Number(BigInt('0x' + h));
+}
+
+@Injectable()
+export class ToolExecutionService {
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    private readonly toolGate: ToolGateService,
+    private readonly externalTools: ExternalToolRegistry,
+    @Optional() private readonly toolEffectsService?: AiToolEffectsService,
+    @Optional() private readonly snapshotCaptor?: SideEffectSnapshotCaptor,
+  ) {}
+
+  /** HS-10：读工具执行（内置走 toolRegistry，外部走 provider）。 */
+  async executeRead(
+    name: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<ToolResult> {
+    if (this.externalTools.current?.isExternal(name)) {
+      const out = await this.externalTools.current.callTool(name, args, userId);
+      if (!out.executed) {
+        return { success: false, error: out.error ?? 'External tool call failed' };
+      }
+      return { success: true, data: out.content ?? {} };
+    }
+    return this.toolRegistry.execute(name, args, userId);
+  }
+
+  /**
+   * HS-3 写工具执行（幂等 + 副作用记录）：
+   * - 同会话同工具同参数重复调用返回已有结果（防 LLM 重试/并发重复创建）
+   * - 成功后记录副作用（resultType/resultId），管理台可软删撤销（衔接 RG-3）
+   * toolEffectsService 未注入（单测/降级）时直接执行，跳过幂等。
+   * HS-10：外部 MCP 写工具经 provider 执行（跳过幂等/副作用——外部工具不创建 KeelBase 实体）。
+   */
+  async executeWrite(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+    conversationId?: string,
+    runId?: string,
+  ): Promise<ToolResult> {
+    // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
+    // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
+    // 期间策略 `enabled` / 角色白名单 / 特性开关可能变化（策略「实时生效」，见 hs9 spec §0/§5）。此前仅发起时断言：
+    // 已被禁用的工具仍会因「早先批准」而执行，kill-switch 对在途审批失效。此处复查，使执行点与发起点同门。
+    await this.toolGate.assertToolAllowed(toolName, userId);
+
+    if (this.externalTools.current?.isExternal(toolName)) {
+      const out = await this.externalTools.current.callTool(toolName, args, userId);
+      if (!out.executed) {
+        return { success: false, error: out.error ?? 'External tool call failed' };
+      }
+      return { success: true, data: out.content ?? {} };
+    }
+    if (!this.toolEffectsService) {
+      return this.toolRegistry.execute(toolName, args, userId);
+    }
+    const key = AiToolEffectsService.buildKey({
+      userId,
+      conversationId,
+      toolName,
+      args,
+    });
+    const existing = await this.toolEffectsService.findExisting(key);
+    if (existing.existing && existing.effect) {
+      // 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放**整组**——
+      // 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测将永不命中 → 工具重复执行。
+      const group = existing.effect.compensationGroup
+        ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
+        : [];
+      return {
+        success: true,
+        data: {
+          id: existing.effect.resultId,
+          idempotent: true,
+          ...(group.length > 1
+            ? {
+                effects: group.map((e) => ({
+                  resultType: e.resultType,
+                  resultId: e.resultId,
+                })),
+              }
+            : {}),
+        },
+      };
+    }
+    // §internal.16 A-1：update 类写工具 execute 前抓 before（本地实体重查 / proxy 用 args 摘要）；create 类返回 null
+    const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
+    const result = await this.toolRegistry.execute(toolName, args, userId);
+    const isProxyWrite = this.isProxyTool(toolName);
+    // FP-8：B 路径写即使响应空体/未知结果也记 proxy_call 副作用锚（stable proxyResultId），不假装有 data——撤销/证据可定位
+    const proxyAnchor = isProxyWrite && result.success;
+    // 级联补偿（docs/cascade-compensation.spec.md §3）：复合写工具在 data.effects 声明跨表多目标；
+    // 形状非法 → declaredEffects 返回 null（fail-closed）→ 回落既有单目标路径，绝不猜。
+    const declared = result.success && !isProxyWrite ? declaredEffects(result.data) : null;
+    if (
+      result.success &&
+      (proxyAnchor || declared || (result.data && (result.data as any).id !== undefined))
+    ) {
+      // 状态变更型写工具（AI 预审）与 dry-run 只读预览（create_module）不创建可撤销记录，仅确认 + 审计
+      if (!['review_approval_request', 'create_module'].includes(toolName)) {
+        // 复合组：一行一目标、同组（组 = 该次调用的幂等基键）→ 撤销任一条即补偿整组
+        if (declared) {
+          const snapshots = await Promise.all(
+            declared.map(async (e) => {
+              const after = this.snapshotCaptor
+                ? await this.snapshotCaptor.captureAfter(e.resultType, e.resultId, result.data)
+                : null;
+              return { before, after };
+            }),
+          );
+          await this.toolEffectsService.recordGroup(
+            { userId, conversationId, runId, toolName, args },
+            declared,
+            snapshots,
+          );
+          return result;
+        }
+        // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
+        const resultType = isProxyWrite ? 'proxy_call' : writeEffectTypeFor(toolName);
+        if (!resultType) {
+          // 无法推导类型（非 create 且无别名）——fail-closed：不登记副作用，避免错指记录（旧逻辑兜底 'todo' 为 bug）
+          return result;
+        }
+        const resultId = isProxyWrite
+          ? typeof (result.data as any)?.id === 'number'
+            ? (result.data as any).id
+            : proxyResultId(toolName, args)
+          : (result.data as any).id;
+        // E-1 字段级变更审计：抓写操作目标记录 after 快照（本地实体全量 / 外部写用返回数据兜底）
+        const after = this.snapshotCaptor
+          ? await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)
+          : null;
+        await this.toolEffectsService.record(
+          { userId, conversationId, runId, toolName, args },
+          resultType,
+          resultId,
+          { before, after },
+        );
+      }
+    }
+    return result;
+  }
+
+  /**
+   * NC-3 plan/子代理只读执行器：注入 plan-execute 与 sub-agent（同 gate + 只读强制）。
+   * - 与主循环同 gate：_assertToolAllowed（R5 / 治理策略 enabled / 角色白名单 / featureFlag / adminOnly）
+   * - 只读强制：写/需确认工具（R3/R4，含外部非只读）直接拒——子代理/plan 不得绕过确认与副作用登记执行写工具
+   * - 通过后走 executeRead（内置/外部 provider 同源）
+   * 内部读不单落 tool_call 行（对话级 delegate/plan 审计行已取证；此处只堵授权旁路，不改变审计语义）。
+   */
+  async executeAgentRead(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+  ): Promise<ToolResult> {
+    await this.toolGate.assertToolAllowed(toolName, userId);
+    if (await this.toolGate.requiresConfirmation(toolName)) {
+      throw new AuthorizationDeniedError(
+        `Tool "${toolName}" is write/confirmation-gated; plan and sub-agent steps are read-only`,
+        [
+          {
+            name: 'agent_read_only',
+            ok: false,
+            note: 'plan/子代理仅执行只读工具；写操作请在主对话发起并人工确认',
+          },
+        ],
+      );
+    }
+    return this.executeRead(toolName, args, userId);
+  }
+
+  /** B 路径：工具是否为 ProxyTool（读注册表判型，安全兜底） */
+  isProxyTool(toolName: string): boolean {
+    try {
+      return this.toolRegistry.getTool(toolName) instanceof ProxyTool;
+    } catch {
+      return false;
+    }
+  }
+}

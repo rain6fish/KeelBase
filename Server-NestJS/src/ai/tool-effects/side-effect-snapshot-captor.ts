@@ -23,7 +23,7 @@ const BEFORE_CAPTURE_TOOLS: Record<string, { idKey: string; resultType: string }
  * - after：本地实体（event/crm_task/pm_task/app_request/todo）按 resultId 重查全量字段；
  *   B 路径外部写（proxy_call）用 execute 返回数据兜底（目标在 Java 系统，无本地表）。
  * - before：本地写工具当前均为 create 类（无 update 场景），留空；未来本地 update 工具出现时
- *   在调用点（_executeWriteTool）execute 前补抓。
+ *   在调用点（ToolExecutionService.executeWrite）execute 前补抓。
  * 快照存副作用表独立列，不参与审计哈希链（副作用表本身不入链），纯展示/证据包内容。
  * 任何抓取失败都降级返回 null，绝不断写路径。
  */

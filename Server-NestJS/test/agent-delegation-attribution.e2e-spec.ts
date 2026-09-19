@@ -18,7 +18,7 @@ import { LlmProviderFactory } from '../src/ai/providers/provider-factory';
  *
  * **② 走真实路径**：不用「直接 new orchestrator」这种间接测法，而是经 `AiService.chat()` 完整走
  * `chatImpl` 的 delegate 分支 —— 因此用的是 `ai.service` **真正传下去的那个 `readOnlyExecutor`**
- * （`_executeAgentReadTool`）。免 LLM 触发：消息命中 `WEEK_PLAN_SKILL` 的触发词且不含动作动词
+ * （`ToolExecutionService.executeAgentRead`）。免 LLM 触发：消息命中 `WEEK_PLAN_SKILL` 的触发词且不含动作动词
  * （`ai.service.ts` 的 `actionVerbs` 守卫）→ `intent='delegate'`，零 LLM 成本且不依赖任何 key。
  *
  * 夹具纪律（教训来自本日另一条线的假缺陷）：mock provider 只做**最少**的事——子代理首轮发一个
