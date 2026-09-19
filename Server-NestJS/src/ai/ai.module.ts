@@ -23,7 +23,6 @@ import { ContractsService } from '../contracts/contracts.service';
 import { QueueModule } from '../queue/queue.module';
 import { StorageModule } from '../storage/storage.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
-import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { EventsService } from '../events/events.service';
 import { UsersService } from '../users/users.service';
 import { AiController } from './ai.controller';
@@ -44,6 +43,7 @@ import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { ToolGateService } from './tools/tool-gate.service';
+import { ToolExecutionService } from './tools/tool-execution.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
@@ -169,6 +169,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AuditService,
     AiDailyUsageService,
     ToolGateService,
+    ToolExecutionService,
     ExternalToolRegistry,
     AuditEvidenceService,
     AuditStatsService,
@@ -208,6 +209,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         auditService: AuditService,
         aiDailyUsageService: AiDailyUsageService,
         toolGate: ToolGateService,
+        toolExecution: ToolExecutionService,
         externalTools: ExternalToolRegistry,
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
@@ -224,7 +226,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         approvalService: ApprovalService,
         approvalsRepo,
         delegationTokenService,
-        snapshotCaptor: SideEffectSnapshotCaptor,
         contentSafety: ContentSafetyService,
         toolRegistry: ToolRegistry,
         authorizationExplainer: AuthorizationExplainerService,
@@ -409,6 +410,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           auditService,
           aiDailyUsageService,
           toolGate,
+          toolExecution,
           externalTools,
           ragAgent,
           abilityFactory,
@@ -419,16 +421,14 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           authorizationExplainer,
           settingsService,
           usersService,
-          toolEffectsService,
           governancePolicy,
           approvalsRepo,
-          snapshotCaptor,
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, FeatureFlagsService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, SideEffectSnapshotCaptor, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService],
 })
 export class AiModule {}
