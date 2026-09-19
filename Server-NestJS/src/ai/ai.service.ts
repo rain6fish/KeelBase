@@ -12,6 +12,8 @@ import { randomUUID, createHash } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
+import { ToolGateService } from './tools/tool-gate.service';
+import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ProxyTool } from './proxy/proxy-tool';
 import { ConversationService } from './conversation/conversation.service';
@@ -26,14 +28,12 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { PlanExecuteAgent } from './agents/plan-execute-agent.service';
 import { RagAgent } from './agents/rag-agent.service';
 import { MemoriesService } from './memory/memory.service';
-import { ConfirmationStore, ConfirmationOutcome, RunItem } from './confirmation/confirmation.store';
+import { ConfirmationStore, RunItem } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import {
-  AiTool,
   ToolDefinition,
   ToolResult,
-  ToolRiskLevel,
   RISK_STRATEGY,
   AuthorizationDeniedError,
   ConfirmationImpact,
@@ -56,18 +56,14 @@ import { checkContentSafety } from './security/content-safety';
 import { ContentSafetyService } from './security/content-safety.service';
 import { deriveAiBusinessEvent } from './audit/ai-business-event';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
-import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '../common/entities/user.entity';
 import { NotFoundException, Optional } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
   LlmProvider,
-  GenerateParams,
   GenerateResult,
   StreamChunk,
   ChatMessage,
-  ToolCall,
 } from './interfaces/llm-provider.interface';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -126,12 +122,13 @@ export class AiService {
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
 
-  /** HS-10 Agent 对话集成：外部 MCP 工具提供者（运行时由 McpModule 注入，避免模块循环依赖） */
-  private externalToolProvider?: ExternalToolProvider;
-
-  /** HS-10：注入外部工具提供者（McpGatewayService 实现；启动时调用）。 */
+  /**
+   * HS-10：注入外部工具提供者（McpGatewayService 实现；启动时调用）。
+   * 状态本身已移到共享的 `ExternalToolRegistry`（阶段 3：门控域也要用它），此处保留同一入口，
+   * 使 mcp 侧的接缝不变。
+   */
   registerExternalToolProvider(provider: ExternalToolProvider): void {
-    this.externalToolProvider = provider;
+    this.externalTools.register(provider);
   }
 
   constructor(
@@ -142,6 +139,10 @@ export class AiService {
     private readonly auditService: AuditService,
     // 每日配额已从 AuditService 拆出（不属审计职责）；此处只做用量预留/释放
     private readonly usageQuota: AiDailyUsageService,
+    // 工具门控（阶段 3「主战场」第一刀）：能不能跑 / 要不要确认 / 走不走 R4 / 什么风险级
+    private readonly toolGate: ToolGateService,
+    // 外部工具提供者的共享持有者（门控与执行/清单域共用）
+    private readonly externalTools: ExternalToolRegistry,
     private readonly ragAgent: RagAgent,
     private readonly abilityFactory: CaslAbilityFactory,
     private readonly memoryService: MemoriesService,
@@ -150,7 +151,6 @@ export class AiService {
     private readonly subAgentOrchestrator: SubAgentOrchestrator,
     private readonly authorizationExplainer: AuthorizationExplainerService,
     private readonly settingsService?: SettingsService,
-    private readonly featureFlagsService?: FeatureFlagsService,
     private readonly usersService?: UsersService,
     private readonly toolEffectsService?: AiToolEffectsService,
     private readonly governancePolicy?: GovernancePolicyService,
@@ -186,160 +186,15 @@ export class AiService {
     });
   }
 
-  /**
-   * HS-2 + HS-9 工具执行前权限门控：按工具声明 + 治理策略检查调用资格。
-   * - HS-9 策略开关：工具被策略禁用时拒绝
-   * - HS-9 角色白名单：allowedRoles 非空时仅列内角色可调（headless 系统账号由 API Key 鉴权，跳过）
-   * - featureFlag：对应特性开关关闭时拒绝（对齐 HTTP 层 @FeatureFlag）
-   * - requireVerifiedEmail：写操作需已验证邮箱（对齐 EmailVerificationGuard，admin/headless 视为已验证）
-   * 无 permissions 声明的工具视为允许（数据隔离已由 execute 的 userId 保证）。
-   */
-  private async _assertToolAllowed(
-    toolName: string,
-    userId: string,
-  ): Promise<void> {
-    let tool: AiTool | undefined;
-    try {
-      tool = this.toolRegistry.getTool(toolName);
-    } catch {
-      // 工具未注册：让后续 execute 抛「not found」，这里不拦截
-    }
-
-    // W5 风险模型：R5（不可逆/外部动作）→ 阻断，不进入确认/执行（评审二 §7）
-    if (tool && this.toolRegistry.riskLevel(toolName) === 'R5') {
-      throw new AuthorizationDeniedError(
-        `Tool "${toolName}" is blocked (risk level R5)`,
-        [{ name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` }],
-      );
-    }
-
-    // HS-9 治理策略：工具开关 + 角色白名单
-    if (this.governancePolicy) {
-      const enabled = await this.governancePolicy.isToolEnabled(toolName);
-      if (!enabled) {
-        throw new AuthorizationDeniedError(
-          `Tool "${toolName}" is disabled by governance policy`,
-          [{ name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' }],
-        );
-      }
-      const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
-      if (allowedRoles.length > 0 && userId !== '0') {
-        // A14：角色白名单每次工具调用实时查库取用户——角色降权对下一次工具调用立即生效；
-        // 治理策略本身经 SettingsService 缓存提供（写 settings 即失效重载），非持久缓存，
-        // 因此「策略降权不生效」的感知来自设置未落库，而非本层缓存。此处不做额外 TTL 缓存。
-        const user = this.usersService
-          ? await this.usersService.findOne(Number(userId))
-          : null;
-        if (!user || !user.role || !allowedRoles.includes(user.role)) {
-          throw new AuthorizationDeniedError(
-            `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
-            [
-              {
-                name: 'role_allowed',
-                ok: false,
-                note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
-              },
-            ],
-          );
-        }
-      }
-    }
-
-    const perms = tool?.permissions;
-    if (!perms) return;
-
-    if (
-      perms.featureFlag &&
-      this.featureFlagsService &&
-      !this.featureFlagsService.isEnabled(perms.featureFlag as never)
-    ) {
-      throw new AuthorizationDeniedError(
-        `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
-        [{ name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` }],
-      );
-    }
-
-    // System AI Assistant：adminOnly 工具仅管理员（或系统账号 '0'——eval/兼容）可调用。
-    // 管理端助手已改为真实管理员身份，故按角色放行（与角色白名单一致实时查库）。
-    if (perms.adminOnly && userId !== '0') {
-      const user = this.usersService
-        ? await this.usersService.findOne(Number(userId))
-        : null;
-      if (!user || user.role !== UserRole.ADMIN) {
-        throw new AuthorizationDeniedError(
-          `Tool "${toolName}" is admin-only`,
-          [{ name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' }],
-        );
-      }
-    }
-
-    // headless 系统账号（userId '0'）：由 headless 层 API Key 鉴权，不重复拦截
-    if (userId === '0') return;
-
-    if (perms.requireVerifiedEmail && this.usersService) {
-      const user = await this.usersService.findOne(Number(userId));
-      // 与 EmailVerificationGuard 一致：admin 视为已验证（headless '0' 已在上面返回）
-      if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
-        throw new BusinessException('EMAIL_NOT_VERIFIED');
-      }
-    }
-  }
-
-  /**
-   * HS-9 确认规则：治理策略可覆盖工具定义的 requiresConfirmation。
-   * HS-10：外部 MCP 工具由 ExternalToolProvider 判定（readOnly 免确认，非只读默认需确认，策略可覆盖）。
-   * 未注入 GovernancePolicyService（单测/降级）时沿用工具定义默认。
-   */
-  private async _requiresConfirmation(name: string): Promise<boolean> {
-    if (this.externalToolProvider?.isExternal(name)) {
-      return this.externalToolProvider.requiresConfirmation(name);
-    }
-    const fallback = this.toolRegistry.requiresConfirmation(name);
-    if (!this.governancePolicy) return fallback;
-    return this.governancePolicy.requiresConfirmation(name, fallback);
-  }
-
-  /**
-   * §internal.15(4) R4 审批档判定：策略覆盖档位（mode=approval）或声明风险级 R4 都走双人审批。
-   * 未注入 GovernancePolicyService（单测/降级）时回落声明风险级 R4。
-   */
-  private async _requiresApproval(name: string): Promise<boolean> {
-    const riskLevel = await this._riskLevelFor(name);
-    if (!this.governancePolicy) return riskLevel === 'R4';
-    return this.governancePolicy.requiresApproval(name, riskLevel);
-  }
-
-  /**
-   * 工具风险级（治理解析用）：**本地注册表为准；取不到时对外部工具容错**。
-   *
-   * 外部工具（`mcp_*`）只由 `ExternalToolProvider` 解析、**不在本地注册表**，而 `ToolRegistry.riskLevel`
-   * 对未注册名**抛错**（`Tool "x" not found`）。此前 `_requiresApproval` 与本文件各处解释器调用都裸调它，
-   * 于是外部工具在对话里**无论读写都在 tool_start 前抛错**、以「执行失败」收尾（2026-09-17 实测：外部读工具
-   * 连 `tool_start` 都发不出），「外部工具过同一治理层（含确认）」的文档承诺实际未生效。
-   *
-   * 外部工具按其**确认判定**派生档位（与 `resolveRiskLevel` 同口径：确认写→R3、读→R1），与预扫描
-   * `?? 'R3'` 同精神。**未注册且非外部（LLM 幻觉名）仍抛**——不给幻觉名发确认卡，保持既有行为。
-   */
-  private async _riskLevelFor(toolName: string): Promise<ToolRiskLevel> {
-    try {
-      return this.toolRegistry.riskLevel(toolName);
-    } catch (err) {
-      if (this.externalToolProvider?.isExternal(toolName)) {
-        return (await this._requiresConfirmation(toolName)) ? 'R3' : 'R1';
-      }
-      throw err;
-    }
-  }
-
   /** §internal.16 A-5 Explainable Authorization 已拆至 AuthorizationExplainerService（阶段 2 切环） */
   /**
    * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
    */
   private async _buildToolDefs(): Promise<ToolDefinition[]> {
     const builtin = this.toolRegistry.getToolDefinitions();
-    if (!this.externalToolProvider) return builtin;
+    if (!this.externalTools.current) return builtin;
     try {
-      const external: ExternalToolDef[] = await this.externalToolProvider.listExternalTools();
+      const external: ExternalToolDef[] = await this.externalTools.current.listExternalTools();
       if (external.length === 0) return builtin;
       return [
         ...builtin,
@@ -359,8 +214,8 @@ export class AiService {
     args: Record<string, unknown>,
     userId: string,
   ): Promise<ToolResult> {
-    if (this.externalToolProvider?.isExternal(name)) {
-      const out = await this.externalToolProvider.callTool(name, args, userId);
+    if (this.externalTools.current?.isExternal(name)) {
+      const out = await this.externalTools.current.callTool(name, args, userId);
       if (!out.executed) {
         return { success: false, error: out.error ?? 'External tool call failed' };
       }
@@ -411,10 +266,10 @@ export class AiService {
     // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
     // 期间策略 `enabled` / 角色白名单 / 特性开关可能变化（策略「实时生效」，见 hs9 spec §0/§5）。此前仅发起时断言：
     // 已被禁用的工具仍会因「早先批准」而执行，kill-switch 对在途审批失效。此处复查，使执行点与发起点同门。
-    await this._assertToolAllowed(toolName, userId);
+    await this.toolGate.assertToolAllowed(toolName, userId);
 
-    if (this.externalToolProvider?.isExternal(toolName)) {
-      const out = await this.externalToolProvider.callTool(toolName, args, userId);
+    if (this.externalTools.current?.isExternal(toolName)) {
+      const out = await this.externalTools.current.callTool(toolName, args, userId);
       if (!out.executed) {
         return { success: false, error: out.error ?? 'External tool call failed' };
       }
@@ -792,8 +647,8 @@ export class AiService {
     args: Record<string, unknown>,
     userId: string,
   ): Promise<{ executed: boolean; requiresConfirmation: boolean; result?: ToolResult }> {
-    await this._assertToolAllowed(toolName, userId);
-    if (await this._requiresConfirmation(toolName)) {
+    await this.toolGate.assertToolAllowed(toolName, userId);
+    if (await this.toolGate.requiresConfirmation(toolName)) {
       return { executed: false, requiresConfirmation: true };
     }
     return {
@@ -815,8 +670,8 @@ export class AiService {
     args: Record<string, unknown>,
     userId: string,
   ): Promise<ToolResult> {
-    await this._assertToolAllowed(toolName, userId);
-    if (await this._requiresConfirmation(toolName)) {
+    await this.toolGate.assertToolAllowed(toolName, userId);
+    if (await this.toolGate.requiresConfirmation(toolName)) {
       throw new AuthorizationDeniedError(
         `Tool "${toolName}" is write/confirmation-gated; plan and sub-agent steps are read-only`,
         [
@@ -1509,8 +1364,8 @@ export class AiService {
           // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
           // 须与循环内逐条路径同样容错——否则异常逸出 chatStream 会中断整条 SSE 流（而非降级为该工具失败）
           try {
-            if (!(await this._requiresConfirmation(tc.name))) continue; // 读工具
-            if (await this._requiresApproval(tc.name)) continue; // R4 异步审批不混入
+            if (!(await this.toolGate.requiresConfirmation(tc.name))) continue; // 读工具
+            if (await this.toolGate.requiresApproval(tc.name)) continue; // R4 异步审批不混入
           } catch {
             continue; // 注册/解析异常的工具留给逐条路径如实报错，不中断流
           }
@@ -1530,7 +1385,7 @@ export class AiService {
           // 评审 H2 修复：HS-2 门控在聚合前预检——禁用/角色白名单/未验证/策略禁用的成员不并入 run，
           // 避免「run 先获授权、成员执行时才拒」的无效授权序（与逐条 1380 断言同 gate）
           try {
-            await this._assertToolAllowed(tc.name, userId);
+            await this.toolGate.assertToolAllowed(tc.name, userId);
           } catch {
             continue; // 留逐条路径由 1380 断言如实报错，不并入 run
           }
@@ -1613,8 +1468,8 @@ export class AiService {
         try {
           const parsed = JSON.parse(tc.args);
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）— 先于确认流程
-          await this._assertToolAllowed(tc.name, userId);
-          const isWrite = await this._requiresConfirmation(tc.name);
+          await this.toolGate.assertToolAllowed(tc.name, userId);
+          const isWrite = await this.toolGate.requiresConfirmation(tc.name);
           started = true;
           // 工具过程可视化：执行前发 tool_start，前端渲染"执行中"卡片
           // ADT（P0-14）：isWrite 让前端标注读/写，写操作需确认、可撤销
@@ -1623,7 +1478,7 @@ export class AiService {
             tc.name,
             userId,
             isWrite,
-            await this._riskLevelFor(tc.name),
+            await this.toolGate.riskLevelFor(tc.name),
           );
           yield {
             type: 'tool_start',
@@ -1644,7 +1499,7 @@ export class AiService {
             // HS-6：本会话已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
             if (trustedTools.has(tc.name)) {
               result = await this._executeWriteTool(tc.name, parsed, userId, conversationId);
-            } else if (await this._requiresApproval(tc.name)) {
+            } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
               const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
@@ -1664,7 +1519,7 @@ export class AiService {
                     tc.name,
                     userId,
                     true,
-                    await this._riskLevelFor(tc.name),
+                    await this.toolGate.riskLevelFor(tc.name),
                   ),
                 },
               };
@@ -1721,7 +1576,7 @@ export class AiService {
                       tc.name,
                       userId,
                       true,
-                      await this._riskLevelFor(tc.name),
+                      await this.toolGate.riskLevelFor(tc.name),
                     ),
                   },
                 };
@@ -2198,9 +2053,9 @@ export class AiService {
         try {
           const args = JSON.parse(tc.arguments);
           // HS-2 工具权限门控（featureFlag / requireVerifiedEmail）
-          await this._assertToolAllowed(tc.name, params.userId);
+          await this.toolGate.assertToolAllowed(tc.name, params.userId);
           // 非流式路径无确认通道：写操作不自动执行，返回提示让 LLM 引导用户走流式
-          const resolvedResult = (await this._requiresConfirmation(tc.name))
+          const resolvedResult = (await this.toolGate.requiresConfirmation(tc.name))
             ? {
                 success: false,
                 error:
@@ -2222,8 +2077,8 @@ export class AiService {
               ? await this.authorizationExplainer.getAuthorizationReasons(
                   tc.name,
                   params.userId,
-                  await this._requiresConfirmation(tc.name),
-                  await this._riskLevelFor(tc.name),
+                  await this.toolGate.requiresConfirmation(tc.name),
+                  await this.toolGate.riskLevelFor(tc.name),
                 )
               : null;
             this.auditService.log({

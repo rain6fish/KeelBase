@@ -5,6 +5,8 @@ import { AuthorizationExplainerService } from './authorization-explainer.service
 import { NotFoundException } from '@nestjs/common';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
+import { ToolGateService } from './tools/tool-gate.service';
+import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { StreamChunk } from './interfaces/llm-provider.interface';
@@ -58,6 +60,8 @@ describe('AiService', () => {
   }>;
   let mockSettingsService: { getAiDailyLimit: jest.Mock; getWithDefault: jest.Mock };
   let mockUsageQuota: { reserveDailyUsage: jest.Mock; releaseDailyUsage: jest.Mock };
+  let mockToolGate: ToolGateService;
+  let mockExternalTools: ExternalToolRegistry;
   let mockAuditService: {
     log: jest.Mock;
     getUserLogs: jest.Mock;
@@ -127,6 +131,10 @@ describe('AiService', () => {
       getStats: jest.fn(),
       getAllStats: jest.fn(),
     };
+    // 工具门控已拆到 ToolGateService（阶段 3「主战场」第一刀）。
+    // 这里用**真实实例**而非替身：既有测试是**穿过 chat()** 验门控行为的，mock 掉就丢了被测对象。
+    mockExternalTools = new ExternalToolRegistry();
+    mockToolGate = new ToolGateService(mockToolRegistry as any, mockExternalTools);
     // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
     mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
@@ -179,6 +187,8 @@ describe('AiService', () => {
       config,
       mockAuditService as any,
       mockUsageQuota as any,
+      mockToolGate as any,
+      mockExternalTools as any,
       mockRagAgent as any,
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
       mockMemoriesService as any,
@@ -300,7 +310,7 @@ describe('AiService', () => {
         permissions: { featureFlag: 'ai' },
       } as any);
       // 注入一个 featureFlagsService 使 flag 关闭生效
-      (aiService as any).featureFlagsService = {
+      (mockToolGate as any).featureFlagsService = {
         isEnabled: jest.fn().mockReturnValue(false),
       };
       mockProvider.generate.mockResolvedValueOnce({
@@ -329,7 +339,7 @@ describe('AiService', () => {
         name: 'web_search',
         permissions: { featureFlag: 'ai' },
       } as any);
-      (aiService as any).featureFlagsService = {
+      (mockToolGate as any).featureFlagsService = {
         isEnabled: jest.fn().mockReturnValue(false),
       };
       mockProvider.generate.mockResolvedValueOnce({
@@ -360,7 +370,7 @@ describe('AiService', () => {
         requiresConfirmation: true,
         permissions: { requireVerifiedEmail: true },
       } as any);
-      (aiService as any).featureFlagsService = undefined;
+      (mockToolGate as any).featureFlagsService = undefined;
       (aiService as any).usersService = {
         findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }),
       };
@@ -506,13 +516,13 @@ describe('AiService', () => {
     });
 
     it('HS-3: _executeWriteTool 外部 MCP 工具经 provider 调用', async () => {
-      (aiService as any).externalToolProvider = {
+      (aiService as any).externalTools.provider = {
         isExternal: jest.fn().mockReturnValue(true),
         callTool: jest.fn().mockResolvedValue({ executed: true, content: 'sent' }),
       };
       const result = await (aiService as any)._executeWriteTool('mcp_wx_send_email', { to: 'a' }, '1');
       expect(result).toEqual({ success: true, data: 'sent' });
-      (aiService as any).externalToolProvider = undefined;
+      (aiService as any).externalTools.provider = undefined;
     });
 
     it('should handle multiple sequential tool calls', async () => {
@@ -962,6 +972,8 @@ describe('AiService', () => {
         config,
         { log: jest.fn(), getUserLogs: jest.fn(), getStats: jest.fn(), getAllStats: jest.fn() } as any,
         mockUsageQuota as any,
+        mockToolGate as any,
+        mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -1005,6 +1017,8 @@ describe('AiService', () => {
         config,
         mockAuditService as any,
       mockUsageQuota as any,
+      mockToolGate as any,
+      mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -1937,6 +1951,8 @@ describe('AiService', () => {
         config,
         mockAuditService as any,
       mockUsageQuota as any,
+      mockToolGate as any,
+      mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
         mockMemoriesService as any,
@@ -2068,7 +2084,7 @@ describe('AiService', () => {
     });
 
     it('adminOnly 工具：真实管理员（role=admin）放行', async () => {
-      (aiService as any).usersService = {
+      (mockToolGate as any).usersService = {
         findOne: jest.fn().mockResolvedValue({ id: 5, role: 'admin' }),
       };
       mockToolRegistry.getTool.mockReturnValue({
@@ -2185,7 +2201,7 @@ describe('AiService', () => {
       it('治理策略禁用 → 拒绝并携带 tool_enabled 失败原因', async () => {
         mockToolRegistry.getTool.mockReturnValue({ name: 'create_event', requiresConfirmation: true });
         mockToolRegistry.riskLevel.mockReturnValue('R3');
-        (aiService as any).governancePolicy = {
+        (mockToolGate as any).governancePolicy = {
           isToolEnabled: jest.fn().mockResolvedValue(false),
           getAllowedRoles: jest.fn().mockResolvedValue([]),
         };
@@ -2207,7 +2223,7 @@ describe('AiService', () => {
         expect(out.requiresConfirmation).toBe(false);
 
         // R2 policy 通道：治理策略强制确认 → 需确认（低风险写可被治理收紧）
-        (aiService as any).governancePolicy = {
+        (mockToolGate as any).governancePolicy = {
           isToolEnabled: jest.fn().mockResolvedValue(true),
           getAllowedRoles: jest.fn().mockResolvedValue([]),
           requiresConfirmation: jest.fn().mockResolvedValue(true),
@@ -2243,7 +2259,7 @@ describe('AiService', () => {
 
     it('治理策略禁用的只读工具 → 拒绝（tool_enabled），不执行', async () => {
       mockToolRegistry.requiresConfirmation.mockReturnValue(false);
-      (aiService as any).governancePolicy = {
+      (mockToolGate as any).governancePolicy = {
         isToolEnabled: jest.fn().mockResolvedValue(false),
         getAllowedRoles: jest.fn().mockResolvedValue([]),
       };
@@ -2461,7 +2477,7 @@ describe('AiService', () => {
       };
       (aiService as any).approvalsRepo = repo;
       // 发起审批后、批准前：治理策略把该工具禁用（策略实时生效）
-      (aiService as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
+      (mockToolGate as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
       mockToolRegistry.execute.mockClear();
 
       const res = await aiService.decideApproval('t2', 'admin', 'approve');
@@ -2469,7 +2485,7 @@ describe('AiService', () => {
       // 执行点复查命中禁用 → 工具未真正执行（此前只在发起时断言，批准仍会执行）
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       expect(res.success).toBe(false);
-      (aiService as any).governancePolicy = undefined;
+      (mockToolGate as any).governancePolicy = undefined;
     });
   });
 
@@ -2507,13 +2523,17 @@ describe('AiService', () => {
     });
 
     it('外部提供者缺失时 _buildToolDefs 只返回内置', async () => {
+      // 提供者现由**共享持有者**承载（阶段 3 门控刀：它不再挂在单个实例上）。
+      // 本测试的原意是「没有提供者的服务只返回内置」，故给一个**空的**持有者。
       const plain = new AiService(
         mockProviderFactory as any,
         mockToolRegistry as any,
         mockConversationService as any,
         config,
         mockAuditService as any,
-      mockUsageQuota as any,
+        mockUsageQuota as any,
+        mockToolGate as any,
+        new ExternalToolRegistry() as any,
         mockRagAgent as any,
         {} as any,
         mockMemoriesService as any,
@@ -2662,7 +2682,7 @@ describe('AiService', () => {
 
     it('外部写工具确认规则委托 provider', async () => {
       provider.requiresConfirmation.mockResolvedValue(true);
-      await expect((aiService as any)._requiresConfirmation('mcp_wx_send_email')).resolves.toBe(true);
+      await expect(mockToolGate.requiresConfirmation('mcp_wx_send_email')).resolves.toBe(true);
       expect(provider.requiresConfirmation).toHaveBeenCalledWith('mcp_wx_send_email');
     });
 
@@ -2697,17 +2717,17 @@ describe('AiService', () => {
     });
 
     it('_assertToolAllowed：治理策略禁用工具抛错', async () => {
-      (aiService as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
-      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('disabled by governance policy');
+      (mockToolGate as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
+      await expect(mockToolGate.assertToolAllowed('query_events', '1')).rejects.toThrow('disabled by governance policy');
     });
 
     it('_assertToolAllowed：角色白名单不含用户角色抛错', async () => {
-      (aiService as any).governancePolicy = {
+      (mockToolGate as any).governancePolicy = {
         isToolEnabled: jest.fn().mockResolvedValue(true),
         getAllowedRoles: jest.fn().mockResolvedValue(['admin']),
       };
-      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'user' }) };
-      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('restricted to roles');
+      (mockToolGate as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'user' }) };
+      await expect(mockToolGate.assertToolAllowed('query_events', '1')).rejects.toThrow('restricted to roles');
     });
 
     it('§internal.16 A-5 getAuthorizationChain：聚合角色 grants + 工具策略 + 生效期', async () => {
@@ -2741,28 +2761,28 @@ describe('AiService', () => {
 
     it("_assertToolAllowed：headless 系统账号 '0' 跳过邮箱校验", async () => {
       mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
-      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 0, emailVerified: false }) };
-      await expect((aiService as any)._assertToolAllowed('query_events', '0')).resolves.toBeUndefined();
-      expect((aiService as any).usersService.findOne).not.toHaveBeenCalled();
+      (mockToolGate as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 0, emailVerified: false }) };
+      await expect(mockToolGate.assertToolAllowed('query_events', '0')).resolves.toBeUndefined();
+      expect((mockToolGate as any).usersService.findOne).not.toHaveBeenCalled();
     });
 
     it("_assertToolAllowed：admin 视为已验证（对齐 EmailVerificationGuard）", async () => {
       mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
-      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'admin', emailVerified: false }) };
-      await expect((aiService as any)._assertToolAllowed('query_events', '1')).resolves.toBeUndefined();
+      (mockToolGate as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, role: 'admin', emailVerified: false }) };
+      await expect(mockToolGate.assertToolAllowed('query_events', '1')).resolves.toBeUndefined();
     });
 
     it('_assertToolAllowed：requireVerifiedEmail 未验证抛 EMAIL_NOT_VERIFIED', async () => {
       mockToolRegistry.getTool.mockReturnValue({ permissions: { requireVerifiedEmail: true } } as any);
-      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }) };
-      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toMatchObject({ errorCode: 'EMAIL_NOT_VERIFIED' });
+      (mockToolGate as any).usersService = { findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }) };
+      await expect(mockToolGate.assertToolAllowed('query_events', '1')).rejects.toMatchObject({ errorCode: 'EMAIL_NOT_VERIFIED' });
     });
 
     it('_assertToolAllowed：featureFlag 关闭抛错', async () => {
-      (aiService as any).featureFlagsService = { isEnabled: jest.fn().mockReturnValue(false) };
+      (mockToolGate as any).featureFlagsService = { isEnabled: jest.fn().mockReturnValue(false) };
       mockToolRegistry.getTool.mockReturnValue({ permissions: { featureFlag: 'ai' } } as any);
-      await expect((aiService as any)._assertToolAllowed('query_events', '1')).rejects.toThrow('feature flag');
-      (aiService as any).featureFlagsService = undefined;
+      await expect(mockToolGate.assertToolAllowed('query_events', '1')).rejects.toThrow('feature flag');
+      (mockToolGate as any).featureFlagsService = undefined;
     });
 
     it('_shouldAudit：off/write/all 粒度门控', async () => {
@@ -2779,19 +2799,19 @@ describe('AiService', () => {
     });
 
     it('_requiresConfirmation：治理策略覆盖工具默认', async () => {
-      (aiService as any).governancePolicy = { requiresConfirmation: jest.fn().mockResolvedValue(true) };
-      await expect((aiService as any)._requiresConfirmation('query_events')).resolves.toBe(true);
+      (mockToolGate as any).governancePolicy = { requiresConfirmation: jest.fn().mockResolvedValue(true) };
+      await expect(mockToolGate.requiresConfirmation('query_events')).resolves.toBe(true);
     });
 
     it('_requiresApproval：声明 R4→true；R3→false；无策略回落声明；策略 mode 可升档（§internal.15(4)）', async () => {
-      (aiService as any).governancePolicy = undefined;
+      (mockToolGate as any).governancePolicy = undefined;
       mockToolRegistry.riskLevel.mockReturnValue('R4');
-      await expect((aiService as any)._requiresApproval('review_approval_request')).resolves.toBe(true);
+      await expect(mockToolGate.requiresApproval('review_approval_request')).resolves.toBe(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      await expect((aiService as any)._requiresApproval('create_event')).resolves.toBe(false);
-      (aiService as any).governancePolicy = { requiresApproval: jest.fn().mockResolvedValue(true) };
+      await expect(mockToolGate.requiresApproval('create_event')).resolves.toBe(false);
+      (mockToolGate as any).governancePolicy = { requiresApproval: jest.fn().mockResolvedValue(true) };
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      await expect((aiService as any)._requiresApproval('create_event')).resolves.toBe(true);
+      await expect(mockToolGate.requiresApproval('create_event')).resolves.toBe(true);
     });
 
     it('getToolInventory：治理策略覆盖开关', async () => {

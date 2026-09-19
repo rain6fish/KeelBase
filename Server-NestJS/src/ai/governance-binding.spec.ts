@@ -14,6 +14,8 @@ import { RISK_STRATEGY } from './interfaces/tool.interface';
 
 const VECTOR = resolve(__dirname, '../../specs/protocol/governance-binding-v1-vector.json');
 const AI_SERVICE = resolve(__dirname, 'ai.service.ts');
+// 工具门控已拆到独立服务（阶段 3「主战场」第一刀）：拒绝词汇随门控一起搬走，扫描面须同步
+const TOOL_GATE = resolve(__dirname, 'tools/tool-gate.service.ts');
 const AUTHZ_EXPLAINER = resolve(__dirname, 'authorization-explainer.service.ts');
 
 const vector = JSON.parse(readFileSync(VECTOR, 'utf8')) as {
@@ -33,7 +35,10 @@ describe('CE-3 governance binding · TS↔语料 漂移门', () => {
   });
 
   it('deny 依据词表每个 name 在实现源码中真实出现（拒绝词汇未改名）', () => {
-    const src = readFileSync(AI_SERVICE, 'utf8') + readFileSync(AUTHZ_EXPLAINER, 'utf8');
+    const src =
+      readFileSync(AI_SERVICE, 'utf8') +
+      readFileSync(AUTHZ_EXPLAINER, 'utf8') +
+      readFileSync(TOOL_GATE, 'utf8');
     for (const name of vector.denyChecks) {
       expect(src.includes(`'${name}'`)).toBe(true);
     }
