@@ -223,6 +223,24 @@ jobs:
       - run: node Server-NestJS/scripts/generate-protocol-vectors.mjs --check
       - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
 
+  # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
+  # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何
+  # 门禁守着判据本身。本 job 起隔离后端（fresh sqlite + 确定性 env，端口 3401，不碰开发后端）→ 跑
+  # runner → 停后端 → 透传退出码。
+  # 为什么值得单独一条：F4/F5 是「同一套前端接第二个 Runtime」的前提（ADR-0002 Rev-8 触发条件②）。
+  # 参考实现一旦让信封或能力面漂移，受损的不是它自己，而是**所有**指向它的前端与第二载体。
+  full-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      - run: bash Server-NestJS/scripts/proof-full-profile.sh
+
   # 术语单一真源闸（CE-1 C2，零依赖 node 内置，root 跑）：协议文档 + 对外文档无第二套表述/
   # 过度承诺词（审计哈希链不承诺不可篡改/不可抵赖、≠ 区块链）。词表 = docs/manual/product-language.md
   terminology-guard:

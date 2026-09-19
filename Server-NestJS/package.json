@@ -45,7 +45,8 @@
     "verify:trust-proof": "node scripts/verify-trust-proof.mjs",
     "verify:evidence-root": "bash scripts/verify-evidence-root.sh",
     "verify:protocol-trust": "bash scripts/proof-protocol-trust.sh",
-    "verify:protocol-trust:crm": "bash scripts/proof-crm-reference.sh"
+    "verify:protocol-trust:crm": "bash scripts/proof-crm-reference.sh",
+    "verify:full-profile": "bash scripts/proof-full-profile.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",
