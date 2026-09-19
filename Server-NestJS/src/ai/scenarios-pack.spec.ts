@@ -15,6 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import Ajv from 'ajv';
 import { SecurityShowcaseService } from './security-showcase/security-showcase.service';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 
@@ -213,6 +214,85 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
       const keys = crossEntryPack.steps.map((s: any) => s.key);
       keys.forEach((k: string) => expect(typeof k === 'string' && k.length > 0).toBe(true));
       expect(new Set(keys).size).toBe(keys.length);
+    });
+  });
+
+  /**
+   * replay 语法门（`conformance-profile.md` §2.4 修订 v1）。
+   *
+   * **为什么存在**：JV-15 Slice 0 在第二载体上实跑后发现草稿的 `replay` **无法执行**——`call` 把
+   * HTTP 方法 / 路径 / JSON-RPC 方法 / 工具名挤在一串里，`expect` 里还有中文散文。根因是它把
+   * 「契约操作」与「参照实现的路由」混在一起。修订后的语法：**`call` 引用 wire 对象，不引用路径**。
+   *
+   * **选入式**：只对声明了 `replayVersion` 的包生效。未声明的包其 `replay` 仍是散文（改齐之前不纳入
+   * 本门），但**不被静默放过**——下方把「已选入 / 未选入」两组显式列出来。
+   *
+   * **非空转**：本门自带正反例，即使当前 0 个包选入也真实断言语法。这是本仓 JV-14 的教训
+   * （「一条看起来在验证 X 的断言，实际从未验证过」）所要求的：断言必须证明自己会红。
+   */
+  describe('replay 语法 · replayVersion 选入门（§2.4 v1）', () => {
+    // 与 Full 剖面 runner（`scripts/verify-full-profile.mjs`）同一套 Ajv 选项：不校验 meta-schema、非严格模式，
+    // 免得把 draft-07 元模式与未知关键字的告警当成语料不合规。
+    const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
+    ajv.addSchema(JSON.parse(readFileSync(resolve(SPECS_DIR, 'replay.schema.json'), 'utf8')));
+    const validateEntry = ajv.compile({ $ref: 'replay.schema.json#/definitions/replayEntry' });
+
+    const PACKS: Array<[string, any]> = [
+      ['security-showcase-v1.json', showcasePack],
+      ['golden-application-v1.json', goldenPack],
+      ['failure-path-v1.json', failurePack],
+      ['trust-proof-v1.json', trustPack],
+      ['cross-entry-v1.json', crossEntryPack],
+    ];
+
+    it('语法自证（正例）：结构化 call / expect 通过', () => {
+      expect(validateEntry({
+        call: { tool: 'create_followup_task', args: { customerId: 1 } },
+        expect: { status: 'pending_confirmation' },
+      })).toBe(true);
+      expect(validateEntry({
+        call: { read: 'audit-chain-verification' },
+        expect: { valid: true },
+      })).toBe(true);
+    });
+
+    it('语法自证（反例）：旧草稿的四种写法逐条被拒', () => {
+      const cases: Array<[string, any]> = [
+        ['① call 是字符串（方法+路径+方法名挤一串）',
+          { call: 'POST /api/v1/mcp tools/call delete_customer', expect: { blocked: true } }],
+        ['② expect 键是散文', { call: { read: 'audit-chain-verification' }, expect: { 离线验证: 'PASS' } }],
+        ['③ expect 值不是字面量', { call: { read: 'audit-chain-verification' }, expect: { x: { y: 1 } } }],
+        ['④ 缺 expect', { call: { read: 'audit-chain-verification' } }],
+      ];
+      for (const [label, entry] of cases) {
+        expect([label, validateEntry(entry)]).toEqual([label, false]);
+      }
+    });
+
+    it('选入的包：每个 replay 元素过语法；未选入的包显式列出（不静默放过）', () => {
+      const optedIn = PACKS.filter(([, pack]) => pack.replayVersion !== undefined);
+      const notOptedIn = PACKS.filter(([, pack]) => pack.replayVersion === undefined);
+
+      // 可见性：两组都点名，避免「门存在但 0 包受约束」被读成「全部合规」。
+      console.log(`  replay 语法门：已选入 ${optedIn.length} 包 · 未选入 ${notOptedIn.length} 包（${
+        notOptedIn.map(([f]) => f).join(', ') || '无'}）`);
+      expect(optedIn.length + notOptedIn.length).toBe(PACKS.length);
+
+      for (const [file, pack] of optedIn) {
+        expect([file, pack.replayVersion]).toEqual([file, 1]);
+        const containerKey = ['steps', 'cases', 'scenarios'].find((k) => Array.isArray(pack[k]));
+        expect([file, typeof containerKey]).toEqual([file, 'string']);
+        for (const step of pack[containerKey as string]) {
+          if (!Array.isArray(step.replay)) continue; // 未给 replay 的条目不在本门范围
+          const label = step.key ?? step.id;
+          for (const entry of step.replay) {
+            expect([file, label, validateEntry(entry)]).toEqual([file, label, true]);
+          }
+          if (step.given !== undefined) {
+            expect([file, label, typeof step.given.actor]).toEqual([file, label, 'string']);
+          }
+        }
+      }
     });
   });
 });

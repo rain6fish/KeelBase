@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "replay.schema.json",
+  "title": "Scenario replay grammar — v1",
+  "description": "场景包 `replay` 的可机读语法（v1）。目的：让**任一 conformant Runtime** 能按 replay 执行并断言，而不是只有写出它的那个实现能跑。核心判断：**replay 引用 wire 对象，不引用路径**——路径 / HTTP 方法 / `/api/v1` 前缀 / 传输（HTTP vs MCP）都是实现的自由，不进语料；由各 Runtime 自己把它们映射到自己的端点。判据来源 conformance-profile.md §2.4；实测依据 Java 线 JV-15 Slice 0（四步在第二载体上真跑通，同时暴露草稿的 7 条歧义）。",
+  "definitions": {
+    "given": {
+      "title": "Replay 前置 / given",
+      "description": "执行本步所需的前置。**身份必须显式**：认证在请求入口（ADR-0004 D3 / JV-9），而旧草稿只把行动者藏在散文里（「bob→alex」）。第一版只允许 actor——克制优先于表达力，需要时再加。",
+      "type": "object",
+      "required": ["actor"],
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "行动者标识（映射到各 Runtime 自己的身份目录；契约面见 `delegation-token-claims` / `permission-decision`）。"
+        }
+      }
+    },
+    "call": {
+      "title": "Replay 调用 / call",
+      "description": "要说清「调什么 / 读什么」，不说「怎么调」。禁字符串形式——旧草稿把 HTTP 方法 + 路径 + JSON-RPC 方法 + 工具名挤在一串里，第二载体无法执行。",
+      "oneOf": [
+        {
+          "title": "业务动作：调工具",
+          "type": "object",
+          "required": ["tool"],
+          "additionalProperties": false,
+          "properties": {
+            "tool": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "工具名（业务级标识，非实现细节）；语义薄片见 `tool-invocation`。"
+            },
+            "args": {
+              "type": "object",
+              "description": "工具入参。形状由该工具的声明决定，本语法不约束。"
+            }
+          }
+        },
+        {
+          "title": "治理观测：读 wire 对象",
+          "type": "object",
+          "required": ["read"],
+          "additionalProperties": false,
+          "properties": {
+            "read": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "description": "**wire 对象 id**（如 `audit-chain-verification`），不是路径。各 Runtime 把它映射到自己的端点。"
+            }
+          }
+        }
+      ]
+    },
+    "expect": {
+      "title": "Replay 期望 / expect",
+      "description": "键 = 该对象的字段（**相对对象，不相对响应信封**——信封是传输关切）。值**只允许字面量**：先不发明比较算子（`\">0\"` 之类），需要时再加。旧草稿的自由散文（如 `{\"离线验证\":\"PASS\"}`）与嵌套对象在此被拒。",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-zA-Z0-9]*$",
+        "description": "键 = 目标对象的**字段名**（camelCase）。此模式拒掉散文键（如 `离线验证`）——那正是旧草稿的毛病。**更强的一层留待第 2 步**：`call.read` 已给出对象 id，届时可校验「expect 键 ⊆ 该对象 schema 的 properties」（本文件不做，因为它需要 registry 做交叉引用）。"
+      },
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    },
+    "replayEntry": {
+      "title": "Replay 单步 / one replay step",
+      "description": "`replay` 数组的一个元素。",
+      "type": "object",
+      "required": ["call", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "call": { "$ref": "#/definitions/call" },
+        "expect": { "$ref": "#/definitions/expect" }
+      }
+    }
+  }
+}
