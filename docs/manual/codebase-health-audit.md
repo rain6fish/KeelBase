@@ -209,3 +209,20 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **验证**：全量 **280 suite / 2638 tests 全过**（拆分前同数，逐条比对无丢失）；三闸全绿。
 - **下一刀候选**（变更驱动、不排期）：`AuditService` 剩余为「写入（`log`/`_lastHash`）+ 每日配额（`reserveDailyUsage`/`releaseDailyUsage`）」——
   后者其实不属于审计，是 AI 每日限额，可独立成 `UsageQuotaService`；届时 `AuditService` 只剩真正的写链职责。
+
+### 2026-09-19 — 阶段 3 第四刀：每日配额下沉（AiDailyUsageService）· **audit 线收官**
+- ✅ 新建 `src/ai/audit/ai-daily-usage.service.ts`：迁入 `reserveDailyUsage` / `releaseDailyUsage` / `_todayKey`
+  （依赖仅 `usageRepo`，并发语义原样保留：原子条件 UPDATE 而非「读-判-写」）。**`AuditService` 至此只剩写入路径。**
+- ✅ 接线：`AiService` 注入新服务（4 处调用）；`AiModule` providers + exports；**该模块的 AiService factory 也需补参数**
+  （它是手工 `new AiService(...)`，不在 Nest 自动注入路径上——漏了它只在编译期暴露）。
+- ✅ spec：配额 describe（4 例）整段迁入 `ai-daily-usage.service.spec.ts`（断言一字未改）；
+  `ai.service.spec` 拆出 `mockUsageQuota` 并更新 **5 处按位置构造**；`failure-path-corpus.spec` 的 3 处构造按新签名修正。
+- ⚠️ **如实记下本刀的成本**：`AiService` 构造参数增至 **22 个**，且改动落在一个 **3003 行**的 spec 上。
+  为 30 行代码付这个代价，是一笔真实交易——尤其 `AiService` 自己就是下一刀的目标。仍判定值得：
+  **一个掌管 AI 限流的审计服务，名不副实**。
+- ⏸️ **实体不动**：`AiDailyUsage` 被**独立治理面**与**迁移配置**引用，挪文件会牵出远超本刀的改动；
+  服务现置于其实体旁，目录命名的尴尬**如实记录**而非顺手抹平。
+- **结果**：`audit.service.ts` **273 → 217 行**——本轮四刀累计 **1298 → 217（−1081）**，且职责单一（写入链）。
+- **验证**：全量 **281 suite / 2638 tests 全过**（拆分前同数，**逐文件核对**）；三闸全绿。
+- **audit 线阶段 3 收官**：写入 / 聚合统计 / 查询 / 证据报表 / 配额 五域已全部独立。
+  按执行策略，后续目标为 **`ai.service`（主战场，2134+ 行）** → `crm`/`admin`/`org`（500+）；仍**变更驱动、不排期**。
