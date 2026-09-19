@@ -24,7 +24,8 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
       riskLevel: 'R3',
       kind: 'single',
       status: 'pending',
-      createdAt: new Date('2026-09-18T02:00:00.000Z'),
+      // 相对当前时间：离线窗口是「距今 24h」，写死日期会在次日必然过期（本行曾因此挂掉）
+      createdAt: new Date(Date.now() - 60_000),
       decidedAt: null,
       ...over,
     }) as AiConfirmationRequest;
