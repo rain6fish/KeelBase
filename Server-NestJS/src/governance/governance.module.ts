@@ -21,6 +21,11 @@ import { AiGovernancePolicyHistory } from '../ai/governance/ai-governance-policy
 
 // 治理服务
 import { AuditService } from '../ai/audit/audit.service';
+// 阶段 3 把 AuditService 拆成三块（聚合统计 / 查询域 / 证据域），AuditController 一并接收——
+// 治理台自己实例化 AuditController，所以它也必须自己提供这三个，与 AuditService 同理。
+import { AuditStatsService } from '../ai/audit/audit-stats.service';
+import { AuditQueryService } from '../ai/audit/audit-query.service';
+import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
 import { AiAgentService } from '../ai/agents/ai-agent.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
@@ -76,6 +81,9 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     { provide: APP_GUARD, useClass: PoliciesGuard },
     // 治理服务（注入治理库默认 DataSource）
     AuditService,
+    AuditStatsService,
+    AuditQueryService,
+    AuditEvidenceService,
     AiAgentService,
     GovernancePolicyService,
     GovernanceApprovalService,
