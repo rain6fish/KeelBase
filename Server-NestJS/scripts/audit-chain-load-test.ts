@@ -32,6 +32,7 @@ import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.ent
 import { AuditChainService } from '../src/common/audit-chain/audit-chain.service';
 import { AuditChainLock } from '../src/common/audit-chain/audit-chain-lock.entity';
 import { AuditService } from '../src/ai/audit/audit.service';
+import { AuditEvidenceService } from '../src/ai/audit/audit-evidence.service';
 
 function argInt(name: string, def: number): number {
   const idx = process.argv.indexOf(`--${name}`);
@@ -62,11 +63,15 @@ async function main(): Promise<void> {
   const services = Array.from({ length: instances }, () =>
     new AuditService(
       ds.getRepository(AiAuditLog),
-      ds.getRepository(AiDailyUsage),
-      ds.getRepository(AiToolSideEffect),
       auditChain,
       ds, // DataSource：DB 级串行锁
     ),
+  );
+  // 链校验已随 phase-3 拆分迁至 AuditEvidenceService（AuditService 不再暴露 verifyChain）
+  const evidence = new AuditEvidenceService(
+    ds.getRepository(AiAuditLog),
+    ds.getRepository(AiToolSideEffect),
+    auditChain,
   );
 
   const durations: number[] = [];
@@ -101,7 +106,7 @@ async function main(): Promise<void> {
     const expect = i === 0 ? null : rows[i - 1].hash;
     if (rows[i].prevHash !== expect) forked++;
   }
-  const chain = await services[0].verifyChain();
+  const chain = await evidence.verifyChain();
 
   const sorted = [...durations].sort((a, b) => a - b);
   const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
