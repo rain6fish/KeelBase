@@ -24,6 +24,8 @@
 > Prefer instant? **Open the live demo** → [keelbase-demo](http://121.199.30.80/user/) (`alex/Alex@2026$Demo` — workbench, ask "which customers need attention?"). Visit guide: [demo-live.md](docs/manual/demo-live.md).
 >
 > Or **watch the demo video** → [English demo (GitHub Pages)](https://rain6fish.github.io/KeelBase/video-en.html) · [China mirror](https://demo.keelbase.com.cn/demo/video-en.html) (4-min, with real system demos; download: [GitHub release](https://github.com/rain6fish/KeelBase/releases/tag/demo-videos)).
+>
+> Or **read the series** → [Runtime over Prompt](https://rain6fish.github.io/KeelBase/blog/runtime-over-prompt.html) · [Why AI Writes Need Risk Tiers](https://rain6fish.github.io/KeelBase/blog/why-ai-writes-need-risk-tiers.html).
 
 Docker only — one command brings up the entire application (backend + workbench + Admin Console + mobile preview), no build:
 
