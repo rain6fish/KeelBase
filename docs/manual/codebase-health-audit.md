@@ -279,3 +279,46 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **下一刀候选**（变更驱动、不排期）：**R4 双人审批域**（`createR4ApprovalRequest` / `listPendingApprovals` /
   `listDecidedApprovals` / `withUserNames` / `decideApproval` / `executeApprovedTool` / `describeConfirmation` / `_parseRunItems`，~148 行）
   → 呈现/摘要域（~152 行，自足）→ 工具清单+MCP（~201 行）→ **最后才是 `chatImpl`（仍是最大的一块）**。
+
+### 2026-09-20 — 阶段 3 第七刀：R4 双人审批域下沉（R4ApprovalService）· **主战场第三刀**
+- ✅ 新建 `src/ai/approvals/r4-approval.service.ts`：迁入 `createR4ApprovalRequest` / `listPendingApprovals` /
+  `listDecidedApprovals` / `withUserNames` / `decideApproval` / `executeApprovedTool`。**行为逐字不变**。
+  裁决后的执行仍走上一刀的写管道（`ToolExecutionService.executeWrite`）——门控复查 + 幂等 + 副作用登记 + 审计一行未改；
+  R3 的离线裁决（Action Center）走的也是这个方法，同一管道。
+- ⚠️ **一处偏离上一刀的分组，如实记录**：`describeConfirmation` 与 `_parseRunItems` **没有搬进本服务**。
+  它们要 `writeToolSummary` / `_writeImpact` / `_revokeClass` 三块**呈现侧**知识（属下一刀「呈现/摘要域」），
+  搬走就得把那一刀提前合并进来，或让审批服务反向依赖 `AiService`（正是健康清单警告的「跨类调用爆炸」）。
+  故留在原处，等呈现刀一起走。
+- ✅ **清掉两个真死依赖**：`approvalsRepo` 与 `usersService` 在 `AiService` 内只被 R4 方法使用，随之下沉。
+  repo 改由新服务 `@InjectRepository` 直接拿（同 `MyConfirmationService` 的写法），工厂不再中转
+  `getRepositoryToken(AiConfirmationRequest)`；`UsersService` 整个 import 从 `ai.service.ts` 消失。
+- ✅ **构建当场抓出一次参数错位**（正是 `974f6dec` 修过的那类）：删掉 `usersService` 参数后，工厂仍在按位置传它，
+  `TS2554: Expected 17-20 arguments, but got 21`。修好后另用脚本**逐位复核 useFactory 签名 ↔ inject 数组**
+  （28↔28、逐位类型一致）——这类 bug 单测抓不到、只有构建/启动能抓，故不靠人眼。
+- ✅ 接线：`AiController` 三个审批端点改注入新服务（新参数**追加在末尾**，不打乱既有位置）；
+  `InternalApprovalsController` **整个丢掉 `AiService` 依赖**（它只用 decideApproval）；
+  `MyConfirmationService` 改为**双依赖**（`describeConfirmation` 仍在 AiService，`executeApprovedTool` 走新服务）——
+  **这是本刀的成本，如实记下**：拆开了一对本来同源的消费点。
+- ✅ spec 搬迁**不改断言**：5 条 R4 用例（审批箱排除 run 聚合行 / 冻结契约键集 ⊆ / 拒绝 self-approve /
+  run 行不可经审批入口裁决 / 执行前门控 kill-switch）整段迁入 `r4-approval.service.spec.ts`，
+  门控与执行用真实实例（该用例正是穿过它们才成立）。
+- ⚠️ **新增两条护栏（非搬迁，必须写明）**：`createR4ApprovalRequest`（落 pending R4 行 + 返回 token）与
+  「未注入 repo 时三条降级路径」此前**无直接覆盖**，搬迁时补上。
+- ⚠️ **顺带发现、本刀未修**：`ai.service.spec.ts` 有 **5 处 `(aiService as any).usersService` 戳点**——上一刀把
+  email 校验/adminOnly 挪进门控时漏改的**死戳点**（门控读自己的 `usersService`），本刀删除 `AiService.usersService`
+  后它们指向一个不存在的字段。其中「email 未验证」那条用例的断言其实**空转**（非流式对话本就不执行写工具）。
+  HEAD 已如此，非本刀引入；**建议后续单列一笔**（改指 `mockToolGate`）。
+- **结果**：`ai.service.ts` **2175 → 2030 行**（−145）；新增 `r4-approval.service.ts`（183 行）。构造注入净 −1
+  （+审批服务 −2 死依赖），参数个数 **21 → 20**（同一口径实测）。
+- **验证**：全量单测 **284 suite / 2646 tests 全过**（2644 + 2 条新增护栏，搬迁用例守恒、逐项对得上）；
+  **e2e 35/35 suite、369 用例全过**（含 `governance-plane`——另一会话已按上一刀报告补齐治理模块 provider，本刀随之转绿）；
+  三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过（全局 **94.8/78.59/90.05/95.63**，安全分档门控 6/6；
+  新文件 r4-approval 91.54/68.51/100/90.16）。验证过程中并发会话又追加了一套件/2 用例（285/2648），与本刀无关。
+- ⚠️ **验证期间的一段插曲，如实记录**：全量 e2e 连续两次在跑到第 9 个套件时**进程硬崩（exit 127，无 jest 失败输出）**。
+  先用分批跑覆盖全部 35 套件定位（9+9+9+8 全绿），再复查发现根因是**并发会话正在改写 `ai.module.ts`**——
+  崩在其中的一瞬，文件里 `FeatureFlagsService` 只在 inject 里存在而 import 已被删（ReferenceError 直接打死进程）。
+  其写入稳定后重跑**全量 35/35 全过**。教训：**并发改写模块文件会让全量 e2e 出现"无输出硬崩"这种假红**，
+  判红前先看该文件 mtime 是否在跑动中变化。
+- **下一刀候选**（变更驱动、不排期）：**呈现/摘要域**（`writeToolSummary` / `summarizeWriteTool` / `summarizeReadTool` /
+  `summarizeToolResult` / `truncateToolResult` + `describeConfirmation` / `_parseRunItems` / `_writeImpact` / `_revokeClass`，~152 行，自足）
+  → 工具清单+MCP（~201 行）→ **最后才是 `chatImpl`（仍是最大的一块）**。
