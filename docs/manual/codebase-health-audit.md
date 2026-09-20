@@ -322,3 +322,34 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **下一刀候选**（变更驱动、不排期）：**呈现/摘要域**（`writeToolSummary` / `summarizeWriteTool` / `summarizeReadTool` /
   `summarizeToolResult` / `truncateToolResult` + `describeConfirmation` / `_parseRunItems` / `_writeImpact` / `_revokeClass`，~152 行，自足）
   → 工具清单+MCP（~201 行）→ **最后才是 `chatImpl`（仍是最大的一块）**。
+
+### 2026-09-20 — 阶段 3 第八刀：呈现/摘要域下沉（ToolPresentationService）· **主战场第四刀**
+- ✅ 新建 `src/ai/tools/tool-presentation.service.ts`：迁入 `writeToolSummary` / `summarizeWriteTool` /
+  `summarizeReadTool` / `summarizeToolResult` / `truncateToolResult`（含 HS-5 两个上限常量）+
+  上一刀刻意留下的 `describeConfirmation` / `parseRunItems` / `writeImpact` / `revokeClass`。**行为逐字不变**。
+  本域只把既有事实（工具名 / 参数 / 结果）翻译成人读文案或受限文本，**不含任何执行或策略判定**。
+- ✅ **上一刀记下的成本在本刀还清**：`MyConfirmationService` 的「双依赖」回到单域——它现在只注入
+  行 repo、ConfirmationStore、`ToolPresentationService`（呈现）与 `R4ApprovalService`（执行），
+  **`AiService` 依赖整个消失**。
+- ⚠️ **一处需要说清的方向**：`writeImpact` 要知道目标工具是不是 B 路径代理写，故本域**读** `ToolExecutionService.isProxyTool`
+  （呈现 → 执行，单向）。没有反向依赖，也不再复制一份判型（复制会让两处口径悄悄分叉）。
+- ✅ 清掉随搬迁变死的 5 个 import（`deriveWriteImpact` / `ConfirmationImpact` / `RevokeClass` / `RunItem` /
+  `AiConfirmationRequest`）——编译器逐个点名，未凭印象删。
+- ✅ 三处只提旧名的注释同步改指新归属（`sub-agent-orchestrator` 与 `tool.interface` 里的
+  `AiService.truncateToolResult`、`r4-approval.service` 头部对 `_writeImpact`/`_revokeClass` 的引用）。
+- ✅ spec 搬迁**不改断言**：3 条摘要分支（读/结果/写）+ 3 条 HS-5 截断 + 1 条撤销档容错整段迁入
+  `tool-presentation.service.spec.ts`；`ai.service.spec` 5 处按位置构造补参。
+- ⚠️ **新增 4 条护栏（非搬迁，必须写明）**：`describeConfirmation` 三种展示模式（immediate / approval / run）
+  + 坏 JSON 降级此前**无直接覆盖**，搬迁时补上。过程中我自己写错一条断言（`title` 落空是空串不是 `?`），
+  **是测试错不是代码错**——按实现修正断言，未改代码。
+- **结果**：`ai.service.ts` **2030 → 1788 行**（−242，本轮四刀累计 2370 → 1788）；新增
+  `tool-presentation.service.ts`（271 行）+ spec（154 行）。构造注入 +1（呈现服务），参数个数 **20 → 21**。
+- **验证**：全量单测 **286 suite / 2652 tests 全过**（2648 + 4 条新增护栏，7 条搬迁用例守恒、逐项对得上）；
+  **e2e 35/35 suite、369 用例全过**；三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过
+  （全局 **94.89/78.85/90.17/95.73**，安全分档门控 6/6，ai-tools 92.2%）。
+- ⚠️ **新文件行覆盖 76.4%，如实解释**：不是丢了覆盖——是**同一批行从 2000 行的 `AiService` 里集中到一个 271 行的文件**，
+  分母骤减后那些本来就未走到的 `switch` 分支（`create_contract` / `query_suppliers` 等）变得显眼。
+  搬迁前它们同样未覆盖，只是被大文件稀释。全局与分档门控均通过；如要提升，应作为**独立一笔**补分支用例，不在本刀。
+- **下一刀候选**（变更驱动、不排期）：**工具清单+MCP 出口**（`listMcpTools` / `executeToolForExternal` /
+  `getToolFingerprint` / `getToolInventory` / `getProxyIntegrationStatus` / `_buildToolDefs`，~201 行）
+  → **最后才是 `chatImpl`（仍是最大的一块）**。
