@@ -52,7 +52,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 ## [1.0.10] - 2026-09-15
 
 > **KeelBase 1.0.10 — Attribution & Data Scope / 审计归因与数据范围版**
-> 维护线第十个增量（基线 = v1.0.9 tag）：**权限-2 通用数据范围 + 角色数据范围配置化**（roles/permissions 表 + 动态角色规则注册表，CASL 由配置构建且 fail-safe 回退内置）· **§22.19 审计归因层**（AU-1 真实客户端 IP / AU-2 AI 审计补 IP / AU-5 沙盘补审计去逃逸口 / AU-6 入口来源 source）· **证据交付物层 D-1/D-2/D-3**（离线自包含 HTML 报告：单动作 + 期间 + 人读决策说明）· **CE-2 wire 契约收口**（PC-1…PC-7：CASL 决策 / 审计查询行 / org 数据范围 / Agent 对象 / MCP 投影 / 导航对账 / Application Model 机读）· 生成器防覆盖守卫（`--force` 不覆盖非生成物 + 撞名拒绝）· Web 修复（i18n 响应式 / AI 入口改流式）· Redis 真接线（`@keyv/redis`）· 副作用哈希链写入串行化。**注：本次发布随历史匿名化——竞品名从全史提交消息与历史文件内容移除（双端 force-push，tag 重指），v1.0.10 建在匿名化后的历史上。**
+> 维护线第十个增量（基线 = v1.0.9 tag）：**权限-2 通用数据范围 + 角色数据范围配置化**（roles/permissions 表 + 动态角色规则注册表，CASL 由配置构建且 fail-safe 回退内置）· **§22.19 审计归因层**（AU-1 真实客户端 IP / AU-2 AI 审计补 IP / AU-5 沙盘补审计去逃逸口 / AU-6 入口来源 source）· **证据交付物层 D-1/D-2/D-3**（离线自包含 HTML 报告：单动作 + 期间 + 人读决策说明）· **CE-2 wire 契约收口**（PC-1…PC-7：CASL 决策 / 审计查询行 / org 数据范围 / Agent 对象 / MCP 投影 / 导航对账 / Application Model 机读）· 生成器防覆盖守卫（`--force` 不覆盖非生成物 + 撞名拒绝）· Web 修复（i18n 响应式 / AI 入口改流式）· Redis 真接线（`@keyv/redis`）· 副作用哈希链写入串行化。
 
 ### Added / 新增
 
@@ -88,7 +88,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 
 > **KeelBase 1.0.9 — Consulting→Build & Enterprise Proof / 业务访谈直生成与两主张同证版**
-> 维护线第九个增量（基线 = v1.0.8 tag）：S4 Consulting→Build 业务访谈直生成（Business Spec 中间层 + 确定性映射器 + CI 全链路）· §internal.6 Enterprise Proof 与 S5 合流（两主张一次运行同证断言化）· CE-1 B4 场景包（行为语料版本化 + 逐字漂移门）· CE-3 Runtime Model 四薄片契约化 · T5 跨入口决策一致深化（sidecar 结构化依据 + MCP 拒绝留痕 + 放行快照单一构造）· FE-1 前端 Runtime-Neutrality（信封/错误/刷新 neutral adapter + capabilities/provenance 三端消费 + 边界门禁）· §4 G1 run 级批量撤销 · B3b 决策词汇统一（approve|decline，wire Schema v2）· NC-3 首次运行就绪清单 · 迁移清单单源化 · 本版四层评审阻塞项修复。**注：本次发布随历史清理——benchmark 运行产物文件名/内容的工作时段时刻已从全史移除（含各 tag 重指，双端 force-push），v1.0.9 建在干净历史上。**
+> 维护线第九个增量（基线 = v1.0.8 tag）：S4 Consulting→Build 业务访谈直生成（Business Spec 中间层 + 确定性映射器 + CI 全链路）· §internal.6 Enterprise Proof 与 S5 合流（两主张一次运行同证断言化）· CE-1 B4 场景包（行为语料版本化 + 逐字漂移门）· CE-3 Runtime Model 四薄片契约化 · T5 跨入口决策一致深化（sidecar 结构化依据 + MCP 拒绝留痕 + 放行快照单一构造）· FE-1 前端 Runtime-Neutrality（信封/错误/刷新 neutral adapter + capabilities/provenance 三端消费 + 边界门禁）· §4 G1 run 级批量撤销 · B3b 决策词汇统一（approve|decline，wire Schema v2）· NC-3 首次运行就绪清单 · 迁移清单单源化 · 本版四层评审阻塞项修复。
 
 ### Added / 新增
 
@@ -118,7 +118,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 ### Changed / 变更
 
-- **历史清理（非功能性）** — benchmark 运行产物（80 条路径）文件名含工作时段 UTC 时刻从**全史移除**（含各 tag 树重指、双端 force-push）；`followup-plans.md` 确认时刻内容侧清零；`.gitignore` 忽略可再生的验证报告产物。**HEAD 树零变**，仅历史与 tag 重指。
+- **`.gitignore`** — 忽略可再生的验证报告产物（benchmark 报告为本地生成物，不入库）
 - **项目 skills 纳入版本控制** — `.claude/skills/` 定向放开 ignore
 
 ### 发布前评审（Release Precheck）
@@ -128,7 +128,7 @@ Release Precheck（2026-09-11）：四层 code review —— OpenCodeReview 186 
 ## [1.0.8] - 2026-09-09
 
 > **KeelBase 1.0.8 — Conformance & Revoke Contract / 契约常绿与撤销契约收口版**
-> 维护线第八个增量（基线 = v1.0.7 tag）：CE-1 Conformance 常绿收口（wire Schema v1 冻结 + 协议语料 + 语义变更纪律）+ Revoke Contract 深化（会话级批量撤销 + run 级单轮聚合 + G4 验收）+ 1.0.8 评审 deferred 修复（s5 撤销前确认 / FP-8 proxy 锚 / proxy 超时调用期读 / 旅程计数防刷）+ 回归门禁评审修复（H1 双语、H2 门控顺序、insights 去日期脆弱）。注：v1.0.7 tag 已随历史时间归一指向等价 commit（内容不变，仅 author/committer 时间归一晚间）。
+> 维护线第八个增量（基线 = v1.0.7 tag）：CE-1 Conformance 常绿收口（wire Schema v1 冻结 + 协议语料 + 语义变更纪律）+ Revoke Contract 深化（会话级批量撤销 + run 级单轮聚合 + G4 验收）+ 1.0.8 评审 deferred 修复（s5 撤销前确认 / FP-8 proxy 锚 / proxy 超时调用期读 / 旅程计数防刷）+ 回归门禁评审修复（H1 双语、H2 门控顺序、insights 去日期脆弱）。
 
 ### Added / 新增
 
@@ -149,11 +149,6 @@ Release Precheck（2026-09-11）：四层 code review —— OpenCodeReview 186 
   **deferred 修复**：s5 确认化 + FP-8 锚 + proxy 超时读点 + 旅程计数防刷
 - **回归门禁评审修复（code-review 双轴，2026-09-09）** — H1：AiConfirmationCard run 计数文案双语化（补 confirmRunCount en/zh，去硬编码中文 fallback，修 §5.5 双语红线）；H2：KB-5 run 聚合在 HS-2 门控预检后才并入（禁/角色/未验证/策略成员不占 run，修「先授权后拒」无效授权序）；insights.service.spec 去日期脆弱（mock Date.now 固定 now，recentEvents 不再随运行日漂移）；proxy-bridge e2e 对齐 Case E 诚实文案（2xx 仅证「已请求补偿」）
   **评审修复**：H1 双语硬编码 + H2 run 门控顺序 + insights 日期脆弱 + proxy e2e 诚实断言
-
-### Changed / 变更
-
-- **时间归一（非功能性）** — v1.0.7 发布历史中 `4294bfbe`/`b843a72` 两 commit author/committer 时间拨到非工作时段（内容零变、tree 一致），v1.0.7 tag 移至改写后等价 commit；Gitee/github main 同步（历史时间泄漏清零）
-  **历史时间归一**：泄漏 commit 拨到晚间，全史北京工作日泄漏 = 0
 
 ## [1.0.7] - 2026-09-08
 
