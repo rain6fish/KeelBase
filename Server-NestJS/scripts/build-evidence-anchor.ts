@@ -88,7 +88,9 @@ function main(): void {
       const outPath = join(outDir, `evidence-anchor-${d}.json`);
       writeFileSync(outPath, JSON.stringify(anchor, null, 2) + '\n');
       console.log(`✓ ${d}：${digests.length} 个包 → rootDigest ${anchor.rootDigest.slice(0, 16)}…`);
-      console.log(`  锚：${outPath}（keyId=${anchor.sm2.keyId ?? '—'} userId=${anchor.sm2.userId}）`);
+      // keyId/userId 不在此打印：二者源自环境变量，CodeQL js/clear-text-logging 会判定为
+      // env → log 敏感流（实为标识符非密钥材料）；需要时读写出的锚文件即可。
+      console.log(`  锚：${outPath}`);
       console.log('  发布提醒：锚须交**信任域之外**的渠道发布，自持锚不构成可举证材料（§11.3 / 执行包 §6.2）。');
     } catch (e) {
       console.error(`✗ ${d}：${(e as Error).message}`);

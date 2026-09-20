@@ -1,5 +1,5 @@
 {
-  "token": "8c1d4e77-2a93-4b60-8f15-6d7e8f901234",
+  "token": "run-8c1d4e77",
   "toolName": "run",
   "summary": "一次授权整批：创建项目「Q4 上线」+ 3 个任务",
   "arguments": {},
@@ -21,7 +21,7 @@
   },
   "revokeClass": "local_compensate",
   "run": {
-    "runId": "8c1d4e77-2a93-4b60-8f15-6d7e8f901234",
+    "runId": "run-8c1d4e77",
     "riskLevel": "R3",
     "items": [
       {

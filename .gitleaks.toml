@@ -6,6 +6,7 @@
 # - 测试固定密钥（test/helpers.ts 等，确定性测试环境用，非生产）
 # - OAuth 文档示例占位、e2e 测试值、公开演示账号
 # - oauth.service.ts 构造 / 解析 Alipay PEM 的源代码字符串（文件级豁免）
+# - sm2.spec.ts 的假 PEM fixture，正文仅一个 x（值级豁免）
 # 真实密钥一旦入库，白名单之外仍会被拦截。
 title = "KeelBase gitleaks config"
 
@@ -24,6 +25,9 @@ regexes = [
   '''c6c1385a82395cafcfc856f775e1fb54efd985aa628869e2652d86f500b84bfd''',
   # 测试/文档示例值
   '''abcdef123456''',
+  # sm2.spec.ts 的假 PEM fixture：正文仅一个 x。真实私钥正文 ≥64 字符，够不到这么短，
+  # 故此模式只可能命中该 fixture（用于测 sm2ConfigFromEnv 的 'PRIVATE KEY' 子串校验）。
+  '''PRIVATE KEY-----[\s\S]{0,20}?-----END PRIVATE KEY''',
   '''delegation-secret-0123456789abcdef''',
   '''wrong-key-123''',
   '''eyJhbGciOiJSUzI1NiIs''',
