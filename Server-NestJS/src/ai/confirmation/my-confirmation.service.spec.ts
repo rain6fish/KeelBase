@@ -12,7 +12,8 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
   const OFFLINE_TTL = 86_400_000;
   let repo: { find: jest.Mock; findOne: jest.Mock };
   let store: { offlineTtlMs: jest.Mock; decideOutOfBand: jest.Mock };
-  let ai: { describeConfirmation: jest.Mock; executeApprovedTool: jest.Mock };
+  let ai: { describeConfirmation: jest.Mock };
+  let r4: { executeApprovedTool: jest.Mock };
   let service: MyConfirmationService;
 
   const row = (over: Partial<AiConfirmationRequest> = {}): AiConfirmationRequest =>
@@ -41,9 +42,10 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
         mode: 'immediate',
         run: null,
       }),
-      executeApprovedTool: jest.fn().mockResolvedValue({ success: true, data: { id: 7 } }),
     };
-    service = new MyConfirmationService(repo as never, store as never, ai as never);
+    // 审批后的执行已拆到 R4ApprovalService（阶段 3 第七刀）；describeConfirmation 仍在 AiService
+    r4 = { executeApprovedTool: jest.fn().mockResolvedValue({ success: true, data: { id: 7 } }) };
+    service = new MyConfirmationService(repo as never, store as never, ai as never, r4 as never);
   });
 
   describe('list：本人作用域 + 离线窗口', () => {
@@ -106,7 +108,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
 
       expect(res.ok).toBe(false);
       expect(store.decideOutOfBand).not.toHaveBeenCalled();
-      expect(ai.executeApprovedTool).not.toHaveBeenCalled();
+      expect(r4.executeApprovedTool).not.toHaveBeenCalled();
     });
 
     it('run 行拒绝——离开对话上下文无法完整回放整批', async () => {
@@ -116,7 +118,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
 
       expect(res.ok).toBe(false);
       expect(store.decideOutOfBand).not.toHaveBeenCalled();
-      expect(ai.executeApprovedTool).not.toHaveBeenCalled();
+      expect(r4.executeApprovedTool).not.toHaveBeenCalled();
     });
 
     it('R4 行拒绝——那是待他人审批，本人无权批', async () => {
@@ -135,7 +137,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
       const res = await service.decide('tok-1', '42', 'approve');
 
       expect(res).toMatchObject({ ok: true, success: true, resultId: 7 });
-      expect(ai.executeApprovedTool).toHaveBeenCalledWith(
+      expect(r4.executeApprovedTool).toHaveBeenCalledWith(
         expect.objectContaining({ token: 'tok-1' }),
         'R3 approved out-of-band via Action Center',
       );
@@ -148,7 +150,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
       const res = await service.decide('tok-1', '42', 'approve');
 
       expect(res).toMatchObject({ ok: false, message: 'already decided' });
-      expect(ai.executeApprovedTool).not.toHaveBeenCalled();
+      expect(r4.executeApprovedTool).not.toHaveBeenCalled();
     });
 
     it('decline：只改状态，不执行工具', async () => {
@@ -158,7 +160,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
       const res = await service.decide('tok-1', '42', 'decline');
 
       expect(res).toMatchObject({ ok: true, success: false });
-      expect(ai.executeApprovedTool).not.toHaveBeenCalled();
+      expect(r4.executeApprovedTool).not.toHaveBeenCalled();
     });
   });
 });

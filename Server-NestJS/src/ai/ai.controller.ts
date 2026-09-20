@@ -26,6 +26,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
+import { R4ApprovalService } from './approvals/r4-approval.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
@@ -70,6 +71,8 @@ export class AiController {
     private readonly auditService: AuditService,
     // 证据根装配（阶段 3 第三刀：证据/报表域已独立）
     private readonly auditEvidence: AuditEvidenceService,
+    // R4 审批（阶段 3 第七刀：审批生命周期已独立）
+    private readonly r4Approval: R4ApprovalService,
   ) {}
 
   /**
@@ -186,7 +189,7 @@ export class AiController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'R4 待人工审批列表（管理员）' })
   async pendingApprovals() {
-    return this.aiService.listPendingApprovals();
+    return this.r4Approval.listPendingApprovals();
   }
 
   /**
@@ -196,7 +199,7 @@ export class AiController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'R4 已审批历史（管理员）' })
   async decidedApprovals() {
-    return this.aiService.listDecidedApprovals();
+    return this.r4Approval.listDecidedApprovals();
   }
 
   /**
@@ -211,7 +214,7 @@ export class AiController {
     @Body() dto: ApproveDecisionDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const res = await this.aiService.decideApproval(token, String(user.sub), dto.decision);
+    const res = await this.r4Approval.decideApproval(token, String(user.sub), dto.decision);
     if (!res.ok) {
       throw new NotFoundException(res.message ?? '审批请求不存在或已决策');
     }

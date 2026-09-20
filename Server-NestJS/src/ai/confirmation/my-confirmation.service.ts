@@ -5,7 +5,7 @@
  *
  * 为什么独立成 service、而不是塞进 AiService：本功能与对话流无关（离线裁决正是「对话之外」），
  * 它需要的两个协作者——持久化行（repo）与裁决仲裁（ConfirmationStore）——本来都是独立对象。
- * 唯一耦合是「批准后要执行工具」，那一步复用 AiService 暴露的 `executeApprovedTool`，
+ * 唯一耦合是「批准后要执行工具」，那一步复用 R4ApprovalService 暴露的 `executeApprovedTool`，
  * 因此这里只做编排，**不复制**任何执行 / 审计 / 副作用登记逻辑。
  *
  * 生命周期与两个窗口见 specs/protocol/confirmation-lifecycle-v2-vector.json；wire 形状见
@@ -16,6 +16,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
 import { AiService } from '../ai.service';
+import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ConfirmationStore, CONFIRMATION_STATUS, RunItem } from './confirmation.store';
 import { ConfirmationImpact, RevokeClass } from '../interfaces/tool.interface';
 
@@ -49,6 +50,7 @@ export class MyConfirmationService {
     private readonly reqRepo: Repository<AiConfirmationRequest>,
     private readonly store: ConfirmationStore,
     private readonly ai: AiService,
+    private readonly r4Approval: R4ApprovalService,
   ) {}
 
   /**
@@ -99,7 +101,7 @@ export class MyConfirmationService {
     }
     // 走到这里 = 本次抢到了 pending→terminal 的转换，故至多执行一次
     if (decision === 'approve') {
-      const result = await this.ai.executeApprovedTool(row, 'R3 approved out-of-band via Action Center');
+      const result = await this.r4Approval.executeApprovedTool(row, 'R3 approved out-of-band via Action Center');
       return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
     }
     return { ok: true, success: false };

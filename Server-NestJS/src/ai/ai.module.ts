@@ -8,7 +8,7 @@
  */
 
 import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { DelegationTokenService } from '../auth/delegation-token.service';
@@ -43,6 +43,7 @@ import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { ToolGateService } from './tools/tool-gate.service';
+import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
@@ -170,6 +171,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     AiDailyUsageService,
     ToolGateService,
     ToolExecutionService,
+    R4ApprovalService,
     ExternalToolRegistry,
     AuditEvidenceService,
     AuditStatsService,
@@ -210,6 +212,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         aiDailyUsageService: AiDailyUsageService,
         toolGate: ToolGateService,
         toolExecution: ToolExecutionService,
+        r4Approval: R4ApprovalService,
         externalTools: ExternalToolRegistry,
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
@@ -224,7 +227,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         crmService: CrmService,
         pmService: PmService,
         approvalService: ApprovalService,
-        approvalsRepo,
         delegationTokenService,
         contentSafety: ContentSafetyService,
         toolRegistry: ToolRegistry,
@@ -411,6 +413,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           aiDailyUsageService,
           toolGate,
           toolExecution,
+          r4Approval,
           externalTools,
           ragAgent,
           abilityFactory,
@@ -420,15 +423,13 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           subAgentOrchestrator,
           authorizationExplainer,
           settingsService,
-          usersService,
           governancePolicy,
-          approvalsRepo,
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, getRepositoryToken(AiConfirmationRequest), DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService],
 })
 export class AiModule {}

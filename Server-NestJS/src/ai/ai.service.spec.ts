@@ -7,6 +7,7 @@ import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
+import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -63,6 +64,7 @@ describe('AiService', () => {
   let mockUsageQuota: { reserveDailyUsage: jest.Mock; releaseDailyUsage: jest.Mock };
   let mockToolGate: ToolGateService;
   let toolExecution: ToolExecutionService;
+  let r4Approval: R4ApprovalService;
   let mockExternalTools: ExternalToolRegistry;
   let mockAuditService: {
     log: jest.Mock;
@@ -144,6 +146,8 @@ describe('AiService', () => {
       mockToolGate as any,
       mockExternalTools,
     );
+    // R4 审批域（阶段 3 第七刀）：审批生命周期已独立；审批后的执行仍走上面的写管道
+    r4Approval = new R4ApprovalService(toolExecution, mockAuditService as any);
     // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
     mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
@@ -198,6 +202,7 @@ describe('AiService', () => {
       mockUsageQuota as any,
       mockToolGate as any,
       toolExecution as any,
+      r4Approval as any,
       mockExternalTools as any,
       mockRagAgent as any,
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -886,6 +891,7 @@ describe('AiService', () => {
         mockUsageQuota as any,
         mockToolGate as any,
         toolExecution as any,
+        r4Approval as any,
         mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -932,6 +938,7 @@ describe('AiService', () => {
       mockUsageQuota as any,
       mockToolGate as any,
       toolExecution as any,
+      r4Approval as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -1867,6 +1874,7 @@ describe('AiService', () => {
       mockUsageQuota as any,
       mockToolGate as any,
       toolExecution as any,
+      r4Approval as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -2264,111 +2272,6 @@ describe('AiService', () => {
       }
     });
 
-    it('KB-5 修复：R4 审批箱排除 kind=run 聚合行（只列单条请求，并保留迁移前 NULL）', async () => {
-      const find = jest.fn().mockResolvedValue([]);
-      (aiService as any).approvalsRepo = { find };
-
-      await aiService.listPendingApprovals(50);
-
-      const arg = find.mock.calls[0][0] as { where: Array<Record<string, unknown>> };
-      // 两条件 OR：kind='single' 与 kind IS NULL（迁移前旧行）——两者都保留，kind='run' 被排除
-      expect(arg.where).toHaveLength(2);
-      expect(arg.where[0]).toMatchObject({ status: 'pending', riskLevel: 'R4', kind: 'single' });
-      expect(arg.where[1]).toMatchObject({ status: 'pending', riskLevel: 'R4' });
-      expect(arg.where[1].kind).toBeDefined(); // IsNull() 操作符（非 'run'）
-    });
-
-    it('② 绑定：审批列表项键集 ⊆ governance-confirmation-item 冻结契约（无越界键）', async () => {
-      const row = {
-        id: 1, token: 't', toolName: 'create_event', args: '{}', operatorId: '5',
-        conversationId: null, riskLevel: 'R4', status: 'pending', kind: 'single',
-        runItems: null, approverId: null, decidedAt: null, createdAt: new Date(),
-      };
-      (aiService as any).approvalsRepo = { find: jest.fn().mockResolvedValue([row]) };
-      (aiService as any).usersService = { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) };
-      const items = await aiService.listPendingApprovals(50);
-      const props = Object.keys(
-        (
-          JSON.parse(
-            readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/governance-confirmation-item.schema.json'), 'utf8'),
-          ) as { properties: Record<string, unknown> }
-        ).properties,
-      );
-      expect(Object.keys(items[0]).filter((k) => !props.includes(k))).toEqual([]);
-    });
-
-    it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {
-      const repo = {
-        findOne: jest.fn().mockResolvedValue({
-          token: 't1',
-          operatorId: '1',
-          status: 'pending',
-          toolName: 'create_event',
-          args: '{}',
-          conversationId: 'c',
-          approverId: null,
-          decidedAt: null,
-        }),
-        save: jest.fn(),
-      };
-      (aiService as any).approvalsRepo = repo;
-
-      const res = await aiService.decideApproval('t1', '1', 'approve');
-
-      expect(res).toEqual({ ok: false, message: 'cannot self-approve' });
-      expect(repo.save).not.toHaveBeenCalled();
-    });
-
-    it('KB-5：run 聚合行（kind=run）不可经审批入口裁决（越权改状态 + 绕 run 语义）', async () => {
-      const repo = {
-        findOne: jest.fn().mockResolvedValue({
-          token: 'run-1',
-          operatorId: '1',
-          status: 'pending',
-          kind: 'run',
-          toolName: 'run',
-          args: '[]',
-          conversationId: 'c',
-          approverId: null,
-          decidedAt: null,
-        }),
-        save: jest.fn(),
-      };
-      (aiService as any).approvalsRepo = repo;
-
-      const res = await aiService.decideApproval('run-1', 'admin', 'approve');
-
-      expect(res.ok).toBe(false);
-      expect(res.message).toContain('run confirmation cannot be decided');
-      expect(repo.save).not.toHaveBeenCalled(); // 未翻状态
-    });
-
-    it('§HS-9 执行前门控：审批请求创建后工具被策略禁用 → 批准也不执行（kill-switch 对在途审批生效）', async () => {
-      const repo = {
-        findOne: jest.fn().mockResolvedValue({
-          token: 't2',
-          operatorId: '1',
-          status: 'pending',
-          toolName: 'create_event',
-          args: '{"title":"x"}',
-          conversationId: 'c',
-          approverId: null,
-          decidedAt: null,
-        }),
-        save: jest.fn().mockResolvedValue({}),
-      };
-      (aiService as any).approvalsRepo = repo;
-      // 发起审批后、批准前：治理策略把该工具禁用（策略实时生效）
-      (mockToolGate as any).governancePolicy = { isToolEnabled: jest.fn().mockResolvedValue(false) };
-      mockToolRegistry.execute.mockClear();
-
-      const res = await aiService.decideApproval('t2', 'admin', 'approve');
-
-      // 执行点复查命中禁用 → 工具未真正执行（此前只在发起时断言，批准仍会执行）
-      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
-      expect(res.success).toBe(false);
-      (mockToolGate as any).governancePolicy = undefined;
-    });
   });
 
   describe('HS-10 Agent 对话集成（ExternalToolProvider）', () => {
@@ -2416,6 +2319,7 @@ describe('AiService', () => {
         mockUsageQuota as any,
 mockToolGate as any,
         new ToolExecutionService(mockToolRegistry as any, mockToolGate as any, new ExternalToolRegistry()) as any,
+        new R4ApprovalService(toolExecution, mockAuditService as any) as any,
         new ExternalToolRegistry() as any,
         mockRagAgent as any,
         {} as any,

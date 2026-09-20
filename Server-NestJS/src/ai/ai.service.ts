@@ -7,9 +7,8 @@
  * 处理多轮工具调用循环、Fallback 机制、对话保存。
  */
 
-import { Repository, In, IsNull } from 'typeorm';
-import { randomUUID } from 'crypto';
 import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
+import { R4ApprovalService } from './approvals/r4-approval.service';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
@@ -53,7 +52,6 @@ import { checkContentSafety } from './security/content-safety';
 import { ContentSafetyService } from './security/content-safety.service';
 import { deriveAiBusinessEvent } from './audit/ai-business-event';
 import { SettingsService, SETTING_KEYS } from '../settings/settings.service';
-import { UsersService } from '../users/users.service';
 import { NotFoundException, Optional } from '@nestjs/common';
 import { BusinessException } from '../common/errors/business.exception';
 import {
@@ -131,6 +129,8 @@ export class AiService {
     private readonly toolGate: ToolGateService,
     // 工具执行（第二刀）：读/写工具的真正执行与副作用登记；门控在它内部被复用
     private readonly toolExecution: ToolExecutionService,
+    // R4 双人审批（第三刀）：审批请求生命周期；裁决后的执行仍走上面的写管道
+    private readonly r4Approval: R4ApprovalService,
     // 外部工具提供者的共享持有者（门控与执行/清单域共用）
     private readonly externalTools: ExternalToolRegistry,
     private readonly ragAgent: RagAgent,
@@ -141,9 +141,7 @@ export class AiService {
     private readonly subAgentOrchestrator: SubAgentOrchestrator,
     private readonly authorizationExplainer: AuthorizationExplainerService,
     private readonly settingsService?: SettingsService,
-    private readonly usersService?: UsersService,
     private readonly governancePolicy?: GovernancePolicyService,
-    private readonly approvalsRepo?: Repository<AiConfirmationRequest>,
     // N-6 AI-23 深度化：统一内容安全（读 Settings 配置 + 命中审计）；缺省降级静态 checkContentSafety
     @Optional() private readonly contentSafety?: ContentSafetyService,
   ) {}
@@ -238,150 +236,7 @@ export class AiService {
     }
   }
 
-  // ── R4 双人审批（W5 Risk-based Tool Contract）：R4 高影响动作需第二人（approver）审批 ──
-
-  /** 创建持久化审批请求（operator 触发，approver 稍后决策；不阻塞 operator 对话）。 */
-  async createR4ApprovalRequest(
-    operatorId: string,
-    toolName: string,
-    args: Record<string, unknown>,
-    conversationId?: string,
-  ): Promise<{ token: string; id: number }> {
-    if (!this.approvalsRepo) throw new Error('Approvals repository not injected');
-    const token = randomUUID();
-    const saved = await this.approvalsRepo.save(
-      this.approvalsRepo.create({
-        token,
-        toolName,
-        args: JSON.stringify(args),
-        operatorId,
-        riskLevel: 'R4',
-        status: 'pending',
-        conversationId,
-      }),
-    );
-    return { token, id: saved.id };
-  }
-
-  /** 待审批 R4 列表（管理端审批页）。 */
-  async listPendingApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
-    if (!this.approvalsRepo) return [];
-    // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入。
-    // KB-5：另排除 kind='run' 的整批授权聚合行——R4 工具经策略降为同步确认并入 run 后，
-    // 该行 riskLevel=runRisk 可能为 'R4'，但它不是单个审批请求（toolName='run'），混入即伪审批。
-    // 单条行 kind 为 'single'，迁移前旧行为 NULL——两者都保留。
-    const base = { status: 'pending' as const, riskLevel: 'R4' as const };
-    const items = await this.approvalsRepo.find({
-      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-    return this.withUserNames(items);
-  }
-
-  /** 已审批历史（管理端审批页）。 */
-  async listDecidedApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
-    if (!this.approvalsRepo) return [];
-    const base = { status: In(['approved', 'declined']), riskLevel: 'R4' };
-    const items = await this.approvalsRepo.find({
-      where: [{ ...base, kind: 'single' }, { ...base, kind: IsNull() }],
-      order: { decidedAt: 'DESC' },
-      take: limit,
-    });
-    return this.withUserNames(items);
-  }
-
-  /** 审批路径可见：为审批列表附提交人/审批人用户名（operator → approver），审批路上的人可读。 */
-  private async withUserNames(items: AiConfirmationRequest[]): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
-    if (!this.usersService) return items;
-    const ids = [
-      ...new Set(
-        items.flatMap((i) => [Number(i.operatorId), i.approverId ? Number(i.approverId) : null].filter((x): x is number => x != null)),
-      ),
-    ];
-    const nameById = new Map<string, string>();
-    await Promise.all(
-      ids.map(async (id) => {
-        try {
-          const u = await this.usersService!.findOne(id, true);
-          if (u.username) nameById.set(String(id), u.username);
-        } catch {
-          // 用户可能已删除
-        }
-      }),
-    );
-    return items.map((i) => ({
-      ...i,
-      operatorName: nameById.get(String(i.operatorId)) || String(i.operatorId),
-      approverName: i.approverId ? nameById.get(String(i.approverId)) || String(i.approverId) : undefined,
-    }));
-  }
-
-  /** approver 决策：approve → 以 operator 维度执行工具；decline → 拒绝。 */
-  async decideApproval(
-    token: string,
-    approverId: string,
-    decision: 'approve' | 'decline',
-  ): Promise<{ ok: boolean; message?: string; success?: boolean; resultId?: unknown }> {
-    if (!this.approvalsRepo) return { ok: false, message: 'not supported' };
-    const req = await this.approvalsRepo.findOne({ where: { token } });
-    if (!req || req.status !== 'pending') {
-      return { ok: false, message: req ? 'already decided' : 'not found' };
-    }
-    // KB-5：run 聚合行（kind='run'，toolName='run'）不是单个审批请求——生命周期由 ConfirmationStore 的
-    // run token 决策驱动。此处放行会把 run 行状态越权翻成 approved/declined，绕过 run 语义（且在途 SSE 决策
-    // 仍挂在内存 promise 上）。该端点服务身份可达，故在边界拒绝，不依赖「列表不显示 run 行」这层约定。
-    if (req.kind === 'run') {
-      return { ok: false, message: 'run confirmation cannot be decided via approval endpoint' };
-    }
-    if (decision === 'approve' && req.operatorId === approverId) {
-      return { ok: false, message: 'cannot self-approve' };
-    }
-    req.status = decision === 'approve' ? 'approved' : 'declined';
-    req.approverId = approverId;
-    req.decidedAt = new Date();
-    await this.approvalsRepo.save(req);
-
-    if (decision === 'approve') {
-      const result = await this.executeApprovedTool(req);
-      return { ok: true, success: result.success, resultId: (result.data as any)?.id, message: result.error };
-    }
-    return { ok: true, success: false };
-  }
-
-  /**
-   * 裁决通过后以 operator 维度执行工具：复用写工具执行（幂等 + 副作用登记）+ 审计。
-   * `outcomeNote` 记录**谁在哪儿批的**（R4 审批人 / R3 离线裁决），进 `tool_call` 审计行便于追溯。
-   */
-  async executeApprovedTool(req: AiConfirmationRequest, outcomeNote?: string): Promise<ToolResult> {
-    let args: Record<string, unknown> = {};
-    try {
-      args = JSON.parse(req.args || '{}');
-    } catch {
-      args = {};
-    }
-    const note = outcomeNote ?? `R4 approved by approver ${req.approverId}`;
-    let result: ToolResult;
-    try {
-      result = await this.toolExecution.executeWrite(req.toolName, args, req.operatorId, req.conversationId);
-    } catch (err) {
-      result = { success: false, error: err instanceof Error ? err.message : String(err) };
-    }
-    await this.auditService.log({
-      userId: req.operatorId,
-      conversationId: req.conversationId,
-      action: 'tool_call',
-      detail: `${req.toolName}(${JSON.stringify(args)})`,
-      isError: !result.success,
-      errorMessage: result.success ? note : `${note}; execution failed: ${result.error}`,
-      // 工具内部自调 LLM 时的开销记在工具自己这行
-      promptTokens: result.usage?.promptTokens,
-      completionTokens: result.usage?.completionTokens,
-      // §internal.16 A-1 业务事件名
-      businessEvent: deriveAiBusinessEvent(req.toolName) ?? undefined,
-    });
-    return result;
-  }
+  // ── R4 双人审批（W5 Risk-based Tool Contract）：已拆至 R4ApprovalService（阶段 3 第七刀）──
 
   /**
    * GA 待我确认中心（docs/ai-action-center.spec.md §9）：把一条确认存储行还原成**人读**信息
@@ -1307,7 +1162,7 @@ export class AiService {
             } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
-              const approval = await this.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
+              const approval = await this.r4Approval.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
               const approvalImpact = this._writeImpact([tc.name]);
               const approvalRevokeClass = this._revokeClass(tc.name);
               yield {
