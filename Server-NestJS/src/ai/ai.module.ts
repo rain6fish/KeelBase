@@ -44,6 +44,7 @@ import { AuditService } from './audit/audit.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { ToolGateService } from './tools/tool-gate.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
+import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
@@ -172,6 +173,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ToolGateService,
     ToolExecutionService,
     R4ApprovalService,
+    ToolPresentationService,
     ExternalToolRegistry,
     AuditEvidenceService,
     AuditStatsService,
@@ -213,6 +215,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolGate: ToolGateService,
         toolExecution: ToolExecutionService,
         r4Approval: R4ApprovalService,
+        presentation: ToolPresentationService,
         externalTools: ExternalToolRegistry,
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
@@ -414,6 +417,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           toolGate,
           toolExecution,
           r4Approval,
+          presentation,
           externalTools,
           ragAgent,
           abilityFactory,
@@ -427,9 +431,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ExternalToolRegistry, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService],
+  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService],
 })
 export class AiModule {}

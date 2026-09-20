@@ -12,7 +12,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
   const OFFLINE_TTL = 86_400_000;
   let repo: { find: jest.Mock; findOne: jest.Mock };
   let store: { offlineTtlMs: jest.Mock; decideOutOfBand: jest.Mock };
-  let ai: { describeConfirmation: jest.Mock };
+  let presentation: { describeConfirmation: jest.Mock };
   let r4: { executeApprovedTool: jest.Mock };
   let service: MyConfirmationService;
 
@@ -34,7 +34,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
   beforeEach(() => {
     repo = { find: jest.fn().mockResolvedValue([]), findOne: jest.fn() };
     store = { offlineTtlMs: jest.fn().mockResolvedValue(OFFLINE_TTL), decideOutOfBand: jest.fn() };
-    ai = {
+    presentation = {
       describeConfirmation: jest.fn().mockReturnValue({
         summary: '创建事件：T',
         impact: { actions: 1, targets: [{ resultType: 'event', count: 1 }] },
@@ -43,9 +43,9 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
         run: null,
       }),
     };
-    // 审批后的执行已拆到 R4ApprovalService（阶段 3 第七刀）；describeConfirmation 仍在 AiService
+    // 执行已拆到 R4ApprovalService（第七刀），呈现行还原已拆到 ToolPresentationService（第八刀）
     r4 = { executeApprovedTool: jest.fn().mockResolvedValue({ success: true, data: { id: 7 } }) };
-    service = new MyConfirmationService(repo as never, store as never, ai as never, r4 as never);
+    service = new MyConfirmationService(repo as never, store as never, presentation as never, r4 as never);
   });
 
   describe('list：本人作用域 + 离线窗口', () => {
@@ -87,7 +87,7 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
 
       const items = await service.list('42');
 
-      expect(ai.describeConfirmation).toHaveBeenCalledTimes(1);
+      expect(presentation.describeConfirmation).toHaveBeenCalledTimes(1);
       expect(items[0]).toMatchObject({ summary: '创建事件：T', revokeClass: 'local_compensate', mode: 'immediate' });
     });
 

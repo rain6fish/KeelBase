@@ -7,12 +7,12 @@
  * 处理多轮工具调用循环、Fallback 机制、对话保存。
  */
 
-import { AiConfirmationRequest } from './approvals/ai-confirmation-request.entity';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { LlmProviderFactory } from './providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
+import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
@@ -28,7 +28,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { PlanExecuteAgent } from './agents/plan-execute-agent.service';
 import { RagAgent } from './agents/rag-agent.service';
 import { MemoriesService } from './memory/memory.service';
-import { ConfirmationStore, RunItem } from './confirmation/confirmation.store';
+import { ConfirmationStore } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import {
@@ -36,11 +36,8 @@ import {
   ToolResult,
   RISK_STRATEGY,
   AuthorizationDeniedError,
-  ConfirmationImpact,
-  RevokeClass,
   resolveRevokeClass,
 } from './interfaces/tool.interface';
-import { deriveWriteImpact } from './tool-effects/write-impact';
 import { GovernancePolicyService, effectiveGateMode } from './governance/governance-policy.service';
 import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
 import {
@@ -131,6 +128,8 @@ export class AiService {
     private readonly toolExecution: ToolExecutionService,
     // R4 双人审批（第三刀）：审批请求生命周期；裁决后的执行仍走上面的写管道
     private readonly r4Approval: R4ApprovalService,
+    // 呈现/摘要（第四刀）：确认卡文案 / 影响预览 / 撤销档 / 结果截断
+    private readonly presentation: ToolPresentationService,
     // 外部工具提供者的共享持有者（门控与执行/清单域共用）
     private readonly externalTools: ExternalToolRegistry,
     private readonly ragAgent: RagAgent,
@@ -205,84 +204,7 @@ export class AiService {
     return true;
   }
 
-  /**
-   * §22.17 ④ 影响预览：待确认写动作 → 影响描述符（无可解析副作用对象时返回 null，
-   * 调用方据此**省略** impact 字段而非发 0）。spec docs/impact-preview.spec.md。
-   */
-  private _writeImpact(toolNames: string[]): ConfirmationImpact | null {
-    return deriveWriteImpact(
-      toolNames.map((toolName) => ({ toolName, isProxyWrite: this.toolExecution.isProxyTool(toolName) })),
-    );
-  }
-
-  /**
-   * §22.17 ④ 影响预览 v1.1 撤销口径：工具 → KB-6 撤销档（`resolveRevokeClass` 单源，显式声明优先）。
-   * 与事后撤销页 / 工具治理页同源——批准前看到的档位与事后能做的撤销必须一致，故不另建映射。
-   * spec docs/impact-preview.spec.md §3。
-   *
-   * **解析不到就返回 undefined（调用方省略该字段）**，与 `_writeImpact` 解析不到对象类型时同一诚实口径。
-   * 未注册名（外部 `mcp_*` / LLM 幻觉名）在本文件是**被容忍放行**的（`_assertToolAllowed` 明确不拦未注册名），
-   * 而真实注册表对它**抛错**——同段 `_assertToolAllowed` / `isProxyTool` 因此都包了 try/catch，本处同办。
-   * 可达性（2026-09-17 实测）：**当前到不了**——逐条路径在确认前先调 `_requiresApproval`，它对未注册名的
-   * `riskLevel` 调用无守卫、先抛，该工具以「执行失败」收尾（实测 chunk 序列 `tool_end → text → done`）。
-   * 故本容错当前是护栏：失败后果不对称（未捕获异常会打断整条 SSE 确认流，容错只是少显示一行），
-   * 一旦 `_requiresApproval` 改为容错，此处即成必经之路。不解析 ≠ 不可撤销，故不补默认值。详见 spec §3。
-   */
-  private _revokeClass(toolName: string): RevokeClass | undefined {
-    try {
-      return resolveRevokeClass(this.toolRegistry.getTool(toolName));
-    } catch {
-      return undefined;
-    }
-  }
-
-  // ── R4 双人审批（W5 Risk-based Tool Contract）：已拆至 R4ApprovalService（阶段 3 第七刀）──
-
-  /**
-   * GA 待我确认中心（docs/ai-action-center.spec.md §9）：把一条确认存储行还原成**人读**信息
-   * （摘要 / 影响预览 / 撤销档 / 展示模式）。这些知识都长在本类里（writeToolSummary / _writeImpact /
-   * _revokeClass 均为 private），故由本类对外提供单一真源，而不让调用方各拼一份；
-   * 列表与离线裁决的编排本身在 MyConfirmationService，不在这里。
-   */
-  describeConfirmation(row: AiConfirmationRequest): {
-    summary: string | null;
-    impact: ConfirmationImpact | null;
-    revokeClass: RevokeClass | null;
-    mode: 'immediate' | 'approval' | 'run';
-    run: { runId: string; riskLevel: string; items: RunItem[] } | null;
-  } {
-    let args: Record<string, unknown> = {};
-    try {
-      args = row.args ? (JSON.parse(row.args) as Record<string, unknown>) : {};
-    } catch {
-      args = {};
-    }
-    const runItems = row.kind === 'run' ? this._parseRunItems(row.runItems) : null;
-    const mode: 'immediate' | 'approval' | 'run' =
-      row.kind === 'run' ? 'run' : row.riskLevel === 'R4' ? 'approval' : 'immediate';
-    const toolNames = mode === 'run' ? (runItems ?? []).map((i) => i.toolName) : [row.toolName];
-    return {
-      summary:
-        mode === 'run'
-          ? `一次授权整批（${(runItems ?? []).length} 个动作）`
-          : this.writeToolSummary(row.toolName, args),
-      impact: toolNames.length ? this._writeImpact(toolNames) : null,
-      revokeClass: this._revokeClass(row.toolName) ?? null,
-      mode,
-      run: runItems ? { runId: row.token, riskLevel: row.riskLevel, items: runItems } : null,
-    };
-  }
-
-  /** run 行携带的批内动作快照（JSON）；解析失败按空处理（不因此藏掉整行）。 */
-  private _parseRunItems(raw?: string | null): RunItem[] {
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw) as RunItem[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
+  // ── 呈现/摘要（确认卡文案 / 影响预览 / 撤销档 / 结果截断）已拆至 ToolPresentationService（阶段 3 第八刀）──
 
   /**
    * HS-10 MCP 出口：现有工具暴露为 MCP 工具（尊重治理策略 enabled 开关）。
@@ -1049,7 +971,7 @@ export class AiService {
           } catch {
             continue; // 留逐条路径由 1380 断言如实报错，不并入 run
           }
-          cands.push({ idx, name: tc.name, parsed, summary: this.writeToolSummary(tc.name, parsed), risk });
+          cands.push({ idx, name: tc.name, parsed, summary: this.presentation.writeToolSummary(tc.name, parsed), risk });
         }
         // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
         const aggregable = cands.filter((c) => c.summary !== null);
@@ -1076,7 +998,7 @@ export class AiService {
             ttlSeconds * 1000,
             conversationId,
           );
-          const runImpact = this._writeImpact(aggregable.map((c) => c.name));
+          const runImpact = this.presentation.writeImpact(aggregable.map((c) => c.name));
           yield {
             type: 'confirmation_request',
             confirmation: {
@@ -1087,7 +1009,7 @@ export class AiService {
                 runId: token,
                 riskLevel: runRisk,
                 items: aggregable.map((c) => {
-                  const revokeClass = this._revokeClass(c.name);
+                  const revokeClass = this.presentation.revokeClass(c.name);
                   return {
                     toolName: c.name,
                     summary: c.summary!,
@@ -1145,8 +1067,8 @@ export class AiService {
             toolStart: {
               name: tc.name,
               summary: isWrite
-                ? this.summarizeWriteTool(tc.name, parsed)
-                : this.summarizeReadTool(tc.name),
+                ? this.presentation.summarizeWriteTool(tc.name, parsed)
+                : this.presentation.summarizeReadTool(tc.name),
               arguments: parsed,
               isWrite,
               riskLevel: authz.riskLevel,
@@ -1163,14 +1085,14 @@ export class AiService {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
               const approval = await this.r4Approval.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
-              const approvalImpact = this._writeImpact([tc.name]);
-              const approvalRevokeClass = this._revokeClass(tc.name);
+              const approvalImpact = this.presentation.writeImpact([tc.name]);
+              const approvalRevokeClass = this.presentation.revokeClass(tc.name);
               yield {
                 type: 'confirmation_request',
                 confirmation: {
                   token: approval.token,
                   toolName: tc.name,
-                  summary: this.summarizeWriteTool(tc.name, parsed),
+                  summary: this.presentation.summarizeWriteTool(tc.name, parsed),
                   arguments: parsed,
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
@@ -1218,14 +1140,14 @@ export class AiService {
                   ttlSeconds * 1000,
                   conversationId,
                 );
-                const singleImpact = this._writeImpact([tc.name]);
-                const singleRevokeClass = this._revokeClass(tc.name);
+                const singleImpact = this.presentation.writeImpact([tc.name]);
+                const singleRevokeClass = this.presentation.revokeClass(tc.name);
                 yield {
                   type: 'confirmation_request',
                   confirmation: {
                     token,
                     toolName: tc.name,
-                    summary: this.summarizeWriteTool(tc.name, parsed),
+                    summary: this.presentation.summarizeWriteTool(tc.name, parsed),
                     arguments: parsed,
                     // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
                     ...(singleImpact ? { impact: singleImpact } : {}),
@@ -1278,7 +1200,7 @@ export class AiService {
                 toolEnd: {
                   name: tc.name,
                   success: result.success,
-                  summary: this.summarizeToolResult(tc.name, result),
+                  summary: this.presentation.summarizeToolResult(tc.name, result),
                   error: result.error,
                 },
               };
@@ -1312,14 +1234,14 @@ export class AiService {
               toolEnd: {
                 name: tc.name,
                 success: result.success,
-                summary: this.summarizeToolResult(tc.name, result),
+                summary: this.presentation.summarizeToolResult(tc.name, result),
                 error: result.error,
               },
             };
           }
           messages.push({
             role: 'tool',
-            content: this.truncateToolResult(result),
+            content: this.presentation.truncateToolResult(result),
             tool_call_id: tc.id,
           });
           // CR-2：流式工具执行审计（对齐非流式 runToolLoop）
@@ -1440,170 +1362,6 @@ export class AiService {
         'I apologize, but I was unable to complete the requested operation within the allowed number of steps.',
     };
     yield { type: 'done', conversationId };
-  }
-
-  /**
-   * KB-5：写工具的"人读 diff 摘要"（run 卡"有 diff 而非盲批"前提，docs/run-level-approval.spec.md §3）。
-   * 返回 null 表示该工具暂无具体摘要（诚实降级：单条确认卡仍显示通用文案，run 聚合不并入该条）。
-   * 未来演进：每工具自带 summarize(args)（spec §3.2），此处 switch 随之退位。
-   */
-  private writeToolSummary(
-    toolName: string,
-    args: Record<string, unknown>,
-  ): string | null {
-    const title = (args.title as string) ?? '';
-    switch (toolName) {
-      case 'create_event':
-        return `创建事件：${title}（${args.startTime ?? '?'} 至 ${args.endTime ?? '?'}）`;
-      case 'create_todo':
-        return `创建待办：${title}${args.dueDate ? `（截止 ${args.dueDate}）` : ''}`;
-      case 'create_customers':
-        return `创建客户：${(args.name as string) ?? ''}`;
-      case 'create_followup_task':
-        return `创建跟进任务：${title}`;
-      case 'create_contract':
-        return `创建合同：${title}`;
-      case 'create_project':
-        return `创建项目：${title}`;
-      case 'create_project_task':
-        return `创建项目任务：${title}`;
-      case 'update_customer_status':
-        return `更新客户状态：${(args.status as string) ?? ''}`;
-      case 'submit_approval_request':
-        return '提交审批请求';
-      case 'create_knowledge':
-        return '创建知识条目';
-      default:
-        return null;
-    }
-  }
-
-  /**
-   * 生成写操作的人工可读摘要（用于单条确认卡）。
-   */
-  private summarizeWriteTool(
-    toolName: string,
-    args: Record<string, unknown>,
-  ): string {
-    return this.writeToolSummary(toolName, args) ?? '执行写操作';
-  }
-
-  /**
-   * 生成只读工具的简短执行摘要（用于 tool_start 卡片）。
-   */
-  private summarizeReadTool(toolName: string): string {
-    switch (toolName) {
-      case 'query_events':
-        return '查询事件';
-      case 'count_events_by_status':
-        return '统计事件';
-      case 'query_events_by_keyword':
-        return '搜索事件';
-      case 'get_user_stats':
-        return '获取用户统计';
-      case 'navigate_page':
-        return '页面跳转';
-      case 'query_customers':
-        return '查询客户';
-      case 'query_customer_orders':
-        return '查询客户订单';
-      case 'query_customer_activities':
-        return '查询客户跟进';
-      case 'query_contacts':
-        return '查询联系人';
-      case 'query_opportunities':
-        return '查询销售机会';
-      case 'analyze_customer_risk':
-        return '分析客户风险';
-      case 'query_projects':
-        return '查询项目';
-      case 'query_project_tasks':
-        return '查询项目任务';
-      case 'analyze_project_risk':
-        return '分析项目延期风险';
-      case 'query_approval_requests':
-        return '查询审批请求';
-      case 'query_approval_policies':
-        return '查询审批政策';
-      case 'query_knowledge':
-        return '查询知识库';
-      case 'query_contracts':
-        return '查询合同';
-      case 'query_suppliers':
-        return '查询供应商';
-      case 'query_invoices':
-        return '查询发票';
-      default:
-        return '执行工具调用';
-    }
-  }
-
-  /**
-   * 生成工具执行结果摘要（用于 tool_end 卡片）。
-   */
-  private summarizeToolResult(toolName: string, result: ToolResult): string {
-    if (!result.success) return result.error ?? '执行失败';
-    const d = result.data as any;
-    switch (toolName) {
-      case 'query_events':
-      case 'query_events_by_keyword':
-        return `查询到 ${Array.isArray(d) ? d.length : 0} 个结果`;
-      case 'count_events_by_status':
-        return typeof d?.total === 'number' ? `共 ${d.total} 个事件` : '统计完成';
-      case 'get_user_stats':
-        return '获取用户统计完成';
-      case 'navigate_page':
-        return `跳转至${d?.description ?? ''}`;
-      case 'create_event':
-        return '创建事件成功';
-      case 'create_todo':
-        return '创建待办成功';
-      default:
-        return '执行完成';
-    }
-  }
-
-  /** HS-5 工具结果字符上限（防大查询结果撑爆上下文窗口） */
-  private static readonly TOOL_RESULT_MAX_CHARS = 4000;
-  private static readonly TOOL_RESULT_MAX_ARRAY = 20;
-
-  /**
-   * HS-5 截断工具结果：超限时保留结构（数组截断到前 N 条 + 标记），
-   * 让 LLM 拿到足够信息回答，又不会撑爆上下文。
-   */
-  private truncateToolResult(result: ToolResult): string {
-    // usage 是给审计记账的，不进 LLM 上下文——否则既污染提示词、又凭空多花 token
-    const payload: ToolResult = { ...result };
-    delete payload.usage;
-
-    let json = JSON.stringify(payload);
-    if (json.length <= AiService.TOOL_RESULT_MAX_CHARS) return json;
-
-    // 数组结果：截断到前 N 条
-    const data = payload.data as any;
-    if (Array.isArray(data)) {
-      const truncated = data.slice(0, AiService.TOOL_RESULT_MAX_ARRAY);
-      const slim = {
-        ...payload,
-        data: truncated,
-        _truncated: `结果已截断，共 ${data.length} 条，仅展示前 ${AiService.TOOL_RESULT_MAX_ARRAY} 条`,
-      };
-      json = JSON.stringify(slim);
-    } else if (data && typeof data === 'object') {
-      // 对象结果：精简到成功标志 + 截断标记，避免回填巨量详情
-      const slim = {
-        success: payload.success,
-        error: payload.error,
-        data: { _truncated: '结果过大已精简，详情请查审计日志', _originalKeys: Object.keys(data) },
-      };
-      json = JSON.stringify(slim);
-    }
-
-    // 保底：字符串硬截断 + 提示
-    if (json.length > AiService.TOOL_RESULT_MAX_CHARS) {
-      json = `${json.slice(0, AiService.TOOL_RESULT_MAX_CHARS)}... [截断]`;
-    }
-    return json;
   }
 
   /**
@@ -1763,7 +1521,7 @@ export class AiService {
 
           messages.push({
             role: 'tool',
-            content: this.truncateToolResult(resolvedResult),
+            content: this.presentation.truncateToolResult(resolvedResult),
             tool_call_id: tc.id,
           });
         } catch (err) {

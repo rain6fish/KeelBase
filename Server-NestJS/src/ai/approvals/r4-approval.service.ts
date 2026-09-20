@@ -10,8 +10,8 @@
  * 一行都不另写。R3 的**离线裁决**（Action Center）走的也是这个方法，同一条管道。
  *
  * 与呈现面的分工：把一条确认行还原成「人读摘要 / 影响预览 / 撤销档 / 展示模式」的 `describeConfirmation`
- * **不在本服务**——它要 `writeToolSummary` / `_writeImpact` / `_revokeClass` 三个呈现侧知识，
- * 属另一刀（呈现/摘要域），留在 `AiService`。
+ * **不在本服务**——它要 `writeToolSummary` / `writeImpact` / `revokeClass` 三个呈现侧知识，
+ * 属另一刀（呈现/摘要域），现由 `ToolPresentationService` 提供。
  *
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */

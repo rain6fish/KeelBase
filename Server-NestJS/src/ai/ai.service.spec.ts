@@ -8,6 +8,7 @@ import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
+import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -65,6 +66,7 @@ describe('AiService', () => {
   let mockToolGate: ToolGateService;
   let toolExecution: ToolExecutionService;
   let r4Approval: R4ApprovalService;
+  let presentation: ToolPresentationService;
   let mockExternalTools: ExternalToolRegistry;
   let mockAuditService: {
     log: jest.Mock;
@@ -148,6 +150,8 @@ describe('AiService', () => {
     );
     // R4 审批域（阶段 3 第七刀）：审批生命周期已独立；审批后的执行仍走上面的写管道
     r4Approval = new R4ApprovalService(toolExecution, mockAuditService as any);
+    // 呈现/摘要域（阶段 3 第八刀）：确认卡文案 / 影响预览 / 撤销档 / 结果截断已独立
+    presentation = new ToolPresentationService(mockToolRegistry as any, toolExecution);
     // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
     mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
@@ -203,6 +207,7 @@ describe('AiService', () => {
       mockToolGate as any,
       toolExecution as any,
       r4Approval as any,
+      presentation as any,
       mockExternalTools as any,
       mockRagAgent as any,
       { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -566,33 +571,6 @@ describe('AiService', () => {
       expect(chatAudit.completionTokens).toBe(64);
     });
 
-    it('HS-5: should truncate oversized tool results (array)', () => {
-      const svc = aiService as any;
-      const bigData = Array.from({ length: 500 }, (_, i) => ({ id: i, title: `Event ${i}`.repeat(10) }));
-      const json = svc.truncateToolResult({ success: true, data: bigData });
-      expect(json).toContain('_truncated');
-      expect(json.length).toBeLessThan(5000);
-      // 数组被截断到前 N 条
-      expect(JSON.parse(json).data).toHaveLength(20);
-    });
-
-    it('HS-5: should truncate oversized object results', () => {
-      const svc = aiService as any;
-      const hugeObj: Record<string, string> = {};
-      for (let i = 0; i < 200; i++) hugeObj[`key${i}`] = 'x'.repeat(50);
-      const json = svc.truncateToolResult({ success: true, data: hugeObj });
-      expect(json.length).toBeLessThan(5000);
-      expect(json).toContain('_truncated');
-    });
-
-    it('HS-5: should keep small tool results unchanged', () => {
-      const svc = aiService as any;
-      const small = { success: true, data: [{ id: 1, title: 'Meeting' }] };
-      const json = svc.truncateToolResult(small);
-      expect(json).toBe(JSON.stringify(small));
-      expect(json).not.toContain('_truncated');
-    });
-
     it('should use specified provider when provided', async () => {
       mockProvider.generate.mockResolvedValue({ content: 'OK' });
 
@@ -892,6 +870,7 @@ describe('AiService', () => {
         mockToolGate as any,
         toolExecution as any,
         r4Approval as any,
+        presentation as any,
         mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -939,6 +918,7 @@ describe('AiService', () => {
       mockToolGate as any,
       toolExecution as any,
       r4Approval as any,
+      presentation as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -1875,6 +1855,7 @@ describe('AiService', () => {
       mockToolGate as any,
       toolExecution as any,
       r4Approval as any,
+      presentation as any,
       mockExternalTools as any,
         mockRagAgent as any,
         { createForUser: jest.fn().mockReturnValue({ cannot: () => false }) } as any,
@@ -2320,6 +2301,7 @@ describe('AiService', () => {
 mockToolGate as any,
         new ToolExecutionService(mockToolRegistry as any, mockToolGate as any, new ExternalToolRegistry()) as any,
         new R4ApprovalService(toolExecution, mockAuditService as any) as any,
+        new ToolPresentationService(mockToolRegistry as any, toolExecution) as any,
         new ExternalToolRegistry() as any,
         mockRagAgent as any,
         {} as any,
@@ -2479,14 +2461,6 @@ mockToolGate as any,
       expect(result.success).toBe(true);
       expect(result.data).toBe('sent');
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
-    });
-
-    it('§22.17 ④：撤销口径遇未注册名（外部 mcp_*）不抛错——否则会打挂确认卡', () => {
-      // 真实注册表对未注册名抛错；_revokeClass 必须容错（同 _assertToolAllowed / isProxyTool 的既有约定）
-      mockToolRegistry.getTool.mockImplementation(() => {
-        throw new Error('Tool "mcp_wx_send_email" not found');
-      });
-      expect((aiService as any)._revokeClass('mcp_wx_send_email')).toBeUndefined();
     });
 
     it('外部 provider 调用失败 → success false + error', async () => {
@@ -2689,39 +2663,6 @@ mockToolGate as any,
   });
 
   describe('工具摘要与流式回退', () => {
-    it('summarizeReadTool 各分支', () => {
-      const s = aiService as any;
-      expect(s.summarizeReadTool('query_events')).toBe('查询事件');
-      expect(s.summarizeReadTool('count_events_by_status')).toBe('统计事件');
-      expect(s.summarizeReadTool('query_events_by_keyword')).toBe('搜索事件');
-      expect(s.summarizeReadTool('get_user_stats')).toBe('获取用户统计');
-      expect(s.summarizeReadTool('navigate_page')).toBe('页面跳转');
-      expect(s.summarizeReadTool('query_customers')).toBe('查询客户');
-      expect(s.summarizeReadTool('analyze_customer_risk')).toBe('分析客户风险');
-      expect(s.summarizeReadTool('unknown_tool')).toBe('执行工具调用');
-    });
-
-    it('summarizeToolResult 成功/失败/各工具分支', () => {
-      const s = aiService as any;
-      expect(s.summarizeToolResult('query_events', { success: true, data: [1, 2] })).toBe('查询到 2 个结果');
-      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: { total: 5 } })).toBe('共 5 个事件');
-      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: {} })).toBe('统计完成');
-      expect(s.summarizeToolResult('create_event', { success: true, data: { id: 1 } })).toBe('创建事件成功');
-      expect(s.summarizeToolResult('navigate_page', { success: true, data: { description: '设置' } })).toBe('跳转至设置');
-      expect(s.summarizeToolResult('x', { success: true, data: {} })).toBe('执行完成');
-      expect(s.summarizeToolResult('x', { success: false, error: 'boom' })).toBe('boom');
-    });
-
-    it('summarizeWriteTool 写操作摘要分支（确认卡片文案）', () => {
-      const s = aiService as any;
-      expect(s.summarizeWriteTool('create_event', { title: '评审', startTime: '10:00', endTime: '11:00' })).toBe('创建事件：评审（10:00 至 11:00）');
-      expect(s.summarizeWriteTool('create_todo', { title: '周报', dueDate: '2026-08-20' })).toBe('创建待办：周报（截止 2026-08-20）');
-      expect(s.summarizeWriteTool('create_todo', { title: '无截止' })).toBe('创建待办：无截止');
-      expect(s.summarizeWriteTool('create_customers', { name: '张三' })).toBe('创建客户：张三');
-      expect(s.summarizeWriteTool('create_followup_task', { title: '跟进' })).toBe('创建跟进任务：跟进');
-      expect(s.summarizeWriteTool('unknown', {})).toBe('执行写操作');
-    });
-
     it('_streamWithProviderFallback：主 provider 未配置回退下一个', async () => {
       mockProviderFactory.getProvider.mockImplementation((name: string) => {
         if (name === 'broken') throw new Error('not configured');

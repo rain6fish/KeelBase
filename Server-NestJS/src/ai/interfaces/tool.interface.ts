@@ -36,7 +36,7 @@ export interface ToolResult {
   /**
    * 工具**内部自行调用 LLM** 时的用量（多数工具没有）。
    * 调用方把它记到该工具的 `tool_call` 审计行上——工具的开销记在工具自己那行，不混进对话行。
-   * ⚠ 不得进入 LLM 上下文：序列化 tool 消息前必须先剥离（见 AiService.truncateToolResult）。
+   * ⚠ 不得进入 LLM 上下文：序列化 tool 消息前必须先剥离（见 ToolPresentationService.truncateToolResult）。
    */
   usage?: LlmUsage;
 }

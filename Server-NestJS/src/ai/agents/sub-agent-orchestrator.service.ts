@@ -221,7 +221,7 @@ export class SubAgentOrchestrator {
 
       for (const tc of result.toolCalls) {
         const toolResult = await this.executeSafe(tc, agent, params);
-        // usage 只供审计记账，不进 LLM 上下文（同 AiService.truncateToolResult）
+        // usage 只供审计记账，不进 LLM 上下文（同 ToolPresentationService.truncateToolResult）
         const toolPayload: ToolResult = { ...toolResult };
         delete toolPayload.usage;
         messages.push({
