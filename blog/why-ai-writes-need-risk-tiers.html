@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why AI Writes Need Risk Tiers: The R0-R5 Tool Risk Model</title>
+<meta name="description" content="Reads and writes are not symmetric — an AI write that goes wrong is often irreversible. A six-tier tool risk model, R0 through R5, that decides execution policy before the call runs.">
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --muted: #5c6470;
+    --rule: #e3e6ea;
+    --code-bg: #f6f8fa;
+    --link: #1d4ed8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: #fff;
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    padding: 0 20px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 56px 0 96px; }
+
+  header.top {
+    display: flex; align-items: baseline; gap: 12px;
+    padding-bottom: 20px; margin-bottom: 40px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  header.top .brand { font-weight: 700; letter-spacing: .01em; }
+  header.top a { color: var(--muted); text-decoration: none; }
+  header.top a:hover { color: var(--link); }
+
+  h1 {
+    font-size: 32px; line-height: 1.3; font-weight: 700;
+    letter-spacing: -.01em; margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 22px; line-height: 1.35; font-weight: 650;
+    margin: 52px 0 16px; letter-spacing: -.005em;
+  }
+  h3 {
+    font-size: 17px; font-weight: 650;
+    margin: 32px 0 10px;
+  }
+  p { margin: 0 0 18px; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  strong { font-weight: 650; }
+  a { color: var(--link); }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: .875em;
+    background: var(--code-bg);
+    padding: .15em .38em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  pre code {
+    background: none; padding: 0; font-size: 13.5px; line-height: 1.6;
+    white-space: pre;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 0 0 22px; font-size: 15.5px;
+  }
+  /* Narrow screens: scroll the table instead of letting it widen the page. */
+  .table-scroll { overflow-x: auto; margin: 0 0 22px; }
+  .table-scroll table { margin: 0; min-width: 420px; }
+  th, td {
+    text-align: left; padding: 9px 12px;
+    border-bottom: 1px solid var(--rule); vertical-align: top;
+  }
+  th { font-weight: 650; background: var(--code-bg); }
+  tr:last-child td { border-bottom: none; }
+
+  footer.end {
+    margin-top: 72px; padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 14px; color: var(--muted);
+  }
+  footer.end a { color: var(--link); text-decoration: none; }
+  footer.end a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="brand">KeelBase</span>
+    <a href="../">← Home</a>
+    <a href="https://github.com/rain6fish/KeelBase">GitHub</a>
+  </header>
+
+  <h1>Why AI Writes Need Risk Tiers: The R0-R5 Tool Risk Model</h1>
+
+  <p>The previous piece, <a href="runtime-over-prompt.html">Runtime over Prompt</a>, argued that the security boundary belongs on the execution path — immediately before a tool call can produce a side effect.</p>
+
+  <p>This one goes a level deeper. Once the boundary sits on the execution path, the runtime has to answer a question it can't dodge: <strong>should this tool be allowed to run at all?</strong></p>
+
+  <p>And the operations enterprises actually hesitate over are rarely reads. Querying a customer is fine. Updating one? Emailing one? Deleting one?</p>
+
+  <h2>1. Reads and writes are not symmetric</h2>
+
+  <p>When an AI gets a read wrong, it "saw it wrong" — you fix it and move on. The blast radius is small.</p>
+
+  <p>When an AI gets a write wrong, it "broke it" — a wrong order amount, an overwritten customer record, an email sent to the wrong person. Much of it is <strong>irreversible or expensive to undo</strong>.</p>
+
+  <p>So there's a gap between "let it look" and "let it act", and the gap is really this: <strong>should every operation be governed by the same policy?</strong></p>
+
+  <p>Obviously not. Querying can be automatic. Changing a contract needs a human. Deleting data shouldn't be allowed at all.</p>
+
+  <p>That's what tool risk tiering is for: <strong>give every AI operation a risk level, then let the level decide the execution policy</strong> — instead of a blanket "all automatic" or "all human-reviewed".</p>
+
+  <h2>2. R0-R5: a tiering you can actually ship</h2>
+
+  <p>Six levels, low to high, each mapping to one execution policy:</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Tier</th><th>Meaning</th><th>Example</th><th>Execution policy</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>R0</code></td><td>Informational</td><td>Explanations, summary stats</td><td>Automatic</td></tr>
+      <tr><td><code>R1</code></td><td>Read</td><td>List customers</td><td>Automatic</td></tr>
+      <tr><td><code>R2</code></td><td>Low-risk write</td><td>Update a note</td><td>Policy decides (governance-configurable)</td></tr>
+      <tr><td><code>R3</code></td><td>Business-sensitive write</td><td>Create a follow-up task, change an order</td><td><strong>Human confirmation</strong></td></tr>
+      <tr><td><code>R4</code></td><td>High-impact action</td><td>Operations needing dual approval</td><td><strong>Dual approval</strong></td></tr>
+      <tr><td><code>R5</code></td><td>Irreversible / external action</td><td>Delete data, send email</td><td><strong>Blocked</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Three design decisions worth calling out:</p>
+
+  <ul>
+    <li><strong>Reads automatic, writes confirmed, high risk blocked.</strong> Low-risk work stays automatic; high-risk work gets a human; irreversible work is stopped outright.</li>
+    <li><strong>Explicit declaration wins; otherwise derive from semantics.</strong> If a tool declares its tier, that tier is used. If it doesn't, writes default to R3 (confirmation) and reads to R1 (automatic). An undeclared tool is not waved through — it is conservatively held.</li>
+    <li><strong>Policy can override.</strong> The governance layer can override a single tool's enablement and confirmation requirements at runtime, with immediate effect.</li>
+  </ul>
+
+  <p>The point of the tiering: it turns "do we dare let the AI do this" from a feeling into a rule. Nobody has to judge tool by tool; they set policy by tier.</p>
+
+  <h2>3. How the tiering is enforced at runtime</h2>
+
+  <p>A tiering is paper until the runtime enforces it. The chain:</p>
+
+  <p><strong>Tool declares its tier (R0-R5) → permission check (row-level scope: own / org) → policy gate (R5 blocked / R3-R4 confirmed / R0-R2 automatic) → human confirmation (executes only on approval) → write executes → side effect recorded (revocable) + audit chained</strong></p>
+
+  <p>Using the open-source KeelBase implementation as the example, the chain is verifiable.</p>
+
+  <p>Repository: <a href="https://github.com/rain6fish/KeelBase">https://github.com/rain6fish/KeelBase</a></p>
+
+  <ul>
+    <li><strong>Declaration</strong>: every AI tool carries a <code>riskLevel</code>, and the MCP endpoint surfaces it in the tool declaration (<code>_meta.keelbase</code>) — visible to external clients before they call anything.</li>
+    <li><strong>Gate</strong>: R5 is blocked outright (the response states plainly that the operation was blocked by security policy); R3/R4 return a confirmation marker and execute only after approval.</li>
+    <li><strong>Audit</strong>: every execution lands on the audit hash chain; denied calls are recorded too — an authorization denial writes <code>isError=true</code> plus the reason list. Tamper-evident and traceable.</li>
+    <li><strong>Revoke</strong>: side effects created by AI are recorded and can be revoked, including cross-system compensation.</li>
+  </ul>
+
+  <p>The protocol conformance suite pins these semantics. Output from <code>Server-NestJS/scripts/verify-protocol-conformance.mjs</code>:</p>
+
+  <pre><code>─ Tool risk tiers (protocol §4) ─
+  ✓ RISK_STRATEGY table matches the vectors
+  ✓ R1 (read) → auto / no confirmation
+  ✓ R3 (business-sensitive write) → confirmation
+  ✓ R4 (high-impact) → human_approval
+  ✓ R5 (irreversible/external) → block
+  ✓ Derivation: undeclared write tool → R3 confirmation
+  ✓ Derivation: undeclared read tool → R1 auto
+
+═══ Conformance: 34/34 passed (0s) ═══</code></pre>
+
+  <p>Tampering, tier escalation, and confirmation bypass all get rejected here.</p>
+
+  <h2>Closing</h2>
+
+  <p>AI writing data isn't the problem. <strong>Tiering it, confirming it, and being able to trace it</strong> is what makes it shippable. Turn "do we dare let the AI act" into a rule you can execute, and it can move from assistant to doing real work.</p>
+
+  <p>If you're building agents, three questions worth asking about your own system:</p>
+
+  <ol>
+    <li>Does your tool inventory contain writes with no execution policy at all — callable, so they run?</li>
+    <li>For a tool that declares no risk level, does it default to allowed, or to conservatively confirmed?</li>
+    <li>When a high-risk operation is stopped, did the model say "I can't do that", or did the execution layer actually refuse?</li>
+  </ol>
+
+  <p>The third is the one that matters. If the answer is "the model refused", the boundary is still in the prompt, not on the execution path.</p>
+
+  <p>If you find a way to bypass a tiering rule or a gate, open an issue — I'm more interested in the failure cases than the successes.</p>
+
+  <footer class="end">
+    KeelBase is Apache-2.0 licensed. Source and issues:
+    <a href="https://github.com/rain6fish/KeelBase">github.com/rain6fish/KeelBase</a>.
+  </footer>
+
+</div>
+</body>
+</html>

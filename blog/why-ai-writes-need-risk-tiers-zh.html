@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>为什么 AI 写数据要先分级？R0-R5 工具风险模型</title>
+<meta name="description" content="AI 读数据出错只是「看错了」，写数据出错是「改坏了」——很多不可逆。一套可落地的工具风险分级：R0-R5 六个等级各自对应什么执行策略。">
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --muted: #5c6470;
+    --rule: #e3e6ea;
+    --code-bg: #f6f8fa;
+    --link: #1d4ed8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: #fff;
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+                 "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    padding: 0 20px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 56px 0 96px; }
+
+  header.top {
+    display: flex; align-items: baseline; gap: 12px;
+    padding-bottom: 20px; margin-bottom: 40px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  header.top .brand { font-weight: 700; letter-spacing: .01em; }
+  header.top a { color: var(--muted); text-decoration: none; }
+  header.top a:hover { color: var(--link); }
+
+  h1 {
+    font-size: 32px; line-height: 1.3; font-weight: 700;
+    letter-spacing: -.01em; margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 22px; line-height: 1.35; font-weight: 650;
+    margin: 52px 0 16px; letter-spacing: -.005em;
+  }
+  h3 { font-size: 17px; font-weight: 650; margin: 32px 0 10px; }
+  p { margin: 0 0 18px; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  strong { font-weight: 650; }
+  a { color: var(--link); }
+  em { color: var(--muted); font-style: normal; font-size: 15px; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: .875em;
+    background: var(--code-bg);
+    padding: .15em .38em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  pre code {
+    background: none; padding: 0; font-size: 13.5px; line-height: 1.6;
+    white-space: pre;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 15.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 650; background: var(--code-bg); }
+  tr:last-child td { border-bottom: none; }
+  /* Narrow screens: scroll the table instead of letting it widen the page. */
+  .table-scroll { overflow-x: auto; margin: 0 0 22px; }
+  .table-scroll table { margin: 0; min-width: 420px; }
+
+  footer.end {
+    margin-top: 72px; padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 14px; color: var(--muted);
+  }
+  footer.end a { color: var(--link); text-decoration: none; }
+  footer.end a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="brand">KeelBase</span>
+    <a href="../">← Home</a>
+    <a href="https://github.com/rain6fish/KeelBase">GitHub</a>
+  </header>
+
+<h1>为什么 AI 写数据要先分级？R0-R5 工具风险模型</h1>
+
+<p>上一篇讲了「Runtime over Prompt：为什么 System Prompt 不是安全边界」——安全边界要落在 Tool 真正执行之前。这一篇往深一层：边界既然落在执行路径上，Runtime 凭什么判断一个 Tool 该不该放行？</p>
+
+<p>AI 真正让企业犹豫的，往往不是「读」，而是「写」——查客户可以，改客户呢？发邮件呢？删数据呢？</p>
+
+<h2>一、读和写，风险不对称</h2>
+
+<p>AI 读数据出错了，是「看错了」——改回来即可，损失有限。</p>
+
+<p>AI 写数据出错了，是「改坏了」——订单金额改错、客户资料覆盖、邮件发给了不该发的人，<strong>很多是不可逆或代价高昂的</strong>。</p>
+
+<p>所以企业对 AI 的态度，通常从「让它查」到「让它做」之间有一道坎。这道坎的本质是：<strong>对不同风险的操作，企业要不要用同一套策略对待？</strong></p>
+
+<p>显然不要。查客户可以自动，改合同必须人批，删数据根本不该允许。</p>
+
+<p>这就是「工具风险分级」要解决的问题：<strong>先给每个 AI 操作定一个风险等级，再按等级决定执行策略</strong>，而不是一刀切「全部自动」或「全部人审」。</p>
+
+<h2>二、R0-R5：一套可落地的分级</h2>
+
+<p>把 AI 工具按风险从低到高分成六级，每级对应一种执行策略：</p>
+
+<div class="table-scroll">
+<table>
+<thead><tr><th>等级</th><th>含义</th><th>例子</th><th>执行策略</th></tr></thead>
+<tbody>
+<tr><td>R0</td><td>信息性</td><td>说明、统计概览</td><td>自动</td></tr>
+<tr><td>R1</td><td>只读</td><td>查询客户列表</td><td>自动</td></tr>
+<tr><td>R2</td><td>低风险写</td><td>更新备注</td><td>策略决定（治理可配置）</td></tr>
+<tr><td>R3</td><td>业务敏感写</td><td>创建跟进任务、改订单</td><td><strong>人工确认</strong></td></tr>
+<tr><td>R4</td><td>高影响动作</td><td>双人审批类操作</td><td><strong>双人审批</strong></td></tr>
+<tr><td>R5</td><td>不可逆 / 外部动作</td><td>删除数据、发邮件</td><td><strong>阻断</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>关键设计点：</p>
+
+<ul>
+<li><strong>读自动，写确认，高风险阻断</strong>——低风险自动化提升效率，高风险人工把关，不可逆直接拦死。</li>
+<li><strong>显式声明优先，未声明按语义派生</strong>——工具声明了风险级就按声明；没声明时，写操作默认 R3（需确认）、读操作默认 R1（自动）。漏声明不意味着「放行」，而是「保守确认」。</li>
+<li><strong>策略可覆盖</strong>——治理层可以在运行时覆盖单个工具的启用与确认要求，实时生效。</li>
+</ul>
+
+<p>这套分级的好处是：<strong>它把「敢不敢让 AI 做事」从感觉变成规则</strong>。业务方不用逐个判断，只需要按风险级定策略。</p>
+
+<h2>三、分级怎么在运行时落地</h2>
+
+<p>分级本身只是纸面规则，真正让企业放心的是它在运行时的强制力。一条完整的执行链：</p>
+
+<p><strong>工具声明风险级（R0-R5）→ 权限检查（行级数据范围：本人 / 组织）→ 策略门控（R5 阻断 / R3-R4 确认 / R0-R2 自动）→ 人工确认（确认了才执行，拒绝则不执行）→ 执行写操作 → 副作用登记（可撤销）+ 审计入链</strong></p>
+
+<p>以开源项目 KeelBase 的实现为例，这套链是可验证的。</p>
+
+<p>仓库（境内访问建议用 Gitee 镜像）：</p>
+
+<ul>
+<li>GitHub：https://github.com/rain6fish/KeelBase</li>
+<li>Gitee：https://gitee.com/rain6fish/KeelBase</li>
+</ul>
+
+<ul>
+<li><strong>工具声明</strong>：每个 AI 工具带 <code>riskLevel</code>，MCP 出口把风险级透出到工具声明（<code>_meta.keelbase</code>）——外部客户端调用前即可见。</li>
+<li><strong>门控</strong>：R5 直接阻断（响应明确告知「该操作已被安全策略阻断」），R3/R4 返回确认标记，人工批准后才执行。</li>
+<li><strong>审计</strong>：每次执行都落审计哈希链；被拒绝的调用同样留痕（授权拒绝写 <code>isError=true</code> + 拒绝理由清单），可追溯、防篡改。</li>
+<li><strong>撤销</strong>：AI 创建的副作用登记后可撤销（含跨系统补偿）。</li>
+</ul>
+
+<p>协议合规认证套件锁定这套语义。实跑 <code>Server-NestJS/scripts/verify-protocol-conformance.mjs</code> 的输出：</p>
+
+<pre><code>─ 工具风险分级（协议 §4）─
+  ✓ RISK_STRATEGY 表与语料一致
+  ✓ R1（读）→ auto / 无需确认
+  ✓ R3（业务敏感写）→ confirmation / 需确认
+  ✓ R4（高影响）→ human_approval / 需确认
+  ✓ R5（不可逆/外部）→ block / 阻断
+  ✓ 派生规则：未声明写工具 → R3 confirmation
+  ✓ 派生规则：未声明读工具 → R1 auto
+
+═══ Conformance 结果：34/34 通过（0s）═══</code></pre>
+
+<p>篡改、越级、确认绕过都会在这里被拒。</p>
+
+<h2>结语</h2>
+
+<p>AI 写数据不是不能做，而是<strong>要分级、要确认、要可追</strong>。把「敢不敢让 AI 做事」变成一套可执行的规则，企业才敢把 AI 从「助手」升级成「干活的」。</p>
+
+<p>如果你也在做 Agent，可以拿自己的系统对三个问题：</p>
+
+<ol>
+<li>工具清单里，有没有「写操作」是没有任何执行策略的——能调就执行</li>
+<li>没声明风险的工具，默认是放行，还是保守确认</li>
+<li>高风险操作被拦住时，是模型自己回了一句「我不能」，还是执行层真的拒了</li>
+</ol>
+
+<p>第三个问题最关键。如果答案是「模型自己拒绝的」，那这道边界还停在 Prompt 层，没落到执行路径上。</p>
+
+<p>如果你发现某种工具分级或门控方式可以绕过，欢迎直接提 Issue（GitHub 或 Gitee 都行）——我更想看到失败案例，而不是只有成功案例。</p>
+
+  <footer class="end">
+    KeelBase 采用 Apache-2.0 许可。源码与问题反馈：<a href="https://github.com/rain6fish/KeelBase">github.com/rain6fish/KeelBase</a>。
+  </footer>
+
+</div>
+</body>
+</html>
