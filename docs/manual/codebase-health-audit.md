@@ -357,3 +357,40 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **下一刀候选**（变更驱动、不排期）：**工具清单+MCP 出口**（`listMcpTools` / `executeToolForExternal` /
   `getToolFingerprint` / `getToolInventory` / `getProxyIntegrationStatus` / `_buildToolDefs`，~201 行）
   → **最后才是 `chatImpl`（仍是最大的一块）**。
+
+### 2026-09-21 — 阶段 3 第九刀：工具对外面下沉（ToolExposureService）· **主战场第五刀**
+- ✅ 新建 `src/ai/tools/tool-exposure.service.ts`：迁入目录面（`getToolInventory` / `getToolFingerprint` /
+  `listMcpTools` / `buildToolDefs`）、出口面（`executeToolForExternal` / `getProxyIntegrationStatus`）与接缝
+  （`registerExternalToolProvider`）。**行为逐字不变**。它们的共同点是**都在服务外部世界**（管理台、MCP 客户端、
+  公开 provenance 端点），与「对话内部怎么跑」是两回事。
+- ⚠️ **一处超出上一刀候选清单的动作，写明理由**：`registerExternalToolProvider` 也一并搬走（候选清单里没有它）。
+  它是 `ExternalToolRegistry` 在 `AiService` 里的**最后一处用途**——留下就等于留一个纯转发方法，而注册的语义
+  本就属于「对外面」。搬走后 `AiService` 不再依赖 `ExternalToolRegistry`，mcp 网关的注册目标随之改为本服务
+  （网关侧只有一处调用 + 一处 spec 断言，接缝仍然单一）。
+- ✅ **消费方按依赖裁剪**：`mcp.controller` 与 `app-provenance.controller` 只用了本域方法，**整个丢掉 `AiService` 依赖**；
+  `ai.controller` / `admin-ai.service` / `trust-sandbox` 另有对话职责，改为**双依赖**（如实记下这一刀的成本）。
+- ✅ 清掉随搬迁变死的 5 个 import（`ToolDefinition` / `resolveRevokeClass` / `effectiveGateMode` /
+  `ExternalToolProvider` / `ExternalToolDef`）——编译器逐个点名；`AiService` 构造注入净 0（+对外面 −持有者），
+  参数个数仍 **21**。
+- ✅ spec 搬迁**不改断言**：MCP 出口方法（listMcpTools 3 + executeToolForExternal 7）、工具清单/集成诊断 6 条、
+  `buildToolDefs` 2 条，以及散落在治理/摘要两个 describe 里的 2 条（治理策略覆盖开关、MCP 清单禁用跳过）
+  共 **20 条**整段迁入 `tool-exposure.service.spec.ts`。消费者 spec（mcp.controller / app-provenance /
+  admin-ai / trust-sandbox / mcp-gateway）与 3 个 e2e 套件按新归属改注入点。
+- ⚠️ **新增 1 条护栏（非搬迁，必须写明）**：`getToolFingerprint` 此前**无直接覆盖**（`/app/provenance` 公开端点的
+  唯一数据来源），搬迁时补上。
+- ⚠️ **搬迁途中出过两次过程失误（均未进提交）**：① 用 node 脚本跨 shell 写临时文件时路径解析不同（node 把 `/tmp`
+  当 `D:\tmp`），切块一度丢失——**从 HEAD 取回原文**而非凭记忆重写；② 漏改一个多行调用里的裸 `aiService`。
+  两次都是编译器/测试当场抓到。
+- **结果**：`ai.service.ts` **1788 → 1593 行**（−195，本轮五刀累计 2370 → 1593）；新增
+  `tool-exposure.service.ts`（228 行）+ spec。构造注入净 0（+对外面 −持有者），参数个数 **21 → 21**。
+- **验证**：全量单测 **287 suite / 2653 tests 全过**（上一刀为 286/2652：+1 套件 = 新 spec，+1 用例 = 新增护栏，
+  20 条搬迁用例守恒、逐项对得上）；
+  三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过（全局 **94.96/78.87/90.22/95.8**，安全分档门控 6/6；
+  新文件 93.33/80.35/91.66/95.58）。
+- ⚠️ **e2e 这次没能给出"全量一次过"的结论，如实记录**：36 个套件**全部通过**（分批 9+9+9+9 与逐个单跑均绿），
+  但**单进程长跑会在跑到第 3～8 个套件之间硬崩（exit 127，无 jest 汇总）**，且这次**可复现**。
+  为排除本刀嫌疑做了两步：① 一整批**剔除所有本刀改过的套件**仍崩；② 逐对/逐套单跑全过。
+  故判定为**既有的 e2e 长跑脆弱性**（内存充足 16.6G、无并发测试进程），与本次拆分无关；
+  **建议单列一笔**（可在 CI 侧分片跑 + `--detectOpenHandles`/`--logHeapUsage` 定位）。
+- **下一刀候选**（变更驱动、不排期）：**`chatImpl`**（仍是最大的一块，~900 行）——它下面已无独立子域，
+  要么按「循环内阶段」再分，要么承认它是本类的核心而停手；这一步值得先想清楚再动。
