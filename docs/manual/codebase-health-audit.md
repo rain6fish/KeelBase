@@ -523,3 +523,31 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   **`./scripts/release-gate.sh` PASS 24 / 0**（黄金闭环经新服务真跑）。
 - **下一刀候选**（变更驱动、不排期）：H3 余下两处 —— `admin.service`（598）/ `org.service`（568）；
   以及两条已记待办（`usersService` 死戳点、e2e 长跑环境性硬崩）。
+
+### 2026-09-21 — 阶段 3 第十四刀：平台观测域下沉（AdminObservabilityService）· **H3 第二刀**
+- ✅ **接缝由既有 spec 指路**：`admin.service` 早已有按子域切开的四个 spec（analytics / monitor / ops / trash）——
+  测试的组织方式本身就说明了域边界。本刀取 **monitor + ops**：两者同答一个业务问题
+  「**这套系统现在怎么样**」（健康 / 依赖 / 计数 / 指标 + 近 24h 错误 → 派生告警 + 审计日趋势），
+  五个私有 helper（`_readMetrics` / `_checkRedis` / `_recentErrors` / `_deriveAlerts` / `_getAuditTrend`）
+  只服务它们自己，**无一处外泄**。
+- ✅ 新建 `src/admin/admin-observability.service.ts`。**行为逐字不变**。
+- ✅ **一处刻意留下并写明**：`_getStorageUsage` **留在 `AdminService`**——它只被平台总览（`getOverview`）用，
+  与本域无交集。搬过去就得让总览反向依赖观测服务，为一个私有探针不值。（`_getCountsByDay` 同理留下。）
+- ✅ 接线：`AdminModule` 注册并导出；`AdminController` 改双依赖（两个端点）；`AdminAiService` 也用了
+  `getMonitorSummary`（系统 AI 助手的平台实时上下文）→ 一并改依赖。**这次是构建抓到的**（`src/` 内，
+  不同于上一刀那个 e2e-only 的漏网）。
+- ⚠️ **spec 搬迁需要一次"夹具合并"的诚实说明**：监控与运维两个 spec 的夹具**在指标值上互相冲突**
+  （监控用例断言 0% 错误率、运维用例要 10% 才触发告警）。合并进同一文件后，把**运维用例原本的指标夹具
+  写进该用例自身**（90/10），**断言一字未改**——搬的是夹具不是期望。另补 `andWhere`/`groupBy` 到新文件的
+  query-builder 替身（原属运维 spec 的替身能力）。
+  `admin.service.ops.spec.ts` 5 条用例：4 条入新 spec、`_getStorageUsage` 那条**留给 monitor spec**
+  （它测的是留在 `AdminService` 的方法）→ 文件删除。
+- **结果**：`admin.service.ts` **643 → 444 行**（−199）；新增 `admin-observability.service.ts`（253 行）+
+  spec（194 行）；`admin.service.monitor.spec.ts` 233 → 206（移出 4 条、移入 1 条）；
+  **删除** `admin.service.ops.spec.ts`。套件数净 0（删 1 增 1）、用例数守恒（44 条 admin 用例不变）。
+- **验证**：全量单测 **291 suite / 2666 tests 全过**；e2e **36 套件 / 372 用例四批一次全过**；
+  三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过（全局 **94.99/78.91/90.24/95.83**，安全分档门控 6/6；
+  新观测服务 90.32/70.23/80.95/91.96、`admin.service` 函数覆盖 **100%**）；
+  **`./scripts/release-gate.sh` PASS 24 / 0**。
+- **下一刀候选**（变更驱动、不排期）：**H3 最后一处 `org.service`（626 行）**；
+  或转阶段 4（governance 语义整合等）+ 两条已记待办。
