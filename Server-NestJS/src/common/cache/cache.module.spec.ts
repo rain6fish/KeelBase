@@ -8,7 +8,7 @@ import { CacheService } from './cache.service';
 
 jest.mock('@keyv/redis', () => ({ createKeyv: jest.fn() }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { createKeyv } = require('@keyv/redis') as { createKeyv: jest.Mock };
 
 describe('CacheModule（工厂分支）', () => {
