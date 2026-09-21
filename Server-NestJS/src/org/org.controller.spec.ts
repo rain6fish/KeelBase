@@ -7,6 +7,7 @@ import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 describe('OrgController', () => {
   let controller: OrgController;
   let orgService: Record<string, jest.Mock>;
+  let orgDirectory: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
   const methods = [
@@ -14,12 +15,16 @@ describe('OrgController', () => {
     'removeOrganization', 'createDepartment', 'listDepartments', 'updateDepartment',
     'removeDepartment', 'listMembers', 'addMember', 'updateMember', 'removeMember',
     'createInvite', 'listInvites', 'removeInvite', 'submitRequest', 'listMyRequests',
-    'getMyOrg', 'getMyTree', 'listMyMembers',
+
   ];
 
   beforeEach(() => {
     orgService = Object.fromEntries(methods.map((m) => [m, jest.fn()]));
-    controller = new OrgController(orgService as unknown as OrgService);
+    // 通讯录（阶段 3 第十五刀）：成员视角视图已独立
+    orgDirectory = Object.fromEntries(
+      ['getMyOrg', 'getMyTree', 'listMyMembers', 'getOrgApprovalTaskStats'].map((m) => [m, jest.fn()]),
+    );
+    controller = new OrgController(orgService as unknown as OrgService, orgDirectory as any);
   });
 
   it('组织 CRUD 委托 service', async () => {
@@ -86,9 +91,9 @@ describe('OrgController', () => {
   it('申请与我的组织委托 service', () => {
     orgService.submitRequest.mockReturnValue({ id: 1 });
     orgService.listMyRequests.mockReturnValue([]);
-    orgService.getMyOrg.mockReturnValue({ id: 1 });
-    orgService.getMyTree.mockReturnValue([]);
-    orgService.listMyMembers.mockReturnValue([]);
+    orgDirectory.getMyOrg.mockReturnValue({ id: 1 });
+    orgDirectory.getMyTree.mockReturnValue([]);
+    orgDirectory.listMyMembers.mockReturnValue([]);
 
     expect(controller.submitRequest({ orgId: 1 } as any, mockUser as any)).toEqual({ id: 1 });
     expect(controller.listMyRequests(mockUser as any)).toEqual([]);
@@ -97,7 +102,7 @@ describe('OrgController', () => {
     expect(controller.listMyMembers(mockUser as any)).toEqual([]);
 
     expect(orgService.submitRequest).toHaveBeenCalledWith(1, { orgId: 1 });
-    expect(orgService.getMyOrg).toHaveBeenCalledWith(1);
+    expect(orgDirectory.getMyOrg).toHaveBeenCalledWith(1);
   });
 
   it('所有管理端端点声明 manage:all 策略（handler 用管理员能力评估通过）', () => {

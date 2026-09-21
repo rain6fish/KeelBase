@@ -119,50 +119,6 @@ describe('OrgService', () => {
 
   // ── ORG-5 组织审批待办统计：跨组织隔离（security-matrix §3 待补项）──
 
-  it('getOrgApprovalTaskStats：A 在 org1 只见 org1 成员，不见 org2（B）', async () => {
-    // _myMember(A=1) → org1
-    members.findOne.mockResolvedValue({ id: 1, userId: 1, orgId: 1, role: 'member' });
-    // org1 成员列表：A(1)、C(2)；org2 成员 B(3) 不在其中
-    members.find.mockResolvedValue([
-      { userId: 1, user: { nickname: 'CrossA' }, dept: null },
-      { userId: 2, user: { nickname: 'CrossC' }, dept: null },
-    ]);
-    // 审批任务：org1 成员 + 一条 org2 成员 B 的任务（若泄漏应被排除）
-    flowTask.createQueryBuilder.mockReturnValue(
-      mockQB({
-        getMany: jest.fn().mockResolvedValue([
-          { assigneeId: 1, status: 'pending' },
-          { assigneeId: 2, status: 'approved' },
-          { assigneeId: 3, status: 'pending' }, // org2 的 B
-        ]),
-      }),
-    );
-
-    const res = await service.getOrgApprovalTaskStats(1);
-
-    expect(res.orgId).toBe(1);
-    const names = res.members.map((m) => m.nickname);
-    expect(names).toContain('CrossA');
-    expect(names).toContain('CrossC');
-    expect(names).not.toContain('CrossB'); // org2 成员不出现
-    // 成员查询按调用者所属 org 过滤
-    expect(members.find).toHaveBeenCalledWith(expect.objectContaining({ where: { orgId: 1 } }));
-  });
-
-  it('getOrgApprovalTaskStats：B 在 org2 只见 org2 成员（反向隔离）', async () => {
-    members.findOne.mockResolvedValue({ id: 9, userId: 3, orgId: 2, role: 'member' }); // B → org2
-    members.find.mockResolvedValue([{ userId: 3, user: { nickname: 'CrossB' }, dept: null }]);
-    flowTask.createQueryBuilder.mockReturnValue(mockQB({ getMany: jest.fn().mockResolvedValue([]) }));
-
-    const res = await service.getOrgApprovalTaskStats(3);
-
-    expect(res.orgId).toBe(2);
-    expect(res.members.map((m) => m.nickname)).toEqual(['CrossB']);
-    expect(members.find).toHaveBeenCalledWith(expect.objectContaining({ where: { orgId: 2 } }));
-  });
-
-  // ── 组织 ──
-
   it('创建组织：重名冲突', async () => {
     orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
     await expect(service.createOrganization({ name: 'Acme' }, 1)).rejects.toThrow(
@@ -298,21 +254,8 @@ describe('OrgService', () => {
   // PC-3（CE-2 缺口）：org/orgId 数据范围 membership wire 形状在**源侧**冻结——与
   // specs/protocol/schemas/v1/org-*.schema.json（additionalProperties:false + 样例）配合：
   // 任一侧加/改字段，本断言或 wire-schema 冻结门先红。
-  it('PC-3 wire 形状冻结：成员范围 / 成员项（管理端 / 成员白名单）键 == 冻结 schema 契约', async () => {
-    // ① GET /org/my → org-membership-scope（数据范围描述子）
-    members.findOne.mockResolvedValue({ orgId: 1, role: OrgMemberRole.OWNER, deptId: 2 });
-    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme', description: 'd' });
-    depts.find.mockResolvedValue([
-      { id: 1, name: '总部', parentId: null },
-      { id: 2, name: '研发部', parentId: 1 },
-    ]);
-    const scopeSchema = JSON.parse(
-      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-membership-scope.schema.json'), 'utf8'),
-    ) as { properties: Record<string, unknown> & { org: { properties: Record<string, unknown> } } };
-    const my = await service.getMyOrg(7);
-    expect(Object.keys(my).sort()).toEqual(Object.keys(scopeSchema.properties).sort());
-    expect(Object.keys(my.org).sort()).toEqual(Object.keys(scopeSchema.properties.org.properties).sort());
-    expect(my.deptPath).toEqual(['总部', '研发部']);
+  it('PC-3 wire 形状冻结：② GET /org/organizations/:orgId/members item → org-member-item（管理端，email 掩码）', async () => {     // ② 原本与 ① 同处一个用例（① 顺带设了 org 夹具）；拆开后这半边自带最小夹具——断言未改
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
 
     // ② GET /org/organizations/:orgId/members item → org-member-item（管理端，email 掩码）
     members.createQueryBuilder().getCount.mockResolvedValue(1);
@@ -332,23 +275,8 @@ describe('OrgService', () => {
       readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-member-item.schema.json'), 'utf8'),
     ) as { properties: Record<string, unknown> };
     expect(Object.keys(admin.items[0]).sort()).toEqual(Object.keys(itemSchema.properties).sort());
-
-    // ③ GET /org/my/members item → org-member-public（白名单：无 email/phone/username）
-    members.find.mockResolvedValue([
-      {
-        userId: 5,
-        role: OrgMemberRole.MEMBER,
-        user: { nickname: 'Alice', avatarUrl: null },
-        dept: { name: '研发部' },
-      },
-    ]);
-    const pub = await service.listMyMembers(7);
-    const pubSchema = JSON.parse(
-      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-member-public.schema.json'), 'utf8'),
-    ) as { properties: Record<string, unknown> };
-    expect(Object.keys(pub[0]).sort()).toEqual(Object.keys(pubSchema.properties).sort());
+
   });
-
   // ── 邀请（ORG-6） ──
 
   it('兑换邀请码：有效 → 入组织 + 标记已用 + 通知邀请者', async () => {
@@ -577,63 +505,6 @@ describe('OrgService', () => {
     );
   });
 
-  it('我的组织：返回部门路径', async () => {
-    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: 2, role: OrgMemberRole.MEMBER });
-    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme', description: 'd' });
-    depts.find.mockResolvedValue([
-      { id: 1, name: '总部', parentId: null },
-      { id: 2, name: '研发部', parentId: 1 },
-    ]);
-    const result = await service.getMyOrg(9);
-    expect(result.deptPath).toEqual(['总部', '研发部']);
-    expect(result.org.name).toBe('Acme');
-  });
-
-  it('我的组织：无部门路径为空；非成员抛 NotFound', async () => {
-    members.findOne.mockResolvedValueOnce({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
-    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
-    const result = await service.getMyOrg(9);
-    expect(result.deptPath).toEqual([]);
-
-    members.findOne.mockResolvedValueOnce(null);
-    await expect(service.getMyOrg(99)).rejects.toThrow(NotFoundException);
-  });
-
-  it('组织树：构建层级结构', async () => {
-    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
-    depts.find.mockResolvedValue([
-      { id: 1, name: '总部', parentId: null },
-      { id: 2, name: '研发部', parentId: 1 },
-      { id: 3, name: '独立组', parentId: null },
-    ]);
-    members.find.mockResolvedValue([
-      { deptId: 2 }, { deptId: 2 }, { deptId: 1 },
-    ]);
-    const tree = await service.getMyTree(9);
-    expect(tree).toHaveLength(2);
-    const root = tree.find((n) => n.id === 1) as any;
-    expect(root.children).toHaveLength(1);
-    expect(root.children[0]).toMatchObject({ id: 2, memberCount: 2 });
-    expect((tree.find((n) => n.id === 3) as any).memberCount).toBe(0);
-  });
-
-  it('通讯录：脱敏白名单（无 email/phone/username）', async () => {
-    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
-    members.find.mockResolvedValue([
-      {
-        userId: 5, role: OrgMemberRole.MEMBER,
-        user: { nickname: 'Alice', avatarUrl: 'http://a', username: 'alice', email: 'x@y.z' },
-        dept: { name: '研发部' },
-      },
-    ]);
-    const list = await service.listMyMembers(9);
-    expect(list[0]).toEqual({ id: 5, nickname: 'Alice', avatarUrl: 'http://a', role: OrgMemberRole.MEMBER, deptName: '研发部' });
-    expect(list[0]).not.toHaveProperty('email');
-    expect(list[0]).not.toHaveProperty('username');
-  });
-
-  // ── 补充覆盖：update 成功路径 / 审批待办统计 ───────────────────────────────
-
   it('更新部门：设非 null 父级成功（在组织内且无环）', async () => {
     depts.findOne
       .mockResolvedValueOnce({ id: 1, orgId: 1, parentId: null, name: 'A' })
@@ -651,28 +522,6 @@ describe('OrgService', () => {
     await service.updateMember(1, { deptId: 2 });
     expect(members.save).toHaveBeenCalledWith(expect.objectContaining({ deptId: 2 }));
   });
-
-  it('getOrgApprovalTaskStats：按成员聚合 pending/processed 审批任务', async () => {
-    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, role: OrgMemberRole.MEMBER });
-    members.find.mockResolvedValue([
-      { userId: 5, role: OrgMemberRole.MEMBER, user: { nickname: 'Alice' }, dept: { name: '研发部' } },
-      { userId: 6, role: OrgMemberRole.MEMBER, user: { nickname: 'Bob' }, dept: null },
-    ]);
-    flowTask.createQueryBuilder().getMany.mockResolvedValue([
-      { assigneeId: 5, status: 'pending' },
-      { assigneeId: 5, status: 'approved' },
-      { assigneeId: 6, status: 'rejected' },
-      { assigneeId: 6, status: 'pending' },
-    ]);
-    const result = await service.getOrgApprovalTaskStats(9);
-    expect(result.orgId).toBe(1);
-    const alice = result.members.find((m) => m.nickname === 'Alice')!;
-    expect(alice).toMatchObject({ pending: 1, processed: 1, total: 2, deptName: '研发部' });
-    const bob = result.members.find((m) => m.nickname === 'Bob')!;
-    expect(bob).toMatchObject({ pending: 1, processed: 1, total: 2 });
-  });
-
-  // ── 权限-2 部门物化路径（ancestors）──
 
   describe('权限-2 部门物化路径 ancestors', () => {
     it('createDepartment 子部门 → ancestors = 父路径 + 父 id', async () => {

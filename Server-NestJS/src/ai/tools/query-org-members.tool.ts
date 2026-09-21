@@ -10,8 +10,13 @@
 import { AiTool, ToolDefinition, ToolResult } from '../interfaces/tool.interface';
 import { ToolParameter } from '../interfaces/tool.interface';
 
-interface OrgServiceLike {
+/** 组织边界判定（仍在 OrgService）：本工具用它做范围前置检查 */
+interface OrgScopeLike {
   getUserOrgId(userId: number): Promise<number | null>;
+}
+
+/** 通讯录视图（阶段 3 第十五刀拆至 OrgDirectoryService） */
+interface OrgDirectoryLike {
   listMyMembers(userId: number): Promise<Array<Record<string, unknown>>>;
 }
 
@@ -28,7 +33,10 @@ export class QueryOrgMembersTool implements AiTool {
     },
   ];
 
-  constructor(private readonly orgService: OrgServiceLike) {}
+  constructor(
+    private readonly orgService: OrgScopeLike,
+    private readonly orgDirectory: OrgDirectoryLike,
+  ) {}
 
   toToolDefinition(): ToolDefinition {
     return {
@@ -52,7 +60,7 @@ export class QueryOrgMembersTool implements AiTool {
       if (orgId == null) {
         return { success: false, error: '您不是任何组织的成员' };
       }
-      const members = await this.orgService.listMyMembers(Number(userId));
+      const members = await this.orgDirectory.listMyMembers(Number(userId));
       const deptFilter = args.deptName as string | undefined;
       const rows = members
         .filter((m: Record<string, unknown>) =>

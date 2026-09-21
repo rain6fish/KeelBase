@@ -10,8 +10,13 @@
 import { AiTool, ToolDefinition, ToolResult } from '../interfaces/tool.interface';
 import { ToolParameter } from '../interfaces/tool.interface';
 
-interface OrgServiceLike {
+/** 组织边界判定（仍在 OrgService）：本工具用它做范围前置检查 */
+interface OrgScopeLike {
   getUserOrgId(userId: number): Promise<number | null>;
+}
+
+/** 组织内审批待办统计（阶段 3 第十五刀拆至 OrgDirectoryService） */
+interface OrgDirectoryLike {
   getOrgApprovalTaskStats(userId: number): Promise<{
     orgId: number;
     members: Array<{ nickname: string | null; deptName: string | null; pending: number; processed: number; total: number }>;
@@ -24,7 +29,10 @@ export class QueryOrgTasksTool implements AiTool {
     '查询组织审批待办统计（按成员聚合 pending/已处理任务数）。组织边界授权：仅返回请求用户所属组织的数据。';
   readonly parameters: ToolParameter[] = [];
 
-  constructor(private readonly orgService: OrgServiceLike) {}
+  constructor(
+    private readonly orgService: OrgScopeLike,
+    private readonly orgDirectory: OrgDirectoryLike,
+  ) {}
 
   toToolDefinition(): ToolDefinition {
     return {
@@ -43,7 +51,7 @@ export class QueryOrgTasksTool implements AiTool {
       if (orgId == null) {
         return { success: false, error: '您不是任何组织的成员' };
       }
-      const stats = await this.orgService.getOrgApprovalTaskStats(Number(userId));
+      const stats = await this.orgDirectory.getOrgApprovalTaskStats(Number(userId));
       return { success: true, data: stats };
     } catch (err) {
       return { success: false, error: (err as Error).message };

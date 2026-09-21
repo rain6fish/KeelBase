@@ -4,12 +4,16 @@ import { QueryOrgAvailabilityTool } from './query-org-availability.tool';
 
 describe('QueryOrgAvailabilityTool (ORG-5)', () => {
   let tool: QueryOrgAvailabilityTool;
-  let orgService: { getUserOrgId: jest.Mock; listMyMembers: jest.Mock };
+  let orgService: { getUserOrgId: jest.Mock };
+  // 通讯录视图已拆至 OrgDirectoryService（阶段 3 第十五刀）
+  let orgDirectory: { listMyMembers: jest.Mock };
   let eventsService: { getEventsForRange: jest.Mock };
 
   beforeEach(() => {
     orgService = {
       getUserOrgId: jest.fn().mockResolvedValue(1),
+    };
+    orgDirectory = {
       listMyMembers: jest.fn().mockResolvedValue([
         { id: 1, nickname: 'Alice', deptName: '研发部', role: 'admin' },
         { id: 2, nickname: 'Bob', deptName: '研发部', role: 'member' },
@@ -23,7 +27,7 @@ describe('QueryOrgAvailabilityTool (ORG-5)', () => {
         { id: 12, title: '客户拜访', userId: 2 },
       ]),
     };
-    tool = new QueryOrgAvailabilityTool(orgService as any, eventsService as any);
+    tool = new QueryOrgAvailabilityTool(orgService as any, orgDirectory as any, eventsService as any);
   });
 
   it('非组织成员 → 错误', async () => {

@@ -4,17 +4,21 @@ import { QueryOrgMembersTool } from './query-org-members.tool';
 
 describe('QueryOrgMembersTool (ORG-5)', () => {
   let tool: QueryOrgMembersTool;
-  let orgService: { getUserOrgId: jest.Mock; listMyMembers: jest.Mock };
+  let orgService: { getUserOrgId: jest.Mock };
+  // 通讯录视图已拆至 OrgDirectoryService（阶段 3 第十五刀）
+  let orgDirectory: { listMyMembers: jest.Mock };
 
   beforeEach(() => {
     orgService = {
       getUserOrgId: jest.fn().mockResolvedValue(2),
+    };
+    orgDirectory = {
       listMyMembers: jest.fn().mockResolvedValue([
         { id: 1, nickname: 'Alice', deptName: '研发部', role: 'admin' },
         { id: 2, nickname: 'Bob', deptName: '市场部', role: 'member' },
       ]),
     };
-    tool = new QueryOrgMembersTool(orgService as any);
+    tool = new QueryOrgMembersTool(orgService as any, orgDirectory as any);
   });
 
   it('非组织成员 → 错误', async () => {

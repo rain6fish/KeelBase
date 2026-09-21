@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { OrgService } from './org.service';
+import { OrgDirectoryService } from './org-directory.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -34,7 +35,11 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 @FeatureFlag('org')
 @Controller({ path: 'org', version: '1' })
 export class OrgController {
-  constructor(private orgService: OrgService) {}
+  constructor(
+    private orgService: OrgService,
+    // 通讯录（阶段 3 第十五刀）：成员视角只读视图已独立
+    private readonly orgDirectory: OrgDirectoryService,
+  ) {}
 
   // ── 组织（管理端） ──
 
@@ -218,18 +223,18 @@ export class OrgController {
   @Get('my')
   @ApiOperation({ summary: '我的组织信息 + 部门路径' })
   getMyOrg(@CurrentUser() user: JwtPayload) {
-    return this.orgService.getMyOrg(user.sub);
+    return this.orgDirectory.getMyOrg(user.sub);
   }
 
   @Get('my/tree')
   @ApiOperation({ summary: '我的组织部门树（只读，含成员数）' })
   getMyTree(@CurrentUser() user: JwtPayload) {
-    return this.orgService.getMyTree(user.sub);
+    return this.orgDirectory.getMyTree(user.sub);
   }
 
   @Get('my/members')
   @ApiOperation({ summary: '我的组织成员（脱敏白名单：无 email/phone）' })
   listMyMembers(@CurrentUser() user: JwtPayload) {
-    return this.orgService.listMyMembers(user.sub);
+    return this.orgDirectory.listMyMembers(user.sub);
   }
 }

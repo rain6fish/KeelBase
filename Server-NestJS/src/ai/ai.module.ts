@@ -108,6 +108,7 @@ import { OperationAuditModule } from '../operation-audit/operation-audit.module'
 import { BusinessHistoryService } from './governance/business-history.service';
 import { OrgModule } from '../org/org.module';
 import { OrgService } from '../org/org.service';
+import { OrgDirectoryService } from '../org/org-directory.service';
 import { QueryOrgAvailabilityTool } from './tools/query-org-availability.tool';
 import { QueryOrgMembersTool } from './tools/query-org-members.tool';
 import { QueryOrgTasksTool } from './tools/query-org-tasks.tool';
@@ -213,6 +214,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         eventsService: EventsService,
         usersService: UsersService,
         orgService: OrgService,
+        orgDirectory: OrgDirectoryService,
         conversationService: ConversationService,
         auditService: AuditService,
         aiDailyUsageService: AiDailyUsageService,
@@ -327,9 +329,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryUserStatsTool(usersService, eventsService));
         toolRegistry.register(new QueryEventsByKeywordTool(eventsService));
         // ORG-5 组织边界 AI 工具（仅返回请求用户所属组织的数据）
-        toolRegistry.register(new QueryOrgAvailabilityTool(orgService, eventsService));
-        toolRegistry.register(new QueryOrgMembersTool(orgService));
-        toolRegistry.register(new QueryOrgTasksTool(orgService));
+        toolRegistry.register(new QueryOrgAvailabilityTool(orgService, orgDirectory, eventsService));
+        toolRegistry.register(new QueryOrgMembersTool(orgService, orgDirectory));
+        toolRegistry.register(new QueryOrgTasksTool(orgService, orgDirectory));
         toolRegistry.register(new NavigatePageTool());
         // System AI Assistant（管理端导航，adminOnly）
         toolRegistry.register(new AdminNavigatePageTool());
@@ -438,7 +440,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

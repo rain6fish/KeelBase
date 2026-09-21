@@ -10,8 +10,13 @@
 import { AiTool, ToolDefinition, ToolResult } from '../interfaces/tool.interface';
 import { ToolParameter } from '../interfaces/tool.interface';
 
-interface OrgServiceLike {
+/** 组织边界判定（仍在 OrgService）：本工具用它做范围前置检查 */
+interface OrgScopeLike {
   getUserOrgId(userId: number): Promise<number | null>;
+}
+
+/** 通讯录视图（阶段 3 第十五刀拆至 OrgDirectoryService） */
+interface OrgDirectoryLike {
   listMyMembers(userId: number): Promise<Array<Record<string, unknown>>>;
 }
 
@@ -39,7 +44,8 @@ export class QueryOrgAvailabilityTool implements AiTool {
   ];
 
   constructor(
-    private readonly orgService: OrgServiceLike,
+    private readonly orgService: OrgScopeLike,
+    private readonly orgDirectory: OrgDirectoryLike,
     private readonly eventsService: EventsServiceLike,
   ) {}
 
@@ -71,7 +77,7 @@ export class QueryOrgAvailabilityTool implements AiTool {
       const endDate = (args.endDate as string) ?? today;
 
       const [members, events] = await Promise.all([
-        this.orgService.listMyMembers(Number(userId)),
+        this.orgDirectory.listMyMembers(Number(userId)),
         this.eventsService.getEventsForRange(startDate, endDate, Number(userId)),
       ]);
 

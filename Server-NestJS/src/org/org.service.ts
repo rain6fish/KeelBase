@@ -25,6 +25,7 @@ import { CreateInviteDto } from './dto/create-invite.dto';
 import { SubmitRequestDto } from './dto/submit-request.dto';
 import { User } from '../common/entities/user.entity';
 import { maskEmail } from '../common/utils/mask';
+import { ensureOrg } from './org-lookup';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
@@ -105,17 +106,17 @@ export class OrgService {
   }
 
   async findOrganization(id: number): Promise<Organization> {
-    return this._ensureOrg(id);
+    return ensureOrg(this.orgsRepo, id);
   }
 
   async updateOrganization(id: number, dto: UpdateOrganizationDto): Promise<Organization> {
-    const org = await this._ensureOrg(id);
+    const org = await ensureOrg(this.orgsRepo, id);
     Object.assign(org, dto);
     return this.orgsRepo.save(org);
   }
 
   async removeOrganization(id: number): Promise<void> {
-    const org = await this._ensureOrg(id);
+    const org = await ensureOrg(this.orgsRepo, id);
     const memberCount = await this.membersRepo.count({ where: { orgId: org.id } });
     if (memberCount > 0) throw new BadRequestException('组织仍有成员，无法删除');
     await this.orgsRepo.softDelete(org.id);
@@ -124,7 +125,7 @@ export class OrgService {
   // ── 部门 ──
 
   async createDepartment(orgId: number, dto: CreateDepartmentDto): Promise<Department> {
-    await this._ensureOrg(orgId);
+    await ensureOrg(this.orgsRepo, orgId);
     let parent: Department | null = null;
     if (dto.parentId != null) parent = await this._ensureDeptInOrg(dto.parentId, orgId);
     await this._assertUniqueDeptName(orgId, dto.name);
@@ -141,7 +142,7 @@ export class OrgService {
   }
 
   async listDepartments(orgId: number): Promise<Department[]> {
-    await this._ensureOrg(orgId);
+    await ensureOrg(this.orgsRepo, orgId);
     return this.deptsRepo.find({ where: { orgId }, order: { sortOrder: 'ASC', id: 'ASC' } });
   }
 
@@ -194,7 +195,7 @@ export class OrgService {
     keyword?: string,
     deptId?: number,
   ): Promise<PaginatedResult<MemberView>> {
-    await this._ensureOrg(orgId);
+    await ensureOrg(this.orgsRepo, orgId);
     const qb = this.membersRepo
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.user', 'user')
@@ -215,7 +216,7 @@ export class OrgService {
   }
 
   async addMember(orgId: number, dto: AddMemberDto): Promise<OrgMember> {
-    const org = await this._ensureOrg(orgId);
+    const org = await ensureOrg(this.orgsRepo, orgId);
     const user = await this.usersRepo.findOne({ where: { id: dto.userId } });
     if (!user) throw new NotFoundException('用户不存在');
     const dup = await this.membersRepo.findOne({ where: { orgId, userId: dto.userId } });
@@ -272,7 +273,7 @@ export class OrgService {
   // ── 邀请（ORG-6） ──
 
   async createInvite(orgId: number, dto: CreateInviteDto, adminId: number): Promise<OrgInvite> {
-    await this._ensureOrg(orgId);
+    await ensureOrg(this.orgsRepo, orgId);
     if (dto.deptId != null) await this._ensureDeptInOrg(dto.deptId, orgId);
     return this.invitesRepo.save(
       this.invitesRepo.create({
@@ -287,7 +288,7 @@ export class OrgService {
   }
 
   async listInvites(orgId: number): Promise<OrgInvite[]> {
-    await this._ensureOrg(orgId);
+    await ensureOrg(this.orgsRepo, orgId);
     return this.invitesRepo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
   }
 
@@ -356,116 +357,7 @@ export class OrgService {
     });
   }
 
-  // ── 我的组织 / 通讯录（ORG-7，只读脱敏） ──
-
-  async getMyOrg(userId: number): Promise<{
-    org: { id: number; name: string; description?: string };
-    role: OrgMemberRole;
-    deptId: number | null;
-    deptPath: string[];
-  }> {
-    const member = await this._myMember(userId);
-    const org = await this._ensureOrg(member.orgId);
-    const deptPath = await this._deptPath(member.orgId, member.deptId);
-    return {
-      org: { id: org.id, name: org.name, description: org.description },
-      role: member.role,
-      deptId: member.deptId ?? null,
-      deptPath,
-    };
-  }
-
-  async getMyTree(userId: number): Promise<Array<Record<string, unknown>>> {
-    const member = await this._myMember(userId);
-    const depts = await this.deptsRepo.find({ where: { orgId: member.orgId } });
-    const members = await this.membersRepo.find({ where: { orgId: member.orgId } });
-    const countByDept = new Map<number, number>();
-    for (const m of members) {
-      if (m.deptId == null) continue;
-      countByDept.set(m.deptId, (countByDept.get(m.deptId) ?? 0) + 1);
-    }
-    const nodeMap = new Map<number, Record<string, unknown>>();
-    for (const d of depts) {
-      nodeMap.set(d.id, { id: d.id, name: d.name, parentId: d.parentId, memberCount: countByDept.get(d.id) ?? 0, children: [] as unknown[] });
-    }
-    const roots: Array<Record<string, unknown>> = [];
-    for (const d of depts) {
-      const node = nodeMap.get(d.id)!;
-      if (d.parentId != null && nodeMap.has(d.parentId)) {
-        (nodeMap.get(d.parentId)!.children as unknown[]).push(node);
-      } else {
-        roots.push(node);
-      }
-    }
-    return roots;
-  }
-
-  async listMyMembers(userId: number): Promise<Array<Record<string, unknown>>> {
-    const member = await this._myMember(userId);
-    const members = await this.membersRepo.find({
-      where: { orgId: member.orgId },
-      relations: { user: true, dept: true },
-    });
-    // 脱敏白名单：仅 id/nickname/avatarUrl/role/deptName，不含 email/phone/username
-    return members.map((m) => ({
-      id: m.userId,
-      nickname: m.user?.nickname ?? null,
-      avatarUrl: m.user?.avatarUrl ?? null,
-      role: m.role,
-      deptName: m.dept?.name ?? null,
-    }));
-  }
-
-  /**
-   * ORG-5：组织审批待办统计——按组织成员聚合审批任务（pending / 已处理）。
-   * 数据限定在用户所属组织内（成员 + 任务均以 org 域过滤）。
-   */
-  async getOrgApprovalTaskStats(userId: number): Promise<{
-    orgId: number;
-    members: Array<{ nickname: string | null; deptName: string | null; pending: number; processed: number; total: number }>;
-  }> {
-    const member = await this._myMember(userId);
-    const members = await this.membersRepo.find({
-      where: { orgId: member.orgId },
-      relations: { user: true, dept: true },
-    });
-    const memberIds = members.map((m) => m.userId);
-    const tasks = await this.flowTaskRepo
-      .createQueryBuilder('t')
-      .where('t.assigneeId IN (:...ids)', { ids: memberIds })
-      .getMany();
-    const pending = new Map<number, number>();
-    const processed = new Map<number, number>();
-    for (const t of tasks) {
-      if (t.status === 'pending') {
-        pending.set(t.assigneeId, (pending.get(t.assigneeId) ?? 0) + 1);
-      } else if (t.status === 'approved' || t.status === 'rejected') {
-        processed.set(t.assigneeId, (processed.get(t.assigneeId) ?? 0) + 1);
-      }
-    }
-    return {
-      orgId: member.orgId,
-      members: members.map((m) => {
-        const p = pending.get(m.userId) ?? 0;
-        const c = processed.get(m.userId) ?? 0;
-        return {
-          nickname: m.user?.nickname ?? null,
-          deptName: m.dept?.name ?? null,
-          pending: p,
-          processed: c,
-          total: p + c,
-        };
-      }),
-    };
-  }
-
   // ── 内部工具 ──
-
-  private async _myMember(userId: number): Promise<OrgMember> {
-    const member = await this.membersRepo.findOne({ where: { userId } });
-    if (!member) throw new NotFoundException('您不是任何组织的成员');
-    return member;
-  }
 
   /** ORG-3 数据隔离：返回用户所属组织 id（非成员返回 null，不抛错） */
   async getUserOrgId(userId: number): Promise<number | null> {
@@ -489,24 +381,6 @@ export class OrgService {
     return { orgId: member.orgId, deptId: member.deptId ?? null };
   }
 
-  private async _deptPath(orgId: number, deptId: number | null | undefined): Promise<string[]> {
-    if (deptId == null) return [];
-    const depts = await this.deptsRepo.find({ where: { orgId } });
-    const byId = new Map<number, Department>();
-    for (const d of depts) byId.set(d.id, d);
-    const path: string[] = [];
-    let cur = byId.get(deptId);
-    while (cur) {
-      path.unshift(cur.name);
-      cur = cur.parentId != null ? byId.get(cur.parentId) : undefined;
-    }
-    return path;
-  }
-
-  /**
-   * 权限-2：「本部门及以下」下钻——返回 deptId **及其全部子孙**部门 id（含自身）。
-   * 走 `ancestors` 物化路径（绑定参数，不做字符串拼接），单次查询。
-   */
   async listDeptSubtreeIds(orgId: number, deptId: number): Promise<number[]> {
     const rows = await this.deptsRepo
       .createQueryBuilder('d')
@@ -559,12 +433,6 @@ export class OrgService {
       avatarUrl: m.user?.avatarUrl ?? null,
       email: m.user ? maskEmail(m.user.email) : null,
     };
-  }
-
-  private async _ensureOrg(id: number): Promise<Organization> {
-    const org = await this.orgsRepo.findOne({ where: { id } });
-    if (!org) throw new NotFoundException('组织不存在');
-    return org;
   }
 
   private async _ensureDeptInOrg(deptId: number, orgId: number): Promise<Department> {
