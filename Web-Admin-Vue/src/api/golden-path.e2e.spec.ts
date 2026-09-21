@@ -19,8 +19,13 @@
  * <pre>
  *   VITE_API_BASE=http://127.0.0.1:18091/api/v1 \
  *   KEELBASE_GOLDEN_PATH_TOKEN=&lt;token&gt; \
+ *   KEELBASE_GOLDEN_PATH_ADMIN_TOKEN=&lt;administrator token&gt; \
  *   npx vitest run src/api/golden-path.e2e.spec.ts
  * </pre>
+ *
+ * <p>The administrator token is only for the streaming leg, which walks the same turns over the
+ * channel the console actually uses (`/admin/ai/chat/stream`, the endpoint an administrator is sent
+ * to). Without it that leg is skipped and the rest still runs.
  *
  * <p>How the token is obtained is the one documented difference between the runtimes and is
  * deliberately not part of this path: the TypeScript runtime issues one from `/auth/login`, the Java
@@ -41,9 +46,11 @@ import { authApi } from './auth'
 import { aiApi } from './ai'
 import { aiToolsApi } from './aiTools'
 import { auditApi } from './audit'
+import { confirmTool, streamChat, type AiConfirmationDecision } from '@/utils/streamChat'
 
 const BASE = import.meta.env.VITE_API_BASE as string | undefined
 const TOKEN = process.env.KEELBASE_GOLDEN_PATH_TOKEN
+const ADMIN_TOKEN = process.env.KEELBASE_GOLDEN_PATH_ADMIN_TOKEN
 const enabled = Boolean(BASE && TOKEN && !BASE.startsWith('/'))
 
 // The client reads its token from storage, and storage reads localStorage. This is the only browser
@@ -132,5 +139,55 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
 
     const verify = (await auditApi.verify()) as { valid?: boolean }
     expect(verify.valid, 'the audit chain verifies').toBe(true)
+  })
+
+  /**
+   * The console's own conversation path, which is the streaming one — and on the endpoint an
+   * administrator is sent to. Hop 4 above walks the same turns over the plain endpoint; this walks
+   * them over the channel the drawer actually uses, driven by the module it uses.
+   *
+   * <p>The approve happens from inside an open stream, which is how the drawer does it, and it is
+   * what the stream's lifetime is for: the decision arrives on another request and the open view
+   * learns of it as an event. A stream that closed after the turn could not deliver this.
+   */
+  it.skipIf(!ADMIN_TOKEN)('5. the console’s own streaming client walks it too', async () => {
+    const events: string[] = []
+    let decision: AiConfirmationDecision | undefined
+    let failure: Error | undefined
+    let approved: Promise<void> | undefined
+
+    storage.saveTokens(ADMIN_TOKEN ?? '', '')
+    await streamChat({
+      // The drawer's own first message: the customer it is looking at goes into the text, because no
+      // client sends a customer id and the runtime is expected to read the reference from the message.
+      message: '当前客户「Golden Path」（ID 1）。给客户建一条跟进记录',
+      endpoint: '/admin/ai/chat/stream',
+      onEvent: (event) => {
+        events.push(event.type)
+        if (event.type === 'confirmation_request') {
+          // The drawer's confirm button, while the stream is still open.
+          approved = confirmTool(event.confirmation.token, 'approve')
+        }
+        if (event.type === 'confirmation_decision') {
+          decision = event.confirmationDecision
+        }
+      },
+      onError: (err) => {
+        failure = err
+      },
+    })
+    await approved
+
+    expect(failure, 'the stream reports no failure').toBeUndefined()
+    expect(events, 'the console renders these in this order').toEqual([
+      'tool_start',
+      'text',
+      'confirmation_request',
+      'confirmation_decision',
+      'tool_end',
+      'done',
+    ])
+    expect(decision?.decision, 'the decision the stream carried').toBe('approve')
+    expect(decision?.success, 'and the write it approved ran').toBe(true)
   })
 })
