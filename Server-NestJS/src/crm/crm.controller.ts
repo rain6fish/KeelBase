@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CrmService } from './crm.service';
+import { CrmAnalyticsService } from './crm-analytics.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/create-customer.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -37,7 +38,11 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 @FeatureFlag('crm')
 @Controller({ path: 'crm', version: '1' })
 export class CrmController {
-  constructor(private readonly crmService: CrmService) {}
+  constructor(
+    private readonly crmService: CrmService,
+    // 分析域（阶段 3 第十三刀）：风险打分 / 闲置检测 / 看板聚合已独立
+    private readonly crmAnalytics: CrmAnalyticsService,
+  ) {}
 
   // ── Customer ──────────────────────────────────────────────
 
@@ -99,13 +104,13 @@ export class CrmController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.crmService.analyzeRisk(id, user.sub);
+    return this.crmAnalytics.analyzeRisk(id, user.sub);
   }
 
   @Get('dashboard')
   @ApiOperation({ summary: 'AI Intelligence Dashboard：客户/风险/管道/逾期/跟进聚合（AI Sales Agent）' })
   getDashboard(@CurrentUser() user: JwtPayload) {
-    return this.crmService.getDashboard(user.sub);
+    return this.crmAnalytics.getDashboard(user.sub);
   }
 
   // ── 子资源（订单 / 跟进 / 任务 / 风险）─────────────────────

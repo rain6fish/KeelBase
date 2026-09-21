@@ -129,6 +129,7 @@ import { CreateProjectTaskTool } from './tools/create-project-task.tool';
 import { CreateProjectWithTasksTool } from './tools/create-project-with-tasks.tool';
 import { CrmModule } from '../crm/crm.module';
 import { CrmService } from '../crm/crm.service';
+import { CrmAnalyticsService } from '../crm/crm-analytics.service';
 import { PmModule } from '../pm/pm.module';
 import { PmService } from '../pm/pm.service';
 import { QueryApprovalRequestsTool } from './tools/query-approval-requests.tool';
@@ -231,6 +232,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolEffectsService: AiToolEffectsService,
         governancePolicy: GovernancePolicyService,
         crmService: CrmService,
+        crmAnalytics: CrmAnalyticsService,
         pmService: PmService,
         approvalService: ApprovalService,
         delegationTokenService,
@@ -349,9 +351,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new QueryCustomerOpportunitiesTool(crmService));
         toolRegistry.register(new SummarizeCustomerTool(crmService, factory, defaultProvider));
         toolRegistry.register(new QueryCustomerContactsTool(crmService));
-        toolRegistry.register(new AnalyzeSalesPipelineTool(crmService, factory, defaultProvider));
-        toolRegistry.register(new AnalyzeCustomerRiskTool(crmService));
-        toolRegistry.register(new DetectIdleCustomersTool(crmService));
+        toolRegistry.register(new AnalyzeSalesPipelineTool(crmAnalytics, factory, defaultProvider));
+        toolRegistry.register(new AnalyzeCustomerRiskTool(crmAnalytics));
+        toolRegistry.register(new DetectIdleCustomersTool(crmAnalytics));
         toolRegistry.register(new CreateFollowupTaskTool(crmService));
         // R5 阻断演示载体：不可逆删除客户，被系统策略阻断（风险级 R5），永不执行
         toolRegistry.register(new DeleteCustomerTool());
@@ -436,7 +438,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

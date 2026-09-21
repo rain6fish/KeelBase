@@ -4,6 +4,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CrmController } from './crm.controller';
 import { CrmService } from './crm.service';
+import { CrmAnalyticsService } from './crm-analytics.service';
 import { CrmCustomer } from './crm-customer.entity';
 import { CrmOrder } from './crm-order.entity';
 import { CrmActivity } from './crm-activity.entity';
@@ -20,7 +21,7 @@ import { OrgModule } from '../org/org.module';
     forwardRef(() => OrgModule), // org→flows→ai→auth 间接环：须 forwardRef
   ],
   controllers: [CrmController],
-  providers: [CrmService],
-  exports: [CrmService],
+  providers: [CrmService, CrmAnalyticsService],
+  exports: [CrmService, CrmAnalyticsService],
 })
 export class CrmModule {}

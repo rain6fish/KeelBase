@@ -6,23 +6,26 @@ import { CrmService } from './crm.service';
 describe('CrmController（AI CRM 旗舰）', () => {
   let controller: CrmController;
   let crmService: Record<string, jest.Mock>;
+  let crmAnalytics: { analyzeRisk: jest.Mock; getDashboard: jest.Mock };
 
   const mockUser = { sub: 1, username: 'alex' };
   const ability = {} as any;
 
   const methods = [
     'createCustomer', 'listCustomers', 'getCustomerDetail', 'updateCustomer',
-    'removeCustomer', 'analyzeRisk', 'listOrders', 'createOrder',
+    'removeCustomer', 'listOrders', 'createOrder',
     'listActivities', 'createActivity', 'listTasks', 'createTask',
     'completeTask', 'listRisks', 'createRisk',
     // Customer 360（P0 §10）：销售机会 / 联系人 / 洞察看板
-    'getDashboard', 'listOpportunities', 'createOpportunity', 'updateOpportunity',
+    'listOpportunities', 'createOpportunity', 'updateOpportunity',
     'removeOpportunity', 'listContacts', 'createContact', 'updateContact', 'removeContact',
   ];
 
   beforeEach(() => {
     crmService = Object.fromEntries(methods.map((m) => [m, jest.fn()]));
-    controller = new CrmController(crmService as unknown as CrmService);
+    // 分析域（阶段 3 第十三刀）：风险打分 / 看板聚合已独立
+    crmAnalytics = { analyzeRisk: jest.fn(), getDashboard: jest.fn() };
+    controller = new CrmController(crmService as unknown as CrmService, crmAnalytics as any);
   });
 
   it('客户 CRUD 委托 service', async () => {
@@ -47,9 +50,9 @@ describe('CrmController（AI CRM 旗舰）', () => {
   });
 
   it('风险分析委托 service', () => {
-    crmService.analyzeRisk.mockReturnValue({ score: 8, level: 'high' });
+    crmAnalytics.analyzeRisk.mockReturnValue({ score: 8, level: 'high' });
     expect(controller.analyze(1, mockUser as any)).toEqual({ score: 8, level: 'high' });
-    expect(crmService.analyzeRisk).toHaveBeenCalledWith(1, 1);
+    expect(crmAnalytics.analyzeRisk).toHaveBeenCalledWith(1, 1);
   });
 
   it('订单/跟进子资源委托 service', () => {
@@ -90,9 +93,9 @@ describe('CrmController（AI CRM 旗舰）', () => {
   });
 
   it('Customer 360：洞察看板委托 service', () => {
-    crmService.getDashboard.mockReturnValue({ customers: 3, pipeline: [] });
+    crmAnalytics.getDashboard.mockReturnValue({ customers: 3, pipeline: [] });
     expect(controller.getDashboard(mockUser as any)).toEqual({ customers: 3, pipeline: [] });
-    expect(crmService.getDashboard).toHaveBeenCalledWith(1);
+    expect(crmAnalytics.getDashboard).toHaveBeenCalledWith(1);
   });
 
   it('Customer 360：销售机会 CRUD 委托 service', async () => {

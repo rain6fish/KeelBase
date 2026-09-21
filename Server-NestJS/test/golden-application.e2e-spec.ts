@@ -5,6 +5,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
+import { CrmAnalyticsService } from '../src/crm/crm-analytics.service';
 import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
 import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
@@ -32,6 +33,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
   let admin: { accessToken: string };
   let userAId: number;
   let crmService: CrmService;
+  let crmAnalytics: CrmAnalyticsService;
   let toolExposure: ToolExposureService;
   let toolExecution: ToolExecutionService;
   let effectsService: AiToolEffectsService;
@@ -77,6 +79,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     admin = await loginAs(app, 'golden_admin', 'GoldenAdmin1234');
 
     crmService = app.get(CrmService);
+    crmAnalytics = app.get(CrmAnalyticsService);
     toolExposure = app.get(ToolExposureService);
     toolExecution = app.get(ToolExecutionService);
     effectsService = app.get(AiToolEffectsService);
@@ -116,7 +119,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
   });
 
   it('② Risk Analysis：analyze_customer_risk → critical + 理由', async () => {
-    const riskTool = new AnalyzeCustomerRiskTool(crmService);
+    const riskTool = new AnalyzeCustomerRiskTool(crmAnalytics);
     const res = await riskTool.execute({ customerId }, String(userAId));
     expect(res.success).toBe(true);
     expect((res.data as any).level).toBe('critical');
