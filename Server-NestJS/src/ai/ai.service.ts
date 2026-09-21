@@ -19,6 +19,7 @@ import { AuthorizationExplainerService, buildAllowSnapshot } from './authorizati
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
+import { buildToolCallAudit } from './audit/tool-call-audit';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { RouterAgent, Intent } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
@@ -1012,35 +1013,27 @@ export class AiService {
             content: this.presentation.truncateToolResult(result),
             tool_call_id: tc.id,
           });
-          // CR-2：流式工具执行审计（对齐非流式 runToolLoop）
+          // CR-2：流式工具执行审计（对齐非流式 runToolLoop）——行形状见 buildToolCallAudit
           // HS-9 粒度门控：tool 级在 off 时不记录
           if (await this._shouldAudit('tool')) {
-            this.auditService.log({
-              userId,
-              conversationId,
-              action: 'tool_call',
-              detail: `${tc.name}(${tc.args})`,
-              // R4 pending（已提交审批）不算失败：否则单次审批被计 approved+blocked+errors 三重误报
-              isError: !result.success && !pendingApproval,
-              errorMessage: result.error,
-              // 工具内部自调 LLM 时（如 summarize_customer_360）的开销记在工具自己这行
-              promptTokens: result.usage?.promptTokens,
-              completionTokens: result.usage?.completionTokens,
-              // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
-              businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
-              evidence: captureDecisionEvidence(tc.name, result) ?? undefined,
-              // §internal.16 A-5 跨系统身份链：B 路径（ProxyTool 写向外部系统）标记 source=bridge
-              source: this.toolExecution.isProxyTool(tc.name) ? 'bridge' : undefined,
-              // AU-6（§22.19）：tool_call 行补 provider（此前仅 chat 行有）
-              provider: providerName,
-              // §internal.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
-              // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
-              // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
-              // §internal.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
-              authorization: result.success
-                ? buildAllowSnapshot(tc.name, authz)
-                : undefined,
-            });
+            this.auditService.log(
+              buildToolCallAudit({
+                userId,
+                conversationId,
+                provider: providerName,
+                toolName: tc.name,
+                argsJson: tc.args,
+                bridge: this.toolExecution.isProxyTool(tc.name),
+                result,
+                // R4 待批不算失败（与下一分支的 errorMessage 同源）
+                pendingApproval,
+                // §internal.16 A-5 事件时点放行授权依据快照：仅当工具实际放行并成功执行才写（对象格式 parseChecks 只认数组 → 不误判为拒绝）。
+                // 用户拒绝/超时、R4 待批、运行时失败等「未放行/未成功」行不落快照——否则 isError+authorization 非空
+                // 会被 A-8 denied 视图与 blocked 聚合误判为越权/阻断（放行快照语义 = 成功分支，见 docs/audit-authz-snapshot.spec.md）
+                // §internal.17③ Policy Evidence：快照携带授权时点策略内容指纹（policy.revision），供「决策可复现」校验
+                authorization: result.success ? buildAllowSnapshot(tc.name, authz) : undefined,
+              }),
+            );
           }
         } catch (err) {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
@@ -1072,22 +1065,21 @@ export class AiService {
             content: JSON.stringify({ success: false, error: deniedMsg }),
             tool_call_id: tc.id,
           });
-          // CR-2：流式工具执行失败审计
-          // HS-9 粒度门控：tool 级在 off 时不记录
-          // W5-⑦ Explainable Authz：拒绝时记录真实原因（决策轨迹展示「为何阻止」）
+          // CR-2：流式工具执行失败审计（T5 跨入口一致：deny 与两路成功分支同标 bridge）
+          // HS-9 粒度门控：tool 级在 off 时不记录；W5-⑦ Explainable Authz：拒绝时记录真实原因
           if (await this._shouldAudit('tool')) {
-            this.auditService.log({
-              userId,
-              conversationId,
-              action: 'tool_call',
-              detail: `${tc.name}(${tc.args})`,
-              // T5 跨入口一致：流式 deny 也标 source=bridge（对齐非流式 deny :1849 与两路成功分支）
-              source: this.toolExecution.isProxyTool(tc.name) ? 'bridge' : undefined,
-              provider: providerName,
-              isError: true,
-              errorMessage: deniedMsg,
-              authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
-            });
+            this.auditService.log(
+              buildToolCallAudit({
+                userId,
+                conversationId,
+                provider: providerName,
+                toolName: tc.name,
+                argsJson: tc.args,
+                bridge: this.toolExecution.isProxyTool(tc.name),
+                errorMessage: deniedMsg,
+                authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
+              }),
+            );
           }
         }
       }
@@ -1242,24 +1234,18 @@ export class AiService {
                   await this.toolGate.riskLevelFor(tc.name),
                 )
               : null;
-            this.auditService.log({
-              userId: params.userId,
-              conversationId: params.conversationId,
-              action: 'tool_call',
-              detail: `${tc.name}(${tc.arguments})`,
-              // T5 跨入口一致：B 路径 proxy 工具经非流式也标 source=bridge（对齐 stream :1415）
-              source: this.toolExecution.isProxyTool(tc.name) ? 'bridge' : undefined,
-              provider: currentProviderName,
-              isError: !resolvedResult.success,
-              errorMessage: resolvedResult.error,
-              // 工具内部自调 LLM 时（如 summarize_customer_360）的开销记在工具自己这行
-              promptTokens: resolvedResult.usage?.promptTokens,
-              completionTokens: resolvedResult.usage?.completionTokens,
-              // §internal.16 A-1 业务行为取证：业务事件名 + Decision Evidence（链外列）
-              businessEvent: deriveAiBusinessEvent(tc.name) ?? undefined,
-              evidence: captureDecisionEvidence(tc.name, resolvedResult) ?? undefined,
-              authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
-            });
+            this.auditService.log(
+              buildToolCallAudit({
+                userId: params.userId,
+                conversationId: params.conversationId,
+                provider: currentProviderName,
+                toolName: tc.name,
+                argsJson: tc.arguments,
+                bridge: this.toolExecution.isProxyTool(tc.name),
+                result: resolvedResult,
+                authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
+              }),
+            );
           }
 
           messages.push({
@@ -1281,19 +1267,20 @@ export class AiService {
             tool_call_id: tc.id,
           });
           // W5-⑦ Explainable Authz 落库：拒绝路径补审计 + reasons（决策轨迹展示「为何阻止」）
+          // T5 跨入口一致：B 路径 proxy 工具 deny 也标 bridge（与流式 deny、两路成功分支同形）
           if (await this._shouldAudit('tool')) {
-            this.auditService.log({
-              userId: params.userId,
-              conversationId: params.conversationId,
-              action: 'tool_call',
-              detail: `${tc.name}(${tc.arguments})`,
-              // T5 跨入口一致：B 路径 proxy 工具 deny 也标 source=bridge（对齐成功分支与 stream）
-              source: this.toolExecution.isProxyTool(tc.name) ? 'bridge' : undefined,
-              provider: currentProviderName,
-              isError: true,
-              errorMessage: deniedMsg,
-              authorization: denied ? JSON.stringify(err.reasons) : undefined,
-            });
+            this.auditService.log(
+              buildToolCallAudit({
+                userId: params.userId,
+                conversationId: params.conversationId,
+                provider: currentProviderName,
+                toolName: tc.name,
+                argsJson: tc.arguments,
+                bridge: this.toolExecution.isProxyTool(tc.name),
+                errorMessage: deniedMsg,
+                authorization: denied ? JSON.stringify(err.reasons) : undefined,
+              }),
+            );
           }
         }
       }
