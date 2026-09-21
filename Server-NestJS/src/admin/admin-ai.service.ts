@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { AiService } from '../ai/ai.service';
+import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
@@ -30,6 +31,8 @@ export interface AdminAiChatResponse {
 export class AdminAiService {
   constructor(
     private readonly aiService: AiService,
+    // 工具对外面（阶段 3 第九刀）：工具清单已独立
+    private readonly toolExposure: ToolExposureService,
     private readonly adminService: AdminService,
     // 成本聚合来自拆分后的统计服务（本文件不再直接用 AuditService）
     private readonly auditStats: AuditStatsService,
@@ -108,7 +111,7 @@ export class AdminAiService {
 
     // 4. AI 工具清单（getToolInventory 反映实时治理 enabled/确认/角色白名单）
     try {
-      const inv = await this.aiService.getToolInventory();
+      const inv = await this.toolExposure.getToolInventory();
       if (inv.length > 0) {
         const tools = inv
           .map((t) => {

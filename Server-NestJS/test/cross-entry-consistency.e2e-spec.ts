@@ -4,14 +4,14 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
-import { AiService } from '../src/ai/ai.service';
+import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AuthorizationExplainerService } from '../src/ai/authorization-explainer.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
 
 /**
  * T5 跨入口决策一致性（§internal.17 P1）：同一 AI 行为的决策判定（允许/拒绝/确认）与依据
  * （checks/reasons）跨入口应同源。确定性（无 LLM——越权/风险 deny 在
- * AiService._assertToolAllowed、确认在 _requiresConfirmation）。
+ * ToolGateService.assertToolAllowed、确认在 requiresConfirmation）。
  *
  * 聚焦 MCP 决策语义补齐（此前 deny → -32603 无审计无 reasons；confirmation 纯文本无标注；
  * allow → 不写放行依据快照）：
@@ -92,13 +92,13 @@ describe('Cross-entry decision consistency (T5)', () => {
   });
 
   it('② deny 依据同源——直调 executeToolForExternal 抛的 reasons 含 risk_policy（与 MCP 同一治理判定）', async () => {
-    const aiService = app.get(AiService);
-    await expect(aiService.executeToolForExternal('delete_customer', {}, String(mcpUserId)))
+    const toolExposure = app.get(ToolExposureService);
+    await expect(toolExposure.executeToolForExternal('delete_customer', {}, String(mcpUserId)))
       .rejects.toMatchObject({
         name: 'AuthorizationDeniedError',
       });
     try {
-      await aiService.executeToolForExternal('delete_customer', {}, String(mcpUserId));
+      await toolExposure.executeToolForExternal('delete_customer', {}, String(mcpUserId));
     } catch (e) {
       const denied = e as AuthorizationDeniedError;
       // 结构化依据：risk_policy（R5 阻断）check——MCP 审计落库的 authorization 即此 reasons

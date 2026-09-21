@@ -4,6 +4,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai.service';
+import { ToolExposureService } from '../tools/tool-exposure.service';
 import { AuditService } from '../audit/audit.service';
 import { CrmService } from '../../crm/crm.service';
 import { UsersService } from '../../users/users.service';
@@ -45,6 +46,8 @@ export interface TrustSandboxJourneyStep {
 export class TrustSandboxService {
   constructor(
     private readonly aiService: AiService,
+    // 工具对外面（阶段 3 第九刀）：MCP 出口执行已独立
+    private readonly toolExposure: ToolExposureService,
     private readonly crmService: CrmService,
     private readonly usersService: UsersService,
     private readonly effectsService: AiToolEffectsService,
@@ -351,7 +354,7 @@ export class TrustSandboxService {
 
   /** S4 人工确认：写工具确认门控语义（真实确认请到 AI Copilot 完成流式批准） */
   private async s4(userId: string, _ts: number): Promise<Record<string, unknown>> {
-    const gated = await this.aiService.executeToolForExternal(
+    const gated = await this.toolExposure.executeToolForExternal(
       'create_followup_task',
       { customerId: 1, title: '沙盘确认演示' },
       userId,

@@ -27,6 +27,7 @@ import { BadRequestException, NotFoundException, ForbiddenException } from '@nes
 import type { Response } from 'express';
 import { AiService } from './ai.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
+import { ToolExposureService } from './tools/tool-exposure.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
@@ -73,6 +74,8 @@ export class AiController {
     private readonly auditEvidence: AuditEvidenceService,
     // R4 审批（阶段 3 第七刀：审批生命周期已独立）
     private readonly r4Approval: R4ApprovalService,
+    // 工具对外面（阶段 3 第九刀：清单/集成诊断已独立）
+    private readonly toolExposure: ToolExposureService,
   ) {}
 
   /**
@@ -318,7 +321,7 @@ export class AiController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'AI 工具清单与权限（管理员）' })
   getTools() {
-    return this.aiService.getToolInventory();
+    return this.toolExposure.getToolInventory();
   }
 
   /**
@@ -329,7 +332,7 @@ export class AiController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '外部系统（Java 集成）接入状态（管理员）' })
   getProxyIntegrationStatus() {
-    return this.aiService.getProxyIntegrationStatus();
+    return this.toolExposure.getProxyIntegrationStatus();
   }
 
   /** Trust 沙盘（internal-roadmap §internal.15 可视化 P0）：场景清单 */

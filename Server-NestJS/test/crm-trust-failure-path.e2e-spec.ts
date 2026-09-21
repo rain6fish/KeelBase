@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
-import { AiService } from '../src/ai/ai.service';
+import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.entity';
@@ -27,7 +27,7 @@ import { AiToolSideEffect } from '../src/ai/tool-effects/ai-tool-side-effect.ent
 describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
   let app: INestApplication;
   let ds: DataSource;
-  let aiService: AiService;
+  let toolExposure: ToolExposureService;
   let effectsService: AiToolEffectsService;
   let effectsRepo: Repository<AiToolSideEffect>;
   let tokenA: string;
@@ -67,7 +67,7 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
   beforeAll(async () => {
     app = await createTestApp();
     ds = app.get(DataSource);
-    aiService = app.get(AiService);
+    toolExposure = app.get(ToolExposureService);
     effectsService = app.get(AiToolEffectsService);
     effectsRepo = ds.getRepository(AiToolSideEffect);
 
@@ -162,7 +162,7 @@ describe('AI CRM 失败/拒绝路径（A2 Trust 证明器）', () => {
 
     let denied: AuthorizationDeniedError | undefined;
     try {
-      await aiService.executeToolForExternal(
+      await toolExposure.executeToolForExternal(
         'delete_customer',
         { customerId: id, reason: 'A2 演示' },
         String(userAId),

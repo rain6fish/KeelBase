@@ -2,6 +2,7 @@
 
 import { Test } from '@nestjs/testing';
 import { AiService } from '../ai/ai.service';
+import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
@@ -12,6 +13,7 @@ import { AdminAiService } from './admin-ai.service';
 
 describe('AdminAiService（System AI Assistant）', () => {
   let service: AdminAiService;
+  let toolExposure: { getToolInventory: jest.Mock };
   let aiService: { chat: jest.Mock };
   let adminService: { getAnalytics: jest.Mock; getMonitorSummary: jest.Mock };
   // 成本聚合在拆分后来自 AuditStatsService（阶段 3）
@@ -20,15 +22,7 @@ describe('AdminAiService（System AI Assistant）', () => {
   let governancePolicy: { getPolicy: jest.Mock };
 
   beforeEach(async () => {
-    aiService = {
-      chat: jest.fn().mockResolvedValue({
-        reply: '平台状态良好',
-        conversationId: 'c1',
-        provider: 'deepseek',
-        model: 'deepseek-v4-flash',
-        navigateTo: '/system',
-        toolCalls: ['navigate_admin_page'],
-      }),
+    toolExposure = {
       getToolInventory: jest.fn().mockResolvedValue([
         {
           name: 'query_events',
@@ -45,6 +39,17 @@ describe('AdminAiService（System AI Assistant）', () => {
           allowedRoles: [],
         },
       ]),
+    };
+
+    aiService = {
+      chat: jest.fn().mockResolvedValue({
+        reply: '平台状态良好',
+        conversationId: 'c1',
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        navigateTo: '/system',
+        toolCalls: ['navigate_admin_page'],
+      }),
     };
     adminService = {
       getAnalytics: jest.fn().mockResolvedValue({
@@ -80,6 +85,7 @@ describe('AdminAiService（System AI Assistant）', () => {
       providers: [
         AdminAiService,
         { provide: AiService, useValue: aiService },
+        { provide: ToolExposureService, useValue: toolExposure },
         { provide: AdminService, useValue: adminService },
         { provide: AuditStatsService, useValue: auditStats },
         { provide: CapabilitiesService, useValue: capabilitiesService },

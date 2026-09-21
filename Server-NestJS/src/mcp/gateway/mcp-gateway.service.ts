@@ -7,7 +7,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { assertPublicUrl } from '../../common/utils/ssrf';
 import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
-import { AiService } from '../../ai/ai.service';
+import { ToolExposureService } from '../../ai/tools/tool-exposure.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
 import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';
 
@@ -65,16 +65,16 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     private readonly settings: SettingsService,
     private readonly governance: GovernancePolicyService,
     private readonly audit: AuditService,
-    @Optional() private readonly aiService?: AiService,
+    @Optional() private readonly toolExposure?: ToolExposureService,
     @Optional() private readonly transportFactory?: McpTransportFactory,
   ) {}
 
-  /** HS-10 Agent 对话集成：启动时把本 gateway 注册为 AiService 的外部工具提供者。 */
+  /** HS-10 Agent 对话集成：启动时把本 gateway 注册为工具对外面的外部工具提供者。 */
   async onModuleInit(): Promise<void> {
-    this.aiService?.registerExternalToolProvider(this);
+    this.toolExposure?.registerExternalToolProvider(this);
   }
 
-  // --- ExternalToolProvider 接口实现（供 AiService 工具流合并/路由） ---
+  // --- ExternalToolProvider 接口实现（供 ToolExposureService 工具流合并/路由） ---
 
   async listExternalTools(): Promise<ExternalToolDef[]> {
     const discovered = await this.discoverTools();

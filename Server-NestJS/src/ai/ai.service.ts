@@ -13,7 +13,7 @@ import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { ToolPresentationService } from './tools/tool-presentation.service';
-import { ExternalToolRegistry } from './tools/external-tool-registry';
+import { ToolExposureService } from './tools/tool-exposure.service';
 import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
@@ -32,14 +32,11 @@ import { ConfirmationStore } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import {
-  ToolDefinition,
   ToolResult,
   RISK_STRATEGY,
   AuthorizationDeniedError,
-  resolveRevokeClass,
 } from './interfaces/tool.interface';
-import { GovernancePolicyService, effectiveGateMode } from './governance/governance-policy.service';
-import { ExternalToolProvider, ExternalToolDef } from './external-tool-provider.interface';
+import { GovernancePolicyService } from './governance/governance-policy.service';
 import {
   markSystemBoundary,
   sanitizeExternalContent,
@@ -105,15 +102,6 @@ export class AiService {
   private readonly reflectionAgent = new ReflectionAgent();
   private readonly planExecuteAgent = new PlanExecuteAgent();
 
-  /**
-   * HS-10：注入外部工具提供者（McpGatewayService 实现；启动时调用）。
-   * 状态本身已移到共享的 `ExternalToolRegistry`（阶段 3：门控域也要用它），此处保留同一入口，
-   * 使 mcp 侧的接缝不变。
-   */
-  registerExternalToolProvider(provider: ExternalToolProvider): void {
-    this.externalTools.register(provider);
-  }
-
   constructor(
     private readonly providerFactory: LlmProviderFactory,
     private readonly toolRegistry: ToolRegistry,
@@ -130,8 +118,8 @@ export class AiService {
     private readonly r4Approval: R4ApprovalService,
     // 呈现/摘要（第四刀）：确认卡文案 / 影响预览 / 撤销档 / 结果截断
     private readonly presentation: ToolPresentationService,
-    // 外部工具提供者的共享持有者（门控与执行/清单域共用）
-    private readonly externalTools: ExternalToolRegistry,
+    // 工具对外面（第五刀）：清单 / 指纹 / MCP 出口 / 集成诊断
+    private readonly toolExposure: ToolExposureService,
     private readonly ragAgent: RagAgent,
     private readonly abilityFactory: CaslAbilityFactory,
     private readonly memoryService: MemoriesService,
@@ -171,28 +159,6 @@ export class AiService {
     });
   }
 
-  /** §internal.16 A-5 Explainable Authorization 已拆至 AuthorizationExplainerService（阶段 2 切环） */
-  /**
-   * HS-10：内置 + 外部工具定义合并（供 LLM 工具流）。外部工具发现失败静默降级为内置。
-   */
-  private async _buildToolDefs(): Promise<ToolDefinition[]> {
-    const builtin = this.toolRegistry.getToolDefinitions();
-    if (!this.externalTools.current) return builtin;
-    try {
-      const external: ExternalToolDef[] = await this.externalTools.current.listExternalTools();
-      if (external.length === 0) return builtin;
-      return [
-        ...builtin,
-        ...external.map((t) => ({
-          type: 'function' as const,
-          function: { name: t.name, description: t.description, parameters: t.parameters },
-        })),
-      ];
-    } catch {
-      return builtin;
-    }
-  }
-
   /**
    * HS-9 审计粒度：all = 记对话+工具；write = 只记工具调用；off = 不记。
    */
@@ -206,168 +172,7 @@ export class AiService {
 
   // ── 呈现/摘要（确认卡文案 / 影响预览 / 撤销档 / 结果截断）已拆至 ToolPresentationService（阶段 3 第八刀）──
 
-  /**
-   * HS-10 MCP 出口：现有工具暴露为 MCP 工具（尊重治理策略 enabled 开关）。
-   */
-  async listMcpTools(): Promise<
-    Array<{
-      name: string;
-      description: string;
-      inputSchema: Record<string, unknown>;
-      /** A2 Secure MCP Gateway：工具风险分级（R0-R5）与确认策略声明，客户端可见治理契约 */
-      riskLevel: string;
-      riskStrategy: string;
-      requiresConfirmation: boolean;
-    }>
-  > {
-    const defs = this.toolRegistry.getToolDefinitions();
-    const tools: Array<{
-      name: string;
-      description: string;
-      inputSchema: Record<string, unknown>;
-      riskLevel: string;
-      riskStrategy: string;
-      requiresConfirmation: boolean;
-    }> = [];
-    for (const d of defs) {
-      const name = d.function.name;
-      if (this.governancePolicy && !(await this.governancePolicy.isToolEnabled(name))) {
-        continue;
-      }
-      const riskLevel = this.toolRegistry.riskLevel(name);
-      tools.push({
-        name,
-        description: d.function.description,
-        inputSchema: d.function.parameters as Record<string, unknown>,
-        riskLevel,
-        riskStrategy: RISK_STRATEGY[riskLevel],
-        requiresConfirmation: this.toolRegistry.requiresConfirmation(name),
-      });
-    }
-    return tools;
-  }
-
-  /**
-   * HS-10 MCP 出口执行入口：过同一治理层（权限门控 → 确认规则 → 执行）。
-   * - 读工具：直接执行（权限通过后）
-   * - 写工具（requiresConfirmation）：不自动执行，返回需确认信号，由调用方处理
-   */
-  async executeToolForExternal(
-    toolName: string,
-    args: Record<string, unknown>,
-    userId: string,
-  ): Promise<{ executed: boolean; requiresConfirmation: boolean; result?: ToolResult }> {
-    await this.toolGate.assertToolAllowed(toolName, userId);
-    if (await this.toolGate.requiresConfirmation(toolName)) {
-      return { executed: false, requiresConfirmation: true };
-    }
-    return {
-      executed: true,
-      requiresConfirmation: false,
-      result: await this.toolRegistry.execute(toolName, args, userId),
-    };
-  }
-
-  /**
-   * Runtime provenance 工具指纹（§13.1 后置项①，公开命名 provenance）：
-   * 只暴露「多少个工具 / 读写分类 / 风险级分布」的汇总指纹，不含参数/权限详情（admin 专属）。
-   * 供 GET /app/provenance（公开）回答「这个 AI 系统有哪些能力」。
-   */
-  getToolFingerprint(): { total: number; read: number; write: number; byRisk: Record<string, number> } {
-    const tools = this.toolRegistry.getAllTools();
-    const byRisk: Record<string, number> = {};
-    let write = 0;
-    for (const t of tools) {
-      const lv = this.toolRegistry.riskLevel(t.name);
-      byRisk[lv] = (byRisk[lv] ?? 0) + 1;
-      if (t.requiresConfirmation) write++;
-    }
-    return { total: tools.length, read: tools.length - write, write, byRisk };
-  }
-
-  /**
-   * HS-2 + HS-9 工具清单（管理台可见）：名称/描述/参数/权限/是否需确认。
-   * 供 GET /ai/tools（admin）展示工具与权限，便于审计与治理。
-   * HS-9：反映治理策略实际生效的开关/确认规则。
-   */
-  async getToolInventory() {
-    const policy = this.governancePolicy
-      ? await this.governancePolicy.getPolicy()
-      : null;
-    const tools = policy?.tools ?? {};
-    return this.toolRegistry.getAllTools().map((tool) => {
-      const override = tools[tool.name] ?? {};
-      const riskLevel = this.toolRegistry.riskLevel(tool.name);
-      // §internal.15(4)：生效门控档位（策略 mode > legacy 布尔 > 声明风险级）；R5 恒 'blocked'
-      const mode = effectiveGateMode(override, riskLevel);
-      return {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters.map((p) => ({
-          name: p.name,
-          type: p.type,
-          required: p.required,
-        })),
-        enabled: override.enabled ?? true,
-        requiresConfirmation: mode === 'confirm' || mode === 'approval',
-        requiresApproval: mode === 'approval',
-        gateMode: mode,
-        allowedRoles: override.allowedRoles ?? [],
-        permissions: tool.permissions ?? null,
-        riskLevel,
-        riskStrategy: RISK_STRATEGY[riskLevel],
-        // KB-6：撤销能力档位（none / local_compensate / governed_external / transactional）——工具治理面可见分档
-        revokeClass: resolveRevokeClass(tool),
-      };
-    });
-  }
-
-  /**
-   * B-proxy 外部系统（Java 集成）接入诊断：读 Settings ai_proxy_tools 的 baseUrl，
-   * 拉取 Java example 的 /keelbase/status 健康度面板，供管理台监控中心聚合显示。
-   * 未配置 → { configured:false }；非 Java 源（OpenAPI 代理等无 status 端点）→ statusEnabled:false。
-   * Secret 不外泄（面板本就只给布尔/状态）。baseUrl 限定 http(s)，防 SSRF。
-   */
-  async getProxyIntegrationStatus(): Promise<Record<string, unknown>> {
-    const raw = this.settingsService
-      ? await this.settingsService.getWithDefault(SETTING_KEYS.PROXY_TOOLS, null)
-      : null;
-    if (!raw) return { configured: false };
-    let cfg: Record<string, unknown>;
-    try {
-      cfg = typeof raw === 'string' ? JSON.parse(raw) : (raw as object);
-    } catch {
-      return { configured: false };
-    }
-    const baseUrl = String(cfg?.baseUrl ?? '');
-    const audience = String(cfg?.audience ?? '');
-    const configuredTools = Array.isArray(cfg?.tools) ? (cfg.tools as unknown[]).length : 0;
-    if (!/^https?:\/\//i.test(baseUrl)) {
-      return { configured: true, error: 'baseUrl 非法（仅 http(s)）', reachable: false };
-    }
-    try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/keelbase/status`, {
-        signal: AbortSignal.timeout(3000),
-      });
-      if (!res.ok) {
-        return {
-          configured: true, baseUrl, audience, configuredTools,
-          reachable: true, statusEnabled: false, error: `HTTP ${res.status}`,
-        };
-      }
-      const status = await res.json().catch(() => ({}));
-      return {
-        configured: true, baseUrl, audience, configuredTools,
-        reachable: true, statusEnabled: true, fetchedAt: new Date().toISOString(),
-        ...(status as object),
-      };
-    } catch (err) {
-      return {
-        configured: true, baseUrl, audience, configuredTools,
-        reachable: false, error: (err as Error).message,
-      };
-    }
-  }
+  // ── 工具对外面（清单 / 指纹 / MCP 出口 / 集成诊断）已拆至 ToolExposureService（阶段 3 第九刀）──
 
   /**
    * 非流式对话：发送消息，处理工具调用，返回完整回复
@@ -589,7 +394,7 @@ export class AiService {
           conversationId,
           userId,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: await this._buildToolDefs(),
+          initialToolDefs: await this.toolExposure.buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
           systemPrompt: request.systemPrompt,
           images: request.images,
@@ -652,7 +457,7 @@ export class AiService {
           conversationId,
           userId,
           model: request.model ?? this.config.defaultModel,
-          initialToolDefs: await this._buildToolDefs(),
+          initialToolDefs: await this.toolExposure.buildToolDefs(),
           fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
           systemPrompt: request.systemPrompt,
           images: request.images,
@@ -670,7 +475,7 @@ export class AiService {
         conversationId,
         userId,
         model: request.model ?? this.config.defaultModel,
-        initialToolDefs: await this._buildToolDefs(),
+        initialToolDefs: await this.toolExposure.buildToolDefs(),
         fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
         systemPrompt: request.systemPrompt,
         images: request.images,
@@ -819,7 +624,7 @@ export class AiService {
     let turnUsage: LlmUsage | undefined = builtMessages.usage;
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const tools = await this._buildToolDefs();
+      const tools = await this.toolExposure.buildToolDefs();
       const stream = this.streamWithProviderFallback({
         chain: streamFallbackChain,
         messages,

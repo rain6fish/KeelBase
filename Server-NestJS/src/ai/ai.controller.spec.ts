@@ -42,7 +42,9 @@ describe('AiController', () => {
     mockRevokeToolEffect = jest.fn();
     mockListOwnedToolEffects = jest.fn();
     mockAbility = { cannot: () => false };
-    const mockAiService = { chat: mockChat, chatStream: mockChatStream, getToolInventory: mockGetToolInventory } as unknown as AiService;
+    const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
+    // 工具对外面（阶段 3 第九刀）：清单/集成诊断已独立
+    const mockToolExposure = { getToolInventory: mockGetToolInventory } as any;
     const mockConversationService = {
       getUserConversations: mockGetUserConversations,
       getConversation: mockGetConversation,
@@ -71,6 +73,14 @@ describe('AiController', () => {
       mockMemoriesService,
       mockToolEffectsService,
       mockDecisionTraceService,
+      // 其余协作者本文件不涉及（各刀拆出的域各由自己的 spec 覆盖），按位置补齐
+      undefined as any, // governancePolicy
+      undefined as any, // businessHistoryService
+      undefined as any, // trustSandbox
+      undefined as any, // auditService
+      undefined as any, // auditEvidence（第三刀）
+      undefined as any, // r4Approval（第七刀）
+      mockToolExposure, // 工具对外面（第九刀）
     );
   });
 

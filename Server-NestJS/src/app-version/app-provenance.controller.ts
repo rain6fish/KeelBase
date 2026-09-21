@@ -5,7 +5,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../auth/guards/public.decorator';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
-import { AiService } from '../ai/ai.service';
+import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { MODULES_MANIFEST } from '../common/modules/modules-manifest';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -22,7 +22,7 @@ import { resolve } from 'path';
 export class AppProvenanceController {
   constructor(
     private readonly featureFlagsService: FeatureFlagsService,
-    private readonly aiService: AiService,
+    private readonly toolExposure: ToolExposureService,
   ) {}
 
   @Public()
@@ -41,7 +41,7 @@ export class AppProvenanceController {
       runtime: {
         preset: this.featureFlagsService.getPreset(),
         businessModules,
-        aiToolFingerprint: this.aiService.getToolFingerprint(),
+        aiToolFingerprint: this.toolExposure.getToolFingerprint(),
       },
     };
   }

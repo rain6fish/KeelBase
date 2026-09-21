@@ -5,8 +5,8 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { CrmService } from '../src/crm/crm.service';
-import { AiService } from '../src/ai/ai.service';
 import { ToolExecutionService } from '../src/ai/tools/tool-execution.service';
+import { ToolExposureService } from '../src/ai/tools/tool-exposure.service';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { QueryCustomersTool } from '../src/ai/tools/query-customers.tool';
 import { AnalyzeCustomerRiskTool } from '../src/ai/tools/analyze-customer-risk.tool';
@@ -19,7 +19,7 @@ import { CreateFollowupTaskTool } from '../src/ai/tools/create-followup-task.too
  * 确定性验证（无 LLM，可进 CI）：
  *   - Customer / Order：REST 真实落库；
  *   - Risk Analysis：analyze_customer_risk 工具直接实例化（镜像 Agent 执行路径，同 authorization.e2e）；
- *   - Create Follow-up Task：AiService.executeToolForExternal 走真实治理层 → requiresConfirmation 门控（不确认不执行）；
+ *   - Create Follow-up Task：ToolExposureService.executeToolForExternal 走真实治理层 → requiresConfirmation 门控（不确认不执行）；
  *   - 确认 → 写：CreateFollowupTaskTool 执行（同 executeWrite 确认后路径）+ AiToolEffectsService.record 登记副作用；
  *   - 审计：副作用可撤销登记 + 管理端审计哈希链 verify；
  *   - 撤销：HTTP revokeOwned 软删 + 越权撤销拒绝（所有权）。
@@ -32,7 +32,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
   let admin: { accessToken: string };
   let userAId: number;
   let crmService: CrmService;
-  let aiService: AiService;
+  let toolExposure: ToolExposureService;
   let toolExecution: ToolExecutionService;
   let effectsService: AiToolEffectsService;
 
@@ -77,7 +77,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     admin = await loginAs(app, 'golden_admin', 'GoldenAdmin1234');
 
     crmService = app.get(CrmService);
-    aiService = app.get(AiService);
+    toolExposure = app.get(ToolExposureService);
     toolExecution = app.get(ToolExecutionService);
     effectsService = app.get(AiToolEffectsService);
   });
@@ -126,7 +126,7 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
 
   it('③ Create Follow-up Task：确认门控（不确认不执行）', async () => {
     // 真实治理层：写工具经 executeToolForExternal → requiresConfirmation，不自动执行
-    const gated = await aiService.executeToolForExternal(
+    const gated = await toolExposure.executeToolForExternal(
       'create_followup_task',
       { customerId, title: '跟进瀚宇制造 280 万逾期' },
       String(userAId),

@@ -12,9 +12,9 @@ import { TrustSandboxService } from './trust-sandbox.service';
 
 describe('TrustSandboxService', () => {
   let sandbox: TrustSandboxService;
+  let toolExposure: { executeToolForExternal: jest.Mock };
   let aiService: {
     chat: jest.Mock;
-    executeToolForExternal: jest.Mock;
   };
   let crmService: {
     createCustomer: jest.Mock;
@@ -48,8 +48,9 @@ describe('TrustSandboxService', () => {
   beforeEach(() => {
     aiService = {
       chat: jest.fn(),
-      executeToolForExternal: jest.fn(),
     };
+    // 工具对外面（阶段 3 第九刀）：MCP 出口执行已独立
+    toolExposure = { executeToolForExternal: jest.fn() };
     crmService = {
       createCustomer: jest.fn(),
       createOrder: jest.fn(),
@@ -75,6 +76,7 @@ describe('TrustSandboxService', () => {
     abilityFactory = { createForUser: jest.fn().mockReturnValue({}) };
     sandbox = new TrustSandboxService(
       aiService as never,
+      toolExposure as never,
       crmService as never,
       usersService as never,
       effectsService as never,
@@ -99,7 +101,7 @@ describe('TrustSandboxService', () => {
         ? Promise.resolve({ conversationId: 'conv-3', reply: 'Tool "delete_customer" is blocked (risk level R5)' })
         : Promise.resolve({ conversationId: 'conv-1', reply: '风险等级：critical（评分 12）' }),
     );
-    aiService.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    toolExposure.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
     usersService.create.mockResolvedValue({ id: 77 });
     crmService.getCustomer360Data.mockRejectedValue(new ForbiddenException('无权访问此客户'));
 
@@ -251,7 +253,7 @@ describe('TrustSandboxService', () => {
   });
 
   it('s4_confirm：写工具确认门控触发 → passed', async () => {
-    aiService.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
+    toolExposure.executeToolForExternal.mockResolvedValue({ executed: false, requiresConfirmation: true });
     const r = await sandbox.run('s4_confirm', '42');
     expect(r.outcome).toBe('passed');
     expect(r.requiresConfirmation).toBe(true);

@@ -9,7 +9,7 @@ import {
   InitializeResultSchema,
   ListToolsResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AiService } from '../ai/ai.service';
+import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../ai/audit/audit.service';
 import {
   AuthorizationExplainerService,
@@ -84,7 +84,7 @@ function toMcpTool(tool: McpToolGovernance) {
  * HS-10 MCP 出口（HTTP JSON-RPC 子集）：
  * - POST /api/v1/mcp，JWT 认证（JwtAuthGuard 全局默认）
  * - initialize / ping / tools/list / tools/call
- * - 工具执行走 AiService.executeToolForExternal（权限门控 → 确认规则 → 执行）
+ * - 工具执行走 ToolExposureService.executeToolForExternal（权限门控 → 确认规则 → 执行）
  * - 每次调用落 AI 审计（provider=mcp），写工具返回需确认不自动执行
  */
 @ApiTags('MCP')
@@ -94,7 +94,7 @@ export class McpExportController {
   private readonly logger = new Logger(McpExportController.name);
 
   constructor(
-    private readonly aiService: AiService,
+    private readonly toolExposure: ToolExposureService,
     private readonly auditService: AuditService,
     private readonly authorizationExplainer: AuthorizationExplainerService,
   ) {}
@@ -121,7 +121,7 @@ export class McpExportController {
           return this._result(id, {});
         case 'tools/list':
           return this._result(id, ListToolsResultSchema.parse({
-            tools: (await this.aiService.listMcpTools()).map(toMcpTool),
+            tools: (await this.toolExposure.listMcpTools()).map(toMcpTool),
           }));
         case 'tools/call':
           return await this._callTool(user, id, body.params);
@@ -149,7 +149,7 @@ export class McpExportController {
 
     let out;
     try {
-      out = await this.aiService.executeToolForExternal(toolName, toolArgs, userId);
+      out = await this.toolExposure.executeToolForExternal(toolName, toolArgs, userId);
     } catch (e) {
       // T5 跨入口一致：MCP deny 也写审计 + 结构化 reasons（对齐 REST/SSE deny 分支 ai.service：authorization=JSON.stringify(reasons)）
       if (e instanceof AuthorizationDeniedError) {

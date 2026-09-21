@@ -309,11 +309,11 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(() => made.close()).not.toThrow();
     });
 
-    it('onModuleInit 把 gateway 注册为 AiService 外部工具提供者', async () => {
-      const aiService = { registerExternalToolProvider: jest.fn() };
-      const s = new McpGatewayService(settings as any, governance as any, audit as any, aiService as any);
+    it('onModuleInit 把 gateway 注册为工具对外面的外部工具提供者', async () => {
+      const toolExposure = { registerExternalToolProvider: jest.fn() };
+      const s = new McpGatewayService(settings as any, governance as any, audit as any, toolExposure as any);
       await s.onModuleInit();
-      expect(aiService.registerExternalToolProvider).toHaveBeenCalledWith(s);
+      expect(toolExposure.registerExternalToolProvider).toHaveBeenCalledWith(s);
     });
 
     it('callTool 非 mcp_ 前缀键返回错误', async () => {

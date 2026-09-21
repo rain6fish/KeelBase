@@ -2,7 +2,7 @@
 
 import { Test } from '@nestjs/testing';
 import { McpExportController } from './mcp.controller';
-import { AiService } from '../ai/ai.service';
+import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../ai/audit/audit.service';
 import { AuthorizationDeniedError } from '../ai/interfaces/tool.interface';
 import { AuthorizationExplainerService } from '../ai/authorization-explainer.service';
@@ -51,7 +51,7 @@ describe('McpExportController (HS-10)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         McpExportController,
-        { provide: AiService, useValue: ai },
+        { provide: ToolExposureService, useValue: ai },
         { provide: AuditService, useValue: audit },
         { provide: AuthorizationExplainerService, useValue: explainer },
       ],
