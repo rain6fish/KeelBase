@@ -88,7 +88,8 @@ export class ProviderRoutingService {
         return { result, providerName: name };
       } catch (fallbackErr) {
         console.error(
-          `[AiService] Fallback provider "${name}" also failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
+          '[AiService] Fallback provider "%s" also failed: %s',
+          name,
           (fallbackErr as Error).message,
         );
         continue;
@@ -144,7 +145,8 @@ export class ProviderRoutingService {
         lastError = (err as Error).message;
         if (hasContent) throw err;
         console.error(
-          `[AiService] Streaming provider "${name}" failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
+          '[AiService] Streaming provider "%s" failed: %s',
+          name,
           lastError,
         );
       }
