@@ -41,6 +41,7 @@ export const ADMIN_PAGE_ROUTES: Record<
   'ai-approvals': { route: '/ai-approvals', description: 'AI 审批' },
   'agent-registry': { route: '/agent-registry', description: 'Agent 注册表' },
   'guard-overview': { route: '/guard-overview', description: '治理总览（KeelBase Guard）' },
+  'ai-behavior': { route: '/ai-behavior', description: '行为异常告警（行为基线，只告警不阻断）' },
   'policy-center': { route: '/policy-center', description: '策略中心（治理策略）' },
   risk: { route: '/risk', description: '风险中心（工具风险分布）' },
   mcp: { route: '/mcp', description: 'MCP 服务' },
