@@ -488,3 +488,38 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   **为什么这一条必须写进来**：内存里刚固化的教训④——`scripts/` 既不在构建 tsconfig 里、也不是测试，
   **搬走方法/改构造签名会让 CLI 脚本静默烂掉**（实证：审计链压测因 09-18 的拆分空转两天，到 09-20 门禁变红才暴露）。
   本次十二刀后补跑，**24 项逐项真跑全过**，说明这条线上没有重复那个错误；后续每刀收口都应带上这一步。
+
+### 2026-09-21 — 阶段 3 第十三刀：AI CRM 分析域下沉（CrmAnalyticsService）· **H3 第一刀**
+- ✅ **先定域再动刀**：`crm.service` 591 行里，真正可切的是**派生读**——风险打分（`analyze_customer_risk`
+  工具核心）、长期未跟进检测（AI Follow-up Agent）、业务全景看板（AI Intelligence Dashboard）、
+  跨客户管道读取（AI Sales Agent）。它们**只读不写**，与「客户/订单/跟进/任务/风险 的增删改查」是两件事。
+  其余六个子资源 CRUD **刻意不动**：`getCustomerDetail` / `getCustomer360Data` 要横跨全部六个仓库，
+  按实体拆成六个服务会让这两个聚合方法依赖六个服务——正是健康清单警告的「跨类调用爆炸」。
+- ✅ 新建 `src/crm/crm-analytics.service.ts`（`analyzeRisk` / `detectIdleCustomers` / `getDashboard` /
+  `listAllOpportunities` + `RiskAnalysis` 类型）。**行为逐字不变**。
+- ✅ **地基先行，且它是安全谓词**：新建 `src/crm/customer-ownership.ts` 的 `assertCustomerOwner(repo, id, userId)`——
+  查询同时限定 `id` 与 `userId`、查不到即 404（**不区分「不存在」与「不属于你」**，避免枚举他人客户）。
+  CRUD 侧 16 处 + 分析侧 1 处**共用同一个实现**；若各留一份，两条路径的判据会悄悄分叉。
+- ✅ 接线：`CrmModule` 注册并导出；`CrmController` 改双依赖（CRUD 走 `CrmService`、分析/看板走本服务）；
+  `AiModule` 注入并把三个工具（管道分析 / 风险分析 / 闲置检测）的构造指向本服务——`SummarizeCustomerTool`
+  仍走 `CrmService.getCustomer360Data`（聚合读，未搬）。
+- ⚠️ **一个真实偏差被 e2e 抓出（本刀自曝，已修）**：`test/golden-application.e2e-spec.ts` 里
+  `new AnalyzeCustomerRiskTool(crmService)` 直接把 `CrmService` 实例交给工具——工具的参数类型是**结构化接口**
+  （`CrmServiceLike`），而 `test/` **不在构建 tsconfig 里**，所以「少了 analyzeRisk」编译期看不见，只有跑起来才炸。
+  这正是上一刀记下的教训的**第二个面**：不只是 `scripts/`，**`test/` 同样不被编译覆盖**。
+  修法：e2e 改注入 `app.get(CrmAnalyticsService)`。**教训：改一处被工具消费的方法归属，要连"谁把服务交给工具"一起找。**
+- ⚠️ **另两次过程失误（均未进提交）**：① 切块脚本**重复使用过期偏移量**（先删 risk 接口后偏移已变），
+  把 `crm.service.ts` 截断成半截方法——改用「锚点全部先解析、**从后往前删**」后一次成型；
+  ② 同一脚本的结束锚点把 `detectIdleCustomers` 之后**六条顶层裸 `it`（CRUD 用例）一并吞进分析域**——
+  还原文件、按正确边界重做（该 spec 的 CRUD 用例是**直接挂在顶层 describe 下**的裸 `it`，不是嵌套 describe，
+  awk 用四空格缩进过滤时看不见，故第一次没发现）。**两次都是"看清边界再删"，不是靠重试。**
+- **结果**：`crm.service.ts` **591 → 373 行**（−218）；新增 `crm-analytics.service.ts`（251 行）、
+  `customer-ownership.ts`（23 行）+ spec（179 行）；`crm.service.spec.ts` 469 → 340 行（8 条用例守恒搬迁）。
+  `CrmService` 构造依赖不变（7 仓 + org）。
+- **验证**：全量单测 **291 suite / 2666 tests 全过**（+1 套件 = 新 spec，8 条用例守恒）；
+  e2e **36 套件 / 372 用例四批全过**（**首跑批次 3 挂 1 条 = 上述真实偏差，修后复跑全绿**——这正是 e2e 该干的事）；
+  三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过（全局 **94.98/78.93/90.23/95.81**，安全分档门控 6/6；
+  `crm.service.ts` 语句/行覆盖 **100%**、`customer-ownership.ts` **100%**、新分析服务 90.38/74.71/95.23/89.47）；
+  **`./scripts/release-gate.sh` PASS 24 / 0**（黄金闭环经新服务真跑）。
+- **下一刀候选**（变更驱动、不排期）：H3 余下两处 —— `admin.service`（598）/ `org.service`（568）；
+  以及两条已记待办（`usersService` 死戳点、e2e 长跑环境性硬崩）。
