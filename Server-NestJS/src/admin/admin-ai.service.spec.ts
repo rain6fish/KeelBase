@@ -9,13 +9,15 @@ import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
 import { CapabilitiesService } from '../app-version/capabilities.service';
 import { AdminService } from './admin.service';
+import { AdminObservabilityService } from './admin-observability.service';
 import { AdminAiService } from './admin-ai.service';
 
 describe('AdminAiService（System AI Assistant）', () => {
   let service: AdminAiService;
   let toolExposure: { getToolInventory: jest.Mock };
   let aiService: { chat: jest.Mock };
-  let adminService: { getAnalytics: jest.Mock; getMonitorSummary: jest.Mock };
+  let adminService: { getAnalytics: jest.Mock };
+  let adminObservability: { getMonitorSummary: jest.Mock };
   // 成本聚合在拆分后来自 AuditStatsService（阶段 3）
   let auditStats: { getCostBreakdown: jest.Mock };
   let capabilitiesService: { getCapabilities: jest.Mock };
@@ -57,6 +59,9 @@ describe('AdminAiService（System AI Assistant）', () => {
         retention: { ratePct: 33.33 },
         errors: { aiErrors: 3 },
       }),
+    };
+    // 平台观测域（阶段 3 第十四刀）：监控摘要已独立
+    adminObservability = {
       getMonitorSummary: jest.fn().mockResolvedValue({
         counts: { events: 100, notifications: 20 },
       }),
@@ -87,6 +92,7 @@ describe('AdminAiService（System AI Assistant）', () => {
         { provide: AiService, useValue: aiService },
         { provide: ToolExposureService, useValue: toolExposure },
         { provide: AdminService, useValue: adminService },
+        { provide: AdminObservabilityService, useValue: adminObservability },
         { provide: AuditStatsService, useValue: auditStats },
         { provide: CapabilitiesService, useValue: capabilitiesService },
         { provide: GovernancePolicyService, useValue: governancePolicy },

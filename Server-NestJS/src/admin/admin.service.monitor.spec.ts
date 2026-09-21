@@ -100,37 +100,6 @@ describe('AdminService · 监控/概览/用户详情/会话/广播', () => {
     service = moduleRef.get(AdminService);
   });
 
-  it('getMonitorSummary 聚合计数/健康/依赖/指标（redis 未配置 → down）', async () => {
-    usersRepo.count.mockResolvedValue(10);
-    const result = await service.getMonitorSummary();
-    expect(result.health).toMatchObject({ status: 'ok', nodeEnv: 'development' });
-    expect(result.dependencies).toMatchObject({ database: 'up', redis: 'down', queue: 'down', storage: 'local' });
-    expect(result.counts.users).toBe(10);
-    expect(result.metrics).toMatchObject({ requestRateRps: 1.67, errorRatePct: 0, latencyP95Ms: 200, inFlight: 3 });
-  });
-
-  it('getMonitorSummary 指标含 5xx 错误率与 p95 插值', async () => {
-    metricsService.httpRequestsTotal.get.mockResolvedValue({
-      values: [
-        { value: 90, labels: { status: '200' } },
-        { value: 10, labels: { status: '500' } },
-      ],
-    });
-    const result = await service.getMonitorSummary();
-    expect(result.metrics.errorRatePct).toBe(10);
-  });
-
-  it('getMonitorSummary 指标读取异常时降级为 null', async () => {
-    metricsService.httpRequestsTotal.get.mockRejectedValue(new Error('metrics down'));
-    const result = await service.getMonitorSummary();
-    expect(result.metrics).toEqual({ requestRateRps: null, errorRatePct: null, latencyP95Ms: null, inFlight: null });
-  });
-
-  it('_checkRedis：非法 URL 抛错 → false', async () => {
-    configService.get.mockImplementation((k: string) => (k === 'REDIS_URL' ? '::bad url::' : undefined));
-    await expect((service as any)._checkRedis()).resolves.toBe(false);
-  });
-
   it('getOverview 聚合计数/存储/趋势', async () => {
     dataSource.query.mockResolvedValue([{ date: '2026-08-10', count: 3 }]);
     const result = await service.getOverview(new Date('2026-08-01'));
@@ -230,4 +199,8 @@ describe('AdminService · 监控/概览/用户详情/会话/广播', () => {
     const result = await service.broadcast({ title: 'y', userIds: [1, 2] });
     expect(result.sent).toBe(1);
   });
-});
+  it('_getStorageUsage：非 local 驱动返回 null（不读磁盘）', async () => {
+    configService.get.mockImplementation((k: string, d?: unknown) => (k === 'STORAGE_DRIVER' ? 's3' : d));
+    const result = await (service as any)._getStorageUsage();
+    expect(result).toEqual({ driver: 's3', bytes: null });
+  });});

@@ -16,7 +16,7 @@ import { KnowledgeArticle } from '../ai/rag/knowledge-article.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { EncryptionService } from '../common/utils/encryption';
-import { AdminService } from './admin.service';
+import { AdminObservabilityService } from './admin-observability.service';
 
 function mockQB() {
   return {
@@ -25,6 +25,7 @@ function mockQB() {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     getRawMany: jest.fn().mockResolvedValue([]),
     getRawOne: jest.fn().mockResolvedValue({ prompt: '10', completion: '20' }),
@@ -47,52 +48,102 @@ function mockRepo(overrides: Record<string, jest.Mock> = {}) {
   return repo;
 }
 
-describe('AdminService · D.8 运维单页聚合', () => {
-  let service: AdminService;
-  let opAuditRepo: ReturnType<typeof mockRepo>;
+describe('AdminObservabilityService（平台观测域）', () => {
+  let service: AdminObservabilityService;
+  let usersRepo: ReturnType<typeof mockRepo>;
+  let sessionsRepo: ReturnType<typeof mockRepo>;
   let aiAuditRepo: ReturnType<typeof mockRepo>;
+  let notificationsRepo: ReturnType<typeof mockRepo>;
   let configService: { get: jest.Mock };
   let metricsService: {
     httpRequestsTotal: { get: jest.Mock };
     httpRequestsInFlight: { get: jest.Mock };
     httpRequestDurationSeconds: { get: jest.Mock };
   };
+  let opAuditRepo: ReturnType<typeof mockRepo>;
   let dataSource: { query: jest.Mock };
+  let notify: { create: jest.Mock };
 
   beforeEach(async () => {
-    opAuditRepo = mockRepo();
+    usersRepo = mockRepo();
+    sessionsRepo = mockRepo();
     aiAuditRepo = mockRepo();
+    notificationsRepo = mockRepo();
     configService = { get: jest.fn((k: string, d?: unknown) => (k === 'REDIS_URL' ? '' : d)) };
+    notify = { create: jest.fn().mockResolvedValue({}) };
     metricsService = {
-      httpRequestsTotal: { get: jest.fn().mockResolvedValue({ values: [{ value: 90, labels: { status: '200' } }, { value: 10, labels: { status: '500' } }] }) },
+      httpRequestsTotal: { get: jest.fn().mockResolvedValue({ values: [{ value: 100, labels: { status: '200' } }] }) },
       httpRequestsInFlight: { get: jest.fn().mockResolvedValue({ values: [{ value: 3 }] }) },
       httpRequestDurationSeconds: { get: jest.fn().mockResolvedValue({ values: [{ value: 80, labels: { le: '0.1' } }, { value: 95, labels: { le: '0.2' } }, { value: 100, labels: { le: '+Inf' } }] }) },
     };
-    dataSource = { query: jest.fn().mockResolvedValue([]), options: { type: 'sqlite' } };
+    opAuditRepo = mockRepo();
+    dataSource = { query: jest.fn().mockResolvedValue([]), options: { type: 'better-sqlite3' } };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
-        AdminService,
-        { provide: getRepositoryToken(User), useValue: mockRepo() },
+        AdminObservabilityService,
+        { provide: getRepositoryToken(User), useValue: usersRepo },
         { provide: getRepositoryToken(Event), useValue: mockRepo() },
         { provide: getRepositoryToken(Todo), useValue: mockRepo() },
-        { provide: getRepositoryToken(Notification), useValue: mockRepo() },
-        { provide: getRepositoryToken(UserSession), useValue: mockRepo() },
+        { provide: getRepositoryToken(Notification), useValue: notificationsRepo },
+        { provide: getRepositoryToken(UserSession), useValue: sessionsRepo },
         { provide: getRepositoryToken(OperationAuditLog), useValue: opAuditRepo },
         { provide: getRepositoryToken(AiAuditLog), useValue: aiAuditRepo },
         { provide: getRepositoryToken(AiConversation), useValue: mockRepo() },
         { provide: getRepositoryToken(KnowledgeArticle), useValue: mockRepo() },
-        { provide: NotificationsService, useValue: { create: jest.fn() } },
+        { provide: NotificationsService, useValue: notify },
         { provide: MetricsService, useValue: metricsService },
         { provide: ConfigService, useValue: configService },
         { provide: DataSource, useValue: dataSource },
-        { provide: EncryptionService, useValue: { decrypt: jest.fn((v: string) => v) } },
+        {
+          provide: EncryptionService,
+          useValue: { decrypt: jest.fn((v: string) => (v === 'ENC_PHONE' ? '13800138000' : v)) },
+        },
       ],
     }).compile();
-    service = moduleRef.get(AdminService);
+    service = moduleRef.get(AdminObservabilityService);
+  });
+
+  it('getMonitorSummary 聚合计数/健康/依赖/指标（redis 未配置 → down）', async () => {
+    usersRepo.count.mockResolvedValue(10);
+    const result = await service.getMonitorSummary();
+    expect(result.health).toMatchObject({ status: 'ok', nodeEnv: 'development' });
+    expect(result.dependencies).toMatchObject({ database: 'up', redis: 'down', queue: 'down', storage: 'local' });
+    expect(result.counts.users).toBe(10);
+    expect(result.metrics).toMatchObject({ requestRateRps: 1.67, errorRatePct: 0, latencyP95Ms: 200, inFlight: 3 });
+  });
+
+  it('getMonitorSummary 指标含 5xx 错误率与 p95 插值', async () => {
+    metricsService.httpRequestsTotal.get.mockResolvedValue({
+      values: [
+        { value: 90, labels: { status: '200' } },
+        { value: 10, labels: { status: '500' } },
+      ],
+    });
+    const result = await service.getMonitorSummary();
+    expect(result.metrics.errorRatePct).toBe(10);
+  });
+
+  it('getMonitorSummary 指标读取异常时降级为 null', async () => {
+    metricsService.httpRequestsTotal.get.mockRejectedValue(new Error('metrics down'));
+    const result = await service.getMonitorSummary();
+    expect(result.metrics).toEqual({ requestRateRps: null, errorRatePct: null, latencyP95Ms: null, inFlight: null });
+  });
+
+  it('_checkRedis：非法 URL 抛错 → false', async () => {
+    configService.get.mockImplementation((k: string) => (k === 'REDIS_URL' ? '::bad url::' : undefined));
+    await expect((service as any)._checkRedis()).resolves.toBe(false);
   });
 
   it('错误率 10% + Redis 未配置 → 派生 warning 错误率 + critical Redis 告警', async () => {
+    // 本用例原属运维 spec（其夹具即 90/10）；合并进本文件后监控用例需要 0% 错误率，
+    // 故把**它自己的**指标夹具写进用例内——断言未改（搬迁移的是夹具，不是期望）。
+    metricsService.httpRequestsTotal.get.mockResolvedValue({
+      values: [
+        { value: 90, labels: { status: '200' } },
+        { value: 10, labels: { status: '500' } },
+      ],
+    });
     const result = await service.getOpsSummary();
     expect(result.alerts.some((a) => a.level === 'warning' && a.title === '错误率偏高')).toBe(true);
     expect(result.alerts.some((a) => a.level === 'critical' && a.title === 'Redis 不可用')).toBe(true);
@@ -140,9 +191,4 @@ describe('AdminService · D.8 运维单页聚合', () => {
     expect(none.some((a: any) => a.title.includes('错误率'))).toBe(false);
   });
 
-  it('_getStorageUsage：非 local 驱动返回 null（不读磁盘）', async () => {
-    configService.get.mockImplementation((k: string, d?: unknown) => (k === 'STORAGE_DRIVER' ? 's3' : d));
-    const result = await (service as any)._getStorageUsage();
-    expect(result).toEqual({ driver: 's3', bytes: null });
-  });
 });

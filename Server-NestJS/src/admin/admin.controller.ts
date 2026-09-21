@@ -18,6 +18,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNumber, IsArray, IsBoolean, MaxLength } from 'class-validator';
 import { AdminService } from './admin.service';
+import { AdminObservabilityService } from './admin-observability.service';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 import { HeadlessKeysService } from '../headless/headless-keys.service';
@@ -70,6 +71,8 @@ class UpdateHeadlessKeyDto {
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
+    // 平台观测域（阶段 3 第十四刀）：监控摘要 / 运维摘要已独立
+    private readonly adminObservability: AdminObservabilityService,
     private readonly headlessKeysService: HeadlessKeysService,
     // BA 异常行为基线：告警列表与标记已处理（检测本身跑在定时任务里，此处只读/标记）
     private readonly behaviorBaseline: BehaviorBaselineService,
@@ -107,14 +110,14 @@ export class AdminController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: '运行状态聚合（健康/依赖/指标/告警）' })
   getMonitorSummary() {
-    return this.adminService.getMonitorSummary();
+    return this.adminObservability.getMonitorSummary();
   }
 
   @Get('ops/summary')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @ApiOperation({ summary: 'D.8 运维单页聚合（派生告警 + 指标 + 近 24h 错误 + 7 天趋势）' })
   getOpsSummary() {
-    return this.adminService.getOpsSummary();
+    return this.adminObservability.getOpsSummary();
   }
 
   @Get('overview')

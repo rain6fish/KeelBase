@@ -10,6 +10,7 @@ import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
 import { CapabilitiesService } from '../app-version/capabilities.service';
 import { AdminService } from './admin.service';
+import { AdminObservabilityService } from './admin-observability.service';
 import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
 
@@ -34,6 +35,8 @@ export class AdminAiService {
     // 工具对外面（阶段 3 第九刀）：工具清单已独立
     private readonly toolExposure: ToolExposureService,
     private readonly adminService: AdminService,
+    // 平台观测域（阶段 3 第十四刀）：监控摘要已独立
+    private readonly adminObservability: AdminObservabilityService,
     // 成本聚合来自拆分后的统计服务（本文件不再直接用 AuditService）
     private readonly auditStats: AuditStatsService,
     private readonly capabilitiesService: CapabilitiesService,
@@ -146,7 +149,7 @@ export class AdminAiService {
     const [analytics, cost, monitor] = await Promise.all([
       this.adminService.getAnalytics(30).catch(() => null),
       this.auditStats.getCostBreakdown().catch(() => null),
-      this.adminService.getMonitorSummary().catch(() => null),
+      this.adminObservability.getMonitorSummary().catch(() => null),
     ]);
     if (analytics) {
       lines.push(

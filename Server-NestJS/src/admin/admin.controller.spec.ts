@@ -8,19 +8,26 @@ import { CHECK_POLICIES_KEY } from '../common/casl/check-policies.decorator';
 describe('AdminController', () => {
   let controller: AdminController;
   let adminService: Record<string, jest.Mock>;
+  let adminObservability: Record<string, jest.Mock>;
   let headlessKeysService: Record<string, jest.Mock>;
 
   beforeEach(() => {
     adminService = Object.fromEntries(
       [
-        'getMonitorSummary', 'getOpsSummary', 'getOverview', 'getSessions', 'getUserDetail',
+        'getOverview', 'getSessions', 'getUserDetail',
         'revokeSession', 'broadcast', 'getAnalytics', 'getTrash', 'restoreTrashItem',
       ].map((m) => [m, jest.fn()]),
+    );
+    // 平台观测域（阶段 3 第十四刀）：监控/运维摘要已独立
+    adminObservability = Object.fromEntries(
+      ['getMonitorSummary', 'getOpsSummary'].map((m) => [m, jest.fn()]),
     );
     headlessKeysService = Object.fromEntries(
       ['list', 'create', 'update', 'remove'].map((m) => [m, jest.fn()]),
     );
-    controller = new AdminController(adminService as unknown as AdminService,
+    controller = new AdminController(
+      adminService as unknown as AdminService,
+      adminObservability as any,
       headlessKeysService as unknown as HeadlessKeysService,
       { list: jest.fn().mockResolvedValue([]), acknowledge: jest.fn() } as any,
     );
@@ -28,13 +35,13 @@ describe('AdminController', () => {
 
   it('getMonitorSummary 委托 service', () => {
     const summary = { healthy: true };
-    adminService.getMonitorSummary.mockReturnValue(summary);
+    adminObservability.getMonitorSummary.mockReturnValue(summary);
     expect(controller.getMonitorSummary()).toBe(summary);
   });
 
   it('getOpsSummary 委托 service', () => {
     const summary = { alerts: [], errors24h: 3 };
-    adminService.getOpsSummary.mockReturnValue(summary);
+    adminObservability.getOpsSummary.mockReturnValue(summary);
     expect(controller.getOpsSummary()).toBe(summary);
   });
 
