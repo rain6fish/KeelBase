@@ -8,7 +8,7 @@
  */
 
 import { R4ApprovalService } from './approvals/r4-approval.service';
-import { LlmProviderFactory } from './providers/provider-factory';
+import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
@@ -57,15 +57,6 @@ import {
 
 const MAX_TOOL_ROUNDS = 5;
 
-// demo = 确定性演示 Provider（P0-0）：无任何云 Provider 时兜底，链尾最后尝试
-const FALLBACK_CHAIN: Record<string, string[]> = {
-  deepseek: ['deepseek', 'qwen', 'openai', 'demo'],
-  qwen: ['qwen', 'deepseek', 'openai', 'demo'],
-  openai: ['openai', 'qwen', 'deepseek', 'demo'],
-  anthropic: ['anthropic', 'deepseek', 'qwen', 'openai', 'demo'],
-  gemini: ['gemini', 'deepseek', 'qwen', 'openai', 'demo'],
-};
-
 export interface ChatRequest {
   message: string;
   provider?: string;
@@ -103,7 +94,8 @@ export class AiService {
   private readonly planExecuteAgent = new PlanExecuteAgent();
 
   constructor(
-    private readonly providerFactory: LlmProviderFactory,
+    // Provider 路由与回退（第六刀）：选路 / 回退链 / 流式回退
+    private readonly llmRouter: ProviderRoutingService,
     private readonly toolRegistry: ToolRegistry,
     private readonly conversationService: ConversationService,
     private readonly config: AiServiceConfig,
@@ -213,8 +205,7 @@ export class AiService {
   ): Promise<ChatResponse> {
     // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
     await this._checkContentSafety(request.message, userId);
-    const { conversation, providerName, provider } =
-      this.resolveProvider(request);
+    const { providerName, provider } = this.llmRouter.resolve(request.provider);
 
     let conversationId: string;
     if (request.conversationId) {
@@ -395,7 +386,7 @@ export class AiService {
           userId,
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this.toolExposure.buildToolDefs(),
-          fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          fallbackProviders: this.llmRouter.fallbackChain(providerName),
           systemPrompt: request.systemPrompt,
           images: request.images,
         });
@@ -458,7 +449,7 @@ export class AiService {
           userId,
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this.toolExposure.buildToolDefs(),
-          fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+          fallbackProviders: this.llmRouter.fallbackChain(providerName),
           systemPrompt: request.systemPrompt,
           images: request.images,
         });
@@ -476,7 +467,7 @@ export class AiService {
         userId,
         model: request.model ?? this.config.defaultModel,
         initialToolDefs: await this.toolExposure.buildToolDefs(),
-        fallbackProviders: FALLBACK_CHAIN[providerName] ?? [providerName],
+        fallbackProviders: this.llmRouter.fallbackChain(providerName),
         systemPrompt: request.systemPrompt,
         images: request.images,
       });
@@ -566,9 +557,9 @@ export class AiService {
     await this._checkContentSafety(request.message, userId);
     // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
     const trustedTools = new Set<string>();
-    const { providerName } = this.resolveProvider(request);
+    const { providerName } = this.llmRouter.resolve(request.provider);
     // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
-    const streamFallbackChain = FALLBACK_CHAIN[providerName] ?? [providerName];
+    const streamFallbackChain = this.llmRouter.fallbackChain(providerName);
 
     let conversationId: string;
     if (request.conversationId) {
@@ -625,7 +616,7 @@ export class AiService {
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const tools = await this.toolExposure.buildToolDefs();
-      const stream = this.streamWithProviderFallback({
+      const stream = this.llmRouter.streamWithProviderFallback({
         chain: streamFallbackChain,
         messages,
         tools: tools.length > 0 ? tools : undefined,
@@ -1172,31 +1163,6 @@ export class AiService {
   /**
    * 获取带 Fallback 的 Provider
    */
-  private resolveProvider(request: ChatRequest): {
-    conversation: null;
-    providerName: string;
-    provider: LlmProvider;
-  } {
-    const providerName = request.provider ?? this.config.defaultProvider;
-    const chain = FALLBACK_CHAIN[providerName] ?? [providerName];
-    const errors: string[] = [];
-
-    for (const name of chain) {
-      try {
-        const provider = this.providerFactory.getProvider(name);
-        return { conversation: null, providerName: name, provider };
-      } catch {
-        errors.push(`${name}: not found`);
-        continue;
-      }
-    }
-
-    // Can't happen since getProvider throws but let's be safe
-    // NC-2：无可用 provider（未配置/找不到）→ 可执行码而非裸 500（CR-5 细节只进日志）
-    console.warn(`[AiService] No provider available: ${errors.join('; ')}`);
-    throw BusinessException.of('LLM_UNAVAILABLE');
-  }
-
   /**
    * 工具调用循环（非流式）
    */
@@ -1236,7 +1202,7 @@ export class AiService {
           (err as Error).message,
         );
         // Try fallback
-        const fallbackResult = await this.tryFallback(
+        const fallbackResult = await this.llmRouter.tryFallback(
           params.fallbackProviders,
           params.model,
           { messages, tools: tools.length > 0 ? tools : undefined },
@@ -1248,7 +1214,7 @@ export class AiService {
         }
         result = fallbackResult.result;
         // CR-28：后续轮次用「实际成功」的 provider，而非回退链首（可能也是失败的）
-        currentProvider = this.providerFactory.getProvider(fallbackResult.providerName);
+        currentProvider = this.llmRouter.provider(fallbackResult.providerName);
         currentProviderName = fallbackResult.providerName;
       }
 
@@ -1371,89 +1337,6 @@ export class AiService {
   /**
    * Fallback：按顺序尝试备用 Provider
    */
-  private async tryFallback(
-    fallbackChain: string[],
-    model: string,
-    params: { messages: ChatMessage[]; tools?: any[] },
-  ): Promise<{ result: GenerateResult; providerName: string } | null> {
-    for (const name of fallbackChain) {
-      try {
-        const provider = this.providerFactory.getProvider(name);
-        const result = await provider.generate({
-          messages: params.messages,
-          tools: params.tools,
-          model,
-        });
-        return { result, providerName: name };
-      } catch (fallbackErr) {
-        console.error(
-          `[AiService] Fallback provider "${name}" also failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
-          (fallbackErr as Error).message,
-        );
-        continue;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * 流式 Fallback（CR-28）：主 provider 在产出任何内容之前失败（stream() 抛错 /
-   * 首个 chunk 即 error）时，切换下一个 provider 重开流；已产出内容后的错误
-   * 无法干净回退，直接透传。全部失败时 yield 一个最终 error chunk。
-   */
-  private async *streamWithProviderFallback(params: {
-    chain: string[];
-    messages: ChatMessage[];
-    tools?: any[];
-    model: string;
-  }): AsyncIterable<StreamChunk> {
-    let lastError = 'Unknown provider error';
-    for (const name of params.chain) {
-      let provider: LlmProvider;
-      try {
-        provider = this.providerFactory.getProvider(name);
-      } catch {
-        lastError = `Provider "${name}" is not configured`;
-        continue;
-      }
-      let hasContent = false;
-      try {
-        const stream = provider.stream({
-          messages: params.messages,
-          tools: params.tools,
-          model: params.model,
-        });
-        for await (const chunk of stream) {
-          if (chunk.type === 'error') {
-            lastError = chunk.error ?? 'Unknown stream error';
-            if (hasContent) {
-              // 已产出内容 → 无法回退，透传错误并停止
-              yield chunk;
-              return;
-            }
-            // 首个 chunk 即错误（未产出任何内容）→ 尝试下一个 provider
-            break;
-          }
-          hasContent = true;
-          yield chunk;
-        }
-        // 正常完整结束 → 成功；首块错误 break（hasContent=false）→ 继续外层循环
-        if (hasContent) return;
-      } catch (err) {
-        lastError = (err as Error).message;
-        if (hasContent) throw err;
-        console.error(
-          `[AiService] Streaming provider "${name}" failed:`, // codeql[js/tainted-format-string] 固定前缀模板，消息作参数不被解释为格式串
-          lastError,
-        );
-      }
-    }
-    yield {
-      type: 'error',
-      error: `All providers failed. Last error: ${lastError}`,
-    };
-  }
-
   /**
    * 构建发送给 LLM 的消息列表
    * @param images 当前请求待附加的图片 URL（AI-12 多模态，仅本次请求，不落库）

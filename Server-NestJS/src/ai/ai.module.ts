@@ -46,6 +46,7 @@ import { ToolGateService } from './tools/tool-gate.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ToolExposureService } from './tools/tool-exposure.service';
+import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
@@ -382,6 +383,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           systemPrompt: SYSTEM_PROMPT,
         };
         const compactor = new ConversationCompactor(factory, aiConfig, conversationService);
+        // 4.0 Provider 路由与回退（阶段 3 第六刀拆出；只认 provider 名与失败，故在组装期手动构造，同 compactor）
+        const llmRouter = new ProviderRoutingService(factory, defaultProvider);
 
         // 4.1 创建 SubAgentOrchestrator（子代理委托 + Skills）
         const subAgentOrchestrator = new SubAgentOrchestrator(
@@ -410,7 +413,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 
         // 5. 创建 AiService（ConversationService 和 AuditService 由 NestJS 注入）
         return new AiService(
-          factory,
+          llmRouter,
           toolRegistry,
           conversationService,
           aiConfig,

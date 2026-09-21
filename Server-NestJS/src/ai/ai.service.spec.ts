@@ -10,6 +10,7 @@ import { ToolExecutionService } from './tools/tool-execution.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ToolExposureService } from './tools/tool-exposure.service';
+import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -69,6 +70,7 @@ describe('AiService', () => {
   let r4Approval: R4ApprovalService;
   let presentation: ToolPresentationService;
   let toolExposure: ToolExposureService;
+  let llmRouter: ProviderRoutingService;
   let mockExternalTools: ExternalToolRegistry;
   let mockAuditService: {
     log: jest.Mock;
@@ -156,6 +158,8 @@ describe('AiService', () => {
     presentation = new ToolPresentationService(mockToolRegistry as any, toolExecution);
     // 工具对外面（阶段 3 第九刀）：清单 / 指纹 / MCP 出口 / 集成诊断已独立
     toolExposure = new ToolExposureService(mockToolRegistry as any, mockToolGate as any, mockExternalTools);
+    // Provider 路由与回退（阶段 3 第六刀）：AiService 的首个协作者由 providerFactory 换成它
+    llmRouter = new ProviderRoutingService(mockProviderFactory as any, config.defaultProvider);
     // 每日配额已从 AuditService 拆出（阶段 3 第四刀）
     mockUsageQuota = {
       reserveDailyUsage: jest.fn().mockResolvedValue(true),
@@ -202,7 +206,7 @@ describe('AiService', () => {
     ) as any;
 
     aiService = new AiService(
-      mockProviderFactory as any,
+      llmRouter as any,
       mockToolRegistry as any,
       mockConversationService as any,
       config,
@@ -865,7 +869,7 @@ describe('AiService', () => {
         }),
       };
       const withCompactor = new AiService(
-        mockProviderFactory as any,
+        llmRouter as any,
         mockToolRegistry as any,
         mockConversationService as any,
         config,
@@ -913,7 +917,7 @@ describe('AiService', () => {
         }),
       };
       const withCompactor = new AiService(
-        mockProviderFactory as any,
+        llmRouter as any,
         mockToolRegistry as any,
         mockConversationService as any,
         config,
@@ -1850,7 +1854,7 @@ describe('AiService', () => {
     it('未注入 SettingsService 时跳过限额', async () => {
       // 构造一个不带 settingsService 的 AiService
       const bare = new AiService(
-        mockProviderFactory as any,
+        llmRouter as any,
         mockToolRegistry as any,
         mockConversationService as any,
         config,
@@ -2376,89 +2380,6 @@ describe('AiService', () => {
   });
 
   describe('工具摘要与流式回退', () => {
-    it('_streamWithProviderFallback：主 provider 未配置回退下一个', async () => {
-      mockProviderFactory.getProvider.mockImplementation((name: string) => {
-        if (name === 'broken') throw new Error('not configured');
-        return mockProvider;
-      });
-      async function* s() { yield { type: 'text' as const, content: 'ok' }; yield { type: 'done' as const }; }
-      mockProvider.stream.mockReturnValue(s());
 
-      const chunks: any[] = [];
-      for await (const c of (aiService as any).streamWithProviderFallback({
-        chain: ['broken', 'deepseek'],
-        messages: [{ role: 'user', content: 'x' }],
-        tools: [],
-        model: 'm',
-      })) {
-        chunks.push(c);
-      }
-      expect(chunks.some((c) => c.type === 'text' && c.content === 'ok')).toBe(true);
-      expect(mockProvider.stream).toHaveBeenCalledTimes(1); // 只在 deepseek 上调用
-    });
-
-    it('_streamWithProviderFallback：产出内容后遇 error 透传并停止（不回退）', async () => {
-      mockProviderFactory.getProvider.mockReturnValue(mockProvider);
-      async function* s() {
-        yield { type: 'text' as const, content: 'partial' };
-        yield { type: 'error' as const, error: 'boom' };
-      }
-      mockProvider.stream.mockReturnValue(s());
-
-      const chunks: any[] = [];
-      for await (const c of (aiService as any).streamWithProviderFallback({
-        chain: ['deepseek'],
-        messages: [],
-        tools: [],
-        model: 'm',
-      })) {
-        chunks.push(c);
-      }
-      expect(chunks.some((c) => c.type === 'text')).toBe(true);
-      expect(chunks.some((c) => c.type === 'error')).toBe(true);
-      expect(mockProvider.stream).toHaveBeenCalledTimes(1);
-    });
-
-  });
-
-  describe('resolveProvider（Fallback 链）', () => {
-    it('默认 provider 可用 → 直接返回', () => {
-      const r = (aiService as any).resolveProvider({ message: 'hi' });
-      expect(r.providerName).toBe('deepseek');
-      expect(r.provider).toBe(mockProvider);
-    });
-
-    it('主 provider 抛错 → 回退链下一个', () => {
-      mockProviderFactory.getProvider.mockImplementation((name: string) => {
-        if (name === 'deepseek') throw new Error('not configured');
-        return mockProvider;
-      });
-      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'deepseek' });
-      expect(r.providerName).toBe('qwen');
-      expect(r.provider).toBe(mockProvider);
-    });
-
-    it('链上全部抛错 → throw 汇总错误', () => {
-      mockProviderFactory.getProvider.mockImplementation(() => { throw new Error('down'); });
-      let caught: unknown;
-      try {
-        (aiService as any).resolveProvider({ message: 'hi', provider: 'openai' });
-      } catch (e) {
-        caught = e;
-      }
-      expect(caught).toMatchObject({ errorCode: 'LLM_UNAVAILABLE' });
-    });
-
-    it('anthropic 可用 → 返回 anthropic（FALLBACK 链含降级）', () => {
-      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'anthropic' });
-      expect(r.providerName).toBe('anthropic');
-      expect(r.provider).toBe(mockProvider);
-    });
-
-    it('gemini 可用 → 返回 gemini', () => {
-      const r = (aiService as any).resolveProvider({ message: 'hi', provider: 'gemini' });
-      expect(r.providerName).toBe('gemini');
-      expect(r.provider).toBe(mockProvider);
-    });
   });
 });
