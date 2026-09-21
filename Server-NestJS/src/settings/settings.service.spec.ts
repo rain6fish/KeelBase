@@ -72,6 +72,15 @@ describe('SettingsService', () => {
     expect(await service.getWithDefault('k', 5)).toBe(5);
   });
 
+  it('表确实不存在时 get 也不抛（缓存与查库双双失败 → 回退默认值）', async () => {
+    // 缓存加载失败恰恰说明表不可用；若此时查库仍裸抛，配置读取会把启动/冒烟变成运行时异常
+    repo.find.mockRejectedValueOnce(new Error('no such table: settings'));
+    repo.findOne.mockRejectedValueOnce(new Error('no such table: settings'));
+    await service.resetCache();
+
+    await expect(service.getWithDefault('k', 5)).resolves.toBe(5);
+  });
+
   it('onChange：每次 set 成功都触发监听器（key 过滤由调用方负责，如热更新只认 ai_proxy_tools）', async () => {
     const listener = jest.fn();
     service.onChange(listener);

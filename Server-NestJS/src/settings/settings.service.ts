@@ -81,8 +81,16 @@ export class SettingsService implements OnModuleInit {
     if (this.cacheReady) {
       return this.cache.get(key)?.value;
     }
-    const row = await this.settingsRepo.findOne({ where: { key } });
-    return row ? this.parse(row.value, row.type) : undefined;
+    try {
+      const row = await this.settingsRepo.findOne({ where: { key } });
+      return row ? this.parse(row.value, row.type) : undefined;
+    } catch (err) {
+      // 与 loadCache 同一契约：表尚未建好（如迁移前）时**读路径不得抛错**，回退默认值。
+      // 此前这里是裸查询：缓存加载失败恰恰说明表不可用，再查一次必然抛——与 loadCache 注释
+      // 声明的降级意图相反，且把「配置读不到」升级成了调用方看不到的运行时异常。
+      this.logger.warn(`Settings 读取失败，回退默认值: ${(err as Error).message}`);
+      return undefined;
+    }
   }
 
   async getWithDefault(key: string, fallback: unknown): Promise<unknown> {
