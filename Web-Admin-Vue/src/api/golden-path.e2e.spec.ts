@@ -109,8 +109,26 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
     expect(decided.status, 'approving executes it').toBe('executed')
     expect(decided.effectId, 'and records a side effect').toBeTruthy()
 
-    const effects = (await aiToolsApi.effects()) as unknown as { items?: unknown[] }
+    const effects = (await aiToolsApi.effects()) as unknown as { items?: Record<string, unknown>[] }
     expect(Array.isArray(effects.items), 'the effects list is paginated').toBe(true)
+    // Paginated is not enough: the console renders a row from these, and a runtime that answers with
+    // the envelope but not the fields would pass a weaker check and still show blanks.
+    const effect = effects.items?.[0]
+    expect(effect, 'the effect just created is listed').toBeTruthy()
+    for (const field of [
+      'id',
+      'toolName',
+      'conversationId',
+      'resultType',
+      'resultId',
+      'argsHash',
+      'createdAt',
+      'targetExists',
+      'targetSoftDeleted',
+      'targetTitle',
+    ]) {
+      expect(effect, `ToolEffect requires '${field}'`).toHaveProperty(field)
+    }
 
     const verify = (await auditApi.verify()) as { valid?: boolean }
     expect(verify.valid, 'the audit chain verifies').toBe(true)
