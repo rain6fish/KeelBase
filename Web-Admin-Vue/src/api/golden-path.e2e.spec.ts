@@ -1,5 +1,6 @@
 // @vitest-environment node
 // SPDX-License-Identifier: Apache-2.0
+/// <reference types="node" />
 
 /**
  * L3 — the golden path, driven by this frontend's own modules, against a live backend.
