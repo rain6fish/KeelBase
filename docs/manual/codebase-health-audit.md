@@ -57,8 +57,11 @@
 ### 阶段 1 — 低风险确定清理（本次已完成，见 §4）
 安全立竿见影，验证清理流程可行性。**缺点**：只清表面，不动结构。
 
-### 阶段 2 — 结构修复（import 环 H5 + demo-provider dev-only M1）【待批准】
-- **优点**：消除 Nest 循环 DI 启动隐患（5 个环已精确定位，工作量有限）；demo-provider 减生产面；均有测试可验证。
+### 阶段 2 — 结构修复（import 环 H5）【待批准】
+
+> 原标题还写着「demo-provider dev-only M1」。**M1 已于 2026-09-03 取消**（见 §2 MEDIUM 表：那是 `resolveProvider` 链尾的确定性兜底——无 key 的干净环境跑通 AI 黄金流程靠的就是它，非生产泄漏）。本阶段实际只剩 import 环 H5。
+
+- **优点**：消除 Nest 循环 DI 启动隐患（5 个环已精确定位，工作量有限）；均有测试可验证。
 - **缺点**：动 Nest 模块图需全量回归；环修复常要改依赖方向/加中间层，改动面比表面大。
 - **执行方式**：每环独立子任务 → 聚焦测试绿 → 全量回归 → 单独提交。
 
@@ -131,7 +134,8 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 
 ## 5. 待办（未做项）
 
-- [ ] 阶段 2 残余：环 1 compactor `AiServiceConfig` import 改 `import type`（低优先级，类型级）；module 级 forwardRef 环（ai↔auth↔org↔flows）为已知架构权衡——根治需 Explainable Authz 端点归属调整（auth controller 的 explainable 端点迁出 ai 域）+ 共享 provider 梳理，**建议并入阶段 3/4 统一做**
+- [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
+- [ ] 阶段 2 残余 · **module 级 forwardRef 环**（ai↔auth↔org↔flows）为已知架构权衡——根治需 Explainable Authz 端点归属调整（auth controller 的 explainable 端点迁出 ai 域）+ 共享 provider 梳理，**建议并入阶段 3/4 统一做**
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：governance/audit 语义整合架构立项；状态/风险词汇常量单源；Flutter i18n 中文映射迁移；React 预览版去留
 - [ ] M3：demo-data.ts 832 行 seed 拆分评估

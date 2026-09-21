@@ -12,7 +12,11 @@
 
 import { LlmProviderFactory } from '../providers/provider-factory';
 import { LlmProvider } from '../interfaces/llm-provider.interface';
-import { AiServiceConfig } from '../ai.service';
+// import type：AiServiceConfig 是 interface，本文件也只在类型位置用它（构造参数）。写成值 import 会在
+// 源码层面留一条 compactor → ai.service 的边（而 compactor 本就被 ai.service 依赖）。TS 默认会擦除这类
+// 纯类型 import，运行期本无此边；显式标 type 是让意图可见，并在将来开启 verbatimModuleSyntax 时不让
+// 这条边重新长出来。（codebase-health-audit §5 阶段 2 残余 · 环 1）
+import type { AiServiceConfig } from '../ai.service';
 import { ConversationService, ConversationData } from './conversation.service';
 import { LlmUsage } from '../llm-usage';
 
