@@ -9,6 +9,7 @@
 
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ProviderRoutingService } from './providers/provider-routing.service';
+import { StreamAccumulator } from './providers/stream-accumulator';
 import { ToolRegistry } from './tools/tool-registry';
 import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
@@ -623,59 +624,32 @@ export class AiService {
         model,
       });
 
-      const accumulatedToolCalls = new Map<
-        number,
-        { id: string; name: string; args: string }
-      >();
-      let fullText = '';
-      let reasoningText = '';
-      let streamError: string | undefined;
-      let hasToolCalls = false;
-
+      // 本轮 chunk 归并（阶段 3 第十一刀提出）：文本逐块转发、工具调用按 index 拼装、用量累加
+      const acc = new StreamAccumulator();
       for await (const chunk of stream) {
-        if (chunk.type === 'text') {
-          fullText += chunk.content;
-          yield { type: 'text', content: chunk.content };
-        } else if (chunk.type === 'reasoning') {
-          reasoningText += chunk.content;
-        } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-          hasToolCalls = true;
-          const idx = chunk.toolCall.index ?? 0;
-          const existing = accumulatedToolCalls.get(idx) ?? {
-            id: '',
-            name: '',
-            args: '',
-          };
-          if (chunk.toolCall.id) existing.id = chunk.toolCall.id;
-          if (chunk.toolCall.name) existing.name = chunk.toolCall.name;
-          if (chunk.toolCall.arguments) existing.args += chunk.toolCall.arguments;
-          accumulatedToolCalls.set(idx, existing);
-        } else if (chunk.type === 'error') {
-          streamError = chunk.error;
-          yield chunk;
-        } else if (chunk.type === 'done' && chunk.usage) {
-          turnUsage = addLlmUsage(turnUsage, chunk.usage);
-        }
-        // 'done' — handled after the loop
+        const forward = acc.apply(chunk);
+        if (forward) yield forward;
       }
+      // 本轮用量并入整轮（一轮对话可能有多次 LLM 调用）
+      turnUsage = addLlmUsage(turnUsage, acc.usage);
 
-      if (streamError) {
+      if (acc.streamError) {
         // 流式失败（yield error 不抛 → 外层 chatStream catch 不触发）：显式释放 daily-limit 预留槽，
         // 防零 token 失败对话计入当日用量、耗尽限额后误拦（对齐非流式 chat 失败释放语义）
         await this.usageQuota.releaseDailyUsage(userId).catch(() => {});
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
-          content: `Error: ${streamError}`,
+          content: `Error: ${acc.streamError}`,
         });
         yield { type: 'done', conversationId };
         return;
       }
 
-      if (!hasToolCalls && accumulatedToolCalls.size === 0) {
+      if (!acc.hasToolCalls && acc.toolCalls().length === 0) {
         // Pure text response — done
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
-          content: fullText,
+          content: acc.fullText,
         });
         // CR-2：流式主完成审计——否则不进 ai_audit_logs，每日限额可被流式绕过
         // HS-9 粒度门控：conversation 级仅 all 时记录
@@ -699,21 +673,19 @@ export class AiService {
       }
 
       // 先 push 带 tool_calls 的 assistant 消息（API 要求：tool 消息必须跟在带 tool_calls 的 assistant 消息之后）
-      const toolCallsArray = Array.from(accumulatedToolCalls.entries()).map(
-        ([idx, tc]) => ({
-          id: tc.id,
-          name: tc.name,
-          arguments: tc.args,
-          index: idx,
-        }),
-      );
+      const toolCallsArray = acc.toolCalls().map((tc) => ({
+        id: tc.id,
+        name: tc.name,
+        arguments: tc.args,
+        index: tc.index,
+        }));
 
       if (toolCallsArray.length > 0) {
         messages.push({
           role: 'assistant',
-          content: fullText || '',
+          content: acc.fullText || '',
           tool_calls: toolCallsArray,
-          ...(reasoningText ? { reasoning_content: reasoningText } : {}),
+          ...(acc.reasoningText ? { reasoning_content: acc.reasoningText } : {}),
         });
       }
 
@@ -736,7 +708,7 @@ export class AiService {
           summary: string | null;
           risk: string;
         }> = [];
-        for (const [idx, tc] of accumulatedToolCalls) {
+        for (const tc of acc.toolCalls()) {
           if (trustedTools.has(tc.name)) continue; // HS-6 免确认
           // 未注册工具（LLM 幻觉名 / 外部 mcp_* 工具，ExternalToolProvider 不入 ToolRegistry）会让
           // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
@@ -767,7 +739,7 @@ export class AiService {
           } catch {
             continue; // 留逐条路径由 1380 断言如实报错，不并入 run
           }
-          cands.push({ idx, name: tc.name, parsed, summary: this.presentation.writeToolSummary(tc.name, parsed), risk });
+          cands.push({ idx: tc.index, name: tc.name, parsed, summary: this.presentation.writeToolSummary(tc.name, parsed), risk });
         }
         // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
         const aggregable = cands.filter((c) => c.summary !== null);
@@ -840,7 +812,7 @@ export class AiService {
       }
 
       // Execute accumulated tool calls
-      for (const [idx, tc] of accumulatedToolCalls) {
+      for (const tc of acc.toolCalls()) {
         let started = false;
         let pendingApproval = false; // R4 高影响动作（已提交审批）——通用 tool_call 审计不算失败
         try {
@@ -918,7 +890,7 @@ export class AiService {
               // （spec §2.5：approve 整批逐条执行、decline 整批跳过；run 级 decision 关卡已由预扫描先行发出）
               let outcome: 'approve' | 'decline' | 'timeout';
               let trustTool: boolean | undefined;
-              if (runState?.idxSet.has(idx)) {
+              if (runState?.idxSet.has(tc.index)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
               } else {
                 const ttlSeconds = this.settingsService
@@ -978,7 +950,7 @@ export class AiService {
             }
             if (outcome === 'approve') {
               // §4 G1：run 成员执行的副作用挂 runId（供 run 级批量撤销精确圈定）
-              const execRunId = runState?.idxSet.has(idx) ? runState.runId : undefined;
+              const execRunId = runState?.idxSet.has(tc.index) ? runState.runId : undefined;
               result = await this.toolExecution.executeWrite(tc.name, parsed, userId, conversationId, execRunId);
               yield {
                 type: 'confirmation_decision',
@@ -1121,8 +1093,8 @@ export class AiService {
       }
 
       // If we have text but no tool calls, add it as an assistant message
-      if (!hasToolCalls && fullText) {
-        messages.push({ role: 'assistant', content: fullText });
+      if (!acc.hasToolCalls && acc.fullText) {
+        messages.push({ role: 'assistant', content: acc.fullText });
       }
 
       // Continue to next round
