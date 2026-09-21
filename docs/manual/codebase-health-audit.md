@@ -551,3 +551,35 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   **`./scripts/release-gate.sh` PASS 24 / 0**。
 - **下一刀候选**（变更驱动、不排期）：**H3 最后一处 `org.service`（626 行）**；
   或转阶段 4（governance 语义整合等）+ 两条已记待办。
+
+### 2026-09-21 — 阶段 3 第十五刀：组织通讯录下沉（OrgDirectoryService）· **H3 收官**
+- ✅ 新建 `src/org/org-directory.service.ts`：**成员视角的只读视图**——我的组织与部门路径、部门树、
+  同组织成员（脱敏白名单）、组织内审批待办统计（ORG-7 / ORG-5）。四种都**按调用者本人所属组织**限定范围、
+  **只读**、不提供任何管理写入，与 `OrgService` 的「组织/部门/成员/邀请增删改查」（管理端）是两件事。
+  **行为逐字不变**（含 `_myMember` / `_deptPath` 两个只服务本域的私有 helper）。
+- ✅ **地基先行（同 CRM 刀先例）**：`_ensureOrg` 是 **10 处共用**的存在性谓词（CRUD/邀请/通讯录都要过），
+  提为 `src/org/org-lookup.ts` 的具名函数 `ensureOrg(repo, id)`——**同一条判据只有一处实现**。
+- ⚠️ **一处刻意保留的口径差异**：成员端 `listMyMembers` 走**白名单**（无 email/phone/username），
+  管理端 `listMembers` 给 email **掩码**——两者**故意不同**，注释里点明，避免后来者"统一"掉其中一边。
+- ✅ 接线：`OrgModule` 注册导出；`OrgController` 改双依赖；**三个 AI 组织工具**（可用性 / 成员目录 / 审批待办）
+  改为**双依赖**——它们既取通讯录视图，又用 `getUserOrgId` 做**范围前置检查**，而后者是跨模块广泛使用的
+  范围谓词（26 处引用），**不动**。工具的类型接口随之拆成 `OrgScopeLike` + `OrgDirectoryLike`。
+- ⚠️ **一次真实缺陷，被既有装配冒烟拦下（本刀自曝，已修）**：我给 AiService 工厂**签名**加了 `orgDirectory`
+  却**漏了 inject 数组**（31 签名 ↔ 30 注入）→ 位置整体错位、`toolRegistry.register is not a function`。
+  **这正是 `974f6dec` 那个 bug 的同款**，也是「单测不 boot 容器」那条教训的对象——而本仓已有
+  `src/app-wiring.spec.ts` 装配冒烟（另一会话所加），**它当场变红**。我随即用逐位对齐脚本复核到 31↔31。
+  **教训照旧：改工厂签名，必须同步 inject 并复核逐位对齐。**
+- ⚠️ **另三次过程失误（均未进提交）**：① 用脚本做接口拆分时把三个工具文件改坏（泛化了多行返回类型）→
+  **回退后手工逐处改**（脚本化的"聪明"手术不如可核对的手改）；② 生成的新 spec 尾部多一个闭合括号、
+  且**行尾混合**（CRLF/LF）导致匹配失败 → 归一后按行序删除；③ **PC-3 冻结契约原是一条跨三形用例**
+  （`getMyOrg` / `listMembers` / `listMyMembers`），因服务归属必须拆成两半：**①③ 进新 spec、② 留原 spec**，
+  断言**各自保留**；② 失去 ① 顺带设的 org 夹具，故补一行它自己的最小夹具（**夹具搬迁，断言未改**）。
+- **结果**：`org.service.ts` **627 → 494 行**（−133）；新增 `org-directory.service.ts`（163 行）、
+  `org-lookup.ts`（20 行）+ spec（226 行）；`org.service.spec.ts` 729 → 578（7 条纯块搬出 + PC-3 拆分）。
+- **验证**：全量单测 **292 suite / 2667 tests 全过**（+1 套件、+1 用例 = PC-3 由 1 条拆为 2 条）；
+  e2e **36 套件 / 372 用例**——批次 2 首跑硬崩、重试全过（既有环境抖动）；三闸 + `protocol:vectors:check` 全绿；
+  `test:cov` 通过（全局 **95/78.9/90.24/95.83**，安全分档门控 6/6；`org-directory` 行覆盖 **100%**、
+  `org-lookup` **100%**、`org.service` 行覆盖 **100%**）；**`./scripts/release-gate.sh` PASS 24 / 0**。
+- 🏁 **H3 收官**：`crm` 591→373、`admin` 643→444、`org` 627→494。**阶段 3 全部三个层级已处置完毕**
+  （H1 ai.service 六域两纯块、H2 audit 五域、H3 三个中型服务）；余项为**触发条件驱动**的 auth 地基刀、
+  两条已记待办，以及阶段 4（governance 语义整合等）。
