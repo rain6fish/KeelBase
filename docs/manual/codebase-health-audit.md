@@ -394,3 +394,33 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   **建议单列一笔**（可在 CI 侧分片跑 + `--detectOpenHandles`/`--logHeapUsage` 定位）。
 - **下一刀候选**（变更驱动、不排期）：**`chatImpl`**（仍是最大的一块，~900 行）——它下面已无独立子域，
   要么按「循环内阶段」再分，要么承认它是本类的核心而停手；这一步值得先想清楚再动。
+
+### 2026-09-21 — 阶段 3 第十刀：Provider 路由与回退下沉（ProviderRoutingService）
+- ✅ **上一刀记的「先想清楚再动」落实为一次核账**：所谓 `chatImpl ~900 行` 是旧数——实测 `chatImpl` 只有
+  ~318 行，真正的大块是 `chatStreamImpl`（614 行），且它的内部是**确认流 / run 聚合 / 审计行 / SSE yield 交织**，
+  没有干净接缝。于是改从**独立块**下手：`FALLBACK_CHAIN` + `resolveProvider` + `tryFallback` +
+  `streamWithProviderFallback` ≈ 117 行，只依赖 provider 工厂与默认 provider 名。
+- ✅ 新建 `src/ai/providers/provider-routing.service.ts`：选路（请求指定 > 默认）、回退链、非流式回退、流式回退
+  （CR-28 首块错误才回退、已产出内容则透传）。**行为逐字不变**。它与 `RouterAgent` 的分工写进文件头：
+  那个是**意图**路由，本域是**供应商**路由。
+- ✅ **顺手去掉一处死字段**：`resolveProvider` 返回的 `conversation: null` 无人读（调用点解构了却从不使用，
+  也是既有 lint warning 的来源），本域只返回 `{ providerName, provider }`；调用点同步去掉该解构。
+- ✅ **依赖净 0 的换位**：`AiService` 首个协作者由 `LlmProviderFactory` 换成 `ProviderRoutingService`
+  （工厂里唯一残留的 `getProvider`（回退成功后取实际生效的 provider）也改走本域 `provider(name)`），
+  构造参数仍 **21**；`AiService` 不再直接持有 provider 工厂。
+- ⚠️ **组装方式的如实说明**：本域要读「默认 provider 名」，而该配置对象在 `useFactory` 里现造，
+  故与 `ConversationCompactor` 同法**在组装期手动构造**（不是 Nest provider）——有先例，非新发明。
+- ✅ spec 搬迁**不改断言**：流式回退 2 条 + 选路 5 条共 **7 条**整段迁入 `provider-routing.service.spec.ts`，
+  仅调用形改为本服务（`resolveProvider({message})` 的形参也只留它真正读的 provider 名）。
+- ⚠️ **搬迁途中一次过程失误（未进提交）**：切块脚本的结束锚点把**相邻 describe 的闭合括号一并切掉**，
+  两个 spec 都出现括号失衡；用括号计数当场定位并补齐，未靠肉眼。
+- **结果**：`ai.service.ts` **1593 → 1476 行**（−117，本轮六刀累计 **2370 → 1476**）；新增
+  `provider-routing.service.ts`（157 行）+ spec（123 行）。构造注入净 0（+路由 −工厂），参数个数 **21 → 21**。
+- **验证**：全量单测 **288 suite / 2653 tests 全过**（+1 套件 = 新 spec，7 条搬迁用例守恒、逐项对得上）；
+  e2e **36 套件 / 372 用例分四批全过**（本次连上一刀崩过的批量 3 也通过——进一步印证那是环境性抖动，非代码）；
+  三闸 + `protocol:vectors:check` 全绿；`test:cov` 通过（全局 **94.96/78.9/90.19/95.79**，安全分档门控 6/6；
+  新文件 94.11/70/83.33/95.91）。
+- **下一刀候选**（变更驱动、不排期）：**`chatStreamImpl`（614 行）**——真要在它身上动，得先**画清内部阶段**
+  （内容安全 → 会话装载 → 首轮流 → run 预扫描/聚合 → 逐条确认/审批/执行 → 审计落行 → 收尾），
+  且要接受「一次只搬一个阶段、每搬一次全量回归」的节奏；**或就此停手**：本类的核心编排已清晰可读，
+  继续拆会把「一次对话」切成需要来回跳转的多段。
