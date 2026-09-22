@@ -229,6 +229,10 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
    *
    * **非空转**：本门自带正反例，即使当前 0 个包选入也真实断言语法。这是本仓 JV-14 的教训
    * （「一条看起来在验证 X 的断言，实际从未验证过」）所要求的：断言必须证明自己会红。
+   *
+   * **v1 补批（2026-09-22，Java 线 JV-15 语法裁定）**：语料改写时按裁定补进四种构造——`given.fixtures`
+   * （R3/N4，含命名）、`call.write`（R4）、`{\"$ref\":…}` 跨步引用（N1）、`expect: null` 否定断言（N2）；
+   * 并明写 `call.tool` 的 `expect` **相对 `response`**（N3-a）。正反例同步扩到覆盖它们。
    */
   describe('replay 语法 · replayVersion 选入门（§2.4 v1）', () => {
     // 与 Full 剖面 runner（`scripts/verify-full-profile.mjs`）同一套 Ajv 选项：不校验 meta-schema、非严格模式，
@@ -236,6 +240,7 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
     const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     ajv.addSchema(JSON.parse(readFileSync(resolve(SPECS_DIR, 'replay.schema.json'), 'utf8')));
     const validateEntry = ajv.compile({ $ref: 'replay.schema.json#/definitions/replayEntry' });
+    const validateGiven = ajv.compile({ $ref: 'replay.schema.json#/definitions/given' });
 
     const PACKS: Array<[string, any]> = [
       ['security-showcase-v1.json', showcasePack],
@@ -254,6 +259,41 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
         call: { read: 'audit-chain-verification' },
         expect: { valid: true },
       })).toBe(true);
+      // v1 补批（2026-09-22）新增的两种形态：治理写（R4）· 否定断言（N2）
+      expect(validateEntry({
+        call: { write: 'confirmation-decision', op: 'approve' },
+        expect: { decision: 'approve' },
+      })).toBe(true);
+      expect(validateEntry({
+        call: { read: 'side-effect-revoke' },
+        expect: null,
+      })).toBe(true);
+    });
+
+    it('语法自证：夹具 + 跨步引用（R3 / N1 / N4）', () => {
+      // 正例：夹具命名 + 夹具之间引用 + 步骤 args 引用夹具（目标可用领域资源名，N4）
+      expect(validateGiven({
+        actor: 'alice',
+        fixtures: [
+          { as: 'customer', write: 'crm-customer', args: { name: '瀚宇制造' } },
+          { as: 'order', write: 'crm-customer-order', args: { customerId: { $ref: 'customer.id' }, amount: 2800000 } },
+        ],
+      })).toBe(true);
+      expect(validateEntry({
+        call: { tool: 'analyze_customer_risk', args: { customerId: { $ref: 'customer.id' } } },
+        expect: { executed: true },
+      })).toBe(true);
+
+      // 反例：夹具缺 `as`（名字是引用的前提）· `$ref` 缺字段 · 治理写缺 `op`
+      expect(validateGiven({ actor: 'alice', fixtures: [{ write: 'crm-customer' }] })).toBe(false);
+      expect(validateEntry({
+        call: { tool: 'analyze_customer_risk', args: { customerId: { $ref: 'customer' } } },
+        expect: { executed: true },
+      })).toBe(false);
+      expect(validateEntry({
+        call: { write: 'confirmation-decision' },
+        expect: { decision: 'approve' },
+      })).toBe(false);
     });
 
     it('语法自证（反例）：旧草稿的四种写法逐条被拒', () => {
@@ -289,7 +329,8 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
             expect([file, label, validateEntry(entry)]).toEqual([file, label, true]);
           }
           if (step.given !== undefined) {
-            expect([file, label, typeof step.given.actor]).toEqual([file, label, 'string']);
+            // 完整过 `given` 定义（actor + fixtures），不再只查 actor 是不是字符串
+            expect([file, label, validateGiven(step.given)]).toEqual([file, label, true]);
           }
         }
       }

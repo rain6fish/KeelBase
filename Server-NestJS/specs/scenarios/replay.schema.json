@@ -2,11 +2,62 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "$id": "replay.schema.json",
   "title": "Scenario replay grammar — v1",
-  "description": "场景包 `replay` 的可机读语法（v1）。目的：让**任一 conformant Runtime** 能按 replay 执行并断言，而不是只有写出它的那个实现能跑。核心判断：**replay 引用 wire 对象，不引用路径**——路径 / HTTP 方法 / `/api/v1` 前缀 / 传输（HTTP vs MCP）都是实现的自由，不进语料；由各 Runtime 自己把它们映射到自己的端点。判据来源 conformance-profile.md §2.4；实测依据 Java 线 JV-15 Slice 0（四步在第二载体上真跑通，同时暴露草稿的 7 条歧义）。",
+  "description": "场景包 `replay` 的可机读语法（v1）。目的：让**任一 conformant Runtime** 能按 replay 执行并断言，而不是只有写出它的那个实现能跑。核心判断：**replay 引用 wire 对象，不引用路径**——路径 / HTTP 方法 / `/api/v1` 前缀 / 传输（HTTP vs MCP）都是实现的自由，不进语料；由各 Runtime 自己把它们映射到自己的端点。判据来源 conformance-profile.md §2.4；实测依据 Java 线 JV-15 Slice 0（四步在第二载体上真跑通，同时暴露草稿的 7 条歧义）。**v1 补批（2026-09-22，Java 线 JV-15 语法裁定）**：R3 夹具（`given.fixtures`，并命名）· R4 治理写（`call.write`）· N1 跨步引用（`{\"$ref\":\"<夹具名>.<字段>\"}`）· N2 否定断言（`expect: null` = 该对象**不可读**）· N3-a `call.tool` 的 `expect` **相对 `response`** · N4 夹具目标可为**领域资源名**。",
   "definitions": {
+    "literal": {
+      "title": "字面量 / literal",
+      "description": "先不发明比较算子（`\">0\"` 之类），需要时再加。",
+      "type": ["string", "number", "boolean", "null"]
+    },
+    "argValue": {
+      "title": "取值 / argument value",
+      "description": "字面量，或**跨步引用**（N1）。**最小形式**：值的来源只有「**本场景内先前步骤** `given.fixtures[].as` 命名过的夹具」一种——`{\"$ref\":\"<夹具的 as>.<字段>\"}`。克制优先（与 `given` 只允许 actor 同一取向），需要时再扩。",
+      "oneOf": [
+        { "$ref": "#/definitions/literal" },
+        {
+          "title": "跨步引用 / cross-step reference",
+          "type": "object",
+          "required": ["$ref"],
+          "additionalProperties": false,
+          "properties": {
+            "$ref": {
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9]*\\.[a-z][a-zA-Z0-9]*$",
+              "description": "`<夹具名>.<字段>`——夹具名 = **先前步骤** `given.fixtures[].as` 声明的名字（如 `customer.id`：step 1 造的客户、step 2 拿来当入参）。"
+            }
+          }
+        }
+      ]
+    },
+    "args": {
+      "title": "调用入参 / args",
+      "description": "入参取值 = 字面量或跨步引用。**不递归**：值不是对象（除 `$ref` 那种形态）——需要嵌套时先回来改语法。",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/argValue" }
+    },
+    "fixture": {
+      "title": "夹具 / fixture（R3 + N4）",
+      "description": "**前置，不产生断言**——它只提供后续步骤要用的状态，不参与「语义一致」的判定。`as` 给夹具**起名**，供后续以 `{\"$ref\":\"<as>.<字段>\"}` 引用（N1）。目标**不要求是 wire 对象**（N4）：可以是**领域资源名**（如 `crm-customer`）——把 setup 也绑到契约对象上，是把契约的严格性用在它管不着的地方。",
+      "type": "object",
+      "required": ["as", "write"],
+      "additionalProperties": false,
+      "properties": {
+        "as": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$",
+          "description": "夹具名（camelCase，供 `{\"$ref\":\"<as>.<字段>\"}` 引用）。"
+        },
+        "write": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "**领域资源名**或 wire 对象 id（如 `crm-customer`）。各 Runtime 把它映射到自己的写入口。"
+        },
+        "args": { "$ref": "#/definitions/args" }
+      }
+    },
     "given": {
       "title": "Replay 前置 / given",
-      "description": "执行本步所需的前置。**身份必须显式**：认证在请求入口（ADR-0004 D3 / JV-9），而旧草稿只把行动者藏在散文里（「bob→alex」）。第一版只允许 actor——克制优先于表达力，需要时再加。",
+      "description": "执行本步所需的前置。**身份必须显式**：认证在请求入口（ADR-0004 D3 / JV-9），而旧草稿只把行动者藏在散文里（「bob→alex」）。actor 之外只允许 `fixtures`——克制优先于表达力，需要时再加。**一个步骤只有一个 `actor`**：跨行动者的对照（A 可读 / B 被拒）须拆到不同步骤表达。",
       "type": "object",
       "required": ["actor"],
       "additionalProperties": false,
@@ -15,12 +66,17 @@
           "type": "string",
           "minLength": 1,
           "description": "行动者标识（映射到各 Runtime 自己的身份目录；契约面见 `delegation-token-claims` / `permission-decision`）。"
+        },
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/fixture" }
         }
       }
     },
     "call": {
       "title": "Replay 调用 / call",
-      "description": "要说清「调什么 / 读什么」，不说「怎么调」。禁字符串形式——旧草稿把 HTTP 方法 + 路径 + JSON-RPC 方法 + 工具名挤在一串里，第二载体无法执行。",
+      "description": "要说清「调什么 / 读什么 / 写什么」，不说「怎么调」。禁字符串形式——旧草稿把 HTTP 方法 + 路径 + JSON-RPC 方法 + 工具名挤在一串里，第二载体无法执行。",
       "oneOf": [
         {
           "title": "业务动作：调工具",
@@ -33,10 +89,7 @@
               "pattern": "^[a-z][a-z0-9_]*$",
               "description": "工具名（业务级标识，非实现细节）；语义薄片见 `tool-invocation`。"
             },
-            "args": {
-              "type": "object",
-              "description": "工具入参。形状由该工具的声明决定，本语法不约束。"
-            }
+            "args": { "$ref": "#/definitions/args" }
           }
         },
         {
@@ -51,21 +104,50 @@
               "description": "**wire 对象 id**（如 `audit-chain-verification`），不是路径。各 Runtime 把它映射到自己的端点。"
             }
           }
+        },
+        {
+          "title": "治理写：写 wire 对象（R4）",
+          "type": "object",
+          "required": ["write", "op"],
+          "additionalProperties": false,
+          "properties": {
+            "write": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "description": "**wire 对象 id**（如 `confirmation-decision` / `side-effect-revoke`）。治理动作写的正是这些已冻结对象 ⇒ 用对象 id 命名，不需要发明新维度。**不把治理动作伪装成业务工具**——那会把治理面混进工具面。"
+            },
+            "op": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "动作名（如 `approve` / `revoke`）。**不写地址**：目标实体由场景状态决定（token / effect id 属各 Runtime 自己的寻址方式，与路径同理不进语料）。"
+            },
+            "args": { "$ref": "#/definitions/args" }
+          }
         }
       ]
     },
     "expect": {
       "title": "Replay 期望 / expect",
-      "description": "键 = 该对象的字段（**相对对象，不相对响应信封**——信封是传输关切）。值**只允许字面量**：先不发明比较算子（`\">0\"` 之类），需要时再加。旧草稿的自由散文（如 `{\"离线验证\":\"PASS\"}`）与嵌套对象在此被拒。",
-      "type": "object",
-      "minProperties": 1,
-      "propertyNames": {
-        "pattern": "^[a-z][a-zA-Z0-9]*$",
-        "description": "键 = 目标对象的**字段名**（camelCase）。此模式拒掉散文键（如 `离线验证`）——那正是旧草稿的毛病。**更强的一层留待第 2 步**：`call.read` 已给出对象 id，届时可校验「expect 键 ⊆ 该对象 schema 的 properties」（本文件不做，因为它需要 registry 做交叉引用）。"
-      },
-      "additionalProperties": {
-        "type": ["string", "number", "boolean", "null"]
-      }
+      "description": "键 = **本次 call 的目标对象**的字段；值**只允许字面量**：先不发明比较算子（`\">0\"` 之类），需要时再加。旧草稿的自由散文（如 `{\"离线验证\":\"PASS\"}`）与嵌套对象在此被拒。**目标对象按 call 形态不同**：`read`/`write` = 那个 wire 对象本身；**`tool` = `tool-invocation` 的 `response`**（N3-a：顶层 `request`/`response` 都是对象，不这样定就一个字面量也够不着）。`expect` 相对对象，**不相对响应信封**——信封是传输关切。**工具的业务载荷**（如 `response.result.data.level`）**不可断言**（N3-b）：那不是契约字段，是各工具自己的形状。",
+      "oneOf": [
+        {
+          "title": "肯定断言：该对象有这些字段值",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-zA-Z0-9]*$",
+            "description": "键 = 目标对象的**字段名**（camelCase）。此模式拒掉散文键（如 `离线验证`）——那正是旧草稿的毛病。**更强的一层留待第 2 步**：`call.read` 已给出对象 id，届时可校验「expect 键 ⊆ 该对象 schema 的 properties」（本文件不做，因为它需要 registry 做交叉引用）。"
+          },
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        },
+        {
+          "title": "否定断言：该对象不可读（N2）",
+          "description": "整值 `null` = **该对象不可读**（拒绝与不存在本就该区分——这是治理语义的一半）。R5 的替换表在「跨用户读被拒」那格靠它落地：肯定式的对象字段断言表达不了「不该有」。",
+          "type": "null"
+        }
+      ]
     },
     "replayEntry": {
       "title": "Replay 单步 / one replay step",

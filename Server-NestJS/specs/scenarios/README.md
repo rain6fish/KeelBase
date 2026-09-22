@@ -42,18 +42,32 @@ specs/scenarios/
 **核心判断**：**`replay` 引用 wire 对象，不引用路径**。路径 / HTTP 方法 / `/api/v1` 前缀 / 传输（HTTP vs MCP）都是**实现的自由**，不进语料；由各 Runtime 自己把它们映射到自己的端点。旧草稿把两者混在一串散文里，导致第二载体**无法执行**。
 
 ```json
-{ "call": { "tool": "create_followup_task", "args": { "customerId": 1 } },
-  "expect": { "status": "pending_confirmation" } }
+{ "call": { "tool": "create_followup_task", "args": { "customerId": { "$ref": "customer.id" } } },
+  "expect": { "executed": false, "requiresConfirmation": true } }
 { "call": { "read": "audit-chain-verification" },
   "expect": { "valid": true } }
+{ "call": { "write": "confirmation-decision", "op": "approve" },
+  "expect": { "decision": "approve" } }
+{ "call": { "read": "side-effect-revoke" }, "expect": null }
+
+{ "given": { "actor": "alice",
+             "fixtures": [ { "as": "customer", "write": "crm-customer", "args": { "name": "瀚宇制造" } },
+                           { "as": "order", "write": "crm-order",
+                             "args": { "customerId": { "$ref": "customer.id" }, "amount": 2800000 } } ] },
+  "replay": [ … ] }
 ```
 
 | 规则 | 说明 |
 |---|---|
-| `call` 必为**对象** | 二选一：`{tool, args?}`（业务动作）或 `{read}`（治理观测，值为 **wire 对象 id**）；**禁字符串** |
-| `expect` 键 | 目标对象的**字段名**（camelCase）；值**只允许字面量**（string/number/boolean/null）——先不发明比较算子 |
-| `given.actor` | **身份必须显式**（认证在请求入口，ADR-0004 D3）；旧草稿只把行动者藏在散文里 |
+| `call` 必为**对象** | 三选一：`{tool, args?}`（业务动作）· `{read}`（治理观测，值为 **wire 对象 id**）· `{write, op, args?}`（治理写，值为 wire 对象 id + 动作名）；**禁字符串** |
+| `expect` 键 | **本次 call 的目标对象**的字段名（camelCase）；值**只允许字面量**（string/number/boolean/null）——先不发明比较算子。**`tool` 的 `expect` 相对 `response`**（顶层 `request`/`response` 都是对象，不这样定就一个字面量也够不着） |
+| `expect: null` | **否定断言**：该对象**不可读**（拒绝与不存在本就该区分）。`{ "read": "side-effect-revoke" }, "expect": null` = 越权时读不到 |
+| `given.actor` | **身份必须显式**（认证在请求入口，ADR-0004 D3）；旧草稿只把行动者藏在散文里。**一步一个 actor**：跨行动者的对照拆到不同步骤 |
+| `given.fixtures` | **前置，不产生断言**（R3）。`as` 给夹具**起名**供后续步骤以 `{"$ref":"<名字>.<字段>"}` 引用（N1；名字按**场景**可见，跨步可用）；目标**不要求是 wire 对象**——可以是**领域资源名**（N4，如 `crm-customer`） |
+| 不可断言的 | **传输**（路径 / 方法 / 状态码 / SSE 事件）与**工具业务载荷**（如 `result.data.level`——那是各工具自己的形状，不是契约字段）。表达不了的**显式丢弃并在包内记录**，不偷偷换成更弱的断言 |
 | **选入式** | 包声明 `replayVersion: 1` 才受本语法约束。未声明的包其 `replay` 仍是散文——**不静默放过**：门禁会把「已选入 / 未选入」两组显式列出 |
+
+**现状（2026-09-22）**：**3 包选入**（`golden-application-v1` · `trust-proof-v1` · `cross-entry-v1`，均按 Java 线 JV-15 语法裁定的 R1–R7 + N1–N5 改写）；**2 包未选入且出 replay 范围**——`security-showcase-v1`（runtime-specific 展示物，R2 ⇒ 各 case `replay: null`）· `failure-path-v1`（故障注入类，本来 `replay: null`）。
 
 **与「单一真源」的关系（重要）**：本目录其余字段是**真源的机器副本**（见上表）；而 `replay` 是**人工撰写的**重放脚本，**没有别的真源**——它自己就是源。故它不受「先改真源再同步语料」那条规则约束，只受本语法约束。
 

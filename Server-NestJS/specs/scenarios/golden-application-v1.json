@@ -1,38 +1,45 @@
 {
   "vectorVersion": "v1",
+  "replayVersion": 1,
   "protocol": "Golden Application = AI CRM 一次跑通闭环步骤表（CE-1 B4-golden）",
   "license": "Apache-2.0",
-  "note": "源 = test/golden-application.e2e-spec.ts 的 8 个 it('①..⑧ …') 步骤标题（机器解析 `it('<序号> <标题>')` 为结构化步骤）。漂移门 = pack↔e2e 逐字比对（步数 / index 连续 / 序号标记 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。本语料供跨语言消费与展示。 工具步骤（risk_analysis/create_followup_task）经 MCP 出口（POST /api/v1/mcp tools/call）表达——§tool-invocation：REST/SSE/MCP/headless 各入口同一判定。replay 为中立重放草稿（待第二载体验证）。",
+  "note": "源 = test/golden-application.e2e-spec.ts 的 8 个 it('①..⑧ …') 步骤标题（机器解析 `it('<序号> <标题>')` 为结构化步骤）。漂移门 = pack↔e2e 逐字比对（步数 / index 连续 / 序号标记 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。本语料供跨语言消费与展示。 工具步骤（risk_analysis/create_followup_task）经 MCP 出口（POST /api/v1/mcp tools/call）表达——§tool-invocation：REST/SSE/MCP/headless 各入口同一判定。 **replay 已按 §2.4 v1 语法改写（2026-09-22，JV-15 语法裁定已批）**：路径 / HTTP 方法 / 状态码退出语料，改由 wire 对象与工具名表达。逐条改动与**显式丢弃**（丢弃不静默换成更弱的断言）：① 两条 `POST /crm/customers…`（`expect.status:201`）改 `given.fixtures`——夹具是**前置、不产生断言**（R3），目标用**领域资源名**（N4：`crm-customer` / `crm-order` 不在 wire registry 里），故本步 `replay` 为空；② `result.data.level`（critical）是**工具自己的业务载荷、不是契约字段**（N3-b）⇒ 改断言 `executed:true`，**丢弃** level/score/reasons；③ 两条断言（executed/requiresConfirmation）**相对 `response`**（N3-a）后原样可用；④⑥ 撤销与裁决是**对 wire 对象的写**，用 `call.write` 表达（R4），`expect` 无状态码、改断被写对象的字段；⑤ 两条链（AI 审计 / 操作审计）的 verify 在 wire 上只有 `audit-chain-verification` **一个对象** ⇒ 只可表达其一，**操作审计链那条显式移出并记录**；⑦ 越权撤销是**否定断言**（`expect:null` = 该对象不可读，N2）；⑧ 的「B → 403」半句因 **一步只有一个 actor** 无法同步骤表达，**显式移出并记录**。④⑤⑥⑦ 的目标实体（确认令牌 / 副作用 id）是**流程产物**：v1 的跨步引用只覆盖**夹具**（N1），这些步骤按**对象级**表达——目标由场景状态决定，由各 Runtime 自己寻址。",
   "steps": [
     {
       "index": 1,
       "key": "customer",
       "title": "Customer：创建瀚宇制造 + 280 万逾期订单 → AI 可读到该客户",
-      "replay": [
-        {
-          "call": "POST /api/v1/crm/customers",
-          "expect": {
-            "status": 201
+      "given": {
+        "actor": "alice",
+        "fixtures": [
+          {
+            "as": "customer",
+            "write": "crm-customer",
+            "args": { "name": "瀚宇制造", "company": "瀚宇集团", "status": "active", "riskLevel": "high" }
+          },
+          {
+            "as": "orderOverdue",
+            "write": "crm-order",
+            "args": { "customerId": { "$ref": "customer.id" }, "amount": 2800000, "status": "overdue", "dueDate": "2026-08-01T00:00:00Z" }
+          },
+          {
+            "as": "orderOverdueExtra",
+            "write": "crm-order",
+            "args": { "customerId": { "$ref": "customer.id" }, "amount": 800000, "status": "overdue", "dueDate": "2026-08-10T00:00:00Z" }
           }
-        },
-        {
-          "call": "POST /api/v1/crm/customers/:id/orders",
-          "expect": {
-            "status": 201
-          }
-        }
-      ]
+        ]
+      },
+      "replay": []
     },
     {
       "index": 2,
       "key": "risk_analysis",
       "title": "Risk Analysis：analyze_customer_risk → critical + 理由",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "POST /api/v1/mcp tools/call analyze_customer_risk",
-          "expect": {
-            "result.data.level": "critical"
-          }
+          "call": { "tool": "analyze_customer_risk", "args": { "customerId": { "$ref": "customer.id" } } },
+          "expect": { "executed": true }
         }
       ]
     },
@@ -40,13 +47,14 @@
       "index": 3,
       "key": "create_followup_task_confirmation",
       "title": "Create Follow-up Task：确认门控（不确认不执行）",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "POST /api/v1/mcp tools/call create_followup_task",
-          "expect": {
-            "executed": false,
-            "requiresConfirmation": true
-          }
+          "call": {
+            "tool": "create_followup_task",
+            "args": { "customerId": { "$ref": "customer.id" }, "title": "跟进瀚宇制造 280 万逾期" }
+          },
+          "expect": { "executed": false, "requiresConfirmation": true }
         }
       ]
     },
@@ -54,12 +62,11 @@
       "index": 4,
       "key": "confirmed_write",
       "title": "确认 → 写：任务真实落库 + 副作用登记（可撤销）",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "POST /api/v1/ai/confirmations/:token (approve)",
-          "expect": {
-            "status": 200
-          }
+          "call": { "write": "confirmation-decision", "op": "approve" },
+          "expect": { "decision": "approve" }
         }
       ]
     },
@@ -67,18 +74,11 @@
       "index": 5,
       "key": "audit_verifiable",
       "title": "审计：副作用可撤销登记存在 + 管理端审计哈希链 valid",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "GET /api/v1/audit/verify",
-          "expect": {
-            "data.valid": true
-          }
-        },
-        {
-          "call": "GET /api/v1/audit/operations/verify",
-          "expect": {
-            "data.valid": true
-          }
+          "call": { "read": "audit-chain-verification" },
+          "expect": { "valid": true }
         }
       ]
     },
@@ -86,12 +86,11 @@
       "index": 6,
       "key": "revoke_effect",
       "title": "撤销：本人撤销 AI 副作用 → 任务软删不可见",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "DELETE /api/v1/ai/my/tool-effects/:effectId",
-          "expect": {
-            "status": 200
-          }
+          "call": { "write": "side-effect-revoke", "op": "revoke" },
+          "expect": { "revoked": true }
         }
       ]
     },
@@ -99,12 +98,11 @@
       "index": 7,
       "key": "ownership_check",
       "title": "所有权：B 撤销 A 的副作用 → 404（越权拒绝）",
+      "given": { "actor": "bob" },
       "replay": [
         {
-          "call": "DELETE /api/v1/ai/my/tool-effects/:effectId (跨用户)",
-          "expect": {
-            "status": 404
-          }
+          "call": { "write": "side-effect-revoke", "op": "revoke" },
+          "expect": null
         }
       ]
     },
@@ -112,12 +110,11 @@
       "index": 8,
       "key": "governance_view",
       "title": "治理视图：CRM 业务动作（crm_task）经 governance 端点反查（EB-2/B4 贯通）",
+      "given": { "actor": "alice" },
       "replay": [
         {
-          "call": "GET /api/v1/ai/governance/action/crm_task/:resultId",
-          "expect": {
-            "status": 200
-          }
+          "call": { "read": "side-effect-revoke" },
+          "expect": { "resultType": "crm_task", "toolName": "create_followup_task" }
         }
       ]
     }

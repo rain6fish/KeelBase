@@ -71,25 +71,23 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 | `security-showcase-v1` | 对抗性安全 4 场景 | `security-showcase.service.ts` | 强双向 |
 | `cross-entry-v1` | 跨入口决策一致 4 步 | `test/cross-entry-consistency.e2e-spec.ts` | pack↔e2e 逐字 |
 
-**中立重放契约（未来工作；出现真实第二载体时补全）**：现包为**声明式副本**（`id`/`title`/`outcome`），**不可被第二 Runtime 直接执行**。使其可重放，需每 case 补 `replay` —— 以 **wire 契约**表达的最小步骤序列（不含任何实现细节）：
+**中立重放契约（v1 已落；第二载体的机器验证仍待做）**：`replay` 以 **wire 契约**表达最小步骤序列（不含任何实现细节）。语法 = `specs/scenarios/replay.schema.json`——**选入式**：包声明 `replayVersion: 1` 才受约束；门禁 = `src/ai/scenarios-pack.spec.ts` 的「replay 语法 · 选入门」（自带正反例，非空转）。补全后纳入 **Extended** 层判据：第二 Runtime 跑同一 `replay` 序列应得同一 `expect`（behavioral 层的「载体可替换」实证）。
 
-```json
-{ "id": "<case>", "replay": [ { "call": "<wire 端点 或 MCP 工具>", "expect": { "<字段>": "<值>" } } ] }
-```
+**三条判据（v1）**：① `call` 引用 **wire 对象 / 工具名**，**不引用路径**——路径、HTTP 方法、`/api/v1` 前缀、传输（HTTP vs MCP）、HTTP 状态码、SSE 事件都是实现的自由；② `expect` 的键 = **本次 call 的目标对象**的字段、值**只允许字面量**（`call.tool` 的 `expect` **相对 `response`**；**工具的业务载荷**如 `result.data.level` 不是契约字段、不可断言）；③ 表达不了的**显式丢弃并在包内记录**，不静默换成更弱的断言。
 
-`call`/`expect` 只引用 wire Contract v1（§1 对象 / Schema）。补全后纳入 **Extended** 层判据：第二 Runtime 跑同一 `replay` 序列应得同一 `expect`（behavioral 层的「载体可替换」实证）。
+**现状（2026-09-22）**：
 
-**现状（5 包全部已补 `replay`，草稿）**：
+| 包 | replay |
+|---|---|
+| `golden-application-v1` | ✅ v1（8 步：① 造数据 = **夹具**，②③ 工具调用，④⑥ 治理写，⑤ 审计链 verify，⑦ 否定断言，⑧ 治理视图读） |
+| `trust-proof-v1` | ✅ v1（S1 夹具 / S2 行级拒绝 / S3 R5 阻断 / S4 确认 / S5 撤销 / S7 证据包格式；**S6** 为**外部** java-starter 独立验证 ⇒ `replay: []`） |
+| `cross-entry-v1` | ✅ v1（4 步；**跨入口之别不进语料**——传输是实现的自由，①② 因此成为同形重放，「同源」正体现在这里） |
+| `security-showcase-v1` | `replay: null` —— runtime-specific 展示物，**不在 replay 范围**（无对应 wire 对象） |
+| `failure-path-v1` | `replay: null` —— 故障注入类，**非单次 wire 请求可表达**，由 A/B 层复现 |
 
-| 包 | replay | 备注 |
-|---|---|---|
-| `security-showcase-v1` | 4 case | `POST /ai/security-showcase/run/:id → expect.outcome` |
-| `golden-application-v1` | 8 步 | HTTP 步骤直写；**工具步骤经 MCP 出口**（§tool-invocation：各入口同一判定） |
-| `cross-entry-v1` | 4 步 | 均 `POST /api/v1/mcp` tools/call |
-| `trust-proof-v1` | 6 场景 | S6（Java 存量系统）为**外部** java-starter 独立验证 → 留空 |
-| `failure-path-v1` | 9 → `replay:null` | **不可 wire 表达**：故障注入类（幂等/重放/超时/DB 错/审计中断/补偿失败/迁移中断），由 A/B 层复现 |
+漂移门（`scenarios-pack.spec.ts`）不受影响（门只投影已知字段）；**`replay` 是人工撰写的重放脚本**（没有别的真源——它自己就是源），只受上述语法与门禁约束。
 
-漂移门（`scenarios-pack.spec.ts`，19 断言）不受影响（门只投影已知字段）。**`replay` 为草稿、未经第二载体机器验证**——其准确性由「第二 Runtime 跑同一序列得同一 `expect`」实证；**这是 ③ 唯一余项**。
+**⚠ 仍未证（③ 唯一余项）**：v1 的 `replay` **尚未在第二载体上机器重放**——即「Java 运行时按同一 `replay` 序列跑出同一 `expect`」（Java 线 **JV-15 Slice 1** 的输入已就绪）。在它跑通之前，`replay` 的准确性仍是「按判据写就对」的推断，**不是实证**。
 
 ---
 
