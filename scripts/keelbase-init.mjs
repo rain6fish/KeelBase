@@ -83,7 +83,7 @@ LLM（--desc / 交互中文输入）需要配置环境变量：
   --dry-run            只预览，不写文件
   --no-feature-flag    生成模块不加特性开关
   --tab                生成模块作为 AppShell 底部 Tab（默认顶层全屏页）
-  --force              目标目录已存在时覆盖生成（内置/示例模块撞名时用，如 posts——覆盖会重写生成文件，接线幂等）
+  --force              目标已存在时覆盖生成（模块目录撞名时用，如 posts；亦用于覆盖已存在的 --out 文件——覆盖会重写生成文件，接线幂等）
   -h, --help           显示帮助
 `;
 
@@ -186,13 +186,14 @@ async function writeGenerated(rel, content, force = false) {
     try {
       await access(rel);
       console.log(`${C.dim}○ 已存在（跳过，--force 覆盖）：${rel}${C.reset}`);
-      return;
+      return false;
     } catch {
       // 不存在 → 写入
     }
   }
   const header = content.includes('SPDX-License-Identifier') ? '' : spdxHeader(rel);
   await writeFile(rel, header + content, 'utf8');
+  return true;
 }
 
 async function brandReplace(brand, dryRun) {
@@ -259,8 +260,10 @@ async function main() {
     }
 
     if (args.out) {
-      await writeGenerated(args.out, JSON.stringify({ baseUrl: proxy.baseUrl, audience: proxy.audience, tools: proxy.tools }, null, 2) + '\n');
-      console.log(`${C.green}✓ 已从 OpenAPI 写出 B 路径 Proxy 配置 ${args.out}（${proxy.tools.length} 个工具）${C.reset}`);
+      const wrote = await writeGenerated(args.out, JSON.stringify({ baseUrl: proxy.baseUrl, audience: proxy.audience, tools: proxy.tools }, null, 2) + '\n', args.force);
+      console.log(wrote
+        ? `${C.green}✓ 已从 OpenAPI 写出 B 路径 Proxy 配置 ${args.out}（${proxy.tools.length} 个工具）${C.reset}`
+        : `${C.yellow}○ 未写入 ${args.out}（目标已存在；加 --force 覆盖）${C.reset}`);
       if (proxy.skipped?.length) {
         console.log(`${C.cyan}  跳过：${proxy.skipped.map((s) => `${s.tool}.${s.name}（${s.reason}）`).join('；')}${C.reset}`);
       }
@@ -340,7 +343,11 @@ async function main() {
       const proto = { module: imported.module, label: imported.label, fields: imported.fields };
       if (imported.skipped?.length) proto.skipped = imported.skipped;
       try {
-        await writeGenerated(args.out, JSON.stringify(proto, null, 2) + '\n');
+        const wrote = await writeGenerated(args.out, JSON.stringify(proto, null, 2) + '\n', args.force);
+        if (!wrote) {
+          console.log(`${C.yellow}○ 未写入 ${args.out}（目标已存在；加 --force 覆盖）${C.reset}`);
+          return;
+        }
         console.log(`${C.green}✓ 已从 ${importOpenapi ? 'OpenAPI' : 'SQL Schema'} 写出协议 ${args.out}${C.reset}`);
         if (imported.notes?.length) {
           console.log(`${C.cyan}  提示：${imported.notes.join('；')}${C.reset}`);

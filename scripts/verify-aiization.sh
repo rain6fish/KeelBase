@@ -29,8 +29,10 @@ echo ""
 
 # ── [1] SQL Schema → Protocol ────────────────────────────────────────────────
 echo "→ [1] SQL DDL → Protocol（--import-schema）"
+# mktemp 会先建出空文件，而 keelbase-init 对已存在的目标默认跳过写入（幂等）——
+# 必须加 --force，否则这里拿到的是空文件、下面三条断言全挂（2026-09-22 实证）。
 OUT=$(mktemp /tmp/legacy-customer-XXXX.json)
-node scripts/keelbase-init.mjs --import-schema specs/examples/legacy-crm.sql --out "$OUT" >/dev/null 2>&1 \
+node scripts/keelbase-init.mjs --import-schema specs/examples/legacy-crm.sql --out "$OUT" --force >/dev/null 2>&1 \
   && ok "import-schema 生成 Protocol" || bad "import-schema 失败"
 if [ -f "$OUT" ]; then
   # 断言 1：CHECK 枚举 → enum
@@ -46,7 +48,16 @@ if [ -f "$OUT" ]; then
     bad "类型映射异常"
   fi
   # 断言 3：协议红线（id/时间戳跳过，人工关系列不硬映射）
-  if grep -q '"module": "legacy_customers"' "$OUT" && ! grep -q '"name": "id"' "$OUT"; then
+  #   必须解析 JSON 而非全文 grep：skipped 里同样含 `"name": "id"`，全文匹配会把
+  #   「已正确跳过」误判成「把 id 生成了字段」（2026-09-22 实证）。
+  if node -e '
+      const fs = require("fs");
+      const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const fields = Array.isArray(p.fields) ? p.fields : [];
+      const okModule = p.module === "legacy_customers";
+      const noIdField = fields.length > 0 && !fields.some((f) => f.name === "id");
+      process.exit(okModule && noIdField ? 0 : 1);
+    ' "$OUT"; then
     ok "协议红线（id 主键跳过，module=legacy_customers）"
   else
     bad "协议红线未遵守"
@@ -64,3 +75,5 @@ echo ""
 echo "═══ 验证结果：${PASS} 通过 / ${FAIL} 失败 ═══"
 echo "说明：本脚本验证「已有 Schema → Protocol」映射质量（无污染、可 CI）；"
 echo "生成模块完整链路见 docs/manual/30min-acceptance.md 与 docs/manual/aiization-demo.md"
+# 退出码必须反映失败数——调用方（release-gate）只看退出码，否则本脚本的失败会被吞成通过
+[ "$FAIL" -eq 0 ]
