@@ -124,7 +124,7 @@ const provenanceStore = useProvenanceStore()
 const { provenance } = storeToRefs(provenanceStore)
 const { t } = useI18n()
 // 设置页显示的产品版本——由 scripts/check-version-parity.mjs 门禁保证跟随根 package.json
-const appVersion = ref('1.0.10')
+const appVersion = ref('1.0.11')
 
 // FE-1：来源指纹摘要（来源身份 · 预设 · N 模块 · N 工具）
 const provenanceMeta = computed(() =>
