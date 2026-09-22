@@ -5,7 +5,7 @@
  *
  * 运行时行为源 = 本表（demo-provider.decideFromUser 表驱动遍历，**首命中即路由**——数组顺序即匹配优先级，
  * 更强的动作意图须排在更宽的话题意图之前，见 create_followup_task 处注）；
- * 机器语料副本 = `Server-NestJS/specs/protocol/demo-intent-v1.json`（跨语言可消费、可 diff）。
+ * 机器语料副本 = `Server-NestJS/specs/scenarios/demo-intent-v1.json`（可 diff；非协议契约，见该 spec）。
  * 双向漂移门禁 = `demo-intents.spec.ts`（断言 declare 序列化 == 语料 cases）——任一侧变更
  * 都必须先同步另一侧（CE-1 L3 单源规则）。语义源 = Protocol-freeze 前 Node 实现。
  */

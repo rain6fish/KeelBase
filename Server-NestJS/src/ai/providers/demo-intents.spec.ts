@@ -2,8 +2,11 @@
 
 /**
  * CE-1 B4-demo：demo 用户首轮意图表 双向对账门禁。
- * declare 单源（demo-intents.ts DEMO_USER_INTENTS，provider 表驱动消费）== specs/protocol/demo-intent-v1.json
+ * declare 单源（demo-intents.ts DEMO_USER_INTENTS，provider 表驱动消费）== specs/scenarios/demo-intent-v1.json
  * 语料 cases——任一侧变更都先红，须同步对侧（CE-1 L3 单源规则）。随 npm test 入 CI。
+ *
+ * 落 `specs/scenarios/` 而非 `specs/protocol/`：本语料是 **TS 实现的机器副本**，不是协议契约
+ * ——协议层已独立成仓，契约里不含它。
  */
 
 import { readFileSync } from 'node:fs';
@@ -11,7 +14,7 @@ import { resolve } from 'node:path';
 import { DEMO_USER_INTENTS } from './demo-intents';
 
 const corpus = JSON.parse(
-  readFileSync(resolve(__dirname, '../../../specs/protocol/demo-intent-v1.json'), 'utf8'),
+  readFileSync(resolve(__dirname, '../../../specs/scenarios/demo-intent-v1.json'), 'utf8'),
 ) as { vectorVersion: string; cases: Array<Record<string, unknown>> };
 
 describe('demo 用户首轮意图表 · CE-1 B4-demo 语料对账', () => {
