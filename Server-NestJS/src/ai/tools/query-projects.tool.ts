@@ -7,6 +7,8 @@
  */
 
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+// 词汇从实体取，不在工具里重抄（见 query-customers.tool.ts 的说明）
+import { PROJECT_STATUSES } from '../../pm/pm-project.entity';
 
 interface PmServiceLike {
   listProjects(userId: number, filter: { status?: string; keyword?: string }): Promise<{ items: any[]; total: number }>;
@@ -22,7 +24,7 @@ export class QueryProjectsTool implements AiTool {
       type: 'string',
       description: '项目状态：planned（规划中）/ active（进行中）/ on_hold（暂停）/ completed（已完成）（可选）',
       required: false,
-      enum: ['planned', 'active', 'on_hold', 'completed'],
+      enum: [...PROJECT_STATUSES],
     },
     {
       name: 'keyword',
@@ -43,7 +45,7 @@ export class QueryProjectsTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['planned', 'active', 'on_hold', 'completed'], description: '项目状态' },
+            status: { type: 'string', enum: [...PROJECT_STATUSES], description: '项目状态' },
             keyword: { type: 'string', description: '关键词' },
           },
         },

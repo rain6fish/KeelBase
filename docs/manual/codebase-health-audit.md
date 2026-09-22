@@ -29,8 +29,16 @@
 | M1 | ~~demo-provider dev-only~~ | ❌ **取消**：`ai.module.ts:276-279` 注释明确——是 resolveProvider 链尾**确定性兜底**（无 key 干净环境跑通 AI 黄金流程 + 确定性验证/演示），非生产泄漏，不改 |
 | M2 | ~~3 个孤儿导出~~ | **已清理 2026-09-03**（见 §4） |
 | M3 | `src/common/demo-data.ts`（832）+ `flow-runtime.service.ts:55` | seed 膨胀 + 历史坏数据兼容注释（后续评估拆分/清理） |
-| M4 | 状态/词汇单源化不足：crm/pm 任务状态枚举重复、`riskLevel` 词汇 crm/approval/ai-governance 三处独立、分页 DTO 仅 2 模块使用、`@Column default` 写字面量 | 后续收敛到单源（阶段 4 或随手件清理） |
+| M4 | 状态/词汇单源化不足：**AI 工具 schema 重抄领域词汇**（真缺口，2026-09-22 已修四处）；分页 DTO 仅 2 模块使用；`@Column default` 写字面量 | 前者已收敛到单源 + 漂移闸；余项随阶段 4 |
 | M5 | 前端 i18n 缺口：Flutter `ai_tool_label.dart` 42 处中文映射 + `oauth_service.dart` 13 处错误串 + SDK 桩（fluwx/tobias 未接真实 key） | 方向项：EN 用户可见中文；SDK 桩待真实密钥/真机联调 |
+
+> **M4 复核更正（2026-09-22 实测）**：原表述有两条**方向是错的——照它做会做出坏抽象**，记下免得下一个人重走：
+>
+> - **「crm/pm 任务状态枚举重复」不是重复。** `CRM_TASK_STATUSES` 与 `PM_TASK_STATUSES` 取值当前相同（都是 `pending/in_progress/completed/cancelled`），但那是**两个限界上下文里的两个概念**。合并成一份共享常量会把 `crm_tasks` 与 `pm_tasks` 绑死：任一方要加值都得动另一方，而它们本来就该能各自演化。**不合并。**
+> - **「`riskLevel` 三处独立」是误诊。** 三个 `riskLevel` 是**三个不同概念共用了一个词**：工具风险 `ToolRiskLevel`（R0–R5，**早已单源**于 `ai/interfaces/tool.interface.ts`，ai-governance 直接 import 它）、客户风险（low/medium/high/critical，**也已单源**于 `crm-customer.entity.ts` 的 `RISK_LEVELS`）、审批金额风险（low/medium/high，至今无词汇表）。把它们合成一份，等于把 AI 治理、CRM、审批三个域缝在一起。
+> - **真正的缺口是「已有单源没被喂到底」**：AI 工具的 JSON schema 把领域词汇又抄了一遍——而且**同一个文件里抄两遍**（`parameters[]` 一份、`toToolDefinition()` 一份）。2026-09-22 修掉四处（`query_customers` 的 status / riskLevel、`query_projects` 的 status、`query_approval_requests` 的 status），全部改为引用实体常量；并加漂移闸 `src/ai/tools/tool-vocabulary-single-source.spec.ts`（该闸守的是**漂移**：实体加值而工具停在旧字面量即红；它**不**检测「重写一份与今天取值相同的字面量」）。
+> - **未动**：`query_events` 与 `create_contract` 同形，但两个域**都还没有词汇表**——那属「先造单源」，不是「喂到底」，需要先决定词汇归属，不在本次范围。
+
 
 ### LOW — 杂物 / 本地堆积
 

@@ -7,6 +7,9 @@
  */
 
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+// 词汇从实体取，不在工具里重抄：工具声明的是「模型可以传什么」，那就是领域词汇表的第二份拷贝——
+// 实体那边加一个状态，模型这边就会静默地继续收旧集合。（codebase-health-audit M4）
+import { CUSTOMER_STATUSES, RISK_LEVELS } from '../../crm/crm-customer.entity';
 
 interface CrmServiceLike {
   listCustomers(
@@ -25,14 +28,14 @@ export class QueryCustomersTool implements AiTool {
       type: 'string',
       description: '客户状态：lead（潜在）/ active（合作中）/ churn_risk（流失风险）/ inactive（已停止）（可选）',
       required: false,
-      enum: ['lead', 'active', 'churn_risk', 'inactive'],
+      enum: [...CUSTOMER_STATUSES],
     },
     {
       name: 'riskLevel',
       type: 'string',
       description: '风险等级：low / medium / high / critical（可选）',
       required: false,
-      enum: ['low', 'medium', 'high', 'critical'],
+      enum: [...RISK_LEVELS],
     },
     {
       name: 'keyword',
@@ -53,8 +56,8 @@ export class QueryCustomersTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['lead', 'active', 'churn_risk', 'inactive'], description: '客户状态' },
-            riskLevel: { type: 'string', enum: ['low', 'medium', 'high', 'critical'], description: '风险等级' },
+            status: { type: 'string', enum: [...CUSTOMER_STATUSES], description: '客户状态' },
+            riskLevel: { type: 'string', enum: [...RISK_LEVELS], description: '风险等级' },
             keyword: { type: 'string', description: '关键词' },
           },
         },

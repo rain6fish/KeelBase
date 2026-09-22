@@ -7,6 +7,8 @@
  */
 
 import { AiTool, ToolDefinition, ToolParameter, ToolResult } from '../interfaces/tool.interface';
+// 词汇从实体取，不在工具里重抄（见 query-customers.tool.ts 的说明）
+import { REQUEST_STATUSES } from '../../approval/approval-request.entity';
 
 interface ApprovalServiceLike {
   listRequests(userId: number, filter: { status?: string }): Promise<{ items: any[]; total: number }>;
@@ -24,7 +26,7 @@ export class QueryApprovalRequestsTool implements AiTool {
       type: 'string',
       description: '状态：pending（待预审）/ needs_review（待人工复核）/ approved（已通过）/ rejected（已驳回）/ auto_approved（自动通过）（可选）',
       required: false,
-      enum: ['pending', 'needs_review', 'approved', 'rejected', 'auto_approved'],
+      enum: [...REQUEST_STATUSES],
     },
   ];
 
@@ -39,7 +41,7 @@ export class QueryApprovalRequestsTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['pending', 'needs_review', 'approved', 'rejected', 'auto_approved'], description: '状态' },
+            status: { type: 'string', enum: [...REQUEST_STATUSES], description: '状态' },
           },
         },
       },
