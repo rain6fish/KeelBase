@@ -7,7 +7,7 @@
  * 使用 TypeORM 持久化对话和审计日志。
  */
 
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
@@ -48,6 +48,8 @@ import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ToolExposureService } from './tools/tool-exposure.service';
 import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
+import { AuthzExplainModule } from './authz-explain.module';
+import { AiAuditModule } from './audit/ai-audit.module';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
@@ -149,13 +151,19 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     ConfigModule,
-    forwardRef(() => AuthModule),
-    forwardRef(() => EventsModule),
+    // 授权解释面叶子模块（阶段 4 环根治第一刀）：ToolRegistry / GovernancePolicyService / explainer 由它提供，
+    // 谁需要谁来引，不必经由 AiModule（auth 因此不再引 ai）
+    AuthzExplainModule,
+    // 审计写入面叶子模块（阶段 4 环根治第二刀）：flows 只引它，不必经 AiModule
+    AiAuditModule,
+    AuthModule,
+    EventsModule,
     UsersModule,
     TodosModule,
     ContractsModule,
-    // org→flows→ai→events→org 间接环：Org 侧需 forwardRef
-    forwardRef(() => OrgModule),
+    OrgModule,
+    // 注：本族曾因 org→flows→ai→events→org 间接环而 forwardRef；环已由「授权解释面」
+    // 与「审计写入面」两个叶子模块打断，故三处均降为普通 import（见各自模块头注释）。
     CrmModule,
     PmModule,
     ApprovalModule,
@@ -169,10 +177,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [
-    ToolRegistry,
-    AuthorizationExplainerService,
     ConversationService,
-    AuditService,
     AiDailyUsageService,
     ToolGateService,
     ToolExecutionService,
@@ -201,10 +206,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ContentSafetyService,
     // D2-1f 副作用撤销执行器：默认本地软删，独立治理控制平面可替换为远程补偿 revoker
     { provide: SIDE_EFFECT_REVOKER, useClass: LocalEntityRevoker },
-    GovernancePolicyService,
     // D2-3b 治理上报（GOVERNANCE_URL 配置时审计双写；未配置 enabled=false 完全本地）
-    GovernanceReporter,
-    { provide: GOVERNANCE_REPORTER, useClass: GovernanceReporter },
     DecisionTraceService,
     BusinessHistoryService,
     {
@@ -451,6 +453,6 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
       inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
-  exports: [ConversationService, AuditService, AiService, KnowledgeIngestionService, GovernancePolicyService, AuthorizationExplainerService, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],
+  exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],
 })
 export class AiModule {}

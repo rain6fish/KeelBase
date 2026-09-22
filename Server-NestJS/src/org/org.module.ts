@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrgController } from './org.controller';
 import { OrgService } from './org.service';
@@ -16,12 +16,12 @@ import { FlowsModule } from '../flows/flows.module';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
 import { FlowTask } from '../flows/entities/flow-task.entity';
 
-// forwardRef：org→flows→ai→events→org 间接环（ORG 事件按组织归属引入 events→org）
+// （阶段 4 环根治：flows 改为只引审计写入面叶子模块，org→flows 不再回环，普通 import 即可）
 @Module({
   imports: [
     TypeOrmModule.forFeature([Organization, Department, OrgMember, OrgInvite, User, FlowInstance, FlowTask]),
     NotificationsModule,
-    forwardRef(() => FlowsModule),
+    FlowsModule,
   ],
   controllers: [OrgController],
   // DataScopeService 挂在这里而非新开 AuthzModule：它只需要 User 仓储（本模块已有）+ OrgService

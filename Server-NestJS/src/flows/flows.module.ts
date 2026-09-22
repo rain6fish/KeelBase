@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { AiModule } from '../ai/ai.module';
+import { AiAuditModule } from '../ai/audit/ai-audit.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { FlowDefinition } from './entities/flow-definition.entity';
 import { FlowInstance } from './entities/flow-instance.entity';
@@ -25,7 +25,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
 @Module({
   imports: [
     TypeOrmModule.forFeature([FlowDefinition, FlowInstance, FlowTask, User, OrgMember]),
-    forwardRef(() => AiModule),
+    // 审计写入面叶子模块（阶段 4 环根治第二刀）：不再需要 forwardRef(AiModule)
+    AiAuditModule,
     NotificationsModule,
   ],
   controllers: [FlowController],

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApprovalController } from './approval.controller';
 import { ApprovalService } from './approval.service';
@@ -11,7 +11,7 @@ import { OrgModule } from '../org/org.module';
 
 /** AI Approval 旗舰应用模块（业务样例，capabilities 可开关） */
 @Module({
-  imports: [TypeOrmModule.forFeature([ApprovalRequest, ApprovalPolicy, User]), forwardRef(() => OrgModule)], // org→flows→ai→auth 间接环：须 forwardRef
+  imports: [TypeOrmModule.forFeature([ApprovalRequest, ApprovalPolicy, User]), OrgModule], // 阶段 4 环根治：末端已是叶子模块，普通 import 即可
   controllers: [ApprovalController],
   providers: [ApprovalService],
   exports: [ApprovalService],

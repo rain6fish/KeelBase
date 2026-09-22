@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { DelegationTokenService } from './delegation-token.service';
 import { PassportModule } from '@nestjs/passport';
@@ -27,7 +27,7 @@ import { MailModule } from '../mail/mail.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { SmsModule } from '../sms/sms.module';
 import { OrgModule } from '../org/org.module';
-import { AiModule } from '../ai/ai.module';
+import { AuthzExplainModule } from '../ai/authz-explain.module';
 
 @Module({
   imports: [
@@ -58,7 +58,8 @@ import { AiModule } from '../ai/ai.module';
     CacheModule,
     SmsModule,
     OrgModule,
-    forwardRef(() => AiModule),
+    // 授权解释面（阶段 4 环根治第一刀）：不再需要 forwardRef 引 AiModule——本模块是叶子，不引 auth
+    AuthzExplainModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, OAuthService, OAuthProvidersConfigService, JwtStrategy, MfaService, UploadSignService, DelegationTokenService],

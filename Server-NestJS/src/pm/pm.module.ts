@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PmController } from './pm.controller';
 import { PmService } from './pm.service';
@@ -15,7 +15,7 @@ import { OrgModule } from '../org/org.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([PmProject, PmMember, PmMilestone, PmTask, PmRisk]),
-    forwardRef(() => OrgModule), // org→flows→ai→auth 间接环：须 forwardRef
+    OrgModule, // 阶段 4 环根治：末端已是叶子模块，普通 import 即可
   ],
   controllers: [PmController],
   providers: [PmService],
