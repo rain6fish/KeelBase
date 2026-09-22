@@ -28,7 +28,13 @@ import '../test/wiring-env';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
 import { GovernanceModule } from './governance/governance.module';
+import { SidecarModule } from './governance-sidecar/sidecar.module';
 
+/**
+ * 三个入口都要装得起来——`npm start` / `start:governance` / `start:sidecar` 各有一个根模块。
+ * 只测其中一个，就等于说「另外两个入口的装配坏了不会被发现」；今天两次事故（inject 错位、控制平面
+ * 缺 provider）都属这一类。
+ */
 describe('装配冒烟（模块能被实例化）', () => {
   it('AppModule：整张依赖图装得起来', async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -37,6 +43,11 @@ describe('装配冒烟（模块能被实例化）', () => {
 
   it('GovernanceModule：独立控制平面装得起来', async () => {
     const moduleRef = await Test.createTestingModule({ imports: [GovernanceModule] }).compile();
+    await moduleRef.close();
+  }, 120_000);
+
+  it('SidecarModule：审计代理入口装得起来', async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [SidecarModule] }).compile();
     await moduleRef.close();
   }, 120_000);
 });
