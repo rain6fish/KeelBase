@@ -20,7 +20,7 @@
 | H2 | `Server-NestJS/src/auth/auth.service.ts`（1111）/ `src/ai/audit/audit.service.ts`（1022） | 巨型 service，天然子域边界明显（auth: 登录/锁定/OAuth/MFA/SSO/会话；audit: 写入/哈希链/统计/报表） | 阶段 3 先拆这两个（先拆小后拆大） |
 | H3 | `src/crm/crm.service.ts`（571）/ `src/admin/admin.service.ts`（598）/ `src/org/org.service.ts`（568） | 中型膨胀（500+） | 阶段 3 后续 |
 | H4 | audit/governance 语义分散：`src/operation-audit` / `src/ai/audit` / `src/ai/governance` / `src/governance` / `src/governance-sidecar` | 治理+审计+审批语义切 4+1 处，`governance` 与 `ai/governance` 命名直接平行；sidecar 疑可独立进程又与 ai-tool-effects 交叉 | 阶段 4 独立架构立项（牵涉独立治理台进程，**不在本次范围**） |
-| H5 | import 环（5 处）| 阶段 2（2026-09-03）已切 **service 级两条反向运行时环**：新建 `AuthorizationExplainerService`（授权解释子域），audit.service / auth.controller 不再依赖 AiService；环 1 compactor、环 3 presets 核实为类型级 import（改 import type / 已 import type，无运行时环）；**剩余 module 级 forwardRef 环**（ai↔auth↔org↔flows）为已知架构权衡，保留 |
+| H5 | import 环（5 处）| 阶段 2（2026-09-03）已切 **service 级两条反向运行时环**：新建 `AuthorizationExplainerService`（授权解释子域），audit.service / auth.controller 不再依赖 AiService；环 1 compactor、环 3 presets 核实为类型级 import（改 import type / 已 import type，无运行时环）；**module 级 forwardRef 环已于 2026-09-22 打断**（抽出两个叶子模块，见 §4 阶段 4 记录）——该族 9 个模块的 forwardRef 全部降为普通 import；仅剩独立的 `notifications ↔ realtime` 一对（另一条环，未动） |
 
 ### MEDIUM — 质量（阶段 2/后续）
 
@@ -147,7 +147,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 ## 5. 待办（未做项）
 
 - [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
-- [ ] 阶段 2 残余 · **module 级 forwardRef 环**（ai↔auth↔org↔flows）为已知架构权衡——根治需 Explainable Authz 端点归属调整（auth controller 的 explainable 端点迁出 ai 域）+ 共享 provider 梳理，**建议并入阶段 3/4 统一做**
+- [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：governance/audit 语义整合架构立项；状态/风险词汇常量单源；Flutter i18n 中文映射迁移；React 预览版去留
 - [ ] M3：demo-data.ts 832 行 seed 拆分评估
@@ -618,3 +618,32 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **阶段 4 余项**：H4 governance 语义整合（独立架构立项，牵涉治理台进程，**不在本次范围**）；
   M4 剩余两项**已判为不做或不擅自做**（见上）；M5 Flutter i18n 中文映射（方向项）；
   React 预览版去留（**待用户决定**）；`module forwardRef` 环根治。
+
+### 2026-09-22 — 阶段 4：module forwardRef 环根治（抽出两个叶子模块）· **H5 收口**
+- ✅ **先核图再动刀，核出文档给的路线会伤到公开 API**：待办原文写「根治需 Explainable Authz 端点归属调整
+  （auth controller 的 explainable 端点迁出 ai 域）」。核图发现那 4 个端点
+  （`GET /auth/me/permissions`、`POST /auth/permissions/explain[/target]`、`GET /auth/permissions/chain`）
+  **管理台正在调用**，迁走即改公开路径 + 牵连契约与前端。**改走另一条路：把被共享的 provider 提成叶子模块**，
+  端点原地不动 ✓。
+- ✅ **两张图（不是一条链）**：`forwardRef` 实为两族——**ai ↔ auth 直接环**（auth.controller 要 ai 的
+  `AuthorizationExplainerService` 解释 AI 工具裁决；ai 要 auth 的 `DelegationTokenService` 做 B 路径委托）
+  与 **ai → events → org → flows → ai 间接环**（flows 用 `AuditService` 写 `flow_node` 审计行）。
+  两者**耦合**：只切一条，auth 仍可经 org→flows 回到 ai，forwardRef 仍在 ✓ 故必须两条一起断。
+- ✅ 两个新叶子模块：
+  `AuthzExplainModule`（`ToolRegistry` 零依赖 / `AuthorizationExplainerService` / `GovernancePolicyService` 仅两仓）
+  与 `AiAuditModule`（`AuditService` + `GovernanceReporter`，后者**只依赖 ConfigService**）。
+  两者都**不引 ai、不引 auth/flows**；注册入口与 provider 实例不变（Nest 单例），
+  且 **`AiModule` 再导出二者**——既有 `imports: [AiModule]` 的消费者（mcp / admin / readiness / governance…）
+  拿到的仍是同一批实例。
+- ✅ **收益兑现**：环断后图即无环，**9 个模块**的 `forwardRef` 降为普通 import
+  （ai 对 auth/events/org 三处、org→flows、events/todos/crm/pm/approval→org 五处）。
+  仅剩 **`notifications ↔ realtime`** 一对（另一条独立环，本刀不碰）。
+- ⚠️ **release-gate 首跑通过、第二三次却中途崩（无 jest 汇总）——如实记录，且这是闸门自身的脆弱点**：
+  闸门把这 14 个 e2e **放在一次 jest 调用**里，恰好命中本机已知的「单进程长跑硬崩」。三次跑分
+  ​别为 **PASS 24/0**、FAIL(14/10)、FAIL(17/7)，**失败项全是服务依赖型检查且无任何测试失败**（只有缺失的汇总行），
+  与代码无关。**这对「每刀跑 release-gate」这条纪律是个真问题**：闸门需要分片，否则它自己会间歇性假红。
+  （本刀的实际验证由：构建 + 三入口装配冒烟 + 294 单测套件 + 36 个 e2e 套件分四批全过 共同背书。）
+- **验证**：构建 ✓；装配冒烟 **3/3**（正是为这类 DI 改动准备的守卫）；全量单测 **294 suite / 2676 tests 全过**；
+  e2e **36 套件 / 372 用例**（批次 4 首跑崩、重试全过）；`test:cov` 通过（安全分档 6/6）；
+  release-gate **1 次 24/0 + 2 次环境性中断**（见上）。
+- **下一刀候选**（变更驱动）：`notifications ↔ realtime` 环（需先核图：谁为谁而引）；或阶段 4 余项（H4 / M5 / React）。
