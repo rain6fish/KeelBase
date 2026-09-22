@@ -1221,9 +1221,9 @@ block follows as its own complete unit. Bodies are never interleaved — the tit
 
 **Release notes / CHANGELOG / tag message（2026-09-22 用户定案）**：参照 **v1.0.9 的发布说明**——
 <https://gitee.com/rain6fish/KeelBase/releases/tag/v1.0.9>。版式 = **英文整块在前、中文整块在后**
-（**不是**逐条中英配对）；小节对应 `Highlights` / `亮点` · `Also` / `其它`，末尾给完整详情链接。
-**只要是有文字说明的，一律照此**（不限于发版与提交）。该规则已升为**用户级**
-（`~/.claude/CLAUDE.md`，**所有仓库 / 项目通用**）。
+（**不是**逐条中英配对）；小节一一对应 `Highlights` / `亮点` · `Also` / `其它`；**末尾完整详情链接
+中英两段都给**（`Full details:` / `完整详情：`）。**只要是有文字说明的，一律照此**（不限于发版与提交）。
+**定稿版式、示例与自查清单 → `~/.claude/CLAUDE.md`**（用户级，**所有仓库 / 项目通用**）。
 
 ## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
 
