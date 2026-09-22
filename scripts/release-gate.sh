@@ -54,24 +54,54 @@ else
 fi
 
 # ── Trust：三旗舰 + 生成模块 e2e（越权/写确认/审计）────────────────────────────
+# 分 4 批跑：这 14 个套件放进**一次** jest 调用会命中本机已知的「单进程长跑硬崩」——
+# 进程中途无输出死亡（无 jest 汇总行），缺 PASS 行 → 闸门自身间歇假红（实测同一刀三次：
+# 24/0、14/10、17/7，失败项全是服务依赖型检查、无任何测试失败）。分片缩短单进程时长以规避。
+# 判据不削弱：仍逐套件 grep jest 的 "PASS test/<name>.e2e-spec.ts"，真实失败照旧 FAIL。
+# CI 的 release-gate job 跑的是同一脚本（形态相同，分片对它同样成立）；CI 上是否复现该硬崩未实测。
 echo "→ [Trust] 越权 / 写确认 / 审计"
 (cd Server-NestJS && rm -f data/test.sqlite)
-E2E_OUT=$(cd Server-NestJS && npx jest --config test/jest-e2e.json \
-  test/crm.e2e-spec.ts test/pm.e2e-spec.ts test/approval.e2e-spec.ts \
-  test/generated-modules.e2e-spec.ts test/generated-module-governance.e2e-spec.ts test/explainable-authz.e2e-spec.ts \
-  test/cross-entry-consistency.e2e-spec.ts test/failure-path.e2e-spec.ts \
-  test/revoke-acceptance.e2e-spec.ts test/trust-behavior-matrix.e2e-spec.ts \
-  test/governance-plane.e2e-spec.ts test/crm-trust-failure-path.e2e-spec.ts \
-  test/pm-trust-failure-path.e2e-spec.ts test/approval-trust-failure-path.e2e-spec.ts 2>&1) || true
+# 套件清单单一真源：批次切分与逐套件判定都从这里派生（避免两处平行列表漂移）
+E2E_SUITES=(
+  "crm:CRM" "pm:PM" "approval:Approval"
+  "generated-modules:生成模块" "generated-module-governance:生成模块治理缺省(30min闭环)" "explainable-authz:Explainable Authz"
+  "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)"
+  "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)"
+  "governance-plane:治理台HTTP" "crm-trust-failure-path:CRM失败路径(A2)"
+  "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"
+)
+E2E_BATCHES=4   # 按套件数均分；轮转取用，使重套件分散到不同批
+E2E_BATCH_OUT=(); E2E_BATCH_LIST=()
+for ((b = 0; b < E2E_BATCHES; b++)); do
+  batch_files=(); batch_names=""
+  for ((i = b; i < ${#E2E_SUITES[@]}; i += E2E_BATCHES)); do
+    name="${E2E_SUITES[i]%%:*}"
+    batch_files+=("test/${name}.e2e-spec.ts"); batch_names="${batch_names}${batch_names:+ }${name}"
+  done
+  echo "  · e2e 批次 $((b+1))/${E2E_BATCHES}（${#batch_files[@]} 套件）：${batch_names}"
+  E2E_BATCH_OUT[b]=$(cd Server-NestJS && npx jest --config test/jest-e2e.json "${batch_files[@]}" 2>&1) || true
+  E2E_BATCH_LIST[b]="${batch_names}"
+done
+E2E_OUT=$(printf '%s\n' "${E2E_BATCH_OUT[@]}")
 failed_e2e=""
-for t in "crm:CRM" "pm:PM" "approval:Approval" "generated-modules:生成模块" "generated-module-governance:生成模块治理缺省(30min闭环)" "explainable-authz:Explainable Authz" "cross-entry-consistency:跨入口决策一致性(T5)" "failure-path:失败路径回归(KB-4)" "revoke-acceptance:撤销验收(G4)" "trust-behavior-matrix:信任行为矩阵(§14)" "governance-plane:治理台HTTP" "crm-trust-failure-path:CRM失败路径(A2)" "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"; do
+for t in "${E2E_SUITES[@]}"; do
   name="${t%%:*}"; label="${t##*:}"
   if grep -q "PASS test/${name}.e2e-spec.ts" <<<"$E2E_OUT"; then gate "Trust(${label})" pass; else gate "Trust(${label})" fail "e2e"; failed_e2e="${failed_e2e} ${name}"; fi
 done
-# 失败可诊断：回显 jest 输出尾部（否则日志只有 "FAIL — e2e"，无法定位）
+# 失败可诊断：**按批**回显 jest 输出尾部（否则日志只有 "FAIL — e2e"，无法定位是哪批哪个套件）。
+# 按批而非只回显总输出尾部——单次调用时早期套件的失败明细会被后面的输出挤出尾部窗口。
+# 硬崩的批输出为空，只留下「· 批次 N ·」标记，该标记本身即是崩溃特征。
 if [ -n "$failed_e2e" ]; then
-  echo "── 失败 e2e 明细（${failed_e2e}）— jest 输出尾部 ──"
-  printf '%s\n' "$E2E_OUT" | tail -n 160
+  echo "── 失败 e2e 明细（${failed_e2e}）— 按批回显 jest 输出尾部 ──"
+  for ((b = 0; b < E2E_BATCHES; b++)); do
+    batch_failed=""
+    for name in ${E2E_BATCH_LIST[b]}; do
+      case " ${failed_e2e} " in *" ${name} "*) batch_failed="${batch_failed} ${name}";; esac
+    done
+    if [ -z "$batch_failed" ]; then continue; fi
+    echo "·· 批次 $((b+1))/${E2E_BATCHES}（失败：${batch_failed}）· jest 输出尾部 ··"
+    printf '%s\n' "${E2E_BATCH_OUT[b]}" | tail -n 160
+  done
   echo "── /失败 e2e 明细 ──"
 fi
 
