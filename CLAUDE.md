@@ -1219,6 +1219,12 @@ block follows as its own complete unit. Bodies are never interleaved — the tit
 - 提交前自检：标题是 `type(scope):` 打头？有独立英文正文段？空行后有独立中文正文段？
   正文两段各自纯语言、无夹杂？无 Co-Authored-By？
 
+**Release notes / CHANGELOG / tag message（2026-09-22 用户定案）**：参照 **v1.0.9 的发布说明**——
+<https://gitee.com/rain6fish/KeelBase/releases/tag/v1.0.9>。版式 = **英文整块在前、中文整块在后**
+（**不是**逐条中英配对）；小节对应 `Highlights` / `亮点` · `Also` / `其它`，末尾给完整详情链接。
+**只要是有文字说明的，一律照此**（不限于发版与提交）。该规则已升为**用户级**
+（`~/.claude/CLAUDE.md`，**所有仓库 / 项目通用**）。
+
 ## 15. AI Coding Rules — Code Economy（反垃圾代码约束）
 
 > 来源：AI Code Economy Review。目标：**AI 生成代码时就知道不能怎么写**，比事后 Review 更有效。核心四动作：**Search Before Create → Detect Duplicate → Detect Unnecessary Abstraction → Delete Before Add**。
