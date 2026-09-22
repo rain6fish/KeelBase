@@ -4,7 +4,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
-import { ApprovalRequest } from './approval-request.entity';
+import { ApprovalRequest, ApprovalRiskLevel } from './approval-request.entity';
 import { ApprovalPolicy } from './approval-policy.entity';
 import { User } from '../common/entities/user.entity';
 import { CreateRequestDto, CreatePolicyDto } from './dto/approval.dto';
@@ -98,7 +98,7 @@ export class ApprovalService {
     const threshold = policy?.maxAmount ?? 1000;
 
     let status: string;
-    let riskLevel: string;
+    let riskLevel: ApprovalRiskLevel;
     let recommendation: string;
     if (req.amount <= threshold) {
       status = 'auto_approved';

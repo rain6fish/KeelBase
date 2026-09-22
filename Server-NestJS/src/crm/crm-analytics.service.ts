@@ -15,7 +15,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import { CrmCustomer } from './crm-customer.entity';
+import { CrmCustomer, RiskLevel } from './crm-customer.entity';
 import { CrmOrder } from './crm-order.entity';
 import { CrmActivity } from './crm-activity.entity';
 import { CrmTask } from './crm-task.entity';
@@ -24,7 +24,8 @@ import { CrmOpportunity } from './crm-opportunity.entity';
 import { assertCustomerOwner } from './customer-ownership';
 
 export interface RiskAnalysis {
-  level: string;
+  /** 风险等级：与客户 riskLevel 同一词汇（`crm-customer.entity` 的 RISK_LEVELS 单一来源） */
+  level: RiskLevel;
   score: number;
   reasons: string[];
   dataPoints: {
@@ -93,6 +94,7 @@ export class CrmAnalyticsService {
       openRisks: risks.filter((r) => !r.resolvedAt).length,
     };
   }
+
   // ── 风险分析（analyze_customer_risk 工具核心逻辑）───────────
 
   /** 计算客户风险：逾期订单 + 高价值订单 + 逾期任务 + 未解决风险 + 客户状态 */
