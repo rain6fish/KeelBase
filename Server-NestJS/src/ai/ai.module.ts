@@ -402,10 +402,18 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           delegationTokenService,
           toolRegistry,
         );
-        void proxyRegistry.loadAndRegister();
+        // 如实记日志并吞掉：这里不 await，未捕获的 rejection 会变成 unhandled rejection，
+        // 谁也不知道它属于谁（实证：装配冒烟里它被 jest 记在另一个不相干的测试头上）。
+        void proxyRegistry.loadAndRegister().catch((err: Error) => {
+          console.error('[AiModule] ai_proxy_tools 初始注册失败（不影响启动）: %s', err.message);
+        });
         // 热更新：ai_proxy_tools 配置变更 → 反注册旧工具 + 重新加载（无需重启 KeelBase）
         settingsService.onChange((key) => {
-          if (key === SETTING_KEYS.PROXY_TOOLS) void proxyRegistry.reload();
+          if (key === SETTING_KEYS.PROXY_TOOLS) {
+            void proxyRegistry.reload().catch((err: Error) => {
+              console.error('[AiModule] ai_proxy_tools 热更新失败: %s', err.message);
+            });
+          }
         });
 
         // 4.6 B 路径运行时撤销：ProxyTool 写副作用撤销 → 调 Java 补偿端点（revokePath 约定，AI Bridge §4）
