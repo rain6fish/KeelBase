@@ -51,20 +51,30 @@
 
 ### ④ 版本 bump 与版本对账
 
-发版 bump **必须覆盖发版线全部清单**（漏一个即对外版本信息错版）：
+**两层版本，别混**（2026-09-22 松绑：清单版本与产品版本分开）：
+
+- **产品版本**（一个）= 根 `package.json` 的 `version`，**唯一真源**。它被两处**运行时权威**读取，
+  而两者读的是**两个不同清单**：
+  - `scripts/generator/manifest.mjs` 的 `generatorVersion()` → 写进生成物
+    `.keelbase/manifest.json` / `.keelbase-provenance.json`（来源身份）
+  - `Server-NestJS/src/app-version/app-version.config.ts` → `/app/version`、管理台「应用版本」行
+- **各端清单版本**（packaging）= 各 `package.json` / `pubspec.yaml` 自带，**可独立于产品号**。
+
+**发版只需 bump 这些**（= 发版线成员，须 == 产品版本）：
 
 | 清单 | 说明 |
 |------|------|
-| `package.json`（仓库根） | npm `keelbase` CLI 包 + **生成器来源身份读取源**（`scripts/generator/manifest.mjs`）——漏 bump 会让每个 `keelbase init` 产物把旧版本写进 `.keelbase/manifest.json` / `.keelbase-provenance.json` |
-| `Server-NestJS/package.json` | 后端 |
-| `Web-Admin-Vue/package.json` | Web 宿主（工作台 + 管理台） |
-| `Front-Taro/package.json` | Taro |
-| `Front-Flutter/pubspec.yaml` | 移动主 App（`x.y.z+N`） |
+| `package.json`（仓库根） | 产品版本真源 + 生成器来源身份读取源 |
+| `Server-NestJS/package.json` | 后端运行时版本（`/app/version`） |
+| 各 lockfile 根版本字段 | `version` + `packages[""].version`，跟随**其自身清单** |
+| 前端**显示**版本常量 | Flutter `app_constants.dart` 的 `appVersion`、Taro `settings/index.vue` 的 `appVersion` 跟随产品版本 |
 
-外加各 lockfile 的根版本字段（`version` + `packages[""].version`，跟随其清单）。
+**不必再跟着 bump**：`Web-Admin-Vue` / `Front-Taro` / `Front-Flutter` 的清单版本（各自持版），
+以及 `Web-Admin-React`（预览版，未表态转正）。
 
-门禁：`node scripts/check-version-parity.mjs`（CI job `version-parity`）——任一清单或 lockfile 掉队即红，并报出「掉队者 vs 发版线版本」。
-**不随发版线**：`Web-Admin-React/package.json`（预览版，未表态转正前不参与，已在门禁内显式登记）。
+门禁：`node scripts/check-version-parity.mjs`（CI job `version-parity`）。除了成员与 lockfile，
+它还会**直检**两个运行时权威源仍在发版线成员内——防「权威源停更 → 生成物错版 + doctor 自比成假绿」
+（2026-09-16 事故的原形），以及前端显示版本常量掉队（原门禁的漏）。
 
 ## 执行记录
 

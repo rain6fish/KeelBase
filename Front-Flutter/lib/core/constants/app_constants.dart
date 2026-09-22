@@ -24,8 +24,9 @@ class AppConstants {
     (label: 'Prod', url: 'https://app.example.com/api/v1'),
   ];
 
-  /// 当前 App 版本号（发布时与 pubspec `version:` 同步）
-  static const String appVersion = '0.9.2';
+  /// 设置页显示的产品版本（**非** pubspec 的打包版本）——由
+  /// `scripts/check-version-parity.mjs` 门禁保证跟随根 package.json 的产品版本。
+  static const String appVersion = '1.0.10';
 
   /// 服务端资源基础地址（剥掉 /api/v1 前缀，如 http://localhost:3000）。
   /// 跟随 [activeBaseUrl]，确保 Dev Menu 切换环境后资源 URL 同步指向新 host。

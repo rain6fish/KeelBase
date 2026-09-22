@@ -10,21 +10,21 @@ The backend exposes a version metadata endpoint; the frontend checks on startup 
 
 ### 2.1 配置（`src/app-version/app-version.config.ts`）/ Configuration
 
-静态导出版本元数据：
+导出应用版本元数据。**`latestVersion` 自动取自 `Server-NestJS/package.json`（不可手写）**，其余字段静态配置：
 
-Exports version metadata statically:
+Exports app version metadata. **`latestVersion` is read from `Server-NestJS/package.json` (never hand-written)**; the remaining fields are static configuration:
 
 ```typescript
 export const APP_VERSION = {
-  latestVersion: '1.1.0',
+  latestVersion: readPackageVersion(), // 取自 package.json，不可手写
   minRequiredVersion: '1.0.0',
   updateUrl: 'https://example.com/download',
   changelog: ['新增待办清单', '通知深链跳转', '修复已知问题'],
 };
 ```
 
-> 基座场景静态配置即可；上线运营时改此文件 + 前端常量。
-> Static configuration is sufficient for the base-platform scenario; when going into production, update this file plus the frontend constant.
+> 基座场景静态配置即可。上线运营时改此文件的 `minRequiredVersion` / `updateUrl` / `changelog`——**版本号本身不在此处维护**（bump 走发版流程，见 `docs/manual/release-precheck.md` ④）。
+> Static configuration is sufficient for the base-platform scenario. When going into production, edit `minRequiredVersion` / `updateUrl` / `changelog` here — **the version number itself is not maintained in this file** (bumping follows the release process, see `docs/manual/release-precheck.md` §4).
 
 ### 2.2 API
 
@@ -49,9 +49,9 @@ Module: `AppVersionModule` (controller + service), registered in `app.module.ts`
 
 ### 3.1 版本号 / Version Number
 
-`AppConstants.appVersion = '1.0.0'`（发布时与 pubspec `version:` 同步）。`settings` 页 `version` 行展示 `AppConstants.appVersion`（替代硬编码）。
+`AppConstants.appVersion`（`settings` 页 `version` 行展示它）是**产品版本**，不是 pubspec 的打包版本；由 `scripts/check-version-parity.mjs` 门禁保证跟随根 `package.json` 的产品版本。
 
-`AppConstants.appVersion = '1.0.0'` (kept in sync with the pubspec `version:` at release time). The `version` row on the `settings` page displays `AppConstants.appVersion` (replacing the hard-coded value).
+`AppConstants.appVersion` (shown by the `version` row on the `settings` page) is the **product version**, not the pubspec packaging version; `scripts/check-version-parity.mjs` keeps it in step with the product version in the root `package.json`.
 
 ### 3.2 版本对比工具（`core/utils/version_utils.dart`）/ Version Comparison Utility
 

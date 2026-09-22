@@ -198,9 +198,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-navigation-parity.mjs
 
-  # 版本对账门（零依赖 node 内置）：发版线 5 个清单（根 / Server-NestJS / Web-Admin-Vue / Front-Taro /
-  # Front-Flutter）须同版本，各 lockfile 根版本字段跟随其清单。防「发版只 bump 四端、根 package.json 停更」
-  # ——根 package.json 是生成器来源身份的读取源（scripts/generator/manifest.mjs），掉队即生成物版本错版。
+  # 版本对账门（零依赖 node 内置）：产品版本单一真源 = 根 package.json。发版线成员（根 / Server-NestJS）
+  # 须等于它；各 lockfile 根版本字段跟随其自身清单；前端显示版本常量跟随产品版本。
+  # 并**直检**两个运行时权威源（生成器 provenance / 后端 /app/version）必在发版线成员内——
+  # 防「权威源停更 → 生成物错版 + 自比成假绿」。三端前端清单版本已松绑、各自持版。
   version-parity:
     runs-on: ubuntu-latest
     steps:
