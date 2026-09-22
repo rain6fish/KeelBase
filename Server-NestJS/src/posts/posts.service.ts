@@ -11,6 +11,7 @@ import { UserFollow } from './user-follow.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { paginated } from '../common/dto/paginated';
 
 @Injectable()
 export class PostsService {
@@ -104,7 +105,7 @@ export class PostsService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { total, items };
+    return paginated(items, total, page, limit);
   }
 
   /** 关注用户（幂等：已关注 no-op） */

@@ -23,6 +23,7 @@ import { UpdateContactDto } from './dto/update-contact.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { assertCustomerOwner } from './customer-ownership';
 import { OrgService } from '../org/org.service';
+import { paginated } from '../common/dto/paginated';
 
 /** 客户列表筛选 */
 export interface CustomerFilter {
@@ -96,7 +97,7 @@ export class CrmService {
     }
 
     const [items, total] = await qb.getManyAndCount();
-    return { items, total };
+    return paginated(items, total, page, limit);
   }
 
   async getCustomer(id: number, ability: AppAbility): Promise<CrmCustomer> {

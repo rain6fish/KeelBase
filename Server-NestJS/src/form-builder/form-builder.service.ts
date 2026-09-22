@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FormSchema } from './form-schema.entity';
 import { FormSubmission } from './form-submission.entity';
+import { paginated } from '../common/dto/paginated';
 
 export interface FormFieldDef {
   key: string;
@@ -60,7 +61,7 @@ export class FormBuilderService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { items, total, page, limit };
+    return paginated(items, total, page, limit);
   }
 
   async updateSchema(id: number, dto: { title?: string; schema?: FormSchemaJson; description?: string; enabled?: boolean }) {
@@ -122,12 +123,12 @@ export class FormBuilderService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return {
-      items: items.map((s) => ({ id: s.id, userId: s.userId, data: JSON.parse(s.data), createdAt: s.createdAt })),
+    return paginated(
+      items.map((s) => ({ id: s.id, userId: s.userId, data: JSON.parse(s.data), createdAt: s.createdAt })),
       total,
       page,
       limit,
-    };
+    );
   }
 
   /** 本人对某表单的提交记录（按 slug 解析 schema id） */
@@ -139,12 +140,12 @@ export class FormBuilderService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return {
-      items: items.map((s) => ({ id: s.id, data: JSON.parse(s.data), createdAt: s.createdAt })),
+    return paginated(
+      items.map((s) => ({ id: s.id, data: JSON.parse(s.data), createdAt: s.createdAt })),
       total,
       page,
       limit,
-    };
+    );
   }
 
   // ── 校验 ──

@@ -10,6 +10,7 @@ import { User } from '../common/entities/user.entity';
 import { CreateRequestDto, CreatePolicyDto } from './dto/approval.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
+import { paginated } from '../common/dto/paginated';
 
 /**
  * AI Approval 旗舰应用：审批请求 + 审批政策 服务。
@@ -58,7 +59,7 @@ export class ApprovalService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { items, total };
+    return paginated(items, total, page, limit);
   }
 
   async getRequest(id: number, ability: AppAbility): Promise<ApprovalRequest> {

@@ -12,6 +12,7 @@ import { CacheService } from '../common/cache/cache.service';
 import { UploadSignService } from '../upload/upload-sign.service';
 import { maskEmail, maskPhone } from '../common/utils/mask';
 import { BusinessException } from '../common/errors/business.exception';
+import { paginated } from '../common/dto/paginated';
 
 const USER_CACHE_TTL_MS = 300 * 1000;
 
@@ -96,7 +97,7 @@ export class UsersService {
       nickname: u.nickname,
       avatarUrl: u.avatarUrl ? this.uploadSign.signUrl(u.avatarUrl) : null,
     }));
-    return { items, total, page, limit };
+    return paginated(items, total, page, limit);
   }
 
   async findOne(id: number, isAdmin = false): Promise<Partial<User>> {

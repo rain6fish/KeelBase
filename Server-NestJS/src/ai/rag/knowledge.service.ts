@@ -23,6 +23,7 @@ import { validateMagicBytes } from '../../common/utils/file-validator';
 import { STORAGE_SERVICE } from '../../storage/storage.service';
 import type { StorageService } from '../../storage/storage.service';
 import { withSpan } from '../../common/tracing/tracer';
+import { paginated } from '../../common/dto/paginated';
 
 @Injectable()
 export class KnowledgeService {
@@ -161,7 +162,7 @@ export class KnowledgeService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { items, total };
+    return paginated(items, total, page, limit);
   }
 
   /**

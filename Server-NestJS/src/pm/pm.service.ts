@@ -12,6 +12,7 @@ import { PmRisk } from './pm-risk.entity';
 import { CreateProjectDto, CreateMilestoneDto, CreateTaskDto, CreateRiskDto } from './dto/create-pm.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
+import { paginated } from '../common/dto/paginated';
 
 /** 项目列表筛选 */
 export interface ProjectFilter {
@@ -127,7 +128,7 @@ export class PmService {
       qb.andWhere('(p.name LIKE :kw OR p.description LIKE :kw)', { kw: `%${filter.keyword}%` });
     }
     const [items, total] = await qb.getManyAndCount();
-    return { items, total };
+    return paginated(items, total, page, limit);
   }
 
   async getProject(id: number, ability: AppAbility): Promise<PmProject> {

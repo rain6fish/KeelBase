@@ -15,6 +15,7 @@ import { OperationAuditService } from '../../operation-audit/operation-audit.ser
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
+import { paginated } from '../../common/dto/paginated';
 
 export interface WriteToolContext {
   userId: string;
@@ -489,7 +490,7 @@ export class AiToolEffectsService {
       }),
     );
 
-    return { total, page, limit, items: enriched };
+    return paginated(enriched, total, page, limit);
   }
 
   /**
@@ -569,7 +570,7 @@ export class AiToolEffectsService {
       }),
     );
 
-    return { total, page, limit, items: enriched };
+    return paginated(enriched, total, page, limit);
   }
 
   /**

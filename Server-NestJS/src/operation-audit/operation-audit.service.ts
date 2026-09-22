@@ -8,6 +8,7 @@ import {
   AuditChainService,
   ChainVerification,
 } from '../common/audit-chain/audit-chain.service';
+import { paginated } from '../common/dto/paginated';
 import { requestContext } from '../common/request-context';
 
 export interface OperationAuditEntry {
@@ -253,7 +254,7 @@ export class OperationAuditService {
       createdAt: r.log_createdAt,
       username: r.username ?? null,
     }));
-    return { items, total, page, limit };
+    return paginated(items, total, page, limit);
   }
 
   /**
