@@ -13,6 +13,12 @@
  * e2e 那套「每个 app 一个独立库」的编排（见 `helpers.ts` 的 `nextE2eDbPath`），所以这里补上等价的隔离。
  *
  * 命名沿用 `keelbase-e2e-` 前缀，helpers 的 `pruneStaleE2eDbs()` 会把 >24h 的残留一并清掉。
+ *
+ * **建表走 synchronize，不走迁移**：`buildTypeOrmOptions` 的 sqlite 迁移清单是
+ * `['dist/migrations/*.js']`——**编译产物**。本机跑过 build 才有；CI 的单测 job 只 `npm ci` 不
+ * build，那个库建出来**一张表都没有**，冒烟测试其实是在空库上跑（实测症状：日志打
+ * "No migrations are pending"，随后任何启动期读库都 `no such table`，且因是 fire-and-forget
+ * 而报在不相干的测试名下）。改由实体元数据建表，冒烟测试便不再依赖构建产物，本地与 CI 一致。
  */
 import * as os from 'os';
 import * as path from 'path';
@@ -22,3 +28,4 @@ process.env.DB_PATH = path.join(
   os.tmpdir(),
   `keelbase-e2e-wiring-${process.pid}-${randomBytes(4).toString('hex')}.sqlite`,
 );
+process.env.DB_SYNCHRONIZE = 'true';
