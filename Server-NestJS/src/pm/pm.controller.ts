@@ -17,14 +17,14 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsIn, IsNumber } from 'class-validator';
 import { PmService } from './pm.service';
-import { CreateProjectDto, CreateMilestoneDto, CreateTaskDto, CreateRiskDto } from './dto/create-pm.dto';
+import { CreateProjectDto, CreateMilestoneDto, PmCreateTaskDto, PmCreateRiskDto } from './dto/create-pm.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { FeatureFlag } from '../feature-flags/feature-flag.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 
-class AddMemberDto {
+class PmAddMemberDto {
   @IsNumber()
   userId!: number;
   @IsIn(['owner', 'member'])
@@ -110,7 +110,7 @@ export class PmController {
   @ApiOperation({ summary: '添加成员' })
   addMember(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AddMemberDto,
+    @Body() dto: PmAddMemberDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.pmService.addMember(id, dto.userId, dto.role, user.sub);
@@ -146,7 +146,7 @@ export class PmController {
 
   @Post('tasks')
   @ApiOperation({ summary: '创建项目任务' })
-  createTask(@Body() dto: CreateTaskDto, @CurrentUser() user: JwtPayload) {
+  createTask(@Body() dto: PmCreateTaskDto, @CurrentUser() user: JwtPayload) {
     return this.pmService.createTask(dto, user.sub);
   }
 
@@ -167,7 +167,7 @@ export class PmController {
   @ApiOperation({ summary: '创建风险记录' })
   createRisk(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CreateRiskDto,
+    @Body() dto: PmCreateRiskDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.pmService.createRisk(id, dto, user.sub);

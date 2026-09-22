@@ -9,7 +9,7 @@ import { PmMember } from './pm-member.entity';
 import { PmMilestone } from './pm-milestone.entity';
 import { PmTask } from './pm-task.entity';
 import { PmRisk } from './pm-risk.entity';
-import { CreateProjectDto, CreateMilestoneDto, CreateTaskDto, CreateRiskDto } from './dto/create-pm.dto';
+import { CreateProjectDto, CreateMilestoneDto, PmCreateTaskDto, PmCreateRiskDto } from './dto/create-pm.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
 import { paginated } from '../common/dto/paginated';
@@ -77,7 +77,7 @@ export class PmService {
    */
   async createProjectWithTasks(
     dto: CreateProjectDto,
-    taskDtos: Array<Omit<CreateTaskDto, 'projectId'>>,
+    taskDtos: Array<Omit<PmCreateTaskDto, 'projectId'>>,
     userId: number,
   ): Promise<{ project: PmProject; tasks: PmTask[] }> {
     // 权限-2：写入时盖章 org/dept（与 createProject 同口径）
@@ -229,7 +229,7 @@ export class PmService {
   }
 
   /** 创建项目任务（AI 写工具 create_project_task 的目标） */
-  async createTask(dto: CreateTaskDto, userId: number): Promise<PmTask> {
+  async createTask(dto: PmCreateTaskDto, userId: number): Promise<PmTask> {
     await this._assertProjectOwner(Number(dto.projectId), userId);
     return this.tasks.save(
       this.tasks.create({
@@ -252,7 +252,7 @@ export class PmService {
     return this.risks.find({ where: { projectId }, order: { detectedAt: 'DESC' } });
   }
 
-  async createRisk(projectId: number, dto: CreateRiskDto, userId: number): Promise<PmRisk> {
+  async createRisk(projectId: number, dto: PmCreateRiskDto, userId: number): Promise<PmRisk> {
     await this._assertProjectOwner(projectId, userId);
     return this.risks.save(
       this.risks.create({

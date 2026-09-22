@@ -55,7 +55,7 @@
             <span class="text-h6">{{ card.title }}</span>
           </div>
           <p class="text-body-2 text-medium-emphasis my-2">{{ card.desc }}</p>
-          <el-link type="primary" :underline="false" class="mt-2">
+          <el-link type="primary" underline="never" class="mt-2">
             {{ t('open') }}
             <AppIcon icon="mdi-arrow-right" class="ml-1" />
           </el-link>

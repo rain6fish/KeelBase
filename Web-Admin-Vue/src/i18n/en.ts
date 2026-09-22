@@ -668,6 +668,7 @@ const en: ZhDict = {
   apTitle: 'AI Approval',
   apTotal: '{n} requests',
   apStatus: 'Status',
+  apStatusLabel: 'Status: {s}',
   apType: 'Type',
   apAmount: 'Amount',
   apSubmitRequest: 'Submit request',
@@ -843,6 +844,8 @@ const en: ZhDict = {
   seedFailed: 'Seed failed',
   runDone: 'Eval finished',
   runFailed: 'Eval failed',
+  passed: 'Passed {n}',
+  failed: 'Failed {n}',
 
   // Tools & effects
   toolInventory: 'AI Tool Inventory',
@@ -1029,6 +1032,7 @@ const en: ZhDict = {
 
   platformData: 'Platform Data',
   aiUsage: 'AI Usage',
+  sysAssistant: 'System AI Assistant',
   newUsers7d: 'New users (7 days)',
   noTrend: 'No trend data',
   storageUsage: 'Storage Usage',

@@ -8,7 +8,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
-export class SubmitFeedbackDto {
+export class SubmitAppFeedbackDto {
   @IsIn(['suggestion', 'bug', 'praise'])
   type!: 'suggestion' | 'bug' | 'praise';
 
@@ -34,7 +34,7 @@ export class FeedbackController {
   @ApiOperation({ summary: 'G-1 应用内反馈：提交建议/问题/好评，通知管理员' })
   async submit(
     @CurrentUser() user: JwtPayload,
-    @Body() dto: SubmitFeedbackDto,
+    @Body() dto: SubmitAppFeedbackDto,
   ) {
     return this.feedbackService.submit(String(user.sub), dto);
   }

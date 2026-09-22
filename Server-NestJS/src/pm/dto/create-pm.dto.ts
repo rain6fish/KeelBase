@@ -57,7 +57,7 @@ export class CreateMilestoneDto {
   status?: string;
 }
 
-export class CreateTaskDto {
+export class PmCreateTaskDto {
   @ApiProperty({ description: '项目 id' })
   @IsNumber()
   projectId!: number;
@@ -84,7 +84,7 @@ export class CreateTaskDto {
   status?: string;
 }
 
-export class CreateRiskDto {
+export class PmCreateRiskDto {
   @ApiPropertyOptional({ description: '风险等级' })
   @IsOptional()
   @IsIn(['low', 'medium', 'high', 'critical'])

@@ -669,6 +669,7 @@ const zh = {
   apTitle: '审批中心',
   apTotal: '共 {n} 个审批',
   apStatus: '状态',
+  apStatusLabel: '状态：{s}',
   apType: '类型',
   apAmount: '金额',
   apSubmitRequest: '提交审批',
@@ -844,6 +845,8 @@ const zh = {
   seedFailed: '补齐用例失败',
   runDone: '评测完成',
   runFailed: '评测失败',
+  passed: '通过 {n}',
+  failed: '失败 {n}',
 
   // 工具与副作用
   toolInventory: 'AI 工具清单',
@@ -1032,6 +1035,7 @@ const zh = {
   // 概览页
   platformData: '平台数据',
   aiUsage: 'AI 用量',
+  sysAssistant: '系统 AI 助手',
   newUsers7d: '近 7 天新增用户',
   noTrend: '暂无趋势数据',
   storageUsage: '存储用量',
