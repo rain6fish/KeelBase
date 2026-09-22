@@ -18,7 +18,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage && node scripts/check-security-coverage.mjs",
     "test:e2e": "node scripts/run-e2e-shards.mjs",
-    "test:e2e:cov": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json --forceExit --coverage",
+    "test:e2e:cov": "node scripts/run-e2e-shards.mjs --coverage",
     "test:failure-path": "jest src/ai/failure-path --forceExit",
     "scenarios:check": "jest src/ai/scenarios-pack.spec.ts --forceExit",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/typeorm-data-source.ts",

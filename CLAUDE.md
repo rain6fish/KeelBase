@@ -643,7 +643,7 @@ npm run migration:run
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |
 | `npm run test:e2e` | 端到端测试（NODE_ENV=test，36 个套件分 4 片跑——规避单进程长跑硬崩） |
-| `npm run test:e2e:cov` | e2e 覆盖率 |
+| `npm run test:e2e:cov` | e2e 覆盖率（同样分 4 片跑，各片独立收集后合并成一份 lcov） |
 | `npm run test:cov` | 测试覆盖率（门槛：statements≥85 / branches≥70 / functions≥80 / lines≥85，2026-08-20 由 65/55/60/65 提高）+ `check-security-coverage.mjs` 安全模块分档门控（auth/casl/operation-audit/ai-tools/governance/headless statements≥85） |
 | `npm run lint` | 代码检查 |
 | `npm run migration:generate` | 生成迁移文件 |
