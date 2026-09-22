@@ -8,76 +8,151 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 > **KeelBase 1.0.11 — Business Compensation & Runtime Hardening / 业务级补偿与运行时加固版**
 >
-> Maintenance-line increment 11 (base = v1.0.10 tag, 129 commits): business-level compensation completed (impact preview + revoke class + cascade revoke in a single transaction) · guest identity, audit-to-conversation drill-down · SM2-signed evidence packages · a rule-based AI behaviour baseline that alerts without blocking · an out-of-band "waiting on me" confirmation centre · the Full conformance profile turned into a standing CI gate · a 21-slice split of the ai/audit god services · a version-parity release gate · Redis reconnect-storm and `/mobile` + Flutter web build fixes.
+> Maintenance-line increment 11 (base = v1.0.10 tag, **132 commits**): business-level compensation completed (impact preview + revoke class + cascade revoke in one transaction) · guest identity and audit-to-conversation drill-down · SM2-signed evidence packages · a rule-based AI behaviour baseline that alerts without blocking · an out-of-band "waiting on me" confirmation centre · the Full conformance profile turned into a standing CI gate · a 21-slice split of the ai/audit god services · a version-parity release gate · three release-blocking defects closed after review.
 >
-> 维护线第十一个增量（基线 = v1.0.10 tag，129 提交）：**业务级补偿收口**（影响预览 + 撤销口径 + 级联撤销单事务）· **访客标识与审计下钻** · **证据包国密签名（SM2）** · **异常行为基线（只告警不阻断）** · **「等我处理」离线裁决中心** · **一致性剖面 Full 档常绿 CI 门** · **ai / audit god service 拆分 21 刀** · **发版版本对账门** · Redis 重连刷屏与 `/mobile`、Flutter web 构建修复。
+> 维护线第十一个增量（基线 = v1.0.10 tag，**132 提交**）：**业务级补偿收口**（影响预览 + 撤销口径 + 级联撤销单事务）· **访客标识与审计下钻** · **证据包国密签名（SM2）** · **异常行为基线（只告警不阻断）** · **「等我处理」离线裁决中心** · **一致性剖面 Full 档常绿 CI 门** · **ai / audit god service 拆分 21 刀** · **发版版本对账门** · 评审后修掉的三项阻塞缺陷。
 
 ### Added / 新增
 
-- **§22.17 ④ 业务级补偿：影响预览 + 级联撤销（两半齐备）** — 确认卡在执行前说明「将动到什么、事后能不能收回」；一个业务动作的多表副作用可**一次补偿**
-  - **影响预览 v1.0**（`567fce7d`）：确认载荷带 `impact{actions, targets[]}`（单条 / R4 审批 / run 三处），对象类型取**副作用登记同一单源**，**纯推导不查库不试跑**；契约先行 wire Schema v2 + Web / Flutter 渲染 + 回归
-  - **撤销口径 v1.1**（`6c7eb4fc`）：确认载荷带 `revokeClass`（KB-6 四档，`resolveRevokeClass` 单源，与撤销页 / 工具治理页同一取值），Web 卡片按档分组计数；**仅呈现层**——不入链、不进证据包、不影响门控；契约 v3
-  - **级联撤销主体**（`881d4911`）：多表副作用落**一个事务**、全成或全不成；补偿自身入 `operation_audit` + 哈希链（接 A-3 恢复态）；载体 `create_project_with_tasks`（1 项目 + N 任务）；契约升 `side-effect-revoke` v3；迁移 `1823000000000`（双方言）；顺带把 `pm_project` / `pm_task` 纳入回收站（否则「本地可撤」的「可恢复」承诺对它们不成立）；e2e 8 例常绿
-  **One business action's side effects across tables are compensated in a single step, and the confirmation card states the impact and whether it can be taken back.**
-- **§22.19 AU-3 访客标识：共享账号下也能区分访客**（`699c09e4`）— 演示端访客共用 `alex` 登录时，审计 `user_id` 全塌缩成一个、无法分辨谁是谁；新增**与账号无关**的访客标识（cookie `kb_guest` + `X-Guest-Id` 头双载体，不引入 cookie 依赖，**Web 端零改动**），两张审计表落**链外列** `guest_id`（迁移 `1824000000000`，双方言），管理台两个审计页可见；契约先行 `operation-audit-log-row` v1→v2、`ai-audit-log-row` v2→v3；**诚实边界**：该标识由客户端提供、可被清除或伪造，**只是归因标签，从不是凭证**（不用于授权 / 配额 / 风控）
-  **Visitors sharing one demo account are now distinguishable in the audit trail. The identifier is an attribution label, never a credential.**
-- **§22.19 AU-4 从审计行下钻到该次对话（引用优先）**（`2b4cc94c`）— AI 审计行此前只把 `conversationId` 显示为纯文本，「问了什么」在审计轨迹上够不着；现点该 id 打开抽屉**先看会话结构**（消息数 / 时间跨度 / 归属 / 模型），正文须**再显式点「查看正文」**才取。**「引用优先、不落全文」落在服务端**（新增 `GET /ai/conversations/:id/meta` 刻意不返回任何消息文本，连 `summary` 也不返回）——若由前端先取全文再只显示元数据，该约束就只是 UI 装饰；权限复用既有闸门（管理员 / 本人可读，他人 403），无迁移；契约先行新增 wire 对象 `conversation-meta` v1
-  **An audit row now jumps to the conversation it came from: structure first, and the message body only on an explicit second request.**
-- **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
-- **§22.19 D-4 证据包国密签名 + 可信时间锚**（`e47daa9c`）— 证据包 `signature` 段由「字符串 HMAC 或 null」扩为 `oneOf[null, 字符串(历史包), 对象 {hmac, sm2?, tsa?}]`；**加性变更**——旧形态仍合法、canonical 签名对象不变，故 v1 / v2 包可继续离线验证；契约 `evidence-package` 升 v3
-  **Evidence packages can carry an SM2 (Chinese national standard) signature without invalidating older packages.**
-- **BA 异常行为基线：只告警、不阻断**（`99f64f04`）— 按规则识别异常 AI 行为并落 `ai_behavior_alerts` 告警事件（迁移 `1825000000000`，双方言）+ 管理台告警页（三处导航同步注册）；**属观测层，不改门控**
-  **A rule-based AI behaviour baseline raises alerts without changing any gate.**
-- **GA「等我处理」中心：在对话之外裁决确认**（`dbba676e`）— 用户离开对话后仍可在 Action Center 于离线窗口内裁决写确认；**只认 DB 行**（不依赖内存 Map），故服务重启后仍可用；幂等守卫与对话内裁决共用同一条件更新闸门
-  **A pending confirmation can be decided outside the conversation, from the "waiting on me" centre.**
-- **一致性剖面 Full-profile runner + CI 常绿门**（`0ec29dfe` / `e09899a7`）— F4 / F5 两个 Full 档剖面从「一次性手跑」变为 CI 门，判据自带自校验
+- **§22.17 ④ Business-level compensation, both halves complete** — the confirmation card states what it will touch and whether it can be taken back; one business action's side effects across tables are compensated in a single transaction.
+  **§22.17 ④ 业务级补偿，两半齐备** —— 确认卡在执行前说明「将动到什么、事后能不能收回」；一个业务动作的多表副作用可**一次补偿**。
+  - Impact preview v1.0 (`567fce7d`): the confirmation payload carries `impact{actions, targets[]}` (single / R4 approval / run); object types come from the same single source as side-effect registration, **derived only — no queries, no dry run**; wire v2 + Web / Flutter rendering.
+    影响预览 v1.0（`567fce7d`）：确认载荷带 `impact{actions, targets[]}`（单条 / R4 审批 / run 三处），对象类型取**副作用登记同一单源**，**纯推导不查库不试跑**；契约 v2 + Web / Flutter 渲染。
+  - Revoke class v1.1 (`6c7eb4fc`): the payload carries `revokeClass` (the KB-6 four-tier vocabulary, single-sourced in `resolveRevokeClass`); **presentation only** — not in the hash chain, not in the evidence package, no effect on gating; wire v3.
+    撤销口径 v1.1（`6c7eb4fc`）：载荷带 `revokeClass`（KB-6 四档，`resolveRevokeClass` 单源）；**仅呈现层**——不入链、不进证据包、不影响门控；契约 v3。
+  - Cascade revoke (`881d4911`): multi-table side effects land in **one transaction**, all-or-nothing; the compensation itself is recorded in `operation_audit` with the hash chain; `pm_project` / `pm_task` joined the recycle bin (so the "recoverable" promise holds for them too); migration `1823000000000` (both dialects); wire `side-effect-revoke` v3.
+    级联撤销主体（`881d4911`）：多表副作用落**一个事务**、全成或全不成；补偿自身入 `operation_audit` + 哈希链；`pm_project` / `pm_task` 纳入回收站（使其「可恢复」承诺成立）；迁移 `1823000000000`（双方言）；契约 `side-effect-revoke` v3。
+- **§22.19 AU-3 Guest identity — demo visitors sharing one account are distinguishable in the audit trail** (`699c09e4`) — an account-independent identifier (cookie `kb_guest` + `X-Guest-Id` header, no cookie dependency, **zero front-end changes**) lands in a chain-external column on both audit tables (migration `1824000000000`, both dialects). **Honest boundary: client-supplied, so it is an attribution label and never a credential** — not used for authorization, quota, or risk.
+  **§22.19 AU-3 访客标识：共用账号下的访客在审计轨迹上可区分**（`699c09e4`）—— **与账号无关**的标识（cookie `kb_guest` + `X-Guest-Id` 头双载体，不引入 cookie 依赖，**前端零改动**），两张审计表落**链外列**（迁移 `1824000000000`，双方言）。**诚实边界：由客户端提供，所以只是归因标签、从不是凭证**——不用于授权 / 配额 / 风控。
+- **§22.19 AU-4 Drill from an audit row to its conversation, reference first** (`2b4cc94c`) — structure first (message count / span / owner / model); the body requires an explicit second request. **Enforced server-side**: the new `GET /ai/conversations/:id/meta` deliberately returns no message text at all. Wire `conversation-meta` v1.
+  **§22.19 AU-4 从审计行下钻到该次对话，引用优先**（`2b4cc94c`）—— 先给会话结构（消息数 / 时间跨度 / 归属 / 模型），正文须**再显式请求**一次。**约束落在服务端**：新增的 `/meta` 刻意不返回任何消息文本。契约 `conversation-meta` v1。
+- **§22.19 D-4 SM2 signature and trusted timestamp anchor** (`e47daa9c`) — the evidence package's `signature` section widens from "HMAC string or null" to `oneOf[null, string (historical packages), object {hmac, sm2?, tsa?}]`; **additive**, so v1 / v2 packages still verify offline and the canonical signed object is unchanged; wire `evidence-package` v3.
+  **§22.19 D-4 证据包国密签名 + 可信时间锚**（`e47daa9c`）—— `signature` 段由「字符串 HMAC 或 null」扩为 `oneOf[null, 字符串(历史包), 对象 {hmac, sm2?, tsa?}]`；**加性变更**，v1 / v2 包仍可离线验证、canonical 签名对象不变；契约 `evidence-package` v3。
+- **BA — a rule-based AI behaviour baseline that alerts without blocking** (`99f64f04`) — abnormal agent behaviour lands in `ai_behavior_alerts` (migration `1825000000000`, both dialects) with an admin console page registered in all three navigation places; **an observation layer, not an interception layer**.
+  **BA 异常行为基线：只告警、不阻断**（`99f64f04`）—— 异常 Agent 行为落 `ai_behavior_alerts`（迁移 `1825000000000`，双方言）+ 管理台告警页（三处导航同步注册）；**属观测层，不改门控**。
+- **GA — a "waiting on me" centre that decides confirmations outside the conversation** (`dbba676e`) — after the user leaves the conversation they can still decide a write confirmation inside the offline window; it **reads only the database row**, so it survives a restart, and its idempotency guard shares the same conditional-update gate as the in-conversation decision.
+  **GA「等我处理」中心：在对话之外裁决确认**（`dbba676e`）—— 离开对话后仍可在离线窗口内裁决写确认；**只认 DB 行**，服务重启后仍可用；幂等守卫与对话内裁决**共用同一条件更新闸门**。
+- **Conformance: a machine-readable replay grammar, a Full-tier probe, and a standing CI gate** (`0a4554b5`, `caf7ce52`, `0ec29dfe`, `e09899a7`) — the scenario corpus gains a grammar with the forms the rewrite needed (named fixtures, governed writes, cross-step references, negative assertions), the second runtime gets a static Full-tier probe whose criteria self-validate, and F4 / F5 stop being a one-off manual run.
+  **一致性：机读 replay 语法 + Full 档探针 + 常绿 CI 门**（`0a4554b5`、`caf7ce52`、`0ec29dfe`、`e09899a7`）—— replay 语法补齐改写所需构造（命名夹具 / 治理写 / 跨步引用 / 否定断言）；第二载体获静态 Full 档探针且判据自校验；F4 / F5 不再是一次性手跑。
+- **Demo usage and access are archived before the scheduled ECS reset** (`c35a3cfe`) — the reset wipes data, so the evidence is archived first.
+  **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）—— 定时重置会清数据，先把用量 / 访问证据落档。
 
 ### Fixed / 修复
 
-- **AU-1 `trust proxy` 默认值不再盲信 XFF**（`b0429a7c`）— 原「默认 1 跳」**不校验来源**，应用被绕过反代直连时与 `true` 等价（Express 实测）→ 审计 IP 可被伪造成任意值；默认改为子网 `loopback, linklocal, uniquelocal`，`true` 由静默降级改为告警；`.env.production.example` 补该开关（原缺失）
-  **Trusting a fixed number of proxy hops is not the same as trusting a subnet; the default now names subnets.**
-- **SSE 信封的载荷引用跟到当前版本**（`a9fb7079`）— 信封仍按裸名引用**冻结的 v1** 确认载荷（`additionalProperties:false`、无 `impact` / `revokeClass`），带新字段的确认帧按信封校验会失败；`sse-event` 升 v2（事件名枚举不变），并一并收掉同性质的旧引用（`confirmation-decision` v1→v2）
-- **撤销口径遇不可解析工具名不再打挂确认卡**（`d9a5046c`）— 真实注册表对未注册名抛错，裸调会把整条 SSE 确认流打断；改为**省略**该字段（与影响预览对解析不到的对象同一口径：说不清就不说）
-- **外部工具（`mcp_*`）不再在对话里以「执行失败」收尾**（读工具正常返回、写工具走确认卡）— 外部工具只由 `ExternalToolProvider` 解析、**不在本地注册表**，而 `ToolRegistry.riskLevel` 对未注册名**抛错**；`_requiresApproval` 与授权解释器此前都裸调它，于是外部工具**无论读写都在 `tool_start` 前抛错**（2026-09-17 实测：外部读工具连过程卡都发不出），「外部工具经同一治理层（权限 + 确认 + 审计）」的既有文档承诺实际未生效。现由 `_riskLevelFor` 单点容错——注册表取不到且**确属外部工具**时按其确认判定派生档位（确认写→R3、读→R1，与预扫描同口径）；**未注册且非外部（LLM 幻觉名）仍抛**，不给幻觉名发确认卡（边界不放宽）
-  **External tools now go through the same governance layer as built-ins — reads return, writes reach the confirmation card — instead of both failing before their tool card appears.**
-- **生成器不再静默丢弃 Business Spec 的未消费键**（`e010fb0b`）— 未映射的键改为显式上报，而非悄悄丢掉
-- **迁移 spec 移出它撞坏的 glob**（`bc16a983`）— 该文件曾被迁移 glob 扫到并导致崩溃
-- **demo 路由：写意图优先于话题词**（`dea6c1a8`）— 无模型 key 时 AI 自己建议的「为某客户创建跟进任务」曾被 `query_customers` 抢走，写确认卡永不出现
-- **demo 录制脚本适配真实会话标题**（`0fdb0a2f`）— 不再因标题含真实内容而失败
-- **发版版本对账门**（`7f56f8e9`）— 根清单自 1.0.3 起停止随发版 bump，导致生成器把错版来源身份写进生成物、且 `doctor` 拿同一脏源自比成假绿；新增 `scripts/check-version-parity.mjs` + CI job，并把发版线全部清单对齐
-- **CI workflow 复位被吃掉的注释符**（`21683b17`）— 该 workflow 曾因此不可解析
-- **样例值不再触发密钥扫描**（`9dda97d5`）— 确认 token 原为字面 UUID，命中 gitleaks 通用 api-key 规则（只看「token 字段 + 高熵值」、不问上下文）；改为短前缀占位，未放宽扫描规则
-- **两处向量门禁按内容比、不按行尾比**（`4d2e2d3c`）— 本机 autocrlf 使门禁拿 CRLF 工作区文件比 LF 内存产出，把行尾差异误报成语义漂移（跨仓那处曾 7/7 全假红），且其建议的 `--sync` 会把本机行尾写进 Java 仓；现比较前归一行尾，`--sync` 写 LF
-- **Redis 重连刷屏消除，「自动降级」真正成立**（`5e213c45`）— 重连风暴持续刷日志，且文档承诺的降级实际不生效；现按文档语义真降级
-- **AI token 记账补全**（`209c87ba` `015bf6d5` `972d053b` `ef47bffa` `3bf82008` `3145f3df`）— 意图分类 / 委托与计划管线 / 上下文压缩 / 知识库问答 / 流式对话 / 工具自调 LLM 的开销此前**未记账**，成本看板与配额据此失真；现逐条补齐
-- **`/mobile` 预览按真实挂载点构建**（`cd4b719e`）— 原先按根路径构建，页面卡在 Loading
-- **Flutter web 构建修复**（`7892fcc0`）— `objective_c` 需配含 arm64e 的 `code_assets`，否则 web 构建不产出
-- **分页类型与后端实际返回对齐**（`c8f4d80f`）— 前端类型声称含 `totalPages`，而后端 `GET /users`、`GET /search` 实际不返回该字段（类型在撒谎）
-- **同名 DTO 改名 + 补齐四个缺失 i18n key**（`485cd90a`）
-- **委托链路归责端到端验证**（`061ed521`）
+- **Three release-blocking defects closed after pre-release review** (`66ceb3ce`) — ① a client-supplied `X-Guest-Id` longer than the `guest_id varchar(64)` column made the operation-audit row **silently drop** and the AI-audit write throw, so any signed-in user could suppress their own audit trail with a header; ② `ConfirmationStore.resolve` swallowed a failed persistence write and let the tool execute anyway, leaving the row `pending` — a second decision then **re-executed** it, and external MCP write tools carry no idempotency key, so that replay is real; ③ R4 approval used a read-modify-write, so two approvers deciding at once could each execute the same high-risk write. Now: the read boundary rejects over-long ids, the failure path is **fail-closed**, and the conditional update is the **sole arbitration point**.
+  **三条阻塞缺陷经发版前评审查出并修复**（`66ceb3ce`）—— ① `guestId` 超列宽致操作审计**静默丢行** / AI 审计 500（任一登录用户加个头即可压掉自己的审计）② 落库失败仍放行，留下「工具已执行、行仍 pending」，再裁决即**二次执行**（外部写工具无幂等键，那第二次是真重放）③ R4 审批读改写，双人并发各执行一次高风险写。现：超长值判无效、失败路径 **fail-closed**、条件更新为**唯一仲裁点**。
+- **AU-1 `trust proxy` no longer trusts X-Forwarded-For blindly** (`b0429a7c`) — the old "1 hop" default did not validate the source, so it was equivalent to `true` when the app was reached directly, and the audited IP could be forged; the default now names subnets, and `true` warns instead of silently degrading.
+  **AU-1 `trust proxy` 默认值不再盲信 XFF**（`b0429a7c`）—— 旧「默认 1 跳」不校验来源，直连时与 `true` 等价、审计 IP 可被伪造；默认改为具名子网，`true` 由静默降级改为告警。
+- **The SSE envelope's payload references now follow the current versions** (`a9fb7079`) — the envelope still referenced the frozen v1 confirmation payload (`additionalProperties:false`, no `impact` / `revokeClass`), so frames carrying the new fields failed envelope validation; `sse-event` v2, plus the same-class old reference (`confirmation-decision` v1→v2).
+  **SSE 信封的载荷引用跟到当前版本**（`a9fb7079`）—— 信封仍引用冻结的 v1 载荷（无 `impact` / `revokeClass`），带新字段的确认帧会校验失败；`sse-event` 升 v2，并收掉同性质的旧引用（`confirmation-decision` v1→v2）。
+- **External tools go through the governance layer again** (`8d6da13f`) — external tools are resolved only by the provider and are absent from the local registry, while `ToolRegistry.riskLevel` throws on unregistered names, so both reads and writes failed **before their tool card could appear**; `_riskLevelFor` now derives the tier for genuine external tools, while **hallucinated names still throw** — the boundary is not widened.
+  **外部工具重新走通治理层**（`8d6da13f`）—— 外部工具不在本地注册表而 `riskLevel` 对未注册名抛错，导致读写都在**工具卡出现前**就失败；改由 `_riskLevelFor` 单点容错，但**幻觉名仍抛**——边界不放宽。
+- **The application could not boot: the AiService factory's inject/signature misalignment is repaired** (`974f6dec`).
+  **应用起不来：修复 AiService 工厂的注入/签名错配**（`974f6dec`）。
+- **The `forwardRef` cluster is broken** (`a199d245`) — two leaf modules extracted.
+  **打断 `forwardRef` 环族**（`a199d245`）—— 抽出两个叶模块。
+- **The governance control plane is handed the split audit services** (`bca453ac`) — the phase-3 split had left the governance plane without them.
+  **治理控制平面拿到拆分后的审计服务**（`bca453ac`）—— 阶段 3 拆分后治理台缺注入。
+- **The Redis retry storm is gone, and the documented degradation is now real** (`5e213c45`) — the reconnect storm kept flooding the log, and the fallback the docs promised did not actually engage.
+  **消除 Redis 重连刷屏，「自动降级」真正成立**（`5e213c45`）—— 重连风暴持续刷日志，且文档承诺的降级实际不生效。
+- **A tainted provider name is no longer passed as a format string** (`c95f1a5e`).
+  **不再把受污染的 provider 名当格式串传递**（`c95f1a5e`）。
+- **A failed cache load no longer turns reads into exceptions** (`81f14520`).
+  **缓存加载失败不再把读操作变成异常**（`81f14520`）。
+- **Proxy-tool registration no longer fails silently** (`de840d22`).
+  **代理工具注册不再静默失败**（`de840d22`）。
+- **The write intent outranks the topic intent in the demo router** (`dea6c1a8`) — with no model key, the AI's own suggested "create a follow-up task for this customer" was stolen by `query_customers`, so the write confirmation card never appeared.
+  **demo 路由：写意图优先于话题词**（`dea6c1a8`）—— 无模型 key 时 AI 自荐的「为该客户建跟进任务」被 `query_customers` 抢走，写确认卡永不出现。
+- **`/mobile` is built at its real mount path** (`cd4b719e`) — it used to be built for the root path and sat on Loading.
+  **`/mobile` 按真实挂载点构建**（`cd4b719e`）—— 原先按根路径构建，页面卡在 Loading。
+- **The Flutter web build is unbroken** (`7892fcc0`) — `objective_c` needs a `code_assets` carrying arm64e, otherwise the web build produces nothing.
+  **修复 Flutter web 构建**（`7892fcc0`）—— `objective_c` 需配含 arm64e 的 `code_assets`，否则 web 构建不产出。
+- **The published demo videos had no audio track** (`38984107`) — the published cut was a Playwright screen recording (silent) while the storyboard had been rebuilt to 39 shots; narration is now muxed along the real shot timeline (with atempo compression when a window is too tight) into an H.264 + AAC mp4.
+  **发布的演示视频没有音轨**（`38984107`）—— 发布的是 Playwright 屏幕录制（无声），而分镜已重建为 39 镜；现按真实分镜时间轴把旁白混入（窗口装不下时用 atempo 压缩）H.264 + AAC 的 mp4。
+- **AI token usage is accounted for everywhere** (`209c87ba`, `015bf6d5`, `972d053b`, `ef47bffa`, `3bf82008`, `3145f3df`) — intent classification, the delegate and plan pipelines, context compaction, knowledge-base answers, streaming chats, and a tool's own LLM call all went unrecorded, skewing the cost board and the quota.
+  **AI token 记账补全**（`209c87ba`、`015bf6d5`、`972d053b`、`ef47bffa`、`3bf82008`、`3145f3df`）—— 意图分类 / 委托与计划管线 / 上下文压缩 / 知识库问答 / 流式对话 / 工具自调 LLM 的开销此前**未记账**，成本看板与配额据此失真。
+- **The generator reports unconsumed Business Spec keys instead of dropping them silently** (`e010fb0b`).
+  **生成器不再静默丢弃 Business Spec 的未消费键**（`e010fb0b`）。
+- **The migration spec no longer crashes the glob it tripped** (`bc16a983`).
+  **迁移 spec 移出它撞坏的 glob**（`bc16a983`）。
+- **The version-parity release gate** (`7f56f8e9`) — the root manifest had stopped being bumped at 1.0.3, so the generator wrote a stale source identity into generated artifacts and `doctor` compared that same dirty source against itself into a false green; a gate plus a CI job now hold the release line and the lockfiles in step.
+  **发版版本对账门**（`7f56f8e9`）—— 根清单自 1.0.3 起停止随版 bump，生成器把错版来源身份写进生成物、`doctor` 又拿同一脏源自比成假绿；新增门禁 + CI job，把发版线全部清单对齐。
+- **Vector gates compare by content, not by line endings** (`4d2e2d3c`) — autocrlf made the gate compare a CRLF working file against an LF in-memory artifact and report the difference as semantic drift (7/7 false reds across repos); `--sync` also wrote this machine's endings into the Java repo.
+  **向量门禁按内容比、不按行尾比**（`4d2e2d3c`）—— autocrlf 使门禁拿 CRLF 工作区文件比 LF 内存产出，把行尾差异误报成语义漂移（跨仓曾 7/7 全假红）；`--sync` 还会把本机行尾写进 Java 仓。
+- **Text files are pinned to LF** (`23bea4ab`) — so line endings stop faking drift.
+  **文本文件统一 LF**（`23bea4ab`）—— 行尾不再制造假漂移。
+- **Three latent secret/security-scanner hits are cleared** (`58d69f1e`, `653a106e`, `9dda97d5`) — a governance sample, the CodeQL logging alert, and a confirmation token that was a literal UUID matching the gitleaks generic-api-key rule; the scanner rules were **not** relaxed.
+  **清理三处潜伏的密钥/安全扫描命中**（`58d69f1e`、`653a106e`、`9dda97d5`）—— 治理样例、CodeQL 日志告警，以及一个字面 UUID 的确认 token；**未放宽**扫描规则。
+- **The comment marker an unparseable workflow had lost is restored** (`21683b17`).
+  **复位被吃掉的注释符，workflow 重新可解析**（`21683b17`）。
+- **The audit-chain load test is restored to the post-split API** (`3f95f563`).
+  **审计链压测恢复到拆分后的 API**（`3f95f563`）。
+- **Two defects that made the full e2e suite red are fixed** (`192b61c5`), and each test app now gets its own database (`65882bae`, `474659b7`) instead of inheriting the previous run's.
+  **修掉两个让全量 e2e 变红的缺陷**（`192b61c5`），并让每个测试 app 用自己的库（`65882bae`、`474659b7`），不再继承上一轮的库。
+- **`?limit=0` is clamped** (`66ceb3ce`) — it made `totalPages` Infinity (serialised as `null`).
+  **`?limit=0` 钳下界**（`66ceb3ce`）—— 曾使 `totalPages` 为 Infinity（序列化成 `null`）。
+- **The admin trash route validates `type` at runtime** (`66ceb3ce`) — an unknown value fell through the ternary chain into the PM-task branch.
+  **回收站类型加运行时校验**（`66ceb3ce`）—— 未知值曾穿过三元链落到 PM 任务分支。
+- **The proxy-status body is spread before the server-owned fields** (`66ceb3ce`) — otherwise the upstream `/keelbase/status` could overwrite `reachable` / `configured` / `statusEnabled` / `baseUrl` and forge what the console displays.
+  **代理状态体在服务端字段之前展开**（`66ceb3ce`）—— 否则上游可覆写 `reachable` 等字段，伪造管理台所见事实。
+- **Tool-name extraction accepts digits** (`66ceb3ce`) — `summarize_customer_360` was silently skipped by the evidence root and the behaviour baseline.
+  **工具名还原支持数字**（`66ceb3ce`）—— `summarize_customer_360` 曾被证据根与行为基线静默跳过。
+- **A duplicated migration timestamp is renamed** (`66ceb3ce`) — `1824000000000` was held by two migrations; only the filename changed, since the class name is the identity TypeORM records.
+  **迁移时间戳去重**（`66ceb3ce`）—— `1824000000000` 曾被两个迁移共用；**只改文件名**，因为类名才是 TypeORM 记录的身份。
+- **The demo recorder survives real conversation titles** (`0fdb0a2f`).
+  **demo 录制脚本适配真实会话标题**（`0fdb0a2f`）。
+- **The 30-minute onboarding guide is aligned with what the code actually does** (`8b9ccba0`) — it had walked through a `customers` module the flagship already occupies (name-collision protection rejects it outright).
+  **30 分钟 onboarding 指南对齐实际行为**（`8b9ccba0`）—— 原走已被旗舰占用的 `customers` 模块（撞名保护会直接拒绝）。
+- **`SECURITY.md` N-7 no longer claims plan-level confirmation is missing** (`34c9069d`) — the public trust-boundary statement lagged the shipped capability.
+  **`SECURITY.md` N-7 不再声称计划级确认尚未提供**（`34c9069d`）—— 公开信任边界声明落后于已交付能力。
+- **A wire sample no longer trips the secret scanner** (`9dda97d5`).
+  **样例值不再触发密钥扫描**（`9dda97d5`）。
 
 ### Changed / 变更
 
-- **双语规范改为英文在前、中英各自成块**（`de9c7935`）— 提交消息 / 文档的中英不再交错
-- **文档命令与说明统一到 `main`**（`84839b0c`）+ **移除 workflow 中已失效的 `master` 触发**（`8f29027e`）— 承接 Gitee 主分支改名
-- **对齐 lockfile 版本字段至 1.0.10**（`54a2c9a1`）
-- **`SECURITY.md` N-7 不再声称「批量（计划级）确认尚未提供」**（`34c9069d`）— 公开信任边界声明此前落后于已交付能力（KB-5 run 聚合）
-- **30 分钟 onboarding 指南对齐实际行为**（`8b9ccba0`）— 原走已被旗舰占用的 `customers` 模块（撞名保护会直接拒绝），并补齐测试数、`.env` 复制、演示模式参数语法等漂移
-- **官方 Demo 分镜按当前代码重建**（`0cfccc26`）
-- **ai / audit 域 god service 拆分（21 刀）** — `ai.service.ts` 2275→1435 行、`audit.service.ts` 1263→217 行；领域组件下沉（工具门控 / 执行 / 呈现 / 曝光面 / R4 审批 / Provider 路由 / 证据 / 统计 / 查询 / 日配额 / 组织通讯录 / CRM 分析 / 平台观测），共享地基提为**跨模块单源**（`payload.ts` 哈希口径 / `by-day.ts` 趋势口径 / `cache-keys.ts` 失效契约 / `tool-call-audit.ts` / `llm-usage.ts` / `effect-composition.ts` / `write-impact.ts`）；删除 `evidence-root.service`
-- **分页响应收敛为单一定义**（`76afc5d4`）— 原先三处形状各自为政
-- **CI 分析作业固定到解析锁文件的 SDK**（`960c3bfa`）— 消除 SDK 漂移导致的假红
-- **测试 app 各自独立库**（`65882bae` / `474659b7`）— 不再继承上一轮的库
-- **契约 registry 40→44 条**（`app/*` 三端点 + 错误码目录 + 确认生命周期入契约）
+- **The ai / audit god services are split into domain services (21 commits)** — `ai.service.ts` 2275 → 1435 lines, `audit.service.ts` 1263 → 217; domains moved out (tool gate, execution, presentation, exposure surface, R4 approval, provider routing, evidence, statistics, query, daily quota, org directory, CRM analytics, platform observability) and the shared foundations were lifted into single sources (`payload.ts` hash framing, `by-day.ts` trend framing, `cache-keys.ts` invalidation contract, `tool-call-audit.ts`, `llm-usage.ts`, `effect-composition.ts`, `write-impact.ts`); `evidence-root.service` deleted. The split broke neither the app nor the governance plane (`974f6dec`, `bca453ac`).
+  **ai / audit 两个 god service 拆成领域服务（21 刀）** —— `ai.service.ts` 2275→1435 行、`audit.service.ts` 1263→217 行；领域下沉（工具门控 / 执行 / 呈现 / 曝光面 / R4 审批 / Provider 路由 / 证据 / 统计 / 查询 / 日配额 / 组织通讯录 / CRM 分析 / 平台观测），共享地基提为**跨模块单源**（`payload.ts` 哈希口径 / `by-day.ts` 趋势口径 / `cache-keys.ts` 失效契约 / `tool-call-audit.ts` / `llm-usage.ts` / `effect-composition.ts` / `write-impact.ts`）；删除 `evidence-root.service`。拆分一度打断应用启动与治理台注入（`974f6dec`、`bca453ac`）。
+- **The paginated response gets one definition instead of three shapes** (`76afc5d4`), and the front-end type is aligned with what the API actually returns (`c8f4d80f`).
+  **分页响应收敛为单一定义**（`76afc5d4`），前端类型与后端实际返回对齐（`c8f4d80f`）。
+- **Manifest versions are split from the product version** (`ded176c1`) — the product version is the single source in the root manifest; each end's packaging manifest holds its own, so the release line no longer drags four manifests along.
+  **清单版本与产品版本分开**（`ded176c1`）—— 产品版本以根清单为单一真源；各端打包清单各自持版，发版线不再拖四个清单一起 bump。
+- **The bilingual convention becomes English first, blocks kept separate** (`de9c7935`) — commit messages and documentation no longer interleave the two languages.
+  **双语规范改为英文在前、中英各自成块**（`de9c7935`）—— 提交消息与文档的中英不再交错。
+- **Test-file type errors are ratcheted** (`ebbc5d93`) so they stop accumulating unseen; **the module graph is smoked in the unit suite** (`142f0a94`) so a DI break lands there; **the third entry point is assembled too** (`90f4fce9`).
+  **测试文件类型错误设棘轮**（`ebbc5d93`）不再无声累积；**模块图进单测冒烟**（`142f0a94`）让 DI 断裂落在单测；**第三入口也纳入装配检查**（`90f4fce9`）。
+- **The golden path now runs through the front-end's own modules against a real backend** (`158b76f9`, `d585bcb4`, `96520211`) — including the console's own SSE client, with side-effect assertions tightened until the console really renders.
+  **金路径改由前端自有模块打真后端**（`158b76f9`、`d585bcb4`、`96520211`）—— 含控制台自己的流式客户端，副作用断言加严到「控制台真能渲染」。
+- **Two vocabularies are single-sourced**: the approval risk terms (`c6cf3cec`) and the tools' domain terms (`5e54211d`).
+  **两处词汇单源**：审批风险词汇（`c6cf3cec`）与工具领域词汇（`5e54211d`）。
+- **The demo-intent fixture moves out of the protocol directory** (`09d903e8`), the compactor's config import becomes type-only (`4ba17b67`), and generated Flutter directories are excluded from lint (`ca4f6e62`).
+  **demo 意图夹具移出协议目录**（`09d903e8`），压缩器的配置导入改为仅类型（`4ba17b67`），生成的 Flutter 目录排除出 lint（`ca4f6e62`）。
+- **The history divergence is closed by merging `origin/main` back in** (`878a901a`).
+  **合入 `origin/main` 消除历史分叉**（`878a901a`）。
+- **Docs and commands point at `main`** (`84839b0c`, `8f29027e`, `a35bcd6e`) after the Gitee branch rename, and the dead `master` trigger is dropped from the workflows.
+  **文档与命令统一到 `main`**（`84839b0c`、`8f29027e`、`a35bcd6e`）承接 Gitee 主分支改名，并移除 workflow 中已失效的 `master` 触发。
+- **The README links the article series from both language editions** (`25c845d2`), the project intro PDF is regenerated to eight pages (`e6f20710`), and the official demo storyboard is rebuilt on the current codebase (`0cfccc26`).
+  **README 两个语言版都挂上文章系列**（`25c845d2`），作品介绍 PDF 重出为 8 页（`e6f20710`），官方 Demo 分镜按当前代码重建（`0cfccc26`）。
+- **The user-level `~/.claude/CLAUDE.md` is created and the release layout is pinned to a working example** (`f3f3db2e`, `2870e5fe`) — the bilingual release format is now a user-level rule that applies to every repository.
+  **新建用户级 `~/.claude/CLAUDE.md`，并把发布版式锚到一个可运行示例**（`f3f3db2e`、`2870e5fe`）—— 双语发布版式成为**所有仓库通用**的用户级规则。
+- **The lockfile version field is aligned with `package.json` at 1.0.10** (`54a2c9a1`).
+  **对齐 lockfile 版本字段至 1.0.10**（`54a2c9a1`）。
+- **The queue default and the "no Redis" story are corrected in the docs** (`62dde429`).
+  **修正队列默认值与「无 Redis」说明**（`62dde429`）。
+- **The CI analyse job is pinned to the SDK that resolved the lock** (`960c3bfa`) — no more SDK drift masquerading as a red build.
+  **CI 分析作业固定到解析锁文件的 SDK**（`960c3bfa`）—— 不再有 SDK 漂移伪装的假红。
+- **The contract registry grows from 40 to 44 entries** — the three `app/*` endpoints, the error-code catalogue, and the confirmation lifecycle are now covered.
+  **契约 registry 由 40 增至 44 条** —— `app/*` 三端点、错误码目录与确认生命周期入契约。
 
 ### Release Precheck（2026-09-22）
 
-- **四层 code review**：阿里 OCR **115 条**（250 文件，真实运行非人工兜底）+ Claude 自带 **7 条** + code-review skill 双轴 **7 条**（Standards 3 / Spec 4）+ Code Economy **4 条**（WARN，Critical 0）→ 整合后修复 **3 条阻塞项**
-- **全量测试**：后端单测 **295 套 / 2686 用例**（安全模块分档门禁 6/6）· 后端 e2e · Web-Admin-Vue vitest **80 套 / 452 用例** · Flutter **628 用例** · 生成器 / CLI **64 + 8** · 端点-文档一致性 **0 条声明缺失** —— 全过
-- **覆盖率**：后端 statements **95.13%** / branches **78.94%** / functions **90.49%** / lines **95.97%**（门槛 85 / 70 / 80 / 85）；vitest **87.6 / 78.33 / 58.5 / 87.6**（门槛 75 / 70 / 54 / 75）；Flutter 行 **76.47%**（门槛 45%）。仓库未记 v1.0.10 的具体数值；本次高于全部有记录的历史值（v1.0.5 为 90.15 / 75.05 / 90.84）
-- **阻塞项修复**：① `guestId` 加长度上限——超列宽值曾让操作审计**静默丢行**、AI 审计 500（任一登录用户加个 `X-Guest-Id` 头即可压掉自己的审计行）② 确认卡落库失败改为 **fail-closed**——旧口径吞掉异常仍放行，形成「工具已执行、行仍 pending」，再裁决一次即二次执行（外部 MCP 写工具无幂等键，那是真重放）③ R4 审批改**条件更新**（唯一仲裁点）——原 `findOne` + `save` 读改写让双人同时批准时高风险写工具执行两次
-- **建议项落地**：工具名还原支持数字（`summarize_customer_360` 曾静默跳过）· `?limit=0` 钳下界（曾 `totalPages=Infinity`）· 回收站类型运行时校验（未知类型曾落到 PM 任务分支）· 代理状态体展开顺序（防上游覆写管理台所见事实）· 迁移时间戳去重（`1824000000000` 曾被两个迁移共用）· CHANGELOG 漏记 / 重复条目 / 悬空提交引用修正 · CLAUDE.md §9 补登 5 个端点
-- **如实记录（未落地，已记后续）**：外部 MCP 写工具的幂等键 · R4 审批「先执行后置态」的状态机（执行中断会留下已批准未执行、无补偿）· `_withChainWrite` 在 sqlite 下的整组事务语义（注释声称原子、实为串行）· 离线确认窗口判据两处实现合一 · `chatStreamImpl`（约 579 行）长方法拆分 · 冻结版 schema 快照未被校验（裸 `$id` 是跨文件相对 `$ref` 所必需，属**有意设计**，OCR 该条不采纳）
+- **Four layers of code review**: Alibaba OCR **115 findings** (250 files, a genuine run rather than a manual fallback) + Claude's built-in review **7** + the code-review skill's dual axis **7** (Standards 3 / Spec 4) + Code Economy **4** (WARN, Critical 0) → **3 blocking defects fixed**.
+  **四层代码评审**：阿里 OCR **115 条**（250 文件，真实运行非人工兜底）+ Claude 自带 **7** + code-review skill 双轴 **7**（Standards 3 / Spec 4）+ Code Economy **4**（WARN，Critical 0）→ 修 **3 条阻塞项**。
+- **Full test run**: backend unit **295 suites / 2686 tests** (security-module tier gate 6/6) · backend e2e · Web-Admin-Vue vitest **80 suites / 452 tests** · Flutter **628 tests** · generator / CLI **64 + 8** · endpoint-docs consistency **0 missing declarations** · **Release Gate 24/0 PASS** — all green.
+  **全量测试**：后端单测 **295 套 / 2686 用例**（安全模块分档门禁 6/6）· 后端 e2e · Web-Admin-Vue vitest **80 套 / 452 用例** · Flutter **628 用例** · 生成器 / CLI **64 + 8** · 端点-文档一致性 **0 条声明缺失** · **Release Gate 24/0 PASS** —— 全过。
+- **Coverage**: backend statements **95.13%** / branches **78.94%** / functions **90.49%** / lines **95.97%** (thresholds 85 / 70 / 80 / 85); vitest **87.6 / 78.33 / 58.5 / 87.6** (thresholds 75 / 70 / 54 / 75); Flutter lines **76.47%** (threshold 45%). The repository records no figures for v1.0.10; these exceed every recorded historical value (v1.0.5 was 90.15 / 75.05 / 90.84).
+  **覆盖率**：后端 statements **95.13%** / branches **78.94%** / functions **90.49%** / lines **95.97%**（门槛 85 / 70 / 80 / 85）；vitest **87.6 / 78.33 / 58.5 / 87.6**（门槛 75 / 70 / 54 / 75）；Flutter 行 **76.47%**（门槛 45%）。仓库未记 v1.0.10 的具体数值；本次高于全部有记录的历史值（v1.0.5 为 90.15 / 75.05 / 90.84）。
+- **Deliberately left as follow-ups (recorded honestly, not overlooked)**: idempotency keys for external MCP write tools · the R4 approval "execute-then-mark" state machine (an interruption can leave an approved-but-unexecuted row with no compensation) · `_withChainWrite`'s whole-group transaction semantics on sqlite (the comment claims atomicity, the code is serial) · unifying the two implementations of the offline-window predicate · splitting the ~579-line `chatStreamImpl` · and the frozen schema snapshots not being validated — that last one is **by design** (bare `$id`s are required for cross-file relative `$ref`), so the OCR finding was **not adopted**.
+  **有意留作后续（如实记录，不是漏掉）**：外部 MCP 写工具的幂等键 · R4 审批「先执行后置态」状态机（中断会留下已批准未执行且无补偿）· `_withChainWrite` 在 sqlite 下的整组事务语义（注释声称原子、实为串行）· 离线窗口判据两处合一 · `chatStreamImpl`（约 579 行）拆分 · 冻结版 schema 快照未被校验 —— 最后一条**属有意设计**（裸 `$id` 是跨文件相对 `$ref` 所必需），故 OCR 该条**不采纳**。
 
 ## [1.0.10] - 2026-09-15
 
