@@ -774,10 +774,13 @@ npm run migration:run
 | POST | /api/v1/ai/chat/stream | Yes | 当前用户 | AI 对话（SSE 流式；含 tool_start/tool_end 过程事件 + confirmation_request/confirmation_decision） |
 | GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限元数据（HS-2，管理台审计/治理） |
 | POST | /api/v1/ai/confirmations/:token | Yes | 本人 | 确认 AI 写操作（create_event/create_todo，approve/reject，未知 token 404） |
+| GET | /api/v1/ai/my/confirmations | Yes | 本人 | 本人确认记录（GA 待我确认中心；可按 status 过滤，pending 带离线窗口 expiresAt） |
+| POST | /api/v1/ai/my/confirmations/:token/decide | Yes | 本人 | 离线裁决本人确认（GA，对话之外；条件更新幂等，不可离线裁决者 404） |
 | DELETE | /api/v1/ai/memory | Yes | 本人 | 清除用户长期记忆（隐私） |
 | POST | /api/v1/ai/insights | Yes | 当前用户 | 数据洞察报告（结构化统计） |
 | GET | /api/v1/ai/conversations | Yes | 本人 | 对话历史列表 |
 | GET | /api/v1/ai/conversations/:id | Yes | 本人 | 单个对话完整消息 |
+| GET | /api/v1/ai/conversations/:id/meta | Yes | 本人或管理员 | 会话结构（消息数/时间跨度/归属/模型）；**刻意不返回任何消息文本**（AU-4 引用优先） |
 | GET | /api/v1/ai/conversations/:id/trace | Yes | 本人 | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） |
 | DELETE | /api/v1/ai/conversations/:id | Yes | 本人 | 删除指定对话 |
 | DELETE | /api/v1/ai/conversations | Yes | 本人 | 清空所有对话 |
@@ -846,6 +849,8 @@ npm run migration:run
 | GET | /api/v1/settings | Yes (ADMIN) | — | 全部动态配置（RG-2，实时生效） |
 | PUT | /api/v1/settings/:key | Yes (ADMIN) | — | 更新/创建动态配置（维护模式/AI 每日限额等，写入 Settings 表即生效） |
 | POST | /api/v1/settings/preset | Yes (ADMIN) | — | 首启引导 preset（EASY-5）：应用 full/small/lite → 写 feature_* Settings + 内存覆盖，返回应用后 flags（v1.1 P0-6） |
+| GET | /api/v1/admin/ai/behavior-alerts | Yes (ADMIN) | — | AI 异常行为告警列表（BA 基线；?status=open/acknowledged/all，?level=warning/critical） |
+| POST | /api/v1/admin/ai/behavior-alerts/:id/acknowledge | Yes (ADMIN) | — | 标记 AI 异常行为告警已处理（BA；人工动作，不自动处置） |
 | GET | /api/v1/admin/monitor/summary | Yes (ADMIN) | — | 监控摘要：健康 + 依赖 + 指标 + 计数 |
 | GET | /api/v1/admin/ops/summary | Yes (ADMIN) | — | 运维摘要 |
 | GET | /api/v1/admin/overview | Yes (ADMIN) | — | 平台总览（计数卡 + 趋势 + 存储） |

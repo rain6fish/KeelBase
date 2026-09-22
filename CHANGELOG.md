@@ -4,10 +4,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.11] - 2026-09-22
 
-> 自 v1.0.10（2026-09-15）以来的维护线增量；发版时本段定型为 [1.0.11] 并补日期与版本 bump。
-> Maintenance-line increments since v1.0.10 (2026-09-15); this section becomes [1.0.11] with a date at release.
+> **KeelBase 1.0.11 — Business Compensation & Runtime Hardening / 业务级补偿与运行时加固版**
+>
+> Maintenance-line increment 11 (base = v1.0.10 tag, 129 commits): business-level compensation completed (impact preview + revoke class + cascade revoke in a single transaction) · guest identity, audit-to-conversation drill-down · SM2-signed evidence packages · a rule-based AI behaviour baseline that alerts without blocking · an out-of-band "waiting on me" confirmation centre · the Full conformance profile turned into a standing CI gate · a 21-slice split of the ai/audit god services · a version-parity release gate · Redis reconnect-storm and `/mobile` + Flutter web build fixes.
+>
+> 维护线第十一个增量（基线 = v1.0.10 tag，129 提交）：**业务级补偿收口**（影响预览 + 撤销口径 + 级联撤销单事务）· **访客标识与审计下钻** · **证据包国密签名（SM2）** · **异常行为基线（只告警不阻断）** · **「等我处理」离线裁决中心** · **一致性剖面 Full 档常绿 CI 门** · **ai / audit god service 拆分 21 刀** · **发版版本对账门** · Redis 重连刷屏与 `/mobile`、Flutter web 构建修复。
 
 ### Added / 新增
 
@@ -18,10 +21,16 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
   **One business action's side effects across tables are compensated in a single step, and the confirmation card states the impact and whether it can be taken back.**
 - **§22.19 AU-3 访客标识：共享账号下也能区分访客**（`699c09e4`）— 演示端访客共用 `alex` 登录时，审计 `user_id` 全塌缩成一个、无法分辨谁是谁；新增**与账号无关**的访客标识（cookie `kb_guest` + `X-Guest-Id` 头双载体，不引入 cookie 依赖，**Web 端零改动**），两张审计表落**链外列** `guest_id`（迁移 `1824000000000`，双方言），管理台两个审计页可见；契约先行 `operation-audit-log-row` v1→v2、`ai-audit-log-row` v2→v3；**诚实边界**：该标识由客户端提供、可被清除或伪造，**只是归因标签，从不是凭证**（不用于授权 / 配额 / 风控）
   **Visitors sharing one demo account are now distinguishable in the audit trail. The identifier is an attribution label, never a credential.**
-- **§22.19 AU-4 从审计行下钻到该次对话（引用优先）**（`d03003bd`）— AI 审计行此前只把 `conversationId` 显示为纯文本，「问了什么」在审计轨迹上够不着；现点该 id 打开抽屉**先看会话结构**（消息数 / 时间跨度 / 归属 / 模型），正文须**再显式点「查看正文」**才取。**「引用优先、不落全文」落在服务端**（新增 `GET /ai/conversations/:id/meta` 刻意不返回任何消息文本，连 `summary` 也不返回）——若由前端先取全文再只显示元数据，该约束就只是 UI 装饰；权限复用既有闸门（管理员 / 本人可读，他人 403），无迁移；契约先行新增 wire 对象 `conversation-meta` v1
+- **§22.19 AU-4 从审计行下钻到该次对话（引用优先）**（`2b4cc94c`）— AI 审计行此前只把 `conversationId` 显示为纯文本，「问了什么」在审计轨迹上够不着；现点该 id 打开抽屉**先看会话结构**（消息数 / 时间跨度 / 归属 / 模型），正文须**再显式点「查看正文」**才取。**「引用优先、不落全文」落在服务端**（新增 `GET /ai/conversations/:id/meta` 刻意不返回任何消息文本，连 `summary` 也不返回）——若由前端先取全文再只显示元数据，该约束就只是 UI 装饰；权限复用既有闸门（管理员 / 本人可读，他人 403），无迁移；契约先行新增 wire 对象 `conversation-meta` v1
   **An audit row now jumps to the conversation it came from: structure first, and the message body only on an explicit second request.**
 - **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
-- **ECS 演示环境重置前归档用量与访问**（`c35a3cfe`）— 定时重置会清数据，先把用量 / 访问证据落档，避免重置即丢
+- **§22.19 D-4 证据包国密签名 + 可信时间锚**（`e47daa9c`）— 证据包 `signature` 段由「字符串 HMAC 或 null」扩为 `oneOf[null, 字符串(历史包), 对象 {hmac, sm2?, tsa?}]`；**加性变更**——旧形态仍合法、canonical 签名对象不变，故 v1 / v2 包可继续离线验证；契约 `evidence-package` 升 v3
+  **Evidence packages can carry an SM2 (Chinese national standard) signature without invalidating older packages.**
+- **BA 异常行为基线：只告警、不阻断**（`99f64f04`）— 按规则识别异常 AI 行为并落 `ai_behavior_alerts` 告警事件（迁移 `1825000000000`，双方言）+ 管理台告警页（三处导航同步注册）；**属观测层，不改门控**
+  **A rule-based AI behaviour baseline raises alerts without changing any gate.**
+- **GA「等我处理」中心：在对话之外裁决确认**（`dbba676e`）— 用户离开对话后仍可在 Action Center 于离线窗口内裁决写确认；**只认 DB 行**（不依赖内存 Map），故服务重启后仍可用；幂等守卫与对话内裁决共用同一条件更新闸门
+  **A pending confirmation can be decided outside the conversation, from the "waiting on me" centre.**
+- **一致性剖面 Full-profile runner + CI 常绿门**（`0ec29dfe` / `e09899a7`）— F4 / F5 两个 Full 档剖面从「一次性手跑」变为 CI 门，判据自带自校验
 
 ### Fixed / 修复
 
@@ -39,6 +48,13 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **CI workflow 复位被吃掉的注释符**（`21683b17`）— 该 workflow 曾因此不可解析
 - **样例值不再触发密钥扫描**（`9dda97d5`）— 确认 token 原为字面 UUID，命中 gitleaks 通用 api-key 规则（只看「token 字段 + 高熵值」、不问上下文）；改为短前缀占位，未放宽扫描规则
 - **两处向量门禁按内容比、不按行尾比**（`4d2e2d3c`）— 本机 autocrlf 使门禁拿 CRLF 工作区文件比 LF 内存产出，把行尾差异误报成语义漂移（跨仓那处曾 7/7 全假红），且其建议的 `--sync` 会把本机行尾写进 Java 仓；现比较前归一行尾，`--sync` 写 LF
+- **Redis 重连刷屏消除，「自动降级」真正成立**（`5e213c45`）— 重连风暴持续刷日志，且文档承诺的降级实际不生效；现按文档语义真降级
+- **AI token 记账补全**（`209c87ba` `015bf6d5` `972d053b` `ef47bffa` `3bf82008` `3145f3df`）— 意图分类 / 委托与计划管线 / 上下文压缩 / 知识库问答 / 流式对话 / 工具自调 LLM 的开销此前**未记账**，成本看板与配额据此失真；现逐条补齐
+- **`/mobile` 预览按真实挂载点构建**（`cd4b719e`）— 原先按根路径构建，页面卡在 Loading
+- **Flutter web 构建修复**（`7892fcc0`）— `objective_c` 需配含 arm64e 的 `code_assets`，否则 web 构建不产出
+- **分页类型与后端实际返回对齐**（`c8f4d80f`）— 前端类型声称含 `totalPages`，而后端 `GET /users`、`GET /search` 实际不返回该字段（类型在撒谎）
+- **同名 DTO 改名 + 补齐四个缺失 i18n key**（`485cd90a`）
+- **委托链路归责端到端验证**（`061ed521`）
 
 ### Changed / 变更
 
@@ -48,6 +64,20 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **`SECURITY.md` N-7 不再声称「批量（计划级）确认尚未提供」**（`34c9069d`）— 公开信任边界声明此前落后于已交付能力（KB-5 run 聚合）
 - **30 分钟 onboarding 指南对齐实际行为**（`8b9ccba0`）— 原走已被旗舰占用的 `customers` 模块（撞名保护会直接拒绝），并补齐测试数、`.env` 复制、演示模式参数语法等漂移
 - **官方 Demo 分镜按当前代码重建**（`0cfccc26`）
+- **ai / audit 域 god service 拆分（21 刀）** — `ai.service.ts` 2275→1435 行、`audit.service.ts` 1263→217 行；领域组件下沉（工具门控 / 执行 / 呈现 / 曝光面 / R4 审批 / Provider 路由 / 证据 / 统计 / 查询 / 日配额 / 组织通讯录 / CRM 分析 / 平台观测），共享地基提为**跨模块单源**（`payload.ts` 哈希口径 / `by-day.ts` 趋势口径 / `cache-keys.ts` 失效契约 / `tool-call-audit.ts` / `llm-usage.ts` / `effect-composition.ts` / `write-impact.ts`）；删除 `evidence-root.service`
+- **分页响应收敛为单一定义**（`76afc5d4`）— 原先三处形状各自为政
+- **CI 分析作业固定到解析锁文件的 SDK**（`960c3bfa`）— 消除 SDK 漂移导致的假红
+- **测试 app 各自独立库**（`65882bae` / `474659b7`）— 不再继承上一轮的库
+- **契约 registry 40→44 条**（`app/*` 三端点 + 错误码目录 + 确认生命周期入契约）
+
+### Release Precheck（2026-09-22）
+
+- **四层 code review**：阿里 OCR **115 条**（250 文件，真实运行非人工兜底）+ Claude 自带 **7 条** + code-review skill 双轴 **7 条**（Standards 3 / Spec 4）+ Code Economy **4 条**（WARN，Critical 0）→ 整合后修复 **3 条阻塞项**
+- **全量测试**：后端单测 **295 套 / 2686 用例**（安全模块分档门禁 6/6）· 后端 e2e · Web-Admin-Vue vitest **80 套 / 452 用例** · Flutter **628 用例** · 生成器 / CLI **64 + 8** · 端点-文档一致性 **0 条声明缺失** —— 全过
+- **覆盖率**：后端 statements **95.13%** / branches **78.94%** / functions **90.49%** / lines **95.97%**（门槛 85 / 70 / 80 / 85）；vitest **87.6 / 78.33 / 58.5 / 87.6**（门槛 75 / 70 / 54 / 75）；Flutter 行 **76.47%**（门槛 45%）。仓库未记 v1.0.10 的具体数值；本次高于全部有记录的历史值（v1.0.5 为 90.15 / 75.05 / 90.84）
+- **阻塞项修复**：① `guestId` 加长度上限——超列宽值曾让操作审计**静默丢行**、AI 审计 500（任一登录用户加个 `X-Guest-Id` 头即可压掉自己的审计行）② 确认卡落库失败改为 **fail-closed**——旧口径吞掉异常仍放行，形成「工具已执行、行仍 pending」，再裁决一次即二次执行（外部 MCP 写工具无幂等键，那是真重放）③ R4 审批改**条件更新**（唯一仲裁点）——原 `findOne` + `save` 读改写让双人同时批准时高风险写工具执行两次
+- **建议项落地**：工具名还原支持数字（`summarize_customer_360` 曾静默跳过）· `?limit=0` 钳下界（曾 `totalPages=Infinity`）· 回收站类型运行时校验（未知类型曾落到 PM 任务分支）· 代理状态体展开顺序（防上游覆写管理台所见事实）· 迁移时间戳去重（`1824000000000` 曾被两个迁移共用）· CHANGELOG 漏记 / 重复条目 / 悬空提交引用修正 · CLAUDE.md §9 补登 5 个端点
+- **如实记录（未落地，已记后续）**：外部 MCP 写工具的幂等键 · R4 审批「先执行后置态」的状态机（执行中断会留下已批准未执行、无补偿）· `_withChainWrite` 在 sqlite 下的整组事务语义（注释声称原子、实为串行）· 离线确认窗口判据两处实现合一 · `chatStreamImpl`（约 579 行）长方法拆分 · 冻结版 schema 快照未被校验（裸 `$id` 是跨文件相对 `$ref` 所必需，属**有意设计**，OCR 该条不采纳）
 
 ## [1.0.10] - 2026-09-15
 
