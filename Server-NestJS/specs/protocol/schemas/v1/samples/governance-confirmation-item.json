@@ -1,6 +1,6 @@
 {
   "id": 55,
-  "token": "appr-2f4b9c17",
+  "token": "appr-sample-01",
   "toolName": "review_approval_request",
   "args": "{\"requestId\":12}",
   "operatorId": "42",
