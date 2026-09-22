@@ -500,8 +500,8 @@ REDIS_URL=redis://localhost:6379   # Redis 地址
 CACHE_ENABLED=true                 # 是否启用缓存层（false 降级直查库）
 CACHE_TTL=300                      # 默认缓存 TTL（秒）
 
-# 异步队列（BullMQ）
-QUEUE_ENABLED=true                 # 是否启用队列（false 降级同步执行）
+# 异步队列（BullMQ）——需要 Redis，故默认关闭（false 降级同步执行）；有 Redis 的部署置 true
+QUEUE_ENABLED=false                # 是否启用队列
 
 # AI 模型配置（可选，不配置则 AI 功能降级不可用；详见 docs/ai-agent.spec.md §环境变量）
 AI_PROVIDER=deepseek               # deepseek | qwen | openai | anthropic | gemini

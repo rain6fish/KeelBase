@@ -21,7 +21,7 @@
 # 访问 http://localhost:3000 工作台、http://localhost:3000/mobile 移动预览、http://localhost:3000/admin 管理台
 ```
 
-> 不想看下面的分步说明？直接跑 `./scripts/docker-single.sh` 即可。默认 SQLite 零配置，缓存/队列自动降级——**用户只需装 Docker**。
+> 不想看下面的分步说明？直接跑 `./scripts/docker-single.sh` 即可。默认 SQLite 零配置；无 Redis 时**缓存自动降级为进程内内存、队列默认关闭**（同步执行）——**用户只需装 Docker**。
 > 本地开发模式（起后端+管理台，自动开浏览器）用 `./scripts/dev.sh experience`（本地 Node 模式）或 `DOCKER=1 ./scripts/dev.sh experience`（Docker 全量）。
 > 其它命令入口：`./scripts/dev.sh help`（或 `make help`）看全部：dev / test / build / migrate 等。
 

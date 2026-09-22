@@ -45,7 +45,7 @@ Related manuals / 相关手册：
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection |
 | `CACHE_ENABLED` | `true` | Redis cache layer on/off |
 | `CACHE_TTL` | `300` | Default cache TTL (seconds) |
-| `QUEUE_ENABLED` | `true` | BullMQ async queue (false = sync fallback) |
+| `QUEUE_ENABLED` | `false` | BullMQ async queue; **requires Redis**, hence off by default (false = sync fallback); set true when Redis is present |
 | `OTEL_ENABLED` | `false` | OpenTelemetry tracing |
 | `LOKI_ENABLED` | `false` | Push pino logs to Loki |
 

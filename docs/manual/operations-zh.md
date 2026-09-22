@@ -44,7 +44,7 @@
 | `REDIS_URL` | `redis://localhost:6379` | Redis 连接 |
 | `CACHE_ENABLED` | `true` | Redis 缓存层开关 |
 | `CACHE_TTL` | `300` | 默认缓存 TTL（秒） |
-| `QUEUE_ENABLED` | `true` | BullMQ 异步队列（false = 同步降级） |
+| `QUEUE_ENABLED` | `false` | BullMQ 异步队列；**需有 Redis**，故默认关闭（false = 同步降级），有 Redis 时置 true 开启 |
 | `OTEL_ENABLED` | `false` | OpenTelemetry 链路追踪 |
 | `LOKI_ENABLED` | `false` | 把 pino 日志推送到 Loki |
 

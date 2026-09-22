@@ -60,7 +60,7 @@ npm run start:dev
 
 ✅ Verify: http://localhost:3000/api/v1/health → ok; http://localhost:3000/api/docs → Swagger.
 ⚠️ Dev DB is zero-config SQLite. First start auto-creates demo accounts.
-> No Redis? Set `CACHE_ENABLED=false QUEUE_ENABLED=false` (or use `./deploy/experience.sh` which does this for you).
+> No Redis? Nothing to configure: the cache degrades to in-process memory automatically, and the queue is off by default (`QUEUE_ENABLED=false`). Set `CACHE_ENABLED=false` to silence the one-line cache-degradation warning.
 
 ### Main App (Flutter Web)
 

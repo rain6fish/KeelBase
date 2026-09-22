@@ -11,7 +11,7 @@ Introduces a BullMQ async task queue that strips time-consuming operations (devi
 | 项 / Item | 说明 / Description |
 |----|------|
 | 依赖 / Dependencies | bullmq、@nestjs/bullmq（ioredis 已在 Phase 3.1） / bullmq, @nestjs/bullmq (ioredis already added in Phase 3.1) |
-| 配置 / Config | `QUEUE_ENABLED`（bool 默认 true）——false 时降级同步执行（同 MailService 降级语义） / `QUEUE_ENABLED` (bool, default true) — when false, degrades to synchronous execution (same degradation semantics as MailService) |
+| 配置 / Config | `QUEUE_ENABLED`（bool **默认 false**——队列必须有 Redis，零配置启动不建连接；true 时用 BullMQ，false 走同步执行，同 MailService 降级语义） / `QUEUE_ENABLED` (bool, **default false** — the queue requires Redis, so a zero-config start opens no connection; when true it uses BullMQ, when false it degrades to synchronous execution, same degradation semantics as MailService) |
 | 连接 / Connection | BullModule.forRootAsync 用 ConfigService 的 REDIS_URL / BullModule.forRootAsync uses the REDIS_URL from ConfigService |
 
 ## 3. push 队列 / 3. Push Queue

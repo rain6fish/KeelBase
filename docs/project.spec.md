@@ -993,7 +993,7 @@ JPUSH_MASTER_SECRET=
 REDIS_URL=redis://localhost:6379
 CACHE_ENABLED=true
 CACHE_TTL=300
-QUEUE_ENABLED=true
+QUEUE_ENABLED=false   # 队列需要 Redis，默认关闭；有 Redis 时置 true（docker-compose.yml 已设）
 
 # 备份保留份数（npm run backup 轮转用）
 BACKUP_KEEP=7
