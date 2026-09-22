@@ -173,6 +173,23 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  # 测试类型棘轮（scripts/check-test-types.mjs）：生产类型已由上面的 build job 守着
+  # （tsconfig.build.json 排除 spec），但**测试文件从来没被类型检查过**——ts-jest 只转译、不做诊断，
+  # 于是错误静默累积（实测 214 个，其中 TS2339/TS2345 正标记「测试与接口已对不上」）。
+  # 本 job 只要求「不再变多」：把不可见的变可见，而不逼着现在做一次 200 处的大扫除。
+  # 数目降下来时，把脚本里的 BASELINE 调小即锁住改善。
+  test-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Server-NestJS/package-lock.json
+      - run: cd Server-NestJS && npm ci
+      - run: node scripts/check-test-types.mjs
+
   # 架构边界门禁（docs/architecture-boundary.md）：
   #   core-boundary     = Core 无 UI 框架依赖、无前端代码引用；
   #   frontend-boundary = Frontend→Runtime 反向（FE-1-repo / ADR-0002 Rev-8）——前端/旗舰/模板无跨仓 import、无 runtime 身份分支。

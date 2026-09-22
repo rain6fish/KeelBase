@@ -36,7 +36,8 @@
     "check:boundary": "node scripts/check-core-boundary.mjs",
     "check:frontend-boundary": "node scripts/check-frontend-boundary.mjs",
     "check:java-vectors": "node scripts/check-java-vector-sync.mjs",
-    "check:version-parity": "node scripts/check-version-parity.mjs"
+    "check:version-parity": "node scripts/check-version-parity.mjs",
+    "check:test-types": "node scripts/check-test-types.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"
