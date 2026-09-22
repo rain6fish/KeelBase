@@ -496,9 +496,12 @@ jobs:
         working-directory: Front-Flutter
     steps:
       - uses: actions/checkout@v5
+      # 版本固定为解析 Front-Flutter/pubspec.lock 的那一版（与 docker-publish.yml 一致）：
+      # 跟随 '3.x' 会在 stable 前进时让 pub 按新 SDK 重新解析，重现「锁文件里两个包不配套、
+      # 门禁全绿却构建才炸」那类问题（2026-09-22 的 objective_c/code_assets 即为此）。
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.47.2'
           cache: true
       - run: flutter pub get
       # 容忍既有 warning/info（项目有 100+ 历史 lint 问题），仅 error 视为失败
