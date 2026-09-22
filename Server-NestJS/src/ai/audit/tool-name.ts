@@ -15,6 +15,10 @@
  */
 export function extractToolName(detail?: string | null): string | null {
   if (!detail) return null;
-  const m = /^([a-z_]+)\(/.exec(detail);
+  // Tool names may carry digits (`summarize_customer_360`) — a `[a-z_]+` class stopped at the
+  // first digit and returned null, so those rows were silently skipped by the evidence root and
+  // the behaviour baseline. 工具名可含数字（如 `summarize_customer_360`）；旧字符集 `[a-z_]+`
+  // 会在第一个数字处截断并返回 null，导致证据根 / 行为基线**静默跳过**这些行。
+  const m = /^([a-z0-9_]+)\(/.exec(detail);
   return m ? m[1] : null;
 }

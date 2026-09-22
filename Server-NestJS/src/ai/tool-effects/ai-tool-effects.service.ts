@@ -443,7 +443,7 @@ export class AiToolEffectsService {
   /** 管理台：按用户/类型列出 AI 创建的副作用（含目标记录当前状态） */
   async list(options: { userId?: number; page?: number; limit?: number } = {}) {
     const page = options.page ?? 1;
-    const limit = Math.min(options.limit ?? 20, 100);
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const where: Record<string, unknown> = {};
     if (options.userId !== undefined) where.userId = String(options.userId);
 

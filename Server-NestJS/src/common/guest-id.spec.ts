@@ -4,7 +4,7 @@
  * AU-3（§22.19 归因层）：访客标识的解析与签发单测。
  * 本仓原本不用 cookie，故解析是**手写的**——这类代码最容易在边界上出错，逐条钉住。
  */
-import { GUEST_COOKIE, ensureGuestId, parseCookieHeader, readGuestId } from './guest-id';
+import { GUEST_COOKIE, GUEST_ID_MAX_LENGTH, ensureGuestId, parseCookieHeader, readGuestId } from './guest-id';
 
 const req = (headers: Record<string, unknown>) => ({ headers }) as never;
 
@@ -57,6 +57,19 @@ describe('readGuestId（cookie 优先，X-Guest-Id 兜底）', () => {
   it('两者皆无 → undefined', () => {
     expect(readGuestId(req({}))).toBeUndefined();
   });
+
+  // ── 列宽边界（回归：超过 varchar(64) 的值曾让操作审计静默丢行、AI 审计写入抛错）──
+
+  it('超列宽候选值判为无效（不截断）→ undefined', () => {
+    const tooLong = 'g'.repeat(GUEST_ID_MAX_LENGTH + 1);
+    expect(readGuestId(req({ 'x-guest-id': tooLong }))).toBeUndefined();
+    expect(readGuestId(req({ cookie: `kb_guest=${tooLong}` }))).toBeUndefined();
+  });
+
+  it('恰好等于列宽可用（闭区间边界）', () => {
+    const exact = 'g'.repeat(GUEST_ID_MAX_LENGTH);
+    expect(readGuestId(req({ 'x-guest-id': exact }))).toBe(exact);
+  });
 });
 
 describe('ensureGuestId（无则签发并写 cookie）', () => {
@@ -92,5 +105,13 @@ describe('ensureGuestId（无则签发并写 cookie）', () => {
       throw new Error('headers already sent');
     });
     expect(() => ensureGuestId(req({}), { cookie } as never)).not.toThrow();
+  });
+
+  it('超长候选值 → 视为无标识，签发新 UUID 并写 cookie（不透传落库）', () => {
+    const cookie = jest.fn();
+    const id = ensureGuestId(req({ 'x-guest-id': 'g'.repeat(200) }), { cookie } as never);
+
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(cookie).toHaveBeenCalled();
   });
 });

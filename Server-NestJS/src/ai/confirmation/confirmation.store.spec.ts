@@ -101,6 +101,22 @@ describe('ConfirmationStore', () => {
     expect(await store.resolve('nope', '1', 'approve')).toBe(false);
   });
 
+  // 回归：落库失败曾「照常 resolve 放行执行」→ 行仍 pending 而工具已执行 → 再裁决即二次执行
+  // （外部 MCP 写工具无幂等键，那第二次是真重放）。现在与 decideOutOfBand 同口径 fail-closed。
+  it('落库失败 → fail-closed：不放行、不消费内存等待（可重试）', async () => {
+    const { token } = await store.create('1', 'create_event', { title: 'T' });
+    repo.update.mockRejectedValueOnce(new Error('db down'));
+
+    expect(await store.resolve(token, '1', 'approve')).toBe(false);
+    // 内存等待未被消费 —— 没拿到「已落库」的证据就不放行
+    expect(store.pendingCount).toBe(1);
+    expect(repo.update).toHaveBeenCalledTimes(1);
+
+    // 收尾：DB 恢复后同一次等待仍可正常裁决（一次抖动不该让确认永久卡死）
+    expect(await store.resolve(token, '1', 'approve')).toBe(true);
+    expect(store.pendingCount).toBe(0);
+  });
+
   it('等待窗口到期：只结束对话内等待，**不**改 DB（v2 两个窗口——行仍 pending 等离线窗口）', async () => {
     store = new ConfirmationStore(repo as any, 20);
     const { token, decision } = await store.create('1', 'create_event', { title: 'T' });

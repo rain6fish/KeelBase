@@ -8,6 +8,10 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * 只建这一张表 + 两个索引——**不夹带** `migration:generate` 在本机 dev 库上顺带探出的其它结构差异
  * （那是本地库与迁移的既有不同步，与本能力无关）。
  * 索引名与 PK 约束名取自 TypeORM 命名策略对当前实体元数据的实际计算值，故与实体装饰器一致、不产生一致性漂移。
+ *
+ * ⚠ 文件名时间戳（1825000000000）与下面类名里的（1824000000000）**有意不同**，不要「顺手改齐」：
+ * 本迁移原先与 `AddAuditGuestId` 撞用 1824000000000。改名只为让**排序**唯一（TypeORM 按文件名排序），
+ * 而类名是 `migrations` 表里记录的迁移身份 —— 改它会让任何已应用过该迁移的库重跑并因「表已存在」失败。
  */
 export class AddAiBehaviorAlerts1824000000000 implements MigrationInterface {
     name = 'AddAiBehaviorAlerts1824000000000'

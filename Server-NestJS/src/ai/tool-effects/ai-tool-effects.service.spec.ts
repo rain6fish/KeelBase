@@ -449,6 +449,19 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
         expect.objectContaining({ take: 100 }),
       );
     });
+
+    // 回归：此前只钳上界，`?limit=0` → take=0 → totalPages=ceil(total/0)=Infinity（JSON 序列化成 null）。
+    // 下界与 listOwned 对齐。 / Regression: only the upper bound was clamped, so `?limit=0` made
+    // totalPages Infinity (serialised as null); the lower bound now matches listOwned.
+    it('limit 钳制下界 1（防 ?limit=0 → totalPages=Infinity）', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+      const result = await service.list({ limit: 0 });
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 1 }),
+      );
+      expect(Number.isFinite(result.totalPages)).toBe(true);
+    });
   });
 
   describe('listOwned（AI Action Center 本人清单）', () => {

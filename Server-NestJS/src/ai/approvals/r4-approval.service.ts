@@ -135,10 +135,28 @@ export class R4ApprovalService {
     if (decision === 'approve' && req.operatorId === approverId) {
       return { ok: false, message: 'cannot self-approve' };
     }
-    req.status = decision === 'approve' ? 'approved' : 'declined';
+    // The conditional update is the **sole arbitration point** — the same stance
+    // `ConfirmationStore.decideOutOfBand` already takes. When two approvers decide at once,
+    // exactly one gets affected=1 and only that one executes the tool. The previous
+    // read-modify-write (`findOne` then `save`) let both pass the `pending` check, so the high-risk
+    // write tool ran twice.
+    //
+    // 条件更新是**唯一仲裁点** —— 与 `ConfirmationStore.decideOutOfBand` 同一口径。
+    // 双人并发裁决时只有一方 affected=1，也只有那一方执行工具；
+    // 原先的 `findOne` + `save` 读改写会让两人都通过 pending 检查 → 高风险写工具执行两次。
+    const res = await this.approvalsRepo.update(
+      { token, status: 'pending' },
+      {
+        status: decision === 'approve' ? 'approved' : 'declined',
+        approverId,
+        decidedAt: new Date(),
+      },
+    );
+    if (!res || res.affected === undefined || res.affected === 0) {
+      return { ok: false, message: 'already decided' };
+    }
+    // 状态已由上面的条件更新落库；这里只回填 `executeApprovedTool` 默认注记要用的审批人
     req.approverId = approverId;
-    req.decidedAt = new Date();
-    await this.approvalsRepo.save(req);
 
     if (decision === 'approve') {
       const result = await this.executeApprovedTool(req);

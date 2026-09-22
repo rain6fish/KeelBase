@@ -213,10 +213,17 @@ export class ToolExposureService {
         };
       }
       const status = await res.json().catch(() => ({}));
+      // Spread the upstream diagnostics **first**: the server-owned fields below must be written
+      // after it, otherwise the upstream `/keelbase/status` body could overwrite
+      // `reachable` / `configured` / `statusEnabled` / `baseUrl` and thereby forge the facts the
+      // admin console displays.
+      //
+      // 上游诊断体**先**展开：服务端自有字段必须在它**之后**写 —— 否则上游 `/keelbase/status`
+      // 可覆写 `reachable` / `configured` / `statusEnabled` / `baseUrl`，伪造管理台看到的事实。
       return {
+        ...(status as object),
         configured: true, baseUrl, audience, configuredTools,
         reachable: true, statusEnabled: true, fetchedAt: new Date().toISOString(),
-        ...(status as object),
       };
     } catch (err) {
       return {

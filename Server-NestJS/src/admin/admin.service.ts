@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, Optional, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, DataSource, IsNull, Not, In, MoreThanOrEqual } from 'typeorm';
@@ -292,6 +292,16 @@ export class AdminService {
 
   /** RG-3 恢复一条软删除记录。 */
   async restoreTrashItem(type: 'event' | 'todo' | 'project' | 'task', id: number) {
+    // `type` is only a compile-time union — it arrives from a route parameter, so an unvalidated
+    // value (`/admin/trash/bogus/1/restore`) used to fall through the ternary chain into the PmTask
+    // branch and restore a project task instead of failing. Reject explicitly.
+    //
+    // `type` 只是编译期联合，实际来自路由参数：未经校验的值（`/admin/trash/bogus/1/restore`）
+    // 曾穿过三元链落到 PmTask 分支，恢复出错的东西而不是报错。此处显式拒绝。
+    const allowedTrashTypes = ['event', 'todo', 'project', 'task'];
+    if (!allowedTrashTypes.includes(type as string)) {
+      throw new BadRequestException(`未知的回收站类型：${type}`);
+    }
     const repo =
       type === 'event'
         ? this.eventsRepo

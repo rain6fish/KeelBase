@@ -250,8 +250,17 @@ export class ConfirmationStore {
       );
       affected = res?.affected;
     } catch (err) {
-      // 落库失败不阻断对话内决策（沿用既有宽容语义）：内存态照常 resolve
+      // Fail closed, matching `decideOutOfBand`: without evidence that the decision reached the
+      // database, the tool must not run. The previous stance swallowed the error and resolved the
+      // in-memory promise anyway, so a DB hiccup meant "tool executed, row still pending" — the
+      // next decision (in conversation or from the Action Center) then executed it a second time.
+      // External MCP write tools carry no idempotency key, so that second run is a real replay.
+      //
+      // 与 `decideOutOfBand` 同口径 **fail-closed**：拿不到「决策已落库」的证据就不放行执行。
+      // 旧口径吞掉异常仍 resolve 内存态 → DB 抖动时「工具已执行、行仍 pending」，
+      // 再裁决一次即二次执行；外部 MCP 写工具没有幂等键，那第二次是真重放。
       console.error(`[ConfirmationStore] persist resolve failed: ${(err as Error).message}`);
+      return false;
     }
     // 只在**明确** 0 行命中时认定「已被并发裁决」——undefined 表示驱动没给该信息
     // （真实 TypeORM 的 update 总是带 affected；此处对不放该字段的替身保持宽容）

@@ -94,14 +94,14 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
           approverId: null,
           decidedAt: null,
         }),
-        save: jest.fn(),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
       };
       r4 = makeService(repo);
 
       const res = await r4.decideApproval('t1', '1', 'approve');
 
       expect(res).toEqual({ ok: false, message: 'cannot self-approve' });
-      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
     });
 
     it('KB-5：run 聚合行（kind=run）不可经审批入口裁决（越权改状态 + 绕 run 语义）', async () => {
@@ -117,7 +117,7 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
           approverId: null,
           decidedAt: null,
         }),
-        save: jest.fn(),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
       };
       r4 = makeService(repo);
 
@@ -125,7 +125,7 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
 
       expect(res.ok).toBe(false);
       expect(res.message).toContain('run confirmation cannot be decided');
-      expect(repo.save).not.toHaveBeenCalled(); // 未翻状态
+      expect(repo.update).not.toHaveBeenCalled(); // 未翻状态
     });
 
     it('§HS-9 执行前门控：审批请求创建后工具被策略禁用 → 批准也不执行（kill-switch 对在途审批生效）', async () => {
@@ -140,7 +140,7 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
           approverId: null,
           decidedAt: null,
         }),
-        save: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
       };
       r4 = makeService(repo);
       // 发起审批后、批准前：治理策略把该工具禁用（策略实时生效）
@@ -153,6 +153,32 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
       expect(res.success).toBe(false);
       (mockToolGate as any).governancePolicy = undefined;
+    });
+
+    // 回归：原先 findOne + save 读改写 → 双人同时批准时两人都通过 pending 检查 → 写工具执行两次。
+    // 现在条件更新是唯一仲裁点：只有 affected=1 的那一方执行。
+    it('并发裁决：条件更新未命中（affected=0）→ already decided，且**不执行**写工具', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't3',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_event',
+          args: '{"title":"x"}',
+          conversationId: 'c',
+          approverId: null,
+          decidedAt: null,
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockClear();
+
+      const res = await r4.decideApproval('t3', 'admin', 'approve');
+
+      expect(res.ok).toBe(false);
+      expect(res.message).toBe('already decided');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
   });
 

@@ -29,6 +29,29 @@ export const GUEST_COOKIE = 'kb_guest';
 /** 一年：演示访客的区分维度应长期稳定（否则同一访客每次访问都被当成新访客，归因反而失真） */
 const GUEST_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 
+/**
+ * Upper bound on a guest id — the width of the `guest_id varchar(64)` column carried by both
+ * audit tables (operation audit and AI audit). An over-long value is **rejected at the read
+ * boundary** rather than truncated: truncating would fold two different visitors into one id,
+ * which corrupts attribution, whereas rejecting simply falls back to "mint a fresh id" and
+ * keeps the audit row writable. (Before this bound, a client-supplied `X-Guest-Id` longer than
+ * the column made the operation-audit row silently drop and the AI-audit write throw.)
+ *
+ * 访客标识长度上限 —— 即两张审计表（操作审计 / AI 审计）`guest_id varchar(64)` 的列宽。
+ * 超长值在**读取边界**判定为无效，**不截断**：截断会把两个不同访客折成同一个 id，归因反而失真；
+ * 判无效则退回「签发新标识」，审计行照常可写。（加此上限之前，客户端送一个超过列宽的
+ * `X-Guest-Id` 会让操作审计静默丢行、AI 审计写入抛错。）
+ */
+export const GUEST_ID_MAX_LENGTH = 64;
+
+/** Normalize a candidate guest id to one that is safe to persist (empty or over-long → undefined).
+ *  把候选访客标识收敛为可安全落库的值（空 / 超列宽 → undefined）。 */
+function normalizeGuestId(raw: string | undefined): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  return value.length <= GUEST_ID_MAX_LENGTH ? value : undefined;
+}
+
 /** 从 `cookie` 头解析指定键（不引依赖；同名取首个）。解析失败按原值返回，不抛。 */
 export function parseCookieHeader(
   header: string | undefined,
@@ -49,13 +72,15 @@ export function parseCookieHeader(
   return undefined;
 }
 
-/** 读取已有访客标识（cookie 优先，`X-Guest-Id` 兜底）；无则 undefined。 */
+/** 读取已有访客标识（cookie 优先，`X-Guest-Id` 兜底）；无 / 不可落库则 undefined。
+ *  Read the visitor id already on the request (cookie first, `X-Guest-Id` as fallback);
+ *  undefined when absent or unusable (see {@link GUEST_ID_MAX_LENGTH}). */
 export function readGuestId(req: Pick<Request, 'headers'>): string | undefined {
-  const fromCookie = parseCookieHeader(req.headers.cookie);
+  const fromCookie = normalizeGuestId(parseCookieHeader(req.headers.cookie));
   if (fromCookie) return fromCookie;
   const header = req.headers['x-guest-id'];
   const value = Array.isArray(header) ? header[0] : header;
-  return value?.trim() || undefined;
+  return normalizeGuestId(value);
 }
 
 /**
