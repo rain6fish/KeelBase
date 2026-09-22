@@ -67,13 +67,15 @@ if [ "${DOCKER:-0}" = "1" ]; then
     echo "  ✓ 已生成 Server-NestJS/.env.production（随机密钥）"
   fi
   # Docker 镜像依赖宿主机预构建的 Flutter web 产物（Dockerfile 只 COPY build/web）
-  if [ ! -f Front-Flutter/build/web/index.html ]; then
+  # 判据用 main.dart.js（编译产物）：构建失败也会留下残缺的 build/web/index.html
+  if [ ! -f Front-Flutter/build/web/main.dart.js ]; then
     if command -v flutter >/dev/null 2>&1; then
       echo "→ 未发现预构建产物，构建 Flutter web..."
-      (cd Front-Flutter && flutter build web) || { echo "✗ Flutter web 构建失败"; exit 1; }
+      (cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/) || { echo "✗ Flutter web 构建失败"; exit 1; }
+      [ -f Front-Flutter/build/web/main.dart.js ] || { echo "✗ Flutter web 未产出 build/web/main.dart.js"; exit 1; }
     else
       echo "✗ 缺少 Front-Flutter/build/web 预构建产物，且未安装 Flutter SDK。"
-      echo "  请先在宿主机执行：cd Front-Flutter && flutter build web"
+      echo "  请先在宿主机执行：cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/"
       echo "  或改用已发布的 Docker 镜像（跳过本地构建）。"
       exit 1
     fi

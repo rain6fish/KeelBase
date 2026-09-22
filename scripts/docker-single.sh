@@ -33,10 +33,20 @@ cmd="${1:-up}"
 
 # flutter build web 在容器内（BuildKit）偶发 dart2js 崩溃（宿主机稳定）；
 # Dockerfile 只 COPY build/web 产物，这里先宿主机构建（需已装 Flutter SDK）
+# --base-href 必须等于运行时挂载点：产物落在 /mobile，用默认 / 会让 flutter_bootstrap.js
+# 被解析到根路径（根路径回的是工作台 HTML），页面永远停在 Loading。门禁 scripts/check-mobile-base.mjs
+# MSYS_NO_PATHCONV=1：Git Bash 会把 `--base-href=/mobile/` 这个以 / 开头的值改写成 Windows 路径，
+# flutter 于是报「should start and end with /」且不产出——故禁用参数转换。
+# 判据用 main.dart.js（编译产物）而非 build/web 目录：构建失败也会留下 canvaskit/index.html 等残缺文件，
+# 会让「已构建」的判断为真、把残缺产物 COPY 进镜像。
 build_flutter_web() {
-  if [ ! -d Front-Flutter/build/web ]; then
+  if [ ! -f Front-Flutter/build/web/main.dart.js ]; then
     echo "→ 宿主机构建 Flutter web（首次约 2 分钟）..."
-    (cd Front-Flutter && flutter pub get >/dev/null 2>&1 && flutter build web --release)
+    (cd Front-Flutter && flutter pub get >/dev/null 2>&1 &&
+      MSYS_NO_PATHCONV=1 flutter build web --release --base-href=/mobile/) ||
+      { echo "✗ Flutter web 构建失败"; exit 1; }
+    [ -f Front-Flutter/build/web/main.dart.js ] ||
+      { echo "✗ Flutter web 未产出 build/web/main.dart.js"; exit 1; }
   fi
 }
 

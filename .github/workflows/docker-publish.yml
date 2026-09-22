@@ -44,7 +44,7 @@ jobs:
           flutter doctor -v 2>&1 | tail -20 || true
           flutter pub get
           set +e
-          flutter build web --release > /tmp/flutter_build.log 2>&1
+          flutter build web --release --base-href=/mobile/ > /tmp/flutter_build.log 2>&1
           RC=$?
           echo "flutter build exit: $RC"
           if [ $RC -ne 0 ]; then
@@ -53,8 +53,20 @@ jobs:
             echo "::error::flutter build failed (exit $RC)"
             exit $RC
           fi
+          # 判据用 main.dart.js（编译产物）而非 build/web/index.html：构建失败也会留下残缺的 index.html，
+          # 那会让镜像 COPY 到一起不了的产物
+          if [ ! -f build/web/main.dart.js ]; then
+            echo "--- flutter build produced no compiled app ---"
+            tail -60 /tmp/flutter_build.log
+            echo "::error::flutter build produced no build/web/main.dart.js"
+            exit 1
+          fi
 
       # 构建 Web-Admin-Vue（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
+
+      # 产物挂载点断言：build/web 会被 COPY 到 public/mobile，base href 必须是 /mobile/（否则页面停在 Loading）
+      - name: Assert mobile base href
+        run: npm run check:mobile-base
 
       # 登录 ghcr.io（用内置 GITHUB_TOKEN）
       - name: Log in to ghcr.io

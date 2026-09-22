@@ -80,14 +80,16 @@ echo "✓ 生产模式 + HTTPS（443 + 80）"
 
 # ── 4. 构建并启动 ────────────────────────────────────────────
 # Docker 镜像依赖宿主机预构建的 Flutter web 产物（Dockerfile 只 COPY build/web），缺失则构建或 fail fast
-FLUTTER_WEB=Front-Flutter/build/web/index.html
+# 判据用 main.dart.js（编译产物）：构建失败也会留下残缺的 build/web/index.html
+FLUTTER_WEB=Front-Flutter/build/web/main.dart.js
 if [ ! -f "$FLUTTER_WEB" ]; then
   if command -v flutter >/dev/null 2>&1; then
     echo "→ 未发现预构建产物，构建 Flutter web..."
-    (cd Front-Flutter && flutter build web) || { echo "✗ Flutter web 构建失败"; exit 1; }
+    (cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/) || { echo "✗ Flutter web 构建失败"; exit 1; }
+    [ -f "$FLUTTER_WEB" ] || { echo "✗ Flutter web 未产出 $FLUTTER_WEB"; exit 1; }
   else
     echo "✗ 缺少 Front-Flutter/build/web 预构建产物，且未安装 Flutter SDK。"
-    echo "  请先在宿主机执行：cd Front-Flutter && flutter build web"
+    echo "  请先在宿主机执行：cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/"
     echo "  或改用已发布的 Docker 镜像（跳过本地构建）。"
     exit 1
   fi
