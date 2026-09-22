@@ -64,7 +64,7 @@ describe('CacheModule（工厂分支）', () => {
       values['REDIS_URL'] = 'redis://cache:6379';
       const kv = { name: 'keyv-instance' };
       createKeyv.mockReturnValue(kv);
-      const opts = await buildCacheOptions(config);
+      const opts = await buildCacheOptions(config, async () => true);
 
       expect(createKeyv).toHaveBeenCalledWith('redis://cache:6379');
       expect(opts.stores).toEqual([kv]);
@@ -74,6 +74,16 @@ describe('CacheModule（工厂分支）', () => {
       expect(opts).not.toHaveProperty('url');
       expect(warnSpy).not.toHaveBeenCalled();
       expect(String(logSpy.mock.calls[0]?.[0])).toContain('Redis store');
+    });
+
+    it('Redis 探活失败：降级内存并告警，不建 Keyv（否则 node-redis 后台无限重连刷屏）', async () => {
+      values['REDIS_URL'] = 'redis://cache:6379';
+      const opts = await buildCacheOptions(config, async () => false);
+
+      expect(createKeyv).not.toHaveBeenCalled();
+      expect(opts).not.toHaveProperty('stores');
+      expect(opts.ttl).toBe(300);
+      expect(String(warnSpy.mock.calls[0]?.[0])).toContain('Redis 不可达');
     });
 
     it('CACHE_ENABLED=false：不建 Redis store（enabled=false 本就不读写）', async () => {
@@ -89,7 +99,7 @@ describe('CacheModule（工厂分支）', () => {
       createKeyv.mockImplementation(() => {
         throw new Error('bad url');
       });
-      const opts = await buildCacheOptions(config);
+      const opts = await buildCacheOptions(config, async () => true);
       expect(opts).not.toHaveProperty('stores');
       expect(opts.ttl).toBe(300);
       expect(String(warnSpy.mock.calls[0]?.[0])).toContain('降级');

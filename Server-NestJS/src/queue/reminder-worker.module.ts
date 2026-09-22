@@ -7,6 +7,7 @@ import { Event } from '../events/event.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PushModule } from '../push/push.module';
 import { ReminderProcessor } from './reminder.processor';
+import { isQueueEnabled } from './queue.module';
 
 /**
  * reminder 队列消费端模块：注册 ReminderProcessor worker。
@@ -16,7 +17,7 @@ import { ReminderProcessor } from './reminder.processor';
 @Module({})
 export class ReminderWorkerModule {
   static register(): DynamicModule {
-    const enabled = String(process.env.QUEUE_ENABLED ?? 'true') !== 'false';
+    const enabled = isQueueEnabled();
     if (!enabled) {
       return { module: ReminderWorkerModule, imports: [], providers: [] };
     }

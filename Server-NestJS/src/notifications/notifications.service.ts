@@ -104,7 +104,7 @@ export class NotificationsService {
     targetId?: string | null,
   ): Promise<void> {
     try {
-      const queued = this.configService.get<boolean>('QUEUE_ENABLED', true);
+      const queued = this.configService.get<boolean>('QUEUE_ENABLED');
       if (queued && this.pushQueue) {
         const queuedOk = await this._enqueuePush(userId, title, body, type, link, targetType, targetId);
         if (queuedOk) return;

@@ -7,12 +7,9 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { HealthController } from './health.controller';
 import { STORAGE_SERVICE } from '../storage/storage.service';
 
-// 注：_checkRedis 的 TCP 探测段（net.createConnection 及其回调）无法在 jest 中覆盖——
-// 源码用 `await import('net')` 动态加载（tsconfig module=nodenext 编译为原生 ESM import），
-// 而 jest 未启用 --experimental-vm-modules 时原生动态 import 直接抛
-// "A dynamic import callback was invoked without --experimental-vm-modules"，
-// 被 _checkRedis 外层 catch 吞掉恒返回 'down'。不修改生产代码/ jest 配置的情况下该段不可达。
-// 故仅覆盖 import 之前的降级分支：未配置、URL 非法。
+// 注：TCP 探测段已抽到 `common/utils/redis-probe`（静态 import node:net，不再有
+// `await import('net')` 在 jest 下抛 --experimental-vm-modules 的问题），
+// 其自身行为由 redis-probe.spec.ts 覆盖；这里只覆盖 _checkRedis 的分支：未配置、URL 非法、拒连。
 
 describe('HealthController', () => {
   let controller: HealthController;
@@ -91,15 +88,14 @@ describe('HealthController', () => {
   });
 
   // ── 补充覆盖：Redis 降级 / storage 异常 ────────────────────────────────────
-  // 注：_checkRedis 的 TCP 探测用 `await import('net')` 动态加载，jest.mock 无法拦截
-  // （动态 import 绕过 mock registry），故只覆盖「未配置」「URL 非法」两条降级路径。
+  // 探活实现见 common/utils/redis-probe（静态 import，可被 jest 正常执行/拦截）
 
   it('_checkRedis：REDIS_URL 未配置 → down', async () => {
     configService.get.mockImplementation((k: string, d?: unknown) => (k === 'REDIS_URL' ? '' : d));
     await expect((controller as any)._checkRedis()).resolves.toBe('down');
   });
 
-  it('_checkRedis：REDIS_URL 非法 → catch 降级 down', async () => {
+  it('_checkRedis：REDIS_URL 非法 → down（探活返回 null 不视为可用）', async () => {
     configService.get.mockImplementation((k: string, d?: unknown) => (k === 'REDIS_URL' ? 'not-a-valid-url' : d));
     await expect((controller as any)._checkRedis()).resolves.toBe('down');
   });

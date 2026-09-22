@@ -46,7 +46,7 @@ export class KnowledgeIngestionService {
   async enqueue(articleId: number): Promise<boolean> {
     try {
       if (
-        this.configService?.get<boolean>('QUEUE_ENABLED', true) &&
+        this.configService?.get<boolean>('QUEUE_ENABLED') &&
         this.knowledgeQueue
       ) {
         await this.knowledgeQueue.add(

@@ -17,6 +17,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, DataSource, MoreThanOrEqual } from 'typeorm';
+import { probeRedisReachable } from '../common/utils/redis-probe';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { User } from '../common/entities/user.entity';
@@ -149,25 +150,10 @@ export class AdminObservabilityService {
   }
 
   private async _checkRedis(): Promise<boolean> {
-    try {
-      const redisUrl = this.configService.get<string>('REDIS_URL', '');
-      if (!redisUrl) return false;
-      const url = new URL(redisUrl);
-      const net = await import('net');
-      return await new Promise<boolean>((resolve) => {
-        const sock = net.createConnection({ host: url.hostname, port: Number(url.port || 6379) }, () => {
-          sock.end();
-          resolve(true);
-        });
-        sock.on('error', () => resolve(false));
-        sock.setTimeout(1500, () => {
-          sock.destroy();
-          resolve(false);
-        });
-      });
-    } catch {
-      return false;
-    }
+    const redisUrl = this.configService.get<string>('REDIS_URL', '');
+    if (!redisUrl) return false;
+    // 未配置/不可达/URL 非法都算 down（探活实现与缓存降级共用一处）
+    return (await probeRedisReachable(redisUrl)) === true;
   }
 
   async getOpsSummary() {

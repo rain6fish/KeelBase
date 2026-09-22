@@ -53,6 +53,8 @@ services:
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379
       - CACHE_ENABLED=true
+      # 本编排自带 redis 服务（depends_on 健康检查），故显式开启队列；默认关闭是为「零配置无 Redis」场景
+      - QUEUE_ENABLED=true
       # P1-3：本地模型编排（--profile private-ai 起 ollama 后生效；AI_PROVIDER=ollama 全走本地，数据不出域）
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:

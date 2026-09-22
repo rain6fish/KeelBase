@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { probeRedisReachable } from '../common/utils/redis-probe';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Public } from '../auth/guards/public.decorator';
@@ -89,28 +90,11 @@ export class HealthController {
     }
   }
 
-  /** Redis：TCP 探测 REDIS_URL，1.5s 超时；未配置视为 down */
+  /** Redis：TCP 探测 REDIS_URL（探活实现与缓存降级共用一处）；未配置/不可达/URL 非法都算 down */
   private async _checkRedis(): Promise<string> {
-    try {
-      const redisUrl = this.configService.get<string>('REDIS_URL', '');
-      if (!redisUrl) return 'down';
-      const url = new URL(redisUrl);
-      const net = await import('net');
-      const ok = await new Promise<boolean>((resolve) => {
-        const sock = net.createConnection({ host: url.hostname, port: Number(url.port || 6379) }, () => {
-          sock.end();
-          resolve(true);
-        });
-        sock.on('error', () => resolve(false));
-        sock.setTimeout(1500, () => {
-          sock.destroy();
-          resolve(false);
-        });
-      });
-      return ok ? 'up' : 'down';
-    } catch {
-      return 'down';
-    }
+    const redisUrl = this.configService.get<string>('REDIS_URL', '');
+    if (!redisUrl) return 'down';
+    return (await probeRedisReachable(redisUrl)) === true ? 'up' : 'down';
   }
 
   /** A8：存储健康状态——优先走存储服务探测；未注入（测试/降级）时 local 视为 up、s3 视为 down */

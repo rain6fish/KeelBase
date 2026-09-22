@@ -4,6 +4,7 @@ import { Logger, Module } from '@nestjs/common';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheService } from './cache.service';
+import { probeRedisReachable } from '../utils/redis-probe';
 
 const cacheLogger = new Logger('CacheModule');
 
@@ -18,6 +19,8 @@ const cacheLogger = new Logger('CacheModule');
  */
 export async function buildCacheOptions(
   configService: ConfigService,
+  /** 探活实现（默认 TCP 探 Redis 端口）；单测注入桩避免真连网。 */
+  probe: (url: string) => Promise<boolean | null> = probeRedisReachable,
 ): Promise<Record<string, unknown>> {
   const ttl = configService.get<number>('CACHE_TTL', 300);
   if (!configService.get<boolean>('CACHE_ENABLED', true)) {
@@ -27,6 +30,16 @@ export async function buildCacheOptions(
   // 未配 REDIS_URL：内存缓存是**预期**行为，不告警
   const redisUrl = configService.get<string>('REDIS_URL');
   if (!redisUrl) return { ttl };
+
+  // 明确不可达（探活返回 false）就不建客户端：否则 node-redis 在后台无限重连刷 ECONNREFUSED 栈。
+  // 返回 null（URL 无法解析）时不据此降级，仍交 createKeyv 判定，避免误伤哨兵/集群等写法。
+  if ((await probe(redisUrl)) === false) {
+    cacheLogger.warn(
+      `Redis 不可达（${redisUrl}）→ 缓存降级为进程内内存（多实例不共享、delByPrefix 失效不传播）；` +
+        `需要缓存请先启动 Redis，不需要请设 CACHE_ENABLED=false 消除本条`,
+    );
+    return { ttl };
+  }
 
   // cache-manager v7 是 Keyv 系的：`stores` 只接受 **Keyv 适配器**（get/set/delete/clear）。
   // 用 @keyv/redis 的 createKeyv(url)（Keyv v5 兼容；namespace 为空 → Redis 键不加前缀）。

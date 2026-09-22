@@ -3,8 +3,9 @@
 import { QueueModule } from './queue.module';
 
 /**
- * QueueModule.register() 的核心逻辑是「QUEUE_ENABLED=false 时降级为空模块」——
- * 保证测试环境（createTestApp 置 false）完全不建立 Redis 连接，避免 BullMQ 连不上阻塞。
+ * QueueModule.register() 的核心逻辑是「开关关闭（含未配置）时降级为空模块」——
+ * 保证测试环境（createTestApp 置 false）与零配置启动都不建立 Redis 连接，避免 BullMQ
+ * 连不上时阻塞启动、持续重连刷 ECONNREFUSED（曾默认开启，2026-09-22 实测 ~4 条/秒）。
  * 该分支若回退，e2e 会在无 Redis 时挂起（CI 曾发生），故这里锁住行为。
  */
 describe('QueueModule.register（QUEUE_ENABLED 降级）', () => {
@@ -22,11 +23,11 @@ describe('QueueModule.register（QUEUE_ENABLED 降级）', () => {
     expect(mod.exports).toEqual([]);
   });
 
-  it('未配置 → 默认启用，挂 BullMQ 队列', () => {
+  it('未配置 → 默认关闭（队列必须依赖 Redis，零配置不去连）', () => {
     delete process.env.QUEUE_ENABLED;
     const mod = QueueModule.register();
     expect(mod.module).toBe(QueueModule);
-    expect((mod.imports ?? []).length).toBeGreaterThan(0);
+    expect(mod.imports).toEqual([]);
   });
 
   it('QUEUE_ENABLED=true → 挂 BullMQ 队列', () => {

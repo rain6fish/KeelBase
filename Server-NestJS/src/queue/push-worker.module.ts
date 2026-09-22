@@ -4,6 +4,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { PushModule } from '../push/push.module';
 import { PushProcessor } from './push.processor';
+import { isQueueEnabled } from './queue.module';
 
 /**
  * push 队列消费端模块：注册 PushProcessor worker。
@@ -14,7 +15,7 @@ import { PushProcessor } from './push.processor';
 @Module({})
 export class PushWorkerModule {
   static register(): DynamicModule {
-    const enabled = String(process.env.QUEUE_ENABLED ?? 'true') !== 'false';
+    const enabled = isQueueEnabled();
     if (!enabled) {
       return { module: PushWorkerModule, imports: [], providers: [] };
     }

@@ -4,6 +4,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AiModule } from '../ai/ai.module';
 import { KnowledgeIngestionProcessor } from './knowledge.processor';
+import { isQueueEnabled } from './queue.module';
 
 /**
  * knowledge 队列消费端模块：注册 KnowledgeIngestionProcessor worker。
@@ -13,7 +14,7 @@ import { KnowledgeIngestionProcessor } from './knowledge.processor';
 @Module({})
 export class KnowledgeWorkerModule {
   static register(): DynamicModule {
-    const enabled = String(process.env.QUEUE_ENABLED ?? 'true') !== 'false';
+    const enabled = isQueueEnabled();
     if (!enabled) {
       return { module: KnowledgeWorkerModule, imports: [], providers: [] };
     }

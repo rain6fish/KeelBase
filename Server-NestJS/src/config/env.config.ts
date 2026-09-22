@@ -189,8 +189,10 @@ export const envValidationSchema = Joi.object({
   CACHE_ENABLED: Joi.boolean().default(true),
   CACHE_TTL: Joi.number().default(300),
 
-  // 异步队列（BullMQ）
-  QUEUE_ENABLED: Joi.boolean().default(true),
+  // 异步队列（BullMQ）——队列**必须**有 Redis，故默认关闭：零配置启动不去连不存在的 Redis
+  //（曾默认 true，导致未起 Redis 时 BullMQ 持续重连、每秒若干条 ECONNREFUSED 栈，2026-09-22 实测）。
+  // 有 Redis 的部署请显式设 QUEUE_ENABLED=true（docker-compose.yml 已设）；关闭时降级同步执行。
+  QUEUE_ENABLED: Joi.boolean().default(false),
 
   // 短信服务
   SMS_DRIVER: Joi.string().valid('console', 'aliyun', 'none').default('console'),
