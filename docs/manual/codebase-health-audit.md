@@ -38,7 +38,10 @@
 > - **「`riskLevel` 三处独立」是误诊。** 三个 `riskLevel` 是**三个不同概念共用了一个词**：工具风险 `ToolRiskLevel`（R0–R5，**早已单源**于 `ai/interfaces/tool.interface.ts`，ai-governance 直接 import 它）、客户风险（low/medium/high/critical，**也已单源**于 `crm-customer.entity.ts` 的 `RISK_LEVELS`）、审批金额风险（low/medium/high，至今无词汇表）。把它们合成一份，等于把 AI 治理、CRM、审批三个域缝在一起。
 > - **真正的缺口是「已有单源没被喂到底」**：AI 工具的 JSON schema 把领域词汇又抄了一遍——而且**同一个文件里抄两遍**（`parameters[]` 一份、`toToolDefinition()` 一份）。2026-09-22 修掉四处（`query_customers` 的 status / riskLevel、`query_projects` 的 status、`query_approval_requests` 的 status），全部改为引用实体常量；并加漂移闸 `src/ai/tools/tool-vocabulary-single-source.spec.ts`（该闸守的是**漂移**：实体加值而工具停在旧字面量即红；它**不**检测「重写一份与今天取值相同的字面量」）。
 > - **未动**：`query_events` 与 `create_contract` 同形，但两个域**都还没有词汇表**——那属「先造单源」，不是「喂到底」，需要先决定词汇归属，不在本次范围。
-> - **「分页 DTO 仅 2 模块使用」不是缺陷**（`PaginationDto` 只有 events / users 两个 controller 用，其余手写查询参数）——手写的那些**服务层都做了钳制**（`Math.min(limit, 100)`），形状也一致。**但同一主题下另有一处真问题**：分页**响应形状没有单源**，实测三种并存——`{items,total}`（crm / pm / knowledge / approval）· `{items,total,page,limit}`（users / operation-audit / form-builder / tool-effects）· org 另带 `totalPages`；而 wire 契约里**没有分页对象**（48 个对象无一相关），这正是三种形状得以并存的原因。前端 `Paginated<T>` 此前把 `page`/`limit` 声明为**必填**，对多数端点是假的（实际无任何视图读它们，`vue-tsc` 通过）——2026-09-22 改为可选并注明原委。**要不要统一、以哪种为准，是契约决定**（须先把分页形状登记进 `specs/protocol` 并同批改各端点及消费方），故未擅自改动那 5 个端点的响应。
+> - **「分页 DTO 仅 2 模块使用」不是缺陷**（`PaginationDto` 只有 events / users 两个 controller 用，其余手写查询参数）——手写的那些**服务层都做了钳制**（`Math.min(limit, 100)`），形状也一致。**但同一主题下另有一处真问题**：分页**响应形状没有单源**，实测三种并存——`{items,total}`（crm / pm / knowledge / approval）· `{items,total,page,limit}`（users / operation-audit / form-builder / tool-effects）· org 另带 `totalPages`；而 wire 契约里**没有分页对象**（48 个对象无一相关），这正是三种形状得以并存的原因。
+> - **✅ 已解决（2026-09-22，`cae2ed59`）**：以**含 `totalPages` 的超集**为准（它是另两种的超集，故收敛**纯加性**——不删字段、消费方零改动），唯一定义落在 **`Server-NestJS/src/common/dto/paginated.ts`** 的 `paginated()`，**12 处**返回点已收敛；前端 `Paginated<T>` 随之收紧回五字段（此前放宽为可选是在后端自相矛盾时的如实描述，现在后端真的发了）。**故意没收敛**：crm/pm 的 `listTasks` 与 `ai-tool-effects` 另一处是**封顶列表**（无 `page`/`limit`，硬编码 `take: N`，`total` 是全量而 `items` 是截断的）、`search` 是**嵌套聚合**——给它们补分页字段等于凭空造语义。
+>   **家不在协议 registry**（这也更正本节早先的说法）：wire registry 装治理/信任对象，分页是通用应用关切，冻进协议层会撑厚协议（`module-protocol.md` §5 薄度纪律）。
+>   验收：相关 32 套件 / 429 用例 + 全量单测 294 套件 / 2675 用例 + e2e 36 套件 / 372 用例全绿；`vue-tsc --noEmit` 通过。
 
 
 ### LOW — 杂物 / 本地堆积
