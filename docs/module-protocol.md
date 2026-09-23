@@ -37,6 +37,7 @@
 | `int` | `int` | 数字输入 | 整数 |
 | `decimal` | `decimal(18, scale)`，驱动层归一为**字符串** | 数字输入（小数键盘） | 金额 / 小数：可选 `scale`（0-6，缺省 2）、`currency: true` 标为金额（符号取**全局币种设置**） |
 | `ref` | 外键列 `<name>_id`（int）+ 关系属性 | 数值输入（外键 id） | 关联另一模块：**必填** `target`（目标模块复数名）与 `display`（目标上用于回显的字段）；可选 `onDelete`（`restrict` 缺省 / `setNull` / `cascade`） |
+| `attachment` | **本实体不落列**；附件在同模块的**侧表** `<plural>_attachments` 里（真外键） | 列表显示附件名（上传控件见后续切片） | 附件关联：一个模块可有多个附件字段，共用一张侧表、以 `field` 列区分 |
 | `bool` | `boolean` | 开关 | 布尔 |
 | `date` | `datetime` | 日期选择 | 时间 |
 | `enum` | `varchar(32)` + 默认值 | 分段选择/下拉 | 枚举（需 `enum: [...]` 选项，2-10 个，小写英文/下划线） |
@@ -64,6 +65,7 @@
 | `fields[].scale` / `currency` | 列精度（整数位固定 18）+ 驱动层**字符串归一**（避免浮点丢精度） | 小数位校验；金额符号取**全局币种设置** |
 | `fields[].pii` | 管理端列表**服务端掩码**（`maskText`）+ 模块向审计注册该键名（`registerSensitiveKeys`） | 管理台列表显示掩码值（**客户端 CSV 导出同源继承**，因它导的就是页面上已脱敏的行） |
 | `fields[].target` / `display` / `onDelete` | 导入目标模块实体 + 注入其仓储：**写侧**校验外键存在（软删视为不存在），**读侧** `relations` 带回目标对象 | 外键 id 输入；目标对象的友好回显与下拉选择器见后续切片 |
+| `fields[].type=attachment` | 生成同模块的**侧表**（真外键指向 owner）+ `@OneToMany` + 三个端点（列 / 关联 / 撤销）；三者**先做 owner 所有权检查** | 模型带附件**名字列表**；上传按钮见后续切片 |
 | `searchable` | 列表搜索 + `/search` 索引 | 搜索入口 |
 
 **固定的安全接线（协议不含，AI 必须补）**：

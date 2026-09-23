@@ -19,6 +19,8 @@ const TARO_TS_TYPE = {
   decimal: () => 'string',
   // ref 在 TS 侧只暴露外键 id（number）
   ref: () => 'number',
+  // attachment 侧表不在本类型里展开；切片 2 再按需带上附件名
+  attachment: () => 'string',
 };
 
 export function taroServiceTemplate(ctx) {

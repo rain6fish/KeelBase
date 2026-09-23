@@ -9,7 +9,43 @@ export const RESERVED_FIELD_NAMES = new Set([
   'id', 'userId', 'createdAt', 'updatedAt', 'deletedAt',
 ]);
 
-export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum', 'decimal', 'ref']);
+export const FIELD_TYPES = new Set([
+  'string',
+  'text',
+  'int',
+  'bool',
+  'date',
+  'enum',
+  'decimal',
+  'ref',
+  'attachment',
+]);
+
+/** Names of the fields declared as attachments, in declaration order. */
+export function attachmentFields(fields) {
+  return (fields ?? []).filter((f) => f.type === 'attachment').map((f) => f.name);
+}
+
+/**
+ * Every generated name an attachment association needs — the side-table entity,
+ * its file, its table, the owning foreign key and the relation property.
+ * Single-sourced because these names must agree across five files; a drift
+ * between any two of them is a compile error, not a cosmetic difference.
+ *
+ * 附件关联所需的全部生成名 —— 侧表实体、文件名、表名、指向 owner 的外键、以及关系属性。
+ * 单源，因为这些名字必须跨五个文件一致；任意两处漂移都是编译错误，而非措辞差异。
+ */
+export function attachmentArtifacts(ctx) {
+  const ownerColumn = `${ctx.singular}Id`;
+  return {
+    className: `${ctx.singlePascal}Attachment`,
+    fileName: `${ctx.singular}-attachment.entity.ts`,
+    table: `${ctx.plural}_attachments`,
+    ownerColumn,
+    ownerColumnDb: toSnake(ownerColumn),
+    relation: 'attachments',
+  };
+}
 
 /** Cascade semantics a `ref` may declare; `restrict` (no cascade) is the default. */
 const REF_DELETE_SEMANTICS = new Set(['restrict', 'setNull', 'cascade']);

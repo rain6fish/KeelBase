@@ -93,6 +93,18 @@ const MODEL_FIELD = {
     from: `      ${refColumnName(c)}: json['${refColumnName(c)}'] as int?,`,
     to: `        '${refColumnName(c)}': ${refColumnName(c)},`,
   }),
+  // 附件在模型里只带**名字列表**（侧表不在此展开），且不经本模型提交 ——
+  // 关联有自己的端点。上传控件属切片 2。
+  attachment: (c) => ({
+    decl: `  final List<String> ${c}Names;`,
+    ctor: `this.${c}Names = const []`,
+    from:
+      `      ${c}Names: ((json['attachments'] as List?) ?? const [])\n` +
+      `          .where((a) => (a as Map)['field'] == '${c}')\n` +
+      `          .map((a) => (a as Map)['originalName'] as String)\n` +
+      `          .toList(),`,
+    to: '',
+  }),
   enum: (c, f) => (f.required === true
     ? {
       decl: `  final String ${c};`,
@@ -317,6 +329,8 @@ const FORM_FIELD = {
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
+  // 附件在表单里暂不呈现（上传控件属切片 2）；列表处显示名字。
+  attachment: () => '',
   bool: (c, l10n) =>
     `          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -359,6 +373,7 @@ const FORM_ENUM_LABELS = {
   date: () => '',
   decimal: () => '',
   ref: () => '',
+  attachment: () => '',
   enum: (c, f, ctx) => {
     if (!hasEnumLabels(f)) return '';
     const entries = f.enum
@@ -381,6 +396,8 @@ const FORM_CONTROLLERS = {
   date: (c) => `  final _${c}Ctrl = TextEditingController();`,
   decimal: (c) => `  final _${c}Ctrl = TextEditingController();`,
   ref: (c) => `  final _${refColumnName(c)}Ctrl = TextEditingController();`,
+  // 附件没有输入控件（关联走自己的端点），故不产控制器 —— dispose() 也必须跳过它
+  attachment: () => '',
   enum: (c, f) => `  String _${c}Val = '${f.enum[0]}';`,
 };
 
@@ -393,6 +410,7 @@ const FORM_READ = {
   decimal: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   ref: (c) =>
     `if (_${refColumnName(c)}Ctrl.text.isNotEmpty) data['${refColumnName(c)}'] = int.tryParse(_${refColumnName(c)}Ctrl.text.trim());`,
+  attachment: () => '',
   bool: (c) => `data['${c}'] = _${c}Val;`,
   date: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   enum: (c) => `data['${c}'] = _${c}Val;`,
@@ -436,7 +454,7 @@ ${labelMethods}
   @override
   void dispose() {
     ${ctx.fields
-      .filter((f) => f.type !== 'bool' && f.type !== 'enum')
+      .filter((f) => f.type !== 'bool' && f.type !== 'enum' && f.type !== 'attachment')
       // 控制器变量名必须与 FORM_CONTROLLERS 一致：ref 用外键列名（customerIdCtrl），
       // 不是字段名 —— 否则这里会 dispose 一个不存在的变量，产物编译不过。
       .map((f) => `${f.type === 'ref' ? `_${refColumnName(f.name)}Ctrl` : `_${f.name}Ctrl`}.dispose();`)

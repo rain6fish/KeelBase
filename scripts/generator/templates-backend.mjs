@@ -7,6 +7,8 @@
 
 import {
   DECIMAL_PRECISION,
+  attachmentArtifacts,
+  attachmentFields,
   decimalScale,
   piiFieldNames,
   refColumnName,
@@ -64,6 +66,10 @@ const FIELD_COLUMNS = {
     isRequired(f)
       ? `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, transformer: decimalStringTransformer })\n  ${c}!: string;`
       : `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, nullable: true, transformer: decimalStringTransformer })\n  ${c}?: string | null;`,
+  // 附件字段在**本实体上不落列** —— 关联落在同模块的侧表里（真外键，见 attachmentEntityTemplate）。
+  // An attachment field adds no column here: the association lives in the module's
+  // own side table with a real foreign key.
+  attachment: () => '',
   // 关联：外键列 + 关系属性两件（与旗舰 crm-activity 的既有写法同形）。外键列名显式给出，
   // 不依赖 TypeORM 的命名策略 —— 与 userId/deletedAt 的既有做法一致。
   ref: (c, f) => {
@@ -110,6 +116,9 @@ const FIELD_DTO_PROPS = {
     isRequired(f)
       ? `  @ApiProperty({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsNotEmpty()\n  ${c}!: string;`
       : `  @ApiPropertyOptional({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsOptional()\n  ${c}?: string;`,
+  // 附件不经 create/update DTO 提交 —— 它有自己的两个端点（上传关联 / 撤销关联），
+  // 见 controllerTemplate。故此处不产出属性。
+  attachment: () => '',
   // 关联在 DTO 里只暴露外键 id；关系对象由服务端填充，不接受客户端提交。
   ref: (c, f) => {
     const col = refColumnName(c);
@@ -173,6 +182,24 @@ export function entityTemplate(ctx) {
     .filter((t, i, arr) => arr.findIndex((x) => x.plural === t.plural) === i)
     .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
     .join('');
+  const attachments = attachmentFields(ctx.fields);
+  const att = attachmentArtifacts(ctx);
+  // 每个模块**只发一次**附件关系（一个模块可有多个附件字段，但它们共用一张侧表）。
+  const attachImport =
+    attachments.length > 0 ? `import { ${att.className} } from './${att.fileName.replace(/\.ts$/, '')}';\n` : '';
+  const attachTypeormImport = attachments.length > 0 ? ',\n  OneToMany' : '';
+  const attachRelation =
+    attachments.length === 0
+      ? ''
+      : `\n  /**\n` +
+        `   * Attachments owned by this row. Visibility follows the row: the read paths that\n` +
+        `   * load it load these too, so a revoked or soft-deleted owner hides its files as well.\n` +
+        `   *\n` +
+        `   * 本行拥有的附件。可见性随本行：加载本行的读路径一并加载它们，故 owner 被撤销或\n` +
+        `   * 软删时其文件一并不可见。\n` +
+        `   */\n` +
+        `  @OneToMany(() => ${att.className}, (attachment) => attachment.owner)\n` +
+        `  ${att.relation}?: ${att.className}[];\n`;
   return `import {
   Entity,
   PrimaryGeneratedColumn,
@@ -180,9 +207,9 @@ export function entityTemplate(ctx) {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
-  DeleteDateColumn${refTypeormImports},
+  DeleteDateColumn${refTypeormImports}${attachTypeormImport},
 } from 'typeorm';
-${refEntityImports}${decimalHelper}
+${refEntityImports}${attachImport}${decimalHelper}
 @Entity('${ctx.plural}')
 @Index(['userId'])
 ${refIndexes}
@@ -200,6 +227,7 @@ ${fieldCols}
 
   @UpdateDateColumn()
   updatedAt!: Date;
+${attachRelation}
 
   /**
    * Trust-ready（生成模块默认可撤销）：RG-3 软删除——删除仅置 deleted_at 保留行，管理台回收站可恢复；
@@ -208,6 +236,118 @@ ${fieldCols}
    */
   @DeleteDateColumn({ type: Date, name: 'deleted_at' })
   deletedAt?: Date | null;
+}
+`;
+}
+
+/**
+ * The module's own attachment side table. One table per module with a real foreign
+ * key to the owning row — so "only whoever can see the owner can see the files" and
+ * "a revoked or soft-deleted owner hides its files" hold by construction instead of
+ * by remembering to code them on every read path.
+ *
+ * 模块自己的附件侧表。每个模块一张，带指向 owner 行的**真外键** —— 于是「只看得到 owner
+ * 的人看得到文件」与「owner 被撤销或软删则文件不可见」由约束保证，而不是靠每条读路径
+ * 都记得在代码里做。
+ */
+export function attachmentEntityTemplate(ctx) {
+  const att = attachmentArtifacts(ctx);
+  return `import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  Index,
+  CreateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
+
+@Entity('${att.table}')
+@Index(['${att.ownerColumn}'])
+@Index(['userId'])
+export class ${att.className} {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column({ type: 'int', name: '${att.ownerColumnDb}' })
+  ${att.ownerColumn}!: number;
+
+  @ManyToOne(() => ${ctx.singlePascal}, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: '${att.ownerColumnDb}' })
+  owner?: ${ctx.singlePascal};
+
+  /** 属于哪个已声明的附件字段（一个模块可有多个附件字段）。 */
+  @Column({ length: 32 })
+  field!: string;
+
+  /** 存储键 —— storage 驱动的 key，不是裸 URL。 */
+  @Column({ length: 255, name: 'storage_key' })
+  storageKey!: string;
+
+  @Column({ length: 255, name: 'original_name' })
+  originalName!: string;
+
+  @Column({ length: 128, name: 'mime_type' })
+  mimeType!: string;
+
+  @Column({ type: 'int' })
+  size!: number;
+
+  @Column({ nullable: true, name: 'user_id' })
+  userId?: number;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @DeleteDateColumn({ type: Date, name: 'deleted_at' })
+  deletedAt?: Date | null;
+}
+`;
+}
+
+/**
+ * DTO for associating an uploaded file. `field` is constrained to the declared
+ * attachment fields so a caller cannot invent a group name and park rows in the table.
+ *
+ * 关联已上传文件的 DTO。`field` 被限制在**已声明**的附件字段内，调用者无法自造分组名
+ * 往表里塞行。
+ */
+export function attachmentDtoTemplate(ctx) {
+  const names = attachmentFields(ctx.fields);
+  const list = names.map((n) => `'${n}'`).join(', ');
+  return `import { ApiProperty } from '@nestjs/swagger';
+import { IsIn, IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+
+export class Add${ctx.singlePascal}AttachmentDto {
+  @ApiProperty({ description: '附件字段名', enum: [${list}] })
+  @IsString()
+  @IsIn([${list}])
+  field!: string;
+
+  @ApiProperty({ description: '存储键（/upload 的返回）' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  storageKey!: string;
+
+  @ApiProperty({ description: '原始文件名' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  originalName!: string;
+
+  @ApiProperty({ description: 'MIME 类型' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  mimeType!: string;
+
+  @ApiProperty({ description: '字节数' })
+  @IsInt()
+  @Min(0)
+  size!: number;
 }
 `;
 }
@@ -245,6 +385,76 @@ export function serviceTemplate(ctx) {
   const refRepoImports = refTargets
     .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
     .join('');
+  const attachmentNames = attachmentFields(ctx.fields);
+  const att = attachmentArtifacts(ctx);
+  const hasAttachments = attachmentNames.length > 0;
+  const attRepoImport = hasAttachments
+    ? `import { ${att.className} } from './${att.fileName.replace(/\.ts$/, '')}';\n` +
+      `import { Add${ctx.singlePascal}AttachmentDto } from './dto/add-${ctx.singular}-attachment.dto';\n`
+    : '';
+  const attRepoParam = hasAttachments
+    ? `\n    @InjectRepository(${att.className})\n    private readonly attachmentsRepository: Repository<${att.className}>,`
+    : '';
+  // 已声明的附件字段清单：拒绝未声明的关联，避免往表里塞任意分组名。
+  const attFieldList = hasAttachments
+    ? `/** 已声明的附件字段（协议）——未声明的会被拒绝。 */\nconst ${ctx.singular.toUpperCase()}_ATTACHMENT_FIELDS = [${attachmentNames
+        .map((n) => `'${n}'`)
+        .join(', ')}];\n\n`
+    : '';
+  const attMethods = hasAttachments
+    ? `\n  /**\n` +
+      `   * Lists a row's attachments. Ownership is checked through the owner row first, so\n` +
+      `   * permissions are inherited rather than re-declared.\n` +
+      `   *\n` +
+      `   * 列出某行的附件。先经 owner 行做所有权检查 —— 权限是**继承**来的，不另立一套。\n` +
+      `   */\n` +
+      `  async listAttachments(id: number, ability: AppAbility): Promise<${att.className}[]> {\n` +
+      `    const owner = await this.findOne(id, ability);\n` +
+      `    return this.attachmentsRepository.find({\n` +
+      `      where: { ${att.ownerColumn}: owner.id },\n` +
+      `      order: { createdAt: 'DESC' },\n` +
+      `    });\n` +
+      `  }\n\n` +
+      `  /**\n` +
+      `   * Associates an already-uploaded file with a row. The upload itself goes through the\n` +
+      `   * platform's existing /upload pipeline (magic bytes, image processing); this only\n` +
+      `   * records the association — and it checks the owner first, so a caller cannot attach\n` +
+      `   * files to somebody else's row.\n` +
+      `   *\n` +
+      `   * 把一个**已经上传**的文件关联到某行。上传本身走平台既有的 /upload 管线（魔数校验、\n` +
+      `   * 图片处理）；这里只登记关联 —— 且先检查 owner，调用者无法往别人的行上挂文件。\n` +
+      `   */\n` +
+      `  async addAttachment(\n` +
+      `    id: number,\n` +
+      `    dto: Add${ctx.singlePascal}AttachmentDto,\n` +
+      `    userId: number,\n` +
+      `    ability: AppAbility,\n` +
+      `  ): Promise<${att.className}> {\n` +
+      `    const owner = await this.findOne(id, ability);\n` +
+      `    if (!${ctx.singular.toUpperCase()}_ATTACHMENT_FIELDS.includes(dto.field)) {\n` +
+      `      throw new BadRequestException('未知的附件字段');\n` +
+      `    }\n` +
+      `    const row = this.attachmentsRepository.create({\n` +
+      `      ${att.ownerColumn}: owner.id,\n` +
+      `      field: dto.field,\n` +
+      `      storageKey: dto.storageKey,\n` +
+      `      originalName: dto.originalName,\n` +
+      `      mimeType: dto.mimeType,\n` +
+      `      size: dto.size,\n` +
+      `      userId,\n` +
+      `    });\n` +
+      `    return this.attachmentsRepository.save(row);\n` +
+      `  }\n\n` +
+      `  /** 撤销关联（软删，可经回收站恢复）。同样先校验 owner。 */\n` +
+      `  async removeAttachment(id: number, attachmentId: number, ability: AppAbility): Promise<void> {\n` +
+      `    const owner = await this.findOne(id, ability);\n` +
+      `    const row = await this.attachmentsRepository.findOne({\n` +
+      `      where: { id: attachmentId, ${att.ownerColumn}: owner.id },\n` +
+      `    });\n` +
+      `    if (!row) throw new NotFoundException('附件不存在');\n` +
+      `    await this.attachmentsRepository.softDelete(attachmentId);\n` +
+      `  }\n`
+    : '';
   const refRepoParams = refTargets
     .map(
       (t) =>
@@ -252,8 +462,11 @@ export function serviceTemplate(ctx) {
     )
     .join('');
   const refAssertCall = refs.length > 0 ? `    await this._assertRefs(dto);\n` : '';
-  const refRelations =
-    refs.length > 0 ? `relations: { ${refs.map((r) => `${r.name}: true`).join(', ')} }, ` : '';
+  const relEntries = [
+    ...refs.map((r) => `${r.name}: true`),
+    ...(hasAttachments ? [`${att.relation}: true`] : []),
+  ];
+  const refRelations = relEntries.length > 0 ? `relations: { ${relEntries.join(', ')} }, ` : '';
   const refAssertMethod =
     refs.length === 0
       ? ''
@@ -304,17 +517,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
-${refRepoImports}import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
+${refRepoImports}${attRepoImport}import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}
 
-@Injectable()
+${attFieldList}@Injectable()
 export class ${ctx.pluralPascal}Service {
   constructor(
     @InjectRepository(${ctx.singlePascal})
-    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,${refRepoParams}
+    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,${refRepoParams}${attRepoParam}
   ) {}
-${refAssertMethod}
+${refAssertMethod}${attMethods}
 
   async create(dto: Create${ctx.singlePascal}Dto, userId: number): Promise<${ctx.singlePascal}> {
 ${refAssertCall}    const entity = this.${ctx.plural}Repository.create({
@@ -367,12 +580,46 @@ export function controllerTemplate(ctx) {
     ? `import { FeatureFlag } from '../feature-flags/feature-flag.decorator';\n`
     : '';
   const flagDecorator = ctx.featureFlag ? `@FeatureFlag('${ctx.plural}')\n` : '';
+  const attachmentNames = attachmentFields(ctx.fields);
+  const attDtoImport =
+    attachmentNames.length > 0
+      ? `import { Add${ctx.singlePascal}AttachmentDto } from './dto/add-${ctx.singular}-attachment.dto';\n`
+      : '';
+  const attRoutes =
+    attachmentNames.length === 0
+      ? ''
+      : `  @Get(':id/attachments')\n` +
+        `  @ApiOperation({ summary: '${ctx.label}附件列表' })\n` +
+        `  async listAttachments(@Param('id', ParseIntPipe) id: number, @CurrentAbility() ability: AppAbility) {\n` +
+        `    return this.${ctx.plural}Service.listAttachments(id, ability);\n` +
+        `  }\n\n` +
+        `  @Post(':id/attachments')\n` +
+        `  @ApiOperation({ summary: '关联一个已上传的文件' })\n` +
+        `  async addAttachment(\n` +
+        `    @Param('id', ParseIntPipe) id: number,\n` +
+        `    @Body() dto: Add${ctx.singlePascal}AttachmentDto,\n` +
+        `    @CurrentUser() user: JwtPayload,\n` +
+        `    @CurrentAbility() ability: AppAbility,\n` +
+        `  ) {\n` +
+        `    return this.${ctx.plural}Service.addAttachment(id, dto, user.sub, ability);\n` +
+        `  }\n\n` +
+        `  @Delete(':id/attachments/:attachmentId')\n` +
+        `  @HttpCode(HttpStatus.OK)\n` +
+        `  @ApiOperation({ summary: '撤销关联（软删）' })\n` +
+        `  async removeAttachment(\n` +
+        `    @Param('id', ParseIntPipe) id: number,\n` +
+        `    @Param('attachmentId', ParseIntPipe) attachmentId: number,\n` +
+        `    @CurrentAbility() ability: AppAbility,\n` +
+        `  ) {\n` +
+        `    await this.${ctx.plural}Service.removeAttachment(id, attachmentId, ability);\n` +
+        `    return null;\n` +
+        `  }\n\n`;
   return `import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+${attDtoImport}import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 ${flagImport}import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -402,7 +649,7 @@ export class ${ctx.pluralPascal}Controller {
     return null;
   }
 
-  @Post()
+${attRoutes}  @Post()
   @ApiOperation({ summary: '创建${ctx.label}' })
   async create(@Body() dto: Create${ctx.singlePascal}Dto, @CurrentUser() user: JwtPayload) {
     return this.${ctx.plural}Service.create(dto, user.sub);
@@ -452,6 +699,13 @@ export function moduleTemplate(ctx) {
     .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
     .join('');
   const refForFeature = refTargets.map((t) => `, ${t.pascal}`).join('');
+  const attachments = attachmentFields(ctx.fields);
+  const att = attachmentArtifacts(ctx);
+  const attachImport =
+    attachments.length > 0
+      ? `import { ${att.className} } from './${att.fileName.replace(/\.ts$/, '')}';\n`
+      : '';
+  const attachForFeature = attachments.length > 0 ? `, ${att.className}` : '';
   const piiRegister =
     pii.length > 0
       ? `// 协议 pii 声明 → 让审计 requestBody 打码覆盖这些键名（平台内建清单不认识它们）。\n` +
@@ -464,9 +718,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
-${refEntityImports}
+${refEntityImports}${attachImport}
 ${piiRegister}@Module({
-  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}${refForFeature}])],
+  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}${refForFeature}${attachForFeature}])],
   controllers: [${ctx.pluralPascal}Controller],
   providers: [${ctx.pluralPascal}Service],
   exports: [${ctx.pluralPascal}Service],
@@ -632,7 +886,8 @@ describe('${ctx.pluralPascal}Service', () => {
 
 /** 全部后端文件：{ relativePath, content }。 */
 export function backendFiles(ctx) {
-  return [
+  const att = attachmentArtifacts(ctx);
+  const files = [
     { path: `${ctx.plural}/${ctx.singular}.entity.ts`, content: entityTemplate(ctx) },
     { path: `${ctx.plural}/dto/create-${ctx.singular}.dto.ts`, content: createDtoTemplate(ctx) },
     { path: `${ctx.plural}/dto/update-${ctx.singular}.dto.ts`, content: updateDtoTemplate(ctx) },
@@ -642,4 +897,15 @@ export function backendFiles(ctx) {
     { path: `${ctx.plural}/${ctx.plural}.service.spec.ts`, content: serviceSpecTemplate(ctx) },
     { path: `${ctx.plural}/${ctx.plural}.controller.spec.ts`, content: controllerSpecTemplate(ctx) },
   ];
+  if (attachmentFields(ctx.fields).length > 0) {
+    files.push({
+      path: `${ctx.plural}/${att.fileName}`,
+      content: attachmentEntityTemplate(ctx),
+    });
+    files.push({
+      path: `${ctx.plural}/dto/add-${ctx.singular}-attachment.dto.ts`,
+      content: attachmentDtoTemplate(ctx),
+    });
+  }
+  return files;
 }

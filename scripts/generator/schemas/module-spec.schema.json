@@ -43,7 +43,7 @@
           },
           "type": {
             "type": "string",
-            "enum": ["string", "text", "int", "bool", "date", "enum", "decimal", "ref"]
+            "enum": ["string", "text", "int", "bool", "date", "enum", "decimal", "ref", "attachment"]
           },
           "target": {
             "type": "string",
