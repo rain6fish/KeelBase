@@ -1,0 +1,20 @@
+{
+  "id": 57,
+  "token": "appr-sample-02",
+  "toolName": "review_approval_request",
+  "args": "{\"requestId\":12}",
+  "operatorId": "42",
+  "conversationId": "conv-x-1",
+  "riskLevel": "R4",
+  "status": "approved",
+  "kind": "single",
+  "runItems": null,
+  "approverId": "99",
+  "decidedAt": "2026-09-23T02:10:00Z",
+  "createdAt": "2026-09-09T05:00:00Z",
+  "operatorName": "alex",
+  "approverName": "admin",
+  "executionState": "failed",
+  "executedAt": null,
+  "executionError": "执行失败：目标系统不可达（connect ETIMEDOUT）"
+}

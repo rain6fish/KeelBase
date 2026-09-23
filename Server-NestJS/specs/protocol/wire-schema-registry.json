@@ -2,7 +2,7 @@
   "registryVersion": "v1",
   "title": "KeelBase wire 对象 Schema v1 Registry（CE-1 wire Schema 版本化）",
   "license": "Apache-2.0",
-  "note": "wire 对象 Schema = 固化当前形状（实证优先，非自动派生——人工策展快照）。语义变更必须先升 v2（新增 schemas/v2/ + 本表对应条目）再改实现（CE-1 L3 / C-1 单源规则），否则 wire-schema.spec.ts 的对象清单断言红。来源行号为抽取时锚，可能随代码漂移——权威以 Server-NestJS/src 为准。v2 条目（decision 词汇统一，CE-1 B3b）：confirm-decision-body / confirmation-decision 升 v2，v1 冻结历史留在 schemas/v1/。v3 条目（级联补偿，docs/cascade-compensation.spec.md）：side-effect-revoke 升 v3（加 compensationGroup/parentEffectId/cascade），v2 冻结历史留在 schemas/v2/。sse-event 升 v2（2026-09-16 §22.17 ④ 影响预览收口）：**事件名枚举不变**，只把嵌套载荷 $ref 从裸名（解析到冻结的 v1 载荷、additionalProperties:false、无 impact / revokeClass）改指各对象当前版——confirmation_request → confirmation-request v3、confirmation_decision → confirmation-decision v2，修「信封与内层对象版本脱节」。v3 条目（国密 SM2 签名，docs/evidence-root.spec.md §11）：evidence-package 升 v3——signature 段由「字符串 HMAC 或 null」扩为 oneOf[null, 字符串(历史包向后兼容), 对象 {hmac, sm2?}]；**加性变更**（旧形态仍合法），canonical 签名对象不变（仍剔除 signature 段自身），故 v1/v2 包可继续离线验证。",
+  "note": "wire 对象 Schema = 固化当前形状（实证优先，非自动派生——人工策展快照）。语义变更必须先升 v2（新增 schemas/v2/ + 本表对应条目）再改实现（CE-1 L3 / C-1 单源规则），否则 wire-schema.spec.ts 的对象清单断言红。来源行号为抽取时锚，可能随代码漂移——权威以 Server-NestJS/src 为准。v2 条目（decision 词汇统一，CE-1 B3b）：confirm-decision-body / confirmation-decision 升 v2，v1 冻结历史留在 schemas/v1/。v3 条目（级联补偿，docs/cascade-compensation.spec.md）：side-effect-revoke 升 v3（加 compensationGroup/parentEffectId/cascade），v2 冻结历史留在 schemas/v2/。sse-event 升 v2（2026-09-16 §22.17 ④ 影响预览收口）：**事件名枚举不变**，只把嵌套载荷 $ref 从裸名（解析到冻结的 v1 载荷、additionalProperties:false、无 impact / revokeClass）改指各对象当前版——confirmation_request → confirmation-request v3、confirmation_decision → confirmation-decision v2，修「信封与内层对象版本脱节」。v3 条目（国密 SM2 签名，docs/evidence-root.spec.md §11）：evidence-package 升 v3——signature 段由「字符串 HMAC 或 null」扩为 oneOf[null, 字符串(历史包向后兼容), 对象 {hmac, sm2?}]；**加性变更**（旧形态仍合法），canonical 签名对象不变（仍剔除 signature 段自身），故 v1/v2 包可继续离线验证。v2 条目（P2 审批执行态，2026-09-23）：governance-confirmation-item 与 my-confirmation-item 升 v2——加 executionState / executedAt / executionError（决策轴与执行轴分离，status 枚举与冻结语料均不变），使「已批准但未执行」的行可见且可重试（POST /ai/confirmations/:token/retry-execution）。",
   "schemasDir": "schemas/",
   "supportSchemas": [
     "risk-level-ref.schema.json",
@@ -129,13 +129,13 @@
     },
     {
       "id": "my-confirmation-item",
-      "version": "v1",
+      "version": "v2",
       "schema": "my-confirmation-item.schema.json",
-      "title": "本人确认记录（GA 待我确认中心：R3/R4 确认的读侧视图，含 status/decidedAt/离线窗口 expiresAt）",
+      "title": "本人确认记录（GA 待我确认中心：R3/R4 确认的读侧视图，含 status/decidedAt/离线窗口 expiresAt）。v2（P2 审批执行态，2026-09-23）：加 executionState / executedAt / executionError（本人批复的写同样可能「批准了但没跑成」）。",
       "source": "src/ai/confirmation/my-confirmation.service.ts list(); src/ai/approvals/ai-confirmation-request.entity.ts; specs/protocol/confirmation-lifecycle-v2-vector.json",
       "samples": [
-        "schemas/v1/samples/my-confirmation-item.json",
-        "schemas/v1/samples/my-confirmation-item-decided.json"
+        "schemas/v2/samples/my-confirmation-item.json",
+        "schemas/v2/samples/my-confirmation-item-decided.json"
       ]
     },
     {
@@ -282,13 +282,14 @@
     },
     {
       "id": "governance-confirmation-item",
-      "version": "v1",
+      "version": "v2",
       "schema": "governance-confirmation-item.schema.json",
-      "title": "治理台确认/审批列表项（ai_confirmation_requests 行视图，single/run + names）",
+      "title": "治理台确认/审批列表项（ai_confirmation_requests 行视图，single/run + names）。v2（P2 审批执行态，2026-09-23）：加 executionState / executedAt / executionError；status 枚举与冻结语料 confirmation-lifecycle 不变（决策轴与执行轴分离）。",
       "source": "src/ai/approvals/ai-confirmation-request.entity.ts:19-74; src/ai/ai.service.ts:473-519; src/governance/governance-approval.service.ts:21-36",
       "samples": [
-        "schemas/v1/samples/governance-confirmation-item.json",
-        "schemas/v1/samples/governance-confirmation-run.json"
+        "schemas/v2/samples/governance-confirmation-item.json",
+        "schemas/v2/samples/governance-confirmation-run.json",
+        "schemas/v2/samples/governance-confirmation-execution-failed.json"
       ]
     },
     {

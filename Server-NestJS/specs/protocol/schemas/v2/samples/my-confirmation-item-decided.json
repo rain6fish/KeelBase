@@ -1,0 +1,39 @@
+{
+  "token": "run-8c1d4e77",
+  "toolName": "run",
+  "summary": "一次授权整批：创建项目「Q4 上线」+ 3 个任务",
+  "arguments": {},
+  "mode": "run",
+  "riskLevel": "R3",
+  "status": "approved",
+  "impact": {
+    "actions": 4,
+    "targets": [
+      {
+        "resultType": "pm_project",
+        "count": 1
+      },
+      {
+        "resultType": "pm_task",
+        "count": 3
+      }
+    ]
+  },
+  "revokeClass": "local_compensate",
+  "run": {
+    "runId": "run-8c1d4e77",
+    "riskLevel": "R3",
+    "items": [
+      {
+        "toolName": "create_project_with_tasks",
+        "summary": "创建项目：Q4 上线（含 3 个任务）",
+        "riskLevel": "R3"
+      }
+    ]
+  },
+  "createdAt": "2026-09-18T01:40:00.000Z",
+  "decidedAt": "2026-09-18T01:42:11.000Z",
+  "executionState": "succeeded",
+  "executedAt": "2026-09-18T01:42:13.000Z",
+  "executionError": null
+}

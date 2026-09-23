@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/07/schema#",
+  "$id": "governance-confirmation-item.schema.json",
+  "title": "管理台确认/审批列表项（ai_confirmation_requests 行投影，v2）",
+  "description": "GET /ai/confirmations/pending|decided（管理台审批页）列表项：R4 审批请求（riskLevel=R4）与 R3 确认。单条 = kind 'single'（runItems null）；run 批 = kind 'run'（toolName='run'、args='[]' 占位，riskLevel 置为 runRisk、runItems 为 RunItem[] JSON 文本 {toolName,args,summary,riskLevel}）。服务端列表经 withUserNames 追加 operatorName/approverName（fallback 为 id 字符串），管理台不额外请求真实用户名。来源：src/ai/approvals/ai-confirmation-request.entity.ts、src/ai/approvals/r4-approval.service.ts、src/governance/governance-approval.service.ts。\n\n**v2 增量（P2 审批执行态，2026-09-23）：加 executionState / executedAt / executionError 三字段，status 枚举与冻结语料 confirmation-lifecycle 不变** —— 决策与执行是**两条正交的轴**：决策轴（pending → approved|declined|timeout）早已由条件更新保证「至多一次裁决」；执行轴（这次批准的写到底跑没跑成）此前没有任何记录，于是「已批准但执行中断」的行既看不见、也重试不了（重试只得到 already decided）。v2 把执行轴补上，而不往状态集里塞新状态值（那会牵动冻结语料与三端状态渲染面）。\n\n**executionState 语义**（仅 status='approved' 时有值，其余为 null——未批准的确认不存在执行维度）：\n- `not_started` —— 已批准，但尚未记录任何执行尝试。\n- `running` —— 有一次执行尝试且**仍在租约内**（租约 = EXECUTION_LEASE_MS，见 confirmation 模块常量）；此时重试入口拒绝，避免与在途执行撞车。\n- `succeeded` —— executedAt 已落值。\n- `failed` —— 有一次执行尝试且租约已过、但 executedAt 为空：既含「执行报错」（executionError 有值），也含「崩溃/挂起、未记录结果」（executionError 为 null，UI 据此显示「执行未完成」）。两种都**可重试**。\n\n**重试入口**：`POST /ai/confirmations/:token/retry-execution`（ADMIN）。租约未过期的 running 行拒绝重试；其余 approved 且未成功者可按既有写管道重跑——**重跑是幂等的**（本地与代理写走幂等键，外部 MCP 写走 P1 的锚行），故不会产生第二次副作用。",
+  "type": "object",
+  "required": ["id", "token", "toolName", "args", "operatorId", "riskLevel", "status", "kind", "createdAt", "executionState"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "number" },
+    "token": { "type": "string", "minLength": 8 },
+    "toolName": { "type": "string" },
+    "args": { "type": "string" },
+    "operatorId": { "type": "string" },
+    "conversationId": { "type": ["string", "null"] },
+    "riskLevel": { "$ref": "risk-level-ref.schema.json" },
+    "status": { "enum": ["pending", "approved", "declined", "timeout"] },
+    "kind": { "enum": ["single", "run"] },
+    "runItems": { "type": ["string", "null"] },
+    "approverId": { "type": ["string", "null"] },
+    "decidedAt": { "type": ["string", "null"], "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "operatorName": { "type": "string" },
+    "approverName": { "type": ["string", "null"] },
+    "executionState": {
+      "description": "审批执行态（v2）：非 approved 行恒为 null。见本 schema 描述里的四态语义。",
+      "type": ["string", "null"],
+      "enum": ["not_started", "running", "succeeded", "failed", null]
+    },
+    "executedAt": {
+      "description": "执行成功时刻；未成功为 null。",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "executionError": {
+      "description": "最近一次执行失败的原因；未失败或「崩溃未记录结果」为 null（后者 executionState 仍为 failed）。",
+      "type": ["string", "null"]
+    }
+  }
+}

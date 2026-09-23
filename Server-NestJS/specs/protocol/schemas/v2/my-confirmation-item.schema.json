@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema#",
+  "$id": "my-confirmation-item.schema.json",
+  "title": "My Confirmation Item（本人确认记录项，v2）",
+  "description": "Action Center「本人确认」列表项（GA，docs/ai-action-center.spec.md §9）：**本人**视角的一条确认记录（含本人发起、待裁决 / 已决策 / 已超时的历史）。数据源 = ai_confirmation_requests 行；本对象是**已决策的对外投影**，与 SSE 发送的 confirmation-request（v3）事件载荷**同源不同场景**：前者含 status/decidedAt 与离线窗口 expiresAt，后者含 authorization/impact 等发起时上下文。\n\n`mode` 与 `status` 来自两个正交维度：mode 取自 confirmation-request v3 的同一枚举（immediate=R3 即时 / approval=R4 双人 / run=一次授权整批），status 取自 confirmation-lifecycle 的状态集。\n\n**离线窗口**：`expiresAt = createdAt + offlineTtl`（默认 86400s，Settings `confirmation_offline_ttl_seconds` 可配）；到期后行转终态 timeout（**不可再裁决**），列表不返回已超期的 pending 项。\n\n`impact` / `revokeClass` / `run` 为可选扩展，形状分别复用 confirmation-request v3 的同名 definitions；此处保留跨文件 $ref（见目录内其他 schema——各版本目录里 $id 相同者会被高版本覆盖，与本目录内约定一致）。\n\n**v2 增量（P2 审批执行态，2026-09-23）：加 executionState / executedAt / executionError。** 本人批复的写操作同样可能「批准了但没跑成」，此前无从得知；现在本人列表也如实显示执行态。语义与 governance-confirmation-item v2 同（仅 status='approved' 有值；failed 含「报错」与「崩溃未记录结果」两种，后者 executionError 为 null）。",
+  "type": "object",
+  "required": ["token", "toolName", "mode", "status", "createdAt", "executionState"],
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "description": "确认的唯一标识，与 confirmation-request v3 同一 token（离线裁决也按它寻址）。",
+      "type": "string",
+      "minLength": 8
+    },
+    "toolName": { "type": "string" },
+    "summary": {
+      "description": "人读摘要（\"创建事件：产品评审\"）；无摘要的动作记为 null（run-level 的真实动作在 run.items 里）。",
+      "type": ["string", "null"]
+    },
+    "arguments": {
+      "description": "工具参数（自存储中的 args JSON 解析，非原文串）。",
+      "type": "object"
+    },
+    "mode": { "enum": ["immediate", "approval", "run"] },
+    "riskLevel": { "type": "string" },
+    "status": {
+      "description": "沿用 confirmation-lifecycle 的状态集；pending 可裁决，其余为终态（决策轴）。",
+      "enum": ["pending", "approved", "declined", "timeout"]
+    },
+    "impact": {
+      "description": "影响预览（几个动作 / 涉及哪些对象），形状同 confirmation-request v3 definitions.impact；发起时未有则为 null。",
+      "type": ["object", "null"]
+    },
+    "revokeClass": {
+      "description": "撤销档位（KB-6 单源 resolveRevokeClass），取值同 confirmation-request v3 definitions.revokeClass；解析不到时为 null。",
+      "type": ["string", "null"],
+      "enum": ["none", "local_compensate", "governed_external", "transactional", null]
+    },
+    "run": {
+      "description": "run 级确认的整批动作快照，形状同 confirmation-request v3 properties.run；非 run 为 null。",
+      "type": ["object", "null"]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "decidedAt": {
+      "description": "裁决时刻；pending 为 null。",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "description": "离线窗口截止 = createdAt + offlineTtl（仅 pending 行有值；终态省略）。",
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionState": {
+      "description": "审批执行态（v2）：非 approved 行恒为 null。四态语义见 governance-confirmation-item v2。",
+      "type": ["string", "null"],
+      "enum": ["not_started", "running", "succeeded", "failed", null]
+    },
+    "executedAt": {
+      "description": "执行成功时刻；未成功为 null。",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "executionError": {
+      "description": "最近一次执行失败的原因；未失败或「崩溃未记录结果」为 null（后者 executionState 仍为 failed）。",
+      "type": ["string", "null"]
+    }
+  }
+}

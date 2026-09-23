@@ -1,0 +1,30 @@
+{
+  "token": "conf-3f2a9c1e",
+  "toolName": "create_followup_task",
+  "summary": "创建跟进任务：回访 Acme（3 天后）",
+  "arguments": {
+    "customerId": 17,
+    "title": "回访 Acme",
+    "dueInDays": 3
+  },
+  "mode": "immediate",
+  "riskLevel": "R3",
+  "status": "pending",
+  "impact": {
+    "actions": 1,
+    "targets": [
+      {
+        "resultType": "crm_task",
+        "count": 1
+      }
+    ]
+  },
+  "revokeClass": "local_compensate",
+  "run": null,
+  "createdAt": "2026-09-18T02:15:00.000Z",
+  "decidedAt": null,
+  "expiresAt": "2026-09-19T02:15:00.000Z",
+  "executionState": null,
+  "executedAt": null,
+  "executionError": null
+}

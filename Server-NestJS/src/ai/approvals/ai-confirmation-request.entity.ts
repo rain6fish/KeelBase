@@ -71,6 +71,35 @@ export class AiConfirmationRequest {
   @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true, name: 'decided_at' })
   decidedAt?: Date | null;
 
+  /**
+   * Execution axis (P2) — deliberately **separate from `status`**: the decision axis already
+   * guarantees "at most one decision" via a conditional update; this axis records whether the
+   * approved write actually ran, so an approval interrupted mid-execution is visible and retryable.
+   * All three are annotation-only columns: they enter no hash-chain payload, so existing chains and
+   * rows are untouched.
+   *
+   * 执行轴（P2）—— 与 `status` **有意分离**：决策轴已用条件更新保证「至多一次裁决」，
+   * 这一轴记录「批准的那次写到底跑没跑成」，使执行中断的审批可见、可重试。
+   * 三列均为链外注解列：不入任何哈希链 payload，故既有链与既有行不受影响。
+   */
+  @Column({
+    type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime',
+    nullable: true,
+    name: 'execution_claimed_at',
+  })
+  executionClaimedAt?: Date | null;
+
+  @Column({
+    type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime',
+    nullable: true,
+    name: 'executed_at',
+  })
+  executedAt?: Date | null;
+
+  /** 崩溃/挂起时不写（我们并不知道结果）—— 此时 claimed 有值而本列为空，对外即 failed 且无原因可报 */
+  @Column({ type: 'text', nullable: true, name: 'execution_error' })
+  executionError?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
