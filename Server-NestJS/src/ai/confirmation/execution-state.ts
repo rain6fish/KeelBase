@@ -35,12 +35,22 @@ export const EXECUTION_LEASE_MS = 5 * 60 * 1000;
 
 export type ExecutionState = 'not_started' | 'running' | 'succeeded' | 'failed';
 
-/** Minimal row shape this derivation needs (kept structural so both list projections can call it).
- *  本推导所需的最小行形状（结构化，两个列表投影都能直接调用）。 */
+/**
+ * The execution axis of a row (structural, so both list projections can pass a full entity).
+ *
+ * `executionError` is part of the axis but **not consumed by the derivation** — a recorded failure
+ * and an unrecorded one (crash/hang) both derive `failed`; the error only changes the wording the UI
+ * shows. It lives here because this describes a *row shape*, not a function's parameter list.
+ *
+ * 行上的执行轴（结构化，两个列表投影都可直接传实体）。`executionError` 属该轴但**本推导不消费**——
+ * 「有记录的失败」与「没记录的失败」（崩溃/挂起）都推出 `failed`，错误只影响 UI 措辞。
+ * 放在这里是因为本类型描述的是**行形状**，不是某个函数的入参表。
+ */
 export interface ExecutionAxisRow {
   status: string;
   executionClaimedAt?: Date | null;
   executedAt?: Date | null;
+  executionError?: string | null;
 }
 
 /**
