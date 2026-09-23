@@ -93,16 +93,29 @@ const check = (cond: boolean, label: string) => {
 
 describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry）', () => {
   // 递归扫描 schemas/ 下所有版本目录（v1/v2/...），以各 schema 的 $id 为键（版本间同名文件不冲突）。
+  //
+  // **排序 + 高版本确定性胜出**（2026-09-23 修）：`$id` 用裸名是跨文件相对 `$ref` 所必需——v2/v3 目录
+  // 只放「改过的那几个」schema，其余 `$ref` 要落到 v1，故不能按版本目录隔离注册。代价是同名 `$id`
+  // 会被同键覆盖，而原先胜出者**取决于目录读取顺序**：一旦旧版本胜出，registry 里声明为 v3 的对象，
+  // 其样例就会被 **v2 的 schema** 校验（假过或假红），且被覆盖的那份从未作为校验依据。
+  // 现按路径排序（v1 → v2 → v3）令最高版本确定性胜出，并把「被覆盖的旧版本文件」显式登记——
+  // 见下面「同名 $id」断言。
   const root = resolve(SPECS, registry.schemasDir);
-  const schemas = new Map<string, object>();
-  for (const f of readdirSync(root, { recursive: true }) as string[]) {
-    if (!f.endsWith('.schema.json')) continue;
+  const schemas = new Map<string, { schema: object; path: string }>();
+  const superseded: Array<{ id: string; path: string }> = [];
+  const files = (readdirSync(root, { recursive: true }) as string[])
+    .filter((f) => f.endsWith('.schema.json'))
+    .map((f) => f.replace(/\\/g, '/'))
+    .sort();
+  for (const f of files) {
     const schema = JSON.parse(readFileSync(resolve(root, f), 'utf8')) as { $id?: string };
     if (!schema.$id) {
       failures.push(`schema 缺 $id: ${f}`);
       continue;
     }
-    schemas.set(schema.$id, schema);
+    const prev = schemas.get(schema.$id);
+    if (prev) superseded.push({ id: schema.$id, path: prev.path });
+    schemas.set(schema.$id, { schema, path: f });
   }
 
   // validateSchema:false —— 不加载/套用 draft-07 meta 校验 schema 本体（schema 自述 $schema 仅供文档；
@@ -110,13 +123,42 @@ describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry�
   const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
   addFormats(ajv);
   // 注册全部 schema（含 support，供 $ref）——以 $id 为键
-  for (const [id, schema] of schemas) {
+  for (const [id, entry] of schemas) {
     try {
-      ajv.addSchema(schema, id);
+      ajv.addSchema(entry.schema, id);
     } catch (e) {
       failures.push(`schema 非法: ${id} — ${String(e)}`);
     }
   }
+
+  it('同名 $id：高版本确定性胜出，被覆盖的旧版本如实登记（防旧版本反压 → 用错 schema 校验样例）', () => {
+    // 全库当前只有一处：`evidence-package.schema.json`（v2 冻结 / v3 现行）。这条把「旧版本被新版本
+    // 覆盖」从「读目录顺序的运气」变成受检事实：若排序或布局变化让 v2 反压 v3，本断言即红
+    // （届时 v3 样例会被 v2 schema 校验而无人察觉）。
+    const vnum = (p: string) => Number(/^v(\d+)\//.exec(p)?.[1] ?? 0);
+    for (const s of superseded) {
+      const winner = schemas.get(s.id);
+      check(
+        winner !== undefined && vnum(winner.path) > vnum(s.path),
+        `$id 冲突但并非高版本胜出: ${s.id}（${s.path} 被覆盖，胜出者 ${winner?.path ?? '<缺失>'}）`,
+      );
+    }
+  });
+
+  it('registry：声明的 schema 由**声明版本**提供（防同名 $id 解析到别的版本）', () => {
+    // registry 每个对象带 version；其 schema 文件的路径应以该版本目录开头。
+    // 覆盖「对象声明 v3、实际却解析到 v2 文件」这类跨版本错配。
+    for (const o of registry.objects) {
+      const entry = schemas.get(o.schema);
+      check(entry !== undefined, `${o.id}: schema ${o.schema} 未注册`);
+      if (entry) {
+        check(
+          entry.path.startsWith(`${o.version}/`),
+          `${o.id}: schema 解析到 ${entry.path}，与声明版本 ${o.version} 不符`,
+        );
+      }
+    }
+  });
 
   it('registry：对象清单冻结（增删必须同步本测试）', () => {
     const ids = registry.objects.map((o) => o.id).sort();
