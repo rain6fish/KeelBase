@@ -276,6 +276,43 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       await expect(service.recordGroup(ctx, group)).rejects.toThrow(/connection terminated/);
       expect(repo.find).not.toHaveBeenCalled();
     });
+
+    it('（回归）整组登记落在**一个事务**内——「杜绝半组」不再是注释', async () => {
+      // 原先 sqlite 分支只做 promise 串行、不包裹事务 → 组内中途失败会留下**半组**（前几条已提交），
+      // 与 recordGroup 的契约相反。现在整段走 dataSource.transaction，故断言：恰好一次事务，
+      // 且三行都落在**同一个事务 manager** 上（跑在默认 repo 上就等于跑在事务外）。
+      const txRepo = {
+        create: jest.fn((x: unknown) => x),
+        save: jest.fn((d: unknown) => Promise.resolve({ ...(d as object), id: 1 })),
+      };
+      const manager = { getRepository: jest.fn(() => txRepo) };
+      const tx = jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(manager));
+      const svc = new AiToolEffectsService(
+        repo as never,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { options: { type: 'better-sqlite3' }, transaction: tx } as never,
+        undefined,
+      );
+
+      const saved = await svc.recordGroup(ctx, group);
+
+      expect(tx).toHaveBeenCalledTimes(1);
+      expect(manager.getRepository).toHaveBeenCalledTimes(3);
+      expect(txRepo.save).toHaveBeenCalledTimes(3);
+      expect(saved).toHaveLength(3);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('（回归）无 dataSource（单测/降级装配）时仍能登记——不因事务缺席而失败', async () => {
+      // dataSource 是 @Optional：缺失时应退回原行为（进程内串行、无事务），而不是抛错。
+      const saved = await service.recordGroup(ctx, group);
+      expect(saved).toHaveLength(3);
+      expect(repo.save).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe('revoke', () => {

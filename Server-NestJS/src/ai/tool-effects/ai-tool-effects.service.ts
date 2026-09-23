@@ -313,7 +313,9 @@ export class AiToolEffectsService {
    * - **postgres**：事务内锁 `audit_chain_lock` 行（id=2；与主审计链 id=1 分开，避免两链互相串行）→ 执行 fn →
    *   提交。fn 内的插入必须走 `runner.manager` 且在锁内提交——否则锁释放早于插入落库，后到者仍读到旧 prev。
    *   传同一个 manager 还能让组内后续成员读到**本事务内**前序成员（组内链相邻 + 登记原子）。
-   * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行（跨进程仍为 best-effort，与主链 sqlite 分支同）。
+   * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行 **+ 真事务包裹整段**（跨进程仍为 best-effort，
+   *   与主链 sqlite 分支同）。事务是「整组一次登记」的兑现——原先只串行不包裹，组内中途失败会留下**半组**
+   *   （前几条已提交、后几条没有），而 `recordGroup` 的契约恰恰承诺「杜绝半组」；dev/test 默认走的就是这条路径。
    */
   private async _withChainWrite<T>(fn: (manager?: EntityManager) => Promise<T>): Promise<T> {
     if (this.dataSource?.options.type === 'postgres') {
@@ -335,7 +337,13 @@ export class AiToolEffectsService {
         await runner.release();
       }
     }
-    const job = this._chainTail.then(() => fn());
+    // Serialise in-process **and** wrap the whole stretch in a real transaction, so a group is
+    // all-or-nothing. Without the transaction a mid-group failure left the earlier members
+    // committed — the half-group that `recordGroup` promises never to produce.
+    // 进程内串行 **+ 真事务**包裹整段，使整组要么全登记、要么全不登记；没有事务时组内中途失败
+    // 会留下半组（前几条已提交），与 `recordGroup` 的契约相反。
+    const run = () => (this.dataSource ? this.dataSource.transaction((m) => fn(m)) : fn());
+    const job = this._chainTail.then(run);
     this._chainTail = job.catch(() => {});
     return job;
   }
