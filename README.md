@@ -247,6 +247,25 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 The contract repository is where the protocol lives; the runtimes consume it, and none of them owns it.
 The two runtimes are peers — neither is a translation of the other.
 
+## 🧭 Compatibility
+
+The protocol has its own version line, independent of any runtime's. This table says which **contract
+version a runtime answers for** — which objects it has committed to speaking. It is maintained from the
+first release rather than assembled when someone asks.
+
+| Runtime | Runtime version | Contract version |
+|---|---|---|
+| **KeelBase** (TypeScript) | `v1.0.11` | **v1.0.1** — carried in-tree; this release predates the contract repository |
+| **KeelBase** (TypeScript) | `main`, **unreleased** | **v1.1.0** — bound as a submodule |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.0.1** — vendored snapshot |
+
+A runtime that is behind the current contract is not broken; it simply does not yet answer for the
+newer version's objects. What moves a runtime forward is a deliberate act — the contract never reaches
+into a runtime on its own.
+
+The unreleased row is there on purpose. If you are choosing what to deploy, the difference between what
+is published and what is on `main` is exactly what you need to see.
+
 ---
 
 ## 📚 Documentation

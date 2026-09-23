@@ -237,6 +237,22 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 协议住在契约仓；各 runtime 消费它，**谁也不拥有它**。两个 runtime 是**平行**关系——没有一个是另一个的翻译版。
 
+## 🧭 兼容矩阵
+
+协议有自己的一条版本线，独立于任何 runtime 的版本。下表说明**每个 runtime 对着哪一版契约应答**——
+也就是它已承诺会说哪些对象。这张表**从第一个发布版起就维护**，而不是等有人问才临时拼。
+
+| Runtime | Runtime 版本 | Contract 版本 |
+|---|---|---|
+| **KeelBase**（TypeScript） | `v1.0.11` | **v1.0.1**——树内携带；该发布早于契约仓的建立 |
+| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.1.0**——以 submodule 绑定 |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J)（Java） | `v0.1.0` | **v1.0.1**——vendor 快照 |
+
+**落后于当前契约的 runtime 不是坏了**，它只是还没对更新版本的对象应答。推动一个 runtime 前进是
+**自觉的动作**——契约从不自己伸进 runtime。
+
+「未发布」那一行是故意留的：你在挑要部署什么的时候，**已发布的与 `main` 上的差距**正是你需要看见的东西。
+
 ---
 
 ## 📚 文档
