@@ -6,7 +6,7 @@
  * v1：列表 + 首字段新增 + 删除（本人数据，走用户端 API）。
  */
 
-import { hasEnumLabels } from './validate.mjs';
+import { hasEnumLabels, refColumnName } from './validate.mjs';
 
 const TARO_TS_TYPE = {
   string: () => 'string',
@@ -124,7 +124,12 @@ export function taroPageTemplate(ctx) {
     : '';
   const firstDisplay = firstEnumLabels
     ? `${first}Labels[item.${first}] ?? item.${first}`
-    : `item.${first}`;
+    : firstField && firstField.type === 'ref'
+      ? // 回显目标名，缺则回落外键 id（与 Flutter 侧同一取舍）
+        `item.${first}Name ?? item.${refColumnName(first)}`
+      : firstField && firstField.type === 'attachment'
+        ? `(item.${first}Names ?? []).join('、')`
+        : `item.${first}`;
   return `<template>
   <view class="${ctx.plural}-page">
     <view class="${ctx.plural}-page__header">

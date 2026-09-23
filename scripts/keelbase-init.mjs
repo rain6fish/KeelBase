@@ -15,6 +15,7 @@
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import {
+  FIELD_TYPES,
   buildContext,
   validateModuleName,
   validateLabel,
@@ -22,6 +23,8 @@ import {
   validateFields,
   validateAiTools,
   normalizeSpecFields,
+  refFields,
+  refTarget,
 } from './generator/validate.mjs';
 import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
@@ -403,6 +406,21 @@ async function main() {
   const aiToolsErr = validateAiTools(specAiTools);
   if (aiToolsErr) fail(aiToolsErr);
 
+  // 关联目标必须是**已生成的模块**：生成物会 import 目标的实体文件，目标不存在就是编译错误。
+  // 与其产出一份编译不过的代码，不如在这里明确报错（与自引用同一种处理）。
+  // A ref target must already exist as generated code — the module imports its entity file.
+  // Emitting code that cannot compile is worse than refusing here.
+  for (const r of refFields(fields)) {
+    const target = refTarget(r.target);
+    const targetEntity = `Server-NestJS/src/${target.plural}/${target.singular}.entity.ts`;
+    if (!(await exists(targetEntity))) {
+      fail(
+        `字段 ${r.name} 关联到「${target.plural}」，但没找到 ${targetEntity} —— ` +
+          `请先为 ${target.plural} 生成模块，或改用其它 target。`,
+      );
+    }
+  }
+
   const ctx = buildContext(name, label, fields);
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
@@ -551,7 +569,10 @@ async function main() {
   console.log(`     一键容器: docker run -d -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`);
   console.log(`     私有化: ./deploy/deploy.sh（详见 docs/manual/one-click-deploy.md）`);
   console.log(`  API: GET/POST /api/v1/${ctx.plural}（/api/docs 看 Swagger）`);
-  console.log(`${C.dim}  v1 边界：prod(postgres) 需补迁移；未生成底部 Tab；字段仅 5 种类型（见 roadmap EASY-2）${C.reset}\n`);
+  // 字段类型数量由闭集推导 —— 硬写数字会像「报错文案写死支持类型」那样悄悄过期。
+  console.log(
+    `${C.dim}  v1 边界：prod(postgres) 需补迁移；未生成底部 Tab；字段类型 ${FIELD_TYPES.size} 种（见 docs/module-protocol.md）${C.reset}\n`,
+  );
 }
 
 function reasonZh(reason) {

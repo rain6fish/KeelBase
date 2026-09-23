@@ -493,10 +493,10 @@ export function serviceTemplate(ctx) {
   // 只有声明了 pii 的模块才产出掩码路径 —— 不产死代码（Code Economy §15.3）
   const adminList =
     pii.length === 0
-      ? `  /** 管理端：全量列表（无 userId 过滤，admin） */\n  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {\n    return this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });\n  }`
+      ? `  /** 管理端：全量列表（无 userId 过滤，admin） */\n  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {\n    return this.${ctx.plural}Repository.find({ ${refRelations}order: { createdAt: 'DESC' } });\n  }`
       : `  /** 管理端：全量列表（无 userId 过滤，admin）。协议声明的 pii 字段在此掩码 */\n` +
         `  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {\n` +
-        `    const rows = await this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });\n` +
+        `    const rows = await this.${ctx.plural}Repository.find({ ${refRelations}order: { createdAt: 'DESC' } });\n` +
         `    return rows.map((row) => this._maskPii(row));\n` +
         `  }\n\n` +
         `  /**\n` +

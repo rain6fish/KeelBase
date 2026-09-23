@@ -5,7 +5,17 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
-import { decimalScale, enumLabelGetter, hasEnumLabels, refColumnName } from './validate.mjs';
+import {
+  attachmentFields,
+  decimalScale,
+  enumLabelGetter,
+  hasEnumLabels,
+  modelMemberNames,
+  refColumnName,
+  refFields,
+  refTarget,
+  toPascal,
+} from './validate.mjs';
 
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
 // f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
@@ -87,10 +97,14 @@ const MODEL_FIELD = {
     }),
   // 关联在模型里只带外键 id（列名加 Id 后缀，单源见 refColumnName）。
   // 目标对象的友好回显属切片 2。
-  ref: (c) => ({
-    decl: `  final int? ${refColumnName(c)};`,
-    ctor: `this.${refColumnName(c)}`,
-    from: `      ${refColumnName(c)}: json['${refColumnName(c)}'] as int?,`,
+  // 关联：外键 id 用于提交，目标名（后端 relations 带回）用于**回显** ——
+  // 界面显示名字而不是 id，正是切片 2 要的那一半。
+  ref: (c, f) => ({
+    decl: `  final int? ${refColumnName(c)};\n  final String? ${c}Name;`,
+    ctor: `this.${refColumnName(c)}, this.${c}Name`,
+    from:
+      `      ${refColumnName(c)}: json['${refColumnName(c)}'] as int?,\n` +
+      `      ${c}Name: (json['${c}'] as Map?)?['${f.display}'] as String?,`,
     to: `        '${refColumnName(c)}': ${refColumnName(c)},`,
   }),
   // 附件在模型里只带**名字列表**（侧表不在此展开），且不经本模型提交 ——
@@ -125,11 +139,9 @@ export function modelTemplate(ctx) {
   const ctors = ctx.fields.map((f) => `    ${MODEL_FIELD[f.type](f.name, f).ctor},`).join('\n');
   const froms = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).from).join('\n');
   const tos = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).to).join('\n');
-  const copyParams = ctx.fields.map((f) => {
-    const m = MODEL_FIELD[f.type](f.name, f);
-    const type = m.decl.replace(/^  final /, '').replace(/;/, '');
-    return `${f.name}: ${type} ?? this.${f.name}`;
-  }).join(',\n    ');
+  // copyWith 必须按**模型成员名**生成，而不是协议字段名：ref 的成员叫 customerId /
+  // customerName，附件叫 contractNames —— 用字段名会引用不存在的成员（实测编译错误）。
+  const members = ctx.fields.flatMap(modelMemberNames);
 
   return `class ${ctx.singlePascal}Model {
   final int id;
@@ -153,11 +165,11 @@ ${tos}
       };
 
   ${ctx.singlePascal}Model copyWith({
-    ${ctx.fields.map((f) => `Object? ${f.name} = const Object()`).join(',\n    ')}
+    ${members.map((n) => `Object? ${n} = const Object()`).join(',\n    ')}
   }) {
     return ${ctx.singlePascal}Model(
       id: id,
-${ctx.fields.map((f) => `      ${f.name}: ${f.name} == const Object() ? this.${f.name} : ${f.name} as dynamic,`).join('\n')}
+${members.map((n) => `      ${n}: ${n} == const Object() ? this.${n} : ${n} as dynamic,`).join('\n')}
     );
   }
 }
@@ -321,14 +333,27 @@ const FORM_FIELD = {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
-  // 关联：切片 1 先给外键 id 的数值输入（可用）；下拉选择器与友好回显属切片 2。
+  // 关联（切片 2）：选项到手就用**下拉**；取不到则回落 id 输入，表单永远可用。
   ref: (c, l10n, f) =>
-    `          CupertinoTextField(
-            placeholder: '${c} ID（${f.target}）',
-            controller: _${refColumnName(c)}Ctrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: false),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),`,
+    `          if (_${c}Options.isEmpty)\n` +
+    `            CupertinoTextField(\n` +
+    `              placeholder: '${c} ID（${f.target}）',\n` +
+    `              controller: _${refColumnName(c)}Ctrl,\n` +
+    `              keyboardType: const TextInputType.numberWithOptions(decimal: false),\n` +
+    `              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),\n` +
+    `            )\n` +
+    `          else\n` +
+    `            CupertinoSlidingSegmentedControl<int>(\n` +
+    `              groupValue: _${c}IdVal,\n` +
+    `              onValueChanged: (v) => setState(() => _${c}IdVal = v),\n` +
+    `              children: {\n` +
+    `                for (final o in _${c}Options)\n` +
+    `                  (o['id'] as int): Padding(\n` +
+    `                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),\n` +
+    `                    child: Text('\${o['${f.display}'] ?? o['id']}'),\n` +
+    `                  ),\n` +
+    `              },\n` +
+    `            ),`,
   // 附件在表单里暂不呈现（上传控件属切片 2）；列表处显示名字。
   attachment: () => '',
   bool: (c, l10n) =>
@@ -409,7 +434,11 @@ const FORM_READ = {
   // 精度校验由后端 DTO 的十进制字符串规则把关。
   decimal: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   ref: (c) =>
-    `if (_${refColumnName(c)}Ctrl.text.isNotEmpty) data['${refColumnName(c)}'] = int.tryParse(_${refColumnName(c)}Ctrl.text.trim());`,
+    `if (_${c}IdVal != null) {\n` +
+    `        data['${refColumnName(c)}'] = _${c}IdVal;\n` +
+    `      } else if (_${refColumnName(c)}Ctrl.text.isNotEmpty) {\n` +
+    `        data['${refColumnName(c)}'] = int.tryParse(_${refColumnName(c)}Ctrl.text.trim());\n` +
+    `      }`,
   attachment: () => '',
   bool: (c) => `data['${c}'] = _${c}Val;`,
   date: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
@@ -423,13 +452,126 @@ export function pageTemplate(ctx) {
     .filter(Boolean)
     .join('\n\n');
   const formFields = ctx.fields.map((f) => FORM_FIELD[f.type](f.name, null, f)).join('\n\n');
+  // 回显（切片 2）：关联显示**目标名**而非 id，附件显示**文件名**；无值的部分略去。
+  const echoEntries = [
+    ...refFields(ctx.fields).map(
+      (r) => `      if (item.${r.name}Name != null && item.${r.name}Name!.isNotEmpty) item.${r.name}Name!,`,
+    ),
+    ...attachmentFields(ctx.fields).map((n) => `      if (item.${n}Names.isNotEmpty) item.${n}Names.join('、'),`),
+  ];
+  const echoMethod =
+    echoEntries.length === 0
+      ? ''
+      : `\n  ///\n` +
+        `  /// Relations and attachments, shown instead of their raw ids. Parts with no value\n` +
+        `  /// are dropped so an empty row does not render a stray separator.\n` +
+        `  ///\n` +
+        `  /// 关联与附件的回显（显示名字而非裸 id）；无值的部分略去，\n` +
+        `  /// 免得空行渲染出多余的分隔符。\n` +
+        `  ///\n` +
+        `  String _echo(${ctx.singlePascal}Model item) {\n` +
+        `    final parts = <String>[\n${echoEntries.join('\n')}\n    ];\n` +
+        `    return parts.where((p) => p.isNotEmpty).join(' · ');\n` +
+        `  }\n`;
+  const listSubtitle = echoEntries.length === 0 ? '' : `\n                      subtitle: Text(_echo(item)),`;
+  // _echo 的形参是**模型**类（页面上只有 Model，没有实体），故须导入模型文件。
+  // 页面在 presentation/pages/ 下，模型在 data/models/ 下 —— 相对路径要退两级。
+  const modelImport = echoEntries.length === 0 ? '' : `import '../../data/models/${ctx.singular}_model.dart';\n`;
+  // ── 切片 2：两个控件 ────────────────────────────────────────────────────────
+  // 关联下拉放**新建表单**（选项取不到则回落手工输入 id）；附件上传放**列表行上**
+  // —— 因为关联必须有一个已存在的 owner id，而新建时该 id 还不存在。
+  const refControls = refFields(ctx.fields);
+  const attControls = attachmentFields(ctx.fields);
+  const pageExtraImports =
+    refControls.length > 0 || attControls.length > 0
+      ? `import '../../../../core/api/api_client.dart';\n`
+      : '';
+  const filePickerImport =
+    attControls.length > 0 ? `import 'package:file_picker/file_picker.dart';\n` : '';
+  const refStateFields = refControls
+    .map((r) => `  int? _${r.name}IdVal;\n  List<Map<String, dynamic>> _${r.name}Options = const [];`)
+    .join('\n');
+  const refOptionFetch = refControls
+    .map(
+      (r) =>
+        `    // 关联选项：只取**调用者自己看得见**的记录（用户端列表自带范围过滤），\n` +
+        `    // 取不到就不阻塞表单 —— 下拉留空并回落到手工输入 id。\n` +
+        `    Future.microtask(() async {\n` +
+        `      if (!mounted) return;\n` +
+        `      final client = context.read<ApiClient>();\n` +
+        `      try {\n` +
+        `        final json = await client.get('/${refTarget(r.target).plural}');\n` +
+        `        final list = (json['data'] as List?) ?? const [];\n` +
+        `        if (mounted) {\n` +
+        `          setState(() {\n` +
+        `            _${r.name}Options = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();\n` +
+        `          });\n` +
+        `        }\n` +
+        `      } catch (_) {\n` +
+        `        // 选项不可得不影响创建：仍可用 id 手工关联。\n` +
+        `      }\n` +
+        `    });\n`,
+    )
+    .join('');
+  const attachMethods = attControls
+    .map(
+      (n) =>
+        `\n  ///\n` +
+        `  /// Picks a file, uploads it through the platform's existing /upload pipeline and\n` +
+        `  /// then records the association against this row. Attachment is per row rather than\n` +
+        `  /// part of the create form, because the association needs an owner id that does not\n` +
+        `  /// exist yet while the row is still being created.\n` +
+        `  ///\n` +
+        `  /// 选文件、走平台既有的 /upload 管线上传、再把关联登记到本行。附件是**按行**操作的\n` +
+        `  /// 而不是新建表单的一部分 —— 因为关联需要一个 owner id，而行还在创建中时它并不存在。\n` +
+        `  ///\n` +
+        `  Future<void> _attach${toPascal(n)}(int ownerId) async {\n` +
+        `    final picked = await FilePicker.platform.pickFiles();\n` +
+        `    if (picked == null || picked.files.isEmpty) return;\n` +
+        `    final file = picked.files.first;\n` +
+        `    if (file.path == null) return;\n` +
+        `    // 取 client 必须在 await 之前：跨 await 用 context 会触发\n` +
+        `    // use_build_context_synchronously（本仓 analyze 常绿，不新增 lint）。\n` +
+        `    if (!mounted) return;\n` +
+        `    final client = context.read<ApiClient>();\n` +
+        `    try {\n` +
+        `      final uploaded = await client.uploadFile(file.path!, file.name);\n` +
+        `      await client.post('/${ctx.plural}/\$ownerId/attachments', data: {\n` +
+        `        'field': '${n}',\n` +
+        `        'storageKey': uploaded['filename'],\n` +
+        `        'originalName': uploaded['originalName'] ?? file.name,\n` +
+        `        'mimeType': uploaded['mimeType'] ?? 'application/octet-stream',\n` +
+        `        'size': uploaded['size'] ?? 0,\n` +
+        `      });\n` +
+        `      if (mounted) context.read<${ctx.pluralPascal}Provider>().load();\n` +
+        `    } catch (e) {\n` +
+        `      debugPrint('attach ${n} failed: \$e');\n` +
+        `    }\n` +
+        `  }\n`,
+    )
+    .join('');
+  const attachButtons = attControls
+    .map(
+      (n) =>
+        `          CupertinoButton(\n` +
+        `            padding: EdgeInsets.zero,\n` +
+        `            minimumSize: const Size(32, 32),\n` +
+        `            onPressed: () => _attach${toPascal(n)}(item.id),\n` +
+        `            child: const Icon(CupertinoIcons.paperclip, size: 18),\n` +
+        `          ),\n`,
+    )
+    .join('');
+  const listTrailing =
+    attControls.length === 0
+      ? `CupertinoButton(\n                        padding: EdgeInsets.zero,\n                        minimumSize: const Size(32, 32),\n                        onPressed: () => _onDelete(item.id),\n                        child: const Icon(\n                          CupertinoIcons.trash,\n                          size: 18,\n                          color: CupertinoColors.destructiveRed,\n                        ),\n                      )`
+      : `Row(\n                        mainAxisSize: MainAxisSize.min,\n                        children: [\n${attachButtons}          CupertinoButton(\n            padding: EdgeInsets.zero,\n            minimumSize: const Size(32, 32),\n            onPressed: () => _onDelete(item.id),\n            child: const Icon(\n              CupertinoIcons.trash,\n              size: 18,\n              color: CupertinoColors.destructiveRed,\n            ),\n          ),\n                        ],\n                      )`;
   const reads = ctx.fields.map((f) => FORM_READ[f.type](f.name, f)).join('\n');
   const titleField = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
 
   return `import 'package:flutter/cupertino.dart';
-import 'package:provider/provider.dart';
+${pageExtraImports}${filePickerImport}import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import '../providers/${ctx.plural}_provider.dart';
+${modelImport}import '../providers/${ctx.plural}_provider.dart';
 
 /// ${ctx.label}页
 class ${ctx.pluralPascal}Page extends StatefulWidget {
@@ -441,7 +583,8 @@ class ${ctx.pluralPascal}Page extends StatefulWidget {
 
 class _${ctx.pluralPascal}PageState extends State<${ctx.pluralPascal}Page> {
 ${controllers}
-${labelMethods}
+${refStateFields}
+${labelMethods}${echoMethod}${attachMethods}
 
   @override
   void initState() {
@@ -449,7 +592,7 @@ ${labelMethods}
     Future.microtask(() {
       if (mounted) context.read<${ctx.pluralPascal}Provider>().load();
     });
-  }
+${refOptionFetch}  }
 
   @override
   void dispose() {
@@ -554,17 +697,8 @@ ${reads}
                     final item = items[i];
                     final title = item.${titleField}.toString();
                     return CupertinoListTile(
-                      title: Text(title),
-                      trailing: CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(32, 32),
-                        onPressed: () => _onDelete(item.id),
-                        child: const Icon(
-                          CupertinoIcons.trash,
-                          size: 18,
-                          color: CupertinoColors.destructiveRed,
-                        ),
-                      ),
+                      title: Text(title),${listSubtitle}
+                      trailing: ${listTrailing},
                     );
                   },
                 ),

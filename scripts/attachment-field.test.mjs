@@ -205,6 +205,41 @@ test('schema 与 FIELD_TYPES 两层一致：闭集里每个类型都必须被 sc
   }
 });
 
+// ─── Slice 2: upload control + echo（断言来自真机实证） ──────────────────────
+
+test('模型：copyWith 按成员名（contractNames），不用协议字段名', () => {
+  const model = modelTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(model.includes('Object? contractNames = const Object()'));
+  assert.ok(!model.includes('Object? contract = const Object()'));
+});
+
+test('页面：附件按行上传 —— 复用既有 /upload 管线，再登记关联', () => {
+  const page = pageTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(page.includes('FilePicker.platform.pickFiles()'));
+  assert.ok(page.includes('final client = context.read<ApiClient>();'), 'client 须在 await 之前取');
+  assert.ok(page.includes('await client.uploadFile(file.path!, file.name);'), '上传须复用既有管线');
+  assert.ok(page.includes("await client.post('/orders/\$ownerId/attachments'"));
+  assert.ok(page.includes("'field': 'contract',"));
+  assert.ok(page.includes("'storageKey': uploaded['filename'],"), '存的是存储键');
+  assert.ok(page.includes('_attachContract(item.id)'), '上传入口挂在列表行上（新建时还没有 owner id）');
+  assert.ok(page.includes("import 'package:file_picker/file_picker.dart';"));
+});
+
+test('页面：回显附件名（用 Model 类型）', () => {
+  const page = pageTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(page.includes("if (item.contractNames.isNotEmpty) item.contractNames.join('、'),"));
+  assert.ok(page.includes('_echo(OrderModel item)'));
+});
+
+test('管理台：接口带 attachments 数组 + 名字 helper + 单元格', () => {
+  const api = adminApiTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(api.includes('attachments?: Array<Record<string, unknown>>;'));
+  assert.ok(!api.includes('contract: string;'), '附件不在接口里逐字段展开');
+  const view = adminViewTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(view.includes('function attachmentNames(item: AdminOrder, field: string): string[]'));
+  assert.ok(view.includes("{{ attachmentNames(item, 'contract').join('、') }}"));
+});
+
 test('带 attachment 的 ctx 能跑遍所有模板（漏一个映射即抛错）', () => {
   const ctx = ctxWith([ATT_FIELD]);
   for (const fn of ALL_TEMPLATES) {

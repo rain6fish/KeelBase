@@ -6,7 +6,7 @@
  * v1：全量列表（GET /<plural>/admin/all）+ 删除（DELETE /<plural>/admin/:id）；无分页/搜索/新建编辑。
  */
 
-import { enumLabelGetter, hasEnumLabels } from './validate.mjs';
+import { attachmentFields, enumLabelGetter, hasEnumLabels, refColumnName } from './validate.mjs';
 
 const ADMIN_TS_TYPE = {
   string: () => 'string',
@@ -24,15 +24,26 @@ const ADMIN_TS_TYPE = {
 };
 
 export function adminApiTemplate(ctx) {
+  // ref 在接口上要两行：外键 id（可提交）+ 嵌套的目标对象（用于回显）。切片 1 曾把 ref
+  // 写成 `customer: number`，而接口实际返回 `customerId` + `customer` 对象 —— 那是错的。
   const fieldsDecl = ctx.fields
-    .map((f) => `  ${f.name}: ${ADMIN_TS_TYPE[f.type]()};`)
+    .flatMap((f) => {
+      if (f.type === 'ref') {
+        return [`  ${refColumnName(f.name)}: number;`, `  ${f.name}?: Record<string, unknown> | null;`];
+      }
+      // 附件不在本接口逐字段展开，改用下面的 attachments 数组
+      if (f.type === 'attachment') return [];
+      return [`  ${f.name}: ${ADMIN_TS_TYPE[f.type]()};`];
+    })
     .join('\n');
+  const attachDecl =
+    attachmentFields(ctx.fields).length > 0 ? `\n  attachments?: Array<Record<string, unknown>>;` : '';
   return `import { api } from './client';
 
 export interface Admin${ctx.singlePascal} {
   id: number;
   userId: number | null;
-${fieldsDecl}
+${fieldsDecl}${attachDecl}
   createdAt: string;
 }
 
@@ -61,6 +72,17 @@ export function adminViewTemplate(ctx) {
     )
     .join('\n');
   // 无带标签的 enum 字段时不产出任何查表/helper —— 避免生成死代码（Code Economy §15.3）
+  // 附件名 helper：侧表按 field 分组返回，视图按声明的字段名过滤。
+  const attachBlock =
+    attachmentFields(ctx.fields).length === 0
+      ? ''
+      : `// Names of the attachments belonging to one declared field, for the list cell.\n` +
+        `// 某个声明字段名下的附件名，供列表单元格使用。\n` +
+        `function attachmentNames(item: Admin${ctx.singlePascal}, field: string): string[] {\n` +
+        `  return (item.attachments ?? [])\n` +
+        `    .filter((a) => a['field'] === field)\n` +
+        `    .map((a) => String(a['originalName'] ?? ''))\n` +
+        `}\n\n`;
   const enumLabelBlock =
     enumFields.length === 0
       ? ''
@@ -76,6 +98,18 @@ export function adminViewTemplate(ctx) {
       (f) => `      <template #item.${f.name}="{ item }">{{ cellText('${f.name}', item.${f.name}) }}</template>`,
     )
     .join('\n');
+  // 回显：关联列显示**目标名**（缺则回落外键 id），附件列显示**文件名**。
+  const refSlots = ctx.fields
+    .filter((f) => f.type === 'ref')
+    .map(
+      (f) =>
+        `      <template #item.${f.name}="{ item }">{{ String(item.${f.name}?.['${f.display}'] ?? item.${refColumnName(f.name)} ?? '') }}</template>`,
+    )
+    .join('\n');
+  const attachSlots = attachmentFields(ctx.fields)
+    .map((n) => `      <template #item.${n}="{ item }">{{ attachmentNames(item, '${n}').join('、') }}</template>`)
+    .join('\n');
+  const echoSlots = [enumSlots, refSlots, attachSlots].filter(Boolean).join('\n');
   return `<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -93,7 +127,7 @@ const loading = ref(false)
 const showDelete = ref(false)
 const pendingDelete = ref<Admin${ctx.singlePascal} | null>(null)
 
-${enumLabelBlock}const headers = computed(() => [
+${enumLabelBlock}${attachBlock}const headers = computed(() => [
   { key: 'id', title: 'ID' },
 ${headerCols}
   { key: 'createdAt', title: t('createdAt') },
@@ -136,7 +170,7 @@ onMounted(load)
   <div>
     <PageHeader :title="t('nav${ctx.pluralPascal}')" :subtitle="t('${ctx.plural}ViewSubtitle')" />
     <AppTable :headers="headers" :items="items" :loading="loading">
-${enumSlots ? `${enumSlots}\n` : ''}      <template #item.actions="{ item }">
+${echoSlots ? `${echoSlots}\n` : ''}      <template #item.actions="{ item }">
         <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
       </template>
     </AppTable>

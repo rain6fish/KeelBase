@@ -207,3 +207,47 @@ test('schema：接受 ref（位置与取值规则由 validateRefField 管）', (
   };
   assert.ok(validateAgainstSchema(moduleSpecSchema, bad).length > 0, 'onDelete 越界应由 schema 拦下');
 });
+
+// ─── Slice 2: echo + selector（以下断言来自真机实证，见各条注释） ──────────────
+
+test('模型：关联带目标名（回显用），copyWith 按模型成员名生成', () => {
+  const model = modelTemplate(ctxWith([REF_FIELD]));
+  assert.ok(model.includes('final String? customerName;'));
+  assert.ok(model.includes("customerName: (json['customer'] as Map?)?['name'] as String?,"));
+  // copyWith 必须引用**成员名**：用协议字段名会引用不存在的成员（flutter analyze 实测报错）
+  assert.ok(model.includes('Object? customerId = const Object()'));
+  assert.ok(model.includes('Object? customerName = const Object()'));
+  assert.ok(!model.includes('Object? customer = const Object()'), 'copyWith 不得用协议字段名');
+});
+
+test('页面：回显用 Model 类型并导入模型；不再引用实体类', () => {
+  const page = pageTemplate(ctxWith([REF_FIELD]));
+  assert.ok(page.includes("import '../../data/models/order_model.dart';"), '相对路径须退两级到 data/models');
+  assert.ok(page.includes('String _echo(OrderModel item)'));
+  assert.ok(page.includes('subtitle: Text(_echo(item)),'));
+  assert.ok(!page.includes('String _echo(Order item)'), '页面只有 Model，没有实体');
+});
+
+test('页面：选项取不到时回落到 id 输入（表单永远可用）', () => {
+  const page = pageTemplate(ctxWith([REF_FIELD]));
+  assert.ok(page.includes('if (_customerOptions.isEmpty)'));
+  assert.ok(page.includes('CupertinoSlidingSegmentedControl<int>('));
+  assert.ok(page.includes("data['customerId'] = _customerIdVal;"), '选中值优先于手工输入');
+});
+
+test('页面：ApiClient 经 Provider 取（其构造函数需要参数），且不跨 await 用 context', () => {
+  const page = pageTemplate(ctxWith([REF_FIELD]));
+  assert.ok(page.includes('context.read<ApiClient>()'), 'ApiClient 须从 Provider 取');
+  assert.ok(!page.includes('ApiClient()'), 'ApiClient 无参构造不存在（实测编译错误）');
+  // 跨 await 用 context 会触发 use_build_context_synchronously（本仓 analyze 常绿）
+  assert.ok(page.includes('if (!mounted) return;\n      final client = context.read<ApiClient>();'));
+});
+
+test('管理台：接口声明外键 id + 嵌套对象，单元格回显目标名', () => {
+  const api = adminApiTemplate(ctxWith([REF_FIELD]));
+  assert.ok(api.includes('customerId: number;'));
+  assert.ok(api.includes('customer?: Record<string, unknown> | null;'));
+  assert.ok(!api.includes('customer: number;'), '切片 1 曾写错为标量 number');
+  const view = adminViewTemplate(ctxWith([REF_FIELD]));
+  assert.ok(view.includes("{{ String(item.customer?.['name'] ?? item.customerId ?? '') }}"));
+});

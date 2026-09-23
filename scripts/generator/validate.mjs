@@ -75,6 +75,22 @@ export function refOnDelete(field) {
 }
 
 /**
+ * The Dart model members a protocol field actually produces. For most types that is
+ * the field itself; `ref` produces two (`<name>Id` and `<name>Name`) and `attachment`
+ * one (`<name>Names`). Single-sourced so `copyWith` cannot reference a member the
+ * declaration never made — that is a compile error, not a naming preference.
+ *
+ * 协议字段在 Dart 模型里**实际产出**的成员。多数类型就是字段本身；`ref` 产出两个
+ * （`<name>Id` 与 `<name>Name`），`attachment` 产出一个（`<name>Names`）。单源，
+ * 使 `copyWith` 不会引用声明里根本不存在的成员 —— 那是编译错误，不是命名偏好。
+ */
+export function modelMemberNames(field) {
+  if (field.type === 'ref') return [refColumnName(field.name), `${field.name}Name`];
+  if (field.type === 'attachment') return [`${field.name}Names`];
+  return [field.name];
+}
+
+/**
  * Resolved target module of a `ref` — plural, singular and PascalCase — so the
  * templates build the entity import path and the class name from one place.
  *
