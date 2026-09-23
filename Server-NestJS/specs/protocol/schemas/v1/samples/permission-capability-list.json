@@ -1,8 +1,0 @@
-{
-  "role": "user",
-  "basis": "普通用户：可管理本人拥有的资源（行级所有权条件）",
-  "resources": [
-    { "subject": "Event", "scope": "own", "actions": ["create", "read", "update", "delete"], "reason": "只能操作自己的数据（行级所有权条件）" },
-    { "subject": "User", "scope": "own", "actions": ["create", "read", "update", "delete"], "reason": "只能操作自己的数据（行级所有权条件）" }
-  ]
-}

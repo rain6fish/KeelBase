@@ -1,0 +1,3 @@
+[submodule "Server-NestJS/specs/protocol"]
+	path = Server-NestJS/specs/protocol
+	url = https://github.com/rain6fish/keelbase-contract
