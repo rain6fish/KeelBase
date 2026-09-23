@@ -41,6 +41,18 @@ describe('AppVersionService', () => {
     expect(APP_VERSION.latestVersion).toBe(pkg.version);
   });
 
+  it('changelog 按当前版本取——防「bump 了版本却没写更新要点」再发生', () => {
+    // 1.0.10 / 1.0.11 两次发版都忘了替换手写的那份平铺数组 → 升级提示一直讲 1.0.9 的功能
+    // （与上面 latestVersion 那起事故同型）。现改为按版本索引：bump 版本却不写要点 → 查不到 → 本断言红。
+    // The notes are keyed by the product version, so a version bump without notes yields an empty
+    // list and this assertion fails — the staleness can no longer ship silently.
+    expect(APP_VERSION.changelog.length).toBeGreaterThan(0);
+    for (const note of APP_VERSION.changelog) {
+      expect(typeof note).toBe('string');
+      expect(note.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it('latestVersion is newer than or equal to minRequiredVersion', () => {
     const toNum = (v: string) => v.split('.').map(Number);
     const latest = toNum(APP_VERSION.latestVersion);
