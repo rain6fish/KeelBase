@@ -235,6 +235,20 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
+## 🔗 Repositories
+
+| Repository | Role |
+|---|---|
+| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | **The protocol itself** — wire-object schemas, language-neutral conformance vectors, and their version line. Independent of any implementation |
+| `KeelBase` | This repository — the TypeScript runtime, the product documentation, and the demo site |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java runtime — a second carrier of the same protocol |
+| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Spring Boot starter for connecting a Java system to KeelBase as an AI-callable business system |
+
+The contract repository is where the protocol lives; the runtimes consume it, and none of them owns it.
+The two runtimes are peers — neither is a translation of the other.
+
+---
+
 ## 📚 Documentation
 
 > Every guide ships in **中文 and English** — pick your language below.

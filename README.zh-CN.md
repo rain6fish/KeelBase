@@ -226,6 +226,19 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ---
 
+## 🔗 仓库
+
+| 仓库 | 角色 |
+|---|---|
+| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | **协议本体**——线缆对象 schema、语言无关一致性向量，以及两者共用的版本线。独立于任何实现 |
+| `KeelBase` | 本仓——TypeScript runtime、产品文档与演示站点 |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | Java runtime——同一协议的第二载体 |
+| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Spring Boot Starter，把 Java 系统接成 KeelBase 可调用的业务系统 |
+
+协议住在契约仓；各 runtime 消费它，**谁也不拥有它**。两个 runtime 是**平行**关系——没有一个是另一个的翻译版。
+
+---
+
 ## 📚 文档
 
 > 所有手册提供**中文与 English** 双版本，按需选择。
