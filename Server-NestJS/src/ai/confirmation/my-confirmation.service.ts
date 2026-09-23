@@ -19,6 +19,7 @@ import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.enti
 import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { ConfirmationStore, CONFIRMATION_STATUS, RunItem, isWithinOfflineWindow } from './confirmation.store';
+import { ExecutionState, deriveExecutionState } from './execution-state';
 import { ConfirmationImpact, RevokeClass } from '../interfaces/tool.interface';
 
 /**
@@ -40,6 +41,11 @@ export interface MyConfirmationItem {
   createdAt: string;
   decidedAt: string | null;
   expiresAt?: string;
+  /** P2 执行轴：非 approved 行为 null（本人批复的写同样可能「批准了但没跑成」）。
+   *  P2 execution axis; null unless approved. 见 wire my-confirmation-item v2。 */
+  executionState: ExecutionState | null;
+  executedAt: string | null;
+  executionError: string | null;
 }
 
 export type MyConfirmationDecision = 'approve' | 'decline' | 'reject';
@@ -137,6 +143,10 @@ export class MyConfirmationService {
       ...(row.status === CONFIRMATION_STATUS.PENDING
         ? { expiresAt: new Date(createdAt.getTime() + offlineTtlMs).toISOString() }
         : {}),
+      // P2 执行轴（单源推导，与治理端审批列表同一函数）——租约列是内部状态，不外泄
+      executionState: deriveExecutionState(row),
+      executedAt: row.executedAt ? row.executedAt.toISOString() : null,
+      executionError: row.executionError ?? null,
     };
   }
 }

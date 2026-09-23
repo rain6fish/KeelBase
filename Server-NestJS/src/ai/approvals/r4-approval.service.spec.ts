@@ -66,20 +66,53 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
         id: 1, token: 't', toolName: 'create_event', args: '{}', operatorId: '5',
         conversationId: null, riskLevel: 'R4', status: 'pending', kind: 'single',
         runItems: null, approverId: null, decidedAt: null, createdAt: new Date(),
+        // P2 执行轴三列（租约列是内部并发状态，投影必须把它挡在响应之外）
+        executionClaimedAt: null, executedAt: null, executionError: null,
       };
       r4 = makeService(
         { find: jest.fn().mockResolvedValue([row]) },
         { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) },
       );
       const items = await r4.listPendingApprovals(50);
+      // 契约已升 v2（P2 加执行轴），绑定断言随之读 v2
       const props = Object.keys(
         (
           JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/governance-confirmation-item.schema.json'), 'utf8'),
+            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v2/governance-confirmation-item.schema.json'), 'utf8'),
           ) as { properties: Record<string, unknown> }
         ).properties,
       );
       expect(Object.keys(items[0]).filter((k) => !props.includes(k))).toEqual([]);
+      // 契约 additionalProperties:false：内部租约列绝不外泄
+      expect(Object.keys(items[0])).not.toContain('executionClaimedAt');
+    });
+
+    it('③ 已审批历史的投影也带执行态（P2）：失败的行如实报 failed，租约列同样不外泄', async () => {
+      const row = {
+        id: 2, token: 't2', toolName: 'create_event', args: '{}', operatorId: '5',
+        conversationId: null, riskLevel: 'R4', status: 'approved', kind: 'single',
+        runItems: null, approverId: '9', decidedAt: new Date(), createdAt: new Date(),
+        // 认领已过期（> 租约）且无成功 → failed；有错误记录时 UI 可直接显示原因
+        executionClaimedAt: new Date(Date.now() - 10 * 60 * 1000),
+        executedAt: null,
+        executionError: '目标系统不可达',
+      };
+      r4 = makeService(
+        { find: jest.fn().mockResolvedValue([row]) },
+        { findOne: jest.fn().mockResolvedValue({ username: 'alice' }) },
+      );
+
+      const items = await r4.listDecidedApprovals(50);
+
+      expect(items[0]).toMatchObject({
+        id: 2,
+        status: 'approved',
+        executionState: 'failed',
+        executedAt: null,
+        executionError: '目标系统不可达',
+        approverName: 'alice',
+      });
+      expect(Object.keys(items[0])).not.toContain('executionClaimedAt');
     });
 
     it('R4 approve 时拒绝 self-approve（operator === approver）', async () => {
@@ -179,6 +212,134 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       expect(res.ok).toBe(false);
       expect(res.message).toBe('already decided');
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── P2 审批执行轴（执行态 + 重试）：批准 ≠ 执行成功 ──
+
+  describe('P2 执行轴：重试入口与执行认领', () => {
+    const approvedRow = (extra: Record<string, unknown> = {}) => ({
+      token: 't-exec',
+      operatorId: '1',
+      status: 'approved',
+      toolName: 'create_event',
+      args: '{"title":"x"}',
+      conversationId: 'c',
+      approverId: '9',
+      decidedAt: new Date(),
+      executionClaimedAt: null,
+      executedAt: null,
+      executionError: null,
+      ...extra,
+    });
+
+    it('「已批准但执行失败」的行可重试：认领后真的执行，并落 executedAt', async () => {
+      const patches: Array<Record<string, unknown>> = [];
+      const repo = {
+        findOne: jest.fn().mockResolvedValue(approvedRow({ executionError: 'boom' })),
+        update: jest.fn(async (_crit: unknown, patch: Record<string, unknown>) => {
+          patches.push(patch);
+          return { affected: 1 };
+        }),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 5 } });
+      mockToolRegistry.execute.mockClear();
+
+      const res = await r4.retryExecution('t-exec');
+
+      expect(res.ok).toBe(true);
+      expect(res.success).toBe(true);
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+      expect(patches.some((p) => p.executionClaimedAt instanceof Date)).toBe(true);
+      expect(patches.some((p) => p.executedAt instanceof Date)).toBe(true);
+      expect(patches.some((p) => p.executionError === null && 'executedAt' in p)).toBe(true);
+    });
+
+    it('已成功的行不可重试（不产生第二次执行）', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue(approvedRow({ executedAt: new Date() })),
+        update: jest.fn(),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockClear();
+
+      const res = await r4.retryExecution('t-exec');
+
+      expect(res).toMatchObject({ ok: false, reason: 'not_retryable', message: 'already executed' });
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('租约仍新鲜（可能正在执行）时拒绝重试，避免与在途执行撞车', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue(approvedRow({ executionClaimedAt: new Date() })),
+        update: jest.fn(),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockClear();
+
+      const res = await r4.retryExecution('t-exec');
+
+      expect(res).toMatchObject({ ok: false, reason: 'not_retryable', message: 'execution in progress' });
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('未批准的行不可重试；不存在的 token → not_found', async () => {
+      const pending = { ...approvedRow(), status: 'pending' };
+      r4 = makeService({ findOne: jest.fn().mockResolvedValue(pending), update: jest.fn() });
+      mockToolRegistry.execute.mockClear();
+      expect((await r4.retryExecution('t-exec')).reason).toBe('not_retryable');
+
+      r4 = makeService({ findOne: jest.fn().mockResolvedValue(null), update: jest.fn() });
+      expect((await r4.retryExecution('nope')).reason).toBe('not_found');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('认领未命中（并发裁决 / 重复执行，affected=0）→ **不执行**工具', async () => {
+      const repo = {
+        findOne: jest.fn(),
+        update: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockClear();
+
+      const result = await r4.executeApprovedTool(approvedRow() as never, 'note');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('already in progress or already completed');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('未注入仓储（单测/裁剪装配）时降级：重试明确不可用，执行仍按拆分前行为直跑', async () => {
+      r4 = makeService(); // 无 repo
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 8 } });
+      mockToolRegistry.execute.mockClear();
+
+      expect(await r4.retryExecution('t')).toMatchObject({ ok: false, reason: 'not_retryable' });
+
+      const result = await r4.executeApprovedTool(approvedRow() as never, 'note');
+      expect(result.success).toBe(true);
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('执行失败：落 executionError 且**不**落 executedAt（该行随后可重试）', async () => {
+      const patches: Array<Record<string, unknown>> = [];
+      const repo = {
+        findOne: jest.fn(),
+        update: jest.fn(async (_crit: unknown, patch: Record<string, unknown>) => {
+          patches.push(patch);
+          return { affected: 1 };
+        }),
+      };
+      r4 = makeService(repo);
+      mockToolRegistry.execute.mockResolvedValue({ success: false, error: '目标系统不可达' });
+      mockToolRegistry.execute.mockClear();
+
+      const result = await r4.executeApprovedTool(approvedRow() as never, 'note');
+
+      expect(result.success).toBe(false);
+      expect(patches.some((p) => p.executionError === '目标系统不可达')).toBe(true);
+      expect(patches.some((p) => p.executedAt instanceof Date)).toBe(false);
     });
   });
 

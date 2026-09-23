@@ -23,7 +23,12 @@ import {
   Put,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
 import { R4ApprovalService } from './approvals/r4-approval.service';
@@ -220,6 +225,29 @@ export class AiController {
     const res = await this.r4Approval.decideApproval(token, String(user.sub), dto.decision);
     if (!res.ok) {
       throw new NotFoundException(res.message ?? '审批请求不存在或已决策');
+    }
+    return res;
+  }
+
+  /**
+   * P2：重试一条「已批准但未成功执行」的确认（管理员审批页）。
+   *
+   * 不加 `@SkipAudit()`：这是对真实业务动作的**再次执行**，必须留痕（tool_call 审计行由写管道自己落）。
+   * 不加 `@SkipThrottle()`：这是能触发写操作的端点，走全局限流。
+   * 拒绝原因由 service 给出：不存在 → 404；仍在执行 / 状态不允许 / 已成功 → 409。
+   *
+   * P2 retry entry for an approved-but-not-succeeded confirmation. Not audit-skipped (it re-runs a
+   * real business action) and not throttle-skipped (it can write).
+   */
+  @Post('confirmations/:token/retry-execution')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '重试确认的执行（管理员）' })
+  async retryApprovalExecution(@Param('token') token: string) {
+    const res = await this.r4Approval.retryExecution(token);
+    if (!res.ok) {
+      if (res.reason === 'not_found') throw new NotFoundException('审批请求不存在');
+      throw new ConflictException(res.message ?? '该确认当前不可重试');
     }
     return res;
   }

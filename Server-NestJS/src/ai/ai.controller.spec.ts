@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AiController } from './ai.controller';
 import { AiService, ChatResponse } from './ai.service';
 import { ConversationService } from './conversation/conversation.service';
@@ -82,6 +82,58 @@ describe('AiController', () => {
       undefined as any, // r4Approval（第七刀）
       mockToolExposure, // 工具对外面（第九刀）
     );
+  });
+
+  // P2 重试入口：把不可重试的原因映射成诚实的状态码（不存在 404 / 不可重试 409），而不是一律 400
+  describe('POST /ai/confirmations/:token/retry-execution（P2）', () => {
+    const buildController = (retry: jest.Mock) =>
+      new AiController(
+        { chat: jest.fn(), chatStream: jest.fn() } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        { retryExecution: retry } as any,
+        {} as any,
+      );
+
+    it('重试成功 → 透传结果', async () => {
+      const retry = jest.fn().mockResolvedValue({ ok: true, success: true, resultId: 7 });
+
+      await expect(buildController(retry).retryApprovalExecution('t1')).resolves.toMatchObject({
+        ok: true,
+        success: true,
+        resultId: 7,
+      });
+      expect(retry).toHaveBeenCalledWith('t1');
+    });
+
+    it('token 不存在 → 404', async () => {
+      const retry = jest.fn().mockResolvedValue({ ok: false, reason: 'not_found', message: 'not found' });
+
+      await expect(buildController(retry).retryApprovalExecution('nope')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('不可重试（仍在执行 / 已成功 / 非 approved）→ 409', async () => {
+      const retry = jest.fn().mockResolvedValue({
+        ok: false,
+        reason: 'not_retryable',
+        message: 'execution in progress',
+      });
+
+      await expect(buildController(retry).retryApprovalExecution('t1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
   });
 
   describe('POST /ai/chat', () => {

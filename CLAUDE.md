@@ -822,6 +822,7 @@ npm run migration:run
 | GET | /api/v1/ai/confirmations/pending | Yes (ADMIN) | — | R4 待人工审批列表（治理台读侧） |
 | GET | /api/v1/ai/confirmations/decided | Yes (ADMIN) | — | R4 已审批历史（治理台读侧） |
 | POST | /api/v1/ai/confirmations/:token/approve-by | Yes (ADMIN) | — | 治理台裁决审批 → 回调业务系统执行工具（D-2 approve 回调） |
+| POST | /api/v1/ai/confirmations/:token/retry-execution | Yes (ADMIN) | — | 重试「已批准但未成功执行」的确认（P2 执行轴；租约内拒绝 409，重跑幂等） |
 | GET | /api/v1/ai/health | Yes | — | 治理台健康检查（docker 编排用） |
 | POST | /api/v1/external/audit | 服务身份 | — | 业务系统上报 AI 审计（GOVERNANCE_API_KEY，落治理库哈希链，source=external） |
 | POST | /api/v1/external/effects | 服务身份 | — | 业务系统上报 AI 写副作用（幂等键去重） |

@@ -25,6 +25,35 @@ import { AuditService } from '../audit/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import { ToolResult } from '../interfaces/tool.interface';
 import { UsersService } from '../../users/users.service';
+import {
+  ExecutionState,
+  deriveExecutionState,
+  isExecutionClaimable,
+} from '../confirmation/execution-state';
+
+/** 管理端审批列表项 = 行投影（显式白名单，见 `_toWireItem`）+ 用户名 + 执行态。 */
+export type ApprovalListItem = {
+  id: number;
+  token: string;
+  toolName: string;
+  args: string;
+  operatorId: string;
+  conversationId: string | null;
+  riskLevel: string;
+  status: string;
+  /** 契约要求非空且取单值枚举；迁移前旧行为 NULL，查询层已按 single 处理，投影处同口径归一 */
+  kind: 'single' | 'run';
+  runItems: string | null;
+  approverId: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  operatorName?: string;
+  approverName: string | null;
+  /** 执行轴（P2）——非 approved 行为 null */
+  executionState: ExecutionState | null;
+  executedAt: string | null;
+  executionError: string | null;
+};
 
 @Injectable()
 export class R4ApprovalService {
@@ -61,8 +90,44 @@ export class R4ApprovalService {
     return { token, id: saved.id };
   }
 
+  /**
+   * 行 → wire 投影（**显式白名单**）。
+   *
+   * 为什么不再直接返回实体：P2 给实体加了 `executionClaimedAt`（执行**租约**，内部并发控制用），
+   * 而契约 `governance-confirmation-item` 是 `additionalProperties: false` —— 直接透传会把内部列泄进响应。
+   * 白名单同时让「响应形状 == 契约形状」成为可读事实，而不是靠实体定义碰巧对得上。
+   *
+   * Project the row explicitly rather than returning the entity: the P2 lease column is internal
+   * concurrency state, and the contract forbids extra properties.
+   */
+  private _toWireItem(
+    row: AiConfirmationRequest & { operatorName?: string; approverName?: string },
+    now: number,
+  ): ApprovalListItem {
+    return {
+      id: row.id,
+      token: row.token,
+      toolName: row.toolName,
+      args: row.args,
+      operatorId: row.operatorId,
+      conversationId: row.conversationId ?? null,
+      riskLevel: row.riskLevel,
+      status: row.status,
+      kind: row.kind === 'run' ? 'run' : 'single',
+      runItems: row.runItems ?? null,
+      approverId: row.approverId ?? null,
+      decidedAt: row.decidedAt ? row.decidedAt.toISOString() : null,
+      createdAt: row.createdAt.toISOString(),
+      ...(row.operatorName !== undefined ? { operatorName: row.operatorName } : {}),
+      approverName: row.approverName ?? null,
+      executionState: deriveExecutionState(row, now),
+      executedAt: row.executedAt ? row.executedAt.toISOString() : null,
+      executionError: row.executionError ?? null,
+    };
+  }
+
   /** 待审批 R4 列表（管理端审批页）。 */
-  async listPendingApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
+  async listPendingApprovals(limit = 50): Promise<ApprovalListItem[]> {
     if (!this.approvalsRepo) return [];
     // D2-1e：R3 确认也落库（riskLevel=R3），R4 审批列表只列 R4 高影响请求，避免混入。
     // KB-5：另排除 kind='run' 的整批授权聚合行——R4 工具经策略降为同步确认并入 run 后，
@@ -74,11 +139,13 @@ export class R4ApprovalService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
-    return this.withUserNames(items);
+    const now = Date.now();
+    const rows = await this.withUserNames(items);
+    return rows.map((r) => this._toWireItem(r, now));
   }
 
   /** 已审批历史（管理端审批页）。 */
-  async listDecidedApprovals(limit = 50): Promise<Array<AiConfirmationRequest & { operatorName?: string; approverName?: string }>> {
+  async listDecidedApprovals(limit = 50): Promise<ApprovalListItem[]> {
     if (!this.approvalsRepo) return [];
     const base = { status: In(['approved', 'declined']), riskLevel: 'R4' };
     const items = await this.approvalsRepo.find({
@@ -86,7 +153,9 @@ export class R4ApprovalService {
       order: { decidedAt: 'DESC' },
       take: limit,
     });
-    return this.withUserNames(items);
+    const now = Date.now();
+    const rows = await this.withUserNames(items);
+    return rows.map((r) => this._toWireItem(r, now));
   }
 
   /** 审批路径可见：为审批列表附提交人/审批人用户名（operator → approver），审批路上的人可读。 */
@@ -169,13 +238,27 @@ export class R4ApprovalService {
    * 裁决通过后以 operator 维度执行工具：复用写工具执行（幂等 + 副作用登记）+ 审计。
    * `outcomeNote` 记录**谁在哪儿批的**（R4 审批人 / R3 离线裁决），进 `tool_call` 审计行便于追溯。
    */
-  async executeApprovedTool(req: AiConfirmationRequest, outcomeNote?: string): Promise<ToolResult> {
+  async executeApprovedTool(
+    req: AiConfirmationRequest,
+    outcomeNote?: string,
+    opts: { retry?: boolean } = {},
+  ): Promise<ToolResult> {
     let args: Record<string, unknown> = {};
     try {
       args = JSON.parse(req.args || '{}');
     } catch {
       args = {};
     }
+
+    // Claim the execution (a lease). A retry clears a stale claim first, so the claim below is the
+    // atomic gate: exactly one caller gets a hit and only that one runs the tool — a retry cannot
+    // race a live execution.
+    // 认领这次执行（租约）。重试会先清掉过期认领，故下面的条件更新就是原子闸门：只有一方命中、
+    // 也只有那一方跑工具——重试不会与在途执行撞车。
+    if (!(await this._claimExecution(req.token, opts.retry === true))) {
+      return { success: false, error: 'execution already in progress or already completed' };
+    }
+
     const note = outcomeNote ?? `R4 approved by approver ${req.approverId}`;
     let result: ToolResult;
     try {
@@ -183,6 +266,7 @@ export class R4ApprovalService {
     } catch (err) {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
     }
+    await this._settleExecution(req.token, result);
     await this.auditService.log({
       userId: req.operatorId,
       conversationId: req.conversationId,
@@ -197,5 +281,91 @@ export class R4ApprovalService {
       businessEvent: deriveAiBusinessEvent(req.toolName) ?? undefined,
     });
     return result;
+  }
+
+  /**
+   * Claim one execution attempt (the lease). The conditional update is the sole arbitration point:
+   * only the caller that gets a hit may run the tool. `allowRetry` first clears a previous claim —
+   * that clear is itself idempotent, so two concurrent retries still produce exactly one winner.
+   *
+   * `affected === 0` is the only value that refuses; an `update` that reports no count at all is
+   * treated as a hit, matching the tolerance `ConfirmationStore.resolve` already documents for
+   * drivers that omit the field. A real driver always reports it.
+   *
+   * 认领一次执行（租约）。条件更新是唯一仲裁点：只有命中者可以跑工具。`allowRetry` 会先清掉上一次认领
+   * —— 该清空本身幂等，故两次并发重试仍只有一方胜出。只有 `affected === 0` 才拒绝；驱动完全没报行数时
+   * 视为命中（与 `ConfirmationStore.resolve` 已记录的宽容口径一致；真实驱动总会报）。
+   */
+  private async _claimExecution(token: string, allowRetry: boolean): Promise<boolean> {
+    if (!this.approvalsRepo) return true; // 无仓储（单测/裁剪装配）→ 保持拆分前行为：直接执行
+    if (allowRetry) {
+      await this.approvalsRepo.update(
+        { token, status: 'approved', executedAt: IsNull() },
+        { executionClaimedAt: null },
+      );
+    }
+    const res = await this.approvalsRepo.update(
+      { token, status: 'approved', executedAt: IsNull(), executionClaimedAt: IsNull() },
+      { executionClaimedAt: new Date() },
+    );
+    return res?.affected !== 0;
+  }
+
+  /**
+   * Record the attempt's outcome. Success stamps `executedAt` and clears the error; a failure keeps
+   * the claim (so the row reads `failed` once the lease expires) and stores the reason. A crash
+   * never reaches here at all — that is exactly the case whose absence of a recorded result the
+   * outward `failed` state has to admit.
+   *
+   * 落这次尝试的结果。成功写 `executedAt` 并清错误；失败保留认领（租约过期后该行即报 failed）并记原因。
+   * 崩溃根本走不到这里 —— 这正是对外 `failed` 必须承认的「没有记录结果」那种情形。
+   */
+  private async _settleExecution(token: string, result: ToolResult): Promise<void> {
+    if (!this.approvalsRepo) return;
+    if (result.success) {
+      await this.approvalsRepo.update({ token }, { executedAt: new Date(), executionError: null });
+      return;
+    }
+    await this.approvalsRepo.update(
+      { token },
+      { executionError: result.error ?? 'execution failed' },
+    );
+  }
+
+  /**
+   * P2 retry entry: run an approved-but-not-succeeded confirmation again.
+   *
+   * Refused when the token is unknown, the row is not `approved`, it already succeeded, or its
+   * claim is **still fresh** (the execution may be running right now — refusing there is what keeps
+   * a retry from racing it). Re-running is safe because the write pipeline is idempotent, so no
+   * second side effect is produced.
+   *
+   * P2 重试入口：把一条「已批准但未成功执行」的确认重跑一次。以下情形拒绝：token 不存在、
+   * 行非 approved、已成功、或认领**仍新鲜**（可能正在执行——拒绝正是为了不让重试与它撞车）。
+   * 重跑是安全的：写管道自带幂等，不会产生第二次副作用。
+   */
+  async retryExecution(
+    token: string,
+  ): Promise<{ ok: boolean; reason?: 'not_found' | 'not_retryable'; message?: string; success?: boolean; resultId?: unknown }> {
+    if (!this.approvalsRepo) return { ok: false, reason: 'not_retryable', message: 'not supported' };
+    const row = await this.approvalsRepo.findOne({ where: { token } });
+    if (!row) return { ok: false, reason: 'not_found', message: 'not found' };
+    if (row.executedAt) return { ok: false, reason: 'not_retryable', message: 'already executed' };
+    if (!isExecutionClaimable(row)) {
+      return { ok: false, reason: 'not_retryable', message: 'execution in progress' };
+    }
+    if (row.status !== 'approved') {
+      return { ok: false, reason: 'not_retryable', message: `cannot retry a ${row.status} confirmation` };
+    }
+
+    const result = await this.executeApprovedTool(row, 'R4 execution retried by admin', {
+      retry: true,
+    });
+    return {
+      ok: true,
+      success: result.success,
+      resultId: (result.data as { id?: unknown } | undefined)?.id,
+      message: result.error,
+    };
   }
 }
