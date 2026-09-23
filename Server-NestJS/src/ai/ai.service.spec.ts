@@ -2085,8 +2085,14 @@ describe('AiService', () => {
       expect(second.value.confirmation?.toolName).toBe('mcp_wx_send_email');
       // 档位由外部判定派生：确认写 → R3（走即时确认，不是 R4 审批）
       expect(second.value.confirmation?.authorization?.riskLevel).toBe('R3');
-      // 副作用对象 / 撤销档都解析不到 → 两字段均省略，不补默认
-      expect(second.value.confirmation?.impact).toBeUndefined();
+      // P1 起外部 MCP 写**可解析**为 `external_call`（为幂等而登记锚行的同一判据）⇒ 影响面如实给出 1 个外部调用。
+      // 原先断言这里是 undefined，其前提是「解析不到」（writeEffectTypeFor 对 mcp_* 返回 null）——前提已变；
+      // 且代理写（proxy_call）本就出现在影响预览里，同类事物不应一个显示一个隐藏（docs/impact-preview.spec.md 单一真源）。
+      expect(second.value.confirmation?.impact).toEqual({
+        actions: 1,
+        targets: [{ resultType: 'external_call', count: 1 }],
+      });
+      // 撤销档仍解析不到（工具未注册 → 不补默认）：外部 MCP **不可撤**，与「不制造可撤销假象」一致。
       expect('revokeClass' in (second.value.confirmation ?? {})).toBe(false);
 
       // 批准 → 经 provider 执行（外部写走 callTool，不落本地副作用）

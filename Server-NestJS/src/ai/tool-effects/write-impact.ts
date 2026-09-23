@@ -12,7 +12,7 @@
  * 无法解析对象类型的工具不计入（fail-closed）——它们本就不登记可撤副作用（如
  * review_approval_request 状态变更、create_module 干跑），编一个数字比不说更糟。
  */
-import { writeEffectTypeFor } from './write-effect-type';
+import { PROXY_CALL_EFFECT_TYPE, EXTERNAL_CALL_EFFECT_TYPE, writeEffectTypeFor } from './write-effect-type';
 import type { ConfirmationImpact, ConfirmationImpactTarget } from '../interfaces/tool.interface';
 
 /** 待预览的写动作 */
@@ -20,6 +20,13 @@ export interface WriteActionRef {
   toolName: string;
   /** 外部系统代理写（AI Bridge B 路径）→ 对象类型 proxy_call，与副作用登记同判据 */
   isProxyWrite: boolean;
+  /**
+   * 外部 MCP 写工具 → 对象类型 external_call，与副作用登记同判据。
+   * **必填**（不是可选）：漏传会让确认卡说「无影响面」而事后却登记了一行——正是本 spec 要防的两处漂移。
+   * Whether the tool is an external MCP write; required rather than optional so a caller cannot
+   * silently make the card disagree with the row that ends up being registered.
+   */
+  isExternalWrite: boolean;
 }
 
 /**
@@ -28,7 +35,11 @@ export interface WriteActionRef {
 export function deriveWriteImpact(actions: WriteActionRef[]): ConfirmationImpact | null {
   const tally = new Map<string, number>();
   for (const action of actions) {
-    const resultType = action.isProxyWrite ? 'proxy_call' : writeEffectTypeFor(action.toolName);
+    const resultType = action.isProxyWrite
+      ? PROXY_CALL_EFFECT_TYPE
+      : action.isExternalWrite
+        ? EXTERNAL_CALL_EFFECT_TYPE
+        : writeEffectTypeFor(action.toolName);
     if (!resultType) continue;
     tally.set(resultType, (tally.get(resultType) ?? 0) + 1);
   }

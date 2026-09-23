@@ -34,7 +34,12 @@ export class ToolPresentationService {
    */
   writeImpact(toolNames: string[]): ConfirmationImpact | null {
     return deriveWriteImpact(
-      toolNames.map((toolName) => ({ toolName, isProxyWrite: this.toolExecution.isProxyTool(toolName) })),
+      toolNames.map((toolName) => ({
+        toolName,
+        isProxyWrite: this.toolExecution.isProxyTool(toolName),
+        // 与执行路径同一判据（`isExternalTool`）→ 确认卡上标的与事后登记的逐条对得上。
+        isExternalWrite: this.toolExecution.isExternalTool(toolName),
+      })),
     );
   }
 

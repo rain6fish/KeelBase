@@ -7,7 +7,11 @@
  */
 import { deriveWriteImpact } from './write-impact';
 
-const ref = (toolName: string, isProxyWrite = false) => ({ toolName, isProxyWrite });
+const ref = (toolName: string, isProxyWrite = false, isExternalWrite = false) => ({
+  toolName,
+  isProxyWrite,
+  isExternalWrite,
+});
 
 describe('deriveWriteImpact（确认卡影响预览）', () => {
   it('单条写工具 → 1 个动作、1 类对象', () => {
@@ -36,6 +40,15 @@ describe('deriveWriteImpact（确认卡影响预览）', () => {
     expect(deriveWriteImpact([ref('create_invoices')])).toEqual({
       actions: 1,
       targets: [{ resultType: 'invoices', count: 1 }],
+    });
+  });
+
+  it('外部 MCP 写工具 → external_call（与副作用登记同一判据：确认卡说的与事后登记的对得上）', () => {
+    // 外部 MCP 工具名不是 create_*，若不走这条分支会被 writeEffectTypeFor 判 null → 确认卡显示「无影响面」，
+    // 而执行路径却登记了一行 external_call —— 正是本 spec「单一真源」要防的两处漂移。
+    expect(deriveWriteImpact([ref('mcp_send_email', false, true)])).toEqual({
+      actions: 1,
+      targets: [{ resultType: 'external_call', count: 1 }],
     });
   });
 

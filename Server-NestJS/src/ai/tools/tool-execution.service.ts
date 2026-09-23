@@ -22,7 +22,7 @@ import { ExternalToolRegistry } from './external-tool-registry';
 import { ProxyTool } from '../proxy/proxy-tool';
 import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
-import { writeEffectTypeFor } from '../tool-effects/write-effect-type';
+import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
 
@@ -81,44 +81,67 @@ export class ToolExecutionService {
     // 已被禁用的工具仍会因「早先批准」而执行，kill-switch 对在途审批失效。此处复查，使执行点与发起点同门。
     await this.toolGate.assertToolAllowed(toolName, userId);
 
-    if (this.externalTools.current?.isExternal(toolName)) {
-      const out = await this.externalTools.current.callTool(toolName, args, userId);
+    const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
+
+    // The idempotency probe runs **before** either execution path. The external branch used to
+    // return first, so any replay — an LLM retry, a second decision on the same confirmation, a
+    // restart — became a real second external write. The anchor row registered below is what makes
+    // the key observable at all.
+    // 幂等探测提前到两条执行路径**之前**：external 分支原先先返回，任何重放（LLM 重试 / 对同一确认
+    // 二次裁决 / 重启）都会变成又一次真实外部写；下面登记的锚行才是让该键可被观测的前提。
+    if (this.toolEffectsService) {
+      const existing = await this.toolEffectsService.findExisting(
+        AiToolEffectsService.buildKey({ userId, conversationId, toolName, args }),
+      );
+      if (existing.existing && existing.effect) {
+        // 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放**整组**——
+        // 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测将永不命中 → 工具重复执行。
+        const group = existing.effect.compensationGroup
+          ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
+          : [];
+        return {
+          success: true,
+          data: {
+            id: existing.effect.resultId,
+            idempotent: true,
+            ...(group.length > 1
+              ? {
+                  effects: group.map((e) => ({
+                    resultType: e.resultType,
+                    resultId: e.resultId,
+                  })),
+                }
+              : {}),
+          },
+        };
+      }
+    }
+
+    if (isExternalWrite) {
+      const out = await this.externalTools.current!.callTool(toolName, args, userId);
       if (!out.executed) {
         return { success: false, error: out.error ?? 'External tool call failed' };
       }
+      // Anchor row, **success only**: a failure must not occupy the key, or every retry would
+      // replay the failed result. `revokeClass` is pinned to `none` on purpose — KeelBase has no
+      // compensation channel to a third-party MCP server, so this row buys idempotency and
+      // traceability and is never a promise that the external write can be taken back
+      // (docs/revoke-contract.spec.md 「补充事实」第一条).
+      // 仅**成功时**登记锚行：失败不得占用该键，否则重试会回放失败结果。`revokeClass` 有意钉为 `none`
+      // ——KeelBase 对第三方 MCP server 没有补偿通道，故此行的价值是幂等与可追溯，**不是可撤销承诺**。
+      if (this.toolEffectsService) {
+        const content = (out.content ?? {}) as { id?: unknown };
+        await this.toolEffectsService.record(
+          { userId, conversationId, runId, toolName, args, revokeClass: 'none' },
+          EXTERNAL_CALL_EFFECT_TYPE,
+          typeof content.id === 'number' ? content.id : proxyResultId(toolName, args),
+        );
+      }
       return { success: true, data: out.content ?? {} };
     }
+
     if (!this.toolEffectsService) {
       return this.toolRegistry.execute(toolName, args, userId);
-    }
-    const key = AiToolEffectsService.buildKey({
-      userId,
-      conversationId,
-      toolName,
-      args,
-    });
-    const existing = await this.toolEffectsService.findExisting(key);
-    if (existing.existing && existing.effect) {
-      // 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放**整组**——
-      // 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测将永不命中 → 工具重复执行。
-      const group = existing.effect.compensationGroup
-        ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
-        : [];
-      return {
-        success: true,
-        data: {
-          id: existing.effect.resultId,
-          idempotent: true,
-          ...(group.length > 1
-            ? {
-                effects: group.map((e) => ({
-                  resultType: e.resultType,
-                  resultId: e.resultId,
-                })),
-              }
-            : {}),
-        },
-      };
     }
     // §internal.16 A-1：update 类写工具 execute 前抓 before（本地实体重查 / proxy 用 args 摘要）；create 类返回 null
     const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
@@ -213,5 +236,12 @@ export class ToolExecutionService {
     } catch {
       return false;
     }
+  }
+
+  /** HS-10：工具是否由外部 MCP provider 提供（影响预览与执行路径共用同一判据，防两处漂移）。
+   *  Whether the tool is served by an external MCP provider — the impact preview and the execution
+   *  path must use one predicate, or the card and the registered row would disagree. */
+  isExternalTool(toolName: string): boolean {
+    return this.externalTools.current?.isExternal(toolName) ?? false;
   }
 }

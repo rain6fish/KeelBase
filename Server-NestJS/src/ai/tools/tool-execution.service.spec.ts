@@ -52,6 +52,76 @@ describe('ToolExecutionService（执行域）', () => {
       (toolExecution as any).toolEffectsService = undefined;
     });
 
+    // ── P1：外部 MCP 写工具的幂等（回归）────────────────────────────────────────
+    const registerExternal = (callTool: jest.Mock) =>
+      externalTools.register({
+        isExternal: (n: string) => n.startsWith('mcp_'),
+        requiresConfirmation: async () => true,
+        callTool,
+      } as never);
+
+    it('P1: 外部写同键重放 → 幂等命中，且**不再调用** callTool（防真实二次外部写）', async () => {
+      const callTool = jest.fn().mockResolvedValue({ executed: true, content: { id: 7 } });
+      registerExternal(callTool);
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (toolExecution as any).toolEffectsService = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+        listGroup: jest.fn().mockResolvedValue([]),
+      };
+
+      const first = await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c1');
+      expect(first).toEqual({ success: true, data: { id: 7 } });
+      expect(callTool).toHaveBeenCalledTimes(1);
+      // 锚行：resultType=external_call，resultId 取外部返回的 id，revokeClass 钉 none（MCP 无补偿通道 ⇒ 不可撤）
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'mcp_send_email', conversationId: 'c1', revokeClass: 'none' }),
+        'external_call',
+        7,
+      );
+
+      // 同键重放（LLM 重试 / 二次裁决 / 重启）→ 命中幂等，**不再**触发外部调用
+      (toolExecution as any).toolEffectsService.findExisting = jest
+        .fn()
+        .mockResolvedValue({ existing: true, effect: { resultId: 7, resultType: 'external_call' } });
+      const second = await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c1');
+      expect(second).toEqual({ success: true, data: { id: 7, idempotent: true } });
+      expect(callTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('P1: 外部写**失败不登记**锚行（否则键被占，之后每次重试都回放失败结果）', async () => {
+      registerExternal(jest.fn().mockResolvedValue({ executed: false, error: 'boom' }));
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (toolExecution as any).toolEffectsService = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+        listGroup: jest.fn().mockResolvedValue([]),
+      };
+
+      const res = await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c1');
+
+      expect(res.success).toBe(false);
+      expect(record).not.toHaveBeenCalled();
+    });
+
+    it('P1: 外部写无返回 id 时用稳定 hash 作 resultId（同参数两次调用取同一个值）', async () => {
+      registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (toolExecution as any).toolEffectsService = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+        listGroup: jest.fn().mockResolvedValue([]),
+      };
+
+      await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c1');
+      await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c2');
+
+      const [firstId, secondId] = record.mock.calls.map((c) => c[2] as number);
+      expect(Number.isInteger(firstId)).toBe(true);
+      expect(firstId).toBeGreaterThan(0);
+      expect(firstId).toBe(secondId); // 稳定（可回溯同参数调用），不随会话漂移
+    });
+
     it('HS-3: create_contract 副作用 resultType 记 contract（非兜底 todo）', async () => {
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
