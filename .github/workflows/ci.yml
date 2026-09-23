@@ -228,6 +228,51 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-version-parity.mjs
 
+  # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
+  # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
+  # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
+  # Evidence it is needed: within a day of the extraction the directory was edited three times in this
+  # repository (a sample token, the registry, and two objects to v2), all in good faith — the editors
+  # had no reason to read those as protocol changes.
+  #
+  # 契约不在本仓编辑。协议契约住在 rain6fish/keelbase-contract，本仓只消费它。本门禁是**过渡期守卫**——
+  # 只要 specs/protocol 仍是本仓的真实文件就有意义；一旦它成为 submodule，结构本身即防住编辑，本 job
+  # 自动无事可做。需要它的实证：抽取后一天内本目录在主仓被改过三次（一个样例 token、registry、两个对象
+  # 升 v2），**三次都是善意**——改的人没有理由把那些读成「协议变更」。
+  contract-not-edited-here:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # 需要 diff base
+      - name: specs/protocol must be consumed, never edited
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          mode=$(git ls-tree HEAD -- Server-NestJS/specs/protocol | awk '{print $2}')
+          if [ "$mode" = "commit" ]; then
+            echo "specs/protocol is a submodule here — this gate has nothing to check."
+            echo "specs/protocol 已是 submodule —— 本门禁无事可做。"
+            exit 0
+          fi
+          if [ -z "${BASE_SHA:-}" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No diff base (new branch or first push) — skipping."
+            echo "无 diff 基点（新分支或首次推送）—— 跳过。"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA" HEAD -- Server-NestJS/specs/protocol/ || true)
+          if [ -n "$changed" ]; then
+            echo "::error::Server-NestJS/specs/protocol is not edited in this repository — the contract lives in rain6fish/keelbase-contract"
+            echo "本仓不得改动 Server-NestJS/specs/protocol —— 协议契约住在 rain6fish/keelbase-contract。"
+            echo "Change it there instead (additive rules: see that repository's README §Versioning), then advance the pin here."
+            echo "请在契约仓落地（加性规则见其 README §版本与演进），再来本仓把 pin 前进。"
+            echo "Files changed / 被改动的文件:"
+            echo "$changed"
+            exit 1
+          fi
+          echo "specs/protocol unchanged. / specs/protocol 未改动。"
+
   # 治理协议合规认证（A1 / CE-1，零依赖 node 内置）：先跑 specs/protocol 金样本漂移门禁（generate --check），
   # 再以语料驱动复现三协议（审计哈希链/委托 token/风险分级）——篡改/断链/aud 不匹配/过期/签名篡改必须拒绝。
   # 语义变更必须先落 specs/protocol 语料版本再改实现（CE-1 L3 单源规则），否则金样本 diff 红。
@@ -287,6 +332,11 @@ jobs:
       - name: 语义单源闸
         # base：push 用 event.before；PR 用 base.sha（事件无 before → 回退会导致多提交 PR 误红）
         run: node Server-NestJS/scripts/check-semantic-single-source.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+      - name: 契约目录冻结闸
+        # 契约层已独立成仓，主仓是消费者：specs/protocol/ **内部**文件的变动即红。
+        # 不守护裸路径——目录成为 submodule 后，前移钉子是合法操作（gitlink 不带尾斜杠）。
+        # 唯一例外是「转为 submodule」的转换提交本身，加 trailer [contract-dir-transition]。
+        run: node Server-NestJS/scripts/check-contract-dir-frozen.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
 
   # 生成器/导入/映射 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema/Business Spec 导入防回归
   cli-test:

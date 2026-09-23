@@ -39,6 +39,7 @@
     "language:guard": "node scripts/check-protocol-language.mjs",
     "check:evidence-canonical": "node scripts/check-evidence-canonical.mjs",
     "check:semantic-single-source": "node scripts/check-semantic-single-source.mjs",
+    "check:contract-dir-frozen": "node scripts/check-contract-dir-frozen.mjs",
     "verify:evidence": "node scripts/verify-evidence.mjs",
     "anchor:evidence": "ts-node scripts/build-evidence-anchor.ts",
     "report:period": "node scripts/render-period-report.mjs",
