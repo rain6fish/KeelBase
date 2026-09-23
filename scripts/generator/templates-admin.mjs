@@ -17,6 +17,8 @@ const ADMIN_TS_TYPE = {
   enum: () => 'string',
   // decimal 在 wire 上是字符串（协议决策 ①），TS 侧照搬，不用 number
   decimal: () => 'string',
+  // ref 在 TS 侧只暴露外键 id（number）
+  ref: () => 'number',
 };
 
 export function adminApiTemplate(ctx) {

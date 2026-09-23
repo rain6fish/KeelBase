@@ -5,7 +5,19 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
-import { DECIMAL_PRECISION, decimalScale, piiFieldNames } from './validate.mjs';
+import {
+  DECIMAL_PRECISION,
+  decimalScale,
+  piiFieldNames,
+  refColumnName,
+  refFields,
+  refOnDelete,
+  refTarget,
+  toSnake,
+} from './validate.mjs';
+
+/** Protocol cascade semantics → SQL ON DELETE action (mirrors the flagship idiom). */
+const REF_ON_DELETE_SQL = { restrict: 'RESTRICT', setNull: 'SET NULL', cascade: 'CASCADE' };
 
 /**
  * Inline transformer emitted into any entity that carries a decimal field.
@@ -52,6 +64,20 @@ const FIELD_COLUMNS = {
     isRequired(f)
       ? `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, transformer: decimalStringTransformer })\n  ${c}!: string;`
       : `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, nullable: true, transformer: decimalStringTransformer })\n  ${c}?: string | null;`,
+  // 关联：外键列 + 关系属性两件（与旗舰 crm-activity 的既有写法同形）。外键列名显式给出，
+  // 不依赖 TypeORM 的命名策略 —— 与 userId/deletedAt 的既有做法一致。
+  ref: (c, f) => {
+    const col = refColumnName(c);
+    const name = toSnake(col);
+    const target = refTarget(f.target);
+    const action = REF_ON_DELETE_SQL[refOnDelete(f)];
+    return (
+      `  @Column({ type: 'int', nullable: true, name: '${name}' })\n  ${col}?: number | null;\n\n` +
+      `  @ManyToOne(() => ${target.pascal}, { onDelete: '${action}', nullable: true })\n` +
+      `  @JoinColumn({ name: '${name}' })\n` +
+      `  ${c}?: ${target.pascal} | null;`
+    );
+  },
   bool: (c, f) =>
     isRequired(f)
       ? `  @Column({ default: false })\n  ${c}!: boolean;`
@@ -84,6 +110,13 @@ const FIELD_DTO_PROPS = {
     isRequired(f)
       ? `  @ApiProperty({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsNotEmpty()\n  ${c}!: string;`
       : `  @ApiPropertyOptional({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsOptional()\n  ${c}?: string;`,
+  // 关联在 DTO 里只暴露外键 id；关系对象由服务端填充，不接受客户端提交。
+  ref: (c, f) => {
+    const col = refColumnName(c);
+    return isRequired(f)
+      ? `  @ApiProperty({ description: '${c}' })\n  @IsInt()\n  @IsNotEmpty()\n  ${col}!: number;`
+      : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsInt()\n  @IsOptional()\n  ${col}?: number;`;
+  },
   bool: (c, f) =>
     isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsBoolean()\n  @IsNotEmpty()\n  ${c}!: boolean;`
@@ -116,6 +149,7 @@ function dtoValidatorImports(fields) {
       names.add('IsNumberString');
       names.add('Matches');
     }
+    if (f.type === 'ref') names.add('IsInt');
   }
   return names;
 }
@@ -124,6 +158,21 @@ export function entityTemplate(ctx) {
   const fieldCols = ctx.fields.map((f) => FIELD_COLUMNS[f.type](f.name, f)).join('\n\n');
   // 只有真的带 decimal 字段的实体才带上转换器 —— 不产死代码（Code Economy §15.3）
   const decimalHelper = ctx.fields.some((f) => f.type === 'decimal') ? `\n${DECIMAL_TRANSFORMER}\n` : '';
+  const refs = refFields(ctx.fields);
+  // 自引用（target 就是本模块）暂不支持：生成物会在本模块内 import 自己的实体文件，
+  // 要么循环导入、要么路径根本不存在。宁可在此明确报错，也不要静默产出一个坏模块。
+  const selfRef = refs.find((r) => refTarget(r.target).plural === ctx.plural);
+  if (selfRef) {
+    throw new Error(`自引用关联暂不支持：字段 ${selfRef.name} 的 target 就是本模块（${ctx.plural}）`);
+  }
+  const refTypeormImports = refs.length > 0 ? ',\n  ManyToOne,\n  JoinColumn' : '';
+  const refIndexes = refs.map((r) => `@Index(['${r.column}'])`).join('\n');
+  // 实体里 @ManyToOne(() => X) 引用了目标类，故实体自身也必须导入它 —— 漏了就是编译错误。
+  const refEntityImports = refs
+    .map((r) => refTarget(r.target))
+    .filter((t, i, arr) => arr.findIndex((x) => x.plural === t.plural) === i)
+    .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
+    .join('');
   return `import {
   Entity,
   PrimaryGeneratedColumn,
@@ -131,11 +180,12 @@ export function entityTemplate(ctx) {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
-  DeleteDateColumn,
+  DeleteDateColumn${refTypeormImports},
 } from 'typeorm';
-${decimalHelper}
+${refEntityImports}${decimalHelper}
 @Entity('${ctx.plural}')
 @Index(['userId'])
+${refIndexes}
 export class ${ctx.singlePascal} {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -188,6 +238,45 @@ export class Update${ctx.singlePascal}Dto extends PartialType(Create${ctx.single
 export function serviceTemplate(ctx) {
   const pii = piiFieldNames(ctx.fields);
   const piiImport = pii.length > 0 ? `\nimport { maskText } from '../common/utils/mask';` : '';
+  const refs = refFields(ctx.fields);
+  const refTargets = refs
+    .map((r) => refTarget(r.target))
+    .filter((t, i, arr) => arr.findIndex((x) => x.plural === t.plural) === i);
+  const refRepoImports = refTargets
+    .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
+    .join('');
+  const refRepoParams = refTargets
+    .map(
+      (t) =>
+        `\n    @InjectRepository(${t.pascal})\n    private readonly ${t.plural}Repository: Repository<${t.pascal}>,`,
+    )
+    .join('');
+  const refAssertCall = refs.length > 0 ? `    await this._assertRefs(dto);\n` : '';
+  const refRelations =
+    refs.length > 0 ? `relations: { ${refs.map((r) => `${r.name}: true`).join(', ')} }, ` : '';
+  const refAssertMethod =
+    refs.length === 0
+      ? ''
+      : `\n  /**\n` +
+        `   * Ref validation: every foreign key must point at a row that exists.\n` +
+        `   * A soft-deleted target counts as missing — TypeORM's find excludes those by default.\n` +
+        `   *\n` +
+        `   * 关联校验：每个外键都必须指向确实存在的行。软删的目标视为不存在 —— TypeORM 的\n` +
+        `   * find 默认就把它们排除在外。\n` +
+        `   */\n` +
+        `  private async _assertRefs(dto: {\n` +
+        refs.map((r) => `    ${r.column}?: number | null;`).join('\n') +
+        `\n  }): Promise<void> {\n` +
+        refs
+          .map(
+            (r) =>
+              `    if (dto.${r.column} != null) {\n` +
+              `      const found = await this.${refTarget(r.target).plural}Repository.findOne({ where: { id: dto.${r.column} } });\n` +
+              `      if (!found) throw new BadRequestException('${r.column} 指向的记录不存在');\n` +
+              `    }`,
+          )
+          .join('\n') +
+        `\n  }\n`;
   // 只有声明了 pii 的模块才产出掩码路径 —— 不产死代码（Code Economy §15.3）
   const adminList =
     pii.length === 0
@@ -210,12 +299,12 @@ export function serviceTemplate(ctx) {
         pii.map((c) => `      ${c}: row.${c} == null ? row.${c} : maskText(String(row.${c})),`).join('\n') +
         `\n    };\n` +
         `  }`;
-  return `import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+  return `import { Injectable, NotFoundException, ForbiddenException${refs.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
-import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
+${refRepoImports}import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}
 
@@ -223,11 +312,12 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImpor
 export class ${ctx.pluralPascal}Service {
   constructor(
     @InjectRepository(${ctx.singlePascal})
-    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,
+    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,${refRepoParams}
   ) {}
+${refAssertMethod}
 
   async create(dto: Create${ctx.singlePascal}Dto, userId: number): Promise<${ctx.singlePascal}> {
-    const entity = this.${ctx.plural}Repository.create({
+${refAssertCall}    const entity = this.${ctx.plural}Repository.create({
       ...dto,
       userId,
     });
@@ -237,7 +327,7 @@ export class ${ctx.pluralPascal}Service {
   async findAll(userId: number): Promise<${ctx.singlePascal}[]> {
     return this.${ctx.plural}Repository.find({
       where: { userId },
-      order: { createdAt: 'DESC' },
+      ${refRelations}order: { createdAt: 'DESC' },
     });
   }
 
@@ -249,7 +339,7 @@ ${adminList}
   }
 
   async findOne(id: number, ability: AppAbility): Promise<${ctx.singlePascal}> {
-    const entity = await this.${ctx.plural}Repository.findOne({ where: { id } });
+    const entity = await this.${ctx.plural}Repository.findOne({ where: { id }, ${refRelations}});
     if (!entity) throw new NotFoundException('${ctx.singlePascal} not found');
     if (ability.cannot('read', subject('${ctx.singlePascal}', entity))) {
       throw new ForbiddenException('无权访问此${ctx.label}');
@@ -258,7 +348,7 @@ ${adminList}
   }
 
   async update(id: number, dto: Update${ctx.singlePascal}Dto, ability: AppAbility): Promise<${ctx.singlePascal}> {
-    const entity = await this.findOne(id, ability);
+${refAssertCall}    const entity = await this.findOne(id, ability);
     Object.assign(entity, dto);
     return this.${ctx.plural}Repository.save(entity);
   }
@@ -354,6 +444,14 @@ export function moduleTemplate(ctx) {
   const pii = piiFieldNames(ctx.fields);
   const piiImport =
     pii.length > 0 ? `import { registerSensitiveKeys } from '../common/utils/mask';\n\n` : '';
+  const refs = refFields(ctx.fields);
+  const refTargets = refs
+    .map((r) => refTarget(r.target))
+    .filter((t, i, arr) => arr.findIndex((x) => x.plural === t.plural) === i);
+  const refEntityImports = refTargets
+    .map((t) => `import { ${t.pascal} } from '../${t.plural}/${t.singular}.entity';\n`)
+    .join('');
+  const refForFeature = refTargets.map((t) => `, ${t.pascal}`).join('');
   const piiRegister =
     pii.length > 0
       ? `// 协议 pii 声明 → 让审计 requestBody 打码覆盖这些键名（平台内建清单不认识它们）。\n` +
@@ -366,9 +464,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
-
+${refEntityImports}
 ${piiRegister}@Module({
-  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}])],
+  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}${refForFeature}])],
   controllers: [${ctx.pluralPascal}Controller],
   providers: [${ctx.pluralPascal}Service],
   exports: [${ctx.pluralPascal}Service],

@@ -74,6 +74,11 @@ function ctxForType(type) {
     field.scale = 3;
     field.currency = true;
   }
+  // ref 需要伴生键才能构成合法声明（target 与 display 皆必填）
+  if (type === 'ref') {
+    field.target = 'customers';
+    field.display = 'name';
+  }
   return buildContext('invoices', '发票', normalizeSpecFields([{ name: 'title', type: 'string' }, field]));
 }
 

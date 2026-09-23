@@ -43,7 +43,22 @@
           },
           "type": {
             "type": "string",
-            "enum": ["string", "text", "int", "bool", "date", "enum", "decimal"]
+            "enum": ["string", "text", "int", "bool", "date", "enum", "decimal", "ref"]
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,29}$",
+            "description": "type=ref 时必填：目标模块的复数名（如 customers）。其它类型不得出现"
+          },
+          "display": {
+            "type": "string",
+            "pattern": "^[a-z][a-zA-Z0-9_]{0,29}$",
+            "description": "type=ref 时必填：目标模块上用于回显的字段名（如 name）。其它类型不得出现"
+          },
+          "onDelete": {
+            "type": "string",
+            "enum": ["restrict", "setNull", "cascade"],
+            "description": "type=ref 时的级联语义（缺省 restrict = 不级联）。映射为**数据库外键**；应用层的软删不会触发它（见 docs/module-protocol.md）"
           },
           "scale": {
             "type": "integer",

@@ -5,7 +5,7 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
-import { decimalScale, enumLabelGetter, hasEnumLabels } from './validate.mjs';
+import { decimalScale, enumLabelGetter, hasEnumLabels, refColumnName } from './validate.mjs';
 
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
 // f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
@@ -85,6 +85,14 @@ const MODEL_FIELD = {
       from: `      ${c}: json['${c}'] as String?,`,
       to: `        '${c}': ${c},`,
     }),
+  // 关联在模型里只带外键 id（列名加 Id 后缀，单源见 refColumnName）。
+  // 目标对象的友好回显属切片 2。
+  ref: (c) => ({
+    decl: `  final int? ${refColumnName(c)};`,
+    ctor: `this.${refColumnName(c)}`,
+    from: `      ${refColumnName(c)}: json['${refColumnName(c)}'] as int?,`,
+    to: `        '${refColumnName(c)}': ${refColumnName(c)},`,
+  }),
   enum: (c, f) => (f.required === true
     ? {
       decl: `  final String ${c};`,
@@ -301,6 +309,14 @@ const FORM_FIELD = {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
+  // 关联：切片 1 先给外键 id 的数值输入（可用）；下拉选择器与友好回显属切片 2。
+  ref: (c, l10n, f) =>
+    `          CupertinoTextField(
+            placeholder: '${c} ID（${f.target}）',
+            controller: _${refColumnName(c)}Ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),`,
   bool: (c, l10n) =>
     `          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -342,6 +358,7 @@ const FORM_ENUM_LABELS = {
   bool: () => '',
   date: () => '',
   decimal: () => '',
+  ref: () => '',
   enum: (c, f, ctx) => {
     if (!hasEnumLabels(f)) return '';
     const entries = f.enum
@@ -363,6 +380,7 @@ const FORM_CONTROLLERS = {
   bool: (c) => `  bool _${c}Val = false;`,
   date: (c) => `  final _${c}Ctrl = TextEditingController();`,
   decimal: (c) => `  final _${c}Ctrl = TextEditingController();`,
+  ref: (c) => `  final _${refColumnName(c)}Ctrl = TextEditingController();`,
   enum: (c, f) => `  String _${c}Val = '${f.enum[0]}';`,
 };
 
@@ -373,6 +391,8 @@ const FORM_READ = {
   // decimal 原样提交字符串：不 parse 成 num（理由见 MODEL_FIELD.decimal 的注释），
   // 精度校验由后端 DTO 的十进制字符串规则把关。
   decimal: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
+  ref: (c) =>
+    `if (_${refColumnName(c)}Ctrl.text.isNotEmpty) data['${refColumnName(c)}'] = int.tryParse(_${refColumnName(c)}Ctrl.text.trim());`,
   bool: (c) => `data['${c}'] = _${c}Val;`,
   date: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   enum: (c) => `data['${c}'] = _${c}Val;`,
@@ -415,7 +435,12 @@ ${labelMethods}
 
   @override
   void dispose() {
-    ${ctx.fields.filter((f) => f.type !== 'bool' && f.type !== 'enum').map((f) => `_${f.name}Ctrl.dispose();`).join('\n    ')}
+    ${ctx.fields
+      .filter((f) => f.type !== 'bool' && f.type !== 'enum')
+      // 控制器变量名必须与 FORM_CONTROLLERS 一致：ref 用外键列名（customerIdCtrl），
+      // 不是字段名 —— 否则这里会 dispose 一个不存在的变量，产物编译不过。
+      .map((f) => `${f.type === 'ref' ? `_${refColumnName(f.name)}Ctrl` : `_${f.name}Ctrl`}.dispose();`)
+      .join('\n    ')}
     super.dispose();
   }
 

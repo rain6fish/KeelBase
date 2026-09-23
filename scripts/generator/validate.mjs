@@ -9,7 +9,83 @@ export const RESERVED_FIELD_NAMES = new Set([
   'id', 'userId', 'createdAt', 'updatedAt', 'deletedAt',
 ]);
 
-export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum', 'decimal']);
+export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum', 'decimal', 'ref']);
+
+/** Cascade semantics a `ref` may declare; `restrict` (no cascade) is the default. */
+const REF_DELETE_SEMANTICS = new Set(['restrict', 'setNull', 'cascade']);
+
+/**
+ * Column name carrying the foreign key for a `ref` field: `customer` → `customerId`
+ * (stored as `customer_id`). Single-sourced so the entity, the DTO, the templates
+ * and the tests cannot disagree about where the key lives.
+ *
+ * `ref` 字段承载外键的列名：`customer` → `customerId`（落库为 `customer_id`）。
+ * 单源，使实体、DTO、模板与测试对「键在哪」的理解一致。
+ */
+export function refColumnName(fieldName) {
+  return `${fieldName}Id`;
+}
+
+/** Resolved `ref` fields, carrying the FK column name. */
+export function refFields(fields) {
+  return (fields ?? [])
+    .filter((f) => f.type === 'ref')
+    .map((f) => ({ ...f, column: refColumnName(f.name) }));
+}
+
+/** Declared cascade semantics of a `ref` field, defaulting to `restrict`. */
+export function refOnDelete(field) {
+  return REF_DELETE_SEMANTICS.has(field?.onDelete) ? field.onDelete : 'restrict';
+}
+
+/**
+ * Resolved target module of a `ref` — plural, singular and PascalCase — so the
+ * templates build the entity import path and the class name from one place.
+ *
+ * `ref` 目标模块的解析结果 —— 复数、单数、PascalCase —— 使模板从单一处构造实体
+ * 导入路径与类名。
+ */
+export function refTarget(target) {
+  const singular = toSingular(target);
+  return { plural: toPlural(target), singular, pascal: toPascal(singular) };
+}
+
+/** camelCase → snake_case：customerId → customer_id（与 TypeORM 既有列名一致）。 */
+export function toSnake(value) {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase();
+}
+
+/**
+ * Validate a `ref` field: it must name a target module and a display field there,
+ * and may declare cascade semantics. The three keys are rejected on every other
+ * type so a spec cannot carry a setting the generator would silently ignore.
+ *
+ * 校验 `ref` 字段：必须给出目标模块与用于回显的字段，可声明级联语义。三个键在其它
+ * 类型上一律拒绝 —— 否则 spec 会带着一个被生成器静默忽略的设置。
+ *
+ * 注：`target` 指向的模块是否存在、`display` 是否真在该模块上，属**跨 spec** 校验，
+ * 不在本函数（它只看单个字段）。
+ */
+export function validateRefField(field) {
+  for (const key of ['target', 'display', 'onDelete']) {
+    if (field[key] !== undefined && field.type !== 'ref') {
+      return `字段 ${field.name} 不是 ref，不应带 ${key}`;
+    }
+  }
+  if (field.type !== 'ref') return null;
+  if (typeof field.target !== 'string' || !/^[a-z][a-z0-9_]{0,29}$/.test(field.target)) {
+    return `ref 字段 ${field.name} 须声明 target（目标模块的复数名，小写，如 customers）`;
+  }
+  if (typeof field.display !== 'string' || !/^[a-z][a-zA-Z0-9_]{0,29}$/.test(field.display)) {
+    return `ref 字段 ${field.name} 须声明 display（目标模块上用于回显的字段名，如 name）`;
+  }
+  if (field.onDelete !== undefined && !REF_DELETE_SEMANTICS.has(field.onDelete)) {
+    return `ref 字段 ${field.name} 的 onDelete 须为 restrict / setNull / cascade`;
+  }
+  return null;
+}
 
 /**
  * Integer digits of every decimal column, and the default fractional digits.
@@ -110,6 +186,8 @@ export function validateFields(fields) {
     if (decimalErr) return decimalErr;
     const piiErr = validatePiiField(f);
     if (piiErr) return piiErr;
+    const refErr = validateRefField(f);
+    if (refErr) return refErr;
     if (f.type === 'enum') {
       if (!Array.isArray(f.enum) || f.enum.length < 2 || f.enum.length > 10) {
         return `enum 字段 ${f.name} 需提供 2-10 个选项（协议 JSON 的 enum 数组）`;
@@ -297,6 +375,12 @@ export function normalizeSpecFields(fields) {
     // pii must survive normalisation for the same reason: dropped here, the admin
     // list stops masking and nothing tells the caller.
     ...(typeof f.pii === 'boolean' ? { pii: f.pii } : {}),
+    // ref 的三键同理必须活着穿过归一化（丢掉 = 关联静默退化成普通列）。
+    // The three ref keys must survive for the same reason: dropped, the relation
+    // silently degrades into a plain column.
+    ...(typeof f.target === 'string' ? { target: f.target } : {}),
+    ...(typeof f.display === 'string' ? { display: f.display } : {}),
+    ...(typeof f.onDelete === 'string' ? { onDelete: f.onDelete } : {}),
     ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
   }));
 }
