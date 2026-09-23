@@ -20,6 +20,8 @@ jobs:
         working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -37,6 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          submodules: true
           fetch-depth: 0
       - name: gitleaks
         uses: gitleaks/gitleaks-action@v3
@@ -53,6 +56,8 @@ jobs:
         working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -93,6 +98,8 @@ jobs:
         working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -140,6 +147,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -165,6 +174,8 @@ jobs:
         working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -182,6 +193,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -197,6 +210,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -210,6 +225,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -223,6 +240,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -244,6 +263,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          submodules: true
           fetch-depth: 0   # 需要 diff base
       - name: specs/protocol must be consumed, never edited
         env:
@@ -280,6 +300,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -296,6 +318,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -310,6 +334,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -325,6 +351,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          submodules: true
           fetch-depth: 0   # 需要 diff base
       - uses: actions/setup-node@v5
         with:
@@ -338,6 +365,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -359,6 +388,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -378,6 +409,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -395,6 +428,8 @@ jobs:
         working-directory: Server-NestJS
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -419,6 +454,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -452,6 +489,8 @@ jobs:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -478,6 +517,8 @@ jobs:
         working-directory: Web-Admin-Vue
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -505,6 +546,8 @@ jobs:
         working-directory: Web-Admin-React
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -524,6 +567,8 @@ jobs:
         working-directory: Front-Taro
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -541,6 +586,8 @@ jobs:
         working-directory: Front-Flutter
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       # 版本固定为解析 Front-Flutter/pubspec.lock 的那一版（与 docker-publish.yml 一致）：
       # 跟随 '3.x' 会在 stable 前进时让 pub 按新 SDK 重新解析，重现「锁文件里两个包不配套、
       # 门禁全绿却构建才炸」那类问题（2026-09-22 的 objective_c/code_assets 即为此）。
