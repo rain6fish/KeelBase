@@ -78,4 +78,11 @@ export const aiToolsApi = {
   decideApproval(token: string, decision: 'approve' | 'decline'): Promise<{ ok: boolean; success?: boolean; resultId?: unknown; message?: string }> {
     return api.post(`/ai/confirmations/${token}/approve-by`, { decision })
   },
+  /**
+   * P2：重试一条「已批准但未成功执行」的确认。
+   * 服务端在租约内（可能仍在执行）或状态不允许时返回 409，调用方据此提示而不是当作失败。
+   */
+  retryApprovalExecution(token: string): Promise<{ ok: boolean; success?: boolean; resultId?: unknown; message?: string }> {
+    return api.post(`/ai/confirmations/${encodeURIComponent(token)}/retry-execution`)
+  },
 }

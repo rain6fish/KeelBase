@@ -263,6 +263,13 @@ export interface AiApprovalRequest {
   /** 审批路径可见：提交人 / 审批人用户名（后端联用户表附） */
   operatorName?: string
   approverName?: string
+  /**
+   * P2 审批执行轴（wire governance-confirmation-item v2）：**非 approved 行为 null**。
+   * `failed` 含「执行报错」（executionError 有值）与「崩溃/挂起、未记录结果」（executionError 为 null）两种。
+   */
+  executionState?: 'not_started' | 'running' | 'succeeded' | 'failed' | null
+  executedAt?: string | null
+  executionError?: string | null
 }
 
 export interface SettingRow {

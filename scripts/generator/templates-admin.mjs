@@ -6,6 +6,8 @@
  * v1：全量列表（GET /<plural>/admin/all）+ 删除（DELETE /<plural>/admin/:id）；无分页/搜索/新建编辑。
  */
 
+import { enumLabelGetter, hasEnumLabels } from './validate.mjs';
+
 const ADMIN_TS_TYPE = {
   string: () => 'string',
   text: () => 'string',
@@ -44,6 +46,30 @@ export function adminViewTemplate(ctx) {
   const headerCols = ctx.fields
     .map((f) => `  { key: '${f.name}', title: '${f.name}' },`)
     .join('\n');
+  const enumFields = ctx.fields.filter((f) => f.type === 'enum' && hasEnumLabels(f));
+  const enumLabelEntries = enumFields
+    .flatMap((f) =>
+      f.enum
+        .filter((opt) => f.enumLabels[opt])
+        .map((opt) => `  '${f.name}:${opt}': t('${enumLabelGetter(ctx, f.name, opt)}'),`),
+    )
+    .join('\n');
+  // 无带标签的 enum 字段时不产出任何查表/helper —— 避免生成死代码（Code Economy §15.3）
+  const enumLabelBlock =
+    enumFields.length === 0
+      ? ''
+      : `const enumLabels = computed<Record<string, string>>(() => ({\n${enumLabelEntries}\n}))\n\n` +
+        `// Renders an enum cell with its label, falling back to the raw value.\n` +
+        `// enum 单元格按标签渲染；缺标签时回落原始值。\n` +
+        `function cellText(field: string, value: unknown): string {\n` +
+        `  const key = field + ':' + String(value)\n` +
+        `  return enumLabels.value[key] ?? String(value ?? '')\n` +
+        `}\n\n`;
+  const enumSlots = enumFields
+    .map(
+      (f) => `      <template #item.${f.name}="{ item }">{{ cellText('${f.name}', item.${f.name}) }}</template>`,
+    )
+    .join('\n');
   return `<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -61,7 +87,7 @@ const loading = ref(false)
 const showDelete = ref(false)
 const pendingDelete = ref<Admin${ctx.singlePascal} | null>(null)
 
-const headers = computed(() => [
+${enumLabelBlock}const headers = computed(() => [
   { key: 'id', title: 'ID' },
 ${headerCols}
   { key: 'createdAt', title: t('createdAt') },
@@ -104,7 +130,7 @@ onMounted(load)
   <div>
     <PageHeader :title="t('nav${ctx.pluralPascal}')" :subtitle="t('${ctx.plural}ViewSubtitle')" />
     <AppTable :headers="headers" :items="items" :loading="loading">
-      <template #item.actions="{ item }">
+${enumSlots ? `${enumSlots}\n` : ''}      <template #item.actions="{ item }">
         <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="confirmDelete(item)" />
       </template>
     </AppTable>
@@ -122,18 +148,29 @@ onMounted(load)
 /** i18n 文案（zh/en 成对）。 */
 export function adminI18nKeys(ctx) {
   const single = ctx.singular;
+  const enumZh = {};
+  const enumEn = {};
+  for (const f of ctx.fields.filter((x) => x.type === 'enum' && hasEnumLabels(x))) {
+    for (const opt of f.enum) {
+      if (!f.enumLabels[opt]) continue;
+      enumZh[enumLabelGetter(ctx, f.name, opt)] = f.enumLabels[opt].zh;
+      enumEn[enumLabelGetter(ctx, f.name, opt)] = f.enumLabels[opt].en;
+    }
+  }
   return {
     zh: {
       [`nav${ctx.pluralPascal}`]: ctx.label,
       [`${ctx.plural}ViewSubtitle`]: `${ctx.label}管理`,
       [`${ctx.plural}DeleteTitle`]: `删除${ctx.label}`,
       [`${ctx.plural}DeleteContent`]: `确定删除该${ctx.label}？`,
+      ...enumZh,
     },
     en: {
       [`nav${ctx.pluralPascal}`]: ctx.singlePascal,
       [`${ctx.plural}ViewSubtitle`]: `Manage ${ctx.singlePascal}`,
       [`${ctx.plural}DeleteTitle`]: `Delete ${ctx.singlePascal}`,
       [`${ctx.plural}DeleteContent`]: `Delete this ${single}?`,
+      ...enumEn,
     },
   };
 }

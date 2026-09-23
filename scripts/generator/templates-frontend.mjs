@@ -5,6 +5,8 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
+import { enumLabelGetter, hasEnumLabels } from './validate.mjs';
+
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
 // f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
 const MODEL_FIELD = {
@@ -296,10 +298,37 @@ const FORM_FIELD = {
             children: {
               for (final o in ${JSON.stringify(f.enum)}) o: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Text(o),
+                child: Text(${hasEnumLabels(f) ? `_${c}Labels(l10n)[o] ?? o` : 'o'}),
               ),
             },
           ),`,
+};
+
+/**
+ * Per-field bilingual label lookup for enum controls (empty string for every
+ * non-enum field and for enum fields without labels, so callers can join freely).
+ *
+ * 供 enum 控件使用的每字段双语标签查表（非 enum 字段、以及未声明标签的 enum 字段
+ * 都返回空串，调用方可直接 join）。
+ */
+const FORM_ENUM_LABELS = {
+  string: () => '',
+  text: () => '',
+  int: () => '',
+  bool: () => '',
+  date: () => '',
+  enum: (c, f, ctx) => {
+    if (!hasEnumLabels(f)) return '';
+    const entries = f.enum
+      .filter((opt) => f.enumLabels[opt])
+      .map((opt) => `        '${opt}': l10n.${enumLabelGetter(ctx, c, opt)},`)
+      .join('\n');
+    return (
+      `  /// Bilingual labels for \`${c}\`; an option without a label falls back to its identifier.\n` +
+      `  /// \`${c}\` 的双语标签；未声明标签的选项回落显示标识符。\n` +
+      `  Map<String, String> _${c}Labels(AppLocalizations l10n) => {\n${entries}\n  };`
+    );
+  },
 };
 
 const FORM_CONTROLLERS = {
@@ -322,6 +351,10 @@ const FORM_READ = {
 
 export function pageTemplate(ctx) {
   const controllers = ctx.fields.map((f) => FORM_CONTROLLERS[f.type](f.name, f)).join('\n');
+  const labelMethods = ctx.fields
+    .map((f) => FORM_ENUM_LABELS[f.type](f.name, f, ctx))
+    .filter(Boolean)
+    .join('\n\n');
   const formFields = ctx.fields.map((f) => FORM_FIELD[f.type](f.name, null, f)).join('\n\n');
   const reads = ctx.fields.map((f) => FORM_READ[f.type](f.name, f)).join('\n');
   const titleField = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
@@ -341,6 +374,7 @@ class ${ctx.pluralPascal}Page extends StatefulWidget {
 
 class _${ctx.pluralPascal}PageState extends State<${ctx.pluralPascal}Page> {
 ${controllers}
+${labelMethods}
 
   @override
   void initState() {

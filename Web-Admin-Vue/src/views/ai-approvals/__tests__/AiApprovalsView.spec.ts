@@ -7,10 +7,11 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { approvalsMock, decidedMock, decideMock, errorMock, successMock } = vi.hoisted(() => ({
+const { approvalsMock, decidedMock, decideMock, retryMock, errorMock, successMock } = vi.hoisted(() => ({
   approvalsMock: vi.fn(),
   decidedMock: vi.fn(),
   decideMock: vi.fn(),
+  retryMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
 }))
@@ -20,6 +21,7 @@ vi.mock('@/api/aiTools', () => ({
     approvals: approvalsMock,
     decidedApprovals: decidedMock,
     decideApproval: decideMock,
+    retryApprovalExecution: retryMock,
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
@@ -33,7 +35,7 @@ const AppTableStub = defineComponent({
   name: 'AppTable',
   props: ['headers', 'items', 'loading'],
   template:
-    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.actions" :item="item" /></template></div>',
+    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.actions" :item="item" /><slot name="item.execution" :item="item" /><slot name="item.audit" :item="item" /></template></div>',
 })
 
 function mountView() {
@@ -56,6 +58,66 @@ beforeEach(() => {
 })
 
 describe('AiApprovalsView', () => {
+  const decidedRow = (extra: Record<string, unknown> = {}) => ({
+    id: 9,
+    token: 't9',
+    toolName: 'create_event',
+    args: '{"title":"x"}',
+    operatorId: 'u1',
+    conversationId: null,
+    riskLevel: 'R4',
+    status: 'approved',
+    approverId: 'a1',
+    decidedAt: '2026-09-23T02:00:00Z',
+    createdAt: '2026-09-23T01:00:00Z',
+    executionState: 'failed',
+    executedAt: null,
+    executionError: '目标系统不可达',
+    ...extra,
+  })
+
+  it('P2：执行失败的行显示「执行未完成」并提供重试按钮', async () => {
+    approvalsMock.mockResolvedValue([])
+    decidedMock.mockResolvedValue([decidedRow()])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('执行未完成')
+    expect(wrapper.text()).toContain('重试执行')
+  })
+
+  it('P2：点重试 → 调 retryApprovalExecution 并重载列表', async () => {
+    approvalsMock.mockResolvedValue([])
+    decidedMock.mockResolvedValue([decidedRow()])
+    retryMock.mockResolvedValue({ ok: true, success: true })
+
+    const wrapper = mountView()
+    await flushPromises()
+    const btn = wrapper.findAll('button').find((b) => b.text().includes('重试执行'))
+    expect(btn).toBeTruthy()
+    await btn!.trigger('click')
+    await flushPromises()
+
+    expect(retryMock).toHaveBeenCalledWith('t9')
+    expect(successMock).toHaveBeenCalledWith('已重试')
+    // 重载：decided 被再次拉取
+    expect(decidedMock.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  it('P2：已执行成功的行**不**显示重试按钮（不制造可重复执行的暗示）', async () => {
+    approvalsMock.mockResolvedValue([])
+    decidedMock.mockResolvedValue([
+      decidedRow({ executionState: 'succeeded', executedAt: '2026-09-23T02:00:05Z', executionError: null }),
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已执行')
+    expect(wrapper.text()).not.toContain('重试执行')
+  })
+
   it('挂载 → 并行调用 approvals + decidedApprovals', async () => {
     approvalsMock.mockResolvedValue([
       { id: 1, token: 't1', toolName: 'create_event', args: '{"title":"x"}', operatorId: 'u1', conversationId: null, riskLevel: 'R4', status: 'pending', createdAt: '2026-08-21' },

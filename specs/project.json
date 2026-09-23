@@ -3,8 +3,29 @@
   "label": "项目",
   "fields": [
     { "name": "name", "type": "string", "label": "项目名", "required": true },
-    { "name": "status", "type": "enum", "label": "状态", "enum": ["planning", "active", "delayed", "completed"] },
-    { "name": "priority", "type": "enum", "label": "优先级", "enum": ["low", "medium", "high"] },
+    {
+      "name": "status",
+      "type": "enum",
+      "label": "状态",
+      "enum": ["planning", "active", "delayed", "completed"],
+      "enumLabels": {
+        "planning": { "zh": "规划中", "en": "Planning" },
+        "active": { "zh": "进行中", "en": "Active" },
+        "delayed": { "zh": "已延期", "en": "Delayed" },
+        "completed": { "zh": "已完成", "en": "Completed" }
+      }
+    },
+    {
+      "name": "priority",
+      "type": "enum",
+      "label": "优先级",
+      "enum": ["low", "medium", "high"],
+      "enumLabels": {
+        "low": { "zh": "低", "en": "Low" },
+        "medium": { "zh": "中", "en": "Medium" },
+        "high": { "zh": "高", "en": "High" }
+      }
+    },
     { "name": "deadline", "type": "date", "label": "截止日" }
   ]
 }

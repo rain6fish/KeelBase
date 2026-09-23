@@ -7,7 +7,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { adminI18nKeys } from './templates-admin.mjs';
-import { aiToolsFlags } from './validate.mjs';
+import { aiToolsFlags, enumLabelGetter, hasEnumLabels } from './validate.mjs';
 
 /** 在 anchor 之后插入；marker 已存在则幂等跳过。 */
 function insertAfter(content, anchor, insertion, marker) {
@@ -244,8 +244,12 @@ export async function wireFrontend(ctx, root = '') {
     );
   }
 
-  // 7) app_localizations.dart：4 个页面 getter
+  // 7) app_localizations.dart：4 个页面 getter + enum 双标签 getter
+  // 注：守卫仍是 `${ctx.plural}Title` —— 对**已生成过**的模块再次运行（如给已有 spec 补 enumLabels），
+  // 本步会被判为 already-wired 而跳过，标签不会补注入；需显式重建（`--force`，受 manifest 成员校验约束）。
+  // 这是既有的幂等语义，不在本次改动范围内（升级语义归 P0-9 之外的 C7 升级内核）。
   const enTitle = ctx.singlePascal;
+  const enumGetters = enumLabelGetterDecls(ctx);
   results.push(
     await applyFile(`${FE}/core/i18n/app_localizations.dart`, (c) =>
       insertAfter(
@@ -255,7 +259,8 @@ export async function wireFrontend(ctx, root = '') {
           `  String get ${ctx.plural}Title => _t('${enTitle}', '${ctx.label}');\n` +
           `  String get ${ctx.plural}AddTitle => _t('New ${enTitle}', '新增${ctx.label}');\n` +
           `  String get ${ctx.plural}Empty => _t('No ${enTitle} yet', '暂无${ctx.label}');\n` +
-          `  String get ${ctx.plural}DeleteConfirm => _t('Delete this ${enTitle.toLowerCase()}?', '删除该${ctx.label}？');`,
+          `  String get ${ctx.plural}DeleteConfirm => _t('Delete this ${enTitle.toLowerCase()}?', '删除该${ctx.label}？');` +
+          enumGetters,
         `String get ${ctx.plural}Title`,
       ),
     ),
@@ -444,4 +449,28 @@ export function summarize(results) {
   const wired = results.filter((r) => r.changed).map((r) => r.file);
   const skipped = results.filter((r) => !r.changed);
   return { wired, skipped };
+}
+
+/**
+ * Dart getter declarations for every declared enum label, ready to append to
+ * app_localizations.dart. Exported so the emission itself is unit-testable:
+ * asserting the getter *name* alone would not prove the zh/en pair survives
+ * into the generated localizations.
+ *
+ * 为每个已声明标签的 enum 选项生成 Dart getter 声明，供追加进 app_localizations.dart。
+ * 导出以便对**发射物本身**做单测 —— 只断言 getter 名字不足以证明 zh/en 成对
+ * 落进了生成的本地化文件。
+ */
+export function enumLabelGetterDecls(ctx) {
+  return ctx.fields
+    .filter((f) => hasEnumLabels(f))
+    .flatMap((f) =>
+      f.enum
+        .filter((opt) => f.enumLabels[opt])
+        .map(
+          (opt) =>
+            `\n  String get ${enumLabelGetter(ctx, f.name, opt)} => _t('${f.enumLabels[opt].en}', '${f.enumLabels[opt].zh}');`,
+        ),
+    )
+    .join('');
 }

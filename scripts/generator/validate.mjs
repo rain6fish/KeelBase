@@ -104,20 +104,94 @@ export function validateFields(fields) {
           return `enum 选项非法：${f.name}.${opt}（需小写英文/下划线，如 active、in_progress）`;
         }
       }
+      const labelErr = validateEnumLabels(f.name, f.enum, f.enumLabels);
+      if (labelErr) return labelErr;
     }
   }
   return null;
 }
 
 /**
+ * Validate the optional bilingual labels of an enum field.
+ * Keys must be a subset of the enum options, otherwise the label list and the
+ * option list drift apart and the rendered UI starts lying; every value must
+ * carry both zh and en. Absent enumLabels is valid — generated code then falls
+ * back to showing the identifier.
+ *
+ * enum 字段的可选双标签校验：键须 ⊆ enum 选项（否则标签与选项脱节、界面会说谎），
+ * 每个值须同时带 zh 与 en。未声明 enumLabels 属合法 —— 生成物回落显示标识符。
+ */
+/** Characters that would break the emitted Dart / TS string literals — rejected at parse time. */
+const ENUM_LABEL_BANNED = /['"`\\\n\r]|\$\{/;
+
+export function validateEnumLabels(fieldName, options, labels) {
+  if (labels === undefined) return null;
+  if (labels === null || typeof labels !== 'object' || Array.isArray(labels)) {
+    return `enumLabels 必须是对象：${fieldName}`;
+  }
+  for (const [key, value] of Object.entries(labels)) {
+    if (!options.includes(key)) {
+      return `enumLabels 的键不在 enum 选项中：${fieldName}.${key}`;
+    }
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      return `enumLabels 的值必须是 {zh,en} 对象：${fieldName}.${key}`;
+    }
+    for (const lang of ['zh', 'en']) {
+      if (typeof value[lang] !== 'string' || value[lang].length === 0) {
+        return `enumLabels 缺 ${lang} 标签：${fieldName}.${key}`;
+      }
+      if (ENUM_LABEL_BANNED.test(value[lang])) {
+        return `enumLabels 的 ${lang} 标签含引号/反斜杠/换行/变量插值，会破坏生成代码：${fieldName}.${key}`;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether an enum field declares usable labels. A single source so the schema,
+ * the validator and the three templates agree on what "has labels" means.
+ *
+ * 该 enum 字段是否声明了可用标签。单源判定，使 schema、校验器与三端模板对
+ * 「有标签」的理解一致。
+ */
+export function hasEnumLabels(field) {
+  return Boolean(
+    field?.enumLabels && typeof field.enumLabels === 'object' && Object.keys(field.enumLabels).length > 0,
+  );
+}
+
+/**
+ * Name of the generated i18n getter for one enum option. Single-sourced so the
+ * Flutter template that reads the getter and the wire step that injects it
+ * cannot drift apart into a Dart compile error.
+ *
+ * 某个 enum 选项所生成 i18n getter 的名字。单源定义，使「读 getter 的 Flutter 模板」
+ * 与「注入 getter 的接线步骤」不会漂移成 Dart 编译错误。
+ */
+export function enumLabelGetter(ctx, fieldName, option) {
+  return `${ctx.plural}${toPascal(fieldName)}${toPascal(option)}`;
+}
+
+/**
  * 协议 JSON spec.fields → 结构化字段：保留 name/type/enum，并透传 required（required:true=必填；
  * 缺省/required:false=可选）。此前丢弃 required 会让 string/enum 误按必填生成（#3 陌生人实测卡点）。
+ *
+ * enumLabels is carried through unchanged when present, so the generated front
+ * ends can render human labels instead of raw identifiers. Dropping it here
+ * would silently strip the labels before any template ever sees them.
+ *
+ * 存在 enumLabels 时原样透传，供生成的三端渲染人类标签而非裸标识符。
+ * 在此丢弃会让标签在到达任何模板之前就被静默剥掉。
  */
 export function normalizeSpecFields(fields) {
   return (fields ?? []).map((f) => ({
     name: f.name,
     type: f.type || 'string',
     ...(Array.isArray(f.enum) && f.enum.length > 0 ? { enum: f.enum } : {}),
+    ...(f.enumLabels && typeof f.enumLabels === 'object' && !Array.isArray(f.enumLabels)
+      ? { enumLabels: f.enumLabels }
+      : {}),
     ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
   }));
 }

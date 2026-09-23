@@ -66,8 +66,27 @@
         <template #item.status="{ item }">
           <StatusChip :status="item.status === 'approved' ? 'ok' : 'cancelled'" :label-map="statusMap" />
         </template>
+        <!-- P2 执行轴：批准 ≠ 执行成功。失败/未执行的行在此如实显示，并可重试。 -->
+        <template #item.execution="{ item }">
+          <el-tag
+            v-if="executionTag(item)"
+            size="small"
+            effect="plain"
+            :type="executionTag(item)!.type"
+            :title="item.executionError || ''"
+          >{{ executionTag(item)!.label }}</el-tag>
+          <span v-else>-</span>
+        </template>
         <template #item.decidedAt="{ item }">{{ item.decidedAt ? formatTime(item.decidedAt) : '-' }}</template>
         <template #item.audit="{ item }">
+          <el-button
+            v-if="canRetry(item)"
+            link
+            type="warning"
+            size="small"
+            :loading="actingToken === item.token"
+            @click="onRetry(item)"
+          >{{ t('aiApprovalsRetry') }}</el-button>
           <el-button link type="primary" size="small" @click="router.push({ path: '/audit', query: { userId: item.operatorId } })">
             <template #icon><AppIcon icon="mdi-history" /></template>
             {{ t('viewAudit') }}
@@ -118,9 +137,52 @@ const decidedHeaders = computed(() => [
   { key: 'path', title: t('aiApprovalsPath') },
   { key: 'args', title: t('aiApprovalsArgs') },
   { key: 'status', title: t('aiApprovalsStatus') },
+  { key: 'execution', title: t('aiApprovalsExecution') },
   { key: 'decidedAt', title: t('aiApprovalsDecidedAt') },
   { key: 'audit', title: t('actionCol') },
 ])
+
+/**
+ * P2：把执行态翻译成标签。非 approved 行（无执行维度）返回 null，让模板显示 '-' 而不是编一个状态。
+ * 失败但无原因时（崩溃/挂起，未记录结果）也照常显示「执行未完成」——不假装知道原因。
+ */
+function executionTag(item: AiApprovalRequest) {
+  switch (item.executionState) {
+    case 'succeeded':
+      return { label: t('aiApprovalsExecutionSucceeded'), type: 'success' as const }
+    case 'failed':
+      return { label: t('aiApprovalsExecutionFailed'), type: 'danger' as const }
+    case 'running':
+      return { label: t('aiApprovalsExecutionRunning'), type: 'warning' as const }
+    case 'not_started':
+      return { label: t('aiApprovalsExecutionNotStarted'), type: 'info' as const }
+    default:
+      return null
+  }
+}
+
+/** 可重试 = 已批准且未成功（running 时不显示——服务端也会以 409 拒绝，避免与在途执行撞车） */
+function canRetry(item: AiApprovalRequest) {
+  return (
+    item.status === 'approved' &&
+    (item.executionState === 'failed' || item.executionState === 'not_started')
+  )
+}
+
+async function onRetry(item: AiApprovalRequest) {
+  actingToken.value = item.token
+  try {
+    const res = await aiToolsApi.retryApprovalExecution(item.token)
+    snackbar.success(
+      res.success ? t('aiApprovalsRetried') : `${t('aiApprovalsRetried')} — ${res.message ?? ''}`,
+    )
+    await loadAll()
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+  } finally {
+    actingToken.value = ''
+  }
+}
 
 async function loadAll() {
   loading.value = true

@@ -56,6 +56,19 @@
             "minItems": 2,
             "maxItems": 10,
             "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,24}$" }
+          },
+          "enumLabels": {
+            "type": "object",
+            "description": "type=enum 时的选项双标签（可选，并列键、向后兼容）：键须 ⊆ enum，每个值须同时带 zh 与 en；未声明的选项回落显示标识符（不报错）。字符用白名单（同 label 的做法）挡掉会破坏生成代码的引号/反斜杠/换行/变量插值",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["zh", "en"],
+              "properties": {
+                "zh": { "type": "string", "minLength": 1, "maxLength": 24, "pattern": "^[一-龥a-zA-Z0-9 _\\-/().,（）]+$" },
+                "en": { "type": "string", "minLength": 1, "maxLength": 48, "pattern": "^[一-龥a-zA-Z0-9 _\\-/().,（）]+$" }
+              }
+            }
           }
         }
       }

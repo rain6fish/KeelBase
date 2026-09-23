@@ -6,6 +6,8 @@
  * v1：列表 + 首字段新增 + 删除（本人数据，走用户端 API）。
  */
 
+import { hasEnumLabels } from './validate.mjs';
+
 const TARO_TS_TYPE = {
   string: () => 'string',
   text: () => 'string',
@@ -101,6 +103,22 @@ export const use${ctx.pluralPascal}Store = defineStore('${ctx.plural}', {
 
 export function taroPageTemplate(ctx) {
   const first = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
+  const firstField = ctx.fields[0];
+  // Taro 页面文案目前为**中文单语**（双语化 = CR-25 待办），故标签取 zh，与页面其余文案一致；
+  // 不在此引入半套 i18n —— 那会把 CR-25 拆成两半、更难收口。
+  const firstEnumLabels =
+    firstField && firstField.type === 'enum' && hasEnumLabels(firstField)
+      ? firstField.enum
+          .filter((opt) => firstField.enumLabels[opt])
+          .map((opt) => `  '${opt}': '${firstField.enumLabels[opt].zh}',`)
+          .join('\n')
+      : '';
+  const firstLabelsDecl = firstEnumLabels
+    ? `\n// 枚举标签（中文单语；Taro 侧 i18n 见 CR-25）\nconst ${first}Labels: Record<string, string> = {\n${firstEnumLabels}\n}\n`
+    : '';
+  const firstDisplay = firstEnumLabels
+    ? `${first}Labels[item.${first}] ?? item.${first}`
+    : `item.${first}`;
   return `<template>
   <view class="${ctx.plural}-page">
     <view class="${ctx.plural}-page__header">
@@ -126,7 +144,7 @@ export function taroPageTemplate(ctx) {
       <text>暂无${ctx.label}</text>
     </view>
     <view v-for="item in items" :key="item.id" class="${ctx.plural}-page__item">
-      <text class="${ctx.plural}-page__text">{{ item.${first} }}</text>
+      <text class="${ctx.plural}-page__text">{{ ${firstDisplay} }}</text>
       <text class="${ctx.plural}-page__delete" @click="handleRemove(item)">✕</text>
     </view>
   </view>
@@ -141,7 +159,7 @@ import { use${ctx.pluralPascal}Store } from '../../stores/${ctx.plural}-store'
 const store = use${ctx.pluralPascal}Store()
 const { items } = storeToRefs(store)
 const ${first} = ref('')
-
+${firstLabelsDecl}
 onMounted(() => {
   store.load()
 })

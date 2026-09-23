@@ -3,8 +3,30 @@
   "label": "审批请求",
   "fields": [
     { "name": "title", "type": "string", "label": "标题", "required": true },
-    { "name": "type", "type": "enum", "label": "类型", "enum": ["reimbursement", "purchase", "leave", "contract"] },
+    {
+      "name": "type",
+      "type": "enum",
+      "label": "类型",
+      "enum": ["reimbursement", "purchase", "leave", "contract"],
+      "enumLabels": {
+        "reimbursement": { "zh": "报销", "en": "Reimbursement" },
+        "purchase": { "zh": "采购", "en": "Purchase" },
+        "leave": { "zh": "请假", "en": "Leave" },
+        "contract": { "zh": "合同", "en": "Contract" }
+      }
+    },
     { "name": "amount", "type": "int", "label": "金额" },
-    { "name": "status", "type": "enum", "label": "状态", "enum": ["pending", "needs_review", "approved", "rejected"] }
+    {
+      "name": "status",
+      "type": "enum",
+      "label": "状态",
+      "enum": ["pending", "needs_review", "approved", "rejected"],
+      "enumLabels": {
+        "pending": { "zh": "待审批", "en": "Pending" },
+        "needs_review": { "zh": "待复核", "en": "Needs review" },
+        "approved": { "zh": "已通过", "en": "Approved" },
+        "rejected": { "zh": "已驳回", "en": "Rejected" }
+      }
+    }
   ]
 }

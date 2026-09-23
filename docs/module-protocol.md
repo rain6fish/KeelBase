@@ -39,6 +39,9 @@
 | `date` | `datetime` | 日期选择 | 时间 |
 | `enum` | `varchar(32)` + 默认值 | 分段选择/下拉 | 枚举（需 `enum: [...]` 选项，2-10 个，小写英文/下划线） |
 
+`enum` 可选带 **`enumLabels`**（并列键，**向后兼容**）：`{ "<option>": { "zh": "...", "en": "..." } }`。
+键须 ⊆ `enum`（否则标签与选项脱节、界面会说谎）；每个值须同时带 `zh` 与 `en`；**未声明的选项回落显示标识符**——故既有 spec 不作改动也合法。
+
 > 超出这 6 种类型的复杂字段（外键关联/级联/复杂业务逻辑），**不写协议**，走手写 + AI 辅助。关联（belongsTo）已在旗舰应用中识别为共性，但保持薄协议——关联查询手写 + AI 生成（见 §6 反推记录）。
 
 ## 3. 协议 → 生成物映射（AI 必读）
@@ -52,6 +55,7 @@
 | `fields[].name` | entity 列名 + DTO 字段 | model 字段 + 表单字段 |
 | `fields[].type` | TypeORM 列类型 | Flutter 输入控件 |
 | `fields[].required` | DTO `@IsNotEmpty` | 表单必填校验；**默认按类型**：`string`/`enum` 默认必填，`text`/`int`/`bool`/`date` 默认可选。要改默认可显式标 `required: true/false`（如短文本字段可选写 `"required": false`） |
+| `fields[].enumLabels` | 透传供 i18n 标签；不参与列类型 | 下拉/分段选择显示标签（**缺失回落标识符**） |
 | `searchable` | 列表搜索 + `/search` 索引 | 搜索入口 |
 
 **固定的安全接线（协议不含，AI 必须补）**：

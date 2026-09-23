@@ -4,8 +4,29 @@
   "fields": [
     { "name": "name", "type": "string", "label": "客户名", "required": true },
     { "name": "company", "type": "string", "label": "公司" },
-    { "name": "status", "type": "enum", "label": "状态", "enum": ["lead", "active", "churn_risk", "inactive"] },
-    { "name": "riskLevel", "type": "enum", "label": "风险", "enum": ["low", "medium", "high"] },
+    {
+      "name": "status",
+      "type": "enum",
+      "label": "状态",
+      "enum": ["lead", "active", "churn_risk", "inactive"],
+      "enumLabels": {
+        "lead": { "zh": "线索", "en": "Lead" },
+        "active": { "zh": "活跃", "en": "Active" },
+        "churn_risk": { "zh": "流失风险", "en": "Churn risk" },
+        "inactive": { "zh": "不活跃", "en": "Inactive" }
+      }
+    },
+    {
+      "name": "riskLevel",
+      "type": "enum",
+      "label": "风险",
+      "enum": ["low", "medium", "high"],
+      "enumLabels": {
+        "low": { "zh": "低", "en": "Low" },
+        "medium": { "zh": "中", "en": "Medium" },
+        "high": { "zh": "高", "en": "High" }
+      }
+    },
     { "name": "annualValue", "type": "int", "label": "年价值" }
   ]
 }
