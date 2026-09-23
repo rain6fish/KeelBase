@@ -94,6 +94,8 @@
                   <div class="d-flex align-center ga-2">
                     <span class="text-body-2">{{ toolLabel(tm('feature'), e.toolName) }}</span>
                     <el-tag v-if="e.effect?.resultType === 'proxy_call'" size="small" type="info" effect="plain">{{ t('externalSystem') }}</el-tag>
+                    <!-- P1：外部 MCP 写的锚行——登记只为幂等与可追溯，**不可撤**，故用 warning 色并写明 -->
+                    <el-tag v-else-if="e.effect?.resultType === 'external_call'" size="small" type="warning" effect="plain">{{ t('externalMcp') }}</el-tag>
                     <StatusChip :status="e.effectStatus" :label-map="effectStatusMap" />
                   </div>
                   <div v-if="e.detail" class="text-body-2 text-medium-emphasis mt-1">{{ e.detail }}</div>

@@ -724,6 +724,9 @@ const en: ZhDict = {
   aiTimelineHint: 'Aggregate "what AI did to user data" by user/session: tool calls / confirmations / side effects / errors',
   noTimeline: 'No AI behavior records',
   externalSystem: 'External system (B-path)',
+  // P1: anchor row for an external MCP write. Not revocable (no compensation channel), so the
+  // label says so outright rather than implying it could be taken back.
+  externalMcp: 'External MCP (not revocable)',
   governanceDetail: 'Governance Detail',
   // §internal.16 A-2 Business History
   businessHistoryTitle: 'Business History',

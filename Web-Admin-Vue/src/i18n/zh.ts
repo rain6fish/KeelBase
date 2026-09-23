@@ -725,6 +725,8 @@ const zh = {
   aiTimelineHint: '按用户/会话聚合「AI 对用户数据做了什么」：工具调用 / 确认决策 / 副作用 / 错误',
   noTimeline: '暂无 AI 行为记录',
   externalSystem: '外部系统（B 路径）',
+  // P1：外部 MCP 写工具的副作用锚行。**不可撤**（无补偿通道），故措辞直接写明，不制造可撤销假象。
+  externalMcp: '外部 MCP（不可撤销）',
   governanceDetail: '治理详情',
   // §internal.16 A-2 业务实体行为史
   businessHistoryTitle: '业务实体行为史',

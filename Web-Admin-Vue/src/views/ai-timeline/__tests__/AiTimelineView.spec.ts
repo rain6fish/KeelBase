@@ -140,6 +140,26 @@ describe('AiTimelineView', () => {
     expect(wrapper.text()).toContain('外部系统（B 路径）')
   })
 
+  it('P1：external_call 副作用渲染「外部 MCP（不可撤销）」标识', async () => {
+    // 外部 MCP 写的锚行：登记只为幂等与可追溯，**不可撤**。标签必须如实说明，不能与 proxy_call 混同
+    // （proxy_call 有外部补偿端点 → governed_external；MCP 没有补偿通道 → none）。
+    logsMock.mockResolvedValue([])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 100,
+      items: [
+        { id: 11, toolName: 'mcp_send_email', conversationId: null, resultType: 'external_call', resultId: 42, argsHash: 'h', createdAt: '2026-09-23T01:00:00Z', targetExists: false, targetSoftDeleted: false, targetTitle: null },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('mcp_send_email')
+    expect(wrapper.text()).toContain('外部 MCP（不可撤销）')
+  })
+
   it('治理详情：点副作用「治理详情」→ 调 governanceAction + 抽屉显示 Who/What', async () => {
     logsMock.mockResolvedValue([toolCallLog])
     effectsMock.mockResolvedValue({
