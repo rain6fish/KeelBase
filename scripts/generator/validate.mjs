@@ -108,6 +108,8 @@ export function validateFields(fields) {
     }
     const decimalErr = validateDecimalField(f);
     if (decimalErr) return decimalErr;
+    const piiErr = validatePiiField(f);
+    if (piiErr) return piiErr;
     if (f.type === 'enum') {
       if (!Array.isArray(f.enum) || f.enum.length < 2 || f.enum.length > 10) {
         return `enum 字段 ${f.name} 需提供 2-10 个选项（协议 JSON 的 enum 数组）`;
@@ -207,6 +209,48 @@ export function decimalScale(field) {
  * 两个键在其它类型上一律拒绝 —— 否则 spec 会带着一个被生成器静默忽略的设置，
  * 与「键被丢掉」是同一种失效。
  */
+/**
+ * Field types whose entity value is a string — the only ones a text mask can be
+ * applied to. Masking is what makes a `pii` declaration mean something, so the
+ * declaration is rejected everywhere else: a mask on a `Date` or `number` column
+ * would emit a string into a typed property and the generated module would not
+ * compile.
+ *
+ * 实体值是字符串的字段类型 —— 只有它们能施加文本掩码。掩码是 `pii` 声明之所以有意义
+ * 的所在，故在其它类型上一律拒绝：对 `Date` 或 `number` 列掩码会往有类型的属性里塞
+ * 字符串，生成的模块根本编译不过。
+ */
+const PII_TYPES = new Set(['string', 'text', 'enum', 'decimal']);
+
+/**
+ * Validate the optional `pii` marking. `pii: false` is allowed anywhere (it is an
+ * explicit "not personal data"), `pii: true` only on string-typed fields.
+ *
+ * 校验可选的 `pii` 标记。`pii: false` 任意类型皆可（是显式的「非个人数据」），
+ * `pii: true` 仅限字符串型字段。
+ */
+export function validatePiiField(field) {
+  if (field.pii === undefined) return null;
+  if (typeof field.pii !== 'boolean') return `字段 ${field.name} 的 pii 须为布尔`;
+  if (!field.pii) return null;
+  if (!PII_TYPES.has(field.type)) {
+    return `字段 ${field.name} 声明了 pii，但掩码产出字符串，只能声明在 string/text/enum/decimal 上`;
+  }
+  return null;
+}
+
+/**
+ * Names of the fields declared as personal data, in declaration order.
+ * Single-sourced so the admin mask, the audit key registration and the tests
+ * cannot disagree about which fields are PII.
+ *
+ * 被声明为个人数据的字段名，按声明顺序。单源，使管理端掩码、审计键注册与测试
+ * 对「哪些字段是 PII」的理解一致。
+ */
+export function piiFieldNames(fields) {
+  return (fields ?? []).filter((f) => f.pii === true).map((f) => f.name);
+}
+
 export function validateDecimalField(field) {
   for (const key of ['scale', 'currency']) {
     if (field[key] !== undefined && field.type !== 'decimal') {
@@ -249,6 +293,10 @@ export function normalizeSpecFields(fields) {
     // decimal 专属键必须与 enumLabels 同理活着穿过归一化：在此丢掉就永远到不了模板，且无声。
     ...(Number.isInteger(f.scale) ? { scale: f.scale } : {}),
     ...(typeof f.currency === 'boolean' ? { currency: f.currency } : {}),
+    // pii 同理必须活着穿过归一化：在此丢掉，管理端就不会掩码，而调用方无从察觉。
+    // pii must survive normalisation for the same reason: dropped here, the admin
+    // list stops masking and nothing tells the caller.
+    ...(typeof f.pii === 'boolean' ? { pii: f.pii } : {}),
     ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
   }));
 }

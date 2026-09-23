@@ -55,6 +55,10 @@
             "type": "boolean",
             "description": "type=decimal 时标记为金额：显示用的币种符号取全局设置（docs/module-protocol.md）。其它类型不得出现"
           },
+          "pii": {
+            "type": "boolean",
+            "description": "标记为个人隐私数据（**仅字符串型字段**：string/text/enum/decimal）：生成物在管理端列表掩码 + 审计 requestBody 打码。掩码产出字符串，故 date/int/bool 不得声明"
+          },
           "label": { "type": "string" },
           "required": {
             "type": "boolean",

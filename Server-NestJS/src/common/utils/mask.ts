@@ -55,14 +55,46 @@ const SENSITIVE_KEYS = [
   'providerHash',
 ];
 
+/**
+ * Extra key names declared by modules — e.g. a generated module's `idCardNo`,
+ * which the built-in list cannot know about. Additive by design: the built-in
+ * names keep working and callers only ever add, so a module cannot weaken
+ * redaction for names the platform already knows.
+ *
+ * 模块声明的额外键名 —— 如生成模块的 `idCardNo`，内建清单不可能知道它。
+ * 刻意做成增量：内建名一如既往，调用方只做添加 —— 因此模块无法削弱平台已知名的打码。
+ */
+const EXTRA_SENSITIVE_KEYS = new Set<string>();
+
+/**
+ * Let a module declare additional sensitive key names so that audit redaction
+ * covers field names the built-in list cannot know. Generated module code calls
+ * this when the protocol declares `pii` fields.
+ *
+ * 允许模块声明额外的敏感键名，使审计打码覆盖内建清单不可能知道的字段名。
+ * 协议声明了 `pii` 字段时，由生成的模块代码调用。
+ */
+export function registerSensitiveKeys(keys: readonly string[]): void {
+  for (const key of keys) {
+    if (typeof key === 'string' && key.length > 0) EXTRA_SENSITIVE_KEYS.add(key);
+  }
+}
+
+/** Escapes a key so that a name with regex metacharacters cannot widen the match. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** 对 JSON 字符串中的敏感字段值打码。非法输入原样返回。 */
 export function redactSensitive(json: string): string {
   try {
     let redacted = json;
-    for (const key of SENSITIVE_KEYS) {
+    // 键名现在可由模块提供，故两处都必须转义：正则里转义元字符；替换串改用 replacer
+    // 函数（否则键名里的 `$` 会被当成 `$&`/`$1` 之类的引用）。
+    for (const key of [...SENSITIVE_KEYS, ...EXTRA_SENSITIVE_KEYS]) {
       // 匹配 "key": "值" 或 "key":"值"
-      const re = new RegExp(`"${key}"\\s*:\\s*"[^"]*"`, 'gi');
-      redacted = redacted.replace(re, `"${key}":"***"`);
+      const re = new RegExp(`"${escapeRegExp(key)}"\\s*:\\s*"[^"]*"`, 'gi');
+      redacted = redacted.replace(re, () => `"${key}":"***"`);
     }
     return redacted;
   } catch {

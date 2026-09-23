@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { maskEmail, maskPhone, maskText, redactSensitive } from './mask';
+import { maskEmail, maskPhone, maskText, redactSensitive, registerSensitiveKeys } from './mask';
 
 describe('mask utils', () => {
   describe('maskEmail', () => {
@@ -49,6 +49,33 @@ describe('mask utils', () => {
 
     it('returns original on invalid JSON', () => {
       expect(redactSensitive('not-json')).toBe('not-json');
+    });
+  });
+
+  // 模块声明的额外键名（协议 pii → registerSensitiveKeys）。键名由模块提供，
+  // 故这里专门盯住「元字符」与「$ 引用」两类会因键名不可信而出错的地方。
+  describe('registerSensitiveKeys', () => {
+    it('模块声明的键名参与打码（内建清单不认识这些名字）', () => {
+      registerSensitiveKeys(['idCardNoPiiTest']);
+      expect(redactSensitive('{"idCardNoPiiTest":"110101199001011234"}')).toBe(
+        '{"idCardNoPiiTest":"***"}',
+      );
+    });
+
+    it('含正则元字符的键名被转义 —— 不得放大匹配', () => {
+      registerSensitiveKeys(['a.bPiiTest']);
+      expect(redactSensitive('{"a.bPiiTest":"secret"}')).toBe('{"a.bPiiTest":"***"}');
+      // 未转义时 `.` 会匹配任意字符，这一行会被误打码
+      expect(redactSensitive('{"axbPiiTest":"keep"}')).toBe('{"axbPiiTest":"keep"}');
+    });
+
+    it('键名含 $ 时替换串不被当成引用（改用 replacer 函数）', () => {
+      registerSensitiveKeys(['pr$icePiiTest']);
+      expect(redactSensitive('{"pr$icePiiTest":"9.99"}')).toBe('{"pr$icePiiTest":"***"}');
+    });
+
+    it('忽略空串与非字符串，不抛错', () => {
+      expect(() => registerSensitiveKeys(['', undefined as unknown as string])).not.toThrow();
     });
   });
 });

@@ -5,7 +5,7 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
-import { DECIMAL_PRECISION, decimalScale } from './validate.mjs';
+import { DECIMAL_PRECISION, decimalScale, piiFieldNames } from './validate.mjs';
 
 /**
  * Inline transformer emitted into any entity that carries a decimal field.
@@ -186,6 +186,30 @@ export class Update${ctx.singlePascal}Dto extends PartialType(Create${ctx.single
 }
 
 export function serviceTemplate(ctx) {
+  const pii = piiFieldNames(ctx.fields);
+  const piiImport = pii.length > 0 ? `\nimport { maskText } from '../common/utils/mask';` : '';
+  // 只有声明了 pii 的模块才产出掩码路径 —— 不产死代码（Code Economy §15.3）
+  const adminList =
+    pii.length === 0
+      ? `  /** 管理端：全量列表（无 userId 过滤，admin） */\n  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {\n    return this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });\n  }`
+      : `  /** 管理端：全量列表（无 userId 过滤，admin）。协议声明的 pii 字段在此掩码 */\n` +
+        `  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {\n` +
+        `    const rows = await this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });\n` +
+        `    return rows.map((row) => this._maskPii(row));\n` +
+        `  }\n\n` +
+        `  /**\n` +
+        `   * Masks the fields the protocol declared as personal data. Masking happens\n` +
+        `   * server-side, so neither the admin UI nor any API client receives plaintext.\n` +
+        `   *\n` +
+        `   * 对协议声明为个人数据的字段掩码。掩码在服务端完成 —— 管理台与任何 API 调用方\n` +
+        `   * 都拿不到明文。\n` +
+        `   */\n` +
+        `  private _maskPii(row: ${ctx.singlePascal}): ${ctx.singlePascal} {\n` +
+        `    return {\n` +
+        `      ...row,\n` +
+        pii.map((c) => `      ${c}: row.${c} == null ? row.${c} : maskText(String(row.${c})),`).join('\n') +
+        `\n    };\n` +
+        `  }`;
   return `import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -193,7 +217,7 @@ import { subject } from '@casl/ability';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
 import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
-import type { AppAbility } from '../common/casl/casl-ability.factory';
+import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}
 
 @Injectable()
 export class ${ctx.pluralPascal}Service {
@@ -217,10 +241,7 @@ export class ${ctx.pluralPascal}Service {
     });
   }
 
-  /** 管理端：全量列表（无 userId 过滤，admin） */
-  async findAllForAdmin(): Promise<${ctx.singlePascal}[]> {
-    return this.${ctx.plural}Repository.find({ order: { createdAt: 'DESC' } });
-  }
+${adminList}
 
   /** 管理端：删除任意（软删进回收站，admin） */
   async removeAsAdmin(id: number): Promise<void> {
@@ -330,13 +351,23 @@ export class ${ctx.pluralPascal}Controller {
 }
 
 export function moduleTemplate(ctx) {
-  return `import { Module } from '@nestjs/common';
+  const pii = piiFieldNames(ctx.fields);
+  const piiImport =
+    pii.length > 0 ? `import { registerSensitiveKeys } from '../common/utils/mask';\n\n` : '';
+  const piiRegister =
+    pii.length > 0
+      ? `// 协议 pii 声明 → 让审计 requestBody 打码覆盖这些键名（平台内建清单不认识它们）。\n` +
+        `// Protocol pii declarations → let audit requestBody redaction cover these names,\n` +
+        `// which the platform's built-in list cannot know.\n` +
+        `registerSensitiveKeys([${pii.map((c) => `'${c}'`).join(', ')}]);\n\n`
+      : '';
+  return `${piiImport}import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
 
-@Module({
+${piiRegister}@Module({
   imports: [TypeOrmModule.forFeature([${ctx.singlePascal}])],
   controllers: [${ctx.pluralPascal}Controller],
   providers: [${ctx.pluralPascal}Service],
