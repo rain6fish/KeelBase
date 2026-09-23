@@ -35,6 +35,7 @@
 | `string` | `varchar(200)` | 文本输入 | 短文本 |
 | `text` | `text` | 多行输入 | 长文本 |
 | `int` | `int` | 数字输入 | 整数 |
+| `decimal` | `decimal(18, scale)`，驱动层归一为**字符串** | 数字输入（小数键盘） | 金额 / 小数：可选 `scale`（0-6，缺省 2）、`currency: true` 标为金额（符号取**全局币种设置**） |
 | `bool` | `boolean` | 开关 | 布尔 |
 | `date` | `datetime` | 日期选择 | 时间 |
 | `enum` | `varchar(32)` + 默认值 | 分段选择/下拉 | 枚举（需 `enum: [...]` 选项，2-10 个，小写英文/下划线） |
@@ -56,6 +57,7 @@
 | `fields[].type` | TypeORM 列类型 | Flutter 输入控件 |
 | `fields[].required` | DTO `@IsNotEmpty` | 表单必填校验；**默认按类型**：`string`/`enum` 默认必填，`text`/`int`/`bool`/`date` 默认可选。要改默认可显式标 `required: true/false`（如短文本字段可选写 `"required": false`） |
 | `fields[].enumLabels` | 透传供 i18n 标签；不参与列类型 | 下拉/分段选择显示标签（**缺失回落标识符**） |
+| `fields[].scale` / `currency` | 列精度（整数位固定 18）+ 驱动层**字符串归一**（避免浮点丢精度） | 小数位校验；金额符号取**全局币种设置** |
 | `searchable` | 列表搜索 + `/search` 索引 | 搜索入口 |
 
 **固定的安全接线（协议不含，AI 必须补）**：

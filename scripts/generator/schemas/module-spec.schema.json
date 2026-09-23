@@ -43,7 +43,17 @@
           },
           "type": {
             "type": "string",
-            "enum": ["string", "text", "int", "bool", "date", "enum"]
+            "enum": ["string", "text", "int", "bool", "date", "enum", "decimal"]
+          },
+          "scale": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "type=decimal 时的小数位（缺省 2）；整数位固定 precision=18。其它类型不得出现"
+          },
+          "currency": {
+            "type": "boolean",
+            "description": "type=decimal 时标记为金额：显示用的币种符号取全局设置（docs/module-protocol.md）。其它类型不得出现"
           },
           "label": { "type": "string" },
           "required": {

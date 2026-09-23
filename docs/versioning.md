@@ -17,6 +17,28 @@ KeelBase 遵循 [语义化版本](https://semver.org/)（`主版本.次版本.�
 - **MINOR** — backward-compatible features / 向后兼容的新功能
 - **MAJOR** — breaking changes / 不兼容的变更
 
+### Application Protocol version / 应用协议版本
+
+The Application Protocol carries its own version, recorded in `.keelbase/manifest.json` as `protocol` and
+compared against the CLI by `keelbase doctor`. It moves independently of the product version:
+
+应用协议自带版本号，记录在 `.keelbase/manifest.json` 的 `protocol` 字段，由 `keelbase doctor` 与 CLI 比对。
+它与产品版本**独立演进**：
+
+- **adding a field type, a declaration key or an optional attribute = MINOR** — every existing spec stays
+  valid and downstream apps need do nothing. `1.0` → `1.1` is such a release: it added the `decimal` field
+  type and the `enumLabels` key.
+- **renaming or removing a key, or changing what an existing key means = MAJOR** — downstream must migrate.
+
+- **新增字段类型 / 声明键 / 可选属性 = MINOR** —— 既有 spec 一律仍然合法，下游无需任何动作。
+  `1.0` → `1.1` 即属此类：新增了 `decimal` 字段类型与 `enumLabels` 键。
+- **改名、删除，或改变既有键的含义 = MAJOR** —— 下游必须迁移。
+
+When a manifest is older than the CLI, `keelbase doctor` reports it and suggests re-running `keelbase init`,
+which merges idempotently. That report is informational, not an error.
+
+manifest 旧于当前 CLI 时，`keelbase doctor` 会报出并建议重跑 `keelbase init`（幂等合并）。该提示是**信息性**的，不是错误。
+
 ## Release lines / 版本线
 
 | Line / 版本线 | Status / 状态 | Release trigger / 发布触发 |

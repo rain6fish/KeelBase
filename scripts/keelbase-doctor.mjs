@@ -67,8 +67,37 @@ async function exists(p) {
   }
 }
 
+/**
+ * Classify the Application Protocol difference between a manifest and the CLI.
+ * Same major with an older-or-equal minor is a backward-compatible release (adding
+ * a field type or a declaration key leaves every existing spec valid — see
+ * docs/versioning.md), so it must NOT turn a downstream app red: an app that simply
+ * did nothing would otherwise show a false failure, and false failures teach people
+ * to ignore the doctor. A different major, an unparsable version, or a manifest that
+ * is *newer* than the CLI are the cases the CLI cannot vouch for.
+ *
+ * 判定 manifest 与 CLI 的应用协议差异。同 major 且 minor 更旧或相等属向后兼容发布
+ * （新增字段类型或声明键不会让既有 spec 失效 —— 见 docs/versioning.md），因此**不得**
+ * 让下游变红：一个「什么都没做」的应用否则会假红，而假红会教人忽略 doctor。
+ * major 不同、版本号读不出、或 manifest 新于 CLI，都是 CLI 无法背书的情形。
+ *
+ * @returns {'equal'|'compatible-older'|'newer-manifest'|'incompatible'|'unknown'}
+ */
+export function classifyProtocol(manifestProtocol, cliProtocol) {
+  const parse = (v) => {
+    const m = /^(\d+)\.(\d+)$/.exec(String(v ?? ''));
+    return m ? { major: Number(m[1]), minor: Number(m[2]) } : null;
+  };
+  const a = parse(manifestProtocol);
+  const b = parse(cliProtocol);
+  if (!a || !b) return 'unknown';
+  if (a.major !== b.major) return 'incompatible';
+  if (a.minor === b.minor) return 'equal';
+  return a.minor < b.minor ? 'compatible-older' : 'newer-manifest';
+}
+
 /** 简单三/四段版本比较：a<b → -1，a>b → 1，a==b → 0。 */
-function cmpVersion(a, b) {
+export function cmpVersion(a, b) {
   const pa = String(a || '0').split('.').map(Number);
   const pb = String(b || '0').split('.').map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -316,16 +345,30 @@ export async function runDoctor(argv = []) {
   );
 
   // ⑤ 兼容矩阵：manifest 协议/schema vs 当前 CLI 支持的协议/schema（协议匹配深化）
-  const protocolOk = String(man.protocol ?? '') === String(MANIFEST_PROTOCOL);
+  const protocolClass = classifyProtocol(man.protocol, MANIFEST_PROTOCOL);
+  const protocolOk = protocolClass === 'equal';
   const schemaOk = Number(man.schema) === Number(MANIFEST_SCHEMA);
+  const protocolGlyph = protocolOk ? '=' : protocolClass === 'compatible-older' ? '≤' : '≠';
   const matrixDetail =
-    `protocol ${man.protocol ?? '?'} ${protocolOk ? '=' : '≠'} ${MANIFEST_PROTOCOL}, ` +
+    `protocol ${man.protocol ?? '?'} ${protocolGlyph} ${MANIFEST_PROTOCOL}, ` +
     `schema ${man.schema ?? '?'} ${schemaOk ? '=' : '≠'} ${MANIFEST_SCHEMA}, ` +
     `generator v${man.generatorVersion ?? '?'} vs CLI v${cur}`;
+  // 只有「无法背书」的情形才是 fail：schema 变、major 变、或版本号读不出来。
+  // 向后兼容的旧 protocol 是 warn —— 见 classifyProtocol 的注释。
+  const matrixFail = !schemaOk || protocolClass === 'incompatible' || protocolClass === 'unknown';
   checks.push(
-    protocolOk && schemaOk
-      ? { status: 'pass', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 全部匹配` }
-      : { status: 'fail', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 不匹配（升级 keelbase 或重建来源清单）` },
+    matrixFail
+      ? { status: 'fail', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 不匹配（升级 keelbase 或重建来源清单）` }
+      : protocolOk
+        ? { status: 'pass', name: '兼容矩阵', detail: `${matrixDetail} —— 协议/schema 全部匹配` }
+        : {
+          status: 'warn',
+          name: '兼容矩阵',
+          detail:
+            protocolClass === 'compatible-older'
+              ? `${matrixDetail} —— protocol 为向后兼容旧版（新增类型/键不影响既有 spec），**无需动作**；如需让来源清单反映当前协议，可重跑 keelbase init`
+              : `${matrixDetail} —— manifest 协议新于当前 CLI，当前 CLI 可能不认识新键，勿覆盖`,
+        },
   );
 
   // ⑥ 生成证明：模块 .keelbase-provenance.json 存在则过 schema（PC-7；缺席不阻断——可移除制品）

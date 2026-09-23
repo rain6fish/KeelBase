@@ -5,7 +5,7 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
-import { enumLabelGetter, hasEnumLabels } from './validate.mjs';
+import { decimalScale, enumLabelGetter, hasEnumLabels } from './validate.mjs';
 
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
 // f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
@@ -40,6 +40,23 @@ const MODEL_FIELD = {
       decl: `  final int? ${c};`,
       ctor: `this.${c}`,
       from: `      ${c}: json['${c}'] as int?,`,
+      to: `        '${c}': ${c},`,
+    }),
+  // decimal travels as a string in both directions (protocol decision ①): a Dart
+  // double would re-introduce exactly the rounding the backend transformer avoids.
+  // decimal 双向都以字符串传递（协议决策 ①）：用 double 会把后端转换器刻意避免的
+  // 浮点舍入重新引入。
+  decimal: (c, f) => (f.required === true
+    ? {
+      decl: `  final String ${c};`,
+      ctor: `required this.${c}`,
+      from: `      ${c}: json['${c}'] as String,`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      decl: `  final String? ${c};`,
+      ctor: `this.${c}`,
+      from: `      ${c}: json['${c}'] as String?,`,
       to: `        '${c}': ${c},`,
     }),
   bool: (c, f) => (f.required === true
@@ -277,6 +294,13 @@ const FORM_FIELD = {
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
+  decimal: (c, l10n, f) =>
+    `          CupertinoTextField(
+            placeholder: '${c} (≤${decimalScale(f)} 位小数)',
+            controller: _${c}Ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),`,
   bool: (c, l10n) =>
     `          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -317,6 +341,7 @@ const FORM_ENUM_LABELS = {
   int: () => '',
   bool: () => '',
   date: () => '',
+  decimal: () => '',
   enum: (c, f, ctx) => {
     if (!hasEnumLabels(f)) return '';
     const entries = f.enum
@@ -337,6 +362,7 @@ const FORM_CONTROLLERS = {
   int: (c) => `  final _${c}Ctrl = TextEditingController();`,
   bool: (c) => `  bool _${c}Val = false;`,
   date: (c) => `  final _${c}Ctrl = TextEditingController();`,
+  decimal: (c) => `  final _${c}Ctrl = TextEditingController();`,
   enum: (c, f) => `  String _${c}Val = '${f.enum[0]}';`,
 };
 
@@ -344,6 +370,9 @@ const FORM_READ = {
   string: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   text: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   int: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = int.tryParse(_${c}Ctrl.text.trim());`,
+  // decimal 原样提交字符串：不 parse 成 num（理由见 MODEL_FIELD.decimal 的注释），
+  // 精度校验由后端 DTO 的十进制字符串规则把关。
+  decimal: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   bool: (c) => `data['${c}'] = _${c}Val;`,
   date: (c) => `if (_${c}Ctrl.text.isNotEmpty) data['${c}'] = _${c}Ctrl.text.trim();`,
   enum: (c) => `data['${c}'] = _${c}Val;`,

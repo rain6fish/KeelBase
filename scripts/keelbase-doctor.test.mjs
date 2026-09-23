@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  classifyProtocol,
   parseEnv,
   checkNodeVersion,
   checkDocker,
@@ -94,4 +95,24 @@ test('report: 计数 fail/warn，fix 与 info 不改变 verdict', () => {
     { status: 'info', name: 'c', detail: 'z' },
   ];
   assert.equal(report(ok), 0);
+});
+
+test('classifyProtocol：同 major 的旧 minor 属向后兼容 —— 不得让下游假红', () => {
+  assert.equal(classifyProtocol('1.0', '1.1'), 'compatible-older');
+  assert.equal(classifyProtocol('1.1', '1.1'), 'equal');
+  assert.equal(classifyProtocol('1.5', '1.1'), 'newer-manifest');
+});
+
+test('classifyProtocol：major 不同或版本号读不出 = CLI 无法背书', () => {
+  assert.equal(classifyProtocol('1.1', '2.0'), 'incompatible');
+  assert.equal(classifyProtocol('1.0', '2.0'), 'incompatible');
+  assert.equal(classifyProtocol(undefined, '1.1'), 'unknown');
+  assert.equal(classifyProtocol('v1', '1.1'), 'unknown');
+});
+
+test('兼容矩阵为 warn 时 doctor 退出码仍为 0（向后兼容旧协议不是错误）', () => {
+  assert.equal(
+    report([{ status: 'warn', name: '兼容矩阵', detail: 'protocol 1.0 ≤ 1.1 —— 无需动作' }]),
+    0,
+  );
 });

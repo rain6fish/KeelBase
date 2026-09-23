@@ -483,7 +483,8 @@ test('端到端：inspect 子命令——有 manifest 退出 0 / 无 manifest �
   const plain = stripAnsi(ok.o);
   assert.equal(ok.code, 0);
   assert.match(plain, /KeelBase Application/);
-  assert.match(plain, /Protocol:\s+1\.0/);
+  // 由常量构造，避免协议 bump 时这条断言悄悄过期（同「报错文案写死类型」一类问题）
+  assert.match(plain, new RegExp(`Protocol:\\s+${MANIFEST_PROTOCOL.replace(/\./g, '\\.')}`));
   assert.match(plain, /Modules:\s+posts/);
   assert.match(plain, /✓\s+AI Tools/);
   assert.match(plain, /✓\s+CASL Permission/);

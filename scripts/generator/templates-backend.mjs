@@ -5,6 +5,24 @@
  * 每个函数接收 buildContext 的 ctx，返回文件内容字符串。
  */
 
+import { DECIMAL_PRECISION, decimalScale } from './validate.mjs';
+
+/**
+ * Inline transformer emitted into any entity that carries a decimal field.
+ * Postgres already returns a string for `decimal` (deliberately, to avoid float
+ * rounding); SQLite returns a number. Without normalising, the same generated
+ * field would have two different JS types depending on the database — and the
+ * protocol promises a string.
+ *
+ * 内联转换器：凡含 decimal 字段的实体都会带上它。Postgres 对 `decimal` 本就返回
+ * 字符串（刻意如此，避免浮点舍入），SQLite 返回数字。不做归一，同一个生成字段在
+ * 不同数据库下会有两种 JS 类型 —— 而协议承诺的是字符串。
+ */
+const DECIMAL_TRANSFORMER = `const decimalStringTransformer = {
+  to: (value: string | null | undefined): string | null | undefined => value,
+  from: (value: unknown): string | null => (value === null || value === undefined ? null : String(value)),
+};`;
+
 // required 语义（#3 修复）：按类型默认 + 显式可覆盖。
 // - string/enum 默认必填（业务标题/状态类）；显式 required:false → 可选。
 // - text/int/bool/date 默认可选；显式 required:true → 必填。
@@ -28,6 +46,12 @@ const FIELD_COLUMNS = {
     isRequired(f)
       ? `  @Column()\n  ${c}!: number;`
       : `  @Column({ nullable: true })\n  ${c}?: number;`,
+  // 显式 type: 'decimal' 必给：可选字段是 `?: string | null`（design:type 记 Object），
+  // 与 varchar 同理，不给显式 type 时 TypeORM 报 "Data type Object not supported"。
+  decimal: (c, f) =>
+    isRequired(f)
+      ? `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, transformer: decimalStringTransformer })\n  ${c}!: string;`
+      : `  @Column({ type: 'decimal', precision: ${DECIMAL_PRECISION}, scale: ${decimalScale(f)}, nullable: true, transformer: decimalStringTransformer })\n  ${c}?: string | null;`,
   bool: (c, f) =>
     isRequired(f)
       ? `  @Column({ default: false })\n  ${c}!: boolean;`
@@ -56,6 +80,10 @@ const FIELD_DTO_PROPS = {
     isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsInt()\n  @IsNotEmpty()\n  ${c}!: number;`
       : `  @ApiPropertyOptional({ description: '${c}' })\n  @IsInt()\n  @IsOptional()\n  ${c}?: number;`,
+  decimal: (c, f) =>
+    isRequired(f)
+      ? `  @ApiProperty({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsNotEmpty()\n  ${c}!: string;`
+      : `  @ApiPropertyOptional({ description: '${c}', type: 'string' })\n  @IsNumberString()\n  @Matches(/^-?\\d+(\\.\\d{1,${decimalScale(f)}})?$/, { message: '需为最多 ${decimalScale(f)} 位小数的十进制字符串' })\n  @IsOptional()\n  ${c}?: string;`,
   bool: (c, f) =>
     isRequired(f)
       ? `  @ApiProperty({ description: '${c}' })\n  @IsBoolean()\n  @IsNotEmpty()\n  ${c}!: boolean;`
@@ -84,12 +112,18 @@ function dtoValidatorImports(fields) {
     if (f.type === 'bool') names.add('IsBoolean');
     if (f.type === 'date') names.add('IsDateString');
     if (f.type === 'enum') names.add('IsIn');
+    if (f.type === 'decimal') {
+      names.add('IsNumberString');
+      names.add('Matches');
+    }
   }
   return names;
 }
 
 export function entityTemplate(ctx) {
   const fieldCols = ctx.fields.map((f) => FIELD_COLUMNS[f.type](f.name, f)).join('\n\n');
+  // 只有真的带 decimal 字段的实体才带上转换器 —— 不产死代码（Code Economy §15.3）
+  const decimalHelper = ctx.fields.some((f) => f.type === 'decimal') ? `\n${DECIMAL_TRANSFORMER}\n` : '';
   return `import {
   Entity,
   PrimaryGeneratedColumn,
@@ -99,7 +133,7 @@ export function entityTemplate(ctx) {
   UpdateDateColumn,
   DeleteDateColumn,
 } from 'typeorm';
-
+${decimalHelper}
 @Entity('${ctx.plural}')
 @Index(['userId'])
 export class ${ctx.singlePascal} {

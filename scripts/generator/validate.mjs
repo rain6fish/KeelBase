@@ -9,7 +9,18 @@ export const RESERVED_FIELD_NAMES = new Set([
   'id', 'userId', 'createdAt', 'updatedAt', 'deletedAt',
 ]);
 
-export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum']);
+export const FIELD_TYPES = new Set(['string', 'text', 'int', 'bool', 'date', 'enum', 'decimal']);
+
+/**
+ * Integer digits of every decimal column, and the default fractional digits.
+ * Fixed rather than configurable: one protocol key (`scale`) is enough, and
+ * 18 integer digits covers business amounts with room to spare.
+ *
+ * 所有 decimal 列的整数位，以及缺省小数位。固定而不做成可配：协议里有一个
+ * `scale` 键就够，18 位整数足以覆盖业务金额。
+ */
+export const DECIMAL_PRECISION = 18;
+export const DECIMAL_DEFAULT_SCALE = 2;
 
 /** 协议反推：旗舰应用高频的 enum 字段默认选项（CLI 字符串 `status:enum` 未给选项时）。 */
 export const DEFAULT_ENUM_OPTIONS = ['active', 'inactive'];
@@ -93,8 +104,10 @@ export function validateFields(fields) {
     if (seen.has(f.name)) return `字段名重复：${f.name}`;
     seen.add(f.name);
     if (!FIELD_TYPES.has(f.type)) {
-      return `字段类型非法：${f.name}:${f.type}（支持 string/text/int/bool/date/enum）`;
+      return `字段类型非法：${f.name}:${f.type}（支持 string/text/int/bool/date/enum/decimal）`;
     }
+    const decimalErr = validateDecimalField(f);
+    if (decimalErr) return decimalErr;
     if (f.type === 'enum') {
       if (!Array.isArray(f.enum) || f.enum.length < 2 || f.enum.length > 10) {
         return `enum 字段 ${f.name} 需提供 2-10 个选项（协议 JSON 的 enum 数组）`;
@@ -174,6 +187,45 @@ export function enumLabelGetter(ctx, fieldName, option) {
 }
 
 /**
+ * Fractional digits of a decimal field (defaults to 2). Single-sourced so the
+ * schema, the validator and every template agree on one number.
+ *
+ * decimal 字段的小数位（缺省 2）。单源，使 schema、校验器与各模板对同一个数字
+ * 的理解一致。
+ */
+export function decimalScale(field) {
+  return Number.isInteger(field?.scale) ? field.scale : DECIMAL_DEFAULT_SCALE;
+}
+
+/**
+ * Validate a field's decimal-only keys. `scale` bounds the fractional digits;
+ * `currency` marks an amount whose symbol comes from the global setting. Both are
+ * rejected on any other type — otherwise a spec would carry a setting that the
+ * generator silently ignores, which is the same failure mode as a dropped key.
+ *
+ * 校验 decimal 专属键：`scale` 限定小数位，`currency` 标记金额（符号取全局设置）。
+ * 两个键在其它类型上一律拒绝 —— 否则 spec 会带着一个被生成器静默忽略的设置，
+ * 与「键被丢掉」是同一种失效。
+ */
+export function validateDecimalField(field) {
+  for (const key of ['scale', 'currency']) {
+    if (field[key] !== undefined && field.type !== 'decimal') {
+      return `字段 ${field.name} 不是 decimal，不应带 ${key}`;
+    }
+  }
+  if (field.scale !== undefined && !Number.isInteger(field.scale)) {
+    return `decimal 字段 ${field.name} 的 scale 须为整数`;
+  }
+  if (typeof field.scale === 'number' && (field.scale < 0 || field.scale > 6)) {
+    return `decimal 字段 ${field.name} 的 scale 须在 0-6 之间`;
+  }
+  if (field.currency !== undefined && typeof field.currency !== 'boolean') {
+    return `decimal 字段 ${field.name} 的 currency 须为布尔`;
+  }
+  return null;
+}
+
+/**
  * 协议 JSON spec.fields → 结构化字段：保留 name/type/enum，并透传 required（required:true=必填；
  * 缺省/required:false=可选）。此前丢弃 required 会让 string/enum 误按必填生成（#3 陌生人实测卡点）。
  *
@@ -192,6 +244,11 @@ export function normalizeSpecFields(fields) {
     ...(f.enumLabels && typeof f.enumLabels === 'object' && !Array.isArray(f.enumLabels)
       ? { enumLabels: f.enumLabels }
       : {}),
+    // decimal-only keys must survive normalisation for the same reason enumLabels
+    // must: dropped here, they never reach a template and the loss is silent.
+    // decimal 专属键必须与 enumLabels 同理活着穿过归一化：在此丢掉就永远到不了模板，且无声。
+    ...(Number.isInteger(f.scale) ? { scale: f.scale } : {}),
+    ...(typeof f.currency === 'boolean' ? { currency: f.currency } : {}),
     ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
   }));
 }

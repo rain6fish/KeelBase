@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 export const MANIFEST_SCHEMA = 1;
 export const MANIFEST_IDENTITY = 'keelbase-application';
-export const MANIFEST_PROTOCOL = '1.0';
+export const MANIFEST_PROTOCOL = '1.1';
 export const MANIFEST_GENERATOR = 'keelbase';
 export const MODULE_PROVENANCE_FILE = '.keelbase-provenance.json';
 export const MODULE_PROVENANCE_SCHEMA = 1;

@@ -15,6 +15,8 @@ const TARO_TS_TYPE = {
   bool: () => 'boolean',
   date: () => 'string',
   enum: () => 'string',
+  // decimal 在 wire 上是字符串（协议决策 ①），TS 侧照搬，不用 number
+  decimal: () => 'string',
 };
 
 export function taroServiceTemplate(ctx) {
