@@ -13,6 +13,14 @@
 | `governed_external` | B 路径外部系统写（`proxy_call`） | 调用外部补偿端点（`ExternalRevoker`） | 2xx 仅证"已请求" → `revokeStatus=compensating`（终态在目标系统） |
 
 补充事实 / Also true:
+- **外部 MCP 写（`resultType=external_call`）落 `revokeClass=none`，即不可撤**：MCP 外部工具（第三方 server，
+  经 `admin/mcp/servers` 注册）与 KeelBase 之间**没有补偿通道**，故不得归入 `governed_external`
+  —— 那一档的语义是「调目标系统补偿端点」，只对 B 路径（`proxy_call`）成立。登记该行的目的是
+  **幂等**（`idempotency_key` 防同一调用重放成一次真实外部写）与**可追溯**，**不是可撤销承诺**。
+  <br>External MCP writes register as `external_call` with `revokeClass=none` — there is no compensation
+  channel to a third-party MCP server, so they must not be filed under `governed_external` (that tier means
+  "call the target's compensation endpoint", which only holds for the B path). The row exists for
+  **idempotency** and **traceability**, never as a promise that the action can be taken back.
 - 幂等：`idempotency_key` 防重复 create（同会话同工具同参数复用结果）。
 - 完整性：副作用表入哈希链（prev_hash/hash）；撤销仅回写 `revoke_status` 运维态，不入哈希链 payload。
 - 归责：本人 `my/tool-effects/:id` 撤销带所有权（`revokeOwned`）；管理端 admin 可撤任意；两路都在 AI Action Center / 决策轨迹留痕。

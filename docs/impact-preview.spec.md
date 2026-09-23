@@ -21,7 +21,7 @@
 > 「预计影响：3 个写动作 · 涉及 crm_task ×2、contract ×1」
 
 - **可撤销性口径（v1.1）**：同一处给出"这批动作事后能不能撤销"——按 KB-6 `revokeClass` **如实**标注（`none` 就不说可撤销），用词与事后撤销页 / 工具治理页同一套（`docs/manual/product-language.md` 的 Revoke class 词条）。审批人因此不只知道"要动几个对象"，还知道"动完之后能不能收回"。
-- **单一真源**：影响面的对象类型 = 副作用登记的同一单源（`writeEffectTypeFor` / proxy → `proxy_call`），撤销档位 = `resolveRevokeClass` 单源；**不新建映射表**，防两处漂移。
+- **单一真源**：影响面的对象类型 = 副作用登记的同一单源（`writeEffectTypeFor` / proxy → `proxy_call` / 外部 MCP 写 → `external_call`；取值常量单源在 `tool-effects/write-effect-type.ts`），撤销档位 = `resolveRevokeClass` 单源；**不新建映射表**，防两处漂移。
 - **纯估计、不执行**：由工具名确定性推导，**不查库、不试跑、不 dry-run**（dry-run 会触达真实系统，违背确认门控的意义）。
 - **诚实**：无法解析副作用对象者**不计入**（它们本就不产生可撤副作用），而不是编一个数字。
 
@@ -80,7 +80,7 @@
 run ：对批内每个成员各计一次，按 resultType 分组求和
 ```
 
-- 对象类型解析**复用** `writeEffectTypeFor(toolName)`（`create_followup_task → crm_task`、`create_<module> → <module>` 等）；proxy 写工具 → `proxy_call`（与登记副作用同一判据）。
+- 对象类型解析**复用** `writeEffectTypeFor(toolName)`（`create_followup_task → crm_task`、`create_<module> → <module>` 等）；proxy 写工具 → `proxy_call`、外部 MCP 写工具 → `external_call`（**与登记副作用同一判据**，故确认卡上说的与事后登记的行逐条对得上）。
 - 解析为 null 的工具**跳过**（fail-closed：它们本就不登记可撤副作用）。
 - 解析结果为空 → 省略 `impact`（不显示「0 个动作」这类噪声）。
 
