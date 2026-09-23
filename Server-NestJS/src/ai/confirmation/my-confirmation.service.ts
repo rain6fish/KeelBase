@@ -18,7 +18,7 @@ import { Repository } from 'typeorm';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
 import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
-import { ConfirmationStore, CONFIRMATION_STATUS, RunItem } from './confirmation.store';
+import { ConfirmationStore, CONFIRMATION_STATUS, RunItem, isWithinOfflineWindow } from './confirmation.store';
 import { ConfirmationImpact, RevokeClass } from '../interfaces/tool.interface';
 
 /**
@@ -69,9 +69,12 @@ export class MyConfirmationService {
       order: { createdAt: 'DESC' },
       take: opts.limit ?? 50,
     });
-    const cutoff = Date.now() - offlineTtlMs;
+    // Predicate is shared with `expireStale` (see `isWithinOfflineWindow`) — this used to compute
+    // its own cutoff in memory while the sweep computed one in SQL.
+    // 判据与 `expireStale` 单源共用（见 `isWithinOfflineWindow`）—— 原先这里在内存里自算 cutoff，
+    // 而清扫任务用 SQL 另算一份。
     return rows
-      .filter((r) => r.status !== CONFIRMATION_STATUS.PENDING || (r.createdAt?.getTime() ?? 0) >= cutoff)
+      .filter((r) => r.status !== CONFIRMATION_STATUS.PENDING || isWithinOfflineWindow(r.createdAt, offlineTtlMs))
       .map((r) => this._toItem(r, offlineTtlMs));
   }
 

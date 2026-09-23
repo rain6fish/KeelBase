@@ -55,6 +55,39 @@ export const CONFIRMATION_DEFAULT_TTL_MS = 60_000;
  */
 export const CONFIRMATION_DEFAULT_OFFLINE_TTL_MS = 86_400_000;
 
+/**
+ * The offline window's **single source of truth**.
+ *
+ * The read path (which `pending` rows are still actionable in the "waiting on me" centre) and the
+ * maintenance sweep (`expireStale`, which flips rows to `timeout`) must agree on the same instant —
+ * otherwise the list shows "waiting on you" for a row the sweep has already killed, and the click is
+ * a guaranteed failure. They used to compute the cutoff independently (one comparing in memory, one
+ * in SQL), held together only by a comment claiming "the predicate matches `expireStale`".
+ *
+ * 离线窗口的**单一真源**。读取路径（哪些 `pending` 行在「等我处理」里仍可裁决）与维护清扫
+ * （`expireStale` 把行转 `timeout`）必须对同一时刻达成一致，否则会出现「列表显示待确认、点下去必然失败」。
+ * 两处原先各自算 cutoff（一处内存比较、一处 SQL），只靠一句「判据与 expireStale 一致」的注释维持。
+ */
+export function offlineWindowCutoff(ttlMs: number, now: number = Date.now()): Date {
+  return new Date(now - ttlMs);
+}
+
+/**
+ * Whether a confirmation created at `createdAt` is still inside the offline window.
+ * Closed on the left, complementing `expireStale`'s strict `<` sweep: `>=` keeps, `<` expires —
+ * so a row is never both "shown as actionable" and "already timed out".
+ * 某条确认是否仍在离线窗口内。闭区间，与 `expireStale` 的严格 `<` 互补：`>=` 保留、`<` 清扫，
+ * 故同一行不会既「显示可裁决」又「已被判超时」。
+ */
+export function isWithinOfflineWindow(
+  createdAt: Date | undefined,
+  ttlMs: number,
+  now: number = Date.now(),
+): boolean {
+  if (!createdAt) return false;
+  return createdAt.getTime() >= offlineWindowCutoff(ttlMs, now).getTime();
+}
+
 /** KB-5 run-level approval：run 批内单个动作（工具名 + 参数 + 人读摘要 + 自身风险级） */
 export interface RunItem {
   toolName: string;
@@ -319,7 +352,7 @@ export class ConfirmationStore {
    * 的行转 `timeout`（复用既有终态）。返回受影响行数（观测用）。
    */
   async expireStale(offlineTtlMs: number = CONFIRMATION_DEFAULT_OFFLINE_TTL_MS): Promise<number> {
-    const cutoff = new Date(Date.now() - offlineTtlMs);
+    const cutoff = offlineWindowCutoff(offlineTtlMs);
     const res = await this.reqRepo.update(
       { status: CONFIRMATION_STATUS.PENDING, createdAt: LessThan(cutoff) },
       { status: CONFIRMATION_STATUS.TIMEOUT, decidedAt: new Date() },

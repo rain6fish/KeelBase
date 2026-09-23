@@ -6,6 +6,8 @@ import {
   CONFIRMATION_OUTCOME,
   CONFIRMATION_DEFAULT_TTL_MS,
   CONFIRMATION_DEFAULT_OFFLINE_TTL_MS,
+  offlineWindowCutoff,
+  isWithinOfflineWindow,
 } from './confirmation.store';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -196,6 +198,31 @@ describe('ConfirmationStore', () => {
     const [criteria, patch] = repo.update.mock.calls[0];
     expect(criteria).toMatchObject({ status: 'pending' });
     expect(patch).toMatchObject({ status: 'timeout' });
+  });
+
+  it('离线窗口判据单源：清扫用的 cutoff 就是共享函数的 cutoff（两处不可能各算一份）', async () => {
+    // 原先读取路径在内存里自算 cutoff、清扫任务在 SQL 里另算一份，只靠一句注释维持一致。
+    // 现两处都走 offlineWindowCutoff：本断言把清扫传进 SQL 的那个时刻钉到共享实现上。
+    const now = 1_700_000_000_000;
+    const spy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      await store.expireStale(60_000);
+      const [criteria] = repo.update.mock.calls[0];
+      const cutoff = (criteria as { createdAt: { value: Date } }).createdAt.value;
+      expect(cutoff.getTime()).toBe(offlineWindowCutoff(60_000, now).getTime());
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('离线窗口边界：谓词「>= 保留」与清扫「< 清扫」互补（同一行不会既显示可裁决又已超时）', () => {
+    const ttl = CONFIRMATION_DEFAULT_OFFLINE_TTL_MS;
+    const now = 1_700_000_000_000;
+    const cutoff = offlineWindowCutoff(ttl, now).getTime();
+
+    expect(isWithinOfflineWindow(new Date(cutoff), ttl, now)).toBe(true); // 恰好到期仍算在内
+    expect(isWithinOfflineWindow(new Date(cutoff - 1), ttl, now)).toBe(false); // 早 1ms 已在窗外
+    expect(isWithinOfflineWindow(undefined, ttl, now)).toBe(false); // 缺 createdAt → 不在窗口内
   });
 
   // KB-5 run-level approval（docs/run-level-approval.spec.md §2.4）
