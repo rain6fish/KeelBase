@@ -200,6 +200,130 @@ export class AiService {
     }
   }
 
+  /**
+   * 即时确认窗口（秒）—— **单源**。run 聚合与逐条确认两处原本各读一次 Settings，
+   * 任一处口径变了窗口就会不一致；取不到（未注入 Settings）时退回 60s（与拆分前逐字一致）。
+   *
+   * The confirmation window in seconds, read in one place. The run aggregation and the per-tool
+   * confirmation path each used to read the setting for themselves.
+   */
+  private async _confirmationTtlSeconds(): Promise<number> {
+    if (!this.settingsService) return 60;
+    return Number(await this.settingsService.getWithDefault(SETTING_KEYS.CONFIRMATION_TTL, 60));
+  }
+
+  /**
+   * 解析本轮会话：给定 id 但会话已不存在（如服务重启清空内存）时自动新建；其余错误（越权等）**照抛不吞**。
+   * 无 id 时直接新建。
+   *
+   * Resolve the turn's conversation — the given id when it still exists, otherwise a fresh one.
+   * Only a missing conversation triggers the create; any other failure (e.g. forbidden) is rethrown.
+   */
+  private async _resolveConversation(
+    userId: string,
+    request: ChatRequest,
+    providerName: string,
+  ): Promise<string> {
+    const create = () =>
+      this.conversationService.createConversation(
+        userId,
+        providerName,
+        request.model ?? this.config.defaultModel,
+      );
+    if (!request.conversationId) return (await create()).id;
+    try {
+      await this.conversationService.getConversation(
+        request.conversationId,
+        userId,
+        this._abilityFor(userId),
+      );
+      return request.conversationId;
+    } catch (e) {
+      // CR-27：仅「会话不存在」时自动新建；越权（Forbidden）等错误放行，不吞
+      if (!(e instanceof NotFoundException)) throw e;
+      return (await create()).id;
+    }
+  }
+
+  /**
+   * 聚合本轮可并入 run 的「即时确认写工具」（docs/run-level-approval.spec.md §2）。
+   *
+   * 返回 `null` = 不构成 run（可聚合成员不足 2 条），调用方走逐条确认路径。
+   * **任何解析 / 注册异常都只是让该工具退出聚合**（留给逐条路径如实报错）—— 绝不因预扫描中断整条 SSE 流。
+   * R5、R4（异步审批）、已信任、无摘要、门控未过的成员一律不并入，各自走原路径。
+   *
+   * Collect the write tool calls that may be aggregated into a single run-level approval; `null` when
+   * fewer than two qualify. Every parse/registry failure just drops that tool from the aggregation.
+   */
+  private async _collectRunCandidates(
+    userId: string,
+    toolCalls: Array<{ index: number; name: string; args: string }>,
+    trustedTools: Set<string>,
+  ): Promise<{
+    aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: string; risk: string }>;
+    runRisk: string;
+    ttlSeconds: number;
+  } | null> {
+    const ttlSeconds = await this._confirmationTtlSeconds();
+    const cands: Array<{
+      idx: number;
+      name: string;
+      parsed: Record<string, unknown>;
+      summary: string | null;
+      risk: string;
+    }> = [];
+    for (const tc of toolCalls) {
+      if (trustedTools.has(tc.name)) continue; // HS-6 免确认
+      // 未注册工具（LLM 幻觉名 / 外部 mcp_* 工具，ExternalToolProvider 不入 ToolRegistry）会让
+      // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
+      // 须与循环内逐条路径同样容错——否则异常逸出 chatStream 会中断整条 SSE 流（而非降级为该工具失败）
+      try {
+        if (!(await this.toolGate.requiresConfirmation(tc.name))) continue; // 读工具
+        if (await this.toolGate.requiresApproval(tc.name)) continue; // R4 异步审批不混入
+      } catch {
+        continue; // 注册/解析异常的工具留给逐条路径如实报错，不中断流
+      }
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(tc.args);
+      } catch {
+        continue; // 解析失败留循环原样报错
+      }
+      let risk = 'R3';
+      try {
+        risk = this.toolRegistry?.riskLevel(tc.name) ?? 'R3';
+      } catch {
+        /* registry 未含该工具 → 默认 R3 */
+      }
+      if (risk === 'R5') continue; // R5 留循环内逐条 block
+      // 评审 H2 修复：HS-2 门控在聚合前预检——禁用/角色白名单/未验证/策略禁用的成员不并入 run，
+      // 避免「run 先获授权、成员执行时才拒」的无效授权序（与逐条断言同 gate）
+      try {
+        await this.toolGate.assertToolAllowed(tc.name, userId);
+      } catch {
+        continue; // 留逐条路径由断言如实报错，不并入 run
+      }
+      cands.push({
+        idx: tc.index,
+        name: tc.name,
+        parsed,
+        summary: this.presentation.writeToolSummary(tc.name, parsed),
+        risk,
+      });
+    }
+    // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
+    const aggregable = cands.filter((c): c is typeof c & { summary: string } => c.summary !== null);
+    if (aggregable.length < 2) return null;
+    // runRisk = 批内最高风险级（R3 run 成员通常恒 R3，max 保持通用）
+    // 键序取自权威表（R0→R5 升序声明）——本地硬编码副本会在新增/改名风险级时静默漂移，使 runRisk 取错
+    const RISK_ORDER = Object.keys(RISK_STRATEGY);
+    const runRisk = aggregable.reduce(
+      (max, c) => (RISK_ORDER.indexOf(c.risk) > RISK_ORDER.indexOf(max) ? c.risk : max),
+      'R0',
+    );
+    return { aggregable, runRisk, ttlSeconds };
+  }
+
   /** chat 实际实现（被 chat 的业务 span 包装；拆分便于单独加 span 而不影响外部调用方） */
   private async chatImpl(
     userId: string,
@@ -209,30 +333,7 @@ export class AiService {
     await this._checkContentSafety(request.message, userId);
     const { providerName, provider } = this.llmRouter.resolve(request.provider);
 
-    let conversationId: string;
-    if (request.conversationId) {
-      // 如果会话不存在（如服务器重启导致内存清空），自动创建新会话
-      try {
-        await this.conversationService.getConversation(request.conversationId, userId, this._abilityFor(userId));
-        conversationId = request.conversationId;
-      } catch (e) {
-        // CR-27：仅「会话不存在」时自动新建；越权（Forbidden）等错误放行，不吞
-        if (!(e instanceof NotFoundException)) throw e;
-        const conv = await this.conversationService.createConversation(
-          userId,
-          providerName,
-          request.model ?? this.config.defaultModel,
-        );
-        conversationId = conv.id;
-      }
-    } else {
-      const conv = await this.conversationService.createConversation(
-        userId,
-        providerName,
-        request.model ?? this.config.defaultModel,
-      );
-      conversationId = conv.id;
-    }
+    const conversationId = await this._resolveConversation(userId, request, providerName);
 
     // Append user message
     await this.conversationService.appendMessage(conversationId, {
@@ -563,30 +664,7 @@ export class AiService {
     // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
     const streamFallbackChain = this.llmRouter.fallbackChain(providerName);
 
-    let conversationId: string;
-    if (request.conversationId) {
-      // 如果会话不存在（如服务器重启导致内存清空），自动创建新会话
-      try {
-        await this.conversationService.getConversation(request.conversationId, userId, this._abilityFor(userId));
-        conversationId = request.conversationId;
-      } catch (e) {
-        // CR-27：仅「会话不存在」时自动新建；越权（Forbidden）等错误放行，不吞
-        if (!(e instanceof NotFoundException)) throw e;
-        const conv = await this.conversationService.createConversation(
-          userId,
-          providerName,
-          request.model ?? this.config.defaultModel,
-        );
-        conversationId = conv.id;
-      }
-    } else {
-      const conv = await this.conversationService.createConversation(
-        userId,
-        providerName,
-        request.model ?? this.config.defaultModel,
-      );
-      conversationId = conv.id;
-    }
+    const conversationId = await this._resolveConversation(userId, request, providerName);
 
     // Append user message
     await this.conversationService.appendMessage(conversationId, {
@@ -694,73 +772,17 @@ export class AiService {
       // （docs/run-level-approval.spec.md §2：R5/R4/trusted/无摘要均不并入，各自走原路径；run 决策先于逐条 decision）
       let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout'; runId: string } | undefined;
       {
-        const ttlSeconds = this.settingsService
-          ? Number(
-              await this.settingsService.getWithDefault(
-                SETTING_KEYS.CONFIRMATION_TTL,
-                60,
-              ),
-            )
-          : 60;
-        const cands: Array<{
-          idx: number;
-          name: string;
-          parsed: Record<string, unknown>;
-          summary: string | null;
-          risk: string;
-        }> = [];
-        for (const tc of acc.toolCalls()) {
-          if (trustedTools.has(tc.name)) continue; // HS-6 免确认
-          // 未注册工具（LLM 幻觉名 / 外部 mcp_* 工具，ExternalToolProvider 不入 ToolRegistry）会让
-          // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
-          // 须与循环内逐条路径同样容错——否则异常逸出 chatStream 会中断整条 SSE 流（而非降级为该工具失败）
-          try {
-            if (!(await this.toolGate.requiresConfirmation(tc.name))) continue; // 读工具
-            if (await this.toolGate.requiresApproval(tc.name)) continue; // R4 异步审批不混入
-          } catch {
-            continue; // 注册/解析异常的工具留给逐条路径如实报错，不中断流
-          }
-          let parsed: Record<string, unknown>;
-          try {
-            parsed = JSON.parse(tc.args);
-          } catch {
-            continue; // 解析失败留循环原样报错
-          }
-          let risk = 'R3';
-          try {
-            risk = this.toolRegistry?.riskLevel(tc.name) ?? 'R3';
-          } catch {
-            /* registry 未含该工具 → 默认 R3 */
-          }
-          if (risk === 'R5') continue; // R5 留循环内逐条 block
-          // 评审 H2 修复：HS-2 门控在聚合前预检——禁用/角色白名单/未验证/策略禁用的成员不并入 run，
-          // 避免「run 先获授权、成员执行时才拒」的无效授权序（与逐条 1380 断言同 gate）
-          try {
-            await this.toolGate.assertToolAllowed(tc.name, userId);
-          } catch {
-            continue; // 留逐条路径由 1380 断言如实报错，不并入 run
-          }
-          cands.push({ idx: tc.index, name: tc.name, parsed, summary: this.presentation.writeToolSummary(tc.name, parsed), risk });
-        }
-        // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
-        const aggregable = cands.filter((c) => c.summary !== null);
-        if (aggregable.length >= 2) {
-          // runRisk = 批内最高风险级（R3 run 成员通常恒 R3，max 保持通用）
-          // 键序取自权威表（R0→R5 升序声明）——本地硬编码副本会在新增/改名风险级时静默漂移，使 runRisk 取错
-          const RISK_ORDER = Object.keys(RISK_STRATEGY);
-          const runRisk = aggregable.reduce(
-            (max, c) =>
-              RISK_ORDER.indexOf(c.risk) > RISK_ORDER.indexOf(max)
-                ? c.risk
-                : max,
-            'R0',
-          );
+        // 聚合交给 `_collectRunCandidates`（分析段）；这里只留「创建 run → 下发确认 → 等决策」的编排。
+        // The aggregation is now `_collectRunCandidates`; this block keeps only the orchestration.
+        const collected = await this._collectRunCandidates(userId, acc.toolCalls(), trustedTools);
+        if (collected) {
+          const { aggregable, runRisk, ttlSeconds } = collected;
           const { token, decision } = await this.confirmationStore.createRun(
             userId,
             aggregable.map((c) => ({
               toolName: c.name,
               args: c.parsed,
-              summary: c.summary!,
+              summary: c.summary,
               riskLevel: c.risk,
             })),
             runRisk,
@@ -894,14 +916,7 @@ export class AiService {
               if (runState?.idxSet.has(tc.index)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
               } else {
-                const ttlSeconds = this.settingsService
-                  ? Number(
-                      await this.settingsService.getWithDefault(
-                        SETTING_KEYS.CONFIRMATION_TTL,
-                        60,
-                      ),
-                    )
-                  : 60;
+                const ttlSeconds = await this._confirmationTtlSeconds();
                 const { token, decision } = await this.confirmationStore.create(
                   userId,
                   tc.name,
