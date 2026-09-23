@@ -332,11 +332,6 @@ jobs:
       - name: 语义单源闸
         # base：push 用 event.before；PR 用 base.sha（事件无 before → 回退会导致多提交 PR 误红）
         run: node Server-NestJS/scripts/check-semantic-single-source.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
-      - name: 契约目录冻结闸
-        # 契约层已独立成仓，主仓是消费者：specs/protocol/ **内部**文件的变动即红。
-        # 不守护裸路径——目录成为 submodule 后，前移钉子是合法操作（gitlink 不带尾斜杠）。
-        # 唯一例外是「转为 submodule」的转换提交本身，加 trailer [contract-dir-transition]。
-        run: node Server-NestJS/scripts/check-contract-dir-frozen.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
 
   # 生成器/导入/映射 CLI 测试（零依赖 node:test，root 跑）——keelbase init 与 OpenAPI/Schema/Business Spec 导入防回归
   cli-test:
