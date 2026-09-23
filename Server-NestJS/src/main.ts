@@ -68,7 +68,19 @@ async function bootstrap() {
    });
 
   // Security headers
-  app.use(helmet());
+  // 例外：script-src 放行 'wasm-unsafe-eval' —— Flutter web 的 CanvasKit 是 WebAssembly，
+  // 而 CSP 下编译 wasm 需要该关键字（只授权 wasm 编译，**不**放行 JS eval，比 'unsafe-eval' 窄得多）。
+  // 缺它时连 8 字节的最小 wasm 都编译不了（2026-09-23 实测），单容器的 /mobile 预览必然白屏。
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'script-src': ["'self'", "'wasm-unsafe-eval'"],
+        },
+      },
+    }),
+  );
 
   // Body size limit — prevent large payload attacks
   app.use(json({ limit: '1mb' }));

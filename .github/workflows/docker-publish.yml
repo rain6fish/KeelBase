@@ -46,7 +46,7 @@ jobs:
           flutter doctor -v 2>&1 | tail -20 || true
           flutter pub get
           set +e
-          flutter build web --release --base-href=/mobile/ > /tmp/flutter_build.log 2>&1
+          flutter build web --release --base-href=/mobile/ --no-web-resources-cdn > /tmp/flutter_build.log 2>&1
           RC=$?
           echo "flutter build exit: $RC"
           if [ $RC -ne 0 ]; then
@@ -66,9 +66,9 @@ jobs:
 
       # 构建 Web-Admin-Vue（Vue3）产物由 Dockerfile admin-build stage 在容器内完成，无需宿主机
 
-      # 产物挂载点断言：build/web 会被 COPY 到 public/mobile，base href 必须是 /mobile/（否则页面停在 Loading）
-      - name: Assert mobile base href
-        run: npm run check:mobile-base
+      # 移动预览门禁：产物会被 COPY 到 public/mobile，基路径/自托管资源/CSP 三者任一不合就白屏
+      - name: Assert mobile preview is servable
+        run: npm run check:mobile-preview
 
       # 登录 ghcr.io（用内置 GITHUB_TOKEN）
       - name: Log in to ghcr.io
