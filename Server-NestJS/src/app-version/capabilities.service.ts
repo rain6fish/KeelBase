@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { MODULES_MANIFEST } from '../common/modules/modules-manifest';
+import { CURRENCY_SYMBOL } from '../common/utils/money';
 
 /** AI provider → 对应 API Key 环境变量（对齐 .env.example）。 */
 const PROVIDER_API_KEY: Record<string, string> = {
@@ -52,6 +53,13 @@ export class CapabilitiesService {
         provider: this.configService.get<string>('AI_PROVIDER', 'deepseek'),
       },
       businessModules,
+      // 展示参数（契约 v2）：币种符号由**服务端**发布，取代三个端各自的常量 —— 一条金额规则
+      // 三个权威是同一种漂移，只是换了条路走。
+      //
+      // 取的是后端格式化金额用的**同一个常量**（common/utils/money.ts），于是「后端显示的符号」
+      // 与「对外发布的符号」在构造上一致，不会各说各话。把符号做成运行期可改（settings / env）
+      // 是另一件事，等真的出现多币种需求再做 —— 届时替换的是这一处取值。
+      display: { currencySymbol: CURRENCY_SYMBOL },
     };
   }
 }
