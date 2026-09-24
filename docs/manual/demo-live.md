@@ -11,7 +11,7 @@
 |---|---|---|
 | 工作台 Workbench | `http://121.199.30.80/user/` | 普通用户（AI CRM / 事件 / 待办 / AI 对话） |
 | 管理台 Admin Console | `http://121.199.30.80/admin/` | 管理员（审计 / 治理 / 用户 / 监控） |
-| 移动预览 Mobile | `http://121.199.30.80/mobile/` | Flutter 主 App Web 预览 |
+| 移动预览 Mobile | `http://121.199.30.80/mobile/` | Flutter 主 App Web 预览 —— **当前不可用（页面停在 Loading），见「备注」** |
 
 ## 演示账号 / Accounts
 
@@ -36,12 +36,14 @@
 
 - **Run**：AI 不是聊天——它在权限与确认边界内**真实读取并作用于业务数据**
 - **Trust**：每步审计、写操作确认、副作用可撤销、哈希链可验证
-- **三端**：同一后端，工作台 / 管理台 / 移动三端可用
+- **三端**：同一后端；**工作台 / 管理台可用**，移动预览当前不可用（见「备注」）
 
 ## 备注 / Notes
 
 - 后端健康检查：`http://121.199.30.80/api/v1/health`
 - AI 对话依赖 DeepSeek key（已配置）；本地/离线场景走 Ollama（见 `private-ai-verification.md`）
+- **⚠️ 移动预览 `/mobile/` 当前不可用**（2026-09-24 实测：页面停在 Loading，服务端无报错、HTTP 全 200）。缺陷已定位并**在代码中修复**（构建基路径 + 自托管资源 + CSP 三处，由门禁 `npm run check:mobile-preview` 守着），但**尚未重新部署到本环境**。重新部署后请删去本条，并恢复上方入口表与「演示价值」中的状态。
+- The mobile preview at `/mobile/` is currently **unavailable** (verified 2026-09-24 — it stalls on Loading while the server returns 200 for everything). The defect is fixed in the source — build base path, self-hosted assets and CSP, guarded by `npm run check:mobile-preview` — but has not been redeployed to this host.
 
 ## 数据复位（Demo Reset，V-4）/ Reset Demo Data
 
