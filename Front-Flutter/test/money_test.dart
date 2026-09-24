@@ -51,4 +51,27 @@ void main() {
       expect(formatMoney(12, symbol: '\$'), '\$12.00');
     });
   });
+
+  // 币种符号由服务端下发（契约 v2）；端内常量只是**兜底**，不是权威。
+  group('setCurrencySymbol', () {
+    tearDown(() => setCurrencySymbol(fallbackCurrencySymbol));
+
+    test('服务端下发的符号立即生效', () {
+      setCurrencySymbol('\$');
+      expect(currencySymbol, '\$');
+      expect(formatMoney(12), '\$12.00');
+    });
+
+    test('空值/缺省被忽略 —— 早于该字段的服务端不会把兜底值清空', () {
+      setCurrencySymbol('   ');
+      expect(currencySymbol, fallbackCurrencySymbol);
+      setCurrencySymbol(null);
+      expect(currencySymbol, fallbackCurrencySymbol);
+    });
+
+    test('显式传入的 symbol 仍优先于全局值', () {
+      setCurrencySymbol('\$');
+      expect(formatMoney(12, symbol: '€'), '€12.00');
+    });
+  });
 }

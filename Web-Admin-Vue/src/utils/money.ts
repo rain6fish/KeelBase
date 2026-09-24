@@ -16,14 +16,38 @@
  */
 
 /**
- * The platform's display currency symbol. One constant so every caller agrees; making it a
- * runtime global setting is a separate, contract-visible step (the public endpoint that
- * would carry it is registered in the wire contract), so it is tracked rather than assumed.
+ * The symbol used until the server tells us which one it is.
  *
- * 平台的显示币种符号。留作单一常量使所有调用方一致；把它做成运行期全局设置是另一件
- * **契约可见**的事（需要承载它的公开端点在 wire 契约里已登记），故记为待办而不是想当然。
+ * A **fallback, not the authority**: `GET /app/capabilities` now carries
+ * `display.currencySymbol` (contract v2) and `setCurrencySymbol` applies it as soon as the
+ * capabilities payload arrives. Before that first fetch — or if it fails — this keeps amounts
+ * readable instead of rendering them with nothing in front.
+ *
+ * 服务端告知之前使用的符号。
+ *
+ * 它是**兜底值而非权威**：`GET /app/capabilities` 现在承载 `display.currencySymbol`（契约 v2），
+ * 能力清单到达后 `setCurrencySymbol` 会立即应用它。在首次取回之前 —— 或取回失败时 —— 这个值
+ * 让金额仍可读，而不是渲染成前面什么都没有。
  */
-export const CURRENCY_SYMBOL = '¥';
+export const FALLBACK_CURRENCY_SYMBOL = '¥';
+
+let currentSymbol = FALLBACK_CURRENCY_SYMBOL;
+
+/**
+ * Apply the symbol the server published. An empty or missing value is ignored, so a server
+ * that predates the field cannot blank out the fallback.
+ *
+ * 应用服务端发布的符号。空值/缺省会被忽略，使早于该字段的服务端不会把兜底值清空。
+ */
+export function setCurrencySymbol(symbol?: string | null): void {
+  const value = typeof symbol === 'string' ? symbol.trim() : '';
+  if (value.length > 0) currentSymbol = value;
+}
+
+/** The symbol currently in effect: the server's once loaded, the fallback before that. */
+export function getCurrencySymbol(): string {
+  return currentSymbol;
+}
 
 const THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
 const DECIMAL_STRING = /^\d+(\.\d+)?$/;
@@ -41,7 +65,7 @@ export function formatMoney(
   amount: number | null | undefined,
   opts: { symbol?: string; decimals?: number } = {},
 ): string {
-  const symbol = opts.symbol ?? CURRENCY_SYMBOL;
+  const symbol = opts.symbol ?? currentSymbol;
   const decimals = Math.max(0, Math.trunc(opts.decimals ?? 2));
   const raw = String(amount ?? '').trim();
   const negative = raw.startsWith('-');
@@ -64,9 +88,9 @@ export function formatMoney(
  * 比明细页显示得更短 —— 同一条规则的两种呈现，不是两条规则。
  */
 export function formatMoneyCompact(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return `${CURRENCY_SYMBOL}0`;
+  if (amount === null || amount === undefined) return `${currentSymbol}0`;
   const negative = amount < 0;
   const abs = Math.abs(amount);
   const body = abs >= 10000 ? `${(abs / 10000).toFixed(1)}万` : String(abs);
-  return `${negative ? '-' : ''}${CURRENCY_SYMBOL}${body}`;
+  return `${negative ? '-' : ''}${currentSymbol}${body}`;
 }

@@ -102,7 +102,8 @@ describe('CrmCustomerDetailView（AI CRM 客户详情）', () => {
     expect(wrapper.text()).toContain('13800000000')
     expect(wrapper.text()).toContain('重点客户')
     expect(wrapper.text()).toContain('合作中') // 状态标签
-    expect(wrapper.text()).toContain('450000') // 订单金额
+    // 订单金额走单源格式化（F-11）：千分位 + 默认两位小数（此前是裸 toFixed(0)）
+    expect(wrapper.text()).toContain('¥450,000.00')
     expect(wrapper.text()).toContain('电话沟通续约')
     expect(wrapper.text()).toContain('跟进续约报价')
     expect(wrapper.text()).toContain('回款逾期') // 风险 reason

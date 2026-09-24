@@ -77,7 +77,8 @@ describe('ApprovalRequestDetailView（AI Approval 审批详情）', () => {
     expect(getMock).toHaveBeenCalledWith(1)
     expect(wrapper.text()).toContain('Q3 差旅报销') // PageHeader 标题 = 审批标题
     expect(wrapper.text()).toContain('报销') // 类型标签
-    expect(wrapper.text()).toContain('¥1234.50') // 金额 toFixed(2)
+    // 金额走单源格式化（F-11）：千分位 + 默认两位小数，不再是裸 toFixed
+    expect(wrapper.text()).toContain('¥1,234.50')
     expect(wrapper.text()).toContain('上海出差住宿交通')
     expect(wrapper.text()).toContain('AI 预审建议')
     expect(wrapper.text()).toContain('单笔在政策限额内，建议自动通过')
