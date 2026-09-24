@@ -274,6 +274,8 @@ is published and what is on `main` is exactly what you need to see.
 
 - **Quick Start 快速开始** — [中文](docs/manual/quickstart.md) · [English](docs/manual/quickstart-en.md)
 - **Tutorial 零基础教程** — [中文](docs/manual/tutorial.md) · [English](docs/manual/tutorial-en.md)
+- **Concept Map 概念地图** — [中文](docs/manual/concepts.md) · [English](docs/manual/concepts-en.md)
+- **Rules Map 规则地图** — [中文](docs/manual/rules-map.md) · [English](docs/manual/rules-map-en.md)
 - **Build an AI CRM in 30 minutes 30 分钟构建 AI CRM** — [中文](docs/manual/onboarding-30min.md) · [English](docs/manual/onboarding-30min-en.md)
 - **30-Minute Acceptance 30 分钟验收** — [中文](docs/manual/30min-acceptance.md) · [English](docs/manual/30min-acceptance-en.md)
 - **Dev Challenge 开发者 30 分钟挑战** — [中文](docs/manual/dev-challenge.md) · [English](docs/manual/dev-challenge-en.md)

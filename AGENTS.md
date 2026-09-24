@@ -26,6 +26,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 | 根 `/` | 本 AGENTS.md（全局约定） |
 | 各业务模块 `src/features/*` 或 `src/*/` | 模块内如有 `AGENTS.md` 则继承并局部覆盖；否则遵循本文件 |
 
+> **不确定某类规则该看哪份？** 查 [规则地图](docs/manual/rules-map.md)——它是所有规则的**入口索引**（宪法 / 本文件 / CLAUDE.md / 技能 / SECURITY 各管什么）。概念看不懂查 [概念地图](docs/manual/concepts.md)。
+
 ## 3. 新增业务模块 —— AI 必做清单
 
 > 对齐 `keelbase init` 生成器的 7 处接线。**手工加模块（或 AI 加模块）必须全部完成**，缺一处就是坏的模块。
