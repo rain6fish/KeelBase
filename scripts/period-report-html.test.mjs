@@ -16,7 +16,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { renderPeriodHtml, verifyPeriodPackage } from '../Server-NestJS/scripts/lib/period-report-html.mjs';
-import { chainHash } from '../Server-NestJS/scripts/lib/protocol-algorithms.mjs';
+import { chainHash } from '../Server-NestJS/specs/protocol/runner/lib/protocol-algorithms.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = resolve(__dirname, '../Server-NestJS/scripts');
@@ -45,7 +45,7 @@ function signedPkg({ tamper = false } = {}) {
 }
 
 function render(pkg, keys = [], opts = {}) {
-  return renderPeriodHtml(pkg, verifyPeriodPackage(pkg, keys), { pkgName: 'export.json', ...opts });
+  return renderPeriodHtml(pkg, verifyPeriodPackage(pkg, keys, chainHash), { pkgName: 'export.json', ...opts });
 }
 
 /** 临时目录内落包 + 跑 D-1 CLI；返回 { status, stdout, html }。 */
@@ -92,7 +92,7 @@ test('D-1 逐条链接缺失降级：href 为空时显示「未附」且本报�
 
 test('D-1 结论：无密钥 → 结构验证（取包内 hashChain.valid）；签名缺省如实标注', () => {
   const pkg = signedPkg();
-  const v = verifyPeriodPackage(pkg, []);
+  const v = verifyPeriodPackage(pkg, [], chainHash);
   assert.equal(v.ok, true);
   assert.equal(v.mode, 'structure');
   assert.equal(v.signatureState, 'skipped', '有签名但无密钥 → 未验签');
@@ -102,7 +102,7 @@ test('D-1 结论：无密钥 → 结构验证（取包内 hashChain.valid）；�
 
 test('D-1 结论：--key 正确 → 全量重算 + 验签 PASS', () => {
   const pkg = signedPkg();
-  const v = verifyPeriodPackage(pkg, [KEY]);
+  const v = verifyPeriodPackage(pkg, [KEY], chainHash);
   assert.equal(v.mode, 'full');
   assert.equal(v.signatureState, 'verified');
   assert.deepEqual(v.recomputed, { done: 2, total: 2 });
@@ -110,7 +110,7 @@ test('D-1 结论：--key 正确 → 全量重算 + 验签 PASS', () => {
 });
 
 test('D-1 篡改定位：--key 下改一行 payload → FAIL 且含「断链 @ 行 2」', () => {
-  const v = verifyPeriodPackage(signedPkg({ tamper: true }), [KEY]);
+  const v = verifyPeriodPackage(signedPkg({ tamper: true }), [KEY], chainHash);
   assert.equal(v.ok, false);
   assert.equal(v.brokenAt, 2);
   const html = renderPeriodHtml(signedPkg({ tamper: true }), v, { pkgName: 'export.json' });
@@ -119,7 +119,7 @@ test('D-1 篡改定位：--key 下改一行 payload → FAIL 且含「断链 @ �
 });
 
 test('D-1 签名不匹配：错密钥 → FAIL（signature mismatch）', () => {
-  const v = verifyPeriodPackage(signedPkg(), ['wrong-key']);
+  const v = verifyPeriodPackage(signedPkg(), ['wrong-key'], chainHash);
   assert.equal(v.signatureState, 'mismatch');
   assert.equal(v.ok, false);
   assert.match(renderPeriodHtml(signedPkg(), v, {}), /签名不匹配|Signature mismatch/);
@@ -127,7 +127,7 @@ test('D-1 签名不匹配：错密钥 → FAIL（signature mismatch）', () => {
 
 test('D-1 签名缺省：signature=null → signatureState=absent 且如实标注无法验签', () => {
   const pkg = JSON.parse(readFileSync(SAMPLE_V2, 'utf8'));
-  const v = verifyPeriodPackage(pkg, [KEY]);
+  const v = verifyPeriodPackage(pkg, [KEY], chainHash);
   assert.equal(v.signatureState, 'absent');
   assert.match(renderPeriodHtml(pkg, v, {}), /无签名.*无法验签|cannot be verified/);
 });

@@ -306,7 +306,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: node Server-NestJS/scripts/generate-protocol-vectors.mjs --check
-      - run: node Server-NestJS/scripts/verify-protocol-conformance.mjs
+      # The conformance suite lives in the contract repository; this runs the pinned copy of it.
+      # 合规套件住在契约仓；这里跑的是所钉的那一份。
+      - run: node Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs
 
   # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
   # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何

@@ -121,7 +121,7 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 4. 读 `wire-schema-registry.json` → 对每对象的 `samples/*` 用标准 JSON Schema 校验器过一遍；
 5. 输出机器可读报告（结构见参考 runner `docs/benchmark/protocol-conformance-<ts>.json`）。
 
-> 参考 runner（`Server-NestJS/scripts/verify-protocol-conformance.mjs`）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
+> 参考 runner（`Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`，契约仓）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
 
 **载体可替换的实证（2026-09-14）**：
 

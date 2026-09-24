@@ -130,7 +130,7 @@
 |---|---|---|
 | `keelbase-init.mjs` + `.test.mjs` | 仓库根 `scripts/` | R4（生成 + 一致性锁） |
 | `verify-golden-crm.mjs` / `verify-golden-application.sh` | 仓库根 `scripts/` | R5（CRM Reference 侧复用） |
-| `verify-protocol-conformance.mjs` | `Server-NestJS/scripts/`（node 直跑） | R4 协议合规（既有 22/22 留档） |
+| `verify-protocol-conformance.mjs` | `Server-NestJS/specs/protocol/runner/`（契约仓，经 submodule，node 直跑） | R4 协议合规（既有 22/22 留档） |
 | `verify:evidence` / `verify:evidence-root` | `Server-NestJS/package.json` → `verify-evidence.mjs` / `verify-evidence-root.sh` | R8 |
 | `verify:trust-proof` | `Server-NestJS/package.json` → `verify-trust-proof.mjs`（含 S7） | R8/R9 |
 | agent-benchmark + failure-path corpus / e2e | `scripts/benchmark/` + `src/ai/failure-path/` | R7 补强 / R9 失败路径 |

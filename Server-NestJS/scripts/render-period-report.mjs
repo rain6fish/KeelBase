@@ -17,6 +17,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import { parseArgs, keysFromFlags, langFromFlags } from './lib/cli-args.mjs';
 import { verifyPeriodPackage, renderPeriodHtml } from './lib/period-report-html.mjs';
+// The algorithm single source is the contract's; this CLI supplies it to the renderer.
+// 算法单源是契约的；由这个 CLI 交给渲染件。
+import { chainHash } from '../specs/protocol/runner/lib/protocol-algorithms.mjs';
 
 const { positional, flags } = parseArgs(process.argv.slice(2));
 const fileArg = positional[0];
@@ -40,7 +43,7 @@ if (!/^keelbase-audit-evidence\/[12]$/.test(pkg.format ?? '')) {
   process.exit(1);
 }
 
-const verdict = verifyPeriodPackage(pkg, keys);
+const verdict = verifyPeriodPackage(pkg, keys, chainHash);
 const html = renderPeriodHtml(pkg, verdict, { lang, pkgName: basename(fileArg), limit });
 const outPath = outOpt ?? resolve(dirname(fileArg), `${basename(fileArg).replace(/\.[^.]+$/, '')}.report.html`);
 writeFileSync(outPath, html);

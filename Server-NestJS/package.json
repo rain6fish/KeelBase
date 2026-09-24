@@ -31,7 +31,7 @@
     "seed:demo": "ts-node scripts/seed-demo.ts",
     "healthcheck": "ts-node scripts/healthcheck.ts",
     "audit:chain:load": "ts-node scripts/audit-chain-load-test.ts",
-    "conformance": "node scripts/verify-protocol-conformance.mjs",
+    "conformance": "node specs/protocol/runner/verify-protocol-conformance.mjs",
     "protocol:vectors": "node scripts/generate-protocol-vectors.mjs",
     "protocol:vectors:check": "node scripts/generate-protocol-vectors.mjs --check",
     "test:wire-schema": "jest src/common/wire-schema --forceExit",

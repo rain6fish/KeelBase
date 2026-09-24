@@ -4,7 +4,7 @@
  * CE-1 语料复现测试（B1）：让生产 AuditChainService 跑 specs/protocol 同一份向量语料。
  *
  * 三方锁一致（单源规则机器强制，CE-1 L3）：
- *   现实现（scripts/lib/protocol-algorithms.mjs）== specs 金样本（generate --check CI 门禁）
+ *   契约参考算法（specs/protocol/runner/lib/protocol-algorithms.mjs）== specs 金样本（generate --check CI 门禁）
  *   == 生产实现（本测试）——生产任何 canonical/hash/legacy/链语义漂移都在此红。
  *
  * 边界：密钥域分离、genesis 字面量、篡改反例等纯算法断言由语言无关
