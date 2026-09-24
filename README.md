@@ -255,9 +255,9 @@ first release rather than assembled when someone asks.
 
 | Runtime | Runtime version | Contract version |
 |---|---|---|
-| **KeelBase** (TypeScript) | `v1.0.11` | **v1.0.1** — carried in-tree; this release predates the contract repository |
-| **KeelBase** (TypeScript) | `main`, **unreleased** | **v1.1.0** — bound as a submodule |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.0.1** — vendored snapshot |
+| `KeelBase` (TypeScript) | `v1.0.11` | **v1.0.1** — carried in-tree; that release predates the contract repository |
+| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.1.0** — bound as a submodule |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.1.0** — vendored snapshot, refreshed from the main repository |
 
 A runtime that is behind the current contract is not broken; it simply does not yet answer for the
 newer version's objects. What moves a runtime forward is a deliberate act — the contract never reaches
