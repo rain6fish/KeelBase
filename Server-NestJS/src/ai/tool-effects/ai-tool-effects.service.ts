@@ -18,7 +18,7 @@ import type { DeclaredSideEffect } from './effect-composition';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
 import { LessThan } from 'typeorm';
-import { revokeAge, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
+import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 
 export interface WriteToolContext {
   userId: string;
@@ -61,6 +61,12 @@ export type RevokeBatchItem = {
   error?: string;
   /** 级联补偿（v3）：该结果所属补偿组（null/缺省 = 单目标副作用） */
   compensationGroup?: string | null;
+  /**
+   * REV-1：该行所属补偿组**声明与持有不一致**——逐条计数仍是逐行事实（这一行确实被补偿了），
+   * 但整组不得被读成「这次业务动作已完全撤销」。批量里没有组级结论位（契约也不允许新增顶层键），
+   * 故由逐条标记承载这个信号。
+   */
+  disputed?: boolean;
 };
 
 /** G1 会话级批量撤销：汇总 + 逐条结果 */
@@ -75,6 +81,16 @@ export type RevokeBatchResult = {
 
 /** §4 G1：run 级批量撤销结果（同会话级形状，作用域键换成 runId） */
 export type RevokeRunBatchResult = Omit<RevokeBatchResult, 'conversationId'> & { runId: string };
+
+/** REV-3：跨组重叠（同一业务对象被拆进多个补偿组）的检出条目 */
+export interface SplitGroupFinding {
+  resultType: string;
+  resultId: number;
+  /** 该业务对象出现在哪些补偿组里（> 1 即分裂） */
+  groups: string[];
+  /** 承载它的**已分组**副作用行 id（与 groups 同口径，按登记序） */
+  effectIds: number[];
+}
 
 /** 撤销结果：本地实体 revoked=true（软删）；B 路径外部（proxy_call）external=true（Java 端补偿 / 或诚实语义） */
 export type RevokeResult = {
@@ -104,6 +120,44 @@ function isUniqueViolation(err: unknown): boolean {
     msg.includes('SQLITE_CONSTRAINT') ||
     /UNIQUE constraint failed/i.test(msg)
   );
+}
+
+/** REV-1：成员比对用的**目标身份**（正是 `memberKey` 消费的业务载荷）。不含声明下标。 */
+function targetKey(e: { resultType: string; resultId: number }): string {
+  return `${e.resultType}:${e.resultId}`;
+}
+
+/**
+ * REV-1：争议证据（JSON 存 `revoke_dispute` 列，**链外注解**）。
+ * 留存「被拒的那份声明」与双向差集，使「少记录」这一静默失败变成可查的事实。
+ */
+export interface RevokeDisputeEvidence {
+  /** 被拒的那份声明（重试声明的原样内容） */
+  declared: DeclaredSideEffect[];
+  /** 当时**已持有**的成员 */
+  stored: DeclaredSideEffect[];
+  /** 声明里有、持有里没有 —— 会被静默丢弃的那几条（撤销该组时补偿不到） */
+  onlyDeclared: DeclaredSideEffect[];
+  /** 持有里有、声明里没有 —— 重试声明**更少**的情形 */
+  onlyStored: DeclaredSideEffect[];
+  decidedAt: string;
+}
+
+/**
+ * REV-1：比对「被拒声明」与「已持有组」的成员集合，**双向**求差（重试也可能声明**更少**）。
+ * 一致 → null（纯幂等重放，既有行为不变）。按目标身份比集合、**不按声明下标比位置**：
+ * 问题在于覆盖（哪几条补偿不到），下标只决定根成员与幂等键，不决定某一条会不会被补偿。
+ */
+function declarationDiff(
+  declared: DeclaredSideEffect[],
+  stored: DeclaredSideEffect[],
+): { onlyDeclared: DeclaredSideEffect[]; onlyStored: DeclaredSideEffect[] } | null {
+  const storedKeys = new Set(stored.map(targetKey));
+  const declaredKeys = new Set(declared.map(targetKey));
+  const onlyDeclared = declared.filter((e) => !storedKeys.has(targetKey(e)));
+  const onlyStored = stored.filter((e) => !declaredKeys.has(targetKey(e)));
+  if (onlyDeclared.length === 0 && onlyStored.length === 0) return null;
+  return { onlyDeclared, onlyStored };
 }
 
 /**
@@ -267,9 +321,50 @@ export class AiToolEffectsService {
       }
       this.logger.warn(`[AiToolEffects] recordGroup conflict (idempotent replay): ${(err as Error).message}`);
       const existing = await this.listGroup(baseKey);
+      // REV-1：回放之前先比一次声明与持有 —— 不比对就是「静默少记录」（撤销该组只补偿持有的那些行、汇总全绿）。
+      await this._markDisputeIfDeclarationDiffers(baseKey, effects, existing);
       this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
       return existing;
     }
+  }
+
+  /**
+   * REV-1：被拒声明与已持有组不一致 → 留存证据并把整组标为争议。
+   *
+   * 触发条件：同参数重试在幂等键上冲突（→ 整组回滚 → 回放既有组），而工具**非确定性**，两次声明的成员不同
+   * （多声明或少声明都算）。此时回放的那一组**不覆盖**本次声明 —— 沉默地回放它，就等于把「这部分已撤销」
+   * 说成事实。标记后撤销路径据 `revokeDispute` **拒绝报告完成**（见 `_withDisputeNote` / `_groupResult`）。
+   *
+   * 证据写在**根行**（组内主体对象，`parent_effect_id IS NULL`）上，一处即够：撤销路径按**组**判定
+   * （`_compensateGroup` 载入全组后 `members.some(m => m.revokeDispute)`），单成员组的唯一一行本来就是根行。
+   * 逐行复制只会把同一份证据放大成 O(N²) 文本、并在写入失败时留下互相不一致的副本 —— 单一副本是单一事实。
+   * 列是**链外注解**，不入 `_chainPayload`，故不破历史链。标记写入失败只告警——它不改变业务事实，
+   * 权威的补偿语义仍由逐行 revoke_status 与目标软删信号承载。
+   */
+  private async _markDisputeIfDeclarationDiffers(
+    baseKey: string,
+    declared: DeclaredSideEffect[],
+    stored: AiToolSideEffect[],
+  ): Promise<void> {
+    if (stored.length === 0) return; // 无既有行可标（唯一冲突来自别处）→ 不制造无处可读的标记
+    // 两侧都按**目标引用**比（行对象本身带一堆链列/注解列，混进证据只会稀释它）
+    const storedRefs = stored.map((e) => ({ resultType: e.resultType, resultId: e.resultId }));
+    const diff = declarationDiff(declared, storedRefs);
+    if (!diff) return;
+    const evidence: RevokeDisputeEvidence = {
+      declared,
+      stored: storedRefs,
+      onlyDeclared: diff.onlyDeclared,
+      onlyStored: diff.onlyStored,
+      decidedAt: new Date().toISOString(),
+    };
+    this.logger.warn(
+      `[AiToolEffects] compensation group ${baseKey} disputed: 声明 ${declared.length} 条 vs 持有 ${stored.length} 条` +
+        `（声明多出 ${diff.onlyDeclared.length}、持有多出 ${diff.onlyStored.length}）——撤销将拒绝报告完成`,
+    );
+    // 根行：与 _auditCompensation 同一定义（parent_effect_id 为空者；异常形态回落登记序首行）
+    const root = stored.find((r) => r.parentEffectId == null) ?? stored[0];
+    await this._patchRevoke(root, { revokeDispute: JSON.stringify(evidence) });
   }
 
   /** 载入整组副作用（补偿组内全部行，按 id 升序 = 登记序；根在最前） */
@@ -433,6 +528,73 @@ export class AiToolEffectsService {
     return { valid: res.valid, checked: res.checked, hashed: hashed.length, firstHashedId: hashed[0]?.id ?? null };
   }
 
+  /**
+   * REV-3 **检出**：同一 `resultType + resultId`（同一业务对象）出现在**多个**补偿组 → 一次业务动作被拆成两组。
+   *
+   * 为什么难发现：组分键吃的是**调用身份**（userId/conversationId/toolName/args），其中 `conversationId` 会在
+   * 工具毫不知情的情况下变（会话 id 缺失或查不到时 `_resolveConversation` 会**新建**会话；载荷多一个
+   * continuation token 同理）。于是同一个 effect 落进两组，**两组各自内部自洽完整**：唯一冲突永不触发、
+   * 幂等回放根本不执行，记录里没有任何地方读起来异常 —— 比「少记录」（至少留下一次冲突）更难察觉。
+   *
+   * **本次只做检出**，不改组键。根治要把组键改成吃**主体 effect 身份**（参数降为 args_hash 证据），
+   * 那会让两次**合法**调用触碰同一主体行时被并组，属行为语义变更 → 须先裁决。
+   *
+   * 无 LLM、无猜测：只报「哪些业务对象横跨多个组」这一可从库中判定的事实。
+   */
+  async findSplitGroups(
+    limit = 100,
+  ): Promise<{ count: number; truncated: boolean; splits: SplitGroupFinding[] }> {
+    // 检出结果条数上限与 list() 同口径（≤100）：本端点每条要找一次承载行，不放开成无界放大面。
+    const capped = Math.min(Math.max(limit, 1), 100);
+    // 库侧分组聚合（双方言均支持 COUNT(DISTINCT)/HAVING）——不要把全表拉进内存自己分组。
+    // 多取一条用于如实报告「还有更多」：检出器绝不能在自身能力边界上沉默。
+    const pairs = await this.effectsRepo
+      .createQueryBuilder('e')
+      .select('e.resultType', 'resultType')
+      .addSelect('e.resultId', 'resultId')
+      .where('e.compensationGroup IS NOT NULL')
+      .groupBy('e.resultType')
+      .addGroupBy('e.resultId')
+      .having('COUNT(DISTINCT e.compensation_group) > 1')
+      .orderBy('e.resultType', 'ASC')
+      .addOrderBy('e.resultId', 'ASC')
+      .limit(capped + 1)
+      .getRawMany<{ resultType: string; resultId: number | string }>();
+    const truncated = pairs.length > capped;
+    const shown = truncated ? pairs.slice(0, capped) : pairs;
+    const splits: SplitGroupFinding[] = [];
+    for (const p of shown) {
+      const resultId = Number(p.resultId);
+      const rows = await this.effectsRepo.find({
+        where: { resultType: p.resultType, resultId } as any,
+        order: { id: 'ASC' },
+      });
+      // 只列**已分组**的行：`groups` 与 `effectIds` 必须同口径，否则「这几行属于哪些组」会自相矛盾
+      // （无组的单目标行不属于本次分裂，但它确实存在于同一业务对象上——那一层事实由 list/治理视图呈现）。
+      const grouped = rows.filter(
+        (r): r is typeof r & { compensationGroup: string } =>
+          typeof r.compensationGroup === 'string' && r.compensationGroup.length > 0,
+      );
+      splits.push({
+        resultType: p.resultType,
+        resultId,
+        groups: [...new Set(grouped.map((r) => r.compensationGroup))],
+        effectIds: grouped.map((r) => r.id),
+      });
+    }
+    return { count: splits.length, truncated, splits };
+  }
+
+  /** REV-1：读争议证据。列内容由本服务写入；读侧不因一行坏数据让整页 500 —— 解析失败返回 null，`disputed` 仍为 true。 */
+  private _parseDispute(raw: string | null | undefined): RevokeDisputeEvidence | null {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as RevokeDisputeEvidence;
+    } catch {
+      return null;
+    }
+  }
+
   /** D2-3c：副作用双写上报治理台（配置 GOVERNANCE_URL 时；失败静默） */
   private _reportEffect(ctx: WriteToolContext, resultType: string, resultId: number): void {
     if (!this.reporter?.enabled) return;
@@ -492,6 +654,9 @@ export class AiToolEffectsService {
         // REV-2：`compensating` 的年龄与陈旧度。只回答「多久了 / 可能已陈旧」，
         // 真值仍在目标系统 —— 不据此把 revokeStatus 改写成成功或失败。
         const age = revokeAge(effect.revokeStatus, effect.revokeRequestedAt, new Date(), thresholdMinutes);
+        // REV-2 细化：同一条 `compensating` 还分两个窗口 —— 「可能根本没到达」（无确认凭据）与
+        // 「确实到达了但对方没给终态」（有确认凭据）。此前两者读数相同，聚合视图因此不诚实。
+        const window = revokeWindow(effect.revokeStatus, effect.revokeAcknowledgedAt);
         return {
           id: effect.id,
           toolName: effect.toolName,
@@ -513,6 +678,14 @@ export class AiToolEffectsService {
           revokePending: age.pending,
           revokeAgeMinutes: age.ageMinutes,
           revokeStale: age.stale,
+          // REV-2 细化：确认时刻 + 窗口（unacknowledged = 可能未到达 / awaiting_target = 已到达无回音）
+          revokeAcknowledgedAt: effect.revokeAcknowledgedAt
+            ? effect.revokeAcknowledgedAt.toISOString()
+            : null,
+          revokeWindow: window,
+          // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
+          disputed: effect.revokeDispute != null,
+          dispute: this._parseDispute(effect.revokeDispute),
           // 级联补偿（v3）：组标识 + 根引用，供前端显示「这是 N 条中的第 M 条」
           compensationGroup: effect.compensationGroup ?? null,
           parentEffectId: effect.parentEffectId ?? null,
@@ -723,7 +896,8 @@ export class AiToolEffectsService {
     if (!effect) return null;
     const reason = this._skipReason(effect);
     if (reason) return this._skippedResult(effect, reason);
-    return this._doRevoke(effect);
+    // REV-1：单条撤销的响应**就是**结论本身 → 争议组在此降级（批量路径不降级：那里逐条计数是逐行事实）
+    return this._withDisputeNote(effect, await this._doRevoke(effect));
   }
 
   /**
@@ -735,7 +909,7 @@ export class AiToolEffectsService {
     if (!effect || effect.userId !== userId) return null;
     const reason = this._skipReason(effect);
     if (reason) return this._skippedResult(effect, reason);
-    return this._doRevoke(effect);
+    return this._withDisputeNote(effect, await this._doRevoke(effect));
   }
 
   /**
@@ -792,18 +966,25 @@ export class AiToolEffectsService {
     // 若首个成员恰是可跳过态（已撤销/补偿中），提前 continue 会让整组根本不被处理。
     const processedGroups = new Set<string>();
     const scopedIds = new Set(scoped.map((e) => e.id));
+    // REV-1：争议组的行在批量里也必须**读得出**。逐条计数本身是逐行事实（这一行确实被补偿了），
+    // 但若只剩一个光秃秃的 `revoked:3 / failed:0`，批量读起来就是「这次业务动作已完全撤销」——正是要拦的那个读数。
+    // 判定按**组**（标记只在根行上，故逐行看会漏）。
+    const withDispute = (disputed: boolean, item: RevokeBatchItem): RevokeBatchItem =>
+      disputed ? { ...item, disputed: true } : item;
     for (const effect of scoped) {
       const groupId = effect.compensationGroup;
+      const rowDisputed = effect.revokeDispute != null;
       if (groupId) {
         if (processedGroups.has(groupId)) continue;
         processedGroups.add(groupId);
         try {
           const members = await this.listGroup(groupId);
           if (members.length > 1) {
+            const groupDisputed = members.some((m) => m.revokeDispute != null);
             const { items } = await this._compensateGroup(effect, groupId, members);
             for (const it of items) {
               if (!scopedIds.has(it.effectId)) continue;
-              results.push(it);
+              results.push(withDispute(groupDisputed, it));
               if (it.revoked) revoked++;
               else if (it.skipped) skipped++;
               else failed++;
@@ -812,47 +993,55 @@ export class AiToolEffectsService {
           }
         } catch (err) {
           failed++;
-          results.push({
-            effectId: effect.id,
-            revoked: false,
-            error: (err as Error).message,
-            compensationGroup: groupId,
-          });
+          results.push(
+            withDispute(rowDisputed, {
+              effectId: effect.id,
+              revoked: false,
+              error: (err as Error).message,
+              compensationGroup: groupId,
+            }),
+          );
           continue;
         }
       }
       const skipReason = this._skipReason(effect);
       if (skipReason) {
         skipped++;
-        results.push({
-          effectId: effect.id,
-          revoked: false,
-          skipped: true,
-          reason: skipReason,
-          compensationGroup: groupId ?? null,
-        });
+        results.push(
+          withDispute(rowDisputed, {
+            effectId: effect.id,
+            revoked: false,
+            skipped: true,
+            reason: skipReason,
+            compensationGroup: groupId ?? null,
+          }),
+        );
         continue;
       }
       try {
         const r = await this._doRevoke(effect);
         if (r.revoked) revoked++;
         else failed++;
-        results.push({
-          effectId: effect.id,
-          revoked: r.revoked,
-          revokeStatus: r.revokeStatus ?? null,
-          external: r.external ?? false,
-          message: r.message,
-          compensationGroup: groupId ?? null,
-        });
+        results.push(
+          withDispute(rowDisputed, {
+            effectId: effect.id,
+            revoked: r.revoked,
+            revokeStatus: r.revokeStatus ?? null,
+            external: r.external ?? false,
+            message: r.message,
+            compensationGroup: groupId ?? null,
+          }),
+        );
       } catch (err) {
         failed++;
-        results.push({
-          effectId: effect.id,
-          revoked: false,
-          error: (err as Error).message,
-          compensationGroup: groupId ?? null,
-        });
+        results.push(
+          withDispute(rowDisputed, {
+            effectId: effect.id,
+            revoked: false,
+            error: (err as Error).message,
+            compensationGroup: groupId ?? null,
+          }),
+        );
       }
     }
     return { total: scoped.length, revoked, skipped, failed, results };
@@ -873,7 +1062,7 @@ export class AiToolEffectsService {
     // 幂等语义（单条）：已撤销 = 终态已达成 → revoked:true（HTTP DELETE 幂等成功），仅 skipped 标记不重复触发；
     // 补偿中 = 外部结果未知 → 如实 revoked:false（KB-6：不得显示为已撤销）。
     const alreadyRevoked = reason === 'already_revoked';
-    return {
+    return this._withDisputeNote(effect, {
       revoked: alreadyRevoked,
       effectId: effect.id,
       skipped: true,
@@ -884,12 +1073,16 @@ export class AiToolEffectsService {
         reason === 'already_revoked'
           ? '该副作用此前已撤销（幂等成功），跳过重复触发'
           : '外部补偿已请求、结果以目标系统为准——跳过重复触发',
-    };
+    });
   }
 
   /**
    * 撤销派发（docs/cascade-compensation.spec.md §5）：属**多成员补偿组** → 级联补偿整组；
    * 否则走单目标路径（无组的历史行行为逐字节不变）。
+   *
+   * 返回的是**逐行事实**（这一条到底撤销了没有）；REV-1 的争议降级由**结论层**施加：
+   * 单条撤销在 `revoke` / `revokeOwned` 里降级，组级在 `_groupResult` 里降级，批量则不动逐条计数
+   * —— 否则同一件事（持有的行确实补偿了、声明却不一致）会在两条路径上被数成不同的东西。
    */
   private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
     if (effect.compensationGroup) {
@@ -899,6 +1092,22 @@ export class AiToolEffectsService {
       }
     }
     return this._doRevokeSingle(effect);
+  }
+
+  /**
+   * REV-1：**争议组不得报告完成**（这一步才是关键，只暴露不一致不够）。
+   *
+   * 只降级结论与说明，**不改写行级运维态**：持有的那几行确实被补偿了（`revokeStatus=revoked` 是真的），
+   * 而「这**一次业务动作**是否已完全撤销」为假——被拒声明里多出来的成员没有任何行持有，系统撤不了它。
+   * 两个读数由此分轴，故 `revoked:false` 与 `revokeStatus:'revoked'` 并存是**如实**，不是矛盾。
+   */
+  private _withDisputeNote(effect: AiToolSideEffect, result: RevokeResult): RevokeResult {
+    if (!effect.revokeDispute) return result;
+    return {
+      ...result,
+      revoked: false,
+      message: `${result.message ? `${result.message}；` : ''}该补偿组已被标记为「声明与持有不一致」：已按**持有**的行补偿，而声明的成员与登记的不一致——不得视为该业务动作已完全撤销`,
+    };
   }
 
   /** 撤销能力档位（KB-6）：行上快照优先；旧行/未快照行按工具注册或 resultType 兜底解析 */
@@ -922,6 +1131,8 @@ export class AiToolEffectsService {
     const results: RevokeBatchItem[] = [];
     const locals: AiToolSideEffect[] = [];
     const externals: AiToolSideEffect[] = [];
+    // REV-1：争议是**组级**事实（标记写在每一行上）→ 汇总必须据此拒绝报完成，无论本次是否真的补偿了什么。
+    const disputed = members.some((m) => m.revokeDispute != null);
 
     for (const m of members) {
       const reason = this._skipReason(m);
@@ -973,14 +1184,14 @@ export class AiToolEffectsService {
             compensationGroup: groupId,
           });
         }
-        const rolledBack = this._groupResult(requested, groupId, members, results);
+        const rolledBack = this._groupResult(requested, groupId, members, results, disputed);
         // 失败也要留痕：审计要看见「补偿尝试过且失败了」，而不是一片空白
         await this._auditCompensation(groupId, members, rolledBack.items, requested);
         return rolledBack;
       }
       // 提交成功后才回写运维态（在事务内回写会在回滚后留下假的 revoked）
       for (const m of locals) {
-        await this._setRevokeStatus(m, 'revoked');
+        await this._patchRevoke(m, { revokeStatus: 'revoked' });
         results.push({
           effectId: m.id,
           revoked: true,
@@ -1002,7 +1213,7 @@ export class AiToolEffectsService {
       });
     }
 
-    const out = this._groupResult(requested, groupId, members, results);
+    const out = this._groupResult(requested, groupId, members, results, disputed);
     await this._auditCompensation(groupId, members, out.items, requested);
     return out;
   }
@@ -1063,12 +1274,16 @@ export class AiToolEffectsService {
   /**
    * 组级结果汇总：整组全成（或本就是已撤销态）才 `revoked:true`——
    * 「已请求外部补偿·结果未知」与「有成员失败」都不得伪装成已撤销（KB-6 诚实口径）。
+   *
+   * REV-1 第三个条件：**争议组**同样不得报完成。持有多出来的那几条（或声明少掉的那几条）没有任何行承载，
+   * 「这个业务动作已完全撤销」是假的 —— 即便持有的每一行都补偿成功。
    */
   private _groupResult(
     requested: AiToolSideEffect,
     groupId: string,
     members: AiToolSideEffect[],
     results: RevokeBatchItem[],
+    disputed: boolean,
   ): { result: RevokeResult; items: RevokeBatchItem[] } {
     const skipped = results.filter((r) => r.skipped).length;
     const failed = results.filter((r) => !r.revoked && !r.skipped).length;
@@ -1080,7 +1295,7 @@ export class AiToolEffectsService {
     const allOk = failed === 0 && revoked + alreadyRevoked === results.length;
     return {
       result: {
-        revoked: allOk && !compensating,
+        revoked: allOk && !compensating && !disputed,
         effectId: requested.id,
         compensationGroup: groupId,
         cascade: { groupId, total: members.length, revoked, skipped, failed },
@@ -1088,9 +1303,11 @@ export class AiToolEffectsService {
         message:
           failed > 0
             ? `级联补偿失败（${failed}/${members.length} 条未补偿）：本地成员已整体回滚，未产生半补偿状态`
-            : compensating
-              ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
-              : `级联补偿 ${members.length} 条（同一次业务动作）`,
+            : disputed
+              ? `级联补偿 ${members.length} 条：已按**持有**的行补偿，但该组**声明与持有不一致**（组已标 disputed）——不得视为该业务动作已完全撤销`
+              : compensating
+                ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
+                : `级联补偿 ${members.length} 条（同一次业务动作）`,
       },
       items: results,
     };
@@ -1113,14 +1330,28 @@ export class AiToolEffectsService {
     if (revokeClass === 'local_compensate' && this.revoker?.canHandle(effect.resultType)) {
       const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
       this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-      if (r.revoked) await this._setRevokeStatus(effect, 'revoked');
+      if (r.revoked) await this._patchRevoke(effect, { revokeStatus: 'revoked' });
       return { revoked: r.revoked, effectId: effect.id, message: r.message, revokeStatus: r.revoked ? 'revoked' : 'revoke_failed' };
     }
     // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿
     if (this.externalRevoker) {
+      // REV-2 细化：**外呼之前**先写「意图」。这一刻的诚实读数是「**可能根本没到达**外部系统」；
+      // 此前是「先外呼、返回后才写态」——进程若在调用中途死掉则一个字段都不写，该行读起来像**从未请求过补偿**，
+      // 「当前未了结」的聚合里凭空少一条。「发送前」与「已确认」是两个事件，其间的间隙正是那个真实的不确定。
+      await this._patchRevoke(effect, {
+        revokeStatus: 'compensating',
+        revokeRequestedAt: new Date(),
+        // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
+        // 否则新意图会被旧确认冒充成「已到达」。
+        revokeAcknowledgedAt: null,
+      });
       const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
-      // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明"已请求"，Java 端结果未知 → 落 compensating 而非 revoked
-      await this._setRevokeStatus(effect, r.ok ? 'compensating' : 'revoke_failed');
+      // 外呼返回 = **确认**（对方应答过，含拒绝）：单独记为一个事件，与意图之间留下可读的间隙。
+      // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明「已请求」，Java 端结果未知 → 落 compensating 而非 revoked。
+      await this._patchRevoke(effect, {
+        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
+        revokeAcknowledgedAt: new Date(),
+      });
       return {
         revoked: r.ok,
         effectId: effect.id,
@@ -1139,16 +1370,23 @@ export class AiToolEffectsService {
   }
 
   /**
-   * KB-6：回写 revoke_status 运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。
-   * REV-2：进入 `compensating` 时一并记下**补偿请求时刻**（重试即更新为最近一次请求），使「挂了多久」可查；
-   * 其余状态**不动**该列 —— 它是「最近一次补偿请求」的历史记录，不是当前态的年龄。
+   * KB-6：回写撤销运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。
+   *
+   * REV-1 / REV-2 细化后，**每个事件各自成一个 patch**，不再由一个 setter 顺手补齐时间戳：
+   * 意图（外呼前）/ 确认（外呼后）/ 终态（本地补偿成功）/ 争议标记。写什么由调用点显式给出，
+   * 好让「哪一刻写了什么」本身就是可读、可断言的事实。
    */
-  private async _setRevokeStatus(effect: AiToolSideEffect, status: 'revoked' | 'compensating' | 'revoke_failed'): Promise<void> {
+  private async _patchRevoke(
+    effect: AiToolSideEffect,
+    patch: Partial<
+      Pick<
+        AiToolSideEffect,
+        'revokeStatus' | 'revokeRequestedAt' | 'revokeAcknowledgedAt' | 'revokeDispute'
+      >
+    >,
+  ): Promise<void> {
     try {
-      await this.effectsRepo.update(effect.id, {
-        revokeStatus: status,
-        ...(status === 'compensating' ? { revokeRequestedAt: new Date() } : {}),
-      });
+      await this.effectsRepo.update(effect.id, patch);
     } catch (err) {
       this.logger.warn(`[AiToolEffects] revoke_status update failed (effect ${effect.id}): ${(err as Error).message}`);
     }

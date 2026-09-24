@@ -808,7 +808,8 @@ npm run migration:run
 | DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | — | 移除外部 MCP server |
 | GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新；元数据带 riskLevel/riskStrategy 风险声明，A2） |
 | POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
-| GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态） |
+| GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态）；每行回 `revokePending / revokeAgeMinutes / revokeStale`（REV-2：`compensating` 的年龄）、`revokeAcknowledgedAt / revokeWindow`（REV-2 细化：`unacknowledged`=可能未到达 / `awaiting_target`=已到达无回音）、`disputed / dispute`（REV-1：声明与持有不一致的标记 + 证据）；`?stale=true` 只看陈旧未了结 |
+| GET | /api/v1/ai/tool-effects/splits | Yes (ADMIN) | — | 补偿组**过度分裂**检出（REV-3）：同一 `resultType + resultId` 横跨多个补偿组（>1 组）时列出组与承载行，超上限如实标 `truncated`；**只检出不改组键**（根治须先裁决） |
 | DELETE | /api/v1/ai/tool-effects/:id | Yes (ADMIN) | — | 撤销 AI 创建的记录（HS-3，软删可经回收站恢复）；属**跨表复合写组**时自动**级联补偿整组**（docs/cascade-compensation.spec.md） |
 | DELETE | /api/v1/ai/tool-effects?conversationId=\|=runId= | Yes (ADMIN) | — | 批量撤销某会话（conversationId）或某次 run 一次性授权（runId）产生的全部 AI 副作用（G1：逐条本地软删/外部补偿 + 汇总；**按补偿组折叠，同组只补偿一次**；docs/revoke-contract.spec.md §3 Case B / §4 G1） |
 | DELETE | /api/v1/ai/my/tool-effects/:id | Yes | 本人 | 撤销本人 AI 创建的记录（P0-15，所有权校验，软删可经回收站恢复）；同上级联语义 |

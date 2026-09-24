@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { revokeAge, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
+import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 
 /**
  * REV-2 判据的边界情况。三处「不知道就说不知道」是重点：
@@ -66,5 +66,36 @@ describe('revokeAge（REV-2 compensating 的年龄与陈旧度）', () => {
       ageMinutes: 90,
       stale: true,
     });
+  });
+});
+
+/**
+ * REV-2 细化：同一条 `compensating` 的两个窗口 —— 「可能根本没到达」（无确认）与「确实到达了但没回音」（有确认）。
+ * 此前两者读数完全相同，聚合视图因此分不出「进程死在外呼中途」与「对方还没给终态」。
+ */
+describe('revokeWindow（REV-2 细化：compensating 的两个窗口）', () => {
+  const ack = new Date('2026-09-24T11:00:00Z');
+
+  it('非 compensating → 没有窗口可言（还没请求，或已了结）', () => {
+    for (const status of ['revoked', 'revoke_failed', null, undefined]) {
+      expect(revokeWindow(status, ack)).toBeNull();
+    }
+  });
+
+  it('compensating + 无确认 → unacknowledged（可能根本没到达外部系统）', () => {
+    for (const absent of [null, undefined, '']) {
+      expect(revokeWindow('compensating', absent)).toBe('unacknowledged');
+    }
+  });
+
+  it('compensating + 有确认 → awaiting_target（确实到达了，只是没给终态）', () => {
+    expect(revokeWindow('compensating', ack)).toBe('awaiting_target');
+    expect(revokeWindow('compensating', ack.toISOString())).toBe('awaiting_target');
+  });
+
+  it('确认时刻非法 → 视作**无到达凭据**，不把坏输入读成「确实到达了」', () => {
+    for (const bad of ['not-a-date', 'NaN']) {
+      expect(revokeWindow('compensating', bad)).toBe('unacknowledged');
+    }
   });
 });

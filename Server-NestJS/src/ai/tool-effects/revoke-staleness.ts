@@ -51,3 +51,28 @@ export function revokeAge(
   const ageMinutes = Math.max(0, Math.floor((now.getTime() - requestedAt.getTime()) / 60_000));
   return { pending: true, ageMinutes, stale: ageMinutes >= threshold };
 }
+
+/**
+ * REV-2 细化：`compensating` 的**两个窗口**——此前它们被折进同一个取值，聚合视图因此分不出。
+ *
+ * - `unacknowledged`：意图已写、**未获确认** → 请求**可能根本没到达**外部系统（进程在外呼中途死掉即此形）。
+ * - `awaiting_target`：确认已到（对方应答过，含拒绝）→ **确实到达了**、只是没有终态。
+ *
+ * **无确认 ≠ 没到达**：本判据只说「没有到达的凭据」，不说「没到达」——这正是它与「到达了没回音」必须分开的原因。
+ * 引入本列之前的旧行同样无确认，读作 `unacknowledged`（如实：确认记录确实不存在）。
+ */
+export type RevokeWindow = 'unacknowledged' | 'awaiting_target';
+
+/**
+ * 判读一行 `compensating` 落在哪个窗口。非 pending 态返回 null（既未了结，谈不上窗口）。
+ * 只回答「有没有到达的凭据」，**不得**据此把状态改写成成功或失败。
+ */
+export function revokeWindow(
+  revokeStatus: string | null | undefined,
+  revokeAcknowledgedAt: Date | string | null | undefined,
+): RevokeWindow | null {
+  if (revokeStatus !== 'compensating') return null;
+  // 确认时刻非法/缺失 → 视作**无到达凭据**（不把坏输入读成「确实到达了」——那正是过度声称）。
+  const ack = revokeAcknowledgedAt ? new Date(revokeAcknowledgedAt) : null;
+  return ack && !Number.isNaN(ack.getTime()) ? 'awaiting_target' : 'unacknowledged';
+}

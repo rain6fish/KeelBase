@@ -457,6 +457,19 @@ export class AiController {
   }
 
   /**
+   * REV-3 检出（docs/cascade-compensation.spec.md §4.2）：同一业务对象横跨多个补偿组 = 一次动作被拆成两组。
+   * 两组各自内部自洽 → 唯一冲突不触发、幂等回放不执行、别处毫无异常信号；本端点让分裂**可见**。
+   */
+  @Get('tool-effects/splits')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '补偿组过度分裂检出（admin，REV-3）：同一业务对象横跨多个组' })
+  @ApiQuery({ name: 'limit', required: false, description: '最多返回多少条重叠（默认且上限 100）' })
+  getSplitGroups(@Query('limit') limit?: string) {
+    const parsed = Number(limit);
+    return this.toolEffectsService.findSplitGroups(Number.isFinite(parsed) ? parsed : undefined);
+  }
+
+  /**
    * B4 治理可视化：给定业务动作（resultType+resultId，如 crm_task:42）→ 反查 AI 副作用 + 决策轨迹
    * （决策轨迹 / 权限依据 / 确认 / 审计，供前端「透过 AI CRM 活展示」；本人或管理员）
    */

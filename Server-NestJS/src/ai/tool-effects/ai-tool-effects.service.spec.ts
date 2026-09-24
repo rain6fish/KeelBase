@@ -589,6 +589,94 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  /**
+   * REV-1 + REV-2 细化：管理端读侧必须看得见「争议」与「两个窗口」。
+   * 标记只活在库里、操作员无从发现，等于没检出 —— 这一块钉的就是「读得出来」。
+   */
+  describe('list：REV-1 争议标记 + REV-2 窗口读数', () => {
+    const evidence = {
+      declared: [
+        { resultType: 'pm_project', resultId: 7 },
+        { resultType: 'pm_task', resultId: 88 },
+      ],
+      stored: [{ resultType: 'pm_project', resultId: 7 }],
+      onlyDeclared: [{ resultType: 'pm_task', resultId: 88 }],
+      onlyStored: [],
+      decidedAt: '2026-09-24T10:00:00.000Z',
+    };
+    const row = (over: Record<string, unknown> = {}) => ({
+      id: 1,
+      userId: '1',
+      toolName: 'proxy_call',
+      conversationId: 'c',
+      resultType: 'proxy_call',
+      resultId: 9,
+      argsHash: 'h',
+      createdAt: new Date('2026-09-01T00:00:00Z'),
+      ...over,
+    });
+
+    beforeEach(() => {
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+    });
+
+    it('争议行 → disputed:true 且证据可读（被拒声明 + 双向差集）', async () => {
+      repo.findAndCount.mockResolvedValue([
+        [row({ compensationGroup: 'g', revokeDispute: JSON.stringify(evidence) })],
+        1,
+      ]);
+
+      const result = await service.list({});
+
+      expect(result.items[0].disputed).toBe(true);
+      expect(result.items[0].dispute).toEqual(evidence);
+    });
+
+    it('无争议行 → disputed:false、dispute:null（不制造噪音字段值）', async () => {
+      repo.findAndCount.mockResolvedValue([[row({ compensationGroup: 'g' })], 1]);
+
+      const result = await service.list({});
+
+      expect(result.items[0].disputed).toBe(false);
+      expect(result.items[0].dispute).toBeNull();
+    });
+
+    it('证据列坏掉（非 JSON）→ 仍标 disputed，但整页不 500', async () => {
+      repo.findAndCount.mockResolvedValue([[row({ revokeDispute: 'not-json' })], 1]);
+
+      const result = await service.list({});
+
+      expect(result.items[0].disputed).toBe(true);
+      expect(result.items[0].dispute).toBeNull();
+    });
+
+    it('compensating 的两种窗口可区分：有确认 = 确实到达，无确认 = 可能未到达', async () => {
+      const ack = new Date('2026-09-24T09:00:00Z');
+      repo.findAndCount.mockResolvedValue([
+        [
+          row({ id: 1, revokeStatus: 'compensating', revokeRequestedAt: ack, revokeAcknowledgedAt: ack }),
+          row({ id: 2, revokeStatus: 'compensating', revokeRequestedAt: ack }),
+          row({ id: 3, revokeStatus: 'revoked', revokeAcknowledgedAt: ack }),
+        ],
+        3,
+      ]);
+
+      const result = await service.list({});
+
+      expect(result.items[0]).toMatchObject({
+        revokeWindow: 'awaiting_target',
+        revokeAcknowledgedAt: ack.toISOString(),
+      });
+      expect(result.items[1]).toMatchObject({
+        revokeWindow: 'unacknowledged',
+        revokeAcknowledgedAt: null,
+      });
+      // 已了结（revoked）不谈窗口，确认时刻仍如实回显
+      expect(result.items[2].revokeWindow).toBeNull();
+      expect(result.items[2].revokeAcknowledgedAt).toBe(ack.toISOString());
+    });
+  });
+
   describe('listOwned（AI Action Center 本人清单）', () => {
     const baseEffect = (id: number, resultType: string, resultId: number) => ({
       id, userId: '42', toolName: 'create_event', conversationId: 'c',
@@ -1166,9 +1254,15 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res?.revoked).toBe(true);
       expect(res?.revokeStatus).toBe('compensating');
       // REV-2：进入 compensating 时一并记下补偿请求时刻（否则该状态没有年龄，「挂了多久」不可查）
-      expect(repo.update).toHaveBeenCalledWith(8, {
+      // REV-2 细化：意图写在外呼**之前**（revokeAcknowledgedAt 一并清空），确认是外呼返回后的**独立**事件。
+      expect(repo.update).toHaveBeenNthCalledWith(1, 8, {
         revokeStatus: 'compensating',
         revokeRequestedAt: expect.any(Date),
+        revokeAcknowledgedAt: null,
+      });
+      expect(repo.update).toHaveBeenNthCalledWith(2, 8, {
+        revokeStatus: 'compensating',
+        revokeAcknowledgedAt: expect.any(Date),
       });
     });
 

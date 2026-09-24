@@ -117,11 +117,19 @@ describe('AiToolEffectsService.revokeConversation（G1 会话级批量撤销）'
     const r = await svc.revokeConversation('conv-1');
 
     expect(ext.revoke).toHaveBeenCalledWith('proxy_send', 1, 'u1');
-    // REV-2：进入 compensating 一并记下补偿请求时刻（「挂了多久」的唯一来源）
-    expect(repo.update).toHaveBeenCalledWith(11, {
-      revokeStatus: 'compensating',
-      revokeRequestedAt: expect.any(Date),
-    });
+    // REV-2 细化：**两次**写入 —— 意图在外呼之前（可能根本没到达），确认在外呼返回之后（确实到达了）。
+    // 此前是一次写入（且写在外呼之后）：进程死在调用中途就一个字段都不剩。
+    expect(repo.update.mock.calls).toEqual([
+      [
+        11,
+        {
+          revokeStatus: 'compensating',
+          revokeRequestedAt: expect.any(Date),
+          revokeAcknowledgedAt: null,
+        },
+      ],
+      [11, { revokeStatus: 'compensating', revokeAcknowledgedAt: expect.any(Date) }],
+    ]);
     expect(r.revoked).toBe(1);
     expect(r.results[0].revokeStatus).toBe('compensating');
     expect(r.results[0].external).toBe(true);

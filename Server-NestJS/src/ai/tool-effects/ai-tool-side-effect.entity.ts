@@ -101,6 +101,19 @@ export class AiToolSideEffect {
   parentEffectId?: number | null;
 
   /**
+   * REV-1：**声明与持有不一致**的证据（JSON 字符串；null = 该组未被争议）。
+   *
+   * 场景：同参数重试在 `idempotency_key` 上冲突 → 整组回滚 → 回放既有组。若工具非确定性、重试声明的成员
+   * 与首次**不同**（多声明或少声明），这个差异此前**被静默吞掉**：撤销该组只补偿已持有的那些行，汇总却报全绿
+   * ——这正是「假撤销」。本列把被拒的那份声明连同双向差集一并留存，整组遂被标为争议，撤销路径据此**拒绝报告完成**。
+   *
+   * **链外注解列**，不入 `_chainPayload`（`_chainPayload` 是白名单，加 key 会使历史链验签失败；
+   * 同 `run_id` / `parent_effect_id` 先例）。
+   */
+  @Column({ type: 'text', nullable: true, name: 'revoke_dispute' })
+  revokeDispute?: string | null;
+
+  /**
    * REV-2：**补偿请求时刻** —— 进入 `compensating` 时写入的时刻（重试则更新为最近一次请求）。
    *
    * 解决的问题：`compensating`（已请求外部补偿·结果未知）此前**没有年龄**——只有 `created_at`（副作用发生时刻）
@@ -112,6 +125,21 @@ export class AiToolSideEffect {
    */
   @Column({ type: Date, nullable: true, name: 'revoke_requested_at' })
   revokeRequestedAt?: Date | null;
+
+  /**
+   * REV-2 细化：**外呼确认时刻** —— 补偿端点**返回之后**写入（`revoke_requested_at` 写的是发出**之前**的意图）。
+   *
+   * 两列合起来回答一个此前答不出的问题：
+   * - `compensating` + **无确认** = 「可能**根本没到达**外部系统」（进程在调用中途死掉即此形，此前一个字段都不写，
+   *   该行读起来像从未请求过补偿）；
+   * - `compensating` + **有确认** = 「确实到达了、对方没给终态」。
+   *
+   * 此前两者折进同一个 `compensating` 取值，聚合视图分不出这两种不确定。**只记窗口，不改判结果**
+   * （真值仍在目标系统，不得据本列把状态改写成 revoked / revoke_failed）。
+   * **链外注解列**，不入 `_chainPayload`。
+   */
+  @Column({ type: Date, nullable: true, name: 'revoke_acknowledged_at' })
+  revokeAcknowledgedAt?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
