@@ -10,6 +10,7 @@ import { AuditService } from '../../ai/audit/audit.service';
 import { ToolExposureService } from '../../ai/tools/tool-exposure.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';
 import { ToolRiskLevel, RISK_STRATEGY } from '../../ai/interfaces/tool.interface';
+import { MCP_TOOL_PREFIX, mcpToolKey, parseMcpToolKey } from '../../ai/tools/tool-destination';
 
 export interface McpServerConfig {
   name: string;
@@ -82,7 +83,7 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     for (const d of discovered) {
       for (const t of d.tools) {
         tools.push({
-          name: `mcp_${d.server}_${t.name}`,
+          name: mcpToolKey(d.server, t.name),
           description: t.description ?? '',
           parameters: (t.inputSchema ?? {}) as Record<string, unknown>,
         });
@@ -92,7 +93,7 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
   }
 
   isExternal(name: string): boolean {
-    return name.startsWith('mcp_');
+    return name.startsWith(MCP_TOOL_PREFIX);
   }
 
   async requiresConfirmation(name: string): Promise<boolean> {
@@ -127,9 +128,9 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
   }
 
   private _parseKey(name: string): { server: string; tool: string } | null {
-    const m = name.match(/^mcp_(.+?)_(.+)$/);
-    if (!m) return null;
-    return { server: m[1], tool: m[2] };
+    // 键形状单一源在 ai 侧（`tool-destination.ts`）——目的地解析（AUTHZ-1）用的是同一份解析，
+    // 两处各自写一个正则就会漂移成「同一个键、两种目的地」。
+    return parseMcpToolKey(name);
   }
 
   async listServers(): Promise<McpServerConfig[]> {
@@ -199,7 +200,7 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     args: Record<string, unknown>,
     userId: string,
   ): Promise<ExternalToolOutcome> {
-    const extKey = `mcp_${serverName}_${toolName}`;
+    const extKey = mcpToolKey(serverName, toolName);
     const server = (await this.listServers()).find((s) => s.name === serverName);
     if (!server) {
       await this._auditDenied(userId, serverName, toolName, args, 'mcp_server_registered', `MCP server "${serverName}" not registered`);

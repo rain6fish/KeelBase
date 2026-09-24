@@ -821,7 +821,7 @@ npm run migration:run
 | GET | /api/v1/ai/governance/policy/history/:revision | Yes (ADMIN) | — | 按 revision 查询单条策略快照（P-③，跨版本回放决策可复现） |
 | GET | /api/v1/ai/security-showcase/scenarios | Yes (ADMIN) | — | 安全演示（A2 对抗性证明）：确定性对抗场景清单（注入/越权/R5/确认） |
 | POST | /api/v1/ai/security-showcase/run/:scenarioId | Yes (ADMIN) | — | 运行对抗场景，返回 outcome + 决策轨迹（无 LLM，复用 HS-8/CASL/W5 真实逻辑） |
-| GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/审计粒度，自有表实时生效） |
+| GET / PUT | /api/v1/ai/governance/policy | Yes (ADMIN) | — | 治理策略读写（D-2：工具开关/确认/角色白名单/**可写字段域 + destination 白名单**/审计粒度，自有表实时生效；AUTHZ-2 声明面见 docs/authorization-architecture.md §7.2） |
 | GET | /api/v1/ai/confirmations/pending | Yes (ADMIN) | — | R4 待人工审批列表（治理台读侧） |
 | GET | /api/v1/ai/confirmations/decided | Yes (ADMIN) | — | R4 已审批历史（治理台读侧） |
 | POST | /api/v1/ai/confirmations/:token/approve-by | Yes (ADMIN) | — | 治理台裁决审批 → 回调业务系统执行工具（D-2 approve 回调） |

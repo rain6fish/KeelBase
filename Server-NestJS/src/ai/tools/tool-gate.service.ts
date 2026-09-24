@@ -18,6 +18,7 @@ import { GovernancePolicyService } from '../governance/governance-policy.service
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { UsersService } from '../../users/users.service';
 import { AiTool, AuthorizationDeniedError, ToolRiskLevel } from '../interfaces/tool.interface';
+import { resolveToolDestination } from './tool-destination';
 import { BusinessException } from '../../common/errors/business.exception';
 import { UserRole } from '../../common/entities/user.entity';
 
@@ -126,6 +127,75 @@ export class ToolGateService {
       // 与 EmailVerificationGuard 一致：admin 视为已验证（headless '0' 已在上面返回）
       if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
         throw new BusinessException('EMAIL_NOT_VERIFIED');
+      }
+    }
+  }
+
+  /**
+   * 工具目的地（AUTHZ-1 单一源）：写落到哪个系统。外部 MCP → `mcp:<server>`；声明了 `audience` 的
+   * 工具（B 路径 proxy）→ 该 audience；其余 → `local`。
+   *
+   * 未注册的工具名（LLM 幻觉名 / 外部工具）不抛错——外部工具本就不在本地注册表；两者都按名解析目的地。
+   */
+  destinationOf(toolName: string): string {
+    let tool: AiTool | undefined;
+    try {
+      tool = this.toolRegistry.getTool(toolName);
+    } catch {
+      tool = undefined;
+    }
+    return resolveToolDestination(toolName, tool);
+  }
+
+  /**
+   * AUTHZ-2：治理策略声明的**可写字段域**与 **destination 白名单**，按**这一次的实际请求**校验。
+   *
+   * 与「确认绑定精确 args」的关系是**并存**而非取代：精确绑定答「是不是这组参数」（事后不可放宽，
+   * 但只能整组接受或整组拒绝），本域答「这类参数可不可以写」——「可以改 status、不可以改 owner」
+   * 只有当参数域存在时才表达得出来。
+   *
+   * 两域都**非空即上限**（空 = 未声明 = 不约束），与 `allowedRoles` 同一约定；越域一律拒，不做截断。
+   * 声明来源是治理策略（与 `allowedRoles` 同处），**不是**工具的 `parameters`——后者是给 LLM 读的提示，
+   * 不做授权判定，且完全不覆盖 destination。
+   */
+  async assertWithinDeclaredScope(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.governancePolicy) return;
+    const policy = await this.governancePolicy.getToolPolicy(toolName);
+
+    const allowedDestinations = policy.allowedDestinations;
+    if (allowedDestinations.length > 0) {
+      const destination = this.destinationOf(toolName);
+      if (!allowedDestinations.includes(destination)) {
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" is not allowed to write to destination "${destination}" (allowed: ${allowedDestinations.join(', ')})`,
+          [
+            {
+              name: 'destination_allowed',
+              ok: false,
+              note: `目的地 ${destination} 不在白名单 [${allowedDestinations.join(', ')}]`,
+            },
+          ],
+        );
+      }
+    }
+
+    const writableFields = policy.writableFields;
+    if (writableFields.length > 0) {
+      const outOfDomain = Object.keys(args ?? {}).filter((k) => !writableFields.includes(k));
+      if (outOfDomain.length > 0) {
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" received arguments outside its writable field domain: ${outOfDomain.join(', ')}`,
+          [
+            {
+              name: 'field_domain',
+              ok: false,
+              note: `字段 ${outOfDomain.join(', ')} 不在可写域 [${writableFields.join(', ')}]`,
+            },
+          ],
+        );
       }
     }
   }

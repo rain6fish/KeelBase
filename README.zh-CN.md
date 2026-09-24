@@ -247,7 +247,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 | Runtime | Runtime 版本 | Contract 版本 |
 |---|---|---|
 | **KeelBase**（TypeScript） | `v1.0.11` | **v1.0.1**——树内携带；该发布早于契约仓的建立 |
-| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.2.0**——以 submodule 绑定 |
+| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.3.0**——已在契约仓 CHANGELOG 公告，以 submodule 绑定；**尚未打 tag** |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J)（Java） | `v0.1.0` | **v1.1.0**——vendor 快照，取自契约仓 |
 
 **落后于当前契约的 runtime 不是坏了**，它只是还没对更新版本的对象应答。推动一个 runtime 前进是

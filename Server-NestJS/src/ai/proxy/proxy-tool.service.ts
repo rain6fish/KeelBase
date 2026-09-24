@@ -13,7 +13,7 @@
  * }
  */
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
-import { DelegationTokenService } from '../../auth/delegation-token.service';
+import { DelegationTokenService, isValidAudience } from '../../auth/delegation-token.service';
 import { ToolRegistry } from '../tools/tool-registry';
 import { ProxyTool, ProxyToolConfig } from './proxy-tool';
 
@@ -50,6 +50,13 @@ export class ProxyToolRegistryService {
     if (!baseUrl || !audience || !Array.isArray(tools)) return { registered, skipped };
     if (!isValidHttpUrl(baseUrl)) {
       skipped.push(`<all>(baseUrl "${baseUrl}" 不是合法的 http(s) URL，跳过全部代理工具注册)`);
+      return { registered, skipped };
+    }
+    // 目标系统标识与委托 token 同一形状（`delegation-token.service.ts`）。这里也要拒，理由有两个且都不轻：
+    // ① 签发侧本就会拒它（坏 audience 的 token 无人认得），注册进来只会让工具在**执行时**才失败；
+    // ② 它会被写进确认行的 `audience` 列（AUTHZ-1 的目的地绑定），形状不合法即超出该列能存的范围。
+    if (!isValidAudience(audience)) {
+      skipped.push(`<all>(audience "${audience}" 不是合法的目标系统标识（字母数字/点/冒号/连字符，≤64），跳过全部代理工具注册)`);
       return { registered, skipped };
     }
 

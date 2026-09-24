@@ -260,7 +260,7 @@ export class AiService {
     toolCalls: Array<{ index: number; name: string; args: string }>,
     trustedTools: Set<string>,
   ): Promise<{
-    aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: string; risk: string }>;
+    aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: string; risk: string; audience: string }>;
     runRisk: string;
     ttlSeconds: number;
   } | null> {
@@ -271,6 +271,7 @@ export class AiService {
       parsed: Record<string, unknown>;
       summary: string | null;
       risk: string;
+      audience: string;
     }> = [];
     for (const tc of toolCalls) {
       if (trustedTools.has(tc.name)) continue; // HS-6 免确认
@@ -309,6 +310,9 @@ export class AiService {
         parsed,
         summary: this.presentation.writeToolSummary(tc.name, parsed),
         risk,
+        // AUTHZ-1：run 成员各自的目的地，在**签发时**取；批准后执行那一刻再解析一次并比对
+        //（run 的批准窗口同样可达 TTL，期间目的地可被改指）。
+        audience: this.toolGate.destinationOf(tc.name),
       });
     }
     // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
@@ -771,7 +775,7 @@ export class AiService {
 
       // KB-5 run-level approval：预扫描本轮需即时确认写工具，≥2 且均有具体摘要 → 聚成一个 run 一次授权
       // （docs/run-level-approval.spec.md §2：R5/R4/trusted/无摘要均不并入，各自走原路径；run 决策先于逐条 decision）
-      let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout'; runId: string } | undefined;
+      let runState: { idxSet: Set<number>; outcome: 'approve' | 'decline' | 'timeout'; runId: string; audiences: Map<number, string> } | undefined;
       {
         // 聚合交给 `_collectRunCandidates`（分析段）；这里只留「创建 run → 下发确认 → 等决策」的编排。
         // The aggregation is now `_collectRunCandidates`; this block keeps only the orchestration.
@@ -816,7 +820,14 @@ export class AiService {
           const { outcome } = await decision;
           const approved = outcome === 'approve';
           // 保留完整 outcome（含 'timeout'）——成员逐条回放时不得把 run 超时塌缩成用户 decline（spec §2.4 沿用超时语义）
-          runState = { idxSet: new Set(aggregable.map((c) => c.idx)), outcome, runId: token };
+          runState = {
+            idxSet: new Set(aggregable.map((c) => c.idx)),
+            outcome,
+            runId: token,
+            // AUTHZ-1：成员各自的目的地（签发时取值）——run 行本身不记 audience（成员在本次请求内执行），
+            // 故目的地绑定在这里按成员携带到执行点。
+            audiences: new Map(aggregable.map((c) => [c.idx, c.audience])),
+          };
           // run 级整体决策关卡先于逐条 decision（spec §2.3）
           yield {
             type: 'confirmation_decision',
@@ -876,7 +887,13 @@ export class AiService {
             } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
               // §internal.15(4)：审批档由策略档位（mode=approval）或声明风险级 R4 决定——管理员可在策略中心把 R3 工具升档为审批
-              const approval = await this.r4Approval.createR4ApprovalRequest(userId, tc.name, parsed, conversationId);
+              const approval = await this.r4Approval.createR4ApprovalRequest(
+                userId,
+                tc.name,
+                parsed,
+                conversationId,
+                this.toolGate.destinationOf(tc.name),
+              );
               const approvalImpact = this.presentation.writeImpact([tc.name]);
               const approvalRevokeClass = this.presentation.revokeClass(tc.name);
               yield {
@@ -914,16 +931,22 @@ export class AiService {
               // （spec §2.5：approve 整批逐条执行、decline 整批跳过；run 级 decision 关卡已由预扫描先行发出）
               let outcome: 'approve' | 'decline' | 'timeout';
               let trustTool: boolean | undefined;
+              // AUTHZ-1：本条 artifact 被批准写往的目的地。run 成员取签发时记下的那份，
+              // 单条取签发时的解析结果——两者都要在**执行点**再解析一次并比对。
+              let confirmationAudience: string | undefined;
               if (runState?.idxSet.has(tc.index)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
+                confirmationAudience = runState.audiences.get(tc.index);
               } else {
                 const ttlSeconds = await this._confirmationTtlSeconds();
+                confirmationAudience = this.toolGate.destinationOf(tc.name);
                 const { token, decision } = await this.confirmationStore.create(
                   userId,
                   tc.name,
                   parsed,
                   ttlSeconds * 1000,
                   conversationId,
+                  confirmationAudience,
                 );
                 const singleImpact = this.presentation.writeImpact([tc.name]);
                 const singleRevokeClass = this.presentation.revokeClass(tc.name);
@@ -968,7 +991,14 @@ export class AiService {
             if (outcome === 'approve') {
               // §4 G1：run 成员执行的副作用挂 runId（供 run 级批量撤销精确圈定）
               const execRunId = runState?.idxSet.has(tc.index) ? runState.runId : undefined;
-              result = await this.toolExecution.executeWrite(tc.name, parsed, userId, conversationId, execRunId);
+              result = await this.toolExecution.executeWrite(
+                tc.name,
+                parsed,
+                userId,
+                conversationId,
+                execRunId,
+                confirmationAudience ? { audience: confirmationAudience } : undefined,
+              );
               yield {
                 type: 'confirmation_decision',
                 confirmationDecision: {

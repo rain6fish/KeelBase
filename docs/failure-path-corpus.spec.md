@@ -28,8 +28,12 @@
 | FP-7 | 外部补偿失败 | 补偿端点 5xx / 不可达 / 无 revokePath | 返回如实 `ok:false` + status/消息；副作用不显示 revoked | 已安全（ProxyToolRevokerService 如实语义 + spec） | A + B |
 | FP-8 | 未知结果（调用成功响应丢失） | proxy 返回 200/204 空体 | 仍记 `proxy_call` 副作用锚（proxyResultId），不假装有 data | 已安全（ai.service.ts proxyResultId） | A |
 | FP-9 | 迁移中断 | 迁移重复执行 / 中途失败 | 幂等可重跑 + 前滚一致性 | 由既有 migration-consistency CI job（sqlite+postgres）覆盖，本语料引用不重复造 | — |
+| FP-11 | 确认 artifact 跨目标复用 | 同一确认行被指向另一 destination（签发后工具已改指） | 拒绝执行（`destination_binding`）；不写任何目标 | 已安全（AUTHZ-1 audience 绑定 + 执行点比对） | A |
 
 > **FP-9 引用**：CI `.github/workflows/ci.yml` migration-consistency job + release-gate 迁移一致性段已覆盖"迁移可重复/无漂移"。
+>
+> **FP-10 不在本表**：`FP-10` 是 §4 记录的那条**已知缺口**（execute→record 非原子窗口，1.1 前只文档化不修），
+> 不是一条语料用例，故不进本表、也不进 pack（doc↔pack 门禁只认本表的 `FP-数字` 行）。新用例从 FP-11 续。
 
 ## 3. 本语料反推出的修复（受控，随 KB-4 一并落）
 
@@ -51,7 +55,7 @@
 ## 5. 语料实现与验收
 
 **两层语料**：
-- A 层：`src/ai/failure-path/failure-path-corpus.spec.ts`——确定性 fault-injection（TestingModule 真调 service + mock seam 注入故障），集中断言 FP-1..FP-8。
+- A 层：`src/ai/failure-path/failure-path-corpus.spec.ts`——确定性 fault-injection（TestingModule 真调 service + mock seam 注入故障），集中断言 FP-1..FP-8 + FP-11。
 - B 层：`test/failure-path.e2e-spec.ts`——真实 app + fresh sqlite + supertest，端到端断言 FP-1（重复写幂等）/ FP-3（补偿超时如实）/ FP-7（补偿 5xx 如实）/ FP-2（token 二次）。
 
 **命令**：

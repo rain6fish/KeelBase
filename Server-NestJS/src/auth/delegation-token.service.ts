@@ -28,6 +28,20 @@ export interface DelegationPayload {
   exp?: number;
 }
 
+/**
+ * 目标系统标识（audience）的合法形状——与 wire `delegation-token-claims.schema.json` 的 `aud.pattern` 单一源。
+ *
+ * 导出它是因为**不止一处**需要判「这是不是一个能用的目的地」：签发时要拒（否则签出无人认得的 token），
+ * 代理工具注册时也要拒（否则该工具的目的地会超出确认行能存的长度，见 `ProxyToolRegistryService`）。
+ * 两处各写一个正则，就会漂移成「签发拒了、注册没拒」这种半开状态。
+ */
+export const AUDIENCE_PATTERN = /^[\w.:-]{1,64}$/;
+
+/** 是否为合法的目标系统标识（形状见 `AUDIENCE_PATTERN`）。 */
+export function isValidAudience(value: unknown): value is string {
+  return typeof value === 'string' && AUDIENCE_PATTERN.test(value);
+}
+
 @Injectable()
 export class DelegationTokenService {
   constructor(
@@ -50,7 +64,7 @@ export class DelegationTokenService {
     audience: string,
     ttlSeconds = 300,
   ): Promise<{ token: string; subject: string; expiresIn: number; userId: string; audience: string }> {
-    if (!audience || !/^[\w.:-]{1,64}$/.test(audience)) {
+    if (!isValidAudience(audience)) {
       throw new BadRequestException('audience 必填且仅限字母数字/点/冒号/连字符（≤64）');
     }
     const ttl = Number.isFinite(ttlSeconds) && ttlSeconds >= 60 && ttlSeconds <= 3600 ? ttlSeconds : 300;
