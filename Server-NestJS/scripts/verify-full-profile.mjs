@@ -4,6 +4,15 @@
 /**
  * Full 剖面合规 runner（CE-1③ / JV-13 L0）。
  *
+ * **⚠ 本文件是过渡副本。** 权威副本在契约仓 `rain6fish/keelbase-contract` 的 `runner/verify-full-profile.mjs`
+ * （2026-09-24 迁入，两份只差两行路径：契约在哪、报告写哪）。测试都只读契约，故迁移不影响它们；
+ * 本副本留着，是因为本仓的 CI `full-profile` job 经 `proof-full-profile.sh` 调用它。
+ *
+ * **何时可以删掉这一份**：本仓所钉的 submodule 版本包含 `runner/` 里那个文件之后（改 `proof-full-profile.sh`
+ * 指向 submodule 路径即可）。**现在取不到** —— runner 是作为「仓库家具」进契约仓 `main` 的，
+ * 而家具不产生 tag，钉版本的消费方自然拿不到。这个规则缺口记在契约仓 `runner/README.md`，尚未裁定。
+ * **在裁定前，两份刻意保持一致；改这个文件时请同步改契约仓那份。**
+ *
  * 判据来源：docs/protocols/conformance-profile.md §2.2 Full（Core + F1–F5）。
  * 本 runner **只做 Full 的 F4 / F5 两项**（F1–F3 属 Core，由 verify-protocol-conformance.mjs 覆盖）：
  *
