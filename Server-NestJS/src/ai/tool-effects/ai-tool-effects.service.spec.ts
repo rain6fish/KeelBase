@@ -501,6 +501,94 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
   });
 
+  /**
+   * REV-2：`compensating` 的年龄与陈旧标记。
+   * 在此之前该状态没有任何时间信息 —— 「当前未了结」里上个月卡住的行与五分钟前刚请求的行读数完全相同。
+   * 这里钉住的是「陈旧会被标出」，以及**不得**因年龄把状态改写成成功或失败。
+   */
+  describe('list：REV-2 陈旧 compensating 标记', () => {
+    const compensatingEffect = (id: number, requestedAt: Date | null) => ({
+      id,
+      userId: '1',
+      toolName: 'proxy_call',
+      conversationId: 'c',
+      resultType: 'external_call',
+      resultId: id,
+      argsHash: 'h',
+      createdAt: new Date('2026-09-01T00:00:00Z'),
+      revokeStatus: 'compensating',
+      revokeClass: 'governed_external',
+      revokeRequestedAt: requestedAt,
+    });
+
+    beforeEach(() => {
+      entityManager.getRepository.mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) });
+    });
+
+    it('请求时刻远超阈值 → revokeStale=true 且给出年龄，且状态**不被改写**', async () => {
+      const twoHoursAgo = new Date(Date.now() - 120 * 60_000);
+      repo.findAndCount.mockResolvedValue([[compensatingEffect(1, twoHoursAgo)], 1]);
+
+      const result = await service.list({});
+
+      expect(result.items[0]).toMatchObject({
+        revokePending: true,
+        revokeStale: true,
+        // 只标出「挂了多久」，绝不据此改成成功/失败
+        revokeStatus: 'compensating',
+      });
+      expect(result.items[0].revokeAgeMinutes).toBeGreaterThanOrEqual(120);
+      expect(result.items[0].revokeRequestedAt).toBe(twoHoursAgo.toISOString());
+    });
+
+    it('刚请求（阈值内）→ revokeStale=false，仍为 pending', async () => {
+      repo.findAndCount.mockResolvedValue([[compensatingEffect(2, new Date())], 1]);
+
+      const result = await service.list({});
+
+      expect(result.items[0]).toMatchObject({ revokePending: true, revokeStale: false });
+      expect(result.items[0].revokeAgeMinutes).toBe(0);
+    });
+
+    it('引入本列之前写入的行（请求时刻为 NULL）→ pending 但年龄未知，**不判陈旧**', async () => {
+      repo.findAndCount.mockResolvedValue([[compensatingEffect(3, null)], 1]);
+
+      const result = await service.list({});
+
+      expect(result.items[0]).toMatchObject({
+        revokePending: true,
+        revokeAgeMinutes: null,
+        revokeStale: false,
+        revokeRequestedAt: null,
+      });
+    });
+
+    it('stale=true → 库侧按 compensating + 请求时刻早于阈值过滤（NULL 行天然不匹配）', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.list({ stale: true });
+
+      const where = repo.findAndCount.mock.calls[0][0].where;
+      expect(where.revokeStatus).toBe('compensating');
+      expect(where.revokeRequestedAt).toBeDefined();
+    });
+
+    it('非 compensating 行不带年龄（revoked 之后没有「挂了多久」可言）', async () => {
+      repo.findAndCount.mockResolvedValue([
+        [{ ...compensatingEffect(4, new Date('2026-01-01T00:00:00Z')), revokeStatus: 'revoked' }],
+        1,
+      ]);
+
+      const result = await service.list({});
+
+      expect(result.items[0]).toMatchObject({
+        revokePending: false,
+        revokeAgeMinutes: null,
+        revokeStale: false,
+      });
+    });
+  });
+
   describe('listOwned（AI Action Center 本人清单）', () => {
     const baseEffect = (id: number, resultType: string, resultId: number) => ({
       id, userId: '42', toolName: 'create_event', conversationId: 'c',
@@ -1077,7 +1165,11 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const res = await svc.revoke(8);
       expect(res?.revoked).toBe(true);
       expect(res?.revokeStatus).toBe('compensating');
-      expect(repo.update).toHaveBeenCalledWith(8, { revokeStatus: 'compensating' });
+      // REV-2：进入 compensating 时一并记下补偿请求时刻（否则该状态没有年龄，「挂了多久」不可查）
+      expect(repo.update).toHaveBeenCalledWith(8, {
+        revokeStatus: 'compensating',
+        revokeRequestedAt: expect.any(Date),
+      });
     });
 
     it('listOwned：proxy compensating 后 status=revoking_external（≠ revoked）', async () => {

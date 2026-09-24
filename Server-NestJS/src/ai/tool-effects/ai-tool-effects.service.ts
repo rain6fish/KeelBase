@@ -16,6 +16,9 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
 import { paginated } from '../../common/dto/paginated';
+import { ConfigService } from '@nestjs/config';
+import { LessThan } from 'typeorm';
+import { revokeAge, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 
 export interface WriteToolContext {
   userId: string;
@@ -133,7 +136,17 @@ export class AiToolEffectsService {
      * @Optional：治理台/单测装配可能没有 OperationAuditModule（缺则该链降级为无显式补偿行）。
      */
     @Optional() private readonly operationAudit?: OperationAuditService,
+    /** REV-2：陈旧阈值来源（`REVOKE_STALE_MINUTES`）。@Optional：单测装配可省，省则用默认值。 */
+    @Optional() private readonly configService?: ConfigService,
   ) {}
+
+  /** REV-2：陈旧阈值（分钟）——配置缺失时回落到与 Joi 默认一致的常量，避免两处各写一个数。 */
+  private _staleThresholdMinutes(): number {
+    const configured = this.configService?.get<number>('REVOKE_STALE_MINUTES');
+    return typeof configured === 'number' && Number.isFinite(configured) && configured > 0
+      ? configured
+      : DEFAULT_REVOKE_STALE_MINUTES;
+  }
 
   /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
   setExternalRevoker(revoker: ExternalRevoker): void {
@@ -449,11 +462,20 @@ export class AiToolEffectsService {
   }
 
   /** 管理台：按用户/类型列出 AI 创建的副作用（含目标记录当前状态） */
-  async list(options: { userId?: number; page?: number; limit?: number } = {}) {
+  async list(options: { userId?: number; page?: number; limit?: number; stale?: boolean } = {}) {
     const page = options.page ?? 1;
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const where: Record<string, unknown> = {};
     if (options.userId !== undefined) where.userId = String(options.userId);
+
+    // REV-2：只看「陈旧未了结」时在库侧过滤（compensating 且请求时刻早于 now − 阈值）。
+    // 请求时刻为 NULL 的旧行天然不匹配 —— 与 revokeAge 对它们「年龄未知，故不判陈旧」的口径一致，
+    // 不把「查不到年龄」悄悄算成「陈旧」。
+    const thresholdMinutes = this._staleThresholdMinutes();
+    if (options.stale === true) {
+      where.revokeStatus = 'compensating';
+      where.revokeRequestedAt = LessThan(new Date(Date.now() - thresholdMinutes * 60_000));
+    }
 
     const [items, total] = await this.effectsRepo.findAndCount({
       where,
@@ -467,6 +489,9 @@ export class AiToolEffectsService {
       items.map(async (effect) => {
         const target = await this._loadTarget(effect.resultType, effect.resultId);
         const targetSoftDeleted = target?.deletedAt != null;
+        // REV-2：`compensating` 的年龄与陈旧度。只回答「多久了 / 可能已陈旧」，
+        // 真值仍在目标系统 —— 不据此把 revokeStatus 改写成成功或失败。
+        const age = revokeAge(effect.revokeStatus, effect.revokeRequestedAt, new Date(), thresholdMinutes);
         return {
           id: effect.id,
           toolName: effect.toolName,
@@ -483,6 +508,11 @@ export class AiToolEffectsService {
           // KB-6：撤销能力档位 + 归一状态（4 值），供前端据档位诚实渲染（none 不显示撤销钮）
           revokeClass: this._readRevokeClass(effect),
           revokeStatus: effect.revokeStatus ?? null,
+          // REV-2：补偿请求时刻 + 年龄 + 陈旧标记（阈值由服务端配置，前端不必硬编码）
+          revokeRequestedAt: effect.revokeRequestedAt ? effect.revokeRequestedAt.toISOString() : null,
+          revokePending: age.pending,
+          revokeAgeMinutes: age.ageMinutes,
+          revokeStale: age.stale,
           // 级联补偿（v3）：组标识 + 根引用，供前端显示「这是 N 条中的第 M 条」
           compensationGroup: effect.compensationGroup ?? null,
           parentEffectId: effect.parentEffectId ?? null,
@@ -1108,10 +1138,17 @@ export class AiToolEffectsService {
     };
   }
 
-  /** KB-6：回写 revoke_status 运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。 */
+  /**
+   * KB-6：回写 revoke_status 运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。
+   * REV-2：进入 `compensating` 时一并记下**补偿请求时刻**（重试即更新为最近一次请求），使「挂了多久」可查；
+   * 其余状态**不动**该列 —— 它是「最近一次补偿请求」的历史记录，不是当前态的年龄。
+   */
   private async _setRevokeStatus(effect: AiToolSideEffect, status: 'revoked' | 'compensating' | 'revoke_failed'): Promise<void> {
     try {
-      await this.effectsRepo.update(effect.id, { revokeStatus: status });
+      await this.effectsRepo.update(effect.id, {
+        revokeStatus: status,
+        ...(status === 'compensating' ? { revokeRequestedAt: new Date() } : {}),
+      });
     } catch (err) {
       this.logger.warn(`[AiToolEffects] revoke_status update failed (effect ${effect.id}): ${(err as Error).message}`);
     }

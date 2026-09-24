@@ -403,12 +403,31 @@ describe('AiController', () => {
     it('GET /ai/tool-effects 无 userId → 不过滤', () => {
       mockListToolEffects.mockReturnValue({ items: [], total: 0 });
       controller.getToolEffects(undefined, 1, 20);
-      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: undefined, page: 1, limit: 20 });
+      expect(mockListToolEffects).toHaveBeenCalledWith({
+        userId: undefined,
+        page: 1,
+        limit: 20,
+        stale: false, // REV-2：未带 stale 参数即不过滤
+      });
     });
 
     it('GET /ai/tool-effects 带 userId（字符串）→ 转数字过滤', () => {
       controller.getToolEffects('42', 1, 20);
-      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: 42, page: 1, limit: 20 });
+      expect(mockListToolEffects).toHaveBeenCalledWith({
+        userId: 42,
+        page: 1,
+        limit: 20,
+        stale: false,
+      });
+    });
+
+    // REV-2：端点要能直接回答「哪些 compensating 超过阈值未了结」
+    it('GET /ai/tool-effects stale=true → 只看陈旧未了结', () => {
+      mockListToolEffects.mockReturnValue({ items: [], total: 0 });
+      controller.getToolEffects(undefined, 1, 20, 'true');
+      expect(mockListToolEffects).toHaveBeenCalledWith(
+        expect.objectContaining({ stale: true }),
+      );
     });
 
     it('DELETE /ai/tool-effects/:id 撤销成功 → 返回结果', async () => {

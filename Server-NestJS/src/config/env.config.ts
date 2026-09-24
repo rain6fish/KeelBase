@@ -38,6 +38,10 @@ export const envValidationSchema = Joi.object({
   // D2-4 治理台回调业务系统地址（治理台撤销副作用时回调业务系统撤销端点；空则治理台本地 revoker）
   GOVERNANCE_TARGET_URL: Joi.string().optional().allow(''),
 
+  // REV-2：`compensating`（已请求外部补偿·结果未知）超过多少分钟算「陈旧」。
+  // 只用于**标出**「挂了多久 / 可能已陈旧」，真值仍在目标系统，不据此改写成功或失败。
+  REVOKE_STALE_MINUTES: Joi.number().integer().min(1).default(60),
+
   // 连接池（文档规范，初期保守配置）
   DB_POOL_MAX: Joi.number().default(20),
   DB_POOL_MIN: Joi.number().default(5),

@@ -22,7 +22,7 @@ import {
   DefaultValuePipe,
   Put,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import {
   BadRequestException,
   ConflictException,
@@ -430,16 +430,19 @@ export class AiController {
    */
   @Get('tool-effects')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤）' })
+  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤；stale=true 只看陈旧未了结）' })
+  @ApiQuery({ name: 'stale', required: false, description: 'REV-2：只看 compensating 超过阈值分钟未了结的行' })
   getToolEffects(
     @Query('userId', new DefaultValuePipe(undefined)) userId?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+    @Query('stale') stale?: string,
   ) {
     return this.toolEffectsService.list({
       userId: userId !== undefined ? Number(userId) : undefined,
       page,
       limit,
+      stale: stale === 'true',
     });
   }
 

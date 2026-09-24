@@ -117,7 +117,11 @@ describe('AiToolEffectsService.revokeConversation（G1 会话级批量撤销）'
     const r = await svc.revokeConversation('conv-1');
 
     expect(ext.revoke).toHaveBeenCalledWith('proxy_send', 1, 'u1');
-    expect(repo.update).toHaveBeenCalledWith(11, { revokeStatus: 'compensating' });
+    // REV-2：进入 compensating 一并记下补偿请求时刻（「挂了多久」的唯一来源）
+    expect(repo.update).toHaveBeenCalledWith(11, {
+      revokeStatus: 'compensating',
+      revokeRequestedAt: expect.any(Date),
+    });
     expect(r.revoked).toBe(1);
     expect(r.results[0].revokeStatus).toBe('compensating');
     expect(r.results[0].external).toBe(true);

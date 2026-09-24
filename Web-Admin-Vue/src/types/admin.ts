@@ -296,6 +296,15 @@ export interface ToolEffect {
   /** KB-6：撤销能力档位 + 撤销结果运维态（服务端回传；据档位诚实渲染，none 不显示撤销钮） */
   revokeClass?: string
   revokeStatus?: string | null
+  /**
+   * REV-2：`compensating`（已请求外部补偿·结果未知）的补偿请求时刻 / 年龄 / 陈旧标记。
+   * 服务端只回答「多久了 / 可能已陈旧」——真值仍在目标系统，不据此当作成功或失败。
+   * `revokeAgeMinutes` 为 null 表示年龄未知（引入该列之前写入的行）。
+   */
+  revokeRequestedAt?: string | null
+  revokePending?: boolean
+  revokeAgeMinutes?: number | null
+  revokeStale?: boolean
   /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
   status?: string
   /** 服务端单一权威的撤销可点（status=executed 且档位非 none）；三端据此渲染 */

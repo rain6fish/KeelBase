@@ -100,6 +100,19 @@ export class AiToolSideEffect {
   @Column({ type: 'integer', nullable: true, name: 'parent_effect_id' })
   parentEffectId?: number | null;
 
+  /**
+   * REV-2：**补偿请求时刻** —— 进入 `compensating` 时写入的时刻（重试则更新为最近一次请求）。
+   *
+   * 解决的问题：`compensating`（已请求外部补偿·结果未知）此前**没有年龄**——只有 `created_at`（副作用发生时刻）
+   * 与 `revoke_status`（分类），于是「当前未了结」的聚合里，上个月卡住的行与五分钟前的读数**完全相同**，
+   * 逐行诚实而聚合不诚实。加这一列后，端点/管理台可回答「哪些 `compensating` 超过 N 分钟未了结」。
+   *
+   * **只回答「多久了 / 可能已陈旧」**：真值仍在目标系统，**不得**据此把状态改写成成功或失败。
+   * **链外注解列**，不入 `_chainPayload`（加 key 会使历史链验签失败）。
+   */
+  @Column({ type: Date, nullable: true, name: 'revoke_requested_at' })
+  revokeRequestedAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
