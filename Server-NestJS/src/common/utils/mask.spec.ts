@@ -59,6 +59,9 @@ describe('mask utils', () => {
     });
   });
 
+  // The predicate the audit before-snapshot and the request-body redaction share (D-AUDIT-1). These
+  // cases pin both halves of it: the built-in list, which carries the PII names, and the fragment
+  // rule, which covers the names the list cannot enumerate.
   // 审计 before 快照与 requestBody 打码共用的判据（D-AUDIT-1）。这里钉住它的两半：
   // 内建清单（含 PII 名）与片段规则（清单枚举不到的名字）。
   describe('isSensitiveKey', () => {
