@@ -236,9 +236,6 @@ describe('Scenario replay · the reference implementation executes its corpus', 
     }
     try {
       const res = await toolExposure.executeToolForExternal(call.tool, args, actors[run.actor].id);
-      if (res.requiresConfirmation) {
-        run.confirmationToken = undefined;
-      }
       return { executed: res.executed, requiresConfirmation: res.requiresConfirmation };
     } catch (e) {
       if (e instanceof AuthorizationDeniedError) {

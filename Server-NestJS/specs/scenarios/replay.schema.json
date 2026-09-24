@@ -119,7 +119,7 @@
             "op": {
               "type": "string",
               "pattern": "^[a-z][a-z0-9_]*$",
-              "description": "动作名（如 `approve` / `revoke`）。**不写地址**：目标实体由场景状态决定（token / effect id 属各 Runtime 自己的寻址方式，与路径同理不进语料）。"
+              "description": "动作名（如 `revoke`）。**不写地址**：目标实体由场景状态决定（token / effect id 属各 Runtime 自己的寻址方式，与路径同理不进语料）。**口径（N6-b）**：语料只用它写**结果可在非流响应上读出**的对象（现状 = 撤销）；**确认流程 —— 令牌与裁决对象 —— 不进 replay**（那两样属传输 / 实现自由，一侧在流上、一侧在 JSON 响应里；见 `conformance-profile.md` §2.4）。"
             },
             "args": { "$ref": "#/definitions/args" }
           }

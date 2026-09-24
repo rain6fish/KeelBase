@@ -46,8 +46,8 @@ specs/scenarios/
   "expect": { "executed": false, "requiresConfirmation": true } }
 { "call": { "read": "audit-chain-verification" },
   "expect": { "valid": true } }
-{ "call": { "write": "confirmation-decision", "op": "approve" },
-  "expect": { "decision": "approve" } }
+{ "call": { "write": "side-effect-revoke", "op": "revoke" },
+  "expect": { "revoked": true } }
 { "call": { "read": "side-effect-revoke" }, "expect": null }
 
 { "given": { "actor": "alice",
@@ -66,6 +66,8 @@ specs/scenarios/
 | `given.fixtures` | **前置，不产生断言**（R3）。`as` 给夹具**起名**供后续步骤以 `{"$ref":"<名字>.<字段>"}` 引用（N1；名字按**场景**可见，跨步可用）；目标**不要求是 wire 对象**——可以是**领域资源名**（N4，如 `crm-customer`） |
 | 不可断言的 | **传输**（路径 / 方法 / 状态码 / SSE 事件）与**工具业务载荷**（如 `result.data.level`——那是各工具自己的形状，不是契约字段）。表达不了的**显式丢弃并在包内记录**，不偷偷换成更弱的断言 |
 | **选入式** | 包声明 `replayVersion: 1` 才受本语法约束。未声明的包其 `replay` 仍是散文——**不静默放过**：门禁会把「已选入 / 未选入」两组显式列出 |
+
+**口径 · 确认流程不进 replay（N6-b，2026-09-24）**：确认的**令牌**与**裁决对象**属**传输 / 实现自由**（一侧在流上、一侧在 JSON 响应里）⇒ 不进语料；`call.write` 实际只覆盖**结果可在非流响应上读出**的治理写，现状 = **撤销类**。理由、实据与未采纳的替代方案见 `docs/protocols/conformance-profile.md` §2.4。
 
 **现状（2026-09-22）**：**3 包选入**（`golden-application-v1` · `trust-proof-v1` · `cross-entry-v1`，均按 Java 线 JV-15 语法裁定的 R1–R7 + N1–N5 改写）；**2 包未选入且出 replay 范围**——`security-showcase-v1`（runtime-specific 展示物，R2 ⇒ 各 case `replay: null`）· `failure-path-v1`（故障注入类，本来 `replay: null`）。
 

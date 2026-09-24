@@ -85,7 +85,11 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 | `security-showcase-v1` | `replay: null` —— runtime-specific 展示物，**不在 replay 范围**（无对应 wire 对象） |
 | `failure-path-v1` | `replay: null` —— 故障注入类，**非单次 wire 请求可表达**，由 A/B 层复现 |
 
-**⚠ 一处已知的中立载体缺口（2026-09-24，两载体 runner 实据）**：确认流程的**裁决对象**（`confirmation-decision`）**在两个实现上都不在响应里**——参照实现只在 SSE 事件中给（且它**非流式对话不执行写**、确认令牌也由 AI 管道发放），Java 运行时的 approve 作答是它自己的 `ExecutionOutcome`；而**流已被 R1 判出 replay 范围** ⇒ `golden ④` 与 `trust-proof S4` **移出 replay 并在包内记录**（它们要证的事实仍由 ⑥ 撤销 / ⑧ 治理视图两步覆盖）。**更根本的一条**：确认流程的**载体**两侧不一致（参照 = 流 · Java = JSON 响应），这条链**今天没有中立载体**——属待裁定项。
+**一处已裁定的范围（N6-b，2026-09-24）· 确认流程不进 replay**：确认的**令牌**与**裁决对象**属**传输 / 实现自由**——参照实现把它们放在**流**上、Java 放在 JSON 响应里——因此**不进中立重放**。语料只保留**结果可由非流响应读出**的治理写，即**撤销类**（`side-effect-revoke#revoke`）。
+
+**实据（两载体 runner，2026-09-24）**：`confirmation-decision` **两侧都不在响应上**（参照 = `{ok,trustTool}` + SSE；Java = 它自己的 `ExecutionOutcome`），确认令牌也只在**AI 管道**上发放（参照的非流式对话**根本不执行写**）⇒ `golden ④` 与 `trust-proof S4` **移出 replay 并在包内记录**（它们要证的事实仍由 ⑥ 撤销 / ⑧ 治理视图覆盖）。裁定里「治理写」解锁的条目因此是 **3 条**（撤销），不是 5 条。
+
+**为什么不是「给确认流程补一个中立载体」（N6-a，未采纳）**：那要**改两侧的线缆可见响应**并写进契约，为一条链引入新载体；而确认语义**已被各实现自己的 e2e / 脚本覆盖**（`golden-application.e2e-spec.ts` ④ · `verify-trust-proof.mjs` S4）。**范围收在语料侧，契约不动。**
 
 漂移门（`scenarios-pack.spec.ts`）不受影响（门只投影已知字段）；**`replay` 是人工撰写的重放脚本**（没有别的真源——它自己就是源），只受上述语法与门禁约束。
 
