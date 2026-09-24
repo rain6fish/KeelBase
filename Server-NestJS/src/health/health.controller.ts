@@ -6,6 +6,7 @@ import { Throttle } from '@nestjs/throttler';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { probeRedisReachable } from '../common/utils/redis-probe';
+import { queueStatus } from '../queue/queue-status';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Public } from '../auth/guards/public.decorator';
@@ -45,12 +46,14 @@ export class HealthController {
     if (detail !== 'true') return base;
 
     // 依赖探测：全部并行 + 超时降级（任一失败标记 down，不抛错阻断）
-    const [database, redis, queue, storage] = await Promise.all([
+    const [database, redis, storage] = await Promise.all([
       this._checkDatabase(),
       this._checkRedis(),
-      Promise.resolve(this.pushQueue ? 'up' : 'down'),
       this._checkStorage(),
     ]);
+    // 队列维由**同一次** Redis 探活结果派生（BullMQ 靠 Redis，无需二次探测）；
+    // 三态语义见 queue-status.ts —— disabled = 配置关闭，不是故障
+    const queue = queueStatus(!!this.pushQueue, redis);
 
     return {
       ...base,

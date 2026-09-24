@@ -104,11 +104,12 @@ describe('AdminObservabilityService（平台观测域）', () => {
     service = moduleRef.get(AdminObservabilityService);
   });
 
-  it('getMonitorSummary 聚合计数/健康/依赖/指标（redis 未配置 → down）', async () => {
+  it('getMonitorSummary 聚合计数/健康/依赖/指标（redis 未配置 → down；队列未启用 → disabled）', async () => {
     usersRepo.count.mockResolvedValue(10);
     const result = await service.getMonitorSummary();
     expect(result.health).toMatchObject({ status: 'ok', nodeEnv: 'development' });
-    expect(result.dependencies).toMatchObject({ database: 'up', redis: 'down', queue: 'down', storage: 'local' });
+    // REL-1：队列未启用报 disabled（配置选择），不报 down（那读起来像故障）
+    expect(result.dependencies).toMatchObject({ database: 'up', redis: 'down', queue: 'disabled', storage: 'local' });
     expect(result.counts.users).toBe(10);
     expect(result.metrics).toMatchObject({ requestRateRps: 1.67, errorRatePct: 0, latencyP95Ms: 200, inFlight: 3 });
   });

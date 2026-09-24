@@ -18,6 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, DataSource, MoreThanOrEqual } from 'typeorm';
 import { probeRedisReachable } from '../common/utils/redis-probe';
+import { queueStatus } from '../queue/queue-status';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { User } from '../common/entities/user.entity';
@@ -80,7 +81,8 @@ export class AdminObservabilityService {
       dependencies: {
         database: 'up',
         redis: redis ? 'up' : 'down',
-        queue: this.pushQueue ? 'up' : 'down',
+        // 三态语义见 queue-status.ts —— disabled = 配置关闭，不是故障（同一次 Redis 探活派生）
+        queue: queueStatus(!!this.pushQueue, redis ? 'up' : 'down'),
         storage: this.configService.get<string>('STORAGE_DRIVER', 'local'),
         mail: this.configService.get<boolean>('MAIL_ENABLED', false) ? 'configured' : 'disabled',
         push: this.configService.get<string>('PUSH_DRIVER', 'none'),

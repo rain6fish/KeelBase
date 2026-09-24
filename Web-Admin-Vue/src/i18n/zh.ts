@@ -1131,6 +1131,8 @@ const zh = {
   serviceStatus: '服务状态：{status}',
   statusOk: '正常',
   statusError: '异常',
+  // 依赖维的第三种状态：未启用（配置关闭，非故障）—— 后端 /health 与监控摘要报 `disabled`
+  depDisabled: '未启用',
   externalSystems: '外部系统接入（Java 集成）',
   noExternalSystem: '未配置外部系统接入',
   configuredTools: '配置工具 {n} 个',

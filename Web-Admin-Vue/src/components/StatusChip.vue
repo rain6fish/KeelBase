@@ -30,6 +30,8 @@ const tagType = computed(() => {
     cancelled: 'warning',
     unread: 'info',
     false: 'info',
+    // 未启用（配置关闭）用中性色，不与 down / error 的红混淆
+    disabled: 'info',
     default: 'info',
   }
   return map[s] || 'info'

@@ -103,7 +103,7 @@ const loading = ref(true)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const statusLabelMap = computed(() => ({ ok: t('statusOk'), error: t('statusError'), degraded: t('statusError') }))
-const depLabelMap = computed(() => ({ up: t('ok'), ok: t('ok'), down: t('statusError'), error: t('statusError') }))
+const depLabelMap = computed(() => ({ up: t('ok'), ok: t('ok'), down: t('statusError'), error: t('statusError'), disabled: t('depDisabled') }))
 // Java /keelbase/status 接入状态 → StatusChip 状态 + 文案
 const proxyLabelMap = computed(() => ({
   ok: t('proxyHealthy'),

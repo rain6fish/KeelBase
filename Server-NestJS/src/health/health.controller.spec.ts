@@ -56,7 +56,8 @@ describe('HealthController', () => {
     // A8：storage 返回状态值 + 单独 driver 字段
     expect((result as any).dependencies).toHaveProperty('storage', 'up');
     expect((result as any).dependencies).toHaveProperty('storageDriver', 'local');
-    expect((result as any).dependencies).toHaveProperty('queue', 'down'); // 未注入 pushQueue
+    // REL-1：队列未启用（默认）= 配置选择，报 disabled 而非 down（后者读起来像故障）
+    expect((result as any).dependencies).toHaveProperty('queue', 'disabled');
   });
 
   it('database down should degrade gracefully (not throw)', async () => {
@@ -144,7 +145,12 @@ describe('HealthController', () => {
 
   // ── 补充覆盖：pushQueue 注入 / db connect 失败 / redis 可解析 URL / 非 "true" detail ──
   describe('补充覆盖：依赖注入组合与降级', () => {
-    it('pushQueue 注入 → dependencies.queue = up', async () => {
+    afterEach(() => {
+      delete process.env.QUEUE_ENABLED;
+    });
+
+    it('队列已启用 + Redis 可达 → dependencies.queue = up', async () => {
+      process.env.QUEUE_ENABLED = 'true';
       const module: TestingModule = await Test.createTestingModule({
         controllers: [HealthController],
         providers: [
@@ -154,8 +160,25 @@ describe('HealthController', () => {
         ],
       }).compile();
       const c = module.get<HealthController>(HealthController);
+      jest.spyOn(c as any, '_checkRedis').mockResolvedValue('up');
       const result = await c.check('true');
       expect((result as any).dependencies.queue).toBe('up');
+    });
+
+    it('队列已启用但 Redis 不可达 → dependencies.queue = down（注入了 Queue 也不算 up）', async () => {
+      process.env.QUEUE_ENABLED = 'true';
+      const module: TestingModule = await Test.createTestingModule({
+        controllers: [HealthController],
+        providers: [
+          { provide: DataSource, useValue: dataSource },
+          { provide: ConfigService, useValue: configService },
+          { provide: getQueueToken('push'), useValue: { name: 'push' } },
+        ],
+      }).compile();
+      const c = module.get<HealthController>(HealthController);
+      jest.spyOn(c as any, '_checkRedis').mockResolvedValue('down');
+      const result = await c.check('true');
+      expect((result as any).dependencies.queue).toBe('down');
     });
 
     it('数据库 connect 失败 → 降级 down 且 query runner 仍 release', async () => {

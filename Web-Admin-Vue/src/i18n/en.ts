@@ -1125,6 +1125,8 @@ const en: ZhDict = {
   serviceStatus: 'Status: {status}',
   statusOk: 'Healthy',
   statusError: 'Degraded',
+  // Third state for a dependency dimension: configured off, not failing
+  depDisabled: 'Disabled',
   externalSystems: 'External Systems (Java Integration)',
   noExternalSystem: 'No external system configured',
   configuredTools: '{n} configured tools',
