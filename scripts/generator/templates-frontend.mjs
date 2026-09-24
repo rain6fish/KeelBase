@@ -458,6 +458,15 @@ export function pageTemplate(ctx) {
       (r) => `      if (item.${r.name}Name != null && item.${r.name}Name!.isNotEmpty) item.${r.name}Name!,`,
     ),
     ...attachmentFields(ctx.fields).map((n) => `      if (item.${n}Names.isNotEmpty) item.${n}Names.join('、'),`),
+    // 金额字段走**单源**格式化（core/utils/money.dart），而不是把裸十进制字符串摊给用户看。
+    // Currency-bearing decimals are formatted through the single-source helper rather than
+    // shown as the raw decimal string.
+    ...ctx.fields
+      .filter((f) => f.type === 'decimal' && f.currency === true)
+      .map(
+        (f) =>
+          `      if (item.${f.name} != null && item.${f.name}!.isNotEmpty) formatMoney(item.${f.name}),`,
+      ),
   ];
   const echoMethod =
     echoEntries.length === 0
@@ -488,6 +497,10 @@ export function pageTemplate(ctx) {
       : '';
   const filePickerImport =
     attControls.length > 0 ? `import 'package:file_picker/file_picker.dart';\n` : '';
+  const moneyImport =
+    ctx.fields.some((f) => f.type === 'decimal' && f.currency === true)
+      ? `import '../../../../core/utils/money.dart';\n`
+      : '';
   const refStateFields = refControls
     .map((r) => `  int? _${r.name}IdVal;\n  List<Map<String, dynamic>> _${r.name}Options = const [];`)
     .join('\n');
@@ -569,7 +582,7 @@ export function pageTemplate(ctx) {
   const titleField = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
 
   return `import 'package:flutter/cupertino.dart';
-${pageExtraImports}${filePickerImport}import 'package:provider/provider.dart';
+${pageExtraImports}${filePickerImport}${moneyImport}import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
 ${modelImport}import '../providers/${ctx.plural}_provider.dart';
 

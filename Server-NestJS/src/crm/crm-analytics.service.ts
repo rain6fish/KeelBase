@@ -22,6 +22,7 @@ import { CrmTask } from './crm-task.entity';
 import { CrmRisk } from './crm-risk.entity';
 import { CrmOpportunity } from './crm-opportunity.entity';
 import { assertCustomerOwner } from './customer-ownership';
+import { formatMoney } from '../common/utils/money';
 
 export interface RiskAnalysis {
   /** 风险等级：与客户 riskLevel 同一词汇（`crm-customer.entity` 的 RISK_LEVELS 单一来源） */
@@ -130,16 +131,16 @@ export class CrmAnalyticsService {
       }
       if (overdueAmount > 500_000) {
         score += 2;
-        reasons.push(`逾期金额较大（¥${overdueAmount.toFixed(2)}）`);
+        reasons.push(`逾期金额较大（${formatMoney(overdueAmount)}）`);
       }
-      reasons.push(`${overdueOrders.length} 笔订单逾期（合计 ¥${overdueAmount.toFixed(2)}）`);
+      reasons.push(`${overdueOrders.length} 笔订单逾期（合计 ${formatMoney(overdueAmount)}）`);
     }
     if (totalAmount > 500_000) {
       score += 2;
-      reasons.push(`累计订单金额高（¥${totalAmount.toFixed(2)}）`);
+      reasons.push(`累计订单金额高（${formatMoney(totalAmount)}）`);
     } else if (totalAmount > 100_000) {
       score += 1;
-      reasons.push(`累计订单金额较高（¥${totalAmount.toFixed(2)}）`);
+      reasons.push(`累计订单金额较高（${formatMoney(totalAmount)}）`);
     }
     if (lateTasks.length > 0) {
       score += 2;

@@ -68,7 +68,7 @@
                 </div>
               </template>
               <div v-for="o in detail.orders" :key="o.id" class="py-1">
-                <div class="text-body-2">{{ o.status }} · ¥{{ o.amount.toFixed(0) }}</div>
+                <div class="text-body-2">{{ o.status }} · {{ formatMoney(o.amount) }}</div>
                 <div class="text-caption text-medium-emphasis">{{ o.orderDate || o.dueDate || '-' }}</div>
               </div>
               <div v-if="!detail.orders.length" class="text-medium-emphasis">{{ t('crmNoOrders') }}</div>
@@ -215,6 +215,7 @@ import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/api/client'
 import { crmApi, type CrmCustomerDetail, type RiskAnalysis } from '@/api/crm'
+import { formatMoney } from '@/utils/money'
 
 const { t } = useI18n()
 const route = useRoute()

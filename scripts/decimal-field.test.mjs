@@ -126,6 +126,26 @@ test('decimal：Taro 与管理台的 TS 类型均为 string', () => {
   assert.ok(adminApiTemplate(ctx).includes('amount: string;'), '管理台 TS 应为 string');
 });
 
+// ─── F-11: 金额显示走单源 ────────────────────────────────────────────────────
+
+test('页面：标记为金额的 decimal 走单源格式化，且只导入那一个 util', () => {
+  const ctx = buildContext('invoices', '发票', normalizeSpecFields([
+    { name: 'amount', type: 'decimal', scale: 2, currency: true },
+  ]));
+  const page = pageTemplate(ctx);
+  assert.ok(page.includes("import '../../../../core/utils/money.dart';"));
+  assert.ok(page.includes('formatMoney(item.amount)'), '金额应在回显里格式化，而不是摊裸十进制串');
+});
+
+test('页面：未标 currency 的 decimal 不产金额显示、也不导入 util（不产死代码）', () => {
+  const ctx = buildContext('invoices', '发票', normalizeSpecFields([
+    { name: 'ratio', type: 'decimal', scale: 4 },
+  ]));
+  const page = pageTemplate(ctx);
+  assert.ok(!page.includes('core/utils/money.dart'));
+  assert.ok(!page.includes('formatMoney('));
+});
+
 test('无 decimal 字段时不产出转换器（不产死代码）', () => {
   const ctx = buildContext('invoices', '发票', normalizeSpecFields([{ name: 'title', type: 'string' }]));
   assert.ok(!entityTemplate(ctx).includes('decimalStringTransformer'));

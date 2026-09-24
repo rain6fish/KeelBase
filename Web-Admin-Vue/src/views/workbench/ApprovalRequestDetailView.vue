@@ -14,7 +14,7 @@
           <template #header>{{ t('apRequestInfo') }}</template>
           <div>
             <p><strong>{{ t('apType') }}:</strong> {{ typeLabel(req.type) }}</p>
-            <p><strong>{{ t('apAmount') }}:</strong> ¥{{ req.amount.toFixed(2) }}</p>
+            <p><strong>{{ t('apAmount') }}:</strong> {{ formatMoney(req.amount) }}</p>
             <p><strong>{{ t('apReason') }}:</strong> {{ req.reason }}</p>
             <div class="d-flex ga-2 flex-wrap">
               <el-tag size="small" effect="light">{{ statusLabel(req.status) }}</el-tag>
@@ -86,6 +86,7 @@ import BusinessHistoryDrawer from '@/components/BusinessHistoryDrawer.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { formatTime } from '@/utils/format'
 import { approvalApi, type ApprovalRequest } from '@/api/approval'
+import { formatMoney } from '@/utils/money'
 
 const { t } = useI18n()
 const route = useRoute()

@@ -24,7 +24,7 @@
       <template #item.title="{ item }">
         <el-button text type="primary" class="pa-0" @click="goDetail(item.id)">{{ item.title }}</el-button>
       </template>
-      <template #item.amount="{ item }">¥{{ item.amount.toFixed(0) }}</template>
+      <template #item.amount="{ item }">{{ formatMoney(item.amount) }}</template>
       <template #item.status="{ item }">
         <StatusChip :status="item.status" :label-map="statusLabelMap" />
       </template>
@@ -72,6 +72,7 @@ import AppPagination from '@/components/AppPagination.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { approvalApi, type ApprovalRequest } from '@/api/approval'
+import { formatMoney } from '@/utils/money'
 
 const { t } = useI18n()
 const router = useRouter()

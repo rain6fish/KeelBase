@@ -63,6 +63,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { crmApi, type CrmDashboard } from '@/api/crm'
+import { formatMoneyCompact } from '@/utils/money'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -78,8 +79,8 @@ const cards = computed(() => [
   { label: t('crmCustomers'), value: d.value.customers, icon: 'mdi-account-group-outline', color: 'primary', to: '/workbench/crm' },
   { label: t('highRiskCustomers'), value: d.value.highRiskCustomers, icon: 'mdi-alert-octagon-outline', color: d.value.highRiskCustomers > 0 ? 'error' : 'success', to: '/workbench/crm?risk=high' },
   { label: t('opportunities'), value: d.value.opportunities, icon: 'mdi-target', color: 'info', to: '/workbench/crm' },
-  { label: t('pipelineAmount'), value: formatMoney(d.value.pipelineAmount), icon: 'mdi-currency-cny', color: 'primary' },
-  { label: t('weightedAmount'), value: formatMoney(d.value.weightedAmount), icon: 'mdi-chart-line', color: 'info' },
+  { label: t('pipelineAmount'), value: formatMoneyCompact(d.value.pipelineAmount), icon: 'mdi-currency-cny', color: 'primary' },
+  { label: t('weightedAmount'), value: formatMoneyCompact(d.value.weightedAmount), icon: 'mdi-chart-line', color: 'info' },
   { label: t('soonClosing'), value: d.value.soonClosing, icon: 'mdi-calendar-clock', color: 'success' },
   { label: t('overdueOrders'), value: d.value.overdueOrders, icon: 'mdi-timer-sand', color: d.value.overdueOrders > 0 ? 'error' : 'success' },
   { label: t('openTasks'), value: d.value.openTasks, icon: 'mdi-clipboard-text-outline', color: 'warning' },
@@ -88,10 +89,6 @@ const cards = computed(() => [
 
 function go(path: string) {
   router.push(path)
-}
-
-function formatMoney(n: number): string {
-  return n >= 10000 ? `${(n / 10000).toFixed(1)}w` : String(n)
 }
 
 async function load() {
