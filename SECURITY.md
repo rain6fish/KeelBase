@@ -33,7 +33,7 @@ This project is under active development (pre-1.0). Security fixes are applied t
 | 安全响应时限 Response SLA | 私密披露 → 确认 → 修复随发布（Reporting 流程） | 目标 **72h 确认**（见下文 Reporting） |
 
 **Reference deployment / 参考部署（可试跑，非生产 SLA）**
-- 演示环境 `https://demo.keelbase.com.cn`（三入口 `/user/` `/admin/` `/mobile/`，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
+- 演示环境 `https://demo.keelbase.com.cn`（入口 `/user/` 工作台、`/admin/` 管理台；**`/mobile/` 移动预览当前不可用**——原因与当前状态见 [demo-live.md](docs/manual/demo-live.md)，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
 - 自托管一键复现：
   - **权威路径（从源码完整复现）**：`./deploy/deploy.sh`（git clone → 一键部署 → 建管理员，见 `docs/manual/one-click-deploy.md`）；升级 = `git pull` + `docker compose build`。首次构建含 Flutter web 产物（10-20 分钟）。
   - **快捷镜像路径**：单容器 `docker run -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`（随 `v*` tag 由 `.github/workflows/docker-publish.yml` 发布，含最近发布版——演示用，权威复现仍走 deploy.sh）。
