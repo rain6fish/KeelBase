@@ -14,10 +14,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * （成员在签发它的那次请求内执行，见 `ConfirmationStore.createRun`）。
  *
  * postgres / sqlite 均**简单 ALTER ADD COLUMN**（不建索引，故不必走 sqlite 的整表重建，同
- * AddConfirmationExecutionState 先例）。时间戳 1829000000000 晚于最新既有迁移 1828000000000。
+ * AddConfirmationExecutionState 先例）。时间戳 1829100000000 晚于最新既有迁移 1828000000000。
+ *
+ * **为什么不是 1829000000000**：同一时刻另有一条工作线也在自己的分支上加了 `1829000000000-*`（新增列、
+ * 不同的表）。两者其实能并存（各自 ALTER 不同表，彼此可交换），但**同时间戳会让执行顺序不确定**，也违背
+ * 「时间戳晚于当前最新」那条约定的本意。故本条让位到 1829100000000——**谁后合并不重要**，这样两边都不必改。
  */
-export class AddConfirmationAudience1829000000000 implements MigrationInterface {
-  name = 'AddConfirmationAudience1829000000000';
+export class AddConfirmationAudience1829100000000 implements MigrationInterface {
+  name = 'AddConfirmationAudience1829100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const varchar = queryRunner.connection.options.type === 'postgres' ? 'character varying' : 'varchar';

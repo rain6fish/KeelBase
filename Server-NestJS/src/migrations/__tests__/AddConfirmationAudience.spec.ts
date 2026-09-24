@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddConfirmationAudience1829000000000 } from '../1829000000000-AddConfirmationAudience';
+import { AddConfirmationAudience1829100000000 } from '../1829100000000-AddConfirmationAudience';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -33,10 +33,10 @@ const PRE_STATE_TABLE = `CREATE TABLE "ai_confirmation_requests" (
   "execution_error" text,
   CONSTRAINT "UQ_2d2d4748c94dd7ffb6a4f541226" UNIQUE ("token"))`;
 
-describe('1829000000000 AddConfirmationAudience（AUTHZ-1 目的地绑定列）', () => {
+describe('1829100000000 AddConfirmationAudience（AUTHZ-1 目的地绑定列）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new AddConfirmationAudience1829000000000();
+  const migration = new AddConfirmationAudience1829100000000();
 
   const columns = async (): Promise<string[]> => {
     const rows = (await ds.query(`PRAGMA table_info("ai_confirmation_requests")`)) as Array<{
