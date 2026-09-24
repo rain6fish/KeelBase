@@ -658,7 +658,8 @@ export class AiService {
   ): AsyncIterable<StreamChunk> {
     // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
     await this._checkContentSafety(request.message, userId);
-    // HS-6：本次会话内被用户信任的写工具（确认时勾选「本会话免确认」后加入）
+    // HS-6：本轮内被用户信任的写工具（确认时勾选「不再询问」后加入）。
+    // 作用域 = 本次 chatStreamImpl 调用，随请求结束即失效——不跨轮次，也不是整个会话。
     const trustedTools = new Set<string>();
     const { providerName } = this.llmRouter.resolve(request.provider);
     // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
@@ -869,7 +870,7 @@ export class AiService {
 
           let result: ToolResult;
           if (isWrite) {
-            // HS-6：本会话已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
+            // HS-6：本轮已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
             if (trustedTools.has(tc.name)) {
               result = await this.toolExecution.executeWrite(tc.name, parsed, userId, conversationId);
             } else if (await this.toolGate.requiresApproval(tc.name)) {
@@ -948,7 +949,7 @@ export class AiService {
                 };
                 ({ outcome, trustTool } = await decision);
               }
-              // HS-6：用户勾选「本会话信任此工具」→ 后续免确认
+              // HS-6：用户勾选「不再询问」→ 后续免确认（仅本轮）
             if (trustTool && outcome === 'approve') {
               trustedTools.add(tc.name);
             }
