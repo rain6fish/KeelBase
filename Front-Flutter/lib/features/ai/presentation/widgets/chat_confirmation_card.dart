@@ -8,7 +8,7 @@ import '../providers/ai_chat_provider.dart';
 /// AI 写操作确认卡片（内联展示，非弹窗）
 ///
 /// 用户确认/拒绝后调用 provider.confirmPending，恢复被挂起的 SSE 流。
-/// HS-6：支持「本会话信任此工具」免确认 + 关键参数预览。
+/// HS-6：支持「本轮信任此工具」免确认 + 关键参数预览。
 class ChatConfirmationCard extends StatefulWidget {
   final PendingConfirmation confirmation;
 

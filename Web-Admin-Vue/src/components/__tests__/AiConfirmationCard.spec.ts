@@ -96,7 +96,7 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
     expect(wrapper.emitted('approved')?.[0]).toEqual([false])
   })
 
-  it('勾选「本会话信任」后批准 → emit approved(trustTool=true)', async () => {
+  it('勾选「本轮信任」后批准 → emit approved(trustTool=true)', async () => {
     const wrapper = mountCard()
     const checkbox = wrapper.find('input[type="checkbox"]')
     await checkbox.setValue(true)

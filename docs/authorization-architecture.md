@@ -100,7 +100,7 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 
 ### L5 Side-effect Governance（副作用治理）
 
-- **人工确认**：写操作触发确认（批准 / 拒绝 / 本会话信任），确认后才执行；R4 需双人审批。
+- **人工确认**：写操作触发确认（批准 / 拒绝 / 本轮信任），确认后才执行；R4 需双人审批。
 - **副作用记录（tool-effects）**：AI 创建的业务记录登记（目标类型 + 当前状态），支持撤销（软删 + 回收站恢复）。
 - **审计哈希链**：AI 审计 + 操作审计链式 SHA-256，`/audit/verify` 可验证完整性，篡改即失败；请求体敏感字段自动打码。
 - **决策轨迹（Decision Trace）**：用户请求 → AI 决策 → 工具调用 → 授权检查（含拒绝原因）→ 人工确认 → 数据变化，全链路可追溯。

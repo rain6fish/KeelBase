@@ -100,7 +100,7 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 
 ### L5 Side-effect Governance
 
-- **Human confirmation**: write operations trigger confirmation (approve / reject / trust this session); execution only after approval; R4 requires dual-person approval.
+- **Human confirmation**: write operations trigger confirmation (approve / reject / trust this round); execution only after approval; R4 requires dual-person approval.
 - **Side-effect records (tool-effects)**: AI-created business records are registered (target type + current state), supporting revoke (soft delete + trash recovery).
 - **Audit hash chain**: AI audit + operation audit chained SHA-256; `/audit/verify` verifies integrity; tampering fails; sensitive fields in request bodies are auto-redacted.
 - **Decision trace**: user request → AI decision → tool call → authorization check (including denial reasons) → human confirmation → data change, fully traceable.

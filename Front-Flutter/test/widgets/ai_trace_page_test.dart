@@ -79,7 +79,7 @@ void main() {
     expect(find.text('帮我创建一个事件'), findsOneWidget);
     expect(find.text('好的，已为你创建。'), findsOneWidget);
     expect(find.text('成功'), findsOneWidget);
-    expect(find.text('已批准 · 本会话免确认'), findsOneWidget);
+    expect(find.text('已批准 · 本轮免确认'), findsOneWidget);
     expect(find.text('创建事件 → event #5'), findsOneWidget);
     expect(find.text('晨会'), findsOneWidget);
     expect(find.text('撤销'), findsOneWidget);

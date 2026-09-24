@@ -116,7 +116,7 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 | **Domestic databases (DaMeng/KingbaseES) not adapted** | Currently sqlite/postgres only; limited domestic DB choices | postgres compatibility line is the starting point (Kingbase is postgres-derived, low cost); DaMeng needs dedicated work |
 | Domestic CPU/OS (Kylin/UOS/arm64/LoongArch) | Node official arm64 builds available; LoongArch etc. need verification | Inventory only verified items (service card ①) |
 | SAML / LDAP directory sync | OIDC only; some government buyers use SAML | Demand-driven (enterprise selection item) |
-| High availability / multi-replica | Single-replica design (confirmation/session trust in-process) | Enterprise "HA" list, driven by paying customer |
+| High availability / multi-replica | Single-replica design (confirmation/per-round trust in-process) | Enterprise "HA" list, driven by paying customer |
 | Data retention policy (compliance retention/auto-purge) | Not configurable | Enterprise "data retention" candidate |
 
 ---

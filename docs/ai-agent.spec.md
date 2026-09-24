@@ -312,7 +312,7 @@ GET /api/v1/ai/conversations/:id/trace
 }
 ```
 
-> step.type：`input`（用户提问）/ `assistant`（AI 文本回复）/ `tool_call`（工具调用，含 success/errorMessage）/ `confirmation`（写操作确认，outcome=approve|decline|timeout，trusted=本会话免确认）/ `effect`（AI 实际创建的记录，resultType+resultId+targetTitle+revocable）/ `notice`（chat/knowledge/plan/analyze/error 等摘要）。数据来自 ai_messages + ai_audit_logs + ai_tool_side_effects 三表聚合，只读不写库。
+> step.type：`input`（用户提问）/ `assistant`（AI 文本回复）/ `tool_call`（工具调用，含 success/errorMessage）/ `confirmation`（写操作确认，outcome=approve|decline|timeout，trusted=本轮免确认）/ `effect`（AI 实际创建的记录，resultType+resultId+targetTitle+revocable）/ `notice`（chat/knowledge/plan/analyze/error 等摘要）。数据来自 ai_messages + ai_audit_logs + ai_tool_side_effects 三表聚合，只读不写库。
 
 ---
 

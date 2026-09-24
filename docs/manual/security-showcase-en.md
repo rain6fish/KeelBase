@@ -60,7 +60,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 **Proof**: AI write operations require human confirmation; high-impact actions need a second approver.
 
-- Run: workbench AI chat "为辰光建材创建跟进任务" → **confirmation card** (R3 write: risk tier + technical authorization details + approve/reject/trust-for-session) → approve → persisted → "confirmed · reversible"
+- Run: workbench AI chat "为辰光建材创建跟进任务" → **confirmation card** (R3 write: risk tier + technical authorization details + approve/reject/trust-for-this-round) → approve → persisted → "confirmed · reversible"
 - Admin Console → **AI Approvals** (`/admin/#/ai-approvals`) → R4 two-person approval records
 - API: `POST /ai/confirmations/:token` (approve / reject)
 

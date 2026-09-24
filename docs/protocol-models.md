@@ -101,7 +101,7 @@ user  → can('manage', 'User', { id: user.sub })
 ### 3.3 Confirmation（`src/ai/confirmation/confirmation.store.ts`）
 
 - 写工具执行前生成短时 token（TTL 默认 60s），SSE `confirmation_request` → 用户 POST `/ai/confirmations/:token`（approve/decline + trustTool）
-- outcome：`approve | decline | timeout`；HS-6 trustTool → 本会话免确认
+- outcome：`approve | decline | timeout`；HS-6 trustTool → 本轮免确认
 
 ### 3.4 Audit（`src/ai/audit/` + `src/operation-audit/`，HS-11）
 

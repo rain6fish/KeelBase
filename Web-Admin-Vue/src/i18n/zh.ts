@@ -441,7 +441,7 @@ const zh = {
   stepApproved: '已批准',
   stepDeclined: '已拒绝',
   stepTimedOut: '已超时',
-  stepTrusted: '本会话免确认',
+  stepTrusted: '本轮免确认',
   stepInitiate: '发起',
   stepAuthorize: '授权',
   stepConfirm: '确认',
@@ -623,7 +623,7 @@ const zh = {
   // AI 确认卡（D1 闭环：Copilot 写操作需人工确认）
   confirmTitle: '需确认的操作',
   confirmNeedsConfirmation: 'AI 建议执行此操作，需你确认后才执行',
-  confirmTrustTool: '本会话信任此工具，后续不再确认',
+  confirmTrustTool: '本轮信任此工具，不再确认',
   confirmApprove: '批准',
   confirmReject: '拒绝',
   confirmFailed: '确认提交失败，请重试',
