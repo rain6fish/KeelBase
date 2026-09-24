@@ -10,7 +10,7 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
-import { redactSensitive } from '../common/utils/mask';
+import { isSensitiveKey, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -129,7 +129,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
       if (SKIP.has(k) || v == null || typeof v === 'object') continue;
-      out[k] = /password|token|secret|refresh/i.test(k) ? '[REDACTED]' : String(v);
+      out[k] = isSensitiveKey(k) ? '[REDACTED]' : String(v);
     }
     return out;
   }

@@ -205,6 +205,42 @@ describe('OperationAuditInterceptor', () => {
       );
     });
 
+    it('before 快照的 PII 明文被打码 —— 旧实现只用 password|token|secret|refresh, 邮箱/手机号会漏进 changes', async () => {
+      // 片段名那一半（apiToken / resetTokenHash 之类）由 mask.spec 的 isSensitiveKey 用例钉住；
+      // 这里钉的是接线：拦截器确实走共享判据，且 PII 名不再漏。
+      const ic = interceptorWithRepo({
+        findOne: jest.fn().mockResolvedValue({
+          id: 7,
+          status: 'active',
+          email: 'alice@example.com',
+          phone: '13800138000',
+        }),
+      });
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/crm/customers/7',
+        url: '/api/v1/crm/customers/7',
+        body: { email: 'bob@example.com', phone: '13900139000', status: 'inactive' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '7' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      const calls = (auditService.log as jest.Mock).mock.calls;
+      const logged = calls[calls.length - 1][0];
+      const entries = JSON.parse(logged.changes) as Array<{ field: string; before: string }>;
+      const byField = Object.fromEntries(entries.map((e) => [e.field, e.before]));
+      expect(byField.email).toBe('[REDACTED]');
+      expect(byField.phone).toBe('[REDACTED]');
+      expect(logged.changes).not.toContain('alice@example.com');
+      expect(logged.changes).not.toContain('13800138000');
+      // 非敏感字段照旧如实留痕
+      expect(byField.status).toBe('active');
+    });
+
     it('before 查询抛错 → 降级 null（catch 不阻塞）', async () => {
       const ic = interceptorWithRepo({ findOne: jest.fn().mockRejectedValue(new Error('db down')) });
       const req = {
