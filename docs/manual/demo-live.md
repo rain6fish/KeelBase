@@ -42,8 +42,8 @@
 
 - 后端健康检查：`http://121.199.30.80/api/v1/health`
 - AI 对话依赖 DeepSeek key（已配置）；本地/离线场景走 Ollama（见 `private-ai-verification.md`）
-- **⚠️ 移动预览 `/mobile/` 当前不可用**（2026-09-24 实测：页面停在 Loading，服务端无报错、HTTP 全 200）。缺陷已定位并**在代码中修复**（构建基路径 + 自托管资源 + CSP 三处，由门禁 `npm run check:mobile-preview` 守着），但**尚未重新部署到本环境**。重新部署后请删去本条，并恢复上方入口表与「演示价值」中的状态。
-- The mobile preview at `/mobile/` is currently **unavailable** (verified 2026-09-24 — it stalls on Loading while the server returns 200 for everything). The defect is fixed in the source — build base path, self-hosted assets and CSP, guarded by `npm run check:mobile-preview` — but has not been redeployed to this host.
+- **⚠️ 移动预览 `/mobile/` 当前不可用**（2026-09-24 实测：页面停在 Loading；服务端无报错、HTTP 全 200，但真浏览器里引擎起得来、界面始终不渲染）。**根因已定位且尚未修复**：Flutter 产物的 API 基址是编译期 `--dart-define=API_BASE_URL` 决定的，默认值为 `http://localhost:3000/api/v1`，而**本仓三处构建路径（`deploy/deploy.sh` · `deploy/experience.sh` · `.github/workflows/docker-publish.yml`）都没有传这个 define** → 任何部署出来的移动预览都会去连访客自己的 localhost，必然失败。门禁 `npm run check:mobile-preview` **不覆盖这一层**。修法：三处构建补 `--dart-define=API_BASE_URL=/api/v1`（同域反代相对路径，见 `app_constants.dart` 注释）。修好并重新部署后请删去本条。
+- The mobile preview at `/mobile/` is currently **unavailable** (verified 2026-09-24: it stalls on Loading — the page returns 200 for everything, and in a real browser the engine starts but nothing ever renders). **Root cause identified, not yet fixed**: the Flutter artifact's API base comes from the compile-time `--dart-define=API_BASE_URL`, which defaults to `http://localhost:3000/api/v1`, and **none of this repo's three build paths pass it** (`deploy/deploy.sh`, `deploy/experience.sh`, `.github/workflows/docker-publish.yml`). Any deployed mobile preview therefore calls the visitor's own localhost. The `npm run check:mobile-preview` gate does not cover this layer.
 
 ## 数据复位（Demo Reset，V-4）/ Reset Demo Data
 
