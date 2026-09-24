@@ -9,6 +9,9 @@
 # 判据本身。本脚本把它变成常绿——起隔离后端（fresh sqlite + 确定性 env，不碰宿主机 3000 的
 # 开发后端）→ 跑 runner → 停后端 → 透传退出码。
 #
+# runner 本体住在契约仓（所钉的 submodule 里），本仓不再自持副本；`--out` 显式指回本仓的
+# docs/benchmark/，报告位置与过去一致。
+#
 # 为什么值得单独一条门禁：F4/F5 是「同一套前端接第二个 Runtime」的前提（Rev-8 触发条件②）。
 # 参考实现一旦让信封或能力面漂移，受损的不是它自己，而是**所有**指向它的前端与第二载体。
 #
@@ -86,7 +89,7 @@ fi
 echo "  ✓ 就绪"
 
 echo "→ verify-full-profile（F4 信封/错误形状 + F5 两端点）"
-(cd "$BE" && node scripts/verify-full-profile.mjs --base-url "$BASE" --label ci)
+(cd "$BE" && node specs/protocol/runner/verify-full-profile.mjs --base-url "$BASE" --label ci --out "$REPORT_DIR")
 STATUS=$?
 
 stop_server

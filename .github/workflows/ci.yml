@@ -313,7 +313,7 @@ jobs:
   # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
   # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何
   # 门禁守着判据本身。本 job 起隔离后端（fresh sqlite + 确定性 env，端口 3401，不碰开发后端）→ 跑
-  # runner → 停后端 → 透传退出码。
+  # runner（本体在契约仓，经 submodule 取所钉那份）→ 停后端 → 透传退出码。
   # 为什么值得单独一条：F4/F5 是「同一套前端接第二个 Runtime」的前提（ADR-0002 Rev-8 触发条件②）。
   # 参考实现一旦让信封或能力面漂移，受损的不是它自己，而是**所有**指向它的前端与第二载体。
   full-profile:

@@ -235,7 +235,7 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
    * 并明写 `call.tool` 的 `expect` **相对 `response`**（N3-a）。正反例同步扩到覆盖它们。
    */
   describe('replay 语法 · replayVersion 选入门（§2.4 v1）', () => {
-    // 与 Full 剖面 runner（`scripts/verify-full-profile.mjs`）同一套 Ajv 选项：不校验 meta-schema、非严格模式，
+    // 与 Full 剖面 runner（`specs/protocol/runner/verify-full-profile.mjs`，契约仓）同一套 Ajv 选项：不校验 meta-schema、非严格模式，
     // 免得把 draft-07 元模式与未知关键字的告警当成语料不合规。
     const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     ajv.addSchema(JSON.parse(readFileSync(resolve(SPECS_DIR, 'replay.schema.json'), 'utf8')));
