@@ -141,6 +141,27 @@ export class AiToolSideEffect {
   @Column({ type: Date, nullable: true, name: 'revoke_acknowledged_at' })
   revokeAcknowledgedAt?: Date | null;
 
+  /**
+   * REV-6：**effect 身份不完整** —— true = 该行登记时**未能承载「变更」**（`after_snapshot` 为空）。
+   *
+   * effect 身份要同时答出**目标**（`result_type` + `result_id`）与**变更**（`before_snapshot` / `after_snapshot`）。
+   * 目标两列恒有值；变更那对**可空**（仅在写了快照捕获器时填）。身份不能是可选的：缺了变更，
+   * 建在 effect 键上的索引只能答「两个补偿组碰了同一行」，答不出「它们是否做了同一变更」。
+   * 恒有值的 `args_hash` 顶不上——它是**请求**指纹、同时是组键输入，非确定性工具下同一变更的两次调用
+   * 参数字节不同（那正是组被拆开的成因）：恒有值的字段恰在「是否同一件事」上自相矛盾。
+   *
+   * **落地取舍（REV-6 三选一：拒绝登记 / 回填历史 / 显式豁免并标注）**：取**显式豁免并标注**。
+   * 拒绝登记会把「可恢复」换成「不可恢复」——业务行已经写进目标表，此时拒登只会让这次写**没有任何副作用行**
+   * （撤销够不到它），与本仓对「换组键」的裁决同理；历史行回填不可能如实——变更当时的样子无法从任何
+   * 落库列重建，如今重查目标只会把**后来**的状态写成**当时**的变更。
+   *
+   * 只标**成组**成员（单目标行不属于任何组，不参与跨组身份判定，无此问题）。成因（无捕获器 / 抓取失败 /
+   * 目标行不存在）记在服务端 warn 日志；本列承载的是那件**持久事实**：这一行的身份缺了变更那半。
+   * **链外注解列**，不入 `_chainPayload`（白名单加 key 会使历史链验签失败）。
+   */
+  @Column({ type: 'boolean', default: false, name: 'identity_incomplete' })
+  identityIncomplete!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
