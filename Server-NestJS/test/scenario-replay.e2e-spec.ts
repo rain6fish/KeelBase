@@ -86,7 +86,9 @@ describe('Scenario replay · the reference implementation executes its corpus', 
     }
 
     await app.get(DataSource).getRepository('users').update(Number(actors.admin.id), { role: 'admin' });
-    actors.admin = { ...actors.admin, ...(await loginAs(app, 'replay_admin', 'Replay1234')) };
+    // Re-login so the token carries the promoted role — `loginAs` names it `accessToken`, and the
+    // registration token does not have the role.
+    actors.admin = { ...actors.admin, token: (await loginAs(app, 'replay_admin', 'Replay1234')).accessToken };
 
     toolExposure = app.get(ToolExposureService);
     toolExecution = app.get(ToolExecutionService);
@@ -129,16 +131,17 @@ describe('Scenario replay · the reference implementation executes its corpus', 
       'governance_view',
     ]);
 
-    // Two steps are recorded rather than replayed, and neither is an implementation gap:
-    //   - `confirmed_write`: this implementation's approve response is `{ok, trustTool}` — the frozen
-    //     `confirmation-decision` object travels on the stream, which R1 put out of replay scope.
-    //   - `audit_verifiable`: the corpus names `alice`, but this implementation gates
-    //     `GET /audit/verify` behind `manage all` — and the step's own title says 管理端.
+    // One step is recorded rather than replayed, and it is not an implementation gap:
+    //   - `confirmed_write`: the frozen `confirmation-decision` object is on neither implementation's
+    //     response — it travels on the stream here, and R1 put streams out of replay scope.
+    // `audit_verifiable` used to be recorded too: the corpus named `alice` while this implementation
+    // gates `GET /audit/verify` behind `manage all`, and the step's own title says 管理端. The corpus
+    // now names `admin`, so this side serves it — and that is the correction the run produced.
     expect(Object.fromEntries([...run.unservable].sort())).toEqual({
-      audit_verifiable: 'GET /audit/verify answered 403 for actor `alice`',
       confirmed_write: 'no pending confirmation exists off the stream (tokens are raised by the AI pipeline)',
     });
     expect([...run.replayed].sort()).toEqual([
+      'audit_verifiable',
       'create_followup_task_confirmation',
       'governance_view',
       'ownership_check',
@@ -258,7 +261,9 @@ describe('Scenario replay · the reference implementation executes its corpus', 
       case 'audit-chain-verification': {
         const res = await request(app.getHttpServer()).get('/api/v1/audit/verify').set(authHeader(token));
         if (res.status !== 200) {
-          throw new Unservable(`GET /audit/verify answered ${res.status} for actor \`${run.actor}\``);
+          throw new Unservable(
+            `GET /audit/verify answered ${res.status} for actor \`${run.actor}\`: ${JSON.stringify(res.body?.message ?? res.body).slice(0, 120)}`,
+          );
         }
         return { valid: res.body.data.valid };
       }
