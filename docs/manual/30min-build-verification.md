@@ -17,7 +17,7 @@
 
 ```bash
 # 干净 clone（或干净工作区）
-git clone <keelbase-repo> && cd KeelBase
+git clone --recurse-submodules <keelbase-repo> && cd KeelBase   # 契约 submodule 必须一并拉取（38 个测试套件依赖它）
 npm install            # Server-NestJS
 # 后端可启动（任意一种）
 npm run start:dev      # 或单容器

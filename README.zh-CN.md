@@ -159,10 +159,12 @@ Docker 单容器 · 内网/离线部署 · 本地模型与 Embedding。
 ## 🛠 构建你的第一个应用
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install && cp .env.example .env && cd ..
 node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
+
+> `--recurse-submodules` 是必需的：`Server-NestJS/specs/protocol` 是 submodule，存放 wire schema 与协议向量，**38 个测试套件**从它读取。已经 clone 过但漏了参数？跑 `git submodule update --init --recursive` 补上。
 
 自然语言 → 模块规格 → 协议 → 应用代码 → AI 工具 → 治理。CLI 随仓库提供（`scripts/keelbase-init.mjs`），**无需全局安装**；`--desc "…"` 用一句话生成（需配置模型密钥）。
 

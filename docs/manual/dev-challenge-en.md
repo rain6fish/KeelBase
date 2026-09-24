@@ -18,7 +18,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 # Visit http://localhost:3000 (workbench), /admin (Admin Console); demo accounts alex/Alex@2026$Demo
 
 # Option B: local development (to change code)
-git clone <repo> && cd KeelBase && cd Server-NestJS && npm install
+git clone --recurse-submodules <repo> && cd KeelBase && cd Server-NestJS && npm install
 ```
 
 ## The Challenge (30 minutes, time-boxed)

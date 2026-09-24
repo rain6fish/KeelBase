@@ -38,7 +38,7 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/rain6fish/KeelBase.git
+   git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git
    cd KeelBase
    ```
 3. Install backend dependencies:

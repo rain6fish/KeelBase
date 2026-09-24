@@ -32,7 +32,7 @@
 ## 2. 环境与基线
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git
 cd KeelBase            # 仓库根
 git checkout <本页顶部列出的 tag/commit>   # 见下方「当前基线」
 cd Server-NestJS
