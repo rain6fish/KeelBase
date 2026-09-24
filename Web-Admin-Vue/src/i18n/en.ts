@@ -440,7 +440,7 @@ const en: ZhDict = {
   stepApproved: 'Approved',
   stepDeclined: 'Declined',
   stepTimedOut: 'Timed out',
-  stepTrusted: 'Trusted this session',
+  stepTrusted: 'Trusted this round',
   stepInitiate: 'Initiated',
   stepAuthorize: 'Authorized',
   stepConfirm: 'Confirmed',
@@ -622,7 +622,7 @@ const en: ZhDict = {
   // AI confirmation card (D1 closed loop: Copilot writes need human confirmation)
   confirmTitle: 'Confirmation required',
   confirmNeedsConfirmation: 'AI proposes this action; it will run only after you confirm',
-  confirmTrustTool: 'Trust this tool for this session',
+  confirmTrustTool: 'Trust this tool for this round',
   confirmApprove: 'Approve',
   confirmReject: 'Reject',
   confirmFailed: 'Confirmation failed, please retry',

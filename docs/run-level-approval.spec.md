@@ -55,7 +55,7 @@
 在 `chatStreamImpl` 的流式工具执行段（`ai.service.ts` ~1271，`accumulatedToolCalls` 已收齐本轮全部 tool_call 之后、for 逐个执行**之前**）：
 
 1. 扫描本轮需**即时人工确认**的写工具集合 `C`：
-   - 判据 = `isWrite`（`_requiresConfirmation` 真）**且** `!(trustedTools.has(name))`（HS-6 本会话已信任则免确认，不并入）**且** 非 R4（`_requiresApproval` 为假）。
+   - 判据 = `isWrite`（`_requiresConfirmation` 真）**且** `!(trustedTools.has(name))`（HS-6 本轮已信任则免确认，不并入）**且** 非 R4（`_requiresApproval` 为假）。
 2. 若 `|C| ≥ 2` → **聚合为单个 run**，一次授权。
 3. 若 `|C| == 1` → **保持现有逐条即时确认路径**（零行为变化，向后兼容）。
 4. `|C| == 0` 且含 R4/R5 → R4 逐条提交异步审批、R5 逐条 block，均不并入（现状不变）。

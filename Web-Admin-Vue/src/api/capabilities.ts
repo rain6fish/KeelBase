@@ -15,11 +15,21 @@ export interface AiStatus {
   provider: string
 }
 
+/**
+ * 展示参数（契约 v2）：由服务端下发，取代前端自己的常量。
+ * Display parameters (contract v2): published by the server, replacing the front end's own constant.
+ */
+export interface AppDisplay {
+  currencySymbol: string
+}
+
 export interface AppCapabilities {
   preset: string
   features: Record<string, boolean>
   ai?: AiStatus
   businessModules: BusinessModule[]
+  /** v2 起有；旧服务端缺省 → 币种回落前端兜底值。 */
+  display?: AppDisplay
 }
 
 export const capabilitiesApi = {

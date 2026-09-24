@@ -104,7 +104,7 @@ export interface PendingConfirmation {
   args: Record<string, unknown>;
   /** KB-5：'single'（默认，单动作）/ 'run'（一次授权整批，token = runId） */
   kind?: 'single' | 'run';
-  /** HS-6：本次会话是否信任该工具（后续免确认） */
+  /** HS-6：本轮是否信任该工具（后续免确认；作用域由调用方定，当前为一次对话轮次） */
   trustTool?: boolean;
   resolve: (result: ConfirmationResolveResult) => void;
   timer: NodeJS.Timeout;
@@ -253,7 +253,8 @@ export class ConfirmationStore {
   /**
    * 解析确认。校验 token 存在且属于请求用户，否则返回 false（controller 转 404）。
    * 同步更新库状态（approved/declined + decided_at）。
-   * HS-6：trustTool 为 true 时，后续同工具写操作本会话免确认。
+   * HS-6：trustTool 为 true 时，后续同工具写操作免确认。**作用域由调用方持有**
+   * （`chatStreamImpl` 的局部 Set）——即一次对话轮次，随请求结束丢弃，不是整个会话。
    */
   async resolve(
     token: string,

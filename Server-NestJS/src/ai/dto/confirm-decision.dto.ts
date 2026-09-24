@@ -14,7 +14,7 @@ export class ConfirmDecisionDto {
   @IsEnum(['approve', 'decline', 'reject'])
   decision!: 'approve' | 'decline' | 'reject';
 
-  /** HS-6：本次会话信任该工具（后续免确认） */
+  /** HS-6：本轮信任该工具（后续免确认） */
   @IsOptional()
   @IsBoolean()
   trustTool?: boolean;

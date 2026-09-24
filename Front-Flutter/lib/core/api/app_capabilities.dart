@@ -8,11 +8,16 @@ class AppCapabilities {
   final AiStatus? ai;
   final List<BusinessModule> businessModules;
 
+  /// 展示参数（契约 v2）里的币种符号：由服务端下发，取代端内常量。
+  /// 旧服务端缺省 → 为 null，金额显示回落兜底值。
+  final String? displayCurrencySymbol;
+
   const AppCapabilities({
     required this.preset,
     this.features = const {},
     this.ai,
     this.businessModules = const [],
+    this.displayCurrencySymbol,
   });
 
   /// 功能开关默认视为开启（未知 key 不误隐藏导航）。
@@ -32,6 +37,8 @@ class AppCapabilities {
           .whereType<Map<String, dynamic>>()
           .map(BusinessModule.fromJson)
           .toList(),
+      displayCurrencySymbol:
+          (json['display'] as Map?)?['currencySymbol'] as String?,
     );
   }
 }

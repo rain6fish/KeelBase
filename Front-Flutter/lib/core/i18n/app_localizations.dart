@@ -603,7 +603,7 @@ class AppLocalizations {
   String get aiConfirmReject => _t('Decline', '拒绝');
   String get aiConfirming => _t('Processing...', '处理中…');
   String get aiWaitingConfirm => _t('Awaiting your confirmation...', '等待确认…');
-  String get aiConfirmTrustTool => _t('Trust this tool for this session (skip confirmation)', '本会话信任此工具（不再询问）');
+  String get aiConfirmTrustTool => _t('Trust this tool for this round (skip confirmation)', '本轮信任此工具（不再询问）');
   // KB-5 run-level approval：一次授权整批（run 卡）
   String Function(int) get aiConfirmRunCount => (int n) => _t('Approve $n operations in this batch', '一次批准本批 $n 个操作');
   String get aiConfirmRunWillExecute => _t('The AI will execute all of the following:', 'AI 将一次执行以下全部操作：');
@@ -648,7 +648,7 @@ class AppLocalizations {
   String get traceApproved => _t('Approved', '已批准');
   String get traceDeclined => _t('Declined', '已拒绝');
   String get traceTimedOut => _t('Timed out', '已超时');
-  String get traceTrusted => _t('Trusted this session', '本会话免确认');
+  String get traceTrusted => _t('Trusted this round', '本轮免确认');
   String get traceRevoke => _t('Revoke', '撤销');
   String get traceRevoked => _t('Revoked, restorable from trash', '已撤销，可经回收站恢复');
   String get traceRevokeFailed => _t('Revoke failed', '撤销失败');
