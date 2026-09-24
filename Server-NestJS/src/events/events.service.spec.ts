@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Repository } from 'typeorm';
@@ -76,6 +76,42 @@ describe('EventsService', () => {
 
     service = module.get<EventsService>(EventsService);
     jest.clearAllMocks();
+  });
+
+  // ─── REL-1：队列关闭不得静默 ────────────────────────────────────────────────
+
+  describe('onModuleInit（REL-1）', () => {
+    it('队列缺失（QUEUE_ENABLED=false）→ 启动告警，「提醒不会触发」这件事可见', async () => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      // 刻意**不**提供 reminder 队列 → 等价于 QUEUE_ENABLED=false（QueueModule 不注册 BullMQ）
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EventsService,
+          { provide: getRepositoryToken(Event), useValue: mockRepository },
+          {
+            provide: CacheService,
+            useValue: {
+              get: jest.fn().mockResolvedValue(undefined),
+              set: jest.fn().mockResolvedValue(undefined),
+              delete: jest.fn().mockResolvedValue(undefined),
+              delByPrefix: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+        ],
+      }).compile();
+
+      module.get<EventsService>(EventsService).onModuleInit();
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('事件提醒不会触发'));
+      warnSpy.mockRestore();
+    });
+
+    it('队列在位 → 不告警（不制造噪声）', () => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      service.onModuleInit();
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
   });
 
   // ─── Create ────────────────────────────────────────────────────────────────

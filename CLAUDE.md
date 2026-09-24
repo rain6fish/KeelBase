@@ -500,7 +500,9 @@ REDIS_URL=redis://localhost:6379   # Redis 地址
 CACHE_ENABLED=true                 # 是否启用缓存层（false 降级直查库）
 CACHE_TTL=300                      # 默认缓存 TTL（秒）
 
-# 异步队列（BullMQ）——需要 Redis，故默认关闭（false 降级同步执行）；有 Redis 的部署置 true
+# 异步队列（BullMQ）——需要 Redis，故默认关闭；有 Redis 的部署置 true。
+# ⚠ 关闭时各调用点各自降级，**并非都等价**：事件提醒**没有同步等价物**（直接跳过 = 提醒不触发，
+#   启动时会告警，/health?detail=true 的 queue 维也如实反映）。生产要提醒就必须置 true + 有 Redis。
 QUEUE_ENABLED=false                # 是否启用队列
 
 # AI 模型配置（可选，不配置则 AI 功能降级不可用；详见 docs/ai-agent.spec.md §环境变量）

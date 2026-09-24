@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   if (deps.redis === 'up') ok(`Redis ${deps.redis}`);
   else warn(`Redis ${deps.redis ?? 'unknown'}（未配置或关闭，缓存降级可用）`);
   if (deps.queue === 'up') ok('异步队列在线');
-  else warn(`异步队列 ${deps.queue ?? 'unknown'}（未启用，任务同步执行）`);
+  else warn(`异步队列 ${deps.queue ?? 'unknown'}（未启用：事件提醒不会触发；需部署 Redis 并设 QUEUE_ENABLED=true）`);
   ok(`存储驱动: ${deps.storage ?? 'local'} / 邮件: ${deps.mail ?? 'disabled'} / 推送: ${deps.push ?? 'none'}`);
 
   // ── 3. 数据规模 ─────────────────────────────────────────

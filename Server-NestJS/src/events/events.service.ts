@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, NotFoundException, ForbiddenException, Optional, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Optional, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -36,7 +36,7 @@ export interface PaginatedResult<T> {
 }
 
 @Injectable()
-export class EventsService {
+export class EventsService implements OnModuleInit {
   private readonly logger = new Logger(EventsService.name);
 
   constructor(
@@ -48,6 +48,20 @@ export class EventsService {
     @Optional() private readonly webhookPublisher?: WebhookPublisher,
     @Optional() private readonly dataScope?: DataScopeService,
   ) {}
+
+  /**
+   * REL-1：队列是**可选**依赖（`QUEUE_ENABLED` 默认 false），缺它时事件提醒**不会触发**。
+   * 那是「看不见的失败」——故启动即告警一次，让它在日志里被发现，而不是等「提醒没响」被当 bug 报。
+   * `/health?detail=true` 的 queue 维与 `npm run healthcheck` 同样会如实反映（见 REL-1 条目）。
+   */
+  onModuleInit(): void {
+    if (!this.reminderQueue) {
+      this.logger.warn(
+        '[Reminder] 队列未启用（QUEUE_ENABLED=false，默认）→ 事件提醒不会触发；' +
+          '需要提醒请部署 Redis 并设 QUEUE_ENABLED=true',
+      );
+    }
+  }
 
   /** 权限-2：范围来源优先角色配置（DataScopeService），缺席回退内置默认（逐 subject 复刻旧行为） */
   private async _scopeFor(userId: number) {
@@ -81,7 +95,9 @@ export class EventsService {
 
   /**
    * 调度事件提醒（delayed job，jobId 保证覆盖防重复）。
-   * QUEUE_ENABLED=false 或队列不可用时跳过（提醒不生效，业务正常）。
+   * ⚠ 队列不可用（`QUEUE_ENABLED=false`，默认）时**直接跳过**：提醒不会触发，且**没有同步等价物**
+   * ——注意这与 queue.module 自述的「降级同步执行」不同：**提醒这条路径没有降级实现**。
+   * 该降级由 onModuleInit 的启动告警对外如实标注（REL-1）。
    */
   private async _scheduleReminder(event: Event): Promise<void> {
     if (!this.reminderQueue) return;
