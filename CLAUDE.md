@@ -422,7 +422,7 @@ PORT=3000
 CORS_ORIGINS=*        # 生产环境改为 https://yourdomain.com
 
 # 数据库
-DB_TYPE=sqlite        # sqlite (dev) | postgres (prod)
+DB_TYPE=sqlite        # sqlite (dev) | postgres (prod)；两库不互迁——换库等于从空库起步，旧数据不带走（operations.md §3.2）
 DB_HOST=localhost     # postgres 时
 DB_PORT=5432
 DB_NAME=front

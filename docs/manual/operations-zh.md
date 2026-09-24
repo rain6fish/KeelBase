@@ -126,6 +126,14 @@ npm run migration:run
 
 **诚实声明**（§7.4 #5）：**技术 1.0**（稳定 API + 迁移契约）与**市场验证后置**（External developer validation = 1.0 后增长里程碑）分开表述，不混淆。
 
+### 3.2 换库
+
+**不支持。** KeelBase 不提供引擎之间的数据搬迁路径。把已有部署从 SQLite 换到 PostgreSQL，等于**重新起步**：
+`DB_TYPE=postgres` 指向空库，由迁移建表（`synchronize: false`、`migrationsRun: true`），再按需 seed 数据。
+**旧库里的行不会带过去。**
+
+这是有意的——两个引擎是**开发/生产的分工**，不是一对可互迁的库。请在首次生产部署**之前**把引擎定下来。
+
 ---
 
 ## 4. 备份与恢复

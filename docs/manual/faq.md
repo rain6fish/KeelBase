@@ -40,6 +40,8 @@ docker compose up postgres redis -d
 ```
 然后把 `Server-NestJS/.env` 的 `DB_TYPE=postgres` 并配好 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD`。Redis 用于缓存与队列，`CACHE_ENABLED=false` 可降级不用。
 
+> **换库不搬迁数据**：从 SQLite 换到 PostgreSQL **没有数据迁移路径**。生产**从空库起步**——由迁移建表（`migrationsRun: true`），再按需 seed，旧库里的行不会带过去。请在**首次生产部署之前**定好引擎。
+
 ### Q: 主 App 页面一直转圈 / 连不上后端？
 A: 三步排查：
 1. 后端是否在跑：`curl http://localhost:3000/api/v1/health`

@@ -127,6 +127,16 @@ npm run migration:run
 
 **Honest declaration / 诚实声明**（§7.4 #5）：**技术 1.0**（稳定 API + 迁移契约）与**市场验证后置**（External developer validation = 1.0 后增长里程碑）分开表述，不混淆。
 
+### 3.2 Switching Engines
+
+**Not supported.** KeelBase ships no data-migration path between engines. Switching an existing
+deployment from SQLite to PostgreSQL means starting **fresh**: point `DB_TYPE=postgres` at an empty
+database, let migrations build the schema (`synchronize: false`, `migrationsRun: true`), and seed
+what you need. The old rows do not come along.
+
+This is deliberate — the two engines are a dev/prod split, not a migration pair. Decide the engine
+before the first production deploy, not after.
+
 ---
 
 ## 4. Backup & Restore / 备份与恢复
