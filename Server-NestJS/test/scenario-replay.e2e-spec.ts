@@ -131,15 +131,11 @@ describe('Scenario replay · the reference implementation executes its corpus', 
       'governance_view',
     ]);
 
-    // One step is recorded rather than replayed, and it is not an implementation gap:
-    //   - `confirmed_write`: the frozen `confirmation-decision` object is on neither implementation's
-    //     response — it travels on the stream here, and R1 put streams out of replay scope.
-    // `audit_verifiable` used to be recorded too: the corpus named `alice` while this implementation
-    // gates `GET /audit/verify` behind `manage all`, and the step's own title says 管理端. The corpus
-    // now names `admin`, so this side serves it — and that is the correction the run produced.
-    expect(Object.fromEntries([...run.unservable].sort())).toEqual({
-      confirmed_write: 'no pending confirmation exists off the stream (tokens are raised by the AI pipeline)',
-    });
+    // Nothing is recorded any more, and both reasons are why: `audit_verifiable` is served because the
+    // corpus now names `admin` (this implementation gates `GET /audit/verify` behind `manage all`), and
+    // `confirmed_write` no longer carries an entry — the frozen `confirmation-decision` is on neither
+    // implementation's response, so the corpus moved it out and recorded it instead of asserting it.
+    expect(Object.fromEntries([...run.unservable].sort())).toEqual({});
     expect([...run.replayed].sort()).toEqual([
       'audit_verifiable',
       'create_followup_task_confirmation',
@@ -158,9 +154,7 @@ describe('Scenario replay · the reference implementation executes its corpus', 
 
     await replayAll(p, run, ['cross_user_denied', 'r5_blocked', 'r3_confirmation', 'evidence_root', 'revoke_effect']);
 
-    expect(Object.fromEntries([...run.unservable].sort())).toEqual({
-      r3_confirmation: 'no pending confirmation exists off the stream (tokens are raised by the AI pipeline)',
-    });
+    expect(Object.fromEntries([...run.unservable].sort())).toEqual({});
     expect([...run.replayed].sort()).toEqual(
       ['cross_user_denied', 'evidence_root', 'revoke_effect', 'r5_blocked'].sort(),
     );
@@ -189,7 +183,7 @@ describe('Scenario replay · the reference implementation executes its corpus', 
         }
       }
     }
-    expect(entries.length).toBe(16);
+    expect(entries.length).toBe(14);
   });
 
   // ── the replay itself ───────────────────────────────────────────────────────────────────────

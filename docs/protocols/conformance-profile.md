@@ -79,11 +79,13 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 
 | 包 | replay |
 |---|---|
-| `golden-application-v1` | ✅ v1（8 步：① 造数据 = **夹具**，②③ 工具调用，④⑥ 治理写，⑤ 审计链 verify，⑦ 否定断言，⑧ 治理视图读） |
-| `trust-proof-v1` | ✅ v1（S1 夹具 / S2 行级拒绝 / S3 R5 阻断 / S4 确认 / S5 撤销 / S7 证据包格式；**S6** 为**外部** java-starter 独立验证 ⇒ `replay: []`） |
+| `golden-application-v1` | ✅ v1（8 步：① 造数据 = **夹具**，②③ 工具调用，⑤ 审计链 verify（行动者 = `admin`），⑥ 治理写（撤销），⑦ 否定断言，⑧ 治理视图读；**④ 空**——裁决对象在两侧都只在流上，见下） |
+| `trust-proof-v1` | ✅ v1（S1 夹具 / S2 行级拒绝 / S3 R5 阻断 / S5 撤销 / S7 证据包格式；**S4 空**（同 ④ 的理由）；**S6** 为**外部** java-starter 独立验证 ⇒ `replay: []`） |
 | `cross-entry-v1` | ✅ v1（4 步；**跨入口之别不进语料**——传输是实现的自由，①② 因此成为同形重放，「同源」正体现在这里） |
 | `security-showcase-v1` | `replay: null` —— runtime-specific 展示物，**不在 replay 范围**（无对应 wire 对象） |
 | `failure-path-v1` | `replay: null` —— 故障注入类，**非单次 wire 请求可表达**，由 A/B 层复现 |
+
+**⚠ 一处已知的中立载体缺口（2026-09-24，两载体 runner 实据）**：确认流程的**裁决对象**（`confirmation-decision`）**在两个实现上都不在响应里**——参照实现只在 SSE 事件中给（且它**非流式对话不执行写**、确认令牌也由 AI 管道发放），Java 运行时的 approve 作答是它自己的 `ExecutionOutcome`；而**流已被 R1 判出 replay 范围** ⇒ `golden ④` 与 `trust-proof S4` **移出 replay 并在包内记录**（它们要证的事实仍由 ⑥ 撤销 / ⑧ 治理视图两步覆盖）。**更根本的一条**：确认流程的**载体**两侧不一致（参照 = 流 · Java = JSON 响应），这条链**今天没有中立载体**——属待裁定项。
 
 漂移门（`scenarios-pack.spec.ts`）不受影响（门只投影已知字段）；**`replay` 是人工撰写的重放脚本**（没有别的真源——它自己就是源），只受上述语法与门禁约束。
 
