@@ -18,11 +18,16 @@
 ## 0. Prerequisites (≈5 min)
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install
 cp .env.example .env    # the repo does not commit .env (it holds secrets) — copy the template
 ```
 
+> **`--recurse-submodules` is not optional.** `Server-NestJS/specs/protocol` is a submodule (the contract
+> repo), and 38 test suites read schemas and protocol vectors from it. Miss the flag and the directory stays
+> empty, so those 38 suites all fail with "file not found" — which reads like the project itself is broken.
+> Already cloned? One command fixes it: `git submodule update --init --recursive`.
+>
 > Installing only the backend is enough for this build loop. To see the UI, also install Web-Admin-Vue (`cd Web-Admin-Vue && npm install`).
 > **Without `.env`, `npm run start:dev` fails validation on the missing JWT_SECRET / ENCRYPTION_KEY** — copy the template first.
 

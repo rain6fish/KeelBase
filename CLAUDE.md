@@ -97,9 +97,9 @@ KeelBase/
 │   │   ├── admin/ + settings/ + data-import/ + templates/ + form-builder/ + maintenance-tasks/  # 管理侧
 │   │   ├── queue/ + push/ + realtime/ + mail/                          # 基础设施：队列/推送/实时/邮件
 │   │   ├── feature-flags/ + app-version/ + circuit-breaker/ + alert-webhook/ + operation-audit/  # 开关/版本/熔断/告警/审计
-│   │   └── tracing.ts             # OpenTelemetry 初始化
+│   │   ├── tracing.ts             # OpenTelemetry 初始化
+│   │   └── migrations/            # TypeORM 迁移文件（83 个；单源清单 → src/config/postgres-migrations.ts）
 │   ├── test/                      # E2E 测试
-│   ├── migrations/                # TypeORM 迁移文件
 │   ├── uploads/                   # 上传文件目录
 │   └── data/                      # SQLite 数据文件
 │

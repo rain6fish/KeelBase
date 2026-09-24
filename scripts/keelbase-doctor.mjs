@@ -19,7 +19,7 @@
  *   node scripts/keelbase-init.mjs doctor         # 等价的 CLI 子命令
  *   keelbase doctor                               # npm 安装后
  */
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -175,6 +175,26 @@ export function checkPort(port, free) {
     : { status: 'warn', name: `端口 ${port}`, detail: '被占用', fix: `停止占用 ${port} 的进程（netstat -ano | findstr :${port}），或改 PORT 环境变量` };
 }
 
+/**
+ * 契约 submodule 检查。
+ *
+ * `Server-NestJS/specs/protocol` 是 submodule（契约仓），**38 个测试套件**从它读 wire schema
+ * 与协议向量语料。未 initialise 的 submodule 目录**完全为空**，于是那 38 个套件全部报
+ * 「文件找不到」——看上去像项目本身是坏的，而不是像漏了一个 clone 参数。
+ * 故这里按目录是否为空判定，并给出修复命令。
+ */
+export function checkContractSubmodule(entryCount) {
+  if (entryCount > 0) {
+    return { status: 'pass', name: '契约 submodule', detail: `specs/protocol 已就位（${entryCount} 项）` };
+  }
+  return {
+    status: 'fail',
+    name: '契约 submodule',
+    detail: 'Server-NestJS/specs/protocol 为空——38 个测试套件会全部报「文件找不到」，像是项目坏了',
+    fix: 'git submodule update --init --recursive',
+  };
+}
+
 const REQUIRED_ENV_KEYS = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
 const LLM_KEYS = ['DEEPSEEK_API_KEY', 'QWEN_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'];
 
@@ -267,6 +287,13 @@ export async function runEnvCheck() {
     checks.push(checkEnvSecrets(envText));
     checks.push(checkLlm(envText));
     checks.push(checkDbType(envText));
+    let contractEntries = 0;
+    try {
+      contractEntries = (await readdir('Server-NestJS/specs/protocol')).length;
+    } catch {
+      contractEntries = 0; // 目录缺失视同为空——同为「submodule 未 init」
+    }
+    checks.push(checkContractSubmodule(contractEntries));
   }
 
   console.log('Checks:');

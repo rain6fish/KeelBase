@@ -37,6 +37,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - [ ] **app.module.ts**：import 模块 + 加入 `imports: []`
 - [ ] **modules-manifest.ts**：`BUSINESS_MODULES` 数组 + `businessEntries` 加新模块
 - [ ] **feature-flags.constants.ts**（可选）：如做开关，加 `FEATURE_<NAME>_ENABLED`
+- [ ] **builtin-role-rules.ts**：`BUILTIN_ROLE_RULES` 加该模块的 `{ 角色 × subject × ownerField }`——缺则该角色对这个模块没有能力（CASL 行级规则；这是权限的真正来源，不是 app.module）
+- [ ] **scope-policy.ts**（按需）：模块需要「本部门及以下」这类组织级数据范围时，把 subject 加进 `ORG_LEVEL_SUBJECTS`——漏了不会报错，只会**静默地只按本人（own）过滤**，是本清单里最容易漏的一处
 - [ ] **生成迁移**：`npm run migration:generate -- src/migrations/Add<Name>`（TypeORM 索引是 hash 名，禁止手写迁移）
 - [ ] **补测试**：service.spec（关键业务规则）+ 涉及安全路径加 e2e
 
