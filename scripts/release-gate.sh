@@ -32,10 +32,28 @@ echo ""
 
 # ── Gate 1：Golden Application = AI CRM 一次跑通闭环──
 echo "→ [Gate 1] Golden Application = AI CRM（Customer → Risk → 建跟进 → 确认 → 写 → 审计 → 撤销）"
-if ./scripts/verify-golden-application.sh >/dev/null 2>&1; then
+# 判据与 e2e 分片同一口径：**脚本没跑完**（无收尾汇总行 `Gate 1:`）才算中断、才重试一次；
+# 有汇总行即真实结果（PASS 或 FAIL），**不重试**——瞬时中断不掩盖真失败。实测依据：一次闸门跑里
+# Gate1 曾无汇总行失败而被单跑为 10/0，属本机长跑的同类抖动（见 docs/manual/codebase-health-audit.md）。
+GATE1_OUT=""; GATE1_PASS=0
+for gate1_attempt in 1 2; do
+  GATE1_OUT=$(./scripts/verify-golden-application.sh 2>&1) || true
+  if grep -q "Gate 1:" <<<"$GATE1_OUT"; then
+    if grep -q "Gate 1: PASS" <<<"$GATE1_OUT"; then GATE1_PASS=1; fi
+    break
+  fi
+  if [ "$gate1_attempt" = 1 ]; then
+    echo "  ⚠ Gate1 未产出收尾汇总行（脚本未跑完，非断言失败）——重试 1/1"
+  fi
+done
+if [ "$GATE1_PASS" = 1 ]; then
   gate "Gate1(Golden 闭环 + Build)" pass
 else
   gate "Gate1(Golden 闭环 + Build)" fail "verify-golden-application"
+  # 失败可诊断：回显脚本输出尾部（否则日志只有 "FAIL — verify-golden-application"）
+  echo "── Gate1 明细 — verify-golden-application 输出尾部 ──"
+  printf '%s\n' "$GATE1_OUT" | tail -n 40
+  echo "── /Gate1 明细 ──"
 fi
 
 # ── Build：后端编译 + 生成器闭环 ──────────────────────────────────────────────
