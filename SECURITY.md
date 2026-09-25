@@ -33,7 +33,7 @@ This project is under active development (pre-1.0). Security fixes are applied t
 | 安全响应时限 Response SLA | 私密披露 → 确认 → 修复随发布（Reporting 流程） | 目标 **72h 确认**（见下文 Reporting） |
 
 **Reference deployment / 参考部署（可试跑，非生产 SLA）**
-- 演示环境 `https://demo.keelbase.com.cn`（三入口 `/user/` `/admin/` `/mobile/`，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
+- 演示环境 `https://demo.keelbase.com.cn`（入口 `/user/` 工作台、`/admin/` 管理台；**`/mobile/` 移动预览当前不可用**——原因与当前状态见 [demo-live.md](docs/manual/demo-live.md)，Let's Encrypt 自动续期）——用于产品演示与选型试用；每日重置演示数据，**不提供生产 SLA**。
 - 自托管一键复现：
   - **权威路径（从源码完整复现）**：`./deploy/deploy.sh`（git clone → 一键部署 → 建管理员，见 `docs/manual/one-click-deploy.md`）；升级 = `git pull` + `docker compose build`。首次构建含 Flutter web 产物（10-20 分钟）。
   - **快捷镜像路径**：单容器 `docker run -p 3000:3000 ghcr.io/rain6fish/keelbase:latest`（随 `v*` tag 由 `.github/workflows/docker-publish.yml` 发布，含最近发布版——演示用，权威复现仍走 deploy.sh）。
@@ -164,6 +164,7 @@ The security controls above describe what KeelBase *does*. The list below states
 | N-11 | No ready ecosystem / third-party connectors / independent third-party security audit yet / 不承诺社区生态 / 第三方连接器 / 独立第三方安全审计已就绪 | Currently author-maintained + self-verified; public SECURITY disclosure process, LTS and compatibility commitments are roadmap items (KB-8). Assess single-maintainer risk when selecting / 当前以作者维护 + 自证为主；公开 SECURITY 披露流程 / LTS 与兼容承诺为 roadmap 项（KB-8）。选型请按单点维护风险评估 |
 | N-12 | No full Java-native edition / 不承诺 Java 原生全套 | Existing-system access via OpenAPI / MCP / bridge proxy; the Java starter is an access-layer integration; a full Java port is demand-triggered / 存量系统接入走 OpenAPI / MCP / 代理桥；Java starter 为接入层；整体 Java 移植由需求信号触发 |
 | N-13 | Not all Renderers are maintained in lockstep / 不承诺所有 Renderer 同步同等维护 | Primary front-end = Vue web host (workbench + admin console one shell); Flutter = primary mobile app; React preview / Taro positioning & maintenance commitment is stated before 1.1 (KB-7) / 主前端 = Vue Web 宿主（工作台 + 管理台同一壳）；Flutter = 移动主 App；React preview / Taro 的定位与维护承诺在 1.1 前表态（KB-7） |
+| N-14 | A hash chain on **SQLite** is not protected when **several server processes / replicas share one database file**: each process serializes its own writes in-process only, so a cross-process read-then-write race forks the chain / 不承诺 **SQLite** 上的哈希链在**多个服务进程 / 多副本共用同一个数据库文件**时不被破坏：每个进程只在**自身进程内**串行化写入，跨进程的「读前序 hash → 插入」竞态会使链分叉 | SQLite is a **single-writer** configuration — one server process per database file. Multi-replica deployments use **PostgreSQL**, where the read-previous-hash + insert pair runs inside one transaction holding a row lock on `audit_chain_lock` (`SELECT … FOR UPDATE`), which is what serializes writers across instances. A fork is **not silent**: `GET /audit/verify` and `GET /audit/operations/verify` detect it and return `valid:false` with `brokenIndex` / SQLite 是**单写者**配置——一个数据库文件只跑一个服务进程。多副本部署使用 **PostgreSQL**：「读前序 hash + 插入本行」在持有 `audit_chain_lock` 行锁（`SELECT … FOR UPDATE`）的同一事务内完成，跨实例写入由此串行化。分叉**不是静默的**：`GET /audit/verify` 与 `GET /audit/operations/verify` 会检出并返回 `valid:false` 与 `brokenIndex` |
 
 > **How each item is verified / 每项如何复核（挂 spec / 测试引用，KB-2）**：
 > - N-1 / N-2 / N-3 → 信任边界声明 [threat-model.md](docs/security/threat-model.md)；篡改即断链的可运行证明 = 证据根一键复现 [evidence-root.spec.md](docs/evidence-root.spec.md) §7（`npm run verify:evidence-root`） + `/audit/verify`（[hs11-audit-chain.spec.md](docs/hs11-audit-chain.spec.md)）
@@ -176,6 +177,7 @@ The security controls above describe what KeelBase *does*. The list below states
 > - N-11 → 维护与披露现状 = 本 SECURITY（Supported Versions → Maintenance & Sustainability 三指标 + Reporting 流程）+ [threat-model](docs/security/threat-model.md)
 > - N-12 → Java 接入路径 = [integrator-kit](docs/integrator-kit/)（java-starter 为探针）
 > - N-13 → 前端定位 = [product-language.md](docs/manual/product-language.md) + [architecture-boundary.md](docs/architecture-boundary.md)
+> - N-14 → 可复现验证 = `Server-NestJS/scripts/verify-audit-chain-concurrency.mjs`（两个服务进程共用同一 SQLite 文件即复现分叉；同脚本单服务进程为对照组，不分叉）
 
 > This list is derived from an adversarial review of the project's own claims (2026-09-07) and is mirrored in the public FAQ / 本清单源自对本项目自身表述的对抗性评审（2026-09-07），并与公开 FAQ 保持一致。
 

@@ -190,6 +190,15 @@ export interface AiTool {
    */
   readonly revokeClass?: RevokeClass;
 
+  /**
+   * 工具的目的地标识（授权时的约束面，AUTHZ-1）：写落到哪个系统。缺省 = 本地运行时（`local`）。
+   * B 路径 ProxyTool 声明目标系统 audience（取自 Settings `ai_proxy_tools.audience`）；
+   * 外部 MCP 工具的目的地由工具名键 `mcp_<server>_<tool>` 承载，不需在此声明。
+   * 确认 artifact 在签发时记下它、在执行时拿它与当前目的地比对 → 跨目标复用被拒（见 `tools/tool-destination.ts`）。
+   * 仅服务端关切，不暴露给 LLM。
+   */
+  readonly audience?: string;
+
   /** 权限元数据（HS-2）：未声明则默认允许（数据隔离已由 execute 的 userId 保证） */
   readonly permissions?: ToolPermissions;
 

@@ -67,12 +67,17 @@ export class R4ApprovalService {
     @Optional() private readonly usersService?: UsersService,
   ) {}
 
-  /** 创建持久化审批请求（operator 触发，approver 稍后决策；不阻塞 operator 对话）。 */
+  /**
+   * 创建持久化审批请求（operator 触发，approver 稍后决策；不阻塞 operator 对话）。
+   * `audience` = 该 artifact 被批准写往的目的地（AUTHZ-1）——R4 的等待窗口可达小时/天级，
+   * 正是目的地可能被改指的那种窗口，故这里的绑定最吃重。
+   */
   async createR4ApprovalRequest(
     operatorId: string,
     toolName: string,
     args: Record<string, unknown>,
     conversationId?: string,
+    audience?: string,
   ): Promise<{ token: string; id: number }> {
     if (!this.approvalsRepo) throw new Error('Approvals repository not injected');
     const token = randomUUID();
@@ -85,6 +90,7 @@ export class R4ApprovalService {
         riskLevel: 'R4',
         status: 'pending',
         conversationId,
+        ...(audience !== undefined ? { audience } : {}),
       }),
     );
     return { token, id: saved.id };
@@ -262,7 +268,16 @@ export class R4ApprovalService {
     const note = outcomeNote ?? `R4 approved by approver ${req.approverId}`;
     let result: ToolResult;
     try {
-      result = await this.toolExecution.executeWrite(req.toolName, args, req.operatorId, req.conversationId);
+      // AUTHZ-1：把 artifact 的 audience 带到执行点——本行从签发到执行跨请求（R4 可达小时/天级、
+      // Action Center 离线裁决亦然），目的地在这段窗口里可被改指，故校验必须在执行点做。
+      result = await this.toolExecution.executeWrite(
+        req.toolName,
+        args,
+        req.operatorId,
+        req.conversationId,
+        undefined,
+        req.audience ? { audience: req.audience } : undefined,
+      );
     } catch (err) {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
     }

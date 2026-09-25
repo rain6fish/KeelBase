@@ -11,7 +11,7 @@ export class AiGovernancePolicy {
   @PrimaryColumn()
   id!: number; // 固定 1（单行策略）
 
-  /** 策略 JSON：{ tools: { name: {enabled,requiresConfirmation,allowedRoles} }, audit: { granularity } } */
+  /** 策略 JSON：{ tools: { name: {enabled,requiresConfirmation,allowedRoles,mode,writableFields,allowedDestinations} }, audit: { granularity } } */
   @Column({ type: 'text' })
   value!: string;
 

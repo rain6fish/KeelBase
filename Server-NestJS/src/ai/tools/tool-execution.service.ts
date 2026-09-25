@@ -74,12 +74,38 @@ export class ToolExecutionService {
     userId: string,
     conversationId?: string,
     runId?: string,
+    opts?: { audience?: string },
   ): Promise<ToolResult> {
     // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
     // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
     // 期间策略 `enabled` / 角色白名单 / 特性开关可能变化（策略「实时生效」，见 hs9 spec §0/§5）。此前仅发起时断言：
     // 已被禁用的工具仍会因「早先批准」而执行，kill-switch 对在途审批失效。此处复查，使执行点与发起点同门。
     await this.toolGate.assertToolAllowed(toolName, userId);
+
+    // AUTHZ-2：策略声明的可写字段域 / destination 白名单，同样在**执行点**按实际请求校验
+    //（与上面同一理由：声明可在等待窗口内被收紧，执行点才是它必须成立的地方）。
+    await this.toolGate.assertWithinDeclaredScope(toolName, args);
+
+    // AUTHZ-1：确认 artifact 的目的地绑定。artifact 在签发时记下它被批准写往哪个系统，
+    // 这里拿它和**此刻**该工具的目的地比对——等待窗口内目的地可被改指（Settings 热重载换代理
+    // 目标、外部 server 重新注册），那时「批准写往 A」的 artifact 会静默落到 B。
+    // 没有 artifact 的写（免确认自动写 / 本轮信任）不传 audience，故不受此约束——受约束的是 artifact，
+    // 不是每一次写。
+    if (opts?.audience) {
+      const destination = this.toolGate.destinationOf(toolName);
+      if (destination !== opts.audience) {
+        throw new AuthorizationDeniedError(
+          `Tool "${toolName}" destination changed since the confirmation was issued (confirmed for "${opts.audience}", now "${destination}")`,
+          [
+            {
+              name: 'destination_binding',
+              ok: false,
+              note: `确认绑定目的地 ${opts.audience}，当前 ${destination} —— 跨目标复用被拒`,
+            },
+          ],
+        );
+      }
+    }
 
     const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
 

@@ -80,6 +80,43 @@ export function registerSensitiveKeys(keys: readonly string[]): void {
   }
 }
 
+/**
+ * Fragments that make a name sensitive wherever they appear in it. The built-in list names fields
+ * one by one, but some names cannot be enumerated in advance — a module's `apiToken`, the user
+ * table's `resetTokenHash` — and a name carrying one of these fragments is sensitive no matter what
+ * surrounds it.
+ *
+ * 名字中出现即视为敏感的片段。内建清单逐个点名，但有些名字无法预先枚举 —— 模块的 `apiToken`、
+ * 用户表的 `resetTokenHash` —— 命中这些片段的名字无论前后缀为何都算敏感。
+ */
+const SENSITIVE_KEY_FRAGMENTS = /password|token|secret|refresh/i;
+
+/**
+ * Whether a field name is one the platform treats as sensitive: a built-in name, a name a module
+ * registered, or a name carrying one of the fragments above.
+ *
+ * Exported so the audit before-snapshot uses **this** rule rather than keeping one of its own. The
+ * snapshot used to carry a local `password|token|secret|refresh` regex while the request body was
+ * redacted from `SENSITIVE_KEYS`; the two had drifted, and that drift is why an email reached the
+ * before-snapshot in clear text while the same email was masked in the body. This predicate is the
+ * union of both rules, so the snapshot keeps every name the local regex caught and gains the PII
+ * names it missed.
+ *
+ * 某字段名是否被平台视为敏感：内建名、模块注册的名，或带上列片段的名。导出使审计的 before 快照用
+ * **这一条**判据，而非自留一份。快照原带一条本地 `password|token|secret|refresh` 正则，requestBody
+ * 则走 `SENSITIVE_KEYS` 打码；两者已经漂移，漂移正是「同一个邮箱在 body 里被打码、却明文进了 before
+ * 快照」的原因。本判据是两条规则的并集 —— 快照既保留本地正则原先命中的全部名字，又补上它漏掉的
+ * PII 名字。
+ */
+export function isSensitiveKey(key: string): boolean {
+  if (SENSITIVE_KEY_FRAGMENTS.test(key)) return true;
+  const lower = key.toLowerCase();
+  return (
+    SENSITIVE_KEYS.some((k) => k.toLowerCase() === lower) ||
+    Array.from(EXTRA_SENSITIVE_KEYS).some((k) => k.toLowerCase() === lower)
+  );
+}
+
 /** Escapes a key so that a name with regex metacharacters cannot widen the match. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

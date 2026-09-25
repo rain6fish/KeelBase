@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { maskEmail, maskPhone, maskText, redactSensitive, registerSensitiveKeys } from './mask';
+import {
+  isSensitiveKey,
+  maskEmail,
+  maskPhone,
+  maskText,
+  redactSensitive,
+  registerSensitiveKeys,
+} from './mask';
 
 describe('mask utils', () => {
   describe('maskEmail', () => {
@@ -49,6 +56,41 @@ describe('mask utils', () => {
 
     it('returns original on invalid JSON', () => {
       expect(redactSensitive('not-json')).toBe('not-json');
+    });
+  });
+
+  // The predicate the audit before-snapshot and the request-body redaction share (D-AUDIT-1). These
+  // cases pin both halves of it: the built-in list, which carries the PII names, and the fragment
+  // rule, which covers the names the list cannot enumerate.
+  // 审计 before 快照与 requestBody 打码共用的判据（D-AUDIT-1）。这里钉住它的两半：
+  // 内建清单（含 PII 名）与片段规则（清单枚举不到的名字）。
+  describe('isSensitiveKey', () => {
+    it('内建清单里的 PII 名算敏感 —— before 快照原先漏掉的正是这些', () => {
+      expect(isSensitiveKey('email')).toBe(true);
+      expect(isSensitiveKey('phone')).toBe(true);
+      expect(isSensitiveKey('dateOfBirth')).toBe(true);
+    });
+
+    it('清单枚举不到、但命中片段的名字仍算敏感（并集 ⇒ 旧覆盖不打折）', () => {
+      expect(isSensitiveKey('apiToken')).toBe(true);
+      expect(isSensitiveKey('resetTokenHash')).toBe(true);
+      expect(isSensitiveKey('confirmPassword')).toBe(true);
+      expect(isSensitiveKey('clientSecret')).toBe(true);
+    });
+
+    it('大小写不敏感', () => {
+      expect(isSensitiveKey('EMAIL')).toBe(true);
+      expect(isSensitiveKey('AccessToken')).toBe(true);
+    });
+
+    it('普通字段名不算敏感', () => {
+      expect(isSensitiveKey('title')).toBe(false);
+      expect(isSensitiveKey('status')).toBe(false);
+    });
+
+    it('模块注册的名算敏感', () => {
+      registerSensitiveKeys(['idCardNoKeyTest']);
+      expect(isSensitiveKey('idCardNoKeyTest')).toBe(true);
     });
   });
 

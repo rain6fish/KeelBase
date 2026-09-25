@@ -22,7 +22,7 @@ import {
   DefaultValuePipe,
   Put,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import {
   BadRequestException,
   ConflictException,
@@ -430,16 +430,19 @@ export class AiController {
    */
   @Get('tool-effects')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤）' })
+  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤；stale=true 只看陈旧未了结）' })
+  @ApiQuery({ name: 'stale', required: false, description: 'REV-2：只看 compensating 超过阈值分钟未了结的行' })
   getToolEffects(
     @Query('userId', new DefaultValuePipe(undefined)) userId?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+    @Query('stale') stale?: string,
   ) {
     return this.toolEffectsService.list({
       userId: userId !== undefined ? Number(userId) : undefined,
       page,
       limit,
+      stale: stale === 'true',
     });
   }
 
@@ -451,6 +454,19 @@ export class AiController {
   @ApiOperation({ summary: 'AI 副作用哈希链校验（admin，G-3）' })
   verifySideEffects() {
     return this.toolEffectsService.verifySideEffectChain();
+  }
+
+  /**
+   * REV-3 检出（docs/cascade-compensation.spec.md §4.2）：同一业务对象横跨多个补偿组 = 一次动作被拆成两组。
+   * 两组各自内部自洽 → 唯一冲突不触发、幂等回放不执行、别处毫无异常信号；本端点让分裂**可见**。
+   */
+  @Get('tool-effects/splits')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '补偿组过度分裂检出（admin，REV-3）：同一业务对象横跨多个组' })
+  @ApiQuery({ name: 'limit', required: false, description: '最多返回多少条重叠（默认且上限 100）' })
+  getSplitGroups(@Query('limit') limit?: string) {
+    const parsed = Number(limit);
+    return this.toolEffectsService.findSplitGroups(Number.isFinite(parsed) ? parsed : undefined);
   }
 
   /**

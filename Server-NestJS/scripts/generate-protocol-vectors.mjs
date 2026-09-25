@@ -4,7 +4,7 @@
 /**
  * CE-1 确定性算法向量语料生成器（B1/B2 最小切片）。
  *
- * 由当前 Node 现实现（scripts/lib/protocol-algorithms.mjs = 参考实现）生成
+ * 由契约仓的算法单源（runner/lib/protocol-algorithms.mjs = 参考实现，经 submodule 消费）生成
  * specs/protocol/ 下 4 份机器可校验语料：
  *   - canonical-json-v1-vector.json   canonicalJSON 金样本（含 flat/nested/array/null/number/unicode/undefined）
  *   - audit-hash-v1-vector.json       §2 hash / legacy 派生 / 链校验向量（含正反例）
@@ -31,7 +31,7 @@ import {
   needsConfirmation,
   GATE_OUTCOME_BY_STRATEGY,
   DENY_CHECKS,
-} from './lib/protocol-algorithms.mjs';
+} from '../specs/protocol/runner/lib/protocol-algorithms.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = resolve(__dirname, '../specs/protocol');
@@ -329,7 +329,7 @@ const governanceBindingFile = {
   vectorVersion: 'v1',
   protocol: 'ai-governance-protocol §4.3/§4.4 tool→policy→decision binding',
   license: 'Apache-2.0',
-  note: '策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 scripts/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。',
+  note: '策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 runner/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。',
   riskStrategy: RISK_STRATEGY,
   gateOutcomeByStrategy: GATE_OUTCOME_BY_STRATEGY,
   denyChecks: DENY_CHECKS,

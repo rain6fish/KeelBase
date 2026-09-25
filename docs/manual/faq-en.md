@@ -32,6 +32,8 @@ docker compose up postgres redis -d
 ```
 Then set `DB_TYPE=postgres` + DB_* in `.env`. Redis is optional — `CACHE_ENABLED=false` degrades gracefully.
 
+> **Switching engines does not migrate data.** Moving from SQLite to PostgreSQL has **no data migration path**. Production starts from an **empty database** — migrations build the schema (`migrationsRun: true`) and you seed as needed; the old rows do not come along. Decide the engine **before the first production deploy**.
+
 **Q: App spinner forever / can't reach backend?**
 1. Backend up? `curl http://localhost:3000/api/v1/health`
 2. Ports match? Frontend defaults to `http://localhost:3000/api/v1`

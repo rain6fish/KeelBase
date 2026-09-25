@@ -85,11 +85,19 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 | `security-showcase-v1` | `replay: null` —— runtime-specific 展示物，**不在 replay 范围**（无对应 wire 对象） |
 | `failure-path-v1` | `replay: null` —— 故障注入类，**非单次 wire 请求可表达**，由 A/B 层复现 |
 
-**⚠ 一处已知的中立载体缺口（2026-09-24，两载体 runner 实据）**：确认流程的**裁决对象**（`confirmation-decision`）**在两个实现上都不在响应里**——参照实现只在 SSE 事件中给（且它**非流式对话不执行写**、确认令牌也由 AI 管道发放），Java 运行时的 approve 作答是它自己的 `ExecutionOutcome`；而**流已被 R1 判出 replay 范围** ⇒ `golden ④` 与 `trust-proof S4` **移出 replay 并在包内记录**（它们要证的事实仍由 ⑥ 撤销 / ⑧ 治理视图两步覆盖）。**更根本的一条**：确认流程的**载体**两侧不一致（参照 = 流 · Java = JSON 响应），这条链**今天没有中立载体**——属待裁定项。
+**一处已裁定的范围（N6-b，2026-09-24）· 确认流程不进 replay**：确认的**令牌**与**裁决对象**属**传输 / 实现自由**——参照实现把它们放在**流**上、Java 放在 JSON 响应里——因此**不进中立重放**。语料只保留**结果可由非流响应读出**的治理写，即**撤销类**（`side-effect-revoke#revoke`）。
+
+**实据（两载体 runner，2026-09-24）**：`confirmation-decision` **两侧都不在响应上**（参照 = `{ok,trustTool}` + SSE；Java = 它自己的 `ExecutionOutcome`），确认令牌也只在**AI 管道**上发放（参照的非流式对话**根本不执行写**）⇒ `golden ④` 与 `trust-proof S4` **移出 replay 并在包内记录**（它们要证的事实仍由 ⑥ 撤销 / ⑧ 治理视图覆盖）。裁定里「治理写」解锁的条目因此是 **3 条**（撤销），不是 5 条。
+
+**为什么不是「给确认流程补一个中立载体」（N6-a，未采纳）**：那要**改两侧的线缆可见响应**并写进契约，为一条链引入新载体；而确认语义**已被各实现自己的 e2e / 脚本覆盖**（`golden-application.e2e-spec.ts` ④ · `verify-trust-proof.mjs` S4）。**范围收在语料侧，契约不动。**
+
+**四条补充裁定（2026-09-25，两载体跑完后的输入）**：**N7-a** 包**声明它用到的工具名**（包级 `tools`）——缺这些工具的 Runtime 据此判**「不适用」**，是**机读**的；门禁强制**声明覆盖 replay 里真正调用的每一个工具**（删一个即红，已实测）。**N8-b** **流程产物不进语料**（`$ref` 只覆盖夹具），由 **runner 携带**。**N9-b** **夹具由场景所有者造**（不写身份 ⇒ 跨行动者的前置今天表达不出来）。**N10-a** **`expect` 的目标对象按 call 形态明写**：`read` = 读到的那个对象 · `write` = 被写的那个对象 · `tool` = `tool-invocation.response`（写进语法注释）。
 
 漂移门（`scenarios-pack.spec.ts`）不受影响（门只投影已知字段）；**`replay` 是人工撰写的重放脚本**（没有别的真源——它自己就是源），只受上述语法与门禁约束。
 
-**⚠ 仍未证（③ 唯一余项）**：v1 的 `replay` **尚未在第二载体上机器重放**——即「Java 运行时按同一 `replay` 序列跑出同一 `expect`」（Java 线 **JV-15 Slice 1** 的输入已就绪）。在它跑通之前，`replay` 的准确性仍是「按判据写就对」的推断，**不是实证**。
+**两载体重放（2026-09-24）**：`replay` **已在两侧真跑**——参照实现 `Server-NestJS/test/scenario-replay.e2e-spec.ts`（**14/14**）与第二载体 `KeelBase4J` 的 `ScenarioReplayTest`（**6**，其余逐条记因）。两侧 runner 都**断言自己实际跑过哪些条目**，不可服务的**连原因一起断言**（不静默跳过）——这既是判据的实证，也让「语料说自己做过什么」这件事**可核**。
+
+**⚠ 仍要说清边界**：两侧**可服务的条目集不同**（应用面不同 + 能力差距），所以这不是「两载体跑出完全相同的覆盖」；**共同可断言的那一部分**才是「载体可替换」的实证，差异部分各有分类与原因。
 
 ---
 
@@ -115,9 +123,9 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 2. 按 `ai-governance-protocol.md §2.2/§2.3/§3/§4` **自实现**算法（**不得**复用 KeelBase 源码）；
 3. 逐 case 复算、比对 `expect*` 字段；拒绝类 case 断言**必须拒**；
 4. 读 `wire-schema-registry.json` → 对每对象的 `samples/*` 用标准 JSON Schema 校验器过一遍；
-5. 输出机器可读报告（结构见参考 runner `docs/benchmark/protocol-conformance-<ts>.json`）。
+5. 输出机器可读报告（结构见参考 runner 产出的 `reports/protocol-conformance-<ts>.json`）。
 
-> 参考 runner（`Server-NestJS/scripts/verify-protocol-conformance.mjs`）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
+> 参考 runner（`Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`，契约仓）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
 
 **载体可替换的实证（2026-09-14）**：
 

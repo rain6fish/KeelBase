@@ -53,6 +53,24 @@ describe('ConfirmationStore', () => {
     );
   });
 
+  it('AUTHZ-1: create 把签发时的目的地记进确认行（audience 绑定）', async () => {
+    await store.create('1', 'create_invoice', { amount: 1 }, 1000, 'conv-1', 'legacy-erp');
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'create_invoice',
+        conversationId: 'conv-1',
+        audience: 'legacy-erp',
+      }),
+    );
+  });
+
+  it('AUTHZ-1: 未给目的地时不留空串——列保持缺席（历史行/run 行的口径）', async () => {
+    await store.create('1', 'create_event', { title: 'T' });
+
+    expect(repo.create.mock.calls[0][0]).not.toHaveProperty('audience');
+  });
+
   it('should resolve decline for the owning user', async () => {
     const { token, decision } = await store.create('1', 'create_event', { title: 'T' });
 

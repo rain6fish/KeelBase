@@ -21,6 +21,7 @@ describe('AiController', () => {
   let mockGetToolInventory: jest.Mock;
   let mockListToolEffects: jest.Mock;
   let mockRevokeToolEffect: jest.Mock;
+  let mockFindSplitGroups: jest.Mock;
   let mockListOwnedToolEffects: jest.Mock;
   let mockAbility: any;
 
@@ -40,6 +41,7 @@ describe('AiController', () => {
     mockGetToolInventory = jest.fn();
     mockListToolEffects = jest.fn();
     mockRevokeToolEffect = jest.fn();
+    mockFindSplitGroups = jest.fn();
     mockListOwnedToolEffects = jest.fn();
     mockAbility = { cannot: () => false };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
@@ -63,6 +65,7 @@ describe('AiController', () => {
       revoke: mockRevokeToolEffect,
       revokeOwned: mockRevokeOwned,
       listOwned: mockListOwnedToolEffects,
+      findSplitGroups: mockFindSplitGroups,
     } as any;
     const mockDecisionTraceService = { getConversationTrace: mockGetConversationTrace } as any;
     controller = new AiController(
@@ -403,12 +406,48 @@ describe('AiController', () => {
     it('GET /ai/tool-effects 无 userId → 不过滤', () => {
       mockListToolEffects.mockReturnValue({ items: [], total: 0 });
       controller.getToolEffects(undefined, 1, 20);
-      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: undefined, page: 1, limit: 20 });
+      expect(mockListToolEffects).toHaveBeenCalledWith({
+        userId: undefined,
+        page: 1,
+        limit: 20,
+        stale: false, // REV-2：未带 stale 参数即不过滤
+      });
     });
 
     it('GET /ai/tool-effects 带 userId（字符串）→ 转数字过滤', () => {
       controller.getToolEffects('42', 1, 20);
-      expect(mockListToolEffects).toHaveBeenCalledWith({ userId: 42, page: 1, limit: 20 });
+      expect(mockListToolEffects).toHaveBeenCalledWith({
+        userId: 42,
+        page: 1,
+        limit: 20,
+        stale: false,
+      });
+    });
+
+    // REV-2：端点要能直接回答「哪些 compensating 超过阈值未了结」
+    it('GET /ai/tool-effects stale=true → 只看陈旧未了结', () => {
+      mockListToolEffects.mockReturnValue({ items: [], total: 0 });
+      controller.getToolEffects(undefined, 1, 20, 'true');
+      expect(mockListToolEffects).toHaveBeenCalledWith(
+        expect.objectContaining({ stale: true }),
+      );
+    });
+
+    // REV-3：检出器要能被管理端直接问到「哪些业务对象横跨多个补偿组」
+    it('GET /ai/tool-effects/splits → 委托 findSplitGroups；未带 limit 不传上限', () => {
+      mockFindSplitGroups.mockReturnValue({ count: 1, truncated: false, splits: [] });
+      controller.getSplitGroups(undefined);
+      expect(mockFindSplitGroups).toHaveBeenCalledWith(undefined);
+    });
+
+    it('GET /ai/tool-effects/splits?limit=5 → 上限透传', () => {
+      controller.getSplitGroups('5');
+      expect(mockFindSplitGroups).toHaveBeenCalledWith(5);
+    });
+
+    it('GET /ai/tool-effects/splits?limit=abc → 非法值回落默认（不把 NaN 传进去）', () => {
+      controller.getSplitGroups('abc');
+      expect(mockFindSplitGroups).toHaveBeenCalledWith(undefined);
     });
 
     it('DELETE /ai/tool-effects/:id 撤销成功 → 返回结果', async () => {

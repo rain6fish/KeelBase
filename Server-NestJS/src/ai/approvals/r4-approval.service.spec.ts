@@ -188,6 +188,41 @@ describe('R4ApprovalService（R4 双人审批域）', () => {
       (mockToolGate as any).governancePolicy = undefined;
     });
 
+    /**
+     * AUTHZ-1：确认 artifact 绑的是**目的地**，不只是工具与参数。
+     *
+     * 观测面（旧实现不可能产出）：旧实现里确认行没有 audience 这一列，执行点也不做比对，
+     * 所以「同一个确认 token，在签发之后目的地被改指」这件事**它照做不误**——本用例在旧实现上是绿的
+     * 反面：工具会被调用。修复后同一 token 不再跨目标有效，工具一次都不该被调用。
+     */
+    it('AUTHZ-1 执行点复查目的地：确认行绑 legacy-erp、工具此刻指向 legacy-crm → 拒且不执行', async () => {
+      const repo = {
+        findOne: jest.fn().mockResolvedValue({
+          token: 't4',
+          operatorId: '1',
+          status: 'pending',
+          toolName: 'create_invoice',
+          args: '{"amount":1}',
+          conversationId: 'c',
+          approverId: null,
+          decidedAt: null,
+          // 签发时记下的目的地（artifact 的 audience 绑定）
+          audience: 'legacy-erp',
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      r4 = makeService(repo);
+      // 签发之后、批准之前：该工具被改指到另一个目标系统（Settings 热重载换代理目标的等价形态）
+      mockToolRegistry.getTool.mockReturnValue({ name: 'create_invoice', audience: 'legacy-crm' } as any);
+      mockToolRegistry.execute.mockClear();
+
+      const res = await r4.decideApproval('t4', 'admin', 'approve');
+
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      expect(res.success).toBe(false);
+      expect(res.message).toContain('destination changed since the confirmation was issued');
+    });
+
     // 回归：原先 findOne + save 读改写 → 双人同时批准时两人都通过 pending 检查 → 写工具执行两次。
     // 现在条件更新是唯一仲裁点：只有 affected=1 的那一方执行。
     it('并发裁决：条件更新未命中（affected=0）→ already decided，且**不执行**写工具', async () => {

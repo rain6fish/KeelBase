@@ -84,6 +84,15 @@
       "status": "由既有 migration-consistency CI job（sqlite+postgres）覆盖，本语料引用不重复造",
       "layer": "—",
       "replay": null
+    },
+    {
+      "id": "FP-11",
+      "title": "确认 artifact 跨目标复用",
+      "scenario": "同一确认行被指向另一 destination（签发后工具已改指）",
+      "expected": "拒绝执行（`destination_binding`）；不写任何目标",
+      "status": "已安全（AUTHZ-1 audience 绑定 + 执行点比对）",
+      "layer": "A",
+      "replay": null
     }
   ]
 }

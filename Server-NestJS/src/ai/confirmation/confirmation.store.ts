@@ -151,6 +151,8 @@ export class ConfirmationStore {
    * R3 确认请求落库（ai_confirmation_requests，riskLevel=R3）——持久化事实源。
    * TTL 超时后自动 resolve('timeout') 并更新库状态，避免 pending promise 泄漏。
    * @param ttlMs 覆盖默认 TTL（HS-6：经 Settings 可配，如 confirmation_ttl_seconds）
+   * @param audience 该 artifact 被批准**写往哪个目的地**（AUTHZ-1，单源解析见 `tools/tool-destination.ts`）。
+   *   执行点拿它与当时的目的地比对，跨目标复用即拒。
    */
   async create(
     userId: string,
@@ -158,13 +160,14 @@ export class ConfirmationStore {
     args: Record<string, unknown>,
     ttlMs?: number,
     conversationId?: string,
+    audience?: string,
   ): Promise<{ token: string; decision: Promise<ConfirmationResolveResult> }> {
     const token = randomUUID();
     let resolveFn!: (result: ConfirmationResolveResult) => void;
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
-    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId });
+    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId, audience });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
     return { token, decision };
@@ -212,6 +215,7 @@ export class ConfirmationStore {
     kind: 'single' | 'run';
     runItems?: string;
     conversationId?: string;
+    audience?: string;
   }): Promise<void> {
     await this.reqRepo
       .save(
@@ -226,6 +230,8 @@ export class ConfirmationStore {
           ...(row.runItems !== undefined ? { runItems: row.runItems } : {}),
           // docs/run-level-approval.spec.md §2.4：run 记录须携带 conversationId，服务器重启后按会话可查可裁决
           ...(row.conversationId !== undefined ? { conversationId: row.conversationId } : {}),
+          // AUTHZ-1：artifact 的目的地绑定（链外注解列，不入任何哈希链 payload）
+          ...(row.audience !== undefined ? { audience: row.audience } : {}),
         }),
       )
       .catch((err) => {

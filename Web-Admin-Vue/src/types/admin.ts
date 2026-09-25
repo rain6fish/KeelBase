@@ -296,6 +296,33 @@ export interface ToolEffect {
   /** KB-6：撤销能力档位 + 撤销结果运维态（服务端回传；据档位诚实渲染，none 不显示撤销钮） */
   revokeClass?: string
   revokeStatus?: string | null
+  /**
+   * REV-2：`compensating`（已请求外部补偿·结果未知）的补偿请求时刻 / 年龄 / 陈旧标记。
+   * 服务端只回答「多久了 / 可能已陈旧」——真值仍在目标系统，不据此当作成功或失败。
+   * `revokeAgeMinutes` 为 null 表示年龄未知（引入该列之前写入的行）。
+   */
+  revokeRequestedAt?: string | null
+  revokePending?: boolean
+  revokeAgeMinutes?: number | null
+  revokeStale?: boolean
+  /**
+   * REV-2 细化：外呼**确认**时刻 + 窗口读数 —— 同一条 `compensating` 因此分为两种不确定：
+   * `unacknowledged` = 可能根本没到达外部系统（进程死在外呼中途）；`awaiting_target` = 确实到达了、对方没给终态。
+   */
+  revokeAcknowledgedAt?: string | null
+  revokeWindow?: 'unacknowledged' | 'awaiting_target' | null
+  /**
+   * REV-1：所属补偿组**声明与持有不一致**（同参数重试声明了与已登记不同的成员）。
+   * 该组的撤销**不会**报告完成；`dispute` 是被拒声明与双向差集的证据。
+   */
+  disputed?: boolean
+  dispute?: {
+    declared: Array<{ resultType: string; resultId: number }>
+    stored: Array<{ resultType: string; resultId: number }>
+    onlyDeclared: Array<{ resultType: string; resultId: number }>
+    onlyStored: Array<{ resultType: string; resultId: number }>
+    decidedAt: string
+  } | null
   /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
   status?: string
   /** 服务端单一权威的撤销可点（status=executed 且档位非 none）；三端据此渲染 */

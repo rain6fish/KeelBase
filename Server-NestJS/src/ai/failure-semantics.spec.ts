@@ -7,6 +7,9 @@
  * - 覆盖门：所有「有层（layer ≠ —）」的 FP 都必须有 wire 级失败语义绑定
  *   （FP-9 迁移中断由 CI migration-consistency job 覆盖，layer=—，不在本契约内）；
  * - id 唯一。
+ *
+ * 读 **v2**（2026-09-24，MINOR 加性）：v1 是冻结历史（结局清单即该向量的规范性内容，故不就地改写），
+ * 与 v2 并存；消费方按当前版本读，与 `confirmation.store.spec.ts` 读 confirmation-lifecycle v2 同口径。
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,7 +18,7 @@ const PROTOCOL_DIR = resolve(__dirname, '../../specs/protocol');
 const SCENARIOS_DIR = resolve(__dirname, '../../specs/scenarios');
 
 const vector = JSON.parse(
-  readFileSync(resolve(PROTOCOL_DIR, 'failure-semantics-v1-vector.json'), 'utf8'),
+  readFileSync(resolve(PROTOCOL_DIR, 'failure-semantics-v2-vector.json'), 'utf8'),
 ) as { outcomes: Array<{ id: string; wireSchema: string | null; failurePath: string; invariant: string }> };
 
 const registry = JSON.parse(readFileSync(resolve(PROTOCOL_DIR, 'wire-schema-registry.json'), 'utf8')) as {

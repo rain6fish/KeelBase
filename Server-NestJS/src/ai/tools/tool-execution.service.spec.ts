@@ -4,6 +4,7 @@ import { ToolExecutionService } from './tool-execution.service';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
+import { AuthorizationDeniedError } from '../interfaces/tool.interface';
 
 /**
  * 执行域单测（阶段 3 第六刀从 `ai.service.spec.ts` 整段搬来，**断言一字未改**）。
@@ -230,6 +231,142 @@ describe('ToolExecutionService（执行域）', () => {
       const res = await toolExecution.executeAgentRead('query_events', { start: 'x' }, '1');
       expect(res.success).toBe(true);
       expect(mockToolRegistry.execute).toHaveBeenCalledWith('query_events', { start: 'x' }, '1');
+    });
+  });
+
+  /**
+   * AUTHZ-1 / AUTHZ-2 都在**执行点**成立，故断言也钉在这里。
+   *
+   * 观测面（旧实现不可能产出）：旧实现里「artifact 绑的目的地与工具此刻的目的地不一致」这件事
+   * **根本不存在**——artifact 没有目的地，执行点也没有比对，于是同一个 artifact 指向另一个目标时
+   * 照常写下去；同理「越域字段」在旧实现里只是普通参数。两者修复后的表现都是**拒绝执行**，
+   * 而「工具一次都没被调用」是旧实现无论如何都产不出的观测面。
+   */
+  describe('AUTHZ-1 确认 artifact 的目的地绑定（执行点）', () => {
+    const proxyTool = (audience: string) => ({ name: 'create_invoice', audience } as any);
+
+    it('artifact 绑 legacy-erp、工具此刻指向 legacy-crm → 拒，且不执行', async () => {
+      mockToolRegistry.getTool.mockReturnValue(proxyTool('legacy-crm'));
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const err = await toolExecution
+        .executeWrite('create_invoice', { amount: 1 }, '1', 'c1', undefined, {
+          audience: 'legacy-erp',
+        })
+        .catch((e: any) => e);
+
+      expect(err).toBeInstanceOf(AuthorizationDeniedError);
+      expect(err.message).toContain('destination changed since the confirmation was issued');
+      expect(err.reasons).toEqual([
+        expect.objectContaining({ name: 'destination_binding', ok: false }),
+      ]);
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('artifact 绑定的目的地与此刻一致 → 照常执行', async () => {
+      mockToolRegistry.getTool.mockReturnValue(proxyTool('legacy-erp'));
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const res = await toolExecution.executeWrite(
+        'create_invoice',
+        { amount: 1 },
+        '1',
+        'c1',
+        undefined,
+        { audience: 'legacy-erp' },
+      );
+
+      expect(res).toEqual({ success: true, data: { id: 1 } });
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('外部 MCP 工具的目的地是它的 server 名——换 server 即换目标', async () => {
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const err = await toolExecution
+        .executeWrite('mcp_billing_charge', { amount: 1 }, '1', 'c1', undefined, {
+          audience: 'mcp:inventory',
+        })
+        .catch((e: any) => e);
+
+      expect(err.message).toContain('confirmed for "mcp:inventory", now "mcp:billing"');
+    });
+
+    it('没有 artifact 的写（免确认 / 本轮信任）不传 audience → 不受此约束', async () => {
+      mockToolRegistry.getTool.mockReturnValue(proxyTool('legacy-crm'));
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 2 } });
+
+      const res = await toolExecution.executeWrite('create_invoice', { amount: 1 }, '1', 'c1');
+
+      expect(res).toEqual({ success: true, data: { id: 2 } });
+    });
+  });
+
+  describe('AUTHZ-2 授权层声明的可写字段域 / destination 白名单（执行点）', () => {
+    const withPolicy = (override: Record<string, unknown>) => {
+      const gate = new ToolGateService(mockToolRegistry as any, externalTools, {
+        getToolPolicy: jest.fn().mockResolvedValue({
+          enabled: true,
+          requiresConfirmation: true,
+          requiresApproval: false,
+          allowedRoles: [],
+          mode: 'confirm',
+          writableFields: [],
+          allowedDestinations: [],
+          ...override,
+        }),
+        isToolEnabled: jest.fn().mockResolvedValue(true),
+        getAllowedRoles: jest.fn().mockResolvedValue([]),
+      } as any);
+      return new ToolExecutionService(mockToolRegistry as any, gate, externalTools);
+    };
+
+    it('声明了字段域的工具，请求带域外字段 → 拒（旧实现无域概念，照常写）', async () => {
+      const svc = withPolicy({ writableFields: ['status'] });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const err = await svc
+        .executeWrite('update_ticket', { status: 'done', owner: 9 }, '1', 'c1')
+        .catch((e: any) => e);
+
+      expect(err).toBeInstanceOf(AuthorizationDeniedError);
+      expect(err.message).toContain('outside its writable field domain: owner');
+      expect(err.reasons).toEqual([expect.objectContaining({ name: 'field_domain', ok: false })]);
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('域内字段 → 照常执行（字段域是上限，不是要求逐字全等）', async () => {
+      const svc = withPolicy({ writableFields: ['status', 'priority'] });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 3 } });
+
+      const res = await svc.executeWrite('update_ticket', { status: 'done' }, '1', 'c1');
+
+      expect(res).toEqual({ success: true, data: { id: 3 } });
+    });
+
+    it('destination 不在白名单 → 拒', async () => {
+      const svc = withPolicy({ allowedDestinations: ['legacy-erp'] });
+      mockToolRegistry.getTool.mockReturnValue({ name: 'create_invoice', audience: 'legacy-crm' } as any);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const err = await svc
+        .executeWrite('create_invoice', { amount: 1 }, '1', 'c1')
+        .catch((e: any) => e);
+
+      expect(err.message).toContain('not allowed to write to destination "legacy-crm"');
+      expect(err.reasons).toEqual([
+        expect.objectContaining({ name: 'destination_allowed', ok: false }),
+      ]);
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('未声明（两域皆空）→ 不约束，照常执行', async () => {
+      const svc = withPolicy({});
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 4 } });
+
+      const res = await svc.executeWrite('update_ticket', { anything: 1 }, '1', 'c1');
+
+      expect(res).toEqual({ success: true, data: { id: 4 } });
     });
   });
 });

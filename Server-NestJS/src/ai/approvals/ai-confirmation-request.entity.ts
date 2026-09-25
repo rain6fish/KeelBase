@@ -39,6 +39,33 @@ export class AiConfirmationRequest {
   @Column({ nullable: true, name: 'conversation_id' })
   conversationId?: string;
 
+  /**
+   * Audience binding (AUTHZ-1) — the destination this artifact was approved to write to.
+   *
+   * The delegation token already names its target system in `aud`, and the receiving system checks
+   * it. This row had no equivalent: it bound *what* would be written (tool + exact args) but never
+   * *where*, so the same artifact stayed valid when pointed at a different destination and the
+   * runtime held nothing to contradict it. Recorded at issue time, re-resolved at execution time —
+   * a destination that changed inside the waiting window (a re-pointed proxy tool, a re-registered
+   * external server) is refused rather than silently followed.
+   *
+   * Annotation-only column: it enters no hash-chain payload, so existing chains and rows are
+   * untouched. Null for rows minted before the column existed, and for run rows, whose members are
+   * executed inside the issuing request (see `ConfirmationStore.createRun`).
+   *
+   * 目的地绑定（AUTHZ-1）——该 artifact 被批准**写往哪个系统**。委托 token 早已在 `aud` 里指名目标
+   * 系统并由目标校验，而本行没有对应物：它绑住了「写什么」（工具 + 精确参数），却从未绑住「写到哪」，
+   * 于是同一个 artifact 指向另一个目的地时依然有效，运行时手里没有东西与它矛盾。签发时记录、执行时
+   * 重新解析——等待窗口内目的地变了（代理工具被改指、外部 server 被重新注册）则拒，而不是静默跟过去。
+   *
+   * 链外注解列：不入任何哈希链 payload，故既有链与既有行不受影响。本列出现之前的行、以及 run 行为 null
+   * ——run 的成员在签发它的那次请求内执行（见 `ConfirmationStore.createRun`）。
+   */
+  // 显式 `type`：联合类型（`string | null`）在无 type 时被反射成 `Object`，真建库即报
+  // DataTypeNotSupportedError（单测不建库看不出，见 typeorm-union-type-needs-explicit-column-type）。
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  audience?: string | null;
+
   /** 风险等级（当前恒 R4） */
   @Column({ length: 4, name: 'risk_level' })
   riskLevel!: string;

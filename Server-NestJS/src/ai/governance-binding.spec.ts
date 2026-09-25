@@ -2,7 +2,7 @@
 
 /**
  * CE-3 薄片 governance binding：TS 实现 ↔ 协议语料 漂移门。
- * - TS RISK_STRATEGY（tool.interface）== 语料 riskStrategy（语料由 scripts/lib/protocol-algorithms.mjs 单源生成）
+ * - TS RISK_STRATEGY（tool.interface）== 语料 riskStrategy（语料由契约仓的算法单源 runner/lib/protocol-algorithms.mjs 生成）
  *   —— 闭合 .ts / .mjs 双处 RISK_STRATEGY 的潜在漂移。
  * - 语料 gateOutcomeByStrategy 覆盖 RISK_STRATEGY 全部策略值。
  * - deny 依据词表（DENY_CHECKS）在 ai.service / authorization-explainer 源码中真实出现（拒绝词汇未被改名）。

@@ -5,7 +5,8 @@
  *
  * 判定：失败下系统**如实记录状态、不假装成功、不重复副作用、证据不丢**。
  * 形态覆盖：FP-1 幂等 / FP-2 确认重放 / FP-3 外部超时 / FP-4 DB-down 不吞 /
- *          FP-5 唯一冲突 skip / FP-6 审计中断 fail-closed / FP-7 补偿失败如实 / FP-8 未知结果如实。
+ *          FP-5 唯一冲突 skip / FP-6 审计中断 fail-closed / FP-7 补偿失败如实 / FP-8 未知结果如实 /
+ *          FP-11 确认 artifact 跨目标复用被拒（audience 绑定）。
  * 全确定性无 LLM：直接 new service + mock seam（DB / fetch），不启 Nest 容器。
  */
 import { ProxyTool } from '../proxy/proxy-tool';
@@ -13,6 +14,9 @@ import { ProxyToolRevokerService } from '../proxy/proxy-revoker.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { ConfirmationStore } from '../confirmation/confirmation.store';
 import { AuditService } from '../audit/audit.service';
+import { ToolExecutionService } from '../tools/tool-execution.service';
+import { ToolGateService } from '../tools/tool-gate.service';
+import { AuthorizationDeniedError } from '../interfaces/tool.interface';
 
 /** 挂起但尊重 AbortSignal 的 fetch（超时测试用） */
 const hangingFetch = (_url: unknown, init: RequestInit) =>
@@ -273,6 +277,45 @@ describe('失败路径语料（KB-4 / FP）', () => {
 
       await expect(svc.log(entry)).rejects.toThrow('pg down');
       expect(runner.rollbackTransaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('FP-11 确认 artifact 跨目标复用被拒（audience 绑定）', () => {
+    it('签发时绑 legacy-erp、执行时该工具已改指 legacy-crm → 拒，且目标一次都没被写', async () => {
+      // ① 签发：artifact 把目的地连同工具与参数一起记进确认行
+      const reqRepo = {
+        create: jest.fn((d: unknown) => d),
+        save: jest.fn().mockResolvedValue({}),
+        update: jest.fn(),
+      };
+      const store = new ConfirmationStore(reqRepo as any, 60_000);
+      await store.create('1', 'create_invoice', { amount: 1 }, 60_000, 'c', 'legacy-erp');
+      const persisted = reqRepo.create.mock.calls[0][0] as { audience?: string };
+      expect(persisted.audience).toBe('legacy-erp');
+
+      // ② 执行：同一确认行，而该工具此刻已被改指到另一个目标系统
+      const registryExecute = jest.fn().mockResolvedValue({ success: true, data: { id: 41 } });
+      const registry = {
+        getTool: jest.fn().mockReturnValue({ name: 'create_invoice', audience: 'legacy-crm' }),
+        execute: registryExecute,
+        requiresConfirmation: jest.fn().mockReturnValue(true),
+        riskLevel: jest.fn().mockReturnValue('R3'),
+      };
+      const external = { current: undefined, isExternal: () => false };
+      const gate = new ToolGateService(registry as any, external as any);
+      const execution = new ToolExecutionService(registry as any, gate, external as any);
+
+      const err = await execution
+        .executeWrite('create_invoice', { amount: 1 }, '1', 'c', undefined, {
+          audience: persisted.audience,
+        })
+        .catch((e: any) => e);
+
+      expect(err).toBeInstanceOf(AuthorizationDeniedError);
+      expect(err.reasons).toEqual([
+        expect.objectContaining({ name: 'destination_binding', ok: false }),
+      ]);
+      expect(registryExecute).not.toHaveBeenCalled();
     });
   });
 });

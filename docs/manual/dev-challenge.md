@@ -18,7 +18,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 # 访问 http://localhost:3000（工作台）、/admin（管理台）；演示账号 alex/Alex@2026$Demo
 
 # 方式 B：本地开发（改代码需要）
-git clone <repo> && cd KeelBase && cd Server-NestJS && npm install
+git clone --recurse-submodules <repo> && cd KeelBase && cd Server-NestJS && npm install
 ```
 
 ## 挑战（30 分钟，时间盒）

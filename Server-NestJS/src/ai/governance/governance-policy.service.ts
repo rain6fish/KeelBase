@@ -25,6 +25,14 @@ export interface ToolPolicyOverride {
   allowedRoles?: string[];
   /** 门控档位覆盖（优先级最高；R5 恒阻断，不可放宽） */
   mode?: ToolGateMode;
+  /**
+   * 可写字段域（AUTHZ-2）：本工具这一次写**允许出现的参数名**。非空即上限——域外参数一律拒。
+   * 与「确认绑定精确 args」并存：精确绑定答「是不是这组参数」，本域答「这类参数可不可以写」。
+   * 它**不是** `parameters` 里的 enum——那些是给 LLM 读的提示，不做授权判定，也不覆盖 destination。
+   */
+  writableFields?: string[];
+  /** destination 白名单（AUTHZ-2）：本工具**允许写到哪些目的地**（值域同委托 token 的 `aud`，见 `tools/tool-destination.ts`）。非空即上限——域外目的地一律拒。 */
+  allowedDestinations?: string[];
 }
 
 /** 合并默认后的生效工具策略（getToolPolicy / 便捷方法返回） */
@@ -36,6 +44,10 @@ export interface ToolPolicy {
   allowedRoles: string[];
   /** 生效门控档位：auto | confirm | approval */
   mode: ToolGateMode;
+  /** AUTHZ-2：可写字段域（空 = 未声明，不约束） */
+  writableFields: string[];
+  /** AUTHZ-2：destination 白名单（空 = 未声明，不约束） */
+  allowedDestinations: string[];
 }
 
 export interface GovernancePolicy {
@@ -57,6 +69,12 @@ function normalizePolicy(value: Partial<GovernancePolicy> | null | undefined): G
     if (typeof cfg.requiresConfirmation === 'boolean') entry.requiresConfirmation = cfg.requiresConfirmation;
     if (cfg.mode === 'auto' || cfg.mode === 'confirm' || cfg.mode === 'approval') entry.mode = cfg.mode;
     if (Array.isArray(cfg.allowedRoles)) entry.allowedRoles = [...cfg.allowedRoles].sort();
+    // AUTHZ-2 声明面入规范化：它参与授权判定，故必须进内容指纹——否则「收紧字段域」不产生新 revision，
+    // 决策可复现会把两版不同约束读成同一版。
+    if (Array.isArray(cfg.writableFields)) entry.writableFields = [...cfg.writableFields].sort();
+    if (Array.isArray(cfg.allowedDestinations)) {
+      entry.allowedDestinations = [...cfg.allowedDestinations].sort();
+    }
     if (Object.keys(entry).length > 0) tools[name] = entry;
   }
   const sortedTools: Record<string, Partial<ToolPolicy>> = {};
@@ -114,7 +132,9 @@ export function effectiveGateMode(
  *     "create_event": { "enabled": false },
  *     "create_todo": { "requiresConfirmation": false },      // legacy 布尔（兼容）
  *     "create_customer": { "mode": "approval" },             // §internal.15(4) 门控档位：auto|confirm|approval
- *     "web_search": { "allowedRoles": ["admin"] }
+ *     "web_search": { "allowedRoles": ["admin"] },
+ *     "update_ticket": { "writableFields": ["status", "priority"] },   // AUTHZ-2 可写字段域（域外即拒）
+ *     "create_invoice": { "allowedDestinations": ["legacy-erp"] }      // AUTHZ-2 destination 白名单
  *   },
  *   "audit": { "granularity": "all" | "write" | "off" }
  * }
@@ -199,6 +219,8 @@ export class GovernancePolicyService {
       requiresApproval: mode === 'approval',
       allowedRoles: override.allowedRoles ?? [],
       mode,
+      writableFields: override.writableFields ?? [],
+      allowedDestinations: override.allowedDestinations ?? [],
     };
   }
 

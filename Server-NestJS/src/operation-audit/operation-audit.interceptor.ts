@@ -10,9 +10,14 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
-import { redactSensitive } from '../common/utils/mask';
+import { isSensitiveKey, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+// The placeholder an audit row shows in place of a sensitive value — one spelling for both the
+// before-snapshot and `changes`, so whoever reads the audit recognises it at a glance.
+// 审计里敏感值的占位符 —— before 快照与 changes 共用一个写法，读审计的人一眼就能认出。
+const REDACTED = '[REDACTED]';
 
 /** §internal.16 A-1 REST 资源路径 → 本地实体名（PATCH/PUT 变更前快照查询用；按优先级先精确后兜底） */
 const RESOURCE_ENTITY: Array<[RegExp, string]> = [
@@ -82,7 +87,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
         try {
           const repo = this.dataSource.getRepository(entity);
           const row = await repo.findOne({ where: { id: Number(targetId) } } as any);
-          if (row) before = this._sanitizeForAudit(row);
+          if (row) before = this._snapshotForDiff(row);
         } catch {
           before = null;
         }
@@ -123,13 +128,27 @@ export class OperationAuditInterceptor implements NestInterceptor {
     );
   }
 
-  /** §internal.16 A-1 before 快照清洗：排除 id/审计列/敏感键，嵌套对象忽略（与 _extractChanges 字段级口径一致） */
-  private _sanitizeForAudit(row: Record<string, unknown>): Record<string, unknown> {
+  /**
+   * The before-snapshot's comparable fields (§internal.16 A-1): id/audit columns and nested objects
+   * dropped, the rest kept **raw**.
+   *
+   * Masking is deliberately not done here — the diff has to compare raw values to tell whether a
+   * field changed, and masked-then-compared makes an **unchanged** sensitive field differ from its
+   * plaintext `after`, inventing a diff that carries the plain text. Masking happens on output in
+   * `_extractChanges`, the one path that reaches the audit row.
+   *
+   * before 快照的可比字段（§internal.16 A-1）：排除 id/审计列与嵌套对象，其余**保留原值**。
+   *
+   * 这里刻意不打码。diff 必须拿原值判「变没变」—— 先打码再比较，一个**没变的**敏感字段会与明文的
+   * after 不等，凭空产出一条 diff，而那条 diff 里恰好带着明文。打码改在 `_extractChanges` 输出时做，
+   * 那是唯一落到审计行的出口。
+   */
+  private _snapshotForDiff(row: Record<string, unknown>): Record<string, unknown> {
     const SKIP = new Set(['id', 'createdAt', 'updatedAt', 'password', 'refreshTokenHash', 'loginAttempts', 'lockedUntil', 'prevHash', 'hash']);
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
       if (SKIP.has(k) || v == null || typeof v === 'object') continue;
-      out[k] = /password|token|secret|refresh/i.test(k) ? '[REDACTED]' : String(v);
+      out[k] = v;
     }
     return out;
   }
@@ -201,13 +220,17 @@ export class OperationAuditInterceptor implements NestInterceptor {
       if (v == null || typeof v === 'object') continue; // 忽略 null/嵌套对象（首增量）
       const afterStr = String(v);
       const beforeVal = before?.[k];
+      // A sensitive field leaves the fact that it changed, never its values: the change test uses
+      // raw values, everything written into `changes` is [REDACTED].
+      // 敏感字段留痕不留值：判「变没变」用原值，写进 changes 的一律 [REDACTED]。
+      const shown = (s: string) => (isSensitiveKey(k) ? REDACTED : s);
       // §internal.16 A-1：有 before → 仅变化字段（真 diff）；无 before → 记录 after 值（首增量）
       if (before !== null && before !== undefined && beforeVal !== undefined) {
         const beforeStr = String(beforeVal);
         if (beforeStr === afterStr) continue;
-        entries.push({ field: k, before: beforeStr, after: afterStr });
+        entries.push({ field: k, before: shown(beforeStr), after: shown(afterStr) });
       } else {
-        entries.push({ field: k, before: null, after: afterStr });
+        entries.push({ field: k, before: null, after: shown(afterStr) });
       }
     }
     if (!entries.length) return null;

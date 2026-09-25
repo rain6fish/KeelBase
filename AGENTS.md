@@ -26,6 +26,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 | 根 `/` | 本 AGENTS.md（全局约定） |
 | 各业务模块 `src/features/*` 或 `src/*/` | 模块内如有 `AGENTS.md` 则继承并局部覆盖；否则遵循本文件 |
 
+> **不确定某类规则该看哪份？** 查 [规则地图](docs/manual/rules-map.md)——它是所有规则的**入口索引**（宪法 / 本文件 / CLAUDE.md / 技能 / SECURITY 各管什么）。概念看不懂查 [概念地图](docs/manual/concepts.md)。
+
 ## 3. 新增业务模块 —— AI 必做清单
 
 > 对齐 `keelbase init` 生成器的 7 处接线。**手工加模块（或 AI 加模块）必须全部完成**，缺一处就是坏的模块。
@@ -35,6 +37,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - [ ] **app.module.ts**：import 模块 + 加入 `imports: []`
 - [ ] **modules-manifest.ts**：`BUSINESS_MODULES` 数组 + `businessEntries` 加新模块
 - [ ] **feature-flags.constants.ts**（可选）：如做开关，加 `FEATURE_<NAME>_ENABLED`
+- [ ] **builtin-role-rules.ts**：`BUILTIN_ROLE_RULES` 加该模块的 `{ 角色 × subject × ownerField }`——缺则该角色对这个模块没有能力（CASL 行级规则；这是权限的真正来源，不是 app.module）
+- [ ] **scope-policy.ts**（按需）：模块需要「本部门及以下」这类组织级数据范围时，把 subject 加进 `ORG_LEVEL_SUBJECTS`——漏了不会报错，只会**静默地只按本人（own）过滤**，是本清单里最容易漏的一处
 - [ ] **生成迁移**：`npm run migration:generate -- src/migrations/Add<Name>`（TypeORM 索引是 hash 名，禁止手写迁移）
 - [ ] **补测试**：service.spec（关键业务规则）+ 涉及安全路径加 e2e
 

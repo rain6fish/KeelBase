@@ -13,7 +13,6 @@
  * - 不新增证据事实：仅聚合既有导出 JSON（不新增端点/表/链）。
  */
 import { createHmac } from 'node:crypto';
-import { chainHash } from './protocol-algorithms.mjs';
 import {
   pageShell, heading, kvTable, dataTable, pair, escapeHtml,
   verdictBanner, honestLimits, missing, headComment,
@@ -23,8 +22,11 @@ import {
  * 期间包验证（判定与渲染分离）：结构 + 包内 hashChain + 可选 --key 全量重算与签名验证。
  * 与 verify-evidence.mjs /1|/2 路径同语义（不 import 其源码——该文件无导出且带 process.exit）。
  * 返回 { ok, mode, chainValid, brokenAt?, recomputed, signatureState, structural, embeddedValid }
+ *
+ * `chainHash` 由调用方传入（协议算法单源在契约仓，本件刻意不 import 仓外任何东西——见文件头「零新依赖」）。
+ * 只在 keys 非空时用到；不传而给了 keys 会当场抛错，而不是静默跳过验签。
  */
-export function verifyPeriodPackage(pkg, keys = []) {
+export function verifyPeriodPackage(pkg, keys = [], chainHash) {
   const rows = Array.isArray(pkg.chain) ? pkg.chain : [];
   const embeddedValid = pkg.report?.hashChain?.valid === true;
 

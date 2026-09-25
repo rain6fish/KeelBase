@@ -5,6 +5,8 @@
 > Closes acceptance-matrix case **B2 (cascade)** and gap **G3** of the revoke contract: when one AI tool call writes rows across several tables, compensating it must undo the whole business action in one shot — and the compensation itself must be recorded on the operation-audit hash chain.
 >
 > 状态：✅ 已完成。日期：2026-09-16。语义源：私有 roadmap §22.17 ④ 业务级补偿（护城河核心第二块，其中「级联撤销」一半；「影响预览」另一半另有 [impact-preview.spec.md](impact-preview.spec.md)）。
+> 补（2026-09-24）：§4.1 重放前比对（少记录 → `disputed`）、§4.2 跨组重叠检出（REV-1 / REV-3，撤销如实性，
+> 见 [revoke-contract.spec.md](revoke-contract.spec.md) §5）。
 
 ## 1. 问题 / Problem
 
@@ -47,6 +49,30 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 - 整组在**一个事务**内登记，只取一次副作用链锁（postgres `audit_chain_lock` id=2），逐条顺序接链 → **组内链相邻**且登记原子（避免「提交一半」的半组）。副作用哈希链 `_chainPayload` 白名单**不含** `compensation_group` / `parent_effect_id`（链外注解列）→ 加列不破历史链。
 - **幂等重放必须组感知**：`ai.service.ts` 的重复调用探测命中后，若有 `compensation_group` → 载入同组兄弟 → 回放 `data.effects`。否则复合工具要么重放丢组，要么探测永不命中而**重复落库**。
 
+### 4.1 重放前必须比对：声明与持有不一致 → `disputed`
+
+**规则**：同参数重试在 `idempotency_key` 上冲突 → 整组回滚 → 回放既有组。回放**之前**必须比对
+「本次被拒声明」与「已持有组」的成员集合（目标身份 `resultType + resultId`，**双向**求差 ——
+重试也可能声明**更少**）。不一致 → 证据留 `revoke_dispute`（JSON：被拒声明 + 双向差集 + 时刻），
+整组标**争议**。
+
+**为什么不比对就是缺陷**：工具若非确定性，重试声明的成员与首次不同时，多出来的那条**被静默丢弃**；
+此后撤销该组只补偿已持有的那些行，汇总却报全绿 —— 「假撤销」，比不撤销更危险（用户以为干净了）。
+撤销路径因此**拒绝在争议组上报完成**（`revoked:false` + 说明「已按持有的行补偿，而声明与持有不一致」；
+组级 / 单条 / 幂等跳过 / 批量四条路径都拦）。详见 [revoke-contract.spec.md](revoke-contract.spec.md) §5.1。
+
+**链外**：`revoke_dispute` 是注解列，**不得**入 `_chainPayload`（白名单加 key 会使历史链验签失败）。
+
+### 4.2 跨组重叠：检出（根治待裁决）
+
+同一 `resultType + resultId` 落进**多个**组 = 一次业务动作被拆成两组。两组各自内部自洽 → 唯一冲突不触发、
+幂等回放不执行、别处零信号。成因是组键吃**调用身份**，其中 `conversationId` 会在工具不知情时变
+（会话 id 缺失/查不到 → `_resolveConversation` 新建会话；continuation token 同理）。
+
+`GET /ai/tool-effects/splits` 报出这些重叠（库侧聚合判定，超上限如实标 `truncated`）。
+**根治**（组键改吃主体 effect 身份、参数降为 `args_hash` 证据）会让两次**合法**调用触碰同一主体行时并组，
+属行为语义变更 → **须先裁决**，裁决前不动组键。
+
 ## 5. 级联补偿 / Cascade compensation
 
 撤销组内任意一条（单条 / 批量 / run 级 / 治理台回调）→ 补偿整组：
@@ -56,6 +82,9 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 3. **外部成员**（`governed_external`）：事务外顺序处理，诚实落 `compensating` / `revoke_failed`（严禁把「已请求补偿」显示为 `revoked`）。
 4. 返回逐条结果 + 汇总（复用既有 `RevokeBatchItem` / `RevokeBatchResult` 形状）。
 5. `none` 档位成员不参与补偿（诚实拒绝），其存在不阻塞其余成员的补偿。
+6. **争议组不报完成**（§4.1）：全组持有行都补偿成功时，组级结论仍是 `revoked:false` + 说明不一致 ——
+   「持有的每一行都撤销了」与「这次业务动作已完全撤销」是两件事，被声明多出来的成员没有任何行承载。
+   行级 `revoke_status` 不被改写（逐行事实），两个读数分轴。
 
 **批量折叠**：会话级/run 级批量撤销**必须按 `compensation_group` 折叠**——同组只级联一次并把组内逐条结果摊平。否则一个 3 成员组会被重复补偿 3 次。
 
@@ -117,6 +146,9 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 | C6 | 批量（会话/run）对同组**只补偿一次** |
 | C7 | 无组的既有单目标副作用行为不变（回归） |
 | C8 | 通知/审计等**外发类不可逆**成员仍 `none`，不参与补偿且不被伪装 |
+| C9 | 重试声明与持有**不一致**（多声明或少声明，双向）→ 组标 `disputed` + 证据留存 + 撤销汇总 `revoked:false` |
+| C10 | 重试声明与持有**一致** → 不标记（纯幂等重放，行为不变；不制造误报） |
+| C11 | 同一 `resultType+resultId` 横跨多个组 → 可检出（`GET /ai/tool-effects/splits`），超上限如实 `truncated` |
 
 ## 9. 相关 / Related
 

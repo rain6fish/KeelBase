@@ -18,11 +18,15 @@
 ## 0. 准备（约 5 分钟）
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install
 cp .env.example .env    # 仓库不提交 .env（含密钥），从模板复制生成开发配置
 ```
 
+> **`--recurse-submodules` 不是可选项。** `Server-NestJS/specs/protocol` 是一个 submodule（契约仓），
+> 有 38 个测试套件从它读 schema 与向量语料。**漏掉这个参数 → 目录为空 → 这 38 个套件全部报"文件找不到"**，
+> 看起来像项目本身是坏的。已经 clone 过的话补一句即可：`git submodule update --init --recursive`。
+>
 > 只装后端即可完成本次 Build 闭环；要看界面再装 Web-Admin-Vue（`cd Web-Admin-Vue && npm install`）。
 > **缺少 `.env` 时 `npm run start:dev` 会因缺少 JWT_SECRET / ENCRYPTION_KEY 校验失败**，务必先复制模板。
 

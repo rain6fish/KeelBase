@@ -16,7 +16,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { renderHtml, escapeHtml, pair } from '../Server-NestJS/scripts/lib/evidence-report-html.mjs';
-import { chainHash } from '../Server-NestJS/scripts/lib/protocol-algorithms.mjs';
+import { chainHash } from '../Server-NestJS/specs/protocol/runner/lib/protocol-algorithms.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = resolve(__dirname, '../Server-NestJS/scripts');

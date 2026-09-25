@@ -74,6 +74,22 @@ describe('ProxyToolRegistryService（AI Bridge B 路径配置注册）', () => {
     }
   });
 
+  it('audience 形状非法（超 64 / 含非法字符）→ 跳过全部注册并记录', async () => {
+    // 与委托 token 同一判据（`AUDIENCE_PATTERN`）：签发侧本就会拒它，且它要写进确认行的
+    // `audience` 列（AUTHZ-1 目的地绑定）——放到注册才拒，工具不会先注册好、到执行才失败。
+    for (const bad of ['a'.repeat(65), 'has space', 'bad/slash']) {
+      settingsValue = JSON.stringify({
+        baseUrl: 'http://localhost:4000/api',
+        audience: bad,
+        tools: [{ name: 't', description: 'd', method: 'GET', path: '/c', parameters: [] }],
+      });
+      const svc = new ProxyToolRegistryService(mockSettings as any, mockDelegation as any, new ToolRegistry());
+      const r = await svc.loadAndRegister();
+      expect(r.registered).toEqual([]);
+      expect(r.skipped[0]).toMatch(/audience/);
+    }
+  });
+
   it('非法 JSON / 缺 baseUrl → 静默跳过', async () => {
     settingsValue = '{bad json';
     const svc = new ProxyToolRegistryService(mockSettings as any, mockDelegation as any, new ToolRegistry());

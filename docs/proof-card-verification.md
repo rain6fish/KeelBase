@@ -32,7 +32,7 @@
 ## 2. 环境与基线
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git
 cd KeelBase            # 仓库根
 git checkout <本页顶部列出的 tag/commit>   # 见下方「当前基线」
 cd Server-NestJS
@@ -90,7 +90,7 @@ EXECUTOR=<your-github-id> npm run verify:protocol-trust:crm
 
 作者收到后会据此把这张卡标记为「外部 PASS（由 <id> 验证）」，或把红行转成 roadmap 诊断项。你的报告就是 KeelBase 的证据——请如实，哪怕结果是 FAIL 也一样有价值。
 
-## 6. 这张卡**不**证明什么（诚实边界，规格 §8 / SECURITY.md N-1..N-13）
+## 6. 这张卡**不**证明什么（诚实边界，规格 §8 / SECURITY.md N-1..N-14）
 
 - 不证明「KeelBase 能生成任意复杂业务系统」——协议只覆盖高频 20% CRUD 子集；analyze / R5 不可逆阻断 / R4 双人审批等**旗舰级深度为手写**。
 - 不证明跨系统 saga / 分布式事务回滚、DBA 级信任、不可抵赖存储。

@@ -247,6 +247,20 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 > **Write-confirmation flow**: write ops needing confirmation (`requiresConfirmation`) **emit their confirmation request only on the streaming channel** —
 > ① client calls `POST /ai/chat/stream`; ② server emits a `confirmation_request` event (payload carries `token` + tool + args summary); ③ the client **separately** calls `POST /ai/confirmations/:token` (`decision: approve|decline`) → only then does the server execute the write and record a revocable side effect.
 > **Non-streaming `POST /ai/chat` does not return a confirmation token** — integrate writes via the streaming channel.
+>
+> **确认 artifact 绑了什么 / What a confirmation artifact binds**：确认除了工具与**精确参数**，还绑**目的地**
+> （`audience`——外部 MCP 工具是其 server 名、B 路径代理工具是其声明的 audience、其余为本地）。签发时记录进
+> 确认行，**执行点**再解析一次当前目的地并比对：不一致即拒（`destination_binding`），不写任何目标
+> （AUTHZ-1；不变量见 failure-semantics 向量 `confirmation_audience_mismatch_rejected` / 语料 FP-11）。
+> 另：治理策略可按工具声明**可写字段域**与 **destination 白名单**，执行点按实际请求校验，越域即拒
+> （`field_domain` / `destination_allowed`），与精确绑定**并存**——见 [权限架构 §7.2](authorization-architecture.md)。
+> **A confirmation artifact binds a destination, not only the tool and its exact arguments**: the destination
+> (`audience` — the server name for an external MCP tool, the declared audience for a B-path proxy tool, otherwise
+> local) is recorded at issue time and re-resolved and compared at the **execution point**; a mismatch is refused
+> (`destination_binding`) with nothing written. Governance policy may additionally declare a **writable field domain**
+> and a **destination allowlist** per tool, checked against the actual request at the execution point
+> (`field_domain` / `destination_allowed`), **coexisting** with exact binding — see
+> [Authorization Architecture §7.2](authorization-architecture.md).
 
 ### 5.2 请求/响应示例 / 5.2 Request/Response Examples
 

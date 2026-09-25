@@ -1,6 +1,12 @@
 # Semantic Single-Source Rule (CE-1 C1)
 
-> **Rule**: implementation changes that touch **tool / governance / audit / event** semantics must land alongside `specs/protocol` (vectors / golden samples) or `specs/protocol/schemas` (wire Schema) — i.e. **land the contract first, then the code**. This fights "the same semantic implemented in two places, drifting apart".
+> **Rule**: implementation changes that touch **tool / governance / audit / event** semantics must land alongside the contract — i.e. **land the contract first, then the code**. This fights "the same semantic implemented in two places, drifting apart".
+
+**Two forms of "landing the contract"** (they split when the contract left this repository on 2026-09-21):
+- **Before the split**: edit the vectors / golden samples / schemas under `Server-NestJS/specs/protocol/` here;
+- **After the split**: commit to the contract repository first, then **advance this repository's submodule pin in the same batch** (the bare path `Server-NestJS/specs/protocol`).
+
+Why the pin is the only route after the split: it is the only contract action observable from here — and the sibling gate `contract-not-edited-here` **forbids** editing files under `specs/protocol/` in this repository.
 
 ## Why
 
@@ -15,11 +21,11 @@ KeelBase's key capability is one Application Semantic Layer joining Build and Ru
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 risk tiers + strategy table |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | business-event naming |
 
-**Contract sources** (any change here satisfies the rule): `Server-NestJS/specs/protocol/` (vectors / golden samples / registry), `Server-NestJS/specs/protocol/schemas/` (wire Schema v1).
+**Contract sources** (any hit satisfies the rule): the vectors / golden samples / registry / schemas under `Server-NestJS/specs/protocol/` (**pre-split form**), and **the submodule pin itself**, `Server-NestJS/specs/protocol` (**post-split form**, bare path, exact match).
 
 ## Workflow
 
-1. Change semantics (files above) → **first** update `specs/protocol` vectors/golden or `schemas` wire Schema, **in the same batch**.
+1. Change semantics (files above) → **first** land the vectors / golden samples / schema in the contract repository, then **advance this repository's submodule pin**, **in the same batch** (before the split: edit the files under `specs/protocol/` directly).
 2. Pure refactor / comments / no contract impact → add the `[no-semantic-change]` trailer to the commit message (reason visible to reviewers).
 3. Gate verdict: semantic source hit with no contract change → fail; exemption trailer present → pass.
 

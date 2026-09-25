@@ -168,10 +168,12 @@ Docker single-container · offline / intranet deploy · local models & embedding
 ## 🛠 Build Your First Application
 
 ```bash
-git clone https://github.com/rain6fish/KeelBase.git && cd KeelBase
+git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install && cp .env.example .env && cd ..
 node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
+
+> `--recurse-submodules` is required: `Server-NestJS/specs/protocol` is a submodule holding the wire schemas and protocol vectors that 38 test suites read. Already cloned without it? Run `git submodule update --init --recursive`.
 
 Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance. The CLI ships **with the repo** (`scripts/keelbase-init.mjs`) — no global install; `--desc "…"` generates from a sentence instead of a spec file (needs a model key configured).
 
@@ -256,7 +258,7 @@ first release rather than assembled when someone asks.
 | Runtime | Runtime version | Contract version |
 |---|---|---|
 | `KeelBase` (TypeScript) | `v1.0.11` | **v1.0.1** — carried in-tree; that release predates the contract repository |
-| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.2.0** — bound as a submodule |
+| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.3.0** — bound as a submodule |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.1.0** — vendored snapshot, taken from the contract repository |
 
 A runtime that is behind the current contract is not broken; it simply does not yet answer for the
@@ -274,6 +276,8 @@ is published and what is on `main` is exactly what you need to see.
 
 - **Quick Start 快速开始** — [中文](docs/manual/quickstart.md) · [English](docs/manual/quickstart-en.md)
 - **Tutorial 零基础教程** — [中文](docs/manual/tutorial.md) · [English](docs/manual/tutorial-en.md)
+- **Concept Map 概念地图** — [中文](docs/manual/concepts.md) · [English](docs/manual/concepts-en.md)
+- **Rules Map 规则地图** — [中文](docs/manual/rules-map.md) · [English](docs/manual/rules-map-en.md)
 - **Build an AI CRM in 30 minutes 30 分钟构建 AI CRM** — [中文](docs/manual/onboarding-30min.md) · [English](docs/manual/onboarding-30min-en.md)
 - **30-Minute Acceptance 30 分钟验收** — [中文](docs/manual/30min-acceptance.md) · [English](docs/manual/30min-acceptance-en.md)
 - **Dev Challenge 开发者 30 分钟挑战** — [中文](docs/manual/dev-challenge.md) · [English](docs/manual/dev-challenge-en.md)

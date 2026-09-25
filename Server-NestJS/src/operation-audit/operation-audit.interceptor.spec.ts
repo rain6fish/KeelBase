@@ -205,6 +205,75 @@ describe('OperationAuditInterceptor', () => {
       );
     });
 
+    it('before 快照的 PII 明文被打码 —— 旧实现只用 password|token|secret|refresh, 邮箱/手机号会漏进 changes', async () => {
+      // The fragment half of the predicate (names like apiToken / resetTokenHash) is pinned by the
+      // isSensitiveKey cases in mask.spec; what is pinned here is the wiring — the interceptor really
+      // goes through the shared predicate, and the PII names no longer slip past it.
+      // 片段名那一半（apiToken / resetTokenHash 之类）由 mask.spec 的 isSensitiveKey 用例钉住；
+      // 这里钉的是接线：拦截器确实走共享判据，且 PII 名不再漏。
+      const ic = interceptorWithRepo({
+        findOne: jest.fn().mockResolvedValue({
+          id: 7,
+          status: 'active',
+          email: 'alice@example.com',
+          phone: '13800138000',
+        }),
+      });
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/crm/customers/7',
+        url: '/api/v1/crm/customers/7',
+        body: { email: 'bob@example.com', phone: '13900139000', status: 'inactive' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '7' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      const calls = (auditService.log as jest.Mock).mock.calls;
+      const logged = calls[calls.length - 1][0];
+      const entries = JSON.parse(logged.changes) as Array<{ field: string; before: string; after: string }>;
+      const byField = Object.fromEntries(entries.map((e) => [e.field, e]));
+      // Both sides record that it changed, neither records a value.
+      // 两侧都留痕不留值。
+      expect(byField.email).toEqual({ field: 'email', before: '[REDACTED]', after: '[REDACTED]' });
+      expect(byField.phone).toEqual({ field: 'phone', before: '[REDACTED]', after: '[REDACTED]' });
+      // Neither the old nor the new value appears in clear text.
+      // 新旧两值都不以明文出现。
+      for (const leaked of ['alice@example.com', '13800138000', 'bob@example.com', '13900139000']) {
+        expect(logged.changes).not.toContain(leaked);
+      }
+      // A non-sensitive field still records both values truthfully.
+      // 非敏感字段照旧如实留痕（前后两值都在）。
+      expect(byField.status).toEqual({ field: 'status', before: 'active', after: 'inactive' });
+    });
+
+    it('未变化的敏感字段不产生 diff —— 拿打码值去比明文会凭空造出一条带明文的 diff', async () => {
+      const ic = interceptorWithRepo({
+        findOne: jest.fn().mockResolvedValue({ id: 8, email: 'same@example.com', status: 'active' }),
+      });
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/crm/customers/8',
+        url: '/api/v1/crm/customers/8',
+        body: { email: 'same@example.com', status: 'inactive' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '8' },
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      const calls = (auditService.log as jest.Mock).mock.calls;
+      const logged = calls[calls.length - 1][0];
+      const entries = JSON.parse(logged.changes) as Array<{ field: string }>;
+      expect(entries.map((e) => e.field)).toEqual(['status']);
+      expect(logged.changes).not.toContain('same@example.com');
+    });
+
     it('before 查询抛错 → 降级 null（catch 不阻塞）', async () => {
       const ic = interceptorWithRepo({ findOne: jest.fn().mockRejectedValue(new Error('db down')) });
       const req = {
