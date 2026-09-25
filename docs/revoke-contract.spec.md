@@ -56,15 +56,14 @@
 - **G3 级联副作用边界**：✅ **已闭合**（[cascade-compensation.spec.md](cascade-compensation.spec.md)）——复合写工具出现（`create_project_with_tasks`）时落地了父子引用最小契约：`ai_tool_side_effects` 加 `compensation_group`（= 该次调用的幂等基键，同组即同一业务动作）+ `parent_effect_id`（根成员），两列均为**链外注解列**（不入 G-3 `_chainPayload` 白名单 → 加列不破历史链）；wire 契约升 `side-effect-revoke` v3。
 - **G4 每个非 none 工具的撤销 E2E**：✅ **本地可撤档已固化**（`test/revoke-acceptance.e2e-spec.ts`，真实 create→record→本人撤销→软删+回收站 restore→状态回 executed + 所有权 404，6 例）；外部补偿由 `proxy-bridge.e2e-spec.ts` 覆盖、`none` 拒绝由 revoke-conversation.spec 单测兜底。新写工具验收回归时按 §2 清单在此套件扩展。
 
-## 5. 撤销如实性：三处已闭合的缺口 / Revoke honesty: three closed gaps
+## 5. 撤销如实性：已闭合的缺口 / Revoke honesty: closed gaps
 
-> 这三处都是「撤销可以在一次业务动作仍有部分存活时报告完成」的实例 —— 契约承诺的诚实，在实现上是否成立。
-> 前两处由第三篇对外文章《Revocation Is Not a Button》的读者提出，第三处是该读者第二轮的细化。
+> 这些缺口都是「撤销可以在一次业务动作仍有部分存活时报告完成」的实例 —— 契约承诺的诚实，在实现上是否成立。
+> 由第三篇对外文章《Revocation Is Not a Button》的读者在数轮反馈中提出。
 >
-> All three are instances of "a revoke can report complete while part of one business action is still
-> live" — whether the honesty this contract promises actually holds in the implementation. The first
-> two were raised by a reader of the third article in the series; the third is that reader's refinement
-> in a second round.
+> Every gap here is an instance of "a revoke can report complete while part of one business action is
+> still live" — whether the honesty this contract promises actually holds in the implementation. They
+> were raised by a reader of the third article in the series, across several rounds of feedback.
 
 ### 5.1 少记录：声明与持有不一致 / Under-recording: the declaration disagrees
 
@@ -95,27 +94,65 @@
 两个窗口因此可分：`compensating` + 无确认 = 可能未到达；`compensating` + 有确认 = 确实到达、对方没给终态。
 判据单源 `revokeWindow()`；年龄判据仍由 `revokeAge()` 回答。**真值仍在目标系统**，本判据只说「有没有到达的凭据」。
 
-### 5.3 过度分裂：先检出 / Over-splitting: detection first
+### 5.3 过度分裂：检出与**撤销时的闸门** / Over-splitting: detection and the revoke-time gate
 
 组分键吃的是**调用身份**，其中 `conversationId` 会在工具毫不知情的情况下变（会话 id 缺失或查不到时
 `_resolveConversation` **新建**会话；载荷多一个 continuation token 同理）⇒ 同一个 effect 落**两组**，
 **两组各自内部自洽完整**、唯一冲突永不触发、幂等回放根本不执行、别处毫无异常信号 —— 比「少记录」更难发现。
+撤销其中一组时，活下来的那一组**仍指着刚被撤销的 effect**，而它承载的业务动作并不随本次撤销结束。
 
-**本次只做检出**：`GET /ai/tool-effects/splits` 报出「同一 `resultType + resultId` 横跨哪些补偿组」
+检出：`GET /ai/tool-effects/splits` 报出「同一 `resultType + resultId` 横跨哪些补偿组」
 （库侧 `GROUP BY … HAVING COUNT(DISTINCT compensation_group) > 1`；超过上限如实报 `truncated`）。
-**根治不做**：把组键改为吃**主体 effect 身份**（参数降为 `args_hash` 证据）可一次修好两个失败模式，
-但两次**合法**调用触碰同一主体行会被并组，属行为语义变更 → **须先裁决**，裁决前不动组键。
+**闸门**：撤销路径**自己**再判一次 —— 对本次要撤销的组内每个成员，问「还有哪个**活着的**组也主张它」；
+命中则该次撤销**不得报告完成**（`revoked:false` + 说明是哪个组、主张了哪个对象）。这是 `disputed` 的
+第二个入口（第一个是 §5.1 的写时冲突）。为什么只能是撤销时：写时每组各自内部都正确，检查在那里**没有主语**。
 
-### 5.4 落点与验收 / Landing points
+**组键不动**：把组键改为吃**主体 effect 身份**（参数降为 `args_hash` 证据）会让两次**合法**调用触碰同一
+主体行时被并组 —— 那是把**可恢复**的失败（少记录 / 分裂：撤销可以再跑一次）换成**不可恢复**的失败
+（撤销够到没人要求够到的 effect，撤销不能倒着跑）。两把键答不同问题：调用键 = 是否同一请求（幂等留在它
+上面），effect 键 = 撤销会碰到什么。
+
+Detection reports the overlaps; the **gate** re-decides inside the revoke: for each member about to be undone,
+ask which *other live* group still names that same effect. If one does, that revoke must not report complete.
+Writing is not the place for this check — at write time every group is internally correct, so the check has no
+subject. The group key stays on the call identity: deriving it from the effect would trade a recoverable
+failure (run the revoke again) for an unrecoverable one (a revoke reaching effects nobody asked it to reach).
+
+### 5.4 effect 身份：成组成员必须承载「变更」 / Effect identity: a grouped member must carry the change
+
+effect 身份要**同时**答出**目标**与**变更**。目标由 `result_type` + `result_id` 恒有值地承载；变更其实有捕获
+（`before_snapshot` / `after_snapshot`），但**可空** —— 只在接了快照捕获器时填。**身份不能是可选的**：
+缺了变更，跨组判定只能答「两组碰了同一行」，答不出「是否做了同一变更」。
+恒有值的 `args_hash` 顶不上：它是**请求**指纹、同时是组键输入，工具非确定性时做同一变更的两次调用参数
+字节不同（那正是组被拆开的成因）—— 恒有值的字段恰在「是否同一件事」上自相矛盾。
+
+**落地取舍（三选一：拒绝登记 / 回填历史 / 显式豁免并如实标注）取第三条。** 拒绝登记会把**可恢复**换成
+**不可恢复**：业务行已经写进目标表，此时拒登只会让这次写**没有任何副作用行**（撤销够不到它）—— 与
+「不换组键」同一条取舍。历史行**回填变更**不可能如实：变更当时的样子无法从任何落库列重建，如今重查目标
+只会把**后来**的状态写成**当时**的变更。故：成组成员缺变更快照时，该行被**如实标注**为
+`identity_incomplete`（链外注解列），管理端列表可读出；迁移对历史成组行按**既存列**回填同一标注（只标
+「本来就缺变更」的那些，单目标行不标）。REV-6 **不据此改任何撤销结论** —— 它只让身份可依赖。
+
+A grouped member whose change snapshot is missing is **marked** (`identity_incomplete`, a chain-external
+annotation column) rather than silently treated as a complete identity. Rejecting the registration was
+ruled out: the business rows are already written, so refusing to record would leave this write with no
+side-effect row at all — an effect the revoke can never reach, trading a recoverable failure for an
+unrecoverable one. Backfilling the *change* is not honestly possible; the migration backfills only the
+annotation, from existing columns. This changes no revoke conclusion.
+
+### 5.5 落点与验收 / Landing points
 
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
 |---|---|---|
 | 5.1 少记录 | `recordGroup` 冲突分支 + `_markDisputeIfDeclarationDiffers` / `_groupResult` / `_withDisputeNote` / 迁移 `1828000000000` | `revoke-dispute.spec.ts`（旧实现：不写标记、汇总 `revoked:true`） |
 | 5.2 两个窗口 | `_doRevokeSingle` 外部分支（意图→外呼→确认）+ `_patchRevoke` + `revokeWindow()` | `revoke-intent-ack.spec.ts`（旧实现：外呼时零写入、确认列从不写） |
-| 5.3 过度分裂 | `findSplitGroups()` + `GET /ai/tool-effects/splits` | `revoke-split-detection.spec.ts`（真 sqlite；旧实现无此能力） |
+| 5.3 检出 | `findSplitGroups()` + `GET /ai/tool-effects/splits` | `revoke-split-detection.spec.ts`（真 sqlite；旧实现无此能力） |
+| 5.3 闸门 | `_crossGroupClaims` + `_concludeSingle` / `_compensateGroup` / `_revokeBatch` / `_disputeNotes` | `revoke-split-gate.spec.ts`（旧实现：汇总恒 `revoked:true`，从不问别的组） |
+| 5.4 身份 | `recordGroup` 标注 + `list()` 读出 + 迁移 `1829000000000` | `revoke-identity.spec.ts`（真 sqlite；旧实现连该列都不存在） |
 
-三处均不改 wire 契约：新列是**链外注解列**，`revokeResult` 本就是 `additionalProperties: true` 而结论只走
-`revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动。
+五处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+`additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
+`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）。
 
 ## 6. 相关文档 / Related
 

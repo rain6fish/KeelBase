@@ -79,6 +79,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddConfirmationExecutionState*',
   '*AddRevokeRequestedAt*',
   '*AddRevokeDisputeAndAck*',
+  '*AddSideEffectIdentityIncomplete*',
   '*AddConfirmationAudience*',
 ];
 

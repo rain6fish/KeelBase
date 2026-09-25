@@ -6,7 +6,8 @@
 >
 > 状态：✅ 已完成。日期：2026-09-16。语义源：私有 roadmap §22.17 ④ 业务级补偿（护城河核心第二块，其中「级联撤销」一半；「影响预览」另一半另有 [impact-preview.spec.md](impact-preview.spec.md)）。
 > 补（2026-09-24）：§4.1 重放前比对（少记录 → `disputed`）、§4.2 跨组重叠检出（REV-1 / REV-3，撤销如实性，
-> 见 [revoke-contract.spec.md](revoke-contract.spec.md) §5）。
+> 见 [revoke-contract.spec.md](revoke-contract.spec.md) §5）；同轮续补 §4.2 撤销时**闸门**（REV-5）与
+> §4.3 effect 身份（REV-6）。
 
 ## 1. 问题 / Problem
 
@@ -63,15 +64,72 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 
 **链外**：`revoke_dispute` 是注解列，**不得**入 `_chainPayload`（白名单加 key 会使历史链验签失败）。
 
-### 4.2 跨组重叠：检出（根治待裁决）
+### 4.2 跨组重叠：检出 + 撤销时闸门 / Cross-group overlap: detection and the revoke-time gate
+
+One `resultType + resultId` landing in **several** groups means one business action was split in two. Each
+group is internally coherent, so no unique-violation fires, no idempotent replay runs, and nothing else
+signals anything. The cause is that the group key eats the call identity, and `conversationId` changes
+behind the tool's back. When one of the groups is revoked, the surviving group still points at the effect
+that was just undone.
+
+- **Detection**: `GET /ai/tool-effects/splits` reports the overlaps (aggregated in the database; over the
+  cap it honestly reports `truncated`).
+- **Gate** (REV-5): the revoke path asks for itself — for each member of the group being revoked, which
+  *other live* group still names it (live = that group's row for the same effect is not `revoked`). A hit
+  means that revoke must not report complete, on all four paths (group summary, one-member group,
+  idempotent skip, batch — the batch carries it as a per-item `disputed`). The judgement is deliberately
+  conservative: it answers "another group still claims it", not "that group still has members this revoke
+  cannot cover" — the former is recoverable (run the revoke again).
 
 同一 `resultType + resultId` 落进**多个**组 = 一次业务动作被拆成两组。两组各自内部自洽 → 唯一冲突不触发、
 幂等回放不执行、别处零信号。成因是组键吃**调用身份**，其中 `conversationId` 会在工具不知情时变
-（会话 id 缺失/查不到 → `_resolveConversation` 新建会话；continuation token 同理）。
+（会话 id 缺失/查不到 → `_resolveConversation` 新建会话；continuation token 同理）。撤销其中一组时，
+活下来的那一组**仍指着刚被撤销的 effect**。**检出**报出这些重叠；**闸门**在撤销路径**自己**判 ——
+对本次组内每个成员问「还有哪个**活着的**组也主张它」（活着 = 该组承载同一 effect 的那行 `revoke_status`
+不是 `revoked`），命中则该次撤销**不得报告完成**，四条路径（组级汇总 / 单成员组 / 幂等跳过 / 批量）都拦，
+批量以逐条 `disputed` 承载。判定**保守**：只回答「另一组还主张它」，答不出「那组是否还留有本次覆盖不到的
+成员」—— 前者可恢复（撤销可以再跑一次）。
 
-`GET /ai/tool-effects/splits` 报出这些重叠（库侧聚合判定，超上限如实标 `truncated`）。
-**根治**（组键改吃主体 effect 身份、参数降为 `args_hash` 证据）会让两次**合法**调用触碰同一主体行时并组，
-属行为语义变更 → **须先裁决**，裁决前不动组键。
+**组键不动**（2026-09-24 裁决）：组键改吃主体 effect 身份、参数降为 `args_hash` 证据，会让两次**合法**调用
+触碰同一主体行时并组 —— 把**可恢复**失败换成**不可恢复**失败（撤销够到没人要求够到的 effect，撤销不能
+倒着跑）。两把键答不同问题：调用键 = 是否同一请求（幂等留在它上面），effect 键 = 撤销会碰到什么。
+
+### 4.3 effect 身份：成组成员必须承载变更 / Effect identity: a grouped member must carry the change
+
+Effect identity has to answer **target and change together**. The target is carried unconditionally by
+`result_type` + `result_id`; the change is captured (`before_snapshot` / `after_snapshot`) but only when a
+snapshot captor is wired, so it is nullable — and an identity cannot be optional. Without the change, a
+cross-group check can only say "two groups touched the same row", never "they made the same change". The
+always-present `args_hash` is the wrong carrier: it fingerprints the request and feeds the group key, so a
+non-deterministic tool produces different argument bytes for the same change — which is exactly how a
+group splits.
+
+**Decision (one of: reject the registration / backfill history / exempt explicitly and label it): the
+third.** A grouped member with no change snapshot is labelled `identity_incomplete` (a chain-external
+annotation column) and readable from the admin listing; the migration backfills the same label for
+historical grouped rows from existing columns only. Rejecting the registration would trade a recoverable
+failure for an unrecoverable one — the business rows are already written, so refusing to record would
+leave this write with no side-effect row at all. Backfilling the *change* is not possible honestly. This
+item changes no revoke conclusion.
+
+effect 身份要同时答出**目标**（`result_type` + `result_id`，恒有值）与**变更**（`before_snapshot` /
+`after_snapshot`，**可空** —— 只在接了快照捕获器时填）。身份不能是可选的：缺了变更，跨组判定只能答
+「两组碰了同一行」，答不出「是否做了同一变更」。恒有值的 `args_hash` 顶不上：它是请求指纹、同时是组键
+输入，工具非确定性时同一变更的两次调用参数字节不同（那正是组被拆开的成因）。
+
+**取舍**：成组成员缺变更快照时**如实标注**（`identity_incomplete`，链外注解列）+ 管理端列表可读出 +
+迁移对历史成组行按**既存列**回填同一标注。**不拒绝登记**（业务行已写进目标表，拒登等于这次写没有任何
+副作用行 = 撤销够不到，把可恢复换成不可恢复）；**不回填变更本身**（当时的变更无法从任何落库列重建）。
+本项**不据此改任何撤销结论**，只让身份可依赖 —— 详见 [revoke-contract.spec.md](revoke-contract.spec.md) §5.4。
+
+### 4.4 两个判据分层 / Two judgements, two layers
+
+Registration does not judge "is this split" — at write time each group is internally correct, so there is
+no subject; it only labels whether the identity is complete (§4.3). The revoke layer is what judges
+whether this revoke may report complete (§4.2 gate). Neither rewrites the other's reading.
+
+登记层不判「是否分裂」（那里没有主语：每组各自内部都正确），只标注**身份是否完整**（§4.3）；撤销层才判
+「这次撤销能不能说完成」（§4.2 闸门）。两个判据分层，互不改写对方的读数。
 
 ## 5. 级联补偿 / Cascade compensation
 
@@ -82,7 +140,8 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 3. **外部成员**（`governed_external`）：事务外顺序处理，诚实落 `compensating` / `revoke_failed`（严禁把「已请求补偿」显示为 `revoked`）。
 4. 返回逐条结果 + 汇总（复用既有 `RevokeBatchItem` / `RevokeBatchResult` 形状）。
 5. `none` 档位成员不参与补偿（诚实拒绝），其存在不阻塞其余成员的补偿。
-6. **争议组不报完成**（§4.1）：全组持有行都补偿成功时，组级结论仍是 `revoked:false` + 说明不一致 ——
+6. **组有争议就不报完成**（§4.1 声明与持有不一致 / §4.2 闸门：另一活组仍主张）：全组持有行都补偿成功时，
+   组级结论仍是 `revoked:false` + 说明 ——
    「持有的每一行都撤销了」与「这次业务动作已完全撤销」是两件事，被声明多出来的成员没有任何行承载。
    行级 `revoke_status` 不被改写（逐行事实），两个读数分轴。
 
@@ -149,6 +208,8 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 | C9 | 重试声明与持有**不一致**（多声明或少声明，双向）→ 组标 `disputed` + 证据留存 + 撤销汇总 `revoked:false` |
 | C10 | 重试声明与持有**一致** → 不标记（纯幂等重放，行为不变；不制造误报） |
 | C11 | 同一 `resultType+resultId` 横跨多个组 → 可检出（`GET /ai/tool-effects/splits`），超上限如实 `truncated` |
+| C12 | 撤销时另有**活着的**组主张本组任一 effect → 该次撤销**不得报完成**（组级汇总 / 单成员组 / 幂等跳过三条路径 `revoked:false` + 说明，批量逐条 `disputed:true`），而逐行 `revoke_status` 不被改写；另一组已 `revoked` 或只有本组的行 → **不拦** |
+| C13 | 成组成员缺变更快照 → 该行标 `identity_incomplete`（缺变更者标、有变更者不标、逐行判定），管理端列表可读出；迁移对历史成组行按既存列回填同一标注（单目标行不标） |
 
 ## 9. 相关 / Related
 
