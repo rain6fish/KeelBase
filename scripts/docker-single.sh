@@ -45,7 +45,7 @@ build_flutter_web() {
   if [ ! -f Front-Flutter/build/web/main.dart.js ]; then
     echo "→ 宿主机构建 Flutter web（首次约 2 分钟）..."
     (cd Front-Flutter && flutter pub get >/dev/null 2>&1 &&
-      MSYS_NO_PATHCONV=1 flutter build web --release --base-href=/mobile/ --no-web-resources-cdn) ||
+      MSYS_NO_PATHCONV=1 flutter build web --release --base-href=/mobile/ --no-web-resources-cdn --dart-define=API_BASE_URL=/api/v1) ||
       { echo "✗ Flutter web 构建失败"; exit 1; }
     [ -f Front-Flutter/build/web/main.dart.js ] ||
       { echo "✗ Flutter web 未产出 build/web/main.dart.js"; exit 1; }

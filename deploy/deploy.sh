@@ -85,11 +85,11 @@ FLUTTER_WEB=Front-Flutter/build/web/main.dart.js
 if [ ! -f "$FLUTTER_WEB" ]; then
   if command -v flutter >/dev/null 2>&1; then
     echo "→ 未发现预构建产物，构建 Flutter web..."
-    (cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/ --no-web-resources-cdn) || { echo "✗ Flutter web 构建失败"; exit 1; }
+    (cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/ --no-web-resources-cdn --dart-define=API_BASE_URL=/api/v1) || { echo "✗ Flutter web 构建失败"; exit 1; }
     [ -f "$FLUTTER_WEB" ] || { echo "✗ Flutter web 未产出 $FLUTTER_WEB"; exit 1; }
   else
     echo "✗ 缺少 Front-Flutter/build/web 预构建产物，且未安装 Flutter SDK。"
-    echo "  请先在宿主机执行：cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/ --no-web-resources-cdn"
+    echo "  请先在宿主机执行：cd Front-Flutter && MSYS_NO_PATHCONV=1 flutter build web --base-href=/mobile/ --no-web-resources-cdn --dart-define=API_BASE_URL=/api/v1"
     echo "  或改用已发布的 Docker 镜像（跳过本地构建）。"
     exit 1
   fi

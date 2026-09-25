@@ -46,7 +46,7 @@ jobs:
           flutter doctor -v 2>&1 | tail -20 || true
           flutter pub get
           set +e
-          flutter build web --release --base-href=/mobile/ --no-web-resources-cdn > /tmp/flutter_build.log 2>&1
+          flutter build web --release --base-href=/mobile/ --no-web-resources-cdn --dart-define=API_BASE_URL=/api/v1 > /tmp/flutter_build.log 2>&1
           RC=$?
           echo "flutter build exit: $RC"
           if [ $RC -ne 0 ]; then
