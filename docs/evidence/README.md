@@ -20,7 +20,7 @@
 | L1 离线独立复核 | 审计机构 / 第三方 | 证据包 + 独立实现脚本重算，不装系统 | `verify-evidence.mjs`（只依赖 Node 内置） |
 | L2 静态留档 | 评估人 / 发布流程 | 可重复运行的评测/基准报告**代表样本**落仓 | `docs/benchmark/*.md`、`Server-NestJS/docs/benchmark/*.md`（代表性报告已入库） |
 
-> ⚠ 运行产物默认**不进仓**：`Server-NestJS/docs/benchmark/evidence-verify-*` / `protocol-conformance-*` / `docs/benchmark/generated-module-*` 已被 `.gitignore` 忽略（脚本每次跑产出一对 md+json，会持续堆积）。**已入库的代表性报告不受影响**（gitignore 不取消已跟踪文件）；要发布某次具体证据用 `git add -f <file>`。
+> ⚠ 运行产物默认**不进仓**：`Server-NestJS/docs/benchmark/evidence-verify-*` / `docs/benchmark/generated-module-*` 已被 `.gitignore` 忽略（脚本每次跑产出一对 md+json，会持续堆积）。`protocol-conformance-*` 随 runner 搬去了契约仓，落在它的 `reports/`（同样已忽略）。**已入库的代表性报告不受影响**（gitignore 不取消已跟踪文件）；要发布某次具体证据用 `git add -f <file>`。
 
 原则：**能现算的用端点，能导出的离线复核，能留档的定期跑**。证据要「说得出、跑得动、拿得走」。
 

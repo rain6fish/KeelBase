@@ -43,8 +43,8 @@
 
 | # | 验证 | 命令 | 前置 | 门禁 |
 |---|---|---|---|---|
-| CE-1B | **协议向量语料漂移**（现实现重算 vs 已提交金样本） | `node Server-NestJS/scripts/generate-protocol-vectors.mjs --check` | 无需后端（零依赖 node） | CI `protocol-conformance` job（generate --check → verify） |
-| CE-1A | **语料驱动 conformance**（canonical/hash/delegation/risk，30/30） | `cd Server-NestJS && npm run conformance` | 同上 | CI `protocol-conformance` job |
+| CE-1B | **协议向量语料漂移**（现实现重算 vs 已提交金样本） | `node Server-NestJS/scripts/generate-protocol-vectors.mjs --check` | 无需后端（零依赖 node） | CI `protocol-conformance` job |
+| CE-1A | **语料驱动 conformance**（canonical/hash/delegation/risk，34/34） | `cd Server-NestJS && npm run conformance` | 同上 | **契约仓 CI**（每次 push 跑同一份 runner 与同一份语料）；本仓 CI **不再重复**它 —— 缘由写在 `protocol-conformance` job 的注释里 |
 | CE-1C | **生产 AuditChainService = 金样本**（canonical/hash/链/篡改） | `cd Server-NestJS && npm run test:protocol-corpus` | 同上 | CI `test` job（jest） |
 | CE-1S | **wire Schema v1 冻结**（registry + 每样例过 schema + 清单冻结） | `cd Server-NestJS && npm run test:wire-schema` | 同上 | CI `test` job + release-gate `Trust(CE-1 …)` |
 
