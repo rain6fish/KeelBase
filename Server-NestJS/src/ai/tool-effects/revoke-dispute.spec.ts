@@ -171,12 +171,12 @@ describe('REV-1 争议组：撤销不得报告完成', () => {
     const res = await svc.revoke(3);
 
     expect(revoker.revoke).toHaveBeenCalledTimes(3); // 持有的行确实被补偿了（此行不是「失败」）
-    expect(res.cascade).toMatchObject({ total: 3, revoked: 3, failed: 0 });
+    expect(res?.cascade).toMatchObject({ total: 3, revoked: 3, failed: 0 });
     // 但「这一次业务动作已完全撤销」为假 —— 声明多出来的成员没有任何行承载
-    expect(res.revoked).toBe(false);
-    expect(res.message).toContain('声明与持有不一致');
+    expect(res?.revoked).toBe(false);
+    expect(res?.message).toContain('声明与持有不一致');
     // 两个读数分轴：行级运维态是逐行事实，不因组级争议被改写
-    expect(res.revokeStatus).toBe('revoked');
+    expect(res?.revokeStatus).toBe('revoked');
   });
 
   it('单成员组（回落单目标路径）→ 同样拒绝报完成', async () => {
@@ -188,9 +188,12 @@ describe('REV-1 争议组：撤销不得报告完成', () => {
 
     const res = await svc.revoke(1);
 
-    expect(res.cascade).toBeUndefined();
-    expect(res.revoked).toBe(false);
-    expect(res.message).toContain('声明与持有不一致');
+    // 撤销结果可为 null（id 未知）——先钉非空：否则下面的 `?.` 会把 null 读成 undefined，
+    // 而 `toBeUndefined()` 恰恰会对它**通过**，那就等于放过了一个真实的空结果。
+    expect(res).not.toBeNull();
+    expect(res?.cascade).toBeUndefined();
+    expect(res?.revoked).toBe(false);
+    expect(res?.message).toContain('声明与持有不一致');
   });
 
   it('已 revoked 的争议行：单条撤销的**幂等跳过**路径也不得报完成', async () => {
@@ -204,10 +207,10 @@ describe('REV-1 争议组：撤销不得报告完成', () => {
     const res = await svc.revoke(1);
 
     expect(revoker.revoke).not.toHaveBeenCalled();
-    expect(res.skipped).toBe(true);
-    expect(res.reason).toBe('already_revoked');
-    expect(res.revoked).toBe(false);
-    expect(res.message).toContain('声明与持有不一致');
+    expect(res?.skipped).toBe(true);
+    expect(res?.reason).toBe('already_revoked');
+    expect(res?.revoked).toBe(false);
+    expect(res?.message).toContain('声明与持有不一致');
   });
 
   it('批量撤销：逐条计数仍是逐行事实，而争议组带 disputed 标记（否则 revoked:3 / failed:0 读起来就是全绿）', async () => {

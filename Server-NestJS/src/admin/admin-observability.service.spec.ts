@@ -36,16 +36,17 @@ function mockQB() {
 
 function mockRepo(overrides: Record<string, jest.Mock> = {}) {
   const qb = mockQB();
-  const repo = {
+  return {
     count: jest.fn().mockResolvedValue(0),
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
     createQueryBuilder: jest.fn(() => qb),
+    // 查询链本身也要能拿到（断言 `repo.qb.getRawMany` 被如何调用）——作为普通属性返回，
+    // 不再靠 `(repo as any).qb =` 挂上去（那让返回类型里根本没有 qb，读它的断言就成了类型错误）。
+    qb,
     ...overrides,
   };
-  (repo as any).qb = qb;
-  return repo;
 }
 
 describe('AdminObservabilityService（平台观测域）', () => {
@@ -61,7 +62,8 @@ describe('AdminObservabilityService（平台观测域）', () => {
     httpRequestDurationSeconds: { get: jest.Mock };
   };
   let opAuditRepo: ReturnType<typeof mockRepo>;
-  let dataSource: { query: jest.Mock };
+  // 服务按 `dataSource.options.type` 方言分支（postgres / sqlite），故 mock 的类型也要带 options
+  let dataSource: { query: jest.Mock; options: { type: string } };
   let notify: { create: jest.Mock };
 
   beforeEach(async () => {

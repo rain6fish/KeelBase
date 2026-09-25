@@ -33,7 +33,7 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * 基线：当前测试文件的类型错误数。**只许下调**（修好一批就把这个数改小）。
  * 若要上调，请在提交信息里说明为什么必须接受新的债务。
  */
-const BASELINE = 214;
+const BASELINE = 212;
 
 /** 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...` */
 const isTestFileError = (line) =>
