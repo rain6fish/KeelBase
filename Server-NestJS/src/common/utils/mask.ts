@@ -86,10 +86,18 @@ export function registerSensitiveKeys(keys: readonly string[]): void {
  * table's `resetTokenHash` — and a name carrying one of these fragments is sensitive no matter what
  * surrounds it.
  *
+ * `passwd`, `salt` and `api[_-]?key` came from the AI side-effect snapshot's own fragment set when it
+ * was folded into this predicate (2026-09-25). They are kept because dropping them would have
+ * **narrowed** that surface: the snapshot caught names like `passwd` and `api_key` that the built-in
+ * list never enumerated.
+ *
  * 名字中出现即视为敏感的片段。内建清单逐个点名，但有些名字无法预先枚举 —— 模块的 `apiToken`、
  * 用户表的 `resetTokenHash` —— 命中这些片段的名字无论前后缀为何都算敏感。
+ *
+ * `passwd`、`salt`、`api[_-]?key` 来自 AI 副作用快照自己那套片段 —— 2026-09-25 把它并入本判据时保留
+ * 下来：丢掉就会**收窄**那一面，因为快照原先能命中 `passwd`、`api_key` 这类内建清单从未枚举的名字。
  */
-const SENSITIVE_KEY_FRAGMENTS = /password|token|secret|refresh/i;
+const SENSITIVE_KEY_FRAGMENTS = /password|passwd|token|secret|refresh|salt|api[_-]?key/i;
 
 /**
  * Whether a field name is one the platform treats as sensitive: a built-in name, a name a module

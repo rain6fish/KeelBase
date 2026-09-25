@@ -42,6 +42,30 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
       expect(out.title).toBe('x');
     });
 
+    it('片段集并入共享判据 —— salt/passwd/api_key 不打折，email/phone 也补上', () => {
+      const out = JSON.parse(
+        captor.normalize({
+          salt: 's',
+          passwd: 'p',
+          api_key: 'k',
+          email: 'a@b.c',
+          phone: '13800138000',
+          title: 'x',
+        })!,
+      );
+      // These three belong to the fragment set this file used to own; folding it into the shared
+      // predicate must not drop them.
+      // 这三个原本属于本文件自己那套片段 —— 并入共享判据时不许丢。
+      expect(out.salt).toBe('[REDACTED]');
+      expect(out.passwd).toBe('[REDACTED]');
+      expect(out.api_key).toBe('[REDACTED]');
+      // PII names the local pattern never carried now arrive through the shared predicate.
+      // 旧本地正则从不带 PII 名，统一后由共享判据补上。
+      expect(out.email).toBe('[REDACTED]');
+      expect(out.phone).toBe('[REDACTED]');
+      expect(out.title).toBe('x');
+    });
+
     it('超长字符串截断 200 字符', () => {
       const out = JSON.parse(captor.normalize({ body: 'a'.repeat(500) })!);
       expect((out.body as string).length).toBeLessThanOrEqual(201);
