@@ -21,15 +21,31 @@ import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { ProxyTool } from '../proxy/proxy-tool';
 import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
-import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService, sortKeys } from '../tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
 
-/** B 路径：外部写无目标 id 时，用稳定 hash 作为副作用 resultId（正整数，48bit，可回溯同参数调用） */
-function proxyResultId(toolName: string, args: Record<string, unknown>): number {
+/**
+ * B 路径：外部写无目标 id 时，用它作为副作用的 resultId（正整数，48bit）。
+ *
+ * The id names **this external write by this user**, not "that tool with those arguments". Both
+ * properties are load-bearing, and both are about stability rather than secrecy: without the user
+ * dimension, two users calling the same tool with the same arguments land on one
+ * resultType+resultId and a lookup keyed on that pair mixes their rows; without canonical argument
+ * order, two spellings of one logical call yield two ids and split a single effect across two
+ * identities, while the idempotency key — which already serialises through `sortKeys` — counts them
+ * as one.
+ *
+ * B 路径：外部写无目标 id 时，用它作为副作用的 resultId（正整数，48bit）。
+ * 该 id 命名的是「**这个用户的这一次外部写**」，不是「那个工具加那些参数」。两条性质都是承重的，
+ * 且都关乎稳定性而非保密：缺了用户维度，两个用户同工具同参数会落在同一个 resultType+resultId 上，
+ * 按该二元组取行就会把两人的行混在一起；缺了参数序规范，同一逻辑调用的两种写法会产出两个 id，
+ * 把一次 effect 拆成两个身份，而幂等键（本就用 `sortKeys` 序列化）把它们当作同一件事。
+ */
+function proxyResultId(userId: string, toolName: string, args: Record<string, unknown>): number {
   const h = createHash('sha256')
-    .update(`${toolName}:${JSON.stringify(args)}`)
+    .update(`${userId}:${toolName}:${JSON.stringify(sortKeys(args))}`)
     .digest('hex')
     .slice(0, 12);
   return Number(BigInt('0x' + h));
@@ -160,7 +176,7 @@ export class ToolExecutionService {
         await this.toolEffectsService.record(
           { userId, conversationId, runId, toolName, args, revokeClass: 'none' },
           EXTERNAL_CALL_EFFECT_TYPE,
-          typeof content.id === 'number' ? content.id : proxyResultId(toolName, args),
+          typeof content.id === 'number' ? content.id : proxyResultId(userId, toolName, args),
         );
       }
       return { success: true, data: out.content ?? {} };
@@ -210,7 +226,7 @@ export class ToolExecutionService {
         const resultId = isProxyWrite
           ? typeof (result.data as any)?.id === 'number'
             ? (result.data as any).id
-            : proxyResultId(toolName, args)
+            : proxyResultId(userId, toolName, args)
           : (result.data as any).id;
         // E-1 字段级变更审计：抓写操作目标记录 after 快照（本地实体全量 / 外部写用返回数据兜底）
         const after = this.snapshotCaptor

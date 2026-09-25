@@ -94,8 +94,8 @@ Users can manually switch models in the frontend; the default follows the `AI_CH
 
 ### 5.3 对话管理规则 / 5.3 Conversation Management Rules
 
-- 每条对话关联 `userId`，天然隔离
-  Each conversation is associated with a `userId`, providing natural isolation
+- 每条对话关联 `userId`，隔离是**逐对话**的；**业务实体视图不继承它** —— 按 `resultType`+`resultId` 取行为史时（`src/ai/governance/business-history.service.ts`），`proxy_call` / `external_call` 的结果 id 不含用户维度（`proxyResultId` 只哈希工具名与参数，`src/ai/tools/tool-execution.service.ts`），故该视图须**显式按用户收窄**才不混入他人行 —— 现已按此收窄，但**根因（结果 id 不含用户维度）未除**
+  Each conversation is associated with a `userId`; isolation is **per-conversation**, and the **business-entity view does not inherit it** — when a history is read by `resultType`+`resultId` (`src/ai/governance/business-history.service.ts`), the result id of `proxy_call` / `external_call` carries no user dimension (`proxyResultId` hashes the tool name and arguments only, `src/ai/tools/tool-execution.service.ts`), so that view must be **scoped by user explicitly** to avoid mixing rows from other users — it now is, but the **root cause (a result id with no user dimension) remains**
 - 会话过期时间默认为 1 小时无活动
   Session expiry defaults to 1 hour of inactivity
 - 消息列表超过 LLM 上下文窗口上限时做摘要压缩

@@ -256,7 +256,7 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(revoke.message).toContain('结果以目标系统为准');
   });
 
-  it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 403', async () => {
+  it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 404（按查看者收窄）', async () => {
     // 写 Settings → 热更新注册 B 路径写工具 → 触发副作用（B4：透过业务动作反查治理轨迹）
     const settings = app.get(SettingsService);
     const aiService = app.get(AiService);
@@ -284,11 +284,11 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     expect(res.body.data.effect.toolName).toBe('proxy_gov_create');
     // trace 为 null（conv-gov 无真实对话）或含步骤——不强制，重点是 effect 反查通
 
-    // 越权：他人 → 403
+    // 越权：他人 → 404（A8：查询按查看者收窄，不确认该动作存在）
     const other = await registerUser(app, { username: 'proxy_gov_b', email: 'proxygov_b@test.com', password: 'ProxyGov1', nickname: 'ProxyGovB' });
     await request(app.getHttpServer())
       .get(`/api/v1/ai/governance/action/proxy_call/${effect.resultId}`)
       .set(authHeader(other.accessToken))
-      .expect(403);
+      .expect(404);
   });
 });

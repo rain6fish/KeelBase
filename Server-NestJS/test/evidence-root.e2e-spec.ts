@@ -19,7 +19,7 @@ import { buildAnchor } from '../src/ai/audit/evidence-anchor';
  * 确定性（无 LLM）：REST 建客户 → CreateFollowupTaskTool 写任务 → AiToolEffectsService.record 登记副作用 →
  * **真实三源装配（1.0.8 review-deferred 1.1）**：REST 写同一 crm_task（operation_audit 链行）+ 真实 AuditService.log
  * 落同 conversationId 的 ai_audit_logs 行（chat + tool_call，真实哈希链）→ 导出三源锚齐（ai-audit/op-audit/side-effect）
- * → root.digest===sha256(anchors)（与 verify-evidence 同算法）；非本人 403；改锚 hash → digest 复算不匹配。
+ * → root.digest===sha256(anchors)（与 verify-evidence 同算法）；非本人 404；改锚 hash → digest 复算不匹配。
  * ④ verify-evidence --key 离线全量验证：真实 AI/op 链行按 AUDIT_HMAC_KEY（.env.test 显式配置）全量重算 PASS。
  */
 describe('证据根 v3 契约（KB-3）', () => {
@@ -134,8 +134,8 @@ describe('证据根 v3 契约（KB-3）', () => {
     expect(pkg.chains?.operationAudit?.length).toBeGreaterThan(0);
   });
 
-  it('② 非本人非 admin → 403（数据隔离）', async () => {
-    const res = await exportRoot(userB.accessToken, 403);
+  it('② 非本人非 admin → 404（数据隔离；按用户收窄，不确认该动作存在）', async () => {
+    const res = await exportRoot(userB.accessToken, 404);
     expect(res.body).toBeDefined();
   });
 

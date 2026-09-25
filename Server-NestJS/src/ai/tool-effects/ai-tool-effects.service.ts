@@ -788,9 +788,29 @@ export class AiToolEffectsService {
    * P0-14：按对话取副作用（含目标记录当前状态），供用户可见的执行轨迹用。
    * 复用 _loadTarget 富化，按 createdAt 升序。
    */
-  /** B4 治理视图：按业务动作（resultType+resultId，如 crm_task:42）反查 AI 副作用（供「业务动作 → 治理轨迹」展示） */
-  async findByTarget(resultType: string, resultId: number): Promise<AiToolSideEffect | null> {
-    return this.effectsRepo.findOne({ where: { resultType, resultId } as any });
+  /**
+   * B4 治理视图：按业务动作（resultType+resultId，如 crm_task:42）反查 AI 副作用（供「业务动作 → 治理轨迹」展示）。
+   *
+   * The pair is not naturally unique for result types with no local entity: rows written before the
+   * proxy identity carried a user dimension can share one pair across users. Both consequences are
+   * handled here rather than at each call site — `viewerUserId` narrows the lookup to that user, so a
+   * viewer can neither be served someone else's effect nor get a 403 that leaks its existence; and
+   * `order` makes "which row" deterministic, so an admin or service identity that passes no viewer
+   * still gets a stable answer instead of whatever the driver returned first.
+   *
+   * 该二元组对**无本地实体**的 resultType 不天然唯一：在代理身份带上用户维度之前写入的行，
+   * 可能跨用户共享同一对值。两个后果都在此处理，不推给每个调用点：`viewerUserId` 把查询收窄到
+   * 该用户，查看者既拿不到他人的副作用、也不会吃到「存在但不属于你」的 403（那泄露行的存在）；
+   * `order` 让「取到哪一行」确定，不传查看者的管理员 / 服务身份也拿到稳定答案。
+   */
+  async findByTarget(
+    resultType: string,
+    resultId: number,
+    viewerUserId?: string,
+  ): Promise<AiToolSideEffect | null> {
+    const where: Record<string, unknown> = { resultType, resultId };
+    if (viewerUserId !== undefined) where.userId = viewerUserId;
+    return this.effectsRepo.findOne({ where: where as any, order: { id: 'ASC' } });
   }
 
   /**
@@ -1400,8 +1420,8 @@ export class AiToolEffectsService {
   }
 }
 
-/** 递归按 key 排序对象，保证同一 args 稳定序列化 */
-function sortKeys(value: unknown): unknown {
+/** 递归按 key 排序对象，保证同一 args 稳定序列化 —— 幂等键、args 摘要与代理身份共用同一口径 */
+export function sortKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeys);
   if (value && typeof value === 'object') {
     const obj: Record<string, unknown> = {};

@@ -11,7 +11,7 @@
  *
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
-import { ForbiddenException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
@@ -404,11 +404,18 @@ export class AuditEvidenceService {
     viewerUserId: string,
     isAdmin: boolean,
   ): Promise<EvidenceRootExport> {
-    const effect = await this.effectsRepo.findOne({ where: { resultType, resultId } as any });
+    // A8: the same narrowing as the governance view — a non-admin reads only their own row, so
+    // "exists but is not yours" is an honest 404 rather than a 403 that would confirm the row exists.
+    // `order` keeps the answer deterministic when the pair is not unique (rows written before the
+    // proxy identity carried a user dimension can share it across users).
+    //
+    // A8：与治理视图同一收窄 —— 非管理员只读自己的行，「存在但不属于你」如实落 404，
+    // 而不是会确认其存在的 403。`order` 在二元组不唯一时（代理身份带上用户维度之前写入的行
+    // 可能跨用户共享它）让答案确定。
+    const where: Record<string, unknown> = { resultType, resultId };
+    if (!isAdmin) where.userId = viewerUserId;
+    const effect = await this.effectsRepo.findOne({ where: where as any, order: { id: 'ASC' } });
     if (!effect) throw new NotFoundException('AI 副作用记录不存在');
-    if (effect.userId !== viewerUserId && !isAdmin) {
-      throw new ForbiddenException('无权访问此业务动作的证据根');
-    }
     const exportedAt = new Date().toISOString();
     const signingKey = process.env.AUDIT_HMAC_KEY || process.env.ENCRYPTION_KEY || '';
 
