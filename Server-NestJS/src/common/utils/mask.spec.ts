@@ -57,6 +57,35 @@ describe('mask utils', () => {
     it('returns original on invalid JSON', () => {
       expect(redactSensitive('not-json')).toBe('not-json');
     });
+
+    // Fragment names: the built-in list cannot enumerate them, so they can only come from the
+    // fragment half of the predicate. The old implementation built one regex per exact name, so
+    // these names slipped through with their values in clear text.
+    // 片段名：内建清单枚举不到它们，只能靠判据的片段那一半覆盖。旧实现按精确名逐个建正则 ——
+    // 这些名字连同其值原样漏掉。
+    it('命中片段的名字也打码（apiToken / resetTokenHash / confirmPassword）', () => {
+      expect(redactSensitive('{"apiToken":"tok-live-1"}')).toBe('{"apiToken":"***"}');
+      expect(redactSensitive('{"resetTokenHash":"deadbeef"}')).toBe('{"resetTokenHash":"***"}');
+      expect(redactSensitive('{"confirmPassword":"P@ss1"}')).toBe('{"confirmPassword":"***"}');
+    });
+
+    it('嵌套对象与数组照旧覆盖', () => {
+      expect(redactSensitive('{"user":{"email":"a@b.c"},"list":[{"phone":"13800138000"}]}')).toBe(
+        '{"user":{"email":"***"},"list":[{"phone":"***"}]}',
+      );
+    });
+
+    // The old implementation only matched quoted values, so a numeric token survived in clear text.
+    // 旧实现只匹配「带引号的值」，故数字形式的 token 会原样留下。
+    it('敏感名下的非字符串值同样打码', () => {
+      expect(redactSensitive('{"token":12345}')).toBe('{"token":"***"}');
+    });
+
+    it('非敏感名不动', () => {
+      expect(redactSensitive('{"title":"X","status":"active"}')).toBe(
+        '{"title":"X","status":"active"}',
+      );
+    });
   });
 
   // The predicate the audit before-snapshot and the request-body redaction share (D-AUDIT-1). These
@@ -94,8 +123,12 @@ describe('mask utils', () => {
     });
   });
 
-  // 模块声明的额外键名（协议 pii → registerSensitiveKeys）。键名由模块提供，
-  // 故这里专门盯住「元字符」与「$ 引用」两类会因键名不可信而出错的地方。
+  // Extra key names a module declares (protocol `pii` → registerSensitiveKeys). The names come from
+  // the module, so these cases pin exact matching: a name is the declared one or it is not, with no
+  // pattern semantics — and registration only ever adds, so a module cannot weaken what the platform
+  // already knows.
+  // 模块声明的额外键名（协议 pii → registerSensitiveKeys）。键名由模块提供，故这里钉住「精确匹配」：
+  // 要么就是声明的那个名字，要么不是 —— 不带模式语义；且只增不减，注册不会削弱平台已知的名字。
   describe('registerSensitiveKeys', () => {
     it('模块声明的键名参与打码（内建清单不认识这些名字）', () => {
       registerSensitiveKeys(['idCardNoPiiTest']);
@@ -104,14 +137,16 @@ describe('mask utils', () => {
       );
     });
 
-    it('含正则元字符的键名被转义 —— 不得放大匹配', () => {
+    it('含元字符的键名按字面匹配 —— 不得放大匹配', () => {
       registerSensitiveKeys(['a.bPiiTest']);
       expect(redactSensitive('{"a.bPiiTest":"secret"}')).toBe('{"a.bPiiTest":"***"}');
-      // 未转义时 `.` 会匹配任意字符，这一行会被误打码
+      // Names match literally: one character apart is a different name. Under the old per-name regex,
+      // an unescaped `.` would have matched this line too.
+      // 名字按字面匹配：差一个字符就不是同一个名字。旧实现的逐名正则里，未转义的 `.` 会把这一行也匹配掉。
       expect(redactSensitive('{"axbPiiTest":"keep"}')).toBe('{"axbPiiTest":"keep"}');
     });
 
-    it('键名含 $ 时替换串不被当成引用（改用 replacer 函数）', () => {
+    it('键名含 $ 时按字面匹配（$ 不再有替换串语义）', () => {
       registerSensitiveKeys(['pr$icePiiTest']);
       expect(redactSensitive('{"pr$icePiiTest":"9.99"}')).toBe('{"pr$icePiiTest":"***"}');
     });

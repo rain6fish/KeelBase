@@ -117,24 +117,42 @@ export function isSensitiveKey(key: string): boolean {
   );
 }
 
-/** Escapes a key so that a name with regex metacharacters cannot widen the match. */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** 对 JSON 字符串中的敏感字段值打码。非法输入原样返回。 */
+/**
+ * Redact every sensitive value in a JSON string, driven by the same `isSensitiveKey` predicate the
+ * audit before-snapshot uses — one rule, one place.
+ *
+ * The walk visits every key at every level, so a name the built-in list cannot enumerate (a module's
+ * `apiToken`, the user table's `resetTokenHash`) is covered by the fragment half of the predicate.
+ * Redaction keys off **field names**, never off the text of the JSON: a note that happens to contain
+ * the characters `"password":"…"` is a note, and stays one. A value under a sensitive name is masked
+ * whatever its type — a numeric token is no less a token.
+ *
+ * Invalid input is returned unchanged.
+ *
+ * 对 JSON 字符串中的敏感值打码，判据与审计 before 快照共用同一条 `isSensitiveKey` —— 一条规则、一处。
+ *
+ * 逐层走每个键，因此内建清单枚举不到的名字（模块的 `apiToken`、用户表的 `resetTokenHash`）由判据的
+ * 片段那一半覆盖。打码只认**字段名**，绝不认 JSON 的文本：一段正文里恰好含有 `"password":"…"` 这些
+ * 字符，它仍是正文。敏感名下的值不分类型一律打码 —— 数字形式的 token 同样是 token。
+ *
+ * 非法输入原样返回。
+ */
 export function redactSensitive(json: string): string {
   try {
-    let redacted = json;
-    // 键名现在可由模块提供，故两处都必须转义：正则里转义元字符；替换串改用 replacer
-    // 函数（否则键名里的 `$` 会被当成 `$&`/`$1` 之类的引用）。
-    for (const key of [...SENSITIVE_KEYS, ...EXTRA_SENSITIVE_KEYS]) {
-      // 匹配 "key": "值" 或 "key":"值"
-      const re = new RegExp(`"${escapeRegExp(key)}"\\s*:\\s*"[^"]*"`, 'gi');
-      redacted = redacted.replace(re, () => `"${key}":"***"`);
-    }
-    return redacted;
+    return JSON.stringify(redactValue(JSON.parse(json)));
   } catch {
     return json;
   }
+}
+
+function redactValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactValue);
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = isSensitiveKey(k) ? '***' : redactValue(v);
+    }
+    return out;
+  }
+  return value;
 }
