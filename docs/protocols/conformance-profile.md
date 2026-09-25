@@ -119,7 +119,7 @@ Full **+** 跨系统契约：`external-audit` / `external-effects-report` / `ext
 2. 按 `ai-governance-protocol.md §2.2/§2.3/§3/§4` **自实现**算法（**不得**复用 KeelBase 源码）；
 3. 逐 case 复算、比对 `expect*` 字段；拒绝类 case 断言**必须拒**；
 4. 读 `wire-schema-registry.json` → 对每对象的 `samples/*` 用标准 JSON Schema 校验器过一遍；
-5. 输出机器可读报告（结构见参考 runner `docs/benchmark/protocol-conformance-<ts>.json`）。
+5. 输出机器可读报告（结构见参考 runner 产出的 `reports/protocol-conformance-<ts>.json`）。
 
 > 参考 runner（`Server-NestJS/specs/protocol/runner/verify-protocol-conformance.mjs`，契约仓）是 **Node 的一种实现**；其存在不代表判据依赖 Node——判据是**语料 + 算法规格**。出现真实第二载体时，以其自带 runner 跑同一语料即为**作用③「载体可替换」的实证**。
 

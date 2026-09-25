@@ -329,7 +329,7 @@ const governanceBindingFile = {
   vectorVersion: 'v1',
   protocol: 'ai-governance-protocol §4.3/§4.4 tool→policy→decision binding',
   license: 'Apache-2.0',
-  note: '策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 scripts/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。',
+  note: '策略（RISK_STRATEGY 值域）→ 放行决策语义 + 授权拒绝依据词表（跨 Runtime 必须一致的可解释授权词汇）。由 runner/lib/protocol-algorithms.mjs 单源生成；derivation 为 R0..R5 逐级展开（strategy → outcome）。',
   riskStrategy: RISK_STRATEGY,
   gateOutcomeByStrategy: GATE_OUTCOME_BY_STRATEGY,
   denyChecks: DENY_CHECKS,
