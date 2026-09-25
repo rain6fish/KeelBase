@@ -49,6 +49,38 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     service = module.get(AiToolEffectsService);
   });
 
+  // A8: the pair resultType+resultId is not unique by itself for result types with no local entity,
+  // so the lookup must be told who is asking and must answer deterministically. The previous
+  // signature had neither, and `findOne` returned whichever row the driver happened to hand back.
+  // These cases fail against it: no `userId` in the where clause, no `order`.
+  //
+  // A8：对无本地实体的 resultType，resultType+resultId 本身不唯一，故查询必须被告知「谁在问」，
+  // 且答案必须确定。旧签名两者皆无，`findOne` 返回驱动随手给的那一行。下列用例对旧实现为红：
+  // where 里没有 `userId`、也没有 `order`。
+  describe('findByTarget（A8：按用户收窄 + 确定性）', () => {
+    it('给了 viewerUserId → 只在该用户的行里取，且按 id 升序（确定性）', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await service.findByTarget('proxy_call', 7, '42');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { resultType: 'proxy_call', resultId: 7, userId: '42' },
+        order: { id: 'ASC' },
+      });
+    });
+
+    it('不给 viewerUserId（管理员 / 服务身份）→ 仍按业务动作查，但答案确定', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await service.findByTarget('crm_task', 42);
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { resultType: 'crm_task', resultId: 42 },
+        order: { id: 'ASC' },
+      });
+    });
+  });
+
   describe('buildKey', () => {
     it('对相同参数生成稳定幂等键（参数顺序无关）', () => {
       const a = AiToolEffectsService.buildKey({

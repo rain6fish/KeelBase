@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash, createHmac } from 'crypto';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditEvidenceService } from './audit-evidence.service';
@@ -16,7 +16,19 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       find: jest.fn().mockResolvedValue(opts.convRows ?? []),
       findOne: jest.fn(),
     };
-    const effectsRepo = { findOne: jest.fn().mockResolvedValue(opts.effect ?? null) };
+    // A8: the lookup is narrowed to the viewer when one is passed, so the stub has to honour
+    // `where.userId`. A stub that always returns the fixture would hand back a row the real query
+    // never would, and the non-owner case could not be observed at all.
+    //
+    // A8：传了查看者时查询会按用户收窄，故替身必须尊重 `where.userId`。恒返回固定行的替身
+    // 会交出真实查询永远不会返回的行，非本人那条路径也就根本测不出来。
+    const effectsRepo = {
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { userId?: string } }) => {
+        if (!opts.effect) return null;
+        const scoped = arg?.where?.userId;
+        return scoped === undefined || scoped === opts.effect.userId ? opts.effect : null;
+      }),
+    };
     const operationAudit = {
       chainRowsByTarget: jest.fn().mockResolvedValue([
         { seq: 1, id: 500, prevHash: null, hash: 'a'.repeat(64), payload: { method: 'PATCH', path: '/crm/tasks/7' } },
@@ -155,9 +167,9 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     await expect(service.getEvidenceRoot('crm_task', 999, '42', false)).rejects.toThrow(NotFoundException);
   });
 
-  it('非本人非管理员 → 403（不泄漏存在性前先拒）', async () => {
+  it('非本人非管理员 → 404：按用户收窄，不确认该动作存在（防枚举，同 auth 域口径）', async () => {
     const { service } = build({ effect, viewer: '7' });
-    await expect(service.getEvidenceRoot('crm_task', 7, '7', false)).rejects.toThrow(ForbiddenException);
+    await expect(service.getEvidenceRoot('crm_task', 7, '7', false)).rejects.toThrow(NotFoundException);
   });
 
   it('管理员可读他人动作', async () => {

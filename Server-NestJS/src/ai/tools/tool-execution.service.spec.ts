@@ -123,6 +123,50 @@ describe('ToolExecutionService（执行域）', () => {
       expect(firstId).toBe(secondId); // 稳定（可回溯同参数调用），不随会话漂移
     });
 
+    // A8: the proxy id names this user's external write. It used to hash only the tool name and the
+    // argument text, so two users calling the same tool with the same arguments shared one
+    // resultType+resultId and a lookup on that pair mixed their rows; and because `JSON.stringify`
+    // preserves key order, two spellings of one logical call produced two ids, splitting one effect
+    // across two identities while the idempotency key counted them as one. Both cases fail against
+    // the previous implementation: same id across users, different ids across key orders.
+    //
+    // A8：代理 id 命名的是「这个用户的这次外部写」。它此前只哈希工具名与参数文本，于是两个用户
+    // 同工具同参数共享同一个 resultType+resultId，按该二元组取行会混；而 `JSON.stringify` 保键序，
+    // 同一逻辑调用的两种写法产出两个 id，把一次 effect 拆成两个身份，幂等键却当作同一件事。
+    // 两个用例对旧实现均为红：跨用户同 id、跨键序异 id。
+    it('A8: 代理身份含用户维度 —— 同工具同参数的两个用户拿不到同一个 resultId', async () => {
+      registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (toolExecution as any).toolEffectsService = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+        listGroup: jest.fn().mockResolvedValue([]),
+      };
+
+      await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '1', 'c1');
+      await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c' }, '2', 'c1');
+
+      const [idForUser1, idForUser2] = record.mock.calls.map((c) => c[2] as number);
+      expect(idForUser1).toBeGreaterThan(0);
+      expect(idForUser1).not.toBe(idForUser2);
+    });
+
+    it('A8: 参数序规范 —— 同一逻辑调用的两种键序得到同一个 resultId', async () => {
+      registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
+      const record = jest.fn().mockResolvedValue({ id: 1 });
+      (toolExecution as any).toolEffectsService = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        record,
+        listGroup: jest.fn().mockResolvedValue([]),
+      };
+
+      await toolExecution.executeWrite('mcp_send_email', { to: 'a@b.c', subject: 'hi' }, '1', 'c1');
+      await toolExecution.executeWrite('mcp_send_email', { subject: 'hi', to: 'a@b.c' }, '1', 'c1');
+
+      const [first, second] = record.mock.calls.map((c) => c[2] as number);
+      expect(first).toBe(second);
+    });
+
     it('HS-3: create_contract 副作用 resultType 记 contract（非兜底 todo）', async () => {
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {

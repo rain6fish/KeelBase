@@ -27,7 +27,6 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiService } from './ai.service';
@@ -481,11 +480,19 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    const effect = await this.toolEffectsService.findByTarget(resultType, resultId);
+    // A8: a non-admin's lookup is narrowed to that user, because `resultType+resultId` is not unique
+    // by itself for result types with no local entity. Narrowing makes "exists but is not yours" an
+    // honest 404 rather than a 403 — a 403 confirms the row exists, a 404 does not.
+    //
+    // A8：非管理员的查询按用户收窄 —— `resultType+resultId` 对无本地实体的类型不天然唯一。
+    // 收窄后「存在但不属于你」如实落 404 而非 403：403 确认该行存在，404 不确认。
+    const isAdmin = ability.can('manage', 'all');
+    const effect = await this.toolEffectsService.findByTarget(
+      resultType,
+      resultId,
+      isAdmin ? undefined : String(user.sub),
+    );
     if (!effect) throw new NotFoundException('AI 副作用记录不存在');
-    if (effect.userId !== String(user.sub) && ability.cannot('manage', 'all')) {
-      throw new ForbiddenException('无权访问此业务动作的治理视图');
-    }
     let trace: DecisionTrace | null = null;
     if (effect.conversationId) {
       try {

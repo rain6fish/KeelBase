@@ -131,7 +131,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 ## 6. 端点契约 / 6. Endpoint Contract
 
-- `GET /api/v1/ai/governance/evidence-root/:resultType/:resultId`（本人或管理员，无副作用 404，非本人非 admin 403）
+- `GET /api/v1/ai/governance/evidence-root/:resultType/:resultId`（本人或管理员；**查询按查看者收窄**，故「无副作用」与「有副作用但非本人」同形返回 **404** —— 后者不再是 403：403 会确认该业务动作存在，404 不确认。变更登记见 §10）
 - 管理台/证据面入口（后续）：AI Action Report / 审计 Action Detail 加「导出证据根（v3）」按钮；工作台 Action Center **不改**（其「查看证据」仍走 B4，v3 是审计/合规取证的下一层）。
 
 ---
@@ -140,7 +140,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 
 - 单元：装配（findByTarget 无副作用→404/鉴权）；authorization 投影含 `policy.revision`；operation 命中（findByTargetId path 子串正确）；root.digest 计算纯函数。
 - verify-evidence v3：structure 误报（缺 action/锚格式坏）；`--key` 正确重算 PASS；篡改任一锚内容/换行/改 digest → FAIL；`--key` 错误键 → FAIL；v1/v2 包仍按旧分支验（向后兼容断言）。
-- e2e：seed 一条 AI 写（确认→执行→REST 记录）→ 导出 v3 → `verify-evidence.mjs --key` 全 PASS；改一行后再验 FAIL。**✅ 已实现（2026-09-07，KB-3）**：`test/evidence-root.e2e-spec.ts`（导出 v3 结构 + root.digest 复算 PASS + 非本人 403 + 撬锚检测 FAIL 分支）+ trust-proof S7（造→导→离线 PASS→篡改 FAIL→留档 `docs/benchmark/evidence-root-<ts>.json`，`npm run verify:evidence-root` 一键复现）。
+- e2e：seed 一条 AI 写（确认→执行→REST 记录）→ 导出 v3 → `verify-evidence.mjs --key` 全 PASS；改一行后再验 FAIL。**✅ 已实现（2026-09-07，KB-3）**：`test/evidence-root.e2e-spec.ts`（导出 v3 结构 + root.digest 复算 PASS + 非本人 404 + 撬锚检测 FAIL 分支）+ trust-proof S7（造→导→离线 PASS→篡改 FAIL→留档 `docs/benchmark/evidence-root-<ts>.json`，`npm run verify:evidence-root` 一键复现）。
 - 文档：docs/evidence/README.md §2.7 加 v3 行；docs/protocols/ai-governance-protocol.md §2.5 补 v3 小节。
 
 ---
@@ -167,6 +167,7 @@ L0 运行时（`/audit/verify`、`/audit/operations/verify`）仍验全链；本
 - **`effect.revoked` 未投影（§3 schema 有）**：副作用实体无 revoked 列，撤销态由目标软删推导；v3 证据根聚焦「链完整性 + 副作用行快照」，撤销态显式表达由 B4 治理视图 / AI Action Center（`/ai/my/tool-effects`）承担，本包不重复。若后续需证据根内显式撤销态，加跨 service target 查询（backlog）。
 - **§5.4 副作用锚列集未按 10 列实现**：实现锚用投影 `{id,toolName,before,after}`（canonical 摘要自洽 + 整包 HMAC 兜底防篡改）；spec 的 10 列集（含 argsHash/snapshot 等）是冗余增强——argsHash/快照内容已隐含于 before/after 摘要，不重复入锚。
 - **v1.0.6 补充实现（对齐本 spec）**：导出加 `summary`（复用 summarizeAudit，trigger 存在时业务摘要）+ `replay`（装配点调 `GovernancePolicyService.replayDecision`——授权快照 policy.revision + effect.toolName → 决策可复现重放，衔接 §9 Related 的 P-③）；canonical 动态含非空段，向后兼容已导出的无新段 v3 包。
+- **A8（2026-09-25）取副作用行改为按查看者收窄 → 非本人由 403 改 404**：`resultType+resultId` 对**无本地实体**的 resultType（`proxy_call` / `external_call`）本身不唯一——在代理身份带上用户维度之前写入的行可能跨用户共享同一对值，而取行用 `findOne` **任取**，故**合法所有者可能被误拒**（取到他人行 → 403）。现查询按查看者收窄并固定 `order: {id:'ASC'}`；「无副作用」与「有副作用但非本人」同形返回 404（403 会确认该动作存在，404 不确认——与 auth 域既有防枚举口径一致）。**根因已在写入侧消除**（代理身份现含用户维度、参数序规范），本登记描述的是**历史行**仍可能的多义。对应用例：`audit-evidence.service.spec.ts` 的非本人用例 + `test/evidence-root.e2e-spec.ts` ②。
 
 ---
 

@@ -258,10 +258,10 @@ describe('1.0 Gate 1 — Golden Application：AI CRM 一次跑通闭环', () => 
     expect(gov.body.data.effect.resultId).toBe(effect.resultId);
     expect(gov.body.data.effect.toolName).toBe('create_followup_task');
 
-    // 越权：B → 403
+    // 越权：B → 404（A8：查询按查看者收窄，不确认该动作存在）
     await request(app.getHttpServer())
       .get(`/api/v1/ai/governance/action/crm_task/${effect.resultId}`)
       .set(authHeader(userB.accessToken))
-      .expect(403);
+      .expect(404);
   });
 });
