@@ -16,8 +16,8 @@
 | 委托 token 向量 | `specs/protocol/delegation-token-v1-vector.json` | 签发/验签（aud/iss/exp/签名篡改） |
 | 风险分级向量 | `specs/protocol/risk-level-v1-vector.json` | R0–R5 派生 + RISK_STRATEGY 表 |
 | 治理绑定向量 | `specs/protocol/governance-binding-v1-vector.json` | 工具→策略→放行决策 |
-| 失败语义向量 | `specs/protocol/failure-semantics-v1-vector.json` | 失败态 → wire 形状 |
-| 确认生命周期语料 | `specs/protocol/confirmation-lifecycle-v1-vector.json` | 状态机 + TTL |
+| 失败语义向量 | `specs/protocol/failure-semantics-v2-vector.json`（`-v1-` 冻结留档） | 失败态 → wire 形状 |
+| 确认生命周期语料 | `specs/protocol/confirmation-lifecycle-v2-vector.json`（`-v1-` 冻结留档） | 状态机 + TTL |
 | wire 对象 Schema | `specs/protocol/schemas/v1|v2/` + `wire-schema-registry.json`（44 对象） | JSON Schema draft-07（形状冻结） |
 | 代表样例 | `specs/protocol/schemas/v*/samples/` | 每对象一份，过其 schema |
 
@@ -48,8 +48,8 @@ Core **+** 治理运行时语义 **+** 全部 wire 形状冻结——即「第�
 | # | 要求 | 判据 |
 |---|---|---|
 | F1 | 治理绑定 | `governance-binding-v1-vector.json` 一致 |
-| F2 | 失败语义 | `failure-semantics-v1-vector.json` 一致（失败态 → 对应 wire 形状） |
-| F3 | 确认生命周期 | `confirmation-lifecycle-v1-vector.json`：状态集 / 决策集 / 迁移 / 守卫 / 默认 TTL 一致 |
+| F2 | 失败语义 | 现行 `failure-semantics-v2-vector.json` 一致（失败态 → 对应 wire 形状）；`v1` 冻结留档、**不退役**（加性规则） |
+| F3 | 确认生命周期 | 现行 `confirmation-lifecycle-v2-vector.json`：状态集 / 决策集 / 迁移 / 守卫 / 默认 TTL 一致（`v1` 冻结留档） |
 | F4 | wire 形状冻结 | **全部** `wire-schema-registry.json` 对象：实现产出的每一种 wire 载荷，其**键集/枚举**与其 schema 一致；每份样例过 schema |
 | F5 | 前端契约面 | 暴露 `/app/capabilities` + `/app/provenance`（形状见 `schemas/v1/capabilities` / `app-provenance`），供 Runtime-Neutral 前端按能力（非 runtime 身份）消费 |
 
