@@ -1,9 +1,10 @@
 {
   "vectorVersion": "v1",
   "replayVersion": 1,
+  "tools": ["delete_customer", "create_event", "query_events"],
   "protocol": "跨入口决策一致性场景表（CE-1 B4-cross-entry，§internal.17 T5）",
   "license": "Apache-2.0",
-  "note": "源 = test/cross-entry-consistency.e2e-spec.ts 的 4 个 it('①..④ …') 标题（机器解析为结构化步骤）。漂移门 = pack↔e2e 逐字比对（步数 / index 连续 / 序号标记 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。场景 = 同一 AI 行为的决策判定（允许/拒绝/确认）跨入口（MCP vs 直调 executeToolForExternal）同源。本语料供跨语言消费与展示。 **replay 已按 §2.4 v1 语法改写（2026-09-22，JV-15 语法裁定已批）**：`call` 不再是一串「方法 + 路径 + JSON-RPC 方法 + 工具名」，改为工具名 + 入参；`expect` 相对 `tool-invocation` 的 `response`（N3-a）。逐条与**显式丢弃**：①② 原断 `error.code:-32603`（**JSON-RPC/MCP 传输码**）与「依据含 `risk_policy`」——**两条都不可在 replay 断言**，且**不是** `permission-decision` 能承载的（该对象是 CASL 决策面，`deniedBy` 只取 `casl|null`；而这里的拒绝来自**工具门控的 R5 风险策略**，依据是结构化的 `reasons[].name`／审计行的 authorization 快照）⇒ 本包只表达「未执行」（`executed:false`），**依据类断言显式移出并记录**（可由 e2e 覆盖）。③ 两条断言（`executed`/`requiresConfirmation`）**相对 `response`** 后原样可用。④ 原断「成功」⇒ 改断 `executed:true`。**跨入口之别（MCP vs 直调）本身不进语料**——传输是实现的自由；①② 因此成为同形重放（同一工具、同一 `expect`），「同源」正体现在这一点上。",
+  "note": "源 = test/cross-entry-consistency.e2e-spec.ts 的 4 个 it('①..④ …') 标题（机器解析为结构化步骤）。漂移门 = pack↔e2e 逐字比对（步数 / index 连续 / 序号标记 / title 全等），任一变更即红（src/ai/scenarios-pack.spec.ts）。场景 = 同一 AI 行为的决策判定（允许/拒绝/确认）跨入口（MCP vs 直调 executeToolForExternal）同源。本语料供跨语言消费与展示。 **replay 已按 §2.4 v1 语法改写（2026-09-22，JV-15 语法裁定已批）**：`call` 不再是一串「方法 + 路径 + JSON-RPC 方法 + 工具名」，改为工具名 + 入参；`expect` 相对 `tool-invocation` 的 `response`（N3-a）。逐条与**显式丢弃**：①② 原断 `error.code:-32603`（**JSON-RPC/MCP 传输码**）与「依据含 `risk_policy`」——**两条都不可在 replay 断言**，且**不是** `permission-decision` 能承载的（该对象是 CASL 决策面，`deniedBy` 只取 `casl|null`；而这里的拒绝来自**工具门控的 R5 风险策略**，依据是结构化的 `reasons[].name`／审计行的 authorization 快照）⇒ 本包只表达「未执行」（`executed:false`），**依据类断言显式移出并记录**（可由 e2e 覆盖）。③ 两条断言（`executed`/`requiresConfirmation`）**相对 `response`** 后原样可用。④ 原断「成功」⇒ 改断 `executed:true`。**跨入口之别（MCP vs 直调）本身不进语料**——传输是实现的自由；①② 因此成为同形重放（同一工具、同一 `expect`），「同源」正体现在这一点上。 **`tools`（包级，N7-a · 2026-09-25）**：本包**声明它用到的工具名**（`delete_customer` · `create_event` · `query_events`）——缺这些工具的 Runtime 据此判**「不适用」**（与「断言不一致」分开，且是机读的）；门禁强制**声明覆盖 replay 里真正调用的每一个工具**。",
   "steps": [
     {
       "index": 1,

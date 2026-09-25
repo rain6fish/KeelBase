@@ -320,6 +320,11 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
 
       for (const [file, pack] of optedIn) {
         expect([file, pack.replayVersion]).toEqual([file, 1]);
+        // N7-a：包**声明它用到的工具名**。声明必须覆盖 replay 里真正调用的每一个工具——否则语料
+        // 与它自己的声明不一致。消费者据此把「缺工具」读成**机读的「不适用」**，而不是与「断言不一致」混为一谈。
+        expect([file, Array.isArray(pack.tools)]).toEqual([file, true]);
+        const declared: string[] = pack.tools ?? [];
+        expect([file, declared.length > 0]).toEqual([file, true]);
         const containerKey = ['steps', 'cases', 'scenarios'].find((k) => Array.isArray(pack[k]));
         expect([file, typeof containerKey]).toEqual([file, 'string']);
         for (const step of pack[containerKey as string]) {
@@ -327,6 +332,11 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
           const label = step.key ?? step.id;
           for (const entry of step.replay) {
             expect([file, label, validateEntry(entry)]).toEqual([file, label, true]);
+            const tool = entry?.call?.tool;
+            if (tool !== undefined) {
+              expect([file, label, `tool \`${tool}\` is declared in \`tools\``, declared.includes(tool)])
+                .toEqual([file, label, `tool \`${tool}\` is declared in \`tools\``, true]);
+            }
           }
           if (step.given !== undefined) {
             // 完整过 `given` 定义（actor + fixtures），不再只查 actor 是不是字符串
