@@ -88,7 +88,11 @@ export class EventsService implements OnModuleInit {
     if (this.webhookPublisher) {
       await this.webhookPublisher
         .publish('event.created', { eventId: saved.id, title: saved.title, userId, orgId: saved.orgId ?? null })
-        .catch(() => undefined);
+        // REL-2：原先 `() => undefined` 把 publish 自身的异常也一并吞掉（投递失败已由 WebhookService 上报，
+        // 这里兜的是发布路径本身的异常）——如实记下，不让它无声消失
+        .catch((err: unknown) => {
+          this.logger.warn(`[Webhook] publish event.created failed: ${(err as Error).message}`);
+        });
     }
     return saved;
   }

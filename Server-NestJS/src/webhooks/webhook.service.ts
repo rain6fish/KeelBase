@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { isBlockedHost } from '../common/utils/ssrf';
+import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 import { WebhookSubscription } from './webhook-subscription.entity';
 
 export interface WebhookRetryConfig {
@@ -36,6 +37,7 @@ export class WebhookService implements WebhookPublisher {
     @InjectRepository(WebhookSubscription)
     private readonly repo: Repository<WebhookSubscription>,
     @Optional() private readonly retryConfig?: WebhookRetryConfig,
+    @Optional() private readonly alertWebhook?: AlertWebhookService,
   ) {}
 
   async subscribe(
@@ -75,7 +77,8 @@ export class WebhookService implements WebhookPublisher {
   /**
    * PL-14 投递：匹配启用且订阅了该事件类型的 webhook，
    * 用各自 secret 做 HMAC-SHA256 签名后 POST（带指数退避重试）。
-   * 重试耗尽仅记日志，不阻断业务。完整异步重试队列（BullMQ worker）留待量大后。
+   * 重试耗尽**不阻断业务，但也不再静默**：走既有告警通道（REL-2）。
+   * 完整异步重试队列（BullMQ worker）留待量大后。
    */
   async publish(eventType: string, payload: Record<string, unknown>): Promise<void> {
     const subs = await this.repo.find({ where: { enabled: true } });
@@ -83,8 +86,30 @@ export class WebhookService implements WebhookPublisher {
     for (const sub of matches) {
       const body = JSON.stringify({ event: eventType, ...payload });
       const signature = createHmac('sha256', sub.secret).update(body).digest('hex');
-      await this._deliver(sub.url, eventType, body, signature);
+      const result = await this._deliver(sub.url, eventType, body, signature);
+      if (!result.delivered) this._alertDeliveryFailure(eventType, sub.url, result.error ?? 'unknown error');
     }
+  }
+
+  /**
+   * REL-2：投递最终失败**不得静默**。原先 `_deliver` 的返回值被直接丢弃，失败只剩一行 warn，
+   * 而调用方还会 `.catch(() => undefined)` 再吞一层——于是一个订阅端点挂掉不留任何可查痕迹。
+   * 现在复用既有告警通道（与 500 异常同一条，见 `common/filters/http-exception.filter.ts`）。
+   *
+   * **只带主机名、不带完整 URL**：webhook 端点常在查询串里嵌令牌（钉钉/飞书机器人即如此），
+   * 而告警目标是**第三方 SaaS**——带完整 URL 等于把这些令牌送出本域。日志里仍保留完整 URL（与既有行为一致）。
+   *
+   * 边界（如实记）：`ALERT_WEBHOOK_ENABLED` 默认 false ⇒ 未配置告警时仍只剩那条 warn。
+   * 「无论配置都能列出失败」需另做失败记录表 + 端点，本项未做。
+   */
+  private _alertDeliveryFailure(eventType: string, url: string, error: string): void {
+    const alert = this.alertWebhook;
+    if (!alert) return;
+    // URL 在 _deliver 里已成功解析过（SSRF 分支与重试耗尽都发生在解析之后），此处不再兜底
+    const host = new URL(url).host;
+    void alert
+      .sendAlert('Webhook 投递失败', `${eventType} → ${host}：${error}`, { eventType, host })
+      .catch(() => undefined);
   }
 
   /** 测试投递：向单个订阅发测试 payload，返回签名（供调用方展示）。 */

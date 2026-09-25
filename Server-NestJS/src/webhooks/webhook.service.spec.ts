@@ -174,12 +174,42 @@ describe('WebhookService (PL-14)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('publish 投递失败静默（不抛异常）', async () => {
+  it('投递失败不抛异常（未注入告警通道时亦然——可选依赖）', async () => {
     const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
     const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
     (global as any).fetch = fetchMock;
     await expect(svc.publish('feedback.created', {})).resolves.toBeUndefined();
+  });
+
+  it('REL-2：投递最终失败**不再静默**——走既有告警通道，且只带主机名（完整 URL 会带出令牌）', async () => {
+    const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
+    const alert = { sendAlert: jest.fn().mockResolvedValue(undefined) };
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any, alert as any);
+    const fetchMock = jest.fn().mockRejectedValue(new Error('conn refused'));
+    (global as any).fetch = fetchMock;
+
+    await svc.publish('feedback.created', {});
+
+    expect(alert.sendAlert).toHaveBeenCalledTimes(1);
+    const [title, message, meta] = alert.sendAlert.mock.calls[0];
+    expect(title).toContain('Webhook 投递失败');
+    expect(message).toContain('conn refused');
+    expect(message).toContain('hook.example.com');
+    // 告警目标是第三方 SaaS —— 端点完整 URL 常嵌机器人令牌，不得随告警出域
+    expect(message).not.toContain('https://hook.example.com/ops');
+    expect(meta).toEqual({ eventType: 'feedback.created', host: 'hook.example.com' });
+  });
+
+  it('REL-2：投递成功 → 不告警（不制造噪声）', async () => {
+    const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
+    const alert = { sendAlert: jest.fn().mockResolvedValue(undefined) };
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any, alert as any);
+    (global as any).fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    await svc.publish('feedback.created', {});
+
+    expect(alert.sendAlert).not.toHaveBeenCalled();
   });
 
   it('投递失败按配置重试多次（可靠性）', async () => {
