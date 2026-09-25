@@ -107,15 +107,18 @@ const MODEL_FIELD = {
       `      ${c}Name: (json['${c}'] as Map?)?['${f.display}'] as String?,`,
     to: `        '${refColumnName(c)}': ${refColumnName(c)},`,
   }),
-  // 附件在模型里只带**名字列表**（侧表不在此展开），且不经本模型提交 ——
-  // 关联有自己的端点。上传控件属切片 2。
-  attachment: (c) => ({
-    decl: `  final List<String> ${c}Names;`,
-    ctor: `this.${c}Names = const []`,
+  // 附件在模型里带 **(id, 文件名) 列表**：只有名字撤销不了 —— 撤销按 attachmentId。
+  // 它不经本模型提交，关联走自己的两个端点（上传关联 / 撤销关联）。
+  attachment: (c, f, ctx) => ({
+    decl: `  final List<${ctx.singlePascal}AttachmentRef> ${c}Attachments;`,
+    ctor: `this.${c}Attachments = const []`,
     from:
-      `      ${c}Names: ((json['attachments'] as List?) ?? const [])\n` +
+      `      ${c}Attachments: ((json['attachments'] as List?) ?? const [])\n` +
       `          .where((a) => (a as Map)['field'] == '${c}')\n` +
-      `          .map((a) => (a as Map)['originalName'] as String)\n` +
+      `          .map((a) => ${ctx.singlePascal}AttachmentRef(\n` +
+      `                id: a['id'] as int,\n` +
+      `                name: a['originalName'] as String,\n` +
+      `              ))\n` +
       `          .toList(),`,
     to: '',
   }),
@@ -135,15 +138,26 @@ const MODEL_FIELD = {
 };
 
 export function modelTemplate(ctx) {
-  const decls = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).decl).join('\n');
-  const ctors = ctx.fields.map((f) => `    ${MODEL_FIELD[f.type](f.name, f).ctor},`).join('\n');
-  const froms = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).from).join('\n');
-  const tos = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f).to).join('\n');
+  const decls = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f, ctx).decl).join('\n');
+  const ctors = ctx.fields.map((f) => `    ${MODEL_FIELD[f.type](f.name, f, ctx).ctor},`).join('\n');
+  const froms = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f, ctx).from).join('\n');
+  const tos = ctx.fields.map((f) => MODEL_FIELD[f.type](f.name, f, ctx).to).join('\n');
   // copyWith 必须按**模型成员名**生成，而不是协议字段名：ref 的成员叫 customerId /
-  // customerName，附件叫 contractNames —— 用字段名会引用不存在的成员（实测编译错误）。
+  // customerName，附件叫 contractAttachments —— 用字段名会引用不存在的成员（实测编译错误）。
   const members = ctx.fields.flatMap(modelMemberNames);
+  // 只在真有附件字段时发这个类，避免每个模块都多一个没人用的类型（Code Economy §15.3）。
+  const attachRefClass =
+    attachmentFields(ctx.fields).length === 0
+      ? ''
+      : `/// One attachment of this module: the id is what a revoke needs, the name is what a user reads.\n` +
+        `/// 本模块的一个附件：撤销要用 id，用户看的是 name。\n` +
+        `class ${ctx.singlePascal}AttachmentRef {\n` +
+        `  final int id;\n` +
+        `  final String name;\n` +
+        `  const ${ctx.singlePascal}AttachmentRef({required this.id, required this.name});\n` +
+        `}\n\n`;
 
-  return `class ${ctx.singlePascal}Model {
+  return `${attachRefClass}class ${ctx.singlePascal}Model {
   final int id;
 ${decls}
 
@@ -457,7 +471,9 @@ export function pageTemplate(ctx) {
     ...refFields(ctx.fields).map(
       (r) => `      if (item.${r.name}Name != null && item.${r.name}Name!.isNotEmpty) item.${r.name}Name!,`,
     ),
-    ...attachmentFields(ctx.fields).map((n) => `      if (item.${n}Names.isNotEmpty) item.${n}Names.join('、'),`),
+    ...attachmentFields(ctx.fields).map(
+      (n) => `      if (item.${n}Attachments.isNotEmpty) item.${n}Attachments.map((a) => a.name).join('、'),`,
+    ),
     // 金额字段走**单源**格式化（core/utils/money.dart），而不是把裸十进制字符串摊给用户看。
     // Currency-bearing decimals are formatted through the single-source helper rather than
     // shown as the raw decimal string.
@@ -560,6 +576,79 @@ export function pageTemplate(ctx) {
         `    } catch (e) {\n` +
         `      debugPrint('attach ${n} failed: \$e');\n` +
         `    }\n` +
+        `  }\n` +
+        `\n  ///\n` +
+        `  /// Opens this row's attachment menu: one destructive entry per attachment (revoking it),\n` +
+        `  /// plus an entry that uploads a new one. A menu rather than one button per attachment —\n` +
+        `  /// a field can hold many, and the row's trailing area is already crowded.\n` +
+        `  ///\n` +
+        `  /// 打开该行的附件菜单：每个附件一条可撤销项，外加一条上传新附件。做成菜单而不是\n` +
+        `  /// 每个附件一个按钮 —— 一个字段可以挂很多个，而行的尾部已经很挤。\n` +
+        `  ///\n` +
+        `  Future<void> _attachmentMenu${toPascal(n)}(${ctx.singlePascal}Model item) async {\n` +
+        `    final l10n = context.l10n;\n` +
+        `    final action = await showCupertinoModalPopup<String>(\n` +
+        `      context: context,\n` +
+        `      builder: (sheetContext) => CupertinoActionSheet(\n` +
+        `        title: Text(l10n.${ctx.plural}AttachmentMenuTitle),\n` +
+        `        actions: <Widget>[\n` +
+        `          for (final a in item.${n}Attachments)\n` +
+        `            CupertinoActionSheetAction(\n` +
+        `              isDestructiveAction: true,\n` +
+        `              onPressed: () => Navigator.pop(sheetContext, 'revoke:\${a.id}'),\n` +
+        `              child: Text('\${a.name} · \${l10n.${ctx.plural}AttachmentRevoke}'),\n` +
+        `            ),\n` +
+        `          CupertinoActionSheetAction(\n` +
+        `            onPressed: () => Navigator.pop(sheetContext, 'upload'),\n` +
+        `            child: Text(l10n.uploadFile),\n` +
+        `          ),\n` +
+        `        ],\n` +
+        `        cancelButton: CupertinoActionSheetAction(\n` +
+        `          onPressed: () => Navigator.pop(sheetContext),\n` +
+        `          child: Text(l10n.cancel),\n` +
+        `        ),\n` +
+        `      ),\n` +
+        `    );\n` +
+        `    if (!mounted || action == null) return;\n` +
+        `    if (action == 'upload') {\n` +
+        `      await _attach${toPascal(n)}(item.id);\n` +
+        `      return;\n` +
+        `    }\n` +
+        `    await _revoke${toPascal(n)}(item.id, int.parse(action.substring('revoke:'.length)));\n` +
+        `  }\n` +
+        `\n  ///\n` +
+        `  /// Revokes one association (soft delete on the server) after the user confirms.\n` +
+        `  ///\n` +
+        `  /// 用户确认后撤销一条关联（服务端软删）。\n` +
+        `  ///\n` +
+        `  Future<void> _revoke${toPascal(n)}(int ownerId, int attachmentId) async {\n` +
+        `    if (!mounted) return;\n` +
+        `    final l10n = context.l10n;\n` +
+        `    final client = context.read<ApiClient>();\n` +
+        `    final confirmed = await showCupertinoDialog<bool>(\n` +
+        `      context: context,\n` +
+        `      builder: (dialogContext) => CupertinoAlertDialog(\n` +
+        `        content: Text(l10n.${ctx.plural}AttachmentRevokeConfirm),\n` +
+        `        actions: <Widget>[\n` +
+        `          CupertinoDialogAction(\n` +
+        `            onPressed: () => Navigator.pop(dialogContext, false),\n` +
+        `            child: Text(l10n.cancel),\n` +
+        `          ),\n` +
+        `          CupertinoDialogAction(\n` +
+        `            isDestructiveAction: true,\n` +
+        `            onPressed: () => Navigator.pop(dialogContext, true),\n` +
+        `            child: Text(l10n.confirm),\n` +
+        `          ),\n` +
+        `        ],\n` +
+        `      ),\n` +
+        `    );\n` +
+        `    if (confirmed != true) return;\n` +
+        `    try {\n` +
+        `      await client.delete('/${ctx.plural}/\$ownerId/attachments/\$attachmentId');\n` +
+        `      if (mounted) context.read<${ctx.pluralPascal}Provider>().load();\n` +
+        `    } catch (e) {\n` +
+        `      debugPrint('revoke ${n} failed: \$e');\n` +
+        `    }\n` +
         `  }\n`,
     )
     .join('');
@@ -569,7 +658,7 @@ export function pageTemplate(ctx) {
         `          CupertinoButton(\n` +
         `            padding: EdgeInsets.zero,\n` +
         `            minimumSize: const Size(32, 32),\n` +
-        `            onPressed: () => _attach${toPascal(n)}(item.id),\n` +
+        `            onPressed: () => _attachmentMenu${toPascal(n)}(item),\n` +
         `            child: const Icon(CupertinoIcons.paperclip, size: 18),\n` +
         `          ),\n`,
     )

@@ -512,7 +512,9 @@ export function serviceTemplate(ctx) {
         pii.map((c) => `      ${c}: row.${c} == null ? row.${c} : maskText(String(row.${c})),`).join('\n') +
         `\n    };\n` +
         `  }`;
-  return `import { Injectable, NotFoundException, ForbiddenException${refs.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
+  // `BadRequestException` 有两处用它的地方：ref 目标不存在、以及附件字段名不在声明内。
+  // 原先只看 `refs` ⇒ 只声明附件字段的模块生成出来编译不过（2026-09-25 编译门实测抓到）。
+  return `import { Injectable, NotFoundException, ForbiddenException${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';

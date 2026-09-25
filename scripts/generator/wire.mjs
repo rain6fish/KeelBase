@@ -7,7 +7,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { adminI18nKeys } from './templates-admin.mjs';
-import { aiToolsFlags, enumLabelGetter, hasEnumLabels } from './validate.mjs';
+import { aiToolsFlags, attachmentFields, enumLabelGetter, hasEnumLabels } from './validate.mjs';
 
 /** 在 anchor 之后插入；marker 已存在则幂等跳过。 */
 function insertAfter(content, anchor, insertion, marker) {
@@ -250,6 +250,14 @@ export async function wireFrontend(ctx, root = '') {
   // 这是既有的幂等语义，不在本次改动范围内（升级语义归 P0-9 之外的 C7 升级内核）。
   const enTitle = ctx.singlePascal;
   const enumGetters = enumLabelGetterDecls(ctx);
+  // 没有附件字段就不发这三个 key（§15.3）；上传/取消两个动作复用应用级已有文案。
+  const attachGetters =
+    attachmentFields(ctx.fields).length === 0
+      ? ''
+      : `\n` +
+        `  String get ${ctx.plural}AttachmentMenuTitle => _t('Attachments', '附件');\n` +
+        `  String get ${ctx.plural}AttachmentRevoke => _t('Revoke', '撤销');\n` +
+        `  String get ${ctx.plural}AttachmentRevokeConfirm => _t('Revoke this attachment?', '撤销该附件？');`;
   results.push(
     await applyFile(`${FE}/core/i18n/app_localizations.dart`, (c) =>
       insertAfter(
@@ -260,6 +268,7 @@ export async function wireFrontend(ctx, root = '') {
           `  String get ${ctx.plural}AddTitle => _t('New ${enTitle}', '新增${ctx.label}');\n` +
           `  String get ${ctx.plural}Empty => _t('No ${enTitle} yet', '暂无${ctx.label}');\n` +
           `  String get ${ctx.plural}DeleteConfirm => _t('Delete this ${enTitle.toLowerCase()}?', '删除该${ctx.label}？');` +
+          attachGetters +
           enumGetters,
         `String get ${ctx.plural}Title`,
       ),

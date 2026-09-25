@@ -142,6 +142,18 @@ test('服务：三个方法都先经 owner 做所有权检查（权限继承，�
   assert.ok(svc.includes('await this.attachmentsRepository.softDelete(attachmentId);'));
 });
 
+test('服务：用了 BadRequestException 就必须 import 它（编译门实测抓到的缺陷）', () => {
+  // 2026-09-25 实况：只声明附件字段（无 ref）的模块，生成的服务 throw BadRequestException
+  // 却没 import —— 这是编译错误。CI 的冒烟生成不声明附件字段，所以一直没编译到这条路径。
+  const svc = serviceTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(svc.includes("throw new BadRequestException('未知的附件字段')"));
+  assert.match(
+    svc,
+    /^import \{[^}]*BadRequestException[^}]*\} from '@nestjs\/common';/m,
+    '必须从 @nestjs/common import，否则生成物编译不过',
+  );
+});
+
 test('控制器：三个端点齐备', () => {
   const ctrl = controllerTemplate(ctxWith([ATT_FIELD]));
   assert.ok(ctrl.includes("import { AddOrderAttachmentDto } from './dto/add-order-attachment.dto';"));
@@ -165,21 +177,32 @@ test('backendFiles：有附件时多出侧表实体与 DTO 两个文件', () => 
   assert.ok(withAtt.includes('orders/dto/add-order-attachment.dto.ts'));
 });
 
-test('无附件字段 → 不产侧表与附件方法（不产死代码）', () => {
+test('无附件字段 → 不产侧表、附件方法与附件引用类（不产死代码）', () => {
   const ctx = ctxWith([{ name: 'title', type: 'string' }]);
   assert.ok(!entityTemplate(ctx).includes('OneToMany'));
   assert.ok(!serviceTemplate(ctx).includes('attachmentsRepository'));
   assert.ok(!controllerTemplate(ctx).includes('attachments'));
   assert.ok(moduleTemplate(ctx).includes('TypeOrmModule.forFeature([Order])'));
+  // 前端与管理台也不得留下没人用的类型/方法
+  assert.ok(!modelTemplate(ctx).includes('AttachmentRef'));
+  assert.ok(!pageTemplate(ctx).includes('_attachmentMenu'));
+  assert.ok(!pageTemplate(ctx).includes('_revoke'));
+  assert.ok(!adminApiTemplate(ctx).includes('uploadFile'));
+  assert.ok(!adminViewTemplate(ctx).includes('pickFile'));
+  const i18n = adminI18nKeys(ctx);
+  assert.equal(i18n.zh['ordersRevokeTitle'], undefined);
+  assert.equal(i18n.zh['ordersRevokeContent'], undefined);
 });
 
 // ─── Frontend ────────────────────────────────────────────────────────────────
 
-test('Flutter：模型带附件名列表，且不上传/不提交', () => {
+test('Flutter：模型带 (id, 名字) 附件引用列表，且不上传/不提交', () => {
   const model = modelTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(model.includes('final List<String> contractNames;'));
+  assert.ok(model.includes('class OrderAttachmentRef {'));
+  assert.ok(model.includes('final List<OrderAttachmentRef> contractAttachments;'));
   assert.ok(model.includes("json['attachments']"));
   assert.ok(model.includes("(a as Map)['field'] == 'contract'"));
+  assert.ok(model.includes("id: a['id'] as int,"), '撤销要用 id —— 只有名字撤销不了');
 });
 
 test('Flutter：附件没有控制器 —— dispose 不得引用不存在的变量', () => {
@@ -207,9 +230,9 @@ test('schema 与 FIELD_TYPES 两层一致：闭集里每个类型都必须被 sc
 
 // ─── Slice 2: upload control + echo（断言来自真机实证） ──────────────────────
 
-test('模型：copyWith 按成员名（contractNames），不用协议字段名', () => {
+test('模型：copyWith 按成员名（contractAttachments），不用协议字段名', () => {
   const model = modelTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(model.includes('Object? contractNames = const Object()'));
+  assert.ok(model.includes('Object? contractAttachments = const Object()'));
   assert.ok(!model.includes('Object? contract = const Object()'));
 });
 
@@ -227,17 +250,52 @@ test('页面：附件按行上传 —— 复用既有 /upload 管线，再登记
 
 test('页面：回显附件名（用 Model 类型）', () => {
   const page = pageTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(page.includes("if (item.contractNames.isNotEmpty) item.contractNames.join('、'),"));
+  assert.ok(
+    page.includes("if (item.contractAttachments.isNotEmpty) item.contractAttachments.map((a) => a.name).join('、'),"),
+  );
   assert.ok(page.includes('_echo(OrderModel item)'));
 });
 
-test('管理台：接口带 attachments 数组 + 名字 helper + 单元格', () => {
+test('页面：附件菜单 —— 每附件一条可撤销项 + 一条上传；撤销走 DELETE', () => {
+  const page = pageTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(page.includes('_attachmentMenuContract(item)'), '回形针改开菜单，不再是直接上传');
+  assert.ok(page.includes('CupertinoActionSheet('));
+  assert.ok(page.includes('for (final a in item.contractAttachments)'));
+  assert.ok(page.includes('isDestructiveAction: true'));
+  assert.ok(page.includes("onPressed: () => Navigator.pop(sheetContext, 'upload'),"));
+  assert.ok(page.includes('_revokeContract(item.id, int.parse('));
+  assert.ok(page.includes("await client.delete('/orders/\$ownerId/attachments/\$attachmentId');"));
+});
+
+test('管理台：接口带附件类型与三个方法；单元格每附件一枚可关闭标签', () => {
   const api = adminApiTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(api.includes('attachments?: Array<Record<string, unknown>>;'));
+  assert.ok(api.includes('export interface AdminOrderAttachment {'));
+  assert.ok(api.includes('attachments?: AdminOrderAttachment[];'));
+  assert.ok(
+    api.includes("import { type UploadedFile } from './upload';"),
+    '只借它的返回类型；上传助手共用一份，不生成进每个模块',
+  );
+  assert.ok(api.includes('async attach(id: number, field: string, uploaded: UploadedFile)'));
+  assert.ok(api.includes('async revokeAttachment(id: number, attachmentId: number)'));
+  assert.ok(api.includes('`/orders/${id}/attachments/${attachmentId}`'));
   assert.ok(!api.includes('contract: string;'), '附件不在接口里逐字段展开');
+
   const view = adminViewTemplate(ctxWith([ATT_FIELD]));
-  assert.ok(view.includes('function attachmentNames(item: AdminOrder, field: string): string[]'));
-  assert.ok(view.includes("{{ attachmentNames(item, 'contract').join('、') }}"));
+  assert.ok(view.includes('function attachmentsOf(item: AdminOrder, field: string): AdminOrderAttachment[]'));
+  assert.ok(view.includes("v-for=\"a in attachmentsOf(item, 'contract')\""));
+  assert.ok(view.includes('closable'));
+  assert.ok(view.includes('@close="confirmRevoke(item, a)"'));
+  assert.ok(view.includes("@click=\"pickFile(item, 'contract')\""));
+  assert.ok(view.includes('ref="fileInput" type="file"'), '隐藏 file input 挂在视图上');
+  assert.equal(view.split('type="file"').length - 1, 1, '全视图恰好一个 file input');
+  // 管理台只有 element-plus：`v-btn` 是未注册组件，渲染不出可用按钮（2026-09-25 修正）
+  assert.ok(!view.includes('v-btn'));
+  assert.ok(view.includes('<el-button text size="small" type="danger" @click="confirmDelete(item)">'));
+  assert.ok(view.includes('<AppIcon icon="mdi-delete-outline" />'));
+
+  const i18n = adminI18nKeys(ctxWith([ATT_FIELD]));
+  assert.equal(i18n.zh['ordersRevokeTitle'], '撤销订单附件');
+  assert.equal(i18n.en['ordersRevokeTitle'], 'Revoke Order attachment');
 });
 
 test('带 attachment 的 ctx 能跑遍所有模板（漏一个映射即抛错）', () => {
