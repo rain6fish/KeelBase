@@ -1,6 +1,12 @@
 # 语义单源规则（CE-1 C1） / Semantic Single-Source Rule
 
-> **规则**：触及 **tool / 治理 / 审计 / 事件** 语义的实现改动，须**同批**落 `specs/protocol`（向量/金样本）或 `specs/protocol/schemas`（wire Schema）——即「**先落契约，再改代码**」。对抗「同一语义两处实现各自漂移」。
+> **规则**：触及 **tool / 治理 / 审计 / 事件** 语义的实现改动，须**同批**落契约——即「**先落契约，再改代码**」。对抗「同一语义两处实现各自漂移」。
+
+**「落契约」的两种形态**（契约 2026-09-21 出仓前后各一种）：
+- **出仓前**：改本仓 `Server-NestJS/specs/protocol/` 内的向量/金样本/schema；
+- **出仓后**：契约仓先提交，**本仓同批推进子模块指针**（`Server-NestJS/specs/protocol` 这条**裸路径**）。
+
+为什么出仓后只剩指针一条路：本仓能观测到的契约动作就这一个 —— 另一个门 `contract-not-edited-here` 明确**禁止**在本仓直接改 `specs/protocol/` 内的文件。
 
 ## 为什么 / Why
 
@@ -15,11 +21,11 @@ KeelBase 的关键能力 = 同一 Application Semantic Layer 连 Build 与 Run�
 | `Server-NestJS/src/ai/interfaces/tool.interface.ts` | R0-R5 风险级 + 策略表 |
 | `Server-NestJS/src/ai/audit/ai-business-event.ts` | 业务事件命名 |
 
-**契约真源**（任一变更即视为已落契约）：`Server-NestJS/specs/protocol/`（向量/金样本/registry）、`Server-NestJS/specs/protocol/schemas/`（wire Schema v1）。
+**契约真源**（任一命中即视为已落契约）：`Server-NestJS/specs/protocol/` 内的向量/金样本/registry/schema（**出仓前形态**）、以及**子模块指针本身** `Server-NestJS/specs/protocol`（**出仓后形态**，裸路径、精确匹配）。
 
 ## 流程 / Workflow
 
-1. 改语义（上表文件）→ **先**更新 `specs/protocol` 向量/金样本或 `schemas` wire Schema，**同批**提交。
+1. 改语义（上表文件）→ **先**在契约仓落向量/金样本/schema，再**推进本仓子模块指针**，**同批**提交（出仓前则是直接改 `specs/protocol/` 内文件）。
 2. 纯重构 / 注释 / 无契约影响 → 提交信息加 trailer `[no-semantic-change]`（评审可见理由）。
 3. 闸判定：命中语义源但无契约变更 → 失败；命中豁免 trailer → 通过。
 
