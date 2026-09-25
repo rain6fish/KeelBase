@@ -27,9 +27,11 @@ class OAuthProviderMeta {
 /// full registry metadata and icons for rendering.
 class OAuthProviders {
   /// Full provider metadata registry.
+  ///
+  /// 这也是客户端的**能力清单**：只有这里登记、且 `AuthProvider.oauthLogin`
+  /// 分支里实现的提供商才会渲染按钮（见 [OAuthProviderConfig.fromJson]）。
   static const all = <OAuthProviderMeta>[
     // International
-    OAuthProviderMeta(id: 'google', name: 'Google', icon: 'google', group: 'international', nativeOnly: false),
     OAuthProviderMeta(id: 'apple',  name: 'Apple',  icon: 'apple',  group: 'international', nativeOnly: false),
     // China
     OAuthProviderMeta(id: 'wechat', name: '微信',    icon: 'wechat', group: 'china', nativeOnly: true),
@@ -46,8 +48,6 @@ class OAuthProviders {
   /// Get the CupertinoIcons icon widget for the given provider.
   static IconData iconFor(String providerId) {
     switch (providerId) {
-      case 'google':
-        return CupertinoIcons.search;
       case 'apple':
         return CupertinoIcons.chevron_right_circle_fill;
       case 'wechat':
@@ -120,7 +120,12 @@ class OAuthProviderConfig {
           nativeOnly: nativeOnly is bool && nativeOnly,
         ));
       }
-      return result.where((meta) => enabledIds.contains(meta.id)).toList();
+      // 只保留客户端真正实现的提供商：否则后端启用了本端不支持的提供商时
+      // 会渲染出一个点了必失败的按钮。
+      return result
+          .where((meta) =>
+              enabledIds.contains(meta.id) && OAuthProviders.get(meta.id) != null)
+          .toList();
     }
 
     return OAuthProviderConfig(

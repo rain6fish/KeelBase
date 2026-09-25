@@ -234,7 +234,6 @@ class AppLocalizations {
 
   // --- OAuth ---
   String get or => _t('or', '或');
-  String get signInWithGoogle => _t('Sign in with Google', '使用 Google 登录');
   String get signInWithApple => _t('Sign in with Apple', '使用 Apple 登录');
   String get internationalLogin => _t('International', '国际');
   String get chinaLogin => _t('China', '国内');

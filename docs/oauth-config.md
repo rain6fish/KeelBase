@@ -86,9 +86,22 @@ The frontend calls `GET /api/v1/auth/oauth/providers` when the login page loads;
 
 ## 国际认证（International） / International Authentication
 
+> **客户端实现范围（2026-09-25）**：Flutter 客户端当前**只实现 Apple**（后端仍支持 Google 验证）。
+> `google_sign_in` 已从 `Front-Flutter/pubspec.yaml` 移除——它的 web 插件在**插件注册时**（即 app
+> 启动时）就会注入 `https://accounts.google.com/gsi/client`，大陆网络下该请求必然失败，这个依赖
+> 只带来这一次无用请求。**下文清单中所有 Google 客户端条目均不再适用**。要恢复 Google 登录，需重新
+> 加入该依赖，并恢复 `OAuthService.signInWithGoogle` 与 `AuthProvider.oauthLogin` 的 `'google'` 分支。
+>
+> **Client scope (2026-09-25)**: the Flutter client implements **Apple only** (the backend still verifies
+> Google). `google_sign_in` was removed from `Front-Flutter/pubspec.yaml`: its web plugin injects
+> `https://accounts.google.com/gsi/client` at **plugin registration** (i.e. app startup), a request that
+> always fails on mainland networks, so the dependency bought nothing but that request. **Every Google
+> client-side item in the checklist below no longer applies.** To restore it, re-add the dependency and
+> restore `OAuthService.signInWithGoogle` plus the `'google'` branch in `AuthProvider.oauthLogin`.
+
 | 提供商 / Provider | 协议 / Protocol | 前端 SDK / Frontend SDK | 后端验证 / Backend verification |
 |--------|------|----------|---------|
-| Google | ID Token (JWT) | `google_sign_in` | tokeninfo 端点 / tokeninfo endpoint |
+| Google | ID Token (JWT) | —（客户端未实现 / not in client） | tokeninfo 端点 / tokeninfo endpoint |
 | Apple | Identity Token (JWT) | `sign_in_with_apple` | JWKS + jsonwebtoken |
 
 ### 配置要点 / Configuration Notes
@@ -97,7 +110,6 @@ The frontend calls `GET /api/v1/auth/oauth/providers` when the login page loads;
 
 See each platform's SDK documentation:
 
-- `google_sign_in`: https://pub.dev/packages/google_sign_in
 - `sign_in_with_apple`: https://pub.dev/packages/sign_in_with_apple
 
 ---

@@ -31,9 +31,8 @@ class AuthProvider extends ChangeNotifier {
     required SplashRepository splashRepository,
     required this.apiClient,
     OAuthService? oauthService,
-    String? googleClientId,
     AppCache? cache,
-  })  : oauthService = oauthService ?? OAuthService(googleClientId: googleClientId),
+  })  : oauthService = oauthService ?? OAuthService(),
         _cache = cache ?? AppCache.unavailable();
 
   AuthStatus get status => _status;
@@ -303,7 +302,7 @@ class AuthProvider extends ChangeNotifier {
   /// OAuth login — auto-creates account if new.
   ///
   /// Supported providers:
-  ///   idToken flow: google, apple
+  ///   idToken flow: apple
   ///   code flow:    wechat, alipay
   ///
   /// Returns `true` on success, `false` on failure.
@@ -318,9 +317,6 @@ class AuthProvider extends ChangeNotifier {
       // 1. Perform platform sign-in → get OAuthResult
       final OAuthResult result;
       switch (provider) {
-        case 'google':
-          result = await oauthService.signInWithGoogle();
-          break;
         case 'apple':
           result = await oauthService.signInWithApple();
           break;

@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 // ── 国内原生 SDK 集成 ──────────────────────────────────────────────
@@ -37,7 +36,6 @@ class OAuthResult {
 /// Unified service for all OAuth providers.
 ///
 /// ## International (Web / Native) — active out of the box
-///   - Google:    ID token via google_sign_in
 ///   - Apple:     Identity token via sign_in_with_apple
 ///
 /// ## China (Native only) — requires native SDK configuration
@@ -47,17 +45,9 @@ class OAuthResult {
 /// ## Initialization
 /// Call [init] once at app startup.
 class OAuthService {
-  final String? _googleClientId;
-  GoogleSignIn? _googleSignIn;
-
   // WeChat auth flow (used when fluwx is imported)
   StreamSubscription<dynamic>? _weChatAuthSub;
   Completer<String>? _weChatCompleter;
-
-  OAuthService({
-    this._googleClientId,
-    this._googleSignIn,
-  });
 
   // ─── Init ─────────────────────────────────────────────────────────────
 
@@ -83,52 +73,6 @@ class OAuthService {
   }
 
   // ─── International ──────────────────────────────────────────────────────
-
-  /// google_sign_in 6.x 的 signIn() 不接受 scopes，只能在构造时传入。
-  /// 已构造实例缺少所需 scopes 时重建，确保请求的权限真正被请求。
-  GoogleSignIn _googleSignInWith(List<String>? scopes) {
-    final requested = scopes ?? const <String>[];
-    if (_googleSignIn == null || !requested.every(_googleSignIn!.scopes.contains)) {
-      _googleSignIn = GoogleSignIn(clientId: _googleClientId, scopes: requested);
-    }
-    return _googleSignIn!;
-  }
-
-  Future<OAuthResult> signInWithGoogle({List<String>? scopes}) async {
-    try {
-      final gs = _googleSignInWith(scopes);
-      // 不要无脑 signOut：会破坏已有 Google 会话的静默重登
-      final account = await gs.signIn();
-      if (account == null) {
-        throw OAuthException('Google sign-in cancelled by user');
-      }
-      final authentication = await account.authentication;
-      final idToken = authentication.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        throw OAuthException(
-          'Failed to obtain Google ID token. '
-          'Check that the Google Client ID is configured.',
-        );
-      }
-      return OAuthResult(
-        provider: 'google',
-        idToken: idToken,
-        displayName: account.displayName,
-        email: account.email,
-      );
-    } on OAuthException {
-      rethrow;
-    } on ArgumentError catch (e) {
-      throw OAuthException(
-        'Google Sign-In is not configured. '
-        'Set GOOGLE_CLIENT_ID or add a '
-        '<meta name="google-signin-client_id"> tag to web/index.html.\n'
-        'Detail: $e',
-      );
-    } catch (e) {
-      throw OAuthException('Google sign-in failed: $e');
-    }
-  }
 
   Future<OAuthResult> signInWithApple() async {
     final available = await isAppleSignInAvailable();
@@ -273,10 +217,6 @@ class OAuthService {
       return false;
     }
   }
-
-  // 仅当配置了 Google Client ID 时认为可用，避免暴露必失败的登录入口。
-  // 注：Web 端若通过 <meta google-signin-client_id> 配置，需显式传入 googleClientId。
-  bool get isGoogleSignInAvailable => _googleClientId != null;
 
   Future<bool> isWeChatInstalled() async {
     // TODO: 集成 fluwx 后替换为: return await fluwx.isWeChatInstalled;

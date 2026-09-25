@@ -49,7 +49,9 @@ dependencies:
   local_auth: ^2.3.0
 
   # Third-party OAuth login (International)
-  google_sign_in: ^6.3.0
+  # 注：不引入 google_sign_in。它的 web 插件在**注册时**（即 app 启动时）就会注入
+  # https://accounts.google.com/gsi/client，大陆网络下必然失败；而该依赖只会带来
+  # 这一次无用请求，故整体移除。要恢复 Google 登录见 docs/oauth-config.md。
   sign_in_with_apple: ^6.1.4
 
   # Third-party OAuth login (China)
@@ -82,11 +84,18 @@ flutter:
 
   # 中文字体（Noto Sans SC，思源黑体，SIL Open Font License 可商用）
   # 打包进主程序，避免 Flutter web (CanvasKit) 运行时下载字体导致的方块闪烁
+  #（CanvasKit 的回退字体走 fonts.gstatic.com，大陆不可达 → 不打包就是豆腐块）
   # 仅注册 Regular，w600/w700 由 Flutter 引擎合成加粗，减小包体积
+  #
+  # 用 woff2 而非 otf：此为全字形（不裁剪），无缺字风险。体积 16.4MB → 11.4MB。
+  # Flutter web 会等这份字体加载完才跑 main()，故它直接计入首帧时间——
+  # 生成方式（换版或换字重时照做）：
+  #   pip install fonttools brotli
+  #   python -m fontTools.ttLib.woff2 compress -o NotoSansSC-Regular.woff2 NotoSansSC-Regular.otf
   fonts:
     - family: NotoSansSC
       fonts:
-        - asset: assets/fonts/NotoSansSC-Regular.otf
+        - asset: assets/fonts/NotoSansSC-Regular.woff2
           weight: 400
 
   # To add assets to your application, add an assets section, like this:
