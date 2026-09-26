@@ -78,7 +78,7 @@ specs/scenarios/
 
 **门禁**：`npm run scenarios:check`（`src/ai/scenarios-pack.spec.ts` 内的 `replay 语法 · replayVersion 选入门`）。该门**自带正反例**，即使 0 个包选入也真实断言语法——**并已实测：给散文包注入 `replayVersion` 即变红**（非空转）。
 
-**更强的一层（待第 2 步）**：`call.read` 已给出对象 id，届时可校验「`expect` 键 ⊆ 该对象 schema 的 properties」。
+**更强的一层（2026-09-26 已落，原「待第 2 步」）**：`expect` 的键必须是**目标对象真有的字段**——门禁按 `wire-schema-registry.json` 解析该对象的 schema（`oneOf`/`anyOf`/`allOf` 分支取并集；`call.tool` 取 `tool-invocation.response`），**写一个对象没有的字段即红**（已实测：在 `evidence-package` 上写 `chainValid` ⇒ 立红——**那正是 N5 当时抓到的那类错**）。
 
 **未决**：谁把 wire 对象映射到端点（各 Runtime 声明 vs runner 按约定推导）——留待草稿可机读后再定。
 

@@ -136,7 +136,7 @@
           "minProperties": 1,
           "propertyNames": {
             "pattern": "^[a-z][a-zA-Z0-9]*$",
-            "description": "键 = 目标对象的**字段名**（camelCase）。此模式拒掉散文键（如 `离线验证`）——那正是旧草稿的毛病。**更强的一层留待第 2 步**：`call.read` 已给出对象 id，届时可校验「expect 键 ⊆ 该对象 schema 的 properties」（本文件不做，因为它需要 registry 做交叉引用）。"
+            "description": "键 = 目标对象的**字段名**（camelCase）。此模式拒掉散文键（如 `离线验证`）——那正是旧草稿的毛病。**更强的一层已落（2026-09-26）**：`expect` 的键必须是**目标对象真有的字段**——由门禁做（`scenarios-pack.spec.ts` 按 registry 解析该对象的 schema，`oneOf`/`anyOf`/`allOf` 分支取并集；`call.tool` 取 `tool-invocation.response` 的字段）。**本文件仍不做**，因为它需要 registry 做交叉引用，而语法文件只描述形状。"
           },
           "additionalProperties": {
             "type": ["string", "number", "boolean", "null"]

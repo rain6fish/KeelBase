@@ -13,7 +13,7 @@
  * 随 npm test 入 CI；任一侧变更都先红，须先同步运行时/文档真源（CE-1 L3 单源规则）。
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Ajv from 'ajv';
 import { SecurityShowcaseService } from './security-showcase/security-showcase.service';
@@ -242,6 +242,70 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
     const validateEntry = ajv.compile({ $ref: 'replay.schema.json#/definitions/replayEntry' });
     const validateGiven = ajv.compile({ $ref: 'replay.schema.json#/definitions/given' });
 
+    /**
+     * The registry, and the two things a corpus `expect` depends on: which object it is talking
+     * about, and which field names that object has.
+     *
+     * The resolution tolerates both spellings of the registry's `schema` field — six entries carry a
+     * `vN/` prefix and the rest do not — and throws with both paths tried, so a pointer that breaks
+     * is loud rather than a silently skipped object.
+     */
+    const WIRE_SPECS = resolve(SPECS_DIR, '../protocol');
+    const registryObjects = JSON.parse(
+      readFileSync(resolve(WIRE_SPECS, 'wire-schema-registry.json'), 'utf8'),
+    ).objects as Array<{ id: string; version: string; schema: string }>;
+
+    const loadWireSchema = (objectId: string): any => {
+      const entry = registryObjects.find((o) => o.id === objectId);
+      if (!entry) throw new Error(`no wire object \`${objectId}\` in the registry`);
+      const tried = [
+        resolve(WIRE_SPECS, 'schemas', entry.schema),
+        resolve(WIRE_SPECS, 'schemas', entry.version, entry.schema),
+      ];
+      for (const path of tried) {
+        if (existsSync(path)) return JSON.parse(readFileSync(path, 'utf8'));
+      }
+      throw new Error(`cannot resolve the schema for \`${objectId}\`: tried ${tried.join(' and ')}`);
+    };
+
+    const deref = (node: any, root: any): any => {
+      if (node && typeof node.$ref === 'string' && node.$ref.startsWith('#/')) {
+        let target = root;
+        for (const segment of node.$ref.slice(2).split('/')) target = target?.[segment];
+        return target;
+      }
+      return node;
+    };
+
+    /** Field names a schema exposes at its top level, unioned across `oneOf`/`anyOf`/`allOf`: which
+     *  branch of a union the payload took does not change which fields it may name. */
+    const fieldNames = (schema: any, root: any): Set<string> => {
+      const names = new Set<string>();
+      const walk = (node: any) => {
+        const resolved = deref(node, root);
+        if (!resolved || typeof resolved !== 'object') return;
+        for (const field of Object.keys(resolved.properties ?? {})) names.add(field);
+        for (const key of ['oneOf', 'anyOf', 'allOf']) {
+          for (const branch of resolved[key] ?? []) walk(branch);
+        }
+      };
+      walk(schema);
+      return names;
+    };
+
+    /** What an entry asserts about: a read/write entry names its object directly; a tool call's
+     *  expectations are read off `tool-invocation.response` (the corpus rule for tool calls). */
+    const targetFields = (call: any): { object: string; names: Set<string> } => {
+      if (call?.tool !== undefined) {
+        const schema = loadWireSchema('tool-invocation');
+        const response = deref(schema.properties?.response, schema);
+        return { object: 'tool-invocation.response', names: fieldNames(response, schema) };
+      }
+      const object = String(call?.read ?? call?.write);
+      const schema = loadWireSchema(object);
+      return { object, names: fieldNames(schema, schema) };
+    };
+
     const PACKS: Array<[string, any]> = [
       ['security-showcase-v1.json', showcasePack],
       ['golden-application-v1.json', goldenPack],
@@ -296,6 +360,28 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
       })).toBe(false);
     });
 
+    it('语法自证：`expect` 键必须是目标对象的字段（N5 那一类）', () => {
+      // The stronger layer the directory's README had pending: an expectation names a field of the
+      // object, so a field the object does not have is not an expectation — it is a typo or an
+      // invention. `chainValid` is exactly what N5 found was being asserted on `evidence-package`.
+      const evidence = targetFields({ read: 'evidence-package' });
+      expect(evidence.object).toBe('evidence-package');
+      expect(evidence.names.has('format')).toBe(true);
+      expect(evidence.names.has('chainValid')).toBe(false);
+
+      // A union object still offers every branch's fields.
+      const revoke = targetFields({ write: 'side-effect-revoke', op: 'revoke' });
+      expect(revoke.names.has('revoked')).toBe(true); // revokeResult
+      expect(revoke.names.has('resultType')).toBe(true); // item
+
+      // A tool call's expectations live on `tool-invocation.response`, not on the envelope.
+      const tool = targetFields({ tool: 'analyze_customer_risk' });
+      expect(tool.object).toBe('tool-invocation.response');
+      expect(tool.names.has('executed')).toBe(true);
+      expect(tool.names.has('requiresConfirmation')).toBe(true);
+      expect(tool.names.has('status')).toBe(false); // that is this runtime's own answer, not the object's
+    });
+
     it('语法自证（反例）：旧草稿的四种写法逐条被拒', () => {
       const cases: Array<[string, any]> = [
         ['① call 是字符串（方法+路径+方法名挤一串）',
@@ -336,6 +422,14 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
             if (tool !== undefined) {
               expect([file, label, `tool \`${tool}\` is declared in \`tools\``, declared.includes(tool)])
                 .toEqual([file, label, `tool \`${tool}\` is declared in \`tools\``, true]);
+            }
+            if (entry?.expect && typeof entry.expect === 'object') {
+              // 更强的一层（原「待第 2 步」，2026-09-26 落）：`expect` 的键必须是**目标对象真有的字段**。
+              const { object, names } = targetFields(entry.call);
+              for (const field of Object.keys(entry.expect)) {
+                const why = `\`${field}\` is a field of ${object}`;
+                expect([file, label, why, names.has(field)]).toEqual([file, label, why, true]);
+              }
             }
           }
           if (step.given !== undefined) {
