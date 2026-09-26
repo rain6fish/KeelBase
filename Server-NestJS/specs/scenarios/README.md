@@ -80,7 +80,7 @@ specs/scenarios/
 
 **更强的一层（2026-09-26 已落，原「待第 2 步」）**：`expect` 的键必须是**目标对象真有的字段**——门禁按 `wire-schema-registry.json` 解析该对象的 schema（`oneOf`/`anyOf`/`allOf` 分支取并集；`call.tool` 取 `tool-invocation.response`），**写一个对象没有的字段即红**（已实测：在 `evidence-package` 上写 `chainValid` ⇒ 立红——**那正是 N5 当时抓到的那类错**）。
 
-**未决（条件已达成：草稿已可机读，且两载体都真跑过）**：**谁把 wire 对象映射到端点**（各 Runtime 声明 vs runner 按约定推导）。**两载体现状一致——各自的 runner 各自映射**（参照 `test/scenario-replay.e2e-spec.ts` 与 Java 仓的 `ScenarioReplayTest` 各持一份）。这条决定的是：**「本运行时没暴露该对象」与「映射写错了」在第三方那儿能不能分开**——**已登记待裁**（它不由本目录单方面定，见 §2.4）。
+**已裁（2026-09-26）· 各仓一份「对象 → 端点」表**：映射由**每个 Runtime 在自己仓里用一份文档声明**（**不进语料**——端点是实现自由）。**参照实现** → `docs/wire-object-endpoints.md`；**第二载体** → `KeelBase4J` 的 `docs/wire-object-endpoints.md`。两载体现在**各自的 runner 各自映射**（`test/scenario-replay.e2e-spec.ts` · `ScenarioReplayTest`），而**那张表才是对外可核的面**——它让「**本运行时没暴露该对象**」与「**映射写错了**」分得开。
 
 ## 规则 / Rules
 

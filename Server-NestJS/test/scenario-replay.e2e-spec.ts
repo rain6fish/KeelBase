@@ -44,6 +44,9 @@ import { AuthorizationDeniedError } from '../src/ai/interfaces/tool.interface';
  *
  * Entries this side cannot serve are recorded with their reason and asserted as such — the same
  * discipline as the Java runner, which is what makes the two runs comparable.
+ *
+ * The mapping this runner carries is written down for third parties in `docs/wire-object-endpoints.md`,
+ * so a runtime's answer can be checked rather than inferred from this file.
  */
 
 const SPECS_DIR = resolve(__dirname, '../specs/scenarios');
