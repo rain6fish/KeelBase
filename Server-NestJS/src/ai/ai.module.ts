@@ -63,6 +63,7 @@ import { AiAgent } from './agents/ai-agent.entity';
 import { AiAgentService } from './agents/ai-agent.service';
 import { AgentsController } from './agents/agents.controller';
 import { CreateModuleTool } from './tools/create-module.tool';
+import { CreateModuleApplyTool } from './tools/create-module-apply.tool';
 import { QueryEventsTool } from './tools/query-events.tool';
 import { CountEventsByStatusTool } from './tools/count-events-by-status.tool';
 import { QueryUserStatsTool } from './tools/query-user-stats.tool';
@@ -339,6 +340,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new AdminNavigatePageTool());
         // System AI L4 Act（dry-run 预览）：管理端 AI 委托 keelbase init 预览创建模块（adminOnly, R1 读）
         toolRegistry.register(new CreateModuleTool());
+        // 写的那一半：真生成（需确认 ⇒ R3）· 仅管理员 · 不可撤销
+        toolRegistry.register(new CreateModuleApplyTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
         // 合同（EASY-2 自动生成 AI 工具：读 + 写需确认）
