@@ -17,7 +17,7 @@ import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interfa
 import type { DeclaredSideEffect } from './effect-composition';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
-import { LessThan, Not } from 'typeorm';
+import { IsNull, LessThan, Not } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 
 export interface WriteToolContext {
@@ -1164,12 +1164,18 @@ export class AiToolEffectsService {
       }
       try {
         const r = await this._doRevoke(effect);
+        // ARC-7：`compensating`（已请求外部补偿、结果未知）既不是 revoked 也不是 failed。
+        // 此前它落进 `revoked++`——同一次业务动作于是在单条说「未完成」、在批量说「已撤销」，
+        // 而管理台 toast 念的正是这三个数（`aiCenterConvRevokeDone`）。
         if (r.revoked) revoked++;
+        else if (r.skipped) skipped++;
         else failed++;
         results.push(
           withDispute(disputed, {
             effectId: effect.id,
             revoked: r.revoked,
+            skipped: r.skipped,
+            reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
             revokeStatus: r.revokeStatus ?? null,
             external: r.external ?? false,
             message: r.message,
@@ -1370,6 +1376,10 @@ export class AiToolEffectsService {
       results.push({
         effectId: m.id,
         revoked: r.revoked,
+        // ARC-7：逐条必须带上「没撤销是因为在等目标系统」这一读数——否则它在汇总里既不是 revoked
+        // 也不是 skipped，会被 `_groupResult` 计成 failed（一次**成功**的派发被报成**失败**）。
+        skipped: r.skipped,
+        reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
         external: r.external,
         revokeStatus: r.revokeStatus ?? null,
         message: r.message,
@@ -1479,6 +1489,35 @@ export class AiToolEffectsService {
     };
   }
 
+  /**
+   * ARC-3：外呼派发的**条件认领**（CAS）——把「读态 → 写意图」合成一条带守卫的 UPDATE。
+   *
+   * 为什么必须有它：`_skipReason` 的预检是 read-then-act，两次并发撤销都能通过预检、都读到「可派发」，
+   * 于是**两次外呼**。本仓在确认域早有正解（`ConfirmationStore.resolve` 用 `status='pending'` 条件更新 +
+   * `affected===0` 即拒），撤销派发此前**没有对应物**。
+   *
+   * 可派发态 = 从未撤销（`null`）或上次失败可重试（`revoke_failed`）——正是 `_skipReason` 放行的两种。
+   * 两条 UPDATE 各自原子：后者只在行**仍处于** `revoke_failed` 时命中，故抢先者一旦把它推进到
+   * `compensating`，落后者两条都不命中。闸门成立，无需事务。
+   *
+   * 返回 true = 本次认领成功、**由本次外呼**；false = 别的请求已抢先，本次不得外呼。
+   */
+  private async _claimExternalDispatch(effect: AiToolSideEffect): Promise<boolean> {
+    const patch = {
+      revokeStatus: 'compensating' as const,
+      revokeRequestedAt: new Date(),
+      // 上一次请求的确认不代表这一次 —— 重试必须把旧确认清掉，否则新意图会被旧确认冒充成「已到达」。
+      revokeAcknowledgedAt: null,
+    };
+    const first = await this.effectsRepo.update({ id: effect.id, revokeStatus: IsNull() }, patch);
+    if (first?.affected) return true;
+    const retry = await this.effectsRepo.update(
+      { id: effect.id, revokeStatus: 'revoke_failed' },
+      patch,
+    );
+    return !!retry?.affected;
+  }
+
   private async _doRevokeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
     // KB-6：撤销能力档位门控——none（不可撤/外部未知）直接拒绝，不再误走 externalRevoker
     // 制造"可撤销"假象。旧行 revokeClass 为 null 时按工具/resultType 兜底解析。
@@ -1501,16 +1540,20 @@ export class AiToolEffectsService {
     }
     // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿
     if (this.externalRevoker) {
-      // REV-2 细化：**外呼之前**先写「意图」。这一刻的诚实读数是「**可能根本没到达**外部系统」；
-      // 此前是「先外呼、返回后才写态」——进程若在调用中途死掉则一个字段都不写，该行读起来像**从未请求过补偿**，
-      // 「当前未了结」的聚合里凭空少一条。「发送前」与「已确认」是两个事件，其间的间隙正是那个真实的不确定。
-      await this._patchRevoke(effect, {
-        revokeStatus: 'compensating',
-        revokeRequestedAt: new Date(),
-        // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
-        // 否则新意图会被旧确认冒充成「已到达」。
-        revokeAcknowledgedAt: null,
-      });
+      // ARC-3：**先条件认领，再外呼**。`_skipReason` 的预检（在两个调用方处）与这里之间是 TOCTOU 窗口——
+      // 并发的两次撤销都能通过预检、都读到「可派发」，于是**派发两次补偿**（退款/取消订单类端点若非幂等即真双发）。
+      // REV-2 的「意图写在外呼之前」不变：认领这一步本身就是那次意图写入，只是现在带了守卫。
+      if (!(await this._claimExternalDispatch(effect))) {
+        return {
+          revoked: false,
+          effectId: effect.id,
+          external: true,
+          skipped: true,
+          reason: 'compensating',
+          revokeStatus: 'compensating',
+          message: '外部补偿已由并发请求派发、结果以目标系统为准——本次不重复触发',
+        };
+      }
       const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
       // 外呼返回 = **确认**（对方应答过，含拒绝）：单独记为一个事件，与意图之间留下可读的间隙。
       // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明「已请求」，Java 端结果未知 → 落 compensating 而非 revoked。
@@ -1518,13 +1561,31 @@ export class AiToolEffectsService {
         revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
         revokeAcknowledgedAt: new Date(),
       });
+      if (!r.ok) {
+        // 对方拒绝 = 补偿**失败**（不是「未完成」）——据实计为失败，**不进 skipped**（两者在汇总里必须分得开）。
+        return {
+          revoked: false,
+          effectId: effect.id,
+          external: true,
+          compensated: false,
+          revokeStatus: 'revoke_failed',
+          message: r.message,
+        };
+      }
+      // ARC-2 / ARC-7：**`compensating` 不得报 `revoked`**。KB-6 与本文件组级路径（`_groupResult`）早已如此，
+      // 唯独单条外部分支此前用 `revoked: r.ok`——于是同一条 `compensating`、同一状态，单条说「已撤销」而组级说「未完成」。
+      // 现在四处同向：不仅 `revoked:false`，还给出与「本就在 compensating 的行」**完全相同**的读数
+      // （`skipped` + `reason:'compensating'`），批量的 `revoked` 计数因此不再把待目标系统的成员算成已撤销——
+      // 那三个数直接进管理台 toast（`aiCenterConvRevokeDone`）。
       return {
-        revoked: r.ok,
+        revoked: false,
         effectId: effect.id,
         external: true,
-        compensated: r.ok,
-        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
-        message: r.ok ? `Java 端已请求补偿（${r.message}）；结果以目标系统为准` : r.message,
+        compensated: true,
+        skipped: true,
+        reason: 'compensating',
+        revokeStatus: 'compensating',
+        message: `Java 端已请求补偿（${r.message}）；结果以目标系统为准`,
       };
     }
     return {

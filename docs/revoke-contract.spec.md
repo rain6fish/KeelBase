@@ -34,7 +34,7 @@
 每个 `revokeClass !== 'none'` 的 AI 写工具必须满足对应验收，缺一视为契约破坏：
 
 1. **本地可撤**：目标实体带 `@DeleteDateColumn`（可软删），撤销行可经管理端回收站恢复；给一条 E2E：`工具 create → revoke → 目标 deletedAt 非空 → 回收站可见`。
-2. **外部可撤**：工具/导入配置提供 `revokePath` 补偿端点；撤销请求发出且 2xx → 状态 `compensating`；**目标系统能回读/确认补偿结果**（不长期悬空）。
+2. **外部可撤**：工具/导入配置提供 `revokePath` 补偿端点；撤销请求发出且 2xx → 状态 `compensating`；**该状态下任何路径都不得报 `revoked`**（单条 / 组级 / 批量三处同向）；**同一行的并发撤销只派发一次**（条件认领，见 §5.6）；**目标系统能回读/确认补偿结果**（不长期悬空）。
 3. **不可撤必须显式**：`none` 工具不出现误导性撤销入口；UI/API 文案明确"不可撤销 / 外部无补偿"。
 
 ## 3. A–F 副作用验收矩阵 / Side-effect acceptance matrix
@@ -153,6 +153,44 @@ annotation, from existing columns. This changes no revoke conclusion.
 五处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）。
+
+### 5.6 派发的并发，以及 `compensating` 被计成什么 / Dispatch concurrency, and what `compensating` counts as
+
+三条同源缺陷（编号见私有 roadmap §2.1.10 的 ARC-2 / ARC-3 / ARC-7），共同点是**账上的读数比事实更确定**：
+
+| 缺陷 | 形状 |
+|---|---|
+| **ARC-3** | `_skipReason` 的预检是 read-then-act：并发的两次撤销**都能通过预检**、都读到「可派发」→ **派发两次补偿**。对退款 / 取消订单这类端点即**真双发**——这是本组唯一「沉默地多执行一次不可逆操作」的一条，其余各条都只是记录不诚实 |
+| **ARC-2** | 单条外部分支用 `revoked: r.ok`，而组级 `_groupResult` 守卫 `!compensating`：**同一条 `compensating`、同一状态，单条说「已撤销」而组级说「未完成」** |
+| **ARC-7** | 批量与级联把 `compensating` 计进 `revoked`（`revoked++` 只看 `it.revoked`），而管理台 toast 念的正是这三个数（`aiCenterConvRevokeDone`）——一次**已请求但未完成**的补偿被显示成「已撤销 N 项」 |
+
+**修法**
+
+1. **条件认领（CAS）**：把「读态 → 写意图」合成一条带守卫的 UPDATE ——
+   可派发态 = 从未撤销（`revoke_status IS NULL`）或上次失败可重试（`revoke_failed`）。
+   两条 UPDATE 各自的 WHERE 都原子，抢先者一旦推进到 `compensating`，落后者两条都不命中。
+   本仓确认域早有正解（`ConfirmationStore.resolve` 的条件更新 + `affected===0` 即拒），此处只是补上对应物。
+   **fail-closed**：底层没给 `affected` 一律当认领失败 —— 拿不到可判定的结果，宁可拒绝，也不多执行一次不可逆操作。
+2. **`compensating` 四处同向**：新派发不再报 `revoked`，且给出与「本就在 `compensating` 的行」**完全相同**的读数
+   （`skipped` + `reason: 'compensating'`）。于是「刚派发」与「已在等目标系统」在单条、组级、批量三处读数一致。
+
+**落点与验收**
+
+| 缺口 | 实现落点 | 证据（**对旧实现为红**） |
+|---|---|---|
+| ARC-3 并发 | `_claimExternalDispatch`（`_doRevokeSingle` 外部分支调用） | `revoke-dispatch-claim.spec.ts`（旧实现：`externalRevoke` 被调 **2** 次） |
+| ARC-3 fail-closed | 同上（`affected` 缺失即失败） | `revoke-dispatch-claim.spec.ts`（旧实现：读数缺失仍外呼） |
+| ARC-2 单条 | `_doRevokeSingle` 外部分支返回值 | `ai-tool-effects.service.spec.ts`（旧实现：`res.revoked === true`）· `revoke-conversation.spec.ts`（旧实现：`r.revoked === 1`） |
+| ARC-7 级联计数 | `_compensateGroup` 外部队列携带 `skipped` / `reason` | `ai-tool-effects.service.spec.ts`（旧实现：`cascade.revoked === 2` 而组级 `revoked === false`） |
+| ARC-7 批量计数 | `_revokeBatch` 非组分支 `else if (r.skipped)` | `revoke-conversation.spec.ts`（旧实现：`r.revoked === 1`、`r.skipped === 0`） |
+
+**不改 wire 契约**：`skipped` / `reason` / `revokeStatus` / `external` 都是 `item` **既有**的字段
+（`compensating` 早经 `_skipReason` 的跳过分支返回这一组读数），本次只是让**新派发**与**跳过**同形；
+`revokeResult` 的结论仍只走 `revoked` + `message`，未新增键。**变的是这三个数的取值口径**，不是形状。
+
+> **边界（刻意不做的）**：`compensating` 在汇总里落 `skipped` 而**不**新增一个 `pending` 桶 ——
+> `RevokeBatchResult` 的顶层键是契约的一部分，加桶要动 wire。**代价**：「跳过」这个词本身不区分
+> 「没动」与「已请求、在等」，要区分只能读 `reason`。这是**已知的不精确**，不是遗漏 —— 真正的出口是 §4 G2 的终态收敛。
 
 ## 6. 相关文档 / Related
 

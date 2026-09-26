@@ -2,6 +2,7 @@
 
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
+import { IsNull } from 'typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
@@ -1051,9 +1052,11 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const res = await svc.revoke(1);
 
       expect(extStub.revoke).toHaveBeenCalledTimes(1);
-      // 逐条 revoked = 「撤销调用成功」（既有口径），只有 revokeStatus 承载诚实状态
-      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 2, skipped: 0, failed: 0 });
-      // 但组级结论不得谎称已撤销：外部结果未知 → revoked:false + compensating（KB-6 口径）
+      // ARC-7：级联计数也必须同向。此前逐条 revoked = 「撤销调用成功」（2xx 即算），
+      // 于是 `cascade.revoked` 报 2 而组级结论报 revoked:false —— 同一次业务动作、同一状态，两个相反结论，
+      // 而管理台渲染徽章读的正是 `cascade`。现在外部队列的成员落进 skipped（与「本就在 compensating 的行」同读数）。
+      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 1, skipped: 1, failed: 0 });
+      // 组级结论不得谎称已撤销：外部结果未知 → revoked:false + compensating（KB-6 口径）
       expect(res.revoked).toBe(false);
       expect(res.revokeStatus).toBe('compensating');
     });
@@ -1283,15 +1286,24 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       });
       repo.update = jest.fn().mockResolvedValue({ affected: 1 });
       const res = await svc.revoke(8);
-      expect(res?.revoked).toBe(true);
+      // ARC-2：**非 revoked**。标题一直这么写，断言此前却是 `revoked:true` —— 缺陷被钉成了期望。
+      expect(res?.revoked).toBe(false);
+      expect(res?.skipped).toBe(true);
+      expect(res?.reason).toBe('compensating');
       expect(res?.revokeStatus).toBe('compensating');
       // REV-2：进入 compensating 时一并记下补偿请求时刻（否则该状态没有年龄，「挂了多久」不可查）
       // REV-2 细化：意图写在外呼**之前**（revokeAcknowledgedAt 一并清空），确认是外呼返回后的**独立**事件。
-      expect(repo.update).toHaveBeenNthCalledWith(1, 8, {
-        revokeStatus: 'compensating',
-        revokeRequestedAt: expect.any(Date),
-        revokeAcknowledgedAt: null,
-      });
+      // ARC-3：第一次写入即**条件认领**（守卫 `revokeStatus IS NULL`）——旧实现是裸 id 的无条件写，
+      // 并发的两次撤销都能通过预检、都读到「可派发」。
+      expect(repo.update).toHaveBeenNthCalledWith(
+        1,
+        { id: 8, revokeStatus: IsNull() },
+        {
+          revokeStatus: 'compensating',
+          revokeRequestedAt: expect.any(Date),
+          revokeAcknowledgedAt: null,
+        },
+      );
       expect(repo.update).toHaveBeenNthCalledWith(2, 8, {
         revokeStatus: 'compensating',
         revokeAcknowledgedAt: expect.any(Date),
