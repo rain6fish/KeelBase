@@ -121,11 +121,11 @@ describe('AdminService · 回收站（RG-3）', () => {
       expect(repos.has('User')).toBe(false);
     });
 
-    it('旧别名保留：PmProject → project、PmTask → task；其余用类名小写', async () => {
+    it('旧别名保留：PmProject → project、PmTask → task；其余取类名的 snake_case', async () => {
       const result = await service.getTrash(1, 20);
 
       expect(result.total).toBe(0);
-      // 派生的 type 集合：别名两个 + 其余小写；Contract 就是 contract
+      // 派生的 type 集合：别名两个 + 其余 snake_case；单词名不受影响（Contract 就是 contract）
       expect([...repos.keys()].sort()).toEqual(['Contract', 'Event', 'PmProject', 'PmTask', 'Todo']);
       expect(result.items).toEqual([]);
     });
@@ -150,9 +150,9 @@ describe('AdminService · 回收站（RG-3）', () => {
 
       const { items } = await service.getTrash(1, 20);
 
-      expect(items[0]).toMatchObject({ type: 'approvalrequest', title: '报销申请', userId: 7, username: 'alice' });
+      expect(items[0]).toMatchObject({ type: 'approval_request', title: '报销申请', userId: 7, username: 'alice' });
       // 无展示列 ⇒ title 为 null（如实，而不是硬塞 title）
-      expect(items[1]).toMatchObject({ type: 'flowinstance', title: null, userId: 8 });
+      expect(items[1]).toMatchObject({ type: 'flow_instance', title: null, userId: 8 });
       // 无归属列 ⇒ userId 为 null
       expect(items[2]).toMatchObject({ type: 'organization', title: '总部', userId: null, username: null });
     });

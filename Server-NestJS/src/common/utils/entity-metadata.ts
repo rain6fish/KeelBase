@@ -77,3 +77,22 @@ export function pickOwnerColumn(md: { columns?: ColumnLike[] }): string | null {
   const names = new Set((md.columns ?? []).map((c) => c.propertyName));
   return OWNER_COLUMN_NAMES.find((n) => names.has(n)) ?? null;
 }
+
+/**
+ * An entity class name as a wire-friendly identifier: `CrmCustomer` → `crm_customer`.
+ *
+ * Snake case rather than a squashed lowercase, because the identifier is *read* by humans — in an
+ * API response and, when nobody has a translation for it yet, in a UI cell. `crmcustomer` loses
+ * where the words were; `crm_customer` keeps them.
+ *
+ * 实体类名转成适合上线的标识：`CrmCustomer` → `crm_customer`。
+ *
+ * 用下划线而不是压平的小写，因为这个标识是**给人读**的 —— 在接口响应里读，也在「还没人给它配译名」
+ * 时的界面单元格里读。`crmcustomer` 丢掉了词边界，`crm_customer` 留着。
+ */
+export function toSnakeCase(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+}

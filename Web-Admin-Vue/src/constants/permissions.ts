@@ -13,7 +13,6 @@
 export const PERMISSIONS = {
   USER_MANAGE: 'user.manage',
   EVENT_MANAGE: 'event.manage',
-  TRASH_RESTORE: 'trash.restore',
   APPROVAL_MANAGE: 'approval.manage',
   CRM_VIEW: 'crm.view',
   PM_VIEW: 'pm.view',
@@ -36,7 +35,6 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
 export const PERMISSION_MAP: Record<string, { subject: string; scope: 'all' | 'own' }> = {
   [PERMISSIONS.USER_MANAGE]: { subject: 'User', scope: 'all' },
   [PERMISSIONS.EVENT_MANAGE]: { subject: 'Event', scope: 'all' },
-  [PERMISSIONS.TRASH_RESTORE]: { subject: 'Event', scope: 'all' },
   [PERMISSIONS.APPROVAL_MANAGE]: { subject: 'ApprovalRequest', scope: 'own' },
   [PERMISSIONS.CRM_VIEW]: { subject: 'CrmCustomer', scope: 'own' },
   [PERMISSIONS.PM_VIEW]: { subject: 'PmProject', scope: 'own' },

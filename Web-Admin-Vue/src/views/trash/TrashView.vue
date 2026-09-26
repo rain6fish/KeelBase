@@ -80,12 +80,12 @@ const typeLabelMap = computed(() => ({
   post: t('trashTypePost'),
   supplier: t('trashTypeSupplier'),
   tag: t('trashTypeTag'),
-  crmcustomer: t('trashTypeCrmCustomer'),
-  crmtask: t('trashTypeCrmTask'),
-  approvalrequest: t('trashTypeApprovalRequest'),
+  crm_customer: t('trashTypeCrmCustomer'),
+  crm_task: t('trashTypeCrmTask'),
+  approval_request: t('trashTypeApprovalRequest'),
   organization: t('trashTypeOrganization'),
   department: t('trashTypeDepartment'),
-  flowinstance: t('trashTypeFlowInstance'),
+  flow_instance: t('trashTypeFlowInstance'),
 }))
 
 async function load(p = 1) {

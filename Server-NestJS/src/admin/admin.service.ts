@@ -8,7 +8,7 @@ import type { EntityTarget } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { maskEmail, maskPhone } from '../common/utils/mask';
-import { pickDisplayColumn, pickOwnerColumn } from '../common/utils/entity-metadata';
+import { pickDisplayColumn, pickOwnerColumn, toSnakeCase } from '../common/utils/entity-metadata';
 import { EncryptionService } from '../common/utils/encryption';
 import { User } from '../common/entities/user.entity';
 import { Event } from '../events/event.entity';
@@ -262,7 +262,7 @@ export class AdminService {
     return this.dataSource.entityMetadatas
       .filter((md) => !!md.deleteDateColumn && !TRASH_EXEMPT_ENTITY_NAMES.includes(md.name))
       .map((md) => ({
-        type: LEGACY_TRASH_TYPES[md.name] ?? md.name.toLowerCase(),
+        type: LEGACY_TRASH_TYPES[md.name] ?? toSnakeCase(md.name),
         entityClass: md.target,
         displayCol: pickDisplayColumn(md),
         ownerCol: pickOwnerColumn(md),

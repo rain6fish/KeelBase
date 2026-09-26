@@ -5,6 +5,7 @@ import {
   OWNER_COLUMN_NAMES,
   pickDisplayColumn,
   pickOwnerColumn,
+  toSnakeCase,
 } from './entity-metadata';
 
 describe('entity-metadata', () => {
@@ -45,6 +46,25 @@ describe('entity-metadata', () => {
 
     it('三个候选名与常量一致', () => {
       expect(OWNER_COLUMN_NAMES).toEqual(['userId', 'requesterId', 'initiatorId']);
+    });
+  });
+
+  describe('toSnakeCase', () => {
+    it('保留词边界 —— 这正是有用例不用压平小写的原因', () => {
+      expect(toSnakeCase('CrmCustomer')).toBe('crm_customer');
+      expect(toSnakeCase('ApprovalRequest')).toBe('approval_request');
+      expect(toSnakeCase('PmTask')).toBe('pm_task');
+    });
+
+    it('单词名原样（既有类型值靠这条保持不动）', () => {
+      expect(toSnakeCase('Event')).toBe('event');
+      expect(toSnakeCase('Todo')).toBe('todo');
+      expect(toSnakeCase('Contract')).toBe('contract');
+    });
+
+    it('连续大写（缩写）不炸成一个个字母', () => {
+      expect(toSnakeCase('HTTPServer')).toBe('http_server');
+      expect(toSnakeCase('AiAuditLog')).toBe('ai_audit_log');
     });
   });
 });
