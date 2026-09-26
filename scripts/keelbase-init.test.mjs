@@ -435,6 +435,22 @@ test('接线：7 处插入 + 幂等重跑零改动', async () => {
   assert.equal(r2.filter((r) => r.changed).length, 0);
 });
 
+test('P0-9a：searchable → 清单写入 search 元数据（实体 + string/text 列）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  await wireBackend(ctx({ searchable: true }), root);
+  const manifest = await readFile(BE(root, 'common/modules/modules-manifest.ts'), 'utf8');
+  assert.match(manifest, /search: \{ entity: 'Post', fields: \['title', 'content'\] \}/);
+});
+
+test('P0-9a：未声明 searchable → 不写 search 元数据（缺省不进索引，绝不放宽）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  await wireBackend(ctx(), root);
+  const manifest = await readFile(BE(root, 'common/modules/modules-manifest.ts'), 'utf8');
+  assert.ok(!manifest.includes('search: {'), '未声明时不得写入 search 元数据');
+});
+
 test('接线：锚点缺失 → 跳过 + 文件未破坏', async () => {
   const root = await tempRoot();
   // 只写 app.module（缺其他 fixture）

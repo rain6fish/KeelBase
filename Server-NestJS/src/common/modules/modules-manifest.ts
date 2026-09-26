@@ -29,6 +29,13 @@ export interface ModuleManifestEntry {
   label: string;
   /** P1-3 AI 可消费元数据：模块能力描述（开发期 AI 读模块地图即知每个模块做什么） */
   description?: string;
+  /**
+   * P0-9a：**进全局搜索索引**的声明（未声明 = 不进索引，与 `SCOPE_COLUMNS` 同款的「绝不静默放宽」缺省）。
+   * - `entity` = 实体类名：搜索按它从 DataSource 取仓，故平台侧**无需 import 生成物**，新增可搜模块只动本表；
+   * - `fields` = 参与匹配的**属性名**（非列名），取 spec 里的 string/text 字段；
+   * - 由生成器按 spec 的 `searchable` 接线写入；`books` 是手写活样例。
+   */
+  search?: { entity: string; fields: string[] };
 }
 
 export const CORE_MODULES = [
@@ -79,7 +86,7 @@ const businessEntries: ModuleManifestEntry[] = [
   { id: 'suppliers', category: 'business', deps: [], label: '供应商', description: '供应商档案与风险分级' },
   { id: 'tags', category: 'business', deps: [], label: '标签', description: '标签（生成模块示例）' },
   { id: 'notes', category: 'business', deps: [], label: '笔记', description: '笔记（生成模块示例）' },
-  { id: 'books', category: 'business', deps: [], label: '图书', description: '图书（生成模块示例）' },
+  { id: 'books', category: 'business', deps: [], label: '图书', description: '图书（生成模块示例）', search: { entity: 'Book', fields: ['title', 'author'] } },
   { id: 'posts', category: 'business', deps: [], label: '帖子', description: '社区动态流（帖子/点赞/评论/关注）' },
   { id: 'org', category: 'business', deps: ['notifications'], label: '组织架构', description: '组织/部门/成员与邀请' },
   { id: 'points', category: 'business', deps: [], label: '积分', description: '签到/积分/成就/排行榜' },

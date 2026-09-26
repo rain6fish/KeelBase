@@ -103,14 +103,22 @@ export async function wireBackend(ctx, root = '') {
     }),
   );
   results.push(
-    await applyFile(`${BE}/common/modules/modules-manifest.ts`, (c) =>
-      insertAfter(
+    await applyFile(`${BE}/common/modules/modules-manifest.ts`, (c) => {
+      // P0-9a：spec 声明 searchable 时，把「实体 + 可搜列」写进清单 —— 搜索侧按清单取仓，无需 import 生成物。
+      // 可搜列 = string/text 字段（属性名即 spec 字段名，见 templates-backend 的 FIELD_COLUMNS）。
+      const searchFields = (ctx.fields ?? [])
+        .filter((f) => f.type === 'string' || f.type === 'text')
+        .map((f) => `'${f.name}'`);
+      const searchMeta = ctx.searchable
+        ? `, search: { entity: '${ctx.singlePascal}', fields: [${searchFields.join(', ')}] }`
+        : '';
+      return insertAfter(
         c,
         `  { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },`,
-        `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}', description: '${ctx.label}（${ctx.plural} 模块，keelbase init 生成）' },`,
+        `\n  { id: '${ctx.plural}', category: 'business', deps: [], label: '${ctx.label}', description: '${ctx.label}（${ctx.plural} 模块，keelbase init 生成）'${searchMeta} },`,
         `id: '${ctx.plural}'`,
-      ),
-    ),
+      );
+    }),
   );
 
   // 3) feature-flags.constants.ts（可选）

@@ -282,6 +282,7 @@ async function main() {
   // --spec 提供的结构化字段（保留 enum 选项）；非空则优先于 parseFields 字符串解析。
   let specFields = null;
   let specAiTools = null;
+  let specSearchable = false;
 
   // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
   if (args.spec) {
@@ -300,6 +301,8 @@ async function main() {
     }
     // Protocol 2.0：AI 工具层声明（enabled / query / create 风险级与确认）
     if (spec.aiTools) specAiTools = spec.aiTools;
+    // P0-9a：`searchable` 决定该模块是否进全局搜索索引（接线写入 MODULES_MANIFEST）
+    if (spec.searchable === true) specSearchable = true;
   }
 
   // P0-12 多输入通道：OpenAPI / SQL DDL → Module Protocol
@@ -431,6 +434,11 @@ async function main() {
   const ctx = buildContext(name, label, fields);
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
+  // P0-9a：spec 的 searchable 交给接线（写进 MODULES_MANIFEST 的 search 元数据）
+  ctx.searchable = specSearchable;
+  if (ctx.searchable && !fields.some((f) => f.type === 'string' || f.type === 'text')) {
+    fail('searchable: true，但 spec 里没有 string/text 字段可作搜索列 —— 补可搜字段，或去掉 searchable');
+  }
   if (specAiTools) ctx.aiTools = specAiTools;
 
   // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）

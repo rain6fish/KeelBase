@@ -1366,6 +1366,7 @@ describe('App (e2e)', () => {
 
   describe('Global Search', () => {
     let token: string;
+    let otherToken: string;
 
     beforeAll(async () => {
       const tokens = await registerUser(app, {
@@ -1386,6 +1387,27 @@ describe('App (e2e)', () => {
           endTime: '2026-11-01T10:00:00Z',
         })
         .expect(201);
+
+      // P0-9a：books 在 MODULES_MANIFEST 里声明了 search —— 生成模块也应进全局搜索
+      await request(app.getHttpServer())
+        .post('/api/v1/books')
+        .set(authHeader(token))
+        .send({ title: 'GlobalSearchBook', author: 'GlobalSearchAuthorA', status: 'unread' })
+        .expect(201);
+
+      // 另一用户的书：用来证明搜索**按 owner 过滤**，不串到别人数据
+      const other = await registerUser(app, {
+        username: 'search_other',
+        email: 'search_other@test.com',
+        password: 'Search123',
+        nickname: 'OtherNick',
+      });
+      otherToken = other.accessToken;
+      await request(app.getHttpServer())
+        .post('/api/v1/books')
+        .set(authHeader(otherToken))
+        .send({ title: 'GlobalSearchOtherBook', author: 'GlobalSearchAuthorB', status: 'unread' })
+        .expect(201);
     });
 
     it('GET /api/v1/search should find own events', async () => {
@@ -1397,6 +1419,36 @@ describe('App (e2e)', () => {
       expect(res.body.data.events.items.length).toBeGreaterThanOrEqual(1);
       expect(res.body.data.events.items[0].title).toBe('GlobalSearchMeeting');
       expect(res.body.data.users).toBeDefined();
+    });
+
+    it('P0-9a：生成模块（books 声明了 search）也能被全局搜索命中', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/search?q=${encodeURIComponent('GlobalSearchBook')}`)
+        .set(authHeader(token))
+        .expect(200);
+
+      const books = res.body.data.modules.books;
+      expect(books.items.length).toBeGreaterThanOrEqual(1);
+      expect(books.items[0].title).toBe('GlobalSearchBook');
+      // 分页形状走单源 paginated()（含 totalPages）
+      expect(books).toMatchObject({ page: 1, limit: 10 });
+      expect(typeof books.totalPages).toBe('number');
+    });
+
+    it('P0-9a：生成模块的搜索按 owner 过滤——别人的记录搜不到', async () => {
+      // 本人搜别人的书名 → 桶在，但计数为 0
+      const mine = await request(app.getHttpServer())
+        .get(`/api/v1/search?q=${encodeURIComponent('GlobalSearchOtherBook')}`)
+        .set(authHeader(token))
+        .expect(200);
+      expect(mine.body.data.modules.books.total).toBe(0);
+
+      // 本人搜自己的书名 → 命中
+      const own = await request(app.getHttpServer())
+        .get(`/api/v1/search?q=${encodeURIComponent('GlobalSearchBook')}`)
+        .set(authHeader(token))
+        .expect(200);
+      expect(own.body.data.modules.books.items[0].title).toBe('GlobalSearchBook');
     });
 
     it('GET /api/v1/search should return only public user fields', async () => {
