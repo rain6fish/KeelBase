@@ -169,7 +169,7 @@ export class AdminController {
 
   @Get('trash')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: '回收站：已软删除的事件/待办（可恢复）' })
+  @ApiOperation({ summary: '回收站：所有可软删实体的已删记录（可恢复）' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   getTrash(
@@ -181,11 +181,12 @@ export class AdminController {
 
   @Post('trash/:type/:id/restore')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: '恢复回收站记录（type: event|todo|project|task）' })
-  restoreTrash(
-    @Param('type') type: 'event' | 'todo' | 'project' | 'task',
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  // The set of valid `type` values is derived from entity metadata, so it cannot be spelled out
+  // here — the service rejects anything it does not recognise.
+  //
+  // 合法 `type` 的集合由实体元数据派生，无法在这里枚举 —— 服务会拒绝它不认识的取值。
+  @ApiOperation({ summary: '恢复回收站记录（type 见 GET /admin/trash 返回的 type）' })
+  restoreTrash(@Param('type') type: string, @Param('id', ParseIntPipe) id: number) {
     return this.adminService.restoreTrashItem(type, id);
   }
 

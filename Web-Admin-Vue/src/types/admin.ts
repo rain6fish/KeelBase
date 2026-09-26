@@ -146,9 +146,14 @@ export interface UserDetail {
 // ---- P3 新增 ----
 
 export interface TrashItem {
-  type: 'event' | 'todo' | 'project' | 'task'
+  // The set of types is derived server-side from entity metadata, so it grows with the schema —
+  // a user-visible union here would be a second, stale authority for it.
+  // 类型集合由服务端从实体元数据派生、随 schema 增长 —— 在这里写死一个联合就是第二个会过期的权威。
+  type: string
   id: number
-  title: string
+  // Entities with no display column (e.g. a flow instance) honestly answer null.
+  // 没有展示列的实体（如流程实例）如实答 null。
+  title: string | null
   userId: number | null
   username: string | null
   deletedAt: string | null
@@ -164,7 +169,7 @@ export interface TrashResponse {
 
 export interface TrashRestoreResult {
   restored: boolean
-  type: 'event' | 'todo'
+  type: string
   id: number
 }
 

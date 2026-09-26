@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { pickDisplayColumn } from '../../common/utils/entity-metadata';
 
 /**
  * D2-1f 副作用撤销执行器（SideEffectRevoker）——解耦准备：
@@ -81,13 +82,11 @@ export interface LocalEntityTarget {
  */
 export function resolveLocalEntity(em: EntityManager, type: string): LocalEntityTarget | null {
   const metas = em.connection.entityMetadatas;
-  /** 展示列推导——**别名分支与元数据分支同源**，避免两处口径漂移 */
-  const toTarget = (md: any): LocalEntityTarget => {
-    const display = md.columns.find((col: { propertyName: string }) =>
-      ['title', 'name', 'subject', 'label'].includes(col.propertyName),
-    );
-    return { name: md.name, displayCol: display ? display.propertyName : null };
-  };
+  /** 展示列推导——**别名分支与元数据分支同源**，且与回收站共用一处实现（`pickDisplayColumn`） */
+  const toTarget = (md: any): LocalEntityTarget => ({
+    name: md.name,
+    displayCol: pickDisplayColumn(md),
+  });
 
   const explicit = entityFor(type);
   if (explicit) {

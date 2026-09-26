@@ -12,6 +12,7 @@
       <template #item.type="{ item }">
         <StatusChip :status="item.type" :label-map="typeLabelMap" />
       </template>
+      <template #item.title="{ item }">{{ item.title ?? `#${item.id}` }}</template>
       <template #item.deletedAt="{ item }">{{ formatTime(item.deletedAt) }}</template>
       <template #item.actions="{ item }">
         <el-button text size="small" type="primary" :title="t('restore')" @click="confirmRestore(item)">
@@ -62,12 +63,29 @@ const headers = computed(() => [
   { key: 'actions', title: t('actionCol') },
 ])
 
-// project/task：复合写载体（级联撤销目标）也在回收站内 —— 否则「本地可撤」的「可恢复」承诺对它们不成立
+// 回收站的类型集合由服务端从实体元数据派生（凡带软删列的实体都在内），所以这张表**必然**落后于
+// 服务端：这里只负责把认得的那几个翻译过来，认不出的由 StatusChip 回落显示原始 type。
+//
+// The server derives the type set from entity metadata (every soft-deletable entity), so this map
+// is necessarily behind it: it translates the ones we have words for, and StatusChip falls back to
+// the raw type for anything else.
 const typeLabelMap = computed(() => ({
   event: t('events'),
   todo: t('todos'),
   project: t('projects'),
   task: t('tasks'),
+  contract: t('trashTypeContract'),
+  note: t('trashTypeNote'),
+  book: t('trashTypeBook'),
+  post: t('trashTypePost'),
+  supplier: t('trashTypeSupplier'),
+  tag: t('trashTypeTag'),
+  crmcustomer: t('trashTypeCrmCustomer'),
+  crmtask: t('trashTypeCrmTask'),
+  approvalrequest: t('trashTypeApprovalRequest'),
+  organization: t('trashTypeOrganization'),
+  department: t('trashTypeDepartment'),
+  flowinstance: t('trashTypeFlowInstance'),
 }))
 
 async function load(p = 1) {
