@@ -140,6 +140,46 @@ side-effect row at all — an effect the revoke can never reach, trading a recov
 unrecoverable one. Backfilling the *change* is not honestly possible; the migration backfills only the
 annotation, from existing columns. This changes no revoke conclusion.
 
+### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
+
+撤销路径原先只读「**是不是软删了**」（`revoke_status` 与目标 `deletedAt`），`after_snapshot` **从不参与判定**
+—— 它只被写入（`record` / `recordGroup`）、被展示（列表 / 追踪）、被拿去做人读摘要。⇒ AI 写入之后、撤销之前
+若**有人或别的系统改过该目标行**，撤销**照样软删并报成功**：那次改动被一并抹掉，且没有任何提示。
+
+现在在本地软删**之前**重读目标，用**同一个捕获器**（与写入时同一套归一化，否则形状不可比）拿当前内容，
+与 `after_snapshot` 比对；不同则**点名变化的字段**，写进那条通路的可见面（单条结果的 `message`；组内成员
+逐条带 `message`，并**并进组级摘要**——否则摘要会把逐成员消息遮住）。**两条路径同一处比对**，免得又落进
+本仓反复修的那类缺陷（同一状态、两条路两个结论）。
+
+**比对只认内容**：剔除 `createdAt` / `updatedAt` 这两个由 ORM 维护的记账列。留着它们，**任何一次触碰**
+都会被读成「目标被改过」，而**用噪音报出来的东西没人会看**——那等于把这次检查关掉。如实写出的边界：某个业务列
+若也会为无关原因自行变动（计数器之类），它仍会被读成漂移，那属于**误报**而非漏报，且会点名是哪个字段。
+
+**边界**：只做「**可检出、不静默**」——**不**拒绝、**不**改判定、**不**写争议列。走既有 `message` 而非新增
+结构化键，理由不是「契约不许加」，而是**两条路的开放度不同**：单条 `revokeResult` 是
+`additionalProperties: true`（加键不破契约），而**批量逐条** `item` 与 `revokeBatch` 是 `false`（加键要升
+版本）。漂移两条路都要答，只在单条加键就成了「同一状态、两条路两个形状」——正是本仓反复修的那类缺陷。
+**判不了就如实不报**（无捕获器 / 该行本就无 `after_snapshot` / 当前行读不到）：不假装未漂移，也不假装漂移。
+**未做**：保留他人改动、只撤 AI 那部分（需字段级回滚，另一个量级）。
+
+The revoke path judged only *whether the target had been soft-deleted*; `after_snapshot` never entered the
+decision, so a change made between the AI's write and the revoke was erased with the delete and reported
+as a clean success. It now re-reads the target **through the same captor** (same normalisation, or the two
+sides are not comparable) before the local soft delete, compares against `after_snapshot`, and names the
+fields that moved on the readable surface of that path — the single result's `message`, and for grouped
+members their per-member `message` **and** the group summary, which would otherwise hide them. Both paths
+share one comparison, so the verdict cannot differ by route.
+
+Only ORM bookkeeping timestamps (`createdAt` / `updatedAt`) are excluded: keeping them would make *any*
+touch read as drift, and a check that shouts on everything is a check nobody reads — which is the same as
+turning it off. Stated limit: a business column that moves for unrelated reasons still reads as drift; that
+is a false positive, not a miss, and it names the column.
+
+Boundary: detectable, not silent — no refusal, no verdict change, no dispute mark, no wire change (the
+existing `message` carries it). **Undeterminable cases report nothing** rather than guessing. Not done:
+preserving the other party's edit and revoking only the AI's part (field-level rollback, a different order
+of work).
+
 ### 5.5 落点与验收 / Landing points
 
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
@@ -149,10 +189,12 @@ annotation, from existing columns. This changes no revoke conclusion.
 | 5.3 检出 | `findSplitGroups()` + `GET /ai/tool-effects/splits` | `revoke-split-detection.spec.ts`（真 sqlite；旧实现无此能力） |
 | 5.3 闸门 | `_crossGroupClaims` + `_concludeSingle` / `_compensateGroup` / `_revokeBatch` / `_disputeNotes` | `revoke-split-gate.spec.ts`（旧实现：汇总恒 `revoked:true`，从不问别的组） |
 | 5.4 身份 | `recordGroup` 标注 + `list()` 读出 + 迁移 `1829000000000` | `revoke-identity.spec.ts`（真 sqlite；旧实现连该列都不存在） |
+| 5.6 中间写 | `_targetDrift` / `_contentOnly` / `_withDriftNote`（`_doRevokeSingle` 与 `_compensateGroup` 共用）+ `_groupResult` 的漂移车道 | `revoke-content-drift.spec.ts`（真 sqlite + 真捕获器；旧实现从不比对 `after_snapshot`） |
 
-五处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+六处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
-`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）。
+`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
+`message`，未新增键。
 
 ## 6. 相关文档 / Related
 

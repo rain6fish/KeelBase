@@ -19,6 +19,7 @@ import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
 import { LessThan, Not } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
+import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 
 export interface WriteToolContext {
   userId: string;
@@ -200,7 +201,89 @@ export class AiToolEffectsService {
     @Optional() private readonly operationAudit?: OperationAuditService,
     /** REV-2：陈旧阈值来源（`REVOKE_STALE_MINUTES`）。@Optional：单测装配可省，省则用默认值。 */
     @Optional() private readonly configService?: ConfigService,
+    /**
+     * REV-9：撤销前重读目标，用作「还是不是我写的那条」的比对源。**必须与写入时同一个捕获器**
+     * ——`after_snapshot` 就是它产的，换一个实现去读会得到不可比的形状（归一化不同即永远「漂移」）。
+     * @Optional：缺失时判不了，如实不报（见 `_targetDrift`）。
+     */
+    @Optional() private readonly snapshotCaptor?: SideEffectSnapshotCaptor,
   ) {}
+
+  /**
+   * REV-9：比对前剔掉「记账用」时间戳。
+   *
+   * 快照是对**整行**的投影（`SideEffectSnapshotCaptor._sanitize` 只剔敏感字段），而 `updatedAt` 每次写都会动
+   * ⇒ 留着它，任何一次触碰都会被读成「目标被改过」，而**用噪音报出来的东西没人会看**——那等于把这次检查关掉。
+   * 故只比**内容**：剔除 `createdAt` / `updatedAt` 这两个由 ORM 维护的记账列，其余一律参与比对。
+   *
+   * **如实写出的边界**：这条规则只认这两列是「非内容」。某个业务列若也会为无关原因自行变动（计数器之类），
+   * 它仍会被读成漂移——那属于**误报**而非漏报，且会点名是哪个字段，可据此再收紧。
+   */
+  private static readonly DRIFT_IGNORED_KEYS = new Set(['createdAt', 'updatedAt']);
+
+  /** 快照 JSON → 可比对的内容视图（键序归一 + 剔记账列）；解析不了返回 null（不猜）。 */
+  private _contentOnly(snapshotJson: string | null | undefined): Record<string, unknown> | null {
+    if (!snapshotJson) return null;
+    try {
+      const parsed = JSON.parse(snapshotJson) as unknown;
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(parsed as Record<string, unknown>).sort()) {
+        if (AiToolEffectsService.DRIFT_IGNORED_KEYS.has(k)) continue;
+        out[k] = (parsed as Record<string, unknown>)[k];
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * REV-9：**撤销前问一句「目标还是不是我写的那条」**。
+   *
+   * 撤销路径原先只读「是不是软删了」（`revokeStatus` / 目标 `deletedAt`），`after_snapshot` 从不参与判定
+   * ⇒ AI 写入之后、撤销之前若有人或别的系统改过该目标，撤销**照样软删并报成功**，把中间那次改动一并抹掉
+   * 且毫无提示。本方法把那件事变成**可检出**。
+   *
+   * 返回 `null` = **判不了，或未漂移**（两种情况在处置上相同：不添任何话）；返回字符串 = 漂移的**字段名清单**。
+   * 判不了的情形都如实不报，不假装未漂移也不假装漂移：无捕获器（没装配）、无 `after_snapshot`（该行身份本就
+   * 缺「变更」那半，REV-6 已单独标注）、当前行读不到（已删 / 已迁走）、快照解析不了。
+   *
+   * **边界**：只做「可检出、不静默」——不拒绝、不改判定、不写争议列、不动 wire 契约。
+   */
+  private async _targetDrift(effect: AiToolSideEffect): Promise<string | null> {
+    if (!this.snapshotCaptor) return null;
+    const before = this._contentOnly(effect.afterSnapshot);
+    if (!before) return null;
+    let currentJson: string | null;
+    try {
+      currentJson = await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId);
+    } catch {
+      return null;
+    }
+    const now = this._contentOnly(currentJson);
+    if (!now) return null;
+    if (JSON.stringify(before) === JSON.stringify(now)) return null;
+    const keys = [...new Set([...Object.keys(before), ...Object.keys(now)])]
+      .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(now[k]))
+      .sort();
+    return keys.join(', ');
+  }
+
+  /**
+   * REV-9：把漂移事实**加到人读消息上**（单条与组内成员共用一处措辞，免得两条路各写一句）。
+   *
+   * 为什么走 `message` 而不是新增结构化键：**两条路的 wire 开放度不同** —— 单条结果 `revokeResult` 是
+   * `additionalProperties: true`（加键不破契约），而**批量逐条** `item` 与 `revokeBatch` 是 `false`
+   * （加键要升版本）。漂移这件事两条路都要答，若只在单条加键，就变成「同一状态、两条路两个形状」
+   * ——正是本仓反复修的那类缺陷。`message` 是两条路**都有且都开放**的那个面，故用它；
+   * 要结构化字段，得先让两条路的形状同向（升版本或统一），那是另一步。
+   */
+  private _withDriftNote(message: string | undefined, drift: string | null): string | undefined {
+    if (!drift) return message;
+    const note = `⚠ 目标在写入后被改过（${drift}），本次补偿把该改动一并抹除`;
+    return message ? `${message}；${note}` : note;
+  }
 
   /** REV-2：陈旧阈值（分钟）——配置缺失时回落到与 Joi 默认一致的常量，避免两处各写一个数。 */
   private _staleThresholdMinutes(): number {
@@ -1318,7 +1401,19 @@ export class AiToolEffectsService {
       }
     }
 
+    // REV-9：组内本地成员与单条走**同一处**比对——否则「同一状态两条路两个结论」正是本仓反复修的那类缺陷。
+    // 在事务**之前**读：软删在事务里发生，读要在那之前。声明在 `if` 之外，因为组级摘要也要用它。
+    const driftByEffect = new Map<number, string>();
     if (locals.length) {
+      for (const m of locals) {
+        const d = await this._targetDrift(m);
+        if (d) {
+          driftByEffect.set(m.id, d);
+          this.logger.warn(
+            `[AiToolEffects] effect ${m.id}: 目标 ${m.resultType} #${m.resultId} 在写入后被改过（${d}）`,
+          );
+        }
+      }
       const run = async (manager?: EntityManager): Promise<void> => {
         for (const m of locals) {
           const r = await this.revoker!.revoke(m.resultType, m.resultId, m.userId, manager);
@@ -1356,11 +1451,14 @@ export class AiToolEffectsService {
       // 提交成功后才回写运维态（在事务内回写会在回滚后留下假的 revoked）
       for (const m of locals) {
         await this._patchRevoke(m, { revokeStatus: 'revoked' });
+        const driftNote = this._withDriftNote(undefined, driftByEffect.get(m.id) ?? null);
         results.push({
           effectId: m.id,
           revoked: true,
           revokeStatus: 'revoked',
           compensationGroup: groupId,
+          // REV-9：漂移事实随该成员逐条可见（组级汇总不吞它）——没有漂移时不加该字段，保持原形状
+          ...(driftNote ? { message: driftNote } : {}),
         });
       }
     }
@@ -1377,7 +1475,16 @@ export class AiToolEffectsService {
       });
     }
 
-    const out = this._groupResult(requested, groupId, members, results, disputeNotes);
+    const out = this._groupResult(
+      requested,
+      groupId,
+      members,
+      results,
+      disputeNotes,
+      [...driftByEffect.entries()].map(
+        ([id, d]) => `effect ${id} 的目标在写入后被改过（${d}），本次补偿把该改动一并抹除`,
+      ),
+    );
     await this._auditCompensation(groupId, members, out.items, requested);
     return out;
   }
@@ -1449,6 +1556,12 @@ export class AiToolEffectsService {
     members: AiToolSideEffect[],
     results: RevokeBatchItem[],
     disputeNotes: string[],
+    /**
+     * REV-9：组内成员的「目标被中间写改过」清单。走**独立车道**——它与 `disputeNotes` 不同：
+     * 争议要**拒绝报完成**（`revoked:false`），而漂移只要求**不静默**，不得据此改判定。
+     * 默认空：回滚分支调用时什么都没补偿，谈不上抹掉谁的改动。
+     */
+    driftNotes: string[] = [],
   ): { result: RevokeResult; items: RevokeBatchItem[] } {
     const disputed = disputeNotes.length > 0;
     const skipped = results.filter((r) => r.skipped).length;
@@ -1459,6 +1572,14 @@ export class AiToolEffectsService {
     );
     const revoked = results.filter((r) => r.revoked).length;
     const allOk = failed === 0 && revoked + alreadyRevoked === results.length;
+    const summary =
+      failed > 0
+        ? `级联补偿失败（${failed}/${members.length} 条未补偿）：本地成员已整体回滚，未产生半补偿状态`
+        : disputed
+          ? `级联补偿 ${members.length} 条：${disputeNotes.join('；')}`
+          : compensating
+            ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
+            : `级联补偿 ${members.length} 条（同一次业务动作）`;
     return {
       result: {
         revoked: allOk && !compensating && !disputed,
@@ -1466,14 +1587,8 @@ export class AiToolEffectsService {
         compensationGroup: groupId,
         cascade: { groupId, total: members.length, revoked, skipped, failed },
         revokeStatus: failed > 0 ? 'revoke_failed' : compensating ? 'compensating' : 'revoked',
-        message:
-          failed > 0
-            ? `级联补偿失败（${failed}/${members.length} 条未补偿）：本地成员已整体回滚，未产生半补偿状态`
-            : disputed
-              ? `级联补偿 ${members.length} 条：${disputeNotes.join('；')}`
-              : compensating
-                ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
-                : `级联补偿 ${members.length} 条（同一次业务动作）`,
+        // 逐成员 message 会被这条摘要遮住，故漂移清单在此**并进摘要**（组级读数的可见面就是它）
+        message: driftNotes.length > 0 ? `${summary}；${driftNotes.join('；')}` : summary,
       },
       items: results,
     };
@@ -1494,10 +1609,22 @@ export class AiToolEffectsService {
 
     // D2-1f：本地实体撤销走 SideEffectRevoker（可替换为远程补偿 revoker）
     if (revokeClass === 'local_compensate' && this.revoker?.canHandle(effect.resultType)) {
+      // REV-9：**先**问一句「目标还是不是我写的那条」，再软删——软删之后那行就没了，问也白问。
+      const drift = await this._targetDrift(effect);
       const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
       this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
       if (r.revoked) await this._patchRevoke(effect, { revokeStatus: 'revoked' });
-      return { revoked: r.revoked, effectId: effect.id, message: r.message, revokeStatus: r.revoked ? 'revoked' : 'revoke_failed' };
+      if (drift) {
+        this.logger.warn(
+          `[AiToolEffects] effect ${effect.id}: 目标 ${effect.resultType} #${effect.resultId} 在写入后被改过（${drift}）`,
+        );
+      }
+      return {
+        revoked: r.revoked,
+        effectId: effect.id,
+        message: this._withDriftNote(r.message, drift),
+        revokeStatus: r.revoked ? 'revoked' : 'revoke_failed',
+      };
     }
     // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿
     if (this.externalRevoker) {
