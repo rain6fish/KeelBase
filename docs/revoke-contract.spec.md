@@ -205,6 +205,31 @@ conservative direction is not to compensate again merely because the state could
 gated on local soft-delete semantics: `describeTarget` returns a *placeholder* `{deletedAt: null}` for external
 effects, and reading that as "alive" would re-dispatch a real external compensation.
 
+### 5.8 外部补偿派发：先认领再外呼 / Dispatch a compensation only after claiming it
+
+派发此前是**裸 read-modify-write**：无条件写「意图」（`compensating`），再外呼。两次并发撤销会**各自读到
+`revoke_status = null`**、各自写意图、**各派发一次**。退款 / 取消订单这类端点若非幂等，那是**真双发**；而且
+先成功后失败的那一次会把 `revoke_failed` **覆盖**掉先前的成功读数。
+
+现把「写意图」这一步变成**条件更新（认领）**：只有仍处「未派发」（NULL）或「上次失败、可重试」
+（`revoke_failed`）的行才放行派发，命中 0 行 ⇒ **不派发**，如实回报（`skipped` + `reason: 'compensating'`）。
+认领落地后，这一轮派发里本行**只有一个写者**，故上面那条覆盖风险随之一并消失——**不需要**再给回写加条件。
+
+条件更新是唯一仲裁点，与 `ConfirmationStore.resolve` / `R4ApprovalService._claimExecution` 同先例。
+**谓词必须写成 `revoke_status IS NULL OR revoke_status = 'revoke_failed'`**：SQL 里 `x IN (NULL, …)` 对 NULL
+恒不成立，写成 `In([null, 'revoke_failed'])` 会让**首次派发**永远认领不到（本仓用 `Raw` 显式写这条谓词）。
+
+**边界**：只做「不重复派发」。**不**做自动重试（`revoke_failed` 可重试仍走同一入口；`compensating` 的死活
+由 REV-2 的年龄/窗口读数交给人判），也**不**因此把任何状态改写成成功或失败。
+
+Dispatch used to be a bare read-modify-write: write the intent unconditionally, then call out. Two concurrent
+revokes each read `revoke_status = null`, each wrote the intent, and each dispatched — a real double refund
+where the endpoint is not idempotent, with a later `revoke_failed` overwriting an earlier success. The intent
+write is now a conditional claim: only a row that is still undispatched (`NULL`) or retryable (`revoke_failed`)
+may dispatch; zero rows hit means no dispatch and an honest report. The claim leaves one writer for the row in
+that round, which is why the overwrite risk disappears without adding a condition to the outcome write. The
+predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in SQL.
+
 ### 5.5 落点与验收 / Landing points
 
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
@@ -216,8 +241,9 @@ effects, and reading that as "alive" would re-dispatch a real external compensat
 | 5.4 身份 | `recordGroup` 标注 + `list()` 读出 + 迁移 `1829000000000` | `revoke-identity.spec.ts`（真 sqlite；旧实现连该列都不存在） |
 | 5.6 中间写 | `_targetDrift` / `_contentOnly` / `_withDriftNote`（`_doRevokeSingle` 与 `_compensateGroup` 共用）+ `_groupResult` 的漂移车道 | `revoke-content-drift.spec.ts`（真 sqlite + 真捕获器；旧实现从不比对 `after_snapshot`） |
 | 5.7 已恢复行 | `_skipReason`（改读目标；三处调用点随之 `await`） | `revoke-restored-row.spec.ts`（真 sqlite；旧实现走跳过 → 报完成而目标仍活） |
+| 5.8 派发认领 | `_doRevokeSingle` 外部分支的**条件更新**（`Raw` 写 `IS NULL OR revoke_failed`） | `revoke-dispatch-claim.spec.ts`（真 sqlite；旧实现并发两次会派发两次） |
 
-七处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+八处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
 `message`，未新增键。

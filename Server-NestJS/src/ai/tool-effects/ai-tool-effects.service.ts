@@ -17,7 +17,7 @@ import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interfa
 import type { DeclaredSideEffect } from './effect-composition';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
-import { LessThan, Not } from 'typeorm';
+import { LessThan, Not, Raw } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 
@@ -1672,13 +1672,42 @@ export class AiToolEffectsService {
       // REV-2 细化：**外呼之前**先写「意图」。这一刻的诚实读数是「**可能根本没到达**外部系统」；
       // 此前是「先外呼、返回后才写态」——进程若在调用中途死掉则一个字段都不写，该行读起来像**从未请求过补偿**，
       // 「当前未了结」的聚合里凭空少一条。「发送前」与「已确认」是两个事件，其间的间隙正是那个真实的不确定。
-      await this._patchRevoke(effect, {
-        revokeStatus: 'compensating',
-        revokeRequestedAt: new Date(),
-        // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
-        // 否则新意图会被旧确认冒充成「已到达」。
-        revokeAcknowledgedAt: null,
-      });
+      //
+      // ARC-3：这一次写入同时是**派发认领（CAS）** —— 此前是无条件 `update`（裸 read-modify-write），
+      // 两次并发撤销会**各自读到 `revoke_status = null` 然后各派发一次**：退款/取消订单这类端点若非幂等，
+      // 那是**真双发**；而且后一次写回的 `revoke_failed` 还会**覆盖**前一次的成功读数。
+      // 条件更新是唯一仲裁点（同 `ConfirmationStore.resolve` / `R4ApprovalService._claimExecution` 先例）：
+      // 只有仍处「未派发」（NULL）或「上次失败、可重试」（revoke_failed）的行才放行派发；
+      // 已被派发（compensating）或已完成（revoked）⇒ 命中 0 行 ⇒ **不派发**，如实回报。
+      // 认领落地后，本行在这轮派发里**只有这一个写者**，故上面那条覆盖风险随之一并消失——不需要再给回写加条件。
+      //
+      // ⚠ 用 `Raw` 写这条谓词，**不要** `In([null, 'revoke_failed'])`：SQL 里 `x IN (NULL, ...)` 对 NULL 恒不成立
+      //（要 `IS NULL`），照 `In` 写会让**首次派发**永远认领不到。
+      const claim = await this.effectsRepo.update(
+        {
+          id: effect.id,
+          revokeStatus: Raw((alias) => `(${alias} IS NULL OR ${alias} = 'revoke_failed')`),
+        },
+        {
+          revokeStatus: 'compensating',
+          revokeRequestedAt: new Date(),
+          // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
+          // 否则新意图会被旧确认冒充成「已到达」。
+          revokeAcknowledgedAt: null,
+        },
+      );
+      if (claim?.affected === 0) {
+        const now = await this.effectsRepo.findOne({ where: { id: effect.id } });
+        return {
+          revoked: false,
+          effectId: effect.id,
+          external: true,
+          skipped: true,
+          reason: 'compensating',
+          revokeStatus: (now?.revokeStatus as RevokeResult['revokeStatus']) ?? undefined,
+          message: '该副作用的外部补偿已在派发中（或已完成）——本次未重复派发',
+        };
+      }
       const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
       // 外呼返回 = **确认**（对方应答过，含拒绝）：单独记为一个事件，与意图之间留下可读的间隙。
       // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明「已请求」，Java 端结果未知 → 落 compensating 而非 revoked。
