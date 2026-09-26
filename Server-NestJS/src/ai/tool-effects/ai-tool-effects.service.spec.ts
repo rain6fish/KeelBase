@@ -962,7 +962,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       revokerStub = {
         canHandle: jest.fn().mockReturnValue(true),
         revoke: jest.fn().mockResolvedValue({ revoked: true }),
-        describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+        // ARC-1：本地软删语义下，`revoked` 的行**目标是软的**——夹具此前一律给 `deletedAt: null`
+        // （永远「活着」），那是把「已撤销」当跳过态用的**代称**，没有建模这对真实配对。
+        describeTarget: jest.fn().mockResolvedValue({ deletedAt: new Date('2026-01-01T00:00:00Z') }),
       };
       extStub = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }) };
       auditStub = { log: jest.fn().mockResolvedValue(undefined) };
@@ -1287,7 +1289,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res?.revokeStatus).toBe('compensating');
       // REV-2：进入 compensating 时一并记下补偿请求时刻（否则该状态没有年龄，「挂了多久」不可查）
       // REV-2 细化：意图写在外呼**之前**（revokeAcknowledgedAt 一并清空），确认是外呼返回后的**独立**事件。
-      expect(repo.update).toHaveBeenNthCalledWith(1, 8, {
+      // ARC-3：判据由裸 id 变成**条件谓词**（派发前先认领）——故第一条 update 的条件是一个对象、
+      // 不再是数字 8。补丁本身不变。
+      expect(repo.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 8 }), {
         revokeStatus: 'compensating',
         revokeRequestedAt: expect.any(Date),
         revokeAcknowledgedAt: null,

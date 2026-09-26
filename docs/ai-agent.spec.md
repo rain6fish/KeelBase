@@ -254,6 +254,11 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 > （AUTHZ-1；不变量见 failure-semantics 向量 `confirmation_audience_mismatch_rejected` / 语料 FP-11）。
 > 另：治理策略可按工具声明**可写字段域**与 **destination 白名单**，执行点按实际请求校验，越域即拒
 > （`field_domain` / `destination_allowed`），与精确绑定**并存**——见 [权限架构 §7.2](authorization-architecture.md)。
+> **run 行的边界（如实写明）**：run 确认行**不存** `audience` —— 它没有跨请求执行路径。两个跨请求裁决入口
+> 都**明确拒绝** run 行（`decideApproval` / `decideOutOfBand`；治理台回调走的也是前者），故 run 成员**只在
+> 签发它的那次请求内执行**；那次请求里每个成员各自带着**自己的**目的地（签发时取、执行点比），
+> `destination_binding` 在该路径上可达（`ai.service.spec.ts` 的 ARC-5 用例：签发后改指 → 执行被拒）。给 run 行
+> 存一个 audience 不会有读者，反而会把「一组工具一个目的地」这个不成立的假设写进数据。
 > **A confirmation artifact binds a destination, not only the tool and its exact arguments**: the destination
 > (`audience` — the server name for an external MCP tool, the declared audience for a B-path proxy tool, otherwise
 > local) is recorded at issue time and re-resolved and compared at the **execution point**; a mismatch is refused
@@ -261,6 +266,14 @@ All endpoints are prefixed with `/api/v1` and inherit the global JwtAuthGuard.
 > and a **destination allowlist** per tool, checked against the actual request at the execution point
 > (`field_domain` / `destination_allowed`), **coexisting** with exact binding — see
 > [Authorization Architecture §7.2](authorization-architecture.md).
+> **The run-level boundary, stated rather than implied**: a run confirmation row stores **no** `audience`,
+> because it has no cross-request execution path — both cross-request decision entry points **refuse** run rows
+> (`decideApproval` / `decideOutOfBand`, and the governance callback goes through the former), so a run's members
+> execute **only inside the request that issued them**, each carrying **its own** destination (taken at issue
+> time, compared at the execution point). `destination_binding` is reachable on that path (`ai.service.spec.ts`,
+> the ARC-5 case: re-point the tool after issuance → the execution is refused). Storing an audience on the run row
+> would give it no reader and would write an assumption into the data that does not hold — that one group has one
+> destination.
 
 ### 5.2 请求/响应示例 / 5.2 Request/Response Examples
 

@@ -1292,6 +1292,74 @@ describe('AiService', () => {
       (toolExecution as any).toolEffectsService = undefined;
     });
 
+    /**
+     * ARC-5：run 行的目的地绑定。
+     *
+     * 登记现状说 run 行**不存 audience**，故跨请求路径上该检查「不成文地失效」。核过 HEAD：**run 行没有跨请求
+     * 执行路径** —— 两个跨请求裁决入口都明确拒绝 run（`decideApproval`「run confirmation cannot be decided via
+     * approval endpoint」／`decideOutOfBand`「…out of band」），治理台回调走的也是前者。⇒ run 成员**只在签发它的
+     * 那次请求内执行**，而那次请求里每个成员各自带着自己的目的地（见 `_collectRunCandidates` → `runState.audiences`）。
+     *
+     * 本用例钉的就是这条边界**确实成立且是真的在检查**：让工具在**签发之后、执行之前**被改指，
+     * 本次执行必须被拒。旧实现里 run 成员根本不带目的地 ⇒ 会照常执行（对旧实现为红）。
+     */
+    it('ARC-5: run 成员在签发请求内执行，且**目的地绑定可达**——签发后工具被改指 → 执行被拒', async () => {
+      async function* mockStreamWithTwoWrites() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'c1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"2026-08-10T09:00:00Z","endTime":"2026-08-10T10:00:00Z"}',
+          },
+        };
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 1, id: 'c2', name: 'create_todo', arguments: '{"title":"待办A","dueDate":"2026-08-11"}' },
+        };
+      }
+      async function* mockStreamAfterTool() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockStreamWithTwoWrites())
+        .mockReturnValueOnce(mockStreamAfterTool());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      // 签发时：该工具的目标是 legacy-erp
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-erp' });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const originalCreateRun = confirmationStore.createRun.bind(confirmationStore);
+      let runToken: string | undefined;
+      jest.spyOn(confirmationStore, 'createRun').mockImplementation(async (userId, items, risk) => {
+        const r = await originalCreateRun(userId, items, risk);
+        runToken = r.token;
+        return r;
+      });
+
+      const it = aiService.chatStream('1', { message: 'create an event and a todo' });
+      const first = await it.next();
+      expect(first.value.type).toBe('confirmation_request');
+      expect((first.value as { confirmation?: { mode?: string } }).confirmation?.mode).toBe('run');
+
+      // 签发之后、执行之前：该工具被改指到另一个目标系统
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-crm' });
+      confirmationStore.resolve(runToken!, '1', 'approve');
+      const chunks: any[] = [];
+      for await (const c of it) chunks.push(c);
+
+      // 两个成员的目标都变了 ⇒ 都不执行
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+      // 拒绝理由在流里可见（Explainable Authz），且指的就是这条检查
+      const denied = chunks.find((c: any) => c.toolEnd?.authorizationDenied);
+      expect(denied?.toolEnd.authorizationDenied.checks).toEqual([
+        expect.objectContaining({ name: 'destination_binding', ok: false }),
+      ]);
+    });
+
     it('KB-5 修复：预扫描遇未注册工具名（LLM 幻觉 / 外部 mcp_*）不中断整条 SSE 流，降级继续', async () => {
       async function* mockStreamWithPhantom() {
         yield {

@@ -159,11 +159,28 @@ whether this revoke may report complete (§4.2 gate). Neither rewrites the other
 | `featureKey` / `featureFallback` | `ai.compensate` / `ai · compensate` |
 | `businessEvent` | `AiSideEffectCompensated` |
 | `changes` | 逐成员 JSON `[{resultType,resultId,role,revoked,revokeStatus}]`（**链外列**，≤4000，超长截断） |
+| `requestBody` | `{groupId, requestedEffectId, total, authorization:{conversationId, runId, toolName}}` |
 
 `action` 无枚举约束、`changes` 是链外列 → **不改 operation-audit payload 契约**。
 
 **只对组级补偿写显式行**：单目标撤销已有全局拦截器行（HTTP 级，`action=DELETE`），再写一行只是噪音；
 而组级补偿的逐成员结果只有服务层知道，拦截器看不见 —— 故本行精确填的是那个缺口。
+
+### 6.0 `requestBody.authorization`：这一行**指回**它依据的那次授权 / the row points back at its authorization
+
+REV-12：这行此前有组、有成员明细、有 target，**没有「这次撤销依据的是哪次授权」** ⇒「谁许可 / 执行 / 收回」
+要靠证据包另行拼装，**行本身**答不出。现带上授权那条链的连接键。**只指回，不新建第二套授权存储**。
+
+| 键 | 指到哪 | 如实边界 |
+|---|---|---|
+| `runId` | **run 级确认时它就是那次决定本身的标识**（token = runId，见 run-level-approval.spec.md §2.3）—— 直接引用 | 单条确认 / 免确认写为 `null`；**不编**一个决定标识 |
+| `conversationId` + `toolName` | 单条确认唯一可靠的**定位键**：授权依据（含策略版本）在会话的 `tool_call` 审计行上，按这两键可定位到它 | **不把策略版本复制进来**：撤销时读到的策略版本是**此刻**的，抄进来只会把后来的策略写成当时的依据 |
+
+REV-12: the row now carries the linkage back to the authorization it rests on — `runId` is the run-level
+decision's own identifier (the run confirmation token, a direct reference), and `conversationId` +
+`toolName` locate the conversation's `tool_call` audit row, which holds the authorization evidence. It
+**points back; it does not store a second copy** — in particular the policy revision is not copied, because
+the revision readable at revoke time is the one in force *then*, not the one that authorized the write.
 
 ### 6.1 两个必须诚实记录的取舍
 

@@ -121,7 +121,8 @@ describe('AiToolEffectsService.revokeConversation（G1 会话级批量撤销）'
     // 此前是一次写入（且写在外呼之后）：进程死在调用中途就一个字段都不剩。
     expect(repo.update.mock.calls).toEqual([
       [
-        11,
+        // ARC-3：派发前的认领是**条件更新**（判据不再只是 id），补丁不变
+        expect.objectContaining({ id: 11 }),
         {
           revokeStatus: 'compensating',
           revokeRequestedAt: expect.any(Date),
