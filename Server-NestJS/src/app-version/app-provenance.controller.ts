@@ -7,8 +7,7 @@ import { Public } from '../auth/guards/public.decorator';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { MODULES_MANIFEST } from '../common/modules/modules-manifest';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readApplicationManifest } from '../common/provenance/application-manifest';
 
 /**
  * Runtime provenance（来源指纹，§13.1 后置项① / 公开命名非 DNA）：
@@ -46,22 +45,9 @@ export class AppProvenanceController {
     };
   }
 
-  /** 读仓库 .keelbase/manifest.json（Build 侧来源身份）；缺失/不可读 → manifestPresent:false */
+  /** 读仓库 .keelbase/manifest.json（Build 侧来源身份）；缺失 → manifestPresent:false，存在但不可解析 → manifestPresent:true 且不含内容 */
   private _readManifest(): Record<string, unknown> {
-    const candidates = [
-      resolve(process.cwd(), '../.keelbase/manifest.json'),
-      resolve(process.cwd(), '.keelbase/manifest.json'),
-    ];
-    for (const p of candidates) {
-      if (existsSync(p)) {
-        try {
-          const manifest = JSON.parse(readFileSync(p, 'utf8'));
-          return { manifestPresent: true, ...manifest };
-        } catch {
-          return { manifestPresent: true };
-        }
-      }
-    }
-    return { manifestPresent: false };
+    const { present, manifest } = readApplicationManifest();
+    return present ? { manifestPresent: true, ...(manifest ?? {}) } : { manifestPresent: false };
   }
 }

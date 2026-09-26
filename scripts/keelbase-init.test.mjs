@@ -475,6 +475,31 @@ test('manifest：首次创建 + 幂等合并（多模块去重、schema/identity
   assert.deepEqual((await readManifest(root)).modules, ['notes', 'posts']);
 });
 
+test('manifest：searchableModules 只记声明过的模块，且与 modules 一样只增不减', async () => {
+  const root = await tempRoot();
+
+  // A module that did not declare it stays out — and an older manifest without the key at all is
+  // still valid input.
+  // 未声明 searchable 的模块不进可搜清单；旧清单没有该键时也是合法输入。
+  await writeManifest('notes', root);
+  let man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.modules, ['notes']);
+  assert.deepEqual(man.searchableModules, []);
+
+  // 声明过的进清单
+  await writeManifest('books', root, { searchable: true });
+  man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.modules, ['books', 'notes']);
+  assert.deepEqual(man.searchableModules, ['books']);
+
+  // Not declaring it on a later run is not a retraction: the manifest records what was declared,
+  // not what the last call happened to pass.
+  // 后一次不声明 searchable ≠ 撤销声明：清单记的是「声明过什么」，不是「上次调用传了什么」。
+  await writeManifest('books', root);
+  man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.searchableModules, ['books']);
+});
+
 test('manifest：mergeManifest 缺省 root 指向 cwd（.keelbase/manifest.json）', async () => {
   const root = await tempRoot();
   const merged = await mergeManifest('books', root);
@@ -909,6 +934,96 @@ test('端到端：--spec 读协议 JSON（含 enum 选项）生成', async () =>
   assert.match(createTool, /requiresConfirmation = true/);
   const aiModule = await readFile(BE(root, 'ai/ai.module.ts'), 'utf8');
   assert.match(aiModule, /new CreateSupplierTool\(suppliersService\)/);
+});
+
+// ── P0-9a：searchable 声明 → manifest 的可搜索清单 ──────────────────────────────
+/** Run the CLI once and hand back its exit code with stdout+stderr merged. */
+/* 跑一次 CLI，回传退出码与合并后的输出。 */
+async function runInit(root, args) {
+  const cli = fileURLToPath(new URL('./keelbase-init.mjs', import.meta.url));
+  return new Promise((resolve) => {
+    const p = spawn(process.execPath, [cli, ...args], { cwd: root });
+    let o = '';
+    let e = '';
+    p.stdout.on('data', (d) => (o += d));
+    p.stderr.on('data', (d) => (e += d));
+    p.on('close', (code) => resolve({ code, out: o + e }));
+  });
+}
+
+test('端到端：spec 声明 searchable: true → manifest 记进 searchableModules（运行时据此索引）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/books.json`;
+  await write(specPath, JSON.stringify({
+    module: 'books',
+    label: '图书',
+    searchable: true,
+    fields: [{ name: 'title', type: 'string', label: '书名' }],
+  }));
+
+  const { code, out } = await runInit(root, ['--spec', specPath]);
+  assert.equal(code, 0, out);
+
+  // Both keys are written: `modules` says what was generated, `searchableModules` says what the
+  // runtime may index. Only the latter is read at runtime.
+  // 两个键都写：modules 是「生成了什么」，searchableModules 是「哪些可搜」——运行时只读后者。
+  const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.modules, ['books']);
+  assert.deepEqual(man.searchableModules, ['books']);
+
+  // A module that did not declare it stays out, while both kinds coexist in one manifest.
+  // 未声明 searchable 的模块不进清单（同一份 manifest 里两类模块并存）。
+  const plainSpec = `${root}/notes.json`;
+  await write(plainSpec, JSON.stringify({
+    module: 'notes',
+    label: '笔记',
+    fields: [{ name: 'title', type: 'string', label: '标题' }],
+  }));
+  assert.equal((await runInit(root, ['--spec', plainSpec])).code, 0);
+  const man2 = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man2.modules, ['books', 'notes']);
+  assert.deepEqual(man2.searchableModules, ['books']);
+});
+
+test('端到端：searchable 但无 string/text/enum 字段 → 生成前拒绝（不做兑现不了的承诺）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/readings.json`;
+  await write(specPath, JSON.stringify({
+    module: 'readings',
+    label: '读数',
+    searchable: true,
+    // All non-text columns: the global search matches text columns with LIKE, so none of these can.
+    // 全部非文本列 —— 全局搜索按 LIKE 匹配文本列，这组字段一个都匹配不了。
+    fields: [
+      { name: 'value', type: 'int', label: '数值' },
+      { name: 'recordedAt', type: 'date', label: '记录时间' },
+    ],
+  }));
+
+  const { code, out } = await runInit(root, ['--spec', specPath]);
+  assert.notEqual(code, 0, `应拒绝，实际 exit=${code}`);
+  assert.match(out, /string \/ text \/ enum/);
+  // The refusal lands before anything is written: no module directory, no manifest.
+  // 拒绝发生在写文件之前：模块目录与 manifest 都不该出现。
+  await assert.rejects(access(BE(root, 'readings')));
+  await assert.rejects(access(`${root}/.keelbase/manifest.json`));
+
+  // Control: the same fields generate fine without `searchable` — what is refused is the claim,
+  // not the fields.
+  // 对照组：同样的字段去掉 searchable 就能生成 —— 被拒的是那条声明，不是这些字段。
+  await write(specPath, JSON.stringify({
+    module: 'readings',
+    label: '读数',
+    fields: [
+      { name: 'value', type: 'int', label: '数值' },
+      { name: 'recordedAt', type: 'date', label: '记录时间' },
+    ],
+  }));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+  const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.searchableModules, []);
 });
 
 // ── P0-12 输入通道：OpenAPI → Protocol ─────────────────────────────────────────

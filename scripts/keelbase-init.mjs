@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import {
   FIELD_TYPES,
+  SEARCHABLE_FIELD_TYPES,
   buildContext,
   validateModuleName,
   validateLabel,
@@ -282,6 +283,10 @@ async function main() {
   // --spec 提供的结构化字段（保留 enum 选项）；非空则优先于 parseFields 字符串解析。
   let specFields = null;
   let specAiTools = null;
+  // Whether the spec declared the module searchable. Held in a file-scoped flag because the spec
+  // itself is bound inside the branch below.
+  // 协议里声明的「可搜索」；spec 本身是块内绑定，故在此留一个文件作用域的取值。
+  let specSearchable = false;
 
   // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
   if (args.spec) {
@@ -294,6 +299,7 @@ async function main() {
     if (spec.module) name = spec.module;
     if (spec.plural && !name) name = spec.plural;
     if (spec.label) label = spec.label;
+    specSearchable = spec.searchable === true;
     if (Array.isArray(spec.fields)) {
       // 协议反推：直接保留结构化字段（name/type/enum/required），避免字符串转换丢失 enum/required
       specFields = normalizeSpecFields(spec.fields);
@@ -413,6 +419,21 @@ async function main() {
   const aiToolsErr = validateAiTools(specAiTools);
   if (aiToolsErr) fail(aiToolsErr);
 
+  // A `searchable` flag is a promise, not a decoration: the runtime indexes this module's rows into
+  // the global search by it, and that index can only match text columns — a spec with no
+  // string / text / enum field has nothing to deliver on the promise. Refusing here beats emitting
+  // a module that claims to be searchable and matches nothing (same treatment as a ref target that
+  // does not exist yet).
+  // searchable 是一条**声明**，不是装饰：运行时据此把模块的记录并进全局 /search 索引，而索引只能匹配
+  // 文本列 —— spec 里一个 string / text / enum 字段都没有时，这条声明兑现不了任何东西。与其产出一份
+  // 声称可搜、实际什么都搜不到的模块，不如在这里明确报错（与「关联目标必须已生成」同一种处理）。
+  if (specSearchable && !fields.some((f) => SEARCHABLE_FIELD_TYPES.has(f.type))) {
+    fail(
+      `spec 声明了 searchable: true，但字段里没有任何 string / text / enum 字段 —— ` +
+        `可搜的前提是有文本列；请加一个这样的字段，或去掉 searchable。`,
+    );
+  }
+
   // 关联目标必须是**已生成的模块**：生成物会 import 目标的实体文件，目标不存在就是编译错误。
   // 与其产出一份编译不过的代码，不如在这里明确报错（与自引用同一种处理）。
   // A ref target must already exist as generated code — the module imports its entity file.
@@ -431,6 +452,9 @@ async function main() {
   const ctx = buildContext(name, label, fields);
   ctx.featureFlag = args.featureFlag !== false;
   ctx.isTab = args.tab === true;
+  // Declared, never inferred: a module is searchable only if its spec says so.
+  // 由声明决定、不做推断：只有 spec 说了可搜，模块才可搜。
+  ctx.searchable = specSearchable;
   if (specAiTools) ctx.aiTools = specAiTools;
 
   // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）
@@ -526,7 +550,7 @@ async function main() {
 
   // ── Provenance：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
   try {
-    const man = await writeManifest(ctx.plural);
+    const man = await writeManifest(ctx.plural, '', { searchable: ctx.searchable === true });
     if (man.changed) {
       console.log(
         `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,

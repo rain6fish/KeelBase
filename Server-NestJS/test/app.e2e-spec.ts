@@ -9,6 +9,7 @@ import { UserRole } from '../src/common/entities/user.entity';
 import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
 import { AiToolEffectsService } from '../src/ai/tool-effects/ai-tool-effects.service';
 import { CacheService } from '../src/common/cache/cache.service';
+import * as applicationManifest from '../src/common/provenance/application-manifest';
 
 describe('App (e2e)', () => {
   let app: INestApplication;
@@ -1418,6 +1419,68 @@ describe('App (e2e)', () => {
       await request(app.getHttpServer())
         .get('/api/v1/search?q=GlobalSearch')
         .expect(401);
+    });
+
+    // ── P0-9a：声明可搜的生成模块并入 modules 桶 ──
+    it('GET /api/v1/search 的 modules 桶：没声明可搜模块时为空数组', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/search?q=${encodeURIComponent('GlobalSearch')}`)
+        .set(authHeader(token))
+        .expect(200);
+
+      // The bucket is present whether or not anything is in it — an older response had no such key,
+      // so its presence is itself the observable difference.
+      // 桶在有没有内容时都存在 —— 早先的响应没有这个键，故「它在」本身就是可观测的差异。
+      expect(Array.isArray(res.body.data.modules)).toBe(true);
+    });
+
+    it('GET /api/v1/search 命中可搜模块的本人记录，且不含他人的同名记录', async () => {
+      // The manifest is a file on disk; this stands in for the file read (which has its own spec).
+      // Everything that makes the claim true — the entity metadata, the LIKE query, the scope
+      // filter — runs against the real database over real HTTP.
+      // 清单是磁盘上的文件；这里替掉「读文件」这一步（它有自己的 spec）。让这条断言为真的其余一切 ——
+      // 实体元数据、LIKE 查询、范围过滤 —— 都跑在真库与真 HTTP 上。
+      const manifest = jest.spyOn(applicationManifest, 'readApplicationManifest').mockReturnValue({
+        present: true,
+        manifest: { schema: 1, modules: ['books'], searchableModules: ['books'] },
+      });
+
+      try {
+        const mine = 'SearchableGuideMine';
+        const theirs = 'SearchableGuideTheirs';
+        const other = await registerUser(app, {
+          username: 'search_other',
+          email: 'search_other@test.com',
+          password: 'Search123',
+          nickname: 'SearchOther',
+        });
+
+        const seeds: Array<[string, string]> = [
+          [mine, token],
+          [theirs, other.accessToken],
+        ];
+        for (const [title, tkn] of seeds) {
+          await request(app.getHttpServer())
+            .post('/api/v1/books')
+            .set(authHeader(tkn))
+            .send({ title, author: 'Someone', status: 'unread' })
+            .expect(201);
+        }
+
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/search?q=${encodeURIComponent('SearchableGuide')}`)
+          .set(authHeader(token))
+          .expect(200);
+
+        const bucket = res.body.data.modules.find((m: { module: string }) => m.module === 'books');
+        expect(bucket).toBeDefined();
+        // 同一关键词两人各建一条：只该看到自己那条，总数也只数自己那条
+        expect(bucket.total).toBe(1);
+        expect(bucket.items).toHaveLength(1);
+        expect(bucket.items[0].title).toBe(mine);
+      } finally {
+        manifest.mockRestore();
+      }
     });
   });
 

@@ -16,6 +16,11 @@
       "type": "array",
       "description": "已生成模块（复数名，排序去重）",
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" }
+    },
+    "searchableModules": {
+      "type": "array",
+      "description": "声明了 searchable 的已生成模块（modules 的子集，排序去重）。运行时全局搜索据此索引，不再手工维护清单。可选键：旧清单无它仍合法",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" }
     }
   }
 }

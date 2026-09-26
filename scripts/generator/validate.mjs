@@ -21,6 +21,20 @@ export const FIELD_TYPES = new Set([
   'attachment',
 ]);
 
+/**
+ * The field types that land as text columns, and so are the only ones a `LIKE` search can match.
+ * `enum` belongs here because it maps to `varchar(32)` (protocol §2) — same column type, same
+ * searchability. The runtime cannot re-derive this distinction: by the time it sees the entity,
+ * `string` and `enum` are both plain text columns, so a spec that declares `searchable` on a module
+ * with none of these fields is declaring something nothing can deliver.
+ *
+ * 会落成文本列的字段类型，因而也是 `LIKE` 搜索唯一能匹配的那些。`enum` 在此列，因为它映射为
+ * `varchar(32)`（协议 §2）—— 同样的列类型、同样的可搜性。运行时无法重新推出这个区分：等它看到
+ * 实体时，`string` 与 `enum` 都只是普通文本列，故在一个不含任何此类字段的模块上声明 `searchable`
+ * 等于声明了一件无人能兑现的事。
+ */
+export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text', 'enum']);
+
 /** Names of the fields declared as attachments, in declaration order. */
 export function attachmentFields(fields) {
   return (fields ?? []).filter((f) => f.type === 'attachment').map((f) => f.name);

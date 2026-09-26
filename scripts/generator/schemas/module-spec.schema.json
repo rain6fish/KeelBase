@@ -19,7 +19,7 @@
     },
     "searchable": {
       "type": "boolean",
-      "description": "列表是否支持搜索（可选；business-spec 映射器产出）"
+      "description": "该模块的记录是否并入全局 /search 索引（可选；business-spec 映射器产出）。生成时记进 .keelbase/manifest.json 的 searchableModules，运行时按本人的数据范围查询。需至少一个 string/text/enum 字段 —— 索引只能匹配文本列，否则生成期报错"
     },
     "label": {
       "type": "string",

@@ -428,7 +428,7 @@ Notifications are produced via `NotificationsService.create()` for use by each m
 
 | Method | Path | Auth | 说明 / Description |
 |--------|------|------|------|
-| GET | /api/v1/search | Yes | 全局搜索（本人事件 + 公开用户，防泄露 email/phone/role） / Global search (own events + public users, prevents leaking email/phone/role) |
+| GET | /api/v1/search | Yes | 全局搜索（本人事件 + 公开用户 + 声明 `searchable` 的生成模块的本人记录；防泄露 email/phone/role） / Global search (own events + public users + the caller's own rows in modules that declared `searchable`; prevents leaking email/phone/role) |
 
 ### 5.9 待办模块 / 5.9 Todo Module
 

@@ -847,7 +847,7 @@ npm run migration:run
 | DELETE | /api/v1/webhooks/:id | Yes | 本人 | 删除 Webhook |
 | POST | /api/v1/webhooks/test/:id | Yes | 本人 | 测试投递（返回签名与结果） |
 | POST | /api/v1/upload | Yes | 上传者 | 上传文件 |
-| GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户） |
+| GET | /api/v1/search | Yes | 本人 | 全局搜索（本人事件 + 公开用户 + 声明 searchable 的生成模块，按本人数据范围） |
 | POST | /api/v1/push/tokens | Yes | 本人 | 注册/更新设备推送 token |
 | DELETE | /api/v1/push/tokens/:token | Yes | 本人 | 注销设备推送 token |
 | GET | /api/v1/settings | Yes (ADMIN) | — | 全部动态配置（RG-2，实时生效） |

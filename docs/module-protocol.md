@@ -66,7 +66,30 @@
 | `fields[].pii` | 管理端列表**服务端掩码**（`maskText`）+ 模块向审计注册该键名（`registerSensitiveKeys`） | 管理台列表显示掩码值（**客户端 CSV 导出同源继承**，因它导的就是页面上已脱敏的行） |
 | `fields[].target` / `display` / `onDelete` | 导入目标模块实体 + 注入其仓储：**写侧**校验外键存在（软删视为不存在），**读侧** `relations` 带回目标对象 | 外键 id 输入；目标对象的友好回显与下拉选择器见后续切片 |
 | `fields[].type=attachment` | 生成同模块的**侧表**（真外键指向 owner）+ `@OneToMany` + 三个端点（列 / 关联 / 撤销）；三者**先做 owner 所有权检查** | 模型带附件**名字列表**；上传按钮见后续切片 |
-| `searchable` | 列表搜索 + `/search` 索引 | 搜索入口 |
+| `searchable` | 全局 `/search` 索引（本人范围，见 §3.1） | 搜索结果页（`/search`，桶的渲染见 §3.1） |
+
+### 3.1 `searchable` 的实际接线（P0-9a，2026-09-26）
+
+A module that declares `searchable: true` is recorded in `searchableModules` in `.keelbase/manifest.json` at
+generation time. The runtime `SearchService` reads that list — deriving the searchable text columns and the
+ownership column from entity metadata — and adds matching rows, filtered to the caller's own data, to the
+`modules` bucket of `GET /search`: one bucket per module, its body being the shared `paginated()` shape plus a
+`module` field. An entity with no ownership column (`userId` / `requesterId` / `initiatorId`) is **skipped rather
+than searched** — fail-closed, because a module that cannot be narrowed to the caller must not be widened
+instead. Declaring `searchable` on a spec with no `string` / `text` / `enum` field is **refused at generation
+time**, because a `LIKE` index has nothing to match and the declaration would deliver nothing.
+
+Not yet wired, stated here so it is not mistaken for done: the module's own list endpoint has no `q` filter
+(`GET /<plural>?q=`), and neither frontend renders the `modules` bucket — the bucket carries raw entity rows, and
+rendering them per module still needs a display convention for which column is that module's title.
+
+`searchable: true` 的模块在生成时被记进 `.keelbase/manifest.json` 的 **`searchableModules`**（与 `modules` 并列，只增不减）。运行时 `SearchService` 读这份清单，按实体元数据推导出可搜的文本列与归属列，把命中记录按**调用方的数据范围**并入 `GET /search` 响应的 **`modules`** 桶（每模块一个桶，桶体是共用的 `paginated()` 分页形状 + `module` 字段）。
+
+**没有归属列（`userId`/`requesterId`/`initiatorId`）的实体不进搜索** —— 无法收窄到调用方就宁可不搜，这是 fail-closed 的方向。
+
+`searchable: true` 但 spec 里没有 `string` / `text` / `enum` 字段时，**生成期直接报错**：索引只能匹配文本列，否则这条声明兑现不了任何东西。
+
+**尚未接线**（诚实记录，勿当已做）：模块自身列表端点的 `q` 过滤（`GET /<plural>?q=`）**未实现**；两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
 
 **固定的安全接线（协议不含，AI 必须补）**：
 - CASL：用户只能访问本人数据（`userId` 所有权）

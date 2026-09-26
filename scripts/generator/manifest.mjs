@@ -43,12 +43,26 @@ export async function readManifest(root = '') {
 /**
  * 幂等合并：modules 追加去重（排序保证确定性）；schema/identity/protocol 固定，generatorVersion 随当前 CLI。
  * 版本化防护：现有清单 schema 与当前不匹配 → 返回 null（拒绝覆盖，防更新版本创建的数据丢失）。
+ *
+ * `searchableModules` rides here too, and for the same reason: whether a module is searchable is a
+ * property of its **spec**, not of the generated code, and the runtime already reads this file
+ * (`/app/provenance`). Putting it here means the global search needs no hand-maintained list and no
+ * generator insertion into hand-written source — a module generated tomorrow is searchable by
+ * construction. Add-only, exactly like `modules`.
+ *
+ * `searchableModules` 也放这里，理由相同：模块可不可搜是它 **spec** 的属性、不是生成代码的属性，
+ * 而运行时本来就读这份文件（`/app/provenance`）。放这里意味着全局搜索既不需要手工维护的清单，也不
+ * 需要生成器往手写源码里插行 —— 明天生成的模块**由构造**就可搜。与 `modules` 一样只增不减。
  */
-export async function mergeManifest(modulePlural, root = '') {
+export async function mergeManifest(modulePlural, root = '', opts = {}) {
   const existing = await readManifest(root);
   if (existing && existing.schema !== MANIFEST_SCHEMA) return null;
   const modules = new Set(Array.isArray(existing?.modules) ? existing.modules : []);
   if (modulePlural) modules.add(modulePlural);
+  const searchableModules = new Set(
+    Array.isArray(existing?.searchableModules) ? existing.searchableModules : [],
+  );
+  if (modulePlural && opts.searchable === true) searchableModules.add(modulePlural);
   return {
     schema: MANIFEST_SCHEMA,
     identity: MANIFEST_IDENTITY,
@@ -56,12 +70,13 @@ export async function mergeManifest(modulePlural, root = '') {
     generatorVersion: await generatorVersion(),
     protocol: MANIFEST_PROTOCOL,
     modules: [...modules].sort(),
+    searchableModules: [...searchableModules].sort(),
   };
 }
 
 /** 写清单（root 相对路径已含在 manifestPath；模块已存在则只更新版本不重复）。schema 不匹配 → changed:false + reason。 */
-export async function writeManifest(modulePlural, root = '') {
-  const merged = await mergeManifest(modulePlural, root);
+export async function writeManifest(modulePlural, root = '', opts = {}) {
+  const merged = await mergeManifest(modulePlural, root, opts);
   const file = manifestPath(root);
   if (merged === null) return { file, changed: false, reason: 'schema-mismatch', manifest: null };
   await mkdir(file.substring(0, file.lastIndexOf('/')), { recursive: true });

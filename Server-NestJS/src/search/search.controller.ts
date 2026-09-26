@@ -15,7 +15,7 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  @ApiOperation({ summary: '全局搜索：本人事件 + 公开用户' })
+  @ApiOperation({ summary: '全局搜索：本人事件 + 公开用户 + 可搜索模块（本人）' })
   @ApiQuery({ name: 'q', required: true, description: '搜索关键词' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })

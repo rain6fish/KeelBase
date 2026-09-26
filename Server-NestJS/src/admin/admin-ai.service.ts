@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Injectable } from '@nestjs/common';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readApplicationManifest } from '../common/provenance/application-manifest';
 import { AiService } from '../ai/ai.service';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
@@ -175,22 +174,12 @@ export class AdminAiService {
       : '';
   }
 
-  /** 来源身份（Build 侧 .keelbase/manifest.json）；缺失/不可读 → null（静默降级）。路径与 app-provenance 一致。 */
+  /** 来源身份（Build 侧 .keelbase/manifest.json）；缺失/不可读 → null（静默降级）。 */
   private _sourceIdentity(): string | null {
-    const candidates = [
-      resolve(process.cwd(), '../.keelbase/manifest.json'),
-      resolve(process.cwd(), '.keelbase/manifest.json'),
-    ];
-    for (const p of candidates) {
-      if (existsSync(p)) {
-        try {
-          const m = JSON.parse(readFileSync(p, 'utf8'));
-          const modules = Array.isArray(m.modules) && m.modules.length ? m.modules.join(', ') : '—';
-          return `来源身份: ${m.identity ?? 'unknown'}（generator ${m.generator ?? '?'} v${m.generatorVersion ?? '?'}, protocol ${m.protocol ?? '?'}, schema ${m.schema ?? '?'}）; 来源模块: ${modules}`;
-        } catch {
-          return null;
-        }
-      }
+    const { manifest: m } = readApplicationManifest();
+    if (m) {
+      const modules = Array.isArray(m.modules) && m.modules.length ? m.modules.join(', ') : '—';
+      return `来源身份: ${m.identity ?? 'unknown'}（generator ${m.generator ?? '?'} v${m.generatorVersion ?? '?'}, protocol ${m.protocol ?? '?'}, schema ${m.schema ?? '?'}）; 来源模块: ${modules}`;
     }
     return null;
   }
