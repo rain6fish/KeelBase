@@ -64,6 +64,30 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 
 **链外**：`revoke_dispute` 是注解列，**不得**入 `_chainPayload`（白名单加 key 会使历史链验签失败）。
 
+### 4.1.1 键被**非本组成员**占用：整份声明不得静默消失 / A key held by a non-member: the declaration must not vanish
+
+冲突分支用 `listGroup(baseKey)` 找回既有组；但一条**单目标**行（`compensation_group` 为 null）**同样占着这个键**，
+按组查必空 ⇒ 此前直接返回 `[]` 走人。而 §4.1 的比对在「无既有行」时也就无从施加 ⇒ **比对、标记一起没发生**；
+调用方又丢掉返回值 ⇒ 本次声明的成员**一行都没登记**、那次业务动作**不可撤**，链路上没有一处说得出这件事。
+
+**改正两处**：① 键被占用而本组为空时，**占键的那一行本身就是可读的证据位**（`parent_effect_id` 为空 ⇒ 它就是
+根，单条撤销也会读它）⇒ 按「持有」那一侧把它纳入 §4.1 的比对并标记，**不**以「无处可读」为由不标；
+② 返回值保持「**本组既有成员**」（外行占键时即 `[]`），**调用方不再忽略它** —— 声明了 N 条却一行都没登记时
+如实记一条警告（业务写确实发生了，故工具结果**仍报成功**：把它报成失败是另一种谎）。
+
+**⚠ 入口的更正（复核时实测）**：登记文本说这条路径由「先单目标登记、后复合登记」**顺序**触发 —— **到不了**：
+写管道里幂等探测（`findExisting(buildKey)`）排在 `recordGroup` **之前**，键一旦被占，顺序执行会命中探测并早返回。
+真正的入口是**竞态窗口**（两次并发各自探测未命中，先插入者占键）。用例因此：服务级直接构造该状态；
+调用侧以「探测读到过期读数」**确定性地**模拟那个窗口（`revoke-key-occupied.spec.ts`）。
+
+The conflict branch looks the existing group up by key; a **single-target** row holds the same key with a null
+compensation group, so the lookup finds nothing and the branch returned an empty list — skipping §4.1's
+comparison entirely, and the caller discarded the return. The declaration vanished, the action stayed
+unrevocable, and nothing on the path could say so. Now the occupying row is used as the readable evidence
+surface (it is the root, so a single revoke reads it), and the caller consumes the return: N declared and
+nothing registered is reported as a warning, while the tool result still reports success — the business write
+did happen, and reporting failure would be the other lie.
+
 ### 4.2 跨组重叠：检出 + 撤销时闸门 / Cross-group overlap: detection and the revoke-time gate
 
 One `resultType + resultId` landing in **several** groups means one business action was split in two. Each

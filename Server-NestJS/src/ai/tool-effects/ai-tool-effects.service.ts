@@ -424,11 +424,22 @@ export class AiToolEffectsService {
         throw err;
       }
       this.logger.warn(`[AiToolEffects] recordGroup conflict (idempotent replay): ${(err as Error).message}`);
-      const existing = await this.listGroup(baseKey);
+      const group = await this.listGroup(baseKey);
+      // ARC-4：幂等键被**非本组成员**占用时 `listGroup` 查不到任何行 —— 典型是「先单目标登记、后复合登记」：
+      // 那条单目标行的 `compensation_group` 为 null，按组查必空。此前这里**直接返回空数组走人**，于是
+      // 本次声明的成员**一行都没登记**，而调用方又把返回值丢掉 ⇒ 整份声明静默消失、那次业务动作不可撤。
+      // 占键的那一行**本身就是可读的证据位**（`parent_effect_id` 为空 ⇒ 它就是根，单条撤销也会读它），
+      // 故把它按「持有里多出来的」那一侧标成争议，而不是以「无处可读」为由不标。
+      let held = group;
+      if (held.length === 0) {
+        const occupant = (await this.findExisting(baseKey)).effect;
+        if (occupant) held = [occupant];
+      }
       // REV-1：回放之前先比一次声明与持有 —— 不比对就是「静默少记录」（撤销该组只补偿持有的那些行、汇总全绿）。
-      await this._markDisputeIfDeclarationDiffers(baseKey, effects, existing);
+      await this._markDisputeIfDeclarationDiffers(baseKey, effects, held);
       this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
-      return existing;
+      // 返回**本组既有成员**：外行占键时为 `[]`（本次声明确实一行都没登记）—— 调用方据此不得当成功。
+      return group;
     }
   }
 
