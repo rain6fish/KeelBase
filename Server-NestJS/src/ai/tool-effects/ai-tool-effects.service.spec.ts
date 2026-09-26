@@ -962,7 +962,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       revokerStub = {
         canHandle: jest.fn().mockReturnValue(true),
         revoke: jest.fn().mockResolvedValue({ revoked: true }),
-        describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+        // ARC-1：本地软删语义下，`revoked` 的行**目标是软的**——夹具此前一律给 `deletedAt: null`
+        // （永远「活着」），那是把「已撤销」当跳过态用的**代称**，没有建模这对真实配对。
+        describeTarget: jest.fn().mockResolvedValue({ deletedAt: new Date('2026-01-01T00:00:00Z') }),
       };
       extStub = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }) };
       auditStub = { log: jest.fn().mockResolvedValue(undefined) };
@@ -1051,9 +1053,11 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const res = await svc.revoke(1);
 
       expect(extStub.revoke).toHaveBeenCalledTimes(1);
-      // 逐条 revoked = 「撤销调用成功」（既有口径），只有 revokeStatus 承载诚实状态
-      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 2, skipped: 0, failed: 0 });
-      // 但组级结论不得谎称已撤销：外部结果未知 → revoked:false + compensating（KB-6 口径）
+      // ARC-7：级联计数也必须同向。此前逐条 revoked = 「撤销调用成功」（2xx 即算），
+      // 于是 `cascade.revoked` 报 2 而组级结论报 revoked:false —— 同一次业务动作、同一状态，两个相反结论，
+      // 而管理台渲染徽章读的正是 `cascade`。现在外部队列的成员落进 skipped（与「本就在 compensating 的行」同读数）。
+      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 1, skipped: 1, failed: 0 });
+      // 组级结论不得谎称已撤销：外部结果未知 → revoked:false + compensating（KB-6 口径）
       expect(res.revoked).toBe(false);
       expect(res.revokeStatus).toBe('compensating');
     });
@@ -1283,11 +1287,16 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       });
       repo.update = jest.fn().mockResolvedValue({ affected: 1 });
       const res = await svc.revoke(8);
-      expect(res?.revoked).toBe(true);
+      // ARC-2：**非 revoked**。标题一直这么写，断言此前却是 `revoked:true` —— 缺陷被钉成了期望。
+      expect(res?.revoked).toBe(false);
+      expect(res?.skipped).toBe(true);
+      expect(res?.reason).toBe('compensating');
       expect(res?.revokeStatus).toBe('compensating');
       // REV-2：进入 compensating 时一并记下补偿请求时刻（否则该状态没有年龄，「挂了多久」不可查）
       // REV-2 细化：意图写在外呼**之前**（revokeAcknowledgedAt 一并清空），确认是外呼返回后的**独立**事件。
-      expect(repo.update).toHaveBeenNthCalledWith(1, 8, {
+      // ARC-3：判据由裸 id 变成**条件谓词**（派发前先认领）——故第一条 update 的条件是一个对象、
+      // 不再是数字 8。补丁本身不变。
+      expect(repo.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 8 }), {
         revokeStatus: 'compensating',
         revokeRequestedAt: expect.any(Date),
         revokeAcknowledgedAt: null,

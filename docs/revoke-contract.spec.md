@@ -34,7 +34,7 @@
 每个 `revokeClass !== 'none'` 的 AI 写工具必须满足对应验收，缺一视为契约破坏：
 
 1. **本地可撤**：目标实体带 `@DeleteDateColumn`（可软删），撤销行可经管理端回收站恢复；给一条 E2E：`工具 create → revoke → 目标 deletedAt 非空 → 回收站可见`。
-2. **外部可撤**：工具/导入配置提供 `revokePath` 补偿端点；撤销请求发出且 2xx → 状态 `compensating`；**目标系统能回读/确认补偿结果**（不长期悬空）。
+2. **外部可撤**：工具/导入配置提供 `revokePath` 补偿端点；撤销请求发出且 2xx → 状态 `compensating`；**该状态下任何路径都不得报 `revoked`**（单条 / 组级 / 批量三处同向，见 §5.9）；**同一行的并发撤销只派发一次**（条件认领，见 §5.8）；**目标系统能回读/确认补偿结果**（不长期悬空）。
 3. **不可撤必须显式**：`none` 工具不出现误导性撤销入口；UI/API 文案明确"不可撤销 / 外部无补偿"。
 
 ## 3. A–F 副作用验收矩阵 / Side-effect acceptance matrix
@@ -140,6 +140,100 @@ side-effect row at all — an effect the revoke can never reach, trading a recov
 unrecoverable one. Backfilling the *change* is not honestly possible; the migration backfills only the
 annotation, from existing columns. This changes no revoke conclusion.
 
+### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
+
+撤销路径原先只读「**是不是软删了**」（`revoke_status` 与目标 `deletedAt`），`after_snapshot` **从不参与判定**
+—— 它只被写入（`record` / `recordGroup`）、被展示（列表 / 追踪）、被拿去做人读摘要。⇒ AI 写入之后、撤销之前
+若**有人或别的系统改过该目标行**，撤销**照样软删并报成功**：那次改动被一并抹掉，且没有任何提示。
+
+现在在本地软删**之前**重读目标，用**同一个捕获器**（与写入时同一套归一化，否则形状不可比）拿当前内容，
+与 `after_snapshot` 比对；不同则**点名变化的字段**，写进那条通路的可见面（单条结果的 `message`；组内成员
+逐条带 `message`，并**并进组级摘要**——否则摘要会把逐成员消息遮住）。**两条路径同一处比对**，免得又落进
+本仓反复修的那类缺陷（同一状态、两条路两个结论）。
+
+**比对只认内容**：剔除 `createdAt` / `updatedAt` 这两个由 ORM 维护的记账列。留着它们，**任何一次触碰**
+都会被读成「目标被改过」，而**用噪音报出来的东西没人会看**——那等于把这次检查关掉。如实写出的边界：某个业务列
+若也会为无关原因自行变动（计数器之类），它仍会被读成漂移，那属于**误报**而非漏报，且会点名是哪个字段。
+
+**边界**：只做「**可检出、不静默**」——**不**拒绝、**不**改判定、**不**写争议列。走既有 `message` 而非新增
+结构化键，理由不是「契约不许加」，而是**两条路的开放度不同**：单条 `revokeResult` 是
+`additionalProperties: true`（加键不破契约），而**批量逐条** `item` 与 `revokeBatch` 是 `false`（加键要升
+版本）。漂移两条路都要答，只在单条加键就成了「同一状态、两条路两个形状」——正是本仓反复修的那类缺陷。
+**判不了就如实不报**（无捕获器 / 该行本就无 `after_snapshot` / 当前行读不到）：不假装未漂移，也不假装漂移。
+**未做**：保留他人改动、只撤 AI 那部分（需字段级回滚，另一个量级）。
+
+The revoke path judged only *whether the target had been soft-deleted*; `after_snapshot` never entered the
+decision, so a change made between the AI's write and the revoke was erased with the delete and reported
+as a clean success. It now re-reads the target **through the same captor** (same normalisation, or the two
+sides are not comparable) before the local soft delete, compares against `after_snapshot`, and names the
+fields that moved on the readable surface of that path — the single result's `message`, and for grouped
+members their per-member `message` **and** the group summary, which would otherwise hide them. Both paths
+share one comparison, so the verdict cannot differ by route.
+
+Only ORM bookkeeping timestamps (`createdAt` / `updatedAt`) are excluded: keeping them would make *any*
+touch read as drift, and a check that shouts on everything is a check nobody reads — which is the same as
+turning it off. Stated limit: a business column that moves for unrelated reasons still reads as drift; that
+is a false positive, not a miss, and it names the column.
+
+Boundary: detectable, not silent — no refusal, no verdict change, no dispute mark, no wire change (the
+existing `message` carries it). **Undeterminable cases report nothing** rather than guessing. Not done:
+preserving the other party's edit and revoking only the AI's part (field-level rollback, a different order
+of work).
+
+### 5.7 已恢复的行再撤销：幂等判据与读侧同源 / A restored row: the idempotency criterion matches the read side
+
+幂等判据此前只看 `revoke_status === 'revoked'`，而读侧 `isRestored` 要求「`revoked` **且** 目标仍未软删」——
+**同一条状态、两条路两个结论**：一条撤销后从回收站恢复的行（目标又活了），撤销侧仍报 `already_revoked`
+（即 `revoked: true`），而列表侧早已按 `targetSoftDeleted` 把它读成 `executed`。于是用户看到「已撤销」，
+而那条业务动作**活着**。而回收站恢复**只清 `deletedAt`、不动 `revoke_status`**（§3 / RG-3），故这个组合是
+**真实可达**的，不是假想。
+
+现取**同一判据**：`revoked` **且目标仍在软删态**才算完成；目标已复活 ⇒ 不算完成 ⇒ 走正常撤销路径
+（读侧本来就是这么建模的：恢复 ⇒ 这条又活了 ⇒ 可再撤）。**目标读不到**（无撤销器 / 行不存在）⇒
+**判不了**，按完成处理——保守方向是「不因读不到就去重复补偿」。
+
+**只在有本地软删语义时**才这么判。`describeTarget` 对**外部**副作用返回的是**占位** `{deletedAt: null}`
+（「撤销语义在外部」，不是「目标活着」）；照它判会把外部行读成未完成而**重复外呼补偿**——那正是本仓反复
+修的那类「同一状态、两条路两个结论」，只是这次会以真金白银的形式出现。故以 `_classOf === 'local_compensate'`
+且撤销器认这个 resultType 为门。
+
+The idempotency criterion read only `revoke_status === 'revoked'` while the read side's `isRestored` requires
+the target to *still* be soft-deleted — one state, two verdicts. A row that was revoked and then restored from
+the recycle bin has a live target again, yet the revoke side still called it done. The two now share one
+criterion: revoked **and** the target still soft-deleted. An unreadable target is treated as done — the
+conservative direction is not to compensate again merely because the state could not be read. The check is
+gated on local soft-delete semantics: `describeTarget` returns a *placeholder* `{deletedAt: null}` for external
+effects, and reading that as "alive" would re-dispatch a real external compensation.
+
+### 5.8 外部补偿派发：先认领再外呼 / Dispatch a compensation only after claiming it
+
+派发此前是**裸 read-modify-write**：无条件写「意图」（`compensating`），再外呼。两次并发撤销会**各自读到
+`revoke_status = null`**、各自写意图、**各派发一次**。退款 / 取消订单这类端点若非幂等，那是**真双发**；而且
+先成功后失败的那一次会把 `revoke_failed` **覆盖**掉先前的成功读数。
+
+现把「写意图」这一步变成**条件更新（认领）**：只有仍处「未派发」（NULL）或「上次失败、可重试」
+（`revoke_failed`）的行才放行派发，命中 0 行 ⇒ **不派发**，如实回报（`skipped` + `reason: 'compensating'`）。
+认领落地后，这一轮派发里本行**只有一个写者**，故上面那条覆盖风险随之一并消失——**不需要**再给回写加条件。
+
+条件更新是唯一仲裁点，与 `ConfirmationStore.resolve` / `R4ApprovalService._claimExecution` 同先例。
+**谓词必须写成 `revoke_status IS NULL OR revoke_status = 'revoke_failed'`**：SQL 里 `x IN (NULL, …)` 对 NULL
+恒不成立，写成 `In([null, 'revoke_failed'])` 会让**首次派发**永远认领不到（本仓用 `Raw` 显式写这条谓词）。
+
+**边界**：只做「不重复派发」。**不**做自动重试（`revoke_failed` 可重试仍走同一入口；`compensating` 的死活
+由 REV-2 的年龄/窗口读数交给人判），也**不**因此把任何状态改写成成功或失败。
+
+**fail-closed**：认领判据取 `!claim?.affected` 而**不是** `=== 0` —— `affected` 缺失是「**没读到**」，
+不是「读到了许可」。拿不到可判定的结果一律当认领失败、不派发（口径同 `ConfirmationStore.resolve`）。
+宁可少派发一次（可重试），也不多执行一次**不可逆**的外部操作。
+
+Dispatch used to be a bare read-modify-write: write the intent unconditionally, then call out. Two concurrent
+revokes each read `revoke_status = null`, each wrote the intent, and each dispatched — a real double refund
+where the endpoint is not idempotent, with a later `revoke_failed` overwriting an earlier success. The intent
+write is now a conditional claim: only a row that is still undispatched (`NULL`) or retryable (`revoke_failed`)
+may dispatch; zero rows hit means no dispatch and an honest report. The claim leaves one writer for the row in
+that round, which is why the overwrite risk disappears without adding a condition to the outcome write. The
+predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in SQL.
+
 ### 5.5 落点与验收 / Landing points
 
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
@@ -149,10 +243,46 @@ annotation, from existing columns. This changes no revoke conclusion.
 | 5.3 检出 | `findSplitGroups()` + `GET /ai/tool-effects/splits` | `revoke-split-detection.spec.ts`（真 sqlite；旧实现无此能力） |
 | 5.3 闸门 | `_crossGroupClaims` + `_concludeSingle` / `_compensateGroup` / `_revokeBatch` / `_disputeNotes` | `revoke-split-gate.spec.ts`（旧实现：汇总恒 `revoked:true`，从不问别的组） |
 | 5.4 身份 | `recordGroup` 标注 + `list()` 读出 + 迁移 `1829000000000` | `revoke-identity.spec.ts`（真 sqlite；旧实现连该列都不存在） |
+| 5.6 中间写 | `_targetDrift` / `_contentOnly` / `_withDriftNote`（`_doRevokeSingle` 与 `_compensateGroup` 共用）+ `_groupResult` 的漂移车道 | `revoke-content-drift.spec.ts`（真 sqlite + 真捕获器；旧实现从不比对 `after_snapshot`） |
+| 5.7 已恢复行 | `_skipReason`（改读目标；三处调用点随之 `await`） | `revoke-restored-row.spec.ts`（真 sqlite；旧实现走跳过 → 报完成而目标仍活） |
+| 5.8 派发认领 | `_doRevokeSingle` 外部分支的**条件更新**（`Raw` 写 `IS NULL OR revoke_failed`；判据 `!claim?.affected`，fail-closed） | `revoke-dispatch-claim.spec.ts`（真 sqlite；旧实现并发两次会派发两次；fail-closed 对 `=== 0` 变体为红） |
+| 5.9 compensating 计成什么 | `_doRevokeSingle` 外部返回值 + `_compensateGroup` / `_revokeBatch` 计数 | `ai-tool-effects.service.spec.ts` · `revoke-conversation.spec.ts` · `proxy-bridge.e2e-spec.ts`（旧实现：把 `compensating` 算进 `revoked`） |
 
-五处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+九处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
-`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）。
+`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
+`message`，未新增键。
+
+### 5.9 `compensating` 被计成什么：四条撤销路径同向 / What `compensating` counts as, on all four paths
+
+ARC-3（派发前先认领）见 §5.8。**剩下两条与它同源**，共同点是**账上的读数比事实更确定**——编号见私有
+roadmap §2.1.10（ARC-2 / ARC-7）。`compensating` 意为「已请求外部补偿、结果未知」，而：
+
+| 缺口 | 形状 |
+|---|---|
+| **ARC-2** | 单条外部分支用 `revoked: r.ok`，而组级 `_groupResult` 守卫 `!compensating`：**同一条 `compensating`、同一状态，单条说「已撤销」而组级说「未完成」** |
+| **ARC-7** | 批量与级联把 `compensating` 计进 `revoked`（`revoked++` 只看 `it.revoked`），而管理台 toast 念的正是这三个数（`aiCenterConvRevokeDone`）——一次**已请求但未完成**的补偿被显示成「已撤销 N 项」。组级更自相矛盾：`cascade.revoked` 报 2 而 `result.revoked` 报 false |
+
+**修法**：**四条路径同向** —— 新派发不再报 `revoked`，且给出与「本就在 `compensating` 的行」**完全相同**的读数
+（`skipped` + `reason: 'compensating'`）；逐条结果把这个读数带进汇总，故批量的 `revoked` 计数与级联的
+`cascade.revoked` 都不再含待目标系统的成员。对方**拒绝**（非 2xx）仍是 `revoke_failed`、**不进 `skipped`**
+——「失败」与「未完成」在汇总里必须分得开。
+
+**落点与验收**
+
+| 缺口 | 实现落点 | 证据（**对旧实现为红**） |
+|---|---|---|
+| ARC-2 单条 | `_doRevokeSingle` 外部分支返回值 | `ai-tool-effects.service.spec.ts`（旧实现：`res.revoked === true`）· `revoke-conversation.spec.ts`（旧实现：`r.revoked === 1`）· `proxy-bridge.e2e-spec.ts` |
+| ARC-7 级联计数 | `_compensateGroup` 外部队列携带 `skipped` / `reason` | `ai-tool-effects.service.spec.ts`（旧实现：`cascade.revoked === 2` 而组级 `revoked === false`） |
+| ARC-7 批量计数 | `_revokeBatch` 非组分支 `else if (r.skipped)` | `revoke-conversation.spec.ts`（旧实现：`r.revoked === 1`、`r.skipped === 0`） |
+
+**不改 wire 契约**：`skipped` / `reason` / `revokeStatus` / `external` 都是 `item` **既有**的字段
+（`compensating` 早经 `_skipReason` 的跳过分支返回这一组读数），本次只是让**新派发**与**跳过**同形；
+`revokeResult` 的结论仍只走 `revoked` + `message`，未新增键。**变的是这三个数的取值口径**，不是形状。
+
+> **边界（刻意不做的）**：`compensating` 在汇总里落 `skipped` 而**不**新增一个 `pending` 桶 ——
+> `RevokeBatchResult` 的顶层键是契约的一部分，加桶要动 wire。**代价**：「跳过」这个词本身不区分
+> 「没动」与「已请求、在等」，要区分只能读 `reason`。这是**已知的不精确**，不是遗漏 —— 真正的出口是 §4 G2 的终态收敛。
 
 ## 6. 相关文档 / Related
 

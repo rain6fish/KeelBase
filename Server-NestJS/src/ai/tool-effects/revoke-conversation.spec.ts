@@ -22,7 +22,9 @@ function makeRepo(effects: unknown[]) {
   return {
     find: jest.fn().mockResolvedValue(effects),
     findOne: jest.fn(),
-    update: jest.fn().mockResolvedValue({}),
+    // ARC-3：外部派发改为**条件认领**（`update(criteria, patch)`），`affected` 是判据。
+    // 底层没给 `affected` 一律当认领失败（fail-closed，与 `ConfirmationStore.resolve` 同口径），故 mock 必须给数。
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 }
 
@@ -119,9 +121,12 @@ describe('AiToolEffectsService.revokeConversation（G1 会话级批量撤销）'
     expect(ext.revoke).toHaveBeenCalledWith('proxy_send', 1, 'u1');
     // REV-2 细化：**两次**写入 —— 意图在外呼之前（可能根本没到达），确认在外呼返回之后（确实到达了）。
     // 此前是一次写入（且写在外呼之后）：进程死在调用中途就一个字段都不剩。
+    // ARC-3：第一次即**条件认领**——带 `revokeStatus IS NULL` 守卫，故 criteria 是对象而非裸 id
+    // （旧实现是裸 id 的无条件 update，两次并发撤销都能通过 → 派发两次补偿）。
     expect(repo.update.mock.calls).toEqual([
       [
-        11,
+        // ARC-3：派发前的认领是**条件更新**（判据不再只是 id），补丁不变
+        expect.objectContaining({ id: 11 }),
         {
           revokeStatus: 'compensating',
           revokeRequestedAt: expect.any(Date),
@@ -130,7 +135,13 @@ describe('AiToolEffectsService.revokeConversation（G1 会话级批量撤销）'
       ],
       [11, { revokeStatus: 'compensating', revokeAcknowledgedAt: expect.any(Date) }],
     ]);
-    expect(r.revoked).toBe(1);
+    // ARC-2 / ARC-7：**不得报已撤销**。2xx 只证明「已请求」，终态在目标系统——
+    // 此前这里断言 `r.revoked` 为 1，正是把缺陷钉成了期望；管理台 toast 念的就是这三个数。
+    expect(r.revoked).toBe(0);
+    expect(r.skipped).toBe(1);
+    expect(r.results[0].revoked).toBe(false);
+    expect(r.results[0].skipped).toBe(true);
+    expect(r.results[0].reason).toBe('compensating');
     expect(r.results[0].revokeStatus).toBe('compensating');
     expect(r.results[0].external).toBe(true);
   });
