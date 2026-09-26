@@ -138,7 +138,7 @@ whether this revoke may report complete (§4.2 gate). Neither rewrites the other
 1. 按 `compensation_group` 载入全组。
 2. **本地成员**（档位 `local_compensate`）：放进**一个 DB 事务**逐条软删。任一失败 → 回滚 → 整组报 failed，**一个字都没改**。这是「一次补偿」的字面实现，并顺带闭合验收矩阵 **Case C**（部分失败）在级联场景下的缺口。
 3. **外部成员**（`governed_external`）：事务外顺序处理，诚实落 `compensating` / `revoke_failed`（严禁把「已请求补偿」显示为 `revoked`）。
-   逐条结果落 `skipped` + `reason: 'compensating'`（与「本就在 `compensating` 的行」同读数），否则它既不算 revoked 也不算 skipped、会被汇总计成 **failed**——一次**成功**的派发被报成失败。派发本身带**条件认领**（ARC-3），见 [revoke-contract.spec.md](revoke-contract.spec.md) §5.6。
+   逐条结果落 `skipped` + `reason: 'compensating'`（与「本就在 `compensating` 的行」同读数），否则它既不算 revoked 也不算 skipped、会被汇总计成 **failed**——一次**成功**的派发被报成失败（见 [revoke-contract.spec.md](revoke-contract.spec.md) §5.9）。派发本身带**条件认领**（ARC-3），见同文 §5.8。
 4. 返回逐条结果 + 汇总（复用既有 `RevokeBatchItem` / `RevokeBatchResult` 形状）。
 5. `none` 档位成员不参与补偿（诚实拒绝），其存在不阻塞其余成员的补偿。
 6. **组有争议就不报完成**（§4.1 声明与持有不一致 / §4.2 闸门：另一活组仍主张）：全组持有行都补偿成功时，
