@@ -420,17 +420,21 @@ async function main() {
   if (aiToolsErr) fail(aiToolsErr);
 
   // A `searchable` flag is a promise, not a decoration: the runtime indexes this module's rows into
-  // the global search by it, and that index can only match text columns — a spec with no
-  // string / text / enum field has nothing to deliver on the promise. Refusing here beats emitting
-  // a module that claims to be searchable and matches nothing (same treatment as a ref target that
-  // does not exist yet).
-  // searchable 是一条**声明**，不是装饰：运行时据此把模块的记录并进全局 /search 索引，而索引只能匹配
-  // 文本列 —— spec 里一个 string / text / enum 字段都没有时，这条声明兑现不了任何东西。与其产出一份
-  // 声称可搜、实际什么都搜不到的模块，不如在这里明确报错（与「关联目标必须已生成」同一种处理）。
-  if (specSearchable && !fields.some((f) => SEARCHABLE_FIELD_TYPES.has(f.type))) {
+  // the global search by it, matching exactly the columns listed here. A spec with no string / text
+  // field has nothing to list and nothing to deliver, so refusing here beats emitting a module that
+  // claims to be searchable and matches nothing (same treatment as a ref target that does not exist
+  // yet). The list is computed once, in declaration order, and is what the manifest records.
+  // searchable 是一条**声明**，不是装饰：运行时据此把模块的记录并进全局 /search 索引，匹配的正是这里
+  // 列出的那些列。spec 里一个 string / text 字段都没有时，既没有列可列、也没有东西可兑现，故与其产出一份
+  // 声称可搜、实际什么都搜不到的模块，不如在这里明确报错（与「关联目标必须已生成」同一种处理）。这份清单
+  // 只算一次、保持声明顺序，也正是清单文件里记下的那份。
+  const searchableFields = fields
+    .filter((f) => SEARCHABLE_FIELD_TYPES.has(f.type))
+    .map((f) => f.name);
+  if (specSearchable && searchableFields.length === 0) {
     fail(
-      `spec 声明了 searchable: true，但字段里没有任何 string / text / enum 字段 —— ` +
-        `可搜的前提是有文本列；请加一个这样的字段，或去掉 searchable。`,
+      `spec 声明了 searchable: true，但字段里没有任何 string / text 字段 —— ` +
+        `可搜的前提是有可搜的列；请加一个这样的字段，或去掉 searchable。`,
     );
   }
 
@@ -550,7 +554,10 @@ async function main() {
 
   // ── Provenance：.keelbase/manifest.json（来源身份，幂等合并——重跑只更新版本不重复）──
   try {
-    const man = await writeManifest(ctx.plural, '', { searchable: ctx.searchable === true });
+    const man = await writeManifest(ctx.plural, '', {
+      searchable: ctx.searchable === true,
+      searchableFields,
+    });
     if (man.changed) {
       console.log(
         `${C.green}✓ ${man.file}${C.reset}（keelbase v${man.manifest.generatorVersion} / protocol ${man.manifest.protocol}，模块 ${man.manifest.modules.join(', ')}）`,

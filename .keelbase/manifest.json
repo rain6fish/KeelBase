@@ -11,5 +11,14 @@
     "posts",
     "suppliers",
     "tags"
+  ],
+  "searchableModules": [
+    {
+      "module": "books",
+      "fields": [
+        "title",
+        "author"
+      ]
+    }
   ]
 }

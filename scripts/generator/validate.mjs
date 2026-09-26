@@ -22,18 +22,22 @@ export const FIELD_TYPES = new Set([
 ]);
 
 /**
- * The field types that land as text columns, and so are the only ones a `LIKE` search can match.
- * `enum` belongs here because it maps to `varchar(32)` (protocol §2) — same column type, same
- * searchability. The runtime cannot re-derive this distinction: by the time it sees the entity,
- * `string` and `enum` are both plain text columns, so a spec that declares `searchable` on a module
- * with none of these fields is declaring something nothing can deliver.
+ * The field types a module may declare as its searchable columns.
  *
- * 会落成文本列的字段类型，因而也是 `LIKE` 搜索唯一能匹配的那些。`enum` 在此列，因为它映射为
- * `varchar(32)`（协议 §2）—— 同样的列类型、同样的可搜性。运行时无法重新推出这个区分：等它看到
- * 实体时，`string` 与 `enum` 都只是普通文本列，故在一个不含任何此类字段的模块上声明 `searchable`
- * 等于声明了一件无人能兑现的事。
+ * `string` and `text` only. `enum` is a text column at the database level, but it is **not** a
+ * searchable one here: a module declares which of its own fields the global search may match, and a
+ * status/category is an enumeration, not free text. Leaving `enum` out also keeps the generation-time
+ * refusal honest — under declared columns, a spec whose only text-ish field is an `enum` really has
+ * nothing to search, so refusing it is correct rather than over-strict.
+ *
+ * 模块可声明为「可搜列」的字段类型。
+ *
+ * 只 `string` 与 `text`。`enum` 在数据库层是文本列，但在这里**不是**可搜列：模块声明的是「它自己的
+ * 哪些字段允许被全局搜索匹配」，而状态/类别是枚举、不是自由文本。把 `enum` 排除在外也让生成期的拒绝
+ * 保持诚实 —— 在「列由声明来」的语义下，一个只有 `enum` 字段的 spec **确实**没有可搜的东西，
+ * 拒绝它是对的，不是过严。
  */
-export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text', 'enum']);
+export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text']);
 
 /** Names of the fields declared as attachments, in declaration order. */
 export function attachmentFields(fields) {

@@ -70,24 +70,34 @@
 
 ### 3.1 `searchable` 的实际接线（P0-9a，2026-09-26）
 
-A module that declares `searchable: true` is recorded in `searchableModules` in `.keelbase/manifest.json` at
-generation time. The runtime `SearchService` reads that list — deriving the searchable text columns and the
-ownership column from entity metadata — and adds matching rows, filtered to the caller's own data, to the
-`modules` bucket of `GET /search`: one bucket per module, its body being the shared `paginated()` shape plus a
-`module` field. An entity with no ownership column (`userId` / `requesterId` / `initiatorId`) is **skipped rather
-than searched** — fail-closed, because a module that cannot be narrowed to the caller must not be widened
-instead. Declaring `searchable` on a spec with no `string` / `text` / `enum` field is **refused at generation
-time**, because a `LIKE` index has nothing to match and the declaration would deliver nothing.
+A module that declares `searchable: true` gets one entry in `searchableModules` in `.keelbase/manifest.json` at
+generation time: the module's name plus **the columns its spec declared searchable** (its `string` / `text`
+fields, in declaration order). The runtime `SearchService` reads that list and matches exactly those columns
+against the caller's own rows, adding one bucket per module to the `modules` key of `GET /search` — the bucket
+body being the shared `paginated()` shape plus a `module` field.
+
+The columns are **declared, not derived**, and that is the load-bearing part. Asking entity metadata what type a
+column is does not work here: a plain `@Column({ length: 200 })` reports **no type at all** on this repo's
+driver, so a search built that way matches nothing while its mocked tests stay green. A declaration cannot drift
+that way, because the generator wrote it from the same spec that wrote the entity. Regenerating a module
+refreshes its column list; entries are never removed by another module's run.
+
+Two gates, both fail-closed. A module whose **feature flag is off** does not enter the search at all — its own
+endpoints already 404 in that state, and `/app/provenance` filters its module list the same way. And a module
+with no ownership column (`userId` / `requesterId` / `initiatorId`) is **skipped rather than searched**, because
+one that cannot be narrowed to the caller must not be widened instead. Declaring `searchable` on a spec with no
+`string` / `text` field is **refused at generation time** — a `LIKE` index has nothing to match, and `enum` does
+not count: it is an enumeration, not free text.
 
 Not yet wired, stated here so it is not mistaken for done: the module's own list endpoint has no `q` filter
 (`GET /<plural>?q=`), and neither frontend renders the `modules` bucket — the bucket carries raw entity rows, and
 rendering them per module still needs a display convention for which column is that module's title.
 
-`searchable: true` 的模块在生成时被记进 `.keelbase/manifest.json` 的 **`searchableModules`**（与 `modules` 并列，只增不减）。运行时 `SearchService` 读这份清单，按实体元数据推导出可搜的文本列与归属列，把命中记录按**调用方的数据范围**并入 `GET /search` 响应的 **`modules`** 桶（每模块一个桶，桶体是共用的 `paginated()` 分页形状 + `module` 字段）。
+`searchable: true` 的模块在生成时于 `.keelbase/manifest.json` 的 **`searchableModules`** 里得一条：模块名 + **它的 spec 声明的可搜列**（`string` / `text` 字段，按声明顺序）。运行时 `SearchService` 读这份清单，**只匹配这些列**、且只匹配调用方本人的行，并把每个模块一个桶并入 `GET /search` 的 **`modules`**（桶体是共用的 `paginated()` 形状 + `module` 字段）。
 
-**没有归属列（`userId`/`requesterId`/`initiatorId`）的实体不进搜索** —— 无法收窄到调用方就宁可不搜，这是 fail-closed 的方向。
+列是**由声明来、不是推导来**，而这是承重的部分。去问实体元数据「这列是什么类型」在本仓**行不通**：一个普通的 `@Column({ length: 200 })` **不报任何类型**，照它做出来的搜索什么也匹配不到、而 mock 掉的测试照样全绿。声明不会这样漂，因为它与实体出自**同一份 spec**。重生成一个模块会刷新它的列；条目不会因别的模块的运行而被移除。
 
-`searchable: true` 但 spec 里没有 `string` / `text` / `enum` 字段时，**生成期直接报错**：索引只能匹配文本列，否则这条声明兑现不了任何东西。
+两道闸门，方向都是保守的。**feature flag 关掉的模块**根本不进搜索 —— 它自己的端点在那种状态下已经 404，而 `/app/provenance` 也是这么过滤它的模块清单的。**没有归属列**（`userId`/`requesterId`/`initiatorId`）的模块**跳过、而非照搜** —— 无法收窄到调用方的，不能反过来放宽。`searchable: true` 但 spec 里没有 `string` / `text` 字段时**生成期直接报错** —— LIKE 索引无列可匹配；而 `enum` **不算**：它是枚举，不是自由文本。
 
 **尚未接线**（诚实记录，勿当已做）：模块自身列表端点的 `q` 过滤（`GET /<plural>?q=`）**未实现**；两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
 

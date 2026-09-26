@@ -4,73 +4,36 @@ import type { DataSource, EntityMetadata } from 'typeorm';
 import { pickOwnerColumn } from '../common/utils/entity-metadata';
 
 /**
- * Which generated modules global search may look into, and how far into each.
+ * Which generated modules global search may look into, and which of their columns it may match.
  *
- * The list of modules arrives from `.keelbase/manifest.json` (`searchableModules`), so a module
- * generated tomorrow is searchable **by construction** — no hand-maintained registry, and no
- * generator insertion into hand-written source. Everything else is derived from the entity itself,
- * which is the only place that cannot drift from what is really in the table.
+ * The declarations arrive from `.keelbase/manifest.json` (`searchableModules`), written there by the
+ * generator from each module's spec — so a module generated tomorrow is searchable **by
+ * construction**, with no hand-maintained registry and no generator insertion into hand-written
+ * source.
  *
- * Two things are deliberately *not* derived:
+ * The columns are **declared, not derived**, and that is the load-bearing choice here. The obvious
+ * alternative — ask the entity's column metadata what type each column is, and match the text ones —
+ * does not work on this repo's driver: a plain `@Column({ length: 200 })` reports *no type at all*,
+ * so a search built that way matches nothing while its mocked tests stay green. A declaration cannot
+ * drift that way, because the generator wrote it from the same spec that wrote the entity.
  *
- *   - **Which modules are searchable.** That is a property of the module's spec, so it comes from
- *     the manifest and nowhere else. A module whose spec never said `searchable` is absent from the
- *     file, and absence is not something this code second-guesses.
- *   - **Whether a module qualifies at all.** An entity with no ownership column cannot be narrowed
- *     to the caller, so it is **skipped, not searched**. That is the fail-closed direction: the cost
- *     of a missed hit is a search that returns less, the cost of the other choice is one user
- *     reading another user's rows.
+ * 全局搜索可以看向哪些生成模块、以及可以匹配它们的哪些列。
  *
- * 全局搜索可以看向哪些生成模块、以及每个模块里能看多深。
+ * 声明来自 `.keelbase/manifest.json`（`searchableModules`），由生成器按各模块的 spec 写入 —— 故
+ * **明天生成的模块由构造就可搜**，不需要手工维护的注册表，也不需要生成器往手写源码里插行。
  *
- * 模块清单来自 `.keelbase/manifest.json`（`searchableModules`），故**明天生成的模块由构造就可搜** ——
- * 不需要手工维护的注册表，也不需要生成器往手写源码里插行。其余一切都从实体本身推导，因为那是
- * 唯一不会与表里真实内容漂开的地方。
- *
- * 有两件事是刻意**不**推导的：
- *
- *   - **哪些模块可搜。** 那是模块 spec 的属性，故只从清单来、不从别处来。spec 没声明过 `searchable`
- *     的模块就不在文件里，而「不在」不是这段代码该去二次猜测的东西。
- *   - **模块是否够格。** 没有归属列的实体无法收窄到调用方，故**跳过、不搜**。这是 fail-closed 的方向：
- *     漏掉一次命中的代价是搜索少返回一点，另一种选择的代价是一个用户读到另一个用户的行。
+ * 列是**由声明来、不是推导来**，而这是承重的选择。那个显然的替代 —— 问实体的列元数据「你是什么类型」、
+ * 匹配其中的文本列 —— 在本仓的驱动上**根本行不通**：一个普通的 `@Column({ length: 200 })` **不报任何
+ * 类型**，照它做出来的搜索什么也匹配不到，而 mock 掉的测试照样全绿。声明不会这样漂，因为它是生成器从
+ * 「写实体用的同一份 spec」里写出来的。
  */
 
-/**
- * Normalised column types a `LIKE` search can run against.
- *
- * These are driver type names, not protocol types: `driver.normalizeType()` is what turns an
- * entity column into the name the database actually uses, and it legitimately differs per driver
- * (`String` is `varchar` on SQLite, `character varying` on Postgres). A column type outside this
- * set is treated as unsearchable rather than coerced — matching an integer or a date with a text
- * pattern is not a feature, it is a silent miss.
- *
- * This set was written against observed output, not assumption: on this codebase's SQLite driver a
- * plain `@Column({ length: 200 })` normalises to `varchar`, while the column metadata's own `type`
- * field is **undefined** for exactly those columns — so reading `type` off the metadata would have
- * produced a search that silently matched nothing.
- *
- * 能跑 `LIKE` 搜索的**归一化**列类型。
- *
- * 这些是驱动类型名、不是协议类型：`driver.normalizeType()` 才把实体列变成数据库真正用的名字，
- * 而它在不同驱动下本就不同（`String` 在 SQLite 是 `varchar`、在 Postgres 是 `character varying`）。
- * 不在此集合内的列类型按**不可搜**处理、不做强转 —— 拿文本模式去匹配整数或日期不是功能，是静默漏掉。
- *
- * 这个集合是对着**实测输出**写的、不是照假设写的：在本仓的 SQLite 驱动下，一个普通的
- * `@Column({ length: 200 })` 归一化为 `varchar`，而这些列的元数据 `type` 字段恰恰是 **undefined** ——
- * 若从元数据上读 `type`，做出来的搜索会静默地什么都匹配不到。
- */
-export const TEXT_COLUMN_TYPES = new Set([
-  'varchar',
-  'character varying',
-  'nvarchar',
-  'nvarchar2',
-  'text',
-  'clob',
-  'mediumtext',
-  'longtext',
-  'tinytext',
-  'string',
-]);
+/** One module's declaration: its plural name and the columns search may match. */
+/* 一个模块的声明：它的复数名，以及搜索可以匹配的列。 */
+export interface SearchableDeclaration {
+  module: string;
+  fields: string[];
+}
 
 /** A module global search can query, with the columns it is allowed to touch. */
 /* 全局搜索可以查询的模块，以及它被允许触碰的列。 */
@@ -84,8 +47,8 @@ export interface SearchableTarget {
   /** The column that ties a row to its owner; search never runs without one. */
   /* 把行绑到其归属者的列；没有它搜索根本不跑。 */
   ownerColumn: string;
-  /** Text columns matched by the keyword. Never empty. */
-  /* 参与关键词匹配的文本列，绝不为空。 */
+  /** Declared columns matched by the keyword, in declaration order. Never empty. */
+  /* 参与关键词匹配的声明列，按声明顺序。绝不为空。 */
   textColumns: string[];
   /**
    * The primary key, used to order results.
@@ -103,38 +66,42 @@ export interface SearchableTarget {
 }
 
 /**
- * Resolve manifest module names to queryable targets, dropping any that cannot be searched safely.
+ * Resolve declarations into queryable targets, dropping any that cannot be searched safely.
  *
  * A module is dropped when the running process has no entity for it (deleted, or not registered in
- * this build) or when it has no ownership column. Both are ordinary outcomes — the manifest is a
- * file, and the process is whatever it was built as — so neither is an error.
+ * this build), when it has no ownership column, when it has no primary key to order by, or when
+ * **none** of its declared columns exist on the entity. Every one of those is an ordinary outcome for
+ * a file that a hand edit can reach, and none is an error — but each of them would otherwise become a
+ * failed query, so dropping is the only fail-closed option that also keeps the rest of the search
+ * working.
  *
- * 把清单里的模块名解析成可查询的目标，丢掉任何无法安全搜索的。
+ * 把声明解析成可查询的目标，丢掉任何无法安全搜索的。
  *
- * 当运行进程里没有该模块的实体（已删除、或这次构建没注册它）或它没有归属列时，模块被丢弃。
- * 两者都是寻常结果 —— 清单是个文件、进程是它被构建成的样子 —— 故都不是错误。
+ * 当运行进程里没有该模块的实体（已删除、或这次构建没注册它）、它没有归属列、没有可用于排序的主键、
+ * 或它声明的列在实体上**一个都不存在**时，模块被丢弃。对一份手改得着的文件来说，每一种都是寻常结果、
+ * 都不是错误 —— 但每一种若不处理都会变成一次失败的查询，故丢弃是唯一既 fail-closed、又能让搜索其余
+ * 部分照常工作的选择。
  */
 export function resolveSearchableTargets(
   dataSource: DataSource,
-  modules: string[],
+  declarations: SearchableDeclaration[],
 ): SearchableTarget[] {
   const byTable = new Map(dataSource.entityMetadatas.map((m) => [m.tableName, m]));
   const targets: SearchableTarget[] = [];
 
-  for (const module of modules) {
+  for (const { module, fields } of declarations) {
     const entity = byTable.get(module);
     if (!entity) continue;
 
     const ownerColumn = pickOwnerColumn(entity);
     if (!ownerColumn) continue;
 
-    const textColumns = entity.columns
-      .filter((c) => TEXT_COLUMN_TYPES.has(dataSource.driver.normalizeType(c)))
-      .map((c) => c.propertyName);
-    if (textColumns.length === 0) continue;
-
     const orderColumn = entity.primaryColumns[0]?.propertyName;
     if (!orderColumn) continue;
+
+    const columns = new Set(entity.columns.map((c) => c.propertyName));
+    const textColumns = fields.filter((f) => columns.has(f));
+    if (textColumns.length === 0) continue;
 
     targets.push({ module, entity, ownerColumn, textColumns, orderColumn });
   }

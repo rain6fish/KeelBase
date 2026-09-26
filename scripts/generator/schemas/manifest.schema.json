@@ -19,8 +19,16 @@
     },
     "searchableModules": {
       "type": "array",
-      "description": "声明了 searchable 的已生成模块（modules 的子集，排序去重）。运行时全局搜索据此索引，不再手工维护清单。可选键：旧清单无它仍合法",
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" }
+      "description": "声明了 searchable 的已生成模块，按模块名排序。每项带 fields = spec 里 string/text 字段的属性名（按声明顺序），运行时全局搜索只匹配这些列 —— 列由声明来、不在运行时嗅探类型。重生成该模块会刷新其 fields；条目不因别的模块的运行而被移除。可选键：旧清单无它仍合法",
+      "items": {
+        "type": "object",
+        "required": ["module", "fields"],
+        "additionalProperties": false,
+        "properties": {
+          "module": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,29}$" },
+          "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
     }
   }
 }

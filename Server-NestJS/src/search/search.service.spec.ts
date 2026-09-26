@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { SearchService } from './search.service';
 import { EventsService } from '../events/events.service';
 import { UsersService } from '../users/users.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { Book } from '../books/book.entity';
 
 /**
@@ -30,23 +31,28 @@ jest.mock('fs', () => {
   };
 });
 
-/** The manifest as the generator writes it, with the given modules declared searchable. */
-/* 生成器写出来的那份清单，给定模块声明为可搜。 */
-function manifestDeclaring(...searchableModules: string[]): string {
+/** The manifest as the generator writes it: which modules are searchable, and which columns. */
+/* 生成器写出来的那份清单：哪些模块可搜、以及哪些列。 */
+function manifestDeclaring(...searchableModules: Array<{ module: string; fields: string[] }>): string {
   return JSON.stringify({
     schema: 1,
     identity: 'keelbase-application',
     generator: 'keelbase',
     generatorVersion: '0.9.1',
     protocol: '1.1',
-    modules: searchableModules,
+    modules: searchableModules.map((m) => m.module),
     searchableModules,
   });
 }
 
+const BOOKS = { module: 'books', fields: ['title', 'author'] };
+
 describe('SearchService', () => {
   const eventsService = { search: jest.fn() };
   const usersService = { searchUsers: jest.fn() };
+  /** Enabled unless a case says otherwise — the platform's own default read of a flag key. */
+  /* 缺省开启，除非某个用例另有说明 —— 与平台读这些键的默认方式一致。 */
+  const featureFlags = { isEnabled: jest.fn(() => true) };
   let dataSource: DataSource;
   let service: SearchService;
 
@@ -66,6 +72,7 @@ describe('SearchService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    featureFlags.isEnabled.mockReturnValue(true);
     mockManifestJson = null;
     await dataSource.getRepository(Book).clear();
 
@@ -88,6 +95,7 @@ describe('SearchService', () => {
         { provide: EventsService, useValue: eventsService },
         { provide: UsersService, useValue: usersService },
         { provide: getDataSourceToken(), useValue: dataSource },
+        { provide: FeatureFlagsService, useValue: featureFlags },
       ],
     }).compile();
 
@@ -115,7 +123,7 @@ describe('SearchService', () => {
   });
 
   it('returns empty result for blank query without hitting services', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks([{ title: 'Clean Code', userId: 5 }]);
 
     const result = await service.searchAll('   ', 5, 1, 10);
@@ -128,7 +136,7 @@ describe('SearchService', () => {
   });
 
   it('清单声明可搜的模块 → 命中本人记录，并带上模块名与总数', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks([
       { title: 'Clean Code', author: 'Robert Martin', userId: 5 },
       { title: 'Refactoring', author: 'Martin Fowler', userId: 5 },
@@ -149,7 +157,7 @@ describe('SearchService', () => {
   });
 
   it('按数据范围过滤：他人记录不出现，即使关键词命中', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks([
       { title: 'Clean Code', userId: 5 },
       { title: 'Clean Architecture', userId: 6 },
@@ -169,15 +177,41 @@ describe('SearchService', () => {
   });
 
   it('匹配所有文本列，不只标题（作者命中也要出）', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks([{ title: 'Clean Code', author: 'Robert Martin', userId: 5 }]);
 
     expect((await service.searchAll('Fowler', 5, 1, 10)).modules[0].items).toHaveLength(0);
     expect((await service.searchAll('Martin', 5, 1, 10)).modules[0].items).toHaveLength(1);
   });
 
+  it('只匹配声明的列：把 status 从声明里去掉，就不再按它命中', async () => {
+    // `status` is a text column at the database level, and the previous implementation matched it
+    // because it matched *every* text column. Declared columns are the point: a module says which
+    // of its fields search may touch, and a status is not free text.
+    // `status` 在数据库层确实是文本列，而上一版实现会匹配它 —— 因为它匹配**所有**文本列。声明列才是
+    // 本意：模块自己说哪些字段可被搜，而状态不是自由文本。
+    mockManifestJson = manifestDeclaring({ module: 'books', fields: ['author'] });
+    await seedBooks([{ title: 'Clean Code', author: 'Robert Martin', userId: 5 }]);
+
+    expect((await service.searchAll('Clean', 5, 1, 10)).modules[0].items).toHaveLength(0);
+    expect((await service.searchAll('Martin', 5, 1, 10)).modules[0].items).toHaveLength(1);
+  });
+
+  it('模块的 feature flag 关掉 → 不进搜索（它的端点此时已经 404）', async () => {
+    mockManifestJson = manifestDeclaring(BOOKS);
+    await seedBooks([{ title: 'Clean Code', userId: 5 }]);
+    featureFlags.isEnabled.mockReturnValue(false);
+
+    const result = await service.searchAll('clean', 5, 1, 10);
+
+    // 其余两半照常：关掉一个模块不该让整次搜索变成空
+    expect(result.modules).toEqual([]);
+    expect(result.events.items).toHaveLength(1);
+    expect(result.users.items).toHaveLength(1);
+  });
+
   it('软删的记录不进搜索结果，且 total 与 items 同口径', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     const repo = dataSource.getRepository(Book);
     const kept = await repo.save(repo.create({ title: 'Clean Code', author: 'Anon', userId: 5 }));
     const gone = await repo.save(repo.create({ title: 'Clean Coder', author: 'Anon', userId: 5 }));
@@ -192,7 +226,7 @@ describe('SearchService', () => {
   });
 
   it('limit 生效，且 total 是范围内命中总数（不是本页条数）', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks(Array.from({ length: 3 }, (_, i) => ({ title: `Clean Code ${i}`, userId: 5 })));
 
     const result = await service.searchAll('clean', 5, 1, 2);
@@ -205,7 +239,7 @@ describe('SearchService', () => {
   });
 
   it('page/limit 在入口钳一次：limit=0 不会让 totalPages 变成 NaN（JSON 里是 null）', async () => {
-    mockManifestJson = manifestDeclaring('books');
+    mockManifestJson = manifestDeclaring(BOOKS);
     await seedBooks([{ title: 'Clean Code', userId: 5 }]);
 
     const result = await service.searchAll('clean', 5, 0, 0);
