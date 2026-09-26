@@ -18,6 +18,15 @@ describe('CreateModuleTool（System AI L4 Act：dry-run 预览）', () => {
 
   it('dry-run 预览：返回生成模块定义 + 引导（不写文件）', async () => {
     const r = await tool.execute({ module: 'wipmod', label: 'WIP 模块', fields: 'title:string,note:text' });
+    // Asserted before `success`, deliberately: this spec spawns the real CLI, and the CLI statically
+    // imports `scripts/generator/*.mjs`. While that tree is momentarily incoherent — another session
+    // writing it, a checkout switching underneath — the child dies at import and `success: false` alone
+    // says nothing about why. Asserting `error` first puts the CLI's own message into the failure output.
+    //
+    // 有意先断言 `error`：本 spec spawn 真 CLI，而 CLI 会静态 import `scripts/generator/*.mjs`。那棵树
+    // 一时不成一体时——另一会话正在写它、或 checkout 在它下面切换——子进程会在 import 处就死掉，单看
+    // `success: false` 完全看不出原因。先断言 `error` 能把 CLI 自己的报错带进失败输出。
+    expect(r.error).toBeUndefined();
     expect(r.success).toBe(true);
     const data = r.data as any;
     // 预览输出含模块定义（dry-run 不写文件）
