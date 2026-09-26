@@ -24,12 +24,15 @@
  *      于是这里守三件事：① 声明必须是 woff2；② 合计不超预算；③ **界面文案不得越出子集**
  *      （子集裁掉的字在断网环境下没有回退，直接豆腐，且服务端/类型检查/门禁之外看不出来）。
  *      子集口径与重生成：`scripts/subset-cjk-font.py`。
+ *   6. 传输压缩：两份 nginx 配置（`nginx.conf` 与 `nginx.https.conf`）的 gzip 必须一致，且含
+ *      `application/wasm`——CanvasKit 引擎本体 5.4MB，gzip 后 2.1MB，是字体子集化之后的最大单项。
+ *      两者在 prod 是**替换**关系（overlay 拿 https 那份覆盖 `default.conf`），差一边就等于没压。
  *
- * 第 1/2/4 项是构建参数，第 3 项是服务端响应头，第 5 项是字体资源——都由这里守着，
+ * 第 1/2/4 项是构建参数，第 3 项是服务端响应头，第 5 项是字体资源，第 6 项是传输配置——都由这里守着，
  * 因为它们只在浏览器里现形。三次踩到，每次都是「服务端全绿、浏览器白屏」：先是基路径
  * （陌生人冷跑报告），再是 CSP（单容器实测），后是 API 基址（2026-09-24 用真浏览器定位：
- * 引擎起来了、界面不渲染、控制台 ERR_CONNECTION_REFUSED）。第 5 项是性能与字形覆盖而非白屏，
- * 但它和前面几条一样：**服务端毫无异常，只有真浏览器（或这条断言）看得见**。
+ * 引擎起来了、界面不渲染、控制台 ERR_CONNECTION_REFUSED）。第 5/6 项是性能而非白屏，
+ * 但它们和前面几条一样：**服务端毫无异常，只有真浏览器（或这些断言）看得见**。
  *
  * 零依赖（node:fs + node:path），接入：npm run check:mobile-preview
  */
@@ -66,6 +69,14 @@ const FONT_BUDGET_BYTES = 3 * 1024 * 1024;
 const FONT_COVERAGE = 'Front-Flutter/assets/fonts/NotoSansSC-Regular.coverage.txt';
 /** 界面文案所在目录：其中的非 ASCII 字符必须全部落在子集内，否则界面会出现豆腐块。 */
 const UI_DIR = 'Front-Flutter/lib';
+/**
+ * 两份 nginx 配置必须有一致的 gzip 设置。prod overlay 拿 `nginx.https.conf` **替换**
+ * `/etc/nginx/conf.d/default.conf`，所以写在其中一份里的压缩设置在另一份不生效——
+ * 2026-09-25 就是这么丢的：`nginx.conf` 有 gzip、`nginx.https.conf` 没有，线上前端产物一直明文传输。
+ */
+const NGINX_CONFS = ['nginx.conf', 'nginx.https.conf'];
+/** 必须被压缩的类型：CanvasKit 引擎本体是 5.4MB 的 wasm，gzip 后 2.1MB，是当前最大单项。 */
+const GZIP_REQUIRED_TYPES = ['application/wasm'];
 
 /** 本文件自身的注释与正则字面量含同样的字面量，不参与判定。 */
 const SELF = 'scripts/check-mobile-preview.mjs';
@@ -235,6 +246,41 @@ try {
   /* pubspec 或覆盖清单不存在（裁剪过的检出）则跳过 */
 }
 
+// 两份 nginx 配置的 gzip 必须一致（一份替换另一份，缺一边就等于没压）
+try {
+  const parseGzip = (text) => {
+    const m = text.match(/^\s*gzip_types\s+([^;]+);/m);
+    return m ? new Set(m[1].trim().split(/\s+/)) : null;
+  };
+  const types = [];
+  for (const file of NGINX_CONFS) {
+    const set = parseGzip(await readFile(join(ROOT, file), 'utf8'));
+    if (set === null) {
+      problems.push(`${file} 没有 gzip_types——另一份配置在 prod 里是替换关系，缺一边就等于不压缩`);
+      continue;
+    }
+    const missing = GZIP_REQUIRED_TYPES.filter((t) => !set.has(t));
+    if (missing.length > 0) {
+      problems.push(
+        `${file} 的 gzip_types 缺 ${missing.join(' ')}——CanvasKit 的 wasm 有 5.4MB，不压就白等约 8 秒`,
+      );
+    }
+    types.push(set);
+  }
+  if (types.length === 2) {
+    const [a, b] = types;
+    const diff = [...a].filter((t) => !b.has(t)).concat([...b].filter((t) => !a.has(t)));
+    if (diff.length > 0) {
+      problems.push(
+        `${NGINX_CONFS.join(' 与 ')} 的 gzip_types 不一致（${diff.join(' ')}）——` +
+          `两者是替换关系，差异只在对应环境下才暴露`,
+      );
+    }
+  }
+} catch {
+  /* 配置不存在（裁剪过的检出）则跳过 */
+}
+
 if (problems.length > 0) {
   console.error('✗ 移动预览门禁未通过：\n');
   for (const p of problems) console.error(`  ${p}`);
@@ -244,5 +290,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  '✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖 + 打包字体 woff2、在预算内、且盖住界面文案）',
+  '✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖 + 打包字体 woff2、在预算内、且盖住界面文案 + nginx 压缩一致含 wasm）',
 );
