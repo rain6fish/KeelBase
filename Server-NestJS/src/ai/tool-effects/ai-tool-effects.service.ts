@@ -1535,6 +1535,21 @@ export class AiToolEffectsService {
         groupId,
         requestedEffectId: requested.id,
         total: members.length,
+        // REV-12：**指回原始授权决定**。此前这行有组、有成员明细、有 target，唯独没有「这次撤销依据的是
+        // 哪次授权」⇒「谁许可 / 执行 / 收回」要靠证据包另行拼装，**行本身**答不出。这里带上授权时那条
+        // 链的连接键，使三者可在一条链上读。**不新建第二套授权存储** —— 只指回，不复制。
+        //
+        // 为什么是这几个键、以及它们各自能指到哪（如实边界）：
+        // - `runId`：**run 级确认时它就是那次决定本身的标识**（token = runId，见 run-level-approval.spec.md
+        //   §2.3）—— 这是**直接引用**；单条确认/免确认写为 null。
+        // - `conversationId` + `toolName`：单条确认唯一可靠的定位键 —— 授权依据（含策略版本）在会话的
+        //   `tool_call` 审计行上，按这两个键可定位到它。**不把策略版本复制过来**：撤销时读到的策略版本是
+        //   **此刻**的，不是授权时的，抄进来只会把后来的策略写成当时的依据。
+        authorization: {
+          conversationId: requested.conversationId ?? null,
+          runId: requested.runId ?? null,
+          toolName: requested.toolName,
+        },
       }),
       // changes 是链外列（≤4000）→ 逐成员明细放这里不动 payload 契约；超长截断护栏
       changes: detail.length > 4000 ? `${detail.slice(0, 3997)}...` : detail,

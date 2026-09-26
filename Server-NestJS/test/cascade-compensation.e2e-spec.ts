@@ -168,6 +168,13 @@ describe('Cascade Compensation 级联补偿验收（PmProject + N × PmTask）',
     expect(detail).toHaveLength(3);
     expect(detail[0]).toMatchObject({ resultType: 'pm_project', resultId: projectId, role: 'root' });
     expect(detail.filter((d) => d.role === 'child')).toHaveLength(2);
+
+    // REV-12：这行还**指回**它依据的那次授权——带授权那条链的连接键，使「谁许可 / 执行 / 收回」在一条链上可读
+    const body = JSON.parse(row.requestBody!) as { authorization?: Record<string, unknown> };
+    expect(body.authorization).toMatchObject({
+      conversationId: expect.any(String),
+      toolName: expect.any(String),
+    });
   });
 
   it('两条哈希链均完整（补偿行确实入链）', async () => {
