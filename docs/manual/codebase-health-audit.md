@@ -20,7 +20,7 @@
 | H2 | `Server-NestJS/src/auth/auth.service.ts`（1111）/ `src/ai/audit/audit.service.ts`（1022） | 巨型 service，天然子域边界明显（auth: 登录/锁定/OAuth/MFA/SSO/会话；audit: 写入/哈希链/统计/报表） | 阶段 3 先拆这两个（先拆小后拆大） |
 | H3 | `src/crm/crm.service.ts`（571）/ `src/admin/admin.service.ts`（598）/ `src/org/org.service.ts`（568） | 中型膨胀（500+） | 阶段 3 后续 |
 | H4 | audit/governance 语义分散：`src/operation-audit` / `src/ai/audit` / `src/ai/governance` / `src/governance` / `src/governance-sidecar` | 治理+审计+审批语义切 4+1 处，`governance` 与 `ai/governance` 命名直接平行；sidecar 疑可独立进程又与 ai-tool-effects 交叉 | 阶段 4 独立架构立项（牵涉独立治理台进程，**不在本次范围**） |
-| H5 | import 环（5 处）| 阶段 2（2026-09-03）已切 **service 级两条反向运行时环**：新建 `AuthorizationExplainerService`（授权解释子域），audit.service / auth.controller 不再依赖 AiService；环 1 compactor、环 3 presets 核实为类型级 import（改 import type / 已 import type，无运行时环）；**module 级 forwardRef 环已于 2026-09-22 打断**（抽出两个叶子模块，见 §4 阶段 4 记录）——该族 9 个模块的 forwardRef 全部降为普通 import；仅剩独立的 `notifications ↔ realtime` 一对（另一条环，未动） |
+| H5 | import 环（5 处）| 阶段 2（2026-09-03）已切 **service 级两条反向运行时环**：新建 `AuthorizationExplainerService`（授权解释子域），audit.service / auth.controller 不再依赖 AiService；环 1 compactor、环 3 presets 核实为类型级 import（改 import type / 已 import type，无运行时环）；**module 级 forwardRef 环已于 2026-09-22 打断**（抽出两个叶子模块，见 §4 阶段 4 记录）——该族 9 个模块的 forwardRef 全部降为普通 import；**`notifications ↔ realtime` 一对已于 2026-09-26 清（实测其本就不是环）**——`RealtimeModule` 只依赖 Config / Jwt / FeatureFlags，**绕不回** `NotificationsModule`；那个 `forwardRef` 是**早年那条已切断的边（`Realtime → Ai`）的残留**，删掉即收口（判据 = **装配冒烟门 `app-wiring.spec.ts`（真 `AppModule` 实例化）3/3 绿**）。**该族 5 处环至此全部收口** |
 
 ### MEDIUM — 质量（阶段 2/后续）
 
@@ -69,7 +69,9 @@
 ### 阶段 1 — 低风险确定清理（本次已完成，见 §4）
 安全立竿见影，验证清理流程可行性。**缺点**：只清表面，不动结构。
 
-### 阶段 2 — 结构修复（import 环 H5）【待批准】
+### 阶段 2 — 结构修复（import 环 H5）✅ **已完成（2026-09-26）**
+
+> **收口**：本阶段实际只剩 H5，而 H5 的最后「一对」实测**不是环、是残留**（见 §2 H5 行）⇒ **删掉 `NotificationsModule` 上那个 `forwardRef` 即完成**。聚焦 7 套 / 64 用例绿 + 全量回归绿。**一处方法论**：这条待办之所以还挂着，正是本清单自己警告过的「**实现已超前、表未回填**」——环在 `Realtime → Ai` 那条边被切断时就没了，`forwardRef` 只是没跟着删。
 
 > 原标题还写着「demo-provider dev-only M1」。**M1 已于 2026-09-03 取消**（见 §2 MEDIUM 表：那是 `resolveProvider` 链尾的确定性兜底——无 key 的干净环境跑通 AI 黄金流程靠的就是它，非生产泄漏）。本阶段实际只剩 import 环 H5。
 
