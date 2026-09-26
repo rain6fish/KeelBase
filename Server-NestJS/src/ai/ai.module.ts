@@ -50,6 +50,7 @@ import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { AuthzExplainModule } from './authz-explain.module';
 import { AiAuditModule } from './audit/ai-audit.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
@@ -172,6 +173,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,
+    // REV-15：工具闸门的拒绝计数（tool_gate_refusals_total）住在 MetricsService（prom-client 全局
+    // registry，故 /metrics 自动含它）。引 MetricsModule 只是让它的 provider 可见；
+    // 其 configure() 里的 MetricsMiddleware 是按**模块实例**注册一次的，不会因多一个 importer 而重复计数。
+    MetricsModule,
     CacheModule,
     OperationAuditModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),

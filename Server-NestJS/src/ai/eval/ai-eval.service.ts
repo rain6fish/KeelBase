@@ -9,6 +9,8 @@ import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { MODULES_MANIFEST } from '../../common/modules/modules-manifest';
 import { APP_VERSION } from '../../app-version/app-version.config';
 import { ADMIN_SYSTEM_PROMPT } from '../constants/admin-system-prompt';
+// 夹具身份单源（REV-15）：构造点与闸门的判读共用同一前缀，防「评测在用夹具身份而计数器记成生产」
+import { fixtureUserId } from '../constants/fixture-identity';
 
 /** HS-1 评测断言类型 */
 export type EvalAssertType =
@@ -316,7 +318,7 @@ export class AiEvalService {
                   30_000,
                 )
               : await this.withTimeout(
-                  this.aiService.chat(`eval:${started}`, { message: c.prompt }),
+                  this.aiService.chat(fixtureUserId(started), { message: c.prompt }),
                   30_000,
                 );
           actualToolCalls = res.toolCalls;

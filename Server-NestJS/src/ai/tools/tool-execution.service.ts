@@ -100,7 +100,7 @@ export class ToolExecutionService {
 
     // AUTHZ-2：策略声明的可写字段域 / destination 白名单，同样在**执行点**按实际请求校验
     //（与上面同一理由：声明可在等待窗口内被收紧，执行点才是它必须成立的地方）。
-    await this.toolGate.assertWithinDeclaredScope(toolName, args);
+    await this.toolGate.assertWithinDeclaredScope(toolName, args, userId);
 
     // AUTHZ-1：确认 artifact 的目的地绑定。artifact 在签发时记下它被批准写往哪个系统，
     // 这里拿它和**此刻**该工具的目的地比对——等待窗口内目的地可被改指（Settings 热重载换代理

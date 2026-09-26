@@ -17,10 +17,17 @@ import { ExternalToolRegistry } from './external-tool-registry';
 import { GovernancePolicyService } from '../governance/governance-policy.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { UsersService } from '../../users/users.service';
-import { AiTool, AuthorizationDeniedError, ToolRiskLevel } from '../interfaces/tool.interface';
+import {
+  AiTool,
+  AuthorizationCheck,
+  AuthorizationDeniedError,
+  ToolRiskLevel,
+} from '../interfaces/tool.interface';
 import { resolveToolDestination } from './tool-destination';
 import { BusinessException } from '../../common/errors/business.exception';
 import { UserRole } from '../../common/entities/user.entity';
+import { MetricsService } from '../../metrics/metrics.service';
+import { isFixtureUser } from '../constants/fixture-identity';
 
 @Injectable()
 export class ToolGateService {
@@ -30,7 +37,32 @@ export class ToolGateService {
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
     @Optional() private readonly featureFlagsService?: FeatureFlagsService,
     @Optional() private readonly usersService?: UsersService,
+    /**
+     * REV-15：拒绝计数（`tool_gate_refusals_total`）。**@Optional** —— 单测/降级装配可省，
+     * 省则计数静默跳过（抛出的语义不受影响：计数是证据，不是门控本身）。
+     */
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
+
+  /**
+   * REV-15：拒绝的**唯一出口** —— 计数与抛出在同一处，所以「同一闸门、同一计数器」是**结构保证**的，
+   * 不靠每个分支各自记得加一行。新加一条门控若绕开它，就直接少了证据（且审查时一眼可见）。
+   */
+  private _refuse(userId: string, check: AuthorizationCheck, message: string): never {
+    this._countRefusal(userId, check.name);
+    throw new AuthorizationDeniedError(message, [check]);
+  }
+
+  /**
+   * 记一次拒绝。`source` 由**夹具身份单源**判读（`ai/constants/fixture-identity.ts`）——
+   * 不在本文件里另写一份前缀，否则「评测在用夹具身份而计数器记成生产」这类漂移无人察觉。
+   */
+  private _countRefusal(userId: string, reason: string): void {
+    this.metrics?.toolGateRefusalsTotal.inc({
+      reason,
+      source: isFixtureUser(userId) ? 'fixture' : 'production',
+    });
+  }
 
   /**
    * HS-2 + HS-9 工具执行前权限门控：按工具声明 + 治理策略检查调用资格。
@@ -53,9 +85,10 @@ export class ToolGateService {
 
     // W5 风险模型：R5（不可逆/外部动作）→ 阻断，不进入确认/执行（评审二 §7）
     if (tool && this.toolRegistry.riskLevel(toolName) === 'R5') {
-      throw new AuthorizationDeniedError(
+      this._refuse(
+        userId,
+        { name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` },
         `Tool "${toolName}" is blocked (risk level R5)`,
-        [{ name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` }],
       );
     }
 
@@ -63,9 +96,10 @@ export class ToolGateService {
     if (this.governancePolicy) {
       const enabled = await this.governancePolicy.isToolEnabled(toolName);
       if (!enabled) {
-        throw new AuthorizationDeniedError(
+        this._refuse(
+          userId,
+          { name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' },
           `Tool "${toolName}" is disabled by governance policy`,
-          [{ name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' }],
         );
       }
       const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
@@ -77,15 +111,14 @@ export class ToolGateService {
           ? await this.usersService.findOne(Number(userId))
           : null;
         if (!user || !user.role || !allowedRoles.includes(user.role)) {
-          throw new AuthorizationDeniedError(
+          this._refuse(
+            userId,
+            {
+              name: 'role_allowed',
+              ok: false,
+              note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
+            },
             `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
-            [
-              {
-                name: 'role_allowed',
-                ok: false,
-                note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
-              },
-            ],
           );
         }
       }
@@ -99,9 +132,10 @@ export class ToolGateService {
       this.featureFlagsService &&
       !this.featureFlagsService.isEnabled(perms.featureFlag as never)
     ) {
-      throw new AuthorizationDeniedError(
+      this._refuse(
+        userId,
+        { name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` },
         `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
-        [{ name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` }],
       );
     }
 
@@ -112,9 +146,10 @@ export class ToolGateService {
         ? await this.usersService.findOne(Number(userId))
         : null;
       if (!user || user.role !== UserRole.ADMIN) {
-        throw new AuthorizationDeniedError(
+        this._refuse(
+          userId,
+          { name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' },
           `Tool "${toolName}" is admin-only`,
-          [{ name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' }],
         );
       }
     }
@@ -126,6 +161,9 @@ export class ToolGateService {
       const user = await this.usersService.findOne(Number(userId));
       // 与 EmailVerificationGuard 一致：admin 视为已验证（headless '0' 已在上面返回）
       if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
+        // 与上面各条**同闸门同计数器**：这里抛的是 BusinessException（错误码路径），但拒绝就是拒绝，
+        // 不能因为抛出类型不同就不计入——否则「门在守」的证据会缺一块。
+        this._countRefusal(userId, 'email_verified');
         throw new BusinessException('EMAIL_NOT_VERIFIED');
       }
     }
@@ -161,6 +199,7 @@ export class ToolGateService {
   async assertWithinDeclaredScope(
     toolName: string,
     args: Record<string, unknown>,
+    userId: string,
   ): Promise<void> {
     if (!this.governancePolicy) return;
     const policy = await this.governancePolicy.getToolPolicy(toolName);
@@ -169,15 +208,14 @@ export class ToolGateService {
     if (allowedDestinations.length > 0) {
       const destination = this.destinationOf(toolName);
       if (!allowedDestinations.includes(destination)) {
-        throw new AuthorizationDeniedError(
+        this._refuse(
+          userId,
+          {
+            name: 'destination_allowed',
+            ok: false,
+            note: `目的地 ${destination} 不在白名单 [${allowedDestinations.join(', ')}]`,
+          },
           `Tool "${toolName}" is not allowed to write to destination "${destination}" (allowed: ${allowedDestinations.join(', ')})`,
-          [
-            {
-              name: 'destination_allowed',
-              ok: false,
-              note: `目的地 ${destination} 不在白名单 [${allowedDestinations.join(', ')}]`,
-            },
-          ],
         );
       }
     }
@@ -186,15 +224,14 @@ export class ToolGateService {
     if (writableFields.length > 0) {
       const outOfDomain = Object.keys(args ?? {}).filter((k) => !writableFields.includes(k));
       if (outOfDomain.length > 0) {
-        throw new AuthorizationDeniedError(
+        this._refuse(
+          userId,
+          {
+            name: 'field_domain',
+            ok: false,
+            note: `字段 ${outOfDomain.join(', ')} 不在可写域 [${writableFields.join(', ')}]`,
+          },
           `Tool "${toolName}" received arguments outside its writable field domain: ${outOfDomain.join(', ')}`,
-          [
-            {
-              name: 'field_domain',
-              ok: false,
-              note: `字段 ${outOfDomain.join(', ')} 不在可写域 [${writableFields.join(', ')}]`,
-            },
-          ],
         );
       }
     }
