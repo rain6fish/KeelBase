@@ -1124,7 +1124,7 @@ export class AiToolEffectsService {
    * 这里不再把同一句话追加第二遍；跳过路径没有组汇总，故在**施加之前**先判一次。
    */
   private async _concludeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
-    const reason = this._skipReason(effect);
+    const reason = await this._skipReason(effect);
     if (reason) {
       return this._withDisputeNote(
         effect,
@@ -1231,7 +1231,7 @@ export class AiToolEffectsService {
           continue;
         }
       }
-      const skipReason = this._skipReason(effect);
+      const skipReason = await this._skipReason(effect);
       if (skipReason) {
         skipped++;
         results.push(
@@ -1275,9 +1275,35 @@ export class AiToolEffectsService {
   }
 
   /** 撤销跳过判据（单条/批量共用）：已软删 revoked / 已请求外部补偿 compensating；revoke_failed 视为可重试 */
-  private _skipReason(effect: AiToolSideEffect): 'already_revoked' | 'compensating' | null {
-    if (effect.revokeStatus === 'revoked') return 'already_revoked';
+  /**
+   * 幂等判据：**这一行到底做完了没有**。
+   *
+   * ARC-1：此前只看 `revokeStatus === 'revoked'`，而读侧 `isRestored` 要求「revoked **且** 目标仍未软删」
+   * ——**同一条状态、两条路两个结论**：一条撤销后从回收站恢复的行（目标又活了），撤销侧仍报
+   * `already_revoked`（即 `revoked:true`），而列表侧早已按 `targetSoftDeleted` 把它读成 `executed`。
+   * 于是「撤销报完成，而那条业务动作仍然活着」。现取**同一判据**：`revoked` **且目标仍在软删态**才算完成；
+   * 目标已复活 ⇒ 不算完成 ⇒ 走正常撤销路径（读侧本来就是这么建模的：恢复 ⇒ 这条又活了）。
+   *
+   * **只在有本地软删语义时**才这么判：`describeTarget` 对**外部**副作用返回的是占位
+   * `{deletedAt: null}`（「撤销语义在外部」，不是「目标活着」），照它判会把外部行读成未完成而**重复补偿**。
+   * 故以 `_classOf === 'local_compensate'` 且 revoker 认这个 resultType 为门。
+   *
+   * 目标读不到（无 revoker / 行不存在）⇒ **判不了**，按完成处理——保守方向是「不因读不到就去重复补偿」。
+   */
+  private async _skipReason(
+    effect: AiToolSideEffect,
+  ): Promise<'already_revoked' | 'compensating' | null> {
     if (effect.revokeStatus === 'compensating') return 'compensating';
+    if (effect.revokeStatus === 'revoked') {
+      const localSoftDelete =
+        this._classOf(effect) === 'local_compensate' &&
+        (this.revoker?.canHandle(effect.resultType) ?? false);
+      if (localSoftDelete) {
+        const target = await this._loadTarget(effect.resultType, effect.resultId);
+        if (target && target.deletedAt == null) return null; // 已从回收站恢复 → 又活了 → 不算完成
+      }
+      return 'already_revoked';
+    }
     return null;
   }
 
@@ -1382,7 +1408,7 @@ export class AiToolEffectsService {
     const disputeNotes = this._disputeNotes(members, cross);
 
     for (const m of members) {
-      const reason = this._skipReason(m);
+      const reason = await this._skipReason(m);
       if (reason) {
         results.push({
           effectId: m.id,

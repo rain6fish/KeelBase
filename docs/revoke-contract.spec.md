@@ -180,6 +180,31 @@ existing `message` carries it). **Undeterminable cases report nothing** rather t
 preserving the other party's edit and revoking only the AI's part (field-level rollback, a different order
 of work).
 
+### 5.7 已恢复的行再撤销：幂等判据与读侧同源 / A restored row: the idempotency criterion matches the read side
+
+幂等判据此前只看 `revoke_status === 'revoked'`，而读侧 `isRestored` 要求「`revoked` **且** 目标仍未软删」——
+**同一条状态、两条路两个结论**：一条撤销后从回收站恢复的行（目标又活了），撤销侧仍报 `already_revoked`
+（即 `revoked: true`），而列表侧早已按 `targetSoftDeleted` 把它读成 `executed`。于是用户看到「已撤销」，
+而那条业务动作**活着**。而回收站恢复**只清 `deletedAt`、不动 `revoke_status`**（§3 / RG-3），故这个组合是
+**真实可达**的，不是假想。
+
+现取**同一判据**：`revoked` **且目标仍在软删态**才算完成；目标已复活 ⇒ 不算完成 ⇒ 走正常撤销路径
+（读侧本来就是这么建模的：恢复 ⇒ 这条又活了 ⇒ 可再撤）。**目标读不到**（无撤销器 / 行不存在）⇒
+**判不了**，按完成处理——保守方向是「不因读不到就去重复补偿」。
+
+**只在有本地软删语义时**才这么判。`describeTarget` 对**外部**副作用返回的是**占位** `{deletedAt: null}`
+（「撤销语义在外部」，不是「目标活着」）；照它判会把外部行读成未完成而**重复外呼补偿**——那正是本仓反复
+修的那类「同一状态、两条路两个结论」，只是这次会以真金白银的形式出现。故以 `_classOf === 'local_compensate'`
+且撤销器认这个 resultType 为门。
+
+The idempotency criterion read only `revoke_status === 'revoked'` while the read side's `isRestored` requires
+the target to *still* be soft-deleted — one state, two verdicts. A row that was revoked and then restored from
+the recycle bin has a live target again, yet the revoke side still called it done. The two now share one
+criterion: revoked **and** the target still soft-deleted. An unreadable target is treated as done — the
+conservative direction is not to compensate again merely because the state could not be read. The check is
+gated on local soft-delete semantics: `describeTarget` returns a *placeholder* `{deletedAt: null}` for external
+effects, and reading that as "alive" would re-dispatch a real external compensation.
+
 ### 5.5 落点与验收 / Landing points
 
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
@@ -190,8 +215,9 @@ of work).
 | 5.3 闸门 | `_crossGroupClaims` + `_concludeSingle` / `_compensateGroup` / `_revokeBatch` / `_disputeNotes` | `revoke-split-gate.spec.ts`（旧实现：汇总恒 `revoked:true`，从不问别的组） |
 | 5.4 身份 | `recordGroup` 标注 + `list()` 读出 + 迁移 `1829000000000` | `revoke-identity.spec.ts`（真 sqlite；旧实现连该列都不存在） |
 | 5.6 中间写 | `_targetDrift` / `_contentOnly` / `_withDriftNote`（`_doRevokeSingle` 与 `_compensateGroup` 共用）+ `_groupResult` 的漂移车道 | `revoke-content-drift.spec.ts`（真 sqlite + 真捕获器；旧实现从不比对 `after_snapshot`） |
+| 5.7 已恢复行 | `_skipReason`（改读目标；三处调用点随之 `await`） | `revoke-restored-row.spec.ts`（真 sqlite；旧实现走跳过 → 报完成而目标仍活） |
 
-六处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+七处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
 `message`，未新增键。

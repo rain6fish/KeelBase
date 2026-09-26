@@ -59,7 +59,9 @@ function makeService(repo: ReturnType<typeof makeRepo>, over: { revoked?: boolea
   const revoker = {
     canHandle: jest.fn().mockReturnValue(true),
     revoke: jest.fn().mockResolvedValue({ revoked: over.revoked ?? true }),
-    describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+    // ARC-1：本地软删语义下，`revoked` 的行**目标是软的**——夹具此前一律给 `deletedAt: null`（永远「活着」），
+    // 那是把「已撤销」当跳过态用的**代称**，没有建模这对真实配对。幂等判据现在读目标，故这里如实给软删。
+    describeTarget: jest.fn().mockResolvedValue({ deletedAt: new Date('2026-01-01T00:00:00Z') }),
   };
   const svc = new AiToolEffectsService(repo as never, revoker as never);
   return { svc, revoker };

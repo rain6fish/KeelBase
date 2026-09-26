@@ -962,7 +962,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       revokerStub = {
         canHandle: jest.fn().mockReturnValue(true),
         revoke: jest.fn().mockResolvedValue({ revoked: true }),
-        describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+        // ARC-1：本地软删语义下，`revoked` 的行**目标是软的**——夹具此前一律给 `deletedAt: null`
+        // （永远「活着」），那是把「已撤销」当跳过态用的**代称**，没有建模这对真实配对。
+        describeTarget: jest.fn().mockResolvedValue({ deletedAt: new Date('2026-01-01T00:00:00Z') }),
       };
       extStub = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }) };
       auditStub = { log: jest.fn().mockResolvedValue(undefined) };
