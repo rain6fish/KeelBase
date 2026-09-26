@@ -17,11 +17,17 @@
  *      `--dart-define=API_BASE_URL=/api/v1` 覆盖成同域相对路径。缺它时**任何部署出来的移动预览
  *      都在连访客自己的 localhost** → `ERR_CONNECTION_REFUSED`；引擎起得来、视图也建了，
  *      界面却永不渲染。
+ *   5. 打包字体：Flutter web **会等 pubspec 里打包的字体加载完才跑 `main()`**，所以字体体积
+ *      直接等于首帧时间（不是「渲染时才用」）。2026-09-25 实测：16.4MB 的 OTF 在线上那条
+ *      ~430KB/s 链路上独占约 39 秒（首帧 61 秒里的大头）；转 woff2 后 11.4MB，`main()` 53.1s → 41.3s。
+ *      这份中文字体**不能删**（CanvasKit 的回退字体走 fonts.gstatic.com，大陆不可达 → 豆腐块），
+ *      所以只能守体积与格式：声明必须是 woff2，且合计不超预算。
  *
- * 第 1/2/4 项是构建参数，第 3 项是服务端响应头——都由这里守着，因为它们只在浏览器里现形。
- * 三次踩到，每次都是「服务端全绿、浏览器白屏」：先是基路径（陌生人冷跑报告），再是 CSP
- * （单容器实测），后是 API 基址（2026-09-24 用真浏览器定位：引擎起来了、界面不渲染、
- * 控制台 ERR_CONNECTION_REFUSED）。
+ * 第 1/2/4 项是构建参数，第 3 项是服务端响应头，第 5 项是字体资源——都由这里守着，
+ * 因为它们只在浏览器里现形。三次踩到，每次都是「服务端全绿、浏览器白屏」：先是基路径
+ * （陌生人冷跑报告），再是 CSP（单容器实测），后是 API 基址（2026-09-24 用真浏览器定位：
+ * 引擎起来了、界面不渲染、控制台 ERR_CONNECTION_REFUSED）。第 5 项是性能而非白屏，
+ * 但它和前面几条一样：**服务端毫无异常，只有真浏览器量得出来**。
  *
  * 零依赖（node:fs + node:path），接入：npm run check:mobile-preview
  */
@@ -47,6 +53,10 @@ const API_DEFAULT_MARKER = 'http://localhost:3000/api/v1';
 /** 运行时 CSP：wasm 编译许可（helmet 配置所在文件）。 */
 const CSP_FILE = 'Server-NestJS/src/main.ts';
 const CSP_MARKER = "'wasm-unsafe-eval'";
+/** 打包字体声明处（`fonts:` 段），及其体积预算。 */
+const PUBSPEC = 'Front-Flutter/pubspec.yaml';
+/** 2026-09-25 实测量级：woff2 全字形 11.4MB（原 OTF 16.4MB）。留出余量但挡得住换回 OTF。 */
+const FONT_BUDGET_BYTES = 12 * 1024 * 1024;
 
 /** 本文件自身的注释与正则字面量含同样的字面量，不参与判定。 */
 const SELF = 'scripts/check-mobile-preview.mjs';
@@ -144,11 +154,46 @@ try {
   /* 未构建，跳过产物校验 */
 }
 
+// 打包字体：Flutter web 会等它加载完才跑 main()，故体积直接等于首帧时间。
+// 查声明处而非产物，这样未构建时也能判定（CI 不必先 flutter build）。
+try {
+  const pubspec = await readFile(join(ROOT, PUBSPEC), 'utf8');
+  const fontAssets = [...pubspec.matchAll(/^\s*-\s*asset:\s*(\S+)\s*$/gm)].map((m) => m[1]);
+  let total = 0;
+  for (const asset of fontAssets) {
+    const rel = `Front-Flutter/${asset}`;
+    try {
+      total += (await stat(join(ROOT, rel))).size;
+    } catch {
+      problems.push(`${PUBSPEC} 声明的字体资源不存在：${rel}`);
+      continue;
+    }
+    if (!asset.endsWith('.woff2')) {
+      problems.push(
+        `${PUBSPEC} 声明的字体 ${asset} 不是 woff2——Flutter web 会等打包字体加载完才跑 main()，\n` +
+          `    字体体积直接计入首帧（2026-09-25 实测：16.4MB 的 OTF 独占约 39 秒）。转换：\n` +
+          `    pip install fonttools brotli && python -m fontTools.ttLib.woff2 compress -o <name>.woff2 <name>.otf`,
+      );
+    }
+  }
+  if (total > FONT_BUDGET_BYTES) {
+    problems.push(
+      `打包字体合计 ${(total / 1024 / 1024).toFixed(1)}MB，超出预算 ` +
+        `${FONT_BUDGET_BYTES / 1024 / 1024}MB——Flutter web 等它加载完才跑 main()，这直接等于首帧时间`,
+    );
+  }
+} catch {
+  /* pubspec 不存在（裁剪过的检出）则跳过 */
+}
+
 if (problems.length > 0) {
   console.error('✗ 移动预览门禁未通过：\n');
   for (const p of problems) console.error(`  ${p}`);
-  console.error('\n说明：三者缺一都会让 /mobile 停在 Loading，且服务端不报错——只在浏览器里白屏。');
+  console.error('\n说明：前四项缺一都会让 /mobile 停在 Loading，且服务端不报错——只在浏览器里白屏；');
+  console.error('第五项（打包字体）不白屏，但直接等于首帧时间。');
   process.exit(1);
 }
 
-console.log('✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖）');
+console.log(
+  '✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖 + 打包字体 woff2 且在预算内）',
+);
