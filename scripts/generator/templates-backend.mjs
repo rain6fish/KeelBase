@@ -207,6 +207,7 @@ export function entityTemplate(ctx) {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
+  VersionColumn,
   DeleteDateColumn${refTypeormImports}${attachTypeormImport},
 } from 'typeorm';
 ${refEntityImports}${attachImport}${decimalHelper}
@@ -227,6 +228,17 @@ ${fieldCols}
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  /**
+   * Bumped on every write. An update that carries a stale value is refused instead of silently
+   * overwriting whoever wrote in between — the API answers that with 409. The optimistic lock is
+   * the default here, not an opt-in: a generated module should not lose writes without saying so.
+   *
+   * 每次写入自增。携带陈旧值的更新会被拒绝，而不是**无声覆盖**中间写过的人 —— 接口以 409 作答。
+   * 乐观锁在这里是**缺省**而非可选：生成的模块不该在丢写入时一声不吭。
+   */
+  @VersionColumn()
+  version!: number;
 ${attachRelation}
 
   /**
@@ -369,9 +381,22 @@ ${props}
 
 export function updateDtoTemplate(ctx) {
   return `import { PartialType } from '@nestjs/swagger';
+import { IsInt, Min } from 'class-validator';
 import { Create${ctx.singlePascal}Dto } from './create-${ctx.singular}.dto';
 
-export class Update${ctx.singlePascal}Dto extends PartialType(Create${ctx.singlePascal}Dto) {}
+export class Update${ctx.singlePascal}Dto extends PartialType(Create${ctx.singlePascal}Dto) {
+  /**
+   * The version the caller read. Required, and that is the point: were it optional an update could
+   * omit it, the check would run against the row the service just loaded, and it would pass every
+   * time — protecting no one while looking like it protects.
+   *
+   * 调用方读到的版本号，**必填**；必填正是要点：若可选，调用方就能不传，校验会拿服务刚读到的
+   * 那一行去比 —— 每次都通过，看着像在保护，其实谁也保护不了。
+   */
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
 `;
 }
 
@@ -514,7 +539,7 @@ export function serviceTemplate(ctx) {
         `  }`;
   // `BadRequestException` 有两处用它的地方：ref 目标不存在、以及附件字段名不在声明内。
   // 原先只看 `refs` ⇒ 只声明附件字段的模块生成出来编译不过（2026-09-25 编译门实测抓到）。
-  return `import { Injectable, NotFoundException, ForbiddenException${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
+  return `import { Injectable, NotFoundException, ForbiddenException, ConflictException${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
@@ -564,8 +589,26 @@ ${adminList}
 
   async update(id: number, dto: Update${ctx.singlePascal}Dto, ability: AppAbility): Promise<${ctx.singlePascal}> {
 ${refAssertCall}    const entity = await this.findOne(id, ability);
-    Object.assign(entity, dto);
-    return this.${ctx.plural}Repository.save(entity);
+    const { version, ...fields } = dto;
+    // The conditional update is the **only** arbiter: the row is written only while it is still at
+    // the version the caller read, so two writers cannot both succeed.
+    //
+    // Note what is deliberately *not* used: save(). A version column bumps on write but does not
+    // guard the write — checked against the SQL the driver actually emits, the UPDATE carries no
+    // version predicate — so a stale save silently overwrites. Zero rows affected is the conflict.
+    //
+    // 条件更新是**唯一**仲裁点：只有当行仍停在调用方读到的那个版本时才写入，故两个写入者不可能都成功。
+    //
+    // 这里刻意**不用** save()：版本列会在写入时自增，却不为写入设防 —— 按驱动实发的 SQL 核过，
+    // 那条 UPDATE 里没有版本判据 —— 于是一次陈旧的保存就是无声覆盖。「影响 0 行」即冲突。
+    const result = await this.${ctx.plural}Repository.update(
+      { id: entity.id, version },
+      { ...fields, version: () => 'version + 1' },
+    );
+    if (!result.affected) {
+      throw new ConflictException('该记录已被他人修改，请刷新后重试');
+    }
+    return this.findOne(id, ability);
   }
 
   async remove(id: number, ability: AppAbility): Promise<void> {
@@ -800,10 +843,11 @@ describe('${ctx.pluralPascal}Controller', () => {
 
 export function serviceSpecTemplate(ctx) {
   return `import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
+import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
 
 describe('${ctx.pluralPascal}Service', () => {
   let service: ${ctx.pluralPascal}Service;
@@ -813,6 +857,7 @@ describe('${ctx.pluralPascal}Service', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
@@ -856,6 +901,33 @@ describe('${ctx.pluralPascal}Service', () => {
     mockRepo.findOne.mockResolvedValue(null);
 
     await expect(service.findOne(1, mockAbility(true))).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuses a stale update with 409 instead of overwriting silently', async () => {
+    // The caller read version 2 while the row has moved to 3, so the conditional update matches
+    // nothing. Zero rows affected is the conflict — the update must have carried the version.
+    //
+    // 调用方读到版本 2，而行已走到 3，于是条件更新一条也没匹配上。「影响 0 行」即冲突 ——
+    // 前提是那条更新确实把版本带进了条件。
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 3 });
+    mockRepo.update.mockResolvedValue({ affected: 0 });
+
+    await expect(
+      service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true)),
+    ).rejects.toThrow(ConflictException);
+    expect(mockRepo.update).toHaveBeenCalledWith(
+      { id: 1, version: 2 },
+      expect.objectContaining({ version: expect.any(Function) }),
+    );
+  });
+
+  it('a matching version writes once and answers with the fresh row', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 2 });
+    mockRepo.update.mockResolvedValue({ affected: 1 });
+
+    await service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true));
+
+    expect(mockRepo.update).toHaveBeenCalledTimes(1);
   });
 
   it('soft-deletes', async () => {

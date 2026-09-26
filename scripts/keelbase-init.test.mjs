@@ -341,6 +341,37 @@ test('后端 8 文件骨架', () => {
   assert.match(controllerSpec, /removeAsAdmin/);
 });
 
+test('乐观锁缺省：实体带 version 列、更新 DTO 必填 version、服务把冲突翻成 409', () => {
+  const files = backendFiles(ctx());
+  const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
+  assert.match(entity, /@VersionColumn\(\)\n {2}version!: number;/);
+  assert.match(entity, /VersionColumn,/);
+
+  const updateDto = files.find((f) => f.path.includes('update-')).content;
+  // 必填是关键：可选会让调用方能不传，校验拿刚读到的那行去比 ⇒ 恒真、形同虚设
+  assert.match(updateDto, /version!: number;/);
+  assert.doesNotMatch(updateDto, /version\?: number;/);
+  assert.match(updateDto, /@IsInt\(\)/);
+  assert.match(updateDto, /@Min\(1\)/);
+
+  const service = files.find((f) => f.path.endsWith('.service.ts')).content;
+  // 只看 update 方法体：别的方法用 save() 是正常的，这里禁的是「更新也走 save()」。
+  const updateBody = service.slice(service.indexOf('async update('), service.indexOf('async remove('));
+  // 仲裁点是**条件更新**：版本进 WHERE、affected 定成败。不用 save() ——
+  // 版本列会自增但不设防（按驱动实发 SQL 核过），陈旧保存即无声覆盖。
+  assert.doesNotMatch(updateBody, /\.save\(/);
+  assert.match(updateBody, /\{ id: entity\.id, version \}/);
+  assert.match(updateBody, /version: \(\) => 'version \+ 1'/);
+  assert.match(updateBody, /if \(!result\.affected\)/);
+  assert.match(updateBody, /throw new ConflictException/);
+
+  // 生成模块自己的 spec 里钉两条：陈旧必须 409、匹配则写一次
+  const spec = files.find((f) => f.path.endsWith('.service.spec.ts')).content;
+  assert.match(spec, /rejects\.toThrow\(ConflictException\)/);
+  assert.match(spec, /affected: 0/);
+  assert.match(spec, /update: jest\.fn\(\)/);
+});
+
 test('后端 controller：--no-feature-flag 省略装饰器', () => {
   const files = backendFiles(ctx({ featureFlag: false }));
   const controller = files.find((f) => f.path.endsWith('.controller.ts')).content;

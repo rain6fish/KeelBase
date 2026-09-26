@@ -71,6 +71,7 @@
 **固定的安全接线（协议不含，AI 必须补）**：
 - CASL：用户只能访问本人数据（`userId` 所有权）
 - 审计：写操作自动入 OperationAudit（全局拦截器）
+- **并发：实体自带 `version` 列，更新走**条件更新**（版本进 WHERE），影响 0 行即回 409** —— 与 `PATCH :id` 的契约配套：`version` 在更新 DTO 里**必填**，含义是「调用方读到的那一版」。**不用 `save()`**：版本列会在写入时自增、却不为写入设防（按驱动实发的 SQL 核过：那条 UPDATE 里没有版本判据），一次陈旧的 `save()` 就是无声覆盖。
 - 导航注册：`navigate-page.tool.ts` PAGE_ROUTES
 - i18n：所有用户可见文本中英双语
 - 迁移：`migration:generate` 生成（禁止手写，TypeORM 索引用 hash 名）
