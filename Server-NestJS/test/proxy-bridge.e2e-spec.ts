@@ -250,10 +250,17 @@ describe('AI Bridge B 路径：ProxyTool × 模拟 Java 系统', () => {
     const revoke = await effectsService.revokeOwned(effect.id, userAId);
     expect(revoke.external).toBe(true);
     expect(revoke.compensated).toBe(true);
-    expect(revoke.revoked).toBe(true);
-    // Case E 诚实文案：2xx 仅证「已请求补偿」，结果以目标系统为准（不声称已撤销）
+    // Case E 诚实文案：2xx 仅证「已请求补偿」，结果以目标系统为准（**不声称已撤销**）。
+    // ARC-2：注释一直这么写，断言此前却是 `revoked === true` —— 缺陷被钉成了期望。
+    // 现在四处同向（单条 / 组级 / 批量 / 跳过），`revoked:false` + `skipped` + `reason:'compensating'`。
+    expect(revoke.revoked).toBe(false);
+    expect(revoke.skipped).toBe(true);
+    expect(revoke.reason).toBe('compensating');
+    expect(revoke.revokeStatus).toBe('compensating');
     expect(revoke.message).toMatch(/已请求补偿/);
     expect(revoke.message).toContain('结果以目标系统为准');
+    // ARC-3（派发先认领）在**真 sqlite** 上的两个方向由 `revoke-dispatch-claim.spec.ts` 覆盖：
+    // 谓词匹配 NULL（首次派发）与在 `compensating` 上命中 0 行（不重复派发）。此处不重复造同一组用例。
   });
 
   it('B4 治理视图：业务动作（副作用）→ effect + trace；越权 404（按查看者收窄）', async () => {

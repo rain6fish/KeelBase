@@ -1247,12 +1247,18 @@ export class AiToolEffectsService {
       }
       try {
         const r = await this._doRevoke(effect);
+        // ARC-7：`compensating`（已请求外部补偿、结果未知）既不是 revoked 也不是 failed。
+        // 此前它落进 `revoked++`——同一次业务动作于是在单条说「未完成」、在批量说「已撤销」，
+        // 而管理台 toast 念的正是这三个数（`aiCenterConvRevokeDone`）。
         if (r.revoked) revoked++;
+        else if (r.skipped) skipped++;
         else failed++;
         results.push(
           withDispute(disputed, {
             effectId: effect.id,
             revoked: r.revoked,
+            skipped: r.skipped,
+            reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
             revokeStatus: r.revokeStatus ?? null,
             external: r.external ?? false,
             message: r.message,
@@ -1494,6 +1500,10 @@ export class AiToolEffectsService {
       results.push({
         effectId: m.id,
         revoked: r.revoked,
+        // ARC-7：逐条必须带上「没撤销是因为在等目标系统」这一读数——否则它在汇总里既不是 revoked
+        // 也不是 skipped，会被 `_groupResult` 计成 failed（一次**成功**的派发被报成**失败**）。
+        skipped: r.skipped,
+        reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
         external: r.external,
         revokeStatus: r.revokeStatus ?? null,
         message: r.message,
@@ -1683,6 +1693,10 @@ export class AiToolEffectsService {
       //
       // ⚠ 用 `Raw` 写这条谓词，**不要** `In([null, 'revoke_failed'])`：SQL 里 `x IN (NULL, ...)` 对 NULL 恒不成立
       //（要 `IS NULL`），照 `In` 写会让**首次派发**永远认领不到。
+      //
+      // **fail-closed**：判据取 `!claim?.affected` 而非 `=== 0` —— 底层没给出可判定的 `affected` 时
+      //（替身 / 非标准驱动），宁可当作认领失败、不派发，也不把「读数缺失」当成许可。
+      // 口径同 `ConfirmationStore.resolve`：拿不到 affected 一律拒。
       const claim = await this.effectsRepo.update(
         {
           id: effect.id,
@@ -1696,7 +1710,7 @@ export class AiToolEffectsService {
           revokeAcknowledgedAt: null,
         },
       );
-      if (claim?.affected === 0) {
+      if (!claim?.affected) {
         const now = await this.effectsRepo.findOne({ where: { id: effect.id } });
         return {
           revoked: false,
@@ -1715,13 +1729,31 @@ export class AiToolEffectsService {
         revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
         revokeAcknowledgedAt: new Date(),
       });
+      if (!r.ok) {
+        // 对方拒绝 = 补偿**失败**（不是「未完成」）——据实计为失败，**不进 skipped**（两者在汇总里必须分得开）。
+        return {
+          revoked: false,
+          effectId: effect.id,
+          external: true,
+          compensated: false,
+          revokeStatus: 'revoke_failed',
+          message: r.message,
+        };
+      }
+      // ARC-2 / ARC-7：**`compensating` 不得报 `revoked`**。KB-6 与本文件组级路径（`_groupResult`）早已如此，
+      // 唯独单条外部分支此前用 `revoked: r.ok`——于是同一条 `compensating`、同一状态，单条说「已撤销」而组级说「未完成」。
+      // 现在四处同向：不仅 `revoked:false`，还给出与「本就在 compensating 的行」**完全相同**的读数
+      // （`skipped` + `reason:'compensating'`），批量的 `revoked` 计数因此不再把待目标系统的成员算成已撤销——
+      // 那三个数直接进管理台 toast（`aiCenterConvRevokeDone`）。
       return {
-        revoked: r.ok,
+        revoked: false,
         effectId: effect.id,
         external: true,
-        compensated: r.ok,
-        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
-        message: r.ok ? `Java 端已请求补偿（${r.message}）；结果以目标系统为准` : r.message,
+        compensated: true,
+        skipped: true,
+        reason: 'compensating',
+        revokeStatus: 'compensating',
+        message: `Java 端已请求补偿（${r.message}）；结果以目标系统为准`,
       };
     }
     return {

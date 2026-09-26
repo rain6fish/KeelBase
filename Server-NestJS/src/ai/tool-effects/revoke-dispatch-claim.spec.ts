@@ -123,3 +123,39 @@ describe('ARC-3 外部补偿派发认领：并发两次只派发一次', () => {
     expect(again?.revoked).toBe(false);
   });
 });
+
+/**
+ * 认领的 **fail-closed** 边界：底层没给出可判定的 `affected` 时**不得派发**。
+ *
+ * 真 sqlite 总会返回 `affected`，所以这一条只能用替身 —— 它守的是「读数缺失」与「读数说 0」是两件事：
+ * 前者不该被读成许可。口径同 `ConfirmationStore.resolve`（拿不到 `affected` 一律拒），
+ * 理由也一样：宁可少派发一次（可重试），也不多执行一次不可逆的外部操作。
+ */
+describe('ARC-3 认领 fail-closed：affected 缺失即不派发', () => {
+  it('替身不给 affected → 不外呼，且不谎报已撤销', async () => {
+    const repo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 8,
+        userId: '1',
+        toolName: 'java_ext',
+        resultType: 'proxy_call',
+        resultId: 10,
+        compensationGroup: null,
+        revokeClass: 'governed_external',
+        revokeStatus: null,
+      }),
+      find: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({}), // ← 故意不给 affected
+      create: jest.fn((d: unknown) => d),
+      save: jest.fn(),
+    };
+    const externalRevoker = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'ok' }) };
+    const svc = new AiToolEffectsService(repo as never, undefined, externalRevoker as never);
+
+    const res = await svc.revoke(8);
+
+    expect(externalRevoker.revoke).not.toHaveBeenCalled();
+    expect(res?.revoked).toBe(false);
+    expect(res?.skipped).toBe(true);
+  });
+});
