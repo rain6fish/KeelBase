@@ -2,6 +2,10 @@
 node_modules/
 .pub-cache/
 
+# Python（scripts/subset-cjk-font.py 等工具脚本的字节码缓存）
+__pycache__/
+*.pyc
+
 # Build output
 dist/
 build/

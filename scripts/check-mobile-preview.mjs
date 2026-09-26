@@ -19,15 +19,17 @@
  *      界面却永不渲染。
  *   5. 打包字体：Flutter web **会等 pubspec 里打包的字体加载完才跑 `main()`**，所以字体体积
  *      直接等于首帧时间（不是「渲染时才用」）。2026-09-25 实测：16.4MB 的 OTF 在线上那条
- *      ~430KB/s 链路上独占约 39 秒（首帧 61 秒里的大头）；转 woff2 后 11.4MB，`main()` 53.1s → 41.3s。
- *      这份中文字体**不能删**（CanvasKit 的回退字体走 fonts.gstatic.com，大陆不可达 → 豆腐块），
- *      所以只能守体积与格式：声明必须是 woff2，且合计不超预算。
+ *      ~430KB/s 链路上独占约 39 秒（首帧 61 秒里的大头）。这份中文字体**不能删**（CanvasKit
+ *      的回退字体走 fonts.gstatic.com，大陆不可达 → 豆腐块），所以只能压体积，而压体积就要裁字形——
+ *      于是这里守三件事：① 声明必须是 woff2；② 合计不超预算；③ **界面文案不得越出子集**
+ *      （子集裁掉的字在断网环境下没有回退，直接豆腐，且服务端/类型检查/门禁之外看不出来）。
+ *      子集口径与重生成：`scripts/subset-cjk-font.py`。
  *
  * 第 1/2/4 项是构建参数，第 3 项是服务端响应头，第 5 项是字体资源——都由这里守着，
  * 因为它们只在浏览器里现形。三次踩到，每次都是「服务端全绿、浏览器白屏」：先是基路径
  * （陌生人冷跑报告），再是 CSP（单容器实测），后是 API 基址（2026-09-24 用真浏览器定位：
- * 引擎起来了、界面不渲染、控制台 ERR_CONNECTION_REFUSED）。第 5 项是性能而非白屏，
- * 但它和前面几条一样：**服务端毫无异常，只有真浏览器量得出来**。
+ * 引擎起来了、界面不渲染、控制台 ERR_CONNECTION_REFUSED）。第 5 项是性能与字形覆盖而非白屏，
+ * 但它和前面几条一样：**服务端毫无异常，只有真浏览器（或这条断言）看得见**。
  *
  * 零依赖（node:fs + node:path），接入：npm run check:mobile-preview
  */
@@ -55,8 +57,15 @@ const CSP_FILE = 'Server-NestJS/src/main.ts';
 const CSP_MARKER = "'wasm-unsafe-eval'";
 /** 打包字体声明处（`fonts:` 段），及其体积预算。 */
 const PUBSPEC = 'Front-Flutter/pubspec.yaml';
-/** 2026-09-25 实测量级：woff2 全字形 11.4MB（原 OTF 16.4MB）。留出余量但挡得住换回 OTF。 */
-const FONT_BUDGET_BYTES = 12 * 1024 * 1024;
+/**
+ * 2026-09-26 实测量级：GB2312 子集 1.8MiB。
+ * 余量给足，但这道线挡得住两种回退：换回全字形（11.4MiB）、或把 layout features 放回 `*`（3.2MiB）。
+ */
+const FONT_BUDGET_BYTES = 3 * 1024 * 1024;
+/** 子集覆盖清单（由 scripts/subset-cjk-font.py 生成）。 */
+const FONT_COVERAGE = 'Front-Flutter/assets/fonts/NotoSansSC-Regular.coverage.txt';
+/** 界面文案所在目录：其中的非 ASCII 字符必须全部落在子集内，否则界面会出现豆腐块。 */
+const UI_DIR = 'Front-Flutter/lib';
 
 /** 本文件自身的注释与正则字面量含同样的字面量，不参与判定。 */
 const SELF = 'scripts/check-mobile-preview.mjs';
@@ -179,11 +188,51 @@ try {
   if (total > FONT_BUDGET_BYTES) {
     problems.push(
       `打包字体合计 ${(total / 1024 / 1024).toFixed(1)}MB，超出预算 ` +
-        `${FONT_BUDGET_BYTES / 1024 / 1024}MB——Flutter web 等它加载完才跑 main()，这直接等于首帧时间`,
+        `${FONT_BUDGET_BYTES / 1024 / 1024}MB——Flutter web 等它加载完才跑 main()，这直接等于首帧时间\n` +
+        `    子集口径与重生成方式见 scripts/subset-cjk-font.py`,
+    );
+  }
+
+  // 界面文案必须落在子集内。子集裁掉的字在断网（大陆）环境下没有回退可用，直接显示豆腐块——
+  // 服务端、类型检查、截图之外的任何检查都看不出这件事，只有这条断言能发现。
+  const coverageRaw = await readFile(join(ROOT, FONT_COVERAGE), 'utf8');
+  const covLines = coverageRaw.split('\n');
+  const covered = new Set(covLines.slice(2).join(''));
+  const covBytes = Number(covLines[1]);
+  if (covBytes !== total) {
+    problems.push(
+      `${FONT_COVERAGE} 记录的字体字节数 ${covBytes} 与声明的字体（${total}）不一致——` +
+        `字体换了但没重跑 scripts/subset-cjk-font.py`,
+    );
+  }
+  const uiChars = new Set();
+  const collect = async (rel) => {
+    let entries;
+    try {
+      entries = await readdir(join(ROOT, rel), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const child = `${rel}/${e.name}`;
+      if (e.isDirectory()) await collect(child);
+      else if (e.name.endsWith('.dart')) {
+        for (const ch of await readFile(join(ROOT, child), 'utf8')) {
+          if (ch.codePointAt(0) > 127) uiChars.add(ch);
+        }
+      }
+    }
+  };
+  await collect(UI_DIR);
+  const missing = [...uiChars].filter((ch) => !covered.has(ch));
+  if (missing.length > 0) {
+    problems.push(
+      `${UI_DIR} 里有 ${missing.length} 个字符不在字体子集内，这些字在界面上会显示为豆腐块：${missing.join('')}\n` +
+        `    重跑：python scripts/subset-cjk-font.py --source <全字形源字体>`,
     );
   }
 } catch {
-  /* pubspec 不存在（裁剪过的检出）则跳过 */
+  /* pubspec 或覆盖清单不存在（裁剪过的检出）则跳过 */
 }
 
 if (problems.length > 0) {
@@ -195,5 +244,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  '✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖 + 打包字体 woff2 且在预算内）',
+  '✓ 移动预览门禁通过（基路径 + 自托管资源 + CSP 允许 wasm + API 基址已覆盖 + 打包字体 woff2、在预算内、且盖住界面文案）',
 );

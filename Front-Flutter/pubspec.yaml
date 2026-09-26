@@ -87,11 +87,18 @@ flutter:
   #（CanvasKit 的回退字体走 fonts.gstatic.com，大陆不可达 → 不打包就是豆腐块）
   # 仅注册 Regular，w600/w700 由 Flutter 引擎合成加粗，减小包体积
   #
-  # 用 woff2 而非 otf：此为全字形（不裁剪），无缺字风险。体积 16.4MB → 11.4MB。
-  # Flutter web 会等这份字体加载完才跑 main()，故它直接计入首帧时间——
-  # 生成方式（换版或换字重时照做）：
+  # ⚠ 这份字体是 **GB2312 子集**，不是全字形：1.8MiB（全字形 woff2 是 11.4MiB）。
+  # Flutter web 会等这份字体加载完才跑 main()，所以它直接等于首帧时间——裁字形就是为了首帧。
+  # 覆盖范围：GB2312 全集 + 本应用界面文案里的全部非 ASCII 字符。
+  # 实测覆盖面（2026-09-26）：界面 895 字、仓库中文文档 1382 字、常见人名 54 字，**均 100%**。
+  # **缺字边界**：GB2312 之外的生僻字（如 龑 龘 靐 齉）在断网环境下会显示豆腐块。
+  #
+  # 改动界面文案若引入子集外的字，门禁 check:mobile-preview 会直接点名报错。
+  # 重生成（换版 / 换字重 / 加字后）：
   #   pip install fonttools brotli
-  #   python -m fontTools.ttLib.woff2 compress -o NotoSansSC-Regular.woff2 NotoSansSC-Regular.otf
+  #   python scripts/subset-cjk-font.py --source <全字形源字体>
+  # 全字形源字体不在仓库里。从 git 历史取——找到「把 otf 换成 woff2」的那次提交，取它的父提交：
+  #   git show ee62d6f1^:Front-Flutter/assets/fonts/NotoSansSC-Regular.otf > /tmp/full.otf
   fonts:
     - family: NotoSansSC
       fonts:
