@@ -12,8 +12,13 @@
 #   4. 起容器 + 建管理员
 #
 # 预置镜像（需在可联网机器 `docker pull` 后 push 到内网仓库）：
-#   pgvector/pgvector:pg17  redis:7-alpine  node:22-alpine  nginx:alpine
+#   pgvector/pgvector:pg17  redis:7-alpine  node:22-alpine  alpine:3.24
 #   本基座镜像（build 产物）
+#
+# ⚠ 2026-09-26：web 基座由官方 `nginx:alpine` 换成 `alpine:3.24` + `apk add nginx nginx-mod-http-brotli`
+#   （为了上 brotli，见 Dockerfile web 阶段）。**因此离线环境除了预置 `alpine:3.24`，还必须有那两个
+#   apk 包**——`apk add` 需要软件源。最稳的离线做法是**别在内网 build web 镜像**，直接在有网机器上
+#   `docker build` 好后 `docker save` 本基座镜像、到内网 `docker load`（本脚本本来就是按这个假设写的）。
 #
 # 用法：
 #   IMAGE_REGISTRY=harbor.internal/base ./deploy/deploy-offline.sh
@@ -35,7 +40,7 @@ command -v docker compose >/dev/null 2>&1 || { echo "✗ Docker Compose v2 不�
 echo "✓ Docker 就绪"
 
 # 关键镜像存在性（内网仓库前缀则替换 tag 引用；否则本地 load 后直接引用）
-REQUIRED_IMAGES=( "pgvector/pgvector:pg17" "redis:7-alpine" "node:22-alpine" "nginx:alpine" )
+REQUIRED_IMAGES=( "pgvector/pgvector:pg17" "redis:7-alpine" "node:22-alpine" "alpine:3.24" )
 for img in "${REQUIRED_IMAGES[@]}"; do
   check="${REGISTRY:+$REGISTRY/}${img}"
   if ! docker image inspect "$check" >/dev/null 2>&1 && ! docker image inspect "$img" >/dev/null 2>&1; then

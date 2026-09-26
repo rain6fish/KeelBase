@@ -24,9 +24,12 @@
  *      于是这里守三件事：① 声明必须是 woff2；② 合计不超预算；③ **界面文案不得越出子集**
  *      （子集裁掉的字在断网环境下没有回退，直接豆腐，且服务端/类型检查/门禁之外看不出来）。
  *      子集口径与重生成：`scripts/subset-cjk-font.py`。
- *   6. 传输压缩：两份 nginx 配置（`nginx.conf` 与 `nginx.https.conf`）的 gzip 必须一致，且含
- *      `application/wasm`——CanvasKit 引擎本体 5.4MB，gzip 后 2.1MB，是字体子集化之后的最大单项。
- *      两者在 prod 是**替换**关系（overlay 拿 https 那份覆盖 `default.conf`），差一边就等于没压。
+ *   6. 传输压缩：两份 nginx 配置（`nginx.conf` 与 `nginx.https.conf`）的 `gzip_types` 与
+ *      `brotli_types` 必须一致，且都含 `application/wasm`——CanvasKit 引擎本体 5.4MB，gzip 后 2.1MB
+ *      （brotli 再小约 12%），是字体子集化之后的最大单项。两者在 prod 是**替换**关系
+ *      （overlay 拿 https 那份覆盖镜像里的同名 server 配置），差一边就等于没压。
+ *      brotli 需要 web 基座是 Alpine 的 nginx 包（见 Dockerfile web 阶段）——官方 `nginx:alpine`
+ *      装不上 Alpine 的 `nginx-mod-http-brotli`（动态模块要求 nginx 版本严格一致）。
  *
  * 第 1/2/4 项是构建参数，第 3 项是服务端响应头，第 5 项是字体资源，第 6 项是传输配置——都由这里守着，
  * 因为它们只在浏览器里现形。三次踩到，每次都是「服务端全绿、浏览器白屏」：先是基路径
@@ -246,35 +249,41 @@ try {
   /* pubspec 或覆盖清单不存在（裁剪过的检出）则跳过 */
 }
 
-// 两份 nginx 配置的 gzip 必须一致（一份替换另一份，缺一边就等于没压）
+// 两份 nginx 配置的压缩设置必须一致（一份替换另一份，缺一边就等于没压）
+// gzip 与 brotli 都查：两者是同一条不变式的两个实例，任一处漂移都只在对应环境才暴露。
 try {
-  const parseGzip = (text) => {
-    const m = text.match(/^\s*gzip_types\s+([^;]+);/m);
+  const parseTypes = (text, name) => {
+    const m = text.match(new RegExp(`^\\s*${name}\\s+([^;]+);`, 'm'));
     return m ? new Set(m[1].trim().split(/\s+/)) : null;
   };
-  const types = [];
-  for (const file of NGINX_CONFS) {
-    const set = parseGzip(await readFile(join(ROOT, file), 'utf8'));
-    if (set === null) {
-      problems.push(`${file} 没有 gzip_types——另一份配置在 prod 里是替换关系，缺一边就等于不压缩`);
-      continue;
+  const checks = [
+    { key: 'gzip_types', required: GZIP_REQUIRED_TYPES, hint: 'CanvasKit 的 wasm 有 5.4MB，不压就白等约 8 秒' },
+    { key: 'brotli_types', required: GZIP_REQUIRED_TYPES, hint: 'brotli 比 gzip 再小约 12%，是当前唯一的省法' },
+  ];
+  for (const { key, required, hint } of checks) {
+    const seen = [];
+    for (const file of NGINX_CONFS) {
+      const text = await readFile(join(ROOT, file), 'utf8');
+      const set = parseTypes(text, key);
+      if (set === null) {
+        problems.push(`${file} 没有 ${key}——另一份配置在 prod 里是替换关系，缺一边就等于不压缩`);
+        continue;
+      }
+      const missing = required.filter((t) => !set.has(t));
+      if (missing.length > 0) {
+        problems.push(`${file} 的 ${key} 缺 ${missing.join(' ')}——${hint}`);
+      }
+      seen.push(set);
     }
-    const missing = GZIP_REQUIRED_TYPES.filter((t) => !set.has(t));
-    if (missing.length > 0) {
-      problems.push(
-        `${file} 的 gzip_types 缺 ${missing.join(' ')}——CanvasKit 的 wasm 有 5.4MB，不压就白等约 8 秒`,
-      );
-    }
-    types.push(set);
-  }
-  if (types.length === 2) {
-    const [a, b] = types;
-    const diff = [...a].filter((t) => !b.has(t)).concat([...b].filter((t) => !a.has(t)));
-    if (diff.length > 0) {
-      problems.push(
-        `${NGINX_CONFS.join(' 与 ')} 的 gzip_types 不一致（${diff.join(' ')}）——` +
-          `两者是替换关系，差异只在对应环境下才暴露`,
-      );
+    if (seen.length === 2) {
+      const [a, b] = seen;
+      const diff = [...a].filter((t) => !b.has(t)).concat([...b].filter((t) => !a.has(t)));
+      if (diff.length > 0) {
+        problems.push(
+          `${NGINX_CONFS.join(' 与 ')} 的 ${key} 不一致（${diff.join(' ')}）——` +
+            `两者是替换关系，差异只在对应环境下才暴露`,
+        );
+      }
     }
   }
 } catch {

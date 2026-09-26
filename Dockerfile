@@ -56,11 +56,27 @@ COPY --from=server-build /app/server/dist ./dist
  RUN npm run build:user && npm run build:admin
 
  # ---- Nginx to serve Flutter web + user workbench + admin console ----
- FROM nginx:alpine AS web
+ # 基座用 Alpine 的 nginx 包，而**不是**官方 `nginx:alpine` 镜像：官方镜像由 nginx.org 自行编译
+ # （当前 1.31.4），与 Alpine 仓库里的 `nginx-mod-http-brotli`（对着 Alpine 的 nginx 1.30.4 编）
+ # **版本不匹配**——nginx 的动态模块要求版本严格一致，混用会拒绝加载。要用 brotli 就只能走这一条。
+ #
+ # 代价是这里要自己复刻官方镜像做过、而 Alpine 包不做的三件事（改动前务必知道）：
+ #   1. 日志软链到 stdout/stderr，否则 `docker logs` 什么都看不到；
+ #   2. server 块放 `/etc/nginx/http.d/`——Alpine 的 `nginx.conf` 把 **`conf.d` 包含在 root 上下文**
+ #      （见其注释 "config snippets into the root context"），`server{}` 放那里会直接报错；
+ #      官方镜像的 `conf.d` 是在 `http{}` 里的，两者路径不同，**这也是 prod 挂载点要跟着改的原因**；
+ #   3. brotli 模块无需手写 `load_module`，Alpine 的包已放进 `/etc/nginx/modules/`，
+ #      由 `nginx.conf` 的 `include /etc/nginx/modules/*.conf;` 自动加载。
+ FROM alpine:3.24 AS web
+ # 中国网络下 Alpine 官方 CDN 很慢（与 npm 走阿里镜像同理），离线构建见 deploy/deploy-offline.sh 的说明
+ RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories \
+     && apk add --no-cache nginx nginx-mod-http-brotli \
+     && ln -sf /dev/stdout /var/log/nginx/access.log \
+     && ln -sf /dev/stderr /var/log/nginx/error.log
  COPY --from=flutter-build /build/web /usr/share/nginx/html/mobile
  COPY --from=admin-build /app/admin/dist/user /usr/share/nginx/html/user
  COPY --from=admin-build /app/admin/dist/admin /usr/share/nginx/html/admin
- COPY nginx.conf /etc/nginx/conf.d/default.conf
+ COPY nginx.conf /etc/nginx/http.d/default.conf
  EXPOSE 80
- # nginx master runs as root, workers drop to nobody — standard nginx security model
+ # nginx master runs as root, workers drop to nginx — standard nginx security model
  CMD ["nginx", "-g", "daemon off;"]
