@@ -731,11 +731,11 @@ ${reads}
                 final ok = await ctx.read<${ctx.pluralPascal}Provider>().add(data);
                 if (ctx.mounted) Navigator.pop(ctx, ok);
               },
-              child: const Text('保存'),
+              child: Text(l10n.save),
             ),
             CupertinoActionSheetAction(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),

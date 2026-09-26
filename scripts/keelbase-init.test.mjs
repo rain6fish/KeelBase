@@ -366,6 +366,17 @@ test('前端 4 文件骨架', () => {
   assert.match(page, /l10n\.postsTitle/);
 });
 
+test('生成的 Flutter 页：用户可见文案一律走 l10n，不硬编码中文', () => {
+  const page = frontendFiles(ctx()).find((f) => f.path.endsWith('_page.dart')).content;
+  // 新增弹层的两个动作此前硬编码 '保存' / '取消'，而同一弹层其它文案早已走 l10n（2026-09-26 修）
+  assert.match(page, /Text\(l10n\.save\)/);
+  assert.match(page, /Text\(l10n\.cancel\)/);
+  // 边界守卫：`Text('…')` 的字面量里不得出现汉字（注释与 l10n getter 不在此列）。
+  // 单个断言守全页，比逐条点名更能拦住下一个漏网的串。
+  const offender = page.match(/Text\('[^']*[一-龥][^']*'/);
+  assert.equal(offender, null, `发现硬编码中文文案：${offender?.[0]}`);
+});
+
 // ── 接线 ─────────────────────────────────────────────────────────────────────
 test('接线：7 处插入 + 幂等重跑零改动', async () => {
   const root = await tempRoot();
