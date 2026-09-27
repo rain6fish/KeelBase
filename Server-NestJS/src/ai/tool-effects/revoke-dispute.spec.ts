@@ -116,7 +116,7 @@ describe('REV-1 少记录：声明与持有不一致 → 标 disputed 并留存�
     expect(repo.update).toHaveBeenCalledTimes(1);
   });
 
-  it('重试**少声明** → 同样检出（双向求差：持有多出来的那几条照样留证）', async () => {
+  it('重试**少声明** → 照旧留证（双向求差），但 ARC-6 后**不再单独判「未完成」**', async () => {
     const repo = makeRepo();
     colliding(repo, storedTwo);
     const { svc } = makeService(repo);
@@ -155,7 +155,15 @@ describe('REV-1 少记录：声明与持有不一致 → 标 disputed 并留存�
 });
 
 describe('REV-1 争议组：撤销不得报告完成', () => {
-  const MARK = JSON.stringify({ declared: [], stored: [], onlyDeclared: [], onlyStored: [], decidedAt: 'x' });
+  // ARC-6：标记的**内容**现在决定裁决（只有「声明多于持有」那一侧才算未了结），故夹具不能再是空壳
+  // ——给一份真实形态的证据。
+  const MARK = JSON.stringify({
+    declared: [{ resultType: 'pm_task', resultId: 99 }],
+    stored: [],
+    onlyDeclared: [{ resultType: 'pm_task', resultId: 99 }],
+    onlyStored: [],
+    decidedAt: 'x',
+  });
   /** 争议标记落在**根行**（id 1）上，子行不带标记——与登记层实际写法一致 */
   const disputed = (id: number, over: Record<string, unknown> = {}) =>
     storedRow(id, id === 1 ? 'pm_project' : 'pm_task', id === 1 ? 7 : 87 + id, {

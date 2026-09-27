@@ -64,6 +64,12 @@ interface DeclaredSideEffect { resultType: string; resultId: number }
 
 **链外**：`revoke_dispute` 是注解列，**不得**入 `_chainPayload`（白名单加 key 会使历史链验签失败）。
 
+**判据只认一侧 + 标记有解除路径（ARC-6）**：比对**两侧都算、都留证**（REV-1 的「留证」不变），但**裁决只看
+「声明了却未登记」**（`onlyDeclared` 非空）——`onlyStored` 那几条**已被登记、会被补偿**，报「未完成」是假警报。
+解除路径 = **管理端显式确认**（`POST /ai/tool-effects/:id/acknowledge-dispute`，ADMIN）：解除「未了结」而**证据原样保留**
+（记 `acknowledgedAt` / `acknowledgedBy`）；**不自动清除**——缺失成员按构造补不上，自动清除等于把谎话写进状态。
+详见 [revoke-contract.spec.md](revoke-contract.spec.md) §5.1.1。
+
 ### 4.1.1 键被**非本组成员**占用：整份声明不得静默消失 / A key held by a non-member: the declaration must not vanish
 
 冲突分支用 `listGroup(baseKey)` 找回既有组；但一条**单目标**行（`compensation_group` 为 null）**同样占着这个键**，
