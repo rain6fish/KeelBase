@@ -13,7 +13,8 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { CacheService } from '../common/cache/cache.service';
 import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
-import { defaultScopeDescriptor, type OrgContext } from '../common/scope/scope-policy';
+import { type OrgContext } from '../common/scope/scope-policy';
+import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
 import { buildScopeWhere } from '../common/scope/scope-where';
 import { DataScopeService } from '../authz/data-scope.service';
 
@@ -65,9 +66,7 @@ export class EventsService implements OnModuleInit {
 
   /** 权限-2：范围来源优先角色配置（DataScopeService），缺席回退内置默认（逐 subject 复刻旧行为） */
   private async _scopeFor(userId: number) {
-    return this.dataScope
-      ? this.dataScope.resolve(userId, 'Event')
-      : defaultScopeDescriptor(userId, 'Event', await this._orgContext(userId));
+    return resolveScopeDescriptor(userId, 'Event', this.orgService, this.dataScope);
   }
 
   async create(dto: CreateEventDto, userId: number): Promise<Event> {
@@ -220,12 +219,7 @@ export class EventsService implements OnModuleInit {
 
   /** ORG-3 + 权限-2：用户的组织上下文（orgId + deptId）；非成员或未注入 orgService → null */
   private async _orgContext(userId?: number): Promise<OrgContext | null> {
-    if (!userId || !this.orgService) return null;
-    try {
-      return await this.orgService.getUserOrgContext(userId);
-    } catch {
-      return null;
-    }
+    return orgContextOf(this.orgService, userId);
   }
 
   async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {

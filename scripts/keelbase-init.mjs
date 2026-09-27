@@ -17,6 +17,8 @@ import { createInterface } from 'node:readline/promises';
 import {
   FIELD_TYPES,
   SEARCHABLE_FIELD_TYPES,
+  validateScope,
+  normalizeScope,
   buildContext,
   validateModuleName,
   validateLabel,
@@ -287,6 +289,9 @@ async function main() {
   // itself is bound inside the branch below.
   // 协议里声明的「可搜索」；spec 本身是块内绑定，故在此留一个文件作用域的取值。
   let specSearchable = false;
+  // The spec's data-scope declaration, raw (validated below, with the other spec fields).
+  // 协议里的数据范围声明，原样留存（在校验段与其他 spec 字段一起校验）。
+  let specScope;
 
   // EASY-7：从协议 JSON 文件读取模块规格（docs/module-protocol.md §1 形态）
   if (args.spec) {
@@ -300,6 +305,7 @@ async function main() {
     if (spec.plural && !name) name = spec.plural;
     if (spec.label) label = spec.label;
     specSearchable = spec.searchable === true;
+    specScope = spec.scope;
     if (Array.isArray(spec.fields)) {
       // 协议反推：直接保留结构化字段（name/type/enum/required），避免字符串转换丢失 enum/required
       specFields = normalizeSpecFields(spec.fields);
@@ -418,6 +424,8 @@ async function main() {
   if (fieldsErr) fail(fieldsErr);
   const aiToolsErr = validateAiTools(specAiTools);
   if (aiToolsErr) fail(aiToolsErr);
+  const scopeErr = validateScope(specScope);
+  if (scopeErr) fail(scopeErr);
 
   // A `searchable` flag is a promise, not a decoration: the runtime indexes this module's rows into
   // the global search by it, matching exactly the columns listed here. A spec with no string / text
@@ -459,6 +467,11 @@ async function main() {
   // Declared, never inferred: a module is searchable only if its spec says so.
   // 由声明决定、不做推断：只有 spec 说了可搜，模块才可搜。
   ctx.searchable = specSearchable;
+  // Same rule for the data scope: the module participates in org/dept filtering only because its spec
+  // said so. Undeclared ⇒ owner-only, which is what every generated module did before this existed.
+  // 数据范围同一条规则：模块参与组织/部门过滤，只因为它的 spec 这么说了。未声明 ⇒ 仅本人，也正是
+  // 此功能存在之前每个生成模块的行为。
+  ctx.scope = normalizeScope(specScope);
   if (specAiTools) ctx.aiTools = specAiTools;
 
   // 目标目录冲突检查（合成陌生人实测：内置/示例模块撞名时需覆盖入口）

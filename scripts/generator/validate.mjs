@@ -39,6 +39,53 @@ export const FIELD_TYPES = new Set([
  */
 export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text']);
 
+/**
+ * The scope levels a module may declare.
+ *
+ * `owner` is deliberately absent: every generated module is already owner-scoped by its fixed security
+ * wiring, so declaring it would be declaring what is always true. What a spec can ask for is the rows
+ * *beyond* its own — same organisation, and the department column that role-configured levels need.
+ *
+ * 模块可声明的范围级别。
+ *
+ * `owner` 刻意不在其中：每个生成模块在**固定安全接线**里已经是 owner 范围，声明它等于声明一件恒真的事。
+ * spec 能要的是**超出本人**的那些行 —— 同组织，以及「按角色配置的部门级范围」所需要的部门列。
+ */
+export const SCOPE_LEVELS = new Set(['org', 'dept']);
+
+/**
+ * Validate a spec's `scope` declaration. Returns an error message, or `null` when it is fine.
+ *
+ * `dept` without `org` is refused rather than silently promoted: department levels are reached through
+ * the org column at runtime (`buildScopeWhere` returns owner-only the moment the org is missing), so a
+ * module that declared only `dept` would get a column that can never do anything — a declaration with
+ * nothing behind it, which is exactly what the `searchable` rule refuses too.
+ *
+ * 校验 spec 的 `scope` 声明。返回错误消息，合规时返回 `null`。
+ *
+ * `dept` 不带 `org` 一律拒绝、而不是悄悄补齐：部门级在运行时是**经组织列**抵达的（组织信息一缺，
+ * `buildScopeWhere` 就退回仅本人），故只声明 `dept` 的模块会拿到一个永远起不了作用的列 —— 一条背后
+ * 什么都没有的声明，而那正是 `searchable` 那条规则也拒绝的东西。
+ */
+export function validateScope(scope) {
+  if (scope === undefined) return null;
+  if (!Array.isArray(scope) || scope.length === 0) return 'scope 须是非空数组，取值 org / dept';
+  const unknown = scope.filter((s) => !SCOPE_LEVELS.has(s));
+  if (unknown.length) return `scope 含未知级别：${unknown.join(', ')}（只支持 org / dept）`;
+  if (new Set(scope).size !== scope.length) return `scope 含重复级别：${scope.join(', ')}`;
+  if (scope.includes('dept') && !scope.includes('org')) {
+    return 'scope 声明了 dept 就必须同时声明 org —— 部门级范围以组织为前提，缺组织信息只会退回本人';
+  }
+  return null;
+}
+
+/** Normalise a scope declaration to a fixed order (`org` then `dept`), so output is deterministic. */
+/* 把 scope 声明归一成固定顺序（org 在前、dept 在后），使产出确定。 */
+export function normalizeScope(scope) {
+  const list = Array.isArray(scope) ? scope : [];
+  return ['org', 'dept'].filter((level) => list.includes(level));
+}
+
 /** Names of the fields declared as attachments, in declaration order. */
 export function attachmentFields(fields) {
   return (fields ?? []).filter((f) => f.type === 'attachment').map((f) => f.name);

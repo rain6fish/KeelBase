@@ -20,9 +20,13 @@
     { "name": "content", "type": "text", "label": "内容" },
     { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "published"] }
   ],
-  "searchable": true
+  "searchable": true,
+  "scope": ["org"]
 }
 ```
+
+> `scope` 是**可选**的，取值 `org` / `dept`（声明 `dept` 必须同时声明 `org`）。不声明即**仅本人** —— 与所有
+> 生成模块在此之前的默认一致，绝不静默放宽。见 §3.2。
 
 > **字段命名**：用 camelCase（`riskLevel`、`annualValue`）——与代码库跨语言约定一致，TypeORM 自动映射 snake_case 列名。生成器同时兼容 snake_case（会触发 Dart lint info，不推荐）。
 
@@ -67,6 +71,7 @@
 | `fields[].target` / `display` / `onDelete` | 导入目标模块实体 + 注入其仓储：**写侧**校验外键存在（软删视为不存在），**读侧** `relations` 带回目标对象 | 外键 id 输入；目标对象的友好回显与下拉选择器见后续切片 |
 | `fields[].type=attachment` | 生成同模块的**侧表**（真外键指向 owner）+ `@OneToMany` + 三个端点（列 / 关联 / 撤销）；三者**先做 owner 所有权检查** | 模型带附件**名字列表**；上传按钮见后续切片 |
 | `searchable` | 全局 `/search` 索引（本人范围，见 §3.1） | 搜索结果页（`/search`，桶的渲染见 §3.1） |
+| `scope` | 生成范围列 + 创建盖章 + 列表走行级数据范围（见 §3.2） | 无专属 UI：列表因此**多返回同组织的行** |
 
 ### 3.1 `searchable` 的实际接线（P0-9a，2026-09-26）
 
@@ -100,6 +105,49 @@ rendering them per module still needs a display convention for which column is t
 两道闸门，方向都是保守的。**feature flag 关掉的模块**根本不进搜索 —— 它自己的端点在那种状态下已经 404，而 `/app/provenance` 也是这么过滤它的模块清单的。**没有归属列**（`userId`/`requesterId`/`initiatorId`）的模块**跳过、而非照搜** —— 无法收窄到调用方的，不能反过来放宽。`searchable: true` 但 spec 里没有 `string` / `text` 字段时**生成期直接报错** —— LIKE 索引无列可匹配；而 `enum` **不算**：它是枚举，不是自由文本。
 
 **尚未接线**（诚实记录，勿当已做）：模块自身列表端点的 `q` 过滤（`GET /<plural>?q=`）**未实现**；两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
+
+### 3.2 `scope` 的实际接线（P0-9b，2026-09-27）
+
+A module that declares `scope: ["org", …]` takes part in **row-level data scope** (`docs/data-scope.spec.md`),
+using the platform's existing pieces rather than a private copy:
+
+- **Columns are fixed by the generator** — `orgId` / `deptId`, exactly as `userId` is. The spec says which
+  level the module takes part in, not what to call the column.
+- **Creation stamps the rows** from the creator's membership; a creator who belongs to no organisation
+  produces rows that stay owner-only rather than becoming visible to everyone.
+- **The list is built by `buildScopeWhere`**, and the detail/update/delete paths use the same judgement
+  via `rowInScope` — so a row that shows up in the list is never refused on the detail path.
+- **The module registers itself** (`registerScopeColumns` + `registerOrgLevelSubject`) in its own service
+  file, so taking part needs no hand-maintained list. The registration lives in the service rather than the
+  module file because the service is what consumes it — and because a unit test imports the service: with it
+  in the module file, the generated spec exercised the *unregistered* path and the org branch never fired
+  (found only by running that spec).
+- **Undeclared ⇒ owner-only**, which is what every generated module did before this existed. The default
+  never widens: missing configuration and missing organisation information both tighten.
+- `dept` without `org` is **refused at generation time** — department levels are reached through the org
+  column at runtime, so a module declaring only `dept` would get a column that can never do anything.
+
+**Not yet wired** (stated here so it is not mistaken for done): the repository ships no **live example** of a
+scoped generated module, so the coverage is the generated module's own spec plus a real compile of the emitted
+code — not an HTTP e2e against a generated module. That needs a sample module with the range columns and its
+migration; it is a separate change.
+
+`scope: ["org", …]` 的模块参与**行级数据范围**（`docs/data-scope.spec.md`），用的是平台**既有构件**，不是
+每模块一份私有实现：
+
+- **列名由生成器固定** —— `orgId` / `deptId`，与 `userId` 一样。spec 说的是参与哪一级，不是给列起什么名。
+- **创建时盖章**：按创建者的组织归属写列；不属于任何组织的创建者，其行**保持仅本人**，而不是变成所有人可见。
+- **列表由 `buildScopeWhere` 构造**，明细/更新/删除走**同一判定** `rowInScope` —— 故列表里看得见的行，明细
+  路径上不会反被拒。
+- **模块自己登记**（`registerScopeColumns` + `registerOrgLevelSubject`），写在它自己的**服务**文件里，故参与
+  范围无需手工维护清单。登记放服务而非模块文件，是因为**消费它的是服务**、而单测 import 的也是服务：放在模块
+  文件时，生成物自己的 spec 跑的是**未登记**那条路、组织分支根本不触发（真跑那条 spec 才发现）。
+- **未声明 ⇒ 仅本人**，即此功能之前每个生成模块的行为。缺省**从不放宽**：配置缺失与组织信息缺失都只会收紧。
+- `dept` 不带 `org` 在**生成期即被拒** —— 部门级在运行时经组织列抵达，只声明 `dept` 的模块会拿到一个永远
+  起不了作用的列。
+
+**尚未接线**（勿当已做）：仓库尚无**活的**参与范围的生成模块样例，故覆盖是「生成模块自己的 spec + 产出代码的
+真实编译」，而**不是**针对生成模块的 HTTP e2e。那需要一条带范围列的样例模块及其迁移，属独立改动。
 
 **固定的安全接线（协议不含，AI 必须补）**：
 - CASL：用户只能访问本人数据（`userId` 所有权）

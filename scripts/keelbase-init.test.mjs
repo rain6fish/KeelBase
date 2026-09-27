@@ -1074,6 +1074,88 @@ test('本仓清单里的 searchableModules 就是生成器对 specs/books.json �
   assert.ok(generated.searchableModules[0].fields.length > 0);
 });
 
+// ── P0-9b：scope 声明 → 生成物真的参与行级数据范围 ──────────────────────────────
+test('端到端：spec 声明 scope → 实体多出范围列、服务走范围构造、模块自登记', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/reports.json`;
+  await write(specPath, JSON.stringify({
+    module: 'reports',
+    label: '报告',
+    scope: ['dept', 'org'], // 顺序刻意倒着写：归一后应为 org, dept
+    fields: [{ name: 'title', type: 'string', label: '标题' }],
+  }));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+
+  const entity = await readFile(BE(root, 'reports/report.entity.ts'), 'utf8');
+  assert.match(entity, /@Index\(\['orgId'\]\)/);
+  assert.match(entity, /name: 'org_id'/);
+  assert.match(entity, /name: 'dept_id'/);
+
+  const service = await readFile(BE(root, 'reports/reports.service.ts'), 'utf8');
+  // 范围来自平台既有构件，不是每模块一份私有实现
+  assert.match(service, /resolveScopeDescriptor\(userId, 'Report'/);
+  assert.match(service, /buildScopeWhere<Record<string, unknown>>\(descriptor, 'Report'\)/);
+  assert.match(service, /rowInScope\(/);
+  // 创建盖章：成员的行归属组织，缺组织则保持仅本人
+  assert.match(service, /orgContextOf\(this\.orgService, userId\)/);
+  assert.match(service, /orgId: orgContext\?\.orgId \?\? undefined/);
+  assert.match(service, /deptId: orgContext\?\.deptId \?\? undefined/);
+
+  const module_ = await readFile(BE(root, 'reports/reports.module.ts'), 'utf8');
+  // 自登记（与 pii 的 registerSensitiveKeys 同一手法）——登记的是归一后的级别
+  assert.match(service, /registerScopeColumns\('Report', \{ owner: 'userId', org: 'orgId', dept: 'deptId' \}\)/);
+  assert.match(service, /registerOrgLevelSubject\('Report'\)/);
+  assert.match(module_, /OrgModule/);
+});
+
+test('端到端：未声明 scope 的模块不带任何范围接线（缺省仍是仅本人，绝不静默放宽）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/notes.json`;
+  await write(specPath, JSON.stringify({
+    module: 'notes',
+    label: '笔记',
+    fields: [{ name: 'title', type: 'string', label: '标题' }],
+  }));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+
+  const entity = await readFile(BE(root, 'notes/note.entity.ts'), 'utf8');
+  assert.doesNotMatch(entity, /org_id|dept_id/);
+  const service = await readFile(BE(root, 'notes/notes.service.ts'), 'utf8');
+  assert.doesNotMatch(service, /buildScopeWhere|rowInScope|OrgService|registerScopeColumns/);
+  assert.match(service, /where: \{ userId \}/); // 今天的行为，一字未变
+  const module_ = await readFile(BE(root, 'notes/notes.module.ts'), 'utf8');
+  assert.doesNotMatch(module_, /OrgModule/);
+});
+
+test('端到端：scope 声明非法 → 生成前拒绝（不产出一个参与不了范围体系的模块）', async () => {
+  const cases = [
+    { scope: ['dept'], hint: /dept 就必须同时声明 org/ },
+    { scope: ['org', 'org'], hint: /重复级别/ },
+    { scope: ['team'], hint: /未知级别/ },
+    { scope: [], hint: /非空数组/ },
+    { scope: 'org', hint: /非空数组/ },
+  ];
+  for (const [i, c] of cases.entries()) {
+    const root = await tempRoot();
+    await makeFixtures(root);
+    const specPath = `${root}/reports.json`;
+    await write(specPath, JSON.stringify({
+      module: 'reports',
+      label: '报告',
+      scope: c.scope,
+      fields: [{ name: 'title', type: 'string', label: '标题' }],
+    }));
+
+    const { code, out } = await runInit(root, ['--spec', specPath]);
+    assert.notEqual(code, 0, `case #${i} 应被拒绝，实际 exit=${code}`);
+    assert.match(out, c.hint);
+    // 拒绝发生在写文件之前
+    await assert.rejects(access(BE(root, 'reports')));
+  }
+});
+
 // ── P0-12 输入通道：OpenAPI → Protocol ─────────────────────────────────────────
 test('parseOpenApiSpec：OpenAPI 3 类型映射（string/int/bool/date/enum + 保留字段/对象跳过）', () => {
   const spec = {

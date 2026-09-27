@@ -20,13 +20,29 @@ export interface OrgContext {
 
 const ORG_LEVEL_SUBJECTS = new Set<string>(['Todo', 'Event']);
 
+/**
+ * Subjects that register themselves for the org level — the generated modules whose spec declared a
+ * `scope`. Same seam as the column registry: the generator emits the call into the module file, so a
+ * generated module defaults to "own or same org" without anyone editing this file.
+ *
+ * 自己登记进「组织级」的 subject —— spec 声明了 `scope` 的生成模块。与列登记同一个缝：生成器把调用写进
+ * 模块文件，于是生成模块缺省即「本人或同组织」，无需任何人改这个文件。
+ */
+const registeredOrgLevelSubjects = new Set<string>();
+
+/** 登记一个 subject 按缺省走 `org` 级（生成模块在 import 时调用）。 */
+export function registerOrgLevelSubject(subject: string): void {
+  registeredOrgLevelSubjects.add(subject);
+}
+
 /** 构造数据范围描述子。 */
 export function defaultScopeDescriptor(
   userId: number,
   subject: string,
   ctx: OrgContext | null,
 ): ScopeDescriptor {
-  const level: ScopeLevel = ctx != null && ORG_LEVEL_SUBJECTS.has(subject) ? 'org' : 'own';
+  const orgLevel = ORG_LEVEL_SUBJECTS.has(subject) || registeredOrgLevelSubjects.has(subject);
+  const level: ScopeLevel = ctx != null && orgLevel ? 'org' : 'own';
   return {
     userId,
     orgId: ctx?.orgId ?? null,
