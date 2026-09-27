@@ -883,6 +883,17 @@ export class AiToolEffectsService {
             ? effect.revokeAcknowledgedAt.toISOString()
             : null,
           revokeWindow: window,
+          // REV-11: **who this is on**. `revokeStale` already answers "is anything stuck" and the two
+          // windows answer "stuck how", but neither says whose work it is — and "somewhere to look"
+          // and "someone has to look" are different things. The accountable party is the user on
+          // whose behalf the write happened; it is an existing column, surfaced rather than inferred.
+          // The assignee for this surface is the admin role itself, which is why no assignee field is
+          // invented here: only admins can read this list at all.
+          // REV-11：**这是谁的活**。`revokeStale` 已答「有没有卡住」、两个窗口已答「怎么卡住的」，
+          // 却都没说是谁的活——而「有的看」与「必须有人看」是两件事。责任人是那次写所代表的使用者，
+          // 是一个**既有列**的暴露，不是推断。本面的指派对象就是管理端角色本身，故此处不另造指派字段：
+          // 这张列表本来就只有管理员读得到。
+          ownerUserId: effect.userId,
           // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
           disputed: effect.revokeDispute != null,
           dispute: this._parseDispute(effect.revokeDispute),

@@ -162,6 +162,31 @@ after 侧没有这个分支；`fell_back` 是**机制不是成因** —— 回�
 本就不该置标。**不回填**：成因取决于捕获当时的运行条件、无法从任何落库列重建，故历史置标行保持
 `null`、读作「标了但原因不可考」；在那里写默认值等于把「不可考」变成「已知」。
 
+### 5.2b 滞留态点名责任人 / A stuck compensation names whose work it is
+
+**REV-11（只做「指派与可见」的那半，不动契约）。** `revokeStale` 已答「有没有卡住」，两个窗口已答
+「怎么卡住的」（可能没到达 / 到达了没回音），但**都没说是谁的活** —— 而「有的看」与「必须有人看」
+是两件事：一个没人被迫去看的状态，慢慢会变回同一个问题。
+
+补的是**责任人**：管理端列表项暴露 `ownerUserId` —— 那次写所代表的那个使用者。它是行上**既有的一列**，
+此前只是没被读出来，故**没有新字段、没有迁移、没有契约变更**。本面的**指派对象就是管理端角色本身**
+（这张列表只有管理员读得到），因此**不另造一个指派字段**：一个「指派给谁」的列若只可能填同一个值，
+那不是记录一个事实，而是把一条规则写进了数据。
+
+**不再造一个同义的「需认领」布尔**：那与 `revokeStale` 是同一事实的两个名字，本仓明令禁止。
+
+English: the stale reading already said whether anything is stuck and how it is stuck; it did not say
+whose work it is, and having somewhere to look is not the same as someone having to look. The
+accountable party is an existing column, surfaced rather than inferred, so this needed no new field,
+no migration and no contract change. The assignee for this surface is the admin role itself — only
+admins can read the list — so no assignee column is invented: a column that could only ever hold one
+value records a rule, not a fact. And no second boolean is added for "needs claiming", because that
+would be one fact under two names.
+
+**未做**：持久的**人工指派**（记下「谁认领了」并留痕）与随后的「认领动作」。要它成为记录事实，需要
+一条列**或**一条告警行，而告警行走既有管线**必须动契约**（`rule` / `subject.kind` 是冻结枚举）。
+**这一步留待裁决，不在本次发明。**
+
 ### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
 
 撤销路径原先只读「**是不是软删了**」（`revoke_status` 与目标 `deletedAt`），`after_snapshot` **从不参与判定**
@@ -270,8 +295,9 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 | 5.8 派发认领 | `_doRevokeSingle` 外部分支的**条件更新**（`Raw` 写 `IS NULL OR revoke_failed`；判据 `!claim?.affected`，fail-closed） | `revoke-dispatch-claim.spec.ts`（真 sqlite；旧实现并发两次会派发两次；fail-closed 对 `=== 0` 变体为红） |
 | 5.9 compensating 计成什么 | `_doRevokeSingle` 外部返回值 + `_compensateGroup` / `_revokeBatch` 计数 | `ai-tool-effects.service.spec.ts` · `revoke-conversation.spec.ts` · `proxy-bridge.e2e-spec.ts`（旧实现：把 `compensating` 算进 `revoked`） |
 | 5.4 REV-13 成因 | `captureAfter` 返回 `{json, reason}` + `recordGroup` 落 `identity_incomplete_reason` + 迁移 `1830000000000` | `capture-availability.spec.ts`（真 sqlite；旧实现连该列都不存在） |
+| 5.2 REV-11 责任人 | 管理端列表项暴露 `ownerUserId`（既有列） | `revoke-claim.spec.ts`（真 sqlite；旧实现该字段不存在） |
 
-十处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+十一处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
 `message`，未新增键。
