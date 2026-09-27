@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "reports",
+  "generator": "keelbase",
+  "generatorVersion": "1.0.11",
+  "protocol": "1.1",
+  "source": "spec:specs/reports.json",
+  "generatedAt": "2026-09-27T03:51:33.000Z"
+}

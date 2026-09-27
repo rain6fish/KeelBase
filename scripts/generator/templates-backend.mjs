@@ -999,8 +999,21 @@ export function serviceSpecTemplate(ctx) {
     await service.create({} as any, 5);
 
     expect(mockRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 5, orgId: 7, deptId: 9 }),
-    );
+      expect.objectContaining({ userId: 5, orgId: 7${
+        (ctx.scope ?? []).includes('dept') ? ', deptId: 9' : ''
+      } }),
+    );${
+      (ctx.scope ?? []).includes('dept')
+        ? ''
+        : `
+    // 只声明 org ⇒ 实体没有 dept_id 列，就不该往 create 里塞这个键（TypeORM 会把它当成一个
+    // 不存在的属性）。这条断言钉住的是「声明了什么才盖什么」，而不是「一律照盖」。
+    //
+    // Declaring only \`org\` means the entity has no dept_id column, so the key must not be handed to
+    // create() — TypeORM would treat it as a property that does not exist. This pins "stamp what was
+    // declared", not "stamp everything".
+    expect(mockRepo.create.mock.calls[0][0]).not.toHaveProperty('deptId');`
+    }
   });
 
   it("a member sees their own rows or their organisation's", async () => {

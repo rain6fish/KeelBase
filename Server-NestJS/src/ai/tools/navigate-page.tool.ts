@@ -32,6 +32,7 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   profile: { route: '/profile', description: '个人资料' },
   settings: { route: '/settings', description: '设置' },
   todos: { route: '/todos', description: '待办清单' },
+  reports: { route: '/reports', description: '报告' },
   contracts: { route: '/contracts', description: '合同' },
   suppliers: { route: '/suppliers', description: '供应商' },
   flows: { route: '/flows/tasks', description: '审批待办' },

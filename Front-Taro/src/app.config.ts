@@ -20,6 +20,7 @@
      'pages/ai-history/index',
      'pages/todos/index',
      'pages/search/index',
+    'pages/reports/index',
     'pages/contracts/index',
     'pages/suppliers/index',
     'pages/tags/index',

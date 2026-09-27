@@ -18,6 +18,8 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
+import { ReportsModule } from '../reports/reports.module';
+import { ReportsService } from '../reports/reports.service';
 import { ContractsModule } from '../contracts/contracts.module';
 import { ContractsService } from '../contracts/contracts.service';
 import { QueueModule } from '../queue/queue.module';
@@ -73,6 +75,8 @@ import { NavigatePageTool } from './tools/navigate-page.tool';
 import { AdminNavigatePageTool } from './tools/navigate-admin-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { QueryReportsTool } from './tools/query-reports.tool';
+import { CreateReportTool } from './tools/create-reports.tool';
 import { QueryContractsTool } from './tools/query-contracts.tool';
 import { CreateContractTool } from './tools/create-contract.tool';
 import { WebSearchTool } from './tools/web-search.tool';
@@ -162,6 +166,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     EventsModule,
     UsersModule,
     TodosModule,
+    ReportsModule,
     ContractsModule,
     OrgModule,
     // 注：本族曾因 org→flows→ai→events→org 间接环而 forwardRef；环已由「授权解释面」
@@ -234,6 +239,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
+        reportsService: ReportsService,
         contractsService: ContractsService,
         memoryService: MemoriesService,
         confirmationStore: ConfirmationStore,
@@ -349,6 +355,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CreateModuleApplyTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // 报告（EASY-2 自动生成 AI 工具）
+        toolRegistry.register(new QueryReportsTool(reportsService));
+        toolRegistry.register(new CreateReportTool(reportsService));
         // 合同（EASY-2 自动生成 AI 工具：读 + 写需确认）
         toolRegistry.register(new QueryContractsTool(contractsService));
         toolRegistry.register(new CreateContractTool(contractsService));
@@ -458,7 +467,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ReportsService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

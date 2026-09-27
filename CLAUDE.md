@@ -90,7 +90,7 @@ KeelBase/
 │   │   ├── upload/                # 文件上传（MIME + 魔数 + 扩展名校验）
 │   │   ├── ai/                    # AI 助手（对话/工具/RAG/评测/记忆/副作用撤销/MCP 出口）
 │   │   ├── crm/ + pm/ + approval/ # 旗舰应用（AI CRM / Project / Approval）
-│   │   ├── contracts/ + suppliers/ + tags/ + notes/ + books/ + posts/  # 生成/示例业务模块
+│   │   ├── contracts/ + suppliers/ + tags/ + notes/ + books/ + posts/ + reports/  # 生成/示例业务模块
 │   │   ├── org/ + points/ + feedback/ + marketing/ + sms/              # 组织/积分/反馈/运营/短信
 │   │   ├── flows/                 # FLOW 工作流引擎
 │   │   ├── plugins/ + mcp/ + headless/ + webhooks/                     # 扩展：插件/MCP/无头/Webhook
@@ -906,7 +906,7 @@ npm run migration:run
 | GET/POST | /api/v1/crm/customers（及 :id/orders·activities·risks·tasks·opportunities·contacts） | Yes | 本人 | AI CRM：客户 CRUD + 跟进/风险/任务/销售机会/联系人子资源 + `:id/analyze` 风险分析 + `GET /crm/dashboard` 业务洞察聚合（旗舰应用，feature flag: crm；opportunities/contacts/dashboard = Customer 360 + AI Sales Agent §10 P0） |
 | GET/POST | /api/v1/pm/projects（及 :id/milestones·tasks·members·risks） | Yes | 本人 | AI Project：项目 CRUD + 里程碑/任务/成员 + `:id/analyze` 延期风险分析（旗舰应用，feature flag: pm） |
 | GET/POST | /api/v1/approval/requests（及 policies）+ `:id/review`·`:id/decide` | Yes | 本人 | AI Approval：审批请求 + 政策 + AI 预审/人工复核（旗舰应用，feature flag: approval） |
-| GET/POST/PATCH/DELETE | /api/v1/{module} | Yes | 本人 | 生成/示例业务模块：contracts / suppliers / tags / notes / books / posts（`keelbase init` 生成，CASL 所有权 + 审计） |
+| GET/POST/PATCH/DELETE | /api/v1/{module} | Yes | 本人（`reports` 为本人或同组织） | 生成/示例业务模块：contracts / suppliers / tags / notes / books / posts / reports（`keelbase init` 生成，CASL 所有权 + 审计；`reports` 的 spec 声明了 `scope: ["org"]`，故按行级数据范围返回，见 docs/data-scope.spec.md） |
 | GET/POST | /api/v1/flows/... | Yes | 本人 | FLOW 工作流引擎：流程定义/实例/节点（human_task/ai_task/condition） |
 ---
 

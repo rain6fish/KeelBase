@@ -54,6 +54,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddSuppliers*',
   '*AddContracts*',
   '*AddBooksNotesProtocolFields*',
+  '*AddReports*',
   '*AddAiAgents*',
   '*FixAiAgentsNameUniqueIndex*',
   '*AddUsersCreatedAtIndex*',

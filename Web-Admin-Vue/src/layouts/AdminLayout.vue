@@ -223,6 +223,7 @@ const consoleNavGroups = computed(() => [
       { name: 'notifications', to: '/notifications', icon: 'mdi-bullhorn-outline', label: t('navNotifications') },
       { name: 'trash', to: '/trash', icon: 'mdi-delete-outline', label: t('navTrash') },
       { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },
+      { name: 'reports', to: '/reports', icon: 'mdi-database-outline', label: t('navReports') },
       { name: 'contracts', to: '/contracts', icon: 'mdi-database-outline', label: t('navContracts'), module: 'contracts' },
       { name: 'suppliers', to: '/suppliers', icon: 'mdi-database-outline', label: t('navSuppliers'), module: 'suppliers' },
       { name: 'tags', to: '/tags', icon: 'mdi-database-outline', label: t('navTags'), module: 'tags' },

@@ -127,10 +127,10 @@ using the platform's existing pieces rather than a private copy:
 - `dept` without `org` is **refused at generation time** — department levels are reached through the org
   column at runtime, so a module declaring only `dept` would get a column that can never do anything.
 
-**Not yet wired** (stated here so it is not mistaken for done): the repository ships no **live example** of a
-scoped generated module, so the coverage is the generated module's own spec plus a real compile of the emitted
-code — not an HTTP e2e against a generated module. That needs a sample module with the range columns and its
-migration; it is a separate change.
+**Live example**: `reports` (`specs/reports.json`, `scope: ["org"]`) is the generated module that ships in this
+repository, with its own migration (`1831000000000-AddReports`) and an HTTP e2e in `test/data-scope.e2e-spec.ts`
+— a member of the same organisation sees a colleague's report, a non-member does not. The coverage is therefore
+the generated spec, a real compile of the emitted code, **and** an HTTP e2e against the real generated module.
 
 `scope: ["org", …]` 的模块参与**行级数据范围**（`docs/data-scope.spec.md`），用的是平台**既有构件**，不是
 每模块一份私有实现：
@@ -146,8 +146,9 @@ migration; it is a separate change.
 - `dept` 不带 `org` 在**生成期即被拒** —— 部门级在运行时经组织列抵达，只声明 `dept` 的模块会拿到一个永远
   起不了作用的列。
 
-**尚未接线**（勿当已做）：仓库尚无**活的**参与范围的生成模块样例，故覆盖是「生成模块自己的 spec + 产出代码的
-真实编译」，而**不是**针对生成模块的 HTTP e2e。那需要一条带范围列的样例模块及其迁移，属独立改动。
+**活样例**：`reports`（`specs/reports.json`，`scope: ["org"]`）是本仓随附的参与范围的生成模块，带自己的迁移
+（`1831000000000-AddReports`）与一条 HTTP e2e（`test/data-scope.e2e-spec.ts`）—— 同组织成员看得到同事的报告，
+非成员看不到。故覆盖 = 生成物自己的 spec + 产出代码的真实编译 + **针对真生成模块的 HTTP e2e**。
 
 **固定的安全接线（协议不含，AI 必须补）**：
 - CASL：用户只能访问本人数据（`userId` 所有权）

@@ -69,7 +69,7 @@ Out of scope now: per-role configuration of the level, field-level permission, a
 - 单元：`src/common/scope/scope-where.spec.ts`（每级别 + 降级 + `rowInScope` + 自登记与未登记的回退）、`scope-policy.spec.ts`、`scope-resolution.spec.ts`（降级：无组织服务 / 查询抛错 → 无组织，而不是报错或放宽）。
 - 生成侧：`keelbase-init.test.mjs` 断言「声明 `scope` ⇒ 实体多出范围列、服务走范围构造、模块引入 OrgModule、服务自登记」，并断言**未声明时一条都不出现**（缺省仍是仅本人）；另有一条独立验证：**把生成模块产出放进真实 `src` 跑 `tsc` 并跑它自己的 spec** —— 前者曾在「登记写在模块文件」时全绿，而后者立刻变红（组织分支不触发），故这条不可省。
 - 服务：`todos.service.spec.ts` / `events.service.spec.ts`（where 形状与 ORG-3 逐字一致）；`org.service.spec.ts`（ancestors 维护与下钻）。
-- 端到端：`test/data-scope.e2e-spec.ts`（真实 DI + DB：写入盖章、同组织可见、非组织不可见）；`test/role-config.e2e-spec.ts`（**验收**：改 `roles.data_scope` 即改查询——`own` → 看不到下级，`own_dept_and_below` → 看得到，改回即收紧）。
+- 端到端：`test/data-scope.e2e-spec.ts`（真实 DI + DB：写入盖章、同组织可见、非组织不可见；**含一条生成模块的用例** —— `reports` 声明了 `scope: ["org"]`，同组织成员可见、非成员不可见，即「生成代码真的接上了范围体系、且自登记真的发生了」）；`test/role-config.e2e-spec.ts`（**验收**：改 `roles.data_scope` 即改查询——`own` → 看不到下级，`own_dept_and_below` → 看得到，改回即收紧）。
 - 手工：把某角色的级别改为 `own_dept_and_below`，父部门用户建行、孙部门用户可见；改回 `own` 即不可见——**证明配置驱动查询、无需改代码**（随级别可配置落地后生效）。
 
 ---

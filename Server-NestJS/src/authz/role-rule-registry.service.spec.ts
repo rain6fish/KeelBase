@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RoleRuleRegistry } from './role-rule-registry.service';
+import { GENERATED_ROLE_RULES } from './generated-role-rules';
 
 function makeRegistry(roles: unknown[], grants: unknown[]) {
   const rolesRepo = { find: jest.fn().mockResolvedValue(roles) };
@@ -26,7 +27,21 @@ describe('RoleRuleRegistry（权限-2 Step 2：规则数据驱动）', () => {
 
     expect(r.rulesFor('admin')).toEqual([{ roleCode: 'admin', subject: 'all', ownerField: null, stringifyOwner: false }]);
     const user = r.rulesFor('user');
-    expect(user.map((x) => x.subject).sort()).toEqual(['AiConversation', 'CrmCustomer', 'Todo']);
+    // The DB grants above, plus whatever the generator has written into GENERATED_ROLE_RULES — one
+    // entry per generated module. Derived rather than hard-coded for the same reason as the feature-flag
+    // list: a generated module would otherwise force an edit here, and the assertion would decay into a
+    // rubber stamp. What it pins is that the two sources are merged, and that the DB's per-grant flags
+    // (stringifyOwner) survive it.
+    //
+    // 上面那些 DB 授予，加上生成器写进 GENERATED_ROLE_RULES 的（每个生成模块一条）。推导而非硬写，
+    // 理由与 feature-flag 那张清单相同：否则每生成一个模块就得来这里改一次，断言会退化成橡皮图章。
+    // 它钉住的是「两个来源被合并」以及 DB 授予上的逐条标志（stringifyOwner）在合并中存活。
+    const generatedUserSubjects = GENERATED_ROLE_RULES.filter((x) => x.roleCode === 'user').map(
+      (x) => x.subject,
+    );
+    expect(user.map((x) => x.subject).sort()).toEqual(
+      [...new Set(['AiConversation', 'CrmCustomer', 'Todo', ...generatedUserSubjects])].sort(),
+    );
     expect(user.find((x) => x.subject === 'AiConversation')?.stringifyOwner).toBe(true);
   });
 
@@ -50,7 +65,11 @@ describe('RoleRuleRegistry（权限-2 Step 2：规则数据驱动）', () => {
   it('空表 → 规则为空（工厂据此回退内置常量，绝不 fail-open）', async () => {
     const r = makeRegistry([], []);
     await r.reload();
-    expect(r.rulesFor('user')).toEqual([]);
+    // The DB contributed nothing — which is what "the tables are empty" has to mean. The generated
+    // rules are a separate, always-on source (code, not rows), so they are what remains.
+    // DB 什么也没贡献 —— 这才是「表是空的」该有的含义。生成规则是另一个**常开**来源（是代码、不是行），
+    // 所以剩下的正是它们。
+    expect(r.rulesFor('user')).toEqual(GENERATED_ROLE_RULES.filter((x) => x.roleCode === 'user'));
     expect(r.dataScopeFor('user', 'Todo')).toBeUndefined();
   });
 
@@ -60,6 +79,10 @@ describe('RoleRuleRegistry（权限-2 Step 2：规则数据驱动）', () => {
       { roleId: 2, ownerField: 'userId', stringifyOwner: false, dataScope: null, permission: null },
     ]);
     await r.reload();
-    expect(r.rulesFor('user')).toEqual([]);
+    // Both grants are orphans (unknown roleId / missing subject) and are dropped, leaving only the
+    // generated rules — an orphan must not reach the ability factory under any name.
+    // 两条授予都是孤儿（roleId 不认识 / subject 缺失）被丢弃，只剩生成规则 —— 孤儿不得以任何名义抵达
+    // 能力工厂。
+    expect(r.rulesFor('user')).toEqual(GENERATED_ROLE_RULES.filter((x) => x.roleCode === 'user'));
   });
 });
