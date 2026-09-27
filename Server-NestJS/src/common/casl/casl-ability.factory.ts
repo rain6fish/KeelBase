@@ -45,19 +45,32 @@ function normalizeActions(ruleAction: string | string[]): string[] {
   );
 }
 
+/** 并集：`base` 优先，`extra` 里与 `base` 同 subject 的丢弃（与注册表内部的合并口径一致）。 */
+function mergeBySubject(base: RoleRuleSeed[], extra: RoleRuleSeed[]): RoleRuleSeed[] {
+  return [...base, ...extra.filter((e) => !base.some((b) => b.subject === e.subject))];
+}
+
 @Injectable()
 export class CaslAbilityFactory {
   /** 可选注入：数据驱动的规则来源（权限-2 Step 2）。缺席 = 用内置常量（单元测试 / 加载失败）。 */
   constructor(@Optional() private readonly registry?: RoleRuleSource) {}
   /**
-   * 该角色的规则来源：**注册表优先（数据驱动），缺席则回退内置常量**。
-   * 回退保证两件事：① 单元测试的无参构造 `new CaslAbilityFactory()` 行为不变；
-   * ② 注册表加载失败时不至于无人可用（fail-safe 到内置规则，绝不 fail-open 到无规则）。
+   * 该角色的规则来源：**DB 授予优先（数据驱动），没有 DB 授予则内置常量为基线**；两者都叠加
+   * 注册表里的生成模块种子（若有）。
+   *
+   * 为什么权威性只看 DB 而不是「注册表非空」：生成模块的种子（`GENERATED_ROLE_RULES`）也并进
+   * `rulesFor`，于是「非空」不再等于「部署期给了授权」。按非空判会有一个致命后果——**生成第一个
+   * 模块就让该角色丢掉全部内置规则**（e2e 脚手架、`synchronize` 起的开发库都没有 `roles` 行，
+   * `user` 连自己的资料都读不到）。回退保证的三件事：① 单元测试的无参构造行为不变；② 注册表加载
+   * 失败时仍能用（fail-safe 到内置规则，绝不 fail-open 到无规则）；③ 生成模块不改变授权面。
    */
   private _rulesFor(role: string): RoleRuleSeed[] {
-    const fromRegistry = this.registry?.rulesFor(role);
-    if (fromRegistry && fromRegistry.length > 0) return fromRegistry;
-    return BUILTIN_ROLE_RULES.filter((r) => r.roleCode === role);
+    const fromRegistry = this.registry?.rulesFor(role) ?? [];
+    if (this.registry?.hasDbRules(role)) return fromRegistry;
+    return mergeBySubject(
+      BUILTIN_ROLE_RULES.filter((r) => r.roleCode === role),
+      fromRegistry,
+    );
   }
 
   createForUser(user: JwtPayload): AppAbility {

@@ -28,6 +28,14 @@ export interface RoleRuleSeed {
  */
 export abstract class RoleRuleSource {
   abstract rulesFor(roleCode: string): RoleRuleSeed[];
+  /**
+   * 该角色是否有**来自 DB** 的授予。
+   *
+   * 权威性只看 DB：生成模块的种子（`GENERATED_ROLE_RULES`）也并进 `rulesFor`，但它是**构建期**的代码级
+   * 新增、不是部署期的权威来源。若把「注册表非空」当作权威，生成第一个模块就会让该角色的**内置规则整体
+   * 消失**——`user` 在没有任何 `roles` 行的环境（e2e 脚手架、`synchronize` 起的开发库）连自己的资料都读不到。
+   */
+  abstract hasDbRules(roleCode: string): boolean;
   /** 角色对某主体的数据范围级别；未配置 → undefined（调用方回退内置默认） */
   abstract dataScopeFor(roleCode: string, subject: string): string | undefined;
   /** 角色的自定义部门集（`data_scope = custom_dept`） */
