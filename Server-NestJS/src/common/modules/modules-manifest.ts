@@ -48,7 +48,7 @@ export const NOTIFICATION_MODULES = [
 ] as const;
 
 /** 可选业务样例：可独立关 */
-export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm', 'pm', 'approval', 'suppliers', 'contracts', 'followup_plans'] as const;
+export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm', 'pm', 'approval', 'suppliers', 'contracts', 'reports', 'followup_plans'] as const;
 
 const coreEntries: ModuleManifestEntry[] = CORE_MODULES.map((id) => ({
   id,
@@ -75,6 +75,7 @@ const notificationEntries: ModuleManifestEntry[] = NOTIFICATION_MODULES.map((id)
 const businessEntries: ModuleManifestEntry[] = [
   { id: 'events', category: 'business', deps: ['notifications'], label: '事件', description: '日历事件与提醒' },
   { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },
+  { id: 'reports', category: 'business', deps: [], label: '报告', description: '报告（reports 模块，keelbase init 生成）' },
   { id: 'followup_plans', category: 'business', deps: [], label: '跟进计划', description: '跟进计划（followup_plans 模块，keelbase init 生成）' },
   { id: 'contracts', category: 'business', deps: [], label: '合同', description: '合同管理（生成模块示例）' },
   { id: 'suppliers', category: 'business', deps: [], label: '供应商', description: '供应商档案与风险分级' },

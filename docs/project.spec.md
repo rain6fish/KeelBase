@@ -541,16 +541,16 @@ Notifications are produced via `NotificationsService.create()` for use by each m
 | GET | /api/v1/points/leaderboard | Yes | 积分排行榜（脱敏：仅昵称/头像/积分，不含内部 userId） / Points leaderboard (sanitized: nickname/avatar/points only) |
 | GET | /api/v1/points/achievements | Yes | 我的成就（按正分毛累计判定，admin 扣分不回退） / My achievements (based on gross positive points; admin deductions don't regress) |
 
-### 5.14 业务示例模块（合同/供应商/标签/笔记/图书） / 5.14 Business Sample Modules (Contracts/Suppliers/Tags/Notes/Books)
+### 5.14 业务示例模块（合同/供应商/标签/笔记/图书/帖子/报告） / 5.14 Business Sample Modules (Contracts/Suppliers/Tags/Notes/Books/Posts/Reports)
 
-contracts / suppliers / tags / notes / books 五个模块接口结构相同（各带 FeatureFlag 开关），`{module}` = contracts｜suppliers｜tags｜notes｜books，本人所有权走 CASL，删除为软删可进回收站：
+contracts / suppliers / tags / notes / books / posts / reports 七个模块接口结构相同（各带 FeatureFlag 开关），`{module}` = contracts｜suppliers｜tags｜notes｜books｜posts｜reports，本人所有权走 CASL，删除为软删可进回收站。**`reports` 是唯一例外**：它的 spec 声明了 `scope: ["org"]`，故列表按**行级数据范围**返回（本人 **或同组织**），明细/更新/删除走同一判定 —— 见 `docs/data-scope.spec.md`。
 
-The five modules contracts/suppliers/tags/notes/books share an identical interface structure (each gated by its own FeatureFlag); `{module}` = contracts｜suppliers｜tags｜notes｜books, self-ownership via CASL, deletes are soft deletes recoverable from the trash:
+The seven modules contracts/suppliers/tags/notes/books/posts/reports share an identical interface structure (each gated by its own FeatureFlag); `{module}` = contracts｜suppliers｜tags｜notes｜books｜posts｜reports, self-ownership via CASL, deletes are soft deletes recoverable from the trash. **`reports` is the one exception**: its spec declares `scope: ["org"]`, so its list returns rows by **row-level data scope** (own **or same organisation**) and the detail/update/delete paths make the same judgement — see `docs/data-scope.spec.md`.
 
 | Method | Path | Auth | 说明 / Description |
 |--------|------|------|------|
 | POST | /api/v1/{module} | Yes | 创建 / Create |
-| GET | /api/v1/{module} | Yes | 我的列表（本人） / My list (own) |
+| GET | /api/v1/{module} | Yes | 列表：本人（`reports` 为本人或同组织） / List: own (`reports`: own or same organisation) |
 | PATCH | /api/v1/{module}/:id | Yes | 更新（本人/管理员） / Update (self/admin) |
 | DELETE | /api/v1/{module}/:id | Yes | 删除（本人/管理员，软删进回收站） / Delete (self/admin, soft delete to trash) |
 | GET | /api/v1/{module}/admin/all | Yes (ADMIN) | 管理端全量列表 / Admin full list |

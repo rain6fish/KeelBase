@@ -18,6 +18,8 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
+import { ReportsModule } from '../reports/reports.module';
+import { ReportsService } from '../reports/reports.service';
 import { FollowupPlansModule } from '../followup_plans/followup_plans.module';
 import { FollowupPlansService } from '../followup_plans/followup_plans.service';
 import { ContractsModule } from '../contracts/contracts.module';
@@ -52,6 +54,7 @@ import { ProviderRoutingService } from './providers/provider-routing.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { AuthzExplainModule } from './authz-explain.module';
 import { AiAuditModule } from './audit/ai-audit.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
@@ -74,6 +77,8 @@ import { NavigatePageTool } from './tools/navigate-page.tool';
 import { AdminNavigatePageTool } from './tools/navigate-admin-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { QueryReportsTool } from './tools/query-reports.tool';
+import { CreateReportTool } from './tools/create-reports.tool';
 import { QueryFollowupPlansTool } from './tools/query-followup_plans.tool';
 import { CreateFollowupPlanTool } from './tools/create-followup_plans.tool';
 import { QueryContractsTool } from './tools/query-contracts.tool';
@@ -165,6 +170,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     EventsModule,
     UsersModule,
     TodosModule,
+    ReportsModule,
     FollowupPlansModule,
     ContractsModule,
     OrgModule,
@@ -177,6 +183,10 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     StorageModule,
     FeatureFlagsModule,
     AuditChainModule,
+    // REV-15：工具闸门的拒绝计数（tool_gate_refusals_total）住在 MetricsService（prom-client 全局
+    // registry，故 /metrics 自动含它）。引 MetricsModule 只是让它的 provider 可见；
+    // 其 configure() 里的 MetricsMiddleware 是按**模块实例**注册一次的，不会因多一个 importer 而重复计数。
+    MetricsModule,
     CacheModule,
     OperationAuditModule,
     TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
@@ -234,6 +244,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
+        reportsService: ReportsService,
         followup_plansService: FollowupPlansService,
         contractsService: ContractsService,
         memoryService: MemoriesService,
@@ -350,6 +361,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CreateModuleApplyTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // 报告（EASY-2 自动生成 AI 工具）
+        toolRegistry.register(new QueryReportsTool(reportsService));
+        toolRegistry.register(new CreateReportTool(reportsService));
         // 跟进计划（EASY-2 自动生成 AI 工具）
         toolRegistry.register(new QueryFollowupPlansTool(followup_plansService));
         toolRegistry.register(new CreateFollowupPlanTool(followup_plansService));
@@ -462,7 +476,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

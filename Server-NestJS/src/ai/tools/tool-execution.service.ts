@@ -14,7 +14,7 @@
  *
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
@@ -53,6 +53,8 @@ function proxyResultId(userId: string, toolName: string, args: Record<string, un
 
 @Injectable()
 export class ToolExecutionService {
+  private readonly logger = new Logger(ToolExecutionService.name);
+
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly toolGate: ToolGateService,
@@ -100,7 +102,7 @@ export class ToolExecutionService {
 
     // AUTHZ-2：策略声明的可写字段域 / destination 白名单，同样在**执行点**按实际请求校验
     //（与上面同一理由：声明可在等待窗口内被收紧，执行点才是它必须成立的地方）。
-    await this.toolGate.assertWithinDeclaredScope(toolName, args);
+    await this.toolGate.assertWithinDeclaredScope(toolName, args, userId);
 
     // AUTHZ-1：确认 artifact 的目的地绑定。artifact 在签发时记下它被批准写往哪个系统，
     // 这里拿它和**此刻**该工具的目的地比对——等待窗口内目的地可被改指（Settings 热重载换代理
@@ -204,17 +206,27 @@ export class ToolExecutionService {
         if (declared) {
           const snapshots = await Promise.all(
             declared.map(async (e) => {
-              const after = this.snapshotCaptor
+              // REV-13：没有捕获器时也要**说清是哪一种「没有」** —— `no_captor` 是设计上的可选，
+              // 与「实体在、行不在」那类异常必须分得开，否则读数里两者同形。
+              const captured = this.snapshotCaptor
                 ? await this.snapshotCaptor.captureAfter(e.resultType, e.resultId, result.data)
-                : null;
-              return { before, after };
+                : { json: null, reason: 'no_captor' as const };
+              return { before, after: captured.json, afterReason: captured.reason };
             }),
           );
-          await this.toolEffectsService.recordGroup(
+          const registeredGroup = await this.toolEffectsService.recordGroup(
             { userId, conversationId, runId, toolName, args },
             declared,
             snapshots,
           );
+          // ARC-4：返回值不再被忽略。声明了 N 条却**一行都没登记**（幂等键被非本组成员占用）时，业务写
+          // 已经发生、而它的副作用**不可撤** —— 这不是成功，也不能静默。证据（声明 vs 持有的双向差集）
+          // 已写在占键那行的 `revokeDispute` 上、管理端可读；此处如实报一条警告。
+          if (registeredGroup.length === 0 && declared.length > 0) {
+            this.logger.warn(
+              `[ToolExecution] ${toolName}: 声明的 ${declared.length} 条副作用一行都没登记（幂等键被非本组成员占用）——本次写不可撤`,
+            );
+          }
           return result;
         }
         // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
@@ -229,8 +241,10 @@ export class ToolExecutionService {
             : proxyResultId(userId, toolName, args)
           : (result.data as any).id;
         // E-1 字段级变更审计：抓写操作目标记录 after 快照（本地实体全量 / 外部写用返回数据兜底）
+        // REV-13 起返回 `{ json, reason }`；单目标行**不置** `identity_incomplete`（它不属于任何组），
+        // 故此处只取 `json`，成因归组路径承载。
         const after = this.snapshotCaptor
-          ? await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)
+          ? (await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)).json
           : null;
         await this.toolEffectsService.record(
           { userId, conversationId, runId, toolName, args },

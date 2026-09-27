@@ -97,4 +97,37 @@ describe('数据范围（权限-2）', () => {
       .expect(200);
     expect((listA.body.data ?? []).some((t: { userId: number }) => t.userId === userC.id)).toBe(false);
   });
+
+  /**
+   * 生成模块走的是**同一套**数据范围：`reports` 的 spec 声明了 `scope: ["org"]`，于是它由生成器
+   * 产出范围列、盖章、`buildScopeWhere` 与 `rowInScope`，并在自己的服务里**自登记**。
+   *
+   * 这条 e2e 用的是**真生成物**（不是替身、不是手写模型）：它同时钉住「生成的代码真的接上了范围体系」
+   * 与「登记真的发生了」—— 后者单靠字符串断言不够（见 docs/module-protocol.md §3.2 那条实测）。
+   */
+  it('生成模块（reports 声明 scope）同样按组织可见，非组织成员不可见', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/reports')
+      .set(authHeader(userA.token))
+      .send({ title: 'A 的报告', status: 'draft' })
+      .expect(201);
+
+    // ① 生成物也盖章（org 列由协议 scope 声明带出）
+    const row = await ds.getRepository('reports').findOne({ where: { userId: userA.id } });
+    expect(row?.orgId).toBeTruthy();
+
+    // ② 同组织 B 可见
+    const listB = await request(app.getHttpServer())
+      .get('/api/v1/reports')
+      .set(authHeader(userB.token))
+      .expect(200);
+    expect((listB.body.data ?? []).some((r: { userId: number }) => r.userId === userA.id)).toBe(true);
+
+    // ③ 非组织成员 C 不可见
+    const listC = await request(app.getHttpServer())
+      .get('/api/v1/reports')
+      .set(authHeader(userC.token))
+      .expect(200);
+    expect((listC.body.data ?? []).some((r: { userId: number }) => r.userId === userA.id)).toBe(false);
+  });
 });

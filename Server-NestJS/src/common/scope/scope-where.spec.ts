@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { buildScopeWhere, rowInScope, SCOPE_COLUMNS } from './scope-where';
+import { buildScopeWhere, registerScopeColumns, rowInScope, SCOPE_COLUMNS } from './scope-where';
 import type { ScopeDescriptor } from './scope.types';
 
 function desc(over: Partial<ScopeDescriptor> = {}): ScopeDescriptor {
@@ -60,6 +60,34 @@ describe('buildScopeWhere（权限-2 结构化 where，不拼 SQL）', () => {
       'PmProject',
       'Todo',
     ]);
+  });
+});
+
+describe('自登记的 subject（生成模块声明的 scope）', () => {
+  it('登记后按其列构造 where —— org 级即「本人或同组织」', () => {
+    registerScopeColumns('Report', { owner: 'userId', org: 'orgId', dept: 'deptId' });
+
+    expect(buildScopeWhere(desc({ level: 'org' }), 'Report')).toEqual([{ userId: 5 }, { orgId: 1 }]);
+    expect(rowInScope({ userId: 6, orgId: 1 }, desc({ level: 'org' }), 'Report')).toBe(true);
+    expect(rowInScope({ userId: 6, orgId: 2 }, desc({ level: 'org' }), 'Report')).toBe(false);
+  });
+
+  it('未登记的 subject 只回本人 —— 收紧方向，绝不放宽', () => {
+    // 生成模块的自登记没跑（模块没被 import、或那段被删）时的答案：本人的行，仅此而已。
+    // 内置五个不会走到这里，故这一支只服务于「登记缺失」，而它给的正是最紧的那个答案。
+    //
+    // The answer when a generated module's self-registration did not run (module never imported, or
+    // that block was deleted): the caller's own rows, nothing more. The built-in five never reach
+    // this branch, so it only ever serves a missing registration — with the tightest answer there is.
+    expect(buildScopeWhere(desc({ level: 'org' }), 'NeverRegistered')).toEqual([{ userId: 5 }]);
+    expect(rowInScope({ userId: 6, orgId: 1 }, desc({ level: 'org' }), 'NeverRegistered')).toBe(false);
+    expect(rowInScope({ userId: 5 }, desc({ level: 'org' }), 'NeverRegistered')).toBe(true);
+  });
+
+  it('登记不会覆盖内置主体（手写那一半仍有人审、有断言钉住）', () => {
+    registerScopeColumns('Todo', { owner: 'somethingElse' });
+
+    expect(buildScopeWhere(desc(), 'Todo')).toEqual([{ userId: 5 }]);
   });
 });
 

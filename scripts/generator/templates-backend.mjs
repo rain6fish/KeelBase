@@ -200,6 +200,32 @@ export function entityTemplate(ctx) {
         `   */\n` +
         `  @OneToMany(() => ${att.className}, (attachment) => attachment.owner)\n` +
         `  ${att.relation}?: ${att.className}[];\n`;
+  // 协议 scope 声明的列。列名固定（orgId / deptId）——与 userId 一样属固定安全接线，spec 只声明
+  // 参与哪一级，不点名列。
+  //
+  // Protocol-declared scope columns. The names are fixed (orgId / deptId) exactly as userId is: the
+  // spec declares which level the module takes part in, not what to call the column.
+  const scoped = (ctx.scope ?? []).includes('org');
+  const scopeCols = !scoped
+    ? ''
+    : `\n  /**
+   * The organisation this row belongs to, stamped from the creator's membership at creation time.
+   * \`null\` means the creator belonged to none — the row stays owner-only rather than becoming
+   * visible to everyone.
+   *
+   * 本行所属组织，创建时按创建者的组织归属盖章。\`null\` = 创建者不属于任何组织 ⇒ 该行保持仅本人可见，
+   * 而不是变成所有人可见。
+   */
+  @Column({ nullable: true, name: 'org_id' })
+  orgId?: number;\n` +
+      ((ctx.scope ?? []).includes('dept')
+        ? `
+  /** Same stamping, for the department column that role-configured levels read. */
+  /* 同一处盖章，供按角色配置的部门级范围读取。 */
+  @Column({ nullable: true, name: 'dept_id' })
+  deptId?: number;\n`
+        : '');
+  const scopeIndex = scoped ? `\n@Index(['orgId'])` : '';
   return `import {
   Entity,
   PrimaryGeneratedColumn,
@@ -212,7 +238,7 @@ export function entityTemplate(ctx) {
 } from 'typeorm';
 ${refEntityImports}${attachImport}${decimalHelper}
 @Entity('${ctx.plural}')
-@Index(['userId'])
+@Index(['userId'])${scopeIndex}
 ${refIndexes}
 export class ${ctx.singlePascal} {
   @PrimaryGeneratedColumn()
@@ -222,7 +248,7 @@ ${fieldCols}
 
   @Column({ nullable: true, name: 'user_id' })
   userId?: number;
-
+${scopeCols}
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -403,6 +429,85 @@ export class Update${ctx.singlePascal}Dto extends PartialType(Create${ctx.single
 export function serviceTemplate(ctx) {
   const pii = piiFieldNames(ctx.fields);
   const piiImport = pii.length > 0 ? `\nimport { maskText } from '../common/utils/mask';` : '';
+  // 协议 scope 声明 ⇒ 这个模块参与行级数据范围。用平台既有的构件，不另立一套：级别来源
+  // （角色配置优先、内置默认兜底）与 where 构造都由 common/scope 提供，todos/events 走的正是同一条路。
+  //
+  // A protocol `scope` declaration ⇒ this module takes part in row-level data scope, using the
+  // platform's existing pieces rather than a private copy: level resolution (role configuration first,
+  // built-in default otherwise) and where construction both live in common/scope, which is the same
+  // road todos and events travel.
+  const scoped = (ctx.scope ?? []).includes('org');
+  // `Optional` joins the existing @nestjs/common import rather than opening a second one for the
+  // same module — an import line per injected dependency is how a file ends up with four of them.
+  // `Optional` 并入既有的 @nestjs/common import，而不是为同一个模块再开一行 —— 一个依赖一行 import，
+  // 是文件最后长出四行同类 import 的方式。
+  const nestCommonImports = `Injectable, NotFoundException, ForbiddenException, ConflictException${
+    scoped ? ', Optional' : ''
+  }`;
+  const scopeImports = scoped
+    ? `\nimport { OrgService } from '../org/org.service';\n` +
+      `import { DataScopeService } from '../authz/data-scope.service';\n` +
+      `import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';\n` +
+      `import { buildScopeWhere, registerScopeColumns, rowInScope } from '../common/scope/scope-where';\n` +
+      `import { registerOrgLevelSubject } from '../common/scope/scope-policy';\n`
+    : '';
+  // 自登记写在**服务**文件里，不是模块文件 —— 因为consume它的是服务，而单元测试只 import 服务。
+  // 写在模块里时测试跑的是「未登记」的路（组织分支不触发），当真跑生成物自己的 spec 才暴露出来。
+  //
+  // The self-registration lives in the **service** file rather than the module file: the service is
+  // what consumes it, and a unit test imports the service. With it in the module, the generated spec
+  // exercised the *unregistered* path — the org branch never fired — which only surfaced by actually
+  // running the generated spec.
+  const scopeRegister = scoped
+    ? `// 协议 scope 声明 → 本模块参与行级数据范围：登记自己的列，并按缺省走「本人或同组织」。\n` +
+      `// 列名固定（与生成实体一致）；未声明 scope 的模块不登记，也就仍是仅本人 —— 绝不静默放宽。\n` +
+      `// Protocol scope declaration → this module takes part in row-level data scope: it registers its\n` +
+      `// own columns and defaults to "own or same organisation". Undeclared modules stay owner-only.\n` +
+      `registerScopeColumns('${ctx.singlePascal}', { owner: 'userId', org: 'orgId'${
+        (ctx.scope ?? []).includes('dept') ? `, dept: 'deptId'` : ''
+      } });\n` +
+      `registerOrgLevelSubject('${ctx.singlePascal}');\n\n`
+    : '';
+  const scopeParams = scoped
+    ? `\n    @Optional() private readonly orgService?: OrgService,\n    @Optional() private readonly dataScope?: DataScopeService,`
+    : '';
+  const scopeHelpers = scoped
+    ? `
+  /**
+   * The caller's data scope for this subject: role configuration when present, the built-in default
+   * otherwise. Missing configuration only ever tightens — see \`common/scope\`.
+   *
+   * 调用方在本 subject 上的数据范围：有角色配置用它、否则用内置默认。配置缺失只会收紧 —— 见
+   * \`common/scope\`。
+   */
+  private async _scopeFor(userId: number) {
+    return resolveScopeDescriptor(userId, '${ctx.singlePascal}', this.orgService, this.dataScope);
+  }
+
+  /**
+   * Whether this caller may read or manage this row: its own, or same-organisation. Kept in step with
+   * the list query so a row that shows up in the list is never refused on the detail path.
+   *
+   * 该调用方能否读/管理这一行：本人的，或同组织的。与列表查询保持同一口径，故**列表里看得见的行，
+   * 明细路径上不会反被拒**。
+   */
+  private async _canAccess(row: ${ctx.singlePascal}, ability: AppAbility, userId: number): Promise<boolean> {
+    if (ability.can('manage', 'all')) return true;
+    if (ability.can('read', subject('${ctx.singlePascal}', row))) return true;
+    return rowInScope(row as unknown as Record<string, unknown>, await this._scopeFor(userId), '${ctx.singlePascal}');
+  }
+`
+    : '';
+  const scopeCreateStamp = scoped
+    ? `    // Stamped from the creator's membership: a member's rows are visible to their organisation,\n` +
+      `    // a non-member's stay owner-only. A missing org never widens anything.\n` +
+      `    // 按创建者的组织归属盖章：成员的行对其组织可见，非成员的行保持仅本人。组织信息缺失绝不放宽。\n` +
+      `    const orgContext = await orgContextOf(this.orgService, userId);\n`
+    : '';
+  const scopeCreateCols = scoped
+    ? `      orgId: orgContext?.orgId ?? undefined,\n` +
+      ((ctx.scope ?? []).includes('dept') ? `      deptId: orgContext?.deptId ?? undefined,\n` : '')
+    : '';
   const refs = refFields(ctx.fields);
   const refTargets = refs
     .map((r) => refTarget(r.target))
@@ -539,36 +644,45 @@ export function serviceTemplate(ctx) {
         `  }`;
   // `BadRequestException` 有两处用它的地方：ref 目标不存在、以及附件字段名不在声明内。
   // 原先只看 `refs` ⇒ 只声明附件字段的模块生成出来编译不过（2026-09-25 编译门实测抓到）。
-  return `import { Injectable, NotFoundException, ForbiddenException, ConflictException${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
+  return `import { ${nestCommonImports}${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
 ${refRepoImports}${attRepoImport}import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
-import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}
+import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}${scopeImports}
 
-${attFieldList}@Injectable()
+${scopeRegister}${attFieldList}@Injectable()
 export class ${ctx.pluralPascal}Service {
   constructor(
     @InjectRepository(${ctx.singlePascal})
-    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,${refRepoParams}${attRepoParam}
+    private readonly ${ctx.plural}Repository: Repository<${ctx.singlePascal}>,${refRepoParams}${attRepoParam}${scopeParams}
   ) {}
-${refAssertMethod}${attMethods}
+${refAssertMethod}${scopeHelpers}${attMethods}
 
   async create(dto: Create${ctx.singlePascal}Dto, userId: number): Promise<${ctx.singlePascal}> {
-${refAssertCall}    const entity = this.${ctx.plural}Repository.create({
+${refAssertCall}${scopeCreateStamp}    const entity = this.${ctx.plural}Repository.create({
       ...dto,
       userId,
-    });
+${scopeCreateCols}    });
     return this.${ctx.plural}Repository.save(entity);
   }
 
   async findAll(userId: number): Promise<${ctx.singlePascal}[]> {
+${
+  scoped
+    ? `    const descriptor = await this._scopeFor(userId);
+    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;
     return this.${ctx.plural}Repository.find({
+      where,
+      ${refRelations}order: { createdAt: 'DESC' },
+    });`
+    : `    return this.${ctx.plural}Repository.find({
       where: { userId },
       ${refRelations}order: { createdAt: 'DESC' },
-    });
+    });`
+}
   }
 
 ${adminList}
@@ -578,17 +692,23 @@ ${adminList}
     await this.${ctx.plural}Repository.softDelete(id);
   }
 
-  async findOne(id: number, ability: AppAbility): Promise<${ctx.singlePascal}> {
+  async findOne(id: number, ability: AppAbility${scoped ? ', userId: number' : ''}): Promise<${ctx.singlePascal}> {
     const entity = await this.${ctx.plural}Repository.findOne({ where: { id }, ${refRelations}});
     if (!entity) throw new NotFoundException('${ctx.singlePascal} not found');
-    if (ability.cannot('read', subject('${ctx.singlePascal}', entity))) {
+${
+  scoped
+    ? `    if (!(await this._canAccess(entity, ability, userId))) {
       throw new ForbiddenException('无权访问此${ctx.label}');
-    }
+    }`
+    : `    if (ability.cannot('read', subject('${ctx.singlePascal}', entity))) {
+      throw new ForbiddenException('无权访问此${ctx.label}');
+    }`
+}
     return entity;
   }
 
-  async update(id: number, dto: Update${ctx.singlePascal}Dto, ability: AppAbility): Promise<${ctx.singlePascal}> {
-${refAssertCall}    const entity = await this.findOne(id, ability);
+  async update(id: number, dto: Update${ctx.singlePascal}Dto, ability: AppAbility${scoped ? ', userId: number' : ''}): Promise<${ctx.singlePascal}> {
+${refAssertCall}    const entity = await this.findOne(id, ability${scoped ? ', userId' : ''});
     const { version, ...fields } = dto;
     // The conditional update is the **only** arbiter: the row is written only while it is still at
     // the version the caller read, so two writers cannot both succeed.
@@ -608,11 +728,11 @@ ${refAssertCall}    const entity = await this.findOne(id, ability);
     if (!result.affected) {
       throw new ConflictException('该记录已被他人修改，请刷新后重试');
     }
-    return this.findOne(id, ability);
+    return this.findOne(id, ability${scoped ? ', userId' : ''});
   }
 
-  async remove(id: number, ability: AppAbility): Promise<void> {
-    const entity = await this.findOne(id, ability);
+  async remove(id: number, ability: AppAbility${scoped ? ', userId: number' : ''}): Promise<void> {
+    const entity = await this.findOne(id, ability${scoped ? ', userId' : ''});
     // RG-3 软删除：置 deleted_at，管理台回收站可恢复
     await this.${ctx.plural}Repository.softDelete(entity.id);
   }
@@ -621,6 +741,7 @@ ${refAssertCall}    const entity = await this.findOne(id, ability);
 }
 
 export function controllerTemplate(ctx) {
+  const scoped = (ctx.scope ?? []).includes('org');
   const flagImport = ctx.featureFlag
     ? `import { FeatureFlag } from '../feature-flags/feature-flag.decorator';\n`
     : '';
@@ -711,10 +832,10 @@ ${attRoutes}  @Post()
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: Update${ctx.singlePascal}Dto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    return this.${ctx.plural}Service.update(id, dto, ability);
+    return this.${ctx.plural}Service.update(id, dto, ability${scoped ? ', user.sub' : ''});
   }
 
   @Delete(':id')
@@ -722,10 +843,10 @@ ${attRoutes}  @Post()
   @ApiOperation({ summary: '删除${ctx.label}' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
-    await this.${ctx.plural}Service.remove(id, ability);
+    await this.${ctx.plural}Service.remove(id, ability${scoped ? ', user.sub' : ''});
     return null;
   }
 }
@@ -758,14 +879,22 @@ export function moduleTemplate(ctx) {
         `// which the platform's built-in list cannot know.\n` +
         `registerSensitiveKeys([${pii.map((c) => `'${c}'`).join(', ')}]);\n\n`
       : '';
+  // 参与范围 ⇒ 需要 OrgService / DataScopeService（都在 OrgModule 里导出）。模块文件只负责接线，
+  // 自登记在**服务**文件里（见 serviceTemplate）。
+  //
+  // Taking part in scope needs OrgService / DataScopeService (both exported by OrgModule). The module
+  // file only wires them; the self-registration lives in the **service** file — see serviceTemplate.
+  const scoped = (ctx.scope ?? []).includes('org');
+  const scopeModuleImport = scoped ? `import { OrgModule } from '../org/org.module';\n` : '';
+  const scopeModuleDep = scoped ? ', OrgModule' : '';
   return `${piiImport}import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
-${refEntityImports}${attachImport}
+${refEntityImports}${attachImport}${scopeModuleImport}
 ${piiRegister}@Module({
-  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}${refForFeature}${attachForFeature}])],
+  imports: [TypeOrmModule.forFeature([${ctx.singlePascal}${refForFeature}${attachForFeature}])${scopeModuleDep}],
   controllers: [${ctx.pluralPascal}Controller],
   providers: [${ctx.pluralPascal}Service],
   exports: [${ctx.pluralPascal}Service],
@@ -775,6 +904,7 @@ export class ${ctx.pluralPascal}Module {}
 }
 
 export function controllerSpecTemplate(ctx) {
+  const scoped = (ctx.scope ?? []).includes('org');
   return `import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 
@@ -819,17 +949,17 @@ describe('${ctx.pluralPascal}Controller', () => {
     expect(service.findAllForAdmin).toHaveBeenCalled();
   });
 
-  it('update 委托 service.update 并传入 ability', async () => {
+  it('update 委托 service.update 并传入 ability${scoped ? ' 与 userId' : ''}', async () => {
     service.update.mockResolvedValue(mockEntity as never);
     const dto = {};
     await expect(controller.update(1, dto as any, mockUser as any, mockAbility)).resolves.toBe(mockEntity);
-    expect(service.update).toHaveBeenCalledWith(1, dto, mockAbility);
+    expect(service.update).toHaveBeenCalledWith(1, dto, mockAbility${scoped ? ', 1' : ''});
   });
 
   it('remove 委托 service.remove 并返回 null', async () => {
     service.remove.mockResolvedValue(undefined as never);
     await expect(controller.remove(1, mockUser as any, mockAbility)).resolves.toBeNull();
-    expect(service.remove).toHaveBeenCalledWith(1, mockAbility);
+    expect(service.remove).toHaveBeenCalledWith(1, mockAbility${scoped ? ', 1' : ''});
   });
 
   it('removeAsAdmin 委托 service.removeAsAdmin 并返回 null', async () => {
@@ -842,13 +972,78 @@ describe('${ctx.pluralPascal}Controller', () => {
 }
 
 export function serviceSpecTemplate(ctx) {
+  // 参与范围（协议 scope 声明）时，本 spec 多钉三条：创建盖章、成员看得到同组织、无组织退回本人。
+  // 行级判定也换了口径（CASL 之外还要看数据范围），故「禁止访问」用的行必须是**范围外**的那一行。
+  //
+  // With a protocol `scope` declaration the spec pins three more things — the stamp on create, a
+  // member seeing same-organisation rows, and a non-member falling back to their own — and the
+  // "forbidden" cases must use a row that is genuinely out of scope, since row-level access is no
+  // longer CASL's answer alone.
+  const scoped = (ctx.scope ?? []).includes('org');
+  const orgImport = scoped ? `import { OrgService } from '../org/org.service';\n` : '';
+  const orgMock = scoped ? `  const mockOrg = { getUserOrgContext: jest.fn() };\n` : '';
+  const orgProvider = scoped ? `,\n        { provide: OrgService, useValue: mockOrg }` : '';
+  const abilityMock = scoped
+    ? `  const mockAbility = (allowed: boolean) => ({ can: () => allowed, cannot: () => !allowed }) as any;`
+    : `  const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;`;
+  /** Row that must be refused for this caller: out of scope when scoped, plain owner-mismatch otherwise. */
+  /* 必须被拒的那一行：参与范围时取范围外，否则即普通的归属不符。 */
+  const foreignRow = scoped ? `{ id: 1, userId: 6 }` : `{ id: 1, userId: 5 }`;
+  const uid = scoped ? ', 5' : '';
+  const listWhere = scoped ? `[{ userId: 5 }]` : `{ userId: 5 }`;
+  const scopeTests = scoped
+    ? `
+  it("stamps the creator's organisation and department", async () => {
+    mockOrg.getUserOrgContext.mockResolvedValue({ orgId: 7, deptId: 9 });
+
+    await service.create({} as any, 5);
+
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 5, orgId: 7${
+        (ctx.scope ?? []).includes('dept') ? ', deptId: 9' : ''
+      } }),
+    );${
+      (ctx.scope ?? []).includes('dept')
+        ? ''
+        : `
+    // 只声明 org ⇒ 实体没有 dept_id 列，就不该往 create 里塞这个键（TypeORM 会把它当成一个
+    // 不存在的属性）。这条断言钉住的是「声明了什么才盖什么」，而不是「一律照盖」。
+    //
+    // Declaring only \`org\` means the entity has no dept_id column, so the key must not be handed to
+    // create() — TypeORM would treat it as a property that does not exist. This pins "stamp what was
+    // declared", not "stamp everything".
+    expect(mockRepo.create.mock.calls[0][0]).not.toHaveProperty('deptId');`
+    }
+  });
+
+  it("a member sees their own rows or their organisation's", async () => {
+    mockOrg.getUserOrgContext.mockResolvedValue({ orgId: 7, deptId: null });
+    mockRepo.find.mockResolvedValue([]);
+
+    await service.findAll(5);
+
+    expect(mockRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: [{ userId: 5 }, { orgId: 7 }] }),
+    );
+  });
+
+  it('no organisation ⇒ own rows only, never wider', async () => {
+    mockOrg.getUserOrgContext.mockResolvedValue(null);
+    mockRepo.find.mockResolvedValue([]);
+
+    await service.findAll(5);
+
+    expect(mockRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: [{ userId: 5 }] }));
+  });
+`
+    : '';
   return `import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
-
+${orgImport}
 describe('${ctx.pluralPascal}Service', () => {
   let service: ${ctx.pluralPascal}Service;
   const mockRepo = {
@@ -859,15 +1054,15 @@ describe('${ctx.pluralPascal}Service', () => {
     softDelete: jest.fn(),
     update: jest.fn(),
   };
-
-  const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
+${orgMock}
+  ${abilityMock}
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ${ctx.pluralPascal}Service,
-        { provide: getRepositoryToken(${ctx.singlePascal}), useValue: mockRepo },
+        { provide: getRepositoryToken(${ctx.singlePascal}), useValue: mockRepo }${orgProvider},
       ],
     }).compile();
     service = module.get<${ctx.pluralPascal}Service>(${ctx.pluralPascal}Service);
@@ -887,20 +1082,20 @@ describe('${ctx.pluralPascal}Service', () => {
 
     const result = await service.findAll(5);
 
-    expect(mockRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 5 } }));
+    expect(mockRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: ${listWhere} }));
     expect(result).toHaveLength(1);
-  });
+  });${scopeTests}
 
   it('throws when CASL forbids access', async () => {
-    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+    mockRepo.findOne.mockResolvedValue(${foreignRow});
 
-    await expect(service.findOne(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
+    await expect(service.findOne(1, mockAbility(false)${uid})).rejects.toThrow(ForbiddenException);
   });
 
   it('throws NotFound when missing', async () => {
     mockRepo.findOne.mockResolvedValue(null);
 
-    await expect(service.findOne(1, mockAbility(true))).rejects.toThrow(NotFoundException);
+    await expect(service.findOne(1, mockAbility(true)${uid})).rejects.toThrow(NotFoundException);
   });
 
   it('refuses a stale update with 409 instead of overwriting silently', async () => {
@@ -913,7 +1108,7 @@ describe('${ctx.pluralPascal}Service', () => {
     mockRepo.update.mockResolvedValue({ affected: 0 });
 
     await expect(
-      service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true)),
+      service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true)${uid}),
     ).rejects.toThrow(ConflictException);
     expect(mockRepo.update).toHaveBeenCalledWith(
       { id: 1, version: 2 },
@@ -925,7 +1120,7 @@ describe('${ctx.pluralPascal}Service', () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 2 });
     mockRepo.update.mockResolvedValue({ affected: 1 });
 
-    await service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true));
+    await service.update(1, { version: 2 } as Update${ctx.singlePascal}Dto, mockAbility(true)${uid});
 
     expect(mockRepo.update).toHaveBeenCalledTimes(1);
   });
@@ -934,15 +1129,15 @@ describe('${ctx.pluralPascal}Service', () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
     mockRepo.softDelete.mockResolvedValue({ affected: 1 });
 
-    await service.remove(1, mockAbility(true));
+    await service.remove(1, mockAbility(true)${uid});
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
 
   it('does not soft-delete when CASL forbids (remove)', async () => {
-    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+    mockRepo.findOne.mockResolvedValue(${foreignRow});
 
-    await expect(service.remove(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
+    await expect(service.remove(1, mockAbility(false)${uid})).rejects.toThrow(ForbiddenException);
 
     expect(mockRepo.softDelete).not.toHaveBeenCalled();
   });

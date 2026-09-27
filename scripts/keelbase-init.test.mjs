@@ -475,7 +475,7 @@ test('manifest：首次创建 + 幂等合并（多模块去重、schema/identity
   assert.deepEqual((await readManifest(root)).modules, ['notes', 'posts']);
 });
 
-test('manifest：searchableModules 只记声明过的模块，且与 modules 一样只增不减', async () => {
+test('manifest：searchableModules 记声明的可搜列，条目只增、列随重生成刷新', async () => {
   const root = await tempRoot();
 
   // A module that did not declare it stays out — and an older manifest without the key at all is
@@ -486,18 +486,31 @@ test('manifest：searchableModules 只记声明过的模块，且与 modules 一
   assert.deepEqual(man.modules, ['notes']);
   assert.deepEqual(man.searchableModules, []);
 
-  // 声明过的进清单
-  await writeManifest('books', root, { searchable: true });
+  // 声明过的进清单，连同它的列
+  await writeManifest('books', root, { searchable: true, searchableFields: ['title', 'author'] });
   man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
   assert.deepEqual(man.modules, ['books', 'notes']);
-  assert.deepEqual(man.searchableModules, ['books']);
+  assert.deepEqual(man.searchableModules, [{ module: 'books', fields: ['title', 'author'] }]);
 
   // Not declaring it on a later run is not a retraction: the manifest records what was declared,
   // not what the last call happened to pass.
   // 后一次不声明 searchable ≠ 撤销声明：清单记的是「声明过什么」，不是「上次调用传了什么」。
   await writeManifest('books', root);
   man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
-  assert.deepEqual(man.searchableModules, ['books']);
+  assert.deepEqual(man.searchableModules, [{ module: 'books', fields: ['title', 'author'] }]);
+
+  // Regenerating a module DOES refresh its columns — unlike `modules` itself, which is add-only.
+  // A column list is a product of the spec, so a stale copy is not history, it is wrong.
+  // 重生成一个模块**会**刷新它的列 —— 与 `modules` 的只增不同。列是 spec 的产物，陈旧的那份不是
+  // 历史，是错的。
+  await writeManifest('books', root, { searchable: true, searchableFields: ['title'] });
+  man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.searchableModules, [{ module: 'books', fields: ['title'] }]);
+
+  // 列去重且保持声明顺序；非字符串/空串被丢弃
+  await writeManifest('books', root, { searchable: true, searchableFields: ['b', 'a', 'b', '', 7] });
+  man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  assert.deepEqual(man.searchableModules, [{ module: 'books', fields: ['b', 'a'] }]);
 });
 
 test('manifest：mergeManifest 缺省 root 指向 cwd（.keelbase/manifest.json）', async () => {
@@ -959,18 +972,24 @@ test('端到端：spec 声明 searchable: true → manifest 记进 searchableMod
     module: 'books',
     label: '图书',
     searchable: true,
-    fields: [{ name: 'title', type: 'string', label: '书名' }],
+    // 一个 string、一个 text、一个 enum、一个 int：清单只该收前两个，且保持声明顺序。
+    fields: [
+      { name: 'title', type: 'string', label: '书名' },
+      { name: 'summary', type: 'text', label: '简介' },
+      { name: 'status', type: 'enum', label: '状态', enum: ['unread', 'read'] },
+      { name: 'rating', type: 'int', label: '评分' },
+    ],
   }));
 
   const { code, out } = await runInit(root, ['--spec', specPath]);
   assert.equal(code, 0, out);
 
   // Both keys are written: `modules` says what was generated, `searchableModules` says what the
-  // runtime may index. Only the latter is read at runtime.
-  // 两个键都写：modules 是「生成了什么」，searchableModules 是「哪些可搜」——运行时只读后者。
+  // runtime may match, and on which columns. Only the latter is read at runtime.
+  // 两个键都写：modules 是「生成了什么」，searchableModules 是「哪些可搜、搜哪些列」——运行时只读后者。
   const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
   assert.deepEqual(man.modules, ['books']);
-  assert.deepEqual(man.searchableModules, ['books']);
+  assert.deepEqual(man.searchableModules, [{ module: 'books', fields: ['title', 'summary'] }]);
 
   // A module that did not declare it stays out, while both kinds coexist in one manifest.
   // 未声明 searchable 的模块不进清单（同一份 manifest 里两类模块并存）。
@@ -983,10 +1002,10 @@ test('端到端：spec 声明 searchable: true → manifest 记进 searchableMod
   assert.equal((await runInit(root, ['--spec', plainSpec])).code, 0);
   const man2 = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
   assert.deepEqual(man2.modules, ['books', 'notes']);
-  assert.deepEqual(man2.searchableModules, ['books']);
+  assert.deepEqual(man2.searchableModules, [{ module: 'books', fields: ['title', 'summary'] }]);
 });
 
-test('端到端：searchable 但无 string/text/enum 字段 → 生成前拒绝（不做兑现不了的承诺）', async () => {
+test('端到端：searchable 但无 string/text 字段 → 生成前拒绝（不做兑现不了的承诺）', async () => {
   const root = await tempRoot();
   await makeFixtures(root);
   const specPath = `${root}/readings.json`;
@@ -994,17 +1013,21 @@ test('端到端：searchable 但无 string/text/enum 字段 → 生成前拒绝�
     module: 'readings',
     label: '读数',
     searchable: true,
-    // All non-text columns: the global search matches text columns with LIKE, so none of these can.
-    // 全部非文本列 —— 全局搜索按 LIKE 匹配文本列，这组字段一个都匹配不了。
+    // Only non-declarable columns. `status` is deliberately here: it IS a text column at the database
+    // level, and an implementation that matched "whatever looks textual" would consider this spec
+    // searchable. Under declared columns it is not — a status is an enumeration, not free text.
+    // 只有不可声明的列。`status` 是刻意放进来的：它在数据库层**确实**是文本列，一个「看着像文本就
+    // 匹配」的实现会认为这份 spec 可搜。在「列由声明来」的语义下它不可搜 —— 状态是枚举，不是自由文本。
     fields: [
       { name: 'value', type: 'int', label: '数值' },
+      { name: 'status', type: 'enum', label: '状态', enum: ['ok', 'bad'] },
       { name: 'recordedAt', type: 'date', label: '记录时间' },
     ],
   }));
 
   const { code, out } = await runInit(root, ['--spec', specPath]);
   assert.notEqual(code, 0, `应拒绝，实际 exit=${code}`);
-  assert.match(out, /string \/ text \/ enum/);
+  assert.match(out, /string \/ text/);
   // The refusal lands before anything is written: no module directory, no manifest.
   // 拒绝发生在写文件之前：模块目录与 manifest 都不该出现。
   await assert.rejects(access(BE(root, 'readings')));
@@ -1024,6 +1047,120 @@ test('端到端：searchable 但无 string/text/enum 字段 → 生成前拒绝�
   assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
   const man = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
   assert.deepEqual(man.searchableModules, []);
+});
+
+test('本仓清单里的 searchableModules 就是生成器对 specs/books.json 会写出的那一份', async () => {
+  // The repo's own manifest is checked in by hand, and the runtime reads *it* — so the claim "books
+  // is searchable" has to be true of two files at once. This regenerates from the repo's actual spec
+  // and compares, which is the difference between "the hand-written entry looks right" and "the
+  // generator, given that spec, produces exactly this".
+  // 本仓的清单是手工检入的，而运行时读的正是**它** —— 故「books 可搜」这件事必须同时对两个文件成立。
+  // 这里用仓库真实的 spec 重生成一遍再比对：这正是「手工那条看着对」与「生成器拿到这份 spec 就产出
+  // 这一条」之间的差别。
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+  const spec = JSON.parse(await readFile(join(repoRoot, 'specs/books.json'), 'utf8'));
+  const repoManifest = JSON.parse(await readFile(join(repoRoot, '.keelbase/manifest.json'), 'utf8'));
+
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/books.json`;
+  await write(specPath, JSON.stringify(spec));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+
+  const generated = JSON.parse(await readFile(`${root}/.keelbase/manifest.json`, 'utf8'));
+  // Compare the books entry rather than the whole array: the repository now holds more than one
+  // searchable module, and whole-array equality would fold "how many are there" into a claim that is
+  // only about how books is described. Same reasoning as the feature-flag list: pin the entry, not
+  // the inventory.
+  // 逐条比对 books 那一条，而不是整个数组：本仓现在不止一个可搜模块，整数组相等会把「一共有几个」
+  // 混进一条只关于「books 这条怎么描述」的断言里。理由与 feature flag 那张清单相同：钉条目，不钉总数。
+  const booksEntry = (m) => m.searchableModules.filter((x) => x.module === 'books');
+  assert.deepEqual(booksEntry(generated), booksEntry(repoManifest));
+  // 且它确实是一条有列可搜的声明（不是两个文件一起空着）
+  assert.equal(booksEntry(generated).length, 1);
+  assert.ok(booksEntry(generated)[0].fields.length > 0);
+});
+
+// ── P0-9b：scope 声明 → 生成物真的参与行级数据范围 ──────────────────────────────
+test('端到端：spec 声明 scope → 实体多出范围列、服务走范围构造、模块自登记', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/reports.json`;
+  await write(specPath, JSON.stringify({
+    module: 'reports',
+    label: '报告',
+    scope: ['dept', 'org'], // 顺序刻意倒着写：归一后应为 org, dept
+    fields: [{ name: 'title', type: 'string', label: '标题' }],
+  }));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+
+  const entity = await readFile(BE(root, 'reports/report.entity.ts'), 'utf8');
+  assert.match(entity, /@Index\(\['orgId'\]\)/);
+  assert.match(entity, /name: 'org_id'/);
+  assert.match(entity, /name: 'dept_id'/);
+
+  const service = await readFile(BE(root, 'reports/reports.service.ts'), 'utf8');
+  // 范围来自平台既有构件，不是每模块一份私有实现
+  assert.match(service, /resolveScopeDescriptor\(userId, 'Report'/);
+  assert.match(service, /buildScopeWhere<Record<string, unknown>>\(descriptor, 'Report'\)/);
+  assert.match(service, /rowInScope\(/);
+  // 创建盖章：成员的行归属组织，缺组织则保持仅本人
+  assert.match(service, /orgContextOf\(this\.orgService, userId\)/);
+  assert.match(service, /orgId: orgContext\?\.orgId \?\? undefined/);
+  assert.match(service, /deptId: orgContext\?\.deptId \?\? undefined/);
+
+  const module_ = await readFile(BE(root, 'reports/reports.module.ts'), 'utf8');
+  // 自登记（与 pii 的 registerSensitiveKeys 同一手法）——登记的是归一后的级别
+  assert.match(service, /registerScopeColumns\('Report', \{ owner: 'userId', org: 'orgId', dept: 'deptId' \}\)/);
+  assert.match(service, /registerOrgLevelSubject\('Report'\)/);
+  assert.match(module_, /OrgModule/);
+});
+
+test('端到端：未声明 scope 的模块不带任何范围接线（缺省仍是仅本人，绝不静默放宽）', async () => {
+  const root = await tempRoot();
+  await makeFixtures(root);
+  const specPath = `${root}/notes.json`;
+  await write(specPath, JSON.stringify({
+    module: 'notes',
+    label: '笔记',
+    fields: [{ name: 'title', type: 'string', label: '标题' }],
+  }));
+  assert.equal((await runInit(root, ['--spec', specPath])).code, 0);
+
+  const entity = await readFile(BE(root, 'notes/note.entity.ts'), 'utf8');
+  assert.doesNotMatch(entity, /org_id|dept_id/);
+  const service = await readFile(BE(root, 'notes/notes.service.ts'), 'utf8');
+  assert.doesNotMatch(service, /buildScopeWhere|rowInScope|OrgService|registerScopeColumns/);
+  assert.match(service, /where: \{ userId \}/); // 今天的行为，一字未变
+  const module_ = await readFile(BE(root, 'notes/notes.module.ts'), 'utf8');
+  assert.doesNotMatch(module_, /OrgModule/);
+});
+
+test('端到端：scope 声明非法 → 生成前拒绝（不产出一个参与不了范围体系的模块）', async () => {
+  const cases = [
+    { scope: ['dept'], hint: /dept 就必须同时声明 org/ },
+    { scope: ['org', 'org'], hint: /重复级别/ },
+    { scope: ['team'], hint: /未知级别/ },
+    { scope: [], hint: /非空数组/ },
+    { scope: 'org', hint: /非空数组/ },
+  ];
+  for (const [i, c] of cases.entries()) {
+    const root = await tempRoot();
+    await makeFixtures(root);
+    const specPath = `${root}/reports.json`;
+    await write(specPath, JSON.stringify({
+      module: 'reports',
+      label: '报告',
+      scope: c.scope,
+      fields: [{ name: 'title', type: 'string', label: '标题' }],
+    }));
+
+    const { code, out } = await runInit(root, ['--spec', specPath]);
+    assert.notEqual(code, 0, `case #${i} 应被拒绝，实际 exit=${code}`);
+    assert.match(out, c.hint);
+    // 拒绝发生在写文件之前
+    await assert.rejects(access(BE(root, 'reports')));
+  }
 });
 
 // ── P0-12 输入通道：OpenAPI → Protocol ─────────────────────────────────────────

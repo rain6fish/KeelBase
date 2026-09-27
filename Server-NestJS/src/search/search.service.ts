@@ -7,7 +7,9 @@ import { EventsService } from '../events/events.service';
 import { UsersService } from '../users/users.service';
 import { readApplicationManifest } from '../common/provenance/application-manifest';
 import { paginated, type Paginated } from '../common/dto/paginated';
-import { resolveSearchableTargets } from './searchable-entities';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import type { FeatureKey } from '../feature-flags/feature-flags.constants';
+import { resolveSearchableTargets, type SearchableDeclaration } from './searchable-entities';
 
 /**
  * Per-module bucket of the global search response: the module's name plus one page of its rows.
@@ -29,14 +31,18 @@ export type ModuleSearchBucket = Paginated<Record<string, unknown>> & { module: 
  * users, and every generated module whose spec declared `searchable`.
  *
  * The third half is driven by `.keelbase/manifest.json` — not by a list kept here — so it needs no
- * edit when a module is added or removed. See `searchable-entities.ts` for what qualifies, and for
- * why an entity without an ownership column is skipped rather than searched.
+ * edit when a module is added or removed, and the columns it may match are **declared** there
+ * (written by the generator from the spec) rather than guessed from the entity at runtime. See
+ * `searchable-entities.ts` for what qualifies and why, and for what a module with neither an
+ * ownership column nor a surviving declared column costs: nothing — it is skipped.
  *
  * 全局搜索：一次查询，聚合调用方本人的事件、匹配用户的公开字段、以及**每个 spec 声明了
  * `searchable` 的生成模块**。
  *
- * 第三半由 `.keelbase/manifest.json` 驱动 —— 不是靠这里维护一份清单 —— 故增删模块时它无需改动。
- * 什么才算够格、以及为何没有归属列的实体是跳过而非照搜，见 `searchable-entities.ts`。
+ * 第三半由 `.keelbase/manifest.json` 驱动 —— 不是靠这里维护一份清单 —— 故增删模块时它无需改动；
+ * 它可匹配的列也是**在那儿声明**的（生成器按 spec 写入），而不是运行时从实体上猜。什么才算够格、
+ * 为什么，以及一个既无归属列、也没有任何存活声明列的模块要付什么代价 —— 不付，它被跳过，见
+ * `searchable-entities.ts`。
  */
 @Injectable()
 export class SearchService {
@@ -44,6 +50,7 @@ export class SearchService {
     private readonly eventsService: EventsService,
     private readonly usersService: UsersService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly featureFlags: FeatureFlagsService,
   ) {}
 
   /**
@@ -95,12 +102,42 @@ export class SearchService {
     };
   }
 
-  /** The modules whose spec declared `searchable`, per the Build-side manifest. */
-  /* 按 Build 侧清单，spec 声明了 `searchable` 的那些模块。 */
-  private searchableModules(): string[] {
+  /**
+   * The declarations the manifest carries: which modules are searchable, and which of their columns.
+   *
+   * A module whose feature flag is off is dropped here. Its own endpoints already 404 in that state
+   * (`FeatureDisabledGuard`), so returning its rows from `GET /search` would let a switched-off
+   * module slink back in through the one door that does not check — and `/app/provenance` sets the
+   * precedent by filtering its module list the same way. Anything but an explicit `false` counts as
+   * enabled, matching how the rest of the platform reads these keys.
+   *
+   * 清单带的那些声明：哪些模块可搜、以及它们的哪些列。
+   *
+   * feature flag 关掉的模块在这里被丢掉。它自己的端点在那种状态下已经 404（`FeatureDisabledGuard`），
+   * 所以让它的行从 `GET /search` 里返回，等于给一个已关掉的模块留了一扇不查开关的门 —— 而
+   * `/app/provenance` 早就以同样的方式过滤其模块清单，先例在此。除显式 `false` 外都算开着，与平台
+   * 其余地方读这些键的方式一致。
+   */
+  private searchableDeclarations(): SearchableDeclaration[] {
     const { manifest } = readApplicationManifest();
     const declared = manifest?.searchableModules;
-    return Array.isArray(declared) ? declared.filter((m): m is string => typeof m === 'string') : [];
+    if (!Array.isArray(declared)) return [];
+
+    const declarations: SearchableDeclaration[] = [];
+    for (const entry of declared) {
+      if (!entry || typeof entry !== 'object') continue;
+      const { module, fields } = entry as { module?: unknown; fields?: unknown };
+      if (typeof module !== 'string' || !Array.isArray(fields)) continue;
+
+      const columns = fields.filter((f): f is string => typeof f === 'string');
+      // Nothing declared to match, or the module is switched off — either way it does not enter.
+      // 没有声明任何列可匹配，或该模块被开关关掉 —— 两种情况都不进搜索。
+      if (columns.length === 0) continue;
+      if (this.featureFlags.isEnabled(module as FeatureKey) === false) continue;
+
+      declarations.push({ module, fields: columns });
+    }
+    return declarations;
   }
 
   /**
@@ -122,10 +159,10 @@ export class SearchService {
     page: number,
     limit: number,
   ): Promise<ModuleSearchBucket[]> {
-    const modules = this.searchableModules();
-    if (modules.length === 0) return [];
+    const declarations = this.searchableDeclarations();
+    if (declarations.length === 0) return [];
 
-    const targets = resolveSearchableTargets(this.dataSource, modules);
+    const targets = resolveSearchableTargets(this.dataSource, declarations);
 
     return Promise.all(
       targets.map(async ({ module, entity, ownerColumn, textColumns, orderColumn }) => {

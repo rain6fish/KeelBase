@@ -3,6 +3,7 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { FeatureFlagsService } from './feature-flags.service';
+import { FEATURE_KEYS } from './feature-flags.constants';
 import { SettingsService } from '../settings/settings.service';
 
 describe('FeatureFlagsService', () => {
@@ -56,9 +57,15 @@ describe('FeatureFlagsService', () => {
       ],
     }).compile();
     const svc = moduleRef.get(FeatureFlagsService);
-    expect(Object.keys(svc.getFlags()).sort()).toEqual(
-      ['ai', 'approval', 'books', 'contracts', 'crm', 'followup_plans', 'notes', 'notifications', 'oauth', 'org', 'pm', 'points', 'posts', 'push', 'search', 'sms', 'suppliers', 'tags', 'todos', 'upload'],
-    );
+    // Derived from FEATURE_KEYS rather than a hand-kept list: `keelbase init` adds a flag for every
+    // generated module, so a hard-coded list means an edit on each generation — and an assertion edited
+    // reflexively stops being an assertion. What this pins is the property that matters: every declared
+    // key comes back, none silently dropped.
+    //
+    // 由 FEATURE_KEYS 推导而非手工维护清单：`keelbase init` 每生成一个模块就加一个开关，硬写清单等于每次
+    // 生成都要改一次 —— 而一个条件反射式被改的断言就不再是断言。这里钉住的是要紧的那条性质：**每个声明的键
+    // 都回得来，没有谁被悄悄丢掉**。
+    expect(Object.keys(svc.getFlags()).sort()).toEqual(Object.values(FEATURE_KEYS).sort());
   });
 
   it('EASY-3: small 预设默认关闭外部集成，full 全开', async () => {

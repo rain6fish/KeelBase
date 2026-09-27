@@ -20,9 +20,13 @@
     { "name": "content", "type": "text", "label": "内容" },
     { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "published"] }
   ],
-  "searchable": true
+  "searchable": true,
+  "scope": ["org"]
 }
 ```
+
+> `scope` 是**可选**的，取值 `org` / `dept`（声明 `dept` 必须同时声明 `org`）。不声明即**仅本人** —— 与所有
+> 生成模块在此之前的默认一致，绝不静默放宽。见 §3.2。
 
 > **字段命名**：用 camelCase（`riskLevel`、`annualValue`）——与代码库跨语言约定一致，TypeORM 自动映射 snake_case 列名。生成器同时兼容 snake_case（会触发 Dart lint info，不推荐）。
 
@@ -67,29 +71,84 @@
 | `fields[].target` / `display` / `onDelete` | 导入目标模块实体 + 注入其仓储：**写侧**校验外键存在（软删视为不存在），**读侧** `relations` 带回目标对象 | 外键 id 输入；目标对象的友好回显与下拉选择器见后续切片 |
 | `fields[].type=attachment` | 生成同模块的**侧表**（真外键指向 owner）+ `@OneToMany` + 三个端点（列 / 关联 / 撤销）；三者**先做 owner 所有权检查** | 模型带附件**名字列表**；上传按钮见后续切片 |
 | `searchable` | 全局 `/search` 索引（本人范围，见 §3.1） | 搜索结果页（`/search`，桶的渲染见 §3.1） |
+| `scope` | 生成范围列 + 创建盖章 + 列表走行级数据范围（见 §3.2） | 无专属 UI：列表因此**多返回同组织的行** |
 
 ### 3.1 `searchable` 的实际接线（P0-9a，2026-09-26）
 
-A module that declares `searchable: true` is recorded in `searchableModules` in `.keelbase/manifest.json` at
-generation time. The runtime `SearchService` reads that list — deriving the searchable text columns and the
-ownership column from entity metadata — and adds matching rows, filtered to the caller's own data, to the
-`modules` bucket of `GET /search`: one bucket per module, its body being the shared `paginated()` shape plus a
-`module` field. An entity with no ownership column (`userId` / `requesterId` / `initiatorId`) is **skipped rather
-than searched** — fail-closed, because a module that cannot be narrowed to the caller must not be widened
-instead. Declaring `searchable` on a spec with no `string` / `text` / `enum` field is **refused at generation
-time**, because a `LIKE` index has nothing to match and the declaration would deliver nothing.
+A module that declares `searchable: true` gets one entry in `searchableModules` in `.keelbase/manifest.json` at
+generation time: the module's name plus **the columns its spec declared searchable** (its `string` / `text`
+fields, in declaration order). The runtime `SearchService` reads that list and matches exactly those columns
+against the caller's own rows, adding one bucket per module to the `modules` key of `GET /search` — the bucket
+body being the shared `paginated()` shape plus a `module` field.
+
+The columns are **declared, not derived**, and that is the load-bearing part. Asking entity metadata what type a
+column is does not work here: a plain `@Column({ length: 200 })` reports **no type at all** on this repo's
+driver, so a search built that way matches nothing while its mocked tests stay green. A declaration cannot drift
+that way, because the generator wrote it from the same spec that wrote the entity. Regenerating a module
+refreshes its column list; entries are never removed by another module's run.
+
+Two gates, both fail-closed. A module whose **feature flag is off** does not enter the search at all — its own
+endpoints already 404 in that state, and `/app/provenance` filters its module list the same way. And a module
+with no ownership column (`userId` / `requesterId` / `initiatorId`) is **skipped rather than searched**, because
+one that cannot be narrowed to the caller must not be widened instead. Declaring `searchable` on a spec with no
+`string` / `text` field is **refused at generation time** — a `LIKE` index has nothing to match, and `enum` does
+not count: it is an enumeration, not free text.
 
 Not yet wired, stated here so it is not mistaken for done: the module's own list endpoint has no `q` filter
 (`GET /<plural>?q=`), and neither frontend renders the `modules` bucket — the bucket carries raw entity rows, and
 rendering them per module still needs a display convention for which column is that module's title.
 
-`searchable: true` 的模块在生成时被记进 `.keelbase/manifest.json` 的 **`searchableModules`**（与 `modules` 并列，只增不减）。运行时 `SearchService` 读这份清单，按实体元数据推导出可搜的文本列与归属列，把命中记录按**调用方的数据范围**并入 `GET /search` 响应的 **`modules`** 桶（每模块一个桶，桶体是共用的 `paginated()` 分页形状 + `module` 字段）。
+`searchable: true` 的模块在生成时于 `.keelbase/manifest.json` 的 **`searchableModules`** 里得一条：模块名 + **它的 spec 声明的可搜列**（`string` / `text` 字段，按声明顺序）。运行时 `SearchService` 读这份清单，**只匹配这些列**、且只匹配调用方本人的行，并把每个模块一个桶并入 `GET /search` 的 **`modules`**（桶体是共用的 `paginated()` 形状 + `module` 字段）。
 
-**没有归属列（`userId`/`requesterId`/`initiatorId`）的实体不进搜索** —— 无法收窄到调用方就宁可不搜，这是 fail-closed 的方向。
+列是**由声明来、不是推导来**，而这是承重的部分。去问实体元数据「这列是什么类型」在本仓**行不通**：一个普通的 `@Column({ length: 200 })` **不报任何类型**，照它做出来的搜索什么也匹配不到、而 mock 掉的测试照样全绿。声明不会这样漂，因为它与实体出自**同一份 spec**。重生成一个模块会刷新它的列；条目不会因别的模块的运行而被移除。
 
-`searchable: true` 但 spec 里没有 `string` / `text` / `enum` 字段时，**生成期直接报错**：索引只能匹配文本列，否则这条声明兑现不了任何东西。
+两道闸门，方向都是保守的。**feature flag 关掉的模块**根本不进搜索 —— 它自己的端点在那种状态下已经 404，而 `/app/provenance` 也是这么过滤它的模块清单的。**没有归属列**（`userId`/`requesterId`/`initiatorId`）的模块**跳过、而非照搜** —— 无法收窄到调用方的，不能反过来放宽。`searchable: true` 但 spec 里没有 `string` / `text` 字段时**生成期直接报错** —— LIKE 索引无列可匹配；而 `enum` **不算**：它是枚举，不是自由文本。
 
 **尚未接线**（诚实记录，勿当已做）：模块自身列表端点的 `q` 过滤（`GET /<plural>?q=`）**未实现**；两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
+
+### 3.2 `scope` 的实际接线（P0-9b，2026-09-27）
+
+A module that declares `scope: ["org", …]` takes part in **row-level data scope** (`docs/data-scope.spec.md`),
+using the platform's existing pieces rather than a private copy:
+
+- **Columns are fixed by the generator** — `orgId` / `deptId`, exactly as `userId` is. The spec says which
+  level the module takes part in, not what to call the column.
+- **Creation stamps the rows** from the creator's membership; a creator who belongs to no organisation
+  produces rows that stay owner-only rather than becoming visible to everyone.
+- **The list is built by `buildScopeWhere`**, and the detail/update/delete paths use the same judgement
+  via `rowInScope` — so a row that shows up in the list is never refused on the detail path.
+- **The module registers itself** (`registerScopeColumns` + `registerOrgLevelSubject`) in its own service
+  file, so taking part needs no hand-maintained list. The registration lives in the service rather than the
+  module file because the service is what consumes it — and because a unit test imports the service: with it
+  in the module file, the generated spec exercised the *unregistered* path and the org branch never fired
+  (found only by running that spec).
+- **Undeclared ⇒ owner-only**, which is what every generated module did before this existed. The default
+  never widens: missing configuration and missing organisation information both tighten.
+- `dept` without `org` is **refused at generation time** — department levels are reached through the org
+  column at runtime, so a module declaring only `dept` would get a column that can never do anything.
+
+**Live example**: `reports` (`specs/reports.json`, `scope: ["org"]`) is the generated module that ships in this
+repository, with its own migration (`1831000000000-AddReports`) and an HTTP e2e in `test/data-scope.e2e-spec.ts`
+— a member of the same organisation sees a colleague's report, a non-member does not. The coverage is therefore
+the generated spec, a real compile of the emitted code, **and** an HTTP e2e against the real generated module.
+
+`scope: ["org", …]` 的模块参与**行级数据范围**（`docs/data-scope.spec.md`），用的是平台**既有构件**，不是
+每模块一份私有实现：
+
+- **列名由生成器固定** —— `orgId` / `deptId`，与 `userId` 一样。spec 说的是参与哪一级，不是给列起什么名。
+- **创建时盖章**：按创建者的组织归属写列；不属于任何组织的创建者，其行**保持仅本人**，而不是变成所有人可见。
+- **列表由 `buildScopeWhere` 构造**，明细/更新/删除走**同一判定** `rowInScope` —— 故列表里看得见的行，明细
+  路径上不会反被拒。
+- **模块自己登记**（`registerScopeColumns` + `registerOrgLevelSubject`），写在它自己的**服务**文件里，故参与
+  范围无需手工维护清单。登记放服务而非模块文件，是因为**消费它的是服务**、而单测 import 的也是服务：放在模块
+  文件时，生成物自己的 spec 跑的是**未登记**那条路、组织分支根本不触发（真跑那条 spec 才发现）。
+- **未声明 ⇒ 仅本人**，即此功能之前每个生成模块的行为。缺省**从不放宽**：配置缺失与组织信息缺失都只会收紧。
+- `dept` 不带 `org` 在**生成期即被拒** —— 部门级在运行时经组织列抵达，只声明 `dept` 的模块会拿到一个永远
+  起不了作用的列。
+
+**活样例**：`reports`（`specs/reports.json`，`scope: ["org"]`）是本仓随附的参与范围的生成模块，带自己的迁移
+（`1831000000000-AddReports`）与一条 HTTP e2e（`test/data-scope.e2e-spec.ts`）—— 同组织成员看得到同事的报告，
+非成员看不到。故覆盖 = 生成物自己的 spec + 产出代码的真实编译 + **针对真生成模块的 HTTP e2e**。
 
 **固定的安全接线（协议不含，AI 必须补）**：
 - CASL：用户只能访问本人数据（`userId` 所有权）

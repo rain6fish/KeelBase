@@ -22,18 +22,69 @@ export const FIELD_TYPES = new Set([
 ]);
 
 /**
- * The field types that land as text columns, and so are the only ones a `LIKE` search can match.
- * `enum` belongs here because it maps to `varchar(32)` (protocol §2) — same column type, same
- * searchability. The runtime cannot re-derive this distinction: by the time it sees the entity,
- * `string` and `enum` are both plain text columns, so a spec that declares `searchable` on a module
- * with none of these fields is declaring something nothing can deliver.
+ * The field types a module may declare as its searchable columns.
  *
- * 会落成文本列的字段类型，因而也是 `LIKE` 搜索唯一能匹配的那些。`enum` 在此列，因为它映射为
- * `varchar(32)`（协议 §2）—— 同样的列类型、同样的可搜性。运行时无法重新推出这个区分：等它看到
- * 实体时，`string` 与 `enum` 都只是普通文本列，故在一个不含任何此类字段的模块上声明 `searchable`
- * 等于声明了一件无人能兑现的事。
+ * `string` and `text` only. `enum` is a text column at the database level, but it is **not** a
+ * searchable one here: a module declares which of its own fields the global search may match, and a
+ * status/category is an enumeration, not free text. Leaving `enum` out also keeps the generation-time
+ * refusal honest — under declared columns, a spec whose only text-ish field is an `enum` really has
+ * nothing to search, so refusing it is correct rather than over-strict.
+ *
+ * 模块可声明为「可搜列」的字段类型。
+ *
+ * 只 `string` 与 `text`。`enum` 在数据库层是文本列，但在这里**不是**可搜列：模块声明的是「它自己的
+ * 哪些字段允许被全局搜索匹配」，而状态/类别是枚举、不是自由文本。把 `enum` 排除在外也让生成期的拒绝
+ * 保持诚实 —— 在「列由声明来」的语义下，一个只有 `enum` 字段的 spec **确实**没有可搜的东西，
+ * 拒绝它是对的，不是过严。
  */
-export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text', 'enum']);
+export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text']);
+
+/**
+ * The scope levels a module may declare.
+ *
+ * `owner` is deliberately absent: every generated module is already owner-scoped by its fixed security
+ * wiring, so declaring it would be declaring what is always true. What a spec can ask for is the rows
+ * *beyond* its own — same organisation, and the department column that role-configured levels need.
+ *
+ * 模块可声明的范围级别。
+ *
+ * `owner` 刻意不在其中：每个生成模块在**固定安全接线**里已经是 owner 范围，声明它等于声明一件恒真的事。
+ * spec 能要的是**超出本人**的那些行 —— 同组织，以及「按角色配置的部门级范围」所需要的部门列。
+ */
+export const SCOPE_LEVELS = new Set(['org', 'dept']);
+
+/**
+ * Validate a spec's `scope` declaration. Returns an error message, or `null` when it is fine.
+ *
+ * `dept` without `org` is refused rather than silently promoted: department levels are reached through
+ * the org column at runtime (`buildScopeWhere` returns owner-only the moment the org is missing), so a
+ * module that declared only `dept` would get a column that can never do anything — a declaration with
+ * nothing behind it, which is exactly what the `searchable` rule refuses too.
+ *
+ * 校验 spec 的 `scope` 声明。返回错误消息，合规时返回 `null`。
+ *
+ * `dept` 不带 `org` 一律拒绝、而不是悄悄补齐：部门级在运行时是**经组织列**抵达的（组织信息一缺，
+ * `buildScopeWhere` 就退回仅本人），故只声明 `dept` 的模块会拿到一个永远起不了作用的列 —— 一条背后
+ * 什么都没有的声明，而那正是 `searchable` 那条规则也拒绝的东西。
+ */
+export function validateScope(scope) {
+  if (scope === undefined) return null;
+  if (!Array.isArray(scope) || scope.length === 0) return 'scope 须是非空数组，取值 org / dept';
+  const unknown = scope.filter((s) => !SCOPE_LEVELS.has(s));
+  if (unknown.length) return `scope 含未知级别：${unknown.join(', ')}（只支持 org / dept）`;
+  if (new Set(scope).size !== scope.length) return `scope 含重复级别：${scope.join(', ')}`;
+  if (scope.includes('dept') && !scope.includes('org')) {
+    return 'scope 声明了 dept 就必须同时声明 org —— 部门级范围以组织为前提，缺组织信息只会退回本人';
+  }
+  return null;
+}
+
+/** Normalise a scope declaration to a fixed order (`org` then `dept`), so output is deterministic. */
+/* 把 scope 声明归一成固定顺序（org 在前、dept 在后），使产出确定。 */
+export function normalizeScope(scope) {
+  const list = Array.isArray(scope) ? scope : [];
+  return ['org', 'dept'].filter((level) => list.includes(level));
+}
 
 /** Names of the fields declared as attachments, in declaration order. */
 export function attachmentFields(fields) {

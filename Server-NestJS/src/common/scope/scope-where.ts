@@ -35,7 +35,45 @@ export const SCOPE_COLUMNS = {
 
 export type ScopeSubject = keyof typeof SCOPE_COLUMNS;
 
+/**
+ * Subjects that register themselves — today, the generated modules whose spec declared a `scope`.
+ *
+ * `SCOPE_COLUMNS` above stays the hand-written half (its entries are reviewed by a human and pinned
+ * by a spec); this is the half that arrives from generated code. The generator emits the registration
+ * call into the module file, right where it already emits `registerSensitiveKeys` for `pii`, so a
+ * generated module joins the scope system **without anyone editing this file** — and without the
+ * module list being read from disk on every query.
+ *
+ * 自己登记自己的 subject —— 今天即 spec 声明了 `scope` 的生成模块。
+ *
+ * 上面的 `SCOPE_COLUMNS` 仍是手工那一半（有人审、有 spec 钉住）；这一半来自生成代码。生成器把登记调用
+ * 写进模块文件 —— 就在它已经为 `pii` 写 `registerSensitiveKeys` 的位置 —— 于是生成模块**无需任何人改
+ * 这个文件**就加入了范围体系，也不必每次查询都去磁盘读一遍模块清单。
+ */
+const registeredColumns = new Map<string, ScopeColumns>();
+
+/** 登记一个 subject 的列映射（生成模块在 import 时调用；重复登记以最后一次为准）。 */
+export function registerScopeColumns(subject: string, columns: ScopeColumns): void {
+  registeredColumns.set(subject, columns);
+}
+
+/**
+ * The columns for a subject, or `null` when nothing registered it.
+ *
+ * 该 subject 的列；无人登记过则为 `null`。
+ */
+function columnsFor(subject: string): ScopeColumns | null {
+  return (SCOPE_COLUMNS as Record<string, ScopeColumns>)[subject] ?? registeredColumns.get(subject) ?? null;
+}
+
 export type ScopeWhere<T> = T | T[];
+
+/**
+ * A subject reference: one of the built-in five, or a name a generated module registered for itself.
+ *
+ * 一个 subject 引用：内置五个之一，或生成模块自己登记的名字。
+ */
+export type ScopeSubjectRef = ScopeSubject | (string & {});
 
 /**
  * 由描述子构造行级 where（TypeORM 的 OR 语义用数组表达）。
@@ -46,9 +84,16 @@ export type ScopeWhere<T> = T | T[];
  */
 export function buildScopeWhere<T = Record<string, unknown>>(
   desc: ScopeDescriptor,
-  subject: ScopeSubject,
+  subject: ScopeSubjectRef,
 ): T[] | null {
-  const cols = SCOPE_COLUMNS[subject] as ScopeColumns;
+  const cols = columnsFor(subject);
+  // Unregistered ⇒ owner-only, in the fallback's own shape: `userId`, which is the owner column
+  // every generated module's fixed wiring uses. The built-in five are always registered, so this
+  // branch is only ever reached by a generated module whose self-registration did not run — and the
+  // answer there is the tightest one, not a wide open query.
+  // 未登记 ⇒ 只回本人，且用回退自己的形状：`userId` —— 生成模块的固定接线用的正是这个归属列。内置五个
+  // 始终已登记，故这一支只会在「生成模块的自登记没跑」时命中 —— 而那时的答案是**最紧**的那个，不是放开。
+  if (!cols) return [{ userId: desc.userId } as T];
   const own = { [cols.owner as string]: desc.userId } as T;
 
   if (desc.level === 'all') return null;
@@ -84,11 +129,14 @@ export function buildScopeWhere<T = Record<string, unknown>>(
 export function rowInScope<T extends Record<string, unknown>>(
   row: T,
   desc: ScopeDescriptor,
-  subject: ScopeSubject,
+  subject: ScopeSubjectRef,
 ): boolean {
-  const cols = SCOPE_COLUMNS[subject] as ScopeColumns;
+  const cols = columnsFor(subject);
 
   if (desc.level === 'all') return true;
+  // Same fallback as buildScopeWhere: owner-only, in the generated modules' fixed shape.
+  // 与 buildScopeWhere 同一处回退：只认本人，用生成模块的固定形状。
+  if (!cols) return Number(row.userId) === desc.userId;
   if (Number(row[cols.owner as string]) === desc.userId) return true;
   if (desc.level === 'own') return false;
 

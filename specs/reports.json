@@ -1,0 +1,11 @@
+{
+  "module": "reports",
+  "label": "报告",
+  "scope": ["org"],
+  "fields": [
+    { "name": "title", "type": "string", "label": "标题", "required": true },
+    { "name": "summary", "type": "text", "label": "摘要" },
+    { "name": "status", "type": "enum", "label": "状态", "enum": ["draft", "published"] },
+    { "name": "amount", "type": "int", "label": "金额" }
+  ]
+}

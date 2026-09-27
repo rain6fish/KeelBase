@@ -34,6 +34,8 @@ import 'features/ai/data/repositories/ai_conversation_repository.dart';
 import 'features/sessions/data/repositories/session_repository.dart';
 import 'features/sessions/presentation/providers/session_provider.dart';
 import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/reports/data/repositories/reports_repository.dart';
+import 'features/reports/presentation/providers/reports_provider.dart';
 import 'features/followup_plans/data/repositories/followup_plans_repository.dart';
 import 'features/followup_plans/presentation/providers/followup_plans_provider.dart';
 
@@ -282,6 +284,10 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+        // 报告（EASY-2 生成）
+        ChangeNotifierProvider<ReportsProvider>(
+          create: (_) => ReportsProvider(ReportsRepository(apiClient), cache: AppCache(prefs)),
         ),
         // 跟进计划（EASY-2 生成）
         ChangeNotifierProvider<FollowupPlansProvider>(

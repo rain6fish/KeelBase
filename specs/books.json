@@ -1,6 +1,7 @@
 {
   "module": "books",
   "label": "图书",
+  "searchable": true,
   "fields": [
     { "name": "title", "type": "string", "label": "书名", "required": true },
     { "name": "author", "type": "string", "label": "作者" },

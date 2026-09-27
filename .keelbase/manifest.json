@@ -10,10 +10,24 @@
     "followup_plans",
     "notes",
     "posts",
+    "reports",
     "suppliers",
     "tags"
   ],
   "searchableModules": [
-    "followup_plans"
+    {
+      "module": "books",
+      "fields": [
+        "title",
+        "author"
+      ]
+    },
+    {
+      "module": "followup_plans",
+      "fields": [
+        "title",
+        "reason"
+      ]
+    }
   ]
 }

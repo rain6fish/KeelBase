@@ -90,31 +90,38 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
     it('本地实体（event）按 resultId 重查全量字段转 JSON', async () => {
       const eventRepo = { findOne: jest.fn().mockResolvedValue({ id: 42, title: '晨会', startTime: new Date('2026-08-30T01:00:00Z') }) };
       entityManager.getRepository.mockReturnValue(eventRepo);
-      const out = await captor.captureAfter('event', 42);
+      const { json: out, reason } = await captor.captureAfter('event', 42);
       expect(entityManager.getRepository).toHaveBeenCalledWith('Event');
+      expect(reason).toBeNull(); // REV-13：取到了就没有成因
       const parsed = JSON.parse(out!);
       expect(parsed.id).toBe(42);
       expect(parsed.title).toBe('晨会');
     });
 
     it('B 路径外部（proxy_call）无本地实体 → 用 fallback（execute 返回数据）', async () => {
-      const out = await captor.captureAfter('proxy_call', 0, { id: 9, status: 'updated' });
+      const { json: out, reason } = await captor.captureAfter('proxy_call', 0, { id: 9, status: 'updated' });
       expect(entityManager.getRepository).not.toHaveBeenCalled();
+      // REV-13：回退**拿到内容** ⇒ 有效快照、不置标（`fell_back` 是机制不是成因）
+      expect(reason).toBeNull();
       const parsed = JSON.parse(out!);
       expect(parsed.status).toBe('updated');
     });
 
-    it('实体查不到 → null（优雅降级，不断写路径）', async () => {
+    it('实体查不到 → json null，且成因是 row_missing（不是「设计上的缺席」）', async () => {
       const eventRepo = { findOne: jest.fn().mockResolvedValue(null) };
       entityManager.getRepository.mockReturnValue(eventRepo);
-      expect(await captor.captureAfter('event', 999)).toBeNull();
+      const r = await captor.captureAfter('event', 999);
+      expect(r.json).toBeNull();
+      expect(r.reason).toBe('row_missing');
     });
 
-    it('查询抛错 → null（try/catch 兜底）', async () => {
+    it('查询抛错 → json null，且成因是 failed（异常路径单独可辨）', async () => {
       entityManager.getRepository.mockImplementation(() => ({
         findOne: jest.fn().mockRejectedValue(new Error('db down')),
       }));
-      expect(await captor.captureAfter('event', 1)).toBeNull();
+      const r = await captor.captureAfter('event', 1);
+      expect(r.json).toBeNull();
+      expect(r.reason).toBe('failed');
     });
 
     it('#4 生成模块（invoice）按元数据解析实体并捕获快照', async () => {
@@ -129,7 +136,7 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
       ];
       const invoiceRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, invoiceNo: 'INV-001', dueDate: null }) };
       entityManager.getRepository.mockReturnValue(invoiceRepo);
-      const out = await captor.captureAfter('invoice', 7);
+      const { json: out } = await captor.captureAfter('invoice', 7);
       expect(entityManager.getRepository).toHaveBeenCalledWith('Invoice');
       const parsed = JSON.parse(out!);
       expect(parsed.invoiceNo).toBe('INV-001');
@@ -145,7 +152,7 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
           columns: [],
         },
       ];
-      const out = await captor.captureAfter('some_read_only', 3, { fallback: true });
+      const { json: out } = await captor.captureAfter('some_read_only', 3, { fallback: true });
       expect(entityManager.getRepository).not.toHaveBeenCalled();
       expect(JSON.parse(out!).fallback).toBe(true);
     });

@@ -110,6 +110,10 @@ New `enabled` / `allowedRoles` fields; `requiresConfirmation` / `requiresApprova
    **R5 is immutable**: tools declared R5 (block) stay blocked regardless of policy; the policy editor shows them read-only.
 8. **差异化保存**：管理台保存只写入与工具默认不同的覆盖项（`enabled:false` / 档位≠声明 / `allowedRoles` 非空），未列出工具沿用声明默认——避免全量显式覆盖把未来默认升级卡死。
    **Diff-save**: the console persists only overrides differing from defaults; unlisted tools keep declared defaults, so future default changes still propagate.
+9. **拒绝要留下证据（REV-15）**：每次门控拒绝都计入**单一计数器** `tool_gate_refusals_total{reason, source}` —— `reason` 是触发的检查项（`risk_policy` / `tool_enabled` / `role_allowed` / `feature_flag` / `admin_only` / `email_verified` / `destination_allowed` / `field_domain`），`source` 是 `fixture` | `production`，由**夹具身份单源**判读（`src/ai/constants/fixture-identity.ts`；评测 run 的构造点与闸门的判读共用同一前缀，防漂移）。
+   计数与抛出收在**同一个出口**（`ToolGateService._refuse`）——「同一闸门、同一计数器」因此是**结构保证**的，不靠每条分支各自记得加一行。**三种读法**写在 `MetricsService.toolGateRefusalsTotal` 的文档注释上：`production` 有 series 且 >0 ⇒ **有证据在守**；`production` 无而 `fixture` 有 ⇒ 装着且拒得动、生产未证；**两者都没有 series ⇒ 无证据**（**不得读成「一切正常」**）。
+   ⚠ **「名字在」不是证据**：零样本时暴露面上只有 `# HELP` / `# TYPE`、没有 series（实测），故核验存在性的判据是 `tool_gate_refusals_total{...} N` 这一**行**。
+   **Refusals leave evidence (REV-15)**: every refusal increments one counter keyed by the check that fired and by identity source; counting and throwing share a single exit so "same gate, same counter" is structural; and presence of the metric *name* is not evidence — with no samples the exposition carries only HELP/TYPE lines, so the criterion is the sample line itself.
 
 ---
 
@@ -126,6 +130,8 @@ New `enabled` / `allowedRoles` fields; `requiresConfirmation` / `requiresApprova
 
 - `governance-policy.service.spec.ts`：策略解析（默认/覆盖/非法回退）+ 便捷方法（10 用例）。
   Policy parsing (default/override/invalid fallback) + convenience methods (10 cases).
+- `tool-gate.service.spec.ts`（REV-15 新增）：拒绝按 `reason` 计数、夹具身份记 `fixture` / 真实用户记 `production`、声明域越界同出口、**放行不计**、缺 `MetricsService` 时拒绝照旧；并接**真计数器**验证「拒绝前无 series、拒绝后出现那一行」（8 用例）。
+  `tool-gate.service.spec.ts` (REV-15, new): refusals counted by `reason`; fixture vs production source; scope refusals share the exit; pass-throughs do not count; refusal still happens without `MetricsService`; and against the real counter, no series before a refusal and the sample line after (8 cases).
 - `ai.service.spec.ts`：既有门控用例回归（未注入策略时行为不变）。
   Existing gating cases regress (behavior unchanged when policy not injected).
 - 全量：821 后端单测 + T.5 安全模块覆盖率门控（auth/casl/audit/ai-tools/governance/headless statements ≥ 60%）。

@@ -84,6 +84,31 @@
 **两个读数分轴**：行级 `revoke_status` 仍是逐行事实（持有的行确实被补偿了，故 `revokeStatus='revoked'`），
 而「这一次业务动作是否已完全撤销」为假 —— `revoked:false` 与 `revokeStatus:'revoked'` 并存是如实，不是矛盾。
 
+#### 5.1.1 判据只认「声明了却未登记」一侧，且标记有**解除路径**（ARC-6）
+
+**判据与危害模型对齐**：危害只在**一侧**——「**声明了却从未登记**」（`onlyDeclared` 非空）的成员撤销**够不到**；
+而 `onlyStored`（持有有、声明无）恰恰是**已被登记、会被补偿**的那一批，一次「重试声明更少」并不让它们变得不安全。
+此前任一侧差集非空即判「不一致」⇒ 一个**已完全撤销**的组被读成「未完成」——**假警报**。
+现在：**证据两侧照旧都留**（REV-1 的「留证」不变），但**裁决只看 `onlyDeclared` 是否非空**。
+裁决在**单源判据**里（`_hasOpenDispute`），四处读点共用，免得「同一状态、两条路两个结论」。
+**读不懂的标记按 fail-closed 处理**（标记在、内容解析不出来 ⇒ 仍算未了结）：对读不懂的东西放宽比保守更危险。
+
+**解除路径 = 管理端显式确认**（`POST /ai/tool-effects/:id/acknowledge-dispute`，ADMIN）：解除「未了结」，
+**证据原样保留**（另记 `acknowledgedAt` / `acknowledgedBy`）。为什么**不**自动清除：「声明了却从未登记」的成员
+按构造**补不上**（重试撞键只会回放既有组，不补登记），所以「后一次比对一致」并不代表问题解决——自动清除等于
+把谎话写进状态；而「有人看过了」是人能给出的真信息。**保存失败必须上抛**（人的动作，报告成功却没落库就是谎报，
+故不走对失败只 warn 的运维态回写路径）。确认**幂等**（再确认返回原时刻，不覆盖）。
+**缺失集合变了 ⇒ 上一份确认不再适用**：确认指的是**这一批**成员，新的不一致写一份**未确认**的新证据（裁决回来）。
+
+The criterion now reads **one side only**: a member that was *declared but never registered* is the harm (the revoke
+cannot reach it), whereas *held but not declared* members are registered and will be compensated — calling that
+incomplete was a false alarm. Both differences are still recorded; only the verdict narrows. The verdict lives in a
+**single-sourced predicate** (`_hasOpenDispute`) so it cannot differ by path, and an unparseable mark stays disputed
+(fail-closed). The **clearing path is an explicit admin acknowledgement**, which lifts the "unsettled" verdict while
+keeping the evidence and recording who looked and when: an automatic clearing would be a lie, because a
+declared-but-never-registered member cannot be registered retroactively. A changed missing set drops the old
+acknowledgement, since it referred to a different set.
+
 ### 5.2 两个窗口：意图与确认是两个事件 / Two windows: intent and acknowledgment
 
 **规则**：外部补偿**先写意图、再外呼**（`revoke_requested_at` + `revoke_status=compensating`，
@@ -139,6 +164,76 @@ ruled out: the business rows are already written, so refusing to record would le
 side-effect row at all — an effect the revoke can never reach, trading a recoverable failure for an
 unrecoverable one. Backfilling the *change* is not honestly possible; the migration backfills only the
 annotation, from existing columns. This changes no revoke conclusion.
+
+**REV-13 — the flag now says *why*, and the four reasons are not equivalent.** `identity_incomplete`
+answers *that* the change half is missing and says nothing about the cause. Two of the four causes are
+design choices (`no_captor`: nothing wired; `no_entity_and_empty_fallback`: an external write whose
+fallback carried nothing) and two are faults (`row_missing`: the entity resolves but the row is gone;
+`failed`: the capture threw). Collapsed into one bit, "by design" and "something broke" read identically
+while calling for opposite responses — so the reason is recorded alongside the flag.
+**Two names that used to be listed do not belong here**: `not_declared` is a *before*-path lookup
+(`BEFORE_CAPTURE_TOOLS`) with no after-side branch, and `fell_back` is a mechanism rather than a cause —
+falling back to a fallback that *returns content* produces a valid snapshot and must not be flagged at
+all. **No backfill**: the cause depends on the runtime conditions at capture time and cannot be rebuilt
+from any stored column, so historical flagged rows keep `null` and read as "flagged, reason unknown";
+writing a default there would turn "not knowable" into "known".
+
+**REV-13 —— 标记现在说得清「为什么」，而四种成因并不等价。** `identity_incomplete` 只说「变更那半缺了」，
+不说成因。四种成因里两种是设计选择（`no_captor`：未装配；`no_entity_and_empty_fallback`：外部写且回退
+无内容），两种是故障（`row_missing`：实体解析得到而行不在；`failed`：抓取抛错）。压成一个 bit 后，
+「设计如此」与「出问题了」读数完全相同，而两者处置相反 —— 故成因与标记并列记录。
+**两个曾被列进来的名字不属此处**：`not_declared` 是 **before** 路径（`BEFORE_CAPTURE_TOOLS`）的查表，
+after 侧没有这个分支；`fell_back` 是**机制不是成因** —— 回退到 fallback 且**拿得到内容**时快照有效、
+本就不该置标。**不回填**：成因取决于捕获当时的运行条件、无法从任何落库列重建，故历史置标行保持
+`null`、读作「标了但原因不可考」；在那里写默认值等于把「不可考」变成「已知」。
+
+### 5.2b 滞留态点名责任人 / A stuck compensation names whose work it is
+
+**REV-11（只做「指派与可见」的那半，不动契约）。** `revokeStale` 已答「有没有卡住」，两个窗口已答
+「怎么卡住的」（可能没到达 / 到达了没回音），但**都没说是谁的活** —— 而「有的看」与「必须有人看」
+是两件事：一个没人被迫去看的状态，慢慢会变回同一个问题。
+
+补的是**责任人**：管理端列表项暴露 `ownerUserId` —— 那次写所代表的那个使用者。它是行上**既有的一列**，
+此前只是没被读出来，故**没有新字段、没有迁移、没有契约变更**。本面的**指派对象就是管理端角色本身**
+（这张列表只有管理员读得到），因此**不另造一个指派字段**：一个「指派给谁」的列若只可能填同一个值，
+那不是记录一个事实，而是把一条规则写进了数据。
+
+**不再造一个同义的「需认领」布尔**：那与 `revokeStale` 是同一事实的两个名字，本仓明令禁止。
+
+English: the stale reading already said whether anything is stuck and how it is stuck; it did not say
+whose work it is, and having somewhere to look is not the same as someone having to look. The
+accountable party is an existing column, surfaced rather than inferred, so this needed no new field,
+no migration and no contract change. The assignee for this surface is the admin role itself — only
+admins can read the list — so no assignee column is invented: a column that could only ever hold one
+value records a rule, not a fact. And no second boolean is added for "needs claiming", because that
+would be one fact under two names.
+
+**未做**：持久的**人工指派**（记下「谁认领了」并留痕）与随后的「认领动作」。要它成为记录事实，需要
+一条列**或**一条告警行，而告警行走既有管线**必须动契约**（`rule` / `subject.kind` 是冻结枚举）。
+**这一步留待裁决，不在本次发明。**
+
+**补（2026-09-27，裁决后落地 `1831000000000`）**：取**加列**路线（不动契约）。`ai_tool_side_effects`
+增两列链外注解 `revoke_claimed_by` / `revoke_claimed_at`，并新增 `POST /ai/tool-effects/:id/claim`
+（admin）。三条口径：
+1. **「需认领」是派生的**（`stale AND claimed_by IS NULL`），**不落库** —— 同一事实只住一处，
+   与两列并列存一份会让 flag 与列互相矛盾而读者无从判断。
+2. **认领只陈述「谁在看」**：**不**改写 `revoke_status`、**不**碰目标、**不**声称补偿已完成。
+   真值仍在目标系统。
+3. **认领是条件更新**（同 `ConfirmationStore.resolve` / ARC-3 的派发认领）：只在行**仍然是**调用者以为的
+   那样（`compensating` + 已过阈值 + 无人认领）时成立；`affected === 0` 即**回读并分报**
+   `not_stale` / `already_claimed` / `not_found` —— 对运维这是三回事，不压成一个 `false`。
+   ⇒ 第二个人认领同一行被拒，且报出的是**先到者**，不是本次调用者。
+4. **历史行不回填**：NULL 在语义上就是「确实没人认领过」——与 1830（成因**不可考**）取舍同向、
+   理由不同：这里 NULL 本身就是正确答案。
+
+**Added (2026-09-27, landed after the ruling, migration `1831000000000`)**: the column route, which
+needs no contract change. Two chain-external columns record who took a stuck compensation on and when,
+and `POST /ai/tool-effects/:id/claim` is the action. "Needs claiming" stays derived rather than stored,
+because two copies of one fact can disagree while one cannot. A claim states who is looking — never
+what happened out there — so it leaves the revoke status and the target untouched, and the truth stays
+with the target system. The claim is a conditional update: it holds only while the row is still what
+the caller believed, and `affected === 0` re-reads and reports which refusal it was, since "already
+claimed" and "not stale" mean different things to whoever works the list.
 
 ### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
 
@@ -247,8 +342,10 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 | 5.7 已恢复行 | `_skipReason`（改读目标；三处调用点随之 `await`） | `revoke-restored-row.spec.ts`（真 sqlite；旧实现走跳过 → 报完成而目标仍活） |
 | 5.8 派发认领 | `_doRevokeSingle` 外部分支的**条件更新**（`Raw` 写 `IS NULL OR revoke_failed`；判据 `!claim?.affected`，fail-closed） | `revoke-dispatch-claim.spec.ts`（真 sqlite；旧实现并发两次会派发两次；fail-closed 对 `=== 0` 变体为红） |
 | 5.9 compensating 计成什么 | `_doRevokeSingle` 外部返回值 + `_compensateGroup` / `_revokeBatch` 计数 | `ai-tool-effects.service.spec.ts` · `revoke-conversation.spec.ts` · `proxy-bridge.e2e-spec.ts`（旧实现：把 `compensating` 算进 `revoked`） |
+| 5.4 REV-13 成因 | `captureAfter` 返回 `{json, reason}` + `recordGroup` 落 `identity_incomplete_reason` + 迁移 `1830000000000` | `capture-availability.spec.ts`（真 sqlite；旧实现连该列都不存在） |
+| 5.2 REV-11 责任人 | 管理端列表项暴露 `ownerUserId`（既有列） | `revoke-claim.spec.ts`（真 sqlite；旧实现该字段不存在） |
 
-九处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+十一处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
 `message`，未新增键。

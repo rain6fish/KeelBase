@@ -15,9 +15,10 @@ import { OperationAuditService } from '../../operation-audit/operation-audit.ser
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
+import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
-import { LessThan, Not, Raw } from 'typeorm';
+import { IsNull, LessThan, Not, Raw } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 
@@ -36,6 +37,12 @@ export interface WriteToolContext {
 export interface SideEffectSnapshot {
   before?: string | null;
   after?: string | null;
+  /**
+   * REV-13：`after` 为空时的**成因**（`no_captor` / `no_entity_and_empty_fallback` / `row_missing` / `failed`）。
+   * 缺省 = 调用方没给成因（那时该行落 `identity_incomplete_reason = null`，读作「标了但原因不可考」——
+   * 如实，而不是拿一个默认值冒充已知）。
+   */
+  afterReason?: CaptureUnavailableReason | null;
 }
 
 /** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
@@ -82,6 +89,15 @@ export type RevokeBatchResult = {
 
 /** §4 G1：run 级批量撤销结果（同会话级形状，作用域键换成 runId） */
 export type RevokeRunBatchResult = Omit<RevokeBatchResult, 'conversationId'> & { runId: string };
+
+/**
+ * REV-11: the outcome of claiming a stuck compensation. Everything other than `claimed` is a
+ * **refusal**, and each names which refusal it was — `not_stale` and `already_claimed` are different
+ * situations for whoever is looking at the console, so they are not collapsed into one `false`.
+ * REV-11：认领一条滞留补偿的结果。`claimed` 之外都是**拒绝**，且各自说明是哪一种 ——
+ * `not_stale` 与 `already_claimed` 对看台子的人是两回事，故不压成一个 `false`。
+ */
+export type RevokeClaimOutcome = 'claimed' | 'not_found' | 'not_stale' | 'already_claimed';
 
 /** REV-3：跨组重叠（同一业务对象被拆进多个补偿组）的检出条目 */
 export interface SplitGroupFinding {
@@ -145,17 +161,28 @@ export interface RevokeDisputeEvidence {
   declared: DeclaredSideEffect[];
   /** 当时**已持有**的成员 */
   stored: DeclaredSideEffect[];
-  /** 声明里有、持有里没有 —— 会被静默丢弃的那几条（撤销该组时补偿不到） */
+  /** 声明里有、持有里没有 —— 会被静默丢弃的那几条（撤销该组时补偿不到）**这一侧才触发「未完成」**（ARC-6） */
   onlyDeclared: DeclaredSideEffect[];
-  /** 持有里有、声明里没有 —— 重试声明**更少**的情形 */
+  /** 持有里有、声明里没有 —— 重试声明**更少**的情形。**记录但不再单独触发争议**：那几条**已被登记、会被补偿**，报未完成是假警报（ARC-6） */
   onlyStored: DeclaredSideEffect[];
   decidedAt: string;
+  /**
+   * ARC-6：**显式确认**（管理端动作）。争议标记此前**只写不清** ⇒ 组被永久读成「未完成」。
+   * 「声明了却从未登记」的成员按构造**补不上**（重试撞键只会回放既有组，不补登记），故自动清除会把
+   * 谎话写进状态；而「有人看过了」是人能给出的真信息。确认**只解除「未了结」**，**证据原样保留**。
+   */
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
 }
 
 /**
- * REV-1：比对「被拒声明」与「已持有组」的成员集合，**双向**求差（重试也可能声明**更少**）。
- * 一致 → null（纯幂等重放，既有行为不变）。按目标身份比集合、**不按声明下标比位置**：
- * 问题在于覆盖（哪几条补偿不到），下标只决定根成员与幂等键，不决定某一条会不会被补偿。
+ * REV-1：比对「被拒声明」与「已持有组」的成员集合，**双向**求差 —— 两侧都算出来、都留成证据。
+ *
+ * ARC-6 动的是**裁决**，不是**记录**：一次「重试声明更少」（`onlyStored` 非空）仍然是一次真实的漂移，
+ * 照样留证；但**它不单独触发「未完成」**——那几条**已被登记、会被补偿**，报未完成是假警报。危害模型里
+ * 只有「**声明了却从未登记**」（`onlyDeclared` 非空）才让撤销够不到东西。裁决在哪一刀见 `_hasOpenDispute`。
+ *
+ * 按目标身份比集合、**不按声明下标比位置**：问题在于覆盖（哪几条补偿不到），下标只决定根成员与幂等键。
  */
 function declarationDiff(
   declared: DeclaredSideEffect[],
@@ -257,7 +284,9 @@ export class AiToolEffectsService {
     if (!before) return null;
     let currentJson: string | null;
     try {
-      currentJson = await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId);
+      // REV-13 起 `captureAfter` 返回 `{ json, reason }`；本处只关心读没读到，
+      // 成因归 `recordGroup` 的 `identity_incomplete_reason` 承载（两处关切不同，不互相挪用）。
+      currentJson = (await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId)).json;
     } catch {
       return null;
     }
@@ -406,6 +435,10 @@ export class AiToolEffectsService {
           compensationGroup: baseKey,
           // REV-6：身份缺变更那半的行如实标注（链外注解列；单目标行不属于组，不标）
           identityIncomplete: missingChange[i],
+          // REV-13：缺变更就一并记**成因**（`no_captor` / `no_entity_and_empty_fallback` /
+          // `row_missing` / `failed`）——四种「没有」不等价，压成一个 bit 就分不出「设计如此」与「出错了」。
+          // 置标而调用方没给成因 ⇒ 留 null（「标了但原因不可考」），**不拿默认值冒充已知**。
+          identityIncompleteReason: missingChange[i] ? (snapshots?.[i]?.afterReason ?? null) : null,
           // 根成员恒为第 0 条（spec §3）：根 parentEffectId=null，其余指向根（登记序保证根先落库）
           parentEffectId: i === 0 ? null : (saved[0]?.id ?? null),
         };
@@ -424,11 +457,22 @@ export class AiToolEffectsService {
         throw err;
       }
       this.logger.warn(`[AiToolEffects] recordGroup conflict (idempotent replay): ${(err as Error).message}`);
-      const existing = await this.listGroup(baseKey);
+      const group = await this.listGroup(baseKey);
+      // ARC-4：幂等键被**非本组成员**占用时 `listGroup` 查不到任何行 —— 典型是「先单目标登记、后复合登记」：
+      // 那条单目标行的 `compensation_group` 为 null，按组查必空。此前这里**直接返回空数组走人**，于是
+      // 本次声明的成员**一行都没登记**，而调用方又把返回值丢掉 ⇒ 整份声明静默消失、那次业务动作不可撤。
+      // 占键的那一行**本身就是可读的证据位**（`parent_effect_id` 为空 ⇒ 它就是根，单条撤销也会读它），
+      // 故把它按「持有里多出来的」那一侧标成争议，而不是以「无处可读」为由不标。
+      let held = group;
+      if (held.length === 0) {
+        const occupant = (await this.findExisting(baseKey)).effect;
+        if (occupant) held = [occupant];
+      }
       // REV-1：回放之前先比一次声明与持有 —— 不比对就是「静默少记录」（撤销该组只补偿持有的那些行、汇总全绿）。
-      await this._markDisputeIfDeclarationDiffers(baseKey, effects, existing);
+      await this._markDisputeIfDeclarationDiffers(baseKey, effects, held);
       this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
-      return existing;
+      // 返回**本组既有成员**：外行占键时为 `[]`（本次声明确实一行都没登记）—— 调用方据此不得当成功。
+      return group;
     }
   }
 
@@ -468,7 +512,26 @@ export class AiToolEffectsService {
     );
     // 根行：与 _auditCompensation 同一定义（parent_effect_id 为空者；异常形态回落登记序首行）
     const root = stored.find((r) => r.parentEffectId == null) ?? stored[0];
-    await this._patchRevoke(root, { revokeDispute: JSON.stringify(evidence) });
+    // ARC-6：证据随**最新**事实走（标记的含义就是「此刻声明与持有对不上」），但要小心别把人的确认悄悄作废——
+    // 确认指的是**这一次**的缺失集合，故只有本次与上次**完全同一批成员**时才把确认带过去；
+    // 集合变了 = 新事实 ⇒ 写一份**未确认**的新证据（裁决随之回来），并如实记一条警告。
+    const prev = this._parseDispute(root.revokeDispute);
+    const sameMissingSet =
+      prev != null &&
+      JSON.stringify([...prev.onlyDeclared].map(targetKey).sort()) ===
+        JSON.stringify([...diff.onlyDeclared].map(targetKey).sort());
+    if (prev?.acknowledgedAt != null && !sameMissingSet) {
+      this.logger.warn(
+        `[AiToolEffects] compensation group ${baseKey}: 争议的缺失集合已变——上一份确认（${prev.acknowledgedBy}）不再适用，本次按未确认处理`,
+      );
+    }
+    await this._patchRevoke(root, {
+      revokeDispute: JSON.stringify(
+        sameMissingSet && prev?.acknowledgedAt != null
+          ? { ...evidence, acknowledgedAt: prev.acknowledgedAt, acknowledgedBy: prev.acknowledgedBy }
+          : evidence,
+      ),
+    });
   }
 
   /** 载入整组副作用（补偿组内全部行，按 id 升序 = 登记序；根在最前） */
@@ -755,7 +818,7 @@ export class AiToolEffectsService {
    */
   private _disputeNotes(members: AiToolSideEffect[], cross: CrossGroupClaim[]): string[] {
     const notes: string[] = [];
-    if (members.some((m) => m.revokeDispute != null)) {
+    if (members.some((m) => this._hasOpenDispute(m))) {
       notes.push(
         '已按**持有**的行补偿，但该组**声明与持有不一致**（组已标 disputed）——不得视为该业务动作已完全撤销',
       );
@@ -780,6 +843,23 @@ export class AiToolEffectsService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * ARC-6：该行是否有一条**未了结**的争议（**单源判据**）。
+   *
+   * 四处读点（组级说明 / 管理端列表 / 批量标记 / 单条说明）共用它，免得「已确认」在一处解除、在另一处仍报未完成
+   * ——那正是本仓反复修的那类「同一状态、两条路两个结论」。**解析不出来一律按「无未了结」**：坏 JSON 的注解列
+   * 不该让撤销永久卡在未完成上（它已经不具备可读的证据可指）。
+   */
+  private _hasOpenDispute(effect: AiToolSideEffect): boolean {
+    if (effect.revokeDispute == null) return false; // 没有标记 ⇒ 谈不上争议
+    const evidence = this._parseDispute(effect.revokeDispute);
+    // 标记在、内容读不出来 ⇒ **fail-closed**：不解除一份读不懂的裁决（对读不懂的东西放宽，比保守更危险）
+    if (evidence == null) return true;
+    if (evidence.acknowledgedAt != null) return false; // ARC-6：管理端显式确认过 ⇒ 解除「未了结」，证据仍在
+    // ARC-6：只有「声明了却从未登记」那一侧才让撤销够不到东西
+    return evidence.onlyDeclared.length > 0;
   }
 
   /** D2-3c：副作用双写上报治理台（配置 GOVERNANCE_URL 时；失败静默） */
@@ -870,11 +950,36 @@ export class AiToolEffectsService {
             ? effect.revokeAcknowledgedAt.toISOString()
             : null,
           revokeWindow: window,
+          // REV-11: **who this is on**. `revokeStale` already answers "is anything stuck" and the two
+          // windows answer "stuck how", but neither says whose work it is — and "somewhere to look"
+          // and "someone has to look" are different things. The accountable party is the user on
+          // whose behalf the write happened; it is an existing column, surfaced rather than inferred.
+          // The assignee for this surface is the admin role itself, which is why no assignee field is
+          // invented here: only admins can read this list at all.
+          // REV-11：**这是谁的活**。`revokeStale` 已答「有没有卡住」、两个窗口已答「怎么卡住的」，
+          // 却都没说是谁的活——而「有的看」与「必须有人看」是两件事。责任人是那次写所代表的使用者，
+          // 是一个**既有列**的暴露，不是推断。本面的指派对象就是管理端角色本身，故此处不另造指派字段：
+          // 这张列表本来就只有管理员读得到。
+          ownerUserId: effect.userId,
+          // REV-11: "needs claiming" is **derived**, never stored — a stale row nobody has taken on.
+          // One fact, one home: storing it alongside the two columns below would let the flag and the
+          // columns disagree, and no reader could tell which one to believe.
+          // REV-11：「需认领」是**派生**的，从不落库——滞留且无人接手。同一事实只住一处：若与下面两列
+          // 并列存一份，flag 与列就可能互相矛盾，而读者无从判断该信哪个。
+          revokeNeedsClaim: age.stale && effect.revokeClaimedBy == null,
+          revokeClaimedBy: effect.revokeClaimedBy ?? null,
+          revokeClaimedAt: effect.revokeClaimedAt ? effect.revokeClaimedAt.toISOString() : null,
           // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
-          disputed: effect.revokeDispute != null,
+          disputed: this._hasOpenDispute(effect),
           dispute: this._parseDispute(effect.revokeDispute),
           // REV-6：该行身份缺「变更」那半（成组行登记时无变更快照）——读取侧不得默认为完整身份
           identityIncomplete: effect.identityIncomplete === true,
+          // REV-13: **why** the change half is missing. `null` means one of two things and neither
+          // pretends to be knowledge: the row is not flagged, or it was flagged before this column
+          // existed (reason unknowable). Two of the four values are faults, two are design choices.
+          // REV-13：缺变更那半的**成因**。`null` 有两种读法，都不冒充已知：该行未置标，或置标于本列
+          // 出现之前（原因不可考）。四个取值里两个是故障、两个是设计选择。
+          identityIncompleteReason: effect.identityIncompleteReason ?? null,
           // 级联补偿（v3）：组标识 + 根引用，供前端显示「这是 N 条中的第 M 条」
           compensationGroup: effect.compensationGroup ?? null,
           parentEffectId: effect.parentEffectId ?? null,
@@ -1012,6 +1117,34 @@ export class AiToolEffectsService {
     return effect.revokeStatus === 'revoked' && !targetSoftDeleted;
   }
 
+  /**
+   * ARC-6：**确认**一条争议（管理端动作）—— 解除「未了结」，**证据原样保留**，另记确认人与时刻。
+   *
+   * 为什么是**显式**动作而不是自动清除：「声明了却从未登记」的成员按构造**补不上**（重试撞键只会回放既有组，
+   * 不补登记），所以「后一次比对一致」并不代表问题解决——自动清除等于把谎话写进状态。而「有人看过了」
+   * 是人能给出的真信息，且它**不假装问题被修好**（证据还在，确认人与时刻也在）。
+   *
+   * **保存失败必须上抛**：这是人的动作，报告成功却没落库就是谎报。故**不走** `_patchRevoke`
+   *（它对保存失败只 warn —— 运维态回写可以那样，人说过「我看过了」不行）。
+   * 幂等：已确认过的再确认返回**原确认时刻**，不覆盖。
+   */
+  async acknowledgeDispute(
+    effectId: number,
+    adminUserId: string,
+  ): Promise<{ ok: boolean; reason?: 'not_found' | 'no_open_dispute'; acknowledgedAt?: string }> {
+    const row = await this.effectsRepo.findOne({ where: { id: effectId } });
+    if (!row) return { ok: false, reason: 'not_found' };
+    const evidence = this._parseDispute(row.revokeDispute);
+    if (!evidence) return { ok: false, reason: 'no_open_dispute' };
+    if (evidence.acknowledgedAt) return { ok: true, acknowledgedAt: evidence.acknowledgedAt };
+    const acknowledgedAt = new Date().toISOString();
+    await this.effectsRepo.update(effectId, {
+      revokeDispute: JSON.stringify({ ...evidence, acknowledgedAt, acknowledgedBy: adminUserId }),
+    });
+    this.logger.log(`[AiToolEffects] dispute on effect ${effectId} acknowledged by ${adminUserId}`);
+    return { ok: true, acknowledgedAt };
+  }
+
   /** B4/A-3 生命周期富化：副作用目标记录当前状态（是否存在/软删/标题）——撤销态判定依赖 targetSoftDeleted */
   async describeTarget(
     resultType: string,
@@ -1117,6 +1250,72 @@ export class AiToolEffectsService {
   }
 
   /**
+   * REV-11: take a stuck compensation on. A person, recorded — not an inference.
+   *
+   * **Conditional update, like every other arbitration point in this repo** (`ConfirmationStore.resolve`,
+   * `R4ApprovalService._claimExecution`, the dispatch claim in `_doRevokeSingle`): the row is claimed
+   * only if it is *still* what the caller believed it was — `compensating`, past the staleness
+   * threshold, and unclaimed. `affected === 0` means someone else got there first, and that is reported
+   * rather than papered over.
+   *
+   * **What this does not do** (REV-11's stated boundary): it does not rewrite `revoke_status`, does not
+   * touch the target, and does not claim the compensation finished. The truth is still in the target
+   * system; a claim says only who is looking. It also does not poll or reconcile — that is a later batch.
+   *
+   * On refusal we re-read the row and report **which** refusal it was, because "already claimed" and
+   * "not stale" are different situations for the operator and a bare `false` would conflate them.
+   *
+   * REV-11：把一条卡住的补偿接过来。一个人，被记录下来 —— 不是推断出来的。
+   *
+   * **条件更新，与本仓其他每一个仲裁点同形**（`ConfirmationStore.resolve`、`R4ApprovalService._claimExecution`、
+   * `_doRevokeSingle` 里的派发认领）：只有当该行**仍然是**调用者以为的那样时才能认领 —— 仍是
+   * `compensating`、已过陈旧阈值、且无人认领。`affected === 0` 意味着别人先到了；那要如实报出，
+   * 而不是抹平。
+   *
+   * **它不做什么**（REV-11 明列的边界）：不改写 `revoke_status`、不碰目标、不声称补偿已完成。真值仍在
+   * 目标系统；认领只说明谁在看。它也不做轮询或对账 —— 那是后面一批的事。
+   *
+   * 被拒时**回读该行并报出是哪一种拒**，因为对运维而言「已被认领」与「还没到陈旧」是两回事，
+   * 一个光秃秃的 `false` 会把它们混为一谈。
+   */
+  async claim(effectId: number, byUserId: string): Promise<{ outcome: RevokeClaimOutcome; claimedBy?: string | null; claimedAt?: string | null }> {
+    const thresholdMinutes = this._staleThresholdMinutes();
+    const cutoff = new Date(Date.now() - thresholdMinutes * 60_000);
+
+    const res = await this.effectsRepo.update(
+      {
+        id: effectId,
+        revokeStatus: 'compensating',
+        revokeRequestedAt: LessThan(cutoff),
+        revokeClaimedBy: IsNull(),
+      },
+      { revokeClaimedBy: byUserId, revokeClaimedAt: new Date() },
+    );
+    if (res?.affected) {
+      const after = await this.effectsRepo.findOne({ where: { id: effectId } });
+      return {
+        outcome: 'claimed',
+        claimedBy: after?.revokeClaimedBy ?? byUserId,
+        claimedAt: after?.revokeClaimedAt ? after.revokeClaimedAt.toISOString() : null,
+      };
+    }
+
+    // 认领没命中：**回读**并说清是哪一种，不把三种情形压成一个 false
+    const row = await this.effectsRepo.findOne({ where: { id: effectId } });
+    if (!row) return { outcome: 'not_found' };
+    if (row.revokeClaimedBy != null) {
+      return {
+        outcome: 'already_claimed',
+        claimedBy: row.revokeClaimedBy,
+        claimedAt: row.revokeClaimedAt ? row.revokeClaimedAt.toISOString() : null,
+      };
+    }
+    // 剩下的可能：不是 compensating，或还没到陈旧阈值。两者对调用方是同一句话——
+    // 「这条现在还不需认领」——故合并为一个读数，但**不**与上面两种混。
+    return { outcome: 'not_stale' };
+  }
+
+  /**
    * 单条撤销的**结论层**：单条撤销的响应**就是**结论本身，故两个争议判据（REV-1 声明与持有不一致、
    * REV-5 另一个活组仍主张）都在此施加（批量路径不降级：那里逐条计数是逐行事实，只带 `disputed` 标记）。
    *
@@ -1199,7 +1398,7 @@ export class AiToolEffectsService {
     for (const effect of scoped) {
       const groupId = effect.compensationGroup;
       // REV-1 / REV-5：争议是**组级**事实（标记在根行；跨组主张要按组问），故按组判定后摊到逐条结果上
-      let disputed = effect.revokeDispute != null;
+      let disputed = this._hasOpenDispute(effect);
       if (groupId) {
         if (processedGroups.has(groupId)) continue;
         processedGroups.add(groupId);
@@ -1374,7 +1573,7 @@ export class AiToolEffectsService {
     cross: CrossGroupClaim[] = [],
   ): RevokeResult {
     const notes: string[] = [];
-    if (effect.revokeDispute) {
+    if (this._hasOpenDispute(effect)) {
       notes.push(
         '该补偿组已被标记为「声明与持有不一致」：已按**持有**的行补偿，而声明的成员与登记的不一致——不得视为该业务动作已完全撤销',
       );
