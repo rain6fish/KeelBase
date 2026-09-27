@@ -29,6 +29,11 @@ export interface WriteToolContext {
   runId?: string;
   toolName: string;
   args: Record<string, unknown>;
+  /**
+   * REV-7：写发生时**谁在替用户执行**（`actorContext.agentId`，与审计行同一来源）。
+   * 由调用方在边界处读入——登记层不自己去追这个上下文，免得把两处取值的时机弄歧义。
+   */
+  agentId?: string;
   /** KB-6：副作用撤销能力档位（可直传；缺省由服务内按工具注册/resultType 兜底解析） */
   revokeClass?: RevokeClass;
 }
@@ -371,6 +376,8 @@ export class AiToolEffectsService {
       conversationId: ctx.conversationId,
       // §4 G1：run 成员副作用记 runId（链外列，_chainPayload 白名单不含 → 不入链，不破历史链）
       runId: ctx.runId ?? null,
+      // REV-7：agent 身份随行留存（链外列），使「哪个 agent 替哪个用户写」不必 join 审计行
+      agentId: ctx.agentId ?? null,
       toolName: ctx.toolName,
       argsHash: this._argsHash(ctx),
       resultType,
@@ -425,6 +432,8 @@ export class AiToolEffectsService {
           userId: ctx.userId,
           conversationId: ctx.conversationId,
           runId: ctx.runId ?? null,
+          // REV-7：同一件事在复合组里也一样 —— 身份随行，不靠 join
+          agentId: ctx.agentId ?? null,
           toolName: ctx.toolName,
           argsHash: this._argsHash(ctx),
           resultType: e.resultType,
@@ -961,6 +970,9 @@ export class AiToolEffectsService {
           // 是一个**既有列**的暴露，不是推断。本面的指派对象就是管理端角色本身，故此处不另造指派字段：
           // 这张列表本来就只有管理员读得到。
           ownerUserId: effect.userId,
+          // REV-7：**谁在替该用户执行**，读自本行 —— 不 join 审计行即可回答（导入本列之前的行是 null，
+          // 语义为「未知」，不回填）。
+          agentId: effect.agentId ?? null,
           // REV-11: "needs claiming" is **derived**, never stored — a stale row nobody has taken on.
           // One fact, one home: storing it alongside the two columns below would let the flag and the
           // columns disagree, and no reader could tell which one to believe.

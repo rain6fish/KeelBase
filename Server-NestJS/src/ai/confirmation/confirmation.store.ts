@@ -167,7 +167,10 @@ export class ConfirmationStore {
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
-    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId, audience });
+    // REV-7：窗口在**建行时**落定（用当时的离线 TTL），不再由读时按当前配置推算——否则改配置会把
+    // 账上每一行的窗口追溯性地挪走。
+    const expiresAt = new Date(Date.now() + (await this.offlineTtlMs()));
+    await this._persist({ token, toolName, args: JSON.stringify(args), operatorId: userId, riskLevel: 'R3', kind: 'single', conversationId, audience, expiresAt });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName, args, kind: 'single', resolve: resolveFn, timer });
     return { token, decision };
@@ -190,6 +193,8 @@ export class ConfirmationStore {
     const decision = new Promise<ConfirmationResolveResult>((resolve) => {
       resolveFn = resolve;
     });
+    // REV-7：同 `create` —— 窗口在建行时落定
+    const expiresAt = new Date(Date.now() + (await this.offlineTtlMs()));
     await this._persist({
       token,
       toolName: 'run',
@@ -199,6 +204,7 @@ export class ConfirmationStore {
       kind: 'run',
       runItems: JSON.stringify(items),
       conversationId,
+      expiresAt,
     });
     const timer = this._setupTimer(token, ttlMs);
     this.pending.set(token, { token, userId, toolName: 'run', args: {}, kind: 'run', resolve: resolveFn, timer });
@@ -216,6 +222,8 @@ export class ConfirmationStore {
     runItems?: string;
     conversationId?: string;
     audience?: string;
+    /** REV-7：建行时落定的窗口终点（缺席 → null = 未记录，只有本列之前的历史行才该缺席） */
+    expiresAt?: Date;
   }): Promise<void> {
     await this.reqRepo
       .save(
@@ -232,6 +240,8 @@ export class ConfirmationStore {
           ...(row.conversationId !== undefined ? { conversationId: row.conversationId } : {}),
           // AUTHZ-1：artifact 的目的地绑定（链外注解列，不入任何哈希链 payload）
           ...(row.audience !== undefined ? { audience: row.audience } : {}),
+          // REV-7：授权窗口（建行时落定；链外注解列）。缺席即 null —— 只有历史行会缺席。
+          expiresAt: row.expiresAt ?? null,
         }),
       )
       .catch((err) => {

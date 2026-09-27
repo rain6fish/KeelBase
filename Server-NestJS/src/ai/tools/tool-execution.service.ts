@@ -25,6 +25,8 @@ import { AiToolEffectsService, sortKeys } from '../tool-effects/ai-tool-effects.
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
+// REV-7：agent 身份与审计行同源，在此边界处读一次
+import { actorContext } from '../actor-context';
 
 /**
  * B 路径：外部写无目标 id 时，用它作为副作用的 resultId（正整数，48bit）。
@@ -196,6 +198,9 @@ export class ToolExecutionService {
     // 级联补偿（docs/cascade-compensation.spec.md §3）：复合写工具在 data.effects 声明跨表多目标；
     // 形状非法 → declaredEffects 返回 null（fail-closed）→ 回落既有单目标路径，绝不猜。
     const declared = result.success && !isProxyWrite ? declaredEffects(result.data) : null;
+    // REV-7：agent 身份在**边界处**读一次（与审计行取的是同一个 `actorContext`），随 ctx 传给登记层，
+    // 使「哪个 agent 替哪个用户写了这条」由副作用行**自己**回答，不必 join 两个结构再近似配对。
+    const agentId = actorContext.getStore()?.agentId;
     if (
       result.success &&
       (proxyAnchor || declared || (result.data && (result.data as any).id !== undefined))
@@ -215,7 +220,7 @@ export class ToolExecutionService {
             }),
           );
           const registeredGroup = await this.toolEffectsService.recordGroup(
-            { userId, conversationId, runId, toolName, args },
+            { userId, conversationId, runId, toolName, args, agentId },
             declared,
             snapshots,
           );
@@ -247,7 +252,7 @@ export class ToolExecutionService {
           ? (await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)).json
           : null;
         await this.toolEffectsService.record(
-          { userId, conversationId, runId, toolName, args },
+          { userId, conversationId, runId, toolName, args, agentId },
           resultType,
           resultId,
           { before, after },

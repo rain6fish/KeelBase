@@ -213,6 +213,37 @@ export class AiToolSideEffect {
   @Column({ type: Date, nullable: true, name: 'revoke_claimed_at' })
   revokeClaimedAt?: Date | null;
 
+  /**
+   * REV-7: **who was acting for the user** when this write happened — the agent identity, on the row.
+   *
+   * The audit row already carries it (`agent_id` / `caller_agent_id` / `delegation_context`), so the
+   * fact exists; it simply lived one structure away, with no direct key between the two. Answering
+   * "which agent wrote this, for which user" therefore meant joining two structures and pairing them
+   * by approximation (conversation / run / tool), which is exactly the sort of reading that drifts.
+   * Put beside the side effect, the question is answered by the row itself.
+   *
+   * Source is the existing `actorContext` (the same value the audit row takes), read at the boundary
+   * rather than chased here. `null` means no agent was in play (a user acting directly), and for rows
+   * written before this column it means **unknown** — the two are not distinguished, and neither is
+   * filled in with a guess.
+   *
+   * **Chain-external annotation column**, not in `_chainPayload`.
+   *
+   * REV-7：这次写发生时**谁在替用户执行** —— agent 身份，落在行上。
+   *
+   * 审计行本来就有它（`agent_id` / `caller_agent_id` / `delegation_context`），事实存在；只是它住在
+   * 另一个结构里，两者之间没有直接外键。于是要答「哪个 agent 替哪个用户写了这条」就得**join 两个结构**
+   * 再靠 conversation / run / tool **近似配对** —— 正是那种会漂移的读数。放在副作用行旁边，这个问题由
+   * **该行自己**回答。
+   *
+   * 来源是既有的 `actorContext`（与审计行取的是同一个值），在边界处读、不在这里追。`null` 表示当时没有
+   * agent 参与（用户本人直接操作）；引入本列之前的行同为此值，语义是**未知** —— 两者不区分，也都不猜。
+   *
+   * **链外注解列**，不入 `_chainPayload`。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'agent_id' })
+  agentId?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
