@@ -204,10 +204,12 @@ export class ToolExecutionService {
         if (declared) {
           const snapshots = await Promise.all(
             declared.map(async (e) => {
-              const after = this.snapshotCaptor
+              // REV-13：没有捕获器时也要**说清是哪一种「没有」** —— `no_captor` 是设计上的可选，
+              // 与「实体在、行不在」那类异常必须分得开，否则读数里两者同形。
+              const captured = this.snapshotCaptor
                 ? await this.snapshotCaptor.captureAfter(e.resultType, e.resultId, result.data)
-                : null;
-              return { before, after };
+                : { json: null, reason: 'no_captor' as const };
+              return { before, after: captured.json, afterReason: captured.reason };
             }),
           );
           await this.toolEffectsService.recordGroup(
@@ -229,8 +231,10 @@ export class ToolExecutionService {
             : proxyResultId(userId, toolName, args)
           : (result.data as any).id;
         // E-1 字段级变更审计：抓写操作目标记录 after 快照（本地实体全量 / 外部写用返回数据兜底）
+        // REV-13 起返回 `{ json, reason }`；单目标行**不置** `identity_incomplete`（它不属于任何组），
+        // 故此处只取 `json`，成因归组路径承载。
         const after = this.snapshotCaptor
-          ? await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)
+          ? (await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)).json
           : null;
         await this.toolEffectsService.record(
           { userId, conversationId, runId, toolName, args },

@@ -10,6 +10,33 @@ const MAX_STRING = 200;
 const MAX_ARRAY = 50;
 const MAX_DEPTH = 6;
 
+/**
+ * REV-13：捕获不可用的**成因**——此前四种不同的「没有」共用一个 boolean（`identity_incomplete`），
+ * 于是「设计如此」与「出错了」在读数上不可分。四种**互不等价**：
+ * - `no_captor` —— 装配缺席（`@Optional()` 未注入 / 调用方未传快照）：设计上的可选；
+ * - `no_entity_and_empty_fallback` —— 本地实体解析不到、且回退数据也是空（外部写的正常形态）；
+ * - `row_missing` —— 实体解析得到、按 id 却查不到那一行：**异常**（目标不在了）；
+ * - `failed` —— 抓取抛错：**异常**。
+ *
+ * ⚠ 两个曾被列进来的名字**不在此处**：「`not_declared`」属 **before** 路径（`BEFORE_CAPTURE_TOOLS`
+ * 查表），after 侧没有这个分支；「`fell_back`」是**机制不是成因**——回退到 fallback 且**拿得到内容**时
+ * 快照有效、本就不该置标，它只在「回退后仍为空」时才成为成因（即上面第二条）。
+ */
+export type CaptureUnavailableReason =
+  | 'no_captor'
+  | 'no_entity_and_empty_fallback'
+  | 'row_missing'
+  | 'failed';
+
+/**
+ * 一次 after 捕获的结果。**`json` 与 `reason` 不可能同时有值**：
+ * 取到了就没有成因，没取到就必须说清是哪一种「没有」。
+ */
+export interface CaptureResult {
+  json: string | null;
+  reason: CaptureUnavailableReason | null;
+}
+
 /** §internal.16 A-1 update 类写工具变更前捕获：toolName → args 中目标 id 键 + resultType；create 类无条目 → before null */
 const BEFORE_CAPTURE_TOOLS: Record<string, { idKey: string; resultType: string }> = {
   // B 路径 proxy 写（目标在外部系统，无本地实体 → before 用 args 摘要）
@@ -52,23 +79,35 @@ export class SideEffectSnapshotCaptor {
     }
   }
 
-  /** after 快照：本地实体按 id 重查；外部（无本地实体映射）用 fallback（execute 返回数据）。 */
+  /**
+   * after 快照：本地实体按 id 重查；外部（无本地实体映射）用 fallback（execute 返回数据）。
+   *
+   * REV-13：返回 `CaptureResult`（含**成因**），不再只给一个 `null` —— 调用方需要拿它去回答
+   * 「为什么没有」，而不是把四种「没有」压成一个 bit。
+   */
   async captureAfter(
     resultType: string,
     resultId: number,
     fallback?: unknown,
-  ): Promise<string | null> {
+  ): Promise<CaptureResult> {
     try {
       const target = resolveLocalEntity(this.entityManager, resultType);
       if (!target) {
-        return this.normalize(fallback);
+        // 无本地实体（外部写）→ 回退到 execute 返回数据。**回退本身不是「缺」**：
+        // 拿得到内容就是有效快照、不置标；只有回退后仍为空才算这一种「没有」。
+        if (fallback == null) return { json: null, reason: 'no_entity_and_empty_fallback' };
+        const json = this.normalize(fallback);
+        return json ? { json, reason: null } : { json: null, reason: 'failed' };
       }
       const repo = this.entityManager.getRepository(target.name);
       const row = await repo.findOne({ where: { id: resultId } } as any);
-      return this.normalize(row);
+      // 实体解析得到、行却不在：**异常**（目标不在了），必须与「设计上的缺席」分得开
+      if (!row) return { json: null, reason: 'row_missing' };
+      const json = this.normalize(row);
+      return json ? { json, reason: null } : { json: null, reason: 'failed' };
     } catch (err) {
       this.logger.warn(`[SnapshotCaptor] captureAfter failed ${resultType}#${resultId}: ${(err as Error).message}`);
-      return null;
+      return { json: null, reason: 'failed' };
     }
   }
 

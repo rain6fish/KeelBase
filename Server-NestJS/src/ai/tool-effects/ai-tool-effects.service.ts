@@ -15,6 +15,7 @@ import { OperationAuditService } from '../../operation-audit/operation-audit.ser
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
+import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
 import { LessThan, Not, Raw } from 'typeorm';
@@ -36,6 +37,12 @@ export interface WriteToolContext {
 export interface SideEffectSnapshot {
   before?: string | null;
   after?: string | null;
+  /**
+   * REV-13：`after` 为空时的**成因**（`no_captor` / `no_entity_and_empty_fallback` / `row_missing` / `failed`）。
+   * 缺省 = 调用方没给成因（那时该行落 `identity_incomplete_reason = null`，读作「标了但原因不可考」——
+   * 如实，而不是拿一个默认值冒充已知）。
+   */
+  afterReason?: CaptureUnavailableReason | null;
 }
 
 /** B 路径外部副作用撤销执行器 token（AiModule 提供 ProxyToolRevokerService） */
@@ -257,7 +264,9 @@ export class AiToolEffectsService {
     if (!before) return null;
     let currentJson: string | null;
     try {
-      currentJson = await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId);
+      // REV-13 起 `captureAfter` 返回 `{ json, reason }`；本处只关心读没读到，
+      // 成因归 `recordGroup` 的 `identity_incomplete_reason` 承载（两处关切不同，不互相挪用）。
+      currentJson = (await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId)).json;
     } catch {
       return null;
     }
@@ -406,6 +415,10 @@ export class AiToolEffectsService {
           compensationGroup: baseKey,
           // REV-6：身份缺变更那半的行如实标注（链外注解列；单目标行不属于组，不标）
           identityIncomplete: missingChange[i],
+          // REV-13：缺变更就一并记**成因**（`no_captor` / `no_entity_and_empty_fallback` /
+          // `row_missing` / `failed`）——四种「没有」不等价，压成一个 bit 就分不出「设计如此」与「出错了」。
+          // 置标而调用方没给成因 ⇒ 留 null（「标了但原因不可考」），**不拿默认值冒充已知**。
+          identityIncompleteReason: missingChange[i] ? (snapshots?.[i]?.afterReason ?? null) : null,
           // 根成员恒为第 0 条（spec §3）：根 parentEffectId=null，其余指向根（登记序保证根先落库）
           parentEffectId: i === 0 ? null : (saved[0]?.id ?? null),
         };
@@ -875,6 +888,12 @@ export class AiToolEffectsService {
           dispute: this._parseDispute(effect.revokeDispute),
           // REV-6：该行身份缺「变更」那半（成组行登记时无变更快照）——读取侧不得默认为完整身份
           identityIncomplete: effect.identityIncomplete === true,
+          // REV-13: **why** the change half is missing. `null` means one of two things and neither
+          // pretends to be knowledge: the row is not flagged, or it was flagged before this column
+          // existed (reason unknowable). Two of the four values are faults, two are design choices.
+          // REV-13：缺变更那半的**成因**。`null` 有两种读法，都不冒充已知：该行未置标，或置标于本列
+          // 出现之前（原因不可考）。四个取值里两个是故障、两个是设计选择。
+          identityIncompleteReason: effect.identityIncompleteReason ?? null,
           // 级联补偿（v3）：组标识 + 根引用，供前端显示「这是 N 条中的第 M 条」
           compensationGroup: effect.compensationGroup ?? null,
           parentEffectId: effect.parentEffectId ?? null,

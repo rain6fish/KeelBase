@@ -162,6 +162,22 @@ export class AiToolSideEffect {
   @Column({ type: 'boolean', default: false, name: 'identity_incomplete' })
   identityIncomplete!: boolean;
 
+  /**
+   * REV-13：`identity_incomplete = true` 时的**成因**，四值互不等价 ——
+   * `no_captor`（装配缺席，设计上的可选）/ `no_entity_and_empty_fallback`（外部写的正常形态）/
+   * `row_missing`（实体在、行不在，**异常**）/ `failed`（抓取抛错，**异常**）。
+   *
+   * 存在的理由：置标本是一件事，但**四种「没有」此前共用一个 bit**，于是「设计如此」与「出错了」
+   * 在读数上不可分；而这两者的处置完全不同（前者不必管，后者要查）。
+   *
+   * **`null` 有两种读法，都不冒充已知**：① 该行未置标（`identity_incomplete = false`）；
+   * ② 该行置了标但成因未记 —— 引入本列之前的历史行即此形，**原因不可考**（成因取决于当时的
+   * 运行条件，无法从任何落库列重建）。**故不做占位值回填**：一个默认值会让「不可考」读成「已知」。
+   * **链外注解列**，不入 `_chainPayload`。
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'identity_incomplete_reason' })
+  identityIncompleteReason?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

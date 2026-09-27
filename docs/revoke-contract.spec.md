@@ -140,6 +140,28 @@ side-effect row at all — an effect the revoke can never reach, trading a recov
 unrecoverable one. Backfilling the *change* is not honestly possible; the migration backfills only the
 annotation, from existing columns. This changes no revoke conclusion.
 
+**REV-13 — the flag now says *why*, and the four reasons are not equivalent.** `identity_incomplete`
+answers *that* the change half is missing and says nothing about the cause. Two of the four causes are
+design choices (`no_captor`: nothing wired; `no_entity_and_empty_fallback`: an external write whose
+fallback carried nothing) and two are faults (`row_missing`: the entity resolves but the row is gone;
+`failed`: the capture threw). Collapsed into one bit, "by design" and "something broke" read identically
+while calling for opposite responses — so the reason is recorded alongside the flag.
+**Two names that used to be listed do not belong here**: `not_declared` is a *before*-path lookup
+(`BEFORE_CAPTURE_TOOLS`) with no after-side branch, and `fell_back` is a mechanism rather than a cause —
+falling back to a fallback that *returns content* produces a valid snapshot and must not be flagged at
+all. **No backfill**: the cause depends on the runtime conditions at capture time and cannot be rebuilt
+from any stored column, so historical flagged rows keep `null` and read as "flagged, reason unknown";
+writing a default there would turn "not knowable" into "known".
+
+**REV-13 —— 标记现在说得清「为什么」，而四种成因并不等价。** `identity_incomplete` 只说「变更那半缺了」，
+不说成因。四种成因里两种是设计选择（`no_captor`：未装配；`no_entity_and_empty_fallback`：外部写且回退
+无内容），两种是故障（`row_missing`：实体解析得到而行不在；`failed`：抓取抛错）。压成一个 bit 后，
+「设计如此」与「出问题了」读数完全相同，而两者处置相反 —— 故成因与标记并列记录。
+**两个曾被列进来的名字不属此处**：`not_declared` 是 **before** 路径（`BEFORE_CAPTURE_TOOLS`）的查表，
+after 侧没有这个分支；`fell_back` 是**机制不是成因** —— 回退到 fallback 且**拿得到内容**时快照有效、
+本就不该置标。**不回填**：成因取决于捕获当时的运行条件、无法从任何落库列重建，故历史置标行保持
+`null`、读作「标了但原因不可考」；在那里写默认值等于把「不可考」变成「已知」。
+
 ### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
 
 撤销路径原先只读「**是不是软删了**」（`revoke_status` 与目标 `deletedAt`），`after_snapshot` **从不参与判定**
@@ -247,8 +269,9 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 | 5.7 已恢复行 | `_skipReason`（改读目标；三处调用点随之 `await`） | `revoke-restored-row.spec.ts`（真 sqlite；旧实现走跳过 → 报完成而目标仍活） |
 | 5.8 派发认领 | `_doRevokeSingle` 外部分支的**条件更新**（`Raw` 写 `IS NULL OR revoke_failed`；判据 `!claim?.affected`，fail-closed） | `revoke-dispatch-claim.spec.ts`（真 sqlite；旧实现并发两次会派发两次；fail-closed 对 `=== 0` 变体为红） |
 | 5.9 compensating 计成什么 | `_doRevokeSingle` 外部返回值 + `_compensateGroup` / `_revokeBatch` 计数 | `ai-tool-effects.service.spec.ts` · `revoke-conversation.spec.ts` · `proxy-bridge.e2e-spec.ts`（旧实现：把 `compensating` 算进 `revoked`） |
+| 5.4 REV-13 成因 | `captureAfter` 返回 `{json, reason}` + `recordGroup` 落 `identity_incomplete_reason` + 迁移 `1830000000000` | `capture-availability.spec.ts`（真 sqlite；旧实现连该列都不存在） |
 
-九处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+十处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
 `identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
 `message`，未新增键。

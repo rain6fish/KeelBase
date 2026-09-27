@@ -69,7 +69,8 @@ describe('REV-9 撤销前的「目标还是不是我写的那条」', () => {
     parentEffectId?: number | null;
   }): Promise<AiToolSideEffect> => {
     const captor = new SideEffectSnapshotCaptor(ds.manager);
-    const afterSnapshot = await captor.captureAfter('event', opts.eventId);
+    // REV-13 起 `captureAfter` 返回 `{ json, reason }`；本处只要快照本身（成因是另一件事）
+    const afterSnapshot = (await captor.captureAfter('event', opts.eventId)).json;
     return effects().save(
       effects().create({
         idempotencyKey: `key-${opts.eventId}-${opts.group ?? 'single'}`,
