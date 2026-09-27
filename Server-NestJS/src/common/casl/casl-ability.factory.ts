@@ -50,9 +50,14 @@ export class CaslAbilityFactory {
   /** 可选注入：数据驱动的规则来源（权限-2 Step 2）。缺席 = 用内置常量（单元测试 / 加载失败）。 */
   constructor(@Optional() private readonly registry?: RoleRuleSource) {}
   /**
-   * 该角色的规则来源：**注册表优先（数据驱动），缺席则回退内置常量**。
+   * 该角色的规则来源：**注册表优先（数据驱动），该角色没有规则则回退内置常量**。
    * 回退保证两件事：① 单元测试的无参构造 `new CaslAbilityFactory()` 行为不变；
    * ② 注册表加载失败时不至于无人可用（fail-safe 到内置规则，绝不 fail-open 到无规则）。
+   *
+   * **契约**：非空即视为该角色的**完整**规则集 —— 故「治理数据缺失时以内置为底」由**注册表实现**负责
+   * （`RoleRuleRegistry.reload()` 按角色回退，见其注释），工厂不替它兜。新写一个 `RoleRuleSource`
+   * 实现时别只回一条局部规则：2026-09-27 的事故正是一条生成规则让这里从「空」变「非空」，
+   * 内置的所有权规则整批消失（普通用户在自己资源上 403，11 个 e2e 套件命中）。
    */
   private _rulesFor(role: string): RoleRuleSeed[] {
     const fromRegistry = this.registry?.rulesFor(role);
