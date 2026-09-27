@@ -14,7 +14,7 @@
  *
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
@@ -53,6 +53,8 @@ function proxyResultId(userId: string, toolName: string, args: Record<string, un
 
 @Injectable()
 export class ToolExecutionService {
+  private readonly logger = new Logger(ToolExecutionService.name);
+
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly toolGate: ToolGateService,
@@ -212,11 +214,19 @@ export class ToolExecutionService {
               return { before, after: captured.json, afterReason: captured.reason };
             }),
           );
-          await this.toolEffectsService.recordGroup(
+          const registeredGroup = await this.toolEffectsService.recordGroup(
             { userId, conversationId, runId, toolName, args },
             declared,
             snapshots,
           );
+          // ARC-4：返回值不再被忽略。声明了 N 条却**一行都没登记**（幂等键被非本组成员占用）时，业务写
+          // 已经发生、而它的副作用**不可撤** —— 这不是成功，也不能静默。证据（声明 vs 持有的双向差集）
+          // 已写在占键那行的 `revokeDispute` 上、管理端可读；此处如实报一条警告。
+          if (registeredGroup.length === 0 && declared.length > 0) {
+            this.logger.warn(
+              `[ToolExecution] ${toolName}: 声明的 ${declared.length} 条副作用一行都没登记（幂等键被非本组成员占用）——本次写不可撤`,
+            );
+          }
           return result;
         }
         // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）

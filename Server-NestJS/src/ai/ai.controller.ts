@@ -252,6 +252,34 @@ export class AiController {
   }
 
   /**
+   * ARC-6：**确认**一条「声明与持有不一致」的争议（管理台）。
+   *
+   * 争议标记此前**只写不清** ⇒ 一个「声明变少」的重试就能把组**永久**读成未完成。确认**解除「未了结」**
+   * 而**证据原样保留**（另记确认人与时刻）—— 它不假装问题被修好（缺失成员按构造补不上），只记录「有人看过了」。
+   *
+   * 行不存在 → 404；该行**没有争议**（无从确认）→ 409。
+   *
+   * Acknowledge a dispute raised by the declaration/holding disagreement: lifts the "unsettled" verdict
+   * while keeping the evidence as it is, recording who looked and when. 404 when the row is missing,
+   * 409 when there is no dispute to acknowledge.
+   */
+  @Post('tool-effects/:id/acknowledge-dispute')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '确认补偿组的「声明与持有不一致」争议（管理员，ARC-6）' })
+  async acknowledgeToolEffectDispute(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const res = await this.toolEffectsService.acknowledgeDispute(id, String(user.sub));
+    if (!res.ok) {
+      if (res.reason === 'not_found') throw new NotFoundException('副作用记录不存在');
+      throw new ConflictException('该行没有可确认的争议');
+    }
+    return res;
+  }
+
+  /**
    * 清除当前用户的长期记忆（隐私）
    */
   @Delete('memory')

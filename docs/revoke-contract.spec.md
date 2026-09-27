@@ -84,6 +84,31 @@
 **两个读数分轴**：行级 `revoke_status` 仍是逐行事实（持有的行确实被补偿了，故 `revokeStatus='revoked'`），
 而「这一次业务动作是否已完全撤销」为假 —— `revoked:false` 与 `revokeStatus:'revoked'` 并存是如实，不是矛盾。
 
+#### 5.1.1 判据只认「声明了却未登记」一侧，且标记有**解除路径**（ARC-6）
+
+**判据与危害模型对齐**：危害只在**一侧**——「**声明了却从未登记**」（`onlyDeclared` 非空）的成员撤销**够不到**；
+而 `onlyStored`（持有有、声明无）恰恰是**已被登记、会被补偿**的那一批，一次「重试声明更少」并不让它们变得不安全。
+此前任一侧差集非空即判「不一致」⇒ 一个**已完全撤销**的组被读成「未完成」——**假警报**。
+现在：**证据两侧照旧都留**（REV-1 的「留证」不变），但**裁决只看 `onlyDeclared` 是否非空**。
+裁决在**单源判据**里（`_hasOpenDispute`），四处读点共用，免得「同一状态、两条路两个结论」。
+**读不懂的标记按 fail-closed 处理**（标记在、内容解析不出来 ⇒ 仍算未了结）：对读不懂的东西放宽比保守更危险。
+
+**解除路径 = 管理端显式确认**（`POST /ai/tool-effects/:id/acknowledge-dispute`，ADMIN）：解除「未了结」，
+**证据原样保留**（另记 `acknowledgedAt` / `acknowledgedBy`）。为什么**不**自动清除：「声明了却从未登记」的成员
+按构造**补不上**（重试撞键只会回放既有组，不补登记），所以「后一次比对一致」并不代表问题解决——自动清除等于
+把谎话写进状态；而「有人看过了」是人能给出的真信息。**保存失败必须上抛**（人的动作，报告成功却没落库就是谎报，
+故不走对失败只 warn 的运维态回写路径）。确认**幂等**（再确认返回原时刻，不覆盖）。
+**缺失集合变了 ⇒ 上一份确认不再适用**：确认指的是**这一批**成员，新的不一致写一份**未确认**的新证据（裁决回来）。
+
+The criterion now reads **one side only**: a member that was *declared but never registered* is the harm (the revoke
+cannot reach it), whereas *held but not declared* members are registered and will be compensated — calling that
+incomplete was a false alarm. Both differences are still recorded; only the verdict narrows. The verdict lives in a
+**single-sourced predicate** (`_hasOpenDispute`) so it cannot differ by path, and an unparseable mark stays disputed
+(fail-closed). The **clearing path is an explicit admin acknowledgement**, which lifts the "unsettled" verdict while
+keeping the evidence and recording who looked and when: an automatic clearing would be a lie, because a
+declared-but-never-registered member cannot be registered retroactively. A changed missing set drops the old
+acknowledgement, since it referred to a different set.
+
 ### 5.2 两个窗口：意图与确认是两个事件 / Two windows: intent and acknowledgment
 
 **规则**：外部补偿**先写意图、再外呼**（`revoke_requested_at` + `revoke_status=compensating`，
