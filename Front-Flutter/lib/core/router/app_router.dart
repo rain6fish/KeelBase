@@ -16,6 +16,7 @@ import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
 import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/followup_plans/presentation/pages/followup_plans_page.dart';
 import '../../features/contracts/presentation/pages/contracts_page.dart';
 import '../../features/suppliers/presentation/pages/suppliers_page.dart';
 import '../../features/flows/presentation/pages/flow_tasks_page.dart';
@@ -340,6 +341,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/contracts',
         builder: (_, _) => const ContractsPage(),
+      ),
+      // 跟进计划（EASY-2 生成）
+      GoRoute(
+        path: '/followup_plans',
+        builder: (_, _) => const FollowupPlansPage(),
       ),
       // Legal pages
       GoRoute(

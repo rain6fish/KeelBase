@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "followup_plans",
+  "generator": "keelbase",
+  "generatorVersion": "1.0.11",
+  "protocol": "1.1",
+  "source": "spec:specs/followup-plans.json",
+  "generatedAt": "2026-09-26T09:31:45.074Z"
+}

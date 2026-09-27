@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { FollowupPlansModule } from './followup_plans/followup_plans.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { TagsModule } from './tags/tags.module';
@@ -106,6 +107,7 @@ import { buildTypeOrmOptions } from './config/typeorm-options';
     HealthModule,
     EventsModule,
     TodosModule,
+    FollowupPlansModule,
     ContractsModule,
     SuppliersModule,
     TagsModule,

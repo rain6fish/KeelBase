@@ -1,0 +1,47 @@
+{
+  "module": "followup_plans",
+  "plural": "followup_plans",
+  "label": "跟进计划",
+  "searchable": true,
+  "fields": [
+    {
+      "name": "title",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "priority",
+      "type": "enum",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    {
+      "name": "reason",
+      "type": "text"
+    },
+    {
+      "name": "dueDate",
+      "type": "date"
+    },
+    {
+      "name": "status",
+      "type": "enum",
+      "enum": [
+        "planned",
+        "done",
+        "cancelled"
+      ]
+    }
+  ],
+  "aiTools": {
+    "query": true,
+    "create": {
+      "riskLevel": "R3",
+      "requiresConfirmation": true
+    }
+  }
+}
