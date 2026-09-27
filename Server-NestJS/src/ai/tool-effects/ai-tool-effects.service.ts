@@ -18,7 +18,7 @@ import type { DeclaredSideEffect } from './effect-composition';
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
-import { LessThan, Not, Raw } from 'typeorm';
+import { IsNull, LessThan, Not, Raw } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 
@@ -89,6 +89,15 @@ export type RevokeBatchResult = {
 
 /** §4 G1：run 级批量撤销结果（同会话级形状，作用域键换成 runId） */
 export type RevokeRunBatchResult = Omit<RevokeBatchResult, 'conversationId'> & { runId: string };
+
+/**
+ * REV-11: the outcome of claiming a stuck compensation. Everything other than `claimed` is a
+ * **refusal**, and each names which refusal it was — `not_stale` and `already_claimed` are different
+ * situations for whoever is looking at the console, so they are not collapsed into one `false`.
+ * REV-11：认领一条滞留补偿的结果。`claimed` 之外都是**拒绝**，且各自说明是哪一种 ——
+ * `not_stale` 与 `already_claimed` 对看台子的人是两回事，故不压成一个 `false`。
+ */
+export type RevokeClaimOutcome = 'claimed' | 'not_found' | 'not_stale' | 'already_claimed';
 
 /** REV-3：跨组重叠（同一业务对象被拆进多个补偿组）的检出条目 */
 export interface SplitGroupFinding {
@@ -894,6 +903,14 @@ export class AiToolEffectsService {
           // 是一个**既有列**的暴露，不是推断。本面的指派对象就是管理端角色本身，故此处不另造指派字段：
           // 这张列表本来就只有管理员读得到。
           ownerUserId: effect.userId,
+          // REV-11: "needs claiming" is **derived**, never stored — a stale row nobody has taken on.
+          // One fact, one home: storing it alongside the two columns below would let the flag and the
+          // columns disagree, and no reader could tell which one to believe.
+          // REV-11：「需认领」是**派生**的，从不落库——滞留且无人接手。同一事实只住一处：若与下面两列
+          // 并列存一份，flag 与列就可能互相矛盾，而读者无从判断该信哪个。
+          revokeNeedsClaim: age.stale && effect.revokeClaimedBy == null,
+          revokeClaimedBy: effect.revokeClaimedBy ?? null,
+          revokeClaimedAt: effect.revokeClaimedAt ? effect.revokeClaimedAt.toISOString() : null,
           // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
           disputed: effect.revokeDispute != null,
           dispute: this._parseDispute(effect.revokeDispute),
@@ -1144,6 +1161,72 @@ export class AiToolEffectsService {
     const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
     if (!effect || effect.userId !== userId) return null;
     return this._concludeSingle(effect);
+  }
+
+  /**
+   * REV-11: take a stuck compensation on. A person, recorded — not an inference.
+   *
+   * **Conditional update, like every other arbitration point in this repo** (`ConfirmationStore.resolve`,
+   * `R4ApprovalService._claimExecution`, the dispatch claim in `_doRevokeSingle`): the row is claimed
+   * only if it is *still* what the caller believed it was — `compensating`, past the staleness
+   * threshold, and unclaimed. `affected === 0` means someone else got there first, and that is reported
+   * rather than papered over.
+   *
+   * **What this does not do** (REV-11's stated boundary): it does not rewrite `revoke_status`, does not
+   * touch the target, and does not claim the compensation finished. The truth is still in the target
+   * system; a claim says only who is looking. It also does not poll or reconcile — that is a later batch.
+   *
+   * On refusal we re-read the row and report **which** refusal it was, because "already claimed" and
+   * "not stale" are different situations for the operator and a bare `false` would conflate them.
+   *
+   * REV-11：把一条卡住的补偿接过来。一个人，被记录下来 —— 不是推断出来的。
+   *
+   * **条件更新，与本仓其他每一个仲裁点同形**（`ConfirmationStore.resolve`、`R4ApprovalService._claimExecution`、
+   * `_doRevokeSingle` 里的派发认领）：只有当该行**仍然是**调用者以为的那样时才能认领 —— 仍是
+   * `compensating`、已过陈旧阈值、且无人认领。`affected === 0` 意味着别人先到了；那要如实报出，
+   * 而不是抹平。
+   *
+   * **它不做什么**（REV-11 明列的边界）：不改写 `revoke_status`、不碰目标、不声称补偿已完成。真值仍在
+   * 目标系统；认领只说明谁在看。它也不做轮询或对账 —— 那是后面一批的事。
+   *
+   * 被拒时**回读该行并报出是哪一种拒**，因为对运维而言「已被认领」与「还没到陈旧」是两回事，
+   * 一个光秃秃的 `false` 会把它们混为一谈。
+   */
+  async claim(effectId: number, byUserId: string): Promise<{ outcome: RevokeClaimOutcome; claimedBy?: string | null; claimedAt?: string | null }> {
+    const thresholdMinutes = this._staleThresholdMinutes();
+    const cutoff = new Date(Date.now() - thresholdMinutes * 60_000);
+
+    const res = await this.effectsRepo.update(
+      {
+        id: effectId,
+        revokeStatus: 'compensating',
+        revokeRequestedAt: LessThan(cutoff),
+        revokeClaimedBy: IsNull(),
+      },
+      { revokeClaimedBy: byUserId, revokeClaimedAt: new Date() },
+    );
+    if (res?.affected) {
+      const after = await this.effectsRepo.findOne({ where: { id: effectId } });
+      return {
+        outcome: 'claimed',
+        claimedBy: after?.revokeClaimedBy ?? byUserId,
+        claimedAt: after?.revokeClaimedAt ? after.revokeClaimedAt.toISOString() : null,
+      };
+    }
+
+    // 认领没命中：**回读**并说清是哪一种，不把三种情形压成一个 false
+    const row = await this.effectsRepo.findOne({ where: { id: effectId } });
+    if (!row) return { outcome: 'not_found' };
+    if (row.revokeClaimedBy != null) {
+      return {
+        outcome: 'already_claimed',
+        claimedBy: row.revokeClaimedBy,
+        claimedAt: row.revokeClaimedAt ? row.revokeClaimedAt.toISOString() : null,
+      };
+    }
+    // 剩下的可能：不是 compensating，或还没到陈旧阈值。两者对调用方是同一句话——
+    // 「这条现在还不需认领」——故合并为一个读数，但**不**与上面两种混。
+    return { outcome: 'not_stale' };
   }
 
   /**

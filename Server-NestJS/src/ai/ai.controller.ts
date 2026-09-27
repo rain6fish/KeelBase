@@ -446,6 +446,28 @@ export class AiController {
   }
 
   /**
+   * REV-11: claim a stuck compensation — record **who** took it on. Admin surface, so the taking party
+   * is the admin who called it.
+   *
+   * Claiming changes nothing about the compensation itself: it does not move `revoke_status`, does not
+   * touch the target, and does not assert the outcome. It only makes "someone is looking" a row instead
+   * of an assumption. Refusals are reported by kind (`not_stale` / `already_claimed` / `not_found`)
+   * rather than as one false, because they mean different things to whoever is working the list.
+   *
+   * REV-11：认领一条卡住的补偿 —— 记下**谁**接了过去。管理端面，故接手方就是发起调用的管理员。
+   *
+   * 认领不改动补偿本身：不移 `revoke_status`、不碰目标、不断言结果。它只把「有人在看」变成一行记录，
+   * 而不是一个假设。拒绝按种类报出（`not_stale` / `already_claimed` / `not_found`），而不是一个 false，
+   * 因为对处理这张列表的人而言它们含义不同。
+   */
+  @Post('tool-effects/:id/claim')
+  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @ApiOperation({ summary: '认领滞留的 compensating 副作用（REV-11，管理员）' })
+  async claimToolEffect(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return this.toolEffectsService.claim(id, String(user.sub));
+  }
+
+  /**
    * G-3（§internal.17 ① G-3）：副作用哈希链完整性校验（admin；历史 null 行不在链内，仅校验新链化行）。
    */
   @Get('tool-effects/verify')

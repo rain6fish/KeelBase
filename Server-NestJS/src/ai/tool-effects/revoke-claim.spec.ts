@@ -24,6 +24,8 @@ import { AiToolEffectsService } from './ai-tool-effects.service';
 const STALE_OWNER = 'u-alice';
 const FRESH_OWNER = 'u-bob';
 const REVOKED_OWNER = 'u-carol';
+/** 接手的管理员（认领记录的是**谁在看**，不是那次写代表谁） */
+const CLAIMER = 'u-admin-1';
 
 describe('REV-11 滞留补偿：这是谁的活', () => {
   let ds: DataSource;
@@ -94,5 +96,62 @@ describe('REV-11 滞留补偿：这是谁的活', () => {
 
     // 阈值是库侧谓词（revoke_requested_at < cutoff），NULL 天然不匹配 —— 与 revokeAge「年龄未知故不判陈旧」同口径
     expect(res.items).toHaveLength(0);
+  });
+
+  it('需认领是**派生**的：滞留且无人接手；一旦被认领就不再是需认领项', async () => {
+    await seed({ id: 1, userId: STALE_OWNER, revokeStatus: 'compensating', requestedMinutesAgo: 240 });
+
+    const before = (await svc.list({ stale: true })).items[0] as unknown as Record<string, unknown>;
+    expect(before.revokeNeedsClaim).toBe(true);
+    expect(before.revokeClaimedBy).toBeNull();
+
+    const claimed = await svc.claim(1, CLAIMER);
+    expect(claimed.outcome).toBe('claimed');
+
+    const after = (await svc.list({ stale: true })).items[0] as unknown as Record<string, unknown>;
+    // 仍是滞留行（revokeStale 仍为真），但已不「需认领」—— 两者不是同一件事，故不是重复字段
+    expect(after.revokeStale).toBe(true);
+    expect(after.revokeNeedsClaim).toBe(false);
+    expect(after.revokeClaimedBy).toBe(CLAIMER);
+    expect(typeof after.revokeClaimedAt).toBe('string');
+  });
+
+  it('认领是条件更新：第二个人认领同一行被拒，且**不覆盖**先到者的记录', async () => {
+    await seed({ id: 1, userId: STALE_OWNER, revokeStatus: 'compensating', requestedMinutesAgo: 240 });
+    await svc.claim(1, CLAIMER);
+
+    const second = await svc.claim(1, 'u-other-admin');
+
+    expect(second.outcome).toBe('already_claimed');
+    // 报出的是**先到者**，不是本次调用者 —— 否则「谁接手了」这句话就被这次拒绝改写了
+    expect(second.claimedBy).toBe(CLAIMER);
+    const row = await ds.getRepository(AiToolSideEffect).findOneByOrFail({ id: 1 });
+    expect(row.revokeClaimedBy).toBe(CLAIMER);
+  });
+
+  it('还没到陈旧阈值的行不可认领（那不是「需认领」，是还在等）', async () => {
+    await seed({ id: 1, userId: FRESH_OWNER, revokeStatus: 'compensating', requestedMinutesAgo: 5 });
+
+    expect((await svc.claim(1, CLAIMER)).outcome).toBe('not_stale');
+  });
+
+  it('非 compensating 的行不可认领（已了结 / 从未请求，都没有「谁在看」可言）', async () => {
+    await seed({ id: 1, userId: REVOKED_OWNER, revokeStatus: 'revoked', requestedMinutesAgo: 240 });
+
+    expect((await svc.claim(1, CLAIMER)).outcome).toBe('not_stale');
+  });
+
+  it('不存在的行报 not_found，不与「不可认领」混为一谈', async () => {
+    expect((await svc.claim(999, CLAIMER)).outcome).toBe('not_found');
+  });
+
+  it('认领**不改**补偿读数：状态与年龄照旧（认领只说谁在看，不说外面发生了什么）', async () => {
+    await seed({ id: 1, userId: STALE_OWNER, revokeStatus: 'compensating', requestedMinutesAgo: 240 });
+
+    await svc.claim(1, CLAIMER);
+
+    const row = await ds.getRepository(AiToolSideEffect).findOneByOrFail({ id: 1 });
+    expect(row.revokeStatus).toBe('compensating');
+    expect(row.revokeRequestedAt).not.toBeNull();
   });
 });

@@ -187,6 +187,29 @@ would be one fact under two names.
 一条列**或**一条告警行，而告警行走既有管线**必须动契约**（`rule` / `subject.kind` 是冻结枚举）。
 **这一步留待裁决，不在本次发明。**
 
+**补（2026-09-27，裁决后落地 `1831000000000`）**：取**加列**路线（不动契约）。`ai_tool_side_effects`
+增两列链外注解 `revoke_claimed_by` / `revoke_claimed_at`，并新增 `POST /ai/tool-effects/:id/claim`
+（admin）。三条口径：
+1. **「需认领」是派生的**（`stale AND claimed_by IS NULL`），**不落库** —— 同一事实只住一处，
+   与两列并列存一份会让 flag 与列互相矛盾而读者无从判断。
+2. **认领只陈述「谁在看」**：**不**改写 `revoke_status`、**不**碰目标、**不**声称补偿已完成。
+   真值仍在目标系统。
+3. **认领是条件更新**（同 `ConfirmationStore.resolve` / ARC-3 的派发认领）：只在行**仍然是**调用者以为的
+   那样（`compensating` + 已过阈值 + 无人认领）时成立；`affected === 0` 即**回读并分报**
+   `not_stale` / `already_claimed` / `not_found` —— 对运维这是三回事，不压成一个 `false`。
+   ⇒ 第二个人认领同一行被拒，且报出的是**先到者**，不是本次调用者。
+4. **历史行不回填**：NULL 在语义上就是「确实没人认领过」——与 1830（成因**不可考**）取舍同向、
+   理由不同：这里 NULL 本身就是正确答案。
+
+**Added (2026-09-27, landed after the ruling, migration `1831000000000`)**: the column route, which
+needs no contract change. Two chain-external columns record who took a stuck compensation on and when,
+and `POST /ai/tool-effects/:id/claim` is the action. "Needs claiming" stays derived rather than stored,
+because two copies of one fact can disagree while one cannot. A claim states who is looking — never
+what happened out there — so it leaves the revoke status and the target untouched, and the truth stays
+with the target system. The claim is a conditional update: it holds only while the row is still what
+the caller believed, and `affected === 0` re-reads and reports which refusal it was, since "already
+claimed" and "not stale" mean different things to whoever works the list.
+
 ### 5.6 中间写：撤销前问一句「还是不是我写的那条」 / Mid-write: ask "is it still the record I wrote"
 
 撤销路径原先只读「**是不是软删了**」（`revoke_status` 与目标 `deletedAt`），`after_snapshot` **从不参与判定**

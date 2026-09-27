@@ -178,6 +178,41 @@ export class AiToolSideEffect {
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'identity_incomplete_reason' })
   identityIncompleteReason?: string | null;
 
+  /**
+   * REV-11: **who took this stuck compensation on**, and when — a person, recorded.
+   *
+   * Before this, a stuck row could say whether it was stuck, how, how long, and on whose behalf the
+   * write happened — but not that anyone had picked it up. "There is somewhere to look" and "someone
+   * has to look" are different things, and the second one needs a row, not an inference from
+   * `user_id` (which names the accountable party, not the taker).
+   *
+   * **Only these two columns.** Claiming changes nothing else: it does **not** rewrite
+   * `revoke_status`, does **not** touch the target, and does **not** claim the compensation finished —
+   * the truth still lives in the target system. A claim is a statement about who is looking, never
+   * about what happened out there.
+   *
+   * **Chain-external annotation columns** (not in `_chainPayload`), so existing chains verify
+   * unchanged. `claimed_by IS NULL` on a stale row is what "needs claiming" means; it is derived,
+   * never stored, so the two can never disagree.
+   *
+   * REV-11：**谁把这条卡住的补偿接了过去**，以及何时 —— 一个人，被记录下来。
+   *
+   * 在此之前，一条卡住的行能说清它卡没卡、怎么卡、卡了多久、以及那次写代表谁，却说不出**有没人接手**。
+   * 「有的看」与「必须有人看」是两件事，而后者要的是一行记录，不是从 `user_id` 推断（那名字说的是
+   * **责任人**，不是**接手人**）。
+   *
+   * **只加这两列。** 认领不改动别的任何东西：**不**改写 `revoke_status`、**不**碰目标、**不**声称补偿
+   * 已完成 —— 真值仍在目标系统。认领陈述的是「谁在看」，从不是「外面发生了什么」。
+   *
+   * **链外注解列**（不入 `_chainPayload`），故既有链验签不受影响。滞留行上 `claimed_by IS NULL`
+   * 就是「需认领」的含义；它是**派生**的、从不落库，故两者不可能互相矛盾。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'revoke_claimed_by' })
+  revokeClaimedBy?: string | null;
+
+  @Column({ type: Date, nullable: true, name: 'revoke_claimed_at' })
+  revokeClaimedAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
