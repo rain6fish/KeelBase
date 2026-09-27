@@ -776,7 +776,7 @@ npm run migration:run
 | POST | /api/v1/ai/chat/stream | Yes | 当前用户 | AI 对话（SSE 流式；含 tool_start/tool_end 过程事件 + confirmation_request/confirmation_decision） |
 | GET | /api/v1/ai/tools | Yes (ADMIN) | — | AI 工具清单与权限元数据（HS-2，管理台审计/治理） |
 | POST | /api/v1/ai/confirmations/:token | Yes | 本人 | 确认 AI 写操作（create_event/create_todo，approve/reject，未知 token 404） |
-| GET | /api/v1/ai/my/confirmations | Yes | 本人 | 本人确认记录（GA 待我确认中心；可按 status 过滤，pending 带离线窗口 expiresAt） |
+| GET | /api/v1/ai/my/confirmations | Yes | 本人 | 本人确认记录（GA 待我确认中心；可按 status 过滤，pending 带离线窗口 `expiresAt` —— REV-7 起该值读自**建行时记录**的窗口，不再按当前配置重算；引入该列之前的行不返回该字段） |
 | POST | /api/v1/ai/my/confirmations/:token/decide | Yes | 本人 | 离线裁决本人确认（GA，对话之外；条件更新幂等，不可离线裁决者 404） |
 | DELETE | /api/v1/ai/memory | Yes | 本人 | 清除用户长期记忆（隐私） |
 | POST | /api/v1/ai/insights | Yes | 当前用户 | 数据洞察报告（结构化统计） |
@@ -808,7 +808,7 @@ npm run migration:run
 | DELETE | /api/v1/admin/mcp/servers/:name | Yes (ADMIN) | — | 移除外部 MCP server |
 | GET | /api/v1/admin/mcp/tools | Yes (ADMIN) | — | 发现外部 MCP 工具（缓存 30s；?force=true 刷新；元数据带 riskLevel/riskStrategy 风险声明，A2） |
 | POST | /api/v1/admin/mcp/call | Yes (ADMIN) | — | 调用外部 MCP 工具（强制过治理层：HS-9 权限/确认 + 审计） |
-| GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态）；每行回 `revokePending / revokeAgeMinutes / revokeStale`（REV-2：`compensating` 的年龄）、`revokeAcknowledgedAt / revokeWindow`（REV-2 细化：`unacknowledged`=可能未到达 / `awaiting_target`=已到达无回音）、`disputed / dispute`（REV-1：声明与持有不一致的标记 + 证据）、`identityIncomplete / identityIncompleteReason`（REV-6/REV-13：身份缺变更 + **成因**）、`ownerUserId / revokeNeedsClaim / revokeClaimedBy / revokeClaimedAt`（REV-11：**这是谁的活** + 是否需认领 + 谁认领了）；`?stale=true` 只看陈旧未了结 |
+| GET | /api/v1/ai/tool-effects | Yes (ADMIN) | — | AI 写操作副作用记录（HS-3，可按 userId 过滤，含目标当前状态）；每行回 `revokePending / revokeAgeMinutes / revokeStale`（REV-2：`compensating` 的年龄）、`revokeAcknowledgedAt / revokeWindow`（REV-2 细化：`unacknowledged`=可能未到达 / `awaiting_target`=已到达无回音）、`disputed / dispute`（REV-1：声明与持有不一致的标记 + 证据）、`identityIncomplete / identityIncompleteReason`（REV-6/REV-13：身份缺变更 + **成因**）、`ownerUserId / revokeNeedsClaim / revokeClaimedBy / revokeClaimedAt`（REV-11：**这是谁的活** + 是否需认领 + 谁认领了）、`agentId`（REV-7：**谁在替该用户执行**，读自本行，不必 join 审计行）；`?stale=true` 只看陈旧未了结 |
 | GET | /api/v1/ai/tool-effects/splits | Yes (ADMIN) | — | 补偿组**过度分裂**检出（REV-3）：同一 `resultType + resultId` 横跨多个补偿组（>1 组）时列出组与承载行，超上限如实标 `truncated`；**只检出不改组键**（根治须先裁决） |
 | POST | /api/v1/ai/tool-effects/:id/claim | Yes (ADMIN) | — | 认领滞留的 `compensating` 副作用（REV-11：记下**谁**接手了；条件更新，只在仍 `compensating` + 已过陈旧阈值 + 无人认领时成立；**不改** `revoke_status`/不碰目标/不断言结果；拒绝按 `not_stale`/`already_claimed`/`not_found` 分报） |
 | POST | /api/v1/ai/tool-effects/:id/acknowledge-dispute | Yes (ADMIN) | — | 确认补偿组的「声明与持有不一致」争议（ARC-6）：解除「未了结」，**证据原样保留**并记确认人/时刻；行无争议 409、行不存在 404（撤销契约 §5.1.1） |

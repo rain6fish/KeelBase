@@ -85,6 +85,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddIdentityIncompleteReason*',
   '*AddRevokeClaim*',
   '*AddFollowupPlans*',
+  '*AddWindowAndAgent*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

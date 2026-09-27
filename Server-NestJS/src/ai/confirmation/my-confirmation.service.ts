@@ -81,7 +81,7 @@ export class MyConfirmationService {
     // 而清扫任务用 SQL 另算一份。
     return rows
       .filter((r) => r.status !== CONFIRMATION_STATUS.PENDING || isWithinOfflineWindow(r.createdAt, offlineTtlMs))
-      .map((r) => this._toItem(r, offlineTtlMs));
+      .map((r) => this._toItem(r));
   }
 
   /**
@@ -118,7 +118,7 @@ export class MyConfirmationService {
   }
 
   /** 存储行 → 本人视图。摘要 / 影响预览 / 撤销档由 AiService 单一真源产出（不在此重算）。 */
-  private _toItem(row: AiConfirmationRequest, offlineTtlMs: number): MyConfirmationItem {
+  private _toItem(row: AiConfirmationRequest): MyConfirmationItem {
     let args: Record<string, unknown> = {};
     try {
       args = row.args ? (JSON.parse(row.args) as Record<string, unknown>) : {};
@@ -140,8 +140,10 @@ export class MyConfirmationService {
       run: described.run,
       createdAt: createdAt.toISOString(),
       decidedAt: row.decidedAt ? row.decidedAt.toISOString() : null,
-      ...(row.status === CONFIRMATION_STATUS.PENDING
-        ? { expiresAt: new Date(createdAt.getTime() + offlineTtlMs).toISOString() }
+      // REV-7：窗口读**记录下来的**那一个，不再按当前配置重算 —— 重算会让改配置追溯性地挪走历史行的
+      // 窗口（旧实现正是如此）。引入本列之前的行没有记录，**省略**该字段而不是拿今天的配置去猜它。
+      ...(row.status === CONFIRMATION_STATUS.PENDING && row.expiresAt
+        ? { expiresAt: row.expiresAt.toISOString() }
         : {}),
       // P2 执行轴（单源推导，与治理端审批列表同一函数）——租约列是内部状态，不外泄
       executionState: deriveExecutionState(row),

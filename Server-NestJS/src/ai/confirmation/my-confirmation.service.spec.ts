@@ -61,15 +61,27 @@ describe('MyConfirmationService（GA 待我确认中心）', () => {
       );
     });
 
-    it('超离线窗口的 pending 不返回；窗口内的返回且带 expiresAt', async () => {
-      const fresh = row({ token: 'fresh' });
+    it('超离线窗口的 pending 不返回；窗口内的返回，且带的是**记录下来的**那个窗口', async () => {
+      // REV-7：刻意选一个与 `createdAt + 当前离线 TTL` **不相等**的窗口值 —— 旧实现是按当前配置重算的，
+      // 这条断言因此对旧实现为红（它给的会是 24h 后的值，而不是这里记下的 1h 后）。
+      const recordedWindow = new Date(Date.now() + 3600_000);
+      const fresh = row({ token: 'fresh', expiresAt: recordedWindow });
       const stale = row({ token: 'stale', createdAt: new Date(Date.now() - OFFLINE_TTL - 60_000) });
       repo.find.mockResolvedValue([fresh, stale]);
 
       const items = await service.list('42');
 
       expect(items.map((i) => i.token)).toEqual(['fresh']);
-      expect(items[0].expiresAt).toBe(new Date(fresh.createdAt.getTime() + OFFLINE_TTL).toISOString());
+      expect(items[0].expiresAt).toBe(recordedWindow.toISOString());
+    });
+
+    it('pending 但**没有**记录窗口的行（引入本列之前的行）→ 省略该字段，不按今天的配置去猜', async () => {
+      repo.find.mockResolvedValue([row({ token: 'legacy' })]);
+
+      const items = await service.list('42');
+
+      expect(items.map((i) => i.token)).toEqual(['legacy']);
+      expect(items[0].expiresAt).toBeUndefined();
     });
 
     it('已决策的行不受窗口限制（历史照常可见），且不带 expiresAt', async () => {

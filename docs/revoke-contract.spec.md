@@ -381,6 +381,41 @@ roadmap §2.1.10（ARC-2 / ARC-7）。`compensating` 意为「已请求外部补
 > `RevokeBatchResult` 的顶层键是契约的一部分，加桶要动 wire。**代价**：「跳过」这个词本身不区分
 > 「没动」与「已请求、在等」，要区分只能读 `reason`。这是**已知的不精确**，不是遗漏 —— 真正的出口是 §4 G2 的终态收敛。
 
+### 5.10 授权窗口与 agent 身份：两件「记在别处」的事落回它所属的记录 / REV-7
+
+**两件事实都存在，却都读不回它所属的那条记录**，故事后要答「哪个 agent、替哪个用户、在哪个资源上、
+依据哪版策略、**是否仍在窗口内**」必须 join 两个结构再近似配对。
+
+**① 窗口（`ai_confirmation_requests.expires_at`）**：此前窗口是**读时**算的 —— `createdAt + 当前的离线
+TTL`，而 `confirmation_offline_ttl_seconds` 是**可变的配置**。⇒ **改配置会把账上每一行的窗口追溯性地挪走**，
+「当时是否仍在窗口内」没有一个站得住的答案。现在**建行时落定**（用当时的离线 TTL），窗口才成为那次授权的
+**事实**，而不是今天配置的函数。**记的是离线窗口**（决定该行能否被裁决的那个），不是对话内那个 60s 窗口。
+引入本列之前的行留 `null` ⇒ 读取侧**省略**该字段（配置可能已变，重算等于断言一件我们不知道的事）。
+**回归证据**：用例刻意用一个与「createdAt + 当前 TTL」**不相等**的窗口值断言，故对旧实现为红。
+
+**② agent 身份（`ai_tool_side_effects.agent_id`）**：审计行本来就有（`agent_id` / `caller_agent_id` /
+`delegation_context`），但住在另一个结构里、**两者无直接外键**，配对只能靠 conversation / run / tool 近似。
+现在由 `actorContext`（**与审计行同一来源**）在边界处读一次、随 ctx 传给登记层，落在副作用行上 ⇒
+**该行自己**就答得出「谁在替该用户执行」。`null` = 当时没有 agent 参与，或行早于本列（语义为未知，不回填）。
+
+**不新增采集语义**：两条都只是把**已有的事实**记到它所属的记录上；**不改**任何裁决、不新增任何门控。
+两列均为**链外注解列**，既有链验签不受影响。
+
+**⚠ 本项仍未完全达成**（如实记）：判据是「给定**一条副作用**，其窗口与 agent 均可从记录单独回答」。
+**agent ✅**（就在副作用行上）；**窗口 △** —— 它记在**确认行**上，而副作用行与确认行之间**仍无直接引用**
+（run 成员的 `runId` = run 确认 token 可作桥梁；单条确认则只有 conversation）。要单点闭环，需从副作用行
+**指回它依据的那次授权**（第三列）—— 那是 RC。**本项按「部分达成」记，闭口留给裁决。**
+
+**English**: two facts that existed but could not be read back from the record they belong to. The window
+was derived on read from a mutable setting, so changing the setting retroactively moved the window of
+every row on the books; it is now fixed when the row is created, and the offline window is the one
+recorded because that is the one a later reader means. The agent identity already lived on the audit
+row with no direct key, so the pairing was approximate; it now sits on the side effect, taken from the
+same `actorContext` the audit row uses. Nothing new is collected — existing facts are recorded where
+they belong — and neither column changes any verdict. Still short of the criterion: the agent is
+answerable from the side effect itself, but the window lives on the confirmation row and the two are
+not directly linked, so closing that needs the side effect to point back at its authorization.
+
 ## 6. 相关文档 / Related
 
 - [cascade-compensation.spec.md](cascade-compensation.spec.md)（级联撤销 / 业务级补偿——闭合本契约 B2 / C / G3）

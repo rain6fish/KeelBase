@@ -127,6 +127,42 @@ export class AiConfirmationRequest {
   @Column({ type: 'text', nullable: true, name: 'execution_error' })
   executionError?: string | null;
 
+  /**
+   * REV-7: the **end of the window this authorization actually had** — written when the row is created.
+   *
+   * Until now the window was computed on read (`createdAt + current offline TTL`), and the TTL is a
+   * mutable setting. So changing the setting **retroactively moved the window of every row already on
+   * the books**, and "was this still inside its window at the time" had no answer that stayed put.
+   * Recording it makes the window a fact about that authorization rather than a function of today's
+   * configuration.
+   *
+   * **The offline window, not the in-conversation one.** The in-conversation TTL only decides how long
+   * the dialogue keeps waiting before letting the stream continue; the offline window is what makes the
+   * row actionable at all, so it is the one a later reader means by "its window".
+   *
+   * `null` for rows written before this column: their window is **unknown** — the setting may have
+   * changed since, so recomputing it would assert something we cannot know. The read side omits it
+   * rather than guessing. **Chain-external annotation column** (this table is in no hash chain).
+   *
+   * REV-7：这次授权**当时实际拥有的窗口**的终点 —— 建行时写下。
+   *
+   * 此前窗口是**读时**算的（`createdAt + 当时的离线 TTL`），而 TTL 是可变的配置。于是改配置会把**账上
+   * 每一行**的窗口**追溯性地挪走**，而「当时是否仍在窗口内」没有一个站得住的答案。记下来，窗口才成为
+   * 这次授权的**事实**，而不是今天配置的函数。
+   *
+   * **记的是离线窗口，不是对话内那个**：对话内 TTL 只决定对话还要等多久才让流继续，而离线窗口才决定
+   * 这一行**能不能被裁决**，所以后来人问「它的窗口」指的是前者。
+   *
+   * 引入本列之前的行留 `null`：其窗口**不可考** —— 配置可能已经变过，重算等于断言一件我们不知道的事。
+   * 读取侧**省略**它，不猜。**链外注解列**（本表不在任何哈希链里）。
+   */
+  @Column({
+    type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime',
+    nullable: true,
+    name: 'expires_at',
+  })
+  expiresAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

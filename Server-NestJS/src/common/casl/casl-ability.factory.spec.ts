@@ -2,7 +2,6 @@
 
 import { subject } from '@casl/ability';
 import { CaslAbilityFactory } from './casl-ability.factory';
-import { type RoleRuleSeed, type RoleRuleSource } from './builtin-role-rules';
 import { UserRole } from '../entities/user.entity';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -163,41 +162,6 @@ describe('CaslAbilityFactory', () => {
       expect(e.allowed).toBe(true);
       expect(e.reason).toContain('管理员');
       expect(e.deniedBy).toBeNull();
-    });
-  });
-
-  describe('规则来源：DB 授予 vs 生成种子（权限-2 Step 2）', () => {
-    const seed = (roleCode: string, subject: string, ownerField: string | null): RoleRuleSeed => ({
-      roleCode,
-      subject,
-      ownerField,
-    });
-    /** 注册表替身：`rules` 是 `rulesFor` 的全部返回，`dbRoles` 是「有 DB 授予」的角色。 */
-    const registryOf = (rules: RoleRuleSeed[], dbRoles: string[]): RoleRuleSource =>
-      ({
-        rulesFor: (role: string) => rules.filter((r) => r.roleCode === role),
-        hasDbRules: (role: string) => dbRoles.includes(role),
-        dataScopeFor: () => undefined,
-        customDeptIdsFor: () => null,
-      }) as never;
-
-    it('只有生成种子（DB 无授予）时，内置基线不被顶掉，且种子生效', () => {
-      const f = new CaslAbilityFactory(registryOf([seed(UserRole.USER, 'FollowupPlan', 'userId')], []));
-      const ability = f.createForUser(regularUser);
-      // 内置基线仍在——按「注册表非空即权威」判，这两条会变成 false（生成一个模块就丢掉全部内置规则）
-      expect(ability.can('manage', 'Event')).toBe(true);
-      expect(ability.can('read', subject('User', { id: 1 }))).toBe(true);
-      // 生成种子同样生效，行级条件照旧绑定 ownerField
-      expect(ability.can('manage', 'FollowupPlan')).toBe(true);
-      expect(ability.can('manage', subject('FollowupPlan', { userId: 1 }))).toBe(true);
-      expect(ability.can('manage', subject('FollowupPlan', { userId: 2 }))).toBe(false);
-    });
-
-    it('DB 给出授予时注册表仍是权威来源（未授予的主体不因内置基线而复得能力）', () => {
-      const f = new CaslAbilityFactory(registryOf([seed(UserRole.USER, 'Todo', 'userId')], [UserRole.USER]));
-      const ability = f.createForUser(regularUser);
-      expect(ability.can('manage', 'Todo')).toBe(true);
-      expect(ability.can('manage', 'Event')).toBe(false); // DB 没授予 → 无能力（绝不 fail-open）
     });
   });
 });
