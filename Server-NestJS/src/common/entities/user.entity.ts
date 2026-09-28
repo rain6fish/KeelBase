@@ -60,9 +60,6 @@ export class User {
   @Column({ type: 'varchar', nullable: true, length: 64, name: 'provider_hash' })
   providerHash?: string;
 
-  @Column({ type: 'varchar', nullable: true, length: 512, name: 'refresh_token_hash' })
-  refreshTokenHash?: string | null;
-
   @Column({ type: 'varchar', nullable: true, length: 64, name: 'reset_token_hash' })
   resetTokenHash?: string | null;
 

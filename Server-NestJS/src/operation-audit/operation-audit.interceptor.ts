@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -48,6 +48,8 @@ function resourceEntity(path: string): string | null {
  */
 @Injectable()
 export class OperationAuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(OperationAuditInterceptor.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly auditService: OperationAuditService,
@@ -101,7 +103,12 @@ export class OperationAuditInterceptor implements NestInterceptor {
           feature: feature.key ?? null,
           statusCode,
         });
-        // 异步落库，不阻塞响应；失败静默（审计不影响业务）
+        // ACT-4 余项（2026-09-28）：落库仍**不阻塞响应** —— 这是有意的，且有两层理由：
+        // ① 操作审计是尽力而为，不应让审计故障挡住业务写；② 写要过审计链的行锁
+        //    （`operation-audit.service.ts` 的 `audit_chain_lock`），把它 await 进响应路径
+        //    等于把**每个 REST 写**的吞吐绑在那一把行锁上。
+        // 但**失败不再静默**：此前 `.catch(() => undefined)` 让「没写成」与「没发生过」同形，
+        // 正是本仓反复立规矩要避免的那种失败（未知不得被断言成确定 / F-10d）。现在如实告警。
         this.auditService.log({
           userId,
           action: this._deriveAction(method, path),
@@ -118,7 +125,11 @@ export class OperationAuditInterceptor implements NestInterceptor {
           ip: req.ip,
           userAgent: req.headers['user-agent'],
           statusCode,
-        }).catch(() => undefined);
+        }).catch((err: Error) => {
+          this.logger.warn(
+            `[OperationAudit] 操作审计写入失败，该次 ${method} ${path.split('?')[0]} 将无审计行：${err?.message}`,
+          );
+        });
       }),
     );
   }
@@ -139,7 +150,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
    * 那是唯一落到审计行的出口。
    */
   private _snapshotForDiff(row: Record<string, unknown>): Record<string, unknown> {
-    const SKIP = new Set(['id', 'createdAt', 'updatedAt', 'password', 'refreshTokenHash', 'loginAttempts', 'lockedUntil', 'prevHash', 'hash']);
+    const SKIP = new Set(['id', 'createdAt', 'updatedAt', 'password', 'loginAttempts', 'lockedUntil', 'prevHash', 'hash']);
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
       if (SKIP.has(k) || v == null || typeof v === 'object') continue;

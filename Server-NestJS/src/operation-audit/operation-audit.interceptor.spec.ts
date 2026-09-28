@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { of, firstValueFrom } from 'rxjs';
 import { OperationAuditInterceptor } from './operation-audit.interceptor';
@@ -135,6 +136,22 @@ describe('OperationAuditInterceptor', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('ACT-4 余项：审计写入失败**可见**（不再静默）—— 丢的那行与「没发生过」不可同形', async () => {
+    auditService.log.mockRejectedValue(new Error('db down'));
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const req = { method: 'POST', originalUrl: '/api/v1/events', url: '/api/v1/events', body: {}, headers: {}, params: {}, user: { sub: 1 } };
+
+    const result = await firstValueFrom(await interceptor.intercept(mockContext(req), next));
+    // 等一拍，让 fire-and-forget 的 catch 跑完（响应不阻塞是有意设计，见测试上方那条）
+    await new Promise((r) => setImmediate(r));
+
+    expect(result).toEqual({ ok: true }); // 仍不阻塞响应
+    // 旧实现 `.catch(() => undefined)` ⇒ 这里为红（一次 warn 都没有）
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('操作审计写入失败'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('POST /api/v1/events'));
+    warn.mockRestore();
+  });
+
   it('derives targetId from path params', async () => {
     const req = { method: 'PATCH', originalUrl: '/api/v1/events/42', url: '/api/v1/events/42', body: {}, headers: {}, params: { id: '42' }, user: { sub: 1 } };
 
@@ -178,7 +195,6 @@ describe('OperationAuditInterceptor', () => {
           title: 'Acme',
           apiToken: 'secret-tok',
           password: 'x',
-          refreshTokenHash: 'y',
           createdAt: new Date(),
         }),
       });

@@ -216,7 +216,7 @@ export class UsersService {
 
   /** 剔除敏感字段 + 解密 phone（phone 以密文存储，返回时需还原明文） */
   private sanitizeUser(user: User): Partial<User> {
-    const { password, refreshTokenHash, loginAttempts, lockedUntil, ...rest } = user;
+    const { password, loginAttempts, lockedUntil, ...rest } = user;
     if (rest.phone) {
       rest.phone = this.encryption.decrypt(rest.phone);
     }
@@ -230,7 +230,6 @@ export class UsersService {
   private sanitizeForAdmin(user: User): Partial<User> {
     const rest = { ...user } as Record<string, unknown>;
     delete rest.password;
-    delete rest.refreshTokenHash;
     delete rest.loginAttempts;
     delete rest.lockedUntil;
     delete rest.bio;

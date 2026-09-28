@@ -55,7 +55,6 @@ describe('AuthService', () => {
     avatarUrl: null as any,
     provider: null as any,
     providerId: null as any,
-    refreshTokenHash: null as any,
     loginAttempts: 0,
     lockedUntil: null as any,
     emailVerified: false,
@@ -218,7 +217,6 @@ describe('AuthService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         password: 'hashed_password',
-        refreshTokenHash: null,
         loginAttempts: 0,
         lockedUntil: null,
       };
@@ -599,16 +597,15 @@ describe('AuthService', () => {
   // ─── Logout ────────────────────────────────────────────────────────────────
 
   describe('logout', () => {
-    it('should revoke current device sessions and clear refresh token hash', async () => {
+    it('should revoke current device sessions (and no longer touch the user row)', async () => {
       mockRepository.update.mockResolvedValue({ affected: 1 } as any);
 
       await service.logout(1, 'dev-1');
 
       expect(mockSessionRepo.delete).toHaveBeenCalledWith({ userId: 1, deviceId: 'dev-1' });
-      expect(mockRepository.update).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({ refreshTokenHash: null }),
-      );
+      // 登出的凭据效果就是删会话行。原实现还会 `update(userId, { refreshTokenHash: null })`
+      // 清一个**只写不读**的字段（全仓无任何校验）；该字段已删除，故这条 update 不该再发生。
+      expect(mockRepository.update).not.toHaveBeenCalled();
     });
 
     it('should revoke all sessions when no deviceId provided', async () => {
@@ -793,7 +790,9 @@ describe('AuthService', () => {
       expect(saved.password).toMatch(/^\$2b\$12\$/); // bcrypt 12
       expect(saved.resetTokenHash).toBeNull();
       expect(saved.resetTokenExpiresAt).toBeNull();
-      expect(saved.refreshTokenHash).toBeNull(); // session invalidation
+      // 凭据失效 = 撤销全部会话行（原 `refreshTokenHash = null` 已随那个只写不读的字段删除；
+      // 真正让旧 refresh token 失效的一直是这条会话行删除）
+      expect(mockSessionRepo.delete).toHaveBeenCalledWith({ userId: 1 });
     });
 
     it('should reject invalid token', async () => {

@@ -121,7 +121,7 @@ export class AdminService {
   async getUserDetail(id: number) {
     const user = await this.usersRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('用户不存在');
-    const { password, refreshTokenHash, loginAttempts, lockedUntil, ...rest } = user;
+    const { password, loginAttempts, lockedUntil, ...rest } = user;
     delete (rest as Record<string, unknown>).bio;
     delete (rest as Record<string, unknown>).dateOfBirth;
     delete (rest as Record<string, unknown>).firstName;

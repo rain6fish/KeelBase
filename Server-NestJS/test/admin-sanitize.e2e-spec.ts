@@ -12,7 +12,7 @@ import { User } from '../src/common/entities/user.entity';
  * 既有 e2e 只断言 email 含 `***`；本测试逐项核对 sanitizeForAdmin 的字段级输出：
  *   - email 掩码（不返回明文）
  *   - bio / dateOfBirth / firstName / lastName / avatarUrl / provider 不返回（管理页不出现用户填写的个人数据）
- *   - password / refreshTokenHash / loginAttempts / lockedUntil 不返回
+ *   - password / loginAttempts / lockedUntil 不返回
  *   - username 保留用于识别
  * （phone 掩码实现同 maskEmail，走 bind-phone 需要 SMS 验证码，未在 e2e 中绑定）
  */
@@ -93,7 +93,6 @@ describe('Admin 用户详情脱敏（字段级断言）', () => {
     expect(data.provider).toBeUndefined();
     // 敏感内部字段不返回
     expect(data.password).toBeUndefined();
-    expect(data.refreshTokenHash).toBeUndefined();
     expect(data.loginAttempts).toBeUndefined();
     expect(data.lockedUntil).toBeUndefined();
     // 聚合数据仍在（详情端点功能未被脱敏破坏）

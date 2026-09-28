@@ -32,7 +32,6 @@ describe('UsersService', () => {
     avatarUrl: null as any,
     provider: null as any,
     providerId: null as any,
-    refreshTokenHash: null as any,
     loginAttempts: 0,
     lockedUntil: null as any,
     createdAt: new Date(),
@@ -100,7 +99,6 @@ describe('UsersService', () => {
 
       expect(result.username).toBe('testuser');
       expect((result as any).password).toBeUndefined();
-      expect((result as any).refreshTokenHash).toBeUndefined();
     });
 
     it('should throw ConflictException for duplicate username', async () => {
@@ -195,7 +193,6 @@ describe('UsersService', () => {
 
       expect(result.username).toBe('testuser');
       expect((result as any).password).toBeUndefined();
-      expect((result as any).refreshTokenHash).toBeUndefined();
     });
 
     it('returns from cache on second call (no repo hit)', async () => {
@@ -397,6 +394,5 @@ describe('UsersService', () => {
     const result = (service as any).sanitizeUser(userWithPhone);
     expect(result.phone).toBe('13800138000');
     expect(result.password).toBeUndefined();
-    expect(result.refreshTokenHash).toBeUndefined();
   });
 });

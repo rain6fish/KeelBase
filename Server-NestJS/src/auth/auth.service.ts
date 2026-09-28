@@ -225,10 +225,10 @@ export class AuthService {
     user.password = hashedPassword;
     user.resetTokenHash = null;
     user.resetTokenExpiresAt = null;
-    // 使现有 refresh token 失效，强制重新登录
-    user.refreshTokenHash = null;
     await this.usersRepository.save(user);
-    // 撤销该用户全部会话（多设备一并登出）
+    // 使现有 refresh token 失效，强制重新登录：撤销该用户全部会话（多设备一并登出）。
+    // 此处原有一行 `user.refreshTokenHash = null` —— 那个字段只写不读（全仓无任何校验），
+    // 真正失效凭据的一直是下面这条会话行删除；该字段已按 Code Economy「Delete Before Add」删除。
     await this.sessionRepo.delete({ userId: user.id });
 
     return { message: 'Password has been reset. Please login again.' };
@@ -307,7 +307,6 @@ export class AuthService {
         password: true,
         nickname: true,
         role: true,
-        refreshTokenHash: true,
         loginAttempts: true,
         lockedUntil: true,
         createdAt: true,
@@ -756,15 +755,15 @@ export class AuthService {
   }
 
   async logout(userId: number, deviceId?: string) {
-    // 多设备：只登出当前设备（按 deviceId 删会话行）；deviceId 缺失时回退清全部
+    // 多设备：只登出当前设备（按 deviceId 删会话行）；deviceId 缺失时回退清全部。
+    // 登出的**唯一凭据效果**就是删会话行（凭据存 `user_sessions.refresh_hash`）。
+    // 此处原有一条 `update(userId, { refreshTokenHash: null })` —— 那个用户级字段只写不读，
+    // 删了会话行之后它本就是空转；已随该字段一并移除（Code Economy「Delete Before Add」）。
     if (deviceId) {
       await this.sessionRepo.delete({ userId, deviceId });
     } else {
       await this.sessionRepo.delete({ userId });
     }
-    await this.usersRepository.update(userId, {
-      refreshTokenHash: null,
-    });
     this.logger.log(`User logged out: userId=${userId}, device=${deviceId ?? 'all'}`);
   }
 
@@ -866,8 +865,9 @@ export class AuthService {
       expiresIn,
     } as JwtSignOptions);
 
-    user.refreshTokenHash = this.hashToken(refreshToken);
-    await this.usersRepository.save(user);
+    // 此处原为 `user.refreshTokenHash = this.hashToken(refreshToken); await save(user);` —— 该字段
+    // 只写不读（全仓无任何校验），那次 save 也只服务于它（登录成功的失败计数重置走的是独立的
+    // `update()`；OAuth 建号另有显式 save）。字段删除后一并移除，顺带省掉每次登录/刷新的那次写。
     return refreshToken;
   }
 

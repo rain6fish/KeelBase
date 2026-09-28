@@ -124,7 +124,6 @@ describe('AdminService · 监控/概览/用户详情/会话/广播', () => {
       dateOfBirth: new Date(),
       firstName: 'A',
       password: 'hash',
-      refreshTokenHash: 'rh',
       loginAttempts: 0,
       lockedUntil: null,
     });
