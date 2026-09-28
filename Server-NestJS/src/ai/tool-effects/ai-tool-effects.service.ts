@@ -584,11 +584,57 @@ export class AiToolEffectsService {
       }
       this.logger.warn(`[AiToolEffects] record conflict (idempotent skip): ${(err as Error).message}`);
       const existing = await this.effectsRepo.findOne({ where: { idempotencyKey: key } });
+      // REV-4：同键冲突有**两种**，此前被当成一种。
+      // - 纯幂等重放：两次写的是**同一条**业务记录 → 无话可说；
+      // - 写了别的：本次调用真的写下了**另一条**业务行，而它**没有任何副作用行承载** ⇒ 那一条不可撤，
+      //   而链路上此前没有一处说得出（调用方只看到「幂等命中」）。
+      // 比对按**目标身份**，与 REV-1 的组路径同口径。
+      await this._markDisputeIfWriteDiffers(existing, resultType, resultId);
       this._reportEffect(ctx, resultType, resultId);
       return existing!;
     }
     this._reportEffect(ctx, resultType, resultId);
     return saved!;
+  }
+
+  /**
+   * REV-4：**单目标**冲突分支的比对——同键重放写的是不是同一条业务记录。
+   *
+   * 触发面（实测）：常规重放根本到不了这里 —— 调用方在**执行工具之前**先查重（`findExisting`），命中即短路，
+   * 工具不会再跑、也就不会多写一行。故本分支实际只在**并发**下可达：两次同键调用同时探测未命中 → 都执行 →
+   * 一条落库、另一条撞唯一键。形状与 ARC-3 同类（都是「预检通过之后的竞态窗口」）。
+   *
+   * **证据复用既有的形状**（`declared` / `stored` / 双向差集），因为它在单条上恰好就是同一个意思：
+   * `declared` = 本次调用写下的目标、`stored` = 账上持有的目标，于是 `onlyDeclared` = 「写了却没有行承载」
+   * 的那一条 —— 非空即未了结。故 ARC-6 的裁决（**只认 `onlyDeclared` 一侧**）在此**照旧成立**，无须第二套判据。
+   *
+   * 目标相同则**不标记**：那是纯幂等重放，标记它就是把正常路径说成争议。
+   */
+  private async _markDisputeIfWriteDiffers(
+    existing: AiToolSideEffect | null,
+    resultType: string,
+    resultId: number,
+  ): Promise<void> {
+    // 键被占了却查不到那一行（并发删 / 异常）：不制造无处可读的标记
+    if (!existing) return;
+    const storedRef = { resultType: existing.resultType, resultId: existing.resultId };
+    const declaredRef = { resultType, resultId };
+    if (targetKey(storedRef) === targetKey(declaredRef)) return; // 纯幂等重放
+
+    const evidence: RevokeDisputeEvidence = {
+      declared: [declaredRef],
+      stored: [storedRef],
+      // 「写了却没有行承载」的那一条 —— 撤销够不到它
+      onlyDeclared: [declaredRef],
+      onlyStored: [storedRef],
+      decidedAt: new Date().toISOString(),
+    };
+    this.logger.warn(
+      `[AiToolEffects] single-target replay wrote a different record: 本次写 ${resultType}#${resultId}，` +
+        `而该键被 ${existing.resultType}#${existing.resultId} 占用` +
+        `——**本次写下的那条没有任何副作用行承载（撤销够不到它）**，该行已标为争议`,
+    );
+    await this._patchRevoke(existing, { revokeDispute: JSON.stringify(evidence) });
   }
 
   /**
@@ -1586,8 +1632,10 @@ export class AiToolEffectsService {
   ): RevokeResult {
     const notes: string[] = [];
     if (this._hasOpenDispute(effect)) {
+      // REV-4：措辞不再说「该补偿组」—— 单目标行没有组，而那一条同样可能被标上争议（同键竞态下写了别的记录）。
+      // 改成「该业务动作」后一句话同时说得通两条路径，且被用例断言的「声明与持有不一致」原样保留。
       notes.push(
-        '该补偿组已被标记为「声明与持有不一致」：已按**持有**的行补偿，而声明的成员与登记的不一致——不得视为该业务动作已完全撤销',
+        '该业务动作已被标记为「声明与持有不一致」：已按**持有**的行补偿，而声明与登记的不一致——不得视为该业务动作已完全撤销',
       );
     }
     if (cross.length) notes.push(this._crossClaimText(cross));

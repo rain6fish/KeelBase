@@ -416,6 +416,46 @@ they belong — and neither column changes any verdict. Still short of the crite
 answerable from the side effect itself, but the window lives on the confirmation row and the two are
 not directly linked, so closing that needs the side effect to point back at its authorization.
 
+### 5.11 单目标行为什么不进跨组闸门 / REV-8：**不纳入，且这是设计而非缺口**
+
+`_crossGroupClaims` 问的是「还有哪个**别的活着的组**也主张这条 effect」，它的查询用
+`compensationGroup: Not(groupId)` —— 而 SQL 里 `col <> x` 在列为 NULL 时求值为 **NULL（非真）**，
+`compensation_group IS NULL` 的**单目标行根本不会被返回**；即便返回，循环里 `if (!r.compensationGroup) continue`
+也会跳过。⇒ **单目标行对该闸门完全不可见**（两层排除，都不是「碰巧」）。
+
+**裁决（2026-09-28）：不纳入闸门（候选 b），把理由写进口径。** 主论据是**语义的**，与「窗口是否可达」无关：
+
+> **单目标行只声明了「一条写」，没有声明「一个动作」。** 而闸门要回答的是「**这次业务动作**是否已完全撤销」——
+> 那是**围绕一个动作**的问题。让一条只声明了单次写的行去背这个结论，是把「写」当成了「动作」：它既答不出
+> 「该动作还有没有别的成员」，也不该替一个它从未声明过的动作签字。故单目标撤销**只**回答它自己那条写。
+
+**佐证（可达性，非主论据）**：要让这个盲区咬人，需一条单目标行与一条组内行共享 `(resultType, resultId)`。
+以今天的工具集这也不容易：
+1. **外部写永远不会进组** —— `declared = result.success && !isProxyWrite ? declaredEffects(result.data) : null`
+   ⇒ `proxy_call` 不可能成为组成员；而那条最容易撞的通道（`proxyResultId` 由 `(userId, toolName, args)` 派生、
+   确定性强、同参必同 id）**是关着的**；
+2. **本地组成员都是刚创建的行**（id 由库生成、为该次写独有），**本地写工具都是 create 类**。
+
+**⚠ 但我没有把它写成「不可达证明」，因为它不是**：佐证全部压在一条**工具契约属性**上 ——
+**「工具只声明它自己创建的行」**，而 `declaredEffects` 读的是 `data.effects`，**并不检查**这一点。
+一旦有工具声明了一条**已存在**的行，佐证失效、盲区变活。**这正是 RISK-B 跟踪的同一个假设**
+（「账上的行 = 业务动作的成员」）。⇒ **主论据（语义）不依赖它，佐证依赖它** —— 两者分开记，别让前者借后者的力。
+
+**为什么不「顺手纳入」（候选 a）**：闸门的**词汇是按键组织的** —— `CrossGroupClaim` 的形状是
+`{ resultType, resultId, groups: string[] }`，而单目标行**没有组名可填**。要纳入就得先给出「非组持有者」的表示
+（新的声明形状 + 措辞 + 断言），**不是一个查询条件的事**。若将来真需要，那是一次**新增表示**的改动，不是这次。
+
+**English**: the gate asks which *other live group* also claims an effect, and its query never returns
+a NULL-group row — SQL never matches NULL against `<>`. The ruling is **not** to widen the gate, and the
+reason is semantic rather than about reachability: a single-target row declares **one write**, not **one
+action**, and the gate answers a question about an action. Corroborating the ruling, sharing a
+`(resultType, resultId)` is also hard today — proxy writes never join a group, and local group members
+are rows the tool itself just created. That corroboration is **deliberately not presented as a proof of
+unreachability**: it rests on a tool-contract property ("a tool declares only rows it created") that
+`declaredEffects` does not check, which is the same assumption RISK-B tracks. The semantic reason does
+not depend on it, so the two are recorded apart. Widening the gate was rejected as more than a query —
+the claim vocabulary is keyed by group, so a non-group holder has no name to fill.
+
 ## 6. 相关文档 / Related
 
 - [cascade-compensation.spec.md](cascade-compensation.spec.md)（级联撤销 / 业务级补偿——闭合本契约 B2 / C / G3）
