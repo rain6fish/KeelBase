@@ -38,7 +38,8 @@
     "check:java-vectors": "node scripts/check-java-vector-sync.mjs",
     "check:mobile-preview": "node scripts/check-mobile-preview.mjs",
     "check:version-parity": "node scripts/check-version-parity.mjs",
-    "check:test-types": "node scripts/check-test-types.mjs"
+    "check:test-types": "node scripts/check-test-types.mjs",
+    "check:audit-awaited": "node scripts/check-audit-writes-awaited.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"

@@ -127,6 +127,12 @@ fi
 echo "→ [Trust] 撤销幂等单元（tool-effects）"
 if (cd Server-NestJS && npx jest src/ai/tool-effects --forceExit >/dev/null 2>&1); then gate "Trust(撤销幂等单元)" pass; else gate "Trust(撤销幂等单元)" fail "jest src/ai/tool-effects"; fi
 
+# ── Trust：审计写入必须 await（ACT-11 第 ① 道；不 await 须内联写明理由）────────────
+# 为什么是门禁不是测试：「工具执行了、审计没写」测试看不见（用例不会让进程崩在写审计前），
+# 静态规则一眼可见。判据与理由见脚本头注释（scripts/check-audit-writes-awaited.mjs）。
+echo "→ [Trust] 审计写入 await（fire-and-forget 须写明理由）"
+if node scripts/check-audit-writes-awaited.mjs >/dev/null 2>&1; then gate "Trust(审计写入 await)" pass; else gate "Trust(审计写入 await)" fail "check-audit-writes-awaited"; fi
+
 # ── Trust：审计链并发压测（HS-11 完整性基线：分叉 0 + verify 全绿 + 吞吐/P95）──
 echo "→ [Trust] 审计链并发压测"
 if (cd Server-NestJS && npm run audit:chain:load >/dev/null 2>&1); then gate "Trust(审计链压测)" pass; else gate "Trust(审计链压测)" fail "audit:chain:load"; fi

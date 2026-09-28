@@ -441,6 +441,7 @@ export class AiService {
 
       // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
       if (await this._shouldAudit('conversation')) {
+      // audit-fire-and-forget: 对话级元数据（非执行路径），不 await —— 理由见 roadmap §2.1.16 ACT-4 的边界
         this.auditService.log({
           userId,
           conversationId,
@@ -621,6 +622,7 @@ export class AiService {
 
     // 审计日志（HS-9 粒度门控：conversation 级仅 all 时记录）
     if (await this._shouldAudit('conversation')) {
+      // audit-fire-and-forget: 对话级元数据（非执行路径），不 await —— 理由见 roadmap §2.1.16 ACT-4 的边界
       this.auditService.log({
         userId,
         conversationId,
@@ -760,6 +762,7 @@ export class AiService {
         // CR-2：流式主完成审计——否则不进 ai_audit_logs，每日限额可被流式绕过
         // HS-9 粒度门控：conversation 级仅 all 时记录
         if (await this._shouldAudit('conversation')) {
+      // audit-fire-and-forget: 对话级元数据（非执行路径），不 await —— 理由见 roadmap §2.1.16 ACT-4 的边界
           this.auditService.log({
             userId,
             conversationId,
@@ -1175,6 +1178,7 @@ export class AiService {
     // CR-2：流式超轮次也记审计（isError），避免漏计数
     // HS-9 粒度门控：conversation 级仅 all 时记录
     if (await this._shouldAudit('conversation')) {
+      // audit-fire-and-forget: 对话级元数据（非执行路径），不 await —— 理由见 roadmap §2.1.16 ACT-4 的边界
       this.auditService.log({
         userId,
         conversationId,

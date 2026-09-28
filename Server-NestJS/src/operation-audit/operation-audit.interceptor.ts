@@ -109,6 +109,8 @@ export class OperationAuditInterceptor implements NestInterceptor {
         //    等于把**每个 REST 写**的吞吐绑在那一把行锁上。
         // 但**失败不再静默**：此前 `.catch(() => undefined)` 让「没写成」与「没发生过」同形，
         // 正是本仓反复立规矩要避免的那种失败（未知不得被断言成确定 / F-10d）。现在如实告警。
+        // audit-fire-and-forget: 见上两条理由 —— 不 await 是**有意的**（链锁吞吐），
+        // 且失败已改为可见；门禁（ACT-11 第 ① 道）要求这个标记。
         this.auditService.log({
           userId,
           action: this._deriveAction(method, path),
