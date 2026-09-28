@@ -405,7 +405,10 @@ TTL`，而 `confirmation_offline_ttl_seconds` 是**可变的配置**。⇒ **改
 **⚠ 本项仍未完全达成**（如实记）：判据是「给定**一条副作用**，其窗口与 agent 均可从记录单独回答」。
 **agent ✅**（就在副作用行上）；**窗口 △** —— 它记在**确认行**上，而副作用行与确认行之间**仍无直接引用**
 （run 成员的 `runId` = run 确认 token 可作桥梁；单条确认则只有 conversation）。要单点闭环，需从副作用行
-**指回它依据的那次授权**（第三列）—— 那是 RC。**本项按「部分达成」记，闭口留给裁决。**
+**指回它依据的那次授权**（第三列）。
+**已裁决（2026-09-28）：不在此单独加列。** 那条引用与「**执行身份**」（一次执行在落定之前就有稳定标识）
+是同一件事的两种说法，而该标识当前正被当作一个整体来建 ⇒ **在此先加一列，会在它落地时被重做**。
+**本项按「部分达成」记**，余项归入那项工作。
 
 **English**: two facts that existed but could not be read back from the record they belong to. The window
 was derived on read from a mutable setting, so changing the setting retroactively moved the window of
@@ -416,6 +419,10 @@ same `actorContext` the audit row uses. Nothing new is collected — existing fa
 they belong — and neither column changes any verdict. Still short of the criterion: the agent is
 answerable from the side effect itself, but the window lives on the confirmation row and the two are
 not directly linked, so closing that needs the side effect to point back at its authorization.
+**Ruled (2026-09-28): no column is added here.** That reference and the *execution identity* — a stable
+marker fixed before an execution lands — are two descriptions of one thing, and that marker is being
+built as a whole, so a column added now would be redone when it lands. The item stays recorded as
+**partially met**, with the remainder belonging to that work.
 
 ### 5.11 单目标行为什么不进跨组闸门 / REV-8：**不纳入，且这是设计而非缺口**
 
