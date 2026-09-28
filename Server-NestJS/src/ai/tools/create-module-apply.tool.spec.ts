@@ -39,8 +39,8 @@ describe('CreateModuleApplyTool（System AI L4 Act：真写那一半）', () => 
     expect(tool.name).toBe('create_module_apply');
     expect(tool.permissions?.adminOnly).toBe(true);
     expect(tool.requiresConfirmation).toBe(true);
-    // 未显式声明 riskLevel ⇒ 由 requiresConfirmation 派生 R3（写工具）
-    expect(tool.riskLevel).toBeUndefined();
+    // 未显式声明 riskLevel ⇒ 由 requiresConfirmation 派生 R3（写工具）；类上没这个成员，故用 `in` 判
+    expect('riskLevel' in tool).toBe(false);
     // 不可撤销是**如实**声明，不是漏填：文件写入没有运行时回滚路径
     expect(tool.revokeClass).toBe('none');
   });

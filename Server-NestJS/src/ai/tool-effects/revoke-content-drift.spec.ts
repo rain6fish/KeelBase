@@ -160,7 +160,7 @@ describe('REV-9 撤销前的「目标还是不是我写的那条」', () => {
     await events().save([
       events().create({ id: 1, title: 'A', userId: 42 } as never),
       events().create({ id: 2, title: 'B', userId: 42 } as never),
-    ]);
+    ] as never);
     const root = await seedEffect({ eventId: 1, withCaptor: true, group: 'grp-rev9' });
     await seedEffect({ eventId: 2, withCaptor: true, group: 'grp-rev9', parentEffectId: root.id });
 

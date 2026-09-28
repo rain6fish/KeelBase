@@ -1329,7 +1329,7 @@ describe('AiService', () => {
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
       // 签发时：该工具的目标是 legacy-erp
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-erp' });
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-erp' } as never);
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
 
       const originalCreateRun = confirmationStore.createRun.bind(confirmationStore);
@@ -1341,12 +1341,12 @@ describe('AiService', () => {
       });
 
       const it = aiService.chatStream('1', { message: 'create an event and a todo' });
-      const first = await it.next();
+      const first = await it[Symbol.asyncIterator]().next();
       expect(first.value.type).toBe('confirmation_request');
       expect((first.value as { confirmation?: { mode?: string } }).confirmation?.mode).toBe('run');
 
       // 签发之后、执行之前：该工具被改指到另一个目标系统
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-crm' });
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-crm' } as never);
       confirmationStore.resolve(runToken!, '1', 'approve');
       const chunks: any[] = [];
       for await (const c of it) chunks.push(c);

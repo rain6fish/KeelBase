@@ -84,7 +84,7 @@ describe('REV-12 补偿行指回授权决定', () => {
         revokeStatus: null,
         compensationGroup: opts.group ?? null,
         parentEffectId: opts.parentEffectId ?? null,
-      }),
+      } as unknown as AiToolSideEffect),
     );
   };
 
