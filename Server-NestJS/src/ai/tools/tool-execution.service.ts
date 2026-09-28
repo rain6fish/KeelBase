@@ -27,6 +27,8 @@ import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
 // REV-7：agent 身份与审计行同源，在此边界处读一次
 import { actorContext } from '../actor-context';
+// REV-10：把工具执行包进写入采集窗口（数据层实际写了什么）
+import { withWriteCapture } from '../../common/write-capture/write-capture';
 
 /**
  * B 路径：外部写无目标 id 时，用它作为副作用的 resultId（正整数，48bit）。
@@ -191,7 +193,11 @@ export class ToolExecutionService {
     }
     // §internal.16 A-1：update 类写工具 execute 前抓 before（本地实体重查 / proxy 用 args 摘要）；create 类返回 null
     const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
-    const result = await this.toolRegistry.execute(toolName, args, userId);
+    // REV-10：把工具执行**包进采集窗口** —— 只有这一段是「这次调用真正写下的东西」。
+    // 窗口开在 `execute` 上、关在登记之前：登记自己写的账本行因此不在窗内（它也不是可撤业务行）。
+    const { result, writes: observedWrites } = await withWriteCapture(() =>
+      this.toolRegistry.execute(toolName, args, userId),
+    );
     const isProxyWrite = this.isProxyTool(toolName);
     // FP-8：B 路径写即使响应空体/未知结果也记 proxy_call 副作用锚（stable proxyResultId），不假装有 data——撤销/证据可定位
     const proxyAnchor = isProxyWrite && result.success;
@@ -220,7 +226,7 @@ export class ToolExecutionService {
             }),
           );
           const registeredGroup = await this.toolEffectsService.recordGroup(
-            { userId, conversationId, runId, toolName, args, agentId },
+            { userId, conversationId, runId, toolName, args, agentId, observedWrites },
             declared,
             snapshots,
           );
@@ -252,7 +258,7 @@ export class ToolExecutionService {
           ? (await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)).json
           : null;
         await this.toolEffectsService.record(
-          { userId, conversationId, runId, toolName, args, agentId },
+          { userId, conversationId, runId, toolName, args, agentId, observedWrites },
           resultType,
           resultId,
           { before, after },

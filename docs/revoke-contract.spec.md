@@ -456,6 +456,38 @@ unreachability**: it rests on a tool-contract property ("a tool declares only ro
 not depend on it, so the two are recorded apart. Widening the gate was rejected as more than a query —
 the claim vocabulary is keyed by group, so a non-group holder has no name to fill.
 
+### 5.12 声明与实写：把「账上的行 = 业务动作的成员」从**假设**降为**可对差** / REV-10
+
+本契约其余各条都建在一条**假定**上：**账上记的行，就是这次动作写下的行的全部**。此前**没有任何地方观察过**真正
+落进表里的是什么（全库零 `EntitySubscriberInterface`），故「工具声明 1 行、实际写 10 行」只能在**事后**——
+撤销时、或冲突回放时——才浮现，而那些没被声明的行**按构造就撤不到**。
+
+**裁决（2026-09-28）**：机制取**数据层传感器**（TypeORM 订阅器 + 采集作用域），露出面取**副作用行的链外注解列**
+（`undeclared_writes`，管理端列表读出）。**不新增采集语义**：它记的是**已经发生过、只是没人看**的那件事。
+
+**它怎么工作**：`withWriteCapture(fn)` 开一个作用域；订阅器把作用域内**可撤业务行**（带软删列的实体——那也是
+`resolveLocalEntity` 能解析到的唯一一类）的 insert 记进去；登记层拿它与**自己要记的目标**对差，多出来的就是
+「账上没有的写」，落在**账本有**的那一行上。比配走**归一名字**（小写去下划线），因为订阅器给的是实体类名
+（`CrmTask`）而登记层用的是 resultType（`crm_task`）——同一命名空间的不同写法，且**只在一处**归一，免得漂移。
+
+**三个刻意的边界**（写明，不暗示）：
+1. **这是发现，不是裁决**：不重写声明、不触发补偿、**不动任何撤销结论**。
+2. **传感器看不见什么**（不是「不会发生」）：只采 **insert**（`UpdateEvent` 没有稳定的单一 id 可作键，只按实体
+   匹配会把每次更新都报成没记过）；软删也不采（本版 TypeORM 提供的是 `afterSoftRemove`，而撤销器按 id 软删，
+   不触发它）；**裸 SQL** 写完全不触发订阅器。
+3. **作用域外完全惰性**：订阅器全局注册（否则看不见），但无作用域时只付一次 `getScope()`，不做任何记账。
+
+**English**: every other clause here rests on one assumption — that the rows on the ledger are all the rows the
+action wrote. Nothing had ever observed what actually landed (no `EntitySubscriberInterface` anywhere), so "declares
+one row, writes ten" could only surface after the fact, and the undeclared rows cannot be revoked by construction.
+The ruling takes the **data-layer sensor** (a TypeORM subscriber plus a capture scope) and exposes it as a
+chain-external column on the side-effect row, read out by the admin list. Nothing new is collected — this records
+something that already happened and had no reader. Three boundaries are stated rather than implied: it is a finding
+and moves no verdict; it fires on **inserts of revocable business rows only** (an update event carries no stable
+single id, soft-deletes are not raised by the revoker's by-id call, and raw SQL raises nothing at all); and it is
+inert outside a scope, since a global subscriber that did bookkeeping unconditionally would tax every write in the
+process for a question almost none of them ask.
+
 ## 6. 相关文档 / Related
 
 - [cascade-compensation.spec.md](cascade-compensation.spec.md)（级联撤销 / 业务级补偿——闭合本契约 B2 / C / G3）

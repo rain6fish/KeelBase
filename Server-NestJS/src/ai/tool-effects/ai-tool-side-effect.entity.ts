@@ -244,6 +244,37 @@ export class AiToolSideEffect {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'agent_id' })
   agentId?: string | null;
 
+  /**
+   * REV-10: **writes this call actually made that the ledger did not record** (JSON array).
+   *
+   * Registration has always recorded what the tool **declared**. Nothing observed what actually landed,
+   * so "declares one row, writes ten" could only surface later — at revoke time, or on a conflict
+   * replay — never when it happened, and the undeclared rows are unreachable by revoke by construction.
+   * A data-layer sensor now reports the writes made during the call, and the ones the ledger has no row
+   * for land here.
+   *
+   * **A finding, not a verdict.** This column changes nothing: the declaration is not rewritten, no
+   * compensation is triggered, no revoke conclusion moves. It exists so the divergence is a fact
+   * someone can read at write time instead of a silence.
+   *
+   * `null` = no such write was observed (the ordinary case), or the row predates this column. Those two
+   * are not distinguished, and neither is filled in with a guess. **Chain-external annotation column.**
+   *
+   * REV-10：**本次调用真的写了、而账上没有记的那些写**（JSON 数组）。
+   *
+   * 登记层历来只记工具**声明**的东西。没有任何地方观察真正落进去的是什么，故「声明一行、写十行」只能
+   * 事后才浮现——撤销时、或冲突回放时——从不是**事发当时**；而那些没被声明的行**按构造就撤不到**。
+   * 现在数据层的传感器报出这次调用期间的写，账上没有对应行的那些就落在这里。
+   *
+   * **这是发现，不是裁决。** 本列什么都不改：不重写声明、不触发补偿、不动任何撤销结论。它的存在只让
+   * 这个分歧成为**写时就能读到的事实**，而不是一片沉默。
+   *
+   * `null` = 没观察到这类写（寻常情形），或该行早于本列出现。两者不区分，也都不拿猜测去填。
+   * **链外注解列。**
+   */
+  @Column({ type: 'text', nullable: true, name: 'undeclared_writes' })
+  undeclaredWrites?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

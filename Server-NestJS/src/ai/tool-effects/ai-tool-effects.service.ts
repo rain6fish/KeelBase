@@ -16,6 +16,7 @@ import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
+import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
 import { IsNull, LessThan, Not, Raw } from 'typeorm';
@@ -34,6 +35,12 @@ export interface WriteToolContext {
    * 由调用方在边界处读入——登记层不自己去追这个上下文，免得把两处取值的时机弄歧义。
    */
   agentId?: string;
+  /**
+   * REV-10：调用期间**数据层实际观察到的写**（由 `tool-execution` 在采集作用域里取得）。
+   * 登记层拿它与**自己要记的目标**对差，把「写了却没记」的那些如实落到行上。
+   * 缺席 = 没开采集（单测 / 降级装配）⇒ 不产生这条读数，**不假装「没写过」**。
+   */
+  observedWrites?: CapturedWrite[];
   /** KB-6：副作用撤销能力档位（可直传；缺省由服务内按工具注册/resultType 兜底解析） */
   revokeClass?: RevokeClass;
 }
@@ -389,6 +396,8 @@ export class AiToolEffectsService {
       // 单目标行不属于任何补偿组（历史语义逐字节不变）
       compensationGroup: null,
       parentEffectId: null,
+      // REV-10：账上没有的写（本行记的是 resultType#resultId，其余被观察到、而没有被声明的那些）
+      undeclaredWrites: this._serializeUndeclaredWrites(ctx, [{ resultType, resultId }]),
     };
     // G-3（§internal.17 ① G-3）：新行入副作用哈希链（prev = 最近一条已哈希行；历史行 null 不参与；首个哈希行 genesis）。
     // 链写入 = read(prev) → compute → insert，是 read-modify-write：**必须串行**，否则并发两行读到同一 prev
@@ -450,6 +459,8 @@ export class AiToolEffectsService {
           identityIncompleteReason: missingChange[i] ? (snapshots?.[i]?.afterReason ?? null) : null,
           // 根成员恒为第 0 条（spec §3）：根 parentEffectId=null，其余指向根（登记序保证根先落库）
           parentEffectId: i === 0 ? null : (saved[0]?.id ?? null),
+          // REV-10：同一件事在复合组里也一样 —— 组**声明的全部成员**就是「账上应该有」的集合
+          undeclaredWrites: this._serializeUndeclaredWrites(ctx, effects),
         };
         saved.push(await this._insertOne(base, manager));
       }
@@ -567,6 +578,47 @@ export class AiToolEffectsService {
    * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行（跨进程仍为 best-effort，与主链 sqlite 分支同）。
    * 幂等语义不变：唯一冲突 → skip 并回读已有行；其他 DB 错误如实上抛（KB-4 FP-4）。
    */
+  /**
+   * REV-10：**账上没有的写** —— 数据层观察到的写，减去本次登记的目标。
+   *
+   * 比配走**归一名字**（小写、去下划线）：订阅器给的是实体类名（`CrmTask`），而登记层用的是 resultType
+   * （`crm_task` / 生成模块名），两者是同一命名空间的不同写法 —— 与 `resolveLocalEntity` 的两段匹配同一
+   * 精神，且**必须只在这一处**做，免得两条路各归一一次而漂移。
+   *
+   * 主键取不到（`null`）时**照记**：我们确实知道写了那张表的某一行，只是不知道哪一行 —— 那仍然是
+   * 「账上没有」；把它压掉，就是把一次真实的漏记说成没有。
+   *
+   * 没观察到（未开采集 / 本次没写）⇒ `null`，**不假装「没写过」**。
+   */
+  private _serializeUndeclaredWrites(
+    ctx: WriteToolContext,
+    recorded: Array<{ resultType: string; resultId: number }>,
+  ): string | null {
+    const observed = ctx.observedWrites;
+    if (!observed || observed.length === 0) return null;
+    const norm = (s: string): string => s.toLowerCase().replace(/_/g, '');
+    const recordedKeys = new Set(recorded.map((r) => `${norm(r.resultType)}#${r.resultId}`));
+    const missing = observed.filter((w) => !recordedKeys.has(`${norm(w.entity)}#${w.id}`));
+    if (missing.length === 0) return null;
+    this.logger.warn(
+      `[AiToolEffects] REV-10 声明与实写不一致：本次调用在数据层写了 ${missing.length} 处账上没有的行（` +
+        `${missing.map((m) => `${m.entity}#${m.id ?? '?'}:${m.kind}`).join(', ')}）` +
+        `——已如实记在该行上，**不据此改判、也不自动补偿**`,
+    );
+    return JSON.stringify(missing);
+  }
+
+  /** REV-10：读侧的解析（与写入侧同一形状）；读不出来就如实给 `null`，不外抛打断列表。 */
+  private _parseUndeclaredWrites(raw: string | null | undefined): CapturedWrite[] | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? (parsed as CapturedWrite[]) : null;
+    } catch {
+      return null;
+    }
+  }
+
   private async _saveSingle(
     ctx: WriteToolContext,
     base: Record<string, unknown>,
@@ -1019,6 +1071,8 @@ export class AiToolEffectsService {
           // REV-7：**谁在替该用户执行**，读自本行 —— 不 join 审计行即可回答（导入本列之前的行是 null，
           // 语义为「未知」，不回填）。
           agentId: effect.agentId ?? null,
+          // REV-10：**账上没有的写**（本次调用在数据层真的写了、而登记层没有对应行）。`null` = 没观察到。
+          undeclaredWrites: this._parseUndeclaredWrites(effect.undeclaredWrites),
           // REV-11: "needs claiming" is **derived**, never stored — a stale row nobody has taken on.
           // One fact, one home: storing it alongside the two columns below would let the flag and the
           // columns disagree, and no reader could tell which one to believe.

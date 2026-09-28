@@ -5,6 +5,14 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { LogLevel } from 'typeorm';
 import { createTypeOrmLogger } from '../common/tracing/typeorm-tracing.logger';
 import { POSTGRES_MIGRATION_GLOBS } from './postgres-migrations';
+import { WriteCaptureSubscriber } from '../common/write-capture/write-capture.subscriber';
+
+/**
+ * REV-10：写入采集订阅器（进程级，作用域外完全惰性）。放在**连接级**才有意义——它要看的是
+ * 「这段时间里到底写了什么」，而那正是连接上的事件。
+ * ⚠ TypeORM 的 `subscribers` 收的是**类**（`MixedList<string | Function>`），不是实例。
+ */
+const WRITE_CAPTURE_SUBSCRIBERS = [WriteCaptureSubscriber];
 
 /**
  * TypeORM 连接选项工厂（从 app.module 抽出以便单测）。
@@ -41,6 +49,8 @@ export function buildTypeOrmOptions(configService: ConfigService): TypeOrmModule
       synchronize: isDev || useSync,
       logging: (otelOn ? ['query', 'error'] : ['error', 'warn', 'schema']) as LogLevel[],
       logger: createTypeOrmLogger(otelOn),
+      // REV-10：写入采集（作用域外惰性）
+      subscribers: WRITE_CAPTURE_SUBSCRIBERS,
       // postgres 用独立基线 + 向量迁移（sqlite 方言迁移不加载）；清单单一源自 config/postgres-migrations
       migrations: POSTGRES_MIGRATION_GLOBS.map((g) => `dist/migrations/${g}.js`),
       migrationsRun: !isDev && !useSync,
@@ -84,6 +94,8 @@ export function buildTypeOrmOptions(configService: ConfigService): TypeOrmModule
     synchronize: isDev || useSync,
     logging: (otelOn ? ['query', 'error'] : ['error', 'warn', 'schema']) as LogLevel[],
     logger: createTypeOrmLogger(otelOn),
+    // REV-10：写入采集（作用域外惰性）—— e2e 走这一支，故它同样被覆盖
+    subscribers: WRITE_CAPTURE_SUBSCRIBERS,
     migrations: ['dist/migrations/*.js'],
     migrationsRun: !isDev && !useSync,
     database: configService.get<string>('DB_PATH', './data/front.sqlite'),
