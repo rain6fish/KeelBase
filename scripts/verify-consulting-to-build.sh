@@ -73,7 +73,10 @@ while IFS= read -r line; do PLANNED+=("$line"); done < <(
 )
 [ "${#PLANNED[@]}" -gt 0 ] || fail "dry-run 未列出待生成文件"
 
-node scripts/keelbase-init.mjs --spec "$SPEC" >/dev/null
+# `--force`：这条链现在**已经**把生成物检进仓（followup_plans 就是它自己的产物），而生成器对已存在的模块
+# 默认拒绝覆盖 ⇒ 不带 force 会正好在这步失败。覆盖是安全的：生成段写过的 tracked 文件由 cleanup 的
+# `git checkout -- .` 原样还原，untracked 的按路径 clean。
+node scripts/keelbase-init.mjs --spec "$SPEC" --force >/dev/null
 
 missing=()
 for f in "${PLANNED[@]}"; do [ -f "$f" ] || missing+=("$f"); done
