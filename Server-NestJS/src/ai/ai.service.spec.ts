@@ -1264,7 +1264,8 @@ describe('AiService', () => {
         record: recordSpy,
       };
 
-      const it = aiService.chatStream('1', { message: 'create an event and a todo' })[Symbol.asyncIterator]();
+      const stream = aiService.chatStream('1', { message: 'create an event and a todo' });
+      const it = stream[Symbol.asyncIterator]();
       // 预扫描聚合：第一个确认事件 = mode:'run'（含 2 items），非两条单条 confirmation
       const first = await it.next();
       expect(first.value.type).toBe('confirmation_request');
@@ -1283,7 +1284,7 @@ describe('AiService', () => {
 
       confirmationStore.resolve(runToken!, '1', 'approve');
       const chunks = [];
-      for await (const c of it) chunks.push(c);
+      for await (const c of stream) chunks.push(c);
       // 两工具都执行；整批只出这一次 confirmation_request（无第二条单条）
       expect(mockToolRegistry.execute).toHaveBeenCalledTimes(2);
       expect(chunks.filter((c: any) => c.type === 'confirmation_request')).toHaveLength(0);
@@ -1379,8 +1380,9 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event and a todo' })[Symbol.asyncIterator]();
-      const first = await it[Symbol.asyncIterator]().next();
+      const stream = aiService.chatStream('1', { message: 'create an event and a todo' });
+      const it = stream[Symbol.asyncIterator]();
+      const first = await it.next();
       expect(first.value.type).toBe('confirmation_request');
       expect((first.value as { confirmation?: { mode?: string } }).confirmation?.mode).toBe('run');
 
@@ -1388,7 +1390,7 @@ describe('AiService', () => {
       mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true, audience: 'legacy-crm' } as never);
       confirmationStore.resolve(runToken!, '1', 'approve');
       const chunks: any[] = [];
-      for await (const c of it) chunks.push(c);
+      for await (const c of stream) chunks.push(c);
 
       // 两个成员的目标都变了 ⇒ 都不执行
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
@@ -1515,7 +1517,8 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' })[Symbol.asyncIterator]();
+      const stream = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' });
+      const it = stream[Symbol.asyncIterator]();
       // tool_start 先发（过程卡片）
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
@@ -1565,7 +1568,7 @@ describe('AiService', () => {
 
       // 后续文本 + done
       const chunks = [];
-      for await (const c of it) chunks.push(c);
+      for await (const c of stream) chunks.push(c);
       expect(chunks[chunks.length - 1].type).toBe('done');
     });
 
@@ -1600,7 +1603,8 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' })[Symbol.asyncIterator]();
+      const stream = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' });
+      const it = stream[Symbol.asyncIterator]();
       // tool_start → confirmation_request
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
@@ -1620,7 +1624,7 @@ describe('AiService', () => {
       expect(fourth.value.toolEnd?.summary).toBe('操作已取消');
 
       const chunks = [];
-      for await (const c of it) chunks.push(c);
+      for await (const c of stream) chunks.push(c);
       expect(chunks[chunks.length - 1].type).toBe('done');
 
       // FIX-A 回归：拒绝/未执行的写工具 tool_call 审计行不带「放行快照」——
@@ -1680,7 +1684,8 @@ describe('AiService', () => {
       });
 
       // 实现是 async generator，声明却是 `AsyncIterable`（没有 `next()`）——要逐帧取就得把这件事说明白
-      const it = aiService.chatStream('1', { message: '创建两个事件' })[Symbol.asyncIterator]();
+      const stream = aiService.chatStream('1', { message: '创建两个事件' });
+      const it = stream[Symbol.asyncIterator]();
       expect((await it.next()).value.type).toBe('tool_start');
       const firstConfirm = await it.next();
       expect(firstConfirm.value.type).toBe('confirmation_request');
@@ -1692,7 +1697,7 @@ describe('AiService', () => {
       // 换参数再来一次：必须**重新确认**。旧实现（按工具名免确认）这里不会再发 confirmation_request，
       // 因而这一环根本进不来 —— 断言即钉住旧实现不可能产出的观测面。
       let secondAsked = false;
-      for await (const c of it) {
+      for await (const c of stream) {
         if ((c as any).type === 'confirmation_request') {
           secondAsked = true;
           expect(tokens).toHaveLength(2);
@@ -1751,7 +1756,8 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: '创建事件' })[Symbol.asyncIterator]();
+      const stream = aiService.chatStream('1', { message: '创建事件' });
+      const it = stream[Symbol.asyncIterator]();
       expect((await it.next()).value.type).toBe('tool_start');
       expect((await it.next()).value.type).toBe('confirmation_request');
       confirmationStore.resolve(token!, '1', 'approve');
@@ -1770,7 +1776,7 @@ describe('AiService', () => {
       // 放行审计后，流继续（决策结果 → 执行 → done）
       releaseAudit!();
       expect((await pendingNext).value.type).toBe('confirmation_decision');
-      for await (const _ of it) {
+      for await (const _ of stream) {
         /* 排空 */
       }
     });
