@@ -427,19 +427,32 @@ export async function wireAdmin(ctx, root = '') {
   //    锚点：它在任何 KeelBase 应用里都存在，而 `notes` 之类的示例模块可能被人删掉）。
   //    ADMIN_SYSTEM_PROMPT 的页面清单由本表模板生成，故不必另改。
   //
+  //    两点刻意为之：键**不加引号**（模块名恒为 `[a-z][a-z0-9_]*`，本身就是合法标识符；本表已有的
+  //    生成模块 `contracts`/`suppliers`/`tags`/`notes` 也都是这个写法），而**幂等判据取路由串而不是
+  //    键名** —— 判据若带引号，一条手工补的、没带引号的同名条目就躲过检查，于是插出第二份、编译期
+  //    报 TS1117「object literal cannot have multiple properties with the same name」（实测就是这么
+  //    撞上的：`followup_plans`）。路由串两种写法都一样，故拿它当判据。
+  //
   // The backend navigation map needs an entry too: System AI Assistant's `navigate_admin_page` reads
   // this table, so wiring only the two frontend places leaves a page that exists but that the AI
   // cannot reach — and the navigation-parity gate calls that an orphan. Anchored on the base
   // `data-import` page (the same anchor as the two frontend edits: it exists in every KeelBase app,
   // whereas a sample module like `notes` can be deleted). The prompt's page list is generated from
   // this table, so it needs no separate edit.
+  //
+  // Two deliberate details: the key is **unquoted** (a module name is always `[a-z][a-z0-9_]*`, hence
+  // already a legal identifier — the generated entries already in this table read the same way), and
+  // the idempotency marker is the **route string rather than the key** — a marker carrying quotes
+  // would let a hand-added entry without them slip past, and the second entry then fails the build
+  // with TS1117 `object literal cannot have multiple properties with the same name`, which is exactly
+  // how `followup_plans` surfaced. The route string reads the same either way, so it is the marker.
   results.push(
     await applyFile(`${BE}/ai/constants/admin-pages.ts`, (c) =>
       insertAfter(
         c,
         `  'data-import': { route: '/data-import', description: '数据导入' },`,
-        `\n  '${ctx.plural}': { route: '/${ctx.plural}', description: '${ctx.label}管理' },`,
-        `'${ctx.plural}': {`,
+        `\n  ${ctx.plural}: { route: '/${ctx.plural}', description: '${ctx.label}管理' },`,
+        `route: '/${ctx.plural}'`,
       ),
     ),
   );

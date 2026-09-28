@@ -754,12 +754,35 @@ test('wireAdmin：routes + navGroups + i18n zh/en + 后端导航映射', async (
   // that the System AI cannot reach — the navigation-parity gate calls that an orphan. This assertion
   // pins "the generator fills all three", not just "the two frontend ones look right".
   const pages = await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8');
-  assert.match(pages, /'posts': \{ route: '\/posts', description: '帖子管理' \}/);
+  assert.match(pages, /posts: \{ route: '\/posts', description: '帖子管理' \}/);
 
   // 幂等：重跑不重复插入
   const again = await wireAdmin(ctx(), root);
   assert.equal(again.filter((x) => x.changed).length, 0);
-  assert.equal((await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8')).match(/'posts':/g).length, 1);
+  assert.equal(
+    (await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8')).match(/route: '\/posts'/g).length,
+    1,
+  );
+});
+
+test('wireAdmin：已存在（手工补的、键没加引号）的导航条目不再插第二份', async () => {
+  // 实测撞过的坑：幂等判据若写成带引号的键名，一条手工补的、不带引号的同名条目就躲过检查，
+  // 于是插出第二份 → 编译期 TS1117「object literal cannot have multiple properties with the same
+  // name」。判据因此取**路由串**（两种写法都一样）。
+  //
+  // The trap that was actually hit: with the marker written as a quoted key, a hand-added entry
+  // without quotes slips past it, a second entry is inserted, and the build dies with TS1117. The
+  // marker is therefore the route string, which reads the same in either spelling.
+  const root = await tempRoot();
+  await write(
+    `${root}/Server-NestJS/src/ai/constants/admin-pages.ts`,
+    `export const ADMIN_PAGE_ROUTES: Record<string, { route: string; description: string }> = {\n  'data-import': { route: '/data-import', description: '数据导入' },\n  posts: { route: '/posts', description: '帖子管理' },\n};\n`,
+  );
+
+  const r = await wireAdmin(ctx(), root);
+  const pages = await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8');
+  assert.equal(r.find((x) => x.file.endsWith('admin-pages.ts')).changed, false);
+  assert.equal(pages.match(/route: '\/posts'/g).length, 1);
 });
 
 test('Taro 模板：service/types/store/page 骨架', () => {
