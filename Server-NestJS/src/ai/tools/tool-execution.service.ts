@@ -96,7 +96,7 @@ export class ToolExecutionService {
     userId: string,
     conversationId?: string,
     runId?: string,
-    opts?: { audience?: string },
+    opts?: { audience?: string; authorizationRef?: string },
   ): Promise<ToolResult> {
     // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
     // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
@@ -212,6 +212,9 @@ export class ToolExecutionService {
         toolName,
         args,
         agentId,
+        // REV-7：这次写依据的那次授权（确认/审批 token）—— 由调用方在边界处读入，落进占位行。
+        // 免确认的自动写不传（没有授权，也就没有窗口）。
+        authorizationRef: opts?.authorizationRef,
       });
       if (!claim.won) {
         // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。

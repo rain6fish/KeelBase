@@ -249,7 +249,8 @@ describe('失败路径语料（KB-4 / FP）', () => {
 
       await expect(svc.log(entry)).rejects.toThrow('disk full');
       // fail-closed 后串行队列不断裂：下一笔正常落库
-      await expect(svc.log(entry)).resolves.toBeUndefined();
+      // ACT-5：`log()` 现在回传落库行（加法）—— 队列不断裂的判据仍是「下一笔确实落了库」
+      await expect(svc.log(entry)).resolves.toMatchObject({ id: 1 });
       expect(logRepo.save).toHaveBeenCalledTimes(2);
     });
 

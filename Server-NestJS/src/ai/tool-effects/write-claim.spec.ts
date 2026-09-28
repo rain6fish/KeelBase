@@ -197,4 +197,56 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
     const bare = new AiToolEffectsService(ds.getRepository(AiToolSideEffect));
     await expect(bare.claimWrite(CTX)).resolves.toEqual({ won: true });
   });
+
+  it('**反向对照**：挡住第二次的是**占位**，不是「已登记」—— 工具不登记副作用时，没有占位就会再写一次', async () => {
+    // 工具返回的 data **没有 id** ⇒ 不产生副作用行 ⇒ 下一次调用的 `findExisting` 探测必然落空。
+    // 于是同一条序列在两态下给出相反的结果：有占位 ⇒ 第二次被挡；无占位 ⇒ 第二次照样执行。
+    // **全程顺序执行，不靠并发** —— 真并发在 sqlite 单连接下的胜负取决于调度，那条断言会 flaky，
+    // 而它要说的并不是「谁赢」，是「没有占位时会怎样」。
+    executeMock.mockResolvedValue({ success: true, data: {} });
+
+    // ① 有占位（本套件的常规装配）：第一次落定后，第二次被 `settled` 挡住
+    await exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+    executeMock.mockClear();
+    const blocked = await exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+    expect(blocked.success).toBe(false);
+    expect(executeMock).not.toHaveBeenCalled();
+
+    // ② 无占位仓储：同一序列下第二次**照样执行**（这就是旧实现的行为，也是本项存在的理由）
+    const noClaims = new ToolExecutionService(
+      { execute: executeMock, getTool: () => ({ name: CTX.toolName }) } as any,
+      {
+        assertToolAllowed: jest.fn().mockResolvedValue(undefined),
+        assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
+        destinationOf: () => 'local',
+      } as any,
+      { current: undefined } as any,
+      new AiToolEffectsService(ds.getRepository(AiToolSideEffect)) as any,
+      undefined,
+    );
+    executeMock.mockClear();
+    await noClaims.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+    await noClaims.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId);
+    expect(executeMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('消费者②（REV-7）：`authorizationRef` 落进占位行；免确认的自动写为 `null`', async () => {
+    await exec.executeWrite(CTX.toolName, CTX.args, CTX.userId, CTX.conversationId, undefined, {
+      authorizationRef: 'tok-1',
+    });
+    await exec.executeWrite(
+      CTX.toolName,
+      { ...CTX.args, title: '另一件事' },
+      CTX.userId,
+      CTX.conversationId,
+    );
+
+    const withAuth = await claims().findOne({ where: { idempotencyKey: key() } });
+    const auto = await claims().findOne({
+      where: { idempotencyKey: AiToolEffectsService.buildKey({ ...CTX, args: { ...CTX.args, title: '另一件事' } }) },
+    });
+    expect(withAuth?.authorizationRef).toBe('tok-1');
+    // 没有授权参与 ⇒ `null` 是**答案**（没有审批，也就没有窗口），不是「未知」
+    expect(auto?.authorizationRef ?? null).toBeNull();
+  });
 });

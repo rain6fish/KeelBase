@@ -92,4 +92,28 @@ export class AiWriteClaim {
   /** 占位次数：每次 created 或 released→claimed 自增。用于辨识「反复失败」的写 */
   @Column({ type: 'integer', default: 1 })
   attempts!: number;
+
+  /**
+   * ACT-5（消费者①）：**这次调用写下的那条审计行**。
+   *
+   * 证据根此前只能靠 `conversationId + toolName` 在会话里找触发行；ACT-2 把它收紧成「恰好一条才配对」，
+   * 于是同一工具被调用两次时它**什么都不说** —— 而那正是从前给出错误答案的形态。执行身份指得出那一条，
+   * 配对因此靠**身份**而不是**相像**。
+   *
+   * `null` = 还没挂上（审计尚未写 / 未装配审计 / 代理写没有占位行）。**不回填**：本列之前的写没有这条
+   * 信息，无法重建 ⇒ 如实留空，证据根对它们继续走保守规则。
+   */
+  @Column({ type: 'integer', nullable: true, name: 'audit_row_id' })
+  auditRowId?: number | null;
+
+  /**
+   * REV-7（消费者②）：**这次执行依据的那次授权**（确认 / 审批 token）。
+   *
+   * 窗口（`ai_confirmation_requests.expires_at`）住在确认行上，而占位行与确认行此前**没有直接引用**
+   * ——「给定一条副作用，它在不在窗口内」因此答不出来。`run_id` 只覆盖 run 成员；单条确认的那张 token
+   * 此前**没有任何地方记它**。`null` = 没有授权参与（受信任作用域内的自动写），这本身就是答案：
+   * 没有审批，也就没有窗口。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'authorization_ref' })
+  authorizationRef?: string | null;
 }

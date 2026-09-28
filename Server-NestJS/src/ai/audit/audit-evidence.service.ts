@@ -17,6 +17,8 @@ import { Between, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+// ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
+import { AiWriteClaim } from '../tool-effects/ai-write-claim.entity';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
@@ -176,6 +178,12 @@ export class AuditEvidenceService {
     @Optional() private readonly operationAudit?: OperationAuditService,
     // ① replay wire：证据根装配点调 replayDecision（缺失降级 → replay 段省略）
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
+    /**
+     * ACT-5（消费者①）：占位行仓储。**@Optional** —— 缺失时（降级装配）退回保守配对规则，不假装精确。
+     */
+    @Optional()
+    @InjectRepository(AiWriteClaim)
+    private readonly claimsRepo?: Repository<AiWriteClaim>,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
@@ -439,7 +447,23 @@ export class AuditEvidenceService {
     const candidates = convRows.filter(
       (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
     );
-    const trigger = candidates.length === 1 ? candidates[0] : null;
+    // ACT-5（消费者①）：**先问执行身份**。副作用行与占位行由**同一个键**相连 —— 副作用行的
+    // `compensationGroup ?? idempotencyKey` 构造上就等于占位行的 `idempotency_key`（两者都出自同一个
+    // `buildKey`）—— 而占位行又记着这次调用写下的那条审计行，于是 effect 配到的是**它自己**的触发行。
+    const claim = await this.claimsRepo?.findOne({
+      where: { idempotencyKey: effect.compensationGroup ?? effect.idempotencyKey },
+    });
+    let trigger: AiAuditLog | null;
+    if (claim) {
+      // 占位行在，就以它为准：它指的那条审计行才是这次调用的触发行。**指不到**（行被清掉 / 还没挂上
+      // 就被读）⇒ 如实**不归因**，而不是回头去候选里猜 —— 我们明明知道该指哪一条。
+      trigger = claim.auditRowId
+        ? ((await this.logRepo.findOne({ where: { id: claim.auditRowId } })) ?? null)
+        : null;
+    } else {
+      // 本表之前的写没有占位行（代理写也不占位）⇒ 沿用上面那条保守规则：**恰好一条**才配对。
+      trigger = candidates.length === 1 ? candidates[0] : null;
+    }
     const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
     const identity = trigger ? await this._identityChainFromRow(trigger, agentCache) : null;
 

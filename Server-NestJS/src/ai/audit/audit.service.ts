@@ -72,7 +72,14 @@ export class AuditService {
   /** 审计写串行队列：sqlite（单写者，better-sqlite3 单连接不支持多 QueryRunner 并发事务）用进程内串行；postgres 用 DB 级串行锁（internal-roadmap §internal.10 B） */
   private _tail: Promise<unknown> = Promise.resolve();
 
-  async log(entry: AuditEntry): Promise<void> {
+  /**
+   * 写一条审计行并**回传落库的那一行**（含 `id`）。
+   *
+   * 回传是加法：既有的 `await this.auditService.log(...)` 调用点都不消费返回值，行为逐字不变。
+   * 需要它的只有 ACT-5 —— 工具调用审计行写完之后，把它的 id 挂到这次写的**占位行**上，证据根才能
+   * 配到 effect 自己那条触发行，而不用在会话里的同名调用之间猜。
+   */
+  async log(entry: AuditEntry): Promise<AiAuditLog> {
     // Agent Identity（评审二 §5）：从请求级 ActorContext 读 sessionId/agentId（entry 显式传值优先）
     const actor = actorContext.getStore();
     const sessionId = entry.sessionId ?? actor?.sessionId;
@@ -141,6 +148,7 @@ export class AuditService {
       payloadVersion: 2,
     };
 
+    let saved: AiAuditLog;
     if (this.dataSource.options.type === 'postgres') {
       // DB 级串行（internal-roadmap §internal.10 B）：事务内锁 audit_chain_lock id=1（SELECT FOR UPDATE），
       // 跨实例串行化「读 lastHash → 计算 → 插入」——多副本不再分叉。
@@ -155,7 +163,7 @@ export class AuditService {
         await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 1 FOR UPDATE');
         const prevHash = await this._lastHash(runner);
         const hash = this.auditChain.computeHash(prevHash, payload);
-        await runner.manager.save(AiAuditLog, { ...entity, prevHash, hash });
+        saved = await runner.manager.save(AiAuditLog, { ...entity, prevHash, hash });
         await runner.commitTransaction();
       } catch (err) {
         await runner.rollbackTransaction().catch(() => {});
@@ -168,10 +176,10 @@ export class AuditService {
       const job = this._tail.then(async () => {
         const prevHash = await this._lastHash();
         const hash = this.auditChain.computeHash(prevHash, payload);
-        await this.logRepo.save({ ...entity, prevHash, hash });
+        return this.logRepo.save({ ...entity, prevHash, hash });
       });
       this._tail = job.catch(() => {});
-      await job;
+      saved = await job;
     }
     // D2-3b：审计双写上报治理台（配置 GOVERNANCE_URL 时；治理台自身不配不启用）
     if (this.reporter?.enabled) {
@@ -197,6 +205,7 @@ export class AuditService {
     }
     // E-3：新审计入链 → 哈希链 verify 缓存失效（聚合 stats/cost/report 靠 60s TTL 自过期，不做热路径失效）
     await this.cacheService?.delByPrefix(AUDIT_VERIFY_CACHE_KEY);
+    return saved;
   }
 
   private async _lastHash(runner?: QueryRunner): Promise<string | null> {

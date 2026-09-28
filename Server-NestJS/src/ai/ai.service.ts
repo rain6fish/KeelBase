@@ -21,7 +21,7 @@ import { AuditService } from './audit/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
 import { buildToolCallAudit } from './audit/tool-call-audit';
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
-import { sortKeys } from './tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService, sortKeys } from './tool-effects/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { RouterAgent, Intent } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
@@ -127,6 +127,11 @@ export class AiService {
     private readonly governancePolicy?: GovernancePolicyService,
     // N-6 AI-23 深度化：统一内容安全（读 Settings 配置 + 命中审计）；缺省降级静态 checkContentSafety
     @Optional() private readonly contentSafety?: ContentSafetyService,
+    /**
+     * ACT-5（消费者①）：工具调用审计行写完，把它挂到这次写的**占位行**上，证据根才能配到 effect
+     * **自己**那条触发行。**@Optional** —— 缺失时挂链静默跳过（旧数据继续走保守配对），不影响任何判定。
+     */
+    @Optional() private readonly toolEffectsService?: AiToolEffectsService,
   ) {}
 
   /**
@@ -960,9 +965,14 @@ export class AiService {
               // AUTHZ-1：本条 artifact 被批准写往的目的地。run 成员取签发时记下的那份，
               // 单条取签发时的解析结果——两者都要在**执行点**再解析一次并比对。
               let confirmationAudience: string | undefined;
+              // REV-7：这次执行**依据的那次授权**的 token。run 成员的授权就是 run 本身（token = runId，
+              // 见 run-level-approval.spec §2.3），单条确认的是它自己那张 token —— 两条路径因此都指得回
+              // 那次决定，占位行的 `authorization_ref` 也就答得出「这次写在不在它授权的窗口内」。
+              let confirmationToken: string | undefined;
               if (runState?.idxSet.has(tc.index)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
                 confirmationAudience = runState.audiences.get(tc.index);
+                confirmationToken = runState.runId;
               } else {
                 const ttlSeconds = await this._confirmationTtlSeconds();
                 confirmationAudience = this.toolGate.destinationOf(tc.name);
@@ -974,6 +984,7 @@ export class AiService {
                   conversationId,
                   confirmationAudience,
                 );
+                confirmationToken = token;
                 const singleImpact = this.presentation.writeImpact([tc.name]);
                 const singleRevokeClass = this.presentation.revokeClass(tc.name);
                 yield {
@@ -1027,7 +1038,11 @@ export class AiService {
                 userId,
                 conversationId,
                 execRunId,
-                confirmationAudience ? { audience: confirmationAudience } : undefined,
+                {
+                  ...(confirmationAudience ? { audience: confirmationAudience } : {}),
+                  // REV-7：把这次决定的 token 落进占位行（见上面 `confirmationToken` 的来源）。
+                  authorizationRef: confirmationToken,
+                },
               );
               yield {
                 type: 'confirmation_decision',
@@ -1094,7 +1109,7 @@ export class AiService {
           // ACT-4：**必须 await**（理由同上一条决策审计）——这一行与副作用登记同为执行路径的一半，
           // 不可 fire-and-forget，否则「工具已执行、审计未写」在崩溃窗口下可达。
           if (await this._shouldAudit('tool')) {
-            await this.auditService.log(
+            const auditRow = await this.auditService.log(
               buildToolCallAudit({
                 userId,
                 conversationId,
@@ -1112,6 +1127,14 @@ export class AiService {
                 authorization: result.success ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
+            // ACT-5（消费者①）：**执行过**的这一支才挂链 —— 未执行的（deny / 待批）没有占位行可挂。
+            // 证据根据此把 effect 配到**它自己**那条触发行（ACT-2 的精确支路）。
+            if (result.success) {
+              await this.toolEffectsService?.attachAuditRow(
+                { userId, conversationId, toolName: tc.name, argsJson: tc.args },
+                auditRow.id,
+              );
+            }
           }
         } catch (err) {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
@@ -1313,7 +1336,7 @@ export class AiService {
                   await this.toolGate.riskLevelFor(tc.name),
                 )
               : null;
-            await this.auditService.log(
+            const auditRow = await this.auditService.log(
               buildToolCallAudit({
                 userId: params.userId,
                 conversationId: params.conversationId,
@@ -1325,6 +1348,18 @@ export class AiService {
                 authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
+            // ACT-5（消费者①）：执行过的这一支才挂链（同流式路径）—— 证据根配到 effect 自己的触发行。
+            if (resolvedResult.success) {
+              await this.toolEffectsService?.attachAuditRow(
+                {
+                  userId: params.userId,
+                  conversationId: params.conversationId,
+                  toolName: tc.name,
+                  argsJson: tc.arguments,
+                },
+                auditRow.id,
+              );
+            }
           }
 
           messages.push({

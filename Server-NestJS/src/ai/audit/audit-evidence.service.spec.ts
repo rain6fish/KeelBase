@@ -11,10 +11,19 @@ import { AuditStatsService } from './audit-stats.service';
 describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
   const AUDIT_HMAC_KEY = 'test-evidence-root-key';
 
-  function build(opts: { effect?: any | null; viewer?: string; isAdmin?: boolean; convRows?: any[]; governancePolicy?: any } = {}) {
+  function build(opts: { effect?: any | null; viewer?: string; isAdmin?: boolean; convRows?: any[]; governancePolicy?: any; claims?: any[] } = {}) {
     const logRepo = {
       find: jest.fn().mockResolvedValue(opts.convRows ?? []),
-      findOne: jest.fn(),
+      // ACT-5：占位行指过来的那条审计行按 id 取（未给占位行时不会被调到）
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { id?: number } }) =>
+        (opts.convRows ?? []).find((r: any) => r.id === arg?.where?.id) ?? null,
+      ),
+    };
+    // ACT-5（消费者①）：占位行仓储（给了才走精确配对；不给 ⇒ 退回保守规则，既有用例即此形）
+    const claimsRepo = {
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { idempotencyKey?: string } }) =>
+        (opts.claims ?? []).find((c: any) => c.idempotencyKey === arg?.where?.idempotencyKey) ?? null,
+      ),
     };
     // A8: the lookup is narrowed to the viewer when one is passed, so the stub has to honour
     // `where.userId`. A stub that always returns the fixture would hand back a row the real query
@@ -45,8 +54,9 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       undefined, // agentService
       operationAudit,
       governancePolicy,
+      claimsRepo as any,
     );
-    return { service, logRepo, effectsRepo, operationAudit, governancePolicy };
+    return { service, logRepo, effectsRepo, operationAudit, governancePolicy, claimsRepo };
   }
 
   const allowedSnapshot = JSON.stringify({
@@ -222,6 +232,58 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     const { service } = build({ effect, viewer: '1', isAdmin: true, convRows: [convRow] });
     await expect(service.getEvidenceRoot('crm_task', 7, '1', true)).resolves.toMatchObject({
       action: { id: 'crm_task:7' },
+    });
+  });
+
+  // ACT-5（消费者①）：**精确配对**。同一会话里同名工具调用两次时，模板/授权/意图都可能被挂到**别人**
+  // 那条 effect 上；占位行（每次调用一行）把「哪一次」变成可读的事实，下面这组钉的就是它。
+  describe('ACT-5 执行身份精确配对', () => {
+    // 同一次会话里的两条同名 tool_call，只有 businessEvent 不同 —— 这正是「给客户 A 建任务、再给客户 B 建任务」
+    const rowA = { ...convRow, id: 100, businessEvent: 'FollowupTaskCreatedForA' };
+    const rowB = { ...convRow, id: 200, businessEvent: 'FollowupTaskCreatedForB' };
+    const both = [rowA, rowB];
+
+    it('同名两次 ⇒ 每条 effect 配到**它自己**那条触发行（旧实现只能「不归因」）', async () => {
+      const a = build({
+        effect: { ...effect, id: 1, resultId: 7, idempotencyKey: 'k-a' },
+        viewer: '42',
+        convRows: both,
+        claims: [{ idempotencyKey: 'k-a', auditRowId: 100 }],
+      });
+      const b = build({
+        effect: { ...effect, id: 2, resultId: 8, idempotencyKey: 'k-b' },
+        viewer: '42',
+        convRows: both,
+        claims: [{ idempotencyKey: 'k-b', auditRowId: 200 }],
+      });
+
+      await expect(a.service.getEvidenceRoot('crm_task', 7, '42', false)).resolves.toMatchObject({
+        decision: { businessEvent: 'FollowupTaskCreatedForA' },
+      });
+      await expect(b.service.getEvidenceRoot('crm_task', 8, '42', false)).resolves.toMatchObject({
+        decision: { businessEvent: 'FollowupTaskCreatedForB' },
+      });
+    });
+
+    it('**反向对照**：没有占位行（本表之前的旧数据 / 代理写）⇒ 依旧保守 —— 两条候选，不归因', async () => {
+      const { service } = build({ effect, viewer: '42', convRows: both });
+
+      const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+
+      expect(out.decision.businessEvent).toBeNull();
+    });
+
+    it('占位行在、但它指的那条审计行取不到 ⇒ **不归因**，而不是回头去候选里猜', async () => {
+      const { service } = build({
+        effect: { ...effect, idempotencyKey: 'k-a' },
+        viewer: '42',
+        convRows: both,
+        claims: [{ idempotencyKey: 'k-a', auditRowId: 999 }],
+      });
+
+      const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+
+      expect(out.decision.businessEvent).toBeNull();
     });
   });
 });

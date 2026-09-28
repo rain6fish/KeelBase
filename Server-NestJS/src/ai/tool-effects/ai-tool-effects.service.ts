@@ -29,6 +29,12 @@ export interface WriteToolContext {
   conversationId?: string;
   /** KB-5 run 授权 id（run 成员写才有，= run 确认 token；docs/revoke-contract.spec.md §4 G1）。链外注解，不入 _chainPayload */
   runId?: string;
+  /**
+   * REV-7：这次写**依据的那次授权**（确认 / 审批 token）。缺省 = 没有授权参与（受信任作用域内的自动写）
+   * —— 含义是「没有审批，也就没有窗口」，不是「未知」。由调用方在边界处给，落进占位行的
+   * `authorization_ref`：窗口住在确认行上，该列是**唯一**指得回它的引用（`runId` 只覆盖 run 成员）。
+   */
+  authorizationRef?: string;
   toolName: string;
   args: Record<string, unknown>;
   /**
@@ -538,6 +544,8 @@ export class AiToolEffectsService {
           toolName: ctx.toolName,
           argsHash: this._argsHash(ctx),
           agentId: ctx.agentId,
+          // REV-7：这次写依据的那次授权（确认/审批 token）。缺席 = 没有授权参与（自动写）。
+          authorizationRef: ctx.authorizationRef,
           status: WRITE_CLAIM_STATUS.CLAIMED,
           claimedAt: now,
           attempts: 1,
@@ -586,6 +594,46 @@ export class AiToolEffectsService {
       { idempotencyKey: key, status: WRITE_CLAIM_STATUS.CLAIMED },
       { status: WRITE_CLAIM_STATUS.RELEASED, releaseReason: reason },
     );
+  }
+
+  /**
+   * ACT-5（消费者①）：把这次写的**审计行**挂到占位行上 —— 证据根据此配到 effect **自己**那条触发行，
+   * 不再在会话里的同名调用之间猜（ACT-2 的「不唯一就不归因」因此有了一条精确支路）。
+   *
+   * 按**幂等键**定位占位行：调用方手上是工具名与原始参数串（审计行本来就是照它写的），键由同一个
+   * `buildKey` 算出，故两处不可能指向不同的行。
+   *
+   * 找不到占位行（未装配仓储 / 代理写没有占位行 / 本表之前的旧数据）⇒ **静默跳过**；参数串解析不出来
+   * 同样跳过 —— 宁可少一条链接，也不挂到错误的行上。挂链失败只告警：它不改任何判定，也不改变证据根
+   * 能否回退到保守配对。
+   */
+  async attachAuditRow(
+    ref: { userId: string; conversationId?: string; toolName: string; argsJson: string },
+    auditRowId: number,
+  ): Promise<void> {
+    const repo = this.claimsRepo;
+    if (!repo) return;
+    let args: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(ref.argsJson) as unknown;
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      args = parsed as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    const key = AiToolEffectsService.buildKey({
+      userId: ref.userId,
+      conversationId: ref.conversationId,
+      toolName: ref.toolName,
+      args,
+    });
+    try {
+      await repo.update({ idempotencyKey: key }, { auditRowId });
+    } catch (err) {
+      this.logger.warn(
+        `[AiToolEffects] ACT-5 attach audit row failed (key ${key}): ${(err as Error).message}`,
+      );
+    }
   }
 
   /**

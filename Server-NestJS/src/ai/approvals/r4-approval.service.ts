@@ -276,7 +276,11 @@ export class R4ApprovalService {
         req.operatorId,
         req.conversationId,
         undefined,
-        req.audience ? { audience: req.audience } : undefined,
+        {
+          ...(req.audience ? { audience: req.audience } : {}),
+          // REV-7：审批 token 落进占位行 —— 「这次写依据哪次授权、因而在哪个窗口上」由占位行回答。
+          authorizationRef: req.token,
+        },
       );
     } catch (err) {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
