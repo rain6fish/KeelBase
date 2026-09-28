@@ -344,11 +344,12 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 | 5.9 compensating 计成什么 | `_doRevokeSingle` 外部返回值 + `_compensateGroup` / `_revokeBatch` 计数 | `ai-tool-effects.service.spec.ts` · `revoke-conversation.spec.ts` · `proxy-bridge.e2e-spec.ts`（旧实现：把 `compensating` 算进 `revoked`） |
 | 5.4 REV-13 成因 | `captureAfter` 返回 `{json, reason}` + `recordGroup` 落 `identity_incomplete_reason` + 迁移 `1830000000000` | `capture-availability.spec.ts`（真 sqlite；旧实现连该列都不存在） |
 | 5.2 REV-11 责任人 | 管理端列表项暴露 `ownerUserId`（既有列） | `revoke-claim.spec.ts`（真 sqlite；旧实现该字段不存在） |
+| 5.13 REV-14 承诺 vs 实况 | `_targetDrift`（三态）· `_comparabilityEvidence` / `_recordComparability` / `_parseComparability` · `_compensateGroup` / `_doRevokeSingle` · `list()` · 迁移 `1834000000000` | `revoke-comparability.spec.ts`（真 sqlite + 真捕获器；旧实现该列与读数都不存在） |
 
-十一处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
+十二处均不改 wire 契约：新列是**链外注解列**（`_chainPayload` 白名单不加 key），`revokeResult` 本就是
 `additionalProperties: true` 而结论只走 `revoked` + `message`（不新增键），`item` / `traceItem` 的形状未动，
-`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里）；§5.6 的漂移事实也走
-`message`，未新增键。
+`identity_incomplete` 只出现在管理端列表（不在 `item` / `traceItem` 的同名形状里），§5.13 的
+`revokeComparability` 同此；§5.6 的漂移事实也走 `message`，未新增键。
 
 ### 5.9 `compensating` 被计成什么：四条撤销路径同向 / What `compensating` counts as, on all four paths
 
@@ -487,6 +488,81 @@ and moves no verdict; it fires on **inserts of revocable business rows only** (a
 single id, soft-deletes are not raised by the revoker's by-id call, and raw SQL raises nothing at all); and it is
 inert outside a scope, since a global subscriber that did bookkeeping unconditionally would tax every write in the
 process for a question almost none of them ask.
+
+### 5.13 承诺比对 vs 真的比到了 / REV-14: declared comparable, found not comparable
+
+**A revoke can report complete while part of the check never ran.** REV-9 re-reads the target before the
+local soft delete and compares it against `after_snapshot`, but **it reports nothing it cannot determine**
+— the target row is gone, the read threw — because guessing would be worse than silence. That silence has
+a cost, and this clause pays it off: the member *was* declared comparable, the revoke *did* read the
+target, and the verdict still reads `complete`, so nothing anywhere said that part of the check never
+happened.
+
+**Shape: a per-reason listing plus a snapshot of the pre-revoke set — not a second row type.** Before the
+revoke the path already knows which members it *intends* to compare: the ones the comparison is even
+defined for (`after_snapshot` present, captor wired). Running the revoke then decides which of them it
+*actually* reached. The difference is written to `revoke_comparability` (a **chain-external annotation
+column**) as `{ promised: [{ resultType, resultId }], uncomparable: [{ resultType, resultId, reason }] }`
+on the **group's root row** — one copy, because the group is what a revoke concludes about, so the blind
+spots of that conclusion belong on one row. `promised` is kept beside the difference rather than only the
+difference: a bare `uncomparable` cannot say how large the promise was, so a reader could not tell a small
+oversight from a batch that went wholly unchecked.
+
+**A finding, not a verdict.** No refusal, no verdict change, no compensation, no wire change — the same
+boundary REV-9 states. The `reason` values are REV-13's capture causes minus `no_captor`, which cannot
+occur here: an unwired captor promises nothing, so there is no promise to break.
+
+**The reading tracks the latest comparison pass, and a pass with no difference clears it.** A stale
+difference must not outlive the pass that produced it — the rule ARC-6 applies to a changed missing set.
+**No backfill**: rows revoked before this column existed did not record the difference and it cannot be
+reconstructed, so they read `null`, which means "the latest pass had no such difference, or the row was
+never revoked" — never "we looked and found nothing".
+
+**Boundaries stated rather than implied.** Only a member that reaches the comparison can be *promised*, so
+an external member is never listed (REV-9 never compares one) and a member skipped as already-revoked is
+not listed either: the revoke never intended to check those, and claiming otherwise would overstate the
+promise. Conversely, a member that *was* compared counts as reached even when it **drifted** — drift is
+REV-9's own reading, not a broken promise, and folding the two together would report the check as missing
+when it in fact ran.
+
+**落点与验收**
+
+| 缺口 | 实现落点 | 证据（**对旧实现为红**） |
+|---|---|---|
+| REV-14 承诺 vs 实况 | `_targetDrift`（改三态返回）· `_comparabilityEvidence` / `_recordComparability` / `_parseComparability` · `_compensateGroup` / `_doRevokeSingle`（补偿落地后才落读数）· `list()` · 迁移 `1834000000000` | `revoke-comparability.spec.ts`（真 sqlite + 真捕获器；旧实现连该列都不存在，且 `list()` 里没有这条读数） |
+
+**不改 wire 契约**：新列是**链外注解列**（`_chainPayload` 白名单不加 key）；`list()` 多一个字段属管理端
+列表形状，本就不是冻结的契约面（同 REV-11 的 `ownerUserId`、REV-13 的 `identityIncompleteReason`）。
+被拒名单（`_skipReason` 判定为已撤销/补偿中的成员）**不写这条读数**，因为撤销本就没打算比对它们。
+
+---
+
+**REV-14 —— 承诺了可比、结果不可比，此后有地方安放。**
+
+撤销可以在**一部分检查根本没跑过**的情况下读作完成。REV-9 在本地软删之前重读目标、与 `after_snapshot`
+比对，但它**判不了就不报**（目标行没了、读取抛错）—— 因为猜测比沉默更糟。这份沉默是有代价的，本条正是
+偿付它：那个成员**确实**被声明为可比、撤销**确实**读了目标，而判定照读 `complete`，于是没有任何地方说出
+「这部分检查根本没做」。
+
+**形状：按原因列 + 撤销前集合快照，不是第二种行类型。** 撤销之前，这条路径已经知道它**打算**比哪些成员
+—— 即比对本身能定义的那些（`after_snapshot` 在、捕获器已装配）；撤销跑起来之后才知道其中哪些**真的比到了**。
+两者的差写进 `revoke_comparability`（**链外注解列**），形如
+`{ promised: [{ resultType, resultId }], uncomparable: [{ resultType, resultId, reason }] }`，落在**组根行**上
+—— 只此一份，因为组才是撤销下结论的单位，故该结论的盲区也归一行。`promised` 与差集并列保留、而不是只留
+差集：一个孤零零的 `uncomparable` 说不出「原本该比多少」，读者便无法分辨一次小疏漏与整批没查。
+
+**这是发现，不是裁决。** 不拒绝、不改判定、不触发补偿、不动 wire 契约 —— 与 REV-9 声明的边界同一条。
+`reason` 取值就是 REV-13 的四种捕获成因去掉 `no_captor`（此处不可能出现：捕获器没装配 ⇒ 本就什么都没承诺，
+也就没有承诺可被打破）。
+
+**读数跟随最近一次比对，且没有差集的那一次会清空它。** 陈旧差集不得活得比产生它的那次比对更久 —— 与
+ARC-6 对「缺失集合已变」的处理同一条规则。**不回填**：引入本列之前撤销的行没有记下这个差集、也无法重建，
+故读作 `null`，含义是「最近一次比对没有这个差集，或该行从未被撤销」，**从不是**「查了、没有」。
+
+**边界写明，不暗示。** 只有**真的走到比对**的成员才谈得上被**承诺**：外部成员从不入列（REV-9 根本不比它），
+被判为「已撤销」而跳过的成员也不入列 —— 撤销本就没打算查它们，说成查了只会把承诺说得比实际更大。反过来，
+**比过了**的成员即使发生了**漂移**也算「比到了」—— 漂移是 REV-9 自己的读数，不是承诺被打破，把两者折在一起
+就会在检查明明跑过时报「没跑」。
 
 ## 6. 相关文档 / Related
 

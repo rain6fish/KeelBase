@@ -15,7 +15,7 @@ import { OperationAuditService } from '../../operation-audit/operation-audit.ser
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interface';
 import type { DeclaredSideEffect } from './effect-composition';
-import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
+import type { CaptureResult, CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
@@ -188,6 +188,57 @@ export interface RevokeDisputeEvidence {
 }
 
 /**
+ * REV-14: the members a revoke **promised** to compare, and the ones it could not.
+ *
+ * `promised` is knowable *before* the revoke runs: the members the comparison is even defined for
+ * (`after_snapshot` present and the captor wired). `uncomparable` is what running it revealed — the
+ * promised members the read never reached, each with the reason it could not.
+ *
+ * The promise is kept beside the difference rather than only the difference: a bare `uncomparable`
+ * cannot say how large the promise was, so a reader could not tell a small oversight from a batch that
+ * went wholly unchecked. Stored as JSON in `revoke_comparability`, a **chain-external annotation column**.
+ *
+ * REV-14：本次撤销**承诺**比对的成员，以及其中**没能比到**的那些。
+ *
+ * `promised` 在撤销跑起来**之前**就能确定：比对本身能定义的那些成员（`after_snapshot` 在、且捕获器已
+ * 装配）。`uncomparable` 是跑完才浮现的 —— 承诺了、读取却没能到达的那些，各自带上**成因**。
+ *
+ * 承诺与差集并列保留、而不是只留差集：一个孤零零的 `uncomparable` 说不出「原本该比多少」，读者便
+ * 无法分辨一次小疏漏与整批没查。以 JSON 存 `revoke_comparability`，**链外注解列**。
+ */
+export interface RevokeComparabilityEvidence {
+  /** 撤销前集合快照：本次撤销**打算**比对的成员（`after_snapshot` 在 + 捕获器已装配）。 */
+  promised: Array<{ resultType: string; resultId: number }>;
+  /** 其中**没能比到**的成员，按成因列（`no_captor` 不会出现：捕获器缺席 ⇒ 本就什么都没承诺）。 */
+  uncomparable: Array<{
+    resultType: string;
+    resultId: number;
+    reason: CaptureUnavailableReason;
+  }>;
+}
+
+/**
+ * REV-9 / REV-14 share this reading of one target re-read. **Read once**: reading twice would let two
+ * paths reach two verdicts about the same state, which is the defect this repo keeps fixing.
+ *
+ * Three states, not "drift string | null": the old shape pushed "never promised" and "promised but could
+ * not compare" into the same `null`, so REV-9's silent skips (`row_missing` / `failed`) were invisible in
+ * the reading — which is exactly what REV-14 has to give a home to.
+ *
+ * REV-9 / REV-14 共用的比对读数（单次读目标，**只读一次**——分两次读会引入两条路两个结论）。
+ *
+ * 三态而不是「漂移字符串 | null」：旧形态把「没承诺比」与「承诺了却没比成」压进同一个 `null`，
+ * 于是 REV-9 的静默跳过（`row_missing` / `failed`）在读数上不可见 —— 那正是 REV-14 要安放的东西。
+ */
+type TargetComparison =
+  /** 没承诺比对：无捕获器，或该行本就无 `after_snapshot`（身份缺「变更」那半，REV-6 另标）。 */
+  | { promised: false }
+  /** 承诺了、也真的比完了；`drift` 为 `null` = 逐字段相同。 */
+  | { promised: true; compared: true; drift: string | null }
+  /** 承诺了、却没比成（REV-9 静默跳过的那些）：`reason` 说清是哪一种「读不到」。 */
+  | { promised: true; compared: false; reason: CaptureUnavailableReason };
+
+/**
  * REV-1：比对「被拒声明」与「已持有组」的成员集合，**双向**求差 —— 两侧都算出来、都留成证据。
  *
  * ARC-6 动的是**裁决**，不是**记录**：一次「重试声明更少」（`onlyStored` 非空）仍然是一次真实的漂移，
@@ -284,31 +335,112 @@ export class AiToolEffectsService {
    * ⇒ AI 写入之后、撤销之前若有人或别的系统改过该目标，撤销**照样软删并报成功**，把中间那次改动一并抹掉
    * 且毫无提示。本方法把那件事变成**可检出**。
    *
-   * 返回 `null` = **判不了，或未漂移**（两种情况在处置上相同：不添任何话）；返回字符串 = 漂移的**字段名清单**。
-   * 判不了的情形都如实不报，不假装未漂移也不假装漂移：无捕获器（没装配）、无 `after_snapshot`（该行身份本就
-   * 缺「变更」那半，REV-6 已单独标注）、当前行读不到（已删 / 已迁走）、快照解析不了。
+   * 三态返回（REV-14 起）：**没承诺比**（无捕获器 / 无 `after_snapshot` —— 该行身份本就缺「变更」那半，
+   * REV-6 已单独标注）· **比完了**（`drift` 为字段名清单或 `null`）· **承诺了没比成**（`reason` 说清成因）。
+   * 前两态对**漂移**这件事的处置相同（不添任何话），但第三态对 REV-14 是**必须留痕**的事实：
+   * 旧形态把后两态压进同一个 `null`，于是「读不到所以没查」与「查了、没变」在读数上完全相同 ——
+   * 一次撤销可以在**有成员压根没被检查过**的情况下读作完成，而没有任何地方说出这件事。
    *
-   * **边界**：只做「可检出、不静默」——不拒绝、不改判定、不写争议列、不动 wire 契约。
+   * **边界**：REV-9 只做「可检出、不静默」——不拒绝、不改判定、不动 wire 契约；REV-14 只把第三态**记下来**，
+   * 同样不改判定。
    */
-  private async _targetDrift(effect: AiToolSideEffect): Promise<string | null> {
-    if (!this.snapshotCaptor) return null;
+  private async _targetDrift(effect: AiToolSideEffect): Promise<TargetComparison> {
+    if (!this.snapshotCaptor) return { promised: false };
     const before = this._contentOnly(effect.afterSnapshot);
-    if (!before) return null;
-    let currentJson: string | null;
+    if (!before) return { promised: false };
+    let captured: CaptureResult;
     try {
-      // REV-13 起 `captureAfter` 返回 `{ json, reason }`；本处只关心读没读到，
-      // 成因归 `recordGroup` 的 `identity_incomplete_reason` 承载（两处关切不同，不互相挪用）。
-      currentJson = (await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId)).json;
+      captured = await this.snapshotCaptor.captureAfter(effect.resultType, effect.resultId);
     } catch {
-      return null;
+      return { promised: true, compared: false, reason: 'failed' };
     }
-    const now = this._contentOnly(currentJson);
-    if (!now) return null;
-    if (JSON.stringify(before) === JSON.stringify(now)) return null;
+    const now = this._contentOnly(captured.json);
+    if (!now) {
+      // `captureAfter` 给了 json 却没给成因时，是**形状**读不出来（非对象 / 数组 / 坏 JSON）——属故障。
+      return { promised: true, compared: false, reason: captured.reason ?? 'failed' };
+    }
+    if (JSON.stringify(before) === JSON.stringify(now)) {
+      return { promised: true, compared: true, drift: null };
+    }
     const keys = [...new Set([...Object.keys(before), ...Object.keys(now)])]
       .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(now[k]))
       .sort();
-    return keys.join(', ');
+    return { promised: true, compared: true, drift: keys.join(', ') };
+  }
+
+  /**
+   * REV-14: collect the promised-but-unreachable members into evidence; `null` when there is no
+   * difference at all, so a consistent pass produces no reading.
+   *
+   * REV-14：把「承诺了却比不到」的那些收成证据；**没有差集就返回 `null`**（不产生该读数）。
+   */
+  private _comparabilityEvidence(
+    entries: Array<{
+      ref: { resultType: string; resultId: number };
+      cmp: TargetComparison;
+    }>,
+  ): RevokeComparabilityEvidence | null {
+    const promised: RevokeComparabilityEvidence['promised'] = [];
+    const uncomparable: RevokeComparabilityEvidence['uncomparable'] = [];
+    for (const { ref, cmp } of entries) {
+      if (!cmp.promised) continue;
+      promised.push({ ...ref });
+      if (!cmp.compared) uncomparable.push({ ...ref, reason: cmp.reason });
+    }
+    if (uncomparable.length === 0) return null;
+    this.logger.warn(
+      `[AiToolEffects] REV-14 承诺比对却比不到：${uncomparable
+        .map((u) => `${u.resultType} #${u.resultId}(${u.reason})`)
+        .join('、')}——已记在该组根行上，撤销判定**不因此改变**`,
+    );
+    return { promised, uncomparable };
+  }
+
+  /**
+   * REV-14: write this pass's "promise vs reality" onto the **root row** — one piece of evidence per
+   * revoke, never a copy per member (a single-target row is its own root).
+   *
+   * REV-14：把这一次比对的「承诺 vs 实况」写到**根行**上（一次撤销一份证据，不逐行复制；单目标行的根
+   * 就是它自己）。
+   *
+   * 两处分寸：
+   * - **只在读数会变时写**：无差集且本就没有读数 ⇒ 一次更新都不发（同一份读数不重复写）；有差集、或旧读数
+   *   已经不成立（这一轮没有差集）⇒ 写。读数因此永远跟随**最近一次**比对，一次陈旧的差集不会活得比产生
+   *   它的那次比对更久 —— 与 ARC-6「缺失集合变了，上一份确认不再适用」同一条道理。
+   * - 调用点只在**补偿真的落地之后**才调它：与「本地回滚不留任何回写」同一条口径 —— 判定都没成立时，
+   *   不记这份读数。
+   */
+  private async _recordComparability(
+    root: AiToolSideEffect,
+    entries: Array<{
+      ref: { resultType: string; resultId: number };
+      cmp: TargetComparison;
+    }>,
+  ): Promise<void> {
+    const evidence = this._comparabilityEvidence(entries);
+    const next = evidence ? JSON.stringify(evidence) : null;
+    if (next === (root.revokeComparability ?? null)) return;
+    await this._patchRevoke(root, { revokeComparability: next });
+  }
+
+  /**
+   * REV-14: the read side, same shape as the write side. Unparseable reads as `null` rather than
+   * throwing — a bad annotation must not take the whole list down.
+   *
+   * REV-14：读侧的解析（与写入侧同一形状）；读不出来就如实给 `null`，不外抛打断列表。
+   */
+  private _parseComparability(
+    raw: string | null | undefined,
+  ): RevokeComparabilityEvidence | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === 'object'
+        ? (parsed as RevokeComparabilityEvidence)
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -1084,6 +1216,14 @@ export class AiToolEffectsService {
           // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
           disputed: this._hasOpenDispute(effect),
           dispute: this._parseDispute(effect.revokeDispute),
+          // REV-14: **what the revoke promised to check but could not**. REV-9 reports nothing it cannot
+          // determine, so this difference had no surface — while the verdict still reads complete, which
+          // is exactly when a reader would conclude everything was checked. `null` = the latest pass had
+          // no such difference (or the row was never revoked), never "we looked and found nothing".
+          // REV-14：**这次撤销承诺要查、却没能查到的那些**。REV-9 判不了就不报，故这个差集此前没有任何
+          // 露出面 —— 而判定照读 complete，那正是读者会据此断定「全都查过了」的时刻。`null` = 最近一次
+          // 比对没有这个差集（或该行从未被撤销），**不是**「查了、没有」。
+          revokeComparability: this._parseComparability(effect.revokeComparability),
           // REV-6：该行身份缺「变更」那半（成组行登记时无变更快照）——读取侧不得默认为完整身份
           identityIncomplete: effect.identityIncomplete === true,
           // REV-13: **why** the change half is missing. `null` means one of two things and neither
@@ -1750,8 +1890,17 @@ export class AiToolEffectsService {
     // 在事务**之前**读：软删在事务里发生，读要在那之前。声明在 `if` 之外，因为组级摘要也要用它。
     const driftByEffect = new Map<number, string>();
     if (locals.length) {
+      const comparisons: Array<{
+        ref: { resultType: string; resultId: number };
+        cmp: TargetComparison;
+      }> = [];
       for (const m of locals) {
-        const d = await this._targetDrift(m);
+        const cmp = await this._targetDrift(m);
+        comparisons.push({
+          ref: { resultType: m.resultType, resultId: m.resultId },
+          cmp,
+        });
+        const d = cmp.promised && cmp.compared ? cmp.drift : null;
         if (d) {
           driftByEffect.set(m.id, d);
           this.logger.warn(
@@ -1806,6 +1955,12 @@ export class AiToolEffectsService {
           ...(driftNote ? { message: driftNote } : {}),
         });
       }
+      // REV-14：本地补偿已落地，这时才把「承诺了却比不到」的那些落到**组根行**上——组级判定随即
+      // 多半会读作 complete，那时这个差集只剩这里可读。放在提交之后（与上面「回滚不留回写」同口径）。
+      await this._recordComparability(
+        members.find((m) => m.parentEffectId == null) ?? members[0],
+        comparisons,
+      );
     }
 
     for (const m of externals) {
@@ -1974,10 +2129,18 @@ export class AiToolEffectsService {
     // D2-1f：本地实体撤销走 SideEffectRevoker（可替换为远程补偿 revoker）
     if (revokeClass === 'local_compensate' && this.revoker?.canHandle(effect.resultType)) {
       // REV-9：**先**问一句「目标还是不是我写的那条」，再软删——软删之后那行就没了，问也白问。
-      const drift = await this._targetDrift(effect);
+      const cmp = await this._targetDrift(effect);
+      const drift = cmp.promised && cmp.compared ? cmp.drift : null;
       const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
       this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-      if (r.revoked) await this._patchRevoke(effect, { revokeStatus: 'revoked' });
+      if (r.revoked) {
+        await this._patchRevoke(effect, { revokeStatus: 'revoked' });
+        // REV-14：软删落地后才落这份读数——判定没成立时不记（同「本地回滚不留回写」的口径）。
+        // 单目标行就是它自己的根，故写在本行。
+        await this._recordComparability(effect, [
+          { ref: { resultType: effect.resultType, resultId: effect.resultId }, cmp },
+        ]);
+      }
       if (drift) {
         this.logger.warn(
           `[AiToolEffects] effect ${effect.id}: 目标 ${effect.resultType} #${effect.resultId} 在写入后被改过（${drift}）`,
@@ -2081,15 +2244,19 @@ export class AiToolEffectsService {
    * KB-6：回写撤销运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。
    *
    * REV-1 / REV-2 细化后，**每个事件各自成一个 patch**，不再由一个 setter 顺手补齐时间戳：
-   * 意图（外呼前）/ 确认（外呼后）/ 终态（本地补偿成功）/ 争议标记。写什么由调用点显式给出，
-   * 好让「哪一刻写了什么」本身就是可读、可断言的事实。
+   * 意图（外呼前）/ 确认（外呼后）/ 终态（本地补偿成功）/ 争议标记 / REV-14 比对差集。写什么由
+   * 调用点显式给出，好让「哪一刻写了什么」本身就是可读、可断言的事实。
    */
   private async _patchRevoke(
     effect: AiToolSideEffect,
     patch: Partial<
       Pick<
         AiToolSideEffect,
-        'revokeStatus' | 'revokeRequestedAt' | 'revokeAcknowledgedAt' | 'revokeDispute'
+        | 'revokeStatus'
+        | 'revokeRequestedAt'
+        | 'revokeAcknowledgedAt'
+        | 'revokeDispute'
+        | 'revokeComparability'
       >
     >,
   ): Promise<void> {

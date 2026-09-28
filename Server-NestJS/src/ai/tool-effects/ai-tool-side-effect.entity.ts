@@ -275,6 +275,43 @@ export class AiToolSideEffect {
   @Column({ type: 'text', nullable: true, name: 'undeclared_writes' })
   undeclaredWrites?: string | null;
 
+  /**
+   * REV-14: **the members this revoke promised to compare, and the ones it could not** (JSON).
+   *
+   * Before the revoke, the path knows which members it *intends* to compare: those the comparison can
+   * even be defined for (`after_snapshot` present, captor wired). Running the revoke then decides which
+   * of them it *actually* reached — and the ones it did not (target row gone, read failed) were, until
+   * now, dropped in silence: REV-9 reports nothing it cannot determine, so "declared comparable, found
+   * not comparable" had no surface at all, while the verdict reads `complete`.
+   *
+   * This column is the place that difference lives. Written **before** the revoke runs and on the
+   * group's root row (one copy is the single fact; a per-row copy would be the same evidence N times),
+   * it stays readable after the verdict says complete — which is exactly when a reader would otherwise
+   * conclude that everything was checked.
+   *
+   * **A finding, not a verdict.** It changes nothing: no refusal, no verdict change, no compensation.
+   * `null` = the latest comparison pass had no such difference, or the row was never revoked. A pass
+   * with no gap **clears** the column, so a reading can never outlive the pass that produced it.
+   * **Chain-external annotation column**, not in `_chainPayload`.
+   *
+   * REV-14：**本次撤销承诺比对、而实际没能比到的那些成员**（JSON）。
+   *
+   * 撤销之前，这条路径知道它**打算**比哪些成员 —— 即比对本身能定义的那些（`after_snapshot` 在、
+   * 捕获器已装配）。撤销跑起来之后才知道其中哪些**真的比到了**；而没比到的那些（目标行没了、读取失败）
+   * 此前**被静默丢掉**：REV-9 判不了就不报，于是「被声明为可比、后来发现不可比」一个露出面都没有，
+   * 而撤销判定照读 `complete`。
+   *
+   * 本列就是那个差集的住处。它在撤销**之前**写入，且写在组内**根行**上（一份副本才是单一事实；
+   * 逐行复制只是把同一份证据抄 N 遍），故判定读作完成之后它仍然可读 —— 而那正是读者本来会据以
+   * 认为「全都查过了」的时刻。
+   *
+   * **这是发现，不是裁决。** 它什么都不改：不拒绝、不改判定、不触发补偿。`null` = 最近一次比对没有
+   * 这个差集，或该行从未被撤销。**没有差集的那一次会把本列清空**，故一个读数不可能活得比产生它的
+   * 那次比对更久。**链外注解列**，不入 `_chainPayload`。
+   */
+  @Column({ type: 'text', nullable: true, name: 'revoke_comparability' })
+  revokeComparability?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }
