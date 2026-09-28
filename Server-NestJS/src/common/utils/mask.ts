@@ -9,7 +9,7 @@
 /** 邮箱掩码：只掩码 @ 前缀，@ 后的域名保留。alice@example.com → a***@example.com */
 export function maskEmail(email: string): string {
   const at = email.indexOf('@');
-  if (at <= 0) return '***';
+  if (at <= 0) return REDACTED;
   const local = email.slice(0, at);
   const domain = email.slice(at + 1);
   return `${local.slice(0, 1)}***@${domain}`;
@@ -18,13 +18,13 @@ export function maskEmail(email: string): string {
 /** 手机号掩码：13800138000 → 138****8000 */
 export function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  if (digits.length < 7) return '***';
+  if (digits.length < 7) return REDACTED;
   return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
 }
 
 /** 通用掩码：超过一半长度用 *，用于姓氏/名等短字段 */
 export function maskText(value: string): string {
-  if (value.length <= 1) return '*';
+  if (value.length <= 1) return REDACTED;
   const keep = Math.ceil(value.length / 3);
   return `${value.slice(0, keep)}${'*'.repeat(value.length - keep)}`;
 }
@@ -126,18 +126,19 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 /**
- * The one placeholder a redacted value is written as. Request bodies, audit `changes` and AI
- * side-effect snapshots all use it, so a reader only has to learn a single spelling.
+ * The one spelling for "this value is not shown to you". Request bodies, audit `changes` and AI
+ * side-effect snapshots all use it — and so do the mask helpers above when they have nothing left to
+ * reveal: an email with no `@` masks to this rather than to a run of asterisks.
  *
- * It is not the same thing as the `*` masks in `maskEmail` / `maskPhone` / `maskText`: those keep
- * part of the value visible and build their asterisks around what remains. A redacted value reveals
- * nothing, so it gets a word rather than a row of asterisks.
+ * The `*` characters in `maskEmail` / `maskPhone` / `maskText` mean something else: they only ever
+ * appear **inside** a value whose remaining characters are still visible (`al***@example.com`).
+ * Asterisks build a partial mask around what is kept; this constant stands for revealing nothing.
  *
- * 被打码的值统一写成这个占位符 —— requestBody、审计 `changes`、AI 副作用快照三处共用，读的人只需认
- * 一个写法。
+ * 「这个值不给你看」的唯一写法。requestBody、审计 `changes`、AI 副作用快照都用它 —— 上面那几个掩码
+ * 函数在**没有东西可留**时也用它：没有 `@` 的邮箱掩码成它，而不是一串星号。
  *
- * 它与 `maskEmail` / `maskPhone` / `maskText` 里的 `*` 掩码不是一回事：那些保留部分值，把星号围着
- * 剩下的字符拼。被打码的值什么都不留，故给它一个词，而不是一串星号。
+ * `maskEmail` / `maskPhone` / `maskText` 里的 `*` 是**另一回事**：它们只出现在**仍有可见字符**的值
+ * 内部（`al***@example.com`）。星号是在保留下来的字符周围拼出的部分掩码；本常量代表什么都不留。
  */
 export const REDACTED = '[REDACTED]';
 

@@ -20,8 +20,8 @@ describe('mask utils', () => {
       expect(maskEmail('admin@example.com')).toBe('a***@example.com');
     });
 
-    it('handles email without @', () => {
-      expect(maskEmail('not-an-email')).toBe('***');
+    it('nothing left to reveal (no @) → the shared REDACTED, not a run of asterisks', () => {
+      expect(maskEmail('not-an-email')).toBe(REDACTED);
     });
   });
 
@@ -34,15 +34,15 @@ describe('mask utils', () => {
       expect(maskPhone('+86 138-0013-8000')).toBe('861****8000');
     });
 
-    it('short numbers fully masked', () => {
-      expect(maskPhone('12345')).toBe('***');
+    it('nothing left to reveal (under 7 digits) → the shared REDACTED', () => {
+      expect(maskPhone('12345')).toBe(REDACTED);
     });
   });
 
   describe('maskText', () => {
-    it('masks short text', () => {
-      expect(maskText('张')).toBe('*');
+    it('keeps a partial mask while something remains, REDACTED once nothing does', () => {
       expect(maskText('Alex')).toBe('Al**');
+      expect(maskText('张')).toBe(REDACTED);
     });
   });
 
