@@ -726,15 +726,19 @@ test('Web-Admin-Vue 模板：api + view 骨架', () => {
   assert.match(view, /navPosts/);
 });
 
-test('wireAdmin：routes + navGroups + i18n zh/en', async () => {
+test('wireAdmin：routes + navGroups + i18n zh/en + 后端导航映射', async () => {
   const root = await tempRoot();
   await write(`${root}/Web-Admin-Vue/src/router/routes.ts`, `      { path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },`);
   await write(`${root}/Web-Admin-Vue/src/layouts/AdminLayout.vue`, `      { name: 'data-import', to: '/data-import', icon: 'mdi-upload-multiple', label: t('navDataImport') },`);
   await write(`${root}/Web-Admin-Vue/src/i18n/zh.ts`, `  navDataImport: '数据导入',`);
   await write(`${root}/Web-Admin-Vue/src/i18n/en.ts`, `  navDataImport: 'Data Import',`);
+  await write(
+    `${root}/Server-NestJS/src/ai/constants/admin-pages.ts`,
+    `export const ADMIN_PAGE_ROUTES: Record<string, { route: string; description: string }> = {\n  dashboard: { route: '/', description: '首页/概览' },\n  'data-import': { route: '/data-import', description: '数据导入' },\n  templates: { route: '/templates', description: '模板市场' },\n};\n`,
+  );
 
   const r = await wireAdmin(ctx(), root);
-  assert.ok(r.filter((x) => x.changed).length >= 4);
+  assert.ok(r.filter((x) => x.changed).length >= 5);
   const routes = await readFile(`${root}/Web-Admin-Vue/src/router/routes.ts`, 'utf8');
   assert.match(routes, /PostsView\.vue/);
   const nav = await readFile(`${root}/Web-Admin-Vue/src/layouts/AdminLayout.vue`, 'utf8');
@@ -743,6 +747,19 @@ test('wireAdmin：routes + navGroups + i18n zh/en', async () => {
   assert.match(zh, /navPosts: '帖子'/);
   const en = await readFile(`${root}/Web-Admin-Vue/src/i18n/en.ts`, 'utf8');
   assert.match(en, /navPosts: 'Post'/);
+  // 第三处同步：只写前端两处的话，页面在管理台里活着、System AI 却到不了 —— navigation-parity 门禁
+  // 判「孤页」。故这条断言钉的是「生成器把三处都补上」，而不只是「前端两处好看」。
+  //
+  // The third place: wiring only the two frontend spots leaves a page that lives in the console but
+  // that the System AI cannot reach — the navigation-parity gate calls that an orphan. This assertion
+  // pins "the generator fills all three", not just "the two frontend ones look right".
+  const pages = await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8');
+  assert.match(pages, /'posts': \{ route: '\/posts', description: '帖子管理' \}/);
+
+  // 幂等：重跑不重复插入
+  const again = await wireAdmin(ctx(), root);
+  assert.equal(again.filter((x) => x.changed).length, 0);
+  assert.equal((await readFile(`${root}/Server-NestJS/src/ai/constants/admin-pages.ts`, 'utf8')).match(/'posts':/g).length, 1);
 });
 
 test('Taro 模板：service/types/store/page 骨架', () => {

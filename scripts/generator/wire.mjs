@@ -382,6 +382,7 @@ export async function wireAdmin(ctx, root = '') {
   const results = [];
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
   const WA = `${root}${sep}Web-Admin-Vue/src`;
+  const BE = `${root}${sep}Server-NestJS/src`;
   const keys = adminI18nKeys(ctx);
 
   // 1) 路由：data-import 后加懒加载管理路由
@@ -419,6 +420,29 @@ export async function wireAdmin(ctx, root = '') {
       ),
     );
   }
+
+  // 4) 后端导航映射：ADMIN_PAGE_ROUTES 也要加一条 —— System AI Assistant 的 navigate_admin_page
+  //    靠这张表认页；只写前端两处（路由 + 菜单）而漏了它，页面就在管理台里活着、AI 却到不了，
+  //    而 navigation-parity 门禁会因此判「孤页」。锚点取 base 页 `data-import`（与前端那两处同一个
+  //    锚点：它在任何 KeelBase 应用里都存在，而 `notes` 之类的示例模块可能被人删掉）。
+  //    ADMIN_SYSTEM_PROMPT 的页面清单由本表模板生成，故不必另改。
+  //
+  // The backend navigation map needs an entry too: System AI Assistant's `navigate_admin_page` reads
+  // this table, so wiring only the two frontend places leaves a page that exists but that the AI
+  // cannot reach — and the navigation-parity gate calls that an orphan. Anchored on the base
+  // `data-import` page (the same anchor as the two frontend edits: it exists in every KeelBase app,
+  // whereas a sample module like `notes` can be deleted). The prompt's page list is generated from
+  // this table, so it needs no separate edit.
+  results.push(
+    await applyFile(`${BE}/ai/constants/admin-pages.ts`, (c) =>
+      insertAfter(
+        c,
+        `  'data-import': { route: '/data-import', description: '数据导入' },`,
+        `\n  '${ctx.plural}': { route: '/${ctx.plural}', description: '${ctx.label}管理' },`,
+        `'${ctx.plural}': {`,
+      ),
+    ),
+  );
 
   return results;
 }

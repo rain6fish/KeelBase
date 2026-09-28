@@ -967,6 +967,7 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
 **管理台页面**同样必须注册到 System AI Assistant 的管理端导航（三处同步，见 `src/ai/constants/admin-pages.ts` 头部注释）：
 - `ADMIN_PAGE_ROUTES`（后端映射）+ `ADMIN_SYSTEM_PROMPT` 页面清单（模板生成）+ Web-Admin-Vue `routes.ts` consoleChildren
 - 工具：`src/ai/tools/navigate-admin-page.tool.ts`（`navigate_admin_page`，adminOnly）
+- **`keelbase init` 生成的管理台页由生成器接线这三处**（`wire.mjs` 的 `wireAdmin`，2026-09-28 起含后端映射这一处）；上面这条规则约束的是**手写**页面。`scripts/check-navigation-parity.mjs` 双向对账，孤页即红
 
 ### 页面返回功能
 
