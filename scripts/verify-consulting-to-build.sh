@@ -40,13 +40,14 @@ cleanup() {
     "Web-Admin-Vue/src/views/${PLURAL:-__none__}" \
     "Front-Taro/src/pages/${PLURAL:-__none__}" \
     "$SPEC" "Server-NestJS/$DB" >/dev/null 2>&1 || true
-  rm -f "Server-NestJS/src/ai/tools/query-${PLURAL:-__none__}"*.ts \
-        "Server-NestJS/src/ai/tools/create-${PLURAL:-__none__}"*.ts \
-        "Web-Admin-Vue/src/api/${PLURAL:-__none__}.ts" \
-        "Front-Taro/src/services/${PLURAL:-__none__}"*.ts \
-        "Front-Taro/src/types/${PLURAL:-__none__}"*.ts \
-        "Front-Taro/src/stores/${PLURAL:-__none__}"*.ts \
-        "Server-NestJS/src/migrations/"*_c2b* 2>/dev/null || true
+  # 生成物里**没有独立目录**的那几件（AI 工具 / 管理台 api / Taro 的 service·type·store / 本脚本的迁移）。
+  # 未跟踪时靠 clean 清掉；**已被检进仓**时上面那行 `git checkout -- .` 已经还原过 —— 这里**不能**再用
+  # `rm -f`：它不认 tracked，会把仓库里的文件真删掉（2026-09-28 实测一次删掉 8 个，且 CI 之外没人会察觉）。
+  git clean -fdq -- \
+    'Server-NestJS/src/ai/tools/query-*' 'Server-NestJS/src/ai/tools/create-*' \
+    'Web-Admin-Vue/src/api/*' \
+    'Front-Taro/src/services/*' 'Front-Taro/src/types/*' 'Front-Taro/src/stores/*' \
+    'Server-NestJS/src/migrations/*_c2b*' >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
