@@ -870,6 +870,22 @@ const zh = {
   revokeEffect: '撤销',
   revokeEffectConfirm: '确定撤销「{title}」？将软删对应记录（可经回收站恢复）',
   diffFields: '处字段变更',
+  // REV-11：滞留补偿的认领（动作只记「谁在看」，不改撤销状态、不断言结果）
+  claimEffect: '认领（接手这条滞留补偿）',
+  claimDone: '已认领——这条记在你名下',
+  claimNotStale: '该行还未到陈旧阈值，尚不需认领',
+  claimAlreadyClaimed: '已被他人认领',
+  claimNotFound: '该副作用不存在',
+  claimedBy: '认领人',
+  ownerUserId: '责任人',
+  // REV-7：谁在替该用户执行（读自本行，无需 join 审计行）
+  agentId: '执行方',
+  // REV-6 / REV-13：身份缺「变更」那半，以及为什么缺（四成因不等价）
+  identityIncomplete: '身份缺变更快照',
+  identityReasonUnknown: '成因不可考',
+  // ARC-6：确认争议 = 解除「未了结」，证据原样保留
+  acknowledgeDispute: '确认该争议已处理（证据保留）',
+  disputeAcknowledged: '已确认——该组不再读作未了结（证据仍在）',
 
   // 治理策略（HS-9）
   governancePolicy: '治理策略',

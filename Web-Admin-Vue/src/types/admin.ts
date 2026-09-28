@@ -327,7 +327,33 @@ export interface ToolEffect {
     onlyDeclared: Array<{ resultType: string; resultId: number }>
     onlyStored: Array<{ resultType: string; resultId: number }>
     decidedAt: string
+    /**
+     * ARC-6：管理端**显式确认**过的时刻/人。有值 ⇒ 该组不再「未了结」，**证据仍原样保留**。
+     * 缺失集合变了时服务端会丢掉旧确认（上一份不再适用），故此处可能重新变空。
+     */
+    acknowledgedAt?: string
+    acknowledgedBy?: string
   } | null
+  /**
+   * REV-11：**这是谁的活**。`ownerUserId` 是那次写所代表的用户；`revokeNeedsClaim` 是**派生**读数
+   * （滞留且无人接手）；`revokeClaimedBy/At` 是**谁接手了**（认领是记录里的事实，不是推断）。
+   */
+  ownerUserId?: string | null
+  revokeNeedsClaim?: boolean
+  revokeClaimedBy?: string | null
+  revokeClaimedAt?: string | null
+  /**
+   * REV-7：**谁在替该用户执行**（agent 身份），读自本行、无需 join 审计行。
+   * `null` = 当时没有 agent 参与，或该行早于本列（语义为未知，不回填）。
+   */
+  agentId?: string | null
+  /**
+   * REV-6 / REV-13：该行身份缺「变更」那半（成组成员登记时无变更快照），以及**为什么缺**。
+   * 成因四值不等价：`no_captor` / `no_entity_and_empty_fallback` 是设计，`row_missing` / `failed` 是故障。
+   * 成因列 `null` 有两种读法（未置标 / 置标于该列出现之前 ⇒ 不可考），**都不冒充已知**。
+   */
+  identityIncomplete?: boolean
+  identityIncompleteReason?: string | null
   /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
   status?: string
   /** 服务端单一权威的撤销可点（status=executed 且档位非 none）；三端据此渲染 */

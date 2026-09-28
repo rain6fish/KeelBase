@@ -7,14 +7,17 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { toolsMock, policyMock, savePolicyMock, effectsMock, revokeMock, errorMock, successMock } = vi.hoisted(() => ({
+const { toolsMock, policyMock, savePolicyMock, effectsMock, revokeMock, claimMock, ackMock, errorMock, successMock, warningMock } = vi.hoisted(() => ({
   toolsMock: vi.fn(),
   policyMock: vi.fn(),
   savePolicyMock: vi.fn(),
   effectsMock: vi.fn(),
   revokeMock: vi.fn(),
+  claimMock: vi.fn(),
+  ackMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
+  warningMock: vi.fn(),
 }))
 
 vi.mock('@/api/aiTools', () => ({
@@ -24,10 +27,12 @@ vi.mock('@/api/aiTools', () => ({
     savePolicy: savePolicyMock,
     effects: effectsMock,
     revokeEffect: revokeMock,
+    claimEffect: claimMock,
+    acknowledgeDispute: ackMock,
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
-  useSnackbarStore: () => ({ error: errorMock, success: successMock }),
+  useSnackbarStore: () => ({ error: errorMock, success: successMock, warning: warningMock }),
 }))
 
 import ElementPlus from 'element-plus'
@@ -127,5 +132,92 @@ describe('AiToolsView', () => {
     expect(revokeMock).toHaveBeenCalledWith(9)
     expect(successMock).toHaveBeenCalledWith('已下线')
     expect(effectsMock).toHaveBeenCalledTimes(2)
+  })
+
+  /** REV-11：滞留且无人接手 ⇒ 可认领；认领是记录事实（谁接手了），不是前端自己算的 */
+  it('需认领的行显示认领钮 → claimEffect(id) + success + 刷新', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 11, toolName: 'proxy_send', conversationId: null, resultType: 'proxy_call', resultId: 7, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '外部写', status: 'revoking_external', revokeClass: 'governed_external', revocable: false, revokeNeedsClaim: true },
+      ],
+    })
+    claimMock.mockResolvedValue({ outcome: 'claimed', claimedBy: '7' })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.app-table-stub .el-button--warning').trigger('click')
+    await flushPromises()
+
+    expect(claimMock).toHaveBeenCalledWith(11)
+    expect(successMock).toHaveBeenCalledWith('已认领——这条记在你名下')
+    expect(effectsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('认领被拒（已被他人认领）→ **warning 而不是 success**（服务端分种类，前端不压成一句「失败」也不谎报成功）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 11, toolName: 'proxy_send', conversationId: null, resultType: 'proxy_call', resultId: 7, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '外部写', status: 'revoking_external', revokeClass: 'governed_external', revocable: false, revokeNeedsClaim: true },
+      ],
+    })
+    claimMock.mockResolvedValue({ outcome: 'already_claimed', claimedBy: '9' })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.app-table-stub .el-button--warning').trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledWith('已被他人认领')
+    expect(successMock).not.toHaveBeenCalled()
+  })
+
+  /** ARC-6：有争议且**尚未确认** ⇒ 可确认；已确认的不再显示（反向对照） */
+  it('未确认的争议显示确认钮 → acknowledgeDispute(id) + success + 刷新', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 12, toolName: 'create_project_with_tasks', conversationId: null, resultType: 'pm_project', resultId: 3, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '项目', status: 'executed', revokeClass: 'local_compensate', revocable: false, disputed: true, dispute: { declared: [], stored: [], onlyDeclared: [], onlyStored: [], decidedAt: '2026-09-01T00:00:00Z' } },
+      ],
+    })
+    ackMock.mockResolvedValue({ acknowledgedAt: '2026-09-28T00:00:00Z' })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('.app-table-stub .el-button--info').trigger('click')
+    await flushPromises()
+
+    expect(ackMock).toHaveBeenCalledWith(12)
+    expect(successMock).toHaveBeenCalledWith('已确认——该组不再读作未了结（证据仍在）')
+  })
+
+  it('反向对照：已确认过的争议**不再**显示确认钮（且不显示认领钮）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 12, toolName: 'create_project_with_tasks', conversationId: null, resultType: 'pm_project', resultId: 3, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '项目', status: 'executed', revokeClass: 'local_compensate', revocable: false, disputed: true, dispute: { declared: [], stored: [], onlyDeclared: [], onlyStored: [], decidedAt: '2026-09-01T00:00:00Z', acknowledgedAt: '2026-09-02T00:00:00Z', acknowledgedBy: '7' } },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.app-table-stub .el-button--info').exists()).toBe(false)
+    expect(wrapper.find('.app-table-stub .el-button--warning').exists()).toBe(false)
   })
 })
