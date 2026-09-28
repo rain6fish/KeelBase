@@ -15,11 +15,50 @@ import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { StreamChunk } from './interfaces/llm-provider.interface';
-import { AuthorizationDeniedError } from './interfaces/tool.interface';
+import { AuthorizationDeniedError, type AiTool } from './interfaces/tool.interface';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const SPECS_ROOT = resolve(__dirname, '../../specs/protocol');
+
+/**
+ * A `getTool` stand-in that **satisfies** `AiTool` rather than almost satisfying it.
+ *
+ * The real registry never returns `undefined`, so a test that stubs it has to hand back a tool body —
+ * and what those tests are actually about is one or two flags on it, nearly always
+ * `requiresConfirmation`. Spelling the whole interface out at every call site is how half-objects got
+ * passed and the type checker flagged them; the shape lives here once, and a call site states only the
+ * flag it cares about.
+ *
+ * `getTool` 的替身，**真的**满足 `AiTool`，而不是「差不多满足」。
+ *
+ * 真实注册表从不返回 `undefined`，故桩它的测试必须交出工具本体 —— 而那些测试真正关心的只是它上面的
+ * 一两个标志，几乎总是 `requiresConfirmation`。在每个调用点把整个接口抄一遍，正是当初传进半截对象、被
+ * 类型检查逮住的原因；形状只在这里写一次，调用点只写它关心的那个标志。
+ *
+ * **只填类型要求的，可选能力一律不预设**（`riskLevel` / `revokeClass` / `permissions` / `audience`）：
+ * 那些由被测代码从工具声明**派生**出来，桩若先给一个值，测出来的就是桩而不是那段派生逻辑 —— 这条不是
+ * 理论，是第一次写这个助手时踩到的：给 `revokeClass` 垫了 `'none'`，两条断言立刻从
+ * `local_compensate` 变成 `none`。
+ *
+ * Only what the type *requires*; the optional capabilities are left unset. Those are what the code
+ * under test **derives** from the tool's declaration, and a stub that pre-fills one turns the
+ * assertion into a test of the stub — not theory: the first version of this helper seeded
+ * `revokeClass: 'none'` and two assertions flipped from `local_compensate` to `none`.
+ */
+function mockTool(over: Partial<AiTool> = {}): AiTool {
+  return {
+    name: 'mock_tool',
+    description: 'mock tool',
+    parameters: [],
+    toToolDefinition: () => ({
+      type: 'function',
+      function: { name: 'mock_tool', description: 'mock tool', parameters: {} },
+    }),
+    execute: async () => ({ success: true }),
+    ...over,
+  };
+}
 
 /**
  * 取 wire 对象的**当前版本** schema（版本以 registry 为准，同 wire-schema.spec.ts 的解析口径）。
@@ -1206,7 +1245,7 @@ describe('AiService', () => {
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
       // getTool 返回工具本体（真实 ToolRegistry 从不返回 undefined）——确认载荷的 revokeClass 由它派生
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
 
       const originalCreateRun = confirmationStore.createRun.bind(confirmationStore);
@@ -1225,7 +1264,7 @@ describe('AiService', () => {
         record: recordSpy,
       };
 
-      const it = aiService.chatStream('1', { message: 'create an event and a todo' });
+      const it = aiService.chatStream('1', { message: 'create an event and a todo' })[Symbol.asyncIterator]();
       // 预扫描聚合：第一个确认事件 = mode:'run'（含 2 items），非两条单条 confirmation
       const first = await it.next();
       expect(first.value.type).toBe('confirmation_request');
@@ -1340,7 +1379,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event and a todo' });
+      const it = aiService.chatStream('1', { message: 'create an event and a todo' })[Symbol.asyncIterator]();
       const first = await it[Symbol.asyncIterator]().next();
       expect(first.value.type).toBe('confirmation_request');
       expect((first.value as { confirmation?: { mode?: string } }).confirmation?.mode).toBe('run');
@@ -1422,7 +1461,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterTool());
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
       // run 决策以 timeout 结束（TTL 到期）
       jest.spyOn(confirmationStore, 'createRun').mockResolvedValue({
@@ -1461,7 +1500,7 @@ describe('AiService', () => {
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
       mockToolRegistry.execute.mockResolvedValue({
         success: true,
         data: { id: 42, title: '评审' },
@@ -1476,7 +1515,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' });
+      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' })[Symbol.asyncIterator]();
       // tool_start 先发（过程卡片）
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
@@ -1551,7 +1590,7 @@ describe('AiService', () => {
         .mockReturnValueOnce(mockStreamAfterDecline());
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue(mockTool({ requiresConfirmation: true }));
 
       const originalCreate = confirmationStore.create.bind(confirmationStore);
       let pendingToken: string | undefined;
@@ -1561,7 +1600,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' });
+      const it = aiService.chatStream('1', { message: 'create an event titled Review for tomorrow 9am' })[Symbol.asyncIterator]();
       // tool_start → confirmation_request
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
@@ -1641,7 +1680,7 @@ describe('AiService', () => {
       });
 
       // 实现是 async generator，声明却是 `AsyncIterable`（没有 `next()`）——要逐帧取就得把这件事说明白
-      const it = aiService.chatStream('1', { message: '创建两个事件' }) as AsyncGenerator<StreamChunk>;
+      const it = aiService.chatStream('1', { message: '创建两个事件' })[Symbol.asyncIterator]();
       expect((await it.next()).value.type).toBe('tool_start');
       const firstConfirm = await it.next();
       expect(firstConfirm.value.type).toBe('confirmation_request');
@@ -1712,7 +1751,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: '创建事件' }) as AsyncGenerator<StreamChunk>;
+      const it = aiService.chatStream('1', { message: '创建事件' })[Symbol.asyncIterator]();
       expect((await it.next()).value.type).toBe('tool_start');
       expect((await it.next()).value.type).toBe('confirmation_request');
       confirmationStore.resolve(token!, '1', 'approve');
@@ -2283,7 +2322,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: 'send an email through the mcp server' });
+      const it = aiService.chatStream('1', { message: 'send an email through the mcp server' })[Symbol.asyncIterator]();
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
       expect(first.value.toolStart?.name).toBe('mcp_wx_send_email');

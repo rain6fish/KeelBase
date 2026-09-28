@@ -32,8 +32,12 @@ const BE = resolve(__dirname, '../Server-NestJS');
 /**
  * 基线：当前测试文件的类型错误数。**只许下调**（修好一批就把这个数改小）。
  * 若要上调，请在提交信息里说明为什么必须接受新的债务。
+ *
+ * 2026-09-28 由 212 下调至 202：`ai.service.spec.ts` 清掉了两族存量债 —— 13 处对 `AsyncIterable`
+ * 调 `.next()`（改按声明的接口取迭代器，不加类型断言）、4 处把半截对象当 `AiTool` 传（改用一个
+ * 满足该接口的 `mockTool` 助手）。下调即**锁住**这次改善：同样的债再回来会立刻被这道闸拦住。
  */
-const BASELINE = 212;
+const BASELINE = 202;
 
 /** 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...` */
 const isTestFileError = (line) =>
