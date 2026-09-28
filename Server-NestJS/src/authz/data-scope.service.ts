@@ -64,7 +64,7 @@ export class DataScopeService {
     return this.rules.customDeptIdsFor(await this._roleCode(userId));
   }
 
-  /** 角色 code：以 `users.role` 为准（枚举仍是事实来源；user_roles 是它的表侧镜像） */
+  /** 角色 code：以 `users.role` 为准（枚举是代码侧的事实来源；`roles` 表只提供可配置的元数据） */
   private async _roleCode(userId: number): Promise<string> {
     const user = await this.users.findOne({
       where: { id: userId },

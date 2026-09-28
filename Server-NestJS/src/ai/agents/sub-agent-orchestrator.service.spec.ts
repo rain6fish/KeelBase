@@ -2,6 +2,7 @@
 
 import { SubAgentOrchestrator } from './sub-agent-orchestrator.service';
 import { SkillsRegistry, WEEK_PLAN_SKILL } from '../skills/skills-registry';
+import { actorContext, ActorContext } from '../actor-context';
 
 describe('SubAgentOrchestrator', () => {
   let orchestrator: SubAgentOrchestrator;
@@ -44,6 +45,40 @@ describe('SubAgentOrchestrator', () => {
       expect(result.content).toContain('步骤 1（calendar）');
       expect(result.content).toContain('步骤 2（stats）');
       expect(result.content).toContain('步骤 3（organizer）');
+    });
+
+    it('ACT-1：子代理作用域**继承**父身份 —— sessionId / username / source 不丢', async () => {
+      const seen: Array<ActorContext | undefined> = [];
+      mockProvider.generate.mockImplementation(async () => {
+        seen.push(actorContext.getStore());
+        return { content: '结果', toolCalls: [] };
+      });
+
+      await actorContext.run(
+        { sessionId: 'jti-1', username: 'alex', source: 'web', agentId: 'parent-agent' },
+        () =>
+          orchestrator.run({
+            messages: [{ role: 'system', content: 'sys' }],
+            userRequest: '帮我安排本周',
+            provider: mockProvider,
+            toolRegistry: mockRegistry as any,
+            userId: '1',
+          }),
+      );
+
+      // skill 命中 ⇒ 3 个子代理各一轮，且全部落在子代理作用域内
+      expect(seen).toHaveLength(3);
+      for (const ctx of seen) {
+        // 继承父的三段 —— 旧实现（新建 context）在这里是 undefined，本断言正钉住那个观测面
+        expect(ctx?.sessionId).toBe('jti-1');
+        expect(ctx?.username).toBe('alex');
+        expect(ctx?.source).toBe('web');
+        // 被本次委托覆盖的两段
+        expect(ctx?.callerAgentId).toBe('parent-agent');
+        expect(ctx?.businessIntent).toBe('sub-agent');
+        // agentId 换成子代理名，父名仍在 callerAgentId 上
+        expect(ctx?.agentId).not.toBe('parent-agent');
+      }
     });
 
     it('should pass prior results to later tasks as system context', async () => {

@@ -162,6 +162,52 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     expect(out.replay).toMatchObject({ reproducible: true, recordedRevision: 'ab12cd34ef56' });
   });
 
+  it('ACT-2：同会话同名工具调用两次 → **不归因**（不把 A 的授权/意图挂到 B 的 effect 上）', async () => {
+    // 「给客户 A 建任务，再给客户 B 建任务」：两条 tool_call 同名，effect 只属于其中一次。
+    // 旧实现取「第一条相符」⇒ B 的 effect 会拿到 A 的 businessEvent / evidence / 授权快照。
+    const rowA = {
+      ...convRow,
+      id: 101,
+      detail: 'create_followup_task({"customerId":1})',
+      businessEvent: 'FollowupTaskCreatedForCustomerA',
+    };
+    const rowB = {
+      ...convRow,
+      id: 102,
+      detail: 'create_followup_task({"customerId":9})',
+      businessEvent: 'FollowupTaskCreatedForCustomerB',
+    };
+    const { service } = build({ effect, viewer: '42', convRows: [rowA, rowB] });
+
+    const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+
+    // 配对不唯一 ⇒ 一律留空，而不是任选一条
+    expect(out.decision.businessEvent).toBeNull();
+    expect(out.decision.evidence).toBeNull();
+    expect(out.authorization).toBeNull();
+    expect(out.summary).toBeNull();
+    // ai-audit 锚也不该出现（没有可归因的那一行）
+    expect(out.root.anchors.some((a: any) => a.kind === 'ai-audit')).toBe(false);
+    // 副作用锚仍在 —— 不被归因不等于没有副作用
+    expect(out.root.anchors.some((a: any) => a.kind === 'side-effect')).toBe(true);
+  });
+
+  it('ACT-2：会话内无同名 tool_call → 不回落到「最后一条任意 tool_call」（旧实现会拿别人的事件）', async () => {
+    const otherRow = {
+      ...convRow,
+      id: 201,
+      detail: 'query_customers({})',
+      businessEvent: 'CustomersQueried',
+    };
+    const { service } = build({ effect, viewer: '42', convRows: [otherRow] });
+
+    const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
+
+    expect(out.decision.businessEvent).toBeNull();
+    expect(out.authorization).toBeNull();
+    expect(out.root.anchors.some((a: any) => a.kind === 'ai-audit')).toBe(false);
+  });
+
   it('副作用不存在 → 404', async () => {
     const { service } = build({ effect: null });
     await expect(service.getEvidenceRoot('crm_task', 999, '42', false)).rejects.toThrow(NotFoundException);

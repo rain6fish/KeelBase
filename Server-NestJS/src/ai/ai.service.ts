@@ -20,6 +20,8 @@ import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
 import { buildToolCallAudit } from './audit/tool-call-audit';
+// ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
+import { sortKeys } from './tool-effects/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
 import { RouterAgent, Intent } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
@@ -255,10 +257,29 @@ export class AiService {
    * Collect the write tool calls that may be aggregated into a single run-level approval; `null` when
    * fewer than two qualify. Every parse/registry failure just drops that tool from the aggregation.
    */
+  /**
+   * HS-6「本轮不再询问」的**作用域键**（ACT-3）：批准哪一次，就免确认哪一次。
+   *
+   * 此前免确认只按 `toolName` 记忆（`Set<string>` 的名字集合），于是用户勾一次「不再询问」，
+   * 就把「批准 `create_task(customer=A)`」放大成「本轮整个 `create_task` 都放行」——Agent 之后
+   * 换客户 B、甚至换成语义完全不同的参数，仍旧免确认直接写。这与本仓公开写在治理链设计里的原则
+   * 「confirmation artifact 绑定**精确 args**」直接冲突。
+   *
+   * 键 = 工具名 + 规范化参数 + 目的地。参数用 `sortKeys` 归一（与副作用幂等键同一口径），
+   * 免得同一逻辑调用的两种写法算出两个键、把免确认意外作废。
+   *
+   * **审批要求的策略版本维度不在这里**：那属于执行点复查（roadmap §2.1.16 ACT-7），在本键里再实现
+   * 一遍就是同一保护两处实现（Code Economy §15.7）。
+   */
+  private _trustScopeKey(toolName: string, args: Record<string, unknown>): string {
+    const canonicalArgs = JSON.stringify(sortKeys(args));
+    return `${toolName}\u0000${canonicalArgs}\u0000${this.toolGate.destinationOf(toolName)}`;
+  }
+
   private async _collectRunCandidates(
     userId: string,
     toolCalls: Array<{ index: number; name: string; args: string }>,
-    trustedTools: Set<string>,
+    trustedScopes: Set<string>,
   ): Promise<{
     aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: string; risk: string; audience: string }>;
     runRisk: string;
@@ -274,7 +295,6 @@ export class AiService {
       audience: string;
     }> = [];
     for (const tc of toolCalls) {
-      if (trustedTools.has(tc.name)) continue; // HS-6 免确认
       // 未注册工具（LLM 幻觉名 / 外部 mcp_* 工具，ExternalToolProvider 不入 ToolRegistry）会让
       // _requiresConfirmation/_requiresApproval 经 ToolRegistry.getTool 抛 `Tool "x" not found`；
       // 须与循环内逐条路径同样容错——否则异常逸出 chatStream 会中断整条 SSE 流（而非降级为该工具失败）
@@ -290,6 +310,8 @@ export class AiService {
       } catch {
         continue; // 解析失败留循环原样报错
       }
+      // HS-6 免确认（ACT-3）：按**作用域键**判，故须先解析出参数才谈得上「这一次是否被批准过」
+      if (trustedScopes.has(this._trustScopeKey(tc.name, parsed))) continue;
       let risk = 'R3';
       try {
         risk = this.toolRegistry?.riskLevel(tc.name) ?? 'R3';
@@ -664,7 +686,7 @@ export class AiService {
     await this._checkContentSafety(request.message, userId);
     // HS-6：本轮内被用户信任的写工具（确认时勾选「不再询问」后加入）。
     // 作用域 = 本次 chatStreamImpl 调用，随请求结束即失效——不跨轮次，也不是整个会话。
-    const trustedTools = new Set<string>();
+    const trustedScopes = new Set<string>();
     const { providerName } = this.llmRouter.resolve(request.provider);
     // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
     const streamFallbackChain = this.llmRouter.fallbackChain(providerName);
@@ -779,7 +801,7 @@ export class AiService {
       {
         // 聚合交给 `_collectRunCandidates`（分析段）；这里只留「创建 run → 下发确认 → 等决策」的编排。
         // The aggregation is now `_collectRunCandidates`; this block keeps only the orchestration.
-        const collected = await this._collectRunCandidates(userId, acc.toolCalls(), trustedTools);
+        const collected = await this._collectRunCandidates(userId, acc.toolCalls(), trustedScopes);
         if (collected) {
           const { aggregable, runRisk, ttlSeconds } = collected;
           const { token, decision } = await this.confirmationStore.createRun(
@@ -834,7 +856,7 @@ export class AiService {
             confirmationDecision: { mode: 'run', runId: token, decision: outcome, approved },
           };
           if (await this._shouldAudit('tool')) {
-            this.auditService.log({
+            await this.auditService.log({
               userId,
               conversationId,
               action: 'tool_confirmation',
@@ -881,8 +903,9 @@ export class AiService {
 
           let result: ToolResult;
           if (isWrite) {
-            // HS-6：本轮已信任该工具 → 免确认直接执行（统一段会 push 消息 + 审计）
-            if (trustedTools.has(tc.name)) {
+            // HS-6：本轮已信任**这一次调用**（作用域键含规范化参数 + 目的地）→ 免确认直接执行
+            //（统一段会 push 消息 + 审计）。换参数即换键 ⇒ 回到下面的确认路径。
+            if (trustedScopes.has(this._trustScopeKey(tc.name, parsed))) {
               result = await this.toolExecution.executeWrite(tc.name, parsed, userId, conversationId);
             } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
@@ -917,7 +940,7 @@ export class AiService {
               result = { success: false, error: '已提交人工审批，等待审批人决策（R4 高影响动作）' };
               pendingApproval = true;
               if (await this._shouldAudit('tool')) {
-                this.auditService.log({
+                await this.auditService.log({
                   userId,
                   conversationId,
                   action: 'tool_confirmation',
@@ -972,14 +995,18 @@ export class AiService {
                 };
                 ({ outcome, trustTool } = await decision);
               }
-              // HS-6：用户勾选「不再询问」→ 后续免确认（仅本轮）
+              // HS-6：用户勾选「不再询问」→ 后续免确认（仅本轮，且**仅这一次调用**，见 _trustScopeKey）
             if (trustTool && outcome === 'approve') {
-              trustedTools.add(tc.name);
+              trustedScopes.add(this._trustScopeKey(tc.name, parsed));
             }
             // HS-7 确认决策审计：让管理台时间线能展示「AI 请求写操作 → 用户确认/拒绝」
             // HS-9 粒度门控：tool 级在 off 时不记录
+            //
+            // ACT-4：**必须 await**。这一行是执行路径上的决策记录，与紧随其后的副作用登记是同一件事的
+            // 两半；fire-and-forget 会让「effect 已提交、审计未写」在进程崩在中间时可达 —— 业务动作
+            // 发生了、治理账上没有，正好击中本产品要回答的那个问题。对话/知识类元数据行不在此列（可维持异步）。
             if (await this._shouldAudit('tool')) {
-              this.auditService.log({
+              await this.auditService.log({
                 userId,
                 conversationId,
                 action: 'tool_confirmation',
@@ -1061,8 +1088,10 @@ export class AiService {
           });
           // CR-2：流式工具执行审计（对齐非流式 runToolLoop）——行形状见 buildToolCallAudit
           // HS-9 粒度门控：tool 级在 off 时不记录
+          // ACT-4：**必须 await**（理由同上一条决策审计）——这一行与副作用登记同为执行路径的一半，
+          // 不可 fire-and-forget，否则「工具已执行、审计未写」在崩溃窗口下可达。
           if (await this._shouldAudit('tool')) {
-            this.auditService.log(
+            await this.auditService.log(
               buildToolCallAudit({
                 userId,
                 conversationId,
@@ -1114,7 +1143,7 @@ export class AiService {
           // CR-2：流式工具执行失败审计（T5 跨入口一致：deny 与两路成功分支同标 bridge）
           // HS-9 粒度门控：tool 级在 off 时不记录；W5-⑦ Explainable Authz：拒绝时记录真实原因
           if (await this._shouldAudit('tool')) {
-            this.auditService.log(
+            await this.auditService.log(
               buildToolCallAudit({
                 userId,
                 conversationId,
@@ -1280,7 +1309,7 @@ export class AiService {
                   await this.toolGate.riskLevelFor(tc.name),
                 )
               : null;
-            this.auditService.log(
+            await this.auditService.log(
               buildToolCallAudit({
                 userId: params.userId,
                 conversationId: params.conversationId,
@@ -1315,7 +1344,7 @@ export class AiService {
           // W5-⑦ Explainable Authz 落库：拒绝路径补审计 + reasons（决策轨迹展示「为何阻止」）
           // T5 跨入口一致：B 路径 proxy 工具 deny 也标 bridge（与流式 deny、两路成功分支同形）
           if (await this._shouldAudit('tool')) {
-            this.auditService.log(
+            await this.auditService.log(
               buildToolCallAudit({
                 userId: params.userId,
                 conversationId: params.conversationId,

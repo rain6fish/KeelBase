@@ -90,6 +90,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddFollowupPlanCustomerId*',
   '*AddWindowAndAgent*',
   '*AddUndeclaredWrites*',
+  '*DropUserRolesTable*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

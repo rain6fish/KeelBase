@@ -160,11 +160,19 @@ export class SubAgentOrchestrator {
       readOnlyExecutor?: ReadOnlyToolExecutor;
     },
   ): Promise<{ content: string; usage?: LlmUsage }> {
-    // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）
+    // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）。
+    //
+    // ACT-1：**继承**父上下文，只覆盖本次委托要改的字段。此前是新建一个只含这三个字段的 context，
+    // 于是父作用域的 `sessionId` / `username` / `source` 全部丢失 —— 子代理作用域内写出的
+    // 审计行与副作用行会拿到 `agentId` 却丢掉身份链的另外三段，责任链在此断掉。
+    // 这不只影响「子代理补审计行」（§22.19 AU-2 余项）：那一行正是写在这个作用域里的，
+    // 若不同时继承，补出来的行仍然是断链的。
+    const parent = actorContext.getStore();
     return actorContext.run(
       {
+        ...parent,
         agentId: agent.name,
-        callerAgentId: actorContext.getStore()?.agentId,
+        callerAgentId: parent?.agentId,
         businessIntent: 'sub-agent',
       },
       () => this.runSubAgentLoopInner(agent, task, priorResults, params),

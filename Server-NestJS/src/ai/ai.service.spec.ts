@@ -1595,6 +1595,146 @@ describe('AiService', () => {
       expect(declinedAudit![0].authorization).toBeUndefined();
     });
 
+    it('ACT-3：勾选「不再询问」只免**那一次调用** —— 同工具换参数仍须确认', async () => {
+      async function* streamA() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"A项目","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* streamB() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_2',
+            name: 'create_event',
+            arguments: '{"title":"B项目","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* streamDone() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(streamA())
+        .mockReturnValueOnce(streamB())
+        .mockReturnValueOnce(streamDone());
+
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 42 } });
+
+      const tokens: string[] = [];
+      const originalCreate = confirmationStore.create.bind(confirmationStore);
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
+        tokens.push(r.token);
+        return r;
+      });
+
+      const it = aiService.chatStream('1', { message: '创建两个事件' });
+      expect((await it.next()).value.type).toBe('tool_start');
+      const firstConfirm = await it.next();
+      expect(firstConfirm.value.type).toBe('confirmation_request');
+      expect(tokens).toHaveLength(1);
+
+      // 批准 A 次调用**并勾选「不再询问」**（旧实现此刻把整个 create_event 都放行）
+      confirmationStore.resolve(tokens[0], '1', 'approve', true);
+
+      // 换参数再来一次：必须**重新确认**。旧实现（按工具名免确认）这里不会再发 confirmation_request，
+      // 因而这一环根本进不来 —— 断言即钉住旧实现不可能产出的观测面。
+      let secondAsked = false;
+      for await (const c of it) {
+        if ((c as any).type === 'confirmation_request') {
+          secondAsked = true;
+          expect(tokens).toHaveLength(2);
+          confirmationStore.resolve(tokens[1], '1', 'decline');
+        }
+      }
+      expect(secondAsked).toBe(true);
+      expect(tokens).toHaveLength(2);
+
+      // A 执行了（被批准）；B 没有（被拒）—— 免确认没有顺延到换参数的调用上
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+      expect(mockToolRegistry.execute.mock.calls[0][1]).toMatchObject({ title: 'A项目' });
+    });
+
+    it('ACT-4：执行路径的审计写入被 await —— 审计未落库时流不越过它', async () => {
+      async function* streamTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: {
+            index: 0,
+            id: 'call_1',
+            name: 'create_event',
+            arguments: '{"title":"评审","startTime":"S","endTime":"E"}',
+          },
+        };
+      }
+      async function* streamDone() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream.mockReturnValueOnce(streamTool()).mockReturnValueOnce(streamDone());
+
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 42 } });
+
+      // 把**决策审计**那一笔写入悬停：不释放就等于「审计还没落库」
+      let releaseAudit: (() => void) | undefined;
+      const heldAudit = new Promise<void>((res) => {
+        releaseAudit = res;
+      });
+      let held = false;
+      (mockAuditService.log as jest.Mock).mockImplementation(async (entry: any) => {
+        if (entry?.action === 'tool_confirmation' && !held) {
+          held = true;
+          await heldAudit;
+        }
+      });
+
+      let token: string | undefined;
+      const originalCreate = confirmationStore.create.bind(confirmationStore);
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
+        token = r.token;
+        return r;
+      });
+
+      const it = aiService.chatStream('1', { message: '创建事件' });
+      expect((await it.next()).value.type).toBe('tool_start');
+      expect((await it.next()).value.type).toBe('confirmation_request');
+      confirmationStore.resolve(token!, '1', 'approve');
+
+      // 审计未落库 ⇒ 流必须停在写入之前。
+      // 旧实现是 fire-and-forget（不 await），这里会直接拿到下一个 chunk —— 这正是要钉住的观测面。
+      // 注意复用**同一个** next()：另起一个会把解开后的第一个 chunk 吃掉。
+      const pendingNext = it.next();
+      const raced = await Promise.race([
+        pendingNext.then(() => 'chunk'),
+        new Promise((res) => setTimeout(() => res('stalled'), 100)),
+      ]);
+      expect(raced).toBe('stalled');
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+
+      // 放行审计后，流继续（决策结果 → 执行 → done）
+      releaseAudit!();
+      expect((await pendingNext).value.type).toBe('confirmation_decision');
+      for await (const _ of it) {
+        /* 排空 */
+      }
+    });
+
     it('should emit tool_start/tool_end around a read tool call', async () => {
       async function* mockStreamWithReadTool() {
         yield {

@@ -610,12 +610,33 @@ export class AuthService {
       throw BusinessException.of('USER_NOT_FOUND');
     }
 
-    // 轮换：生成新 token → 更新会话行 + 单列
+    // 轮换：生成新 token → **条件更新**会话行，守卫 = 仍是本次读到的那个旧哈希。
+    //
+    // 为什么必须是条件更新：`findOne → 校验 → save` 是 read-modify-write。同一 refresh token
+    // 并发两次时两边都能通过上面的校验，于是**都**换到新 token —— 被绕过的不是「轮换」，是
+    // 「失配 → 撤销该用户全部会话」这条**盗用检测**（OAuth 2.0 Security BCP 的 refresh-token
+    // reuse detection：同一 token 被用第二次即视为泄露）。条件更新是唯一仲裁点，只有先到者拿得到该行。
+    //
+    // 客户端侧已有 single-flight（`Front-Flutter/lib/core/api/api_client.dart` 的
+    // `_refreshSingleFlight`：并发 401 等同一个 future，不各自发起刷新），故正常客户端不会
+    // 自己撞出这条路径 —— 命中它即真的重放。
+    //
+    // 先例：`ConfirmationStore.resolve` / ARC-3 派发认领同法（条件更新 + affected 判胜负）。
     const accessToken = this.generateAccessToken(user.id, user.username, user.role);
     const newRefreshToken = await this.generateRefreshToken(user);
-    session.refreshHash = this.hashToken(newRefreshToken);
-    session.lastActiveAt = new Date();
-    await this.sessionRepo.save(session);
+    const rotated = await this.sessionRepo.update(
+      { id: session.id, refreshHash: tokenHash },
+      { refreshHash: this.hashToken(newRefreshToken), lastActiveAt: new Date() },
+    );
+    // 只在**明确** 0 行命中时认定「该 token 已被并发使用」——undefined 表示驱动没给该信息
+    // （真实 TypeORM 的 update 总是带 affected；此处对不放该字段的替身保持宽容，
+    // 口径与 `ConfirmationStore.resolve` 一致，避免驱动差异把刷新全量打挂）。
+    if (rotated?.affected === 0) {
+      // 与上面的「失配」同义：同一 refresh token 被用了第二次 = 重放信号 → 撤销该用户全部会话
+      await this.sessionRepo.delete({ userId: payload.sub });
+      this.logger.warn(`Refresh token reuse detected: userId=${payload.sub}`);
+      throw new UnauthorizedException('Token rejected');
+    }
 
     return {
       accessToken,

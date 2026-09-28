@@ -123,6 +123,7 @@ describe('AuthService', () => {
     find: jest.fn(),
     create: jest.fn((d: any) => d),
     save: jest.fn((d: any) => Promise.resolve(d)),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 
@@ -491,9 +492,35 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBeDefined();
       expect(result.refreshToken).toBeDefined();
-      // 轮换：会话行 hash 更新为新 token
-      expect(mockSessionRepo.save).toHaveBeenCalled();
-      expect(mockSessionRepo.save.mock.calls[0][0].refreshHash).toMatch(/^[0-9a-f]{64}$/);
+      // 轮换走**条件更新**：守卫里必须带**旧哈希**（`refreshHash: 读到的那个`），
+      // 只按 id 更新就不是仲裁点了（SESS-1）。
+      expect(mockSessionRepo.update).toHaveBeenCalled();
+      const [guard, patch] = mockSessionRepo.update.mock.calls[0];
+      expect(guard).toEqual({ id: 10, refreshHash: tokenHash });
+      expect(patch.refreshHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(patch.lastActiveAt).toBeInstanceOf(Date);
+      // 旧实现是 save 整行 —— 它不可能产出「带旧哈希守卫的 update」
+      expect(mockSessionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('同一 refresh token 并发重放：落败方拿不到该行 → 撤销全部会话并 401（SESS-1）', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: 1, username: 'testuser' });
+
+      const tokenHash = crypto.createHash('sha256').update(dto.refreshToken).digest('hex');
+      // 两边都读到了同一行（旧实现的 TOCTOU 起点）
+      mockSessionRepo.findOne.mockResolvedValue({
+        id: 10,
+        userId: 1,
+        refreshHash: tokenHash,
+        lastActiveAt: new Date(),
+      });
+      mockRepository.findOne.mockResolvedValue(mockUser);
+      // 先到者已换掉该行 ⇒ 本次条件更新 0 行命中
+      mockSessionRepo.update.mockResolvedValueOnce({ affected: 0 });
+
+      await expect(service.refreshToken(dto)).rejects.toThrow(UnauthorizedException);
+      // 重放信号 → 与「失配」同一处置：撤销该用户全部会话
+      expect(mockSessionRepo.delete).toHaveBeenCalledWith({ userId: 1 });
     });
 
     it('should throw for an invalid refresh token', async () => {

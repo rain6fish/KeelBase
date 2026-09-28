@@ -422,12 +422,24 @@ export class AuditEvidenceService {
     const convRows: AiAuditLog[] = effect.conversationId
       ? await this.logRepo.find({ where: { conversationId: effect.conversationId }, order: { id: 'ASC' } })
       : [];
-    const trigger =
-      convRows.find(
-        (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
-      ) ??
-      [...convRows].reverse().find((l) => !l.isError && l.action === 'tool_call') ??
-      null;
+    // ACT-2：**配对不唯一时不猜**。
+    //
+    // 此前是「取会话里第一条 `toolName` 相符的 `tool_call`」，取不到还回落到「最后一条任意
+    // `tool_call`」。两条都会把**别人**的授权/意图挂到本条 effect 上：同一会话里对同名工具调用
+    // 两次（「给客户 A 建任务，再给客户 B 建任务」）是最常见的触发形态 —— B 的 effect 会拿到
+    // A 那次调用的 `businessEvent` / `evidence` / 授权快照，于是证据根指向的是**另一件事**。
+    //
+    // 现在只在**恰好一条**候选时配对。0 条（工具不同名）与多条（同名重复调用）都如实回 `null`，
+    // 即「无法归因」：`decision` / `summary` / `authorization` / `replay` 随之留空，而不是填一个
+    // 可能属于别人的。（与本仓 09-25 §6.5 立的规矩一致：未知不得被断言成确定。）
+    //
+    // **这不是「证据根功能变弱」，是它不再撒谎**：此前那种配对在单次调用的会话里同样工作，
+    // 只在多调用时给出错误答案。精确配对要等执行身份（roadmap §2.1.16 ACT-5）落地 —— 在那之前
+    // 「拒绝归因」是唯一诚实的选项。
+    const candidates = convRows.filter(
+      (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
+    );
+    const trigger = candidates.length === 1 ? candidates[0] : null;
     const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
     const identity = trigger ? await this._identityChainFromRow(trigger, agentCache) : null;
 
