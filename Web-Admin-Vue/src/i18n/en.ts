@@ -870,6 +870,22 @@ const en: ZhDict = {
   revokeEffect: 'Revoke',
   revokeEffectConfirm: 'Revoke "{title}"? Soft-deletes the record (recoverable via Trash)',
   diffFields: 'field changes',
+  // REV-11: claiming a stuck compensation records who is looking; it moves no status and asserts no outcome
+  claimEffect: 'Claim (take on this stuck compensation)',
+  claimDone: 'Claimed — this one is on you now',
+  claimNotStale: 'Not past the staleness threshold yet — nothing to claim',
+  claimAlreadyClaimed: 'Already claimed by someone else',
+  claimNotFound: 'No such side effect',
+  claimedBy: 'Claimed by',
+  ownerUserId: 'Accountable party',
+  // REV-7: who was acting for the user, read from this row without joining the audit row
+  agentId: 'Acting agent',
+  // REV-6 / REV-13: the change half of the identity is missing, and why (four causes, not equivalent)
+  identityIncomplete: 'No change snapshot',
+  identityReasonUnknown: 'reason unknown',
+  // ARC-6: acknowledging a dispute lifts "unresolved" while the evidence stays
+  acknowledgeDispute: 'Acknowledge this dispute (evidence kept)',
+  disputeAcknowledged: 'Acknowledged — no longer read as unresolved (evidence kept)',
 
   // Governance policy (HS-9)
   governancePolicy: 'Governance Policy',

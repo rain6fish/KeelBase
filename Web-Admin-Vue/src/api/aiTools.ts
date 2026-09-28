@@ -25,6 +25,21 @@ export const aiToolsApi = {
   revokeEffect(id: number): Promise<{ revoked: boolean; effectId: number }> {
     return governanceApi.delete<{ revoked: boolean; effectId: number }>(`/ai/tool-effects/${id}`)
   },
+  /**
+   * REV-11：认领一条滞留的 `compensating` 副作用 —— 记下**谁**接手了。
+   * 条件更新：只在仍 `compensating` + 已过陈旧阈值 + 无人认领时成立；拒绝按 `not_stale` /
+   * `already_claimed` / `not_found` 分报（调用方据此提示，别把它们压成一句「失败」）。
+   */
+  claimEffect(id: number): Promise<{ outcome: 'claimed' | 'not_stale' | 'already_claimed' | 'not_found'; claimedBy?: string | null; claimedAt?: string | null }> {
+    return governanceApi.post(`/ai/tool-effects/${id}/claim`)
+  },
+  /**
+   * ARC-6：确认补偿组的「声明与持有不一致」争议 —— 解除「未了结」，**证据原样保留**。
+   * 行无争议 409、行不存在 404；幂等（再确认返回原确认时刻）。
+   */
+  acknowledgeDispute(id: number): Promise<{ acknowledgedAt?: string; acknowledgedBy?: string }> {
+    return governanceApi.post(`/ai/tool-effects/${id}/acknowledge-dispute`)
+  },
   /** D1/B4 治理视图：业务动作 → AI 副作用 + 决策轨迹（主应用：轨迹依赖业务对话表） */
   governanceAction(resultType: string, resultId: number): Promise<GovernanceActionResponse> {
     return api.get(`/ai/governance/action/${resultType}/${resultId}`)

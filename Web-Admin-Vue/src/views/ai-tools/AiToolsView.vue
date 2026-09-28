@@ -90,7 +90,22 @@
         <StatusChip :status="item.resultType" :label-map="resultTypeMap" />
       </template>
       <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
-      <template #item.targetTitle="{ item }">{{ item.targetTitle || '-' }}</template>
+      <template #item.targetTitle="{ item }">
+        <div>{{ item.targetTitle || '-' }}</div>
+        <!-- REV-11 / REV-7：两件此前读不出来的事，现在由该行自己回答 -->
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="item.ownerUserId">{{ t('ownerUserId') }}: {{ item.ownerUserId }}</span>
+          <span v-if="item.agentId"> · {{ t('agentId') }}: {{ item.agentId }}</span>
+          <!-- REV-11：已认领就写明谁接手了；未认领且滞留则由操作列的认领钮承载 -->
+          <span v-if="item.revokeClaimedBy"> · {{ t('claimedBy') }}: {{ item.revokeClaimedBy }}</span>
+        </div>
+        <!-- REV-6/REV-13：身份缺「变更」那半 —— 四种成因不等价，故障那两种不该被读成设计 -->
+        <div v-if="item.identityIncomplete" class="text-caption text-warning">
+          {{ t('identityIncomplete') }}
+          <span v-if="item.identityIncompleteReason">· {{ item.identityIncompleteReason }}</span>
+          <span v-else>· {{ t('identityReasonUnknown') }}</span>
+        </div>
+      </template>
       <template #item.fieldDiff="{ item }">
         <el-button v-if="item.afterSnapshot" text size="small" type="primary" @click="showDiff(item)">
           {{ diffCount(item) }} {{ t('diffFields') }}
@@ -118,6 +133,28 @@
         <span v-else-if="item.status === 'revoking_external'" class="text-medium-emphasis text-caption">{{ t('revokingExternalHint') }}</span>
         <span v-else-if="item.status === 'revoke_failed'" class="text-error text-caption">{{ t('revokeFailed') }}</span>
         <span v-else class="text-medium-emphasis text-caption">—</span>
+        <!-- REV-11：滞留且无人接手 ⇒ 可认领。这是**派生**读数（服务端给），不是前端自己算的 -->
+        <el-button
+          v-if="item.revokeNeedsClaim"
+          text
+          size="small"
+          type="warning"
+          :title="t('claimEffect')"
+          @click="onClaim(item)"
+        >
+          <AppIcon icon="mdi-account-arrow-right-outline" />
+        </el-button>
+        <!-- ARC-6：有争议且**尚未确认** ⇒ 可确认（解除「未了结」，证据仍留） -->
+        <el-button
+          v-if="item.disputed && !item.dispute?.acknowledgedAt"
+          text
+          size="small"
+          type="info"
+          :title="t('acknowledgeDispute')"
+          @click="onAcknowledgeDispute(item)"
+        >
+          <AppIcon icon="mdi-flag-checkered" />
+        </el-button>
       </template>
     </AppTable>
 
@@ -312,6 +349,38 @@ async function onRevoke() {
     snackbar.error(err instanceof Error ? err.message : t('revokeFailed'))
   } finally {
     showRevoke.value = false
+  }
+}
+
+/**
+ * REV-11：认领一条滞留补偿。服务端的拒绝**分种类**（`not_stale` / `already_claimed` / `not_found`）——
+ * 对看台子的人是三回事，故各自给一句文案，不压成一个「失败」。
+ */
+const CLAIM_REFUSAL_KEYS: Record<string, string> = {
+  not_stale: 'claimNotStale',
+  already_claimed: 'claimAlreadyClaimed',
+  not_found: 'claimNotFound',
+}
+
+async function onClaim(item: ToolEffect) {
+  try {
+    const res = await aiToolsApi.claimEffect(item.id)
+    if (res.outcome === 'claimed') snackbar.success(t('claimDone'))
+    else snackbar.warning(t(CLAIM_REFUSAL_KEYS[res.outcome] ?? 'claimNotStale'))
+    loadEffects(effectPage.value)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
+  }
+}
+
+/** ARC-6：确认争议 —— 解除「未了结」，证据仍留。人的动作，故失败要报出来而不是静默。 */
+async function onAcknowledgeDispute(item: ToolEffect) {
+  try {
+    await aiToolsApi.acknowledgeDispute(item.id)
+    snackbar.success(t('disputeAcknowledged'))
+    loadEffects(effectPage.value)
+  } catch (err) {
+    snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   }
 }
 
