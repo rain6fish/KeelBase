@@ -29,6 +29,15 @@ export interface ChainVerification {
  * - hash 保持 64 hex（不引入版本前缀，key 探测决定匹配）。
  * 局限：createdAt/id 不入 payload（createdAt 由 DB 生成、id 仅排序）；并发写极小概率链分叉
  * （同 prevHash 两分支），verify 会把分叉当断链标出——审计量低、可接受。
+ * **尾部删除检不出**：verifyChain 自 `prevHash = null` 起算，故 `A → B → C` 截成 `A → B` 仍是合法前缀、
+ * 照样通过 —— 链本身答不出「后面本来还有没有」。挡住尾部的是**外部锚**（`ai/audit/evidence-anchor.ts`，
+ * 前提是有域外接收方），长期保全（WORM）是第三件独立的事、本仓不做。三层各证明什么见
+ * `docs/hs11-audit-chain.spec.md` §6.1。
+ *
+ * Limitation: a **tail deletion is not detected** — `verifyChain` starts from `prevHash = null`, so
+ * `A → B → C` truncated to `A → B` is a valid prefix and still passes. What answers "was there more" is
+ * the external anchor (`ai/audit/evidence-anchor.ts`, given an out-of-domain receiver); long-term
+ * preservation (WORM) is a third, separate thing this repository does not build. See spec §6.1.
  */
 @Injectable()
 export class AuditChainService {

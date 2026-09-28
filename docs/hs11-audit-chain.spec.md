@@ -100,6 +100,14 @@ No new env — reuses `ENCRYPTION_KEY` / `JWT_SECRET`. The chain key is domain-s
   Pre-migration legacy records are not backfilled; verify restarts the chain from the first hashed record.
 - `createdAt` 不入 payload（DB 生成、精度差异），时间顺序由 id/prevHash 隐含绑定。
   `createdAt` is excluded from the payload (DB-generated, precision differences); temporal order is implicitly bound by id/prevHash.
+- **尾部删除检不出**：`verifyChain` 从 `prevHash = null` 起算，故 `A → B → C` 截成 `A → B` 仍是**合法前缀**、校验照样通过 —— 链本身答不出「后面本来还有没有」。防线分三层，见 §6.1。
+  **Tail deletion is not detected**: `verifyChain` starts from `prevHash = null`, so truncating `A → B → C` to `A → B` leaves a **valid prefix** that still verifies — the chain alone cannot answer "was there more". The defence has three separate layers; see §6.1.
+
+### 6.1 三层各证明什么 / 6.1 What each layer proves
+
+The chain proves **internal continuity**: any row that is altered, removed from the middle, or reordered breaks it, and `verify` says where. It does not prove that nothing was removed **from the end** — a truncated chain is a valid chain. That question belongs to a different layer. The **external anchor** (`evidence-anchor.ts`, SM2 daily anchor) answers it: the day's evidence-package digests are aggregated into one signed `rootDigest` and **published outside KeelBase's trust domain**, so a holder of the public key can check that the day's set is the one that was published — which is what makes removal after the fact detectable. It carries two conditions: it only covers days that were actually anchored, and only for the packages included; and it only means anything with a receiver outside the trust domain (an anchor kept in-house is an empty promise — N-2 puts publication and key custody on the deployer). **Long-term preservation** (WORM / immutable archive) is a third, separate thing, and this repository does not build it. Consequence for wording: the chain does **not** carry "append-only" — that word belongs to the preservation layer, and this spec does not claim it.
+
+链证明的是**内部连续性**：任何一行被改、被从中间删、或被换序都会断链，且 `verify` 会指出断在哪。它**不**证明「末尾没有被删」—— 被截断的链仍是合法链。那个问题属于另一层：**外部锚**（`evidence-anchor.ts`，SM2 日锚）把某日全部证据包的 digest 聚合成一个签名的 `rootDigest` 并**发布到 KeelBase 信任域之外**，持公钥者据此可比对该日那批包是否仍是发布时那一批 —— 事件发生后的删除这才变得可检出。它带两个前提：只覆盖**确实锚定过**的日子、且只覆盖**被纳入的**那些包；以及**必须有域外接收方**（自持锚是空心承诺 —— 发布与密钥托管属部署方义务，见 N-2）。**长期保全**（WORM / 不可变归档）是第三件独立的事，本仓**不做**。落到措辞上的结论：**「链」不承载「只能追加 / append-only」** —— 那个词属于保全层，本规格不主张它。
 
 ---
 

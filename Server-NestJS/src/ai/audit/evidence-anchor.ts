@@ -14,6 +14,21 @@
  * 本模块只负责**产出与签名**，发布/接收渠道由部署方选定（N-2 已把「可信时间戳/密钥托管」划为部署方义务）。
  *
  * **措辞红线**（执行包 §6.1）：本能力提升的是**第三方可验性**，不新增「不可抵赖 / 不可篡改」承诺。
+ *
+ * **它回答的正是链答不了的那一问（三层口径见 `docs/hs11-audit-chain.spec.md` §6.1）**：哈希链只能证明
+ * **内部连续性** —— `A→B→C` 截成 `A→B` 仍是合法前缀、照样通过；而锚把**某日那批包的集合**固定下来并签名
+ * 外发，事后删包或删行会让「今天的集合」与「当时发布的 rootDigest」对不上，尾部删除这才可被察觉。
+ * **两个前提**：只覆盖**确实锚定过**的日子、且只覆盖**纳入聚合**的那些包；并且**必须真的有人在域外比对**
+ * （自持锚是空心承诺，发布与密钥托管属部署方义务，N-2）。长期保全（WORM）是第三件独立的事，本仓不做。
+ *
+ * **This is the layer that answers the question the chain cannot**: the hash chain proves **internal
+ * continuity** only — `A→B→C` truncated to `A→B` is still a valid prefix — whereas the anchor fixes the
+ * **set of packages for a day** and publishes it signed, so deleting a package or a row afterwards makes
+ * today's set disagree with the published `rootDigest`, which is what makes a tail deletion noticeable.
+ * Two conditions: it covers only days that were anchored and only the packages included in the
+ * aggregation, and it means something only if someone outside the trust domain actually compares (an
+ * anchor kept in-house is an empty promise — publication and key custody are the deployer's duty, N-2).
+ * Long-term preservation (WORM) is a third, separate thing this repository does not build.
  */
 import { createHash } from 'node:crypto';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv, verifyCanonical } from '../../common/crypto/sm2';
