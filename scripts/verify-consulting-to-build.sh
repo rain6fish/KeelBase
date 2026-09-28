@@ -100,7 +100,8 @@ JEST_LINE="$(grep -E 'Tests:' /tmp/_c2b_jest.log | tail -1 | tr -s ' ')"
 printf '   %s\n' "$JEST_LINE"
 
 # ── 4. 迁移一致性（roadmap S4：migration:generate 无漂移）──────────────────────
-# 语义：生成模块自带实体但**不带迁移**（`migration:generate` 因此首轮应产出该模块的迁移）；
+# 语义：生成模块自带实体；迁移**可能已在仓里**（followup_plans 就是这条链自己的产物，其迁移已检进仓）⇒
+#      首轮产出与否都算正常，真正的判据是下面那次复生成——
 #      应用后**再生成必须 "No changes"**——即生成物与库结构自洽（无漂移）。
 log "④ 迁移：首轮生成该模块迁移 → 应用 → 复生成应为 No changes"
 (
@@ -112,7 +113,8 @@ log "④ 迁移：首轮生成该模块迁移 → 应用 → 复生成应为 No 
   rm -f "$DB"
   DB_PATH="$DB" npx typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts >/dev/null 2>&1
   DB_PATH="$DB" npx typeorm-ts-node-commonjs migration:generate src/migrations/_c2b_gen -d src/config/typeorm-data-source.ts >/dev/null 2>&1 || true
-  ls src/migrations/*_c2b_gen* >/dev/null 2>&1 || fail "首轮未产出模块迁移（生成模块缺实体变化？）"
+  ls src/migrations/*_c2b_gen* >/dev/null 2>&1 \
+    || log "（首轮无新迁移：该模块的迁移已在仓里，符合预期）"
   DB_PATH="$DB" npx typeorm-ts-node-commonjs migration:run -d src/config/typeorm-data-source.ts >/dev/null 2>&1
   OUT="$(DB_PATH="$DB" npx typeorm-ts-node-commonjs migration:generate src/migrations/_c2b_recheck -d src/config/typeorm-data-source.ts 2>&1 || true)"
   echo "$OUT" | grep -q 'No changes in database schema' \
