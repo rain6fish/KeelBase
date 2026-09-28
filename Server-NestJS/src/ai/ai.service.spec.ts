@@ -1629,7 +1629,7 @@ describe('AiService', () => {
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true } as any);
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 42 } });
 
       const tokens: string[] = [];
@@ -1640,7 +1640,8 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: '创建两个事件' });
+      // 实现是 async generator，声明却是 `AsyncIterable`（没有 `next()`）——要逐帧取就得把这件事说明白
+      const it = aiService.chatStream('1', { message: '创建两个事件' }) as AsyncGenerator<StreamChunk>;
       expect((await it.next()).value.type).toBe('tool_start');
       const firstConfirm = await it.next();
       expect(firstConfirm.value.type).toBe('confirmation_request');
@@ -1687,7 +1688,7 @@ describe('AiService', () => {
 
       mockToolRegistry.requiresConfirmation.mockReturnValue(true);
       mockToolRegistry.riskLevel.mockReturnValue('R3');
-      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true });
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true } as any);
       mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 42 } });
 
       // 把**决策审计**那一笔写入悬停：不释放就等于「审计还没落库」
@@ -1711,7 +1712,7 @@ describe('AiService', () => {
         return r;
       });
 
-      const it = aiService.chatStream('1', { message: '创建事件' });
+      const it = aiService.chatStream('1', { message: '创建事件' }) as AsyncGenerator<StreamChunk>;
       expect((await it.next()).value.type).toBe('tool_start');
       expect((await it.next()).value.type).toBe('confirmation_request');
       confirmationStore.resolve(token!, '1', 'approve');
