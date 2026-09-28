@@ -34,14 +34,14 @@ export class FollowupPlansService {
 
   /**
    * 创建。三条**手写规则**落在这里 —— 它们是 Business Spec 的 `unmapped` 项（薄协议表达不了业务规则，
-   * 见 `docs/business-spec.md` §4）：① 必须指向一个客户、② 必须写明计划跟进日（这两条是 Rule 1/2 的前提），
+   * 见 `docs/business-spec.md` §4）：① 必须指向一个客户、② 必须写明计划跟进日（Rule 1/2 的前提），
    * ③ Rule 1 同一客户同一周内不重复、④ Rule 2 计划跟进日落在未来 7 天内。生成器不产出它们，故在此手写。
    */
   async create(dto: CreateFollowupPlanDto, userId: number): Promise<FollowupPlan> {
     if (dto.customerId == null) throw new BadRequestException('跟进计划必须指向一个客户');
     if (dto.dueDate == null) throw new BadRequestException('跟进计划必须写明计划跟进日');
     this.assertDueDateInWindow(dto.dueDate);
-    await this.assertNoDuplicateInWeek(dto.customerId, dto.dueDate, userId);
+    await this.assertNoDuplicateInWeek(dto.customerId, userId);
 
     const entity = this.followup_plansRepository.create({
       ...dto,
@@ -63,21 +63,17 @@ export class FollowupPlansService {
   /**
    * Rule 1：同一客户同一周内不重复建立跟进计划。
    *
-   * 「同一周」取**计划跟进日**所在的自然周（周一起算）——这条口径是假设，记在
-   * `.keelbase/interview/followup-plans.md` Q9。范围按 **owner 收窄**：计划归创建的销售本人所有
-   * （见 Business Spec `decisions[]`），故两位销售各为同一客户排计划互不冲突。
+   * 「同一周」取**创建时刻**所在的自然周（周一起算，按 UTC 日切）——口径由用户 2026-09-28 裁定，
+   * 依据与沿革记在 `.keelbase/interview/followup-plans.md` Q9。范围按 **owner 收窄**：计划归创建的
+   * 销售本人所有（见 Business Spec `decisions[]`），故两位销售各自为同一客户排计划互不冲突。
    */
-  private async assertNoDuplicateInWeek(
-    customerId: number,
-    dueDate: string,
-    userId: number,
-  ): Promise<void> {
-    const { start, endExclusive } = utcWeekOf(new Date(dueDate));
+  private async assertNoDuplicateInWeek(customerId: number, userId: number): Promise<void> {
+    const { start, endExclusive } = utcWeekOf(new Date());
     const existing = await this.followup_plansRepository.count({
       where: {
         userId,
         customerId,
-        dueDate: Between(start, new Date(endExclusive.getTime() - 1)),
+        createdAt: Between(start, new Date(endExclusive.getTime() - 1)),
       },
     });
     if (existing > 0) throw new ConflictException('本周已为该客户建立过跟进计划');

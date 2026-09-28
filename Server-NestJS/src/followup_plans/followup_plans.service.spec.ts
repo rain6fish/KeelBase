@@ -151,23 +151,23 @@ describe('FollowupPlansService', () => {
       }
     });
 
-    it('Rule 1：同客户同周已计划过 → 409，且查询落在「跟进日所在自然周」的窗口内', async () => {
+    it('Rule 1：同客户同周已计划过 → 409，且查询落在「创建时刻所在自然周」的窗口内', async () => {
       mockRepo.count.mockResolvedValue(1);
-      const due = isoDay(new Date(utcDay(new Date()).getTime() + DAY_MS));
 
-      await expect(service.create(validCreate({ dueDate: due }) as any, 5)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.create(validCreate() as any, 5)).rejects.toThrow(ConflictException);
 
       const where = mockRepo.count.mock.calls[0][0].where;
       expect(where.userId).toBe(5); // 范围按 owner 收窄：计划归创建的销售本人
       expect(where.customerId).toBe(7);
-      const [from, to] = where.dueDate.value as [Date, Date];
+      // 判据是**创建时刻**所在周，不是跟进日所在周：旧实现恰好相反，故这两条对它为红
+      expect(where.createdAt).toBeDefined();
+      expect(where.dueDate).toBeUndefined();
+      const [from, to] = where.createdAt.value as [Date, Date];
       expect(from.getUTCDay()).toBe(1); // 周一为界
       expect(to.getTime() - from.getTime()).toBe(7 * DAY_MS - 1);
-      const at = new Date(due).getTime();
-      expect(at).toBeGreaterThanOrEqual(from.getTime());
-      expect(at).toBeLessThanOrEqual(to.getTime());
+      const now = Date.now();
+      expect(now).toBeGreaterThanOrEqual(from.getTime());
+      expect(now).toBeLessThanOrEqual(to.getTime());
     });
 
     it('Rule 1：本周没有同客户计划时放行', async () => {
