@@ -883,6 +883,8 @@ const zh = {
   // REV-6 / REV-13：身份缺「变更」那半，以及为什么缺（四成因不等价）
   identityIncomplete: '身份缺变更快照',
   identityReasonUnknown: '成因不可考',
+  // REV-10：本次调用写了、账上却没有的行（发现，不是裁决）
+  undeclaredWrites: '有 {n} 处写没有登记',
   // ARC-6：确认争议 = 解除「未了结」，证据原样保留
   acknowledgeDispute: '确认该争议已处理（证据保留）',
   disputeAcknowledged: '已确认——该组不再读作未了结（证据仍在）',

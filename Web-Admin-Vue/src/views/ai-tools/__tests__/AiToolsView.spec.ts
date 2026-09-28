@@ -41,8 +41,13 @@ import AiToolsView from '../AiToolsView.vue'
 const AppTableStub = defineComponent({
   name: 'AppTable',
   props: ['headers', 'items', 'loading', 'total', 'itemsPerPage'],
+  // 渲染**被测断言所依赖的**两个插槽：actions（按钮）与 targetTitle（REV-7/10/11/13 的读数都挂在这里）。
+  // 少了后者，那些断言就会在「根本没渲染」的情况下通过或失败，测的就不是它们要说的事。
   template:
-    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.actions" :item="item" /></template></div>',
+    '<div class="app-table-stub"><template v-for="item in items" :key="item.id">' +
+    '<div class="cell-title"><slot name="item.targetTitle" :item="item" /></div>' +
+    '<div class="cell-actions"><slot name="item.actions" :item="item" /></div>' +
+    '</template></div>',
 })
 const ConfirmDialogStub = defineComponent({
   name: 'ConfirmDialog',
@@ -201,6 +206,44 @@ describe('AiToolsView', () => {
 
     expect(ackMock).toHaveBeenCalledWith(12)
     expect(successMock).toHaveBeenCalledWith('已确认——该组不再读作未了结（证据仍在）')
+  })
+
+  /** REV-10：账上没有的写**在写时就看得见**，不必等撤销时才发现 */
+  it('有「账上没有的写」的行把它渲染出来（主键未知时给 ?，不编一个假 id）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 13, toolName: 'create_event', conversationId: null, resultType: 'event', resultId: 100, argsHash: 'h', createdAt: '2026-09-28', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate', revocable: true, undeclaredWrites: [{ entity: 'CrmTask', id: 9, kind: 'insert' }, { entity: 'Todo', id: null, kind: 'insert' }] },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('有 2 处写没有登记')
+    expect(text).toContain('CrmTask#9')
+    expect(text).toContain('Todo#?') // 主键未知 ⇒ 给 ?，不编数字
+  })
+
+  it('反向对照：没有该读数的行不渲染这一块', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 14, toolName: 'create_event', conversationId: null, resultType: 'event', resultId: 101, argsHash: 'h', createdAt: '2026-09-28', targetExists: true, targetSoftDeleted: false, targetTitle: '周会', status: 'executed', revokeClass: 'local_compensate', revocable: true },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('写没有登记')
   })
 
   it('反向对照：已确认过的争议**不再**显示确认钮（且不显示认领钮）', async () => {
