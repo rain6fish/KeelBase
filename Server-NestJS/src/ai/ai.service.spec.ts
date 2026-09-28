@@ -1262,6 +1262,10 @@ describe('AiService', () => {
         buildKey: jest.fn().mockReturnValue('k'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record: recordSpy,
+        // ACT-5/6 切片1：本地写执行前会占位 —— 替身须满足接口（缺了会在逐工具的错误兜底里变成「执行 0 次」）
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
       };
 
       const stream = aiService.chatStream('1', { message: 'create an event and a todo' });

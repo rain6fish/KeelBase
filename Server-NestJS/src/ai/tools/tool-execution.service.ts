@@ -191,6 +191,76 @@ export class ToolExecutionService {
     if (!this.toolEffectsService) {
       return this.toolRegistry.execute(toolName, args, userId);
     }
+
+    // ACT-5/6 切片1（roadmap §2.1.16）：**本地实体写**在执行前先占位 —— 使「这次调用是否已在执行」
+    // 有一个**不依赖「写已完成」**的答案。此前是 check-then-act：并发的两份请求都读到「还没有」，
+    // 于是目标被写两次，而 `idempotency_key` 的唯一约束只把**账**收成一行 —— 它护的是账，不是动作。
+    // 占位走 `claimWrite`，其唯一约束就是仲裁点：先插进去的那个人拥有这次执行。
+    //
+    // **范围**：仅本地实体写。代理写（ProxyTool，B 路径）与外部 MCP 写属「目标系统是否收到不可知」
+    // 那一类，其失败政策仍待裁（侦察结论 ②），本切片**不动**它们，保持既有路径。
+    // REV-7：agent 身份仍在**边界处**读一次（与审计行取的是同一个 `actorContext`），随 ctx 传给登记层。
+    const agentId = actorContext.getStore()?.agentId;
+    const claimKey = this.isProxyTool(toolName)
+      ? null
+      : AiToolEffectsService.buildKey({ userId, conversationId, toolName, args });
+    if (claimKey) {
+      const claim = await this.toolEffectsService.claimWrite({
+        userId,
+        conversationId,
+        runId,
+        toolName,
+        args,
+        agentId,
+      });
+      if (!claim.won) {
+        // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。
+        return {
+          success: false,
+          error:
+            `工具 "${toolName}" 的这次调用已由另一请求接管（状态 ${claim.status}）——` +
+            `本次未执行；其结果是成功还是失败不由本次调用回答`,
+        };
+      }
+    }
+
+    try {
+      const { result, effectId } = await this._executeLocalWrite(
+        toolName,
+        args,
+        userId,
+        conversationId,
+        runId,
+        agentId,
+      );
+      if (claimKey) await this.toolEffectsService.settleClaim(claimKey, effectId);
+      return result;
+    } catch (err) {
+      // 本地实体写失败 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍然可用。
+      //（把「校验失败」这类确定性失败也锁成不可重试，是功能倒退，不是安全。）
+      if (claimKey) await this.toolEffectsService.releaseClaim(claimKey, 'execute_failed');
+      throw err;
+    }
+  }
+
+  /**
+   * 本地实体写的执行体。ACT-5/6 切片1 从 `executeWrite` 抽出（**行为逐字不变**，只是多了返回 effectId），
+   * 为的是让「占位 → 执行 → 落定/释放」在**一个**可判定的位置上包住它 ——
+   * 否则要在这个方法里四处 `return` 之前各 settle 一次，漏一处就留下永久 claimed 的行。
+   */
+  private async _executeLocalWrite(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+    conversationId?: string,
+    runId?: string,
+    agentId?: string,
+  ): Promise<{ result: ToolResult; effectId: number | null }> {
+    // 窄化：`toolEffectsService` 是 `@Optional()`，而「已装配」这个前提在方法边界上会丢。
+    // 写成显式抛错而不是 `!`，免得装配真缺时变成一次难查的 undefined 调用。
+    const effects = this.toolEffectsService;
+    if (!effects) throw new Error('toolEffectsService 未装配（_executeLocalWrite 不应在被判空后调用）');
+
     // §internal.16 A-1：update 类写工具 execute 前抓 before（本地实体重查 / proxy 用 args 摘要）；create 类返回 null
     const before = this.snapshotCaptor ? await this.snapshotCaptor.captureBefore(toolName, args) : null;
     // REV-10：把工具执行**包进采集窗口** —— 只有这一段是「这次调用真正写下的东西」。
@@ -204,9 +274,8 @@ export class ToolExecutionService {
     // 级联补偿（docs/cascade-compensation.spec.md §3）：复合写工具在 data.effects 声明跨表多目标；
     // 形状非法 → declaredEffects 返回 null（fail-closed）→ 回落既有单目标路径，绝不猜。
     const declared = result.success && !isProxyWrite ? declaredEffects(result.data) : null;
-    // REV-7：agent 身份在**边界处**读一次（与审计行取的是同一个 `actorContext`），随 ctx 传给登记层，
+    // REV-7：`agentId` 由调用方在**边界处**读一次后传入（不再在此重复读），
     // 使「哪个 agent 替哪个用户写了这条」由副作用行**自己**回答，不必 join 两个结构再近似配对。
-    const agentId = actorContext.getStore()?.agentId;
     if (
       result.success &&
       (proxyAnchor || declared || (result.data && (result.data as any).id !== undefined))
@@ -225,7 +294,7 @@ export class ToolExecutionService {
               return { before, after: captured.json, afterReason: captured.reason };
             }),
           );
-          const registeredGroup = await this.toolEffectsService.recordGroup(
+          const registeredGroup = await effects.recordGroup(
             { userId, conversationId, runId, toolName, args, agentId, observedWrites },
             declared,
             snapshots,
@@ -238,13 +307,16 @@ export class ToolExecutionService {
               `[ToolExecution] ${toolName}: 声明的 ${declared.length} 条副作用一行都没登记（幂等键被非本组成员占用）——本次写不可撤`,
             );
           }
-          return result;
+          // effectId 指向**根行**（组身份由根承载；只用于让占位行指回它的副作用，不作它用）
+          const groupRoot =
+            registeredGroup.find((e) => e.parentEffectId == null) ?? registeredGroup[0];
+          return { result, effectId: groupRoot?.id ?? null };
         }
         // #4 副作用类型：proxy → proxy_call；旗舰 create_* → 显式别名；其余 create_* → 由工具名推导（生成模块，撤销走软删）
         const resultType = isProxyWrite ? 'proxy_call' : writeEffectTypeFor(toolName);
         if (!resultType) {
           // 无法推导类型（非 create 且无别名）——fail-closed：不登记副作用，避免错指记录（旧逻辑兜底 'todo' 为 bug）
-          return result;
+          return { result, effectId: null };
         }
         const resultId = isProxyWrite
           ? typeof (result.data as any)?.id === 'number'
@@ -257,15 +329,17 @@ export class ToolExecutionService {
         const after = this.snapshotCaptor
           ? (await this.snapshotCaptor.captureAfter(resultType, resultId, result.data)).json
           : null;
-        await this.toolEffectsService.record(
+        const recorded = await effects.record(
           { userId, conversationId, runId, toolName, args, agentId, observedWrites },
           resultType,
           resultId,
           { before, after },
         );
+        return { result, effectId: recorded?.id ?? null };
       }
     }
-    return result;
+    // 未登记副作用的成功写（预审类 / dry-run 预览）⇒ effectId 如实为 null，不假装有一条
+    return { result, effectId: null };
   }
 
   /**

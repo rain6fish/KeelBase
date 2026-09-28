@@ -35,6 +35,9 @@ describe('ToolExecutionService（执行域）', () => {
     it('HS-3: executeWrite 无已有副作用时执行并记录', async () => {
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         buildKey: jest.fn().mockReturnValue('new-key'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
@@ -66,6 +69,9 @@ describe('ToolExecutionService（执行域）', () => {
       registerExternal(callTool);
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
         listGroup: jest.fn().mockResolvedValue([]),
@@ -94,6 +100,9 @@ describe('ToolExecutionService（执行域）', () => {
       registerExternal(jest.fn().mockResolvedValue({ executed: false, error: 'boom' }));
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
         listGroup: jest.fn().mockResolvedValue([]),
@@ -109,6 +118,9 @@ describe('ToolExecutionService（执行域）', () => {
       registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
         listGroup: jest.fn().mockResolvedValue([]),
@@ -138,6 +150,9 @@ describe('ToolExecutionService（执行域）', () => {
       registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
         listGroup: jest.fn().mockResolvedValue([]),
@@ -155,6 +170,9 @@ describe('ToolExecutionService（执行域）', () => {
       registerExternal(jest.fn().mockResolvedValue({ executed: true, content: {} }));
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
         listGroup: jest.fn().mockResolvedValue([]),
@@ -170,6 +188,9 @@ describe('ToolExecutionService（执行域）', () => {
     it('HS-3: create_contract 副作用 resultType 记 contract（非兜底 todo）', async () => {
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         buildKey: jest.fn().mockReturnValue('new-key-contract'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
@@ -191,6 +212,9 @@ describe('ToolExecutionService（执行域）', () => {
     it('FP-8: B 路径写空体成功 → 仍记 proxy_call 副作用锚（proxyResultId），不假装有 data', async () => {
       const record = jest.fn().mockResolvedValue({ id: 1 });
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         buildKey: jest.fn().mockReturnValue('fp8-key'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
@@ -217,6 +241,9 @@ describe('ToolExecutionService（执行域）', () => {
     it('FP-8: 非 proxy 写返回空体（无 data）→ 不记录（缺锚不伪造）', async () => {
       const record = jest.fn();
       (toolExecution as any).toolEffectsService = {
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
         buildKey: jest.fn().mockReturnValue('local-empty'),
         findExisting: jest.fn().mockResolvedValue({ existing: false }),
         record,
