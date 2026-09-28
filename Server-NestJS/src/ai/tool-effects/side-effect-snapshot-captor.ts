@@ -4,7 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { resolveLocalEntity } from './side-effect-revoker';
-import { isSensitiveKey } from '../../common/utils/mask';
+import { isSensitiveKey, REDACTED } from '../../common/utils/mask';
 
 const MAX_STRING = 200;
 const MAX_ARRAY = 50;
@@ -130,7 +130,7 @@ export class SideEffectSnapshotCaptor {
     if (Array.isArray(value)) return value.slice(0, MAX_ARRAY).map((v) => this._sanitize(v, depth + 1));
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = isSensitiveKey(k) ? '[REDACTED]' : this._sanitize(v, depth + 1);
+      out[k] = isSensitiveKey(k) ? REDACTED : this._sanitize(v, depth + 1);
     }
     return out;
   }

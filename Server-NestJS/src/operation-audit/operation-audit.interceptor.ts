@@ -10,14 +10,9 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
-import { isSensitiveKey, redactSensitive } from '../common/utils/mask';
+import { isSensitiveKey, REDACTED, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
-
-// The placeholder an audit row shows in place of a sensitive value — one spelling for both the
-// before-snapshot and `changes`, so whoever reads the audit recognises it at a glance.
-// 审计里敏感值的占位符 —— before 快照与 changes 共用一个写法，读审计的人一眼就能认出。
-const REDACTED = '[REDACTED]';
 
 /** §internal.16 A-1 REST 资源路径 → 本地实体名（PATCH/PUT 变更前快照查询用；按优先级先精确后兜底） */
 const RESOURCE_ENTITY: Array<[RegExp, string]> = [

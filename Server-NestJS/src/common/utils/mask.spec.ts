@@ -5,6 +5,7 @@ import {
   maskEmail,
   maskPhone,
   maskText,
+  REDACTED,
   redactSensitive,
   registerSensitiveKeys,
 } from './mask';
@@ -49,8 +50,8 @@ describe('mask utils', () => {
     it('redacts password and token values', () => {
       const json = JSON.stringify({ username: 'alex', password: 'Secret123', token: 'abc' });
       const out = redactSensitive(json);
-      expect(out).toContain('"password":"***"');
-      expect(out).toContain('"token":"***"');
+      expect(out).toContain('"password":"[REDACTED]"');
+      expect(out).toContain('"token":"[REDACTED]"');
       expect(out).toContain('"username":"alex"');
     });
 
@@ -64,27 +65,37 @@ describe('mask utils', () => {
     // 片段名：内建清单枚举不到它们，只能靠判据的片段那一半覆盖。旧实现按精确名逐个建正则 ——
     // 这些名字连同其值原样漏掉。
     it('命中片段的名字也打码（apiToken / resetTokenHash / confirmPassword）', () => {
-      expect(redactSensitive('{"apiToken":"tok-live-1"}')).toBe('{"apiToken":"***"}');
-      expect(redactSensitive('{"resetTokenHash":"deadbeef"}')).toBe('{"resetTokenHash":"***"}');
-      expect(redactSensitive('{"confirmPassword":"P@ss1"}')).toBe('{"confirmPassword":"***"}');
+      expect(redactSensitive('{"apiToken":"tok-live-1"}')).toBe('{"apiToken":"[REDACTED]"}');
+      expect(redactSensitive('{"resetTokenHash":"deadbeef"}')).toBe('{"resetTokenHash":"[REDACTED]"}');
+      expect(redactSensitive('{"confirmPassword":"P@ss1"}')).toBe('{"confirmPassword":"[REDACTED]"}');
     });
 
     it('嵌套对象与数组照旧覆盖', () => {
       expect(redactSensitive('{"user":{"email":"a@b.c"},"list":[{"phone":"13800138000"}]}')).toBe(
-        '{"user":{"email":"***"},"list":[{"phone":"***"}]}',
+        '{"user":{"email":"[REDACTED]"},"list":[{"phone":"[REDACTED]"}]}',
       );
     });
 
     // The old implementation only matched quoted values, so a numeric token survived in clear text.
     // 旧实现只匹配「带引号的值」，故数字形式的 token 会原样留下。
     it('敏感名下的非字符串值同样打码', () => {
-      expect(redactSensitive('{"token":12345}')).toBe('{"token":"***"}');
+      expect(redactSensitive('{"token":12345}')).toBe('{"token":"[REDACTED]"}');
     });
 
     it('非敏感名不动', () => {
       expect(redactSensitive('{"title":"X","status":"active"}')).toBe(
         '{"title":"X","status":"active"}',
       );
+    });
+
+    // The placeholder is a cross-module contract: the admin console's FieldDiff renders whatever the
+    // server wrote, and its own spec pins `[REDACTED]`. So the literal is asserted on purpose, not
+    // merely the round-trip.
+    // 占位符是一处跨模块约定：管理台 FieldDiff 原样渲染服务端写下的文本，而它自己的用例钉的就是
+    // `[REDACTED]`。故这里刻意钉住字面量，而不只是核对往返结果。
+    it('打码占位符只有一套，且与管理台渲染的是同一个', () => {
+      expect(REDACTED).toBe('[REDACTED]');
+      expect(redactSensitive('{"password":"x"}')).toBe(JSON.stringify({ password: REDACTED }));
     });
   });
 
@@ -133,13 +144,13 @@ describe('mask utils', () => {
     it('模块声明的键名参与打码（内建清单不认识这些名字）', () => {
       registerSensitiveKeys(['idCardNoPiiTest']);
       expect(redactSensitive('{"idCardNoPiiTest":"110101199001011234"}')).toBe(
-        '{"idCardNoPiiTest":"***"}',
+        '{"idCardNoPiiTest":"[REDACTED]"}',
       );
     });
 
     it('含元字符的键名按字面匹配 —— 不得放大匹配', () => {
       registerSensitiveKeys(['a.bPiiTest']);
-      expect(redactSensitive('{"a.bPiiTest":"secret"}')).toBe('{"a.bPiiTest":"***"}');
+      expect(redactSensitive('{"a.bPiiTest":"secret"}')).toBe('{"a.bPiiTest":"[REDACTED]"}');
       // Names match literally: one character apart is a different name. Under the old per-name regex,
       // an unescaped `.` would have matched this line too.
       // 名字按字面匹配：差一个字符就不是同一个名字。旧实现的逐名正则里，未转义的 `.` 会把这一行也匹配掉。
@@ -148,7 +159,7 @@ describe('mask utils', () => {
 
     it('键名含 $ 时按字面匹配（$ 不再有替换串语义）', () => {
       registerSensitiveKeys(['pr$icePiiTest']);
-      expect(redactSensitive('{"pr$icePiiTest":"9.99"}')).toBe('{"pr$icePiiTest":"***"}');
+      expect(redactSensitive('{"pr$icePiiTest":"9.99"}')).toBe('{"pr$icePiiTest":"[REDACTED]"}');
     });
 
     it('忽略空串与非字符串，不抛错', () => {

@@ -126,6 +126,22 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 /**
+ * The one placeholder a redacted value is written as. Request bodies, audit `changes` and AI
+ * side-effect snapshots all use it, so a reader only has to learn a single spelling.
+ *
+ * It is not the same thing as the `*` masks in `maskEmail` / `maskPhone` / `maskText`: those keep
+ * part of the value visible and build their asterisks around what remains. A redacted value reveals
+ * nothing, so it gets a word rather than a row of asterisks.
+ *
+ * 被打码的值统一写成这个占位符 —— requestBody、审计 `changes`、AI 副作用快照三处共用，读的人只需认
+ * 一个写法。
+ *
+ * 它与 `maskEmail` / `maskPhone` / `maskText` 里的 `*` 掩码不是一回事：那些保留部分值，把星号围着
+ * 剩下的字符拼。被打码的值什么都不留，故给它一个词，而不是一串星号。
+ */
+export const REDACTED = '[REDACTED]';
+
+/**
  * Redact every sensitive value in a JSON string, driven by the same `isSensitiveKey` predicate the
  * audit before-snapshot uses — one rule, one place.
  *
@@ -158,7 +174,7 @@ function redactValue(value: unknown): unknown {
   if (value !== null && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = isSensitiveKey(k) ? '***' : redactValue(v);
+      out[k] = isSensitiveKey(k) ? REDACTED : redactValue(v);
     }
     return out;
   }
