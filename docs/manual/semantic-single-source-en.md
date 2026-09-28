@@ -51,3 +51,10 @@ npm run check:semantic-single-source --list                 # print source/contr
 
 - The semantic-source list is **conservative** (high signal, under-report): changes outside it are not flagged. Extend by adding a line to `SEMANTIC_SOURCES` in `scripts/check-semantic-single-source.mjs`.
 - The exemption trailer must be **visible** in the commit message (reviewers can recheck; no silent bypass).
+- **Why the comment-only case is not auto-detected**: a JSDoc continuation line and a generator method line
+  are lexically indistinguishable — both read as "a `*` followed by whitespace", and JSDoc continuations carry
+  that space by convention. An auto-exemption keyed on the line prefix would silently pass a one-line code
+  change of that shape (measured 2026-09-28: the predicate's positive case misclassified it immediately).
+  Closing the hole means a hand-rolled block-comment state machine plus hunk-line-number parsing over two
+  versions of each file, and it still leaves a string-literal corner. The exemption therefore stays an
+  **explicit human declaration** (the trailer); the gate does not auto-decide.
