@@ -105,6 +105,11 @@
           <span v-if="item.identityIncompleteReason">· {{ item.identityIncompleteReason }}</span>
           <span v-else>· {{ t('identityReasonUnknown') }}</span>
         </div>
+        <!-- REV-10：本次调用写了、账上却没有的行 —— **写时**就看得见，不必等撤销时才发现 -->
+        <div v-if="item.undeclaredWrites?.length" class="text-caption text-error">
+          {{ t('undeclaredWrites', { n: item.undeclaredWrites.length }) }}:
+          {{ undeclaredLabel(item) }}
+        </div>
       </template>
       <template #item.fieldDiff="{ item }">
         <el-button v-if="item.afterSnapshot" text size="small" type="primary" @click="showDiff(item)">
@@ -227,6 +232,14 @@ const effectStatusColorMap = computed(() => ({
 /** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(item: ToolEffect): boolean {
   return item.revocable ?? false
+}
+
+/**
+ * REV-10：把「账上没有的写」渲染成一行可读文本（`实体#id`）。主键未知时给 `?` ——
+ * 「知道写了那张表、不知道哪一行」仍然是「账上没有」，不拿一个假 id 去填。
+ */
+function undeclaredLabel(item: ToolEffect): string {
+  return (item.undeclaredWrites ?? []).map((w) => `${w.entity}#${w.id ?? '?'}`).join(', ')
 }
 
 /** E-1：副作用目标记录字段变更数（无快照 0；非法 JSON 0） */

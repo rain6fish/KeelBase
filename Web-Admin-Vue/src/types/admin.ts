@@ -354,6 +354,12 @@ export interface ToolEffect {
    */
   identityIncomplete?: boolean
   identityIncompleteReason?: string | null
+  /**
+   * REV-10：**本次调用在数据层真的写了、而账上没有对应的行**。`null` = 没观察到（寻常情形）。
+   * 这是**发现**不是裁决 —— 它不改声明、不触发补偿、不动撤销结论。
+   * `id` 为 `null` 表示「知道写了那张表，不知道哪一行」——那仍然是「账上没有」。
+   */
+  undeclaredWrites?: Array<{ entity: string; id: number | string | null; kind: 'insert' | 'update' | 'softDelete' }> | null
   /** KB-6：归一状态（executed / revoked / revoking_external / revoke_failed）——governed_external 禁显示为 revoked */
   status?: string
   /** 服务端单一权威的撤销可点（status=executed 且档位非 none）；三端据此渲染 */

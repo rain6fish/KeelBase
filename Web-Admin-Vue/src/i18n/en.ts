@@ -883,6 +883,8 @@ const en: ZhDict = {
   // REV-6 / REV-13: the change half of the identity is missing, and why (four causes, not equivalent)
   identityIncomplete: 'No change snapshot',
   identityReasonUnknown: 'reason unknown',
+  // REV-10: rows this call wrote that the ledger has none for (a finding, not a verdict)
+  undeclaredWrites: '{n} write(s) unrecorded',
   // ARC-6: acknowledging a dispute lifts "unresolved" while the evidence stays
   acknowledgeDispute: 'Acknowledge this dispute (evidence kept)',
   disputeAcknowledged: 'Acknowledged — no longer read as unresolved (evidence kept)',
