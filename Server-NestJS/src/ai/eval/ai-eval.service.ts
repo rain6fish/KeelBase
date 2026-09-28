@@ -2,7 +2,7 @@
 
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { EvalCase } from './eval-case.entity';
 import { AiService } from '../ai.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
@@ -11,6 +11,20 @@ import { APP_VERSION } from '../../app-version/app-version.config';
 import { ADMIN_SYSTEM_PROMPT } from '../constants/admin-system-prompt';
 // 夹具身份单源（REV-15）：构造点与闸门的判读共用同一前缀，防「评测在用夹具身份而计数器记成生产」
 import { fixtureUserId } from '../constants/fixture-identity';
+import { MetricsService } from '../../metrics/metrics.service';
+
+/**
+ * 以**系统账号**运行的评测类目（`navigate_admin_page` 是 adminOnly，只能以 `'0'` 跑）。
+ *
+ * REV-15 ⑤：这一类**不是夹具** —— `'0'` 在 `tool_gate_refusals_total` 上被记成 `production`，
+ * 故它既不该被算作夹具覆盖，也不该被算作夹具用例被跳过。判据与运行期的身份选择共用本常量。
+ */
+export const ADMIN_EVAL_CATEGORY = 'admin-assistant';
+
+/** 该用例是否以**夹具身份**运行（是 ⇒ 它的拒绝进 `source="fixture"`，它的执行算夹具覆盖）。 */
+function runsAsFixture(c: { category: string }): boolean {
+  return c.category !== ADMIN_EVAL_CATEGORY;
+}
 
 /** HS-1 评测断言类型 */
 export type EvalAssertType =
@@ -70,6 +84,11 @@ export class AiEvalService {
     @InjectRepository(EvalCase) private readonly evalRepo: Repository<EvalCase>,
     private readonly aiService: AiService,
     @Optional() private readonly featureFlagsService?: FeatureFlagsService,
+    /**
+     * REV-15 ⑤：夹具运行/覆盖的读数（`tool_gate_fixture_cases_total`）。**@Optional** —— 单测/降级
+     * 装配可省，省则计数静默跳过（计数是**证据**，不是评测本身：少一个读数不改判定）。
+     */
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   async createCase(dto: { category: string; prompt: string; expected?: string }) {
@@ -289,6 +308,16 @@ export class AiEvalService {
     const started = Date.now();
     const results: EvalCaseResult[] = [];
 
+    // REV-15 ⑤：**夹具跑到哪儿了**。被跳过的用例（`enabled=false`）在**跑之前**就已知，先记 ——
+    // 否则「夹具没拒过」与「夹具压根没跑/没覆盖到」在拒绝计数器上同形，那正是本项要消除的东西。
+    // 只数夹具用例（`admin-assistant` 走系统账号 '0'，在拒绝计数器上记成生产，不归夹具）。
+    const skippedFixtureCases = await this.evalRepo.count({
+      where: { enabled: false, category: Not(ADMIN_EVAL_CATEGORY) },
+    });
+    if (skippedFixtureCases > 0) {
+      this.metrics?.toolGateFixtureCasesTotal.inc({ outcome: 'skipped' }, skippedFixtureCases);
+    }
+
     // 顺序执行（避免打爆外部 LLM 限流）；控制并发 3
     const concurrency = 3;
     let idx = 0;
@@ -307,20 +336,19 @@ export class AiEvalService {
           // 的配额/记忆/审计，也不污染真实用户数据（每次 run 独立，可追溯）。
           // admin-assistant 例外：navigate_admin_page 是 adminOnly，只能以系统账号 '0' 运行
           // （沿用 System AI Assistant 身份，见 system-ai-assistant.spec.md §6.5）。
-          const res =
-            c.category === 'admin-assistant'
-              ? await this.withTimeout(
-                  this.aiService.chat('0', {
-                    message: `${this.buildAdminEvalContext()}\n管理员提问：${c.prompt}`,
-                    systemPrompt: ADMIN_SYSTEM_PROMPT,
-                    adminMode: true,
-                  }),
-                  30_000,
-                )
-              : await this.withTimeout(
-                  this.aiService.chat(fixtureUserId(started), { message: c.prompt }),
-                  30_000,
-                );
+          const res = runsAsFixture(c)
+            ? await this.withTimeout(
+                this.aiService.chat(fixtureUserId(started), { message: c.prompt }),
+                30_000,
+              )
+            : await this.withTimeout(
+                this.aiService.chat('0', {
+                  message: `${this.buildAdminEvalContext()}\n管理员提问：${c.prompt}`,
+                  systemPrompt: ADMIN_SYSTEM_PROMPT,
+                  adminMode: true,
+                }),
+                30_000,
+              );
           actualToolCalls = res.toolCalls;
           replyPreview = (res.reply ?? '').slice(0, 200);
           const judged = this.evaluate(assertion, res.reply ?? '', res.toolCalls);
@@ -330,6 +358,9 @@ export class AiEvalService {
           error = (e as Error).message;
           detail = `执行异常: ${error}`;
         }
+        // REV-15 ⑤：`ran` = 「这条夹具用例**真的被执行了**」——**不论通过与否**（出错也算跑过：
+        // 计数回答的是覆盖，不是质量）。逐条计，故中途崩掉时读数如实停在跑到的那一步。
+        if (runsAsFixture(c)) this.metrics?.toolGateFixtureCasesTotal.inc({ outcome: 'ran' });
         results.push({
           id: c.id,
           category: c.category,

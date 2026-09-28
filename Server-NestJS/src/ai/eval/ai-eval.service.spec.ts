@@ -11,6 +11,8 @@ function makeEvalRepo() {
     create: jest.fn((d: any) => d),
     save: jest.fn(async (d: any) => ({ ...d, id: 1 })),
     find: jest.fn().mockResolvedValue([]),
+    // REV-15 ⑤：评测 run 另查一次「被跳过的夹具用例数」（`enabled=false` 且非 admin-assistant）
+    count: jest.fn().mockResolvedValue(0),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
   };
