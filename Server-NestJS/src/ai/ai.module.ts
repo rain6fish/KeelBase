@@ -102,6 +102,8 @@ import { SecurityShowcaseService } from './security-showcase/security-showcase.s
 import { SecurityShowcaseController } from './security-showcase/security-showcase.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
+// ACT-5：执行身份（一次写工具的执行尝试一行；认领/落定的载体）
+import { AiToolExecution } from './tools/ai-tool-execution.entity';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
 import { SideEffectSnapshotCaptor } from './tool-effects/side-effect-snapshot-captor';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './tool-effects/side-effect-revoker';
@@ -189,7 +191,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MetricsModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiToolExecution, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [

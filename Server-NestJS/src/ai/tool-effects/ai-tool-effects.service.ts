@@ -148,7 +148,7 @@ export type RevokeResult = {
 };
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
-function isUniqueViolation(err: unknown): boolean {
+export function isUniqueViolation(err: unknown): boolean {
   const code = (err as { code?: string }).code ?? '';
   const msg = (err as Error).message ?? '';
   return (

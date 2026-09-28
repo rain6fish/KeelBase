@@ -15,13 +15,18 @@
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { ToolRegistry } from './tool-registry';
+import { AiToolExecution } from './ai-tool-execution.entity';
+// ACT-5：执行轴的判断单源（与 R4 审批轴刻意分开，见该文件头注）
+import { deriveToolExecutionState, toolExecutionRefusal } from './tool-execution-claim';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { ProxyTool } from '../proxy/proxy-tool';
 import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
-import { AiToolEffectsService, sortKeys } from '../tool-effects/ai-tool-effects.service';
+import { AiToolEffectsService, isUniqueViolation, sortKeys } from '../tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
 import { declaredEffects } from '../tool-effects/effect-composition';
 import { SideEffectSnapshotCaptor } from '../tool-effects/side-effect-snapshot-captor';
@@ -65,6 +70,12 @@ export class ToolExecutionService {
     private readonly externalTools: ExternalToolRegistry,
     @Optional() private readonly toolEffectsService?: AiToolEffectsService,
     @Optional() private readonly snapshotCaptor?: SideEffectSnapshotCaptor,
+    /**
+     * ACT-5：执行身份仓储（认领/落定）。**@Optional** —— 单测 / 降级装配可省；省则退化为拆分前的行为
+     * （探测 + 事后登记），并发与崩溃窗口仍在。部署态恒有（`ai.module` 已注册）。
+     */
+    @Optional() @InjectRepository(AiToolExecution)
+    private readonly executions?: Repository<AiToolExecution>,
   ) {}
 
   /** HS-10：读工具执行（内置走 toolRegistry，外部走 provider）。 */
@@ -89,6 +100,12 @@ export class ToolExecutionService {
    * - 成功后记录副作用（resultType/resultId），管理台可软删撤销（衔接 RG-3）
    * toolEffectsService 未注入（单测/降级）时直接执行，跳过幂等。
    * HS-10：外部 MCP 写工具经 provider 执行（跳过幂等/副作用——外部工具不创建 KeelBase 实体）。
+   *
+   * ACT-5：执行点先**认领**（写一行执行身份）再跑工具，跑完**落定**。幂等因此不再只是探测：同键并发
+   * 只有一个认领成功，崩溃后的重试读到那条认领而不是再执行一次 —— FP-10 的那个窗口就此关闭。
+   *
+   * `opts.authorizationRef` = 这次写依据的那次授权（确认 / 审批 token），落进执行行；免确认的自动写
+   * 不传（没有授权，也就没有窗口 —— 这正是 REV-7 要的那个答案）。
    */
   async executeWrite(
     toolName: string,
@@ -96,7 +113,7 @@ export class ToolExecutionService {
     userId: string,
     conversationId?: string,
     runId?: string,
-    opts?: { audience?: string },
+    opts?: { audience?: string; authorizationRef?: string },
   ): Promise<ToolResult> {
     // §HS-9「工具门控（执行前）」：门控须在**执行点**成立，而非只在发起点成立。
     // 写工具从「发起」到「执行」之间有等待窗口——R3 确认（TTL 内由本人点批准）、R4 审批（跨请求、可达小时/天级），
@@ -129,41 +146,58 @@ export class ToolExecutionService {
       }
     }
 
-    const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
-
-    // The idempotency probe runs **before** either execution path. The external branch used to
-    // return first, so any replay — an LLM retry, a second decision on the same confirmation, a
-    // restart — became a real second external write. The anchor row registered below is what makes
-    // the key observable at all.
-    // 幂等探测提前到两条执行路径**之前**：external 分支原先先返回，任何重放（LLM 重试 / 对同一确认
-    // 二次裁决 / 重启）都会变成又一次真实外部写；下面登记的锚行才是让该键可被观测的前提。
+    // 幂等回放（ACT-5 之后它是**快路径**）：这个键已经登记过 ⇒ 直接回放既有结果。认领撞上
+    // 「已落定」时走的是**同一条**回放，故两处共用 `_replayExisting`，免得同一件事有两个实现。
     if (this.toolEffectsService) {
-      const existing = await this.toolEffectsService.findExisting(
+      const replay = await this._replayExisting(
         AiToolEffectsService.buildKey({ userId, conversationId, toolName, args }),
       );
-      if (existing.existing && existing.effect) {
-        // 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放**整组**——
-        // 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测将永不命中 → 工具重复执行。
-        const group = existing.effect.compensationGroup
-          ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
-          : [];
-        return {
-          success: true,
-          data: {
-            id: existing.effect.resultId,
-            idempotent: true,
-            ...(group.length > 1
-              ? {
-                  effects: group.map((e) => ({
-                    resultType: e.resultType,
-                    resultId: e.resultId,
-                  })),
-                }
-              : {}),
-          },
-        };
-      }
+      if (replay) return replay;
     }
+
+    // ACT-5：**认领** —— 在执行**之前**把这次执行落定，幂等键由此从「探测」变成「闸门」。
+    //
+    // 位置两头都有讲究：必须在门控**之后**（一次门控拒绝不该占用键，否则一次拒绝会把该键毒化成
+    // 「永远拒绝重试」），也必须在 `execute` **之前**（那正是 FP-10 那条 `check → execute` 的窗口）。
+    const claim = await this._claimExecution({
+      userId,
+      conversationId,
+      runId,
+      toolName,
+      args,
+      destination: this.toolGate.destinationOf(toolName),
+      authorizationRef: opts?.authorizationRef,
+    });
+
+    // 键已被占用：按**状态**如实回报。只有「已落定」才谈得上回放既有结果；其余三种一律**不执行**
+    //（不可逆的写宁可少执行一次，也不多写一次 —— 口径同 ARC-3 的派发认领）。
+    if (claim.outcome === 'taken') {
+      const state = deriveToolExecutionState(claim.row);
+      const replay = state === 'succeeded' ? await this._replayExisting(claim.key) : null;
+      if (replay) return replay;
+      return { success: false, error: toolExecutionRefusal(state, claim.row.error) };
+    }
+
+    // **落定只有一个出口**：所有执行路径都收在 `_executeClaimed` 里，故新加一条分支不可能忘了落定
+    //（同 `ToolGateService._refuse` 的单出口理由：结构保证，不靠每条分支各自记得）。
+    const result = await this._executeClaimed(toolName, args, userId, conversationId, runId);
+    await this._settleExecution(claim.row, result);
+    return result;
+  }
+
+  /**
+   * 已认领的这次执行（ACT-5）：从「两条执行路径」到「登记副作用」的全部行为，**拆分前逐字未动**
+   *（只把幂等探测移到了 `executeWrite` 里、换成了 `_replayExisting`）。
+   * 它**只被** `executeWrite` 在认领成功之后调用，故这里出口虽多，落定仍只有一处。
+   */
+  private async _executeClaimed(
+    toolName: string,
+    args: Record<string, unknown>,
+    userId: string,
+    conversationId?: string,
+    runId?: string,
+  ): Promise<ToolResult> {
+    const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
 
     if (isExternalWrite) {
       const out = await this.externalTools.current!.callTool(toolName, args, userId);
@@ -266,6 +300,115 @@ export class ToolExecutionService {
       }
     }
     return result;
+  }
+
+  /**
+   * 这个键**已经登记**过吗？是则回放既有结果，否则 `null`。
+   *
+   * 复合写工具幂等重放（docs/cascade-compensation.spec.md §4）：基键被**根成员**占用，命中后必须回放
+   * **整组** —— 只回根 id 会让调用方丢掉组（其余成员永远不会被重新声明）；而若基键不由根占用，本探测
+   * 将永不命中 → 工具重复执行。
+   *
+   * 两个调用点共用它：执行前的快路径探测，与认领撞上「已落定」时的回放。
+   */
+  private async _replayExisting(key: string): Promise<ToolResult | null> {
+    if (!this.toolEffectsService) return null;
+    const existing = await this.toolEffectsService.findExisting(key);
+    if (!existing.existing || !existing.effect) return null;
+    const group = existing.effect.compensationGroup
+      ? await this.toolEffectsService.listGroup(existing.effect.compensationGroup)
+      : [];
+    return {
+      success: true,
+      data: {
+        id: existing.effect.resultId,
+        idempotent: true,
+        ...(group.length > 1
+          ? {
+              effects: group.map((e) => ({ resultType: e.resultType, resultId: e.resultId })),
+            }
+          : {}),
+      },
+    };
+  }
+
+  /**
+   * ACT-5：**认领**这次执行 —— 在执行之前插一行，唯一键就是仲裁点。
+   *
+   * 插入成功 ⇒ 本次调用拥有这个键。撞唯一键 ⇒ **回读**那一行交调用方按状态如实回报：认领的语义是
+   * 「这一次执行由谁落定」，故拿真实状态说话，不猜、不改写、不重试。
+   *
+   * 降级装配（无仓储）⇒ 跳过认领，退化为拆分前的行为（并发与崩溃窗口仍在）—— 这一点如实写在
+   * `executions` 的注里，**不假装认领发生过**。
+   */
+  private async _claimExecution(input: {
+    userId: string;
+    conversationId?: string;
+    runId?: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    destination?: string;
+    authorizationRef?: string;
+  }): Promise<
+    | { outcome: 'owned'; key: string; row: AiToolExecution | null }
+    | { outcome: 'taken'; key: string; row: AiToolExecution }
+  > {
+    const key = AiToolEffectsService.buildKey({
+      userId: input.userId,
+      conversationId: input.conversationId,
+      toolName: input.toolName,
+      args: input.args,
+    });
+    // 降级：没有仓储就没有认领可言，调用方照旧执行。
+    if (!this.executions) return { outcome: 'owned', key, row: null };
+
+    const draft = {
+      idempotencyKey: key,
+      userId: input.userId,
+      conversationId: input.conversationId ?? null,
+      runId: input.runId ?? null,
+      toolName: input.toolName,
+      destination: input.destination ?? null,
+      // ACT-5 / REV-7：这次执行依据的那次授权（确认 / 审批 token）。没有授权的（免确认自动写）为 null
+      // ——「没有审批，也就没有窗口」本身就是答案，不拿占位值冒充。
+      authorizationRef: input.authorizationRef ?? null,
+      // 与审计行同一来源（`actorContext`），在**边界处**读一次。
+      agentId: actorContext.getStore()?.agentId ?? null,
+    };
+
+    try {
+      const saved = await this.executions.save(this.executions.create(draft));
+      return { outcome: 'owned', key, row: saved };
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      const row = await this.executions.findOne({ where: { idempotencyKey: key } });
+      // 极罕见的竞态（占用者随后被删）：不静默吞，也不冒充「我拥有它」。
+      if (!row) throw err;
+      return { outcome: 'taken', key, row };
+    }
+  }
+
+  /**
+   * ACT-5：**落定**这次执行。
+   *
+   * - 成功 ⇒ 写 `settled_at`；
+   * - 工具**报了失败** ⇒ 写 `error` —— 那是有记录的失败，与「认领了却从未落定」是两回事，不许混；
+   * - 抛出 / 进程崩掉 ⇒ **什么都不写** ⇒ 认领过期后读作 `unknown`：我们无从分辨崩溃与挂起，谎报
+   *   成功或失败都是支撑不起的断言（见 `tool-execution-claim.ts`）。
+   */
+  private async _settleExecution(row: AiToolExecution | null, result: ToolResult): Promise<void> {
+    if (!this.executions || !row?.id) return;
+    const patch = result.success
+      ? { settledAt: new Date(), error: null }
+      : { error: result.error ?? '工具返回失败（未给原因）' };
+    try {
+      await this.executions.update(row.id, patch);
+    } catch (err) {
+      // 落定失败不改「这次执行确实发生过」这件事；留给租约过期读作 unknown（保守方向）。
+      this.logger.warn(
+        `[ToolExecution] ACT-5 settle failed (execution ${row.id}): ${(err as Error).message}`,
+      );
+    }
   }
 
   /**
