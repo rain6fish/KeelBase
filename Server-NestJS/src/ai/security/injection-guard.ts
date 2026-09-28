@@ -27,9 +27,14 @@ export function sanitizeExternalContent(input: string): string {
     /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{3,}\b/g,
     '[token]',
   );
-  // 明显的密钥样式（sk-... / AKIA... / 32-64 hex）
+  // 明显的密钥样式（sk-... / AKIA... / 40–64 位 hex）
   out = out.replace(/\bsk-[A-Za-z0-9_-]{10,}\b/g, '[api-key]');
   out = out.replace(/\bAKIA[A-Z0-9]{16}\b/g, '[aws-key]');
+  // ⚠ **有意的过度掩码**（INJ-1 核查结论，2026-09-28）：这条会连 **git commit hash** 一起掩掉，
+  // 而那不是敏感值 —— 但**形状上分不开**：40–64 位小写 hex 既可能是 hex 密钥，也可能是一次提交的摘要。
+  // 两侧代价不对称：**掩掉一个 hash 只是丢掉一点上下文**（LLM 少看到一串摘要），**漏掉一个 hex 密钥
+  // 则是把它发给模型供应商**。故取保守一侧，**不**为区分二者引入启发式（那会开始猜，而猜错的方向是泄露）。
+  // 上一版注释写「32-64 hex」与正则实际区间（40–64）不符 —— 注释跟随行为改正，行为不动。
   out = out.replace(/\b[0-9a-f]{40,64}\b/g, '[hash]');
   return out;
 }
