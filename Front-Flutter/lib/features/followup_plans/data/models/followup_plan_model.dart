@@ -3,6 +3,7 @@
 class FollowupPlanModel {
   final int id;
   final String title;
+  final int? customerId;
   final String priority;
   final String? reason;
   final String? dueDate;
@@ -11,6 +12,7 @@ class FollowupPlanModel {
   const FollowupPlanModel({
     required this.id,
     required this.title,
+    this.customerId,
     this.priority = 'low',
     this.reason,
     this.dueDate,
@@ -21,6 +23,7 @@ class FollowupPlanModel {
     return FollowupPlanModel(
       id: json['id'] as int,
       title: json['title'] as String,
+      customerId: json['customerId'] as int?,
       priority: json['priority'] as String? ?? 'low',
       reason: json['reason'] as String?,
       dueDate: json['dueDate'] as String?,
@@ -31,6 +34,7 @@ class FollowupPlanModel {
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
+        'customerId': customerId,
         'priority': priority,
         'reason': reason,
         'dueDate': dueDate,
@@ -39,6 +43,7 @@ class FollowupPlanModel {
 
   FollowupPlanModel copyWith({
     Object? title = const Object(),
+    Object? customerId = const Object(),
     Object? priority = const Object(),
     Object? reason = const Object(),
     Object? dueDate = const Object(),
@@ -47,6 +52,7 @@ class FollowupPlanModel {
     return FollowupPlanModel(
       id: id,
       title: title == const Object() ? this.title : title as dynamic,
+      customerId: customerId == const Object() ? this.customerId : customerId as dynamic,
       priority: priority == const Object() ? this.priority : priority as dynamic,
       reason: reason == const Object() ? this.reason : reason as dynamic,
       dueDate: dueDate == const Object() ? this.dueDate : dueDate as dynamic,

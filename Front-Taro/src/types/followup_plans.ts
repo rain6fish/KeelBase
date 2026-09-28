@@ -3,6 +3,7 @@
 export interface FollowupPlanItem {
   id: number
   title: string
+  customerId?: number
   priority: string
   reason: string
   dueDate?: string
@@ -12,6 +13,7 @@ export interface FollowupPlanItem {
 
 export interface CreateFollowupPlanRequest {
   title: string;
+  customerId?: number;
   priority: string;
   reason: string;
   dueDate?: string;

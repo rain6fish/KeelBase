@@ -10,6 +10,7 @@
       "searchable": true,
       "fields": [
         { "name": "title", "type": "string", "label": "标题", "required": true },
+        { "name": "customerId", "type": "int", "relation": true, "label": "客户" },
         { "name": "priority", "type": "enum", "enum": ["low", "medium", "high", "critical"], "label": "优先级" },
         { "name": "reason", "type": "text", "label": "判断依据" },
         { "name": "dueDate", "type": "date", "label": "计划跟进日" },

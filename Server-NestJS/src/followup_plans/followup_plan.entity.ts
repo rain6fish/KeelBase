@@ -21,6 +21,9 @@ export class FollowupPlan {
   @Column({ length: 200 })
   title!: string;
 
+  @Column({ nullable: true })
+  customerId?: number;
+
   @Column({ length: 32, default: 'low' })
   priority!: string;
 

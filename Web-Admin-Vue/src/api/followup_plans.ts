@@ -6,6 +6,7 @@ export interface AdminFollowupPlan {
   id: number;
   userId: number | null;
   title: string;
+  customerId: number;
   priority: string;
   reason: string;
   dueDate: string;

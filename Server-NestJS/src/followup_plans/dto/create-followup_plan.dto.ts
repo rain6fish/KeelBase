@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IsDateString, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFollowupPlanDto {
@@ -10,6 +10,11 @@ export class CreateFollowupPlanDto {
   @MinLength(1)
   @MaxLength(200)
   title!: string;
+
+  @ApiPropertyOptional({ description: 'customerId' })
+  @IsInt()
+  @IsOptional()
+  customerId?: number;
 
   @ApiProperty({ description: 'priority', enum: ['low', 'medium', 'high', 'critical'] })
   @IsString()

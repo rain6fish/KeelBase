@@ -18,9 +18,10 @@ export class CreateFollowupPlanTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建跟进计划（title、priority、reason、dueDate、status）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建跟进计划（title、customerId、priority、reason、dueDate、status）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
     { name: 'title', type: 'string', description: 'title', required: true },
+    { name: 'customerId', type: 'number', description: 'customerId', required: false },
     { name: 'priority', type: 'string', description: 'priority', required: false,
       enum: ['low', 'medium', 'high', 'critical'] },
     { name: 'reason', type: 'string', description: 'reason', required: false },
@@ -41,6 +42,7 @@ export class CreateFollowupPlanTool implements AiTool {
           type: 'object',
           properties: {
             title: { type: 'string', description: 'title' },
+            customerId: { type: 'number', description: 'customerId' },
             priority: { type: 'string', description: 'priority', enum: ['low', 'medium', 'high', 'critical'] },
             reason: { type: 'string', description: 'reason' },
             dueDate: { type: 'string', description: 'dueDate' },
@@ -56,6 +58,7 @@ export class CreateFollowupPlanTool implements AiTool {
     try {
       const dto: Record<string, unknown> = {};
         if (args.title !== undefined) dto.title = args.title as any;
+        if (args.customerId !== undefined) dto.customerId = args.customerId as any;
         if (args.priority !== undefined) dto.priority = args.priority as any;
         if (args.reason !== undefined) dto.reason = args.reason as any;
         if (args.dueDate !== undefined) dto.dueDate = args.dueDate as any;

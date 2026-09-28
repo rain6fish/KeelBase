@@ -21,6 +21,7 @@ const pendingDelete = ref<AdminFollowupPlan | null>(null)
 const headers = computed(() => [
   { key: 'id', title: 'ID' },
   { key: 'title', title: 'title' },
+  { key: 'customerId', title: 'customerId' },
   { key: 'priority', title: 'priority' },
   { key: 'reason', title: 'reason' },
   { key: 'dueDate', title: 'dueDate' },

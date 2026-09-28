@@ -31,6 +31,7 @@ export class QueryFollowupPlansTool implements AiTool {
                 type: 'object',
                 properties: {
               title: { type: 'string', description: 'title' },
+              customerId: { type: 'number', description: 'customerId' },
               priority: { type: 'string', description: 'priority' },
               reason: { type: 'string', description: 'reason' },
               dueDate: { type: 'string', description: 'dueDate' },
@@ -47,6 +48,7 @@ export class QueryFollowupPlansTool implements AiTool {
       const data = items.map((item) => {
         const o: Record<string, unknown> = { id: item.id };
         o.title = item.title;
+        o.customerId = item.customerId;
         o.priority = item.priority;
         o.reason = item.reason;
         o.dueDate = item.dueDate;

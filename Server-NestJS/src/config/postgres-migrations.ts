@@ -84,7 +84,10 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddConfirmationAudience*',
   '*AddIdentityIncompleteReason*',
   '*AddRevokeClaim*',
+  // ⚠ 子串精确性：`*AddFollowupPlans*` 会**同时命中**下面的 `AddFollowupPlanCustomerId`（含同一子串），
+  // 那会让 sqlite 方言的加列迁移也跑在 postgres 上、整条 pg 链回滚 —— 故两条各自用不同子串。
   '*AddFollowupPlans*',
+  '*AddFollowupPlanCustomerId*',
   '*AddWindowAndAgent*',
 ];
 

@@ -15,6 +15,7 @@ class FollowupPlansPage extends StatefulWidget {
 
 class _FollowupPlansPageState extends State<FollowupPlansPage> {
   final _titleCtrl = TextEditingController();
+  final _customerIdCtrl = TextEditingController();
   String _priorityVal = 'low';
   final _reasonCtrl = TextEditingController();
   final _dueDateCtrl = TextEditingController();
@@ -33,6 +34,7 @@ class _FollowupPlansPageState extends State<FollowupPlansPage> {
   @override
   void dispose() {
     _titleCtrl.dispose();
+    _customerIdCtrl.dispose();
     _reasonCtrl.dispose();
     _dueDateCtrl.dispose();
     super.dispose();
@@ -53,6 +55,13 @@ class _FollowupPlansPageState extends State<FollowupPlansPage> {
           CupertinoTextField(
             placeholder: 'title',
             controller: _titleCtrl,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+
+          CupertinoTextField(
+            placeholder: 'customerId',
+            controller: _customerIdCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
@@ -98,6 +107,7 @@ class _FollowupPlansPageState extends State<FollowupPlansPage> {
               onPressed: () async {
                 final data = <String, dynamic>{};
 if (_titleCtrl.text.isNotEmpty) data['title'] = _titleCtrl.text.trim();
+if (_customerIdCtrl.text.isNotEmpty) data['customerId'] = int.tryParse(_customerIdCtrl.text.trim());
 data['priority'] = _priorityVal;
 if (_reasonCtrl.text.isNotEmpty) data['reason'] = _reasonCtrl.text.trim();
 if (_dueDateCtrl.text.isNotEmpty) data['dueDate'] = _dueDateCtrl.text.trim();

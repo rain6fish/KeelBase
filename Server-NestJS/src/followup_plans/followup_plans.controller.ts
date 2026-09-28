@@ -54,7 +54,7 @@ export class FollowupPlansController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFollowupPlanDto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     return this.followup_plansService.update(id, dto, ability);
@@ -65,7 +65,7 @@ export class FollowupPlansController {
   @ApiOperation({ summary: '删除跟进计划' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     await this.followup_plansService.remove(id, ability);

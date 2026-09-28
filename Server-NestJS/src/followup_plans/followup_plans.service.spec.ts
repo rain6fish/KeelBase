@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FollowupPlansService } from './followup_plans.service';
 import { FollowupPlan } from './followup_plan.entity';
 import { UpdateFollowupPlanDto } from './dto/update-followup_plan.dto';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** 今天的 UTC 日期：date-only 入参按 UTC 零点解析，两侧同源。 */
+const utcDay = (at: Date) => new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
+const isoDay = (at: Date) => at.toISOString().slice(0, 10);
+/** 一条满足前提的 create 入参：指向客户，跟进日在窗口内。 */
+const validCreate = (over: Record<string, unknown> = {}) => ({
+  title: '跟进 A 客户',
+  priority: 'high',
+  status: 'planned',
+  customerId: 7,
+  dueDate: isoDay(new Date(utcDay(new Date()).getTime() + DAY_MS)),
+  ...over,
+});
 
 describe('FollowupPlansService', () => {
   let service: FollowupPlansService;
@@ -16,9 +30,10 @@ describe('FollowupPlansService', () => {
     findOne: jest.fn(),
     softDelete: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   };
 
-  const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
+    const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -33,8 +48,9 @@ describe('FollowupPlansService', () => {
 
   it('creates a followup_plan bound to user', async () => {
     mockRepo.create.mockReturnValue({ id: 1, userId: 5 });
+    mockRepo.count.mockResolvedValue(0);
 
-    const result = await service.create({} as any, 5);
+    const result = await service.create(validCreate() as any, 5);
 
     expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 5 }));
     expect(result.userId).toBe(5);
@@ -103,6 +119,63 @@ describe('FollowupPlansService', () => {
     await expect(service.remove(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
 
     expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  // ── Business Spec 的手写规则（`unmapped` 项：薄协议表达不了业务规则） ────────────────
+  describe('手写规则：两条前提 + Rule 1 / Rule 2', () => {
+    it('拒绝没有客户的计划（Rule 1 的前提）', async () => {
+      await expect(service.create(validCreate({ customerId: undefined }) as any, 5)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('拒绝没有计划跟进日的计划（Rule 2 的前提）', async () => {
+      await expect(service.create(validCreate({ dueDate: undefined }) as any, 5)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('Rule 2：未来 7 天内才放行（含今天与第 7 天，隔夜与第 8 天都拒）', async () => {
+      mockRepo.count.mockResolvedValue(0);
+      const today = utcDay(new Date());
+      const day = (n: number) => isoDay(new Date(today.getTime() + n * DAY_MS));
+
+      for (const ok of [0, 7]) {
+        await expect(service.create(validCreate({ dueDate: day(ok) }) as any, 5)).resolves.toBeTruthy();
+      }
+      for (const bad of [-1, 8]) {
+        await expect(service.create(validCreate({ dueDate: day(bad) }) as any, 5)).rejects.toThrow(
+          BadRequestException,
+        );
+      }
+    });
+
+    it('Rule 1：同客户同周已计划过 → 409，且查询落在「跟进日所在自然周」的窗口内', async () => {
+      mockRepo.count.mockResolvedValue(1);
+      const due = isoDay(new Date(utcDay(new Date()).getTime() + DAY_MS));
+
+      await expect(service.create(validCreate({ dueDate: due }) as any, 5)).rejects.toThrow(
+        ConflictException,
+      );
+
+      const where = mockRepo.count.mock.calls[0][0].where;
+      expect(where.userId).toBe(5); // 范围按 owner 收窄：计划归创建的销售本人
+      expect(where.customerId).toBe(7);
+      const [from, to] = where.dueDate.value as [Date, Date];
+      expect(from.getUTCDay()).toBe(1); // 周一为界
+      expect(to.getTime() - from.getTime()).toBe(7 * DAY_MS - 1);
+      const at = new Date(due).getTime();
+      expect(at).toBeGreaterThanOrEqual(from.getTime());
+      expect(at).toBeLessThanOrEqual(to.getTime());
+    });
+
+    it('Rule 1：本周没有同客户计划时放行', async () => {
+      mockRepo.count.mockResolvedValue(0);
+
+      await expect(service.create(validCreate() as any, 5)).resolves.toBeTruthy();
+      expect(mockRepo.count).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('removeAsAdmin soft-deletes without ownership (RG-3 recovery)', async () => {
