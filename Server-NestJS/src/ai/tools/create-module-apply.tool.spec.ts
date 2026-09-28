@@ -18,8 +18,11 @@
  * `execFile` Node attaches to it — so the mocked call resolves with the object the default
  * `util.promisify` would hand back (`{stdout}`), which is what the tool destructures.
  */
+/** jest 替身里的 execFile 回调形状：成功回 `{stdout}`，失败带 `stderr`。 */
+type ExecFileCallback = (err: Error | null, result?: { stdout?: string; stderr?: string }) => void;
+
 jest.mock('node:child_process', () => ({
-  execFile: jest.fn((_file: string, _args: string[], _options: unknown, callback: Function) =>
+  execFile: jest.fn((_file: string, _args: string[], _options: unknown, callback: ExecFileCallback) =>
     callback(null, { stdout: 'generated posts\n' }),
   ),
 }));
@@ -86,7 +89,7 @@ describe('CreateModuleApplyTool（System AI L4 Act：真写那一半）', () => 
 
   it('执行失败：把 CLI 的 stderr 如实带回', async () => {
     execFileMock.mockImplementationOnce(
-      (_file: string, _args: string[], _options: unknown, callback: Function) =>
+      (_file: string, _args: string[], _options: unknown, callback: ExecFileCallback) =>
         callback(Object.assign(new Error('boom'), { stderr: 'refused: not in .keelbase/manifest.json' })),
     );
     const r = await new CreateModuleApplyTool().execute({ module: 'events', label: '事件' });
