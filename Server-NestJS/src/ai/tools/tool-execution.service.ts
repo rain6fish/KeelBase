@@ -412,6 +412,45 @@ export class ToolExecutionService {
   }
 
   /**
+   * ACT-5：把这次执行的**审计行**挂到执行身份行上 —— 证据根据此**精确**配对，不再在会话里的同名
+   * 调用之间猜（ACT-2 立的「不唯一就不归因」因此有了一条精确支路）。
+   *
+   * 按**幂等键**定位执行行：调用方手上是工具名与原始参数串（审计行本来就是照它写的），键由同一个
+   * `buildKey` 算出，故两处不可能指向不同的行。
+   *
+   * 找不到执行行（降级装配 / 这次写没走认领 / 旧数据）⇒ **静默跳过**：旧数据继续走保守配对，
+   * 不假装精确。参数串解析不出来同样跳过 —— 宁可少一条链接，也不挂到错误的执行上。
+   */
+  async attachAuditRow(
+    ref: { userId: string; conversationId?: string; toolName: string; argsJson: string },
+    auditRowId: number,
+  ): Promise<void> {
+    if (!this.executions) return;
+    let args: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(ref.argsJson) as unknown;
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      args = parsed as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    const key = AiToolEffectsService.buildKey({
+      userId: ref.userId,
+      conversationId: ref.conversationId,
+      toolName: ref.toolName,
+      args,
+    });
+    try {
+      await this.executions.update({ idempotencyKey: key }, { auditRowId });
+    } catch (err) {
+      // 挂链失败既不改变「这次执行发生过」，也不改变证据根能否回退到保守配对 ⇒ 只告警。
+      this.logger.warn(
+        `[ToolExecution] ACT-5 attach audit row failed (key ${key}): ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
    * NC-3 plan/子代理只读执行器：注入 plan-execute 与 sub-agent（同 gate + 只读强制）。
    * - 与主循环同 gate：_assertToolAllowed（R5 / 治理策略 enabled / 角色白名单 / featureFlag / adminOnly）
    * - 只读强制：写/需确认工具（R3/R4，含外部非只读）直接拒——子代理/plan 不得绕过确认与副作用登记执行写工具

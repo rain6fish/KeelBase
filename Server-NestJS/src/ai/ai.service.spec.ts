@@ -175,7 +175,9 @@ describe('AiService', () => {
     } as any;
 
     mockAuditService = {
-      log: jest.fn(),
+      // ACT-5：`log()` 现在回传落库行（加法），工具调用审计写完后要把它的 id 挂到执行身份行上；
+      // 替身因此要给出行形状，否则取 `auditRow.id` 的那一刻就抛。
+      log: jest.fn().mockResolvedValue({ id: 1 }),
       getUserLogs: jest.fn(),
       getStats: jest.fn(),
       getAllStats: jest.fn(),

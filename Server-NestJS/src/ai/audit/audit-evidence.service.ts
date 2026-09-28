@@ -17,6 +17,8 @@ import { Between, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
+// ACT-5：执行身份 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
+import { AiToolExecution } from '../tools/ai-tool-execution.entity';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
@@ -176,6 +178,13 @@ export class AuditEvidenceService {
     @Optional() private readonly operationAudit?: OperationAuditService,
     // ① replay wire：证据根装配点调 replayDecision（缺失降级 → replay 段省略）
     @Optional() private readonly governancePolicy?: GovernancePolicyService,
+    /**
+     * ACT-5：执行身份仓储。**@Optional** —— 缺失时（降级装配）退回 ACT-2 的保守配对规则，
+     * 不假装精确。
+     */
+    @Optional()
+    @InjectRepository(AiToolExecution)
+    private readonly executions?: Repository<AiToolExecution>,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
@@ -434,12 +443,27 @@ export class AuditEvidenceService {
     // 可能属于别人的。（与本仓 09-25 §6.5 立的规矩一致：未知不得被断言成确定。）
     //
     // **这不是「证据根功能变弱」，是它不再撒谎**：此前那种配对在单次调用的会话里同样工作，
-    // 只在多调用时给出错误答案。精确配对要等执行身份（roadmap §2.1.16 ACT-5）落地 —— 在那之前
-    // 「拒绝归因」是唯一诚实的选项。
+    // 只在多调用时给出错误答案。
     const candidates = convRows.filter(
       (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
     );
-    const trigger = candidates.length === 1 ? candidates[0] : null;
+    // ACT-5：**先问执行身份**。副作用行与执行身份行由**同一个键**相连 —— 副作用行的
+    // `compensationGroup ?? idempotencyKey` 构造上就等于执行行的 `idempotency_key`（两者都出自同一个
+    // `buildKey`）—— 而执行行又记着这次调用写下的那条审计行，于是 effect 配到的是**它自己**的触发行。
+    const execution = await this.executions?.findOne({
+      where: { idempotencyKey: effect.compensationGroup ?? effect.idempotencyKey },
+    });
+    let trigger: AiAuditLog | null;
+    if (execution) {
+      // 执行身份在，就以它为准：它指的那条审计行才是这次调用的触发行。**指不到**（行被清掉）⇒
+      // 如实**不归因**，而不是回头去候选里猜 —— 我们明明知道该指哪一条。
+      trigger = execution.auditRowId
+        ? ((await this.logRepo.findOne({ where: { id: execution.auditRowId } })) ?? null)
+        : null;
+    } else {
+      // 本表之前写入的副作用没有执行身份 ⇒ 沿用上面那条保守规则（**恰好一条**才配对，否则不归因）。
+      trigger = candidates.length === 1 ? candidates[0] : null;
+    }
     const agentCache = new Map<string, { name: string; trustLevel: string; purpose?: string | null } | null>();
     const identity = trigger ? await this._identityChainFromRow(trigger, agentCache) : null;
 

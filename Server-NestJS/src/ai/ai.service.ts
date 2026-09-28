@@ -960,9 +960,14 @@ export class AiService {
               // AUTHZ-1：本条 artifact 被批准写往的目的地。run 成员取签发时记下的那份，
               // 单条取签发时的解析结果——两者都要在**执行点**再解析一次并比对。
               let confirmationAudience: string | undefined;
+              // ACT-5 / REV-7：这次执行**依据的那次授权**的 token。run 成员的授权就是 run 本身
+              // （token = runId，见 run-level-approval.spec §2.3），单条确认的是它自己那张 token ——
+              // 两条路径因此都指得回那次决定，窗口随之答得出来。
+              let confirmationToken: string | undefined;
               if (runState?.idxSet.has(tc.index)) {
                 outcome = runState.outcome; // approve / decline / timeout（超时如实回放，不塌缩）
                 confirmationAudience = runState.audiences.get(tc.index);
+                confirmationToken = runState.runId;
               } else {
                 const ttlSeconds = await this._confirmationTtlSeconds();
                 confirmationAudience = this.toolGate.destinationOf(tc.name);
@@ -974,6 +979,7 @@ export class AiService {
                   conversationId,
                   confirmationAudience,
                 );
+                confirmationToken = token;
                 const singleImpact = this.presentation.writeImpact([tc.name]);
                 const singleRevokeClass = this.presentation.revokeClass(tc.name);
                 yield {
@@ -1027,7 +1033,11 @@ export class AiService {
                 userId,
                 conversationId,
                 execRunId,
-                confirmationAudience ? { audience: confirmationAudience } : undefined,
+                // ACT-5 / REV-7：把**这次决定**的 token 落进执行行（见上面 `confirmationToken` 的来源）。
+                {
+                  ...(confirmationAudience ? { audience: confirmationAudience } : {}),
+                  authorizationRef: confirmationToken,
+                },
               );
               yield {
                 type: 'confirmation_decision',
@@ -1094,7 +1104,7 @@ export class AiService {
           // ACT-4：**必须 await**（理由同上一条决策审计）——这一行与副作用登记同为执行路径的一半，
           // 不可 fire-and-forget，否则「工具已执行、审计未写」在崩溃窗口下可达。
           if (await this._shouldAudit('tool')) {
-            await this.auditService.log(
+            const auditRow = await this.auditService.log(
               buildToolCallAudit({
                 userId,
                 conversationId,
@@ -1112,6 +1122,14 @@ export class AiService {
                 authorization: result.success ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
+            // ACT-5：**执行过**的这一支才挂链 —— 未执行的（deny / 待批）本来就没有执行身份行可挂。
+            // 证据根据此把 effect 配到**它自己**的那条触发行（ACT-2 的精确支路）。
+            if (result.success) {
+              await this.toolExecution.attachAuditRow(
+                { userId, conversationId, toolName: tc.name, argsJson: tc.args },
+                auditRow.id,
+              );
+            }
           }
         } catch (err) {
           // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
@@ -1313,7 +1331,7 @@ export class AiService {
                   await this.toolGate.riskLevelFor(tc.name),
                 )
               : null;
-            await this.auditService.log(
+            const auditRow = await this.auditService.log(
               buildToolCallAudit({
                 userId: params.userId,
                 conversationId: params.conversationId,
@@ -1325,6 +1343,18 @@ export class AiService {
                 authorization: authz ? buildAllowSnapshot(tc.name, authz) : undefined,
               }),
             );
+            // ACT-5：执行过的这一支才挂链（同流式路径）—— 证据根据此把 effect 配到**它自己**的触发行。
+            if (resolvedResult.success) {
+              await this.toolExecution.attachAuditRow(
+                {
+                  userId: params.userId,
+                  conversationId: params.conversationId,
+                  toolName: tc.name,
+                  argsJson: tc.arguments,
+                },
+                auditRow.id,
+              );
+            }
           }
 
           messages.push({

@@ -276,7 +276,9 @@ export class R4ApprovalService {
         req.operatorId,
         req.conversationId,
         undefined,
-        req.audience ? { audience: req.audience } : undefined,
+        // ACT-5 / REV-7：审批 token 落进执行行 —— 「这次写依据哪次授权、因而在哪个窗口上」由执行行
+        // 单独回答，不必再跨结构近似配对。
+        { ...(req.audience ? { audience: req.audience } : {}), authorizationRef: req.token },
       );
     } catch (err) {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
