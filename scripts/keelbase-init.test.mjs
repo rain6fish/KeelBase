@@ -773,7 +773,16 @@ test('Taro 模板：service/types/store/page 骨架', () => {
   const page = files.find((f) => f.path.endsWith('.vue')).content;
   assert.match(page, /<script setup lang="ts">/);
   assert.match(page, /usePostsStore/);
-  assert.match(page, /<style src="\.\/index\.scss" scoped><\/style>/);
+  // 样式走 script 里的 `import './index.scss'`，**不是** `<style src="…">` —— 后者在本仓的
+  // weapp 构建下过不了 postcss（`Cannot read properties of undefined (reading 'source')`），
+  // 而仓里另外 22 个页面用的都是 import 写法。两条断言各钉一半：写法对，且那个坑不回来。
+  //
+  // Styles come in through `import './index.scss'` in the script, **not** `<style src="…">` — the
+  // latter does not survive this repo's weapp build (postcss dies reading `source` of undefined),
+  // while the other 22 pages here all use the import form. The two assertions split the invariant:
+  // the form is right, and the trap has not come back.
+  assert.match(page, /import '\.\/index\.scss'/);
+  assert.doesNotMatch(page, /<style src=/);
 });
 
 test('AI 工具模板：query 读 + create 写需确认', () => {

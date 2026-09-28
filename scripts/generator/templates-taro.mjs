@@ -162,6 +162,7 @@ export function taroPageTemplate(ctx) {
 </template>
 
 <script setup lang="ts">
+import './index.scss'
 import { onMounted, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
@@ -204,8 +205,6 @@ function handleRemove(item: any) {
   })
 }
 </script>
-
-<style src="./index.scss" scoped></style>
 `;
 }
 
