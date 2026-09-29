@@ -397,6 +397,32 @@ const FALLBACK_CHAIN = {
 - **降级**：前端仅硬编码 DeepSeek/Qwen 两选项；若某 provider 未配置 key，后端 FALLBACK_CHAIN 自动降级到可用 provider。
   **Fallback**: the frontend hardcodes only the DeepSeek/Qwen options; if a provider has no key configured, the backend FALLBACK_CHAIN automatically falls back to an available provider.
 
+### 6.6 出站写的幂等键（ACT-9） / 6.6 Idempotency Key on Outbound Writes (ACT-9)
+
+**English**
+
+When KeelBase performs a write against an external target on behalf of a tool, the request **carries** `Idempotency-Key: <action key>`.
+
+The value is the write's idempotency key — the same key the local ledger uses (`sha256(userId : conversationId : toolName : canonical(args))`), so one logical call maps to one key on both sides rather than to two identities that have to be reconciled.
+
+Semantics: a target that honours the header treats two requests carrying the same key as **one operation**, and may replay the first result instead of performing the write a second time. A target that ignores it behaves exactly as it does today.
+
+**Degradation.** For targets that do not honour it, KeelBase cannot tell whether a timed-out write landed. Such an outcome is recorded as **unknown** and the write is **not** retried blindly — a person reconciles it. Guessing either way would be worse than saying so: "it succeeded" hides a write that may not have happened, and "it failed" invites a second one that may duplicate the first.
+
+**Status — declared, not yet emitted (honest).** `ProxyTool` currently sends only `Content-Type` and `Authorization`. It cannot compute the action key today, because it is called with `(args, userId)` and has no conversation to key on; emitting the header therefore needs the key threaded to outbound writers (`ToolRegistry.execute` / `AiTool.execute`), which is a separate, designed change. This section declares the contract; it does **not** assert that any target honours it — that depends on the target.
+
+**中文**
+
+KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotency-Key: <action key>`。
+
+该值就是这次写的幂等键 —— 与本地账本所用**同一个**键（`sha256(userId : conversationId : toolName : canonical(args))`），故**一次逻辑调用在两侧是同一个键**，而不是两个需要事后对账的身份。
+
+语义：**认这个头的目标**把携带同一键的两次请求当作**同一次操作**，可以回放第一次的结果而不再写一遍；忽略它的目标行为与今天完全一致。
+
+**降级**：对不认这个头的目标，KeelBase **无从判断**超时的那次写是否落了地。这类结果记为 **unknown**，且**不盲目重试** —— 由人来对账。往任何一边猜都比直说更糟：「成功了」会掩盖一次可能没发生的写，「失败了」则会招来第二次、可能把第一次重复一遍。
+
+**状态 —— 已声明，尚未发出（如实）**：`ProxyTool` 目前只发 `Content-Type` 与 `Authorization`。它**当前算不出**这个键：调用它时拿到的是 `(args, userId)`，没有会话可作键的一部分；故要真的发出这个头，须把键穿到**出站写**那一侧（`ToolRegistry.execute` / `AiTool.execute`），而那是一次独立的、需设计接口的改动。本节**声明契约**，**不**断言任何目标会认它 —— 那取决于目标。
+
 ---
 
 ## 7. 环境变量 / 7. Environment Variables
