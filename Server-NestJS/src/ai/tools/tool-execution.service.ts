@@ -170,47 +170,19 @@ export class ToolExecutionService {
       }
     }
 
-    if (isExternalWrite) {
-      const out = await this.externalTools.current!.callTool(toolName, args, userId);
-      if (!out.executed) {
-        return { success: false, error: out.error ?? 'External tool call failed' };
-      }
-      // Anchor row, **success only**: a failure must not occupy the key, or every retry would
-      // replay the failed result. `revokeClass` is pinned to `none` on purpose — KeelBase has no
-      // compensation channel to a third-party MCP server, so this row buys idempotency and
-      // traceability and is never a promise that the external write can be taken back
-      // (docs/revoke-contract.spec.md 「补充事实」第一条).
-      // 仅**成功时**登记锚行：失败不得占用该键，否则重试会回放失败结果。`revokeClass` 有意钉为 `none`
-      // ——KeelBase 对第三方 MCP server 没有补偿通道，故此行的价值是幂等与可追溯，**不是可撤销承诺**。
-      if (this.toolEffectsService) {
-        const content = (out.content ?? {}) as { id?: unknown };
-        await this.toolEffectsService.record(
-          { userId, conversationId, runId, toolName, args, revokeClass: 'none' },
-          EXTERNAL_CALL_EFFECT_TYPE,
-          typeof content.id === 'number' ? content.id : proxyResultId(userId, toolName, args),
-        );
-      }
-      return { success: true, data: out.content ?? {} };
-    }
-
-    if (!this.toolEffectsService) {
-      return this.toolRegistry.execute(toolName, args, userId);
-    }
-
-    // ACT-5/6 切片1（roadmap §2.1.16）：**本地实体写**在执行前先占位 —— 使「这次调用是否已在执行」
-    // 有一个**不依赖「写已完成」**的答案。此前是 check-then-act：并发的两份请求都读到「还没有」，
-    // 于是目标被写两次，而 `idempotency_key` 的唯一约束只把**账**收成一行 —— 它护的是账，不是动作。
+    // ACT-5/6（roadmap §2.1.16）：**两条路径都在执行前认领** —— 使「这次调用是否已在执行」有一个
+    // **不依赖「写已完成」**的答案。此前是 check-then-act：并发两份请求都读到「还没有」，于是目标被写
+    // 两次，而 `idempotency_key` 的唯一约束只把**账**收成一行 —— 它护的是账，不是动作。
     // 占位走 `claimWrite`，其唯一约束就是仲裁点：先插进去的那个人拥有这次执行。
     //
-    // **范围**：仅本地实体写。代理写（ProxyTool，B 路径）与外部 MCP 写属「目标系统是否收到不可知」
-    // 那一类，其失败政策仍待裁（侦察结论 ②），本切片**不动**它们，保持既有路径。
+    // **范围（ACT-6 第 2 片）**：从「仅本地实体写」扩到**代理写 / 外部 MCP 写**。两条路径的**失败政策
+    // 不同**，依据是「我们究竟知道什么」—— 见下面 catch 的两支。
     // REV-7：agent 身份仍在**边界处**读一次（与审计行取的是同一个 `actorContext`），随 ctx 传给登记层。
+    const effects = this.toolEffectsService;
     const agentId = actorContext.getStore()?.agentId;
-    const claimKey = this.isProxyTool(toolName)
-      ? null
-      : AiToolEffectsService.buildKey({ userId, conversationId, toolName, args });
-    if (claimKey) {
-      const claim = await this.toolEffectsService.claimWrite({
+    const claimKey = AiToolEffectsService.buildKey({ userId, conversationId, toolName, args });
+    if (effects) {
+      const claim = await effects.claimWrite({
         userId,
         conversationId,
         runId,
@@ -223,6 +195,7 @@ export class ToolExecutionService {
       });
       if (!claim.won) {
         // 已有人持有这次执行 ⇒ **绝不重复执行**。如实报「未执行 + 为什么」——不谎报成功，也不谎报失败。
+        // 对**外部写**尤其要紧：目标系统那边发生了什么我们本来就不掌握，重发一次可能是真双写。
         return {
           success: false,
           error:
@@ -233,6 +206,49 @@ export class ToolExecutionService {
     }
 
     try {
+      if (isExternalWrite) {
+        const out = await this.externalTools.current!.callTool(toolName, args, userId);
+        if (!out.executed) {
+          // ACT-6：外部写**没有执行成功**，而我们**无法知道请求是否已经到达目标** —— 超时 / 不可达 /
+          // 目标非 2xx 在传输层分不开（`ProxyTool.execute` 把它们归成一段文字，`ExternalToolCall` 只回
+          // 一个布尔），故这里**无可判定的证据**。占位因此**留在 `claimed`**：不释放（释放 = 允许重试 =
+          // 邀请一次可能重复的外部写），也不落定（那是对结果下判决）。过阈值后由 `listStaleClaims`
+          // 冒出来待人核对 —— 与崩溃残留同一口径：**可见，不自动解决**。
+          // ⚠ 边界（不得越说）：这只保证**我们自己**不重复发；目标系统是否收到、是否落了库，真值在那边
+          //（端到端幂等要目标系统接受幂等键，见 roadmap §2.1.16 ACT-9）。
+          return {
+            success: false,
+            error:
+              `${out.error ?? 'External tool call failed'}；该请求**可能已到达**目标系统，` +
+              `结果以目标系统为准 —— 本次不重试`,
+          };
+        }
+        // Anchor row, **success only**: the anchor is the *ledger* row, and a failure must not leave one
+        // or a retry would replay a failed result as success. The *claim* does occupy the key on failure
+        // by design — see above — which is what stops a second real external write.
+        // `revokeClass` is pinned to `none` on purpose — KeelBase has no compensation channel to a
+        // third-party MCP server, so this row buys idempotency and traceability and is never a promise
+        // that the external write can be taken back (docs/revoke-contract.spec.md 「补充事实」第一条).
+        // 仅**成功时**登记锚行：锚行是**账**，失败留一条会让重试把失败回放成成功。而**占位**在失败时
+        // 有意占住该键（见上）—— 那正是拦住第二次真实外部写的东西。`revokeClass` 有意钉为 `none`：
+        // KeelBase 对第三方 MCP server 没有补偿通道，此行的价值是幂等与可追溯，**不是可撤销承诺**。
+        if (effects) {
+          const content = (out.content ?? {}) as { id?: unknown };
+          const anchor = await effects.record(
+            { userId, conversationId, runId, toolName, args, revokeClass: 'none' },
+            EXTERNAL_CALL_EFFECT_TYPE,
+            typeof content.id === 'number' ? content.id : proxyResultId(userId, toolName, args),
+          );
+          await effects.settleClaim(claimKey, anchor.id);
+        }
+        return { success: true, data: out.content ?? {} };
+      }
+
+      if (!effects) {
+        // 降级装配（无账本）：照旧直接执行 —— 没有账本也就没有占位可言，逐字保持拆分前的行为。
+        return this.toolRegistry.execute(toolName, args, userId);
+      }
+
       const { result, effectId } = await this._executeLocalWrite(
         toolName,
         args,
@@ -241,12 +257,15 @@ export class ToolExecutionService {
         runId,
         agentId,
       );
-      if (claimKey) await this.toolEffectsService.settleClaim(claimKey, effectId);
+      await effects.settleClaim(claimKey, effectId);
       return result;
     } catch (err) {
-      // 本地实体写失败 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍然可用。
-      //（把「校验失败」这类确定性失败也锁成不可重试，是功能倒退，不是安全。）
-      if (claimKey) await this.toolEffectsService.releaseClaim(claimKey, 'execute_failed');
+      // **两条路径的政策在这里分开**，依据是「我们究竟知道什么」：
+      // - 本地实体写抛错 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍然可用。
+      //  （把「校验失败」这类确定性失败也锁成不可重试，是功能倒退，不是安全。）
+      // - 外部写抛错 = 请求**可能已经发出**（`fetch` 之后才抛的东西我们无从分辨）⇒ **不释放**：
+      //   释放等于允许重试、也就等于邀请一次可能重复的外部写。占位留 `claimed`，待对账。
+      if (effects && !isExternalWrite) await effects.releaseClaim(claimKey, 'execute_failed');
       throw err;
     }
   }

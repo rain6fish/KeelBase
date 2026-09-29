@@ -253,4 +253,94 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
     // 没有授权参与 ⇒ `null` 是**答案**（没有审批，也就没有窗口），不是「未知」
     expect(auto?.authorizationRef ?? null).toBeNull();
   });
+
+  describe('ACT-6 第 2 片：外部写也认领，失败**留 `claimed`** 待对账', () => {
+    const EXT_CTX = { ...CTX, toolName: 'mcp_vendor_create_ticket' };
+    let callTool: jest.Mock;
+
+    /** 外部写装配：`isExternal` 为真 ⇒ 走外呼分支；账本仍是本套件的真 `effects`（含真占位仓储）。 */
+    const buildExternal = (): ToolExecutionService => {
+      callTool = jest.fn();
+      const external = { current: { isExternal: () => true, callTool } };
+      return new ToolExecutionService(
+        { execute: executeMock, getTool: () => ({ name: EXT_CTX.toolName }) } as any,
+        {
+          assertToolAllowed: jest.fn().mockResolvedValue(undefined),
+          assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
+          assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
+        } as any,
+        external as any,
+        effects,
+        undefined,
+      );
+    };
+
+    it('外部写**失败** ⇒ 占位留 `claimed`（不释放、不落定），第二次被拒 —— 外呼只发生一次', async () => {
+      const svc = buildExternal();
+      callTool.mockResolvedValue({ executed: false, error: '目标系统请求超时（30000ms）' });
+
+      const first = await svc.executeWrite(
+        EXT_CTX.toolName,
+        EXT_CTX.args,
+        EXT_CTX.userId,
+        EXT_CTX.conversationId,
+      );
+      expect(first.success).toBe(false);
+      // 不谎报成功、也不谎报失败：只说「可能已到达、以目标系统为准」
+      expect(first.error).toContain('可能已到达');
+      expect(first.error).toContain('本次不重试');
+
+      const row = await claims().findOne({
+        where: { idempotencyKey: AiToolEffectsService.buildKey(EXT_CTX) },
+      });
+      // **释放**才等于允许重试；请求可能已到达目标，故这里不释放
+      expect(row?.status).toBe(WRITE_CLAIM_STATUS.CLAIMED);
+      expect(row?.settledAt ?? null).toBeNull();
+
+      const second = await svc.executeWrite(
+        EXT_CTX.toolName,
+        EXT_CTX.args,
+        EXT_CTX.userId,
+        EXT_CTX.conversationId,
+      );
+      expect(second.success).toBe(false);
+      // 最强的观测面：真实外呼只发生过**一次**（旧实现此处会再发一次 —— 真双写）
+      expect(callTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('外部写**成功** ⇒ 落定，且占位指回锚行', async () => {
+      const svc = buildExternal();
+      callTool.mockResolvedValue({ executed: true, content: '{"id":955}' });
+
+      const res = await svc.executeWrite(
+        EXT_CTX.toolName,
+        EXT_CTX.args,
+        EXT_CTX.userId,
+        EXT_CTX.conversationId,
+      );
+
+      expect(res.success).toBe(true);
+      const row = await claims().findOne({
+        where: { idempotencyKey: AiToolEffectsService.buildKey(EXT_CTX) },
+      });
+      expect(row?.status).toBe(WRITE_CLAIM_STATUS.SETTLED);
+      expect(row?.effectId).toBeTruthy();
+    });
+
+    it('**进对账**：失败的那条占位过阈值后由 `listStaleClaims` 冒出（可见，但不自动解决）', async () => {
+      const svc = buildExternal();
+      callTool.mockResolvedValue({ executed: false, error: '目标系统不可达: ECONNRESET' });
+      await svc.executeWrite(EXT_CTX.toolName, EXT_CTX.args, EXT_CTX.userId, EXT_CTX.conversationId);
+
+      // 把它放老一点，再按阈值读 —— 陈旧读者看见它，状态**原样**（没人替它改写结论）
+      const k = AiToolEffectsService.buildKey(EXT_CTX);
+      await claims().update({ idempotencyKey: k }, { claimedAt: new Date(Date.now() - 10 * 60 * 1000) });
+
+      const stale = await effects.listStaleClaims(5 * 60 * 1000);
+      expect(stale.map((s) => s.idempotencyKey)).toContain(k);
+      expect((await claims().findOne({ where: { idempotencyKey: k } }))?.status).toBe(
+        WRITE_CLAIM_STATUS.CLAIMED,
+      );
+    });
+  });
 });

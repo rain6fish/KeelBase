@@ -517,7 +517,8 @@ export class AiToolEffectsService {
   }
 
   /**
-   * ACT-5/6 切片1：为**本地实体写**占位（见 `AiWriteClaim` 头注）。唯一约束即仲裁点。
+   * ACT-5/6：为**写工具执行**占位（本地实体写与代理/外部 MCP 写都走它；两条路径的**失败政策不同**，
+   * 见 `AiWriteClaim` 头注与 `executeWrite` 的 catch）。唯一约束即仲裁点。
    *
    * 返回 `{ won: true }` = 本次调用拥有这次执行；`{ won: false, status }` = 已有人持有 ⇒ **调用方绝不执行**。
    * `status` 为 `claimed` 时是「正在执行中，或崩溃残留」（两者**当前不可区分**，故一律不重复执行）。
@@ -587,7 +588,12 @@ export class AiToolEffectsService {
     );
   }
 
-  /** 本地实体写失败 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍可用（不自造「不可重试」）。 */
+  /**
+   * **本地实体写**失败 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍可用（不自造「不可重试」）。
+   *
+   * ⚠ **外部写不走这里**：它没有「确认未落库」这种证据（请求可能已到达目标），故占位有意留在 `claimed`
+   * 待对账 —— 释放它等于允许重试、也就等于邀请一次可能重复的外部写。见 `executeWrite` 的 catch。
+   */
   async releaseClaim(key: string, reason: string): Promise<void> {
     if (!this.claimsRepo) return;
     await this.claimsRepo.update(
