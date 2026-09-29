@@ -142,7 +142,7 @@ Where KeelBase differs from a plain agent framework:
 These aren't just claims — every one is verified by an executable test that ships with the repo:
 
 - ✓ **Permission boundary tests** — cross-user access denied via CASL (39-case authorization matrix)
-- ✓ **Tool governance tests** — abuse / confirmation-bypass / prompt-injection blocked (12/12 security eval)
+- ✓ **Tool governance tests** — abuse / confirmation-bypass / prompt-injection blocked (security eval — `scripts/verify-security-eval.sh`)
 - ✓ **Human approval tests** — writes stay untouched until a human confirms (Golden Flow e2e)
 - ✓ **Audit integrity tests** — audit hash chain verifies, tampering fails (`/audit/verify`)
 - ✓ **Agent behavior tests** — decision trace + business-safe agent benchmark (15/15 Run/Trust/Safety)

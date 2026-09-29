@@ -7,7 +7,7 @@
 
 **roadmap A2**：对抗性证明产品化——Prompt Injection（客户 note 恶意指令→Agent 拒绝）+ 越权（跨用户 query→CASL DENY）做成**产品内可复现演示** + 决策轨迹可视化。
 
-**现状**：自动化证据层已全（越权矩阵 39/39、Agent Security Eval 12/12、Agent Benchmark 15/15、Golden 闭环、哈希链 valid），但都是 CLI 脚本 + 文档指南（`docs/manual/security-showcase.md`），验证者/评审看不到**产品内的实时演示**。
+**现状**：自动化证据层已全（越权矩阵 39/39、Agent Security Eval 逐例断言、Agent Benchmark 15/15、Golden 闭环、哈希链 valid），但都是 CLI 脚本 + 文档指南（`docs/manual/security-showcase.md`），验证者/评审看不到**产品内的实时演示**。
 
 **目标**：管理台新增「安全演示」页（Security Showcase），一键运行确定性对抗场景，展示运行时边界（**Runtime over Prompt**）如何拦截，决策轨迹以业务语言呈现。
 

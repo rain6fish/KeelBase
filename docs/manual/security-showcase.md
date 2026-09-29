@@ -78,7 +78,7 @@ cd Server-NestJS && npm install && npm run start:dev
 
 **证明**：AI Agent 对攻击（prompt 注入 / 越权 / 确认绕过 / 撤销绕过）在确定性攻击语料范围内**全挡**；黄金流程闭环可复现。
 
-- 攻击集：`./scripts/verify-security-eval.sh` → **12/12 全挡**（reject 8/8 + confirmation-bypass / cross-org-read / revoke-bypass 等）
+- 攻击集：`./scripts/verify-security-eval.sh` → **逐例断言全挡**（reject 8/8 + confirmation-bypass / cross-org-read / revoke-bypass 等）
 - Golden 闭环：`./scripts/verify-golden-application.sh` → **8/8**（客户→风险→建跟进→确认→写→审计→撤销）
 - LLM 行为基准：`LLM_ENV=1 ./scripts/release-gate.sh`（Run/Adversarial 维度，agent-benchmark 15 用例 Run/Trust/Safety）
 
@@ -88,7 +88,7 @@ cd Server-NestJS && npm install && npm run start:dev
 - [ ] AI 工具按风险分级（R0–R5）可治理，调用携带授权依据
 - [ ] AI 写操作需人工确认，R4 高影响动作双人审批
 - [ ] 审计哈希链 `valid:true`，并发压测分叉 0
-- [ ] 攻击测试集 12/12 全挡，Golden 闭环 8/8
+- [ ] 攻击测试集逐例断言全挡，Golden 闭环 8/8
 
 ## 相关
 

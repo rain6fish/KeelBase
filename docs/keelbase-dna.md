@@ -69,10 +69,10 @@ KeelBase 不说"很安全"，而是给出可执行的证明：Clone it. Run it. 
 
 **实现证据**：
 - 审计哈希链 `verify`（`/audit/verify` 返回 valid / brokenIndex）
-- 验证资产：`verification-index.md`（一站式可复现清单）+ `security-showcase.md` + `release-gate.sh` + 全量单测门禁（261 套 / 2416 测试）
+- 验证资产：`verification-index.md`（一站式可复现清单）+ `security-showcase.md` + `release-gate.sh` + 全量单测门禁（`npm run test:cov`，**计数以当次运行为准**）
 - 证据包导出（D-4：ActionReport + 哈希链校验 + HMAC 签名，可提交审计机构）
 
-**打破它**：`verify-trust-proof.mjs` + `security-showcase.md` 验收清单（攻击集 12/12 全挡）
+**打破它**：`verify-trust-proof.mjs` + `security-showcase.md` 验收清单（攻击集由该清单逐例断言全挡 —— **计数会腐，请自行跑取**）
 
 ### P4 — Design for Recovery（设计可恢复）
 

@@ -72,7 +72,7 @@
 
 ## 11. 测试与质量 / Testing & Quality
 
-**能力**：后端测试 2200+（2026-09-10 Gate 4 记录 **2264 全过**）+ e2e（24 suite，真实 HTTP）+ 覆盖率门槛（全局 statements≥85 / branches≥70 / functions≥80 / lines≥85）+ **安全模块分档门控**（auth · casl · operation-audit · ai-tools · governance · headless，statements≥85）+ e2e 计覆盖率 + 迁移一致性 CI 校验 + CLI 生成器 / Business Spec 映射测试 + Flutter 测试 600+ / analyze + Web-Admin typecheck/lint/vitest。
+**能力**：后端测试 2200+（2026-09-10 Gate 4 记录 **2264 全过**）+ e2e 套件走真实 HTTP（分片跑，`npm run test:e2e`）+ 覆盖率门槛（全局 statements≥85 / branches≥70 / functions≥80 / lines≥85）+ **安全模块分档门控**（auth · casl · operation-audit · ai-tools · governance · headless，statements≥85）+ e2e 计覆盖率 + 迁移一致性 CI 校验 + CLI 生成器 / Business Spec 映射测试 + Flutter 测试 600+ / analyze + Web-Admin typecheck/lint/vitest。
 
 **证据**：`npm run test:cov`、`scripts/check-security-coverage.mjs`、`.github/workflows/ci.yml`；[30min-acceptance.md](manual/30min-acceptance.md)。
 
