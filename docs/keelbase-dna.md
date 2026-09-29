@@ -44,7 +44,7 @@ Human       →  Decide（拥有最终决策权）
 - 审计哈希链：`AuditChainService`（HMAC-SHA256 + 域分离 key + verify）——篡改即断链
 - 确认门控：写工具 `requiresConfirmation` → 人工确认后才执行
 
-**打破它**：`node Server-NestJS/scripts/verify-permission-denied.mjs`（双账号越权 403，实测 8/8）
+**打破它**：`node Server-NestJS/scripts/verify-permission-denied.mjs`（双账号越权 403 逐例断言）
 
 ### P2 — Capability ≠ Authority（能力 ≠ 授权）
 
@@ -58,7 +58,7 @@ AI 能调用某个 Tool、知道某个 API、能生成 SQL、能理解数据库�
 - 治理策略表 `ai_governance_policy`（工具开关 / 确认 / 角色白名单，实时生效）
 - sidecar 工具门控（S-2：`SIDECAR_TOOLS` → R5 阻断 / R3-R4 hold-and-release）
 
-**打破它**：`verify-trust-proof.mjs`（正常成功 / 越权 403 / R5 阻断 / 人工确认 / 撤销 / 证据根，七场景实测 17/17）
+**打破它**：`verify-trust-proof.mjs`（正常成功 / 越权 403 / R5 阻断 / 人工确认 / 撤销 / 证据根，七场景）
 
 ### P3 — Trust Must Be Verifiable（可信必须可验证）
 
@@ -86,7 +86,7 @@ KeelBase 不说"很安全"，而是给出可执行的证明：Clone it. Run it. 
 - 补偿脚手架：`KeelBaseCompensationSupport`（java-starter，幂等账本 + 审计 + 撤销补偿端点）
 - 字段级变更审计（E-1：before/after 快照，人工复核）
 
-**打破它**：`verify-golden-crm.mjs` 步骤 7（创建 → 确认 → 审计 → 撤销，8/8）
+**打破它**：`verify-golden-crm.mjs` 步骤 7（创建 → 确认 → 审计 → 撤销）
 
 ---
 

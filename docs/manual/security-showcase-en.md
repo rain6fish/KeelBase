@@ -76,7 +76,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 **Proof**: AI agents **block all attacks within the deterministic attack corpus** (prompt injection / authorization bypass / confirmation bypass / revoke bypass); the golden loop reproduces end-to-end.
 
-- Attack suite: `./scripts/verify-security-eval.sh` → **all cases asserted blocked** (reject 8/8 + confirmation-bypass / cross-org-read / revoke-bypass)
+- Attack suite: `./scripts/verify-security-eval.sh` → **all cases asserted blocked** (reject + confirmation-bypass / cross-org-read / revoke-bypass)
 - Golden loop: `./scripts/verify-golden-application.sh` → **8/8** (customer → risk → follow-up task → confirm → write → audit → revoke)
 - LLM behavior baseline: `LLM_ENV=1 ./scripts/release-gate.sh` (Run/Adversarial dimension, agent-benchmark 15 cases Run/Trust/Safety)
 
@@ -86,7 +86,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 - [ ] AI tools risk-tiered (R0–R5), calls carry authorization reasons
 - [ ] AI writes require human confirmation; R4 high-impact needs two-person approval
 - [ ] Audit hash chain `valid:true`, concurrency stress 0 forks
-- [ ] Attack suite: all cases asserted blocked, golden loop 8/8
+- [ ] Attack suite: all cases asserted blocked, golden loop
 
 ## Related
 

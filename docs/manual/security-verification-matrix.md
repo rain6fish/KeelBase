@@ -1,7 +1,7 @@
 # 越权测试矩阵（W4① 自证：敏感实体 × 操作 × 入口系统化）
 
 > 目标：把越权测试从「攻击集」升级为**系统化矩阵**，进 Release Gate Trust 回归（v1.0 对抗性证明之一，2026-08-20 基线重排「自证」形态）。
-> 覆盖来源标注：**E**=e2e（`Server-NestJS/test/*.e2e-spec.ts`）、**SE**=Agent Security Eval（`scripts/verify-security-eval.sh`，攻击集逐例断言全挡）、**AB**=Agent Benchmark（`scripts/benchmark/agent-benchmark.mjs`，15 用例 Run/Trust/Safety 100%）、**FF**=flagships 验收（`scripts/verify-flagships.sh`）。
+> 覆盖来源标注：**E**=e2e（`Server-NestJS/test/*.e2e-spec.ts`）、**SE**=Agent Security Eval（`scripts/verify-security-eval.sh`，攻击集逐例断言全挡）、**AB**=Agent Benchmark（`scripts/benchmark/agent-benchmark.mjs`，覆盖 Run/Trust/Safety）、**FF**=flagships 验收（`scripts/verify-flagships.sh`）。
 
 ## 1. 敏感资源 × 越权场景
 
@@ -39,6 +39,6 @@
 
 ## 4. 结论
 
-- **REST 入口越权（跨用户读写删 + 非管理员访问 + 跨组织 + AI 工具越权）已系统覆盖**：13 e2e suite + SE 攻击集 + AB 15/15 全过。
+- **REST 入口越权（跨用户读写删 + 非管理员访问 + 跨组织 + AI 工具越权）已系统覆盖**：e2e suite + SE 攻击集 + AB 全过。
 - **核心能力验证**：三旗舰 + 生成模块 + org 的越权拒绝、写确认、审计哈希链、撤销均有自动化回归。
 - 缺口收窄为**跨组织 AI 工具**（SSE/WS 长连接越权已补）——作为 Trust 深化下一步（非阻塞 v1.0 对抗性证明的主体，因 REST + AI 工具主体已覆盖）。
