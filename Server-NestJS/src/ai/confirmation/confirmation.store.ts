@@ -377,6 +377,22 @@ export class ConfirmationStore {
     return res?.affected ?? 0;
   }
 
+  /**
+   * ACT-7：这个 artifact 是**由第二个人批准**的吗？
+   *
+   * 执行点要重算「这个工具现在是否要求审批」（等待窗口内策略可以把 R3 升成 R4），而判据的落脚点不是
+   * 调用方声明的布尔，是**凭据本身**：只有 `status='approved'` **且** `approverId` 非空的行才算「有过
+   * 一位审批人」—— 操作者本人点的 R3 确认同样落 `approved`，但它不是双人审批（本仓 R4 的语义就是
+   * **第二个人**点头）。
+   *
+   * 判据窄到只回答这一个问题、不返回整行：调用方要的只是「有没有第二个人的批准」，多给的东西会诱使
+   * 别处拿它当授权快照用——那是确认域自己的事（快照走 `authorization` 列与解释器）。
+   */
+  async isSecondPersonApproval(token: string): Promise<boolean> {
+    const row = await this.reqRepo.findOne({ where: { token } });
+    return row?.status === CONFIRMATION_STATUS.APPROVED && row.approverId != null;
+  }
+
   /** 当前待确认数量（测试/观测用） */
   get pendingCount(): number {
     return this.pending.size;

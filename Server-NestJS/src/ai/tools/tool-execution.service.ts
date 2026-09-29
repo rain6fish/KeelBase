@@ -129,6 +129,11 @@ export class ToolExecutionService {
       }
     }
 
+    // ACT-7：执行点**重算审批要求**。上面几条复查覆盖了 enabled / 角色 / 开关 / 字段域 / 目的地，
+    // 唯独审批要求只在**决策前**算过一次 —— 于是等待窗口内策略把工具升成 R4 时，一张「操作者本人点的
+    // 确认」会把 R4 动作放行，而 R4 要的是**第二个人**点头。凭据本身（确认行有无审批人）在此校验。
+    await this.toolGate.assertApprovalRequirementHolds(toolName, userId, opts?.authorizationRef);
+
     const isExternalWrite = this.externalTools.current?.isExternal(toolName) ?? false;
 
     // The idempotency probe runs **before** either execution path. The external branch used to

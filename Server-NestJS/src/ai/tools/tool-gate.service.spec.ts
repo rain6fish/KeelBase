@@ -5,6 +5,7 @@ import { ToolRegistry } from './tool-registry';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { fixtureUserId, isFixtureUser } from '../constants/fixture-identity';
 import { MetricsService } from '../../metrics/metrics.service';
+import { ConfirmationStore } from '../confirmation/confirmation.store';
 
 /**
  * REV-15：闸门拒绝要留下**「门在守」的证据**。
@@ -31,7 +32,7 @@ function makeRegistry(riskLevel = 'R1'): ToolRegistry {
 const NO_EXTERNAL = { isExternal: jest.fn(() => false) } as unknown as ExternalToolRegistry;
 
 function makeGate(
-  opts: { riskLevel?: string; policy?: unknown; metrics?: boolean } = {},
+  opts: { riskLevel?: string; policy?: unknown; metrics?: boolean; store?: unknown } = {},
 ): { gate: ToolGateService; metrics: ReturnType<typeof makeMetrics> } {
   const metrics = makeMetrics();
   const registry = makeRegistry(opts.riskLevel);
@@ -42,6 +43,7 @@ function makeGate(
     undefined,
     undefined,
     (opts.metrics === false ? undefined : metrics) as unknown as MetricsService,
+    opts.store as never,
   );
   return { gate, metrics };
 }
@@ -150,5 +152,89 @@ describe('REV-15 接真计数器：证据出现在暴露面上，而不是「名
 
     const after = await metrics.getMetrics();
     expect(after).toMatch(/^tool_gate_refusals_total\{reason="risk_policy",source="production"\} 1$/m);
+  });
+});
+
+/**
+ * ACT-7：**执行点重算审批要求** —— 等待窗口内策略可以把 R3 升成 R4。
+ *
+ * 审批要求此前只在**决策前**算过一次，而 artifact 带着它**当时**的档位语义；于是升档后，一张
+ * 「操作者本人点的确认」会把 R4 动作放行 —— 而 R4 的全部意义是**第二个人**点头。
+ *
+ * 判据用**凭据本身**（确认行有无审批人）而不是调用方声明的布尔，故下面每一条都从「那一行长什么样」
+ * 出发。旧实现里根本没有这个判据（执行点不读审批要求），故第 2/3 条对它为红。
+ */
+describe('ACT-7 执行点重算审批要求', () => {
+  /** 政策替身：本判据只读政策的「要不要审批」这一处。 */
+  const policy = (requiresApproval: boolean) => ({
+    requiresApproval: jest.fn().mockResolvedValue(requiresApproval),
+  });
+
+  /** 确认存储：`isSecondPersonApproval` 走**真实实现**，repo 按 token 返回给定行。 */
+  const storeWith = (row: unknown) =>
+    new ConfirmationStore({ findOne: jest.fn().mockResolvedValue(row) } as never);
+
+  const APPROVED_BY_OPERATOR = { status: 'approved', approverId: undefined };
+  const APPROVED_BY_APPROVER = { status: 'approved', approverId: '9' };
+
+  it('当前**不要求**审批 ⇒ 放行，且**不计**（放行不计，与其它判据同口径）', async () => {
+    const { gate, metrics } = makeGate({ riskLevel: 'R3', policy: policy(false) });
+
+    await expect(
+      gate.assertApprovalRequirementHolds('create_task', '7', undefined),
+    ).resolves.toBeUndefined();
+
+    expect(metrics.toolGateRefusalsTotal.inc).not.toHaveBeenCalled();
+  });
+
+  it('要求审批而**手上没有凭据** ⇒ 拒，并计入 `approval_missing`（旧实现放行）', async () => {
+    const { gate, metrics } = makeGate({
+      riskLevel: 'R3',
+      policy: policy(true),
+      store: storeWith(null),
+    });
+
+    await expect(gate.assertApprovalRequirementHolds('create_task', '7', undefined)).rejects.toThrow(
+      /requires human approval/,
+    );
+
+    expect(metrics.toolGateRefusalsTotal.inc).toHaveBeenCalledWith({
+      reason: 'approval_missing',
+      source: 'production',
+    });
+  });
+
+  it('**核心**：策略升档后，一张「操作者本人点的确认」不算审批 ⇒ 拒（旧实现放行）', async () => {
+    const { gate } = makeGate({
+      riskLevel: 'R3',
+      policy: policy(true),
+      store: storeWith(APPROVED_BY_OPERATOR),
+    });
+
+    await expect(gate.assertApprovalRequirementHolds('create_task', '7', 'tok-1')).rejects.toThrow(
+      /requires human approval/,
+    );
+  });
+
+  it('**反向对照**：凭据确实是**审批人的批准** ⇒ 放行、不计 —— 不得误拒合法的 R4 路径', async () => {
+    const { gate, metrics } = makeGate({
+      riskLevel: 'R4',
+      policy: policy(true),
+      store: storeWith(APPROVED_BY_APPROVER),
+    });
+
+    await expect(
+      gate.assertApprovalRequirementHolds('delete_customer', '7', 'tok-2'),
+    ).resolves.toBeUndefined();
+
+    expect(metrics.toolGateRefusalsTotal.inc).not.toHaveBeenCalled();
+  });
+
+  it('**fail-closed**：未装配确认存储时判不了 ⇒ 要求审批的一律拒（读不到凭据就当没有凭据）', async () => {
+    const { gate } = makeGate({ riskLevel: 'R3', policy: policy(true) });
+
+    await expect(gate.assertApprovalRequirementHolds('create_task', '7', 'tok-1')).rejects.toThrow(
+      /requires human approval/,
+    );
   });
 });

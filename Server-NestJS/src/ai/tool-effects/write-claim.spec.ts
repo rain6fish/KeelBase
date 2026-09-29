@@ -41,6 +41,8 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
     const toolGate = {
       assertToolAllowed: jest.fn().mockResolvedValue(undefined),
       assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
+      // ACT-7：执行点新增的审批要求复算（闸门接口长大了，替身必须满足）
+      assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
       destinationOf: () => 'local',
     };
     const externalTools = { current: undefined };
@@ -218,6 +220,8 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       {
         assertToolAllowed: jest.fn().mockResolvedValue(undefined),
         assertWithinDeclaredScope: jest.fn().mockResolvedValue(undefined),
+      // ACT-7：执行点新增的审批要求复算（闸门接口长大了，替身必须满足）
+      assertApprovalRequirementHolds: jest.fn().mockResolvedValue(undefined),
         destinationOf: () => 'local',
       } as any,
       { current: undefined } as any,

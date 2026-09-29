@@ -5,6 +5,7 @@ import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { AuthorizationDeniedError } from '../interfaces/tool.interface';
+import { ConfirmationStore } from '../confirmation/confirmation.store';
 
 /**
  * 执行域单测（阶段 3 第六刀从 `ai.service.spec.ts` 整段搬来，**断言一字未改**）。
@@ -388,6 +389,9 @@ describe('ToolExecutionService（执行域）', () => {
         }),
         isToolEnabled: jest.fn().mockResolvedValue(true),
         getAllowedRoles: jest.fn().mockResolvedValue([]),
+        // ACT-7：执行点现在也会重算审批要求（它唯一读政策的那一处）。本组用例打的是字段域 / 目的地，
+        // 不涉及升档，故这里如实答「不要求审批」；升档那一支由专属用例自己装配政策。
+        requiresApproval: jest.fn().mockResolvedValue(false),
       } as any);
       return new ToolExecutionService(mockToolRegistry as any, gate, externalTools);
     };
@@ -438,6 +442,86 @@ describe('ToolExecutionService（执行域）', () => {
       const res = await svc.executeWrite('update_ticket', { anything: 1 }, '1', 'c1');
 
       expect(res).toEqual({ success: true, data: { id: 4 } });
+    });
+  });
+
+  describe('ACT-7 执行点重算审批要求（等待窗口内策略升档）', () => {
+    /**
+     * 装配一个「政策可翻转」的闸门：`requiresApproval` 由闭包变量决定，故同一序列里可以先按 T1 的
+     * 政策批准、再按 T2 的政策执行 —— 这正是等待窗口。确认行按 token 返回给定形态。
+     */
+    const withFlippablePolicy = (confirmationRow: unknown) => {
+      const state = { requiresApproval: false };
+      const gate = new ToolGateService(
+        mockToolRegistry as any,
+        externalTools,
+        {
+          // 真闸门在执行点要读的两处政策：字段域/目的地复查读 `getToolPolicy`，审批要求读 `requiresApproval`。
+          // 两者都随 `state` 翻，故「T1 批准 → T2 升档」是同一次装配里的两个时刻。
+          getToolPolicy: jest.fn(async () => ({
+            enabled: true,
+            requiresConfirmation: true,
+            requiresApproval: state.requiresApproval,
+            allowedRoles: [],
+            mode: state.requiresApproval ? 'approval' : 'confirm',
+            writableFields: [],
+            allowedDestinations: [],
+          })),
+          isToolEnabled: jest.fn().mockResolvedValue(true),
+          getAllowedRoles: jest.fn().mockResolvedValue([]),
+          requiresApproval: jest.fn(async () => state.requiresApproval),
+        } as any,
+        undefined,
+        undefined,
+        undefined,
+        new ConfirmationStore({ findOne: jest.fn().mockResolvedValue(confirmationRow) } as any),
+      );
+      return { svc: new ToolExecutionService(mockToolRegistry as any, gate, externalTools), state };
+    };
+
+    /** 操作者本人点的那张确认：已批准，但**没有审批人** —— 它不是双人审批。 */
+    const OPERATOR_CONFIRMED = { status: 'approved', approverId: undefined };
+
+    it('**判据原文**：确认时政策是 R3、执行前升成 R4 ⇒ 执行点**不放行**（旧实现照样执行）', async () => {
+      const { svc, state } = withFlippablePolicy(OPERATOR_CONFIRMED);
+      // T1：决策时政策不要求审批，故这张 token 是「本人确认」；T2：等待窗口内策略升档
+      state.requiresApproval = true;
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 1 } });
+
+      const err = await svc
+        .executeWrite('update_ticket', { status: 'done' }, '1', 'c1', undefined, {
+          authorizationRef: 'tok-1',
+        })
+        .catch((e: any) => e);
+
+      expect(err).toBeInstanceOf(AuthorizationDeniedError);
+      expect(err.reasons).toEqual([expect.objectContaining({ name: 'approval_missing', ok: false })]);
+      // 最强的观测面：工具**一次都没被执行**（旧实现此处会写下去）
+      expect(mockToolRegistry.execute).not.toHaveBeenCalled();
+    });
+
+    it('**反向对照**：政策没升档 ⇒ 同一序列照常执行（不得误拒）', async () => {
+      const { svc } = withFlippablePolicy(OPERATOR_CONFIRMED);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 2 } });
+
+      const res = await svc.executeWrite('update_ticket', { status: 'done' }, '1', 'c1', undefined, {
+        authorizationRef: 'tok-1',
+      });
+
+      expect(res).toEqual({ success: true, data: { id: 2 } });
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('**反向对照**：凭据是审批人的批准 ⇒ 即便政策要求审批也照常执行（R4 路径不被误拒）', async () => {
+      const { svc, state } = withFlippablePolicy({ status: 'approved', approverId: '9' });
+      state.requiresApproval = true;
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 3 } });
+
+      const res = await svc.executeWrite('update_ticket', { status: 'done' }, '1', 'c1', undefined, {
+        authorizationRef: 'tok-2',
+      });
+
+      expect(res).toEqual({ success: true, data: { id: 3 } });
     });
   });
 });

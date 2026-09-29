@@ -28,6 +28,8 @@ import { BusinessException } from '../../common/errors/business.exception';
 import { UserRole } from '../../common/entities/user.entity';
 import { MetricsService } from '../../metrics/metrics.service';
 import { isFixtureUser } from '../constants/fixture-identity';
+// ACT-7：执行点重算审批要求时要读**凭据本身**（确认行），故这里取确认存储
+import { ConfirmationStore } from '../confirmation/confirmation.store';
 
 @Injectable()
 export class ToolGateService {
@@ -42,6 +44,12 @@ export class ToolGateService {
      * 省则计数静默跳过（抛出的语义不受影响：计数是证据，不是门控本身）。
      */
     @Optional() private readonly metrics?: MetricsService,
+    /**
+     * ACT-7：执行点重算审批要求时读凭据（确认行是否由**第二个人**批准）。**@Optional** —— 但缺失时
+     * 该判据**fail-closed**（要求审批的工具一律拒），不是静默放行：这里挡的是授权，不是一条保护：
+     * 读不到凭据就当没有凭据。
+     */
+    @Optional() private readonly confirmationStore?: ConfirmationStore,
   ) {}
 
   /**
@@ -259,6 +267,45 @@ export class ToolGateService {
     const riskLevel = await this.riskLevelFor(name);
     if (!this.governancePolicy) return riskLevel === 'R4';
     return this.governancePolicy.requiresApproval(name, riskLevel);
+  }
+
+  /**
+   * ACT-7：执行点**重算审批要求** —— 等待窗口内策略可以把一个 R3 工具升成 R4。
+   *
+   * 审批要求的判据（`requiresApproval`）此前**只在决策前**算过一次（`ai.service` 两处），而 artifact
+   * 一签下来就带着它**当时**的档位语义。于是这窗口里策略升档时，「操作者本人点的确认」会被当成
+   * 「已获审批」放行一个 R4 动作 —— 而 R4 的全部意义是**第二个人**点头。这与执行点其它复查同一条理由
+   * （策略实时生效，kill-switch 必须对在途审批有效）；本方法把缺的那一维补上。
+   *
+   * **判据是凭据本身，不是调用方声明的布尔**：载入确认行，要求它已批准**且**记着审批人 ——
+   * 「凭据要能在运行时被校验，不是谁说是就是」是本仓公开的规矩。**只在执行点可判**：发起时那个窗口
+   * 还不存在，所以决策前没有第二处可放。
+   *
+   * **边界**：只挡「要求变严」这一向。策略**放宽**（R4→R3）时手上那张审批是更强的凭据，不构成拒绝理由
+   * —— 那会是一次功能倒退，不是安全。
+   */
+  async assertApprovalRequirementHolds(
+    toolName: string,
+    userId: string,
+    authorizationRef?: string,
+  ): Promise<void> {
+    if (!(await this.requiresApproval(toolName))) return;
+    // 未装配确认存储 ⇒ 判不了 ⇒ **fail-closed**。这里挡的是**授权**而不是一条保护：读不到凭据就当没有凭据
+    //（口径同派发认领的 fail-closed —— 拿不到可判定的结果一律不放行）。
+    const approved =
+      this.confirmationStore && authorizationRef
+        ? await this.confirmationStore.isSecondPersonApproval(authorizationRef)
+        : false;
+    if (approved) return;
+    this._refuse(
+      userId,
+      {
+        name: 'approval_missing',
+        ok: false,
+        note: '该工具此刻要求人工审批，而本次执行持有的凭据不是一位审批人的批准（策略可能在等待窗口内升档）',
+      },
+      `Tool "${toolName}" requires human approval, and this execution does not hold one`,
+    );
   }
 
   /**
