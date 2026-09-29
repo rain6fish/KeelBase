@@ -102,9 +102,9 @@ User Request → AI Understanding → Business Data → Tool Call
 
 > **AI can act — but only within explicit business boundaries.**
 
-- **User-scoped tools** — every call carries the authenticated user; AI can only touch that user's data
-- **Human confirmation** — write operations require explicit approval before execution
-- **Audit & revoke** — every action lands on a tamper-evident audit hash chain; AI-created side effects are tracked and reversible
+- **User-scoped tools** — every call carries the authenticated user; AI acts inside that user's data scope — their own records, plus their organization's where the resource is org-scoped — and never outside it
+- **Human confirmation** — writes at higher risk levels require a human's explicit approval before execution; low-risk writes execute under the configured policy
+- **Audit & revoke** — actions land on a tamper-evident audit hash chain (audit granularity is configurable; the default records everything); AI-created side effects are tracked, and reversible for the tools that declare a way to undo them
 - **Explainable** — "why did the AI do that?" is answered by a decision trace, not a black box
 
 ---
