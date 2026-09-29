@@ -334,6 +334,7 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 | 缺口 | 实现落点 | 证据（**对旧实现为红**） |
 |---|---|---|
 | 5.1 少记录 | `recordGroup` 冲突分支 + `_markDisputeIfDeclarationDiffers` / `_groupResult` / `_withDisputeNote` / 迁移 `1828000000000` | `revoke-dispute.spec.ts`（旧实现：不写标记、汇总 `revoked:true`） |
+| 5.1 少记录（**读侧**） | `MyAiActionCenterView.vue` `onRevokeConversation`：`results[].disputed` → 告警 `aiCenterConvRevokeDisputed`（逐条计数照旧带出）而非无保留成功 | `MyAiActionCenterView.spec.ts`（旧实现：`disputed` 组仍念 `aiCenterConvRevokeDone` 报成功） |
 | 5.2 两个窗口 | `_doRevokeSingle` 外部分支（意图→外呼→确认）+ `_patchRevoke` + `revokeWindow()` | `revoke-intent-ack.spec.ts`（旧实现：外呼时零写入、确认列从不写） |
 | 5.3 检出 | `findSplitGroups()` + `GET /ai/tool-effects/splits` | `revoke-split-detection.spec.ts`（真 sqlite；旧实现无此能力） |
 | 5.3 闸门 | `_crossGroupClaims` + `_concludeSingle` / `_compensateGroup` / `_revokeBatch` / `_disputeNotes` | `revoke-split-gate.spec.ts`（旧实现：汇总恒 `revoked:true`，从不问别的组） |

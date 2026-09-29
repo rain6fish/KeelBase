@@ -420,6 +420,8 @@ const en: ZhDict = {
   aiCenterConvRevokeConfirm: 'This will revoke every AI write side effect from this conversation (revocable items are soft-deleted; B-path writes go through external compensation). Continue?',
   aiCenterConvRevokeEmpty: 'No revocable AI writes in this conversation',
   aiCenterConvRevokeDone: 'Revoked {revoked}, skipped {skipped}, failed {failed}',
+  // §5.1.3: declaration disagreed with what was held — held rows compensated, but never report complete
+  aiCenterConvRevokeDisputed: 'Compensated the held rows (revoked {revoked}, skipped {skipped}, failed {failed}), but the group’s declaration disagreed with what was held — this revoke cannot be reported complete',
   stepInput: 'Your input',
   stepAssistant: 'AI reply',
   traceSourceHuman: 'Human',
