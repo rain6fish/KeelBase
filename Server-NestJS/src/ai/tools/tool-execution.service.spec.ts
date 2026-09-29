@@ -6,6 +6,8 @@ import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { AuthorizationDeniedError } from '../interfaces/tool.interface';
 import { ConfirmationStore } from '../confirmation/confirmation.store';
+import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
 
 /**
  * 执行域单测（阶段 3 第六刀从 `ai.service.spec.ts` 整段搬来，**断言一字未改**）。
@@ -522,6 +524,49 @@ describe('ToolExecutionService（执行域）', () => {
       });
 
       expect(res).toEqual({ success: true, data: { id: 3 } });
+    });
+  });
+
+  /**
+   * ACT-9b：执行点送给出站写出方的 action key **就是账本那个键**。
+   *
+   * `ProxyTool` 从 `outboundIdempotencyKey` 读它（它拿不到 conversationId，见 §6.6 的状态说明），
+   * 故这里用一个「在执行期间读作用域」的注册表替身来观测同一个事实 —— 这是声明里最关键的一句：
+   * **一次逻辑调用在两侧是同一个键**，而不是两个需要事后对账的身份。
+   */
+  describe('ACT-9b 执行点送下去的 action key', () => {
+    it('就是账本键（`buildKey`）—— 与本地副作用行、执行占位行同源', async () => {
+      let seen: string | undefined;
+      mockToolRegistry.execute.mockImplementation(async () => {
+        // 工具执行期间读作用域 —— `ProxyTool` 就是这么读的
+        seen = outboundIdempotencyKey.getStore();
+        return { success: true, data: { id: 1 } };
+      });
+      const effectsStub = {
+        findExisting: jest.fn().mockResolvedValue({ existing: false }),
+        claimWrite: jest.fn().mockResolvedValue({ won: true }),
+        settleClaim: jest.fn().mockResolvedValue(undefined),
+        releaseClaim: jest.fn().mockResolvedValue(undefined),
+        record: jest.fn().mockResolvedValue({ id: 1 }),
+      };
+      const svc = new ToolExecutionService(
+        mockToolRegistry as any,
+        mockToolGate,
+        externalTools,
+        effectsStub as any,
+        undefined,
+      );
+
+      await svc.executeWrite('update_ticket', { status: 'done' }, 'u9', 'conv-9');
+
+      expect(seen).toBe(
+        AiToolEffectsService.buildKey({
+          userId: 'u9',
+          conversationId: 'conv-9',
+          toolName: 'update_ticket',
+          args: { status: 'done' },
+        }),
+      );
     });
   });
 });

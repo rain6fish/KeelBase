@@ -19,6 +19,8 @@ import {
 } from '../interfaces/tool.interface';
 import { DelegationTokenService } from '../../auth/delegation-token.service';
 import { proxyFetch, proxyErrorText } from './proxy-http';
+// ACT-9b：出站写携带账本同款幂等键（一次逻辑调用、两侧同一个键），见该模块头注
+import { outboundIdempotencyKey } from './outbound-idempotency';
 
 export interface ProxyToolConfig {
   name: string;
@@ -130,6 +132,12 @@ export class ProxyTool implements AiTool {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     };
+    // ACT-9b：**写**请求带上这次调用的账本幂等键（docs/ai-agent.spec.md §6.6）—— 认这个头的目标把
+    // 携带同一键的两次请求当作**同一次操作**，可以回放第一次的结果而不再写一遍；忽略它的目标行为与
+    // 今天完全一致。两个边界都是**有意**的：读请求不带（幂等键是写语义），作用域缺席不带（没走过认领
+    // 路径就没有键，编一个等于发出一个没人认同的键）。
+    const actionKey = outboundIdempotencyKey.getStore();
+    if (isWrite && actionKey) headers['Idempotency-Key'] = actionKey;
     const url = this.baseUrl + path + this.toQuery(query);
 
     try {

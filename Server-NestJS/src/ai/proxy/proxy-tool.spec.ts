@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ProxyTool } from './proxy-tool';
+import { outboundIdempotencyKey } from './outbound-idempotency';
 
 /** mock 委托服务：签发固定 token */
 const mockDelegation = {
@@ -164,5 +165,69 @@ describe('ProxyTool（AI Bridge B 路径）', () => {
     } finally {
       global.fetch = origFetch;
     }
+  });
+});
+
+/**
+ * ACT-9b：出站**写**携带 `Idempotency-Key`（docs/ai-agent.spec.md §6.6）。
+ *
+ * 键由**一次工具执行的作用域**带下来（`executeWrite` 放进 `outboundIdempotencyKey`）—— 值就是本地账本
+ * 与执行占位用的同一个键，故一次逻辑调用在两侧是同一个键。两个反向对照钉住两条边界：读请求不带（幂等键
+ * 是写语义），作用域缺席不带（没走过认领路径就没有键，编一个等于发出一个没人认同的键）。
+ */
+describe('ACT-9b 出站写的幂等键（Idempotency-Key）', () => {
+  const base = 'http://localhost:4000/api';
+  const audience = 'legacy-erp';
+
+  const proxyTool = (method: string, path: string, riskLevel: string) =>
+    new ProxyTool(
+      {
+        name: `proxy_${method.toLowerCase()}_thing`,
+        description: 'x',
+        method,
+        path,
+        parameters: [{ name: 'title', type: 'string', description: 't', required: false }],
+        riskLevel,
+      } as any,
+      mockDelegation as any,
+      base,
+      audience,
+    );
+
+  const headersOf = async (tool: ProxyTool, args: Record<string, unknown>) => {
+    const origFetch = global.fetch;
+    let captured: { headers: Record<string, string> } | null = null;
+    global.fetch = (async (_url: string, init: any) => {
+      captured = { headers: init.headers };
+      return { ok: true, status: 200, json: async () => ({ id: 1 }), text: async () => '' } as any;
+    }) as any;
+    try {
+      await tool.execute(args, 'u1');
+    } finally {
+      global.fetch = origFetch;
+    }
+    return captured!.headers;
+  };
+
+  it('**写**请求带上它，且值就是作用域里那个键（两侧同一个键）', async () => {
+    const headers = await outboundIdempotencyKey.run('ledger-key-1', () =>
+      headersOf(proxyTool('POST', '/contracts', 'R3'), { title: 'x' }),
+    );
+
+    expect(headers['Idempotency-Key']).toBe('ledger-key-1');
+  });
+
+  it('**反向对照**：读请求**不带**（幂等键是写语义）', async () => {
+    const headers = await outboundIdempotencyKey.run('ledger-key-1', () =>
+      headersOf(proxyTool('GET', '/contracts', 'R1'), {}),
+    );
+
+    expect(headers['Idempotency-Key']).toBeUndefined();
+  });
+
+  it('**反向对照**：作用域缺席 ⇒ **不发头**（没走过认领路径就没有键）', async () => {
+    const headers = await headersOf(proxyTool('POST', '/contracts', 'R3'), { title: 'x' });
+
+    expect(headers['Idempotency-Key']).toBeUndefined();
   });
 });

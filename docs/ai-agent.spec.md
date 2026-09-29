@@ -409,7 +409,7 @@ Semantics: a target that honours the header treats two requests carrying the sam
 
 **Degradation.** For targets that do not honour it, KeelBase cannot tell whether a timed-out write landed. Such an outcome is recorded as **unknown** and the write is **not** retried blindly — a person reconciles it. Guessing either way would be worse than saying so: "it succeeded" hides a write that may not have happened, and "it failed" invites a second one that may duplicate the first.
 
-**Status — declared, not yet emitted (honest).** `ProxyTool` currently sends only `Content-Type` and `Authorization`. It cannot compute the action key today, because it is called with `(args, userId)` and has no conversation to key on; emitting the header therefore needs the key threaded to outbound writers (`ToolRegistry.execute` / `AiTool.execute`), which is a separate, designed change. This section declares the contract; it does **not** assert that any target honours it — that depends on the target.
+**Status — emitted (ACT-9b).** `ProxyTool` sends `Idempotency-Key` on **write** requests. The key reaches it through a scope held for the duration of one tool execution (`src/ai/proxy/outbound-idempotency.ts`): the tool interface (`AiTool.execute`) is a hot path shared by every tool in the registry while exactly one implementation reads this value, so widening it would charge every tool for a single writer's need. Two boundaries are deliberate — **reads** do not carry it (the header is a write semantic), and a call that never went through the claim path has **no key to send**, so none is invented. **This covers the B path (`ProxyTool`) only**: outbound calls made by external MCP tools go through a different client and are out of scope here. Emitting the header is not the same as a target honouring it — that is the target's behaviour, and a target that ignores it behaves exactly as it does today.
 
 **中文**
 
@@ -421,7 +421,7 @@ KeelBase 代工具对**外部目标**执行写时，请求**携带** `Idempotenc
 
 **降级**：对不认这个头的目标，KeelBase **无从判断**超时的那次写是否落了地。这类结果记为 **unknown**，且**不盲目重试** —— 由人来对账。往任何一边猜都比直说更糟：「成功了」会掩盖一次可能没发生的写，「失败了」则会招来第二次、可能把第一次重复一遍。
 
-**状态 —— 已声明，尚未发出（如实）**：`ProxyTool` 目前只发 `Content-Type` 与 `Authorization`。它**当前算不出**这个键：调用它时拿到的是 `(args, userId)`，没有会话可作键的一部分；故要真的发出这个头，须把键穿到**出站写**那一侧（`ToolRegistry.execute` / `AiTool.execute`），而那是一次独立的、需设计接口的改动。本节**声明契约**，**不**断言任何目标会认它 —— 那取决于目标。
+**状态 —— 已发出（ACT-9b）**：`ProxyTool` 在**写**请求上发送 `Idempotency-Key`。键通过一个**一次工具执行期间**的作用域送到它手上（`src/ai/proxy/outbound-idempotency.ts`）—— 工具接口（`AiTool.execute`）是注册表里**每一个**工具共用的热路径，而读这个值的只有**一个**实现；为一个写出方加宽它，等于让所有工具替它付账。两条边界是有意的：**读**请求不带（这个头是写语义），**没走过认领路径**的调用**没有键可发**，故不发明一个。**只覆盖 B 路径（`ProxyTool`）**：外部 MCP 工具的出站调用走另一个客户端，不在本项范围内。发出这个头**不等于**目标会认它 —— 那取决于目标，而忽略它的目标行为与今天完全一致。
 
 ---
 

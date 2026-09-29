@@ -20,6 +20,8 @@ import { ToolRegistry } from './tool-registry';
 import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { ProxyTool } from '../proxy/proxy-tool';
+// ACT-9b：把这次写的 action key 送给出站写出方（`ProxyTool` 据此发 `Idempotency-Key`）
+import { outboundIdempotencyKey } from '../proxy/outbound-idempotency';
 import { AuthorizationDeniedError, ToolResult } from '../interfaces/tool.interface';
 import { AiToolEffectsService, sortKeys } from '../tool-effects/ai-tool-effects.service';
 import { writeEffectTypeFor, EXTERNAL_CALL_EFFECT_TYPE } from '../tool-effects/write-effect-type';
@@ -249,13 +251,11 @@ export class ToolExecutionService {
         return this.toolRegistry.execute(toolName, args, userId);
       }
 
-      const { result, effectId } = await this._executeLocalWrite(
-        toolName,
-        args,
-        userId,
-        conversationId,
-        runId,
-        agentId,
+      // ACT-9b：这次写的 action key 就在手上 —— 与本地账本是**同一个键**（`claimKey`）。把它放进作用域，
+      // 出站写出方（`ProxyTool`；代理写就从这里往下执行）据此发 `Idempotency-Key`。用作用域而不是加形参
+      // 的理由（工具接口是热接口、只有这一个实现读它）见 `outbound-idempotency.ts`。
+      const { result, effectId } = await outboundIdempotencyKey.run(claimKey, () =>
+        this._executeLocalWrite(toolName, args, userId, conversationId, runId, agentId),
       );
       await effects.settleClaim(claimKey, effectId);
       return result;
