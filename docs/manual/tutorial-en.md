@@ -40,7 +40,7 @@ Once it's running, four actions quickly show that "AI isn't just chat — it wor
 3. **See the audit**: Admin Console "AI audit" / "Operation audit" — that AI tool call you just made is already recorded (who, which tool, result); write operations (e.g., creating an event) also require human confirmation.
 4. **Quick data-model tour**: core entities `User / Event / Todo / Notification` — all business is isolated around "own data" (CASL row-level permissions).
 
-> Understanding this layer is understanding KeelBase's differentiator: a **business-safe Agent harness** — AI gets work done, touches only your data, and every step is auditable.
+> Understanding this layer is understanding KeelBase's differentiator: a **business-safe Agent harness** — AI gets work done within the **calling user's data scope** (their own data, plus their organization's where the subject is org-scoped), writes are gated by risk tier (R3+ needs confirmation), and actions land on the audit chain (audit granularity is configurable; the default records everything).
 
 ## Step 3: Make It Yours (config) — MODIFY
 

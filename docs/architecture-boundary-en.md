@@ -139,7 +139,7 @@ Audit (HS-11 hash chain, unconditional recording)                     ← final 
 **Principles**:
 - `detectInjection` (`src/ai/security/injection-guard.ts`) only handles context-content injection in "memory/RAG/summary" (sensitive-field masking + system-boundary labeling + basic regex detection); it **does not gate tool execution permissions**.
 - Tool execution (AI chat `runToolLoop` and the MCP export `executeToolForExternal` share the same chain) unconditionally passes through: `_assertToolAllowed` (HS-9 tool switch + role whitelist) → `_requiresConfirmation` (write confirmation gate) → `auditService.log` (`chat`/`tool_call`/`tool_confirmation`, HS-11).
-- **Even if the Injection Guard is bypassed** (regex misses a malicious instruction, the LLM is induced to call a tool): writes still require human confirmation, cross-user access is still rejected by CASL, and everything is still audited; if confirmation is tricked by social engineering, CASL's `userId` data scope still limits operations to the user's own data.
+- **Even if the Injection Guard is bypassed** (regex misses a malicious instruction, the LLM is induced to call a tool): the risk-tier gate still holds (R3+ writes need confirmation, R4 needs a second approver, R5 is blocked), cross-user access is still rejected by CASL, and everything is still audited; if confirmation is tricked by social engineering, the row-level data scope still confines the action to the rows the caller can reach (their own, plus the organization's where org-scoped).
 - Any new detection/guard (regex / classifier / prompt hardening) is only the first layer and **must not replace or weaken the Permission / Confirmation / Audit gates**.
 
 ## 6. Acceptance Red Lines

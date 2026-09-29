@@ -8,7 +8,7 @@
 
 ## The Challenge
 
-> Use `keelbase init` to generate a business module from scratch (e.g., "supplier management"), and let the **Runtime Agent (AI chat) safely operate it** — reading/writing your data, writes requiring your confirmation, every step auditable.
+> Use `keelbase init` to generate a business module from scratch (e.g., "supplier management"), and let the **Runtime Agent (AI chat) safely operate it** — access within the caller's data scope, writes gated by risk tier (R3+ needs confirmation), actions on the audit chain.
 
 ## Setup (≈10 min)
 

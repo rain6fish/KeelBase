@@ -139,7 +139,7 @@ Audit（HS-11 哈希链，无条件记录）                   ← 最终防线 
 **原则**：
 - `detectInjection`（`src/ai/security/injection-guard.ts`）只处理「记忆/RAG/摘要」上下文内容注入（敏感字段掩码 + 系统边界标注 + 基础正则检测）；**不控制工具执行权限**。
 - 工具执行（AI 对话 `runToolLoop` 与 MCP 出口 `executeToolForExternal` 同一链路）无条件经过：`_assertToolAllowed`（HS-9 工具开关 + 角色白名单）→ `_requiresConfirmation`（写操作确认门控）→ `auditService.log`（`chat`/`tool_call`/`tool_confirmation`，HS-11）。
-- **即使 Injection Guard 被绕过**（正则未匹配恶意指令、LLM 被诱导调工具）：写操作仍需人工确认、越权仍被 CASL 拒绝、全程仍审计；确认被社会工程骗过时，CASL `userId` 数据范围仍限定只能操作本人数据。
+- **即使 Injection Guard 被绕过**（正则未匹配恶意指令、LLM 被诱导调工具）：风险分级门控仍在（R3 及以上写操作需确认、R4 双人审批、R5 阻断）、越权仍被 CASL 拒绝、全程仍审计；确认被社会工程骗过时，行级数据范围仍把动作限制在**调用者可及的行**（本人行 + 组织作用域的行）。
 - 任何新检测/防护（正则 / 分类器 / 提示词加固）都只是第一层，**不得替代或弱化 Permission / Confirmation / Audit 三关**。
 
 ## 6. 验收红线
