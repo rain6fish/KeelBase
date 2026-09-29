@@ -132,11 +132,11 @@ KeelBase 与普通 Agent 框架的区别所在：
 
 这些不只是承诺——每一项都由仓库自带的可执行测试验证：
 
-- ✓ **权限边界测试**——跨用户访问经 CASL 一律拒绝（越权矩阵 39 用例）
+- ✓ **权限边界测试**——跨用户访问经 CASL 一律拒绝（越权矩阵逐例断言）
 - ✓ **工具治理测试**——工具滥用 / 确认绕过 / 提示词注入全阻断（安全评测 —— `scripts/verify-security-eval.sh`）
 - ✓ **人工审批测试**——人工确认前写操作绝不落库（Golden Flow e2e）
 - ✓ **审计完整性测试**——审计哈希链可验证、篡改即失败（`/audit/verify`）
-- ✓ **Agent 行为测试**——决策轨迹 + 业务安全 Agent 基准（15/15 Run/Trust/Safety）
+- ✓ **Agent 行为测试**——决策轨迹 + 业务安全 Agent 基准（Run/Trust/Safety 三维，`scripts/benchmark/agent-benchmark.mjs`）
 - ✓ **端到端业务流**——AI CRM：读 → 风险 → 建任务 → 确认 → 写 → 审计 → 撤销（确定性 e2e）
 
 > **边界同样重要**——「审计 / 撤销 / 篡改即断链」承诺什么、**不**承诺什么（如仅应用边界内、不防 DBA/root；撤销按 `revokeClass` 档位，不是跨系统回滚）：[SECURITY.md → 信任边界与不承诺清单（Not-a-*）](SECURITY.md)

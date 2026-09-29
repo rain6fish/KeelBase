@@ -141,11 +141,11 @@ Where KeelBase differs from a plain agent framework:
 
 These aren't just claims — every one is verified by an executable test that ships with the repo:
 
-- ✓ **Permission boundary tests** — cross-user access denied via CASL (39-case authorization matrix)
+- ✓ **Permission boundary tests** — cross-user access denied via CASL (authorization matrix, asserted case by case)
 - ✓ **Tool governance tests** — abuse / confirmation-bypass / prompt-injection blocked (security eval — `scripts/verify-security-eval.sh`)
 - ✓ **Human approval tests** — writes stay untouched until a human confirms (Golden Flow e2e)
 - ✓ **Audit integrity tests** — audit hash chain verifies, tampering fails (`/audit/verify`)
-- ✓ **Agent behavior tests** — decision trace + business-safe agent benchmark (15/15 Run/Trust/Safety)
+- ✓ **Agent behavior tests** — decision trace + business-safe agent benchmark (Run/Trust/Safety dimensions, `scripts/benchmark/agent-benchmark.mjs`)
 - ✓ **End-to-end business flow** — AI CRM: read → risk → task → confirm → write → audit → revoke (deterministic e2e)
 
 > **Boundaries matter** — what "audit / revoke / tamper-evident" does and does **not** promise (e.g. within-application only, not vs. DBA/root; revoke is scoped per `revokeClass`, not a cross-system rollback): [SECURITY.md → Trust Boundaries (Not-a-*)](SECURITY.md)
