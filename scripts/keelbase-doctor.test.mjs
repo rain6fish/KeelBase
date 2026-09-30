@@ -16,6 +16,7 @@ import {
   checkEnvSecrets,
   checkLlm,
   checkDbType,
+  checkContractSubmodule,
   report,
 } from './keelbase-doctor.mjs';
 
@@ -115,4 +116,40 @@ test('兼容矩阵为 warn 时 doctor 退出码仍为 0（向后兼容旧协议�
     report([{ status: 'warn', name: '兼容矩阵', detail: 'protocol 1.0 ≤ 1.1 —— 无需动作' }]),
     0,
   );
+});
+
+// ── 契约 submodule（含 SHA 校验）────────────────────────────────────────────
+
+test('checkContractSubmodule：目录为空 → fail，并给出 clone 修复命令', () => {
+  const r = checkContractSubmodule(0, '-b1ef4cab96bdb2557abdb330a8986bad2791e6ae Server-NestJS/specs/protocol');
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /为空/);
+  assert.match(r.fix, /git submodule update/);
+});
+
+test('checkContractSubmodule：就位且检出与 pin 一致 → pass', () => {
+  const r = checkContractSubmodule(
+    23,
+    ' b1ef4cab96bdb2557abdb330a8986bad2791e6ae Server-NestJS/specs/protocol (v1.3.0-1-gb1ef4ca)',
+  );
+  assert.equal(r.status, 'pass');
+  assert.match(r.detail, /23 项/);
+});
+
+// 这一条是本检查存在的理由：目录非空 ⇒ 旧的「按目录是否为空」判定会说 ✓，
+// 而套件其实对着**旧契约**跑，可能全绿。
+test('checkContractSubmodule：目录非空但检出 ≠ pin（行首 +）→ warn，不得判 pass', () => {
+  const r = checkContractSubmodule(23, '+9f8e7d6c5b4a39281706f5e4d3c2b1a098765432 Server-NestJS/specs/protocol');
+  assert.equal(r.status, 'warn');
+  assert.match(r.detail, /旧契约|不一致/);
+  assert.match(r.fix, /git submodule update/);
+});
+
+test('checkContractSubmodule：取不到 git 状态（null）→ 只按目录判定，不凭空报错', () => {
+  assert.equal(checkContractSubmodule(23, null).status, 'pass');
+  assert.equal(checkContractSubmodule(0, null).status, 'fail');
+});
+
+test('checkContractSubmodule：warn（陈旧）不改变 doctor 退出码', () => {
+  assert.equal(report([checkContractSubmodule(23, '+deadbeef Server-NestJS/specs/protocol')]), 0);
 });

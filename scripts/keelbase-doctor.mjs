@@ -182,8 +182,22 @@ export function checkPort(port, free) {
  * 与协议向量语料。未 initialise 的 submodule 目录**完全为空**，于是那 38 个套件全部报
  * 「文件找不到」——看上去像项目本身是坏的，而不是像漏了一个 clone 参数。
  * 故这里按目录是否为空判定，并给出修复命令。
+ *
+ * 除「有没有」还要问「对不对」：`git submodule status` 行首的 `+` 表示**检出 SHA 与 pin 不一致**。
+ * 目录非空但停在旧契约时，那批套件会**对着旧契约跑**并可能全绿——比缺文件更隐蔽的一种假绿
+ * （`git pull` 让 pin 前移、却没跑 `git submodule update` 就是这个状态）。判为 warn 而非 fail：
+ * 正在契约仓里改东西的人同样会看到 `+`，那是预期状态，不该把人往 `submodule update` 上赶。
  */
-export function checkContractSubmodule(entryCount) {
+export function checkContractSubmodule(entryCount, statusLine = null) {
+  const marker = typeof statusLine === 'string' && statusLine.length > 0 ? statusLine[0] : '';
+  if (entryCount > 0 && marker === '+') {
+    return {
+      status: 'warn',
+      name: '契约 submodule',
+      detail: 'specs/protocol 的检出与 pin 不一致——测试会对着**旧契约**跑（可能全绿）',
+      fix: '若你正在改契约，这是预期的；否则跑 git submodule update --init --recursive 同步到 pin',
+    };
+  }
   if (entryCount > 0) {
     return { status: 'pass', name: '契约 submodule', detail: `specs/protocol 已就位（${entryCount} 项）` };
   }
@@ -193,6 +207,23 @@ export function checkContractSubmodule(entryCount) {
     detail: 'Server-NestJS/specs/protocol 为空——38 个测试套件会全部报「文件找不到」，像是项目坏了',
     fix: 'git submodule update --init --recursive',
   };
+}
+
+/**
+ * 取契约 submodule 的 `git submodule status` 行（行首字符即状态：空格=与 pin 同步、`+`=检出≠pin、
+ * `-`=未初始化）。取不到（无 git / 非仓库）返回 null —— 调用方据此**只按目录判定**，不凭空报错。
+ */
+export function submoduleStatusLine() {
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      ['submodule', 'status', 'Server-NestJS/specs/protocol'],
+      { timeout: 8000 },
+      (err, stdout) => {
+        resolve(err ? null : String(stdout).split('\n')[0] || null);
+      },
+    );
+  });
 }
 
 const REQUIRED_ENV_KEYS = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
@@ -293,7 +324,7 @@ export async function runEnvCheck() {
     } catch {
       contractEntries = 0; // 目录缺失视同为空——同为「submodule 未 init」
     }
-    checks.push(checkContractSubmodule(contractEntries));
+    checks.push(checkContractSubmodule(contractEntries, await submoduleStatusLine()));
   }
 
   console.log('Checks:');
