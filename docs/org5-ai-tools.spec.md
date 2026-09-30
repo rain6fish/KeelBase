@@ -78,7 +78,7 @@ No new REST endpoints — the tools are exposed to the LLM via the existing `/ai
 
 ## 6. 测试 / 6. Tests
 
-- `query-org-availability.tool.spec.ts`：非成员拒绝 / 成员事件数统计（组织边界）/ 默认日期 / 工具定义（4 用例）。
-- `query-org-members.tool.spec.ts`：非成员拒绝 / 脱敏目录 / 部门筛选 / 工具定义（4 用例）。
-- `query-org-tasks.tool.spec.ts`：非成员拒绝 / 审批待办统计（组织边界）/ 工具定义（3 用例）。
+- `query-org-availability.tool.spec.ts`：非成员拒绝 / 成员事件数统计（组织边界）/ 默认日期 / 工具定义。
+- `query-org-members.tool.spec.ts`：非成员拒绝 / 脱敏目录 / 部门筛选 / 工具定义。
+- `query-org-tasks.tool.spec.ts`：非成员拒绝 / 审批待办统计（组织边界）/ 工具定义。
 - 全量：本功能 11 用例（其余套件的 data-import/notifications 失败为并发会话未提交重构）。

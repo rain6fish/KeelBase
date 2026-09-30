@@ -80,11 +80,11 @@ All three buckets share one shape: each goes through the shared `paginated()` (`
 
 ## 6. 测试 / Testing
 
-- 后端单测：SearchService 2 用例（聚合 + 空查询）、UsersService.searchUsers 2 用例（公开字段 + LIKE 条件）
-  Backend unit tests: 2 cases for SearchService (aggregation + empty query), 2 cases for UsersService.searchUsers (public fields + LIKE condition)
-- 后端 e2e：3 用例（搜到本人事件、用户公开字段无 email、未登录 401）
-  Backend e2e: 3 cases (finds the user's own events, user public fields contain no email, 401 when not logged in)
-- 前端单测：search_provider_test 4 用例
-  Frontend unit tests: 4 cases in search_provider_test
+- 后端单测：SearchService（聚合 + 空查询）、UsersService.searchUsers（公开字段 + LIKE 条件）
+  Backend unit tests: SearchService (aggregation + empty query), UsersService.searchUsers (public fields + LIKE condition)
+- 后端 e2e：（搜到本人事件、用户公开字段无 email、未登录 401）
+  Backend e2e: (finds the user's own events, user public fields contain no email, 401 when not logged in)
+- 前端单测：search_provider_test
+  Frontend unit tests: search_provider_test
 - P0-9a 追加（2026-09-26）：`SearchService` **12 用例**（真 `better-sqlite3` 驱动 + 真实体，**只**替换「读清单文件」这一步：命中 / 跨用户隔离 / 只匹配声明的列 / 软删不出现 / `limit` 与 `total` 同口径 / page·limit 入口钳制 / flag 关掉不进搜索 / 未声明不搜 / 清单缺失）；`searchable-entities` **8 用例**（声明的列与实体求交集 / 一条不剩则跳过 / 归属列缺失跳过 / 实体未注册跳过 / 按实体自身主键排序（主键非 `id` 也照样）/ 未声明不返回 / 声明顺序）；`application-manifest` **6 用例**（缺 / 坏 / 非对象 / 两种 cwd 布局）；e2e **2 用例** —— **不 stub**，读的是仓库自己的清单，且另有一条生成器测试证明那条清单与 `specs/books.json` 重生成的结果逐字相同
   P0-9a additions (2026-09-26): **12 cases** for `SearchService` (a real `better-sqlite3` driver with real entities; **only** the manifest *file read* is stubbed: hit / cross-user isolation / matches declared columns only / soft-deleted rows absent / `limit` and `total` agree / `page`·`limit` clamped at the entry point / a flagged-off module does not enter / not declared means not searched / manifest missing); **8 cases** for `searchable-entities` (declared columns intersected with the entity's / skipped when none survive / no ownership column / entity not registered / ordering by the entity's own primary key / undeclared means not returned / declaration order); **6 cases** for `application-manifest` (absent / unparsable / non-object / both cwd layouts); **2** e2e cases with **no stub** — they read the repository's own manifest, and a generator test proves that manifest is byte-for-byte what regenerating `specs/books.json` produces

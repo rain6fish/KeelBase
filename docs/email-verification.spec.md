@@ -68,8 +68,8 @@ POST /auth/resend-verification
 
 - 后端单测：auth.service.spec 新增 6 用例（verifyEmail 有效/错误码/过期/已验证、resend 已注册/未知邮箱）
   Backend unit tests: add 6 cases to auth.service.spec (verifyEmail valid/wrong code/expired/already verified, resend registered/unknown email)
-- 后端 e2e：2 用例（verify-email 错误码 401、resend 统一响应）
-  Backend e2e: 2 cases (verify-email wrong code 401, resend unified response)
+- 后端 e2e：（verify-email 错误码 401、resend 统一响应）
+  Backend e2e: (verify-email wrong code 401, resend unified response)
 - 前端单测：auth_provider_test 新增 4 用例（verifyEmail/resendVerification 成功与失败）
   Frontend unit tests: add 4 cases to auth_provider_test (verifyEmail/resendVerification success and failure)
 
@@ -89,8 +89,8 @@ The global `EmailVerificationGuard` (after JwtAuthGuard): requires an email to b
   admin is treated as verified (to avoid locking down admin operations)
 - `@SkipEmailVerification()` 装饰器（仿 skip-audit）可显式排除端点
   The `@SkipEmailVerification()` decorator (modeled after skip-audit) can explicitly exclude endpoints
-- 测试：guard.spec 7 用例 + e2e（未验证 403 / 验证后放行）；e2e `registerUser` helper 默认置已验证避免误拦常规用例
-  Testing: guard.spec 7 cases + e2e (unverified 403 / allowed after verification); the e2e `registerUser` helper defaults to verified to avoid wrongly blocking routine cases
+- 测试：guard.spec + e2e（未验证 403 / 验证后放行）；e2e `registerUser` helper 默认置已验证避免误拦常规用例
+  Testing: guard.spec + e2e (unverified 403 / allowed after verification); the e2e `registerUser` helper defaults to verified to avoid wrongly blocking routine cases
 
 ## 7. 后续 / Future Work
 

@@ -65,7 +65,7 @@ Write operations are constrained by EmailVerificationGuard (unverified users get
 
 ## 7. 测试 / Tests
 
-- 后端：todos.service.spec 7 用例（CRUD + CASL 所有权）+ e2e 3 用例（CRUD + 未验证 403 + 他人 403）
-  Backend: todos.service.spec 7 cases (CRUD + CASL ownership) + e2e 3 cases (CRUD + unverified 403 + others 403)
-- 前端：todos_provider_test 6 用例（load/add/toggle/remove）
-  Frontend: todos_provider_test 6 cases (load/add/toggle/remove)
+- 后端：todos.service.spec（CRUD + CASL 所有权）+ e2e（CRUD + 未验证 403 + 他人 403）
+  Backend: todos.service.spec (CRUD + CASL ownership) + e2e (CRUD + unverified 403 + others 403)
+- 前端：todos_provider_test（load/add/toggle/remove）
+  Frontend: todos_provider_test (load/add/toggle/remove)

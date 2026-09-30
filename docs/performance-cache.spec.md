@@ -38,8 +38,8 @@ Introduces a Redis cache layer that caches high-frequency read data (user info, 
 
 ## 5. 测试 / 5. Tests
 
-- cache.service.spec 8 用例（get/set/delete/delByPrefix/空值跳过/降级）
-  cache.service.spec 8 cases (get/set/delete/delByPrefix / null-value skip / degradation)
+- cache.service.spec（get/set/delete/delByPrefix/空值跳过/降级）
+  cache.service.spec (get/set/delete/delByPrefix / null-value skip / degradation)
 - users.service.spec：findOne 缓存命中不查库 + update 清缓存
   users.service.spec: findOne cache hit does not query the DB + update clears the cache
 - events.service.spec：search 缓存命中不查库

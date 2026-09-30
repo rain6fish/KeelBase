@@ -31,8 +31,8 @@ Automatic processing of uploaded images: raster images (jpeg/png/webp) are conve
 
 ## 5. 测试 / Testing
 
-- 后端单测：image-processor.service.spec 5 用例（大图→webp 1280、小图不放大、gif 原样、pdf 原样、失败降级）
-  Backend unit tests: 5 cases in image-processor.service.spec (large image → webp 1280, small image not upscaled, gif as-is, pdf as-is, failure fallback)
+- 后端单测：image-processor.service.spec（大图→webp 1280、小图不放大、gif 原样、pdf 原样、失败降级）
+  Backend unit tests: image-processor.service.spec (large image → webp 1280, small image not upscaled, gif as-is, pdf as-is, failure fallback)
 - 后端 e2e：真实 PNG 上传 → 返回 `.webp` url + `image/webp`；魔数不匹配 400
   Backend e2e: uploading a real PNG → returns a `.webp` url + `image/webp`; magic-byte mismatch returns 400
 

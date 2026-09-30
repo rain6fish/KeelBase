@@ -67,7 +67,7 @@ Both routes are merged into the redirect guard's `isAuthRoute` (accessible while
 
 - 后端单测：auth.service.spec 新增 7 用例（forgot 存在/不存在统一响应 + 邮件失败不抛错 + reset 有效/无效/过期）
   Backend unit tests: auth.service.spec adds 7 cases (forgot unified response for existing / non-existing + mail failure does not throw + reset valid / invalid / expired)
-- 后端 e2e：3 用例（unknown/known email 统一响应 + 无效 token 401）
-  Backend e2e: 3 cases (unified response for unknown/known email + invalid token 401)
+- 后端 e2e：（unknown/known email 统一响应 + 无效 token 401）
+  Backend e2e: (unified response for unknown/known email + invalid token 401)
 - 前端单测：auth_provider_test 新增 4 用例（requestPasswordReset / resetPassword 成功与失败）
   Frontend unit tests: auth_provider_test adds 4 cases (requestPasswordReset / resetPassword success and failure)

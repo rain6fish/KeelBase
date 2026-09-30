@@ -114,7 +114,7 @@ No new tables. MCP calls execute read tools via `AiService.executeToolForExterna
 
 ## 7. 测试 / 7. Tests
 
-- `mcp.controller.spec.ts`：initialize / ping / tools/list / tools/call（读执行 / 写需确认 / 失败 isError / 异常 -32603 / **T5 deny 审计：authorization=JSON(reasons) + 只记一次**）/ 未知方法 / 通知 ack（10 用例）。
+- `mcp.controller.spec.ts`：initialize / ping / tools/list / tools/call（读执行 / 写需确认 / 失败 isError / 异常 -32603 / **T5 deny 审计：authorization=JSON(reasons) + 只记一次**）/ 未知方法 / 通知 ack。
 - `ai.service.spec.ts`：listMcpTools 映射 + executeToolForExternal（读执行 / 写需确认）+ **T5 非流式与流式 deny 落审计（authorization 序列化 reasons；流式 proxy 工具 deny 标 source=bridge）**。
 - `test/mcp-export.e2e-spec.ts`：全链 e2e 含 **T5 授权拒绝场景（普通用户经 MCP 调 adminOnly 工具 navigate_admin_page → -32603 + 审计行 provider=mcp + authorization reasons）**。
 - 全量：2071 后端单测（2026-09-05 实测）+ build 0 error。

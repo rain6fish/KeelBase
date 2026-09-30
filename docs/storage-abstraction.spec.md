@@ -55,10 +55,10 @@ interface StorageService {
 
 ## 6. 测试 / Tests
 
-- 后端单测：local 3 用例（save 写文件/delete 删除/缺失静默）、s3 3 用例（PutObject + URL/PUBLIC_URL 前缀/delete 去前缀）、module 2 用例（driver 切换）
-  Backend unit tests: local 3 cases (save writes file / delete removes / missing is silent), s3 3 cases (PutObject + URL/PUBLIC_URL prefix / delete strips prefix), module 2 cases (driver switching)
-- 后端 e2e：2 用例（真实 PNG 上传返回 url、魔数不匹配 400）
-  Backend e2e: 2 cases (a real PNG upload returns url, magic-byte mismatch returns 400)
+- 后端单测：local（save 写文件/delete 删除/缺失静默）、s3（PutObject + URL/PUBLIC_URL 前缀/delete 去前缀）、module（driver 切换）
+  Backend unit tests: local (save writes file / delete removes / missing is silent), s3 (PutObject + URL/PUBLIC_URL prefix / delete strips prefix), module (driver switching)
+- 后端 e2e：（真实 PNG 上传返回 url、魔数不匹配 400）
+  Backend e2e: (a real PNG upload returns url, magic-byte mismatch returns 400)
 
 ## 7. 前端消费 / Frontend Consumption
 

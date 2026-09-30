@@ -82,7 +82,7 @@ The single `User.refreshTokenHash` column is kept (for compatibility); the refre
 
 - 后端单测：auth.service.spec 新增 6 用例（refresh 按会话校验/失配撤销、getSessions isCurrent、revoke 本人/他人、logout 按设备删）
   Backend unit tests: auth.service.spec adds 6 cases (refresh session validation / mismatch revocation, getSessions isCurrent, revoke own/others, logout by device)
-- 后端 e2e：3 用例（登录登记会话 + 列表 isCurrent、远程登出本人、删他人会话拒绝）
-  Backend e2e: 3 cases (login registers a session + list isCurrent, remote logout of an own session, deleting others' sessions is rejected)
-- 前端单测：session_provider_test 4 用例（load 成功/失败、revoke 成功/失败）
-  Frontend unit tests: session_provider_test 4 cases (load success/failure, revoke success/failure)
+- 后端 e2e：（登录登记会话 + 列表 isCurrent、远程登出本人、删他人会话拒绝）
+  Backend e2e: (login registers a session + list isCurrent, remote logout of an own session, deleting others' sessions is rejected)
+- 前端单测：session_provider_test（load 成功/失败、revoke 成功/失败）
+  Frontend unit tests: session_provider_test (load success/failure, revoke success/failure)

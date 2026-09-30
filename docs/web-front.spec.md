@@ -60,8 +60,8 @@ Reads `auth.user` directly (loaded by the guard); PageHeader + 4 StatCards (user
 
 ## 7. 前端测试 / Frontend Testing
 
-最小 vitest 基线（此前 0 测试）：`vitest` + `@vue/test-utils` + `jsdom`，store 测试用 `vi.mock('@/api/auth')` + `createPinia`；守卫测试用 `createRouter` + `createMemoryHistory`（动态 import 组件不挂载，无需 Element Plus）。11 用例覆盖：login/tryAutoLogin 各角色分支、守卫分流与防循环、匿名跳转。
-Minimal vitest baseline (previously 0 tests): store tests mock `@/api/auth` with `createPinia`; guard tests use `createRouter` + `createMemoryHistory` (lazy components never mount, no Element Plus needed). 11 cases cover login/tryAutoLogin role branches, guard routing, and anonymous redirect.
+最小 vitest 基线（此前 0 测试）：`vitest` + `@vue/test-utils` + `jsdom`，store 测试用 `vi.mock('@/api/auth')` + `createPinia`；守卫测试用 `createRouter` + `createMemoryHistory`（动态 import 组件不挂载，无需 Element Plus）。覆盖：login/tryAutoLogin 各角色分支、守卫分流与防循环、匿名跳转。
+Minimal vitest baseline (previously 0 tests): store tests mock `@/api/auth` with `createPinia`; guard tests use `createRouter` + `createMemoryHistory` (lazy components never mount, no Element Plus needed). Coverage: login/tryAutoLogin role branches, guard routing, and anonymous redirect.
 
 ## 8. i18n
 
@@ -112,8 +112,8 @@ typecheck / build / test; manually: admin→console, alex (user)→workbench, ty
 
 **前端 lint 基线**：此前 `npm run lint` 脚本从未生效（eslint 9 flat config 缺 `eslint.config.js`）。本次补齐：`eslint.config.js`（@eslint/js + typescript-eslint + eslint-plugin-vue flat/recommended + globals；关闭 `vue/valid-v-slot` 动态列插槽误报、`vue/require-default-prop` 必填字段风格）；修复 2 处真实问题（AppTable `items` any 行内豁免、UserDetailView 空 catch 未用参数）。
 
-**CI**（`.github/workflows/ci.yml` web-admin job）：`npm run typecheck` → 严格 `npx eslint .`（不带 --fix）→ `npm test`（vitest 13 用例）→ `npm run build`。
+**CI**（`.github/workflows/ci.yml` web-admin job）：`npm run typecheck` → 严格 `npx eslint .`（不带 --fix）→ `npm test`（vitest）→ `npm run build`。
 
-**前端测试基线**：vitest（WEB-FRONT-1 建）+ 13 用例（auth 5 + 守卫 8），纳入 CI。
+**前端测试基线**：vitest（WEB-FRONT-1 建）+ 测试（auth、守卫），纳入 CI。
 
 **未做 / Not done**：关键流程 e2e（Playwright 级）、前端错误监控（Sentry 类）——WEB-Frontend-6 余下，随 WEB-FRONT-6 后续补。

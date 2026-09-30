@@ -113,6 +113,6 @@ The chain proves **internal continuity**: any row that is altered, removed from 
 
 ## 7. 测试 / 7. Tests
 
-- `audit-chain.service.spec.ts`：computeHash 稳定性/键序/undefined/链式/密钥隔离 + verifyChain 空链/合法链/篡改检测/断链检测（9 用例）。
+- `audit-chain.service.spec.ts`：computeHash 稳定性/键序/undefined/链式/密钥隔离 + verifyChain 空链/合法链/篡改检测/断链检测。
 - `audit.service.spec.ts` / `operation-audit.service.spec.ts`：log 写入 prev_hash+hash、串接上条 hash、verifyChain 委托。
 - 全量：850 后端单测 + e2e 全绿。

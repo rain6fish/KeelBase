@@ -88,10 +88,10 @@ body: `{ platform: android|ios|web, token, deviceId? }`.
 
 ## 7. 测试 / Tests
 
-- 后端单测：jpush.service.spec 4 用例、push.module.spec 3 用例、push-token.service.spec 4 用例、notifications.service.spec 4 个 create 推送用例
-  Backend unit tests: jpush.service.spec 4 cases, push.module.spec 3 cases, push-token.service.spec 4 cases, notifications.service.spec 4 create-push cases
-- 后端 e2e：PushModule 加载 + push token 注册/upsert/注销 3 用例
-  Backend e2e: PushModule loading + push token register/upsert/unregister 3 cases
+- 后端单测：jpush.service.spec、push.module.spec、push-token.service.spec、notifications.service.spec create 推送用例
+  Backend unit tests: jpush.service.spec, push.module.spec, push-token.service.spec, notifications.service.spec create-push cases
+- 后端 e2e：PushModule 加载 + push token 注册/upsert/注销
+  Backend e2e: PushModule loading + push token register/upsert/unregister
 
 ## 8. 后续 / Next Steps
 

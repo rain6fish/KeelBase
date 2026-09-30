@@ -136,8 +136,8 @@ New `enabled` / `allowedRoles` fields; `requiresConfirmation` / `requiresApprova
 
 ## 6. 测试 / 6. Tests
 
-- `governance-policy.service.spec.ts`：策略解析（默认/覆盖/非法回退）+ 便捷方法（10 用例）。
-  Policy parsing (default/override/invalid fallback) + convenience methods (10 cases).
+- `governance-policy.service.spec.ts`：策略解析（默认/覆盖/非法回退）+ 便捷方法。
+  Policy parsing (default/override/invalid fallback) + convenience methods.
 - `tool-gate.service.spec.ts`（REV-15 新增）：拒绝按 `reason` 计数、夹具身份记 `fixture` / 真实用户记 `production`、声明域越界同出口、**放行不计**、缺 `MetricsService` 时拒绝照旧；并接**真计数器**验证「拒绝前无 series、拒绝后出现那一行」（8 用例）。
   `tool-gate.service.spec.ts` (REV-15, new): refusals counted by `reason`; fixture vs production source; scope refusals share the exit; pass-throughs do not count; refusal still happens without `MetricsService`; and against the real counter, no series before a refusal and the sample line after (8 cases).
 - `ai.service.spec.ts`：既有门控用例回归（未注入策略时行为不变）。

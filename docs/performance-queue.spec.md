@@ -37,8 +37,8 @@ Introduces a BullMQ async task queue that strips time-consuming operations (devi
 
 ## 4. 测试 / 4. Tests
 
-- push.processor.spec 4 用例（多 token 推送 / 无 token 跳过 / 单 token 失败吞掉 / token 查询失败吞掉）
-  push.processor.spec 4 cases (multi-token push / no-token skip / single-token failure swallowed / token-lookup failure swallowed)
+- push.processor.spec（多 token 推送 / 无 token 跳过 / 单 token 失败吞掉 / token 查询失败吞掉）
+  push.processor.spec (multi-token push / no-token skip / single-token failure swallowed / token-lookup failure swallowed)
 - notifications.service.spec：适配 Queue + ConfigService mock；队列启用时入队而非同步推
   notifications.service.spec: adapts Queue + ConfigService mocks; enqueues rather than pushing synchronously when the queue is enabled
 - 单测/e2e 均 `QUEUE_ENABLED=false`（.env.test）走降级路径，无需 Redis

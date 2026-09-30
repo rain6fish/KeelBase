@@ -56,7 +56,7 @@ Endpoints use `@CheckPolicies(manage all)` (CASL admin permission); regular user
 
 ## 5. 测试 / 5. Tests
 
-- 后端单测：service 4 用例（落库截断/失败静默/分页/过滤/统计分组）、interceptor 5 用例（写方法记录/GET 跳过/@SkipAudit 跳过/失败不阻塞/targetId 提取）
-  Backend unit tests: 4 service cases (persist truncation / silent failure / pagination / filtering / stats grouping), 5 interceptor cases (write-method recording / GET skip / @SkipAudit skip / failure does not block / targetId extraction)
-- 后端 e2e：3 用例（普通用户 403、写操作产生日志、stats 返回分组）
-  Backend e2e: 3 cases (regular user 403, write operations produce logs, stats returns groupings)
+- 后端单测：service（落库截断/失败静默/分页/过滤/统计分组）、interceptor（写方法记录/GET 跳过/@SkipAudit 跳过/失败不阻塞/targetId 提取）
+  Backend unit tests: service (persist truncation / silent failure / pagination / filtering / stats grouping), interceptor (write-method recording / GET skip / @SkipAudit skip / failure does not block / targetId extraction)
+- 后端 e2e：（普通用户 403、写操作产生日志、stats 返回分组）
+  Backend e2e: (regular user 403, write operations produce logs, stats returns groupings)

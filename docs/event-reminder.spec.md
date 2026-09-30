@@ -33,8 +33,8 @@ The Event entity adds `reminderMinutes` (int nullable; remind N minutes ahead; n
 
 ## 5. 测试 / Testing
 
-- reminder.processor.spec 5 用例（到点建通知 / 已取消跳过 / 非属主跳过 / 事件不存在跳过 / 查询错误吞掉）
-  reminder.processor.spec 5 cases (create notification at the scheduled time / skip if cancelled / skip if not the owner / skip if the event doesn't exist / swallow query errors)
+- reminder.processor.spec（到点建通知 / 已取消跳过 / 非属主跳过 / 事件不存在跳过 / 查询错误吞掉）
+  reminder.processor.spec (create notification at the scheduled time / skip if cancelled / skip if not the owner / skip if the event doesn't exist / swallow query errors)
 - events.service.spec：create 调度断言（reminderMinutes 有值 → add 带 jobId/delay；无值 → 不调度）
   events.service.spec: create scheduling assertions (reminderMinutes set → add with jobId/delay; unset → no scheduling)
 - e2e 全绿（无 Redis 环境降级路径）

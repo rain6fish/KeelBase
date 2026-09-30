@@ -109,6 +109,6 @@ X-Webhook-Signature: <hmac-sha256-hex>
 
 ## 7. 测试 / 7. Tests
 
-- `webhook.service.spec.ts`：subscribe 生成 secret / list 视图脱敏 / remove 本人限定 / publish 只投递启用+匹配订阅且带 HMAC 签名 / 事件不匹配不投递 / 投递失败静默 / testDeliver（8 用例）。
+- `webhook.service.spec.ts`：subscribe 生成 secret / list 视图脱敏 / remove 本人限定 / publish 只投递启用+匹配订阅且带 HMAC 签名 / 事件不匹配不投递 / 投递失败静默 / testDeliver。
 - feedback spec 回归（`@Optional` 不破坏现有测试）。
 - 全量：14 webhook 用例 + feedback 4 用例全绿。
