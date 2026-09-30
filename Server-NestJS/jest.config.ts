@@ -9,6 +9,9 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
+  // 契约 submodule 未初始化时，把裸 ENOENT 换成可执行的报错（见该文件头注释）。
+  // 契约在位时该 setup **什么都不做**。
+  setupFiles: ['<rootDir>/test/contract-submodule.setup.ts'],
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
     // 生成型/入口文件不参与覆盖：TypeORM 自动迁移、进程入口与 tracing 引导
