@@ -40,7 +40,7 @@
 | 门禁 | 命令（cd Server-NestJS） | 作用 |
 |---|---|---|
 | 向量漂移 | `node scripts/generate-protocol-vectors.mjs --check` | 现实现 = 已提交金样本 |
-| conformance | `npm run conformance` | 语料驱动复现三协议（30/30） |
+| conformance | `npm run conformance` | 语料驱动复现三协议（计数以当次运行为准） |
 | 生产复现 + wire 冻结 | `npm run test:protocol-corpus` | AuditChainService=金样本 + registry 清单/样例过 schema |
 | 术语闸 | `node scripts/check-protocol-language.mjs --check` | 对外语言/协议文档无第二套表述 |
 

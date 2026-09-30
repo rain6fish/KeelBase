@@ -18,7 +18,7 @@
 |---|---|---|
 | When it runs | While you write code | While a user uses the system |
 | What it does | Turns a business spec into **source code** | **Calls tools** within permissions to do work |
-| Entry point | `npx keelbase init --spec ...` | `/ai/chat`, the admin AI assistant |
+| Entry point | `node scripts/keelbase-init.mjs --spec ...` (the CLI that ships with the repo) | `/ai/chat`, the admin AI assistant |
 | What it leaves behind | Plain source code you can edit and keep | Audit rows and side-effect records |
 
 **The red line**: the build-time AI emits **source code that can leave the platform**, not configuration
@@ -34,7 +34,7 @@ open spec that walks away with you?** The former is low-code; the latter is Keel
 Business Spec (written in business language)
     ↓  produced by an interview, or written by hand
 Module Protocol (specs/*.json — a structured declaration)
-    ↓  npx keelbase init --spec
+    ↓  node scripts/keelbase-init.mjs --spec
 Plain source (entity / dto / service / controller + wiring + migration + tests)
 ```
 

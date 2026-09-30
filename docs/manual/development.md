@@ -174,7 +174,7 @@ Fields: camelCase | Time: ISO 8601 | Bool: no is_ prefix | Null: null
 
 ### Coverage Thresholds / 覆盖率门槛
 
-`jest.config.ts`: statements ≥40 / branches ≥30 / functions ≥40 / lines ≥41.
+`jest.config.ts` is the source of truth (currently statements ≥86 / branches ≥72 / functions ≥81 / lines ≥86); security modules additionally have a tiered gate (`scripts/check-security-coverage.mjs`).
 
 ---
 

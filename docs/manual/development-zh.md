@@ -173,7 +173,7 @@ URL:   /api/v1/{resources}       （仅名词复数）
 
 ### 覆盖率门槛
 
-`jest.config.ts`：statements ≥40 / branches ≥30 / functions ≥40 / lines ≥41。
+以 `jest.config.ts` 为准（当前 statements ≥86 / branches ≥72 / functions ≥81 / lines ≥86）；安全模块另有分档门控（`scripts/check-security-coverage.mjs`）。
 
 ---
 

@@ -16,7 +16,7 @@ KeelBase 里的「AI」有两个完全不同的身份，混了就看不懂架构
 |---|---|---|
 | 什么时候跑 | 你写代码的时候 | 用户用系统的时候 |
 | 干什么 | 把业务规格变成**源码** | 在权限内**调用工具**替用户做事 |
-| 入口 | `npx keelbase init --spec ...` | `/ai/chat`、管理台 AI 助手 |
+| 入口 | `node scripts/keelbase-init.mjs --spec ...`（仓库自带 CLI） | `/ai/chat`、管理台 AI 助手 |
 | 产物 | 普通源码（你能改、能带走） | 审计行 + 副作用记录 |
 
 **红线**：开发期 AI 生成的是**能走人的源码**，不是留在平台里的配置——这是 KeelBase 与传统低代码的分界。判据只有一条：产物是**留在平台的配置**，还是**能走人的源码 + 开放 Spec**。前者 = 低代码，后者 = KeelBase。
@@ -29,7 +29,7 @@ KeelBase 里的「AI」有两个完全不同的身份，混了就看不懂架构
 Business Spec（业务语言）
     ↓  访谈产出，或手写
 Module Protocol（specs/*.json —— 结构化声明）
-    ↓  npx keelbase init --spec
+    ↓  node scripts/keelbase-init.mjs --spec
 普通源码（entity / dto / service / controller + 接线 + 迁移 + 测试）
 ```
 

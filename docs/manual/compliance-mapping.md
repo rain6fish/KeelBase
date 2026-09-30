@@ -116,7 +116,7 @@
 
 | 差距 | 影响 | 规划 |
 |---|---|---|
-| **国密算法（SM2/SM3/SM4）未支持** | 审计哈希链用 HMAC-SHA256、静态加密用 AES-256-GCM，非国密；密评（GM/T 0054）要求商用密码合规 | 评估「SM3 哈希链」双算法支持（哈希链双写或可配摘要算法）；需真实密评项目驱动 |
+| **国密覆盖不完整：SM2-with-SM3 已支持，SM4 未支持** | 证据锚（日锚）已用 **SM2-with-SM3 签名**（`src/common/crypto/sm2.ts`）；审计哈希链仍用 HMAC-SHA256、静态加密仍用 AES-256-GCM，非国密；密评（GM/T 0054）可能仍要求这两处走商用密码 | 评估「SM3 哈希链」与「SM4 静态加密」；需真实密评项目驱动 |
 | **国产数据库（达梦/人大金仓）未适配** | 当前支持 sqlite/postgres；信创数据库选型受限 | postgres 兼容线是起点；金仓为 postgres 系，适配成本低；达梦需专项 |
 | 国产 CPU/OS（麒麟/统信/arm64/龙芯） | Node 官方 arm64 构建可用；龙芯等需验证 | 盘点已实测项，只报实测 |
 | SAML / LDAP 目录同步 | 仅 OIDC；部分政企用 SAML | 需求驱动（企业选型硬项 P2） |
@@ -127,6 +127,6 @@
 
 ## 7. 一句话结论 / Conclusion
 
-> KeelBase 的能力在「**智能体工具调用治理、审计哈希链、人工监督、数据不出域**」四个维度与《人工智能 智能体互联》系列国标、EU AI Act 记录保存/人类监督义务、等保安全审计要求高度对齐；主要差距在**国密算法、国产数据库、SAML/LDAP**——即「信创适配认证服务」的规划输入。具体以适用法规正式文本为准。
+> KeelBase 的能力在「**智能体工具调用治理、审计哈希链、人工监督、数据不出域**」四个维度与《人工智能 智能体互联》系列国标、EU AI Act 记录保存/人类监督义务、等保安全审计要求高度对齐；主要差距在**国密覆盖不全（SM2-with-SM3 已用于证据锚签名，SM4、以及哈希链/静态加密的国密化未做）、国产数据库、SAML/LDAP**——即「信创适配认证服务」的规划输入。具体以适用法规正式文本为准。
 >
-> KeelBase's capabilities align strongly with the Agent-Interconnection national standards, EU AI Act logging/human-oversight obligations, and MLPS security-audit requirements on four dimensions: **governed tool invocation, audit hash chain, human-in-the-loop, and data-sovereign deployment**. Main gaps: **national crypto (SM2/3/4), domestic databases, SAML/LDAP** — the inputs for the Xinchuang adaptation certification service. Authoritative legal texts govern.
+> KeelBase's capabilities align strongly with the Agent-Interconnection national standards, EU AI Act logging/human-oversight obligations, and MLPS security-audit requirements on four dimensions: **governed tool invocation, audit hash chain, human-in-the-loop, and data-sovereign deployment**. Main gaps: **partial national-crypto coverage (SM2-with-SM3 already signs the evidence anchor; SM4 and the GM-ification of the hash chain and at-rest encryption are not done), domestic databases, SAML/LDAP** — the inputs for the Xinchuang adaptation certification service. Authoritative legal texts govern.

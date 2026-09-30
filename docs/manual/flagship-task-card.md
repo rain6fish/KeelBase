@@ -14,7 +14,7 @@ docker run -d -p 11434:11434 ollama/ollama
 ollama pull qwen2.5:7b && ollama pull bge-m3
 # 2. 起 KeelBase（本地后端，AI 走本地）
 cd Server-NestJS && AI_PROVIDER=ollama OLLAMA_BASE_URL=http://localhost:11434 npm run start:dev
-# 3. 登录 alex（空库自动种三旗舰 seed：CRM 8 客户 / PM 4 项目 / Approval 3 政策+3 请求）
+# 3. 登录 alex（空库自动种三旗舰 seed：CRM 客户+订单+风险、PM 项目+里程碑+任务、Approval 政策+请求）
 ```
 
 ## 任务卡 A：AI CRM「找风险客户建跟进」

@@ -59,7 +59,7 @@ npm run build   # 一次
 node Server-NestJS/scripts/verify-governance-adoption.mjs     # 零代码接入治理
 node Server-NestJS/scripts/demo-multi-system.mjs        # 多系统单控制面
 node Server-NestJS/scripts/generate-protocol-vectors.mjs --check   # CE-1 语料漂移门禁（零 key）
-(cd Server-NestJS && npm run conformance)               # CE-1 conformance 30/30（零 key）
+(cd Server-NestJS && npm run conformance)               # CE-1 conformance（零 key；计数以当次运行为准）
 # 起后端后：
 node Server-NestJS/scripts/verify-permission-denied.mjs # V-2：越权 403
 ```

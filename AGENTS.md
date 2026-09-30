@@ -8,7 +8,7 @@
 KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter + NestJS + Taro + Vue 管理台）。
 
 **双 AI 叙事**：
-- **开发期 AI**：`npx keelbase init` 或 AI 按本文件约定**生成业务模块**
+- **开发期 AI**：`node scripts/keelbase-init.mjs`（仓库自带 CLI）或 AI 按本文件约定**生成业务模块**
 - **运行时 AI**：内置 Agent（工具调用 + CASL 行级权限 + 写操作人工确认 + 全链路审计）——这是差异化核心
 
 **安全红线**（任何改动不得破坏）：
@@ -75,7 +75,7 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 
 ## 5. AI 生成 vs 手工
 
-- **标准 CRUD 模块**：用 `npx keelbase init`（零依赖确定性模板 + 自动接线）；可从协议 JSON 读规格：`--spec module.json`（见 [docs/module-protocol.md](docs/module-protocol.md)）
+- **标准 CRUD 模块**：用 `node scripts/keelbase-init.mjs`（零依赖确定性模板 + 自动接线）；可从协议 JSON 读规格：`--spec module.json`（见 [docs/module-protocol.md](docs/module-protocol.md)）
 - **从业务需求出发**：业务访谈 → Business Spec → 确定性映射为协议 → `--spec` 生成；映射器 `scripts/generator/business-spec.mjs` 会把协议表达不了的（关联/业务规则/多角色/分析类工具）显式列入手写清单，见 [docs/business-spec.md](docs/business-spec.md)
 - **复杂/非 CRUD**：AI 按第 3 节清单手工实现，遵循基座约定
 - **业务模块协议**（EASY-7）：协议只覆盖高频 20% 字段（string/text/int/bool/date），复杂字段/业务走手写；见 [docs/module-protocol.md](docs/module-protocol.md)

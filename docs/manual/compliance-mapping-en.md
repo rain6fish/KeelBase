@@ -112,7 +112,7 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 
 | Gap | Impact | Plan |
 |---|---|---|
-| **National crypto (SM2/SM3/SM4) not supported** | Audit hash chain uses HMAC-SHA256, encryption AES-256-GCM (non-GM); GM/T 0054 requires approved commercial crypto | Evaluate dual-algorithm support (SM3 hash chain — dual-write or configurable digest); requires a real MLPS-crypto project to drive |
+| **National-crypto coverage is partial: SM2-with-SM3 ships, SM4 does not** | The evidence anchor (daily anchor) is already **signed with SM2-with-SM3** (`src/common/crypto/sm2.ts`); the audit hash chain still uses HMAC-SHA256 and encryption still AES-256-GCM (non-GM); GM/T 0054 may still require approved commercial crypto for those | Evaluate SM3 for the hash chain and SM4 for at-rest encryption; requires a real MLPS-crypto project to drive |
 | **Domestic databases (DaMeng/KingbaseES) not adapted** | Currently sqlite/postgres only; limited domestic DB choices | postgres compatibility line is the starting point (Kingbase is postgres-derived, low cost); DaMeng needs dedicated work |
 | Domestic CPU/OS (Kylin/UOS/arm64/LoongArch) | Node official arm64 builds available; LoongArch etc. need verification | Inventory only verified items (service card ①) |
 | SAML / LDAP directory sync | OIDC only; some government buyers use SAML | Demand-driven (enterprise selection item) |
