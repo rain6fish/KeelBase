@@ -4,6 +4,11 @@
 > 前置素材：后端已启动（demo provider + delete_customer R5 工具）；用 [verify-trust-proof.mjs](../../Server-NestJS/scripts/verify-trust-proof.mjs) 的七场景作为每一镜的实际操作脚本。
 > 中文 · [English](trust-proof-video-script-en.md)
 
+> **性质 = 拍摄计划（尚未录制）**：仓库内**没有**对应成片（已产出的只有 4 分钟官方 Demo，
+> 见 `official-demo-video-script.md`；`artifacts/` 下无本条成片）。
+> ⇒ 本脚本的主张**按 HEAD 校订**；录制前请再核一次。**成片产出并发布后，请把本行改成「产出物的记录」并附链接**
+> （写法见官方 Demo 脚本首部）。清单见 `KeelBase-Private/notes/对外材料-规范性断言核查清单.md`。
+
 ## 总览
 
 | 时间 | 场景 | 一句话信息 |
@@ -44,8 +49,8 @@
 ### 镜 5 — S4 人工确认（35-45s）
 - **画面**：AI Copilot 输入"为瀚宇制造创建跟进任务" → 弹出**确认卡**（R3 写操作 + 风险级 + 授权依据）→ 点"批准" → 任务落库
 - **操作**：S4 步骤（流式对话 → confirmation_request → approve → 落库）
-- **旁白（中）**：AI 写操作？必须人工确认，确认才执行，且全程留痕。
-- **旁白（英）**：AI write? Requires your approval first — and every step is audited.
+- **旁白（中）**：AI 写操作？**R3 及以上**需人工确认，确认才执行；动作落在审计链上。
+- **旁白（英）**：AI writes? **R3 and above** wait for your approval; actions land on the audit chain.
 
 ### 镜 6 — S5 撤销（45-55s）
 - **画面**：进入该任务的动作详情（Business Action Detail 页）→ 点"撤销" → 任务软删（可经回收站恢复）

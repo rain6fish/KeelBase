@@ -7,6 +7,21 @@
 > **本版对应代码基线 = HEAD（v1.0.10 之后）**：级联撤销（`881d4911`）与对抗沙盘不在 v1.0.10 里，
 > 录制环境须先升到 HEAD，否则第 19–20、26 镜拍不出来——**不要用旧环境硬演**。
 
+> **性质 = 产出物的记录（成片已录制并发布）**。成片在 `artifacts/official-demo/`（中文）与
+> `artifacts/official-demo-en/`（英文）；在线：[GitHub Pages](https://rain6fish.github.io/KeelBase/video-en.html) ·
+> [国内镜像](https://demo.keelbase.com.cn/demo/video-en.html)；下载：GitHub release `demo-videos`。
+> ⇒ **本分镜与 `official-demo-video-subtitles.{zh,en}.srt` 是成片的转录**：与视频不一致就是**文档错**，
+> **不得静默改写**（改口播/字幕必须**重录**）。发现过时或过度主张时：**在本文件加注**，并记入
+> `KeelBase-Private/notes/对外材料-规范性断言核查清单.md`。**已发现一处 → 见下方「⚠ 成片中的一处过度主张」。**
+>
+> **⚠ 成片中的一处过度主张（2026-09-30 核；改它须重录）**：成片字幕在时间轴 **4:02–4:09** 写的是
+> 「读操作自动执行，**写操作必须批准**」（来源：`official-demo-video-subtitles.zh.srt:127`，EN 同句）——
+> 这是**无限定绝对句**。实际门控由 `RISK_STRATEGY` 决定：R3+ 写需确认、**R0–R2 写按策略执行**。
+> 同一句已在 README / SECURITY 等九处改掉，但**成片已发布，改它须重录**，故此处只如实标注，
+> **不静默改 `.srt`**（它是成片的转录，改了它文档就与视频不一致）。**下次重录时**按
+> 「读自动；R3 及以上写需确认，R0–R2 按策略」改写。
+> **未核**：成片是否含口播音轨（本机无 `ffprobe`）——本注只针对**字幕文本**。
+
 ## 1. 成片信息
 
 | 项 | 内容 |

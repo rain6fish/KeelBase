@@ -4,6 +4,12 @@
 > Prereqs: backend running (demo provider + `delete_customer` R5 tool); each shot follows the matching step in [verify-trust-proof.mjs](../../Server-NestJS/scripts/verify-trust-proof.mjs).
 > [中文](trust-proof-video-script.md) · English
 
+> **Status = shooting plan (not recorded yet)**: there is **no** produced video for this script (the only
+> produced one is the 4-minute official demo, see `official-demo-video-script.md`; nothing under `artifacts/`).
+> ⇒ Its claims are **revised against HEAD** like any other outward document; re-check before shooting.
+> **Once a video is produced and published, change this line to "record of a produced artifact" with the link**
+> (see the header of the official demo script). Checklist: `KeelBase-Private/notes/对外材料-规范性断言核查清单.md`.
+
 ## Overview
 
 | Time | Scene | One-liner |
@@ -40,7 +46,7 @@
 ### Shot 5 — S4 Human confirmation (35-45s)
 - **Visual**: AI Copilot "create follow-up task for 瀚宇制造" → **confirmation card** (R3 write + risk tier + authorization reasons) → click Approve → task persisted
 - **Action**: S4 step (streaming chat → confirmation_request → approve → persisted)
-- **VO (EN)**: AI writes? Requires your approval first — and every step is audited.
+- **VO (EN)**: AI writes? **R3 and above** wait for your approval; actions land on the audit chain.
 
 ### Shot 6 — S5 Revoke (45-55s)
 - **Visual**: open the action detail (Business Action Detail) → click Revoke → task soft-deleted (restorable via trash)
