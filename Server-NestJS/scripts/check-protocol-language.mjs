@@ -6,6 +6,14 @@
  * 拦截「第二套表述 / 过度承诺词」——确保 `ai-governance-protocol.md`（协议单一真源）与
  * `docs/manual/product-language.md`（产品语言词表）之外的对外文档不携带会漂移的第二套措辞。
  *
+ * 扫描面（2026-09-30 起）：**登记式**对外文档 + **枚举式**全部公开 spec（`docs/*.spec.md`）——
+ * 后者是 ACT-10「语义轴」的落点，见 SCANNED 上方的注释与 RULES 的 `semantic-overpromise` 条。
+ *
+ * The single-source terminology gate: scans the protocol documents and outward documents for a
+ * second set of wording and for over-promises. Since 2026-09-30 its surface is the registered
+ * outward documents plus every public spec (`docs/*.spec.md`, enumerated) — the latter is where
+ * ACT-10's semantic axis lives; see the note above SCANNED and the `semantic-overpromise` rule in RULES.
+ *
  * 只 import Node 内置，确定性、可 CI。禁词表见 RULES（扩展：加一行 {id, pattern, reason}）。
  * 权威词表：docs/manual/product-language.md；协议语义：docs/protocols/ai-governance-protocol.md。
  *
@@ -15,14 +23,22 @@
  *   node scripts/check-protocol-language.mjs --allow <id[,id]>  # 豁免个别规则（谨慎，标注理由）
  */
 import { readFileSync, existsSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../'); // Server-NestJS/scripts → 仓库根
 
-/** 扫描对象：协议单一真源 + 对外语言载体（中英对照成对登记）。新增对外文档在此登记（缺失即 fail-loud）。 */
-const SCANNED = [
+/**
+ * Registered scan targets: the protocol single source + outward language carriers (zh/en paired).
+ * Register new outward documents here — a wrong path or a renamed document then fails loudly
+ * instead of being skipped, which would make this gate green-on-nothing.
+ *
+ * 登记式扫描对象：协议单一真源 + 对外语言载体（中英对照成对登记）。新增对外文档在此登记 ——
+ * 路径写错或文档改名会**大声失败**，否则本闸会假绿（等于没扫）。
+ */
+const REGISTERED = [
   'docs/protocols/ai-governance-protocol.md',
   'docs/manual/product-language.md',
   'docs/manual/product-language-en.md',
@@ -42,6 +58,25 @@ const SCANNED = [
   'docs/period-audit-report.spec.md',
   'docs/protocol-trust-proof-card.spec.md',
 ];
+
+/**
+ * Public specs are **enumerated, not registered**: `docs/*.spec.md` is a whole class, so reading the
+ * directory means a new spec falls under the gate the moment it lands. A deleted spec shrinks the
+ * surface deliberately; `--list` prints whatever set results. Measured before widening the surface
+ * (2026-09-30): the three rules that existed then produced **zero** hits across all 52 specs, so this
+ * costs nothing today. The spec surface is where ACT-10's "semantic axis" lives — see RULES.
+ *
+ * 公开 spec 走**枚举**而非登记：`docs/*.spec.md` 是一整类，读目录意味着新 spec 一落地即受本闸管辖；
+ * 删除 spec 会**有意**缩小扫描面，`--list` 会打印实际得到的集合。放宽扫描面之前已实测（2026-09-30）：
+ * 当时既有的三条规则在**全部 52 份 spec** 上**零命中**，故今天纳入不付代价。ACT-10 的「语义轴」就在
+ * 这个面上 —— 见 RULES。
+ */
+const PUBLIC_SPECS = readdirSync(resolve(ROOT, 'docs'))
+  .filter((f) => f.endsWith('.spec.md'))
+  .sort()
+  .map((f) => `docs/${f}`);
+
+const SCANNED = [...REGISTERED, ...PUBLIC_SPECS];
 
 /** 词表文档：其职能就是**记录**越界/禁用词（changelog 里引用 tamper-proof 等），故两条规则均豁免。 */
 const WORD_LIST_DOCS = ['docs/manual/product-language.md', 'docs/manual/product-language-en.md'];
@@ -71,6 +106,17 @@ const RULES = [
     reason:
       '链不承载「只能追加」：哈希链证明的是**内部连续性**（`verifyChain` 自 `prevHash = null` 起算，故截断后仍是合法前缀，尾巴被删检不出）。防尾部回滚/删除的是**外部锚**，长期保全是第三层 —— 见 docs/hs11-audit-chain.spec.md §6.1 与 SECURITY.md N-15。'
       + ' / The chain does not carry "append-only": it proves internal continuity; a truncated chain is a valid prefix. The external anchor is what answers "was there more".',
+  },
+  {
+    id: 'semantic-overpromise',
+    pattern: '永不丢失|绝不丢失|保证不丢|零丢失|永不失败|始终可用|永不中断|保证送达|保证一致|任何情况下|永不降级|绝不降级|保证可用',
+    skipFiles: WORD_LIST_DOCS,
+    reason:
+      '这些搭配在**本架构里本身就是过度承诺**（数据/消息不丢、永远可用、任何情况下），今天**全库零命中** —— 收它，是为了让将来写下的第一处立刻被拦。'
+      + ' **为什么只收搭配、不收 `保证`/`始终`/`永不` 本身**：2026-09-30 实测过通用词闸（否定双向 + 引号提及跳过）—— 全部 spec 面上 8 处断言只有 1 处无锚点，且那 1 处是文风规定；已扫描面上 4 处全是在用绝对句的正常散文（如 README.zh-CN 的验收条目）。'
+      + ' 通用词闸要么假红要么失明，故**不建**；这一条只收「没有任何合法用法」的那些。'
+      + ' / These collocations are over-promises **in this architecture** and appear nowhere in the repo today; the rule exists so the first one written is caught.'
+      + ' A generic gate on 保证/始终/永不 was prototyped on 2026-09-30 and rejected: across every spec its single hit was a style rule, and on the scanned surface all four hits were ordinary prose. It would be false-red or blind, so only the collocations with no legitimate use are collected.',
   },
 ];
 
