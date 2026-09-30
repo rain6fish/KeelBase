@@ -203,6 +203,27 @@ test('enum（协议反推）：类型 + 选项校验 + CLI 默认选项', () => 
   assert.ok(validateFields([{ name: 's', type: 'enum', enum: ['onlyone'] }]));
 });
 
+test('parseFields：enum 选项不得吞掉紧随其后的 `name:type` 字段', () => {
+  // 旧实现把 status 后面的字段名吃进 enum，还多出一个幽灵字段（外部实测 2026-09-30 报出）
+  const fields = parseFields(
+    'plate_number:string,status:enum:available,in_use,maintenance,purchase_date:date,mileage:int',
+  );
+  assert.deepEqual(fields, [
+    { name: 'plate_number', type: 'string' },
+    { name: 'status', type: 'enum', enum: ['available', 'in_use', 'maintenance'] },
+    { name: 'purchase_date', type: 'date' },
+    { name: 'mileage', type: 'int' },
+  ]);
+  assert.equal(validateFields(fields), null);
+
+  // 枚举选项在字符串中间、后面还有字段（无类型标注的字段仍按既有约定并入选项）
+  assert.deepEqual(parseFields('a:string,b:enum:x,y,c:int'), [
+    { name: 'a', type: 'string' },
+    { name: 'b', type: 'enum', enum: ['x', 'y'] },
+    { name: 'c', type: 'int' },
+  ]);
+});
+
 test('enum 模板：后端 @IsIn + 前端下拉', () => {
   const c = buildContext('suppliers', '供应商', [
     { name: 'name', type: 'string' },

@@ -282,6 +282,12 @@ export function parseFields(str) {
     // 组 2 是 `enum(?::(...))?`（多选项时含选项串），用 startsWith 判定 enum 分支
     if (m[2] && m[2].startsWith('enum')) {
       const opts = m[3] ? m[3].split(',') : [];
+      // 选项不含冒号（小写英文/下划线）。贪婪匹配之后若紧跟 `:`，说明被吃进来的最后一个
+      // token 其实是下一个字段的 `name:type`（`status:enum:a,b,c:date`）——退回该 token 重解，
+      // 否则字段名会被吞成选项、同时又多出一个幽灵字段。
+      if (m[3] && str[re.lastIndex] === ':') {
+        re.lastIndex -= opts.pop().length;
+      }
       fields.push({ name: m[1], type: 'enum', enum: opts.length >= 2 ? opts : [...DEFAULT_ENUM_OPTIONS] });
     } else {
       fields.push({ name: m[1], type: m[4] || 'string' });
