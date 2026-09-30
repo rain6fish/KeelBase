@@ -55,7 +55,7 @@ npm run start:dev     # first start creates the SQLite DB (synchronize builds ta
 npm test -- invoices
 ```
 
-Expected output: **22 passed** (invoices.service + invoices.controller + query-invoices/create-invoices tools — all owned by the generated module).
+Expected output: **all pass** (invoices.service + invoices.controller + the `query_invoices` / `create_invoice` tools — all owned by the generated module). **Do not reconcile against a fixed count**: it varies with the generated spec (the generated modules committed in this repo run 8–18 cases), so what matters is that nothing failed and no spec file is missing.
 
 ## 4. Start Backend + Ask AI (≈10 min, optional LLM environment)
 
@@ -87,7 +87,7 @@ Sign in to the workbench as `alex / Alex@2026$Demo`, then in the AI chat:
 | `目标文件已被占用` (target files already taken) | The name collides with existing tools (e.g. `customers`) — pick a different module name |
 | `start:dev` fails with `Config validation error: JWT_SECRET is required` | `.env` not copied — run `cp .env.example .env` and restart |
 | Same error after setting `NODE_ENV=development` | This repo ships only `.env` (**no `.env.development`**) — setting `NODE_ENV=development` makes it read a non-existent `.env.development`. Leave `NODE_ENV` unset, or create the matching `.env.<env>` first |
-| `npm test -- invoices` runs fewer than 22 | Module not generated completely — re-run step 1 |
+| `npm test -- invoices` fails, or a spec file is missing | Module not generated completely — re-run step 1 |
 | Port 3000 already in use | Another service holds it — start with `PORT=3010 npm run start:dev` |
 | Register API returns `nickname should not be empty` | The register endpoint requires `nickname` (alongside username / password / email) |
 | enum field error | Provide 2-10 lowercase-English enum options |

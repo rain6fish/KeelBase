@@ -22,7 +22,7 @@
 | 2. Generate | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 min | Output "generated module" + 8 wiring points ✓ |
 | 3. Compile | `cd Server-NestJS && npm run build` | ~1 min | 0 error |
 | 4. Migrate | `npm run migration:generate -- src/migrations/Add<Module>` | ~1 min | Migration file generated |
-| 5. Unit tests | `npm test -- <plural>` | ~30 s | 20 tests passed (service 5 + controller 6 + query/create tools 9) |
+| 5. Unit tests | `npm test -- <plural>` | ~30 s | all pass (the module's own service / controller / read-write tool specs). **Do not reconcile against a fixed count** — it varies with the generated spec |
 | 6. API | Start server, `curl /api/v1/<plural>` (with token) | ~2 min | 200 + own data |
 | 7. Frontend | `cd Front-Flutter && flutter analyze` (+ `flutter run` to see the page) | ~2 min | 0 error |
 | 8. AI tools | `query_<plural>` (read) + `create_<singular>` (write, requires confirmation) auto-generated and registered | 0 (automatic) | `grep Query<Module>Tool src/ai/ai.module.ts` |
@@ -49,7 +49,7 @@
 node scripts/keelbase-init.mjs --spec specs/contract.json
 ```
 Generates the `contracts` module: `query_contracts` (read) + `create_contract` (write, requires confirmation) registered;
-`AddContracts` migration generated; `npm test -- contracts` → 20 passed (service 5 + controller 6 + tools 9); sqlite consistency No changes.
+`AddContracts` migration generated; `npm test -- contracts` all green (contracts' own service / controller / two tool specs); sqlite consistency No changes.
 
 ### 3.2 `specs/supplier.json` (suppliers, dual enum) — protocol reverse-engineering verification artifact
 ### 3.3 `specs/customer.json` / `project.json` / `approval-request.json` — three-flagship reverse-engineered protocol examples

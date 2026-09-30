@@ -24,7 +24,7 @@
 | 2. 生成 | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 分钟 | 输出「生成业务模块」+ 8 处接线 ✓ |
 | 3. 编译 | `cd Server-NestJS && npm run build` | ~1 分钟 | 0 error |
 | 4. 迁移 | `npm run migration:generate -- src/migrations/Add<Module>` | ~1 分钟 | 生成迁移文件 |
-| 5. 单测 | `npm test -- <plural>` | ~30 秒 | 20 tests passed（service 5 + controller 6 + query/create 工具 9） |
+| 5. 单测 | `npm test -- <plural>` | ~30 秒 | 全部通过（该模块自身的 service / controller / 读写工具 spec）。**别拿固定条数对账**：条数随生成的 spec 变 |
 | 6. API | 起服务，`curl /api/v1/<plural>`（带 token） | ~2 分钟 | 200 + 本人数据 |
 | 7. 前端 | `cd Front-Flutter && flutter analyze`（+ `flutter run` 看页） | ~2 分钟 | 0 error |
 | 8. AI 工具 | 已自动生成 `query_<plural>`（读）+ `create_<singular>`（写需确认）并注册 | 0（自动） | `grep Query<Module>Tool src/ai/ai.module.ts` |
@@ -51,7 +51,7 @@
 node scripts/keelbase-init.mjs --spec specs/contract.json
 ```
 生成 `contracts` 模块：`query_contracts`（读）+ `create_contract`（写需确认）已注册；
-`AddContracts` 迁移生成；`npm test -- contracts` 20 passed（service 5 + controller 6 + 工具 9）；sqlite 一致性 No changes。
+`AddContracts` 迁移生成；`npm test -- contracts` 全绿（contracts 自身的 service / controller / 两个工具 spec）；sqlite 一致性 No changes。
 
 ### 3.2 `specs/supplier.json`（供应商，双 enum）— 协议反推验证产物
 ### 3.3 `specs/customer.json` / `project.json` / `approval-request.json` — 三旗舰反推协议示例

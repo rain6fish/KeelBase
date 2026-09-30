@@ -54,7 +54,7 @@ npm run start:dev     # 首次启动建 SQLite 库（synchronize 自动建表）
 npm test -- invoices
 ```
 
-预期输出：**22 passed**（invoices.service + invoices.controller + query-invoices/create-invoices 工具，均为生成模块自身）。
+预期输出：**全部通过**（invoices.service + invoices.controller + `query_invoices` / `create_invoice` 两个工具，均为生成模块自身）。**不要拿固定条数对账**：条数随生成的 spec 变（本仓检入的生成模块实测在 8–18 条之间），要看的是「有没有失败、spec 文件有没有缺」。
 
 ## 4. 起后端 + 问 AI（约 10 分钟，可选 LLM 环境）
 
@@ -86,7 +86,7 @@ npm run start:dev    # http://localhost:3000，Swagger /api/docs
 | `目标文件已被占用` | 模块名与既有工具撞名（如 `customers`），换一个模块名 |
 | `start:dev` 报「Config validation error: JWT_SECRET is required」 | 未复制 `.env`——执行 `cp .env.example .env` 后重启 |
 | 设了 `NODE_ENV=development` 后同样报缺 `JWT_SECRET` | 本项目只随仓 `.env`（**无 `.env.development`**）——设 `NODE_ENV=development` 会去读不存在的 `.env.development` 致校验失败。**不设 NODE_ENV** 即用默认 `.env`；确需切环境先建对应 `.env.<env>` |
-| `npm test -- invoices` 不足 22 passed | 模块未生成完整，重跑第 1 步 |
+| `npm test -- invoices` 有失败 / spec 文件缺失 | 模块未生成完整，重跑第 1 步 |
 | 端口 3000 已被占用 | 有别的服务占着——用 `PORT=3010 npm run start:dev` 换端口起 |
 | 注册接口报 `nickname should not be empty` | 注册需带 `nickname`（与 username / password / email 一并给） |
 | enum 字段报错 | `enum` 数组给 2-10 个小写英文选项 |
