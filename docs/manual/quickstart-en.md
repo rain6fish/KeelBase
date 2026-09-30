@@ -49,6 +49,11 @@ Manage the container: `./scripts/docker-single.sh logs | stop | down` (data pers
 
 ## 2. Local Dev Path (to modify code)
 
+> Preflight once before you start (run it **from the repository root**): `npm run preflight`. It reports
+> Node / Docker / ports / `.env` in one pass — and whether the **contract submodule** is initialised
+> (cloned without `--recurse-submodules`? `specs/protocol` is an empty directory until you run
+> `git submodule update --init --recursive`).
+
 ### Backend
 
 ```bash

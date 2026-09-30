@@ -28,6 +28,9 @@ cp .env.example .env    # the repo does not commit .env (it holds secrets) — c
 > empty, so those 38 suites all fail with "file not found" — which reads like the project itself is broken.
 > Already cloned? One command fixes it: `git submodule update --init --recursive`.
 >
+> You can also preflight first (from the **repository root**): `npm run preflight` reports the missing
+> submodule together with any other setup gap (Node / Docker / ports / `.env`) — no need to wait for red tests.
+>
 > Installing only the backend is enough for this build loop. To see the UI, also install Web-Admin-Vue (`cd Web-Admin-Vue && npm install`).
 > **Without `.env`, `npm run start:dev` fails validation on the missing JWT_SECRET / ENCRYPTION_KEY** — copy the template first.
 

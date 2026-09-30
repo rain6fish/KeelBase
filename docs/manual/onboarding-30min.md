@@ -27,6 +27,8 @@ cp .env.example .env    # 仓库不提交 .env（含密钥），从模板复制�
 > 有 38 个测试套件从它读 schema 与向量语料。**漏掉这个参数 → 目录为空 → 这 38 个套件全部报"文件找不到"**，
 > 看起来像项目本身是坏的。已经 clone 过的话补一句即可：`git submodule update --init --recursive`。
 >
+> 也可以先跑一次自检（在**仓库根**）：`npm run preflight` —— 把 submodule 缺失与其它环境缺口（Node / Docker / 端口 / `.env`）一次报出来，不必等测试红了才发现。
+>
 > 只装后端即可完成本次 Build 闭环；要看界面再装 Web-Admin-Vue（`cd Web-Admin-Vue && npm install`）。
 > **缺少 `.env` 时 `npm run start:dev` 会因缺少 JWT_SECRET / ENCRYPTION_KEY 校验失败**，务必先复制模板。
 

@@ -51,19 +51,28 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
    cd ../Front-Flutter
    flutter pub get
    ```
-5. Copy and configure environment variables:
+5. Copy and configure environment variables (`cp` from inside `Server-NestJS` — that is the only
+   directory that ships a `.env.example`):
    ```bash
+   cd ../Server-NestJS
    cp .env.example .env
    ```
-6. Start infrastructure (PostgreSQL, Redis, etc.):
+6. Preflight the environment — checks Node / Docker / ports / `.env` and, importantly, that the
+   contract submodule is actually there (an empty `specs/protocol` is not a missing-file bug, it is
+   an un-initialised submodule). Run it **from the repository root**:
+   ```bash
+   cd "$(git rev-parse --show-toplevel)"
+   npm run preflight
+   ```
+7. Start infrastructure (PostgreSQL, Redis, etc.):
    ```bash
    docker compose up -d
    ```
-7. Run migrations:
+8. Run migrations:
    ```bash
    npm run migration:run
    ```
-8. Start the development server:
+9. Start the development server:
    ```bash
    npm run start:dev
    ```

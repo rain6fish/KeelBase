@@ -78,6 +78,10 @@ open http://localhost:3000/mobile # 移动主 App 预览
 
 ## 2. 本地开发路径（要改代码时用）
 
+> 动手前自检一次（在**仓库根**跑）：`npm run preflight`。它一次报出 Node / Docker / 端口 / `.env`，
+> 以及**契约 submodule 是否已初始化**（克隆漏了 `--recurse-submodules` 时，`specs/protocol` 会是空目录，
+> 直到你跑 `git submodule update --init --recursive`）。
+
 ### 2.1 后端
 
 ```bash

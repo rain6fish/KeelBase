@@ -170,10 +170,11 @@ Docker single-container · offline / intranet deploy · local models & embedding
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && npm install && cp .env.example .env && cd ..
+npm run preflight    # before anything else: Node / Docker / ports / .env / contract submodule
 node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
 
-> `--recurse-submodules` is required: `Server-NestJS/specs/protocol` is a submodule holding the wire schemas and protocol vectors that 38 test suites read. Already cloned without it? Run `git submodule update --init --recursive`.
+> `--recurse-submodules` is required: `Server-NestJS/specs/protocol` is a submodule holding the wire schemas and protocol vectors that 38 test suites read. Already cloned without it (or downloaded a ZIP — those never carry submodules)? Run `git submodule update --init --recursive`. `npm run preflight` reports that gap — and any other setup one — before you start.
 
 Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance. The CLI ships **with the repo** (`scripts/keelbase-init.mjs`) — no global install; `--desc "…"` generates from a sentence instead of a spec file (needs a model key configured).
 
