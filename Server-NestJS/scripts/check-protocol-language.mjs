@@ -76,7 +76,24 @@ const PUBLIC_SPECS = readdirSync(resolve(ROOT, 'docs'))
   .sort()
   .map((f) => `docs/${f}`);
 
-const SCANNED = [...REGISTERED, ...PUBLIC_SPECS];
+/**
+ * The handbooks are enumerated the same way, and for the same reason: they are outward documents, and
+ * the rules that guard over-promises apply to them as much as to the capabilities page. Measured before
+ * widening (2026-09-30): over all 76 handbooks the four rules produce **zero** violations once the word
+ * list's existing exemption is applied — the only two raw hits are in `product-language.md`, which
+ * `skipFiles` already exempts because recording forbidden wording is that file's job.
+ *
+ * 手册同样按目录**枚举**，理由相同：它们是**对外文档**，守过度承诺的规则对它们与对能力页一样成立。
+ * 放宽前已实测（2026-09-30）：在全部 76 份手册上，四条规则在**词表文档既有豁免**生效后**零违规** ——
+ * 仅有的两处原始命中都在 `product-language.md`，而 `skipFiles` 本就豁免它（记录禁用词正是那份文件的职责）。
+ */
+const MANUALS = readdirSync(resolve(ROOT, 'docs/manual'))
+  .filter((f) => f.endsWith('.md'))
+  .sort()
+  .map((f) => `docs/manual/${f}`);
+
+/** Deduplicate: several handbooks are already registered above, and a duplicate would report twice. */
+const SCANNED = [...new Set([...REGISTERED, ...PUBLIC_SPECS, ...MANUALS])];
 
 /** 词表文档：其职能就是**记录**越界/禁用词（changelog 里引用 tamper-proof 等），故两条规则均豁免。 */
 const WORD_LIST_DOCS = ['docs/manual/product-language.md', 'docs/manual/product-language-en.md'];

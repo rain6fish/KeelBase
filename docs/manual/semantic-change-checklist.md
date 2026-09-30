@@ -42,7 +42,7 @@
 | 向量漂移 | `node scripts/generate-protocol-vectors.mjs --check` | 现实现 = 已提交金样本 |
 | conformance | `npm run conformance` | 语料驱动复现三协议（计数以当次运行为准） |
 | 生产复现 + wire 冻结 | `npm run test:protocol-corpus` | AuditChainService=金样本 + registry 清单/样例过 schema |
-| 术语闸 | `node scripts/check-protocol-language.mjs --check` | 对外语言/协议文档无第二套表述；扫描面含**全部公开 spec**（`docs/*.spec.md` 按目录枚举），规则含「无歧义过度承诺搭配」（`semantic-overpromise`，如数据/消息不丢、永远可用） |
+| 术语闸 | `node scripts/check-protocol-language.mjs --check` | 对外语言/协议文档无第二套表述；扫描面 = 登记式对外文档 + **枚举式 `docs/*.spec.md` 与 `docs/manual/*.md`**（133 份），规则含「无歧义过度承诺搭配」（`semantic-overpromise`，如数据/消息不丢、永远可用） |
 
 ## 4. 评审清单（reviewer 勾选）
 
