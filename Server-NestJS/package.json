@@ -81,7 +81,7 @@
     "joi": "^17.13.3",
     "mammoth": "^1.12.0",
     "nestjs-pino": "^5.1.0",
-    "nodemailer": "^9.0.4",
+    "nodemailer": "^10.0.13",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdf-parse": "^2.4.5",
@@ -127,6 +127,9 @@
     "typescript": "^5.7.2"
   },
   "overrides": {
-    "multer": "^2.3.0"
+    "multer": "^2.3.0",
+    "@nestjs/swagger": {
+      "js-yaml": "^5.4.2"
+    }
   }
 }
