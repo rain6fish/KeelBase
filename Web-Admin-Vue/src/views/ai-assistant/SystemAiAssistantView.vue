@@ -89,6 +89,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { ApiError } from '@/api/client'
+import { shouldDelegate, sendDelegation } from '@/utils/agentDelegation'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 
 type AssistantItem =
@@ -150,6 +152,31 @@ async function send() {
   }
 
   try {
+    // 委托类消息绕到**非流式**：意图路由只存在于非流式端点，SSE 路径整段不分类意图，
+    // 走流式等于永远拿不到子代理 / plan。判据见 agentDelegation.ts。
+    if (shouldDelegate(text)) {
+      try {
+        const res = await sendDelegation({
+          text,
+          isAdmin: true,
+          conversationId: conversationId.value ?? undefined,
+        })
+        pushAi()
+        const item = items.value[aiIndex]
+        if (item && item.kind === 'ai') {
+          item.content = res.reply
+          if (res.navigateTo) item.navigateTo = res.navigateTo
+        }
+        conversationId.value = res.conversationId
+      } catch (err) {
+        items.value.push({
+          kind: 'notice',
+          content: err instanceof ApiError ? err.message : t('assLoadFailed'),
+        })
+      }
+      return
+    }
+
     // 管理端系统助手：SSE 流式 + 写确认通道（/admin/ai/chat/stream）
     await streamChat({
       endpoint: '/admin/ai/chat/stream',
