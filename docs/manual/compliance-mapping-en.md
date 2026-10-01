@@ -60,7 +60,7 @@ Released by SAMR in June 2026 as **7 national standards** covering: overall arch
 | Secure computing environment requirement | KeelBase capability | Status | Note |
 |---|---|---|---|
 | Identity authentication | JWT + password strength + lockout + MFA (TOTP) + session management | ✅ | 2FA + brute-force protection |
-| Access control | CASL row-level authorization + roles + ownership checks + frontend permission points | ✅ | Least privilege + row-level isolation |
+| Access control | CASL row-level authorization + roles + ownership checks (**frontend RBAC / permission points are still pending** — see [enterprise-readiness.md](../enterprise-readiness.md); backend authorization does not depend on them) | ✅ | Least privilege + row-level isolation |
 | **Security audit** | **AI/operation audit hash chain + field-level change + trend/anomaly views + evidence export (offline-verifiable)** | ✅ | Tamper-evident, independently verifiable audit records |
 | Data integrity | Audit hash chain (HMAC verification), upload magic-byte validation | ✅ | Record & file integrity |
 | Data confidentiality | AES-256-GCM encryption at rest, masking, sensitive-field redaction | ✅ | At-rest encryption + display masking |

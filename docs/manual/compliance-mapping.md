@@ -14,7 +14,7 @@
 
 | 能力域 | 关键能力 |
 |---|---|
-| 身份与访问 Identity & Access | JWT（access+refresh 轮换、SHA-256 哈希存储）、MFA（TOTP）、登录锁定、CASL 行级权限、角色、OIDC/SAML 待办、Explainable Authz、跨系统委托 token（aud 限定 + 短期） |
+| 身份与访问 Identity & Access | JWT（access+refresh 轮换、SHA-256 哈希存储）、MFA（TOTP）、登录锁定、CASL 行级权限、角色、OIDC（已支持；SAML 待办）、Explainable Authz、跨系统委托 token（aud 限定 + 短期） |
 | 数据保护 Data Protection | AES-256-GCM 静态加密（phone/providerId）、管理端字段脱敏（sanitizeForAdmin）、审计日志敏感字段掩码、私有化部署（数据不出域）、本地模型（Ollama 数据不出域） |
 | 审计 Audit | AI 审计哈希链（HMAC-SHA256 + prev_hash，篡改即断链，verify 可验证）、操作审计、字段级变更审计（before/after diff）、业务事件归一化、决策轨迹（Decision Trace）、审计证据包导出（HMAC 签名 + 全量链行，**可离线机器验证** `verify-evidence.mjs`）、跨系统聚合审计（治理台） |
 | 治理 Governance | 工具风险分级 R0-R5、工具门控、人工确认（R3）、双人审批（R4）、副作用登记与撤销（含跨系统回调）、治理策略实时生效、Agent Registry、独立治理台（Guard）、sidecar 零代码接入 |
@@ -64,7 +64,7 @@
 | 安全计算环境要求 | KeelBase 对应能力 | 满足度 | 说明 |
 |---|---|---|---|
 | 身份鉴别 | JWT + 密码强度策略 + 登录锁定 + MFA（TOTP）+ 会话管理 | ✅ | 双因素 + 防爆破 |
-| 访问控制 | CASL 行级权限 + 角色 + 所有权校验 + 权限点（前端 RBAC） | ✅ | 最小权限 + 行级隔离 |
+| 访问控制 | CASL 行级权限 + 角色 + 所有权校验（**前端 RBAC / 权限点仍为待办**，见 [enterprise-readiness.md](../enterprise-readiness.md)；后端授权不依赖它） | ✅ | 最小权限 + 行级隔离 |
 | **安全审计** | **AI/操作审计哈希链 + 字段级变更 + 审计趋势/异常 + 证据包导出（可离线验证）** | ✅ | 审计记录篡改即断链（应用边界内哈希链）+ 可独立复核 |
 | 数据完整性 | 审计哈希链（HMAC 校验）、上传魔数校验 | ✅ | 记录与文件完整性 |
 | 数据保密性 | AES-256-GCM 静态加密、脱敏、敏感字段掩码 | ✅ | 静态加密 + 展示脱敏 |
