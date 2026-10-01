@@ -10,7 +10,7 @@
 A: Backend requires **Node.js ≥ 22**. Check `node -v`. Too old → dependency install or startup fails.
 
 **Q: Which Flutter version?**
-A: **Flutter ≥ 3.12**. Run `flutter doctor` before `flutter run`.
+A: **Dart ≥ 3.12** (the `environment.sdk` constraint in `Front-Flutter/pubspec.yaml`); install the current stable Flutter — CI runs **3.47.2**. Run `flutter doctor` before `flutter run`.
 
 **Q: Docker Compose not working?**
 A: Modern Docker ships Compose v2 (`docker compose`). If only `docker-compose` (v1), upgrade Docker. Verify: `docker compose version`.

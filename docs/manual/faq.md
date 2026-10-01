@@ -14,7 +14,7 @@ node -v   # 应输出 v22.x 或更高
 ```
 
 ### Q: Flutter 版本怎么选？
-A: 要求 **Flutter ≥ 3.12**。`flutter --version` 查看。前端跑 `flutter run` 前先 `flutter doctor` 检查环境是否完整。
+A: 需 **Dart ≥ 3.12**（`Front-Flutter/pubspec.yaml` 的 `environment.sdk` 约束）；Flutter 装当前稳定版即可 —— CI 在 **3.47.2** 上跑。`flutter --version` 查看，跑 `flutter run` 前先 `flutter doctor` 检查环境是否完整。
 
 ### Q: Docker 装好后 compose 用不了？
 A: 新版 Docker 自带 Compose v2（`docker compose`）。若只有 `docker-compose`（v1），升级 Docker。验证：`docker compose version`。

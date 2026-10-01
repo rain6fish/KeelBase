@@ -76,7 +76,7 @@ flutter run -d chrome
 ```
 
 ✅ Verify: login page appears; log in with `alex / Alex@2026$Demo`.
-⚠️ Requires [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.12; backend must be running first.
+⚠️ Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (stable; CI runs 3.47.2 — the Dart constraint is ≥ 3.12, see `pubspec.yaml`); backend must be running first.
 
 ### Admin Console (Vue3 PC Web)
 

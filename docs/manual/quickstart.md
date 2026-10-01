@@ -109,7 +109,7 @@ flutter run -d chrome
 ```
 
 - ✅ 验证：浏览器弹出登录页；用 `alex / Alex@2026$Demo` 登录进首页
-- ⚠️ 需先装 [Flutter SDK](https://docs.flutter.dev/get-started/install)（≥ 3.12）
+- ⚠️ 需先装 [Flutter SDK](https://docs.flutter.dev/get-started/install)（稳定版即可；CI 用 3.47.2。Dart 约束 ≥ 3.12 见 `pubspec.yaml`）
 - ⚠️ 默认对接 `http://localhost:3000/api/v1`，后端须先启动
 
 **卡住了？**
