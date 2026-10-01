@@ -17,7 +17,7 @@ docker run -d --name keelbase -p 3000:3000 ghcr.io/rain6fish/keelbase:latest
 
 | 地址 | 看到什么 |
 |------|---------|
-| http://localhost:3000/api/v1/health | `{"status":"ok"}` |
+| http://localhost:3000/api/v1/health | 统一响应包装，健康体在 `data` 里：`{"code":200,"message":"操作成功","data":{"status":"ok",…}}` |
 | http://localhost:3000 | 工作台（Web 业务，根路径重定向） |
 | http://localhost:3000/mobile | 移动主 App 预览（Flutter） |
 | http://localhost:3000/admin | 管理台（Vue3） |

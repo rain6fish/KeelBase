@@ -19,7 +19,7 @@
 | Step | What | Time | Verify |
 |---|---|---|---|
 | 1. Write protocol | Describe the module in natural language / DB schema → write a `specs/<module>.json` (or `--module/--fields` directly on the CLI) | ~3 min | — |
-| 2. Generate | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 min | Output "generated module" + 8 wiring points ✓ |
+| 2. Generate | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 min | Output "generated module" + 7 wiring points ✓ (matching the definition in AGENTS.md §3) |
 | 3. Compile | `cd Server-NestJS && npm run build` | ~1 min | 0 error |
 | 4. Migrate | `npm run migration:generate -- src/migrations/Add<Module>` | ~1 min | Migration file generated |
 | 5. Unit tests | `npm test -- <plural>` | ~30 s | all pass (the module's own service / controller / read-write tool specs). **Do not reconcile against a fixed count** — it varies with the generated spec |

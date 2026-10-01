@@ -21,7 +21,7 @@
 | 步骤 | 内容 | 预计耗时 | 验证命令 |
 |---|---|---|---|
 | 1. 写协议 | 用自然语言/DB schema 描述模块 → 写一份 `specs/<module>.json`（或 `--module/--fields` 直接命令行） | ~3 分钟 | — |
-| 2. 生成 | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 分钟 | 输出「生成业务模块」+ 8 处接线 ✓ |
+| 2. 生成 | `node scripts/keelbase-init.mjs --spec specs/<module>.json` | ~1 分钟 | 输出「生成业务模块」+ 7 处接线 ✓（与 `AGENTS.md` 第 3 节的定义一致） |
 | 3. 编译 | `cd Server-NestJS && npm run build` | ~1 分钟 | 0 error |
 | 4. 迁移 | `npm run migration:generate -- src/migrations/Add<Module>` | ~1 分钟 | 生成迁移文件 |
 | 5. 单测 | `npm test -- <plural>` | ~30 秒 | 全部通过（该模块自身的 service / controller / 读写工具 spec）。**别拿固定条数对账**：条数随生成的 spec 变 |
