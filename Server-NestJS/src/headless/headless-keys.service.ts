@@ -11,6 +11,14 @@ export interface HeadlessKeyContext {
   id: number;
   name: string;
   ownerUserId: number;
+  /**
+   * 属主用户名 —— D2-1c 快照的来源：审计行在**写入时刻**记下主体名字，独立治理库（没有 users 表）
+   * 才能显示「谁做的」，不必回查业务库。此前 headless 入口只给到 `userId`，名字是空的。
+   *
+   * 解析是 best-effort：属主被硬删时留 `undefined`（那一行 `username` 为空），不让一次查名失败
+   * 挡掉整个集成调用 —— 这里缺名字只是归责少一段，不该升级成一次拒绝服务。
+   */
+  ownerUsername?: string;
   toolWhitelist: string[] | null;
   quotaPerDay: number;
 }
@@ -58,6 +66,7 @@ export class HeadlessKeysService {
       id: key.id,
       name: key.name,
       ownerUserId: key.ownerUserId,
+      ownerUsername: await this._usernameOf(key.ownerUserId),
       toolWhitelist: key.toolWhitelist ? (JSON.parse(key.toolWhitelist) as string[]) : null,
       quotaPerDay: key.quotaPerDay,
     };
@@ -138,13 +147,27 @@ export class HeadlessKeysService {
   }
 
   private async _defaultContext(): Promise<HeadlessKeyContext> {
+    const ownerUserId = await this._findAdminId();
     return {
       id: -1,
       name: 'default',
-      ownerUserId: await this._findAdminId(),
+      ownerUserId,
+      ownerUsername: await this._usernameOf(ownerUserId),
       toolWhitelist: null,
       quotaPerDay: 0,
     };
+  }
+
+  /**
+   * 属主用户名，供 D2-1c 快照使用（见 `HeadlessKeyContext.ownerUsername`）。
+   * best-effort：属主已被硬删时返回 undefined，让审计那一列留空，而不是让这次调用失败。
+   */
+  private async _usernameOf(ownerUserId: number): Promise<string | undefined> {
+    try {
+      return (await this.usersService.findOne(ownerUserId, true)).username;
+    } catch {
+      return undefined;
+    }
   }
 
   private async _findAdminId(): Promise<number> {

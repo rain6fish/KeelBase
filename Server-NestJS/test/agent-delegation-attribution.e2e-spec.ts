@@ -198,6 +198,7 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
     let adminUserId: number;
     let headlessKey: string;
     let headlessOwnerId: number;
+    let headlessOwnerUsername: string;
 
     const DELEGATE_MSG = '周计划';
     const SUB_AGENTS = ['calendar', 'stats', 'organizer'];
@@ -269,6 +270,7 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
       });
       headlessKey = created.apiKey;
       headlessOwnerId = owner.id;
+      headlessOwnerUsername = owner.username;
     });
 
     it('① REST `/ai/chat`（web 首方入口）—— 能委托，源标 web，人类会话身份齐全', async () => {
@@ -311,12 +313,11 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
       // 该入口的父上下文是 `{agentId: key 名, source:'headless'}`（无人类会话）⇒
       // 子代理由这个**集成**调用，故 callerAgentId 有值——这是三个入口里唯一能观测到嵌套归责的。
       expect(toolRows[0].callerAgentId).toBe('delegate-integration');
-      // 如实记录两处空值，别按愿望断言：
-      //   · sessionId —— **设计上没有**：API key 认证不存在 JWT 会话，无处可取；
-      //   · username  —— **缺口**：行里有 userId（属主），但 username 快照为空 ⇒ 独立治理库
-      //                   （无 users 表）里这一行没有名字。留待裁决，不在本套件里顺手改。
+      // sessionId —— **设计上没有**：API key 认证不存在 JWT 会话，无处可取。
       expect(toolRows[0].sessionId).toBeNull();
-      expect(toolRows[0].username).toBeNull();
+      // username —— **取属主**（与 userId 同一主体）。此前这一列为空：headless 入口只给了 userId，
+      // 独立治理库（无 users 表）因此显示不出「谁做的」。2026-10-01 补上，本行改为断言它**有值且等于属主**。
+      expect(toolRows[0].username).toBe(headlessOwnerUsername);
       // 对话级行也在 key 身份下：agentId = key 名
       expect(rows.find((r) => r.action === 'delegate')?.agentId).toBe('delegate-integration');
     });

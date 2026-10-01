@@ -49,12 +49,16 @@ export class HeadlessController {
     const ctx = req.headlessKey!;
     // Agent Identity（评审二 §5）：headless 集成以 key 名作 agentId，审计可溯源「哪个集成/代理身份执行」
     // AU-6（§22.19）：入口来源 source=headless（第三方 API key 集成入口）
-    const result = await actorContext.run({ agentId: ctx.name, source: 'headless' }, () =>
-      this.aiService.chat(String(ctx.ownerUserId), {
-        message: dto.message,
-        provider: dto.provider,
-        model: dto.model,
-      }),
+    // D2-1c：username 取**属主**（与 userId 同一主体），使独立治理库（无 users 表）也显示得出「谁做的」。
+    // 本入口没有 JWT 会话，故 sessionId 保持为空 —— 那是设计，不是缺口。
+    const result = await actorContext.run(
+      { agentId: ctx.name, source: 'headless', username: ctx.ownerUsername },
+      () =>
+        this.aiService.chat(String(ctx.ownerUserId), {
+          message: dto.message,
+          provider: dto.provider,
+          model: dto.model,
+        }),
     );
     return { reply: result.reply, conversationId: result.conversationId };
   }

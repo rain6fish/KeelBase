@@ -181,4 +181,55 @@ describe('HeadlessKeysService（HS-4 治理）', () => {
       expect(repo.delete).toHaveBeenCalledWith(4);
     });
   });
+
+  /**
+   * D2-1c：审计行的 `username` 是**写入时刻的快照**，独立治理库（没有 users 表）靠它显示主体。
+   * headless 入口此前只给到 `userId`，名字是空的 —— 这组用例就是补上来的那一半。
+   * 单独成块并自带复位：`usersService` 是跨用例共用的替身，改它的返回值必须收回来。
+   */
+  describe('ownerUsername 快照（D2-1c）', () => {
+    afterEach(() => {
+      usersService.findOne.mockReset().mockResolvedValue({ id: 1 });
+    });
+
+    it('库内 key：上下文带**属主**的用户名', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 3, keyHash: 'h', name: 'my-key', ownerUserId: 5,
+        toolWhitelist: null, quotaPerDay: 0,
+        quotaDate: Math.floor(Date.now() / 86400000), dailyUsed: 0, enabled: true,
+      });
+      repo.update.mockResolvedValue({ affected: 1, raw: {} });
+      usersService.findOne.mockResolvedValue({ id: 5, username: 'alex' });
+
+      const ctx = await service.authenticate('k', '');
+
+      expect(ctx.ownerUsername).toBe('alex');
+      // 取的是**属主 id**（与 ctx.ownerUserId 同一主体），不是凭空的第一个用户
+      expect(usersService.findOne).toHaveBeenCalledWith(5, true);
+    });
+
+    it('env 单 key：默认上下文同样带用户名（owner=admin）', async () => {
+      usersService.findOne.mockResolvedValue({ id: 1, username: 'admin' });
+
+      const ctx = await service.authenticate('secret', 'secret');
+
+      expect(ctx.name).toBe('default');
+      expect(ctx.ownerUsername).toBe('admin');
+    });
+
+    it('属主已被硬删（查名抛错）→ 仍然放行，只是该列为空（不让归责缺一段升级成拒绝服务）', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 3, keyHash: 'h', name: 'my-key', ownerUserId: 5,
+        toolWhitelist: null, quotaPerDay: 0,
+        quotaDate: Math.floor(Date.now() / 86400000), dailyUsed: 0, enabled: true,
+      });
+      repo.update.mockResolvedValue({ affected: 1, raw: {} });
+      usersService.findOne.mockRejectedValue(new Error('User not found'));
+
+      const ctx = await service.authenticate('k', '');
+
+      expect(ctx.ownerUserId).toBe(5);
+      expect(ctx.ownerUsername).toBeUndefined();
+    });
+  });
 });
