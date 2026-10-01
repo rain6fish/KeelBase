@@ -24,6 +24,32 @@ export interface SubAgentTask {
   query: string;
 }
 
+/**
+ * §22.19 AU-2: what a sub-agent proposed but was not allowed to run. The orchestrator's guard turns
+ * such a call away before any executor sees it, so without this callback the attempt leaves no trace.
+ *
+ * §22.19 AU-2：子代理**提议了但没被允许执行**的调用。编排器的守卫在执行器之前就把它挡掉了，没有这个
+ * 回调，这次尝试就不留任何痕迹。
+ */
+export interface SubAgentToolDenial {
+  toolName: string;
+  /** 模型给出的原文参数串（未解析，守卫在此之前就拦下了） */
+  argsJson: string;
+  userId: string;
+  reason: string;
+}
+
+/** 三层贯穿的同一份执行参数（run → 循环 → executeSafe），故抽成具名类型而不是三处内联。 */
+interface SubAgentRunParams {
+  provider: LlmProvider;
+  toolRegistry: ToolRegistry;
+  userId: string;
+  model?: string;
+  readOnlyExecutor?: ReadOnlyToolExecutor;
+  /** §22.19 AU-2：越界尝试的留痕口子（可选——未注入执行器的场景天然也无处落行） */
+  onDenied?: (denial: SubAgentToolDenial) => Promise<void>;
+}
+
 export interface SubAgentOrchestratorResult {
   content: string;
   stepResults: string[];
@@ -64,15 +90,9 @@ export class SubAgentOrchestrator {
     return this.skillsRegistry.match(request);
   }
 
-  async run(params: {
-    messages: ChatMessage[];
-    userRequest: string;
-    provider: LlmProvider;
-    toolRegistry: ToolRegistry;
-    userId: string;
-    model?: string;
-    readOnlyExecutor?: ReadOnlyToolExecutor;
-  }): Promise<SubAgentOrchestratorResult> {
+  async run(
+    params: SubAgentRunParams & { messages: ChatMessage[]; userRequest: string },
+  ): Promise<SubAgentOrchestratorResult> {
     // 1. 技能命中 → 固定任务组合；否则 LLM 分解
     let usage: LlmUsage | undefined;
     const skill = this.skillsRegistry.match(params.userRequest);
@@ -152,13 +172,7 @@ export class SubAgentOrchestrator {
     agent: SubAgentDefinition,
     task: SubAgentTask,
     priorResults: string[],
-    params: {
-      provider: LlmProvider;
-      toolRegistry: ToolRegistry;
-      userId: string;
-      model?: string;
-      readOnlyExecutor?: ReadOnlyToolExecutor;
-    },
+    params: SubAgentRunParams,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     // D4 多 Agent 归责：子 agent 运行期间审计带 agentId（子 agent 名）+ callerAgentId（父 agent）。
     //
@@ -183,13 +197,7 @@ export class SubAgentOrchestrator {
     agent: SubAgentDefinition,
     task: SubAgentTask,
     priorResults: string[],
-    params: {
-      provider: LlmProvider;
-      toolRegistry: ToolRegistry;
-      userId: string;
-      model?: string;
-      readOnlyExecutor?: ReadOnlyToolExecutor;
-    },
+    params: SubAgentRunParams,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     const messages: ChatMessage[] = [{ role: 'system', content: agent.systemPrompt }];
     if (priorResults.length > 0) {
@@ -246,17 +254,20 @@ export class SubAgentOrchestrator {
   private async executeSafe(
     tc: ToolCall,
     agent: SubAgentDefinition,
-    params: {
-      provider: LlmProvider;
-      toolRegistry: ToolRegistry;
-      userId: string;
-      model?: string;
-      readOnlyExecutor?: ReadOnlyToolExecutor;
-    },
+    params: SubAgentRunParams,
   ): Promise<ToolResult> {
     // 安全守卫：只允许该子代理工具集内的只读工具
     if (!agent.tools.includes(tc.name) || params.toolRegistry.requiresConfirmation(tc.name)) {
-      return { success: false, error: `Tool "${tc.name}" not allowed for sub-agent "${agent.name}"` };
+      const reason = `Tool "${tc.name}" not allowed for sub-agent "${agent.name}"`;
+      // §22.19 AU-2：越界尝试留痕——守卫在触到执行器之前就返回，故这一行由编排器自己上交，
+      // 否则「子代理试了什么」在审计里完全不存在。留痕失败不吞：审计写是本条路径的一半。
+      await params.onDenied?.({
+        toolName: tc.name,
+        argsJson: tc.arguments,
+        userId: params.userId,
+        reason,
+      });
+      return { success: false, error: reason };
     }
     try {
       const args = JSON.parse(tc.arguments);

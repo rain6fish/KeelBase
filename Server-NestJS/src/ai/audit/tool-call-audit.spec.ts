@@ -86,4 +86,14 @@ describe('buildToolCallAudit（tool_call 审计行）', () => {
     expect(buildToolCallAudit({ ...base, bridge: true, result: { success: true } }).source).toBe('bridge');
     expect(buildToolCallAudit({ ...base, result: { success: true } }).source).toBeUndefined();
   });
+
+  it('§22.19 AU-2：parentActionId 原样透传（一次委托的分组句柄）；不传则不写该列', () => {
+    expect(
+      buildToolCallAudit({ ...base, result: { success: true }, parentActionId: 'run-1' }).parentActionId,
+    ).toBe('run-1');
+    // 不传 ⇒ undefined ⇒ 落库为 NULL：主链路四处调用点因此逐字不变
+    expect(
+      buildToolCallAudit({ ...base, result: { success: true } }).parentActionId,
+    ).toBeUndefined();
+  });
 });

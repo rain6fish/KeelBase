@@ -836,6 +836,55 @@ describe('AiService', () => {
       expect(delegateAudit.completionTokens).toBe(213);
     });
 
+    it('§22.19 AU-2：子代理执行的只读工具落一行 tool_call，与对话级行共用同一个 parentActionId', async () => {
+      mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
+      // 替身**真的走**注入进去的 readOnlyExecutor —— 这正是本刀要验的那条路。
+      // 替身自己不写任何审计，故下面那行只可能来自 AiService 一侧（旧实现为 0 行 ⇒ 断言必红）。
+      mockSubAgentOrchestrator.run.mockImplementation(async (params: any) => {
+        const result = await params.readOnlyExecutor('count_events_by_status', { status: 'done' }, '1');
+        expect(result.success).toBe(true);
+        return { content: '子代理结果', stepResults: ['a'] };
+      });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { count: 3 } });
+      mockProvider.generate.mockResolvedValue({
+        content: '已为你安排本周',
+        usage: { promptTokens: 1, completionTokens: 1 },
+      });
+
+      await aiService.chat('1', { message: '帮我安排本周' });
+
+      const rows = (mockAuditService.log as jest.Mock).mock.calls.map((c) => c[0]);
+      const toolRow = rows.find((e) => e.action === 'tool_call');
+      // 行形状与主链路同源（buildToolCallAudit）：detail 是「工具名(参数)」
+      expect(toolRow.detail).toBe('count_events_by_status({"status":"done"})');
+      expect(toolRow.isError).toBe(false);
+      expect(toolRow.parentActionId).toBeTruthy();
+
+      // 对话级行带同一个句柄 —— 整轮的行因此一次查询可取回
+      const conversationRow = rows.find((e) => e.action === 'delegate');
+      expect(conversationRow.parentActionId).toBe(toolRow.parentActionId);
+    });
+
+    it('§22.19 AU-2：粒度 off 时子代理路径只执行、不落行（与主链路同一粒度门）', async () => {
+      (aiService as any).governancePolicy = {
+        getAuditGranularity: jest.fn().mockResolvedValue('off'),
+      };
+      mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
+      mockSubAgentOrchestrator.run.mockImplementation(async (params: any) => {
+        await params.readOnlyExecutor('count_events_by_status', {}, '1');
+        return { content: '子代理结果', stepResults: ['a'] };
+      });
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { count: 3 } });
+      mockProvider.generate.mockResolvedValue({ content: '已为你安排本周' });
+
+      await aiService.chat('1', { message: '帮我安排本周' });
+
+      // 工具**确实执行了**（否则「不落行」是被「压根没执行」骗过的假绿）
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith('count_events_by_status', {}, '1');
+      const rows = (mockAuditService.log as jest.Mock).mock.calls.map((c) => c[0]);
+      expect(rows.filter((e) => e.action === 'tool_call')).toHaveLength(0);
+    });
+
     it('非流式 + 外部读工具：经 provider 执行并落 tool_call 审计（与内置工具同形）', async () => {
       // 强制走 runToolLoop（对齐下一条用例）：编排器返回空
       mockSubAgentOrchestrator.matchSkill.mockReturnValue({ name: 'week-plan' } as any);
@@ -2640,6 +2689,31 @@ describe('AiService', () => {
       const result = await aiService.chat('1', { message: '制定一个执行计划' });
 
       expect(result.reply).toContain('工具循环结果');
+    });
+
+    it('§22.19 AU-2：plan 步骤执行的只读工具也落一行 tool_call（与子代理同一条口径）', async () => {
+      // plan 步骤经由注入的 readOnlyExecutor 执行 —— 本刀把它与子代理一并覆盖；
+      // 只算子代理会留下「主链路记、plan 不记」的第三种口径。
+      const mockPlan = {
+        planAndExecute: jest.fn(async (...args: any[]) => {
+          const readOnlyExecutor = args[5];
+          const result = await readOnlyExecutor('count_events_by_status', { status: 'done' }, '1');
+          expect(result.success).toBe(true);
+          return { stepResults: ['r1'], content: 'plan content' };
+        }),
+      };
+      (aiService as any).planExecuteAgent = mockPlan;
+      (aiService as any).reflectionAgent = { reflect: jest.fn().mockResolvedValue({ content: 'OK' }) };
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { count: 3 } });
+      mockProvider.generate.mockResolvedValue({ content: '汇总' });
+
+      await aiService.chat('1', { message: '为下个月制定执行计划' });
+
+      const rows = (mockAuditService.log as jest.Mock).mock.calls.map((c) => c[0]);
+      const toolRow = rows.find((e) => e.action === 'tool_call');
+      expect(toolRow.detail).toBe('count_events_by_status({"status":"done"})');
+      expect(toolRow.parentActionId).toBeTruthy();
+      expect(rows.find((e) => e.action === 'plan').parentActionId).toBe(toolRow.parentActionId);
     });
   });
 

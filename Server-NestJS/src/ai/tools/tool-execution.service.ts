@@ -374,7 +374,13 @@ export class ToolExecutionService {
    * - 与主循环同 gate：_assertToolAllowed（R5 / 治理策略 enabled / 角色白名单 / featureFlag / adminOnly）
    * - 只读强制：写/需确认工具（R3/R4，含外部非只读）直接拒——子代理/plan 不得绕过确认与副作用登记执行写工具
    * - 通过后走 executeRead（内置/外部 provider 同源）
-   * 内部读不单落 tool_call 行（对话级 delegate/plan 审计行已取证；此处只堵授权旁路，不改变审计语义）。
+   *
+   * 落点：**本方法自己一行审计都不写**——行由调用方写（`AiService._agentStepExecutor`，§22.19 AU-2 余项，
+   * 2026-10-01 落地），与主链路的只读工具调用「由调用方记审计」同构。此处只堵授权旁路。
+   *
+   * Where the audit row comes from: this method writes **none** — its caller does
+   * (`AiService._agentStepExecutor`), mirroring how the main loop audits its own read tool calls.
+   * This seam's job is only to close the authorization bypass.
    */
   async executeAgentRead(
     toolName: string,

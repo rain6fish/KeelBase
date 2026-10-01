@@ -38,6 +38,17 @@ export interface ToolCallAuditInput {
   authorization?: string;
   /** R4 待批：已提交人工审批不算失败（此区分当前只有流式路径有） */
   pendingApproval?: boolean;
+  /**
+   * §22.19 AU-2: the handle that groups every row of one delegate/plan turn — written on the turn's
+   * `tool_call` rows and on its conversation-level row alike, so the whole turn is one query away.
+   * The column is *named* for a parent pointer but is used here as a grouping key; no consumer
+   * dereferences it (verified 2026-10-01), so nothing resolves it to another row.
+   *
+   * §22.19 AU-2：把一次 delegate / plan 轮次的所有行归到一组的句柄——既写在该轮的工具行上，也写在
+   * 其对话级行上，整轮因此一次查询可取回。该列**名为**父指针，此处用作分组键；已核实无消费方解引用
+   * 它（2026-10-01），故无人把它解析成另一行。
+   */
+  parentActionId?: string;
 }
 
 export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
@@ -57,5 +68,6 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
     source: input.bridge ? 'bridge' : undefined,
     provider: input.provider,
     authorization: input.authorization,
+    parentActionId: input.parentActionId,
   };
 }

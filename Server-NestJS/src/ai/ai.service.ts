@@ -7,6 +7,7 @@
  * 处理多轮工具调用循环、Fallback 机制、对话保存。
  */
 
+import { randomUUID } from 'node:crypto';
 import { R4ApprovalService } from './approvals/r4-approval.service';
 import { ProviderRoutingService } from './providers/provider-routing.service';
 import { StreamAccumulator } from './providers/stream-accumulator';
@@ -29,7 +30,7 @@ import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { ReflectionAgent } from './agents/reflection-agent.service';
 import { tracer, withSpan } from '../common/tracing/tracer';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { PlanExecuteAgent } from './agents/plan-execute-agent.service';
+import { PlanExecuteAgent, ReadOnlyToolExecutor } from './agents/plan-execute-agent.service';
 import { RagAgent } from './agents/rag-agent.service';
 import { MemoriesService } from './memory/memory.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
@@ -169,6 +170,123 @@ export class AiService {
     if (granularity === 'off') return false;
     if (granularity === 'write') return scope === 'tool';
     return true;
+  }
+
+  /**
+   * §22.19 AU-2: the read-only executor for the plan / sub-agent paths — it executes **and** writes
+   * one `tool_call` row, the same row shape the main loop writes, so that one read tool call leaves
+   * the same evidence whichever path invoked it.
+   *
+   * Both agent paths take this one executor: covering only the sub-agent would need a switch here and
+   * would leave the platform with a third rule (main logs, plan silent, sub-agent logs).
+   *
+   * Two differences from the main loop, stated rather than papered over:
+   * - `argsJson` is `JSON.stringify(args)` — these paths hold the parsed object only (the plan path
+   *   never had an argument string; it parses its steps out of the planner's JSON).
+   * - the attribution fields (`agentId` / `callerAgentId` / `businessIntent` / `sessionId` /
+   *   `username` / `source`) are deliberately **not** passed here — `AuditService.log` fills them from
+   *   `actorContext`, whose sub-agent scope has inherited the parent since ACT-1.
+   *
+   * §22.19 AU-2：plan / 子代理路径的只读执行器 —— 执行 **且** 写一行 `tool_call`，行形状与主循环同源，
+   * 使同一次只读工具调用无论走哪条路径都留下同一份证据。
+   *
+   * 两条 agent 路径共用这一个执行器：只覆盖子代理就得在此加开关，且平台会多出第三种口径
+   * （主链路记、plan 不记、子代理记）。
+   *
+   * 与主循环的两处差异，写明而不是抹平：
+   * - `argsJson` 取 `JSON.stringify(args)`——这两条路径手上只有解析后的对象（plan 路径本就没有原文串：
+   *   它的步骤是从规划器返回的 JSON 里解析出来的）。
+   * - 归责字段（`agentId` / `callerAgentId` / `businessIntent` / `sessionId` / `username` / `source`）
+   *   有意**不在此显式传**——由 `AuditService.log` 从 `actorContext` 填充，而子代理那层作用域自 ACT-1
+   *   起已继承父上下文。
+   */
+  private _agentStepExecutor(
+    conversationId: string,
+    providerName: string,
+    agentRunId: string,
+  ): ReadOnlyToolExecutor {
+    return async (toolName, args, userId) => {
+      const argsJson = JSON.stringify(args);
+      const bridge = this.toolExecution.isProxyTool(toolName);
+      const shouldAudit = await this._shouldAudit('tool');
+      try {
+        const result = await this.toolExecution.executeAgentRead(toolName, args, userId);
+        if (shouldAudit) {
+          // 放行快照只在**真正放行并成功执行**时写（与主链路成功分支同一条件）；失败行带非空
+          // authorization 会被 A-8 denied 视图与 blocked 聚合误判为越权（见 audit-authz-snapshot.spec.md）。
+          const authz = result.success
+            ? await this.authorizationExplainer.getAuthorizationReasons(
+                toolName,
+                userId,
+                false,
+                await this.toolGate.riskLevelFor(toolName),
+              )
+            : undefined;
+          await this.auditService.log(
+            buildToolCallAudit({
+              userId,
+              conversationId,
+              provider: providerName,
+              toolName,
+              argsJson,
+              bridge,
+              result,
+              authorization: authz ? buildAllowSnapshot(toolName, authz) : undefined,
+              parentActionId: agentRunId,
+            }),
+          );
+        }
+        return result;
+      } catch (err) {
+        // 拒绝路径同样留痕（与主链路 deny 分支同形）：只堵授权旁路而不留证，等于把越权尝试藏进
+        // 「工具执行失败」这句话里。
+        if (shouldAudit) {
+          const denied = err instanceof AuthorizationDeniedError;
+          await this.auditService.log(
+            buildToolCallAudit({
+              userId,
+              conversationId,
+              provider: providerName,
+              toolName,
+              argsJson,
+              bridge,
+              errorMessage: denied ? err.message : `Failed to execute tool "${toolName}"`,
+              authorization: denied ? JSON.stringify(err.reasons) : undefined,
+              parentActionId: agentRunId,
+            }),
+          );
+        }
+        throw err;
+      }
+    };
+  }
+
+  /**
+   * §22.19 AU-2: a sub-agent proposing a tool outside its own set used to leave no trace at all —
+   * the orchestrator's guard returns before the executor is ever reached. This row is that trace.
+   *
+   * §22.19 AU-2：子代理提议调用它工具集之外的工具时，此前**完全不留痕**——编排器的守卫在触到执行器
+   * 之前就返回了。这一行就是那道痕迹。
+   */
+  private async _logAgentToolDenial(
+    conversationId: string,
+    providerName: string,
+    agentRunId: string,
+    denial: { toolName: string; argsJson: string; userId: string; reason: string },
+  ): Promise<void> {
+    if (!(await this._shouldAudit('tool'))) return;
+    await this.auditService.log(
+      buildToolCallAudit({
+        userId: denial.userId,
+        conversationId,
+        provider: providerName,
+        toolName: denial.toolName,
+        argsJson: denial.argsJson,
+        bridge: this.toolExecution.isProxyTool(denial.toolName),
+        errorMessage: denial.reason,
+        parentActionId: agentRunId,
+      }),
+    );
   }
 
   // ── 呈现/摘要（确认卡文案 / 影响预览 / 撤销档 / 结果截断）已拆至 ToolPresentationService（阶段 3 第八刀）──
@@ -400,6 +518,12 @@ export class AiService {
     let usage: LlmUsage | undefined;
     let navigateTo: string | undefined;
     let toolCalls: string[] | undefined;
+    // §22.19 AU-2: one handle per delegate/plan turn, shared by that turn's tool rows and its
+    // conversation-level row. Undefined for intents that run no agent steps.
+    //
+    // §22.19 AU-2：每次 delegate / plan 轮次一个句柄，该轮的工具行与对话级行共用它；
+    // 不跑 agent 步骤的意图不分配（保持 undefined）。
+    let agentRunId: string | undefined;
 
     // 各分支只知道自己的那一段开销；分类与压缩这些前置开销在此统一并入后再记账
     const turnTotal = (): LlmUsage | undefined => addLlmUsage(usage, preflightUsage);
@@ -471,6 +595,7 @@ export class AiService {
       const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
       preflightUsage = addLlmUsage(preflightUsage, built.usage);
       const messages = built.messages;
+      agentRunId = randomUUID();
       const delegateResult = await this.subAgentOrchestrator.run({
         messages,
         userRequest: request.message,
@@ -479,7 +604,9 @@ export class AiService {
         userId,
         model: request.model ?? this.config.defaultModel,
         // NC-3 只读门控：子代理经同一治理层执行（R5/策略/角色/adminOnly + 写工具拒绝）
-        readOnlyExecutor: (tool, args, uid) => this.toolExecution.executeAgentRead(tool, args, uid),
+        readOnlyExecutor: this._agentStepExecutor(conversationId, providerName, agentRunId),
+        // §22.19 AU-2：子代理尝试调它工具集之外的工具时，那条越界信号也要留痕（此前静默）
+        onDenied: (denial) => this._logAgentToolDenial(conversationId, providerName, agentRunId!, denial),
       });
 
       if (delegateResult.stepResults.length > 0) {
@@ -535,6 +662,7 @@ export class AiService {
       const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
       preflightUsage = addLlmUsage(preflightUsage, built.usage);
       const messages = built.messages;
+      agentRunId = randomUUID();
       const planResult = await this.planExecuteAgent.planAndExecute(
         messages,
         provider,
@@ -542,7 +670,7 @@ export class AiService {
         userId,
         request.model ?? this.config.defaultModel,
         // NC-3 只读门控：plan 步骤经同一治理层执行，防 LLM 计划的写/禁用工具被直调
-        (tool, args, uid) => this.toolExecution.executeAgentRead(tool, args, uid),
+        this._agentStepExecutor(conversationId, providerName, agentRunId),
       );
 
       if (planResult.stepResults.length > 0) {
@@ -636,6 +764,8 @@ export class AiService {
         model: request.model ?? this.config.defaultModel,
         promptTokens: total?.promptTokens,
         completionTokens: total?.completionTokens,
+        // §22.19 AU-2：本轮的工具行共用这个句柄，对话级行也带上它——整轮一次查询可取回
+        ...(agentRunId ? { parentActionId: agentRunId } : {}),
       });
     }
     return {
