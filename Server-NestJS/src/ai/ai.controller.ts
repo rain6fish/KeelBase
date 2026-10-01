@@ -457,8 +457,16 @@ export class AiController {
    */
   @Get('tool-effects')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: 'AI 写操作副作用记录（管理员，可按 userId 过滤；stale=true 只看陈旧未了结）' })
-  @ApiQuery({ name: 'stale', required: false, description: 'REV-2：只看 compensating 超过阈值分钟未了结的行' })
+  @ApiOperation({
+    summary:
+      'AI 写操作副作用记录（管理员，可按 userId 过滤；stale=true 只看陈旧未了结，并附带卡住的占位行）',
+  })
+  @ApiQuery({
+    name: 'stale',
+    required: false,
+    description:
+      'REV-2：只看 compensating 超过阈值分钟未了结的行；并附带 `staleClaims`——卡住的**占位行**（崩溃残留 / 外部写失败），同一阈值',
+  })
   getToolEffects(
     @Query('userId', new DefaultValuePipe(undefined)) userId?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,

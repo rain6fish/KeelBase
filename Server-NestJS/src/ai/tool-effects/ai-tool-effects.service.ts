@@ -1402,7 +1402,38 @@ export class AiToolEffectsService {
       }),
     );
 
-    return paginated(enriched, total, page, limit);
+    const page_ = paginated(enriched, total, page, limit);
+    if (options.stale !== true) return page_;
+
+    // ACT-6 第 2 片留下缺口、用户 2026-09-30 裁定接到这条车道：卡住的**占位行**此前只对代码可见 ——
+    // `listStaleClaims` 的唯一调用者是它的用例，没有端点、没有管理台露出。它装两类东西，同一口径
+    // 「**可见，不自动解决**」：**崩溃残留**（claim 没走到落定）与**外部写失败**（目标是否收到不可知，
+    // 故既不释放也不落定）。阈值与上面副作用行的 `stale` **同源**（`_staleThresholdMinutes`），
+    // 免得同一屏里两个「陈旧」各说各的。
+    const staleClaims = (await this.listStaleClaims(thresholdMinutes * 60_000)).map((c) =>
+      this._projectStaleClaim(c),
+    );
+    return { ...page_, staleClaims };
+  }
+
+  /**
+   * 陈旧占位行的读侧投影 —— 同 REV-11 的口径：只陈述**谁的、哪一次、卡了多久、试了几次**。
+   * 真值在目标系统（外部写）或崩溃前那一刻（残留），**本读数不下判决**，故没有「成功/失败」字段。
+   */
+  private _projectStaleClaim(c: AiWriteClaim): Record<string, unknown> {
+    return {
+      id: c.id,
+      idempotencyKey: c.idempotencyKey,
+      userId: c.userId,
+      conversationId: c.conversationId ?? null,
+      runId: c.runId ?? null,
+      toolName: c.toolName,
+      agentId: c.agentId ?? null,
+      status: c.status,
+      claimedAt: c.claimedAt.toISOString(),
+      ageMinutes: Math.floor((Date.now() - c.claimedAt.getTime()) / 60_000),
+      attempts: c.attempts,
+    };
   }
 
   /**

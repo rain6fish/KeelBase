@@ -343,4 +343,43 @@ describe('ACT-5/6 切片1：本地写 claim → execute → settle', () => {
       );
     });
   });
+
+  describe('卡住的占位行经 `?stale=true` 那条车道露出（ACT-6 第 2 片缺口的收口）', () => {
+    it('陈旧占位行出现在 `staleClaims`；**没问就不带该字段**', async () => {
+      const seed = (key: string, minutesAgo: number, attempts: number) =>
+        claims().save(
+          claims().create({
+            idempotencyKey: key,
+            userId: CTX.userId,
+            conversationId: CTX.conversationId,
+            toolName: CTX.toolName,
+            argsHash: 'h',
+            status: WRITE_CLAIM_STATUS.CLAIMED,
+            claimedAt: new Date(Date.now() - minutesAgo * 60_000),
+            attempts,
+          }),
+        );
+      // 90 分钟（阈值默认 60）⇒ 陈旧；刚占的 ⇒ 不陈旧
+      await seed('k-old', 90, 2);
+      await seed('k-fresh', 0, 1);
+
+      const asked = (await effects.list({ stale: true })) as unknown as {
+        staleClaims: Array<Record<string, unknown>>;
+      };
+      // 只有陈旧那条冒出来；且投影只陈述「谁的、哪一次、多久了、几次」——**没有**成功/失败字段
+      expect(asked.staleClaims.map((c) => c.idempotencyKey)).toEqual(['k-old']);
+      expect(asked.staleClaims[0]).toMatchObject({
+        toolName: CTX.toolName,
+        status: WRITE_CLAIM_STATUS.CLAIMED,
+        attempts: 2,
+      });
+      expect(asked.staleClaims[0].ageMinutes as number).toBeGreaterThanOrEqual(89);
+      expect(Object.keys(asked.staleClaims[0])).not.toContain('success');
+
+      // **「没问」与「问了但没有」必须分得开** —— 故不问 `stale` 时该字段根本不出现，
+      // 而不是给一个空数组让人读成「没有卡住的写」。
+      const notAsked = (await effects.list({})) as unknown as Record<string, unknown>;
+      expect('staleClaims' in notAsked).toBe(false);
+    });
+  });
 });
