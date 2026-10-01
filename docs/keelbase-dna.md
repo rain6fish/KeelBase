@@ -109,7 +109,7 @@ KeelBase 的 DNA 不只约束 Agent 与 AI 生成代码——**也约束开发 K
 |---|---|---|
 | AI-generated untrusted | Agent 行为默认不被信任 | AI 生成代码默认不被信任 → Code Economy Review + 全量测试门禁 + **生成 provenance** |
 | Tests Verify | 运行时行为可验证 | 每次提交前审计 + 验证脚本 |
-| Humans Decide | 写操作需人工确认 | 关键决策（推送 / 方向）由人把关 |
+| Humans Decide | **R3 及以上**写操作需人工确认（R4 另需二级审批）；R0–R2 按策略执行 | 关键决策（推送 / 方向）由人把关 |
 
 **生成 provenance（已落地）**：`keelbase init` 生成的每个模块目录写 `.keelbase-provenance.json`（来源 spec/openapi/cli + 生成器版本 + 协议 + 生成时刻）——与运行时 Business Action 链对应：运行侧「行为可追踪」、工程侧「代码可溯源」。`keelbase inspect` 展示各模块生成证明。
 

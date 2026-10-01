@@ -58,7 +58,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 ## 3. Human approval (confirmation gate + R4 two-person approval)
 
-**Proof**: AI write operations require human confirmation; high-impact actions need a second approver.
+**Proof**: **R3 and above** AI writes require human confirmation; high-impact actions (R4) need a second approver; R0–R2 writes run under policy.
 
 - Run: workbench AI chat "为辰光建材创建跟进任务" → **confirmation card** (R3 write: risk tier + technical authorization details + approve/reject/trust-for-this-round) → approve → persisted → "confirmed · reversible"
 - Admin Console → **AI Approvals** (`/admin/#/ai-approvals`) → R4 two-person approval records
@@ -84,7 +84,7 @@ Accounts: `alex / Alex@2026$Demo` (workbench) · `admin / Admin@2026$KeelBase` (
 
 - [ ] Cross-user data access → 403 + explicit "no access" UI
 - [ ] AI tools risk-tiered (R0–R5), calls carry authorization reasons
-- [ ] AI writes require human confirmation; R4 high-impact needs two-person approval
+- [ ] **R3 and above** writes require human confirmation; R4 high-impact needs two-person approval
 - [ ] Audit hash chain `valid:true`, concurrency stress 0 forks
 - [ ] Attack suite: all cases asserted blocked, golden loop
 
