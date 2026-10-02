@@ -421,6 +421,8 @@ const zh = {
   aiCenterConvRevokeConfirm: '将撤销本会话产生的全部 AI 写副作用（可撤销项软删，B 路径走外部补偿）。确定撤销？',
   aiCenterConvRevokeEmpty: '该会话没有可撤销的 AI 写副作用',
   aiCenterConvRevokeDone: '已撤销 {revoked} 项，跳过 {skipped} 项，失败 {failed} 项',
+  // §5.1.3：声明与持有不一致 → 已补偿持有的行，但不得报成完成
+  aiCenterConvRevokeDisputed: '已按持有的行补偿（撤销 {revoked} 项 / 跳过 {skipped} 项 / 失败 {failed} 项），但该组声明与持有不一致——本次撤销不得视为已完成',
   stepInput: '你的提问',
   stepAssistant: 'AI 回复',
   traceSourceHuman: '人',

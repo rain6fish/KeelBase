@@ -147,6 +147,8 @@ export interface BatchRevokeItem {
   external?: boolean
   message?: string
   error?: string
+  /** §5.1.3：该组声明与持有不一致（组级判定，标记只在根行上）——逐条计数仍是逐行事实，此项拦「读成全绿」 */
+  disputed?: boolean
 }
 
 export interface BatchRevokeResult {

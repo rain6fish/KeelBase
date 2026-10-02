@@ -345,7 +345,13 @@ async function onRevokeConversation() {
   revokingConvId.value = conv.id
   try {
     const r = await aiTraceApi.revokeConversationEffects(conv.id)
+    // §5.1.3: a disputed group must not be reported as an unqualified success — the held rows were
+    // compensated, but the declaration disagreed, so `revoked:N / failed:0` must not read as all-green.
+    // §5.1.3：争议组不得报成无保留的成功——持有的行确实补偿了，但声明与持有不一致，
+    // 故 `revoked:N / failed:0` 不能被读成全绿。
     if (r.total === 0) snackbar.success(t('aiCenterConvRevokeEmpty'))
+    else if (r.results.some((i) => i.disputed))
+      snackbar.warning(t('aiCenterConvRevokeDisputed', { revoked: r.revoked, skipped: r.skipped, failed: r.failed }))
     else snackbar.success(t('aiCenterConvRevokeDone', { revoked: r.revoked, skipped: r.skipped, failed: r.failed }))
     await loadEffects()
   } catch (err) {

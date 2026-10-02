@@ -6,16 +6,26 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { myEffectsMock, conversationsMock, revokeMock, revokeConvMock, pushMock, myConfirmationsMock, decideMock } =
-  vi.hoisted(() => ({
-    myEffectsMock: vi.fn(),
-    conversationsMock: vi.fn(),
-    revokeMock: vi.fn(),
-    revokeConvMock: vi.fn(),
-    pushMock: vi.fn(),
-    myConfirmationsMock: vi.fn(),
-    decideMock: vi.fn(),
-  }))
+const {
+  myEffectsMock,
+  conversationsMock,
+  revokeMock,
+  revokeConvMock,
+  pushMock,
+  myConfirmationsMock,
+  decideMock,
+  snackbarMock,
+} = vi.hoisted(() => ({
+  myEffectsMock: vi.fn(),
+  conversationsMock: vi.fn(),
+  revokeMock: vi.fn(),
+  revokeConvMock: vi.fn(),
+  pushMock: vi.fn(),
+  myConfirmationsMock: vi.fn(),
+  decideMock: vi.fn(),
+  // 稳定 spy（旧实现每次调用返回新对象 → toast 不可断言）
+  snackbarMock: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+}))
 
 vi.mock('@/api/aiTrace', () => ({
   aiTraceApi: {
@@ -28,7 +38,7 @@ vi.mock('@/api/aiTrace', () => ({
   },
 }))
 vi.mock('@/stores/snackbar', () => ({
-  useSnackbarStore: () => ({ success: vi.fn(), error: vi.fn() }),
+  useSnackbarStore: () => snackbarMock,
 }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
@@ -98,12 +108,25 @@ const effectNotRevocable = {
   revocable: false,
 }
 
+/** ConfirmDialog 桩：可点出 `confirm`（真组件被 stub 成 true 时点不动）；按钮无文本，故不干扰「撤销」按钮计数 */
+const ConfirmDialogStub = {
+  name: 'ConfirmDialog',
+  emits: ['confirm'],
+  template: '<button class="confirm-stub" @click="$emit(\'confirm\')" />',
+}
+
 function mountView() {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(MyAiActionCenterView, {
     global: {
       plugins: [i18n, ElementPlus],
-      stubs: { PageHeader: true, AppIcon: true, AppPagination: true, ConfirmDialog: true, BusinessHistoryDrawer: true },
+      stubs: {
+        PageHeader: true,
+        AppIcon: true,
+        AppPagination: true,
+        ConfirmDialog: ConfirmDialogStub,
+        BusinessHistoryDrawer: true,
+      },
     },
   })
 }
@@ -289,5 +312,66 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
 
     const revokeConvBtns = wrapper.findAll('button').filter((b) => b.text().includes('撤销本会话写操作'))
     expect(revokeConvBtns).toHaveLength(1)
+  })
+
+  /** 会话批量撤销：点会话行的按钮 → 第一个 ConfirmDialog（单条）不动，第二个（会话）出 confirm */
+  async function revokeConversation(wrapper: ReturnType<typeof mountView>) {
+    const btn = wrapper.findAll('button').find((b) => b.text().includes('撤销本会话写操作'))!
+    await btn.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('.confirm-stub')[1].trigger('click')
+    await flushPromises()
+  }
+
+  const convRow = {
+    id: 'conv-d',
+    messages: [{ role: 'user', content: '批量改价' }],
+    lastActivityAt: '2026-09-01T00:00:00Z',
+  }
+
+  it('§5.1.3：批量撤销含 disputed 行 → 告警而非无保留成功（不念 aiCenterConvRevokeDone）', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([convRow])
+    revokeConvMock.mockResolvedValue({
+      conversationId: 'conv-d',
+      total: 2,
+      revoked: 2,
+      skipped: 0,
+      failed: 0,
+      results: [
+        { effectId: 1, revoked: true, disputed: true },
+        { effectId: 2, revoked: true },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await revokeConversation(wrapper)
+
+    expect(revokeConvMock).toHaveBeenCalledWith('conv-d')
+    expect(snackbarMock.warning).toHaveBeenCalledWith(expect.stringContaining('声明与持有不一致'))
+    // 逐条计数照旧出现在告警里（行级事实不丢），但不得再报成无保留的成功
+    expect(snackbarMock.warning).toHaveBeenCalledWith(expect.stringContaining('（撤销 2 项 / 跳过 0 项 / 失败 0 项）'))
+    expect(snackbarMock.success).not.toHaveBeenCalled()
+  })
+
+  it('§5.1.3：无争议的批量撤销仍是常规成功汇总', async () => {
+    myEffectsMock.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 })
+    conversationsMock.mockResolvedValue([convRow])
+    revokeConvMock.mockResolvedValue({
+      conversationId: 'conv-d',
+      total: 1,
+      revoked: 1,
+      skipped: 0,
+      failed: 0,
+      results: [{ effectId: 1, revoked: true }],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await revokeConversation(wrapper)
+
+    expect(snackbarMock.success).toHaveBeenCalledWith('已撤销 1 项，跳过 0 项，失败 0 项')
+    expect(snackbarMock.warning).not.toHaveBeenCalled()
   })
 })
