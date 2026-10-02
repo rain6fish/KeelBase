@@ -339,25 +339,34 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
       expect(toolRows[0].sessionId).toBeTruthy();
     });
 
-    it('⑤ MCP `/mcp` tools/call —— 工具出口，不是对话入口：结构上无法起始委托', async () => {
+    it('⑤ MCP `/mcp` —— **不适用**：它是工具出口，不是对话入口（结构断言，非「做不到」）', async () => {
       const u = await freshUser();
-      await request(app.getHttpServer())
-        .post('/api/v1/mcp')
-        .set(authHeader(u.token))
-        .send({
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method: 'tools/call',
-          params: { name: 'count_events_by_status', arguments: {} },
-        })
-        .expect(201);
+      const mcp = (method: string, params?: unknown) =>
+        request(app.getHttpServer())
+          .post('/api/v1/mcp')
+          .set(authHeader(u.token))
+          .send({ jsonrpc: '2.0', id: Date.now(), method, ...(params ? { params } : {}) })
+          .expect(201);
 
+      // ① 握手**只宣告 tools 能力**：MCP 客户端被明确告知这里没有对话/提示/资源面。
+      //    这是本用例最强的一条 —— 谁往 MCP 加 chat 之类的能力，这行立刻红。
+      const init = await mcp('initialize');
+      expect(init.body.result.capabilities).toEqual({ tools: {} });
+
+      // ② 对话式方法**根本不存在**：按 JSON-RPC 规范回「方法未找到」，而不是被当成对话入口处理。
+      const chatAttempt = await mcp('chat', { message: DELEGATE_MSG });
+      expect(chatAttempt.body.error?.code).toBe(-32601);
+
+      // ③ 真调一个读工具：它确实执行并落 `tool_call` 行（这一半让下面那条否定断言不空转），
+      //    但**不产生任何对话级行** —— 对话级 action 只有 chat/delegate/plan/analyze/knowledge。
+      await mcp('tools/call', { name: 'count_events_by_status', arguments: {} });
       const rows = await ds
         .getRepository(AiAuditLog)
         .find({ where: { userId: String(u.id) }, order: { id: 'ASC' } });
-      // 本断言的用途是**绊线**：MCP 走 executeToolForExternal，从不调用 AiService.chat，
-      // 因此没有任何意图分类、也就没有委托行。将来谁把意图路由接进 MCP，这里会红。
-      expect(rows.filter((r) => ['delegate', 'plan', 'analyze'].includes(r.action))).toHaveLength(0);
+      expect(rows.some((r) => r.action === 'tool_call')).toBe(true);
+      expect(
+        rows.filter((r) => ['chat', 'delegate', 'plan', 'analyze', 'knowledge'].includes(r.action)),
+      ).toHaveLength(0);
     });
   });
 });
