@@ -4,49 +4,65 @@ import { User } from '../common/entities/user.entity';
 import { maskEmail, maskPhone } from '../common/utils/mask';
 
 /**
- * The admin console's view of a user — one implementation, shared by every admin read path.
+ * The admin console's view of a user — one implementation, shared by every admin read path, and
+ * an **allowlist** rather than a denylist.
  *
  * The rule this encodes (CLAUDE.md §5.5, red line 2): the admin console shows no personal data
  * the user typed. Identifiers survive so rows can be told apart; addresses appear masked; the
  * private profile fields are not returned at all. It is a **privacy** view rather than a
- * credential view, so it also withholds secret material: the reset-token hash, the live email
- * verification code, and the phone's HMAC (a stable pseudonymous identifier behind a masked
- * field). `password` and `mfaSecret` are hidden by their columns' `select: false`; every other
- * secret has to be named here, because the queries select all remaining columns.
+ * credential view, so secret material is withheld too. `password` and `mfaSecret` are hidden by
+ * their columns' `select: false`; everything else is withheld by not being named below.
  *
- * Two admin paths used to implement this separately and drifted apart — the users service and
- * the admin detail endpoint — which is why it lives in one place now.
+ * Naming what survives, rather than deleting what must not, is the point: this used to be a
+ * denylist, and a denylist leaks whatever column is added next — which is exactly how the phone
+ * hash and the live email verification code reached admin callers. A new column is now invisible
+ * here until someone adds it on purpose, and `user-admin-view.spec.ts` locks the key set so that
+ * decision cannot be made by accident.
  *
- * 管理端看到的用户视图 —— **单一实现**，所有管理端读路径共用。
- * 它编码的规则（CLAUDE.md §5.5 红线 2）：管理台不出现用户填写的个人数据。标识保留以便区分行；
- * 地址以掩码出现；私人资料字段根本不返回。它是**隐私视图**而非**凭证视图**，故一并扣下秘密材料：
- * 重置令牌哈希、实时的邮箱验证码，以及手机号的 HMAC（掩码字段背后的稳定假名标识）。`password` 与
- * `mfaSecret` 由列上的 `select: false` 挡住；其余秘密必须在这里点名，因为查询取走了剩下的全部列。
+ * 管理端看到的用户视图 —— **单一实现**，所有管理端读路径共用；它是**白名单**而不是黑名单。
  *
- * 管理端的两条路径过去各写一遍、并因此漂移（users service 与管理端详情端点），所以现在只有一处。
+ * 它编码的规则（CLAUDE.md §5.5 红线 2）：管理台不出现用户填写的个人数据。标识保留以便区分行；地址以
+ * 掩码出现；私人资料字段根本不返回。它是**隐私视图**而非**凭证视图**，故秘密材料同样扣下。`password`
+ * 与 `mfaSecret` 由列上的 `select: false` 挡住；其余靠「下面不点名」扣下。
+ *
+ * **点名保留什么、而不是删除不许什么，正是要点**：这里原本是黑名单，而黑名单会漏掉**下一个新增的列** ——
+ * 手机号哈希与实时邮箱验证码正是这样到达管理端调用方的。现在新增一列在这里默认不可见，直到有人刻意加进来；
+ * 而 `user-admin-view.spec.ts` 锁住键集，使这个决定无法被顺手做出。
  */
+const ADMIN_USER_FIELDS = [
+  'id',
+  'username',
+  'email',
+  'nickname',
+  'phone',
+  'phoneVerified',
+  'role',
+  'emailVerified',
+  'mfaEnabled',
+  'mustChangePassword',
+  'inviteCode',
+  'invitedBy',
+  'createdAt',
+  'updatedAt',
+] as const;
+
 export function sanitizeUserForAdmin(
   user: User,
   decryptPhone: (stored: string) => string,
 ): Partial<User> {
-  const rest = { ...user } as Record<string, unknown>;
-  delete rest.password;
-  delete rest.loginAttempts;
-  delete rest.lockedUntil;
-  delete rest.bio;
-  delete rest.dateOfBirth;
-  delete rest.firstName;
-  delete rest.lastName;
-  delete rest.avatarUrl;
-  delete rest.provider;
-  delete rest.providerId;
-  delete rest.providerHash;
-  delete rest.resetTokenHash;
-  delete rest.resetTokenExpiresAt;
-  delete rest.emailVerificationCode;
-  delete rest.emailVerificationExpiresAt;
-  delete rest.phoneHash;
-  rest.email = maskEmail(user.email);
-  if (user.phone) rest.phone = maskPhone(decryptPhone(user.phone));
-  return rest as Partial<User>;
+  const src = user as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of ADMIN_USER_FIELDS) {
+    // 这两列要变换，单独处理：整份拷贝会把明文/密文直接带出去
+    if (key === 'email' || key === 'phone') continue;
+    if (src[key] !== undefined) out[key] = src[key];
+  }
+  out.email = maskEmail(user.email);
+  // 与旧实现逐字一致：没有该列 ⇒ 不出现该键；有但为空 ⇒ 原样（null）；有值 ⇒ 掩码。
+  // Byte-for-byte the old behaviour: absent stays absent, present-but-empty stays as it is, a
+  // stored number is masked.
+  if (src.phone !== undefined) {
+    out.phone = user.phone ? maskPhone(decryptPhone(user.phone)) : src.phone;
+  }
+  return out as Partial<User>;
 }
