@@ -5,7 +5,7 @@
 
 ## 1. 背景与目标
 
-**roadmap A2**：对抗性证明产品化——Prompt Injection（客户 note 恶意指令→Agent 拒绝）+ 越权（跨用户 query→CASL DENY）做成**产品内可复现演示** + 决策轨迹可视化。
+**对抗性证明产品化**：Prompt Injection（客户 note 恶意指令→Agent 拒绝）+ 越权（跨用户 query→CASL DENY）做成**产品内可复现演示** + 决策轨迹可视化。
 
 **现状**：自动化证据层已全（越权矩阵、Agent Security Eval、Agent Benchmark、Golden 闭环、哈希链 valid），但都是 CLI 脚本 + 文档指南（`docs/manual/security-showcase.md`），验证者/评审看不到**产品内的实时演示**。
 

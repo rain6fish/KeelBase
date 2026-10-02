@@ -1,6 +1,6 @@
 # Audit Lifecycle El-Steps — 生命周期完整历史流转（A-3 收尾）
 
-> 规格文档。对应 roadmap A-3 剩余：「完整历史流转（el-steps 多节点：发起→授权→确认→执行→撤销→恢复）+ 恢复态」。
+> 规格文档。完整历史流转（el-steps 多节点：发起→授权→确认→执行→撤销→恢复）+ 恢复态。
 > 状态：✅ 已完成（el-steps 六节点）。日期：2026-09-01；2026-09-16 补 **恢复态**与**级联条数**（见 [cascade-compensation.spec.md](cascade-compensation.spec.md) §7）。
 
 ## 1. 现状

@@ -94,7 +94,7 @@ Use the generator's `--brand` to replace the project name:
 node scripts/keelbase-init.mjs --brand YourProjectName
 ```
 
-> One-place logo / primary color / domain configuration is tracked in roadmap EASY-3 (in progress); `--brand` already supports the project-name replacement.
+> One-place logo / primary color / domain configuration is **still in progress**; `--brand` already supports the project-name replacement.
 
 ## Step 4: Generate a New Business Module (≈10 min) — GENERATE
 

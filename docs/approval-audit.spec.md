@@ -1,6 +1,6 @@
 # Approval Into Audit — approval 旗舰审批入审计（A-7 收尾）
 
-> 规格文档。对应 roadmap「approval 旗舰审批入审计」。日期：2026-09-01。
+> 规格文档：approval 旗舰审批入审计。日期：2026-09-01。
 
 ## 1. 问题
 

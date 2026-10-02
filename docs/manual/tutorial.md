@@ -95,7 +95,7 @@ npm run seed:demo      # 空库补种子数据（事件/待办/积分等演示�
 node scripts/keelbase-init.mjs --brand 你的项目名
 ```
 
-> logo / 主色 / 域名的一处联动配置见 roadmap EASY-3（进行中），当前 `--brand` 已支持项目名替换。
+> logo / 主色 / 域名的一处联动配置**仍在进行中**，当前 `--brand` 已支持项目名替换。
 
 ## 第四步：生成一个新业务模块（约 10 分钟）— GENERATE
 

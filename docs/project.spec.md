@@ -390,8 +390,8 @@ URL 格式: /api/v1/{resources}    （名词复数，禁止动词）
 | POST | /api/v1/ai/eval/run | Yes (ADMIN) | — | 跑评测批（逐用例调 LLM，AI-20） / Run the eval batch (LLM per case, AI-20) |
 | GET | /api/v1/ai/eval/report | Yes (ADMIN) | — | 最近一次评测报告（AI-20） / Latest eval report (AI-20) |
 
-> 对话历史持久化于 ai_conversations / ai_messages 表（AI-2 后端已接通，前端列表页见 roadmap AI-2.1）。知识库检索为向量优先 + 全文降级（AI-5）：pgvector 语义检索，无 embedding 配置/SQLite/查询异常时自动降级 LIKE 全文（`KnowledgeService.search` 签名不变，RagAgent 零改动）。
-> Conversation history is persisted in the ai_conversations / ai_messages tables (AI-2 backend wired; frontend list page per roadmap AI-2.1). Knowledge-base retrieval is vector-first with full-text fallback (AI-5): pgvector semantic search, automatically falling back to LIKE full-text when there is no embedding config / on SQLite / on query errors (`KnowledgeService.search` signature unchanged, RagAgent untouched).
+> 对话历史持久化于 ai_conversations / ai_messages 表（AI-2 后端已接通，**前端列表页待办**）。知识库检索为向量优先 + 全文降级（AI-5）：pgvector 语义检索，无 embedding 配置/SQLite/查询异常时自动降级 LIKE 全文（`KnowledgeService.search` 签名不变，RagAgent 零改动）。
+> Conversation history is persisted in the ai_conversations / ai_messages tables (AI-2 backend wired; **the frontend list page is still to come**). Knowledge-base retrieval is vector-first with full-text fallback (AI-5): pgvector semantic search, automatically falling back to LIKE full-text when there is no embedding config / on SQLite / on query errors (`KnowledgeService.search` signature unchanged, RagAgent untouched).
 
 ### 5.6 审计模块（管理员） / 5.6 Audit Module (Admin)
 
@@ -1125,8 +1125,8 @@ Enterprise web host (Vue3 + Element Plus): workbench and admin console share one
   The main app does not bundle or reference any admin pages (the admin entry has been removed from Front-Taro)
 - 管理台前端仅做 UI 与角色校验；真正的越权防护在后端 CASL（普通用户 token 调管理 API 返回 403）
   The admin frontend only performs UI and role checks; the real privilege enforcement is in backend CASL (a regular user token calling admin APIs returns 403)
-- 部署加固（独立域名/IP 白名单/MFA）见 roadmap D.1，属运维项
-  Deployment hardening (standalone domain / IP whitelist / MFA) per roadmap D.1, an operations concern
+- 部署加固（独立域名/IP 白名单/MFA）属运维项
+  Deployment hardening (standalone domain / IP whitelist / MFA) is an operations concern
 
 ---
 
