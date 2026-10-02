@@ -308,8 +308,33 @@ describe('OperationAuditInterceptor', () => {
       expect(auditService.log).toHaveBeenCalled();
     });
 
-    it('非资源路径（无实体映射）→ 不查 before 仍记录', async () => {
-      const ic = interceptorWithRepo({ findOne: jest.fn().mockResolvedValue({ id: 5, name: 'X' }) });
+    it('无实体映射的写路径 → 不查 before 仍记录', async () => {
+      const repo = { findOne: jest.fn().mockResolvedValue({ id: 5, name: 'X' }) };
+      const getRepository = jest.fn().mockReturnValue(repo);
+      const ic = new OperationAuditInterceptor(reflector, auditService as any, { getRepository } as any);
+      const req = {
+        method: 'PATCH',
+        originalUrl: '/api/v1/notifications/5',
+        url: '/api/v1/notifications/5',
+        body: { name: 'New' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: { id: '5' },
+        user: { sub: 1 },
+      };
+
+      await firstValueFrom(await ic.intercept(mockContext(req), next));
+
+      expect(getRepository).not.toHaveBeenCalled();
+      expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '5' }));
+    });
+
+    it('生成模块路径（旧实现无实体映射）→ 现在查 before 快照', async () => {
+      // 资源注册表合并前，`/contracts` 不在拦截器的实体映射里 ⇒ 生成模块的 PATCH/PUT 静默没有
+      // before 快照（同一次操作在业务事件里却有名字）。这条钉住合并后的行为。
+      const repo = { findOne: jest.fn().mockResolvedValue({ id: 5, name: 'Old' }) };
+      const getRepository = jest.fn().mockReturnValue(repo);
+      const ic = new OperationAuditInterceptor(reflector, auditService as any, { getRepository } as any);
       const req = {
         method: 'PATCH',
         originalUrl: '/api/v1/contracts/5',
@@ -323,7 +348,10 @@ describe('OperationAuditInterceptor', () => {
 
       await firstValueFrom(await ic.intercept(mockContext(req), next));
 
-      expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ targetId: '5' }));
+      expect(getRepository).toHaveBeenCalledWith('Contract');
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ changes: JSON.stringify([{ field: 'name', before: 'Old', after: 'New' }]) }),
+      );
     });
   });
 

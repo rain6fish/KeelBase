@@ -6,19 +6,10 @@ import { EntityManager } from 'typeorm';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { DecisionTraceService } from '../trace/decision-trace.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
+import { pathsForResultType } from '../../operation-audit/resource-routes';
 import { entityFor } from '../tool-effects/side-effect-revoker';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import type { TraceStep } from '../trace/decision-trace.service';
-
-/** REST 资源 → path 子串（防跨资源 id 碰撞；与 operation-audit interceptor 资源正则对齐） */
-const REST_RESOURCE_PATHS: Record<string, string[]> = {
-  crm_task: ['/crm/tasks/'],
-  pm_task: ['/pm/tasks/'],
-  app_request: ['/approval/requests/'],
-  event: ['/api/v1/events/', '/events/'],
-  contract: ['/contracts/'],
-  todo: ['/todos/'],
-};
 
 export type BusinessHistorySource = 'ai-side-effect' | 'ai-trace' | 'rest-write';
 
@@ -98,7 +89,7 @@ export class BusinessHistoryService {
     );
 
     // 3. rest-write：operation_audit 按 target_id + path 资源（防跨资源 id 碰撞）
-    const restWrites = await this.operationAuditService.findByTargetId(String(resultId), REST_RESOURCE_PATHS[resultType] ?? []);
+    const restWrites = await this.operationAuditService.findByTargetId(String(resultId), pathsForResultType(resultType));
     // Same visibility rule as the rows above: whoever is not entitled to the whole entity sees only
     // the writes they themselves triggered. REST writes carry an actor id, so leaving this set whole
     // would leak other users' activity on the same target through the back door.

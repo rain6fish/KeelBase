@@ -98,7 +98,7 @@
 | `effect` | `AiToolEffectsService.findByTarget(resultType, resultId)`（或 effectId）| 单副作用行投影 |
 | `authorization`/`decision` | `AiAuditLog` 同 conversation 的 `tool_call` 行（该 effect 的 `conversationId` 内 `deriveAiBusinessEvent`/`resultType` 命中）| 复用 `_identityChainFromRow` 投影（含 policy.revision）+ `evidence`/`businessEvent` 列 |
 | `chains.aiAudit` | 上述同 conversation AI 审计行（`logRepo.find({where:{conversationId}})`）| 组装 EvidenceChainRow（payload = `_payload(row)`）|
-| `chains.operationAudit` | `OperationAuditService.findByTargetId(String(resultId), REST_RESOURCE_PATHS[resultType])` | 命中 REST 写行的链行 |
+| `chains.operationAudit` | `OperationAuditService.findByTargetId(String(resultId), pathsForResultType(resultType) + 补偿锚)`（路径取自资源注册表 `resource-routes.ts`） | 命中 REST 写行的链行 |
 | `summary` | `AuditInterpreterService.summarizeAudit`（同会话聚合）| 复用 |
 
 鉴权：本人或管理员（对齐 `governanceAction`：`effect.userId === user.sub` 或 `manage all`；无副作用 → 404）。

@@ -108,7 +108,7 @@ This is the productized slice of the Trust North Star: the same backend evidence
     "items": [{
       "id": 9281,                 // AiToolEffect.id —— 契约主键（§internal.17 ① AUDIT-ID 键集）
       "toolName": "create_followup_task",  // 人类标签由前端 D2 toolLabel util 映射（单源，后端不重复映射）
-      "resultType": "crm_task",                       // 见 business-history REST_RESOURCE_PATHS
+      "resultType": "crm_task",                       // 见 business-history 的路径反查（resource-routes 的 pathsForResultType）
       "resultId": "42",
       "targetTitle": "跟进：辰光建材 逾期回款",         // 目标当前标题（_loadTarget）
       "targetExists": true,

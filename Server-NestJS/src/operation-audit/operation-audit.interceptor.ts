@@ -10,37 +10,10 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
+import { resourceEntityFor } from './resource-routes';
 import { isSensitiveKey, REDACTED, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
-
-/** §internal.16 A-1 REST 资源路径 → 本地实体名（PATCH/PUT 变更前快照查询用；按优先级先精确后兜底） */
-const RESOURCE_ENTITY: Array<[RegExp, string]> = [
-  [/\/crm\/customers\/\d+\/opportunities/, 'CrmOpportunity'],
-  [/\/crm\/customers\/\d+\/contacts/, 'CrmContact'],
-  [/\/crm\/customers\/\d+\/risks/, 'CrmRisk'],
-  [/\/crm\/customers\/\d+\/orders/, 'CrmOrder'],
-  [/\/crm\/customers\/\d+\/activities/, 'CrmActivity'],
-  [/\/org\/organizations\/\d+\/invites/, 'OrganizationInvite'],
-  [/\/org\/organizations\/\d+\/members/, 'OrganizationMember'],
-  [/\/org\/organizations\/\d+\/departments/, 'Department'],
-  [/\/crm\/customers/, 'CrmCustomer'],
-  [/\/crm\/tasks/, 'CrmTask'],
-  [/\/pm\/projects/, 'PmProject'],
-  [/\/pm\/tasks/, 'PmTask'],
-  [/\/approval\/requests/, 'ApprovalRequest'],
-  [/\/events/, 'Event'],
-  [/\/todos/, 'Todo'],
-  [/\/users/, 'User'],
-];
-
-function resourceEntity(path: string): string | null {
-  const p = path.split('?')[0];
-  for (const [re, entity] of RESOURCE_ENTITY) {
-    if (re.test(p)) return entity;
-  }
-  return null;
-}
 
 /**
  * 全局操作审计拦截器：自动记录所有写方法（POST/PATCH/PUT/DELETE）。
@@ -79,7 +52,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
     // §internal.16 A-1 字段级 diff：PATCH/PUT + 可解析资源 → 执行前查 before（变更前状态）；查询失败降级 null
     let before: Record<string, unknown> | null = null;
     if (method === 'PATCH' || method === 'PUT') {
-      const entity = resourceEntity(path);
+      const entity = resourceEntityFor(path);
       if (entity && targetId) {
         try {
           const repo = this.dataSource.getRepository(entity);
