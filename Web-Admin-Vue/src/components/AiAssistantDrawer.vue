@@ -158,7 +158,6 @@ import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import { adminApi } from '@/api/admin'
 import { capabilitiesApi } from '@/api/capabilities'
-import { shouldDelegate, sendDelegation } from '@/utils/agentDelegation'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import type { AiConversationSummary } from '@/types/admin'
 
@@ -281,33 +280,11 @@ async function send() {
   }
 
   try {
-    // 委托类消息绕到**非流式**：服务端的意图路由只存在于非流式端点，SSE 路径整段不分类意图，
-    // 走流式等于永远拿不到子代理 / plan（移动端早有这条绕行，控制台此前没有）。判据见 agentDelegation.ts。
-    if (shouldDelegate(text)) {
-      try {
-        const res = await sendDelegation({
-          text,
-          isAdmin: auth.isAdmin,
-          conversationId: conversationId.value ?? undefined,
-        })
-        pushAi()
-        const item = items.value[aiIndex]
-        if (item && item.kind === 'ai') {
-          item.content = res.reply
-          if (res.navigateTo) item.navigateTo = res.navigateTo
-        }
-        conversationId.value = res.conversationId
-      } catch (err) {
-        items.value.push({
-          kind: 'notice',
-          content: err instanceof ApiError ? err.message : t('assLoadFailed'),
-        })
-      }
-      return
-    }
-
     // 权限区分：管理员 = 系统 AI 助手（/admin/ai/chat/stream）；普通用户 = 本人数据作用域 AI（/ai/chat/stream）
     // 必须走流式：写操作（创建任务/事件/待办）依赖 confirmation_request 事件弹确认卡，非流式会被拒。
+    //
+    // 委托（子代理 / plan）无需客户端绕行：服务端的技能短路两条端点各有一份，走流式照样委托。
+    // （2026-10-02 起；此前流式端点不分类意图，控制台与移动端各揣了一份触发词副本去猜。）
     await streamChat({
       endpoint: auth.isAdmin ? '/admin/ai/chat/stream' : undefined,
       message: text,

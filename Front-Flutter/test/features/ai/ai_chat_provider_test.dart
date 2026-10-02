@@ -39,21 +39,6 @@ void main() {
   });
 
   group('sendMessage', () {
-    void mockNonStreaming(String reply) {
-      when(() => api.post('/ai/chat', data: any(named: 'data')))
-          .thenAnswer((_) async => {
-                'code': 200,
-                'message': 'ok',
-                'timestamp': '2026-08-07T00:00:00Z',
-                'data': {
-                  'conversationId': 'conv-delegate',
-                  'reply': reply,
-                  'provider': 'deepseek',
-                  'model': 'deepseek-v4-flash',
-                },
-              });
-    }
-
     test('请求 body 携带默认 provider', () async {
       mockStream();
 
@@ -66,42 +51,25 @@ void main() {
       expect((captured.first as Map)['message'], '你好');
     });
 
-    test('委托触发词 → 走非流式 /ai/chat（不调 SSE）', () async {
-      mockNonStreaming('本周安排建议：周一上午产品评审…');
+    test('委托触发词也走流式（2026-10-02 起）：客户端不再对消息分流', () async {
+      mockStream();
 
       await provider.sendMessage('帮我安排本周');
 
-      verify(() => api.post('/ai/chat', data: any(named: 'data'))).called(1);
-      verifyNever(() => sse.postStream(any(), body: any(named: 'body')));
-      // 完整回复显示 + conversationId 同步
-      expect(provider.messages.last.content, '本周安排建议：周一上午产品评审…');
-      expect(provider.messages.last.isStreaming, isFalse);
-      expect(provider.currentConversationId, 'conv-delegate');
-    });
-
-    test('复杂措辞（综合分析）→ 非流式委托', () async {
-      mockNonStreaming('综合分析结果');
-
-      await provider.sendMessage('综合分析我的日程和统计');
-
-      verify(() => api.post('/ai/chat', data: any(named: 'data'))).called(1);
-    });
-
-    test('动作词含技能词 → 排除委托，走流式', () async {
-      mockStream();
-
-      await provider.sendMessage('创建本周计划');
-
+      // 此前这里断言的是「走非流式 /ai/chat 且不调 SSE」—— 那时流式端点不分类意图，
+      // 客户端得自己揣一份后端触发词去猜（猜漏一个词就静默失去委托能力）。
+      // 技能短路收进流式端点后，客户端不必知道任何触发词：两条端点都委托。
       verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body'))).called(1);
       verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
     });
 
-    test('导航词 → 排除委托，走流式', () async {
+    test('动作词 / 导航词的消息同样走流式（确认卡与导航本就是流式的活）', () async {
       mockStream();
 
+      await provider.sendMessage('创建本周计划');
       await provider.sendMessage('打开本周安排页');
 
-      verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body'))).called(1);
+      verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body'))).called(2);
       verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
     });
 

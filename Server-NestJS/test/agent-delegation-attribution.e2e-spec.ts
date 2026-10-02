@@ -190,8 +190,11 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
    * （`周计划`，命中 WEEK_PLAN_SKILL）**从每个真实入口**送一遍，逐入口交代两件事：
    *   ① 这个入口**能不能**起始一次委托；② 能的话，归责字段各自长什么样（尤其身份从哪来）。
    *
-   * 入口清单取自代码而非抄文档：`actorContext.run(...)` 的四处入口 + 两条结构上到不了
-   * 意图路由的路径（流式、MCP）。
+   * 入口清单取自代码而非抄文档：`actorContext.run(...)` 的四处入口 + 一条**结构上不是对话入口**的
+   * 路径（MCP 是工具出口）。
+   *
+   * **2026-10-02 更动**：技能短路收进 `chatStreamImpl`（触发词单源化）⇒ **流式端点从「不能委托」
+   * 变成「能」**，用例④随之翻面。MCP 那条不变，它本就不做意图分类。
    */
   describe('§22.19 ① 多入口维度：委托归责在哪些入口可观测', () => {
     let adminToken: string;
@@ -322,19 +325,18 @@ describe('§22.19 委托链路归责验证（agentId / callerAgentId / parentAct
       expect(rows.find((r) => r.action === 'delegate')?.agentId).toBe('delegate-integration');
     });
 
-    it('④ SSE `/ai/chat/stream` —— **不能**委托：流式路径整段不做意图路由', async () => {
+    it('④ SSE `/ai/chat/stream` —— **也能**委托（2026-10-02 起）：能力不再取决于走哪条端点', async () => {
       const u = await freshUser();
       // 同一条消息、同一套 provider 路径；只有入口不同
       const body = await postSse(app, '/api/v1/ai/chat/stream', u.token, { message: DELEGATE_MSG });
-      // 流确实跑完并产出了回复 —— 否则「没有 delegate 行」会是被「压根没跑」骗过的假绿
+      // 流确实跑完并产出了回复 —— 否则下面的断言会是被「压根没跑」骗过的假绿
       expect(body).toContain('event: done');
 
-      const rows = await ds
-        .getRepository(AiAuditLog)
-        .find({ where: { userId: String(u.id) }, order: { id: 'ASC' } });
-      // 这一轮**确实**被记了账（chat 行）——说明请求真的处理过，只是没有任何委托发生
-      expect(rows.some((r) => r.action === 'chat')).toBe(true);
-      expect(rows.filter((r) => ['delegate', 'plan', 'analyze'].includes(r.action))).toHaveLength(0);
+      // 本刀之前这里断言的是「没有 delegate / tool_call 行」——那时意图路由只在非流式端点，
+      // 流式路径整段不分类。路由收进 Runtime 后，它应当是**和第①条一样的形状**。
+      const toolRows = expectDelegation(await delegationRows(u.id), 'web');
+      expect(toolRows[0].username).toBe(u.username);
+      expect(toolRows[0].sessionId).toBeTruthy();
     });
 
     it('⑤ MCP `/mcp` tools/call —— 工具出口，不是对话入口：结构上无法起始委托', async () => {

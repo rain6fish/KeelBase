@@ -6,19 +6,15 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { streamChatMock, confirmToolMock, errorMock, adminAiChatMock } = vi.hoisted(() => ({
+const { streamChatMock, confirmToolMock, errorMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn(),
   confirmToolMock: vi.fn(),
   errorMock: vi.fn(),
-  adminAiChatMock: vi.fn(),
 }))
 
 vi.mock('@/utils/streamChat', () => ({
   streamChat: streamChatMock,
   confirmTool: confirmToolMock,
-}))
-vi.mock('@/api/admin', () => ({
-  adminApi: { adminAiChat: adminAiChatMock },
 }))
 vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: vi.fn() }),
@@ -84,13 +80,18 @@ describe('SystemAiAssistantView', () => {
     expect(wrapper.text()).toContain('/system')
   })
 
-  it('委托类消息 → 绕到非流式 /admin/ai/chat，不走 SSE（SSE 路径不分类意图）', async () => {
-    adminAiChatMock.mockResolvedValue({ reply: '已为你安排本周', conversationId: 'c-1' })
+  it('委托类消息也走 SSE（2026-10-02 起）：路由在服务端，客户端不再绕行', async () => {
+    const opts = captureStream()
     const wrapper = mountView()
     await sendText(wrapper, '周计划')
 
-    expect(adminAiChatMock).toHaveBeenCalledWith({ message: '周计划', conversationId: undefined })
-    expect(streamChatMock).not.toHaveBeenCalled()
+    // 此前这里断言的是「绕到非流式 /admin/ai/chat」——那时流式端点不分类意图。
+    // 技能短路收进流式端点后，客户端无需知道任何触发词，照常走 SSE。
+    expect(streamChatMock).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: '/admin/ai/chat/stream', message: '周计划' }),
+    )
+    opts().onEvent({ type: 'text', content: '已为你安排本周' })
+    await flushPromises()
     expect(wrapper.text()).toContain('已为你安排本周')
   })
 

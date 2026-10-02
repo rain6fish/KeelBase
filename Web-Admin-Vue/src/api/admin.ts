@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api } from './client'
-import type {AdminAiChatRequest,
-  AdminAiChatResponse,
-  AdminSession,
+import type {AdminSession,
   AiConversationMessage,
   AiConversationMeta,
   AiConversationSummary,
@@ -70,10 +68,6 @@ export const adminApi = {
   },
   analytics(days = 30): Promise<AnalyticsResponse> {
     return api.get<AnalyticsResponse>('/admin/analytics', { days })
-  },
-  // System AI Assistant（管理端 AI 助手）
-  adminAiChat(data: AdminAiChatRequest): Promise<AdminAiChatResponse> {
-    return api.post<AdminAiChatResponse>('/admin/ai/chat', data)
   },
   // 对话历史（admin 复用本人 /ai/conversations，与普通用户 AI 聊天一致）
   aiConversations(): Promise<AiConversationSummary[]> {

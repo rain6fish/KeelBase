@@ -460,19 +460,6 @@ export interface OpsSummary {
   trend: Array<{ day: string; total: number; errors: number }>
 }
 
-// System AI Assistant（管理端 AI 助手）
-export interface AdminAiChatRequest {
-  message: string
-  conversationId?: string
-}
-
-export interface AdminAiChatResponse {
-  reply: string
-  conversationId: string
-  navigateTo?: string
-  toolCalls?: string[]
-}
-
 // 对话历史（GET /ai/conversations，admin 复用本人历史接口）
 export interface AiConversationMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'

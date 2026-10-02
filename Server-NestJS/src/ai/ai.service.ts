@@ -289,6 +289,99 @@ export class AiService {
     );
   }
 
+  /**
+   * 委托一轮：分解 → 子代理顺序执行 → LLM 汇总 → 反思。
+   *
+   * 抽出来是为了**两条端点共用**。此前意图路由只存在于非流式 `chatImpl`，流式端点整段不分类 ⇒
+   * 一句话能不能触发委托取决于客户端走了哪条端点，于是两个前端各自揣了一份**服务端技能触发词的
+   * 副本**当绕行（Flutter 的 `_shouldDelegate`、控制台的 `shouldDelegate`）。既然路由进了流式端点，
+   * 那份副本两端一并删除 —— 触发词此后只此一处（`skills-registry.ts`）。
+   *
+   * 委托本身不流式（子代理是顺序的、每步一次 LLM），结果成形后由调用方一次性下发。
+   *
+   * §22.19 AU-2：一轮一个 `agentRunId`，该轮的工具行与对话级行共用它。
+   */
+  private async _runDelegation(params: {
+    userId: string;
+    conversationId: string;
+    request: ChatRequest;
+    provider: LlmProvider;
+    providerName: string;
+  }): Promise<{
+    /** 委托产出的最终回答（`delegated=false` 时为空串） */
+    content: string;
+    /** 分解 + 子代理多轮循环 + 汇总 + 反思的全部用量 */
+    usage?: LlmUsage;
+    /** `buildMessages`（含上下文压缩）那笔前置开销，由调用方并入整轮口径 */
+    preflightUsage?: LlmUsage;
+    agentRunId: string;
+    /** `false` = 分解失败或全部任务无效，**回退方式由调用方定**（非流式回退工具循环；流式接着走流） */
+    delegated: boolean;
+  }> {
+    const built = await this.buildMessages(
+      params.conversationId,
+      params.request.images,
+      params.request.systemPrompt,
+    );
+    const messages = built.messages;
+    const agentRunId = randomUUID();
+
+    const delegateResult = await this.subAgentOrchestrator.run({
+      messages,
+      userRequest: params.request.message,
+      provider: params.provider,
+      toolRegistry: this.toolRegistry,
+      userId: params.userId,
+      model: params.request.model ?? this.config.defaultModel,
+      // NC-3 只读门控：子代理经同一治理层执行（R5/策略/角色/adminOnly + 写工具拒绝）
+      readOnlyExecutor: this._agentStepExecutor(params.conversationId, params.providerName, agentRunId),
+      // §22.19 AU-2：子代理尝试调它工具集之外的工具时，那条越界信号也要留痕（此前静默）
+      onDenied: (denial) =>
+        this._logAgentToolDenial(params.conversationId, params.providerName, agentRunId, denial),
+    });
+
+    if (delegateResult.stepResults.length === 0) {
+      return {
+        content: '',
+        usage: delegateResult.usage,
+        preflightUsage: built.usage,
+        agentRunId,
+        delegated: false,
+      };
+    }
+
+    // 用 LLM 汇总子代理结果
+    const summary = await params.provider.generate({
+      messages: [
+        ...messages.slice(0, 1), // system prompt
+        { role: 'user', content: params.request.message },
+        {
+          role: 'assistant',
+          content: `以下是各子代理的执行结果：\n${delegateResult.content}\n请综合这些信息回答用户。`,
+        },
+      ],
+      model: params.request.model ?? this.config.defaultModel,
+    });
+
+    // Reflection：自我改进
+    const reflection = await this.reflectionAgent.reflect(
+      [...messages.slice(0, 1), { role: 'user', content: params.request.message }],
+      summary.content,
+      params.provider,
+      params.request.model ?? this.config.defaultModel,
+    );
+
+    // 整轮 = 任务分解 + 各子代理多轮循环 + 汇总 + 反思（此前只记了汇总那一次）
+    const usage = addLlmUsage(addLlmUsage(delegateResult.usage, summary.usage), reflection.usage);
+    return {
+      content: reflection.content,
+      usage,
+      preflightUsage: built.usage,
+      agentRunId,
+      delegated: true,
+    };
+  }
+
   // ── 呈现/摘要（确认卡文案 / 影响预览 / 撤销档 / 结果截断）已拆至 ToolPresentationService（阶段 3 第八刀）──
 
   // ── 工具对外面（清单 / 指纹 / MCP 出口 / 集成诊断）已拆至 ToolExposureService（阶段 3 第九刀）──
@@ -591,54 +684,15 @@ export class AiService {
     }
 
     if (intent === 'delegate') {
-      // 子代理委托：分解为子代理任务顺序执行，聚合后总结 + 反思
-      const built = await this.buildMessages(conversationId, request.images, request.systemPrompt);
-      preflightUsage = addLlmUsage(preflightUsage, built.usage);
-      const messages = built.messages;
-      agentRunId = randomUUID();
-      const delegateResult = await this.subAgentOrchestrator.run({
-        messages,
-        userRequest: request.message,
-        provider,
-        toolRegistry: this.toolRegistry,
-        userId,
-        model: request.model ?? this.config.defaultModel,
-        // NC-3 只读门控：子代理经同一治理层执行（R5/策略/角色/adminOnly + 写工具拒绝）
-        readOnlyExecutor: this._agentStepExecutor(conversationId, providerName, agentRunId),
-        // §22.19 AU-2：子代理尝试调它工具集之外的工具时，那条越界信号也要留痕（此前静默）
-        onDenied: (denial) => this._logAgentToolDenial(conversationId, providerName, agentRunId!, denial),
-      });
+      // 子代理委托：分解 → 执行 → 汇总 → 反思。与流式端点共用同一条路径（见 _runDelegation）——
+      // 委托能力因此不再取决于客户端走哪条端点。
+      const delegation = await this._runDelegation({ userId, conversationId, request, provider, providerName });
+      agentRunId = delegation.agentRunId;
+      preflightUsage = addLlmUsage(preflightUsage, delegation.preflightUsage);
+      usage = delegation.usage;
 
-      if (delegateResult.stepResults.length > 0) {
-        // 用 LLM 汇总子代理结果
-        const summary = await provider.generate({
-          messages: [
-            ...messages.slice(0, 1), // system prompt
-            { role: 'user', content: request.message },
-            {
-              role: 'assistant',
-              content: `以下是各子代理的执行结果：\n${delegateResult.content}\n请综合这些信息回答用户。`,
-            },
-          ],
-          model: request.model ?? this.config.defaultModel,
-        });
-        finalContent = summary.content;
-
-        // Reflection：自我改进
-        const reflection = await this.reflectionAgent.reflect(
-          [
-            ...messages.slice(0, 1),
-            { role: 'user', content: request.message },
-          ],
-          finalContent,
-          provider,
-          request.model ?? this.config.defaultModel,
-        );
-        finalContent = reflection.content;
-
-        // 整轮 = 任务分解 + 各子代理多轮循环 + 汇总 + 反思（此前只记了汇总那一次）
-        usage = addLlmUsage(delegateResult.usage, summary.usage);
-        usage = addLlmUsage(usage, reflection.usage);
+      if (delegation.delegated) {
+        finalContent = delegation.content;
       } else {
         // 委托失败（分解/全部任务无效）→ 回退标准工具循环
         const fallbackResult = await this.runToolLoop({
@@ -824,7 +878,7 @@ export class AiService {
     // HS-6：本轮内被用户信任的写工具（确认时勾选「不再询问」后加入）。
     // 作用域 = 本次 chatStreamImpl 调用，随请求结束即失效——不跨轮次，也不是整个会话。
     const trustedScopes = new Set<string>();
-    const { providerName } = this.llmRouter.resolve(request.provider);
+    const { providerName, provider } = this.llmRouter.resolve(request.provider);
     // CR-28：流式 Fallback 链（首个 chunk 前失败自动切下一个 provider）
     const streamFallbackChain = this.llmRouter.fallbackChain(providerName);
 
@@ -848,6 +902,53 @@ export class AiService {
       yield { type: 'text', content: navResult.reply };
       yield { type: 'done', conversationId };
       return;
+    }
+
+    // 技能短路：与非流式端点**同一判据、同一份触发词**（`skills-registry.ts`），确定性、零 LLM。
+    //
+    // 这段此前只存在于非流式端点，于是「一句话能不能委托」取决于客户端走了哪条端点 —— 两个前端
+    // 各自揣了一份触发词副本当绕行（谁漏掉一个词，谁就静默失去委托能力）。路由收进 Runtime 之后，
+    // 那两份副本一并删除：触发词只此一处，客户端不再猜（Runtime over Prompt）。
+    //
+    // 委托本身不流式（子代理顺序执行、每步一次 LLM），故结果成形后一次性下发；子代理的工具过程
+    // 不进 SSE 过程事件（与非流式委托一致），它们仍逐条落在审计里（`_agentStepExecutor`）。
+    const matchedSkill = this.subAgentOrchestrator.matchSkill(request.message);
+    if (matchedSkill) {
+      const delegation = await this._runDelegation({
+        userId,
+        conversationId,
+        request,
+        provider,
+        providerName,
+      });
+      if (delegation.delegated) {
+        await this.conversationService.appendMessage(conversationId, {
+          role: 'assistant',
+          content: delegation.content,
+        });
+        // HS-9 粒度门控：conversation 级仅 all 时记录。行形状与非流式端点的 delegate 行同源，
+        // 且带本轮句柄（§22.19 AU-2）—— 两条端点写出的行因此可按同一口径读。
+        if (await this._shouldAudit('conversation')) {
+          // 整轮口径 = 上下文压缩（`buildMessages`）+ 分解 + 子代理多轮 + 汇总 + 反思 —— 与非流式
+          // 那条 delegate 行同口径（`turnTotal()`）。只记 delegation.usage 会漏掉压缩那笔。
+          const turn = addLlmUsage(delegation.preflightUsage, delegation.usage);
+          // audit-fire-and-forget: 对话级元数据（非执行路径），不 await —— 理由见 roadmap §2.1.16 ACT-4 的边界
+          this.auditService.log({
+            userId,
+            conversationId,
+            action: 'delegate',
+            provider: providerName,
+            model: request.model ?? this.config.defaultModel,
+            promptTokens: turn?.promptTokens,
+            completionTokens: turn?.completionTokens,
+            parentActionId: delegation.agentRunId,
+          });
+        }
+        yield { type: 'text', content: delegation.content };
+        yield { type: 'done', conversationId };
+        return;
+      }
+      // 分解失败或全部任务无效 ⇒ 不把一句话变成失败：继续走常规流式工具循环
     }
 
     const builtMessages = await this.buildMessages(conversationId, request.images, request.systemPrompt);

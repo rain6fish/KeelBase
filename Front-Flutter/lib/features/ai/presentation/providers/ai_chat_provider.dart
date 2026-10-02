@@ -205,27 +205,9 @@ class AiChatProvider extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  /// 委托触发词（与后端 SkillsRegistry.triggerKeywords + router delegateKeywords 对齐）。
-  /// 命中 → 走非流式 /ai/chat 触发 SubAgentOrchestrator，而非流式 SSE 无意图路由。
-  static const List<String> _delegateTriggers = [
-    // week-plan 技能
-    '安排本周', '安排这周', '规划本周', '规划这周', '本周安排', '这周安排', '本周计划', '周计划', '周安排',
-    // delegate 意图
-    '综合分析', '综合来看', '分别', '统筹', '全面分析', '盘点', '帮我规划', '做个规划', '汇总一下', '归纳',
-  ];
-
-  /// 动作词（写操作 → 走流式确认，不委托）
-  static const List<String> _actionVerbs = ['创建', '新增', '添加', '删除', '编辑', '修改', '取消'];
-  /// 导航词（→ 走流式导航，不委托）
-  static const List<String> _navVerbs = ['打开', '去', '跳转', '转到', '前往', '进入', '到'];
-
-  /// 是否应走非流式委托：命中委托触发词，且非动作/导航请求。
-  bool _shouldDelegate(String text) {
-    final t = text.trim();
-    if (_actionVerbs.any((v) => t.contains(v))) return false;
-    if (_navVerbs.any((v) => t.contains(v))) return false;
-    return _delegateTriggers.any((k) => t.contains(k));
-  }
+  /// 委托（子代理 / plan）**不需要客户端判**：服务端的技能短路两条端点各有一份，走 SSE 照样委托。
+  /// 此前这里揣了一份后端触发词的副本 + 一条非流式绕行；2026-10-02 服务端把路由收进流式端点后
+  /// 一并删除 —— 触发词只此一处（后端 `skills-registry.ts`），客户端不再猜。
 
   // --- 状态 ---
   List<ChatMessageModel> _messages = [];
@@ -314,10 +296,7 @@ class AiChatProvider extends ChangeNotifier {
     final buf = StringBuffer();
 
     try {
-      if (_shouldDelegate(text)) {
-        // 委托请求：走非流式 /ai/chat（后端触发 SubAgentOrchestrator），无 SSE 打字机
-        await _sendNonStreaming(body, gen);
-      } else if (_wsClient != null) {
+      if (_wsClient != null) {
         // RG-6：走 WS 双向通道（ai:chat → ai:* 事件）
         await _sendViaWs(body, gen);
       } else {
@@ -518,44 +497,6 @@ class AiChatProvider extends ChangeNotifier {
           _safeNotify();
         }
         break;
-    }
-  }
-
-  /// 非流式委托调用：替换占位 assistant 消息为完整回复，并同步 conversationId / 导航。
-  Future<void> _sendNonStreaming(Map<String, dynamic> body, int gen) async {
-    try {
-      final json = await _apiClient.post('/ai/chat', data: body);
-      final response = ApiResponse.fromJson(json, (data) => data as Map<String, dynamic>);
-      if (!response.isSuccess) {
-        throw NetworkException(response.message);
-      }
-      if (gen != _streamGeneration) return; // 已被 clear/load 取消
-      final data = response.data;
-      final reply = data?['reply'] as String? ?? '';
-      final convId = data?['conversationId'] as String?;
-      final nav = data?['navigateTo'] as String?;
-
-      if (_messages.isEmpty) return; // 对话已被清空
-      _messages = [
-        ..._messages.sublist(0, _messages.length - 1),
-        ChatMessageModel(role: 'assistant', content: reply),
-      ];
-      if (convId != null && convId.isNotEmpty) {
-        _currentConversationId = convId;
-      }
-      if (nav != null && nav.isNotEmpty) {
-        _navigateTo = nav;
-      }
-      _error = null;
-      _safeNotify();
-    } catch (e) {
-      if (gen != _streamGeneration) return;
-      if (_messages.isEmpty) return;
-      _messages = [
-        ..._messages.sublist(0, _messages.length - 1),
-        ChatMessageModel(role: 'assistant', content: _errorRetry()),
-      ];
-      _safeNotify();
     }
   }
 
