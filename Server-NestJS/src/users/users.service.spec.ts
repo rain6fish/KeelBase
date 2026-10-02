@@ -12,6 +12,7 @@ import { EncryptionService } from '../common/utils/encryption';
 import { CacheService } from '../common/cache/cache.service';
 import { UploadSignService } from '../upload/upload-sign.service';
 import { User, UserRole } from '../common/entities/user.entity';
+import { maskEmail, maskPhone } from '../common/utils/mask';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -213,6 +214,29 @@ describe('UsersService', () => {
 
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
+
+    it('管理端视图（isAdmin）不返回凭证类字段（phoneHash / resetTokenHash / emailVerificationCode）', async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        phone: 'enc:13800138000',
+        phoneHash: 'hmac:13800138000',
+        resetTokenHash: 'reset-hash',
+        resetTokenExpiresAt: new Date(),
+        emailVerificationCode: '123456',
+        emailVerificationExpiresAt: new Date(),
+      });
+
+      const result = (await service.findOne(1, true)) as any;
+
+      expect(result.phoneHash).toBeUndefined();
+      expect(result.resetTokenHash).toBeUndefined();
+      expect(result.resetTokenExpiresAt).toBeUndefined();
+      expect(result.emailVerificationCode).toBeUndefined();
+      expect(result.emailVerificationExpiresAt).toBeUndefined();
+      // 掩码照旧（识别用字段保留，隐私字段以掩码出现）
+      expect(result.email).toBe(maskEmail('test@example.com'));
+      expect(result.phone).toBe(maskPhone('13800138000'));
+    });
   });
 
   // ─── Update ────────────────────────────────────────────────────────────────
@@ -293,6 +317,32 @@ describe('UsersService', () => {
 
       const saved = mockRepository.save.mock.calls[0][0];
       expect(saved.emailVerified).toBe(true);
+    });
+
+    it('update 回传「当前邮箱的掩码」→ 视为未变更：不写库、不重置 emailVerified（脱敏回写防护）', async () => {
+      const userCopy = { ...mockUser, email: 'alice@example.com', emailVerified: true };
+      mockRepository.findOne.mockResolvedValue(userCopy); // 只有一次 find：不得触发唯一性查询
+      mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+      await service.update(1, { email: maskEmail('alice@example.com') } as UpdateUserDto);
+
+      const saved = mockRepository.save.mock.calls[0][0];
+      expect(saved.email).toBe('alice@example.com'); // 掩码没有被当成真值写进去
+      expect(saved.emailVerified).toBe(true); // 也没被判成「换邮箱」
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
+    });
+
+    it('update 回传「当前手机号的掩码」→ 视为未变更：phone 与 phoneHash 都保持原值', async () => {
+      const userCopy = { ...mockUser, phone: 'enc:13800138000', phoneHash: 'hmac:13800138000' };
+      mockRepository.findOne.mockResolvedValue(userCopy);
+      mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+      await service.update(1, { phone: maskPhone('13800138000') } as UpdateUserDto);
+
+      const saved = mockRepository.save.mock.calls[0][0];
+      expect(saved.phone).toBe('enc:13800138000'); // 掩码没有覆盖真值
+      expect(saved.phoneHash).toBe('hmac:13800138000'); // 手机号登录用的哈希也没被改坏
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
     });
 
     it('should rehash password when provided', async () => {

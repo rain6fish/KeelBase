@@ -43,8 +43,14 @@ const BE = resolve(__dirname, '../Server-NestJS');
  * 等于**把自己新造的错误洗进了基线**（棘轮「不比基线多」照样满足，闸门是绿的）。
  * ⇒ **规程：先列错误码确认没有新增，再动这个数。** 现在两个句柄各司其职（`stream` 供 `for await`、
  * `it` 供 `.next()`），基线 195 才是诚实的读数。
+ *
+ * **195 → 193（2026-10-02）**：管理端用户视图收敛到单一实现（`sanitizeUserForAdmin`）时，
+ * `getUserDetail` 里那串 `Record<string, unknown>` 造型不再需要，消掉 2 条 TS2339。
+ * **按上面的规程做过比对**：错误码分布除 TS2339 33→31 外完全相同，**新增集合为空**。
+ * The admin user view was collapsed into one implementation, retiring two TS2339s; the
+ * code-by-code diff showed no additions, only those two removals.
  */
-const BASELINE = 195;
+const BASELINE = 193;
 
 /** 一行 tsc 输出是否属于「测试文件」：`路径(行,列): error TSxxxx: ...` */
 const isTestFileError = (line) =>

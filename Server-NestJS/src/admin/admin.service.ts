@@ -7,7 +7,7 @@ import { Repository, DataSource, IsNull, Not, In, MoreThanOrEqual } from 'typeor
 import type { EntityTarget } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { maskEmail, maskPhone } from '../common/utils/mask';
+import { sanitizeUserForAdmin } from '../users/user-admin-view';
 import { pickDisplayColumn, pickOwnerColumn, toSnakeCase } from '../common/utils/entity-metadata';
 import { EncryptionService } from '../common/utils/encryption';
 import { User } from '../common/entities/user.entity';
@@ -121,20 +121,13 @@ export class AdminService {
   async getUserDetail(id: number) {
     const user = await this.usersRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('用户不存在');
-    const { password, loginAttempts, lockedUntil, ...rest } = user;
-    delete (rest as Record<string, unknown>).bio;
-    delete (rest as Record<string, unknown>).dateOfBirth;
-    delete (rest as Record<string, unknown>).firstName;
-    delete (rest as Record<string, unknown>).lastName;
-    delete (rest as Record<string, unknown>).avatarUrl;
-    delete (rest as Record<string, unknown>).provider;
-    delete (rest as Record<string, unknown>).providerId;
-    delete (rest as Record<string, unknown>).providerHash;
-    const base = {
-      ...rest,
-      email: maskEmail(user.email),
-      ...(user.phone ? { phone: maskPhone(this.encryption.decrypt(user.phone)) } : {}),
-    } as Record<string, unknown>;
+    // One implementation of the admin-view rule, shared with the users service. This method used
+    // to carry its own copy of it, and that copy is what let the live email-verification code and
+    // the phone hash through.
+    //
+    // 管理端视图规则只有一处实现，与 users service 共用。本方法过去自带一份副本，
+    // 而正是那份副本让实时邮箱验证码与手机号哈希漏了出去。
+    const base = sanitizeUserForAdmin(user, (stored) => this.encryption.decrypt(stored));
 
     const [sessions, notifications, opAuditCount, aiAuditCount, events, aiTokens] = await Promise.all([
       this.sessionsRepo.find({ where: { userId: id }, order: { lastActiveAt: 'DESC' } }),

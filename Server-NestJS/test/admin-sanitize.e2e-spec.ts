@@ -99,4 +99,44 @@ describe('Admin 用户详情脱敏（字段级断言）', () => {
     expect(data).toHaveProperty('sessions');
     expect(data).toHaveProperty('counts');
   });
+
+  it('管理端视图不返回凭证类字段：实时验证码 / 重置令牌哈希 / 手机号哈希', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/admin/users/${targetId}/detail`)
+      .set(authHeader(adminToken))
+      .expect(200);
+    const data = res.body.data;
+
+    // 邮箱验证码是实时凭证（拿到即可替该用户完成验证）；重置令牌哈希与手机号 HMAC 同理，
+    // 都不该出现在一个「隐私视图」里。
+    expect(data.emailVerificationCode).toBeUndefined();
+    expect(data.emailVerificationExpiresAt).toBeUndefined();
+    expect(data.resetTokenHash).toBeUndefined();
+    expect(data.resetTokenExpiresAt).toBeUndefined();
+    expect(data.phoneHash).toBeUndefined();
+  });
+
+  it('把管理端读到的掩码原样写回，不等于改了邮箱：库里的真值不变（脱敏回写防护）', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/v1/admin/users/${targetId}/detail`)
+      .set(authHeader(adminToken))
+      .expect(200);
+    const maskedEmail: string = before.body.data.email;
+    expect(maskedEmail).toContain('***');
+
+    // 复现外部实测遇到的那类调用方：读管理端视图 → 把同一份对象原样保存
+    await request(app.getHttpServer())
+      .put(`/api/v1/users/${targetId}`)
+      .set(authHeader(adminToken))
+      .send({ email: maskedEmail })
+      .expect(200);
+
+    // 本人路径读到明文（/auth/me 不脱敏），用它看库里的真值确实没被掩码覆盖
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(targetToken))
+      .expect(200);
+    expect(me.body.data.email).toBe('san_target@test.com');
+    expect(me.body.data.email).not.toContain('***');
+  });
 });

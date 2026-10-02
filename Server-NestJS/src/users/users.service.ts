@@ -11,6 +11,7 @@ import { EncryptionService } from '../common/utils/encryption';
 import { CacheService } from '../common/cache/cache.service';
 import { UploadSignService } from '../upload/upload-sign.service';
 import { maskEmail, maskPhone } from '../common/utils/mask';
+import { sanitizeUserForAdmin } from './user-admin-view';
 import { BusinessException } from '../common/errors/business.exception';
 import { paginated } from '../common/dto/paginated';
 
@@ -134,7 +135,15 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (dto.email !== undefined) {
+    // Masked-value write-back guard (field-level write check). The admin view returns a masked
+    // address; a caller that reads that view and writes it straight back would otherwise overwrite
+    // the real address with the mask — and reset emailVerified on the way, since the value differs.
+    // A value equal to the mask of THIS user's current address therefore means "unchanged".
+    //
+    // 脱敏回写防护（字段级写侧校验）：管理端视图返回的是掩码；把读到的视图原样写回的调用方，
+    // 会拿掩码覆盖真实邮箱（并因「值变了」连带重置 emailVerified）。回传值恰等于**该用户当前
+    // 邮箱的掩码**时，视为未变更、跳过写入。
+    if (dto.email !== undefined && dto.email !== maskEmail(user.email)) {
       const emailExists = await this.usersRepository.findOne({ where: { email: dto.email } });
       if (emailExists && emailExists.id !== id) {
         throw new ConflictException('Email already exists');
@@ -149,7 +158,14 @@ export class UsersService {
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.nickname !== undefined) user.nickname = dto.nickname;
     if (dto.dateOfBirth !== undefined) user.dateOfBirth = dto.dateOfBirth;
-    if (dto.phone !== undefined) {
+    // Same guard for the phone: a masked value written back would be encrypted as if it were the
+    // number, and phoneHash would follow it — silently breaking phone login. Null stored phone
+    // compares against null, so a genuine first-time set still goes through.
+    //
+    // 手机号同理：掩码被回写会被当作号码加密，phoneHash 随之指向掩码 ⇒ 手机号登录静默失效。
+    // 库里没有手机号时掩码为 null，故「首次设置」照常写入。
+    const storedPhoneMask = user.phone ? maskPhone(this.encryption.decrypt(user.phone)) : null;
+    if (dto.phone !== undefined && dto.phone !== storedPhoneMask) {
       // 与 bindPhone/loginPhone 一致：同步写 phoneHash（否则改号后无法手机号登录）+ 唯一性检查（防绕过 SMS 验证重复绑定）
       const newHash = this.encryption.hmac(dto.phone);
       const phoneExists = await this.usersRepository.findOne({ where: { phoneHash: newHash } });
@@ -226,22 +242,13 @@ export class UsersService {
   /**
    * 管理端视图脱敏（原则 1：管理页面不出现用户填写的个人数据）。
    * username/ID 保留用于识别；email/phone 掩码；bio/生日/名姓/头像等隐私字段不返回。
+   *
+   * The projection itself lives in one place — `sanitizeUserForAdmin` — because the admin detail
+   * endpoint used to carry its own copy and the two drifted.
+   *
+   * 投影本身只有一处实现 —— `sanitizeUserForAdmin` —— 因为管理端详情端点过去自带一份副本，两者已经漂移。
    */
   private sanitizeForAdmin(user: User): Partial<User> {
-    const rest = { ...user } as Record<string, unknown>;
-    delete rest.password;
-    delete rest.loginAttempts;
-    delete rest.lockedUntil;
-    delete rest.bio;
-    delete rest.dateOfBirth;
-    delete rest.firstName;
-    delete rest.lastName;
-    delete rest.avatarUrl;
-    delete rest.provider;
-    delete rest.providerId;
-    delete rest.providerHash;
-    rest.email = maskEmail(user.email);
-    if (user.phone) rest.phone = maskPhone(this.encryption.decrypt(user.phone));
-    return rest as Partial<User>;
+    return sanitizeUserForAdmin(user, (stored) => this.encryption.decrypt(stored));
   }
 }
