@@ -22,6 +22,23 @@ export interface RequestContext {
   ip?: string;
   /** AU-3：访客匿名标识（与账号无关）。无 cookie/头时由中间件签发；见 guest-id.ts */
   guestId?: string;
+  /** AU-2 余项：客户端设备标识（`X-Device-Id`）。由客户端提供 ⇒ 归因线索而非身份凭证 */
+  deviceId?: string;
+}
+
+/** `device_id varchar(64)` 的列宽 —— 与 `user_sessions` / `push_tokens` 的同类列、以及
+ *  `guest_id`（见 guest-id.ts 的 GUEST_ID_MAX_LENGTH）取同一个上限：同一个客户端标识，
+ *  不该在不同表里有不同的宽度。**超长判无效、不截断** —— 截断会把两个客户端折成同一个 id。 */
+const DEVICE_ID_MAX_LENGTH = 64;
+
+/** 读取客户端设备标识（`X-Device-Id` 头）；缺失 / 空 / 超列宽 → undefined。
+ *  Read the client's device id; undefined when absent or unusable (see {@link DEVICE_ID_MAX_LENGTH}). */
+export function readDeviceId(req: Pick<Request, 'headers'>): string | undefined {
+  const header = req.headers['x-device-id'];
+  const value = Array.isArray(header) ? header[0] : header;
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed.length > DEVICE_ID_MAX_LENGTH) return undefined;
+  return trimmed;
 }
 
 /**
@@ -36,7 +53,10 @@ export interface RequestContext {
  */
 export function applyRequestContext(app: Pick<INestApplication, 'use'>): void {
   app.use((req: Request, res: Response, next: NextFunction) =>
-    requestContext.run({ ip: req.ip, guestId: ensureGuestId(req, res) }, next),
+    requestContext.run(
+      { ip: req.ip, guestId: ensureGuestId(req, res), deviceId: readDeviceId(req) },
+      next,
+    ),
   );
 }
 

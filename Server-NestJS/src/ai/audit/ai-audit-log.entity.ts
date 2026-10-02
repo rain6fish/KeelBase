@@ -73,6 +73,15 @@ export class AiAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'guest_id' })
   guestId?: string | null;
 
+  /**
+   * AU-2 余项（§22.19 归因层）：客户端设备标识（请求头 `X-Device-Id`，由客户端生成并持久化）。
+   * 与 `ip` 互补 —— **NAT / 移动运营商之后多个客户端共用一个地址**，设备标识用来分辨同一地址之后的
+   * 不同客户端。**由客户端提供 ⇒ 归因线索而非身份凭证**（与 `guestId` 同一性质）。
+   * 链外列——**不入 hash payload**（护栏③）。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'device_id' })
+  deviceId?: string | null;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 

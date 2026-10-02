@@ -92,7 +92,7 @@ export class AuditService {
     // AU-6（§22.19 归因层）：入口来源 source 从 ActorContext fallback（各入口设置，entry 显式传值优先）
     const source = entry.source ?? actor?.source;
     // AU-2 / AU-3（§22.19）：客户端 IP 与访客标识从请求级 requestContext（中间件设置）；链外列，不入 payload
-    const { ip, guestId } = requestContext.getStore() ?? {};
+    const { ip, guestId, deviceId } = requestContext.getStore() ?? {};
 
     // G-2（§internal.17 ① G-2）：payload v2 = 既有字段 + 链外归责/意图/来源/业务注解列（businessEvent/evidence/agentId/...）。
     // 新行 payloadVersion=2 → _payload 走 v2 含真实注解值（DB 层篡改链外列会破链）；历史行 null → v1 恒空（不破坏既有链）。
@@ -137,6 +137,7 @@ export class AuditService {
       source,
       ip,
       guestId,
+      deviceId,
       promptTokens: entry.promptTokens,
       completionTokens: entry.completionTokens,
       durationMs: entry.durationMs,

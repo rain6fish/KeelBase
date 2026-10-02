@@ -7,6 +7,7 @@ import { createTestApp, registerUser, loginAs, authHeader } from './helpers';
 import { User, UserRole } from '../src/common/entities/user.entity';
 import { OperationAuditLog } from '../src/operation-audit/operation-audit-log.entity';
 import { GUEST_COOKIE } from '../src/common/guest-id';
+import { AiAuditLog } from '../src/ai/audit/ai-audit-log.entity';
 
 /**
  * AU-3（§22.19 归因层）验收：演示端访客共享同一账号（alex）时，审计仍能区分不同访客。
@@ -22,6 +23,7 @@ describe('AU-3 访客标识归因（§22.19）', () => {
   let ds: DataSource;
   let token: string;
   let adminToken: string;
+  let ownerId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -46,6 +48,11 @@ describe('AU-3 访客标识归因（§22.19）', () => {
       { role: UserRole.ADMIN },
     );
     adminToken = (await loginAs(app, 'guest_admin', 'GuestAdmin1')).accessToken;
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set(authHeader(token))
+      .expect(200);
+    ownerId = String((me.body.data as { id: number }).id);
   });
 
   afterAll(async () => {
@@ -114,6 +121,46 @@ describe('AU-3 访客标识归因（§22.19）', () => {
     expect(new Set(guestIds).size).toBeGreaterThan(1);
     // 两行 user_id 相同（共享账号）—— 证明区分完全来自 guestId 这一归因维度
     expect(new Set(rows.map((r) => r.userId)).size).toBe(1);
+  });
+
+  it('AU-2 余项：AI 审计行带客户端设备标识，两台设备区分得开；不带该头的行如实为 null', async () => {
+    const send = (device?: string) => {
+      const req = request(app.getHttpServer()).post('/api/v1/ai/chat').set(authHeader(token));
+      return (device ? req.set('X-Device-Id', device) : req)
+        .send({ message: '设备标识探针' })
+        .expect(200);
+    };
+    await send('dev-e2e-alpha');
+    await send('dev-e2e-beta');
+    await send(); // 不带该头 —— 该列应如实为空，不伪造
+
+    // AI 审计的**对话级行是 fire-and-forget**（服务端不 await）⇒ 轮询等它落库，
+    // 否则会读到「0 行」这种由时序造出来的假缺陷。
+    const repo = ds.getRepository(AiAuditLog);
+    const deadline = Date.now() + 3000;
+    let rows: AiAuditLog[] = [];
+    while (Date.now() < deadline) {
+      rows = await repo.find({ where: { userId: ownerId }, order: { id: 'DESC' }, take: 10 });
+      const devs = rows.map((r) => r.deviceId);
+      if (devs.includes('dev-e2e-alpha') && devs.includes('dev-e2e-beta')) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    const devs = rows.map((r) => r.deviceId);
+    expect(devs).toContain('dev-e2e-alpha');
+    expect(devs).toContain('dev-e2e-beta');
+    // 同一账号、同一 IP 场景下两台设备**不塌缩**——这正是 deviceId 存在的理由
+    expect(new Set(devs.filter((d) => d != null)).size).toBe(2);
+    expect(devs.filter((d) => d == null).length).toBeGreaterThan(0);
+  });
+
+  it('护栏③：deviceId 是链外列——不入链 payload，哈希链仍完整', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/audit/verify')
+      .set(authHeader(adminToken))
+      .expect(200);
+
+    expect((res.body.data as { valid: boolean }).valid).toBe(true);
   });
 
   it('护栏③：guestId 是链外列——不入链 payload，哈希链仍完整', async () => {
