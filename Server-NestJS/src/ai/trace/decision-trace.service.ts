@@ -17,6 +17,7 @@ import { Repository } from 'typeorm';
 import { AiAuditLog } from '../audit/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
+import { parseToolCall as parseToolCallShared } from '../audit/tool-name';
 import type { AppAbility } from '../../common/casl/casl-ability.factory';
 
 export type TraceStepType =
@@ -125,7 +126,7 @@ export class DecisionTraceService {
     // 审计日志 → tool_call / confirmation / notice
     for (const log of logs) {
       if (log.action === 'tool_call') {
-        const { toolName, args } = parseToolCall(log.detail);
+        const { toolName, args } = parseToolCallFromDetail(log.detail);
         steps.push({
           id: `tool-${log.id}`,
           type: 'tool_call',
@@ -220,11 +221,12 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
   }
 }
 
-/** detail 形如 `create_event({"title":"..."})` → 拆出工具名与参数 JSON 字符串 */
-function parseToolCall(detail?: string | null): { toolName: string; args?: string } {
-  if (!detail) return { toolName: '' };
-  const m = /^([\w]+)\((.*)\)$/s.exec(detail);
-  return m ? { toolName: m[1], args: m[2] } : { toolName: detail };
+/** detail 形如 `create_event({"title":"..."})` → 拆出工具名与参数 JSON 字符串（走共享解析器）。
+ *  不像工具调用的 detail 仍按原样充当工具名 —— 轨迹宁可显示原文，也不显示空。 */
+function parseToolCallFromDetail(detail?: string | null): { toolName: string; args?: string } {
+  const parsed = parseToolCallShared(detail);
+  if (!parsed) return { toolName: detail ?? '' };
+  return { toolName: parsed.toolName, args: parsed.args ?? undefined };
 }
 
 /** detail 形如 `create_event({...}) → approve (trusted)` → 拆出工具名/参数/决策/免确认标志 */

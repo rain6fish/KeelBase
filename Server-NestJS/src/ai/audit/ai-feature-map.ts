@@ -9,6 +9,8 @@
  * 原则 3：审计要能看懂「AI 做了什么」，而不只是技术枚举值。
  */
 
+import { parseToolCall } from './tool-name';
+
 export interface AiActionLabel {
   /** 语义 key（前端 i18n 用），如 ai.toolCall */
   key: string;
@@ -69,12 +71,9 @@ const TOOL_LABELS: Record<string, AiActionLabel> = {
   navigate_admin_page: { key: 'ai.tool.navigateAdminPage', fallback: 'Navigate admin page' },
 };
 
-/** detail 提取工具名：兼容 `toolName({args})`（实际格式）与 `Tool: toolName`。 */
+/** detail 提取工具名：走共享解析器（`toolName({args})` 与 `Tool: toolName` 两种形态都在里面）。 */
 function extractToolName(detail: string): string | null {
-  const direct = detail.match(/^([a-z][a-z0-9_]+)\(/);
-  if (direct) return direct[1];
-  const prefixed = detail.match(/\bTool:\s*([a-z][a-z0-9_]+)/i);
-  return prefixed ? prefixed[1] : null;
+  return parseToolCall(detail)?.toolName ?? null;
 }
 
 export function aiActionLabel(action: string, detail?: string | null): AiActionLabel {

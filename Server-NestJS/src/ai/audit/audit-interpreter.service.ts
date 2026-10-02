@@ -6,6 +6,8 @@
  * 三层：L1 业务摘要句 / L2 证据统计（aggregateConversation）/ L3 技术详情（前端保留 detail）。
  */
 
+import { parseToolCall } from './tool-name';
+
 export interface AuditEvidence {
   decision?: string;
   evidence?: string[];
@@ -100,7 +102,7 @@ export function summarizeAudit(
 ): AuditInterpretation {
   const stats = aggregateConversation(convRows);
   const username = row.username || `用户#${row.userId}`;
-  const { toolName } = parseToolCall(row.detail);
+  const { toolName } = parseToolName(row.detail);
 
   let sentence: string;
   if (row.action === 'tool_confirmation') {
@@ -346,11 +348,10 @@ function parseEvidence(raw?: string | null): AuditEvidence | null {
   }
 }
 
-/** detail 形如 `analyze_customer_risk({"id":7})` → 工具名 */
-function parseToolCall(detail?: string | null): { toolName: string } {
-  if (!detail) return { toolName: '' };
-  const m = /^([a-z_]+)\(/.exec(detail);
-  return { toolName: m ? m[1] : '' };
+/** detail 形如 `analyze_customer_risk({"id":7})` → 工具名（走共享解析器）。本处旧字符集是
+ *  `[a-z_]+`，停在第一个数字 —— `summarize_customer_360` 这类工具整行解析为空、被静默跳过。 */
+function parseToolName(detail?: string | null): { toolName: string } {
+  return { toolName: parseToolCall(detail)?.toolName ?? '' };
 }
 
 /** detail 形如 `create_followup_task({...}) → approve` → 确认结果 */
