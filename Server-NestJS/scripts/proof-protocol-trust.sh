@@ -6,7 +6,7 @@
 #
 # 陌生人可复现：生成 MUT（默认 invoices，specs/invoices.json）→ 编译进后端 → 起隔离后端
 # （fresh sqlite + development 自动种 alex/admin + demo provider，确定性无 LLM）→ 跑驱动
-# （R5-R9 REST 断言）→ R10 重复生成幂等 → 汇总十行记分卡 → 留档 benchmark。
+# （R5-R9 REST 断言 + R11 归因层）→ R10 重复生成幂等 → 汇总记分卡 → 留档 benchmark。
 # 全程只在隔离端口（默认 3399）自包含运行，不影响宿主机 3000 的既有开发后端。
 #
 # 用法：
@@ -134,8 +134,8 @@ if [ "$READY" != "1" ]; then
 fi
 echo "  ✓ 就绪"
 
-# ── R5-R9 驱动 ───────────────────────────────────────────────────────────────
-echo "→ proof-protocol-trust-card（R5-R9，生成模块治理链路）"
+# ── R5-R11 驱动 ───────────────────────────────────────────────────────────────
+echo "→ proof-protocol-trust-card（R5-R11，生成模块治理链路 + 归因层）"
 DRV_START=$SECONDS
 (cd "$BE" && BASE_URL="$BASE" PROVIDER=demo AUDIT_HMAC_KEY="$KEY_FIX" MUT="$MUT" MUT_SINGULAR="$SINGULAR" MUT_SPEC_ABS="$MUT_SPEC_ABS" \
   node scripts/proof-protocol-trust-card.mjs >"$DRIVER_OUT" 2>&1)
@@ -207,7 +207,7 @@ YELLOWS=$(grep -cE '\|yellow\|' "$SCORE" || true)
   echo "| T_exec | ${TOTAL}s（生成 ${GEN_ELAPSED}s；编译 ${BUILD_ELAPSED}s；起服+驱动 ${DRV_ELAPSED}s） |"
   echo "| 红行 | ${REDS} |"
   echo ""
-  echo "## 十行状态"
+  echo "## 行状态"
   echo ""
   echo "| 行 | 状态 | 明细 |"
   echo "|---|---|---|"

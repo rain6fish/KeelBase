@@ -82,7 +82,7 @@
 - 场景 B：场景 A 全部 + 环境安装单独记 `T_env`（不计 T_exec）。
 - 卡留档记录：`T_read` / `T_env`(仅 B) / `T_exec`，以及 T_exec 内生成耗时、验证耗时两个子段（供 Protocol 归因，非及格判据）。
 
-## 5. 十行测量明细（R1-R10）
+## 5. 十一行测量明细（R1-R11）
 
 > 每行状态：**绿**（期望达成）/ **红**（未达成 → 诊断）/ **黄**（记录基线，不判定；首跑为锚定值，规则见 §6）。**行间不允许平均。**
 
@@ -98,14 +98,16 @@
 | **R8** | Audit / Evidence | 对已执行动作：① AI 审计哈希链 verify；② evidence-root v3 导出 → 离线验；③ 篡改锚重验 | ① valid；② PASS；③ 篡改后 FAIL（KB-3 同款） | 证据链断 → 证据缺口（诊断） |
 | **R9** | Revoke / Compensation 语义 | 对生成模块 AI 写副作用执行撤销；若含外部补偿路径，测失败分支 | 撤销 → 副作用 `revoked`（自身软删，recycle 可恢复）；外部档如实 `governed_external`（"已请求补偿/结果未知"，**禁显示 revoked**，KB-6 同语义）；补偿端点不可达 → `ok:false` 如实（FP-7） | 谎报撤销态 / 补偿吞错 → **口径缺陷（诊断）** |
 | **R10** | 重复生成不破坏（重跑边界） | ① 同 spec 重跑；② 手改某生成文件后重跑 | ① 幂等跳过已存在文件、接线不破坏、新文件落位；② 如实输出产品契约（§7），手写文件不受影响 | 破坏声明边界外文件 → 生成器缺陷（诊断） |
+| **R11** | 归因层：多用户 × 多入口下，**管理员仅凭审计**还原「谁 / 从哪来 / 哪个 agent / 做了什么」 | 两个账号（alex · admin）经**三条不同入口**各发一次**同一条可委托的消息**（技能触发词 → 服务端零 LLM 进委托分支）：alex 走 `POST /ai/chat` 与 `POST /ai/chat/stream` **各一次**并各带一个 `X-Guest-Id`，admin 走 `POST /admin/ai/chat`；随后**只用管理员 token** 读 `GET /audit/logs`，按 `parentActionId` 归组、按 `conversationId` 定位每一轮 | 三组都取到且各含 `delegate` + `tool_call`；`userId` 复现出**两个账号**、`username` 快照与之一致（**谁**）；**同一账号两轮的 `guestId` 不同**（访客可分辨）；整轮 `source` 与该入口相符（**从哪来**，web / web / admin）；每组 ≥1 行带 `agentId`（**哪个 agent**）；工具行 `detail` 非空（**做了什么**）；**未参与该次写**的管理员能按用户指认 R7 那笔副作用的归属（**效果**） | 身份塌缩 / 访客塌缩 / 入口维缺失 / `agentId` 无落点 / `detail` 为空 / 副作用归属串了 → **归因层缺口（诊断）** |
+
+> **R11 为什么只用两个账号**：非 admin 用户的**每个 POST** 都要先过邮箱验证守卫（未验证 → 403），而卡里注册出来的临时账号拿不到验证码 ⇒ **造不出第三个能对话的账号**（实测：新注册用户走 `/ai/chat/stream` 得 403）。「多访客」这一维因此由**同一账号的两个 `X-Guest-Id`** 承担——那正是匿名访客可分辨的兑现面。卡里另注册的 `bob` 只用于 R7 的跨用户隔离读（GET 不受该守卫约束）。
 
 ## 6. 通过 / 失败判据与出口（最终 PASS/FAIL 判据）
-
 **逐行状态 → 整体判定（无总分）**：
 
 | 卡面 | 结论 | 出口 |
 |---|---|---|
-| R1-R10 无红（黄仅 R6/边界锚定），且执行者 = 有效 stranger（R2） | **PASS（对外可声明）** | → §internal.6 M1 / 企业试点分叉；或需求驱动重开协议 |
+| R1-R11 无红（黄仅 R6/边界锚定），且执行者 = 有效 stranger（R2） | **PASS（对外可声明）** | → §internal.6 M1 / 企业试点分叉；或需求驱动重开协议 |
 | 任一红行 | **FAIL** | 红行进诊断清单 → §internal.6「基座补强 30%」反推 → 修复后重跑卡 |
 | 无红但执行者 = 作者 / R2 不满足 | **内部预跑（待外部验证）** | 不对外声明；正式 PASS 等真实 stranger 卡 |
 
@@ -136,12 +138,12 @@
 | agent-benchmark + failure-path corpus / e2e | `scripts/benchmark/` + `src/ai/failure-path/` | R7 补强 / R9 失败路径 |
 | `test/evidence-root.e2e-spec.ts` / tool-effects spec | `Server-NestJS/test/` | R8/R9 契约 |
 
-> T2 职责：把这些串成一条陌生可跑命令（`scripts/proof-protocol-trust.*`）输出十行记分卡——T2 起于主仓干净窗口，本规格只定契约不定命令。
+> T2 职责：把这些串成一条陌生可跑命令（`scripts/proof-protocol-trust.*`）输出逐行记分卡——T2 起于主仓干净窗口，本规格只定契约不定命令。
 
 ## 10. 记录与留档
 
 - 每次跑卡产出记分卡，留档 `Server-NestJS/docs/benchmark/protocol-trust-card-<UTC-ts>.md`（与 protocol-conformance / trust-proof / evidence-root 留档同级）。
-- 记分卡含：基线 commit/tag、执行者身份与 R2 有效性、T_read/T_exec（含子段）、R1-R10 逐行状态、红行诊断、资产/命令引用、环境场景（A/B）。
+- 记分卡含：基线 commit/tag、执行者身份与 R2 有效性、T_read/T_exec（含子段）、R1-R11 逐行状态、红行诊断、资产/命令引用、环境场景（A/B）。
 - 卡全绿后由 §6 结论触发出口；任何对外引用该卡时必须带基线 + 执行者档位（防"内部预跑冒充已验证"）。
 
 ## 11. 词表闸（转对外叙事前必过，KB-1 纪律）

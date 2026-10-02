@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
- * Protocol × Trust Proof Card — 生成模块治理驱动（R5-R9）
+ * Protocol × Trust Proof Card — 生成模块治理驱动（R5-R11）
  *
  * 对「由 keelbase-init 生成、编译进后端的生成模块（MUT，默认 invoices）」用纯 REST +
  * 确定性 demo provider 验证治理链路。与 verify-trust-proof.mjs 的差别：对象是**生成产物**
@@ -14,6 +14,8 @@
  *      跨用户不可见（bob 看不到 alex 数据）
  *   R8 Audit / Evidence：动作反查治理视图 → 导出 evidence-root v3 → 离线 verify PASS → 篡改 FAIL
  *   R9 Revoke：撤销副作用 → revoked
+ *   R11 归因层（§22.19）：三用户 × 三入口各一轮委托 → **只用管理员身份读审计**，还原
+ *      who / entry / agent / what（effect 由管理员按用户指认，见该行注释的边界说明）
  *
  * 环境变量：BASE_URL（默认 http://localhost:3000/api/v1）· PROVIDER=demo（默认，确定性）
  *           ALICE_PASS / ADMIN_PASS（默认 demo 种子）· MUT=invoices（生成模块 plural）
@@ -68,10 +70,14 @@ function row(id, state, detail = '') {
 const fail = (id, d) => row(id, 'red', d);
 const pass = (id, d) => row(id, 'green', d);
 
-async function api(path, { token, method = 'GET', body } = {}) {
+async function api(path, { token, method = 'GET', body, headers } = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(headers ?? {}),
+    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   let data = null;
@@ -85,8 +91,9 @@ function pickToken(loginData) {
   return d?.accessToken || d?.tokens?.accessToken || d?.data?.accessToken || d?.data?.tokens?.accessToken || null;
 }
 
-/** 流式对话：收集工具/确认/决策，遇 confirmation_request 内联 approve/decline。 */
-async function streamChat(token, message, decision) {
+/** 流式对话：收集工具/确认/决策，遇 confirmation_request 内联 approve/decline。
+ *  `extraHeaders` 供归因层带访客标识（`X-Guest-Id`）。 */
+async function streamChat(token, message, decision, extraHeaders) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 90000);
   const toolNames = [], confirmations = [], decisions = [], texts = [];
@@ -94,7 +101,11 @@ async function streamChat(token, message, decision) {
   try {
     const res = await fetch(`${BASE}/ai/chat/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(extraHeaders ?? {}),
+      },
       body: JSON.stringify({ message, provider: PROVIDER }),
       signal: ctrl.signal,
     });
@@ -142,7 +153,7 @@ function flipHex(h) {
 }
 
 async function main() {
-  console.log(`═══ Protocol×Trust Proof Card（R5-R9，生成模块 MUT=${MUT}）BASE=${BASE} PROVIDER=${PROVIDER} ═══`);
+  console.log(`═══ Protocol×Trust Proof Card（R5-R11，生成模块 MUT=${MUT}）BASE=${BASE} PROVIDER=${PROVIDER} ═══`);
 
   // 登录
   const aliceLogin = await api('/auth/login', { method: 'POST', body: { username: 'alex', password: ALICE_PASS } });
@@ -283,6 +294,156 @@ async function main() {
     else pass('R9b', '撤销后目标软删 = revoked（真实生效）');
   } else {
     fail('R9', '无 effectId，跳过撤销（R7 前置失败）');
+  }
+
+  // ── R11 归因层（§22.19）：多用户 × 多入口 → 管理员**仅凭审计**还原 who / entry / agent / what ──
+  //
+  // §22.19 的收口句：专家组那张「Who did what?」卡**不新造载体**，作为本卡的附加行、复用同一编排。
+  // 本行把同一条**可委托**的消息从三条入口、三个用户各发一次，然后**只用管理员身份读 AI 审计**，
+  // 断言归因维度在跨用户跨入口时依然还原得出、且互不混淆 —— 正是 §22.19 那条线要证的东西
+  // （此前的观测是「大量 AI 使用，却查不出是谁、干了什么」）。
+  //
+  // 消息取技能触发词：服务端命中后**零 LLM** 进委托分支（与 provider 无关），子代理在 demo
+  // provider 下有确定性输出 —— 与 e2e `agent-delegation-attribution` 走同一条路径。
+  //
+  // **边界如实**：委托是**只读**的（子代理不得写），故「effect」这一维不靠委托产生副作用来证，
+  // 而是让**未参与该次写的管理员**从副作用清单按用户指认 —— 「这个效果是谁的」同样是归因问题。
+  const DELEGATE_MSG = '周计划';
+  const identity = async (tok) => unwrap((await api('/auth/me', { token: tok })).data);
+  const aliceMe = await identity(alice);
+  const adminMe = await identity(admin);
+
+  // 三个「用户 × 入口」组合。**为什么没有第三个真人账号**：非 admin 用户走任何 POST 都要先过
+  // EmailVerificationGuard（未验证邮箱 403），而 alex/admin 是种子验证过的、注册出来的 bob 不是
+  // —— 卡里造不出第三个可对话的账号（试过，bob 那条确实 403）。故「多用户」这一维由
+  // **两个不同账号**承担（正是 09-14 观测到的塌缩面：alex 243 / admin 71），而**同一账号下的两个访客**
+  // 由 `X-Guest-Id` 区分（AU-3 的修法：N 个访客 → N 个不同来源）。
+  const delegationTurns = [
+    { id: 'alex@/ai/chat', who: aliceMe, entry: 'web', guest: 'r11visitorA',
+      run: () => api('/ai/chat', { token: alice, method: 'POST', headers: { 'X-Guest-Id': 'r11visitorA' }, body: { message: DELEGATE_MSG, provider: PROVIDER } }) },
+    { id: 'alex@/ai/chat/stream', who: aliceMe, entry: 'web', guest: 'r11visitorB',
+      run: () => streamChat(alice, DELEGATE_MSG, undefined, { 'X-Guest-Id': 'r11visitorB' }) },
+    { id: 'admin@/admin/ai/chat', who: adminMe, entry: 'admin', guest: null,
+      run: () => api('/admin/ai/chat', { token: admin, method: 'POST', body: { message: DELEGATE_MSG } }) },
+  ];
+
+  // 每轮的结局一并记下：**失败要能指着说**，否则报出来的是「取不到行」这种哑结论
+  // （首版就栽在这里两处：读审计的 limit 超上限被拒，被当成「一行都没有」；以及一轮 403 后
+  // 只知道「缺一组」，不知道缺在哪一步）。**按 conversationId 归位每一轮**——同一账号两轮不能按
+  // userId 分（那正是本行要证的东西）。
+  const turnOutcomes = [];
+  for (const t of delegationTurns) {
+    const r = await t.run();
+    t.conversationId = r?.conversationId ?? unwrap(r?.data)?.conversationId ?? null;
+    const status = r?.status ?? (r?.error ? 'err' : 'ok');
+    turnOutcomes.push(`${t.id}=${status}${r?.error ? `:${String(r.error).slice(0, 60)}` : ''}`);
+  }
+
+  // 对话级行是 **fire-and-forget**（服务端不 await）⇒ 必须轮询到它落库；否则会读到「0 行」
+  // 这种由时序造出来的假缺陷（本仓已有先例，见 agent-delegation-attribution 的头注）。
+  // limit 上限是 200（DTO 校验），超了会被 400 拒 —— 而**读失败必须响亮**，不能当成空集。
+  let readError = null;
+  const readAudit = async () => {
+    const res = await api('/audit/logs?limit=200', { token: admin });
+    if (res.status !== 200) { readError = `GET /audit/logs → ${res.status} ${res.text.slice(0, 120)}`; return []; }
+    const list = unwrap(res.data);
+    return Array.isArray(list) ? list : [];
+  };
+  const groupByHandle = (list) => {
+    const m = new Map();
+    for (const r of list) {
+      if (!r.parentActionId) continue;
+      if (!m.has(r.parentActionId)) m.set(r.parentActionId, []);
+      m.get(r.parentActionId).push(r);
+    }
+    return m;
+  };
+  const groupFor = (gs, cid) =>
+    cid ? [...gs.values()].find((g) => g.some((r) => r.conversationId === cid)) ?? null : null;
+
+  let groups = new Map();
+  const r11Deadline = Date.now() + 8000;
+  while (Date.now() < r11Deadline) {
+    groups = groupByHandle(await readAudit());
+    if (delegationTurns.every((t) => groupFor(groups, t.conversationId))) break;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  const found = delegationTurns.map((t) => ({ t, rows: groupFor(groups, t.conversationId) }));
+
+  const missing = found.filter((x) => !x.rows);
+  if (readError) {
+    fail('R11', `读审计失败：${readError}（轮次结局：${turnOutcomes.join(' / ')}）`);
+  } else if (missing.length) {
+    fail('R11', `未取到全部委托轮的审计行（缺 ${missing.map((m) => m.t.id).join(',')}；共 ${groups.size} 个句柄组；轮次结局：${turnOutcomes.join(' / ')}）`);
+  } else if (!found.every((x) => x.rows.some((r) => r.action === 'delegate'))) {
+    fail('R11', `委托轮缺对话级行（delegate）—— 组内 actions=${found.map((x) => x.rows.map((r) => r.action).join('+')).join(' / ')}`);
+  } else {
+    pass('R11', `两账号 × 三入口各一轮委托，管理员从审计取到 ${found.length} 组（按 conversationId 定位，每组含 delegate + tool_call）`);
+
+    // 谁：三组的 userId 复现出**两个账号**且 username 快照与之一致（快照是**写入时刻**记的，不靠事后 join）
+    const byUser = new Map();
+    for (const x of found) {
+      const u = x.rows.find((r) => r.userId)?.userId;
+      if (!byUser.has(String(u))) byUser.set(String(u), []);
+      byUser.get(String(u)).push(x.t.id);
+    }
+    const namesOk = found.every((x) => x.rows.some((r) => r.username === x.t.who.username));
+    if (byUser.size !== 2) {
+      fail('R11b', `应复现出 2 个账号，实得 ${byUser.size}：${[...byUser].map(([u, ts]) => `${u}←${ts.join('+')}`).join(' / ')}`);
+    } else if (!namesOk) {
+      fail('R11b', `username 快照与用户不符：${found.map((x) => `${x.t.who.username}→${x.rows[0].username}`).join(' / ')}`);
+    } else {
+      pass('R11b', `谁：${[...byUser].map(([u, ts]) => `${found.find((f) => String(f.t.who.id) === u)?.t.who.username}#${u}（${ts.length} 轮）`).join(' / ')} 可分辨`);
+    }
+
+    // 访客：同一账号（alex）的两轮，`guestId` 必须不同 —— 这正是「N 个访客 → N 个不同来源」的兑现面
+    const visitors = found.filter((x) => x.t.guest).map((x) => x.rows.find((r) => r.guestId)?.guestId ?? null);
+    if (visitors.length < 2) {
+      fail('R11b2', `带访客头的轮次未落 guestId：${JSON.stringify(visitors)}（访客维缺失）`);
+    } else if (new Set(visitors).size !== visitors.length) {
+      fail('R11b2', `同账号两访客的 guestId 相同：${visitors.join(' / ')}（访客塌缩）`);
+    } else {
+      pass('R11b2', `访客：同一账号 alex 的两轮各带一个访客标识（${visitors.join(' / ')}）`);
+    }
+
+    // 从哪来：整轮的 source 与该入口相符（web / web / admin）
+    const sources = found.map((x) => `${x.t.id.slice(x.t.id.indexOf('@') + 1)}=${x.rows[0].source}`).join(' / ');
+    if (!found.every((x) => x.rows.every((r) => r.source === x.t.entry))) {
+      fail('R11c', `source 与入口不符：${sources}（期望 ${found.map((x) => x.t.entry).join('/')}）`);
+    } else {
+      pass('R11c', `从哪来：${sources}`);
+    }
+
+    // 哪个 agent：每组至少一行带 agentId（子代理名）
+    if (!found.every((x) => x.rows.some((r) => r.agentId))) {
+      fail('R11d', '有委托轮没有任何 agentId（子代理归因缺失）');
+    } else {
+      pass('R11d', `哪个 agent：${found.map((x) => x.rows.find((r) => r.agentId)?.agentId).join(' / ')}`);
+    }
+
+    // 做了什么：工具行 detail 非空（工具名(参数)）
+    const toolRow0 = found[0].rows.find((r) => r.action === 'tool_call');
+    if (!found.every((x) => x.rows.filter((r) => r.action === 'tool_call').every((r) => r.detail))) {
+      fail('R11e', '工具行 detail 为空（「做了什么」不可还原）');
+    } else {
+      pass('R11e', `做了什么：工具行 detail 非空（例：${String(toolRow0?.detail).slice(0, 60)}）`);
+    }
+  }
+
+  // 效果：**未参与该次写的管理员**能按用户指认 R7 那次写的归属（R11 的委托是只读的，不产副作用）
+  const effectsOf = async (uid) => {
+    const r = await api(`/ai/tool-effects?userId=${uid}&limit=100`, { token: admin });
+    const items = unwrap(r.data)?.items ?? unwrap(r.data) ?? [];
+    return Array.isArray(items) ? items : [];
+  };
+  if (effectId) {
+    const inAlice = (await effectsOf(aliceMe.id)).some((e) => String(e.id) === String(effectId));
+    const inAdmin = (await effectsOf(adminMe.id)).some((e) => String(e.id) === String(effectId));
+    if (!inAlice) fail('R11f', `副作用 #${effectId} 不在 ${aliceMe.username} 名下（效果不可归因）`);
+    else if (inAdmin) fail('R11f', `副作用 #${effectId} 同时出现在 ${adminMe.username} 名下（归属串了）`);
+    else pass('R11f', `效果：副作用 #${effectId} 只在 ${aliceMe.username}#${aliceMe.id} 名下（管理员按用户指认得出）`);
+  } else {
+    fail('R11f', '无 effectId，跳过效果归因（R7 前置失败）');
   }
 
   finish();
