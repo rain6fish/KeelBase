@@ -232,6 +232,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-navigation-parity.mjs
 
+  # 工具标签对账门（零依赖 node 内置）：单一真源 = 后端 src/ai/audit/tool-metadata.ts。
+  # 单向：后端可能发的 `ai.tool.*` key，管理台 zh/en 两字典都必须有（多余的 key 允许 ——
+  # 外部系统（B 路径代理 / Java 参考工具）的名字不在本仓注册，给它们配标签是对的）；
+  # 并检 zh/en 同键集。此前漂移过：字典给四个不存在的工具留了标签，12 个真工具一条都没有。
+  tool-label-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-tool-label-parity.mjs
+
   # 版本对账门（零依赖 node 内置）：产品版本单一真源 = 根 package.json。发版线成员（根 / Server-NestJS）
   # 须等于它；各 lockfile 根版本字段跟随其自身清单；前端显示版本常量跟随产品版本。
   # 并**直检**两个运行时权威源（生成器 provenance / 后端 /app/version）必在发版线成员内——
