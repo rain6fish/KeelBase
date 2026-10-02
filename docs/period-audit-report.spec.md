@@ -6,7 +6,7 @@
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做聚合/呈现/打包）
 
 > 基于 / Based on：既有 `GET /audit/action-report/export`（admin）产物 `ActionReportExport` —— `keelbase-audit-evidence/2`（report.summary/period/byAction/byDay/hashChain + compliance[] + chain[] + signature）。
-> 关联 / Related：D-2 单动作报告 `docs/evidence-report.spec.md`（本报告**逐条链接**到它，不复用其渲染之外的逻辑）｜ evidence-root.spec.md §3/§5/§11 ｜ docs/manual/compliance-mapping.md ｜ 不承诺清单（N-x tamper-evident 边界）｜ roadmap §22.18 D-1
+> 关联 / Related：D-2 单动作报告 `docs/evidence-report.spec.md`（本报告**逐条链接**到它，不复用其渲染之外的逻辑）｜ evidence-root.spec.md §3/§5/§11 ｜ docs/manual/compliance-mapping.md ｜ 不承诺清单（N-x tamper-evident 边界）｜ D-1
 
 ---
 
@@ -113,7 +113,7 @@
 
 ## 9. 关联 / 9. Related
 
-本规格即其设计先行 ｜ **D-2** `docs/evidence-report.spec.md`（单动作报告——本报告逐条链接其产物，并复用其渲染器）｜ evidence-root.spec.md §3/§5/§11 ｜ `GET /audit/action-report[/export]`（原料，admin）｜ roadmap §22.18（D-1；D-3 人读决策说明 可复用于本报告"动作索引"列）｜ docs/manual/compliance-mapping.md ｜ 不承诺清单
+本规格即其设计先行 ｜ **D-2** `docs/evidence-report.spec.md`（单动作报告——本报告逐条链接其产物，并复用其渲染器）｜ evidence-root.spec.md §3/§5/§11 ｜ `GET /audit/action-report[/export]`（原料，admin）｜ D-1；D-3 人读决策说明 可复用于本报告"动作索引"列 ｜ docs/manual/compliance-mapping.md ｜ 不承诺清单
 
 ---
 

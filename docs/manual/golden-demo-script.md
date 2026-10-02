@@ -102,4 +102,4 @@
 - 单容器一键跑：`./scripts/docker-single.sh`（[quickstart.md](quickstart.md)）
 - 演示站：`./deploy/demo.sh`（[demo-deploy.md](demo-deploy.md)）
 - 端定位：Web 业务 UI 归工作台，移动预览 `/mobile`（[tutorial.md](tutorial.md)）
-- P0-3 目标：README 首屏展示真实 Runtime AI 闭环（[roadmap V2 §P0-3]）
+- P0-3 目标：README 首屏展示真实 Runtime AI 闭环

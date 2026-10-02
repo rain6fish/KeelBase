@@ -6,7 +6,7 @@
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做呈现/打包）
 
 > 基于 / Based on：证据根 v3（`keelbase-audit-evidence/3`）— docs/evidence-root.spec.md；离线验证器 `Server-NestJS/scripts/verify-evidence.mjs`（结构 / `--key` 全量两模式）。
-> Related: docs/evidence-root.spec.md §3/§5/§11 ｜ docs/evidence/README.md ｜ docs/ai-action-center.spec.md ｜ docs/manual/compliance-mapping.md ｜ 不承诺清单（N-x tamper-evident 边界）｜ roadmap §22.18 D-2
+> Related: docs/evidence-root.spec.md §3/§5/§11 ｜ docs/evidence/README.md ｜ docs/ai-action-center.spec.md ｜ docs/manual/compliance-mapping.md ｜ 不承诺清单（N-x tamper-evident 边界）｜ D-2
 
 ---
 
@@ -25,7 +25,7 @@
 - ❌ 不改证据链/哈希语义、不新增表或列、不新增证据来源（**纯呈现层**；见 §2）。
 - ❌ 不新增导出端点（复用既有 `GET /ai/governance/evidence-root/:resultType/:resultId` 产物）。
 - ❌ 不引重型 PDF 引擎（PDF 走浏览器「打印为 PDF」+ 打印样式表；不依赖 puppeteer/wkhtmltopdf）。
-- ❌ 不做 SM2/时间锚（= roadmap §22.18 D-4 / evidence-root.spec §11，另线）；若包内已有 `signature.sm2`，本报告**只显示结构 + 可复制验签命令**，不代验。
+- ❌ 不做 SM2/时间锚（= D-4 / evidence-root.spec §11，另线）；若包内已有 `signature.sm2`，本报告**只显示结构 + 可复制验签命令**，不代验。
 - ❌ 不承诺「不可篡改」（对齐 N-x）：报告只如实陈述「结构自洽 / 全量重算 PASS / 断链位置」。
 
 ---
@@ -114,7 +114,7 @@
 
 ## 9. 关联 / 9. Related
 
-本规格即其设计先行 ｜ evidence-root.spec.md §3（v3 Schema）/§5（离线验证语义）/§11（SM2·时间锚 = D-4）｜ roadmap §22.18（D-1 期间审计报告 消费本报告的逐动作产物；D-3 人读决策说明 可复用于本报告「授权/决策」段）｜ docs/manual/compliance-mapping.md（证据 → 等保/密评控制项）｜ 不承诺清单（诚实边界措辞）
+本规格即其设计先行 ｜ evidence-root.spec.md §3（v3 Schema）/§5（离线验证语义）/§11（SM2·时间锚 = D-4）｜ D-1 期间审计报告 消费本报告的逐动作产物；D-3 人读决策说明 可复用于本报告「授权/决策」段 ｜ docs/manual/compliance-mapping.md（证据 → 等保/密评控制项）｜ 不承诺清单（诚实边界措辞）
 
 ---
 

@@ -4,7 +4,7 @@
 > 日期 / Date: 2026-09-16
 > 状态 / Status: **v1.0 已实现（2026-09-16，主仓 `567fce7d`）**；**v1.1（可撤销性口径）定稿、实现随本周期落**（见 §8）
 > 归属 / Home: 确认门控（§22.17 ④「级联撤销 / 业务补偿」的**影响预览切片**；护城河核心第二块的第一步）
-> 关联 / Related：`docs/run-level-approval.spec.md`（KB-5 run 聚合）｜ `src/ai/tool-effects/write-effect-type.ts`（副作用对象单源）｜ roadmap §22.17 ④
+> 关联 / Related：`docs/run-level-approval.spec.md`（KB-5 run 聚合）｜ `src/ai/tool-effects/write-effect-type.ts`（副作用对象单源）
 
 ---
 

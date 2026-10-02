@@ -4,7 +4,7 @@
 >
 > Closes acceptance-matrix case **B2 (cascade)** and gap **G3** of the revoke contract: when one AI tool call writes rows across several tables, compensating it must undo the whole business action in one shot — and the compensation itself must be recorded on the operation-audit hash chain.
 >
-> 状态：✅ 已完成。日期：2026-09-16。语义源：私有 roadmap §22.17 ④ 业务级补偿（护城河核心第二块，其中「级联撤销」一半；「影响预览」另一半另有 [impact-preview.spec.md](impact-preview.spec.md)）。
+> 状态：✅ 已完成。日期：2026-09-16。语义源：业务级补偿（其中「级联撤销」一半；「影响预览」另一半另有 [impact-preview.spec.md](impact-preview.spec.md)）。
 > 补（2026-09-24）：§4.1 重放前比对（少记录 → `disputed`）、§4.2 跨组重叠检出（REV-1 / REV-3，撤销如实性，
 > 见 [revoke-contract.spec.md](revoke-contract.spec.md) §5）；同轮续补 §4.2 撤销时**闸门**（REV-5）与
 > §4.3 effect 身份（REV-6）。

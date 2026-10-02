@@ -6,7 +6,7 @@
 > 归属 / Home: 审计交付物层（**不新增证据事实**，只做人读化）
 
 > 基于 / Based on：既有 **审计解释器** `Server-NestJS/src/ai/audit/audit-interpreter.service.ts`（`summarizeAudit` 已把审计行渲染成人读句：谁/做了什么/结果/越权·高风险阻断/流程节点/确认决策），+ 授权快照 `authorization.{allowed,denied}`（W5-⑦：`allowed{tool,checks[],policy{revision,updatedAt}}` / `denied{reasons[]}`）+ **P-③ policy-history 回放**（`replayDecision`，已实现）。
-> 关联 / Related：D-2 `docs/evidence-report.spec.md`（授权段复用本说明）｜ D-1 `docs/period-audit-report.spec.md`（"为什么允许"列复用本说明）｜ docs/manual/compliance-mapping.md（证据 → 控制项）｜ docs/policy-history-reproducible.spec.md ｜ roadmap §22.18 D-3
+> 关联 / Related：D-2 `docs/evidence-report.spec.md`（授权段复用本说明）｜ D-1 `docs/period-audit-report.spec.md`（"为什么允许"列复用本说明）｜ docs/manual/compliance-mapping.md（证据 → 控制项）｜ docs/policy-history-reproducible.spec.md ｜ D-3
 
 ---
 
@@ -102,7 +102,7 @@
 
 ## 9. 关联 / 9. Related
 
-本规格即其设计先行 ｜ **D-2** / **D-1**（授权段 / "为什么允许"列消费本说明）｜ `audit-interpreter.service.ts`（被扩展的单一真源）｜ `docs/policy-history-reproducible.spec.md`（replayDecision）｜ authorization（W5-⑦ Explainable Authz：`/auth/me/permissions`、`/auth/permissions/explain`）｜ docs/manual/compliance-mapping.md ｜ roadmap §22.18 D-3
+本规格即其设计先行 ｜ **D-2** / **D-1**（授权段 / "为什么允许"列消费本说明）｜ `audit-interpreter.service.ts`（被扩展的单一真源）｜ `docs/policy-history-reproducible.spec.md`（replayDecision）｜ authorization（W5-⑦ Explainable Authz：`/auth/me/permissions`、`/auth/permissions/explain`）｜ docs/manual/compliance-mapping.md ｜ D-3
 
 ---
 

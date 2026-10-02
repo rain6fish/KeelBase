@@ -354,8 +354,7 @@ predicate must test `IS NULL` explicitly — `x IN (NULL, …)` is never true in
 
 ### 5.9 `compensating` 被计成什么：四条撤销路径同向 / What `compensating` counts as, on all four paths
 
-ARC-3（派发前先认领）见 §5.8。**剩下两条与它同源**，共同点是**账上的读数比事实更确定**——编号见私有
-roadmap §2.1.10（ARC-2 / ARC-7）。`compensating` 意为「已请求外部补偿、结果未知」，而：
+ARC-3（派发前先认领）见 §5.8。**剩下两条与它同源**，共同点是**账上的读数比事实更确定**——（ARC-2 / ARC-7）。`compensating` 意为「已请求外部补偿、结果未知」，而：
 
 | 缺口 | 形状 |
 |---|---|
