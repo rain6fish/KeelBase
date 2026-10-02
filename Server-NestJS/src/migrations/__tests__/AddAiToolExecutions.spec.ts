@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddAiToolExecutions1836000000000 } from '../1836000000000-AddAiToolExecutions';
+import { AddAiToolExecutions1836100000000 } from '../1836100000000-AddAiToolExecutions';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -30,10 +30,10 @@ const COLUMNS: Array<{ name: string; notnull: number }> = [
   { name: 'created_at', notnull: 1 },
 ];
 
-describe('1836000000000 AddAiToolExecutions（ACT-5 执行身份）', () => {
+describe('1836100000000 AddAiToolExecutions（ACT-5 执行身份）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new AddAiToolExecutions1836000000000();
+  const migration = new AddAiToolExecutions1836100000000();
 
   const tableExists = async (): Promise<boolean> => {
     const rows = (await ds.query(

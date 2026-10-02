@@ -16,8 +16,13 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * them — their effects keep the conservative "attribute only when it is unambiguous" rule.
  *
  * Both dialects are plain `CREATE TABLE` in one file, postgres first (its types differ: `SERIAL`,
- * `character varying(n)`, `TIMESTAMP … DEFAULT now()`). Timestamp 1836000000000 is later than the
- * newest existing migrations 1835000000000.
+ * `character varying(n)`, `TIMESTAMP … DEFAULT now()`). Timestamp 1836100000000 is later than the
+ * newest existing migrations 1836000000001.
+ *
+ * **Why not 1836000000000**: another line of work had already taken `1836000000000-AddAiWriteClaims` on
+ * main (a migration for a different table). Both could coexist, but a shared timestamp leaves the
+ * execution order undetermined, against the point of the "later than the newest" rule. This one
+ * yields to 1836100000000 — which of them merges second does not matter.
  *
  * ACT-5：执行身份 —— 一次写工具的执行尝试一行，在工具跑起来**之前**落定，于是幂等键从「探测」变成闸门。
  *
@@ -29,10 +34,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 归因」规则。
  *
  * 双方言都在一个文件里用普通 `CREATE TABLE`，postgres 在前（类型不同：`SERIAL`、`character varying(n)`、
- * `TIMESTAMP … DEFAULT now()`）。时间戳 1836000000000 晚于最新既有迁移 1835000000000。
+ * `TIMESTAMP … DEFAULT now()`）。时间戳 1836100000000 晚于最新既有迁移 1836000000001。
+ *
+ * **为什么不是 1836000000000**：另一条工作线已在 main 上占了 `1836000000000-AddAiWriteClaims`（另一张表的迁移）。
+ * 两者其实能并存，但**同时间戳会让执行顺序不确定**，违背「时间戳晚于当前最新」那条约定的本意。
+ * 故本条让位到 1836100000000——**谁后合并不重要**。
  */
-export class AddAiToolExecutions1836000000000 implements MigrationInterface {
-  name = 'AddAiToolExecutions1836000000000';
+export class AddAiToolExecutions1836100000000 implements MigrationInterface {
+  name = 'AddAiToolExecutions1836100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (queryRunner.connection.options.type === 'postgres') {
