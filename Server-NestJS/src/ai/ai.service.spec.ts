@@ -1529,7 +1529,10 @@ describe('AiService', () => {
       const toolEnds = chunks.filter((c: any) => c.type === 'tool_end');
       expect(toolEnds).toHaveLength(2);
       // 修复前 outcome 被塌缩为 'decline' → 此处会是「操作已取消」
-      expect(toolEnds.map((c: any) => c.toolEnd.summary)).toEqual(['操作超时未确认', '操作超时未确认']);
+      expect(toolEnds.map((c: any) => c.toolEnd.summary)).toEqual([
+        { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' },
+        { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' },
+      ]);
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
 
@@ -1576,7 +1579,15 @@ describe('AiService', () => {
       const first = await it.next();
       expect(first.value.type).toBe('tool_start');
       expect(first.value.toolStart?.name).toBe('create_event');
-      expect(first.value.toolStart?.summary).toContain('创建事件：评审');
+      expect(first.value.toolStart?.summary).toEqual({
+        key: 'ai.present.write.createEvent',
+        fallback: 'Create event: 评审 (2026-08-10T09:00:00Z – 2026-08-10T10:00:00Z)',
+        params: {
+          title: '评审',
+          startTime: '2026-08-10T09:00:00Z',
+          endTime: '2026-08-10T10:00:00Z',
+        },
+      });
       // W5-⑦ Explainable Authz：tool_start 携带 riskLevel + authorization
       expect(first.value.toolStart?.riskLevel).toBe('R3');
       expect(first.value.toolStart?.authorization?.riskStrategy).toBe('confirmation');
@@ -1600,7 +1611,15 @@ describe('AiService', () => {
       });
       // §22.17 ④ 影响预览 v1.1：单条确认也带撤销口径（create_event → 确认写 → local_compensate）
       expect(second.value.confirmation?.revokeClass).toBe('local_compensate');
-      expect(second.value.confirmation?.summary).toContain('创建事件：评审');
+      expect(second.value.confirmation?.summary).toEqual({
+        key: 'ai.present.write.createEvent',
+        fallback: 'Create event: 评审 (2026-08-10T09:00:00Z – 2026-08-10T10:00:00Z)',
+        params: {
+          title: '评审',
+          startTime: '2026-08-10T09:00:00Z',
+          endTime: '2026-08-10T10:00:00Z',
+        },
+      });
       // W5-⑦ Explainable Authz：确认请求携带为何需确认
       expect(second.value.confirmation?.authorization?.requiresConfirmation).toBe(true);
       expect(second.value.confirmation?.authorization?.riskLevel).toBe('R3');
@@ -1617,7 +1636,7 @@ describe('AiService', () => {
       const fourth = await it.next();
       expect(fourth.value.type).toBe('tool_end');
       expect(fourth.value.toolEnd?.success).toBe(true);
-      expect(fourth.value.toolEnd?.summary).toBe('创建事件成功');
+      expect(fourth.value.toolEnd?.summary).toEqual({ key: 'ai.present.result.createEvent', fallback: 'Event created' });
 
       // 后续文本 + done
       const chunks = [];
@@ -1674,7 +1693,7 @@ describe('AiService', () => {
       const fourth = await it.next();
       expect(fourth.value.type).toBe('tool_end');
       expect(fourth.value.toolEnd?.success).toBe(false);
-      expect(fourth.value.toolEnd?.summary).toBe('操作已取消');
+      expect(fourth.value.toolEnd?.summary).toEqual({ key: 'ai.present.result.cancelled', fallback: 'Cancelled' });
 
       const chunks = [];
       for await (const c of stream) chunks.push(c);
@@ -1870,9 +1889,13 @@ describe('AiService', () => {
       expect(startIdx).toBeGreaterThanOrEqual(0);
       expect(endIdx).toBeGreaterThan(startIdx);
       expect(chunks[startIdx].toolStart?.name).toBe('query_events');
-      expect(chunks[startIdx].toolStart?.summary).toBe('查询事件');
+      expect(chunks[startIdx].toolStart?.summary).toEqual({ key: 'ai.tool.queryEvents', fallback: 'Query events' });
       expect(chunks[endIdx].toolEnd?.success).toBe(true);
-      expect(chunks[endIdx].toolEnd?.summary).toBe('查询到 2 个结果');
+      expect(chunks[endIdx].toolEnd?.summary).toEqual({
+        key: 'ai.present.result.rows',
+        fallback: '2 result(s)',
+        params: { count: '2' },
+      });
       // 工具执行后 text + done
       expect(chunks[chunks.length - 1].type).toBe('done');
     });

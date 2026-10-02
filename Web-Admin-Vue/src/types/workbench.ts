@@ -2,6 +2,8 @@
 
 /** 工作台（应用侧）本人数据模型 —— 对应后端 user-scoped 端点 */
 
+import type { PresentationText } from './presentation'
+
 export interface MyEvent {
   id: number
   title: string
@@ -168,14 +170,14 @@ export interface BatchRevokeResult {
 export interface MyConfirmationItem {
   token: string
   toolName: string
-  summary: string | null
+  summary: PresentationText | null
   arguments: Record<string, unknown>
   mode: 'immediate' | 'approval' | 'run'
   riskLevel: string
   status: 'pending' | 'approved' | 'declined' | 'timeout'
   impact: { actions: number; targets: Array<{ resultType: string; count: number }> } | null
   revokeClass: string | null
-  run: { runId: string; riskLevel: string; items: Array<{ toolName: string; summary: string }> } | null
+  run: { runId: string; riskLevel: string; items: Array<{ toolName: string; summary: PresentationText }> } | null
   createdAt: string
   decidedAt: string | null
   expiresAt?: string

@@ -75,7 +75,7 @@
 ConfirmationRequestData（扩展，向后兼容）
   token: string                          // run 的授权 token（一次授权对应一个 run token）
   toolName?: string                      // 单条模式保留（旧字段，run 模式可空或填 run 主动作）
-  summary?: string                       // 单条模式保留
+  summary?: PresentationText             // 单条模式保留；形状见 §3.4
   arguments?: object                     // 单条模式保留
   authorization?: AuthorizationReasons
   mode?: 'immediate' | 'approval' | 'run'     // ← 新增 'run'
@@ -84,7 +84,7 @@ ConfirmationRequestData（扩展，向后兼容）
     riskLevel: string                    // runRisk（批内最高）
     items: Array<{                       // 逐条 diff 摘要 —— run 卡的"有 diff"核心
       toolName: string
-      summary: string                    // per-tool 摘要（§3），如"创建事件：产品评审（2026-09-08…）"
+      summary: PresentationText          // per-tool 摘要（§3）：语义 key + 参数 + 英文兜底（§3.4）
       riskLevel: string                  // 该动作自身风险级
       // 逐条执行结果经既有 tool_end / confirmation_decision 事件回传，不在此内联
     }>
@@ -128,7 +128,7 @@ run 记录置 approved
 
 ### 3.1 问题 / 3.1 Problem
 
-run 卡"有 diff 而非盲批"的**前提**是每个动作能被转成人类可读的"将做什么"。现状 `summarizeWriteTool`（`ai.service.ts` L1556-1585）是 **AiService 私有 hardcode switch**；`AiTool` 接口（`tool.interface.ts` L118-137）无 summary 字段。单卡场景够用，但 run 卡要**逐条、可扩展、非 AiService 私有**。
+run 卡"有 diff 而非盲批"的**前提**是每个动作能被转成人类可读的"将做什么"。当时的 `summarizeWriteTool` 曾是 **AiService 私有 hardcode switch**（后迁至 `ToolPresentationService`，见 §3.4）；`AiTool` 接口（`tool.interface.ts`）无 summary 字段。单卡场景够用，但 run 卡要**逐条、可扩展、非 AiService 私有**。
 
 ### 3.2 设计 / 3.2 Design
 
@@ -138,6 +138,23 @@ run 卡"有 diff 而非盲批"的**前提**是每个动作能被转成人类可�
 
 - 未实现 `summarize` 的动作，run 卡标注 **「该动作无法预读摘要 → 需单独确认」，不并入 run**（该条退回单条即时确认）。**宁可不聚合，不盲批**——这是 run-level 的信任底线。
 - 逐条 diff 最小展示集（对齐做空批评的"人到底确认了什么"）：动作类型（创建/更新/删除/提交）+ 目标 title + 关键字段（时间/状态/金额/对象名）。实现可先覆盖旗舰写工具（create_event / create_todo / create_followup_task / create_customers / update_customer_status / create_contract 等已 hardcode 的），其余按 3.3 降级单独确认。
+
+
+### 3.4 文案形状：`PresentationText`（2026-10-02 改）/ 3.4 Text shape
+
+`summary` 原为**服务端拼好的中文字符串**。四个面**原样渲染**它（管理台助手抽屉与确认卡、移动端工具卡与确认卡），于是一句中文落在英文界面上 —— 违反管理台双语红线（公开 `CLAUDE.md` §5.5）。现在它是一段**说明白说什么、由各端自己说**的文本：
+
+```
+PresentationText（`tool.interface.ts`）
+  key: string                        // 语义 key，如 ai.present.write.createEvent / ai.tool.queryEvents
+  fallback: string                   // 英文兜底；占位符写成 {name}
+  params?: Record<string,string>     // 插值参数，键名与 fallback 里的占位符同名
+```
+
+- **读摘要复用工具标签 key**（`ai.tool.<camelCase>`，与 `ai-feature-map` 同一个派生）——本处原有一份 20 条中文 switch，是同一批工具的**第三份手抄**，已删。
+- **写摘要与结果摘要**各有自己的 `ai.present.*` key + 参数；「有截止 / 无截止」这类分支是**两条 key**（模板里表达不了条件），而不是半个句子。
+- 各端拿 `key` 去自己的 i18n 取；**没有该条目**的端插值 `fallback`（英文），不显示空、也不显示 key。
+- **持久化兼容**：run 行的 `items` 存进确认表，改写前落库的行里 `summary` 是字符串 —— 读取侧（`ToolPresentationService.parseRunItems`）把它包成 `PresentationText` 再交出去。
 
 ---
 

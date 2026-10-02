@@ -98,7 +98,7 @@ describe('ConfirmationStore', () => {
     repo.create.mockClear();
     await store.createRun(
       '1',
-      [{ toolName: 'create_event', args: {}, summary: 's', riskLevel: 'R3' }],
+      [{ toolName: 'create_event', args: {}, summary: { key: 'ai.present.write.generic', fallback: 's' }, riskLevel: 'R3' }],
       'R3',
       undefined,
       'conv-run',
@@ -246,8 +246,8 @@ describe('ConfirmationStore', () => {
   // KB-5 run-level approval（docs/run-level-approval.spec.md §2.4）
   it('createRun：落库 kind=run + run_items 快照 + runRisk，一次授权放行整批', async () => {
     const items = [
-      { toolName: 'create_event', args: { title: 'A' }, summary: '创建事件：A', riskLevel: 'R3' },
-      { toolName: 'create_todo', args: { title: 'B' }, summary: '创建待办：B', riskLevel: 'R3' },
+      { toolName: 'create_event', args: { title: 'A' }, summary: { key: 'ai.present.write.createEvent', fallback: 'A' }, riskLevel: 'R3' },
+      { toolName: 'create_todo', args: { title: 'B' }, summary: { key: 'ai.present.write.createTodo', fallback: 'B' }, riskLevel: 'R3' },
     ];
     const { token, decision } = await store.createRun('1', items, 'R3');
 
@@ -270,8 +270,8 @@ describe('ConfirmationStore', () => {
 
   it('createRun：拒绝整批（decline）', async () => {
     const items = [
-      { toolName: 'create_event', args: { title: 'A' }, summary: '创建事件：A', riskLevel: 'R3' },
-      { toolName: 'create_todo', args: { title: 'B' }, summary: '创建待办：B', riskLevel: 'R3' },
+      { toolName: 'create_event', args: { title: 'A' }, summary: { key: 'ai.present.write.createEvent', fallback: 'A' }, riskLevel: 'R3' },
+      { toolName: 'create_todo', args: { title: 'B' }, summary: { key: 'ai.present.write.createTodo', fallback: 'B' }, riskLevel: 'R3' },
     ];
     const { token, decision } = await store.createRun('1', items, 'R3');
     expect(await store.resolve(token, '1', 'reject')).toBe(true);

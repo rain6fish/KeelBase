@@ -20,7 +20,7 @@ import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { ConfirmationStore, CONFIRMATION_STATUS, RunItem, isWithinOfflineWindow } from './confirmation.store';
 import { ExecutionState, deriveExecutionState } from './execution-state';
-import { ConfirmationImpact, RevokeClass } from '../interfaces/tool.interface';
+import { ConfirmationImpact, PresentationText, RevokeClass } from '../interfaces/tool.interface';
 
 /**
  * 本人确认记录（wire 契约 my-confirmation-item v1）。
@@ -30,7 +30,7 @@ import { ConfirmationImpact, RevokeClass } from '../interfaces/tool.interface';
 export interface MyConfirmationItem {
   token: string;
   toolName: string;
-  summary: string | null;
+  summary: PresentationText | null;
   arguments: Record<string, unknown>;
   mode: 'immediate' | 'approval' | 'run';
   riskLevel: string;

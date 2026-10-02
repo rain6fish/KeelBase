@@ -18,8 +18,15 @@ import { ToolRegistry } from './tool-registry';
 import { ToolExecutionService } from './tool-execution.service';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
 import { RunItem } from '../confirmation/confirmation.store';
-import { ConfirmationImpact, RevokeClass, ToolResult, resolveRevokeClass } from '../interfaces/tool.interface';
+import {
+  ConfirmationImpact,
+  PresentationText,
+  RevokeClass,
+  ToolResult,
+  resolveRevokeClass,
+} from '../interfaces/tool.interface';
 import { deriveWriteImpact } from '../tool-effects/write-impact';
+import { TOOL_METADATA, toolLabelKey } from '../audit/tool-metadata';
 
 @Injectable()
 export class ToolPresentationService {
@@ -66,12 +73,12 @@ export class ToolPresentationService {
 
   /**
    * GA 待我确认中心（docs/ai-action-center.spec.md §9）：把一条确认存储行还原成**人读**信息
-   * （摘要 / 影响预览 / 撤销档 / 展示模式）。这四样知识都长在本域（writeToolSummary / writeImpact /
+   * （摘要 / 影响预览 / 撤销档 / 展示模式）。这四样知识都长在本域（writeSummary / writeImpact /
    * revokeClass），故由本域对外提供单一真源，而不让调用方各拼一份；
    * 列表与离线裁决的编排本身在 MyConfirmationService，不在这里。
    */
   describeConfirmation(row: AiConfirmationRequest): {
-    summary: string | null;
+    summary: PresentationText | null;
     impact: ConfirmationImpact | null;
     revokeClass: RevokeClass | null;
     mode: 'immediate' | 'approval' | 'run';
@@ -90,12 +97,21 @@ export class ToolPresentationService {
     return {
       summary:
         mode === 'run'
-          ? `一次授权整批（${(runItems ?? []).length} 个动作）`
-          : this.writeToolSummary(row.toolName, args),
+          ? this._runBatchSummary((runItems ?? []).length)
+          : this.writeSummary(row.toolName, args),
       impact: toolNames.length ? this.writeImpact(toolNames) : null,
       revokeClass: this.revokeClass(row.toolName) ?? null,
       mode,
       run: runItems ? { runId: row.token, riskLevel: row.riskLevel, items: runItems } : null,
+    };
+  }
+
+  /** 一次授权整批的摘要（run 卡）。 */
+  private _runBatchSummary(count: number): PresentationText {
+    return {
+      key: 'ai.present.runBatch',
+      fallback: `Authorize ${count} action(s) in one batch`,
+      params: { count: String(count) },
     };
   }
 
@@ -104,7 +120,17 @@ export class ToolPresentationService {
     if (!raw) return [];
     try {
       const parsed = JSON.parse(raw) as RunItem[];
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      // Rows written before the presentation text became `{key, fallback}` hold a plain string. Those
+      // rows are TTL-bounded but not gone, so wrap the string rather than hand a renderer a shape it
+      // cannot read. / 文案改成 `{key, fallback}` 之前写下的行里存的是普通字符串 —— 它们有 TTL 但
+      // 还没消失，包一层，别把渲染端读不懂的形状递出去。
+      return parsed.map((item) => {
+        const legacy = item as unknown as { summary: unknown };
+        return typeof legacy.summary === 'string'
+          ? { ...item, summary: { key: 'ai.present.write.generic', fallback: legacy.summary } }
+          : item;
+      });
     } catch {
       return [];
     }
@@ -113,121 +139,114 @@ export class ToolPresentationService {
   /**
    * KB-5：写工具的"人读 diff 摘要"（run 卡"有 diff 而非盲批"前提，docs/run-level-approval.spec.md §3）。
    * 返回 null 表示该工具暂无具体摘要（诚实降级：单条确认卡仍显示通用文案，run 聚合不并入该条）。
-   * 未来演进：每工具自带 summarize(args)（spec §3.2），此处 switch 随之退位。
    */
-  writeToolSummary(
+  writeSummary(
     toolName: string,
     args: Record<string, unknown>,
-  ): string | null {
+  ): PresentationText | null {
     const title = (args.title as string) ?? '';
+    const name = (args.name as string) ?? '';
     switch (toolName) {
       case 'create_event':
-        return `创建事件：${title}（${args.startTime ?? '?'} 至 ${args.endTime ?? '?'}）`;
+        return {
+          key: 'ai.present.write.createEvent',
+          fallback: `Create event: ${title} (${args.startTime ?? '?'} – ${args.endTime ?? '?'})`,
+          params: {
+            title,
+            startTime: String(args.startTime ?? '?'),
+            endTime: String(args.endTime ?? '?'),
+          },
+        };
       case 'create_todo':
-        return `创建待办：${title}${args.dueDate ? `（截止 ${args.dueDate}）` : ''}`;
+        return args.dueDate
+          ? {
+              key: 'ai.present.write.createTodoDue',
+              fallback: `Create todo: ${title} (due ${args.dueDate})`,
+              params: { title, dueDate: String(args.dueDate) },
+            }
+          : { key: 'ai.present.write.createTodo', fallback: `Create todo: ${title}`, params: { title } };
       case 'create_customers':
-        return `创建客户：${(args.name as string) ?? ''}`;
+        return { key: 'ai.present.write.createCustomers', fallback: `Create customer: ${name}`, params: { name } };
       case 'create_followup_task':
-        return `创建跟进任务：${title}`;
+        return { key: 'ai.present.write.createFollowupTask', fallback: `Create follow-up task: ${title}`, params: { title } };
       case 'create_contract':
-        return `创建合同：${title}`;
+        return { key: 'ai.present.write.createContract', fallback: `Create contract: ${name}`, params: { name } };
       case 'create_project':
-        return `创建项目：${title}`;
+        return { key: 'ai.present.write.createProject', fallback: `Create project: ${title}`, params: { title } };
       case 'create_project_task':
-        return `创建项目任务：${title}`;
+        return { key: 'ai.present.write.createProjectTask', fallback: `Create project task: ${title}`, params: { title } };
       case 'update_customer_status':
-        return `更新客户状态：${(args.status as string) ?? ''}`;
+        return {
+          key: 'ai.present.write.updateCustomerStatus',
+          fallback: `Update customer status: ${(args.status as string) ?? ''}`,
+          params: { status: (args.status as string) ?? '' },
+        };
       case 'submit_approval_request':
-        return '提交审批请求';
+        return { key: 'ai.present.write.submitApprovalRequest', fallback: 'Submit approval request' };
       case 'create_knowledge':
-        return '创建知识条目';
+        return { key: 'ai.present.write.createKnowledge', fallback: 'Create knowledge entry' };
       default:
         return null;
     }
   }
 
   /**
-   * 生成写操作的人工可读摘要（用于单条确认卡）。
+   * 生成写操作的人工可读摘要（用于单条确认卡与 GA 确认行）。
    */
-  summarizeWriteTool(
-    toolName: string,
-    args: Record<string, unknown>,
-  ): string {
-    return this.writeToolSummary(toolName, args) ?? '执行写操作';
+  writeSummaryOrGeneric(toolName: string, args: Record<string, unknown>): PresentationText {
+    return (
+      this.writeSummary(toolName, args) ?? {
+        key: 'ai.present.write.generic',
+        fallback: 'Ran a write operation',
+      }
+    );
   }
 
   /**
-   * 生成只读工具的简短执行摘要（用于 tool_start 卡片）。
+   * 只读工具的一行文案：**复用工具标签**（`ai.tool.<camel>`，与 `ai-feature-map` 同一个派生）。
+   *
+   * 这取代了原先本处那份 20 条中文 switch —— 它是同一批工具的**第三份手抄**，而其中 5 条的名字
+   * （`query_contacts` / `query_opportunities` / `query_knowledge` / `query_suppliers` / `query_invoices`）
+   * 本仓与 Java 参考线都查不到。未登记的工具返回 null，由各端用自己的标签（无则回退工具名）兜底。
    */
-  summarizeReadTool(toolName: string): string {
-    switch (toolName) {
-      case 'query_events':
-        return '查询事件';
-      case 'count_events_by_status':
-        return '统计事件';
-      case 'query_events_by_keyword':
-        return '搜索事件';
-      case 'get_user_stats':
-        return '获取用户统计';
-      case 'navigate_page':
-        return '页面跳转';
-      case 'query_customers':
-        return '查询客户';
-      case 'query_customer_orders':
-        return '查询客户订单';
-      case 'query_customer_activities':
-        return '查询客户跟进';
-      case 'query_contacts':
-        return '查询联系人';
-      case 'query_opportunities':
-        return '查询销售机会';
-      case 'analyze_customer_risk':
-        return '分析客户风险';
-      case 'query_projects':
-        return '查询项目';
-      case 'query_project_tasks':
-        return '查询项目任务';
-      case 'analyze_project_risk':
-        return '分析项目延期风险';
-      case 'query_approval_requests':
-        return '查询审批请求';
-      case 'query_approval_policies':
-        return '查询审批政策';
-      case 'query_knowledge':
-        return '查询知识库';
-      case 'query_contracts':
-        return '查询合同';
-      case 'query_suppliers':
-        return '查询供应商';
-      case 'query_invoices':
-        return '查询发票';
-      default:
-        return '执行工具调用';
+  readSummary(toolName: string): PresentationText | null {
+    const meta = TOOL_METADATA[toolName];
+    return meta ? { key: toolLabelKey(toolName), fallback: meta.label } : null;
+  }
+
+  /**
+   * 生成工具执行结果摘要（用于 tool_end 卡片）。失败时交出工具自己的错误文本作为兜底
+   * （不另加本地化前缀 —— 那会改变今天逐字显示的文案）。
+   */
+  resultSummary(toolName: string, result: ToolResult): PresentationText {
+    if (!result.success) {
+      return { key: 'ai.present.result.failed', fallback: result.error ?? 'The tool failed' };
     }
-  }
-
-  /**
-   * 生成工具执行结果摘要（用于 tool_end 卡片）。
-   */
-  summarizeToolResult(toolName: string, result: ToolResult): string {
-    if (!result.success) return result.error ?? '执行失败';
     const d = result.data as any;
     switch (toolName) {
       case 'query_events':
-      case 'query_events_by_keyword':
-        return `查询到 ${Array.isArray(d) ? d.length : 0} 个结果`;
+      case 'query_events_by_keyword': {
+        const count = Array.isArray(d) ? d.length : 0;
+        return { key: 'ai.present.result.rows', fallback: `${count} result(s)`, params: { count: String(count) } };
+      }
       case 'count_events_by_status':
-        return typeof d?.total === 'number' ? `共 ${d.total} 个事件` : '统计完成';
+        return typeof d?.total === 'number'
+          ? { key: 'ai.present.result.count', fallback: `${d.total} event(s)`, params: { count: String(d.total) } }
+          : { key: 'ai.present.result.done', fallback: 'Done' };
       case 'get_user_stats':
-        return '获取用户统计完成';
+        return { key: 'ai.present.result.getUserStats', fallback: 'User stats ready' };
       case 'navigate_page':
-        return `跳转至${d?.description ?? ''}`;
+        return {
+          key: 'ai.present.result.navigate',
+          fallback: `Navigated to ${d?.description ?? ''}`,
+          params: { description: String(d?.description ?? '') },
+        };
       case 'create_event':
-        return '创建事件成功';
+        return { key: 'ai.present.result.createEvent', fallback: 'Event created' };
       case 'create_todo':
-        return '创建待办成功';
+        return { key: 'ai.present.result.createTodo', fallback: 'Todo created' };
       default:
-        return '执行完成';
+        return { key: 'ai.present.result.done', fallback: 'Done' };
     }
   }
 

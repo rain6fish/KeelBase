@@ -9,6 +9,7 @@ import { API_BASE_URL } from '@/utils/constants'
 import { storage } from '@/utils/storage'
 import { refreshAccessToken } from '@/api/session'
 import { api } from '@/api/client'
+import type { PresentationText } from '@/types/presentation'
 
 // ── 流式事件类型（与后端 ai.service.ts chatStream 对齐）──────────────────────
 
@@ -29,7 +30,7 @@ export interface AiAuthorization {
 
 export interface AiToolStart {
   name: string
-  summary?: string
+  summary?: PresentationText | null
   arguments: Record<string, unknown>
   isWrite: boolean
   riskLevel?: string
@@ -39,7 +40,7 @@ export interface AiToolStart {
 /** KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心） */
 export interface AiRunItem {
   toolName: string
-  summary: string
+  summary: PresentationText
   riskLevel: string
   /** §22.17 ④ 影响预览 v1.1：该动作的撤销能力档（KB-6 四档；后端缺省省略 → 不渲染撤销行） */
   revokeClass?: string
@@ -49,7 +50,7 @@ export interface AiConfirmation {
   token: string
   /** run 模式时可空（整批用 run.items 展示）；单动作模式（confirmation/approval）必有 */
   toolName?: string
-  summary?: string
+  summary?: PresentationText
   arguments?: Record<string, unknown>
   /** 'confirmation' = R3 本人即时确认；'approval' = R4 已提交人工审批；'run' = KB-5 一次授权整批 */
   mode?: 'confirmation' | 'approval' | 'run'
@@ -87,7 +88,7 @@ export interface AiConfirmationDecision {
 export interface AiToolEnd {
   name: string
   success: boolean
-  summary?: string
+  summary?: PresentationText
   error?: string
 }
 

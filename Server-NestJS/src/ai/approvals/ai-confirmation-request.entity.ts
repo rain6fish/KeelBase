@@ -85,6 +85,8 @@ export class AiConfirmationRequest {
 
   /**
    * KB-5 run：批内动作快照 JSON（RunItem[] = {toolName, args, summary, riskLevel}）。
+   * `summary` 为 PresentationText（key + fallback + params，见 `tool.interface.ts`）；
+   * 该形状落地**之前**写下的行里是普通字符串，读取侧 `parseRunItems` 会包一层。
    * single 行为 null；run 行 tool_name='run'、args='[]' 占位（NOT NULL 约束）、risk_level 复用为 runRisk。
    */
   @Column({ type: 'text', nullable: true, name: 'run_items' })

@@ -24,7 +24,7 @@
             <el-tag :type="m.toolStart.isWrite ? 'primary' : 'info'" size="small" effect="plain">{{ m.toolStart.isWrite ? t('writeOp') : t('readOp') }}</el-tag>
             <span class="text-caption font-weight-medium">{{ toolLabelText(m.toolStart.name) }}</span>
           </div>
-          <div v-if="m.toolStart.isWrite && m.toolStart.summary" class="text-caption text-medium-emphasis mt-1">{{ m.toolStart.summary }}</div>
+          <div v-if="m.toolStart.isWrite && presentText(m.toolStart.summary)" class="text-caption text-medium-emphasis mt-1">{{ presentText(m.toolStart.summary) }}</div>
           <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
             {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
           </div>
@@ -79,6 +79,9 @@ import AppIcon from '@/components/AppIcon.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import { toolLabel } from '@/utils/toolLabel'
+import { usePresentText } from '@/utils/presentation'
+
+const presentText = usePresentText()
 
 const props = defineProps<{
   modelValue: boolean

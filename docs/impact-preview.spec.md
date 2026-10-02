@@ -56,12 +56,13 @@
 
 ```jsonc
 // 单条（mode 缺省 / approval）：与 toolName / summary 同级
-{ "token": "…", "toolName": "create_followup_task", "revokeClass": "local_compensate", "impact": {…} }
+// summary 是 PresentationText（key + fallback + params，见 run-level-approval.spec.md §3.4）
+{ "token": "…", "toolName": "create_followup_task", "summary": { "key": "ai.present.write.createFollowupTask", "fallback": "Create follow-up task: …", "params": { "title": "…" } }, "revokeClass": "local_compensate", "impact": {…} }
 
 // run（mode === 'run'）：逐条动作各带一档
 { "mode": "run", "run": { "runId": "…", "riskLevel": "R3", "items": [
-  { "toolName": "create_followup_task", "summary": "…", "riskLevel": "R3", "revokeClass": "local_compensate" },
-  { "toolName": "proxy_tool_x",         "summary": "…", "riskLevel": "R3", "revokeClass": "governed_external" }
+  { "toolName": "create_followup_task", "summary": { "key": "ai.present.write.createFollowupTask", "fallback": "…", "params": { "title": "…" } }, "riskLevel": "R3", "revokeClass": "local_compensate" },
+  { "toolName": "proxy_tool_x",         "summary": { "key": "ai.present.write.generic", "fallback": "Ran a write operation" }, "riskLevel": "R3", "revokeClass": "governed_external" }
 ] } }
 ```
 

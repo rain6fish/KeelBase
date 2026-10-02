@@ -12,7 +12,11 @@ import AiConfirmationCard from '../AiConfirmationCard.vue'
 const confirmation = {
   token: 'tok-1',
   toolName: 'create_followup_task',
-  summary: '给上海 XX 公司创建跟进任务',
+  summary: {
+    key: 'ai.present.write.createFollowupTask',
+    fallback: 'Create follow-up task: 给上海 XX 公司创建跟进任务',
+    params: { title: '给上海 XX 公司创建跟进任务' },
+  },
   arguments: { customerId: 7, title: '跟进高风险客户' },
   authorization: { riskLevel: 'R3', checks: [{ name: 'ownership', ok: true, note: '张三拥有该客户' }] },
 }
@@ -31,7 +35,8 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
   it('渲染工具摘要、风险级标签与参数', () => {
     const wrapper = mountCard()
     expect(wrapper.text()).toContain('需确认的操作')
-    expect(wrapper.text()).toContain('给上海 XX 公司创建跟进任务')
+    // 本端渲染：key → 中文模板（服务端只发 key + 参数 + 英文兜底）
+    expect(wrapper.text()).toContain('创建跟进任务：给上海 XX 公司创建跟进任务')
     expect(wrapper.text()).toContain('需确认') // R3 → riskConfirm
     expect(wrapper.text()).toContain('customerId')
   })
@@ -70,9 +75,9 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
         runId: 'run-1',
         riskLevel: 'R3',
         items: [
-          { toolName: 'create_event', summary: '创建事件：评审', riskLevel: 'R3', revokeClass: 'local_compensate' },
-          { toolName: 'create_todo', summary: '创建待办：待办A', riskLevel: 'R3', revokeClass: 'local_compensate' },
-          { toolName: 'proxy_tool_x', summary: '外部结算', riskLevel: 'R3', revokeClass: 'governed_external' },
+          { toolName: 'create_event', summary: { key: 'ai.present.write.createEvent', fallback: 'Create event: 评审', params: { title: '评审', startTime: '?', endTime: '?' } }, riskLevel: 'R3', revokeClass: 'local_compensate' },
+          { toolName: 'create_todo', summary: { key: 'ai.present.write.createTodo', fallback: 'Create todo: 待办A', params: { title: '待办A' } }, riskLevel: 'R3', revokeClass: 'local_compensate' },
+          { toolName: 'proxy_tool_x', summary: { key: 'ai.present.write.generic', fallback: '外部结算' }, riskLevel: 'R3', revokeClass: 'governed_external' },
         ],
       },
     })
@@ -129,12 +134,12 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
         runId: 'run-1',
         riskLevel: 'R3',
         items: [
-          { toolName: 'create_event', summary: '创建事件：评审', riskLevel: 'R3' },
-          { toolName: 'create_todo', summary: '创建待办：待办A', riskLevel: 'R3' },
+          { toolName: 'create_event', summary: { key: 'ai.present.write.createEvent', fallback: 'Create event: 评审', params: { title: '评审', startTime: '?', endTime: '?' } }, riskLevel: 'R3' },
+          { toolName: 'create_todo', summary: { key: 'ai.present.write.createTodo', fallback: 'Create todo: 待办A', params: { title: '待办A' } }, riskLevel: 'R3' },
         ],
       },
     })
-    expect(wrapper.text()).toContain('创建事件：评审')
+    expect(wrapper.text()).toContain('创建事件：评审（? 至 ?）')
     expect(wrapper.text()).toContain('创建待办：待办A')
     // i18n key 未加 → fallback 内联文案（随并发 i18n 合并后提为正式 key）
     expect(wrapper.text()).toContain('本次将执行 2 个操作')
@@ -146,7 +151,7 @@ describe('AiConfirmationCard（D1 闭环写操作确认卡）', () => {
     const wrapper = mountCard({
       toolName: undefined,
       mode: 'run',
-      run: { runId: 'run-1', riskLevel: 'R3', items: [{ toolName: 'create_event', summary: '创建事件：评审', riskLevel: 'R3' }] },
+      run: { runId: 'run-1', riskLevel: 'R3', items: [{ toolName: 'create_event', summary: { key: 'ai.present.write.createEvent', fallback: 'Create event: 评审', params: { title: '评审', startTime: '?', endTime: '?' } }, riskLevel: 'R3' }] },
     })
     const approve = wrapper.findAll('button').find((b) => b.text().includes('批准'))!
     await approve.trigger('click')

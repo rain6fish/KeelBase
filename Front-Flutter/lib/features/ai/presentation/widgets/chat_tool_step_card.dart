@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../data/models/tool_step_model.dart';
+import '../utils/ai_presentation_text.dart';
 
 /// AI 工具执行步骤卡片（Agent Decision Trace 用户侧展示）
 ///
@@ -21,20 +22,20 @@ class ChatToolStepCard extends StatelessWidget {
 
     final Widget statusIcon = switch (step.status) {
       ToolStepStatus.running => const SizedBox(
-          width: 18,
-          height: 18,
-          child: CupertinoActivityIndicator(radius: 7),
-        ),
+        width: 18,
+        height: 18,
+        child: CupertinoActivityIndicator(radius: 7),
+      ),
       ToolStepStatus.success => Icon(
-          CupertinoIcons.checkmark_circle_fill,
-          size: 18,
-          color: CupertinoColors.systemGreen.resolveFrom(context),
-        ),
+        CupertinoIcons.checkmark_circle_fill,
+        size: 18,
+        color: CupertinoColors.systemGreen.resolveFrom(context),
+      ),
       ToolStepStatus.error => Icon(
-          CupertinoIcons.xmark_circle_fill,
-          size: 18,
-          color: CupertinoColors.systemRed.resolveFrom(context),
-        ),
+        CupertinoIcons.xmark_circle_fill,
+        size: 18,
+        color: CupertinoColors.systemRed.resolveFrom(context),
+      ),
     };
 
     final String statusLabel = switch (step.status) {
@@ -45,10 +46,10 @@ class ChatToolStepCard extends StatelessWidget {
     // 写操作已确认（成功）→ 展示确认 + 可撤销；写操作执行中 → 需确认；读操作 → 只读
     final String? actionLabel = step.isWrite
         ? (step.status == ToolStepStatus.success
-            ? l10n.aiToolConfirmedRevocable
-            : step.status == ToolStepStatus.running
-                ? l10n.aiToolWriteNeedsConfirm
-                : null)
+              ? l10n.aiToolConfirmedRevocable
+              : step.status == ToolStepStatus.running
+              ? l10n.aiToolWriteNeedsConfirm
+              : null)
         : l10n.aiToolReadOnly;
 
     return Padding(
@@ -60,7 +61,9 @@ class ChatToolStepCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark
-                ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.24)
+                ? CupertinoColors.systemGrey5
+                      .resolveFrom(context)
+                      .withValues(alpha: 0.24)
                 : CupertinoColors.systemGrey6.resolveFrom(context),
             borderRadius: BorderRadius.circular(14),
           ),
@@ -77,19 +80,29 @@ class ChatToolStepCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      step.summary,
+                      presentAiText(
+                        step.summary,
+                        toolName: step.name,
+                        isZh:
+                            Localizations.localeOf(context).languageCode ==
+                            'zh',
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
-                        color: CupertinoTheme.of(context).textTheme.textStyle.color,
+                        color: CupertinoTheme.of(
+                          context,
+                        ).textTheme.textStyle.color,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         _Badge(
-                          label: step.isWrite ? l10n.aiToolWrite : l10n.aiToolRead,
+                          label: step.isWrite
+                              ? l10n.aiToolWrite
+                              : l10n.aiToolRead,
                           color: step.isWrite
                               ? CupertinoColors.systemOrange
                               : CupertinoColors.systemBlue,
@@ -98,7 +111,9 @@ class ChatToolStepCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           _Badge(
                             label: actionLabel,
-                            color: step.isWrite && step.status == ToolStepStatus.success
+                            color:
+                                step.isWrite &&
+                                    step.status == ToolStepStatus.success
                                 ? CupertinoColors.systemGreen
                                 : CupertinoColors.systemGrey,
                           ),
@@ -113,7 +128,8 @@ class ChatToolStepCard extends StatelessWidget {
                         color: CupertinoColors.systemGrey.resolveFrom(context),
                       ),
                     ),
-                    if (step.status == ToolStepStatus.error && step.error != null &&
+                    if (step.status == ToolStepStatus.error &&
+                        step.error != null &&
                         step.error!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
@@ -153,7 +169,11 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

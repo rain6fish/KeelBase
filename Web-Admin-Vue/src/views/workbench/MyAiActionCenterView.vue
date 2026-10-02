@@ -30,7 +30,7 @@
                 {{ t('aiCenterConfirmImpact', { n: c.impact.actions }) }}
               </el-tag>
             </div>
-            <div class="text-body-2 mt-1">{{ c.summary }}</div>
+            <div class="text-body-2 mt-1">{{ presentText(c.summary) }}</div>
             <div class="text-caption text-medium-emphasis mt-1">
               {{ formatTime(c.createdAt) }}
               <template v-if="c.expiresAt"> · {{ t('aiCenterConfirmExpires', { at: formatTime(c.expiresAt) }) }}</template>
@@ -206,6 +206,9 @@ import { aiTraceApi } from '@/api/aiTrace'
 import { formatTime } from '@/utils/format'
 import { toolLabel } from '@/utils/toolLabel'
 import type { ConversationSummary, MyAiEffect, MyConfirmationItem } from '@/types/workbench'
+import { usePresentText } from '@/utils/presentation'
+
+const presentText = usePresentText()
 
 const { t, tm } = useI18n()
 const snackbar = useSnackbarStore()

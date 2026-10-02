@@ -12,6 +12,7 @@ import {
   AuthorizationCheck,
   AuthorizationReasons,
   ConfirmationImpact,
+  PresentationText,
   RevokeClass,
 } from './tool.interface';
 import { LlmUsage } from '../llm-usage';
@@ -60,7 +61,7 @@ export interface GenerateResult {
 /** KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心） */
 export interface ConfirmationRunItem {
   toolName: string;
-  summary: string;
+  summary: PresentationText;
   riskLevel: string;
   /**
    * §22.17 ④ 影响预览 v1.1 撤销口径（KB-6 四档）：该动作事后能不能撤回。
@@ -74,7 +75,7 @@ export interface ConfirmationRequestData {
   token: string;
   /** 单动作模式（mode 缺省/approval）必有；mode==='run' 时可空或填 run 主动作 */
   toolName?: string;
-  summary?: string;
+  summary?: PresentationText;
   arguments?: Record<string, unknown>;
   /** W5-⑦ Explainable Authz：为何需确认（风险级/策略/检查清单） */
   authorization?: AuthorizationReasons;
@@ -118,7 +119,8 @@ export interface ConfirmationDecisionData {
 /** 工具执行开始（前端进程卡片） */
 export interface ToolStartData {
   name: string;
-  summary: string;
+  /** 只读工具无标签时不发（各端用自己的标签兜底） */
+  summary: PresentationText | null;
   arguments?: Record<string, unknown>;
   /** ADT（P0-14）：写操作（需确认/可撤销）标记 */
   isWrite?: boolean;
@@ -138,7 +140,7 @@ export interface AuthorizationDeniedData {
 export interface ToolEndData {
   name: string;
   success: boolean;
-  summary?: string;
+  summary?: PresentationText;
   error?: string;
   /** W5-⑦ Explainable Authz：授权被拒时携带「为何阻止」+ 失败检查清单 */
   authorizationDenied?: AuthorizationDeniedData;

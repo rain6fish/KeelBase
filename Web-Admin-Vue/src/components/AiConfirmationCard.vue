@@ -33,7 +33,7 @@
       <div class="run-items mb-2">
         <div v-for="(item, i) in runItems" :key="i" class="d-flex align-center ga-2 run-item">
           <AppIcon icon="mdi-arrow-right-thin" size="16" />
-          <span class="text-body-2 flex-grow-1">{{ item.summary || item.toolName }}</span>
+          <span class="text-body-2 flex-grow-1">{{ presentText(item.summary) || item.toolName }}</span>
           <el-tag v-if="item.riskLevel" size="small" effect="plain">{{ item.riskLevel }}</el-tag>
         </div>
       </div>
@@ -52,7 +52,7 @@
 
     <!-- 单动作卡（R3 即时 / R4 已提交审批） -->
     <template v-else>
-      <div class="text-body-2 mb-1">{{ confirmation.summary || confirmation.toolName }}</div>
+      <div class="text-body-2 mb-1">{{ presentText(confirmation.summary) || confirmation.toolName }}</div>
       <div v-if="hasArgs" class="text-caption text-medium-emphasis mb-1" style="font-family: monospace; white-space: pre-wrap">{{ argsText }}</div>
 
       <!-- Why：为何需要确认（风险级人类语言） -->
@@ -96,6 +96,9 @@ import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
 import { revokeClassTag, type RevokeClassTagType } from '@/utils/revokeClass'
 import type { AiConfirmation } from '@/utils/streamChat'
+import { usePresentText } from '@/utils/presentation'
+
+const presentText = usePresentText()
 
 const props = defineProps<{ confirmation: AiConfirmation }>()
 const emit = defineEmits<{

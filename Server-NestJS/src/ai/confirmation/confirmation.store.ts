@@ -19,6 +19,7 @@
  * 两个窗口的**唯一仲裁点都是 DB 的条件更新**（`status='pending'`），因此并发/重复裁决不会二次执行工具。
  */
 
+import { PresentationText } from '../interfaces/tool.interface';
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
@@ -92,8 +93,8 @@ export function isWithinOfflineWindow(
 export interface RunItem {
   toolName: string;
   args: Record<string, unknown>;
-  /** 人读 diff 摘要（"创建事件：产品评审…"）；无摘要动作不进 run（§3.3 诚实降级） */
-  summary: string;
+  /** 人读 diff 摘要（语义 key + 英文兜底 + 参数）；无摘要动作不进 run（§3.3 诚实降级） */
+  summary: PresentationText;
   riskLevel: string;
 }
 

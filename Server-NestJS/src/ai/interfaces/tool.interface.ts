@@ -9,6 +9,30 @@
 
 import { LlmUsage } from '../llm-usage';
 
+/**
+ * One human-readable line about a tool call, addressed to whichever renderer will show it.
+ *
+ * The server used to build the sentence itself, in Chinese, and four surfaces render it **verbatim**
+ * — so the console showed Chinese in an English interface, which its bilingual red line forbids. The
+ * server now says *what* to say (`key` + `params`) and carries an English `fallback`; each renderer
+ * resolves the key in its own dictionary, and one that has no entry interpolates the fallback.
+ * Placeholders in `fallback` are `{name}`, matching the keys of `params`.
+ *
+ * 关于一次工具调用的一行人读文案，交给要显示它的那一端。
+ *
+ * 服务端过去自己把句子拼出来（中文），而四个面**原样渲染** —— 于是英文界面里显示中文，违反管理台
+ * 的双语红线。现在服务端只说**说什么**（`key` + `params`）并带一份英文 `fallback`；各端拿 key 去
+ * 自己的字典解析，没有条目的端就插值兜底。`fallback` 里的占位符写成 `{name}`，与 `params` 的键同名。
+ */
+export interface PresentationText {
+  /** 语义 key（各端 i18n 用），如 `ai.tool.createEvent` / `ai.present.write.createEvent` */
+  key: string;
+  /** 英文兜底（该端没有这条 i18n 时显示，占位符按 `params` 插值） */
+  fallback: string;
+  /** 插值参数；无参数的文案省略 */
+  params?: Record<string, string>;
+}
+
 /** 工具定义（传给 LLM 的 JSON Schema） */
 export interface ToolDefinition {
   type: 'function';

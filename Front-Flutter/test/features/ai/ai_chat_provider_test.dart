@@ -126,7 +126,7 @@ void main() {
 
       expect(provider.currentConfirmation, isNotNull);
       expect(provider.currentConfirmation!.token, 'tok-1');
-      expect(provider.currentConfirmation!.summary, contains('创建事件'));
+      expect(provider.currentConfirmation!.summary!.fallback, contains('创建事件'));
       expect(provider.messages.last.pendingConfirmation, isNotNull);
 
       when(() => api.post('/ai/confirmations/tok-1', data: {'decision': 'approve'}))
@@ -205,7 +205,7 @@ void main() {
       final conf = provider.currentConfirmation!;
       expect(conf.isRun, isTrue);
       expect(conf.runItems, hasLength(2));
-      expect(conf.runItems.first.summary, '创建事件：A');
+      expect(conf.runItems.first.summary!.fallback, '创建事件：A');
       expect(conf.runRisk, 'R4'); // spec §2.2/§2.5：批级最高风险随卡下发
 
       gate.complete();
@@ -261,7 +261,7 @@ void main() {
       expect(provider.messages.length, 3);
       expect(provider.messages[1].toolStep, isNotNull);
       expect(provider.messages[1].toolStep!.status, ToolStepStatus.success);
-      expect(provider.messages[1].toolStep!.summary, '查询到 2 个结果');
+      expect(provider.messages[1].toolStep!.summary!.fallback, '查询到 2 个结果');
       expect(provider.messages[2].content, '让我查一下找到了 2 个');
       expect(provider.currentConversationId, 'conv-1');
     });
@@ -323,7 +323,7 @@ void main() {
       // confirmation_decision 已清除确认卡：最后消息无 pendingConfirmation，步骤卡 error
       expect(provider.currentConfirmation, isNull);
       expect(provider.messages[1].toolStep!.status, ToolStepStatus.error);
-      expect(provider.messages[1].toolStep!.summary, '操作已取消');
+      expect(provider.messages[1].toolStep!.summary!.fallback, '操作已取消');
       expect(provider.messages.last.pendingConfirmation, isNull);
     });
 

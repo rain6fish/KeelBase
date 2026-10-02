@@ -218,7 +218,12 @@ describe('MyAiActionCenterView（AI Action Center 本人面）', () => {
   const confirmation = {
     token: 'tok-1',
     toolName: 'create_followup_task',
-    summary: '创建跟进任务：回访 Acme',
+    // 真实 key + 参数：确认列表渲染的是本端语言，而不是服务端的兜底英文
+    summary: {
+      key: 'ai.present.write.createFollowupTask',
+      fallback: 'Create follow-up task: 回访 Acme',
+      params: { title: '回访 Acme' },
+    },
     arguments: { customerId: 17 },
     mode: 'immediate' as const,
     riskLevel: 'R3',

@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_app/features/ai/data/models/tool_step_model.dart';
 import 'package:front_app/features/ai/presentation/widgets/chat_tool_step_card.dart';
+import 'package:front_app/features/ai/presentation/utils/ai_presentation_text.dart';
+
 import '../../helpers.dart';
 
 void main() {
@@ -13,7 +15,7 @@ void main() {
     await tester.pumpWidget(wrap(ToolStepModel(
       name: 'query_events',
       status: ToolStepStatus.success,
-      summary: '查询事件',
+      summary: AiPresentationText.fromJson('查询事件'),
     )));
     expect(find.text('读'), findsOneWidget);
     expect(find.text('只读'), findsOneWidget);
@@ -23,7 +25,7 @@ void main() {
     await tester.pumpWidget(wrap(ToolStepModel(
       name: 'create_event',
       status: ToolStepStatus.running,
-      summary: '创建事件',
+      summary: AiPresentationText.fromJson('创建事件'),
       isWrite: true,
     )));
     expect(find.text('写'), findsOneWidget);
@@ -34,7 +36,7 @@ void main() {
     await tester.pumpWidget(wrap(ToolStepModel(
       name: 'create_event',
       status: ToolStepStatus.success,
-      summary: '创建事件：会议（9:00 至 10:00）',
+      summary: AiPresentationText.fromJson('创建事件：会议（9:00 至 10:00）'),
       isWrite: true,
     )));
     expect(find.text('写'), findsOneWidget);

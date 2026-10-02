@@ -59,11 +59,11 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     opts.onEvent({
       type: 'tool_start',
-      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true, riskLevel: 'R3' },
+      toolStart: { name: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: {}, isWrite: true, riskLevel: 'R3' },
     })
     opts.onEvent({
       type: 'confirmation_request',
-      confirmation: { token: 'tok-1', toolName: 'create_followup_task', summary: '给上海 XX 公司创建跟进任务', arguments: { customerId: 7, title: '跟进' } },
+      confirmation: { token: 'tok-1', toolName: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '给上海 XX 公司创建跟进任务' }, arguments: { customerId: 7, title: '跟进' } },
     })
     await flushPromises()
 
@@ -76,7 +76,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
       type: 'confirmation_decision',
       confirmationDecision: { toolName: 'create_followup_task', approved: true, success: true, resultId: 42 },
     })
-    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: '已创建' } })
+    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: { key: 'ai.present.write.generic', fallback: '已创建' } } })
     opts.onEvent({ type: 'done', conversationId: 'conv-1' })
     opts.onEnd?.()
     await flushPromises()
@@ -90,7 +90,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     opts.onEvent({
       type: 'confirmation_request',
-      confirmation: { token: 'tok-2', toolName: 'create_followup_task', summary: '创建跟进任务', arguments: { customerId: 7, title: '跟进' } },
+      confirmation: { token: 'tok-2', toolName: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: { customerId: 7, title: '跟进' } },
     })
     await flushPromises()
 
@@ -115,7 +115,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     opts.onEvent({
       type: 'confirmation_request',
-      confirmation: { token: 'tok-3', toolName: 'create_followup_task', summary: '创建跟进任务', arguments: { customerId: 7, title: '跟进' } },
+      confirmation: { token: 'tok-3', toolName: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: { customerId: 7, title: '跟进' } },
     })
     await flushPromises()
 
@@ -167,9 +167,9 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
     // 已信任写工具：无 confirmation_request，直接 tool_start → tool_end
     opts.onEvent({
       type: 'tool_start',
-      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true },
+      toolStart: { name: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: {}, isWrite: true },
     })
-    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: '已创建' } })
+    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: { key: 'ai.present.write.generic', fallback: '已创建' } } })
     opts.onEvent({ type: 'done', conversationId: 'conv-1' })
     opts.onEnd?.()
     await flushPromises()
@@ -184,9 +184,9 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     opts.onEvent({
       type: 'tool_start',
-      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true },
+      toolStart: { name: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: {}, isWrite: true },
     })
-    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: '已创建' } })
+    opts.onEvent({ type: 'tool_end', toolEnd: { name: 'create_followup_task', success: true, summary: { key: 'ai.present.write.generic', fallback: '已创建' } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('已执行并落库')
@@ -199,7 +199,7 @@ describe('CrmCopilotDrawer（D1 闭环：流式 + 确认卡 + 执行通知）', 
 
     opts.onEvent({
       type: 'tool_start',
-      toolStart: { name: 'create_followup_task', summary: '创建跟进任务', arguments: {}, isWrite: true },
+      toolStart: { name: 'create_followup_task', summary: { key: 'ai.present.write.generic', fallback: '创建跟进任务' }, arguments: {}, isWrite: true },
     })
     opts.onEvent({
       type: 'tool_end',

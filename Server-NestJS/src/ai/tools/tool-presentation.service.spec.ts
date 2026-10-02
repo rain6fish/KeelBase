@@ -33,37 +33,78 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
   });
 
   describe('摘要文案（与拆分前逐字同断言）', () => {
-    it('summarizeReadTool 各分支', () => {
+    it('readSummary：登记的复用工具标签 key；未登记返回 null（由各端自己的标签兜底）', () => {
       const s = presentation;
-      expect(s.summarizeReadTool('query_events')).toBe('查询事件');
-      expect(s.summarizeReadTool('count_events_by_status')).toBe('统计事件');
-      expect(s.summarizeReadTool('query_events_by_keyword')).toBe('搜索事件');
-      expect(s.summarizeReadTool('get_user_stats')).toBe('获取用户统计');
-      expect(s.summarizeReadTool('navigate_page')).toBe('页面跳转');
-      expect(s.summarizeReadTool('query_customers')).toBe('查询客户');
-      expect(s.summarizeReadTool('analyze_customer_risk')).toBe('分析客户风险');
-      expect(s.summarizeReadTool('unknown_tool')).toBe('执行工具调用');
+      // 与 ai-feature-map 同一个派生：key = ai.tool.<camelCase>，兜底取元数据里的英文标签
+      expect(s.readSummary('query_events')).toEqual({ key: 'ai.tool.queryEvents', fallback: 'Query events' });
+      expect(s.readSummary('count_events_by_status')).toEqual({
+        key: 'ai.tool.countEventsByStatus',
+        fallback: 'Count events by status',
+      });
+      expect(s.readSummary('get_user_stats')).toEqual({ key: 'ai.tool.getUserStats', fallback: 'Query user stats' });
+      expect(s.readSummary('navigate_page')).toEqual({ key: 'ai.tool.navigatePage', fallback: 'Navigate page' });
+      // 未登记工具不自作主张（旧实现给一句通用中文）
+      expect(s.readSummary('unknown_tool')).toBeNull();
     });
 
-    it('summarizeToolResult 成功/失败/各工具分支', () => {
+    it('resultSummary：成功/失败/各工具分支（key + 参数 + 英文兜底）', () => {
       const s = presentation;
-      expect(s.summarizeToolResult('query_events', { success: true, data: [1, 2] })).toBe('查询到 2 个结果');
-      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: { total: 5 } })).toBe('共 5 个事件');
-      expect(s.summarizeToolResult('count_events_by_status', { success: true, data: {} })).toBe('统计完成');
-      expect(s.summarizeToolResult('create_event', { success: true, data: { id: 1 } })).toBe('创建事件成功');
-      expect(s.summarizeToolResult('navigate_page', { success: true, data: { description: '设置' } })).toBe('跳转至设置');
-      expect(s.summarizeToolResult('x', { success: true, data: {} })).toBe('执行完成');
-      expect(s.summarizeToolResult('x', { success: false, error: 'boom' })).toBe('boom');
+      expect(s.resultSummary('query_events', { success: true, data: [1, 2] })).toEqual({
+        key: 'ai.present.result.rows',
+        fallback: '2 result(s)',
+        params: { count: '2' },
+      });
+      expect(s.resultSummary('count_events_by_status', { success: true, data: { total: 5 } })).toEqual({
+        key: 'ai.present.result.count',
+        fallback: '5 event(s)',
+        params: { count: '5' },
+      });
+      expect(s.resultSummary('count_events_by_status', { success: true, data: {} })).toEqual({
+        key: 'ai.present.result.done',
+        fallback: 'Done',
+      });
+      expect(s.resultSummary('navigate_page', { success: true, data: { description: '设置' } })).toEqual({
+        key: 'ai.present.result.navigate',
+        fallback: 'Navigated to 设置',
+        params: { description: '设置' },
+      });
+      expect(s.resultSummary('x', { success: true, data: {} })).toEqual({
+        key: 'ai.present.result.done',
+        fallback: 'Done',
+      });
+      // 失败沿用工具自己的错误文本作兜底（不改今天逐字显示的文案）
+      expect(s.resultSummary('x', { success: false, error: 'boom' })).toEqual({
+        key: 'ai.present.result.failed',
+        fallback: 'boom',
+      });
     });
 
-    it('summarizeWriteTool 写操作摘要分支（确认卡片文案）', () => {
+    it('writeSummaryOrGeneric 写操作摘要分支（确认卡片文案）', () => {
       const s = presentation;
-      expect(s.summarizeWriteTool('create_event', { title: '评审', startTime: '10:00', endTime: '11:00' })).toBe('创建事件：评审（10:00 至 11:00）');
-      expect(s.summarizeWriteTool('create_todo', { title: '周报', dueDate: '2026-08-20' })).toBe('创建待办：周报（截止 2026-08-20）');
-      expect(s.summarizeWriteTool('create_todo', { title: '无截止' })).toBe('创建待办：无截止');
-      expect(s.summarizeWriteTool('create_customers', { name: '张三' })).toBe('创建客户：张三');
-      expect(s.summarizeWriteTool('create_followup_task', { title: '跟进' })).toBe('创建跟进任务：跟进');
-      expect(s.summarizeWriteTool('unknown', {})).toBe('执行写操作');
+      expect(s.writeSummaryOrGeneric('create_event', { title: '评审', startTime: '10:00', endTime: '11:00' })).toEqual({
+        key: 'ai.present.write.createEvent',
+        fallback: 'Create event: 评审 (10:00 – 11:00)',
+        params: { title: '评审', startTime: '10:00', endTime: '11:00' },
+      });
+      // 有截止与无截止是**两条 key**（模板里没法表达「有就加一段」），而不是拼半个句子
+      expect(s.writeSummaryOrGeneric('create_todo', { title: '周报', dueDate: '2026-08-20' })).toEqual({
+        key: 'ai.present.write.createTodoDue',
+        fallback: 'Create todo: 周报 (due 2026-08-20)',
+        params: { title: '周报', dueDate: '2026-08-20' },
+      });
+      expect(s.writeSummaryOrGeneric('create_todo', { title: '无截止' })).toEqual({
+        key: 'ai.present.write.createTodo',
+        fallback: 'Create todo: 无截止',
+        params: { title: '无截止' },
+      });
+      expect(s.writeSummaryOrGeneric('unknown', {})).toEqual({
+        key: 'ai.present.write.generic',
+        fallback: 'Ran a write operation',
+      });
+    });
+
+    it('writeSummary：无具体摘要的工具返回 null（run 聚合据此不并入该条）', () => {
+      expect(presentation.writeSummary('delete_customer', { customerId: 7 })).toBeNull();
     });
 
     it('HS-5: should truncate oversized tool results (array)', () => {
@@ -120,7 +161,11 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
     it('R3 单条 → mode=immediate，摘要取写工具文案', () => {
       const d = presentation.describeConfirmation(row({}));
       expect(d.mode).toBe('immediate');
-      expect(d.summary).toBe('创建事件：评审（? 至 ?）');
+      expect(d.summary).toEqual({
+        key: 'ai.present.write.createEvent',
+        fallback: 'Create event: 评审 (? – ?)',
+        params: { title: '评审', startTime: '?', endTime: '?' },
+      });
       expect(d.run).toBeNull();
     });
 
@@ -134,21 +179,33 @@ describe('ToolPresentationService（呈现/摘要域）', () => {
         row({ kind: 'run', riskLevel: 'R4', toolName: 'run', runItems: JSON.stringify(items) }),
       );
       expect(ok.mode).toBe('run');
-      expect(ok.summary).toBe('一次授权整批（2 个动作）');
+      expect(ok.summary).toEqual({
+        key: 'ai.present.runBatch',
+        fallback: 'Authorize 2 action(s) in one batch',
+        params: { count: '2' },
+      });
       expect(ok.run?.items).toHaveLength(2);
 
       const broken = presentation.describeConfirmation(
         row({ kind: 'run', riskLevel: 'R4', toolName: 'run', runItems: '{not json' }),
       );
       expect(broken.mode).toBe('run');
-      expect(broken.summary).toBe('一次授权整批（0 个动作）');
+      expect(broken.summary).toEqual({
+        key: 'ai.present.runBatch',
+        fallback: 'Authorize 0 action(s) in one batch',
+        params: { count: '0' },
+      });
       expect(broken.run?.items).toEqual([]);
     });
 
     it('参数 JSON 坏掉 → 摘要仍产出（不让坏数据打挂确认卡）', () => {
       const d = presentation.describeConfirmation(row({ args: '{broken' }));
       expect(d.mode).toBe('immediate');
-      expect(d.summary).toBe('创建事件：（? 至 ?）');
+      expect(d.summary).toEqual({
+        key: 'ai.present.write.createEvent',
+        fallback: 'Create event:  (? – ?)',
+        params: { title: '', startTime: '?', endTime: '?' },
+      });
     });
   });
 });

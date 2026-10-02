@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import '../../presentation/utils/ai_presentation_text.dart';
+
 /// 工具步骤卡状态
 enum ToolStepStatus { running, success, error }
 
@@ -8,21 +10,21 @@ enum ToolStepStatus { running, success, error }
 class ToolStepModel {
   final String name;
   final ToolStepStatus status;
-  final String summary;
+  final AiPresentationText? summary;
   final String? error;
   final bool isWrite;
 
   const ToolStepModel({
     required this.name,
     required this.status,
-    required this.summary,
+    this.summary,
     this.error,
     this.isWrite = false,
   });
 
   ToolStepModel copyWith({
     ToolStepStatus? status,
-    String? summary,
+    AiPresentationText? summary,
     String? error,
     bool? isWrite,
   }) {

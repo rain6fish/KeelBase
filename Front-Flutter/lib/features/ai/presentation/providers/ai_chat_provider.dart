@@ -8,6 +8,7 @@ import '../../../../core/api/api_response.dart';
 import '../../../../core/api/sse_client.dart';
 import '../../../../core/api/ws_client.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../utils/ai_presentation_text.dart';
 
 /// 单条聊天消息模型
 class ChatMessageModel {
@@ -88,19 +89,21 @@ class AuthorizationReasons {
 /// KB-5 run 批内单个动作（逐条 diff 摘要，run 卡"有 diff"核心）
 class RunConfirmationItem {
   final String toolName;
-  final String summary;
+  final AiPresentationText? summary;
   final String riskLevel;
 
   const RunConfirmationItem({
     required this.toolName,
-    required this.summary,
+    this.summary,
     this.riskLevel = '',
   });
 
   factory RunConfirmationItem.fromJson(Map<String, dynamic> json) =>
       RunConfirmationItem(
         toolName: json['toolName'] as String? ?? '',
-        summary: json['summary'] as String? ?? '',
+        summary: json['summary'] == null
+            ? null
+            : AiPresentationText.fromJson(json['summary']),
         riskLevel: json['riskLevel'] as String? ?? '',
       );
 }
@@ -142,7 +145,7 @@ class ConfirmationImpact {
 class PendingConfirmation {
   final String token;
   final String toolName;
-  final String summary;
+  final AiPresentationText? summary;
   final Map<String, dynamic> arguments;
   final AuthorizationReasons? authorization;
   /// KB-5 确认形态：'confirmation'（缺省，R3 单动作）| 'approval'（R4）| 'run'（整批）
@@ -157,7 +160,7 @@ class PendingConfirmation {
   const PendingConfirmation({
     required this.token,
     required this.toolName,
-    required this.summary,
+    this.summary,
     this.arguments = const {},
     this.authorization,
     this.mode = 'confirmation',
@@ -407,7 +410,7 @@ class AiChatProvider extends ChangeNotifier {
           final pending = PendingConfirmation(
             token: c['token'] as String,
             toolName: c['toolName'] as String? ?? '',
-            summary: c['summary'] as String? ?? '',
+            summary: c['summary'] == null ? null : AiPresentationText.fromJson(c['summary']),
             arguments: (c['arguments'] as Map?)?.cast<String, dynamic>() ??
                 const {},
             authorization: c['authorization'] is Map<String, dynamic>
@@ -438,7 +441,7 @@ class AiChatProvider extends ChangeNotifier {
           final step = ToolStepModel(
             name: ts['name'] as String? ?? '',
             status: ToolStepStatus.running,
-            summary: ts['summary'] as String? ?? '',
+            summary: ts['summary'] == null ? null : AiPresentationText.fromJson(ts['summary']),
             isWrite: ts['isWrite'] == true,
           );
           if (_messages.isEmpty) break;
@@ -463,7 +466,9 @@ class AiChatProvider extends ChangeNotifier {
             final updated = _messages[idx].copyWith(
               toolStep: step.copyWith(
                 status: success ? ToolStepStatus.success : ToolStepStatus.error,
-                summary: te['summary'] as String? ?? step.summary,
+                summary: te['summary'] == null
+                    ? step.summary
+                    : AiPresentationText.fromJson(te['summary']),
                 error: te['error'] as String?,
               ),
             );

@@ -37,6 +37,7 @@ import { ConfirmationStore } from './confirmation/confirmation.store';
 import { ConversationCompactor } from './conversation/conversation-compactor';
 import { SubAgentOrchestrator } from './agents/sub-agent-orchestrator.service';
 import {
+  PresentationText,
   ToolResult,
   RISK_STRATEGY,
   AuthorizationDeniedError,
@@ -497,7 +498,7 @@ export class AiService {
     toolCalls: Array<{ index: number; name: string; args: string }>,
     trustedScopes: Set<string>,
   ): Promise<{
-    aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: string; risk: string; audience: string }>;
+    aggregable: Array<{ idx: number; name: string; parsed: Record<string, unknown>; summary: PresentationText; risk: string; audience: string }>;
     runRisk: string;
     ttlSeconds: number;
   } | null> {
@@ -506,7 +507,7 @@ export class AiService {
       idx: number;
       name: string;
       parsed: Record<string, unknown>;
-      summary: string | null;
+      summary: PresentationText | null;
       risk: string;
       audience: string;
     }> = [];
@@ -546,15 +547,15 @@ export class AiService {
         idx: tc.index,
         name: tc.name,
         parsed,
-        summary: this.presentation.writeToolSummary(tc.name, parsed),
+        summary: this.presentation.writeSummary(tc.name, parsed),
         risk,
         // AUTHZ-1：run 成员各自的目的地，在**签发时**取；批准后执行那一刻再解析一次并比对
         //（run 的批准窗口同样可达 TTL，期间目的地可被改指）。
         audience: this.toolGate.destinationOf(tc.name),
       });
     }
-    // 无具体摘要（writeToolSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
-    const aggregable = cands.filter((c): c is typeof c & { summary: string } => c.summary !== null);
+    // 无具体摘要（writeSummary null）的动作降级单条即时确认，不并入 run（spec §3.3 诚实边界）
+    const aggregable = cands.filter((c): c is typeof c & { summary: PresentationText } => c.summary !== null);
     if (aggregable.length < 2) return null;
     // runRisk = 批内最高风险级（R3 run 成员通常恒 R3，max 保持通用）
     // 键序取自权威表（R0→R5 升序声明）——本地硬编码副本会在新增/改名风险级时静默漂移，使 runRisk 取错
@@ -1131,8 +1132,8 @@ export class AiService {
             toolStart: {
               name: tc.name,
               summary: isWrite
-                ? this.presentation.summarizeWriteTool(tc.name, parsed)
-                : this.presentation.summarizeReadTool(tc.name),
+                ? this.presentation.writeSummaryOrGeneric(tc.name, parsed)
+                : this.presentation.readSummary(tc.name),
               arguments: parsed,
               isWrite,
               riskLevel: authz.riskLevel,
@@ -1163,7 +1164,7 @@ export class AiService {
                 confirmation: {
                   token: approval.token,
                   toolName: tc.name,
-                  summary: this.presentation.summarizeWriteTool(tc.name, parsed),
+                  summary: this.presentation.writeSummaryOrGeneric(tc.name, parsed),
                   arguments: parsed,
                   mode: 'approval',
                   ...(approvalImpact ? { impact: approvalImpact } : {}),
@@ -1223,7 +1224,7 @@ export class AiService {
                   confirmation: {
                     token,
                     toolName: tc.name,
-                    summary: this.presentation.summarizeWriteTool(tc.name, parsed),
+                    summary: this.presentation.writeSummaryOrGeneric(tc.name, parsed),
                     arguments: parsed,
                     // §22.17 ④ 影响预览：确认前告知将动到几个动作、哪类对象
                     ...(singleImpact ? { impact: singleImpact } : {}),
@@ -1291,7 +1292,7 @@ export class AiService {
                 toolEnd: {
                   name: tc.name,
                   success: result.success,
-                  summary: this.presentation.summarizeToolResult(tc.name, result),
+                  summary: this.presentation.resultSummary(tc.name, result),
                   error: result.error,
                 },
               };
@@ -1313,7 +1314,9 @@ export class AiService {
                   name: tc.name,
                   success: false,
                   summary:
-                    outcome === 'timeout' ? '操作超时未确认' : '操作已取消',
+                    outcome === 'timeout'
+                      ? { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' }
+                      : { key: 'ai.present.result.cancelled', fallback: 'Cancelled' },
                 },
               };
             }
@@ -1325,7 +1328,7 @@ export class AiService {
               toolEnd: {
                 name: tc.name,
                 success: result.success,
-                summary: this.presentation.summarizeToolResult(tc.name, result),
+                summary: this.presentation.resultSummary(tc.name, result),
                 error: result.error,
               },
             };
@@ -1380,7 +1383,9 @@ export class AiService {
               toolEnd: {
                 name: tc.name,
                 success: false,
-                summary: denied ? '工具被拒绝' : '工具执行失败',
+                summary: denied
+                  ? { key: 'ai.present.result.denied', fallback: 'Blocked by policy' }
+                  : { key: 'ai.present.result.error', fallback: 'The tool failed' },
                 error: denied ? denied.reason : 'Tool execution failed',
                 authorizationDenied: denied,
               },
