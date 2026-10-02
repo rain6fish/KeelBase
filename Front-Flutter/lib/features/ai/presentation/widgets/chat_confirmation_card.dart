@@ -48,15 +48,11 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark
-                ? CupertinoColors.systemGrey5
-                      .resolveFrom(context)
-                      .withValues(alpha: 0.24)
+                ? CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.24)
                 : CupertinoColors.systemGrey6.resolveFrom(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: CupertinoTheme.of(
-                context,
-              ).primaryColor.withValues(alpha: 0.35),
+              color: CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.35),
             ),
           ),
           child: Column(
@@ -79,9 +75,11 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   '${conf.impact!.targets.map((t) => '${t.resultType} ×${t.count}').join('、')}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: CupertinoTheme.of(
-                      context,
-                    ).textTheme.textStyle.color?.withValues(alpha: 0.6),
+                    color: CupertinoTheme.of(context)
+                        .textTheme
+                        .textStyle
+                        .color
+                        ?.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -96,59 +94,46 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                ...conf.runItems.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(CupertinoIcons.chevron_right, size: 13),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            presentAiText(
-                                  item.summary,
-                                  toolName: item.toolName,
-                                  isZh:
-                                      Localizations.localeOf(
-                                        context,
-                                      ).languageCode ==
-                                      'zh',
-                                ).isEmpty
-                                ? item.toolName
-                                : presentAiText(
-                                    item.summary,
-                                    toolName: item.toolName,
-                                    isZh:
-                                        Localizations.localeOf(
-                                          context,
-                                        ).languageCode ==
-                                        'zh',
-                                  ),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: CupertinoTheme.of(
-                                context,
-                              ).textTheme.textStyle.color,
-                            ),
+                ...conf.runItems.map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(CupertinoIcons.chevron_right, size: 13),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          () {
+                            final text = presentAiText(
+                              item.summary,
+                              toolName: item.toolName,
+                              isZh: Localizations.localeOf(context)
+                                      .languageCode ==
+                                  'zh',
+                            );
+                            return text.isEmpty ? item.toolName : text;
+                          }(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: CupertinoTheme.of(context).textTheme.textStyle.color,
                           ),
                         ),
-                        if (item.riskLevel.isNotEmpty)
-                          Text(
-                            ' ${item.riskLevel}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: CupertinoTheme.of(context)
-                                  .textTheme
-                                  .textStyle
-                                  .color
-                                  ?.withValues(alpha: 0.6),
-                            ),
+                      ),
+                      if (item.riskLevel.isNotEmpty)
+                        Text(
+                          ' ${item.riskLevel}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle
+                                .color
+                                ?.withValues(alpha: 0.6),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                ),
+                )),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -168,9 +153,11 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: CupertinoTheme.of(
-                            context,
-                          ).textTheme.textStyle.color?.withValues(alpha: 0.7),
+                          color: CupertinoTheme.of(context)
+                              .textTheme
+                              .textStyle
+                              .color
+                              ?.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -182,7 +169,8 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   presentAiText(
                     conf.summary,
                     toolName: conf.toolName,
-                    isZh: Localizations.localeOf(context).languageCode == 'zh',
+                    isZh:
+                        Localizations.localeOf(context).languageCode == 'zh',
                   ),
                   style: TextStyle(
                     fontSize: 15,
@@ -197,9 +185,8 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   l10n.aiConfirmArgsTitle,
                   style: TextStyle(
                     fontSize: 11,
-                    color: CupertinoTheme.of(
-                      context,
-                    ).textTheme.textStyle.color?.withValues(alpha: 0.63),
+                    color: CupertinoTheme.of(context).textTheme.textStyle.color
+                        ?.withValues(alpha: 0.63),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -248,31 +235,25 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     onPressed: provider.isConfirming
                         ? null
                         : () => provider.confirmPending(
-                            approved: false,
-                            // 拒绝时不传播信任标记，避免「信任」被误用于拒绝的写操作
-                            trustTool: false,
-                          ),
+                              approved: false,
+                              // 拒绝时不传播信任标记，避免「信任」被误用于拒绝的写操作
+                              trustTool: false,
+                            ),
                     child: Text(l10n.aiConfirmReject),
                   ),
                   const SizedBox(width: 8),
                   CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     onPressed: provider.isConfirming
                         ? null
                         : () => provider.confirmPending(
-                            approved: true,
-                            trustTool: _trustTool,
-                          ),
+                              approved: true,
+                              trustTool: _trustTool,
+                            ),
                     child: provider.isConfirming
                         ? Text(l10n.aiConfirming)
                         : Text(l10n.aiConfirmApprove),
@@ -350,9 +331,7 @@ class _AuthzSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final dim = CupertinoTheme.of(
-      context,
-    ).textTheme.textStyle.color?.withValues(alpha: 0.63);
+    final dim = CupertinoTheme.of(context).textTheme.textStyle.color?.withValues(alpha: 0.63);
     final okColor = CupertinoColors.systemGreen.resolveFrom(context);
     final badColor = CupertinoTheme.of(context).primaryColor;
 
@@ -360,9 +339,7 @@ class _AuthzSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey5
-            .resolveFrom(context)
-            .withValues(alpha: 0.4),
+        color: CupertinoColors.systemGrey5.resolveFrom(context).withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -370,11 +347,7 @@ class _AuthzSection extends StatelessWidget {
         children: [
           Text(
             l10n.aiAuthzTitle,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: dim,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: dim),
           ),
           const SizedBox(height: 4),
           Text(
@@ -399,9 +372,7 @@ class _AuthzSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    check.ok
-                        ? CupertinoIcons.checkmark_circle_fill
-                        : CupertinoIcons.xmark_circle_fill,
+                    check.ok ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.xmark_circle_fill,
                     size: 13,
                     color: check.ok ? okColor : badColor,
                   ),
@@ -411,9 +382,7 @@ class _AuthzSection extends StatelessWidget {
                       check.note ?? check.name,
                       style: TextStyle(
                         fontSize: 11,
-                        color: CupertinoTheme.of(
-                          context,
-                        ).textTheme.textStyle.color,
+                        color: CupertinoTheme.of(context).textTheme.textStyle.color,
                       ),
                     ),
                   ),
