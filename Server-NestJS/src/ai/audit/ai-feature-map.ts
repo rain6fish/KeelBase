@@ -10,6 +10,7 @@
  */
 
 import { parseToolCall } from './tool-name';
+import { TOOL_METADATA, toolLabelKey } from './tool-metadata';
 
 export interface AiActionLabel {
   /** 语义 key（前端 i18n 用），如 ai.toolCall */
@@ -34,42 +35,18 @@ const ACTION_LABELS: Record<string, AiActionLabel> = {
   content_blocked: { key: 'ai.contentBlocked', fallback: 'AI · Content blocked' },
 };
 
-/** AI 工具名 → 人类可读标签（D2 工具名级映射：create_followup_task → Create follow-up task）。 */
-const TOOL_LABELS: Record<string, AiActionLabel> = {
-  create_followup_task: { key: 'ai.tool.createFollowupTask', fallback: 'Create follow-up task' },
-  create_event: { key: 'ai.tool.createEvent', fallback: 'Create event' },
-  create_todo: { key: 'ai.tool.createTodo', fallback: 'Create todo' },
-  create_contract: { key: 'ai.tool.createContract', fallback: 'Create contract' },
-  create_project_task: { key: 'ai.tool.createProjectTask', fallback: 'Create project task' },
-  create_module: { key: 'ai.tool.createModule', fallback: 'Create module' },
-  query_customers: { key: 'ai.tool.queryCustomers', fallback: 'Query customers' },
-  query_customer_orders: { key: 'ai.tool.queryCustomerOrders', fallback: 'Query customer orders' },
-  query_customer_activities: { key: 'ai.tool.queryCustomerActivities', fallback: 'Query customer activities' },
-  query_contacts: { key: 'ai.tool.queryContacts', fallback: 'Query contacts' },
-  query_opportunities: { key: 'ai.tool.queryOpportunities', fallback: 'Query opportunities' },
-  query_contracts: { key: 'ai.tool.queryContracts', fallback: 'Query contracts' },
-  query_projects: { key: 'ai.tool.queryProjects', fallback: 'Query projects' },
-  query_project_tasks: { key: 'ai.tool.queryProjectTasks', fallback: 'Query project tasks' },
-  query_events: { key: 'ai.tool.queryEvents', fallback: 'Query events' },
-  query_events_by_keyword: { key: 'ai.tool.queryEventsByKeyword', fallback: 'Search events' },
-  query_org_members: { key: 'ai.tool.queryOrgMembers', fallback: 'Query org members' },
-  query_org_tasks: { key: 'ai.tool.queryOrgTasks', fallback: 'Query org tasks' },
-  query_org_availability: { key: 'ai.tool.queryOrgAvailability', fallback: 'Check availability' },
-  query_approval_requests: { key: 'ai.tool.queryApprovalRequests', fallback: 'Query approval requests' },
-  query_approval_policies: { key: 'ai.tool.queryApprovalPolicies', fallback: 'Query approval policies' },
-  query_user_stats: { key: 'ai.tool.queryUserStats', fallback: 'Query user stats' },
-  analyze_customer_risk: { key: 'ai.tool.analyzeCustomerRisk', fallback: 'Analyze customer risk' },
-  analyze_project_risk: { key: 'ai.tool.analyzeProjectRisk', fallback: 'Analyze project risk' },
-  analyze_sales_pipeline: { key: 'ai.tool.analyzeSalesPipeline', fallback: 'Analyze sales pipeline' },
-  summarize_customer: { key: 'ai.tool.summarizeCustomer', fallback: 'Summarize customer' },
-  count_events_by_status: { key: 'ai.tool.countEventsByStatus', fallback: 'Count events by status' },
-  generate_image: { key: 'ai.tool.generateImage', fallback: 'Generate image' },
-  web_search: { key: 'ai.tool.webSearch', fallback: 'Web search' },
-  review_approval_request: { key: 'ai.tool.reviewApprovalRequest', fallback: 'Review approval request' },
-  submit_approval_request: { key: 'ai.tool.submitApprovalRequest', fallback: 'Submit approval request' },
-  navigate_page: { key: 'ai.tool.navigatePage', fallback: 'Navigate page' },
-  navigate_admin_page: { key: 'ai.tool.navigateAdminPage', fallback: 'Navigate admin page' },
-};
+/**
+ * AI 工具名 → 人类可读标签（D2 工具名级映射：create_followup_task → Create follow-up task）。
+ *
+ * 派生自 `tool-metadata.ts` 的单一表：**key 机械派生**、不手写。此前本表手动维护，已与真实工具名
+ * 漂移（给 `query_contacts` 这类**不存在**的名字留了标签，而有 12 个真工具没有标签）。
+ */
+const TOOL_LABELS: Record<string, AiActionLabel> = Object.fromEntries(
+  Object.entries(TOOL_METADATA).map(([name, meta]) => [
+    name,
+    { key: toolLabelKey(name), fallback: meta.label },
+  ]),
+);
 
 /** detail 提取工具名：走共享解析器（`toolName({args})` 与 `Tool: toolName` 两种形态都在里面）。 */
 function extractToolName(detail: string): string | null {
