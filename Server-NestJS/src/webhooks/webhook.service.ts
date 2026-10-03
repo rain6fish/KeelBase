@@ -13,7 +13,10 @@ export interface WebhookRetryConfig {
   backoffMs: number;
 }
 
-const DEFAULT_RETRY: WebhookRetryConfig = { attempts: 3, backoffMs: 1000 };
+const DEFAULT_RETRY: WebhookRetryConfig = { attempts: 2, backoffMs: 1000 };
+
+/** 单次投递超时。收紧自 5s：投递在业务请求内进行，最坏耗时须有界。 */
+const DELIVER_TIMEOUT_MS = 3_000;
 
 export interface WebhookSubscriptionView {
   id: number;
@@ -77,18 +80,25 @@ export class WebhookService implements WebhookPublisher {
   /**
    * PL-14 投递：匹配启用且订阅了该事件类型的 webhook，
    * 用各自 secret 做 HMAC-SHA256 签名后 POST（带指数退避重试）。
-   * 重试耗尽**不阻断业务，但也不再静默**：走既有告警通道（REL-2）。
-   * 完整异步重试队列（BullMQ worker）留待量大后。
+   *
+   * **投递在该请求内进行**（不是后台队列）：调用方 `await` 它，故业务响应会等投递。
+   * 三条边界（如实，别把它读成「非阻塞」）：
+   *   ① **并发** —— 对多个匹配订阅同时投递，总耗时 ≈ 单个订阅的最坏值，**不随订阅数增长**；
+   *   ② **有界** —— 默认 2 次尝试 × 3s 超时 + 1s 退避 ⇒ 单个订阅最坏 ≈ 7s；
+   *   ③ 重试耗尽**不使业务操作失败，但也不再静默** —— 走既有告警通道（REL-2）。
+   * 完整异步重试队列（BullMQ worker）是「真非阻塞 + durable 重试」的正解，**留待量大后**（已登记待办）。
    */
   async publish(eventType: string, payload: Record<string, unknown>): Promise<void> {
     const subs = await this.repo.find({ where: { enabled: true } });
     const matches = subs.filter((s) => this._eventsOf(s).includes(eventType));
-    for (const sub of matches) {
-      const body = JSON.stringify({ event: eventType, ...payload });
-      const signature = createHmac('sha256', sub.secret).update(body).digest('hex');
-      const result = await this._deliver(sub.url, eventType, body, signature);
-      if (!result.delivered) this._alertDeliveryFailure(eventType, sub.url, result.error ?? 'unknown error');
-    }
+    await Promise.all(
+      matches.map(async (sub) => {
+        const body = JSON.stringify({ event: eventType, ...payload });
+        const signature = createHmac('sha256', sub.secret).update(body).digest('hex');
+        const result = await this._deliver(sub.url, eventType, body, signature);
+        if (!result.delivered) this._alertDeliveryFailure(eventType, sub.url, result.error ?? 'unknown error');
+      }),
+    );
   }
 
   /**
@@ -148,7 +158,7 @@ export class WebhookService implements WebhookPublisher {
             'X-Webhook-Signature': signature,
           },
           body,
-          signal: AbortSignal.timeout(5_000),
+          signal: AbortSignal.timeout(DELIVER_TIMEOUT_MS),
         });
         if (res.ok) return { delivered: true };
         lastError = `HTTP ${res.status}`;

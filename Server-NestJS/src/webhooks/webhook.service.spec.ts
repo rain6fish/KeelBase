@@ -174,6 +174,30 @@ describe('WebhookService (PL-14)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('publish 对多个匹配订阅**并发**投递（总耗 ≈ 单订阅最坏值，不随订阅数增长）', async () => {
+    const repo = makeRepo([
+      { ...base(), id: 1, eventsJson: JSON.stringify(['feedback.created']) } as Partial<WebhookSubscription>,
+      { ...base(), id: 2, url: 'https://hook2.example.com', eventsJson: JSON.stringify(['feedback.created']) } as Partial<WebhookSubscription>,
+    ]);
+    const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchMock = jest.fn(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setImmediate(r)); // 让步：让另一个投递有机会进入
+      inFlight -= 1;
+      return { ok: true, status: 200 };
+    });
+    (global as any).fetch = fetchMock;
+
+    await svc.publish('feedback.created', {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 逐订阅顺序 await 会让此值恒为 1；只有并发才达到 2（承重断言）
+    expect(maxInFlight).toBe(2);
+  });
+
   it('投递失败不抛异常（未注入告警通道时亦然——可选依赖）', async () => {
     const repo = makeRepo([{ ...base() } as Partial<WebhookSubscription>]);
     const svc = new WebhookService(repo as any, { attempts: 1, backoffMs: 0 } as any);
