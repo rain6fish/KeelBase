@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { EffectComparability } from './effect-comparability.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import { LocalEntityRevoker } from './side-effect-revoker';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
@@ -97,24 +98,37 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
       undefined,
       undefined,
       withCaptor ? (new SideEffectSnapshotCaptor(ds.manager) as never) : undefined,
+      undefined, // claimsRepo
+      ds.getRepository(EffectComparability) as never, // REV-17：可比性历史仓
     );
 
-  /** 管理端列表里那一行的读数（REV-14 的露出面）。 */
+  /**
+   * 管理端列表里那一行的可比性**历史**（REV-17 的露出面）：每次走到比对的尝试一条，升序。
+   * 空数组 = 没有任何一次尝试走到过「承诺比对」这一步。
+   */
   const comparabilityOf = async (
     effectId: number,
-  ): Promise<{ promised: unknown[]; uncomparable: unknown[] } | null> => {
+  ): Promise<
+    Array<{ checked: string; promised: unknown[]; uncomparable: unknown[]; at: string | null }>
+  > => {
     const page = await svc.list({ limit: 100 });
     const row = page.items.find((r) => r.id === effectId) as
-      | { revokeComparability?: { promised: unknown[]; uncomparable: unknown[] } | null }
+      | {
+          revokeComparability?: Array<{
+            checked: string;
+            promised: unknown[];
+            uncomparable: unknown[];
+          }>;
+        }
       | undefined;
-    return row?.revokeComparability ?? null;
+    return row?.revokeComparability ?? [];
   };
 
   beforeEach(async () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [AiToolSideEffect, Event],
+      entities: [AiToolSideEffect, Event, EffectComparability],
       synchronize: true,
     });
     await ds.initialize();
@@ -140,21 +154,25 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
 
     // 而「被声明为可比、后来发现不可比」的那一个集合，在完成之后仍然读得到
     const gap = await comparabilityOf(effect.id);
-    expect(gap).not.toBeNull();
-    expect(gap?.promised).toEqual([{ resultType: 'event', resultId: 1 }]);
-    expect(gap?.uncomparable).toEqual([
+    expect(gap).toHaveLength(1);
+    expect(gap[0].checked).toBe('diff');
+    expect(gap[0].promised).toEqual([{ resultType: 'event', resultId: 1 }]);
+    expect(gap[0].uncomparable).toEqual([
       { resultType: 'event', resultId: 1, reason: 'row_missing' },
     ]);
   });
 
-  it('反向对照：一切可比 → 撤销完成，且**不产生**该读数', async () => {
+  it('反向对照：一切可比 → 撤销完成，历史里是一条 **clean**（而不是「没有读数」）', async () => {
     await events().save(events().create({ id: 1, title: '产品评审', userId: 42 } as never));
     const effect = await seedEffect({ eventId: 1 });
 
     const r = await svc.revoke(effect.id);
 
     expect(r?.revoked).toBe(true);
-    expect(await comparabilityOf(effect.id)).toBeNull();
+    // REV-17 ②：`clean` 是**知识** ——「这次走到了比对、无可报」，与「没有一次尝试走到过承诺」不再是同一个读数
+    const attempts = await comparabilityOf(effect.id);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].checked).toBe('clean');
   });
 
   it('反向对照：比过就算比到了——**漂移**不是「不可比」，不落进这个差集', async () => {
@@ -168,7 +186,8 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
 
     expect(r?.revoked).toBe(true);
     expect(r?.message).toContain('写入后被改过'); // REV-9 的既有读数仍在
-    expect(await comparabilityOf(effect.id)).toBeNull(); // 而这一项不产生读数
+    // 而这一项不落进 `diff`：比过了（只是发现内容不同），故记的是 `clean`
+    expect(await comparabilityOf(effect.id)).toEqual([expect.objectContaining({ checked: 'clean' })]);
   });
 
   it('反向对照：没有捕获器 → 什么都没承诺，无从谈「承诺被打破」', async () => {
@@ -185,7 +204,8 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
       | undefined;
 
     expect(r?.revoked).toBe(true);
-    expect(row?.revokeComparability ?? null).toBeNull();
+    // 什么都没承诺 ⇒ 什么都没记（空历史），**不是**一条 `clean`：那会说「查过」而其实没查
+    expect(row?.revokeComparability ?? []).toEqual([]);
   });
 
   it('组：差集落在**组根行**上（一份证据，不逐行复制），组级判定仍读作 complete', async () => {
@@ -211,27 +231,33 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
     });
 
     const gap = await comparabilityOf(root.id);
-    expect(gap?.promised).toEqual([
+    expect(gap).toHaveLength(1);
+    expect(gap[0].checked).toBe('diff');
+    expect(gap[0].promised).toEqual([
       { resultType: 'event', resultId: 1 },
       { resultType: 'event', resultId: 2 },
     ]);
-    expect(gap?.uncomparable).toEqual([
+    expect(gap[0].uncomparable).toEqual([
       { resultType: 'event', resultId: 2, reason: 'row_missing' },
     ]);
     // 子行上没有第二份副本（证据只住一处）
-    expect(await comparabilityOf(child.id)).toBeNull();
+    expect(await comparabilityOf(child.id)).toEqual([]);
   });
 
-  it('串行两轮：读数跟随**最近一次**比对，陈旧的差集不会留在行上', async () => {
+  it('**主判据**（REV-17）：失约**不**被后一次无差集的尝试抹掉（旧实现把它清空）', async () => {
     await events().save(events().create({ id: 1, title: '产品评审', userId: 42 } as never));
     const effect = await seedEffect({ eventId: 1 });
 
     // 第一轮：目标不在 → 差集落库
     await ds.query(`DELETE FROM "events" WHERE "id" = 1`);
     await svc.revoke(effect.id);
-    expect(await comparabilityOf(effect.id)).not.toBeNull();
+    expect(await comparabilityOf(effect.id)).toEqual([
+      expect.objectContaining({ checked: 'diff' }),
+    ]);
 
-    // 第二轮：目标回来了（回收站恢复的等价形态）→ 这一次真的比到了 ⇒ 旧读数必须被清掉
+    // 第二轮：目标回来了（回收站恢复的等价形态）→ 这一次真的比到了。
+    // **旧口径**是「陈旧的差集不活过产生它的那次比对」，后一次无差集会把整列清成 `null` ——
+    // REV-17 撤回了那个裁决：第一次破掉的承诺仍须可读，且该行自己写的是 `clean`（查过、干净）。
     await events().save(events().create({ id: 1, title: '产品评审', userId: 42 } as never));
     await ds.query(
       `UPDATE "ai_tool_side_effects" SET "revoke_status" = NULL WHERE "id" = ${effect.id}`,
@@ -239,6 +265,7 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
     const again = await svc.revoke(effect.id);
 
     expect(again?.revoked).toBe(true);
-    expect(await comparabilityOf(effect.id)).toBeNull();
+    // 两轮都在，顺序是「先失约、后干净」—— 这正是旧实现读不出来的那条历史
+    expect((await comparabilityOf(effect.id)).map((h) => h.checked)).toEqual(['diff', 'clean']);
   });
 });

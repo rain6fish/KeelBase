@@ -2,9 +2,10 @@
 
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
+import { EffectComparability } from './effect-comparability.entity';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from './ai-write-claim.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
@@ -225,6 +226,30 @@ export interface RevokeComparabilityEvidence {
 }
 
 /**
+ * REV-17: one attempt's entry in a revoke's comparability history.
+ *
+ * `checked` is what keeps the two readings apart at the source — `diff` carries the promised/uncomparable
+ * sets, `clean` records that this attempt reached the comparison and had nothing to report. `at === null`
+ * marks the **legacy** entry: the single-column reading written before this history existed, whose moment
+ * is not recoverable and is therefore not invented. `legacy` is spelled out rather than inferred from
+ * `at === null`, so a row written today with an unparseable timestamp could not masquerade as history.
+ *
+ * REV-17：一次撤销的可比性历史上的一条记录。
+ *
+ * `checked` 是让两种读数在源头分开的东西 —— `diff` 带 promised/uncomparable 两个集合，`clean` 记下
+ * 「这次走到了比对、无可报」。`at === null` 标记**遗留**条目：本历史存在之前写入的单列读数，其时刻
+ * 不可考、故不臆造。`legacy` 明写而不是从 `at === null` 推断，免得日后某条时间戳解析不出的新行冒充历史。
+ */
+export interface RevokeComparabilityAttempt {
+  checked: 'diff' | 'clean';
+  promised: RevokeComparabilityEvidence['promised'];
+  uncomparable: RevokeComparabilityEvidence['uncomparable'];
+  /** 该次尝试的时刻；遗留条目为 `null`（不可考） */
+  at: string | null;
+  legacy?: true;
+}
+
+/**
  * REV-9 / REV-14 share this reading of one target re-read. **Read once**: reading twice would let two
  * paths reach two verdicts about the same state, which is the defect this repo keeps fixing.
  *
@@ -312,6 +337,15 @@ export class AiToolEffectsService {
     @Optional()
     @InjectRepository(AiWriteClaim)
     private readonly claimsRepo?: Repository<AiWriteClaim>,
+    /**
+     * REV-17：可比性记录的**历史**（每次走到比对的撤销尝试一行）。同样**放在构造器末尾**，使既有的位置式
+     * 装配不被扰动。@Optional：缺失即**退回「无历史」**（读侧返回 `[]`、写侧不 append）——只在单测装配/
+     * 降级接线时发生；生产由 `ai.module` 的 `TypeOrmModule.forFeature` 提供。**如实标注**：缺它时这段历史
+     * 记不下来（但既有的单列读数仍可读，见 `_recordComparability`）。
+     */
+    @Optional()
+    @InjectRepository(EffectComparability)
+    private readonly comparabilityRepo?: Repository<EffectComparability>,
   ) {}
 
   /**
@@ -412,18 +446,23 @@ export class AiToolEffectsService {
   }
 
   /**
-   * REV-14: write this pass's "promise vs reality" onto the **root row** — one piece of evidence per
-   * revoke, never a copy per member (a single-target row is its own root).
+   * REV-17 (supersedes REV-14's single column): **append** this pass's reading rather than overwrite the
+   * last one — one piece of evidence per revoke, kept on the **root** row's history (a single-target row
+   * is its own root; never a copy per member).
    *
-   * REV-14：把这一次比对的「承诺 vs 实况」写到**根行**上（一次撤销一份证据，不逐行复制；单目标行的根
-   * 就是它自己）。
+   * One column held one reading, so a later attempt erased an earlier one — and a pass with nothing to
+   * report wrote `null`, which reads exactly like "this row was never revoked". One row per attempt keeps
+   * the two apart: the row says what was checked and what it found, and **no row means no check**.
    *
-   * 两处分寸：
-   * - **只在读数会变时写**：无差集且本就没有读数 ⇒ 一次更新都不发（同一份读数不重复写）；有差集、或旧读数
-   *   已经不成立（这一轮没有差集）⇒ 写。读数因此永远跟随**最近一次**比对，一次陈旧的差集不会活得比产生
-   *   它的那次比对更久 —— 与 ARC-6「缺失集合变了，上一份确认不再适用」同一条道理。
-   * - 调用点只在**补偿真的落地之后**才调它：与「本地回滚不留任何回写」同一条口径 —— 判定都没成立时，
-   *   不记这份读数。
+   * The callers are unchanged in one respect that matters: they still invoke it only **after** the
+   * compensation actually landed — a verdict that never materialised records nothing.
+   *
+   * REV-17：把这一次的读数**追加**下来，而不是覆盖上一次。
+   *
+   * 一列只装一个读数，于是后一次尝试会抹掉前一次 —— 而无可报的那一次写 `null`，与「该行从未被撤销」读成
+   * 同一个样子。每次尝试一行把两半分开：行说清了查了什么、查到什么，而**没有行就是没有查过**。
+   *
+   * 调用点有一处不变且要紧：仍只在**补偿真的落地之后**才调它 —— 判定没成立时不记任何东西。
    */
   private async _recordComparability(
     root: AiToolSideEffect,
@@ -432,10 +471,28 @@ export class AiToolEffectsService {
       cmp: TargetComparison;
     }>,
   ): Promise<void> {
+    if (!this.comparabilityRepo) return; // 降级装配：这段历史记不下来（见构造器注释）
+    // **什么都没承诺 ⇒ 什么都不记**。`_comparabilityEvidence` 返回 null 有**两种**情形：真的全比过了，与
+    // 「捕获器缺席 ⇒ 本就什么都没承诺」。给后者写一条 `clean` 会说「查过」而其实没查 —— 那正是本次改动要消灭的
+    // 那类谎。故先问「有没有可比这件事」，没有就不落行；空历史因此只表示「没有一次尝试走到过承诺」。
+    if (!entries.some((e) => e.cmp.promised)) return;
     const evidence = this._comparabilityEvidence(entries);
-    const next = evidence ? JSON.stringify(evidence) : null;
-    if (next === (root.revokeComparability ?? null)) return;
-    await this._patchRevoke(root, { revokeComparability: next });
+    try {
+      await this.comparabilityRepo.save(
+        this.comparabilityRepo.create({
+          effectId: root.id,
+          checked: evidence ? 'diff' : 'clean',
+          promised: evidence ? JSON.stringify(evidence.promised) : null,
+          uncomparable: evidence ? JSON.stringify(evidence.uncomparable) : null,
+        }),
+      );
+    } catch (err) {
+      // 与旧的 `_patchRevoke` 同一条容忍度：撤销本身已经发生，这行只是注解，写不进去不该把它变成失败。
+      // 但**不静默**——日志里说清是哪一行的哪一次尝试没记上。
+      this.logger.warn(
+        `[AiToolEffects] REV-17 comparability attempt not recorded (effect ${root.id}): ${(err as Error).message}`,
+      );
+    }
   }
 
   /**
@@ -455,6 +512,85 @@ export class AiToolEffectsService {
         : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * REV-17: the comparability history for a whole page of effects, in **one** query.
+   *
+   * Done as a batch rather than per row: this mapping already loads each target, and a second per-row
+   * round trip would grow that with the page. Groups by effect id, oldest attempt first.
+   *
+   * REV-17：一页副作用行的可比性历史，**一次**查询取回。
+   *
+   * 批量而不是按行：这个映射本来就要逐行 `_loadTarget`，再加一层按行往返会随页大小增长。按副作用 id
+   * 分组，尝试按时间升序。
+   */
+  private async _comparabilityHistoryFor(
+    effectIds: number[],
+  ): Promise<Map<number, RevokeComparabilityAttempt[]>> {
+    const byEffect = new Map<number, RevokeComparabilityAttempt[]>();
+    if (!this.comparabilityRepo || effectIds.length === 0) return byEffect;
+    const rows = await this.comparabilityRepo.find({
+      where: { effectId: In(effectIds) },
+      order: { id: 'ASC' },
+    });
+    for (const row of rows) {
+      const attempts = byEffect.get(row.effectId) ?? [];
+      attempts.push({
+        checked: row.checked,
+        promised: this._parseJsonArray<RevokeComparabilityAttempt['promised'][number]>(row.promised),
+        uncomparable:
+          this._parseJsonArray<RevokeComparabilityAttempt['uncomparable'][number]>(row.uncomparable),
+        at: row.at instanceof Date ? row.at.toISOString() : null,
+      });
+      byEffect.set(row.effectId, attempts);
+    }
+    return byEffect;
+  }
+
+  /**
+   * REV-17: one effect's history, with the **legacy** single-column reading in front when there is one.
+   *
+   * The old column is not dropped and not ignored: its value is the last reading taken before the history
+   * existed, and dropping it from the answer would erase exactly the kind of evidence this change is
+   * about. It does not know when it was written, so it says `at: null` and `legacy: true` rather than
+   * guessing a moment.
+   *
+   * REV-17：一条副作用的历史；若有**遗留**的单列读数，放在最前。
+   *
+   * 旧列既不删也不忽略：它的值是历史存在之前取的最后一个读数，把它从答案里去掉，正是抹掉本次改动要保住的
+   * 那类证据。它不知道自己写于何时，故如实说 `at: null` 与 `legacy: true`，而不是猜一个时刻。
+   */
+  private _comparabilityFor(
+    effect: AiToolSideEffect,
+    history: Map<number, RevokeComparabilityAttempt[]>,
+  ): RevokeComparabilityAttempt[] {
+    const legacy = this._parseComparability(effect.revokeComparability);
+    return [
+      ...(legacy
+        ? [
+            {
+              checked: 'diff' as const,
+              promised: legacy.promised,
+              uncomparable: legacy.uncomparable,
+              at: null,
+              legacy: true as const,
+            },
+          ]
+        : []),
+      ...(history.get(effect.id) ?? []),
+    ];
+  }
+
+  /** JSON 文本 → 数组；读不出（空 / 非法 / 非数组）一律 `[]` —— 坏注解不该打断列表（同 `_parseComparability` 口径）。 */
+  private _parseJsonArray<T>(raw: string | null | undefined): T[] {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
     }
   }
 
@@ -1307,6 +1443,10 @@ export class AiToolEffectsService {
       take: limit,
     });
 
+    // REV-17：本页每一行的可比性**历史**，一次查询取全页（不按行 N+1 —— 这个映射里已经有一次
+    // `_loadTarget`，不该再加一层按行的往返）。
+    const comparabilityHistory = await this._comparabilityHistoryFor(items.map((e) => e.id));
+
     // 附带目标记录当前状态（软删则标注可恢复）
     const enriched = await Promise.all(
       items.map(async (effect) => {
@@ -1371,14 +1511,15 @@ export class AiToolEffectsService {
           // REV-1：该组是否「声明与持有不一致」——标记 + 证据（被拒声明与双向差集），供管理端解释为何撤销未报完成
           disputed: this._hasOpenDispute(effect),
           dispute: this._parseDispute(effect.revokeDispute),
-          // REV-14: **what the revoke promised to check but could not**. REV-9 reports nothing it cannot
-          // determine, so this difference had no surface — while the verdict still reads complete, which
-          // is exactly when a reader would conclude everything was checked. `null` = the latest pass had
-          // no such difference (or the row was never revoked), never "we looked and found nothing".
-          // REV-14：**这次撤销承诺要查、却没能查到的那些**。REV-9 判不了就不报，故这个差集此前没有任何
-          // 露出面 —— 而判定照读 complete，那正是读者会据此断定「全都查过了」的时刻。`null` = 最近一次
-          // 比对没有这个差集（或该行从未被撤销），**不是**「查了、没有」。
-          revokeComparability: this._parseComparability(effect.revokeComparability),
+          // REV-17: **the history of what this revoke promised to check and could not** — one entry per
+          // attempt, oldest first, plus the legacy single-column reading when one exists (it predates the
+          // table, so its moment is unknown and is not invented). An empty list is the one reading that
+          // says nothing was ever checked; `checked` says which of the two a given attempt's reading is,
+          // so "checked and clean" and "never revoked" no longer collapse into the same value.
+          // REV-17：**这次撤销承诺要查、却没能查到的那些的历史** —— 每次尝试一条、按时间升序；若存在旧的
+          // 单列读数也带上（它早于本表，其时刻不可考，故不臆造）。空列表是唯一一个「从未查过」的读数；
+          // `checked` 说明某次尝试的读数属于哪一种，故「查过且干净」与「从未撤销」不再塌成同一个值。
+          revokeComparability: this._comparabilityFor(effect, comparabilityHistory),
           // REV-6：该行身份缺「变更」那半（成组行登记时无变更快照）——读取侧不得默认为完整身份
           identityIncomplete: effect.identityIncomplete === true,
           // REV-13: **why** the change half is missing. `null` means one of two things and neither

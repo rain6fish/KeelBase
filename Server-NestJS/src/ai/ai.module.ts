@@ -101,6 +101,7 @@ import { AiEvalController } from './eval/ai-eval.controller';
 import { SecurityShowcaseService } from './security-showcase/security-showcase.service';
 import { SecurityShowcaseController } from './security-showcase/security-showcase.controller';
 import { AiToolSideEffect } from './tool-effects/ai-tool-side-effect.entity';
+import { EffectComparability } from './tool-effects/effect-comparability.entity';
 import { AiWriteClaim } from './tool-effects/ai-write-claim.entity';
 import { AiToolEffectsService } from './tool-effects/ai-tool-effects.service';
 import { TrustSandboxService } from './trust-sandbox/trust-sandbox.service';
@@ -190,7 +191,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     MetricsModule,
     CacheModule,
     OperationAuditModule,
-    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, AiWriteClaim, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
+    TypeOrmModule.forFeature([AiConversation, AiMessage, AiAuditLog, AiDailyUsage, KnowledgeArticle, UserMemory, EvalCase, AiToolSideEffect, EffectComparability, AiWriteClaim, AiConfirmationRequest, AiAgent, AiGovernancePolicy, AiGovernancePolicyHistory, AiBehaviorAlert, User]),
   ],
   controllers: [AiController, AuditController, InsightsController, KnowledgeController, AiEvalController, AgentsController, InternalEffectsController, ExternalEffectsController, InternalApprovalsController, SecurityShowcaseController],
   providers: [

@@ -93,6 +93,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddUndeclaredWrites*',
   '*DropUserRolesTable*',
   '*AddRevokeComparability*',
+  '*AddEffectComparabilityHistory*',
   '*DropUserRefreshTokenHash*',
   '*AddAiWriteClaims*',
   '*AddWriteClaimLinks*',
