@@ -14,6 +14,10 @@ import {
 export const PROJECT_STATUSES = ['planned', 'active', 'on_hold', 'completed'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+// Default for new rows, typed by the table above: removing that value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值就编译不过。
+const DEFAULT_STATUS: ProjectStatus = 'planned';
+
 /**
  * AI Project Management 旗舰应用：项目主实体。
  * owner 归属（userId）+ 软删除（RG-3），AI 工具按 userId 限定数据范围。
@@ -32,7 +36,7 @@ export class PmProject {
   @Column({ type: 'text', nullable: true })
   description?: string | null;
 
-  @Column({ length: 16, default: 'planned' })
+  @Column({ length: 16, default: DEFAULT_STATUS })
   status!: string;
 
   @Column({ length: 16, default: 'low' })

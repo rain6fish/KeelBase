@@ -18,7 +18,6 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiCreatedResponse, Api
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';

@@ -17,6 +17,11 @@ import { CrmCustomer } from './crm-customer.entity';
 export const CRM_TASK_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const;
 export type CrmTaskStatus = (typeof CRM_TASK_STATUSES)[number];
 
+// Default for new rows, typed by the table above: removing that value from the table stops compiling
+// instead of silently drifting.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值会**编译不过**，而不是悄悄漂移。
+const DEFAULT_STATUS: CrmTaskStatus = 'pending';
+
 /** AI CRM：跟进任务（AI 写工具 create_followup_task 的目标，可撤销） */
 @Entity('crm_tasks')
 @Index(['customerId'])
@@ -41,7 +46,7 @@ export class CrmTask {
   @Column({ type: Date, nullable: true })
   dueDate?: Date | null;
 
-  @Column({ length: 16, default: 'pending' })
+  @Column({ length: 16, default: DEFAULT_STATUS })
   status!: string;
 
   @Column({ nullable: true, name: 'user_id' })

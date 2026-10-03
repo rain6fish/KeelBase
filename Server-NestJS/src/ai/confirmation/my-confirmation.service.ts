@@ -19,6 +19,7 @@ import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.enti
 import { R4ApprovalService } from '../approvals/r4-approval.service';
 import { ToolPresentationService } from '../tools/tool-presentation.service';
 import { ConfirmationStore, CONFIRMATION_STATUS, RunItem, isWithinOfflineWindow } from './confirmation.store';
+import type { ConfirmationStatus } from './confirmation.store';
 import { ExecutionState, deriveExecutionState } from './execution-state';
 import { ConfirmationImpact, PresentationText, RevokeClass } from '../interfaces/tool.interface';
 
@@ -34,7 +35,7 @@ export interface MyConfirmationItem {
   arguments: Record<string, unknown>;
   mode: 'immediate' | 'approval' | 'run';
   riskLevel: string;
-  status: 'pending' | 'approved' | 'declined' | 'timeout';
+  status: ConfirmationStatus;
   impact: ConfirmationImpact | null;
   revokeClass: RevokeClass | null;
   run: { runId: string; riskLevel: string; items: RunItem[] } | null;

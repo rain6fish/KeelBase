@@ -18,6 +18,11 @@ export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
 export const RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
+// Defaults for new rows, typed by the tables above: removing either value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 删掉任一个值都编译不过。
+const DEFAULT_STATUS: CustomerStatus = 'lead';
+const DEFAULT_RISK_LEVEL: RiskLevel = 'low';
+
 /**
  * AI CRM 旗舰应用：客户主实体。
  * owner 归属（userId）+ 软删除（RG-3），AI 工具按 userId 限定数据范围。
@@ -42,10 +47,10 @@ export class CrmCustomer {
   @Column({ type: 'varchar', length: 100, nullable: true })
   company?: string | null;
 
-  @Column({ length: 32, default: 'lead' })
+  @Column({ length: 32, default: DEFAULT_STATUS })
   status!: string;
 
-  @Column({ length: 16, default: 'low' })
+  @Column({ length: 16, default: DEFAULT_RISK_LEVEL })
   riskLevel!: string;
 
   @Column({ type: 'text', nullable: true })

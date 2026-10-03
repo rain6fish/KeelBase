@@ -41,6 +41,13 @@ export const CONFIRMATION_STATUS = {
   DECLINED: 'declined',
   TIMEOUT: 'timeout',
 } as const;
+/**
+ * The status union derived from the table above, so consumers have one source for both the value set
+ * and its type. This used to be re-typed by hand wherever a signature needed it.
+ * 由上面的表派生的状态联合类型，让消费方对「取值集」与「其类型」共用同一个来源。
+ * 此前每个需要它的签名都手抄一份。
+ */
+export type ConfirmationStatus = (typeof CONFIRMATION_STATUS)[keyof typeof CONFIRMATION_STATUS];
 export const CONFIRMATION_OUTCOME = {
   APPROVE: 'approve',
   DECLINE: 'decline',

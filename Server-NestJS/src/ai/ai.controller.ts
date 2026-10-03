@@ -42,7 +42,7 @@ import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
 import { ApproveDecisionDto } from './dto/approve-decision.dto';
-import { ConversationQueryDto } from './dto/conversation-query.dto';
+import { MyConfirmationQueryDto } from './dto/my-confirmation-query.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
@@ -295,10 +295,7 @@ export class AiController {
    */
   @Get('conversations')
   @ApiOperation({ summary: '获取对话历史列表' })
-  async getConversations(
-    @CurrentUser() user: JwtPayload,
-    @Query() _query: ConversationQueryDto,
-  ) {
+  async getConversations(@CurrentUser() user: JwtPayload) {
     return this.conversationService.getUserConversations(String(user.sub));
   }
 
@@ -741,10 +738,8 @@ export class AiController {
    */
   @Get('my/confirmations')
   @ApiOperation({ summary: '本人确认记录（待我确认中心，GA）' })
-  async listMyConfirmations(@CurrentUser() user: JwtPayload, @Query('status') status?: string) {
-    const allowed = ['pending', 'approved', 'declined', 'timeout'] as const;
-    const filter = allowed.find((s) => s === status);
-    return this.myConfirmationService.list(String(user.sub), filter ? { status: filter } : {});
+  async listMyConfirmations(@CurrentUser() user: JwtPayload, @Query() query: MyConfirmationQueryDto) {
+    return this.myConfirmationService.list(String(user.sub), query.status ? { status: query.status } : {});
   }
 
   /**

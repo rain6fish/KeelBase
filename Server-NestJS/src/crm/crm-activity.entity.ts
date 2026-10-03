@@ -16,6 +16,10 @@ import { CrmCustomer } from './crm-customer.entity';
 export const ACTIVITY_TYPES = ['call', 'meeting', 'email', 'note'] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
+// Default for new rows, typed by the table above: removing that value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值就编译不过。
+const DEFAULT_TYPE: ActivityType = 'note';
+
 /** AI CRM：客户跟进记录（AI 分析客户活跃度的数据来源） */
 @Entity('crm_activities')
 @Index(['customerId'])
@@ -31,7 +35,7 @@ export class CrmActivity {
   @JoinColumn({ name: 'customer_id' })
   customer?: CrmCustomer;
 
-  @Column({ length: 16, default: 'note' })
+  @Column({ length: 16, default: DEFAULT_TYPE })
   type!: string;
 
   @Column({ type: 'text' })

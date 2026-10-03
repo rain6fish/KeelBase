@@ -16,6 +16,10 @@ import { CrmCustomer } from './crm-customer.entity';
 export const ORDER_STATUSES = ['pending', 'paid', 'cancelled', 'overdue'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+// Default for new rows, typed by the table above: removing that value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值就编译不过。
+const DEFAULT_STATUS: OrderStatus = 'pending';
+
 /** AI CRM：客户订单（金额/状态/逾期驱动风险分析） */
 @Entity('crm_orders')
 @Index(['customerId'])
@@ -34,7 +38,7 @@ export class CrmOrder {
   @Column({ type: 'float', default: 0 })
   amount!: number;
 
-  @Column({ length: 16, default: 'pending' })
+  @Column({ length: 16, default: DEFAULT_STATUS })
   status!: string;
 
   @Column({ type: Date, nullable: true })

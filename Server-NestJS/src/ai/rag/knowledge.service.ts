@@ -146,8 +146,13 @@ export class KnowledgeService {
     page?: number;
     limit?: number;
   }): Promise<{ items: KnowledgeArticle[]; total: number }> {
-    const page = options.page ?? 1;
-    const limit = options.limit ?? 20;
+    // Clamped on the same footing as the shared PaginationDto (cap 100): the DTO's @Max is the first
+    // line of defence, this is the second, so even a caller that is not a validated controller cannot
+    // pull the whole table.
+    // 与共享 PaginationDto 同口径钳制（上限 100）：DTO 的 @Max 是第一道，这里是第二道 ——
+    // 即便调用方不经过校验过的 controller，也拉不走整张表。
+    const page = Math.max(options.page ?? 1, 1);
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const where = options.q
       ? [
           { title: Like(`%${options.q}%`) },

@@ -154,6 +154,24 @@ describe('KnowledgeService', () => {
       expect(args.skip).toBe(10);
       expect(args.take).toBe(10);
     });
+
+    // The DTO's @Max(100) is the first line of defence; this second one covers callers that do not
+    // go through a validated controller. Before the clamp, `take` was whatever was passed.
+    // DTO 的 @Max(100) 是第一道；这里是第二道，覆盖不经校验 controller 的调用方。
+    // 加钳制前，`take` 传多少是多少。
+    it('clamps limit to the shared cap of 100', async () => {
+      await setup();
+      repo.findAndCount.mockResolvedValue([[article], 1]);
+      await service.findAll({ limit: 1_000_000 });
+      expect(repo.findAndCount.mock.calls[0][0].take).toBe(100);
+    });
+
+    it('clamps page to a floor of 1 (no negative skip)', async () => {
+      await setup();
+      repo.findAndCount.mockResolvedValue([[article], 1]);
+      await service.findAll({ page: -5 });
+      expect(repo.findAndCount.mock.calls[0][0].skip).toBe(0);
+    });
   });
 
   describe('search', () => {

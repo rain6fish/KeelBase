@@ -35,6 +35,11 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 export const APPROVAL_RISK_LEVELS = ['low', 'medium', 'high'] as const;
 export type ApprovalRiskLevel = (typeof APPROVAL_RISK_LEVELS)[number];
 
+// Defaults for new rows, typed by the two tables above: removing either value stops compiling.
+// 新建行的默认值，由上面两张词表定型 —— 删掉任一个值都编译不过。
+const DEFAULT_STATUS: RequestStatus = 'pending';
+const DEFAULT_RISK_LEVEL: ApprovalRiskLevel = 'low';
+
 /**
  * AI Approval 旗舰应用：审批请求主实体。
  * 流程：提交(pending) → AI 预审(review_approval_request) →
@@ -60,10 +65,10 @@ export class ApprovalRequest {
   @Column({ type: 'text' })
   reason!: string;
 
-  @Column({ length: 16, default: 'pending' })
+  @Column({ length: 16, default: DEFAULT_STATUS })
   status!: string;
 
-  @Column({ length: 16, default: 'low' })
+  @Column({ length: 16, default: DEFAULT_RISK_LEVEL })
   riskLevel!: string;
 
   @Column({ type: 'text', nullable: true })

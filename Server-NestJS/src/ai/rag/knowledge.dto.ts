@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IsNotEmpty, IsOptional, IsString, MaxLength, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -75,6 +75,7 @@ export class KnowledgeQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   @IsOptional()
   limit?: number;
 }

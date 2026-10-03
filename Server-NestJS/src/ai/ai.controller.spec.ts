@@ -23,6 +23,7 @@ describe('AiController', () => {
   let mockRevokeToolEffect: jest.Mock;
   let mockFindSplitGroups: jest.Mock;
   let mockListOwnedToolEffects: jest.Mock;
+  let mockMyConfirmationList: jest.Mock;
   let mockAbility: any;
 
   const mockUser = { sub: 1, username: 'alex' };
@@ -43,6 +44,7 @@ describe('AiController', () => {
     mockRevokeToolEffect = jest.fn();
     mockFindSplitGroups = jest.fn();
     mockListOwnedToolEffects = jest.fn();
+    mockMyConfirmationList = jest.fn().mockResolvedValue([]);
     mockAbility = { cannot: () => false };
     const mockAiService = { chat: mockChat, chatStream: mockChatStream } as unknown as AiService;
     // 工具对外面（阶段 3 第九刀）：清单/集成诊断已独立
@@ -58,7 +60,7 @@ describe('AiController', () => {
       create: jest.fn(),
     } as any;
     // GA 待我确认中心：本人确认记录与离线裁决（本文件聚焦既有端点，故给最小替身）
-    const mockMyConfirmationService = { list: jest.fn().mockResolvedValue([]), decide: jest.fn() } as any;
+    const mockMyConfirmationService = { list: mockMyConfirmationList, decide: jest.fn() } as any;
     const mockMemoriesService = { deleteAllForUser: mockDeleteAllForUser } as any;
     const mockToolEffectsService = {
       list: mockListToolEffects,
@@ -297,7 +299,7 @@ describe('AiController', () => {
       const mockConvs = [{ id: 'conv-1', userId: '1', messages: [] }];
       mockGetUserConversations.mockResolvedValue(mockConvs);
 
-      const result = await controller.getConversations(mockUser as any, {});
+      const result = await controller.getConversations(mockUser as any);
 
       expect(mockGetUserConversations).toHaveBeenCalledWith('1');
       expect(result).toEqual(mockConvs);
@@ -354,6 +356,18 @@ describe('AiController', () => {
 
       mockRevokeOwned.mockResolvedValue(null);
       await expect(controller.revokeMyToolEffect(7, mockUser as any)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('GET /ai/my/confirmations（GA 待我确认中心）', () => {
+    it('带 status → 只把该状态交给服务（取值域来自单源，非手抄数组）', async () => {
+      await controller.listMyConfirmations(mockUser as any, { status: 'pending' });
+      expect(mockMyConfirmationList).toHaveBeenCalledWith('1', { status: 'pending' });
+    });
+
+    it('不带 status → 交给服务的空过滤（「返回全部」是显式选择，不是未知值兜底）', async () => {
+      await controller.listMyConfirmations(mockUser as any, {});
+      expect(mockMyConfirmationList).toHaveBeenCalledWith('1', {});
     });
   });
 

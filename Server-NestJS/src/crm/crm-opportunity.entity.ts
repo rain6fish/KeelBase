@@ -16,6 +16,10 @@ import { CrmCustomer } from './crm-customer.entity';
 export const OPPORTUNITY_STAGES = ['qualification', 'proposal', 'negotiation', 'won', 'lost'] as const;
 export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number];
 
+// Default for new rows, typed by the table above: removing that value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值就编译不过。
+const DEFAULT_STAGE: OpportunityStage = 'qualification';
+
 /** AI CRM Customer 360：销售机会（金额/阶段/预期成交驱动 AI 销售分析） */
 @Entity('crm_opportunities')
 @Index(['customerId'])
@@ -37,7 +41,7 @@ export class CrmOpportunity {
   @Column({ type: 'float', default: 0 })
   amount!: number;
 
-  @Column({ length: 16, default: 'qualification' })
+  @Column({ length: 16, default: DEFAULT_STAGE })
   stage!: string;
 
   /** 成交概率 0-100（stage 辅助） */

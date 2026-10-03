@@ -17,6 +17,10 @@ import { PmProject } from './pm-project.entity';
 export const PM_TASK_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const;
 export type PmTaskStatus = (typeof PM_TASK_STATUSES)[number];
 
+// Default for new rows, typed by the table above: removing that value stops compiling.
+// 新建行的默认值，由上面的词表定型 —— 从表里删掉该值就编译不过。
+const DEFAULT_STATUS: PmTaskStatus = 'pending';
+
 /** AI Project Management：项目任务（AI 写工具 create_project_task 的目标，可撤销） */
 @Entity('pm_tasks')
 @Index(['projectId'])
@@ -41,7 +45,7 @@ export class PmTask {
   @Column({ type: Date, nullable: true })
   dueDate?: Date | null;
 
-  @Column({ length: 16, default: 'pending' })
+  @Column({ length: 16, default: DEFAULT_STATUS })
   status!: string;
 
   @Column({ type: 'int', nullable: true, name: 'assignee_id' })

@@ -7,6 +7,9 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+// The column default names the enum member rather than repeating its value.
+// 列默认值引用枚举成员，而不是把它的取值再抄一遍。
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
@@ -48,7 +51,7 @@ export class User {
   @Column({ length: 256, nullable: true })
   avatarUrl?: string;
 
-  @Column({ type: 'varchar', length: 16, default: 'user' })
+  @Column({ type: 'varchar', length: 16, default: UserRole.USER })
   role!: UserRole;
 
   @Column({ length: 32, nullable: true })
