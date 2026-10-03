@@ -109,7 +109,12 @@ export function summarizeAudit(
   if (row.action === 'tool_confirmation') {
     // 确认决策优先于工具名（create_event 的 confirmation 记录不是写操作）
     const outcome = parseConfirmation(row.detail)?.outcome ?? 'timeout';
-    sentence = `${username}${outcome === 'approve' ? '批准' : outcome === 'decline' ? '拒绝' : '确认超时'}了该操作`;
+    // R4 高影响动作**不走内联确认**，而是被转人工审批（`ai.service.ts:1187` 的 `→ pending_approval`）——
+    // 它既不是「批准」也不是「确认超时」，故整句另写，不塞进动词位。
+    sentence =
+      outcome === 'pending_approval'
+        ? `${username}的该操作已转人工审批（R4），等待审批人决策`
+        : `${username}${outcome === 'approve' ? '批准' : outcome === 'decline' ? '拒绝' : '确认超时'}了该操作`;
   } else if (row.action === 'content_blocked' || (row.action === 'tool_call' && row.isError && BLOCKED_RE.test(row.errorMessage ?? ''))) {
     // A-8 越权尝试一级事件业务化：区分「越权尝试 / 高风险阻断 / 通用阻断」——「AI 没做什么」同样是安全证据
     const msg = row.errorMessage ?? '';

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AiAuditLog } from './ai-audit-log.entity';
+import { parseConfirmation } from './confirmation-detail';
 
 /** B3/E-2 按 UTC 日聚合的趋势桶（5 段：执行/批准/拒绝/阻断/错误） */
 export interface AuditByDayBucket {
@@ -40,7 +41,9 @@ export function byDayAggregation(logs: AiAuditLog[]): AuditByDayBucket[] {
       else if (!l.isError) b.executed++;
     } else if (l.action === 'tool_confirmation') {
       if (l.isError) b.rejected++;
-      else if (!l.detail?.includes('pending_approval')) b.approved++;
+      // pending_approval 既非批准也非拒绝（R4 转人工审批），不计入 —— 判据与叙述层**同源**（`parseConfirmation`），
+      // 不再用字符串包含：格式一改，包含式会**静默**把「转审批」计成「批准」。
+      else if (parseConfirmation(l.detail)?.outcome !== 'pending_approval') b.approved++;
     }
   }
   return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));

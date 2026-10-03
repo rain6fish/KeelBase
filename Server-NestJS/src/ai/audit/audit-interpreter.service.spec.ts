@@ -42,6 +42,20 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
     expect(s.sentence).not.toContain('超时');
   });
 
+  // R4 转人工审批：旧读法塌成 timeout ⇒ 叙述说「确认超时」，而该行自己写的是 pending_approval。
+  // 本用例对旧实现为红。
+  it('tool_confirmation（R4 转人工审批）→ 「转人工审批」句，而不是「确认超时」', () => {
+    const row = {
+      userId: '1',
+      username: 'alex',
+      action: 'tool_confirmation',
+      detail: 'create_project_with_tasks({"name":"x"}) → pending_approval',
+    };
+    const s = summarizeAudit(row, [row]);
+    expect(s.sentence).toContain('转人工审批');
+    expect(s.sentence).not.toContain('超时');
+  });
+
   it('坏 evidence JSON → 兜底模板（仍出业务摘要）', () => {
     const row = { userId: '1', username: 'alex', action: 'tool_call', detail: 'analyze_customer_risk({})', evidence: 'not-json' };
     const s = summarizeAudit(row, [row]);

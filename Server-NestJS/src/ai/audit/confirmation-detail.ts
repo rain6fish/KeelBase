@@ -26,8 +26,16 @@
  * 都被报成 `timeout`。现有测试只覆盖单条形状，所以它一直不可见。两个读取方现在都从这里取答案。
  */
 
-/** 与确认生命周期同一值域（approve | decline | timeout；见 `confirmation.store.ts`） */
-export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout';
+/**
+ * detail 里可能出现的结果词。前三个与确认生命周期同一值域（见 `confirmation.store.ts`）；
+ * **`pending_approval` 是第四个** —— R4 高影响动作不走内联确认，而是被**转人工审批**（`ai.service.ts:1187`），
+ * 该行同样写在 `action: 'tool_confirmation'` 下。它既不是批准也不是拒绝，更不是超时。
+ *
+ * The outcome words that can appear. The first three match the confirmation lifecycle; `pending_approval`
+ * is the fourth — an R4 action is routed to human approval instead of being confirmed inline
+ * (`ai.service.ts:1187`), and that row carries `action: 'tool_confirmation'` too.
+ */
+export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout' | 'pending_approval';
 
 export type ParsedConfirmation =
   | { kind: 'tool'; toolName: string; args?: string; outcome: ConfirmationOutcome; trusted: boolean }
@@ -65,6 +73,14 @@ export function parseConfirmation(detail?: string | null): ParsedConfirmation | 
   return null;
 }
 
+/**
+ * 只映射**写入侧会写的词**（`ai.service.ts` 的三处 writer）。都不是 → 落 `timeout`，**这是既有行为、
+ * 本条未改**：「未知被断言成确定」是同族的另一个问题，改它要另裁。
+ *
+ * Maps only the words the writers actually emit. Anything else falls to `timeout`, which is the pre-existing
+ * behaviour and deliberately untouched here.
+ */
 function outcomeOf(raw: string | undefined): ConfirmationOutcome {
-  return raw === 'approve' ? 'approve' : raw === 'decline' ? 'decline' : 'timeout';
+  if (raw === 'approve' || raw === 'decline' || raw === 'pending_approval') return raw;
+  return 'timeout';
 }

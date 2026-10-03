@@ -451,6 +451,22 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       expect(report.byDay[0]).toMatchObject({ executed: 1, approved: 1, rejected: 1, blocked: 1, errors: 2 });
     });
 
+    // R4 转人工审批：isError=false（还没被拒）但 detail 是 pending_approval ⇒ **两格都不进** ——
+    // 计成 approved 就是合规报告虚报。护栏用例（新旧实现同绿）：它钉的是规则本身。
+    it('R4 转人工审批（pending_approval）既不计批准也不计拒绝', async () => {
+      logRepo.find.mockResolvedValue([
+        { id: 1, userId: '1', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
+        { id: 2, userId: '1', action: 'tool_confirmation', detail: 'create_project_with_tasks({"name":"x"}) → pending_approval', isError: false, createdAt: new Date() },
+      ]);
+      chain.verifyChain.mockReturnValue({ valid: true, checked: 2 });
+
+      const report = await service.getActionReport({ userId: '1' });
+
+      expect(report.summary.approved).toBe(1);
+      expect(report.summary.rejected).toBe(0);
+      expect(report.byDay[0]).toMatchObject({ approved: 1, rejected: 0 });
+    });
+
     it('byDay 按 UTC 日聚合（多日升序，阻断/错误分别入桶）', async () => {
       logRepo.find.mockResolvedValue([
         { id: 1, userId: '1', action: 'tool_call', detail: 'create_x()', isError: false, createdAt: new Date('2026-08-20T10:00:00Z') },

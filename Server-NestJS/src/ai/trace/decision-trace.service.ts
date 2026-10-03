@@ -53,7 +53,7 @@ export interface TraceStep {
   errorMessage?: string | null;
   /** W5-⑦ Explainable Authz：工具被拒时 AuthorizationDeniedError 的检查清单（为何阻止） */
   checks?: Array<{ name: string; ok: boolean; note?: string }>;
-  outcome?: 'approve' | 'decline' | 'timeout';
+  outcome?: ConfirmationOutcome;
   trusted?: boolean;
   content?: string;
   detail?: string | null;

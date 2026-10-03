@@ -240,6 +240,8 @@ class _StepCard extends StatelessWidget {
         final outcomeText = switch (step.outcome) {
           'approve' => l10n.traceApproved,
           'decline' => l10n.traceDeclined,
+          // R4 转人工审批：既非批准也非拒绝，更不是超时 —— 别落进兜底的「已超时」
+          'pending_approval' => l10n.tracePendingApproval,
           _ => l10n.traceTimedOut,
         };
         list.add(Text(

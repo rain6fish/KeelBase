@@ -37,7 +37,7 @@ class AiTraceStep {
   final String? args;
   final bool? success;
   final String? errorMessage;
-  final String? outcome; // approve | decline | timeout
+  final String? outcome; // approve | decline | timeout | pending_approval（R4 转人工审批）
   final bool? trusted;
   final String? content;
   final String? detail;

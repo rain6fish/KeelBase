@@ -451,6 +451,7 @@ const zh = {
   stepApproved: '已批准',
   stepDeclined: '已拒绝',
   stepTimedOut: '已超时',
+  stepPendingApproval: '转人工审批',
   stepTrusted: '本轮免确认',
   stepInitiate: '发起',
   stepAuthorize: '授权',

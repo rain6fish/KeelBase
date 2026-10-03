@@ -33,6 +33,7 @@ import {
   AuditInterpreterStats,
 } from './audit-interpreter.service';
 import { extractToolName } from './tool-name';
+import { parseConfirmation } from './confirmation-detail';
 import { buildPayload } from './payload';
 import { AUDIT_VERIFY_CACHE_KEY } from './cache-keys';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
@@ -275,8 +276,9 @@ export class AuditEvidenceService {
         else if (!l.isError) { executed++; }
       } else if (l.action === 'tool_confirmation') {
         if (l.isError) { rejected++; }
-        // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报
-        else if (!l.detail?.includes('pending_approval')) { approved++; }
+        // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报。
+        // 判据与叙述层**同源**（`parseConfirmation`），不再用字符串包含：格式一改，包含式会**静默**把转审批计成批准。
+        else if (parseConfirmation(l.detail)?.outcome !== 'pending_approval') { approved++; }
       }
     }
     // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）

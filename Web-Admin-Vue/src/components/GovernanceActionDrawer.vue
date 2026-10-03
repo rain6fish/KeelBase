@@ -217,11 +217,19 @@ const lifecycleSteps = computed(() => {
   ]
   if (confirm) {
     const ok = confirm.outcome === 'approve' || confirm.trusted
+    // R4 转人工审批既非批准也非拒绝，更不是超时 —— 单独一句，不落进「已拒绝」的兜底；状态也不是 error（还在等审批人）
+    const pendingApproval = confirm.outcome === 'pending_approval'
     out.push({
       key: 'confirm',
       label: t('stepConfirm'),
-      description: ok ? (confirm.trusted ? t('stepTrusted') : t('stepApproved')) : confirm.outcome === 'timeout' ? t('stepTimedOut') : t('stepDeclined'),
-      status: ok ? 'finish' : 'error',
+      description: ok
+        ? (confirm.trusted ? t('stepTrusted') : t('stepApproved'))
+        : pendingApproval
+          ? t('stepPendingApproval')
+          : confirm.outcome === 'timeout'
+            ? t('stepTimedOut')
+            : t('stepDeclined'),
+      status: ok ? 'finish' : pendingApproval ? 'process' : 'error',
     })
   }
   if (denied) {

@@ -658,6 +658,7 @@ class AppLocalizations {
   String get traceApproved => _t('Approved', '已批准');
   String get traceDeclined => _t('Declined', '已拒绝');
   String get traceTimedOut => _t('Timed out', '已超时');
+  String get tracePendingApproval => _t('Pending approval', '转人工审批');
   String get traceTrusted => _t('Trusted this round', '本轮免确认');
   String get traceRevoke => _t('Revoke', '撤销');
   String get traceRevoked => _t('Revoked, restorable from trash', '已撤销，可经回收站恢复');

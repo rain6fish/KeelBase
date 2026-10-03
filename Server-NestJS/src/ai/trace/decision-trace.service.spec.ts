@@ -140,6 +140,18 @@ describe('DecisionTraceService', () => {
     });
   });
 
+  // R4 转人工审批：旧读法塌成 timeout，轨迹于是显示「已超时」而该行自己写的是 pending_approval。
+  // 本用例对旧实现为红。
+  it('tool_confirmation（R4 转人工审批）：outcome 取真读数，不塌成 timeout', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    auditRepo.find.mockResolvedValue([
+      log({ id: 16, action: 'tool_confirmation', detail: 'create_event({"title":"m"}) → pending_approval' }),
+    ]);
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    expect(steps[0]).toMatchObject({ type: 'confirmation', toolName: 'create_event', outcome: 'pending_approval' });
+  });
+
   it('effect 步骤：透传富化后的副作用信息', async () => {
     convService.getConversation.mockResolvedValue(makeConv());
     effectsService.listForConversation.mockResolvedValue([
@@ -291,10 +303,19 @@ describe('DecisionTraceService', () => {
       } as unknown as never,
     ]);
     const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    // 版本由 registry 决定、**不硬编码** —— 契约只增不改，形状变更后 registry 指向 vN；
+    // 硬编码 v1 会让本断言对着**过期契约**静默通过（2026-10-03 trace-step 出 v2 时发现）。
+    const specs = resolve(__dirname, '../../../specs/protocol');
+    const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry.json'), 'utf8')) as {
+      schemasDir: string;
+      objects: Array<{ id: string; schema: string }>;
+    };
+    const traceStepSchema = registry.objects.find((o) => o.id === 'trace-step');
+    if (!traceStepSchema) throw new Error('registry 缺 trace-step 条目');
     const props = Object.keys(
       (
         JSON.parse(
-          readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/trace-step.schema.json'), 'utf8'),
+          readFileSync(resolve(specs, registry.schemasDir, traceStepSchema.schema), 'utf8'),
         ) as { properties: Record<string, unknown> }
       ).properties,
     );

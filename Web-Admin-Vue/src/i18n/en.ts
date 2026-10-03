@@ -450,6 +450,7 @@ const en: ZhDict = {
   stepApproved: 'Approved',
   stepDeclined: 'Declined',
   stepTimedOut: 'Timed out',
+  stepPendingApproval: 'Pending approval',
   stepTrusted: 'Trusted this round',
   stepInitiate: 'Initiated',
   stepAuthorize: 'Authorized',

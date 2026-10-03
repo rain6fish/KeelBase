@@ -43,6 +43,21 @@ describe('parseConfirmation（确认决策 detail 的唯一解析）', () => {
     expect(parseConfirmation('run(abc) 12 items → timeout')).toMatchObject({ kind: 'run', outcome: 'timeout' });
   });
 
+  // R4 高影响动作不走内联确认，而是被**转人工审批**（`ai.service.ts:1187`），该行也在 `tool_confirmation` 下。
+  // 它既非批准也非拒绝、更不是超时 —— 旧读法把它塌成 `timeout`，于是合规叙述说「确认超时」而真相是「已转人工审批」。
+  //
+  // An R4 action is routed to human approval; that row carries the same action, and the old reading
+  // collapsed it into `timeout`.
+  it('R4 转人工审批：`→ pending_approval` 有它自己的读数，不是 `timeout`', () => {
+    expect(parseConfirmation('create_event({"a":1}) → pending_approval')).toEqual({
+      kind: 'tool',
+      toolName: 'create_event',
+      args: '{"a":1}',
+      outcome: 'pending_approval',
+      trusted: false,
+    });
+  });
+
   it('认不出 → null（**不**在这里兜底成 timeout）', () => {
     expect(parseConfirmation('analyze_customer_risk({"id":7})')).toBeNull();
     expect(parseConfirmation('create_event({}) → approve 多了尾巴')).toBeNull();

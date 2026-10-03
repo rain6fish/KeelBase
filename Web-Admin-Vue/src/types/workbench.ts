@@ -77,7 +77,8 @@ export interface TraceStep {
   errorMessage?: string | null
   /** W5-⑦ Explainable Authz：工具被拒时检查清单（为何阻止） */
   checks?: Array<{ name: string; ok: boolean; note?: string }>
-  outcome?: 'approve' | 'decline' | 'timeout'
+  /** `pending_approval`：R4 高影响动作不走内联确认，而是转人工审批（trace-step 契约 v2） */
+  outcome?: 'approve' | 'decline' | 'timeout' | 'pending_approval'
   trusted?: boolean
   content?: string
   detail?: string | null
