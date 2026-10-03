@@ -133,6 +133,9 @@
     "multer": "^2.3.0",
     "@nestjs/swagger": {
       "js-yaml": "^5.4.2"
+    },
+    "@opentelemetry/otlp-grpc-exporter-base": {
+      "@grpc/grpc-js": "^1.14.5"
     }
   }
 }
