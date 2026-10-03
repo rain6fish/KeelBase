@@ -8,7 +8,7 @@ import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { EffectComparability } from './effect-comparability.entity';
 import { AiWriteClaim, WRITE_CLAIM_STATUS } from './ai-write-claim.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
-import { SIDE_EFFECT_REVOKER } from './side-effect-revoker';
+import { SIDE_EFFECT_REVOKER, type DerivedReferenceCount } from './side-effect-revoker';
 import type { SideEffectRevoker } from './side-effect-revoker';
 import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
 import type { GovernanceReporter } from '../governance/governance-reporter.service';
@@ -153,6 +153,21 @@ export type RevokeResult = {
   compensationGroup?: string | null;
   /** 级联补偿（v3）：整组汇总（仅组内成员数 > 1 时返回） */
   cascade?: RevokeCascadeSummary;
+  /**
+   * REV-16: rows that still point at what this revoke took away, from the edges we have a model for.
+   *
+   * **Present only when the target's type is in the registry** — an absent field means no reference model
+   * (not checked), while an empty array means checked and nothing points at it. Both readings are useful
+   * and they are not the same; the verdict does **not** change either way, and nothing is cascaded: this
+   * reports what the revoke did not reach, which is exactly what the verdict alone could not say.
+   *
+   * REV-16：本次撤销拿走的东西，还有哪些行指着它 —— 只覆盖我们有模型的那些边。
+   *
+   * **只在目标类型已在登记表里时出现**：字段缺席 = 没有引用模型（未检查），空数组 = 查过且没有东西指着它。
+   * 两种读数都有用、且不是一回事；**判定不因此改变**，也不级联任何东西 —— 它报的是这次撤销**没够到**的部分，
+   * 而那正是单看判定说不出来的东西。
+   */
+  downstreamReferences?: DerivedReferenceCount[];
 };
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
@@ -581,6 +596,47 @@ export class AiToolEffectsService {
         : []),
       ...(history.get(effect.id) ?? []),
     ];
+  }
+
+  /**
+   * REV-16: what this operation did **not** reach — the live rows still pointing at the targets it revoked.
+   *
+   * Returns `undefined` when none of the targets' types has a reference model, which keeps the result's
+   * field absent and the two readings apart: absent is "not checked", an empty array is "checked, nothing
+   * points at it". Totals are per referencing **table**, summed over the revoked targets, so a group shows
+   * one line per table rather than one per member.
+   *
+   * The targets themselves are passed as the exclusion set: a member being revoked in this same operation
+   * is part of the action, not a leftover pointing at it.
+   *
+   * REV-16：本次操作**没够到**的部分 —— 它撤销的目标上，还活着的引用行。
+   *
+   * 所有目标类型都没有引用模型时返回 `undefined`，于是结果里该字段**缺席**，两种读数因此分开：缺席是
+   * 「未检查」，空数组是「查过、没有东西指着它」。按**引用方表**汇总、跨被撤销目标相加，故一个组每个表
+   * 一行，而不是每个成员一行。
+   *
+   * 目标本身同时作为排除集：同一次操作里一并撤销的成员属于本次动作，不是「留下指着它的东西」。
+   */
+  private async _downstreamReferences(
+    revokedTargets: Array<{ resultType: string; resultId: number }>,
+  ): Promise<DerivedReferenceCount[] | undefined> {
+    if (!this.revoker?.countDerivedReferences) return undefined;
+    const totals = new Map<string, number>();
+    let checkedAny = false;
+    for (const target of revokedTargets) {
+      const found = await this.revoker.countDerivedReferences(
+        target.resultType,
+        target.resultId,
+        revokedTargets,
+      );
+      if (found === null) continue; // 该类型没有引用模型 ⇒ 未检查（**不是**「没有」）
+      checkedAny = true;
+      for (const ref of found) totals.set(ref.table, (totals.get(ref.table) ?? 0) + ref.remaining);
+    }
+    if (!checkedAny) return undefined;
+    return [...totals.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([table, remaining]) => ({ table, remaining }));
   }
 
   /** JSON 文本 → 数组；读不出（空 / 非法 / 非数组）一律 `[]` —— 坏注解不该打断列表（同 `_parseComparability` 口径）。 */
@@ -1986,10 +2042,19 @@ export class AiToolEffectsService {
           const claims = await this._crossGroupClaims(groupId, members);
           disputed = this._disputeNotes(members, claims).length > 0;
           if (members.length > 1) {
-            const { items } = await this._compensateGroup(effect, groupId, members, claims);
+            const { items, result } = await this._compensateGroup(effect, groupId, members, claims);
             for (const it of items) {
               if (!scopedIds.has(it.effectId)) continue;
-              results.push(withDispute(disputed, it));
+              // REV-16：批量**逐条**也要带上这个读数 —— 只在单条带上就会变成「同一状态、两条路两个形状」，
+              // 正是本仓反复修的那类缺陷。组级结论是整组的，故组内每条都带同一份。
+              results.push(
+                withDispute(disputed, {
+                  ...it,
+                  ...(result.downstreamReferences
+                    ? { downstreamReferences: result.downstreamReferences }
+                    : {}),
+                }),
+              );
               if (it.revoked) revoked++;
               else if (it.skipped) skipped++;
               else failed++;
@@ -2041,6 +2106,8 @@ export class AiToolEffectsService {
             external: r.external ?? false,
             message: r.message,
             compensationGroup: groupId ?? null,
+            // REV-16：与单条撤销同向（见上面组分支的注释）
+            ...(r.downstreamReferences ? { downstreamReferences: r.downstreamReferences } : {}),
           }),
         );
       } catch (err) {
@@ -2316,6 +2383,13 @@ export class AiToolEffectsService {
         ([id, d]) => `effect ${id} 的目标在写入后被改过（${d}），本次补偿把该改动一并抹除`,
       ),
     );
+    // REV-16：整组拿走的那些目标上，还有哪些行指着它们。**在组级结论之外**再答一句 —— 组级会读出
+    // 「全部补偿完成」，而那正是读者会据此断定「什么都干净了」的时刻；这个字段说的是它**没够到**的部分。
+    // 成员自身作为排除集：组内一并撤销的那些行属于本次动作，不是「留下指着它的东西」。
+    const downstreamReferences = await this._downstreamReferences(
+      members.map((m) => ({ resultType: m.resultType, resultId: m.resultId })),
+    );
+    if (downstreamReferences) out.result.downstreamReferences = downstreamReferences;
     await this._auditCompensation(groupId, members, out.items, requested);
     return out;
   }
@@ -2473,11 +2547,19 @@ export class AiToolEffectsService {
           `[AiToolEffects] effect ${effect.id}: 目标 ${effect.resultType} #${effect.resultId} 在写入后被改过（${drift}）`,
         );
       }
+      // REV-16：这次撤销拿走的这个目标，还有哪些行指着它。只在撤销**真的落地**时问 —— 没撤成，谈不上
+      // 「没够到」。字段在类型没有引用模型时**缺席**（未检查），与「查过、没有」不是一回事。
+      const downstreamReferences = r.revoked
+        ? await this._downstreamReferences([
+            { resultType: effect.resultType, resultId: effect.resultId },
+          ])
+        : undefined;
       return {
         revoked: r.revoked,
         effectId: effect.id,
         message: this._withDriftNote(r.message, drift),
         revokeStatus: r.revoked ? 'revoked' : 'revoke_failed',
+        ...(downstreamReferences ? { downstreamReferences } : {}),
       };
     }
     // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿

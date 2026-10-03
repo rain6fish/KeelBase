@@ -356,11 +356,20 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const res = await service.revoke(3);
       expect(res).toMatchObject({ revoked: true, effectId: 3 });
       // ② 绑定：撤销结果键集 ⊆ side-effect-revoke.revokeResult 冻结契约（无越界键）
+      // 版本由 registry 决定、**不硬编码** —— 契约只增不改，形状变更后 registry 指向 vN；
+      // 硬编码会让本断言对着**过期契约**静默通过（2026-10-03 该对象出 v4 时发现）。
+      const specs = resolve(__dirname, '../../../specs/protocol');
+      const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry.json'), 'utf8')) as {
+        schemasDir: string;
+        objects: Array<{ id: string; schema: string }>;
+      };
+      const entry = registry.objects.find((o) => o.id === 'side-effect-revoke');
+      if (!entry) throw new Error('registry 缺 side-effect-revoke 条目');
       const props = Object.keys(
         (
-          JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v3/side-effect-revoke.schema.json'), 'utf8'),
-          ) as { definitions: { revokeResult: { properties: Record<string, unknown> } } }
+          JSON.parse(readFileSync(resolve(specs, registry.schemasDir, entry.schema), 'utf8')) as {
+            definitions: { revokeResult: { properties: Record<string, unknown> } };
+          }
         ).definitions.revokeResult.properties,
       );
       expect(Object.keys(res as object).filter((k) => !props.includes(k))).toEqual([]);
@@ -952,7 +961,12 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
 
     let svc: AiToolEffectsService;
-    let revokerStub: { canHandle: jest.Mock; revoke: jest.Mock; describeTarget: jest.Mock };
+    let revokerStub: {
+      canHandle: jest.Mock;
+      revoke: jest.Mock;
+      describeTarget: jest.Mock;
+      countDerivedReferences: jest.Mock;
+    };
     let extStub: { revoke: jest.Mock };
     let auditStub: { log: jest.Mock };
     let tx: jest.Mock;
@@ -965,6 +979,8 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
         // ARC-1：本地软删语义下，`revoked` 的行**目标是软的**——夹具此前一律给 `deletedAt: null`
         // （永远「活着」），那是把「已撤销」当跳过态用的**代称**，没有建模这对真实配对。
         describeTarget: jest.fn().mockResolvedValue({ deletedAt: new Date('2026-01-01T00:00:00Z') }),
+        // REV-16：替身也要答这一问。`null` = 没有引用模型（未检查）——与本替身「没有登记表」相一致。
+        countDerivedReferences: jest.fn().mockResolvedValue(null),
       };
       extStub = { revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }) };
       auditStub = { log: jest.fn().mockResolvedValue(undefined) };
@@ -1198,6 +1214,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       canHandle: jest.Mock;
       revoke: jest.Mock;
       describeTarget: jest.Mock;
+      countDerivedReferences: jest.Mock;
     };
 
     // 直接 new（依赖全 @Optional；ToolRegistry 手动装；SIDE_EFFECT_REVOKER 用 stub）
@@ -1206,6 +1223,8 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
         canHandle: jest.fn().mockReturnValue(opts?.withRevoker ? true : false),
         revoke: jest.fn().mockResolvedValue({ revoked: true }),
         describeTarget: jest.fn().mockResolvedValue({ deletedAt: null }),
+        // REV-16：替身也要答这一问。`null` = 没有引用模型（未检查）——与本替身「没有登记表」相一致。
+        countDerivedReferences: jest.fn().mockResolvedValue(null),
       };
       const externalRevoker = {
         revoke: jest.fn().mockResolvedValue({ ok: true, message: 'compensated' }),

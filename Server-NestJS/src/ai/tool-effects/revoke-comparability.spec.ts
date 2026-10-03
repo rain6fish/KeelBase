@@ -118,6 +118,7 @@ describe('REV-14 撤销承诺比对的成员 vs 真的比到了的成员', () =>
             checked: string;
             promised: unknown[];
             uncomparable: unknown[];
+            at: string | null;
           }>;
         }
       | undefined;
