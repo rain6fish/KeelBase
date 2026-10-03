@@ -18,6 +18,10 @@ import { AiAuditLog } from '../audit/ai-audit-log.entity';
 import { ConversationService, ConversationData } from '../conversation/conversation.service';
 import { AiToolEffectsService } from '../tool-effects/ai-tool-effects.service';
 import { parseToolCall as parseToolCallShared } from '../audit/tool-name';
+import {
+  parseConfirmation as parseConfirmationShared,
+  type ConfirmationOutcome,
+} from '../audit/confirmation-detail';
 import type { AppAbility } from '../../common/casl/casl-ability.factory';
 
 export type TraceStepType =
@@ -229,15 +233,17 @@ function parseToolCallFromDetail(detail?: string | null): { toolName: string; ar
   return { toolName: parsed.toolName, args: parsed.args ?? undefined };
 }
 
-/** detail 形如 `create_event({...}) → approve (trusted)` → 拆出工具名/参数/决策/免确认标志 */
+/**
+ * 轨迹步的确认形状。单条形状走共享解析器；**run 级**（`run(<token>) N items → outcome`）与认不出的行
+ * 仍以**原文**充当工具名 —— 轨迹宁可显示原文，也不显示空（本文件既有取舍）。但 `outcome` **一律取共享
+ * 解析器的真读数**，故一次已批准的 run 级审批不再被显示成超时。
+ */
 function parseConfirmation(
   detail?: string | null,
-): { toolName: string; args?: string; outcome: 'approve' | 'decline' | 'timeout'; trusted: boolean } {
-  const m = /^([\w]+)\((.*)\)\s*→\s*(\w+)(?:\s*\((trusted)\))?$/s.exec(detail || '');
-  if (m) {
-    const raw = m[3];
-    const outcome = raw === 'approve' ? 'approve' : raw === 'decline' ? 'decline' : 'timeout';
-    return { toolName: m[1], args: m[2], outcome, trusted: m[4] === 'trusted' };
+): { toolName: string; args?: string; outcome: ConfirmationOutcome; trusted: boolean } {
+  const parsed = parseConfirmationShared(detail);
+  if (parsed?.kind === 'tool') {
+    return { toolName: parsed.toolName, args: parsed.args, outcome: parsed.outcome, trusted: parsed.trusted };
   }
-  return { toolName: detail || '', outcome: 'timeout', trusted: false };
+  return { toolName: detail || '', outcome: parsed?.outcome ?? 'timeout', trusted: false };
 }

@@ -123,6 +123,23 @@ describe('DecisionTraceService', () => {
     expect(steps[1]).toMatchObject({ type: 'confirmation', toolName: 'create_todo', outcome: 'decline', trusted: false });
   });
 
+  // run 级确认：轨迹仍以**原文**充当工具名（本文件既有取舍：宁可显示原文也不显示空），但 outcome 必须是
+  // 真读数 —— 旧实现两份正则都匹配不上 run 形状，于是已批准的 run 显示成 timeout。本用例对旧实现为红。
+  it('tool_confirmation（run 级）：outcome 取真读数，工具名回落原文', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    auditRepo.find.mockResolvedValue([
+      log({ id: 15, action: 'tool_confirmation', detail: 'run(3f2a1c8e-0b7d-4a11-9c3e-2f5b6a7d8e9f) 3 items → approve' }),
+    ]);
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    expect(steps[0]).toMatchObject({
+      type: 'confirmation',
+      outcome: 'approve',
+      toolName: 'run(3f2a1c8e-0b7d-4a11-9c3e-2f5b6a7d8e9f) 3 items → approve',
+      trusted: false,
+    });
+  });
+
   it('effect 步骤：透传富化后的副作用信息', async () => {
     convService.getConversation.mockResolvedValue(makeConv());
     effectsService.listForConversation.mockResolvedValue([

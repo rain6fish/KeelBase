@@ -7,6 +7,7 @@
  */
 
 import { parseToolCall } from './tool-name';
+import { parseConfirmation } from './confirmation-detail';
 
 export interface AuditEvidence {
   decision?: string;
@@ -107,7 +108,7 @@ export function summarizeAudit(
   let sentence: string;
   if (row.action === 'tool_confirmation') {
     // 确认决策优先于工具名（create_event 的 confirmation 记录不是写操作）
-    const { outcome } = parseConfirmation(row.detail);
+    const outcome = parseConfirmation(row.detail)?.outcome ?? 'timeout';
     sentence = `${username}${outcome === 'approve' ? '批准' : outcome === 'decline' ? '拒绝' : '确认超时'}了该操作`;
   } else if (row.action === 'content_blocked' || (row.action === 'tool_call' && row.isError && BLOCKED_RE.test(row.errorMessage ?? ''))) {
     // A-8 越权尝试一级事件业务化：区分「越权尝试 / 高风险阻断 / 通用阻断」——「AI 没做什么」同样是安全证据
@@ -292,7 +293,7 @@ export function aggregateConversation(convRows: AuditInterpretationRow[]): Audit
       if (ev) evidence.push(ev);
     }
     if (r.action === 'tool_confirmation') {
-      const { outcome } = parseConfirmation(r.detail);
+      const outcome = parseConfirmation(r.detail)?.outcome ?? 'timeout';
       if (outcome === 'approve') confirmations.approved++;
       if (outcome === 'decline') confirmations.declined++;
     }
@@ -354,9 +355,3 @@ function parseToolName(detail?: string | null): { toolName: string } {
   return { toolName: parseToolCall(detail)?.toolName ?? '' };
 }
 
-/** detail 形如 `create_followup_task({...}) → approve` → 确认结果 */
-function parseConfirmation(detail?: string | null): { outcome: 'approve' | 'decline' | 'timeout' } {
-  const m = /^[\w]+\(.*\)\s*→\s*(\w+)/.exec(detail || '');
-  const raw = m?.[1];
-  return { outcome: raw === 'approve' ? 'approve' : raw === 'decline' ? 'decline' : 'timeout' };
-}

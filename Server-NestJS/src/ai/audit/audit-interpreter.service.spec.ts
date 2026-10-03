@@ -27,6 +27,21 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
     expect(s.sentence).toContain('批准');
   });
 
+  // run 级确认（`ai.service.ts:1103`）此前两份正则都匹配不上 ⇒ 明明批准了，合规叙述却说「确认超时」。
+  // 本用例对旧实现为红。The run-level confirmation used to fall through both regexes, so an approved
+  // run was narrated as a timeout.
+  it('tool_confirmation（run 级）→ 批准句，而不是「确认超时」', () => {
+    const row = {
+      userId: '1',
+      username: 'alex',
+      action: 'tool_confirmation',
+      detail: 'run(3f2a1c8e-0b7d-4a11-9c3e-2f5b6a7d8e9f) 3 items → approve',
+    };
+    const s = summarizeAudit(row, [row]);
+    expect(s.sentence).toContain('批准');
+    expect(s.sentence).not.toContain('超时');
+  });
+
   it('坏 evidence JSON → 兜底模板（仍出业务摘要）', () => {
     const row = { userId: '1', username: 'alex', action: 'tool_call', detail: 'analyze_customer_risk({})', evidence: 'not-json' };
     const s = summarizeAudit(row, [row]);
@@ -107,6 +122,17 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
     expect(stats.businessEvents).toEqual([{ event: 'FollowupTaskCreated', count: 2 }]);
     expect(stats.confirmations).toEqual({ approved: 1, declined: 0 });
     expect(stats.blocked).toBe(1);
+  });
+
+  // 同一条 run 行也进确认分布 —— 旧实现把它读成 timeout，于是 run 级的批准**一次都没被计上**。
+  // The same run row feeds the confirmation tally; reading it as a timeout meant run-level approvals
+  // were never counted at all.
+  it('aggregateConversation：run 级确认计入 approved / declined', () => {
+    const conv = [
+      { userId: '1', action: 'tool_confirmation', detail: 'run(abc) 2 items → approve' },
+      { userId: '1', action: 'tool_confirmation', detail: 'run(def) 1 items → decline' },
+    ];
+    expect(aggregateConversation(conv).confirmations).toEqual({ approved: 1, declined: 1 });
   });
 });
 
