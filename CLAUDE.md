@@ -98,7 +98,7 @@ KeelBase/
 │   │   ├── queue/ + push/ + realtime/ + mail/                          # 基础设施：队列/推送/实时/邮件
 │   │   ├── feature-flags/ + app-version/ + circuit-breaker/ + alert-webhook/ + operation-audit/  # 开关/版本/熔断/告警/审计
 │   │   ├── tracing.ts             # OpenTelemetry 初始化
-│   │   └── migrations/            # TypeORM 迁移文件（97 个；单源清单 → src/config/postgres-migrations.ts）
+│   │   └── migrations/            # TypeORM 迁移文件（清单单源 → src/config/postgres-migrations.ts）
 │   ├── test/                      # E2E 测试
 │   ├── uploads/                   # 上传文件目录
 │   └── data/                      # SQLite 数据文件
@@ -644,7 +644,7 @@ npm run migration:run
 | `npm run start:sidecar` | 启动治理 sidecar（AI 网关审计代理，零代码接入，端口 SIDECAR_PORT 默认 3200） |
 | `npm run build` | 编译 |
 | `npm test` | 单元测试 |
-| `npm run test:e2e` | 端到端测试（NODE_ENV=test，36 个套件分 4 片跑——规避单进程长跑硬崩；某片崩则自动重试） |
+| `npm run test:e2e` | 端到端测试（NODE_ENV=test，套件分 4 片跑——规避单进程长跑硬崩；某片崩则自动重试） |
 | `npm run test:e2e:cov` | e2e 覆盖率（同样分 4 片跑，各片独立收集后合并成一份 lcov） |
 | `npm run test:cov` | 测试覆盖率（门槛：statements≥85 / branches≥70 / functions≥80 / lines≥85，2026-08-20 由 65/55/60/65 提高）+ `check-security-coverage.mjs` 安全模块分档门控（auth/casl/operation-audit/ai-tools/governance/headless statements≥85） |
 | `npm run lint` | 代码检查 |
@@ -1133,7 +1133,7 @@ npm run typecheck     # vue-tsc 类型检查
 
 - **技术栈（2026-08-15）**：React 19 + TypeScript（strict）+ Vite 6 + **MUI**（Material UI，视觉对标 Vue 管理台（Element Plus））+ react-router（hash 模式）+ Zustand + axios + i18next。
 - **复用面**：API 客户端（统一解包 + 401 自动刷新）、localStorage keys（`admin_access_token/refresh_token/locale/theme`）、i18n 文案均与 Vue 版一致，两控制台共享同一后端会话。
-- **模块范围**：与 Vue 版逐页对齐（24 个控制台页 + 工作台 + 登录/403）。
+- **模块范围**：与 Vue 版逐页对齐（控制台页 + 工作台 + 登录/403）。
 - **构建接线**：**本地 dev 独立**——`cd Web-Admin-React && npm run dev`（端口 10087，base `/admin-react/`，proxy `/api` → 3000）；未接入 CI/Docker/nginx。
 - **命令**：`npm run typecheck` / `npm run lint` / `npm test` / `npm run build`
 
