@@ -30,7 +30,7 @@
 | M2 | ~~3 个孤儿导出~~ | **已清理 2026-09-03**（见 §4） |
 | M3 | `src/common/demo-data.ts`（832）+ `flow-runtime.service.ts:55` | seed 膨胀 + 历史坏数据兼容注释（后续评估拆分/清理） |
 | M4 | 状态/词汇单源化不足：**AI 工具 schema 重抄领域词汇**（真缺口，2026-09-22 已修四处）；分页 DTO 仅 2 模块使用；`@Column default` 写字面量 | 前者已收敛到单源 + 漂移闸；余项随阶段 4 |
-| M5 | 前端 i18n 缺口：Flutter `ai_tool_label.dart` 42 处中文映射 + `oauth_service.dart` 13 处错误串 + SDK 桩（fluwx/tobias 未接真实 key） | 方向项：EN 用户可见中文；SDK 桩待真实密钥/真机联调 |
+| M5 | 前端 i18n 缺口：Flutter `ai_tool_label.dart` 42 处中文映射 + `oauth_service.dart` 13 处错误串 + SDK 桩（fluwx/tobias 未接真实 key）<br>**⚠ 2026-10-03 更正（原文保留，此注为准）**：那两个数字**已过时且低估**。同一口径实测（含中文字符的**字符串字面量**行、**排注释行**、排 `app_localizations.dart` 自身）：**180 行 / ≥8 个文件**，前三为 `ai_tool_label.dart` **51**、`ai_presentation_text.dart` 24（**这一份是按设计**：key→中文模板表 + 无条目时插值 payload 的英文兜底，**不算缺口**）、`oauth_service.dart` **14**；此后是 `events_list_page.dart` 13，以及 `forms` / `settings` / `pm` / `crm` 各 4–5。**⚠ 两个新事实**：① **缺口在变大**——后四个里有三个是**本周期新功能**带进来的，不是固定的历史遗留；② **Web 端已经很齐**——后端为每个工具发 `ai.tool.<camelCase>` key，`scripts/check-tool-label-parity.mjs` **单向强制**「每个后端能发的 key 两个 locale 都必须在」，故 **Web 端 zh/en 双全**，缺口**只在 Flutter**（6 个 `aiToolLabel` 调用点 + `oauth_service` 的登录/绑定错误串）。**判据**（三处任一即可）：本仓 `CLAUDE.md` §3.3「所有用户可见文本必须通过 `AppLocalizations`」· 服务端已按同口径供料 · EN 用户确实能走到 | 方向项：EN 用户可见中文；SDK 桩待真实密钥/真机联调。**分析已完成**（阶段 4 要求「先做影响分析」）：三种做法与代价已列（客户端 l10n 化 / 服务端发标签 / 只声明），**待裁决**；倾向客户端 l10n 化（复用既有 key 与既有闸，且是唯一**不必动契约**的一条） |
 
 > **M4 复核更正（2026-09-22 实测）**：原表述有两条**方向是错的——照它做会做出坏抽象**，记下免得下一个人重走：
 >
