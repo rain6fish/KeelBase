@@ -50,15 +50,18 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   analyze_sales_pipeline: { label: 'Analyze sales pipeline' },
   detect_idle_customers: { label: 'Detect idle customers' },
   create_followup_task: { label: 'Create follow-up task', event: 'FollowupTaskCreated' },
-  create_followup_plan: { label: 'Create follow-up plan' },
+  create_followup_plan: { label: 'Create follow-up plan', event: 'FollowupPlanCreated' },
   query_followup_plans: { label: 'Query follow-up plans' },
+  // No event: R5 (delete-customer.tool.ts) is blocked outright, so this path never runs and an
+  // event for it would never fire.
+  // 无事件：R5（delete-customer.tool.ts）恒定阻断 —— 这条路不会执行，给它写事件也永不触发。
   delete_customer: { label: 'Delete customer' },
   // AI Project
   query_projects: { label: 'Query projects' },
   query_project_tasks: { label: 'Query project tasks' },
   analyze_project_risk: { label: 'Analyze project risk', event: 'ProjectRiskAssessed' },
   create_project_task: { label: 'Create project task', event: 'ProjectTaskCreated' },
-  create_project_with_tasks: { label: 'Create project with tasks' },
+  create_project_with_tasks: { label: 'Create project with tasks', event: 'ProjectCreated' },
   // AI Approval
   query_approval_requests: { label: 'Query approval requests' },
   query_approval_policies: { label: 'Query approval policies' },
@@ -77,10 +80,13 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   query_contracts: { label: 'Query contracts' },
   create_contract: { label: 'Create contract', event: 'ContractCreated' },
   query_reports: { label: 'Query reports' },
-  create_report: { label: 'Create report' },
+  create_report: { label: 'Create report', event: 'ReportCreated' },
   // 生成模块与导航 / generated module and navigation
+  // No event: R1 dry-run (create-module.tool.ts declares no side effect) — not a write action, so
+  // there is no business event to name.
+  // 无事件：R1 dry-run（create-module.tool.ts 声明无副作用）—— 不是写动作，没有业务事件可命名。
   create_module: { label: 'Create module' },
-  create_module_apply: { label: 'Apply generated module' },
+  create_module_apply: { label: 'Apply generated module', event: 'ModuleApplied' },
   navigate_page: { label: 'Navigate page' },
   navigate_admin_page: { label: 'Navigate admin page' },
   web_search: { label: 'Web search' },

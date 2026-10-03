@@ -14,6 +14,18 @@ describe('deriveAiBusinessEvent（§internal.16 A-1 业务事件归一化）', (
     expect(deriveAiBusinessEvent('submit_approval_request')).toBe('ApprovalSubmitted');
     expect(deriveAiBusinessEvent('review_approval_request')).toBe('ApprovalReviewed');
     expect(deriveAiBusinessEvent('update_customer_status')).toBe('CustomerStatusUpdated');
+    // 2026-10-03：四个真写工具补上事件（此前一个都没有）
+    expect(deriveAiBusinessEvent('create_followup_plan')).toBe('FollowupPlanCreated');
+    expect(deriveAiBusinessEvent('create_project_with_tasks')).toBe('ProjectCreated');
+    expect(deriveAiBusinessEvent('create_report')).toBe('ReportCreated');
+    expect(deriveAiBusinessEvent('create_module_apply')).toBe('ModuleApplied');
+  });
+
+  it('刻意不赋事件的写工具仍为 null（不是遗漏，见 tool-metadata.ts 的注释）', () => {
+    // create_module 是 R1 dry-run（声明无副作用）⇒ 不是写动作；delete_customer 是 R5 恒阻断 ⇒ 永不执行。
+    // 给它俩造事件 = 发明一条永不触发的记录。
+    expect(deriveAiBusinessEvent('create_module')).toBeNull();
+    expect(deriveAiBusinessEvent('delete_customer')).toBeNull();
   });
 
   it('未知工具 + resultType 兜底', () => {
