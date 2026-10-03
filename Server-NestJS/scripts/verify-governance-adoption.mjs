@@ -26,6 +26,8 @@
  * 前置：`npm run build`（dist 已构建，脚本 spawn node dist/governance/main 与
  *       node dist/governance-sidecar/main）。
  */
+// 必须在 `node:sqlite` 之前 —— ESM 按源码顺序求值 import（见该模块头部）
+import './require-node-22-5.mjs';
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

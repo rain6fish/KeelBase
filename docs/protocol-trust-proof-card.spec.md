@@ -48,7 +48,7 @@
 | 项 | 规格 |
 |---|---|
 | OS | 任一主流桌面 OS（macOS / Ubuntu 22.04+ / Windows 10+） |
-| 运行时 | Node.js ≥ 20 + npm；Git |
+| 运行时 | Node.js ≥ 22 + npm；Git |
 | 数据库 | SQLite（默认，零外部依赖）；PostgreSQL 为可选扩展档（T2/T3 视需要） |
 | 服务依赖 | 无 Redis / 无队列必启（QUEUE_ENABLED=false 可跑）；需真实 LLM 仅档位 B |
 | 代码基线 | **钉死版本**：默认 = 最新 v1.0.x release tag 或本 spec 记录的 pin SHA；留档必须写明 |

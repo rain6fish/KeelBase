@@ -16,7 +16,7 @@
 | 需要 LLM key 吗 | **不需要**（确定性 demo provider，无外部依赖） |
 | 需要数据库吗 | 不需要（SQLite 自动；后端自起隔离端口，不动你机器上已有的 3000） |
 | OS | macOS / Ubuntu 22.04+ / Windows 10+（Git Bash） |
-| 前置 | Node.js ≥ 20 + npm + git；脚本另需 `openssl` `sha256sum` `curl` `mktemp`（Windows Git Bash 另需 `cygpath`、停服走 `taskkill`）——这些通常随 Git Bash 自带 |
+| 前置 | Node.js ≥ 22 + npm + git；脚本另需 `openssl` `sha256sum` `curl` `mktemp`（Windows Git Bash 另需 `cygpath`、停服走 `taskkill`）——这些通常随 Git Bash 自带 |
 
 ## 1. 你是谁（陌生开发者判定，规格 §3）
 

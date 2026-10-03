@@ -19,6 +19,8 @@
  * 环境变量（可选）：GOV_PORT=3100 SIDECAR_PORT_A=3200 SIDECAR_PORT_B=3201 MOCK_PORT=4390
  * 前置：`npm run build`（spawn dist/governance 与 dist/governance-sidecar）。
  */
+// 必须在 `node:sqlite` 之前 —— ESM 按源码顺序求值 import（见该模块头部）
+import './require-node-22-5.mjs';
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
