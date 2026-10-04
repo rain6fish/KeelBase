@@ -13,7 +13,7 @@ class PointsProvider extends ChangeNotifier {
   List<AchievementView> _achievements = [];
   bool _loading = false;
   bool _checkingIn = false;
-  String? _error;
+  bool _failed = false;
   CheckInResult? _lastCheckIn;
 
   PointsProvider(this._repository);
@@ -23,14 +23,16 @@ class PointsProvider extends ChangeNotifier {
   List<AchievementView> get achievements => _achievements;
   bool get loading => _loading;
   bool get checkingIn => _checkingIn;
-  String? get error => _error;
+  /// 是否有失败发生。**只表达「失败了」**，不携带文案 —— 这一层没有 BuildContext，
+  /// 要给人看的句子由页面从 [AppLocalizations] 取（见 [app_localizations.dart]）。
+  bool get hasError => _failed;
   CheckInResult? get lastCheckIn => _lastCheckIn;
 
   /// 加载积分页全量数据。按端点隔离异常：单个端点失败不清空其它已加载数据
-  /// （保留部分/旧数据），`error` 仅表示有失败发生，具体文案由页面本地化展示。
+  /// （保留部分/旧数据），`hasError` 仅表示有失败发生，具体文案由页面本地化展示。
   Future<void> load() async {
     _loading = true;
-    _error = null;
+    _failed = false;
     notifyListeners();
     await Future.wait([
       _load(() async => _overview = await _repository.getMyOverview()),
@@ -46,7 +48,7 @@ class PointsProvider extends ChangeNotifier {
   Future<bool> checkIn() async {
     if (_checkingIn) return false;
     _checkingIn = true;
-    _error = null;
+    _failed = false;
     notifyListeners();
     try {
       final result = await _repository.checkIn();
@@ -59,7 +61,7 @@ class PointsProvider extends ChangeNotifier {
       await _refreshRanking();
       return true;
     } catch (_) {
-      _error = _friendlyMessage();
+      _failed = true;
       return false;
     } finally {
       _checkingIn = false;
@@ -81,16 +83,12 @@ class PointsProvider extends ChangeNotifier {
     }
   }
 
-  /// 执行单个端点加载，异常隔离并记录稳定错误标记（不向 UI 暴露异常原文）。
+  /// 执行单个端点加载，异常隔离并记下「失败过」（不向 UI 暴露异常原文）。
   Future<void> _load(Future<void> Function() task) async {
     try {
       await task();
     } catch (_) {
-      _error = _friendlyMessage();
+      _failed = true;
     }
   }
-
-  /// 稳定友好的错误文案（页面通过 AppLocalizations 展示本地化文案，这里
-  /// 仅保证 error != null 且不含底层异常文本）。
-  String _friendlyMessage() => '数据加载失败，请稍后重试';
 }

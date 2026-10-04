@@ -67,7 +67,9 @@ class OAuthService {
     // 防止 dispose 期间进行中的微信授权永久悬挂
     final completer = _weChatCompleter;
     if (completer != null && !completer.isCompleted) {
-      completer.completeError(OAuthException('OAuthService disposed during WeChat auth'));
+      completer.completeError(
+        OAuthException(OAuthErrorKey.failed, {'detail': 'OAuthService disposed during WeChat auth'}),
+      );
     }
     _weChatCompleter = null;
   }
@@ -78,10 +80,7 @@ class OAuthService {
     final available = await isAppleSignInAvailable();
     if (!available) {
       throw OAuthException(
-        kIsWeb
-            ? 'Apple Sign-In is not available in this browser. '
-                'Please use Safari or try on an iOS/macOS device.'
-            : 'Apple Sign-In is not available on this device.',
+        kIsWeb ? OAuthErrorKey.notAvailableBrowser : OAuthErrorKey.notAvailableDevice,
       );
     }
     try {
@@ -93,7 +92,7 @@ class OAuthService {
       );
       if (credential.identityToken == null ||
           credential.identityToken!.isEmpty) {
-        throw OAuthException('Failed to obtain Apple identity token');
+        throw OAuthException(OAuthErrorKey.noCredential);
       }
       String? displayName;
       if (credential.givenName != null || credential.familyName != null) {
@@ -110,24 +109,20 @@ class OAuthService {
       );
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
-        throw OAuthException('Apple sign-in cancelled by user');
+        throw OAuthException(OAuthErrorKey.cancelled);
       }
-      throw OAuthException('Apple sign-in failed: ${e.message}');
+      throw OAuthException(OAuthErrorKey.failed, {'detail': e.message});
     } on TypeError catch (e) {
-      throw OAuthException(
-        'Apple Sign-In is not supported in this browser. '
-        'Please use Safari or a native iOS/macOS device.\n'
-        'Detail: $e',
-      );
+      throw OAuthException(OAuthErrorKey.notAvailableBrowser, {'detail': '$e'});
     } catch (e) {
-      throw OAuthException('Apple sign-in failed: $e');
+      throw OAuthException(OAuthErrorKey.failed, {'detail': '$e'});
     }
   }
 
   // ─── WeChat (via fluwx) ─────────────────────────────────────────────
 
   Future<OAuthResult> signInWithWeChat() async {
-    if (kIsWeb) throw OAuthException('微信登录需要在手机 App 中使用。');
+    if (kIsWeb) throw OAuthException(OAuthErrorKey.nativeOnly);
 
     // Route through the helper which will throw until fluwx is configured
     try {
@@ -140,7 +135,7 @@ class OAuthService {
     } on OAuthException {
       rethrow;
     } catch (e) {
-      throw OAuthException('微信登录失败: $e');
+      throw OAuthException(OAuthErrorKey.failed, {'detail': '$e'});
     }
   }
 
@@ -158,24 +153,22 @@ class OAuthService {
     // TODO: 集成 fluwx 后替换为:
     // 1. await fluwx.sendWeChatAuth(scope: 'snsapi_userinfo', state: '...')
     // 2. Wait for response via _onWeChatResponse() completer
-    throw OAuthException(
-      '微信原生 SDK (fluwx) 尚未配置。\n'
-      '联调时: (1) 取消顶部 import fluwx 的注释 '
-      '(2) 实现 _fluwxRegister() 和 _fluwxSendAuth() 中的调用。',
-    );
+    // 联调步骤（原先把它们拼进给用户看的文案里，已移到注释）：取消顶部 import fluwx 的注释，
+    // 并实现 _fluwxRegister() 与 _fluwxSendAuth() 中的调用。
+    throw OAuthException(OAuthErrorKey.sdkNotConfigured, {'sdk': 'fluwx'});
   }
 
   // ─── Alipay (via tobias) ─────────────────────────────────────────────
 
   Future<OAuthResult> signInWithAlipay() async {
-    if (kIsWeb) throw OAuthException('支付宝登录需要在手机 App 中使用。');
+    if (kIsWeb) throw OAuthException(OAuthErrorKey.nativeOnly);
 
     try {
       final result = await _alipayAuth();
       if (result.resultCode == '9000') {
         final authCode = result.authCode as String?;
         if (authCode == null || authCode.isEmpty) {
-          throw OAuthException('支付宝授权码为空。');
+          throw OAuthException(OAuthErrorKey.noCredential);
         }
         return OAuthResult(
           provider: 'alipay',
@@ -183,16 +176,17 @@ class OAuthService {
           authorizationCode: authCode,
         );
       } else if (result.resultCode == '6001') {
-        throw OAuthException('用户取消了支付宝登录');
+        throw OAuthException(OAuthErrorKey.cancelled);
       } else {
         throw OAuthException(
-          '支付宝登录失败: ${result.memo ?? "code=${result.resultCode}"}',
+          OAuthErrorKey.failed,
+          {'detail': result.memo ?? 'code=${result.resultCode}'},
         );
       }
     } on OAuthException {
       rethrow;
     } catch (e) {
-      throw OAuthException('支付宝登录失败: $e');
+      throw OAuthException(OAuthErrorKey.failed, {'detail': '$e'});
     }
   }
 
@@ -201,11 +195,9 @@ class OAuthService {
     // TODO: 集成 tobias 后替换为: return await tobias.auth();
     // v2: tobias.auth() → AuthResult { resultCode, authCode, memo }
     // v3: API may differ — check installed version.
-    throw OAuthException(
-      '支付宝原生 SDK (tobias) 尚未配置。\n'
-      '联调时: (1) 取消顶部 import tobias 的注释 '
-      '(2) 实现 _alipayAuth() 中的调用。',
-    );
+    // 联调步骤（原先把它们拼进给用户看的文案里，已移到注释）：取消顶部 import tobias 的注释，
+    // 并实现 _alipayAuth() 中的调用。
+    throw OAuthException(OAuthErrorKey.sdkNotConfigured, {'sdk': 'tobias'});
   }
 
   // ─── Platform checks ──────────────────────────────────────────────────
@@ -226,9 +218,41 @@ class OAuthService {
 
 /// Custom exception for OAuth errors.
 class OAuthException implements Exception {
-  final String message;
-  OAuthException(this.message);
+  /// 失败的种类（稳定标识）。文案在 UI 侧用 [AppLocalizations] 生成 —— 这一层没有
+  /// BuildContext，所以它只给 key、不给句子（见 `presentation/utils/oauth_error_text.dart`）。
+  final OAuthErrorKey key;
+
+  /// 插值参数（如底层原因 `detail`、方式名 `provider`），键名与 UI 侧约定一致。
+  final Map<String, String> params;
+
+  OAuthException(this.key, [this.params = const {}]);
 
   @override
-  String toString() => 'OAuthException: $message';
+  String toString() => 'OAuthException(${key.name}${params.isEmpty ? '' : ' $params'})';
+}
+
+/// 登录方式失败的稳定种类。
+///
+/// 刻意**不带提供商的显示名**：那个名字在 UI 侧来自后端（`OAuthProviderConfig.fromJson`），
+/// 在这里再写一份中文名会变成第二个来源。按钮本身已经说明了是哪一个，句子照常说。
+///
+/// Deliberately carries no provider display name: that name comes from the backend on the UI side,
+/// and a second copy here would be a second source. The button already says which one it is.
+enum OAuthErrorKey {
+  /// 该方式只能在原生 App 内使用（Web 上不可用）。
+  nativeOnly,
+  /// 该方式在这个浏览器里不可用（需要 Safari 或原生设备）。
+  notAvailableBrowser,
+  /// 该方式在这台设备上不可用。
+  notAvailableDevice,
+  /// 用户主动取消。
+  cancelled,
+  /// 提供方没有返回凭据（授权码 / identity token）。
+  noCredential,
+  /// 该方式的原生 SDK 尚未配置（联调期）。
+  sdkNotConfigured,
+  /// 本端未实现的登录方式。
+  unsupportedProvider,
+  /// 其余失败；`detail` 带底层原因。
+  failed,
 }

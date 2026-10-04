@@ -241,6 +241,24 @@ class AppLocalizations {
   String get internationalLogin => _t('International', '国际');
   String get chinaLogin => _t('China', '国内');
 
+  // --- OAuth 失败（种类由数据层给 key，句子在这里说） ---
+  String get oauthNativeOnly =>
+      _t('This sign-in method only works in the mobile app', '此登录方式只能在手机 App 内使用');
+  String get oauthNotAvailableBrowser => _t(
+      'Apple Sign-In is not available in this browser — use Safari, or an iOS/macOS device',
+      '此浏览器不支持 Apple 登录 —— 请用 Safari，或 iOS/macOS 设备');
+  String get oauthNotAvailableDevice =>
+      _t('Apple Sign-In is not available on this device', '此设备不支持 Apple 登录');
+  String get oauthCancelled => _t('Sign-in cancelled', '已取消登录');
+  String get oauthNoCredential =>
+      _t('The sign-in provider returned no credential', '登录未返回凭据');
+  String get oauthSdkNotConfigured =>
+      _t('This sign-in method is not configured yet', '该登录方式尚未完成配置');
+  String get oauthUnsupportedProvider => _t('That sign-in method is not supported', '不支持该登录方式');
+  String oauthFailed(String detail) => detail.isEmpty
+      ? _t('Sign-in failed', '登录失败')
+      : _t('Sign-in failed: $detail', '登录失败：$detail');
+
   // --- Agreement ---
   String get agreeLabel => _t('Agree to', '已阅读并同意');
   String get termsOfServiceLink => _t('Terms of Service', '《服务条款》');
@@ -385,6 +403,7 @@ class AppLocalizations {
   String get formSubmitted => _t('Submitted', '提交成功');
   String get formCheckFields => _t('Please check the form', '请检查表单填写');
   String get formPleaseSelect => _t('Please select', '请选择');
+  String formFieldRequired(String label) => _t('"$label" is required', '「$label」为必填');
   // G-1 应用内反馈
   String get feedbackTitle => _t('Feedback', '意见反馈');
   String get feedbackTypeLabel => _t('Type', '反馈类型');

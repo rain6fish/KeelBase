@@ -21,6 +21,7 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
   String? _error;
+  OAuthException? _oauthError;
   int _cooldownRemaining = 0;
   Timer? _cooldownTimer;
   OAuthProviderConfig _providerConfig = OAuthProviderConfig.defaults();
@@ -38,6 +39,10 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get error => _error;
+
+  /// 登录方式自身的失败，**以 key 携带**（这一层没有 BuildContext ⇒ 不携带句子）。
+  /// UI 用 `oauthErrorText(l10n, …)` 把它译成当前语言；`error` 保留给服务端/技术文本。
+  OAuthException? get oauthError => _oauthError;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   int get cooldownRemaining => _cooldownRemaining;
   OAuthProviderConfig get providerConfig => _providerConfig;
@@ -91,7 +96,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> login(String username, String password) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     _cooldownRemaining = 0;
     _cooldownTimer?.cancel();
     notifyListeners();
@@ -124,7 +129,7 @@ class AuthProvider extends ChangeNotifier {
   /// 手机号 + 验证码登录
   Future<bool> loginPhone(String phone, String code) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     _cooldownRemaining = 0;
     _cooldownTimer?.cancel();
     notifyListeners();
@@ -214,7 +219,7 @@ class AuthProvider extends ChangeNotifier {
   /// 忘记密码：请求发送重置邮件（后端统一响应，无论邮箱是否存在均成功）
   Future<bool> requestPasswordReset(String email) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     notifyListeners();
 
     try {
@@ -238,7 +243,7 @@ class AuthProvider extends ChangeNotifier {
   /// 重置密码（token 来自邮件链接）
   Future<bool> resetPassword(String token, String newPassword) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     notifyListeners();
 
     try {
@@ -262,7 +267,7 @@ class AuthProvider extends ChangeNotifier {
   /// 邮箱验证：提交验证码，成功后刷新本地用户状态
   Future<bool> verifyEmail(String email, String code) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     notifyListeners();
 
     try {
@@ -286,7 +291,7 @@ class AuthProvider extends ChangeNotifier {
 
   /// 重新发送邮箱验证码（后端统一响应，防枚举）
   Future<bool> resendVerification(String email) async {
-    _error = null;
+    _clearErrors();
     notifyListeners();
 
     try {
@@ -308,7 +313,7 @@ class AuthProvider extends ChangeNotifier {
   /// Returns `true` on success, `false` on failure.
   Future<bool> oauthLogin(String provider) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     _cooldownRemaining = 0;
     _cooldownTimer?.cancel();
     notifyListeners();
@@ -327,7 +332,7 @@ class AuthProvider extends ChangeNotifier {
           result = await oauthService.signInWithAlipay();
           break;
         default:
-          throw OAuthException('不支持的登录方式: $provider');
+          throw OAuthException(OAuthErrorKey.unsupportedProvider, {'provider': provider});
       }
 
       // 2. Determine which credential to send
@@ -348,7 +353,8 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on OAuthException catch (e) {
-      _error = e.message;
+      // 带 key 而不是句子：文案由页面译（见 oauthErrorText）。
+      _oauthError = e;
       _status = AuthStatus.error;
       notifyListeners();
       return false;
@@ -393,7 +399,7 @@ class AuthProvider extends ChangeNotifier {
     String? phone,
   }) async {
     _status = AuthStatus.loading;
-    _error = null;
+    _clearErrors();
     notifyListeners();
 
     try {
@@ -423,8 +429,14 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  void clearError() {
+  /// 两类失败一起清 —— 它们由同一次尝试产生，分开清会留下另一半给下一个页面读。
+  void _clearErrors() {
     _error = null;
+    _oauthError = null;
+  }
+
+  void clearError() {
+    _clearErrors();
     notifyListeners();
   }
 

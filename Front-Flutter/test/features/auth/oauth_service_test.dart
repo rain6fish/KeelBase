@@ -9,19 +9,23 @@ void main() {
   OAuthService service() => OAuthService();
 
   group('signInWithWeChat', () {
-    test('未集成 fluwx 抛 OAuthException', () async {
+    test('未集成 fluwx 抛「未配置」key（并带上 SDK 名做补充）', () async {
       expect(
         () => service().signInWithWeChat(),
-        throwsA(isA<OAuthException>().having((e) => e.message, 'message', contains('fluwx'))),
+        throwsA(isA<OAuthException>()
+            .having((e) => e.key, 'key', OAuthErrorKey.sdkNotConfigured)
+            .having((e) => e.params['sdk'], 'sdk', 'fluwx')),
       );
     });
   });
 
   group('signInWithAlipay', () {
-    test('未集成 tobias 抛 OAuthException', () async {
+    test('未集成 tobias 抛「未配置」key（并带上 SDK 名做补充）', () async {
       expect(
         () => service().signInWithAlipay(),
-        throwsA(isA<OAuthException>().having((e) => e.message, 'message', contains('tobias'))),
+        throwsA(isA<OAuthException>()
+            .having((e) => e.key, 'key', OAuthErrorKey.sdkNotConfigured)
+            .having((e) => e.params['sdk'], 'sdk', 'tobias')),
       );
     });
   });

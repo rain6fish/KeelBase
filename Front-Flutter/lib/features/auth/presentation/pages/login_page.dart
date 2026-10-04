@@ -8,7 +8,29 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/widgets/app_primary_button.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
+import '../utils/oauth_error_text.dart';
 import '../../data/services/oauth_providers.dart';
+import '../../data/services/oauth_service.dart';
+
+/// 登录失败该给用户看的那一句，没有失败就返回 null。
+///
+/// 两类失败合在这里裁决，别处不再各自拼：① 登录方式自身的失败 —— provider 存的是**key**，
+/// 句子在这里译；② 其余（服务端/技术文本）—— 原样用，但**用户主动取消不算失败**：
+/// 平台渠道取消时抛的原生异常文本带 "cancel"，此前正是靠 `contains('cancel')` 把它滤掉，
+/// 那个判断现在收在这里一处。
+///
+/// One place decides what a failed sign-in shows. Provider-side failures arrive as a key and are
+/// worded here; anything else is technical text and passes through, except that a user cancelling is
+/// not a failure — the platform channel reports it as an exception whose text says "cancel".
+String? loginErrorText(AuthProvider auth, AppLocalizations l10n) {
+  final oauth = auth.oauthError;
+  if (oauth != null) {
+    return oauth.key == OAuthErrorKey.cancelled ? null : oauthErrorText(l10n, oauth);
+  }
+  final raw = auth.error;
+  if (raw == null) return null;
+  return raw.toLowerCase().contains('cancel') ? null : raw;
+}
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -103,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
       AppToast.success(context, l10n.loginSuccess);
     } else {
       if (auth.cooldownRemaining == 0) {
-        AppToast.error(context, auth.error ?? l10n.unknownError);
+        AppToast.error(context, loginErrorText(auth, l10n) ?? l10n.unknownError);
       }
     }
   }
@@ -155,7 +177,7 @@ class _LoginPageState extends State<LoginPage> {
         _startCodeCooldown();
         AppToast.success(context, context.l10n.smsCodeSent);
       } else {
-        AppToast.error(context, auth.error ?? context.l10n.unknownError);
+        AppToast.error(context, loginErrorText(auth, context.l10n) ?? context.l10n.unknownError);
       }
     } finally {
       if (mounted) setState(() => _sendingCode = false);
@@ -191,8 +213,9 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
     if (ok) {
       AppToast.success(context, l10n.loginSuccess);
-    } else if (auth.error != null && !auth.error!.toLowerCase().contains('cancel')) {
-      AppToast.error(context, auth.error ?? l10n.unknownError);
+    } else {
+      final msg = loginErrorText(auth, l10n);
+      if (msg != null) AppToast.error(context, msg);
     }
   }
 
@@ -445,7 +468,7 @@ class _LoginPageState extends State<LoginPage> {
     final t = CupertinoTheme.of(context);
     final auth = context.watch<AuthProvider>();
     final isLoading = auth.status == AuthStatus.loading;
-    final authError = auth.status == AuthStatus.error ? auth.error : null;
+    final authError = auth.status == AuthStatus.error ? loginErrorText(auth, l10n) : null;
     final cooldown = auth.cooldownRemaining;
     final isCooldown = cooldown > 0;
     final cfg = auth.providerConfig;

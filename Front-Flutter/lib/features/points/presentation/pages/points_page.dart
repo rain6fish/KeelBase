@@ -36,7 +36,7 @@ class _PointsPageState extends State<PointsPage> {
     if (ok) {
       final gained = provider.lastCheckIn?.points ?? 0;
       AppToast.success(context, l10n.pointsCheckInGained(gained));
-    } else if (provider.error != null) {
+    } else if (provider.hasError) {
       AppToast.error(context, l10n.pointsCheckInFailed);
     }
   }
@@ -56,7 +56,7 @@ class _PointsPageState extends State<PointsPage> {
       ),
       child: provider.loading && overview == null
           ? const LoadingWidget()
-          : provider.error != null && overview == null
+          : provider.hasError && overview == null
               ? AppErrorView(
                   message: l10n.pointsLoadFailed,
                   actionLabel: l10n.retry,

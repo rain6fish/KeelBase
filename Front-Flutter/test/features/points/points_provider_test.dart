@@ -36,7 +36,7 @@ void main() {
     expect(provider.leaderboard.single.nickname, 'Alice');
     expect(provider.achievements.single.key, 'checkin_7');
     expect(provider.loading, false);
-    expect(provider.error, isNull);
+    expect(provider.hasError, isFalse);
   });
 
   test('load 失败 → error + 清空数据', () async {
@@ -44,7 +44,7 @@ void main() {
 
     await provider.load();
 
-    expect(provider.error, isNotNull);
+    expect(provider.hasError, isTrue);
     expect(provider.overview, isNull);
     expect(provider.leaderboard, isEmpty);
     expect(provider.achievements, isEmpty);
@@ -92,7 +92,7 @@ void main() {
     final ok = await provider.checkIn();
 
     expect(ok, false);
-    expect(provider.error, isNotNull);
+    expect(provider.hasError, isTrue);
     expect(provider.checkingIn, false);
   });
 }

@@ -102,6 +102,12 @@ class _FormBody extends StatelessWidget {
 
   Widget _buildField(BuildContext context, FormProvider provider, FormFieldModel f) {
     final error = provider.fieldErrors[f.key];
+    // provider 给的是 key，句子在这里说（必填那条要插字段名）。
+    final errorText = switch (error) {
+      null => null,
+      FormFieldError.required => context.l10n.formFieldRequired(f.label),
+      FormFieldError.invalidEmail => context.l10n.invalidEmail,
+    };
     final value = provider.values[f.key];
     Widget input;
 
@@ -166,10 +172,10 @@ class _FormBody extends StatelessWidget {
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       const SizedBox(height: 8),
       input,
-      if (error != null)
+      if (errorText != null)
         Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Text(error, style: const TextStyle(color: CupertinoColors.systemRed, fontSize: 12)),
+          child: Text(errorText, style: const TextStyle(color: CupertinoColors.systemRed, fontSize: 12)),
         ),
     ]);
   }
