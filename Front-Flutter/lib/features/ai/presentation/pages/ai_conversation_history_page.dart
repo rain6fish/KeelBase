@@ -54,13 +54,14 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
   }
 
   /// 删除确认弹窗（trash 按钮与滑动删除共用）。
-  Future<bool> _confirmDelete(String id, String title) async {
+  Future<bool> _confirmDelete(String id, String? title) async {
     final l10n = context.l10n;
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: Text(l10n.delete),
-        content: Text(l10n.deleteConversationConfirm(title)),
+        // 没有首条消息的对话也要有个名字可指 —— 兜底在这里一处给。
+        content: Text(l10n.deleteConversationConfirm(title ?? l10n.newConversation)),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -121,7 +122,7 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                     child: const Icon(CupertinoIcons.trash, color: CupertinoColors.white),
                   ),
                   // 滑动删除与 trash 按钮一致，都先确认再删
-                  confirmDismiss: (_) => _confirmDelete(c.id, c.previewTitle),
+                  confirmDismiss: (_) => _confirmDelete(c.id, c.titlePreview),
                   onDismissed: (_) => _handleDelete(c.id),
                   child: GestureDetector(
                     onTap: () => _openConversation(c.id),
@@ -134,7 +135,7 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  c.previewTitle,
+                                  c.titlePreview ?? l10n.newConversation,
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
@@ -165,7 +166,7 @@ class _AiConversationHistoryPageState extends State<AiConversationHistoryPage> {
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () async {
-                              final confirmed = await _confirmDelete(c.id, c.previewTitle);
+                              final confirmed = await _confirmDelete(c.id, c.titlePreview);
                               if (confirmed && mounted) {
                                 await _handleDelete(c.id);
                               }

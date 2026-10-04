@@ -25,7 +25,7 @@ void main() {
       expect(s.lastActivityAt, '2026-08-01T10:00:01Z');
     });
 
-    test('previewTitle 取首条 user 消息并截断 30 字', () {
+    test('titlePreview 取首条 user 消息并截断 30 字', () {
       final s = ConversationSummary.fromJson({
         'id': 'c',
         'messages': [
@@ -33,12 +33,12 @@ void main() {
           {'role': 'user', 'content': '一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十'},
         ],
       });
-      final title = s.previewTitle;
+      final title = s.titlePreview!;
       expect(title.length, 33); // 30 + '...'
       expect(title.endsWith('...'), isTrue);
     });
 
-    test('previewTitle 跳过空白首条', () {
+    test('titlePreview 跳过空白首条', () {
       final s = ConversationSummary.fromJson({
         'id': 'c',
         'messages': [
@@ -46,12 +46,12 @@ void main() {
           {'role': 'user', 'content': '有效标题'},
         ],
       });
-      expect(s.previewTitle, '有效标题');
+      expect(s.titlePreview, '有效标题');
     });
 
-    test('previewTitle 无 user 消息回退「新对话」', () {
+    test('titlePreview 无 user 消息 → null（「新对话」的兜底由 UI 给）', () {
       final s = ConversationSummary.fromJson({'id': 'c', 'messages': []});
-      expect(s.previewTitle, '新对话');
+      expect(s.titlePreview, isNull);
     });
 
     test('fromJson 缺省字段回退', () {

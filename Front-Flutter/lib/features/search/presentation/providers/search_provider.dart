@@ -39,12 +39,14 @@ class SearchProvider extends ChangeNotifier {
   List<ConversationSummary> get conversations => _conversations;
   bool get conversationsLoaded => _conversationsLoaded;
 
-  /// 按关键词过滤对话历史（previewTitle / 消息内容）。
+  /// 按关键词过滤对话历史（标题预览 / 消息内容）。
   List<ConversationSummary> get filteredConversations {
     if (_query.isEmpty) return [];
     final q = _query.toLowerCase();
     return _conversations.where((c) {
-      if (c.previewTitle.toLowerCase().contains(q)) return true;
+      // 只匹配**真实存在的**标题：兜底文案（「New conversation」）不是内容，
+      // 拿它命中等于「搜这个词就返回所有还没起名的对话」。
+      if ((c.titlePreview ?? '').toLowerCase().contains(q)) return true;
       return c.messages.any((m) => m.content.toLowerCase().contains(q));
     }).toList();
   }

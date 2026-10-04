@@ -241,11 +241,8 @@ class AiChatProvider extends ChangeNotifier {
   PendingConfirmation? get currentConfirmation => _currentConfirmation;
   bool get isConfirming => _isConfirming;
 
-  /// 当前模型展示名
-  String get providerLabel => switch (_provider) {
-        'qwen' => '通义千问',
-        _ => 'DeepSeek',
-      };
+  // 当前模型的**展示名**不在这里 —— 这一层没有 BuildContext，「通义千问/Qwen」说不了两种语言。
+  // 消费方用 `provider`（id）+ `l10n.aiProviderName(id)` 取名字。
 
   /// 切换模型（model 留空，后端用该 provider 的默认模型）
   void switchModel(String provider) {

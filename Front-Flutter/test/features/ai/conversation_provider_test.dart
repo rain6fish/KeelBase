@@ -31,7 +31,7 @@ void main() {
       await provider.load();
 
       expect(provider.conversations.length, 1);
-      expect(provider.conversations[0].previewTitle, '你好');
+      expect(provider.conversations[0].titlePreview, '你好');
       expect(provider.loading, isFalse);
       expect(provider.error, isNull);
     });
@@ -63,10 +63,10 @@ void main() {
     });
   });
 
-  group('previewTitle', () {
-    test('无 user 消息 → 新对话', () {
+  group('titlePreview', () {
+    test('无 user 消息 → null（兜底文案由 UI 给）', () {
       const c = ConversationSummary(id: 'c1', messages: []);
-      expect(c.previewTitle, '新对话');
+      expect(c.titlePreview, isNull);
     });
 
     test('超长标题截断', () {
@@ -76,8 +76,9 @@ void main() {
         messages: [ConversationMessagePreview(role: 'user', content: long)],
       );
       // 30 字符 + 省略号
-      expect(c.previewTitle.length, 33);
-      expect(c.previewTitle.endsWith('...'), isTrue);
+      final title = c.titlePreview!;
+      expect(title.length, 33);
+      expect(title.endsWith('...'), isTrue);
     });
   });
 }

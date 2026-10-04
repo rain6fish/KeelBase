@@ -623,6 +623,20 @@ class AppLocalizations {
   String get aiClearConversation => _t('Clear conversation', '清空对话');
   String get aiModelSelect => _t('Switch model', '切换模型');
   String get aiModelPickerTitle => _t('Select model', '选择模型');
+
+  /// 对话没有首条用户消息时的标题兜底。
+  String get newConversation => _t('New conversation', '新对话');
+
+  /// AI 提供商的**显示名**（按 id）。id 本身就是英文名的地方（deepseek）照原样，中文品牌名
+  /// （qwen = 通义千问）才需要译。未知 id 原样返回，免得凭空造名。
+  ///
+  /// Display name for an AI provider id; unknown ids pass through rather than getting an invented
+  /// name.
+  String aiProviderName(String id) => switch (id) {
+        'qwen' => _t('Qwen', '通义千问'),
+        'deepseek' => 'DeepSeek',
+        _ => id,
+      };
   String get aiWelcomeTitle => _t('Hello! How can I help you?', '你好！有什么可以帮助你的？');
   String get aiSuggested1 => _t("What events do I have this month?", "本月有哪些事件？");
   String get aiSuggested2 => _t("Analyze my event trends", "分析我的事件趋势");

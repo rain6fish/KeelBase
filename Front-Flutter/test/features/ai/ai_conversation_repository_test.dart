@@ -34,7 +34,7 @@ void main() {
           ]));
       final list = await repository.getConversations();
       expect(list.single.id, 'c1');
-      expect(list.single.previewTitle, 'hello');
+      expect(list.single.titlePreview, 'hello');
     });
 
     test('data 为 null 返回空列表', () async {

@@ -34,7 +34,7 @@ void main() {
   group('默认状态', () {
     test('provider 默认为 deepseek', () {
       expect(provider.provider, 'deepseek');
-      expect(provider.providerLabel, 'DeepSeek');
+      expect(provider.provider, 'deepseek');
     });
   });
 
@@ -345,7 +345,7 @@ void main() {
       provider.switchModel('qwen');
 
       expect(provider.provider, 'qwen');
-      expect(provider.providerLabel, '通义千问');
+      expect(provider.provider, 'qwen');
     });
 
     test('切回 deepseek', () {
@@ -353,7 +353,7 @@ void main() {
       provider.switchModel('deepseek');
 
       expect(provider.provider, 'deepseek');
-      expect(provider.providerLabel, 'DeepSeek');
+      expect(provider.provider, 'deepseek');
     });
 
     test('相同 provider 不触发通知', () {

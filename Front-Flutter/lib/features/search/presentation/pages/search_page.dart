@@ -242,7 +242,8 @@ class _SearchPageState extends State<SearchPage> {
             ),
             child: const Icon(CupertinoIcons.sparkles, size: 18, color: CupertinoColors.systemPurple),
           ),
-          title: Text(c.previewTitle, overflow: TextOverflow.ellipsis),
+          title: Text(c.titlePreview ?? context.l10n.newConversation,
+              overflow: TextOverflow.ellipsis),
           onTap: () => context.push('/ai/history'),
         );
       },

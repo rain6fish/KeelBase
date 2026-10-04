@@ -90,23 +90,21 @@ class _AiChatPageState extends State<AiChatPage> {
   /// 模型选择弹层（仿 settings 页语言选择器）
   void _showModelPicker(AiChatProvider provider) {
     final l10n = context.l10n;
-    const options = [
-      ('deepseek', 'DeepSeek'),
-      ('qwen', '通义千问'),
-    ];
+    // 只列 id，名字按当前语言取（「通义千问」/「Qwen」）。
+    const options = ['deepseek', 'qwen'];
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: Text(l10n.aiModelPickerTitle),
         actions: [
-          for (final (value, label) in options)
+          for (final value in options)
             CupertinoActionSheetAction(
               isDefaultAction: provider.provider == value,
               onPressed: () {
                 Navigator.pop(ctx);
                 provider.switchModel(value);
               },
-              child: Text(label),
+              child: Text(l10n.aiProviderName(value)),
             ),
         ],
         cancelButton: CupertinoActionSheetAction(
@@ -219,7 +217,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    aiProvider.providerLabel,
+                    context.l10n.aiProviderName(aiProvider.provider),
                     style: TextStyle(
                       color: CupertinoTheme.of(context).primaryColor,
                       fontSize: 14,

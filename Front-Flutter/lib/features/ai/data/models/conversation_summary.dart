@@ -34,20 +34,25 @@ class ConversationSummary {
     );
   }
 
-  /// 首条 user 消息内容（用作列表标题预览）
-  String get previewTitle {
-    String text = '新对话';
+  /// 首条非空 user 消息（截断到 30 字）；没有则 `null`。
+  ///
+  /// 截断留在这里 —— 它是**标题预览的数据形状**，不是措辞。但「没有消息时显示什么」是措辞，
+  /// 而这一层没有 BuildContext、说不了两种语言：兜底由 UI 给（`l10n.newConversation`）。
+  ///
+  /// The first non-empty user message, truncated to 30 characters, or null. Truncation belongs here
+  /// (it is the shape of a title preview); the fallback wording does not — this layer has no build
+  /// context, so the UI supplies `l10n.newConversation`.
+  String? get titlePreview {
     for (final m in messages) {
       if (m.role == 'user') {
         final trimmed = m.content.trim();
         // 跳过空白首条，避免标题退化为空字符串
         if (trimmed.isNotEmpty) {
-          text = trimmed;
-          break;
+          return trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed;
         }
       }
     }
-    return text.length > 30 ? '${text.substring(0, 30)}...' : text;
+    return null;
   }
 }
 
