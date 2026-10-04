@@ -103,6 +103,24 @@ export function resolveRiskLevel(
 }
 
 /**
+ * The "semantic write" predicate, single-sourced: a confirmation write, or risk R3/R4.
+ * Two consumers: the revokeClass gate in `ToolRegistry.register`, and the business-event
+ * assertion in the tool-metadata completeness gate. Out by design: R0–R2 (automatic /
+ * low-risk, see `READ_ONLY_RISK_LEVELS`) and R5 (blocked outright — it never runs).
+ *
+ * 「写语义」判据（单一真源）：确认写（`requiresConfirmation`）或风险级 **R3/R4**。
+ * 两处消费：`ToolRegistry.register` 的 revokeClass 闸 · 工具元数据完备性闸的「业务事件」断言。
+ * 边界（有意，与风险模型一致）：**R0–R2** 是自动/低风险类（见 `READ_ONLY_RISK_LEVELS`）、
+ * **R5** 恒阻断（永不执行）—— 都不在此列。
+ */
+export function isSemanticWrite(
+  tool: Pick<AiTool, 'requiresConfirmation' | 'riskLevel'>,
+): boolean {
+  const risk = resolveRiskLevel(tool);
+  return tool.requiresConfirmation === true || risk === 'R3' || risk === 'R4';
+}
+
+/**
  * 副作用撤销能力分档（KB-6，语义源 docs/protocol-trust-proof-card.spec.md R9 / failure-path FP-3·FP-10）：
  *   none              — 不可撤 / 外部未知（前端不显示撤销钮，不称"可撤销"）
  *   local_compensate  — 本地软删补偿（自身副作用，可经 RG-3 回收站恢复）

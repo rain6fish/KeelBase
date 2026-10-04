@@ -13,6 +13,7 @@ import {
   ToolDefinition,
   ToolResult,
   ToolRiskLevel,
+  isSemanticWrite,
   resolveRevokeClass,
   resolveRiskLevel,
 } from '../interfaces/tool.interface';
@@ -35,10 +36,8 @@ export class ToolRegistry {
     // - 触发的是「riskLevel R3/R4 表达写语义、requiresConfirmation 未设且 revokeClass 未声明」的工具，
     //   其 revokeClass 被静默推导 none，须显式声明。R5（永不执行）/ 读工具 / 干跑允许静默 none。
     const risk = resolveRiskLevel(tool);
-    const semanticWrite =
-      tool.requiresConfirmation === true || risk === 'R3' || risk === 'R4';
     if (
-      semanticWrite &&
+      isSemanticWrite(tool) &&
       tool.revokeClass === undefined &&
       resolveRevokeClass(tool) === 'none'
     ) {
