@@ -1,68 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:convert';
+import '../../../../core/i18n/app_localizations.dart';
 
-// AI 工具名 → 业务可读标签（D2 业务语言化：create_followup_task → 创建跟进任务）
-// 未命中回退原始工具名，保证任何工具都可展示。
-String aiToolLabel(String? toolName) {
-  if (toolName == null || toolName.isEmpty) return 'AI 操作';
-  const map = <String, String>{
-    // AI CRM 旗舰
-    'query_customers': '查询客户',
-    'query_customer_orders': '查询客户订单',
-    'query_customer_activities': '查询客户跟进记录',
-    'query_customer_contacts': '查询客户联系人',
-    'query_customer_opportunities': '查询销售机会',
-    'analyze_customer_risk': '客户风险分析',
-    'analyze_sales_pipeline': '销售管道分析',
-    'summarize_customer_360': '客户全景摘要',
-    'create_followup_task': '创建跟进任务',
-    'create_followup_plan': '创建跟进计划',
-    'query_followup_plans': '查询跟进计划',
-    'detect_idle_customers': '未跟进客户检测',
-    'delete_customer': '删除客户',
-    // AI Project
-    'query_projects': '查询项目',
-    'query_project_tasks': '查询项目任务',
-    'analyze_project_risk': '项目风险分析',
-    'create_project_task': '创建项目任务',
-    'create_project_with_tasks': '创建项目并拆解任务',
-    // AI Approval
-    'query_approval_requests': '查询审批请求',
-    'query_approval_policies': '查询审批政策',
-    'submit_approval_request': '提交审批请求',
-    'review_approval_request': '审批复核',
-    // 通用
-    'query_events': '查询事件',
-    'query_events_by_keyword': '按关键词查询事件',
-    'count_events_by_status': '事件状态统计',
-    'create_event': '创建事件',
-    'create_todo': '创建待办',
-    'get_user_stats': '查询用户统计',
-    'query_org_members': '查询组织成员',
-    'query_org_tasks': '查询组织任务',
-    'query_org_availability': '查询组织可用性',
-    'query_contracts': '查询合同',
-    'create_contract': '创建合同',
-    'query_reports': '查询报告',
-    'create_report': '创建报告',
-    'navigate_page': '页面导航',
-    'web_search': '联网搜索',
-    'generate_image': '生成图片',
-    // `create_module` 是**预览**（dry-run，不写文件），真生成是 `create_module_apply`
-    'create_module': '预览生成模块',
-    'create_module_apply': '生成业务模块',
-    // 外部系统（AI Bridge）
-    'list_customers': '查询外部客户',
-    'get_customer': '查看外部客户',
-    'list_customer_orders': '查询外部客户订单',
-    'update_order_amount': '更新订单金额',
-  };
-  return map[toolName] ?? toolName;
-}
+// The tool-name table used to live here, written in Chinese only, so an English reader saw Chinese.
+// It has moved to [AppLocalizations] (`aiToolLabel` + `_toolLabels`) because it has to be bilingual
+// and its keys have to be derived the same way the backend derives them — the parity gate compares
+// that map against the backend metadata table. Read a label with `context.l10n.aiToolLabel(name)`.
+//
+// 工具名表原先写在这里、且只有中文，于是英文读者看到中文。它已移到 [AppLocalizations]
+// （`aiToolLabel` + `_toolLabels`）：因为那张表必须是**双语的**，key 又必须与服务端同规则派生
+// —— 对账闸就是拿它去比服务端元数据表。取值改用 `context.l10n.aiToolLabel(名字)`。
 
-/// 工具参数 JSON → 业务摘要（提取关键参数；未覆盖返回空 = 不展示，技术参数进详情）
-String aiToolArgsSummary(String? toolName, String? args) {
+/// 工具参数 JSON → 业务摘要（提取关键参数；未覆盖返回空 = 不展示，技术参数进详情）。
+///
+/// 文案全部取自 [l10n] 的 `aiArgs*` 那组：本文件不持有任何中英文用户可见字面量。
+/// Tool arguments JSON → a business summary; unlisted arguments return empty. All wording comes from
+/// [l10n], so this file holds no user-visible literal in either language.
+String aiToolArgsSummary(String? toolName, String? args, AppLocalizations l10n) {
   if (toolName == null || args == null || args.isEmpty) return '';
   Map<String, dynamic> a;
   try {
@@ -73,10 +28,10 @@ String aiToolArgsSummary(String? toolName, String? args) {
   switch (toolName) {
     case 'query_customers':
       final parts = <String>[];
-      if (a['keyword'] != null) parts.add('关键词「${a['keyword']}」');
-      if (a['riskLevel'] != null) parts.add('风险：${a['riskLevel']}');
-      if (a['status'] != null) parts.add('状态：${a['status']}');
-      return parts.isEmpty ? '' : '（${parts.join(' · ')}）';
+      if (a['keyword'] != null) parts.add(l10n.aiArgsKeyword('${a['keyword']}'));
+      if (a['riskLevel'] != null) parts.add(l10n.aiArgsRisk('${a['riskLevel']}'));
+      if (a['status'] != null) parts.add(l10n.aiArgsStatus('${a['status']}'));
+      return parts.isEmpty ? '' : l10n.aiArgsJoined(parts);
     case 'analyze_customer_risk':
     case 'query_customer_orders':
     case 'query_customer_activities':
@@ -86,9 +41,9 @@ String aiToolArgsSummary(String? toolName, String? args) {
     case 'create_event':
     case 'create_todo':
     case 'create_project_task':
-      return a['title'] != null ? '「${a['title']}」' : '';
+      return a['title'] != null ? l10n.aiArgsQuoted('${a['title']}') : '';
     case 'create_contract':
-      return a['name'] != null ? '「${a['name']}」' : '';
+      return a['name'] != null ? l10n.aiArgsQuoted('${a['name']}') : '';
     default:
       return '';
   }

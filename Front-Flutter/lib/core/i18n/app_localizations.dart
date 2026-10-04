@@ -691,6 +691,99 @@ class AppLocalizations {
   String get searchResults => _t('Search Results', '搜索结果');
   String get today => _t('Today', '今天');
 
+  // --- AI 工具标签（`ai.tool.*`：与服务端 tool-metadata.ts 同规则派生）---
+
+  /// Tool name → the label a person reads. The key is **derived the same way the backend derives it**
+  /// (`ai.tool.<camelCase(toolName)>`, see `Server-NestJS/src/ai/audit/tool-metadata.ts`), so both
+  /// ends speak about the same keys and `scripts/check-tool-label-parity.mjs` can hold the backend's
+  /// metadata table against this map (as it already does for the console's two dictionaries).
+  ///
+  /// Each value is `[en, zh]` — the same order as `_t(en, zh)` above. It is a map rather than 44
+  /// getters because the tool name only arrives at runtime, so the lookup is by key.
+  ///
+  /// 工具名 → 人读的标签。key 与后端**同规则派生**（`ai.tool.<camelCase(工具名)>`，见
+  /// `Server-NestJS/src/ai/audit/tool-metadata.ts`），于是两端说的是同一批 key，
+  /// `scripts/check-tool-label-parity.mjs` 就能拿服务端元数据表来对本表（它已经这样对管理台那两份字典）。
+  ///
+  /// 每条的值是 `[en, zh]`，顺序与上面的 `_t(en, zh)` 一致。这里用 map 而不是 44 个 getter，
+  /// 因为工具名到运行时才拿到，只能按 key 查。
+  static const Map<String, List<String>> _toolLabels = <String, List<String>>{
+    'ai.tool.analyzeCustomerRisk': ['Analyze customer risk', '客户风险分析'],
+    'ai.tool.analyzeProjectRisk': ['Analyze project risk', '项目延期风险分析'],
+    'ai.tool.analyzeSalesPipeline': ['Analyze sales pipeline', '销售管道分析'],
+    'ai.tool.countEventsByStatus': ['Count events by status', '事件状态统计'],
+    'ai.tool.createContract': ['Create contract', '创建合同'],
+    'ai.tool.createEvent': ['Create event', '创建事件'],
+    'ai.tool.createFollowupPlan': ['Create follow-up plan', '创建跟进计划'],
+    'ai.tool.createFollowupTask': ['Create follow-up task', '创建跟进任务'],
+    'ai.tool.createModule': ['Create module', '创建模块'],
+    'ai.tool.createModuleApply': ['Apply generated module', '生成业务模块'],
+    'ai.tool.createProjectTask': ['Create project task', '创建项目任务'],
+    'ai.tool.createProjectWithTasks': ['Create project with tasks', '创建项目并拆解任务'],
+    'ai.tool.createReport': ['Create report', '创建报告'],
+    'ai.tool.createTodo': ['Create todo', '创建待办'],
+    'ai.tool.deleteCustomer': ['Delete customer', '删除客户'],
+    'ai.tool.detectIdleCustomers': ['Detect idle customers', '未跟进客户检测'],
+    'ai.tool.generateImage': ['Generate image', '生成图片'],
+    'ai.tool.getUserStats': ['Query user stats', '查询用户统计'],
+    'ai.tool.navigateAdminPage': ['Navigate admin page', '管理页导航'],
+    'ai.tool.navigatePage': ['Navigate page', '页面导航'],
+    'ai.tool.queryApprovalPolicies': ['Query approval policies', '查询审批政策'],
+    'ai.tool.queryApprovalRequests': ['Query approval requests', '查询审批请求'],
+    'ai.tool.queryContracts': ['Query contracts', '查询合同'],
+    'ai.tool.queryCustomerActivities': ['Query customer activities', '查询客户跟进'],
+    'ai.tool.queryCustomerContacts': ['Query contacts', '查询联系人'],
+    'ai.tool.queryCustomerOpportunities': ['Query opportunities', '查询销售机会'],
+    'ai.tool.queryCustomerOrders': ['Query customer orders', '查询客户订单'],
+    'ai.tool.queryCustomers': ['Query customers', '查询客户'],
+    'ai.tool.queryEvents': ['Query events', '查询事件'],
+    'ai.tool.queryEventsByKeyword': ['Search events', '搜索事件'],
+    'ai.tool.queryFollowupPlans': ['Query follow-up plans', '查询跟进计划'],
+    'ai.tool.queryOrgAvailability': ['Check availability', '查询可用性'],
+    'ai.tool.queryOrgMembers': ['Query org members', '查询组织成员'],
+    'ai.tool.queryOrgTasks': ['Query org tasks', '查询组织任务'],
+    'ai.tool.queryProjectTasks': ['Query project tasks', '查询项目任务'],
+    'ai.tool.queryProjects': ['Query projects', '查询项目'],
+    'ai.tool.queryReports': ['Query reports', '查询报告'],
+    'ai.tool.reviewApprovalRequest': ['Review approval request', '审批复核'],
+    'ai.tool.submitApprovalRequest': ['Submit approval request', '提交审批'],
+    'ai.tool.summarizeCustomer_360': ['Summarize customer', '客户摘要'],
+    'ai.tool.updateCustomerStatus': ['Update customer status', '更新客户状态'],
+    'ai.tool.webSearch': ['Web search', '联网搜索'],
+    // B-path (external systems) tools: the names belong to the other side and are not in the backend
+    // metadata table; the parity gate is one-way, so extra dictionary entries are allowed.
+    // B 路径（外部系统）工具：名字由对方定义、不在服务端元数据表里；对账闸是单向的，允许多出条目。
+    'ai.tool.listCustomers': ['Query external customers', '查询外部客户'],
+    'ai.tool.getCustomer': ['View external customer', '查看外部客户'],
+    'ai.tool.listCustomerOrders': ['Query external customer orders', '查询外部客户订单'],
+    'ai.tool.updateOrderAmount': ['Update order amount', '更新订单金额'],
+  };
+
+  /// `create_followup_task` → `ai.tool.createFollowupTask`（与后端 `toolLabelKey` 同一规则）。
+  static String toolLabelKey(String toolName) =>
+      'ai.tool.${toolName.replaceAllMapped(RegExp(r'_([a-z])'), (m) => m[1]!.toUpperCase())}';
+
+  /// Shown when a tool call carries no usable name. 工具调用没有可用名字时的占位。
+  String get aiAction => _t('AI action', 'AI 操作');
+
+  /// Label for a tool name; an unknown name falls back to the raw name so anything can be shown.
+  /// 按工具名取标签；未命中回退原始工具名，保证任何工具都可展示。
+  String aiToolLabel(String? toolName) {
+    if (toolName == null || toolName.isEmpty) return aiAction;
+    final pair = _toolLabels[toolLabelKey(toolName)];
+    if (pair == null) return toolName;
+    return isZh ? pair[1] : pair[0];
+  }
+
+  // --- AI 工具调用的参数摘要（原 `ai_tool_label.dart` 里的中文片段）---
+  String Function(String) get aiArgsKeyword => (String v) => _t('keyword "$v"', '关键词「$v」');
+  String Function(String) get aiArgsRisk => (String v) => _t('risk: $v', '风险：$v');
+  String Function(String) get aiArgsStatus => (String v) => _t('status: $v', '状态：$v');
+  String Function(String) get aiArgsQuoted => (String v) => _t('"$v"', '「$v」');
+
+  /// 参数摘要的外层括号与分隔（中英标点不同，故一并放这里）。
+  String Function(List<String>) get aiArgsJoined =>
+      (List<String> parts) => _t(' (${parts.join(' · ')})', '（${parts.join(' · ')}）');
 }
 
 /// LocalizationsDelegate 实现，将 AppLocalizations 接入 Flutter 管线。

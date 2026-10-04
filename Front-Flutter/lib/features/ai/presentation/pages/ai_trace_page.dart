@@ -205,9 +205,9 @@ class _StepCard extends StatelessWidget {
         break;
       case 'tool_call':
         if (step.toolName != null) {
-          final summary = aiToolArgsSummary(step.toolName, step.args);
+          final summary = aiToolArgsSummary(step.toolName, step.args, l10n);
           list.add(Text.rich(TextSpan(children: [
-            TextSpan(text: aiToolLabel(step.toolName), style: body),
+            TextSpan(text: l10n.aiToolLabel(step.toolName), style: body),
             if (summary.isNotEmpty) TextSpan(text: summary, style: bodyMuted),
             if (step.args != null && step.args!.isNotEmpty)
               WidgetSpan(
@@ -234,7 +234,7 @@ class _StepCard extends StatelessWidget {
         break;
       case 'confirmation':
         if (step.toolName != null) {
-          list.add(Text(aiToolLabel(step.toolName), style: body));
+          list.add(Text(l10n.aiToolLabel(step.toolName), style: body));
         }
         list.add(const SizedBox(height: 4));
         final outcomeText = switch (step.outcome) {
@@ -253,7 +253,7 @@ class _StepCard extends StatelessWidget {
         final effect = step.effect;
         if (effect != null) {
           list.add(Text(
-            '${aiToolLabel(step.toolName)} → ${effect.resultType} #${effect.resultId}',
+            '${l10n.aiToolLabel(step.toolName)} → ${effect.resultType} #${effect.resultId}',
             style: body,
           ));
           if (effect.targetTitle != null && effect.targetTitle!.isNotEmpty) {
@@ -309,7 +309,7 @@ class _StepCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              aiToolLabel(step.toolName),
+              l10n.aiToolLabel(step.toolName),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             ),
             const SizedBox(height: 8),

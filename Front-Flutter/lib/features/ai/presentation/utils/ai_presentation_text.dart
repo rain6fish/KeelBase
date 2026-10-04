@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import 'ai_tool_label.dart';
+import '../../../../core/i18n/app_localizations.dart';
 
 /// One human-readable line about a tool call, as the server sends it: a semantic key plus an
 /// English fallback and the parameters to interpolate — not a finished sentence.
@@ -87,21 +87,21 @@ String _interpolate(String template, Map<String, String> params) {
   });
 }
 
-/// 渲染一条 [AiPresentationText]。`toolName` 供 `ai.tool.*` 那类 key 走已有的工具名表；
+/// 渲染一条 [AiPresentationText]。`toolName` 供 `ai.tool.*` 那类 key 走工具名表（[AppLocalizations.aiToolLabel]）；
 /// 没有对应条目时插值服务端的英文兜底（不显示空、也不显示 key）。
 String presentAiText(
   AiPresentationText? text, {
   String? toolName,
-  required bool isZh,
+  required AppLocalizations l10n,
 }) {
   if (text == null || text.isEmpty) {
     if (toolName == null || toolName.isEmpty) return '';
-    return isZh ? aiToolLabel(toolName) : toolName;
+    return l10n.aiToolLabel(toolName);
   }
   var template = text.fallback;
-  if (isZh) {
+  if (l10n.isZh) {
     if (text.key.startsWith('ai.tool.')) {
-      if (toolName != null && toolName.isNotEmpty) template = aiToolLabel(toolName);
+      if (toolName != null && toolName.isNotEmpty) template = l10n.aiToolLabel(toolName);
     } else {
       template = _zhPresentTemplates[text.key] ?? text.fallback;
     }

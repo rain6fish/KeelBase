@@ -81,8 +81,7 @@ class ChatToolStepCard extends StatelessWidget {
                       presentAiText(
                         step.summary,
                         toolName: step.name,
-                        isZh:
-                            Localizations.localeOf(context).languageCode == 'zh',
+                        l10n: context.l10n,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

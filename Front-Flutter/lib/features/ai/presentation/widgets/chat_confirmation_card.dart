@@ -107,9 +107,7 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                             final text = presentAiText(
                               item.summary,
                               toolName: item.toolName,
-                              isZh: Localizations.localeOf(context)
-                                      .languageCode ==
-                                  'zh',
+                              l10n: context.l10n,
                             );
                             return text.isEmpty ? item.toolName : text;
                           }(),
@@ -169,8 +167,7 @@ class _ChatConfirmationCardState extends State<ChatConfirmationCard> {
                   presentAiText(
                     conf.summary,
                     toolName: conf.toolName,
-                    isZh:
-                        Localizations.localeOf(context).languageCode == 'zh',
+                    l10n: context.l10n,
                   ),
                   style: TextStyle(
                     fontSize: 15,
