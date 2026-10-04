@@ -4,6 +4,73 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] - 2026-10-04
+
+**KeelBase 1.1.0 — The Product-Proof Release: Honest Revocation, Visible Writes / 产品证明版：诚实的撤销、可见的写入**
+
+> 1.1 is the version the product-proof conditions gate (§18.0): a stranger can open the Golden Flow in one
+> command, build a module in thirty minutes from the public docs, and the demo assets are linked. What this
+> release adds on top is the part the version number is really about — a runtime whose claims about what it
+> did can be checked. Revocation stops reporting success it cannot see; every write leaves a claim pointing
+> at its own audit row; and the gates that guard the vocabulary can now fail.
+
+> 1.1 是产品证明条件所闸住的那一版（§18.0）：陌生人一条命令打开 Golden Flow、按公开文档三十分钟建出一个
+> 模块、演示资产已有链接。这一版在其上补的，是版本号真正关涉的那部分 —— 一个**它对自己做过什么的说法可以
+> 被核对**的运行时。撤销不再上报它看不见的成功；每一次写入留下一条指回自己审计行的声明；而守着词汇的那些
+> 闸，现在**能红**。
+
+### Added
+
+- **A write claims its execution before it runs** — a local write records the claim first; an external write claims too, and a failure keeps the claim rather than quietly freeing it. A claim points at the audit row it produced and at what authorized it.
+- **A stuck compensation can be claimed by a person** — the console can take one on and close a dispute, and the claim records who, instead of an assumption that someone is looking.
+- **The window an authorization had is recorded, and it stops moving** — so "was this still allowed when it ran" no longer depends on today's configuration.
+- **Protocol: a field can be decimal, can reference another module, and can declare itself personal data; a module carries attachments in its own table with a real foreign key.** The contract is pinned at v1.2.0 and the display currency is published.
+- **The confirmation wire objects move to v2 with an execution axis** — an approved execution that did not complete is visible and retryable on the console.
+- **Gates that can fail** — the terminology gate covers every public spec and catches affirmative over-claims; the single-source gate accepts the contract pin as the landing; the AIization check can finally fail; the metadata gate covers business events; a new gate keeps entity column defaults pointing at their vocabulary.
+- **The mobile app's tool labels are bilingual, and the parity gate covers them** — the same keys the backend derives, compared against the backend's metadata table.
+
+### Fixed
+
+- **A revoke no longer reports complete while part of the action is still live**; a restored row is not "already revoked"; a disputed group is no longer toasted as done.
+- **The comparability record keeps its history**, so a broken promise cannot be overwritten by a later attempt.
+- **Privacy**: a masked value written back is not a change; the change log records that a sensitive field changed rather than its value; the before-snapshot redacts PII through the shared rule; an entity history returns only the rows its viewer may see.
+- **Authorization**: built-in role rules are the floor of every role, so a generated rule cannot drop them.
+- **The trash covers every soft-deletable entity**, not four of them.
+- **Reliability**: a webhook that stops accepting deliveries says so; the queue dimension gets an honest third state and warns at startup when it is off, because reminders then never fire.
+- **The e2e run is sharded** so a long run cannot hard-crash into a false red, and a shard retries when jest itself dies.
+
+### Changed
+
+- **Performance**: nginx serves brotli (which meant replacing the web image's base), CanvasKit's wasm is compressed and the two configs must agree, and the bundled CJK font is a woff2 GB2312 subset with a gate guarding its coverage.
+- **The mobile side's user-visible text goes through the localization class** — tool labels, page dialogs, the fallback conversation title, provider names, and the failures the data layer used to word itself.
+- **The generator got stricter and wider**: an enum's option list no longer swallows the field after it, a generated module refuses a stale write instead of silently overwriting, and a module can declare a data scope and the columns its search may match.
+
+### 新增
+
+- **写入在执行前先认领一次** —— 本地写先记下认领；外部写同样认领，且失败时**保留**认领而不是悄悄释放。认领指回它产生的那一行审计，以及**是谁授权**了它。
+- **卡住的补偿可以被某个人认领** —— 控制台能接下一条并关闭争议，而认领记下的是**谁**，不是「有人在看」的假设。
+- **授权当时拥有的窗口被记录下来、且不再移动** —— 于是「它跑的时候还合不合法」不再取决于今天的配置。
+- **协议**：字段可以是**小数**、可以**引用另一个模块**、可以声明自己是**个人数据**；模块的**附件**放在自己的表里、带真正的外键。契约 pin 到 **v1.2.0**，显示币种一并发布。
+- **确认的 wire 对象升到 v2 并带上执行轴** —— 「批准了但没跑成」现在在控制台上**可见、可重试**。
+- **会红的闸** —— 术语闸覆盖全部公开 spec 并能抓住**肯定式的过度承诺**；单源闸接受契约 pin 作为落点；AIization 检查**终于能失败**；元数据闸并入业务事件；新增一道闸让实体列默认值指向它自己的词表。
+- **移动端工具名标签改为双语，对账闸覆盖到它** —— 与后端**同规则派生的 key**，拿后端元数据表来对。
+
+### 修复
+
+- **撤销不再在动作的一部分还活着时上报「完成」**；被恢复的行不算「已撤销」；有争议的组不再被自助撤销的提示说成已完成。
+- **可比性记录留住历史**，被破掉的承诺不会被后一次尝试覆写。
+- **隐私**：脱敏值写回不算一次变更；变更日志记「某个敏感字段变了」而不是它的值；前快照走同一套规则遮蔽 PII；实体行为史只返回**看的人有权看**的行。
+- **授权**：内置角色规则是每个角色的**地板**，生成规则删不掉它们。
+- **回收站覆盖所有可软删实体**，不再只是四类。
+- **可靠性**：不再接收投递的 webhook 会**说出来**；队列维度有诚实的第三态，并在它关闭时于启动告警 —— 因为那时提醒**永远不会触发**。
+- **e2e 分片跑**，长跑不会再硬崩成假红；某片 jest 自己死掉时会重试。
+
+### 变更
+
+- **性能**：nginx 上 brotli（为此换掉了 web 镜像的基座），CanvasKit 的 wasm 被压缩且两份配置必须一致，打包的中文字体是 woff2 的 GB2312 子集、并有闸守着它的覆盖。
+- **移动端用户可见文本走本地化类** —— 工具标签、页面弹层、对话兜底标题、提供商显示名，以及数据层原先自己措辞的那些失败。
+- **生成器更严也更宽**：enum 的选项列表不再吞掉它后面的字段；生成的模块**拒绝陈旧写入**而不是静默覆写；模块可以声明**数据范围**与**搜索可匹配的列**。
+
 ## [1.0.11] - 2026-09-22
 
 > **KeelBase 1.0.11 — Business Compensation & Runtime Hardening / 业务级补偿与运行时加固版**
