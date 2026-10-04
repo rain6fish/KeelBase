@@ -416,63 +416,70 @@ export async function seedDemoData(
   ]);
 
   // ── 待办：部分完成，带截止日期 ────────────────────────────
-  await todoRepo.save([
-    {
-      userId: user.id,
-      title: '准备私有化部署演示环境',
-      description: 'Docker + 演示数据 + 一键脚本走通。',
-      completed: false,
-      dueDate: at(0, 18, 0),
-    },
-    {
-      userId: user.id,
-      title: '整理 RAG 分享材料',
-      description: '本周五技术分享用。',
-      completed: false,
-      dueDate: at(1, 18, 0),
-    },
-    {
-      userId: user.id,
-      title: '回复客户邮件',
-      completed: false,
-      dueDate: at(0, 15, 0),
-    },
-    {
-      userId: user.id,
-      title: '更新周报',
-      completed: true,
-    },
-    {
-      userId: user.id,
-      title: '完成测试用例补充',
-      description: '覆盖率提升到门槛以上。',
-      completed: true,
-    },
-    {
-      userId: user.id,
-      title: '预约体检',
-      completed: true,
-    },
-    // 英文样例（中英双语演示）
-    {
-      userId: user.id,
-      title: 'Prepare private-cloud deployment demo',
-      description: 'Walk through Docker + demo data + one-click scripts.',
-      completed: false,
-      dueDate: at(0, 18, 0),
-    },
-    {
-      userId: user.id,
-      title: 'Review AI governance policy',
-      completed: false,
-      dueDate: at(1, 17, 0),
-    },
-    {
-      userId: user.id,
-      title: 'Send weekly report',
-      completed: true,
-    },
-  ]);
+  // 幂等守卫（与相邻各块同形）。此前这一块**没有**自己的守卫，只被上面那句
+  // 「已有事件 → 整函数早退」间接挡着：一个有 todo、却一条 event 都没有的用户被
+  // 再种一次时，早退不触发 ⇒ 待办被重复插一份。文件头那句「已有事件/待办/…时跳过」
+  // 说的是这件事，代码此前只做到事件那一格。
+  const existingTodos = await todoRepo.count({ where: { userId: user.id } });
+  if (existingTodos === 0) {
+    await todoRepo.save([
+      {
+        userId: user.id,
+        title: '准备私有化部署演示环境',
+        description: 'Docker + 演示数据 + 一键脚本走通。',
+        completed: false,
+        dueDate: at(0, 18, 0),
+      },
+      {
+        userId: user.id,
+        title: '整理 RAG 分享材料',
+        description: '本周五技术分享用。',
+        completed: false,
+        dueDate: at(1, 18, 0),
+      },
+      {
+        userId: user.id,
+        title: '回复客户邮件',
+        completed: false,
+        dueDate: at(0, 15, 0),
+      },
+      {
+        userId: user.id,
+        title: '更新周报',
+        completed: true,
+      },
+      {
+        userId: user.id,
+        title: '完成测试用例补充',
+        description: '覆盖率提升到门槛以上。',
+        completed: true,
+      },
+      {
+        userId: user.id,
+        title: '预约体检',
+        completed: true,
+      },
+      // 英文样例（中英双语演示）
+      {
+        userId: user.id,
+        title: 'Prepare private-cloud deployment demo',
+        description: 'Walk through Docker + demo data + one-click scripts.',
+        completed: false,
+        dueDate: at(0, 18, 0),
+      },
+      {
+        userId: user.id,
+        title: 'Review AI governance policy',
+        completed: false,
+        dueDate: at(1, 17, 0),
+      },
+      {
+        userId: user.id,
+        title: 'Send weekly report',
+        completed: true,
+      },
+    ]);
+  }
 
   // ── 知识库：全局可见，供 RAG 问答（AI-3/AI-5）─────────────
   const kc = await knowledgeRepo.count();

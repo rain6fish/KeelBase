@@ -87,4 +87,18 @@ describe('seedDemoData（PM-2 演示数据）', () => {
     // 事件/待办仍会种
     expect(repos.get(Event)!.save).toHaveBeenCalled();
   });
+
+  it('已有待办但无事件 → 待办不重复种（该块自己的守卫）', async () => {
+    // 文件头承诺「已有事件/待办/…时跳过」。此前只有事件触发整函数早退，待办块自己没有守卫：
+    // 一个有待办、无事件的用户被再种一次，早退不触发 ⇒ 待办被重复插一份。
+    const { dataSource, repos } = makeDataSource();
+    repos.get(Todo)!.count.mockResolvedValue(2); // 已种过
+    // Event.count 保持 0 ⇒ 不走整函数早退
+
+    const result = await seedDemoData(dataSource as any, { id: 7, username: 'alex' });
+
+    expect(result).toBe(true);
+    expect(repos.get(Todo)!.save).not.toHaveBeenCalled();
+    expect(repos.get(Event)!.save).toHaveBeenCalled(); // 事件照旧
+  });
 });
