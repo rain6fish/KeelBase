@@ -116,6 +116,9 @@ class AppLocalizations {
   String get apExploreEntry => _t('AI Approval', 'AI 审批');
   String get apSubmitRequest => _t('Submit request', '提交审批');
   String get apTitleHint => _t('Title (e.g. Q3 travel reimbursement)', '标题（如 Q3 差旅报销）');
+  String get apTypeReimbursement => _t('Reimbursement', '报销');
+  String get apTypePurchase => _t('Purchase', '采购');
+  String get apTypeLeave => _t('Leave', '请假');
   String get apAmountHint => _t('Amount (yuan)', '金额（元）');
   String get apReasonHint => _t('Reason', '事由');
   String get apRequired => _t('Fill in title, amount and reason', '请填写标题、金额和事由');
@@ -378,6 +381,10 @@ class AppLocalizations {
   // PL-10 动态表单
   String get formLoading => _t('Form', '表单');
   String get formSubmit => _t('Submit', '提交');
+  String get formSubmitting => _t('Submitting…', '提交中…');
+  String get formSubmitted => _t('Submitted', '提交成功');
+  String get formCheckFields => _t('Please check the form', '请检查表单填写');
+  String get formPleaseSelect => _t('Please select', '请选择');
   // G-1 应用内反馈
   String get feedbackTitle => _t('Feedback', '意见反馈');
   String get feedbackTypeLabel => _t('Type', '反馈类型');
@@ -690,6 +697,11 @@ class AppLocalizations {
       );
   String get searchResults => _t('Search Results', '搜索结果');
   String get today => _t('Today', '今天');
+
+  // --- 相对时间（会话列表） ---
+  String get justNow => _t('Just now', '刚刚');
+  String minutesAgo(int n) => _t(n == 1 ? '1 minute ago' : '$n minutes ago', '$n 分钟前');
+  String hoursAgo(int n) => _t(n == 1 ? '1 hour ago' : '$n hours ago', '$n 小时前');
 
   // --- AI 工具标签（`ai.tool.*`：与服务端 tool-metadata.ts 同规则派生）---
 

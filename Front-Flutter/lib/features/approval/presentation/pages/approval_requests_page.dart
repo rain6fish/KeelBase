@@ -52,10 +52,10 @@ class _ApprovalRequestsPageState extends State<ApprovalRequestsPage> {
                   CupertinoSegmentedControl<String>(
                     groupValue: type,
                     onValueChanged: (v) => setState(() => type = v),
-                    children: const {
-                      'reimbursement': Text('报销'),
-                      'purchase': Text('采购'),
-                      'leave': Text('请假'),
+                    children: {
+                      'reimbursement': Text(l10n.apTypeReimbursement),
+                      'purchase': Text(l10n.apTypePurchase),
+                      'leave': Text(l10n.apTypeLeave),
                     },
                   ),
                 ],

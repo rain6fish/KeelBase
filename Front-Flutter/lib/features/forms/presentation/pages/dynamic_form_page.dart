@@ -49,18 +49,18 @@ class _FormBody extends StatelessWidget {
             : provider.error != null
                 ? Center(child: Text(provider.error!))
                 : provider.submitted
-                    ? _successView(theme)
+                    ? _successView(theme, l10n)
                     : _buildForm(context, l10n, theme, provider),
       ),
     );
   }
 
-  Widget _successView(CupertinoThemeData theme) {
+  Widget _successView(CupertinoThemeData theme, AppLocalizations l10n) {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         const Icon(CupertinoIcons.checkmark_circle_fill, size: 64, color: CupertinoColors.systemGreen),
         const SizedBox(height: 16),
-        Text('提交成功', style: theme.textTheme.navTitleTextStyle),
+        Text(l10n.formSubmitted, style: theme.textTheme.navTitleTextStyle),
       ]),
     );
   }
@@ -90,10 +90,10 @@ class _FormBody extends StatelessWidget {
           onPressed: provider.submitting ? null : () async {
             final ok = await provider.submit();
             if (!ok && context.mounted) {
-              AppToast.error(context, '请检查表单填写');
+              AppToast.error(context, l10n.formCheckFields);
             }
           },
-          child: Text(provider.submitting ? '提交中…' : l10n.formSubmit,
+          child: Text(provider.submitting ? l10n.formSubmitting : l10n.formSubmit,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       ],
@@ -117,7 +117,7 @@ class _FormBody extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.centerLeft,
-            child: Text(value?.toString() ?? '请选择',
+            child: Text(value?.toString() ?? context.l10n.formPleaseSelect,
                 style: TextStyle(color: value == null ? CupertinoColors.systemGrey.resolveFrom(context) : null)),
           ),
         );
@@ -192,7 +192,7 @@ class _FormBody extends StatelessWidget {
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
       ),
     );

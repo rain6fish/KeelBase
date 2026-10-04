@@ -86,7 +86,7 @@ class _SessionListPageState extends State<SessionListPage> {
     final l10n = context.l10n;
     final t = CupertinoTheme.of(context);
     final name = s.deviceName ?? s.deviceId ?? '#${s.id}';
-    final time = _formatTime(s.lastActiveAt ?? s.createdAt);
+    final time = _formatTime(s.lastActiveAt ?? s.createdAt, l10n);
 
     return Container(
       decoration: BoxDecoration(
@@ -154,15 +154,15 @@ class _SessionListPageState extends State<SessionListPage> {
     );
   }
 
-  String _formatTime(String? iso) {
+  String _formatTime(String? iso, AppLocalizations l10n) {
     if (iso == null) return '';
     final dt = DateTime.tryParse(iso);
     if (dt == null) return '';
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return '刚刚';
-    if (diff.inHours < 1) return '${diff.inMinutes} 分钟前';
-    if (diff.inDays < 1) return '${diff.inHours} 小时前';
+    if (diff.inMinutes < 1) return l10n.justNow;
+    if (diff.inHours < 1) return l10n.minutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return l10n.hoursAgo(diff.inHours);
     return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
   }
 }
