@@ -40,7 +40,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get user => _user;
   String? get error => _error;
 
-  /// 登录方式自身的失败，**以 key 携带**（这一层没有 BuildContext ⇒ 不携带句子）。
+  /// 登录方式自身的失败，**以 key 携带**（这一层没有 BuildContext → 不携带句子）。
   /// UI 用 `oauthErrorText(l10n, …)` 把它译成当前语言；`error` 保留给服务端/技术文本。
   OAuthException? get oauthError => _oauthError;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
