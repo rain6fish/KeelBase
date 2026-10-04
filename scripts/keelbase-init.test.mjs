@@ -584,8 +584,11 @@ test('端到端：inspect 子命令——有 manifest 退出 0 / 无 manifest �
   const plain = stripAnsi(ok.o);
   assert.equal(ok.code, 0);
   assert.match(plain, /KeelBase Application/);
-  // 由常量构造，避免协议 bump 时这条断言悄悄过期（同「报错文案写死类型」一类问题）
-  assert.match(plain, new RegExp(`Protocol:\\s+${MANIFEST_PROTOCOL.replace(/\./g, '\\.')}`));
+  // 由常量构造，避免协议 bump 时这条断言悄悄过期（同「报错文案写死类型」一类问题）。
+  // 不把它拼进正则：那样得把**全部**元字符转义，漏一个就随值而变（CodeQL js/incomplete-sanitization）。
+  // 取出那一行、只比较值 —— 相等比「正则命中」更强，且这类问题不会再回来。
+  const protocolLine = plain.split('\n').find((l) => l.includes('Protocol:'));
+  assert.equal(protocolLine?.replace('Protocol:', '').trim(), MANIFEST_PROTOCOL);
   assert.match(plain, /Modules:\s+posts/);
   assert.match(plain, /✓\s+AI Tools/);
   assert.match(plain, /✓\s+CASL Permission/);
