@@ -4,7 +4,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.1.0] - 2026-10-04
+## [1.1.0] - 2026-10-05
 
 **KeelBase 1.1.0 — The Product-Proof Release: Honest Revocation, Visible Writes / 产品证明版：诚实的撤销、可见的写入**
 
