@@ -24,7 +24,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **A write claims its execution before it runs** — a local write records the claim first; an external write claims too, and a failure keeps the claim rather than quietly freeing it. A claim points at the audit row it produced and at what authorized it.
 - **A stuck compensation can be claimed by a person** — the console can take one on and close a dispute, and the claim records who, instead of an assumption that someone is looking.
 - **The window an authorization had is recorded, and it stops moving** — so "was this still allowed when it ran" no longer depends on today's configuration.
-- **Protocol: a field can be decimal, can reference another module, and can declare itself personal data; a module carries attachments in its own table with a real foreign key.** The contract is pinned at v1.2.0 and the display currency is published.
+- **Protocol: a field can be decimal, can reference another module, and can declare itself personal data; a module carries attachments in its own table with a real foreign key.** The contract is pinned at v1.6.0 and the display currency is published.
 - **The confirmation wire objects move to v2 with an execution axis** — an approved execution that did not complete is visible and retryable on the console.
 - **Gates that can fail** — the terminology gate covers every public spec and catches affirmative over-claims; the single-source gate accepts the contract pin as the landing; the AIization check can finally fail; the metadata gate covers business events; a new gate keeps entity column defaults pointing at their vocabulary.
 - **The mobile app's tool labels are bilingual, and the parity gate covers them** — the same keys the backend derives, compared against the backend's metadata table.
@@ -34,7 +34,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **A revoke no longer reports complete while part of the action is still live**; a restored row is not "already revoked"; a disputed group is no longer toasted as done.
 - **The comparability record keeps its history**, so a broken promise cannot be overwritten by a later attempt.
 - **Privacy**: a masked value written back is not a change; the change log records that a sensitive field changed rather than its value; the before-snapshot redacts PII through the shared rule; an entity history returns only the rows its viewer may see.
-- **Authorization**: built-in role rules are the floor of every role, so a generated rule cannot drop them.
+- **Authorization**: a generated rule merges into a role's rules instead of replacing them, and where the database has no rules for a role the built-in rules are that role's floor.
 - **The trash covers every soft-deletable entity**, not four of them.
 - **Reliability**: a webhook that stops accepting deliveries says so; the queue dimension gets an honest third state and warns at startup when it is off, because reminders then never fire.
 - **The e2e run is sharded** so a long run cannot hard-crash into a false red, and a shard retries when jest itself dies.
@@ -50,7 +50,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **写入在执行前先认领一次** —— 本地写先记下认领；外部写同样认领，且失败时**保留**认领而不是悄悄释放。认领指回它产生的那一行审计，以及**是谁授权**了它。
 - **卡住的补偿可以被某个人认领** —— 控制台能接下一条并关闭争议，而认领记下的是**谁**，不是「有人在看」的假设。
 - **授权当时拥有的窗口被记录下来、且不再移动** —— 于是「它跑的时候还合不合法」不再取决于今天的配置。
-- **协议**：字段可以是**小数**、可以**引用另一个模块**、可以声明自己是**个人数据**；模块的**附件**放在自己的表里、带真正的外键。契约 pin 到 **v1.2.0**，显示币种一并发布。
+- **协议**：字段可以是**小数**、可以**引用另一个模块**、可以声明自己是**个人数据**；模块的**附件**放在自己的表里、带真正的外键。契约 pin 到 **v1.6.0**，显示币种一并发布。
 - **确认的 wire 对象升到 v2 并带上执行轴** —— 「批准了但没跑成」现在在控制台上**可见、可重试**。
 - **会红的闸** —— 术语闸覆盖全部公开 spec 并能抓住**肯定式的过度承诺**；单源闸接受契约 pin 作为落点；AIization 检查**终于能失败**；元数据闸并入业务事件；新增一道闸让实体列默认值指向它自己的词表。
 - **移动端工具名标签改为双语，对账闸覆盖到它** —— 与后端**同规则派生的 key**，拿后端元数据表来对。
@@ -60,7 +60,7 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **撤销不再在动作的一部分还活着时上报「完成」**；被恢复的行不算「已撤销」；有争议的组不再被自助撤销的提示说成已完成。
 - **可比性记录留住历史**，被破掉的承诺不会被后一次尝试覆写。
 - **隐私**：脱敏值写回不算一次变更；变更日志记「某个敏感字段变了」而不是它的值；前快照走同一套规则遮蔽 PII；实体行为史只返回**看的人有权看**的行。
-- **授权**：内置角色规则是每个角色的**地板**，生成规则删不掉它们。
+- **授权**：生成规则**并入**某角色的规则而不是取代它们；某角色在数据库里没有规则时，内置规则是它的**地板**。
 - **回收站覆盖所有可软删实体**，不再只是四类。
 - **可靠性**：不再接收投递的 webhook 会**说出来**；队列维度有诚实的第三态，并在它关闭时于启动告警 —— 因为那时提醒**永远不会触发**。
 - **e2e 分片跑**，长跑不会再硬崩成假红；某片 jest 自己死掉时会重试。
@@ -70,6 +70,17 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 - **性能**：nginx 上 brotli（为此换掉了 web 镜像的基座），CanvasKit 的 wasm 被压缩且两份配置必须一致，打包的中文字体是 woff2 的 GB2312 子集、并有闸守着它的覆盖。
 - **移动端用户可见文本走本地化类** —— 工具标签、页面弹层、对话兜底标题、提供商显示名，以及数据层原先自己措辞的那些失败。
 - **生成器更严也更宽**：enum 的选项列表不再吞掉它后面的字段；生成的模块**拒绝陈旧写入**而不是静默覆写；模块可以声明**数据范围**与**搜索可匹配的列**。
+
+### Release Precheck（2026-10-05）
+
+- **Four layers of code review**: the Alibaba OCR layer **could not run on this machine** — the package and its launcher are installed, but the native `opencodereview.exe` is refused execution (`Exec format error` from the shell, "access denied" from `cmd`), so it is recorded as not run rather than passed off as clean — + Claude's built-in review **5** (1 confirmed) + the code-review skill's dual axis **13** (Standards 7 / Spec 6) + Code Economy **3** (WARN, Critical 0) → **four defects fixed before release**: the changelog named the wrong contract version (it said v1.2.0; the pin is v1.6.0), it claimed built-in role rules are the floor of *every* role (the code floors only the roles the database has no rules for), the trash read became unbounded when it turned schema-derived, and three pairs of migrations shared a timestamp.
+  **四层代码评审**：**阿里 OCR 层在本机无法运行** —— 包与启动器都在，但原生 `opencodereview.exe` 被拒绝执行（shell 报 `Exec format error`、`cmd` 报「拒绝访问」），故**如实记为未运行**，不冒充跑过 —— + Claude 自带 **5**（1 条 confirmed）+ code-review skill 双轴 **13**（Standards 7 / Spec 6）+ Code Economy **3**（WARN，Critical 0）→ **发版前修掉四处**：更新日志写错了契约版本（写的 v1.2.0，pin 实为 v1.6.0）、声称内置角色规则是「每个角色」的底（代码只对数据库里没有规则的角色兜底）、回收站改为随 schema 派生之后读变成无界、三对迁移共用同一时间戳。
+- **Full test run**: backend unit **354 suites / 3232 tests** (security-module tier gate 6/6) · backend e2e (4 shards) · Web-Admin-Vue vitest **80 files / 467 tests** · Flutter **653 tests** · generator / CLI **244** · endpoint-docs consistency **0 missing declarations** · **Release Gate 25/0 PASS** — all green.
+  **全量测试**：后端单测 **354 套 / 3232 用例**（安全模块分档门禁 6/6）· 后端 e2e（4 片）· Web-Admin-Vue vitest **80 文件 / 467 用例** · Flutter **653 用例** · 生成器 / CLI **244** · 端点-文档一致性 **0 条声明缺失** · **Release Gate 25/0 PASS** —— 全过。
+- **Coverage**: backend statements **95.31%** / branches **79.97%** / functions **91.07%** / lines **96.18%** (thresholds 85 / 70 / 80 / 85), and the security-module tier gate passes in every module. The migration chain was re-run from an empty sqlite database (the renamed migrations execute) and `migration:generate` reports "No changes".
+  **覆盖率**：后端 statements **95.31%** / branches **79.97%** / functions **91.07%** / lines **96.18%**（门槛 85 / 70 / 80 / 85），安全模块分档门禁逐模块通过。迁移链在**空 sqlite 库**上重跑过（改名后的迁移确实执行），且 `migration:generate` 报 “No changes”。
+- **Deliberately left as follow-ups (recorded honestly, not overlooked)**: the generator emits neither the Web-Admin console route nor its navigation entry with `module:`, so MOD-4's capability gating never applies to a generated module — `contracts` / `suppliers` / `reports` / `followup_plans` are in that state today · `ai-tool-effects.service.ts` (~2700 lines) still carries the revoke / comparability / dispute cluster · `resource-routes.ts` scans the same table twice within one file · a `revokeClass:'none'` member of a compensation group makes the whole group report `revoke_failed` · the admin tool-effects list can surface a customer's `name` / `company` (the sensitive-key set does not cover them) · and the two oldest migration-timestamp pairs (`1788100000000`, `1788300000000`) are **left alone on purpose**: they shipped before this release, so renaming them would make an already-deployed database treat them as unrun and execute them again.
+  **有意留作后续（如实记录，不是漏掉）**：生成器既不生成管理台路由、也不生成导航条上的 `module:`，故 MOD-4 的能力门对生成的模块从不生效 —— `contracts` / `suppliers` / `reports` / `followup_plans` 如今都是这样 · `ai-tool-effects.service.ts`（约 2700 行）仍背着撤销 / 可比性 / 争议那一簇 · `resource-routes.ts` 在同一个文件里对同一张表扫两遍 · 补偿组里一个 `revokeClass:'none'` 成员会让整组报 `revoke_failed` · 管理台 tool-effects 列表可能显示客户的 `name` / `company`（敏感键集未覆盖它们）· 最早的那两对迁移时间戳（`1788100000000`、`1788300000000`）**有意不动**：它们在本版之前就已发布，改名会让已部署的库把它们当成没跑过而重跑。
 
 ## [1.0.11] - 2026-09-22
 

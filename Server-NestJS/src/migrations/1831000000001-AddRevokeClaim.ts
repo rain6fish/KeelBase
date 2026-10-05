@@ -33,11 +33,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * claimed_by IS NULL`）而不落库的原因：同一事实的两份拷贝会互相矛盾，一份不会。
  *
  * **链外注解列**（不入 `_chainPayload`），故既有链验签不受影响、不需重签。双方言均为普通
- * `ALTER TABLE ADD COLUMN`（不建索引，故无 sqlite 整表重建）。时间戳 1831000000000 晚于最新既有迁移
- * 1830000000000。
+ * `ALTER TABLE ADD COLUMN`（不建索引，故无 sqlite 整表重建）。时间戳 1831000000001 晚于最新既有迁移
+ * 1830000000000；与同批的 `AddReports`（1831000000000，建 `reports` 表）**同刻**，两条各吃一张不同的表、
+ * 彼此无顺序依赖 —— 这里 +1 是为了让链的顺序**确定**，不靠文件系统的枚举顺序。
  */
-export class AddRevokeClaim1831000000000 implements MigrationInterface {
-  name = 'AddRevokeClaim1831000000000';
+export class AddRevokeClaim1831000000001 implements MigrationInterface {
+  name = 'AddRevokeClaim1831000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const isPostgres = queryRunner.connection.options.type === 'postgres';

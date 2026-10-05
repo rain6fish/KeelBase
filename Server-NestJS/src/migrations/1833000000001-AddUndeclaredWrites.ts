@@ -29,10 +29,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 观察到这类写（寻常情形），或该行早于本列出现；两者不区分，也都不拿猜测去填。
  *
  * **链外注解列**（不入 `_chainPayload`），故既有链验签不受影响。双方言均为普通 `ALTER TABLE ADD COLUMN`。
- * 时间戳 1833000000000 晚于最新既有迁移 1832000000000。
+ * 时间戳 1833000000001 晚于最新既有迁移 1832000000000；与同批的 `AddFollowupPlanCustomerId`
+ * （1833000000000，改 `followup_plans`）**同刻**，两条各吃一张不同的表、彼此无顺序依赖 —— 这里 +1 是为了
+ * 让链的顺序**确定**，不靠文件系统的枚举顺序。
  */
-export class AddUndeclaredWrites1833000000000 implements MigrationInterface {
-  name = 'AddUndeclaredWrites1833000000000';
+export class AddUndeclaredWrites1833000000001 implements MigrationInterface {
+  name = 'AddUndeclaredWrites1833000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "ai_tool_side_effects" ADD "undeclared_writes" text`);

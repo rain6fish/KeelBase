@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { DropUserRolesTable1834000000000 } from '../1834000000000-DropUserRolesTable';
+import { DropUserRolesTable1834000000001 } from '../1834000000001-DropUserRolesTable';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -27,7 +27,7 @@ const PRE_STATE = [
 describe('1834000000000 DropUserRolesTable（ROLE-1 删掉无写入方的死表）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new DropUserRolesTable1834000000000();
+  const migration = new DropUserRolesTable1834000000001();
 
   const tableSql = async (name: string): Promise<string | null> => {
     const rows = (await ds.query(

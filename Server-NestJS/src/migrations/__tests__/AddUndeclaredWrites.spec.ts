@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddUndeclaredWrites1833000000000 } from '../1833000000000-AddUndeclaredWrites';
+import { AddUndeclaredWrites1833000000001 } from '../1833000000001-AddUndeclaredWrites';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -48,7 +48,7 @@ const COLUMNS_BEFORE = [
 describe('1833000000000 AddUndeclaredWrites（REV-10 账上没有的写）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new AddUndeclaredWrites1833000000000();
+  const migration = new AddUndeclaredWrites1833000000001();
 
   const columns = async (): Promise<string[]> => {
     const rows = (await ds.query(`PRAGMA table_info("ai_tool_side_effects")`)) as Array<{

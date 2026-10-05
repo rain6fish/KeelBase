@@ -270,18 +270,25 @@ export class AdminService {
    * 用**窄投影**读一个实体的软删行，并映射成接口的行形状。只读 `id`、`deletedAt`，以及这一行
    * **用来展示**的那两列 —— 从不读整行：对某些实体，读整行会把个人数据拖进管理端列表。
    */
-  private async _findSoftDeleted(t: TrashTarget): Promise<TrashRow[]> {
+  private async _findSoftDeleted(t: TrashTarget, take: number): Promise<TrashRow[]> {
     // TypeORM 1.x dropped the string-array form of `select`; the object form is the only one.
     // （单测把 repo mock 掉了，看不见这个 —— 是 e2e 抓到的。）
     const select: Record<string, true> = { id: true, deletedAt: true };
     if (t.displayCol) select[t.displayCol] = true;
     if (t.ownerCol) select[t.ownerCol] = true;
 
+    // `take` bounds the read to this entity's newest `offset + limit` rows: nothing older can
+    // appear on the requested page or any earlier one. Without it the read was unbounded —
+    // every soft-deleted row of every soft-deletable entity, materialized on every request.
+    //
+    // `take` 把读限定在该实体**最新的 `offset + limit` 行**：更旧的行不可能出现在所要的那页或更早
+    // 的页上。没有它时读是无界的 —— 每个请求都把每个可软删实体的全部已删行取出来。
     const found = (await this.dataSource.getRepository(t.entityClass).find({
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
       select,
       order: { deletedAt: 'DESC' },
+      take,
     })) as unknown as Array<Record<string, unknown>>;
 
     return found.map((row) => {
@@ -298,26 +305,55 @@ export class AdminService {
   }
 
   /**
+   * Counts one entity's soft-deleted rows. The trash reports an exact `total` so it can compute
+   * `totalPages`, and the row reads are bounded — so the two cannot come from the same query.
+   *
+   * 数一个实体的软删行。回收站要报**精确的** `total` 才能算 `totalPages`，而行读是有界的 ——
+   * 所以这两件事不能来自同一次查询。
+   */
+  private async _countSoftDeleted(t: TrashTarget): Promise<number> {
+    return this.dataSource.getRepository(t.entityClass).count({
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+    });
+  }
+
+  /**
    * RG-3 回收站：列出**每一个**可软删实体里已软删的行（带用户名，按删除时间倒序）。
    *
    * Sorting and slicing happen **once, globally**. The previous implementation took a page *per
    * entity type* and merged them, so one page could return four times `limit` rows and item order
    * was inconsistent across pages; with the type count now following the schema, that shape would
-   * only get worse. It costs one narrow read per soft-deletable entity — the trash is admin-only
-   * and these are deleted rows.
+   * only get worse. It costs, per soft-deletable entity, one **bounded** narrow read (the newest
+   * `offset + limit` rows) and one count — the trash is admin-only and these are deleted rows.
    *
    * 排序与切页**只做一次，全局做**。旧实现是**每类各取一页**再合并 ⇒ 一页最多返回四倍 `limit` 行，
-   * 且条目顺序跨页不一致；类型数如今随 schema 走，那个形状只会更糟。代价是每个可软删实体读一次窄
-   * 投影 —— 回收站仅管理员可见，而这些是已删除的行。
+   * 且条目顺序跨页不一致；类型数如今随 schema 走，那个形状只会更糟。代价是每个可软删实体
+   * **一次有界的**窄读（最新的 `offset + limit` 行）加一次计数 —— 回收站仅管理员可见，而这些是已删
+   * 除的行。
    */
   async getTrash(page = 1, limit = 20) {
-    const rows = await Promise.all(this._trashTargets().map((t) => this._findSoftDeleted(t)));
+    const targets = this._trashTargets();
+    const offset = (page - 1) * limit;
+    const take = offset + limit;
+
+    // `total` comes from a per-entity count, not from what was read: the rows are now bounded
+    // (see `_findSoftDeleted`), so counting the merged rows would under-report once a page is
+    // requested — and `totalPages` is computed from it.
+    //
+    // `total` 由每个实体各一次 count 得到，而不是数读回来的行：读现在是有界的（见
+    // `_findSoftDeleted`），若还去数合并后的行，一旦要的是第二页起就会少报 —— 而
+    // `totalPages` 正是由它算出来的。
+    const [rows, counts] = await Promise.all([
+      Promise.all(targets.map((t) => this._findSoftDeleted(t, take))),
+      Promise.all(targets.map((t) => this._countSoftDeleted(t))),
+    ]);
 
     const merged = rows
       .flat()
       .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
-    const total = merged.length;
-    const slice = merged.slice((page - 1) * limit, page * limit);
+    const total = counts.reduce((sum, n) => sum + n, 0);
+    const slice = merged.slice(offset, offset + limit);
 
     const userIds = new Set<number>(
       slice.map((r) => r.userId).filter((v): v is number => v != null),

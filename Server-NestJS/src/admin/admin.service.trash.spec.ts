@@ -188,6 +188,19 @@ describe('AdminService · 回收站（RG-3）', () => {
         { id: 1, name: 'P1', userId: 1, deletedAt: new Date('2026-09-04T00:00:00Z') },
         { id: 2, name: 'P2', userId: 1, deletedAt: new Date('2026-09-01T00:00:00Z') },
       ]);
+      // `total` 现在来自每个实体的 count（行读已被 `take` 限定），不再是数读回来的行。
+      for (const name of ['Event', 'Todo', 'PmProject']) {
+        repoFor(name).count.mockResolvedValue(2);
+      }
+    });
+
+    it('每个实体的行读有界：take = offset + limit，不再取全量已删行', async () => {
+      await service.getTrash(3, 2);
+
+      // 第 3 页、每页 2 ⇒ offset 4 ⇒ 每个实体至多读 6 行
+      for (const name of ['Event', 'Todo', 'PmProject']) {
+        expect(repoFor(name).find.mock.calls[0][0].take).toBe(6);
+      }
     });
 
     it('一页恰好 limit 行、跨类型按删除时刻倒序，且不出现 4×limit', async () => {

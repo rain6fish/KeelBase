@@ -35,10 +35,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 现有库里删掉该表，也不会留下「有东西变了」的记录。全新库会先建后删——这是有意为之，为的是让迁移历史
  * 保持只追加。`down()` 用 1820 的原 DDL 把它建回来，使往返对称。
  *
- * 时间戳 1834000000000 晚于最新既有迁移 1833000000000。
+ * 时间戳 1834000000001 晚于最新既有迁移 1833000000000；与同批的 `AddRevokeComparability`
+ * （1834000000000，改 `ai_tool_side_effects`）**同刻**，两条各吃一张不同的表、彼此无顺序依赖 —— 这里 +1
+ * 是为了让链的顺序**确定**，不靠文件系统的枚举顺序。
  */
-export class DropUserRolesTable1834000000000 implements MigrationInterface {
-  name = 'DropUserRolesTable1834000000000';
+export class DropUserRolesTable1834000000001 implements MigrationInterface {
+  name = 'DropUserRolesTable1834000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 表自己的 FK 随表删除（双向言皆然）；无外部对象依赖它，故不需 CASCADE。

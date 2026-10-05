@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { AddRevokeClaim1831000000000 } from '../1831000000000-AddRevokeClaim';
+import { AddRevokeClaim1831000000001 } from '../1831000000001-AddRevokeClaim';
 
 /**
  * **本文件必须留在 `src/migrations/__tests__/`**：迁移 glob（sqlite `../migrations/*{.ts,.js}` 与
@@ -59,7 +59,7 @@ const COLUMNS_BEFORE = [
 describe('1831000000000 AddRevokeClaim（REV-11 谁认领了）', () => {
   let ds: DataSource;
   let runner: QueryRunner;
-  const migration = new AddRevokeClaim1831000000000();
+  const migration = new AddRevokeClaim1831000000001();
 
   const columns = async (): Promise<string[]> => {
     const rows = (await ds.query(`PRAGMA table_info("ai_tool_side_effects")`)) as Array<{
