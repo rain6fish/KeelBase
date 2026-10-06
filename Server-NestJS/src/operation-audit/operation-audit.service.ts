@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository, MoreThanOrEqual } from 'typeorm';
 import { OperationAuditLog } from './operation-audit-log.entity';
+import { buildOperationPayload } from './payload';
 import {
   AuditChainService,
   ChainVerification,
@@ -65,20 +66,24 @@ export class OperationAuditService {
    */
   async log(entry: OperationAuditEntry): Promise<void> {
     // §internal.16 A-1：changes/businessEvent 是链外注解列（字段 diff + 业务事件，展示用非写操作本身事实）——
-    // hash payload 不含它们（computeHash 与 _payload verify 两端一致，防破链）；存库时保留
-    const hashPayload = {
-      userId: entry.userId ?? null,
-      action: entry.action,
-      method: entry.method,
-      path: entry.path,
-      featureKey: entry.featureKey ?? null,
-      featureFallback: entry.featureFallback ?? null,
-      targetId: entry.targetId ?? null,
+    // hash payload 不含它们；存库时保留
+    //
+    // §internal.16 A-1: changes/businessEvent are off-chain annotation columns (a field diff and a
+    // business event — display material, not facts about the write itself). They are not part of the
+    // hash payload; the row keeps them.
+    //
+    // 截断发生在**落库前**，不属于「哪些字段进 payload」这个决定，故留在调用点；payload 的形状由
+    // `payload.ts` 单源给出（写入与两条读路径同一个函数）。
+    //
+    // Truncation happens *before the row is stored* and is not part of the "which fields enter the
+    // payload" decision, so it stays at the call site; the payload's shape comes from the single
+    // source in `payload.ts`, which the write path and both read paths share.
+    const hashPayload = buildOperationPayload({
+      ...entry,
       requestBody: entry.requestBody ? entry.requestBody.slice(0, 2000) : null,
       ip: entry.ip ? entry.ip.slice(0, 64) : null,
       userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
-      statusCode: entry.statusCode ?? null,
-    };
+    });
     const savePayload = {
       ...hashPayload,
       changes: entry.changes ? entry.changes.slice(0, 4000) : null,
@@ -128,7 +133,7 @@ export class OperationAuditService {
   /** HS-11：沿 id 升序校验操作审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。 */
   async verifyChain(): Promise<ChainVerification & { chain: OpAuditChainNode[] }> {
     const rows = await this.logRepo.find({ order: { id: 'ASC' } });
-    const result = this.auditChain.verifyChain(rows, (row) => this._payload(row));
+    const result = this.auditChain.verifyChain(rows, (row) => buildOperationPayload(row));
     return { ...result, chain: this._chainSlice(rows, result) };
   }
 
@@ -173,7 +178,7 @@ export class OperationAuditService {
       id: r.id,
       prevHash: r.prevHash ?? null,
       hash: r.hash ?? '',
-      payload: this._payload(r as unknown as object),
+      payload: buildOperationPayload(r as unknown as object),
     }));
   }
 
@@ -190,23 +195,6 @@ export class OperationAuditService {
       .limit(1)
       .getRawOne<{ hash: string }>();
     return row?.hash ?? null;
-  }
-
-  private _payload(row: object): Record<string, unknown> {
-    const r = row as Record<string, unknown>;
-    return {
-      userId: r.userId ?? null,
-      action: r.action ?? null,
-      method: r.method ?? null,
-      path: r.path ?? null,
-      featureKey: r.featureKey ?? null,
-      featureFallback: r.featureFallback ?? null,
-      targetId: r.targetId ?? null,
-      requestBody: r.requestBody ?? null,
-      ip: r.ip ?? null,
-      userAgent: r.userAgent ?? null,
-      statusCode: r.statusCode ?? null,
-    };
   }
 
   /**

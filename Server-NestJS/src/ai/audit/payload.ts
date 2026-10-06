@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
+ * The other chain's payload lives in `operation-audit/payload.ts`, and the two are deliberately not
+ * the same shape — different columns, different chain. What they do share is the reasoning below
+ * (one implementation per chain, so the two sides of a chain cannot compute different hashes) and
+ * the rule about which rows take part in verification. Read one, read the other.
+ *
+ * 另一条链的 payload 在 `operation-audit/payload.ts`，两者的形态**有意不同** —— 不同的列、不同的链。
+ * 它们共享的是下面那套理由（**每条链只有一个实现**，这样一条链的两侧不可能算出不同的 hash），以及
+ * 「哪些行参与校验」那条口径。读其一，也读其二。
+ */
+
+/**
  * 审计链 payload 的规范形态——**单源**：写入（算 hash）、链校验、证据导出三处共用。
  *
  * 为什么提出来：它原本是 `AuditService` 的私有方法，但写入路径与证据域都要用它。

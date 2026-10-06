@@ -21,13 +21,13 @@ describe('OperationAuditService', () => {
     expect([...cols, 'username'].sort()).toEqual(Object.keys(schema.properties).sort());
   });
 
-  it('收口：_payload 键集 == operation-audit-payload 冻结契约（链内 canonical payload）', () => {
-    const schema = JSON.parse(
-      readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/operation-audit-payload.schema.json'), 'utf8'),
-    ) as { properties: Record<string, unknown> };
-    const payload = (service as unknown as { _payload: (r: object) => Record<string, unknown> })._payload({});
-    expect(Object.keys(payload).sort()).toEqual(Object.keys(schema.properties).sort());
-  });
+  // 「`_payload` 键集 == operation-audit-payload 冻结契约」那条已随 payload 的提取搬到
+  // `payload.spec.ts`（断言一字未改，只改调用目标）。搬过去之后它**连写入路径也一并覆盖** ——
+  // 此前写入侧那个内联字面量没有任何绑定。
+  //
+  // The "payload key set == the frozen operation-audit-payload schema" case moved to
+  // `payload.spec.ts` along with the payload extraction (same assertion, new call target). There it
+  // covers the write path too, which the inline literal had left unbound.
 
   let service: OperationAuditService;
   let chain: jest.Mocked<Pick<AuditChainService, 'computeHash' | 'verifyChain'>>;
