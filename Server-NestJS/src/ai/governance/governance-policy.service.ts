@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * This directory is the **business-system side** of the governance seam. The other side is
+ * `src/governance`, the control plane: a separate process with its own database and port. What
+ * lives here belongs to the running system, not to the plane — the local policy it enforces, the
+ * reporter that writes to the plane, and the endpoints the plane and service identities call back
+ * into (`internal/*`, `external/*`, both authenticated with the shared service key).
+ *
+ * 本目录在治理接缝的**业务系统这一侧**。另一侧是 `src/governance`——治理控制平面：独立进程、自带
+ * 数据库与端口。这里的东西属于**运行中的业务系统**，不属于平面——它执行的**本地策略**、向平面写入
+ * 的**上报器**，以及平面与服务身份**回调进来的端点**（`internal/*`、`external/*`，均以共享服务密钥
+ * 认证）。
+ */
+
 import { createHash } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
