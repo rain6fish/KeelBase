@@ -60,7 +60,7 @@
 ### 已排除（不是屎山）
 
 - **6 个"零消费者"模块**（books/posts/tags/notes/suppliers/contracts）：后端虽仅 Contracts 被 AI 工具引用，但 **Front-Flutter 整块 feature + Web-Admin-Vue views/api 全栈在用**——是教学竖切 = 项目 DNA，**不删**。
-- **Web-Admin-React 滞后**（缺 12 模块页）：实验预览版有意保留（架构边界红线），更新/转正由用户单独决定——**方向决策**非清理。
+- **Web-Admin-React 滞后**（缺 12 模块页）：实验预览版有意保留（架构边界红线），更新/转正由用户单独决定——**方向决策**非清理。**✅ 2026-10-06 已裁：⏸ 冻结**（用户「react 暂时冻结」）——该「方向决策」**不再是待办**；解冻条件 = 出现真实外部证据。见阶段 4 行。
 - **Flutter oauth_service SDK 桩**：待真实密钥/真机联调——**方向项**。
 - 6 处超大文件外的近临界文件（ai.controller 442 / rag knowledge.service 444 / flow-runtime 431）：观察，不主动拆。
 
@@ -151,7 +151,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
 - [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
-- [ ] 阶段 4：governance/audit 语义整合架构立项（**H4**，原行已注「不在本次范围」）；~~状态/风险词汇常量单源（**M4**）~~ **✅ 2026-10-04 已裁并落地**；~~Flutter i18n 中文映射迁移（**M5**）~~ **✅ 2026-10-04 已裁并落地**；React 预览版去留（**待用户定**）
+- [ ] 阶段 4：~~governance/audit 语义整合架构立项（**H4**，原行已注「不在本次范围」）~~ → **✅ 2026-10-06 影响分析完成**（结论：现状是「3 进程内模块 + 2 独立进程」，非同一职责切五份；改名那半挂起，等下次契约修订）；~~状态/风险词汇常量单源（**M4**）~~ **✅ 2026-10-04 已裁并落地**；~~Flutter i18n 中文映射迁移（**M5**）~~ **✅ 2026-10-04 已裁并落地**；React 预览版去留 → **⏸ 2026-10-06 冻结**（用户裁：「react 暂时冻结」；**解冻条件 = 出现真实外部证据**，在此之前不备材料、不开工）
 - [x] M3：demo-data.ts 832 行 seed 拆分评估（**2026-10-04 评估完毕**：不拆、兼容分支留着，各附触发/退役条件；见 §2 M3 行）
 
 ---
