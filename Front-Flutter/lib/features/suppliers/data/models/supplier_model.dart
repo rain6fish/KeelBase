@@ -3,7 +3,7 @@
 class SupplierModel {
   final int id;
   final String name;
-  final String contact;
+  final String? contact;
   final String status;
   final String riskLevel;
   final int? annualSpend;
@@ -11,7 +11,7 @@ class SupplierModel {
   const SupplierModel({
     required this.id,
     required this.name,
-    required this.contact,
+    this.contact,
     this.status = 'active',
     this.riskLevel = 'low',
     this.annualSpend,
@@ -21,7 +21,7 @@ class SupplierModel {
     return SupplierModel(
       id: json['id'] as int? ?? 0,
       name: (json['name'] as String? ?? '').trim(),
-      contact: (json['contact'] as String? ?? '').trim(),
+      contact: json['contact'] as String?,
       status: json['status'] as String? ?? 'active',
       riskLevel: json['riskLevel'] as String? ?? 'low',
       annualSpend: json['annualSpend'] as int?,

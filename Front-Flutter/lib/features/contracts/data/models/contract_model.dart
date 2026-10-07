@@ -3,14 +3,14 @@
 class ContractModel {
   final int id;
   final String name;
-  final String counterparty;
+  final String? counterparty;
   final String status;
   final int? amount;
 
   const ContractModel({
     required this.id,
     required this.name,
-    required this.counterparty,
+    this.counterparty,
     this.status = 'draft',
     this.amount,
   });
@@ -19,7 +19,7 @@ class ContractModel {
     return ContractModel(
       id: json['id'] as int? ?? 0,
       name: (json['name'] as String? ?? '').trim(),
-      counterparty: (json['counterparty'] as String? ?? '').trim(),
+      counterparty: json['counterparty'] as String?,
       status: json['status'] as String? ?? 'draft',
       amount: json['amount'] as int?,
     );

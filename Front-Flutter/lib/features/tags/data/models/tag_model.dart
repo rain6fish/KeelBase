@@ -2,17 +2,17 @@
 
 class TagModel {
   final int id;
-  final String name;
+  final String? name;
 
   const TagModel({
     required this.id,
-    required this.name,
+    this.name,
   });
 
   factory TagModel.fromJson(Map<String, dynamic> json) {
     return TagModel(
       id: json['id'] as int? ?? 0,
-      name: (json['name'] as String? ?? '').trim(),
+      name: json['name'] as String?,
     );
   }
 

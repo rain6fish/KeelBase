@@ -15,8 +15,8 @@ class NoteModel {
 
   factory NoteModel.fromJson(Map<String, dynamic> json) {
     return NoteModel(
-      id: json['id'] as int,
-      title: json['title'] as String,
+      id: json['id'] as int? ?? 0,
+      title: (json['title'] as String? ?? '').trim(),
       content: json['content'] as String?,
       category: json['category'] as String? ?? 'work',
     );
@@ -32,7 +32,7 @@ class NoteModel {
   NoteModel copyWith({
     Object? title = const Object(),
     Object? content = const Object(),
-    Object? category = const Object(),
+    Object? category = const Object()
   }) {
     return NoteModel(
       id: id,

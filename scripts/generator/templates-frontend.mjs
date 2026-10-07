@@ -21,14 +21,23 @@ import {
 // ─── Model 字段映射 ──────────────────────────────────────────────────────────
 // f.required === true → 非空类型 + `required this.x`（构造必填）；否则保持现状
 const MODEL_FIELD = {
-  string: (c) => ({
-    decl: `  final String ${c};`,
-    ctor: `required this.${c}`,
-    // 缺字段不抛：线上少给一个键，界面上少一行，不该让整个列表起不来。
-    // A missing key is not an exception: the screen loses a line, the list still opens.
-    from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
-    to: `        '${c}': ${c},`,
-  }),
+  string: (c, f) => (f.required === true
+    ? {
+      decl: `  final String ${c};`,
+      ctor: `required this.${c}`,
+      // 缺字段不抛：线上少给一个键，界面上少一行，不该让整个列表起不来。
+      // A missing key is not an exception: the screen loses a line, the list still opens.
+      from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
+      to: `        '${c}': ${c},`,
+    }
+    : {
+      // 没写 `required` 就是**可选** —— spec 这么说，模型就照做，与 `text` 同一形状。
+      // No `required` in the spec means optional, and the model says so, same shape as `text`.
+      decl: `  final String? ${c};`,
+      ctor: `this.${c}`,
+      from: `      ${c}: json['${c}'] as String?,`,
+      to: `        '${c}': ${c},`,
+    }),
   text: (c, f) => (f.required === true
     ? {
       decl: `  final String ${c};`,
