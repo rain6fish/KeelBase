@@ -229,13 +229,15 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
    * 的部署。
    */
   it('7. an anonymous caller is refused', async () => {
-    storage.saveTokens('', '')
-    let status = 0
-    try {
-      await api.get('/audit/verify')
-    } catch (error) {
-      status = (error as { status?: number }).status ?? 0
-    }
-    expect(status, 'the chain’s state does not answer a caller who sent no token').toBe(401)
+    // Asked with `fetch` rather than through the client, deliberately: the client treats a 401 as a
+    // session ending — it tries to refresh, then clears the tokens and reports the logout — so what it
+    // hands back is a session event, not the answer. What is asserted here is what the deployment says,
+    // and that is the status on the wire.
+    //
+    // 用 `fetch` 而不是走客户端问，是**有意**的：客户端把 401 当作**会话结束**——先试刷新、再清令牌、
+    // 报一次登出——所以它交回来的是**一个会话事件**、不是那个回答。这里断言的是**部署怎么答**，而那就是
+    // 线上的状态码。
+    const res = await fetch(`${BASE}/audit/verify`)
+    expect(res.status, 'the chain’s state does not answer a caller who sent no token').toBe(401)
   })
 })
