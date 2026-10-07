@@ -11,6 +11,7 @@ class BooksRepository {
   BooksRepository(this._client);
 
   /// 校验统一响应成功（契约见 ApiResponse.isSuccess：code=HTTP 状态码，2xx 成功）。
+  /// Check the shared envelope: success means an HTTP-status `code` in the 2xx range.
   void _requireSuccess(ApiResponse response) {
     if (!response.isSuccess) {
       throw NetworkException(response.message);
@@ -20,6 +21,9 @@ class BooksRepository {
   Future<List<BookModel>> getBooks() async {
     final json = await _client.get('/books');
     final response = ApiResponse.fromJson(json, (data) {
+      // 形状不是预期的那种就是失败，不是空列表：静默返回 `[]` 会把一个坏掉的接口说成「没有记录」。
+      // A shape we did not expect is a failure, not an empty list: returning `[]` silently would
+      // report a broken endpoint as "no records".
       if (data is! List) {
         throw NetworkException('Unexpected response format for /books');
       }
@@ -38,11 +42,11 @@ class BooksRepository {
       return BookModel.fromJson(data);
     });
     _requireSuccess(response);
-    final book = response.data;
-    if (book == null) {
+    final item = response.data;
+    if (item == null) {
       throw NetworkException('Create book failed: empty response');
     }
-    return book;
+    return item;
   }
 
   Future<void> delete(int id) async {

@@ -84,7 +84,11 @@ test('normalizeSpecFields：enumLabels 不被静默剥掉', () => {
 
 test('Flutter：有标签 → 查表 + 回落标识符', () => {
   const page = pageTemplate(labelled());
-  assert.ok(page.includes('Text(_statusLabels(l10n)[o] ?? o),'), '表单控件应查标签并回落');
+  // 控件里的 `l10n` 参数现在是**占位符 getter 的表达式**（不再是 AppLocalizations 对象），
+  // 故枚举查表显式取页面作用域里的那个对象。
+  // The widget's `l10n` argument is now the placeholder getter's expression rather than the
+  // AppLocalizations object, so the label lookup takes the one from the page's own scope.
+  assert.ok(page.includes('Text(_statusLabels(context.l10n)[o] ?? o),'), '表单控件应查标签并回落');
   assert.ok(page.includes('Map<String, String> _statusLabels(AppLocalizations l10n) => {'));
   assert.ok(page.includes("'lead': l10n.customersStatusLead,"));
   assert.ok(page.includes("'active': l10n.customersStatusActive,"));

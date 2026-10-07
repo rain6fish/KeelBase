@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../providers/notes_provider.dart';
 
 /// 笔记页
@@ -17,6 +18,8 @@ class _NotesPageState extends State<NotesPage> {
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
   String _categoryVal = 'work';
+
+
 
   @override
   void initState() {
@@ -46,15 +49,14 @@ class _NotesPageState extends State<NotesPage> {
             children: [
               const SizedBox(height: 8),
           CupertinoTextField(
-            placeholder: 'title',
+            placeholder: l10n.notesFieldTitle,
             controller: _titleCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
           CupertinoTextField(
-            placeholder: 'content',
+            placeholder: l10n.notesFieldContent,
             controller: _contentCtrl,
-            maxLines: 3,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
@@ -62,7 +64,7 @@ class _NotesPageState extends State<NotesPage> {
             groupValue: _categoryVal,
             onValueChanged: (v) => setState(() => _categoryVal = v),
             children: {
-              for (final o in ["work", "personal", "idea", "archive"]) o: Padding(
+              for (final o in ["work","personal","idea","archive"]) o: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Text(o),
               ),
@@ -78,8 +80,19 @@ class _NotesPageState extends State<NotesPage> {
 if (_titleCtrl.text.isNotEmpty) data['title'] = _titleCtrl.text.trim();
 if (_contentCtrl.text.isNotEmpty) data['content'] = _contentCtrl.text.trim();
 data['category'] = _categoryVal;
-                final ok = await ctx.read<NotesProvider>().add(data);
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                // 一个字段都没填就不提交 —— 否则会创建一条空记录。表单不该提交「什么都没说」。
+                // Submitting an entirely empty form would create an empty row; don't.
+                if (data.isEmpty) return;
+                final provider = ctx.read<NotesProvider>();
+                final ok = await provider.add(data);
+                if (!ctx.mounted) return;
+                if (!ok) {
+                  // 失败时**留着弹层**：用户的输入不作废，只把原因说清。
+                  // On failure the sheet stays open — the input is not thrown away, only explained.
+                  AppToast.error(ctx, provider.error ?? l10n.unknownError);
+                  return;
+                }
+                Navigator.pop(ctx, true);
               },
               child: Text(l10n.save),
             ),
@@ -110,7 +123,13 @@ data['category'] = _categoryVal;
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<NotesProvider>().remove(id);
+      final provider = context.read<NotesProvider>();
+      final ok = await provider.remove(id);
+      // 删除失败要说出来：静默什么都不发生，用户只会再点一次。
+      // A failed delete has to say so — silently doing nothing invites a second tap.
+      if (!ok && mounted) {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
     }
   }
 

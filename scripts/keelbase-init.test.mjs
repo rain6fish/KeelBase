@@ -262,7 +262,10 @@ test('required 透传：create DTO @IsNotEmpty + 非可选；前端 model requir
   const model = fe.find((f) => f.path.endsWith('_model.dart')).content;
   assert.match(model, /final int amount;/);
   assert.match(model, /required this\.amount/);
-  assert.match(model, /amount: json\['amount'\] as int,/);
+  // 必填不再是「缺字段就抛」：缺一个键不该让整个列表起不来，故原值兜底。
+  // Required no longer means "throw on a missing key": one absent key must not take the whole list
+  // down, so the cast falls back to a default.
+  assert.match(model, /amount: json\['amount'\] as int\? \?\? 0,/);
   assert.match(model, /final String\? note;/);
   assert.doesNotMatch(model, /required this\.note/);
 });

@@ -16,7 +16,7 @@ void main() {
     repository = MockNotesRepository();
     when(() => repository.getNotes()).thenAnswer((_) async => [
       NoteModel(id: 1, title: '会议记录', content: '……'),
-      NoteModel(id: 2, title: '灵感'),
+      NoteModel(id: 2, title: '灵感', content: ''),
     ]);
   });
 

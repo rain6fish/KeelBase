@@ -17,8 +17,8 @@ class ReportModel {
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     return ReportModel(
-      id: json['id'] as int,
-      title: json['title'] as String,
+      id: json['id'] as int? ?? 0,
+      title: (json['title'] as String? ?? '').trim(),
       summary: json['summary'] as String?,
       status: json['status'] as String? ?? 'draft',
       amount: json['amount'] as int?,

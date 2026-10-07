@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../providers/tags_provider.dart';
 
 /// 标签页
@@ -15,6 +16,8 @@ class TagsPage extends StatefulWidget {
 
 class _TagsPageState extends State<TagsPage> {
   final _nameCtrl = TextEditingController();
+
+
 
   @override
   void initState() {
@@ -43,7 +46,7 @@ class _TagsPageState extends State<TagsPage> {
             children: [
               const SizedBox(height: 8),
           CupertinoTextField(
-            placeholder: 'name',
+            placeholder: l10n.tagsFieldName,
             controller: _nameCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
@@ -55,8 +58,19 @@ class _TagsPageState extends State<TagsPage> {
               onPressed: () async {
                 final data = <String, dynamic>{};
 if (_nameCtrl.text.isNotEmpty) data['name'] = _nameCtrl.text.trim();
-                final ok = await ctx.read<TagsProvider>().add(data);
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                // 一个字段都没填就不提交 —— 否则会创建一条空记录。表单不该提交「什么都没说」。
+                // Submitting an entirely empty form would create an empty row; don't.
+                if (data.isEmpty) return;
+                final provider = ctx.read<TagsProvider>();
+                final ok = await provider.add(data);
+                if (!ctx.mounted) return;
+                if (!ok) {
+                  // 失败时**留着弹层**：用户的输入不作废，只把原因说清。
+                  // On failure the sheet stays open — the input is not thrown away, only explained.
+                  AppToast.error(ctx, provider.error ?? l10n.unknownError);
+                  return;
+                }
+                Navigator.pop(ctx, true);
               },
               child: Text(l10n.save),
             ),
@@ -87,7 +101,13 @@ if (_nameCtrl.text.isNotEmpty) data['name'] = _nameCtrl.text.trim();
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<TagsProvider>().remove(id);
+      final provider = context.read<TagsProvider>();
+      final ok = await provider.remove(id);
+      // 删除失败要说出来：静默什么都不发生，用户只会再点一次。
+      // A failed delete has to say so — silently doing nothing invites a second tap.
+      if (!ok && mounted) {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
     }
   }
 

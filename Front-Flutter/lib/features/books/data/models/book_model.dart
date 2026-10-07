@@ -33,13 +33,18 @@ class BookModel {
         'rating': rating,
       };
 
-  BookModel copyWith({int? id, String? title, String? author, String? status, int? rating}) {
+  BookModel copyWith({
+    Object? title = const Object(),
+    Object? author = const Object(),
+    Object? status = const Object(),
+    Object? rating = const Object()
+  }) {
     return BookModel(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      author: author ?? this.author,
-      status: status ?? this.status,
-      rating: rating ?? this.rating,
+      id: id,
+      title: title == const Object() ? this.title : title as dynamic,
+      author: author == const Object() ? this.author : author as dynamic,
+      status: status == const Object() ? this.status : status as dynamic,
+      rating: rating == const Object() ? this.rating : rating as dynamic,
     );
   }
 }

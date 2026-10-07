@@ -279,6 +279,45 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 标签 · 字段占位符 / field placeholders ---
+  String get tagsFieldName => _t('name', 'name');
+
+
+  // --- 供应商 · 字段占位符 / field placeholders ---
+  String get suppliersFieldName => _t('name', 'name');
+  String get suppliersFieldContact => _t('contact', 'contact');
+  String get suppliersFieldStatus => _t('status', 'status');
+  String get suppliersFieldRiskLevel => _t('riskLevel', 'riskLevel');
+  String get suppliersFieldAnnualSpend => _t('annualSpend', 'annualSpend');
+
+
+  // --- 报告 · 字段占位符 / field placeholders ---
+  String get reportsFieldTitle => _t('title', 'title');
+  String get reportsFieldSummary => _t('summary', 'summary');
+  String get reportsFieldStatus => _t('status', 'status');
+  String get reportsFieldAmount => _t('amount', 'amount');
+
+
+  // --- 笔记 · 字段占位符 / field placeholders ---
+  String get notesFieldTitle => _t('title', 'title');
+  String get notesFieldContent => _t('content', 'content');
+  String get notesFieldCategory => _t('category', 'category');
+
+
+  // --- 合同 · 字段占位符 / field placeholders ---
+  String get contractsFieldName => _t('name', 'name');
+  String get contractsFieldCounterparty => _t('counterparty', 'counterparty');
+  String get contractsFieldStatus => _t('status', 'status');
+  String get contractsFieldAmount => _t('amount', 'amount');
+
+
+  // --- 图书 · 字段占位符 / field placeholders ---
+  String get booksFieldTitle => _t('title', 'title');
+  String get booksFieldAuthor => _t('author', 'author');
+  String get booksFieldStatus => _t('status', 'status');
+  String get booksFieldRating => _t('rating', 'rating');
+
+
   // --- 报告（EASY-2 生成） ---
   String get reportsTitle => _t('Report', '报告');
   String get reportsAddTitle => _t('New Report', '新增报告');

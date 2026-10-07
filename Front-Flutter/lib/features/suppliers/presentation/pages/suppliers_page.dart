@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../providers/suppliers_provider.dart';
 
 /// 供应商页
@@ -19,6 +20,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
   String _statusVal = 'active';
   String _riskLevelVal = 'low';
   final _annualSpendCtrl = TextEditingController();
+
+
 
   @override
   void initState() {
@@ -49,13 +52,13 @@ class _SuppliersPageState extends State<SuppliersPage> {
             children: [
               const SizedBox(height: 8),
           CupertinoTextField(
-            placeholder: 'name',
+            placeholder: l10n.suppliersFieldName,
             controller: _nameCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
 
           CupertinoTextField(
-            placeholder: 'contact',
+            placeholder: l10n.suppliersFieldContact,
             controller: _contactCtrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
@@ -83,7 +86,7 @@ class _SuppliersPageState extends State<SuppliersPage> {
           ),
 
           CupertinoTextField(
-            placeholder: 'annualSpend',
+            placeholder: l10n.suppliersFieldAnnualSpend,
             controller: _annualSpendCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -100,8 +103,19 @@ if (_contactCtrl.text.isNotEmpty) data['contact'] = _contactCtrl.text.trim();
 data['status'] = _statusVal;
 data['riskLevel'] = _riskLevelVal;
 if (_annualSpendCtrl.text.isNotEmpty) data['annualSpend'] = int.tryParse(_annualSpendCtrl.text.trim());
-                final ok = await ctx.read<SuppliersProvider>().add(data);
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                // 一个字段都没填就不提交 —— 否则会创建一条空记录。表单不该提交「什么都没说」。
+                // Submitting an entirely empty form would create an empty row; don't.
+                if (data.isEmpty) return;
+                final provider = ctx.read<SuppliersProvider>();
+                final ok = await provider.add(data);
+                if (!ctx.mounted) return;
+                if (!ok) {
+                  // 失败时**留着弹层**：用户的输入不作废，只把原因说清。
+                  // On failure the sheet stays open — the input is not thrown away, only explained.
+                  AppToast.error(ctx, provider.error ?? l10n.unknownError);
+                  return;
+                }
+                Navigator.pop(ctx, true);
               },
               child: Text(l10n.save),
             ),
@@ -132,7 +146,13 @@ if (_annualSpendCtrl.text.isNotEmpty) data['annualSpend'] = int.tryParse(_annual
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<SuppliersProvider>().remove(id);
+      final provider = context.read<SuppliersProvider>();
+      final ok = await provider.remove(id);
+      // 删除失败要说出来：静默什么都不发生，用户只会再点一次。
+      // A failed delete has to say so — silently doing nothing invites a second tap.
+      if (!ok && mounted) {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
     }
   }
 

@@ -17,38 +17,69 @@ class ReportsProvider extends ChangeNotifier {
   bool _loading = false;
   bool _fromCache = false;
   String? _error;
+  bool _disposed = false;
+  int _loadGeneration = 0;
 
   ReportsProvider(this._repository, {AppCache? cache})
       : _cache = cache ?? AppCache.unavailable();
 
-  List<ReportModel> get items => _items;
+  List<ReportModel> get items => List.unmodifiable(_items);
   bool get loading => _loading;
   String? get error => _error;
   /// 当前数据是否来自离线缓存（网络未刷新成功）。
   bool get fromCache => _fromCache;
 
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
-    notifyListeners();
+    _notify();
 
-    // 缓存优先：先展示本地缓存，避免空白
-    final cached = await _cache.readList(_ns, _keyList);
-    if (cached != null) {
-      _items = cached.map(ReportModel.fromJson).toList();
-      _fromCache = true;
-      notifyListeners();
+    // 缓存优先：先展示本地缓存，避免空白。缓存读取失败不阻塞网络刷新。
+    // Cache first: show the local copy so the list is never blank. A failed cache read must not
+    // block the network refresh.
+    try {
+      final cached = await _cache.readList(_ns, _keyList);
+      if (generation != _loadGeneration) return;
+      if (cached != null) {
+        _items = cached.map(ReportModel.fromJson).toList();
+        _fromCache = true;
+        _notify();
+      }
+    } catch (e) {
+      if (generation != _loadGeneration) return;
+      debugPrint('ReportsProvider cache read failed: $e');
     }
 
     try {
-      _items = await _repository.getReports();
+      final items = await _repository.getReports();
+      if (generation != _loadGeneration) return;
+      _items = items;
       _fromCache = false;
-      await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
+      try {
+        await _persist();
+      } catch (e) {
+        // 网络加载已成功，缓存写入失败不应视为加载失败。
+        debugPrint('ReportsProvider cache write failed: $e');
+      }
     } catch (e) {
+      if (generation != _loadGeneration) return;
       if (_items.isEmpty) _error = e.toString();
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _notify();
+      }
     }
   }
 
@@ -57,12 +88,17 @@ class ReportsProvider extends ChangeNotifier {
       final item = await _repository.create(data);
       _items = [..._items, item];
       _error = null;
-      notifyListeners();
-      await _persist();
+      _notify();
+      try {
+        await _persist();
+      } catch (e) {
+        // 网络创建已成功，缓存写入失败不应视为操作失败。
+        debugPrint('ReportsProvider cache write failed: $e');
+      }
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }
@@ -72,16 +108,20 @@ class ReportsProvider extends ChangeNotifier {
     final originalList = _items;
     _items = _items.where((e) => e.id != id).toList();
     _error = null;
-    notifyListeners();
+    _notify();
 
     try {
       await _repository.delete(id);
-      await _persist();
+      try {
+        await _persist();
+      } catch (e) {
+        debugPrint('ReportsProvider cache write failed: $e');
+      }
       return true;
     } catch (e) {
       _items = originalList;
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }

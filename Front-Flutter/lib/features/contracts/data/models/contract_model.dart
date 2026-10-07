@@ -17,9 +17,9 @@ class ContractModel {
 
   factory ContractModel.fromJson(Map<String, dynamic> json) {
     return ContractModel(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      counterparty: json['counterparty'] as String,
+      id: json['id'] as int? ?? 0,
+      name: (json['name'] as String? ?? '').trim(),
+      counterparty: (json['counterparty'] as String? ?? '').trim(),
       status: json['status'] as String? ?? 'draft',
       amount: json['amount'] as int?,
     );

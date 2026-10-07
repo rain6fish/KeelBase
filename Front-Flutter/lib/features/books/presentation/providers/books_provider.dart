@@ -46,6 +46,8 @@ class BooksProvider extends ChangeNotifier {
     _notify();
 
     // 缓存优先：先展示本地缓存，避免空白。缓存读取失败不阻塞网络刷新。
+    // Cache first: show the local copy so the list is never blank. A failed cache read must not
+    // block the network refresh.
     try {
       final cached = await _cache.readList(_ns, _keyList);
       if (generation != _loadGeneration) return;
@@ -60,12 +62,12 @@ class BooksProvider extends ChangeNotifier {
     }
 
     try {
-      final books = await _repository.getBooks();
+      final items = await _repository.getBooks();
       if (generation != _loadGeneration) return;
-      _items = books;
+      _items = items;
       _fromCache = false;
       try {
-        await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
+        await _persist();
       } catch (e) {
         // 网络加载已成功，缓存写入失败不应视为加载失败。
         debugPrint('BooksProvider cache write failed: $e');

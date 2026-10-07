@@ -9,6 +9,7 @@ import {
   attachmentFields,
   decimalScale,
   enumLabelGetter,
+  fieldLabelGetter,
   hasEnumLabels,
   modelMemberNames,
   refColumnName,
@@ -23,14 +24,16 @@ const MODEL_FIELD = {
   string: (c) => ({
     decl: `  final String ${c};`,
     ctor: `required this.${c}`,
-    from: `      ${c}: json['${c}'] as String,`,
+    // 缺字段不抛：线上少给一个键，界面上少一行，不该让整个列表起不来。
+    // A missing key is not an exception: the screen loses a line, the list still opens.
+    from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
     to: `        '${c}': ${c},`,
   }),
   text: (c, f) => (f.required === true
     ? {
       decl: `  final String ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as String,`,
+      from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -43,7 +46,7 @@ const MODEL_FIELD = {
     ? {
       decl: `  final int ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as int,`,
+      from: `      ${c}: json['${c}'] as int? ?? 0,`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -60,7 +63,7 @@ const MODEL_FIELD = {
     ? {
       decl: `  final String ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as String,`,
+      from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -73,7 +76,7 @@ const MODEL_FIELD = {
     ? {
       decl: `  final bool ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as bool,`,
+      from: `      ${c}: json['${c}'] as bool? ?? false,`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -86,7 +89,7 @@ const MODEL_FIELD = {
     ? {
       decl: `  final String ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as String,`,
+      from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -126,7 +129,7 @@ const MODEL_FIELD = {
     ? {
       decl: `  final String ${c};`,
       ctor: `required this.${c}`,
-      from: `      ${c}: json['${c}'] as String,`,
+      from: `      ${c}: (json['${c}'] as String? ?? '').trim(),`,
       to: `        '${c}': ${c},`,
     }
     : {
@@ -168,7 +171,7 @@ ${ctors}
 
   factory ${ctx.singlePascal}Model.fromJson(Map<String, dynamic> json) {
     return ${ctx.singlePascal}Model(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
 ${froms}
     );
   }
@@ -389,27 +392,27 @@ class ${ctx.pluralPascal}Provider extends ChangeNotifier {
 const FORM_FIELD = {
   string: (c, l10n) =>
     `          CupertinoTextField(
-            placeholder: '${c}',
+            placeholder: ${l10n},
             controller: _${c}Ctrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
   text: (c, l10n) =>
     `          CupertinoTextField(
-            placeholder: '${c}',
+            placeholder: ${l10n},
             controller: _${c}Ctrl,
             maxLines: 3,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
   int: (c, l10n) =>
     `          CupertinoTextField(
-            placeholder: '${c}',
+            placeholder: ${l10n},
             controller: _${c}Ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
   decimal: (c, l10n, f) =>
     `          CupertinoTextField(
-            placeholder: '${c} (≤${decimalScale(f)} 位小数)',
+            placeholder: '\${l10n} (≤${decimalScale(f)} 位小数)',
             controller: _${c}Ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -418,7 +421,7 @@ const FORM_FIELD = {
   ref: (c, l10n, f) =>
     `          if (_${c}Options.isEmpty)\n` +
     `            CupertinoTextField(\n` +
-    `              placeholder: '${c} ID（${f.target}）',\n` +
+    `              placeholder: '\${l10n} ID（${f.target}）',\n` +
     `              controller: _${refColumnName(c)}Ctrl,\n` +
     `              keyboardType: const TextInputType.numberWithOptions(decimal: false),\n` +
     `              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),\n` +
@@ -447,7 +450,7 @@ const FORM_FIELD = {
           ),`,
   date: (c, l10n) =>
     `          CupertinoTextField(
-            placeholder: '${c} (ISO 8601)',
+            placeholder: '\${l10n} (ISO 8601)',
             controller: _${c}Ctrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,
@@ -458,7 +461,7 @@ const FORM_FIELD = {
             children: {
               for (final o in ${JSON.stringify(f.enum)}) o: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Text(${hasEnumLabels(f) ? `_${c}Labels(l10n)[o] ?? o` : 'o'}),
+                child: Text(${hasEnumLabels(f) ? `_${c}Labels(context.l10n)[o] ?? o` : 'o'}),
               ),
             },
           ),`,
@@ -532,7 +535,14 @@ export function pageTemplate(ctx) {
     .map((f) => FORM_ENUM_LABELS[f.type](f.name, f, ctx))
     .filter(Boolean)
     .join('\n\n');
-  const formFields = ctx.fields.map((f) => FORM_FIELD[f.type](f.name, null, f)).join('\n\n');
+  // 占位符走 l10n（CLAUDE.md §3.3：用户可见文本不得硬编码）。`l10n` 在这一层是**页面已经声明的**
+  // 那个局部变量（见下方 build 里的 `final l10n = context.l10n;`），getter 名由 fieldLabelGetter
+  // 单源给出 —— 与字典里声明的那个同名，两处不可能各叫各的。
+  // Placeholders go through l10n (CLAUDE.md §3.3). `l10n` here is the local the page already declares,
+  // and the getter's name comes from fieldLabelGetter — the same one the dictionary declares.
+  const formFields = ctx.fields
+    .map((f) => FORM_FIELD[f.type](f.name, `l10n.${fieldLabelGetter(ctx.plural, f.name)}`, f))
+    .join('\n\n');
   // 回显（切片 2）：关联显示**目标名**而非 id，附件显示**文件名**；无值的部分略去。
   const echoEntries = [
     ...refFields(ctx.fields).map(
@@ -740,6 +750,7 @@ export function pageTemplate(ctx) {
   return `import 'package:flutter/cupertino.dart';
 ${pageExtraImports}${filePickerImport}${moneyImport}import 'package:provider/provider.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/widgets/app_toast.dart';
 ${modelImport}import '../providers/${ctx.plural}_provider.dart';
 
 /// ${ctx.label}页
@@ -795,8 +806,19 @@ ${formFields}
               onPressed: () async {
                 final data = <String, dynamic>{};
 ${reads}
-                final ok = await ctx.read<${ctx.pluralPascal}Provider>().add(data);
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                // 一个字段都没填就不提交 —— 否则会创建一条空记录。表单不该提交「什么都没说」。
+                // Submitting an entirely empty form would create an empty row; don't.
+                if (data.isEmpty) return;
+                final provider = ctx.read<${ctx.pluralPascal}Provider>();
+                final ok = await provider.add(data);
+                if (!ctx.mounted) return;
+                if (!ok) {
+                  // 失败时**留着弹层**：用户的输入不作废，只把原因说清。
+                  // On failure the sheet stays open — the input is not thrown away, only explained.
+                  AppToast.error(ctx, provider.error ?? l10n.unknownError);
+                  return;
+                }
+                Navigator.pop(ctx, true);
               },
               child: Text(l10n.save),
             ),
@@ -827,7 +849,13 @@ ${reads}
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<${ctx.pluralPascal}Provider>().remove(id);
+      final provider = context.read<${ctx.pluralPascal}Provider>();
+      final ok = await provider.remove(id);
+      // 删除失败要说出来：静默什么都不发生，用户只会再点一次。
+      // A failed delete has to say so — silently doing nothing invites a second tap.
+      if (!ok && mounted) {
+        AppToast.error(context, provider.error ?? l10n.unknownError);
+      }
     }
   }
 

@@ -7,7 +7,13 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { adminI18nKeys } from './templates-admin.mjs';
-import { aiToolsFlags, attachmentFields, enumLabelGetter, hasEnumLabels } from './validate.mjs';
+import {
+  aiToolsFlags,
+  attachmentFields,
+  enumLabelGetter,
+  fieldLabelGetter,
+  hasEnumLabels,
+} from './validate.mjs';
 
 /**
  * Every file the wiring edits, relative to the repository root.
@@ -314,6 +320,31 @@ export async function wireFrontend(ctx, root = '') {
       ),
     ),
   );
+
+  // 字段占位符 getter 单独一段，守卫是**第一个字段的 getter**、不是上面那个 `<plural>Title`：老模块
+  // 的页面块早就注入了（同守卫会让这半步永远补不上），而页面现在**读**这些 getter（CLAUDE.md §3.3）。
+  // The placeholder getters get their own block, guarded by the first field's getter rather than the
+  // one above: a module generated before this existed already has that block, and the page reads these
+  // now — a shared guard would leave every such module permanently half short.
+  if (ctx.fields.length > 0) {
+    const firstGetter = fieldLabelGetter(ctx.plural, ctx.fields[0].name);
+    results.push(
+      await applyFile(`${FE}/core/i18n/app_localizations.dart`, (c) =>
+        insertAfter(
+          c,
+          `  String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');`,
+          `\n\n  // --- ${ctx.label} · 字段占位符 / field placeholders ---\n` +
+            ctx.fields
+              .map(
+                (f) =>
+                  `  String get ${fieldLabelGetter(ctx.plural, f.name)} => _t('${f.name}', '${f.label ?? f.name}');\n`,
+              )
+              .join(''),
+          `String get ${firstGetter}`,
+        ),
+      ),
+    );
+  }
 
   // 8) navigate-page.tool.ts：PAGE_ROUTES
   results.push(

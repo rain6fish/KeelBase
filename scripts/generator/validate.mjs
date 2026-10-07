@@ -58,6 +58,29 @@ export function searchableFieldNames(fields) {
 }
 
 /**
+ * The l10n getter a generated field's placeholder reads, from the module's plural and the field name:
+ * `books` + `author` → `booksAuthor`.
+ *
+ * One function because two places must agree on it — the page that reads the getter and the
+ * dictionary that declares it. When they disagree the generated page does not compile, which is the
+ * failure this name exists to make impossible.
+ *
+ * 生成字段的占位符要读的那个 l10n getter，由模块复数名与字段名算出：`books` + `author` → `booksAuthor`。
+ *
+ * 收成一个函数，是因为有两处必须对同一个名字达成一致 —— 读它的页面与声明它的字典。两处不一致时，
+ * 生成的页面**编译不过**；这个名字存在的意义就是让那件事不可能发生。
+ */
+export function fieldLabelGetter(plural, fieldName) {
+  // `Field` in the middle is not decoration: `<plural><Field>` alone would collide with the page
+  // getters the same generator emits — a module with a `title` field would want `notesTitle` twice,
+  // and the dictionary would end up with two getters of that name. The infix keeps them apart.
+  // 中间那个 `Field` 不是装饰：只用 `<复数><字段>` 会与同一生成器发出的页面 getter 撞名 —— 一个带
+  // `title` 字段的模块会要两次 `notesTitle`，字典里就出现两个同名 getter。这个中缀把它们分开。
+  const pascal = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+  return `${plural}Field${pascal}`;
+}
+
+/**
  * The scope levels a module may declare.
  *
  * `owner` is deliberately absent: every generated module is already owner-scoped by its fixed security

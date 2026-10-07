@@ -11,8 +11,8 @@ class TagModel {
 
   factory TagModel.fromJson(Map<String, dynamic> json) {
     return TagModel(
-      id: json['id'] as int,
-      name: json['name'] as String,
+      id: json['id'] as int? ?? 0,
+      name: (json['name'] as String? ?? '').trim(),
     );
   }
 
