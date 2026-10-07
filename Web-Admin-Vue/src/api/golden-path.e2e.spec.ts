@@ -191,4 +191,51 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
     expect(decision?.decision, 'the decision the stream carried').toBe('approve')
     expect(decision?.success, 'and the write it approved ran').toBe(true)
   })
+
+  /**
+   * The login page's own two calls, which the console makes before anyone has signed in.
+   *
+   * They are worth asserting precisely because the page swallows a failure from either: from inside
+   * the page an endpoint that is absent and one that answers nothing look alike, and only from outside
+   * can the two be told apart. What is asserted is the shape rather than this deployment's values —
+   * the reference records the visit and lists real providers, a runtime with neither answers empty,
+   * and both are answers.
+   *
+   * 登录页自己那两个调用，控制台在**没人登录前**就发。
+   *
+   * 它们值得断言，正是**因为**页面会吞掉两者任何之一的失败：从页面里看，「端点不存在」与「端点答空」长得
+   * 一样，只有从外面才分得清。断言的是**形状**而不是某个部署的取值——参照会记录这次访问、列出真实的
+   * provider，而没有这两样的运行时会答空；两者都是回答。
+   */
+  it('6. the login page’s own two calls answer', async () => {
+    const providers = await authApi.oauthProviders()
+    expect(Array.isArray(providers.enabledProviders), 'enabledProviders is a list').toBe(true)
+    const stats = await authApi.loginStats()
+    expect(typeof stats.ok, 'the visit ping answers with a boolean').toBe('boolean')
+  })
+
+  /**
+   * A surface that takes no token at all, asked without one.
+   *
+   * The cases above walk everything *with* a token, and that is the shape a missing gate hides behind:
+   * a request carrying a token is answered whether or not the surface is guarded, because a guard lets
+   * a valid caller through. Only asking without one can tell a deployment that refuses the anonymous
+   * apart from one that hands them the same answer.
+   *
+   * 一个**完全不收令牌**的面，就用「不带令牌」去问它。
+   *
+   * 上面各条全程**带着令牌**走——而那正是「闸没装」藏身的形状：带着令牌的请求，面守没守都会作答，因为守卫
+   * 本来就会放合法调用者过去。**只有不带令牌去问**，才分得清一个拒绝匿名的部署与一个把同样的答案递给匿名
+   * 的部署。
+   */
+  it('7. an anonymous caller is refused', async () => {
+    storage.saveTokens('', '')
+    let status = 0
+    try {
+      await api.get('/audit/verify')
+    } catch (error) {
+      status = (error as { status?: number }).status ?? 0
+    }
+    expect(status, 'the chain’s state does not answer a caller who sent no token').toBe(401)
+  })
 })
