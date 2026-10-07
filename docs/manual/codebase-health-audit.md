@@ -149,7 +149,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 ## 5. 待办（未做项）
 
 - [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
-- [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动
+- [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动。**✅ 回填（2026-10-07 核实）：那一对也已了结——实测**不是环、是残留**（`RealtimeModule` 只依赖 Config / Jwt / FeatureFlags，绕不回来），删掉 `NotificationsModule` 的那个 `forwardRef` 即全部修法（主仓 `a3405d7d`，2026-09-26）；2026-10-07 复跑装配冒烟门 3/3 绿。**阶段 2 至此全部收口**，这一族五处环闭合**
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：~~governance/audit 语义整合架构立项（**H4**，原行已注「不在本次范围」）~~ → **✅ 2026-10-06 影响分析完成**（结论：现状是「3 进程内模块 + 2 独立进程」，非同一职责切五份；改名那半挂起，等下次契约修订）；~~状态/风险词汇常量单源（**M4**）~~ **✅ 2026-10-04 已裁并落地**；~~Flutter i18n 中文映射迁移（**M5**）~~ **✅ 2026-10-04 已裁并落地**；React 预览版去留 → **⏸ 2026-10-06 冻结**（用户裁：「react 暂时冻结」；**解冻条件 = 出现真实外部证据**，在此之前不备材料、不开工）
 - [x] M3：demo-data.ts 832 行 seed 拆分评估（**2026-10-04 评估完毕**：不拆、兼容分支留着，各附触发/退役条件；见 §2 M3 行）
@@ -639,7 +639,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   拿到的仍是同一批实例。
 - ✅ **收益兑现**：环断后图即无环，**9 个模块**的 `forwardRef` 降为普通 import
   （ai 对 auth/events/org 三处、org→flows、events/todos/crm/pm/approval→org 五处）。
-  仅剩 **`notifications ↔ realtime`** 一对（另一条独立环，本刀不碰）。
+  仅剩 **`notifications ↔ realtime`** 一对（另一条独立环，本刀不碰）。**〔2026-10-07 更正（原句保留）：**它不是环**——`a3405d7d` 核图后判为**残留边**，那个 `forwardRef` 已删；见 §2 H5 行。〕**
 - ⚠️ **release-gate 首跑通过、第二三次却中途崩（无 jest 汇总）——如实记录，且这是闸门自身的脆弱点**：
   闸门把这 14 个 e2e **放在一次 jest 调用**里，恰好命中本机已知的「单进程长跑硬崩」。三次跑分
   ​别为 **PASS 24/0**、FAIL(14/10)、FAIL(17/7)，**失败项全是服务依赖型检查且无任何测试失败**（只有缺失的汇总行），
@@ -648,7 +648,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - **验证**：构建 ✓；装配冒烟 **3/3**（正是为这类 DI 改动准备的守卫）；全量单测 **294 suite / 2676 tests 全过**；
   e2e **36 套件 / 372 用例**（批次 4 首跑崩、重试全过）；`test:cov` 通过（安全分档 6/6）；
   release-gate **1 次 24/0 + 2 次环境性中断**（见上）。
-- **下一刀候选**（变更驱动）：`notifications ↔ realtime` 环（需先核图：谁为谁而引）；或阶段 4 余项（H4 / M5 / React）。
+- **下一刀候选**（变更驱动）：`notifications ↔ realtime` 环（需先核图：谁为谁而引）；或阶段 4 余项（H4 / M5 / React）。**〔2026-10-07：本行候选均已了结——`notifications ↔ realtime` 核实**不是环**、残留已删（`a3405d7d`）；H4 影响分析完成（10-06，改名那半挂起、待契约修订）；M5 已落地（10-04）；React 已冻结（10-06）。〕**
 
 ### 2026-09-23 — 阶段 4：release-gate 与 e2e 跑法可信度收口（假红 → 假绿 → 分片 → 崩片重试）
 
@@ -700,4 +700,4 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   开销占主导（单套件含 cov **52s**、不含 **21s**，9 套件也才 65s）；② 换 `--coverageProvider=v8`——只快约
   40%（31s）且**改变覆盖率语义**，不宜擅自换。
 - **下一刀候选**：阶段 4 余项未动——H4 governance 语义整合（独立架构立项）/ M5 Flutter i18n 中文映射 /
-  React 预览版去留（待用户决定）/ `notifications ↔ realtime` 环。
+  React 预览版去留（待用户决定）/ `notifications ↔ realtime` 环。**〔2026-10-07：以上四项均已了结，见阶段 4 各行与 `a3405d7d`。〕**
