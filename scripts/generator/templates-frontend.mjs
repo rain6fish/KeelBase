@@ -194,6 +194,7 @@ ${members.map((n) => `      ${n}: ${n} == const Object() ? this.${n} : ${n} as d
 export function repositoryTemplate(ctx) {
   return `import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_response.dart';
+import '../../../../core/errors/exceptions.dart';
 import '../models/${ctx.singular}_model.dart';
 
 class ${ctx.pluralPascal}Repository {
@@ -201,23 +202,49 @@ class ${ctx.pluralPascal}Repository {
 
   ${ctx.pluralPascal}Repository(this._client);
 
+  /// 校验统一响应成功（契约见 ApiResponse.isSuccess：code=HTTP 状态码，2xx 成功）。
+  /// Check the shared envelope: success means an HTTP-status `code` in the 2xx range.
+  void _requireSuccess(ApiResponse response) {
+    if (!response.isSuccess) {
+      throw NetworkException(response.message);
+    }
+  }
+
   Future<List<${ctx.singlePascal}Model>> get${ctx.pluralPascal}() async {
     final json = await _client.get('/${ctx.plural}');
     final response = ApiResponse.fromJson(json, (data) {
-      final items = data as List? ?? [];
-      return items.map((e) => ${ctx.singlePascal}Model.fromJson(e as Map<String, dynamic>)).toList();
+      // 形状不是预期的那种就是失败，不是空列表：静默返回 `[]` 会把一个坏掉的接口说成「没有记录」。
+      // A shape we did not expect is a failure, not an empty list: returning \`[]\` silently would
+      // report a broken endpoint as "no records".
+      if (data is! List) {
+        throw NetworkException('Unexpected response format for /${ctx.plural}');
+      }
+      return data.map((e) => ${ctx.singlePascal}Model.fromJson(e as Map<String, dynamic>)).toList();
     });
+    _requireSuccess(response);
     return response.data ?? [];
   }
 
   Future<${ctx.singlePascal}Model> create(Map<String, dynamic> data) async {
     final json = await _client.post('/${ctx.plural}', data: data);
-    final response = ApiResponse.fromJson(json, (data) => ${ctx.singlePascal}Model.fromJson(data as Map<String, dynamic>));
-    return response.data!;
+    final response = ApiResponse.fromJson(json, (data) {
+      if (data is! Map<String, dynamic>) {
+        throw NetworkException('Unexpected response format for /${ctx.plural}');
+      }
+      return ${ctx.singlePascal}Model.fromJson(data);
+    });
+    _requireSuccess(response);
+    final item = response.data;
+    if (item == null) {
+      throw NetworkException('Create ${ctx.singular} failed: empty response');
+    }
+    return item;
   }
 
   Future<void> delete(int id) async {
-    await _client.delete('/${ctx.plural}/\$id');
+    final json = await _client.delete('/${ctx.plural}/\$id');
+    final response = ApiResponse.fromJson(json, (_) => null);
+    _requireSuccess(response);
   }
 }
 `;
@@ -242,38 +269,69 @@ class ${ctx.pluralPascal}Provider extends ChangeNotifier {
   bool _loading = false;
   bool _fromCache = false;
   String? _error;
+  bool _disposed = false;
+  int _loadGeneration = 0;
 
   ${ctx.pluralPascal}Provider(this._repository, {AppCache? cache})
       : _cache = cache ?? AppCache.unavailable();
 
-  List<${ctx.singlePascal}Model> get items => _items;
+  List<${ctx.singlePascal}Model> get items => List.unmodifiable(_items);
   bool get loading => _loading;
   String? get error => _error;
   /// 当前数据是否来自离线缓存（网络未刷新成功）。
   bool get fromCache => _fromCache;
 
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _loading = true;
     _error = null;
-    notifyListeners();
+    _notify();
 
-    // 缓存优先：先展示本地缓存，避免空白
-    final cached = await _cache.readList(_ns, _keyList);
-    if (cached != null) {
-      _items = cached.map(${ctx.singlePascal}Model.fromJson).toList();
-      _fromCache = true;
-      notifyListeners();
+    // 缓存优先：先展示本地缓存，避免空白。缓存读取失败不阻塞网络刷新。
+    // Cache first: show the local copy so the list is never blank. A failed cache read must not
+    // block the network refresh.
+    try {
+      final cached = await _cache.readList(_ns, _keyList);
+      if (generation != _loadGeneration) return;
+      if (cached != null) {
+        _items = cached.map(${ctx.singlePascal}Model.fromJson).toList();
+        _fromCache = true;
+        _notify();
+      }
+    } catch (e) {
+      if (generation != _loadGeneration) return;
+      debugPrint('${ctx.pluralPascal}Provider cache read failed: \$e');
     }
 
     try {
-      _items = await _repository.get${ctx.pluralPascal}();
+      final items = await _repository.get${ctx.pluralPascal}();
+      if (generation != _loadGeneration) return;
+      _items = items;
       _fromCache = false;
-      await _cache.writeList(_ns, _keyList, _items.map((e) => e.toJson()).toList());
+      try {
+        await _persist();
+      } catch (e) {
+        // 网络加载已成功，缓存写入失败不应视为加载失败。
+        debugPrint('${ctx.pluralPascal}Provider cache write failed: \$e');
+      }
     } catch (e) {
+      if (generation != _loadGeneration) return;
       if (_items.isEmpty) _error = e.toString();
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        _notify();
+      }
     }
   }
 
@@ -282,12 +340,17 @@ class ${ctx.pluralPascal}Provider extends ChangeNotifier {
       final item = await _repository.create(data);
       _items = [..._items, item];
       _error = null;
-      notifyListeners();
-      await _persist();
+      _notify();
+      try {
+        await _persist();
+      } catch (e) {
+        // 网络创建已成功，缓存写入失败不应视为操作失败。
+        debugPrint('${ctx.pluralPascal}Provider cache write failed: \$e');
+      }
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }
@@ -297,16 +360,20 @@ class ${ctx.pluralPascal}Provider extends ChangeNotifier {
     final originalList = _items;
     _items = _items.where((e) => e.id != id).toList();
     _error = null;
-    notifyListeners();
+    _notify();
 
     try {
       await _repository.delete(id);
-      await _persist();
+      try {
+        await _persist();
+      } catch (e) {
+        debugPrint('${ctx.pluralPascal}Provider cache write failed: \$e');
+      }
       return true;
     } catch (e) {
       _items = originalList;
       _error = e.toString();
-      notifyListeners();
+      _notify();
       return false;
     }
   }
