@@ -70,7 +70,7 @@
 | `fields[].pii` | 管理端列表**服务端掩码**（`maskText`）+ 模块向审计注册该键名（`registerSensitiveKeys`） | 管理台列表显示掩码值（**客户端 CSV 导出同源继承**，因它导的就是页面上已脱敏的行） |
 | `fields[].target` / `display` / `onDelete` | 导入目标模块实体 + 注入其仓储：**写侧**校验外键存在（软删视为不存在），**读侧** `relations` 带回目标对象 | 外键 id 输入；目标对象的友好回显与下拉选择器见后续切片 |
 | `fields[].type=attachment` | 生成同模块的**侧表**（真外键指向 owner）+ `@OneToMany` + 三个端点（列 / 关联 / 撤销）；三者**先做 owner 所有权检查** | 模型带附件**名字列表**；上传按钮见后续切片 |
-| `searchable` | 全局 `/search` 索引（本人范围，见 §3.1） | 搜索结果页（`/search`，桶的渲染见 §3.1） |
+| `searchable` | 全局 `/search` 索引（本人范围）+ **本模块列表的 `?q=` 过滤**（同组已声明列，范围之内收窄，见 §3.1） | 搜索结果页（`/search`，桶的渲染见 §3.1） |
 | `scope` | 生成范围列 + 创建盖章 + 列表走行级数据范围（见 §3.2） | 无专属 UI：列表因此**多返回同组织的行** |
 
 ### 3.1 `searchable` 的实际接线（P0-9a，2026-09-26）
@@ -94,9 +94,12 @@ one that cannot be narrowed to the caller must not be widened instead. Declaring
 `string` / `text` field is **refused at generation time** — a `LIKE` index has nothing to match, and `enum` does
 not count: it is an enumeration, not free text.
 
-Not yet wired, stated here so it is not mistaken for done: the module's own list endpoint has no `q` filter
-(`GET /<plural>?q=`), and neither frontend renders the `modules` bucket — the bucket carries raw entity rows, and
-rendering them per module still needs a display convention for which column is that module's title.
+The module's own list carries the same filter: `GET /<plural>?q=` narrows the caller's rows by the very same
+declared columns, computed by the same function — so a module cannot advertise one set of searchable columns and
+search another. It narrows *within* the row-level scope rather than replacing it: with no declared scope each OR
+arm carries the ownership condition, and with one the search arms are multiplied into the scope arms (an empty arm
+list is the level-`all` shape, and the filter applies there too). A module whose spec declares no `string` / `text`
+field gets no `q` at all — no parameter, no constant, no dead code — and its list read is exactly what it was.
 
 `searchable: true` 的模块在生成时于 `.keelbase/manifest.json` 的 **`searchableModules`** 里得一条：模块名 + **它的 spec 声明的可搜列**（`string` / `text` 字段，按声明顺序）。运行时 `SearchService` 读这份清单，**只匹配这些列**、且只匹配调用方本人的行，并把每个模块一个桶并入 `GET /search` 的 **`modules`**（桶体是共用的 `paginated()` 形状 + `module` 字段）。
 
@@ -104,7 +107,9 @@ rendering them per module still needs a display convention for which column is t
 
 两道闸门，方向都是保守的。**feature flag 关掉的模块**根本不进搜索 —— 它自己的端点在那种状态下已经 404，而 `/app/provenance` 也是这么过滤它的模块清单的。**没有归属列**（`userId`/`requesterId`/`initiatorId`）的模块**跳过、而非照搜** —— 无法收窄到调用方的，不能反过来放宽。`searchable: true` 但 spec 里没有 `string` / `text` 字段时**生成期直接报错** —— LIKE 索引无列可匹配；而 `enum` **不算**：它是枚举，不是自由文本。
 
-**尚未接线**（诚实记录，勿当已做）：模块自身列表端点的 `q` 过滤（`GET /<plural>?q=`）**未实现**；两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
+**模块自身的列表也带同一个过滤**：`GET /<plural>?q=` 用**同一组已声明列**收窄调用方的行，而列由同一个函数算出 —— 一个模块不会公布一组可搜列、却搜另一组。它是在行级范围**之内**收窄、不是替换它：没声明范围时每条 OR 分支各自带归属条件；声明了范围时，搜索分支是**乘进**范围分支里的（分支列表为空即 level-`all` 的形状，那里过滤同样生效）。spec 里没有 `string` / `text` 字段的模块**根本没有 `q`** —— 没有形参、没有常量、没有死代码，它的列表读取与从前一字不差。
+
+**尚未接线**（诚实记录，勿当已做）：两端搜索结果页**尚未渲染** `modules` 桶 —— 桶里的 `items` 是原始实体行，要在界面上按模块渲染，还缺一条「这个模块拿哪一列当标题」的展示约定。
 
 ### 3.2 `scope` 的实际接线（P0-9b，2026-09-27）
 
