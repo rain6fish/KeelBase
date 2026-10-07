@@ -337,7 +337,9 @@ test('Taro：附件为首字段时读侧表，且不引用类型里没有的成�
     ),
     '显示走侧表，且按 field 过滤（一个模块可有多个附件字段，共用一张表）',
   );
-  const confirm = page.split('\n').find((l) => l.includes('确定删除'));
+  // 文案改走词典（`t('common.deleteConfirm', { name })`），故按**键**找那一行，而不是按中文找。
+  // The wording moved into the dictionary, so the line is found by its key rather than by its Chinese.
+  const confirm = page.split('\n').find((l) => l.includes("t('common.deleteConfirm'"));
   assert.ok(confirm.includes('item.attachments'), '删除确认用同一个表达式，否则行上会显示 undefined');
 });
 

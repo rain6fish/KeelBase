@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { booksService } from '../services/books-service'
+import { translate } from '../i18n/translate'
 import type { BookItem, CreateBookRequest } from '../types/books'
 
 /** 图书状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -18,7 +19,7 @@ export const useBooksStore = defineStore('books', {
       try {
         this.items = await booksService.getBooks()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 图书'
+        this.error = err.message || translate('books.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -36,7 +37,7 @@ export const useBooksStore = defineStore('books', {
         await booksService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete book')
+        throw new Error(err.message || translate('books.deleteFailed'))
       }
     },
   },

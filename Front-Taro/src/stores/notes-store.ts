@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { notesService } from '../services/notes-service'
+import { translate } from '../i18n/translate'
 import type { NoteItem, CreateNoteRequest } from '../types/notes'
 
 /** 笔记状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -18,7 +19,7 @@ export const useNotesStore = defineStore('notes', {
       try {
         this.items = await notesService.getNotes()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 笔记'
+        this.error = err.message || translate('notes.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -36,7 +37,7 @@ export const useNotesStore = defineStore('notes', {
         await notesService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete note')
+        throw new Error(err.message || translate('notes.deleteFailed'))
       }
     },
   },

@@ -39,8 +39,8 @@ import { useTagsStore } from '../../stores/tags-store'
 import { useI18n } from '../../composables/useI18n'
 
 const store = useTagsStore()
-const { items } = storeToRefs(store)
 const { t } = useI18n()
+const { items } = storeToRefs(store)
 const name = ref('')
 
 onMounted(() => {
@@ -64,7 +64,7 @@ async function handleAdd() {
 function handleRemove(item: any) {
   Taro.showModal({
     title: t('tags.deleteTitle'),
-    content: t('common.deleteConfirm', { name: item.name }),
+    content: t('common.deleteConfirm', { name: `${item.name}` }),
     success: async (res) => {
       if (!res.confirm) return
       try {
@@ -76,4 +76,3 @@ function handleRemove(item: any) {
   })
 }
 </script>
-

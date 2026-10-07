@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { reportsService } from '../services/reports-service'
+import { translate } from '../i18n/translate'
 import type { ReportItem, CreateReportRequest } from '../types/reports'
 
 /** 报告状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -18,7 +19,7 @@ export const useReportsStore = defineStore('reports', {
       try {
         this.items = await reportsService.getReports()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 报告'
+        this.error = err.message || translate('reports.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -36,7 +37,7 @@ export const useReportsStore = defineStore('reports', {
         await reportsService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete report')
+        throw new Error(err.message || translate('reports.deleteFailed'))
       }
     },
   },

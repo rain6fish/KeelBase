@@ -4,6 +4,42 @@ import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */
 export const en: I18nDictionary = {
+  // ── 报告（EASY-2 生成）──
+  'reports.title': 'Reports',
+  'reports.count': '{total} items',
+  'reports.placeholder': 'Add a report…',
+  'reports.add': 'Add',
+  'reports.empty': 'No reports yet',
+  'reports.inputRequired': 'Please enter a report name',
+  'reports.createFailed': 'Failed to create',
+  'reports.deleteTitle': 'Delete Report',
+  'reports.deleteFailed': 'Failed to delete',
+  'reports.loadFailed': 'Failed to load reports',
+
+  // ── 笔记（EASY-2 生成）──
+  'notes.title': 'Notes',
+  'notes.count': '{total} items',
+  'notes.placeholder': 'Add a note…',
+  'notes.add': 'Add',
+  'notes.empty': 'No notes yet',
+  'notes.inputRequired': 'Please enter a note name',
+  'notes.createFailed': 'Failed to create',
+  'notes.deleteTitle': 'Delete Note',
+  'notes.deleteFailed': 'Failed to delete',
+  'notes.loadFailed': 'Failed to load notes',
+
+  // ── 图书（EASY-2 生成）──
+  'books.title': 'Books',
+  'books.count': '{total} items',
+  'books.placeholder': 'Add a book…',
+  'books.add': 'Add',
+  'books.empty': 'No books yet',
+  'books.inputRequired': 'Please enter a book name',
+  'books.createFailed': 'Failed to create',
+  'books.deleteTitle': 'Delete Book',
+  'books.deleteFailed': 'Failed to delete',
+  'books.loadFailed': 'Failed to load books',
+
   // ── common ──
   'common.loading': 'Loading…',
   'common.failed': 'Operation failed',

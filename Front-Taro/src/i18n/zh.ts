@@ -4,6 +4,42 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 报告（EASY-2 生成）──
+  'reports.title': '报告',
+  'reports.count': '{total} 条',
+  'reports.placeholder': '新增报告…',
+  'reports.add': '添加',
+  'reports.empty': '暂无报告',
+  'reports.inputRequired': '请输入报告内容',
+  'reports.createFailed': '创建失败',
+  'reports.deleteTitle': '删除报告',
+  'reports.deleteFailed': '删除失败',
+  'reports.loadFailed': '加载报告失败',
+
+  // ── 笔记（EASY-2 生成）──
+  'notes.title': '笔记',
+  'notes.count': '{total} 条',
+  'notes.placeholder': '新增笔记…',
+  'notes.add': '添加',
+  'notes.empty': '暂无笔记',
+  'notes.inputRequired': '请输入笔记内容',
+  'notes.createFailed': '创建失败',
+  'notes.deleteTitle': '删除笔记',
+  'notes.deleteFailed': '删除失败',
+  'notes.loadFailed': '加载笔记失败',
+
+  // ── 图书（EASY-2 生成）──
+  'books.title': '图书',
+  'books.count': '{total} 条',
+  'books.placeholder': '新增图书…',
+  'books.add': '添加',
+  'books.empty': '暂无图书',
+  'books.inputRequired': '请输入图书内容',
+  'books.createFailed': '创建失败',
+  'books.deleteTitle': '删除图书',
+  'books.deleteFailed': '删除失败',
+  'books.loadFailed': '加载图书失败',
+
   // ── common ──
   'common.loading': '加载中…',
   'common.failed': '操作失败',

@@ -51,6 +51,8 @@ export const WIRED_FILES = [
   'Web-Admin-Vue/src/i18n/zh.ts',
   'Web-Admin-Vue/src/i18n/en.ts',
   'Front-Taro/src/app.config.ts',
+  'Front-Taro/src/i18n/zh.ts',
+  'Front-Taro/src/i18n/en.ts',
   'Front-Taro/src/pages/explore/index.vue',
   '.keelbase/manifest.json',
 ];
@@ -536,6 +538,58 @@ export async function wireTaro(ctx, root = '') {
   const results = [];
   const sep = root ? (root.endsWith('/') ? '' : '/') : '';
   const TARO = `${root}${sep}Front-Taro/src`;
+
+  // Taro 的两份词典（H5/小程序）：页面与 store 的文案都走 `t()` / `translate()`，键在这里**声明一次**、
+  // 两种语言同时加；`'<plural>.title'` 既当守卫也当幂等 marker —— 已生成过的模块不会再插一遍。
+  // The Taro dictionaries: page and store word everything through `t()` / `translate()`, so the keys are
+  // declared here once, in both languages, guarded by the module's own title key.
+  const taroKeys = (labels) =>
+    `\n  // ── ${ctx.label}（EASY-2 生成）──\n` +
+    Object.entries(labels)
+      .map(([k, v]) => `  '${ctx.plural}.${k}': ${v},\n`)
+      .join('');
+  results.push(
+    await applyFile(`${TARO}/i18n/zh.ts`, (c) =>
+      insertAfter(
+        c,
+        `export const zh: I18nDictionary = {`,
+        taroKeys({
+          title: `'${ctx.label}'`,
+          count: `'{total} 条'`,
+          placeholder: `'新增${ctx.label}…'`,
+          add: `'添加'`,
+          empty: `'暂无${ctx.label}'`,
+          inputRequired: `'请输入${ctx.label}内容'`,
+          createFailed: `'创建失败'`,
+          deleteTitle: `'删除${ctx.label}'`,
+          deleteFailed: `'删除失败'`,
+          loadFailed: `'加载${ctx.label}失败'`,
+        }),
+        `'${ctx.plural}.title'`,
+      ),
+    ),
+  );
+  results.push(
+    await applyFile(`${TARO}/i18n/en.ts`, (c) =>
+      insertAfter(
+        c,
+        `export const en: I18nDictionary = {`,
+        taroKeys({
+          title: `'${ctx.pluralPascal}'`,
+          count: `'{total} items'`,
+          placeholder: `'Add a ${ctx.singular}…'`,
+          add: `'Add'`,
+          empty: `'No ${ctx.plural} yet'`,
+          inputRequired: `'Please enter a ${ctx.singular} name'`,
+          createFailed: `'Failed to create'`,
+          deleteTitle: `'Delete ${ctx.singlePascal}'`,
+          deleteFailed: `'Failed to delete'`,
+          loadFailed: `'Failed to load ${ctx.plural}'`,
+        }),
+        `'${ctx.plural}.title'`,
+      ),
+    ),
+  );
 
   results.push(
     await applyFile(`${TARO}/app.config.ts`, (c) =>

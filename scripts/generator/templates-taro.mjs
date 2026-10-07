@@ -91,6 +91,7 @@ ${reqMembers}
 export function taroStoreTemplate(ctx) {
   return `import { defineStore } from 'pinia'
 import { ${ctx.plural}Service } from '../services/${ctx.plural}-service'
+import { translate } from '../i18n/translate'
 import type { ${ctx.singlePascal}Item, Create${ctx.singlePascal}Request } from '../types/${ctx.plural}'
 
 /** ${ctx.label}状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -107,7 +108,7 @@ export const use${ctx.pluralPascal}Store = defineStore('${ctx.plural}', {
       try {
         this.items = await ${ctx.plural}Service.get${ctx.pluralPascal}()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load ${ctx.label}'
+        this.error = err.message || translate('${ctx.plural}.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -125,7 +126,7 @@ export const use${ctx.pluralPascal}Store = defineStore('${ctx.plural}', {
         await ${ctx.plural}Service.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete ${ctx.singular}')
+        throw new Error(err.message || translate('${ctx.plural}.deleteFailed'))
       }
     },
   },
@@ -162,26 +163,26 @@ export function taroPageTemplate(ctx) {
   return `<template>
   <view class="${ctx.plural}-page">
     <view class="${ctx.plural}-page__header">
-      <text class="${ctx.plural}-page__title">${ctx.label}</text>
-      <text class="${ctx.plural}-page__count">{{ items.length }} 条</text>
+      <text class="${ctx.plural}-page__title">{{ t('${ctx.plural}.title') }}</text>
+      <text class="${ctx.plural}-page__count">{{ t('${ctx.plural}.count', { total: items.length }) }}</text>
     </view>
 
     <view class="${ctx.plural}-page__input-bar">
       <input
         class="${ctx.plural}-page__input"
         v-model="${first}"
-        placeholder="新增${ctx.label}…"
+        :placeholder="t('${ctx.plural}.placeholder')"
         confirm-type="done"
         @confirm="handleAdd"
       />
-      <button class="${ctx.plural}-page__add" size="mini" @click="handleAdd">添加</button>
+      <button class="${ctx.plural}-page__add" size="mini" @click="handleAdd">{{ t('${ctx.plural}.add') }}</button>
     </view>
 
-    <text v-if="store.isLoading" class="${ctx.plural}-page__hint">加载中…</text>
+    <text v-if="store.isLoading" class="${ctx.plural}-page__hint">{{ t('common.loading') }}</text>
     <text v-if="store.error" class="${ctx.plural}-page__error">{{ store.error }}</text>
 
     <view v-if="items.length === 0 && !store.isLoading" class="${ctx.plural}-page__empty">
-      <text>暂无${ctx.label}</text>
+      <text>{{ t('${ctx.plural}.empty') }}</text>
     </view>
     <view v-for="item in items" :key="item.id" class="${ctx.plural}-page__item">
       <text class="${ctx.plural}-page__text">{{ ${firstDisplay} }}</text>
@@ -196,8 +197,10 @@ import { onMounted, ref } from 'vue'
 import Taro from '@tarojs/taro'
 import { storeToRefs } from 'pinia'
 import { use${ctx.pluralPascal}Store } from '../../stores/${ctx.plural}-store'
+import { useI18n } from '../../composables/useI18n'
 
 const store = use${ctx.pluralPascal}Store()
+const { t } = useI18n()
 const { items } = storeToRefs(store)
 const ${first} = ref('')
 ${firstLabelsDecl}
@@ -208,27 +211,27 @@ onMounted(() => {
 async function handleAdd() {
   const text = ${first}.value.trim()
   if (!text) {
-    Taro.showToast({ title: '请输入${ctx.label}内容', icon: 'none' })
+    Taro.showToast({ title: t('${ctx.plural}.inputRequired'), icon: 'none' })
     return
   }
   try {
     await store.add({ ${first}: text } as any)
     ${first}.value = ''
   } catch (err: any) {
-    Taro.showToast({ title: err.message || '创建失败', icon: 'none' })
+    Taro.showToast({ title: err.message || t('${ctx.plural}.createFailed'), icon: 'none' })
   }
 }
 
 function handleRemove(item: any) {
   Taro.showModal({
-    title: '删除${ctx.label}',
-    content: \`确定删除「\${${firstConfirm}}」？\`,
+    title: t('${ctx.plural}.deleteTitle'),
+    content: t('common.deleteConfirm', { name: \`\${${firstConfirm}}\` }),
     success: async (res) => {
       if (!res.confirm) return
       try {
         await store.remove(item.id)
       } catch (err: any) {
-        Taro.showToast({ title: err.message || '删除失败', icon: 'none' })
+        Taro.showToast({ title: err.message || t('${ctx.plural}.deleteFailed'), icon: 'none' })
       }
     },
   })
