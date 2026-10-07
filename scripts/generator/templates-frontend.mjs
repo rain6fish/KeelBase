@@ -203,7 +203,7 @@ class ${ctx.pluralPascal}Repository {
   ${ctx.pluralPascal}Repository(this._client);
 
   /// 校验统一响应成功（契约见 ApiResponse.isSuccess：code=HTTP 状态码，2xx 成功）。
-  /// Check the shared envelope: success means an HTTP-status `code` in the 2xx range.
+  /// Check the shared envelope: success means an HTTP-status \`code\` in the 2xx range.
   void _requireSuccess(ApiResponse response) {
     if (!response.isSuccess) {
       throw NetworkException(response.message);
@@ -213,7 +213,7 @@ class ${ctx.pluralPascal}Repository {
   Future<List<${ctx.singlePascal}Model>> get${ctx.pluralPascal}() async {
     final json = await _client.get('/${ctx.plural}');
     final response = ApiResponse.fromJson(json, (data) {
-      // 形状不是预期的那种就是失败，不是空列表：静默返回 `[]` 会把一个坏掉的接口说成「没有记录」。
+      // 形状不是预期的那种就是失败，不是空列表：静默返回 \`[]\` 会把一个坏掉的接口说成「没有记录」。
       // A shape we did not expect is a failure, not an empty list: returning \`[]\` silently would
       // report a broken endpoint as "no records".
       if (data is! List) {
