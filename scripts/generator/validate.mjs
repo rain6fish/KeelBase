@@ -40,6 +40,24 @@ export const FIELD_TYPES = new Set([
 export const SEARCHABLE_FIELD_TYPES = new Set(['string', 'text']);
 
 /**
+ * The columns a module's search may match: its spec's `string` / `text` fields, in declaration order.
+ *
+ * One rule, three consumers — the manifest's `searchableModules`, the generation-time refusal of a
+ * `searchable` spec with nothing to match, and the generated list endpoint's `?q=`. Keeping them on
+ * one function is the point: a module whose list searches a different set of columns than its
+ * manifest advertises would be two answers to the same question.
+ *
+ * 模块的搜索可匹配哪些列：spec 里的 `string` / `text` 字段，按声明顺序。
+ *
+ * 一条规则、三个消费方 —— 清单的 `searchableModules`、生成期对「声明了 `searchable` 却没有可匹配
+ * 列」的拒绝、以及生成物列表端点的 `?q=`。收在一个函数里正是要点：若一个模块的列表搜的列与它清单
+ * 里公布的列不是同一组，同一个问题就有了两个答案。
+ */
+export function searchableFieldNames(fields) {
+  return (fields ?? []).filter((f) => SEARCHABLE_FIELD_TYPES.has(f.type)).map((f) => f.name);
+}
+
+/**
  * The scope levels a module may declare.
  *
  * `owner` is deliberately absent: every generated module is already owner-scoped by its fixed security

@@ -1204,7 +1204,11 @@ test('端到端：未声明 scope 的模块不带任何范围接线（缺省仍�
   assert.doesNotMatch(entity, /org_id|dept_id/);
   const service = await readFile(BE(root, 'notes/notes.service.ts'), 'utf8');
   assert.doesNotMatch(service, /buildScopeWhere|rowInScope|OrgService|registerScopeColumns/);
-  assert.match(service, /where: \{ userId \}/); // 今天的行为，一字未变
+  // The default branch is still own-only. A declared text column only adds the `q` filter *on top of*
+  // it (`: { userId };`), never instead of it — so that fallback has to stay visible right here.
+  // 缺省分支仍只回本人。声明文本列只是把 `q` 过滤叠加在它**之上**（`: { userId };`），不是替换它 ——
+  // 故这条回退必须仍在这里看得见。
+  assert.match(service, /: \{ userId \};/);
   const module_ = await readFile(BE(root, 'notes/notes.module.ts'), 'utf8');
   assert.doesNotMatch(module_, /OrgModule/);
 });

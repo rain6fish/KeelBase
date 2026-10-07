@@ -15,6 +15,7 @@ import {
   refFields,
   refOnDelete,
   refTarget,
+  searchableFieldNames,
   toSnake,
 } from './validate.mjs';
 
@@ -518,6 +519,10 @@ export function serviceTemplate(ctx) {
   const attachmentNames = attachmentFields(ctx.fields);
   const att = attachmentArtifacts(ctx);
   const hasAttachments = attachmentNames.length > 0;
+  // The columns the list's `?q=` may match — the same function the manifest uses, so a module cannot
+  // advertise one set of searchable columns and search another.
+  // 列表 `?q=` 可匹配的列 —— 与清单由**同一个函数**算出，故一个模块不会公布一组可搜列、却搜另一组。
+  const searchColumns = searchableFieldNames(ctx.fields);
   const attRepoImport = hasAttachments
     ? `import { ${att.className} } from './${att.fileName.replace(/\.ts$/, '')}';\n` +
       `import { Add${ctx.singlePascal}AttachmentDto } from './dto/add-${ctx.singular}-attachment.dto';\n`
@@ -644,16 +649,59 @@ export function serviceTemplate(ctx) {
         `  }`;
   // `BadRequestException` 有两处用它的地方：ref 目标不存在、以及附件字段名不在声明内。
   // 原先只看 `refs` ⇒ 只声明附件字段的模块生成出来编译不过（2026-09-25 编译门实测抓到）。
+  // The list's declared search columns, emitted only when there are any: a module with nothing to
+  // match gets no filter at all, rather than one that silently matches everything.
+  // 列表的已声明可搜列；没有可匹配的列时不发射 —— 这样的模块宁可没有过滤，也不要一个静默匹配全部。
+  const searchColumnList =
+    searchColumns.length === 0
+      ? ''
+      : `/** 列表 \`?q=\` 匹配的列（spec 的 string / text 字段，按声明顺序）。 */\n` +
+        `const ${ctx.singular.toUpperCase()}_SEARCH_COLUMNS = [${searchColumns.map((n) => `'${n}'`).join(', ')}];\n\n`;
+  // The list read. With no declared text column it is character-for-character what it always was;
+  // with one, an optional `q` narrows it — and it narrows *within* the row-level scope rather than
+  // replacing it, which is the whole point: a filter that widened the query would be a leak.
+  // 列表读取。没有声明文本列时与从前**一字不差**；有时多一个可选的 `q` —— 而它是在行级范围**之内**
+  // 收窄，不是替换那个范围；这一点是全部要害：一个把查询放宽的过滤就是一个漏洞。
+  const searchConst = `${ctx.singular.toUpperCase()}_SEARCH_COLUMNS`;
+  const searchFind =
+    `    const keyword = q?.trim();\n` +
+    `    // Every arm carries the ownership condition, so a hit on any column still stays the caller's\n` +
+    `    // own rows.\n` +
+    `    // 每条分支各自带归属条件，故任何一列命中都仍限在调用方自己的行内。\n` +
+    `    const where = keyword\n` +
+    `      ? ${searchConst}.map((column) => ({ userId, [column]: Like(\`%\${keyword}%\`) }))\n` +
+    `      : { userId };\n`;
+  const searchFindScoped =
+    `    const descriptor = await this._scopeFor(userId);\n` +
+    `    const scoped = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;\n` +
+    `    const keyword = q?.trim();\n` +
+    `    // Search arms are built *from* the scope arms, never instead of them: a hit on any column still\n` +
+    `    // cannot escape the caller's scope. An empty list is the level-\`all\` shape (no row-level\n` +
+    `    // constraint), and the filter applies there too.\n` +
+    `    // 搜索分支是**从**范围分支长出来的，不是替换它：任何一列命中都逃不出调用方范围。列表为空即\n` +
+    `    // level-\`all\` 的形状（无行级约束），在那里过滤同样生效。\n` +
+    `    const where = keyword\n` +
+    `      ? (scoped.length > 0 ? scoped : [{}]).flatMap((arm) =>\n` +
+    `          ${searchConst}.map((column) => ({ ...arm, [column]: Like(\`%\${keyword}%\`) })),\n` +
+    `        )\n` +
+    `      : scoped;\n`;
+  const listFind = `    return this.${ctx.plural}Repository.find({\n      where,\n      ${refRelations}order: { createdAt: 'DESC' },\n    });`;
+  const findAllBody =
+    searchColumns.length === 0
+      ? scoped
+        ? `    const descriptor = await this._scopeFor(userId);\n    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;\n${listFind}`
+        : `    return this.${ctx.plural}Repository.find({\n      where: { userId },\n      ${refRelations}order: { createdAt: 'DESC' },\n    });`
+      : (scoped ? searchFindScoped : searchFind) + listFind;
   return `import { ${nestCommonImports}${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ${searchColumns.length > 0 ? 'Like, ' : ''}Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { ${ctx.singlePascal} } from './${ctx.singular}.entity';
 ${refRepoImports}${attRepoImport}import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
 import { Update${ctx.singlePascal}Dto } from './dto/update-${ctx.singular}.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';${piiImport}${scopeImports}
 
-${scopeRegister}${attFieldList}@Injectable()
+${scopeRegister}${attFieldList}${searchColumnList}@Injectable()
 export class ${ctx.pluralPascal}Service {
   constructor(
     @InjectRepository(${ctx.singlePascal})
@@ -669,20 +717,8 @@ ${scopeCreateCols}    });
     return this.${ctx.plural}Repository.save(entity);
   }
 
-  async findAll(userId: number): Promise<${ctx.singlePascal}[]> {
-${
-  scoped
-    ? `    const descriptor = await this._scopeFor(userId);
-    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;
-    return this.${ctx.plural}Repository.find({
-      where,
-      ${refRelations}order: { createdAt: 'DESC' },
-    });`
-    : `    return this.${ctx.plural}Repository.find({
-      where: { userId },
-      ${refRelations}order: { createdAt: 'DESC' },
-    });`
-}
+  async findAll(userId: number${searchColumns.length > 0 ? ', q?: string' : ''}): Promise<${ctx.singlePascal}[]> {
+${findAllBody}
   }
 
 ${adminList}
@@ -747,6 +783,7 @@ export function controllerTemplate(ctx) {
     : '';
   const flagDecorator = ctx.featureFlag ? `@FeatureFlag('${ctx.plural}')\n` : '';
   const attachmentNames = attachmentFields(ctx.fields);
+  const searchColumns = searchableFieldNames(ctx.fields);
   const attDtoImport =
     attachmentNames.length > 0
       ? `import { Add${ctx.singlePascal}AttachmentDto } from './dto/add-${ctx.singular}-attachment.dto';\n`
@@ -780,7 +817,7 @@ export function controllerTemplate(ctx) {
         `    await this.${ctx.plural}Service.removeAttachment(id, attachmentId, ability);\n` +
         `    return null;\n` +
         `  }\n\n`;
-  return `import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+  return `import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe${searchColumns.length > 0 ? ', Query' : ''} } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 import { Create${ctx.singlePascal}Dto } from './dto/create-${ctx.singular}.dto';
@@ -823,8 +860,8 @@ ${attRoutes}  @Post()
 
   @Get()
   @ApiOperation({ summary: '获取我的${ctx.label}列表' })
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.${ctx.plural}Service.findAll(user.sub);
+  async findAll(@CurrentUser() user: JwtPayload${searchColumns.length > 0 ? ", @Query('q') q?: string" : ''}) {
+    return this.${ctx.plural}Service.findAll(user.sub${searchColumns.length > 0 ? ', q' : ''});
   }
 
   @Patch(':id')
@@ -905,6 +942,14 @@ export class ${ctx.pluralPascal}Module {}
 
 export function controllerSpecTemplate(ctx) {
   const scoped = (ctx.scope ?? []).includes('org');
+  const searchColumns = searchableFieldNames(ctx.fields);
+  // With a `q` parameter the delegation carries one more argument and the assertion has to say so;
+  // without one the case stays exactly as it was.
+  // 带 `q` 形参时，这次委托多一个实参，断言必须如实跟上；不带时该用例与从前一字不差。
+  const findAllCase =
+    searchColumns.length === 0
+      ? `  it('findAll 委托 service.findAll 并传入 userId', async () => {\n    service.findAll.mockResolvedValue([mockEntity] as never);\n    await expect(controller.findAll(mockUser as any)).resolves.toEqual([mockEntity]);\n    expect(service.findAll).toHaveBeenCalledWith(1);\n  });`
+      : `  it('findAll 委托 service.findAll，并传入 userId 与 q', async () => {\n    service.findAll.mockResolvedValue([mockEntity] as never);\n    await expect(controller.findAll(mockUser as any)).resolves.toEqual([mockEntity]);\n    expect(service.findAll).toHaveBeenCalledWith(1, undefined);\n  });\n\n  it('findAll 把 q 原样交给 service —— 过滤由它施加', async () => {\n    service.findAll.mockResolvedValue([] as never);\n    await controller.findAll(mockUser as any, 'term');\n    expect(service.findAll).toHaveBeenCalledWith(1, 'term');\n  });`;
   return `import { ${ctx.pluralPascal}Controller } from './${ctx.plural}.controller';
 import { ${ctx.pluralPascal}Service } from './${ctx.plural}.service';
 
@@ -937,11 +982,7 @@ describe('${ctx.pluralPascal}Controller', () => {
     expect(service.create).toHaveBeenCalledWith(dto, 1);
   });
 
-  it('findAll 委托 service.findAll 并传入 userId', async () => {
-    service.findAll.mockResolvedValue([mockEntity] as never);
-    await expect(controller.findAll(mockUser as any)).resolves.toEqual([mockEntity]);
-    expect(service.findAll).toHaveBeenCalledWith(1);
-  });
+${findAllCase}
 
   it('findAllForAdmin 委托 service.findAllForAdmin（管理端全量）', async () => {
     service.findAllForAdmin.mockResolvedValue([mockEntity] as never);

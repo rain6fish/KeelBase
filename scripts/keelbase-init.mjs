@@ -16,7 +16,7 @@ import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import {
   FIELD_TYPES,
-  SEARCHABLE_FIELD_TYPES,
+  searchableFieldNames,
   validateScope,
   normalizeScope,
   buildContext,
@@ -436,9 +436,7 @@ async function main() {
   // 列出的那些列。spec 里一个 string / text 字段都没有时，既没有列可列、也没有东西可兑现，故与其产出一份
   // 声称可搜、实际什么都搜不到的模块，不如在这里明确报错（与「关联目标必须已生成」同一种处理）。这份清单
   // 只算一次、保持声明顺序，也正是清单文件里记下的那份。
-  const searchableFields = fields
-    .filter((f) => SEARCHABLE_FIELD_TYPES.has(f.type))
-    .map((f) => f.name);
+  const searchableFields = searchableFieldNames(fields);
   if (specSearchable && searchableFields.length === 0) {
     fail(
       `spec 声明了 searchable: true，但字段里没有任何 string / text 字段 —— ` +
