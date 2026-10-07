@@ -279,6 +279,11 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 帖子 · 字段占位符 / field placeholders ---
+  String get postsFieldTitle => _t('title', 'title');
+  String get postsFieldContent => _t('content', 'content');
+
+
   // --- 标签 · 字段占位符 / field placeholders ---
   String get tagsFieldName => _t('name', 'name');
 

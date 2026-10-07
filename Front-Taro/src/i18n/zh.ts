@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 帖子（EASY-2 生成）──
+  'posts.title': '帖子',
+  'posts.count': '{total} 条',
+  'posts.placeholder': '新增帖子…',
+  'posts.add': '添加',
+  'posts.empty': '暂无帖子',
+  'posts.inputRequired': '请输入帖子内容',
+  'posts.createFailed': '创建失败',
+  'posts.deleteTitle': '删除帖子',
+  'posts.deleteFailed': '删除失败',
+  'posts.loadFailed': '加载帖子失败',
+
   // ── 报告（EASY-2 生成）──
   'reports.title': '报告',
   'reports.count': '{total} 条',

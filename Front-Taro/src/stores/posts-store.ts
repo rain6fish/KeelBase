@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { postsService } from '../services/posts-service'
+import { translate } from '../i18n/translate'
 import type { PostItem, CreatePostRequest } from '../types/posts'
 
 /** 帖子状态（Taro Vue3，pinia）：列表 + 增/删，乐观更新。 */
@@ -18,7 +19,7 @@ export const usePostsStore = defineStore('posts', {
       try {
         this.items = await postsService.getPosts()
       } catch (err: any) {
-        this.error = err.message || 'Failed to load 帖子'
+        this.error = err.message || translate('posts.loadFailed')
       } finally {
         this.isLoading = false
       }
@@ -36,7 +37,7 @@ export const usePostsStore = defineStore('posts', {
         await postsService.remove(id)
       } catch (err: any) {
         this.items = prev
-        throw new Error(err.message || 'Failed to delete post')
+        throw new Error(err.message || translate('posts.deleteFailed'))
       }
     },
   },
