@@ -74,8 +74,10 @@ test('无 scope：每条搜索分支各自带归属条件（命中逃不出本�
 test('有 scope：搜索分支是从范围分支长出来的（相乘，不是替换）', () => {
   const svc = serviceTemplate(ctxWith([TITLE], ['org']));
   assert.match(svc, /const scoped = \(buildScopeWhere<Record<string, unknown>>\(descriptor, 'Order'\) \?\? \[\]\) as any;/);
-  // 空列表 = level-`all` 的形状（无行级约束）；那里也要过滤
-  assert.match(svc, /\(scoped\.length > 0 \? scoped : \[\{\}\]\)\.flatMap\(\(arm\) =>/);
+  // 空列表 = level-`all` 的形状（无行级约束）；那里也要过滤。
+  // `arm` 必须带显式类型：`scoped` 是 `any` 时回调参数没有上下文类型，`noImplicitAny` 会报 TS7006
+  // —— 而字符串断言看不见这类错误（2026-10-07 实测：带 scope 的生成物第一次被编译才暴露）。
+  assert.match(svc, /\(scoped\.length > 0 \? scoped : \[\{\}\]\)\.flatMap\(\(arm: Record<string, unknown>\) =>/);
   assert.match(svc, /\(\{ \.\.\.arm, \[column\]: Like\(`%\$\{keyword\}%`\) \}\)/);
   assert.match(svc, /: scoped;/, '不传 q 时 `where` 就是范围本身，一个字不改');
 });

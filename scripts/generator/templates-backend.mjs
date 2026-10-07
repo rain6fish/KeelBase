@@ -681,7 +681,7 @@ export function serviceTemplate(ctx) {
     `    // 搜索分支是**从**范围分支长出来的，不是替换它：任何一列命中都逃不出调用方范围。列表为空即\n` +
     `    // level-\`all\` 的形状（无行级约束），在那里过滤同样生效。\n` +
     `    const where = keyword\n` +
-    `      ? (scoped.length > 0 ? scoped : [{}]).flatMap((arm) =>\n` +
+    `      ? (scoped.length > 0 ? scoped : [{}]).flatMap((arm: Record<string, unknown>) =>\n` +
     `          ${searchConst}.map((column) => ({ ...arm, [column]: Like(\`%\${keyword}%\`) })),\n` +
     `        )\n` +
     `      : scoped;\n`;
