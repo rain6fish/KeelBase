@@ -50,6 +50,8 @@ const quickCards = computed(() =>
     { icon: '✅', label: t('explore.todos'), color: '#8B5CF6', path: '/pages/todos/index', module: 'todos' },
     { icon: '📋', label: t('explore.aiHistory'), color: '#0EA5E9', path: '/pages/ai-history/index' },
     { icon: '⚙️', label: t('explore.settings'), color: '#9333EA', path: '/pages/settings/index' },
+  { icon: '📦', label: '笔记', color: '#F97316', path: '/pages/notes/index' },
+  { icon: '📦', label: '图书', color: '#F97316', path: '/pages/books/index' },
   { icon: '📦', label: '报告', color: '#F97316', path: '/pages/reports/index' },
   { icon: '📦', label: '跟进计划', color: '#F97316', path: '/pages/followup_plans/index' },
     { icon: '📦', label: t('explore.contracts'), color: '#F97316', path: '/pages/contracts/index', module: 'contracts' },

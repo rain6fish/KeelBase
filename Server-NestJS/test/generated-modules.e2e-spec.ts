@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, registerUser, authHeader } from './helpers';
-import { User } from '../src/common/entities/user.entity';
+import { User, UserRole } from '../src/common/entities/user.entity';
 
 /**
  * 第 11-12 周验收加固：keelbase init 生成模块（suppliers）的 HTTP 层验证——
@@ -30,7 +30,7 @@ describe('Generated modules (keelbase init, e2e)', () => {
     user = await registerUser(app, { username: 'gm_user', email: 'gm_user@test.com', password: 'GmUser123', nickname: 'GM' });
     const adminUser = await registerUser(app, { username: 'gm_admin', email: 'gm_admin@test.com', password: 'GmAdmin123', nickname: 'GMA' });
     const adminEntity = await dataSource.getRepository(User).findOne({ where: { username: 'gm_admin' } });
-    await dataSource.getRepository(User).update(adminEntity!.id, { role: 'admin' });
+    await dataSource.getRepository(User).update(adminEntity!.id, { role: UserRole.ADMIN });
     // role 变更后旧 accessToken 仍是 user——重新登录签发带 admin role 的新 token
     const adminLogin = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
