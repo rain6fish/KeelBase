@@ -32,10 +32,16 @@ describe('SuppliersController', () => {
     expect(service.create).toHaveBeenCalledWith(dto, 1);
   });
 
-  it('findAll 委托 service.findAll 并传入 userId', async () => {
+  it('findAll 委托 service.findAll，并传入 userId 与 q', async () => {
     service.findAll.mockResolvedValue([mockEntity] as never);
     await expect(controller.findAll(mockUser as any)).resolves.toEqual([mockEntity]);
-    expect(service.findAll).toHaveBeenCalledWith(1);
+    expect(service.findAll).toHaveBeenCalledWith(1, undefined);
+  });
+
+  it('findAll 把 q 原样交给 service —— 过滤由它施加', async () => {
+    service.findAll.mockResolvedValue([] as never);
+    await controller.findAll(mockUser as any, 'term');
+    expect(service.findAll).toHaveBeenCalledWith(1, 'term');
   });
 
   it('findAllForAdmin 委托 service.findAllForAdmin（管理端全量）', async () => {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BooksService } from './books.service';
 import { Book } from './book.entity';
+import { UpdateBookDto } from './dto/update-book.dto';
 
 describe('BooksService', () => {
   let service: BooksService;
@@ -14,9 +15,10 @@ describe('BooksService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
+    update: jest.fn(),
   };
 
-  const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
+    const mockAbility = (allowed: boolean) => ({ cannot: () => !allowed }) as any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -59,6 +61,33 @@ describe('BooksService', () => {
     await expect(service.findOne(1, mockAbility(true))).rejects.toThrow(NotFoundException);
   });
 
+  it('refuses a stale update with 409 instead of overwriting silently', async () => {
+    // The caller read version 2 while the row has moved to 3, so the conditional update matches
+    // nothing. Zero rows affected is the conflict — the update must have carried the version.
+    //
+    // 调用方读到版本 2，而行已走到 3，于是条件更新一条也没匹配上。「影响 0 行」即冲突 ——
+    // 前提是那条更新确实把版本带进了条件。
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 3 });
+    mockRepo.update.mockResolvedValue({ affected: 0 });
+
+    await expect(
+      service.update(1, { version: 2 } as UpdateBookDto, mockAbility(true)),
+    ).rejects.toThrow(ConflictException);
+    expect(mockRepo.update).toHaveBeenCalledWith(
+      { id: 1, version: 2 },
+      expect.objectContaining({ version: expect.any(Function) }),
+    );
+  });
+
+  it('a matching version writes once and answers with the fresh row', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 2 });
+    mockRepo.update.mockResolvedValue({ affected: 1 });
+
+    await service.update(1, { version: 2 } as UpdateBookDto, mockAbility(true));
+
+    expect(mockRepo.update).toHaveBeenCalledTimes(1);
+  });
+
   it('soft-deletes', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
     mockRepo.softDelete.mockResolvedValue({ affected: 1 });
@@ -68,20 +97,19 @@ describe('BooksService', () => {
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
 
-  it('updates merged dto on owned book', async () => {
-    const existing = { id: 1, userId: 5, title: '旧标题' };
-    mockRepo.findOne.mockResolvedValue(existing);
-    mockRepo.save.mockResolvedValue({ ...existing, title: '新标题' });
-
-    const result = await service.update(1, { title: '新标题' } as any, mockAbility(true));
-
-    expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ title: '新标题' }));
-    expect(result.title).toBe('新标题');
-  });
-
-  it('update throws Forbidden when CASL denies', async () => {
+  it('does not soft-delete when CASL forbids (remove)', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
 
-    await expect(service.update(1, { title: 'x' } as any, mockAbility(false))).rejects.toThrow(ForbiddenException);
+    await expect(service.remove(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
+
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('removeAsAdmin soft-deletes without ownership (RG-3 recovery)', async () => {
+    mockRepo.softDelete.mockResolvedValue({ affected: 1 });
+
+    await service.removeAsAdmin(1);
+
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
 });

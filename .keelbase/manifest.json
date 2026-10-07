@@ -2,7 +2,7 @@
   "schema": 1,
   "identity": "keelbase-application",
   "generator": "keelbase",
-  "generatorVersion": "1.0.11",
+  "generatorVersion": "1.1.0",
   "protocol": "1.1",
   "modules": [
     "books",

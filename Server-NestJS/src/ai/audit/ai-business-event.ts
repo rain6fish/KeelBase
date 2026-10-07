@@ -26,6 +26,10 @@ const RESULT_TYPE_EVENTS: Record<string, string> = {
   app_request: 'ApprovalSubmitted',
   todo: 'TodoCreated',
   contract: 'ContractCreated',
+  book: 'BookCreated',
+  note: 'NoteCreated',
+  supplier: 'SupplierCreated',
+  tag: 'TagCreated',
 };
 
 /** 派生 AI 业务事件名：toolName 优先，resultType 兜底；无法归一返回 null。 */

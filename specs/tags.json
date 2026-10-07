@@ -1,0 +1,7 @@
+{
+  "module": "tags",
+  "label": "标签",
+  "fields": [
+    { "name": "name", "type": "string" }
+  ]
+}

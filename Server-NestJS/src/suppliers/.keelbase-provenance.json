@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "suppliers",
+  "generator": "keelbase",
+  "generatorVersion": "1.1.0",
+  "protocol": "1.1",
+  "source": "spec:specs/supplier.json",
+  "generatedAt": "2026-10-07T03:18:34.387Z"
+}

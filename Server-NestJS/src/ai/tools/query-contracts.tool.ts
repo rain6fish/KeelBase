@@ -30,7 +30,10 @@ export class QueryContractsTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              keyword: { type: 'string', description: '关键字（可选，按名称/对方/状态过滤）' },
+              name: { type: 'string', description: 'name' },
+              counterparty: { type: 'string', description: 'counterparty' },
+              status: { type: 'string', description: 'status' },
+              amount: { type: 'number', description: 'amount' },
                 },
               },
       },
@@ -39,16 +42,8 @@ export class QueryContractsTool implements AiTool {
 
   async execute(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
     try {
-      const keyword = typeof args.keyword === 'string' ? args.keyword.trim().toLowerCase() : '';
       const items = await this.contractsService.findAll(Number(userId));
-      const filtered = keyword
-        ? items.filter((i) =>
-            [i.name, i.counterparty, i.status].some(
-              (v) => typeof v === 'string' && v.toLowerCase().includes(keyword),
-            ),
-          )
-        : items;
-      const data = filtered.map((item) => {
+      const data = items.map((item) => {
         const o: Record<string, unknown> = { id: item.id };
         o.name = item.name;
         o.counterparty = item.counterparty;

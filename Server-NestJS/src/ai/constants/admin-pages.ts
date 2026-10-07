@@ -27,6 +27,7 @@ export const ADMIN_PAGE_ROUTES: Record<
   system: { route: '/system', description: '系统信息' },
   trash: { route: '/trash', description: '回收站' },
   'data-import': { route: '/data-import', description: '数据导入' },
+  books: { route: '/books', description: '图书管理' },
   reports: { route: '/reports', description: '报告管理' },
   followup_plans: { route: '/followup_plans', description: '跟进计划管理' },
   contracts: { route: '/contracts', description: '合同管理' },

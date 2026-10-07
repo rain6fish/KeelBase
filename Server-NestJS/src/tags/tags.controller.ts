@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TagsService } from './tags.service';
 import { CreateTagDto } from './dto/create-tag.dto';
@@ -45,8 +45,8 @@ export class TagsController {
 
   @Get()
   @ApiOperation({ summary: '获取我的标签列表' })
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.tagsService.findAll(user.sub);
+  async findAll(@CurrentUser() user: JwtPayload, @Query('q') q?: string) {
+    return this.tagsService.findAll(user.sub, q);
   }
 
   @Patch(':id')
@@ -54,7 +54,7 @@ export class TagsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTagDto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     return this.tagsService.update(id, dto, ability);
@@ -65,7 +65,7 @@ export class TagsController {
   @ApiOperation({ summary: '删除标签' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     await this.tagsService.remove(id, ability);

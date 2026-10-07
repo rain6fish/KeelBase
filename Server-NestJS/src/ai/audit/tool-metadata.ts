@@ -77,10 +77,18 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   query_org_members: { label: 'Query org members' },
   query_org_tasks: { label: 'Query org tasks' },
   query_org_availability: { label: 'Check availability' },
+  query_books: { label: 'Query books' },
+  create_book: { label: 'Create book', event: 'BookCreated' },
   query_contracts: { label: 'Query contracts' },
   create_contract: { label: 'Create contract', event: 'ContractCreated' },
+  query_notes: { label: 'Query notes' },
+  create_note: { label: 'Create note', event: 'NoteCreated' },
   query_reports: { label: 'Query reports' },
   create_report: { label: 'Create report', event: 'ReportCreated' },
+  query_suppliers: { label: 'Query suppliers' },
+  create_supplier: { label: 'Create supplier', event: 'SupplierCreated' },
+  query_tags: { label: 'Query tags' },
+  create_tag: { label: 'Create tag', event: 'TagCreated' },
   // 生成模块与导航 / generated module and navigation
   // No event: R1 dry-run (create-module.tool.ts declares no side effect) — not a write action, so
   // there is no business event to name.

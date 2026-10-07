@@ -2,7 +2,7 @@
 
 import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { Report } from './report.entity';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -21,6 +21,9 @@ import { registerOrgLevelSubject } from '../common/scope/scope-policy';
 // own columns and defaults to "own or same organisation". Undeclared modules stay owner-only.
 registerScopeColumns('Report', { owner: 'userId', org: 'orgId' });
 registerOrgLevelSubject('Report');
+
+/** 列表 `?q=` 匹配的列（spec 的 string / text 字段，按声明顺序）。 */
+const REPORT_SEARCH_COLUMNS = ['title', 'summary'];
 
 @Injectable()
 export class ReportsService {
@@ -69,9 +72,20 @@ export class ReportsService {
     return this.reportsRepository.save(entity);
   }
 
-  async findAll(userId: number): Promise<Report[]> {
+  async findAll(userId: number, q?: string): Promise<Report[]> {
     const descriptor = await this._scopeFor(userId);
-    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, 'Report') ?? []) as any;
+    const scoped = (buildScopeWhere<Record<string, unknown>>(descriptor, 'Report') ?? []) as any;
+    const keyword = q?.trim();
+    // Search arms are built *from* the scope arms, never instead of them: a hit on any column still
+    // cannot escape the caller's scope. An empty list is the level-`all` shape (no row-level
+    // constraint), and the filter applies there too.
+    // 搜索分支是**从**范围分支长出来的，不是替换它：任何一列命中都逃不出调用方范围。列表为空即
+    // level-`all` 的形状（无行级约束），在那里过滤同样生效。
+    const where = keyword
+      ? (scoped.length > 0 ? scoped : [{}]).flatMap((arm: Record<string, unknown>) =>
+          REPORT_SEARCH_COLUMNS.map((column) => ({ ...arm, [column]: Like(`%${keyword}%`) })),
+        )
+      : scoped;
     return this.reportsRepository.find({
       where,
       order: { createdAt: 'DESC' },

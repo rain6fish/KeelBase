@@ -1,0 +1,8 @@
+{
+  "module": "posts",
+  "label": "帖子",
+  "fields": [
+    { "name": "title", "type": "string" },
+    { "name": "content", "type": "text" }
+  ]
+}

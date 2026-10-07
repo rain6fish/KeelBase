@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, MinLength, MaxLength, IsIn } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateContractDto {
   @ApiProperty({ description: 'name' })
   @IsString()
+  @IsNotEmpty()
   @MinLength(1)
   @MaxLength(200)
   name!: string;
 
   @ApiProperty({ description: 'counterparty' })
   @IsString()
+  @IsNotEmpty()
   @MinLength(1)
   @MaxLength(200)
   counterparty!: string;
 
   @ApiProperty({ description: 'status', enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] })
   @IsString()
+  @IsNotEmpty()
   @IsIn(['draft', 'reviewing', 'active', 'expired', 'terminated'])
   status!: string;
 

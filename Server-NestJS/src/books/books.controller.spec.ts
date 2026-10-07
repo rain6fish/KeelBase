@@ -5,31 +5,67 @@ import { BooksService } from './books.service';
 
 describe('BooksController', () => {
   let controller: BooksController;
-  let booksService: Record<string, jest.Mock>;
+  let service: jest.Mocked<
+    Pick<BooksService, 'create' | 'findAll' | 'findAllForAdmin' | 'update' | 'remove' | 'removeAsAdmin'>
+  >;
 
   const mockUser = { sub: 1, username: 'alex' };
-  const ability = {} as any;
+  const mockAbility = { cannot: () => false } as any;
+  const mockEntity = { id: 1 } as any;
 
   beforeEach(() => {
-    booksService = Object.fromEntries(['create', 'findAll', 'update', 'remove'].map((m) => [m, jest.fn()]));
-    controller = new BooksController(booksService as unknown as BooksService);
+    service = {
+      create: jest.fn(),
+      findAll: jest.fn(),
+      findAllForAdmin: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+      removeAsAdmin: jest.fn(),
+    };
+    controller = new BooksController(service as unknown as BooksService);
   });
 
-  it('图书 CRUD 委托 service', async () => {
-    const dto = { title: '深入理解计算机系统' };
-    booksService.create.mockResolvedValue({ id: 1 });
-    booksService.findAll.mockResolvedValue([]);
-    booksService.update.mockResolvedValue({ id: 1 });
-    booksService.remove.mockResolvedValue(undefined);
+  it('create 委托 service.create 并传入 userId', async () => {
+    service.create.mockResolvedValue(mockEntity as never);
+    const dto = {};
+    await expect(controller.create(dto as any, mockUser as any)).resolves.toBe(mockEntity);
+    expect(service.create).toHaveBeenCalledWith(dto, 1);
+  });
 
-    await expect(controller.create(dto as any, mockUser as any)).resolves.toEqual({ id: 1 });
-    await expect(controller.findAll(mockUser as any)).resolves.toEqual([]);
-    await expect(controller.update(1, dto as any, mockUser as any, ability)).resolves.toEqual({ id: 1 });
-    await expect(controller.remove(1, mockUser as any, ability)).resolves.toBeNull();
+  it('findAll 委托 service.findAll，并传入 userId 与 q', async () => {
+    service.findAll.mockResolvedValue([mockEntity] as never);
+    await expect(controller.findAll(mockUser as any)).resolves.toEqual([mockEntity]);
+    expect(service.findAll).toHaveBeenCalledWith(1, undefined);
+  });
 
-    expect(booksService.create).toHaveBeenCalledWith(dto, 1);
-    expect(booksService.findAll).toHaveBeenCalledWith(1);
-    expect(booksService.update).toHaveBeenCalledWith(1, dto, ability);
-    expect(booksService.remove).toHaveBeenCalledWith(1, ability);
+  it('findAll 把 q 原样交给 service —— 过滤由它施加', async () => {
+    service.findAll.mockResolvedValue([] as never);
+    await controller.findAll(mockUser as any, 'term');
+    expect(service.findAll).toHaveBeenCalledWith(1, 'term');
+  });
+
+  it('findAllForAdmin 委托 service.findAllForAdmin（管理端全量）', async () => {
+    service.findAllForAdmin.mockResolvedValue([mockEntity] as never);
+    await expect(controller.findAllForAdmin()).resolves.toEqual([mockEntity]);
+    expect(service.findAllForAdmin).toHaveBeenCalled();
+  });
+
+  it('update 委托 service.update 并传入 ability', async () => {
+    service.update.mockResolvedValue(mockEntity as never);
+    const dto = {};
+    await expect(controller.update(1, dto as any, mockUser as any, mockAbility)).resolves.toBe(mockEntity);
+    expect(service.update).toHaveBeenCalledWith(1, dto, mockAbility);
+  });
+
+  it('remove 委托 service.remove 并返回 null', async () => {
+    service.remove.mockResolvedValue(undefined as never);
+    await expect(controller.remove(1, mockUser as any, mockAbility)).resolves.toBeNull();
+    expect(service.remove).toHaveBeenCalledWith(1, mockAbility);
+  });
+
+  it('removeAsAdmin 委托 service.removeAsAdmin 并返回 null', async () => {
+    service.removeAsAdmin.mockResolvedValue(undefined as never);
+    await expect(controller.removeAsAdmin(1)).resolves.toBeNull();
+    expect(service.removeAsAdmin).toHaveBeenCalledWith(1);
   });
 });

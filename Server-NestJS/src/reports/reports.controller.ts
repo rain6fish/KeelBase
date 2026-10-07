@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -45,8 +45,8 @@ export class ReportsController {
 
   @Get()
   @ApiOperation({ summary: '获取我的报告列表' })
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.reportsService.findAll(user.sub);
+  async findAll(@CurrentUser() user: JwtPayload, @Query('q') q?: string) {
+    return this.reportsService.findAll(user.sub, q);
   }
 
   @Patch(':id')

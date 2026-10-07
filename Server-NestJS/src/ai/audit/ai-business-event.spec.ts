@@ -19,6 +19,11 @@ describe('deriveAiBusinessEvent（§internal.16 A-1 业务事件归一化）', (
     expect(deriveAiBusinessEvent('create_project_with_tasks')).toBe('ProjectCreated');
     expect(deriveAiBusinessEvent('create_report')).toBe('ReportCreated');
     expect(deriveAiBusinessEvent('create_module_apply')).toBe('ModuleApplied');
+    // 2026-10-07：四个生成模块的写工具随「追齐生成器」注册，事件一并补上
+    expect(deriveAiBusinessEvent('create_book')).toBe('BookCreated');
+    expect(deriveAiBusinessEvent('create_note')).toBe('NoteCreated');
+    expect(deriveAiBusinessEvent('create_supplier')).toBe('SupplierCreated');
+    expect(deriveAiBusinessEvent('create_tag')).toBe('TagCreated');
   });
 
   it('刻意不赋事件的写工具仍为 null（不是遗漏，见 tool-metadata.ts 的注释）', () => {

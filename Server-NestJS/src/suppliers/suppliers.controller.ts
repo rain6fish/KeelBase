@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
@@ -45,8 +45,8 @@ export class SuppliersController {
 
   @Get()
   @ApiOperation({ summary: '获取我的供应商列表' })
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.suppliersService.findAll(user.sub);
+  async findAll(@CurrentUser() user: JwtPayload, @Query('q') q?: string) {
+    return this.suppliersService.findAll(user.sub, q);
   }
 
   @Patch(':id')
@@ -54,7 +54,7 @@ export class SuppliersController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateSupplierDto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     return this.suppliersService.update(id, dto, ability);
@@ -65,7 +65,7 @@ export class SuppliersController {
   @ApiOperation({ summary: '删除供应商' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     await this.suppliersService.remove(id, ability);

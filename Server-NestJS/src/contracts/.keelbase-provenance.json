@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "contracts",
+  "generator": "keelbase",
+  "generatorVersion": "1.1.0",
+  "protocol": "1.1",
+  "source": "spec:specs/contract.json",
+  "generatedAt": "2026-10-07T03:18:33.466Z"
+}

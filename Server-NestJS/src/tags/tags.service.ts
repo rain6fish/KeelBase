@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { subject } from '@casl/ability';
 import { Tag } from './tag.entity';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
+
+/** 列表 `?q=` 匹配的列（spec 的 string / text 字段，按声明顺序）。 */
+const TAG_SEARCH_COLUMNS = ['name'];
 
 @Injectable()
 export class TagsService {
@@ -15,6 +18,7 @@ export class TagsService {
     @InjectRepository(Tag)
     private readonly tagsRepository: Repository<Tag>,
   ) {}
+
 
   async create(dto: CreateTagDto, userId: number): Promise<Tag> {
     const entity = this.tagsRepository.create({
@@ -24,9 +28,16 @@ export class TagsService {
     return this.tagsRepository.save(entity);
   }
 
-  async findAll(userId: number): Promise<Tag[]> {
+  async findAll(userId: number, q?: string): Promise<Tag[]> {
+    const keyword = q?.trim();
+    // Every arm carries the ownership condition, so a hit on any column still stays the caller's
+    // own rows.
+    // 每条分支各自带归属条件，故任何一列命中都仍限在调用方自己的行内。
+    const where = keyword
+      ? TAG_SEARCH_COLUMNS.map((column) => ({ userId, [column]: Like(`%${keyword}%`) }))
+      : { userId };
     return this.tagsRepository.find({
-      where: { userId },
+      where,
       order: { createdAt: 'DESC' },
     });
   }
@@ -42,7 +53,7 @@ export class TagsService {
   }
 
   async findOne(id: number, ability: AppAbility): Promise<Tag> {
-    const entity = await this.tagsRepository.findOne({ where: { id } });
+    const entity = await this.tagsRepository.findOne({ where: { id }, });
     if (!entity) throw new NotFoundException('Tag not found');
     if (ability.cannot('read', subject('Tag', entity))) {
       throw new ForbiddenException('无权访问此标签');
@@ -52,8 +63,26 @@ export class TagsService {
 
   async update(id: number, dto: UpdateTagDto, ability: AppAbility): Promise<Tag> {
     const entity = await this.findOne(id, ability);
-    Object.assign(entity, dto);
-    return this.tagsRepository.save(entity);
+    const { version, ...fields } = dto;
+    // The conditional update is the **only** arbiter: the row is written only while it is still at
+    // the version the caller read, so two writers cannot both succeed.
+    //
+    // Note what is deliberately *not* used: save(). A version column bumps on write but does not
+    // guard the write — checked against the SQL the driver actually emits, the UPDATE carries no
+    // version predicate — so a stale save silently overwrites. Zero rows affected is the conflict.
+    //
+    // 条件更新是**唯一**仲裁点：只有当行仍停在调用方读到的那个版本时才写入，故两个写入者不可能都成功。
+    //
+    // 这里刻意**不用** save()：版本列会在写入时自增，却不为写入设防 —— 按驱动实发的 SQL 核过，
+    // 那条 UPDATE 里没有版本判据 —— 于是一次陈旧的保存就是无声覆盖。「影响 0 行」即冲突。
+    const result = await this.tagsRepository.update(
+      { id: entity.id, version },
+      { ...fields, version: () => 'version + 1' },
+    );
+    if (!result.affected) {
+      throw new ConflictException('该记录已被他人修改，请刷新后重试');
+    }
+    return this.findOne(id, ability);
   }
 
   async remove(id: number, ability: AppAbility): Promise<void> {

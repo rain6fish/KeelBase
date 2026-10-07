@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
@@ -45,8 +45,8 @@ export class NotesController {
 
   @Get()
   @ApiOperation({ summary: '获取我的笔记列表' })
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.notesService.findAll(user.sub);
+  async findAll(@CurrentUser() user: JwtPayload, @Query('q') q?: string) {
+    return this.notesService.findAll(user.sub, q);
   }
 
   @Patch(':id')
@@ -54,7 +54,7 @@ export class NotesController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateNoteDto,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     return this.notesService.update(id, dto, ability);
@@ -65,7 +65,7 @@ export class NotesController {
   @ApiOperation({ summary: '删除笔记' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() _user: JwtPayload,
+    @CurrentUser() user: JwtPayload,
     @CurrentAbility() ability: AppAbility,
   ) {
     await this.notesService.remove(id, ability);

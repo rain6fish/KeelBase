@@ -59,10 +59,13 @@ describe('Generated modules (keelbase init, e2e)', () => {
     const list = await request(app.getHttpServer()).get('/api/v1/suppliers').set(authHeader(user.accessToken)).expect(200);
     expect(list.body.data.some((s: any) => s.id === id)).toBe(true);
 
+    // A generated module's update is an optimistic-lock conditional update: it carries the version
+    // the caller read, and a write that does not is refused. `created` is where the caller got it.
+    // 生成模块的更新是乐观锁条件更新：带上调用方读到的那个版本，没带的写入被拒。`created` 就是它读到的。
     const updated = await request(app.getHttpServer())
       .patch(`/api/v1/suppliers/${id}`)
       .set(authHeader(user.accessToken))
-      .send({ status: 'inactive' })
+      .send({ status: 'inactive', version: created.body.data.version })
       .expect(200);
     expect(updated.body.data.status).toBe('inactive');
 
@@ -136,11 +139,12 @@ describe('Generated modules (keelbase init, e2e)', () => {
         nickname: 'Other',
       });
 
-      // 生成器模板 controller 无 GET /:id 端点（404 是路由不存在）；所有权校验经 update/remove 的 findOne
+      // 生成器模板 controller 无 GET /:id 端点（404 是路由不存在）；所有权校验经 update/remove 的 findOne。
+      // `version` 必须带上：更新 DTO 现在要求它，缺了就停在 **400**（校验先于所有权），到不了这条 403。
       await request(app.getHttpServer())
         .patch(`/api/v1/contracts/${id}`)
         .set(authHeader(otherUser.accessToken))
-        .send({ name: 'hack' })
+        .send({ name: 'hack', version: created.body.data.version })
         .expect(403);
       await request(app.getHttpServer())
         .delete(`/api/v1/contracts/${id}`)
