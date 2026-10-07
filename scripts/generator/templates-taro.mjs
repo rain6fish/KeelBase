@@ -6,7 +6,7 @@
  * v1：列表 + 首字段新增 + 删除（本人数据，走用户端 API）。
  */
 
-import { hasEnumLabels, refColumnName } from './validate.mjs';
+import { attachmentFields, hasEnumLabels, refColumnName } from './validate.mjs';
 
 const TARO_TS_TYPE = {
   string: () => 'string',
@@ -19,7 +19,10 @@ const TARO_TS_TYPE = {
   decimal: () => 'string',
   // ref 在 TS 侧只暴露外键 id（number）
   ref: () => 'number',
-  // attachment 侧表不在本类型里展开；切片 2 再按需带上附件名
+  // An attachment stays a scalar placeholder in the request shape; the side table rides along in the
+  // item's `attachments` array instead (see taroTypesTemplate and the page's first-field display).
+  // 附件在请求形状里仍是标量占位；侧表改随条目的 `attachments` 数组带回（见 taroTypesTemplate
+  // 与页面首字段的显示）。
   attachment: () => 'string',
 };
 
@@ -50,12 +53,29 @@ export function taroTypesTemplate(ctx) {
   const reqFields = ctx.fields
     .map((f) => `  ${f.name}${f.type === 'int' || f.type === 'date' ? '?' : ''}: ${TARO_TS_TYPE[f.type]()};`)
     .join('\n');
+  const attFields = attachmentFields(ctx.fields);
+  // One row of the side table, shaped as the API returns it — the same shape the admin and Flutter read.
+  // 侧表的一行，形状同接口返回 —— 与管理台、Flutter 读的是同一个形状。
+  const attachInterface =
+    attFields.length === 0
+      ? ''
+      : `
+export interface ${ctx.singlePascal}Attachment {
+  id: number
+  field: string
+  storageKey: string
+  originalName: string
+  mimeType: string
+  size: number
+}
+`;
+  const attachDecl = attFields.length === 0 ? '' : `\n  attachments?: ${ctx.singlePascal}Attachment[]`;
   return `export interface ${ctx.singlePascal}Item {
   id: number
-${itemFields}
+${itemFields}${attachDecl}
   createdAt: string
 }
-
+${attachInterface}
 export interface Create${ctx.singlePascal}Request {
 ${reqFields}
 }
@@ -128,8 +148,11 @@ export function taroPageTemplate(ctx) {
       ? // 回显目标名，缺则回落外键 id（与 Flutter 侧同一取舍）
         `item.${first}Name ?? item.${refColumnName(first)}`
       : firstField && firstField.type === 'attachment'
-        ? `(item.${first}Names ?? []).join('、')`
+        ? `(item.attachments ?? []).filter((a) => a.field === '${first}').map((a) => a.originalName).join('、')`
         : `item.${first}`;
+  // The delete confirm names the same thing the list shows; an attachment has no scalar to name it by.
+  // 删除确认与列表显示同一样东西；附件没有可用来指名的标量。
+  const firstConfirm = firstField && firstField.type === 'attachment' ? firstDisplay : `item.${first}`;
   return `<template>
   <view class="${ctx.plural}-page">
     <view class="${ctx.plural}-page__header">
@@ -193,7 +216,7 @@ async function handleAdd() {
 function handleRemove(item: any) {
   Taro.showModal({
     title: '删除${ctx.label}',
-    content: \`确定删除「\${item.${first}}」？\`,
+    content: \`确定删除「\${${firstConfirm}}」？\`,
     success: async (res) => {
       if (!res.confirm) return
       try {

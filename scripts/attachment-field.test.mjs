@@ -304,3 +304,44 @@ test('带 attachment 的 ctx 能跑遍所有模板（漏一个映射即抛错）
     assert.doesNotThrow(() => fn(ctx), `${fn.name} 未处理带 attachment 的 ctx`);
   }
 });
+
+// ─── Taro：侧表（此前只有 Flutter 与管理台读它） ──────────────────────────────
+//
+// 2026-09-25 登记：附件作为**首字段**时，Taro 页面的 `firstDisplay` 引用 `item.<f>Names`，
+// 而类型映射把 attachment 写成 `'string'` 且从不产该成员 ⇒ 生成物编译不过。
+// 修法不是补一个成员，而是**对齐另一端**：侧表随条目的 `attachments` 数组带回，
+// 与 `templates-admin.mjs`（`attachments?: Admin…Attachment[]`）和 Flutter 读的是同一形状。
+
+test('Taro：条目的类型带侧表数组（与管理台 / Flutter 同一形状）', () => {
+  const types = taroTypesTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(types.includes('export interface OrderAttachment {'));
+  assert.ok(types.includes('attachments?: OrderAttachment[]'));
+  assert.ok(types.includes('storageKey: string'), '存的是存储键，不是裸 URL');
+  assert.ok(types.includes('originalName: string'), '显示用的是原名');
+  // 请求形状里附件仍是标量占位 —— 本轮不动的边界，钉住以免被顺手改掉
+  assert.ok(types.includes('contract: string;'));
+
+  // 无附件字段 → 不产侧表类型、不留没人用的成员（不产死代码）
+  const plain = taroTypesTemplate(ctxWith([{ name: 'title', type: 'string' }]));
+  assert.ok(!plain.includes('OrderAttachment'));
+  assert.ok(!plain.includes('attachments?'));
+});
+
+test('Taro：附件为首字段时读侧表，且不引用类型里没有的成员', () => {
+  const page = taroPageTemplate(ctxWith([ATT_FIELD]));
+  assert.ok(!page.includes('contractNames'), '不得引用 Taro 类型从不产出的成员');
+  assert.ok(
+    page.includes(
+      "(item.attachments ?? []).filter((a) => a.field === 'contract').map((a) => a.originalName).join('、')",
+    ),
+    '显示走侧表，且按 field 过滤（一个模块可有多个附件字段，共用一张表）',
+  );
+  const confirm = page.split('\n').find((l) => l.includes('确定删除'));
+  assert.ok(confirm.includes('item.attachments'), '删除确认用同一个表达式，否则行上会显示 undefined');
+});
+
+test('Taro：附件不是首字段时，首字段显示与确认文案不变', () => {
+  const page = taroPageTemplate(ctxWith([{ name: 'title', type: 'string' }, ATT_FIELD]));
+  assert.ok(page.includes('{{ item.title }}'));
+  assert.ok(!page.includes('item.attachments'), '首个字段不是附件时不该带上侧表取值');
+});
