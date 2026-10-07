@@ -2,7 +2,7 @@
 
 > 版本 / Version: v0.1（草案 / Draft）
 > 日期 / Date: 2026-10-07
-> 状态 / Status: **草案 · 待拍板**（`docs/protocol-2.0-bld-requirements.md` §6 的 **D-1**：这两个字段今天落码，还是只留规格、触发式再落）
+> 状态 / Status: **规格定稿 · 未落码**（2026-10-07 用户拍定 `docs/protocol-2.0-bld-requirements.md` §6 的 **D-1** = **留作触发式**）—— 本规格即全部产出，落码待 §7 的触发条件成立，实施顺序见 §8
 > 归属 / Home: Build 平面（§22.17 backlog 的 **BLD**；roadmap §2.1 P0-9 的 ⬜ 子项）
 > 关联 / Related：`docs/module-protocol.md` §3.6（**已落地的四个字段**）｜`scripts/generator/schemas/module-spec.schema.json`｜`Server-NestJS/src/ai/interfaces/tool.interface.ts`
 
