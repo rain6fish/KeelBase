@@ -16,8 +16,8 @@ import { AiDailyUsage } from '../ai/audit/ai-daily-usage.entity';
 import { AiToolSideEffect } from '../ai/tool-effects/ai-tool-side-effect.entity';
 import { AiAgent } from '../ai/agents/ai-agent.entity';
 import { AiConfirmationRequest } from '../ai/approvals/ai-confirmation-request.entity';
-import { AiGovernancePolicy } from '../ai/governance/ai-governance-policy.entity';
-import { AiGovernancePolicyHistory } from '../ai/governance/ai-governance-policy-history.entity';
+import { AiGovernancePolicy } from '../ai/governance-bridge/ai-governance-policy.entity';
+import { AiGovernancePolicyHistory } from '../ai/governance-bridge/ai-governance-policy-history.entity';
 
 // 治理服务
 import { AuditService } from '../ai/audit/audit.service';
@@ -27,7 +27,7 @@ import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { AuditQueryService } from '../ai/audit/audit-query.service';
 import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
 import { AiAgentService } from '../ai/agents/ai-agent.service';
-import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
+import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from '../ai/tool-effects/side-effect-revoker';
 import { AuditChainService } from '../common/audit-chain/audit-chain.service';

@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { APP_VERSION } from './app-version.config';
-import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
+import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';
 import { SettingsService } from '../settings/settings.service';
 
 /** 单个就绪维度：可否用 + 面向首次运行的说明 + 不满足时的下一步（可直接执行的命令/配置） */

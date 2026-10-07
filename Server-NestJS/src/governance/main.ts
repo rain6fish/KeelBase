@@ -2,12 +2,12 @@
 
 /**
  * This directory is the **governance control plane**: a separate process with its own database
- * (`GovernanceDataSource`) and its own port. The other side of the seam is `src/ai/governance`,
+ * (`GovernanceDataSource`) and its own port. The other side of the seam is `src/ai/governance-bridge`,
  * which lives inside the business system — it holds the local policy, reports to this plane, and
  * serves the callbacks this plane makes into that system.
  *
  * 本目录是**治理控制平面**：独立进程、自带数据库（`GovernanceDataSource`）与端口。接缝的另一侧是
- * `src/ai/governance`，它在**业务系统进程内**——放本地策略、向本平面**上报**，并承接本平面**回调进
+ * `src/ai/governance-bridge`，它在**业务系统进程内**——放本地策略、向本平面**上报**，并承接本平面**回调进
  * 业务系统**的那些端点。
  */
 

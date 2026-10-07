@@ -21,7 +21,7 @@ import { ToolGateService } from './tool-gate.service';
 import { ExternalToolRegistry } from './external-tool-registry';
 import { ToolDefinition, ToolResult, RISK_STRATEGY, resolveRevokeClass } from '../interfaces/tool.interface';
 import { ExternalToolProvider, ExternalToolDef } from '../external-tool-provider.interface';
-import { GovernancePolicyService, effectiveGateMode } from '../governance/governance-policy.service';
+import { GovernancePolicyService, effectiveGateMode } from '../governance-bridge/governance-policy.service';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
 
 @Injectable()

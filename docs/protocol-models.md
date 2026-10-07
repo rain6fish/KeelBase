@@ -85,7 +85,7 @@ user  → can('manage', 'User', { id: user.sub })
 
 实例校验：`subject('Event', obj)` + `ability.cannot('read', subject) → 403`。
 
-### 3.2 Policy（`src/ai/governance/governance-policy.service.ts`，HS-9）
+### 3.2 Policy（`src/ai/governance-bridge/governance-policy.service.ts`，HS-9）
 
 数据驱动策略，存于 Settings `ai_governance_policy`（JSON），实时生效无需发版：
 

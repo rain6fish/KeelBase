@@ -54,7 +54,7 @@ Human       →  Decide（拥有最终决策权）
 AI 能调用某个 Tool、知道某个 API、能生成 SQL、能理解数据库结构——**都不代表它被允许执行**。
 
 **实现证据**：
-- 工具风险分级 R0-R5 + `riskStrategy`（`src/ai/governance/`）：R1 读自动 / R3 写确认 / R4 双人审批 / R5 阻断
+- 工具风险分级 R0-R5 + `riskStrategy`（`src/ai/governance-bridge/`）：R1 读自动 / R3 写确认 / R4 双人审批 / R5 阻断
 - 治理策略表 `ai_governance_policy`（工具开关 / 确认 / 角色白名单，实时生效）
 - sidecar 工具门控（S-2：`SIDECAR_TOOLS` → R5 阻断 / R3-R4 hold-and-release）
 

@@ -5,7 +5,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SettingsService } from '../../settings/settings.service';
 import { assertPublicUrl } from '../../common/utils/ssrf';
-import { GovernancePolicyService } from '../../ai/governance/governance-policy.service';
+import { GovernancePolicyService } from '../../ai/governance-bridge/governance-policy.service';
 import { AuditService } from '../../ai/audit/audit.service';
 import { ToolExposureService } from '../../ai/tools/tool-exposure.service';
 import { ExternalToolProvider, ExternalToolDef, ExternalToolCall } from '../../ai/external-tool-provider.interface';

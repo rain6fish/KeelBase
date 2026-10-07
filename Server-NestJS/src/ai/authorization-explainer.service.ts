@@ -18,7 +18,7 @@ import {
   AuthorizationReasons,
   ToolRiskLevel,
 } from './interfaces/tool.interface';
-import { GovernancePolicyService } from './governance/governance-policy.service';
+import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
 
 /**
  * §internal.16 A-5 / T5 跨入口一致：**放行授权依据快照的单一构造**（JSON 字符串）。

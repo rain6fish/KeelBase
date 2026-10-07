@@ -5,7 +5,7 @@
 > 状态 / Status: Draft（只出规格，落地含迁移，排冻结后）/ Draft (spec only; implementation incl. migration post-freeze)
 
 > 基于 / Based on：Policy Evidence（docs/audit-authz-snapshot.spec.md §5，`verifyReproducible` 边界）；Evidence Root（docs/evidence-root.spec.md §5.3 衔接点）。
-> Related: docs/audit-authz-snapshot.spec.md ｜ docs/evidence-root.spec.md ｜ Server-NestJS/src/ai/governance/governance-policy.service.ts
+> Related: docs/audit-authz-snapshot.spec.md ｜ docs/evidence-root.spec.md ｜ Server-NestJS/src/ai/governance-bridge/governance-policy.service.ts
 
 ---
 
@@ -72,9 +72,9 @@
 
 | 文件 | 改动 |
 |---|---|
-| `Server-NestJS/src/ai/governance/ai-governance-policy-history.entity.ts` | 新实体 |
+| `Server-NestJS/src/ai/governance-bridge/ai-governance-policy-history.entity.ts` | 新实体 |
 | `Server-NestJS/src/migrations/*-AddAiGovernancePolicyHistory.ts` | 新迁移（双方言 + postgres 白名单）|
-| `Server-NestJS/src/ai/governance/governance-policy.service.ts` | setPolicy 写历史；getHistory/getSnapshotByRevision；replayDecision；verifyReproducible 升级 |
+| `Server-NestJS/src/ai/governance-bridge/governance-policy.service.ts` | setPolicy 写历史；getHistory/getSnapshotByRevision；replayDecision；verifyReproducible 升级 |
 | `Server-NestJS/src/ai/ai.controller.ts` | admin history 端点（挂治理策略段）|
 | spec / tests | governance-policy.service.spec、migration 一致性 |
 | 文档 | audit-authz-snapshot §5.4、evidence-root §5.3 勾销；docs/evidence README（如涉及）|

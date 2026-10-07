@@ -16,8 +16,8 @@ import { requestContext } from '../../common/request-context';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { buildPayload } from './payload';
 import { AUDIT_VERIFY_CACHE_KEY } from './cache-keys';
-import { GOVERNANCE_REPORTER } from '../governance/governance-reporter.service';
-import type { GovernanceReporter } from '../governance/governance-reporter.service';
+import { GOVERNANCE_REPORTER } from '../governance-bridge/governance-reporter.service';
+import type { GovernanceReporter } from '../governance-bridge/governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
 
 export interface AuditEntry {

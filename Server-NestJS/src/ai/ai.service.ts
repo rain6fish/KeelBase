@@ -42,7 +42,7 @@ import {
   RISK_STRATEGY,
   AuthorizationDeniedError,
 } from './interfaces/tool.interface';
-import { GovernancePolicyService } from './governance/governance-policy.service';
+import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
 import {
   markSystemBoundary,
   sanitizeExternalContent,

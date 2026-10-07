@@ -48,7 +48,7 @@ async function probeResult(p) {
 const CAPABILITIES = [
   { name: 'AI Tools', probe: 'Server-NestJS/src/ai/tools', detail: 'Agent 工具（读 / 写确认）' },
   { name: 'CASL Permission', probe: 'Server-NestJS/src/common/casl', detail: '数据级权限' },
-  { name: 'Governance', probe: 'Server-NestJS/src/ai/governance', detail: 'HS-9 治理策略' },
+  { name: 'Governance', probe: 'Server-NestJS/src/ai/governance-bridge', detail: 'HS-9 治理策略' },
   { name: 'AI Audit', probe: 'Server-NestJS/src/ai/audit', detail: 'AI 审计哈希链' },
   { name: 'Operation Audit', probe: 'Server-NestJS/src/operation-audit', detail: '操作审计' },
   { name: 'Agent Runtime', probe: 'Server-NestJS/src/ai', detail: '对话 / 工具 / 记忆 / RAG' },

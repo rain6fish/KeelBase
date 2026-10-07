@@ -14,7 +14,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ToolRegistry } from './tool-registry';
 import { ExternalToolRegistry } from './external-tool-registry';
-import { GovernancePolicyService } from '../governance/governance-policy.service';
+import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { UsersService } from '../../users/users.service';
 import {

@@ -52,7 +52,7 @@ const HELP = `KeelBase doctor — 诊断 KeelBase 应用 + 本地环境预检
 const REQUIRED_RUNTIME = [
   { name: 'AI Tools', path: 'Server-NestJS/src/ai/tools' },
   { name: 'CASL Permission', path: 'Server-NestJS/src/common/casl' },
-  { name: 'Governance', path: 'Server-NestJS/src/ai/governance' },
+  { name: 'Governance', path: 'Server-NestJS/src/ai/governance-bridge' },
   { name: 'AI Audit', path: 'Server-NestJS/src/ai/audit' },
   { name: 'Operation Audit', path: 'Server-NestJS/src/operation-audit' },
   { name: 'Agent Runtime', path: 'Server-NestJS/src/ai' },

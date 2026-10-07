@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { readApplicationManifest } from '../common/provenance/application-manifest';
 import { AiService } from '../ai/ai.service';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
-import { GovernancePolicyService } from '../ai/governance/governance-policy.service';
+import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';
 import { ADMIN_SYSTEM_PROMPT } from '../ai/constants/admin-system-prompt';
 import { APP_VERSION } from '../app-version/app-version.config';
 import { CapabilitiesService } from '../app-version/capabilities.service';

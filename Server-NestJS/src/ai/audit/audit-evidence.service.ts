@@ -25,7 +25,7 @@ import { AuthorizationExplainerService } from '../authorization-explainer.servic
 import { AiAgentService } from '../agents/ai-agent.service';
 import { OperationAuditService } from '../../operation-audit/operation-audit.service';
 import { pathsForResultType } from '../../operation-audit/resource-routes';
-import { GovernancePolicyService } from '../governance/governance-policy.service';
+import { GovernancePolicyService } from '../governance-bridge/governance-policy.service';
 import {
   summarizeAudit,
   AuditInterpretation,
