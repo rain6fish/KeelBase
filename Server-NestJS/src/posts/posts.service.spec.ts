@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PostsService } from './posts.service';
 import { Post } from './post.entity';
@@ -14,6 +14,7 @@ describe('PostsService', () => {
   const mockRepo = {
     create: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
     find: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
@@ -53,6 +54,7 @@ describe('PostsService', () => {
     mockRepo.count.mockResolvedValue(0);
     mockRepo.findAndCount.mockResolvedValue([[], 0]);
     mockRepo.delete.mockResolvedValue({ affected: 0 });
+    mockRepo.update.mockResolvedValue({ affected: 1 });
     mockLikeRepo.create.mockImplementation((d: any) => d);
     mockLikeRepo.save.mockImplementation((d: any) => Promise.resolve(d));
     mockLikeRepo.count.mockResolvedValue(0);
@@ -155,13 +157,55 @@ describe('PostsService', () => {
 
   // ── 补充覆盖：update / listComments / unfollow ────────────────────────────
 
-  it('update 合并 dto 并保存', async () => {
-    const entity = { id: 1, userId: 5, title: '旧' };
-    mockRepo.findOne.mockResolvedValue(entity);
-    mockRepo.save.mockImplementation(async (e: any) => e);
-    const result = await service.update(1, { title: '新' } as any, mockAbility(true));
+  it('update 用条件更新写入（带调用方读到的版本）', async () => {
+    const entity = { id: 1, userId: 5, title: '旧', version: 2 };
+    mockRepo.findOne.mockResolvedValueOnce(entity); // 所有权检查读到的行
+    mockRepo.update.mockResolvedValue({ affected: 1 });
+    mockRepo.findOne.mockResolvedValueOnce({ ...entity, title: '新', version: 3 });
+
+    const result = await service.update(1, { title: '新', version: 2 } as any, mockAbility(true));
+
     expect(result.title).toBe('新');
-    expect(mockRepo.save).toHaveBeenCalled();
+    // 写入是**条件**的：版本进了 where，更新表达式自己 +1 —— 这一条正是防「无声覆盖」的那道闸。
+    expect(mockRepo.update).toHaveBeenCalledWith(
+      { id: 1, version: 2 },
+      expect.objectContaining({ version: expect.any(Function) }),
+    );
+    expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update 版本陈旧 ⇒ 409（影响 0 行即冲突）', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, version: 3 });
+    mockRepo.update.mockResolvedValue({ affected: 0 });
+
+    await expect(
+      service.update(1, { title: '新', version: 2 } as any, mockAbility(true)),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('findAll 带 q 时按声明的列收窄，且每条分支各自带 userId', async () => {
+    mockRepo.find.mockResolvedValue([]);
+
+    await service.findAll(5, ' 标题 ');
+
+    expect(mockRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [
+          { userId: 5, title: expect.anything() },
+          { userId: 5, content: expect.anything() },
+        ],
+      }),
+    );
+  });
+
+  it('管理端：findAllForAdmin 不受 userId 限制 · removeAsAdmin 直接软删', async () => {
+    mockRepo.find.mockResolvedValue([]);
+    await service.findAllForAdmin();
+    expect(mockRepo.find).toHaveBeenCalledWith({ order: { createdAt: 'DESC' } });
+
+    mockRepo.softDelete.mockResolvedValue({ affected: 1 });
+    await service.removeAsAdmin(9);
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(9);
   });
 
   it('listComments 分页返回', async () => {

@@ -28,6 +28,7 @@ const RESULT_TYPE_EVENTS: Record<string, string> = {
   contract: 'ContractCreated',
   book: 'BookCreated',
   note: 'NoteCreated',
+  post: 'PostCreated',
   supplier: 'SupplierCreated',
   tag: 'TagCreated',
 };

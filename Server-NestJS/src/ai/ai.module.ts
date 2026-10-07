@@ -18,6 +18,8 @@ import { EventsModule } from '../events/events.module';
 import { UsersModule } from '../users/users.module';
 import { TodosModule } from '../todos/todos.module';
 import { TodosService } from '../todos/todos.service';
+import { PostsModule } from '../posts/posts.module';
+import { PostsService } from '../posts/posts.service';
 import { TagsModule } from '../tags/tags.module';
 import { TagsService } from '../tags/tags.service';
 import { SuppliersModule } from '../suppliers/suppliers.module';
@@ -85,6 +87,8 @@ import { NavigatePageTool } from './tools/navigate-page.tool';
 import { AdminNavigatePageTool } from './tools/navigate-admin-page.tool';
 import { CreateEventTool } from './tools/create-event.tool';
 import { CreateTodoTool } from './tools/create-todo.tool';
+import { QueryPostsTool } from './tools/query-posts.tool';
+import { CreatePostTool } from './tools/create-posts.tool';
 import { QueryTagsTool } from './tools/query-tags.tool';
 import { CreateTagTool } from './tools/create-tags.tool';
 import { QuerySuppliersTool } from './tools/query-suppliers.tool';
@@ -188,6 +192,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     EventsModule,
     UsersModule,
     TodosModule,
+    PostsModule,
     TagsModule,
     SuppliersModule,
     NotesModule,
@@ -266,6 +271,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         knowledgeService: KnowledgeService,
         abilityFactory: CaslAbilityFactory,
         todosService: TodosService,
+        postsService: PostsService,
         tagsService: TagsService,
         suppliersService: SuppliersService,
         notesService: NotesService,
@@ -387,6 +393,9 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
         toolRegistry.register(new CreateModuleApplyTool());
         toolRegistry.register(new CreateEventTool(eventsService));
         toolRegistry.register(new CreateTodoTool(todosService));
+        // 帖子（EASY-2 自动生成 AI 工具）
+        toolRegistry.register(new QueryPostsTool(postsService));
+        toolRegistry.register(new CreatePostTool(postsService));
         // 标签（EASY-2 自动生成 AI 工具）
         toolRegistry.register(new QueryTagsTool(tagsService));
         toolRegistry.register(new CreateTagTool(tagsService));
@@ -514,7 +523,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
           contentSafety,
         );
       },
-      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
+      inject: [ConfigService, EventsService, UsersService, OrgService, OrgDirectoryService, ConversationService, AuditService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService, KnowledgeService, CaslAbilityFactory, TodosService, PostsService, TagsService, SuppliersService, NotesService, BooksService, ReportsService, FollowupPlansService, ContractsService, MemoriesService, ConfirmationStore, SettingsService, CircuitBreakerService, AiToolEffectsService, GovernancePolicyService, CrmService, CrmAnalyticsService, PmService, ApprovalService, DelegationTokenService, ContentSafetyService, ToolRegistry, AuthorizationExplainerService],
     },
   ],
   exports: [ConversationService, AiAuditModule, AiService, KnowledgeIngestionService, AuthzExplainModule, ConfirmationStore, BehaviorBaselineService, AuditStatsService, AuditQueryService, AuditEvidenceService, AiDailyUsageService, ToolGateService, ToolExecutionService, R4ApprovalService, ToolPresentationService, ToolExposureService],

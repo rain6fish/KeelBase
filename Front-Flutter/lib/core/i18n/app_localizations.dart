@@ -780,6 +780,8 @@ class AppLocalizations {
     'ai.tool.createBook': ['Create book', '创建图书'],
     'ai.tool.queryNotes': ['Query notes', '查询笔记'],
     'ai.tool.createNote': ['Create note', '创建笔记'],
+    'ai.tool.queryPosts': ['Query posts', '查询帖子'],
+    'ai.tool.createPost': ['Create post', '创建帖子'],
     'ai.tool.querySuppliers': ['Query suppliers', '查询供应商'],
     'ai.tool.createSupplier': ['Create supplier', '创建供应商'],
     'ai.tool.queryTags': ['Query tags', '查询标签'],

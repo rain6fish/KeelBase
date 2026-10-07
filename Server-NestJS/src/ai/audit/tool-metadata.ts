@@ -83,6 +83,8 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   create_contract: { label: 'Create contract', event: 'ContractCreated' },
   query_notes: { label: 'Query notes' },
   create_note: { label: 'Create note', event: 'NoteCreated' },
+  query_posts: { label: 'Query posts' },
+  create_post: { label: 'Create post', event: 'PostCreated' },
   query_reports: { label: 'Query reports' },
   create_report: { label: 'Create report', event: 'ReportCreated' },
   query_suppliers: { label: 'Query suppliers' },

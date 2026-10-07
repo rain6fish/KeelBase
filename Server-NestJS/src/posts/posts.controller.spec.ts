@@ -14,6 +14,7 @@ describe('PostsController', () => {
     postsService = Object.fromEntries(
       [
         'create', 'findAll', 'update', 'remove',
+        'findAllForAdmin', 'removeAsAdmin',
         'likePost', 'unlikePost', 'commentPost', 'listComments',
         'followUser', 'unfollowUser',
       ].map((m) => [m, jest.fn()]),
@@ -34,9 +35,24 @@ describe('PostsController', () => {
     await expect(controller.remove(1, mockUser as any, ability)).resolves.toBeNull();
 
     expect(postsService.create).toHaveBeenCalledWith(dto, 1);
-    expect(postsService.findAll).toHaveBeenCalledWith(1);
+    expect(postsService.findAll).toHaveBeenCalledWith(1, undefined);
     expect(postsService.update).toHaveBeenCalledWith(1, dto, ability);
     expect(postsService.remove).toHaveBeenCalledWith(1, ability);
+
+    // `q` 原样交给 service —— 过滤由它施加，controller 不做任何解释。
+    await controller.findAll(mockUser as any, '标题');
+    expect(postsService.findAll).toHaveBeenCalledWith(1, '标题');
+  });
+
+  it('管理端端点委托 service（admin 门在装饰器上，controller 只管转发）', async () => {
+    postsService.findAllForAdmin.mockResolvedValue([]);
+    postsService.removeAsAdmin.mockResolvedValue(undefined);
+
+    await expect(controller.findAllForAdmin()).resolves.toEqual([]);
+    await expect(controller.removeAsAdmin(9)).resolves.toBeNull();
+
+    expect(postsService.findAllForAdmin).toHaveBeenCalled();
+    expect(postsService.removeAsAdmin).toHaveBeenCalledWith(9);
   });
 
   it('点赞/取消点赞委托 service', () => {

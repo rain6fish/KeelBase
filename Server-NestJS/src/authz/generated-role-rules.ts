@@ -13,6 +13,8 @@ import type { RoleRuleSeed } from '../common/casl/builtin-role-rules';
  */
 export const GENERATED_ROLE_RULES: RoleRuleSeed[] = [
   // keelbase init 生成模块
+  { roleCode: 'user', subject: 'Post', ownerField: 'userId' },
+  // keelbase init 生成模块
   { roleCode: 'user', subject: 'Tag', ownerField: 'userId' },
   // keelbase init 生成模块
   { roleCode: 'user', subject: 'Supplier', ownerField: 'userId' },
