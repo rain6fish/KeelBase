@@ -106,7 +106,9 @@ const MATRIX: MatrixRow[] = [
     createBody: () => ({ name: '越权矩阵供应商', contact: '测试', status: 'active', riskLevel: 'low' }),
     listPath: '/api/v1/suppliers',
     ops: [
-      { op: 'PATCH :id', method: 'patch', path: (id) => `/api/v1/suppliers/${id}`, body: { name: '被篡改' } },
+      // 生成模块的更新是乐观锁条件更新，`version` 是**必填** ⇒ 少了它，请求会停在 400，到不了这条探针
+      // 要问的所有权检查。这里给一个版本只为过校验：所有权检查发生在比较版本**之前**，故探针的语义不变。
+      { op: 'PATCH :id', method: 'patch', path: (id) => `/api/v1/suppliers/${id}`, body: { name: '被篡改', version: 1 } },
       { op: 'DELETE :id', method: 'delete', path: (id) => `/api/v1/suppliers/${id}` },
     ],
   },
@@ -116,7 +118,7 @@ const MATRIX: MatrixRow[] = [
     createBody: () => ({ name: '越权矩阵合同', counterparty: '测试', status: 'draft' }),
     listPath: '/api/v1/contracts',
     ops: [
-      { op: 'PATCH :id', method: 'patch', path: (id) => `/api/v1/contracts/${id}`, body: { name: '被篡改' } },
+      { op: 'PATCH :id', method: 'patch', path: (id) => `/api/v1/contracts/${id}`, body: { name: '被篡改', version: 1 } },
       { op: 'DELETE :id', method: 'delete', path: (id) => `/api/v1/contracts/${id}` },
     ],
   },
