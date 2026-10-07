@@ -19,11 +19,10 @@ const TARO_TS_TYPE = {
   decimal: () => 'string',
   // ref 在 TS 侧只暴露外键 id（number）
   ref: () => 'number',
-  // An attachment stays a scalar placeholder in the request shape; the side table rides along in the
-  // item's `attachments` array instead (see taroTypesTemplate and the page's first-field display).
-  // 附件在请求形状里仍是标量占位；侧表改随条目的 `attachments` 数组带回（见 taroTypesTemplate
-  // 与页面首字段的显示）。
-  attachment: () => 'string',
+  // No `attachment` entry on purpose: it is not a scalar member at all, so nothing here should map
+  // it — the side table rides in the item's `attachments` array instead (see taroTypesTemplate).
+  // 刻意不放 `attachment`：它根本不是标量成员，故这里不该有映射 —— 侧表随条目的
+  // `attachments` 数组带回（见 taroTypesTemplate）。
 };
 
 export function taroServiceTemplate(ctx) {
@@ -47,13 +46,21 @@ export const ${ctx.plural}Service = {
 }
 
 export function taroTypesTemplate(ctx) {
-  const itemFields = ctx.fields
-    .map((f) => `  ${f.name}${f.type === 'int' || f.type === 'date' ? '?' : ''}: ${TARO_TS_TYPE[f.type]()}`)
-    .join('\n');
-  const reqFields = ctx.fields
-    .map((f) => `  ${f.name}${f.type === 'int' || f.type === 'date' ? '?' : ''}: ${TARO_TS_TYPE[f.type]()};`)
-    .join('\n');
+  // An attachment is not a scalar member: the API sends the side table instead (see below) and the
+  // generated create DTO carries no such field — declaring one would promise a member that never
+  // arrives. Both ends that already solved this (admin, Flutter) leave it out the same way.
+  // 附件不是标量成员：接口发的是侧表（见下），生成的 create DTO 里也没有这个字段 —— 在这里声明
+  // 等于承诺一个永不出现的成员。已经解决过这件事的两端（管理台、Flutter）也都是这么留白的。
   const attFields = attachmentFields(ctx.fields);
+  const scalarFields = ctx.fields.filter((f) => f.type !== 'attachment');
+  const optionalMark = (f) => (f.type === 'int' || f.type === 'date' ? '?' : '');
+  const itemMembers = [
+    ...scalarFields.map((f) => `  ${f.name}${optionalMark(f)}: ${TARO_TS_TYPE[f.type]()}`),
+    ...(attFields.length === 0 ? [] : [`  attachments?: ${ctx.singlePascal}Attachment[]`]),
+  ].join('\n');
+  const reqMembers = scalarFields
+    .map((f) => `  ${f.name}${optionalMark(f)}: ${TARO_TS_TYPE[f.type]()};`)
+    .join('\n');
   // One row of the side table, shaped as the API returns it — the same shape the admin and Flutter read.
   // 侧表的一行，形状同接口返回 —— 与管理台、Flutter 读的是同一个形状。
   const attachInterface =
@@ -69,15 +76,14 @@ export interface ${ctx.singlePascal}Attachment {
   size: number
 }
 `;
-  const attachDecl = attFields.length === 0 ? '' : `\n  attachments?: ${ctx.singlePascal}Attachment[]`;
   return `export interface ${ctx.singlePascal}Item {
   id: number
-${itemFields}${attachDecl}
+${itemMembers}
   createdAt: string
 }
 ${attachInterface}
 export interface Create${ctx.singlePascal}Request {
-${reqFields}
+${reqMembers}
 }
 `;
 }

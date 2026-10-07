@@ -318,8 +318,9 @@ test('Taro：条目的类型带侧表数组（与管理台 / Flutter 同一形�
   assert.ok(types.includes('attachments?: OrderAttachment[]'));
   assert.ok(types.includes('storageKey: string'), '存的是存储键，不是裸 URL');
   assert.ok(types.includes('originalName: string'), '显示用的是原名');
-  // 请求形状里附件仍是标量占位 —— 本轮不动的边界，钉住以免被顺手改掉
-  assert.ok(types.includes('contract: string;'));
+  // 附件也不是标量成员 —— 接口不发这个键，生成的 create DTO 里同样没有它（与管理台、Flutter 一致）。
+  // 2026-10-07 之前 Taro 两端形状都声明了 `contract: string`，那是个永不出现的成员。
+  assert.ok(!types.includes('contract: string'), '不得声明接口不会发的标量成员（条目或请求形状都不行）');
 
   // 无附件字段 → 不产侧表类型、不留没人用的成员（不产死代码）
   const plain = taroTypesTemplate(ctxWith([{ name: 'title', type: 'string' }]));
