@@ -9,6 +9,46 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { adminI18nKeys } from './templates-admin.mjs';
 import { aiToolsFlags, attachmentFields, enumLabelGetter, hasEnumLabels } from './validate.mjs';
 
+/**
+ * Every file the wiring edits, relative to the repository root.
+ *
+ * Exported because a caller that generates into a **shared checkout** has to put the tree back
+ * afterwards, and "put it back" means exactly these files. A blanket `git checkout -- .` also reverts
+ * whatever somebody else had in flight while the run was going — `verify-consulting-to-build.sh`
+ * guards on a clean tree at entry, but a run takes minutes and that guard cannot see the exit. Listed
+ * here rather than in the caller so there is one source: a wiring this list misses leaves a modified
+ * tree behind, which the next run's guard refuses and somebody reads — the failure that shows up,
+ * rather than the one that silently reverts other people's work.
+ *
+ * 接线会改的每一个文件，相对仓库根。
+ *
+ * 之所以导出：往**共用检出**里生成的调用方事后必须把树放回去，而「放回去」指的正是这些文件。一句笼统的
+ * `git checkout -- .` 会连**别人在这趟运行期间**的在途改动一起还原——`verify-consulting-to-build.sh` 只在
+ * **进入时**守着干净工作树，而一趟要跑几分钟，那道守卫看不到出口。把它们列在**这里**而不是调用方，是为了
+ * 只有一个源：漏掉一条接线的后果是**树被留下改动**（下一次运行会被守卫挡下、有人会读它），而不是**悄悄
+ * 还原别人的工作**。
+ */
+export const WIRED_FILES = [
+  'Server-NestJS/src/app.module.ts',
+  'Server-NestJS/src/common/modules/modules-manifest.ts',
+  'Server-NestJS/src/feature-flags/feature-flags.constants.ts',
+  'Server-NestJS/src/authz/generated-role-rules.ts',
+  'Server-NestJS/src/ai/ai.module.ts',
+  'Server-NestJS/src/ai/tools/navigate-page.tool.ts',
+  'Server-NestJS/src/ai/constants/admin-pages.ts',
+  'Front-Flutter/lib/main.dart',
+  'Front-Flutter/lib/core/router/app_router.dart',
+  'Front-Flutter/lib/core/widgets/app_shell.dart',
+  'Front-Flutter/lib/core/i18n/app_localizations.dart',
+  'Web-Admin-Vue/src/router/routes.ts',
+  'Web-Admin-Vue/src/layouts/AdminLayout.vue',
+  'Web-Admin-Vue/src/i18n/zh.ts',
+  'Web-Admin-Vue/src/i18n/en.ts',
+  'Front-Taro/src/app.config.ts',
+  'Front-Taro/src/pages/explore/index.vue',
+  '.keelbase/manifest.json',
+];
+
 /** 在 anchor 之后插入；marker 已存在则幂等跳过。 */
 function insertAfter(content, anchor, insertion, marker) {
   if (marker && content.includes(marker)) {
