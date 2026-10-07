@@ -56,7 +56,10 @@ fi
 # + 本脚本自己产的那两件。
 cleanup() {
   cd "$ROOT" 2>/dev/null || true
-  local touched=("${PLANNED[@]}" "${WIRED_ARRAY[@]}" "$SPEC" "Server-NestJS/$DB")
+  # `Server-NestJS/src/<复数>` 是**按目录**进的：这一轮还会写该模块目录下的**来源清单 sidecar**
+  # （`.keelbase-provenance.json`），它既不在 `--dry-run` 的清单里、也不是接线文件 —— 只靠上面两张表会
+  # 把它落下（首轮实测：跑完只有它还是脏的）。目录这一条同时兜住该目录下任何**已跟踪**的产物。
+  local touched=("${PLANNED[@]}" "${WIRED_ARRAY[@]}" "Server-NestJS/src/${PLURAL:-__none__}" "$SPEC" "Server-NestJS/$DB")
   # `git ls-files` 先把表过滤成**已跟踪**那部分再 checkout：`git checkout` 碰到一个不存在的 pathspec 会
   # **整个中止**（2026-10-07 实测：连合法的那条也不还原），而这张表里既有 tracked 又有 untracked（`PLANNED`
   # 多是新文件）⇒ 不过滤就等于**什么都没还原**，还偏偏被 `|| true` 吞掉、看不出来。
