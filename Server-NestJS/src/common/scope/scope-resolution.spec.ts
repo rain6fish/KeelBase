@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { orgContextOf, resolveScopeDescriptor } from './scope-resolution';
+import { ForbiddenException } from '@nestjs/common';
+import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from './scope-resolution';
 
 /**
  * These two helpers were extracted from `TodosService` and `EventsService`, where they existed as
@@ -49,5 +50,24 @@ describe('resolveScopeDescriptor', () => {
     const descriptor = await resolveScopeDescriptor(5, 'Todo', org as never, undefined);
 
     expect(descriptor).toMatchObject({ userId: 5, orgId: 7, deptId: null, level: 'org' });
+  });
+});
+
+describe('assertCallerIdentity', () => {
+  it('有身份 → 放行', () => {
+    expect(() => assertCallerIdentity(5, '搜索')).not.toThrow();
+  });
+
+  it('缺席（undefined / null）→ 拒绝，而不是让调用方退回更宽的范围', () => {
+    expect(() => assertCallerIdentity(undefined as unknown as number, '搜索')).toThrow(ForbiddenException);
+    expect(() => assertCallerIdentity(null as unknown as number, '搜索')).toThrow(ForbiddenException);
+  });
+
+  it('非数字 → 拒绝（`Number(userId)` 的 NaN 不得静默成为一个合法主体）', () => {
+    expect(() => assertCallerIdentity(Number('abc'), '搜索')).toThrow(ForbiddenException);
+  });
+
+  it('措辞带上动作名，好让拒绝可归因', () => {
+    expect(() => assertCallerIdentity(undefined as unknown as number, '读取待办')).toThrow(/读取待办/);
   });
 });

@@ -32,9 +32,9 @@ Scope is expressed as an **internal descriptor** translated by a pure function i
 | `custom_dept` | `[{deptId: In(集合)}]` |
 | `all` | 不施加行级条件（由 CASL 粗门承担） |
 
-**降级规则**：缺组织/部门信息时一律**退回本人**（收紧而非放宽）。未登记在 `SCOPE_COLUMNS` 的实体**不可被范围过滤**，调用方保持自身 owner 条件——**绝不静默放宽**。**缺调用者身份时一律拒绝**（`EventsService._assertCallerIdentity`，2026-10-08）：那不是「未过滤」，而是「每一行」——是放宽，不是降级。
+**降级规则**：缺组织/部门信息时一律**退回本人**（收紧而非放宽）。未登记在 `SCOPE_COLUMNS` 的实体**不可被范围过滤**，调用方保持自身 owner 条件——**绝不静默放宽**。**缺调用者身份时一律拒绝**（`assertCallerIdentity`，`scope-resolution.ts` 单一源，2026-10-08）：那不是「未过滤」，而是「每一行」——是放宽，不是降级。
 
-**Degradation**: missing org/dept information falls back to **owner-only** (tighten, never widen). An entity absent from `SCOPE_COLUMNS` is not scope-filterable; callers keep their own owner condition — **never silently widen**. **A missing caller identity is denied** (`EventsService._assertCallerIdentity`, 2026-10-08): that is not "unfiltered" but "every row" — a widening, not a degradation.
+**Degradation**: missing org/dept information falls back to **owner-only** (tighten, never widen). An entity absent from `SCOPE_COLUMNS` is not scope-filterable; callers keep their own owner condition — **never silently widen**. **A missing caller identity is denied** (`assertCallerIdentity` in `scope-resolution.ts`, single source, 2026-10-08): that is not "unfiltered" but "every row" — a widening, not a degradation.
 
 ## 3. 实现落点
 
@@ -43,7 +43,7 @@ Scope is expressed as an **internal descriptor** translated by a pure function i
 | 描述子类型 | `src/common/scope/scope.types.ts` | `ScopeDescriptor` / `ScopeLevel`（**内部对象，不出线缆**） |
 | where 构造 | `src/common/scope/scope-where.ts` | `SCOPE_COLUMNS` 登记表 + `buildScopeWhere`（列表）+ `rowInScope`（对象级，与列表同源）+ `registerScopeColumns`（**自登记的那一半**，见下） |
 | 级别来源 | `src/authz/`（`RoleRuleRegistry` + `DataScopeService`） | **按角色配置**：`roles.data_scope`，可被 `role_permissions.data_scope` **按主体覆盖**；未配置 → 回退 `src/common/scope/scope-policy.ts` 的内置默认（+ `registerOrgLevelSubject`，同上的自登记那一半） |
-| 解析助手 | `src/common/scope/scope-resolution.ts` | `orgContextOf` + `resolveScopeDescriptor` —— 「级别从哪来」与「没有组织意味着什么」只此一处（此前 `TodosService` / `EventsService` 各一份私有副本，生成模块会带来第三、第四份） |
+| 解析助手与身份守卫 | `src/common/scope/scope-resolution.ts` | `orgContextOf` + `resolveScopeDescriptor`（「级别从哪来」与「没有组织意味着什么」只此一处）+ `assertCallerIdentity`（范围读写缺调用者身份即拒）。三者理由相同：规则只留一个出处（此前 `TodosService` / `EventsService` 各一份私有副本，生成模块会带来第三、第四份） |
 | 角色/能力数据 | `roles` · `permissions` · `role_permissions` · `user_roles` | 权限-2 Step 2 四表；`UserRole` 枚举仍是代码侧事实来源，`user_roles` 是它的表侧镜像 |
 | 部门物化路径 | `src/org/department.entity.ts` `ancestors` + `OrgService._rebuildAncestorsForOrg` / `listDeptSubtreeIds` | 「本部门及以下」下钻（`ancestors LIKE '%/<id>/%'`） |
 | 写入盖章 | CRM / PM / Approval 创建路径；**生成模块**（协议 `scope` 声明时） | 落 `org_id`/`dept_id`（`null` = 仅 owner 可见） |

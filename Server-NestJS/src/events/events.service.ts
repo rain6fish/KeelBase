@@ -14,7 +14,7 @@ import { CacheService } from '../common/cache/cache.service';
 import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
 import { type OrgContext } from '../common/scope/scope-policy';
-import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
+import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
 import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
 import { DataScopeService } from '../authz/data-scope.service';
 
@@ -192,7 +192,7 @@ export class EventsService implements OnModuleInit {
     end: string | undefined,
     userId: number,
   ): Promise<Event[]> {
-    this._assertCallerIdentity(userId, '范围查询');
+    assertCallerIdentity(userId, '范围查询');
 
     // 权限-2：行级数据范围（默认级别 = ORG-3 语义「本人 OR 同组织」；可按角色配置）
     const descriptor = await this._scopeFor(userId);
@@ -227,26 +227,8 @@ export class EventsService implements OnModuleInit {
     return orgContextOf(this.orgService, userId);
   }
 
-  /**
-   * Fail closed when the caller identity is missing.
-   *
-   * A scoped read without a caller is not "unfiltered" — it is "every row", the widest possible answer to
-   * a question that was never authorised. Absence must therefore deny rather than widen. The HTTP path
-   * always carries `user.sub`; this guard covers what TS cannot see (plain JS, `as any`, hand-built mocks).
-   *
-   * 调用者身份缺席即拒。
-   *
-   * 带范围的读取若没有调用者，不是「未过滤」，而是「每一行」—— 对一个从未被授权的提问给出最宽的答案。
-   * 故缺席必须拒绝、而不是放宽。HTTP 路径恒带 `user.sub`；此守卫兜住 TS 看不见的调用方（JS / `as any` / 手搓替身）。
-   */
-  private _assertCallerIdentity(userId: number, what: string): void {
-    if (userId == null || Number.isNaN(Number(userId))) {
-      throw new ForbiddenException(`无法确定调用者身份，拒绝${what}`);
-    }
-  }
-
   async search(params: SearchEventsParams, userId: number): Promise<PaginatedResult<Event>> {
-    this._assertCallerIdentity(userId, '搜索');
+    assertCallerIdentity(userId, '搜索');
 
     // CR-19：limit 钳制 1-100，防超大值全表拉取 + 缓存键膨胀
     params.page = Math.max(1, params.page);
@@ -313,7 +295,7 @@ export class EventsService implements OnModuleInit {
   }
 
   async findOne(id: number, ability: AppAbility, userId: number): Promise<Event> {
-    this._assertCallerIdentity(userId, '读取事件');
+    assertCallerIdentity(userId, '读取事件');
     const event = await this.eventsRepository.findOne({ where: { id } });
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -330,12 +312,12 @@ export class EventsService implements OnModuleInit {
    * "visible in the list, 403 by id" is gone.
    *
    * The caller's identity is required, as it is in `ReportsService._canAccess`; absence is a deny handled
-   * by `_assertCallerIdentity` before this is reached, not a silent fall back to CASL alone.
+   * by `assertCallerIdentity` before this is reached, not a silent fall back to CASL alone.
    *
    * ORG-3 统一访问控制：本人（CASL 所有权）**或**同组织成员可读/管理，使明细与列表（本人 OR 同组织）
    * 一致，消除「列表可见但明细 403」的半套隔离。
    *
-   * 调用者身份必填，与 `ReportsService._canAccess` 同口径；缺席由 `_assertCallerIdentity` 在进入本方法
+   * 调用者身份必填，与 `ReportsService._canAccess` 同口径；缺席由 `assertCallerIdentity` 在进入本方法
    * 前拒绝，而不是静默退回仅 CASL。
    */
   private async _canAccess(event: Event, ability: AppAbility, userId: number): Promise<boolean> {

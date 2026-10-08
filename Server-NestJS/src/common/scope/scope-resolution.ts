@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ForbiddenException } from '@nestjs/common';
 import { defaultScopeDescriptor, type OrgContext } from './scope-policy';
 import type { ScopeDescriptor } from './scope.types';
 import type { OrgService } from '../../org/org.service';
@@ -60,4 +61,24 @@ export async function resolveScopeDescriptor(
   return dataScope
     ? dataScope.resolve(userId, subject)
     : defaultScopeDescriptor(userId, subject, await orgContextOf(org, userId));
+}
+
+/**
+ * Refuse a scoped read or write whose caller identity is missing.
+ *
+ * A scoped query without a caller is not "unfiltered" — it is "every row", the widest possible answer to a
+ * question that was never authorised, so absence must deny rather than widen. The guard sits beside the
+ * resolution helpers for the reason those helpers exist: one home for the rule, and for its message.
+ * Callers that reach here with a missing identity are the ones TS cannot see (plain JS, `as any`, doubles).
+ *
+ * 拒绝调用者身份缺失的范围读写。
+ *
+ * 没有调用者的范围查询不是「未过滤」，而是「每一行」—— 对一个从未被授权的提问给出最宽的答案；故缺席
+ * 必须拒绝、而不是放宽。守卫与解析助手放在同一处，理由也是那些助手存在的理由：规则与其措辞只有一个出处。
+ * 真的会带着缺失身份走到这里的，是 TS 看不见的那些调用方（JS / `as any` / 替身）。
+ */
+export function assertCallerIdentity(userId: number, what: string): void {
+  if (userId == null || Number.isNaN(Number(userId))) {
+    throw new ForbiddenException(`无法确定调用者身份，拒绝${what}`);
+  }
 }

@@ -269,7 +269,7 @@ The four layers (page / button / data row / field) are **not all required at onc
 
 | Invariant | Enforcement point (single source) | Coverage | Gap |
 |---|---|---|---|
-| Identity resolves, else DENY | global `JwtAuthGuard` (HTTP); `HeadlessGuard` + `headlessKey.ownerUserId`; a scoped read or write is denied again at the service entry (`EventsService._assertCallerIdentity`: `getEventsForRange` / `search` / `findOne`, the last covering `update` / `remove`) | every entry | — |
+| Identity resolves, else DENY | global `JwtAuthGuard` (HTTP); `HeadlessGuard` + `headlessKey.ownerUserId`; a scoped read or write is denied again at the service entry — `assertCallerIdentity` (`common/scope/scope-resolution.ts`, single source): `EventsService`'s `getEventsForRange` / `search` / `findOne` (the last covering `update` / `remove`), `TodosService`'s `findOne` / `update` / `remove` | every entry | — |
 | The privileged sentinel `'0'` is produced only by trusted in-process callers | `ToolGateService.assertToolAllowed` (convention-based) | every entry | ⚠ production is not enforced, only conventional (see §3 L1) |
 | Coarse gate: action × subject | `CaslAbilityFactory` + global `PoliciesGuard` | every surface | — |
 | **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / generated modules | — |

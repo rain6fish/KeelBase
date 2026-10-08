@@ -11,7 +11,7 @@ import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
 import { type OrgContext } from '../common/scope/scope-policy';
-import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
+import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
 import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
 import { DataScopeService } from '../authz/data-scope.service';
 
@@ -67,7 +67,8 @@ export class TodosService {
     return orgContextOf(this.orgService, userId);
   }
 
-  async findOne(id: number, ability: AppAbility, userId?: number): Promise<Todo> {
+  async findOne(id: number, ability: AppAbility, userId: number): Promise<Todo> {
+    assertCallerIdentity(userId, '读取待办');
     const todo = await this.todosRepository.findOne({ where: { id } });
     if (!todo) throw new NotFoundException('Todo not found');
     if (!(await this._canAccess(todo, ability, userId))) {
@@ -80,7 +81,7 @@ export class TodosService {
     id: number,
     dto: UpdateTodoDto,
     ability: AppAbility,
-    userId?: number,
+    userId: number,
   ): Promise<Todo> {
     const todo = await this.findOne(id, ability, userId);
     const updateData: any = { ...dto };
@@ -89,7 +90,7 @@ export class TodosService {
     return this.todosRepository.save(todo);
   }
 
-  async remove(id: number, ability: AppAbility, userId?: number): Promise<void> {
+  async remove(id: number, ability: AppAbility, userId: number): Promise<void> {
     const todo = await this.findOne(id, ability, userId);
     // RG-3 软删除：置 deleted_at，管理台回收站可恢复
     await this.todosRepository.softDelete(todo.id);
@@ -99,13 +100,8 @@ export class TodosService {
    * ORG-3 统一访问控制：本人（CASL 所有权）或同组织成员可读/管理，
    * 与列表层（本人 OR 同组织）保持一致，消除「列表可见但明细 403」的半套隔离。
    */
-  private async _canAccess(
-    todo: Todo,
-    ability: AppAbility,
-    userId?: number,
-  ): Promise<boolean> {
+  private async _canAccess(todo: Todo, ability: AppAbility, userId: number): Promise<boolean> {
     if (ability.can('read', subject('Todo', todo))) return true;
-    if (userId == null) return false;
     // 权限-2：范围扩展与列表 where 同源（消除「列表可见但明细 403」的半套隔离）
     const descriptor = await this._scopeFor(userId);
     return rowInScope(todo as unknown as Record<string, unknown>, descriptor, 'Todo');

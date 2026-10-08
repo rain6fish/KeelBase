@@ -70,7 +70,7 @@ describe('TodosService', () => {
   it('returns todo when CASL allows', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
 
-    const result = await service.findOne(1, mockAbility(true));
+    const result = await service.findOne(1, mockAbility(true), 5);
 
     expect(result.id).toBe(1);
   });
@@ -78,20 +78,30 @@ describe('TodosService', () => {
   it('throws when CASL forbids todo access', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
 
-    await expect(service.findOne(1, mockAbility(false))).rejects.toThrow(ForbiddenException);
+    // 传**非本人** userId：CASL 拒绝且范围层（own）也不含他，两条判据一致地拒绝。
+    // 原先这里不传 userId，靠的就是「缺席 ⇒ false」那条路径 —— 本改动删掉了它。
+    await expect(service.findOne(1, mockAbility(false), 999)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('无 userId 时拒绝（fail-closed，不退化为仅 CASL）', async () => {
+    mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
+
+    // 模拟 TS 看不见的调用方：身份缺席必须拒绝，且在读行之前
+    await expect((service.findOne as any)(1, mockAbility(true))).rejects.toThrow(ForbiddenException);
+    expect(mockRepo.findOne).not.toHaveBeenCalled();
   });
 
   it('throws NotFound when todo missing', async () => {
     mockRepo.findOne.mockResolvedValue(null);
 
-    await expect(service.findOne(1, mockAbility(true))).rejects.toThrow(NotFoundException);
+    await expect(service.findOne(1, mockAbility(true), 5)).rejects.toThrow(NotFoundException);
   });
 
   it('updates todo fields', async () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5, title: '旧', completed: false });
     mockRepo.save.mockResolvedValue({ id: 1, userId: 5, title: '新', completed: true });
 
-    const result = await service.update(1, { completed: true }, mockAbility(true));
+    const result = await service.update(1, { completed: true }, mockAbility(true), 5);
 
     expect(result.completed).toBe(true);
   });
@@ -100,7 +110,7 @@ describe('TodosService', () => {
     mockRepo.findOne.mockResolvedValue({ id: 1, userId: 5 });
     mockRepo.softDelete.mockResolvedValue({ affected: 1 });
 
-    await service.remove(1, mockAbility(true));
+    await service.remove(1, mockAbility(true), 5);
 
     expect(mockRepo.softDelete).toHaveBeenCalledWith(1);
   });
