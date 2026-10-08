@@ -321,7 +321,7 @@ describe('EventsService', () => {
     it('should return event when user owns it', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
 
-      const result = await service.findOne(1, makeAbility(1));
+      const result = await service.findOne(1, makeAbility(1), 1);
 
       expect(result.title).toBe('Test Event');
     });
@@ -329,13 +329,20 @@ describe('EventsService', () => {
     it('should throw NotFoundException if event does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findOne(999, makeAbility(1))).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999, makeAbility(1), 1)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if user does not own event', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
 
-      await expect(service.findOne(1, makeAbility(999))).rejects.toThrow(ForbiddenException);
+      await expect(service.findOne(1, makeAbility(999), 999)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('无 userId 时拒绝（fail-closed，不退化为仅 CASL）', async () => {
+      mockRepository.findOne.mockResolvedValue(mockEvent);
+      // 模拟 TS 看不见的调用方：身份缺席必须拒绝
+      await expect((service.findOne as any)(1, makeAbility(1))).rejects.toThrow(ForbiddenException);
+      expect(mockRepository.findOne).not.toHaveBeenCalled();
     });
 
     // ① 强制点：明细与列表必须同一行级谓词（此前明细只走 CASL ⇒「列表可见但明细 403」）
@@ -371,7 +378,7 @@ describe('EventsService', () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
       mockRepository.save.mockResolvedValue({ ...mockEvent, title: 'Updated Title' });
 
-      const result = await service.update(1, dto, makeAbility(1));
+      const result = await service.update(1, dto, makeAbility(1), 1);
 
       expect(result.title).toBe('Updated Title');
     });
@@ -379,13 +386,13 @@ describe('EventsService', () => {
     it('should throw ForbiddenException when updating other user event', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
 
-      await expect(service.update(1, dto, makeAbility(999))).rejects.toThrow(ForbiddenException);
+      await expect(service.update(1, dto, makeAbility(999), 999)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException if event does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.update(999, dto, makeAbility(1))).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, dto, makeAbility(1), 1)).rejects.toThrow(NotFoundException);
     });
 
     it('update 清空提醒时移除旧 reminder job', async () => {
@@ -393,7 +400,7 @@ describe('EventsService', () => {
       mockRepository.save.mockResolvedValue({ ...mockEvent, reminderMinutes: null });
       const queue = (service as any).reminderQueue;
 
-      await service.update(1, { reminderMinutes: null } as UpdateEventDto, makeAbility(1));
+      await service.update(1, { reminderMinutes: null } as UpdateEventDto, makeAbility(1), 1);
 
       expect(queue.remove).toHaveBeenCalledWith('event-remind-1');
     });
@@ -404,7 +411,7 @@ describe('EventsService', () => {
       mockRepository.save.mockResolvedValue({ ...mockEvent, reminderMinutes: 30, startTime: pastStart });
       const queue = (service as any).reminderQueue;
 
-      await service.update(1, { startTime: pastStart.toISOString() } as UpdateEventDto, makeAbility(1));
+      await service.update(1, { startTime: pastStart.toISOString() } as UpdateEventDto, makeAbility(1), 1);
 
       expect(queue.remove).toHaveBeenCalledWith('event-remind-1');
     });
@@ -417,27 +424,27 @@ describe('EventsService', () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
       mockRepository.softDelete.mockResolvedValue({ affected: 1, raw: {} } as any);
 
-      await expect(service.remove(1, makeAbility(1))).resolves.toBeUndefined();
+      await expect(service.remove(1, makeAbility(1), 1)).resolves.toBeUndefined();
       expect(mockRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
     it('should throw ForbiddenException when deleting other user event', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
 
-      await expect(service.remove(1, makeAbility(999))).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(1, makeAbility(999), 999)).rejects.toThrow(ForbiddenException);
     });
 
     it('软删受影响行数为 0 时抛 NotFound', async () => {
       mockRepository.findOne.mockResolvedValue(mockEvent);
       mockRepository.softDelete.mockResolvedValue({ affected: 0, raw: {} } as any);
-      await expect(service.remove(1, makeAbility(1))).rejects.toThrow(NotFoundException);
+      await expect(service.remove(1, makeAbility(1), 1)).rejects.toThrow(NotFoundException);
     });
 
     it('移除提醒 job 失败仅记日志不阻断删除', async () => {
       mockRepository.findOne.mockResolvedValue({ ...mockEvent, reminderMinutes: 30 });
       mockRepository.softDelete.mockResolvedValue({ affected: 1, raw: {} } as any);
       (service as any).reminderQueue.remove.mockRejectedValue(new Error('job gone'));
-      await expect(service.remove(1, makeAbility(1))).resolves.toBeUndefined();
+      await expect(service.remove(1, makeAbility(1), 1)).resolves.toBeUndefined();
     });
   });
 

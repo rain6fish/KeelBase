@@ -312,7 +312,8 @@ export class EventsService implements OnModuleInit {
     return result;
   }
 
-  async findOne(id: number, ability: AppAbility, userId?: number): Promise<Event> {
+  async findOne(id: number, ability: AppAbility, userId: number): Promise<Event> {
+    this._assertCallerIdentity(userId, '读取事件');
     const event = await this.eventsRepository.findOne({ where: { id } });
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -326,18 +327,19 @@ export class EventsService implements OnModuleInit {
   /**
    * ORG-3 unified access control: the owner (CASL ownership) **or** a member of the same organisation may
    * read/manage it, so the detail path agrees with the list (own OR same org) and the half-isolation of
-   * "visible in the list, 403 by id" is gone. Structurally identical to `TodosService._canAccess`.
+   * "visible in the list, 403 by id" is gone.
+   *
+   * The caller's identity is required, as it is in `ReportsService._canAccess`; absence is a deny handled
+   * by `_assertCallerIdentity` before this is reached, not a silent fall back to CASL alone.
    *
    * ORG-3 统一访问控制：本人（CASL 所有权）**或**同组织成员可读/管理，使明细与列表（本人 OR 同组织）
-   * 一致，消除「列表可见但明细 403」的半套隔离。与 `TodosService._canAccess` 同构。
+   * 一致，消除「列表可见但明细 403」的半套隔离。
+   *
+   * 调用者身份必填，与 `ReportsService._canAccess` 同口径；缺席由 `_assertCallerIdentity` 在进入本方法
+   * 前拒绝，而不是静默退回仅 CASL。
    */
-  private async _canAccess(
-    event: Event,
-    ability: AppAbility,
-    userId?: number,
-  ): Promise<boolean> {
+  private async _canAccess(event: Event, ability: AppAbility, userId: number): Promise<boolean> {
     if (ability.can('read', subject('Event', event))) return true;
-    if (userId == null) return false;
     // 权限-2：范围扩展与列表 where 同源（`buildScopeWhere` / `rowInScope` 同一构造器）
     const descriptor = await this._scopeFor(userId);
     return rowInScope(event as unknown as Record<string, unknown>, descriptor, 'Event');
@@ -347,7 +349,7 @@ export class EventsService implements OnModuleInit {
     id: number,
     dto: UpdateEventDto,
     ability: AppAbility,
-    userId?: number,
+    userId: number,
   ): Promise<Event> {
     const event = await this.findOne(id, ability, userId);
     const updateData: any = { ...dto };
@@ -361,7 +363,7 @@ export class EventsService implements OnModuleInit {
     return saved;
   }
 
-  async remove(id: number, ability: AppAbility, userId?: number): Promise<void> {
+  async remove(id: number, ability: AppAbility, userId: number): Promise<void> {
     const event = await this.findOne(id, ability, userId);
     // RG-3 软删除：置 deleted_at，管理台回收站可恢复
     const result = await this.eventsRepository.softDelete(event.id);
