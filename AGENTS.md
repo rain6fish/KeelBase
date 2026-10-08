@@ -16,6 +16,8 @@ KeelBase = **业务安全的 AI Agent harness + 全栈应用基座**（Flutter +
 - 写操作人工确认（AI 创建 event/todo 需 confirmation）
 - 全链路审计（操作审计 + AI 审计）
 - 敏感字段掩码（管理端不返回明文 email/phone）
+- **身份缺失一律 DENY**（fail-closed）：身份解析失败/缺席时不得回落匿名或默认主体继续执行
+- **特权哨兵 `'0'` 不得由请求侧产生**：工具门控对系统账号 `'0'` 跳过角色白名单与 adminOnly，故它只可由受信进程内入口产生，请求通道的身份一律走真实用户
 
 **AI 开发宪法（顶层总纲，开发前必读）**：`.agents/skills/keelbase-development-constitution/SKILL.md` —— 产品/体验/架构工程三篇宪法 + 开发流程与完成定义(DoD) + 三方评审 + 决策规则。本文件与 `CLAUDE.md` 是它的细则；开发、设计、评审任何功能前先读宪法。
 

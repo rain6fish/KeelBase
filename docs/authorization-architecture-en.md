@@ -67,6 +67,15 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 - **Authentication**: JWT access token (payload: sub / username / role) + refresh token rotation (updated on each use, old token invalidated immediately); login lockout (failure threshold); MFA (TOTP); enterprise SSO (OIDC dynamic discovery); email/SMS verification codes.
 - **Sessions**: refresh tokens stored as SHA-256 hashes (not plaintext); sessions can be revoked remotely; `/auth/sessions` management.
 - **Organization**: User / Organization / Department / Member (roles: owner / member / admin); org-level data sharing (members can read/manage org todos, etc.).
+- **Missing identity is a DENY (fail-closed)**: among the three, "cannot resolve" must never become "continue as
+  someone else" — the invariant is `Identity → resolve → failure → DENY`, not `failure → anonymous/default →
+  continue`. The HTTP main path is covered by the global `JwtAuthGuard` (no identity = 401); a headless API key
+  always carries an owning user (`ownerUserId`, defaulting to admin), so the entry side has no "no subject" state.
+- **The privileged sentinel `'0'` (system account)**: tool gating **skips** the role allowlist and `adminOnly`
+  for `userId === '0'` (`ToolGateService.assertToolAllowed`). It is a string sentinel produced by **convention**,
+  not an identity — so **only trusted in-process callers may produce it** (currently the only source is the eval
+  fixture's admin-assistant category; the admin assistant `/admin/ai/chat` uses the real admin id). **No
+  request-side identity may be mapped to it**: feeding `'0'` into the gate is a double bypass in one step.
 
 ### L2 Business Authorization
 

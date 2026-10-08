@@ -358,6 +358,8 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 | 防时序 | 认证失败随机延迟 200-500ms |
 | 会话清除 | refresh token 不匹配时清除所有会话 |
 | 静态加密 | phone / providerId 用 AES-256-GCM 加密存储；providerId 用 HMAC-SHA256 派生 providerHash 供查询 |
+| 身份缺失 | 一律 DENY（fail-closed）：身份解析失败/缺席不得回落匿名/默认主体继续执行 |
+| 特权哨兵 | 工具门控的系统账号 `'0'`（跳过角色白名单 / adminOnly）只可由受信进程内入口产生；请求侧身份不得映射为它 |
 
 ### 5.2 请求安全
 

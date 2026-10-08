@@ -67,6 +67,14 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 - **认证**：JWT access token（payload 含 sub / username / role）+ refresh token 轮换策略（每次使用更新、旧 token 立即失效）；登录锁定（连续失败阈值）；MFA（TOTP）；企业 SSO（OIDC 动态发现）；邮箱/短信验证码。
 - **会话**：refresh token 存 SHA-256 哈希（非明文）；会话可远程登出；`/auth/sessions` 管理。
 - **组织**：User / Organization / Department / Member（角色：owner / member / admin），组织级数据共享（同组织成员可读/管理待办等）。
+- **身份缺失一律 DENY（fail-closed）**：三者之中「解析不出来」绝不能变成「换一个身份继续」——不变量是
+  `Identity → resolve → 失败 → DENY`，不是 `失败 → anonymous/default → 继续执行`。HTTP 主链路由全局
+  `JwtAuthGuard` 保证（缺身份 = 401）；headless 的 API Key 必带归属用户（`ownerUserId`，缺省落 admin），
+  故入口侧没有「无主体」这一态。
+- **特权哨兵 `'0'`（系统账号）**：工具门控对 `userId === '0'` **跳过**角色白名单与 adminOnly
+  （`ToolGateService.assertToolAllowed`）。它是由**约定**产生的字符串哨兵，不是一条身份——故**只可由受信
+  进程内入口产生**（当前唯一来源 = 评测夹具 `ai-eval.service.ts` 的 admin-assistant 类目；管理端助手
+  `/admin/ai/chat` 走真实管理员 id）。**请求侧的任何身份都不得映射为它**：把 `'0'` 送进门控等于一次绕过两道门。
 
 ### L2 Business Authorization（业务授权）
 

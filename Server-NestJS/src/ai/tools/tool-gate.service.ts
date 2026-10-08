@@ -162,12 +162,20 @@ export class ToolGateService {
       }
     }
 
-    // headless 系统账号（userId '0'）：由 headless 层 API Key 鉴权，不重复拦截
+    // The privileged sentinel (userId '0', the system account) is produced by trusted in-process callers
+    // only — today that is the eval fixture's admin-assistant category — so it is not re-checked here.
+    // No request-side identity may be mapped to '0' (docs/authorization-architecture.md §3 L1).
+    //
+    // 特权哨兵（userId '0'，系统账号）只由受信进程内入口产生 —— 今天是评测夹具的 admin-assistant
+    // 类目 —— 故此处不重复拦截。请求侧身份不得映射为 '0'（docs/authorization-architecture.md §3 L1）。
     if (userId === '0') return;
 
     if (perms.requireVerifiedEmail && this.usersService) {
       const user = await this.usersService.findOne(Number(userId));
-      // 与 EmailVerificationGuard 一致：admin 视为已验证（headless '0' 已在上面返回）
+      // Consistent with EmailVerificationGuard: admin counts as verified (the system account '0' already
+      // returned above).
+      //
+      // 与 EmailVerificationGuard 一致：admin 视为已验证（系统账号 '0' 已在上面返回）。
       if (user && user.role !== UserRole.ADMIN && !user.emailVerified) {
         // 与上面各条**同闸门同计数器**：这里抛的是 BusinessException（错误码路径），但拒绝就是拒绝，
         // 不能因为抛出类型不同就不计入——否则「门在守」的证据会缺一块。
