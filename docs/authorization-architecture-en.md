@@ -272,23 +272,24 @@ The four layers (page / button / data row / field) are **not all required at onc
 | Identity resolves, else DENY | global `JwtAuthGuard` (HTTP); `HeadlessGuard` + `headlessKey.ownerUserId` | every entry | — |
 | The privileged sentinel `'0'` is produced only by trusted in-process callers | `ToolGateService.assertToolAllowed` (convention-based) | every entry | ⚠ production is not enforced, only conventional (see §3 L1) |
 | Coarse gate: action × subject | `CaslAbilityFactory` + global `PoliciesGuard` | every surface | — |
-| **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / generated modules | — |
-| **Fine gate (by id / object level): the same predicate as the list** | **`rowInScope`** (`src/common/scope/scope-where.ts`, the same source as `buildScopeWhere`) | `todos` / `reports` / generated modules | ⚠ **`EventsService.findOne(id, ability)` uses CASL and does not route through `rowInScope`** (①, below) |
+| **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / generated modules | ⚠ `GET /events/search` still filters by `event.userId` (owner-only), bypassing the scope builder |
+| **Fine gate (by id / object level): the same predicate as the list** | **`rowInScope`** (`src/common/scope/scope-where.ts`, the same source as `buildScopeWhere`) | `todos` / `events` / `reports` / generated modules | — (① wired up 2026-10-08, below) |
 | Tool gating (risk level / policy / role allowlist / flags) | `ToolGateService.assertToolAllowed` (**once at issue, once at execution**) | every AI tool call | — |
 | Write confirmation / two-person approval | `ConfirmationStore` + approval-requirement recheck at the execution point | every write tool | — |
 | Side effects revocable | `AiToolEffectsService` | every local write | — |
 | Audit tamper-evident | hash chain (`/audit/verify`) | AI audit + operation audit | — |
 
-**① — "list and a by-id read of the same subject must go through one row-level predicate."** As of 2026-10-08,
-`events` runs **three** row-level predicates in parallel with none authoritative: `getEventsForRange` uses
-`resolveScopeDescriptor` (up to org), `findOne(id, ability)` uses **CASL (owner) only**, and `findAll` takes a raw
-`filter.userId` and applies **no scope at all**. The direction is **over-restriction**, not a bypass — a wide-scoped
-role can list a colleague's event but cannot `GET` it by id — yet the root cause is the same as a bypass: one
-row-level semantic with three sources. The landing is therefore **not** "add scope to by-id" but "**list and by-id
-must share one predicate**", and that single source already exists: `rowInScope` (object level) and
-`buildScopeWhere` (list) are the same builder. AI by-id reads are already stricter than the HTTP path
-(`assertCustomerOwner`: `id AND userId`, 404 for both "absent" and "not yours"), so the gap lives on the
-events/todos/reports "generated module + scope" line, not in CRM.
+**① — "list and a by-id read of the same subject must go through one row-level predicate" (wired up 2026-10-08).**
+This row was a gap: on `events`, three row-level predicates ran in parallel with none authoritative —
+`getEventsForRange` used `resolveScopeDescriptor` (up to org), `findOne(id, ability)` used **CASL (owner) only**,
+and `findAll` took a raw `filter.userId` with **no scope at all**. The direction was **over-restriction**, not a
+bypass — a wide-scoped role could list a colleague's event but not `GET` it by id — yet the root cause was the same
+as a bypass: one row-level semantic with three sources. The fix is therefore **not** "add scope to by-id" but
+"**list and by-id must share one predicate**": `EventsService._canAccess` is now structurally identical to
+`TodosService._canAccess` (CASL ownership **or** `rowInScope`), so the detail path and the list agree. `findAll` is
+the read side of `GET /events/admin/all`, which sits behind the admin gate and still filters by `filter.userId` — a
+different question, not this row. AI by-id reads go through `assertCustomerOwner` and are stricter than the HTTP
+path.
 
 ---
 

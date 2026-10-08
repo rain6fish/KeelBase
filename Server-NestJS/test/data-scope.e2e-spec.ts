@@ -130,4 +130,44 @@ describe('数据范围（权限-2）', () => {
       .expect(200);
     expect((listC.body.data ?? []).some((r: { userId: number }) => r.userId === userA.id)).toBe(false);
   });
+
+  /**
+   * ① 强制点（docs/authorization-architecture.md §10）：同一 subject 的**列表与按 id 读取必须走同一
+   * 行级谓词**。此前 events 明细只走 CASL（本人），于是出现「列表可见（同组织）而明细 403」的半套隔离。
+   * 这条钉住两者一致：B 在列表里看得到 A 的事件，就必须能按 id 打开它；非组织成员 C 两者都看不到。
+   */
+  it('events 明细与列表同一谓词：同组织成员按 id 可读，非组织成员 403', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/events')
+      .set(authHeader(userA.token))
+      .send({ title: 'A 的事件', startTime: new Date().toISOString(), endTime: new Date().toISOString() })
+      .expect(201);
+    const eventId = created.body.data.id as number;
+
+    // 列表可见（既有 ORG-3 语义）
+    const listB = await request(app.getHttpServer())
+      .get('/api/v1/events')
+      .query({ start: '2026-01-01', end: '2026-12-31' })
+      .set(authHeader(userB.token))
+      .expect(200);
+    expect((listB.body.data ?? []).some((e: { id: number }) => e.id === eventId)).toBe(true);
+
+    // 明细与列表一致：同组织 B 可读
+    await request(app.getHttpServer())
+      .get(`/api/v1/events/${eventId}`)
+      .set(authHeader(userB.token))
+      .expect(200);
+
+    // 非组织成员 C：列表看不到，按 id 也拒绝
+    const listC = await request(app.getHttpServer())
+      .get('/api/v1/events')
+      .query({ start: '2026-01-01', end: '2026-12-31' })
+      .set(authHeader(userC.token))
+      .expect(200);
+    expect((listC.body.data ?? []).some((e: { id: number }) => e.id === eventId)).toBe(false);
+    await request(app.getHttpServer())
+      .get(`/api/v1/events/${eventId}`)
+      .set(authHeader(userC.token))
+      .expect(403);
+  });
 });

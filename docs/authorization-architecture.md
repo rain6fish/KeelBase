@@ -377,32 +377,33 @@ would not be a constraint.
 | 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId` | 全部入口 | — |
 | 特权哨兵 `'0'` 只由受信进程内入口产生 | `ToolGateService.assertToolAllowed`（按约定判定） | 全部入口 | ⚠ 产生面未被强制，仅靠约定（见 §3 L1） |
 | 粗门：action × subject | `CaslAbilityFactory` + 全局 `PoliciesGuard` | 全部面 | — |
-| **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / 生成模块 | — |
-| **细门（按 id / 对象级）：与列表同一谓词** | **`rowInScope`**（`src/common/scope/scope-where.ts`，与 `buildScopeWhere` 同源） | `todos` / `reports` / 生成模块 | ⚠ **`EventsService.findOne(id, ability)` 走 CASL，未接 `rowInScope`**（①，见下） |
+| **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / 生成模块 | ⚠ `GET /events/search` 仍按 `event.userId` 过滤（owner-only），未走范围构造器 |
+| **细门（按 id / 对象级）：与列表同一谓词** | **`rowInScope`**（`src/common/scope/scope-where.ts`，与 `buildScopeWhere` 同源） | `todos` / `events` / `reports` / 生成模块 | —（① 于 2026-10-08 接上，见下） |
 | 工具门控（风险级 / 策略 / 角色白名单 / 开关） | `ToolGateService.assertToolAllowed`（**发起点 + 执行点各一次**） | 全部 AI 工具调用 | — |
 | 写确认 / 双人审批 | `ConfirmationStore` + 执行点重算审批要求 | 全部写工具 | — |
 | 副作用可撤 | `AiToolEffectsService` | 全部本地写 | — |
 | 审计不可篡改 | 哈希链（`/audit/verify`） | AI 审计 + 操作审计 | — |
 
-**① — "list and a by-id read of the same subject must go through one row-level predicate."** As of 2026-10-08,
-`events` runs **three** row-level predicates in parallel with none authoritative: `getEventsForRange` uses
-`resolveScopeDescriptor` (up to org), `findOne(id, ability)` uses **CASL (owner) only**, and `findAll` takes a raw
-`filter.userId` and applies **no scope at all**. The direction is **over-restriction**, not a bypass — a wide-scoped
-role can list a colleague's event but cannot `GET` it by id — yet the root cause is the same as a bypass: one
-row-level semantic with three sources. The landing is therefore **not** "add scope to by-id" but "**list and by-id
-must share one predicate**", and that single source already exists: `rowInScope` (object level) and
-`buildScopeWhere` (list) are the same builder. AI by-id reads are already stricter than the HTTP path
-(`assertCustomerOwner`: `id AND userId`, 404 for both "absent" and "not yours"), so the gap lives on the
-events/todos/reports "generated module + scope" line, not in CRM.
+**① — "list and a by-id read of the same subject must go through one row-level predicate" (wired up 2026-10-08).**
+This row was a gap: on `events`, three row-level predicates ran in parallel with none authoritative —
+`getEventsForRange` used `resolveScopeDescriptor` (up to org), `findOne(id, ability)` used **CASL (owner) only**,
+and `findAll` took a raw `filter.userId` with **no scope at all**. The direction was **over-restriction**, not a
+bypass — a wide-scoped role could list a colleague's event but not `GET` it by id — yet the root cause was the same
+as a bypass: one row-level semantic with three sources. The fix is therefore **not** "add scope to by-id" but
+"**list and by-id must share one predicate**": `EventsService._canAccess` is now structurally identical to
+`TodosService._canAccess` (CASL ownership **or** `rowInScope`), so the detail path and the list agree. `findAll` is
+the read side of `GET /events/admin/all`, which sits behind the admin gate and still filters by `filter.userId` — a
+different question, not this row. AI by-id reads go through `assertCustomerOwner` and are stricter than the HTTP
+path.
 
-**① —— 「同一 subject 的列表与按 id 读取必须走同一个行级谓词」。** 2026-10-08 现状：`events` 上**并行三套**行级
-判据、无一权威——`getEventsForRange` 走 `resolveScopeDescriptor`（可到 org 级）、`findOne(id, ability)` **仅
-CASL（本人）**、`findAll` 裸吃 `filter.userId` 且**不过任何范围**。方向是**过度收紧**而非穿透——范围宽的角色能
-list 到同事的事件，却 `GET` 不到同一个 id——但**根因与穿透同源**：一个 row-level 语义有三处来源。故落点**不是**
-「by-id 补范围」，而是「**list 与 by-id 必须过同一谓词**」，而那个单一来源**本已存在**：`rowInScope`（对象级）
-与 `buildScopeWhere`（列表）是同一个构造器。AI 的 by-id 读**比 HTTP 路径更严**（`assertCustomerOwner`：
-`id AND userId`，查不到即 404，不分「不存在 / 不属于你」），故缺口在 events/todos/reports 这条「生成模块 +
-scope」线上，**不在 CRM**。
+**① —— 「同一 subject 的列表与按 id 读取必须走同一个行级谓词」（2026-10-08 接上）。** 该行原先是缺口：
+`events` 上**并行三套**行级判据、无一权威——`getEventsForRange` 走 `resolveScopeDescriptor`（可到 org 级）、
+`findOne(id, ability)` **仅 CASL（本人）**、`findAll` 裸吃 `filter.userId` 且**不过任何范围**。方向是**过度收紧**
+而非穿透——范围宽的角色能 list 到同事的事件，却 `GET` 不到同一个 id——但**根因与穿透同源**：一个 row-level 语义
+有三处来源。故修正**不是**「by-id 补范围」，而是「**list 与 by-id 必须过同一谓词**」：`EventsService._canAccess`
+现与 `TodosService._canAccess` 同构（CASL 所有权 **或** `rowInScope`），明细与列表因此一致。`findAll` 是
+`GET /events/admin/all` 的读侧，在 admin 门内、仍按 `filter.userId` 过滤——那是另一个问题，不属本行。
+AI 的 by-id 读走 `assertCustomerOwner`，比 HTTP 路径更严。
 
 ---
 

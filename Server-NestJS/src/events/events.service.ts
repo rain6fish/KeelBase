@@ -15,7 +15,7 @@ import { OrgService } from '../org/org.service';
 import type { WebhookPublisher } from '../webhooks/webhook.service';
 import { type OrgContext } from '../common/scope/scope-policy';
 import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
-import { buildScopeWhere } from '../common/scope/scope-where';
+import { buildScopeWhere, rowInScope } from '../common/scope/scope-where';
 import { DataScopeService } from '../authz/data-scope.service';
 
 const EVENT_CACHE_TTL_MS = 60 * 1000;
@@ -270,19 +270,44 @@ export class EventsService implements OnModuleInit {
     return result;
   }
 
-  async findOne(id: number, ability: AppAbility): Promise<Event> {
+  async findOne(id: number, ability: AppAbility, userId?: number): Promise<Event> {
     const event = await this.eventsRepository.findOne({ where: { id } });
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-    if (ability.cannot('read', subject('Event', event))) {
+    if (!(await this._canAccess(event, ability, userId))) {
       throw new ForbiddenException('无权访问此事件');
     }
     return event;
   }
 
-  async update(id: number, dto: UpdateEventDto, ability: AppAbility): Promise<Event> {
-    const event = await this.findOne(id, ability);
+  /**
+   * ORG-3 unified access control: the owner (CASL ownership) **or** a member of the same organisation may
+   * read/manage it, so the detail path agrees with the list (own OR same org) and the half-isolation of
+   * "visible in the list, 403 by id" is gone. Structurally identical to `TodosService._canAccess`.
+   *
+   * ORG-3 统一访问控制：本人（CASL 所有权）**或**同组织成员可读/管理，使明细与列表（本人 OR 同组织）
+   * 一致，消除「列表可见但明细 403」的半套隔离。与 `TodosService._canAccess` 同构。
+   */
+  private async _canAccess(
+    event: Event,
+    ability: AppAbility,
+    userId?: number,
+  ): Promise<boolean> {
+    if (ability.can('read', subject('Event', event))) return true;
+    if (userId == null) return false;
+    // 权限-2：范围扩展与列表 where 同源（`buildScopeWhere` / `rowInScope` 同一构造器）
+    const descriptor = await this._scopeFor(userId);
+    return rowInScope(event as unknown as Record<string, unknown>, descriptor, 'Event');
+  }
+
+  async update(
+    id: number,
+    dto: UpdateEventDto,
+    ability: AppAbility,
+    userId?: number,
+  ): Promise<Event> {
+    const event = await this.findOne(id, ability, userId);
     const updateData: any = { ...dto };
     if (dto.startTime) updateData.startTime = new Date(dto.startTime);
     if (dto.endTime) updateData.endTime = new Date(dto.endTime);
@@ -294,8 +319,8 @@ export class EventsService implements OnModuleInit {
     return saved;
   }
 
-  async remove(id: number, ability: AppAbility): Promise<void> {
-    const event = await this.findOne(id, ability);
+  async remove(id: number, ability: AppAbility, userId?: number): Promise<void> {
+    const event = await this.findOne(id, ability, userId);
     // RG-3 软删除：置 deleted_at，管理台回收站可恢复
     const result = await this.eventsRepository.softDelete(event.id);
     if (result.affected === 0) {

@@ -103,8 +103,9 @@ export class EventsController {
   async adminRemove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: JwtPayload,
   ) {
-    await this.eventsService.remove(id, ability);
+    await this.eventsService.remove(id, ability, user.sub);
     return null;
   }
 
@@ -114,8 +115,9 @@ export class EventsController {
   async findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.eventsService.findOne(id, ability);
+    return this.eventsService.findOne(id, ability, user.sub);
   }
 
   @Put(':id')
@@ -125,8 +127,9 @@ export class EventsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEventDto,
     @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.eventsService.update(id, dto, ability);
+    return this.eventsService.update(id, dto, ability, user.sub);
   }
 
   @Delete(':id')
@@ -136,8 +139,9 @@ export class EventsController {
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: JwtPayload,
   ) {
-    await this.eventsService.remove(id, ability);
+    await this.eventsService.remove(id, ability, user.sub);
     return null;
   }
 }

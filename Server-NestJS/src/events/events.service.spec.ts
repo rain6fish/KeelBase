@@ -338,6 +338,27 @@ describe('EventsService', () => {
 
       await expect(service.findOne(1, makeAbility(999))).rejects.toThrow(ForbiddenException);
     });
+
+    // ① 强制点：明细与列表必须同一行级谓词（此前明细只走 CASL ⇒「列表可见但明细 403」）
+    it('ORG-3/权限-2: 同组织成员按 userId 可读他人事件（明细与列表同源）', async () => {
+      const mockOrgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 3, deptId: null }) };
+      (service as any).orgService = mockOrgService;
+      mockRepository.findOne.mockResolvedValue({ ...mockEvent, userId: 9, orgId: 3 });
+
+      const result = await service.findOne(1, makeAbility(5), 5);
+
+      expect(result.userId).toBe(9);
+      (service as any).orgService = undefined;
+    });
+
+    it('ORG-3/权限-2: 非组织成员按 id 读他人事件仍然 403（对齐列表不等于放宽）', async () => {
+      const mockOrgService = { getUserOrgContext: jest.fn().mockResolvedValue(null) };
+      (service as any).orgService = mockOrgService;
+      mockRepository.findOne.mockResolvedValue({ ...mockEvent, userId: 9, orgId: 3 });
+
+      await expect(service.findOne(1, makeAbility(5), 5)).rejects.toThrow(ForbiddenException);
+      (service as any).orgService = undefined;
+    });
   });
 
   // ─── Update ────────────────────────────────────────────────────────────────
