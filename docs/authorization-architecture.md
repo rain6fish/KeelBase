@@ -374,7 +374,7 @@ would not be a constraint.
 
 | 不变量 | 强制点（单一源） | 覆盖 | 缺口 |
 |---|---|---|---|
-| 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId`；范围读写另在服务入口拒 —— `assertCallerIdentity`（`common/scope/scope-resolution.ts`，单一源）：`EventsService` 的 `getEventsForRange` / `search` / `findOne`（含 `update` / `remove`），`TodosService` 的 `findOne` / `update` / `remove` | 全部入口 | — |
+| 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId`；范围读写另在服务入口拒 —— `assertCallerIdentity`（`common/scope/scope-resolution.ts`，单一源）：`EventsService` 的 `getEventsForRange` / `search` / `findOne`（含 `update` / `remove`），`TodosService` 的 `findOne` / `update` / `remove`，`ReportsService` 的 `findAll` / `findOne`（含 `update` / `remove`；`findAllForAdmin` 无范围、不在内） | 全部入口 | — |
 | 特权哨兵 `'0'` 只由受信进程内入口产生 | `ToolGateService.assertToolAllowed`（按约定判定） | 全部入口 | ⚠ 产生面未被强制，仅靠约定（见 §3 L1） |
 | 粗门：action × subject | `CaslAbilityFactory` + 全局 `PoliciesGuard` | 全部面 | — |
 | **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / 生成模块 | — |

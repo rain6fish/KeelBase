@@ -10,7 +10,7 @@ import { UpdateReportDto } from './dto/update-report.dto';
 import type { AppAbility } from '../common/casl/casl-ability.factory';
 import { OrgService } from '../org/org.service';
 import { DataScopeService } from '../authz/data-scope.service';
-import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
+import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';
 import { buildScopeWhere, registerScopeColumns, rowInScope } from '../common/scope/scope-where';
 import { registerOrgLevelSubject } from '../common/scope/scope-policy';
 
@@ -73,6 +73,7 @@ export class ReportsService {
   }
 
   async findAll(userId: number, q?: string): Promise<Report[]> {
+    assertCallerIdentity(userId, '读取报告列表');
     const descriptor = await this._scopeFor(userId);
     const scoped = (buildScopeWhere<Record<string, unknown>>(descriptor, 'Report') ?? []) as any;
     const keyword = q?.trim();
@@ -103,6 +104,7 @@ export class ReportsService {
   }
 
   async findOne(id: number, ability: AppAbility, userId: number): Promise<Report> {
+    assertCallerIdentity(userId, '读取报告');
     const entity = await this.reportsRepository.findOne({ where: { id }, });
     if (!entity) throw new NotFoundException('Report not found');
     if (!(await this._canAccess(entity, ability, userId))) {

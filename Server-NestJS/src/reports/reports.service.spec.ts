@@ -101,6 +101,16 @@ describe('ReportsService', () => {
     await expect(service.findOne(1, mockAbility(true), 5)).rejects.toThrow(NotFoundException);
   });
 
+  it('无 userId 时拒绝（fail-closed，列表与明细同口径）', async () => {
+    // 模拟 TS 看不见的调用方：身份缺席必须拒绝，且在触碰仓储之前
+    await expect((service.findAll as any)(undefined)).rejects.toThrow(ForbiddenException);
+    await expect((service.findOne as any)(1, mockAbility(true), undefined)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(mockRepo.find).not.toHaveBeenCalled();
+    expect(mockRepo.findOne).not.toHaveBeenCalled();
+  });
+
   it('refuses a stale update with 409 instead of overwriting silently', async () => {
     // The caller read version 2 while the row has moved to 3, so the conditional update matches
     // nothing. Zero rows affected is the conflict — the update must have carried the version.
