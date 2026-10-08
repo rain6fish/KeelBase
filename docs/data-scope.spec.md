@@ -32,9 +32,9 @@ Scope is expressed as an **internal descriptor** translated by a pure function i
 | `custom_dept` | `[{deptId: In(集合)}]` |
 | `all` | 不施加行级条件（由 CASL 粗门承担） |
 
-**降级规则**：缺组织/部门信息时一律**退回本人**（收紧而非放宽）。未登记在 `SCOPE_COLUMNS` 的实体**不可被范围过滤**，调用方保持自身 owner 条件——**绝不静默放宽**。
+**降级规则**：缺组织/部门信息时一律**退回本人**（收紧而非放宽）。未登记在 `SCOPE_COLUMNS` 的实体**不可被范围过滤**，调用方保持自身 owner 条件——**绝不静默放宽**。**缺调用者身份时一律拒绝**（`EventsService._assertCallerIdentity`，2026-10-08）：那不是「未过滤」，而是「每一行」——是放宽，不是降级。
 
-**Degradation**: missing org/dept information falls back to **owner-only** (tighten, never widen). An entity absent from `SCOPE_COLUMNS` is not scope-filterable; callers keep their own owner condition — **never silently widen**.
+**Degradation**: missing org/dept information falls back to **owner-only** (tighten, never widen). An entity absent from `SCOPE_COLUMNS` is not scope-filterable; callers keep their own owner condition — **never silently widen**. **A missing caller identity is denied** (`EventsService._assertCallerIdentity`, 2026-10-08): that is not "unfiltered" but "every row" — a widening, not a degradation.
 
 ## 3. 实现落点
 

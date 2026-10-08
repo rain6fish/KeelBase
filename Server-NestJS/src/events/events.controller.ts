@@ -58,14 +58,14 @@ export class EventsController {
   @ApiQuery({ name: 'page', required: false, example: '1' })
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   async search(
+    @CurrentUser() user: JwtPayload,
     @Query('keyword') keyword?: string,
     @Query('start') start?: string,
     @Query('end') end?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
-    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.eventsService.search({ keyword, start, end, page: page!, limit: limit! }, user?.sub);
+    return this.eventsService.search({ keyword, start, end, page: page!, limit: limit! }, user.sub);
   }
 
   @Get('admin/all')

@@ -32,7 +32,7 @@ describe('EventsController', () => {
 
   it('搜索委托 service（带分页默认值）', async () => {
     eventsService.search.mockResolvedValue({ items: [], total: 0 });
-    await expect(controller.search('会议', '2026-08-01', '2026-08-31', 1, 20, mockUser as any)).resolves.toEqual({ items: [], total: 0 });
+    await expect(controller.search(mockUser as any, '会议', '2026-08-01', '2026-08-31', 1, 20)).resolves.toEqual({ items: [], total: 0 });
     expect(eventsService.search).toHaveBeenCalledWith(
       { keyword: '会议', start: '2026-08-01', end: '2026-08-31', page: 1, limit: 20 },
       1,

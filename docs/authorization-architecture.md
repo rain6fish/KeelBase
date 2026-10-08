@@ -374,7 +374,7 @@ would not be a constraint.
 
 | 不变量 | 强制点（单一源） | 覆盖 | 缺口 |
 |---|---|---|---|
-| 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId` | 全部入口 | — |
+| 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId`；带范围的读另在服务入口拒（`EventsService._assertCallerIdentity`：`getEventsForRange` / `search`） | 全部入口 | — |
 | 特权哨兵 `'0'` 只由受信进程内入口产生 | `ToolGateService.assertToolAllowed`（按约定判定） | 全部入口 | ⚠ 产生面未被强制，仅靠约定（见 §3 L1） |
 | 粗门：action × subject | `CaslAbilityFactory` + 全局 `PoliciesGuard` | 全部面 | — |
 | **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / 生成模块 | — |

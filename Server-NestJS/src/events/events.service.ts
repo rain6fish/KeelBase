@@ -187,14 +187,19 @@ export class EventsService implements OnModuleInit {
     return !!(filter.keyword || filter.userId != null || filter.isCancelled != null || filter.start || filter.end);
   }
 
-  async getEventsForRange(start?: string, end?: string, userId?: number): Promise<Event[]> {
+  async getEventsForRange(
+    start: string | undefined,
+    end: string | undefined,
+    userId: number,
+  ): Promise<Event[]> {
+    this._assertCallerIdentity(userId, '范围查询');
+
     // 权限-2：行级数据范围（默认级别 = ORG-3 语义「本人 OR 同组织」；可按角色配置）
-    const descriptor = userId ? await this._scopeFor(userId) : null;
-    const ownership: Array<Record<string, unknown>> = descriptor
-      ? ((buildScopeWhere<Record<string, unknown>>(descriptor, 'Event') ?? []) as Array<
-          Record<string, unknown>
-        >)
-      : [];
+    const descriptor = await this._scopeFor(userId);
+    const ownership: Array<Record<string, unknown>> = (buildScopeWhere<Record<string, unknown>>(
+      descriptor,
+      'Event',
+    ) ?? []) as Array<Record<string, unknown>>;
 
     const where: any[] = [...ownership];
     // start/end 缺失或非法时不加时间范围（postgres 对 Invalid Date 参数报语法错，仅按所有权过滤）
@@ -222,11 +227,31 @@ export class EventsService implements OnModuleInit {
     return orgContextOf(this.orgService, userId);
   }
 
-  async search(params: SearchEventsParams, userId?: number): Promise<PaginatedResult<Event>> {
+  /**
+   * Fail closed when the caller identity is missing.
+   *
+   * A scoped read without a caller is not "unfiltered" — it is "every row", the widest possible answer to
+   * a question that was never authorised. Absence must therefore deny rather than widen. The HTTP path
+   * always carries `user.sub`; this guard covers what TS cannot see (plain JS, `as any`, hand-built mocks).
+   *
+   * 调用者身份缺席即拒。
+   *
+   * 带范围的读取若没有调用者，不是「未过滤」，而是「每一行」—— 对一个从未被授权的提问给出最宽的答案。
+   * 故缺席必须拒绝、而不是放宽。HTTP 路径恒带 `user.sub`；此守卫兜住 TS 看不见的调用方（JS / `as any` / 手搓替身）。
+   */
+  private _assertCallerIdentity(userId: number, what: string): void {
+    if (userId == null || Number.isNaN(Number(userId))) {
+      throw new ForbiddenException(`无法确定调用者身份，拒绝${what}`);
+    }
+  }
+
+  async search(params: SearchEventsParams, userId: number): Promise<PaginatedResult<Event>> {
+    this._assertCallerIdentity(userId, '搜索');
+
     // CR-19：limit 钳制 1-100，防超大值全表拉取 + 缓存键膨胀
     params.page = Math.max(1, params.page);
     params.limit = Math.min(Math.max(params.limit, 1), 100);
-    const key = `events:search:${userId ?? 'all'}:${params.keyword ?? ''}:${params.page}:${params.limit}:${params.start ?? ''}:${params.end ?? ''}`;
+    const key = `events:search:${userId}:${params.keyword ?? ''}:${params.page}:${params.limit}:${params.start ?? ''}:${params.end ?? ''}`;
     const cached = await this.cacheService.get(key);
     if (cached) return cached as any;
 
@@ -236,12 +261,11 @@ export class EventsService implements OnModuleInit {
     // Permission-2 / enforcement-point matrix §10 row ①: the same row-level predicate as `GET /events`
     // (`buildScopeWhere`). This used to hand-roll `event.userId = :userId`, so search was narrower than
     // the list — the list includes same-org rows, search only the caller's own.
-    const descriptor = userId ? await this._scopeFor(userId) : null;
-    const ownership: Array<Record<string, unknown>> = descriptor
-      ? ((buildScopeWhere<Record<string, unknown>>(descriptor, 'Event') ?? []) as Array<
-          Record<string, unknown>
-        >)
-      : [];
+    const descriptor = await this._scopeFor(userId);
+    const ownership: Array<Record<string, unknown>> = (buildScopeWhere<Record<string, unknown>>(
+      descriptor,
+      'Event',
+    ) ?? []) as Array<Record<string, unknown>>;
 
     // A `where` array means **OR**, so every AND condition must be **distributed** onto each row-level
     // branch (the same move `getEventsForRange` makes). The keyword is itself an OR of title/description,

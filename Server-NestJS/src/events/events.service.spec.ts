@@ -306,6 +306,13 @@ describe('EventsService', () => {
       expect(where.every((b) => b.title != null || b.description != null)).toBe(true);
       (service as any).orgService = undefined;
     });
+
+    it('无 userId 时拒绝（fail-closed）', async () => {
+      await expect(
+        (service.search as any)({ keyword: 'X', page: 1, limit: 20 }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockRepository.findAndCount).not.toHaveBeenCalled();
+    });
   });
 
   // ─── Find One ──────────────────────────────────────────────────────────────
@@ -490,13 +497,13 @@ describe('EventsService', () => {
   });
 
   describe('范围查询与提醒边界', () => {
-    it('无 userId 时只用时间范围（无所有权条件）', async () => {
+    it('无 userId 时拒绝（fail-closed，不再退化为全表扫描）', async () => {
       mockRepository.find.mockResolvedValue([]);
-      await service.getEventsForRange('2026-08-01', '2026-08-31');
-      const where = mockRepository.find.mock.calls[0][0].where;
-      expect(Array.isArray(where)).toBe(true);
-      // 每项都是纯时间范围，不带 orgId/userId
-      expect(JSON.stringify(where)).not.toContain('userId');
+      // 模拟 TS 看不见的调用方（JS / `as any`）：身份缺席必须拒绝，而不是放宽成「每一行」
+      await expect(
+        (service.getEventsForRange as any)('2026-08-01', '2026-08-31'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockRepository.find).not.toHaveBeenCalled();
     });
 
     it('orgService 抛错时降级为仅本人（不阻断）', async () => {
