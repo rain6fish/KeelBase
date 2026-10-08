@@ -275,6 +275,7 @@ The four layers (page / button / data row / field) are **not all required at onc
 | **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / generated modules | — |
 | **Fine gate (by id / object level): the same predicate as the list** | **`rowInScope`** (`src/common/scope/scope-where.ts`, the same source as `buildScopeWhere`) | `todos` / `events` / `reports` / generated modules | — (① wired up 2026-10-08, below) |
 | Tool gating (risk level / policy / role allowlist / flags) | `ToolGateService.assertToolAllowed` (**once at issue, once at execution**) | every AI tool call | — |
+| **The governance boundary holds for any model output (③)** | `security-showcase` (deterministic, no LLM, drives the real gate / CASL / risk levels; drift throws) + `src/ai/security/governance-boundary.spec.ts` (a hallucinated tool name cannot execute; positive control) | the four outcomes: execute / confirmation / deny / deny | ⚠ `ai-eval` (real model) measures **model behaviour** — `toolCalls` records *proposals*, not executions ⇒ **a green eval is not evidence that the boundary holds** |
 | Write confirmation / two-person approval | `ConfirmationStore` + approval-requirement recheck at the execution point | every write tool | — |
 | Side effects revocable | `AiToolEffectsService` | every local write | — |
 | Audit tamper-evident | hash chain (`/audit/verify`) | AI audit + operation audit | — |

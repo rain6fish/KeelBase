@@ -31,6 +31,7 @@
 | **用生成器生成模块** | [`CLAUDE.md`](../../CLAUDE.md) §10「从业务需求到模块」→ [`docs/business-spec.md`](../business-spec.md) → [`docs/module-protocol.md`](../module-protocol.md) |
 | **改安全相关的东西** | [`CLAUDE.md`](../../CLAUDE.md) §5 安全规则 + [`SECURITY.md`](../../SECURITY.md) 信任边界 |
 | **查某条不变量由谁强制 / 覆盖到哪** | [`docs/authorization-architecture.md`](../authorization-architecture.md) §10 强制点矩阵 |
+| **写/改 AI 评测用例的断言** | 同上 §10 的 ③ 行 —— 治理边界由确定性层证明，**别用 eval 通过率代替它** |
 | **确认产品定位 / 哪些不做** | [`CLAUDE.md`](../../CLAUDE.md) §5.5 产品架构红线（战略层在私有 roadmap） |
 | **避免写出垃圾代码** | [`CLAUDE.md`](../../CLAUDE.md) §15 Code Economy（Search Before Create 等七条） |
 | **提交代码** | [`CLAUDE.md`](../../CLAUDE.md) §14.5 提交消息规范（**双语、英文在前、不带 Co-Authored-By**） |

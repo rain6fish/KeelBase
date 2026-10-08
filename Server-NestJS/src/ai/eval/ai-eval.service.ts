@@ -73,6 +73,17 @@ export interface EvalRunReport {
  * HS-1 AI 质量评估体系（评测判定闭环）。
  * 原实现「有回复即通过」是空判定；现按 expected 断言（contains/regex/tool-hit/
  * tool-miss/no-tool/reject）逐用例判定，支持安全用例类别（越权/写拒绝/PII/注入）。
+ *
+ * **诚实边界（③）**：本套件测的是**模型行为**，不是治理边界。它能看到的只有 `toolCalls` ——
+ * 那是「模型提案了什么」，且写在确认门**之前**（见 `ai.service` 非流式路径），执行与否它分辨不了。
+ * 故：绿 ≠ 边界成立，红 ≠ 边界被绕过。边界的确定性证明在 `security-showcase`
+ * 与 `src/ai/security/governance-boundary.spec.ts`（不经模型）。别用这里的通过率代替那里的证明。
+ *
+ * Honest boundary (③): this suite measures **model behaviour**, not the governance boundary. Its only
+ * observable is `toolCalls` — what the model *proposed*, recorded before the confirmation gate — so it
+ * cannot tell execution from proposal. Green is not evidence the boundary holds, and red is not evidence
+ * it was bypassed. The deterministic proof lives in `security-showcase` and
+ * `src/ai/security/governance-boundary.spec.ts`, neither of which involves a model.
  */
 @Injectable()
 export class AiEvalService {

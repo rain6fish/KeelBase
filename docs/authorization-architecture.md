@@ -380,6 +380,7 @@ would not be a constraint.
 | **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / 生成模块 | — |
 | **细门（按 id / 对象级）：与列表同一谓词** | **`rowInScope`**（`src/common/scope/scope-where.ts`，与 `buildScopeWhere` 同源） | `todos` / `events` / `reports` / 生成模块 | —（① 于 2026-10-08 接上，见下） |
 | 工具门控（风险级 / 策略 / 角色白名单 / 开关） | `ToolGateService.assertToolAllowed`（**发起点 + 执行点各一次**） | 全部 AI 工具调用 | — |
+| **治理边界对任意模型输出成立（③）** | `security-showcase`（确定性、无 LLM、驱动真实门/CASL/风险级，漂移即抛错）+ `src/ai/security/governance-boundary.spec.ts`（幻觉工具名 → 不可执行；正向对照） | 四类 outcome：execute / confirmation / deny / deny | ⚠ `ai-eval`（真模型）测的是**模型行为**——`toolCalls` 记的是「提案」而非「执行」⇒ **eval 全绿不是边界成立的证据** |
 | 写确认 / 双人审批 | `ConfirmationStore` + 执行点重算审批要求 | 全部写工具 | — |
 | 副作用可撤 | `AiToolEffectsService` | 全部本地写 | — |
 | 审计不可篡改 | 哈希链（`/audit/verify`） | AI 审计 + 操作审计 | — |
