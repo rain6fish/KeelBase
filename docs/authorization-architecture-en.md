@@ -272,7 +272,7 @@ The four layers (page / button / data row / field) are **not all required at onc
 | Identity resolves, else DENY | global `JwtAuthGuard` (HTTP); `HeadlessGuard` + `headlessKey.ownerUserId` | every entry | — |
 | The privileged sentinel `'0'` is produced only by trusted in-process callers | `ToolGateService.assertToolAllowed` (convention-based) | every entry | ⚠ production is not enforced, only conventional (see §3 L1) |
 | Coarse gate: action × subject | `CaslAbilityFactory` + global `PoliciesGuard` | every surface | — |
-| **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / generated modules | ⚠ `GET /events/search` still filters by `event.userId` (owner-only), bypassing the scope builder |
+| **Fine gate (list): which rows** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / generated modules | — |
 | **Fine gate (by id / object level): the same predicate as the list** | **`rowInScope`** (`src/common/scope/scope-where.ts`, the same source as `buildScopeWhere`) | `todos` / `events` / `reports` / generated modules | — (① wired up 2026-10-08, below) |
 | Tool gating (risk level / policy / role allowlist / flags) | `ToolGateService.assertToolAllowed` (**once at issue, once at execution**) | every AI tool call | — |
 | Write confirmation / two-person approval | `ConfirmationStore` + approval-requirement recheck at the execution point | every write tool | — |
@@ -289,7 +289,8 @@ as a bypass: one row-level semantic with three sources. The fix is therefore **n
 `TodosService._canAccess` (CASL ownership **or** `rowInScope`), so the detail path and the list agree. `findAll` is
 the read side of `GET /events/admin/all`, which sits behind the admin gate and still filters by `filter.userId` — a
 different question, not this row. AI by-id reads go through `assertCustomerOwner` and are stricter than the HTTP
-path.
+path. The same day, `GET /events/search` — the last list surface still hand-rolling owner-only filtering — was
+moved onto the same builder, so list, search and by-id now agree.
 
 ---
 

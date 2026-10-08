@@ -377,7 +377,7 @@ would not be a constraint.
 | 身份可解析，否则 DENY | 全局 `JwtAuthGuard`（HTTP）；`HeadlessGuard` + `headlessKey.ownerUserId` | 全部入口 | — |
 | 特权哨兵 `'0'` 只由受信进程内入口产生 | `ToolGateService.assertToolAllowed`（按约定判定） | 全部入口 | ⚠ 产生面未被强制，仅靠约定（见 §3 L1） |
 | 粗门：action × subject | `CaslAbilityFactory` + 全局 `PoliciesGuard` | 全部面 | — |
-| **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `reports` / 生成模块 | ⚠ `GET /events/search` 仍按 `event.userId` 过滤（owner-only），未走范围构造器 |
+| **细门（列表）：哪些行** | `buildScopeWhere` + `resolveScopeDescriptor` | `todos` / `events` / `events/search` / `reports` / 生成模块 | — |
 | **细门（按 id / 对象级）：与列表同一谓词** | **`rowInScope`**（`src/common/scope/scope-where.ts`，与 `buildScopeWhere` 同源） | `todos` / `events` / `reports` / 生成模块 | —（① 于 2026-10-08 接上，见下） |
 | 工具门控（风险级 / 策略 / 角色白名单 / 开关） | `ToolGateService.assertToolAllowed`（**发起点 + 执行点各一次**） | 全部 AI 工具调用 | — |
 | 写确认 / 双人审批 | `ConfirmationStore` + 执行点重算审批要求 | 全部写工具 | — |
@@ -394,7 +394,8 @@ as a bypass: one row-level semantic with three sources. The fix is therefore **n
 `TodosService._canAccess` (CASL ownership **or** `rowInScope`), so the detail path and the list agree. `findAll` is
 the read side of `GET /events/admin/all`, which sits behind the admin gate and still filters by `filter.userId` — a
 different question, not this row. AI by-id reads go through `assertCustomerOwner` and are stricter than the HTTP
-path.
+path. The same day, `GET /events/search` — the last list surface still hand-rolling owner-only filtering — was
+moved onto the same builder, so list, search and by-id now agree.
 
 **① —— 「同一 subject 的列表与按 id 读取必须走同一个行级谓词」（2026-10-08 接上）。** 该行原先是缺口：
 `events` 上**并行三套**行级判据、无一权威——`getEventsForRange` 走 `resolveScopeDescriptor`（可到 org 级）、
@@ -403,7 +404,8 @@ path.
 有三处来源。故修正**不是**「by-id 补范围」，而是「**list 与 by-id 必须过同一谓词**」：`EventsService._canAccess`
 现与 `TodosService._canAccess` 同构（CASL 所有权 **或** `rowInScope`），明细与列表因此一致。`findAll` 是
 `GET /events/admin/all` 的读侧，在 admin 门内、仍按 `filter.userId` 过滤——那是另一个问题，不属本行。
-AI 的 by-id 读走 `assertCustomerOwner`，比 HTTP 路径更严。
+AI 的 by-id 读走 `assertCustomerOwner`，比 HTTP 路径更严。同日，`GET /events/search` —— 最后一个仍自己写
+owner-only 过滤的列表面 —— 也改走同一构造器：列表、搜索、按 id 三者自此一致。
 
 ---
 

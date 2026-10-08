@@ -137,34 +137,40 @@ describe('数据范围（权限-2）', () => {
    * 这条钉住两者一致：B 在列表里看得到 A 的事件，就必须能按 id 打开它；非组织成员 C 两者都看不到。
    */
   it('events 明细与列表同一谓词：同组织成员按 id 可读，非组织成员 403', async () => {
+    const kw = `DS-EV-${Date.now()}`;
     const created = await request(app.getHttpServer())
       .post('/api/v1/events')
       .set(authHeader(userA.token))
-      .send({ title: 'A 的事件', startTime: new Date().toISOString(), endTime: new Date().toISOString() })
+      .send({ title: `A 的事件 ${kw}`, startTime: new Date().toISOString(), endTime: new Date().toISOString() })
       .expect(201);
     const eventId = created.body.data.id as number;
 
-    // 列表可见（既有 ORG-3 语义）
-    const listB = await request(app.getHttpServer())
-      .get('/api/v1/events')
-      .query({ start: '2026-01-01', end: '2026-12-31' })
-      .set(authHeader(userB.token))
-      .expect(200);
-    expect((listB.body.data ?? []).some((e: { id: number }) => e.id === eventId)).toBe(true);
+    const seenBy = async (token: string) => {
+      const list = await request(app.getHttpServer())
+        .get('/api/v1/events')
+        .query({ start: '2026-01-01', end: '2026-12-31' })
+        .set(authHeader(token))
+        .expect(200);
+      const search = await request(app.getHttpServer())
+        .get('/api/v1/events/search')
+        .query({ keyword: kw })
+        .set(authHeader(token))
+        .expect(200);
+      return {
+        inList: (list.body.data ?? []).some((e: { id: number }) => e.id === eventId),
+        inSearch: (search.body.data?.items ?? []).some((e: { id: number }) => e.id === eventId),
+      };
+    };
 
-    // 明细与列表一致：同组织 B 可读
+    // 列表 / 搜索 / 按 id 三个面必须一致：同组织 B 三者都可见
+    expect(await seenBy(userB.token)).toEqual({ inList: true, inSearch: true });
     await request(app.getHttpServer())
       .get(`/api/v1/events/${eventId}`)
       .set(authHeader(userB.token))
       .expect(200);
 
-    // 非组织成员 C：列表看不到，按 id 也拒绝
-    const listC = await request(app.getHttpServer())
-      .get('/api/v1/events')
-      .query({ start: '2026-01-01', end: '2026-12-31' })
-      .set(authHeader(userC.token))
-      .expect(200);
-    expect((listC.body.data ?? []).some((e: { id: number }) => e.id === eventId)).toBe(false);
+    // 非组织成员 C：三者都不可见 / 被拒
+    expect(await seenBy(userC.token)).toEqual({ inList: false, inSearch: false });
     await request(app.getHttpServer())
       .get(`/api/v1/events/${eventId}`)
       .set(authHeader(userC.token))

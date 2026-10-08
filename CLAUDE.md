@@ -751,7 +751,7 @@ npm run migration:run
 | PATCH | /api/v1/todos/:id/complete | Yes | 本人或同组或管理员 | 切换待办完成状态 |
 | DELETE | /api/v1/todos/:id | Yes | 本人或同组或管理员 | 删除待办 |
 | GET | /api/v1/events | Yes | 本人或同组织 | 范围查询事件 |
-| GET | /api/v1/events/search | Yes | 本人 | 事件搜索（title/description LIKE，所有权限定） |
+| GET | /api/v1/events/search | Yes | 本人或同组织 | 事件搜索（title/description LIKE，按数据范围行级限定） |
 | GET | /api/v1/events/admin/all | Yes (ADMIN) | — | 全量事件列表（分页） |
 | DELETE | /api/v1/events/admin/:id | Yes (ADMIN) | — | 删除任意事件 |
 | GET | /api/v1/events/:id | Yes | 本人或同组织或管理员 | 事件详情 |

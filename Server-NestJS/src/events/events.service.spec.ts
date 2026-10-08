@@ -45,6 +45,7 @@ describe('EventsService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
     createQueryBuilder: jest.fn(),
     delete: jest.fn(),
     softDelete: jest.fn(),
@@ -251,16 +252,7 @@ describe('EventsService', () => {
 
   describe('search', () => {
     it('should return paginated search results', async () => {
-      const queryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(1),
-        getMany: jest.fn().mockResolvedValue([mockEvent]),
-      };
-      mockRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+      mockRepository.findAndCount.mockResolvedValue([[mockEvent], 1]);
 
       const result = await service.search(
         { keyword: 'Test', page: 1, limit: 20 },
@@ -276,43 +268,43 @@ describe('EventsService', () => {
       const cache = (service as any).cacheService;
       cache.get.mockResolvedValueOnce(undefined); // first: miss
       cache.get.mockResolvedValueOnce({ items: [mockEvent], total: 1, page: 1, limit: 20, totalPages: 1 });
-      const queryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(1),
-        getMany: jest.fn().mockResolvedValue([mockEvent]),
-      };
-      mockRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+      mockRepository.findAndCount.mockResolvedValue([[mockEvent], 1]);
 
       await service.search({ keyword: 'X', page: 1, limit: 20 }, 1);
       const second = await service.search({ keyword: 'X', page: 1, limit: 20 }, 1);
 
       expect(second.items).toHaveLength(1);
       // 第二次命中缓存，不再查库
-      expect(mockRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+      expect(mockRepository.findAndCount).toHaveBeenCalledTimes(1);
     });
 
     it('should apply date range filters', async () => {
-      const queryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(0),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-      mockRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+      mockRepository.findAndCount.mockResolvedValue([[], 0]);
 
       await service.search(
         { keyword: '', start: '2026-08-01', end: '2026-08-31', page: 1, limit: 20 },
         1,
       );
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledTimes(2); // start and end
+      // 时间条件是 AND，须**分发**到每条行级分支上
+      const where = mockRepository.findAndCount.mock.calls[0][0].where as Array<Record<string, unknown>>;
+      expect(where.length).toBeGreaterThan(0);
+      expect(where.every((b) => b.startTime != null && b.endTime != null)).toBe(true);
+    });
+
+    // ① 强制点：搜索与列表同一行级谓词（此前自己写 `event.userId = :userId`，比列表更窄）
+    it('ORG-3/权限-2: 行级谓词与列表同源（含组织分支，非 owner-only）', async () => {
+      const mockOrgService = { getUserOrgContext: jest.fn().mockResolvedValue({ orgId: 3, deptId: null }) };
+      (service as any).orgService = mockOrgService;
+      mockRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.search({ keyword: 'X', page: 1, limit: 20 }, 5);
+
+      const where = mockRepository.findAndCount.mock.calls[0][0].where as Array<Record<string, unknown>>;
+      // 组织分支在场（orgId: 3），且关键词已分发到每条分支
+      expect(JSON.stringify(where)).toContain('"orgId":3');
+      expect(where.every((b) => b.title != null || b.description != null)).toBe(true);
+      (service as any).orgService = undefined;
     });
   });
 

@@ -230,34 +230,52 @@ export class EventsService implements OnModuleInit {
     const cached = await this.cacheService.get(key);
     if (cached) return cached as any;
 
-    const queryBuilder = this.eventsRepository.createQueryBuilder('event');
+    // 权限-2 / 强制点矩阵 §10 ① 行：与 `GET /events` 走**同一行级谓词**（`buildScopeWhere`）。
+    // 此前这里自己写 `event.userId = :userId`，于是搜索比列表更窄——列表含同组织，搜索只含本人。
+    //
+    // Permission-2 / enforcement-point matrix §10 row ①: the same row-level predicate as `GET /events`
+    // (`buildScopeWhere`). This used to hand-roll `event.userId = :userId`, so search was narrower than
+    // the list — the list includes same-org rows, search only the caller's own.
+    const descriptor = userId ? await this._scopeFor(userId) : null;
+    const ownership: Array<Record<string, unknown>> = descriptor
+      ? ((buildScopeWhere<Record<string, unknown>>(descriptor, 'Event') ?? []) as Array<
+          Record<string, unknown>
+        >)
+      : [];
 
-    if (userId) {
-      queryBuilder.where('event.userId = :userId', { userId });
-    }
-
+    // A `where` array means **OR**, so every AND condition must be **distributed** onto each row-level
+    // branch (the same move `getEventsForRange` makes). The keyword is itself an OR of title/description,
+    // which lives as **two branches** in the array.
+    // `where` 数组的语义是 **OR**，故每个 AND 条件都要**分发**到各条行级分支上（与 `getEventsForRange`
+    // 同一手法）。关键词本身是 title/description 的 OR，靠**两条分支**表达。
+    let branches: Array<Record<string, unknown>> = ownership.length
+      ? ownership.map((o) => ({ ...o }))
+      : [{}];
     if (params.keyword) {
-      queryBuilder.andWhere(
-        '(event.title LIKE :keyword OR event.description LIKE :keyword)',
-        { keyword: `%${params.keyword}%` },
-      );
+      const kw = `%${params.keyword}%`;
+      branches = branches.flatMap((b) => [
+        { ...b, title: Like(kw) },
+        { ...b, description: Like(kw) },
+      ]);
+    }
+    // Invalid dates are dropped rather than passed through (postgres rejects an Invalid Date parameter);
+    // same rule as `getEventsForRange`.
+    // 非法日期**不加**时间范围（postgres 对 Invalid Date 参数报语法错）；与 `getEventsForRange` 同口径。
+    const startAt = params.start ? new Date(`${params.start}T00:00:00`) : null;
+    if (startAt && !Number.isNaN(startAt.getTime())) {
+      for (const b of branches) b.startTime = MoreThanOrEqual(startAt);
+    }
+    const endAt = params.end ? new Date(`${params.end}T23:59:59.999`) : null;
+    if (endAt && !Number.isNaN(endAt.getTime())) {
+      for (const b of branches) b.endTime = LessThanOrEqual(endAt);
     }
 
-    if (params.start) {
-      queryBuilder.andWhere('event.startTime >= :start', { start: new Date(`${params.start}T00:00:00`) });
-    }
-
-    if (params.end) {
-      queryBuilder.andWhere('event.endTime <= :end', { end: new Date(`${params.end}T23:59:59.999`) });
-    }
-
-    const total = await queryBuilder.getCount();
-
-    const items = await queryBuilder
-      .orderBy('event.startTime', 'DESC')
-      .skip((params.page - 1) * params.limit)
-      .take(params.limit)
-      .getMany();
+    const [items, total] = await this.eventsRepository.findAndCount({
+      where: branches as any,
+      order: { startTime: 'DESC' },
+      skip: (params.page - 1) * params.limit,
+      take: params.limit,
+    });
 
     const result = {
       items,
