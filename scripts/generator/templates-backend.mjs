@@ -263,8 +263,17 @@ ${scopeCols}
    *
    * 每次写入自增。携带陈旧值的更新会被拒绝，而不是**无声覆盖**中间写过的人 —— 接口以 409 作答。
    * 乐观锁在这里是**缺省**而非可选：生成的模块不该在丢写入时一声不吭。
+   *
+   * 「default: 1」不是装饰：没有它，这一列就是「NOT NULL 且无默认」，而**往已有数据的表上加这样一列
+   * 会失败**（sqlite 因 NOT NULL 约束拒绝回填，Postgres 同样）。加了它，既有库才升得上来——且 1 正是
+   * TypeORM 为版本列取的起始值，语义不变。
+   *
+   * The default of 1 is load-bearing, not decoration: without it this column is NOT NULL with no default,
+   * and **adding such a column to a table that already has rows fails** — sqlite refuses the backfill on
+   * the NOT NULL constraint, and Postgres does too. With it, existing databases can be upgraded; and 1 is
+   * the value TypeORM already starts a version column at, so the semantics are unchanged.
    */
-  @VersionColumn()
+  @VersionColumn({ default: 1 })
   version!: number;
 ${attachRelation}
 

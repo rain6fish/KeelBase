@@ -368,7 +368,8 @@ test('后端 8 文件骨架', () => {
 test('乐观锁缺省：实体带 version 列、更新 DTO 必填 version、服务把冲突翻成 409', () => {
   const files = backendFiles(ctx());
   const entity = files.find((f) => f.path.endsWith('.entity.ts')).content;
-  assert.match(entity, /@VersionColumn\(\)\n {2}version!: number;/);
+  // `default: 1` 是承重的：没有它，「NOT NULL 无默认」的列加不到已有数据的表上（见模板里的说明）
+  assert.match(entity, /@VersionColumn\(\{ default: 1 \}\)\n {2}version!: number;/);
   assert.match(entity, /VersionColumn,/);
 
   const updateDto = files.find((f) => f.path.includes('update-')).content;

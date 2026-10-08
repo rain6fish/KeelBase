@@ -38,7 +38,7 @@ export class Tag {
    * 每次写入自增。携带陈旧值的更新会被拒绝，而不是**无声覆盖**中间写过的人 —— 接口以 409 作答。
    * 乐观锁在这里是**缺省**而非可选：生成的模块不该在丢写入时一声不吭。
    */
-  @VersionColumn()
+  @VersionColumn({ default: 1 })
   version!: number;
 
 
