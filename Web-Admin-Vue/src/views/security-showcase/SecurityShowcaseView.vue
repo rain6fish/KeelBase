@@ -67,10 +67,10 @@ const result = ref<ShowcaseResult | null>(null)
 const loaded = ref(false)
 
 function categoryTag(c: ShowcaseCategory) {
-  return ({ injection: 'danger', unauthorized: 'warning', risk: 'danger', confirmation: 'primary' } as Record<ShowcaseCategory, string>)[c] ?? 'info'
+  return ({ injection: 'danger', unauthorized: 'warning', risk: 'danger', confirmation: 'primary', hallucination: 'info' } as Record<ShowcaseCategory, string>)[c] ?? 'info'
 }
 function outcomeTag(o: ShowcaseOutcome) {
-  return ({ refused: 'danger', denied: 'warning', blocked: 'danger', requiresConfirmation: 'primary' } as Record<ShowcaseOutcome, string>)[o] ?? 'info'
+  return ({ refused: 'danger', denied: 'warning', blocked: 'danger', requiresConfirmation: 'primary', unresolved: 'warning' } as Record<ShowcaseOutcome, string>)[o] ?? 'info'
 }
 function stepTagType(step: string) {
   return ({ input: 'info', guard: 'warning', decision: 'primary', outcome: 'success' } as Record<string, string>)[step] ?? 'info'

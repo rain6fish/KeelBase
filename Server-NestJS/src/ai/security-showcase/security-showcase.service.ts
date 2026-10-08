@@ -9,7 +9,13 @@ import { DeleteCustomerTool } from '../tools/delete-customer.tool';
 import { CreateFollowupTaskTool } from '../tools/create-followup-task.tool';
 import { detectInjection, sanitizeExternalContent } from '../security/injection-guard';
 
-export type ShowcaseOutcome = 'refused' | 'denied' | 'blocked' | 'requiresConfirmation';
+export type ShowcaseOutcome =
+  | 'refused'
+  | 'denied'
+  | 'blocked'
+  | 'requiresConfirmation'
+  /** 工具名解析不到（模型幻觉）——与前四类不同的拒绝：不是「不许做」，是「不存在可做的东西」 */
+  | 'unresolved';
 
 /** 每个对抗场景的 trace 步：key + params 由前端 i18n 双语渲染（后端不产用户可见文案，守 §5.5 #3 双语红线） */
 export interface ShowcaseStep {
@@ -28,7 +34,7 @@ export interface ShowcaseResult {
 
 export interface ShowcaseScenario {
   id: string;
-  category: 'injection' | 'unauthorized' | 'risk' | 'confirmation';
+  category: 'injection' | 'unauthorized' | 'risk' | 'confirmation' | 'hallucination';
 }
 
 /**
@@ -69,6 +75,7 @@ export class SecurityShowcaseService {
       { id: 'unauthorized', category: 'unauthorized' },
       { id: 'r5-block', category: 'risk' },
       { id: 'confirmation', category: 'confirmation' },
+      { id: 'unknown-tool', category: 'hallucination' },
     ];
   }
 
@@ -83,6 +90,8 @@ export class SecurityShowcaseService {
         return this.runR5Block();
       case 'confirmation':
         return this.runConfirmation();
+      case 'unknown-tool':
+        return this.runUnknownTool();
       default:
         throw new NotFoundException(`未知对抗场景：${scenarioId}`);
     }
@@ -169,6 +178,42 @@ export class SecurityShowcaseService {
         { step: 'guard', key: 'confirmation.guard', params: { level } },
         { step: 'decision', key: 'confirmation.decision' },
         { step: 'outcome', key: 'confirmation.outcome' },
+      ],
+    };
+  }
+
+  /**
+   * 场景 5：不存在的工具——模型幻觉出的工具名跑不起来。
+   *
+   * 前四个场景拦的是「模型做了不该做的事」；这一个拦的是「模型说了一个不存在的东西」。后者才是
+   * 「无论模型输出什么」的极端面：工具名是模型自由生成的字符串，工具面**不可被幻觉扩展**。
+   * 判据落在执行路径上——注册表对未注册名抛错，故它永远到不了 `execute`。
+   */
+  private runUnknownTool(): ShowcaseResult {
+    const hallucinated = 'delete_all_customers';
+    let resolvable = true;
+    try {
+      this.toolRegistry.getTool(hallucinated);
+    } catch {
+      resolvable = false;
+    }
+    // canary：注册表若对未注册名返回了工具（工具面被幻觉撑开）→ fail-loud，而不是硬编码返回 denied
+    if (resolvable) {
+      throw new Error(
+        `Security showcase drift: unregistered tool "${hallucinated}" resolved in the registry ` +
+          '(an unknown tool name must never execute)',
+      );
+    }
+    return {
+      scenarioId: 'unknown-tool',
+      outcome: 'unresolved',
+      reasonKey: 'unknownTool.reason',
+      reasonParams: { tool: hallucinated },
+      trace: [
+        { step: 'input', key: 'unknownTool.input', params: { tool: hallucinated } },
+        { step: 'guard', key: 'unknownTool.guard' },
+        { step: 'decision', key: 'unknownTool.decision' },
+        { step: 'outcome', key: 'unknownTool.outcome' },
       ],
     };
   }

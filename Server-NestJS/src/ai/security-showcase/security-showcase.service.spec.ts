@@ -27,12 +27,13 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     service = module.get(SecurityShowcaseService);
   });
 
-  it('listScenarios 返回 4 个对抗场景（id + 分类）', () => {
+  it('listScenarios 返回 5 个对抗场景（id + 分类）', () => {
     expect(service.listScenarios()).toEqual([
       { id: 'injection', category: 'injection' },
       { id: 'unauthorized', category: 'unauthorized' },
       { id: 'r5-block', category: 'risk' },
       { id: 'confirmation', category: 'confirmation' },
+      { id: 'unknown-tool', category: 'hallucination' },
     ]);
   });
 
@@ -81,6 +82,26 @@ describe('SecurityShowcaseService (A2 对抗性证明产品化)', () => {
     expect(r.outcome).toBe('requiresConfirmation');
     expect(r.reasonKey).toBe('confirmation.reason');
     expect(r.reasonParams?.level).toBe('R3');
+  });
+
+  it('unknown-tool：模型幻觉出的工具名 → unresolved + reasonParams.tool', () => {
+    const r = service.runScenario('unknown-tool');
+    expect(r.outcome).toBe('unresolved');
+    expect(r.reasonKey).toBe('unknownTool.reason');
+    expect(r.reasonParams?.tool).toBe('delete_all_customers');
+    expect(r.trace.map((t) => t.step)).toEqual(['input', 'guard', 'decision', 'outcome']);
+  });
+
+  it('canary：未注册的工具名在注册表里被解析出来 → fail-loud（工具面被幻觉撑开即变红）', () => {
+    // 注册表被换成一个「任何名字都返回工具」的替身 —— 正是漂移的形状
+    const drift = service as unknown as { toolRegistry: { getTool: (n: string) => unknown } };
+    const original = drift.toolRegistry;
+    drift.toolRegistry = { getTool: () => ({ name: 'anything' }) };
+    try {
+      expect(() => service.runScenario('unknown-tool')).toThrow(/drift/);
+    } finally {
+      drift.toolRegistry = original;
+    }
   });
 
   it('未知场景 → 404', () => {

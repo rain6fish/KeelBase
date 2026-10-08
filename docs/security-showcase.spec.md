@@ -21,6 +21,9 @@
 | `unauthorized` | bob 越权读取 alex 的客户 | CASL 行级所有权 `ability.can('read', subject(...))` | `denied` |
 | `r5-block` | AI 尝试不可逆动作（删除客户） | R5 策略阻断 `riskLevel('delete_customer')` | `blocked` |
 | `confirmation` | AI 写操作（创建跟进任务） | R3 确认门控 `requiresConfirmation('create_followup_task')` | `requiresConfirmation` |
+| `unknown-tool` | 模型幻觉出一个从未注册的工具名 | 工具注册表解析未注册名 → 不进入执行（`ToolRegistry.getTool`） | `unresolved` |
+
+> **`unknown-tool`（2026-10-08 增）**：前四例拦的是「模型做了不该做的事」，这一例拦的是「模型说了一个**不存在**的东西」——工具名是模型自由生成的字符串，工具面**不可被幻觉撑开**。它是「无论模型输出什么，治理边界都绕不过」的极端面（见 `docs/authorization-architecture.md` §10 的 ③ 行）。语料副本 `specs/scenarios/security-showcase-v1.json` 与运行时集合由 `src/ai/scenarios-pack.spec.ts` 双向钉住。
 
 **canary 语义**：演示页是「防线 canary」——若真实防护漂移（注入样本不再命中 / CASL 行级放行 / 工具风险级变更），`run` 直接抛错（HTTP 500）变红，而非返回假绿 outcome 掩盖回归。
 
