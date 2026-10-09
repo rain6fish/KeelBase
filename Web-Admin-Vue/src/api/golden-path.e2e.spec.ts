@@ -24,9 +24,10 @@
  *   npx vitest run src/api/golden-path.e2e.spec.ts
  * </pre>
  *
- * <p>The administrator token is only for the streaming leg, which walks the same turns over the
- * channel the console actually uses (`/admin/ai/chat/stream`, the endpoint an administrator is sent
- * to). Without it that leg is skipped and the rest still runs.
+ * <p>The administrator token covers the console's own legs: the streaming channel, which walks the
+ * same turns over the endpoint an administrator is sent to (`/admin/ai/chat/stream`), and the audit
+ * chain's state, which the console asks from a page only an administrator can reach. Without it
+ * those legs are skipped and the rest still runs.
  *
  * <p>How the token is obtained is the one documented difference between the runtimes and is
  * deliberately not part of this path: the TypeScript runtime issues one from `/auth/login`, the Java
@@ -137,6 +138,26 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
     ]) {
       expect(effect, `ToolEffect requires '${field}'`).toHaveProperty(field)
     }
+  })
+
+  /**
+   * The chain's own state, asked the way the console asks it — as an administrator.
+   *
+   * <p>This hop sits on the administrator's side of the path, and that is a correction rather than a
+   * concession to a runtime: the reference gates the route at `manage/all`, and the console only ever
+   * sends an administrator to the page that calls it — every console route carries `roles: ['admin']`
+   * (`src/router/routes.ts`), so a plain caller never reaches this button in the product. Asking as
+   * one passed only for as long as this runtime was more permissive than the contract it implements.
+   *
+   * 链自身的状态，按控制台问它的方式问 —— **以管理员**。
+   *
+   * <p>这一跳落在路径的**管理员那一侧**，而这是**一处更正**、不是对某个运行时的妥协：参照实现把这条路由
+   * 守在 `manage/all` 上，而控制台**只会**把管理员领到调用它的那个页面 —— 控制台的**每一个**页面都带
+   * `roles: ['admin']`（`src/router/routes.ts`），所以普通调用方在**产品里根本到不了这个按钮**。以普通
+   * 调用者问能通过，只在**本运行时比它所实现的契约更宽松**的那段时间里成立。
+   */
+  it.skipIf(!ADMIN_TOKEN)('5. the audit chain verifies, asked as the console asks it', async () => {
+    storage.saveTokens(ADMIN_TOKEN ?? '', '')
 
     const verify = (await auditApi.verify()) as { valid?: boolean }
     expect(verify.valid, 'the audit chain verifies').toBe(true)
@@ -151,7 +172,7 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
    * what the stream's lifetime is for: the decision arrives on another request and the open view
    * learns of it as an event. A stream that closed after the turn could not deliver this.
    */
-  it.skipIf(!ADMIN_TOKEN)('5. the console’s own streaming client walks it too', async () => {
+  it.skipIf(!ADMIN_TOKEN)('6. the console’s own streaming client walks it too', async () => {
     const events: string[] = []
     let decision: AiConfirmationDecision | undefined
     let failure: Error | undefined
@@ -207,7 +228,7 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
    * 一样，只有从外面才分得清。断言的是**形状**而不是某个部署的取值——参照会记录这次访问、列出真实的
    * provider，而没有这两样的运行时会答空；两者都是回答。
    */
-  it('6. the login page’s own two calls answer', async () => {
+  it('7. the login page’s own two calls answer', async () => {
     const providers = await authApi.oauthProviders()
     expect(Array.isArray(providers.enabledProviders), 'enabledProviders is a list').toBe(true)
     const stats = await authApi.loginStats()
@@ -218,17 +239,17 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
    * A surface that takes no token at all, asked without one.
    *
    * The cases above walk everything *with* a token, and that is the shape a missing gate hides behind:
-   * a request carrying a token is answered whether or not the surface is guarded, because a guard lets
-   * a valid caller through. Only asking without one can tell a deployment that refuses the anonymous
-   * apart from one that hands them the same answer.
+   * a probe carrying one is answered for whoever that surface admits, and every gate admits someone —
+   * so only asking without a token can tell a deployment that refuses the anonymous apart from one that
+   * hands them the same answer.
    *
    * 一个**完全不收令牌**的面，就用「不带令牌」去问它。
    *
-   * 上面各条全程**带着令牌**走——而那正是「闸没装」藏身的形状：带着令牌的请求，面守没守都会作答，因为守卫
-   * 本来就会放合法调用者过去。**只有不带令牌去问**，才分得清一个拒绝匿名的部署与一个把同样的答案递给匿名
-   * 的部署。
+   * 上面各条全程**带着令牌**走——而那正是「闸没装」藏身的形状：带令牌的探问，会被**那个面所放行的任何人**
+   * 答上，而**每一道闸都放行某个人** —— 所以**只有不带令牌去问**，才分得清一个拒绝匿名的部署与一个把同样的
+   * 答案递给匿名的部署。
    */
-  it('7. an anonymous caller is refused', async () => {
+  it('8. an anonymous caller is refused', async () => {
     // Asked with `fetch` rather than through the client, deliberately: the client treats a 401 as a
     // session ending — it tries to refresh, then clears the tokens and reports the logout — so what it
     // hands back is a session event, not the answer. What is asserted here is what the deployment says,
