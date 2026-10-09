@@ -8,9 +8,9 @@ KeelBase 是一个面向**数据主权与私有化部署**的生产级、AI 原�
 
 ## Supported Versions / 受支持的版本
 
-This project is under active development (pre-1.0). Security fixes are applied to the `main` branch and released with the next version. We do not maintain long-term support (LTS) branches at this stage.
+The current release line is `1.1.x`. Security fixes are applied to the `main` branch and released with the next version. We do not maintain long-term support (LTS) branches for previous lines — see the [public version plan](docs/versioning.md) for the release-line policy.
 
-本项目处于活跃开发期（1.0 之前）。安全修复会应用到 `main` 分支并随下一版本发布。当前阶段不维护长期支持（LTS）分支。
+当前发布线为 `1.1.x`。安全修复会应用到 `main` 分支并随下一版本发布。项目不为既往版本线维护长期支持（LTS）分支——版本线策略见[公开版本计划](docs/versioning.md)。
 
 | Version | Supported / 支持 |
 |---------|-----------|
@@ -20,10 +20,10 @@ This project is under active development (pre-1.0). Security fixes are applied t
 ### Maintenance & Sustainability (KB-8) / 维护、兼容与可持续性
 
 **Compatibility & upgrade path / 兼容边界与升级路径**
-- 语义化版本（SemVer）：1.0.x 增量维护；升 1.1 由产品证明期验收触发（非时间表）。当前 pre-1.0：安全修复落 `main` 并随下一版本发布。
+- 语义化版本（SemVer）：当前发布线 `1.1.x` 增量维护（1.1 = 产品证明达成版，2026-10-05 发布）；安全修复落 `main` 并随下一版本发布。
 - 生成产物为**普通源码**（NestJS + 前端 + 权限 + 审计接线），不锁定平台——升级 = `npm run migration:run` 前滚 + 源码随仓库演进，无专有运行时升级负担。
 - 端点契约保持统一（REST/SSE/WS + 统一响应包装 + camelCase + ISO8601）；对外能力表述与边界见本文档 Trust Boundaries。
-- **LTS / 长期承诺**：计划于 1.1（产品证明达成）提供公开的兼容承诺与版本策略细化（含哪些契约三年不拆、安全修复节奏）；当前阶段如实标注「不维护 LTS 分支」。
+- **LTS / 长期承诺**：公开的版本线与兼容边界见[公开版本计划](docs/versioning.md)（1.1 已按计划发布）；当前如实标注「不维护 LTS 分支」——安全修复落 `main` 并随下一版本发布。
 
 **Sustainability metrics (measurable) / 可持续性三指标（可测）**
 | 指标 Metric | 口径 Definition | 当前基线（2026-09）Baseline |

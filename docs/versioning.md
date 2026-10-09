@@ -27,11 +27,13 @@ compared against the CLI by `keelbase doctor`. It moves independently of the pro
 
 - **adding a field type, a declaration key or an optional attribute = MINOR** — every existing spec stays
   valid and downstream apps need do nothing. `1.0` → `1.1` is such a release: it added the `decimal` field
-  type and the `enumLabels` key.
+  type, module references (`ref`), personal-data declarations (`pii`), per-module attachment tables, and the
+  `enumLabels` key.
 - **renaming or removing a key, or changing what an existing key means = MAJOR** — downstream must migrate.
 
 - **新增字段类型 / 声明键 / 可选属性 = MINOR** —— 既有 spec 一律仍然合法，下游无需任何动作。
-  `1.0` → `1.1` 即属此类：新增了 `decimal` 字段类型与 `enumLabels` 键。
+  `1.0` → `1.1` 即属此类：新增了 `decimal` 字段类型、模块引用（`ref`）、个人数据声明（`pii`）、
+  模块级附件表，以及 `enumLabels` 键。
 - **改名、删除，或改变既有键的含义 = MAJOR** —— 下游必须迁移。
 
 When a manifest is older than the CLI, `keelbase doctor` reports it and suggests re-running `keelbase init`,
@@ -43,26 +45,28 @@ manifest 旧于当前 CLI 时，`keelbase doctor` 会报出并建议重跑 `keel
 
 | Line / 版本线 | Status / 状态 | Release trigger / 发布触发 |
 |---|---|---|
-| `1.0.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
-| `1.1.x` | **Pending / 待触发** — Product-Proof edition / 产品验证版 | External-validation milestones are met (no hard date) / 外部验证里程碑达成（无硬性日期） |
+| `1.1.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
+| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.1.x` / 升级到 `1.1.x` |
 | `2.x` | Future / 未来 | Breaking changes, when accumulated / 破坏性变更累积后 |
 
-### Current: 1.0.x / 当前：1.0.x
+### Current: 1.1.x — Product-Proof edition / 当前：1.1.x 产品证明版
 
-The current line is a mature, feature-complete application base. Releases are made incrementally as fixes
-and small improvements land. The `main` branch is the development line; each tagged release is a stable
-snapshot that passes the full CI and test suite.
+The current line is the Product-Proof edition, first released on 2026-10-05. v1.1 was a trigger-based
+release, **not a calendar release**: it shipped once the product-proof milestones were met — an external
+developer builds and runs KeelBase from the public documentation, and the demo assets are in place. What the
+release adds on top is checkability — a runtime whose claims about what it did can be verified. The `main`
+branch is the development line; each tagged release is a stable snapshot that passes the full CI and test
+suite. Releases are made incrementally as fixes and small improvements land.
 
-当前版本线是功能完整的成熟基座。修复与小改进随代码合并增量发版。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
+当前版本线是产品证明版，首发于 2026-10-05。v1.1 是**触发式发布，而非日历发布**：产品验证里程碑达成后发布——外部开发者能按公开文档构建并运行 KeelBase，且演示资产就位。这一版在其上补的是**可核对**——一个对它做过什么的说法可以被验证的运行时。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。修复与小改进随代码合并增量发版。
 
-### Pending: 1.1.x — Product-Proof edition / 待触发：1.1.x 产品验证版
+### Superseded: 1.0.x / 已被取代：1.0.x
 
-v1.1 is a trigger-based release, **not a calendar release**. It ships when the product-proof milestones are
-met — primarily: an external developer builds and runs KeelBase successfully, and early adopters / system
-integrators provide real-world feedback that the product experience holds up outside the project's own
-environment. Until those signals arrive, work continues on the `1.0.x` line with incremental releases.
+v1.1.0 superseded the 1.0.x line on 2026-10-05. No further `1.0.x` releases are planned: fixes and
+security updates land on `main` and ship in the next `1.1.x` release. Upgrading to the current line is the
+supported path.
 
-v1.1 是**触发式发布，而非日历发布**。当产品验证里程碑达成时发布，核心标准：外部开发者成功构建并运行 KeelBase，且早期采用者/系统集成商提供的真实反馈验证了产品体验在项目自身环境之外依然成立。在这些信号到来之前，工作继续在 `1.0.x` 线上以增量发布推进。
+1.1.0 于 2026-10-05 取代 1.0.x 线。不再计划发布 `1.0.x` 版本：修复与安全更新落在 `main`，随下一个 `1.1.x` 版本发布。升级到当前版本线是受支持的路径。
 
 ## Release process / 发版流程
 
@@ -73,10 +77,11 @@ v1.1 是**触发式发布，而非日历发布**。当产品验证里程碑达�
 
 ## Supported versions / 受支持版本
 
-Security fixes are applied to `main` and released with the next version. Before 1.0, the project does not
-maintain long-term-support (LTS) branches — see [SECURITY.md](../SECURITY.md) for the exact policy.
+Security fixes are applied to `main` and released with the next version. The project does not maintain
+long-term-support (LTS) branches for previous lines — running the current line is the supported
+configuration. See [SECURITY.md](../SECURITY.md) for the exact policy.
 
-安全修复应用到 `main` 并随下一版本发布。1.0 之前不维护长期支持（LTS）分支，具体策略见 [SECURITY.md](../SECURITY.md)。
+安全修复应用到 `main` 并随下一版本发布。项目不为既往版本线维护长期支持（LTS）分支——运行当前版本线即受支持配置。具体策略见 [SECURITY.md](../SECURITY.md)。
 
 ---
 

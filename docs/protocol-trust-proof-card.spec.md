@@ -51,7 +51,7 @@
 | 运行时 | Node.js ≥ 22 + npm；Git |
 | 数据库 | SQLite（默认，零外部依赖）；PostgreSQL 为可选扩展档（T2/T3 视需要） |
 | 服务依赖 | 无 Redis / 无队列必启（QUEUE_ENABLED=false 可跑）；需真实 LLM 仅档位 B |
-| 代码基线 | **钉死版本**：默认 = 最新 v1.0.x release tag 或本 spec 记录的 pin SHA；留档必须写明 |
+| 代码基线 | **钉死版本**：默认 = 最新 release tag（当前为 v1.1.x）或本 spec 记录的 pin SHA；留档必须写明 |
 | 获取 | 从公开源 clone（GitHub），或下载该 tag 的源码包 |
 
 > **场景 A（主卡，默认）**：依赖已预装、库可直连——测 Protocol→Trust 链本身，环境摩擦不计入判据。
