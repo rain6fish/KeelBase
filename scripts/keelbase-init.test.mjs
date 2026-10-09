@@ -44,6 +44,8 @@ import {
   MANIFEST_IDENTITY,
   MANIFEST_PROTOCOL,
 } from './generator/manifest.mjs';
+// The runtime-capability list doctor checks, imported rather than copied — see the doctor test below.
+import { REQUIRED_RUNTIME } from './keelbase-doctor.mjs';
 
 // ── 工具 ─────────────────────────────────────────────────────────────────────
 async function tempRoot() {
@@ -617,10 +619,19 @@ test('端到端：doctor 子命令——四查 PASS / 非 KeelBase / 不支持 s
   // 完整 fixture（manifest + 模块目录 + 运行时能力）→ 四查 PASS 退出 0
   const root = await tempRoot();
   await makeFixtures(root);
-  await write(BE(root, 'common/casl/casl-ability.factory.ts'), 'export {};\n');
-  await write(BE(root, 'ai/governance/governance-policy.service.ts'), 'export {};\n');
-  await write(BE(root, 'ai/audit/ai-audit.service.ts'), 'export {};\n');
-  await write(BE(root, 'operation-audit/operation-audit.service.ts'), 'export {};\n');
+  // The capability directories are derived from doctor's own list, not spelled out here. Spelling them
+  // out is exactly what went wrong: this fixture kept writing `ai/governance` after `01b0c8b2` renamed
+  // that directory to `ai/governance-bridge`, so the doctor check failed on a fixture whose author
+  // believed it was complete — for days, in CI. (`posts/post.entity.ts` below is a *module* directory,
+  // read by the consistency check rather than this one, so it stays explicit.)
+  //
+  // 能力目录由 doctor 自己的清单派生，而不是在这里逐条写出。逐条写出正是出问题的地方：`01b0c8b2` 把
+  // `ai/governance` 改名成 `ai/governance-bridge` 之后，本 fixture 仍写着旧路径，于是 doctor 检查在一个
+  // 作者以为完整的 fixture 上失败 —— 而且在 CI 里红了好几天。（下面的 `posts/post.entity.ts` 是**模块**
+  // 目录，由一致性检查而非本项读取，故仍显式写出。）
+  for (const { path } of REQUIRED_RUNTIME) {
+    await write(`${root}/${path}/placeholder.ts`, 'export {};\n');
+  }
   await write(BE(root, 'posts/post.entity.ts'), 'export {};\n');
   await writeManifest('posts', root);
   const ok = await spawnRun(root);

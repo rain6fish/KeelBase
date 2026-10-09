@@ -48,8 +48,19 @@ const HELP = `KeelBase doctor — 诊断 KeelBase 应用 + 本地环境预检
 退出码: 0 = 无 FAIL；1 = 有 FAIL 或非 KeelBase
 `;
 
-/** 运行时兼容所需的核心基座能力（目录存在性检测）。 */
-const REQUIRED_RUNTIME = [
+/**
+ * The base capabilities a KeelBase application must have on disk.
+ *
+ * Exported so the end-to-end doctor test builds its fixture from this list rather than copying it. The
+ * copy is what broke: it still said `ai/governance` after `01b0c8b2` renamed that directory to
+ * `ai/governance-bridge`, and a fixture that spells out a list cannot see the list move.
+ *
+ * 运行时兼容检查所需的核心基座能力（目录存在性检测）。
+ *
+ * 导出是为了让 doctor 的端到端用例照着它搭 fixture，而不是手抄一份。坏掉的正是那份抄件：`01b0c8b2` 把
+ * `ai/governance` 改名成 `ai/governance-bridge` 之后，它仍写着旧路径 —— 抄来的清单看不见清单在动。
+ */
+export const REQUIRED_RUNTIME = [
   { name: 'AI Tools', path: 'Server-NestJS/src/ai/tools' },
   { name: 'CASL Permission', path: 'Server-NestJS/src/common/casl' },
   { name: 'Governance', path: 'Server-NestJS/src/ai/governance-bridge' },
