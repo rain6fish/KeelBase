@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  REQUIRED_RUNTIME,
   classifyProtocol,
   parseEnv,
   checkNodeVersion,
@@ -152,4 +153,24 @@ test('checkContractSubmodule：取不到 git 状态（null）→ 只按目录判
 
 test('checkContractSubmodule：warn（陈旧）不改变 doctor 退出码', () => {
   assert.equal(report([checkContractSubmodule(23, '+deadbeef Server-NestJS/specs/protocol')]), 0);
+});
+
+// The paths are pinned rather than left to the end-to-end test, which now *derives* its fixture from
+// this list: deriving makes that test immune to the list moving, and this is what keeps the move from
+// being silent. Dropping a capability here means doctor stops checking it and nothing else would say so.
+//
+// 路径钉在这里，而不是交给端到端用例 —— 后者如今**派生**自本清单：派生让它对清单变动免疫，而这一条正是
+// 让变动不再无声。删掉一项能力，doctor 就不再检查它，而别处不会有任何声音。
+test('REQUIRED_RUNTIME：基座能力清单被钉住（少一条 = 悄悄不查一项）', () => {
+  assert.deepEqual(
+    REQUIRED_RUNTIME.map((r) => r.path),
+    [
+      'Server-NestJS/src/ai/tools',
+      'Server-NestJS/src/common/casl',
+      'Server-NestJS/src/ai/governance-bridge',
+      'Server-NestJS/src/ai/audit',
+      'Server-NestJS/src/operation-audit',
+      'Server-NestJS/src/ai',
+    ],
+  );
 });
