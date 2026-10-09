@@ -76,6 +76,21 @@
 它还会**直检**两个运行时权威源仍在发版线成员内——防「权威源停更 → 生成物错版 + doctor 自比成假绿」
 （2026-09-16 事故的原形），以及前端显示版本常量掉队（原门禁的漏）。
 
+### ⑤ 版本线文档同步（仅在版本线变更时）
+
+**触发**：本次发布**开启新版本线**（如 `1.0.x` → `1.1.x`）或**改变某条线的状态**（转为当前线 / 转为已冻结）。
+**纯 patch 发布（同一线内）无需执行。**
+
+把「公开版本计划」的表述对账到已发布实况：
+
+| 文档 | 需核对的表述 |
+|------|-------------|
+| `docs/versioning.md` | 「版本线」表（哪条是当前线、哪条已被取代）· Current / Superseded 小节 · 「应用协议」本次新增项的描述 |
+| `SECURITY.md` | 「受支持的版本」段（当前发布线、是否维护 LTS 分支） |
+| 其它引用版本线的文档 | 如 `docs/protocol-trust-proof-card.spec.md` 的代码基线 pin |
+
+> **2026-10-09 教训**：v1.1.0（2026-10-05）发布后，`docs/versioning.md` 仍把 `1.0.x` 列为当前线、`1.1.x` 标为待触发，`SECURITY.md` 仍写 pre-1.0。本条即为此补。
+
 ## 执行记录
 
 每次发布前执行后，在 CHANGELOG/发布记录记一笔：
@@ -85,6 +100,7 @@ Release Precheck（<日期>）：
 - 四层 code review：阿里 X 条 + Claude 自带 Y 条 + code-review skill Z 条 + Code Economy K 条 → 修复 W 条阻塞项
 - 全量测试：后端单测/e2e/前端/Flutter/生成器 全过（覆盖率 backend xx% / flutter xx%）
 - 覆盖率：较上版 +x.x% / 达标
+- 版本线文档：versioning.md / SECURITY.md 已同步（仅开新线 / 改线状态时）
 ```
 
 **Code Economy 观察记录**（v0.1 Observation，2026-08-31 起）：
