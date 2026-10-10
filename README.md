@@ -174,7 +174,7 @@ npm run preflight    # before anything else: Node / Docker / ports / .env / cont
 node scripts/keelbase-init.mjs --spec specs/invoices.json
 ```
 
-> `--recurse-submodules` is required: `Server-NestJS/specs/protocol` is a submodule holding the wire schemas and protocol vectors that 38 test suites read. Already cloned without it (or downloaded a ZIP — those never carry submodules)? Run `git submodule update --init --recursive`. `npm run preflight` reports that gap — and any other setup one — before you start.
+> `--recurse-submodules` is required: `Server-NestJS/specs/protocol` is a submodule holding the wire schemas and protocol vectors that the test suites read. Already cloned without it (or downloaded a ZIP — those never carry submodules)? Run `git submodule update --init --recursive`. `npm run preflight` reports that gap — and any other setup one — before you start.
 
 Natural Language → Module Spec → Protocol → Application Code → AI Tools → Governance. The CLI ships **with the repo** (`scripts/keelbase-init.mjs`) — no global install; `--desc "…"` generates from a sentence instead of a spec file (needs a model key configured).
 
