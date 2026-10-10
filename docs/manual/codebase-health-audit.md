@@ -155,7 +155,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：~~governance/audit 语义整合架构立项（**H4**，原行已注「不在本次范围」）~~ → **✅ 2026-10-06 影响分析完成**（结论：现状是「3 进程内模块 + 2 独立进程」，非同一职责切五份；改名那半挂起，等下次契约修订）；~~状态/风险词汇常量单源（**M4**）~~ **✅ 2026-10-04 已裁并落地**；~~Flutter i18n 中文映射迁移（**M5**）~~ **✅ 2026-10-04 已裁并落地**；React 预览版去留 → **⏸ 2026-10-06 冻结**（用户裁：「react 暂时冻结」；**解冻条件 = 出现真实外部证据**，在此之前不备材料、不开工）
 - [x] M3：demo-data.ts 832 行 seed 拆分评估（**2026-10-04 评估完毕**：不拆、兼容分支留着，各附触发/退役条件；见 §2 M3 行）
-- [ ] **`ai.service.spec.ts` 的 `usersService` 死戳点**（§3 · 2026-09-18 那刀附带发现；**2026-10-10 核：仍在**）：`AiService` 已**无** `usersService` 字段（`grep` 实证），但 spec 里仍有 **4 处** `(aiService as any).usersService = {…}`（`Server-NestJS/src/ai/ai.service.spec.ts:441/475/2272/2540`）——**赋值给一个没人读的属性**；删掉即收口。（§5 此前漏登，2026-10-10 补）
+- [x] **`ai.service.spec.ts` 的 `usersService` 死戳点**（§3 · 2026-09-18 那刀附带发现）：`AiService` 已**无** `usersService` 字段（`grep` 实证），spec 里那 **4 处** `(aiService as any).usersService = {…}`（`Server-NestJS/src/ai/ai.service.spec.ts` 原 `441/475/2272/2540`）是**给没人读的属性赋值**。**✅ 2026-10-10 已删**（4 处；`jest src/ai/ai.service.spec.ts` 删前删后均 **96 passed**、`eslint` 0 error ⇒ 实证确系死的）。（§5 此前漏登，2026-10-10 补登并当场收口）
 - [x] **e2e 单进程长跑硬崩**（§3 · 2026-09-18 记；**2026-10-10 核：已收口**）：2026-09-23 阶段 4 把 release-gate 那 14 个 e2e（`42eb7880`）与 CI / 本地那 36 个套件（`5cf27412` test:e2e 分片 + `09bfeb65` cov 分片，脚本 `Server-NestJS/scripts/run-e2e-shards.mjs`）改为 jest 原生分片；见 §4「2026-09-23 — 阶段 4：release-gate 与 e2e 跑法可信度收口」。（§5 此前漏登，2026-10-10 补）
 
 ---

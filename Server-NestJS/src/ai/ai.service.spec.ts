@@ -438,9 +438,6 @@ describe('AiService', () => {
         permissions: { requireVerifiedEmail: true },
       } as any);
       (mockToolGate as any).featureFlagsService = undefined;
-      (aiService as any).usersService = {
-        findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: false }),
-      };
       mockProvider.generate.mockResolvedValueOnce({
         content: '',
         toolCalls: [
@@ -472,9 +469,6 @@ describe('AiService', () => {
         requiresConfirmation: true,
         permissions: { requireVerifiedEmail: true },
       } as any);
-      (aiService as any).usersService = {
-        findOne: jest.fn().mockResolvedValue({ id: 1, emailVerified: true }),
-      };
       mockProvider.generate.mockResolvedValueOnce({
         content: '',
         toolCalls: [
@@ -2269,9 +2263,6 @@ describe('AiService', () => {
     });
 
     it('adminOnly 工具：非管理员（普通用户）调用被结构化拒绝', async () => {
-      (aiService as any).usersService = {
-        findOne: jest.fn().mockResolvedValue({ id: 5, role: 'user' }),
-      };
       mockToolRegistry.getTool.mockReturnValue({
         name: 'navigate_admin_page',
         permissions: { adminOnly: true },
@@ -2537,7 +2528,6 @@ describe('AiService', () => {
   describe('治理策略与工具边界', () => {
     afterEach(() => {
       (aiService as any).governancePolicy = undefined;
-      (aiService as any).usersService = undefined;
     });
 
     it('_assertToolAllowed：治理策略禁用工具抛错', async () => {
