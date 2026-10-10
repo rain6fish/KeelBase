@@ -46,6 +46,26 @@ describe('proxy-http（B 路径外部调用超时守卫，KB-4 FP-3）', () => {
     expect(other).toContain('本次不重试');
   });
 
+  it('proxyErrorText：连接没建立 → "不可达"（这一读支持得起）；发出后才断的仍读作不确定', () => {
+    // 连接根本没建立——请求不可能发出去，「没送到」这一读是传输层支持得起的。
+    expect(proxyErrorText(Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }), '目标系统'))
+      .toContain('不可达');
+    // undici 把底层码挂在 cause 上——两处都要认，否则真实运行时那一类会漏读成不确定。
+    const viaCause = Object.assign(new Error('fetch failed'), {
+      cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+    });
+    expect(proxyErrorText(viaCause, '目标系统')).toContain('不可达');
+    // 发出**之后**才断的（无码的 socket hang up、ECONNRESET）不准读作不可达——目标可能已经收到。
+    for (const err of [
+      new Error('socket hang up'),
+      Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }),
+    ]) {
+      const text = proxyErrorText(err, '目标系统');
+      expect(text).not.toContain('不可达');
+      expect(text).toContain('可能已到达');
+    }
+  });
+
   it('getProxyTimeout：调用期读取 PROXY_FETCH_TIMEOUT_MS（未配/非法 → 30000）', () => {
     const prev = process.env.PROXY_FETCH_TIMEOUT_MS;
     try {

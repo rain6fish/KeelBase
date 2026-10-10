@@ -52,17 +52,47 @@ export async function proxyFetch(
 }
 
 /**
- * Normalize an external-call error for the caller / agent. A timeout reads as "timeout" — that one is
- * knowable. **Any other error no longer reads as "unreachable"**: a connection reset after the request
- * was sent means the target may have received it, and "unreachable" would assert it did not — a claim
- * the transport layer cannot support. The fallback therefore gives the indeterminate reading, the same
- * shape the external-MCP path takes in `tool-execution.service.ts`.
+ * Normalize an external-call error for the caller / agent. **Three readings, and the point is that the
+ * two failures are not collapsed into one.** A timeout reads as "timeout" — knowable. A connection that
+ * never opened reads as "unreachable" — the request cannot have been sent, so that claim is supported.
+ * Everything else stays indeterminate: a reset arriving after the request went out means the target may
+ * have received it, and "unreachable" would assert it did not. The fallback therefore gives the
+ * indeterminate reading, the same shape the external-MCP path takes in `tool-execution.service.ts`.
  *
- * 归一化外部调用错误消息（供调用方 / Agent 消费）。超时读作「超时」—— 这一条可知。**其余异常不再
- * 读作「不可达」**：请求发出后连接被重置，意味着目标可能已收到，而「不可达」是在断言「没送到」——
- * 传输层支持不了这个断言。故兜底给不确定的读法，与 `tool-execution.service.ts` 外部 MCP 那条路同形。
+ * 归一化外部调用错误消息（供调用方 / Agent 消费）。**三读，而要点正在于两种失败不被塌成一读。** 超时读作
+ * 「超时」—— 可知。**连接没建立过**读作「不可达」—— 请求不可能发出去，那个断言支持得起。**其余**留作不确定：
+ * 请求发出之后才来的重置，意味着目标可能已收到，而「不可达」是在断言「没送到」。故兜底给不确定的读法，与
+ * `tool-execution.service.ts` 外部 MCP 那条路同形。
  */
+/**
+ * Codes that mean the connection **never opened**: the request cannot have been sent, so "not sent" is
+ * a claim the transport layer supports. Everything else stays indeterminate rather than being read as
+ * unreachable — a reset arriving after the request went out means the target may have received it, and
+ * that is a different fact from never having got there.
+ *
+ * 这些码意味着**连接根本没建立**：请求不可能发出去，所以「没送到」是传输层支持得起的断言。其余一律留作
+ * 不确定、**不**读作「不可达」——请求发出之后才来的重置意味着目标可能已经收到，那是与「根本没到」**不同**的
+ * 一件事实。
+ */
+const NEVER_SENT_CODES: ReadonlySet<string> = new Set([
+  'ENOTFOUND', // DNS 查不到主机
+  'EAI_AGAIN', // DNS 暂时失败
+  'ECONNREFUSED', // 对端在连上之前拒绝
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+]);
+
+/** undici 把底层错误码挂在 `cause.code`，裸 socket 错误挂在 `code` —— 两处都看。 */
+function transportCode(err: unknown): string {
+  const e = err as { code?: unknown; cause?: unknown } | null;
+  const cause = (e?.cause ?? undefined) as { code?: unknown } | undefined;
+  if (typeof cause?.code === 'string') return cause.code;
+  return typeof e?.code === 'string' ? e.code : '';
+}
+
 export function proxyErrorText(err: unknown, prefix = '目标系统'): string {
   if (err instanceof ProxyTimeoutError) return `${prefix}请求超时（${err.timeoutMs}ms）`;
+  // 三读里**唯一**敢说「没送到」的那一读：连接没建立过。判据 = 只是那几个码，不是「非超时」。
+  if (NEVER_SENT_CODES.has(transportCode(err))) return `${prefix}不可达: ${(err as Error).message}`;
   return `${prefix}调用失败、结果未知（可能已到达）：${(err as Error).message} —— 本次不重试`;
 }
