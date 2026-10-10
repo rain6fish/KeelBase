@@ -286,8 +286,8 @@ node scripts/keelbase-init.mjs --import-schema schema.sql --table customers   # 
   "schema": 1,
   "identity": "keelbase-application",
   "generator": "keelbase",
-  "generatorVersion": "0.9.1",
-  "protocol": "1.0",
+  "generatorVersion": "1.1.0",
+  "protocol": "1.1",
   "modules": ["posts", "notes"]
 }
 ```
