@@ -71,7 +71,7 @@
 
 ## 11. Testing & Quality
 
-**Capability**: 2200+ backend tests (2026-09-10 Gate 4 record: **2264 passing**) + e2e suites over real HTTP (sharded, `npm run test:e2e`) + coverage thresholds (global statements≥85 / branches≥70 / functions≥80 / lines≥85) + **security-module tiered gate** (auth · casl · operation-audit · ai-tools · governance · headless, statements≥85) + e2e coverage + migration-consistency CI check + CLI generator / Business Spec mapping tests + 600+ Flutter tests / analyze + Web-Admin typecheck/lint/vitest.
+**Capability**: 2200+ backend tests (2026-09-10 Gate 4 record: **2264 passing**) + e2e suites over real HTTP (sharded, `npm run test:e2e`) + coverage thresholds (global statements≥86 / branches≥72 / functions≥81 / lines≥86) + **security-module tiered gate** (auth · casl · operation-audit · ai-tools · governance · headless, statements≥85) + e2e coverage + migration-consistency CI check + CLI generator / Business Spec mapping tests + 600+ Flutter tests / analyze + Web-Admin typecheck/lint/vitest.
 
 **Evidence**: `npm run test:cov`, `scripts/check-security-coverage.mjs`, `.github/workflows/ci.yml`; [30min-acceptance.md](manual/30min-acceptance.md).
 

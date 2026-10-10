@@ -205,7 +205,7 @@ Docker 单容器一键启动（`docker run` 一条命令起全栈）、离线 / 
 
 | 项 | 数据 |
 |----|------|
-| 后端测试 | 单元 + E2E 全量，覆盖率门槛 statements ≥85% / branches ≥70% / functions ≥80%（含安全模块专项门控） |
+| 后端测试 | 单元 + E2E 全量，覆盖率门槛 statements ≥86% / branches ≥72% / functions ≥81%（含安全模块专项门控） |
 | 安全验证 | 权限矩阵 · 工具治理逐例断言 · 审计哈希链篡改检测 · 安全评测集 · 170+ 安全相关测试 |
 | CI | GitHub Actions 15 项流水线：lint / 构建 / 单元 / E2E / postgres 迁移一致性 / 架构边界 / 供应链检查 / Flutter 分析 |
 | 代码规范 | ESLint + 架构边界门禁（Core 无 UI 框架依赖） |

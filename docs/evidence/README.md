@@ -198,7 +198,7 @@
 - **怎么证明**：
   ```bash
   npm test                        # 后端单测
-  npm run test:cov                # 覆盖率门槛（statements≥85 + check-security-coverage 分档）
+  npm run test:cov                # 覆盖率门槛（statements≥86 + check-security-coverage 分档）
   npm run test:e2e                # 端到端
   npm run lint
   # CI：lint + 单测/e2e + 构建 + 前端 typecheck/build + Flutter analyze/test（.github/workflows/ci.yml）

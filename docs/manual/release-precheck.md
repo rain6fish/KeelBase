@@ -34,7 +34,7 @@
 
 | 套件 | 命令 | 门槛 |
 |------|------|------|
-| 后端单测 + 覆盖率 | `cd Server-NestJS && npm run test:cov` | statements≥85 / branches≥70 / functions≥80 / lines≥85 + 安全模块分档门控（statements≥85） |
+| 后端单测 + 覆盖率 | `cd Server-NestJS && npm run test:cov` | statements≥86 / branches≥72 / functions≥81 / lines≥86 + 安全模块分档门控（statements≥85） |
 | 后端 e2e | `npm run test:e2e` | suite 全过 |
 | 前端 vitest（Web-Admin-Vue） | `cd Web-Admin-Vue && npm test` | statements≥32 / branches≥75 / functions≥54 / lines≥32 |
 | Flutter 测试 | `cd Front-Flutter && flutter test --coverage` | 行覆盖 ≥45% |
