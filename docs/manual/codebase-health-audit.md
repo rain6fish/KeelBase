@@ -148,11 +148,15 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 
 ## 5. 待办（未做项）
 
+> **2026-10-10 复核**：逐条核过；并**补登 §3 已记、此处漏登的两条**（`usersService` 死戳点 · e2e 长跑硬崩，见文末）。
+
 - [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
 - [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动。**✅ 回填（2026-10-07 核实）：那一对也已了结——实测**不是环、是残留**（`RealtimeModule` 只依赖 Config / Jwt / FeatureFlags，绕不回来），删掉 `NotificationsModule` 的那个 `forwardRef` 即全部修法（主仓 `a3405d7d`，2026-09-26）；2026-10-07 复跑装配冒烟门 3/3 绿。**阶段 2 至此全部收口**，这一族五处环闭合**
 - [ ] 阶段 3：god service 拆分（**变更驱动，策略见 §3「阶段 3 执行策略」**）——优先 audit.service → ai.service（可复用 AuthorizationExplainerService 下沉经验）；auth 地基刀按触发条件执行（见 §3a）
 - [ ] 阶段 4：~~governance/audit 语义整合架构立项（**H4**，原行已注「不在本次范围」）~~ → **✅ 2026-10-06 影响分析完成**（结论：现状是「3 进程内模块 + 2 独立进程」，非同一职责切五份；改名那半挂起，等下次契约修订）；~~状态/风险词汇常量单源（**M4**）~~ **✅ 2026-10-04 已裁并落地**；~~Flutter i18n 中文映射迁移（**M5**）~~ **✅ 2026-10-04 已裁并落地**；React 预览版去留 → **⏸ 2026-10-06 冻结**（用户裁：「react 暂时冻结」；**解冻条件 = 出现真实外部证据**，在此之前不备材料、不开工）
 - [x] M3：demo-data.ts 832 行 seed 拆分评估（**2026-10-04 评估完毕**：不拆、兼容分支留着，各附触发/退役条件；见 §2 M3 行）
+- [ ] **`ai.service.spec.ts` 的 `usersService` 死戳点**（§3 · 2026-09-18 那刀附带发现；**2026-10-10 核：仍在**）：`AiService` 已**无** `usersService` 字段（`grep` 实证），但 spec 里仍有 **4 处** `(aiService as any).usersService = {…}`（`Server-NestJS/src/ai/ai.service.spec.ts:441/475/2272/2540`）——**赋值给一个没人读的属性**；删掉即收口。（§5 此前漏登，2026-10-10 补）
+- [x] **e2e 单进程长跑硬崩**（§3 · 2026-09-18 记；**2026-10-10 核：已收口**）：2026-09-23 阶段 4 把 release-gate 那 14 个 e2e（`42eb7880`）与 CI / 本地那 36 个套件（`5cf27412` test:e2e 分片 + `09bfeb65` cov 分片，脚本 `Server-NestJS/scripts/run-e2e-shards.mjs`）改为 jest 原生分片；见 §4「2026-09-23 — 阶段 4：release-gate 与 e2e 跑法可信度收口」。（§5 此前漏登，2026-10-10 补）
 
 ---
 
@@ -173,7 +177,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 **两处生产代码改动**（均带回归锁，非纯测试）：`app.module` 抽取 `buildTypeOrmOptions`、`condition.node` 删死分支 + 类型收窄。
 
 **测试侧待办**：
-- [ ] **⑨ `ai.service.spec.ts` 拆分**（2026-09-14 记；2026-09-15 **触发条件收紧为三条**）——当前 **2533 行**。**触发 = 三条全满足**：① 该文件工作树干净（✅ 已满足）② **相邻 authz/casl 工作流已提交收口**（`src/authz/`、`builtin-role-rules.ts`、`AddRolesPermissions`/`AddDeptIdToTodosEvents` 迁移、casl/scope/events/todos 改动——该线涉及 AI 工具授权，很可能要改本 spec）③ **不在发版窗口内**（B 段历史改写 + v1.0.10 发版优先）。**仅"文件干净"不够**——大文件重排 + 共享 mock 状态与在途工作冲突的返工成本高。触发后按子域拆（chat / stream / tools / memory / confirmations / approvals），共享 setup 提为 helper。
+- [ ] **⑨ `ai.service.spec.ts` 拆分**（2026-09-14 记；2026-09-15 **触发条件收紧为三条**）——当前 **2746 行**（`wc -l`，2026-10-10 核；原记 2533）。**触发 = 三条全满足**：① 该文件工作树干净（✅ 已满足）② **相邻 authz/casl 工作流已提交收口**（`src/authz/`、`builtin-role-rules.ts`、`AddRolesPermissions`/`AddDeptIdToTodosEvents` 迁移、casl/scope/events/todos 改动——该线涉及 AI 工具授权，很可能要改本 spec）③ **不在发版窗口内**（B 段历史改写 + v1.0.10 发版优先）。**仅"文件干净"不够**——大文件重排 + 共享 mock 状态与在途工作冲突的返工成本高。触发后按子域拆（chat / stream / tools / memory / confirmations / approvals），共享 setup 提为 helper。
 - [ ] ⑥ 剩余零散分支：`flows/node-registry`、`flow-definition.schema`、若干 entity/dto 的装饰器分支（价值低，可忽略）。
 
 > 每次阶段执行后在此追加记录（比照 release-precheck 执行记录惯例）。
