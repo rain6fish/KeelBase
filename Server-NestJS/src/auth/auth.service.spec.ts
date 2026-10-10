@@ -929,6 +929,15 @@ describe('AuthService', () => {
       expect(phoneRepo.save).not.toHaveBeenCalled();
       expect(mockSmsService.sendVerificationCode).not.toHaveBeenCalled();
     });
+
+    it('a throwing send still answers the uniform success（防枚举：发送失败不得改变应答）', async () => {
+      const phoneRepo = moduleFixture.get(getRepositoryToken(PhoneVerificationCode));
+      (phoneRepo as any).findOne.mockResolvedValue(null);
+      (phoneRepo as any).save.mockImplementation((d: any) => Promise.resolve(d));
+      mockSmsService.sendVerificationCode.mockRejectedValue(new Error('provider down'));
+
+      await expect(service.sendSmsCode({ phone: '+8613800138000' })).resolves.toEqual({ sent: true });
+    });
   });
 
   describe('bindPhone', () => {

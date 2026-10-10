@@ -956,7 +956,14 @@ export class AuthService {
       expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
       used: false,
     });
-    await this.smsService.sendVerificationCode(dto.phone, code);
+    try {
+      await this.smsService.sendVerificationCode(dto.phone, code);
+    } catch (err) {
+      // 短信失败不阻断：仍返回统一响应（防枚举，同 forgotPassword / 邮箱验证那两处），错误记日志。
+      // 缺凭据那一读本来就不抛（sms.module 非 console 驱动一律 provider=null ⇒ 服务内 warn+return）；
+      // 这里守的是**另一个**：provider 存在且抛、或熔断打开时抛 —— 不守的话端点会以非统一结果收场。
+      this.logger.warn(`[Auth] sendVerificationCode failed: ${(err as Error).message}`);
+    }
     return { sent: true };
   }
 
