@@ -41,7 +41,8 @@
     "check:version-parity": "node scripts/check-version-parity.mjs",
     "check:test-types": "node scripts/check-test-types.mjs",
     "check:audit-awaited": "node scripts/check-audit-writes-awaited.mjs",
-    "check:tool-labels": "node scripts/check-tool-label-parity.mjs"
+    "check:tool-labels": "node scripts/check-tool-label-parity.mjs",
+    "check:generated-samples": "node scripts/check-generated-samples.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"

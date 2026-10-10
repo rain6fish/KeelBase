@@ -262,6 +262,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-version-parity.mjs
 
+  # A committed sample must still be what the generator produces from its spec. A fix applied to the
+  # generated artifact instead of the template looks right and passes the tests, then the next
+  # regeneration drops it — which is how the runtime identity guard left `reports` once.
+  #
+  # 已检入的样例必须仍是生成器按其 spec 产出的样子。修法加在**生成物**而非**模板**上，看着对、测试也过，
+  # 而下一次重生成会把它丢掉 —— 运行时身份守卫正是这样从 `reports` 里走失过一次。
+  generated-samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-generated-samples.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
