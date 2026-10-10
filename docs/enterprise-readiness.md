@@ -3,8 +3,8 @@
 > 这份文档对照企业选型时常见的「必需功能」清单，逐项列出 KeelBase 现状（✅ 已完成 / 🚧 部分 / ⬜ 待办 / ⏸ 押后）+ 证据（spec 文档 / 端点 / 页面），并给出差距与优先级。
 > This document maps KeelBase against the typical "must-have" checklist used in enterprise evaluations — current status (✅ done / 🚧 partial / ⬜ todo / ⏸ deferred) with evidence (specs / endpoints / pages), plus gaps and priorities.
 >
-> 状态日期：2026-08-18；§6「渠道与触达」两行于 **2026-10-10 复核更正**（行内已标），其余行仍为 08-18 状态、未逐行复核。
-> Status as of 2026-08-18; two rows in §6 were re-checked and corrected on 2026-10-10 (marked inline); the remaining rows are still at their 2026-08-18 state.
+> 状态日期：2026-08-18。**2026-10-10 全量复核**：逐条核了全部**非 ✅** 行，并抽查 ✅ 行的证据（引文 / 端点 / 页面）；更正处标「2026-10-10 核」，未标注者仍为 08-18 状态。
+> Status as of 2026-08-18. Re-checked in full on 2026-10-10: every non-✅ row was verified, and the ✅ rows' evidence (specs / endpoints / pages) was spot-checked; corrected rows are marked "re-checked 2026-10-10", and unmarked rows remain at their 2026-08-18 state.
 
 ---
 
@@ -19,7 +19,7 @@
 | CASL 行级授权（角色 + 所有权）Role / row-level authorization | ✅ | 全局 `PoliciesGuard` + `CaslAbilityFactory`；users/events/todos/ai_conversations |
 | 组织级数据隔离 Org-level data isolation | ✅ | events/todos 加 `org_id`，「本人 OR 同组织」查询（ORG-3） |
 | 登录防爆破 / Token 哈希 / AES-256-GCM 静态加密 Lockout / token hashing / static encryption | ✅ | 连续失败锁定、refresh SHA-256、phone/providerId 加密 |
-| **前端 RBAC（WEB-FRONT-2）Route/menu/button permissions** | ⬜ 待办 | 现仅「是否 admin」一个开关；需路由级 + 按钮级权限点 + 可视化角色管理页（前端 RBAC 仅为渲染层，后端授权仍以 CASL 为唯一来源） |
+| **前端 RBAC（WEB-FRONT-2）Route/menu/button permissions** | 🚧 部分（2026-10-10 核） | 路由级 + 按钮级**已落**（2026-09-15）：`router/routes.ts` 的 `meta.permission`（8 条）+ `router/guards.ts` 能力裁决 + `v-permission` 按钮点 + 菜单同源，全部消费 `GET /auth/me/permissions`（[web-front.spec.md](web-front.spec.md) §83）；**仍缺**「权限点管理页」（配置「角色→能力」，属档 B/C 未承诺），其余管理台功能仍走角色门（前端 RBAC 仅为渲染层，后端授权仍以 CASL 为唯一来源） |
 | **企业登录安全（WEB-FRONT-4）MFA / 强制改密 / SSO** | 🚧 部分 | MFA（TOTP setup/verify/disable + 登录需 TOTP）✅ 强制改密（登录带标志 + admin 标记）✅ **SSO（通用 OIDC 后端，2026-08-18）**：动态发现 + token 交换 + id_token 签名验证 + userinfo，接入 /auth/oauth；SAML ⬜ |
 
 ## 2. 组织与协作 / Organization & Collaboration
@@ -64,8 +64,8 @@
 | 运维单页 Ops one-pager | ✅ | Web-Admin「运维」页聚合服务/依赖/错误率/告警（D.8） |
 | 健康检查详情 Health details | ✅ | `/health?detail=true`（D.9） |
 | 一键 / 离线 / 独立部署 One-click / offline / standalone deploys | ✅ | deploy.sh + offline-deploy + admin-deploy（D.7/POV-3/D.10） |
-| **性能压测基准（3.4）Benchmark baseline** | 🚧 部分 | `docs/benchmark/` 有初版报告，但受限流干扰（non-2xx≈总数）且缺 P95——需按正确方法论重做 |
-| K8s / 蓝绿部署（D.2/D.3） | ⏸ 押后 | 生产规模增长后评估 |
+| **性能压测基准（3.4）Benchmark baseline** | 🚧 部分（2026-10-10 核） | 方法学**已修正**：[docs/benchmark/README.md](benchmark/README.md)——压测时放宽全局限流到 10 万/min（避免只测到限流器）+ autocannon **p99**（比 p95 更严苛）；报告落 `docs/benchmark/benchmark-<ts>.md`，**仓内未提交** ⇒ 暂无对外可引基线 |
+| K8s / 蓝绿部署（D.2/D.3） | ✅（2026-10-10 核） | `infra/k8s/`（namespace / configmap / secret / deployment / hpa / service / ingress / canary-ingress + README）+ [blue-green-deploy.md](manual/blue-green-deploy.md) 零停机蓝绿/金丝雀 |
 
 ## 6. 渠道与触达 / Channels
 
@@ -73,7 +73,7 @@
 |---|---|---|
 | 主 App（Flutter 三端）+ 小程序（Taro）+ 管理台/工作台 Three clients | ✅ | Front-Flutter / Front-Taro / Web-Admin-Vue（同壳两套导航） |
 | 小程序 i18n（Taro 主 app）Mini-program i18n | 🚧 部分（2026-10-10 核） | i18n 层**已建立**：`Front-Taro/src/i18n/{zh,en}.ts`（264 key）+ `stores/i18n-store.ts` + `useI18n`；28 个页面中 **25 个已接入**；`login` / `register` / `followup_plans` 三页未接 |
-| 小程序构建链（Taro weapp）Mini-program build | 🚧 部分 | `build:h5` ✅（CI）；`build:weapp` ❌ 已知失败（Taro 3.6.36 postcss-loader v7 × resolve-url-loader v5 组合，GitHub #12）——上线前需升级 Taro 或 webpack 定制 |
+| 小程序构建链（Taro weapp）Mini-program build | ✅（2026-10-10 核） | `build:h5` + `build:weapp` 均绿；weapp 已修复（主仓 `a15c3eb`，页面样式改 script 侧 import），CI 常驻校验防退化（`.github/workflows/ci.yml` N-1 跑 `npm run build:weapp`） |
 | 邮件 / 站内通知 / SSE / Webhook | ✅ | SMTP + notifications + `/webhooks`（PL-14） |
 | 推送（极光抽象层）Push | 🚧 部分 | PushService 抽象 + 极光实现，真实厂商 SDK 待凭据（MS-2.2/2.3） |
 | 微信订阅消息（MINI-2）/ 快捷登录（MINI-3） | ✅（2026-10-10 核） | 订阅消息 `WxSubscribeService`（`WECHAT_REMIND_TEMPLATE_ID`，未配凭据降级）+ 小程序快捷登录（`providerType=miniapp` → code2Session → `openid`）；真机联调待 appid/secret |
@@ -85,7 +85,7 @@
 
 按「企业选型影响 × 投入」排序：
 
-1. **WEB-FRONT-2 前端 RBAC** —— 多角色企业场景必需；当前只有「是否 admin」，无法表达部门管理员/项目经理/审计员等角色。
+1. **WEB-FRONT-2 前端 RBAC** —— 多角色企业场景必需；路由 / 菜单 / 按钮级**能力裁决已落**（2026-09-15，消费 `GET /auth/me/permissions`），**仍缺**「角色 → 能力」配置页，以及部门管理员 / 项目经理 / 审计员等更细粒度的角色表达。
 2. **WEB-FRONT-4 企业登录安全（SSO）** —— 采购评审硬门槛，招标/合规常直接卡此项。MFA（TOTP）与强制改密已完成（2026-08-17）；**SSO 通用 OIDC 后端已完成（2026-08-18，主仓 036eb46）**——需接入企业 IdP（配 OIDC_ISSUER/CLIENT_ID/SECRET）后前端展示「企业 SSO」按钮；SAML 如需再评估。
 3. **WEB-FRONT-5 普通用户业务 API 面** —— 工作台应用侧的能力底座，随 ORG 联动。
 4. **3.4 性能基准重做** —— 对外基线可信度；当前初版报告方法论有缺陷。
