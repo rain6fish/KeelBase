@@ -3,7 +3,8 @@
 > 这份文档对照企业选型时常见的「必需功能」清单，逐项列出 KeelBase 现状（✅ 已完成 / 🚧 部分 / ⬜ 待办 / ⏸ 押后）+ 证据（spec 文档 / 端点 / 页面），并给出差距与优先级。
 > This document maps KeelBase against the typical "must-have" checklist used in enterprise evaluations — current status (✅ done / 🚧 partial / ⬜ todo / ⏸ deferred) with evidence (specs / endpoints / pages), plus gaps and priorities.
 >
-> 状态日期：2026-08-18。本文档为活清单，随版本更新。Status as of 2026-08-18; a living checklist that moves with each release.
+> 状态日期：2026-08-18；§6「渠道与触达」两行于 **2026-10-10 复核更正**（行内已标），其余行仍为 08-18 状态、未逐行复核。
+> Status as of 2026-08-18; two rows in §6 were re-checked and corrected on 2026-10-10 (marked inline); the remaining rows are still at their 2026-08-18 state.
 
 ---
 
@@ -71,11 +72,12 @@
 | 能力 Capability | 状态 | 证据 Evidence |
 |---|---|---|
 | 主 App（Flutter 三端）+ 小程序（Taro）+ 管理台/工作台 Three clients | ✅ | Front-Flutter / Front-Taro / Web-Admin-Vue（同壳两套导航） |
-| 小程序 i18n（Taro 主 app 中英混杂）Mini-program i18n | ⬜ 待办 | CR-25 剩余——小程序渠道文案未走 i18n 层 |
+| 小程序 i18n（Taro 主 app）Mini-program i18n | 🚧 部分（2026-10-10 核） | i18n 层**已建立**：`Front-Taro/src/i18n/{zh,en}.ts`（264 key）+ `stores/i18n-store.ts` + `useI18n`；28 个页面中 **25 个已接入**；`login` / `register` / `followup_plans` 三页未接 |
 | 小程序构建链（Taro weapp）Mini-program build | 🚧 部分 | `build:h5` ✅（CI）；`build:weapp` ❌ 已知失败（Taro 3.6.36 postcss-loader v7 × resolve-url-loader v5 组合，GitHub #12）——上线前需升级 Taro 或 webpack 定制 |
 | 邮件 / 站内通知 / SSE / Webhook | ✅ | SMTP + notifications + `/webhooks`（PL-14） |
 | 推送（极光抽象层）Push | 🚧 部分 | PushService 抽象 + 极光实现，真实厂商 SDK 待凭据（MS-2.2/2.3） |
-| 微信订阅消息 / 快捷登录 / 分享（MINI-2/3/4） | ⬜ 待办 | 需微信开放平台凭据 |
+| 微信订阅消息（MINI-2）/ 快捷登录（MINI-3） | ✅（2026-10-10 核） | 订阅消息 `WxSubscribeService`（`WECHAT_REMIND_TEMPLATE_ID`，未配凭据降级）+ 小程序快捷登录（`providerType=miniapp` → code2Session → `openid`）；真机联调待 appid/secret |
+| 微信分享（MINI-4） | ⬜ 待办 | 未实现（`Front-Taro` 无分享处理）；需微信开放平台凭据 |
 
 ---
 
@@ -88,7 +90,7 @@
 3. **WEB-FRONT-5 普通用户业务 API 面** —— 工作台应用侧的能力底座，随 ORG 联动。
 4. **3.4 性能基准重做** —— 对外基线可信度；当前初版报告方法论有缺陷。
 5. **Taro i18n** —— 小程序渠道一致性（CR-25）。
-6. 其余押后项（MINI-2/3/4、AI-23、D.2/D.3、FLOW-8/9）—— 依赖外部凭据或市场决策，不阻塞基座交付。
+6. 其余押后项（MINI-4、AI-23、D.2/D.3、FLOW-8/9）—— 依赖外部市场决策或凭据，不阻塞基座交付。
 
 > **前提约束**：前端 RBAC 只是渲染层（隐藏 ≠ 越权），后端授权仍以 CASL 为唯一来源（CLAUDE.md §5.5 三入口红线不变）。
 
