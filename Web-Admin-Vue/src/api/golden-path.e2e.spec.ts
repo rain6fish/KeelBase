@@ -47,6 +47,7 @@ import { capabilitiesApi } from './capabilities'
 import { authApi } from './auth'
 import { aiApi } from './ai'
 import { aiToolsApi } from './aiTools'
+import { aiTraceApi } from './aiTrace'
 import { auditApi } from './audit'
 import { confirmTool, streamChat, type AiConfirmationDecision } from '@/utils/streamChat'
 
@@ -104,14 +105,22 @@ describe.skipIf(!enabled)('golden path through this frontend', () => {
 
   it('4. the golden path can be walked end to end', async () => {
     // Hops 1 and 2 already passed; this is 3 → 7 with the confirm hop by the shape the app uses.
-    const chat = (await api.post('/ai/chat', {
-      message: '给客户建一条跟进记录',
-      customerId: 1,
-    })) as { status?: string; token?: string }
-    expect(chat.status, 'a write must wait for a human').toBe('pending_confirmation')
-    expect(chat.token, 'and must hand back a token').toBeTruthy()
+    await api.post('/ai/chat', { message: '给客户建一条跟进记录', customerId: 1 })
 
-    const decided = (await api.post(`/ai/confirmations/${chat.token}`, { decision: 'approve' })) as {
+    // The write waits for a human, and the token that answers it is read from the caller's own
+    // confirmation centre — the page the console shows them. The answer itself is the frozen
+    // `chat-response` and carries no status and no token, which is what the reference answers too, so
+    // asking the *object* rather than the answer is what lets this hop run on either runtime.
+    //
+    // 写在等人，而回答它的 token 从**调用方自己的确认中心**读 —— 控制台给他们看的那个页面。答案本身是冻结的
+    // `chat-response`，不带 status 也不带 token，参照实现答的也是它，所以问**对象**、不问答案，正是这一跳能在
+    // 两个运行时上都跑起来的原因。
+    const waiting = await aiTraceApi.myConfirmations('pending')
+    expect(waiting.length, 'the write waits for a human').toBeGreaterThan(0)
+    const token = waiting[0]?.token
+    expect(token, 'with a token that answers it').toBeTruthy()
+
+    const decided = (await api.post(`/ai/confirmations/${token ?? ''}`, { decision: 'approve' })) as {
       status?: string
       effectId?: number
     }
