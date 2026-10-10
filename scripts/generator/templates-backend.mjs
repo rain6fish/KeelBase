@@ -457,7 +457,7 @@ export function serviceTemplate(ctx) {
   const scopeImports = scoped
     ? `\nimport { OrgService } from '../org/org.service';\n` +
       `import { DataScopeService } from '../authz/data-scope.service';\n` +
-      `import { orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';\n` +
+      `import { assertCallerIdentity, orgContextOf, resolveScopeDescriptor } from '../common/scope/scope-resolution';\n` +
       `import { buildScopeWhere, registerScopeColumns, rowInScope } from '../common/scope/scope-where';\n` +
       `import { registerOrgLevelSubject } from '../common/scope/scope-policy';\n`
     : '';
@@ -518,6 +518,15 @@ export function serviceTemplate(ctx) {
     ? `      orgId: orgContext?.orgId ?? undefined,\n` +
       ((ctx.scope ?? []).includes('dept') ? `      deptId: orgContext?.deptId ?? undefined,\n` : '')
     : '';
+  // The runtime identity guard, emitted first in every scoped read. The signature says `userId: number`,
+  // but a plain-JS caller can still hand in `undefined`; the guard denies on absence *before* the row is
+  // read, so a missing identity can never widen a scoped read — the rule `events` / `todos` follow.
+  //
+  // 运行时身份守卫，放在每次带范围读取的最前。签名写着 `userId: number`，但纯 JS 调用方仍可传
+  // `undefined`；守卫在读行**之前**拒绝缺席的身份，故缺失的身份绝不可能放宽带范围的读取 ——
+  // `events` / `todos` 走的就是这条。
+  const scopeGuardList = scoped ? `    assertCallerIdentity(userId, '读取${ctx.label}列表');\n` : '';
+  const scopeGuardOne = scoped ? `    assertCallerIdentity(userId, '读取${ctx.label}');\n` : '';
   const refs = refFields(ctx.fields);
   const refTargets = refs
     .map((r) => refTarget(r.target))
@@ -698,9 +707,9 @@ export function serviceTemplate(ctx) {
   const findAllBody =
     searchColumns.length === 0
       ? scoped
-        ? `    const descriptor = await this._scopeFor(userId);\n    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;\n${listFind}`
+        ? `${scopeGuardList}    const descriptor = await this._scopeFor(userId);\n    const where = (buildScopeWhere<Record<string, unknown>>(descriptor, '${ctx.singlePascal}') ?? []) as any;\n${listFind}`
         : `    return this.${ctx.plural}Repository.find({\n      where: { userId },\n      ${refRelations}order: { createdAt: 'DESC' },\n    });`
-      : (scoped ? searchFindScoped : searchFind) + listFind;
+      : (scoped ? scopeGuardList + searchFindScoped : searchFind) + listFind;
   return `import { ${nestCommonImports}${refs.length > 0 || attachmentNames.length > 0 ? ', BadRequestException' : ''} } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ${searchColumns.length > 0 ? 'Like, ' : ''}Repository } from 'typeorm';
@@ -738,7 +747,7 @@ ${adminList}
   }
 
   async findOne(id: number, ability: AppAbility${scoped ? ', userId: number' : ''}): Promise<${ctx.singlePascal}> {
-    const entity = await this.${ctx.plural}Repository.findOne({ where: { id }, ${refRelations}});
+${scopeGuardOne}    const entity = await this.${ctx.plural}Repository.findOne({ where: { id }, ${refRelations}});
     if (!entity) throw new NotFoundException('${ctx.singlePascal} not found');
 ${
   scoped
@@ -1147,7 +1156,21 @@ ${orgMock}
 
     await expect(service.findOne(1, mockAbility(true)${uid})).rejects.toThrow(NotFoundException);
   });
-
+${
+  scoped
+    ? `
+  it('无 userId 时拒绝（fail-closed，列表与明细同口径）', async () => {
+    // 模拟 TS 看不见的调用方：身份缺席必须拒绝，且在触碰仓储之前
+    await expect((service.findAll as any)(undefined)).rejects.toThrow(ForbiddenException);
+    await expect((service.findOne as any)(1, mockAbility(true), undefined)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(mockRepo.find).not.toHaveBeenCalled();
+    expect(mockRepo.findOne).not.toHaveBeenCalled();
+  });
+`
+    : ''
+}
   it('refuses a stale update with 409 instead of overwriting silently', async () => {
     // The caller read version 2 while the row has moved to 3, so the conditional update matches
     // nothing. Zero rows affected is the conflict — the update must have carried the version.
