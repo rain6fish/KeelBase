@@ -103,15 +103,16 @@ describe('ProxyToolRevokerService', () => {
     expect(result.message).toContain('500');
   });
 
-  it('补偿端点不可达 → 返回错误', async () => {
+  it('补偿端点调用失败 → 返回错误，且不断言"不可达"（结果未知 / 可能已到达）', async () => {
     registry.getTool.mockReturnValue(makeProxy());
     delegation.sign.mockResolvedValue({ token: 't' });
-    mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
+    mockFetch.mockRejectedValue(new Error('ECONNRESET'));
 
     const result = await revoker.revoke('proxy_create_contract', 7, '1');
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain('不可达');
+    expect(result.message).not.toContain('不可达');
+    expect(result.message).toContain('可能已到达');
   });
 
   it('revokePath 仅路径（无方法前缀）→ 默认 POST', async () => {

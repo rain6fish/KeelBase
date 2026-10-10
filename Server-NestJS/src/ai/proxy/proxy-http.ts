@@ -6,7 +6,7 @@
  * ProxyTool.execute / ProxyToolRevokerService.revoke 都调外部系统（旧 Java 系统等）；
  * 若无超时守卫，目标挂死会无限挂起、审计/副作用永远悬空。proxyFetch 用
  * AbortController 在上限内中止，并把中止转成可辨识的 ProxyTimeoutError——
- * 调用方据此返回"超时"而非一般"不可达"，上层能如实记录失败。
+ * 调用方据此返回"超时"这一可判定的读数，而不是把其余失败也读成一个词（见 proxyErrorText）。
  */
 
 /** 默认超时（ms）；env `PROXY_FETCH_TIMEOUT_MS` 可覆盖 */
@@ -51,8 +51,18 @@ export async function proxyFetch(
   }
 }
 
-/** 归一化外部调用错误消息：超时 → 明确"超时"，否则"不可达"（供上层/Agent 区分） */
+/**
+ * Normalize an external-call error for the caller / agent. A timeout reads as "timeout" — that one is
+ * knowable. **Any other error no longer reads as "unreachable"**: a connection reset after the request
+ * was sent means the target may have received it, and "unreachable" would assert it did not — a claim
+ * the transport layer cannot support. The fallback therefore gives the indeterminate reading, the same
+ * shape the external-MCP path takes in `tool-execution.service.ts`.
+ *
+ * 归一化外部调用错误消息（供调用方 / Agent 消费）。超时读作「超时」—— 这一条可知。**其余异常不再
+ * 读作「不可达」**：请求发出后连接被重置，意味着目标可能已收到，而「不可达」是在断言「没送到」——
+ * 传输层支持不了这个断言。故兜底给不确定的读法，与 `tool-execution.service.ts` 外部 MCP 那条路同形。
+ */
 export function proxyErrorText(err: unknown, prefix = '目标系统'): string {
   if (err instanceof ProxyTimeoutError) return `${prefix}请求超时（${err.timeoutMs}ms）`;
-  return `${prefix}不可达: ${(err as Error).message}`;
+  return `${prefix}调用失败、结果未知（可能已到达）：${(err as Error).message} —— 本次不重试`;
 }

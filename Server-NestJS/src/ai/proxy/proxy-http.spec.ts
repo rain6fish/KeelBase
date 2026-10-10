@@ -38,9 +38,12 @@ describe('proxy-http（B 路径外部调用超时守卫，KB-4 FP-3）', () => {
     await expect(proxyFetch('http://legacy/x', {}, 30)).rejects.toThrow('ECONNREFUSED');
   });
 
-  it('proxyErrorText：ProxyTimeoutError → "超时"；一般错误 → "不可达"', () => {
+  it('proxyErrorText：超时 → "超时"；其余异常 → 不断言"不可达"（结果未知 / 可能已到达）', () => {
     expect(proxyErrorText(new ProxyTimeoutError(30), '目标系统')).toContain('请求超时');
-    expect(proxyErrorText(new Error('reset'), '补偿端点')).toContain('不可达');
+    const other = proxyErrorText(new Error('socket hang up'), '补偿端点');
+    expect(other).not.toContain('不可达');
+    expect(other).toContain('可能已到达');
+    expect(other).toContain('本次不重试');
   });
 
   it('getProxyTimeout：调用期读取 PROXY_FETCH_TIMEOUT_MS（未配/非法 → 30000）', () => {

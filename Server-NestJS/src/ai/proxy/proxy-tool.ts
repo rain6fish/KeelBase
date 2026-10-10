@@ -157,7 +157,7 @@ export class ProxyTool implements AiTool {
       const data = res.status === 204 ? null : await res.json().catch(() => null);
       return { success: true, data };
     } catch (err) {
-      // KB-4 FP-3：proxyFetch 超时抛 ProxyTimeoutError → 报"超时"；其余"不可达"
+      // KB-4 FP-3：proxyFetch 超时抛 ProxyTimeoutError → 报"超时"；其余读作「结果未知、可能已到达」（不再断言"不可达"）
       return { success: false, error: proxyErrorText(err, '目标系统') };
     }
   }

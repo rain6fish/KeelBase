@@ -78,7 +78,7 @@ export class ProxyToolRevokerService implements ExternalRevoker {
       }
       return { ok: true, message: `${method} ${path}` };
     } catch (err) {
-      // KB-4 FP-3：补偿端点超时 → 报"超时"；其余"不可达"
+      // KB-4 FP-3：补偿端点超时 → 报"超时"；其余读作「结果未知、可能已到达」（不再断言"不可达"）
       return { ok: false, message: proxyErrorText(err, '补偿端点') };
     }
   }
