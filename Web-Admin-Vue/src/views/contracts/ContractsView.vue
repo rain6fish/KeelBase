@@ -4,9 +4,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppTable from '@/components/AppTable.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { contractsApi, type AdminContract } from '@/api/contracts'
+
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
