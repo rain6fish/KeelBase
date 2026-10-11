@@ -416,6 +416,8 @@ async findOne(@Param('id') id: number, @CurrentAbility() ability: AppAbility) {
 # 核心变量（必填）
 JWT_SECRET=           # 最少 32 字符
 JWT_REFRESH_SECRET=   # 最少 32 字符
+JWT_EXPIRES_IN=15m    # access token 有效期
+JWT_REFRESH_EXPIRES_IN=7d  # refresh token 有效期
 DELEGATION_SECRET=    # AI Bridge 委托 token 密钥（Java 系统共享验签，缺省回退 JWT_SECRET，生产应独立配置）
 
 # 环境切换
@@ -445,6 +447,8 @@ LOCKOUT_THRESHOLD=10  # 登录锁定的失败次数阈值
 LOCKOUT_DURATION=15   # 锁定时间（分钟）
 ENCRYPTION_KEY=       # 敏感数据加密密钥，32 字节 hex（openssl rand -hex 32）
 ENCRYPTION_HMAC_KEY=  # providerHash 派生密钥，32 字节 hex（缺省回退用 ENCRYPTION_KEY）
+AUDIT_HMAC_KEY=       # 审计哈希链独立密钥，32 字节 hex（缺省回退用 ENCRYPTION_KEY 派生）
+AUDIT_HMAC_KEY_PREVIOUS=  # 轮换时的旧密钥（可选）：留旧值于此，verify 才验得了旧记录
 
 # 可观测性
 LOG_LEVEL=info                 # fatal | error | warn | info | debug | trace
@@ -546,6 +550,11 @@ HEADLESS_API_KEY=                  # 第三方集成用 API Key（x-api-key 头�
 # 独立治理控制平面：治理台独立服务 + 业务系统接入
 GOVERNANCE_DB_HOST=                # 治理台独立库连接（sqlite 用 GOVERNANCE_DB_PATH；postgres 用 HOST/PORT/USER/PASSWORD/NAME，默认库名 governance）
 GOVERNANCE_DB_PATH=                # 治理台 sqlite 路径（默认 ./data/governance.sqlite，独立于业务库）
+GOVERNANCE_DB_PORT=5432            # 治理台 postgres 端口
+GOVERNANCE_DB_NAME=governance      # 治理台 postgres 库名
+GOVERNANCE_DB_USER=                # 治理台 postgres 用户
+GOVERNANCE_DB_PASSWORD=            # 治理台 postgres 密码
+REVOKE_STALE_MINUTES=60            # `compensating` 超过多少分钟算「陈旧」（只用于标注，不改写结果）
 GOVERNANCE_API_KEY=                # 治理台服务身份密钥（业务系统上报/拉策略/撤销/审批回调共享，x-api-key）
 GOVERNANCE_URL=                    # 治理台地址（业务系统配置后 AI 审计/副作用双写上报；空则完全本地）
 GOVERNANCE_TARGET_URL=             # 治理台回调业务系统地址（撤销/approve 执行回调；空则治理台本地 revoker）
@@ -569,6 +578,18 @@ FEATURE_OAUTH_ENABLED=
 FEATURE_UPLOAD_ENABLED=
 FEATURE_NOTIFICATIONS_ENABLED=
 FEATURE_TODOS_ENABLED=
+# 各业务模块的开关（旗舰 + 生成模块）；同样未配置由 APP_PRESET 判定
+FEATURE_CRM_ENABLED=
+FEATURE_PM_ENABLED=
+FEATURE_APPROVAL_ENABLED=
+FEATURE_ORG_ENABLED=
+FEATURE_POINTS_ENABLED=
+FEATURE_BOOKS_ENABLED=
+FEATURE_CONTRACTS_ENABLED=
+FEATURE_NOTES_ENABLED=
+FEATURE_POSTS_ENABLED=
+FEATURE_SUPPLIERS_ENABLED=
+FEATURE_TAGS_ENABLED=
 APP_PRESET=full                    # full（默认全开）| small（关外部集成）| lite（最小可用）
 UPLOAD_REQUIRE_SIGN=false          # =1 时强制校验上传签名 URL（渐进模式默认放行裸 URL）
 

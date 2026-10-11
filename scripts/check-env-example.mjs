@@ -78,6 +78,22 @@ for (const file of TEMPLATES) {
   }
 }
 
+// 3. Every schema variable is in the reference a person or an agent reads before touching configuration
+//    — `CLAUDE.md` §6.1. Its list had drifted 20 variables behind (the two JWT lifetimes, four
+//    governance-database keys, `REVOKE_STALE_MINUTES`, the two audit-chain keys and eleven per-module
+//    feature flags), which is the same failure as criterion 1 in a place nothing compared.
+//
+// 3. 每个 schema 变量都在「改配置之前会读的那份参考」里 —— `CLAUDE.md` §6.1。它的清单曾悄悄落后 **20** 个
+//    变量（两个 JWT 有效期、四个治理库键、`REVOKE_STALE_MINUTES`、两个审计链密钥、十一个各模块开关），
+//    与判据 1 是同一种失败，只是发生在没有东西比对的地方。
+const DOC = 'CLAUDE.md';
+const docText = fs.readFileSync(path.join(ROOT, DOC), 'utf8');
+const section = docText.slice(docText.indexOf('### 6.1'), docText.indexOf('### 6.2'));
+const docWords = new Set(section.split(/[^A-Za-z0-9_]+/));
+for (const key of [...schema.keys()].sort()) {
+  if (!docWords.has(key)) failures.push(`${DOC} §6.1 未记 schema 变量 ${key}`);
+}
+
 if (failures.length > 0) {
   console.error(`\n[env-example] ${failures.length} 处：\n`);
   for (const f of failures) console.error(`  ✗ ${f}`);
@@ -87,5 +103,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(
-  `[env-example] ${schema.size} 个 schema 变量都在 ${REFERENCE} 里；${required.length} 个必填变量在全部 ${TEMPLATES.length} 份模板里 ✓`,
+  `[env-example] ${schema.size} 个 schema 变量：都在 ${REFERENCE} 与 ${DOC} §6.1 里；${required.length} 个必填变量在全部 ${TEMPLATES.length} 份模板里 ✓`,
 );
