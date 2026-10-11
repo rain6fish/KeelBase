@@ -51,37 +51,94 @@ for img in "${REQUIRED_IMAGES[@]}"; do
 done
 echo "✓ 关键镜像已就绪"
 
-# ── 2. 生成生产 env（外部依赖全部降级 = 内网可用） ──────────
-if [ ! -f "$ENV_FILE" ]; then
-  cp "Server-NestJS/.env.production.example" "$ENV_FILE"
-  gen() { openssl rand -hex 32; }
-  DB_PASS=$(gen)
-  sed -i.bak \
-    -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
-    -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
-    -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
-    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
-    -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
-    -e "s/^DB_NAME=.*/DB_NAME=front_production/" \
-    "$ENV_FILE"
-  rm -f "$ENV_FILE.bak"
-  # 模板可能缺 ENCRYPTION_KEY/AUDIT_HMAC_KEY 行 → 追加缺失行（防配置校验失败）
-  for KEY in ENCRYPTION_KEY AUDIT_HMAC_KEY; do
-    grep -q "^${KEY}=" "$ENV_FILE" || echo "${KEY}=$(gen)" >> "$ENV_FILE"
-  done
-  # 内网默认降级：邮件/推送/短信/OAuth 全关（可后续手动开内网替代）
-  cat >> "$ENV_FILE" <<'ENVEOF'
+# ── 2. 生成 / 校验生产 env（外部依赖全部降级 = 内网可用） ────
+gen() { openssl rand -hex 32; }
 
-# ---- POV-3 内网降级（可手动开启内网替代）----
+# 关键密钥：空值、或仍与模板相同（占位符）都算「没配」——内网部署不该带着 change-me 上线。
+# critical keys: empty, or still equal to the template's placeholder, counts as unset.
+CRITICAL_KEYS=( JWT_SECRET JWT_REFRESH_SECRET ENCRYPTION_KEY AUDIT_HMAC_KEY DB_PASSWORD POSTGRES_PASSWORD )
+EXAMPLE_FILE="Server-NestJS/.env.production.example"
+
+is_placeholder() {
+  local key="$1" cur tpl
+  cur=$(grep -m1 "^${key}=" "$ENV_FILE" | cut -d= -f2-)
+  tpl=$(grep -m1 "^${key}=" "$EXAMPLE_FILE" | cut -d= -f2-)
+  [ -z "$cur" ] || [ "$cur" = "$tpl" ]
+}
+
+# 离线降级键：**只补缺的**，不覆盖运维已经设过的值（例如已开的内网 SMTP）。
+# offline degradation: append only the keys that are absent; never overwrite a value already set.
+append_degradation() {
+  local added=0
+  while IFS='=' read -r k v; do
+    if ! grep -q "^${k}=" "$ENV_FILE"; then
+      [ "$added" = 0 ] && printf '\n# ---- POV-3 内网降级（可手动开启内网替代）----\n' >> "$ENV_FILE"
+      echo "${k}=${v}" >> "$ENV_FILE"
+      added=1
+    fi
+  done <<'ENVEOF'
 MAIL_ENABLED=false
 PUSH_DRIVER=none
 SMS_DRIVER=none
 OAUTH_ENABLED_PROVIDERS=
 ENVEOF
-  echo "✓ 已生成 $ENV_FILE（外部依赖默认降级，适配内网）"
+  [ "$added" = 1 ] && echo "✓ 已补齐离线降级键（MAIL / PUSH / SMS / OAUTH）"
+  return 0
+}
+
+if [ ! -f "$ENV_FILE" ]; then
+  cp "$EXAMPLE_FILE" "$ENV_FILE"
+  DB_PASS=$(gen)
+  sed -i.bak \
+    -e "s/^JWT_SECRET=.*/JWT_SECRET=$(gen)/" \
+    -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(gen)/" \
+    -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(gen)/" \
+    -e "s/^AUDIT_HMAC_KEY=.*/AUDIT_HMAC_KEY=$(gen)/" \
+    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" \
+    -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DB_PASS/" \
+    -e "s/^DB_NAME=.*/DB_NAME=front_production/" \
+    "$ENV_FILE"
+  rm -f "$ENV_FILE.bak"
+  # ⚠ 上面的 sed 只改**存在**的键；模板缺行会漏掉 ⇒ 这里按「缺行才补」兜住。
+  #   反过来不成立：模板里**带着占位符的行**永远不会被这个循环碰到——那正是 2026-10-11 实跑
+  #   逮到 `AUDIT_HMAC_KEY` 整份漏生成的原因（审计链的 HMAC 密钥一直是个已知常量）。
+  # sed only rewrites keys that exist; the loop below appends only the absent ones. A key that
+  # the template ships as a placeholder matches neither, which is how AUDIT_HMAC_KEY slipped.
+  for KEY in JWT_SECRET JWT_REFRESH_SECRET ENCRYPTION_KEY AUDIT_HMAC_KEY; do
+    grep -q "^${KEY}=" "$ENV_FILE" || echo "${KEY}=$(gen)" >> "$ENV_FILE"
+  done
+  echo "✓ 已生成 $ENV_FILE（随机密钥，外部依赖默认降级）"
 else
-  echo "✓ 使用已有 $ENV_FILE"
+  # ⚠ 文件已存在 ≠ 可以直接用。2026-10-11 的 P1-11 实跑发现：旧文件会让这一步**静默**跳过
+  # 密钥生成与降级，实例于是带着模板占位符（change-me-… / 0123456789abcdef…）上线。
+  # An existing file is not automatically usable: a real run on 2026-10-11 showed the old
+  # branch silently skipped both, shipping template placeholders. So: validate, then continue.
+  MISSING=()
+  for KEY in "${CRITICAL_KEYS[@]}"; do is_placeholder "$KEY" && MISSING+=("$KEY"); done
+  if [ "${#MISSING[@]}" -gt 0 ]; then
+    echo "✗ $ENV_FILE 里这些关键密钥是空的、或仍是模板占位符："
+    printf '    %s\n' "${MISSING[@]}"
+    echo "  内网部署不应用 change-me / 0123456789abcdef 这类占位符上线。二选一："
+    echo "    · 全新部署：把该文件改名或删除后重跑本脚本（会生成随机密钥）"
+    echo "    · 沿用现有配置：把上面这些键填成真实随机值（openssl rand -hex 32）"
+    exit 1
+  fi
+  echo "✓ 已有 $ENV_FILE，关键密钥均非占位符"
 fi
+
+# 兜底：无论走哪一支，都不许带着占位符继续启动。2026-10-11 的实跑里，生成分支整份漏掉了
+# `AUDIT_HMAC_KEY`，而当时**没有任何东西会响** —— 这条断言就是让同类缺陷下次一定响。
+# Backstop for both branches: never start on a placeholder; the 2026-10-11 run showed the
+# generation branch could omit one silently.
+STILL=()
+for KEY in "${CRITICAL_KEYS[@]}"; do is_placeholder "$KEY" && STILL+=("$KEY"); done
+if [ "${#STILL[@]}" -gt 0 ]; then
+  echo "✗ 生成/校验之后这些键仍是占位符：${STILL[*]}"
+  echo "  这不该发生（本脚本自身的缺陷）——请连同上面的输出一起上报。"
+  exit 1
+fi
+
+append_degradation
 
 # ── 3. HTTPS（可选） ─────────────────────────────────────────
 COMPOSE_FILES=(-f docker-compose.yml)

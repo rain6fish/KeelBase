@@ -52,6 +52,8 @@ docker load -i images.tar
 2. Generate `.env.production` (random secrets + **degraded by default**: `MAIL_ENABLED=false` `PUSH_DRIVER=none` `SMS_DRIVER=none` `OAUTH_ENABLED_PROVIDERS=`)
    生成 `.env.production`（随机密钥 + **默认降级**：`MAIL_ENABLED=false` `PUSH_DRIVER=none` `SMS_DRIVER=none` `OAUTH_ENABLED_PROVIDERS=`）
 3. Start containers + create the admin account / 起容器 + 建管理员
+4. If `.env.production` **already exists**: validate its six critical secrets — empty, or still the template's placeholder (`change-me-…` / `0123456789abcdef…`), **refuses to start** — and append only the *missing* degradation keys (an existing value is never overwritten)
+   若 `.env.production` **已存在**：**校验**其中六个关键密钥（空值、或仍是模板占位符 `change-me-…` / `0123456789abcdef…` 一律**拒绝启动**），并**只补缺的**降级键（已设的值不覆盖）
 
 ## 3. On-Prem AI (Optional) / 内网 AI（可选）
 
