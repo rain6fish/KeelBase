@@ -18,11 +18,11 @@ export class CreateNoteTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建笔记（title、content、category）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建笔记（标题、内容、分类）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'title', type: 'string', description: 'title', required: true },
-    { name: 'content', type: 'string', description: 'content', required: false },
-    { name: 'category', type: 'string', description: 'category', required: false,
+    { name: 'title', type: 'string', description: '标题', required: true },
+    { name: 'content', type: 'string', description: '内容', required: false },
+    { name: 'category', type: 'string', description: '分类', required: false,
       enum: ['work', 'personal', 'idea', 'archive'] },
   ];
 
@@ -37,9 +37,9 @@ export class CreateNoteTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'title' },
-            content: { type: 'string', description: 'content' },
-            category: { type: 'string', description: 'category', enum: ['work', 'personal', 'idea', 'archive'] },
+            title: { type: 'string', description: '标题' },
+            content: { type: 'string', description: '内容' },
+            category: { type: 'string', description: '分类', enum: ['work', 'personal', 'idea', 'archive'] },
           },
           required: ['title'],
         },

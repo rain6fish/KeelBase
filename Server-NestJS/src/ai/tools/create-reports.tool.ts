@@ -18,13 +18,13 @@ export class CreateReportTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建报告（title、summary、status、amount）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建报告（标题、摘要、状态、金额）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'title', type: 'string', description: 'title', required: true },
-    { name: 'summary', type: 'string', description: 'summary', required: false },
-    { name: 'status', type: 'string', description: 'status', required: false,
+    { name: 'title', type: 'string', description: '标题', required: true },
+    { name: 'summary', type: 'string', description: '摘要', required: false },
+    { name: 'status', type: 'string', description: '状态', required: false,
       enum: ['draft', 'published'] },
-    { name: 'amount', type: 'number', description: 'amount', required: false },
+    { name: 'amount', type: 'number', description: '金额', required: false },
   ];
 
   constructor(private readonly reportsService: ReportsServiceLike) {}
@@ -38,10 +38,10 @@ export class CreateReportTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'title' },
-            summary: { type: 'string', description: 'summary' },
-            status: { type: 'string', description: 'status', enum: ['draft', 'published'] },
-            amount: { type: 'number', description: 'amount' },
+            title: { type: 'string', description: '标题' },
+            summary: { type: 'string', description: '摘要' },
+            status: { type: 'string', description: '状态', enum: ['draft', 'published'] },
+            amount: { type: 'number', description: '金额' },
           },
           required: ['title'],
         },

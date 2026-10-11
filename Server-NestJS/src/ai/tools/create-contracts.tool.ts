@@ -18,13 +18,13 @@ export class CreateContractTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建合同（name、counterparty、status、amount）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建合同（合同名、签约方、状态、金额）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'name', type: 'string', description: 'name', required: true },
-    { name: 'counterparty', type: 'string', description: 'counterparty', required: false },
-    { name: 'status', type: 'string', description: 'status', required: false,
+    { name: 'name', type: 'string', description: '合同名', required: true },
+    { name: 'counterparty', type: 'string', description: '签约方', required: false },
+    { name: 'status', type: 'string', description: '状态', required: false,
       enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] },
-    { name: 'amount', type: 'number', description: 'amount', required: false },
+    { name: 'amount', type: 'number', description: '金额', required: false },
   ];
 
   constructor(private readonly contractsService: ContractsServiceLike) {}
@@ -38,10 +38,10 @@ export class CreateContractTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'name' },
-            counterparty: { type: 'string', description: 'counterparty' },
-            status: { type: 'string', description: 'status', enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] },
-            amount: { type: 'number', description: 'amount' },
+            name: { type: 'string', description: '合同名' },
+            counterparty: { type: 'string', description: '签约方' },
+            status: { type: 'string', description: '状态', enum: ['draft', 'reviewing', 'active', 'expired', 'terminated'] },
+            amount: { type: 'number', description: '金额' },
           },
           required: ['name'],
         },

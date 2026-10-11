@@ -30,10 +30,10 @@ export class QueryReportsTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              title: { type: 'string', description: 'title' },
-              summary: { type: 'string', description: 'summary' },
-              status: { type: 'string', description: 'status' },
-              amount: { type: 'number', description: 'amount' },
+              title: { type: 'string', description: '标题' },
+              summary: { type: 'string', description: '摘要' },
+              status: { type: 'string', description: '状态' },
+              amount: { type: 'number', description: '金额' },
                 },
               },
       },

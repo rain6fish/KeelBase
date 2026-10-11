@@ -30,9 +30,9 @@ export class QueryNotesTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              title: { type: 'string', description: 'title' },
-              content: { type: 'string', description: 'content' },
-              category: { type: 'string', description: 'category' },
+              title: { type: 'string', description: '标题' },
+              content: { type: 'string', description: '内容' },
+              category: { type: 'string', description: '分类' },
                 },
               },
       },

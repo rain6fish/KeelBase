@@ -30,10 +30,10 @@ export class QueryContractsTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              name: { type: 'string', description: 'name' },
-              counterparty: { type: 'string', description: 'counterparty' },
-              status: { type: 'string', description: 'status' },
-              amount: { type: 'number', description: 'amount' },
+              name: { type: 'string', description: '合同名' },
+              counterparty: { type: 'string', description: '签约方' },
+              status: { type: 'string', description: '状态' },
+              amount: { type: 'number', description: '金额' },
                 },
               },
       },

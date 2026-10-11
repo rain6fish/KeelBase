@@ -18,13 +18,13 @@ export class CreateBookTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建图书（title、author、status、rating）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建图书（书名、作者、阅读状态、评分）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'title', type: 'string', description: 'title', required: true },
-    { name: 'author', type: 'string', description: 'author', required: false },
-    { name: 'status', type: 'string', description: 'status', required: false,
+    { name: 'title', type: 'string', description: '书名', required: true },
+    { name: 'author', type: 'string', description: '作者', required: false },
+    { name: 'status', type: 'string', description: '阅读状态', required: false,
       enum: ['unread', 'reading', 'finished'] },
-    { name: 'rating', type: 'number', description: 'rating', required: false },
+    { name: 'rating', type: 'number', description: '评分', required: false },
   ];
 
   constructor(private readonly booksService: BooksServiceLike) {}
@@ -38,10 +38,10 @@ export class CreateBookTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'title' },
-            author: { type: 'string', description: 'author' },
-            status: { type: 'string', description: 'status', enum: ['unread', 'reading', 'finished'] },
-            rating: { type: 'number', description: 'rating' },
+            title: { type: 'string', description: '书名' },
+            author: { type: 'string', description: '作者' },
+            status: { type: 'string', description: '阅读状态', enum: ['unread', 'reading', 'finished'] },
+            rating: { type: 'number', description: '评分' },
           },
           required: ['title'],
         },

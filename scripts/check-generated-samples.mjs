@@ -29,6 +29,7 @@ import { backendFiles } from './generator/templates-backend.mjs';
 import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
 import { taroFiles } from './generator/templates-taro.mjs';
+import { aiFiles } from './generator/templates-ai.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -36,6 +37,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // 生成物落进的每一组 —— { 仓内相对目录, 模板 }。
 const GROUPS = [
   ['Server-NestJS/src/', backendFiles],
+  ['Server-NestJS/src/', aiFiles],
   ['Front-Flutter/lib/', frontendFiles],
   ['Web-Admin-Vue/', adminFiles],
   ['Front-Taro/', taroFiles],

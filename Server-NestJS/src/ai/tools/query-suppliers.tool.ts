@@ -30,11 +30,11 @@ export class QuerySuppliersTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              name: { type: 'string', description: 'name' },
-              contact: { type: 'string', description: 'contact' },
-              status: { type: 'string', description: 'status' },
-              riskLevel: { type: 'string', description: 'riskLevel' },
-              annualSpend: { type: 'number', description: 'annualSpend' },
+              name: { type: 'string', description: '供应商名' },
+              contact: { type: 'string', description: '联系人' },
+              status: { type: 'string', description: '状态' },
+              riskLevel: { type: 'string', description: '风险' },
+              annualSpend: { type: 'number', description: '年采购额' },
                 },
               },
       },

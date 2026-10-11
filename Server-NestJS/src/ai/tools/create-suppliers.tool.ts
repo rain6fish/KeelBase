@@ -18,15 +18,15 @@ export class CreateSupplierTool implements AiTool {
   readonly riskLevel = 'R3';
   readonly requiresConfirmation = true;
   readonly permissions = { requireVerifiedEmail: true };
-  readonly description = '创建供应商（name、contact、status、riskLevel、annualSpend）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
+  readonly description = '创建供应商（供应商名、联系人、状态、风险、年采购额）。这是写操作，系统会弹出确认框，用户确认后才真正创建。';
   readonly parameters: ToolParameter[] = [
-    { name: 'name', type: 'string', description: 'name', required: true },
-    { name: 'contact', type: 'string', description: 'contact', required: false },
-    { name: 'status', type: 'string', description: 'status', required: false,
+    { name: 'name', type: 'string', description: '供应商名', required: true },
+    { name: 'contact', type: 'string', description: '联系人', required: false },
+    { name: 'status', type: 'string', description: '状态', required: false,
       enum: ['active', 'inactive', 'blacklist'] },
-    { name: 'riskLevel', type: 'string', description: 'riskLevel', required: false,
+    { name: 'riskLevel', type: 'string', description: '风险', required: false,
       enum: ['low', 'medium', 'high'] },
-    { name: 'annualSpend', type: 'number', description: 'annualSpend', required: false },
+    { name: 'annualSpend', type: 'number', description: '年采购额', required: false },
   ];
 
   constructor(private readonly suppliersService: SuppliersServiceLike) {}
@@ -40,11 +40,11 @@ export class CreateSupplierTool implements AiTool {
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'name' },
-            contact: { type: 'string', description: 'contact' },
-            status: { type: 'string', description: 'status', enum: ['active', 'inactive', 'blacklist'] },
-            riskLevel: { type: 'string', description: 'riskLevel', enum: ['low', 'medium', 'high'] },
-            annualSpend: { type: 'number', description: 'annualSpend' },
+            name: { type: 'string', description: '供应商名' },
+            contact: { type: 'string', description: '联系人' },
+            status: { type: 'string', description: '状态', enum: ['active', 'inactive', 'blacklist'] },
+            riskLevel: { type: 'string', description: '风险', enum: ['low', 'medium', 'high'] },
+            annualSpend: { type: 'number', description: '年采购额' },
           },
           required: ['name'],
         },

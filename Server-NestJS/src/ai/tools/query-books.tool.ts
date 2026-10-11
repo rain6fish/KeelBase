@@ -30,10 +30,10 @@ export class QueryBooksTool implements AiTool {
         parameters: {
                 type: 'object',
                 properties: {
-              title: { type: 'string', description: 'title' },
-              author: { type: 'string', description: 'author' },
-              status: { type: 'string', description: 'status' },
-              rating: { type: 'number', description: 'rating' },
+              title: { type: 'string', description: '书名' },
+              author: { type: 'string', description: '作者' },
+              status: { type: 'string', description: '阅读状态' },
+              rating: { type: 'number', description: '评分' },
                 },
               },
       },
