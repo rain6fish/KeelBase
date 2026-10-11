@@ -138,22 +138,26 @@ export const RESOURCE_ROUTES: readonly ResourceRoute[] = [
   { match: /\/org\/requests/, entity: null, event: 'OrganizationRequest' },
 ];
 
+/**
+ * 该路径命中的注册表行 —— **唯一一处查表**：谓词、查询串剥离、以及「按表序匹配（子资源先于父资源）」
+ * 都只写在这里。下面两个各读一个属性的函数，此前把这一模一样的谓词重复写了两份、把这张表各扫一遍。
+ *
+ * The one lookup: the predicate, the query-string strip and the table order (specific before generic)
+ * all live here. The two accessors below used to each scan the table with the same predicate.
+ */
+function routeFor(path: string): ResourceRoute | null {
+  const p = path.split('?')[0];
+  return RESOURCE_ROUTES.find((route) => route.match.test(p)) ?? null;
+}
+
 /** 该路径对应的实体类名（用于取行做 before 快照）；无对应实体时返回 null。 */
 export function resourceEntityFor(path: string): string | null {
-  const p = path.split('?')[0];
-  for (const route of RESOURCE_ROUTES) {
-    if (route.match.test(p)) return route.entity;
-  }
-  return null;
+  return routeFor(path)?.entity ?? null;
 }
 
 /** 该路径对应的业务事件前缀；无对应资源时返回 null。 */
 export function resourceEventFor(path: string): string | null {
-  const p = path.split('?')[0];
-  for (const route of RESOURCE_ROUTES) {
-    if (route.match.test(p)) return route.event;
-  }
-  return null;
+  return routeFor(path)?.event ?? null;
 }
 
 /** 该 AI 副作用 `resultType` 在操作审计里的路径前缀（防跨资源 id 碰撞）；未知类型返回空数组。 */
