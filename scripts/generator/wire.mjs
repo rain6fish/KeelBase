@@ -459,12 +459,18 @@ export async function wireAdmin(ctx, root = '') {
   const keys = adminI18nKeys(ctx);
 
   // 1) 路由：data-import 后加懒加载管理路由
+  //    这条 meta 必须带 `module:` —— 菜单（AdminLayout）与路由守卫（guards.ts）都只读这一处，而
+  //    两者正好是 MOD-4 能力门的两个消费者。少了它，生成模块的页面在模块被禁用后仍留在菜单里、
+  //    也仍进得去：那道门对生成模块从不生效（2026-10-11 之前的实况）。
+  //    The `module:` key is what makes the MOD-4 gate apply: the menu (AdminLayout) and the route
+  //    guard (guards.ts) both read it and nothing else. Without it the page stays in the menu and
+  //    stays reachable even when the module is disabled — the gate never fires for generated modules.
   results.push(
     await applyFile(`${WA}/router/routes.ts`, (c) =>
       insertAfter(
         c,
         `{ path: 'data-import', name: 'data-import', component: () => import('@/views/data-import/DataImportView.vue'), meta: { title: 'navDataImport' } },`,
-        `\n      { path: '${ctx.plural}', name: '${ctx.plural}', component: () => import('@/views/${ctx.plural}/${ctx.pluralPascal}View.vue'), meta: { title: 'nav${ctx.pluralPascal}' } },`,
+        `\n      { path: '${ctx.plural}', name: '${ctx.plural}', component: () => import('@/views/${ctx.plural}/${ctx.pluralPascal}View.vue'), meta: { title: 'nav${ctx.pluralPascal}', module: '${ctx.plural}' } },`,
         `name: '${ctx.plural}'`,
       ),
     ),

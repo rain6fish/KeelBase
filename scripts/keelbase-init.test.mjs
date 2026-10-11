@@ -780,6 +780,11 @@ test('wireAdmin：routes + navGroups + i18n zh/en + 后端导航映射', async (
   assert.ok(r.filter((x) => x.changed).length >= 5);
   const routes = await readFile(`${root}/Web-Admin-Vue/src/router/routes.ts`, 'utf8');
   assert.match(routes, /PostsView\.vue/);
+  // MOD-4：生成的路由必须带 `module:`。菜单（AdminLayout）与路由守卫（guards.ts）都只读这一处 ——
+  // 少了它，能力门对生成模块从不生效：模块被禁用，页面仍留在菜单里、也仍进得去。
+  // The generated route must carry `module:` — the menu and the route guard read that key and
+  // nothing else; without it the MOD-4 gate never fires for generated modules.
+  assert.match(routes, /meta: \{ title: 'navPosts', module: 'posts' \}/);
   const nav = await readFile(`${root}/Web-Admin-Vue/src/layouts/AdminLayout.vue`, 'utf8');
   assert.match(nav, /navPosts/);
   const zh = await readFile(`${root}/Web-Admin-Vue/src/i18n/zh.ts`, 'utf8');
