@@ -77,6 +77,7 @@ fi
 # 24/0、14/10、17/7，失败项全是服务依赖型检查、无任何测试失败）。分片缩短单进程时长以规避。
 # 判据不削弱：仍逐套件 grep jest 的 "PASS test/<name>.e2e-spec.ts"，真实失败照旧 FAIL。
 # CI 的 release-gate job 跑的是同一脚本（形态相同，分片对它同样成立）；CI 上是否复现该硬崩未实测。
+# 每批另带**崩溃重试**（判据 = 该批有无 jest 汇总行 `Test Suites:`），与 Gate1 及 test:e2e 分片同一口径。
 echo "→ [Trust] 越权 / 写确认 / 审计"
 (cd Server-NestJS && rm -f data/test.sqlite)
 # 套件清单单一真源：批次切分与逐套件判定都从这里派生（避免两处平行列表漂移）
@@ -89,6 +90,7 @@ E2E_SUITES=(
   "pm-trust-failure-path:PM失败路径(A2)" "approval-trust-failure-path:Approval失败路径(A2)"
 )
 E2E_BATCHES=4   # 按套件数均分；轮转取用，使重套件分散到不同批
+E2E_BATCH_ATTEMPTS=3   # 每批首跑 + 最多 2 次重试（判据=该批有无 jest 汇总行；与 run-e2e-shards.mjs 同口径）
 E2E_BATCH_OUT=(); E2E_BATCH_LIST=()
 for ((b = 0; b < E2E_BATCHES; b++)); do
   batch_files=(); batch_names=""
@@ -97,7 +99,16 @@ for ((b = 0; b < E2E_BATCHES; b++)); do
     batch_files+=("test/${name}.e2e-spec.ts"); batch_names="${batch_names}${batch_names:+ }${name}"
   done
   echo "  · e2e 批次 $((b+1))/${E2E_BATCHES}（${#batch_files[@]} 套件）：${batch_names}"
-  E2E_BATCH_OUT[b]=$(cd Server-NestJS && npx jest --config test/jest-e2e.json "${batch_files[@]}" 2>&1) || true
+  # 每批带崩溃重试：判据与 Gate1、`test:e2e` 分片同一口径——该批**没有 jest 汇总行**（`Test Suites:`）
+  # 才算「jest 未跑完」、才重试；有汇总行即真实结果（PASS 或 FAIL），**不重试**（瞬时中断不掩盖真失败）。
+  # 没有这个重试时，某一批中途死掉会把该批套件全判 FAIL ⇒ 闸门间歇假红（正是分片要规避的那类抖动）。
+  for ((e2e_attempt = 1; e2e_attempt <= E2E_BATCH_ATTEMPTS; e2e_attempt++)); do
+    E2E_BATCH_OUT[b]=$(cd Server-NestJS && npx jest --config test/jest-e2e.json "${batch_files[@]}" 2>&1) || true
+    if grep -q "Test Suites:" <<<"${E2E_BATCH_OUT[b]}"; then break; fi
+    if [ "$e2e_attempt" -lt "$E2E_BATCH_ATTEMPTS" ]; then
+      echo "    ⚠ 批次 $((b+1)) 未产出 jest 汇总行（jest 未跑完，非断言失败）——重试 $e2e_attempt/$((E2E_BATCH_ATTEMPTS-1))"
+    fi
+  done
   E2E_BATCH_LIST[b]="${batch_names}"
 done
 E2E_OUT=$(printf '%s\n' "${E2E_BATCH_OUT[@]}")
