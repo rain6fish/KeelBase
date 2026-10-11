@@ -96,5 +96,5 @@ Adversarial Proof 判定：
 - [security-verification-matrix.md](../manual/security-verification-matrix.md) — 越权矩阵维度明细
 - [release-gate.md](../manual/release-gate.md) — 五维 Release Gate 判定（含对抗性证明 §5）
 - [agent-benchmark-2026-08-20.md](./agent-benchmark-2026-08-20.md) — 15/15 报告
-- [golden-crm-2026-08-21T04-13-45-289Z.md](./golden-crm-2026-08-21T04-13-45-289Z.md) — Gate 1 LLM 8/8 报告
+- [golden-crm-2026-08-21.md](./golden-crm-2026-08-21.md) — Gate 1 LLM 8/8 报告
 - [stranger-challenge-report-2026-08-21.md](./stranger-challenge-report-2026-08-21.md) — 合成陌生人报告
