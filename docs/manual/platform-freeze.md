@@ -17,7 +17,7 @@
 | 项 | 判定 |
 |---|---|
 | `docs/project.spec.md` 5.9/5.10 节号重复 | ✅ **已修（2026-08-18）**——删除重复的「5.9 推送 + 5.10 其他」块 |
-| `src/ai/ai.service.ts`（1577 行巨型 facade）| **冻结**——拆分是重构大项，v1.0 验证后再做；当前 ai.service.spec 覆盖良好 |
+| `src/ai/ai.service.ts`（1577 行巨型 facade）| **冻结**——拆分是重构大项，v1.0 验证后再做；当前 AiService 的 spec（已按子域拆分，见 `ai-service.*.spec.ts`）覆盖良好 |
 | push 模块三件套职责重叠（push.service/noop-push.service/push-token.controller）| **冻结**——行为正确，待真实厂商接入（P2）时一并重构 |
 | Flutter 72 个手写 `fromJson`（可 codegen/freezed）| **冻结**——引入 codegen 是工具链决策，v1.0 后评估；当前约定统一 |
 

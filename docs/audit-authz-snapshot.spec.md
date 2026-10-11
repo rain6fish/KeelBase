@@ -53,7 +53,7 @@ if (!denied) {
 
 ## 4. 测试
 
-- `ai.service.spec`：放行 tool_call 审计写 `authorization` 含 `allowed: true` + checks
+- `ai-service.*.spec.ts`：放行 tool_call 审计写 `authorization` 含 `allowed: true` + checks
 - `audit.service.spec`：
   - `parseAllowedSnapshot` 解析放行对象 / 拒绝数组返回 null / 非法 JSON 返回 null
   - `_identityChainFromRow`：有放行快照 → allowed 用快照（不调 explainAuthorization）；无快照 → 降级重算；拒绝数组 → denied 不变

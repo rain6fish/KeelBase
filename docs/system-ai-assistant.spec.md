@@ -216,8 +216,8 @@ interface AdminAiChatResponse {
 
 | 文件 | 断言 |
 |------|------|
-| `ai.service.spec.ts` | `systemPrompt` 覆盖生效 / 缺省行为不变；`adminMode` 下「打开设置」不返回 `/settings`、非 adminMode 保持短路；`runToolLoop` 透传 `AuthorizationDeniedError`；`adminOnly` 普通用户拒绝 / 真实 admin 放行 / '0' 放行 |
-| `admin-ai.service.spec.ts`（新） | `assistantChat` 调用参数（`systemPrompt`/`adminMode`）；上下文含能力/版本/工具/统计；`navigateTo`/`toolCalls` 透出；失败静默降级 |
+| `ai-service.*.spec.ts` | `systemPrompt` 覆盖生效 / 缺省行为不变；`adminMode` 下「打开设置」不返回 `/settings`、非 adminMode 保持短路；`runToolLoop` 透传 `AuthorizationDeniedError`；`adminOnly` 普通用户拒绝 / 真实 admin 放行 / '0' 放行 |
+| `admin-ai-service.*.spec.ts`（新） | `assistantChat` 调用参数（`systemPrompt`/`adminMode`）；上下文含能力/版本/工具/统计；`navigateTo`/`toolCalls` 透出；失败静默降级 |
 | `admin-ai.controller.spec.ts` | 瘦身委托（守卫保留、请求透传） |
 | `navigate-admin-page.tool.spec.ts`（新） | 已知 key → `{navigateTo}`；未知 → `{success:false}` |
 | `app-capabilities.controller.spec.ts` | 委托 `CapabilitiesService` |
