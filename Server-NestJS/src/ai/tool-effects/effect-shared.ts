@@ -9,7 +9,9 @@
  * carries meaning: the target-identity comparison, the stable serialization behind the idempotency key, and the
  * predicate deciding which database errors may be treated as an idempotent skip.
  */
+import { createHash } from 'crypto';
 import type { DeclaredSideEffect } from './effect-composition';
+import type { WriteToolContext } from './tool-effects.types';
 
 /** 唯一约束冲突判定（postgres 23505 / sqlite SQLITE_CONSTRAINT / UNIQUE constraint message）——仅此类错误才可按幂等 skip（KB-4 FP-4） */
 export function isUniqueViolation(err: unknown): boolean {
@@ -60,4 +62,33 @@ export function sortKeys(value: unknown): unknown {
     return obj;
   }
   return value;
+}
+
+/** 参数 hash（幂等键与追溯共用同一摘要口径）—— 登记与 claims 两簇共用，故与其余助手同处。 */
+export function argsHash(ctx: WriteToolContext): string {
+  return createHash('sha256')
+    .update(JSON.stringify(sortKeys(ctx.args)))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+/**
+ * 幂等键：sha256(userId:conversationId:toolName:stableArgsJson)。
+ *
+ * 与 `argsHash` 一样是**契约**（键怎么算决定幂等怎么成立），故放在这里；服务上保留同名静态方法作为委托，
+ * 仓内既有的 `AiToolEffectsService.buildKey(...)` 调用点一字不用改。
+ */
+export function buildKey(ctx: WriteToolContext): string {
+  const stable = JSON.stringify(sortKeys(ctx.args));
+  const seed = `${ctx.userId}:${ctx.conversationId ?? ''}:${ctx.toolName}:${stable}`;
+  return createHash('sha256').update(seed).digest('hex');
+}
+
+/**
+ * 复合写工具组内成员幂等键（docs/cascade-compensation.spec.md §4）：基键 + 区分度。
+ * 同组多行若共用基键，`idempotency_key` 唯一约束会把整组塌成一行——区分度是必需的，不是优化。
+ * 用**声明下标**而非登记顺序：重试时同一成员映射到同一键（幂等语义才成立）。
+ */
+export function memberKey(baseKey: string, index: number, resultType: string, resultId: number): string {
+  return createHash('sha256').update(`${baseKey}:${index}:${resultType}:${resultId}`).digest('hex');
 }

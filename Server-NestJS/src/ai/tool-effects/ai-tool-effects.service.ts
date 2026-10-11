@@ -3,10 +3,9 @@
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
-import { createHash } from 'crypto';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { EffectComparability } from './effect-comparability.entity';
-import { AiWriteClaim, WRITE_CLAIM_STATUS } from './ai-write-claim.entity';
+import { AiWriteClaim } from './ai-write-claim.entity';
 import type { ExternalRevoker } from '../proxy/proxy-revoker.service';
 import { SIDE_EFFECT_REVOKER, type DerivedReferenceCount } from './side-effect-revoker';
 import type { SideEffectRevoker } from './side-effect-revoker';
@@ -24,8 +23,9 @@ import { ConfigService } from '@nestjs/config';
 import { IsNull, LessThan, Not, Raw } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
-import { declarationDiff, isUniqueViolation, sortKeys, targetKey } from './effect-shared';
+import { argsHash, buildKey, declarationDiff, isUniqueViolation, memberKey, targetKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
+import { WriteClaimStore } from './write-claim.store';
 import {
   EXTERNAL_REVOKER,
   type CrossGroupClaim,
@@ -131,10 +131,14 @@ export class AiToolEffectsService {
     // Built in the constructor body so the signature stays put. Exactly one instance: registration and
     // revocation share it, or the single-writer path ends up with two serialization queues.
     this.chain = new EffectChainWriter(this.effectsRepo, this.auditChain, this.dataSource);
+    this.claims = new WriteClaimStore(this.effectsRepo, this.claimsRepo);
   }
 
   /** G-3 副作用链写入与校验（拆分第三批）：唯一实例，登记与撤销共用。 */
   private readonly chain: EffectChainWriter;
+
+  /** ACT-5/6 执行级幂等的占位行（拆分第四批，2026-10-11）：实现在 `write-claim.store.ts`。 */
+  private readonly claims: WriteClaimStore;
 
   /** G-3：副作用哈希链完整性校验 —— 转发给链写入器（实现在 `effect-chain.ts`）。 */
   async verifySideEffectChain(): Promise<{
@@ -144,6 +148,44 @@ export class AiToolEffectsService {
     firstHashedId: number | null;
   }> {
     return this.chain.verify();
+  }
+
+  // ── ACT-5/6 执行级幂等：以下六个公开方法转发给 `this.claims`（实现见 `write-claim.store.ts`） ──
+  // 公开面与搬动前一字不差：`tool-execution.service.ts` 与 `ai.service.ts` 的调用点不必知道这次拆分。
+
+  /** 尝试幂等返回：同 key 已有副作用 → `{ existing: true, effect }`。 */
+  async findExisting(key: string): Promise<{ existing: boolean; effect?: AiToolSideEffect }> {
+    return this.claims.findExisting(key);
+  }
+
+  /** ACT-5/6：为写工具执行占位（唯一约束即仲裁点）。 */
+  async claimWrite(
+    ctx: WriteToolContext,
+  ): Promise<{ won: boolean; status?: string; effectId?: number | null }> {
+    return this.claims.claimWrite(ctx);
+  }
+
+  /** 执行完成且副作用已登记 ⇒ 落定。 */
+  async settleClaim(key: string, effectId: number | null): Promise<void> {
+    return this.claims.settleClaim(key, effectId);
+  }
+
+  /** 本地实体写失败且确认未落库 ⇒ 释放占位。 */
+  async releaseClaim(key: string, reason: string): Promise<void> {
+    return this.claims.releaseClaim(key, reason);
+  }
+
+  /** ACT-5（消费者①）：把这次写的审计行挂到占位行上。 */
+  async attachAuditRow(
+    ref: { userId: string; conversationId?: string; toolName: string; argsJson: string },
+    auditRowId: number,
+  ): Promise<void> {
+    return this.claims.attachAuditRow(ref, auditRowId);
+  }
+
+  /** 崩溃残留：仍是 `claimed` 且已超过阈值（可见、不自动解决）。 */
+  async listStaleClaims(olderThanMs: number): Promise<AiWriteClaim[]> {
+    return this.claims.listStaleClaims(olderThanMs);
   }
 
   /**
@@ -461,175 +503,19 @@ export class AiToolEffectsService {
     this.externalRevoker = revoker;
   }
 
-  /** 幂等键：sha256(userId:conversationId:toolName:stableArgsJson) */
+  /** 幂等键：sha256(userId:conversationId:toolName:stableArgsJson) —— 实现在 `effect-shared.ts`，此处只是委托。 */
   static buildKey(ctx: WriteToolContext): string {
-    const stable = JSON.stringify(sortKeys(ctx.args));
-    const seed = `${ctx.userId}:${ctx.conversationId ?? ''}:${ctx.toolName}:${stable}`;
-    return createHash('sha256').update(seed).digest('hex');
+    return buildKey(ctx);
   }
 
   /**
-   * 复合写工具组内成员幂等键（docs/cascade-compensation.spec.md §4）：基键 + 区分度。
-   * 同组多行若共用基键，`idempotency_key` 唯一约束会把整组塌成一行——区分度是必需的，不是优化。
-   * 用**声明下标**而非登记顺序：重试时同一成员映射到同一键（幂等语义才成立）。
+   * 复合写工具组内成员幂等键 —— 实现在 `effect-shared.ts`，此处只是委托。
+   * 仓内既有的 `AiToolEffectsService.memberKey(...)` 调用点因此一字不用改。
    */
   static memberKey(baseKey: string, index: number, resultType: string, resultId: number): string {
-    return createHash('sha256').update(`${baseKey}:${index}:${resultType}:${resultId}`).digest('hex');
+    return memberKey(baseKey, index, resultType, resultId);
   }
 
-  /**
-   * 尝试幂等返回：同 key 已有副作用 → 返回 { existing: true, effect }。
-   * 否则返回 { existing: false }，调用方执行工具后用 record 落库。
-   */
-  async findExisting(
-    key: string,
-  ): Promise<{ existing: boolean; effect?: AiToolSideEffect }> {
-    const effect = await this.effectsRepo.findOne({
-      where: { idempotencyKey: key },
-    });
-    if (effect) return { existing: true, effect };
-    return { existing: false };
-  }
-
-  /**
-   * ACT-5/6：为**写工具执行**占位（本地实体写与代理/外部 MCP 写都走它；两条路径的**失败政策不同**，
-   * 见 `AiWriteClaim` 头注与 `executeWrite` 的 catch）。唯一约束即仲裁点。
-   *
-   * 返回 `{ won: true }` = 本次调用拥有这次执行；`{ won: false, status }` = 已有人持有 ⇒ **调用方绝不执行**。
-   * `status` 为 `claimed` 时是「正在执行中，或崩溃残留」（两者**当前不可区分**，故一律不重复执行）。
-   * `released` = 上一次尝试失败且**确认未落库** ⇒ 这里做一次条件更新重新占位（仍是仲裁，不是无条件覆盖）。
-   */
-  async claimWrite(
-    ctx: WriteToolContext,
-  ): Promise<{ won: boolean; status?: string; effectId?: number | null }> {
-    // 未装配仓库（单测装配 / 降级接线）⇒ 退回旧行为。**如实标注**：此时写不重复保护**不生效**。
-    // 捕获成局部：`this.x` 的窄化会被随后的调用/await 作废（TS 认为方法可能改它）。
-    const repo = this.claimsRepo;
-    if (!repo) return { won: true };
-    const key = AiToolEffectsService.buildKey(ctx);
-    const now = new Date();
-    try {
-      await repo.save(
-        repo.create({
-          idempotencyKey: key,
-          userId: ctx.userId,
-          // 这三列是 `?: string`（无 `| null`）⇒ 用 `undefined` 表示「无」。TypeORM 的 save 对
-          // `undefined` 落 NULL，与直接写 `null` 等价，但不会与「无显式类型的列不允许 TS 写 null」冲突。
-          conversationId: ctx.conversationId,
-          runId: ctx.runId,
-          toolName: ctx.toolName,
-          argsHash: this._argsHash(ctx),
-          agentId: ctx.agentId,
-          // REV-7：这次写依据的那次授权（确认/审批 token）。缺席 = 没有授权参与（自动写）。
-          authorizationRef: ctx.authorizationRef,
-          status: WRITE_CLAIM_STATUS.CLAIMED,
-          claimedAt: now,
-          attempts: 1,
-        }),
-      );
-      return { won: true };
-    } catch {
-      // 唯一冲突（或写失败）⇒ 读回现状。**fail-closed**：读不到现状也必须返回「不执行」，
-      // 绝不因为「没读到证据」就放行一次可能重复的写。
-      const existing = await repo.findOne({ where: { idempotencyKey: key } });
-      if (!existing) return { won: false, status: 'unreadable' };
-      if (existing.status === WRITE_CLAIM_STATUS.RELEASED) {
-        const res = await repo.update(
-          { id: existing.id, status: WRITE_CLAIM_STATUS.RELEASED },
-          {
-            status: WRITE_CLAIM_STATUS.CLAIMED,
-            claimedAt: now,
-            settledAt: null,
-            releaseReason: null,
-            attempts: existing.attempts + 1,
-          },
-        );
-        if (res?.affected === 0) {
-          const again = await repo.findOne({ where: { idempotencyKey: key } });
-          return { won: false, status: again?.status ?? 'unreadable', effectId: again?.effectId ?? null };
-        }
-        return { won: true };
-      }
-      return { won: false, status: existing.status, effectId: existing.effectId ?? null };
-    }
-  }
-
-  /** 执行完成且副作用已登记（或本就不登记，如 dry-run）⇒ 落定。`effectId` 为 null 是**如实**，不是缺失。 */
-  async settleClaim(key: string, effectId: number | null): Promise<void> {
-    if (!this.claimsRepo) return;
-    await this.claimsRepo.update(
-      { idempotencyKey: key, status: WRITE_CLAIM_STATUS.CLAIMED },
-      { status: WRITE_CLAIM_STATUS.SETTLED, settledAt: new Date(), effectId },
-    );
-  }
-
-  /**
-   * **本地实体写**失败 = 事务未提交 ⇒ **确认未落库** ⇒ 释放占位，使重试仍可用（不自造「不可重试」）。
-   *
-   * ⚠ **外部写不走这里**：它没有「确认未落库」这种证据（请求可能已到达目标），故占位有意留在 `claimed`
-   * 待对账 —— 释放它等于允许重试、也就等于邀请一次可能重复的外部写。见 `executeWrite` 的 catch。
-   */
-  async releaseClaim(key: string, reason: string): Promise<void> {
-    if (!this.claimsRepo) return;
-    await this.claimsRepo.update(
-      { idempotencyKey: key, status: WRITE_CLAIM_STATUS.CLAIMED },
-      { status: WRITE_CLAIM_STATUS.RELEASED, releaseReason: reason },
-    );
-  }
-
-  /**
-   * ACT-5（消费者①）：把这次写的**审计行**挂到占位行上 —— 证据根据此配到 effect **自己**那条触发行，
-   * 不再在会话里的同名调用之间猜（ACT-2 的「不唯一就不归因」因此有了一条精确支路）。
-   *
-   * 按**幂等键**定位占位行：调用方手上是工具名与原始参数串（审计行本来就是照它写的），键由同一个
-   * `buildKey` 算出，故两处不可能指向不同的行。
-   *
-   * 找不到占位行（未装配仓储 / 代理写没有占位行 / 本表之前的旧数据）⇒ **静默跳过**；参数串解析不出来
-   * 同样跳过 —— 宁可少一条链接，也不挂到错误的行上。挂链失败只告警：它不改任何判定，也不改变证据根
-   * 能否回退到保守配对。
-   */
-  async attachAuditRow(
-    ref: { userId: string; conversationId?: string; toolName: string; argsJson: string },
-    auditRowId: number,
-  ): Promise<void> {
-    const repo = this.claimsRepo;
-    if (!repo) return;
-    let args: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(ref.argsJson) as unknown;
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
-      args = parsed as Record<string, unknown>;
-    } catch {
-      return;
-    }
-    const key = AiToolEffectsService.buildKey({
-      userId: ref.userId,
-      conversationId: ref.conversationId,
-      toolName: ref.toolName,
-      args,
-    });
-    try {
-      await repo.update({ idempotencyKey: key }, { auditRowId });
-    } catch (err) {
-      this.logger.warn(
-        `[AiToolEffects] ACT-5 attach audit row failed (key ${key}): ${(err as Error).message}`,
-      );
-    }
-  }
-
-  /**
-   * 崩溃残留：仍是 `claimed` 且已超过阈值。**可见，但不自动解决** —— 与 REV-11 的认领同一口径：
-   * KeelBase 不知道那次执行是否落了库，自动改写状态就是拿猜测冒充事实。
-   */
-  async listStaleClaims(olderThanMs: number): Promise<AiWriteClaim[]> {
-    if (!this.claimsRepo) return [];
-    return this.claimsRepo
-      .createQueryBuilder('c')
-      .where('c.status = :s', { s: WRITE_CLAIM_STATUS.CLAIMED })
-      .andWhere('c.claimedAt < :cut', { cut: new Date(Date.now() - olderThanMs) })
-      .orderBy('c.claimedAt', 'ASC')
-      .getMany();
-  }
 
   /** 记录写工具副作用（execute 成功后调用）；resultType: event/todo/crm_task；snapshot 为 E-1 字段级变更快照 */
   async record(
@@ -648,7 +534,7 @@ export class AiToolEffectsService {
       // REV-7：agent 身份随行留存（链外列），使「哪个 agent 替哪个用户写」不必 join 审计行
       agentId: ctx.agentId ?? null,
       toolName: ctx.toolName,
-      argsHash: this._argsHash(ctx),
+      argsHash: argsHash(ctx),
       resultType,
       resultId,
       beforeSnapshot: snapshot?.before ?? null,
@@ -706,7 +592,7 @@ export class AiToolEffectsService {
           // REV-7：同一件事在复合组里也一样 —— 身份随行，不靠 join
           agentId: ctx.agentId ?? null,
           toolName: ctx.toolName,
-          argsHash: this._argsHash(ctx),
+          argsHash: argsHash(ctx),
           resultType: e.resultType,
           resultId: e.resultId,
           beforeSnapshot: snapshots?.[i]?.before ?? null,
@@ -747,7 +633,7 @@ export class AiToolEffectsService {
       // 故把它按「持有里多出来的」那一侧标成争议，而不是以「无处可读」为由不标。
       let held = group;
       if (held.length === 0) {
-        const occupant = (await this.findExisting(baseKey)).effect;
+        const occupant = (await this.claims.findExisting(baseKey)).effect;
         if (occupant) held = [occupant];
       }
       // REV-1：回放之前先比一次声明与持有 —— 不比对就是「静默少记录」（撤销该组只补偿持有的那些行、汇总全绿）。
@@ -822,14 +708,6 @@ export class AiToolEffectsService {
       where: { compensationGroup } as any,
       order: { id: 'ASC' },
     });
-  }
-
-  /** 参数 hash（幂等键与追溯共用同一摘要口径） */
-  private _argsHash(ctx: WriteToolContext): string {
-    return createHash('sha256')
-      .update(JSON.stringify(sortKeys(ctx.args)))
-      .digest('hex')
-      .slice(0, 16);
   }
 
   /**
@@ -1295,7 +1173,7 @@ export class AiToolEffectsService {
     // 「**可见，不自动解决**」：**崩溃残留**（claim 没走到落定）与**外部写失败**（目标是否收到不可知，
     // 故既不释放也不落定）。阈值与上面副作用行的 `stale` **同源**（`_staleThresholdMinutes`），
     // 免得同一屏里两个「陈旧」各说各的。
-    const staleClaims = (await this.listStaleClaims(thresholdMinutes * 60_000)).map((c) =>
+    const staleClaims = (await this.claims.listStaleClaims(thresholdMinutes * 60_000)).map((c) =>
       this._projectStaleClaim(c),
     );
     return { ...page_, staleClaims };
