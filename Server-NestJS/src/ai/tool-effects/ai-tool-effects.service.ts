@@ -82,7 +82,7 @@ export type RevokeBatchItem = {
   effectId: number;
   revoked: boolean;
   skipped?: boolean;
-  reason?: 'already_revoked' | 'compensating';
+  reason?: 'already_revoked' | 'compensating' | 'revoke_class_none';
   revokeStatus?: 'revoked' | 'compensating' | 'revoke_failed' | null;
   external?: boolean;
   message?: string;
@@ -2273,6 +2273,22 @@ export class AiToolEffectsService {
         });
         continue;
       }
+      // KB-6 `none` 档位：**不参与补偿**（没有补偿端点），而那是**声明**、不是失败。按 `skipped` 记它 ——
+      // 与 §5.3 对「已请求补偿的外部成员」的处理同形。否则它会落进外部那一堆、被汇总计成 `failed`，
+      // 整组于是报 `revoke_failed`，摘要还谎称「本地成员已整体回滚」（2026-10-11 修）。
+      // A `none` member declares there is no compensation endpoint — that is not a failure. Recording it
+      // as skipped keeps it out of the `failed` tally; otherwise the whole group reports revoke_failed.
+      if (this._classOf(m) === 'none') {
+        results.push({
+          effectId: m.id,
+          revoked: false,
+          skipped: true,
+          reason: 'revoke_class_none',
+          revokeStatus: (m.revokeStatus as RevokeBatchItem['revokeStatus']) ?? null,
+          compensationGroup: groupId,
+        });
+        continue;
+      }
       if (this._classOf(m) === 'local_compensate' && this.revoker?.canHandle(m.resultType)) {
         locals.push(m);
       } else {
@@ -2500,6 +2516,15 @@ export class AiToolEffectsService {
           : compensating
             ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
             : `级联补偿 ${members.length} 条（同一次业务动作）`;
+    // C8「不被伪装」：按声明不可撤的成员必须**被说出来** —— 否则「级联补偿 N 条」会被读成 N 条全撤了。
+    // A `none` member must be named in the summary, or the group reads as if every member were revoked.
+    const notApplicable = results.filter((r) => r.reason === 'revoke_class_none').length;
+    const notes = [
+      ...(notApplicable > 0
+        ? [`其中 ${notApplicable} 条按声明不可撤（revokeClass=none：无撤销接口 / 无补偿端点），未参与补偿`]
+        : []),
+      ...driftNotes,
+    ];
     return {
       result: {
         revoked: allOk && !compensating && !disputed,
@@ -2507,8 +2532,9 @@ export class AiToolEffectsService {
         compensationGroup: groupId,
         cascade: { groupId, total: members.length, revoked, skipped, failed },
         revokeStatus: failed > 0 ? 'revoke_failed' : compensating ? 'compensating' : 'revoked',
-        // 逐成员 message 会被这条摘要遮住，故漂移清单在此**并进摘要**（组级读数的可见面就是它）
-        message: driftNotes.length > 0 ? `${summary}；${driftNotes.join('；')}` : summary,
+        // 逐成员 message 会被这条摘要遮住，故「不参与补偿的成员」与漂移清单都在此**并进摘要**
+        // （组级读数的可见面就是它）。
+        message: notes.length > 0 ? `${summary}；${notes.join('；')}` : summary,
       },
       items: results,
     };

@@ -1022,6 +1022,30 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(repo.update).toHaveBeenCalledTimes(3);
     });
 
+    it('组内 `none` 档位成员不参与补偿，且不阻塞其余成员的补偿（契约 §5.5 / C8）', async () => {
+      makeService();
+      const members = [
+        fx(1, 'pm_project', 7),
+        fx(2, 'proxy_call', 88, { revokeClass: 'none', parentEffectId: 1 }),
+      ];
+      repo.findOne.mockResolvedValue(members[0]);
+      repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      const res = await svc.revoke(1);
+
+      // 那条 `none` 成员**不参与补偿**：不派发给外部补偿器 —— 它没有补偿端点。
+      expect(extStub.revoke).not.toHaveBeenCalled();
+      // 也不算进 `failed`。此前它落进「外部成员」那一堆、被汇总计成失败 ⇒ 整组报 `revoke_failed`，
+      // 而摘要还说「本地成员已整体回滚」—— 本地成员其实好端端地补偿成功了。两处都是假话。
+      expect(res.cascade).toEqual({ groupId: G, total: 2, revoked: 1, skipped: 1, failed: 0 });
+      expect(res.revokeStatus).not.toBe('revoke_failed');
+      expect(res.message).not.toMatch(/失败|回滚/);
+      // 而「整组已完全撤销」仍不得为真：那条成员按**声明**不可撤，与单条路径对它的答复必须一致。
+      expect(res.revoked).toBe(false);
+      expect(res.message).toMatch(/revokeClass=none|不可撤/);
+    });
+
     it('组内任一本地成员失败 → 整组零改动：不写 revoked、不触发外部补偿', async () => {
       makeService();
       const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
