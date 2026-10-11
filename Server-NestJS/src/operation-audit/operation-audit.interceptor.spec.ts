@@ -413,4 +413,71 @@ describe('OperationAuditInterceptor', () => {
       );
     });
   });
+
+  /**
+   * 按**资源**声明的 PII：管理台「工具与副作用」列表与操作审计的 requestBody 会带出 CRM 客户的
+   * `name` / `company`，而全局键集只覆盖 `email` / `phone`。取舍是**不**把 `name` 加进全局键集
+   * （十五个实体都有这个键），改由资源自己声明 —— 下面这对用例钉的正是这条界：同一个 `name` 键，
+   * 在客户上打码、在合同上不打码。
+   *
+   * PII declared per resource. The pair below pins the boundary: the same `name` key is masked on a
+   * customer and left alone on a contract.
+   */
+  describe('按资源声明的 PII（客户的 name / company）', () => {
+    const interceptorWithEmptyRepo = () =>
+      new OperationAuditInterceptor(
+        reflector,
+        auditService as any,
+        { getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }) } as any,
+      );
+
+    const lastLogged = () => {
+      const calls = (auditService.log as jest.Mock).mock.calls;
+      return calls[calls.length - 1][0] as { requestBody: string; changes: string | null };
+    };
+
+    it('CRM 客户：name / company 打码（此前原样落进 requestBody 与 changes）', async () => {
+      const req = {
+        method: 'POST',
+        originalUrl: '/api/v1/crm/customers',
+        url: '/api/v1/crm/customers',
+        body: { name: '云帆商贸', company: '云帆科技', email: 'a@b.com', status: 'lead' },
+        ip: '1.1.1.1',
+        headers: {},
+        params: {},
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await interceptorWithEmptyRepo().intercept(mockContext(req), next));
+
+      const logged = lastLogged();
+      expect(JSON.parse(logged.requestBody)).toEqual({
+        name: '[REDACTED]',
+        company: '[REDACTED]',
+        email: '[REDACTED]',
+        status: 'lead',
+      });
+      // 两处都要：`changes` 是同一批值走另一条路落库的。
+      expect(logged.changes ?? '').not.toContain('云帆商贸');
+      expect(logged.requestBody).not.toContain('云帆商贸');
+      expect(logged.requestBody).not.toContain('云帆科技');
+    });
+
+    it('合同：同一个 `name` 键**不**打码 —— 声明是按资源，不是按键名', async () => {
+      const req = {
+        method: 'POST',
+        originalUrl: '/api/v1/contracts',
+        url: '/api/v1/contracts',
+        body: { name: '服务合同 2026', amount: 100 },
+        ip: '1.1.1.1',
+        headers: {},
+        params: {},
+        user: { sub: 5 },
+      };
+
+      await firstValueFrom(await interceptorWithEmptyRepo().intercept(mockContext(req), next));
+
+      expect(lastLogged().requestBody).toContain('服务合同 2026');
+    });
+  });
 });

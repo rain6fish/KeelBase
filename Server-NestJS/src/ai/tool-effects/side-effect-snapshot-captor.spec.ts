@@ -156,6 +156,61 @@ describe('SideEffectSnapshotCaptor (E-1 字段级变更快照)', () => {
       expect(entityManager.getRepository).not.toHaveBeenCalled();
       expect(JSON.parse(out!).fallback).toBe(true);
     });
+
+    /**
+     * 按**资源**声明的 PII（`resource-routes.piiFieldsForEntity`）：快照是管理台「工具与副作用」
+     * 列表读的那份数据。同一个 `name` 键在客户上打码、在合同上不打码 —— 声明是**按实体**的。
+     *
+     * PII declared per entity: the snapshot is what the admin tool-effects list reads. The same `name`
+     * key is masked on a customer and left alone on a contract.
+     */
+    it('crm_customer：name / company 在快照里就打码（其余字段照旧）', async () => {
+      entityManager.connection.entityMetadatas = [
+        {
+          name: 'CrmCustomer',
+          targetName: 'CrmCustomer',
+          tableName: 'crm_customer',
+          deleteDateColumn: { propertyName: 'deletedAt' },
+          columns: [{ propertyName: 'name' }],
+        },
+      ];
+      entityManager.getRepository.mockReturnValue({
+        findOne: jest
+          .fn()
+          .mockResolvedValue({ id: 7, name: '云帆商贸', company: '云帆科技', email: 'a@b.com', status: 'lead' }),
+      });
+
+      const { json: out } = await captor.captureAfter('crm_customer', 7);
+
+      expect(JSON.parse(out!)).toEqual({
+        id: 7,
+        name: '[REDACTED]',
+        company: '[REDACTED]',
+        email: '[REDACTED]',
+        status: 'lead',
+      });
+      expect(out!).not.toContain('云帆商贸');
+      expect(out!).not.toContain('云帆科技');
+    });
+
+    it('合同：同一个 `name` 键**不**打码 —— 声明按实体，不按键名', async () => {
+      entityManager.connection.entityMetadatas = [
+        {
+          name: 'Contract',
+          targetName: 'Contract',
+          tableName: 'contracts',
+          deleteDateColumn: { propertyName: 'deletedAt' },
+          columns: [{ propertyName: 'name' }],
+        },
+      ];
+      entityManager.getRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue({ id: 3, name: '服务合同 2026', amount: 100 }),
+      });
+
+      const { json: out } = await captor.captureAfter('contract', 3);
+
+      expect(JSON.parse(out!).name).toBe('服务合同 2026');
+    });
   });
 
   describe('captureBefore', () => {

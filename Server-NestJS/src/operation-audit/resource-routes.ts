@@ -49,6 +49,28 @@ export interface ResourceRoute {
   pathPrefix?: string;
 }
 
+/**
+ * 按**实体类名**声明 PII 字段 —— 「这个资源的这一列是个人数据」。两处打码点天然都拿得到这个名字：
+ * 审计按 path 经 `resourceEntityFor` 解析，AI 副作用快照按 `resultType` 经 `resolveLocalEntity` 解析。
+ * 刻意**不**并进全局敏感键集：`name` 这个键在十五个实体上都有，全局打码会把合同 / 项目 / 组织 /
+ * 部门的名字一起抹掉 —— 既丢了治理台的可读性，也不是这条要修的东西。
+ *
+ * Declare PII by entity class name. Both redaction points can name the entity already: the audit
+ * interceptor resolves it from the path, the side-effect snapshot captor from the resultType. These
+ * names are deliberately not merged into the global key set — `name` is a key on fifteen entities, and
+ * masking it globally would blank out contracts, projects and departments along with the customer.
+ */
+const PII_FIELDS_BY_ENTITY: Record<string, readonly string[]> = {
+  // CRM 客户：`name`（联系人姓名）与 `company`（其所属企业）都是个人数据 —— `email` / `phone`
+  // 早就在全局键集里，这两个不在，于是它们会随快照与审计请求体出现在管理台。
+  CrmCustomer: ['name', 'company'],
+};
+
+/** 该实体声明的 PII 字段；没有声明返回空。 */
+export function piiFieldsForEntity(entity: string | null | undefined): readonly string[] {
+  return entity ? (PII_FIELDS_BY_ENTITY[entity] ?? []) : [];
+}
+
 /** 按优先级匹配：先精确（子资源）后兜底（父资源）。Specific routes first, generic ones after. */
 export const RESOURCE_ROUTES: readonly ResourceRoute[] = [
   // CRM 子资源 / customer sub-resources

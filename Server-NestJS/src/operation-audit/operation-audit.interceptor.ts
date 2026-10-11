@@ -10,8 +10,8 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
-import { resourceEntityFor } from './resource-routes';
-import { isSensitiveKey, REDACTED, redactSensitive } from '../common/utils/mask';
+import { piiFieldsForEntity, resourceEntityFor } from './resource-routes';
+import { isSensitiveKey, lowerKeySet, REDACTED, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -49,10 +49,15 @@ export class OperationAuditInterceptor implements NestInterceptor {
     // approval 审批动作（decide/review）业务事件细分（decision 需读 body）——优先于纯 path+method 派生，避免误记 Created
     const businessEvent = this._deriveApprovalBusinessEvent(path, method, req.body) ?? deriveBusinessEvent(path, method);
 
+    // 该资源声明的 PII 字段（按实体类名；无声明为空）——请求体与 changes 两处打码都用它。
+    // 声明而不并入全局键集的原因见 `resource-routes.ts`：`name` 这种键到处都在。
+    // The resource's declared PII fields: used by both redaction points below.
+    const entity = resourceEntityFor(path);
+    const pii = piiFieldsForEntity(entity);
+
     // §internal.16 A-1 字段级 diff：PATCH/PUT + 可解析资源 → 执行前查 before（变更前状态）；查询失败降级 null
     let before: Record<string, unknown> | null = null;
     if (method === 'PATCH' || method === 'PUT') {
-      const entity = resourceEntityFor(path);
       if (entity && targetId) {
         try {
           const repo = this.dataSource.getRepository(entity);
@@ -92,9 +97,9 @@ export class OperationAuditInterceptor implements NestInterceptor {
           featureKey: feature.key,
           featureFallback: feature.fallback,
           targetId,
-          requestBody: this._safeBody(req.body),
+          requestBody: this._safeBody(req.body, pii),
           // §internal.16 A-1 字段级变更留痕：有 before → 真 diff（[{field,before,after}]）；无 before 退化记录 after 值
-          changes: this._extractChanges(req.body, before),
+          changes: this._extractChanges(req.body, before, pii),
           businessEvent,
           authorization,
           ip: req.ip,
@@ -180,19 +185,24 @@ export class OperationAuditInterceptor implements NestInterceptor {
     return null;
   }
 
-  private _safeBody(body: unknown): string | null {
+  private _safeBody(body: unknown, pii: readonly string[] = []): string | null {
     if (body == null) return null;
     try {
       const json = typeof body === 'string' ? body : JSON.stringify(body);
-      // 敏感字段打码（password/token 等），原则 1：审计不落明文个人数据
-      return redactSensitive(json);
+      // 敏感字段打码（password/token 等）+ 该资源声明的 PII 字段，原则 1：审计不落明文个人数据
+      return redactSensitive(json, pii);
     } catch {
       return null;
     }
   }
 
   /** A-1 字段级变更留痕：从请求体提取「变更字段 → after 值」，生成 [{ field, before, after }] JSON。before 精确值经实体快照增强，首增量标 null。 */
-  private _extractChanges(body: unknown, before?: Record<string, unknown> | null): string | null {
+  private _extractChanges(
+    body: unknown,
+    before?: Record<string, unknown> | null,
+    pii: readonly string[] = [],
+  ): string | null {
+    const extra = lowerKeySet(pii);
     if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
     const SKIP = new Set(['password', 'refreshToken', 'createdAt', 'updatedAt', 'id']);
     const entries: Array<{ field: string; before: string | null; after: string }> = [];
@@ -204,7 +214,7 @@ export class OperationAuditInterceptor implements NestInterceptor {
       // A sensitive field leaves the fact that it changed, never its values: the change test uses
       // raw values, everything written into `changes` is [REDACTED].
       // 敏感字段留痕不留值：判「变没变」用原值，写进 changes 的一律 [REDACTED]。
-      const shown = (s: string) => (isSensitiveKey(k) ? REDACTED : s);
+      const shown = (s: string) => (isSensitiveKey(k, extra) ? REDACTED : s);
       // §internal.16 A-1：有 before → 仅变化字段（真 diff）；无 before → 记录 after 值（首增量）
       if (before !== null && before !== undefined && beforeVal !== undefined) {
         const beforeStr = String(beforeVal);

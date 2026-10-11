@@ -4,7 +4,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { resolveLocalEntity } from './side-effect-revoker';
-import { isSensitiveKey, REDACTED } from '../../common/utils/mask';
+import { isSensitiveKey, lowerKeySet, REDACTED } from '../../common/utils/mask';
+import { piiFieldsForEntity } from '../../operation-audit/resource-routes';
 
 const MAX_STRING = 200;
 const MAX_ARRAY = 50;
@@ -72,7 +73,7 @@ export class SideEffectSnapshotCaptor {
       if (typeof id !== 'number') return null;
       const repo = this.entityManager.getRepository(target.name);
       const row = await repo.findOne({ where: { id } } as any);
-      return this.normalize(row);
+      return this.normalize(row, piiFieldsForEntity(target.name));
     } catch (err) {
       this.logger.warn(`[SnapshotCaptor] captureBefore failed ${toolName}: ${(err as Error).message}`);
       return null;
@@ -103,7 +104,7 @@ export class SideEffectSnapshotCaptor {
       const row = await repo.findOne({ where: { id: resultId } } as any);
       // 实体解析得到、行却不在：**异常**（目标不在了），必须与「设计上的缺席」分得开
       if (!row) return { json: null, reason: 'row_missing' };
-      const json = this.normalize(row);
+      const json = this.normalize(row, piiFieldsForEntity(target.name));
       return json ? { json, reason: null } : { json: null, reason: 'failed' };
     } catch (err) {
       this.logger.warn(`[SnapshotCaptor] captureAfter failed ${resultType}#${resultId}: ${(err as Error).message}`);
@@ -111,26 +112,26 @@ export class SideEffectSnapshotCaptor {
     }
   }
 
-  /** 标准化对象 → JSON 字符串；空值返回 null。 */
-  normalize(value: unknown): string | null {
+  /** 标准化对象 → JSON 字符串；空值返回 null。`extraKeys` = 该实体声明的 PII 字段。 */
+  normalize(value: unknown, extraKeys: readonly string[] = []): string | null {
     if (value == null) return null;
     try {
-      return JSON.stringify(this._sanitize(value));
+      return JSON.stringify(this._sanitize(value, 0, lowerKeySet(extraKeys)));
     } catch {
       return null;
     }
   }
 
-  private _sanitize(value: unknown, depth = 0): unknown {
+  private _sanitize(value: unknown, depth = 0, extra: ReadonlySet<string> = new Set()): unknown {
     if (value == null) return null;
     if (value instanceof Date) return value.toISOString();
     if (typeof value === 'string') return value.length > MAX_STRING ? `${value.slice(0, MAX_STRING)}…` : value;
     if (typeof value !== 'object') return value;
     if (depth > MAX_DEPTH) return '[max-depth]';
-    if (Array.isArray(value)) return value.slice(0, MAX_ARRAY).map((v) => this._sanitize(v, depth + 1));
+    if (Array.isArray(value)) return value.slice(0, MAX_ARRAY).map((v) => this._sanitize(v, depth + 1, extra));
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = isSensitiveKey(k) ? REDACTED : this._sanitize(v, depth + 1);
+      out[k] = isSensitiveKey(k, extra) ? REDACTED : this._sanitize(v, depth + 1, extra);
     }
     return out;
   }

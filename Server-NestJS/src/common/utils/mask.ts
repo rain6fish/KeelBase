@@ -116,10 +116,11 @@ const SENSITIVE_KEY_FRAGMENTS = /password|passwd|token|secret|refresh|salt|api[_
  * 快照」的原因。本判据是两条规则的并集 —— 快照既保留本地正则原先命中的全部名字，又补上它漏掉的
  * PII 名字。
  */
-export function isSensitiveKey(key: string): boolean {
+export function isSensitiveKey(key: string, extra: ReadonlySet<string> = NO_EXTRA_KEYS): boolean {
   if (SENSITIVE_KEY_FRAGMENTS.test(key)) return true;
   const lower = key.toLowerCase();
   return (
+    extra.has(lower) ||
     SENSITIVE_KEYS.some((k) => k.toLowerCase() === lower) ||
     Array.from(EXTRA_SENSITIVE_KEYS).some((k) => k.toLowerCase() === lower)
   );
@@ -162,20 +163,36 @@ export const REDACTED = '[REDACTED]';
  *
  * 非法输入原样返回。
  */
-export function redactSensitive(json: string): string {
+export function redactSensitive(json: string, extraKeys: readonly string[] = []): string {
   try {
-    return JSON.stringify(redactValue(JSON.parse(json)));
+    return JSON.stringify(redactValue(JSON.parse(json), lowerKeySet(extraKeys)));
   } catch {
     return json;
   }
 }
 
-function redactValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redactValue);
+const NO_EXTRA_KEYS: ReadonlySet<string> = new Set();
+
+/**
+ * 把一个**声明来的**字段名清单规范成可查的小写集合 —— `isSensitiveKey` 的比较一向下标不敏感。
+ * 空清单复用同一个空集合，故「没有额外声明」的调用点不因此多一次分配。
+ *
+ * Normalize a declared field-name list into a lowercase set; `isSensitiveKey` compares
+ * case-insensitively. An empty list reuses one shared empty set, so callers with nothing to declare
+ * pay no allocation. The declared names are what a *resource* says about itself — a customer's
+ * `name` / `company` — and they are deliberately not merged into the global list: `name` is a key on
+ * fifteen entities, and masking it everywhere would blank out contracts, projects and departments too.
+ */
+export function lowerKeySet(keys: readonly string[]): ReadonlySet<string> {
+  return keys.length > 0 ? new Set(keys.map((k) => k.toLowerCase())) : NO_EXTRA_KEYS;
+}
+
+function redactValue(value: unknown, extra: ReadonlySet<string> = NO_EXTRA_KEYS): unknown {
+  if (Array.isArray(value)) return value.map((v) => redactValue(v, extra));
   if (value !== null && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = isSensitiveKey(k) ? REDACTED : redactValue(v);
+      out[k] = isSensitiveKey(k, extra) ? REDACTED : redactValue(v, extra);
     }
     return out;
   }
