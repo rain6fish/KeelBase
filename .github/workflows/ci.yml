@@ -279,6 +279,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-generated-samples.mjs
 
+  # The compatibility matrix's `main` row names a contract version; nothing else reads it, so it rots
+  # when the submodule pin moves between releases. A pin ahead of its tag warns (the named version is
+  # still the newest released one); a named version that is not the pin's tag fails.
+  #
+  # 兼容矩阵的 `main` 行写着一个契约版本；没有别的东西读它，故 pin 在两次发版之间前进时它会悄悄烂掉。
+  # pin 领先 tag 只告警（写着的仍是最新已发布的版本）；写的版本根本不是 pin 的 tag 才失败。
+  contract-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-contract-matrix.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
