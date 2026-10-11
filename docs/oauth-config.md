@@ -137,8 +137,8 @@ Flutter App                    Backend
 
 | 提供商 / Provider | 协议 / Protocol | 前端 SDK / Frontend SDK | 后端验证 / Backend verification |
 |--------|------|----------|---------|
-| 微信 / WeChat | authorization_code | `fluwx` (已集成 / integrated) | code → access_token → openid/unionid → userinfo |
-| 支付宝 / Alipay | authorization_code | `tobias` (已集成 / integrated) | auth_code → user_id → user info |
+| 微信 / WeChat | authorization_code | `fluwx` (**已声明、未接线 / declared, not wired**) | code → access_token → openid/unionid → userinfo |
+| 支付宝 / Alipay | authorization_code | `tobias` (**已声明、未接线 / declared, not wired**) | auth_code → user_id → user info |
 
 ### 微信配置 / WeChat Configuration
 
@@ -170,20 +170,20 @@ ALIPAY_APP_ID=2021001111666666
 ALIPAY_PRIVATE_KEY="——BEGIN RSA PRIVATE KEY——\nMI...\n——END RSA PRIVATE KEY——"
 ```
 
-### 前端 SDK（已集成） / Frontend SDK (Integrated)
+### 前端 SDK（**已声明、未接线**） / Frontend SDK (Declared, Not Wired)
 
-两个国内 SDK 已集成到 `oauth_service.dart` 并在 `pubspec.yaml` 中激活：
+两个国内 SDK **已加进 `pubspec.yaml`**，但 **`oauth_service.dart` 里的接线是桩**：两处 `import` **被注释**，`_fluwxSendAuth()` / `_tobiasAuth()` **直接抛 `sdkNotConfigured`**（代码自注「**需手动集成**」）。**待真实密钥 / 真机联调**才算集成——健康体检文档已把它记为「Flutter `oauth_service` SDK **桩**」。
 
-The two China SDKs are integrated into `oauth_service.dart` and activated in `pubspec.yaml`:
+The two China SDKs are **declared in `pubspec.yaml`**, but the wiring in `oauth_service.dart` is a **stub**: both imports are **commented out**, and `_fluwxSendAuth()` / `_tobiasAuth()` **throw `sdkNotConfigured`** (the code itself says "需手动集成"). Integration is **pending real keys / device testing**; the health-audit doc records it as a stub.
 
-| 包 / Package | 版本 / Version | 集成文件 / Integration file | 状态 / Status |
-|----|------|---------|------|
-| `fluwx` | ^4.0.0 | `oauth_service.dart: signInWithWeChat()` — 微信授权码获取 / obtains the WeChat auth code | ✅ 已验证兼容 / Verified compatible |
-| `tobias` | ^3.0.0 | `oauth_service.dart: signInWithAlipay()` — 支付宝 auth_code 获取 / obtains the Alipay auth_code | ✅ 已验证兼容 / Verified compatible |
+| 包 / Package | 版本 / Version | 现状 / Status |
+|----|------|------|
+| `fluwx` | ^4.0.0 | **已在 `pubspec.yaml`**；`oauth_service.dart: signInWithWeChat()` 是**桩**（import 注释掉、抛 `sdkNotConfigured`）—— **待联调** |
+| `tobias` | ^3.0.0 | 同上（`signInWithAlipay()` 同形） |
 
-初始化在 `main.dart` 中完成，启动时注册 WeChat SDK：
+`OAuthService.init()` 目前**不注册** SDK（桩分支打印 `fluwx not imported`）；下面这段是**联调时**要落到 `main.dart` 的样子：
 
-Initialization happens in `main.dart`; the WeChat SDK is registered at startup:
+`OAuthService.init()` currently does **not** register the SDK (the stub prints `fluwx not imported`); the snippet below is what lands in `main.dart` **at integration time**:
 
 ```dart
 final oauthService = OAuthService();
