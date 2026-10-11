@@ -149,10 +149,18 @@ execFileSync(
 console.log(`[AUDIO] ${audioWav}（${placements.length} 段旁白，${overflowWindows} 个窗口压缩）`);
 
 // 合流：按容器选编码（VP8 不能装进 MP4——copy 会让 MP4 头部写入失败）
+//
+// Mp4 also takes `+faststart`, which moves the moov atom ahead of the media data: a browser then reads
+// the duration out of the first few KB and can play while the rest downloads. Without it the whole
+// file has to arrive first — the published demo video did exactly that, and took about half a minute
+// before it would report a duration at all.
+//
+// MP4 还要加 `+faststart`：它把 moov 原子挪到媒体数据**之前**，浏览器于是能从**头几 KB** 读出时长、边下边播。
+// 没有它就得先下完整个文件——已发布的那条 demo 视频正是如此，要约莫半分钟才报得出时长。
 const isWebm = outputVideo.toLowerCase().endsWith('.webm');
 const videoArgs = isWebm
   ? ['-c:v', 'copy']
-  : ['-c:v', 'libx264', '-crf', '20', '-preset', 'medium', '-pix_fmt', 'yuv420p'];
+  : ['-c:v', 'libx264', '-crf', '20', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart'];
 const audioArgs = isWebm ? ['-c:a', 'libopus', '-b:a', '128k'] : ['-c:a', 'aac', '-b:a', '128k'];
 execFileSync(
   FFMPEG,
