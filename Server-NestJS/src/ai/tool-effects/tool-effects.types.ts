@@ -278,3 +278,21 @@ export type RevokePatch = Partial<
     'revokeStatus' | 'revokeRequestedAt' | 'revokeAcknowledgedAt' | 'revokeDispute' | 'revokeComparability'
   >
 >;
+
+/**
+ * 留在服务上、被**多个簇**共用的那几样助手（撤销与投影都要）。以接口声明，好过把整份服务递进去。
+ *
+ * ⚠ 它们之所以留在这里而不是各自成模块：三样都被 ≥2 簇读 —— 复制一份就是「同一状态、两处说」，
+ * 那正是本仓反复修的那类缺陷。
+ *
+ * The few helpers that stay on the service because more than one cluster reads them. Declared as an
+ * interface rather than handing over the whole service.
+ */
+export interface HostHelpers {
+  /** KB-6：撤销能力档位快照的解析（登记 / 投影 / 撤销共用）。 */
+  resolveSnapshotClass(toolName: string, resultType: string): RevokeClass;
+  /** 目标当前状态（投影与撤销共用）。 */
+  loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null>;
+  /** REV-2 陈旧阈值（投影与撤销共用）。 */
+  staleThresholdMinutes(): number;
+}

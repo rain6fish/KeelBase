@@ -12,6 +12,7 @@ import { targetKey } from './effect-shared';
 import type { SideEffectRevoker, DerivedReferenceCount } from './side-effect-revoker';
 import type { RevokeClass } from '../interfaces/tool.interface';
 import type {
+  HostHelpers,
   CrossGroupClaim,
   RevokeBatchItem,
   RevokeBatchResult,
@@ -32,11 +33,7 @@ import type {
  * The seam back to the host for the revoke cluster: three things stay on the service, declared here as an
  * interface rather than handing over the whole service.
  */
-export interface RevokeHostSeam {
-  resolveSnapshotClass(toolName: string, resultType: string): RevokeClass;
-  loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null>;
-  /** REV-2 陈旧阈值（投影与撤销共用，实现在服务上）。 */
-  staleThresholdMinutes(): number;
+export interface RevokeHostSeam extends HostHelpers {
   /**
    * KB-6 撤销运维态的回写。**只有一处实现**（服务上那个 `_patchRevoke`）：撤销与争议两侧都写那五列，
    * 两处实现正是本仓反复修的那类缺陷的成因 —— 故以接缝传过来，而不是各写一份。
