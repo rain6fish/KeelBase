@@ -46,6 +46,7 @@
     "check:contract-matrix": "node scripts/check-contract-matrix.mjs",
     "check:env-example": "node scripts/check-env-example.mjs",
     "check:readme-parity": "node scripts/check-readme-parity.mjs",
+    "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"
   },
   "devDependencies": {

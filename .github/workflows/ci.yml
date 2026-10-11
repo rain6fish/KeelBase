@@ -327,6 +327,22 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-readme-parity.mjs
 
+  # A gate nobody runs is worse than no gate: it reads as coverage and gives none. One was found in that
+  # state (check:java-vectors), already drifted red.
+  #
+  # 没人跑的门禁比没有门禁更糟：它读起来像覆盖、实际一点也没有。已逮到一道正在这个状态里
+  # （check:java-vectors），而且已经漂成红的了。
+  gates-wired:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-gates-wired.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
