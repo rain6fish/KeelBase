@@ -312,6 +312,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-env-example.mjs
 
+  # The two READMEs are mirrors: they must link the same documents, and every link must resolve.
+  # The English one had quietly grown 11 links the Chinese one never got.
+  #
+  # 两版 README 是镜像：必须链同一批文档，且每条都要能解析。英文版曾悄悄长出中文版从没有的 11 条链接。
+  readme-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-readme-parity.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.

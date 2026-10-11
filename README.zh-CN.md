@@ -8,6 +8,8 @@
 
 > **开源业务安全 AI 运行时（Business-safe AI Runtime）**——连接 AI Agent 与现有业务系统，**不替换现有技术体系**。
 
+**KeelBase DNA** —— *AI Generates. Architecture Constrains. Runtime Governs. Tests Verify. Humans Decide.*（AI 生成，架构约束，运行时治理，测试验证，人来决断。）业务边界由**运行时**强制，而非提示词；Agent 的**能力 ≠ 它的权限**；信任靠**可运行的验证**证明、不靠声称；重要动作**可恢复**。完整工程哲学见 [docs/keelbase-dna.md](docs/keelbase-dna.md)。
+
 ---
 
 ## 🚀 60 秒体验
@@ -265,6 +267,8 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 - **快速开始 快速上手** — [中文](docs/manual/quickstart.md) · [English](docs/manual/quickstart-en.md)
 - **从零到部署教程** — [中文](docs/manual/tutorial.md) · [English](docs/manual/tutorial-en.md)
+- **概念地图** — [中文](docs/manual/concepts.md) · [English](docs/manual/concepts-en.md)
+- **规则地图** — [中文](docs/manual/rules-map.md) · [English](docs/manual/rules-map-en.md)
 - **30 分钟构建 AI CRM** — [中文](docs/manual/onboarding-30min.md) · [English](docs/manual/onboarding-30min-en.md)
 - **30 分钟验收** — [中文](docs/manual/30min-acceptance.md) · [English](docs/manual/30min-acceptance-en.md)
 - **开发者 30 分钟挑战** — [中文](docs/manual/dev-challenge.md) · [English](docs/manual/dev-challenge-en.md)
@@ -274,6 +278,8 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 - **私有 AI 验证** — [中文](docs/manual/private-ai-verification.md) · [English](docs/manual/private-ai-verification-en.md)
 - **三旗舰应用规格** — [中文](docs/flagship-applications.md) · [English](docs/flagship-applications-en.md)
 - **企业能力声明** — [中文](docs/enterprise-capabilities.md) · [English](docs/enterprise-capabilities-en.md)
+- **合规映射** — [中文](docs/manual/compliance-mapping.md) · [English](docs/manual/compliance-mapping-en.md)
+- **产品语言词汇表** — [中文](docs/manual/product-language.md) · [English](docs/manual/product-language-en.md)
 - **架构边界** — [中文](docs/architecture-boundary.md) · [English](docs/architecture-boundary-en.md)
 - **权限架构** — [中文](docs/authorization-architecture.md) · [English](docs/authorization-architecture-en.md)
 - **外部系统对接**
@@ -282,8 +288,10 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
   - **外部 CRM 接入演示** — [中文](docs/manual/external-crm-demo.md) · [English](docs/manual/external-crm-demo-en.md)
   - **Agent 框架接入** — [中文](docs/manual/framework-adapter.md) · [English](docs/manual/framework-adapter-en.md)
   - **Java Starter（Spring Boot 接入）** — 给 Java/Spring 方法加 `@KeelbaseTool` 注解即声明为 KeelBase 治理型 AI 工具：委托身份、读写确认、审计与撤销由 KeelBase 运行时自动落。 → [GitHub: rain6fish/KeelBase-java-starter](https://github.com/rain6fish/KeelBase-java-starter)
+  - **客户场景样板 —— 存量 Java CRM × LangChain4j agent** — 一页拓扑 + 分期 PoC 计划（中英双语）→ [integrator-kit/java-crm-langchain4j-solution.md](docs/integrator-kit/java-crm-langchain4j-solution.md)
 - [CLAUDE.md](CLAUDE.md)（架构与约定）· [AGENTS.md](AGENTS.md)（AI 构建规则）· [SECURITY.md](SECURITY.md)
 - **威胁模型与信任边界** — [中文](docs/security/threat-model.md) · [English](docs/security/threat-model-en.md)
+- **版本策略（公开版本计划）** — [docs/versioning.md](docs/versioning.md)（中英双语）
 - **浏览全部能力 →** [docs/](docs/)
 
 ---
