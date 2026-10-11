@@ -250,7 +250,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 | Runtime | Runtime 版本 | Contract 版本 |
 |---|---|---|
 | **KeelBase**（TypeScript） | `v1.1.0` | **v1.6.0**——以 submodule 绑定 |
-| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.6.1**——以 submodule 绑定 |
+| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.7.0**——以 submodule 绑定 |
 | **KeelBase**（TypeScript） | `v1.0.11`，已被取代 | **v1.0.1**——树内携带；该发布早于契约仓的建立 |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J)（Java） | `v0.1.0` | **v1.1.0**——vendor 快照，取自契约仓 |
 
