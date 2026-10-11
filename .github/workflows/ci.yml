@@ -343,6 +343,22 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-gates-wired.mjs
 
+  # Every admin page in the tree must be named in the module map CLAUDE.md §13 carries — the page map an
+  # agent reads before touching the console. It had drifted to 19 entries against 41 view directories.
+  #
+  # 管理台每个页面都必须在 CLAUDE.md §13 那份页面地图里点名 —— 那是 agent 动控制台之前读的地图。它曾漂到
+  # 「19 条 vs 41 个 views 目录」。
+  admin-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-admin-pages.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
