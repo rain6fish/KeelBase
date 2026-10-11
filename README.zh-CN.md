@@ -14,7 +14,7 @@
 
 ## 🚀 60 秒体验
 
-> 想立刻体验？**打开在线演示** → [keelbase-demo](http://121.199.30.80/user/)（`alex/Alex@2026$Demo` 工作台，问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
+> 想立刻体验？**打开在线演示** → [keelbase-demo](https://demo.keelbase.com.cn/user/)（`alex/Alex@2026$Demo` 工作台，问「哪些客户值得跟进」）。访问指南：[demo-live.md](docs/manual/demo-live.md)。
 >
 > 或者**在线观看演示视频** → [官方中文演示（国内）](https://demo.keelbase.com.cn/demo/video-zh.html) · [GitHub Pages](https://rain6fish.github.io/KeelBase/video-zh.html)（约 4 分钟，含真实系统演示；下载：GitHub release）。
 >
