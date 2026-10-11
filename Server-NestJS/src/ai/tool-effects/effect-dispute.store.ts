@@ -5,15 +5,12 @@ import { Repository } from 'typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import type { DeclaredSideEffect } from './effect-composition';
 import { declarationDiff, targetKey } from './effect-shared';
-import type { CrossGroupClaim, RevokeDisputeEvidence, RevokeResult } from './tool-effects.types';
-
-/** 可回写的撤销态列（与 `_patchRevoke` 的签名同一份）。 */
-export type RevokePatch = Partial<
-  Pick<
-    AiToolSideEffect,
-    'revokeStatus' | 'revokeRequestedAt' | 'revokeAcknowledgedAt' | 'revokeDispute' | 'revokeComparability'
-  >
->;
+import type {
+  CrossGroupClaim,
+  RevokeDisputeEvidence,
+  RevokePatch,
+  RevokeResult,
+} from './tool-effects.types';
 
 /** 回写撤销态列的那一处实现（`_patchRevoke`）—— 争议与撤销两侧都只用它，故注入而不是各写一份。 */
 export type RevokePatcher = (effect: AiToolSideEffect, patch: RevokePatch) => Promise<void>;

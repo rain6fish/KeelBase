@@ -12,6 +12,7 @@
  * sibling modules, deliberately not re-exported from the service, matching the surface it had before.
  */
 import type { DeclaredSideEffect } from './effect-composition';
+import type { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import type { CaptureUnavailableReason } from './side-effect-snapshot-captor';
 import type { CapturedWrite } from '../../common/write-capture/write-capture';
 import type { DerivedReferenceCount } from './side-effect-revoker';
@@ -259,3 +260,21 @@ export type TargetComparison =
   | { promised: true; compared: true; drift: string | null }
   /** 承诺了、却没比成（REV-9 静默跳过的那些）：`reason` 说清是哪一种「读不到」。 */
   | { promised: true; compared: false; reason: CaptureUnavailableReason };
+
+/**
+ * KB-6：可回写的撤销态列（**链外注解列**，不入 `_chainPayload`）。
+ *
+ * **放在这里而不是各自的 store 里**：撤销与争议两侧写的是同一批列，而写它的实现只有一处
+ * （服务上的 `_patchRevoke`，经接缝注入）。同一形状声明两份，正是本仓反复修的那类「同一状态、两处说」
+ * 缺陷的温床 —— 一处改、另一处没改，编译器不会出声。
+ *
+ * The columns a revoke writes back. Declared once because two stores write the same set through one
+ * implementation: two identical declarations would let one drift from the other without the compiler
+ * noticing.
+ */
+export type RevokePatch = Partial<
+  Pick<
+    AiToolSideEffect,
+    'revokeStatus' | 'revokeRequestedAt' | 'revokeAcknowledgedAt' | 'revokeDispute' | 'revokeComparability'
+  >
+>;

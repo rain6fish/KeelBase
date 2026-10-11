@@ -2,7 +2,7 @@
 
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { EffectComparability } from './effect-comparability.entity';
 import { AiWriteClaim } from './ai-write-claim.entity';
@@ -18,27 +18,25 @@ import { resolveRevokeClass, type RevokeClass } from '../interfaces/tool.interfa
 import type { DeclaredSideEffect } from './effect-composition';
 import { paginated } from '../../common/dto/paginated';
 import { ConfigService } from '@nestjs/config';
-import { IsNull, LessThan, Raw } from 'typeorm';
+import { LessThan } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { buildKey, memberKey } from './effect-shared';
 import { EffectChainWriter } from './effect-chain';
 import { WriteClaimStore } from './write-claim.store';
 import { EffectComparabilityStore } from './effect-comparability.store';
-import { EffectDisputeStore, type RevokePatch } from './effect-dispute.store';
+import { EffectDisputeStore } from './effect-dispute.store';
 import { EffectRegistration } from './effect-registration';
 import { EffectRevoke } from './effect-revoke';
 import {
   EXTERNAL_REVOKER,
-  type CrossGroupClaim,
-  type RevokeBatchItem,
   type RevokeBatchResult,
   type RevokeClaimOutcome,
+  type RevokePatch,
   type RevokeResult,
   type RevokeRunBatchResult,
   type SideEffectSnapshot,
   type SplitGroupFinding,
-  type TargetComparison,
   type WriteToolContext,
 } from './tool-effects.types';
 
@@ -53,8 +51,6 @@ export { sortKeys } from './effect-shared';
 // deliberately absent: it was never part of that surface.
 export {
   EXTERNAL_REVOKER,
-  type CrossGroupClaim,
-  type RevokeBatchItem,
   type RevokeBatchResult,
   type RevokeCascadeSummary,
   type RevokeClaimOutcome,
@@ -83,7 +79,7 @@ export class AiToolEffectsService {
     @Optional() @Inject(SIDE_EFFECT_REVOKER)
     private readonly revoker?: SideEffectRevoker,
     @Optional() @Inject(EXTERNAL_REVOKER)
-    private externalRevoker?: ExternalRevoker,
+    externalRevoker?: ExternalRevoker,
     // D2-3c：可选治理上报（业务系统配 GOVERNANCE_URL 时副作用双写）
     @Optional() @Inject(GOVERNANCE_REPORTER)
     private readonly reporter?: GovernanceReporter,
@@ -151,11 +147,18 @@ export class AiToolEffectsService {
     this.revocations = new EffectRevoke(
       this.effectsRepo,
       this.registration,
+      this.comparability,
+      this.dispute,
       {
         resolveSnapshotClass: (toolName, resultType) => this._resolveSnapshotClass(toolName, resultType),
         loadTarget: (type, id) => this._loadTarget(type, id),
+        staleThresholdMinutes: () => this._staleThresholdMinutes(),
+        patchRevoke: (effect, patch: RevokePatch) => this._patchRevoke(effect, patch),
       },
       this.revoker,
+      this.dataSource,
+      this.operationAudit,
+      externalRevoker,
     );
   }
 
@@ -274,9 +277,47 @@ export class AiToolEffectsService {
       : DEFAULT_REVOKE_STALE_MINUTES;
   }
 
-  /** AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入） */
+  /**
+   * AiModule useFactory 组装 B 路径 revoker（ToolRegistry 非 provider，运行时注入）。
+   * **转发给撤销那一簇**（拆分第八批）：它才读这个字段，而这次注入发生在 DI **之后** ——
+   * 只在构造时取一次值会让它永远到不了撤销路径。
+   */
   setExternalRevoker(revoker: ExternalRevoker): void {
-    this.externalRevoker = revoker;
+    this.revocations.setExternalRevoker(revoker);
+  }
+
+  // ── 撤销 / 补偿的公开面：以下五个转发给 `this.revocations`（实现在 `effect-revoke.ts`） ──
+  // 公开面与搬动前一字不差：`ai.controller.ts` 与两个治理侧控制器不必知道这次拆分。
+
+  /** 撤销 AI 副作用：软删目标 event/todo/crm_task（可经 RG-3 回收站恢复）。 */
+  async revoke(effectId: number): Promise<RevokeResult | null> {
+    return this.revocations.revoke(effectId);
+  }
+
+  /** 本人撤销（所有权校验）。 */
+  async revokeOwned(effectId: number, userId: string): Promise<RevokeResult | null> {
+    return this.revocations.revokeOwned(effectId, userId);
+  }
+
+  /** REV-11：认领一条滞留的 `compensating` 副作用。 */
+  async claim(
+    effectId: number,
+    byUserId: string,
+  ): Promise<{ outcome: RevokeClaimOutcome; claimedBy?: string | null; claimedAt?: string | null }> {
+    return this.revocations.claim(effectId, byUserId);
+  }
+
+  /** G1 会话级批量撤销（docs/revoke-contract.spec.md §3 Case B）。 */
+  async revokeConversation(
+    conversationId: string,
+    opts?: { ownerId?: string },
+  ): Promise<RevokeBatchResult> {
+    return this.revocations.revokeConversation(conversationId, opts);
+  }
+
+  /** §4 G1：run 级批量撤销。 */
+  async revokeRun(runId: string, opts?: { ownerId?: string }): Promise<RevokeRunBatchResult> {
+    return this.revocations.revokeRun(runId, opts);
   }
 
   /** 幂等键：sha256(userId:conversationId:toolName:stableArgsJson) —— 实现在 `effect-shared.ts`，此处只是委托。 */
@@ -695,719 +736,6 @@ export class AiToolEffectsService {
     );
   }
 
-  /** 撤销 AI 副作用：软删目标 event/todo/crm_task（可经 RG-3 回收站恢复） */
-  async revoke(effectId: number): Promise<RevokeResult | null> {
-    const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
-    if (!effect) return null;
-    return this._concludeSingle(effect);
-  }
-
-  /**
-   * P0-15 用户侧撤销：仅本人可撤销自己的 AI 副作用。
-   * 非本人/不存在 → null（controller 转 404）；目标软删可经 RG-3 回收站恢复。
-   */
-  async revokeOwned(effectId: number, userId: string): Promise<RevokeResult | null> {
-    const effect = await this.effectsRepo.findOne({ where: { id: effectId } });
-    if (!effect || effect.userId !== userId) return null;
-    return this._concludeSingle(effect);
-  }
-
-  /**
-   * REV-11: take a stuck compensation on. A person, recorded — not an inference.
-   *
-   * **Conditional update, like every other arbitration point in this repo** (`ConfirmationStore.resolve`,
-   * `R4ApprovalService._claimExecution`, the dispatch claim in `_doRevokeSingle`): the row is claimed
-   * only if it is *still* what the caller believed it was — `compensating`, past the staleness
-   * threshold, and unclaimed. `affected === 0` means someone else got there first, and that is reported
-   * rather than papered over.
-   *
-   * **What this does not do** (REV-11's stated boundary): it does not rewrite `revoke_status`, does not
-   * touch the target, and does not claim the compensation finished. The truth is still in the target
-   * system; a claim says only who is looking. It also does not poll or reconcile — that is a later batch.
-   *
-   * On refusal we re-read the row and report **which** refusal it was, because "already claimed" and
-   * "not stale" are different situations for the operator and a bare `false` would conflate them.
-   *
-   * REV-11：把一条卡住的补偿接过来。一个人，被记录下来 —— 不是推断出来的。
-   *
-   * **条件更新，与本仓其他每一个仲裁点同形**（`ConfirmationStore.resolve`、`R4ApprovalService._claimExecution`、
-   * `_doRevokeSingle` 里的派发认领）：只有当该行**仍然是**调用者以为的那样时才能认领 —— 仍是
-   * `compensating`、已过陈旧阈值、且无人认领。`affected === 0` 意味着别人先到了；那要如实报出，
-   * 而不是抹平。
-   *
-   * **它不做什么**（REV-11 明列的边界）：不改写 `revoke_status`、不碰目标、不声称补偿已完成。真值仍在
-   * 目标系统；认领只说明谁在看。它也不做轮询或对账 —— 那是后面一批的事。
-   *
-   * 被拒时**回读该行并报出是哪一种拒**，因为对运维而言「已被认领」与「还没到陈旧」是两回事，
-   * 一个光秃秃的 `false` 会把它们混为一谈。
-   */
-  async claim(effectId: number, byUserId: string): Promise<{ outcome: RevokeClaimOutcome; claimedBy?: string | null; claimedAt?: string | null }> {
-    const thresholdMinutes = this._staleThresholdMinutes();
-    const cutoff = new Date(Date.now() - thresholdMinutes * 60_000);
-
-    const res = await this.effectsRepo.update(
-      {
-        id: effectId,
-        revokeStatus: 'compensating',
-        revokeRequestedAt: LessThan(cutoff),
-        revokeClaimedBy: IsNull(),
-      },
-      { revokeClaimedBy: byUserId, revokeClaimedAt: new Date() },
-    );
-    if (res?.affected) {
-      const after = await this.effectsRepo.findOne({ where: { id: effectId } });
-      return {
-        outcome: 'claimed',
-        claimedBy: after?.revokeClaimedBy ?? byUserId,
-        claimedAt: after?.revokeClaimedAt ? after.revokeClaimedAt.toISOString() : null,
-      };
-    }
-
-    // 认领没命中：**回读**并说清是哪一种，不把三种情形压成一个 false
-    const row = await this.effectsRepo.findOne({ where: { id: effectId } });
-    if (!row) return { outcome: 'not_found' };
-    if (row.revokeClaimedBy != null) {
-      return {
-        outcome: 'already_claimed',
-        claimedBy: row.revokeClaimedBy,
-        claimedAt: row.revokeClaimedAt ? row.revokeClaimedAt.toISOString() : null,
-      };
-    }
-    // 剩下的可能：不是 compensating，或还没到陈旧阈值。两者对调用方是同一句话——
-    // 「这条现在还不需认领」——故合并为一个读数，但**不**与上面两种混。
-    return { outcome: 'not_stale' };
-  }
-
-  /**
-   * 单条撤销的**结论层**：单条撤销的响应**就是**结论本身，故两个争议判据（REV-1 声明与持有不一致、
-   * REV-5 另一个活组仍主张）都在此施加（批量路径不降级：那里逐条计数是逐行事实，只带 `disputed` 标记）。
-   *
-   * 多成员组例外：那条路的结论已在 `_groupResult` 里连同争议说明一起给出（`cascade` 即该形态的标记），
-   * 这里不再把同一句话追加第二遍；跳过路径没有组汇总，故在**施加之前**先判一次。
-   */
-  private async _concludeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
-    const reason = await this.revocations.skipReason(effect);
-    if (reason) {
-      return this.dispute.withDisputeNote(
-        effect,
-        this.revocations.skippedResult(effect, reason),
-        await this.revocations.claimsForRevoke(effect),
-      );
-    }
-    const result = await this._doRevoke(effect);
-    if (result.cascade) return result;
-    return this.dispute.withDisputeNote(effect, result, await this.revocations.claimsForRevoke(effect));
-  }
-
-  /**
-   * G1 会话级批量撤销（revoke-contract §3 Case B）：一键撤销某会话（一次对话/run 近似）的 AI 写副作用。
-   * - ownerId 提供 → 只撤该用户本人的（AI Action Center 本人作用域）；否则（admin）撤该会话全部
-   * - 逐条复用 _doRevoke（档位门控 none 拒绝 / local 软删 / external 补偿），已撤销或已请求外部补偿
-   *   （revokeStatus revoked/compensating）跳过不重复触发；revoke_failed 视为可重试
-   * - 返回逐条结果 + 汇总，便于前端一键撤销后展示部分失败
-   */
-  async revokeConversation(
-    conversationId: string,
-    opts?: { ownerId?: string },
-  ): Promise<RevokeBatchResult> {
-    const effects = await this.effectsRepo.find({
-      where: { conversationId } as any,
-      order: { createdAt: 'ASC' },
-    });
-    return { conversationId, ...(await this._revokeBatch(effects, opts)) };
-  }
-
-  /**
-   * §4 G1：run 级批量撤销——精确撤销「某次 run 一次性授权」产生的全部副作用（比会话级更细：
-   * 一个对话可含多次 run）。逐条复用档位门控撤销（同 revokeConversation），汇总逐条结果。
-   */
-  async revokeRun(runId: string, opts?: { ownerId?: string }): Promise<RevokeRunBatchResult> {
-    const effects = await this.effectsRepo.find({
-      where: { runId } as any,
-      order: { createdAt: 'ASC' },
-    });
-    return { runId, ...(await this._revokeBatch(effects, opts)) };
-  }
-
-  /** 批量撤销公共循环（revokeConversation / revokeRun 共用；owner 过滤 + 逐条档位门控 + 汇总） */
-  private async _revokeBatch(
-    effects: AiToolSideEffect[],
-    opts?: { ownerId?: string },
-  ): Promise<{
-    total: number;
-    revoked: number;
-    skipped: number;
-    failed: number;
-    results: RevokeBatchItem[];
-  }> {
-    // 以「未提供」判据而非真值判据：ownerId 为空串等 falsy 值时不得静默升级为 admin 全作用域
-    const ownerFilter = opts?.ownerId;
-    const scoped =
-      ownerFilter !== undefined ? effects.filter((e) => e.userId === ownerFilter) : effects;
-    const results: RevokeBatchItem[] = [];
-    let revoked = 0;
-    let skipped = 0;
-    let failed = 0;
-    // 级联补偿折叠（docs/cascade-compensation.spec.md §5）：同组只补偿一次——否则一个 N 成员组会被补偿 N 次。
-    // 逐条结果按成员摊平，前端仍看到「一条一行」。组分支必须**先于** skipReason 判定：
-    // 若首个成员恰是可跳过态（已撤销/补偿中），提前 continue 会让整组根本不被处理。
-    const processedGroups = new Set<string>();
-    const scopedIds = new Set(scoped.map((e) => e.id));
-    // REV-1 / REV-5：争议组的行在批量里也必须**读得出**。逐条计数本身是逐行事实（这一行确实被补偿了），
-    // 但若只剩一个光秃秃的 `revoked:3 / failed:0`，批量读起来就是「这次业务动作已完全撤销」——正是要拦的那个读数。
-    // 判定按**组**（标记只在根行上，故逐行看会漏；跨组主张同样只能按组问）。
-    const withDispute = (disputed: boolean, item: RevokeBatchItem): RevokeBatchItem =>
-      disputed ? { ...item, disputed: true } : item;
-    for (const effect of scoped) {
-      const groupId = effect.compensationGroup;
-      // REV-1 / REV-5：争议是**组级**事实（标记在根行；跨组主张要按组问），故按组判定后摊到逐条结果上
-      let disputed = this.dispute.hasOpenDispute(effect);
-      if (groupId) {
-        if (processedGroups.has(groupId)) continue;
-        processedGroups.add(groupId);
-        try {
-          const members = await this.registration.listGroup(groupId);
-          const claims = await this.revocations.crossGroupClaims(groupId, members);
-          disputed = this.dispute.notesFor(members, claims).length > 0;
-          if (members.length > 1) {
-            const { items, result } = await this._compensateGroup(effect, groupId, members, claims);
-            for (const it of items) {
-              if (!scopedIds.has(it.effectId)) continue;
-              // REV-16：批量**逐条**也要带上这个读数 —— 只在单条带上就会变成「同一状态、两条路两个形状」，
-              // 正是本仓反复修的那类缺陷。组级结论是整组的，故组内每条都带同一份。
-              results.push(
-                withDispute(disputed, {
-                  ...it,
-                  ...(result.downstreamReferences
-                    ? { downstreamReferences: result.downstreamReferences }
-                    : {}),
-                }),
-              );
-              if (it.revoked) revoked++;
-              else if (it.skipped) skipped++;
-              else failed++;
-            }
-            continue;
-          }
-        } catch (err) {
-          failed++;
-          results.push(
-            withDispute(disputed, {
-              effectId: effect.id,
-              revoked: false,
-              error: (err as Error).message,
-              compensationGroup: groupId,
-            }),
-          );
-          continue;
-        }
-      }
-      const skipReason = await this.revocations.skipReason(effect);
-      if (skipReason) {
-        skipped++;
-        results.push(
-          withDispute(disputed, {
-            effectId: effect.id,
-            revoked: false,
-            skipped: true,
-            reason: skipReason,
-            compensationGroup: groupId ?? null,
-          }),
-        );
-        continue;
-      }
-      try {
-        const r = await this._doRevoke(effect);
-        // ARC-7：`compensating`（已请求外部补偿、结果未知）既不是 revoked 也不是 failed。
-        // 此前它落进 `revoked++`——同一次业务动作于是在单条说「未完成」、在批量说「已撤销」，
-        // 而管理台 toast 念的正是这三个数（`aiCenterConvRevokeDone`）。
-        if (r.revoked) revoked++;
-        else if (r.skipped) skipped++;
-        else failed++;
-        results.push(
-          withDispute(disputed, {
-            effectId: effect.id,
-            revoked: r.revoked,
-            skipped: r.skipped,
-            reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
-            revokeStatus: r.revokeStatus ?? null,
-            external: r.external ?? false,
-            message: r.message,
-            compensationGroup: groupId ?? null,
-            // REV-16：与单条撤销同向（见上面组分支的注释）
-            ...(r.downstreamReferences ? { downstreamReferences: r.downstreamReferences } : {}),
-          }),
-        );
-      } catch (err) {
-        failed++;
-        results.push(
-          withDispute(disputed, {
-            effectId: effect.id,
-            revoked: false,
-            error: (err as Error).message,
-            compensationGroup: groupId ?? null,
-          }),
-        );
-      }
-    }
-    return { total: scoped.length, revoked, skipped, failed, results };
-  }
-
-
-  /**
-   * 撤销派发（docs/cascade-compensation.spec.md §5）：属**多成员补偿组** → 级联补偿整组；
-   * 否则走单目标路径（无组的历史行行为逐字节不变）。
-   *
-   * 返回的是**逐行事实**（这一条到底撤销了没有）；REV-1 / REV-5 的争议降级由**结论层**施加：
-   * 单条撤销在 `_concludeSingle` 里降级，组级在 `_groupResult` 里降级，批量则不动逐条计数
-   * —— 否则同一件事（持有的行确实补偿了、声明却不一致）会在两条路径上被数成不同的东西。
-   * 跨组闸门（REV-5）在组级由此处算出后传入，撤销过程中**不再**重复查询。
-   */
-  private async _doRevoke(effect: AiToolSideEffect): Promise<RevokeResult> {
-    if (effect.compensationGroup) {
-      const members = await this.registration.listGroup(effect.compensationGroup);
-      if (members.length > 1) {
-        // REV-5：撤销**之前**先看 —— 另一个活组是否也主张本次要撤的这些 effect
-        const cross = await this.revocations.crossGroupClaims(effect.compensationGroup, members);
-        return (await this._compensateGroup(effect, effect.compensationGroup, members, cross)).result;
-      }
-    }
-    return this._doRevokeSingle(effect);
-  }
-
-
-
-  /**
-   * 级联补偿整组：本地成员落在**一个 DB 事务**里，任一失败即回滚 → 整组零改动；
-   * 外部成员在本地事务提交后于事务外顺序补偿，诚实落 compensating / revoke_failed。
-   * 本地回滚时**不触发**外部补偿——避免制造「半补偿」（一部分已撤销、一部分原样）的更糟状态。
-   */
-  private async _compensateGroup(
-    requested: AiToolSideEffect,
-    groupId: string,
-    members: AiToolSideEffect[],
-    cross: CrossGroupClaim[],
-  ): Promise<{ result: RevokeResult; items: RevokeBatchItem[] }> {
-    const results: RevokeBatchItem[] = [];
-    const locals: AiToolSideEffect[] = [];
-    const externals: AiToolSideEffect[] = [];
-    // REV-1 / REV-5：争议是**组级**事实 → 汇总必须据此拒绝报完成，无论本次是否真的补偿了什么。
-    const disputeNotes = this.dispute.notesFor(members, cross);
-
-    for (const m of members) {
-      const reason = await this.revocations.skipReason(m);
-      if (reason) {
-        results.push({
-          effectId: m.id,
-          revoked: false,
-          skipped: true,
-          reason,
-          revokeStatus: (m.revokeStatus as RevokeBatchItem['revokeStatus']) ?? null,
-          compensationGroup: groupId,
-        });
-        continue;
-      }
-      // KB-6 `none` 档位：**不参与补偿**（没有补偿端点），而那是**声明**、不是失败。按 `skipped` 记它 ——
-      // 与 §5.3 对「已请求补偿的外部成员」的处理同形。否则它会落进外部那一堆、被汇总计成 `failed`，
-      // 整组于是报 `revoke_failed`，摘要还谎称「本地成员已整体回滚」（2026-10-11 修）。
-      // A `none` member declares there is no compensation endpoint — that is not a failure. Recording it
-      // as skipped keeps it out of the `failed` tally; otherwise the whole group reports revoke_failed.
-      if (this.revocations.classOf(m) === 'none') {
-        results.push({
-          effectId: m.id,
-          revoked: false,
-          skipped: true,
-          reason: 'revoke_class_none',
-          revokeStatus: (m.revokeStatus as RevokeBatchItem['revokeStatus']) ?? null,
-          compensationGroup: groupId,
-        });
-        continue;
-      }
-      if (this.revocations.classOf(m) === 'local_compensate' && this.revoker?.canHandle(m.resultType)) {
-        locals.push(m);
-      } else {
-        externals.push(m);
-      }
-    }
-
-    // REV-9：组内本地成员与单条走**同一处**比对——否则「同一状态两条路两个结论」正是本仓反复修的那类缺陷。
-    // 在事务**之前**读：软删在事务里发生，读要在那之前。声明在 `if` 之外，因为组级摘要也要用它。
-    const driftByEffect = new Map<number, string>();
-    if (locals.length) {
-      const comparisons: Array<{
-        ref: { resultType: string; resultId: number };
-        cmp: TargetComparison;
-      }> = [];
-      for (const m of locals) {
-        const cmp = await this.comparability.targetDrift(m);
-        comparisons.push({
-          ref: { resultType: m.resultType, resultId: m.resultId },
-          cmp,
-        });
-        const d = cmp.promised && cmp.compared ? cmp.drift : null;
-        if (d) {
-          driftByEffect.set(m.id, d);
-          this.logger.warn(
-            `[AiToolEffects] effect ${m.id}: 目标 ${m.resultType} #${m.resultId} 在写入后被改过（${d}）`,
-          );
-        }
-      }
-      const run = async (manager?: EntityManager): Promise<void> => {
-        for (const m of locals) {
-          const r = await this.revoker!.revoke(m.resultType, m.resultId, m.userId, manager);
-          if (!r.revoked) {
-            throw new Error(r.message ?? `本地补偿失败：${m.resultType} #${m.resultId}`);
-          }
-        }
-      };
-      try {
-        if (this.dataSource) {
-          await this.dataSource.transaction((manager) => run(manager));
-        } else {
-          // 无 DataSource（单测 / 降级装配）：退化为顺序执行，失去原子性。部署态恒有 DataSource。
-          await run();
-        }
-      } catch (err) {
-        const msg = (err as Error).message;
-        this.logger.warn(`[AiToolEffects] cascade rollback (group ${groupId}): ${msg}`);
-        for (const m of locals) {
-          results.push({ effectId: m.id, revoked: false, error: msg, compensationGroup: groupId });
-        }
-        for (const m of externals) {
-          results.push({
-            effectId: m.id,
-            revoked: false,
-            message: '本地成员补偿失败并已回滚，未触发外部补偿（避免半补偿）',
-            compensationGroup: groupId,
-          });
-        }
-        const rolledBack = this._groupResult(requested, groupId, members, results, disputeNotes);
-        // 失败也要留痕：审计要看见「补偿尝试过且失败了」，而不是一片空白
-        await this._auditCompensation(groupId, members, rolledBack.items, requested);
-        return rolledBack;
-      }
-      // 提交成功后才回写运维态（在事务内回写会在回滚后留下假的 revoked）
-      for (const m of locals) {
-        await this._patchRevoke(m, { revokeStatus: 'revoked' });
-        const driftNote = this.revocations.withDriftNote(undefined, driftByEffect.get(m.id) ?? null);
-        results.push({
-          effectId: m.id,
-          revoked: true,
-          revokeStatus: 'revoked',
-          compensationGroup: groupId,
-          // REV-9：漂移事实随该成员逐条可见（组级汇总不吞它）——没有漂移时不加该字段，保持原形状
-          ...(driftNote ? { message: driftNote } : {}),
-        });
-      }
-      // REV-14：本地补偿已落地，这时才把「承诺了却比不到」的那些落到**组根行**上——组级判定随即
-      // 多半会读作 complete，那时这个差集只剩这里可读。放在提交之后（与上面「回滚不留回写」同口径）。
-      await this.comparability.record(
-        members.find((m) => m.parentEffectId == null) ?? members[0],
-        comparisons,
-      );
-    }
-
-    for (const m of externals) {
-      const r = await this._doRevokeSingle(m);
-      results.push({
-        effectId: m.id,
-        revoked: r.revoked,
-        // ARC-7：逐条必须带上「没撤销是因为在等目标系统」这一读数——否则它在汇总里既不是 revoked
-        // 也不是 skipped，会被 `_groupResult` 计成 failed（一次**成功**的派发被报成**失败**）。
-        skipped: r.skipped,
-        reason: r.reason === 'already_revoked' || r.reason === 'compensating' ? r.reason : undefined,
-        external: r.external,
-        revokeStatus: r.revokeStatus ?? null,
-        message: r.message,
-        compensationGroup: groupId,
-      });
-    }
-
-    const out = this._groupResult(
-      requested,
-      groupId,
-      members,
-      results,
-      disputeNotes,
-      [...driftByEffect.entries()].map(
-        ([id, d]) => `effect ${id} 的目标在写入后被改过（${d}），本次补偿把该改动一并抹除`,
-      ),
-    );
-    // REV-16：整组拿走的那些目标上，还有哪些行指着它们。**在组级结论之外**再答一句 —— 组级会读出
-    // 「全部补偿完成」，而那正是读者会据此断定「什么都干净了」的时刻；这个字段说的是它**没够到**的部分。
-    // 成员自身作为排除集：组内一并撤销的那些行属于本次动作，不是「留下指着它的东西」。
-    const downstreamReferences = await this.revocations.downstreamReferences(
-      members.map((m) => ({ resultType: m.resultType, resultId: m.resultId })),
-    );
-    if (downstreamReferences) out.result.downstreamReferences = downstreamReferences;
-    await this._auditCompensation(groupId, members, out.items, requested);
-    return out;
-  }
-
-  /**
-   * 补偿自身入 operation_audit（docs/cascade-compensation.spec.md §6）——该表入哈希链，故补偿自动入链。
-   *
-   * 只对**组级**补偿写显式行：单目标撤销已有全局拦截器行（HTTP 级），再写一行只是噪音；而组级补偿的
-   * 逐成员结果只有服务层知道，拦截器看不见。
-   * 落点 `targetId` = **根成员的业务 id**（不是副作用 id）→ 使其能被 evidence-root / 业务动作视图按业务对象捞到。
-   *
-   * 诚实取舍：`OperationAuditService.log()` 两个方言分支都只 logger.warn 吞掉异常、**永不抛**，
-   * 故这里是 best-effort，**做不到 fail-closed**（本仓 AU-5 的 fail-closed 抛的是另一条链 / AI 审计）。
-   * 但「状态改了却无记录」不会发生：权威运维态是逐条 revoke_status + 目标软删信号，
-   * 本行只是链锚定的人读摘要。
-   */
-  private async _auditCompensation(
-    groupId: string,
-    members: AiToolSideEffect[],
-    items: RevokeBatchItem[],
-    requested: AiToolSideEffect,
-  ): Promise<void> {
-    if (!this.operationAudit) return;
-    const byId = new Map(members.map((m) => [m.id, m]));
-    const root = members.find((m) => m.parentEffectId == null) ?? members[0];
-    const detail = JSON.stringify(
-      items.map((it) => {
-        const m = byId.get(it.effectId);
-        return {
-          resultType: m?.resultType ?? null,
-          resultId: m?.resultId ?? null,
-          role: it.effectId === root.id ? 'root' : 'child',
-          revoked: it.revoked,
-          revokeStatus: it.revokeStatus ?? null,
-        };
-      }),
-    );
-    const uid = Number(requested.userId);
-    await this.operationAudit.log({
-      userId: Number.isFinite(uid) ? uid : null,
-      action: 'COMPENSATE',
-      method: 'DELETE',
-      path: '/ai/tool-effects/compensate',
-      featureKey: 'ai.compensate',
-      featureFallback: 'ai · compensate',
-      targetId: String(root.resultId),
-      requestBody: JSON.stringify({
-        groupId,
-        requestedEffectId: requested.id,
-        total: members.length,
-        // REV-12：**指回原始授权决定**。此前这行有组、有成员明细、有 target，唯独没有「这次撤销依据的是
-        // 哪次授权」⇒「谁许可 / 执行 / 收回」要靠证据包另行拼装，**行本身**答不出。这里带上授权时那条
-        // 链的连接键，使三者可在一条链上读。**不新建第二套授权存储** —— 只指回，不复制。
-        //
-        // 为什么是这几个键、以及它们各自能指到哪（如实边界）：
-        // - `runId`：**run 级确认时它就是那次决定本身的标识**（token = runId，见 run-level-approval.spec.md
-        //   §2.3）—— 这是**直接引用**；单条确认/免确认写为 null。
-        // - `conversationId` + `toolName`：单条确认唯一可靠的定位键 —— 授权依据（含策略版本）在会话的
-        //   `tool_call` 审计行上，按这两个键可定位到它。**不把策略版本复制过来**：撤销时读到的策略版本是
-        //   **此刻**的，不是授权时的，抄进来只会把后来的策略写成当时的依据。
-        authorization: {
-          conversationId: requested.conversationId ?? null,
-          runId: requested.runId ?? null,
-          toolName: requested.toolName,
-        },
-      }),
-      // changes 是链外列（≤4000）→ 逐成员明细放这里不动 payload 契约；超长截断护栏
-      changes: detail.length > 4000 ? `${detail.slice(0, 3997)}...` : detail,
-      businessEvent: 'AiSideEffectCompensated',
-    });
-  }
-
-  /**
-   * 组级结果汇总：整组全成（或本就是已撤销态）才 `revoked:true`——
-   * 「已请求外部补偿·结果未知」与「有成员失败」都不得伪装成已撤销（KB-6 诚实口径）。
-   *
-   * 第三个条件：**有争议**（REV-1 声明与持有不一致 / REV-5 另一个活组仍主张）同样不得报完成 ——
-   * 持有多出来的那几条没有任何行承载，或那一组的业务动作不在本次范围内，
-   * 「这个业务动作已完全撤销」是假的，即便持有的每一行都补偿成功。说明由 `disputeNotes` 原样带出。
-   */
-  private _groupResult(
-    requested: AiToolSideEffect,
-    groupId: string,
-    members: AiToolSideEffect[],
-    results: RevokeBatchItem[],
-    disputeNotes: string[],
-    /**
-     * REV-9：组内成员的「目标被中间写改过」清单。走**独立车道**——它与 `disputeNotes` 不同：
-     * 争议要**拒绝报完成**（`revoked:false`），而漂移只要求**不静默**，不得据此改判定。
-     * 默认空：回滚分支调用时什么都没补偿，谈不上抹掉谁的改动。
-     */
-    driftNotes: string[] = [],
-  ): { result: RevokeResult; items: RevokeBatchItem[] } {
-    const disputed = disputeNotes.length > 0;
-    const skipped = results.filter((r) => r.skipped).length;
-    const failed = results.filter((r) => !r.revoked && !r.skipped).length;
-    const alreadyRevoked = results.filter((r) => r.reason === 'already_revoked').length;
-    const compensating = results.some(
-      (r) => r.reason === 'compensating' || r.revokeStatus === 'compensating',
-    );
-    const revoked = results.filter((r) => r.revoked).length;
-    const allOk = failed === 0 && revoked + alreadyRevoked === results.length;
-    const summary =
-      failed > 0
-        ? `级联补偿失败（${failed}/${members.length} 条未补偿）：本地成员已整体回滚，未产生半补偿状态`
-        : disputed
-          ? `级联补偿 ${members.length} 条：${disputeNotes.join('；')}`
-          : compensating
-            ? `级联补偿 ${members.length} 条：本地已完成，外部成员补偿已请求、结果以目标系统为准`
-            : `级联补偿 ${members.length} 条（同一次业务动作）`;
-    // C8「不被伪装」：按声明不可撤的成员必须**被说出来** —— 否则「级联补偿 N 条」会被读成 N 条全撤了。
-    // A `none` member must be named in the summary, or the group reads as if every member were revoked.
-    const notApplicable = results.filter((r) => r.reason === 'revoke_class_none').length;
-    const notes = [
-      ...(notApplicable > 0
-        ? [`其中 ${notApplicable} 条按声明不可撤（revokeClass=none：无撤销接口 / 无补偿端点），未参与补偿`]
-        : []),
-      ...driftNotes,
-    ];
-    return {
-      result: {
-        revoked: allOk && !compensating && !disputed,
-        effectId: requested.id,
-        compensationGroup: groupId,
-        cascade: { groupId, total: members.length, revoked, skipped, failed },
-        revokeStatus: failed > 0 ? 'revoke_failed' : compensating ? 'compensating' : 'revoked',
-        // 逐成员 message 会被这条摘要遮住，故「不参与补偿的成员」与漂移清单都在此**并进摘要**
-        // （组级读数的可见面就是它）。
-        message: notes.length > 0 ? `${summary}；${notes.join('；')}` : summary,
-      },
-      items: results,
-    };
-  }
-
-  private async _doRevokeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
-    // KB-6：撤销能力档位门控——none（不可撤/外部未知）直接拒绝，不再误走 externalRevoker
-    // 制造"可撤销"假象。旧行 revokeClass 为 null 时按工具/resultType 兜底解析。
-    const revokeClass: RevokeClass = this.revocations.classOf(effect);
-    if (revokeClass === 'none') {
-      return {
-        revoked: false,
-        effectId: effect.id,
-        external: effect.resultType === 'proxy_call',
-        message: '该副作用无撤销接口（revokeClass=none：不可撤 / 目标系统无补偿端点）',
-      };
-    }
-
-    // D2-1f：本地实体撤销走 SideEffectRevoker（可替换为远程补偿 revoker）
-    if (revokeClass === 'local_compensate' && this.revoker?.canHandle(effect.resultType)) {
-      // REV-9：**先**问一句「目标还是不是我写的那条」，再软删——软删之后那行就没了，问也白问。
-      const cmp = await this.comparability.targetDrift(effect);
-      const drift = cmp.promised && cmp.compared ? cmp.drift : null;
-      const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
-      this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-      if (r.revoked) {
-        await this._patchRevoke(effect, { revokeStatus: 'revoked' });
-        // REV-14：软删落地后才落这份读数——判定没成立时不记（同「本地回滚不留回写」的口径）。
-        // 单目标行就是它自己的根，故写在本行。
-        await this.comparability.record(effect, [
-          { ref: { resultType: effect.resultType, resultId: effect.resultId }, cmp },
-        ]);
-      }
-      if (drift) {
-        this.logger.warn(
-          `[AiToolEffects] effect ${effect.id}: 目标 ${effect.resultType} #${effect.resultId} 在写入后被改过（${drift}）`,
-        );
-      }
-      // REV-16：这次撤销拿走的这个目标，还有哪些行指着它。只在撤销**真的落地**时问 —— 没撤成，谈不上
-      // 「没够到」。字段在类型没有引用模型时**缺席**（未检查），与「查过、没有」不是一回事。
-      const downstreamReferences = r.revoked
-        ? await this.revocations.downstreamReferences([
-            { resultType: effect.resultType, resultId: effect.resultId },
-          ])
-        : undefined;
-      return {
-        revoked: r.revoked,
-        effectId: effect.id,
-        message: this.revocations.withDriftNote(r.message, drift),
-        revokeStatus: r.revoked ? 'revoked' : 'revoke_failed',
-        ...(downstreamReferences ? { downstreamReferences } : {}),
-      };
-    }
-    // governed_external / 本地 canHandle 不中的 proxy_call：B 路径外部补偿
-    if (this.externalRevoker) {
-      // REV-2 细化：**外呼之前**先写「意图」。这一刻的诚实读数是「**可能根本没到达**外部系统」；
-      // 此前是「先外呼、返回后才写态」——进程若在调用中途死掉则一个字段都不写，该行读起来像**从未请求过补偿**，
-      // 「当前未了结」的聚合里凭空少一条。「发送前」与「已确认」是两个事件，其间的间隙正是那个真实的不确定。
-      //
-      // ARC-3：这一次写入同时是**派发认领（CAS）** —— 此前是无条件 `update`（裸 read-modify-write），
-      // 两次并发撤销会**各自读到 `revoke_status = null` 然后各派发一次**：退款/取消订单这类端点若非幂等，
-      // 那是**真双发**；而且后一次写回的 `revoke_failed` 还会**覆盖**前一次的成功读数。
-      // 条件更新是唯一仲裁点（同 `ConfirmationStore.resolve` / `R4ApprovalService._claimExecution` 先例）：
-      // 只有仍处「未派发」（NULL）或「上次失败、可重试」（revoke_failed）的行才放行派发；
-      // 已被派发（compensating）或已完成（revoked）⇒ 命中 0 行 ⇒ **不派发**，如实回报。
-      // 认领落地后，本行在这轮派发里**只有这一个写者**，故上面那条覆盖风险随之一并消失——不需要再给回写加条件。
-      //
-      // ⚠ 用 `Raw` 写这条谓词，**不要** `In([null, 'revoke_failed'])`：SQL 里 `x IN (NULL, ...)` 对 NULL 恒不成立
-      //（要 `IS NULL`），照 `In` 写会让**首次派发**永远认领不到。
-      //
-      // **fail-closed**：判据取 `!claim?.affected` 而非 `=== 0` —— 底层没给出可判定的 `affected` 时
-      //（替身 / 非标准驱动），宁可当作认领失败、不派发，也不把「读数缺失」当成许可。
-      // 口径同 `ConfirmationStore.resolve`：拿不到 affected 一律拒。
-      const claim = await this.effectsRepo.update(
-        {
-          id: effect.id,
-          revokeStatus: Raw((alias) => `(${alias} IS NULL OR ${alias} = 'revoke_failed')`),
-        },
-        {
-          revokeStatus: 'compensating',
-          revokeRequestedAt: new Date(),
-          // 上一次请求的确认不代表这一次 —— 重试（revoke_failed 可重试）必须把旧确认清掉，
-          // 否则新意图会被旧确认冒充成「已到达」。
-          revokeAcknowledgedAt: null,
-        },
-      );
-      if (!claim?.affected) {
-        const now = await this.effectsRepo.findOne({ where: { id: effect.id } });
-        return {
-          revoked: false,
-          effectId: effect.id,
-          external: true,
-          skipped: true,
-          reason: 'compensating',
-          revokeStatus: (now?.revokeStatus as RevokeResult['revokeStatus']) ?? undefined,
-          message: '该副作用的外部补偿已在派发中（或已完成）——本次未重复派发',
-        };
-      }
-      const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
-      // 外呼返回 = **确认**（对方应答过，含拒绝）：单独记为一个事件，与意图之间留下可读的间隙。
-      // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明「已请求」，Java 端结果未知 → 落 compensating 而非 revoked。
-      await this._patchRevoke(effect, {
-        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
-        revokeAcknowledgedAt: new Date(),
-      });
-      if (!r.ok) {
-        // 对方拒绝 = 补偿**失败**（不是「未完成」）——据实计为失败，**不进 skipped**（两者在汇总里必须分得开）。
-        return {
-          revoked: false,
-          effectId: effect.id,
-          external: true,
-          compensated: false,
-          revokeStatus: 'revoke_failed',
-          message: r.message,
-        };
-      }
-      // ARC-2 / ARC-7：**`compensating` 不得报 `revoked`**。KB-6 与本文件组级路径（`_groupResult`）早已如此，
-      // 唯独单条外部分支此前用 `revoked: r.ok`——于是同一条 `compensating`、同一状态，单条说「已撤销」而组级说「未完成」。
-      // 现在四处同向：不仅 `revoked:false`，还给出与「本就在 compensating 的行」**完全相同**的读数
-      // （`skipped` + `reason:'compensating'`），批量的 `revoked` 计数因此不再把待目标系统的成员算成已撤销——
-      // 那三个数直接进管理台 toast（`aiCenterConvRevokeDone`）。
-      return {
-        revoked: false,
-        effectId: effect.id,
-        external: true,
-        compensated: true,
-        skipped: true,
-        reason: 'compensating',
-        revokeStatus: 'compensating',
-        message: `Java 端已请求补偿（${r.message}）；结果以目标系统为准`,
-      };
-    }
-    return {
-      revoked: false,
-      effectId: effect.id,
-      external: true,
-      message: 'B 路径外部副作用撤销需 Java 端补偿（无本地实体可软删 / 未配置补偿执行器）',
-    };
-  }
 
   /**
    * KB-6：回写撤销运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。

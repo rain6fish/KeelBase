@@ -83,11 +83,11 @@ describe('ARC-3 外部补偿派发认领：并发两次只派发一次', () => {
     expect(stale1.revokeStatus).toBeNull();
     expect(stale2.revokeStatus).toBeNull();
 
-    const p1 = (svc as any)._doRevokeSingle(stale1);
+    const p1 = (svc as any).revocations.doRevokeSingle(stale1);
     await enteredP; // 第一条已认领（写库成功）并进入外呼
     // 先发起第二条、**再**放行 gate，最后一起 await：旧实现下第二条也会进入外呼（那正是缺陷），
     // 但它不该把测试挂死——让它走到断言上失败，而不是等超时。
-    const r2p = (svc as any)._doRevokeSingle(stale2);
+    const r2p = (svc as any).revocations.doRevokeSingle(stale2);
     release();
     const [, r2] = await Promise.all([p1, r2p]);
 
