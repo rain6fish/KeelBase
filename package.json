@@ -43,7 +43,8 @@
     "check:audit-awaited": "node scripts/check-audit-writes-awaited.mjs",
     "check:tool-labels": "node scripts/check-tool-label-parity.mjs",
     "check:generated-samples": "node scripts/check-generated-samples.mjs",
-    "check:contract-matrix": "node scripts/check-contract-matrix.mjs"
+    "check:contract-matrix": "node scripts/check-contract-matrix.mjs",
+    "check:env-example": "node scripts/check-env-example.mjs"
   },
   "devDependencies": {
     "autocannon": "^8.0.0"

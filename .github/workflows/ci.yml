@@ -296,6 +296,22 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-contract-matrix.mjs
 
+  # Every environment variable the config schema declares must be in .env.example — a variable that
+  # exists only in the schema is one a new deploy never learns about (35 had drifted out by 2026-10-11).
+  #
+  # 配置 schema 声明的每个环境变量都必须在 .env.example 里 —— 只活在 schema 里的变量，新部署永远不会知道
+  # （2026-10-11 实测已漂出 35 个）。
+  env-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-env-example.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
