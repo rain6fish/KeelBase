@@ -5,6 +5,20 @@
 >
 > **参考实现**：`Server-NestJS`（src/ai、src/auth）。Java 侧参考：`KeelBase-java-starter`。
 > **Reference implementation**: `Server-NestJS`. Java side: `KeelBase-java-starter`.
+>
+> **Protocol version.** What is machine-checkable in this protocol is pinned by the contract repository's
+> version line — currently `v1.6.1` (`rain6fish/keelbase-contract`; the authority is the `version` in its
+> `wire-schema-registry.json`, not this file). **This document itself takes no version number**: that
+> repository's README is explicit that the version line follows the contract and the vectors, and that
+> documents and tools are not the contract — they take no version number and produce no tag. Nor does this
+> prose use RFC 2119 keywords: normative force lives in that repository's schemas and vectors, and that is
+> where to look when deciding whether something is required.
+>
+> **协议版本。** 本协议**机器可校验的那部分**由契约仓的版本线钉住 —— 当前 `v1.6.1`
+> （`rain6fish/keelbase-contract`；**权威是它 `wire-schema-registry.json` 里的 `version`，不是本文件**）。
+> **本文档本身不占版本号**：契约仓 README 写明版本线只跟契约与向量走、**文档与工具不是契约**
+> —— 不占版本号、不产生 tag。正文**也不使用 RFC 2119 关键词**：规范力在契约仓的 schema 与向量里，
+> 判断某件事是不是「必须」，去那边看。
 
 ---
 
