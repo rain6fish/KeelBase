@@ -25,6 +25,7 @@ import { IsNull, LessThan, Not, Raw } from 'typeorm';
 import { revokeAge, revokeWindow, DEFAULT_REVOKE_STALE_MINUTES } from './revoke-staleness';
 import { SideEffectSnapshotCaptor } from './side-effect-snapshot-captor';
 import { declarationDiff, isUniqueViolation, sortKeys, targetKey } from './effect-shared';
+import { EffectChainWriter } from './effect-chain';
 import {
   EXTERNAL_REVOKER,
   type CrossGroupClaim,
@@ -123,7 +124,27 @@ export class AiToolEffectsService {
     @Optional()
     @InjectRepository(EffectComparability)
     private readonly comparabilityRepo?: Repository<EffectComparability>,
-  ) {}
+  ) {
+    // 拆分第三批（2026-10-11）：链写入器在**构造器体内**建立 —— 构造器签名一字未动（有二十多处位置式
+    // `new AiToolEffectsService(...)` 与两个 Nest 模块依赖它）。**只此一份**：登记与撤销共用同一个它，
+    // 否则就是两条串行队列，单写者（sqlite）那条路上链丢更新。
+    // Built in the constructor body so the signature stays put. Exactly one instance: registration and
+    // revocation share it, or the single-writer path ends up with two serialization queues.
+    this.chain = new EffectChainWriter(this.effectsRepo, this.auditChain, this.dataSource);
+  }
+
+  /** G-3 副作用链写入与校验（拆分第三批）：唯一实例，登记与撤销共用。 */
+  private readonly chain: EffectChainWriter;
+
+  /** G-3：副作用哈希链完整性校验 —— 转发给链写入器（实现在 `effect-chain.ts`）。 */
+  async verifySideEffectChain(): Promise<{
+    valid: boolean;
+    checked: number;
+    hashed: number;
+    firstHashedId: number | null;
+  }> {
+    return this.chain.verify();
+  }
 
   /**
    * REV-9：比对前剔掉「记账用」时间戳。
@@ -703,13 +724,13 @@ export class AiToolEffectsService {
           // REV-10：同一件事在复合组里也一样 —— 组**声明的全部成员**就是「账上应该有」的集合
           undeclaredWrites: this._serializeUndeclaredWrites(ctx, effects),
         };
-        saved.push(await this._insertOne(base, manager));
+        saved.push(await this.chain.insertOne(base, manager));
       }
       return saved;
     };
 
     try {
-      const saved = await this._withChainWrite(save);
+      const saved = await this.chain.withChainWrite(save);
       this._reportEffect(ctx, effects[0].resultType, effects[0].resultId);
       return saved;
     } catch (err) {
@@ -869,7 +890,7 @@ export class AiToolEffectsService {
   ): Promise<AiToolSideEffect> {
     let saved: AiToolSideEffect | undefined;
     try {
-      saved = await this._withChainWrite((manager) => this._insertOne(base, manager));
+      saved = await this.chain.withChainWrite((manager) => this.chain.insertOne(base, manager));
     } catch (err) {
       if (!isUniqueViolation(err)) {
         // 非唯一冲突（DB down / 连接中断等）：不伪装幂等命中——副作用未落库却报成功会造成重复执行，必须上抛
@@ -930,63 +951,6 @@ export class AiToolEffectsService {
     await this._patchRevoke(existing, { revokeDispute: JSON.stringify(evidence) });
   }
 
-  /**
-   * 链写上下文：把一段「读 prev → 算 hash → 插入」的 read-modify-write **串行化**，否则并发写读同一 prev
-   * → 链分叉（verifySideEffectChain 判 invalid）。单行登记与复合组登记共用本上下文：
-   * - **postgres**：事务内锁 `audit_chain_lock` 行（id=2；与主审计链 id=1 分开，避免两链互相串行）→ 执行 fn →
-   *   提交。fn 内的插入必须走 `runner.manager` 且在锁内提交——否则锁释放早于插入落库，后到者仍读到旧 prev。
-   *   传同一个 manager 还能让组内后续成员读到**本事务内**前序成员（组内链相邻 + 登记原子）。
-   * - **单写者（sqlite/better-sqlite3）**：进程内 promise 串行 **+ 真事务包裹整段**（跨进程仍为 best-effort，
-   *   与主链 sqlite 分支同）。事务是「整组一次登记」的兑现——原先只串行不包裹，组内中途失败会留下**半组**
-   *   （前几条已提交、后几条没有），而 `recordGroup` 的契约恰恰承诺「杜绝半组」；dev/test 默认走的就是这条路径。
-   */
-  private async _withChainWrite<T>(fn: (manager?: EntityManager) => Promise<T>): Promise<T> {
-    if (this.dataSource?.options.type === 'postgres') {
-      const runner = this.dataSource.createQueryRunner();
-      await runner.connect();
-      try {
-        await runner.startTransaction();
-        await runner.query(
-          `INSERT INTO "audit_chain_lock" (id, holder) VALUES (2, 'side-effect') ON CONFLICT (id) DO NOTHING`,
-        );
-        await runner.query('SELECT id FROM "audit_chain_lock" WHERE id = 2 FOR UPDATE');
-        const out = await fn(runner.manager);
-        await runner.commitTransaction();
-        return out;
-      } catch (err) {
-        await runner.rollbackTransaction().catch(() => {});
-        throw err;
-      } finally {
-        await runner.release();
-      }
-    }
-    // Serialise in-process **and** wrap the whole stretch in a real transaction, so a group is
-    // all-or-nothing. Without the transaction a mid-group failure left the earlier members
-    // committed — the half-group that `recordGroup` promises never to produce.
-    // 进程内串行 **+ 真事务**包裹整段，使整组要么全登记、要么全不登记；没有事务时组内中途失败
-    // 会留下半组（前几条已提交），与 `recordGroup` 的契约相反。
-    const run = () => (this.dataSource ? this.dataSource.transaction((m) => fn(m)) : fn());
-    const job = this._chainTail.then(run);
-    this._chainTail = job.catch(() => {});
-    return job;
-  }
-
-  /** 链内插入一行（须在 _withChainWrite 提供的上下文内调用，prev 才读到同事务/同批次的前序行） */
-  private async _insertOne(
-    base: Record<string, unknown>,
-    manager?: EntityManager,
-  ): Promise<AiToolSideEffect> {
-    let chain: { prevHash: string | null; hash: string } | undefined;
-    if (this.auditChain) {
-      const prev = await this._lastSideEffectHash(manager);
-      chain = { prevHash: prev ?? null, hash: this.auditChain.computeHash(prev, this._chainPayload(base)) };
-    }
-    const repo = manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo;
-    return repo.save(repo.create({ ...base, ...(chain ?? {}) } as Partial<AiToolSideEffect>));
-  }
-
-  /** G-3 链写入串行队列（sqlite 等单写者；postgres 走 DB 锁，不依赖此队列） */
-  private _chainTail: Promise<unknown> = Promise.resolve();
 
   /**
    * KB-6：解析副作用撤销能力档位快照。工具注册表命中 → 用工具显式/推导值（含 ProxyTool 显式档位）；
@@ -1004,44 +968,6 @@ export class AiToolEffectsService {
       : 'none';
   }
 
-  /** G-3：副作用链 canonical payload（稳定字段；AuditChainService canonical 排序键 → 写入/校验一致） */
-  private _chainPayload(row: Record<string, unknown>): Record<string, unknown> {
-    return {
-      idempotencyKey: row.idempotencyKey ?? null,
-      userId: row.userId ?? null,
-      conversationId: row.conversationId ?? null,
-      toolName: row.toolName ?? null,
-      argsHash: row.argsHash ?? null,
-      resultType: row.resultType ?? null,
-      resultId: row.resultId ?? null,
-      beforeSnapshot: row.beforeSnapshot ?? null,
-      afterSnapshot: row.afterSnapshot ?? null,
-    };
-  }
-
-  /** G-3：最近一条已哈希副作用行的 hash（接链用；无 → null genesis） */
-  private async _lastSideEffectHash(manager?: EntityManager): Promise<string | null> {
-    const row = await (manager ? manager.getRepository(AiToolSideEffect) : this.effectsRepo)
-      .createQueryBuilder('e')
-      .select('e.hash', 'hash')
-      .where('e.hash IS NOT NULL')
-      .orderBy('e.id', 'DESC')
-      .limit(1)
-      .getRawOne<{ hash: string }>();
-    return row?.hash ?? null;
-  }
-
-  /** G-3：副作用哈希链完整性校验（仅校验已哈希行；历史 null 行不在链内） */
-  async verifySideEffectChain(): Promise<{ valid: boolean; checked: number; hashed: number; firstHashedId: number | null }> {
-    if (!this.auditChain) return { valid: true, checked: 0, hashed: 0, firstHashedId: null };
-    const rows = await this.effectsRepo.find({ order: { id: 'ASC' } });
-    const hashed = rows.filter((r) => r.hash);
-    const res = this.auditChain.verifyChain(
-      hashed,
-      (row) => this._chainPayload(row as unknown as Record<string, unknown>),
-    );
-    return { valid: res.valid, checked: res.checked, hashed: hashed.length, firstHashedId: hashed[0]?.id ?? null };
-  }
 
   /**
    * REV-3 **检出**：同一 `resultType + resultId`（同一业务对象）出现在**多个**补偿组 → 一次业务动作被拆成两组。

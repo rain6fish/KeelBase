@@ -3,6 +3,7 @@
 import { AiToolEffectsService } from './ai-tool-effects.service';
 import type { RevokeDisputeEvidence } from './ai-tool-effects.service';
 import type { DeclaredSideEffect } from './effect-composition';
+import { chainPayload } from './effect-chain';
 
 /**
  * REV-1「少记录」：同参数重试在幂等键上冲突 → 整组回滚 → 回放既有组。若工具**非确定性**、重试声明的成员
@@ -263,12 +264,8 @@ describe('REV-1 争议组：撤销不得报告完成', () => {
   });
 
   it('争议标记不入副作用哈希链 payload（已知裁决：白名单加 key 会破历史链验签）', () => {
-    const repo = makeRepo();
-    const { svc } = makeService(repo);
-
-    const payload = (svc as unknown as {
-      _chainPayload: (r: Record<string, unknown>) => Record<string, unknown>;
-    })._chainPayload({ revokeDispute: '{"x":1}', toolName: 't', userId: '1' });
+    // 拆分第三批（2026-10-11）：白名单现在是 `effect-chain.ts` 的**模块级**函数，直接钉它本身。
+    const payload = chainPayload({ revokeDispute: '{"x":1}', toolName: 't', userId: '1' });
 
     expect(payload).not.toHaveProperty('revokeDispute');
     expect(payload).toHaveProperty('toolName', 't');

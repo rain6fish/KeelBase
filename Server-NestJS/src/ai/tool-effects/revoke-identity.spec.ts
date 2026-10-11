@@ -3,6 +3,7 @@
 import { DataSource } from 'typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
+import { chainPayload } from './effect-chain';
 import type { DeclaredSideEffect } from './effect-composition';
 
 /**
@@ -100,11 +101,8 @@ describe('REV-6 effect 身份：成组成员缺变更时**不得静默通过**',
   });
 
   it('标注是**链外注解列**：不入副作用哈希链 payload（白名单加 key 会破历史链验签）', () => {
-    const payload = (
-      svc as unknown as {
-        _chainPayload: (r: Record<string, unknown>) => Record<string, unknown>;
-      }
-    )._chainPayload({ identityIncomplete: true, toolName: 't', userId: '1' });
+    // 拆分第三批（2026-10-11）：白名单现在是 `effect-chain.ts` 的**模块级**函数 —— 钉的就是它本身，不必再伸手够实例。
+    const payload = chainPayload({ identityIncomplete: true, toolName: 't', userId: '1' });
 
     expect(payload).not.toHaveProperty('identityIncomplete');
     expect(payload).toHaveProperty('toolName', 't');

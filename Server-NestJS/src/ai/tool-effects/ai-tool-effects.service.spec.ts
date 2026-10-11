@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getEntityManagerToken } from '@nestjs/typeorm';
 import { AiToolSideEffect } from './ai-tool-side-effect.entity';
 import { AiToolEffectsService } from './ai-tool-effects.service';
+import { chainPayload } from './effect-chain';
 import { LocalEntityRevoker, SIDE_EFFECT_REVOKER } from './side-effect-revoker';
 import { ToolRegistry } from '../tools/tool-registry';
 import { resolveRevokeClass } from '../interfaces/tool.interface';
@@ -164,8 +165,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     });
 
     it('§4 G1：run_id 不入副作用哈希链 payload（白名单外 → 加列不破历史链）', () => {
-      // _chainPayload 是白名单：即使行对象带 runId，入链 payload 也不含它 —— 故加列不改变历史行重算值
-      const payload = (service as any)._chainPayload({
+      // `chainPayload` 是白名单：即使行对象带 runId，入链 payload 也不含它 —— 故加列不改变历史行重算值。
+      // 拆分第三批（2026-10-11）：它现在是 `effect-chain.ts` 的模块级函数，直接钉它本身。
+      const payload = chainPayload({
         runId: 'run-a',
         toolName: 'create_event',
         userId: '1',
