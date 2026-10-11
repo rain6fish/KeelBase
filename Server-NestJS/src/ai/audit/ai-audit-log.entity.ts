@@ -82,6 +82,33 @@ export class AiAuditLog {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'device_id' })
   deviceId?: string | null;
 
+  /**
+   * C-3: what this proposal came to, as a frozen vocabulary rather than as prose. `tool_call` rows
+   * answer executed / pending / blocked / refused / declined / failed; `tool_confirmation` rows answer
+   * approved / declined / pending / timeout; `effect_revoke` rows answer revoked. `blocked` (the risk
+   * policy, which never reaches a decision) and `refused` (the governance or authorization gate) are
+   * two different gates and are never collapsed into one. Off-chain column — **not part of the hash
+   * payload**.
+   *
+   * C-3：这一次提议的**结局** —— 用冻结词表说，而不是用散文说。`tool_call` 行答 executed / pending /
+   * blocked / refused / declined / failed；`tool_confirmation` 行答 approved / declined / pending /
+   * timeout；`effect_revoke` 行答 revoked。`blocked`（风险策略，压根没到裁决）与 `refused`（治理 /
+   * 授权那道闸）是**两道不同的闸**，永不合并。链外列 —— **不入 hash payload**。
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'outcome' })
+  outcome?: string | null;
+
+  /**
+   * C-3: the tool this row is about, by the producer's own registered name. Null when the row is not
+   * about one tool — a non-tool row, or a run-level decision that covers several. Off-chain column —
+   * **not part of the hash payload**.
+   *
+   * C-3：本行所属的**工具名**，取产出方自己的注册名。**不是关于某一个工具的行**为 null —— 非工具行，
+   * 或一次覆盖多个工具的 run 级裁决。链外列 —— **不入 hash payload**。
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'tool' })
+  tool?: string | null;
+
   @Column({ nullable: true, name: 'prompt_tokens' })
   promptTokens?: number;
 

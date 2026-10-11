@@ -37,6 +37,12 @@ export interface AiAuditLogWithUser {
   guestId?: string | null;
   /** AU-2 余项（§22.19）：客户端设备标识（链外归因列；NAT 之后多个客户端共用一个 IP 时用它分辨） */
   deviceId?: string | null;
+  /**
+   * C-3（契约 `ai-audit-log-row` v5）：这一次提议的**结构化结果码**（冻结词表）与**所属工具名**。
+   * 两者都是链外归因列。合法取值按 `action` 分，见契约仓 `ai-audit-log-outcome-v1-vector.json`。
+   */
+  outcome?: string | null;
+  tool?: string | null;
   model?: string | null;
   provider?: string | null;
   promptTokens?: number | null;
@@ -143,6 +149,8 @@ export class AuditQueryService {
       ip: r.log_ip ?? null,
       guestId: r.log_guest_id ?? null,
       deviceId: r.log_device_id ?? null,
+      outcome: r.log_outcome ?? null,
+      tool: r.log_tool ?? null,
       model: r.log_model ?? null,
       provider: r.log_provider ?? null,
       promptTokens: r.log_prompt_tokens != null ? Number(r.log_prompt_tokens) : null,

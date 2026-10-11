@@ -50,6 +50,17 @@ export interface AuditEntry {
   businessEvent?: string;
   /** §internal.16 A-1 Decision Evidence（JSON：{decision, evidence[], policy, confidence}；链外） */
   evidence?: string;
+  /**
+   * C-3: the frozen result code for this proposal, and the tool the row is about. Off-chain columns —
+   * not part of the hash payload. Which values are legal for which `action` belongs to the contract,
+   * not to this file: see `ai-audit-log-outcome-v1-vector.json` in the contract repository.
+   *
+   * C-3：这一次提议的**结构化结果码**，以及本行所属的**工具名**。链外列 —— 不入 hash payload。
+   * 哪些值对哪种 `action` 合法**归契约管**、不归本文件管：见契约仓的
+   * `ai-audit-log-outcome-v1-vector.json`。
+   */
+  outcome?: string;
+  tool?: string;
 }
 
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { buildToolCallAudit } from './tool-call-audit';
+import { buildToolCallAudit, confirmationOutcome } from './tool-call-audit';
 
 /**
  * `tool_call` 审计行组装单测（阶段 3 第十二刀新增——此前四处内联字面量**没有直接覆盖**，
@@ -41,7 +41,7 @@ describe('buildToolCallAudit（tool_call 审计行）', () => {
     });
     expect(definedKeys(row)).toEqual([
       'action', 'authorization', 'businessEvent', 'completionTokens', 'conversationId',
-      'detail', 'isError', 'promptTokens', 'provider', 'userId',
+      'detail', 'isError', 'outcome', 'promptTokens', 'provider', 'tool', 'userId',
     ]);
   });
 
@@ -69,17 +69,47 @@ describe('buildToolCallAudit（tool_call 审计行）', () => {
       ...base,
       errorMessage: 'Tool "delete_customer" is blocked (risk level R5)',
       authorization: '[{"name":"risk_policy","ok":false}]',
+      deniedBy: ['risk_policy'],
     });
 
     expect(row.isError).toBe(true);
     expect(row.businessEvent).toBeUndefined();
     expect(row.evidence).toBeUndefined();
     expect(row.promptTokens).toBeUndefined();
+    // C-3：文案与结果码说的是同一件事 —— 这道闸是风险策略，故 blocked（不是 refused）
+    expect(row.outcome).toBe('blocked');
     // deny 行的有值键集：比成功行少 businessEvent/两列 tokens（这正是四处必须同形的原因）
     expect(definedKeys(row)).toEqual([
       'action', 'authorization', 'conversationId', 'detail', 'errorMessage',
-      'isError', 'provider', 'userId',
+      'isError', 'outcome', 'provider', 'tool', 'userId',
     ]);
+  });
+
+  it('C-3：结果码按形状取值 —— 两种执行、待批优先于失败、两道闸分得开、工具名原样透传', () => {
+    // 执行：成功 / 失败
+    expect(buildToolCallAudit({ ...base, result: { success: true } }).outcome).toBe('executed');
+    expect(buildToolCallAudit({ ...base, result: { success: false, error: 'boom' } }).outcome).toBe('failed');
+    // R4 待批：调用方**同时**给了 result（占位失败）与 pendingApproval ⇒ 在等人是 pending，不是 failed
+    expect(
+      buildToolCallAudit({ ...base, result: { success: false, error: '已提交人工审批' }, pendingApproval: true }).outcome,
+    ).toBe('pending');
+    // 两道闸：risk_policy 那道**没到裁决** ⇒ blocked；其余拒绝 ⇒ refused
+    expect(
+      buildToolCallAudit({ ...base, errorMessage: 'blocked (R5)', deniedBy: ['risk_policy'] }).outcome,
+    ).toBe('blocked');
+    expect(
+      buildToolCallAudit({ ...base, errorMessage: 'not your data', deniedBy: ['role_allowed'] }).outcome,
+    ).toBe('refused');
+    // 没有结构化的 reasons（如子代理越出自己工具集）⇒ refused —— 不从文案里猜哪道闸
+    expect(buildToolCallAudit({ ...base, errorMessage: 'outside this agent tool set' }).outcome).toBe('refused');
+    // tool 列：产出方自己的注册名，不解析 detail
+    expect(buildToolCallAudit({ ...base, result: { success: true } }).tool).toBe('create_event');
+  });
+
+  it('C-3：确认行的裁决 → 词表值（run 级与单条共用同一处映射）', () => {
+    expect(confirmationOutcome('approve')).toBe('approved');
+    expect(confirmationOutcome('decline')).toBe('declined');
+    expect(confirmationOutcome('timeout')).toBe('timeout');
   });
 
   it('B 路径代理写：source 标 bridge；非代理写则无该列', () => {

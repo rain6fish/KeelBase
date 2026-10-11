@@ -20,7 +20,7 @@ import { AuthorizationExplainerService, buildAllowSnapshot } from './authorizati
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
 import { captureDecisionEvidence } from './audit/decision-evidence';
-import { buildToolCallAudit } from './audit/tool-call-audit';
+import { buildToolCallAudit, confirmationOutcome } from './audit/tool-call-audit';
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
 import { AiToolEffectsService, sortKeys } from './tool-effects/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
@@ -253,6 +253,7 @@ export class AiService {
               bridge,
               errorMessage: denied ? err.message : `Failed to execute tool "${toolName}"`,
               authorization: denied ? JSON.stringify(err.reasons) : undefined,
+              deniedBy: denied ? err.reasons.map((c) => c.name) : undefined,
               parentActionId: agentRunId,
             }),
           );
@@ -1101,6 +1102,8 @@ export class AiService {
               conversationId,
               action: 'tool_confirmation',
               detail: `run(${token}) ${aggregable.length} items → ${outcome}`,
+              // C-3：run 级裁决**覆盖多个工具** ⇒ 不写 tool（那一列答的是「本行属于哪一个工具」）
+              outcome: confirmationOutcome(outcome),
               isError: !approved,
               errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
             });
@@ -1185,6 +1188,8 @@ export class AiService {
                   conversationId,
                   action: 'tool_confirmation',
                   detail: `${tc.name}(${JSON.stringify(parsed)}) → pending_approval`,
+              outcome: 'pending',
+              tool: tc.name,
                 });
               }
             } else {
@@ -1257,6 +1262,8 @@ export class AiService {
                 conversationId,
                 action: 'tool_confirmation',
                 detail: `${tc.name}(${JSON.stringify(parsed)}) → ${outcome}${trustTool ? ' (trusted)' : ''}`,
+                outcome: confirmationOutcome(outcome),
+                tool: tc.name,
                 isError: outcome !== 'approve',
                 errorMessage: outcome === 'timeout' ? 'User did not respond in time' : outcome === 'decline' ? 'User declined the operation' : undefined,
               });
@@ -1415,6 +1422,7 @@ export class AiService {
                 bridge: this.toolExecution.isProxyTool(tc.name),
                 errorMessage: deniedMsg,
                 authorization: err instanceof AuthorizationDeniedError ? JSON.stringify(err.reasons) : undefined,
+                deniedBy: err instanceof AuthorizationDeniedError ? err.reasons.map((c) => c.name) : undefined,
               }),
             );
           }
@@ -1629,6 +1637,7 @@ export class AiService {
                 bridge: this.toolExecution.isProxyTool(tc.name),
                 errorMessage: deniedMsg,
                 authorization: denied ? JSON.stringify(err.reasons) : undefined,
+                deniedBy: denied ? err.reasons.map((c) => c.name) : undefined,
               }),
             );
           }

@@ -49,15 +49,54 @@ export interface ToolCallAuditInput {
    * 它（2026-10-01），故无人把它解析成另一行。
    */
   parentActionId?: string;
+  /**
+   * The structured deny reasons when this call was refused (`AuthorizationDeniedError.reasons`).
+   * Needed to tell the two gates apart: a refusal whose reasons name `risk_policy` never reached a
+   * decision and is `blocked`, while every other refusal is `refused`. The prose in `errorMessage` is
+   * not enough — reading that sentence is exactly the parsing this column exists to remove.
+   *
+   * 被拒时带上**结构化**的 deny reasons（`AuthorizationDeniedError.reasons`）—— 用来分辨**两道不同的闸**：
+   * reasons 里点名 `risk_policy` 的拒绝**从没到过裁决**，是 `blocked`；其余拒绝是 `refused`。光有
+   * `errorMessage` 里那句话是不够的 —— 读那句话，正是本列存在的意义所要消掉的那件事。
+   */
+  deniedBy?: string[];
+}
+
+/**
+ * A confirmation's decision, as the C-3 vocabulary spells it (contract: `ai-audit-log-row` v5). One
+ * place decides what each decision is called, so the two inline confirmation rows cannot drift apart
+ * — the same reason this file was extracted in the first place.
+ *
+ * 一次确认的裁决，用 C-3 的词表来说（契约：`ai-audit-log-row` v5）。**由一处决定每个裁决叫什么**，
+ * 两处内联的确认行才不会各自漂移 —— 与这个文件当初被提出来的理由是同一条。
+ */
+export function confirmationOutcome(decision: 'approve' | 'decline' | 'timeout'): string {
+  return decision === 'approve' ? 'approved' : decision === 'decline' ? 'declined' : 'timeout';
 }
 
 export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const { result } = input;
+  // Order matters: the R4 path hands over both a `result` (a placeholder failure saying "submitted for
+  // human approval") *and* `pendingApproval`, and awaiting a person is `pending` — never `failed`.
+  //
+  // 顺序不能颠倒：R4 那条路**同时**给了一个 `result`（一句「已提交人工审批」的占位失败）**和**
+  // `pendingApproval`，而「在等人」是 `pending`，绝不是 `failed`。
+  const outcome = input.pendingApproval
+    ? 'pending'
+    : result
+      ? result.success
+        ? 'executed'
+        : 'failed'
+      : input.deniedBy?.includes('risk_policy')
+        ? 'blocked'
+        : 'refused';
   return {
     userId: input.userId,
     conversationId: input.conversationId,
     action: 'tool_call',
     detail: `${input.toolName}(${input.argsJson})`,
+    outcome,
+    tool: input.toolName,
     isError: result ? !result.success && !input.pendingApproval : true,
     errorMessage: input.errorMessage ?? result?.error,
     // 工具内部自调 LLM 时（如 summarize_customer_360）的开销记在工具自己这行
