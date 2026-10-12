@@ -306,16 +306,16 @@ describe('DecisionTraceService', () => {
     // 版本由 registry 决定、**不硬编码** —— 契约只增不改，形状变更后 registry 指向 vN；
     // 硬编码 v1 会让本断言对着**过期契约**静默通过（2026-10-03 trace-step 出 v2 时发现）。
     const specs = resolve(__dirname, '../../../specs/protocol');
-    const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry.json'), 'utf8')) as {
+    const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry-v2.json'), 'utf8')) as {
       schemasDir: string;
-      objects: Array<{ id: string; schema: string }>;
+      objects: Array<{ id: string; version: string; schema: string }>;
     };
     const traceStepSchema = registry.objects.find((o) => o.id === 'trace-step');
     if (!traceStepSchema) throw new Error('registry 缺 trace-step 条目');
     const props = Object.keys(
       (
         JSON.parse(
-          readFileSync(resolve(specs, registry.schemasDir, traceStepSchema.schema), 'utf8'),
+          readFileSync(resolve(specs, registry.schemasDir, traceStepSchema.version, traceStepSchema.schema), 'utf8'),
         ) as { properties: Record<string, unknown> }
       ).properties,
     );

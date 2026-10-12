@@ -8,7 +8,7 @@
  *   - ws-frame：WS_EVENTS（信封事件）+ AI_CHUNK_TO_WS（chunk.type → ai:* 事件）的值集
  *   - sse-event：AI_CHUNK_TO_WS 的键集（= chatStream chunk.type 全集）
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WS_EVENTS, AI_CHUNK_TO_WS } from './realtime.types';
 
@@ -22,19 +22,19 @@ const SPECS_ROOT = resolve(__dirname, '../../specs/protocol');
  * （同 `ai.service.spec` 的 `wiredSchema` 口径）。
  */
 function schemaOf(objectId: string): Record<string, unknown> {
-  const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry.json'), 'utf8')) as {
+  const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry-v2.json'), 'utf8')) as {
     schemasDir: string;
     objects: Array<{ id: string; version: string; schema: string }>;
   };
   const entry = registry.objects.find((o) => o.id === objectId);
   if (!entry) throw new Error(`registry 缺对象：${objectId}`);
-  const dir = resolve(SPECS_ROOT, registry.schemasDir, entry.version);
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.json')) continue;
-    const parsed = JSON.parse(readFileSync(resolve(dir, f), 'utf8')) as Record<string, unknown>;
-    if (parsed.$id === entry.schema) return parsed;
-  }
-  throw new Error(`未找到 ${objectId} 的 schema（registry $id=${entry.schema}，目录 ${entry.version}）`);
+  // v2 的 `schema` 是**文件名**（落在条目自己的版本目录下），故直接按路径取 —— 不要再按 `$id` 比对：
+  // 这份语料里两者**不总是相等**（`sse-event.schema.json` 的 `$id` 是 `sse-event-v2.schema.json`）。
+  // v2's `schema` is the file name under the entry's own version, so it is read by path rather than
+  // matched against `$id` — the two are not always equal in this corpus.
+  const path = resolve(SPECS_ROOT, registry.schemasDir, entry.version, entry.schema);
+  if (!existsSync(path)) throw new Error(`未找到 ${objectId} 的 schema（${entry.version}/${entry.schema}）`);
+  return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
 describe('实时事件名 == 冻结 wire 契约', () => {

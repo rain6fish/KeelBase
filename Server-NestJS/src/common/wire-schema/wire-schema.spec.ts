@@ -11,13 +11,13 @@
  * schema 为人工策展快照（非自动派生）；来源锚见各 schema description 与 registry.source。
  * 仅依赖 ajv / ajv-formats（package-lock 内既有传递依赖，版本锁定）。
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
 const SPECS = resolve(__dirname, '../../../specs/protocol');
-const registry = JSON.parse(readFileSync(resolve(SPECS, 'wire-schema-registry.json'), 'utf8')) as {
+const registry = JSON.parse(readFileSync(resolve(SPECS, 'wire-schema-registry-v2.json'), 'utf8')) as {
   schemasDir: string;
   objects: Array<{ id: string; version: string; schema: string; samples: string[] }>;
 };
@@ -146,17 +146,16 @@ describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry�
   });
 
   it('registry：声明的 schema 由**声明版本**提供（防同名 $id 解析到别的版本）', () => {
-    // registry 每个对象带 version；其 schema 文件的路径应以该版本目录开头。
-    // 覆盖「对象声明 v3、实际却解析到 v2 文件」这类跨版本错配。
+    // v2 的 `schema` 是**文件名**、落在条目自己的版本目录下，故解析按路径做。
+    // ⚠ 别把它当 `$id`：同一份语料里两者**不总是相等**（`sse-event.schema.json` 的 `$id` 是
+    // `sse-event-v2.schema.json`，`side-effect-revoke` 的是 `v2/side-effect-revoke.schema.json`）——
+    // 按 `$id` 取用会让条目**静默落到另一个版本的文件**上，这正是本断言要挡的错配。
+    // v2 writes `schema` as the file name under the entry's own version, so it is resolved by path.
+    // Do not read it as an `$id`: in this corpus the two are not always equal, and keying by `$id`
+    // lands the entry on another version's file without saying so.
     for (const o of registry.objects) {
-      const entry = schemas.get(o.schema);
-      check(entry !== undefined, `${o.id}: schema ${o.schema} 未注册`);
-      if (entry) {
-        check(
-          entry.path.startsWith(`${o.version}/`),
-          `${o.id}: schema 解析到 ${entry.path}，与声明版本 ${o.version} 不符`,
-        );
-      }
+      const path = resolve(SPECS, registry.schemasDir, o.version, o.schema);
+      check(existsSync(path), `${o.id}: schema ${o.version}/${o.schema} 缺失`);
     }
   });
 
@@ -169,7 +168,7 @@ describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry�
     for (const o of registry.objects) {
       // 形如 v<N> 而非硬编码枚举：升版（v3、v4…）不必再改本断言；拼写错误（v2x / 2 / V2）仍被拦下。
       check(/^v\d+$/.test(o.version), `${o.id}: version 非法（${o.version}）`);
-      check(schemas.has(o.schema), `${o.id}: schema ${o.schema} 缺失`);
+      check(existsSync(resolve(SPECS, registry.schemasDir, o.version, o.schema)), `${o.id}: schema ${o.version}/${o.schema} 缺失`);
       check(Array.isArray(o.samples) && o.samples.length > 0, `${o.id}: 样例为空`);
       for (const rel of o.samples) {
         try {
@@ -183,9 +182,17 @@ describe('CE-1 wire Schema 冻结（specs/protocol/schemas v1/v2/v3 + registry�
 
   it('样例：每份代表样例通过其对象 schema（draft-07）', () => {
     for (const o of registry.objects) {
+      // ajv 按 `$id` 注册，而 v2 的 `schema` 是**文件名** —— 两者在这份语料里**不总是相等**，故键从文件里
+      // 读、不从字段里假定（`sse-event` 与 `side-effect-revoke` 就是不相等的两例）。
+      // ajv registers by `$id` and v2's `schema` is a file name; they are not always equal here, so the
+      // key is read out of the file rather than assumed from the field.
+      const file = JSON.parse(
+        readFileSync(resolve(SPECS, registry.schemasDir, o.version, o.schema), 'utf8'),
+      ) as { $id?: string };
+      const key = file.$id ?? o.schema;
       for (const rel of o.samples) {
         const sample = JSON.parse(readFileSync(resolve(SPECS, rel), 'utf8')) as unknown;
-        const ok = ajv.validate(o.schema, sample);
+        const ok = ajv.validate(key, sample);
         if (!ok) failures.push(`${o.id} / ${rel} 校验失败: ${ajv.errorsText()}`);
       }
     }

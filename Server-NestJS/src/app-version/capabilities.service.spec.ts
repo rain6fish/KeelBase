@@ -32,7 +32,7 @@ describe('CapabilitiesService', () => {
     // 硬写路径的代价是实测过的：加 `display`（v2）时它会失败，而失败信息指向的是一个
     // 已经过时的路径，看不出「契约升版了、绑定该跟上去」。
     const registry = JSON.parse(
-      readFileSync(resolve(__dirname, '../../specs/protocol/wire-schema-registry.json'), 'utf8'),
+      readFileSync(resolve(__dirname, '../../specs/protocol/wire-schema-registry-v2.json'), 'utf8'),
     ) as { objects: Array<{ id: string; version: string; schema: string }> };
     const entry = registry.objects.find((o) => o.id === 'capabilities');
     expect(entry).toBeDefined();

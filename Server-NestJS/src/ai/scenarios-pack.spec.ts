@@ -246,20 +246,21 @@ describe('CE-1 B4 场景包 · 语料漂移门', () => {
      * The registry, and the two things a corpus `expect` depends on: which object it is talking
      * about, and which field names that object has.
      *
-     * The resolution tolerates both spellings of the registry's `schema` field — six entries carry a
-     * `vN/` prefix and the rest do not — and throws with both paths tried, so a pointer that breaks
-     * is loud rather than a silently skipped object.
+     * v2 writes `schema` one way — the bare file name, with the version beside it — so there is a
+     * single path to try, and a pointer that breaks is loud rather than a silently skipped object.
+     *
+     * v2 的 `schema` **只有一种写法**（裸名，版本在旁边）⇒ 只有一条路径要试；断掉的指针**响亮**，而不是
+     * 悄悄跳过一个对象。
      */
     const WIRE_SPECS = resolve(SPECS_DIR, '../protocol');
     const registryObjects = JSON.parse(
-      readFileSync(resolve(WIRE_SPECS, 'wire-schema-registry.json'), 'utf8'),
+      readFileSync(resolve(WIRE_SPECS, 'wire-schema-registry-v2.json'), 'utf8'),
     ).objects as Array<{ id: string; version: string; schema: string }>;
 
     const loadWireSchema = (objectId: string): any => {
       const entry = registryObjects.find((o) => o.id === objectId);
       if (!entry) throw new Error(`no wire object \`${objectId}\` in the registry`);
       const tried = [
-        resolve(WIRE_SPECS, 'schemas', entry.schema),
         resolve(WIRE_SPECS, 'schemas', entry.version, entry.schema),
       ];
       for (const path of tried) {
