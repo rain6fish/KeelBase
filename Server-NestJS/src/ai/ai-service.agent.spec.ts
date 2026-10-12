@@ -2,7 +2,7 @@
 
 
 
-import { aiService, confirmationStore, installAiServiceTestbed, mockProvider, mockToolGate, mockToolRegistry, toolExecution, toolExposure } from '../../test/ai-service.testbed';
+import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockProvider, mockToolGate, mockToolRegistry, toolExecution, toolExposure } from '../../test/ai-service.testbed';
 
 beforeEach(installAiServiceTestbed);
 
@@ -21,13 +21,27 @@ beforeEach(installAiServiceTestbed);
       expect(result.reply).toBe('ok');
     });
 
-    it('非 adminMode：导航关键词短路仍生效（回归守卫）', async () => {
+    it('非 adminMode：导航确定性生效，且经 navigate_page 工具留痕（回归守卫）', async () => {
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: { navigateTo: '/settings' },
+      });
       mockProvider.generate.mockResolvedValue({ content: 'should not be used' });
 
       const result = await aiService.chat('1', { message: '打开设置' });
 
+      // 仍为确定性识别（不调 LLM 分类），但跳转改经治理层执行
       expect(mockProvider.generate).not.toHaveBeenCalled();
       expect(result.navigateTo).toBe('/settings');
+      // P0：导航不再绕过工具循环 —— 走 navigate_page 并落 tool_call 审计行
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'navigate_page',
+        { page: 'settings' },
+        '1',
+      );
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'tool_call', tool: 'navigate_page' }),
+      );
     });
 
     it('adminOnly 工具：非管理员（普通用户）调用被结构化拒绝', async () => {

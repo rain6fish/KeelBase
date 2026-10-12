@@ -20,8 +20,11 @@ import { ToolParameter } from '../interfaces/tool.interface';
  *
  * 新增功能页时在此添加：
  *   newFeature: { route: '/route-path', description: '中文描述' }
+ *
+ * 首页路由的**唯一真源**：`AiService.detectNavigation` 的关键词命中后由此表取 route/description，
+ * 不再自持一份硬编码路由副本（两份表曾各自漂移，且高频路径走的正是没被对账的那份）。
  */
-const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
+export const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
   home: { route: '/', description: '首页/仪表盘' },
   dashboard: { route: '/', description: '首页/仪表盘' },
   events: { route: '/events', description: '事件列表' },
@@ -55,6 +58,22 @@ const PAGE_ROUTES: Record<string, { route: string; description: string }> = {
 
 /** 支持页面清单由 PAGE_ROUTES 派生（单一真源，防陈旧硬编码文案漂移） */
 const SUPPORTED_PAGES = [...new Set(Object.values(PAGE_ROUTES).map((p) => p.description))].join('、');
+
+/**
+ * 确定性导航的「词 → 页面键」表：`AiService` 在调 LLM **之前**用它识别导航意图，键须存在于 `PAGE_ROUTES`。
+ *
+ * 与 `PAGE_ROUTES` 同放一处，是为了让两张表**不可能各自漂移** —— 此前关键词表另持一份硬编码 route 副本，
+ * 而高频路径走的正是那份没被对账的表。键的闭包由守卫测试 `ai-service.navigation.spec.ts` 校验。
+ */
+export const NAV_KEYWORDS: Array<{ keywords: string[]; page: string }> = [
+  { keywords: ['首页', '主页', 'home', 'dashboard'], page: 'home' },
+  { keywords: ['事件', '日程', '日历', 'events'], page: 'events' },
+  { keywords: ['发现', 'explore'], page: 'explore' },
+  { keywords: ['个人资料', '资料', 'profile'], page: 'profile' },
+  { keywords: ['设置', '系统设置', 'settings'], page: 'settings' },
+  { keywords: ['上传', 'upload', '文件上传'], page: 'upload' },
+  { keywords: ['ai', 'AI', '助手'], page: 'ai' },
+];
 
 export class NavigatePageTool implements AiTool {
   readonly name = 'navigate_page';

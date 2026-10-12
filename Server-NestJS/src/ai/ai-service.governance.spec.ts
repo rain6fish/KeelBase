@@ -124,11 +124,22 @@ beforeEach(installAiServiceTestbed);
       expect(result.conversationId).toBe('conv-new');
     });
 
-    it('chat：导航意图不走 LLM，直接返回跳转', async () => {
+    it('chat：导航意图不走 LLM 分类，经 navigate_page 工具跳转', async () => {
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: { navigateTo: '/events' },
+      });
       mockProvider.generate.mockResolvedValue({ content: 'should not be used' });
       const result = await aiService.chat('1', { message: '打开事件列表' });
       expect(mockProvider.generate).not.toHaveBeenCalled();
       expect(result.reply).toContain('事件');
+      // P0：跳转经治理层执行（工具行 + 审计），不再是绕过工具循环的裸 route
+      expect(result.navigateTo).toBe('/events');
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'navigate_page',
+        { page: 'events' },
+        '1',
+      );
     });
   });
 

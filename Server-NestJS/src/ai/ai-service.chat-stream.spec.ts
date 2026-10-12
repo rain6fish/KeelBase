@@ -1000,7 +1000,11 @@ beforeEach(installAiServiceTestbed);
     });
 
     it('should still navigate for a pure navigation request', async () => {
-      // 去掉「帮我」后，纯导航「打开设置」仍走导航拦截，不调用 LLM
+      // 去掉「帮我」后，纯导航「打开设置」仍走确定性导航，不调用 LLM
+      mockToolRegistry.execute.mockResolvedValue({
+        success: true,
+        data: { navigateTo: '/settings' },
+      });
       async function* mockStream() {
         yield { type: 'text' as const, content: 'x' };
         yield { type: 'done' as const };
@@ -1018,6 +1022,15 @@ beforeEach(installAiServiceTestbed);
       expect(navChunk?.route).toBe('/settings');
       const texts = chunks.filter((c) => c.type === 'text').map((c) => c.content);
       expect(texts[0]).toContain('跳转');
+      // P0：导航经治理层执行 —— 有工具行 + 审计（此前直接返回 route，毫无留痕）
+      expect(mockToolRegistry.execute).toHaveBeenCalledWith(
+        'navigate_page',
+        { page: 'settings' },
+        '1',
+      );
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'tool_call', tool: 'navigate_page' }),
+      );
     });
 
     it('should treat 帮我查询 as a query (no action verb, no navigation hijack)', async () => {

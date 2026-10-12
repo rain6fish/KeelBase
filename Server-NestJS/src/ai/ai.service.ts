@@ -16,6 +16,7 @@ import { ToolGateService } from './tools/tool-gate.service';
 import { ToolExecutionService } from './tools/tool-execution.service';
 import { ToolPresentationService } from './tools/tool-presentation.service';
 import { ToolExposureService } from './tools/tool-exposure.service';
+import { PAGE_ROUTES, NAV_KEYWORDS } from './tools/navigate-page.tool';
 import { AuthorizationExplainerService, buildAllowSnapshot } from './authorization-explainer.service';
 import { ConversationService } from './conversation/conversation.service';
 import { AuditService } from './audit/audit.service';
@@ -624,8 +625,13 @@ export class AiService {
     const turnTotal = (): LlmUsage | undefined => addLlmUsage(usage, preflightUsage);
 
     if (intent === 'navigate') {
-      // 导航请求 — 关键词匹配，不走 LLM
-      const navResult = request.adminMode ? null : this.detectNavigation(request.message);
+      // 导航请求 — 关键词确定性识别（不做 LLM 判断），但**执行**经同一治理层（工具门控 + 工具行审计）
+      const navResult = await this._runDeterministicNavigation(
+        userId,
+        conversationId,
+        providerName,
+        request,
+      );
       if (navResult) {
         await this.conversationService.appendMessage(conversationId, {
           role: 'assistant',
@@ -892,8 +898,13 @@ export class AiService {
       content: request.message,
     });
 
-    // 导航意图预检测
-    const navResult = request.adminMode ? null : this.detectNavigation(request.message);
+    // 导航意图预检测 — 与 chat 同一条受治理路径（工具门控 + 工具行审计），不再直接返回 route 绕过循环
+    const navResult = await this._runDeterministicNavigation(
+      userId,
+      conversationId,
+      providerName,
+      request,
+    );
     if (navResult) {
       await this.conversationService.appendMessage(conversationId, {
         role: 'assistant',
@@ -1746,14 +1757,16 @@ export class AiService {
   }
 
   /**
-   * 导航意图检测
+   * 导航意图检测（确定性，零 LLM）
    *
-   * 直接关键词匹配识别导航请求，在调用 LLM 之前拦截。
-   * 保证导航功能 100% 响应，不依赖 LLM 工具调用。
+   * 关键词命中即认定导航请求，在调用 LLM 之前拦截。**本方法只做识别**：返回页面键，
+   * route 与文案由 `PAGE_ROUTES`（`tools/navigate-page.tool.ts`）派生——该表是页面路由的唯一真源，
+   * 本方法不再自持一份硬编码路由副本（两份表曾各自漂移，且高频路径走的正是没被对账的那份）。
+   * 实际跳转必须经 `_runDeterministicNavigation` 走同一治理层执行，**不得**直接返回 route 绕过工具循环。
    */
   private detectNavigation(
     message: string,
-  ): { route: string; reply: string } | null {
+  ): { page: string; route: string; reply: string } | null {
     const trimmed = message.trim();
     if (!trimmed) return null;
 
@@ -1769,26 +1782,45 @@ export class AiService {
     const hasNavIntent = navVerbs.some((v) => trimmed.includes(v));
     if (!hasNavIntent) return null;
 
-    // 页面映射表：按优先顺序匹配
-    const pageMap: Array<{ keywords: string[]; route: string; label: string }> = [
-      { keywords: ['首页', '主页', 'home', 'dashboard'], route: '/', label: '首页' },
-      { keywords: ['事件', '日程', '日历', 'events'], route: '/events', label: '事件列表' },
-      { keywords: ['发现', 'explore'], route: '/explore', label: '发现页' },
-      { keywords: ['个人资料', '资料', 'profile'], route: '/profile', label: '个人资料' },
-      { keywords: ['设置', '系统设置', 'settings'], route: '/settings', label: '设置' },
-      { keywords: ['上传', 'upload', '文件上传'], route: '/upload', label: '文件上传' },
-      { keywords: ['ai', 'AI', '助手'], route: '/ai', label: 'AI 助手' },
-    ];
-
-    for (const page of pageMap) {
-      if (page.keywords.some((k) => trimmed.includes(k))) {
-        return {
-          route: page.route,
-          reply: `已为您跳转到${page.label}。`,
-        };
-      }
+    // 词 → 页面键表与 PAGE_ROUTES 同源（`tools/navigate-page.tool.ts`），按优先顺序匹配
+    for (const page of NAV_KEYWORDS) {
+      if (!page.keywords.some((k) => trimmed.includes(k))) continue;
+      const target = PAGE_ROUTES[page.page];
+      if (!target) continue; // 页表缺该键 → 跳过（守卫测试应在 CI 拦下，而非在此抛错）
+      return {
+        page: page.page,
+        route: target.route,
+        reply: `已为您跳转到${target.description}。`,
+      };
     }
 
     return null;
+  }
+
+  /**
+   * 确定性导航：关键词命中 → 经**同一治理层**执行 `navigate_page`（工具门控 + 只读强制 + 工具行审计）。
+   *
+   * 此前这条路径在 chat / chatStream 里直接返回 route，**绕过工具循环** ⇒ 该动作在审计与权限上
+   * 等于不存在，却在用户界面上真的发生了（治理暗门）。现复用 `_agentStepExecutor`——与 plan / 子代理
+   * 步骤同一个受治理执行器：唯一的确定性差异（关键词命中即触发、不等 LLM）保留，但不再跳过治理。
+   *
+   * route 与文案取自 `PAGE_ROUTES`（唯一真源），不依赖工具返回值——工具读的是同一张表。
+   *
+   * @returns 命中并放行时返回 `{ route, reply }`；未命中、adminMode、或执行被拒时返回 `null`（由调用方决定去向）
+   */
+  private async _runDeterministicNavigation(
+    userId: string,
+    conversationId: string,
+    providerName: string,
+    request: ChatRequest,
+  ): Promise<{ route: string; reply: string } | null> {
+    if (request.adminMode) return null;
+    const hit = this.detectNavigation(request.message);
+    if (!hit) return null;
+    // 一"轮次"一个句柄（§22.19 AU-2）：该次导航的工具行挂在此句柄下，可随会话查询取回
+    const agentRunId = randomUUID();
+    const exec = this._agentStepExecutor(conversationId, providerName, agentRunId);
+    await exec('navigate_page', { page: hit.page }, userId);
+    return { route: hit.route, reply: hit.reply };
   }
 }
