@@ -24,7 +24,7 @@ import { ExternalToolRegistry } from '../src/ai/tools/external-tool-registry';
 import { ConversationService } from '../src/ai/conversation/conversation.service';
 import { ConfirmationStore } from '../src/ai/confirmation/confirmation.store';
 import type { AiTool } from '../src/ai/interfaces/tool.interface';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const SPECS_ROOT = resolve(__dirname, '../specs/protocol');
@@ -74,20 +74,22 @@ export function mockTool(over: Partial<AiTool> = {}): AiTool {
  * 断言会盯着旧版假绿/假红。
  */
 export function wiredSchema(objectId: string): { $id: string; properties: Record<string, unknown> } {
-  const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry.json'), 'utf8')) as {
+  const registry = JSON.parse(readFileSync(resolve(SPECS_ROOT, 'wire-schema-registry-v2.json'), 'utf8')) as {
     schemasDir: string;
     objects: Array<{ id: string; version: string; schema: string }>;
   };
   const entry = registry.objects.find((o) => o.id === objectId);
   if (!entry) throw new Error(`registry 缺对象：${objectId}`);
-  const dir = resolve(SPECS_ROOT, registry.schemasDir, entry.version);
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.json')) continue;
-    const parsed = JSON.parse(readFileSync(resolve(dir, f), 'utf8')) as {
+  // v2 的 `schema` 是**文件名**（落在条目自己的版本目录下），故按路径取；别按 `$id` 比对（两者在
+  // 这份语料里不总是相等）。/ v2's `schema` is the file name under the entry's own version, so it is
+  // read by path rather than matched against `$id`.
+  const path = resolve(SPECS_ROOT, registry.schemasDir, entry.version, entry.schema);
+  if (existsSync(path)) {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
       $id?: string;
       properties?: Record<string, unknown>;
     };
-    if (parsed.$id === entry.schema) return { $id: parsed.$id, properties: parsed.properties ?? {} };
+    return { $id: parsed.$id ?? entry.schema, properties: parsed.properties ?? {} };
   }
   throw new Error(`未找到 ${objectId} 的 schema（registry $id=${entry.schema}，目录 ${entry.version}）`);
 }

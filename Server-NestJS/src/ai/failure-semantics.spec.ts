@@ -21,7 +21,7 @@ const vector = JSON.parse(
   readFileSync(resolve(PROTOCOL_DIR, 'failure-semantics-v2-vector.json'), 'utf8'),
 ) as { outcomes: Array<{ id: string; wireSchema: string | null; failurePath: string; invariant: string }> };
 
-const registry = JSON.parse(readFileSync(resolve(PROTOCOL_DIR, 'wire-schema-registry.json'), 'utf8')) as {
+const registry = JSON.parse(readFileSync(resolve(PROTOCOL_DIR, 'wire-schema-registry-v2.json'), 'utf8')) as {
   objects: Array<{ id: string }>;
 };
 const failurePack = JSON.parse(readFileSync(resolve(SCENARIOS_DIR, 'failure-path-v1.json'), 'utf8')) as {

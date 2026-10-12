@@ -361,15 +361,15 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       // 版本由 registry 决定、**不硬编码** —— 契约只增不改，形状变更后 registry 指向 vN；
       // 硬编码会让本断言对着**过期契约**静默通过（2026-10-03 该对象出 v4 时发现）。
       const specs = resolve(__dirname, '../../../specs/protocol');
-      const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry.json'), 'utf8')) as {
+      const registry = JSON.parse(readFileSync(resolve(specs, 'wire-schema-registry-v2.json'), 'utf8')) as {
         schemasDir: string;
-        objects: Array<{ id: string; schema: string }>;
+        objects: Array<{ id: string; version: string; schema: string }>;
       };
       const entry = registry.objects.find((o) => o.id === 'side-effect-revoke');
       if (!entry) throw new Error('registry 缺 side-effect-revoke 条目');
       const props = Object.keys(
         (
-          JSON.parse(readFileSync(resolve(specs, registry.schemasDir, entry.schema), 'utf8')) as {
+          JSON.parse(readFileSync(resolve(specs, registry.schemasDir, entry.version, entry.schema), 'utf8')) as {
             definitions: { revokeResult: { properties: Record<string, unknown> } };
           }
         ).definitions.revokeResult.properties,

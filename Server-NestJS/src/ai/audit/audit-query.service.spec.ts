@@ -73,17 +73,15 @@ describe('AuditQueryService（从 AuditService 拆出的查询域）', () => {
       // 本轮 `ai-audit-log-row` 出 v4（加 deviceId）时，硬写 v3 的那版断言失败信息指向的是
       // 一个已经过时的路径，看不出「契约升版了、绑定该跟上去」（`capabilities` 那边当年同款教训）。
       const registry = JSON.parse(
-        readFileSync(resolve(__dirname, '../../../specs/protocol/wire-schema-registry.json'), 'utf8'),
+        readFileSync(resolve(__dirname, '../../../specs/protocol/wire-schema-registry-v2.json'), 'utf8'),
       ) as { objects: Array<{ id: string; version: string; schema: string }> };
       const entry = registry.objects.find((o) => o.id === 'ai-audit-log-row');
       expect(entry).toBeDefined();
-      // ⚠ registry 的 `schema` 字段**混两种写法**：有的把版本写进路径（`v4/xxx.schema.json`），
-      // 有的只写文件名（版本另存 `version`）。两种都要认，否则一半对象会解析出双版本路径。
-      const rel = entry!.schema.startsWith(`${entry!.version}/`)
-        ? entry!.schema
-        : `${entry!.version}/${entry!.schema}`;
+      // v2 writes `schema` one way — the bare file name, with the version beside it — so the path is
+      // built rather than guessed, and there is only one shape to know.
+      // v2 的 `schema` **只有一种写法**（裸名，版本在旁边），故路径是**拼出来的**、不是猜的，也只有一种形状要认。
       const schema = JSON.parse(
-        readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/${rel}`), 'utf8'),
+        readFileSync(resolve(__dirname, `../../../specs/protocol/schemas/${entry!.version}/${entry!.schema}`), 'utf8'),
       ) as { properties: Record<string, unknown> };
       expect(Object.keys(result[0]).sort()).toEqual(Object.keys(schema.properties).sort());
     });
