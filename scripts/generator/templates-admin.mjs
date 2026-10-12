@@ -235,11 +235,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppTable from '@/components/AppTable.vue'
-import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
-import { ${ctx.plural}Api, type Admin${ctx.singlePascal}${hasAtt ? `, type Admin${ctx.singlePascal}Attachment` : ''} } from '@/api/${ctx.plural}'
-${hasAtt ? `import { uploadFile } from '@/api/upload'\n` : ''}
+import { ${ctx.plural}Api, type Admin${ctx.singlePascal}${hasAtt ? `, type Admin${ctx.singlePascal}Attachment` : ''} } from '@/api/${ctx.plural}'${hasAtt ? `\nimport { uploadFile } from '@/api/upload'` : ''}
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
