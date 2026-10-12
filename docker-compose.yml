@@ -2,6 +2,10 @@
 
 services:
   postgres:
+    # Without this, one daemon restart or host reboot leaves the database stopped and both demo
+    # deployments dead until someone starts it by hand (2026-10-12, on the demo host).
+    # 没有它，一次 daemon 重启或宿主重启就会把库留在停止状态，两个 demo 部署全停，直到有人手工起它。
+    restart: unless-stopped
     # pgvector 官方镜像（含 pgvector 扩展，用于 RAG 向量检索 AI-5）
     image: pgvector/pgvector:pg17
     # 从 .env.production 读 POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD（与 server 的 DB_* 同步）
@@ -18,6 +22,8 @@ services:
       retries: 5
 
   redis:
+    # Same reason as postgres above. / 与上面的 postgres 同一条理由。
+    restart: unless-stopped
     image: redis:7-alpine
     # loopback-only 暴露：仅本机 localhost:6379（本地宿主开发 server/e2e 需连 Redis）。
     # 容器内 server 仍走内部网络 redis://redis:6379；生产不绑 0.0.0.0，避免外网暴露。
@@ -84,6 +90,8 @@ services:
   # AI 审计/副作用双写上报治理台；治理台连独立治理库（postgres 的 governance 库）。
   # 治理库自动建表（GovernanceDataSource synchronize）；独立容器，与业务 server 解耦部署。
   governance:
+    # Same reason as postgres above. / 与上面的 postgres 同一条理由。
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
@@ -114,6 +122,8 @@ services:
   # 配 SIDECAR_UPSTREAM_URL/KEY（转发真实 LLM，env 覆盖）+ GOVERNANCE_URL=http://governance:3100（同一治理台）；
   # SIDECAR_TOOLS 为工具风险级清单（默认空→全 R1 自动）。依赖 governance 健康后启动。
   sidecar:
+    # Same reason as postgres above. / 与上面的 postgres 同一条理由。
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
