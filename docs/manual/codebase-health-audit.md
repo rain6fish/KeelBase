@@ -148,7 +148,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 
 ## 5. 待办（未做项）
 
-> **2026-10-10 复核**：逐条核过；并**补登 §3 已记、此处漏登的两条**（`usersService` 死戳点 · e2e 长跑硬崩，见文末）。
+> **2026-10-10 复核**：逐条核过；并**补登 §3 已记、此处漏登的两条**（`usersService` 死戳点 · e2e 长跑硬崩，见文末）。 **〔2026-10-12 再补登第三条：治理台独立进程「启动即失败」—— 也已收口，见文末。〕**
 
 - [x] 阶段 2 残余 · **环 1**（2026-09-21 完成）：`conversation-compactor` 的 `AiServiceConfig` 改 `import type`。它只在类型位置被使用，TS 本就擦除该 import、运行期无此边；标注是为让意图可见，并防将来开启 `verbatimModuleSyntax` 时这条边重新长出来。（`src/ai/conversation/conversation-compactor.ts`）
 - [x] 阶段 2 残余 · **module 级 forwardRef 环**（2026-09-22 已根治）：未走「explainable 端点迁出 ai 域」那条路（会改 4 条公开 API 路径），改走「把被共享的 provider 提成两个**叶子模块**」——`AuthzExplainModule`（打破 ai↔auth 直接环）+ `AiAuditModule`（打破 ai→events→org→flows→ai 间接环）。9 个模块的 forwardRef 降为普通 import；仅剩独立的 `notifications ↔ realtime` 未动。**✅ 回填（2026-10-07 核实）：那一对也已了结——实测**不是环、是残留**（`RealtimeModule` 只依赖 Config / Jwt / FeatureFlags，绕不回来），删掉 `NotificationsModule` 的那个 `forwardRef` 即全部修法（主仓 `a3405d7d`，2026-09-26）；2026-10-07 复跑装配冒烟门 3/3 绿。**阶段 2 至此全部收口**，这一族五处环闭合**
@@ -157,6 +157,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
 - [x] M3：demo-data.ts 832 行 seed 拆分评估（**2026-10-04 评估完毕**：不拆、兼容分支留着，各附触发/退役条件；见 §2 M3 行）
 - [x] **`ai.service.spec.ts` 的 `usersService` 死戳点**（§3 · 2026-09-18 那刀附带发现）：`AiService` 已**无** `usersService` 字段（`grep` 实证），spec 里那 **4 处** `(aiService as any).usersService = {…}`（`Server-NestJS/src/ai/ai.service.spec.ts` 原 `441/475/2272/2540`）是**给没人读的属性赋值**。**✅ 2026-10-10 已删**（4 处；`jest src/ai/ai.service.spec.ts` 删前删后均 **96 passed**、`eslint` 0 error ⇒ 实证确系死的）。（§5 此前漏登，2026-10-10 补登并当场收口）
 - [x] **e2e 单进程长跑硬崩**（§3 · 2026-09-18 记；**2026-10-10 核：已收口**）：2026-09-23 阶段 4 把 release-gate 那 14 个 e2e（`42eb7880`）与 CI / 本地那 36 个套件（`5cf27412` test:e2e 分片 + `09bfeb65` cov 分片，脚本 `Server-NestJS/scripts/run-e2e-shards.mjs`）改为 jest 原生分片；见 §4「2026-09-23 — 阶段 4：release-gate 与 e2e 跑法可信度收口」。（§5 此前漏登，2026-10-10 补）**⚠ 2026-10-11 补**：上述分片**只**覆盖了 Gate1（有崩溃重试）与 `run-e2e-shards.mjs`（有重试 + 覆盖率合并）——**release-gate 自己那 4 个 e2e 批当时没有重试** ⇒ 某批 jest 中途死掉时该批套件被全判 FAIL、闸门**仍会间歇假红**（正是分片要规避的那类抖动）。**已补**：`release-gate.sh` 给每批加**同一判据**的重试（**仅当该批无 jest 汇总行 `Test Suites:`** 才重试；有汇总行即真实结果、不重试；首跑 + 最多 2 次，哨兵同 `run-e2e-shards.mjs`）——主仓 **`662e82bf`**。
+- [x] **治理台独立进程「启动即失败」**（§3 · 2026-09-19/21 某刀附带发现，原文标「本刀未修、建议单列一笔」）：`GovernanceModule` 自己装 `AuditController`，却未提供 audit 三刀拆出的 `AuditStatsService` / `AuditQueryService` / `AuditEvidenceService` ⇒ Nest 在 `compile()` 抛 `UnknownDependenciesException`；**不止测试** —— 治理台独立进程 `npm run start:governance` 走同一条装配，启动即失败。**✅ 2026-10-12 核实：已修、且已实测** —— `governance.module.ts` 现在自己提供三者（imports `:26-28` · providers `:84-86`，注释原文写明理由），依赖（`Repository<AiAuditLog>` · `Repository<AiToolSideEffect>`）亦在同模块 `forFeature` 里；`npx jest --config test/jest-e2e.json --runTestsByPath test/governance-plane.e2e-spec.ts` ⇒ **23/23 通过**（本机 2.9s）。**⚠ 本条此前从未登记在 §5**（只在 §3 那句「连带发现」里）；2026-10-12 补登并当场收口，§3 那处的更正见该处。
 
 ---
 
@@ -298,6 +299,7 @@ god service 拆分**由变更驱动，不做"为了拆而拆"的排期**：
   UnknownDependenciesException。**不止测试**：治理台独立进程（`npm run start:governance`）走同一条装配，**启动即会失败**。
   该缺口自第一刀（`8b9379d2`，audit 聚合域下沉）起就存在——`governance.module.ts` 最后修改是 2026-09-06，
   本刀未动 governance 模块与 `audit.controller.ts`，故非本刀引入。**建议单列一笔修**（补三个 provider + 各自 repo 依赖）。
+  > **〔2026-10-12 更正：这一条已修，且已实测 —— 原文保留、不改〕** `governance.module.ts` 现在**自己提供**这三个：imports 在 `:26-28`、providers 在 `:84-86`，注释原文即写明「**治理台自己实例化 `AuditController`，所以它也必须自己提供这三个**」；它们的依赖（`Repository<AiAuditLog>` · `Repository<AiToolSideEffect>`）也在**同模块的 `forFeature`** 里（`AuditStatsService` 的 `cacheService` 是 `@Optional()`）。**实测**：`npx jest --config test/jest-e2e.json --runTestsByPath test/governance-plane.e2e-spec.ts` ⇒ **23/23 通过**（本机 2.9s）⇒ 「治理台独立进程启动即失败」**不再成立**。**⇒ 本条可以从待办里划掉**（它此前**从未**进过 §5 清单，见 §5 开头那句「补登……漏登的两条」）。
 - **下一刀候选**（变更驱动、不排期）：**R4 双人审批域**（`createR4ApprovalRequest` / `listPendingApprovals` /
   `listDecidedApprovals` / `withUserNames` / `decideApproval` / `executeApprovedTool` / `describeConfirmation` / `_parseRunItems`，~148 行）
   → 呈现/摘要域（~152 行，自足）→ 工具清单+MCP（~201 行）→ **最后才是 `chatImpl`（仍是最大的一块）**。
