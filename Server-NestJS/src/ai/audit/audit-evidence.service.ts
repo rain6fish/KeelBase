@@ -32,8 +32,13 @@ import {
   AuditInterpretationRow,
   AuditInterpreterStats,
 } from './audit-interpreter.service';
-import { extractToolName } from './tool-name';
-import { parseConfirmation } from './confirmation-detail';
+// C-3 removed two imports from here: `extractToolName` and `parseConfirmation`. Both existed to pull
+// a field back out of `detail` — the tool name and the confirmation's outcome — and both are now
+// columns on the row. Their absence is the change, so nothing replaces them.
+//
+// C-3 从这里拿掉了两个 import：`extractToolName` 与 `parseConfirmation`。两者都是把某个字段从
+// `detail` 里重新抠出来的手段——工具名、以及确认的结局——而它们现在都是行上的**列**。它们的缺席
+// 就是这次改动本身，故没有东西来顶替。
 import { buildPayload } from './payload';
 import { AUDIT_VERIFY_CACHE_KEY } from './cache-keys';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
@@ -222,7 +227,7 @@ export class AuditEvidenceService {
       id: row.id,
       createdAt: row.createdAt,
       action: row.action,
-      toolName: extractToolName(row.detail),
+      toolName: row.tool ?? null,
       prevHash: row.prevHash ?? null,
       hash: row.hash ?? null,
       isError: row.isError ?? false,
@@ -249,14 +254,21 @@ export class AuditEvidenceService {
     const where: Record<string, unknown> = {};
     if (options.userId) where.userId = options.userId;
     if (options.since) where.createdAt = Between(options.since, new Date());
-    // E-3 列投影：只载聚合所需列（detail/errorMessage/authorization 保留——samples 工具名解析 + blocked 正则）
-    // §internal.16 A-6 合规：补 businessEvent/evidence/agentId（Decision Evidence + 责任链）
+    // E-3 列投影：只载聚合所需列。
+    // §internal.16 A-6 合规：补 businessEvent/evidence/agentId（Decision Evidence + 责任链）。
+    // C-3：`outcome` / `tool` 进投影 —— 下面的四个计数按这两列读，不再解析 `detail`。
+    //
+    // E-3 column projection: only the columns the aggregation reads.
+    // §internal.16 A-6: `businessEvent` / `evidence` / `agentId` for the decision-evidence chain.
+    // C-3: `outcome` and `tool` join the projection — the four counters below read them instead of
+    // parsing `detail`.
     const logs = await this.logRepo.find({
       where,
       order: { createdAt: 'DESC' },
       select: {
         id: true, action: true, detail: true, isError: true, errorMessage: true, authorization: true,
         businessEvent: true, evidence: true, agentId: true, createdAt: true,
+        outcome: true, tool: true,
       },
     });
 
@@ -269,16 +281,19 @@ export class AuditEvidenceService {
     for (const l of logs) {
       byAction.set(l.action, (byAction.get(l.action) ?? 0) + 1);
       if (l.isError) { errors++; }
+      // C-3：四个计数**按列读**。`blocked` 的含义随之收紧了——它此前是「任何带 authorization 的拒绝，
+      // 或 errorMessage 里带某一族词」，现在只是「`outcome` 答 blocked」，而那个词只在 `authorization`
+      // 点名 `risk_policy` 时才有：那道闸**没到过裁决**，其余拒绝是 `refused`。⇒ 历史数据的 blocked
+      // 会变小，这是 `C-3` 存在的理由，不是回归。
+      //
+      // 确认行的两个计数也从「是不是 isError」改成「说没说那个词」：一次**确认超时**不是一次拒绝，
+      // 此前它被计进 rejected——与同一段注释下面防「转审批被计成批准」的顾虑是同一类虚报。
       if (l.action === 'tool_call') {
-        // blocked = 工具被拒（authorization 标记或 errorMessage 含拒绝标记：R5/越权/禁用/权限）；
-        // 执行失败（无拒绝标记）只算 error，不计 blocked
-        if (l.isError && (l.authorization || /blocked|denied|拒绝|越权|R5|禁用|禁止|无权/i.test(l.errorMessage ?? ''))) { blocked++; }
-        else if (!l.isError) { executed++; }
+        if (l.outcome === 'executed') { executed++; }
+        else if (l.outcome === 'blocked') { blocked++; }
       } else if (l.action === 'tool_confirmation') {
-        if (l.isError) { rejected++; }
-        // R4 高影响动作等待审批（pending_approval）既非 approved 也非 rejected——不计入，防合规报告虚报。
-        // 判据与叙述层**同源**（`parseConfirmation`），不再用字符串包含：格式一改，包含式会**静默**把转审批计成批准。
-        else if (parseConfirmation(l.detail)?.outcome !== 'pending_approval') { approved++; }
+        if (l.outcome === 'approved') { approved++; }
+        else if (l.outcome === 'declined') { rejected++; }
       }
     }
     // B3 时间趋势：按 UTC 日聚 5 段（与 getAllStats 共享 _byDayAggregation，避免重复聚合逻辑）
@@ -309,7 +324,7 @@ export class AuditEvidenceService {
     const samples = logs.slice(0, limit).map((l) => ({
       id: l.id,
       action: l.action,
-      toolName: extractToolName(l.detail),
+      toolName: l.tool ?? null,
       isError: l.isError,
       errorMessage: l.errorMessage,
       businessEvent: l.businessEvent ?? null,
@@ -448,7 +463,7 @@ export class AuditEvidenceService {
     // 只在多调用时给出错误答案。精确配对要等执行身份（roadmap §2.1.16 ACT-5）落地 —— 在那之前
     // 「拒绝归因」是唯一诚实的选项。
     const candidates = convRows.filter(
-      (l) => l.action === 'tool_call' && !l.isError && extractToolName(l.detail) === effect.toolName,
+      (l) => l.action === 'tool_call' && !l.isError && (l.tool ?? null) === effect.toolName,
     );
     // ACT-5（消费者①）：**先问执行身份**。副作用行与占位行由**同一个键**相连 —— 副作用行的
     // `compensationGroup ?? idempotencyKey` 构造上就等于占位行的 `idempotency_key`（两者都出自同一个
@@ -627,6 +642,8 @@ export class AuditEvidenceService {
         businessEvent: true, evidence: true, isError: true, errorMessage: true, createdAt: true,
         // D-3：带出授权快照 → summary.decisionNote（凭什么允许 / 为何拒绝）
         authorization: true,
+        // C-3：叙述层与身份链按这两列读（结局码 + 工具名），不再从 `detail` 反推
+        outcome: true, tool: true,
       },
       order: { createdAt: 'ASC' },
     });
@@ -658,7 +675,7 @@ export class AuditEvidenceService {
       chain: convRows.map((r) => ({
         id: r.id,
         action: r.action,
-        toolName: extractToolName(r.detail),
+        toolName: r.tool ?? null,
         businessEvent: r.businessEvent ?? null,
         agentId: r.agentId ?? null,
         createdAt: r.createdAt,
@@ -679,7 +696,7 @@ export class AuditEvidenceService {
     source: string | null;
     authorization: { denied: Array<{ name: string; ok: boolean; note?: string }> | null; allowed: Record<string, unknown> | null };
   }> {
-    const toolName = extractToolName(row.detail);
+    const toolName = row.tool ?? null;
     // agentCache 可能缓存 null（未知 agent）——用 has() 区分「缓存 miss」与「已缓存 null」，避免每样本重复查库
     const agent = row.agentId
       ? agentCache?.has(row.agentId)

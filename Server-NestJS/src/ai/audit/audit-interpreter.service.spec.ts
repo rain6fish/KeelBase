@@ -1,29 +1,54 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { summarizeAudit, aggregateConversation, explainAuthorization, replayKey } from './audit-interpreter.service';
+import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
+
+/**
+ * C-3：叙述层现在**按列**读 `outcome` / `tool`，所以夹具必须带这两列 —— 行是从库里读出来的，
+ * 而库里就有它们。
+ *
+ * 用**生产**的规则（`deriveOutcome` / `deriveTool`，同时被那支回填迁移使用）从行自己已有的三个值
+ * 推出来，于是夹具**说不出**写入方写不出的形状：一个夹具要造 `blocked`，就得像真实行那样带上
+ * `authorization` 里那条 `risk_policy`，而不是只在 `errorMessage` 里写「blocked」——后者恰恰是
+ * `C-3` 拆掉的那种读法。
+ *
+ * C-3: the narrative layer reads `outcome` / `tool` as columns now, so a fixture has to carry them —
+ * rows come out of the database and the database has them.
+ *
+ * They are derived with the production rules (shared with the backfill migration) from the three
+ * values the row already has, so a fixture cannot state a shape no writer could produce: to build a
+ * `blocked` row it must carry the `risk_policy` reason the way a real one does, rather than spelling
+ * "blocked" in `errorMessage` — which is the reading C-3 removed.
+ */
+const row = <T extends Record<string, any>>(
+  r: T,
+): T & { outcome: string | null; tool: string | null } => {
+  const shape = r as unknown as BackfillRow;
+  return { ...r, outcome: deriveOutcome(shape), tool: deriveTool(shape) };
+};
 
 describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
   it('analyze_customer_risk：解析 evidence → 业务摘要句（等级/依据数/置信）', () => {
-    const row = {
+    const r = row({
       userId: '1', username: 'alex', action: 'tool_call',
       detail: 'analyze_customer_risk({"id":7})',
       evidence: '{"decision":"high","evidence":["订单降42%","互动超15天"],"policy":"≥10 critical","confidence":0.75}',
-    };
-    const s = summarizeAudit(row, [row]);
+    });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('alex');
     expect(s.sentence).toContain('high');
     expect(s.sentence).toContain('2条依据');
   });
 
   it('create_followup_task → 业务事件句', () => {
-    const row = { userId: '1', username: 'alex', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' };
-    const s = summarizeAudit(row, [row]);
+    const r = row({ userId: '1', username: 'alex', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('FollowupTaskCreated');
   });
 
   it('tool_confirmation → 批准句', () => {
-    const row = { userId: '1', username: 'alex', action: 'tool_confirmation', detail: 'create_event({}) → approve' };
-    const s = summarizeAudit(row, [row]);
+    const r = row({ userId: '1', username: 'alex', action: 'tool_confirmation', detail: 'create_event({}) → approve' });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('批准');
   });
 
@@ -31,13 +56,13 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
   // 本用例对旧实现为红。The run-level confirmation used to fall through both regexes, so an approved
   // run was narrated as a timeout.
   it('tool_confirmation（run 级）→ 批准句，而不是「确认超时」', () => {
-    const row = {
+    const r = row({
       userId: '1',
       username: 'alex',
       action: 'tool_confirmation',
       detail: 'run(3f2a1c8e-0b7d-4a11-9c3e-2f5b6a7d8e9f) 3 items → approve',
-    };
-    const s = summarizeAudit(row, [row]);
+    });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('批准');
     expect(s.sentence).not.toContain('超时');
   });
@@ -45,20 +70,20 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
   // R4 转人工审批：旧读法塌成 timeout ⇒ 叙述说「确认超时」，而该行自己写的是 pending_approval。
   // 本用例对旧实现为红。
   it('tool_confirmation（R4 转人工审批）→ 「转人工审批」句，而不是「确认超时」', () => {
-    const row = {
+    const r = row({
       userId: '1',
       username: 'alex',
       action: 'tool_confirmation',
       detail: 'create_project_with_tasks({"name":"x"}) → pending_approval',
-    };
-    const s = summarizeAudit(row, [row]);
+    });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('转人工审批');
     expect(s.sentence).not.toContain('超时');
   });
 
   it('坏 evidence JSON → 兜底模板（仍出业务摘要）', () => {
-    const row = { userId: '1', username: 'alex', action: 'tool_call', detail: 'analyze_customer_risk({})', evidence: 'not-json' };
-    const s = summarizeAudit(row, [row]);
+    const r = row({ userId: '1', username: 'alex', action: 'tool_call', detail: 'analyze_customer_risk({})', evidence: 'not-json' });
+    const s = summarizeAudit(r, [r]);
     expect(s.sentence).toContain('风险分析');
   });
 
@@ -127,10 +152,12 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
 
   it('aggregateConversation：业务事件计数 + 确认分布 + 阻断', () => {
     const conv = [
-      { userId: '1', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' },
-      { userId: '1', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' },
-      { userId: '1', action: 'tool_confirmation', detail: 'create_event({}) → approve' },
-      { userId: '1', action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)' },
+      row({ userId: '1', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' }),
+      row({ userId: '1', action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated' }),
+      row({ userId: '1', action: 'tool_confirmation', detail: 'create_event({}) → approve' }),
+      // 一个 `blocked` 行靠它的**结构化理由**说自己是 blocked —— 「errorMessage 里写着 blocked」不算
+      // （那正是 C-3 拆掉的读法）。
+      row({ userId: '1', action: 'tool_call', detail: 'query_evil({})', isError: true, errorMessage: 'blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]' }),
     ];
     const stats = aggregateConversation(conv);
     expect(stats.businessEvents).toEqual([{ event: 'FollowupTaskCreated', count: 2 }]);
@@ -143,8 +170,8 @@ describe('Audit Interpreter（§internal.16 A-4 审计解释器）', () => {
   // were never counted at all.
   it('aggregateConversation：run 级确认计入 approved / declined', () => {
     const conv = [
-      { userId: '1', action: 'tool_confirmation', detail: 'run(abc) 2 items → approve' },
-      { userId: '1', action: 'tool_confirmation', detail: 'run(def) 1 items → decline' },
+      row({ userId: '1', action: 'tool_confirmation', detail: 'run(abc) 2 items → approve' }),
+      row({ userId: '1', action: 'tool_confirmation', detail: 'run(def) 1 items → decline' }),
     ];
     expect(aggregateConversation(conv).confirmations).toEqual({ approved: 1, declined: 1 });
   });

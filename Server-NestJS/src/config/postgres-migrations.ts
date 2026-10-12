@@ -68,6 +68,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddAiAuditIp*',
   '*AddAiAuditDeviceId*',
   '*AddAiAuditOutcomeAndTool*',
+  '*BackfillAiAuditOutcomeAndTool*',
   '*AddAiToolSideEffectChain*',
   '*AddAiToolSideEffectResultTypeLength*',
   '*AddAiToolSideEffectRevokeColumns*',

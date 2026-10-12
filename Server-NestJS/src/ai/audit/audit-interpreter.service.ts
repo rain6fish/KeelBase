@@ -6,8 +6,10 @@
  * 三层：L1 业务摘要句 / L2 证据统计（aggregateConversation）/ L3 技术详情（前端保留 detail）。
  */
 
-import { parseToolCall } from './tool-name';
-import { parseConfirmation } from './confirmation-detail';
+// `parseToolCall` was imported here for `parseToolName`, which is gone with the column that replaced
+// it. Nothing else in this file parsed `detail`.
+// 这里曾为 `parseToolName` 引入 `parseToolCall`；它随取代它的那一列一起没了。本文件里没有别处解析
+// `detail`。
 
 export interface AuditEvidence {
   decision?: string;
@@ -53,6 +55,33 @@ export interface AuditInterpretationRow {
   errorMessage?: string | null;
   /** W5-⑦ 授权快照（放行对象 / 拒绝 checks 数组的 JSON；无快照为 null） */
   authorization?: string | null;
+  /**
+   * C-3：这一行的结局码。**读它，不再从 `detail` 反推** —— 那段反推（`parseConfirmation`）正是
+   * `C-3` 要消掉的那种解析；`detail` 留着给人看，不该同时被当成字段用。
+   */
+  outcome?: string | null;
+  /** C-3：本行所属的工具名。run 级裁决覆盖多个工具，故它可空——空**不是**「解析失败」。 */
+  tool?: string | null;
+}
+
+/**
+ * 结果码 → 本文件句子所用的词。**只在这一处翻译**：两个词表各自服务谁很清楚，混在一处读才会乱。
+ *
+ * The result code → the word this file's sentence is written against. This is the only place the
+ * translation happens; keeping the two vocabularies apart is what keeps each of them readable.
+ */
+const CONFIRMATION_SENTENCE: Record<string, 'approve' | 'decline' | 'pending_approval' | 'timeout'> = {
+  approved: 'approve',
+  declined: 'decline',
+  pending: 'pending_approval',
+  timeout: 'timeout',
+};
+
+/** 列为空（旧行、或非确认行）时与「认不出」同等对待：`timeout` —— 这是既有行为，本条未改。 */
+function confirmationSentence(
+  outcome?: string | null,
+): 'approve' | 'decline' | 'pending_approval' | 'timeout' {
+  return CONFIRMATION_SENTENCE[outcome ?? ''] ?? 'timeout';
 }
 
 /** P-③ 策略回放三态（由调用方注入——回放需查 policy-history，非纯函数职责）。 */
@@ -103,12 +132,12 @@ export function summarizeAudit(
 ): AuditInterpretation {
   const stats = aggregateConversation(convRows);
   const username = row.username || `用户#${row.userId}`;
-  const { toolName } = parseToolName(row.detail);
+  const toolName = row.tool ?? '';
 
   let sentence: string;
   if (row.action === 'tool_confirmation') {
     // 确认决策优先于工具名（create_event 的 confirmation 记录不是写操作）
-    const outcome = parseConfirmation(row.detail)?.outcome ?? 'timeout';
+    const outcome = confirmationSentence(row.outcome);
     // R4 高影响动作**不走内联确认**，而是被转人工审批（`ai.service.ts:1187` 的 `→ pending_approval`）——
     // 它既不是「批准」也不是「确认超时」，故整句另写，不塞进动词位。
     sentence =
@@ -298,7 +327,7 @@ export function aggregateConversation(convRows: AuditInterpretationRow[]): Audit
       if (ev) evidence.push(ev);
     }
     if (r.action === 'tool_confirmation') {
-      const outcome = parseConfirmation(r.detail)?.outcome ?? 'timeout';
+      const outcome = confirmationSentence(r.outcome);
       if (outcome === 'approve') confirmations.approved++;
       if (outcome === 'decline') confirmations.declined++;
     }
@@ -354,9 +383,12 @@ function parseEvidence(raw?: string | null): AuditEvidence | null {
   }
 }
 
-/** detail 形如 `analyze_customer_risk({"id":7})` → 工具名（走共享解析器）。本处旧字符集是
- *  `[a-z_]+`，停在第一个数字 —— `summarize_customer_360` 这类工具整行解析为空、被静默跳过。 */
-function parseToolName(detail?: string | null): { toolName: string } {
-  return { toolName: parseToolCall(detail)?.toolName ?? '' };
-}
+// `parseToolName(detail)` used to live here. It is gone with the column that replaced it: the tool
+// name is a field now (`row.tool`), so the reader no longer pulls it out of the sentence. Its own
+// history is the argument for that — its character class had stopped at the first digit, so
+// `summarize_customer_360` parsed to nothing and the row was skipped in silence.
+//
+// 这里的 `parseToolName(detail)` 随取代它的那一列一起删掉了：工具名现在是一个**字段**
+// （`row.tool`），读取方不再从句子里把它抠出来。它自己的经历就是这条改动的理由——它的字符集停在第一个
+// 数字上，于是 `summarize_customer_360` 解析为空、那一行被**静默**跳过。
 

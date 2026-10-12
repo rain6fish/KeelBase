@@ -6,6 +6,29 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditEvidenceService } from './audit-evidence.service';
 import { AuditStatsService } from './audit-stats.service';
+import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
+
+/**
+ * C-3：报表 / 证据面现在**按列**读 `outcome` 与 `tool`，所以夹具行必须带这两列——行是从库里读出来的，
+ * 库里就有它们。用**生产**规则（与那支回填迁移共用）从行自己已有的三个值推出来，于是夹具**说不出**
+ * 写入方写不出的形状：要造一个 `blocked` 行，就得像真实行那样带上 `authorization` 里那条
+ * `risk_policy`，而不是只在 `errorMessage` 里写「blocked」——后者正是 `C-3` 拆掉的那种读法。
+ *
+ * C-3: the report / evidence surface reads `outcome` and `tool` as columns now, so a fixture row has to
+ * carry them — rows come out of the database and the database has them. They are derived with the
+ * production rules (shared with the backfill migration) from the three values the row already has, so
+ * a fixture cannot state a shape no writer could produce: a `blocked` row has to carry the
+ * `risk_policy` reason the way a real one does, rather than spelling "blocked" in `errorMessage` —
+ * which is the reading C-3 removed.
+ */
+const rows = <T extends Record<string, any>>(rs: T[]) =>
+  rs.map((r) => {
+    const shape = r as unknown as BackfillRow;
+    return { ...r, outcome: deriveOutcome(shape), tool: deriveTool(shape) };
+  });
+
+/** The same, for the single row `findOne` hands back. */
+const row = <T extends Record<string, any>>(r: T) => rows([r])[0];
 
 /** ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：getEvidenceRoot 装配 + 鉴权 + 根锚 */
 describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
@@ -67,7 +90,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     checks: [{ name: 'user_scoped', ok: true, note: '仅本人数据' }],
     policy: { revision: 'ab12cd34ef56', updatedAt: '2026-09-04T09:20:00.000Z' },
   });
-  const convRow = {
+  const convRow = row({
     id: 38172,
     userId: '42',
     username: 'alex',
@@ -79,7 +102,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     evidence: JSON.stringify({ decision: 'create', evidence: [], policy: 'p', confidence: 0.9 }),
     hash: 'b'.repeat(64),
     createdAt: new Date('2026-09-04T09:21:00Z'),
-  };
+  });
   const effect = {
     id: 9281,
     userId: '42',
@@ -203,12 +226,14 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
   });
 
   it('ACT-2：会话内无同名 tool_call → 不回落到「最后一条任意 tool_call」（旧实现会拿别人的事件）', async () => {
-    const otherRow = {
+    // 再套一层 `row()`：这一行的 `detail` 被换成了**另一个工具**，故 `tool` 必须跟着重算 —— 否则这条
+    // 夹具就自相矛盾（散文说 A、字段说 B），而它要证的那件事正好建立在这两者是同一件事上。
+    const otherRow = row({
       ...convRow,
       id: 201,
       detail: 'query_customers({})',
       businessEvent: 'CustomersQueried',
-    };
+    });
     const { service } = build({ effect, viewer: '42', convRows: [otherRow] });
 
     const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
@@ -346,10 +371,12 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
 
     it('E-2：broken 链以断点为中心切片并标记断点行', async () => {
-      const rows = Array.from({ length: 30 }, (_, i) => ({
-        id: i + 1, prevHash: i === 0 ? null : `h${i}`, hash: `h${i + 1}`,
-        createdAt: new Date(), action: 'tool_call', detail: 'query_customers({})', isError: false,
-      }));
+      const rows = Array.from({ length: 30 }, (_, i) =>
+        row({
+          id: i + 1, prevHash: i === 0 ? null : `h${i}`, hash: `h${i + 1}`,
+          createdAt: new Date(), action: 'tool_call', detail: 'query_customers({})', isError: false,
+        }),
+      );
       logRepo.find.mockResolvedValue(rows);
       (chain.verifyChain as jest.Mock).mockReturnValue({ valid: false, checked: 10, brokenIndex: 11 });
       const result = await service.verifyChain();
@@ -422,12 +449,14 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
   describe('getActionReport（§10 P1 合规证据包）', () => {
     it('聚合 执行/批准/拒绝/阻断 + 副作用 + 哈希链', async () => {
-      logRepo.find.mockResolvedValue([
+      logRepo.find.mockResolvedValue(rows([
         { id: 1, userId: '1', action: 'tool_call', detail: 'create_followup_task({"customerId":1})', isError: false, createdAt: new Date() },
         { id: 2, userId: '1', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
         { id: 3, userId: '1', action: 'tool_confirmation', detail: 'x() → decline', isError: true, errorMessage: 'User declined the operation', createdAt: new Date() },
-        { id: 4, userId: '1', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: 'Tool "query_evil" is blocked (risk level R5)', createdAt: new Date() },
-      ]);
+        // 一行靠它的**结构化理由**说自己是 blocked。此前这条夹具只在 `errorMessage` 里写「blocked」，
+        // 而旧读法是按那句话里的词判的 —— `C-3` 拆掉的正是那种读法，故这里补上真实行会带的 reasons。
+        { id: 4, userId: '1', action: 'tool_call', detail: 'query_customers({})', isError: true, errorMessage: 'Tool "query_evil" is blocked (risk level R5)', authorization: '[{"name":"risk_policy"}]', createdAt: new Date() },
+      ]));
       effectsRepo.count.mockResolvedValue(2);
       chain.verifyChain.mockReturnValue({ valid: true, checked: 4 });
 
@@ -454,10 +483,10 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     // R4 转人工审批：isError=false（还没被拒）但 detail 是 pending_approval ⇒ **两格都不进** ——
     // 计成 approved 就是合规报告虚报。护栏用例（新旧实现同绿）：它钉的是规则本身。
     it('R4 转人工审批（pending_approval）既不计批准也不计拒绝', async () => {
-      logRepo.find.mockResolvedValue([
+      logRepo.find.mockResolvedValue(rows([
         { id: 1, userId: '1', action: 'tool_confirmation', detail: 'create_followup_task() → approve', isError: false, createdAt: new Date() },
         { id: 2, userId: '1', action: 'tool_confirmation', detail: 'create_project_with_tasks({"name":"x"}) → pending_approval', isError: false, createdAt: new Date() },
-      ]);
+      ]));
       chain.verifyChain.mockReturnValue({ valid: true, checked: 2 });
 
       const report = await service.getActionReport({ userId: '1' });
@@ -468,11 +497,11 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
 
     it('byDay 按 UTC 日聚合（多日升序，阻断/错误分别入桶）', async () => {
-      logRepo.find.mockResolvedValue([
+      logRepo.find.mockResolvedValue(rows([
         { id: 1, userId: '1', action: 'tool_call', detail: 'create_x()', isError: false, createdAt: new Date('2026-08-20T10:00:00Z') },
         { id: 2, userId: '1', action: 'tool_call', detail: 'query_y({})', isError: true, errorMessage: 'blocked (risk level R5)', createdAt: new Date('2026-08-20T11:00:00Z') },
         { id: 3, userId: '1', action: 'tool_call', detail: 'create_z()', isError: false, createdAt: new Date('2026-08-21T09:00:00Z') },
-      ]);
+      ]));
       effectsRepo.count.mockResolvedValue(0);
       chain.verifyChain.mockReturnValue({ valid: true, checked: 3 });
 
@@ -544,10 +573,10 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       const prevKey = process.env.AUDIT_HMAC_KEY;
       process.env.AUDIT_HMAC_KEY = 'ab'.repeat(32);
       try {
-        logRepo.find.mockResolvedValue([
+        logRepo.find.mockResolvedValue(rows([
           { id: 1, userId: '42', conversationId: null, action: 'tool_call', detail: 'query_customers({})', model: 'deepseek-v4-flash', provider: 'deepseek', promptTokens: 10, completionTokens: 5, durationMs: 100, isError: false, errorMessage: null, authorization: null, prevHash: null, hash: 'a'.repeat(64) },
           { id: 2, userId: '42', conversationId: null, action: 'chat', detail: 'hello', model: null, provider: null, promptTokens: null, completionTokens: null, durationMs: null, isError: false, errorMessage: null, authorization: null, prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
-        ]);
+        ]));
         const out = await service.getActionReportExport({});
         expect(out.format).toBe('keelbase-audit-evidence/2');
         expect(out.generator).toBe('keelbase-audit-export');
@@ -582,10 +611,10 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       const prevKey = process.env.AUDIT_HMAC_KEY;
       process.env.AUDIT_HMAC_KEY = 'ab'.repeat(32);
       try {
-        logRepo.find.mockResolvedValue([
+        logRepo.find.mockResolvedValue(rows([
           { id: 1, userId: '42', username: 'alex', conversationId: 'c1', action: 'tool_call', detail: 'analyze_customer_risk({"id":7})', businessEvent: 'CustomerRiskAssessed', evidence: '{"decision":"high","evidence":["订单降42%"]}', agentId: 'key-a', prevHash: null, hash: 'a'.repeat(64) },
           { id: 2, userId: '42', username: 'alex', conversationId: 'c1', action: 'chat', detail: 'hi', prevHash: 'a'.repeat(64), hash: 'b'.repeat(64) },
-        ]);
+        ]));
         const out = await service.getActionReportExport({});
         expect(out.compliance).toHaveLength(1);
         expect(out.compliance[0].summary.sentence).toContain('alex');
@@ -602,16 +631,16 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
   describe('getChain（§internal.16 A-5 跨系统身份链）', () => {
     it('聚合 Human→Intent→Agent→Tool→Action + 会话工具序列 + source', async () => {
-      logRepo.findOne.mockResolvedValue({
+      logRepo.findOne.mockResolvedValue(row({
         id: 1, userId: '42', username: 'bob', action: 'tool_call',
         detail: 'create_followup_task({"customerId":7})',
         businessEvent: 'FollowupTaskCreated', agentId: 'key-legacy-erp', callerAgentId: 'research',
         businessIntent: '跟进高风险客户', source: 'bridge',
         conversationId: 'c1', createdAt: new Date(),
-      });
-      logRepo.find.mockResolvedValue([
+      }));
+      logRepo.find.mockResolvedValue(rows([
         { id: 1, action: 'tool_call', detail: 'create_followup_task({})', businessEvent: 'FollowupTaskCreated', agentId: 'key-legacy-erp', createdAt: new Date() },
-      ]);
+      ]));
       const res = await service.getChain(1);
       expect(res.human.username).toBe('bob');
       expect(res.agent.agentId).toBe('key-legacy-erp');
@@ -624,11 +653,11 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
 
     it('拒绝场景：解析 authorization checks 为授权依据', async () => {
-      logRepo.findOne.mockResolvedValue({
+      logRepo.findOne.mockResolvedValue(row({
         id: 2, userId: '42', action: 'tool_call', detail: 'query_evil({})',
         authorization: JSON.stringify([{ name: 'risk_policy', ok: false, note: 'R5 阻断' }]),
         createdAt: new Date(),
-      });
+      }));
       logRepo.find.mockResolvedValue([]);
       const res = await service.getChain(2);
       expect(res.authorization.denied).toEqual([{ name: 'risk_policy', ok: false, note: 'R5 阻断' }]);
@@ -637,11 +666,11 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
 
     it('放行快照优先：allowed 用事件时点快照（不重算当前策略）', async () => {
       const snapshotChecks = [{ name: 'user_scoped', ok: true, note: '仅本人数据' }];
-      logRepo.findOne.mockResolvedValue({
+      logRepo.findOne.mockResolvedValue(row({
         id: 3, userId: '42', action: 'tool_call', detail: 'query_customers({})',
         authorization: JSON.stringify({ allowed: true, tool: 'query_customers', riskLevel: 'R1', strategy: 'auto', checks: snapshotChecks }),
         createdAt: new Date(),
-      });
+      }));
       logRepo.find.mockResolvedValue([]);
       const res = await service.getChain(3);
       expect(res.authorization.denied).toBeNull();
@@ -650,7 +679,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
 
     it('§internal.17 ③ Policy Evidence：快照带 policy.revision → allowed 投影携带「哪一版规则允许」', async () => {
-      logRepo.findOne.mockResolvedValue({
+      logRepo.findOne.mockResolvedValue(row({
         id: 5, userId: '42', action: 'tool_call', detail: 'create_followup_task({})',
         authorization: JSON.stringify({
           allowed: true, tool: 'create_followup_task', riskLevel: 'R3', strategy: 'confirmation',
@@ -658,7 +687,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
           policy: { revision: 'a1b2c3d4e5f6', updatedAt: '2026-09-04T09:20:00.000Z' },
         }),
         createdAt: new Date(),
-      });
+      }));
       logRepo.find.mockResolvedValue([]);
       const res = await service.getChain(5);
       expect(res.authorization.allowed?.policy).toEqual({ revision: 'a1b2c3d4e5f6', updatedAt: '2026-09-04T09:20:00.000Z' });
@@ -666,10 +695,10 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
 
     it('历史数据无放行快照 → 降级当前策略重算（向后兼容）', async () => {
-      logRepo.findOne.mockResolvedValue({
+      logRepo.findOne.mockResolvedValue(row({
         id: 4, userId: '42', action: 'tool_call', detail: 'query_customers({})', authorization: null,
         createdAt: new Date(),
-      });
+      }));
       logRepo.find.mockResolvedValue([]);
       const res = await service.getChain(4);
       expect(res.authorization.denied).toBeNull();
