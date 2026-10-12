@@ -2010,3 +2010,35 @@ test('aiFiles（Protocol 2.0）：aiTools 开关过滤 + create/query riskLevel 
   assert.match(create, /readonly riskLevel = 'R2';/);
   assert.doesNotMatch(create, /readonly requiresConfirmation = true;/);
 });
+
+/**
+ * 模块名的单复数：不规则走表，表外仍朴素（**不猜**）。2026-10-12 修 —— `points_entries` 此前被单数化成
+ * `points_entrie`（只剥尾字母 `s`），反向也会把表名 `addresses` 变成 `addressess`。
+ *
+ * The module name's singular and plural forms. `toSingular` used to strip a trailing `s` and nothing
+ * else, so an irregular plural produced a nonsense name — `points_entries` became `points_entrie`, and a
+ * table called `addresses` would have come back out as `addressess`. Only the words that show up as
+ * table and resource names are in the table; everything else keeps the plain `-s` behaviour, because
+ * `movies` and `entries` end alike and resolve oppositely, and a general rule is wrong on one of them.
+ */
+test('模块名单复数：不规则走表，表外仍朴素（不猜）', () => {
+  assert.equal(toSingular('posts'), 'post');
+  assert.equal(toPlural('post'), 'posts');
+  assert.equal(toPlural('posts'), 'posts');
+
+  // 复合名：只有**最后一段**是中心词（拿整名查表会错过 `entries`）
+  assert.equal(toSingular('points_entries'), 'points_entry');
+  assert.equal(toPlural('points_entries'), 'points_entries');
+  assert.equal(toPlural('point_entry'), 'point_entries');
+  assert.equal(toPlural('user_profiles'), 'user_profiles');
+
+  assert.equal(toSingular('addresses'), 'address');
+  assert.equal(toPlural('address'), 'addresses');
+  assert.equal(toSingular('categories'), 'category');
+  assert.equal(toPlural('category'), 'categories');
+  assert.equal(toSingular('companies'), 'company');
+
+  // 表外的词保持原样：`movies` 与 `entries` 同形不同解 ⇒ 宁可朴素，也别猜错。
+  assert.equal(toSingular('movies'), 'movie');
+  assert.equal(toPlural('movies'), 'movies');
+});

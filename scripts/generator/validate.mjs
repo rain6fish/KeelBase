@@ -273,15 +273,84 @@ export function validateModuleName(name) {
   return null;
 }
 
-/** 单数：post → post；posts → post。 */
+/**
+ * Irregular plurals that actually show up as table names and resource names.
+ *
+ * Both directions come from this one table on purpose: `toPlural` is built on `toSingular`, so fixing
+ * only the singular would turn `entries` into `entrys`. And it is a table rather than a rule on purpose
+ * too — English pluralisation is not regular, and `movies` and `entries` end the same way and resolve
+ * oppositely, so any general rule is wrong on one of them. Words outside the table keep the plain `-s`
+ * behaviour they have always had: no guessing.
+ *
+ * 作为**表名 / 资源名**真会出现的不规则复数。两向都出自这一张表，这是刻意的：`toPlural` 是在 `toSingular`
+ * 之上搭的，只把单数修对，`entries` 就会变成 `entrys`。用**表**而不是通用规则同样刻意 —— 英语复数不规则，而
+ * `movies` 与 `entries` 结尾相同、解却相反 ⇒ 任何通用规则都必然在其中一侧出错。表外的词保持它们一贯的
+ * 朴素 `-s` 行为：**不猜**。
+ */
+const IRREGULAR_PAIRS = [
+  ['person', 'people'],
+  ['child', 'children'],
+  ['entry', 'entries'],
+  ['category', 'categories'],
+  ['company', 'companies'],
+  ['policy', 'policies'],
+  ['currency', 'currencies'],
+  ['industry', 'industries'],
+  ['delivery', 'deliveries'],
+  ['address', 'addresses'],
+  ['status', 'statuses'],
+  ['box', 'boxes'],
+  ['match', 'matches'],
+  ['branch', 'branches'],
+  ['class', 'classes'],
+  ['analysis', 'analyses'],
+  ['index', 'indices'],
+  ['matrix', 'matrices'],
+  ['criterion', 'criteria'],
+  ['datum', 'data'],
+  ['medium', 'media'],
+];
+const PLURAL_OF_SINGULAR = new Map(IRREGULAR_PAIRS);
+const SINGULAR_OF_PLURAL = new Map(IRREGULAR_PAIRS.map(([singular, plural]) => [plural, singular]));
+
+/**
+ * Module names are compounds (`points_entries`, `user_profiles`), and only the **last** segment is the
+ * head noun, so the table is consulted per segment rather than on the whole name — looking `points_entries`
+ * up directly would miss `entries` and leave the defect in place.
+ *
+ * 模块名是复合词（`points_entries`、`user_profiles`），而只有**最后一段**是中心词，故查表**按段**做而不是
+ * 拿整名去查 —— 直接拿 `points_entries` 查会**错过 `entries`**，那个缺陷就原样留着。
+ */
+const onLastSegment = (name, transform) => {
+  const cut = name.lastIndexOf('_');
+  return cut < 0 ? transform(name) : `${name.slice(0, cut + 1)}${transform(name.slice(cut + 1))}`;
+};
+
+/**
+ * The fallback rule, with one guard that costs nothing and saves a word: a trailing `ss` is not a plural
+ * (`address`, `class`, `progress`), so it is left alone. `-es` and `-ies` are deliberately **not** handled
+ * here — `houses` and `movies` would both be mangled by the obvious rules.
+ *
+ * 朴素规则，带一条不花钱的守卫：结尾的 `ss` 不是复数（`address`、`class`、`progress`），故不动它。`-es` 与
+ * `-ies` **刻意**不在这里处理 —— `houses` 与 `movies` 都会被那两条显然的规则弄坏。
+ */
+const naiveSingular = (word) =>
+  word.endsWith('s') && !word.endsWith('ss') && word.length > 3 ? word.slice(0, -1) : word;
+
+/** 单数：post → post；posts → post；points_entries → points_entry。 */
 export function toSingular(name) {
-  return name.endsWith('s') && name.length > 3 ? name.slice(0, -1) : name;
+  return onLastSegment(name, (word) => SINGULAR_OF_PLURAL.get(word) ?? naiveSingular(word));
 }
 
-/** 复数：post → posts；posts → posts。 */
+/** 复数：post → posts；posts → posts；address → addresses（表外的词仍走朴素 -s）。 */
 export function toPlural(name) {
-  const s = toSingular(name);
-  return `${s}s`;
+  return onLastSegment(name, (word) => {
+    // 表里的**单数**先答（否则朴素规则会先把 `address` 剥成 `addres`，再拼出 `address` —— 原地不动）。
+    const knownPlural = PLURAL_OF_SINGULAR.get(word);
+    if (knownPlural) return knownPlural;
+    const singular = SINGULAR_OF_PLURAL.get(word) ?? naiveSingular(word);
+    return PLURAL_OF_SINGULAR.get(singular) ?? `${singular}s`;
+  });
 }
 
 /** snake_case → PascalCase：user_profile → UserProfile。 */
