@@ -83,6 +83,65 @@ npm test -- legacy-customers.service
 | 老系统无 AI 能力 | 老数据立即被 Runtime Agent 安全操作（确认/审计/撤销）|
 | 一个系统一套技术栈 | Protocol 生成物是普通源代码，可继续修改，不被锁死 |
 
+## Existing code → Protocol（反推：从既有代码读出协议）
+
+> 2026-10-12 · P0-12 的判据：「**≥1 个非旗舰真实模块经反推产出协议并生成可用代码**」。此前只有三旗舰是**手工**示范。
+
+**English**
+
+The other direction of the same idea: instead of feeding a schema in, read an existing module's code
+and write the protocol it implies. The subject is a real module of this repository and not one of the
+three flagships — `points/points-entry.entity.ts` (the check-in / points ledger). Its four columns, and
+the vocabulary its own comment states (`checkin / achievement / bonus / admin_adjust`), became
+`specs/point-records.json`; `keelbase init --spec` then generated a module from it — 23 files across the
+back end, the console, both mobile front ends, and two AI tools.
+
+The generated module is named `point_records` rather than `points`: generating under the source module's
+own name is refused, because that directory already exists and is not generator output. The name
+describes the same shape, and the provenance file beside the module names the spec it came from.
+
+**What the protocol carried, and what it could not.** It carried the fields and their kinds, the enum
+with its four values, and ownership (the runtime's own-scope, as for every module). It could not carry
+the composite unique constraint `(user_id, checkin_date)`, the index, the column that stores a date as
+`varchar(10)` (a protocol says `string`), or — most of all — **the rules**: one check-in a day, the streak
+arithmetic, the achievement thresholds. **A protocol carries shape, not rules**, and the reverse is
+honest about where it stops — the same boundary `business-spec.mjs` draws when it puts what it cannot
+express into `unmapped[]`.
+
+**Verified**: the back end builds; the generated module's own tests pass (4 suites / 25 tests);
+`check:generated-samples` reads 161 generated files consistent with their specs; `check:all` is 16/16.
+
+**A defect this exercise found.** `normalizeSpecFields` — the whitelist every spec passes through on the
+`--spec` path — kept `required` but **dropped `label`**, and `label` is consumed by exactly one template
+(the AI tools' parameter descriptions). So any module generated from a spec quietly lost those
+descriptions and fell back to field names, while the modules already committed carry labels — which
+means **the generator could not reproduce its own samples**. `check:generated-samples` is what caught it,
+on this module. Fixed by keeping `label`; the regenerated module matches.
+
+**中文**
+
+同一个想法的另一个方向：不是把 schema 喂进来，而是**读既有模块的代码、写出它蕴含的协议**。对象是本仓一个
+**真实**模块、且**不是**三旗舰 —— `points/points-entry.entity.ts`（签到/积分流水）。它的四个列、以及它自己
+注释里写明的词表（`checkin / achievement / bonus / admin_adjust`），落成 `specs/point-records.json`；再由
+`keelbase init --spec` 从它生成一个模块：23 个文件，覆盖后端、控制台、两端移动前端与两个 AI 工具。
+
+生成出来的模块叫 `point_records` 而不是 `points`：**在源模块自己的名字下生成会被拒**（那个目录已存在，且不是
+生成物）。这个名字描述的是**同一个形状**，模块旁边的来源身份文件写明了它出自哪份 spec。
+
+**协议带走了什么、带不走什么。** 它带走了字段与类型、那个四值枚举、以及所有权（运行时的本人数据范围，与每个
+模块一样）。它带不走**复合唯一约束** `(user_id, checkin_date)`、索引、把日期存成 `varchar(10)` 的那个列（协议
+只会说 `string`），而最要紧的是**规则**：一天只能签到一次、连签怎么算、成就阈值是多少。**协议承载形状，不承载
+规则**；这次反推如实写明它停在哪里 —— 与 `business-spec.mjs` 把表达不了的放进 `unmapped[]` 是同一条边界。
+
+**已验证**：后端构建通过；生成模块自己的测试通过（4 套件 / 25 例）；`check:generated-samples` 读作 161 个生成
+文件与各自 spec 一致；`check:all` 16/16。
+
+**这次顺手逮到的一处缺陷。** `normalizeSpecFields` —— `--spec` 路径上每份 spec 都要过的白名单 —— 保留了
+`required`，却**丢掉了 `label`**；而 `label` 全仓只被**一个**模板消费（AI 工具的参数描述）。于是任何从 spec 生成
+出来的模块都会**悄悄**失去那几段描述、回落到字段名，而仓里**已提交**的模块**带着标签** —— 也就是说**生成器复现
+不了自己的样本**。抓到它的是 `check:generated-samples`，就在这个模块上。修法是让 `label` 活过归一化；重生成后
+两份产出相等。
+
 ## 相关
 
 - P0-12 多输入通道：[module-protocol.md](../module-protocol.md) §4.1

@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { PointRecordsModule } from './point_records/point_records.module';
 import { ReportsModule } from './reports/reports.module';
 import { FollowupPlansModule } from './followup_plans/followup_plans.module';
 import { ContractsModule } from './contracts/contracts.module';
@@ -108,6 +109,7 @@ import { buildTypeOrmOptions } from './config/typeorm-options';
     HealthModule,
     EventsModule,
     TodosModule,
+    PointRecordsModule,
     ReportsModule,
     FollowupPlansModule,
     ContractsModule,

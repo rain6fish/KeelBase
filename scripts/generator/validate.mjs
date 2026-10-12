@@ -548,6 +548,13 @@ export function normalizeSpecFields(fields) {
     ...(typeof f.display === 'string' ? { display: f.display } : {}),
     ...(typeof f.onDelete === 'string' ? { onDelete: f.onDelete } : {}),
     ...(typeof f.required === 'boolean' ? { required: f.required } : {}),
+    // label 同理：它在全仓**只有** `templates-ai.mjs` 消费（AI 工具的参数描述），丢掉不报错、只是那道
+    // 描述悄悄退回字段名 —— 而仓里已提交的样例**带着标签**，于是「重新生成」与「已提交的样本」不再相等，
+    // `check:generated-samples` 正是这么把它抓出来的（2026-10-12）。
+    // label must survive for the same reason: it is consumed only by `templates-ai.mjs`（the AI tools'
+    // parameter descriptions）, so dropping it is silent — except that the committed samples carry labels,
+    // which makes a regeneration differ from what is in the repository（caught by `check:generated-samples`）.
+    ...(typeof f.label === 'string' ? { label: f.label } : {}),
   }));
 }
 

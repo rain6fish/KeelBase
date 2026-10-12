@@ -20,6 +20,7 @@
      'pages/ai-history/index',
      'pages/todos/index',
      'pages/search/index',
+    'pages/point_records/index',
     'pages/posts/index',
     'pages/notes/index',
     'pages/books/index',

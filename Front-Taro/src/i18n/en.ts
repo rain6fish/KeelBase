@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */
 export const en: I18nDictionary = {
+  // ── 积分流水（EASY-2 生成）──
+  'point_records.title': 'PointRecords',
+  'point_records.count': '{total} items',
+  'point_records.placeholder': 'Add a point_record…',
+  'point_records.add': 'Add',
+  'point_records.empty': 'No point_records yet',
+  'point_records.inputRequired': 'Please enter a point_record name',
+  'point_records.createFailed': 'Failed to create',
+  'point_records.deleteTitle': 'Delete PointRecord',
+  'point_records.deleteFailed': 'Failed to delete',
+  'point_records.loadFailed': 'Failed to load point_records',
+
   // ── 帖子（EASY-2 生成）──
   'posts.title': 'Posts',
   'posts.count': '{total} items',
