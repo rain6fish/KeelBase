@@ -238,17 +238,44 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
-## 🔗 Repositories
+<!-- BEGIN keelbase-family:en sha256:2b814db6cf768ed2e451305808a7a612049519af49310cef56ce7a5bc97bad2c -->
+## 🧬 The KeelBase family
 
-| Repository | Role |
-|---|---|
-| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | **The protocol itself** — wire-object schemas, language-neutral conformance vectors, and their version line. Independent of any implementation |
-| `KeelBase` | This repository — the TypeScript runtime, the product documentation, and the demo site |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java runtime — a second carrier of the same protocol |
-| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Spring Boot starter for connecting a Java system to KeelBase as an AI-callable business system |
+> KeelBase is **one protocol with several implementations and hosts** — not a set of competing
+> products. The contract is the source of truth; runtimes and hosts consume it, and none of them
+> owns it. Every repository here is **Apache-2.0**.
 
-The contract repository is where the protocol lives; the runtimes consume it, and none of them owns it.
-The two runtimes are peers — neither is a translation of the other.
+```text
+  host adapters   KeelBase-YuDao
+                  └ governance added to a mature enterprise platform (yudao)
+
+  runtimes        KeelBase (TypeScript)   ·   KeelBase4J (Java / Spring)
+                  └ two carriers of the same protocol — peers, not translations
+
+  bridge          KeelBase-java-starter
+                  └ wire an existing Java/Spring system in as governed AI tools
+
+  contract        keelbase-contract
+                  └ wire schemas + conformance vectors + the version line they share
+```
+
+| Repository | Role | Stack | Status |
+|---|---|---|---|
+| [`KeelBase`](https://github.com/rain6fish/KeelBase) | Reference implementation · product documentation · demo | TypeScript · NestJS · Vue · Flutter · Taro | active |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | The Java carrier of the same protocol | Java 17 · Spring Boot | active |
+| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Wire an existing Java/Spring system in as governed AI tools | Maven · Gradle | 0.1.x |
+| [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) | Host adapter — the governance layer on a yudao platform | Java · Vue 3 | active |
+| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | The protocol itself — schemas, vectors, the version line | JSON Schema | v1.x |
+
+**Where to start** — see it run: [`KeelBase`](https://github.com/rain6fish/KeelBase) (60-second
+Docker) · make an existing Java system AI-capable:
+[`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · you already run yudao:
+[`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · implement the protocol:
+[`keelbase-contract`](https://github.com/rain6fish/keelbase-contract).
+
+Which contract version each runtime answers for is maintained **once**, in the main repository — see
+[Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.
+<!-- END keelbase-family:en -->
 
 ## 🧭 Compatibility
 
@@ -259,7 +286,7 @@ first release rather than assembled when someone asks.
 | Runtime | Runtime version | Contract version |
 |---|---|---|
 | `KeelBase` (TypeScript) | `v1.1.0` | **v1.6.0** — bound as a submodule |
-| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.8.0** — bound as a submodule |
+| `KeelBase` (TypeScript) | `main`, **unreleased** | **v1.9.0** — bound as a submodule |
 | `KeelBase` (TypeScript) | `v1.0.11`, superseded | **v1.0.1** — carried in-tree; that release predates the contract repository |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) (Java) | `v0.1.0` | **v1.1.0** — vendored snapshot, taken from the contract repository |
 

@@ -25,7 +25,8 @@ export interface ConversationData {
   userId: string;
   provider: string;
   model: string;
-  messageCount: number;
+  /** 契约 conversation-data v2 起；v2 把它列为**可选**（不在 `required`），故类型也必须是可选的 */
+  messageCount?: number;
   messages: Array<{
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;

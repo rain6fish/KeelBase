@@ -231,16 +231,43 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ---
 
-## 🔗 仓库
+<!-- BEGIN keelbase-family:zh sha256:71b3f61e591ebb6fe93043059b0e22041d60492f0e6bc804ecc44759bef4312f -->
+## 🧬 KeelBase 家族
 
-| 仓库 | 角色 |
-|---|---|
-| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | **协议本体**——线缆对象 schema、语言无关一致性向量，以及两者共用的版本线。独立于任何实现 |
-| `KeelBase` | 本仓——TypeScript runtime、产品文档与演示站点 |
-| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | Java runtime——同一协议的第二载体 |
-| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | Spring Boot Starter，把 Java 系统接成 KeelBase 可调用的业务系统 |
+> KeelBase 是**一套协议、多个实现与多种宿主**——不是几个互相竞争的产品。契约是唯一真源，
+> 各 runtime 与各宿主消费它，**谁也不拥有它**。这里每个仓都是 **Apache-2.0**。
 
-协议住在契约仓；各 runtime 消费它，**谁也不拥有它**。两个 runtime 是**平行**关系——没有一个是另一个的翻译版。
+```text
+  宿主适配   KeelBase-YuDao
+             └ 在成熟企业平台上补治理层（芋道）
+
+  runtime    KeelBase（TypeScript）  ·  KeelBase4J（Java / Spring）
+             └ 同一协议的两个载体——互为平行，不是翻译关系
+
+  桥接       KeelBase-java-starter
+             └ 把存量 Java/Spring 系统接成受治理的 AI 工具
+
+  契约       keelbase-contract
+             └ 线缆 schema + 一致性向量 + 两者共用的版本线
+```
+
+| 仓 | 角色 | 技术栈 | 状态 |
+|---|---|---|---|
+| [`KeelBase`](https://github.com/rain6fish/KeelBase) | 参考实现 · 产品文档 · 演示 | TypeScript · NestJS · Vue · Flutter · Taro | 活跃 |
+| [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J) | 同一协议的 Java 载体 | Java 17 · Spring Boot | 活跃 |
+| [`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) | 把存量 Java/Spring 系统接成受治理的 AI 工具 | Maven · Gradle | 0.1.x |
+| [`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) | 宿主适配——芋道平台上的治理层 | Java · Vue 3 | 活跃 |
+| [`keelbase-contract`](https://github.com/rain6fish/keelbase-contract) | 协议本体——schema、向量、版本线 | JSON Schema | v1.x |
+
+**从哪里开始** —— 想看它跑起来：[`KeelBase`](https://github.com/rain6fish/KeelBase)（60 秒
+Docker）· 想让存量 Java 系统具备 AI 能力：
+[`KeelBase-java-starter`](https://github.com/rain6fish/KeelBase-java-starter) · 你已经在用芋道：
+[`KeelBase-YuDao`](https://github.com/rain6fish/KeelBase-YuDao) · 想实现这个协议：
+[`keelbase-contract`](https://github.com/rain6fish/keelbase-contract)。
+
+每个 runtime 对着哪一版契约应答，**只在主仓维护一处**——见
+[兼容矩阵](https://github.com/rain6fish/KeelBase/blob/main/README.zh-CN.md#-兼容矩阵)。此处不重复。
+<!-- END keelbase-family:zh -->
 
 ## 🧭 兼容矩阵
 
@@ -250,7 +277,7 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 | Runtime | Runtime 版本 | Contract 版本 |
 |---|---|---|
 | **KeelBase**（TypeScript） | `v1.1.0` | **v1.6.0**——以 submodule 绑定 |
-| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.8.0**——以 submodule 绑定 |
+| **KeelBase**（TypeScript） | `main`，**未发布** | **v1.9.0**——以 submodule 绑定 |
 | **KeelBase**（TypeScript） | `v1.0.11`，已被取代 | **v1.0.1**——树内携带；该发布早于契约仓的建立 |
 | [`KeelBase4J`](https://github.com/rain6fish/KeelBase4J)（Java） | `v0.1.0` | **v1.1.0**——vendor 快照，取自契约仓 |
 

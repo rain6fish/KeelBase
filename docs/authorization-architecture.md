@@ -172,6 +172,8 @@ side_effects:
 | L4 Tool & Data Governance（风险级 + 治理策略 + 数据范围 + 结构化拒绝） | ✅ 已实现 |
 | L5 Side-effect Governance（确认 + 撤销 + 审计哈希链 + 决策轨迹） | ✅ 已实现 |
 | 确认 artifact 的目的地绑定 + 授权层参数域/destination 白名单（AUTHZ-1/AUTHZ-2） | ✅ 已实现（2026-09-24：`audience` 列 + 执行点比对；治理策略 `writableFields` / `allowedDestinations`）——声明面在**工具元数据**，不进协议，理由见 §7.2 |
+| 确认是**精确绑定**、且只与授权层的「窄」约束相与（CONF-1，2026-10-13 定案为**边界**） | ✅ **已实现，并以此为边界**：确认行绑定**精确参数**（`confirmation.store.ts` 的 `args = JSON.stringify(args)`），执行点用的是**同一份解析结果** ⇒ 本次调用内不漂移（by construction）；而 `assertWithinDeclaredScope` 只**收窄**（字段域 / 目的地白名单，见上一行）。两者是「且」⇒ **「批准一次、界限内随变」的 mandate 形状今天表达不出来**：参数一变就得重新确认一次。这是**选择**不是缺口 —— 放宽的那一半（有界 mandate）要改确认 artifact 的形状，**未立项** |
+| 自助确认（R3）**同体自校**；拒绝**只对自己可见**（CONF-2，2026-10-13 定案为**边界**） | ✅ **已实现，并以此为边界**：R3 这条路上，**落行的服务与执行时校验的服务是同一个进程里的同一个服务**（`confirmation.store.ts` / `tool-execution.service.ts`）⇒ 一方同时握着签署与校验两半。**唯一不同体的一处是升级路径（R4）**——它在**独立治理服务**里裁决、再回调业务系统执行（`POST /ai/confirmations/:token/approve-by` + `/internal/approvals/:token/execute`）。拒绝**有计数、有审计**（`tool_gate_refusals_total{reason,source}`，公开端点 `/api/v1/metrics`），但那是**我们自己的计数器挂在自己的端点上** ⇒ 按「系统之外的一方看得见」的口径，答案是**不是**。这是**选择**不是缺口 —— 下沉分离（像 R4 那样跨进程，并让拒绝对系统之外可见）**未立项** |
 | Authorization Contract 协议化（Protocol 显式声明授权模型） | ⬜ 方向（当前由生成模块自动接线承担） |
 | 前端能力裁决（页面 / 菜单 / 按钮显隐） | ✅ 已实现（2026-09-15：消费 `GET /auth/me/permissions` 能力清单；roles 管壳 + 能力细门，见 `docs/web-front.spec.md` §4/§5） |
 | 重量级 RBAC 产品（Keycloak / Casbin / Shiro 等） | ⬜ **明确不做**（与差异化定位一致） |
