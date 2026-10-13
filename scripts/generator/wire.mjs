@@ -75,6 +75,32 @@ function insertAfter(content, anchor, insertion, marker) {
   };
 }
 
+/**
+ * 把模块目录追加进 CLAUDE.md §13「生成与示例模块」那一行。
+ *
+ * `check:admin-pages` 拿 `Web-Admin-Vue/src/views/` 下的目录与那一行对账；生成器此前**不碰它**，
+ * 于是每生成一个模块，那道门就红一次、直到有人手工补上 —— 而 `create_module_apply` 只跑 CLI，
+ * 做不到这件事 ⇒ **助手造出来的模块会留下一道红门**（复制模块实测）。补它是接线的一部分，不是人的活。
+ *
+ * The admin-pages gate diffs `views/` against that line. The generator used to leave it stale, so every
+ * generated module turned that gate red until a human edited the doc — and `create_module_apply` only runs
+ * the CLI, so it could not. Wiring it belongs to generating.
+ */
+function wireClaudeModuleList(content, name) {
+  const marker = '**生成与示例模块**(';
+  const at = content.indexOf(marker);
+  if (at === -1) return { content, changed: false, reason: 'claude-module-line-not-found' };
+  const end = content.indexOf(')', at);
+  if (end === -1) return { content, changed: false, reason: 'claude-module-line-not-found' };
+  if (content.slice(at, end).includes(`\`${name}\``)) {
+    return { content, changed: false, reason: 'already-wired' };
+  }
+  return {
+    content: `${content.slice(0, end)} · \`${name}\`${content.slice(end)}`,
+    changed: true,
+  };
+}
+
 /** 在 anchor 之前插入。 */
 function insertBefore(content, anchor, insertion, marker) {
   if (marker && content.includes(marker)) {
@@ -534,6 +560,12 @@ export async function wireAdmin(ctx, root = '') {
         `route: '/${ctx.plural}'`,
       ),
     ),
+  );
+
+  // 5) CLAUDE.md §13 的模块清单 —— 见 `wireClaudeModuleList` 的注释：不补它，每生成一个模块
+  //    `check:admin-pages` 就红一次，而 `create_module_apply` 只跑 CLI、补不了。
+  results.push(
+    await applyFile(`${root}${sep}CLAUDE.md`, (c) => wireClaudeModuleList(c, ctx.plural)),
   );
 
   return results;

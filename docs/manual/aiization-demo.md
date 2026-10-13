@@ -149,11 +149,11 @@ on this module. Fixed by keeping `label`; the regenerated module matches.
 There is no separate "clone" tool to learn, because both halves already exist — compose them:
 
 1. Read the source module and write down the protocol it implies (the direction just above).
-2. Feed that protocol back in under a new name: `keelbase init --spec <new>.json`. **Use the name the
-   generator will use for the directory** — the plural form (`points_ledgers`, not `points_ledger`); see
-   the first finding below for what happens otherwise. A module name that already exists in the
-   repository is refused unless `--force` is passed, and the assistant's own `create_module_apply` never
-   passes it — so a clone cannot land on top of a handwritten module.
+2. Feed that protocol back in under a new name: `keelbase init --spec <new>.json`. The name may be
+   singular or plural (`points_ledgers` matches the directory the generator writes; see the first finding
+   below for why that used to matter). A module name that already exists in the repository is refused
+   unless `--force` is passed, and the assistant's own `create_module_apply` never passes it — so a clone
+   cannot land on top of a handwritten module.
 
 **Verified (2026-10-13).** `point_records` was copied to `points_ledgers` exactly this way: 23 files plus
 the wiring across seven places; the back end builds; the generated module's own tests pass (2 suites / 16
@@ -162,15 +162,18 @@ suite is 382 suites / 3403 tests; `vue-tsc` is clean. The guard was exercised, n
 again under the existing name `point_records` is refused — `✗ 目录已存在 … 如确认覆盖请加 --force`,
 exit 1.
 
-**Two things the run taught — both now part of the steps above.**
+**Two things the run taught — both fixed, not merely noted.**
 
-1. **The name must be the plural form.** The generator singularises then pluralises to name the directory,
-   while `check:generated-samples` looks for `src/<spec.module>`. A singular `module` therefore generates
-   a directory the gate never matches, and **that spec is silently skipped**: the first attempt landed on
-   `points_ledger`, and the gate still read 161 — the new module was invisible to it.
-2. **The generator does not touch `CLAUDE.md` §13's module list**, so `check:admin-pages` fails right
-   after generating until someone adds the new page's directory to that line. That step is manual, and
-   `create_module_apply` only runs the CLI — so **a module the assistant creates leaves a red gate behind**.
+1. **The name and the directory are now resolved the same way.** The generator names the directory
+   `buildContext(name).plural` (`points_ledger` → `points_ledgers`), while `check-generated-samples` used to
+   look for `src/<spec.module>` — so a spec whose name was not its own plural **matched no directory and was
+   silently skipped**: the gate stayed green while never looking at the module (the first attempt landed on
+   `points_ledger` and the gate still read 161). The gate now resolves the directory the way the generator
+   does, so that whole class of miss is gone.
+2. **The generator now wires `CLAUDE.md` §13's module list.** It did not, so `check:admin-pages` failed
+   right after generating until someone edited that line — and `create_module_apply` only runs the CLI, so
+   it could not: **a module the assistant created left a red gate behind**. Wiring that line is one of the
+   generator's steps now (and it is idempotent).
 
 **What this platform does *not* do per module.** Deploying a *module* has no meaning here: `keelbase deploy`
 and `deploy/deploy-offline.sh` deploy the **whole application**, and running migrations or restarting the
@@ -182,23 +185,24 @@ is the one the project draws everywhere else: **the AI writes the repository; a 
 没有另一个叫「克隆」的工具要学 —— 因为两半都已经在，把它们串起来即可：
 
 1. 读源模块，写下它蕴含的协议（即上一节那个方向）。
-2. 把这份协议换个名字喂回去：`keelbase init --spec <新>.json`。**名字要用生成器给目录起的那一个**
-   —— **复数形态**（`points_ledgers`，不是 `points_ledger`）；用错会怎样见下面第一处发现。**仓里已存在
-   同名的模块会被拒**，除非传 `--force`；而助手自己的 `create_module_apply` **从不传它** ⇒ 克隆**不可能
-   盖在手写模块上**。
+2. 把这份协议换个名字喂回去：`keelbase init --spec <新>.json`。名字**单数、复数都行**（`points_ledgers`
+   与生成器写出的目录同名；那个差别以前为什么会咬人，见下面第一处发现）。**仓里已存在同名的模块会被拒**，
+   除非传 `--force`；而助手自己的 `create_module_apply` **从不传它** ⇒ 克隆**不可能盖在手写模块上**。
 
 **已验证（2026-10-13）。** `point_records` 就是照这样复制成 `points_ledgers` 的：23 个文件 + 七处接线；
 后端构建通过；生成模块自测通过（2 套件 / 16 例）；`check:generated-samples` 由 161 变 **184**；
 `check:all` **17/17**；后端全量 382 套 / 3403 例；`vue-tsc` 干净。**守卫是跑出来的、不是假设的**：再用
 既有名 `point_records` 生成一次会被拒 —— `✗ 目录已存在 … 如确认覆盖请加 --force`，退出码 1。
 
-**这一跑教会的两件事 —— 都已写进上面的步骤。**
+**这一跑教会的两件事 —— 两处都已修，不只是记下。**
 
-1. **模块名要用复数形态。** 生成器先把名字单数化、再复数化来给目录命名，而 `check-generated-samples`
-   找的是 `src/<spec.module>`。于是**单数 `module` 生成出的目录，那道门永远匹配不到**，**那条 spec 就被
-   静默跳过**：第一版写成 `points_ledger`，样本门仍是 161 —— 新模块对它是**不可见**的。
-2. **生成器不碰 `CLAUDE.md` §13 的模块清单**，故生成后 `check:admin-pages` 立刻红，直到有人把新页面的目录
-   加进那一行。**这一步是人工的**，而 `create_module_apply` 只跑 CLI ⇒ **助手造出来的模块会留下一道红门**。
+1. **名字与目录现在按同一个口径解析。** 生成器给目录命名用的是 `buildContext(name).plural`
+   （`points_ledger` → `points_ledgers`），而 `check-generated-samples` 过去找 `src/<spec.module>` —— 于是
+   **名字不是它自己复数的协议匹配不到目录、被静默跳过**：门绿着，却从没看这件东西（第一版落在
+   `points_ledger` 上，样本门仍是 161）。那道门现在**按生成器的口径解析目录**，这一整类漏看就此消失。
+2. **生成器现在会补 `CLAUDE.md` §13 的模块清单。** 它过去不碰，于是生成后 `check:admin-pages` 立刻红，
+   直到有人手工改那一行 —— 而 `create_module_apply` 只跑 CLI、改不了：**助手造出来的模块会留下一道红门**。
+   现在补那一行是生成器的步骤之一（且幂等）。
 
 ## 相关
 

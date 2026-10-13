@@ -2042,3 +2042,26 @@ test('模块名单复数：不规则走表，表外仍朴素（不猜）', () =>
   assert.equal(toSingular('movies'), 'movie');
   assert.equal(toPlural('movies'), 'movies');
 });
+
+test('wireAdmin：把新模块补进 CLAUDE.md §13 的模块清单，且幂等', async () => {
+  // 为什么值得一条用例：`check:admin-pages` 拿 views/ 下的目录与那一行对账，而生成器此前不碰 CLAUDE.md
+  // ⇒ 每生成一个模块，那道门就红一次，直到有人手工补上（实测：复制模块那一轮）。而且
+  // `create_module_apply` 只跑 CLI —— 补不了，于是助手造出来的模块会留下一道红门。
+  const root = await mkdtemp(join(tmpdir(), 'kb-wire-admin-'));
+  await writeFile(
+    join(root, 'CLAUDE.md'),
+    '前略\n**模块**（括号内 = `Web-Admin-Vue/src/views/` 下的目录名）：登录(`login`) / **生成与示例模块**(`books` · `point_records`)\n后略\n',
+  );
+
+  const ctx = buildContext('points_ledgers', '积分台账', [{ name: 'points', type: 'int' }]);
+
+  const first = await wireAdmin(ctx, root);
+  assert.equal(first.find((r) => r.file.endsWith('CLAUDE.md'))?.changed, true);
+  const after = await readFile(join(root, 'CLAUDE.md'), 'utf8');
+  assert.ok(after.includes('`point_records` · `points_ledgers`)'), '应追加进那一行的括号内');
+
+  // 幂等：再跑一次不动它（否则每次生成都改一行文档）
+  const second = await wireAdmin(ctx, root);
+  assert.equal(second.find((r) => r.file.endsWith('CLAUDE.md'))?.changed, false);
+  assert.equal(await readFile(join(root, 'CLAUDE.md'), 'utf8'), after);
+});

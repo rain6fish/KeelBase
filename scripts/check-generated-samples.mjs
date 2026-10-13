@@ -80,10 +80,16 @@ for (const entry of fs.readdirSync(specDir).sort()) {
     continue; // 非协议 JSON（如 OpenAPI 抓取件）
   }
   if (!spec.module || !Array.isArray(spec.fields)) continue;
-  if (!fs.existsSync(path.join(ROOT, 'Server-NestJS', 'src', spec.module))) continue;
-  if (EXEMPT.has(spec.module)) continue;
 
+  // 目录名要**按生成器的口径**解析，不能假设 `spec.module` 就是目录名：生成器把目录命名为
+  // `buildContext(name).plural`（`user_profile` → `user_profiles`），而 `--module <单数>` 正是帮助里
+  // 写着的用法。此前这里直接找 `src/<spec.module>`，于是「名字不是它自己的复数」的那份协议
+  // **匹配不到目录、被静默跳过** —— 门绿着，但它没看这件东西（复制模块实测：第一版 spec 写成单数，
+  // 样本门仍是 161，新模块对它不可见）。解析口径与生成器同源，这类漏看就不再可能。
   const ctx = buildContext(spec.module, spec.label ?? spec.module, spec.fields);
+  if (!fs.existsSync(path.join(ROOT, 'Server-NestJS', 'src', ctx.plural))) continue;
+  if (EXEMPT.has(ctx.plural)) continue;
+
   ctx.featureFlag = spec.featureFlag !== false;
   ctx.isTab = spec.tab === true;
   ctx.searchable = spec.searchable === true;
