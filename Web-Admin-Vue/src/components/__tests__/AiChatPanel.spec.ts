@@ -43,12 +43,17 @@ const conv = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-async function mountLedger(rows: unknown[]) {
+async function mountPanel(rows: unknown[]) {
   mocks.list.mockResolvedValue(rows)
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   const wrapper = mount(AiChatPanel, { global: { plugins: [ElementPlus, i18n] } })
   await (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
   await flushPromises()
+  return wrapper
+}
+
+async function mountLedger(rows: unknown[]) {
+  const wrapper = await mountPanel(rows)
   // 切到账本视图（头部「聊天历史」按钮）
   const historyBtn = wrapper.findAll('button').find((b) => b.attributes('title') === '聊天历史')
   await historyBtn!.trigger('click')
@@ -119,5 +124,13 @@ describe('AiChatPanel · 工作账本', () => {
     await flushPromises()
 
     expect(mocks.push).toHaveBeenCalledWith({ name: 'workbench-ai-trace', query: { conv: 'c1' } })
+  })
+
+  it('普通用户看到的是用户口径的欢迎词 —— 不是系统助手那句', async () => {
+    const wrapper = await mountPanel([])
+
+    expect(wrapper.text()).toContain('你自己的数据')
+    // `assWelcome` 是系统助手的话术（问模块 / 配权限 / 去管理台），普通用户不该看到它
+    expect(wrapper.text()).not.toContain('系统有哪些模块')
   })
 })

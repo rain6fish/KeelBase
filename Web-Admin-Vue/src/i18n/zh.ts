@@ -346,6 +346,9 @@ const zh = {
   aiNotReadyTitle: 'AI 尚未配置',
   aiNotReadyBody: '配置 API Key（AI_PROVIDER + 对应 Key）或本地 Ollama 后重启后端即可用。环境排查：node scripts/keelbase-doctor.mjs --env',
   assWelcome: '你好，我是系统 AI 助手。可以问我「系统有哪些模块？」「怎么配置权限？」或「打开系统信息页」。',
+  // 普通用户口径的欢迎词：`assWelcome` 是**系统助手**的话术（问模块/配权限/去管理台），
+  // 对普通用户是错的——他要的是自己的业务数据。
+  assWelcomeUser: '你好，我可以帮你查询和处理你自己的数据（事件、待办、客户等）。试试「本月有哪些事件？」或「帮我建一条待办」——写操作会先请你确认。',
   assPlaceholder: '输入问题…',
   assThinking: '思考中…',
   assNavigate: '打开页面',

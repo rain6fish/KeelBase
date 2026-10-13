@@ -75,7 +75,7 @@
         >
           <div class="text-caption">{{ t('aiNotReadyBody') }}</div>
         </el-alert>
-        <div v-if="!items.length" class="text-center text-medium-emphasis pa-6">{{ t('assWelcome') }}</div>
+        <div v-if="!items.length" class="text-center text-medium-emphasis pa-6">{{ auth.isAdmin ? t('assWelcome') : t('assWelcomeUser') }}</div>
 
         <div v-for="(m, i) in items" :key="i" class="mb-3">
           <!-- 用户 -->

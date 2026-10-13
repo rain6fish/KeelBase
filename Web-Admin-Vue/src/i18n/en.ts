@@ -345,6 +345,9 @@ const en: ZhDict = {
   aiNotReadyTitle: 'AI not configured',
   aiNotReadyBody: 'Configure an API key (AI_PROVIDER + matching key) or a local Ollama, then restart the backend. Diagnose: node scripts/keelbase-doctor.mjs --env',
   assWelcome: 'Hi, I\'m the system AI assistant. Try "What modules does the system have?", "How do I configure permissions?", or "Open the system info page".',
+  // The end-user welcome. `assWelcome` speaks as the *system* assistant (modules, permissions, admin
+  // console) — wrong for a user whose subject is their own business data.
+  assWelcomeUser: 'Hi — I can look up and act on your own data (events, todos, customers...). Try "What events are on this month?" or "Create a todo" — write actions ask you to confirm first.',
   assPlaceholder: 'Ask a question…',
   assThinking: 'Thinking…',
   assNavigate: 'Open page',
