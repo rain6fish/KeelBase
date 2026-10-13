@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConversationService } from './conversation.service';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { wiredSchema } from '../../../test/ai-service.testbed';
 
 describe('ConversationService', () => {
   let service: ConversationService;
@@ -142,13 +141,9 @@ describe('ConversationService', () => {
     it('② 绑定：ConversationData 键集 == conversation-data 冻结契约', async () => {
       const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
       const retrieved = await service.getConversation(created.id, 'user1', mockAbility(true));
-      const props = Object.keys(
-        (
-          JSON.parse(
-            readFileSync(resolve(__dirname, '../../../specs/protocol/schemas/v1/conversation-data.schema.json'), 'utf8'),
-          ) as { properties: Record<string, unknown> }
-        ).properties,
-      );
+      // 走 wiredSchema()：按注册表声明的**当前版本**取 schema——此前这里硬编码 schemas/v1/，
+      // 契约升版（v1→v2 加 title/messageCount）后它会盯着已冻结的旧版假绿/假红。
+      const props = Object.keys(wiredSchema('conversation-data').properties);
       expect(Object.keys(retrieved).sort()).toEqual(props.sort());
     });
 
@@ -306,6 +301,56 @@ describe('ConversationService', () => {
 
       expect(convStore.has('expired-1')).toBe(false);
       expect(convStore.has(fresh.id)).toBe(true);
+    });
+  });
+
+  describe('renameConversation() · 工作账本', () => {
+    it('本人可重命名，返回值与读回都带 title（两端空白裁掉）', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+
+      const renamed = await service.renameConversation(created.id, 'user1', mockAbility(true), '  Q3 客户风险盘点  ');
+
+      expect(renamed.title).toBe('Q3 客户风险盘点');
+      const reread = await service.getConversation(created.id, 'user1', mockAbility(true));
+      expect(reread.title).toBe('Q3 客户风险盘点');
+    });
+
+    it('空白标题 = 清除（回退到前端派生预览），落库为 null', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+      await service.renameConversation(created.id, 'user1', mockAbility(true), '临时名');
+
+      const cleared = await service.renameConversation(created.id, 'user1', mockAbility(true), '   ');
+
+      expect(cleared.title).toBeUndefined();
+      expect(convStore.get(created.id)!.title).toBeNull();
+    });
+
+    it('无权（非本人且非管理员）→ 拒绝，且**不写库**', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+      mockConvRepo.update.mockClear();
+
+      await expect(
+        service.renameConversation(created.id, 'user2', mockAbility(false), '别人的会话'),
+      ).rejects.toThrow('无权访问此对话');
+
+      expect(mockConvRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('会话不存在 → NotFoundException', async () => {
+      await expect(
+        service.renameConversation('nope', 'user1', mockAbility(true), 'x'),
+      ).rejects.toThrow('Conversation not found');
+    });
+
+    it('列表（工作账本行）与元数据都带 title', async () => {
+      const created = await service.createConversation('user1', 'deepseek', 'deepseek-v4-flash');
+      await service.renameConversation(created.id, 'user1', mockAbility(true), '账本行');
+
+      const list = await service.getUserConversations('user1');
+      expect(list.find((c) => c.id === created.id)!.title).toBe('账本行');
+
+      const meta = await service.getConversationMeta(created.id, 'user1', mockAbility(true));
+      expect(meta.title).toBe('账本行');
     });
   });
 });

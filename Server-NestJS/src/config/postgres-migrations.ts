@@ -20,6 +20,7 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddAccountCompliance*',
   '*AddUserMemory*',
   '*AddConversationSummary*',
+  '*AddConversationTitle*',
   '*AddKnowledgeDocumentColumns*',
   '*AddKnowledgeChunks*',
   '*AddSettings*',

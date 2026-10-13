@@ -25,6 +25,7 @@ export interface ConversationData {
   userId: string;
   provider: string;
   model: string;
+  messageCount: number;
   messages: Array<{
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
@@ -33,6 +34,8 @@ export interface ConversationData {
     timestamp: string;
   }>;
   summary?: string;
+  /** 工作账本：用户命名的标题（未设 = 前端用首条消息派生预览） */
+  title?: string;
   createdAt: string;
   lastActivityAt: string;
 }
@@ -49,6 +52,8 @@ export interface ConversationMeta {
   provider: string;
   model: string;
   messageCount: number;
+  /** 工作账本：用户命名的标题（未设 → undefined） */
+  title?: string;
   createdAt: string;
   lastActivityAt: string;
 }
@@ -113,6 +118,7 @@ export class ConversationService {
       provider: conv.provider,
       model: conv.model,
       messageCount,
+      title: conv.title ?? undefined,
       createdAt: conv.createdAt.toISOString(),
       // 与 toData 同一时间口径，避免两个视图对「最后活动」给出不同答案
       lastActivityAt: (conv.lastActivityAt ?? conv.updatedAt).toISOString(),
@@ -208,6 +214,34 @@ export class ConversationService {
     await this.convRepo.update(id, { isDeleted: true });
   }
 
+  /**
+   * 工作账本：重命名会话（给会话一个稳定的名字）。
+   *
+   * 权限与 `getConversation` / `deleteConversation` **同源**（同一 CASL ability 闸门 + 同一 404/403 语义）——
+   * 普通用户走 owner 规则、管理员走 manage-all，故「本人或管理员」由既有规则保证，本方法**不新增鉴权分支**。
+   * 空白标题视为清除（前端回退到按首条消息派生的预览）。
+   */
+  async renameConversation(
+    id: string,
+    userId: string,
+    ability: AppAbility,
+    title: string,
+  ): Promise<ConversationData> {
+    const conv = await this.convRepo.findOne({ where: { id, isDeleted: false } });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (ability.cannot('update', subject('AiConversation', conv))) {
+      throw new ForbiddenException('无权访问此对话');
+    }
+    const normalized = title.trim();
+    const nextTitle = normalized.length > 0 ? normalized : null;
+    await this.convRepo.update(id, { title: nextTitle });
+    const messages = await this.msgRepo.find({
+      where: { conversationId: id },
+      order: { createdAt: 'ASC' },
+    });
+    return this.toData({ ...conv, title: nextTitle }, messages);
+  }
+
   async getUserConversations(userId: string): Promise<ConversationData[]> {
     const convs = await this.convRepo.find({
       where: { userId, isDeleted: false },
@@ -252,7 +286,9 @@ export class ConversationService {
       userId: conv.userId,
       provider: conv.provider,
       model: conv.model,
+      messageCount: conv.messageCount,
       summary: conv.summary ?? undefined,
+      title: conv.title ?? undefined,
       messages: messages.map((m) => ({
         role: m.role as any,
         content: m.content,

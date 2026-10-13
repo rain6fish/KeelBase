@@ -37,6 +37,10 @@ export class AiConversation {
   @Column({ type: 'text', nullable: true, name: 'summary' })
   summary?: string;
 
+  /** 工作账本：用户给会话起的名字（空/未设 = 前端回退到首条消息派生的预览） */
+  @Column({ type: 'varchar', length: 120, nullable: true, name: 'title' })
+  title?: string | null;
+
   @Column({ default: false, name: 'is_deleted' })
   isDeleted!: boolean;
 }

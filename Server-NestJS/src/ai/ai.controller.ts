@@ -21,6 +21,7 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   Put,
+  Patch,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import {
@@ -43,6 +44,7 @@ import { ChatRequestDto } from './dto/chat-request.dto';
 import { ConfirmDecisionDto } from './dto/confirm-decision.dto';
 import { ApproveDecisionDto } from './dto/approve-decision.dto';
 import { MyConfirmationQueryDto } from './dto/my-confirmation-query.dto';
+import { RenameConversationDto } from './dto/rename-conversation.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
@@ -353,6 +355,28 @@ export class AiController {
   ) {
     await this.conversationService.deleteConversation(id, String(user.sub), ability);
     return null;
+  }
+
+  /**
+   * 工作账本：重命名会话。
+   *
+   * 权限与 `:id` 同源（本人走 owner 规则、管理员走 manage-all），故**不新增鉴权分支**；
+   * 空串 = 清除标题（前端回退到按首条消息派生的预览）。
+   */
+  @Patch('conversations/:id')
+  @ApiOperation({ summary: '重命名会话（工作账本，本人或管理员）' })
+  async renameConversation(
+    @Param('id') id: string,
+    @Body() dto: RenameConversationDto,
+    @CurrentUser() user: JwtPayload,
+    @CurrentAbility() ability: AppAbility,
+  ) {
+    return this.conversationService.renameConversation(
+      id,
+      String(user.sub),
+      ability,
+      dto.title,
+    );
   }
 
   /**
