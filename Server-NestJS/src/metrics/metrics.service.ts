@@ -62,6 +62,27 @@ export class MetricsService implements OnModuleInit {
    */
   readonly toolGateFixtureCasesTotal: client.Counter<'outcome'>;
 
+  /**
+   * CONF-1 的**可观测性那一半**：**同一工具在一个时间窗口内被重复确认了多少次**。
+   *
+   * 它存在，是因为确认**绑精确参数**（见 `docs/authorization-architecture.md` §6 的 CONF-1 边界）——
+   * 参数一变就得重新问一次。那条边界是**选择**，但它有一个**可测的代价：批准疲劳**。此前没人答得上
+   * 「这个工具今天被问了几次」，于是「疲劳」是一句说法而不是一个读数。
+   *
+   * **读法**（写在这里，因为读法是这个计数器契约的一部分）：窗口内的重复次数**由 Prometheus 侧算**，
+   * 不在服务端算 —— `sum by (tool) (increase(tool_confirmations_total[1h]))`。
+   *
+   * - 标签 `tool` 取**被确认的那个工具名**；**run 级确认记作 `tool="run"`**（与落库时用的 `toolName`
+   *   同值，故两边不可能漂移）。**一次 run 只算一次询问**，即便它覆盖多个动作 —— 按动作数记会把
+   *   疲劳放大成假读数。
+   * - 记的是**询问的次数**，不是**结果**：人怎么答（批准 / 拒绝 / 超时）在 `confirmation_decision`
+   *   的审计里，不在本计数器上。**不按身份打标签**（那会爆高基数）。
+   *
+   * ⚠ 与 `toolGateRefusalsTotal` 同一条实测教训：零样本时暴露面上**只有 `# HELP` / `# TYPE`、没有
+   * series**，故「有没有」要看那一**行**样本，不是指标名字出现。
+   */
+  readonly toolConfirmationsTotal: client.Counter<'tool'>;
+
   constructor() {
     this.httpRequestsTotal = new client.Counter({
       name: 'http_requests_total',
@@ -79,6 +100,12 @@ export class MetricsService implements OnModuleInit {
       name: 'tool_gate_fixture_cases_total',
       help: 'Eval-suite cases, by outcome: ran (executed as the fixture identity) | skipped (disabled)',
       labelNames: ['outcome'],
+    });
+
+    this.toolConfirmationsTotal = new client.Counter({
+      name: 'tool_confirmations_total',
+      help: 'Write-tool confirmations asked of a human, by tool (a run-level confirmation counts once, as tool="run")',
+      labelNames: ['tool'],
     });
 
     this.httpRequestDurationSeconds = new client.Histogram({

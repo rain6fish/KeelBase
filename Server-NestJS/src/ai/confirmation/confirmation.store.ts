@@ -26,6 +26,7 @@ import { Repository, LessThan } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
 import { SettingsService, SETTING_KEYS } from '../../settings/settings.service';
+import { MetricsService } from '../../metrics/metrics.service';
 
 export type ConfirmationOutcome = 'approve' | 'decline' | 'timeout';
 
@@ -133,6 +134,8 @@ export class ConfirmationStore {
     private readonly reqRepo: Repository<AiConfirmationRequest>,
     @Optional() ttlMs?: number,
     @Optional() private readonly settingsService?: SettingsService,
+    /** CONF-1 可观测性：缺席（单测直接 new）时不记数，确认流照常 */
+    @Optional() private readonly metrics?: MetricsService,
   ) {
     this.ttlMs = ttlMs ?? CONFIRMATION_DEFAULT_TTL_MS;
   }
@@ -233,6 +236,9 @@ export class ConfirmationStore {
     /** REV-7：建行时落定的窗口终点（缺席 → null = 未记录，只有本列之前的历史行才该缺席） */
     expiresAt?: Date;
   }): Promise<void> {
+    // CONF-1 可观测性：**问了几次**在这里记 —— `create` / `createRun` 的唯一共用出口。
+    // 记在落库**之前**：落库失败不阻断内存确认流（见方法头），而那次询问**确实已经发生**了。
+    this.metrics?.toolConfirmationsTotal.inc({ tool: row.toolName });
     await this.reqRepo
       .save(
         this.reqRepo.create({

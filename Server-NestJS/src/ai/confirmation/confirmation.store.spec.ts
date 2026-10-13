@@ -71,6 +71,32 @@ describe('ConfirmationStore', () => {
     expect(repo.create.mock.calls[0][0]).not.toHaveProperty('audience');
   });
 
+  it('CONF-1 可观测性：每次「询问」各记一次、按工具名分；run 只算一次（tool="run"）', async () => {
+    const inc = jest.fn();
+    const metered = new ConfirmationStore(repo as any, 1000, undefined, {
+      toolConfirmationsTotal: { inc },
+    } as any);
+
+    await metered.create('1', 'create_event', { title: 'T' });
+    await metered.create('1', 'create_event', { title: 'T2' });
+    await metered.createRun(
+      '1',
+      [
+        { toolName: 'create_todo', args: { title: 'A' }, summary: { key: 'k', fallback: 'A' }, riskLevel: 'R3' },
+        { toolName: 'create_event', args: { title: 'B' }, summary: { key: 'k', fallback: 'B' }, riskLevel: 'R3' },
+      ],
+      'R3',
+    );
+
+    // 同一工具被问了两次 ⇒ 两次读数（窗口内的重复次数由 Prometheus 侧 `sum by (tool)` 得到）；
+    // 那次 run 覆盖两个动作，但**只算一次询问** —— 按动作数记会把疲劳放大成假读数。
+    expect(inc.mock.calls.map((c) => c[0].tool)).toEqual(['create_event', 'create_event', 'run']);
+  });
+
+  it('CONF-1 可观测性：metrics 缺席（单测直接 new）时不抛、确认流照常', async () => {
+    await expect(store.create('1', 'create_event', { title: 'T' })).resolves.toHaveProperty('token');
+  });
+
   it('should resolve decline for the owning user', async () => {
     const { token, decision } = await store.create('1', 'create_event', { title: 'T' });
 
