@@ -107,6 +107,56 @@ describe('REV-15 闸门拒绝计数', () => {
     });
   });
 
+  it('CONF-1 有界变动：声明了界限的字段在界限内放行，越界拒（field_bound）', async () => {
+    const policy = {
+      getToolPolicy: jest.fn().mockResolvedValue({
+        writableFields: [],
+        allowedDestinations: [],
+        boundedFields: { amount: { max: 10000 } },
+      }),
+    };
+    const { gate, metrics } = makeGate({ policy });
+
+    // 界限内（含正好等于上界）→ 不拒
+    await expect(
+      gate.assertWithinDeclaredScope('create_contract', { amount: 8000 }, '7'),
+    ).resolves.toBeUndefined();
+    await expect(
+      gate.assertWithinDeclaredScope('create_contract', { amount: 10000 }, '7'),
+    ).resolves.toBeUndefined();
+
+    // 越界 → 拒，且走同一个拒绝出口计数
+    await expect(
+      gate.assertWithinDeclaredScope('create_contract', { amount: 10001 }, '7'),
+    ).rejects.toThrow(/outside its declared bound/);
+    expect(metrics.toolGateRefusalsTotal.inc).toHaveBeenCalledWith({
+      reason: 'field_bound',
+      source: 'production',
+    });
+  });
+
+  it('CONF-1 有界变动：非数值一律拒（fail-closed，不读成「界限不适用」）', async () => {
+    const policy = {
+      getToolPolicy: jest.fn().mockResolvedValue({
+        writableFields: [],
+        allowedDestinations: [],
+        boundedFields: { amount: { max: 10000 } },
+      }),
+    };
+    const { gate } = makeGate({ policy });
+
+    for (const bad of ['8000', null, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(
+        gate.assertWithinDeclaredScope('create_contract', { amount: bad }, '7'),
+      ).rejects.toThrow(/outside its declared bound/);
+    }
+
+    // 字段**没出现**时不受界限约束 —— 它约束的是「出现时那个取值」，不是「必须出现」
+    await expect(
+      gate.assertWithinDeclaredScope('create_contract', { title: 'x' }, '7'),
+    ).resolves.toBeUndefined();
+  });
+
   it('放行不计：这个计数器数的是「拒绝」，不是「调用」', async () => {
     const { gate, metrics } = makeGate({ riskLevel: 'R1' });
 

@@ -251,6 +251,36 @@ export class ToolGateService {
         );
       }
     }
+
+    // CONF-1 有界变动：声明了界限的字段，取值必须落在界限内（数值上界）。
+    // **非数值一律拒**（fail-closed）：声明了数值上界却拿到一个比不了的取值 —— 无法证明它在界限内，
+    // 就不放行（与「身份缺失一律 DENY」同一取向，而不是默默当成「不适用」）。
+    for (const [field, bound] of Object.entries(policy.boundedFields ?? {})) {
+      if (!args || !(field in args)) continue;
+      const value = args[field];
+      const withinBound = typeof value === 'number' && Number.isFinite(value) && value <= bound.max;
+      if (!withinBound) {
+        this._refuse(
+          userId,
+          {
+            name: 'field_bound',
+            ok: false,
+            note: `${field} 超出声明界限（须为 ≤ ${bound.max} 的有限数）`,
+          },
+          `Tool "${toolName}" received ${field} outside its declared bound (<= ${bound.max})`,
+        );
+      }
+    }
+  }
+
+  /**
+   * CONF-1：本工具声明的字段界限（**单一源** = `getToolPolicy`；无治理策略/未声明时为空对象）。
+   * 信任作用域键（`AiService._trustScopeKey`）据此把「值」换成「界限」，使界限内的取值变动共用一个键。
+   */
+  async boundedFieldsOf(toolName: string): Promise<Record<string, { max: number }>> {
+    if (!this.governancePolicy) return {};
+    const policy = await this.governancePolicy.getToolPolicy(toolName);
+    return policy.boundedFields ?? {};
   }
 
   /**

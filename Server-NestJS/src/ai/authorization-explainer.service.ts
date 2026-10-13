@@ -18,7 +18,7 @@ import {
   AuthorizationReasons,
   ToolRiskLevel,
 } from './interfaces/tool.interface';
-import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
+import { GovernancePolicyService, sanitizeBoundedFields } from './governance-bridge/governance-policy.service';
 
 /**
  * §internal.16 A-5 / T5 跨入口一致：**放行授权依据快照的单一构造**（JSON 字符串）。
@@ -103,6 +103,16 @@ export class AuthorizationExplainerService {
         });
       } else {
         checks.push({ name: 'role_allowed', ok: true, note: '无角色限制' });
+      }
+      // CONF-1「有界变动」：本工具声明了界限时把它写进快照 —— 那次放行**可被追责到界限本身**，
+      // 而不是追责到某一组具体取值（具体值在别的列：工具行 args / 字段域检查）。故这里**不需要** args。
+      const bounded = sanitizeBoundedFields(cfg.boundedFields);
+      for (const field of Object.keys(bounded).sort()) {
+        checks.push({
+          name: 'field_bound',
+          ok: true,
+          note: `${field} 声明界限 ≤ ${bounded[field].max}（本次放行覆盖该界限内的取值）`,
+        });
       }
     }
     checks.push({

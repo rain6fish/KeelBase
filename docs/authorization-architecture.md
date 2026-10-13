@@ -105,7 +105,7 @@ L5 Side-effect Governance ─ Confirmation / Idempotency / Revoke / Audit
 - **治理策略（GovernancePolicy）**：工具开关 + 角色白名单 + **可写字段域 / destination 白名单**（§7.2），**每次工具调用实时查库取角色**（角色降权立即生效）。
 - **工具目的地（destination）**：写落到哪个系统——外部 MCP 工具是其 server 名、B 路径代理工具是其声明 audience、其余为本地运行时。单一源解析（`src/ai/tools/tool-destination.ts`），签发与执行两侧共用，供 AUTHZ-1 的目的地绑定与 destination 白名单使用。
 - **数据范围（user_scoped）**：每个工具调用携带认证用户，只能读/写本人（或同组织）的数据。
-- **拒绝检查清单（AuthorizationDeniedError.reasons）**：`risk_policy`（R5 阻断）/ `tool_enabled`（治理禁用）/ `role_allowed`（角色白名单）/ `feature_flag`（开关关闭）/ `admin_only` / `user_scoped` / `field_domain`（越出可写字段域）/ `destination_allowed`（目的地不在白名单）/ `destination_binding`（确认 artifact 绑定的目的地与当前不一致）——结构化失败原因进入决策轨迹与审计，前端可渲染「为何阻止」。
+- **拒绝检查清单（AuthorizationDeniedError.reasons）**：`risk_policy`（R5 阻断）/ `tool_enabled`（治理禁用）/ `role_allowed`（角色白名单）/ `feature_flag`（开关关闭）/ `admin_only` / `user_scoped` / `field_domain`（越出可写字段域）/ `field_bound`（超出声明界限，CONF-1）/ `destination_allowed`（目的地不在白名单）/ `destination_binding`（确认 artifact 绑定的目的地与当前不一致）——结构化失败原因进入决策轨迹与审计，前端可渲染「为何阻止」。
 
 ### L5 Side-effect Governance（副作用治理）
 
@@ -172,7 +172,7 @@ side_effects:
 | L4 Tool & Data Governance（风险级 + 治理策略 + 数据范围 + 结构化拒绝） | ✅ 已实现 |
 | L5 Side-effect Governance（确认 + 撤销 + 审计哈希链 + 决策轨迹） | ✅ 已实现 |
 | 确认 artifact 的目的地绑定 + 授权层参数域/destination 白名单（AUTHZ-1/AUTHZ-2） | ✅ 已实现（2026-09-24：`audience` 列 + 执行点比对；治理策略 `writableFields` / `allowedDestinations`）——声明面在**工具元数据**，不进协议，理由见 §7.2 |
-| 确认是**精确绑定**、且只与授权层的「窄」约束相与（CONF-1，2026-10-13 定案为**边界**） | ✅ **已实现，并以此为边界**：确认行绑定**精确参数**（`confirmation.store.ts` 的 `args = JSON.stringify(args)`），执行点用的是**同一份解析结果** ⇒ 本次调用内不漂移（by construction）；而 `assertWithinDeclaredScope` 只**收窄**（字段域 / 目的地白名单，见上一行）。两者是「且」⇒ **「批准一次、界限内随变」的 mandate 形状今天表达不出来**：参数一变就得重新确认一次。这是**选择**不是缺口 —— 放宽的那一半（有界 mandate）要改确认 artifact 的形状，**未立项**。**代价可测**：`tool_confirmations_total{tool}`（`/api/v1/metrics`），窗口内的重复次数由 `sum by (tool) (increase(tool_confirmations_total[1h]))` 得到；run 级确认记作 `tool="run"`、**只算一次询问** —— 「疲劳」自此是一个读数，不是一句说法。记的是**问了几次**，不是**人怎么答**（那在 `confirmation_decision` 的审计里） |
+| 确认是**精确绑定**，并可被**声明界限**按工具放开（CONF-1，2026-10-13） | ✅ **已实现，并以此为边界**：确认行绑定**精确参数**（`confirmation.store.ts` 的 `args = JSON.stringify(args)`），执行点用的是**同一份解析结果** ⇒ 本次调用内不漂移（by construction）；而 `assertWithinDeclaredScope` 只**收窄**（字段域 / 目的地白名单，见上一行）。两者是「且」⇒ **「批准一次、界限内随变」的 mandate 形状今天表达不出来**：参数一变就得重新确认一次。**「批准一次、界限内随变」今天表达得出来**：**声明界限**（治理策略 `boundedFields`，形如 `{ amount: { max: 10000 } }`，落点与 AUTHZ-2 同 —— **工具元数据、不进协议**）让**界限内的取值变动共用一个信任作用域键** ⇒ 「本轮不再询问」照旧放行；**越界由执行点拒**（`field_bound`）。该次放行**可被追责到界限本身** —— 授权依据快照带一条 `field_bound` 检查，写明界限值（不是记某一组具体取值）。**边界**：只有**一个固定比较**（数值 `≤`），没有表达式、没有一般化谓词；非数值一律拒（fail-closed）。§7.2 的「已知边界」段已随之更正。**代价可测**：`tool_confirmations_total{tool}`（`/api/v1/metrics`），窗口内的重复次数由 `sum by (tool) (increase(tool_confirmations_total[1h]))` 得到；run 级确认记作 `tool="run"`、**只算一次询问** —— 「疲劳」自此是一个读数，不是一句说法。记的是**问了几次**，不是**人怎么答**（那在 `confirmation_decision` 的审计里） |
 | 自助确认（R3）**同体自校**；拒绝**只对自己可见**（CONF-2，2026-10-13 定案为**边界**） | ✅ **已实现，并以此为边界**：R3 这条路上，**落行的服务与执行时校验的服务是同一个进程里的同一个服务**（`confirmation.store.ts` / `tool-execution.service.ts`）⇒ 一方同时握着签署与校验两半。**唯一不同体的一处是升级路径（R4）**——它在**独立治理服务**里裁决、再回调业务系统执行（`POST /ai/confirmations/:token/approve-by` + `/internal/approvals/:token/execute`）。拒绝**有计数、有审计**（`tool_gate_refusals_total{reason,source}`，公开端点 `/api/v1/metrics`），但那是**我们自己的计数器挂在自己的端点上** ⇒ 按「系统之外的一方看得见」的口径，答案是**不是**。这是**选择**不是缺口 —— 下沉分离（像 R4 那样跨进程，并让拒绝对系统之外可见）**未立项** |
 | Authorization Contract 协议化（Protocol 显式声明授权模型） | ⬜ 方向（当前由生成模块自动接线承担） |
 | 前端能力裁决（页面 / 菜单 / 按钮显隐） | ✅ 已实现（2026-09-15：消费 `GET /auth/me/permissions` 能力清单；roles 管壳 + 能力细门，见 `docs/web-front.spec.md` §4/§5） |
@@ -283,9 +283,9 @@ would not be a constraint.
 
 ---
 
-**裁决。** 授权层可以**按工具**声明**可写字段域**（`writableFields`）与 **destination 白名单**（`allowedDestinations`），
-在执行点按**实际请求**校验。该声明住在**工具元数据——治理策略的按工具覆盖项，与 `allowedRoles` 同处**，
-**不进** Application Protocol。
+**裁决。** 授权层可以**按工具**声明**可写字段域**（`writableFields`）、**destination 白名单**（`allowedDestinations`），
+以及**字段声明界限**（`boundedFields`，CONF-1），在执行点按**实际请求**校验。该声明住在**工具元数据——治理策略的按工具覆盖项，
+与 `allowedRoles` 同处**，**不进** Application Protocol。
 
 **为什么不进协议。** 进协议的门槛是「**跨运行时必须一致**」，而它不一致：
 
@@ -302,8 +302,8 @@ would not be a constraint.
 5. **代价不对称。** 契约仓只能**加**：一个 wire 对象或一个新版本，是**已发布、不可撤回**的产物，
    每个同行运行时都必须逐字节认同。那条门槛是给**共享形状**的，不是给一列本地字段名的。
 
-**边界（未变）。** 两条声明都是**封闭列表、逐字比较**——一列参数名，一列目的地标识。**不引入策略表达式 DSL，
-不做运行期规则解释**；若实现开始在这里求值表达式，那是离开了这套架构，而不是扩展了它。
+**边界（措辞按 2026-10-13 对齐，实质未变）。** 三条声明都是**按字面判定**的——两列名称，一个**数值上界**。
+**不引入策略表达式 DSL，不做运行期规则解释**；若实现开始在这里求值表达式，那是离开了这套架构，而不是扩展了它。
 
 **与精确绑定的关系。** 两者**并存**，且互不蕴含。确认绑定精确参数：它答「这是不是被批准的那组参数」，
 且只能整组接受或整组拒绝。字段域答「这个工具究竟能写哪些字段」——那正是精确绑定表达不了的问题：
@@ -313,9 +313,14 @@ would not be a constraint.
 **在哪执行。** 在**执行点**、按**实际请求**执行——与既有门控复查同一位置、同一理由：从签发到执行之间的等待
 （R3 确认、R4 审批、离线裁决）足够长，声明可以在这段时间里被收紧；只在签发时成立的声明就不是约束。
 
-**如实写出的已知边界。** 字段域限的是**哪些字段可以出现**，不是**它们携带什么值**：
-`writableFields: ['status']` 允许 `status`，却对「`status` 是不是一个合法取值」不发一言。值的约束留在原处
-——工具自身的校验，以及模型当作提示读的 `parameters` schema。把域扩成值谓词，就正是本裁决刻意不建的那套 DSL。
+**如实写出的已知边界（2026-10-13 更正）。** 这一段原先写的是「字段域限的是**哪些字段**、不是**取值**，把域扩成值谓词正是本裁决刻意不建的 DSL」。
+**CONF-1 之后它不再完整成立**：今天多了一条**声明界限**（`boundedFields`，形如 `{ amount: { max: 10000 } }`）——那**确实是取值约束**。
+仍**不**成立的部分：**没有表达式、没有运行期求值**；只有**一个固定比较**（数值 `≤ max`），与 `allowedRoles` 的逐字列表比较同属「按字面判定」，
+不是规则解释。**仍然刻意不建**的是它的**一般化**：任意字段 × 任意算子 × 可组合的谓词——那才是 DSL。
+
+`max` 只对**有限数**生效：声明了界限却拿到一个比不了的取值（字符串 / null / NaN / Infinity）⇒ **拒**（fail-closed），
+而不是当成「界限不适用」。一个**配错**的界限（如 `max: "x"`）**不算一条界限**（三处消费方共用同一个口径）——
+否则一次笔误会把整把工具锁死。
 
 ---
 

@@ -7,7 +7,7 @@ import { StreamChunk } from './interfaces/llm-provider.interface';
 import { AuthorizationDeniedError } from './interfaces/tool.interface';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolRegistry, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
+import { aiService, confirmationStore, installAiServiceTestbed, mockAuditService, mockConversationService, mockProvider, mockProviderFactory, mockTool, mockToolGate, mockToolRegistry, toolExecution, wiredSchema } from '../../test/ai-service.testbed';
 
 beforeEach(installAiServiceTestbed);
 
@@ -751,6 +751,61 @@ beforeEach(installAiServiceTestbed);
       // A 执行了（被批准）；B 没有（被拒）—— 免确认没有顺延到换参数的调用上
       expect(mockToolRegistry.execute).toHaveBeenCalledTimes(1);
       expect(mockToolRegistry.execute.mock.calls[0][1]).toMatchObject({ title: 'A项目' });
+    });
+
+    it('CONF-1 有界变动：声明了界限的字段，界限内的取值变动**不再**要求确认', async () => {
+      // 工具声明了 amount ≤ 10000（治理策略 `boundedFields`，落点 = 工具元数据、不进协议）
+      jest.spyOn(mockToolGate, 'boundedFieldsOf').mockResolvedValue({ amount: { max: 10000 } });
+
+      const call = (id: string, amount: number) =>
+        (async function* () {
+          yield {
+            type: 'tool_call' as const,
+            toolCall: { index: 0, id, name: 'create_contract', arguments: `{"counterparty":"X","amount":${amount}}` },
+          };
+        })();
+      async function* streamDone() {
+        yield { type: 'text' as const, content: '完成' };
+        yield { type: 'done' as const };
+      }
+      // 第一轮 3000 → 第二轮 8000：**同一个界限内**的两个取值
+      mockProvider.stream
+        .mockReturnValueOnce(call('call_1', 3000))
+        .mockReturnValueOnce(call('call_2', 8000))
+        .mockReturnValueOnce(streamDone());
+
+      mockToolRegistry.requiresConfirmation.mockReturnValue(true);
+      mockToolRegistry.riskLevel.mockReturnValue('R3');
+      mockToolRegistry.getTool.mockReturnValue({ requiresConfirmation: true } as any);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: { id: 42 } });
+
+      const tokens: string[] = [];
+      const originalCreate = confirmationStore.create.bind(confirmationStore);
+      jest.spyOn(confirmationStore, 'create').mockImplementation(async (userId, toolName, args) => {
+        const r = await originalCreate(userId, toolName, args);
+        tokens.push(r.token);
+        return r;
+      });
+
+      const stream = aiService.chatStream('1', { message: '建两份合同' });
+      const it = stream[Symbol.asyncIterator]();
+      expect((await it.next()).value.type).toBe('tool_start');
+      expect((await it.next()).value.type).toBe('confirmation_request');
+      expect(tokens).toHaveLength(1);
+
+      // 批准第一次**并勾选「不再询问」**
+      confirmationStore.resolve(tokens[0], '1', 'approve', true);
+
+      // 换到界限内的另一个取值：**不再问**（这就是判据点名的那条断言）⇒ 整条流里只有一次询问
+      let askedAgain = false;
+      for await (const c of stream) {
+        if ((c as any).type === 'confirmation_request') askedAgain = true;
+      }
+      expect(askedAgain).toBe(false);
+      expect(tokens).toHaveLength(1);
+      // 两次都执行了（第二次凭界限内的信任作用域直接放行）
+      expect(mockToolRegistry.execute).toHaveBeenCalledTimes(2);
+      expect(mockToolRegistry.execute.mock.calls[1][1]).toMatchObject({ amount: 8000 });
     });
 
     it('ACT-4：执行路径的审计写入被 await —— 审计未落库时流不越过它', async () => {

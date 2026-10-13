@@ -222,6 +222,36 @@ describe('GovernancePolicyService (HS-9, D2-1d 自有表)', () => {
       expect(r2).not.toBe(r1a);
     });
 
+    it('CONF-1：声明界限进内容指纹 —— 收紧/放宽界限必须产生新 revision', async () => {
+      mockRow(JSON.stringify({ tools: { create_contract: { boundedFields: { amount: { max: 10000 } } } } }));
+      const wide = (await service.getPolicy()).revision;
+      // 同一份内容再读：同号（指纹稳定）
+      expect((await service.getPolicy()).revision).toBe(wide);
+
+      mockRow(JSON.stringify({ tools: { create_contract: { boundedFields: { amount: { max: 500 } } } } }));
+      const tight = (await service.getPolicy()).revision;
+      // 收紧界限 ⇒ 新号；否则「决策可复现」会把两版不同界限读成同一版
+      expect(tight).not.toBe(wide);
+
+      // 字段顺序无关（normalize 按键排序）
+      mockRow(JSON.stringify({ tools: { t: { boundedFields: { b: { max: 2 }, a: { max: 1 } } } } }));
+      const r1 = (await service.getPolicy()).revision;
+      mockRow(JSON.stringify({ tools: { t: { boundedFields: { a: { max: 1 }, b: { max: 2 } } } } }));
+      expect((await service.getPolicy()).revision).toBe(r1);
+    });
+
+    it('CONF-1：非有限 / 非数的界限被剔除（它比不了，不该进指纹也不该生效）', async () => {
+      mockRow(JSON.stringify({ tools: { t: { boundedFields: { amount: { max: 10000 } } } } }));
+      const clean = (await service.getPolicy()).revision;
+      mockRow(
+        JSON.stringify({
+          tools: { t: { boundedFields: { amount: { max: 10000 }, junk: { max: 'x' } } } },
+        }),
+      );
+      expect((await service.getPolicy()).revision).toBe(clean);
+      expect((await service.getToolPolicy('t')).boundedFields).toEqual({ amount: { max: 10000 } });
+    });
+
     it('key 顺序无关（normalize 排序）', async () => {
       mockRow(JSON.stringify({ tools: { b: { allowedRoles: ['admin'] }, a: { enabled: false } } }));
       const r1 = (await service.getPolicy()).revision;

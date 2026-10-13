@@ -490,9 +490,28 @@ export class AiService {
    * **审批要求的策略版本维度不在这里**：那属于执行点复查（roadmap §2.1.16 ACT-7），在本键里再实现
    * 一遍就是同一保护两处实现（Code Economy §15.7）。
    */
-  private _trustScopeKey(toolName: string, args: Record<string, unknown>): string {
-    const canonicalArgs = JSON.stringify(sortKeys(args));
-    return `${toolName}\u0000${canonicalArgs}\u0000${this.toolGate.destinationOf(toolName)}`;
+  /**
+   * HS-6 作用域键：`工具 ⟂ 参数 ⟂ 目的地`。
+   *
+   * **CONF-1「有界变动」**：工具声明了界限的字段（治理策略 `boundedFields`）在键里写**界限**而不是**值**
+   * ——于是界限内的取值变动落进**同一个键**，「本轮不再询问」照旧放行；越界由执行点
+   * （`assertWithinDeclaredScope`）先拒，根本到不了这里。
+   *
+   * **未声明界限的工具，键的格式一字不变**（结构化 `{k, bound}` 形式只在该工具确有界限字段时才用），
+   * 故这一改对绝大多数工具是零行为变化。结构化条目也让「界限」与「真值」不可能互撞成同一个键
+   * ——否则一个取值恰好等于界限标记的参数就能骗过作用域。
+   */
+  private async _trustScopeKey(toolName: string, args: Record<string, unknown>): Promise<string> {
+    const destination = this.toolGate.destinationOf(toolName);
+    const bounds = await this.toolGate.boundedFieldsOf(toolName);
+    if (!Object.keys(bounds).some((k) => k in args)) {
+      return `${toolName}\u0000${JSON.stringify(sortKeys(args))}\u0000${destination}`;
+    }
+    const sorted = sortKeys(args) as Record<string, unknown>;
+    const canonical = Object.keys(sorted).map((k) =>
+      k in bounds ? { k, bound: bounds[k].max } : { k, v: sorted[k] },
+    );
+    return `${toolName}\u0000${JSON.stringify(canonical)}\u0000${destination}`;
   }
 
   private async _collectRunCandidates(
@@ -530,7 +549,7 @@ export class AiService {
         continue; // 解析失败留循环原样报错
       }
       // HS-6 免确认（ACT-3）：按**作用域键**判，故须先解析出参数才谈得上「这一次是否被批准过」
-      if (trustedScopes.has(this._trustScopeKey(tc.name, parsed))) continue;
+      if (trustedScopes.has(await this._trustScopeKey(tc.name, parsed))) continue;
       let risk = 'R3';
       try {
         risk = this.toolRegistry?.riskLevel(tc.name) ?? 'R3';
@@ -1161,7 +1180,7 @@ export class AiService {
           if (isWrite) {
             // HS-6：本轮已信任**这一次调用**（作用域键含规范化参数 + 目的地）→ 免确认直接执行
             //（统一段会 push 消息 + 审计）。换参数即换键 ⇒ 回到下面的确认路径。
-            if (trustedScopes.has(this._trustScopeKey(tc.name, parsed))) {
+            if (trustedScopes.has(await this._trustScopeKey(tc.name, parsed))) {
               result = await this.toolExecution.executeWrite(tc.name, parsed, userId, conversationId);
             } else if (await this.toolGate.requiresApproval(tc.name)) {
               // R4 双人审批：高影响动作需第二人（approver）审批——创建持久化审批请求，不阻塞 operator 对话
@@ -1261,7 +1280,7 @@ export class AiService {
               }
               // HS-6：用户勾选「不再询问」→ 后续免确认（仅本轮，且**仅这一次调用**，见 _trustScopeKey）
             if (trustTool && outcome === 'approve') {
-              trustedScopes.add(this._trustScopeKey(tc.name, parsed));
+              trustedScopes.add(await this._trustScopeKey(tc.name, parsed));
             }
             // HS-7 确认决策审计：让管理台时间线能展示「AI 请求写操作 → 用户确认/拒绝」
             // HS-9 粒度门控：tool 级在 off 时不记录

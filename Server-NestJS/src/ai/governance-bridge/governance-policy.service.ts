@@ -46,6 +46,18 @@ export interface ToolPolicyOverride {
   writableFields?: string[];
   /** destination 白名单（AUTHZ-2）：本工具**允许写到哪些目的地**（值域同委托 token 的 `aud`，见 `tools/tool-destination.ts`）。非空即上限——域外目的地一律拒。 */
   allowedDestinations?: string[];
+  /**
+   * **声明界限**（CONF-1 的「有界变动」）：本工具的某些字段**允许在界限内取值变动**，而不必逐值重新确认。
+   *
+   * 形状 = **数值上界**（`{ max: number }`）：字段值须是有限数且 `≤ max`，否则执行点拒（`field_bound`）。
+   * **非数值一律拒**（fail-closed）：声明了数值上界，却拿到一个比不了的取值 —— 无法证明它在界限内，
+   * 就不放行（「身份缺失一律 DENY」的同一条取向）。
+   *
+   * 与「确认绑精确 args」是**且**的关系，它放宽的只是**信任作用域键**（`_trustScopeKey`）：界限内的
+   * 取值变动落进**同一个键**，「本轮不再询问」照旧生效；越界由执行点拒，到不了那一步。
+   * 落点与 AUTHZ-2 同一裁决：**工具元数据，不进协议**。
+   */
+  boundedFields?: Record<string, { max: number }>;
 }
 
 /** 合并默认后的生效工具策略（getToolPolicy / 便捷方法返回） */
@@ -61,6 +73,8 @@ export interface ToolPolicy {
   writableFields: string[];
   /** AUTHZ-2：destination 白名单（空 = 未声明，不约束） */
   allowedDestinations: string[];
+  /** CONF-1：声明界限（空 = 未声明，逐值确认） */
+  boundedFields: Record<string, { max: number }>;
 }
 
 export interface GovernancePolicy {
@@ -70,6 +84,28 @@ export interface GovernancePolicy {
   updatedAt?: Date | null;
   /** §internal.17③ Policy Evidence：策略内容指纹，同内容恒同号、任何变更必变号（做「版本」用，无需迁移/历史表） */
   revision?: string;
+}
+
+/**
+ * CONF-1 **声明界限的单一口径**：只有「有限数」才算一个界限，其余一律剔除。
+ *
+ * 三处消费方共用它 —— 指纹（`normalizePolicy`）、生效策略（`getToolPolicy`）、授权依据快照
+ * （`authorization-explainer`）。**必须单源**：口径若分叉，就会出现「指纹认为没这条界限、执行点却
+ * 拿它去拒」这种读不回来的状态。剔除而不是拒绝，是因为一个配错的界限（比如 `max: "x"`）若当作
+ * 「比不了就拒」，会把整把工具锁死 —— 那是把配置笔误升级成故障。
+ */
+export function sanitizeBoundedFields(
+  raw: unknown,
+): Record<string, { max: number }> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, { max: number }> = {};
+  for (const field of Object.keys(raw as Record<string, unknown>).sort()) {
+    const bound = (raw as Record<string, { max?: unknown }>)[field];
+    if (bound && typeof bound.max === 'number' && Number.isFinite(bound.max)) {
+      out[field] = { max: bound.max };
+    }
+  }
+  return out;
 }
 
 /** 规范化策略（排序 key、剔除非法维度）→ 保证「同内容 → 同指纹」。 */
@@ -88,6 +124,10 @@ function normalizePolicy(value: Partial<GovernancePolicy> | null | undefined): G
     if (Array.isArray(cfg.allowedDestinations)) {
       entry.allowedDestinations = [...cfg.allowedDestinations].sort();
     }
+    // CONF-1 声明界限同样入规范化：它放宽的是**信任作用域**，故「收紧/放宽界限」必须产生新 revision
+    // ——否则两版不同界限会被决策可复现读成同一版（与 writableFields 同一条理由）。
+    const bounded = sanitizeBoundedFields(cfg.boundedFields);
+    if (Object.keys(bounded).length > 0) entry.boundedFields = bounded;
     if (Object.keys(entry).length > 0) tools[name] = entry;
   }
   const sortedTools: Record<string, Partial<ToolPolicy>> = {};
@@ -234,6 +274,7 @@ export class GovernancePolicyService {
       mode,
       writableFields: override.writableFields ?? [],
       allowedDestinations: override.allowedDestinations ?? [],
+      boundedFields: sanitizeBoundedFields(override.boundedFields),
     };
   }
 
