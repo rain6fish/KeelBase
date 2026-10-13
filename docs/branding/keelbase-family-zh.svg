@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="700" viewBox="0 0 1240 700"
+     font-family="PingFang SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif">
+  <defs>
+    <marker id="up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d4ed8"/>
+    </marker>
+    <marker id="upg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+    <filter id="soft" x="-6%" y="-14%" width="112%" height="132%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="1224" height="684" rx="16" fill="#ffffff" stroke="#e5e7eb"/>
+
+  <!-- ══════════ 标题 ══════════ -->
+  <text x="620" y="46" font-size="24" font-weight="700" fill="#111827" text-anchor="middle">KeelBase 家族架构</text>
+  <text x="620" y="72" font-size="13.5" fill="#4b5563" text-anchor="middle">一套协议 · 多个实现 · 多种宿主 —— 契约是唯一来源，上面每一层都消费它，谁也不拥有它</text>
+  <line x1="56" y1="94" x2="1184" y2="94" stroke="#e5e7eb"/>
+
+  <!-- ══════════ ① 宿主适配 ══════════ -->
+  <text x="56" y="140" font-size="15" font-weight="700" fill="#111827">宿主适配</text>
+  <text x="56" y="158" font-size="10.5" fill="#6b7280">host adapter</text>
+  <rect x="248" y="104" width="700" height="84" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="276" y="138" font-size="15.5" font-weight="700" fill="#14532d">KeelBase-YuDao</text>
+  <text x="276" y="162" font-size="12" fill="#166534">在成熟的企业平台上补治理层（芋道 yudao）—— 宿主继续做它本来做得好的事</text>
+
+  <!-- ══════════ ② runtime（两个载体，互为平行）══════════ -->
+  <text x="56" y="284" font-size="15" font-weight="700" fill="#111827">runtime</text>
+  <text x="56" y="302" font-size="10.5" fill="#6b7280">two carriers</text>
+  <rect x="248" y="228" width="430" height="76" rx="12" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="272" y="260" font-size="15.5" font-weight="700" fill="#1e3a8a">KeelBase</text>
+  <text x="272" y="284" font-size="12" fill="#1d4ed8">TypeScript · 参考实现 · 产品文档与演示</text>
+  <rect x="754" y="228" width="430" height="76" rx="12" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="778" y="260" font-size="15.5" font-weight="700" fill="#1e3a8a">KeelBase4J</text>
+  <text x="778" y="284" font-size="12" fill="#1d4ed8">Java 17 · Spring Boot · 同一协议的第二载体</text>
+  <text x="716" y="330" font-size="12" fill="#1d4ed8" text-anchor="middle">互为平行 —— 谁也不是谁的翻译版</text>
+  <!-- 宿主适配建在 Java 载体之上 -->
+  <path d="M 920 224 L 920 194" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#upg)"/>
+  <text x="932" y="214" font-size="10.5" fill="#6b7280">建在 Java 载体之上</text>
+
+  <!-- ══════════ ③ 桥接 ══════════ -->
+  <text x="56" y="422" font-size="15" font-weight="700" fill="#111827">桥接</text>
+  <text x="56" y="440" font-size="10.5" fill="#6b7280">the bridge</text>
+  <rect x="248" y="384" width="700" height="76" rx="12" fill="#fff7ed" stroke="#fb923c" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="272" y="416" font-size="15.5" font-weight="700" fill="#7c2d12">KeelBase-java-starter</text>
+  <text x="272" y="440" font-size="12" fill="#9a3412">把存量 Java/Spring 系统接成受治理的 AI 工具</text>
+
+  <!-- ══════════ ④ 契约（唯一来源）══════════ -->
+  <text x="56" y="562" font-size="15" font-weight="700" fill="#111827">契约</text>
+  <text x="56" y="580" font-size="10.5" fill="#6b7280">the contract</text>
+  <rect x="248" y="500" width="936" height="104" rx="12" fill="#1d4ed8" filter="url(#soft)"/>
+  <text x="280" y="542" font-size="17" font-weight="700" fill="#ffffff">keelbase-contract</text>
+  <text x="280" y="570" font-size="12.5" fill="#dbeafe">线缆 schema · 语言无关一致性向量 · 两者共用的版本线</text>
+  <rect x="990" y="522" width="170" height="30" rx="15" fill="#ffffff" fill-opacity="0.18"/>
+  <text x="1075" y="542" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">唯一来源</text>
+
+  <!-- ══════════ 消费关系：契约 → 上面每一层 ══════════ -->
+  <path d="M 248 552 L 230 552 L 230 100" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#up)"/>
+  <text transform="rotate(-90 206 330)" x="206" y="330" font-size="11.5" fill="#1d4ed8" text-anchor="middle">上面每一层都消费它</text>
+
+  <!-- ══════════ 页脚 ══════════ -->
+  <text x="620" y="662" font-size="11.5" fill="#9ca3af" text-anchor="middle">文字版见各仓 README 开头的「KeelBase 家族」段 · 唯一来源 docs/ecosystem.md</text>
+</svg>

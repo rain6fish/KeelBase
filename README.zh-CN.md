@@ -231,8 +231,12 @@ node scripts/keelbase-init.mjs --spec specs/invoices.json
 
 ---
 
-<!-- BEGIN keelbase-family:zh sha256:71b3f61e591ebb6fe93043059b0e22041d60492f0e6bc804ecc44759bef4312f -->
+<!-- BEGIN keelbase-family:zh sha256:cc21dacd4382cad1e520b0f2b43fe47b25146bddf82f13bf64eb12b7cc6a16f2 -->
 ## 🧬 KeelBase 家族
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rain6fish/KeelBase/main/docs/branding/keelbase-family-zh.svg" alt="KeelBase 家族架构图——宿主适配、两个互为平行的 runtime、桥接，以及它们共同消费的契约" width="880">
+</p>
 
 > KeelBase 是**一套协议、多个实现与多种宿主**——不是几个互相竞争的产品。契约是唯一真源，
 > 各 runtime 与各宿主消费它，**谁也不拥有它**。这里每个仓都是 **Apache-2.0**。

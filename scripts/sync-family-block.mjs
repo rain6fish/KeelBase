@@ -149,6 +149,20 @@ const failures = [];
 const notes = [];
 let written = 0;
 
+// Every asset the block points at must actually exist in this repository, at the path its URL names.
+// Nothing else gates an image URL, and a rename would leave a broken picture in five repositories at
+// once — the failure would be silent everywhere, including here.
+// 块里点到的每个资源，都必须真的存在于本仓、且路径与 URL 说的那个一致。图片 URL 没有别的门禁，
+// 一次改名会让五个仓同时挂掉同一张图——而那个失败在哪都是静默的，包括这里。
+const ASSET_RE = /https:\/\/raw\.githubusercontent\.com\/rain6fish\/KeelBase\/main\/([^\s")]+)/g;
+for (const region of REGIONS) {
+  for (const m of bodies[region].matchAll(ASSET_RE)) {
+    if (!fs.existsSync(path.join(ROOT, m[1]))) {
+      failures.push(`docs/ecosystem.md：:${region} 引用的资源在仓里不存在 / asset missing: ${m[1]}`);
+    }
+  }
+}
+
 // The source's own markers must carry the current stamps too, or the source is the one file that lies.
 // 源文件自己的标记行也要带上当前戳，否则唯一说谎的就是源文件本身。
 let sourceText = source.text;

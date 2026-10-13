@@ -238,8 +238,12 @@ The core is UI-framework-agnostic; Flutter / Vue / React are Renderers ([archite
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:2b814db6cf768ed2e451305808a7a612049519af49310cef56ce7a5bc97bad2c -->
+<!-- BEGIN keelbase-family:en sha256:553edd65ddeac1995e55f8e80cc50aa154960df63bf60e5dda1827b16eac8578 -->
 ## 🧬 The KeelBase family
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rain6fish/KeelBase/main/docs/branding/keelbase-family-en.svg" alt="The KeelBase family — a host adapter, two runtimes that are peers, the bridge, and the contract all of them consume" width="880">
+</p>
 
 > KeelBase is **one protocol with several implementations and hosts** — not a set of competing
 > products. The contract is the source of truth; runtimes and hosts consume it, and none of them

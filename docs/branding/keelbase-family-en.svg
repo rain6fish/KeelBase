@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="700" viewBox="0 0 1240 700"
+     font-family="PingFang SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif">
+  <defs>
+    <marker id="up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d4ed8"/>
+    </marker>
+    <marker id="upg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+    <filter id="soft" x="-6%" y="-14%" width="112%" height="132%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="1224" height="684" rx="16" fill="#ffffff" stroke="#e5e7eb"/>
+
+  <!-- ══════════ Title ══════════ -->
+  <text x="620" y="46" font-size="24" font-weight="700" fill="#111827" text-anchor="middle">The KeelBase family</text>
+  <text x="620" y="72" font-size="13.5" fill="#4b5563" text-anchor="middle">One protocol · several implementations · several hosts — the contract is the source; everything above consumes it, and none of them owns it</text>
+  <line x1="56" y1="94" x2="1184" y2="94" stroke="#e5e7eb"/>
+
+  <!-- ══════════ ① Host adapter ══════════ -->
+  <text x="56" y="140" font-size="15" font-weight="700" fill="#111827">host adapter</text>
+  <text x="56" y="158" font-size="10.5" fill="#6b7280">a platform, adapted</text>
+  <rect x="248" y="104" width="700" height="84" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="276" y="138" font-size="15.5" font-weight="700" fill="#14532d">KeelBase-YuDao</text>
+  <text x="276" y="162" font-size="12" fill="#166534">Adds the governance layer to a mature enterprise platform (yudao) — the host keeps doing what it does well</text>
+
+  <!-- ══════════ ② runtime — two carriers, peers ══════════ -->
+  <text x="56" y="284" font-size="15" font-weight="700" fill="#111827">runtime</text>
+  <text x="56" y="302" font-size="10.5" fill="#6b7280">two carriers</text>
+  <rect x="248" y="228" width="430" height="76" rx="12" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="272" y="260" font-size="15.5" font-weight="700" fill="#1e3a8a">KeelBase</text>
+  <text x="272" y="284" font-size="12" fill="#1d4ed8">TypeScript · reference implementation · docs and demo</text>
+  <rect x="754" y="228" width="430" height="76" rx="12" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="778" y="260" font-size="15.5" font-weight="700" fill="#1e3a8a">KeelBase4J</text>
+  <text x="778" y="284" font-size="12" fill="#1d4ed8">Java 17 · Spring Boot · the second carrier</text>
+  <text x="716" y="330" font-size="12" fill="#1d4ed8" text-anchor="middle">Peers — neither is a translation of the other</text>
+  <!-- the host adapter is built on the Java carrier -->
+  <path d="M 920 224 L 920 194" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#upg)"/>
+  <text x="932" y="214" font-size="10.5" fill="#6b7280">built on the Java carrier</text>
+
+  <!-- ══════════ ③ The bridge ══════════ -->
+  <text x="56" y="422" font-size="15" font-weight="700" fill="#111827">the bridge</text>
+  <text x="56" y="440" font-size="10.5" fill="#6b7280">existing systems in</text>
+  <rect x="248" y="384" width="700" height="76" rx="12" fill="#fff7ed" stroke="#fb923c" stroke-width="1.4" filter="url(#soft)"/>
+  <text x="272" y="416" font-size="15.5" font-weight="700" fill="#7c2d12">KeelBase-java-starter</text>
+  <text x="272" y="440" font-size="12" fill="#9a3412">Wire an existing Java/Spring system in as governed AI tools</text>
+
+  <!-- ══════════ ④ The contract — the source ══════════ -->
+  <text x="56" y="562" font-size="15" font-weight="700" fill="#111827">the contract</text>
+  <text x="56" y="580" font-size="10.5" fill="#6b7280">the source</text>
+  <rect x="248" y="500" width="936" height="104" rx="12" fill="#1d4ed8" filter="url(#soft)"/>
+  <text x="280" y="542" font-size="17" font-weight="700" fill="#ffffff">keelbase-contract</text>
+  <text x="280" y="570" font-size="12.5" fill="#dbeafe">Wire schemas · language-neutral conformance vectors · the version line they share</text>
+  <rect x="966" y="522" width="194" height="30" rx="15" fill="#ffffff" fill-opacity="0.18"/>
+  <text x="1063" y="542" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">the single source</text>
+
+  <!-- ══════════ Consumption: the contract → everything above ══════════ -->
+  <path d="M 248 552 L 230 552 L 230 100" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#up)"/>
+  <text transform="rotate(-90 206 330)" x="206" y="330" font-size="11.5" fill="#1d4ed8" text-anchor="middle">everything above consumes it</text>
+
+  <!-- ══════════ Footer ══════════ -->
+  <text x="620" y="662" font-size="11.5" fill="#9ca3af" text-anchor="middle">In prose: the "KeelBase family" section at the top of each README · single source: docs/ecosystem.md</text>
+</svg>

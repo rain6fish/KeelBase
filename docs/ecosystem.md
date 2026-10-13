@@ -47,8 +47,12 @@ KeelBase 不是几个并列的产品，而是**一套协议 + 多个实现 + 多
 
 ---
 
-<!-- BEGIN keelbase-family:en sha256:2b814db6cf768ed2e451305808a7a612049519af49310cef56ce7a5bc97bad2c -->
+<!-- BEGIN keelbase-family:en sha256:553edd65ddeac1995e55f8e80cc50aa154960df63bf60e5dda1827b16eac8578 -->
 ## 🧬 The KeelBase family
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rain6fish/KeelBase/main/docs/branding/keelbase-family-en.svg" alt="The KeelBase family — a host adapter, two runtimes that are peers, the bridge, and the contract all of them consume" width="880">
+</p>
 
 > KeelBase is **one protocol with several implementations and hosts** — not a set of competing
 > products. The contract is the source of truth; runtimes and hosts consume it, and none of them
@@ -86,8 +90,12 @@ Which contract version each runtime answers for is maintained **once**, in the m
 [Compatibility](https://github.com/rain6fish/KeelBase#-compatibility). It is not duplicated here.
 <!-- END keelbase-family:en -->
 
-<!-- BEGIN keelbase-family:zh sha256:71b3f61e591ebb6fe93043059b0e22041d60492f0e6bc804ecc44759bef4312f -->
+<!-- BEGIN keelbase-family:zh sha256:cc21dacd4382cad1e520b0f2b43fe47b25146bddf82f13bf64eb12b7cc6a16f2 -->
 ## 🧬 KeelBase 家族
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rain6fish/KeelBase/main/docs/branding/keelbase-family-zh.svg" alt="KeelBase 家族架构图——宿主适配、两个互为平行的 runtime、桥接，以及它们共同消费的契约" width="880">
+</p>
 
 > KeelBase 是**一套协议、多个实现与多种宿主**——不是几个互相竞争的产品。契约是唯一真源，
 > 各 runtime 与各宿主消费它，**谁也不拥有它**。这里每个仓都是 **Apache-2.0**。
