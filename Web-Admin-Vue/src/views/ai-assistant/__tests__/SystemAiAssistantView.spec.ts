@@ -103,7 +103,7 @@ describe('SystemAiAssistantView', () => {
 
     opts().onEvent({
       type: 'confirmation_request',
-      confirmation: { token: 't1', toolName: 'create_event', summary: '创建事件', mode: 'confirmation' },
+      confirmation: { token: 't1', toolName: 'create_event', summary: '创建事件', mode: 'immediate' },
     })
     await flushPromises()
 

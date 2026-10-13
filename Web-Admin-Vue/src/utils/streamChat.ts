@@ -52,8 +52,18 @@ export interface AiConfirmation {
   toolName?: string
   summary?: PresentationText
   arguments?: Record<string, unknown>
-  /** 'confirmation' = R3 本人即时确认；'approval' = R4 已提交人工审批；'run' = KB-5 一次授权整批 */
-  mode?: 'confirmation' | 'approval' | 'run'
+  /**
+   * 'immediate' = the R3 confirmation an operator gives themselves; 'approval' = an R4 decision already
+   * handed to a human; 'run' = one authorisation for a whole batch (KB-5).
+   *
+   * `immediate` is the frozen vocabulary's word for R3. This union used to spell it `'confirmation'`,
+   * which is a value the contract, the reference server and this runtime's own read side all decline to
+   * write — this console's action centre has been asking for `'immediate'` all along.
+   *
+   * `immediate` 是冻结词表给 R3 的那个取值。这个联合类型此前写的是 `'confirmation'` —— 一个契约、参照
+   * 服务端与本运行时**自己的读侧**都不写的值，而本控制台的工作台页一直在判的正是 `'immediate'`。
+   */
+  mode?: 'immediate' | 'approval' | 'run'
   authorization?: AiAuthorization
   /** §22.17 ④ 影响预览：将执行几个写动作 / 涉及哪些对象类型（估计值；无可解析对象时后端省略） */
   impact?: {
