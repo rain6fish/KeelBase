@@ -46,6 +46,15 @@ const INTENT_CLASSIFICATION_PROMPT = `你是一个意图分类器。分析用户
 
 只返回一个词。`;
 
+/**
+ * 「要动手」的动词：命中即把消息**优先留在主工具循环**，不被 plan / analyze 关键词劫持。
+ *
+ * ⚠ 与 `AiService.chatImpl` 里那张表**故意不同**：那边**不含** `安排` —— 含了会把 `week-plan` 技能
+ * （触发词形如「安排本周 / 周安排 / 周计划」）短路掉，而那正是该技能该接的活。本表用在**意图分类**，
+ * `AiService.detectNavigation` 用的是同一张（那里的语义是「别当成导航」）。
+ */
+export const WRITE_ACTION_VERBS = ['创建', '新增', '添加', '删除', '取消', '编辑', '修改', '安排'];
+
 export class RouterAgent {
   /**
    * 分类用户意图
@@ -64,11 +73,20 @@ export class RouterAgent {
     const delegateKeywords = ['综合分析', '综合来看', '分别', '统筹', '全面分析', '盘点', '帮我规划', '做个规划', '汇总一下', '归纳'];
     if (delegateKeywords.some((k) => message.includes(k))) return { intent: 'delegate' };
 
-    const planKeywords = ['安排', '计划', '规划', '排期', '组织'];
-    if (planKeywords.some((k) => message.includes(k))) return { intent: 'plan' };
-
     const analyzeKeywords = ['分析', '趋势', '对比', '总结', '建议', '预测', '统计', '分布'];
-    if (analyzeKeywords.some((k) => message.includes(k))) return { intent: 'analyze' };
+    // 写动词优先于「计划」——**除非用户明说了要「分析/统计…」**：那时他要的是结论，不是动作。
+    //
+    // 为什么需要这条：只读的 Plan-Execute 规划器（`PLAN_PROMPT` 只给 4 个读工具）做不了写，
+    // 主工具循环能；「帮我安排下周的会议」被判成 plan 就只会得到一份分析、那件事没人做。
+    // 反过来「分析我的工作安排趋势」虽有「安排」但用户在要结论，仍按原有优先级走 plan。
+    // 主工具循环并不因此少一道闸：写操作照旧要人工确认（单条 R3 / run 级一次授权整批）。
+    const wantsAnalysis = analyzeKeywords.some((k) => message.includes(k));
+    const actionBeatsPlan = !wantsAnalysis && WRITE_ACTION_VERBS.some((v) => message.includes(v));
+
+    const planKeywords = ['安排', '计划', '规划', '排期', '组织'];
+    if (!actionBeatsPlan && planKeywords.some((k) => message.includes(k))) return { intent: 'plan' };
+
+    if (!actionBeatsPlan && wantsAnalysis) return { intent: 'analyze' };
 
     const knowledgeKeywords = ['知识库', '政策', '规定', '手册', '指南', '文档', '说明', '规则'];
     if (knowledgeKeywords.some((k) => message.includes(k))) return { intent: 'knowledge' };

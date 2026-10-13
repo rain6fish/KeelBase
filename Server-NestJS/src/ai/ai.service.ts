@@ -25,7 +25,7 @@ import { buildToolCallAudit, confirmationOutcome } from './audit/tool-call-audit
 // ACT-3：免确认作用域键要按**规范化**参数算（与副作用幂等键同一口径，防同一逻辑调用两种写法算出两个键）
 import { AiToolEffectsService, sortKeys } from './tool-effects/ai-tool-effects.service';
 import { AiDailyUsageService } from './audit/ai-daily-usage.service';
-import { RouterAgent, Intent } from './agents/router-agent.service';
+import { RouterAgent, Intent, WRITE_ACTION_VERBS } from './agents/router-agent.service';
 import { LlmUsage, addLlmUsage } from './llm-usage';
 import { CaslAbilityFactory } from '../common/casl/casl-ability.factory';
 import { ReflectionAgent } from './agents/reflection-agent.service';
@@ -588,6 +588,8 @@ export class AiService {
 
     // 意图路由（Router Agent）：分类用户意图
     // Skill 短路：技能命中（且非写/导航请求）→ 直接委托子代理，零 LLM 成本
+    // ⚠ 这张表**故意**比 `WRITE_ACTION_VERBS` 少一个 `安排`：这里只问「要不要让开技能短路」，
+    // 而 `安排本周 / 周安排 / 周计划` 正是 `week-plan` 技能该接的活——加进去会把它短路掉。
     const actionVerbs = ['创建', '新增', '添加', '删除', '编辑', '修改', '取消'];
     const isActionRequest = actionVerbs.some((v) => request.message.includes(v));
     const matchedSkill = !isActionRequest
@@ -1772,8 +1774,7 @@ export class AiService {
 
     // 写操作动词：命中则视为操作请求（交给 LLM 走工具/确认流程），不做页面跳转。
     // 避免「帮我创建事件」「去安排日程」这类含页面关键词但意图是写操作的请求被劫持。
-    const actionVerbs = ['创建', '新增', '添加', '删除', '取消', '编辑', '修改', '安排'];
-    const isActionRequest = actionVerbs.some((v) => trimmed.includes(v));
+    const isActionRequest = WRITE_ACTION_VERBS.some((v) => trimmed.includes(v));
     if (isActionRequest) return null;
 
     // 导航触发词：只要消息包含这些词之一就认为有导航意图。

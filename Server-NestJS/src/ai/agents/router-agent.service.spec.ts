@@ -33,8 +33,21 @@ describe('RouterAgent', () => {
     expect((await agent.classify('分析我的工作安排趋势', mockProvider as any)).intent).toBe('plan');
   });
 
-  it('should still classify plan for simple 安排 requests', async () => {
-    expect((await agent.classify('帮我安排下周的会议', mockProvider as any)).intent).toBe('plan');
+  it('带写动词的「安排」不再判成 plan——只读规划器做不了写，这类请求要进主工具循环', async () => {
+    // 「帮我安排下周的会议」要的是把会议建出来；判成 plan 只会拿到一份读-only 的分析
+    expect((await agent.classify('帮我安排下周的会议', mockProvider as any)).intent).not.toBe('plan');
+    expect((await agent.classify('帮我安排下周的会议', mockProvider as any)).intent).not.toBe('analyze');
+    // 同族：创建/新增/添加/删除/取消/编辑/修改 同理
+    expect((await agent.classify('帮我计划一下并创建这三条待办', mockProvider as any)).intent).not.toBe('plan');
+    // 六类「具体写动作」都算写动词
+    for (const v of ['创建', '新增', '添加', '删除', '取消', '编辑', '修改', '安排']) {
+      expect((await agent.classify(`帮我计划一下再${v}一条记录`, mockProvider as any)).intent).not.toBe('plan');
+    }
+  });
+
+  it('明说了要「分析/统计」时，写动词不抢——用户要的是结论不是动作', async () => {
+    expect((await agent.classify('分析我的工作安排趋势', mockProvider as any)).intent).toBe('plan');
+    expect((await agent.classify('统计一下我的日程并给出建议', mockProvider as any)).intent).toBe('analyze');
   });
 
   it('should preserve navigate priority', async () => {
