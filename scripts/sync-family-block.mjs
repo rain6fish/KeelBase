@@ -63,6 +63,22 @@ const TARGETS = [
     regions: ['en', 'zh'],
     anchor: '## 目录 / Layout',
   },
+  { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'README.md', regions: ['en'], anchor: '## What this is' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'README.zh-CN.md', regions: ['zh'], anchor: '## 这是什么' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'README.md', regions: ['en'], anchor: '## What this is' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'README.zh-CN.md', regions: ['zh'], anchor: '## 这是什么' },
+  {
+    dir: path.resolve(ROOT, '..', 'KeelBase-java-starter'),
+    file: 'README.md',
+    regions: ['en'],
+    anchor: '## Try it — integrators welcome / 试用征集（0.1.7）',
+  },
+  {
+    dir: path.resolve(ROOT, '..', 'KeelBase-java-starter'),
+    file: 'README.zh-CN.md',
+    regions: ['zh'],
+    anchor: '## 试用征集（0.1.7）',
+  },
 ];
 
 /**
@@ -71,6 +87,9 @@ const TARGETS = [
  */
 const MIRRORS = [
   { dir: path.resolve(ROOT, '..', 'keelbase-contract'), file: 'runner/check-family-block.mjs' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase4J'), file: 'scripts/check-family-block.mjs' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-YuDao'), file: 'scripts/check-family-block.mjs' },
+  { dir: path.resolve(ROOT, '..', 'KeelBase-java-starter'), file: 'scripts/check-family-block.mjs' },
 ];
 
 const lf = (s) => s.replace(/\r\n/g, '\n');
