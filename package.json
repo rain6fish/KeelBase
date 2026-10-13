@@ -47,6 +47,7 @@
     "check:env-example": "node scripts/check-env-example.mjs",
     "check:readme-parity": "node scripts/check-readme-parity.mjs",
     "check:admin-pages": "node scripts/check-admin-pages.mjs",
+    "check:family-block": "node scripts/check-family-block.mjs",
     "check:gates-wired": "node scripts/check-gates-wired.mjs",
     "check:all": "node scripts/check-all.mjs"
   },

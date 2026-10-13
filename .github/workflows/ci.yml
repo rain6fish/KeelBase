@@ -327,6 +327,25 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-readme-parity.mjs
 
+  # The "KeelBase family" section is one document written into several repositories' READMEs. This
+  # checks that this repository's copy still matches the source it was generated from, and that no
+  # copy anywhere in the family has been hand-edited. A sibling checkout that is absent is reported
+  # as skipped, never as a failure: CI checks out one repository, not the family.
+  #
+  # 「KeelBase 家族」段是一份文档、写进多个仓的 README。这里校验本仓那一份仍与生成它的来源一致，
+  # 并确认家族里任何一份都没被手改。未检出的兄弟仓如实报 skipped、不算失败——CI 只检出本仓。
+  family-block:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-family-block.mjs
+      - run: node scripts/sync-family-block.mjs --check
+
   # A gate nobody runs is worse than no gate: it reads as coverage and gives none. One was found in that
   # state (check:java-vectors), already drifted red.
   #
