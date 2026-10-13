@@ -472,6 +472,10 @@ export interface AiConversationSummary {
   provider?: string
   model?: string
   summary?: string
+  /** 工作账本：用户命名的会话标题（未设 = 用首条消息派生预览）。契约 conversation-data v2 起 */
+  title?: string
+  /** 契约 conversation-data v2 起：会话消息条数（结构信息，不含内容） */
+  messageCount?: number
   messages: AiConversationMessage[]
   createdAt: string
   lastActivityAt: string

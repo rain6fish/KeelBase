@@ -5,12 +5,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { storage } from '@/utils/storage'
 
-// 角色首页：admin → 控制台 dashboard，其余 → 工作台。唯一合法首页保证分流不互踢
-// 同一壳两套导航（WEB-FRONT-1）：admin 构建已并入 workbench 路由（routes.ts），普通用户回落 /workbench（存在，不死循环）
+// 角色首页：admin → 控制台 dashboard，其余 → **工作台 AI 对话页**（P1：登录后默认落到聊天）。
+// 唯一合法首页保证分流不互踢
+// 同一壳两套导航（WEB-FRONT-1）：admin 构建已并入 workbench 路由（routes.ts），普通用户回落工作台（存在，不死循环）
 const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
 export function homeFor(role?: string): string {
-  if (SURFACE === 'user') return '/workbench'
-  return role === 'admin' ? '/' : '/workbench'
+  if (SURFACE === 'user') return '/workbench/ai'
+  return role === 'admin' ? '/' : '/workbench/ai'
 }
 
 export function setupGuards(router: Router) {

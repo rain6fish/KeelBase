@@ -75,6 +75,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { homeFor } from '@/router/guards'
 import { authApi } from '@/api/auth'
 import LangToggle from '@/components/LangToggle.vue'
 import AppLogo from '@/components/AppLogo.vue'
@@ -125,7 +126,9 @@ async function onSubmit() {
   const ok = await auth.login(username.value, password.value)
   if (ok) {
     const redirect = route.query.redirect
-    router.replace(typeof redirect === 'string' ? redirect : auth.isAdmin ? '/' : '/workbench')
+    // 落地页由 homeFor 单源决定（守卫与 OIDC 回调用的是同一个）——此前这里硬编码
+    // `auth.isAdmin ? '/' : '/workbench'`，既漏了 user 构建的分流，也与守卫各写一份。
+    router.replace(typeof redirect === 'string' ? redirect : homeFor(auth.user?.role))
   } else {
     errorMessage.value = auth.errorMessage || t('loginFailed')
   }

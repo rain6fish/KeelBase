@@ -103,7 +103,7 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(loginMock).toHaveBeenCalledWith('alex', 'Alex@2026$Demo')
-    expect(replaceMock).toHaveBeenCalledWith('/workbench')
+    expect(replaceMock).toHaveBeenCalledWith('/workbench/ai')
   })
 
   it('登录失败 → 显示错误且不跳转', async () => {

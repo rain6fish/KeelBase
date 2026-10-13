@@ -356,6 +356,14 @@ const en: ZhDict = {
   assBackToList: 'Back to chat',
   assDeleteConfirm: 'Delete this conversation?',
   newConversation: 'New chat',
+  // Work ledger (P1): a conversation row's name / message count / execution-trace entry
+  ledgerRename: 'Rename',
+  ledgerRenamePrompt: 'Name this conversation (leave blank to clear)',
+  ledgerRenameTooLong: 'Name must be 120 characters or fewer',
+  ledgerRenameDone: 'Renamed',
+  ledgerRenameFailed: 'Rename failed',
+  ledgerMessages: '{n} messages',
+  ledgerTrace: 'Execution trace',
   navWorkbench: 'Workbench',
   navMy: 'My',
 

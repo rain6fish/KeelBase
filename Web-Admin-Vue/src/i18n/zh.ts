@@ -357,6 +357,14 @@ const zh = {
   assBackToList: '返回聊天',
   assDeleteConfirm: '确定删除这段对话？',
   newConversation: '新对话',
+  // 工作账本（P1）：会话行的名字 / 条数 / 执行轨迹入口
+  ledgerRename: '重命名',
+  ledgerRenamePrompt: '给这段会话起个名字（留空即清除）',
+  ledgerRenameTooLong: '名字不能超过 120 个字符',
+  ledgerRenameDone: '已重命名',
+  ledgerRenameFailed: '重命名失败',
+  ledgerMessages: '{n} 条消息',
+  ledgerTrace: '执行轨迹',
   navWorkbench: '工作台',
   navMy: '我的',
 

@@ -78,6 +78,10 @@ export const adminApi = {
       `/ai/conversations/${validateConversationId(id)}`,
     )
   },
+  /** 工作账本：重命名会话（空串 = 清除标题，回退到首条消息派生的预览）。权限与读取同源（本人或管理员） */
+  renameAiConversation(id: string, title: string): Promise<AiConversationSummary> {
+    return api.patch<AiConversationSummary>(`/ai/conversations/${validateConversationId(id)}`, { title })
+  },
   /** AU-4（§22.19）：会话元数据（**不含消息正文**）——审计行下钻的第一步；正文另请 aiConversation(id) */
   aiConversationMeta(id: string): Promise<AiConversationMeta> {
     return api.get<AiConversationMeta>(`/ai/conversations/${validateConversationId(id)}/meta`)

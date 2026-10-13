@@ -187,7 +187,10 @@ const workspaceNavGroups = computed(() => [
   {
     label: t('navWorkbench'),
     icon: 'mdi-apps',
-    items: [{ name: 'workbench-home', to: '/workbench', icon: 'mdi-home-outline', label: t('navWorkbench') }],
+    items: [
+      { name: 'workbench-ai', to: '/workbench/ai', icon: 'mdi-robot-happy-outline', label: t('aiAssistant') },
+      { name: 'workbench-home', to: '/workbench', icon: 'mdi-home-outline', label: t('navWorkbench') },
+    ],
   },
   {
     label: t('navMy'),

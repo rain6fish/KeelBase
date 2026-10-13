@@ -35,10 +35,10 @@ describe('路由守卫角色分流', () => {
     await loginAs('user')
 
     await router.push('/')
-    expect(router.currentRoute.value.path).toBe('/workbench')
+    expect(router.currentRoute.value.path).toBe('/workbench/ai')
 
     await router.push('/users')
-    expect(router.currentRoute.value.path).toBe('/workbench')
+    expect(router.currentRoute.value.path).toBe('/workbench/ai')
   }, 30000)
 
   it('普通用户访问工作台 → 停驻', async () => {
@@ -116,7 +116,7 @@ describe('路由守卫角色分流', () => {
     const userRouter = makeRouter()
     await loginAs('user')
     await userRouter.push('/login')
-    expect(userRouter.currentRoute.value.path).toBe('/workbench')
+    expect(userRouter.currentRoute.value.path).toBe('/workbench/ai')
 
     const adminRouter = makeRouter()
     await loginAs('admin')
@@ -154,7 +154,7 @@ describe('能力细门（WEB-FRONT-2：roles 管壳 + meta.permission 细判）'
     const router = makeRouter()
     await loginAsWithCaps({ role: 'user', basis: 'x', resources: [cap('User', 'own')] })
     await router.push('/workbench/crm')
-    expect(router.currentRoute.value.path).toBe('/workbench')
+    expect(router.currentRoute.value.path).toBe('/workbench/ai')
   })
 
   it('清单不可用（null）→ 跳过能力门，roles 仍生效（不因基础设施故障挡人）', async () => {

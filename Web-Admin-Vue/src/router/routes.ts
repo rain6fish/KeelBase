@@ -79,6 +79,9 @@ const workbenchRoute: RouteRecordRaw = {
   path: 'workbench',
   meta: { roles: ['user'] },
   children: [
+    // P1：聊天是**新增的**登录落点（见 guards.ts homeFor）。工作台首页与其余页面原样保留，
+    // 左侧菜单一项不少——聊天是入口，不是唯一的门。
+    { path: 'ai', name: 'workbench-ai', component: () => import('@/views/workbench/AiChatView.vue'), meta: { title: 'aiAssistant' } },
     { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
     { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
     { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos', permission: PERMISSIONS.TODO_MANAGE } },
@@ -125,9 +128,9 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
-    // user 构建无 dashboard 空路径子路由，直接落地工作台；admin 构建 '/' = dashboard
+    // user 构建无 dashboard 空路径子路由，直接落地工作台 AI 页；admin 构建 '/' = dashboard
     // 同一壳两套导航（WEB-FRONT-1）：admin 构建也并入工作台路由，普通用户登录进工作台（不再 403）
-    redirect: SURFACE === 'user' ? '/workbench' : undefined,
+    redirect: SURFACE === 'user' ? '/workbench/ai' : undefined,
     children: SURFACE === 'user' ? [workbenchRoute] : [...consoleChildren, workbenchRoute],
   },
   {
