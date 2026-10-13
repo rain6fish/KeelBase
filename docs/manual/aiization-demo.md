@@ -142,6 +142,37 @@ on this module. Fixed by keeping `label`; the regenerated module matches.
 不了自己的样本**。抓到它的是 `check:generated-samples`，就在这个模块上。修法是让 `label` 活过归一化；重生成后
 两份产出相等。
 
+## 复制一个模块 / Clone a module
+
+**English**
+
+There is no separate "clone" tool to learn, because both halves already exist — compose them:
+
+1. Read the source module and write down the protocol it implies (the direction just above).
+2. Feed that protocol back in under a new name: `keelbase init --spec <new>.json`. A module name that
+   already exists in the repository is refused unless `--force` is passed, and the assistant's own
+   `create_module_apply` never passes it — so a clone cannot land on top of a handwritten module.
+
+**What this platform does *not* do per module.** Deploying a *module* has no meaning here: `keelbase deploy`
+and `deploy/deploy-offline.sh` deploy the **whole application**, and running migrations or restarting the
+process is a decision for whoever operates the deployment — not an action the assistant takes on. The line
+is the one the project draws everywhere else: **the AI writes the repository; a human decides to run it.**
+
+**中文**
+
+没有另一个叫「克隆」的工具要学 —— 因为两半都已经在，把它们串起来即可：
+
+1. 读源模块，写下它蕴含的协议（即上一节那个方向）。
+2. 把这份协议换个名字喂回去：`keelbase init --spec <新>.json`。**仓里已存在同名的模块会被拒**，除非传
+   `--force`；而助手自己的 `create_module_apply` **从不传它** ⇒ 克隆**不可能盖在手写模块上**。
+
+在管理台里，这两个工具走同一段对话：System AI 用 `create_module` **只读预览** → 人工批准 →
+`create_module_apply` 落文件（**仅管理员**；**不可由运行时撤销**，确认卡上如实写明）。
+
+**本平台不做「按模块部署」。** 部署一个**模块**在这里没有定义：`keelbase deploy` 与
+`deploy/deploy-offline.sh` 部署的是**整个应用**；而跑迁移、重启进程，是**负责这次部署的人**该做的决定，
+不是助手替你做的动作。这条线与本仓别处画的是同一条：**AI 写仓库，人决定运行。**
+
 ## 相关
 
 - P0-12 多输入通道：[module-protocol.md](../module-protocol.md) §4.1
