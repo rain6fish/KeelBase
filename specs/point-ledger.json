@@ -1,0 +1,34 @@
+{
+  "module": "points_ledgers",
+  "label": "积分台账",
+  "fields": [
+    {
+      "name": "points",
+      "type": "int",
+      "label": "积分",
+      "required": true
+    },
+    {
+      "name": "checkinDate",
+      "type": "string",
+      "label": "签到日期"
+    },
+    {
+      "name": "reason",
+      "type": "enum",
+      "label": "流水原因",
+      "required": true,
+      "enum": [
+        "checkin",
+        "achievement",
+        "bonus",
+        "admin_adjust"
+      ]
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "label": "说明"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import '../../features/events/presentation/pages/event_form_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/ai/presentation/pages/ai_chat_page.dart';
 import '../../features/todos/presentation/pages/todos_page.dart';
+import '../../features/points_ledgers/presentation/pages/points_ledgers_page.dart';
 import '../../features/point_records/presentation/pages/point_records_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/followup_plans/presentation/pages/followup_plans_page.dart';
@@ -358,6 +359,11 @@ GoRouter createRouter(
       GoRoute(
         path: '/point_records',
         builder: (_, _) => const PointRecordsPage(),
+      ),
+      // 积分台账（EASY-2 生成）
+      GoRoute(
+        path: '/points_ledgers',
+        builder: (_, _) => const PointsLedgersPage(),
       ),
       // Legal pages
       GoRoute(

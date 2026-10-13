@@ -48,7 +48,7 @@ export const NOTIFICATION_MODULES = [
 ] as const;
 
 /** 可选业务样例：可独立关 */
-export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm', 'pm', 'approval', 'suppliers', 'contracts', 'reports', 'followup_plans', 'point_records'] as const;
+export const BUSINESS_MODULES = ['events', 'todos', 'posts', 'books', 'notes', 'tags', 'org', 'points', 'crm', 'pm', 'approval', 'suppliers', 'contracts', 'reports', 'followup_plans', 'point_records', 'points_ledgers'] as const;
 
 const coreEntries: ModuleManifestEntry[] = CORE_MODULES.map((id) => ({
   id,
@@ -75,6 +75,7 @@ const notificationEntries: ModuleManifestEntry[] = NOTIFICATION_MODULES.map((id)
 const businessEntries: ModuleManifestEntry[] = [
   { id: 'events', category: 'business', deps: ['notifications'], label: '事件', description: '日历事件与提醒' },
   { id: 'todos', category: 'business', deps: [], label: '待办', description: '待办清单与完成状态' },
+  { id: 'points_ledgers', category: 'business', deps: [], label: '积分台账', description: '积分台账（points_ledgers 模块，keelbase init 生成）' },
   { id: 'point_records', category: 'business', deps: [], label: '积分流水', description: '积分流水（point_records 模块，keelbase init 生成）' },
   { id: 'reports', category: 'business', deps: [], label: '报告', description: '报告（reports 模块，keelbase init 生成）' },
   { id: 'followup_plans', category: 'business', deps: [], label: '跟进计划', description: '跟进计划（followup_plans 模块，keelbase init 生成）' },

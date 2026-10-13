@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "module": "points_ledgers",
+  "generator": "keelbase",
+  "generatorVersion": "1.1.0",
+  "protocol": "1.1",
+  "source": "spec:specs/point-ledger.json",
+  "generatedAt": "2026-10-13T12:41:17.147Z"
+}

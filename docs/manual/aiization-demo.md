@@ -149,9 +149,28 @@ on this module. Fixed by keeping `label`; the regenerated module matches.
 There is no separate "clone" tool to learn, because both halves already exist — compose them:
 
 1. Read the source module and write down the protocol it implies (the direction just above).
-2. Feed that protocol back in under a new name: `keelbase init --spec <new>.json`. A module name that
-   already exists in the repository is refused unless `--force` is passed, and the assistant's own
-   `create_module_apply` never passes it — so a clone cannot land on top of a handwritten module.
+2. Feed that protocol back in under a new name: `keelbase init --spec <new>.json`. **Use the name the
+   generator will use for the directory** — the plural form (`points_ledgers`, not `points_ledger`); see
+   the first finding below for what happens otherwise. A module name that already exists in the
+   repository is refused unless `--force` is passed, and the assistant's own `create_module_apply` never
+   passes it — so a clone cannot land on top of a handwritten module.
+
+**Verified (2026-10-13).** `point_records` was copied to `points_ledgers` exactly this way: 23 files plus
+the wiring across seven places; the back end builds; the generated module's own tests pass (2 suites / 16
+tests); `check:generated-samples` went from 161 to **184** files; `check:all` is **17/17**; the back-end
+suite is 382 suites / 3403 tests; `vue-tsc` is clean. The guard was exercised, not assumed: generating
+again under the existing name `point_records` is refused — `✗ 目录已存在 … 如确认覆盖请加 --force`,
+exit 1.
+
+**Two things the run taught — both now part of the steps above.**
+
+1. **The name must be the plural form.** The generator singularises then pluralises to name the directory,
+   while `check:generated-samples` looks for `src/<spec.module>`. A singular `module` therefore generates
+   a directory the gate never matches, and **that spec is silently skipped**: the first attempt landed on
+   `points_ledger`, and the gate still read 161 — the new module was invisible to it.
+2. **The generator does not touch `CLAUDE.md` §13's module list**, so `check:admin-pages` fails right
+   after generating until someone adds the new page's directory to that line. That step is manual, and
+   `create_module_apply` only runs the CLI — so **a module the assistant creates leaves a red gate behind**.
 
 **What this platform does *not* do per module.** Deploying a *module* has no meaning here: `keelbase deploy`
 and `deploy/deploy-offline.sh` deploy the **whole application**, and running migrations or restarting the
@@ -163,15 +182,23 @@ is the one the project draws everywhere else: **the AI writes the repository; a 
 没有另一个叫「克隆」的工具要学 —— 因为两半都已经在，把它们串起来即可：
 
 1. 读源模块，写下它蕴含的协议（即上一节那个方向）。
-2. 把这份协议换个名字喂回去：`keelbase init --spec <新>.json`。**仓里已存在同名的模块会被拒**，除非传
-   `--force`；而助手自己的 `create_module_apply` **从不传它** ⇒ 克隆**不可能盖在手写模块上**。
+2. 把这份协议换个名字喂回去：`keelbase init --spec <新>.json`。**名字要用生成器给目录起的那一个**
+   —— **复数形态**（`points_ledgers`，不是 `points_ledger`）；用错会怎样见下面第一处发现。**仓里已存在
+   同名的模块会被拒**，除非传 `--force`；而助手自己的 `create_module_apply` **从不传它** ⇒ 克隆**不可能
+   盖在手写模块上**。
 
-在管理台里，这两个工具走同一段对话：System AI 用 `create_module` **只读预览** → 人工批准 →
-`create_module_apply` 落文件（**仅管理员**；**不可由运行时撤销**，确认卡上如实写明）。
+**已验证（2026-10-13）。** `point_records` 就是照这样复制成 `points_ledgers` 的：23 个文件 + 七处接线；
+后端构建通过；生成模块自测通过（2 套件 / 16 例）；`check:generated-samples` 由 161 变 **184**；
+`check:all` **17/17**；后端全量 382 套 / 3403 例；`vue-tsc` 干净。**守卫是跑出来的、不是假设的**：再用
+既有名 `point_records` 生成一次会被拒 —— `✗ 目录已存在 … 如确认覆盖请加 --force`，退出码 1。
 
-**本平台不做「按模块部署」。** 部署一个**模块**在这里没有定义：`keelbase deploy` 与
-`deploy/deploy-offline.sh` 部署的是**整个应用**；而跑迁移、重启进程，是**负责这次部署的人**该做的决定，
-不是助手替你做的动作。这条线与本仓别处画的是同一条：**AI 写仓库，人决定运行。**
+**这一跑教会的两件事 —— 都已写进上面的步骤。**
+
+1. **模块名要用复数形态。** 生成器先把名字单数化、再复数化来给目录命名，而 `check-generated-samples`
+   找的是 `src/<spec.module>`。于是**单数 `module` 生成出的目录，那道门永远匹配不到**，**那条 spec 就被
+   静默跳过**：第一版写成 `points_ledger`，样本门仍是 161 —— 新模块对它是**不可见**的。
+2. **生成器不碰 `CLAUDE.md` §13 的模块清单**，故生成后 `check:admin-pages` 立刻红，直到有人把新页面的目录
+   加进那一行。**这一步是人工的**，而 `create_module_apply` 只跑 CLI ⇒ **助手造出来的模块会留下一道红门**。
 
 ## 相关
 

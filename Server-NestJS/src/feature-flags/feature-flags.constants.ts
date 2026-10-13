@@ -15,6 +15,7 @@ export const FEATURE_KEYS = {
   UPLOAD: 'upload',
   NOTIFICATIONS: 'notifications',
   TODOS: 'todos',
+  POINTS_LEDGERS: 'points_ledgers',
   POINT_RECORDS: 'point_records',
   FOLLOWUP_PLANS: 'followup_plans',
   REPORTS: 'reports',

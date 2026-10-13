@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 积分台账（EASY-2 生成）──
+  'points_ledgers.title': '积分台账',
+  'points_ledgers.count': '{total} 条',
+  'points_ledgers.placeholder': '新增积分台账…',
+  'points_ledgers.add': '添加',
+  'points_ledgers.empty': '暂无积分台账',
+  'points_ledgers.inputRequired': '请输入积分台账内容',
+  'points_ledgers.createFailed': '创建失败',
+  'points_ledgers.deleteTitle': '删除积分台账',
+  'points_ledgers.deleteFailed': '删除失败',
+  'points_ledgers.loadFailed': '加载积分台账失败',
+
   // ── 积分流水（EASY-2 生成）──
   'point_records.title': '积分流水',
   'point_records.count': '{total} 条',

@@ -279,6 +279,19 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 积分台账 · 字段占位符 / field placeholders ---
+  String get points_ledgersFieldPoints => _t('points', '积分');
+  String get points_ledgersFieldCheckinDate => _t('checkinDate', '签到日期');
+  String get points_ledgersFieldReason => _t('reason', '流水原因');
+  String get points_ledgersFieldDescription => _t('description', '说明');
+
+
+  // --- 积分台账（EASY-2 生成） ---
+  String get points_ledgersTitle => _t('PointsLedger', '积分台账');
+  String get points_ledgersAddTitle => _t('New PointsLedger', '新增积分台账');
+  String get points_ledgersEmpty => _t('No PointsLedger yet', '暂无积分台账');
+  String get points_ledgersDeleteConfirm => _t('Delete this pointsledger?', '删除该积分台账？');
+
   // --- 积分流水 · 字段占位符 / field placeholders ---
   String get point_recordsFieldPoints => _t('points', 'points');
   String get point_recordsFieldCheckinDate => _t('checkinDate', 'checkinDate');
