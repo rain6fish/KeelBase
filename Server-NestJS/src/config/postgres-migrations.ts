@@ -102,6 +102,8 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddWriteClaimLinks*',
   // 版本列的默认值 + 六个示例模块补列：postgres 侧同样需要（否则实体要的 version 列在 pg 上不存在）
   '*AddVersionColumnDefault*',
+  // 两个生成模块（points_ledgers / point_records）的建表迁移：实体在、pg 侧也要有，否则实体↔迁移漂移
+  '*AddGeneratedPointModules*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */
