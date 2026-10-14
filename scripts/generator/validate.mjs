@@ -309,6 +309,15 @@ const IRREGULAR_PAIRS = [
   ['criterion', 'criteria'],
   ['datum', 'data'],
   ['medium', 'media'],
+  // Issue #76 实测：这几个是像样的表名/资源名，而朴素规则把它们剥成 `buse` / `heroe` / `gase` /
+  // `quizze` / `shelve` / `vertice`（模块名会一路传到实体文件名与类名）。**补进表**，不加通用规则 ——
+  // `cases` 与 `gases` 同尾异解（`case` vs `gas`），任何一条 `-ses` 规则必然错一边。
+  ['bus', 'buses'],
+  ['gas', 'gases'],
+  ['hero', 'heroes'],
+  ['quiz', 'quizzes'],
+  ['shelf', 'shelves'],
+  ['vertex', 'vertices'],
 ];
 const PLURAL_OF_SINGULAR = new Map(IRREGULAR_PAIRS);
 const SINGULAR_OF_PLURAL = new Map(IRREGULAR_PAIRS.map(([singular, plural]) => [plural, singular]));

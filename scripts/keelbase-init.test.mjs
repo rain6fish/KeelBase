@@ -2041,6 +2041,25 @@ test('模块名单复数：不规则走表，表外仍朴素（不猜）', () =>
   // 表外的词保持原样：`movies` 与 `entries` 同形不同解 ⇒ 宁可朴素，也别猜错。
   assert.equal(toSingular('movies'), 'movie');
   assert.equal(toPlural('movies'), 'movies');
+
+  // Issue #76：这六个是像样的表名/资源名，而朴素规则把它们的单数剥错（模块名会一路传到实体文件名与类名）。
+  // 逐个钉住「单数对」**且**「往返仍对」—— 表里补词不能把 `toPlural` 弄坏。
+  const issue76 = [
+    ['buses', 'bus'],
+    ['heroes', 'hero'],
+    ['gases', 'gas'],
+    ['quizzes', 'quiz'],
+    ['shelves', 'shelf'],
+    ['vertices', 'vertex'],
+  ];
+  for (const [plural, singular] of issue76) {
+    assert.equal(toSingular(plural), singular, `toSingular(${plural})`);
+    assert.equal(toPlural(plural), plural, `toPlural(${plural}) 应原样往返`);
+    assert.equal(toPlural(singular), plural, `toPlural(${singular})`);
+  }
+  // 邻域的**反例**：`cases` 与 `gases` 同尾异解 —— 补表不许把它们搅在一起（这是「表而非规则」的理由）。
+  assert.equal(toSingular('cases'), 'case');
+  assert.equal(toPlural('case'), 'cases');
 });
 
 test('wireAdmin：把新模块补进 CLAUDE.md §13 的模块清单，且幂等', async () => {
