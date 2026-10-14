@@ -108,13 +108,17 @@ const headers = computed(() => [
   { title: t('apStatus'), key: 'status' },
   { title: t('crmRisk'), key: 'riskLevel' },
 ])
-const statusLabelMap: Record<string, string> = {
-  pending: 'apStatusPending',
-  needs_review: 'apStatusNeedsReview',
-  approved: 'apStatusApproved',
-  rejected: 'apStatusRejected',
-  auto_approved: 'apStatusAutoApproved',
-}
+// StatusChip renders a labelMap's value as-is, so these must be the labels — a key name here
+// reaches the screen verbatim.
+//
+// StatusChip 把 labelMap 的值**原样渲出**，故这里必须是**译文** —— 写成键名就会原样显示到屏幕上。
+const statusLabelMap = computed(() => ({
+  pending: t('apStatusPending'),
+  needs_review: t('apStatusNeedsReview'),
+  approved: t('apStatusApproved'),
+  rejected: t('apStatusRejected'),
+  auto_approved: t('apStatusAutoApproved'),
+}))
 
 function riskLabel(l: string) {
   return { low: t('crmRiskLow'), medium: t('crmRiskMedium'), high: t('crmRiskHigh'), critical: t('crmRiskCritical') }[l] ?? l

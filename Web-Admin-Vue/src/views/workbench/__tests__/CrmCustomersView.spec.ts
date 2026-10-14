@@ -41,7 +41,6 @@ function mountView() {
         PageHeader: true,
         DebouncedSearch: true,
         ConfirmDialog: true,
-        StatusChip: true,
         AppPagination: true,
         // 真实 ElSelect/ElOption 在 jsdom 触发 EP「Maximum recursive updates」→ 占位（非断言目标）
         ElSelect: true,
@@ -70,6 +69,21 @@ describe('CrmCustomersView（工作台·客户管理）', () => {
     )
     expect(wrapper.text()).toContain('云启科技')
     expect(wrapper.text()).toContain('云启软件有限公司')
+  })
+
+  it('状态列渲出译文而不是 i18n 键名', async () => {
+    // StatusChip renders a labelMap's value as-is, so a key name in that map reaches the screen
+    // verbatim — this test used to stub StatusChip, which is why it never saw the key.
+    //
+    // StatusChip 把 labelMap 的值**原样渲出**，故 map 里的键名会**原样**显示到屏幕上 —— 这条测试原先
+    // 把 StatusChip 打桩了，那正是它一直没看见那个键名的原因。
+    customersMock.mockResolvedValue({ items: [customer], total: 1 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('合作中')
+    expect(wrapper.text()).not.toContain('crmStatusActive')
   })
 
   it('空列表 → 页面不抛错正常渲染', async () => {

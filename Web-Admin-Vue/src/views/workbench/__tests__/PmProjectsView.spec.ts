@@ -39,7 +39,6 @@ function mountView() {
         PageHeader: true,
         DebouncedSearch: true,
         ConfirmDialog: true,
-        StatusChip: true,
         AppPagination: true,
         // 真实 ElSelect/ElOption 在 jsdom 触发 EP「Maximum recursive updates」→ 占位（非断言目标）
         ElSelect: true,
@@ -66,6 +65,21 @@ describe('PmProjectsView（工作台·项目管理）', () => {
       expect.objectContaining({ page: 1, limit: 20, keyword: undefined, status: undefined }),
     )
     expect(wrapper.text()).toContain('官网改版')
+  })
+
+  it('状态列渲出译文而不是 i18n 键名', async () => {
+    // StatusChip renders a labelMap's value as-is, so a key name in that map reaches the screen
+    // verbatim — the stub this spec used to carry is exactly why it never saw the key.
+    //
+    // StatusChip 把 labelMap 的值**原样渲出**，故 map 里的键名会**原样**显示到屏幕上 —— 本 spec 原先
+    // 打的那根桩，正是它一直没看见那个键名的原因。
+    projectsMock.mockResolvedValue({ items: [project], total: 1 })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('进行中')
+    expect(wrapper.text()).not.toContain('pmStatusActive')
   })
 
   it('空列表 → 页面不抛错正常渲染', async () => {
