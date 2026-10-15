@@ -441,6 +441,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node Server-NestJS/scripts/generate-protocol-vectors.mjs --check
 
+  # The sibling runtime's vendored vector corpus can fall behind silently, because neither
+  # repository's CI can see the other one: this repository carries the contract submodule at the
+  # version it consumes, while the Java repository compares its snapshot against the version *it*
+  # answers for. When the contract advances here and that pin stays put, both CIs stay green and
+  # nobody is told — which is how the drift this gate exists for went unseen on 2026-10-11. Checking
+  # the consumer out onto the same runner is the step that makes the lag say something.
+  #
+  # 同级运行时的 vendored 语料会**无声地**落后：两仓 CI 互相看不见对方 —— 本仓带着自己消费的那版契约
+  # submodule，Java 仓拿**它自己应答的那版**比它自己的快照。于是「契约在本仓前进了、那个 pin 还停在
+  # 原处」时两侧都是绿的、没人被告知 —— 2026-10-11 那次漂移正是这么没人看见的。把消费者检出到同一个
+  # runner 上，是让那次滞后开口说话的那一步。
+  #
+  # KeelBase4J is public, so the default token reads it; no secret is involved.
+  # KeelBase4J 是公开仓，默认 token 即可读出，不涉及任何密钥。
+  java-vector-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true          # 向量住在契约 submodule 里 / the vectors live in the contract submodule
+      - name: Check out the sibling runtime this gate compares against
+        uses: actions/checkout@v5
+        with:
+          repository: rain6fish/KeelBase4J
+          ref: main
+          path: java-repo
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-java-vector-sync.mjs --java java-repo
+
   # Full 剖面合规门禁（CE-1③ / JV-13）：F4 wire 形状 + F5 前端契约面（conformance-profile.md §2.2）。
   # 此前这个判据只有一次性跑过——JV-13 用 verify-full-profile.mjs 量出 Java 距 Full 多远，但没有任何
   # 门禁守着判据本身。本 job 起隔离后端（fresh sqlite + 确定性 env，端口 3401，不碰开发后端）→ 跑

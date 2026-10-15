@@ -2,21 +2,46 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /**
+ * Cross-repository corpus single-source check (CE-1, "the carrier is replaceable"): this repository's
+ * `specs/protocol/*-vector.json` against the Java repository's vendored snapshot in
+ * `conformance/vectors/`.
+ *
+ * Why it is needed: the Java repository (KeelBase4J) proves its conformance (G0 42/42) against this
+ * corpus, but its copy is read-only (`conformance/vectors/README.md: vendored snapshot`). When the
+ * corpus moves here the Java snapshot goes stale, and the two repositories' CIs cannot see each other,
+ * so nothing said so — single-source discipline lost across the repository boundary.
+ *
+ * It runs in CI now: the `java-vector-drift` job in `.github/workflows/ci.yml` checks KeelBase4J out
+ * onto the same runner and runs this script against it, so the drift surfaces on its own instead of
+ * when somebody remembers to run it — which is what P1-13 asks for. Running it by hand still works
+ * when both checkouts sit side by side.
+ *
+ * Criterion:
+ *   1. Common vectors are byte-compared after line-ending normalisation (drift fails) — any content
+ *      difference is caught, including a changed canonical-json case or algorithm string; an
+ *      end-of-line difference is not drift (see the note on `normalizeEol` below).
+ *   2. A vector present here that the Java snapshot lacks is reported as a coverage gap (exit 1;
+ *      `--allow-missing` downgrades it to a warning).
+ *
  * 跨仓语料单源检查（CE-1「载体可替换」）：主仓 `specs/protocol/*-vector.json` ↔ Java 仓
  * `conformance/vectors/` 的 vendored 快照。
  *
  * **为什么需要**：Java 仓（KeelBase4J）以主仓语料自证 conformance（G0 42/42），但其快照是**只读副本**
- * （`conformance/vectors/README.md: vendored snapshot`）——主仓语料一变，Java 快照即陈旧，**两侧 CI 都看不见对方**，
- * 无机制会红（单源纪律在跨仓失守）。
+ * （`conformance/vectors/README.md: vendored snapshot`）——主仓语料一变，Java 快照即陈旧，而**两仓 CI
+ * 互相看不见对方**，无机制会红（单源纪律在跨仓失守）。
+ *
+ * **它现在在 CI 里跑**：`.github/workflows/ci.yml` 的 `java-vector-drift` job 把 KeelBase4J 检出到同一个
+ * runner 上、对着它跑本脚本 —— 于是漂移自己冒出来，而不是等谁记得跑（这正是 `P1-13` 要的）。两仓检出
+ * 并排在本机时，手动跑仍然可用。
  *
  * 判据：
- *   1. **共同向量按行尾归一后逐字节相等**（漂移即失败）——任一内容差异（含今天的 canonical-json 用例/algorithm 串变更）都拦；
+ *   1. **共同向量按行尾归一后逐字节相等**（漂移即失败）——任一内容差异（含 canonical-json 用例/algorithm 串变更）都拦；
  *      行尾差异不算漂移（见下方 `normalizeEol` 的成因说明）。
  *   2. **主仓独有向量**（Java 快照缺）→ 报告为**覆盖缺口**（退出码 1，可 `--allow-missing` 降级为警告）。
  *
- * 用法（需两仓同机；本检查**不进 CI**——CI 只见单仓）：
+ * 用法：
  *   node scripts/check-java-vector-sync.mjs [--java <javaRepoDir>] [--allow-missing] [--sync]
- *   默认 Java 仓：../KeelBase4J（或环境变量 KEELBASE_JAVA_REPO）
+ *   默认 Java 仓：../KeelBase4J（或环境变量 KEELBASE_JAVA_REPO）；CI 里传 `--java java-repo`。
  *   --sync：把主仓向量**复制**到 Java 快照（仅在确认后手动跑；改的是另一个仓；写入按 LF 归一）
  */
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
