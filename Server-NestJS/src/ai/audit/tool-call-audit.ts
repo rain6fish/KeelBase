@@ -74,6 +74,19 @@ export function confirmationOutcome(decision: 'approve' | 'decline' | 'timeout')
   return decision === 'approve' ? 'approved' : decision === 'decline' ? 'declined' : 'timeout';
 }
 
+/**
+ * The `tool_call` spelling of "it ran": the half of the vocabulary that has no deny branch and no
+ * waiting branch. Exported because the R4 executor writes its own row (it is not the chat path) and
+ * must answer with the same word — a second copy of this mapping is how the two ends would drift.
+ *
+ * `tool_call` 行对「它跑过了」的说法：词表里既没有拒绝分支、也没有等待分支的那一半。之所以导出，
+ * 是因为 R4 执行器**自己拼它的行**（它不是对话那条路），却必须用同一个词 —— 这份映射抄第二遍，
+ * 正是两端会漂移的来路。
+ */
+export function toolCallOutcome(result: { success: boolean }): string {
+  return result.success ? 'executed' : 'failed';
+}
+
 export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const { result } = input;
   // Order matters: the R4 path hands over both a `result` (a placeholder failure saying "submitted for
@@ -84,9 +97,7 @@ export function buildToolCallAudit(input: ToolCallAuditInput): AuditEntry {
   const outcome = input.pendingApproval
     ? 'pending'
     : result
-      ? result.success
-        ? 'executed'
-        : 'failed'
+      ? toolCallOutcome(result)
       : input.deniedBy?.includes('risk_policy')
         ? 'blocked'
         : 'refused';

@@ -157,6 +157,13 @@ export class AuditService {
       authorization: entry.authorization,
       businessEvent: entry.businessEvent,
       evidence: entry.evidence,
+      // C-3's two out-of-chain attribution columns. They go to the row and deliberately NOT into
+      // `payload` above: an out-of-chain column that entered the hash would fork the chain, which is
+      // the exact opposite of what these are for.
+      // C-3 的两列**链外归因列**。它们去的是**行**，并**有意不进**上面的 `payload` —— 链外列一旦入链
+      // 就会把链劈叉，那正是它们要避免的事。
+      outcome: entry.outcome,
+      tool: entry.tool,
       payloadVersion: 2,
     };
 

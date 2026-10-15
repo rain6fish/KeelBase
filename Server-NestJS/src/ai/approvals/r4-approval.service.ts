@@ -23,6 +23,7 @@ import { AiConfirmationRequest } from './ai-confirmation-request.entity';
 import { ToolExecutionService } from '../tools/tool-execution.service';
 import { AuditService } from '../audit/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
+import { toolCallOutcome } from '../audit/tool-call-audit';
 import { ToolResult } from '../interfaces/tool.interface';
 import { UsersService } from '../../users/users.service';
 import {
@@ -298,6 +299,13 @@ export class R4ApprovalService {
       completionTokens: result.usage?.completionTokens,
       // §internal.16 A-1 业务事件名
       businessEvent: deriveAiBusinessEvent(req.toolName) ?? undefined,
+      // C-3's two out-of-chain attribution columns. This site writes its row by hand — it is the R4
+      // executor, not the chat path — so it has to name them itself, and it names them through the
+      // same helper the chat path uses, so the two ends cannot spell one outcome two ways.
+      // C-3 的两列链外归因列。本处**自己拼行**（它是 R4 执行器那条路，不是对话那条），故得自己点名；
+      // 且经由对话那条**同一个** helper 点名，两端才不会把同一个结局写成两个词。
+      outcome: toolCallOutcome(result),
+      tool: req.toolName,
     });
     return result;
   }

@@ -128,6 +128,32 @@ describe('AuditService', () => {
       );
     });
 
+    // C-3's two out-of-chain attribution columns: computed since the contract's v5, but they never
+    // reached the row, because `log()`'s entity literal names every column except these two. This
+    // asserts the saved row (not the constructor's return value) — that is the step that was missing.
+    // C-3 的两列链外归因列：契约 v5 起就算得出，却始终到不了行上 —— 因为 `log()` 那个 entity 字面量
+    // 点了每一列的名字，**唯独漏了这两列**。这里断言的是**落库的行**（不是构造器的返回值）——
+    // 漏掉的正是这一步。
+    it('C-3 的两列随行落库，且不入 hash payload（链外归因列）', async () => {
+      await service.log({
+        userId: '1',
+        action: 'tool_call',
+        outcome: 'blocked',
+        tool: 'delete_customer',
+      });
+
+      expect(runner.manager.save).toHaveBeenCalledWith(
+        AiAuditLog,
+        expect.objectContaining({ outcome: 'blocked', tool: 'delete_customer' }),
+      );
+
+      // Out of chain: entering the payload would fork the chain, which is what C-3 ruled out.
+      // 链外：进 payload 会把链劈叉，那是 C-3 明确定下的边界。
+      const payload = (chain.computeHash as jest.Mock).mock.calls[0][1];
+      expect(payload).not.toHaveProperty('outcome');
+      expect(payload).not.toHaveProperty('tool');
+    });
+
     it('D4 从 ActorContext fallback callerAgentId/businessIntent（子 agent 场景自动归责）', async () => {
       await actorContext.run(
         { agentId: 'research-agent', callerAgentId: 'orchestrator', businessIntent: 'sub-agent' },
