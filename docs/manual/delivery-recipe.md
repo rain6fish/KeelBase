@@ -37,6 +37,8 @@ node scripts/keelbase-init.mjs --spec specs/asset-loans.json
 
 Criterion: `已生成 23 个文件` plus the wiring list, including `接线：CLAUDE.md` (the §13 module list is wired by the generator, idempotently).
 
+**⚠ Generation is one-way.** `--force` overwrites every generated file — **including the hand-written layer from step 3**. So generate **once**, hand-write after, and **do not regenerate**. If you must regenerate (say a template fix landed), restore the hand-written layer right after. A cold-read run confirmed this: the `--force` regeneration left the tree dirty in **exactly two** files (`asset_loans.service.ts` / `asset_loans.service.spec.ts`) and nothing else — which is also how you can tell what is hand-written.
+
 ### 3. Layer the declared hand-written rules
 
 The thin protocol carries **shape, not rules** — so the `unmapped[]` items are written by hand in
@@ -91,6 +93,10 @@ Criterion: the instrument prints `═══ S4+S5 全链路验收：PASS ══�
 `requiresConfirmation=true` + `requireVerifiedEmail` and its unit test asserts the gate; the read tool
 has no gate; the module is wired into `ai.module`); `check:all` is **18/18**.
 
+**⚠ Ordering.** `verify-consulting-to-build.sh` **refuses a dirty tree** (it writes files). So the
+module and its hand-written layer must already be **committed** when you run it. In a brand-new
+delivery, commit steps 1–5 first; in a clean `git worktree` of this repo they are already committed.
+
 ### 7. Runtime governance acceptance (deterministic demo provider)
 
 ```bash
@@ -130,8 +136,11 @@ the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one i
 
 - It carries **shape, not rules** — the two rules are **declared** hand-written (see step 3).
 - `overdue` is a status value; there is **no** scheduler that flips it (out of scope in the spec).
-- This was a **self-run** following the recipe as a cold reader would — **not** an independent second
-  deliverer. That half of the done criterion is untouched.
+- This was a **self-run** following the recipe as a cold reader would (from a clean `git worktree` at
+  the delivery commit) — **not** an independent second deliverer. That half of the done criterion is
+  untouched. The self-run reproduced the same readings (12/12 runtime, deploy serves the module) and
+  caught the two hazards flagged in steps 2 and 6 (regeneration wipes the hand-written layer; the
+  instrument needs a clean tree).
 
 ---
 
@@ -166,6 +175,11 @@ node scripts/keelbase-init.mjs --spec specs/asset-loans.json
 ```
 
 判据：`已生成 23 个文件` 加接线清单，含 `接线：CLAUDE.md`（§13 模块清单由生成器接线，且幂等）。
+
+**⚠ 生成是单向的。** `--force` 会重写每一个生成文件 —— **包括第 3 步那层手写规则**。故**只生成一次**，随后再手写，
+**不要重生成**。若确需重生成（比如模板修好了），之后立刻把手写层放回去。一次冷读者自跑证实了这点：`--force`
+重生成让工作树**恰好在这两个文件**上变脏（`asset_loans.service.ts` / `asset_loans.service.spec.ts`），别无其它 ——
+这也正是**判断哪些是手写**的办法。
 
 ### 3. 叠加**声明为手写**的规则
 
@@ -217,6 +231,9 @@ npm run check:all
 判据：仪器打印 `═══ S4+S5 全链路验收：PASS ═══`（23 个文件；写工具带 `requiresConfirmation=true` +
 `requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **18/18**。
 
+**⚠ 次序。** `verify-consulting-to-build.sh` **拒绝脏工作树**（它会写文件）。故跑它时，模块与其手写层必须**已经提交**。
+全新交付里先提交第 1–5 步；在本仓的一个干净 `git worktree` 里它们本就已提交。
+
 ### 7. 运行时治理验收（确定性演示 Provider）
 
 ```bash
@@ -255,4 +272,6 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 
 - 它承载**形状、不承载规则** —— 那两条规则是**被声明的手写**（见第 3 步）。
 - `overdue` 是一个状态值；**没有**任何调度器去翻它（规格里超出范围）。
-- 这是**按 recipe 自跑**一遍（冷读者视角）—— **不是**另一名交付者的独立复现。done 判据的那一半**未动**。
+- 这是**按 recipe 自跑**一遍（冷读者视角，从交付提交处的一个干净 `git worktree` 里）—— **不是**另一名交付者的
+  独立复现。done 判据的那一半**未动**。这次自跑复现了同样的读数（运行时 12/12、部署把模块服务出来），并逮到
+  第 2 步与第 6 步标出的两处陷阱（重生成会毁掉手写层；仪器需要干净工作树）。
