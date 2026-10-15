@@ -167,6 +167,25 @@ jobs:
         # 消除 CI/本地两处逻辑漂移——sqlite 绿不代表 pg 无漂移，本脚本是 pg 方言防线）
         run: node scripts/check-pg-migration-consistency.mjs
 
+  # An entity whose table no migration creates. The `migration-consistency` jobs above do catch this,
+  # but they need a database and they run after the push — which is how the two modules from `c81232a0`
+  # left main red for about ten hours. This one is static (the tables are in the migrations' SQL), so it
+  # also runs in `npm run check:all`, which is the look taken *before* the push.
+  #
+  # 实体有表、却没有任何迁移建它。上面两个 `migration-consistency` job 确实会逮到，但它们要数据库，
+  # 而且在**推送之后**才跑 —— `c81232a0` 那两个模块就是这样让 main 红了约十小时。这一道是静态的
+  # （建了哪些表就在迁移的 SQL 里），因此也进得了 `npm run check:all`，那是**推送之前**看的那一眼。
+  entity-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-entity-migrations.mjs
+
   build:
     runs-on: ubuntu-latest
     defaults:

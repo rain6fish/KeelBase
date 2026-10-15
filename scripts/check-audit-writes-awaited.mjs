@@ -24,6 +24,17 @@
  * 全仓 `auditService.log(` 的**总数**低于 MIN_SITES 即判失败 —— 解析正则或写法变了会让扫描
  * 「零命中」，那与「全都 await 了」同形（本仓对「没发生」与「没看见」同形的忌惮见 F-10d）。
  *
+ * ## 它不覆盖什么 / What it does not cover
+ *
+ * One shape only: the call site that runs and is not awaited. A path where the audit line *should*
+ * have been written and no `auditService.log(` is there at all is invisible to a scan for call sites —
+ * "should have written and did not" is not the same failure as "wrote without awaiting", and a green
+ * run here is not a statement about coverage. Measuring that side is a different instrument's job.
+ *
+ * 只覆盖一个形状：**执行到了、却没有 await**。而「**该写审计行、却连一处 `auditService.log(` 都没有**」
+ * 的那种路径，对「扫调用点」这件事**不可见** —— 「该写而没写」与「写了但没 await」不是同一种失败，本闸
+ * 绿**不等于**覆盖面无缺口。那一侧的读数是另一件仪器的事。
+ *
  * 用法：node scripts/check-audit-writes-awaited.mjs
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
