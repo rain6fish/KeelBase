@@ -26,6 +26,25 @@
 
 > Distinct from the **protocol-thinness discipline** (`docs/module-protocol.md §5`: the protocol covers only the high-frequency 20%; a thick protocol becomes a low-code platform): that constrains *how thick the protocol is*, this constrains *product positioning* — they do not conflict, and **both stand**.
 
+### 1.2 Three Misleads To Prevent (outward-expression discipline)
+
+> The three come from an **external architecture assessment** (2026-10-14). This is **not "say less"** — it is
+> "when you claim a step, say where the claim stops". All three live on the **evidence** surface, which is
+> where "the records we kept agree with each other" is most easily read as "everything that should have been
+> recorded was".
+
+| # | Do not say this (it misleads) | Say this instead (state the boundary with the claim) |
+|---|---|---|
+| 1 | Presenting **log integrity** as **behaviour integrity** | "The hash chain verifies" means only that **the records it covers** satisfy the rules. **Name what it does not cover**: unrecorded events, collection failures, bypass execution, missing external-system logs |
+| 2 | Showing a **successful revoke request** as **the business being restored** | State the four apart: **revoke completed / compensation requested / compensation failed / outcome unknown**. Where an external system is involved, the **target system's receipt or status check** is what settles it |
+| 3 | Treating a **report the system generated itself** as **independent audit proof** | Say it supports **independent verification**, and **give the rest alongside it**: the signing key, the trusted timestamp, the storage boundary, and **the risks it does not cover** |
+
+> **Where it applies**: README · the website · outward articles · demo wording · video scripts — any text that
+> faces outward. **Why a discipline rather than another wording fix**: these three were fixed once in the
+> README on 2026-09-29 (the **absolute sentences** there are gone); that fixed **those sentences**, a
+> discipline governs **the next one**. The list of what we explicitly do not promise is `SECURITY.md`'s
+> **Not-a-*** section.
+
 ---
 
 ## 2. Core Concept Glossary
