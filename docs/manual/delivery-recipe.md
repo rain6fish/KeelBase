@@ -12,11 +12,16 @@
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && cp .env.example .env && npm install
+cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # sibling repo — step 6's check:java-vectors reads it
+cd Web-Admin-Vue && npm install                                                        # step 8 builds the admin bundle
 # leave the LLM API keys empty in .env → the runtime falls back to the deterministic demo provider
 ```
 
 - `--recurse-submodules` is not optional: `Server-NestJS/specs/protocol` is a submodule.
+- **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` reports **17/18** — and that red is the missing prerequisite, not your delivery.
+- **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
 - No LLM key needed anywhere below; the demo provider drives the write tool from explicit `field=value` tokens.
+- **Docker** (or a reachable PostgreSQL) is needed for one action only: `migration:consistency:pg` in step 5, which starts a throwaway `pgvector/pgvector:pg17` container.
 - Never run the runtime/deploy steps against the shared `data/front.sqlite` — use a **copy** (`DB_PATH=...`).
 
 ### 1. Business Spec → module protocol
@@ -35,9 +40,12 @@ node scripts/keelbase-init.mjs --spec specs/asset-loans.json
 # if the module already exists in the tree (as it does here): add --force
 ```
 
-Criterion: `已生成 23 个文件` plus the wiring list, including `接线：CLAUDE.md` (the §13 module list is wired by the generator, idempotently).
+Criterion: `已生成 23 个文件` plus the wiring list. Its `CLAUDE.md` line reads `接线：CLAUDE.md` on a first generation, and `已存在：CLAUDE.md（幂等跳过）` when the wiring is already in place — the generator wires it idempotently, and **both wordings pass**.
 
-**⚠ Generation is one-way.** `--force` overwrites every generated file — **including the hand-written layer from step 3**. So generate **once**, hand-write after, and **do not regenerate**. If you must regenerate (say a template fix landed), restore the hand-written layer right after. A cold-read run confirmed this: the `--force` regeneration left the tree dirty in **exactly two** files (`asset_loans.service.ts` / `asset_loans.service.spec.ts`) and nothing else — which is also how you can tell what is hand-written.
+**⚠ Generation is one-way.** `--force` overwrites every generated file — **including the hand-written layer from step 3**. So generate **once**, hand-write after, and **do not regenerate**. If you must regenerate (say a template fix landed), put the hand-written layer back right after with
+`git checkout -- Server-NestJS/src/asset_loans/` — **which only works if that layer was already committed**, so in a brand-new delivery commit steps 1–3 *before* you ever regenerate.
+
+After a `--force` run, `git status --porcelain` lists **three** paths: `asset_loans.service.ts` / `asset_loans.service.spec.ts` **plus** `src/asset_loans/.keelbase-provenance.json`, whose only change is its `generatedAt` timestamp. So "which files went dirty" tells you the hand-written layer **plus that one timestamp-only file** — not the hand-written layer alone.
 
 ### 3. Layer the declared hand-written rules
 
@@ -49,6 +57,11 @@ out-of-window due date; Rule 1 refuses a second loan of a still-out `assetTag`. 
 Because the service is hand-extended after generation, the module is listed in
 `scripts/check-generated-samples.mjs`'s EXEMPT map **with its reason** — the same declared boundary
 `followup_plans` already uses. A hand-written layer is **declared**, not silently dropped.
+
+**⚠ This step is the one part a recipe cannot hand over.** The two rules are named above, but for
+your own module *you* write them — they come from the business, not from the spec. The step is done
+when every `unmapped[]` item from step 1 has a rule in `create()` and a test that fails without it
+(the worked example's pair is in `asset_loans.service.spec.ts`).
 
 ### 4. Build and test
 
@@ -73,7 +86,9 @@ export JWT_SECRET=$(openssl rand -hex 32) JWT_REFRESH_SECRET=$(openssl rand -hex
 DB_PATH=./data/_recipe.sqlite npx typeorm-ts-node-commonjs migration:run      -d src/config/typeorm-data-source.ts
 DB_PATH=./data/_recipe.sqlite npx typeorm-ts-node-commonjs migration:generate src/migrations/_recipe_check -d src/config/typeorm-data-source.ts
 #   → must print: "No changes in database schema were found"
-npm run migration:consistency:pg   # ⇒ [consistency:pg] PASS
+#     (typeorm exits 1 on that path — judge by the printed line, not by the exit code,
+#      otherwise a `set -e` / `&&` chain stops on a success)
+npm run migration:consistency:pg   # ⇒ [consistency:pg] PASS   (needs Docker or a reachable PostgreSQL)
 rm -f src/migrations/*_recipe_check*
 ```
 
@@ -95,7 +110,9 @@ has no gate; the module is wired into `ai.module`); `check:all` is **18/18**.
 
 **⚠ Ordering.** `verify-consulting-to-build.sh` **refuses a dirty tree** (it writes files). So the
 module and its hand-written layer must already be **committed** when you run it. In a brand-new
-delivery, commit steps 1–5 first; in a clean `git worktree` of this repo they are already committed.
+delivery, commit steps 1–5 first — configure `user.name` / `user.email`, and commit **locally**: this
+checkout's `origin` is the public upstream and nothing in this recipe needs a push. In a clean
+`git worktree` of this repo the module is already committed.
 
 ### 7. Runtime governance acceptance (deterministic demo provider)
 
@@ -111,7 +128,32 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 Criterion: **12/12** — confirmation gate (R3) → approve → side effect `resultType=asset_loan` →
 row persisted → decision trace → both audit hash chains `valid=true` → revoke → soft-deleted.
 
+Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
+listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
+(`netstat -ano | grep :3111`, then kill that PID).
+
 Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `/api/v1/asset_loans`):
+
+```bash
+BASE=http://localhost:3111/api/v1
+BODY='{"assetName":"投影仪","assetTag":"TAG-RL-001","dueDate":"2026-11-10","status":"active"}'
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data.accessToken))')
+post() { curl -s -o /dev/null -w '%{http_code}\n' -X POST $BASE/asset_loans \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$1"; }
+
+post "$BODY"                                            # → 201  baseline create
+post "$BODY"                                            # → 409  Rule 1: same assetTag still out
+post "${BODY/2026-11-10/2027-06-10}"                    # → 400  Rule 2: due date ~8 months out
+post '{"assetName":"投影仪","assetTag":"TAG-RL-002","status":"active"}'   # → 400  Rule 2: no due date
+```
+
+Every body carries `status` on purpose: `status` is an `enum` and the spec gives it **no** explicit
+`required` — but `string` / `enum` are required **by the type default** in the generated DTO
+(`docs/module-protocol.md`), so a body without it is rejected with `400` **before** any hand-written
+rule runs, *including* the case that should be `201`. `purpose` (`text`) and `dueDate` (`date`) are
+optional by the same default table.
 
 | case | expected |
 |---|---|
@@ -119,6 +161,9 @@ Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `
 | same `assetTag` again (Rule 1) | `409` |
 | due date ~8 months out (Rule 2) | `400` |
 | no due date (Rule 2) | `400` |
+
+The verifier here also writes a report to `docs/benchmark/generated-module-<timestamp>.md` — it is
+gitignored, so it does not dirty the tree.
 
 ### 8. Deploy (single machine)
 
@@ -136,11 +181,14 @@ the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one i
 
 - It carries **shape, not rules** — the two rules are **declared** hand-written (see step 3).
 - `overdue` is a status value; there is **no** scheduler that flips it (out of scope in the spec).
-- This was a **self-run** following the recipe as a cold reader would (from a clean `git worktree` at
-  the delivery commit) — **not** an independent second deliverer. That half of the done criterion is
-  untouched. The self-run reproduced the same readings (12/12 runtime, deploy serves the module) and
-  caught the two hazards flagged in steps 2 and 6 (regeneration wipes the hand-written layer; the
-  instrument needs a clean tree).
+- A **cold-read run** has since been done — a reader with **no prior context**, in an isolated clone,
+  following only this file. It reproduced the main chain (23 files / 4·29 / 386·3433 / 12/12 / S4+S5 /
+  deploy serves the module), and **it is what found the two defects now fixed here**: step 6's `18/18`
+  was unreachable from step 0 alone (the sibling Java repo was never mentioned), and the four HTTP
+  cases had neither commands nor the DTO's required `status`.
+- **It is still not an independent second deliverer** — same machine, same author's tooling, and an
+  AI reader rather than another person. That half of the done criterion (a *different* deliverer
+  reproducing this without asking the author) is **not met** and is not claimed here.
 
 ---
 
@@ -151,11 +199,19 @@ the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one i
 ```bash
 git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd KeelBase
 cd Server-NestJS && cp .env.example .env && npm install
+cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # 兄弟仓 —— 第 6 步的 check:java-vectors 要读它
+cd Web-Admin-Vue && npm install                                                        # 第 8 步要构建管理台产物
 # .env 里 LLM 的 API key 留空 → 运行时会回落到确定性演示 Provider
 ```
 
 - `--recurse-submodules` 不是可选项：`Server-NestJS/specs/protocol` 是一个 submodule。
+- **兄弟仓 `../KeelBase4J` 也不是可选项。** 第 6 步的 `check:java-vectors` 拿本仓的协议向量与该 Java 仓的只读快照比对，
+  而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会报 **17/18** ——
+  那道红是**前置没备齐**，不是你的交付有问题。
+- **`Web-Admin-Vue` 的依赖也在这里装**：第 8 步的 `deploy/demo.sh` 第一步就是构建管理台产物，缺依赖会卡在第一步。
 - 下面全程**不需要** LLM key；演示 Provider 靠显式 `field=value` 令牌驱动写工具。
+- 只有一处需要 **Docker**（或一个可达的 PostgreSQL）：第 5 步的 `migration:consistency:pg`，它会起一个一次性的
+  `pgvector/pgvector:pg17` 容器。
 - 运行与部署那几步**绝不能**打在共享的 `data/front.sqlite` 上 —— 用**副本**（`DB_PATH=...`）。
 
 ### 1. 业务规格 → 模块协议
@@ -174,12 +230,17 @@ node scripts/keelbase-init.mjs --spec specs/asset-loans.json
 # 模块已在树里（本仓即是）：加 --force
 ```
 
-判据：`已生成 23 个文件` 加接线清单，含 `接线：CLAUDE.md`（§13 模块清单由生成器接线，且幂等）。
+判据：`已生成 23 个文件` 加接线清单。其中 `CLAUDE.md` 那条在**首次**生成时打印 `接线：CLAUDE.md`，在**已经接好**时打印
+`已存在：CLAUDE.md（幂等跳过）` —— 生成器是幂等接线的，**两种措辞都算过**。
 
 **⚠ 生成是单向的。** `--force` 会重写每一个生成文件 —— **包括第 3 步那层手写规则**。故**只生成一次**，随后再手写，
-**不要重生成**。若确需重生成（比如模板修好了），之后立刻把手写层放回去。一次冷读者自跑证实了这点：`--force`
-重生成让工作树**恰好在这两个文件**上变脏（`asset_loans.service.ts` / `asset_loans.service.spec.ts`），别无其它 ——
-这也正是**判断哪些是手写**的办法。
+**不要重生成**。若确需重生成（比如模板修好了），之后立刻用
+`git checkout -- Server-NestJS/src/asset_loans/` 把手写层放回去 —— **这只在那一层已经提交过时才管用**，
+故**全新交付**里请**先**提交第 1–3 步，再考虑重生成。
+
+跑完一次 `--force`，`git status --porcelain` 会列出**三**条路径：`asset_loans.service.ts` /
+`asset_loans.service.spec.ts`，**外加** `src/asset_loans/.keelbase-provenance.json`，它唯一的变化是 `generatedAt`
+时间戳。故「哪些文件变脏」告诉你的，是手写层**加上那一个只改时间戳的文件** —— 不是手写层本身。
 
 ### 3. 叠加**声明为手写**的规则
 
@@ -189,6 +250,10 @@ node scripts/keelbase-init.mjs --spec specs/asset-loans.json
 
 因为服务是生成后手工扩展的，模块连同理由登记进 `scripts/check-generated-samples.mjs` 的 EXEMPT 表 ——
 与 `followup_plans` 已经使用的那条声明边界一致。手写层是**被声明的**，不是悄悄丢掉的。
+
+**⚠ 这一步正是 recipe 交不出去的那部分。** 上面点出了那两条规则，但**你自己的模块要你自己写** ——
+它们来自业务，不来自规格。这一步算完成，当且仅当第 1 步 `unmapped[]` 里每一条都在 `create()` 里有对应规则、
+且有一条**没有它就会红**的测试（范例那一对在 `asset_loans.service.spec.ts`）。
 
 ### 4. 构建与测试
 
@@ -213,7 +278,9 @@ export JWT_SECRET=$(openssl rand -hex 32) JWT_REFRESH_SECRET=$(openssl rand -hex
 DB_PATH=./data/_recipe.sqlite npx typeorm-ts-node-commonjs migration:run      -d src/config/typeorm-data-source.ts
 DB_PATH=./data/_recipe.sqlite npx typeorm-ts-node-commonjs migration:generate src/migrations/_recipe_check -d src/config/typeorm-data-source.ts
 #   → 必须打印："No changes in database schema were found"
-npm run migration:consistency:pg   # ⇒ [consistency:pg] PASS
+#     （这条路 typeorm 会 exit 1 —— 按打印的这句话判定，别按退出码；
+#       否则 `set -e` / `&&` 串起来的命令会停在一个成功上）
+npm run migration:consistency:pg   # ⇒ [consistency:pg] PASS   （需要 Docker 或一个可达的 PostgreSQL）
 rm -f src/migrations/*_recipe_check*
 ```
 
@@ -232,7 +299,8 @@ npm run check:all
 `requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **18/18**。
 
 **⚠ 次序。** `verify-consulting-to-build.sh` **拒绝脏工作树**（它会写文件）。故跑它时，模块与其手写层必须**已经提交**。
-全新交付里先提交第 1–5 步；在本仓的一个干净 `git worktree` 里它们本就已提交。
+全新交付里先提交第 1–5 步 —— 先把 `user.name` / `user.email` 配好，并且**只本地提交**：这个检出的 `origin`
+是公开上游，本 recipe 全程不需要推送。在本仓的一个干净 `git worktree` 里，模块本就已提交。
 
 ### 7. 运行时治理验收（确定性演示 Provider）
 
@@ -248,7 +316,30 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 判据：**12/12** —— 确认闸（R3）→ 批准 → 副作用 `resultType=asset_loan` → 记录落库 → 决策轨迹 →
 两条审计哈希链 `valid=true` → 撤销 → 软删生效。
 
+这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
+因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。
+
 再在 HTTP 边界上打那两条手写规则（以 `alex` 登录，然后对 `/api/v1/asset_loans` 发四个 POST）：
+
+```bash
+BASE=http://localhost:3111/api/v1
+BODY='{"assetName":"投影仪","assetTag":"TAG-RL-001","dueDate":"2026-11-10","status":"active"}'
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data.accessToken))')
+post() { curl -s -o /dev/null -w '%{http_code}\n' -X POST $BASE/asset_loans \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$1"; }
+
+post "$BODY"                                            # → 201  基线创建
+post "$BODY"                                            # → 409  规则 1：同一 assetTag 仍未归还
+post "${BODY/2026-11-10/2027-06-10}"                    # → 400  规则 2：归还日约 8 个月之后
+post '{"assetName":"投影仪","assetTag":"TAG-RL-002","status":"active"}'   # → 400  规则 2：不给归还日
+```
+
+每个请求体都带 `status` 是**故意的**：`status` 是 `enum`，而规格**没有**给它显式 `required` ——
+但按 `docs/module-protocol.md` 的**按类型默认**表，`string` / `enum` **默认必填**，所以缺它的请求体会在任何手写规则
+跑起来**之前**就被 `400` 拒掉，**连本该 201 的那一例也一样**。`purpose`（`text`）与 `dueDate`（`date`）按同一张默认表
+是**可选**的。
 
 | 用例 | 期望 |
 |---|---|
@@ -256,6 +347,8 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 | 同一 `assetTag` 再来一条（规则 1） | `409` |
 | 归还日约 8 个月之后（规则 2） | `400` |
 | 不给归还日（规则 2） | `400` |
+
+这一步的验收器还会往 `docs/benchmark/generated-module-<时间戳>.md` 落一份报告 —— 它被 gitignore，不会弄脏工作树。
 
 ### 8. 部署（单机）
 
@@ -272,6 +365,9 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 
 - 它承载**形状、不承载规则** —— 那两条规则是**被声明的手写**（见第 3 步）。
 - `overdue` 是一个状态值；**没有**任何调度器去翻它（规格里超出范围）。
-- 这是**按 recipe 自跑**一遍（冷读者视角，从交付提交处的一个干净 `git worktree` 里）—— **不是**另一名交付者的
-  独立复现。done 判据的那一半**未动**。这次自跑复现了同样的读数（运行时 12/12、部署把模块服务出来），并逮到
-  第 2 步与第 6 步标出的两处陷阱（重生成会毁掉手写层；仪器需要干净工作树）。
+- 此后另做过一次**冷读者复现** —— 读者**没有任何背景上下文**、在一个**隔离的克隆**里、**只照本文件**走。
+  它复现了主链（23 文件 / 4·29 / 386·3433 / 12/12 / S4+S5 / 部署把模块服务出来），**本文件里刚修掉的两处缺陷正是它发现的**：
+  第 6 步的 `18/18` **根本无法**只照第 0 步达到（兄弟 Java 仓只字未提），而第 7 步那四条 HTTP 用例既没给命令、
+  也没给 DTO 必填的 `status`。
+- **但它仍不是一名独立的交付者** —— 同一台机器、同一套作者的工装，且是一个 AI 读者，不是另一个人。
+  done 判据的那一半（**另一名**交付者不问作者就能复现）**未达成**，本文件也**不声称**它达成了。
