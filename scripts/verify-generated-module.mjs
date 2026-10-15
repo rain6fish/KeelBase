@@ -18,7 +18,19 @@
  *   TITLE_MARKER  用于在列表里认出本次记录，缺省自动生成
  *   BASE_URL / BENCH_USER / BENCH_PASS / BENCH_ADMIN_USER / BENCH_ADMIN_PASS / GATE_TIMEOUT
  *
- * 前置：模块已由 keelbase init 生成、后端已起、LLM 可用（真实 provider 或 PROVIDER=demo）。
+ * Prereq: the module is generated and the back end is up, and the write tool can actually be driven.
+ * Two environments qualify. A real LLM: the default trigger sentence is enough, since it picks the
+ * tool by meaning. The deterministic demo provider (no API key): the trigger sentence MUST carry
+ * explicit `field=value` tokens covering the tool's required params — set it via TRIGGER_MSG. The
+ * default trigger has no `=`, so under the demo provider it does NOT drive a generic write tool.
+ * The created record is located via MARKER_FIELD (default `title`); a module with no `title` column
+ * must name the field that actually holds the marker.
+ *
+ * 前置：模块已由 keelbase init 生成、后端已起，且该写工具**确实能被驱动**。两类环境都算：真实 LLM
+ * （默认触发语即可，它按语义选工具），或确定性演示 Provider（无 API key —— 触发语**必须**带显式
+ * `field=value` 对、覆盖工具必需参数，用 `TRIGGER_MSG` 指定）。默认触发语不含 `=`，故在演示模式下
+ * **不会**驱动通用写工具。记录靠 `MARKER_FIELD`（缺省 `title`）定位；模块没有 `title` 列时须指定
+ * 实际持有该标记的字段。
  *
  * 注意：验证撤销类逻辑务必用**多字（snake_case）模块名**（如 followup_plans）——单字名会掩盖一类解析缺陷。
  */
@@ -42,6 +54,12 @@ if (!MODULE) {
 const SINGULAR = MODULE.endsWith('s') ? MODULE.slice(0, -1) : MODULE;
 const WRITE_TOOL = process.env.WRITE_TOOL || `create_${SINGULAR}`;
 const MARKER = process.env.TITLE_MARKER || `AI-verify-${new Date().toISOString().slice(11, 19)}`;
+// The field that carries the marker in the created row (a module need not have a `title` column).
+// 记录里承载标记的那个字段（模块未必有 `title` 列）。
+const MARKER_FIELD = process.env.MARKER_FIELD || 'title';
+// Override the trigger sentence — the demo provider needs explicit `field=value` tokens (see header).
+// 覆盖触发语 —— 演示 Provider 需要显式 `field=value` 对（见文件头）。
+const TRIGGER_MSG = process.env.TRIGGER_MSG;
 
 const results = [];
 const startMs = Date.now();
@@ -119,7 +137,7 @@ async function main() {
   console.log(`\n═══ 生成模块 AI 治理链验收：${MODULE}（写工具 ${WRITE_TOOL}）═══\n`);
 
   console.log('① 确认闸');
-  const message = `用 ${WRITE_TOOL} 工具创建一条记录，标题是「${MARKER}」。`;
+  const message = TRIGGER_MSG || `用 ${WRITE_TOOL} 工具创建一条记录，标题是「${MARKER}」。`;
   const run = await runChatWithApproval(H, message);
   const c = run.confirmation;
   if (!c) {
@@ -144,7 +162,7 @@ async function main() {
     : bad('副作用 resultType 指向本模块', `未找到 resultType=${SINGULAR}（现有：${(Array.isArray(effects) ? effects : []).map((e) => e.resultType).join(',') || '无'}）`);
 
   const records = (await (await fetch(`${BASE}/${MODULE}`, { headers: H })).json()).data ?? [];
-  const created = (Array.isArray(records) ? records : []).find((r) => String(r.title ?? '').includes(MARKER));
+  const created = (Array.isArray(records) ? records : []).find((r) => String(r[MARKER_FIELD] ?? '').includes(MARKER));
   created ? ok('业务记录落库', `id=${created.id}`) : bad('业务记录落库', `列表未找到标记 ${MARKER}`);
 
   if (run.conversationId) {
