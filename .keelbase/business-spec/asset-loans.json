@@ -1,0 +1,64 @@
+{
+  "feature": "asset-loans",
+  "goal": "让员工自助登记办公设备借用、到期可管，而不再靠群里喊话占设备",
+  "actors": ["employee"],
+  "objects": [
+    {
+      "name": "asset_loan",
+      "label": "资产借用",
+      "module": "asset_loans",
+      "searchable": true,
+      "fields": [
+        { "name": "assetName", "type": "string", "label": "设备名称", "required": true },
+        { "name": "assetTag", "type": "string", "label": "资产编号", "required": true },
+        { "name": "purpose", "type": "text", "label": "借用事由" },
+        { "name": "dueDate", "type": "date", "label": "计划归还日" },
+        { "name": "status", "type": "enum", "enum": ["active", "returned", "overdue"], "label": "状态" }
+      ]
+    }
+  ],
+  "aiCapabilities": [
+    { "object": "asset_loan", "kind": "read", "intent": "查询我的资产借用" },
+    {
+      "object": "asset_loan",
+      "kind": "write",
+      "riskLevel": "R3",
+      "requiresConfirmation": true,
+      "intent": "登记一笔设备借用"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "「未归还」到底指哪几个状态？（状态是本轮唯一有歧义的地方）",
+      "choice": "未归还 = status != returned（即 active 或 overdue）",
+      "reason": "原文未写，属**派生取值**：Rule 1 引用「未归还」而原对象没定义它。访谈 Q9 确认：active 与 overdue 都表示「东西还在外面」，returned 才算还回。"
+    },
+    {
+      "question": "Rule 1 的锚点用设备名称还是资产编号？",
+      "choice": "用 `assetTag`（资产编号）",
+      "reason": "原文未写，属**派生取值**：同型号设备可能有多台，`assetName` 不唯一；编号是库房标签上的唯一钥匙，也是 Rule 1 要表达的「同一台设备」的判据。访谈 Q8 确认。"
+    },
+    {
+      "question": "「逾期（overdue）」由谁判定？",
+      "choice": "本轮不落定时任务；`overdue` 只作为可置的状态位",
+      "reason": "原文未写，属**派生取值**：到点自动置逾期需要调度器，超出薄协议 + AI 工具的范围（`unmapped`）。访谈 Q9 确认本轮不做调度，避免把「状态词表」误当成「有后台任务」。"
+    },
+    {
+      "question": "借用记录归谁所有？",
+      "choice": "登记它的员工本人",
+      "reason": "与基座本人所有权模型一致（访谈 Q1）；行政的全局台账本轮不纳入。"
+    }
+  ],
+  "rules": [
+    "同一资产编号在存在未归还记录时不得再登记（Rule 1，锚点 assetTag）",
+    "计划归还日必须落在未来 30 天内（Rule 2，dueDate）"
+  ],
+  "acceptance": [
+    "员工一句话可问出「我手上借了哪些设备」",
+    "登记一笔借用需人工确认，确认后可在列表看到",
+    "同一资产编号被占用时，第二条试用登记被拒（Rule 1）",
+    "登记错了可撤销（软删，可经回收站恢复）"
+  ],
+  "outOfScope": ["行政的全局台账 / 代他人登记", "到点自动置逾期（定时任务）", "归还流程的扫码核销"],
+  "evidenceRef": ".keelbase/interview/asset-loans.md"
+}

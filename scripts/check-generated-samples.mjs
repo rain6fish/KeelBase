@@ -51,6 +51,7 @@ const EXEMPT = new Map([
   ['todos', '手写服务（不在 .keelbase/manifest.json）；specs/todos.json 只是同名'],
   ['posts', '生成后**手工扩展**（GROWTH-2 社交功能 + 三个实体）⇒ 重生成会毁掉它，见 roadmap'],
   ['followup_plans', '生成后**手工扩展**（`utcDay` / `utcWeekOf` 日期区间读取）⇒ 重生成会毁掉它，见 roadmap'],
+  ['asset_loans', '生成后**手工扩展**（Rule 1 同一资产编号未归还期间不得再登记 · Rule 2 计划归还日须在未来 30 天内 —— Business Spec 的 `unmapped[]` 项）⇒ 重生成会毁掉它，见 docs/manual/delivery-recipe.md'],
 ]);
 
 /**

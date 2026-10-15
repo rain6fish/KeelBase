@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 英文词典。key 与 zh.ts 一致；缺失时回退到 zh 或 key 本身。 */
 export const en: I18nDictionary = {
+  // ── 资产借用（EASY-2 生成）──
+  'asset_loans.title': 'AssetLoans',
+  'asset_loans.count': '{total} items',
+  'asset_loans.placeholder': 'Add a asset_loan…',
+  'asset_loans.add': 'Add',
+  'asset_loans.empty': 'No asset_loans yet',
+  'asset_loans.inputRequired': 'Please enter a asset_loan name',
+  'asset_loans.createFailed': 'Failed to create',
+  'asset_loans.deleteTitle': 'Delete AssetLoan',
+  'asset_loans.deleteFailed': 'Failed to delete',
+  'asset_loans.loadFailed': 'Failed to load asset_loans',
+
   // ── 积分台账（EASY-2 生成）──
   'points_ledgers.title': 'PointsLedgers',
   'points_ledgers.count': '{total} items',

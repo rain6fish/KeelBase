@@ -279,6 +279,20 @@ class AppLocalizations {
   String get todoEmpty => _t('No todos yet', '暂无待办');
   String get deleteTodoConfirm => _t('Delete this todo?', '删除该待办？');
 
+  // --- 资产借用 · 字段占位符 / field placeholders ---
+  String get asset_loansFieldAssetName => _t('assetName', '设备名称');
+  String get asset_loansFieldAssetTag => _t('assetTag', '资产编号');
+  String get asset_loansFieldPurpose => _t('purpose', '借用事由');
+  String get asset_loansFieldDueDate => _t('dueDate', '计划归还日');
+  String get asset_loansFieldStatus => _t('status', '状态');
+
+
+  // --- 资产借用（EASY-2 生成） ---
+  String get asset_loansTitle => _t('AssetLoan', '资产借用');
+  String get asset_loansAddTitle => _t('New AssetLoan', '新增资产借用');
+  String get asset_loansEmpty => _t('No AssetLoan yet', '暂无资产借用');
+  String get asset_loansDeleteConfirm => _t('Delete this assetloan?', '删除该资产借用？');
+
   // --- 积分台账 · 字段占位符 / field placeholders ---
   String get points_ledgersFieldPoints => _t('points', '积分');
   String get points_ledgersFieldCheckinDate => _t('checkinDate', '签到日期');

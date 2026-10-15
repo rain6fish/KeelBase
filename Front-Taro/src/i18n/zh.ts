@@ -4,6 +4,18 @@ import type { I18nDictionary } from './types'
 
 /** 中文词典（默认）。key 命名空间：common.* 通用 / <page>.* 页面 / <store|service>.* 状态与提示 */
 export const zh: I18nDictionary = {
+  // ── 资产借用（EASY-2 生成）──
+  'asset_loans.title': '资产借用',
+  'asset_loans.count': '{total} 条',
+  'asset_loans.placeholder': '新增资产借用…',
+  'asset_loans.add': '添加',
+  'asset_loans.empty': '暂无资产借用',
+  'asset_loans.inputRequired': '请输入资产借用内容',
+  'asset_loans.createFailed': '创建失败',
+  'asset_loans.deleteTitle': '删除资产借用',
+  'asset_loans.deleteFailed': '删除失败',
+  'asset_loans.loadFailed': '加载资产借用失败',
+
   // ── 积分台账（EASY-2 生成）──
   'points_ledgers.title': '积分台账',
   'points_ledgers.count': '{total} 条',

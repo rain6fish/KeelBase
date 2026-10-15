@@ -104,6 +104,8 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddVersionColumnDefault*',
   // 两个生成模块（points_ledgers / point_records）的建表迁移：实体在、pg 侧也要有，否则实体↔迁移漂移
   '*AddGeneratedPointModules*',
+  // 生成模块 asset_loans 的建表迁移：实体在、pg 侧也要有，否则实体↔迁移漂移
+  '*AddAssetLoans*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */

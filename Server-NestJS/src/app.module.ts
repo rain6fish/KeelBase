@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EventsModule } from './events/events.module';
 import { TodosModule } from './todos/todos.module';
+import { AssetLoansModule } from './asset_loans/asset_loans.module';
 import { PointsLedgersModule } from './points_ledgers/points_ledgers.module';
 import { PointRecordsModule } from './point_records/point_records.module';
 import { ReportsModule } from './reports/reports.module';
@@ -110,6 +111,7 @@ import { buildTypeOrmOptions } from './config/typeorm-options';
     HealthModule,
     EventsModule,
     TodosModule,
+    AssetLoansModule,
     PointsLedgersModule,
     PointRecordsModule,
     ReportsModule,

@@ -34,6 +34,9 @@ import 'features/ai/data/repositories/ai_conversation_repository.dart';
 import 'features/sessions/data/repositories/session_repository.dart';
 import 'features/sessions/presentation/providers/session_provider.dart';
 import 'features/todos/data/repositories/todos_repository.dart';
+import 'features/asset_loans/data/repositories/asset_loans_repository.dart';
+import 'features/asset_loans/presentation/providers/asset_loans_provider.dart';
+
 import 'features/points_ledgers/data/repositories/points_ledgers_repository.dart';
 import 'features/points_ledgers/presentation/providers/points_ledgers_provider.dart';
 
@@ -290,6 +293,10 @@ Future<void> _initApp() async {
         // Todos (UX-1 缓存优先 + 乐观更新)
         ChangeNotifierProvider<TodosProvider>(
           create: (_) => TodosProvider(TodosRepository(apiClient), cache: AppCache(prefs)),
+        ),
+        // 资产借用（EASY-2 生成）
+        ChangeNotifierProvider<AssetLoansProvider>(
+          create: (_) => AssetLoansProvider(AssetLoansRepository(apiClient), cache: AppCache(prefs)),
         ),
         // 积分台账（EASY-2 生成）
         ChangeNotifierProvider<PointsLedgersProvider>(

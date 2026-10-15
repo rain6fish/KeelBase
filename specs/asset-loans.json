@@ -1,0 +1,47 @@
+{
+  "module": "asset_loans",
+  "plural": "asset_loans",
+  "label": "资产借用",
+  "searchable": true,
+  "fields": [
+    {
+      "name": "assetName",
+      "type": "string",
+      "required": true,
+      "label": "设备名称"
+    },
+    {
+      "name": "assetTag",
+      "type": "string",
+      "required": true,
+      "label": "资产编号"
+    },
+    {
+      "name": "purpose",
+      "type": "text",
+      "label": "借用事由"
+    },
+    {
+      "name": "dueDate",
+      "type": "date",
+      "label": "计划归还日"
+    },
+    {
+      "name": "status",
+      "type": "enum",
+      "enum": [
+        "active",
+        "returned",
+        "overdue"
+      ],
+      "label": "状态"
+    }
+  ],
+  "aiTools": {
+    "query": true,
+    "create": {
+      "riskLevel": "R3",
+      "requiresConfirmation": true
+    }
+  }
+}

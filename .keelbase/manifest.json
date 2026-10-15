@@ -5,6 +5,7 @@
   "generatorVersion": "1.1.0",
   "protocol": "1.1",
   "modules": [
+    "asset_loans",
     "books",
     "contracts",
     "followup_plans",
@@ -17,6 +18,14 @@
     "tags"
   ],
   "searchableModules": [
+    {
+      "module": "asset_loans",
+      "fields": [
+        "assetName",
+        "assetTag",
+        "purpose"
+      ]
+    },
     {
       "module": "books",
       "fields": [

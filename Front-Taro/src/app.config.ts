@@ -20,6 +20,7 @@
      'pages/ai-history/index',
      'pages/todos/index',
      'pages/search/index',
+    'pages/asset_loans/index',
     'pages/points_ledgers/index',
     'pages/point_records/index',
     'pages/posts/index',
