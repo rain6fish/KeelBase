@@ -1,7 +1,9 @@
 # Delivery Recipe — one enterprise module, end to end / 交付 recipe：一个企业模块，从头到尾
 
 > The whole point of this file is that a **non-author** can copy each line and get the same readings, without asking the person who wrote it. Every step gives the command and an **observable** criterion — never "it should work". The worked example is the `asset-loans` delivery (office equipment checkout): `Business Spec → generate → governance acceptance → deploy`.
+> **⚠ Know which job you are here for.** The worked example's artifacts (spec, module, hand-written layer, migration) are **already committed** in this checkout — so §1–§8 **reproduce and verify that delivery**. To deliver a **new** module from scratch, read **§10 first**: three of those steps become real work there instead of verification.
 > 本文件的全部意义在于：**非作者**能逐行照抄、拿到同样的读数，**不必问作者**。每一步都给命令与**可观测**判据 —— 绝不写「应该会成功」。范例是 `asset-loans`（办公资产借用）那次交付：`Business Spec → 生成 → 治理验收 → 部署`。
+> **⚠ 先分清你来干哪件事。** 范例的那些产物（规格、模块、手写层、迁移）在本检出里**已经提交** —— 所以 §1–§8 是**复现并核验那次交付**。要**从零交付一个新模块**，请**先读 §10**：那三步在那里是**真活**，不是核验。
 
 ---
 
@@ -21,6 +23,7 @@ cd Web-Admin-Vue && npm install                                                 
 - **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` reports **17/18** — and that red is the missing prerequisite, not your delivery.
 - **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
 - No LLM key needed anywhere below; the demo provider drives the write tool from explicit `field=value` tokens.
+- **Why step 5 exports secrets that steps 7–8 don't:** `.env.example` already carries usable `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` values and leaves `ENCRYPTION_HMAC_KEY` empty **by design** (it falls back). Step 5 exports its own four so the migration run does not depend on whatever is in your `.env`; the runtime steps need nothing beyond the file.
 - **Docker** (or a reachable PostgreSQL) is needed for one action only: `migration:consistency:pg` in step 5, which starts a throwaway `pgvector/pgvector:pg17` container.
 - Never run the runtime/deploy steps against the shared `data/front.sqlite` — use a **copy** (`DB_PATH=...`).
 
@@ -130,7 +133,10 @@ row persisted → decision trace → both audit hash chains `valid=true` → rev
 
 Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
 listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
-(`netstat -ano | grep :3111`, then kill that PID).
+(`netstat -ano | grep :3111`, then kill that PID). **Under `--watch` the listener is not the only
+process**: `nest start --watch` keeps a parent watchdog that can respawn the child, so kill the tree,
+not just the PID (`taskkill //PID <pid> //T //F`, or match the command lines against your own clone
+path) — otherwise the port reappears a minute later.
 
 Then hit the hand-written rules over HTTP (login as `alex`, then four POSTs to `/api/v1/asset_loans`):
 
@@ -150,10 +156,18 @@ post '{"assetName":"投影仪","assetTag":"TAG-RL-002","status":"active"}'   # �
 ```
 
 Every body carries `status` on purpose: `status` is an `enum` and the spec gives it **no** explicit
-`required` — but `string` / `enum` are required **by the type default** in the generated DTO
-(`docs/module-protocol.md`), so a body without it is rejected with `400` **before** any hand-written
-rule runs, *including* the case that should be `201`. `purpose` (`text`) and `dueDate` (`date`) are
-optional by the same default table.
+`required` — but `string` / `enum` are required **by the type default** in the generated DTO, so a
+body without it is rejected with `400` **before** any hand-written rule runs, *including* the case
+that should be `201`. The default table (`docs/module-protocol.md`):
+
+| field type | default |
+|---|---|
+| `string` / `enum` | **required** (column `NOT NULL`, DTO `@IsNotEmpty`) |
+| `text` / `int` / `bool` / `date` | optional (nullable, DTO `@IsOptional`) |
+
+An explicit `"required": true` / `false` in the spec overrides it — that is why `assetName` and
+`assetTag` are required although they are `string`, and why `purpose` (`text`) and `dueDate` (`date`)
+are optional here.
 
 | case | expected |
 |---|---|
@@ -177,6 +191,11 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 Criterion: health `ok`; the delivered module answers on its API; the deployed admin bundle contains
 the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one image).
 
+**The port is a parameter, not part of the criterion.** Check it before you start
+(`netstat -ano | grep :3222`) — on a machine that already runs something else, following the line
+literally leaves the backend unable to bind and `health` never turns green. Any free port works; only
+the two URLs above change.
+
 ### 9. What this recipe does **not** claim
 
 - It carries **shape, not rules** — the two rules are **declared** hand-written (see step 3).
@@ -189,6 +208,33 @@ the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one i
 - **It is still not an independent second deliverer** — same machine, same author's tooling, and an
   AI reader rather than another person. That half of the done criterion (a *different* deliverer
   reproducing this without asking the author) is **not met** and is not claimed here.
+
+### 10. Delivering a **new** module (from scratch)
+
+Sections 1–8 reproduce the worked example. A new delivery runs the same chain, but with **your**
+business behind it — three of those steps stop being verification and become the real work:
+
+1. **Write the Business Spec** (`.keelbase/business-spec/<module>.json`, see `docs/business-spec.md`),
+   then map it to a module protocol:
+   `node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<module>.json --out specs/<module>.json`
+   Everything the protocol cannot express lands in `unmapped[]` — that list is your hand-written work
+   list, not a failure (step 1 above).
+2. **Pick a module name that is not taken, and preview before writing.**
+   `node scripts/keelbase-init.mjs --dry-run --spec specs/<module>.json` prints the plan without
+   touching the tree. Generating into a directory that already holds hand-written code is refused,
+   and the directory is named with the generator's **own pluralisation** — which is also the key the
+   sample gate and its EXEMPT map use, so take the name the dry run prints.
+3. **Generate, then hand-write the `unmapped[]` rules and their tests, then author the dual-dialect
+   migration and register it** — steps 2, 3 and 5 above, with your content in place of this example's.
+4. **Declare the hand-written layer.** Add the module to `scripts/check-generated-samples.mjs`'s
+   `EXEMPT` map, **keyed by the generator's plural form**, with the reason — the five entries already
+   there are the shape to copy. A hand-written layer is declared, not silently dropped.
+5. **From step 4 on, the recipe applies unchanged**: build and tests, both migration dialects, the
+   static instrument (commit first — it refuses a dirty tree), runtime acceptance, deploy.
+
+**What this recipe cannot hand you: the rules themselves.** They come from the business you are
+delivering for — step 1 is where they get written down, step 3 is where they get implemented. If your
+delivery has no `unmapped[]` items, say so explicitly rather than inventing rules to look thorough.
 
 ---
 
@@ -210,6 +256,9 @@ cd Web-Admin-Vue && npm install                                                 
   那道红是**前置没备齐**，不是你的交付有问题。
 - **`Web-Admin-Vue` 的依赖也在这里装**：第 8 步的 `deploy/demo.sh` 第一步就是构建管理台产物，缺依赖会卡在第一步。
 - 下面全程**不需要** LLM key；演示 Provider 靠显式 `field=value` 令牌驱动写工具。
+- **为什么第 5 步 export 密钥、第 7–8 步不 export：** `.env.example` 里 `JWT_SECRET` / `JWT_REFRESH_SECRET` /
+  `ENCRYPTION_KEY` 本就带着可用值，而 `ENCRYPTION_HMAC_KEY` **按设计留空**（它有回退）。第 5 步 export 自己那四个，
+  是为了让迁移运行**不依赖**你 `.env` 里此刻是什么；运行那两步除了这个文件什么都不需要。
 - 只有一处需要 **Docker**（或一个可达的 PostgreSQL）：第 5 步的 `migration:consistency:pg`，它会起一个一次性的
   `pgvector/pgvector:pg17` 容器。
 - 运行与部署那几步**绝不能**打在共享的 `data/front.sqlite` 上 —— 用**副本**（`DB_PATH=...`）。
@@ -317,7 +366,9 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 两条审计哈希链 `valid=true` → 撤销 → 软删生效。
 
 这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
-因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。
+因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。**`--watch` 下监听者不是唯一
+的进程**：`nest start --watch` 还留着一个父看门进程，它会把子进程再拉起来 ⇒ **要杀的是那棵树，不是那个 PID**
+（`taskkill //PID <pid> //T //F`，或按命令行匹配你自己的克隆路径）；只杀 PID 的话，端口过一分钟又会冒出来。
 
 再在 HTTP 边界上打那两条手写规则（以 `alex` 登录，然后对 `/api/v1/asset_loans` 发四个 POST）：
 
@@ -337,9 +388,16 @@ post '{"assetName":"投影仪","assetTag":"TAG-RL-002","status":"active"}'   # �
 ```
 
 每个请求体都带 `status` 是**故意的**：`status` 是 `enum`，而规格**没有**给它显式 `required` ——
-但按 `docs/module-protocol.md` 的**按类型默认**表，`string` / `enum` **默认必填**，所以缺它的请求体会在任何手写规则
-跑起来**之前**就被 `400` 拒掉，**连本该 201 的那一例也一样**。`purpose`（`text`）与 `dueDate`（`date`）按同一张默认表
-是**可选**的。
+但生成的 DTO 里 `string` / `enum` **按类型默认必填**，所以缺它的请求体会在任何手写规则跑起来**之前**就被 `400`
+拒掉，**连本该 201 的那一例也一样**。那张默认表（`docs/module-protocol.md`）：
+
+| 字段类型 | 默认 |
+|---|---|
+| `string` / `enum` | **必填**（列 `NOT NULL`、DTO `@IsNotEmpty`） |
+| `text` / `int` / `bool` / `date` | 可选（列可空、DTO `@IsOptional`） |
+
+规格里显式写 `"required": true` / `false` 可以覆盖它 —— 这正是本例里 `assetName` / `assetTag` 虽是 `string`
+却必填、而 `purpose`（`text`）与 `dueDate`（`date`）可选的原因。
 
 | 用例 | 期望 |
 |---|---|
@@ -361,6 +419,9 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 
 判据：健康 `ok`；交付模块的 API 作答；部署出的管理台产物含该模块。容器等价路径：`./scripts/docker-single.sh`（all-in-one 镜像）。
 
+**端口是参数，不是判据的一部分。** 动手前先看它空不空（`netstat -ano | grep :3222`）—— 在一台已经跑着别的东西的机器上，
+照字面走会让后端**绑不上端口**、`health` 永远不绿。**任何空闲端口都行**，变的只有上面那两条 URL。
+
 ### 9. 本 recipe **不**声称什么
 
 - 它承载**形状、不承载规则** —— 那两条规则是**被声明的手写**（见第 3 步）。
@@ -371,3 +432,23 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
   也没给 DTO 必填的 `status`。
 - **但它仍不是一名独立的交付者** —— 同一台机器、同一套作者的工装，且是一个 AI 读者，不是另一个人。
   done 判据的那一半（**另一名**交付者不问作者就能复现）**未达成**，本文件也**不声称**它达成了。
+
+### 10. 从零交付一个**新**模块
+
+§1–§8 是复现范例。一次新交付走同一条链，但背后是**你的**业务 —— 其中三步不再是核验，而是**真活**：
+
+1. **写业务规格**（`.keelbase/business-spec/<模块>.json`，见 `docs/business-spec.md`），再映射成模块协议：
+   `node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<模块>.json --out specs/<模块>.json`
+   协议表达不了的都落进 `unmapped[]` —— 那张单子是你的**手写工作清单**，不是失败（对应上面第 1 步）。
+2. **取一个没被占用的模块名，并先预览再落盘。**
+   `node scripts/keelbase-init.mjs --dry-run --spec specs/<模块>.json` 只打印计划、不碰树。往**已有手写代码**的目录里生成
+   会被拒；而目录名用的是**生成器自己的复数规则** —— 那也正是样本门禁与它的 EXEMPT 表所用的键，所以**用 dry-run 打出来的那个名字**。
+3. **生成 → 手写 `unmapped[]` 的规则与其测试 → 写双方言迁移并登记** —— 就是上面的第 2、3、5 步，只是内容换成你的，
+   而不是这个范例的。
+4. **声明手写层。** 把模块加进 `scripts/check-generated-samples.mjs` 的 `EXEMPT` 表，**键用生成器的复数形**，并写上理由 ——
+   表里已有的五条就是照抄的形状。手写层是**被声明的**，不是悄悄丢掉的。
+5. **从第 4 步起，本 recipe 原样适用**：构建与测试、两个方言的迁移、静态仪器（**先提交** —— 它拒绝脏工作树）、
+   运行时验收、部署。
+
+**本 recipe 交不出去的，是规则本身。** 它们来自你要交付的那门业务 —— 第 1 步把它们**写下来**，第 3 步把它们**实现**。
+若你这次交付**没有** `unmapped[]` 项，就**明说没有**，别为了显得周全去编规则。
