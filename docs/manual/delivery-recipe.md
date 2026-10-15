@@ -16,9 +16,14 @@ git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd K
 cd Server-NestJS && cp .env.example .env && npm install
 cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # sibling repo — step 6's check:java-vectors reads it
 cd Web-Admin-Vue && npm install                                                        # step 8 builds the admin bundle
+cd ..                                                                                  # back to the repo root — every step below uses repo-root-relative paths
 # leave the LLM API keys empty in .env → the runtime falls back to the deterministic demo provider
 ```
 
+- **This block ends at the repo root on purpose.** §1's paths (`.keelbase/…`, `specs/…`, `scripts/…`) are relative to the
+  clone's root; a shell that runs the block top-to-bottom otherwise finishes inside `Web-Admin-Vue` and §1 dies with
+  `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
+- Node **>= 22** (`Server-NestJS/package.json` → `engines`); the versions below were read on node 24.
 - `--recurse-submodules` is not optional: `Server-NestJS/specs/protocol` is a submodule.
 - **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` reports **17/18** — and that red is the missing prerequisite, not your delivery.
 - **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
@@ -110,6 +115,8 @@ npm run check:all
 Criterion: the instrument prints `═══ S4+S5 全链路验收：PASS ═══` (23 files; the write tool carries
 `requiresConfirmation=true` + `requireVerifiedEmail` and its unit test asserts the gate; the read tool
 has no gate; the module is wired into `ai.module`); `check:all` is **18/18**.
+The instrument prints its own jest line — that count is **its own selection**, so it need not equal §4's number;
+green is the criterion here, and a smaller count is not a missing test.
 
 **⚠ Ordering.** `verify-consulting-to-build.sh` **refuses a dirty tree** (it writes files). So the
 module and its hand-written layer must already be **committed** when you run it. In a brand-new
@@ -130,6 +137,11 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 
 Criterion: **12/12** — confirmation gate (R3) → approve → side effect `resultType=asset_loan` →
 row persisted → decision trace → both audit hash chains `valid=true` → revoke → soft-deleted.
+
+**The port is a parameter here too** (exactly as in step 8): `3111` is a default, not part of any criterion —
+check it first (`netstat -ano | grep :3111`) and if it is taken pick any free port, changing `PORT` **and** `BASE_URL`
+together. On a busy machine the literal line shows up as `health` never turning green, which reads like a broken
+delivery and is not one.
 
 Stop the server once this step is done — started as `npm run start:dev &` it can leave the port
 listening, and a leftover listener makes the *next* run fail for a reason unrelated to your delivery
@@ -218,12 +230,17 @@ business behind it — three of those steps stop being verification and become t
    then map it to a module protocol:
    `node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<module>.json --out specs/<module>.json`
    Everything the protocol cannot express lands in `unmapped[]` — that list is your hand-written work
-   list, not a failure (step 1 above).
+   list, not a failure (step 1 above). Two documents this section does not inline, because they are
+   the shapes you will be editing: **`docs/business-spec.md`** (the spec JSON) and
+   **`docs/module-protocol.md`** (the protocol it maps to — fields, `enum`, `label`, `scope`); the
+   required-by-type default table is in step 7 above.
 2. **Pick a module name that is not taken, and preview before writing.**
    `node scripts/keelbase-init.mjs --dry-run --spec specs/<module>.json` prints the plan without
    touching the tree. Generating into a directory that already holds hand-written code is refused,
    and the directory is named with the generator's **own pluralisation** — which is also the key the
-   sample gate and its EXEMPT map use, so take the name the dry run prints.
+   sample gate and its EXEMPT map use, so take the name the dry run prints. If the module is **not**
+   ownership-scoped, the generator emits only the default single-role CASL rule and says so; anything
+   wider is a hand-written policy, and that belongs to step 3.
 3. **Generate, then hand-write the `unmapped[]` rules and their tests, then author the dual-dialect
    migration and register it** — steps 2, 3 and 5 above, with your content in place of this example's.
 4. **Declare the hand-written layer.** Add the module to `scripts/check-generated-samples.mjs`'s
@@ -236,6 +253,10 @@ business behind it — three of those steps stop being verification and become t
 delivering for — step 1 is where they get written down, step 3 is where they get implemented. If your
 delivery has no `unmapped[]` items, say so explicitly rather than inventing rules to look thorough.
 
+**⚠ The numbers in steps 4–8 belong to this example** (23 files, 4·29, 386·3433, 12/12, `18/18`). Your
+module will have its own; what has to match is the **shape** of the criterion — build clean, suites
+green, `PASS`, `18/18`, `12/12` — never the counts.
+
 ---
 
 ## 中文
@@ -247,9 +268,14 @@ git clone --recurse-submodules https://github.com/rain6fish/KeelBase.git && cd K
 cd Server-NestJS && cp .env.example .env && npm install
 cd .. && git clone --depth 1 https://github.com/rain6fish/KeelBase4J.git ../KeelBase4J  # 兄弟仓 —— 第 6 步的 check:java-vectors 要读它
 cd Web-Admin-Vue && npm install                                                        # 第 8 步要构建管理台产物
+cd ..                                                                                  # 回到仓库根 —— 下面每一步用的都是相对仓库根的路径
 # .env 里 LLM 的 API key 留空 → 运行时会回落到确定性演示 Provider
 ```
 
+- **这个代码块刻意停在仓库根。** §1 的路径（`.keelbase/…`、`specs/…`、`scripts/…`）都相对克隆出来的根目录；
+  一个从上到下顺序执行的 shell 否则会停在 `Web-Admin-Vue`，§1 随即以
+  `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs` 挂掉。
+- Node **>= 22**（`Server-NestJS/package.json` 的 `engines`）；下面那些版本号是在 node 24 上读的。
 - `--recurse-submodules` 不是可选项：`Server-NestJS/specs/protocol` 是一个 submodule。
 - **兄弟仓 `../KeelBase4J` 也不是可选项。** 第 6 步的 `check:java-vectors` 拿本仓的协议向量与该 Java 仓的只读快照比对，
   而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会报 **17/18** ——
@@ -346,6 +372,8 @@ npm run check:all
 
 判据：仪器打印 `═══ S4+S5 全链路验收：PASS ═══`（23 个文件；写工具带 `requiresConfirmation=true` +
 `requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **18/18**。
+该仪器会打印**它自己那次** jest 的用例数 —— 那是**它自己的选取范围**，**不必**等于 §4 那个数；这一步的判据是**绿**，
+数更小不等于少了测试。
 
 **⚠ 次序。** `verify-consulting-to-build.sh` **拒绝脏工作树**（它会写文件）。故跑它时，模块与其手写层必须**已经提交**。
 全新交付里先提交第 1–5 步 —— 先把 `user.name` / `user.email` 配好，并且**只本地提交**：这个检出的 `origin`
@@ -364,6 +392,10 @@ MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
 
 判据：**12/12** —— 确认闸（R3）→ 批准 → 副作用 `resultType=asset_loan` → 记录落库 → 决策轨迹 →
 两条审计哈希链 `valid=true` → 撤销 → 软删生效。
+
+**端口在这里同样是参数**（与第 8 步一模一样）：`3111` 只是默认值，不属于任何判据 —— 动手前先看它空不空
+（`netstat -ano | grep :3111`），被占就换任意空闲端口，`PORT` **和** `BASE_URL` **一起改**。在一台忙的机器上照字面跑，
+症状是 `health` 永远不绿 —— 那读起来像「交付坏了」，而它不是。
 
 这一步做完就把服务停掉 —— 用 `npm run start:dev &` 起的那种可能把端口留着监听，残留的监听会让**下一次**运行
 因为与你的交付毫不相干的原因失败（`netstat -ano | grep :3111`，然后杀掉那个 PID）。**`--watch` 下监听者不是唯一
@@ -440,9 +472,13 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 1. **写业务规格**（`.keelbase/business-spec/<模块>.json`，见 `docs/business-spec.md`），再映射成模块协议：
    `node scripts/generator/business-spec.mjs --in .keelbase/business-spec/<模块>.json --out specs/<模块>.json`
    协议表达不了的都落进 `unmapped[]` —— 那张单子是你的**手写工作清单**，不是失败（对应上面第 1 步）。
+   本节**不内联**的两份文档，正是你要动手编辑的形状：**`docs/business-spec.md`**（规格 JSON）与
+   **`docs/module-protocol.md`**（它映射成的模块协议 —— 字段、`enum`、`label`、`scope`）；按类型默认那张表在上面第 7 步里。
 2. **取一个没被占用的模块名，并先预览再落盘。**
    `node scripts/keelbase-init.mjs --dry-run --spec specs/<模块>.json` 只打印计划、不碰树。往**已有手写代码**的目录里生成
    会被拒；而目录名用的是**生成器自己的复数规则** —— 那也正是样本门禁与它的 EXEMPT 表所用的键，所以**用 dry-run 打出来的那个名字**。
+   若该模块**不是**按本人所有权限定的，生成器只会给出默认的单一角色 CASL 规则并如实说明；更宽的范围要手写策略，
+   那属于第 3 步。
 3. **生成 → 手写 `unmapped[]` 的规则与其测试 → 写双方言迁移并登记** —— 就是上面的第 2、3、5 步，只是内容换成你的，
    而不是这个范例的。
 4. **声明手写层。** 把模块加进 `scripts/check-generated-samples.mjs` 的 `EXEMPT` 表，**键用生成器的复数形**，并写上理由 ——
@@ -452,3 +488,6 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 
 **本 recipe 交不出去的，是规则本身。** 它们来自你要交付的那门业务 —— 第 1 步把它们**写下来**，第 3 步把它们**实现**。
 若你这次交付**没有** `unmapped[]` 项，就**明说没有**，别为了显得周全去编规则。
+
+**⚠ 第 4–8 步里的数字属于这个范例**（23 文件、4·29、386·3433、12/12、`18/18`）。你的模块有它自己的数；
+要对得上的是判据的**形状** —— 构建干净、套件全绿、`PASS`、`18/18`、`12/12` —— **不是那些数**。
