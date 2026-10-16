@@ -41,6 +41,7 @@
     "check:version-parity": "node scripts/check-version-parity.mjs",
     "check:test-types": "node scripts/check-test-types.mjs",
     "check:audit-awaited": "node scripts/check-audit-writes-awaited.mjs",
+    "check:audit-write-points": "node scripts/check-audit-write-points.mjs",
     "check:entity-migrations": "node scripts/check-entity-migrations.mjs",
     "check:tool-labels": "node scripts/check-tool-label-parity.mjs",
     "check:generated-samples": "node scripts/check-generated-samples.mjs",

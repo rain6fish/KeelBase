@@ -397,6 +397,26 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node scripts/check-admin-pages.mjs
 
+  # Every AI-audit write point (`auditService.log` / `this.audit.log` under Server-NestJS/src) must
+  # answer its own `outcome`/`tool` — or say in writing why not (C-4). This is what keeps a new write
+  # point from quietly skipping the two off-chain attribution columns. Sibling of `check-audit-awaited`
+  # (does the write happen at all) and of `check-tool-labels` (the word tables); this one is about the
+  # columns being named at the call site.
+  #
+  # 每个 AI 审计写入点（Server-NestJS/src 下的 `auditService.log` / `this.audit.log`）都要答出自己的
+  # `outcome`/`tool` —— 或写明为何不答（C-4）。这正是不让新增写入点悄悄跳过那两列链外归因列的机制。
+  # 与 `check-audit-awaited`（写在不在）和 `check-tool-labels`（词表）同级；本闸管的是调用点上点不点名这两列。
+  audit-write-points:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-audit-write-points.mjs
+
   # The contract is not edited here. The protocol contract lives in rain6fish/keelbase-contract; this
   # repository consumes it. This gate is a transition guard for as long as specs/protocol is still real
   # files here — once it is a submodule, the structure itself prevents edits and this job does nothing.
