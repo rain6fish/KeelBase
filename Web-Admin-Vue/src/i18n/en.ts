@@ -826,7 +826,7 @@ const en: ZhDict = {
   techDetail: 'Technical details',
   governanceWhy: 'Why allowed',
   exportEvidenceRoot: 'Export evidence root',
-  evidenceRootExported: 'Exported evidence root (keelbase-audit-evidence/3). Verify offline: node scripts/verify-evidence.mjs <file> --key <AUDIT_HMAC_KEY>',
+  evidenceRootExported: 'Exported evidence root (keelbase-audit-evidence/4). Verify offline: node scripts/verify-evidence.mjs <file> --key <AUDIT_HMAC_KEY>',
   evidenceRootExportFailed: 'Failed to export evidence root',
   governanceResult: 'Result',
   governanceIntegrity: 'Integrity',
@@ -1294,6 +1294,42 @@ const en: ZhDict = {
   wasLabel: 'was',
 
   aiAuditTitle: 'AI Audit',
+  // AW-3 coverage statement. **Root level** (`t('coverageTitle')` resolves from the root; nesting these
+  // under `feature` makes the raw key show up instead). The wording that matters: `unknown` is NOT a
+  // stronger "partial" — it means "we cannot even say what is missing".
+  coverageTitle: 'Coverage statement',
+  coverageVerdict_complete: 'Complete',
+  coverageVerdict_partial: 'Partial',
+  coverageVerdict_unknown: 'Unknown (we cannot even say what is missing)',
+  coverageSources: 'Read from',
+  coverageNoGaps: 'No known gaps for this window',
+  coverageRegistry: 'Gap registry revision {rev}',
+  coverageUnavailable: 'Coverage statement unavailable — do not read this view as complete',
+  // Gap text. Ids are minted in the backend `coverage-gaps.ts`; a new one there needs a line here (a
+  // missing one is caught by `check:audit-vocabulary`, which matches at root indentation — so a
+  // misplaced entry goes red too).
+  'coverageGap_chain-tail-deletion':
+    'A valid hash chain proves the recorded rows are internally consistent; it does not prove that no row was removed from the tail.',
+  'coverageGap_audit-granularity-off':
+    'Audit granularity is off, so no AI audit rows are written at all; an absence of AI actions here is not evidence that none occurred.',
+  'coverageGap_audit-granularity-write-drops-conversation-rows':
+    'Audit granularity is write, so conversation-level rows are not written; only tool-scoped actions appear here.',
+  'coverageGap_effect-change-not-captured':
+    'An effect here has no before/after snapshot, so what it changed can neither be shown nor compared.',
+  'coverageGap_chat-content-by-reference':
+    'Chat rows reference the conversation rather than embedding its text; the message content requires a separate, explicitly authorized request.',
+  'coverageGap_revoke-can-stall-indefinitely':
+    'A revoke can remain in compensating indefinitely; staleness is surfaced as a read-only flag and never changes the stored status by itself.',
+  'coverageGap_revoke-dispute-never-auto-cleared':
+    'An open revoke dispute is cleared only when an administrator acknowledges it; it is never cleared automatically, and re-opens if the missing set changes.',
+  'coverageGap_chain-verification-cached-without-deployment-identity':
+    'Chain verification is cached for 60 seconds under a key that does not identify the deployment, so a shared cache can return another deployment verdict.',
+  'coverageGap_risk-level-not-expressible-for-non-discrete-actions':
+    'Risk is assigned per declared tool; an action surface that is not a discrete named tool cannot carry a risk level and would not appear here.',
+  'coverageGap_host-write-not-in-same-transaction':
+    'Where the runtime is embedded in a host that owns the business write, that write and its audit row are not written in one transaction.',
+  'coverageGap_host-ai-path-not-governed':
+    'The host runs an AI path of its own that does not pass through the governance engine, so its tool calls are outside this view.',
   filterByUser: 'Filter by user',
   filterByAgent: 'Filter by agent',
   agentCol: 'Agent',
@@ -1404,6 +1440,7 @@ const en: ZhDict = {
     'ai.login': 'AI · Login',
     'ai.error': 'AI · Error',
     'ai.contentBlocked': 'AI · Content blocked',
+    'ai.effectRevoke': 'AI · Effect revoke',
     'ai.tool.createFollowupTask': 'Create follow-up task',
     'ai.tool.createEvent': 'Create event',
     'ai.tool.createTodo': 'Create todo',
@@ -1456,6 +1493,17 @@ const en: ZhDict = {
     'ai.tool.createReport': 'Create report',
     'ai.tool.createModuleApply': 'Apply generated module',
     'ai.tool.updateCustomerStatus': 'Update customer status',
+    // Generated-module tools (asset loans / point records / points ledgers). They were registered and
+    // visible through `/ai/tools` with neither metadata nor a dictionary entry, so an audit row about
+    // one of them showed a bare tool name. Missing entries are now caught by `check:audit-vocabulary`.
+    // 生成模块的工具（资产借用 / 积分记录 / 积分台账）。它们注册了、在 `/ai/tools` 里看得见，既没有
+    // 元数据也没有词条 ⇒ 审计行里只显示裸工具名。缺失现由 `check:audit-vocabulary` 拦。
+    'ai.tool.queryAssetLoans': 'Query asset loans',
+    'ai.tool.createAssetLoan': 'Create asset loan',
+    'ai.tool.queryPointRecords': 'Query point records',
+    'ai.tool.createPointRecord': 'Create point record',
+    'ai.tool.queryPointsLedgers': 'Query points ledgers',
+    'ai.tool.createPointsLedger': 'Create points ledger',
     // 工具卡 / 确认卡上的一句话：服务端发语义 key + 参数 + 英文兜底，这里给中文。
     // `ai.present.result.failed` 有意不在此列 —— 它带的是工具自己的错误文本，不由我们改写。
     'ai.present.write.createEvent': 'Create event: {title} ({startTime} – {endTime})',

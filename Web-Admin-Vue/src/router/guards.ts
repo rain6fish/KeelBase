@@ -11,6 +11,9 @@ import { storage } from '@/utils/storage'
 const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
 export function homeFor(role?: string): string {
   if (SURFACE === 'user') return '/workbench/ai'
+  // The audit reader lands on the one page it can read, not on the admin dashboard it cannot.
+  // 审计读者落到它读得到的那一页，而不是它读不到的管理台概览。
+  if (role === 'auditor') return '/audit'
   return role === 'admin' ? '/' : '/workbench/ai'
 }
 

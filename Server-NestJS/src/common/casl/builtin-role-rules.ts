@@ -19,6 +19,15 @@ export interface RoleRuleSeed {
   ownerField: string | null;
   /** 条件值是否转字符串（AiConversation / UserMemory 的 userId 是 UUID 字符串，JWT sub 是 number） */
   stringifyOwner?: boolean;
+  /**
+   * CASL actions this rule grants. **Omitted = `['manage']`** — which is what every seed meant before
+   * this field existed, so leaving it out is not a behaviour change for any existing rule. Granting
+   * *less* than `manage` is the only way a read-only role can be expressed at all.
+   *
+   * 本规则授予的 CASL 动作。**省略 = `['manage']`** —— 这正是本字段出现之前每一条种子的含义，
+   * 所以「不写」对既有规则不是行为变化。而**授予得比 `manage` 少**，正是**只读角色得以表达**的唯一方式。
+   */
+  actions?: string[];
 }
 
 /**
@@ -65,4 +74,12 @@ export const BUILTIN_ROLE_RULES: RoleRuleSeed[] = [
   { roleCode: UserRole.USER, subject: 'Tag', ownerField: 'userId' },
   { roleCode: UserRole.USER, subject: 'Note', ownerField: 'userId' },
   { roleCode: UserRole.USER, subject: 'Post', ownerField: 'userId' },
+  // Audit reader (AW-2): read-only, and only on the audit surface. This is the ONLY rule the role
+  // gets — everything it can reach is enumerated here, and `PoliciesGuard` denies by default. Note it
+  // deliberately gets none of the `USER` ownership rules: the role is a reader of the governance
+  // record, not a user of the application.
+  // 审计读者（AW-2）：只读，且只在审计面上。这是该角色拿到的**唯一**一条规则 —— 它能碰到的东西全在
+  // 这里列尽，其余由 `PoliciesGuard` 默认拒绝。注意它**有意**不拿任何 `USER` 的所有权规则：这个角色
+  // 是治理记录的**读者**，不是应用的**用户**。
+  { roleCode: UserRole.AUDITOR, subject: 'AuditLog', actions: ['read'], ownerField: null },
 ];

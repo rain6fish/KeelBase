@@ -69,8 +69,15 @@ const consoleChildren: RouteRecordRaw[] = [
   { path: 'system-ai-assistant', name: 'system-ai-assistant', component: () => import('@/views/ai-assistant/SystemAiAssistantView.vue'), meta: { title: 'navSystemAssistant' } },
 ]
 
+// The console is admin-only by default. The audit reader (AW-2) gets exactly the pages whose backend
+// it can actually read — everything else would be "clickable, then 403".
+// 控制台默认只给 admin。审计读者（AW-2）只拿到它**后端真的读得到**的那几页 —— 多放一页就会变成
+// 「点得进、点开 403」。这张表与后端判据同步：今天只有 AI 审计控制器换了 `can('read','AuditLog')`。
+const AUDITOR_PAGES = new Set(['audit'])
+
 for (const r of consoleChildren) {
-  r.meta = { ...r.meta, roles: ['admin'] }
+  const roles = AUDITOR_PAGES.has(r.name as string) ? ['admin', 'auditor'] : ['admin']
+  r.meta = { ...r.meta, roles }
 }
 
 // 双 surface 构建：`--mode user` 只含普通用户工作台路由，其余（admin/development）只含控制台路由

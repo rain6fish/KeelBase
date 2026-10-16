@@ -164,4 +164,64 @@ describe('CaslAbilityFactory', () => {
       expect(e.deniedBy).toBeNull();
     });
   });
+
+  /**
+   * Audit reader (AW-2). What this block is really pinning is that the role is **read-only and only on
+   * the audit surface** — every case below is a denial that has to stay a denial. The `manage all`
+   * one matters most: if it ever flips true, the role silently becomes an admin and the separation of
+   * duties this role exists for is gone.
+   *
+   * 审计读者（AW-2）。这一组真正钉的是：该角色**只读，且只在审计面上** —— 下面每一条否定用例都必须
+   * 一直是否定。其中 `manage all` 那条最要紧：它一旦翻成 true，这个角色就悄悄变成了管理员，而它存在
+   * 的那个理由（审计独立性）随之消失。
+   */
+  describe('auditor (AW-2 审计读者：只读，且只在审计面上)', () => {
+    const auditor = { sub: 5, username: 'aud', role: UserRole.AUDITOR };
+    let ability: ReturnType<CaslAbilityFactory['createForUser']>;
+
+    beforeEach(() => {
+      ability = factory.createForUser(auditor);
+    });
+
+    it('可以读审计行 —— 这正是这个角色存在的理由', () => {
+      expect(ability.can('read', 'AuditLog')).toBe(true);
+    });
+
+    it('但只能读：读之外的动作一律不许', () => {
+      for (const action of ['create', 'update', 'delete', 'manage'] as const) {
+        expect(ability.can(action, 'AuditLog')).toBe(false);
+      }
+    });
+
+    it('绝不带 `manage all` —— 它是审计读者，不是管理员（审计独立性）', () => {
+      expect(ability.can('manage', 'all')).toBe(false);
+      expect(ability.can('read', 'all')).toBe(false);
+    });
+
+    it('也不带普通用户的所有权规则 —— 它是治理记录的读者，不是应用用户', () => {
+      expect(ability.can('read', subject('Event', { userId: 5 }))).toBe(false);
+      expect(ability.can('manage', subject('User', { id: 5 }))).toBe(false);
+    });
+
+    it('管理员不受影响：`manage all` 蕴含任意主体上的 read', () => {
+      expect(factory.createForUser(adminUser).can('read', 'AuditLog')).toBe(true);
+    });
+
+    it('普通用户仍读不到审计行', () => {
+      expect(factory.createForUser(regularUser).can('read', 'AuditLog')).toBe(false);
+    });
+
+    /**
+     * The regression guard for the field this role needed: `actions` is optional, and omitting it must
+     * keep meaning `manage` — the same thing every seed meant before the field existed.
+     *
+     * 这个角色所需那个字段的回归守卫：`actions` 是可选的，**省略它必须仍然表示 `manage`** ——
+     * 与字段出现之前每一条种子的含义相同。
+     */
+    it('回归：省略 `actions` 的种子仍然授予 `manage`（不写 = 老含义）', () => {
+      const userAbility = factory.createForUser(regularUser);
+      expect(userAbility.can('manage', subject('Event', { userId: 1 }))).toBe(true);
+      expect(userAbility.can('delete', subject('Event', { userId: 1 }))).toBe(true);
+    });
+  });
 });

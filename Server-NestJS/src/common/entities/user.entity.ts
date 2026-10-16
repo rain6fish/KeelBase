@@ -5,6 +5,18 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
+  /**
+   * Audit reader (AW-2). Read-only, and only on the audit surface. It exists so a business auditor
+   * can do audit work **without being handed `admin`** — granting admin would also make them the
+   * operator they are meant to review, which is the separation of duties this role is for. It
+   * carries no write, no approval and no admin capability; see `BUILTIN_ROLE_RULES` for the single
+   * rule it gets.
+   *
+   * 审计读者（`AW-2`）。**只读**，且只在**审计面**上。它存在的理由，是让业务审计人员**不必被授予
+   * `admin`** 就能做审计工作 —— 给了 `admin` 就等于让他同时是他本该复核的那个操作者，而**审计独立性**
+   * 正是这个角色存在的意义。它不带任何写、任何审批、任何管理能力；它唯一的规则见 `BUILTIN_ROLE_RULES`。
+   */
+  AUDITOR = 'auditor',
 }
 
 // The column default names the enum member rather than repeating its value.

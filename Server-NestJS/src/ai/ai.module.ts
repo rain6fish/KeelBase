@@ -75,6 +75,7 @@ import { ExternalToolRegistry } from './tools/external-tool-registry';
 import { AuditStatsService } from './audit/audit-stats.service';
 import { AuditQueryService } from './audit/audit-query.service';
 import { AuditEvidenceService } from './audit/audit-evidence.service';
+import { CoverageService } from './audit/coverage.service';
 import { AiConversation } from './conversation/ai-conversation.entity';
 import { AiMessage } from './conversation/ai-message.entity';
 import { AiAuditLog } from './audit/ai-audit-log.entity';
@@ -244,6 +245,7 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     ToolExposureService,
     ExternalToolRegistry,
     AuditEvidenceService,
+    CoverageService,
     AuditStatsService,
     AuditQueryService,
     AiAgentService,

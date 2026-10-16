@@ -8,6 +8,51 @@
       </el-button>
     </PageHeader>
 
+    <!-- AW-3 覆盖声明（**先声明、再读数**）：这个口径读了什么、以及这么读**看不了**什么。
+         每一条都来自后端缺口登记表（`ai/audit/coverage-gaps.ts`），故往那里加一条，这里自动多一条
+         —— 前端没有任何会漂开的清单。
+         AW-3 coverage statement, placed before the numbers: what this window was read from, and what
+         reading it cannot show. Every line comes from the backend registry, so a new gap shows up here
+         with no frontend change. -->
+    <el-alert
+      v-if="coverage"
+      :type="coverage.verdict === 'complete' ? 'success' : coverage.verdict === 'partial' ? 'warning' : 'info'"
+      :closable="false"
+      show-icon
+      class="mb-4"
+    >
+      <template #title>{{ t('coverageTitle') }} · {{ t(`coverageVerdict_${coverage.verdict}`) }}</template>
+      <div class="text-caption mb-1">
+        {{ t('coverageSources') }}：{{
+          coverage.sources.map((s) => `${s.id}=${s.state}${s.rows == null ? '' : `(${s.rows})`}`).join(' · ')
+        }}
+      </div>
+      <div v-if="coverage.gaps.length">
+        <div v-for="g in coverage.gaps" :key="g.id" class="coverage-row">
+          <el-tag
+            :type="g.severity === 'high' ? 'danger' : g.severity === 'medium' ? 'warning' : 'info'"
+            size="small"
+          >
+            {{ g.severity }}
+          </el-tag>
+          <span>{{ gapLabel(g) }}</span>
+        </div>
+      </div>
+      <div v-else class="text-caption">{{ t('coverageNoGaps') }}</div>
+      <div class="text-caption text-medium-emphasis mt-1">
+        {{ t('coverageRegistry', { rev: coverage.registryRevision }) }}
+      </div>
+    </el-alert>
+    <!-- 取不到就**说出来**：一句取不到的告诫，会被读成「这里没问题」，而那正是本特性要防的事。 -->
+    <el-alert
+      v-else-if="coverageLoaded"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="mb-4"
+      :title="t('coverageUnavailable')"
+    />
+
     <el-row :gutter="16" class="mb-2">
       <el-col v-for="s in statCards" :key="s.label" :xs="12" :md="6">
         <StatCard v-bind="s" />
@@ -329,10 +374,10 @@ import { adminApi } from '@/api/admin'
 import { downloadCsv } from '@/utils/csv'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary, errorLabel } from '@/utils/businessLabel'
-import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
+import type { AuditLog, UsageStats, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement } from '@/types/audit'
 import type { AiConversationMeta, AiConversationMessage } from '@/types/admin'
 
-const { t, messages, locale } = useI18n()
+const { t, te, messages, locale } = useI18n()
 const feature = computed(() => (messages.value[String(locale.value)] as { feature?: Record<string, string> } | undefined)?.feature)
 const route = useRoute()
 const snackbar = useSnackbarStore()
@@ -340,6 +385,12 @@ const snackbar = useSnackbarStore()
 const logs = ref<AuditLog[]>([])
 const stats = ref<UsageStats | null>(null)
 const chainVerify = ref<ChainVerifyResult | null>(null)
+// AW-3 覆盖声明。`coverageLoaded` 单拎出来，是为了让「取不到」**不静默** —— 一句告诫取不到，
+// 读者会把这份视图读成完整，那正是这个特性要防的事。
+// AW-3 coverage statement. `coverageLoaded` is separate so that a fetch failure is NOT silent: a
+// missing caveat reads as completeness, which is the one thing this feature exists to prevent.
+const coverage = ref<CoverageStatement | null>(null)
+const coverageLoaded = ref(false)
 const loading = ref(false)
 const userId = ref('')
 const agentId = ref('')
@@ -354,6 +405,19 @@ function behaviorType(l: AuditLog): string {
   if (l.action === 'chat') return 'chat'
   return 'other'
 }
+/**
+ * 一条缺口怎么显示：**id 优先**（控制台按当前语言渲染），没有词条时回落 wire 上的英文陈述。
+ * 词条缺失由 `check:audit-vocabulary` 拦 —— 往登记表里加一条却没人配词，那时会红。
+ *
+ * How one gap is rendered: the **id first** (the console renders it in the current language), falling
+ * back to the English `statement` from the wire when there is no entry. Missing entries are caught by
+ * `check:audit-vocabulary` — add a gap to the registry without translating it and that gate goes red.
+ */
+function gapLabel(gap: { id: string; statement: string }): string {
+  const key = `coverageGap_${gap.id}`
+  return te(key) ? t(key) : gap.statement
+}
+
 const filteredLogs = computed(() =>
   behaviorFilter.value ? logs.value.filter((l) => behaviorType(l) === behaviorFilter.value) : logs.value,
 )
@@ -432,7 +496,7 @@ const abnormalCounts = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const [logsRes, statsRes, verifyRes, errRes] = await Promise.all([
+    const [logsRes, statsRes, verifyRes, errRes, coverageRes] = await Promise.all([
       auditApi.logs({
         userId: userId.value || undefined,
         agentId: agentId.value || undefined,
@@ -444,11 +508,14 @@ async function load() {
       auditApi.stats(since.value),
       auditApi.verify().catch(() => null),
       auditApi.logs({ isError: 'true', limit: 5, since: since.value }).catch(() => [] as AuditLog[]),
+      auditApi.coverage({ since: since.value }).catch(() => null),
     ])
     logs.value = logsRes
     stats.value = statsRes
     chainVerify.value = verifyRes
     errorLogs.value = errRes
+    coverage.value = coverageRes
+    coverageLoaded.value = true
   } catch (err) {
     snackbar.error(err instanceof Error ? err.message : t('loadFailed'))
   } finally {
@@ -560,6 +627,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* AW-3 覆盖声明：一条缺口一行，严重度标签与文本基线对齐。 */
+.coverage-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
 .chain-list {
   display: flex;
   flex-direction: column;

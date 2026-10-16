@@ -26,6 +26,15 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAdmin: (state) => state.user?.role === 'admin',
+    /**
+     * Audit reader (AW-2): read-only on the audit surface. Mutually exclusive with `isAdmin` — an
+     * account carries one role. Used only to pick the navigation; the server decides every request,
+     * and hiding a page is not what keeps anyone out.
+     *
+     * 审计读者（AW-2）：在审计面上只读。与 `isAdmin` 互斥 —— 一个账号一个角色。**只**用来挑导航；
+     * 每个请求由服务端裁决，**隐藏页面不是把人挡在外面的那件事**。
+     */
+    isAuditor: (state) => state.user?.role === 'auditor',
     /** 渲染层权限点：admin（resources 含 all/all）全有；否则按 subject + scope 判定。 */
     hasPermission: (state) => (point: string) => {
       const resources = state.permissions?.resources

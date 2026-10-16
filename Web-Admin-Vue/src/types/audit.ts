@@ -221,3 +221,19 @@ export interface ActionReport {
     createdAt: string
   }>
 }
+
+/**
+ * AW-3 coverage statement. The shape is the backend's, verbatim — the console renders `gaps[].id`
+ * through i18n and falls back to `gaps[].statement` (English) when an entry has no translation yet.
+ *
+ * `AW-3` 覆盖声明。形状逐字照后端 —— 控制台按 `gaps[].id` 取 i18n，没有词条时回落到
+ * `gaps[].statement`（英文）。
+ */
+export interface CoverageStatement {
+  /** 这份声明是按**哪一版**缺口登记表算出来的（登记表内容的前 12 hex）。 */
+  registryRevision: string
+  scope: { kind: 'period'; since: string; to: string; subjectRef: string | null }
+  sources: Array<{ id: string; state: 'complete' | 'partial' | 'absent' | 'unreachable'; rows: number | null }>
+  verdict: 'complete' | 'partial' | 'unknown'
+  gaps: Array<{ id: string; severity: 'high' | 'medium' | 'low'; affects: string; statement: string }>
+}

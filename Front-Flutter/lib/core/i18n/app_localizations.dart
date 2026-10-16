@@ -889,6 +889,16 @@ class AppLocalizations {
     'ai.tool.summarizeCustomer_360': ['Summarize customer', '客户摘要'],
     'ai.tool.updateCustomerStatus': ['Update customer status', '更新客户状态'],
     'ai.tool.webSearch': ['Web search', '联网搜索'],
+    // Generated-module tools: registered and visible through `/ai/tools`, but until 2026-10-16 they
+    // had no metadata and no entry here, so a tool card for one showed a bare name.
+    // 生成模块的工具：注册了、在 `/ai/tools` 里看得见；2026-10-16 之前既无元数据、也无本表条目，
+    // 于是工具卡上只显示裸名字。
+    'ai.tool.queryAssetLoans': ['Query asset loans', '查询资产借用'],
+    'ai.tool.createAssetLoan': ['Create asset loan', '创建资产借用'],
+    'ai.tool.queryPointRecords': ['Query point records', '查询积分记录'],
+    'ai.tool.createPointRecord': ['Create point record', '创建积分记录'],
+    'ai.tool.queryPointsLedgers': ['Query points ledgers', '查询积分台账'],
+    'ai.tool.createPointsLedger': ['Create points ledger', '创建积分台账'],
     // B-path (external systems) tools: the names belong to the other side and are not in the backend
     // metadata table; the parity gate is one-way, so extra dictionary entries are allowed.
     // B 路径（外部系统）工具：名字由对方定义、不在服务端元数据表里；对账闸是单向的，允许多出条目。

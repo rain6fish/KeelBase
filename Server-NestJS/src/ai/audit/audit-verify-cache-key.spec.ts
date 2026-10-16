@@ -50,11 +50,14 @@ function buildService(
   const logRepo = { find: jest.fn().mockResolvedValue(rows) };
   const chain = { computeHash: jest.fn(), verifyChain: jest.fn().mockReturnValue(verdict) };
   const dataSource = { options: { type: 'better-sqlite3', database } } as unknown as DataSource;
-  // 构造参数按序：logRepo, effectsRepo, auditChain, cacheService, [@Optional…], dataSource（末位）
+  // 构造参数按序：logRepo, effectsRepo, auditChain, coverage, cacheService, [@Optional…], dataSource（末位）
   return new AuditEvidenceService(
     logRepo as never,
     {} as never,
     chain as never,
+    // AW-3：`coverage` 是本服务的第 4 个参数 —— 它**必须排在**任何 `@Optional` 之前（必填参数不能跟在
+    // 可选参数之后），故插在 auditChain 与 cacheService 之间。
+    { forFacts: jest.fn() } as never,
     cache,
     undefined,
     undefined,

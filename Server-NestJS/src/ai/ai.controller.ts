@@ -614,11 +614,11 @@ export class AiController {
 
   /**
    * ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：单条 Business Action 跨链证据根
-   * keelbase-audit-evidence/3（授权快照含 policy.revision + Decision Evidence + AI/operation 链行 + 副作用 + 根锚）。
+   * keelbase-audit-evidence/4（含覆盖声明；授权快照含 policy.revision + Decision Evidence + AI/operation 链行 + 副作用 + 根锚）。
    * 本人或管理员；无副作用 404、非本人非 admin 403。
    */
   @Get('governance/evidence-root/:resultType/:resultId')
-  @ApiOperation({ summary: '业务动作证据根（AUDIT-ID，keelbase-audit-evidence/3，跨链离线验证）' })
+  @ApiOperation({ summary: '业务动作证据根（AUDIT-ID，keelbase-audit-evidence/4，跨链离线验证）' })
   async evidenceRoot(
     @Param('resultType') resultType: string,
     @Param('resultId', ParseIntPipe) resultId: number,

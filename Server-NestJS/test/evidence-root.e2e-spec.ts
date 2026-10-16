@@ -103,6 +103,18 @@ describe('证据根 v3 契约（KB-3）', () => {
       action: 'tool_call',
       detail: `create_followup_task({"customerId":${customerId},"title":"证据根导出用跟进任务"})`,
       isError: false,
+      // The trigger row carries **both columns**, and `tool` is the pairing key: `getEvidenceRoot`'s
+      // candidate filter reads the `tool` **column** (`(l.tool ?? null) === effect.toolName`), because
+      // C-3's whole point is that the evaluation surface stops parsing free text. A fixture row that
+      // only spells the tool name inside `detail` is therefore **not a candidate** — no trigger row, no
+      // `ai-audit` anchor. This fixture predated the column read and kept passing until the e2e ran.
+      //
+      // 触发行带**那两列**，而 `tool` 是配对键：`getEvidenceRoot` 的候选过滤读的是 `tool` **列**
+      // （`(l.tool ?? null) === effect.toolName`）—— 因为 `C-3` 的要点正是评估面**不再解析自由文本**。
+      // 故只在 `detail` 里写出工具名的夹具行**不再是一个候选**：没有触发行，也就没有 `ai-audit` 锚。
+      // 本夹具早于那次按列读，一直跑绿，直到这条 e2e 真的跑起来。
+      outcome: 'executed',
+      tool: 'create_followup_task',
     });
   });
 
@@ -116,10 +128,14 @@ describe('证据根 v3 契约（KB-3）', () => {
       .set(authHeader(token))
       .expect(expectedStatus);
 
-  it('① 本人导出 v3：action/root.anchors 结构 + 真实三源锚齐 + root.digest 可离线复算（PASS）', async () => {
+  it('① 本人导出 v4：action/root.anchors 结构 + 真实三源锚齐 + coverage 段 + root.digest 可离线复算（PASS）', async () => {
     const res = await exportRoot(userA.accessToken, 200);
     const pkg = res.body.data as any;
-    expect(pkg.format).toBe('keelbase-audit-evidence/3');
+    expect(pkg.format).toBe('keelbase-audit-evidence/4');
+    // AW-3：/4 不允许有这句空口 —— 一份包必须交代它读了什么、看不了什么。
+    expect(pkg.coverage).toBeDefined();
+    expect(['complete', 'partial', 'unknown']).toContain(pkg.coverage.verdict);
+    expect(pkg.coverage.scope).toMatchObject({ kind: 'action', subjectRef: `crm_task:${taskId}` });
     expect(pkg.action.id).toBe(`crm_task:${taskId}`);
     expect(pkg.action.effectId).toBeDefined();
     expect(pkg.exportedAt).toBeDefined();

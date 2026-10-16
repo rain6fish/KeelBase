@@ -9,6 +9,29 @@ import { AuditStatsService } from './audit-stats.service';
 import { deriveOutcome, deriveTool, BackfillRow } from '../../ai/audit/audit-outcome';
 
 /**
+ * AW-3：`/4` 的 `coverage` 段由 `CoverageService` 装配。本 spec 关心的不是它怎么算（那是
+ * `coverage-gaps.spec.ts` 的事），而是它**出现在包里、且进了 canonical** —— 故这里只给一个固定的桩。
+ *
+ * AW-3: the `/4` `coverage` section is assembled by `CoverageService`. What this spec cares about is not
+ * how it is computed (that is `coverage-gaps.spec.ts`) but that it is **in the package, and in the
+ * canonical** — so a fixed stub is all this needs.
+ */
+const coverageStub = () => ({
+  forFacts: jest.fn((input: { kind: string; subjectRef: string | null }) => ({
+    registryRevision: 'test-rev',
+    scope: {
+      kind: input.kind,
+      since: '2026-01-01T00:00:00.000Z',
+      to: '2026-01-01T00:00:00.000Z',
+      subjectRef: input.subjectRef,
+    },
+    sources: [],
+    verdict: 'unknown',
+    gaps: [],
+  })),
+});
+
+/**
  * C-3：报表 / 证据面现在**按列**读 `outcome` 与 `tool`，所以夹具行必须带这两列——行是从库里读出来的，
  * 库里就有它们。用**生产**规则（与那支回填迁移共用）从行自己已有的三个值推出来，于是夹具**说不出**
  * 写入方写不出的形状：要造一个 `blocked` 行，就得像真实行那样带上 `authorization` 里那条
@@ -72,6 +95,7 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       logRepo as any,
       effectsRepo as any,
       { computeHash: jest.fn() } as any,
+      coverageStub() as any, // AW-3：/4 的 coverage 段
       undefined, // cacheService
       undefined, // authorizationExplainer
       undefined, // agentService
@@ -121,11 +145,14 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
     delete process.env.AUDIT_HMAC_KEY;
   });
 
-  it('装配 v3 证据根：action/authorization(policy.revision)/decision/副作用锚+根锚/签名', async () => {
+  it('装配 v4 证据根：action/authorization(policy.revision)/decision/副作用锚+根锚/coverage/签名', async () => {
     const { service, operationAudit } = build({ effect, viewer: '42', convRows: [convRow] });
     const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
 
-    expect(out.format).toBe('keelbase-audit-evidence/3');
+    expect(out.format).toBe('keelbase-audit-evidence/4');
+    // AW-3：/4 必带 coverage —— 缺了就不该说它是 /4（schema 的 required 也这么要求）。
+    expect(out.coverage).toMatchObject({ registryRevision: 'test-rev', verdict: 'unknown' });
+    expect((out.coverage.scope as { kind: string }).kind).toBe('action');
     expect(out.action).toMatchObject({ id: 'crm_task:7', resultType: 'crm_task', resultId: 7, effectId: 9281, conversationId: 'c1' });
     expect(out.authorization?.allowed).toMatchObject({ checks: expect.any(Array), policy: { revision: 'ab12cd34ef56' } });
     expect(out.decision.businessEvent).toBe('FollowupTaskCreated');
@@ -165,6 +192,11 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       effect: out.effect,
       chains: out.chains,
       root: out.root,
+      // AW-3：`coverage` **进 canonical** —— 覆盖声明必须被签住，否则它可以事后被改写成更漂亮的版本
+      // 而不破签，那这一段就是装饰。本行与 `scripts/verify-evidence.mjs` 的键序逐字对应。
+      // AW-3: `coverage` is part of the canonical — the statement has to be signed, or it could be
+      // rewritten after the fact without breaking the signature and the section would be decoration.
+      coverage: out.coverage,
       exportedAt: out.exportedAt,
       ...(out.summary ? { summary: out.summary } : {}),
       ...(out.replay ? { replay: out.replay } : {}),
@@ -183,7 +215,9 @@ describe('AuditEvidenceService.getEvidenceRoot（① 证据根 v3）', () => {
       effect,
       viewer: '42',
       convRows: [convRow],
-      governancePolicy: { replayDecision },
+      // AW-3：证据根也要读治理粒度（它是 coverage 的一条事实）。桩补上这个方法 —— 缺它本该红，
+      // 而不是让实现去防一个「真实服务不会有」的形状。
+      governancePolicy: { replayDecision, getAuditGranularity: jest.fn().mockResolvedValue('all') },
     });
     const out = await service.getEvidenceRoot('crm_task', 7, '42', false);
     // 授权快照带 policy.revision + effect.toolName → replayDecision 被调
@@ -338,6 +372,7 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
       logRepo as never,
       effectsRepo as never,
       chain as never,
+      coverageStub() as never, // AW-3：/4 的 coverage 段
       undefined, // cacheService
       // §internal.16 A-5 放行快照：authorizationExplainer 供「无快照降级重算」场景（快照场景不应调用）
       {
@@ -776,6 +811,7 @@ describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）',
       logRepo as any,
       effectsRepo as any,
       { computeHash: jest.fn() } as any,
+      coverageStub() as any, // AW-3：/4 的 coverage 段
       undefined, // cacheService
       undefined, // authorizationExplainer
       undefined, // agentService

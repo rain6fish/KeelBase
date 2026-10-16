@@ -6,12 +6,30 @@ import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
 import { AuditEvidenceService } from './audit-evidence.service';
+import { CoverageService } from './coverage.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
 import { CheckPolicies } from '../../common/casl/check-policies.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 
+/**
+ * Every read here is gated on `can('read', 'AuditLog')` rather than the blanket `can('manage','all')`
+ * the rest of the console uses. The reason is AW-2: an audit reader has to reach this surface **without
+ * being an admin** — handing them admin would also make them the operator they are supposed to review.
+ * `manage all` implies `read` on any subject, so admins are unaffected; a plain user still fails.
+ *
+ * ⚠ Scope: only this controller is re-gated. The other audit/governance reads (operation audit,
+ * governance bridge, admin) still require `manage all`, so an auditor reaches the AI audit surface and
+ * nothing else. Widening it is a separate change, and it should be widened one surface at a time.
+ *
+ * 这里每个读端点判的都是 `can('read', 'AuditLog')`，而不是控制台其余部分用的那条 `can('manage','all')`。
+ * 理由是 `AW-2`：审计读者必须**不必是管理员**就能到这一面 —— 给他 `admin` 就等于让他同时是他本该复核
+ * 的那个操作者。`manage all` 蕴含任意主体上的 `read`，故**管理员不受影响**；普通用户照旧过不去。
+ *
+ * ⚠ **范围**：只有本控制器换了判据。其余审计/治理读面（操作审计 · 治理桥 · admin）仍要求 `manage all`，
+ * 所以审计读者到得了 AI 审计面、到不了别的。放宽是另一件事，且应当**一面一面地放宽**。
+ */
 @ApiTags('审计')
 @ApiBearerAuth()
 @Controller({ path: 'audit', version: '1' })
@@ -24,10 +42,12 @@ export class AuditController {
     private readonly auditQuery: AuditQueryService,
     // 证据/报表域（阶段 3 第三刀）：报表、证据包、解释、身份链与链校验——读侧举证能力
     private readonly auditEvidence: AuditEvidenceService,
+    // AW-3 覆盖声明：把「这份口径读了什么、看不了什么」从登记表算出来
+    private readonly coverage: CoverageService,
   ) {}
 
   @Get('logs')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'AI 审计日志（管理员）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤' })
   @ApiQuery({ name: 'agentId', required: false, description: '按 Agent 过滤（Agent Registry → 审计联动）' })
@@ -55,8 +75,31 @@ export class AuditController {
     });
   }
 
+  /**
+   * AW-3 coverage statement: what this window was read from, and what reading it cannot show. Every
+   * gap comes from `coverage-gaps.ts`, and the verdict is computed from the fact set the service
+   * assembles — so this endpoint has no opinion of its own to go stale.
+   *
+   * Defaults to the last 30 days when no window is given. Same gate as the rest of this controller.
+   *
+   * `AW-3` 覆盖声明：这个时间窗是从什么读来的，以及**这么读看不了什么**。每一条缺口都来自
+   * `coverage-gaps.ts`，结论由服务组装出的那组事实算出 —— 故这个端点自己没有会陈旧的判断。
+   *
+   * 不给时间窗时默认最近 30 天。判据同本控制器其余端点。
+   */
+  @Get('coverage')
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
+  @ApiOperation({ summary: 'AW-3 覆盖声明：口径 + 已知缺口（管理员 / 审计读者）' })
+  getCoverage(@Query() query: AuditQueryDto) {
+    const until = query.until ? new Date(query.until) : new Date();
+    const since = query.since
+      ? new Date(query.since)
+      : new Date(until.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.coverage.forScope({ since, until, userId: query.userId });
+  }
+
   @Get('logs/:id/interpretation')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({
     summary:
       '§internal.16 A-4 + P0-20 单事件解释面：一行审计 → 业务摘要 + 证据统计 + 它引起的副作用 + ' +
@@ -67,21 +110,21 @@ export class AuditController {
   }
 
   @Get('logs/:id/chain')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: '§internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据（管理员）' })
   chain(@Param('id', ParseIntPipe) id: number) {
     return this.auditEvidence.getChain(id);
   }
 
   @Get('verify')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'HS-11 审计哈希链完整性校验（管理员）' })
   verify() {
     return this.auditEvidence.verifyChain();
   }
 
   @Get('stats')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: '全局 AI 用量统计（管理员）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getStats(@Query('since') since?: string) {
@@ -90,7 +133,7 @@ export class AuditController {
   }
 
   @Get('cost')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'AI 成本看板：按用户×模型×意图聚合 tokens（管理员）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
   getCost(@Query('since') since?: string) {
@@ -99,7 +142,7 @@ export class AuditController {
   }
 
   @Get('action-report')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链，管理员）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤（数字 id）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })
@@ -117,7 +160,7 @@ export class AuditController {
   }
 
   @Get('action-report/export')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'AuditLog'))
   @ApiOperation({ summary: 'D4 审计证据包导出：ActionReport + 哈希链校验 + 时间戳 + 签名（可提交审计机构）' })
   @ApiQuery({ name: 'userId', required: false, description: '按用户过滤（数字 id）' })
   @ApiQuery({ name: 'since', required: false, description: '起始时间（ISO 8601）' })

@@ -50,4 +50,15 @@ export class AuditQueryDto {
   @IsOptional()
   @IsDateString()
   since?: string;
+
+  /**
+   * Upper bound of the window. The coverage statement (`AW-3`) needs a closed period; the log list is
+   * always "from here onwards" and ignores it.
+   *
+   * 时间窗的上界。覆盖声明（`AW-3`）要一个**闭合**的期间；日志列表始终是「从此刻往前」，忽略它。
+   */
+  @ApiPropertyOptional({ description: '结束时间（ISO 8601）—— 覆盖声明（AW-3）用；日志列表忽略它' })
+  @IsOptional()
+  @IsDateString()
+  until?: string;
 }

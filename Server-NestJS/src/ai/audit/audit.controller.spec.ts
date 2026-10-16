@@ -5,6 +5,7 @@ import { AuditService } from './audit.service';
 import { AuditStatsService } from './audit-stats.service';
 import { AuditQueryService } from './audit-query.service';
 import { AuditEvidenceService } from './audit-evidence.service';
+import { CoverageService } from './coverage.service';
 import { CHECK_POLICIES_KEY } from '../../common/casl/check-policies.decorator';
 
 describe('AuditController', () => {
@@ -13,6 +14,7 @@ describe('AuditController', () => {
   let auditQuery: Record<string, jest.Mock>;
   let auditEvidence: Record<string, jest.Mock>;
   let auditService: Record<string, jest.Mock>;
+  let coverage: Record<string, jest.Mock>;
 
   const mockUser = { sub: 1, username: 'alex' };
 
@@ -28,11 +30,16 @@ describe('AuditController', () => {
     );
     // 聚合统计已拆到 AuditStatsService（阶段 3）——controller 现在分别委托两个服务
     auditStats = Object.fromEntries(['getStats', 'getAllStats', 'getCostBreakdown'].map((m) => [m, jest.fn()]));
+    // AW-3 覆盖声明（阶段 3 之后的第五个域）：控制器只把它转出去，故这里只要有一个 forScope
+    // AW-3 coverage statement (fifth domain): the controller only delegates, so a `forScope` stub is all
+    // this needs.
+    coverage = Object.fromEntries(['forScope'].map((m) => [m, jest.fn()]));
     controller = new AuditController(
       auditService as unknown as AuditService,
       auditStats as unknown as AuditStatsService,
       auditQuery as unknown as AuditQueryService,
       auditEvidence as unknown as AuditEvidenceService,
+      coverage as unknown as CoverageService,
     );
   });
 
@@ -116,9 +123,15 @@ describe('AuditController', () => {
     expect(auditEvidence.getActionReport).toHaveBeenCalledWith({ userId: undefined, since: undefined, limit: 10 });
   });
 
-  it('所有管理端点均声明 manage-all 策略（CASL 拒绝非管理员）', () => {
-    // 直接 new 实例不经过装饰器执行路径，从 Reflect metadata 取出策略处理器并调用
-    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport'];
+  it('每个读端点都声明了判据，且该判据默认拒（不再是清一色 manage-all）', () => {
+    // 直接 new 实例不经过装饰器执行路径，从 Reflect metadata 取出策略处理器并调用。
+    // 标题改了：自 AW-2 起本控制器的判据是 `read AuditLog` 而不是 `manage all`，因为审计读者要能进来。
+    // `manage all` 蕴含 `read`，故管理员不受影响；这里钉的是「有一个**非平凡**判据、且它默认拒」。
+    //
+    // The title changed: since AW-2 this controller judges `read AuditLog` rather than `manage all`,
+    // because an audit reader has to get in. `manage all` implies `read`, so admins are unaffected;
+    // what this pins is that there IS a non-trivial handler and that it denies by default.
+    const methods = ['getLogs', 'verify', 'getStats', 'getCost', 'getActionReport', 'getCoverage'];
     for (const m of methods) {
       const handlers = Reflect.getMetadata(
         CHECK_POLICIES_KEY,

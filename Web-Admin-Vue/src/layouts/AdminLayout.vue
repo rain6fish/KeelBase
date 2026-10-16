@@ -285,7 +285,21 @@ const consoleNavGroups = computed(() => [
 // user 构建（/user/）没有控制台路由，任何角色都只显示工作台菜单
 const isUserSurface = import.meta.env.MODE === 'user'
 const showOverview = computed(() => !isUserSurface && auth.isAdmin)
-const navGroups = computed(() => (isUserSurface || !auth.isAdmin ? workspaceNavGroups.value : consoleNavGroups.value))
+// 审计读者（AW-2）：导航只列它**真的到得了**的那几页 —— 列一个点开就 403 的入口，比不列更糟。
+// 允许集与 `routes.ts` 的 `AUDITOR_PAGES` 及后端判据三处同步。
+// Audit reader (AW-2): the nav lists only what it can actually reach — an entry that 403s on click is
+// worse than no entry. This allowlist moves with `routes.ts` and the backend gate.
+const AUDITOR_NAV = new Set(['/audit'])
+const auditorNavGroups = computed(() =>
+  consoleNavGroups.value
+    .map((g) => ({ ...g, items: g.items.filter((i) => AUDITOR_NAV.has(i.to)) }))
+    .filter((g) => g.items.length > 0),
+)
+const navGroups = computed(() => {
+  if (isUserSurface) return workspaceNavGroups.value
+  if (auth.isAuditor) return auditorNavGroups.value
+  return auth.isAdmin ? consoleNavGroups.value : workspaceNavGroups.value
+})
 // 默认展开当前路由所在的一级分组（Materio 式二级菜单）
 const defaultOpeneds = computed(() => {
   const active = navGroups.value.find((g) => g.items.some((i) => route.path.startsWith(i.to) && i.to !== '/'))

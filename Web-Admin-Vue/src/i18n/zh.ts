@@ -825,7 +825,7 @@ const zh = {
   techDetail: '技术详情',
   governanceWhy: '为何允许',
   exportEvidenceRoot: '导出证据根',
-  evidenceRootExported: '已导出证据根（keelbase-audit-evidence/3）。离线验证：node scripts/verify-evidence.mjs <文件> --key <AUDIT_HMAC_KEY>',
+  evidenceRootExported: '已导出证据根（keelbase-audit-evidence/4）。离线验证：node scripts/verify-evidence.mjs <文件> --key <AUDIT_HMAC_KEY>',
   evidenceRootExportFailed: '导出证据根失败',
   governanceResult: '结果',
   governanceIntegrity: '完整性',
@@ -1303,6 +1303,43 @@ const zh = {
 
   // AI 审计
   aiAuditTitle: 'AI 审计',
+  // AW-3 覆盖声明。**根级**（`t('coverageTitle')` 从根取；放进 `feature` 之类嵌套对象就会原样显示 key）。
+  // 措辞要点：`unknown` **不是**更强的「部分」，它是「连漏了什么都说不出」—— 一旦被读成「更严重一点」，
+  // 整件事的诚实性就没了。
+  coverageTitle: '覆盖声明',
+  coverageVerdict_complete: '完整',
+  coverageVerdict_partial: '部分',
+  coverageVerdict_unknown: '未知（连漏了什么都说不出）',
+  coverageSources: '读数来自',
+  coverageNoGaps: '本口径下没有已知缺口',
+  coverageRegistry: '缺口登记表版本 {rev}',
+  coverageUnavailable: '覆盖声明取不到 —— 别把这份视图读成完整',
+  // 缺口正文。id 由后端 `coverage-gaps.ts` 铸造；往那里加一条，这里要跟着加一条（漏了由
+  // `check:audit-vocabulary` 拦，它**按根缩进**查，故放错层级也会红）。
+  // 措辞里**不用 Markdown 强调**：这些字符串进的是纯文本节点，`**` 会原样显示出来。
+  // No Markdown emphasis in these: they land in a plain text node, and `**` shows up literally.
+  'coverageGap_chain-tail-deletion':
+    '哈希链验过只说明已记的行自洽；它证明不了尾部没有被删掉的行',
+  'coverageGap_audit-granularity-off':
+    '审计粒度为 off ⇒ 一行 AI 审计都不写；「这里没有 AI 动作」不等于「没有发生过」',
+  'coverageGap_audit-granularity-write-drops-conversation-rows':
+    '审计粒度为 write ⇒ 不写对话级行，只有工具调用出现在这里',
+  'coverageGap_effect-change-not-captured':
+    '有副作用没捕获 before/after ⇒ 它改了哪些字段既展示不出、也比不了',
+  'coverageGap_chat-content-by-reference':
+    '对话行只引用会话、不带正文；看正文要另行显式请求',
+  'coverageGap_revoke-can-stall-indefinitely':
+    '撤销可以长期停在 compensating；「陈旧」只作只读标注，从不自行改状态',
+  'coverageGap_revoke-dispute-never-auto-cleared':
+    '撤销争议只由管理员显式确认才解除，从不自动清除；缺失集一变还会再开',
+  'coverageGap_chain-verification-cached-without-deployment-identity':
+    '链校验结果缓存 60 秒，而缓存键里不含部署身份 ⇒ 共用缓存可能返回另一个部署的结论',
+  'coverageGap_risk-level-not-expressible-for-non-discrete-actions':
+    '风险级是按声明过的工具给的；不是离散具名工具的动作面带不了风险级，也不会出现在这里',
+  'coverageGap_host-write-not-in-same-transaction':
+    '运行时嵌在宿主里、业务写由宿主落时，那次写与它的审计行不在同一个事务',
+  'coverageGap_host-ai-path-not-governed':
+    '宿主自己有一条 AI 路径不走治理引擎 ⇒ 它的工具调用不在这份视图里',
   filterByUser: '按用户过滤',
   filterByAgent: '按 Agent 过滤',
   agentCol: 'Agent',
@@ -1417,6 +1454,7 @@ const zh = {
     'ai.login': 'AI · 登录',
     'ai.error': 'AI · 错误',
     'ai.contentBlocked': 'AI · 内容安全拦截',
+    'ai.effectRevoke': 'AI · 撤销副作用',
     'ai.tool.createFollowupTask': '创建跟进任务',
     'ai.tool.createEvent': '创建事件',
     'ai.tool.createTodo': '创建待办',
@@ -1469,6 +1507,14 @@ const zh = {
     'ai.tool.createReport': '创建报告',
     'ai.tool.createModuleApply': '生成业务模块',
     'ai.tool.updateCustomerStatus': '更新客户状态',
+    // 生成模块的工具（办公资产借用 / 积分记录 / 积分台账）。它们注册了、在 `/ai/tools` 里看得见，
+    // 此前却没有元数据、也没有词条 ⇒ 审计行里只显示裸工具名。缺失由 `check:audit-vocabulary` 拦。
+    'ai.tool.queryAssetLoans': '查询资产借用',
+    'ai.tool.createAssetLoan': '创建资产借用',
+    'ai.tool.queryPointRecords': '查询积分记录',
+    'ai.tool.createPointRecord': '创建积分记录',
+    'ai.tool.queryPointsLedgers': '查询积分台账',
+    'ai.tool.createPointsLedger': '创建积分台账',
     // 工具卡 / 确认卡上的一句话：服务端发语义 key + 参数 + 英文兜底，这里给中文。
     // `ai.present.result.failed` 有意不在此列 —— 它带的是工具自己的错误文本，不由我们改写。
     'ai.present.write.createEvent': '创建事件：{title}（{startTime} 至 {endTime}）',

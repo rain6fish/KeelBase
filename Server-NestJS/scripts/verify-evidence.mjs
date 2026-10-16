@@ -299,11 +299,41 @@ catch (e) { console.error(`✗ 无法读取证据包 JSON：${e.message}`); proc
 console.log('═══ A2 审计证据包离线验证（不依赖 KeelBase）═══\n');
 console.log(`证据包：${fileArg}`);
 
-const isV3 = ev.format === 'keelbase-audit-evidence/3';
-if (['keelbase-audit-evidence/1', 'keelbase-audit-evidence/2', 'keelbase-audit-evidence/3'].includes(ev.format)) {
+const isV4 = ev.format === 'keelbase-audit-evidence/4';
+/** 证据根形状：/3 与 /4 **同形**，/4 多一个必填 `coverage`（二者走同一段校验）。
+ *  Evidence-root shape: `/3` and `/4` are the same shape; `/4` adds a required `coverage`. */
+const isV3 = isV4 || ev.format === 'keelbase-audit-evidence/3';
+if (
+  ['keelbase-audit-evidence/1', 'keelbase-audit-evidence/2', 'keelbase-audit-evidence/3', 'keelbase-audit-evidence/4'].includes(
+    ev.format,
+  )
+) {
   ok('格式版本', ev.format);
 } else {
   bad('格式版本', ev.format ?? '(缺失)');
+}
+
+// /4 的整段要点是「一份包**不能**省略它看不了什么」⇒ 缺了就不是一份 /4，在这里失败而不是放过。
+// A `/4` package exists to state what it cannot show; missing that section means it is not a `/4`.
+if (isV4) {
+  const c = ev.coverage;
+  if (!c || typeof c !== 'object') {
+    bad('coverage 段（/4 必填）', '缺失或不是对象');
+  } else {
+    ok(
+      'coverage 段（/4 必填）',
+      `verdict=${c.verdict} · 缺口 ${Array.isArray(c.gaps) ? c.gaps.length : '?'} 条 · 登记表 ${c.registryRevision ?? '(缺失)'}`,
+    );
+    if (['complete', 'partial', 'unknown'].includes(c.verdict)) ok('coverage.verdict 取值合法', c.verdict);
+    else bad('coverage.verdict 取值合法', String(c.verdict));
+    if (Array.isArray(c.gaps) && c.gaps.every((g) => typeof g?.id === 'string' && g.id)) {
+      ok('coverage.gaps 每条都有 id', `${c.gaps.length} 条`);
+    } else if (Array.isArray(c.gaps)) {
+      bad('coverage.gaps 每条都有 id', '有条目缺 id（消费方无从取词条）');
+    } else {
+      bad('coverage.gaps 是数组', String(typeof c.gaps));
+    }
+  }
 }
 
 // ────────────────────────── v1 / v2（单链全量，原有逻辑不变）──────────────────────────
@@ -413,7 +443,8 @@ else {
     chainValid = structural && digestOk && recomputed === allRows.length && sideAnchorOk;
   }
 
-  // 整包签名（v3 canonical：action/authorization/decision/effect/chains/root/exportedAt + summary/replay——存在才含，向后兼容已导出无新段的 v3）
+  // 整包签名（v3 canonical：action/authorization/decision/effect/chains/root/exportedAt + summary/replay——存在才含，向后兼容已导出无新段的 v3；
+  //   v4 在 root 与 exportedAt 之间插 coverage —— 与 audit-evidence.service.ts 的键序**逐字一致**，否则验签不过）
   // 移出 --key 分支：SM2 分支只凭第三方公钥即可独立验签（§11.2），不应被「未提供共享密钥」挡掉。
   const rootCanonical = JSON.stringify({
     action: ev.action,
@@ -422,6 +453,7 @@ else {
     effect: ev.effect,
     chains: ev.chains,
     root: ev.root,
+    ...(isV4 ? { coverage: ev.coverage } : {}),
     exportedAt: ev.exportedAt,
     ...(ev.summary ? { summary: ev.summary } : {}),
     ...(ev.replay ? { replay: ev.replay } : {}),

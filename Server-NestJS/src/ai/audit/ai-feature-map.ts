@@ -33,6 +33,9 @@ const ACTION_LABELS: Record<string, AiActionLabel> = {
   login: { key: 'ai.login', fallback: 'AI · Login' },
   error: { key: 'ai.error', fallback: 'AI · Error' },
   content_blocked: { key: 'ai.contentBlocked', fallback: 'AI · Content blocked' },
+  // The one value in the union that had no label, so it rendered as the raw `AI · effect_revoke`.
+  // 联合类型里唯一没有标签的取值 —— 因此渲染成裸的 `AI · effect_revoke`。
+  effect_revoke: { key: 'ai.effectRevoke', fallback: 'AI · Effect revoke' },
 };
 
 /**

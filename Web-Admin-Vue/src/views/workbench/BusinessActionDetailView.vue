@@ -245,7 +245,7 @@ function goBack() {
   else router.replace('/workbench')
 }
 
-/** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/3 单文件包 → 下载，供 verify-evidence.mjs 离线验 */
+/** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/4 单文件包 → 下载，供 verify-evidence.mjs 离线验 */
 async function onExportEvidenceRoot() {
   if (!resultType || !resultId) return
   exporting.value = true

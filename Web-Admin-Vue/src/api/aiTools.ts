@@ -44,7 +44,7 @@ export const aiToolsApi = {
   governanceAction(resultType: string, resultId: number): Promise<GovernanceActionResponse> {
     return api.get(`/ai/governance/action/${resultType}/${resultId}`)
   },
-  /** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/3 单文件证据包（供 verify-evidence.mjs 离线验） */
+  /** ① 证据根（§internal.17 ①）：导出 keelbase-audit-evidence/4 单文件证据包（供 verify-evidence.mjs 离线验） */
   evidenceRoot(resultType: string, resultId: number): Promise<Record<string, unknown>> {
     return api.get(`/ai/governance/evidence-root/${resultType}/${resultId}`)
   },

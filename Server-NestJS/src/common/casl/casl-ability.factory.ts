@@ -69,12 +69,15 @@ export class CaslAbilityFactory {
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
     for (const rule of this._rulesFor(user.role)) {
+      // `manage` is what a seed meant before `actions` existed; keep that meaning when it is absent.
+      // `manage` 是 `actions` 出现之前一条种子的含义 —— 不写时保持它。
+      const actions = (rule.actions ?? ['manage']) as Action[];
       if (rule.ownerField == null) {
-        can('manage', rule.subject);
+        can(actions, rule.subject);
         continue;
       }
       const value = rule.stringifyOwner ? String(user.sub) : user.sub;
-      can('manage', rule.subject, { [rule.ownerField]: value } as never);
+      can(actions, rule.subject, { [rule.ownerField]: value } as never);
     }
 
     return build();

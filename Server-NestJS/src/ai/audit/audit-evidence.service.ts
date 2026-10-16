@@ -16,6 +16,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Between, DataSource, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
+import { CoverageService, type CoverageStatement } from './coverage.service';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../tool-effects/ai-write-claim.entity';
@@ -135,11 +136,19 @@ export interface ActionReportExport {
   signature: EvidenceSignature | null;
 }
 
-/** ① 证据根（§internal.17 ①，keelbase-audit-evidence/3）：单条 Business Action 跨链证据根（AUDIT-ID），离线整包验 */
+/** ① 证据根（§internal.17 ①，keelbase-audit-evidence/4）：单条 Business Action 跨链证据根（AUDIT-ID），离线整包验 */
 export interface EvidenceRootExport {
   exportedAt: string;
   generator: string;
   format: string;
+  /**
+   * AW-3: what this package is read from and what reading it cannot show. Required in `/4` — a reader
+   * who takes the silence for completeness is the one failure this section exists to prevent.
+   *
+   * `AW-3`：这份包从什么读来、这么读看不了什么。`/4` 里**必填** —— 把沉默读成「完整」，正是这一段要防的
+   * 那件事。
+   */
+  coverage: CoverageStatement;
   action: { id: string; resultType: string; resultId: number; effectId: number; userId: string; conversationId: string | null };
   authorization: { denied: unknown; allowed: unknown } | null;
   decision: { businessEvent: string | null; evidence: string | null };
@@ -181,6 +190,15 @@ export class AuditEvidenceService {
     @InjectRepository(AiToolSideEffect)
     private readonly effectsRepo: Repository<AiToolSideEffect>,
     private readonly auditChain: AuditChainService,
+    /**
+     * AW-3: assembles the `/4` coverage section. **Required, not `@Optional`** — `/4` is the format
+     * whose whole point is that a package cannot omit what it is unable to show, so a package that
+     * could not state it would have to be a different format, not a quieter `/4`.
+     *
+     * `AW-3`：组装 `/4` 的 coverage 段。**必填，不是 `@Optional`** —— `/4` 这一档的全部要点就是
+     * 「一份包**不能**省略它看不了什么」，所以讲不出这一段的包应当是**另一档格式**，而不是一个话更少的 `/4`。
+     */
+    private readonly coverage: CoverageService,
     // 链校验结果 60s 缓存（消除 action-report 的二次全表扫描）
     @Optional() private readonly cacheService?: CacheService,
     // §internal.16 A-5 跨系统身份链：授权依据（缺失降级）
@@ -454,7 +472,7 @@ export class AuditEvidenceService {
   }
 
   /**
-   * ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：单条 Business Action（resultType:resultId）→ keelbase-audit-evidence/3
+   * ① 证据根（§internal.17 ①，docs/evidence-root.spec.md）：单条 Business Action（resultType:resultId）→ keelbase-audit-evidence/4
    * 跨链证据根——授权快照(含 policy.revision) + Decision Evidence + AI 审计链行 + 副作用行 + operation_audit 链行 + 跨链根锚。
    * 鉴权：本人（effect.userId===viewer）或管理员；无副作用 404、非本人非 admin 403。
    */
@@ -596,7 +614,65 @@ export class AuditEvidenceService {
       }
     }
 
-    // v3 canonical（与 scripts/verify-evidence.mjs 严格一致）：action/authorization/decision/effect/chains/root/exportedAt + summary/replay（存在才含，向后兼容已导出无新段的 v3）
+    // AW-3 /4：这份包自己看不了什么。单动作包的事实**手上就有**（effect 行 + trigger 行 + 两条链的条数），
+    // 故不重查一遍库 —— 那既更慢，又是同一组事实的第二份定义。
+    // AW-3 /4: what this package cannot show. An action-scoped package already holds its rows (the
+    // effect, the trigger, and the two chains' counts), so re-querying would be slower and would make a
+    // second definition of the same facts.
+    const granularity = this.governancePolicy
+      ? await this.governancePolicy.getAuditGranularity()
+      : // `governancePolicy` is `@Optional` (degraded assembly in tests/scripts only); Nest always
+        // supplies it. The fallback names the deployment default rather than inventing a caveat.
+        // `governancePolicy` 是 `@Optional`（只存在于测试/脚本的降级装配）；Nest 恒会注入。这里的回落
+        // 说的是**部署默认值**，而不是凭空造一条告诫。
+        ('all' as const);
+    const coverage: CoverageStatement = this.coverage.forFacts({
+      kind: 'action',
+      since: trigger?.createdAt ?? effect.createdAt ?? new Date(exportedAt),
+      to: new Date(exportedAt),
+      subjectRef: `${resultType}:${resultId}`,
+      sources: [
+        {
+          id: 'ai_audit_chain',
+          state: aiChain.length > 0 ? 'complete' : 'absent',
+          rows: aiChain.length,
+        },
+        {
+          id: 'operation_audit_chain',
+          state: opChain.length > 0 ? 'complete' : 'absent',
+          rows: opChain.length,
+        },
+        { id: 'side_effect_ledger', state: 'complete', rows: 1 },
+      ],
+      facts: {
+        runtime: 'ts',
+        host: 'none',
+        hostOwnsBusinessWrite: false,
+        hostOwnAiPath: false,
+        auditGranularity: granularity,
+        sharedCacheAcrossDeployments: false,
+        nonDiscreteActionSurfacesExposed: false,
+        // No external anchor is obtainable today (measured 2026-10-16) — so the verdict says `unknown`
+        // rather than pretending the chain is enough.
+        // 今天拿不到外部锚（2026-10-16 实测）—— 故结论说 `unknown`，而不是假装链就够了。
+        packageHasExternalAnchor: false,
+        packageHasEffectWithoutSnapshot: effectProj.before == null || effectProj.after == null,
+        packageHasOpenDispute: Boolean(effect.revokeDispute && !effect.revokeAcknowledgedAt),
+        packageHasStalledRevoke: effect.revokeStatus === 'compensating',
+        // True only when the packaged action *is* a chat row: that is when "content by reference"
+        // applies to this package. Not a guess about whether a conversation exists.
+        // 仅当被打包的那条动作**就是** chat 行时为真：那才是「正文靠引用」适用于本包的时候。不是对
+        // 「有没有会话」的猜测。
+        packageHasChatRow: trigger?.action === 'chat',
+      },
+    });
+
+    // /4 canonical（与 scripts/verify-evidence.mjs 严格一致）：v3 的键 + coverage。
+    // **coverage 进 canonical** 是有意的：否则覆盖声明可以在事后被改写成更漂亮的版本而不破签，
+    // 那这一段就是装饰。
+    // /4 canonical (kept strictly in step with scripts/verify-evidence.mjs): the v3 keys + `coverage`.
+    // Signed on purpose — otherwise the coverage statement could be rewritten after the fact without
+    // breaking the signature, which would make the section decoration.
     const canonicalObj: Record<string, unknown> = {
       action,
       authorization: identity?.authorization ?? null,
@@ -604,6 +680,7 @@ export class AuditEvidenceService {
       effect: effectProj,
       chains,
       root,
+      coverage,
       exportedAt,
     };
     if (summary) canonicalObj.summary = summary;
@@ -613,7 +690,8 @@ export class AuditEvidenceService {
     return {
       exportedAt,
       generator: 'keelbase-audit-export',
-      format: 'keelbase-audit-evidence/3',
+      format: 'keelbase-audit-evidence/4',
+      coverage,
       action,
       authorization: identity?.authorization ?? null,
       decision,

@@ -2,7 +2,7 @@
 
 import { api } from './client'
 import type { Paginated } from '@/types/api'
-import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain } from '@/types/audit'
+import type { AuditLog, UsageStats, ActionReport, ChainVerifyResult, AuditInterpretation, IdentityChain, CoverageStatement } from '@/types/audit'
 import type { OperationAuditLog } from '@/types/admin'
 
 /** D4/A-6 审计证据包导出（GET /audit/action-report/export；v2 含 compliance 合规段） */
@@ -49,6 +49,17 @@ export const auditApi = {
   /** §internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 */
   chain(id: number): Promise<IdentityChain> {
     return api.get(`/audit/logs/${id}/chain`)
+  },
+  /**
+   * AW-3 覆盖声明：这个口径读了什么、**看不了**什么。每一条缺口都来自后端的登记表
+   * （`ai/audit/coverage-gaps.ts`），故往那里加一条，这里自动多一条。
+   */
+  coverage(params: { since?: string; until?: string; userId?: string } = {}): Promise<CoverageStatement> {
+    const query: Record<string, string> = {}
+    if (params.since) query.since = params.since
+    if (params.until) query.until = params.until
+    if (params.userId) query.userId = params.userId
+    return api.get<CoverageStatement>('/audit/coverage', query)
   },
   /** §10 P1 AI Action Report：合规证据包（执行/批准/拒绝/阻断 + 副作用 + 哈希链） */
   actionReport(params: { userId?: string; since?: string; limit?: number } = {}): Promise<ActionReport> {

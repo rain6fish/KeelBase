@@ -101,6 +101,22 @@ export const TOOL_METADATA: Readonly<Record<string, ToolMetadata>> = {
   navigate_admin_page: { label: 'Navigate admin page' },
   web_search: { label: 'Web search' },
   generate_image: { label: 'Generate image' },
+  // Generated modules. They were registered and visible through `/ai/tools` while missing from this
+  // table, so an audit row about one of them rendered as a bare tool name. Nothing caught it: the
+  // label gate walks metadata → dictionaries and never the reverse. `check-audit-vocabulary.mjs` now
+  // walks that reverse direction.
+  // No `event`: whether a generated module's write should name a business event is a separate
+  // question, not decided here — this change adds labels only.
+  // 生成模块。它们注册了、在 `/ai/tools` 里看得见，却不在本表里，于是关于它们的审计行渲染成裸工具名。
+  // 没有任何东西拦得住：标签闸走的是「元数据 → 字典」，从不往回走。现在由
+  // `check-audit-vocabulary.mjs` 走那个反方向。
+  // 无 `event`：生成模块的写要不要命名一个业务事件是另一个问题，不在此决定 —— 本次只补标签。
+  query_asset_loans: { label: 'Query asset loans' },
+  create_asset_loan: { label: 'Create asset loan' },
+  query_point_records: { label: 'Query point records' },
+  create_point_record: { label: 'Create point record' },
+  query_points_ledgers: { label: 'Query points ledgers' },
+  create_points_ledger: { label: 'Create points ledger' },
   // 外部（B 路径代理）：名字来自目标系统，本仓不注册
   update_customer_status: { label: 'Update customer status', event: 'CustomerStatusUpdated', external: true },
 };
