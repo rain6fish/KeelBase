@@ -26,6 +26,14 @@ import { AuditService } from '../ai/audit/audit.service';
 import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { AuditQueryService } from '../ai/audit/audit-query.service';
 import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
+// AW-3 gave `AuditEvidenceService` a fourth constructor dependency (`CoverageService`), and the
+// governance plane instantiates these services itself — so it has to provide that one too. This list
+// must follow that constructor, not lag behind it: when it lags, the governance module fails to
+// instantiate, which `app-wiring.spec.ts` catches and nothing in `check:all` does.
+// AW-3 给 `AuditEvidenceService` 加了**第四个**构造器依赖（`CoverageService`），而治理台**自己实例化**
+// 这些服务 —— 故它也必须自己提供这一个。这份清单要跟着那个构造器走、而不是落在它后面：一落后，
+// 治理模块就装配不起来，`app-wiring.spec.ts` 会逮到，而 `check:all` 里没有任何一道会。
+import { CoverageService } from '../ai/audit/coverage.service';
 import { AiAgentService } from '../ai/agents/ai-agent.service';
 import { GovernancePolicyService } from '../ai/governance-bridge/governance-policy.service';
 import { AiToolEffectsService } from '../ai/tool-effects/ai-tool-effects.service';
@@ -84,6 +92,7 @@ import { GovernanceCaslAbilityFactory } from './governance-casl.factory';
     AuditStatsService,
     AuditQueryService,
     AuditEvidenceService,
+    CoverageService,
     AiAgentService,
     GovernancePolicyService,
     GovernanceApprovalService,
