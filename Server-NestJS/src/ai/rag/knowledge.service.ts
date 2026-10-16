@@ -22,6 +22,7 @@ import { chunkText } from './chunk-text';
 import { validateMagicBytes } from '../../common/utils/file-validator';
 import { STORAGE_SERVICE } from '../../storage/storage.service';
 import type { StorageService } from '../../storage/storage.service';
+import { UploadSignService } from '../../upload/upload-sign.service';
 import { withSpan } from '../../common/tracing/tracer';
 import { paginated } from '../../common/dto/paginated';
 
@@ -34,6 +35,10 @@ export class KnowledgeService {
     private readonly articleRepo: Repository<KnowledgeArticle>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    // Required (not @Optional): the read side must re-sign, so a container without it should fail loudly
+    // at wiring time rather than silently hand back an un-signable bare reference.
+    // 必需（非 @Optional）：读侧必须重签，缺了它就该在装配期报错，而不是静默返回裸引用。
+    private readonly uploadSign: UploadSignService,
     @Optional()
     private readonly embeddingsService?: EmbeddingsService,
     private readonly configService?: ConfigService,
@@ -44,11 +49,27 @@ export class KnowledgeService {
     private readonly ingestionService?: KnowledgeIngestionService,
   ) {}
 
+  /**
+   * CR-21 stage C: the store keeps the bare `/uploads/<file>` reference (no query), so the signature
+   * never freezes at upload time. Mint it here, on the way OUT, so every read hands the caller a freshly
+   * signed URL that `UploadSignService.verify` accepts. Null-preserving: an article with no stored file
+   * passes through untouched. Never write the signed value back — `storageService.delete` needs the bare
+   * reference that is persisted.
+   *
+   * CR-21 stage C：库里存的是裸 `/uploads/<file>` 引用（无 query），故签名不会在上传时冻结。此处只在
+   * **出**口现签，使每次读取交给调用方的都是 `UploadSignService.verify` 认得的、新鲜的签名 URL。保留空值：
+   * 无 fileUrl 的条目原样返回。签名值绝不回写 —— `storageService.delete` 依赖库中那份裸引用。
+   */
+  private signFileUrl(article: KnowledgeArticle): KnowledgeArticle {
+    if (!article.fileUrl) return article;
+    return { ...article, fileUrl: this.uploadSign.signUrl(article.fileUrl) };
+  }
+
   async create(dto: CreateKnowledgeDto): Promise<KnowledgeArticle> {
     const article = this.articleRepo.create(dto);
     const saved = await this.articleRepo.save(article);
     await this.embedForArticle(saved.id, saved.title, saved.content);
-    return saved;
+    return this.signFileUrl(saved);
   }
 
   /**
@@ -119,7 +140,7 @@ export class KnowledgeService {
         ? await this.ingestionService.enqueue(saved.id)
         : false;
 
-      return { ...saved, queued };
+      return { ...this.signFileUrl(saved), queued };
     } catch (err) {
       // 建文章失败 → best-effort 删已存原文件
       if (fileUrl) {
@@ -138,7 +159,7 @@ export class KnowledgeService {
     if (!article) {
       throw new NotFoundException('知识条目不存在');
     }
-    return article;
+    return this.signFileUrl(article);
   }
 
   async findAll(options: {
@@ -167,7 +188,7 @@ export class KnowledgeService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return paginated(items, total, page, limit);
+    return paginated(items.map((a) => this.signFileUrl(a)), total, page, limit);
   }
 
   /**
@@ -203,7 +224,7 @@ export class KnowledgeService {
     } else {
       await this.embedForArticle(updated.id, updated.title, updated.content);
     }
-    return updated;
+    return this.signFileUrl(updated);
   }
 
   async remove(id: number): Promise<void> {
@@ -437,7 +458,7 @@ export class KnowledgeService {
 
   /** 全文搜索兜底 */
   private async fullTextSearch(query: string, limit: number): Promise<KnowledgeArticle[]> {
-    return this.articleRepo.find({
+    const rows = await this.articleRepo.find({
       where: [
         { title: Like(`%${query}%`) },
         { content: Like(`%${query}%`) },
@@ -446,5 +467,8 @@ export class KnowledgeService {
       order: { updatedAt: 'DESC' },
       take: limit,
     });
+    // 该路径返回的是库中实体（带裸 fileUrl），与向量路径一样出库即重签。
+    // This path returns stored entities (carrying the bare fileUrl); sign on the way out, as the vector path.
+    return rows.map((a) => this.signFileUrl(a));
   }
 }
