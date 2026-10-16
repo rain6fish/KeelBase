@@ -214,4 +214,5 @@ export const envValidationSchema = Joi.object({
   S3_ACCESS_KEY: Joi.string().allow('').default(''),
   S3_SECRET_KEY: Joi.string().allow('').default(''),
   S3_PUBLIC_URL: Joi.string().allow('').default(''),
+  S3_SIGNED_URL_TTL: Joi.number().integer().positive().default(3600),
 });

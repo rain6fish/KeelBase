@@ -494,7 +494,8 @@ S3_REGION=us-east-1
 S3_BUCKET=
 S3_ACCESS_KEY=
 S3_SECRET_KEY=
-S3_PUBLIC_URL=           # 可选，对象公网前缀；留空用 bucket URL
+S3_PUBLIC_URL=           # 可选，对象公网/CDN 前缀；留空用有时效的 presigned URL（bucket 私有，CR-21）
+S3_SIGNED_URL_TTL=3600   # presigned GET URL 有效期（秒；S3 SigV4 上限 7 天）
 
 # 推送通知
 PUSH_DRIVER=none         # none（降级）| jpush（极光，国内；fcm/apns 预留）

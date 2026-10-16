@@ -47,4 +47,9 @@ export class LocalStorageService implements StorageService {
       return 'down';
     }
   }
+
+  /** CR-21：本地对象由进程直接流式送出，无需重定向 */
+  async accessRedirectUrl(_ref: string): Promise<string | null> {
+    return null;
+  }
 }

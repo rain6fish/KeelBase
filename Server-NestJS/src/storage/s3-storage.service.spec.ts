@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3StorageService } from './s3-storage.service';
 
 jest.mock('@aws-sdk/client-s3', () => {
@@ -9,10 +10,15 @@ jest.mock('@aws-sdk/client-s3', () => {
   return {
     S3Client: jest.fn(() => ({ send })),
     PutObjectCommand: jest.fn((args: any) => ({ __type: 'PutObjectCommand', ...args })),
+    GetObjectCommand: jest.fn((args: any) => ({ __type: 'GetObjectCommand', ...args })),
     DeleteObjectCommand: jest.fn((args: any) => ({ __type: 'DeleteObjectCommand', ...args })),
     HeadBucketCommand: jest.fn((args: any) => ({ __type: 'HeadBucketCommand', ...args })),
   };
 });
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn().mockResolvedValue('https://presigned.example/bucket/key?X-Amz-Signature=abc'),
+}));
 
 describe('S3StorageService', () => {
   const mockConfig = {
@@ -22,6 +28,7 @@ describe('S3StorageService', () => {
         S3_REGION: 'us-east-1',
         S3_BUCKET: 'test-bucket',
         S3_PUBLIC_URL: '',
+        S3_SIGNED_URL_TTL: '900',
       };
       return map[key] ?? def;
     }),
@@ -38,7 +45,7 @@ describe('S3StorageService', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('save calls PutObject and returns public URL', async () => {
+  it('save calls PutObject with no public-read ACL (CR-21 private) and returns a /uploads reference', async () => {
     const service = new S3StorageService(mockConfig);
 
     const url = await service.save(Buffer.from('data'), 'photo.jpg', 'image/jpeg');
@@ -49,11 +56,28 @@ describe('S3StorageService', () => {
     const cmd = (PutObjectCommand as unknown as jest.Mock).mock.calls[0][0];
     expect(cmd.Bucket).toBe('test-bucket');
     expect(cmd.Body).toEqual(Buffer.from('data'));
-    expect(cmd.ACL).toBe('public-read');
-    expect(url).toContain('test-bucket.s3.amazonaws.com');
+    // CR-21：bucket 私有 —— 不再带 public-read ACL
+    expect(cmd.ACL).toBeUndefined();
+    // 返回稳定的 /uploads 引用（实际取用走签名 + presigned）
+    expect(url).toMatch(/^\/uploads\/\d{4}-\d{2}-\d{2}\/.+\.jpg$/);
   });
 
-  it('uses S3_PUBLIC_URL prefix when configured', async () => {
+  it('accessRedirectUrl presigns a time-limited GET URL (bucket private)', async () => {
+    const service = new S3StorageService(mockConfig);
+
+    const target = await service.accessRedirectUrl('/uploads/2026-08-05/123.jpg');
+
+    expect(GetObjectCommand).toHaveBeenCalledWith({ Bucket: 'test-bucket', Key: '2026-08-05/123.jpg' });
+    // expiresIn 取自 S3_SIGNED_URL_TTL（这里 900）
+    expect(getSignedUrl).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ __type: 'GetObjectCommand' }),
+      { expiresIn: 900 },
+    );
+    expect(target).toBe('https://presigned.example/bucket/key?X-Amz-Signature=abc');
+  });
+
+  it('accessRedirectUrl uses S3_PUBLIC_URL prefix when configured (public/CDN opt-in)', async () => {
     const cfg = {
       ...mockConfig,
       get: jest.fn((key: string, def?: any) =>
@@ -62,12 +86,22 @@ describe('S3StorageService', () => {
     } as unknown as ConfigService;
     const service = new S3StorageService(cfg);
 
-    const url = await service.save(Buffer.from('x'), 'a.png', 'image/png');
+    const target = await service.accessRedirectUrl('/uploads/2026-08-05/a.png');
 
-    expect(url.startsWith('https://cdn.example.com/')).toBe(true);
+    expect(target).toBe('https://cdn.example.com/2026-08-05/a.png');
+    expect(getSignedUrl).not.toHaveBeenCalled();
   });
 
-  it('delete strips URL prefix and calls DeleteObject', async () => {
+  it('delete strips the /uploads/ reference prefix and calls DeleteObject', async () => {
+    const service = new S3StorageService(mockConfig);
+
+    await service.delete('/uploads/2026-08-05/123.jpg');
+
+    const cmd = (DeleteObjectCommand as unknown as jest.Mock).mock.calls[0][0];
+    expect(cmd.Key).toBe('2026-08-05/123.jpg');
+  });
+
+  it('delete still strips a legacy absolute-URL prefix', async () => {
     const service = new S3StorageService(mockConfig);
 
     await service.delete('https://test-bucket.s3.amazonaws.com/2026-08-05/123.jpg');

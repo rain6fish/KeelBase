@@ -11,8 +11,10 @@ import { json, Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { LOCAL_UPLOAD_DIR } from './storage/local-storage.service';
+import { STORAGE_SERVICE } from './storage/storage.service';
+import type { StorageService } from './storage/storage.service';
 import { UploadSignService } from './upload/upload-sign.service';
 import { isBlindTrustValue, parseTrustProxy } from './config/trust-proxy';
 import { applyRequestContext } from './common/request-context';
@@ -94,13 +96,20 @@ async function bootstrap() {
   // Global route prefix
   app.setGlobalPrefix('api');
 
-  // CR-21：/uploads 文件访问控制——签名 URL 校验后才放行（渐进模式默认放行，UPLOAD_REQUIRE_SIGN=1 强制）
+  // CR-21: /uploads file access control — only released after the signed URL
+  // verifies (progressive mode lets bare URLs through by default; UPLOAD_REQUIRE_SIGN=1 enforces 403).
+  // After verifying, hand off to the storage driver: local objects stream from disk, private S3
+  // objects 302 to a time-limited presigned URL.
+  //
+  // CR-21：/uploads 文件访问控制——签名 URL 校验后才放行（渐进模式默认放行裸 URL，UPLOAD_REQUIRE_SIGN=1 强制 403）。
+  // 校验通过后交给存储驱动：本地对象直接送盘，私有 S3 对象 302 到有时效的 presigned URL。
   const uploadSign = app.get(UploadSignService);
+  const storage = app.get<StorageService>(STORAGE_SERVICE);
   const requireSign = process.env.UPLOAD_REQUIRE_SIGN === '1';
-  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+  app.use('/uploads', async (req: Request, res: Response, next: NextFunction) => {
     const filename = (req.path || '').replace(/^\/+/, '');
-    // 防路径穿越：上传文件名是单层 `时间戳-随机.ext`，拒绝任何子路径/.. /\
-    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    // 防路径穿越：拒绝空 / `..` / 反斜杠；允许 S3 键的嵌套目录段（`日期/文件`）
+    if (!filename || filename.includes('..') || filename.includes('\\')) {
       return res.status(403).json({ code: 403, message: 'Forbidden' });
     }
     const pathname = `/uploads/${filename}`;
@@ -113,9 +122,20 @@ async function bootstrap() {
       // 渐进模式：放行但记日志，观察裸 URL 访问面
       logger.warn(`[uploads] unsigned access (progressive mode): ${pathname}`);
     }
-    res.sendFile(join(LOCAL_UPLOAD_DIR, filename), (err: Error | undefined) => {
-      if (err) next(err);
-    });
+    try {
+      // 私有对象（S3）→ 302 到有时效的 presigned URL；本地 → 从磁盘流式送出
+      const redirect = await storage.accessRedirectUrl(pathname);
+      if (redirect) return res.redirect(302, redirect);
+      const full = resolve(LOCAL_UPLOAD_DIR, filename);
+      if (!full.startsWith(resolve(LOCAL_UPLOAD_DIR))) {
+        return res.status(403).json({ code: 403, message: 'Forbidden' });
+      }
+      res.sendFile(full, (err: Error | undefined) => {
+        if (err) next(err);
+      });
+    } catch (err) {
+      next(err);
+    }
   });
 
   // EASY-1 单容器交付：当 public/ 目录存在（Dockerfile.single 内嵌前端）时，

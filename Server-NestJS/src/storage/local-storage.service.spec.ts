@@ -51,4 +51,8 @@ describe('LocalStorageService', () => {
   it('checkHealth：目录可访问返回 up（A8）', async () => {
     await expect(service.checkHealth()).resolves.toBe('up');
   });
+
+  it('accessRedirectUrl returns null (local objects stream from disk; CR-21)', async () => {
+    await expect(service.accessRedirectUrl('/uploads/123-x.jpg')).resolves.toBeNull();
+  });
 });
