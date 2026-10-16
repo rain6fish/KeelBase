@@ -12,8 +12,8 @@
  * **行为与拆分前逐字一致**——搬迁不改逻辑（阶段 3 纪律：行为不变，测试作护栏）。
  */
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { Between, DataSource, Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
 import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
@@ -45,7 +45,7 @@ import {
 // `detail` 里重新抠出来的手段——工具名、以及确认的结局——而它们现在都是行上的**列**。它们的缺席
 // 就是这次改动本身，故没有东西来顶替。
 import { buildPayload } from './payload';
-import { AUDIT_VERIFY_CACHE_KEY } from './cache-keys';
+import { auditVerifyCacheKey } from './cache-keys';
 import { AuditByDayBucket, byDayAggregation } from './by-day';
 import { Sm2SignatureBlock, buildSm2Block, sm2ConfigFromEnv } from '../../common/crypto/sm2';
 
@@ -209,11 +209,27 @@ export class AuditEvidenceService {
     @Optional()
     @InjectRepository(AiConfirmationRequest)
     private readonly confirmationsRepo?: Repository<AiConfirmationRequest>,
+    /**
+     * AW-5: the DataSource this service reads — the verify cache key carries its identity so a verdict
+     * for one database is never served for another (the governance console keeps its own database).
+     * `@Optional` only keeps hand-built instances (unit tests / scripts) constructible; Nest always
+     * supplies it, and without it the key falls back to the shared prefix.
+     *
+     * AW-5：本服务所读的 DataSource —— 校验缓存键带它的身份，故一个库的结论不会被当另一个库的答案
+     * 发出（治理台自带独立库）。`@Optional` 只为让手工构造的实例（单测/脚本）仍可构造；Nest 恒会注入，
+     * 缺席时键回落到共享前缀。
+     */
+    @Optional()
+    @InjectDataSource()
+    private readonly dataSource?: DataSource,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
   async verifyChain(): Promise<ChainVerification & { chain: AuditChainNode[] }> {
-    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[] }>(AUDIT_VERIFY_CACHE_KEY);
+    // AW-5：键带数据库身份 —— 否则一个库的结论会被当另一个库的答案发出（见 cache-keys.ts）。
+    // AW-5: the key carries the database identity — otherwise one database's verdict is served for another.
+    const cacheKey = auditVerifyCacheKey(this.dataSource);
+    const cached = await this.cacheService?.get<ChainVerification & { chain: AuditChainNode[] }>(cacheKey);
     if (cached) return cached;
     // 只取**已入链**的行：`hash` 为 null 的行从未入链（AddAuditHashChain 迁移前的历史行；
     // 以及测试/工具直插的行）。让它们参与校验会让 genesis 检查在**第 1 行**即失败
@@ -223,7 +239,7 @@ export class AuditEvidenceService {
     const rows = (await this.logRepo.find({ order: { id: 'ASC' } })).filter((r) => r.hash);
     const result = this.auditChain.verifyChain(rows, (row) => buildPayload(row));
     const detailed = { ...result, chain: this._chainSlice(rows, result) };
-    await this.cacheService?.set(AUDIT_VERIFY_CACHE_KEY, detailed, 60_000);
+    await this.cacheService?.set(cacheKey, detailed, 60_000);
     return detailed;
   }
 
