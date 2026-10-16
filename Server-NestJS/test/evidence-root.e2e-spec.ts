@@ -97,11 +97,23 @@ describe('证据根 v3 契约（KB-3）', () => {
       detail: '证据根导出：请给该客户建跟进任务',
       isError: false,
     });
+    // C-3 (54878a77) moved getEvidenceRoot's trigger match off the parsed `detail` and onto the `tool`
+    // column, and every real tool_call writer fills that column — `buildToolCallAudit` sets `tool` (and
+    // `outcome`) from the tool it names in `detail`. A fixture that names the tool only in `detail`
+    // therefore states a shape no writer produces, and the ai-audit anchor silently disappears; carry
+    // the columns the writer carries so this stays a realistic row.
+    //
+    // C-3（54878a77）把 getEvidenceRoot 的触发行配对从解析 `detail` 挪到了 `tool` 列，而每个真实的
+    // tool_call 写入方都填这一列——`buildToolCallAudit` 会从 `detail` 点名的那个工具一并写下 `tool`
+    // （与 `outcome`）。故只在 `detail` 里点名工具的夹具写出一个写入方从不产的形状，ai-audit 那枚锚
+    // 会无声消失；照写入方带上这两列，这一行才是一行像样的真实行。
     await audit.log({
       userId: String(userAId),
       conversationId: 'evidence-root-e2e-1',
       action: 'tool_call',
       detail: `create_followup_task({"customerId":${customerId},"title":"证据根导出用跟进任务"})`,
+      outcome: 'executed',
+      tool: 'create_followup_task',
       isError: false,
     });
   });
