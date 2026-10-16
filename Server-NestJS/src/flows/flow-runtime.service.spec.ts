@@ -94,7 +94,16 @@ describe('FlowRuntimeService', () => {
     expect(mockTaskRepo.save).toHaveBeenCalled();
     // human_task 无 next → completed
     expect(mockInstRepo.save).toHaveBeenCalledWith(expect.objectContaining({ state: 'completed' }));
+    // C-4: `flow_node` is not a tool action → the row carries no `outcome`/`tool` (locks the
+    // call-site decision so a later edit cannot quietly add a wrong outcome).
+    // C-4：`flow_node` 不是工具动作 → 该行不带 `outcome`/`tool`（锁住调用点的决定，后续改动无法悄悄
+    // 塞进一个错的结局）。
     expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('completed') }));
+    const completedRow = (mockAudit.log.mock.calls as Array<Array<Record<string, unknown>>>)
+      .map((c) => c[0])
+      .find((r) => String(r.detail).includes('completed'))!;
+    expect(completedRow).not.toHaveProperty('outcome');
+    expect(completedRow).not.toHaveProperty('tool');
   });
 
   it('resolveTask：reject → failed', async () => {

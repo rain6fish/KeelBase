@@ -58,6 +58,13 @@ export class ContentSafetyService {
         isError: true,
         detail: `content_safety:${result.reason ?? 'unknown'}:${(result.detail ?? '').slice(0, 80)}`,
         errorMessage: result.reason,
+        // C-4: `content_blocked` is not a tool action, so `outcome`/`tool` are deliberately absent —
+        // the contract keeps the outcome vocabulary to `tool_call`/`tool_confirmation`/`effect_revoke`
+        // and answers null for every other action (`any-other-action: [null]`). The refusal is already
+        // readable from `isError` plus `detail`.
+        // C-4：`content_blocked` 不是工具动作，故 `outcome`/`tool` 有意缺席 —— 契约把结果码词表限定在
+        // `tool_call`/`tool_confirmation`/`effect_revoke`，其余动作一律答 null
+        // （`any-other-action: [null]`）。这次拒绝已可由 `isError` 加上 `detail` 读出。
       });
     }
     return result;

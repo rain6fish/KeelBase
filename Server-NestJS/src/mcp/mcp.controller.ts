@@ -11,6 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ToolExposureService } from '../ai/tools/tool-exposure.service';
 import { AuditService } from '../ai/audit/audit.service';
+import { toolCallOutcome } from '../ai/audit/tool-call-audit';
 import {
   AuthorizationExplainerService,
   buildAllowSnapshot,
@@ -163,6 +164,15 @@ export class McpExportController {
           isError: true,
           errorMessage: e.message,
           authorization: JSON.stringify(e.reasons),
+          // C-4: a `tool_call` row owns the two off-chain attribution columns — without them the row
+          // cannot say what happened, nor which tool it was about. The reasons name the gate:
+          // `risk_policy` never reached a decision (`blocked`), every other refusal is `refused` —
+          // the split `buildToolCallAudit` makes.
+          // C-4：`tool_call` 行该答这两列链外归因列 —— 没有它们，这行说不出结局、也说不出是哪个工具。
+          // reasons 点名是哪道闸：`risk_policy` 从没到过裁决（`blocked`），其余拒绝是 `refused`
+          // —— 与 `buildToolCallAudit` 同一套分法。
+          outcome: e.reasons.some((r) => r.name === 'risk_policy') ? 'blocked' : 'refused',
+          tool: toolName,
         });
         return this._error(id, -32603, e.message);
       }
@@ -198,6 +208,13 @@ export class McpExportController {
       promptTokens: out.result?.usage?.promptTokens,
       completionTokens: out.result?.usage?.completionTokens,
       authorization: allowSnapshot,
+      // C-4: the row answers its own outcome. Held for confirmation (`!executed`) is `pending`; an
+      // execution answers `toolCallOutcome` — the one spelling the chat path and the R4 executor
+      // share, so the three ends cannot word one outcome three ways.
+      // C-4：本行自己答结局。被扣下等确认（`!executed`）是 `pending`；执行过则由 `toolCallOutcome`
+      // 答 —— 对话那条路与 R4 执行器共用的那一个词，三端才不会把一个结局写成三种说法。
+      outcome: !out.executed ? 'pending' : toolCallOutcome(out.result ?? { success: false }),
+      tool: toolName,
     });
 
     if (!out.executed) {

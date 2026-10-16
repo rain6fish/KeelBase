@@ -101,6 +101,10 @@ export class FlowRuntimeService {
     await this.auditService.log({
       userId: String(initiatorId),
       action: 'flow_node',
+      // C-4: `flow_node` is not a tool action, so `outcome`/`tool` are deliberately absent — the
+      // contract keeps the outcome vocabulary to the three tool actions (`any-other-action: [null]`).
+      // C-4：`flow_node` 不是工具动作，故 `outcome`/`tool` 有意缺席 —— 契约把结果码词表限定在三类工具
+      // 动作上（`any-other-action: [null]`）。
       detail: `flow:${definitionId} start`,
       businessEvent: 'FlowInstanceStarted',
       evidence: JSON.stringify({ definitionId, definitionName: def.name, event: 'start' }),
@@ -122,6 +126,10 @@ export class FlowRuntimeService {
     await this.auditService.log({
       userId: String(inst.initiatorId),
       action: 'flow_node',
+      // C-4: `flow_node` is not a tool action, so `outcome`/`tool` are deliberately absent — the
+      // contract keeps the outcome vocabulary to the three tool actions (`any-other-action: [null]`).
+      // C-4：`flow_node` 不是工具动作，故 `outcome`/`tool` 有意缺席 —— 契约把结果码词表限定在三类工具
+      // 动作上（`any-other-action: [null]`）。
       detail: `flow:${inst.definitionId} node:${node.id} (${node.type})`,
       businessEvent: 'FlowNodeReached',
       evidence: JSON.stringify({
@@ -176,6 +184,10 @@ export class FlowRuntimeService {
       await this.auditService.log({
         userId: String(inst.initiatorId),
         action: 'flow_node',
+        // C-4: `flow_node` is not a tool action, so `outcome`/`tool` are deliberately absent — the
+        // contract keeps the outcome vocabulary to the three tool actions (`any-other-action: [null]`).
+        // C-4：`flow_node` 不是工具动作，故 `outcome`/`tool` 有意缺席 —— 契约把结果码词表限定在三类工具
+        // 动作上（`any-other-action: [null]`）。
         detail: `flow:${inst.definitionId} completed`,
         businessEvent: 'FlowInstanceCompleted',
         evidence: JSON.stringify({ definitionId: inst.definitionId, event: 'completed' }),
@@ -229,6 +241,10 @@ export class FlowRuntimeService {
     await this.auditService.log({
       userId: String(userId),
       action: 'flow_node',
+      // C-4: `flow_node` is not a tool action, so `outcome`/`tool` are deliberately absent — the
+      // contract keeps the outcome vocabulary to the three tool actions (`any-other-action: [null]`).
+      // C-4：`flow_node` 不是工具动作，故 `outcome`/`tool` 有意缺席 —— 契约把结果码词表限定在三类工具
+      // 动作上（`any-other-action: [null]`）。
       detail: `flow:${inst.definitionId} task:${task.id} ${decision}`,
       isError: decision === 'reject',
       businessEvent: decision === 'approve' ? 'FlowTaskApproved' : 'FlowTaskRejected',

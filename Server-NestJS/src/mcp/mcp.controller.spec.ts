@@ -129,7 +129,16 @@ describe('McpExportController (HS-10)', () => {
       expect.objectContaining({ action: 'tool_call', provider: 'mcp', userId: '1' }),
     );
     // T5 跨入口一致：放行/成功也写放行依据快照（与 REST/SSE 同形，buildAllowSnapshot 单一构造）
-    const logged = (audit.log as jest.Mock).mock.calls[0][0] as { authorization?: string };
+    const logged = (audit.log as jest.Mock).mock.calls[0][0] as {
+      authorization?: string;
+      outcome?: string;
+      tool?: string;
+    };
+    // C-4: the `tool_call` row lands both off-chain attribution columns — the tool name and the
+    // structured outcome, spelled in the chat path's own vocabulary.
+    // C-4：`tool_call` 行落下两列链外归因列 —— 工具名与结构化结局，用对话那条路自己的词表拼写。
+    expect(logged.outcome).toBe('executed');
+    expect(logged.tool).toBe('query_events');
     expect(logged.authorization).toBeDefined();
     expect(JSON.parse(logged.authorization!)).toMatchObject({
       allowed: true,
@@ -153,9 +162,16 @@ describe('McpExportController (HS-10)', () => {
       method: 'tools/call',
       params: { name: 'query_events', arguments: {} },
     });
-    const logged = (audit.log as jest.Mock).mock.calls[0][0] as { authorization?: string; isError?: boolean };
+    const logged = (audit.log as jest.Mock).mock.calls[0][0] as {
+      authorization?: string;
+      isError?: boolean;
+      outcome?: string;
+    };
     expect(logged.isError).toBe(true);
     expect(logged.authorization).toBeUndefined();
+    // C-4: a failed execution is `failed` — a real value, not a blank column.
+    // C-4：执行失败是 `failed` —— 一个真值，不是空列。
+    expect(logged.outcome).toBe('failed');
   });
 
   it('tools/call 写工具 → 不执行，返回需确认提示', async () => {
@@ -168,7 +184,12 @@ describe('McpExportController (HS-10)', () => {
     });
     expect((res as any).result.content[0].text).toContain('requires confirmation');
     expect((res as any).result.isError).toBe(false);
-    expect(audit.log).toHaveBeenCalled();
+    // C-4: a call held for confirmation is `pending`, and still names its tool — a blank row here is
+    // what the two columns exist to prevent.
+    // C-4：被扣下等确认的调用是 `pending`，并仍点名它的工具 —— 空行正是这两列要防止的东西。
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'pending', tool: 'create_event' }),
+    );
   });
 
   it('tools/call 工具调用失败 → isError 标记 + 错误内容', async () => {
@@ -230,10 +251,31 @@ describe('McpExportController (HS-10)', () => {
         errorMessage: '无权访问此工具',
         detail: expect.stringContaining('authorization denied'),
         authorization: JSON.stringify(reasons),
+        // C-4: a governance refusal is `refused` and still names the tool it was about.
+        // C-4：治理拒绝是 `refused`，并仍点名它针对的那个工具。
+        outcome: 'refused',
+        tool: 'create_event',
       }),
     );
     expect((res as any).error.code).toBe(-32603);
     expect((res as any).error.message).toBe('无权访问此工具');
+  });
+
+  it('T5 tools/call 风险策略拒绝（risk_policy）→ outcome=blocked（未到裁决，另一道闸）', async () => {
+    ai.executeToolForExternal.mockRejectedValue(
+      new AuthorizationDeniedError('blocked by risk policy', [{ name: 'risk_policy', ok: false }]),
+    );
+    await controller.handle(user, {
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: { name: 'delete_customer', arguments: { id: 1 } },
+    });
+    // C-4: `risk_policy` never reached a decision, so the outcome is `blocked`, not `refused`.
+    // C-4：`risk_policy` 从没到过裁决，故结局是 `blocked`，不是 `refused`。
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'blocked', tool: 'delete_customer' }),
+    );
   });
 
   it('通知类方法无响应', async () => {
