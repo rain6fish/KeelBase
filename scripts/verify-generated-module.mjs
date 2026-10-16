@@ -20,17 +20,25 @@
  *
  * Prereq: the module is generated and the back end is up, and the write tool can actually be driven.
  * Two environments qualify. A real LLM: the default trigger sentence is enough, since it picks the
- * tool by meaning. The deterministic demo provider (no API key): the trigger sentence MUST carry
- * explicit `field=value` tokens covering the tool's required params — set it via TRIGGER_MSG. The
- * default trigger has no `=`, so under the demo provider it does NOT drive a generic write tool.
- * The created record is located via MARKER_FIELD (default `title`); a module with no `title` column
- * must name the field that actually holds the marker.
+ * tool by meaning. The deterministic demo provider (no API key) routes to a generic write tool only
+ * when ALL THREE hold, so the trigger sentence must satisfy all three — set it via TRIGGER_MSG:
+ *   ① a creation verb — `创建` / `新增` / `建立` / `录入` / `create` / `add`;
+ *   ② explicit `field=value` tokens whose field names start with a letter;
+ *   ③ those tokens covering the tool's EVERY required param.
+ * The gate itself is `decideGeneratedCreate` in `Server-NestJS/src/ai/providers/demo-provider.ts`.
+ * The default trigger has a verb but no `=`, so under the demo provider it does NOT drive a generic
+ * write tool. The created record is located via MARKER_FIELD (default `title`); a module with no
+ * `title` column must name the field that actually holds the marker.
  *
  * 前置：模块已由 keelbase init 生成、后端已起，且该写工具**确实能被驱动**。两类环境都算：真实 LLM
- * （默认触发语即可，它按语义选工具），或确定性演示 Provider（无 API key —— 触发语**必须**带显式
- * `field=value` 对、覆盖工具必需参数，用 `TRIGGER_MSG` 指定）。默认触发语不含 `=`，故在演示模式下
- * **不会**驱动通用写工具。记录靠 `MARKER_FIELD`（缺省 `title`）定位；模块没有 `title` 列时须指定
- * 实际持有该标记的字段。
+ * （默认触发语即可，它按语义选工具），或确定性演示 Provider（无 API key —— 只有**三件同时成立**才会
+ * 路由到通用写工具，故触发语要同时满足，用 `TRIGGER_MSG` 指定）：
+ *   ① 一个**创建动词** —— `创建` / `新增` / `建立` / `录入` / `create` / `add`；
+ *   ② 显式 `field=value` 对，且**字段名以字母开头**；
+ *   ③ 这些对**覆盖该工具的全部必填参数**。
+ * 闸门本体 = `Server-NestJS/src/ai/providers/demo-provider.ts` 的 `decideGeneratedCreate`。
+ * 默认触发语有动词但没有 `=`，故在演示模式下**不会**驱动通用写工具。记录靠 `MARKER_FIELD`
+ * （缺省 `title`）定位；模块没有 `title` 列时须指定实际持有该标记的字段。
  *
  * 注意：验证撤销类逻辑务必用**多字（snake_case）模块名**（如 followup_plans）——单字名会掩盖一类解析缺陷。
  */
@@ -60,6 +68,10 @@ const MARKER_FIELD = process.env.MARKER_FIELD || 'title';
 // Override the trigger sentence — the demo provider needs explicit `field=value` tokens (see header).
 // 覆盖触发语 —— 演示 Provider 需要显式 `field=value` 对（见文件头）。
 const TRIGGER_MSG = process.env.TRIGGER_MSG;
+// The demo provider's own two text checks, mirrored so a miss can be named instead of guessed at.
+// 演示 Provider 自己那两处文本判定；镜像过来，好在失败时点出是哪一件，而不是让人去猜。
+const CREATION_VERB_RE = /(创建|新增|建立|录入|创建一张|create|add)/i;
+const FIELD_TOKEN_RE = /([A-Za-z][A-Za-z0-9]*)\s*=\s*([^，,。、;；\s]+)/g;
 
 const results = [];
 const startMs = Date.now();
@@ -141,7 +153,16 @@ async function main() {
   const run = await runChatWithApproval(H, message);
   const c = run.confirmation;
   if (!c) {
-    bad('产生 confirmation_request', '未收到——模块的写工具可能未注册，或 LLM 未选择该工具');
+    const hasVerb = CREATION_VERB_RE.test(message);
+    const tokens = [...message.matchAll(FIELD_TOKEN_RE)].map((m) => m[1]);
+    const trig = message.length > 80 ? `${message.slice(0, 80)}…` : message;
+    bad('产生 confirmation_request',
+      `未收到 —— 写工具没有被驱动。触发语（${TRIGGER_MSG ? 'TRIGGER_MSG' : '默认'}）：「${trig}」\n` +
+      '     演示 Provider 下要三件同时成立才会路由到通用写工具（demo-provider.ts 的 decideGeneratedCreate），按顺序自查：\n' +
+      `       ① 创建动词 …… ${hasVerb ? '有' : '没有（要 创建 / 新增 / 建立 / 录入 / create / add）'}\n` +
+      `       ② field=value …… ${tokens.length ? `有（${tokens.join('、')}）` : '没有（字段名须以字母开头）'}\n` +
+      `       ③ 覆盖全部必填 …… 本地判不了：看 ${WRITE_TOOL} 的 schema，必填参数缺哪个补哪个\n` +
+      `     ${hasVerb && tokens.length ? '①②已满足 ⇒ 查③；或工具确实未注册；若配了真实模型，则是它没选中这个工具。' : '先把上面标「没有」的那一项补上。'}`);
   } else {
     ok('产生 confirmation_request', `tool=${c.toolName}`);
     c.toolName === WRITE_TOOL ? ok('确认来自本模块写工具', c.toolName) : bad('确认来自本模块写工具', `实得 ${c.toolName}`);
