@@ -44,14 +44,21 @@ Criterion: both `exit 0`; the report lists **2 unmapped items** — the two busi
 ### 2. Generate the module
 
 ```bash
-node scripts/keelbase-init.mjs --spec specs/asset-loans.json
-# if the module already exists in the tree (as it does here): add --force
+# Reproducing this worked example: the module is ALREADY in the tree, so --force is not optional …
+node scripts/keelbase-init.mjs --spec specs/asset-loans.json --force
+# … and --force has just overwritten the hand-written layer from step 3. Put it back NOW — the next
+# steps (4, 6, 7) check exactly those rules, so a tree left overwritten makes them fail.
+git checkout -- Server-NestJS/src/asset_loans/
+git status --porcelain        # → no output
 ```
 
 Criterion: `已生成 23 个文件` plus the wiring list. Its `CLAUDE.md` line reads `接线：CLAUDE.md` on a first generation, and `已存在：CLAUDE.md（幂等跳过）` when the wiring is already in place — the generator wires it idempotently, and **both wordings pass**.
 
-**⚠ Generation is one-way.** `--force` overwrites every generated file — **including the hand-written layer from step 3**. So generate **once**, hand-write after, and **do not regenerate**. If you must regenerate (say a template fix landed), put the hand-written layer back right after with
-`git checkout -- Server-NestJS/src/asset_loans/` — **which only works if that layer was already committed**, so in a brand-new delivery commit steps 1–3 *before* you ever regenerate.
+**⚠ Generation is one-way, and this is the one step where that bites.** `--force` rewrites every generated
+file — **including the hand-written layer**. In this reproduction path the layer is committed, so the
+`git checkout` line above brings it back and the tree returns to clean; **do not skip it**. For a **new**
+module (§10) there is no `--force` and nothing to restore: generate **once**, hand-write after, never
+regenerate — and if you ever must, `git checkout` only helps if you committed the hand-written layer first.
 
 After a `--force` run, `git status --porcelain` lists **three** paths: `asset_loans.service.ts` / `asset_loans.service.spec.ts` **plus** `src/asset_loans/.keelbase-provenance.json`, whose only change is its `generatedAt` timestamp. So "which files went dirty" tells you the hand-written layer **plus that one timestamp-only file** — not the hand-written layer alone.
 
@@ -243,6 +250,8 @@ business behind it — three of those steps stop being verification and become t
    wider is a hand-written policy, and that belongs to step 3.
 3. **Generate, then hand-write the `unmapped[]` rules and their tests, then author the dual-dialect
    migration and register it** — steps 2, 3 and 5 above, with your content in place of this example's.
+   (Step 2's `--force` + `git checkout` pair belongs to the **reproduction** path only: here you
+   generate once and never force.)
 4. **Declare the hand-written layer.** Add the module to `scripts/check-generated-samples.mjs`'s
    `EXEMPT` map, **keyed by the generator's plural form**, with the reason — the five entries already
    there are the shape to copy. A hand-written layer is declared, not silently dropped.
@@ -301,17 +310,21 @@ node scripts/generator/business-spec.mjs --in .keelbase/business-spec/asset-loan
 ### 2. 生成模块
 
 ```bash
-node scripts/keelbase-init.mjs --spec specs/asset-loans.json
-# 模块已在树里（本仓即是）：加 --force
+# 复现这个范例：模块**已经在树里**，故 --force 不是可选项……
+node scripts/keelbase-init.mjs --spec specs/asset-loans.json --force
+# ……而 --force 刚刚把第 3 步那层手写规则覆盖掉了。**现在**就放回去 ——
+# 后面第 4、6、7 步核的正是那几条规则，树停在「被覆盖」状态会让它们全都不通过。
+git checkout -- Server-NestJS/src/asset_loans/
+git status --porcelain        # → 无输出
 ```
 
 判据：`已生成 23 个文件` 加接线清单。其中 `CLAUDE.md` 那条在**首次**生成时打印 `接线：CLAUDE.md`，在**已经接好**时打印
 `已存在：CLAUDE.md（幂等跳过）` —— 生成器是幂等接线的，**两种措辞都算过**。
 
-**⚠ 生成是单向的。** `--force` 会重写每一个生成文件 —— **包括第 3 步那层手写规则**。故**只生成一次**，随后再手写，
-**不要重生成**。若确需重生成（比如模板修好了），之后立刻用
-`git checkout -- Server-NestJS/src/asset_loans/` 把手写层放回去 —— **这只在那一层已经提交过时才管用**，
-故**全新交付**里请**先**提交第 1–3 步，再考虑重生成。
+**⚠ 生成是单向的，而这一步正是它咬人的地方。** `--force` 会重写每一个生成文件 —— **包括那层手写规则**。
+在**复现**这条路上那一层是已提交的，所以上面那行 `git checkout` 能把它放回来、树回到干净；**这一行别跳过**。
+**新模块**（§10）没有 `--force`、也没有要还原的东西：**只生成一次**，随后再手写，**不要重生成** ——
+万一确需重生成，`git checkout` 也只在你**先提交过**那层手写之后才管用。
 
 跑完一次 `--force`，`git status --porcelain` 会列出**三**条路径：`asset_loans.service.ts` /
 `asset_loans.service.spec.ts`，**外加** `src/asset_loans/.keelbase-provenance.json`，它唯一的变化是 `generatedAt`
@@ -480,7 +493,7 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
    若该模块**不是**按本人所有权限定的，生成器只会给出默认的单一角色 CASL 规则并如实说明；更宽的范围要手写策略，
    那属于第 3 步。
 3. **生成 → 手写 `unmapped[]` 的规则与其测试 → 写双方言迁移并登记** —— 就是上面的第 2、3、5 步，只是内容换成你的，
-   而不是这个范例的。
+   而不是这个范例的。（第 2 步那对 `--force` + `git checkout` **只属于复现那条路** —— 在这里你只生成一次、不 `--force`。）
 4. **声明手写层。** 把模块加进 `scripts/check-generated-samples.mjs` 的 `EXEMPT` 表，**键用生成器的复数形**，并写上理由 ——
    表里已有的五条就是照抄的形状。手写层是**被声明的**，不是悄悄丢掉的。
 5. **从第 4 步起，本 recipe 原样适用**：构建与测试、两个方言的迁移、静态仪器（**先提交** —— 它拒绝脏工作树）、
