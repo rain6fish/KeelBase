@@ -384,6 +384,10 @@ export class TrustSandboxService {
     }
     const id = (effect as { id: number }).id;
     const title = (effect as { targetTitle?: string | null }).targetTitle ?? null;
+    // C-5：本行所属的工具是本副作用的工具——从手上这行**副作用**取，不解析 detail 文本。
+    // C-5: the tool this row is about is the side effect's own tool — taken from the side-effect row in
+    // hand, never parsed out of `detail` text.
+    const effectTool = (effect as { toolName?: string }).toolName;
     // 1.0.8 deferred：沙盘不静默撤销真实效果——须调用方显式 confirm（软删虽可恢复，仍先确认）
     if (!confirm) {
       return {
@@ -404,6 +408,14 @@ export class TrustSandboxService {
       await this.auditService?.log({
         userId,
         action: 'effect_revoke',
+        // C-3 的两列链外归因列（C-5 补齐本点）：`revoked` 是冻结向量为 effect_revoke 钉的唯一结局
+        // （ai-audit-log-outcome-v1-vector.json，legalByAction.effect_revoke=[revoked]）；tool 取副作用自身的
+        // 工具名。这样读取方**不再解析 detail 自由文本**即可按结局/工具归类。
+        // C-3's two out-of-chain attribution columns (C-5 fills them at this site): `revoked` is the only
+        // outcome the frozen vector pins for effect_revoke (legalByAction.effect_revoke=[revoked]); `tool`
+        // is the side effect's own tool name. A reader now classifies by outcome/tool without parsing `detail`.
+        outcome: 'revoked',
+        tool: effectTool,
         detail: `revoke effect #${id}${title ? `「${title}」` : ''} → ${res?.revokeStatus ?? 'revoked'}`,
         source: 'sandbox',
       });
