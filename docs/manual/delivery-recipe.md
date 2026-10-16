@@ -241,6 +241,11 @@ business behind it — three of those steps stop being verification and become t
    the shapes you will be editing: **`docs/business-spec.md`** (the spec JSON) and
    **`docs/module-protocol.md`** (the protocol it maps to — fields, `enum`, `label`, `scope`); the
    required-by-type default table is in step 7 above.
+   There is no skeleton inlined here: copy the example in `docs/business-spec.md` §2 (or a committed
+   `.keelbase/business-spec/*.json`) and change the keys. Whatever `evidenceRef` points at
+   (`.keelbase/interview/<feature>.md`, or an archived artifact) must **exist** — the `--out` run only
+   *warns* when it is missing, but `spec:check` (which `check:all` runs) **fails** on that warning, so
+   create the Evidence file alongside the spec.
 2. **Pick a module name that is not taken, and preview before writing.**
    `node scripts/keelbase-init.mjs --dry-run --spec specs/<module>.json` prints the plan without
    touching the tree. Generating into a directory that already holds hand-written code is refused,
@@ -248,15 +253,32 @@ business behind it — three of those steps stop being verification and become t
    sample gate and its EXEMPT map use, so take the name the dry run prints. If the module is **not**
    ownership-scoped, the generator emits only the default single-role CASL rule and says so; anything
    wider is a hand-written policy, and that belongs to step 3.
+   The **positive** check that the name is free (the dry run prints the plan but does not assert it):
+   no `Server-NestJS/src/<plural>/` directory exists and `<plural>` is absent from
+   `.keelbase/manifest.json`'s `modules`.
 3. **Generate, then hand-write the `unmapped[]` rules and their tests, then author the dual-dialect
    migration and register it** — steps 2, 3 and 5 above, with your content in place of this example's.
    (Step 2's `--force` + `git checkout` pair belongs to the **reproduction** path only: here you
    generate once and never force.)
+   - Adding a guard to `create()` breaks the module's **own generated spec**: its happy-path test calls
+     `create({}, userId)` with an empty body, so hand-fix that test to pass valid input too — not only
+     the new rule tests.
+   - The migration is a **generate-then-add-the-pg-branch** file, and neither this recipe nor
+     `docs/module-protocol.md` §3 says so: `migration:generate` emits a **single-dialect (sqlite)**
+     file, but the repo's committed migrations are **dual-dialect**, so add the postgres branch by hand
+     (its `PK_` / `IDX_` names are the sha1 formulas in step 5) and register the name in
+     `src/config/postgres-migrations.ts`. (`module-protocol.md` §3's "migrations are generated, not
+     hand-written" is about that generated SQL, not a ban on the pg branch.)
 4. **Declare the hand-written layer.** Add the module to `scripts/check-generated-samples.mjs`'s
    `EXEMPT` map, **keyed by the generator's plural form**, with the reason — the five entries already
    there are the shape to copy. A hand-written layer is declared, not silently dropped.
 5. **From step 4 on, the recipe applies unchanged**: build and tests, both migration dialects, the
    static instrument (commit first — it refuses a dirty tree), runtime acceptance, deploy.
+   One thing step 7 does not tell you, and a **new** module will hit: under the demo provider the
+   trigger only drives a generated `create_*` tool when `TRIGGER_MSG` carries **both** a creation verb
+   (`创建` / `新增` / `建立` / `录入` / `create` / `add`) **and** `field=value` tokens covering every
+   required param. A trigger with the tokens but no creation verb runs nothing, and the verifier
+   reports **2/7** with "写工具可能未注册" — which reads like a registration failure, not a trigger one.
 
 **What this recipe cannot hand you: the rules themselves.** They come from the business you are
 delivering for — step 1 is where they get written down, step 3 is where they get implemented. If your
@@ -487,17 +509,32 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
    协议表达不了的都落进 `unmapped[]` —— 那张单子是你的**手写工作清单**，不是失败（对应上面第 1 步）。
    本节**不内联**的两份文档，正是你要动手编辑的形状：**`docs/business-spec.md`**（规格 JSON）与
    **`docs/module-protocol.md`**（它映射成的模块协议 —— 字段、`enum`、`label`、`scope`）；按类型默认那张表在上面第 7 步里。
+   本节**不内联骨架**：照抄 `docs/business-spec.md` §2 的那个示例（或仓里某份 `.keelbase/business-spec/*.json`）改键即可。
+   `evidenceRef` 指向的那个文件（`.keelbase/interview/<feature>.md`，或归档产物）必须**存在** —— `--out` 那步缺了只**告警**，
+   但 `spec:check`（`check:all` 会跑）**判告警为失败**，故要和规格一起把 Evidence 文件建出来。
 2. **取一个没被占用的模块名，并先预览再落盘。**
    `node scripts/keelbase-init.mjs --dry-run --spec specs/<模块>.json` 只打印计划、不碰树。往**已有手写代码**的目录里生成
    会被拒；而目录名用的是**生成器自己的复数规则** —— 那也正是样本门禁与它的 EXEMPT 表所用的键，所以**用 dry-run 打出来的那个名字**。
    若该模块**不是**按本人所有权限定的，生成器只会给出默认的单一角色 CASL 规则并如实说明；更宽的范围要手写策略，
    那属于第 3 步。
+   **正向**判「名字没被占用」（dry-run 只打印计划、自己并不断言这一点）：`Server-NestJS/src/<复数>/` 目录不存在，
+   且 `.keelbase/manifest.json` 的 `modules` 里没有 `<复数>`。
 3. **生成 → 手写 `unmapped[]` 的规则与其测试 → 写双方言迁移并登记** —— 就是上面的第 2、3、5 步，只是内容换成你的，
    而不是这个范例的。（第 2 步那对 `--force` + `git checkout` **只属于复现那条路** —— 在这里你只生成一次、不 `--force`。）
+   - 往 `create()` 里加守卫，会先弄红模块**自己那份生成规格**：它的 happy-path 用例是以 `create({}, userId)` 空体调的，
+     所以那条用例也要一并手改成传合法入参 —— 不只是新增的规则用例。
+   - 迁移是**「先生成、再补 pg 分支」**的文件，而这一点本 recipe 与 `docs/module-protocol.md` §3 都没说：
+     `migration:generate` 产出的是**单方言（sqlite）**文件，而仓里已提交的迁移是**双方言**，故 postgres 分支要手补
+     （它的 `PK_` / `IDX_` 名就是上面第 5 步那两条 sha1 公式），再把名字登记进 `src/config/postgres-migrations.ts`。
+     （`module-protocol.md` §3 的「迁移由 `migration:generate` 生成、禁止手写」说的是那段生成的 SQL，不是禁掉 pg 分支。）
 4. **声明手写层。** 把模块加进 `scripts/check-generated-samples.mjs` 的 `EXEMPT` 表，**键用生成器的复数形**，并写上理由 ——
    表里已有的五条就是照抄的形状。手写层是**被声明的**，不是悄悄丢掉的。
 5. **从第 4 步起，本 recipe 原样适用**：构建与测试、两个方言的迁移、静态仪器（**先提交** —— 它拒绝脏工作树）、
    运行时验收、部署。
+   第 7 步没讲、而**新**模块一定会撞上的一处：演示 Provider 下，触发语**同时**带**创建类动词**（`创建` / `新增` / `建立` /
+   `录入` / `create` / `add`）**和**覆盖该工具每个必填参数的 `field=value` 对时，才驱动生成的 `create_*` 工具。
+   只有 `field=value` 而没有创建类动词，就什么都不跑，验收器报 **2/7** 且提示「写工具可能未注册」—— 那读起来像注册失败，
+   而不是触发语的问题。
 
 **本 recipe 交不出去的，是规则本身。** 它们来自你要交付的那门业务 —— 第 1 步把它们**写下来**，第 3 步把它们**实现**。
 若你这次交付**没有** `unmapped[]` 项，就**明说没有**，别为了显得周全去编规则。
