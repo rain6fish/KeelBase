@@ -223,20 +223,32 @@ export class BehaviorBaselineService {
   /**
    * R-2：扫描窗口内同一用户对**同一高危工具**（R4/R5）的失败调用反复超过阈值。
    *
-   * 为什么必须取回行而不是纯 SQL：工具名不在任何列里，只存在于 `detail` 文本
-   * （`extractToolName` 还原），所以只能拉回窗口内的失败行再在内存分组。
+   * R-2: repeated failed calls by one user against the **same high-risk tool** (R4/R5) past a
+   * threshold, within the scan window.
+   *
+   * The rows are fetched rather than grouped in SQL because the grouping key is the tool name and the
+   * high-risk test needs the registry per name — neither pushes down. The name comes from the row's
+   * `tool` column (the off-chain attribution column C-3 added; contract `ai-audit-log-row` v5) and
+   * only falls back to parsing `detail` (`extractToolName`) for rows written before that column
+   * existed. A refused call is exactly where the two disagree across implementations — `detail`'s
+   * grammar belongs to the producer — and the column exists so a reader stops parsing that text.
+   *
+   * 为什么必须取回行而不是纯 SQL：规则要按工具名分组、还要逐名问注册表判高危，分组键算不出来就下推不了。
+   * 工具名优先取 `tool` 列（C-3 加的链外归因列，`ai-audit-log-row` v5）；该列出现之前的旧行没有它，
+   * 才回落解析 `detail` 文本（`extractToolName`）——`detail` 的写法是产出方的事（两个实现的文法不同），
+   * 结构化列正是为**不再解析那行文本**而存在的。被拒的调用**正是**两种写法跨实现分歧的地方。
    */
   private async _ruleDeniedHighRiskRetries(since: Date, cfg: BehaviorScanConfig): Promise<AlertCandidate[]> {
     if (!this.toolRegistry) return [];
     const rows = await this.logRepo.find({
       where: { action: 'tool_call', isError: true, createdAt: MoreThanOrEqual(since) },
-      select: { id: true, userId: true, detail: true, conversationId: true },
+      select: { id: true, userId: true, detail: true, conversationId: true, tool: true },
       order: { id: 'ASC' },
     });
 
     const groups = new Map<string, { userId: string; toolName: string; ids: number[]; conversationId: string | null }>();
     for (const row of rows) {
-      const toolName = extractToolName(row.detail);
+      const toolName = row.tool ?? extractToolName(row.detail);
       if (!toolName || !this._isHighRisk(toolName)) continue;
       const key = `${row.userId}::${toolName}`;
       const g = groups.get(key) ?? { userId: row.userId, toolName, ids: [], conversationId: row.conversationId ?? null };

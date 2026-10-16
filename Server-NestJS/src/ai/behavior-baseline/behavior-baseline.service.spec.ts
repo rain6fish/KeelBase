@@ -131,6 +131,28 @@ describe('BehaviorBaselineService（BA 规则型基线）', () => {
       failures(10, 'delete_customer => 执行失败'); // 不带 `(` 的形态
       expect(await service.scan()).toHaveLength(0);
     });
+
+    it('C-4(c)：被拒行带结构化 `tool` 列时，工具名取自该列而非解析 `detail`', async () => {
+      tools.riskLevel.mockReturnValue('R5');
+      // 行带独立的 `tool` 列（C-3 加的链外归因列），而 `detail` 是**另一实现**的文法
+      // （`<tool> <词> …`，见 contract `ai-audit-log-row` v5 的 tool 说明）——`name(` 解析不出来。
+      // 结构化记录必须仍能说出「是哪个高危工具被拒」：断言读的是 `tool` 列。
+      logRepo.find.mockResolvedValue(
+        Array.from({ length: 4 }, (_, i) => ({
+          id: i + 1,
+          userId: 'u1',
+          detail: 'delete_customer 删除客户', // 无 `(` → extractToolName 返回 null
+          conversationId: 'c1',
+          tool: 'delete_customer', // 结构化来源
+        })),
+      );
+
+      const saved = await service.scan();
+
+      expect(saved).toHaveLength(1);
+      const evidence = JSON.parse((saved[0] as unknown as { evidenceJson: string }).evidenceJson);
+      expect(evidence.toolName).toBe('delete_customer');
+    });
   });
 
   describe('R-3 短时写入规模异常', () => {
