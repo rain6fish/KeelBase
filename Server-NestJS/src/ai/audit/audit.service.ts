@@ -15,7 +15,7 @@ import { actorContext } from '../actor-context';
 import { requestContext } from '../../common/request-context';
 import { AuditChainService } from '../../common/audit-chain/audit-chain.service';
 import { buildPayload } from './payload';
-import { AUDIT_VERIFY_CACHE_KEY } from './cache-keys';
+import { auditVerifyCacheKey } from './cache-keys';
 import { GOVERNANCE_REPORTER } from '../governance-bridge/governance-reporter.service';
 import type { GovernanceReporter } from '../governance-bridge/governance-reporter.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -223,7 +223,10 @@ export class AuditService {
         .catch(() => {});
     }
     // E-3：新审计入链 → 哈希链 verify 缓存失效（聚合 stats/cost/report 靠 60s TTL 自过期，不做热路径失效）
-    await this.cacheService?.delByPrefix(AUDIT_VERIFY_CACHE_KEY);
+    // AW-5：只失效**本库**的 verify 键（键带数据库身份）——按前缀删，作用域收窄到一个库。
+    // AW-5: invalidate only **this database's** verify key (the key carries the database identity);
+    // the prefix delete is scoped to one database.
+    await this.cacheService?.delByPrefix(auditVerifyCacheKey(this.dataSource));
     return saved;
   }
 
