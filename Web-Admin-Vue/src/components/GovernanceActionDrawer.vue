@@ -191,6 +191,10 @@ const lifecycleState = computed(() => {
   if (!data.value) return ''
   const effect = data.value.effect
   if (effect.targetSoftDeleted) return 'revoked'
+  // Restored = a revoke happened and the target is back in effect (server single authority). It is
+  // its own current state: the action is not simply "confirmed" anymore.
+  // 恢复态 = 撤销过、且目标已回到生效态（服务端单一权威）。它是独立的当前态：该动作已不只是「已确认」。
+  if (effect.restored) return 'restored'
   const confirm = steps.value.find((s) => s.type === 'confirmation')
   if (confirm?.outcome === 'decline') return 'declined'
   const denied = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
@@ -209,6 +213,12 @@ const lifecycleSteps = computed(() => {
   const confirm = sList.find((s) => s.type === 'confirmation')
   const denied = !!toolCall && toolCall.success === false
   const revoked = !!effect.targetSoftDeleted
+  // A-3 restore state: a restored target proves the revoke happened first, so the revoke node reads
+  // finish (not wait) when restored — otherwise the timeline contradicts itself.
+  // A-3 恢复态：目标被恢复即证明「撤销」先发生过，故 restored 时撤销节点须为 finish（而非 wait）——
+  // 否则时间线与「恢复」节点自相矛盾。
+  const restored = !!effect.restored
+  const everRevoked = revoked || restored
   const out: Array<{ key: string; label: string; description: string; status: 'finish' | 'error' | 'process' | 'wait' }> = [
     { key: 'initiate', label: t('stepInitiate'), description: input?.content?.trim() ? input.content.trim().slice(0, 40) : '', status: input ? 'finish' : 'process' },
     // A-3 authorize：授权结论以 tool_call 是否已发生为准（放行且执行的快照是对象格式，parseChecks 只认数组→checks 为空，
@@ -243,15 +253,16 @@ const lifecycleSteps = computed(() => {
     out.push({
       key: 'revoke',
       label: t('stepRevoke'),
-      description: revoked
+      description: everRevoked
         ? cascade
           ? t('lifecycleRevokedCascade', { n: cascade })
           : t('lifecycleRevoked')
         : '',
-      status: revoked ? 'finish' : 'wait',
+      status: everRevoked ? 'finish' : 'wait',
     })
-    // A-3 恢复态：补偿过但目标当前未软删 = 已从回收站恢复（服务端 restored 单一权威）
-    const restored = data.value.effect.restored
+    // A-3 restore state: compensated then currently not soft-deleted = restored from the recycle bin
+    // (server-side `restored` is the single authority).
+    // A-3 恢复态：补偿过但目标当前未软删 = 已从回收站恢复（服务端 restored 单一权威）。
     out.push({
       key: 'restore',
       label: t('stepRestore'),
@@ -262,9 +273,9 @@ const lifecycleSteps = computed(() => {
   return out
 })
 const lifecycleLabel = (s: string) =>
-  ({ revoked: t('lifecycleRevoked'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
+  ({ revoked: t('lifecycleRevoked'), restored: t('lifecycleRestoredState'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
 const lifecycleTag = (s: string) =>
-  ({ revoked: 'danger', declined: 'danger', blocked: 'warning', confirmed: 'success', executed: 'success' })[s] ?? 'info'
+  ({ revoked: 'danger', restored: 'info', declined: 'danger', blocked: 'warning', confirmed: 'success', executed: 'success' })[s] ?? 'info'
 
 /** Why 用户视角：确认结果 / 拒绝 / 信任上下文 人类语言 */
 const whySummary = computed(() => {

@@ -29,6 +29,7 @@ const en: ZhDict = {
   lifecycleExecuted: 'Executed',
   lifecycleRevokedCascade: 'Revoked {n} rows (one business action, cascaded)',
   lifecycleRestored: 'Restored from recycle bin',
+  lifecycleRestoredState: 'Restored',
   filterBehavior: 'Behavior type',
   behaviorExecute: 'AI executed',
   behaviorFailed: 'AI failed',

@@ -166,7 +166,7 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     expect(wrapper.text()).toContain('已撤销 3 条（同一次业务动作级联补偿）');
   })
 
-  it('A-3 恢复态：restored=true → 恢复节点 finish（不再恒为 wait）', async () => {
+  it('A-3 恢复态：restored=true → 撤销与恢复两节点都 finish（撤销先于恢复，时间线不矛盾）', async () => {
     governanceMock.mockReset();
     governanceMock.mockResolvedValue({
       effect: { ...effect, targetExists: true, targetSoftDeleted: false, restored: true, revokeStatus: 'revoked' },
@@ -185,14 +185,16 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     });
     await flushPromises();
 
-    // 恢复节点转为 finish 并带说明——此前恒为 wait，A-3「恢复态」无据可依
+    // 恢复节点 finish + 说明；当前态 tag 转为「已恢复」（不再谎称「已确认执行」）
     expect(wrapper.text()).toContain('已从回收站恢复');
+    expect(wrapper.text()).toContain('已恢复');
     const steps = wrapper.findAll('.el-step');
     expect(steps.length).toBe(6);
-    // Element Plus 把节点状态挂在 .el-step__head 上
+    // Element Plus 把节点状态挂在 .el-step__head 上。
+    // 目标已恢复 ⇒ 撤销必先发生：撤销(4) 与恢复(5) 都 finish。
+    // 反向可证：把 revoke 判据由 everRevoked 换回 targetSoftDeleted ⇒ 此处 is-wait、用例红。
+    expect(steps[4].find('.el-step__head').classes()).toContain('is-finish');
     expect(steps[5].find('.el-step__head').classes()).toContain('is-finish');
-    // 对照：撤销节点（第 5 个）此时是 wait —— 目标未软删，未撤销
-    expect(steps[4].find('.el-step__head').classes()).toContain('is-wait');
   })
 
   it('A-3 生命周期：目标已软删 → 撤销态可达（FIX-B：B4 effect 带 targetSoftDeleted）', async () => {

@@ -28,6 +28,7 @@ const zh = {
   lifecycleExecuted: '已执行',
   lifecycleRevokedCascade: '已撤销 {n} 条（同一次业务动作级联补偿）',
   lifecycleRestored: '已从回收站恢复',
+  lifecycleRestoredState: '已恢复',
   filterBehavior: '行为类型',
   behaviorExecute: 'AI 执行',
   behaviorFailed: 'AI 被拒',
