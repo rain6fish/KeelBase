@@ -9,7 +9,13 @@ import { KnowledgeArticle } from './knowledge-article.entity';
 import { EmbeddingsService } from '../embeddings/embeddings.service';
 import { KnowledgeIngestionService } from './knowledge-ingestion.service';
 import { STORAGE_SERVICE } from '../../storage/storage.service';
+import { UploadSignService } from '../../upload/upload-sign.service';
+import { EncryptionService } from '../../common/utils/encryption';
 import { detectDocType, parseDocument, MAX_DOC_CHARS } from './document-parser';
+
+// 确定性 hmac，供 UploadSignService.signUrl / verify 走同一密钥往返（与 upload-sign.service.spec 同口径）
+// Deterministic hmac so signUrl and verify share one key for a real round-trip (same as upload-sign.service.spec).
+const signCrypto = { hmac: (v: string) => `hmac:${v}` } as unknown as EncryptionService;
 
 jest.mock('./document-parser', () => ({
   detectDocType: jest.fn(),
@@ -24,6 +30,7 @@ describe('KnowledgeService', () => {
   let repo: any;
   let dataSource: any;
   let embeddings: any;
+  let uploadSign: UploadSignService;
 
   const article: KnowledgeArticle = {
     id: 1,
@@ -71,6 +78,9 @@ describe('KnowledgeService', () => {
       embed: jest.fn(),
       ...embeddingsOverrides,
     };
+    // 真实签名服务：读侧现签 + verify 往返，才证得了「新鲜签名」而非「原样传递」
+    // A real signer: signing on read + a verify round-trip proves "freshly signed", not pass-through.
+    uploadSign = new UploadSignService(signCrypto);
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -81,6 +91,7 @@ describe('KnowledgeService', () => {
         { provide: EmbeddingsService, useValue: embeddings },
         { provide: STORAGE_SERVICE, useValue: storageService },
         { provide: KnowledgeIngestionService, useValue: ingestionService },
+        { provide: UploadSignService, useValue: uploadSign },
         ConfigService,
       ],
     }).compile();
@@ -543,6 +554,92 @@ describe('KnowledgeService', () => {
       repo.findOneBy.mockResolvedValue(article);
       dataSource.query.mockRejectedValue(new Error('pg down'));
       await expect(service.remove(1)).resolves.toBeUndefined();
+    });
+  });
+
+  // CR-21 stage C（知识库面）：库里存裸引用、读侧现签；旧行为是原样把裸引用交出去，严格模式下 403。
+  // CR-21 stage C (knowledge surface): the store keeps the bare reference and the read side signs it;
+  // the old behaviour handed the bare reference straight out, which strict mode rejects.
+  describe('CR-21 stage C：知识库读侧现签 /uploads 引用', () => {
+    const storedBare = '/uploads/doc.pdf'; // 库中存的值：裸引用，无 e/s
+
+    /** 断言交出去的是「现签 + verify 认得的」URL，且不是库中那串裸引用 */
+    const assertFreshlySigned = (url: string | undefined) => {
+      expect(url).toBeTruthy();
+      expect(url).not.toBe(storedBare); // 已被签名，不等于库存裸引用
+      const [path, q] = url!.split('?');
+      expect(path).toBe(storedBare); // 签的是同一路径
+      const params = new URLSearchParams(q);
+      const e = params.get('e');
+      const s = params.get('s');
+      expect(e).toBeTruthy();
+      expect(s).toBeTruthy();
+      expect(uploadSign.verify(path, e!, s!)).toBe(true); // 严格模式接受
+    };
+
+    it('红：修复前「原样把库存裸引用交出去」正是严格模式拒收的值（signUrl 缺省、verify=false）', () => {
+      // 旧读侧没有任何签名：库存的是什么就交什么。裸引用不带 e/s ⇒ verify 直接 false ⇒ 取文件 403。
+      // The old read path signed nothing: it handed the stored value out verbatim. A bare ref carries no
+      // e/s, so verify is false and the fetch 403s under UPLOAD_REQUIRE_SIGN=1.
+      expect(storedBare).not.toContain('?e=');
+      expect(uploadSign.verify(storedBare)).toBe(false);
+    });
+
+    it('findOne：交出的 fileUrl 是现签、verify 接受', async () => {
+      await setup();
+      repo.findOneBy.mockResolvedValue({ ...article, fileUrl: storedBare });
+      const out = await service.findOne(1);
+      assertFreshlySigned(out.fileUrl);
+    });
+
+    it('findAll：每条 item 的 fileUrl 都现签', async () => {
+      await setup();
+      repo.findAndCount.mockResolvedValue([[{ ...article, fileUrl: storedBare }], 1]);
+      const out = await service.findAll({});
+      assertFreshlySigned(out.items[0].fileUrl);
+    });
+
+    it('update：回读的 fileUrl 现签', async () => {
+      await setup();
+      repo.findOneBy
+        .mockResolvedValueOnce({ ...article, fileUrl: storedBare })
+        .mockResolvedValueOnce({ ...article, fileUrl: storedBare, title: '新' });
+      repo.update.mockResolvedValue({ affected: 1 });
+      const out = await service.update(1, { title: '新' });
+      assertFreshlySigned(out.fileUrl);
+    });
+
+    it('search 全文兜底：返回实体的 fileUrl 现签', async () => {
+      await setup(); // 向量不可用 → 全文路径返回带裸 fileUrl 的库实体
+      repo.find.mockResolvedValue([{ ...article, fileUrl: storedBare }]);
+      const out = await service.search('年假');
+      assertFreshlySigned(out[0].fileUrl);
+    });
+
+    it('createDocument：这是本面漏掉的那处 —— 返回的 fileUrl 现签，且入库的仍是裸引用', async () => {
+      await setup();
+      (detectDocType as jest.Mock).mockReturnValue('pdf');
+      (parseDocument as jest.Mock).mockResolvedValue('PDF 解析文本内容');
+      storageService.save.mockResolvedValue(storedBare);
+
+      const out = await service.createDocument({
+        buffer: Buffer.from('%PDF-1.4'),
+        originalName: '手册.pdf',
+        mimetype: 'application/pdf',
+      });
+
+      assertFreshlySigned(out.fileUrl);
+      // 出库签名，入库仍裸 —— 否则 storageService.delete(fileUrl) 会拿错值，且签名会在上传时冻结。
+      // Signed on the way out, bare on the way in — else delete(fileUrl) gets the wrong value and the
+      // signature would freeze at upload time.
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ fileUrl: storedBare }));
+    });
+
+    it('无 fileUrl 的条目原样返回（保留空值，不误造签名）', async () => {
+      await setup();
+      repo.findOneBy.mockResolvedValue(article); // 该 article 无 fileUrl
+      const out = await service.findOne(1);
+      expect(out.fileUrl).toBeUndefined();
     });
   });
 });

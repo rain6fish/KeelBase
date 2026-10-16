@@ -52,6 +52,7 @@ import { InsightsController } from './insights/insights.controller';
 import { InsightsService } from './insights/insights.service';
 import { KnowledgeController } from './rag/knowledge.controller';
 import { KnowledgeService } from './rag/knowledge.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { KnowledgeArticle } from './rag/knowledge-article.entity';
 import { RagAgent } from './agents/rag-agent.service';
 import { EmbeddingsService } from './embeddings/embeddings.service';
@@ -253,6 +254,8 @@ import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.servic
     KnowledgeService,
     EmbeddingsService,
     KnowledgeIngestionService,
+    // CR-21 stage C：知识库读侧现签 /uploads 引用（KnowledgeService 依赖它）
+    UploadSignService,
     MemoriesService,
     ConfirmationStore,
     MyConfirmationService,
