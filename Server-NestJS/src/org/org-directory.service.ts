@@ -23,6 +23,7 @@ import { OrgMember } from './org-member.entity';
 import { OrgMemberRole } from './org-member-role.enum';
 import { FlowTask } from '../flows/entities/flow-task.entity';
 import { ensureOrg } from './org-lookup';
+import { UploadSignService } from '../upload/upload-sign.service';
 
 @Injectable()
 export class OrgDirectoryService {
@@ -31,6 +32,7 @@ export class OrgDirectoryService {
     @InjectRepository(Department) private deptsRepo: Repository<Department>,
     @InjectRepository(OrgMember) private membersRepo: Repository<OrgMember>,
     @InjectRepository(FlowTask) private flowTaskRepo: Repository<FlowTask>,
+    private uploadSign: UploadSignService,
   ) {}
 
   // ── 我的组织 / 通讯录（ORG-7，只读脱敏） ──
@@ -87,7 +89,7 @@ export class OrgDirectoryService {
     return members.map((m) => ({
       id: m.userId,
       nickname: m.user?.nickname ?? null,
-      avatarUrl: m.user?.avatarUrl ?? null,
+      avatarUrl: m.user?.avatarUrl ? this.uploadSign.signUrl(m.user.avatarUrl) : null,
       role: m.role,
       deptName: m.dept?.name ?? null,
     }));

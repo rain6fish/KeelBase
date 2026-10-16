@@ -28,6 +28,7 @@ import { maskEmail } from '../common/utils/mask';
 import { ensureOrg } from './org-lookup';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
 import { FlowTask } from '../flows/entities/flow-task.entity';
 
@@ -64,6 +65,7 @@ export class OrgService {
     @InjectRepository(FlowTask) private flowTaskRepo: Repository<FlowTask>,
     private notificationsService: NotificationsService,
     private flowRuntime: FlowRuntimeService,
+    private uploadSign: UploadSignService,
   ) {}
 
   // ── 组织 ──
@@ -430,7 +432,7 @@ export class OrgService {
       role: m.role,
       username: m.user?.username ?? null,
       nickname: m.user?.nickname ?? null,
-      avatarUrl: m.user?.avatarUrl ?? null,
+      avatarUrl: m.user?.avatarUrl ? this.uploadSign.signUrl(m.user.avatarUrl) : null,
       email: m.user ? maskEmail(m.user.email) : null,
     };
   }
