@@ -1031,6 +1031,12 @@ beforeEach(installAiServiceTestbed);
       );
       expect(denyAudit).toBeDefined();
       expect(denyAudit![0].source).toBe('bridge');
+      // C-4(c): a refused call's structured record answers the tool from its own `tool` column (and the
+      // gate from `outcome` = `refused`, not `risk_policy`) — the reader no longer has to parse `detail`.
+      // C-4(c)：被拒调用的结构化记录从自己的 `tool` 列答出工具（结局 `refused` 而非 `blocked`，因这次
+      // 没过的是角色闸）——读取侧不必再去解析 `detail`。
+      expect((denyAudit![0] as any).tool).toBe('query_events');
+      expect((denyAudit![0] as any).outcome).toBe('refused');
       expect(denyAudit![0].authorization).toBe(
         JSON.stringify([{ name: 'role_allowed', ok: false, note: '需要角色 [admin]，当前 user' }]),
       );

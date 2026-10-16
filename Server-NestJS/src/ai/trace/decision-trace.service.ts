@@ -130,7 +130,17 @@ export class DecisionTraceService {
     // 审计日志 → tool_call / confirmation / notice
     for (const log of logs) {
       if (log.action === 'tool_call') {
-        const { toolName, args } = parseToolCallFromDetail(log.detail);
+        const parsed = parseToolCallFromDetail(log.detail);
+        // The tool name comes from the row's own `tool` column (C-3; contract `ai-audit-log-row` v5)
+        // and only falls back to parsing `detail` for rows that predate that column. A refused call is
+        // exactly where the two disagree across implementations — the column was added so a reader
+        // stops re-deriving the tool from text whose grammar is the producer's own.
+        //
+        // 工具名取该行自己的 `tool` 列（C-3；契约 `ai-audit-log-row` v5），只有该列之前写下的旧行
+        // 才回落解析 `detail`。**被拒的那一次调用**正是两种写法跨实现分歧的地方 —— 这一列之所以存在，
+        // 就是要让读取侧不再从「文法归产出方所有」的那句文本里重新推出工具名。
+        const toolName = log.tool ?? parsed.toolName;
+        const { args } = parsed;
         steps.push({
           id: `tool-${log.id}`,
           type: 'tool_call',
@@ -226,7 +236,8 @@ function parseChecks(raw?: string | null): Array<{ name: string; ok: boolean; no
 }
 
 /** detail 形如 `create_event({"title":"..."})` → 拆出工具名与参数 JSON 字符串（走共享解析器）。
- *  不像工具调用的 detail 仍按原样充当工具名 —— 轨迹宁可显示原文，也不显示空。 */
+ *  不像工具调用的 detail 仍按原样充当工具名 —— 轨迹宁可显示原文，也不显示空。
+ *  调用点只在行的 `tool` 列缺席（该列之前的旧行）时才用这里的 `toolName`（见上面 tool_call 分支）。 */
 function parseToolCallFromDetail(detail?: string | null): { toolName: string; args?: string } {
   const parsed = parseToolCallShared(detail);
   if (!parsed) return { toolName: detail ?? '' };

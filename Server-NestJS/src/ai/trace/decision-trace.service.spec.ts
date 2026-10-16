@@ -111,6 +111,28 @@ describe('DecisionTraceService', () => {
     expect(steps[0]).toMatchObject({ type: 'tool_call', success: false, errorMessage: 'bad date' });
   });
 
+  it('C-4(c)：被拒行带结构化 `tool` 列 → 工具名取自该列，回落解析 detail 只对旧行适用', async () => {
+    convService.getConversation.mockResolvedValue(makeConv());
+    // 被拒的 tool_call：authorization 是拒绝 checks 数组；`tool` 列答「是哪个工具被拒」；
+    // `detail` 是另一实现的文法（`<tool> <词> …`，无 `(`）——解析不出工具名。
+    auditRepo.find.mockResolvedValue([
+      log({
+        id: 13,
+        action: 'tool_call',
+        detail: 'delete_customer 删除客户',
+        isError: true,
+        errorMessage: 'blocked (risk level R5)',
+        authorization: JSON.stringify([{ name: 'risk_policy', ok: false }]),
+        tool: 'delete_customer',
+      }),
+    ]);
+
+    const { steps } = await service.getConversationTrace('conv-1', '42', ability);
+    expect(steps[0].toolName).toBe('delete_customer');
+    // 拒绝原因仍从 authorization 快照读（与工具名的来源互不影响）
+    expect(steps[0].checks).toEqual([{ name: 'risk_policy', ok: false }]);
+  });
+
   it('tool_confirmation 解析：outcome + trusted 标志', async () => {
     convService.getConversation.mockResolvedValue(makeConv());
     auditRepo.find.mockResolvedValue([
