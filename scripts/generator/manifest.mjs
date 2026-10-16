@@ -140,19 +140,64 @@ export async function readModuleProvenance(module, root = '') {
   }
 }
 
-/** 写模块级生成证明（幂等覆盖——每次生成刷新来源与时刻）。 */
+/** Fields that make up a provenance file's *identity* — everything except its write time. */
+/* 构成一份 provenance 文件**身份**的字段——除写入时刻以外的全部。 */
+export const PROVENANCE_IDENTITY_KEYS = ['schema', 'module', 'generator', 'generatorVersion', 'protocol', 'source'];
+
+/** An ISO 8601 instant by prefix — the same shape the frozen schema locks (`^\d{4}-\d{2}-\d{2}T`). */
+/* 按前缀判定的 ISO 8601 时刻——与冻结 schema 锁定的形状同源（`^\d{4}-\d{2}-\d{2}T`）。 */
+const ISO_INSTANT_PREFIX = /^\d{4}-\d{2}-\d{2}T/;
+
+/**
+ * Write a module's provenance file — but only when its *identity* actually changed.
+ *
+ * `generatedAt` is a write time, and a write time cannot be the same twice: a plain overwrite made
+ * `keelbase init --force` against an unchanged spec dirty the working tree on every run. That is noise,
+ * but worse, it breaks a signal — the delivery recipe read "the files that went dirty" as "the
+ * hand-written layer", and this timestamp-only file falsified that reading. The time is still worth
+ * keeping, so when everything except the time already matches, keep the existing file (and the instant
+ * it records) untouched. First generation, or any identity change (a spec/version/protocol change),
+ * rewrites with a fresh instant.
+ *
+ * 写模块的 provenance 文件——**仅当身份真的变了**才写。
+ *
+ * `generatedAt` 是写入时刻，而写入时刻不可能两次相同：无脑覆盖会让「对未变的 spec 重跑 `keelbase init
+ * --force`」每次都把工作树弄脏。这是噪声，但更糟的是它毁掉了一个信号——交付 recipe 把「哪些文件变脏」
+ * 读作「手写层」，而这个「只有时间戳」的文件证伪了那个读法。时刻仍值得保留，所以当除时刻外全都一致时，
+ * **原地保留**既有文件（及其中记录的瞬间）。首次生成、或身份发生任何变化（spec / 版本 / 协议变了）时才
+ * 重写，并记下新的瞬间。
+ */
 export async function writeModuleProvenance(module, source, root = '') {
   const file = moduleProvenancePath(module, root);
-  const provenance = {
+  const identity = {
     schema: MODULE_PROVENANCE_SCHEMA,
     module,
     generator: MANIFEST_GENERATOR,
     generatorVersion: await generatorVersion(),
     protocol: MANIFEST_PROTOCOL,
     source,
-    generatedAt: new Date().toISOString(),
   };
+  const existing = await readModuleProvenance(module, root);
+  if (existing && sameProvenanceIdentity(existing, identity)) {
+    return { file, changed: false, provenance: existing };
+  }
+  const provenance = { ...identity, generatedAt: new Date().toISOString() };
   await mkdir(file.substring(0, file.lastIndexOf('/')), { recursive: true });
   await writeFile(file, JSON.stringify(provenance, null, 2) + '\n', 'utf8');
-  return { file, provenance };
+  return { file, changed: true, provenance };
+}
+
+/**
+ * True when `existing` is exactly the file the generator would keep as-is: the canonical key set, every
+ * identity field equal, and a well-formed `generatedAt` (a corrupt instant is drift, so it rewrites).
+ *
+ * 当 `existing` 正是生成器会**原样保留**的那份时返回 true：键恰好是规范集合、身份字段全部相等、且
+ * `generatedAt` 形状合法（坏掉的瞬间即漂移，故重写）。
+ */
+export function sameProvenanceIdentity(existing, identity) {
+  const expectedKeys = [...PROVENANCE_IDENTITY_KEYS, 'generatedAt'].sort();
+  const actualKeys = Object.keys(existing).sort();
+  if (actualKeys.length !== expectedKeys.length || actualKeys.some((k, i) => k !== expectedKeys[i])) return false;
+  if (typeof existing.generatedAt !== 'string' || !ISO_INSTANT_PREFIX.test(existing.generatedAt)) return false;
+  return PROVENANCE_IDENTITY_KEYS.every((k) => existing[k] === identity[k]);
 }

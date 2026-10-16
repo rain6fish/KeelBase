@@ -96,8 +96,17 @@ test('module-spec：business-spec 映射器产出形状通过（module+plural+se
 });
 
 test('module-provenance：writeModuleProvenance 的真实输出过 schema（防生成↔契约漂移）', async () => {
-  // 仓内无常驻 provenance 文件（可移除制品）→ 门禁的 provenance 分支在本仓恒为空，
-  // 故此处直接跑**真实写入函数**再校验其输出，避免「写出来的形状 ↔ 冻结 schema」静默漂移。
+  // The repo DOES carry resident provenance files — 11 of them (books, contracts, notes, …), all written
+  // by the generator and tracked in git. An earlier revision of this comment claimed there were none and
+  // that the gate's provenance branch was therefore always empty; that was false (corrected under GEN-1).
+  // This test still runs the *real writer* and validates its output, to pin the "written shape ↔ frozen
+  // schema" drift at its source: the sample gate (`check-generated-samples.mjs`) compares the **identity**
+  // of committed files, not the write path itself.
+  //
+  // 仓内**确有**在册 provenance 文件 —— 11 个（books、contracts、notes 等），均由生成器写出并被 git 跟踪。
+  // 本注释早先写成「无常驻文件、门禁的 provenance 分支恒为空」，与事实相反（随 GEN-1 更正）。此处仍直接跑
+  // **真实写入函数**再校验其输出，为的是把「写出来的形状 ↔ 冻结 schema」的漂移钉在源头；样例门
+  // （`check-generated-samples.mjs`）比对的是在册文件的**身份**，并不覆盖写入路径本身。
   const { writeModuleProvenance, moduleProvenancePath } = await import('./generator/manifest.mjs');
   const root = mkdtempSync(join(os.tmpdir(), 'kb-prov-'));
   try {
@@ -105,6 +114,24 @@ test('module-provenance：writeModuleProvenance 的真实输出过 schema（防�
     const written = JSON.parse(readFileSync(join(root, moduleProvenancePath('invoices')), 'utf8'));
     assert.deepEqual(validate(provenance, written), []);
     assert.equal(written.source, 'spec:invoices.json');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('module-provenance：身份未变则不重写（保留原生成时刻），身份变了才刷新（GEN-1）', async () => {
+  // The property behind GEN-1: rerunning the same spec must not change the file — including its
+  // generatedAt — so the working tree stays clean. A changed source/version/protocol must rewrite.
+  // GEN-1 的性质：重跑同一 spec 不得改动文件（含 generatedAt），工作树因此保持干净；来源/版本/协议变了才重写。
+  const { writeModuleProvenance, moduleProvenancePath } = await import('./generator/manifest.mjs');
+  const root = mkdtempSync(join(os.tmpdir(), 'kb-prov-idem-'));
+  const path = join(root, moduleProvenancePath('books'));
+  try {
+    assert.equal((await writeModuleProvenance('books', 'spec:specs/books.json', root)).changed, true);
+    const first = readFileSync(path, 'utf8');
+    assert.equal((await writeModuleProvenance('books', 'spec:specs/books.json', root)).changed, false);
+    assert.equal(readFileSync(path, 'utf8'), first, '同一 spec 重写不得改动文件（含 generatedAt）');
+    assert.equal((await writeModuleProvenance('books', 'spec:specs/books-v2.json', root)).changed, true, '来源变了应重写');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

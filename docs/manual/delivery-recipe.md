@@ -60,7 +60,7 @@ file — **including the hand-written layer**. In this reproduction path the lay
 module (§10) there is no `--force` and nothing to restore: generate **once**, hand-write after, never
 regenerate — and if you ever must, `git checkout` only helps if you committed the hand-written layer first.
 
-After a `--force` run, `git status --porcelain` lists **three** paths: `asset_loans.service.ts` / `asset_loans.service.spec.ts` **plus** `src/asset_loans/.keelbase-provenance.json`, whose only change is its `generatedAt` timestamp. So "which files went dirty" tells you the hand-written layer **plus that one timestamp-only file** — not the hand-written layer alone.
+After a `--force` run, `git status --porcelain` lists **two** paths: `asset_loans.service.ts` / `asset_loans.service.spec.ts` — the hand-written layer. It does **not** list `src/asset_loans/.keelbase-provenance.json`: the generator now writes that file idempotently on its identity, so an unchanged spec leaves its recorded `generatedAt` untouched. "Which files went dirty" therefore tells you the hand-written layer, and nothing else.
 
 ### 3. Layer the declared hand-written rules
 
@@ -348,9 +348,10 @@ git status --porcelain        # → 无输出
 **新模块**（§10）没有 `--force`、也没有要还原的东西：**只生成一次**，随后再手写，**不要重生成** ——
 万一确需重生成，`git checkout` 也只在你**先提交过**那层手写之后才管用。
 
-跑完一次 `--force`，`git status --porcelain` 会列出**三**条路径：`asset_loans.service.ts` /
-`asset_loans.service.spec.ts`，**外加** `src/asset_loans/.keelbase-provenance.json`，它唯一的变化是 `generatedAt`
-时间戳。故「哪些文件变脏」告诉你的，是手写层**加上那一个只改时间戳的文件** —— 不是手写层本身。
+跑完一次 `--force`，`git status --porcelain` 会列出**两**条路径：`asset_loans.service.ts` /
+`asset_loans.service.spec.ts` —— 手写层。它**不再**列出 `src/asset_loans/.keelbase-provenance.json`：生成器
+现已按身份幂等写该文件，spec 未变时其中记录的 `generatedAt` 原样保留。故「哪些文件变脏」告诉你的就是手写层，
+别无其它。
 
 ### 3. 叠加**声明为手写**的规则
 
