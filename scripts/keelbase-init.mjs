@@ -585,7 +585,11 @@ async function main() {
   try {
     const source = args.spec ? `spec:${args.spec}` : args['import-openapi'] ? `openapi:${args['import-openapi']}` : args['import-schema'] ? `schema:${args['import-schema']}` : 'cli(--module/--fields)';
     const prov = await writeModuleProvenance(ctx.plural, source);
-    console.log(`${C.green}✓ ${prov.file}${C.reset}（来源 ${source} · keelbase v${prov.provenance.generatorVersion}）`);
+    console.log(
+      prov.changed
+        ? `${C.green}✓ ${prov.file}${C.reset}（来源 ${source} · keelbase v${prov.provenance.generatorVersion}）`
+        : `${C.dim}○ ${prov.file}（来源未变，幂等保留原生成时刻）${C.reset}`,
+    );
   } catch (err) {
     console.log(`${C.yellow}△ 写模块生成证明跳过：${err.message}${C.reset}`);
   }

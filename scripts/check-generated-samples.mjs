@@ -30,8 +30,14 @@ import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
 import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
+import { MODULE_PROVENANCE_SCHEMA, MANIFEST_GENERATOR, MANIFEST_PROTOCOL } from './generator/manifest.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// The version the generator stamps into a fresh provenance — read once, so the check below compares
+// against the same source the generator does (manifest.mjs reads this same package.json).
+// 生成器写进新 provenance 的版本 —— 读一次，使下面的比对与生成器同源（manifest.mjs 读的也是这份 package.json）。
+const GENERATOR_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 
 // Every group a module is generated into — { repo-relative dir, template }.
 // 生成物落进的每一组 —— { 仓内相对目录, 模板 }。
@@ -108,6 +114,45 @@ for (const entry of fs.readdirSync(specDir).sort()) {
       if (normalize(fs.readFileSync(disk, 'utf8')) !== normalize(out.content)) {
         failures.push(`${rel} — 与生成器产出不一致（生成物被手工改过，或模板变了而样例没重生成）`);
       }
+    }
+  }
+
+  // Provenance：这个生成模块目录里的 .keelbase-provenance.json 必须仍是生成器会写出的那份**身份**。
+  // 缺席 = 出生证明被删；身份不符（版本 / spec / 协议变了却没重生成）= 陈旧 —— 两者都让闸在此先红，
+  // 而不是等它悄悄漂过 CI。`generatedAt` 是唯一**不**参与比对的字段：它是写入时刻、天然每次都不同
+  // （正是它曾让「重跑同一 spec」把树弄脏，见 manifest.mjs writeModuleProvenance）。
+  //
+  // The generated module's provenance file must still carry the *identity* the generator would write.
+  // Absence = the birth certificate was dropped; a mismatch = it is stale (the spec / version / protocol
+  // moved and the module was not regenerated). Both go red here rather than drifting through CI. Only
+  // `generatedAt` is excluded: it is a write time, different by construction (and it was the very field
+  // that dirtied the tree on a same-spec rerun — see manifest.mjs writeModuleProvenance).
+  const provRel = `Server-NestJS/src/${ctx.plural}/.keelbase-provenance.json`;
+  checked++;
+  let prov = null;
+  try {
+    prov = JSON.parse(fs.readFileSync(path.join(ROOT, provRel), 'utf8'));
+  } catch {
+    prov = null;
+  }
+  if (!prov || typeof prov !== 'object') {
+    failures.push(`${provRel} — 缺失或非法 JSON（生成模块应有出生证明，keelbase init 会写）`);
+  } else {
+    const expect = {
+      schema: MODULE_PROVENANCE_SCHEMA,
+      module: ctx.plural,
+      generator: MANIFEST_GENERATOR,
+      generatorVersion: GENERATOR_VERSION,
+      protocol: MANIFEST_PROTOCOL,
+      source: `spec:specs/${entry}`,
+    };
+    for (const [k, v] of Object.entries(expect)) {
+      if (prov[k] !== v) {
+        failures.push(`${provRel} — ${k}=${JSON.stringify(prov[k])} 与生成器不符（应为 ${JSON.stringify(v)}）；陈旧 provenance`);
+      }
+    }
+    if (typeof prov.generatedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(prov.generatedAt)) {
+      failures.push(`${provRel} — generatedAt 非 ISO 8601（应匹配 ^\\d{4}-\\d{2}-\\d{2}T）`);
     }
   }
 }
