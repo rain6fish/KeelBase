@@ -234,18 +234,38 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
       return { executed: false, requiresConfirmation: true };
     }
 
-    await this.audit.log({
-      userId,
-      action: 'tool_call',
-      detail: `mcp:${serverName}:${toolName}(${JSON.stringify(args).slice(0, 500)})`,
-      provider: 'mcp',
-    });
-
+    // C-4: the `tool_call` row is written once the outcome is known, so it can answer the two
+    // off-chain attribution columns with what actually happened. It is deliberately not written
+    // before the call: a pre-execution row could only say `attempted`, and that word names a later
+    // row this path never writes — a reader would go looking for an outcome that never arrives.
+    // C-4：这条 `tool_call` 行在结局已知之后才写，故能用真实结局答那两列链外归因列。**有意**不写在调用
+    // 之前：执行前的行只能写 `attempted`，而那个词点名一条本路径从不写的后续行 —— 读者会去找一个永远
+    // 不来的结局。
+    const detail = `mcp:${serverName}:${toolName}(${JSON.stringify(args).slice(0, 500)})`;
     try {
       const result = await this._callRemote(server, toolName, args);
+      await this.audit.log({
+        userId,
+        action: 'tool_call',
+        detail,
+        provider: 'mcp',
+        outcome: 'executed',
+        tool: toolName,
+      });
       return { executed: true, requiresConfirmation: false, result };
     } catch (e) {
-      return { executed: true, requiresConfirmation: false, error: (e as Error).message };
+      const error = (e as Error).message;
+      await this.audit.log({
+        userId,
+        action: 'tool_call',
+        detail,
+        provider: 'mcp',
+        outcome: 'failed',
+        tool: toolName,
+        isError: true,
+        errorMessage: error,
+      });
+      return { executed: true, requiresConfirmation: false, error };
     }
   }
 
@@ -270,6 +290,13 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
       isError: true,
       errorMessage: message,
       authorization: JSON.stringify([{ name: checkName, ok: false, note: message }]),
+      // C-4: a `tool_call` row answers the two off-chain attribution columns. `risk_policy` is
+      // `blocked` (the call never reached a decision); every other refusal this helper is called
+      // with is `refused` — the split `buildToolCallAudit` makes, keyed on the one check name here.
+      // C-4：`tool_call` 行该答两列链外归因列。`risk_policy` 是 `blocked`（这次调用从没到过裁决）；
+      // 本助手其余拒绝是 `refused` —— 与 `buildToolCallAudit` 同一套分法，此处按唯一那个 check 名取。
+      outcome: checkName === 'risk_policy' ? 'blocked' : 'refused',
+      tool: toolName,
     });
   }
 

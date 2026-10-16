@@ -81,6 +81,12 @@ export class OperationAuditInterceptor implements NestInterceptor {
           feature: feature.key ?? null,
           statusCode,
         });
+        // C-4: this is the *operation* audit (`operation_audit_logs`, `OperationAuditEntry`), a table
+        // of its own, not the AI audit — it has no `outcome`/`tool` columns, so the two AI attribution
+        // columns do not apply here at all. Not a gap; a different row shape.
+        // C-4：这是**操作**审计（`operation_audit_logs`、`OperationAuditEntry`），是另一张表、不是 AI
+        // 审计 —— 它没有 `outcome`/`tool` 两列，故那两列 AI 归因列在这里根本用不上。不是缺口，是另一种
+        // 行形状。
         // ACT-4 余项（2026-09-28）：落库仍**不阻塞响应** —— 这是有意的，且有两层理由：
         // ① 操作审计是尽力而为，不应让审计故障挡住业务写；② 写要过审计链的行锁
         //    （`operation-audit.service.ts` 的 `audit_chain_lock`），把它 await 进响应路径

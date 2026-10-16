@@ -139,6 +139,10 @@ describe('McpGatewayService (HS-10 入口)', () => {
           provider: 'mcp',
           isError: true,
           detail: expect.stringContaining('authorization denied'),
+          // C-4: a governance refusal lands `refused` plus the tool name, not a blank row.
+          // C-4：治理拒绝落下 `refused` 与工具名，不是空行。
+          outcome: 'refused',
+          tool: 't',
         }),
       );
       const logged = audit.log.mock.calls.at(-1)![0] as { authorization?: string };
@@ -169,7 +173,15 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(out.requiresConfirmation).toBe(false);
       expect(out.result?.content[0].text).toBe('ok');
       expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: '1', action: 'tool_call', provider: 'mcp' }),
+        expect.objectContaining({
+          userId: '1',
+          action: 'tool_call',
+          provider: 'mcp',
+          // C-4: the row is written once the outcome is known, so it answers `executed` + tool.
+          // C-4：这一行在结局已知后才写，故它答 `executed` 与工具名。
+          outcome: 'executed',
+          tool: 'get_weather',
+        }),
       );
     });
 
@@ -196,7 +208,11 @@ describe('McpGatewayService (HS-10 入口)', () => {
       expect(out.requiresConfirmation).toBe(false);
       expect(out.error).toContain('R5');
       expect(callSpy).not.toHaveBeenCalled();
-      expect(audit.log).toHaveBeenCalled();
+      // C-4: R5 is a `risk_policy` block → `blocked` (never reached a decision), with the tool name.
+      // C-4：R5 是 `risk_policy` 阻断 → `blocked`（从没到过裁决），并带工具名。
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ outcome: 'blocked', tool: 'purge_records' }),
+      );
     });
 
     it('策略可覆盖为免确认（非只读工具）', async () => {
@@ -216,6 +232,11 @@ describe('McpGatewayService (HS-10 入口)', () => {
       jest.spyOn(service as any, '_callRemote').mockRejectedValue(new Error('remote boom'));
       const out = await service.callExternalTool('wx', 'get_weather', {}, '1');
       expect(out.error).toContain('remote boom');
+      // C-4: a failed remote call lands `failed` plus isError, not a blank row.
+      // C-4：远端调用失败落下 `failed` 与 isError，不是空行。
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ outcome: 'failed', tool: 'get_weather', isError: true }),
+      );
     });
   });
 

@@ -59,9 +59,18 @@ describe('ContentSafetyService（N-6 AI-23 深度化）', () => {
     );
     const r = await service.check('怎么自杀', { userId: '1', conversationId: 'c1' });
     expect(r.blocked).toBe(true);
+    // C-4: `content_blocked` is not a tool action, so the row must carry no `outcome`/`tool` — the
+    // contract answers null outside `tool_call`/`tool_confirmation`/`effect_revoke`. Locking the
+    // call-site decision keeps a later edit from quietly adding a wrong outcome.
+    // C-4：`content_blocked` 不是工具动作，故该行不得带 `outcome`/`tool` —— 契约在
+    // `tool_call`/`tool_confirmation`/`effect_revoke` 之外一律答 null。锁住调用点的决定，后续改动就
+    // 无法悄悄塞进一个错的结局。
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'content_blocked', isError: true, userId: '1', conversationId: 'c1' }),
     );
+    const blockedRow = audit.log.mock.calls[0][0] as Record<string, unknown>;
+    expect(blockedRow).not.toHaveProperty('outcome');
+    expect(blockedRow).not.toHaveProperty('tool');
   });
 
   it('未命中 → 放行不审计', async () => {
