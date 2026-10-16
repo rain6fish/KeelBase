@@ -481,6 +481,27 @@ const en: ZhDict = {
   errorCount: 'Errors {n}',
   // §internal.16 A-5 cross-system identity chain
   authorizedBy: 'Allowed by',
+  // P0-20 single-event explanation: one action, one timeline, one item per question
+  actionExplanation: 'Action explanation',
+  explanationStepWho: 'Who did it, and what it did',
+  explanationStepWhy: 'Why it was allowed',
+  explanationStepApproval: 'Who approved it',
+  explanationStepEffect: 'What it changed',
+  explanationStepBusinessLeg: 'The business leg (operations audit)',
+  explanationStepResult: 'Result, and how it is proven',
+  approverCol: 'Approver',
+  revokeStatusCol: 'Revoke status',
+  // P0-20's own vocabulary (eight values). Larger than tool-effects' four on purpose: there
+  // `revoke_failed` is not "the action failed", and "refused", "waiting for a person" and "nobody
+  // knows" have no name at all. Same set as the back end's `audit-explanation-state.ts`.
+  explanationStateAwaiting: 'Awaiting confirmation',
+  explanationStateCompensationFailed: 'Compensation failed',
+  explanationStateCompensationSucceeded: 'Compensation succeeded',
+  explanationStateCompensating: 'Compensating',
+  explanationStateExecuted: 'Executed',
+  explanationStateFailed: 'Failed',
+  explanationStateRejected: 'Rejected',
+  explanationStateResultUnknown: 'Result unknown',
   decisionPolicy: 'Policy',
   stepConfirmation: 'Confirmation',
   stepEffect: 'Created record',

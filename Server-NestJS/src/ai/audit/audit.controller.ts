@@ -57,7 +57,11 @@ export class AuditController {
 
   @Get('logs/:id/interpretation')
   @CheckPolicies((ability) => ability.can('manage', 'all'))
-  @ApiOperation({ summary: '§internal.16 A-4 审计解释器：单行审计 → 业务摘要 + 证据统计（管理员）' })
+  @ApiOperation({
+    summary:
+      '§internal.16 A-4 + P0-20 单事件解释面：一行审计 → 业务摘要 + 证据统计 + 它引起的副作用 + ' +
+      '业务那一腿（操作审计）+ 谁批准 + 一个状态（失败/待确认/补偿中/补偿成功/结果未知/…）（管理员）',
+  })
   interpretation(@Param('id', ParseIntPipe) id: number) {
     return this.auditEvidence.getInterpretation(id);
   }

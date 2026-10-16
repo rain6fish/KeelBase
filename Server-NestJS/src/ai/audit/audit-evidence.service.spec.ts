@@ -709,3 +709,136 @@ describe('AuditEvidenceService（报表 / 链校验 / 证据装配）', () => {
     });
   });
 });
+
+/**
+ * P0-20: the single-event explanation, and the two things it must not do.
+ *
+ * <p>It must not **guess**. An operator reads one action, so every section it cannot substantiate has
+ * to come back empty rather than filled from a neighbour — a row with no claim has no effect, no
+ * approval and no business leg, and says so. The claim's absence is the honest answer, and it is
+ * asserted here because the tempting alternative (pair by conversation, the way the evidence root has
+ * to when no claim exists) is exactly what ACT-2 stopped doing after it attached one customer's
+ * authorisation to another customer's effect.
+ *
+ * <p>It must not let a target's silence read as progress. A `compensating` effect the target never
+ * acknowledged lands on `result_unknown`, asserted end to end rather than only against the pure
+ * function, because that is the reading that would otherwise have shipped.
+ *
+ * P0-20：单事件解释面，以及它**两件不许做的事**。一、不许**猜**：操作者读的是**一次**动作，凡是拿不出
+ * 凭据的段落都必须**空着**，而不是从邻居那里填满——没有占位行的行就**没有**副作用、没有审批、没有业务
+ * 那一腿，它如实说没有。占位行**缺席**就是那个诚实的答案，这里把它钉住，因为那个诱人的替代（按会话配
+ * 对，也就是证据根在无占位行时不得不走的那条）正是 ACT-2 在把一位客户的授权挂到另一位客户的副作用上
+ * 之后停掉的事。二、不许让**目标的沉默**读成进展：目标从未确认的 `compensating` 落到 `result_unknown`，
+ * 此处**端到端**断言而不是只测那个纯函数，因为那正是会被发出去的读法。
+ */
+describe('AuditEvidenceService.getInterpretation（P0-20 单事件解释面）', () => {
+  function build(
+    opts: { claim?: any | null; effect?: any | null; confirmation?: any | null; opRows?: any[] } = {},
+  ) {
+    const auditRow = row({
+      id: 7,
+      userId: 'u1',
+      username: 'alex',
+      action: 'tool_call',
+      detail: 'create_task({"title":"跟进"})',
+      isError: false,
+      authorization: null,
+      conversationId: 'c1',
+      businessEvent: null,
+      evidence: null,
+      createdAt: new Date('2026-10-16T00:00:00Z'),
+    });
+    const logRepo = {
+      findOne: jest.fn().mockResolvedValue(auditRow),
+      find: jest.fn().mockResolvedValue([auditRow]),
+    };
+    const effectsRepo = {
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { id?: number } }) =>
+        opts.effect && opts.effect.id === arg?.where?.id ? opts.effect : null,
+      ),
+    };
+    // The claim is found by `auditRowId` — the key that makes this join precise rather than approximate.
+    // 占位行按 `auditRowId` 找 —— 正是这个键让这次连接是**精确**的、而不是近似的。
+    const claimsRepo = {
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { auditRowId?: number } }) =>
+        opts.claim && arg?.where?.auditRowId === 7 ? opts.claim : null,
+      ),
+    };
+    const confirmationsRepo = {
+      findOne: jest.fn().mockImplementation(async (arg?: { where?: { token?: string } }) =>
+        opts.confirmation && arg?.where?.token === opts.confirmation.token ? opts.confirmation : null,
+      ),
+    };
+    const operationAudit = {
+      chainRowsByTarget: jest.fn().mockResolvedValue(opts.opRows ?? []),
+    } as any;
+    const service = new AuditEvidenceService(
+      logRepo as any,
+      effectsRepo as any,
+      { computeHash: jest.fn() } as any,
+      undefined, // cacheService
+      undefined, // authorizationExplainer
+      undefined, // agentService
+      operationAudit,
+      undefined, // governancePolicy
+      claimsRepo as any,
+      confirmationsRepo as any,
+    );
+    return { service, operationAudit };
+  }
+
+  it('无占位行 ⇒ 副作用/审批为空、业务那一腿为空、状态取自审计行 —— 不按会话去猜', async () => {
+    const { service, operationAudit } = build();
+    const res = await service.getInterpretation(7);
+    expect(res.effect).toBeNull();
+    expect(res.approval).toBeNull();
+    expect(res.operationAudit).toEqual([]);
+    expect(res.state).toBe('executed');
+    // 不猜的判据：没有占位行时**根本没去问**业务那一腿。
+    // The no-guessing criterion: with no claim it does not even ask the business leg.
+    expect(operationAudit.chainRowsByTarget).not.toHaveBeenCalled();
+  });
+
+  it('占位行 → 副作用 → 已撤销 ⇒ 状态是补偿成功，副作用带撤销档位', async () => {
+    const { service } = build({
+      claim: { id: 1, auditRowId: 7, effectId: 42, authorizationRef: null },
+      effect: {
+        id: 42, toolName: 'create_task', resultType: 'crm_task', resultId: 9,
+        revokeClass: 'local_compensate', revokeStatus: 'revoked', revokeAcknowledgedAt: null,
+        beforeSnapshot: null, afterSnapshot: null,
+      },
+      opRows: [{ seq: 1, id: 500, prevHash: null, hash: 'a'.repeat(64), payload: {} }],
+    });
+    const res = await service.getInterpretation(7);
+    expect(res.state).toBe('compensation_succeeded');
+    expect(res.effect).toMatchObject({ id: 42, revokeStatus: 'revoked', revokeWindow: null });
+    expect(res.operationAudit).toHaveLength(1);
+  });
+
+  it('⚠ 补偿中且目标未回音 ⇒ 结果未知（端到端，不只是纯函数）', async () => {
+    const { service } = build({
+      claim: { id: 1, auditRowId: 7, effectId: 42, authorizationRef: null },
+      effect: {
+        id: 42, toolName: 'send_mail', resultType: 'mail', resultId: 3,
+        revokeClass: 'governed_external', revokeStatus: 'compensating', revokeAcknowledgedAt: null,
+        beforeSnapshot: null, afterSnapshot: null,
+      },
+    });
+    const res = await service.getInterpretation(7);
+    expect(res.effect?.revokeWindow).toBe('unacknowledged');
+    expect(res.state).toBe('result_unknown');
+  });
+
+  it('占位行的 authorizationRef → 确认行 ⇒ 谁批准有了着落，待批准则状态是等人', async () => {
+    const { service } = build({
+      claim: { id: 1, auditRowId: 7, effectId: null, authorizationRef: 'tok-1' },
+      confirmation: {
+        token: 'tok-1', toolName: 'create_task', riskLevel: 'R3', kind: 'single', status: 'pending',
+        approverId: null, decidedAt: null, expiresAt: new Date('2026-10-16T01:00:00Z'),
+      },
+    });
+    const res = await service.getInterpretation(7);
+    expect(res.approval).toMatchObject({ token: 'tok-1', status: 'pending', riskLevel: 'R3' });
+    expect(res.state).toBe('awaiting_confirmation');
+  });
+});

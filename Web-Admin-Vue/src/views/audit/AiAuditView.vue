@@ -99,7 +99,7 @@
 
     <!-- §internal.16 A-4 展开详情：L1 业务摘要 → L2 证据统计 → L3 技术详情 -->
     <el-card v-if="expanded" shadow="never" class="mt-2">
-      <template #header>{{ t('statistics') }}</template>
+      <template #header>{{ t('actionExplanation') }}</template>
 
       <!-- L1 业务语言摘要（审计解释器） -->
       <div v-if="interpretation" class="pa-2 mb-2" style="background: var(--el-fill-color-light); border-radius: 8px">
@@ -108,64 +108,134 @@
       </div>
 
       <!-- L2 证据统计 -->
-      <div v-if="interpretation?.stats && hasStats(interpretation.stats)" class="mb-2">
+      <div v-if="interpretation?.summary.stats && hasStats(interpretation.summary.stats)" class="mb-2">
         <el-popover placement="top" :width="400" trigger="click" :teleported="false">
           <template #reference>
             <el-button text size="small" type="primary">{{ t('viewEvidence') }}</el-button>
           </template>
           <div class="pa-1">
-            <div v-if="interpretation.stats.businessEvents.length" class="mb-2">
+            <div v-if="interpretation.summary.stats.businessEvents.length" class="mb-2">
               <div class="text-caption font-weight-medium mb-1">{{ t('evidenceStats') }}</div>
-              <div v-for="b in interpretation.stats.businessEvents" :key="b.event" class="d-flex justify-space-between align-center text-caption mb-1">
+              <div v-for="b in interpretation.summary.stats.businessEvents" :key="b.event" class="d-flex justify-space-between align-center text-caption mb-1">
                 <span>{{ b.event }}</span>
                 <el-tag size="small">{{ b.count }}</el-tag>
               </div>
             </div>
-            <div v-if="interpretation.stats.evidence.length" class="mb-2">
+            <div v-if="interpretation.summary.stats.evidence.length" class="mb-2">
               <div class="text-caption font-weight-medium mb-1">{{ t('decisionEvidence') }}</div>
-              <div v-for="(ev, i) in interpretation.stats.evidence" :key="i" class="mb-2 text-caption">
+              <div v-for="(ev, i) in interpretation.summary.stats.evidence" :key="i" class="mb-2 text-caption">
                 <div>决策: <b>{{ ev.decision }}</b> · {{ t('confidence') }} {{ ev.confidence != null ? ev.confidence.toFixed(2) : '-' }}</div>
                 <div v-for="(e, j) in ev.evidence" :key="j" class="text-medium-emphasis">· {{ e }}</div>
                 <div v-if="ev.policy" class="text-medium-emphasis">{{ ev.policy }}</div>
               </div>
             </div>
             <div class="d-flex flex-wrap ga-2">
-              <el-tag v-if="interpretation.stats.confirmations.approved" type="success" size="small">{{ t('confirmedCount', { n: interpretation.stats.confirmations.approved }) }}</el-tag>
-              <el-tag v-if="interpretation.stats.confirmations.declined" type="danger" size="small">{{ t('declinedCount', { n: interpretation.stats.confirmations.declined }) }}</el-tag>
-              <el-tag v-if="interpretation.stats.blocked" type="warning" size="small">{{ t('blockedCount', { n: interpretation.stats.blocked }) }}</el-tag>
-              <el-tag v-if="interpretation.stats.errors" size="small">{{ t('errorCount', { n: interpretation.stats.errors }) }}</el-tag>
+              <el-tag v-if="interpretation.summary.stats.confirmations.approved" type="success" size="small">{{ t('confirmedCount', { n: interpretation.summary.stats.confirmations.approved }) }}</el-tag>
+              <el-tag v-if="interpretation.summary.stats.confirmations.declined" type="danger" size="small">{{ t('declinedCount', { n: interpretation.summary.stats.confirmations.declined }) }}</el-tag>
+              <el-tag v-if="interpretation.summary.stats.blocked" type="warning" size="small">{{ t('blockedCount', { n: interpretation.summary.stats.blocked }) }}</el-tag>
+              <el-tag v-if="interpretation.summary.stats.errors" size="small">{{ t('errorCount', { n: interpretation.summary.stats.errors }) }}</el-tag>
             </div>
           </div>
         </el-popover>
       </div>
 
-      <!-- §internal.16 A-5 跨系统身份链：Human→Agent→Tool→Action + 授权依据 -->
-      <div v-if="identityChain" class="pa-2 mb-2" style="background: var(--el-fill-color-light); border-radius: 8px">
-        <div class="text-caption font-weight-medium mb-1">{{ t('identityChain') }}</div>
-        <div class="d-flex align-center ga-1 flex-wrap">
-          <el-tag size="small" effect="plain">{{ identityChain.human.username || identityChain.human.userId }}</el-tag>
-          <el-tag v-if="identityChain.agent.agentId" size="small" type="warning" effect="plain">
-            {{ identityChain.agent.agentName || identityChain.agent.agentId }}{{ identityChain.agent.trustLevel ? ` (${identityChain.agent.trustLevel})` : '' }}
-          </el-tag>
-          <el-tag v-if="identityChain.tool.toolName" size="small" type="primary" effect="plain">{{ identityChain.tool.toolName }}</el-tag>
-          <el-tag v-if="identityChain.action.businessEvent" size="small" type="success" effect="plain">{{ identityChain.action.businessEvent }}</el-tag>
-          <el-tag v-if="identityChain.source" size="small" effect="dark" class="ms-1">{{ identityChain.source }}</el-tag>
-        </div>
-        <div v-if="identityChain.authorization.denied" class="mt-1">
-          <div class="text-caption text-medium-emphasis mb-1">{{ t('deniedReason') }}</div>
-          <div v-for="c in identityChain.authorization.denied" :key="c.name" class="d-flex align-center ga-1 text-body-2">
-            <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="14" />
-            <span class="text-caption" :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
+      <!-- P0-20 单事件解释面：一次 AI 动作 → **一条时间线**。
+           六问各占一项：谁做的／做了什么 · 为什么允许 · 谁批准 · 业务副作用 · 业务那一腿 · 结果与如何证明。
+           前两项原先各自成块，内容**原样**搬进时间线，没有重写。 -->
+      <el-timeline class="pa-0">
+        <el-timeline-item v-if="identityChain" type="primary" :hollow="true">
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepWho') }}</div>
+          <div class="d-flex align-center ga-1 flex-wrap">
+            <el-tag size="small" effect="plain">{{ identityChain.human.username || identityChain.human.userId }}</el-tag>
+            <el-tag v-if="identityChain.agent.agentId" size="small" type="warning" effect="plain">
+              {{ identityChain.agent.agentName || identityChain.agent.agentId }}{{ identityChain.agent.trustLevel ? ` (${identityChain.agent.trustLevel})` : '' }}
+            </el-tag>
+            <el-tag v-if="identityChain.tool.toolName" size="small" type="primary" effect="plain">{{ identityChain.tool.toolName }}</el-tag>
+            <el-tag v-if="identityChain.action.businessEvent" size="small" type="success" effect="plain">{{ identityChain.action.businessEvent }}</el-tag>
+            <el-tag v-if="identityChain.source" size="small" effect="dark" class="ms-1">{{ identityChain.source }}</el-tag>
           </div>
-        </div>
-        <div v-else-if="identityChain.authorization.allowed" class="mt-1">
-          <div class="text-caption text-medium-emphasis mb-1">{{ t('authorizedBy') }}</div>
-          <div v-for="c in identityChain.authorization.allowed.checks as Array<{name:string;ok:boolean;note?:string}>" :key="c.name" class="d-flex align-center ga-1 text-body-2">
-            <AppIcon icon="mdi-check-circle" color="var(--el-color-success)" size="14" />
-            <span class="text-caption">{{ c.note || c.name }}</span>
+        </el-timeline-item>
+
+        <el-timeline-item
+          v-if="identityChain?.authorization.denied || identityChain?.authorization.allowed"
+          type="warning"
+          :hollow="true"
+        >
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepWhy') }}</div>
+          <div v-if="identityChain.authorization.denied" class="mt-1">
+            <div class="text-caption text-medium-emphasis mb-1">{{ t('deniedReason') }}</div>
+            <div v-for="c in identityChain.authorization.denied" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+              <AppIcon :icon="c.ok ? 'mdi-check-circle' : 'mdi-close-circle'" :color="c.ok ? 'var(--el-color-success)' : 'var(--el-color-danger)'" size="14" />
+              <span class="text-caption" :class="c.ok ? '' : 'text-error'">{{ c.note || c.name }}</span>
+            </div>
           </div>
-        </div>
-      </div>
+          <div v-else-if="identityChain.authorization.allowed" class="mt-1">
+            <div class="text-caption text-medium-emphasis mb-1">{{ t('authorizedBy') }}</div>
+            <div v-for="c in identityChain.authorization.allowed.checks as Array<{name:string;ok:boolean;note?:string}>" :key="c.name" class="d-flex align-center ga-1 text-body-2">
+              <AppIcon icon="mdi-check-circle" color="var(--el-color-success)" size="14" />
+              <span class="text-caption">{{ c.note || c.name }}</span>
+            </div>
+          </div>
+        </el-timeline-item>
+
+        <!-- 谁批准：经占位行的 token 找到的确认记录；没有确认动作就没有这一项（不按会话猜） -->
+        <el-timeline-item v-if="interpretation?.approval" type="success" :hollow="true">
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepApproval') }}</div>
+          <div class="d-flex align-center ga-2 flex-wrap text-caption">
+            <el-tag size="small" effect="plain">{{ interpretation.approval.toolName }}</el-tag>
+            <el-tag size="small">{{ interpretation.approval.status }}</el-tag>
+            <span>{{ interpretation.approval.riskLevel }}</span>
+            <span v-if="interpretation.approval.approverId" class="text-medium-emphasis">
+              {{ t('approverCol') }}: {{ interpretation.approval.approverId }}
+            </span>
+            <span v-if="interpretation.approval.decidedAt" class="text-medium-emphasis">
+              {{ formatTime(interpretation.approval.decidedAt) }}
+            </span>
+          </div>
+        </el-timeline-item>
+
+        <!-- 业务副作用：它改了什么、以及撤销到了哪一档 -->
+        <el-timeline-item v-if="interpretation?.effect" type="primary" :hollow="true">
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepEffect') }}</div>
+          <div class="text-caption text-medium-emphasis mb-1">
+            {{ interpretation.effect.toolName }} →
+            {{ interpretation.effect.resultType }}:{{ interpretation.effect.resultId }}
+            <template v-if="interpretation.effect.revokeStatus">
+              · {{ t('revokeStatusCol') }}: {{ interpretation.effect.revokeStatus }}
+            </template>
+            <template v-if="interpretation.effect.revokeWindow">
+              · {{ interpretation.effect.revokeWindow }}
+            </template>
+          </div>
+          <FieldDiff :before="interpretation.effect.before" :after="interpretation.effect.after" />
+        </el-timeline-item>
+
+        <!-- 业务那一腿：这次动作引起的操作审计行（与 AI 审计是两条链） -->
+        <el-timeline-item v-if="interpretation?.operationAudit.length" type="info" :hollow="true">
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepBusinessLeg') }}</div>
+          <div v-for="r in interpretation.operationAudit" :key="r.id" class="text-caption text-medium-emphasis">
+            #{{ r.id }}<template v-if="opPath(r.payload)"> · {{ opPath(r.payload) }}</template>
+          </div>
+        </el-timeline-item>
+
+        <!-- 结果与如何证明：**一个**状态 + 这条记录自己的链位 -->
+        <el-timeline-item v-if="interpretation" type="success" :hollow="true">
+          <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepResult') }}</div>
+          <div class="d-flex align-center ga-2 flex-wrap">
+            <StatusChip
+              :status="interpretation.state"
+              :label-map="explanationStateLabels"
+              :color-map="explanationStateColors"
+            />
+            <span v-if="interpretation?.row?.hash" class="text-caption text-medium-emphasis">
+              hash {{ String(interpretation?.row?.hash ?? '').slice(0, 12) }}…
+            </span>
+            <span v-if="interpretation?.row?.prevHash" class="text-caption text-medium-emphasis">
+              prev {{ String(interpretation?.row?.prevHash ?? '').slice(0, 12) }}…
+            </span>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
 
       <!-- L3 技术详情 -->
       <el-collapse>
@@ -251,6 +321,7 @@ import AppTable from '@/components/AppTable.vue'
 import StatCard from '@/components/StatCard.vue'
 import RangeFilter from '@/components/RangeFilter.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import FieldDiff from '@/components/FieldDiff.vue'
 import TrendBarList from '@/components/TrendBarList.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { auditApi } from '@/api/audit'
@@ -406,7 +477,46 @@ const interpretation = ref<AuditInterpretation | null>(null)
 /** §internal.16 A-5 跨系统身份链：展开行的 Human→Agent→Tool→Action + 授权依据 */
 const identityChain = ref<IdentityChain | null>(null)
 
-function hasStats(s: AuditInterpretation['stats']): boolean {
+/**
+ * P0-20：解释面的状态词表。**不是** tool-effects 那套四值 —— 那套里 `revoke_failed` 说的是「撤销失败」，
+ * 而这里要能说出「这次动作失败」「被拒」「等人的批准」「结果未知」这些。八个值与后端
+ * `audit-explanation-state.ts` 同源，**两处必须一起改**。
+ *
+ * P0-20: the explanation surface's own vocabulary. Deliberately **not** the four values tool-effects
+ * uses — `revoke_failed` there means "the revoke failed", whereas this surface has to be able to say
+ * "the action failed", "it was refused", "it is still waiting for a person" and "nobody knows". The
+ * eight values are the same set as the back end's `audit-explanation-state.ts`; the two move together.
+ */
+const explanationStateLabels = computed<Record<string, string>>(() => ({
+  awaiting_confirmation: t('explanationStateAwaiting'),
+  compensation_failed: t('explanationStateCompensationFailed'),
+  compensation_succeeded: t('explanationStateCompensationSucceeded'),
+  compensating: t('explanationStateCompensating'),
+  executed: t('explanationStateExecuted'),
+  failed: t('explanationStateFailed'),
+  rejected: t('explanationStateRejected'),
+  result_unknown: t('explanationStateResultUnknown'),
+}))
+
+/** 颜色只表达「该注意什么」：红的要处理、黄的等人、绿的已了结、蓝的在进行。 */
+const explanationStateColors: Record<string, string> = {
+  awaiting_confirmation: 'warning',
+  compensation_failed: 'danger',
+  compensation_succeeded: 'success',
+  compensating: 'info',
+  executed: 'success',
+  failed: 'danger',
+  rejected: 'warning',
+  result_unknown: 'danger',
+}
+
+/** 操作审计行的 `payload` 里那条可读的「方法 + 路径」；读不出就什么都不显示（不编一个）。 */
+function opPath(payload: unknown): string {
+  const p = payload as { method?: string; path?: string } | null
+  return p?.path ? `${p.method ?? ''} ${p.path}`.trim() : ''
+}
+
+function hasStats(s: AuditInterpretation['summary']['stats']): boolean {
   return s.businessEvents.length > 0 || s.evidence.length > 0 || s.confirmations.approved > 0 || s.confirmations.declined > 0 || s.blocked > 0 || s.errors > 0
 }
 

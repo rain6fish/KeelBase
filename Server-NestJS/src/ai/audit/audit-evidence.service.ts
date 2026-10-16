@@ -19,6 +19,11 @@ import { AiAuditLog } from './ai-audit-log.entity';
 import { AiToolSideEffect } from '../tool-effects/ai-tool-side-effect.entity';
 // ACT-5（消费者①）：占位行 —— 证据根据此把 effect 配到**它自己**那条触发行（无则退回保守规则）
 import { AiWriteClaim } from '../tool-effects/ai-write-claim.entity';
+import { AiConfirmationRequest } from '../approvals/ai-confirmation-request.entity';
+// P0-20：单事件解释面。`revokeWindow` 复用 tool-effects 的那一份，不再自己推一遍。
+// P0-20: the single-event explanation. `revokeWindow` is reused from tool-effects rather than re-derived here.
+import { revokeWindow } from '../tool-effects/revoke-staleness';
+import { ExplanationState, explainState } from './audit-explanation-state';
 import { AuditChainService, ChainVerification } from '../../common/audit-chain/audit-chain.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { AuthorizationExplainerService } from '../authorization-explainer.service';
@@ -191,6 +196,19 @@ export class AuditEvidenceService {
     @Optional()
     @InjectRepository(AiWriteClaim)
     private readonly claimsRepo?: Repository<AiWriteClaim>,
+    /**
+     * P0-20: the confirmation row behind an action, reached through the claim's `authorizationRef` —
+     * that token is the only precise key the two sides share (an audit row carries no confirmation id,
+     * and a conversation can hold several confirmations). Optional, like its neighbours: absent, the
+     * explanation says nothing about who approved rather than guessing by conversation.
+     *
+     * P0-20：一次动作背后的确认行，经占位行的 `authorizationRef` 到达 —— 那个 token 是两侧**唯一精确**
+     * 的共同键（审计行不带确认 id，而一个会话可以有好几次确认）。与其邻居一样是 `@Optional`：缺席时，
+     * 解释对「谁批准」**什么都不说**，而不是按会话去猜。
+     */
+    @Optional()
+    @InjectRepository(AiConfirmationRequest)
+    private readonly confirmationsRepo?: Repository<AiConfirmationRequest>,
   ) {}
 
   /** HS-11：沿 id 升序校验审计哈希链完整性。返回含逐行链明细（切片，供 E-2 哈希链可视化）。60s 缓存（消除 action-report 二次全表扫描）。 */
@@ -631,6 +649,40 @@ export class AuditEvidenceService {
       id: number; action: string; detail?: string | null; businessEvent?: string | null;
       evidence?: string | null; isError: boolean; errorMessage?: string | null; createdAt: Date;
     }>;
+    /**
+     * P0-20 — the single-event explanation's one status, derived once (see `audit-explanation-state`).
+     * It is computed here rather than in the view so that two views cannot disagree about the same
+     * event, and so the derivation is testable without a browser.
+     *
+     * P0-20 —— 单事件解释面**那一个**状态，在此算一次（见 `audit-explanation-state`）。在这里算而不是
+     * 在视图里算，一是两个视图**不能对同一件事各说各的**，二是这条推导**不必开着浏览器**就能测。
+     */
+    state: ExplanationState;
+    /** The side effect this action produced, when it produced one. */
+    effect: {
+      id: number;
+      toolName: string;
+      resultType: string;
+      resultId: number;
+      revokeClass: string | null;
+      revokeStatus: string | null;
+      revokeWindow: string | null;
+      before: string | null;
+      after: string | null;
+    } | null;
+    /** The operation-audit rows the effect's target produced — the business leg of the same action. */
+    operationAudit: EvidenceChainRow[];
+    /** Who approved it, when the action went through a confirmation. */
+    approval: {
+      token: string;
+      toolName: string;
+      riskLevel: string;
+      kind: string | null;
+      status: string;
+      approverId: string | null;
+      decidedAt: Date | null;
+      expiresAt: Date | null;
+    } | null;
   }> {
     const row = await this.logRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('审计记录不存在');
@@ -648,7 +700,84 @@ export class AuditEvidenceService {
       order: { createdAt: 'ASC' },
     });
     const summary = summarizeAudit(row, convRows as unknown as AuditInterpretationRow[]);
-    return { row, summary, conversation: convRows };
+
+    // ── P0-20：把四点接到**这一行**上 ─────────────────────────────────────────
+    //
+    // The claim is the only precise bridge between an audit row and what it caused: it records both
+    // `auditRowId` (this row) and `effectId` (what landed), and its `authorizationRef` is the
+    // confirmation's token. Every step below degrades to null rather than guessing — an action that
+    // produced no effect, or went through no confirmation, is a real answer and not a gap.
+    //
+    // 占位行是审计行与「它引起了什么」之间**唯一精确**的桥：它同时记着 `auditRowId`（这一行）与
+    // `effectId`（落下去的是什么），而它的 `authorizationRef` 就是确认的 token。下面每一步都**降级为
+    // null 而不去猜** —— 一次动作没有产生副作用、或没走过确认，都是**真答案**，不是缺口。
+    const claim = this.claimsRepo
+      ? await this.claimsRepo.findOne({ where: { auditRowId: id }, order: { id: 'ASC' } })
+      : null;
+
+    const effectRow = claim?.effectId
+      ? ((await this.effectsRepo.findOne({ where: { id: claim.effectId } })) ?? null)
+      : null;
+    const window = effectRow
+      ? revokeWindow(effectRow.revokeStatus, effectRow.revokeAcknowledgedAt)
+      : null;
+
+    const confirmationRow = claim?.authorizationRef
+      ? ((await this.confirmationsRepo?.findOne({ where: { token: claim.authorizationRef } })) ?? null)
+      : null;
+
+    let operationAudit: EvidenceChainRow[] = [];
+    const opPaths = effectRow ? this._evidenceRootRestPaths(effectRow.resultType) : null;
+    if (effectRow && this.operationAudit && opPaths) {
+      operationAudit = await this.operationAudit.chainRowsByTarget(
+        String(effectRow.resultId),
+        opPaths,
+      );
+    }
+
+    return {
+      row,
+      summary,
+      conversation: convRows,
+      state: explainState({
+        outcome: row.outcome,
+        isError: row.isError,
+        confirmationStatus: confirmationRow?.status ?? null,
+        revokeStatus: effectRow?.revokeStatus ?? null,
+        revokeWindow: window,
+      }),
+      effect: effectRow
+        ? {
+            id: effectRow.id,
+            toolName: effectRow.toolName,
+            resultType: effectRow.resultType,
+            resultId: effectRow.resultId,
+            revokeClass: effectRow.revokeClass ?? null,
+            revokeStatus: effectRow.revokeStatus ?? null,
+            revokeWindow: window,
+            // 原样回**字符串**（不是解析后的对象）：视图那侧的 `FieldDiff` 契约就是 JSON 串，
+            // 为它把共享组件改成收对象是更大的动作；快照本来就以串存着，直接给。
+            // Handed back as the stored **string**, not a parsed object: the view's `FieldDiff` takes
+            // JSON strings, and widening a shared component to accept objects would be a larger change
+            // than the problem. The snapshots are stored as strings already.
+            before: effectRow.beforeSnapshot ?? null,
+            after: effectRow.afterSnapshot ?? null,
+          }
+        : null,
+      operationAudit,
+      approval: confirmationRow
+        ? {
+            token: confirmationRow.token,
+            toolName: confirmationRow.toolName,
+            riskLevel: confirmationRow.riskLevel,
+            kind: confirmationRow.kind ?? null,
+            status: confirmationRow.status,
+            approverId: confirmationRow.approverId ?? null,
+            decidedAt: confirmationRow.decidedAt ?? null,
+            expiresAt: confirmationRow.expiresAt ?? null,
+          }
+        : null,
+    };
   }
 
   /** §internal.16 A-5 跨系统身份链：审计行 → Human→Intent→Agent→Tool→Action + 授权依据（拒绝 checks / 放行 explain）+ 同会话工具序列 */

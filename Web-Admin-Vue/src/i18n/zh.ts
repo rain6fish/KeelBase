@@ -482,6 +482,26 @@ const zh = {
   errorCount: '错误 {n}',
   // §internal.16 A-5 跨系统身份链
   authorizedBy: '允许依据',
+  // P0-20 单事件解释面：一次动作 → 一条时间线，六问各占一项
+  actionExplanation: '单事件解释',
+  explanationStepWho: '谁做的 · 做了什么',
+  explanationStepWhy: '为什么允许',
+  explanationStepApproval: '谁批准',
+  explanationStepEffect: '业务副作用',
+  explanationStepBusinessLeg: '业务那一栏（操作审计）',
+  explanationStepResult: '结果与如何证明',
+  approverCol: '批准人',
+  revokeStatusCol: '撤销状态',
+  // P0-20 解释面的状态词表（八个值）。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
+  // 而「被拒」「等人的批准」「结果未知」在那里没有名字。与后端 `audit-explanation-state.ts` 同源。
+  explanationStateAwaiting: '待确认',
+  explanationStateCompensationFailed: '补偿失败',
+  explanationStateCompensationSucceeded: '补偿成功',
+  explanationStateCompensating: '补偿中',
+  explanationStateExecuted: '已执行',
+  explanationStateFailed: '失败',
+  explanationStateRejected: '被拒',
+  explanationStateResultUnknown: '结果未知',
   decisionPolicy: '策略',
   stepConfirmation: '确认决策',
   stepEffect: '创建记录',
