@@ -261,7 +261,7 @@ describe('TrustSandboxService', () => {
 
   it('s5_revoke：命中真实 AI 副作用 → 无确认给指引（不静默撤销）；confirm=1 才撤销', async () => {
     effectsService.listOwned.mockResolvedValue({
-      items: [{ id: 5, resultType: 'crm_task', targetTitle: '跟进回款' }],
+      items: [{ id: 5, resultType: 'crm_task', toolName: 'create_followup_task', targetTitle: '跟进回款' }],
     });
     effectsService.revokeOwned.mockResolvedValue({ revoked: true, effectId: 5 });
 
@@ -276,8 +276,19 @@ describe('TrustSandboxService', () => {
     expect(r2.outcome).toBe('passed');
     expect(r2.effectId).toBe(5);
     expect(effectsService.revokeOwned).toHaveBeenCalledWith(5, '42');
+    // C-5：两列链外归因列真**落到行上**（非仅调用能编译）—— outcome 取冻结向量为 effect_revoke 钉的
+    // 唯一结局 `revoked`；tool 取副作用自身的工具名（create_followup_task），非从 detail 文本解析。
+    // C-5: the two out-of-chain attribution columns actually LAND ON THE ROW (not merely that the call
+    // compiles) — outcome is `revoked`, the only value the frozen vector pins for effect_revoke; tool is
+    // the side effect's own tool name (create_followup_task), not parsed out of `detail`.
     expect(auditService.log).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: '42', action: 'effect_revoke', source: 'sandbox' }),
+      expect.objectContaining({
+        userId: '42',
+        action: 'effect_revoke',
+        source: 'sandbox',
+        outcome: 'revoked',
+        tool: 'create_followup_task',
+      }),
     );
     // 未撤销（revoke 未生效）不得写「已撤销」审计行
     auditService.log.mockClear();
@@ -288,7 +299,9 @@ describe('TrustSandboxService', () => {
     expect(r3.outcome).toBe('guide');
 
     // revoke 未生效 → outcome check + 诚实文案（不误报「已软删」）
-    effectsService.listOwned.mockResolvedValue({ items: [{ id: 5, resultType: 'crm_task' }] });
+    effectsService.listOwned.mockResolvedValue({
+      items: [{ id: 5, resultType: 'crm_task', toolName: 'create_followup_task' }],
+    });
     effectsService.revokeOwned.mockResolvedValue({ revoked: false, effectId: 5, revokeStatus: 'revoke_failed' });
     const r4 = await sandbox.run('s5_revoke', '42', { confirm: true });
     expect(r4.outcome).toBe('check');

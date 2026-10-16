@@ -147,11 +147,6 @@ const EXEMPT = [
     action: null,
     reason: 'forwarding endpoint — action and fields come from the caller DTO, pinned to the frozen external-audit schema; naming outcome/tool here would need a contract bump.',
   },
-  {
-    file: 'Server-NestJS/src/ai/trust-sandbox/trust-sandbox.service.ts',
-    action: 'effect_revoke',
-    reason: 'KNOWN GAP, not a legitimate null: effect_revoke is a tool action that should answer outcome="revoked". Recorded here so the gate stays honest (a red here would block unrelated work); fixing it is a Server-NestJS/src change out of this task scope.',
-  },
 ];
 
 /**
