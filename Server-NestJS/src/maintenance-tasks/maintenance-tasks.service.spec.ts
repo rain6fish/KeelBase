@@ -14,6 +14,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
+import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
+import { OperationAuditService } from '../operation-audit/operation-audit.service';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 
 function mockRepo(extra: Record<string, jest.Mock> = {}) {
@@ -75,6 +77,9 @@ describe('MaintenanceTasksService', () => {
         // BA 异常行为基线：本文件只测其余维护任务，故给最小替身
         { provide: BehaviorBaselineService, useValue: { scan: jest.fn().mockResolvedValue([]) } },
         { provide: AlertWebhookService, useValue: { sendAlert: jest.fn().mockResolvedValue(undefined) } },
+        // HS-11 §22.10 债 3：完整性巡检读侧 —— 本文件只测其余维护任务，故给最小替身
+        { provide: AuditEvidenceService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
+        { provide: OperationAuditService, useValue: { verifyChain: jest.fn().mockResolvedValue({ valid: true, checked: 0 }) } },
       ],
     }).compile();
 

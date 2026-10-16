@@ -67,11 +67,19 @@ async function main(): Promise<void> {
       ds, // DataSource：DB 级串行锁
     ),
   );
-  // 链校验已随 phase-3 拆分迁至 AuditEvidenceService（AuditService 不再暴露 verifyChain）
+  // Chain verification moved to AuditEvidenceService with the phase-3 split (AuditService no longer
+  // exposes `verifyChain`). Its constructor has since grown required collaborators — the 4th slot is
+  // `coverage` (AW-3, required), ahead of the `@Optional` ones. This script only calls `verifyChain`,
+  // which never reads coverage, so a stub stands in — same shape the unit specs use.
+  //
+  // 链校验已随 phase-3 拆分迁至 AuditEvidenceService（AuditService 不再暴露 verifyChain）。
+  // 此后它的构造参数增加了必填协作者——第 4 个是 `coverage`（AW-3，必填），排在所有 `@Optional` 之前。
+  // 本脚本只调 `verifyChain`，而它不读 coverage，故以一个 stub 顶上——与单测同形。
   const evidence = new AuditEvidenceService(
     ds.getRepository(AiAuditLog),
     ds.getRepository(AiToolSideEffect),
     auditChain,
+    { forFacts: () => ({}) } as never,
   );
 
   const durations: number[] = [];

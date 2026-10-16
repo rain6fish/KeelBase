@@ -109,10 +109,17 @@ The chain proves **internal continuity**: any row that is altered, removed from 
 
 链证明的是**内部连续性**：任何一行被改、被从中间删、或被换序都会断链，且 `verify` 会指出断在哪。它**不**证明「末尾没有被删」—— 被截断的链仍是合法链。那个问题属于另一层：**外部锚**（`evidence-anchor.ts`，SM2 日锚）把某日全部证据包的 digest 聚合成一个签名的 `rootDigest` 并**发布到 KeelBase 信任域之外**，持公钥者据此可比对该日那批包是否仍是发布时那一批 —— 事件发生后的删除这才变得可检出。它带两个前提：只覆盖**确实锚定过**的日子、且只覆盖**被纳入的**那些包；以及**必须有域外接收方**（自持锚是空心承诺 —— 发布与密钥托管属部署方义务，见 N-2）。**长期保全**（WORM / 不可变归档）是第三件独立的事，本仓**不做**。落到措辞上的结论：**「链」不承载「只能追加 / append-only」** —— 那个词属于保全层，本规格不主张它。
 
+### 6.2 定期完整性巡检 / 6.2 Periodic integrity patrol
+
+`verify` only answers when asked; nothing announces a break, and a forked chain quietly poisons every later write. The maintenance scheduler therefore runs both verdicts (AI audit + operation audit) hourly and, on a break, raises the alarm that otherwise never comes: an in-app notification to every admin plus the alert webhook (`ALERT_WEBHOOK_*`). It is the **Integrity** item of the Trust/Audit box, not APM — it reads the chains, it does not watch the process. It is **edge-triggered**: it alerts on the transition *into* broken, not on every run, so a chain left broken does not re-page hourly. A failed check (an exception) is not a clean verdict — it is logged and leaves the last judgement untouched, so the true transition is still caught by a later run.
+
+`verify` 只在被问到时报答；没有任何东西会主动宣告一次断链，而分叉的链会静默污染其后的每一次写入。故维护调度按期跑两条链（AI 审计 + 操作审计）的校验，断了就发出那个「本来不会来」的告警：给每个管理员的站内通知 + 告警 webhook（`ALERT_WEBHOOK_*`）。它属 Trust/Audit 那一格的 **Integrity** 项、不属 APM——它读的是链，不是进程。它是**边沿触发**的：只在「转为断链」时告警、不是每轮都报，故一条被放着不管的断链不会每小时再刷一次。**校验失败**（抛异常）不是干净结论——记一笔、且不动上一轮判断，于是真正的「转断」仍会被之后那次巡检抓到。
+
 ---
 
 ## 7. 测试 / 7. Tests
 
 - `audit-chain.service.spec.ts`：computeHash 稳定性/键序/undefined/链式/密钥隔离 + verifyChain 空链/合法链/篡改检测/断链检测。
 - `audit.service.spec.ts` / `operation-audit.service.spec.ts`：log 写入 prev_hash+hash、串接上条 hash、verifyChain 委托。
+- `maintenance-tasks.patrol.spec.ts`（§6.2）：临时库上成对读数——健康链静默通过、人为断链被报出（管理员通知 + webhook）、仍断链时不重复告警；拿掉告警块 ⇒ 断链那条变红。
 - 全量：850 后端单测 + e2e 全绿。

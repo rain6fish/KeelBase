@@ -14,6 +14,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 // 它持有对话内等待的内存 Map，另起一份会让裁决看不到等待中的确认）
 import { AiModule } from '../ai/ai.module';
 import { AlertWebhookModule } from '../alert-webhook/alert-webhook.module';
+// HS-11 §22.10 债 3：完整性巡检要读操作审计链（AI 审计链经 AiModule 的 AuditEvidenceService 拿到）
+import { OperationAuditModule } from '../operation-audit/operation-audit.module';
 import { LlmProviderFactory } from '../ai/providers/provider-factory';
 import { LlmProviderConfig } from '../ai/interfaces/provider-config.interface';
 import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
@@ -34,6 +36,7 @@ import { ProactiveAiService } from './proactive-ai.service';
     NotificationsModule,
     AiModule,
     AlertWebhookModule,
+    OperationAuditModule,
   ],
   providers: [
     MaintenanceTasksService,

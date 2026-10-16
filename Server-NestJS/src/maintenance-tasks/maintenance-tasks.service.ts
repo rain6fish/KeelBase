@@ -15,6 +15,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ConfirmationStore } from '../ai/confirmation/confirmation.store';
 import { BehaviorBaselineService } from '../ai/behavior-baseline/behavior-baseline.service';
 import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
+import { AuditEvidenceService } from '../ai/audit/audit-evidence.service';
+import { OperationAuditService } from '../operation-audit/operation-audit.service';
 
 /**
  * 定时任务（PL-7，@nestjs/schedule cron）。
@@ -23,6 +25,8 @@ import { AlertWebhookService } from '../alert-webhook/alert-webhook.service';
 @Injectable()
 export class MaintenanceTasksService {
   private readonly logger = new Logger(MaintenanceTasksService.name);
+  /** 上轮各链的断链状态（内存；边沿触发用——只在「转为断链」时告警，见 patrolAuditChainIntegrity） */
+  private readonly _chainBroken = new Map<'ai' | 'operation', boolean>();
 
   constructor(
     @InjectRepository(UserSession) private readonly sessionsRepo: Repository<UserSession>,
@@ -38,6 +42,9 @@ export class MaintenanceTasksService {
     // BA 异常行为基线：定时扫描（只读审计与副作用表；不阻断任何动作）
     private readonly behaviorBaseline: BehaviorBaselineService,
     private readonly alertWebhook: AlertWebhookService,
+    // HS-11 §22.10 债 3：两条哈希链的读侧校验（AI 审计 + 操作审计），供定期完整性巡检
+    private readonly auditEvidence: AuditEvidenceService,
+    private readonly operationAudit: OperationAuditService,
   ) {}
 
   /**
@@ -149,6 +156,74 @@ export class MaintenanceTasksService {
         subjectKind: alert.subjectKind,
         subjectId: alert.subjectId,
         conversationId: alert.conversationId ?? null,
+      });
+    }
+  }
+
+  /**
+   * Audit-chain integrity patrol (HS-11 §22.10 debt 3). A fork or a tamper makes `verify` answer
+   * `valid=false` **only when asked** — nothing announces it, and the broken chain silently poisons
+   * every later write. This runs the two chain verdicts on a schedule and, on a break, raises the alarm
+   * that otherwise never comes: admins (in-app) + the alert webhook. It belongs to the **Integrity**
+   * item of the Trust/Audit box, not to APM — it reads the chains, it does not watch the process.
+   *
+   * **Edge-triggered**: it alerts on the transition **into** broken, not on every run — a chain that
+   * stays broken would otherwise re-page every hour. State is in-memory, so a restart re-alerts once
+   * while a chain is currently broken; that one reminder for a standing condition is the intent, not
+   * a bug. A *failed check* (exception) is not a clean verdict: it is logged and leaves the last-state
+   * untouched, so the true transition is still caught by a later good run.
+   *
+   * 审计链完整性巡检（HS-11 §22.10 债 3）。分叉或篡改会让 `verify` 在**被问到**时答 `valid=false`
+   * ——没有任何东西会主动宣告它，而断掉的链会**静默污染其后的每一次写入**。本任务按期跑两条链的
+   * 校验，断了就发出那个「本来不会来」的告警：管理员（站内）+ 告警 webhook。它属 Trust/Audit 那一格的
+   * **Integrity** 项、不属 APM——它读的是链，不是进程。
+   *
+   * **边沿触发**：只在「转为断链」时告警、不是每轮都报——否则一条一直坏着的链会每小时刷一次。状态在
+   * 内存里，故进程重启后若当前仍是断链会再告一次；对一种持续状态提醒一次是本意、不是缺陷。**校验失败**
+   * （抛异常）不是干净结论：记一笔、且**不动**上轮状态，于是真正的「转断」仍会被之后那次成功的巡检抓到。
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async patrolAuditChainIntegrity(): Promise<void> {
+    const checks: Array<{
+      chain: 'ai' | 'operation';
+      label: string;
+      verify: () => Promise<{ valid: boolean; checked: number; brokenIndex?: number | null }>;
+    }> = [
+      { chain: 'ai', label: 'AI 审计链', verify: () => this.auditEvidence.verifyChain() },
+      { chain: 'operation', label: '操作审计链', verify: () => this.operationAudit.verifyChain() },
+    ];
+
+    for (const { chain, label, verify } of checks) {
+      let result: { valid: boolean; checked: number; brokenIndex?: number | null };
+      try {
+        result = await verify();
+      } catch (err) {
+        this.logger.error(`审计链巡检（${label}）校验失败：${(err as Error).message}`);
+        continue;
+      }
+
+      const wasBroken = this._chainBroken.get(chain) ?? false;
+      this._chainBroken.set(chain, !result.valid);
+      if (result.valid || wasBroken) continue;
+
+      const title = `审计哈希链完整性告警（${label}）`;
+      const body = `第 ${result.brokenIndex ?? '?'} 行断链（已校验 ${result.checked} 行）——该链自此不再可信，需人工排查。`;
+      this.logger.error(`[integrity] ${title}：${body}`);
+
+      const admins = await this.usersRepo.find({ where: { role: UserRole.ADMIN } });
+      for (const admin of admins) {
+        await this.notificationsService.create({
+          userId: admin.id,
+          title,
+          body,
+          type: 'audit_chain_integrity_alert',
+        });
+      }
+      // 对外通道：未配 ALERT_WEBHOOK_URL 时 sendAlert 自带静默跳过
+      await this.alertWebhook.sendAlert(title, body, {
+        chain,
+        brokenIndex: result.brokenIndex ?? null,
+        checked: result.checked,
       });
     }
   }
