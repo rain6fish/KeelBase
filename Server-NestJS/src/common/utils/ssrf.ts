@@ -24,6 +24,20 @@ export function isPrivateV6(ip: string): boolean {
   return v === '::' || v === '::1' || v.startsWith('fe80') || v.startsWith('fc') || v.startsWith('fd');
 }
 
+/**
+ * hostname 为**字面 IP**（v4/v6）且落在私网/回环/链接本地（含云元数据）时为 true。
+ * 与 `isBlockedHost` 的区别：**不做 DNS 解析** —— 主机名一律返回 false（解析是异步的、且会误伤
+ * 依赖内网主机名的合法用途，如 sidecar 回调用 `http://sidecar:3200`）。调用方自行决定用哪一种。
+ * `URL.hostname` 对 IPv6 带方括号（`[::1]`）⇒ 先剥括号再 `isIP`。
+ */
+export function isPrivateLiteralHost(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, '');
+  const version = isIP(h);
+  if (version === 4) return isPrivateV4(h);
+  if (version === 6) return isPrivateV6(h);
+  return false;
+}
+
 export async function isBlockedHost(hostname: string): Promise<boolean> {
   let addresses: string[];
   try {

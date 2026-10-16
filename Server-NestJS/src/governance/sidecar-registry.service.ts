@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { isPrivateLiteralHost } from '../common/utils/ssrf';
 
 /**
  * B2 治理策略实时推送（治理能力 2.2 控制平面实时性）：
@@ -17,6 +18,18 @@ export class SidecarRegistryService {
   register(callbackUrl: string): { registered: boolean; total: number } {
     if (!callbackUrl || !/^https?:\/\/\S+$/.test(callbackUrl)) {
       throw new BadRequestException('callbackUrl 必填且需为 http(s) 地址');
+    }
+    // SSRF 纵深（治理台暴露公网前补，复用 common/utils/ssrf）：拒**字面**私网/回环/链接本地/云元数据 IP。
+    // 只判字面 IP —— **不解析主机名**：本特性的标准部署恰用内网主机名（如 `http://sidecar:3200`，
+    // 见 docs/manual/governance-deploy.md），DNS 解析式拦截（assertPublicUrl）会把它一起挡掉。
+    let hostname: string;
+    try {
+      hostname = new URL(callbackUrl).hostname;
+    } catch {
+      throw new BadRequestException('callbackUrl 必填且需为 http(s) 地址');
+    }
+    if (isPrivateLiteralHost(hostname)) {
+      throw new BadRequestException('callbackUrl 不得指向私网/回环/链路本地地址（防 SSRF）');
     }
     this.sidecars.set(callbackUrl, { callbackUrl, registeredAt: Date.now() });
     return { registered: true, total: this.sidecars.size };

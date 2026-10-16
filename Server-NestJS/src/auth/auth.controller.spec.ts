@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ForbiddenException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
@@ -246,6 +247,55 @@ describe('AuthController', () => {
       const dto = { currentPassword: 'old', newPassword: 'NewPass123' };
       await expect(controller.changePassword(mockUser as any, dto as any)).resolves.toEqual({ ok: true });
       expect(authService.changePassword).toHaveBeenCalledWith(1, dto);
+    });
+  });
+
+  describe('authorizationChain（A-5 授权链图 · 本人或 admin，CASL 表达）', () => {
+    const abilityFor = (role: 'admin' | 'user', sub: number) =>
+      new CaslAbilityFactory().createForUser({ sub, username: 'u', role } as any);
+
+    it('普通用户（无 userId）→ 返回本人链', async () => {
+      aiService.getAuthorizationChain.mockResolvedValue({ nodes: [] });
+      await controller.authorizationChain(
+        { sub: 1, username: 'alex', role: 'user' } as any,
+        undefined,
+        abilityFor('user', 1),
+      );
+      expect(aiService.getAuthorizationChain).toHaveBeenCalledWith({ role: 'user', sub: 1, username: 'alex' });
+      expect(usersRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('普通用户 ?userId=他人 → 403，且不查库（无存在性泄漏）', async () => {
+      await expect(
+        controller.authorizationChain({ sub: 1, username: 'alex', role: 'user' } as any, '5', abilityFor('user', 1)),
+      ).rejects.toThrow(ForbiddenException);
+      expect(usersRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('admin ?userId=他人 → 返回目标链', async () => {
+      usersRepo.findOne.mockResolvedValue({ id: 5, role: 'user', username: 'bob' });
+      aiService.getAuthorizationChain.mockResolvedValue({ nodes: [] });
+      await controller.authorizationChain(
+        { sub: 9, username: 'admin', role: 'admin' } as any,
+        '5',
+        abilityFor('admin', 9),
+      );
+      expect(usersRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 5 },
+        select: { id: true, role: true, username: true },
+      });
+      expect(aiService.getAuthorizationChain).toHaveBeenCalledWith({ role: 'user', sub: 5, username: 'bob' });
+    });
+
+    it('普通用户 ?userId=自己 → 放行（「本人或 admin」含本人；旧实现按 role 会 403）', async () => {
+      usersRepo.findOne.mockResolvedValue({ id: 1, role: 'user', username: 'alex' });
+      aiService.getAuthorizationChain.mockResolvedValue({ nodes: [] });
+      await controller.authorizationChain(
+        { sub: 1, username: 'alex', role: 'user' } as any,
+        '1',
+        abilityFor('user', 1),
+      );
+      expect(aiService.getAuthorizationChain).toHaveBeenCalledWith({ role: 'user', sub: 1, username: 'alex' });
     });
   });
 });

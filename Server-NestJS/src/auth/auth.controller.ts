@@ -13,7 +13,10 @@ import { OAuthService } from './oauth.service';
 import { DelegationTokenService } from './delegation-token.service';
 import { DelegationTokenDto } from './dto/delegation-token.dto';
 import { OAuthProvidersConfigService } from './oauth-providers.config';
+import { subject } from '@casl/ability';
 import { CaslAbilityFactory, Action } from '../common/casl/casl-ability.factory';
+import type { AppAbility } from '../common/casl/casl-ability.factory';
+import { CurrentAbility } from '../common/casl/current-ability.decorator';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { User } from '../common/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
@@ -330,14 +333,21 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Authorization chain: 本人或 admin 反查目标用户的完整授权链（角色→CASL 资源 + 工具策略 + 生效期）' })
   @ApiOkResponse({ description: 'Authorization chain for user' })
-  async authorizationChain(@CurrentUser() user: JwtPayload, @Query('userId') userId?: string) {
+  async authorizationChain(
+    @CurrentUser() user: JwtPayload,
+    @Query('userId') userId?: string,
+    @CurrentAbility() ability?: AppAbility,
+  ) {
     if (userId) {
-      // 反查目标用户需管理员（非端点级 CheckPolicies，本人路径普通用户也可访问）
-      if (user.role !== 'admin') {
-        throw new ForbiddenException('仅管理员可反查其他用户的授权链');
+      const targetId = Number(userId);
+      // 「本人或 admin」用 CASL 表达（admin = manage all；user = manage User { id: sub }），
+      // 不再内联判 role —— 与 users.controller 的 `ability.cannot('read', subject('User', { id }))` 同一套。
+      // 先判权、后查库：非本人/非 admin 在触达 DB 前即 403（不泄漏目标是否存在）。
+      if (ability?.cannot('read', subject('User', { id: targetId }))) {
+        throw new ForbiddenException('仅本人或管理员可查询该授权链');
       }
       const target = await this.usersRepo.findOne({
-        where: { id: Number(userId) },
+        where: { id: targetId },
         select: { id: true, role: true, username: true },
       });
       if (!target) throw new NotFoundException('用户不存在');

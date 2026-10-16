@@ -32,6 +32,23 @@ describe('SidecarRegistryService（B2 治理策略实时推送）', () => {
     expect(() => registry.register('javascript:alert(1)')).toThrow();
   });
 
+  it('register：拒绝私网/回环/链路本地/云元数据的**字面 IP**（SSRF 纵深，复用 common/utils/ssrf）', () => {
+    expect(() => registry.register('http://10.0.0.5/hook')).toThrow(); // 私网
+    expect(() => registry.register('http://127.0.0.1/x')).toThrow(); // 回环
+    expect(() => registry.register('http://169.254.169.254/')).toThrow(); // 云元数据/链接本地
+    expect(() => registry.register('http://192.168.1.1:3200')).toThrow(); // 私网
+    expect(() => registry.register('http://[::1]:3200')).toThrow(); // IPv6 回环
+    expect(() => registry.register('http://[fe80::1]/x')).toThrow(); // IPv6 链接本地
+    expect(registry.list()).toHaveLength(0); // 一个都没进表
+  });
+
+  it('register：公网字面 IP 与主机名放行（不解析主机名——标准部署用内网主机名）', () => {
+    expect(registry.register('http://8.8.8.8:3200')).toEqual({ registered: true, total: 1 });
+    // 主机名一律放行（DNS 解析式拦截会误伤 docs/manual/governance-deploy.md 的 `http://sidecar:3200`）
+    expect(registry.register('http://sidecar:3200')).toEqual({ registered: true, total: 2 });
+    expect(registry.register('https://sidecar.example.com')).toEqual({ registered: true, total: 3 });
+  });
+
   it('pushPolicy：向已注册 sidecar 广播 POST /v1/policy（服务身份）', async () => {
     registry.register('http://sidecar:3200');
     registry.register('http://sidecar2:3200');
