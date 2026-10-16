@@ -71,7 +71,7 @@ describe('UsersService', () => {
             delByPrefix: jest.fn().mockResolvedValue(undefined),
           },
         },
-        { provide: UploadSignService, useValue: { signUrl: jest.fn((p: string) => p) } },
+        { provide: UploadSignService, useClass: UploadSignService },
       ],
     }).compile();
 
@@ -424,6 +424,35 @@ describe('UsersService', () => {
     const result = await service.update(1, { email: 'same@example.com' } as any);
     expect(result.email).toBe('same@example.com');
     expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({ email: 'same@example.com' }));
+  });
+
+  it('update avatarUrl：客户端回传带签名的 URL ⇒ 入库为裸引用（CR-21 stage C）', async () => {
+    const uploadSign = (service as any).uploadSign as UploadSignService;
+    const atUpload = uploadSign.signUrl('/uploads/avatar.png'); // /uploads/avatar.png?e=..&s=..
+    expect(atUpload).toContain('?e=');
+    expect(atUpload).toContain('&s=');
+
+    mockRepository.findOne.mockResolvedValue({ ...mockUser });
+    mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+    await service.update(1, { avatarUrl: atUpload } as UpdateUserDto);
+
+    const saved = mockRepository.save.mock.calls[0][0];
+    expect(saved.avatarUrl).toBe('/uploads/avatar.png'); // 签名 query 已被剥掉，存的是裸引用
+  });
+
+  it('update avatarUrl：裸引用 / 绝对 URL 原样入库（不误伤 S3）', async () => {
+    mockRepository.save.mockImplementation((u: any) => Promise.resolve(u));
+
+    mockRepository.findOne.mockResolvedValue({ ...mockUser });
+    await service.update(1, { avatarUrl: '/uploads/plain.png' } as UpdateUserDto);
+    expect(mockRepository.save.mock.calls[0][0].avatarUrl).toBe('/uploads/plain.png');
+
+    mockRepository.findOne.mockResolvedValue({ ...mockUser });
+    await service.update(1, { avatarUrl: 'https://cdn.example.com/x.png?X-Amz-Signature=deadbeef' } as UpdateUserDto);
+    expect(mockRepository.save.mock.calls[1][0].avatarUrl).toBe(
+      'https://cdn.example.com/x.png?X-Amz-Signature=deadbeef',
+    );
   });
 
   it('forceChangePassword 标记需改密（WEB-FRONT-4）', async () => {

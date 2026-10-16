@@ -176,7 +176,12 @@ export class UsersService {
       user.phoneHash = newHash;
     }
     if (dto.bio !== undefined) user.bio = dto.bio;
-    if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl;
+    // CR-21 stage C: the client hands back the URL `POST /upload` returned, signature query and all.
+    // Store the bare `/uploads/<file>` reference instead of the frozen signed string, so the read
+    // side re-signs on every read rather than serving a signature that expires with the row.
+    // CR-21 stage C：客户端会原样回传 `POST /upload` 给的 URL（含签名 query）。这里只存裸引用
+    // `/uploads/<file>`，让读侧每次重新签名，而不是把一个会随行一起过期的签名串存进库。
+    if (dto.avatarUrl !== undefined) user.avatarUrl = this.uploadSign.normalizeForStorage(dto.avatarUrl);
     if (dto.password !== undefined) {
       user.password = await bcrypt.hash(dto.password, 12);
     }
