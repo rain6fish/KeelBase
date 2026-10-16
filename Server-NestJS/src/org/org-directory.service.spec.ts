@@ -11,6 +11,8 @@ import { OrgMemberRole } from './org-member-role.enum';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { FlowTask } from '../flows/entities/flow-task.entity';
+import { UploadSignService } from '../upload/upload-sign.service';
+import { EncryptionService } from '../common/utils/encryption';
 
 /**
  * 组织通讯录单测（阶段 3 第十五刀从 \`org.service.spec.ts\` 整段搬来，**断言一字未改**；
@@ -47,6 +49,7 @@ describe('OrgDirectoryService', () => {
   let depts: ReturnType<typeof mockRepo>;
   let members: ReturnType<typeof mockRepo>;
   let flowTask: ReturnType<typeof mockRepo>;
+  let uploadSign: UploadSignService;
 
   beforeEach(async () => {
     orgs = mockRepo();
@@ -61,10 +64,13 @@ describe('OrgDirectoryService', () => {
         { provide: getRepositoryToken(Department), useValue: depts },
         { provide: getRepositoryToken(OrgMember), useValue: members },
         { provide: getRepositoryToken(FlowTask), useValue: flowTask },
+        { provide: EncryptionService, useValue: { hmac: jest.fn((v: string) => `hmac:${v}`) } },
+        UploadSignService,
       ],
     }).compile();
 
     service = module.get(OrgDirectoryService);
+    uploadSign = module.get(UploadSignService);
   });
 
   it('getOrgApprovalTaskStats：A 在 org1 只见 org1 成员，不见 org2（B）', async () => {
@@ -164,6 +170,27 @@ describe('OrgDirectoryService', () => {
     expect(list[0]).toEqual({ id: 5, nickname: 'Alice', avatarUrl: 'http://a', role: OrgMemberRole.MEMBER, deptName: '研发部' });
     expect(list[0]).not.toHaveProperty('email');
     expect(list[0]).not.toHaveProperty('username');
+  });
+
+  it('通讯录头像：存储的裸引用读时重签（CR-21 stage C，可证伪）', async () => {
+    members.findOne.mockResolvedValue({ id: 1, orgId: 1, userId: 9, deptId: null, role: OrgMemberRole.MEMBER });
+    members.find.mockResolvedValue([
+      {
+        userId: 5, role: OrgMemberRole.MEMBER,
+        user: { nickname: 'Alice', avatarUrl: '/uploads/a.png', username: 'alice', email: 'x@y.z' },
+        dept: { name: '研发部' },
+      },
+    ]);
+    const list = await service.listMyMembers(9);
+    const url = list[0].avatarUrl as string;
+
+    expect(url).not.toBe('/uploads/a.png'); // 不是原样透传（旧形状的坏读法）
+    expect(url).toMatch(/^\/uploads\/a\.png\?e=\d+&s=/); // 读侧已附签名
+    const [, q] = url.split('?');
+    const p = new URLSearchParams(q);
+    expect(uploadSign.verify('/uploads/a.png', p.get('e')!, p.get('s')!)).toBe(true); // 签名可校验
+    // 可证伪：未经签名的裸引用过不了 verify（旧读法读出来就是这个，REQUIRE_SIGN 下 403）
+    expect(uploadSign.verify('/uploads/a.png', undefined, undefined)).toBe(false);
   });
 
   // ── 补充覆盖：update 成功路径 / 审批待办统计 ───────────────────────────────

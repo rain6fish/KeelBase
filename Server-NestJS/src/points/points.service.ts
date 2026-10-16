@@ -6,6 +6,7 @@ import { Repository, In } from 'typeorm';
 import { PointsEntry } from './points-entry.entity';
 import { User } from '../common/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
+import { UploadSignService } from '../upload/upload-sign.service';
 
 const CHECKIN_BASE_KEY = 'points_checkin_base';
 const CHECKIN_STREAK_PER_DAY_KEY = 'points_streak_per_day';
@@ -37,6 +38,7 @@ export class PointsService {
     @InjectRepository(PointsEntry) private entriesRepo: Repository<PointsEntry>,
     @InjectRepository(User) private usersRepo: Repository<User>,
     private settingsService: SettingsService,
+    private uploadSign: UploadSignService,
   ) {}
 
   async getMyOverview(userId: number): Promise<PointsOverview> {
@@ -92,12 +94,15 @@ export class PointsService {
     const ids = rows.map((r) => Number(r.userId));
     const users = await this.usersRepo.find({ where: { id: In(ids) } });
     const userMap = new Map(users.map((u) => [u.id, u]));
-    return rows.map((r) => ({
-      // A9：不返回内部 userId（避免枚举）
-      points: Number(r.points),
-      nickname: userMap.get(Number(r.userId))?.nickname ?? null,
-      avatarUrl: userMap.get(Number(r.userId))?.avatarUrl ?? null,
-    }));
+    return rows.map((r) => {
+      const storedAvatar = userMap.get(Number(r.userId))?.avatarUrl;
+      return {
+        // A9：不返回内部 userId（避免枚举）
+        points: Number(r.points),
+        nickname: userMap.get(Number(r.userId))?.nickname ?? null,
+        avatarUrl: storedAvatar ? this.uploadSign.signUrl(storedAvatar) : null,
+      };
+    });
   }
 
   async getAchievements(userId: number): Promise<AchievementView[]> {

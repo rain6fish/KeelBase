@@ -17,6 +17,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { FlowRuntimeService } from '../flows/flow-runtime.service';
 import { FlowInstance } from '../flows/entities/flow-instance.entity';
 import { FlowTask } from '../flows/entities/flow-task.entity';
+import { UploadSignService } from '../upload/upload-sign.service';
+import { EncryptionService } from '../common/utils/encryption';
 
 /** 链式 QueryBuilder mock */
 function mockQB(overrides: Record<string, unknown> = {}) {
@@ -65,6 +67,7 @@ describe('OrgService', () => {
   let flowInst: ReturnType<typeof mockRepo>;
   let flowTask: ReturnType<typeof mockRepo>;
   let notify: { create: jest.Mock };
+  let uploadSign: UploadSignService;
 
   beforeEach(async () => {
     orgs = mockRepo();
@@ -91,10 +94,13 @@ describe('OrgService', () => {
           provide: FlowRuntimeService,
           useValue: { start: jest.fn().mockResolvedValue({ id: 1, definitionId: 'org_request_approval' }) },
         },
+        { provide: EncryptionService, useValue: { hmac: jest.fn((v: string) => `hmac:${v}`) } },
+        UploadSignService,
       ],
     }).compile();
 
     service = module.get(OrgService);
+    uploadSign = module.get(UploadSignService);
   });
 
   // ── ORG-3 数据隔离 ──
@@ -251,6 +257,27 @@ describe('OrgService', () => {
     expect(result.items[0].deptName).toBe('研发部');
   });
 
+  it('listMembers 头像：存储的裸引用读时重签（CR-21 stage C，可证伪）', async () => {
+    orgs.findOne.mockResolvedValue({ id: 1, name: 'Acme' });
+    members.createQueryBuilder().getCount.mockResolvedValue(1);
+    members.createQueryBuilder().getMany.mockResolvedValue([
+      {
+        id: 1, orgId: 1, userId: 5, deptId: 2, role: OrgMemberRole.MEMBER,
+        user: { username: 'alice', nickname: 'Alice', avatarUrl: '/uploads/a.png', email: 'alice@example.com' },
+        dept: { name: '研发部' },
+      },
+    ]);
+    const result = await service.listMembers(1, 1, 20);
+    const url = result.items[0].avatarUrl as string;
+
+    expect(url).not.toBe('/uploads/a.png'); // 旧形状的坏读法会把裸引用原样透传
+    expect(url).toMatch(/^\/uploads\/a\.png\?e=\d+&s=/);
+    const [, q] = url.split('?');
+    const p = new URLSearchParams(q);
+    expect(uploadSign.verify('/uploads/a.png', p.get('e')!, p.get('s')!)).toBe(true);
+    expect(uploadSign.verify('/uploads/a.png', undefined, undefined)).toBe(false); // 裸引用本身不可校验
+  });
+
   // PC-3（CE-2 缺口）：org/orgId 数据范围 membership wire 形状在**源侧**冻结——与
   // specs/protocol/schemas/v1/org-*.schema.json（additionalProperties:false + 样例）配合：
   // 任一侧加/改字段，本断言或 wire-schema 冻结门先红。
@@ -275,7 +302,7 @@ describe('OrgService', () => {
       readFileSync(resolve(__dirname, '../../specs/protocol/schemas/v1/org-member-item.schema.json'), 'utf8'),
     ) as { properties: Record<string, unknown> };
     expect(Object.keys(admin.items[0]).sort()).toEqual(Object.keys(itemSchema.properties).sort());
-
+
   });
   // ── 邀请（ORG-6） ──
 

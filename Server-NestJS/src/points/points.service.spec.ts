@@ -7,6 +7,8 @@ import { PointsService } from './points.service';
 import { PointsEntry } from './points-entry.entity';
 import { User } from '../common/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
+import { UploadSignService } from '../upload/upload-sign.service';
+import { EncryptionService } from '../common/utils/encryption';
 
 function mockRepo() {
   const qb: any = {
@@ -32,6 +34,7 @@ describe('PointsService (GROWTH-3)', () => {
   let entries: ReturnType<typeof mockRepo>;
   let users: ReturnType<typeof mockRepo>;
   let settings: { getWithDefault: jest.Mock };
+  let uploadSign: UploadSignService;
 
   const checkinEntry = (createdAt: Date) => ({
     id: 1,
@@ -53,10 +56,13 @@ describe('PointsService (GROWTH-3)', () => {
         { provide: getRepositoryToken(PointsEntry), useValue: entries },
         { provide: getRepositoryToken(User), useValue: users },
         { provide: SettingsService, useValue: settings },
+        { provide: EncryptionService, useValue: { hmac: jest.fn((v: string) => `hmac:${v}`) } },
+        UploadSignService,
       ],
     }).compile();
 
     service = module.get(PointsService);
+    uploadSign = module.get(UploadSignService);
   });
 
   it('首次签到：streak=1，积分=基础分', async () => {
@@ -152,6 +158,20 @@ describe('PointsService (GROWTH-3)', () => {
     expect(Object.keys(lb[0])).not.toContain('userId');
     expect(Object.keys(lb[0])).not.toContain('email');
     expect(Object.keys(lb[0])).not.toContain('phone');
+  });
+
+  it('排行榜头像：存储的裸引用读时重签（CR-21 stage C，可证伪）', async () => {
+    entries.createQueryBuilder().getRawMany.mockResolvedValue([{ userId: 1, points: 50 }]);
+    users.find.mockResolvedValue([{ id: 1, nickname: 'Alice', avatarUrl: '/uploads/a.png' }]);
+    const lb = await service.getLeaderboard(20);
+    const url = lb[0].avatarUrl as string;
+
+    expect(url).not.toBe('/uploads/a.png'); // 旧形状的坏读法会把裸引用原样透传
+    expect(url).toMatch(/^\/uploads\/a\.png\?e=\d+&s=/);
+    const [, q] = url.split('?');
+    const p = new URLSearchParams(q);
+    expect(uploadSign.verify('/uploads/a.png', p.get('e')!, p.get('s')!)).toBe(true);
+    expect(uploadSign.verify('/uploads/a.png', undefined, undefined)).toBe(false); // 裸引用本身不可校验
   });
 
   it('成就：未解锁显示进度', async () => {
