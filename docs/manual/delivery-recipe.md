@@ -25,7 +25,7 @@ cd ..                                                                           
   `Cannot find module …/Web-Admin-Vue/scripts/generator/business-spec.mjs`.
 - Node **>= 22** (`Server-NestJS/package.json` → `engines`); the versions below were read on node 24.
 - `--recurse-submodules` is not optional: `Server-NestJS/specs/protocol` is a submodule.
-- **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` reports **17/18** — and that red is the missing prerequisite, not your delivery.
+- **The sibling `../KeelBase4J` clone is not optional either.** Step 6's `check:java-vectors` compares this repo's protocol vectors against the Java repo's read-only snapshot, and it resolves that repo at `../KeelBase4J` (or `$KEELBASE_JAVA_REPO`). Without the sibling, `check:all` comes back **one gate short of all-green** (only `check:java-vectors` red; the gate count itself grows with the repo) — and that red is the missing prerequisite, not your delivery.
 - **Install `Web-Admin-Vue`'s dependencies here too**: step 8's `deploy/demo.sh` builds the admin bundle as its first step and fails there without them.
 - No LLM key needed anywhere below; the demo provider drives the write tool from explicit `field=value` tokens.
 - **Why step 5 exports secrets that steps 7–8 don't:** `.env.example` already carries usable `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ENCRYPTION_KEY` values and leaves `ENCRYPTION_HMAC_KEY` empty **by design** (it falls back). Step 5 exports its own four so the migration run does not depend on whatever is in your `.env`; the runtime steps need nothing beyond the file.
@@ -82,11 +82,13 @@ when every `unmapped[]` item from step 1 has a rule in `create()` and a test tha
 
 ```bash
 cd Server-NestJS && npm run build
-npm test -- asset_loans     # module:   4 suites / 29 tests
-npm test                    # whole:  386 suites / 3433 tests
+npm test -- asset_loans     # the module's own suites
+npm test                    # the whole suite
 ```
 
-Criterion: build `0 error`; the module's own tests and the full suite are all green.
+Criterion: build `0 error`; the module's own tests and the full suite are all green. Both totals
+**grow as the repo does** — judge by the green run, never by the number, and read the counts off *your*
+run. (One stable reading, for shape: the module's own **4 suites / 29 tests**.)
 
 ### 5. Migration for the new table
 
@@ -121,7 +123,8 @@ npm run check:all
 
 Criterion: the instrument prints `═══ S4+S5 全链路验收：PASS ═══` (23 files; the write tool carries
 `requiresConfirmation=true` + `requireVerifiedEmail` and its unit test asserts the gate; the read tool
-has no gate; the module is wired into `ai.module`); `check:all` is **18/18**.
+has no gate; the module is wired into `ai.module`); `check:all` is **all green** (its denominator grows
+with the repo — 21 gates at this recipe's last read; judge by all-pass, not the number).
 The instrument prints its own jest line — that count is **its own selection**, so it need not equal §4's number;
 green is the criterion here, and a smaller count is not a missing test.
 
@@ -135,15 +138,27 @@ checkout's `origin` is the public upstream and nothing in this recipe needs a pu
 
 ```bash
 cd Server-NestJS
-DB_PATH=./data/_rt.sqlite PORT=3111 CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev &   # wait for /api/v1/health
+DB_PATH=./data/_rt.sqlite PORT=3111 CACHE_ENABLED=false QUEUE_ENABLED=false \
+  npm run start:dev > /tmp/_rt.log 2>&1 &
+# Block until the API answers 200 — a reader who skips this runs the verifier against a dead port and
+# reads a wall of red as "the delivery is broken". Nothing useful is printed before it is ready.
+for i in $(seq 1 90); do
+  curl -sf http://localhost:3111/api/v1/health >/dev/null && break
+  sleep 1
+done
+curl -sf http://localhost:3111/api/v1/health >/dev/null \
+  && echo "health 200 — ready" \
+  || { echo "health never turned 200 in 90s — last log lines:"; tail -n 20 /tmp/_rt.log; }
 cd ..
 MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
   TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10' \
   BASE_URL=http://localhost:3111/api/v1 node scripts/verify-generated-module.mjs
 ```
 
-Criterion: **12/12** — confirmation gate (R3) → approve → side effect `resultType=asset_loan` →
-row persisted → decision trace → both audit hash chains `valid=true` → revoke → soft-deleted.
+Criterion: **12/12** — the verifier's own checklist, every line of it (confirmation gate (R3) →
+approve → side effect `resultType=asset_loan` → row persisted → decision trace → both audit hash chains
+`valid=true` → revoke → soft-deleted). That denominator is the verifier's own selection, like step 6's
+instrument — green is the criterion.
 
 **The port is a parameter here too** (exactly as in step 8): `3111` is a default, not part of any criterion —
 check it first (`netstat -ano | grep :3111`) and if it is taken pick any free port, changing `PORT` **and** `BASE_URL`
@@ -202,13 +217,23 @@ gitignored, so it does not dirty the tree.
 
 ```bash
 DB_PATH=./data/_deploy.sqlite PORT=3222 SKIP_MOBILE=1 ./deploy/demo.sh &   # workbench + admin + API on one port
-curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
-#   log in as alex, then:
-#   GET /api/v1/asset_loans → 200 ;  the admin bundle under /admin mentions the module's label
+# same readiness wait as step 7 (the first run builds the admin bundle, so allow a little longer)
+for i in $(seq 1 120); do
+  curl -sf http://localhost:3222/api/v1/health >/dev/null && break
+  sleep 1
+done
+BASE=http://localhost:3222/api/v1
+curl -s $BASE/health                                       # → "status":"ok"
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data.accessToken))')
+curl -s -o /dev/null -w 'GET /asset_loans: %{http_code}\n' -H "Authorization: Bearer $TOKEN" $BASE/asset_loans   # → 200
+grep -rl asset_loans Server-NestJS/public/admin/assets       # → the served admin bundle names the module
 ```
 
-Criterion: health `ok`; the delivered module answers on its API; the deployed admin bundle contains
-the module. Containerised equivalent: `./scripts/docker-single.sh` (all-in-one image).
+Criterion: health `ok`; `GET /asset_loans` returns `200` on the delivered module's API; `grep` prints
+the admin bundle file(s) that carry the module — the bundle deployed under `/admin`. Containerised
+equivalent: `./scripts/docker-single.sh` (all-in-one image).
 
 **The port is a parameter, not part of the criterion.** Check it before you start
 (`netstat -ano | grep :3222`) — on a machine that already runs something else, following the line
@@ -220,9 +245,10 @@ the two URLs above change.
 - It carries **shape, not rules** — the two rules are **declared** hand-written (see step 3).
 - `overdue` is a status value; there is **no** scheduler that flips it (out of scope in the spec).
 - A **cold-read run** has since been done — a reader with **no prior context**, in an isolated clone,
-  following only this file. It reproduced the main chain (23 files / 4·29 / 386·3433 / 12/12 / S4+S5 /
-  deploy serves the module), and **it is what found the two defects now fixed here**: step 6's `18/18`
-  was unreachable from step 0 alone (the sibling Java repo was never mentioned), and the four HTTP
+  following only this file. It reproduced the main chain (23 files / the module's 4·29 / an all-green
+  full suite / 12/12 / S4+S5 / deploy serves the module), and **it is what found the two defects now
+  fixed here**: step 6's `check:all` gate was unreachable from step 0 alone (the sibling Java repo was
+  never mentioned), and the four HTTP
   cases had neither commands nor the DTO's required `status`.
 - **It is still not an independent second deliverer** — same machine, same author's tooling, and an
   AI reader rather than another person. That half of the done criterion (a *different* deliverer
@@ -284,9 +310,10 @@ business behind it — three of those steps stop being verification and become t
 delivering for — step 1 is where they get written down, step 3 is where they get implemented. If your
 delivery has no `unmapped[]` items, say so explicitly rather than inventing rules to look thorough.
 
-**⚠ The numbers in steps 4–8 belong to this example** (23 files, 4·29, 386·3433, 12/12, `18/18`). Your
-module will have its own; what has to match is the **shape** of the criterion — build clean, suites
-green, `PASS`, `18/18`, `12/12` — never the counts.
+**⚠ The counts in steps 4–8 belong to this example** (23 files, the module's 4·29, 12/12, an all-green
+`check:all`). Your module has its own, and even this example's grow with the repo; what has to match is
+the **shape** of the criterion — build clean, suites green, `PASS`, all-green `check:all`, `12/12` —
+never the counts.
 
 ---
 
@@ -309,8 +336,8 @@ cd ..                                                                           
 - Node **>= 22**（`Server-NestJS/package.json` 的 `engines`）；下面那些版本号是在 node 24 上读的。
 - `--recurse-submodules` 不是可选项：`Server-NestJS/specs/protocol` 是一个 submodule。
 - **兄弟仓 `../KeelBase4J` 也不是可选项。** 第 6 步的 `check:java-vectors` 拿本仓的协议向量与该 Java 仓的只读快照比对，
-  而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会报 **17/18** ——
-  那道红是**前置没备齐**，不是你的交付有问题。
+  而它按 `../KeelBase4J`（或 `$KEELBASE_JAVA_REPO`）找那个仓。缺了兄弟仓，`check:all` 会**差一道门才全绿**（只有
+  `check:java-vectors` 红；门的条数本身也随仓库增长）—— 那道红是**前置没备齐**，不是你的交付有问题。
 - **`Web-Admin-Vue` 的依赖也在这里装**：第 8 步的 `deploy/demo.sh` 第一步就是构建管理台产物，缺依赖会卡在第一步。
 - 下面全程**不需要** LLM key；演示 Provider 靠显式 `field=value` 令牌驱动写工具。
 - **为什么第 5 步 export 密钥、第 7–8 步不 export：** `.env.example` 里 `JWT_SECRET` / `JWT_REFRESH_SECRET` /
@@ -370,11 +397,11 @@ git status --porcelain        # → 无输出
 
 ```bash
 cd Server-NestJS && npm run build
-npm test -- asset_loans     # 模块： 4 套 / 29 例
-npm test                    # 全量：386 套 / 3433 例
+npm test -- asset_loans     # 模块自身的套件
+npm test                    # 全量套件
 ```
 
-判据：构建 `0 error`；模块自身测试与全量测试全绿。
+判据：构建 `0 error`；模块自身测试与全量测试全绿。两个数都会**随仓库增长** —— 判 **绿**、不判数，以**你自己那次**输出为准。（一个稳定的读数，仅供看形状：模块自身 **4 套 / 29 例**。）
 
 ### 5. 为新表补迁移
 
@@ -407,7 +434,7 @@ npm run check:all
 ```
 
 判据：仪器打印 `═══ S4+S5 全链路验收：PASS ═══`（23 个文件；写工具带 `requiresConfirmation=true` +
-`requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **18/18**。
+`requireVerifiedEmail` 且其单测断言了该门控；读工具无门控；模块已接线 `ai.module`）；`check:all` **全绿**（它的分母随仓库增长 —— 本 recipe 上次核时 21 道；判**全过**，不判数）。
 该仪器会打印**它自己那次** jest 的用例数 —— 那是**它自己的选取范围**，**不必**等于 §4 那个数；这一步的判据是**绿**，
 数更小不等于少了测试。
 
@@ -419,15 +446,26 @@ npm run check:all
 
 ```bash
 cd Server-NestJS
-DB_PATH=./data/_rt.sqlite PORT=3111 CACHE_ENABLED=false QUEUE_ENABLED=false npm run start:dev &   # 等 /api/v1/health 就绪
+DB_PATH=./data/_rt.sqlite PORT=3111 CACHE_ENABLED=false QUEUE_ENABLED=false \
+  npm run start:dev > /tmp/_rt.log 2>&1 &
+# 阻塞到 API 回 200 为止 —— 略过这一步的读者会在服务没起好时跑验收器，把满屏红读成「交付坏了」。
+# 就绪之前服务不会打印任何有用的东西。
+for i in $(seq 1 90); do
+  curl -sf http://localhost:3111/api/v1/health >/dev/null && break
+  sleep 1
+done
+curl -sf http://localhost:3111/api/v1/health >/dev/null \
+  && echo "health 200 — ready" \
+  || { echo "health 90s 内没转 200 —— 日志尾部："; tail -n 20 /tmp/_rt.log; }
 cd ..
 MODULE=asset_loans MARKER_FIELD=assetTag TITLE_MARKER=AI-verify-001 \
   TRIGGER_MSG='创建一笔资产借用 assetName=投影仪 assetTag=AI-verify-001 dueDate=2026-11-10' \
   BASE_URL=http://localhost:3111/api/v1 node scripts/verify-generated-module.mjs
 ```
 
-判据：**12/12** —— 确认闸（R3）→ 批准 → 副作用 `resultType=asset_loan` → 记录落库 → 决策轨迹 →
-两条审计哈希链 `valid=true` → 撤销 → 软删生效。
+判据：**12/12** —— 验收器自己的清单，逐条都要过（确认闸（R3）→ 批准 → 副作用 `resultType=asset_loan` →
+记录落库 → 决策轨迹 → 两条审计哈希链 `valid=true` → 撤销 → 软删生效）。那个分母是验收器自己的选取范围，
+与第 6 步的仪器同理 —— 判**绿**。
 
 **端口在这里同样是参数**（与第 8 步一模一样）：`3111` 只是默认值，不属于任何判据 —— 动手前先看它空不空
 （`netstat -ano | grep :3111`），被占就换任意空闲端口，`PORT` **和** `BASE_URL` **一起改**。在一台忙的机器上照字面跑，
@@ -480,12 +518,21 @@ post '{"assetName":"投影仪","assetTag":"TAG-RL-002","status":"active"}'   # �
 
 ```bash
 DB_PATH=./data/_deploy.sqlite PORT=3222 SKIP_MOBILE=1 ./deploy/demo.sh &   # 工作台 + 管理台 + API 同一端口
-curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
-#   以 alex 登录后：
-#   GET /api/v1/asset_loans → 200 ；/admin 下的打包产物里含该模块的名字
+# 与第 7 步相同的就绪等待（首次运行要构建管理台产物，故多给一点时间）
+for i in $(seq 1 120); do
+  curl -sf http://localhost:3222/api/v1/health >/dev/null && break
+  sleep 1
+done
+BASE=http://localhost:3222/api/v1
+curl -s $BASE/health                                       # → "status":"ok"
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"alex","password":"Alex@2026$Demo"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data.accessToken))')
+curl -s -o /dev/null -w 'GET /asset_loans: %{http_code}\n' -H "Authorization: Bearer $TOKEN" $BASE/asset_loans   # → 200
+grep -rl asset_loans Server-NestJS/public/admin/assets       # → 部署出的管理台产物里含该模块
 ```
 
-判据：健康 `ok`；交付模块的 API 作答；部署出的管理台产物含该模块。容器等价路径：`./scripts/docker-single.sh`（all-in-one 镜像）。
+判据：健康 `ok`；`GET /asset_loans` 在交付模块的 API 上返回 `200`；`grep` 打印出带该模块的管理台产物文件 —— 即部署在 `/admin` 下的那份产物。容器等价路径：`./scripts/docker-single.sh`（all-in-one 镜像）。
 
 **端口是参数，不是判据的一部分。** 动手前先看它空不空（`netstat -ano | grep :3222`）—— 在一台已经跑着别的东西的机器上，
 照字面走会让后端**绑不上端口**、`health` 永远不绿。**任何空闲端口都行**，变的只有上面那两条 URL。
@@ -495,8 +542,8 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 - 它承载**形状、不承载规则** —— 那两条规则是**被声明的手写**（见第 3 步）。
 - `overdue` 是一个状态值；**没有**任何调度器去翻它（规格里超出范围）。
 - 此后另做过一次**冷读者复现** —— 读者**没有任何背景上下文**、在一个**隔离的克隆**里、**只照本文件**走。
-  它复现了主链（23 文件 / 4·29 / 386·3433 / 12/12 / S4+S5 / 部署把模块服务出来），**本文件里刚修掉的两处缺陷正是它发现的**：
-  第 6 步的 `18/18` **根本无法**只照第 0 步达到（兄弟 Java 仓只字未提），而第 7 步那四条 HTTP 用例既没给命令、
+  它复现了主链（23 文件 / 模块的 4·29 / 全量全绿 / 12/12 / S4+S5 / 部署把模块服务出来），**本文件里刚修掉的两处缺陷正是它发现的**：
+  第 6 步的 `check:all` 那道门**根本无法**只照第 0 步达到（兄弟 Java 仓只字未提），而第 7 步那四条 HTTP 用例既没给命令、
   也没给 DTO 必填的 `status`。
 - **但它仍不是一名独立的交付者** —— 同一台机器、同一套作者的工装，且是一个 AI 读者，不是另一个人。
   done 判据的那一半（**另一名**交付者不问作者就能复现）**未达成**，本文件也**不声称**它达成了。
@@ -540,5 +587,5 @@ curl -s http://localhost:3222/api/v1/health        # {"status":"ok"}
 **本 recipe 交不出去的，是规则本身。** 它们来自你要交付的那门业务 —— 第 1 步把它们**写下来**，第 3 步把它们**实现**。
 若你这次交付**没有** `unmapped[]` 项，就**明说没有**，别为了显得周全去编规则。
 
-**⚠ 第 4–8 步里的数字属于这个范例**（23 文件、4·29、386·3433、12/12、`18/18`）。你的模块有它自己的数；
-要对得上的是判据的**形状** —— 构建干净、套件全绿、`PASS`、`18/18`、`12/12` —— **不是那些数**。
+**⚠ 第 4–8 步里的计数属于这个范例**（23 文件、模块的 4·29、12/12、`check:all` 全绿）。你的模块有它自己的数，
+连这个范例的数也会随仓库增长；要对得上的是判据的**形状** —— 构建干净、套件全绿、`PASS`、`check:all` 全绿、`12/12` —— **不是那些数**。
