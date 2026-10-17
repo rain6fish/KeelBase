@@ -7,17 +7,27 @@ import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/zh'
 import en from '@/i18n/en'
 
-const { logsMock, statsMock, verifyMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
+const { logsMock, statsMock, verifyMock, interpretationMock, identityChainMock, coverageMock, errorMock, successMock, csvMock } = vi.hoisted(() => ({
   logsMock: vi.fn(),
   statsMock: vi.fn(),
   verifyMock: vi.fn(),
+  interpretationMock: vi.fn(),
+  identityChainMock: vi.fn(),
+  coverageMock: vi.fn(),
   errorMock: vi.fn(),
   successMock: vi.fn(),
   csvMock: vi.fn(),
 }))
 
 vi.mock('@/api/audit', () => ({
-  auditApi: { logs: logsMock, stats: statsMock, verify: verifyMock },
+  auditApi: {
+    logs: logsMock,
+    stats: statsMock,
+    verify: verifyMock,
+    interpretation: interpretationMock,
+    chain: identityChainMock,
+    coverage: coverageMock,
+  },
 }))
 // AU-4：会话下钻用 adminApi（元数据 + 正文）；mock 掉避免测试里出现真实网络调用
 vi.mock('@/api/admin', () => ({
@@ -38,7 +48,7 @@ const AppTableStub = defineComponent({
   name: 'AppTable',
   props: ['headers', 'items'],
   template:
-    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.action" :item="item" /></template></div>',
+    '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.action" :item="item" /><slot name="item.expand" :item="item" /></template></div>',
 })
 
 function mountView() {
@@ -61,6 +71,9 @@ function mountView() {
 beforeEach(() => {
   vi.clearAllMocks()
   verifyMock.mockResolvedValue({ valid: true, checked: 0, brokenIndex: null, chain: [] })
+  coverageMock.mockResolvedValue(null)
+  interpretationMock.mockResolvedValue(null)
+  identityChainMock.mockResolvedValue(null)
 })
 
 describe('AiAuditView', () => {
@@ -118,6 +131,116 @@ describe('AiAuditView', () => {
     expect(wrapper.text()).toContain('AI · 对话')
     // 未知 actionKey（i18n 无条目）→ fallback 到后端 actionLabel
     expect(wrapper.text()).toContain('AI · Custom action')
+    wrapper.unmount()
+  })
+
+  // AW-4: the default reading is the business summary; the hash chain is evidence behind an expand.
+  it('AW-4: the business summary comes first and hash-chain rows stay collapsed by default', async () => {
+    logsMock.mockResolvedValue([])
+    statsMock.mockResolvedValue({ totalTokens: 0, byDay: [] })
+    verifyMock.mockResolvedValue({
+      valid: true,
+      checked: 1,
+      brokenIndex: null,
+      chain: [{ id: 7, action: 'tool_call', prevHash: 'aaaa1111bbbb', hash: 'cccc2222dddd', createdAt: '2026-08-20' }],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const html = wrapper.html()
+    expect(html.indexOf('异常概览')).toBeGreaterThan(-1)
+    expect(html.indexOf('审计哈希链')).toBeGreaterThan(html.indexOf('异常概览'))
+    // Not rendered at all until the reader asks for it.
+    expect(wrapper.text()).not.toContain('#7')
+    expect(wrapper.text()).not.toContain('aaaa1111')
+
+    const chainCard = wrapper.findAll('.el-card').find((c) => c.text().includes('审计哈希链'))
+    expect(chainCard).toBeTruthy()
+    await chainCard!.find('button').trigger('click')
+
+    expect(wrapper.text()).toContain('#7')
+    expect(wrapper.text()).toContain('aaaa1111')
+    wrapper.unmount()
+  })
+
+  it('AW-4: an expanded row leads with the business sentence; the row hash waits in technical detail', async () => {
+    logsMock.mockResolvedValue([
+      { id: 1, action: 'tool_call', actionKey: 'ai.toolCall', createdAt: '2026-08-20', isError: false },
+    ])
+    statsMock.mockResolvedValue({ totalTokens: 0, byDay: [] })
+    interpretationMock.mockResolvedValue({
+      row: { id: 1, hash: 'deadbeefdeadbeef', prevHash: 'cafebabecafebabe' },
+      summary: {
+        sentence: '张三创建了一个跟进任务',
+        key: null,
+        businessEvent: null,
+        stats: { businessEvents: [], evidence: [], confirmations: { approved: 0, declined: 0 }, blocked: 0, errors: 0 },
+      },
+      conversation: [],
+      state: 'executed',
+      effect: null,
+      operationAudit: [],
+      approval: null,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.app-table-stub button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('张三创建了一个跟进任务')
+    // Present for the evidence reader, but not visible until the technical detail is expanded.
+    // The leaf element carrying the hash must be hidden; on the old view it sat in the timeline.
+    const hiddenHash = wrapper
+      .findAll('*')
+      .find((n) => n.element.children.length === 0 && n.text().includes('deadbeefdead'))
+    expect(hiddenHash).toBeTruthy()
+    expect(hiddenHash!.isVisible()).toBe(false)
+    wrapper.unmount()
+  })
+
+  // §7.3: `compensating` is a request, not a restored business record, and the two windows are
+  // different uncertainties. Neither may be printed as its raw enum.
+  it('AW-4/§7.3: revoke state and window are named, never printed as raw enum values', async () => {
+    logsMock.mockResolvedValue([
+      { id: 1, action: 'tool_call', actionKey: 'ai.toolCall', createdAt: '2026-08-20', isError: false },
+    ])
+    statsMock.mockResolvedValue({ totalTokens: 0, byDay: [] })
+    interpretationMock.mockResolvedValue({
+      row: { id: 1 },
+      summary: {
+        sentence: '业务摘要',
+        key: null,
+        businessEvent: null,
+        stats: { businessEvents: [], evidence: [], confirmations: { approved: 0, declined: 0 }, blocked: 0, errors: 0 },
+      },
+      conversation: [],
+      state: 'executed',
+      effect: {
+        id: 3,
+        toolName: 'create_event',
+        resultType: 'event',
+        resultId: 50,
+        revokeClass: 'governed_external',
+        revokeStatus: 'compensating',
+        revokeWindow: 'unacknowledged',
+        before: null,
+        after: null,
+      },
+      operationAudit: [],
+      approval: null,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.app-table-stub button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('外部撤销中')
+    expect(wrapper.text()).toContain('可能未到达外部系统')
+    expect(wrapper.text()).not.toContain('compensating')
+    expect(wrapper.text()).not.toContain('unacknowledged')
     wrapper.unmount()
   })
 })
