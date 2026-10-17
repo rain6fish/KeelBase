@@ -551,6 +551,7 @@ const en: ZhDict = {
   // REV-2: two different uncertainties. "Never arrived" is not "arrived, no answer yet"; neither is "revoked".
   revokeWindowUnacknowledged: 'May not have reached the target system',
   revokeWindowAwaitingTarget: 'Reached the target; no final state yet',
+  revokeWindowLabel: 'Compensation window',
   executionError: 'Execution failed',
   // P0-20's own vocabulary (eight values). Larger than tool-effects' four on purpose: there
   // `revoke_failed` is not "the action failed", and "refused", "waiting for a person" and "nobody
@@ -1014,6 +1015,11 @@ const en: ZhDict = {
   // ARC-6: acknowledging a dispute lifts "unresolved" while the evidence stays
   acknowledgeDispute: 'Acknowledge this dispute (evidence kept)',
   disputeAcknowledged: 'Acknowledged — no longer read as unresolved (evidence kept)',
+  // REV-1 / ARC-6: the two dispute readings in the status cell — acknowledging does not erase the
+  // disagreement, so neither of them may be green
+  effectDisputed: 'Disputed — declaration and held members differ',
+  effectDisputedAckChip: 'Dispute acknowledged',
+  effectDisputedAcknowledged: 'Disputed — acknowledged by {by} at {at} (evidence kept)',
 
   // Governance policy (HS-9)
   governancePolicy: 'Governance Policy',

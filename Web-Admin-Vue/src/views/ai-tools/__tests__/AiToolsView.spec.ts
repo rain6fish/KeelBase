@@ -41,13 +41,27 @@ import AiToolsView from '../AiToolsView.vue'
 const AppTableStub = defineComponent({
   name: 'AppTable',
   props: ['headers', 'items', 'loading', 'total', 'itemsPerPage'],
-  // 渲染**被测断言所依赖的**两个插槽：actions（按钮）与 targetTitle（REV-7/10/11/13 的读数都挂在这里）。
-  // 少了后者，那些断言就会在「根本没渲染」的情况下通过或失败，测的就不是它们要说的事。
+  // Render the three slots the assertions actually depend on: actions (buttons), targetTitle
+  // (the REV-7/10/11/13 readings) and status (the status chip and the REV-2 window readings).
+  // Without any of them the assertions would pass or fail on something that never rendered.
+  // 渲染**被测断言所依赖的**三个插槽：actions（按钮）、targetTitle（REV-7/10/11/13 的读数）与
+  // status（状态 chip 与 REV-2 窗口读数）。少了任何一个，断言就会在「根本没渲染」的情况下通过或失败，
+  // 测的就不是它们要说的事。
   template:
     '<div class="app-table-stub"><template v-for="item in items" :key="item.id">' +
+    '<div class="row-stub" :data-id="item.id">' +
     '<div class="cell-title"><slot name="item.targetTitle" :item="item" /></div>' +
+    '<div class="cell-status"><slot name="item.status" :item="item" /></div>' +
     '<div class="cell-actions"><slot name="item.actions" :item="item" /></div>' +
+    '</div>' +
     '</template></div>',
+})
+/** StatusChip stub: renders labelMap as text so assertions read the word the reader actually sees.
+ * StatusChip 桩：把 labelMap 渲染成文本，让断言读得到「读者实际看到的是哪个词」 */
+const StatusChipStub = defineComponent({
+  name: 'StatusChip',
+  props: ['status', 'labelMap', 'colorMap'],
+  template: '<span class="chip" :data-status="status">{{ labelMap?.[status] ?? status }}</span>',
 })
 const ConfirmDialogStub = defineComponent({
   name: 'ConfirmDialog',
@@ -78,7 +92,7 @@ function mountView() {
         PageHeader: true,
         AppTable: AppTableStub,
         AppPagination: true,
-        StatusChip: true,
+        StatusChip: StatusChipStub,
         ConfirmDialog: ConfirmDialogStub,
         AppIcon: true,
       },
@@ -262,5 +276,91 @@ describe('AiToolsView', () => {
 
     expect(wrapper.find('.app-table-stub .el-button--info').exists()).toBe(false)
     expect(wrapper.find('.app-table-stub .el-button--warning').exists()).toBe(false)
+  })
+
+  /**
+   * REV-1: a disputed group's status is not the green "active" chip — when the two ledgers disagree,
+   * a green OK reads the disagreement as "all fine". This asserts the reader's primary reading, not
+   * the existence of a branch.
+   *
+   * REV-1：争议组的「状态」不是 green 的「进行中」——两本账在打架时，绿色的 OK 是把
+   * 「声明与持有不一致」读成了「一切正常」。这条测的是**读者看到的主读数**，不是分支存在。
+   */
+  it('未确认的争议 → 状态列读作「有争议」，而不是绿色的「进行中」', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 15, toolName: 'create_project_with_tasks', conversationId: null, resultType: 'pm_project', resultId: 3, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '项目', status: 'executed', revokeClass: 'local_compensate', revocable: false, disputed: true, dispute: { declared: [], stored: [], onlyDeclared: [], onlyStored: [], decidedAt: '2026-09-01T00:00:00Z' } },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const status = wrapper.find('.row-stub .cell-status').text()
+    expect(status).toContain('有争议')
+    expect(status).not.toContain('进行中')
+  })
+
+  /**
+   * ARC-6: acknowledging does not erase the dispute — it only records that a human looked and
+   * accepted the evidence. The dispute must stay visible afterwards, naming who acknowledged it and when.
+   *
+   * ARC-6：确认不是「争议消失了」，只是「有人看过并接受了证据」。确认后必须仍然看得见，
+   * 且要说清是谁、何时确认的。
+   */
+  it('已确认的争议 → 状态列仍显示该争议（谁在何时确认，证据保留）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 16, toolName: 'create_project_with_tasks', conversationId: null, resultType: 'pm_project', resultId: 3, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '项目', status: 'executed', revokeClass: 'local_compensate', revocable: false, disputed: false, dispute: { declared: [], stored: [], onlyDeclared: [], onlyStored: [], decidedAt: '2026-09-01T00:00:00Z', acknowledgedAt: '2026-09-02T00:00:00Z', acknowledgedBy: '7' } },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const status = wrapper.find('.row-stub .cell-status').text()
+    expect(status).toContain('有争议')
+    expect(status).toContain('已确认')
+    expect(status).not.toContain('进行中')
+  })
+
+  /**
+   * REV-2 refinement: one "external revoke pending" splits into two windows — "may never have
+   * arrived" and "arrived, no answer" are different uncertainties. They used to render as the same
+   * sentence on the row (visually indistinguishable); this asserts the two values produce different readings.
+   *
+   * REV-2 细化：同一条「外部撤销中」再分两窗——「可能没到达」与「到达了但没回音」是两种不确定性。
+   * 它们此前在行上渲染成同一句话（外观不可分），这条测的是**两种取值产生不同读数**。
+   */
+  it('revokeWindow 的两个取值在行上产生可区分的读数（unacknowledged ≠ awaiting_target）', async () => {
+    toolsMock.mockResolvedValue([tool])
+    effectsMock.mockResolvedValue({
+      total: 2,
+      page: 1,
+      limit: 20,
+      items: [
+        { id: 17, toolName: 'proxy_send', conversationId: null, resultType: 'proxy_call', resultId: 7, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '外部写 A', status: 'revoking_external', revokeClass: 'governed_external', revocable: false, revokeStatus: 'compensating', revokeWindow: 'unacknowledged' },
+        { id: 18, toolName: 'proxy_send', conversationId: null, resultType: 'proxy_call', resultId: 8, argsHash: 'h', createdAt: '2026-09-01', targetExists: true, targetSoftDeleted: false, targetTitle: '外部写 B', status: 'revoking_external', revokeClass: 'governed_external', revocable: false, revokeStatus: 'compensating', revokeWindow: 'awaiting_target' },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const rows = wrapper.findAll('.row-stub')
+    expect(rows).toHaveLength(2)
+    const unacknowledged = rows[0].text()
+    const awaitingTarget = rows[1].text()
+    expect(unacknowledged).toContain('可能未到达外部系统')
+    expect(awaitingTarget).toContain('已到达，外部系统尚无终态')
+    expect(unacknowledged).not.toBe(awaitingTarget)
   })
 })
