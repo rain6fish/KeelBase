@@ -39,6 +39,12 @@
             <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
               {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
             </div>
+            <AiDenialCard v-if="m.toolEnd?.explanation" :tool-end="m.toolEnd" />
+          </div>
+
+          <!-- 拒绝卡（门控段拒绝：没有 tool_start，只有 tool_end.explanation） -->
+          <div v-else-if="m.kind === 'denied'">
+            <AiDenialCard :tool-end="m.toolEnd" />
           </div>
 
           <!-- 确认卡 -->
@@ -88,6 +94,8 @@ import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
+import AiDenialCard from '@/components/AiDenialCard.vue'
+import { ApiError } from '@/api/client'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import { usePresentText } from '@/utils/presentation'
@@ -98,6 +106,7 @@ type AssistantItem =
   | { kind: 'user'; content: string }
   | { kind: 'ai'; content: string; navigateTo?: string }
   | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
+  | { kind: 'denied'; toolEnd: AiToolEnd }
   | { kind: 'confirmation'; confirmation: AiConfirmation; status: 'pending' | 'decided'; result?: { approved: boolean } }
   | { kind: 'notice'; content: string }
 
@@ -203,7 +212,13 @@ async function send() {
             const match = [...items.value].reverse().find(
               (it) => it.kind === 'tool' && it.toolStart.name === ev.toolEnd.name,
             )
-            if (match && match.kind === 'tool') match.toolEnd = ev.toolEnd
+            if (match && match.kind === 'tool') {
+              match.toolEnd = ev.toolEnd
+            } else if (ev.toolEnd.explanation) {
+              // 门控段拒绝没有 tool_start；仍要为这次拒绝建一个步骤。
+              // Gate refusals have no `tool_start`; still create a step for the refusal.
+              items.value.push({ kind: 'denied', toolEnd: ev.toolEnd })
+            }
             void scrollBottom()
             break
           }
@@ -240,8 +255,10 @@ async function onApprove(item: AssistantItem & { kind: 'confirmation' }, trustTo
   item.result = { approved: true }
   try {
     await confirmTool(item.confirmation.token, 'approve', trustTool)
-  } catch {
-    snackbar.error(t('confirmFailed'))
+  } catch (err) {
+    // 404 的 `explanation` 已归一为 reason/nextStep ⇒ 错误卡呈现「为什么 + 怎么解决」。
+    // The 404 explanation is normalized into reason/nextStep, so the snackbar shows both.
+    snackbar.error(err instanceof ApiError ? err : t('confirmFailed'))
     item.status = 'pending'
     item.result = undefined
   }
@@ -252,8 +269,8 @@ async function onReject(item: AssistantItem & { kind: 'confirmation' }) {
   item.result = { approved: false }
   try {
     await confirmTool(item.confirmation.token, 'decline')
-  } catch {
-    snackbar.error(t('confirmFailed'))
+  } catch (err) {
+    snackbar.error(err instanceof ApiError ? err : t('confirmFailed'))
     item.status = 'pending'
     item.result = undefined
   }

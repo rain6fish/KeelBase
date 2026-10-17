@@ -95,11 +95,36 @@ export interface AiConfirmationDecision {
   runId?: string
 }
 
+/**
+ * Trust-grade denial guidance (`explanation`): why a tool was refused + how to make it pass.
+ *
+ * Shared shape for the SSE `tool_end.explanation`, the HTTP 403 body (`explanation`) and the
+ * confirmation 404 body. `reasonKey` / `nextStepKey` are stable i18n keys so the console can render
+ * the sentence in its own language; `reason` / `nextStep` are the server's already-localized text
+ * (used as a fallback when a key is missing); `params` carries the interpolation values.
+ *
+ * 信任化拒绝指引（`explanation`）：工具为何被拒 + 怎样才能通过。
+ *
+ * SSE `tool_end.explanation`、HTTP 403 响应体（`explanation`）与确认 404 响应体共用这一形状。
+ * `reasonKey` / `nextStepKey` 是稳定 i18n key，控制台可用自己的语言渲染；`reason` / `nextStep` 是
+ * 服务端已本地化文案（key 缺失时兜底）；`params` 携带插值取值。
+ */
+export interface AiDenialExplanation {
+  deniedBy: 'risk_policy' | 'governance' | 'confirmation' | 'casl'
+  reasonKey: string
+  nextStepKey: string
+  reason: string
+  nextStep: string
+  params?: Record<string, string | number>
+}
+
 export interface AiToolEnd {
   name: string
   success: boolean
   summary?: PresentationText
   error?: string
+  /** Trust-grade denial guidance; present only on refusals (success paths omit it). */
+  explanation?: AiDenialExplanation
 }
 
 export type StreamChatEvent =

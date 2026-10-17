@@ -106,6 +106,12 @@
             <div v-if="m.toolEnd" class="text-caption mt-1" :class="m.toolEnd.success ? 'text-success' : 'text-error'">
               {{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}
             </div>
+            <AiDenialCard v-if="m.toolEnd?.explanation" :tool-end="m.toolEnd" />
+          </div>
+
+          <!-- 拒绝卡（门控段拒绝：没有 tool_start，只有 tool_end.explanation） -->
+          <div v-else-if="m.kind === 'denied'">
+            <AiDenialCard :tool-end="m.toolEnd" />
           </div>
 
           <!-- 确认卡 -->
@@ -161,6 +167,7 @@ import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
+import AiDenialCard from '@/components/AiDenialCard.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
@@ -176,6 +183,7 @@ type ChatItem =
   | { kind: 'user'; content: string }
   | { kind: 'ai'; content: string; navigateTo?: string }
   | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
+  | { kind: 'denied'; toolEnd: AiToolEnd }
   | { kind: 'confirmation'; confirmation: AiConfirmation; status: 'pending' | 'decided'; result?: { approved: boolean } }
   | { kind: 'notice'; content: string }
 
@@ -348,7 +356,16 @@ async function send() {
             const match = [...items.value].reverse().find(
               (it) => it.kind === 'tool' && it.toolStart.name === ev.toolEnd.name,
             )
-            if (match && match.kind === 'tool') match.toolEnd = ev.toolEnd
+            if (match && match.kind === 'tool') {
+              match.toolEnd = ev.toolEnd
+            } else if (ev.toolEnd.explanation) {
+              // 门控段拒绝没有 tool_start（R5 / 策略在门控就拒）——没有可匹配的工具卡，
+              // 也要为这次拒绝建一个步骤，否则界面上什么都不出现。
+              //
+              // Gate refusals have no `tool_start` (R5 / policy decide in the gate): there is no tool
+              // card to attach to, so create a step for the refusal itself.
+              items.value.push({ kind: 'denied', toolEnd: ev.toolEnd })
+            }
             void scrollBottom()
             break
           }
@@ -393,8 +410,11 @@ async function onApprove(item: ChatItem & { kind: 'confirmation' }, trustTool: b
   item.result = { approved: true } // 乐观显示，等服务器 confirmation_decision 收敛
   try {
     await confirmTool(item.confirmation.token, 'approve', trustTool)
-  } catch {
-    snackbar.error(t('confirmFailed'))
+  } catch (err) {
+    // 404 的 `explanation` 已由 client 归一为 reason/nextStep ⇒ 错误卡呈现「为什么 + 怎么解决」。
+    // The 404 explanation is normalized into reason/nextStep by the API client, so the snackbar
+    // shows why + the next step instead of a bare failure message.
+    snackbar.error(err instanceof ApiError ? err : t('confirmFailed'))
     item.status = 'pending'
     item.result = undefined
   }
@@ -405,8 +425,8 @@ async function onReject(item: ChatItem & { kind: 'confirmation' }) {
   item.result = { approved: false }
   try {
     await confirmTool(item.confirmation.token, 'decline')
-  } catch {
-    snackbar.error(t('confirmFailed'))
+  } catch (err) {
+    snackbar.error(err instanceof ApiError ? err : t('confirmFailed'))
     item.status = 'pending'
     item.result = undefined
   }

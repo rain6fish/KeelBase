@@ -33,6 +33,12 @@
             </template>
             <template v-else>{{ m.toolEnd.success ? t('toolDone') : (m.toolEnd.error || t('toolFailed')) }}</template>
           </div>
+          <AiDenialCard v-if="m.toolEnd?.explanation" :tool-end="m.toolEnd" />
+        </div>
+
+        <!-- 拒绝卡（门控段拒绝：没有 tool_start，只有 tool_end.explanation） -->
+        <div v-else-if="m.kind === 'denied'">
+          <AiDenialCard :tool-end="m.toolEnd" />
         </div>
 
         <!-- 确认卡：批准/拒绝后显示结果 -->
@@ -82,6 +88,7 @@ import { useI18n } from 'vue-i18n'
 import { useSnackbarStore } from '@/stores/snackbar'
 import AppIcon from '@/components/AppIcon.vue'
 import AiConfirmationCard from '@/components/AiConfirmationCard.vue'
+import AiDenialCard from '@/components/AiDenialCard.vue'
 import { streamChat, confirmTool, type AiConfirmation, type AiToolEnd, type AiToolStart } from '@/utils/streamChat'
 import { toolLabel } from '@/utils/toolLabel'
 import { usePresentText } from '@/utils/presentation'
@@ -114,6 +121,7 @@ type CopilotItem =
   | { kind: 'user'; content: string }
   | { kind: 'ai'; content: string }
   | { kind: 'tool'; toolStart: AiToolStart; toolEnd?: AiToolEnd }
+  | { kind: 'denied'; toolEnd: AiToolEnd }
   | {
       kind: 'confirmation'
       confirmation: AiConfirmation
@@ -257,7 +265,13 @@ async function send(raw: string) {
             const match = [...items.value].reverse().find(
               (it) => it.kind === 'tool' && it.toolStart.name === ev.toolEnd.name,
             )
-            if (match && match.kind === 'tool') match.toolEnd = ev.toolEnd
+            if (match && match.kind === 'tool') {
+              match.toolEnd = ev.toolEnd
+            } else if (ev.toolEnd.explanation) {
+              // 门控段拒绝没有 tool_start；仍要为这次拒绝建一个步骤。
+              // Gate refusals have no `tool_start`; still create a step for the refusal.
+              items.value.push({ kind: 'denied', toolEnd: ev.toolEnd })
+            }
             // 写操作成功 → D1 闭环：通知父组件刷新 + 钻取治理轨迹。
             // 无论成败都清除 executed（防工具失败后 stale 残留，被后续无关 tool_end 误触发）
             if (executed) {

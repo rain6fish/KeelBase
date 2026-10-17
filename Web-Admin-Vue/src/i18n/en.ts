@@ -1605,6 +1605,82 @@ const en: ZhDict = {
     'notifications.create': 'Notifications · Create',
     'unknown.unknown': 'Unknown action',
   },
+  // Mirrors the server catalogue in `common/errors/denial-guidance.ts`; every `ai.deny.*` key it
+  // can emit must exist here. `{...}` are interpolation placeholders fed by `explanation.params`.
+  // 与服务端 `common/errors/denial-guidance.ts` 的文案表一致；它可能发出的每个 `ai.deny.*` key
+  // 都必须在此存在。`{...}` 是由 `explanation.params` 填充的插值占位符。
+  ai: {
+    deny: {
+      risk_r5: {
+        reason: 'Tool "{tool}" is risk level R5 (irreversible or external action). The system blocks it unconditionally, and no governance policy can allow it.',
+        nextStep: 'Use a reversible lower-risk tool for the same goal. If the operation is truly required, have an administrator perform it manually under the operations process and keep an audit record.',
+      },
+      tool_disabled: {
+        reason: 'Governance policy has disabled tool "{tool}".',
+        nextStep: 'Ask an administrator to enable this tool in AI Tool Governance → Policy Center, then retry.',
+      },
+      role_denied: {
+        reason: 'Tool "{tool}" is restricted to roles {allowedRoles}; the current role is {currentRole}.',
+        nextStep: "Ask an administrator to add the current role to this tool's allowed roles, or use an account with one of these roles: {allowedRoles}.",
+      },
+      feature_disabled: {
+        reason: 'Feature flag "{featureFlag}" is off, so tool "{tool}" is unavailable.',
+        nextStep: 'Ask an administrator to enable feature flag "{featureFlag}", then retry.',
+      },
+      admin_only: {
+        reason: 'Tool "{tool}" is restricted to administrators.',
+        nextStep: 'Use an administrator account, or ask an administrator to perform the operation in the admin console.',
+      },
+      destination_denied: {
+        reason: 'Tool "{tool}" may not write to destination "{destination}"; allowed destinations: {allowedDestinations}.',
+        nextStep: 'Ask an administrator to add "{destination}" to this tool\'s allowed destinations, or use an allowed destination.',
+      },
+      field_out_of_domain: {
+        reason: 'The arguments include fields outside the writable domain: {outOfDomain}; writable fields: {writableFields}.',
+        nextStep: 'Remove these fields and retry with writable fields only; if they must be changed, ask an administrator to extend the writable domain.',
+      },
+      field_out_of_bound: {
+        reason: 'Field "{field}" is outside its declared bound (a finite number not greater than {max}).',
+        nextStep: 'Adjust "{field}" to a value not greater than {max}, then retry.',
+      },
+      approval_missing: {
+        reason: 'Tool "{tool}" currently requires human approval, and this execution does not hold a second approver\'s approval (the policy may have been raised during the wait window).',
+        nextStep: 'Re-submit the operation and wait for a second approver; the initiator\'s own confirmation cannot stand in for R4 approval.',
+      },
+      destination_changed: {
+        reason: 'Tool "{tool}" changed destination from "{confirmedFor}" to "{current}" after the confirmation was issued; that confirmation cannot be reused across destinations.',
+        nextStep: 'Re-submit the operation for the current destination and confirm it again.',
+      },
+      agent_read_only: {
+        reason: 'Tool "{tool}" is a write or confirmation-gated operation; plan and sub-agent steps are read-only and cannot run it.',
+        nextStep: 'Start the operation in the main conversation and approve it on the confirmation card.',
+      },
+      confirmation_timeout: {
+        reason: 'No decision was received for tool "{tool}" within the confirmation window ({ttlSeconds} seconds).',
+        nextStep: 'Re-submit the operation and approve it within the window. If you left the conversation, decide it in the Action Center within {offlineTtlHours} hours.',
+      },
+      confirmation_invalid: {
+        reason: 'The confirmation request does not exist, has expired, has already been decided, or does not belong to this account.',
+        nextStep: 'Re-submit the operation. If it was handled on another device or in the Action Center, check the result there.',
+      },
+      casl_admin: {
+        reason: 'The current policy does not allow this operation.',
+        nextStep: 'Review and adjust the role policy required for this operation, then retry.',
+      },
+      casl_user: {
+        reason: 'Administrator privileges are required, or this operation is outside your role.',
+        nextStep: 'Switch to an administrator account, or ask an administrator to adjust your role permissions.',
+      },
+    },
+  },
+  aiDenyByRiskPolicy: 'Risk policy (R5)',
+  aiDenyByGovernance: 'Governance policy',
+  aiDenyByConfirmation: 'Confirmation',
+  aiDenyByCasl: 'Permission',
+  errorGuidanceCasl: 'administrator permission is required; switch to an administrator account or contact an administrator',
+  errorGuidanceRiskPolicy: 'this operation is blocked by a risk policy; contact an administrator to adjust the policy',
+  errorGuidanceUserScoped: 'you can only access your own data',
+  errorGuidanceDefault: 'check permissions or contact an administrator',
 }
 
 export default en

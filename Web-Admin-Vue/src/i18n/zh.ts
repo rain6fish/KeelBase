@@ -1616,6 +1616,82 @@ const zh = {
     'notifications.create': '通知 · 创建',
     'unknown.unknown': '未知操作',
   },
+  // Trust-grade denial guidance: the server sends `ai.deny.<kind>.reason|nextStep` as stable keys,
+  // so every key it can emit must exist here. Keep these strings identical to the server catalogue.
+  // 信任化拒绝指引：服务端把 `ai.deny.<kind>.reason|nextStep` 作为稳定 key 发出，故它可能发出的每个
+  // key 都必须在此有文案，且与服务端文案表保持一致。
+  ai: {
+    deny: {
+      risk_r5: {
+        reason: '工具「{tool}」的风险级为 R5（不可逆或外部动作），系统策略恒定阻断，任何治理策略都不能放行。',
+        nextStep: '请改用可逆的低风险工具完成同一目标；确需此操作时，由管理员按运维流程人工执行并保留审计记录。',
+      },
+      tool_disabled: {
+        reason: '治理策略已禁用工具「{tool}」。',
+        nextStep: '请管理员在「AI 工具治理 → 策略中心」启用该工具后重试。',
+      },
+      role_denied: {
+        reason: '工具「{tool}」仅允许角色 {allowedRoles} 调用；当前角色为 {currentRole}。',
+        nextStep: '请管理员把当前角色加入该工具的角色白名单，或换用具备 {allowedRoles} 角色的账号。',
+      },
+      feature_disabled: {
+        reason: '特性开关「{featureFlag}」已关闭，工具「{tool}」当前不可用。',
+        nextStep: '请管理员启用特性开关「{featureFlag}」后重试。',
+      },
+      admin_only: {
+        reason: '工具「{tool}」仅限管理员使用。',
+        nextStep: '请使用管理员账号，或请管理员在管理台执行该操作。',
+      },
+      destination_denied: {
+        reason: '工具「{tool}」不允许写入目的地「{destination}」；允许的目的地为 {allowedDestinations}。',
+        nextStep: '请管理员把「{destination}」加入该工具的目的地白名单，或改用允许的目的地。',
+      },
+      field_out_of_domain: {
+        reason: '本次参数包含可写域之外的字段：{outOfDomain}；可写字段为 {writableFields}。',
+        nextStep: '请移除这些字段，只提交可写字段后重试；确需修改它们时请管理员调整可写域。',
+      },
+      field_out_of_bound: {
+        reason: '字段「{field}」的取值超出声明界限（须为不超过 {max} 的有限数）。',
+        nextStep: '请把「{field}」调整到 {max} 以内再重试。',
+      },
+      approval_missing: {
+        reason: '工具「{tool}」当前要求人工审批，而本次执行持有的凭据不是第二位审批人的批准（策略可能在等待窗口内升档）。',
+        nextStep: '请重新发起该操作并等待第二位审批人批准；发起人自己的确认不能替代 R4 审批。',
+      },
+      destination_changed: {
+        reason: '工具「{tool}」的目的地在确认签发后已从「{confirmedFor}」变为「{current}」，这张确认不能跨目的地复用。',
+        nextStep: '请按当前目的地重新发起操作并重新确认。',
+      },
+      agent_read_only: {
+        reason: '工具「{tool}」是写操作或需人工确认；plan / 子代理步骤只读执行，不能执行它。',
+        nextStep: '请在主对话中发起该操作，并按确认卡批准后执行。',
+      },
+      confirmation_timeout: {
+        reason: '工具「{tool}」的确认窗口（{ttlSeconds} 秒）内没有收到裁决。',
+        nextStep: '请重新发起该操作并在窗口内批准；若已离开对话，请在「待我确认」中心于 {offlineTtlHours} 小时内裁决。',
+      },
+      confirmation_invalid: {
+        reason: '确认请求不存在、已过期、已被裁决，或不属于当前账号。',
+        nextStep: '请重新发起该操作；若已在其他设备或「待我确认」中心处理，请回到原入口查看结果。',
+      },
+      casl_admin: {
+        reason: '当前策略不允许此操作。',
+        nextStep: '请核对该操作所需的角色策略并调整后再试。',
+      },
+      casl_user: {
+        reason: '需要管理员权限，或该操作不在你的角色范围内。',
+        nextStep: '请切换管理员账号，或请管理员调整你的角色权限。',
+      },
+    },
+  },
+  aiDenyByRiskPolicy: '风险策略（R5）',
+  aiDenyByGovernance: '治理策略',
+  aiDenyByConfirmation: '确认',
+  aiDenyByCasl: '权限',
+  errorGuidanceCasl: '需要管理员权限，请切换管理员账号或联系管理员',
+  errorGuidanceRiskPolicy: '该操作被风险策略阻断，请联系管理员调整策略',
+  errorGuidanceUserScoped: '只能访问本人的数据',
+  errorGuidanceDefault: '请检查权限或联系管理员',
 }
 
 export default zh

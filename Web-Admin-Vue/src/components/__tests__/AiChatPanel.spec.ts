@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   list: vi.fn(),
   rename: vi.fn(),
+  streamChat: vi.fn(),
+  confirmTool: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }) }))
@@ -25,7 +27,10 @@ vi.mock('@/api/admin', () => ({
   },
 }))
 vi.mock('@/api/capabilities', () => ({ capabilitiesApi: { get: vi.fn().mockResolvedValue({}) } }))
-vi.mock('@/utils/streamChat', () => ({ streamChat: vi.fn(), confirmTool: vi.fn() }))
+vi.mock('@/utils/streamChat', () => ({
+  streamChat: mocks.streamChat,
+  confirmTool: mocks.confirmTool,
+}))
 
 import AiChatPanel from '../AiChatPanel.vue'
 
@@ -43,9 +48,9 @@ const conv = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-async function mountPanel(rows: unknown[]) {
+async function mountPanel(rows: unknown[], locale: 'zh' | 'en' = 'zh') {
   mocks.list.mockResolvedValue(rows)
-  const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
+  const i18n = createI18n({ legacy: false, locale, messages: { zh, en } })
   const wrapper = mount(AiChatPanel, { global: { plugins: [ElementPlus, i18n] } })
   await (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
   await flushPromises()
@@ -132,5 +137,114 @@ describe('AiChatPanel · 工作账本', () => {
     expect(wrapper.text()).toContain('你自己的数据')
     // `assWelcome` 是系统助手的话术（问模块 / 配权限 / 去管理台），普通用户不该看到它
     expect(wrapper.text()).not.toContain('系统有哪些模块')
+  })
+})
+
+/** 一段「门控段拒绝」：没有 tool_start，只有带 explanation 的 tool_end（R5 演示工具） */
+const r5End = {
+  name: 'delete_customer',
+  success: false,
+  error: 'Blocked by policy',
+  explanation: {
+    deniedBy: 'risk_policy',
+    reasonKey: 'ai.deny.risk_r5.reason',
+    nextStepKey: 'ai.deny.risk_r5.nextStep',
+    reason: 'server reason',
+    nextStep: 'server next step',
+    params: { tool: 'delete_customer' },
+  },
+}
+
+/** 发一条消息并抓住这次流式调用的 onEvent（组件不暴露内部状态，只能从事件入口驱动） */
+async function sendAndCapture(wrapper: ReturnType<typeof mount>, text = '删除客户', label = '发送') {
+  const captured: { current: { onEvent: (ev: unknown) => void } | null } = { current: null }
+  mocks.streamChat.mockImplementation((opts: { onEvent: (ev: unknown) => void }) => {
+    captured.current = opts
+    return Promise.resolve()
+  })
+  await wrapper.find('textarea').setValue(text)
+  const sendBtn = wrapper.findAll('button').find((b) => b.text().includes(label))
+  await sendBtn!.trigger('click')
+  await flushPromises()
+  return captured.current!
+}
+
+describe('AiChatPanel · 拒绝指引渲染', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('无 tool_start 的 tool_end（门控段拒绝）→ 建一个拒绝步骤并渲染为什么 + 怎么解决', async () => {
+    const wrapper = await mountPanel([])
+    const stream = await sendAndCapture(wrapper)
+
+    stream.onEvent({ type: 'tool_end', toolEnd: r5End })
+    await flushPromises()
+
+    const cards = wrapper.findAll('.ai-denial-card')
+    expect(cards).toHaveLength(1)
+    expect(cards[0].text()).toContain('风险策略（R5）')
+    expect(cards[0].text()).toContain('工具「delete_customer」的风险级为 R5')
+    expect(cards[0].text()).toContain('请改用可逆的低风险工具')
+    expect(cards[0].text()).not.toContain('server reason')
+  })
+
+  it('已有 tool_start 时不重复建步骤：拒绝指引挂在原工具卡上', async () => {
+    const wrapper = await mountPanel([])
+    const stream = await sendAndCapture(wrapper)
+
+    stream.onEvent({
+      type: 'tool_start',
+      toolStart: { name: 'delete_customer', arguments: {}, isWrite: false },
+    })
+    stream.onEvent({ type: 'tool_end', toolEnd: r5End })
+    await flushPromises()
+
+    expect(wrapper.findAll('.ai-denial-card')).toHaveLength(1)
+    // 仍然只有一张工具卡：工具名出现在工具卡标题、拒绝卡标题与原因文案三处；
+    // 若另起了一条拒绝步骤，它会再出现三次。
+    expect((wrapper.text().match(/delete_customer/g) ?? []).length).toBe(3)
+    expect(wrapper.text()).toContain('删除客户')
+  })
+
+  it('成功路径（无 explanation）不渲染拒绝卡 —— 前端不凭空造', async () => {
+    const wrapper = await mountPanel([])
+    const stream = await sendAndCapture(wrapper)
+
+    stream.onEvent({
+      type: 'tool_start',
+      toolStart: { name: 'query_events', arguments: {}, isWrite: false },
+    })
+    stream.onEvent({
+      type: 'tool_end',
+      toolEnd: { name: 'query_events', success: true },
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('.ai-denial-card')).toHaveLength(0)
+  })
+
+  it('无 tool_start 且无 explanation 的孤立 tool_end 不建步骤', async () => {
+    const wrapper = await mountPanel([])
+    const stream = await sendAndCapture(wrapper)
+
+    stream.onEvent({ type: 'tool_end', toolEnd: { name: 'query_events', success: false } })
+    await flushPromises()
+
+    expect(wrapper.findAll('.ai-denial-card')).toHaveLength(0)
+  })
+
+  it('英文界面用英文渲染同一 reasonKey/nextStepKey', async () => {
+    const wrapper = await mountPanel([], 'en')
+    const stream = await sendAndCapture(wrapper, 'delete', 'Send')
+
+    stream.onEvent({ type: 'tool_end', toolEnd: r5End })
+    await flushPromises()
+
+    const card = wrapper.find('.ai-denial-card')
+    expect(card.text()).toContain('Risk policy (R5)')
+    expect(card.text()).toContain('Tool "delete_customer" is risk level R5')
+    expect(card.text()).toContain('Use a reversible lower-risk tool')
   })
 })

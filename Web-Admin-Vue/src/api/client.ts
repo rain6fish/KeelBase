@@ -3,7 +3,8 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import { API_BASE_URL, API_TIMEOUT, GOVERNANCE_BASE_URL } from '@/utils/constants'
 import { storage } from '@/utils/storage'
-import { unwrapEnvelope, readErrorBody, deniedByOf } from './envelope'
+import { unwrapEnvelope, readErrorBody, deniedByOf, type NormalizedErrorBody } from './envelope'
+import { t } from '@/i18n'
 import { refreshAccessToken } from './session'
 
 const PUBLIC_ENDPOINTS = ['/auth/login', '/auth/refresh']
@@ -102,33 +103,51 @@ instance.interceptors.response.use(
 
 /** E-3 可行动错误提示：403 拒绝原因（Explainable Authz deniedBy）→ 「怎么办」引导 */
 function guidanceFor(deniedBy?: string): string {
-  switch (deniedBy) {
-    case 'casl':
-      return ' · 需要管理员权限，请切换管理员账号或联系管理员'
-    case 'risk_policy':
-      return ' · 该操作被风险策略阻断，请联系管理员调整策略'
-    case 'user_scoped':
-      return ' · 只能访问本人的数据'
-    default:
-      return ' · 请检查权限或联系管理员'
-  }
+  const key =
+    deniedBy === 'casl'
+      ? 'errorGuidanceCasl'
+      : deniedBy === 'risk_policy'
+        ? 'errorGuidanceRiskPolicy'
+        : deniedBy === 'user_scoped'
+          ? 'errorGuidanceUserScoped'
+          : 'errorGuidanceDefault'
+  return ` · ${t(key)}`
 }
 
-function normalizeError(error: unknown): ApiError {
+/** `explanation` 是 403 / 确认 404 共用的拒绝指引（object 形）；老服务端可能是纯文本 */
+function explanationField(
+  explanation: NormalizedErrorBody['explanation'],
+  name: string,
+): string | undefined {
+  if (!explanation || typeof explanation !== 'object') return undefined
+  const value = (explanation as Record<string, unknown>)[name]
+  return typeof value === 'string' ? value : undefined
+}
+
+/** 把 axios 异常归一为 `ApiError`（导出供单测直接验证指引落地） */
+export function normalizeError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   const axiosErr = error as { response?: { status?: number; data?: unknown }; message?: string }
   const status = axiosErr.response?.status ?? 0
   const data = readErrorBody(axiosErr.response?.data)
   let message =
     data.message || (status === 0 ? 'Network error' : `Request failed with status ${status}`)
-  if (status === 403) {
+  // Trust-grade errors：403 / 确认 404 的 `explanation` 自带「为什么 + 怎么解决」；
+  // 有它就不再追加泛化引导，避免同一句话出现两遍。
+  //
+  // The 403 / confirmation-404 `explanation` already carries why + next step; when present we skip
+  // the generic guidance so the same sentence does not appear twice.
+  const explanationReason = explanationField(data.explanation, 'reason')
+  const explanationNextStep = explanationField(data.explanation, 'nextStep')
+  if (status === 403 && !explanationNextStep) {
     message += guidanceFor(deniedByOf(data.explanation))
   }
   const err = new ApiError(message, status, data.errorCode)
-  // NC-2：透传后端可执行指引（reason/impact/nextStep）
-  err.reason = data.reason
+  // NC-2：透传后端可执行指引（reason/impact/nextStep）；403/404 的指引在 `explanation` 里。
+  // NC-2: pass the backend's actionable guidance through; for 403/404 it lives in `explanation`.
+  err.reason = data.reason ?? explanationReason
   err.impact = data.impact
-  err.nextStep = data.nextStep
+  err.nextStep = data.nextStep ?? explanationNextStep
   return err
 }
 
