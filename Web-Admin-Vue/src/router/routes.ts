@@ -97,6 +97,9 @@ const workbenchRoute: RouteRecordRaw = {
     // 左侧菜单一项不少——聊天是入口，不是唯一的门。
     { path: 'ai', name: 'workbench-ai', component: () => import('@/views/workbench/AiChatView.vue'), meta: { title: 'aiAssistant' } },
     { path: '', name: 'workbench-home', component: () => import('@/views/workbench/WorkbenchHomeView.vue'), meta: { title: 'navWorkbench' } },
+    // Self boundary view: the same server-read-only page as the console, scoped to the signed-in user.
+    // 本人边界视图：与控制台同一页，只读服务端数据，范围限当前用户。
+    { path: 'my-access', name: 'workbench-my-access', component: () => import('@/views/permissions/PermissionsView.vue'), meta: { title: 'navMyAccess' } },
     { path: 'events', name: 'workbench-events', component: () => import('@/views/workbench/MyEventsView.vue'), meta: { title: 'workbenchMyEvents' } },
     { path: 'todos', name: 'workbench-todos', component: () => import('@/views/workbench/MyTodosView.vue'), meta: { title: 'workbenchMyTodos', permission: PERMISSIONS.TODO_MANAGE } },
     { path: 'notifications', name: 'workbench-notifications', component: () => import('@/views/workbench/MyNotificationsView.vue'), meta: { title: 'workbenchNotifications' } },

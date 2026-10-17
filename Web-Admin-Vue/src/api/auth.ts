@@ -3,15 +3,19 @@
 import { api } from './client'
 import type { AuthUser, LoginResult } from '@/types/api'
 
-/** B1：管理员为目标用户反查权限决策依据（POST /auth/permissions/explain/target） */
-export interface ExplainTargetResult {
-  userId: number
-  username: string
+/** Explainable Authz：对 action×resource 的服务端决策 + 依据（POST /auth/permissions/explain） */
+export interface ExplainResult {
   action: string
   subject: string
   allowed: boolean
   reason: string
   deniedBy: 'casl' | null
+}
+
+/** B1：管理员为目标用户反查权限决策依据（POST /auth/permissions/explain/target） */
+export interface ExplainTargetResult extends ExplainResult {
+  userId: number
+  username: string
 }
 
 /** Explainable Authz：当前用户能力清单（GET /auth/me/permissions，wire schema 见 specs/protocol/schemas/v1/permission-capability-list.schema.json） */
@@ -49,6 +53,9 @@ export const authApi = {
   },
   logout(): Promise<null> {
     return api.post<null>('/auth/logout')
+  },
+  explain(action: string, subject: string): Promise<ExplainResult> {
+    return api.post<ExplainResult>('/auth/permissions/explain', { action, subject })
   },
   explainTarget(userId: number, action: string, subject: string): Promise<ExplainTargetResult> {
     return api.post<ExplainTargetResult>('/auth/permissions/explain/target', { userId, action, subject })
