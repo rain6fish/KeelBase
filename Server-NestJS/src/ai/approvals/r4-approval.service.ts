@@ -24,7 +24,8 @@ import { ToolExecutionService } from '../tools/tool-execution.service';
 import { AuditService } from '../audit/audit.service';
 import { deriveAiBusinessEvent } from '../audit/ai-business-event';
 import { toolCallOutcome } from '../audit/tool-call-audit';
-import { ToolResult } from '../interfaces/tool.interface';
+import { PresentationText, ToolResult } from '../interfaces/tool.interface';
+import { buildConfirmationRenderProof } from '../confirmation/confirmation-render';
 import { UsersService } from '../../users/users.service';
 import {
   ExecutionState,
@@ -72,6 +73,8 @@ export class R4ApprovalService {
    * 创建持久化审批请求（operator 触发，approver 稍后决策；不阻塞 operator 对话）。
    * `audience` = 该 artifact 被批准写往的目的地（AUTHZ-1）——R4 的等待窗口可达小时/天级，
    * 正是目的地可能被改指的那种窗口，故这里的绑定最吃重。
+   * `summary` = 本次审批请求**实际下发**的呈现文案（CONF-3）：给出时把那份渲染的哈希记进行，
+   * 否则留 `null`（渲染代次不可考）。
    */
   async createR4ApprovalRequest(
     operatorId: string,
@@ -79,9 +82,12 @@ export class R4ApprovalService {
     args: Record<string, unknown>,
     conversationId?: string,
     audience?: string,
+    summary?: PresentationText,
   ): Promise<{ token: string; id: number }> {
     if (!this.approvalsRepo) throw new Error('Approvals repository not injected');
     const token = randomUUID();
+    // CONF-3：与确认卡同一份下发文案参与哈希，不另拼一份。
+    const renderProof = summary ? buildConfirmationRenderProof(toolName, args, summary) : undefined;
     const saved = await this.approvalsRepo.save(
       this.approvalsRepo.create({
         token,
@@ -92,6 +98,9 @@ export class R4ApprovalService {
         status: 'pending',
         conversationId,
         ...(audience !== undefined ? { audience } : {}),
+        ...(renderProof
+          ? { renderHash: renderProof.renderHash, renderVersion: renderProof.renderVersion }
+          : {}),
       }),
     );
     return { token, id: saved.id };

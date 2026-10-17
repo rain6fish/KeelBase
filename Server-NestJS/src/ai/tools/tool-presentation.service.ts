@@ -27,6 +27,22 @@ import {
 } from '../interfaces/tool.interface';
 import { deriveWriteImpact } from '../tool-effects/write-impact';
 import { TOOL_METADATA, toolLabelKey } from '../audit/tool-metadata';
+import {
+  buildConfirmationRenderProof,
+  buildRunRenderProof,
+  ConfirmationRenderProof,
+} from '../confirmation/confirmation-render';
+
+/** CONF-3：一条存储行「当时的渲染」能否由今天的渲染重算复现。 */
+export interface ConfirmationRenderVerification {
+  /**
+   * `true` = 重算与行上记录一致；`false` = 不一致（渲染已变，差异可见）；
+   * `null` = 无从判断（该行未记录渲染凭据，或 run 行的批内快照不可解析）。
+   */
+  matched: boolean | null;
+  stored: { renderHash: string | null; renderVersion: string | null };
+  recomputed: ConfirmationRenderProof | null;
+}
 
 @Injectable()
 export class ToolPresentationService {
@@ -200,6 +216,63 @@ export class ToolPresentationService {
         fallback: 'Ran a write operation',
       }
     );
+  }
+
+  /**
+   * CONF-3: recompute the render proof for a single action under **today's** renderer.
+   *
+   * Combined with the args already on the row, this is what a later reader runs: equality with the
+   * stored hash means "today's rendering is still the one the user saw"; inequality is the visible
+   * evidence that a mapping/translation changed in between.
+   *
+   * CONF-3：用**今天的**渲染重算单条动作的渲染凭据。与行上已有的参数配合，后来人要跑的就是这一步：
+   * 与行上哈希相等 = 「今天的渲染仍是用户当时看到的那份」；不等 = 其间映射/翻译变过的可见证据。
+   */
+  renderProofFor(toolName: string, args: Record<string, unknown>): ConfirmationRenderProof {
+    return buildConfirmationRenderProof(toolName, args, this.writeSummaryOrGeneric(toolName, args));
+  }
+
+  /**
+   * CONF-3: does today's rendering reproduce the proof recorded on a stored confirmation row?
+   *
+   * Recomputes from the row's own tool name + args (and, for a run, re-renders each item from its
+   * args) — deliberately **not** from the stored summaries, which would make the comparison
+   * tautological. `matched: null` is the honest answer when the row predates the columns.
+   *
+   * CONF-3：今天的渲染能否复现行上记录的凭据？从行自己的工具名 + 参数重算（run 则逐条从各自参数
+   * 重新渲染）——**刻意**不用行里已存的摘要，否则比对就成了同义反复。行早于本列时，
+   * `matched: null` 是诚实的答案。
+   */
+  verifyStoredRender(
+    row: Pick<AiConfirmationRequest, 'toolName' | 'args' | 'kind' | 'runItems' | 'renderHash' | 'renderVersion'>,
+  ): ConfirmationRenderVerification {
+    const stored = { renderHash: row.renderHash ?? null, renderVersion: row.renderVersion ?? null };
+    if (!stored.renderHash || !stored.renderVersion) {
+      return { matched: null, stored, recomputed: null };
+    }
+
+    let recomputed: ConfirmationRenderProof;
+    if (row.kind === 'run') {
+      const items = this.parseRunItems(row.runItems);
+      if (items.length === 0) return { matched: null, stored, recomputed: null };
+      recomputed = buildRunRenderProof(
+        items.map((item) => ({
+          toolName: item.toolName,
+          args: item.args,
+          summary: this.writeSummaryOrGeneric(item.toolName, item.args),
+        })),
+      );
+    } else {
+      let args: Record<string, unknown> = {};
+      try {
+        args = row.args ? (JSON.parse(row.args) as Record<string, unknown>) : {};
+      } catch {
+        args = {};
+      }
+      recomputed = this.renderProofFor(row.toolName, args);
+    }
+
+    return { matched: recomputed.renderHash === stored.renderHash, stored, recomputed };
   }
 
   /**

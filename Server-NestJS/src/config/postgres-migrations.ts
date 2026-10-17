@@ -106,6 +106,8 @@ export const POSTGRES_MIGRATION_GLOBS: string[] = [
   '*AddGeneratedPointModules*',
   // 生成模块 asset_loans 的建表迁移：实体在、pg 侧也要有，否则实体↔迁移漂移
   '*AddAssetLoans*',
+  // CONF-3：确认行的渲染凭据两列（postgres 侧同样需要，否则实体要的列在 pg 上不存在）
+  '*AddConfirmationRenderProof*',
 ];
 
 /** 有意排除于 postgres 的迁移（仅 sqlite；postgres 由 PostgresInitialSchema / PostgresIncrementalSchema 基线覆盖） */
