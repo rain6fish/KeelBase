@@ -197,6 +197,35 @@ describe('GovernanceActionDrawer（D1 治理钻取）', () => {
     expect(steps[5].find('.el-step__head').classes()).toContain('is-finish');
   })
 
+  it('PRE-3 未知态：撤销终态未落库（compensating）不得渲染成「已执行」', async () => {
+    governanceMock.mockReset();
+    governanceMock.mockResolvedValue({
+      effect: { ...effect, targetExists: true, targetSoftDeleted: false, restored: false, revokeStatus: 'compensating' },
+      trace: {
+        steps: [
+          { id: 'in-1', type: 'input', time: '2026-08-25T10:00:00Z', content: '建跟进' },
+          { id: 'auth-1', type: 'tool_call', time: '2026-08-25T10:00:01Z', toolName: 'create_followup_task', args: '{}', success: true },
+          { id: 'conf-1', type: 'confirmation', time: '2026-08-25T10:00:02Z', toolName: 'create_followup_task', args: '{}', outcome: 'approve' },
+        ],
+      },
+    });
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } });
+    const wrapper = mount(GovernanceActionDrawer, {
+      global: { plugins: [ElementPlus, i18n] },
+      props: { modelValue: true, resultType: 'crm_task', resultId: 42 },
+    });
+    await flushPromises();
+
+    // 当前态是「结果未知」，不是「已确认执行 / 已执行」。
+    expect(wrapper.text()).toContain('结果未知');
+    const steps = wrapper.findAll('.el-step');
+    expect(steps.length).toBe(6);
+    // 撤销节点读作 process（未知），不是 wait（那会声称什么都没发生）。
+    // 反向可证：删掉 lifecycleState 里的 compensating 分支 ⇒ 此处回到「已确认执行」、用例红。
+    expect(steps[4].find('.el-step__head').classes()).toContain('is-process');
+    expect(steps[4].text()).toContain('结果未知');
+  })
+
   it('A-3 生命周期：目标已软删 → 撤销态可达（FIX-B：B4 effect 带 targetSoftDeleted）', async () => {
     governanceMock.mockReset()
     governanceMock.mockResolvedValue({

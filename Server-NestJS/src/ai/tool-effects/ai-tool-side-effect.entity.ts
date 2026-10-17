@@ -77,7 +77,18 @@ export class AiToolSideEffect {
   revokeClass?: string | null;
 
   /**
-   * KB-6：撤销结果运维态（null=未撤 / revoked=本地软删 / compensating=已请求外部补偿·结果未知 / revoke_failed=补偿失败）。
+   * KB-6: revoke outcome state (`null`=not revoked / `revoked`=locally soft-deleted /
+   * `compensating`=compensation requested, outcome unknown / `revoke_failed`=compensation failed).
+   *
+   * PRE-3: `compensating` is not external-only. The local path records its intent **before** the
+   * soft-delete, so a row whose terminal state could not be written stays `compensating` — the same
+   * "outcome unknown" reading. That is deliberate: readers must see "unknown", never "not revoked".
+   *
+   * KB-6：撤销结果运维态（null=未撤 / revoked=本地软删 / compensating=已请求补偿·结果未知 / revoke_failed=补偿失败）。
+   *
+   * PRE-3：`compensating` 不再只属于外部路径。本地路径在软删**之前**先写意图，故终态写不进去的行会停在
+   * `compensating` —— 同样是「结果未知」的读数。这是有意的：读侧必须看见「未知」，绝不是「未撤销」。
+   *
    * 不入哈希链 payload（可变运维态）。
    */
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'revoke_status' })

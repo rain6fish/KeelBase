@@ -35,10 +35,27 @@ import type {
  */
 export interface RevokeHostSeam extends HostHelpers {
   /**
+   * Write back the revoke state columns. **One implementation only** (the service's `_patchRevoke`):
+   * both the revoke side and the dispute side write those five columns, and two implementations would
+   * be exactly the "same state, two accounts" defect this repo keeps fixing — so it crosses the seam
+   * as a callback rather than being copied.
+   *
+   * PRE-3: the boolean says whether the write landed. A caller writing an **authoritative terminal
+   * state** must honour it (a local soft-delete that could not record its outcome stays
+   * `compensating` = unknown, and the result must not claim `revoked`); an annotation-only caller may
+   * ignore it.
+   *
    * KB-6 撤销运维态的回写。**只有一处实现**（服务上那个 `_patchRevoke`）：撤销与争议两侧都写那五列，
    * 两处实现正是本仓反复修的那类缺陷的成因 —— 故以接缝传过来，而不是各写一份。
+   *
+   * PRE-3：布尔值表示这次写入是否落库。写**权威终态**的调用方必须处理它（本地软删已执行、终态却
+   * 没落库时，该行留在 `compensating` = 未知，结果不得声称 `revoked`）；只写注解的调用方可以忽略。
    */
-  patchRevoke(effect: AiToolSideEffect, patch: RevokePatch): Promise<void>;
+  patchRevoke(
+    effect: AiToolSideEffect,
+    patch: RevokePatch,
+    opts?: { attempts?: number },
+  ): Promise<boolean>;
 }
 
 /** 可回写的撤销态列 —— 声明在 `tool-effects.types.ts`（撤销与争议两侧同一份）。 */
@@ -256,7 +273,7 @@ export class EffectRevoke {
     return this.crossGroupClaims(effect.compensationGroup, members.length ? members : [effect]);
   }
 
-  /** 撤销跳过判据（单条/批量共用）：已软删 revoked / 已请求外部补偿 compensating；revoke_failed 视为可重试 */
+  /** 撤销跳过判据（单条/批量共用）：已软删 revoked / 结果未知 compensating；revoke_failed 视为可重试 */
   /**
    * 幂等判据：**这一行到底做完了没有**。
    *
@@ -271,6 +288,15 @@ export class EffectRevoke {
    * 故以 `_classOf === 'local_compensate'` 且 revoker 认这个 resultType 为门。
    *
    * 目标读不到（无 revoker / 行不存在）⇒ **判不了**，按完成处理——保守方向是「不因读不到就去重复补偿」。
+   *
+   * PRE-3：`compensating` 自本地补偿引入意图写之后**不再只属于外部**——它同样表示「本地软删已执行、
+   * 终态未能落库」这种**结果未知**。这里对它返回 `'compensating'`（而不是 `null`）正是关键：
+   * 「不知道」读作「未知 / 不重试」，**不读作「未撤销」**。
+   *
+   * PRE-3: after local compensation started recording its intent first, `compensating` no longer belongs
+   * to the external path alone — it also says "the local soft-delete landed, but its terminal state could
+   * not be recorded", i.e. the outcome is unknown. Returning `'compensating'` (not `null`) is the point:
+   * "don't know" reads as unknown / do not re-trigger, **never as "not revoked"**.
    */
   async skipReason(
     effect: AiToolSideEffect,
@@ -299,19 +325,26 @@ export class EffectRevoke {
     reason: 'already_revoked' | 'compensating',
   ): RevokeResult {
     // 幂等语义（单条）：已撤销 = 终态已达成 → revoked:true（HTTP DELETE 幂等成功），仅 skipped 标记不重复触发；
-    // 补偿中 = 外部结果未知 → 如实 revoked:false（KB-6：不得显示为已撤销）。
+    // 补偿中 = 结果未知 → 如实 revoked:false（KB-6：不得显示为已撤销）。
+    //
+    // PRE-3：`external` 由**档位**决定，而不是由 `compensating` 推断 —— 本地补偿的终态未落库同样会
+    // 停在 `compensating`，把它标成 `external:true` 会在结果里说一句关于外部系统、而这次根本没外呼的话。
+    //
+    // PRE-3: `external` comes from the **tier**, not from `compensating` — a local compensation whose
+    // terminal write failed also stays `compensating`, and labelling it `external:true` would tell the
+    // caller a story about an external system that this operation never called.
     const alreadyRevoked = reason === 'already_revoked';
     return {
       revoked: alreadyRevoked,
       effectId: effect.id,
       skipped: true,
       reason,
-      external: reason === 'compensating',
+      external: reason === 'compensating' ? this.classOf(effect) === 'governed_external' : undefined,
       revokeStatus: (effect.revokeStatus as RevokeResult['revokeStatus']) ?? undefined,
       message:
         reason === 'already_revoked'
           ? '该副作用此前已撤销（幂等成功），跳过重复触发'
-          : '外部补偿已请求、结果以目标系统为准——跳过重复触发',
+          : '撤销结果未知（可能尚未到达目标系统 / 终态未能落库）——跳过重复触发，需人工核对',
     };
   }
 
@@ -618,6 +651,8 @@ export class EffectRevoke {
     const results: RevokeBatchItem[] = [];
     const locals: AiToolSideEffect[] = [];
     const externals: AiToolSideEffect[] = [];
+    /** PRE-3：本地软删已落地、但撤销终态未能落库的成员（读作「未知」，不是「未撤销」）。 */
+    const unrecorded: number[] = [];
     // REV-1 / REV-5：争议是**组级**事实 → 汇总必须据此拒绝报完成，无论本次是否真的补偿了什么。
     const disputeNotes = this.dispute.notesFor(members, cross);
 
@@ -687,7 +722,24 @@ export class EffectRevoke {
           }
         }
       };
+      const claimed = new Set<number>();
       try {
+        // PRE-3: record the intent **before** the fact-layer transaction. The record must exist first,
+        // or a crash/failed terminal write leaves the facts changed with nothing for the readers to
+        // consult. A claim that cannot be written aborts the group before any target is touched.
+        // PRE-3：改事实层（事务软删）**之前**先写意图。记录必须先存在，否则崩溃或终态写入失败会留下
+        // 「事实改了、读侧没东西可读」。写不成意图就整组中止 —— 一个目标都不碰。
+        for (const m of locals) {
+          const outcome = await this.claimLocalIntent(m);
+          if (outcome !== 'claimed') {
+            throw new Error(
+              outcome === 'not_claimed'
+                ? `本地成员 effect ${m.id} 的撤销已被另一写者认领（或已不处于可派发状态），本次未触碰任何目标`
+                : `本地成员 effect ${m.id} 的撤销意图未能落库，本次未触碰任何目标`,
+            );
+          }
+          claimed.add(m.id);
+        }
         if (this.dataSource) {
           await this.dataSource.transaction((manager) => run(manager));
         } else {
@@ -696,7 +748,16 @@ export class EffectRevoke {
         }
       } catch (err) {
         const msg = (err as Error).message;
-        this.logger.warn(`[AiToolEffects] cascade rollback (group ${groupId}): ${msg}`);
+        this.logger.error(`[AiToolEffects] cascade rollback (group ${groupId}): ${msg}`);
+        // The fact layer did not change. Clear only the intents **we** wrote, so the rows read as
+        // "failed / retryable" instead of "in flight". Rows another writer owns are left alone.
+        // 事实层没有改动。只清理**我们**写下的意图，使它们读作「失败可重试」而不是「进行中」；
+        // 别人认领的行一概不碰。
+        for (const m of locals) {
+          if (claimed.has(m.id)) {
+            await this.host.patchRevoke(m, { revokeStatus: 'revoke_failed' }, { attempts: 2 });
+          }
+        }
         for (const m of locals) {
           results.push({ effectId: m.id, revoked: false, error: msg, compensationGroup: groupId });
         }
@@ -713,17 +774,33 @@ export class EffectRevoke {
         await this.auditCompensation(groupId, members, rolledBack.items, requested);
         return rolledBack;
       }
-      // 提交成功后才回写运维态（在事务内回写会在回滚后留下假的 revoked）
+      // PRE-3: the terminal write happens after commit. If it cannot land, the row keeps the intent
+      // (`compensating`) — the frozen "outcome unknown" reading — and the result must not claim
+      // `revoked`. The facts did land; only their record is missing.
+      //
+      // PRE-3：终态写在提交之后。写不进去时该行保留意图（`compensating`）——已冻结的「结果未知」读数，
+      // 结果也不得声称 `revoked`。事实已经落地，缺的是它的记录。
       for (const m of locals) {
-        await this.host.patchRevoke(m, { revokeStatus: 'revoked' });
+        const recorded = await this.host.patchRevoke(
+          m,
+          { revokeStatus: 'revoked' },
+          { attempts: 2 },
+        );
         const driftNote = this.withDriftNote(undefined, driftByEffect.get(m.id) ?? null);
+        if (!recorded) unrecorded.push(m.id);
+        const message = recorded
+          ? driftNote
+          : '本地软删已执行，但撤销终态未能落库——状态未知，需人工核对';
         results.push({
           effectId: m.id,
-          revoked: true,
-          revokeStatus: 'revoked',
+          revoked: recorded,
+          // `compensating` is neither revoked nor failed: the fact landed, the record did not.
+          // `compensating` 既不是已撤销也不是失败：事实落地了，记录没有。
+          ...(recorded ? {} : { skipped: true, reason: 'compensating', external: false }),
+          revokeStatus: recorded ? 'revoked' : 'compensating',
           compensationGroup: groupId,
           // REV-9：漂移事实随该成员逐条可见（组级汇总不吞它）——没有漂移时不加该字段，保持原形状
-          ...(driftNote ? { message: driftNote } : {}),
+          ...(message ? { message } : {}),
         });
       }
       // REV-14：本地补偿已落地，这时才把「承诺了却比不到」的那些落到**组根行**上——组级判定随即
@@ -759,6 +836,11 @@ export class EffectRevoke {
       [...driftByEffect.entries()].map(
         ([id, d]) => `effect ${id} 的目标在写入后被改过（${d}），本次补偿把该改动一并抹除`,
       ),
+      unrecorded.length > 0
+        ? [
+            `其中 ${unrecorded.length} 条本地补偿已执行、但撤销终态未能落库——状态未知，需人工核对`,
+          ]
+        : [],
     );
     // REV-16：整组拿走的那些目标上，还有哪些行指着它们。**在组级结论之外**再答一句 —— 组级会读出
     // 「全部补偿完成」，而那正是读者会据此断定「什么都干净了」的时刻；这个字段说的是它**没够到**的部分。
@@ -859,6 +941,11 @@ export class EffectRevoke {
      * 默认空：回滚分支调用时什么都没补偿，谈不上抹掉谁的改动。
      */
     driftNotes: string[] = [],
+    /**
+     * PRE-3：不改变判定的补充说明（目前用于「本地软删已执行、终态未落库」的成员）。
+     * 与 `driftNotes` 同为「必须被说出来、但不得改写判定」的车道。
+     */
+    extraNotes: string[] = [],
   ): { result: RevokeResult; items: RevokeBatchItem[] } {
     const disputed = disputeNotes.length > 0;
     const skipped = results.filter((r) => r.skipped).length;
@@ -885,6 +972,7 @@ export class EffectRevoke {
         ? [`其中 ${notApplicable} 条按声明不可撤（revokeClass=none：无撤销接口 / 无补偿端点），未参与补偿`]
         : []),
       ...driftNotes,
+      ...extraNotes,
     ];
     return {
       result: {
@@ -899,6 +987,70 @@ export class EffectRevoke {
       },
       items: results,
     };
+  }
+
+  /**
+   * PRE-3: record the **intent** before the fact layer changes, and make that record a CAS.
+   *
+   * The order is the fix. `revoke_status` must exist *before* the target is soft-deleted, so there is
+   * never a moment where the facts changed while the predicate layer has nothing to consult. If this
+   * write fails, the target is left untouched: no state change, no divergence. The CAS
+   * (`NULL` / `revoke_failed` / `revoked`-whose-target-came-back → `compensating`) is the same
+   * arbitration point the external path uses (ARC-3), so two concurrent revokes cannot both own the row.
+   *
+   * The three outcomes are reported separately because the honest answer differs: `claimed` — proceed;
+   * `not_claimed` — another writer owns it (or it is no longer dispatchable), re-read and report;
+   * `write_failed` — the record could not be written, so **do not touch the target**.
+   *
+   * PRE-3：改事实层**之前**先写意图，并让这次写入成为一个 CAS。
+   *
+   * 顺序本身即是修法：`revoke_status` 必须在目标软删**之前**存在，于是永远不会出现「事实改了、
+   * 判据层没东西可读」。这次写入失败就**不碰目标**——没有状态改动，也就没有不一致。CAS
+   *（`NULL` / `revoke_failed` → `compensating`）与外部路径是同一个仲裁点（ARC-3），
+   * 两个并发撤销因此不可能同时拥有这一行。
+   *
+   * 三种结果分开回报，因为诚实的答复各不相同：`claimed` 继续；`not_claimed` 已被另一写者认领
+   *（或已不处于可派发态）——回读后如实回报；`write_failed` 记录写不进去——**不得触碰目标**。
+   */
+  private async claimLocalIntent(
+    effect: AiToolSideEffect,
+  ): Promise<'claimed' | 'not_claimed' | 'write_failed'> {
+    try {
+      const claim = await this.effectsRepo.update(
+        {
+          id: effect.id,
+          // `revoked` is included for the ARC-1 round trip: a row revoked earlier whose target came
+          // back from the recycle bin is deliberately re-revokable (the fact says it is live again).
+          // `skipReason` already ruled out the "revoked and still soft-deleted" case before we get
+          // here, and the CAS still serialises concurrent revokes: the first writer moves the row to
+          // `compensating`, so the second one matches zero rows.
+          //
+          // Must use `Raw` for the NULL test — `In([null, ...])` is never true for NULL in SQL
+          // (the same trap ARC-3 documents on the external path).
+          //
+          // 包含 `revoked` 是为了 ARC-1 的往返：早先撤销过、目标又从回收站恢复的行**应当可以再撤**
+          //（事实层说它又活了）。走到这里之前 `skipReason` 已排除「revoked 且目标仍软删」；CAS 仍然
+          // 串行化并发撤销：第一个写者把行改成 `compensating`，第二个就命中 0 行。
+          revokeStatus: Raw(
+            (alias) => `(${alias} IS NULL OR ${alias} = 'revoke_failed' OR ${alias} = 'revoked')`,
+          ),
+        },
+        {
+          revokeStatus: 'compensating',
+          revokeRequestedAt: new Date(),
+          // The previous request's acknowledgement does not speak for this one.
+          revokeAcknowledgedAt: null,
+        },
+      );
+      return claim?.affected ? 'claimed' : 'not_claimed';
+    } catch (err) {
+      this.logger.error(
+        `[AiToolEffects] local revoke intent write FAILED — effect ${effect.id} ` +
+          `(${effect.resultType}#${effect.resultId}); target left untouched: ` +
+          `${(err as Error)?.message ?? String(err)}`,
+      );
+      return 'write_failed';
+    }
   }
 
   private async doRevokeSingle(effect: AiToolSideEffect): Promise<RevokeResult> {
@@ -919,16 +1071,91 @@ export class EffectRevoke {
       // REV-9：**先**问一句「目标还是不是我写的那条」，再软删——软删之后那行就没了，问也白问。
       const cmp = await this.comparability.targetDrift(effect);
       const drift = cmp.promised && cmp.compared ? cmp.drift : null;
-      const r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
-      this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
-      if (r.revoked) {
-        await this.host.patchRevoke(effect, { revokeStatus: 'revoked' });
-        // REV-14：软删落地后才落这份读数——判定没成立时不记（同「本地回滚不留回写」的口径）。
-        // 单目标行就是它自己的根，故写在本行。
-        await this.comparability.record(effect, [
-          { ref: { resultType: effect.resultType, resultId: effect.resultId }, cmp },
-        ]);
+      // PRE-3: the intent must land **before** the fact layer changes. If it cannot, do not touch
+      // the target — that is what keeps "facts changed, no record" unrepresentable.
+      // PRE-3：意图必须在事实层改动**之前**落地。写不成就**不碰目标** —— 这正是让「事实改了、
+      // 没有记录」不可表示的那一步。
+      const claim = await this.claimLocalIntent(effect);
+      if (claim !== 'claimed') {
+        // Re-read so the refusal names **which** refusal it was: a concurrent writer may have just
+        // finished (`revoked`), just failed (`revoke_failed`), or still be in flight (`compensating`).
+        // 回读一下，把「被拒」说清楚是哪一种：并发写者可能刚完成（`revoked`）、刚失败
+        //（`revoke_failed`），或仍在进行中（`compensating`）。
+        const now = await this.effectsRepo.findOne({ where: { id: effect.id } });
+        const status = (now?.revokeStatus as RevokeResult['revokeStatus']) ?? undefined;
+        if (claim === 'not_claimed' && status === 'revoked') {
+          return {
+            revoked: true,
+            effectId: effect.id,
+            skipped: true,
+            reason: 'already_revoked',
+            revokeStatus: 'revoked',
+            message: '该副作用已由另一写者完成撤销（幂等成功）——本次未重复触发',
+          };
+        }
+        if (claim === 'not_claimed' && status === 'revoke_failed') {
+          return {
+            revoked: false,
+            effectId: effect.id,
+            revokeStatus: 'revoke_failed',
+            message: '该副作用的撤销处于失败态（另一写者刚写入）——请重试',
+          };
+        }
+        return {
+          revoked: false,
+          effectId: effect.id,
+          skipped: claim === 'not_claimed' ? true : undefined,
+          reason: claim === 'not_claimed' ? 'compensating' : undefined,
+          revokeStatus: status,
+          message:
+            claim === 'not_claimed'
+              ? '该副作用的撤销已被另一写者认领（结果未知）——本次未触碰目标'
+              : '撤销意图未能落库（`revoke_status` 写失败）——本次未触碰目标，状态未知需人工核对',
+        };
       }
+      let r: { revoked: boolean; message?: string };
+      try {
+        r = await this.revoker.revoke(effect.resultType, effect.resultId, effect.userId);
+      } catch (err) {
+        // The fact layer did not change. Record a readable failure (best-effort); if even that
+        // cannot land, the row keeps the intent, which reads as unknown rather than "not revoked".
+        // 事实层没有改动。落一个可读的失败态（尽力而为）；连它都写不进去时该行保留意图，
+        // 读作「未知」而不是「未撤销」。
+        await this.host.patchRevoke(effect, { revokeStatus: 'revoke_failed' }, { attempts: 2 });
+        throw err;
+      }
+      this.logger.log(`[AiToolEffects] revoked ${effect.resultType} #${effect.resultId} (effect ${effect.id})`);
+      if (!r.revoked) {
+        const recorded = await this.host.patchRevoke(
+          effect,
+          { revokeStatus: 'revoke_failed' },
+          { attempts: 2 },
+        );
+        return {
+          revoked: false,
+          effectId: effect.id,
+          message: recorded
+            ? this.withDriftNote(r.message, drift)
+            : `${this.withDriftNote(r.message, drift) ?? ''}；且失败态未能落库——状态未知，需人工核对`,
+          revokeStatus: recorded ? 'revoke_failed' : 'compensating',
+        };
+      }
+      // The fact layer changed. Record the terminal state; if that cannot land, the intent stays
+      // (`compensating`) and the result must not claim `revoked`: the facts landed, the record did
+      // not. `compensating` is the frozen "outcome unknown" reading, not "not revoked".
+      //
+      // 事实层已改动。写终态；写不进去时保留意图（`compensating`），结果也不得声称 `revoked`：
+      // 事实落地了，记录没有。`compensating` 是已冻结的「结果未知」读数，不是「未撤销」。
+      const recorded = await this.host.patchRevoke(
+        effect,
+        { revokeStatus: 'revoked' },
+        { attempts: 2 },
+      );
+      // REV-14：软删落地后才落这份读数——判定没成立时不记（同「本地回滚不留回写」的口径）。
+      // 单目标行就是它自己的根，故写在本行。
+      await this.comparability.record(effect, [
+        { ref: { resultType: effect.resultType, resultId: effect.resultId }, cmp },
+      ]);
       if (drift) {
         this.logger.warn(
           `[AiToolEffects] effect ${effect.id}: 目标 ${effect.resultType} #${effect.resultId} 在写入后被改过（${drift}）`,
@@ -942,10 +1169,17 @@ export class EffectRevoke {
           ])
         : undefined;
       return {
-        revoked: r.revoked,
+        revoked: recorded,
         effectId: effect.id,
-        message: this.withDriftNote(r.message, drift),
-        revokeStatus: r.revoked ? 'revoked' : 'revoke_failed',
+        // Unknown, not failed: the soft-delete landed; only its record is missing. `skipped` keeps
+        // the batch tally from counting it as a failure (same treatment ARC-7 gives `compensating`).
+        // 是「未知」而不是「失败」：软删落地了，缺的是记录。`skipped` 使它不被批量计成失败
+        //（与 ARC-7 对 `compensating` 的处理同向）。
+        ...(recorded ? {} : { skipped: true, reason: 'compensating', external: false }),
+        message: recorded
+          ? this.withDriftNote(r.message, drift)
+          : '本地软删已执行，但撤销终态未能落库——状态未知，需人工核对',
+        revokeStatus: recorded ? 'revoked' : 'compensating',
         ...(downstreamReferences ? { downstreamReferences } : {}),
       };
     }
@@ -997,10 +1231,20 @@ export class EffectRevoke {
       const r = await this.externalRevoker.revoke(effect.toolName, effect.resultId, effect.userId);
       // 外呼返回 = **确认**（对方应答过，含拒绝）：单独记为一个事件，与意图之间留下可读的间隙。
       // KB-6：2xx ≠ 确认回滚——补偿端点 2xx 只证明「已请求」，Java 端结果未知 → 落 compensating 而非 revoked。
-      await this.host.patchRevoke(effect, {
-        revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
-        revokeAcknowledgedAt: new Date(),
-      });
+      //
+      // PRE-3：这次写入同样不得静默失败。写不进去时该行仍停在意图态（`compensating` + 无确认），
+      // 读数会退成「可能根本没到达」——那是**保守方向的未知**，但结果不得声称一个更确定的态。
+      // The same rule on the external path: a failed write leaves the row at `compensating` with no
+      // acknowledgement. That reads as "possibly never reached" — a conservative unknown — and the
+      // result must not claim a more definite state than the record holds.
+      const acknowledged = await this.host.patchRevoke(
+        effect,
+        {
+          revokeStatus: r.ok ? 'compensating' : 'revoke_failed',
+          revokeAcknowledgedAt: new Date(),
+        },
+        { attempts: 2 },
+      );
       if (!r.ok) {
         // 对方拒绝 = 补偿**失败**（不是「未完成」）——据实计为失败，**不进 skipped**（两者在汇总里必须分得开）。
         return {
@@ -1008,8 +1252,10 @@ export class EffectRevoke {
           effectId: effect.id,
           external: true,
           compensated: false,
-          revokeStatus: 'revoke_failed',
-          message: r.message,
+          revokeStatus: acknowledged ? 'revoke_failed' : 'compensating',
+          message: acknowledged
+            ? r.message
+            : `${r.message}；但失败态未能落库——状态未知，需人工核对`,
         };
       }
       // ARC-2 / ARC-7：**`compensating` 不得报 `revoked`**。KB-6 与本文件组级路径（`_groupResult`）早已如此，
@@ -1025,7 +1271,9 @@ export class EffectRevoke {
         skipped: true,
         reason: 'compensating',
         revokeStatus: 'compensating',
-        message: `Java 端已请求补偿（${r.message}）；结果以目标系统为准`,
+        message: acknowledged
+          ? `Java 端已请求补偿（${r.message}）；结果以目标系统为准`
+          : `Java 端已请求补偿（${r.message}）；但确认时刻未能落库——抵达凭据未知`,
       };
     }
     return {

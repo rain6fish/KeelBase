@@ -12,8 +12,21 @@ import type {
   RevokeResult,
 } from './tool-effects.types';
 
-/** 回写撤销态列的那一处实现（`_patchRevoke`）—— 争议与撤销两侧都只用它，故注入而不是各写一份。 */
-export type RevokePatcher = (effect: AiToolSideEffect, patch: RevokePatch) => Promise<void>;
+/**
+ * The one implementation that writes the revoke state columns (`_patchRevoke`) — injected rather than
+ * copied because both the dispute and the revoke sides write the same columns.
+ *
+ * PRE-3: the boolean reports whether the write landed. The dispute side writes annotations only, so it
+ * may ignore it; the revoke side's authoritative terminal write must honour it.
+ *
+ * 回写撤销态列的那一处实现（`_patchRevoke`）—— 争议与撤销两侧都只用它，故注入而不是各写一份。
+ *
+ * PRE-3：布尔值表示这次写入是否落库。争议侧只写注解，可以忽略；撤销侧的权威终态写必须处理它。
+ */
+export type RevokePatcher = (
+  effect: AiToolSideEffect,
+  patch: RevokePatch,
+) => Promise<boolean>;
 
 /**
  * REV-1 / REV-4 / REV-5 / ARC-6：**声明与持有不一致**这件事的标记、读取、说明与确认。

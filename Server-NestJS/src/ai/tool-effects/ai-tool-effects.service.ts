@@ -156,7 +156,16 @@ export class AiToolEffectsService {
       this.registration,
       this.comparability,
       this.dispute,
-      { ...host, patchRevoke: (effect, patch: RevokePatch) => this._patchRevoke(effect, patch) },
+      {
+        ...host,
+        // PRE-3: forward the retry option too — dropping it silently disables the terminal write's
+        // retry (the failure would still be loud, but it would give up after one attempt).
+        //
+        // PRE-3：重试选项也要透传 —— 丢掉它会静默关掉终态写的重试
+        //（失败仍会大声，但只试一次就放弃）。
+        patchRevoke: (effect, patch: RevokePatch, opts) =>
+          this._patchRevoke(effect, patch, opts),
+      },
       this.revoker,
       this.dataSource,
       this.operationAudit,
@@ -357,7 +366,23 @@ export class AiToolEffectsService {
     return this.projection.findByTarget(resultType, resultId, viewerUserId);
   }
 
-  /** A-3 恢复态：补偿过但目标当前未软删 → 已恢复。 */
+  /**
+   * A-3 restore state, three-valued: `restored` / `not_restored` / `unknown`.
+   * `unknown` is the PRE-3 case — a compensation whose outcome was never recorded must not be read as
+   * "not revoked". A boolean cannot express it, so the tri-state is the authoritative reading.
+   *
+   * A-3 恢复态，三值：`restored` / `not_restored` / `unknown`。
+   * `unknown` 即 PRE-3 的情形 —— 补偿结果从未落库时，不得把它读成「未撤销」。布尔值表达不了它，
+   * 故以三值为权威读数。
+   */
+  restoreState(
+    effect: AiToolSideEffect,
+    targetSoftDeleted: boolean,
+  ): 'restored' | 'not_restored' | 'unknown' {
+    return this.projection.restoreState(effect, targetSoftDeleted);
+  }
+
+  /** A-3 恢复态（布尔面）：`false` = 未被证明恢复，**不是**「确知未撤销」；未知态请读 `revokeStatus`。 */
   isRestored(effect: AiToolSideEffect, targetSoftDeleted: boolean): boolean {
     return this.projection.isRestored(effect, targetSoftDeleted);
   }
@@ -419,7 +444,22 @@ export class AiToolEffectsService {
 
 
   /**
-   * KB-6：回写撤销运维态（不入哈希链 payload）。保存失败静默——显示态以 targetSoftDeleted 为准，此为辅助审计态。
+   * PRE-3: write back the revoke state columns. **A failed write is no longer swallowed.**
+   *
+   * For a local compensation the target's soft-delete is the fact layer and `revoke_status` is the
+   * column every reader (`isRestored`, `skipReason`) consults. Swallowing the failure let the fact
+   * change while the record stayed absent, so after a recycle-bin restore the row read as "never
+   * revoked" — the predicate layer was lost even though the facts were not. Hence: retry transient
+   * failures, log at `error` with the fields an operator needs, and report whether the write landed.
+   * Callers that write an authoritative terminal state must honour the boolean; annotation-only
+   * callers (dispute evidence, comparability history) may ignore it.
+   *
+   * PRE-3：回写撤销态列，**失败不再静默**。
+   *
+   * 本地补偿里，目标软删是事实层、`revoke_status` 是每个读侧（`isRestored`、`skipReason`）都依赖的判据层。
+   * 把失败吞掉会让「事实改了而记录没落」，于是回收站恢复之后该行被读成「从未撤销」——**事实层未丢，
+   * 判据层丢了**。现在：瞬时失败重试，最终失败以 `error` 级别记下运维需要的字段，并如实回报是否落库。
+   * 写权威终态的调用方必须处理这个布尔值；只写注解（争议证据、可比性历史）的调用方可以忽略它。
    *
    * REV-1 / REV-2 细化后，**每个事件各自成一个 patch**，不再由一个 setter 顺手补齐时间戳：
    * 意图（外呼前）/ 确认（外呼后）/ 终态（本地补偿成功）/ 争议标记 / REV-14 比对差集。写什么由
@@ -427,22 +467,28 @@ export class AiToolEffectsService {
    */
   private async _patchRevoke(
     effect: AiToolSideEffect,
-    patch: Partial<
-      Pick<
-        AiToolSideEffect,
-        | 'revokeStatus'
-        | 'revokeRequestedAt'
-        | 'revokeAcknowledgedAt'
-        | 'revokeDispute'
-        | 'revokeComparability'
-      >
-    >,
-  ): Promise<void> {
-    try {
-      await this.effectsRepo.update(effect.id, patch);
-    } catch (err) {
-      this.logger.warn(`[AiToolEffects] revoke_status update failed (effect ${effect.id}): ${(err as Error).message}`);
+    patch: RevokePatch,
+    opts: { attempts?: number } = {},
+  ): Promise<boolean> {
+    const attempts = Math.max(1, opts.attempts ?? 1);
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await this.effectsRepo.update(effect.id, patch);
+        return true;
+      } catch (err) {
+        lastErr = err;
+        if (attempt < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 10 * attempt));
+        }
+      }
     }
+    this.logger.error(
+      `[AiToolEffects] revoke state write FAILED after ${attempts} attempt(s) — effect ${effect.id} ` +
+        `(${effect.resultType}#${effect.resultId}), columns=${Object.keys(patch).join(',')}: ` +
+        `${(lastErr as Error)?.message ?? String(lastErr)}`,
+    );
+    return false;
   }
 
   private async _loadTarget(type: string, id: number): Promise<{ title?: string; deletedAt?: Date | null } | null> {

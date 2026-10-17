@@ -195,6 +195,12 @@ const lifecycleState = computed(() => {
   // its own current state: the action is not simply "confirmed" anymore.
   // 恢复态 = 撤销过、且目标已回到生效态（服务端单一权威）。它是独立的当前态：该动作已不只是「已确认」。
   if (effect.restored) return 'restored'
+  // PRE-3: `compensating` is the frozen "outcome unknown" bucket (external compensation pending, or a
+  // local soft-delete whose terminal state never landed). Reading it as "executed" was the silent
+  // degradation this slice removes — the action is not simply confirmed/executed when we do not know.
+  // PRE-3：`compensating` 是已冻结的「结果未知」桶（外部补偿未了结，或本地软删已执行但终态未落库）。
+  // 把它读成「已执行」正是本切片要消除的静默退化 —— 结果不知道时，该动作就不只是「已确认/已执行」。
+  if (effect.revokeStatus === 'compensating') return 'revoke_unknown'
   const confirm = steps.value.find((s) => s.type === 'confirmation')
   if (confirm?.outcome === 'decline') return 'declined'
   const denied = steps.value.find((s) => s.type === 'tool_call' && s.success === false)
@@ -219,6 +225,11 @@ const lifecycleSteps = computed(() => {
   // 否则时间线与「恢复」节点自相矛盾。
   const restored = !!effect.restored
   const everRevoked = revoked || restored
+  // PRE-3: an outcome that was never recorded is neither "revoked" nor "not revoked" — the revoke node
+  // reads process (unknown), not wait (which would claim nothing happened).
+  // PRE-3：结果从未落库时，既不是「已撤销」也不是「未撤销」——撤销节点读作 process（未知），
+  // 而不是 wait（那会声称什么都没发生）。
+  const revokeUnknown = !everRevoked && effect.revokeStatus === 'compensating'
   const out: Array<{ key: string; label: string; description: string; status: 'finish' | 'error' | 'process' | 'wait' }> = [
     { key: 'initiate', label: t('stepInitiate'), description: input?.content?.trim() ? input.content.trim().slice(0, 40) : '', status: input ? 'finish' : 'process' },
     // A-3 authorize：授权结论以 tool_call 是否已发生为准（放行且执行的快照是对象格式，parseChecks 只认数组→checks 为空，
@@ -257,8 +268,10 @@ const lifecycleSteps = computed(() => {
         ? cascade
           ? t('lifecycleRevokedCascade', { n: cascade })
           : t('lifecycleRevoked')
-        : '',
-      status: everRevoked ? 'finish' : 'wait',
+        : revokeUnknown
+          ? t('explanationStateResultUnknown')
+          : '',
+      status: everRevoked ? 'finish' : revokeUnknown ? 'process' : 'wait',
     })
     // A-3 restore state: compensated then currently not soft-deleted = restored from the recycle bin
     // (server-side `restored` is the single authority).
@@ -273,9 +286,9 @@ const lifecycleSteps = computed(() => {
   return out
 })
 const lifecycleLabel = (s: string) =>
-  ({ revoked: t('lifecycleRevoked'), restored: t('lifecycleRestoredState'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
+  ({ revoked: t('lifecycleRevoked'), restored: t('lifecycleRestoredState'), revoke_unknown: t('explanationStateResultUnknown'), declined: t('lifecycleDeclined'), blocked: t('lifecycleBlocked'), confirmed: t('lifecycleConfirmed'), executed: t('lifecycleExecuted') })[s] ?? ''
 const lifecycleTag = (s: string) =>
-  ({ revoked: 'danger', restored: 'info', declined: 'danger', blocked: 'warning', confirmed: 'success', executed: 'success' })[s] ?? 'info'
+  ({ revoked: 'danger', restored: 'info', revoke_unknown: 'warning', declined: 'danger', blocked: 'warning', confirmed: 'success', executed: 'success' })[s] ?? 'info'
 
 /** Why 用户视角：确认结果 / 拒绝 / 信任上下文 人类语言 */
 const whySummary = computed(() => {

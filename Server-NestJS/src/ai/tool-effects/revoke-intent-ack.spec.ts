@@ -132,7 +132,7 @@ describe('REV-2 细化：意图写在外呼之前，确认是独立事件', () =
     expect(revokeWindow('compensating', new Date())).toBe('awaiting_target');
   });
 
-  it('本地可撤路径不受影响：不写意图、不写确认（只有外呼才需要这段间隙）', async () => {
+  it('本地可撤路径同样先写意图（PRE-3），但不写外部确认列', async () => {
     const repo = makeRepo({
       id: 3,
       userId: '1',
@@ -151,6 +151,15 @@ describe('REV-2 细化：意图写在外呼之前，确认是独立事件', () =
 
     await svc.revokeOwned(3, '1');
 
-    expect(patches(repo)).toEqual([{ revokeStatus: 'revoked' }]);
+    // PRE-3：本地补偿也先落意图（记录先于事实层），提交后才写终态。
+    // 与外部路径的区别是**没有**确认列 —— 这次没有外呼可确认。
+    expect(patches(repo)).toEqual([
+      {
+        revokeStatus: 'compensating',
+        revokeRequestedAt: expect.any(Date),
+        revokeAcknowledgedAt: null,
+      },
+      { revokeStatus: 'revoked' },
+    ]);
   });
 });

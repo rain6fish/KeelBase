@@ -19,7 +19,9 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
     save: jest.Mock;
     findAndCount: jest.Mock;
     create: jest.Mock;
-    update?: jest.Mock;
+    // Always provided by the `beforeEach` below. Declared required (not optional) so the PRE-3
+    // intent/terminal assertions do not each invent a TS18048 "possibly undefined".
+    update: jest.Mock;
   };
   let entityManager: { getRepository: jest.Mock };
 
@@ -352,6 +354,8 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   describe('revoke', () => {
     it('软删目标 todo', async () => {
       repo.findOne.mockResolvedValue({ id: 3, resultType: 'todo', resultId: 55 });
+      // PRE-3：本地撤销在改事实层之前先写意图（CAS），替身必须给出可判定的 affected。
+      repo.update.mockResolvedValue({ affected: 1 });
       const todoRepo = { findOne: jest.fn().mockResolvedValue({ id: 55 }), softDelete: jest.fn() };
       entityManager.getRepository.mockReturnValue(todoRepo);
 
@@ -381,6 +385,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
 
     it('目标已不存在时只记日志不软删', async () => {
       repo.findOne.mockResolvedValue({ id: 3, resultType: 'event', resultId: 999 });
+      repo.update.mockResolvedValue({ affected: 1 });
       const eventRepo = { findOne: jest.fn().mockResolvedValue(null), softDelete: jest.fn() };
       entityManager.getRepository.mockReturnValue(eventRepo);
 
@@ -398,6 +403,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
   describe('revokeOwned（P0-15 用户侧撤销）', () => {
     it('本人撤销 → 软删目标并返回', async () => {
       repo.findOne.mockResolvedValue({ id: 7, userId: '42', resultType: 'event', resultId: 88 });
+      repo.update.mockResolvedValue({ affected: 1 });
       const eventRepo = { findOne: jest.fn().mockResolvedValue({ id: 88 }), softDelete: jest.fn() };
       entityManager.getRepository.mockReturnValue(eventRepo);
 
@@ -1021,7 +1027,15 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res.revokeStatus).toBe('revoked');
       expect(res.compensationGroup).toBe(G);
       expect(res.cascade).toEqual({ groupId: G, total: 3, revoked: 3, skipped: 0, failed: 0 });
-      expect(repo.update).toHaveBeenCalledTimes(3);
+      // PRE-3：每个本地成员先写一次意图（compensating），软删提交后再写一次终态（revoked）。
+      const terminal = repo.update.mock.calls.filter(
+        (c) => (c[1] as { revokeStatus?: string }).revokeStatus === 'revoked',
+      );
+      expect(terminal).toHaveLength(3);
+      const intents = repo.update.mock.calls.filter(
+        (c) => (c[1] as { revokeStatus?: string }).revokeStatus === 'compensating',
+      );
+      expect(intents).toHaveLength(3);
     });
 
     it('组内 `none` 档位成员不参与补偿，且不阻塞其余成员的补偿（契约 §5.5 / C8）', async () => {
@@ -1053,6 +1067,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       const members = [fx(1, 'pm_project', 7), fx(2, 'pm_task', 88), fx(3, 'pm_task', 89)];
       repo.findOne.mockResolvedValue(members[0]);
       repo.find.mockResolvedValue(members);
+      repo.update.mockResolvedValue({ affected: 1 });
       revokerStub.revoke.mockImplementation((_t: string, id: number) =>
         Promise.resolve(id === 88 ? { revoked: false, message: '目标不可软删' } : { revoked: true }),
       );
@@ -1062,8 +1077,13 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       expect(res.revoked).toBe(false);
       expect(res.revokeStatus).toBe('revoke_failed');
       expect(res.cascade).toEqual({ groupId: G, total: 3, revoked: 0, skipped: 0, failed: 3 });
-      // 关键：**没有**任何回写——否则回滚后数据库里会留下假的 revoked 运维态
-      expect(repo.update).not.toHaveBeenCalled();
+      // 关键：**没有任何一次写入声称 revoked**——否则回滚后数据库里会留下假的 revoked 运维态。
+      // PRE-3：意图写与失败态清理会发生（那正是「先有记录、再改事实」），但都不声称已撤销。
+      expect(
+        repo.update.mock.calls.filter(
+          (c) => (c[1] as { revokeStatus?: string }).revokeStatus === 'revoked',
+        ),
+      ).toHaveLength(0);
     });
 
     it('本地回滚时不触发外部成员补偿（避免半补偿）', async () => {
@@ -1122,6 +1142,7 @@ describe('AiToolEffectsService (HS-3 幂等与补偿)', () => {
       makeService();
       const legacy = fx(1, 'pm_project', 7, { compensationGroup: null });
       repo.findOne.mockResolvedValue(legacy);
+      repo.update.mockResolvedValue({ affected: 1 });
 
       const res = await svc.revoke(1);
 

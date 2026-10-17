@@ -318,13 +318,44 @@ export class EffectProjection {
   }
 
   /**
-   * A-3 恢复态（docs/cascade-compensation.spec.md §7）：**补偿过但目标当前未软删** → 已恢复。
-   * 依据：`revoke_status='revoked'` 证明补偿发生过；`targetSoftDeleted=false` 证明目标现已回到生效态
-   * （回收站 restore 只清 deletedAt、**不动** revoke_status，故两者组合即「撤销后又恢复」这一历史事实）。
-   * 单一权威：规则在此一处，前端不各自复制判定。
+   * A-3 restore state, **three-valued** — because a boolean cannot say "we do not know".
+   *
+   * `restored`: `revoke_status='revoked'` proves a compensation happened and `targetSoftDeleted=false`
+   * proves the target is live again (the recycle-bin restore clears `deletedAt` and leaves
+   * `revoke_status` alone, so the pair is exactly "revoked, then restored").
+   * `unknown`: the row is `compensating` — the intent was recorded but the outcome was not. After a
+   * restore that row has exactly the same observable shape as "never revoked", so the only honest
+   * answer is "unknown". Reading it as `not_restored` was the PRE-3 silent degradation.
+   * `not_restored`: everything else (never revoked, still revoked, or a recorded failure).
+   *
+   * A-3 恢复态，**三值** —— 布尔值说不出「不知道」。
+   *
+   * `restored`：`revoke_status='revoked'` 证明补偿发生过，`targetSoftDeleted=false` 证明目标已回到生效态
+   *（回收站恢复只清 `deletedAt`、不动 `revoke_status`，两者组合即「撤销后又恢复」这一历史事实）。
+   * `unknown`：该行是 `compensating` —— 意图写了、结果没落。回收站恢复之后，它的可观测形状与
+   *「从未撤销」完全相同，唯一诚实的答案是「未知」。把它读成 `not_restored` 正是 PRE-3 的静默退化。
+   * `not_restored`：其余情形（从未撤销 / 仍是撤销态 / 有记录的失败）。
+   */
+  restoreState(
+    effect: AiToolSideEffect,
+    targetSoftDeleted: boolean,
+  ): 'restored' | 'not_restored' | 'unknown' {
+    if (effect.revokeStatus === 'compensating') return 'unknown';
+    return effect.revokeStatus === 'revoked' && !targetSoftDeleted ? 'restored' : 'not_restored';
+  }
+
+  /**
+   * Boolean view of `restoreState`. **`false` means "not proven restored", not "known not revoked"**:
+   * when the state is `unknown` this returns `false` and the caller must read `revokeStatus` (which the
+   * detail endpoint already carries) to see the unknown. The tri-state is the single source; this is
+   * only the boolean face of it.
+   *
+   * `restoreState` 的布尔视图。**`false` 的含义是「未被证明恢复」，不是「确知未撤销」**：
+   * 状态为 `unknown` 时它返回 `false`，调用方必须读 `revokeStatus`（详情端点已带该字段）才能看见「未知」。
+   * 三值是单一来源，这里只是它的布尔面。
    */
   isRestored(effect: AiToolSideEffect, targetSoftDeleted: boolean): boolean {
-    return effect.revokeStatus === 'revoked' && !targetSoftDeleted;
+    return this.restoreState(effect, targetSoftDeleted) === 'restored';
   }
 
 
@@ -352,7 +383,8 @@ export class EffectProjection {
   /**
    * KB-6：status 归一（4 值），供 list/listOwned/listForConversation 共用。
    * - targetSoftDeleted（本地 live 信号权威，RG-3 回收站恢复后自动回 executed）→ revoked
-   * - 否则按 revoke_status：compensating → revoking_external（已请求外部补偿·结果未知，禁 revoked）；
+   * - 否则按 revoke_status：compensating → revoking_external（**结果未知**，禁 revoked；PRE-3 起也包括
+   *   「本地软删已执行、终态未能落库」——枚举已冻结，`revoking_external` 是它唯一的「未了结」桶）；
    *   revoke_failed → revoke_failed；null/其他 → executed
    * 兼容：旧本地已撤行经 targetSoftDeleted 仍 revoked；旧 proxy 行 class 兜底 none → executed（前端据此藏钮）。
    */
