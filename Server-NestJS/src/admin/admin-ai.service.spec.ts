@@ -11,11 +11,12 @@ import { CapabilitiesService } from '../app-version/capabilities.service';
 import { AdminService } from './admin.service';
 import { AdminObservabilityService } from './admin-observability.service';
 import { AdminAiService } from './admin-ai.service';
+import { buildDenialExplanation } from '../common/errors/denial-guidance';
 
 describe('AdminAiService（System AI Assistant）', () => {
   let service: AdminAiService;
   let toolExposure: { getToolInventory: jest.Mock };
-  let aiService: { chat: jest.Mock };
+  let aiService: { chat: jest.Mock; chatStream: jest.Mock };
   let adminService: { getAnalytics: jest.Mock };
   let adminObservability: { getMonitorSummary: jest.Mock };
   // 成本聚合在拆分后来自 AuditStatsService（阶段 3）
@@ -52,6 +53,7 @@ describe('AdminAiService（System AI Assistant）', () => {
         navigateTo: '/system',
         toolCalls: ['navigate_admin_page'],
       }),
+      chatStream: jest.fn(),
     };
     adminService = {
       getAnalytics: jest.fn().mockResolvedValue({
@@ -146,6 +148,41 @@ describe('AdminAiService（System AI Assistant）', () => {
     expect(result.navigateTo).toBe('/system');
     expect(result.toolCalls).toContain('navigate_admin_page');
     expect(result.conversationId).toBe('c1');
+  });
+
+  it('assistantChat 把请求语言透传给 AiService.chat', async () => {
+    await service.assistantChat(5, { message: 'hi' }, 'zh');
+    expect(aiService.chat.mock.calls[0][2]).toBe('zh');
+
+    await service.assistantChat(5, { message: 'hi' }, 'en');
+    expect(aiService.chat.mock.calls[1][2]).toBe('en');
+  });
+
+  it('assistantChatStream 透传语言：同一拒绝的 reason 随 lang 为中文/英文', async () => {
+    aiService.chatStream.mockImplementation(
+      (_id: string, _req: unknown, lang: 'zh' | 'en' = 'en') =>
+        (async function* () {
+          yield {
+            type: 'tool_end',
+            toolCall: { name: 'delete_customer' },
+            explanation: buildDenialExplanation('risk_r5', { tool: 'delete_customer' }, lang),
+          };
+        })(),
+    );
+
+    const zh: any[] = [];
+    for await (const chunk of service.assistantChatStream(5, { message: 'hi' }, 'zh')) {
+      zh.push(chunk);
+    }
+    expect(zh[0].explanation.reason).toContain('风险级');
+    expect(zh[0].explanation.reasonKey).toBe('ai.deny.risk_r5.reason');
+
+    const en: any[] = [];
+    for await (const chunk of service.assistantChatStream(5, { message: 'hi' }, 'en')) {
+      en.push(chunk);
+    }
+    expect(en[0].explanation.reason).toContain('risk level');
+    expect(en[0].explanation.reasonKey).toBe('ai.deny.risk_r5.reason');
   });
 
   it('上下文收集失败时静默降级仍对话', async () => {

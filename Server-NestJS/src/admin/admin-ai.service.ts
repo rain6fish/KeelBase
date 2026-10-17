@@ -12,6 +12,7 @@ import { AdminService } from './admin.service';
 import { AdminObservabilityService } from './admin-observability.service';
 import { AuditStatsService } from '../ai/audit/audit-stats.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
+import type { DenialLanguage } from '../common/errors/denial-guidance';
 
 export interface AdminAiChatResponse {
   reply: string;
@@ -45,6 +46,7 @@ export class AdminAiService {
   async assistantChat(
     userId: number,
     dto: AdminAiChatDto,
+    lang?: DenialLanguage,
   ): Promise<AdminAiChatResponse> {
     const context = await this.buildSystemContext();
     const result = await this.aiService.chat(String(userId), {
@@ -53,7 +55,7 @@ export class AdminAiService {
       conversationId: dto.conversationId,
       systemPrompt: `${ADMIN_SYSTEM_PROMPT}${context}`,
       adminMode: true,
-    });
+    }, lang);
     return {
       reply: result.reply,
       conversationId: result.conversationId,
@@ -67,14 +69,18 @@ export class AdminAiService {
    * 写工具（需确认）经 SSE confirmation_request 事件 → 前端确认 → approve → 执行。
    * 平台实时上下文同非流式注入（systemPrompt + adminMode）。
    */
-  async *assistantChatStream(userId: number, dto: AdminAiChatDto) {
+  async *assistantChatStream(
+    userId: number,
+    dto: AdminAiChatDto,
+    lang?: DenialLanguage,
+  ) {
     const context = await this.buildSystemContext();
     yield* this.aiService.chatStream(String(userId), {
       message: dto.message,
       conversationId: dto.conversationId,
       systemPrompt: `${ADMIN_SYSTEM_PROMPT}${context}`,
       adminMode: true,
-    });
+    }, lang);
   }
 
   /** 组装【平台实时数据】上下文块（各子项失败静默，单行紧凑约束 token） */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Post, Body, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Post, Body, Headers, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CheckPolicies } from '../common/casl/check-policies.decorator';
 import { SkipAudit } from '../operation-audit/skip-audit.decorator';
@@ -10,6 +10,7 @@ import type { Response } from 'express';
 import { AdminAiService } from './admin-ai.service';
 import { AdminAiChatDto } from './dto/admin-ai.dto';
 import { actorContext } from '../ai/actor-context';
+import { pickLanguageFromHeader } from '../common/errors/denial-guidance';
 
 /**
  * System AI Assistant（AI-22 演进）：管理员对话时注入平台系统上下文
@@ -27,11 +28,21 @@ export class AdminAiController {
   @CheckPolicies((ability) => ability.can('manage', 'all'))
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'System AI Assistant：平台能力/版本/工具/治理上下文，Explain/Guide/Navigate' })
-  async chat(@Body() dto: AdminAiChatDto, @CurrentUser() user: JwtPayload) {
+  async chat(
+    @Body() dto: AdminAiChatDto,
+    @CurrentUser() user: JwtPayload,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
     // 用真实管理员身份：会话/记忆/限额/审计按管理员隔离（不再共享系统账号 '0'）
     // Agent Identity：包 actorContext 让 sessionId（JWT jti）落入 ai_audit_logs（对齐 ai.controller chat/stream，否则系统 AI 会话审计 session_id 恒 null）
     return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'admin' }, () =>
-      this.adminAiService.assistantChat(user.sub, dto));
+      acceptLanguage
+        ? this.adminAiService.assistantChat(
+            user.sub,
+            dto,
+            pickLanguageFromHeader(acceptLanguage),
+          )
+        : this.adminAiService.assistantChat(user.sub, dto));
   }
 
   /**
@@ -47,6 +58,7 @@ export class AdminAiController {
     @Body() dto: AdminAiChatDto,
     @CurrentUser() user: JwtPayload,
     @Res() response: Response,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
     response.setHeader('Content-Type', 'text/event-stream');
     response.setHeader('Cache-Control', 'no-cache');
@@ -61,7 +73,14 @@ export class AdminAiController {
     // Agent Identity：管理员会话标识贯穿审计（对齐 ai.controller chat/stream）
     await actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'admin' }, async () => {
       try {
-        for await (const chunk of this.adminAiService.assistantChatStream(user.sub, dto)) {
+        const stream = acceptLanguage
+          ? this.adminAiService.assistantChatStream(
+              user.sub,
+              dto,
+              pickLanguageFromHeader(acceptLanguage),
+            )
+          : this.adminAiService.assistantChatStream(user.sub, dto);
+        for await (const chunk of stream) {
           if (aborted) break;
           response.write(`event: ${chunk.type}\n`); // codeql[js/reflected-xss] SSE 流式 JSON 序列化，客户端解析非 HTML 渲染
           response.write(`data: ${JSON.stringify(chunk)}\n\n`);
