@@ -2,14 +2,14 @@
 <template>
   <div>
     <PageHeader :title="t('navPolicyCenter')" :subtitle="t('policyCenterHint')">
-      <el-button type="primary" :loading="saving" @click="onSavePolicy">
+      <el-button v-if="canEdit" type="primary" :loading="saving" @click="onSavePolicy">
         <template #icon><AppIcon icon="mdi-content-save-outline" /></template>
         {{ t('savePolicy') }}
       </el-button>
     </PageHeader>
 
     <!-- §internal.15 策略模板库：金融/政务/通用三档预设，一键导入实时生效（联动信创「开箱合规」） -->
-    <el-card shadow="never" class="mb-4">
+    <el-card v-if="canEdit" shadow="never" class="mb-4">
       <template #header>
         <div class="d-flex align-center ga-2">
           <AppIcon icon="mdi-layers-triple-outline" />
@@ -43,7 +43,7 @@
               {{ t('overridesCount', { count: overrideCount }) }}
             </el-tag>
           </div>
-          <el-button text size="small" :disabled="overrideCount === 0" @click="resetAllToDefault">
+          <el-button v-if="canEdit" text size="small" :disabled="overrideCount === 0" @click="resetAllToDefault">
             <template #icon><AppIcon icon="mdi-backup-restore" /></template>
             {{ t('resetToDefault') }}
           </el-button>
@@ -54,7 +54,7 @@
 
       <div class="mb-2 d-flex align-center ga-3">
         <span class="text-body-2">{{ t('auditGranularity') }}</span>
-        <el-radio-group v-model="granularity">
+        <el-radio-group v-model="granularity" :disabled="!canEdit">
           <el-radio value="all">{{ t('auditAll') }}</el-radio>
           <el-radio value="write">{{ t('auditWrite') }}</el-radio>
           <el-radio value="off">{{ t('auditOff') }}</el-radio>
@@ -93,23 +93,23 @@
               <template v-if="row.gate === 'blocked'">
                 <el-tag type="danger" size="small" effect="plain" disable-transitions>{{ t('riskBlocked') }}</el-tag>
               </template>
-              <el-radio-group v-else v-model="row.gate" size="small">
+              <el-radio-group v-else v-model="row.gate" size="small" :disabled="!canEdit">
                 <el-radio value="auto">{{ t('gateAuto') }}</el-radio>
                 <el-radio value="confirm">{{ t('gateConfirm') }}</el-radio>
                 <el-radio value="approval" style="--el-radio-checked-color: var(--el-color-warning)">{{ t('gateApproval') }}</el-radio>
               </el-radio-group>
             </td>
             <td class="text-center pa-2">
-              <el-switch v-model="row.enabled" :disabled="row.gate === 'blocked'" />
+              <el-switch v-model="row.enabled" :disabled="row.gate === 'blocked' || !canEdit" />
             </td>
             <td class="pa-2" style="max-width: 220px">
-              <el-select v-model="row.allowedRoles" multiple clearable :disabled="row.gate === 'blocked'" :placeholder="t('noRestriction')" size="small">
+              <el-select v-model="row.allowedRoles" multiple clearable :disabled="row.gate === 'blocked' || !canEdit" :placeholder="t('noRestriction')" size="small">
                 <el-option v-for="o in roleOptions" :key="o.value" :label="o.title" :value="o.value" />
               </el-select>
             </td>
             <td class="pa-2 text-right">
               <el-button
-                v-if="row.gate !== 'blocked' && rowOverridden(row)"
+                v-if="canEdit && row.gate !== 'blocked' && rowOverridden(row)"
                 text
                 size="small"
                 :title="t('resetToDefault')"
@@ -171,6 +171,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { formatTime } from '@/utils/format'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
 import {
   buildGovernancePolicy,
@@ -183,6 +184,10 @@ import type { AuditGranularity, PolicyToolOverride, PolicyToolState } from '@/ut
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
+const auth = useAuthStore()
+// AW-2: the auditor reads the policy and its history; saving, presets and per-row edits stay admin-only.
+// AW-2：审计读者读策略与历史；保存、预设与逐行编辑仍只给管理员。
+const canEdit = computed(() => auth.isAdmin)
 
 const rows = ref<PolicyToolState[]>([])
 const granularity = ref<AuditGranularity>('all')
@@ -316,6 +321,7 @@ async function viewSnapshot(id: number, revision: string) {
 onMounted(async () => {
   loadAll()
   loadHistory()
+  if (!canEdit.value) return
   try {
     presets.value = await aiToolsApi.policyPresets()
   } catch {

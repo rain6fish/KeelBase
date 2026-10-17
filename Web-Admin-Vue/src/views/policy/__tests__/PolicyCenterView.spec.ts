@@ -29,6 +29,12 @@ vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
 }))
 
+// AW-2: the view reads `auth.isAdmin`; default to admin so the existing save-path assertions still
+// exercise the admin UI, and flip it to test the auditor's read-only rendering.
+// AW-2：视图读 `auth.isAdmin`；默认 admin 让既有保存路径断言照旧，翻转后测审计读者的只读渲染。
+const authState = vi.hoisted(() => ({ isAdmin: true, isAuditor: false }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+
 import ElementPlus from 'element-plus'
 import PolicyCenterView from '../PolicyCenterView.vue'
 
@@ -91,6 +97,8 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  authState.isAdmin = true
+  authState.isAuditor = false
 })
 
 describe('PolicyCenterView（§internal.15(4) 档位化编辑）', () => {
@@ -131,5 +139,20 @@ describe('PolicyCenterView（§internal.15(4) 档位化编辑）', () => {
     expect(sent.tools.delete_customer).toBeUndefined()
     expect(sent.tools.query_events).toBeUndefined()
     expect(successMock).toHaveBeenCalledWith('治理策略已保存，实时生效')
+  })
+
+  it('auditor 只读：无保存钮、不拉预设、编辑控件禁用，策略与历史照读', async () => {
+    authState.isAdmin = false
+    toolsMock.mockResolvedValue(tools)
+    policyMock.mockResolvedValue('{"tools":{},"audit":{"granularity":"all"}}')
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(toolsMock).toHaveBeenCalledTimes(1)
+    expect(presetsMock).not.toHaveBeenCalled()
+    expect(wrapper.find('.page-header-stub .el-button--primary').exists()).toBe(false)
+    expect(wrapper.findAll('.el-radio.is-disabled').length).toBeGreaterThan(0)
+    expect(wrapper.text()).toContain('query_events')
   })
 })

@@ -35,6 +35,12 @@ vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock, warning: warningMock }),
 }))
 
+// AW-2: the view reads `auth.isAdmin`; default to admin so the existing effects-path assertions still
+// exercise the admin UI, and flip it to test the auditor's read-only rendering.
+// AW-2：视图读 `auth.isAdmin`；默认 admin 让既有副作用路径断言照旧，翻转后测审计读者的只读渲染。
+const authState = vi.hoisted(() => ({ isAdmin: true, isAuditor: false }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+
 import ElementPlus from 'element-plus'
 import AiToolsView from '../AiToolsView.vue'
 
@@ -88,6 +94,8 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  authState.isAdmin = true
+  authState.isAuditor = false
 })
 
 describe('AiToolsView', () => {
@@ -101,6 +109,20 @@ describe('AiToolsView', () => {
     expect(toolsMock).toHaveBeenCalledTimes(1)
     expect(policyMock).not.toHaveBeenCalled()
     expect(effectsMock).toHaveBeenCalledWith(undefined, 1, 20)
+  })
+
+  it('auditor 只读：工具清单照读，内容安全与副作用账本不渲染也不请求', async () => {
+    authState.isAdmin = false
+    toolsMock.mockResolvedValue([tool])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(toolsMock).toHaveBeenCalledTimes(1)
+    expect(effectsMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('create_event')
+    expect(wrapper.text()).not.toContain('内容安全')
+    expect(wrapper.find('.app-table-stub').exists()).toBe(false)
   })
 
   it('加载失败 → snackbar.error 提示', async () => {

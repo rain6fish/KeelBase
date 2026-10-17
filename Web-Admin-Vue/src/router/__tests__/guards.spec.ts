@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const adminUser = { id: 1, username: 'admin', email: 'admin@example.com', role: 'admin' as const }
 const userUser = { id: 2, username: 'alex', email: 'alex@example.com', role: 'user' as const }
+const auditorUser = { id: 3, username: 'auditor', email: 'auditor@example.com', role: 'auditor' as const }
 
 function makeRouter(): Router {
   setActivePinia(createPinia())
@@ -18,10 +19,10 @@ function makeRouter(): Router {
   return router
 }
 
-async function loginAs(role: 'admin' | 'user') {
+async function loginAs(role: 'admin' | 'user' | 'auditor') {
   storage.saveTokens('at', 'rt')
   const store = useAuthStore()
-  store.user = role === 'admin' ? adminUser : userUser
+  store.user = role === 'admin' ? adminUser : role === 'auditor' ? auditorUser : userUser
   store.status = 'authenticated'
 }
 
@@ -85,6 +86,37 @@ describe('路由守卫角色分流', () => {
 
     await router.push('/workbench/todos')
     expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  // AW-2: the auditor's reach — the audit page plus the three governance read pages whose backend
+  // endpoints were opened in `1b75e884`. Everything else in the console stays admin-only.
+  // AW-2：审计读者的可达面 —— 审计页 + `1b75e884` 放开的三个治理读页；控制台其余页面仍只给 admin。
+  it('auditor 访问四个只读页 → 停驻', async () => {
+    const router = makeRouter()
+    await loginAs('auditor')
+
+    for (const path of ['/audit', '/policy-center', '/ai-tools', '/ai-approvals']) {
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe(path)
+    }
+  })
+
+  it('auditor 访问其余控制台页（如用户管理）→ 弹回 /audit', async () => {
+    const router = makeRouter()
+    await loginAs('auditor')
+
+    await router.push('/users')
+    expect(router.currentRoute.value.path).toBe('/audit')
+  })
+
+  it('普通用户直敲三个治理读页 → 弹回工作台', async () => {
+    const router = makeRouter()
+    await loginAs('user')
+
+    for (const path of ['/policy-center', '/ai-tools', '/ai-approvals']) {
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe('/workbench/ai')
+    }
   })
 
   it('admin 访问控制台 → 停驻', async () => {
