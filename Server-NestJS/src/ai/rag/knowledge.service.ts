@@ -383,7 +383,7 @@ export class KnowledgeService {
 
     const [chunkRows, embedRows] = await Promise.all([
       this.dataSource.query(
-        `SELECT c.article_id AS "id", a.title, c.content, a.category, a."createdAt", a."updatedAt",
+        `SELECT c.article_id AS "id", a.title, c.content, a.category, a."fileUrl", a."createdAt", a."updatedAt",
                 (c.embedding <-> $1::vector) AS "distance"
          FROM "ai_knowledge_chunks" c
          JOIN "ai_knowledge_articles" a ON a.id = c.article_id
@@ -393,7 +393,7 @@ export class KnowledgeService {
         [vectorLiteral, chunkK],
       ),
       this.dataSource.query(
-        `SELECT a.id, a.title, a.content, a.category, a."createdAt", a."updatedAt",
+        `SELECT a.id, a.title, a.content, a.category, a."fileUrl", a."createdAt", a."updatedAt",
                 (e.embedding <-> $1::vector) AS "distance"
          FROM "ai_knowledge_embeddings" e
          JOIN "ai_knowledge_articles" a ON a.id = e.article_id
@@ -415,14 +415,20 @@ export class KnowledgeService {
     return Array.from(byArticle.values())
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity))
       .slice(0, limit)
-      .map((r) => ({
-        id: r.id,
-        title: r.title,
-        content: r.content,
-        category: r.category,
-        createdAt: new Date(r.createdAt),
-        updatedAt: new Date(r.updatedAt),
-      }));
+      // fileUrl 与全文路径同口径：库里是裸引用，出口现签（signFileUrl 复制对象，不回写）。
+      // fileUrl follows the same contract as the full-text path: bare in the store, signed on the way
+      // out (signFileUrl copies, so the row is never written back).
+      .map((r) =>
+        this.signFileUrl({
+          id: r.id,
+          title: r.title,
+          content: r.content,
+          category: r.category,
+          fileUrl: r.fileUrl,
+          createdAt: new Date(r.createdAt),
+          updatedAt: new Date(r.updatedAt),
+        }),
+      );
   }
 
   /** 写入向量（失败静默，不阻断业务） */

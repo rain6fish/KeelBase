@@ -557,6 +557,66 @@ describe('KnowledgeService', () => {
     });
   });
 
+  // 登记项「两条 RAG 检索路径对同一篇文章返回的字段不一致」：向量路径的裸 SQL 曾漏选 fileUrl，
+  // 同一问题在向量可用/不可用时一个带、一个不带。两条路径都必须交回同一组字段，且签名口径一致。
+  // Registered item "the two RAG search paths disagree on which fields they return": the vector path's
+  // raw SQL omitted fileUrl, so the same question carried it on one path and not the other. Both paths
+  // must hand back the same field set, signed the same way.
+  describe('向量 / 全文两条检索路径字段一致', () => {
+    const storedBare = '/uploads/doc.pdf';
+    const stored = {
+      id: 1,
+      title: '手册',
+      content: '手册内容',
+      category: '运维',
+      fileUrl: storedBare,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    it('同一篇文章：两路都带 fileUrl、都现签，且库中仍是裸引用（不回写）', async () => {
+      // 向量路径
+      await setup({
+        isAvailable: jest.fn().mockReturnValue(true),
+        embed: jest.fn().mockResolvedValue([0.5, 0.5]),
+      });
+      dataSource.options = { type: 'postgres' };
+      const chunkRow = { ...stored, distance: 0.1 };
+      dataSource.query.mockResolvedValueOnce([chunkRow]).mockResolvedValueOnce([]);
+      const vectorOut = await service.search('手册');
+
+      // 两条 SQL（chunk / embedding）都必须选 fileUrl
+      expect(dataSource.query.mock.calls[0][0]).toContain('"fileUrl"');
+      expect(dataSource.query.mock.calls[1][0]).toContain('"fileUrl"');
+
+      // 全文路径 —— 同一篇文章、同一份库存裸引用
+      await setup({ isAvailable: jest.fn().mockReturnValue(false) });
+      repo.find.mockResolvedValue([
+        { ...stored, createdAt: new Date(stored.createdAt), updatedAt: new Date(stored.updatedAt) },
+      ]);
+      const fullTextOut = await service.search('手册');
+
+      // 同一篇文章，两路字段集合一致
+      expect(Object.keys(vectorOut[0]).sort()).toEqual(Object.keys(fullTextOut[0]).sort());
+
+      const assertSigned = (article: KnowledgeArticle) => {
+        expect(article.fileUrl).toBeTruthy();
+        expect(article.fileUrl).not.toBe(storedBare);
+        const [path, q] = article.fileUrl!.split('?');
+        expect(path).toBe(storedBare); // 签的是同一路径
+        const params = new URLSearchParams(q);
+        expect(uploadSign.verify(path, params.get('e')!, params.get('s')!)).toBe(true);
+      };
+      assertSigned(vectorOut[0]);
+      assertSigned(fullTextOut[0]);
+
+      // 签名只在出口发生：查询返回的行仍是裸引用，也没有任何回写
+      expect(chunkRow.fileUrl).toBe(storedBare);
+      expect(repo.update).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+  });
+
   // CR-21 stage C（知识库面）：库里存裸引用、读侧现签；旧行为是原样把裸引用交出去，严格模式下 403。
   // CR-21 stage C (knowledge surface): the store keeps the bare reference and the read side signs it;
   // the old behaviour handed the bare reference straight out, which strict mode rejects.
