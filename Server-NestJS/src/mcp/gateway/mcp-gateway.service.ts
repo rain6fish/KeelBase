@@ -242,17 +242,9 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
     // 之前：执行前的行只能写 `attempted`，而那个词点名一条本路径从不写的后续行 —— 读者会去找一个永远
     // 不来的结局。
     const detail = `mcp:${serverName}:${toolName}(${JSON.stringify(args).slice(0, 500)})`;
+    let result: ExternalToolCallResult;
     try {
-      const result = await this._callRemote(server, toolName, args);
-      await this.audit.log({
-        userId,
-        action: 'tool_call',
-        detail,
-        provider: 'mcp',
-        outcome: 'executed',
-        tool: toolName,
-      });
-      return { executed: true, requiresConfirmation: false, result };
+      result = await this._callRemote(server, toolName, args);
     } catch (e) {
       const error = (e as Error).message;
       await this.audit.log({
@@ -267,6 +259,25 @@ export class McpGatewayService implements ExternalToolProvider, OnModuleInit {
       });
       return { executed: true, requiresConfirmation: false, error };
     }
+    // The remote call already happened. Its audit row is written outside that try: an audit failure
+    // must be reported, never turn a call that succeeded into an `outcome: 'failed'` row.
+    // 远端调用已经发生。它的审计行写在那段 try 之外：审计失败要被报告，绝不能把一次成功的调用
+    // 记成 `outcome: 'failed'`。
+    try {
+      await this.audit.log({
+        userId,
+        action: 'tool_call',
+        detail,
+        provider: 'mcp',
+        outcome: 'executed',
+        tool: toolName,
+      });
+    } catch (auditError) {
+      this.logger.error(
+        `MCP call succeeded but its audit row was not written: ${serverName}/${toolName}: ${(auditError as Error).message}`,
+      );
+    }
+    return { executed: true, requiresConfirmation: false, result };
   }
 
   /**

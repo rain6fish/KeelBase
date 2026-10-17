@@ -4,6 +4,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { pickDisplayColumn } from '../../common/utils/entity-metadata';
+import { maskText } from '../../common/utils/mask';
+import { piiFieldsForEntity } from '../../operation-audit/resource-routes';
 import { DERIVED_REFERENCES } from './derived-references';
 
 /**
@@ -191,9 +193,16 @@ export class LocalEntityRevoker implements SideEffectRevoker {
       select,
     } as any);
     if (!row) return null;
+    // The display column can itself be declared PII (e.g. `CrmCustomer.name`): mask it through the
+    // resource's own declaration, so the effect list cannot show what the resource calls private.
+    // 展示列本身可能是声明的 PII（如 `CrmCustomer.name`）：按资源自己的声明掩码，使副作用列表
+    // 显示不出资源认定为私有的内容。
+    const pii = piiFieldsForEntity(target.name);
     const title =
       target.displayCol && row[target.displayCol] != null
-        ? String(row[target.displayCol])
+        ? pii.includes(target.displayCol)
+          ? maskText(String(row[target.displayCol]))
+          : String(row[target.displayCol])
         : undefined;
     return { title, deletedAt: row.deletedAt ?? null };
   }

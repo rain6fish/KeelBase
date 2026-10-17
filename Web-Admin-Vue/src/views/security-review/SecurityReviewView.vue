@@ -35,7 +35,7 @@
             <el-alert :type="diagResult.allowed ? 'success' : 'error'" :closable="false" :title="`${diagResult.action} ${diagResult.subject}`" show-icon>
               <div class="text-body-2 mt-1">
                 <StatusChip :status="diagResult.allowed ? 'ok' : 'cancelled'" :label-map="{ ok: t('secUserDiagAllowed'), cancelled: t('secUserDiagDenied') }" />
-                <span class="ms-2">{{ diagResult.reason }}</span>
+                <span class="ms-2">{{ diagReason }}</span>
                 <span v-if="!diagResult.allowed && diagResult.deniedBy" class="text-caption text-medium-emphasis ms-2">deniedBy: {{ diagResult.deniedBy }}</span>
               </div>
             </el-alert>
@@ -257,6 +257,7 @@ import AppTable from '@/components/AppTable.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import HashChainView from '@/components/HashChainView.vue'
 import TrendBarList from '@/components/TrendBarList.vue'
+import { authzReasonKey } from '@/utils/authz-reason'
 import AiTraceView from '@/views/workbench/AiTraceView.vue'
 import { ElMessage } from 'element-plus'
 import { auditApi } from '@/api/audit'
@@ -322,8 +323,20 @@ const diagUsers = ref<Array<{ id: number; username: string }>>([])
 const diagUserId = ref<number | null>(null)
 const diagAction = ref('manage')
 const diagSubject = ref('CrmCustomer')
-const diagResult = ref<{ action: string; subject: string; allowed: boolean; reason: string; deniedBy: string | null } | null>(null)
+const diagResult = ref<{
+  action: string
+  subject: string
+  allowed: boolean
+  reason: string
+  deniedBy: string | null
+} | null>(null)
 const diagLoading = ref(false)
+/** Localize a known server reason; show its own text when the dictionary has no entry. */
+const diagReason = computed(() => {
+  const text = diagResult.value?.reason ?? ''
+  const key = authzReasonKey(text)
+  return key ? t(key) : text
+})
 
 async function loadDiagUsers() {
   try {

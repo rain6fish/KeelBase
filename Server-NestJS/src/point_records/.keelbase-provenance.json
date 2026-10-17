@@ -2,8 +2,8 @@
   "schema": 1,
   "module": "point_records",
   "generator": "keelbase",
-  "generatorVersion": "1.1.0",
+  "generatorVersion": "1.2.0",
   "protocol": "1.1",
   "source": "spec:specs/point-records.json",
-  "generatedAt": "2026-10-12T05:33:07.004Z"
+  "generatedAt": "2026-10-17T21:29:11.011Z"
 }

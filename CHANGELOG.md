@@ -4,6 +4,107 @@ This file records all notable changes to KeelBase. The format follows [Keep a Ch
 
 本文件记录 KeelBase 所有值得关注的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-10-18
+
+**v1.2.0 — The Governance Surface Release: decision evidence, one timeline, and a boundary you can read / 治理面版：决策证据、单一时间线，以及读得懂的边界**
+
+### Highlights
+
+- **Authorization becomes a surface rather than a log line.** `/auth/me/permissions` lists the caller's
+  capabilities and the reason each is granted; `POST /auth/permissions/explain` (and `/explain/target`
+  for administrators) answers a decision with its basis. The governance read faces go through the same
+  capability seam, and a read-only audit reader reaches six of them without holding a write. The
+  console adds a **data-permission boundary view**: who, which data, which tools, and where the
+  boundary is — for administrators and for the caller's own scope.
+
+- **One AI action is one timeline and one status.** The audit row carries its outcome; a single
+  action's audit, confirmation and side-effect rows merge into one timeline; the console reads one
+  status instead of reconstructing it from three.
+
+- **A refusal explains itself.** Policy denials, R5 blocks, confirmation timeouts and the
+  offline-confirmation 404 all carry the same structured guidance — why, and what to do next —
+  localized by `Accept-Language` and rendered as a refusal card rather than a bare status.
+
+- **The audit chain says what it can and cannot show.** The evidence package declares its coverage;
+  the chain-integrity patrol is armed and its load baseline repaired; the canonical gate anchors on
+  the code and runs locally. A private resource now declares its own PII fields, so a customer's name
+  stops reaching the console.
+
+- **A first complete delivery runs end to end from a business spec.** `asset_loans` goes from a
+  Business Spec through the module protocol, generated backend and frontend, permissions, audit and a
+  runnable demo — the first delivery that exercises the whole Consulting → Build chain.
+
+- **Generated modules gain a generated frontend and the hardening the samples already carried.** The
+  Vue/Taro page and model layer are generator output; the templates carry the scoped identity guard;
+  Taro text goes through the dictionary; irregular plurals, optional fields and escaped backticks are
+  fixed. Copying a module runs end to end.
+
+- **Private objects and an updated contract.** S3 objects are private and served through time-limited
+  presigned URLs, and the runtime pins contract **v1.12.0**: the confirmation summary is the
+  presentation-text object, side effects carry `userId`, and the SSE tool summaries declare the same
+  object.
+
+### Also
+
+- The trust showcase adds an interactive six-scenario replay, including a hallucinated tool; the
+  assistant becomes the workbench landing page with a work ledger, conversations can be named, and
+  repeated confirmations become a reading.
+- The audit console leads with the business summary; the auditor's six read surfaces are reachable
+  from the console; the workbench status columns render labels rather than i18n keys.
+- The demo host serves the KeelBase-YuDao instance on its own server block; the offline deploy script
+  no longer ships template secrets; the demo datastore restores itself.
+- Mobile: a streaming reply that fails falls back to a non-streaming answer instead of stopping.
+  Knowledge reads re-sign `/uploads` references, and vector search returns the entity's full field set
+  and `fileUrl` like full-text search.
+- Gates: the canonical gate runs locally, an e2e batch retries when jest itself dies, version parity
+  is enforced, C-6 adds the three entry-module assembly smokes, and the generator/provenance checks
+  cover the samples.
+- Refactors: the tool-effects cluster is split into its own modules with an explicit host seam, the
+  audit resource registry is scanned once, and the 2736-line AI service spec is split by subdomain.
+
+Full details: [v1.2.0 release](https://github.com/rain6fish/KeelBase/releases/tag/v1.2.0)
+
+**中文**
+
+### 亮点
+
+- **授权变成可见的面，而不只是一行日志。** `/auth/me/permissions` 列出调用方的能力与每一项的依据；
+  `POST /auth/permissions/explain`（管理员另有 `/explain/target`）对一次动作给出决策与依据。治理读面
+  走同一条能力缝，只读审计读者无需写权即可到达其中六个面。控制台新增**数据权限边界视图**：谁、能访问
+  哪些数据、哪些工具、边界在哪 —— 管理员与调用方本人都能看到自己的那一份。
+
+- **一次 AI 动作就是一条时间线、一个状态。** 审计行带上它的结局；同一次动作的审计、确认与副作用三行
+  并成一条时间线；控制台读一个状态，而不是从三处拼出来。
+
+- **拒绝自己讲清楚。** 策略拒绝、R5 阻断、确认超时与离线确认 404 都带同一套结构化指引 —— 为什么、
+  下一步怎么办 —— 按 `Accept-Language` 本地化，并渲染成拒绝卡，而不是一个光秃秃的状态码。
+
+- **审计链说得出它看得见什么、看不见什么。** 证据包声明自己的覆盖；链完整性巡检已接线、负载基线已修复；
+  canonical 闸锚在代码上并在本地可跑。私有资源现在声明自己的 PII 字段，客户姓名不再进入控制台。
+
+- **第一份完整交付从业务规格一路跑通。** `asset_loans` 从 Business Spec 经模块协议、生成的后端与前端、
+  权限、审计，到一个可运行的演示 —— 第一份把 Consulting → Build 整条链走完的交付。
+
+- **生成模块拿到了生成的前端，以及样例早已具备的那套加固。** Vue/Taro 页面与模型层是生成器产物；模板
+  带上受范围约束的身份守卫；Taro 文案走词典；不规则复数、可选字段与转义反引号都已修正。复制模块端到端跑通。
+
+- **私有对象与更新后的契约。** S3 对象改为私有，取用走有时效的 presigned URL；运行时钉住契约 **v1.12.0**：
+  确认摘要就是呈现文案对象，副作用行带上 `userId`，SSE 的工具摘要声明同一个对象。
+
+### 其它
+
+- Trust 沙盘新增六场景交互重放（含「不存在的工具」）；助手成为工作台落地页并带工作账本，会话可命名，
+  同一工具被反复要求确认自此是个读数。
+- 审计控制台先读业务摘要；审计读者的六个只读面在控制台可达；工作台状态列渲染标签而不是 i18n 键。
+- 演示宿主用独立 server block 服务 KeelBase-YuDao 实例；离线部署脚本不再携带模板密钥；演示数据存储可自行恢复。
+- 移动端：流式回复失败时回退到非流式作答，而不是停住。知识库读取重新签名 `/uploads` 引用，向量检索
+  返回实体的完整字段集与 `fileUrl`，与全文检索一致。
+- 门禁：canonical 闸本地可跑，e2e 某片在 jest 自身崩溃时重试，版本对账强制，C-6 纳入三个入口模块的装配冒烟，
+  生成器/provenance 检查覆盖样例。
+- 重构：tool-effects 集群拆成独立模块并带显式宿主缝，审计资源注册表只扫描一次，2736 行的 AI service spec 按子域拆分。
+
+完整详情：[v1.2.0 发布](https://gitee.com/rain6fish/KeelBase/releases/tag/v1.2.0)
+
 ## [1.1.0] - 2026-10-05
 
 **KeelBase 1.1.0 — The Product-Proof Release: Honest Revocation, Visible Writes / 产品证明版：诚实的撤销、可见的写入**

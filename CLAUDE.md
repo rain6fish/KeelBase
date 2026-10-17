@@ -782,6 +782,7 @@ npm run migration:run
 | GET | /api/v1/audit/logs | Yes (ADMIN) | — | AI 审计日志（可按 userId / orgId / feedback=thumbs_down 过滤，ORG-5 组织维度） |
 | GET | /api/v1/audit/verify | Yes (ADMIN) | — | AI 审计哈希链完整性校验（HS-11） |
 | GET | /api/v1/audit/stats | Yes (ADMIN) | — | 全局 AI 用量统计 |
+| GET | /api/v1/audit/coverage | Yes | 管理员或审计读者 | 审计覆盖声明：口径 + 已知缺口（AW-3，默认最近 30 天；结论由服务按事实算出） |
 | GET | /api/v1/audit/cost | Yes (ADMIN) | — | AI 成本看板：按用户×模型×意图聚合 tokens（AI-21） |
 | GET | /api/v1/audit/action-report | Yes (ADMIN) | — | AI Action Report 合规证据包（§10 P1）：执行/批准/拒绝/阻断 + 副作用计数 + 按日趋势 byDay + 审计哈希链 verify，可按 userId/since/limit |
 | POST | /api/v1/audit/feedback | Yes | 本人 | 对话反馈：对某次对话点赞/点踩 + 原因（AI-18） |
@@ -806,6 +807,7 @@ npm run migration:run
 | POST | /api/v1/ai/insights | Yes | 当前用户 | 数据洞察报告（结构化统计） |
 | GET | /api/v1/ai/conversations | Yes | 本人 | 对话历史列表 |
 | GET | /api/v1/ai/conversations/:id | Yes | 本人 | 单个对话完整消息 |
+| PATCH | /api/v1/ai/conversations/:id | Yes | 本人或管理员 | 重命名会话（工作账本；空串 = 清除标题，前端回退首条消息预览） |
 | GET | /api/v1/ai/conversations/:id/meta | Yes | 本人或管理员 | 会话结构（消息数/时间跨度/归属/模型）；**刻意不返回任何消息文本**（AU-4 引用优先） |
 | GET | /api/v1/ai/conversations/:id/trace | Yes | 本人 | 对话执行轨迹（P0-14：工具调用/确认决策/副作用/结果） |
 | DELETE | /api/v1/ai/conversations/:id | Yes | 本人 | 删除指定对话 |

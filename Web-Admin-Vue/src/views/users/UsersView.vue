@@ -42,6 +42,7 @@
         >
           <el-option label="user" value="user" />
           <el-option label="admin" value="admin" />
+          <el-option label="auditor" value="auditor" />
         </el-select>
       </template>
       <template #item.createdAt="{ item }">

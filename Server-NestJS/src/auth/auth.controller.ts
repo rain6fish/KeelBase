@@ -343,7 +343,10 @@ export class AuthController {
       // 「本人或 admin」用 CASL 表达（admin = manage all；user = manage User { id: sub }），
       // 不再内联判 role —— 与 users.controller 的 `ability.cannot('read', subject('User', { id }))` 同一套。
       // 先判权、后查库：非本人/非 admin 在触达 DB 前即 403（不泄漏目标是否存在）。
-      if (ability?.cannot('read', subject('User', { id: targetId }))) {
+      // A missing ability is DENY, not "skip the check": the guard always sets it today, and the
+      // second half is what keeps that true if it ever stops doing so.
+      // 能力缺席是 DENY，不是「跳过检查」：守卫今天一定会设置它，后半句保证它将来不设置时仍然如此。
+      if (!ability || ability.cannot('read', subject('User', { id: targetId }))) {
         throw new ForbiddenException('仅本人或管理员可查询该授权链');
       }
       const target = await this.usersRepo.findOne({

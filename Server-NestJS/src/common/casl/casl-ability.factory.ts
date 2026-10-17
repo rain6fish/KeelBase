@@ -132,11 +132,20 @@ export class CaslAbilityFactory {
       }
     }
 
+    // The basis names the role that actually granted the capabilities. An audit reader is not an
+    // "ordinary user with row ownership": it holds reads on the audit surfaces only, and saying
+    // otherwise would state a false basis to the very person reviewing decisions.
+    //
+    // 依据说的是**真正授予这些能力的角色**。审计读者不是「带行级所有权的普通用户」——它只在审计面上
+    // 持有只读权；说成前者，等于向正在复核决策的人陈述一个错误的依据。
+    const auditor = user.role === UserRole.AUDITOR;
     return {
       role: user.role,
       basis: isAdmin
         ? '管理员角色：可管理全部资源'
-        : '普通用户：可管理本人拥有的资源（行级所有权条件）',
+        : auditor
+          ? '审计读者：只读审计与治理面'
+          : '普通用户：可管理本人拥有的资源（行级所有权条件）',
       resources: [...seen.values()].sort((a, b) => a.subject.localeCompare(b.subject)),
     };
   }

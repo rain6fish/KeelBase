@@ -96,7 +96,9 @@
             <span v-else class="text-caption text-medium-emphasis">{{ t('boundaryNoActions') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="reason" :label="t('permissionReason')" min-width="240" />
+        <el-table-column :label="t('permissionReason')" min-width="240">
+          <template #default="{ row }">{{ reasonText(row) }}</template>
+        </el-table-column>
       </el-table>
 
       <div class="text-caption text-medium-emphasis mt-2">{{ t('boundaryDataHint') }}</div>
@@ -217,7 +219,7 @@
             <el-tag :type="probeResult.allowed ? 'success' : 'danger'" size="small">
               {{ probeResult.allowed ? t('boundaryProbeAllowed') : t('boundaryProbeDenied') }}
             </el-tag>
-            <span class="ms-2">{{ probeResult.reason }}</span>
+            <span class="ms-2">{{ reasonText(probeResult) }}</span>
             <span v-if="!probeResult.allowed && probeResult.deniedBy" class="text-caption text-medium-emphasis ms-2">
               {{ t('boundaryProbeDeniedBy') }}: {{ probeResult.deniedBy }}
             </span>
@@ -243,6 +245,7 @@ import { provenanceApi, type AiToolFingerprint } from '@/api/provenance'
 import { usersApi } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 import { formatTime } from '@/utils/format'
+import { authzReasonKey } from '@/utils/authz-reason'
 import type { AdminAiTool } from '@/types/admin'
 
 const { t } = useI18n()
@@ -257,6 +260,12 @@ interface DataRow {
   // `null` = 目标用户来源（授权链）不暴露 actions。
   actions: string[] | null
   reason: string
+}
+
+/** Render a server reason through the dictionary, falling back to the server's own text. */
+function reasonText(row: { reason: string }): string {
+  const key = authzReasonKey(row.reason)
+  return key ? t(key) : row.reason
 }
 
 interface ToolRow {
@@ -287,7 +296,12 @@ const pageTitle = computed(() => (auth.isAdmin ? t('navPermissions') : t('navMyA
 const selfDataRows = computed<DataRow[]>(() => {
   const resources = auth.permissions?.resources
   if (resources && resources.length > 0) {
-    return resources.map((r) => ({ subject: r.subject, scope: r.scope, actions: r.actions, reason: r.reason }))
+    return resources.map((r) => ({
+      subject: r.subject,
+      scope: r.scope,
+      actions: r.actions,
+      reason: r.reason,
+    }))
   }
   return (chain.value?.grants ?? []).map((g) => ({
     subject: g.resource,
@@ -311,7 +325,12 @@ const targetDataRows = computed<DataRow[]>(() =>
 const dataRows = computed(() => (isTarget.value ? targetDataRows.value : selfDataRows.value))
 
 const basisText = computed(() => {
-  if (!isTarget.value) return auth.permissions?.basis || chain.value?.grants[0]?.policy || '—'
+  if (!isTarget.value) {
+    const text = auth.permissions?.basis
+    const key = authzReasonKey(text)
+    if (key) return t(key)
+    return text || chain.value?.grants[0]?.policy || '—'
+  }
   const policies = [...new Set((chain.value?.grants ?? []).map((g) => g.policy).filter(Boolean))]
   return policies.length > 0 ? policies.join(' · ') : '—'
 })

@@ -97,11 +97,20 @@ export class BackfillAiAuditOutcomeAndTool1839000000000 implements MigrationInte
       if (outcome === null && tool === null) continue;
       // Ids are numbers read from the table itself, never user input.
       // 这些 id 是从表里读出来的数字，不是外部输入。
-      const idPlaceholders = ids.map((_, i) => placeholder(i + 3)).join(',');
-      await queryRunner.query(
-        `UPDATE "ai_audit_logs" SET "outcome" = ${placeholder(1)}, "tool" = ${placeholder(2)} WHERE "id" IN (${idPlaceholders})`,
-        [outcome, tool, ...ids],
-      );
+      //
+      // Chunked: one statement per group can exceed the driver's bind-parameter limit (SQLite 32766,
+      // PostgreSQL 65535) on a long-lived install, and the upgrade would fail rather than backfill.
+      // 分批：每组一条语句在长期运行的安装上可能超过驱动的绑定参数上限（SQLite 32766、PostgreSQL
+      // 65535），升级会直接失败、而不是完成回填。
+      const CHUNK = 500;
+      for (let offset = 0; offset < ids.length; offset += CHUNK) {
+        const batch = ids.slice(offset, offset + CHUNK);
+        const idPlaceholders = batch.map((_, i) => placeholder(i + 3)).join(',');
+        await queryRunner.query(
+          `UPDATE "ai_audit_logs" SET "outcome" = ${placeholder(1)}, "tool" = ${placeholder(2)} WHERE "id" IN (${idPlaceholders})`,
+          [outcome, tool, ...batch],
+        );
+      }
     }
   }
 

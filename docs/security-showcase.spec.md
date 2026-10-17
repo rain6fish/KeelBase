@@ -22,6 +22,7 @@
 | `r5-block` | AI 尝试不可逆动作（删除客户） | R5 策略阻断 `riskLevel('delete_customer')` | `blocked` |
 | `confirmation` | AI 写操作（创建跟进任务） | R3 确认门控 `requiresConfirmation('create_followup_task')` | `requiresConfirmation` |
 | `unknown-tool` | 模型幻觉出一个从未注册的工具名 | 工具注册表解析未注册名 → 不进入执行（`ToolRegistry.getTool`） | `unresolved` |
+| `revoke` | 属主撤销一次写（非属主被隔离） | 副作用所有权 `isEffectOwner` + 撤销档位 `resolveRevokeClass` | `revoked` |
 
 > **`unknown-tool`（2026-10-08 增）**：前四例拦的是「模型做了不该做的事」，这一例拦的是「模型说了一个**不存在**的东西」——工具名是模型自由生成的字符串，工具面**不可被幻觉撑开**。它是「无论模型输出什么，治理边界都绕不过」的极端面（见 `docs/authorization-architecture.md` §10 的 ③ 行）。语料副本 `specs/scenarios/security-showcase-v1.json` 与运行时集合由 `src/ai/scenarios-pack.spec.ts` 双向钉住。
 
@@ -79,9 +80,9 @@
 
 ## 6. 测试与验收
 
-- 后端 spec：4 场景各断言 outcome/reasonKey/reasonParams/trace 结构 + 2 canary drift（注入未命中 / CASL 放行 → fail-loud）；未登录/非 admin 401/403
-- 前端 vitest：页渲染 4 卡片 + 运行交互出结果徽章（本地化文案）+ 运行失败提示 + 清单加载失败不显空态；typecheck
-- 手工验收：admin 打开 `/admin/#/security-showcase` → 逐个点运行 → 4 场景结果正确、轨迹业务语言清晰
+- 后端 spec：6 场景各断言 outcome/reasonKey/reasonParams/trace 结构 + 2 canary drift（注入未命中 / CASL 放行 → fail-loud）；未登录/非 admin 401/403
+- 前端 vitest：页渲染 6 卡片 + 运行交互出结果徽章（本地化文案）+ 运行失败提示 + 清单加载失败不显空态；typecheck
+- 手工验收：admin 打开 `/admin/#/security-showcase` → 逐个点运行 → 6 场景结果正确、轨迹业务语言清晰
 - 文档联动：`docs/manual/security-showcase.md` 补产品页入口；CLAUDE.md §9 API 表登记
 
 ## 7. 相关

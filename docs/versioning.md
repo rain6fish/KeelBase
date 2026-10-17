@@ -45,28 +45,31 @@ manifest 旧于当前 CLI 时，`keelbase doctor` 会报出并建议重跑 `keel
 
 | Line / 版本线 | Status / 状态 | Release trigger / 发布触发 |
 |---|---|---|
-| `1.1.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
-| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.1.x` / 升级到 `1.1.x` |
+| `1.2.x` | **Current — actively maintained / 当前维护线** | Continuous incremental releases / 持续增量发布 |
+| `1.1.x` | **Superseded / 已被取代** — superseded by 1.2.0 / 已被 1.2.0 取代 | Upgrade to `1.2.x` / 升级到 `1.2.x` |
+| `1.0.x` | **Superseded / 已被取代** — superseded by 1.1.0 / 已被 1.1.0 取代 | Upgrade to `1.2.x` / 升级到 `1.2.x` |
 | `2.x` | Future / 未来 | Breaking changes, when accumulated / 破坏性变更累积后 |
 
-### Current: 1.1.x — Product-Proof edition / 当前：1.1.x 产品证明版
+### Current: 1.2.x — Governance Surface edition / 当前：1.2.x 治理面版
 
-The current line is the Product-Proof edition, first released on 2026-10-05. v1.1 was a trigger-based
-release, **not a calendar release**: it shipped once the product-proof milestones were met — an external
-developer builds and runs KeelBase from the public documentation, and the demo assets are in place. What the
-release adds on top is checkability — a runtime whose claims about what it did can be verified. The `main`
-branch is the development line; each tagged release is a stable snapshot that passes the full CI and test
-suite. Releases are made incrementally as fixes and small improvements land.
+The current line is the Governance Surface edition, first released on 2026-10-18. It makes authorization
+readable as a surface — capability lists, decision explanations and a data-permission boundary view —
+merges one AI action's audit, confirmation and effect rows into one timeline and one status, and gives
+every refusal the same structured "why and what next" guidance. The `main` branch is the development line;
+each tagged release is a stable snapshot that passes the full CI and test suite.
 
-当前版本线是产品证明版，首发于 2026-10-05。v1.1 是**触发式发布，而非日历发布**：产品验证里程碑达成后发布——外部开发者能按公开文档构建并运行 KeelBase，且演示资产就位。这一版在其上补的是**可核对**——一个对它做过什么的说法可以被验证的运行时。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。修复与小改进随代码合并增量发版。
+当前版本线是治理面版，首发于 2026-10-18。它把授权变成可读的面 —— 能力清单、决策依据与数据权限边界视图；
+把一次 AI 动作的审计、确认与副作用三行并成一条时间线与一个状态；并让每一种拒绝都带同一套结构化的
+「为什么 + 下一步」。`main` 分支为开发线，每个打了 tag 的版本都是通过完整 CI 与测试套件的稳定快照。
 
-### Superseded: 1.0.x / 已被取代：1.0.x
+### Superseded: 1.1.x and 1.0.x / 已被取代：1.1.x 与 1.0.x
 
-v1.1.0 superseded the 1.0.x line on 2026-10-05. No further `1.0.x` releases are planned: fixes and
-security updates land on `main` and ship in the next `1.1.x` release. Upgrading to the current line is the
-supported path.
+v1.2.0 superseded the 1.1.x line on 2026-10-18, and v1.1.0 superseded 1.0.x on 2026-10-05. No further
+`1.1.x` or `1.0.x` releases are planned: fixes and security updates land on `main` and ship in the next
+`1.2.x` release. Upgrading to the current line is the supported path.
 
-1.1.0 于 2026-10-05 取代 1.0.x 线。不再计划发布 `1.0.x` 版本：修复与安全更新落在 `main`，随下一个 `1.1.x` 版本发布。升级到当前版本线是受支持的路径。
+1.2.0 于 2026-10-18 取代 1.1.x 线，1.1.0 于 2026-10-05 取代 1.0.x 线。不再计划发布 `1.1.x` 或 `1.0.x`
+版本：修复与安全更新落在 `main`，随下一个 `1.2.x` 版本发布。升级到当前版本线是受支持的路径。
 
 ## Release process / 发版流程
 

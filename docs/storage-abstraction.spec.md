@@ -27,7 +27,7 @@ interface StorageService {
 | 实现 / Implementation | 说明 / Description |
 |------|------|
 | `LocalStorageService` | 写 `uploads/`（mkdir recursive），文件名 `Date.now()-random.ext`（沿用旧 controller 逻辑），URL `/uploads/xxx`，经 main.ts 静态托管 + nginx 代理 / Writes to `uploads/` (mkdir recursive); filename `Date.now()-random.ext` (reuses the old controller logic); URL `/uploads/xxx`, served statically via main.ts + nginx proxy |
-| `S3StorageService` | `@aws-sdk/client-s3` PutObject（key `YYYY-MM-DD/timestamp-random.ext`，ACL public-read），URL 用 `S3_PUBLIC_URL` 或 `https://bucket.s3.amazonaws.com/...`；MinIO/OSS 用 S3 兼容 endpoint + `forcePathStyle` / `@aws-sdk/client-s3` PutObject (key `YYYY-MM-DD/timestamp-random.ext`, ACL public-read); URL uses `S3_PUBLIC_URL` or `https://bucket.s3.amazonaws.com/...`; MinIO/OSS use an S3-compatible endpoint + `forcePathStyle` |
+| `S3StorageService` | `@aws-sdk/client-s3` PutObject（key `YYYY-MM-DD/timestamp-random.ext`，**不带 ACL —— bucket 私有**），保存返回 `/uploads/...` 引用；读取按 `S3_PUBLIC_URL`（公网/CDN 前缀）或**有时效的 presigned GET**（`S3_SIGNED_URL_TTL`，bucket 私有）。MinIO/OSS 用 S3 兼容 endpoint + `forcePathStyle` / `@aws-sdk/client-s3` PutObject (key `YYYY-MM-DD/timestamp-random.ext`, **no ACL — the bucket stays private**); saving returns a `/uploads/...` reference; reads use `S3_PUBLIC_URL` (public/CDN prefix) or a **time-limited presigned GET** (`S3_SIGNED_URL_TTL`, private bucket). MinIO/OSS use an S3-compatible endpoint + `forcePathStyle` |
 
 ## 4. 配置 / Configuration
 
@@ -38,7 +38,7 @@ interface StorageService {
 | S3_REGION | us-east-1 | |
 | S3_BUCKET | '' | |
 | S3_ACCESS_KEY / S3_SECRET_KEY | '' | |
-| S3_PUBLIC_URL | '' | 对象公网前缀，留空用 bucket URL / Public object prefix; leave empty to use the bucket URL |
+| S3_PUBLIC_URL | '' | 对象公网/CDN 前缀；留空则读取走有时效的 presigned GET（bucket 私有）/ Public/CDN object prefix; leave empty to read through a time-limited presigned GET (private bucket) |
 
 `StorageModule` 用 useFactory 按 driver 提供 `STORAGE_SERVICE` 实现；S3 驱动默认不启用，不触发网络。
 

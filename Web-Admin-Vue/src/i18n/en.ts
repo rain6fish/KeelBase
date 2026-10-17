@@ -644,6 +644,16 @@ const en: ZhDict = {
   permissionSubject: 'Resource',
   permissionScope: 'Scope',
   permissionReason: 'Reason',
+  permissionReasonAdmin: 'Administrator: manages all resources',
+  permissionReasonOwn: 'Own data only (row-level ownership)',
+  permissionReasonUnrestricted: 'Accessible (no row-level restriction)',
+  permissionBasisAdmin: 'Administrator role: manages all resources',
+  permissionBasisAuditor: 'Audit reader: read-only on the audit and governance surfaces',
+  permissionBasisUser: 'Ordinary user: manages their own resources (row-level ownership)',
+  permissionExplainAllowedAll: 'Administrator: manages all resources',
+  permissionExplainAllowedOwn: 'Allowed (own ownership scope, row-level condition)',
+  permissionExplainDeniedAdmin: 'The current policy does not allow this action',
+  permissionExplainDeniedUser: 'Administrator permission is required, or the resource is outside your manageable scope',
   // §internal.16 A-5 authorization chain
   authChain: 'Authorization Chain',
   // §internal.16 A-5 authorization chain graph

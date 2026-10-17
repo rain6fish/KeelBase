@@ -644,6 +644,16 @@ const zh = {
   permissionSubject: '资源',
   permissionScope: '范围',
   permissionReason: '授权依据',
+  permissionReasonAdmin: '管理员：可管理全部资源',
+  permissionReasonOwn: '只能操作自己的数据（行级所有权条件）',
+  permissionReasonUnrestricted: '可访问（无行级限制）',
+  permissionBasisAdmin: '管理员角色：可管理全部资源',
+  permissionBasisAuditor: '审计读者：只读审计与治理面',
+  permissionBasisUser: '普通用户：可管理本人拥有的资源（行级所有权条件）',
+  permissionExplainAllowedAll: '管理员：可管理全部资源',
+  permissionExplainAllowedOwn: '可操作（本人所有权范围，行级条件）',
+  permissionExplainDeniedAdmin: '当前策略不允许此操作',
+  permissionExplainDeniedUser: '需要管理员权限，或该资源不在你的可管理范围',
   // §internal.16 A-5 授权链可视化
   authChain: '授权链',
   // §internal.16 A-5 授权链图
