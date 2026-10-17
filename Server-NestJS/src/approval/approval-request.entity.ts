@@ -25,6 +25,24 @@ export const REQUEST_STATUSES = [
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
 /**
+ * The human decision values accepted by `POST /approval/requests/:id/decide`.
+ *
+ * Single source: the DTO validates against it, the service types its parameter with it, and the
+ * operation-audit interceptor derives `ApprovalRequestApproved` / `ApprovalRequestRejected` from it.
+ * It was duplicated as `approve`/`reject` in the interceptor and its tests, so real requests (which
+ * carry `approved`/`rejected`) always fell through to `ApprovalRequestDecided` while the tests stayed
+ * green — the tests were pinning a shape the endpoint rejects.
+ *
+ * 人工裁决取值（`POST /approval/requests/:id/decide` 的 `decision`）。
+ *
+ * 单一来源：DTO 用它校验、服务用它定型入参、操作审计拦截器用它派生 Approved / Rejected。
+ * 此前拦截器与其测试各写了一份 `approve`/`reject`，而真实请求带的是 `approved`/`rejected` ——
+ * 于是真实决策恒记成 `ApprovalRequestDecided`，测试却因为钉了接口根本不接受的形状而常绿。
+ */
+export const APPROVAL_DECISIONS = ['approved', 'rejected'] as const;
+export type ApprovalDecision = (typeof APPROVAL_DECISIONS)[number];
+
+/**
  * 审批风险等级（阶段 4 M4：本域风险词汇的单一来源）。
  *
  * **三值，且不是 CRM 客户风险词汇的子集**：CRM 的 `RISK_LEVELS`（low/medium/high/**critical**）描述

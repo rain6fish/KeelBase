@@ -4,7 +4,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { subject } from '@casl/ability';
-import { ApprovalRequest, ApprovalRiskLevel } from './approval-request.entity';
+import { ApprovalDecision, ApprovalRequest, ApprovalRiskLevel } from './approval-request.entity';
 import { ApprovalPolicy } from './approval-policy.entity';
 import { User } from '../common/entities/user.entity';
 import { CreateRequestDto, CreatePolicyDto } from './dto/approval.dto';
@@ -120,7 +120,7 @@ export class ApprovalService {
   }
 
   /** 人工复核决定（仅 needs_review 请求） */
-  async decideRequest(id: number, decision: 'approved' | 'rejected', userId: number): Promise<ApprovalRequest> {
+  async decideRequest(id: number, decision: ApprovalDecision, userId: number): Promise<ApprovalRequest> {
     const req = await this.requests.findOne({ where: { id, requesterId: userId } });
     if (!req) throw new NotFoundException('审批请求不存在或无权访问');
     if (req.status !== 'needs_review') throw new BadRequestException('仅待复核的请求可决定');

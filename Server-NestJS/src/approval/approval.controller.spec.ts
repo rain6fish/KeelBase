@@ -35,14 +35,14 @@ describe('ApprovalController（AI Approval 旗舰）', () => {
     expect(controller.getRequest(1, mockUser as any, ability)).toEqual({ id: 1 });
     await expect(controller.removeRequest(1, mockUser as any, ability)).resolves.toBeNull();
     expect(controller.review(1, mockUser as any)).toEqual({ id: 1, status: 'approved', aiSuggestion: '通过' });
-    expect(controller.decide(1, { decision: 'approve' } as any, mockUser as any)).toEqual({ id: 1, status: 'approved' });
+    expect(controller.decide(1, { decision: 'approved' } as any, mockUser as any)).toEqual({ id: 1, status: 'approved' });
 
     expect(approvalService.createRequest).toHaveBeenCalledWith(dto, 1);
     expect(approvalService.listRequests).toHaveBeenCalledWith(1, { status: 'pending', page: 1, limit: 20 });
     expect(approvalService.getRequest).toHaveBeenCalledWith(1, ability);
     expect(approvalService.removeRequest).toHaveBeenCalledWith(1, ability);
     expect(approvalService.reviewRequest).toHaveBeenCalledWith(1, 1);
-    expect(approvalService.decideRequest).toHaveBeenCalledWith(1, 'approve', 1);
+    expect(approvalService.decideRequest).toHaveBeenCalledWith(1, 'approved', 1);
   });
 
   it('审批政策 CRUD 委托 service', async () => {

@@ -6,6 +6,7 @@ import { of, firstValueFrom } from 'rxjs';
 import { OperationAuditInterceptor } from './operation-audit.interceptor';
 import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
+import { APPROVAL_DECISIONS } from '../approval/approval-request.entity';
 
 describe('OperationAuditInterceptor', () => {
   let interceptor: OperationAuditInterceptor;
@@ -356,12 +357,19 @@ describe('OperationAuditInterceptor', () => {
   });
 
   describe('approval 审批动作入审计（decide/review 语义，非误记 Created）', () => {
-    it('decide approve → action DECIDE + ApprovalRequestApproved', async () => {
+    // The wire contract is pinned here, not just in the interceptor: the DTO and the audit
+    // derivation share one vocabulary, so a rename in either place has to fail this test.
+    // wire 契约在此钉死：DTO 与审计派生共用一份词表，任一侧改名都必须让本用例红。
+    it('共享裁决词表与 wire 契约一致（approved / rejected）', () => {
+      expect([...APPROVAL_DECISIONS]).toEqual(['approved', 'rejected']);
+    });
+
+    it('decide approved（真实 DTO 取值）→ action DECIDE + ApprovalRequestApproved', async () => {
       const req = {
         method: 'POST',
         originalUrl: '/api/v1/approval/requests/3/decide',
         url: '/api/v1/approval/requests/3/decide',
-        body: { decision: 'approve' },
+        body: { decision: 'approved' },
         ip: '1.1.1.1',
         headers: {},
         params: { id: '3' },
@@ -375,12 +383,12 @@ describe('OperationAuditInterceptor', () => {
       );
     });
 
-    it('decide reject → action DECIDE + ApprovalRequestRejected', async () => {
+    it('decide rejected（真实 DTO 取值）→ action DECIDE + ApprovalRequestRejected', async () => {
       const req = {
         method: 'POST',
         originalUrl: '/api/v1/approval/requests/3/decide',
         url: '/api/v1/approval/requests/3/decide',
-        body: { decision: 'reject' },
+        body: { decision: 'rejected' },
         ip: '1.1.1.1',
         headers: {},
         params: { id: '3' },

@@ -10,10 +10,15 @@ import { OperationAuditService } from './operation-audit.service';
 import { SKIP_AUDIT_KEY } from './skip-audit.decorator';
 import { deriveFeature } from './feature-map';
 import { deriveBusinessEvent } from './business-event';
+import { APPROVAL_DECISIONS } from '../approval/approval-request.entity';
 import { piiFieldsForEntity, resourceEntityFor } from './resource-routes';
 import { isSensitiveKey, lowerKeySet, REDACTED, redactSensitive } from '../common/utils/mask';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+/** Named handles into the shared approval decision vocabulary (see `APPROVAL_DECISIONS`). */
+/** 共享审批裁决词表的具名取值（见 `APPROVAL_DECISIONS`）。 */
+const [APPROVED_DECISION, REJECTED_DECISION] = APPROVAL_DECISIONS;
 
 /**
  * 全局操作审计拦截器：自动记录所有写方法（POST/PATCH/PUT/DELETE）。
@@ -177,14 +182,28 @@ export class OperationAuditInterceptor implements NestInterceptor {
     }
   }
 
-  /** approval 审批动作业务事件细分：decide 依 decision（approve/reject）分派；review=Reviewed。读 body 故在此特例，不污染纯 path+method 的 deriveBusinessEvent。 */
+  /**
+   * The approval business-event refinement: `decide` splits on `decision`, `review` is always
+   * Reviewed. It reads the body, so the special case lives here rather than in the pure
+   * path+method `deriveBusinessEvent`.
+   *
+   * The accepted values come from `APPROVAL_DECISIONS`, the same constant the DTO validates
+   * against. They used to be spelled `approve`/`reject` here and in the tests while the wire
+   * contract was `approved`/`rejected`, so every real decision fell through to Decided.
+   *
+   * approval 审批动作业务事件细分：decide 依 decision 分派；review 恒为 Reviewed。它要读 body，
+   * 故特例留在本方法，不污染纯 path+method 的 deriveBusinessEvent。
+   *
+   * 取值来自 `APPROVAL_DECISIONS`——DTO 校验用的同一个常量。此前这里与测试写的是
+   * `approve`/`reject`，而 wire 契约是 `approved`/`rejected` ⇒ 真实决策全部落进 Decided。
+   */
   private _deriveApprovalBusinessEvent(path: string, method: string, body: unknown): string | null {
     if (method !== 'POST') return null;
     const p = path.split('?')[0];
     if (/\/approval\/requests\/\d+\/decide$/.test(p)) {
       const decision = (body as { decision?: string } | null)?.decision;
-      if (decision === 'approve') return 'ApprovalRequestApproved';
-      if (decision === 'reject') return 'ApprovalRequestRejected';
+      if (decision === APPROVED_DECISION) return 'ApprovalRequestApproved';
+      if (decision === REJECTED_DECISION) return 'ApprovalRequestRejected';
       return 'ApprovalRequestDecided';
     }
     if (/\/approval\/requests\/\d+\/review$/.test(p)) return 'ApprovalRequestReviewed';

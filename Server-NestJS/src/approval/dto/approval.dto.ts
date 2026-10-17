@@ -2,7 +2,7 @@
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { REQUEST_TYPES } from '../approval-request.entity';
+import { APPROVAL_DECISIONS, REQUEST_TYPES, type ApprovalDecision } from '../approval-request.entity';
 
 export class CreateRequestDto {
   @ApiProperty({ description: '标题' })
@@ -57,7 +57,7 @@ export class CreatePolicyDto {
 }
 
 export class DecideDto {
-  @ApiProperty({ description: '决定', enum: ['approved', 'rejected'] })
-  @IsIn(['approved', 'rejected'])
-  decision!: 'approved' | 'rejected';
+  @ApiProperty({ description: '决定', enum: [...APPROVAL_DECISIONS] })
+  @IsIn([...APPROVAL_DECISIONS])
+  decision!: ApprovalDecision;
 }
