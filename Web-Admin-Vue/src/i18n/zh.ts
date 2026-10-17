@@ -552,6 +552,7 @@ const zh = {
   // REV-2 两种不确定性分开说：没到达 ≠ 到达了但没回音；两者都不等于「已撤销」。
   revokeWindowUnacknowledged: '可能未到达外部系统',
   revokeWindowAwaitingTarget: '已到达，外部系统尚无终态',
+  revokeWindowLabel: '补偿窗口',
   executionError: '执行出错',
   // P0-20 解释面的状态词表（八个值）。比 tool-effects 那套四值多：那套里「撤销失败」≠「动作失败」，
   // 而「被拒」「等人的批准」「结果未知」在那里没有名字。与后端 `audit-explanation-state.ts` 同源。
@@ -1013,6 +1014,10 @@ const zh = {
   // ARC-6：确认争议 = 解除「未了结」，证据原样保留
   acknowledgeDispute: '确认该争议已处理（证据保留）',
   disputeAcknowledged: '已确认——该组不再读作未了结（证据仍在）',
+  // REV-1 / ARC-6：状态列的两个争议读数——确认不等于「不一致消失了」，故两者都不是绿色
+  effectDisputed: '有争议——声明与持有不一致',
+  effectDisputedAckChip: '争议已确认',
+  effectDisputedAcknowledged: '有争议——{by} 已于 {at} 确认（证据保留）',
 
   // 治理策略（HS-9）
   governancePolicy: '治理策略',

@@ -118,11 +118,37 @@
         <span v-else class="text-medium-emphasis">—</span>
       </template>
       <template #item.status="{ item }">
+        <!-- REV-1: when the group's declaration and its held rows disagree, the primary reading must
+             not be the green "active" chip — reading a bookkeeping disagreement as "all fine" is
+             exactly what this prevents.
+             REV-1：该组的「声明」与「持有」在打架时，主读数不得是绿色的「进行中」——
+             把两本账不一致读成「一切正常」，正是这条要挡的。 -->
+        <StatusChip v-if="item.disputed" status="disputed" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <!-- ARC-6: acknowledging means "a human looked and accepted the evidence", not "the
+             disagreement went away" — so it is still not green, and it says who acknowledged when.
+             ARC-6：确认 = 「有人看过并接受了证据」，不是「不一致消失了」——仍不是绿色，且注明谁在何时确认 -->
+        <template v-else-if="item.dispute?.acknowledgedAt">
+          <StatusChip status="disputedAck" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+          <div class="text-caption text-medium-emphasis mt-1">
+            {{ t('effectDisputedAcknowledged', { by: item.dispute.acknowledgedBy || '-', at: formatTime(item.dispute.acknowledgedAt) }) }}
+          </div>
+        </template>
         <!-- KB-6 据档位诚实渲染：none 不承诺可撤；governed_external 撤销后显示"已请求补偿/结果未知"而非已撤销 -->
-        <StatusChip v-if="item.status === 'revoked'" status="cancelled" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <StatusChip v-else-if="item.status === 'revoked'" status="cancelled" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
         <StatusChip v-else-if="item.status === 'revoking_external'" status="revoking" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
         <StatusChip v-else-if="item.status === 'revoke_failed'" status="error" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
         <StatusChip v-else status="ok" :label-map="effectStatusMap" :color-map="effectStatusColorMap" />
+        <!-- REV-2 refinement: "external revoke pending" splits into two windows — may never have
+             reached the target vs. reached it and heard nothing back.
+             REV-2 细化：「外部撤销中」再分两窗——可能根本没到达 vs 到达了但没回音 -->
+        <div
+          v-if="item.revokeWindow"
+          class="text-caption mt-1"
+          :class="item.revokeWindow === 'unacknowledged' ? 'text-warning' : 'text-medium-emphasis'"
+        >
+          <span class="font-weight-medium">{{ t('revokeWindowLabel') }}:</span>
+          {{ revokeWindowLabel(item.revokeWindow) }}
+        </div>
       </template>
       <template #item.actions="{ item }">
         <el-button
@@ -227,18 +253,39 @@ const effectStatusMap = computed(() => ({
   cancelled: t('cancelled'),
   revoking: t('statusRevokingExternal'),
   error: t('statusRevokeFailed'),
+  // REV-1 / ARC-6: a dispute is **another reading**, not folded into the four values above — open is
+  // red, acknowledged is orange (still not green).
+  // REV-1 / ARC-6：争议是**另一种读数**，不混进上面四值——未了结给红，已确认给橙（仍不是绿）
+  disputed: t('effectDisputed'),
+  disputedAck: t('effectDisputedAckChip'),
 }))
 const effectStatusColorMap = computed(() => ({
   ok: 'success',
   cancelled: 'warning',
   revoking: 'warning',
   error: 'danger',
+  disputed: 'danger',
+  disputedAck: 'warning',
 }))
 
 
 /** 撤销可点：服务端单一权威下发 revocable（不再客户端重算档位规则，防与后端漂移） */
 function canRevoke(item: ToolEffect): boolean {
   return item.revocable ?? false
+}
+
+/**
+ * REV-2 refinement: the two window readings of `compensating`. Neither means "revoked", but their
+ * uncertainty differs: no acknowledgement = the request may never have arrived; acknowledged =
+ * it did arrive and only the final state is missing. The server already computed it
+ * (`revokeWindow`); the front end only renders the two values as distinguishable sentences.
+ *
+ * REV-2 细化：`compensating` 的两个窗口读数。两者都**不是**「已撤销」，但不确定性不同：
+ * 无确认凭据 = 请求可能根本没到达；有确认凭据 = 确实到达了、只是没有终态。
+ * 服务端已算好（`revokeWindow`），前端只负责把两个值渲染成可区分的一句话。
+ */
+function revokeWindowLabel(window: string): string {
+  return window === 'unacknowledged' ? t('revokeWindowUnacknowledged') : t('revokeWindowAwaitingTarget')
 }
 
 /**
