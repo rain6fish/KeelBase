@@ -30,6 +30,7 @@ vi.mock('@/stores/snackbar', () => ({
 }))
 
 import ElementPlus from 'element-plus'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import PolicyCenterView from '../PolicyCenterView.vue'
 
 const PageHeaderStub = defineComponent({
@@ -79,11 +80,12 @@ const tools = [
   },
 ]
 
-function mountView() {
+function mountView(readOnly = false) {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(PolicyCenterView, {
     global: {
       plugins: [i18n, ElementPlus],
+      provide: { [CONSOLE_READ_ONLY as symbol]: readOnly },
       stubs: { PageHeader: PageHeaderStub, AppIcon: true },
     },
   })
@@ -131,5 +133,25 @@ describe('PolicyCenterView（§internal.15(4) 档位化编辑）', () => {
     expect(sent.tools.delete_customer).toBeUndefined()
     expect(sent.tools.query_events).toBeUndefined()
     expect(successMock).toHaveBeenCalledWith('治理策略已保存，实时生效')
+  })
+
+  /**
+   * AW-2: the auditor reviews the rule set, it does not make it — policy and history stay readable,
+   * save / presets / row-edit controls never render.
+   * AW-2：审计读者复核规则集，不制定规则集 —— 策略与历史可读，保存 / 预设 / 改写控件不渲染
+   */
+  it('只读壳（auditor）：策略与历史可读，保存 / 预设 / 逐行改写不渲染', async () => {
+    toolsMock.mockResolvedValue(tools)
+    policyMock.mockResolvedValue('{"tools":{"create_customer":{"mode":"approval"}},"audit":{"granularity":"all"}}')
+
+    const wrapper = mountView(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('create_customer')
+    expect(wrapper.find('.page-header-stub .el-button--primary').exists()).toBe(false)
+    expect(presetsMock).not.toHaveBeenCalled()
+    const groups = wrapper.findAllComponents({ name: 'ElRadioGroup' })
+    expect(groups.length).toBeGreaterThan(0)
+    expect(groups.every((g) => g.props('disabled') === true)).toBe(true)
   })
 })

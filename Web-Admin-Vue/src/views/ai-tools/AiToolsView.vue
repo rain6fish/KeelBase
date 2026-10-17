@@ -3,8 +3,9 @@
   <div>
     <PageHeader :title="t('navAiTools')" />
 
-    <!-- N-6 AI-23 内容安全配置（Settings ai_content_safety，实时生效） -->
-    <el-card shadow="never" class="mb-4">
+    <!-- N-6 AI-23 content safety (Settings ai_content_safety, live): admin-only writing, hidden in the read-only shell.
+         N-6 AI-23 内容安全配置（Settings ai_content_safety，实时生效）——管理员专属写面，只读壳下不渲染 -->
+    <el-card v-if="!readOnly" shadow="never" class="mb-4">
       <template #header>
         <div class="d-flex align-center justify-space-between">
           <span>{{ t('contentSafetyTitle') }}</span>
@@ -68,6 +69,9 @@
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
     </el-card>
 
+    <!-- Effect reads / revokes (governance plane) are not open to the auditor yet: the whole section is hidden.
+         副作用读 / 撤销（治理台）本轮未对审计读者开放：只读壳下整段不渲染。 -->
+    <template v-if="!readOnly">
     <PageHeader :title="t('toolEffects')">
       <el-button @click="loadEffects()">
         <template #icon><AppIcon icon="mdi-refresh" /></template>
@@ -176,12 +180,14 @@
     <el-dialog v-model="showDiffDialog" :title="t('fieldChange')" width="600px">
       <FieldDiff v-if="diffTarget" :before="diffTarget.beforeSnapshot" :after="diffTarget.afterSnapshot" />
     </el-dialog>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import PageHeader from '@/components/PageHeader.vue'
 import AppTable from '@/components/AppTable.vue'
 import AppPagination from '@/components/AppPagination.vue'
@@ -197,6 +203,9 @@ import type { AdminAiTool, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
+// Read-only shell (auditor): the tool inventory is readable; content-safety and effect reads/revokes are not.
+// 只读壳（审计读者）：工具清单可读；内容安全配置与副作用读 / 撤销不渲染。
+const readOnly = inject(CONSOLE_READ_ONLY, false)
 
 const tools = ref<AdminAiTool[]>([])
 const effects = ref<ToolEffect[]>([])
@@ -399,6 +408,7 @@ async function onAcknowledgeDispute(item: ToolEffect) {
 
 onMounted(() => {
   loadTools()
+  if (readOnly) return
   loadEffects()
   loadContentSafety()
 })

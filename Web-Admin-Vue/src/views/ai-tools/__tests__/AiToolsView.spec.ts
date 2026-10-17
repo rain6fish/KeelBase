@@ -36,6 +36,7 @@ vi.mock('@/stores/snackbar', () => ({
 }))
 
 import ElementPlus from 'element-plus'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import AiToolsView from '../AiToolsView.vue'
 
 const AppTableStub = defineComponent({
@@ -69,11 +70,12 @@ const tool = {
   permissions: null,
 }
 
-function mountView() {
+function mountView(readOnly = false) {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(AiToolsView, {
     global: {
       plugins: [i18n, ElementPlus],
+      provide: { [CONSOLE_READ_ONLY as symbol]: readOnly },
       stubs: {
         PageHeader: true,
         AppTable: AppTableStub,
@@ -101,6 +103,24 @@ describe('AiToolsView', () => {
     expect(toolsMock).toHaveBeenCalledTimes(1)
     expect(policyMock).not.toHaveBeenCalled()
     expect(effectsMock).toHaveBeenCalledWith(undefined, 1, 20)
+  })
+
+  /**
+   * AW-2: the auditor gets the tool inventory only — effect reads/revokes and content safety are
+   * neither rendered nor requested.
+   * AW-2：审计读者只拿工具清单 —— 副作用读 / 撤销与内容安全配置既不渲染也不发请求
+   */
+  it('只读壳（auditor）：工具清单可读，副作用与内容安全不渲染也不请求', async () => {
+    toolsMock.mockResolvedValue([tool])
+
+    const wrapper = mountView(true)
+    await flushPromises()
+
+    expect(toolsMock).toHaveBeenCalledTimes(1)
+    expect(effectsMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('create_event')
+    expect(wrapper.find('.app-table-stub').exists()).toBe(false)
+    expect(wrapper.findAll('button').some((b) => b.text().includes('保存策略'))).toBe(false)
   })
 
   it('加载失败 → snackbar.error 提示', async () => {

@@ -2,14 +2,16 @@
 <template>
   <div>
     <PageHeader :title="t('navPolicyCenter')" :subtitle="t('policyCenterHint')">
-      <el-button type="primary" :loading="saving" @click="onSavePolicy">
+      <el-button v-if="!readOnly" type="primary" :loading="saving" @click="onSavePolicy">
         <template #icon><AppIcon icon="mdi-content-save-outline" /></template>
         {{ t('savePolicy') }}
       </el-button>
     </PageHeader>
 
     <!-- §internal.15 策略模板库：金融/政务/通用三档预设，一键导入实时生效（联动信创「开箱合规」） -->
-    <el-card shadow="never" class="mb-4">
+    <!-- Presets exist only to be applied, and their read endpoint (/presets) is not open to the auditor yet.
+         预设的唯一用途是「应用」，且其读端点（/presets）本轮未对审计读者开放 —— 只读壳下不渲染。 -->
+    <el-card v-if="!readOnly" shadow="never" class="mb-4">
       <template #header>
         <div class="d-flex align-center ga-2">
           <AppIcon icon="mdi-layers-triple-outline" />
@@ -43,7 +45,7 @@
               {{ t('overridesCount', { count: overrideCount }) }}
             </el-tag>
           </div>
-          <el-button text size="small" :disabled="overrideCount === 0" @click="resetAllToDefault">
+          <el-button v-if="!readOnly" text size="small" :disabled="overrideCount === 0" @click="resetAllToDefault">
             <template #icon><AppIcon icon="mdi-backup-restore" /></template>
             {{ t('resetToDefault') }}
           </el-button>
@@ -54,7 +56,7 @@
 
       <div class="mb-2 d-flex align-center ga-3">
         <span class="text-body-2">{{ t('auditGranularity') }}</span>
-        <el-radio-group v-model="granularity">
+        <el-radio-group v-model="granularity" :disabled="readOnly">
           <el-radio value="all">{{ t('auditAll') }}</el-radio>
           <el-radio value="write">{{ t('auditWrite') }}</el-radio>
           <el-radio value="off">{{ t('auditOff') }}</el-radio>
@@ -93,23 +95,23 @@
               <template v-if="row.gate === 'blocked'">
                 <el-tag type="danger" size="small" effect="plain" disable-transitions>{{ t('riskBlocked') }}</el-tag>
               </template>
-              <el-radio-group v-else v-model="row.gate" size="small">
+              <el-radio-group v-else v-model="row.gate" size="small" :disabled="readOnly">
                 <el-radio value="auto">{{ t('gateAuto') }}</el-radio>
                 <el-radio value="confirm">{{ t('gateConfirm') }}</el-radio>
                 <el-radio value="approval" style="--el-radio-checked-color: var(--el-color-warning)">{{ t('gateApproval') }}</el-radio>
               </el-radio-group>
             </td>
             <td class="text-center pa-2">
-              <el-switch v-model="row.enabled" :disabled="row.gate === 'blocked'" />
+              <el-switch v-model="row.enabled" :disabled="readOnly || row.gate === 'blocked'" />
             </td>
             <td class="pa-2" style="max-width: 220px">
-              <el-select v-model="row.allowedRoles" multiple clearable :disabled="row.gate === 'blocked'" :placeholder="t('noRestriction')" size="small">
+              <el-select v-model="row.allowedRoles" multiple clearable :disabled="readOnly || row.gate === 'blocked'" :placeholder="t('noRestriction')" size="small">
                 <el-option v-for="o in roleOptions" :key="o.value" :label="o.title" :value="o.value" />
               </el-select>
             </td>
             <td class="pa-2 text-right">
               <el-button
-                v-if="row.gate !== 'blocked' && rowOverridden(row)"
+                v-if="!readOnly && row.gate !== 'blocked' && rowOverridden(row)"
                 text
                 size="small"
                 :title="t('resetToDefault')"
@@ -165,10 +167,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import { formatTime } from '@/utils/format'
 import { useSnackbarStore } from '@/stores/snackbar'
 import { aiToolsApi } from '@/api/aiTools'
@@ -183,6 +186,9 @@ import type { AuditGranularity, PolicyToolOverride, PolicyToolState } from '@/ut
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
+// Read-only shell (auditor): policy and revision history stay readable; save / presets / row edits do not render.
+// 只读壳（审计读者）：策略与版本历史可读，保存 / 预设 / 逐行改写不渲染。
+const readOnly = inject(CONSOLE_READ_ONLY, false)
 
 const rows = ref<PolicyToolState[]>([])
 const granularity = ref<AuditGranularity>('all')
@@ -316,6 +322,9 @@ async function viewSnapshot(id: number, revision: string) {
 onMounted(async () => {
   loadAll()
   loadHistory()
+  // Presets exist only to be applied and their read endpoint is not open to the auditor yet.
+  // 预设只为「应用」而存在；其读端点本轮未对审计读者开放，只读壳下也不必去撞 403。
+  if (readOnly) return
   try {
     presets.value = await aiToolsApi.policyPresets()
   } catch {

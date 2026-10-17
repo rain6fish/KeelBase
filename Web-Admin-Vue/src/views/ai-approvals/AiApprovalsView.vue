@@ -31,12 +31,17 @@
         </template>
         <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
         <template #item.actions="{ item }">
-          <el-button size="small" type="success" :loading="actingToken === item.token" @click="onDecide(item, 'approve')">
-            {{ t('aiApprovalsApprove') }}
-          </el-button>
-          <el-button size="small" type="danger" plain :loading="actingToken === item.token" @click="onDecide(item, 'decline')">
-            {{ t('aiApprovalsDecline') }}
-          </el-button>
+          <template v-if="readOnly">
+            <span class="text-medium-emphasis">—</span>
+          </template>
+          <template v-else>
+            <el-button size="small" type="success" :loading="actingToken === item.token" @click="onDecide(item, 'approve')">
+              {{ t('aiApprovalsApprove') }}
+            </el-button>
+            <el-button size="small" type="danger" plain :loading="actingToken === item.token" @click="onDecide(item, 'decline')">
+              {{ t('aiApprovalsDecline') }}
+            </el-button>
+          </template>
         </template>
       </AppTable>
       <div v-if="!loading && pending.length === 0" class="text-medium-emphasis pa-3">{{ t('aiApprovalsEmpty') }}</div>
@@ -80,7 +85,7 @@
         <template #item.decidedAt="{ item }">{{ item.decidedAt ? formatTime(item.decidedAt) : '-' }}</template>
         <template #item.audit="{ item }">
           <el-button
-            v-if="canRetry(item)"
+            v-if="!readOnly && canRetry(item)"
             link
             type="warning"
             size="small"
@@ -98,9 +103,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppTable from '@/components/AppTable.vue'
@@ -114,6 +120,9 @@ import type { AiApprovalRequest } from '@/types/admin'
 const { t, tm, locale } = useI18n()
 const router = useRouter()
 const snackbar = useSnackbarStore()
+// Read-only shell (auditor): read the queue, do not resolve it — approve / decline / retry do not render.
+// 只读壳（审计读者）：读队列，不处理队列 —— 批准 / 拒绝 / 重试不渲染。
+const readOnly = inject(CONSOLE_READ_ONLY, false)
 
 const pending = ref<AiApprovalRequest[]>([])
 const decided = ref<AiApprovalRequest[]>([])

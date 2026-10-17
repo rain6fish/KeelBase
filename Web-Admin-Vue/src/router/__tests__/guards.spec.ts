@@ -3,13 +3,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
-import routes from '@/router/routes'
+import routes, { AUDITOR_PAGES } from '@/router/routes'
 import { setupGuards } from '@/router/guards'
 import { storage } from '@/utils/storage'
 import { useAuthStore } from '@/stores/auth'
 
 const adminUser = { id: 1, username: 'admin', email: 'admin@example.com', role: 'admin' as const }
 const userUser = { id: 2, username: 'alex', email: 'alex@example.com', role: 'user' as const }
+const auditorUser = { id: 3, username: 'aud', email: 'aud@example.com', role: 'auditor' as const }
 
 function makeRouter(): Router {
   setActivePinia(createPinia())
@@ -18,10 +19,10 @@ function makeRouter(): Router {
   return router
 }
 
-async function loginAs(role: 'admin' | 'user') {
+async function loginAs(role: 'admin' | 'user' | 'auditor') {
   storage.saveTokens('at', 'rt')
   const store = useAuthStore()
-  store.user = role === 'admin' ? adminUser : userUser
+  store.user = role === 'admin' ? adminUser : role === 'auditor' ? auditorUser : userUser
   store.status = 'authenticated'
 }
 
@@ -122,6 +123,50 @@ describe('路由守卫角色分流', () => {
     await loginAs('admin')
     await adminRouter.push('/login')
     expect(adminRouter.currentRoute.value.path).toBe('/')
+  })
+})
+
+/**
+ * Auditor (AW-2) reachable console pages: the six read-only API surfaces must be reachable, the
+ * write/decision pages must not, and the landing page must stay on the audit log.
+ * AW-2：审计读者（auditor）的控制台可达面。
+ * 六个只读 API 面（治理策略 + 版本历史、工具清单、R4 审批队列的读侧）在 2026-10-17 陆续开放，
+ * 但 AUDITOR_PAGES 仍只到 /audit —— API 到得了、UI 里点不进去。这组用例钉住：
+ * ① 只读页可达；② 写 / 裁决页仍不可达；③ 落点仍然是 /audit。
+ */
+describe('审计读者（AW-2）控制台可达面', () => {
+  it('落到 /audit：审计记录是第一份读数', async () => {
+    const router = makeRouter()
+    await loginAs('auditor')
+
+    await router.push('/login')
+    expect(router.currentRoute.value.path).toBe('/audit')
+  })
+
+  it('六个读面对应的只读页可达（审计 / 策略与历史 / 工具清单 / 审批队列）', async () => {
+    const router = makeRouter()
+    await loginAs('auditor')
+
+    for (const path of ['/audit', '/policy-center', '/ai-tools', '/ai-approvals']) {
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe(path)
+    }
+  })
+
+  it('写 / 裁决页仍不可达：点进去弹回 /audit，不落地 403 页', async () => {
+    const router = makeRouter()
+    await loginAs('auditor')
+
+    // Users (CRUD), trash (restore), import (write), sessions (remote logout), operation audit (not opened).
+    // 用户管理（增删改）、回收站（恢复）、数据导入（写入）、会话（远程登出）、操作审计（未开放）
+    for (const path of ['/users', '/trash', '/data-import', '/sessions', '/op-audit']) {
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe('/audit')
+    }
+  })
+
+  it('允许集恰为这四个只读页 —— 多放一页（含任何写 / 裁决页）即红', () => {
+    expect([...AUDITOR_PAGES].sort()).toEqual(['ai-approvals', 'ai-tools', 'audit', 'policy-center'])
   })
 })
 

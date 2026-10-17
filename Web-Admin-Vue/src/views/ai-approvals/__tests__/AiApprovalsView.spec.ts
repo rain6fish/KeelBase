@@ -29,6 +29,7 @@ vi.mock('@/stores/snackbar', () => ({
 }))
 
 import ElementPlus from 'element-plus'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import AiApprovalsView from '../AiApprovalsView.vue'
 
 const AppTableStub = defineComponent({
@@ -38,11 +39,12 @@ const AppTableStub = defineComponent({
     '<div class="app-table-stub"><template v-for="item in items" :key="item.id"><slot name="item.actions" :item="item" /><slot name="item.execution" :item="item" /><slot name="item.audit" :item="item" /></template></div>',
 })
 
-function mountView() {
+function mountView(readOnly = false) {
   const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh, en } })
   return mount(AiApprovalsView, {
     global: {
       plugins: [i18n, ElementPlus],
+      provide: { [CONSOLE_READ_ONLY as symbol]: readOnly },
       stubs: {
         PageHeader: true,
         AppTable: AppTableStub,
@@ -158,6 +160,28 @@ describe('AiApprovalsView', () => {
     expect(decideMock).toHaveBeenCalledWith('tok-1', 'approve')
     expect(successMock).toHaveBeenCalledWith('已批准并执行')
     expect(approvalsMock).toHaveBeenCalledTimes(2)
+  })
+
+  /**
+   * AW-2: the auditor reads the queue, it does not resolve it — lists still load, approve / decline /
+   * retry never render.
+   * AW-2：审计读者读队列，不处理队列 —— 列表照常加载，批准 / 拒绝 / 重试一律不渲染
+   */
+  it('只读壳（auditor）：队列可读，批准 / 拒绝 / 重试不渲染', async () => {
+    approvalsMock.mockResolvedValue([
+      { id: 1, token: 'tok-1', toolName: 'create_event', args: '{}', operatorId: 'u1', conversationId: null, riskLevel: 'R4', status: 'pending', createdAt: '2026-08-21' },
+    ])
+    decidedMock.mockResolvedValue([decidedRow()])
+
+    const wrapper = mountView(true)
+    await flushPromises()
+
+    expect(approvalsMock).toHaveBeenCalledTimes(1)
+    expect(decidedMock).toHaveBeenCalledTimes(1)
+    const labels = wrapper.findAll('button').map((b) => b.text())
+    expect(labels.some((l) => l.includes('批准'))).toBe(false)
+    expect(labels.some((l) => l.includes('拒绝'))).toBe(false)
+    expect(labels.some((l) => l.includes('重试执行'))).toBe(false)
   })
 
   it('拒绝 → 调用 decideApproval(token, decline)', async () => {

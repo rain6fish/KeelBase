@@ -98,12 +98,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, provide, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import { CONSOLE_READ_ONLY } from '@/constants/console'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import LangToggle from '@/components/LangToggle.vue'
 import AiAssistantDrawer from '@/components/AiAssistantDrawer.vue'
@@ -114,6 +115,9 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const auth = useAuthStore()
+// Audit reader (AW-2) enters a read-only shell; mixed read/write pages hide their admin-only actions.
+// 审计读者（AW-2）进入的是只读壳：读 / 写混排的页据此隐藏保存、批准、重试等管理员专属操作。
+provide(CONSOLE_READ_ONLY, auth.isAuditor)
 // MOD-4：按 capabilities 隐藏未启用业务模块的导航入口
 const caps = useCapabilitiesStore()
 caps.load()
@@ -285,11 +289,14 @@ const consoleNavGroups = computed(() => [
 // user 构建（/user/）没有控制台路由，任何角色都只显示工作台菜单
 const isUserSurface = import.meta.env.MODE === 'user'
 const showOverview = computed(() => !isUserSurface && auth.isAdmin)
-// 审计读者（AW-2）：导航只列它**真的到得了**的那几页 —— 列一个点开就 403 的入口，比不列更糟。
-// 允许集与 `routes.ts` 的 `AUDITOR_PAGES` 及后端判据三处同步。
 // Audit reader (AW-2): the nav lists only what it can actually reach — an entry that 403s on click is
-// worse than no entry. This allowlist moves with `routes.ts` and the backend gate.
-const AUDITOR_NAV = new Set(['/audit'])
+// worse than no entry. This allowlist moves with `routes.ts` and the backend gate: the audit log plus
+// the three pages that carry the other read surfaces. Their write affordances are hidden by the
+// read-only shell, not by this list.
+// 审计读者（AW-2）：导航只列它**真的到得了**的那几页 —— 列一个点开就 403 的入口，比不列更糟。
+// 允许集与 `routes.ts` 的 `AUDITOR_PAGES` 及后端判据三处同步：审计记录，以及三张承载其余读面的页
+// （策略与版本历史 / 工具清单 / 审批队列读侧）。这些页上的写操作由只读壳隐藏，不由此表决定。
+const AUDITOR_NAV = new Set(['/audit', '/policy-center', '/ai-tools', '/ai-approvals'])
 const auditorNavGroups = computed(() =>
   consoleNavGroups.value
     .map((g) => ({ ...g, items: g.items.filter((i) => AUDITOR_NAV.has(i.to)) }))

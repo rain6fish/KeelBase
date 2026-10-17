@@ -72,8 +72,16 @@ const consoleChildren: RouteRecordRaw[] = [
 // The console is admin-only by default. The audit reader (AW-2) gets exactly the pages whose backend
 // it can actually read — everything else would be "clickable, then 403".
 // 控制台默认只给 admin。审计读者（AW-2）只拿到它**后端真的读得到**的那几页 —— 多放一页就会变成
-// 「点得进、点开 403」。这张表与后端判据同步：今天只有 AI 审计控制器换了 `can('read','AuditLog')`。
-const AUDITOR_PAGES = new Set(['audit'])
+// 「点得进、点开 403」。这张表与后端判据同步（`BUILTIN_ROLE_RULES` 的 auditor 规则）。
+//
+// The six governance reads opened on 2026-10-17 live on three pages that also carry admin-only
+// affordances. The pages are reachable; the shell tells them they are read-only (`CONSOLE_READ_ONLY`
+// provided by `AdminLayout.vue`), so the editing / approving / retrying controls never render for an
+// auditor. Reaching a page is not ruling on it — the write doors stay 403 at the backend either way.
+// 2026-10-17 开放的六个治理读面落在三张同时带管理员专属操作的页上。页可达，但壳会告诉它们当前是
+// 只读（`AdminLayout.vue` 提供 `CONSOLE_READ_ONLY`），保存 / 批准 / 重试这些控件对审计读者不渲染。
+// 进得去不等于裁得了 —— 无论前端如何，写门在后端照旧 403。
+export const AUDITOR_PAGES = new Set(['audit', 'policy-center', 'ai-tools', 'ai-approvals'])
 
 for (const r of consoleChildren) {
   const roles = AUDITOR_PAGES.has(r.name as string) ? ['admin', 'auditor'] : ['admin']

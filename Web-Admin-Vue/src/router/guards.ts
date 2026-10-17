@@ -11,8 +11,11 @@ import { storage } from '@/utils/storage'
 const SURFACE: 'user' | 'admin' = import.meta.env.MODE === 'user' ? 'user' : 'admin'
 export function homeFor(role?: string): string {
   if (SURFACE === 'user') return '/workbench/ai'
-  // The audit reader lands on the one page it can read, not on the admin dashboard it cannot.
-  // 审计读者落到它读得到的那一页，而不是它读不到的管理台概览。
+  // The audit reader lands on the audit log, not on the admin dashboard it cannot read. That stays
+  // the right first page after the governance surfaces opened (2026-10-17): the log is the record;
+  // the policy, tool-inventory and approval-queue pages are one click away in the nav.
+  // 审计读者落到审计记录页，而不是它读不到的管理台概览。治理读面开放后（2026-10-17）这仍是正确的
+  // 第一页：记录在日志里；策略、工具清单、审批队列在导航里各一步可达。
   if (role === 'auditor') return '/audit'
   return role === 'admin' ? '/' : '/workbench/ai'
 }
