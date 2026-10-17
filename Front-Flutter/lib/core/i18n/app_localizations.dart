@@ -703,6 +703,11 @@ class AppLocalizations {
   String get aiError => _t('Sorry, an error occurred. Please try again.', '抱歉，出错了，请重试。');
   String Function(String) get aiErrorWithDetail => (String msg) => _t('Sorry, an error occurred: \$msg', '抱歉，出错了：\$msg');
   String get aiConfirmFailed => _t('Confirmation request failed, please retry.', '确认请求失败，请重试');
+  /// 流式不可用、本轮改走非流式时的提示（不静默降级）。
+  String get aiStreamFallbackNotice => _t(
+        'Streaming is unavailable right now, so this reply was delivered in standard mode.',
+        '流式通道当前不可用，本次回复已改用普通模式。',
+      );
   String get aiRegenerate => _t('Regenerate', '重新生成');
   String get aiClearConversation => _t('Clear conversation', '清空对话');
   String get aiModelSelect => _t('Switch model', '切换模型');

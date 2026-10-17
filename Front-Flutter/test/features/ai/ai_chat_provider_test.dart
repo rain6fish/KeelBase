@@ -389,4 +389,266 @@ void main() {
       expect(provider.messages[0].content, '你好');
     });
   });
+
+  group('classifyStreamFailure（错误分类表）', () {
+    StreamFailureAction classify({
+      StreamFailureKind kind = StreamFailureKind.transport,
+      bool hasContent = false,
+      bool hasSideEffectEvents = false,
+      int retryCount = 0,
+      bool retryable = true,
+    }) =>
+        classifyStreamFailure(
+          kind: kind,
+          hasContent: hasContent,
+          hasSideEffectEvents: hasSideEffectEvents,
+          retryCount: retryCount,
+          retryable: retryable,
+        );
+
+    test('传输层失败、尚无内容、首次 → 重试一次', () {
+      expect(classify(), StreamFailureAction.retryStream);
+    });
+
+    test('传输层失败、重试过一次仍失败 → 回退非流式', () {
+      expect(classify(retryCount: 1),
+          StreamFailureAction.fallbackToNonStreaming);
+    });
+
+    test('5xx / 服务端流错误 → 回退非流式', () {
+      expect(classify(kind: StreamFailureKind.serverUnavailable),
+          StreamFailureAction.fallbackToNonStreaming);
+    });
+
+    test('鉴权/限流/4xx → 只报错（换通道也一样被拒）', () {
+      expect(classify(kind: StreamFailureKind.authOrPolicy),
+          StreamFailureAction.surfaceError);
+    });
+
+    test('已发生工具/确认事件 → 只报错（重放会重复副作用）', () {
+      expect(classify(hasSideEffectEvents: true),
+          StreamFailureAction.surfaceError);
+    });
+
+    test('超时不算明确传输信号 → 不重试、直接回退', () {
+      expect(classify(retryable: false),
+          StreamFailureAction.fallbackToNonStreaming);
+    });
+
+    test('已有文本内容（无副作用）→ 回退', () {
+      expect(classify(hasContent: true),
+          StreamFailureAction.fallbackToNonStreaming);
+    });
+  });
+
+  group('流式失败 → 重试 / 回退 / 报错（SSE）', () {
+    Map<String, dynamic> fallbackEnvelope([String reply = '普通模式回复']) => {
+          'code': 200,
+          'message': 'ok',
+          'timestamp': '',
+          'data': {'conversationId': 'conv-fb', 'reply': reply},
+        };
+
+    test('正常流式：不回退、不提示', () async {
+      mockStream();
+
+      await provider.sendMessage('你好');
+
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, '你好');
+    });
+
+    test('服务端流 error（尚无内容）→ 回退非流式并拿到回复', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {'type': 'error', 'data': {'type': 'error', 'error': 'boom'}},
+              ]));
+      when(() => api.post('/ai/chat', data: any(named: 'data')))
+          .thenAnswer((_) async => fallbackEnvelope());
+
+      await provider.sendMessage('你好');
+
+      verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .called(1); // 服务端错误不再重试流式
+      verify(() => api.post('/ai/chat', data: any(named: 'data'))).called(1);
+      expect(provider.fellBackToNonStreaming, isTrue);
+      expect(provider.messages.last.content, '普通模式回复');
+      expect(provider.currentConversationId, 'conv-fb');
+    });
+
+    test('HTTP 500 → 回退非流式', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {'type': 'error', 'data': {'type': 'error', 'error': 'HTTP 500'}},
+              ]));
+      when(() => api.post('/ai/chat', data: any(named: 'data')))
+          .thenAnswer((_) async => fallbackEnvelope());
+
+      await provider.sendMessage('你好');
+
+      verify(() => api.post('/ai/chat', data: any(named: 'data'))).called(1);
+      expect(provider.messages.last.content, '普通模式回复');
+    });
+
+    test('HTTP 401 → 不重试、不回退，如实报错', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {'type': 'error', 'data': {'type': 'error', 'error': 'HTTP 401'}},
+              ]));
+
+      await provider.sendMessage('你好');
+
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, contains('HTTP 401'));
+    });
+
+    test('传输失败首次 → 重试流式一次并成功（不回退）', () async {
+      var calls = 0;
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) {
+        calls++;
+        if (calls == 1) {
+          return Stream.fromIterable([
+            {
+                  'type': 'error',
+                  'data': {'type': 'error', 'error': 'SocketException: reset', 'source': 'transport'},
+                },
+          ]);
+        }
+        return Stream.fromIterable([
+          {'type': 'text', 'data': {'type': 'text', 'content': '重试成功'}},
+          {'type': 'done', 'data': {'type': 'done', 'conversationId': 'conv-r'}},
+        ]);
+      });
+
+      await provider.sendMessage('你好');
+
+      expect(calls, 2);
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, '重试成功');
+    });
+
+    test('传输失败两次 → 回退非流式', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {
+                  'type': 'error',
+                  'data': {'type': 'error', 'error': 'SocketException: reset', 'source': 'transport'},
+                },
+              ]));
+      when(() => api.post('/ai/chat', data: any(named: 'data')))
+          .thenAnswer((_) async => fallbackEnvelope('退避后回复'));
+
+      await provider.sendMessage('你好');
+
+      verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .called(2);
+      expect(provider.messages.last.content, '退避后回复');
+      expect(provider.fellBackToNonStreaming, isTrue);
+    });
+
+    test('已发生工具事件后流错 → 不重试、不回退，只报错', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {
+                  'type': 'tool_start',
+                  'data': {
+                    'type': 'tool_start',
+                    'toolStart': {'name': 'query_events', 'summary': '查询事件'},
+                  },
+                },
+                {
+                  'type': 'error',
+                  'data': {'type': 'error', 'error': 'SocketException: reset', 'source': 'transport'},
+                },
+              ]));
+
+      await provider.sendMessage('查一下');
+
+      verify(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .called(1);
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, contains('SocketException'));
+    });
+
+    test('回退请求也失败 → 报原始流式错误', () async {
+      when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+          .thenAnswer((_) => Stream.fromIterable([
+                {'type': 'error', 'data': {'type': 'error', 'error': 'HTTP 503'}},
+              ]));
+      when(() => api.post('/ai/chat', data: any(named: 'data')))
+          .thenThrow(Exception('fallback down'));
+
+      await provider.sendMessage('你好');
+
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, contains('HTTP 503'));
+    });
+  });
+
+  group('流式失败 → 回退 / 重试（WS）', () {
+    late MockWsClient ws;
+
+    setUp(() {
+      ws = MockWsClient();
+      provider.dispose();
+      provider = AiChatProvider(api, sse, wsClient: ws);
+    });
+
+    test('WS 正常流：不回退、不走 SSE', () async {
+      when(() => ws.events).thenAnswer((_) => Stream.fromIterable([
+            {'event': 'ai:text', 'data': {'type': 'text', 'content': 'WS 回复'}},
+            {'event': 'ai:done', 'data': {'type': 'done', 'conversationId': 'conv-ws'}},
+          ]));
+
+      await provider.sendMessage('你好');
+
+      verifyNever(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')));
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, 'WS 回复');
+      expect(provider.currentConversationId, 'conv-ws');
+    });
+
+    test('WS 断线（ws:reconnecting）→ 重试一次仍断 → 回退非流式', () async {
+      when(() => ws.events).thenAnswer((_) => Stream.fromIterable([
+            {'event': 'ws:reconnecting', 'data': {'retryMs': 1000}},
+          ]));
+      when(() => api.post('/ai/chat', data: any(named: 'data'))).thenAnswer(
+        (_) async => {
+          'code': 200,
+          'message': 'ok',
+          'timestamp': '',
+          'data': {'conversationId': 'conv-fb', 'reply': 'WS 断线后普通模式回复'},
+        },
+      );
+
+      await provider.sendMessage('你好');
+
+      verify(() => ws.connect()).called(2); // 首次 + 重试一次
+      verify(() => api.post('/ai/chat', data: any(named: 'data'))).called(1);
+      expect(provider.fellBackToNonStreaming, isTrue);
+      expect(provider.messages.last.content, 'WS 断线后普通模式回复');
+    });
+
+    test('WS 前门 AI_RATE_LIMITED → 不重试、不回退', () async {
+      when(() => ws.events).thenAnswer((_) => Stream.fromIterable([
+            {
+              'event': 'error',
+              'data': {'code': 'AI_RATE_LIMITED', 'message': 'ai:chat rate limit exceeded'},
+            },
+          ]));
+
+      await provider.sendMessage('你好');
+
+      verify(() => ws.connect()).called(1);
+      verifyNever(() => api.post('/ai/chat', data: any(named: 'data')));
+      expect(provider.fellBackToNonStreaming, isFalse);
+      expect(provider.messages.last.content, contains('rate limit'));
+    });
+  });
 }

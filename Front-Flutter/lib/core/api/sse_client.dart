@@ -44,9 +44,13 @@ class SseClient {
     var attempt = 0;
     var currentToken = getAccessToken();
     String? lastError;
+    // 错误来源：`http`（非 200 状态）/ `transport`（连接/解码异常）。
+    // 服务端自己在流里发的 `error` 事件不带 source —— 上层据此区分「换通道可救」与「服务端拒绝」。
+    String? lastErrorSource;
 
     while (true) {
       lastError = null; // 每次新连接重置，避免上一次失败的错误残留到成功流后
+      lastErrorSource = null;
       if (attempt > 0) {
         // 指数退避：2s / 4s / 8s …
         final backoffMs = initialBackoff.inMilliseconds * (1 << (attempt - 1));
@@ -79,10 +83,14 @@ class SseClient {
         if (response.statusCode == 401 && refreshToken != null) {
           // 401：刷新 token 后重试（受 maxAttempts 限制）
           lastError = 'HTTP 401';
+          lastErrorSource = 'http';
           shouldRetry = true;
         } else if (response.statusCode != 200) {
           lastError = 'HTTP ${response.statusCode}';
-          yield {'type': 'error', 'data': {'error': lastError}};
+          yield {
+            'type': 'error',
+            'data': {'error': lastError, 'source': 'http'},
+          };
           return;
         } else {
           String? currentEventType;
@@ -178,10 +186,14 @@ class SseClient {
       } catch (e) {
         if (e is Error) rethrow; // 编程错误向上抛出，不伪装成 error 事件
         lastError = e.toString();
+        lastErrorSource = 'transport';
         if (reconnect && attempt < maxAttempts) {
           shouldRetry = true;
         } else {
-          yield {'type': 'error', 'data': {'error': lastError}};
+          yield {
+            'type': 'error',
+            'data': {'error': lastError, 'source': 'transport'},
+          };
           return;
         }
       } finally {
@@ -193,7 +205,9 @@ class SseClient {
       if (reconnect && !cleanEnd && attempt < maxAttempts) continue;
       // 重试耗尽：非干净结束则透传最后一次错误，让上层感知
       if (!cleanEnd && lastError != null) {
-        yield {'type': 'error', 'data': {'error': lastError}};
+        final data = <String, dynamic>{'error': lastError};
+        if (lastErrorSource != null) data['source'] = lastErrorSource;
+        yield {'type': 'error', 'data': data};
       }
       return;
     }

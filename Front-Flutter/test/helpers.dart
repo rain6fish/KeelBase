@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:front_app/core/i18n/app_localizations.dart';
 import 'package:front_app/core/api/api_client.dart';
 import 'package:front_app/core/api/sse_client.dart';
+import 'package:front_app/core/api/ws_client.dart';
 import 'package:front_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:front_app/features/events/data/repositories/events_repository.dart';
 import 'package:front_app/features/splash/data/repositories/splash_repository.dart';
@@ -39,6 +40,8 @@ class MockSplashRepository extends Mock implements SplashRepository {}
 class MockNotificationsRepository extends Mock implements NotificationsRepository {}
 
 class MockSseClient extends Mock implements SseClient {}
+
+class MockWsClient extends Mock implements WsClient {}
 
 class MockAiConversationRepository extends Mock implements AiConversationRepository {}
 

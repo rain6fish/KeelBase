@@ -189,6 +189,36 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
+  /// 流式失败已回退非流式时的提示条（与上面「未配置」条区分：这是信息，不是配置错误）。
+  Widget _buildStreamFallbackBanner(AppLocalizations l10n) {
+    final color = CupertinoTheme.of(context).primaryColor;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1, right: 8),
+            child: Icon(CupertinoIcons.info_circle, size: 18, color: color),
+          ),
+          Expanded(
+            child: Text(
+              l10n.aiStreamFallbackNotice,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -274,6 +304,8 @@ class _AiChatPageState extends State<AiChatPage> {
       child: Column(
         children: [
           if (aiNotConfigured) _buildAiConfigBanner(l10n),
+          // 流式不可用、本轮已回退非流式：如实告知，不静默降级
+          if (aiProvider.fellBackToNonStreaming) _buildStreamFallbackBanner(l10n),
           // 消息列表
           Expanded(
             child: messages.isEmpty && !isLoading

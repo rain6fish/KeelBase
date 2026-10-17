@@ -149,4 +149,28 @@ void main() {
     expect(find.text('查询到 3 个结果'), findsOneWidget);
     expect(find.text('已完成'), findsOneWidget);
   });
+
+  testWidgets('流式失败已回退非流式：页面如实提示并显示普通模式回复', (tester) async {
+    when(() => sse.postStream('/ai/chat/stream', body: any(named: 'body')))
+        .thenAnswer((_) => Stream.fromIterable([
+              {'type': 'error', 'data': {'type': 'error', 'error': 'HTTP 503'}},
+            ]));
+    when(() => api.post('/ai/chat', data: any(named: 'data'))).thenAnswer(
+      (_) async => {
+        'code': 200,
+        'message': 'ok',
+        'timestamp': '',
+        'data': {'conversationId': 'conv-fb', 'reply': '普通模式回复'},
+      },
+    );
+
+    await pumpAiChatPage(tester);
+    // runAsync：mock 返回的 Future 在 widget 测试的 fake async 里不会自行完成。
+    await tester.runAsync(() => provider.sendMessage('你好'));
+    await tester.pump();
+
+    // 不静默降级：提示条 + 普通模式回复都在页面上
+    expect(find.text('流式通道当前不可用，本次回复已改用普通模式。'), findsOneWidget);
+    expect(find.text('普通模式回复'), findsOneWidget);
+  });
 }
