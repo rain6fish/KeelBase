@@ -557,11 +557,12 @@ describe('KnowledgeService', () => {
     });
   });
 
-  // 登记项「两条 RAG 检索路径对同一篇文章返回的字段不一致」：向量路径的裸 SQL 曾漏选 fileUrl，
-  // 同一问题在向量可用/不可用时一个带、一个不带。两条路径都必须交回同一组字段，且签名口径一致。
+  // 登记项「两条 RAG 检索路径对同一篇文章返回的字段不一致」：向量路径的裸 SQL 曾漏选整份实体的
+  // 四个文档列（sourceFile / fileUrl / docType / chunkCount），同一问题在向量可用/不可用时字段集不同。
+  // 两条路径都必须交回同一组字段，且签名口径一致。
   // Registered item "the two RAG search paths disagree on which fields they return": the vector path's
-  // raw SQL omitted fileUrl, so the same question carried it on one path and not the other. Both paths
-  // must hand back the same field set, signed the same way.
+  // raw SQL omitted four entity columns (sourceFile / fileUrl / docType / chunkCount), so the same
+  // question produced different field sets. Both paths must hand back the same field set, signed alike.
   describe('向量 / 全文两条检索路径字段一致', () => {
     const storedBare = '/uploads/doc.pdf';
     const stored = {
@@ -569,12 +570,18 @@ describe('KnowledgeService', () => {
       title: '手册',
       content: '手册内容',
       category: '运维',
+      sourceFile: '手册.pdf',
       fileUrl: storedBare,
+      docType: 'pdf',
+      chunkCount: 3,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
+    // 向量 SQL 曾漏掉的四个文档列；key-set 断言把它们全部纳进来，不只 fileUrl。
+    // The four document columns the vector SQL used to omit; the key-set assertion covers all of them.
+    const documentColumns = ['sourceFile', 'fileUrl', 'docType', 'chunkCount'] as const;
 
-    it('同一篇文章：两路都带 fileUrl、都现签，且库中仍是裸引用（不回写）', async () => {
+    it('同一篇文章：两路都带全部文档列、fileUrl 现签，且库中仍是裸引用（不回写）', async () => {
       // 向量路径
       await setup({
         isAvailable: jest.fn().mockReturnValue(true),
@@ -585,9 +592,11 @@ describe('KnowledgeService', () => {
       dataSource.query.mockResolvedValueOnce([chunkRow]).mockResolvedValueOnce([]);
       const vectorOut = await service.search('手册');
 
-      // 两条 SQL（chunk / embedding）都必须选 fileUrl
-      expect(dataSource.query.mock.calls[0][0]).toContain('"fileUrl"');
-      expect(dataSource.query.mock.calls[1][0]).toContain('"fileUrl"');
+      // 两条 SQL（chunk / embedding）都必须选齐四个文档列
+      for (const col of documentColumns) {
+        expect(dataSource.query.mock.calls[0][0]).toContain(`"${col}"`);
+        expect(dataSource.query.mock.calls[1][0]).toContain(`"${col}"`);
+      }
 
       // 全文路径 —— 同一篇文章、同一份库存裸引用
       await setup({ isAvailable: jest.fn().mockReturnValue(false) });
@@ -596,8 +605,15 @@ describe('KnowledgeService', () => {
       ]);
       const fullTextOut = await service.search('手册');
 
-      // 同一篇文章，两路字段集合一致
-      expect(Object.keys(vectorOut[0]).sort()).toEqual(Object.keys(fullTextOut[0]).sort());
+      // 同一篇文章，两路字段集合一致，且都等于实体列集合（四个文档列一个不少）
+      const expectedKeys = Object.keys(stored).sort();
+      expect(Object.keys(vectorOut[0]).sort()).toEqual(expectedKeys);
+      expect(Object.keys(fullTextOut[0]).sort()).toEqual(expectedKeys);
+      expect(vectorOut[0]).toMatchObject({
+        sourceFile: stored.sourceFile,
+        docType: stored.docType,
+        chunkCount: stored.chunkCount,
+      });
 
       const assertSigned = (article: KnowledgeArticle) => {
         expect(article.fileUrl).toBeTruthy();

@@ -383,7 +383,8 @@ export class KnowledgeService {
 
     const [chunkRows, embedRows] = await Promise.all([
       this.dataSource.query(
-        `SELECT c.article_id AS "id", a.title, c.content, a.category, a."fileUrl", a."createdAt", a."updatedAt",
+        `SELECT c.article_id AS "id", a.title, c.content, a.category, a."sourceFile", a."fileUrl",
+                a."docType", a."chunkCount", a."createdAt", a."updatedAt",
                 (c.embedding <-> $1::vector) AS "distance"
          FROM "ai_knowledge_chunks" c
          JOIN "ai_knowledge_articles" a ON a.id = c.article_id
@@ -393,7 +394,8 @@ export class KnowledgeService {
         [vectorLiteral, chunkK],
       ),
       this.dataSource.query(
-        `SELECT a.id, a.title, a.content, a.category, a."fileUrl", a."createdAt", a."updatedAt",
+        `SELECT a.id, a.title, a.content, a.category, a."sourceFile", a."fileUrl",
+                a."docType", a."chunkCount", a."createdAt", a."updatedAt",
                 (e.embedding <-> $1::vector) AS "distance"
          FROM "ai_knowledge_embeddings" e
          JOIN "ai_knowledge_articles" a ON a.id = e.article_id
@@ -415,16 +417,20 @@ export class KnowledgeService {
     return Array.from(byArticle.values())
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity))
       .slice(0, limit)
-      // fileUrl 与全文路径同口径：库里是裸引用，出口现签（signFileUrl 复制对象，不回写）。
-      // fileUrl follows the same contract as the full-text path: bare in the store, signed on the way
-      // out (signFileUrl copies, so the row is never written back).
+      // 字段与全文路径同口径（整份实体的列，不只检索相关的那几列）；fileUrl 库里是裸引用，
+      // 出口现签（signFileUrl 复制对象，不回写）。
+      // Same field set as the full-text path (the entity's columns, not just the search-relevant ones);
+      // fileUrl is bare in the store and signed on the way out (signFileUrl copies, so no write-back).
       .map((r) =>
         this.signFileUrl({
           id: r.id,
           title: r.title,
           content: r.content,
           category: r.category,
+          sourceFile: r.sourceFile,
           fileUrl: r.fileUrl,
+          docType: r.docType,
+          chunkCount: r.chunkCount,
           createdAt: new Date(r.createdAt),
           updatedAt: new Date(r.updatedAt),
         }),
