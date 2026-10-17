@@ -74,12 +74,30 @@ export const BUILTIN_ROLE_RULES: RoleRuleSeed[] = [
   { roleCode: UserRole.USER, subject: 'Tag', ownerField: 'userId' },
   { roleCode: UserRole.USER, subject: 'Note', ownerField: 'userId' },
   { roleCode: UserRole.USER, subject: 'Post', ownerField: 'userId' },
-  // Audit reader (AW-2): read-only, and only on the audit surface. This is the ONLY rule the role
-  // gets — everything it can reach is enumerated here, and `PoliciesGuard` denies by default. Note it
-  // deliberately gets none of the `USER` ownership rules: the role is a reader of the governance
-  // record, not a user of the application.
-  // 审计读者（AW-2）：只读，且只在审计面上。这是该角色拿到的**唯一**一条规则 —— 它能碰到的东西全在
-  // 这里列尽，其余由 `PoliciesGuard` 默认拒绝。注意它**有意**不拿任何 `USER` 的所有权规则：这个角色
-  // 是治理记录的**读者**，不是应用的**用户**。
+  // Audit reader (AW-2, widened one surface at a time): read-only, and only on the audit / governance
+  // read surfaces enumerated here. This list IS the role's reach — everything it can touch is named
+  // here, and `PoliciesGuard` denies by default. It deliberately gets none of the `USER` ownership
+  // rules: the role is a reader of the governance record, not a user of the application. Every rule
+  // grants `read` and nothing else; none of them may grow a write action, or the role silently stops
+  // being an auditor.
+  //
+  // 审计读者（AW-2，**一面一面地放宽**）：只读，且只在下面列尽的审计 / 治理读面上。**这份清单就是该角色
+  // 能碰到的全部** —— 其余由 `PoliciesGuard` 默认拒绝。它**有意**不拿任何 `USER` 的所有权规则：这个角色
+  // 是治理记录的**读者**，不是应用的**用户**。每条规则都只授予 `read`；任何一条日后都不许长出写动作，
+  // 否则它就不再是审计读者。
   { roleCode: UserRole.AUDITOR, subject: 'AuditLog', actions: ['read'], ownerField: null },
+  // Governance policy and its revision history (`GET /ai/governance/policy[/history[/:revision]]`).
+  // Reading the rule set is audit work; changing it (`PUT`, `apply-preset`) stays admin-only.
+  // 治理策略及其版本历史（`GET /ai/governance/policy[/history[/:revision]]`）。读规则集是审计工作；
+  // 改它（`PUT`、`apply-preset`）仍是管理员专属。
+  { roleCode: UserRole.AUDITOR, subject: 'GovernancePolicy', actions: ['read'], ownerField: null },
+  // Tool inventory (`GET /ai/tools`): what the agent can call and at what risk — the surface the audit
+  // vocabulary gate itself reads.
+  // 工具清单（`GET /ai/tools`）：Agent 能调用什么、处在什么风险级 —— 审计词表闸自己读的就是这一面。
+  { roleCode: UserRole.AUDITOR, subject: 'ToolInventory', actions: ['read'], ownerField: null },
+  // R4 approval queue, read side (`GET /ai/confirmations/pending|decided`). Approving, deciding and
+  // retrying execution stay admin-only: this grants reading the queue, not resolving it.
+  // R4 审批队列的读侧（`GET /ai/confirmations/pending|decided`）。批准、裁决、重试执行仍是管理员专属：
+  // 这里授予的是**读队列**，不是**处理队列**。
+  { roleCode: UserRole.AUDITOR, subject: 'ApprovalQueue', actions: ['read'], ownerField: null },
 ];

@@ -175,8 +175,12 @@ describe('CaslAbilityFactory', () => {
    * 一直是否定。其中 `manage all` 那条最要紧：它一旦翻成 true，这个角色就悄悄变成了管理员，而它存在
    * 的那个理由（审计独立性）随之消失。
    */
-  describe('auditor (AW-2 审计读者：只读，且只在审计面上)', () => {
+  describe('auditor (AW-2 审计读者：只读，且只在审计 / 治理读面上)', () => {
     const auditor = { sub: 5, username: 'aud', role: UserRole.AUDITOR };
+    // AW-2 第二半逐面放宽的读面。增删一个面必须同时改这里与种子清单 —— 两边不一致就有一侧是假的。
+    // The read surfaces widened in AW-2's second half. Adding or removing one must touch this list and
+    // the seed list together — if the two disagree, one of them is lying.
+    const READ_SURFACES = ['AuditLog', 'GovernancePolicy', 'ToolInventory', 'ApprovalQueue'] as const;
     let ability: ReturnType<CaslAbilityFactory['createForUser']>;
 
     beforeEach(() => {
@@ -187,9 +191,17 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can('read', 'AuditLog')).toBe(true);
     });
 
-    it('但只能读：读之外的动作一律不许', () => {
-      for (const action of ['create', 'update', 'delete', 'manage'] as const) {
-        expect(ability.can(action, 'AuditLog')).toBe(false);
+    it('可以读 AW-2 第二半放宽的每个治理读面', () => {
+      for (const surface of READ_SURFACES) {
+        expect(ability.can('read', surface)).toBe(true);
+      }
+    });
+
+    it('但只能读：每个读面上读之外的动作一律不许', () => {
+      for (const surface of READ_SURFACES) {
+        for (const action of ['create', 'update', 'delete', 'manage'] as const) {
+          expect(ability.can(action, surface)).toBe(false);
+        }
       }
     });
 
@@ -204,11 +216,17 @@ describe('CaslAbilityFactory', () => {
     });
 
     it('管理员不受影响：`manage all` 蕴含任意主体上的 read', () => {
-      expect(factory.createForUser(adminUser).can('read', 'AuditLog')).toBe(true);
+      const admin = factory.createForUser(adminUser);
+      for (const surface of READ_SURFACES) {
+        expect(admin.can('read', surface)).toBe(true);
+      }
     });
 
-    it('普通用户仍读不到审计行', () => {
-      expect(factory.createForUser(regularUser).can('read', 'AuditLog')).toBe(false);
+    it('普通用户仍读不到这些读面', () => {
+      const user = factory.createForUser(regularUser);
+      for (const surface of READ_SURFACES) {
+        expect(user.can('read', surface)).toBe(false);
+      }
     });
 
     /**

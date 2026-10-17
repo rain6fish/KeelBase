@@ -19,16 +19,18 @@ import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
  * being an admin** — handing them admin would also make them the operator they are supposed to review.
  * `manage all` implies `read` on any subject, so admins are unaffected; a plain user still fails.
  *
- * ⚠ Scope: only this controller is re-gated. The other audit/governance reads (operation audit,
- * governance bridge, admin) still require `manage all`, so an auditor reaches the AI audit surface and
- * nothing else. Widening it is a separate change, and it should be widened one surface at a time.
+ * ⚠ Scope: this controller judges `read AuditLog`. The auditor's other reads are widened separately,
+ * one surface at a time — governance policy, tool inventory and the approval queue now judge their own
+ * `read` subjects in `AiController`, and operation audit still requires `manage all`. Writes,
+ * approvals and executions are never part of the widening.
  *
  * 这里每个读端点判的都是 `can('read', 'AuditLog')`，而不是控制台其余部分用的那条 `can('manage','all')`。
  * 理由是 `AW-2`：审计读者必须**不必是管理员**就能到这一面 —— 给他 `admin` 就等于让他同时是他本该复核
  * 的那个操作者。`manage all` 蕴含任意主体上的 `read`，故**管理员不受影响**；普通用户照旧过不去。
  *
- * ⚠ **范围**：只有本控制器换了判据。其余审计/治理读面（操作审计 · 治理桥 · admin）仍要求 `manage all`，
- * 所以审计读者到得了 AI 审计面、到不了别的。放宽是另一件事，且应当**一面一面地放宽**。
+ * ⚠ **范围**：本控制器判 `read AuditLog`。审计读者的其余读面按**一面一面**的方式另案放宽 —— 治理策略、
+ * 工具清单、审批队列现已在 `AiController` 各自判 `read` 主体，操作审计仍要求 `manage all`。写、审批、
+ * 执行永远不在这轮放宽之内。
  */
 @ApiTags('审计')
 @ApiBearerAuth()
