@@ -59,27 +59,6 @@
       </el-col>
     </el-row>
 
-    <el-card shadow="never" class="mb-4">
-      <template #header>
-        <div class="d-flex align-center ga-2">
-          <span>{{ t('hashChain') }}</span>
-          <el-tag v-if="chainVerify" :type="chainVerify.valid ? 'success' : 'danger'" size="small">
-            {{ chainVerify.valid ? t('chainValid') : t('chainBroken', { idx: chainVerify.brokenIndex ?? '-' }) }}
-          </el-tag>
-          <span v-if="chainVerify" class="text-secondary text-sm">{{ t('chainChecked', { n: chainVerify.checked }) }}</span>
-        </div>
-      </template>
-      <div v-if="chainVerify?.chain?.length" class="chain-list">
-        <div v-for="n in chainVerify.chain" :key="n.id" class="chain-node" :class="{ 'chain-broken': n.broken }">
-          <span class="chain-id">#{{ n.id }}</span>
-          <span class="chain-action">{{ n.action }}</span>
-          <code class="chain-hash">{{ (n.prevHash || '—').slice(0, 10) }} → {{ (n.hash || '—').slice(0, 10) }}</code>
-          <el-tag v-if="n.broken" type="danger" size="small">✗ {{ t('broken') }}</el-tag>
-        </div>
-      </div>
-      <el-empty v-else-if="chainVerify" :description="t('noChainData')" />
-    </el-card>
-
     <!-- E-2 按日趋势（5 段含 errors，纯 CSS 堆叠条） -->
     <el-card shadow="never" class="mb-4">
       <template #header>{{ t('auditTrendTitle') }}</template>
@@ -103,7 +82,7 @@
       <div v-if="errorLogs.length" class="error-list">
         <div v-for="e in errorLogs" :key="e.id" class="error-item">
           <span class="text-caption font-weight-medium">{{ formatTime(e.createdAt) }}</span>
-          <span class="error-msg text-caption">{{ errorLabel(e.errorMessage, t) || actionLabel(e) }}</span>
+          <span class="error-msg text-caption">{{ errorSummary(e) }}</span>
         </div>
       </div>
       <div v-else class="text-medium-emphasis">{{ t('secNoActionLog') }}</div>
@@ -195,7 +174,7 @@
             <el-tag v-if="identityChain.agent.agentId" size="small" type="warning" effect="plain">
               {{ identityChain.agent.agentName || identityChain.agent.agentId }}{{ identityChain.agent.trustLevel ? ` (${identityChain.agent.trustLevel})` : '' }}
             </el-tag>
-            <el-tag v-if="identityChain.tool.toolName" size="small" type="primary" effect="plain">{{ identityChain.tool.toolName }}</el-tag>
+            <el-tag v-if="identityChain.tool.toolName" size="small" type="primary" effect="plain">{{ toolLabel(feature, identityChain.tool.toolName) }}</el-tag>
             <el-tag v-if="identityChain.action.businessEvent" size="small" type="success" effect="plain">{{ identityChain.action.businessEvent }}</el-tag>
             <el-tag v-if="identityChain.source" size="small" effect="dark" class="ms-1">{{ identityChain.source }}</el-tag>
           </div>
@@ -227,7 +206,7 @@
         <el-timeline-item v-if="interpretation?.approval" type="success" :hollow="true">
           <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepApproval') }}</div>
           <div class="d-flex align-center ga-2 flex-wrap text-caption">
-            <el-tag size="small" effect="plain">{{ interpretation.approval.toolName }}</el-tag>
+            <el-tag size="small" effect="plain">{{ toolLabel(feature, interpretation.approval.toolName) }}</el-tag>
             <el-tag size="small">{{ interpretation.approval.status }}</el-tag>
             <span>{{ interpretation.approval.riskLevel }}</span>
             <span v-if="interpretation.approval.approverId" class="text-medium-emphasis">
@@ -243,13 +222,13 @@
         <el-timeline-item v-if="interpretation?.effect" type="primary" :hollow="true">
           <div class="text-caption font-weight-medium mb-1">{{ t('explanationStepEffect') }}</div>
           <div class="text-caption text-medium-emphasis mb-1">
-            {{ interpretation.effect.toolName }} →
+            {{ toolLabel(feature, interpretation.effect.toolName) }} →
             {{ interpretation.effect.resultType }}:{{ interpretation.effect.resultId }}
             <template v-if="interpretation.effect.revokeStatus">
-              · {{ t('revokeStatusCol') }}: {{ interpretation.effect.revokeStatus }}
+              · {{ t('revokeStatusCol') }}: {{ revokeStatusLabel(interpretation.effect.revokeStatus) }}
             </template>
             <template v-if="interpretation.effect.revokeWindow">
-              · {{ interpretation.effect.revokeWindow }}
+              · {{ revokeWindowLabel(interpretation.effect.revokeWindow) }}
             </template>
           </div>
           <FieldDiff :before="interpretation.effect.before" :after="interpretation.effect.after" />
@@ -272,12 +251,6 @@
               :label-map="explanationStateLabels"
               :color-map="explanationStateColors"
             />
-            <span v-if="interpretation?.row?.hash" class="text-caption text-medium-emphasis">
-              hash {{ String(interpretation?.row?.hash ?? '').slice(0, 12) }}…
-            </span>
-            <span v-if="interpretation?.row?.prevHash" class="text-caption text-medium-emphasis">
-              prev {{ String(interpretation?.row?.prevHash ?? '').slice(0, 12) }}…
-            </span>
           </div>
         </el-timeline-item>
       </el-timeline>
@@ -314,8 +287,56 @@
             <span class="font-weight-medium" style="min-width: 140px">{{ t('guestCol') }}</span>
             <span class="text-medium-emphasis">{{ expanded.guestId }}</span>
           </div>
+          <!-- The row's chain position is evidence, not summary: it lives here with the other
+               technical fields rather than beside the business outcome. -->
+          <div v-if="interpretation?.row?.hash" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">hash</span>
+            <code class="text-caption text-medium-emphasis">{{ interpretation.row.hash }}</code>
+          </div>
+          <div v-if="interpretation?.row?.prevHash" class="d-flex ga-2 py-1">
+            <span class="font-weight-medium" style="min-width: 140px">prevHash</span>
+            <code class="text-caption text-medium-emphasis">{{ interpretation.row.prevHash }}</code>
+          </div>
         </el-collapse-item>
       </el-collapse>
+    </el-card>
+
+    <!-- E-2 hash-chain evidence. The verdict is business-level and stays in the header; the per-row
+         `prev → hash` nodes are technical evidence, so they sit behind an explicit expand and start
+         collapsed. The reader meets the audit summary first, not the chain.
+
+         E-2 哈希链证据。结论是业务层面的，留在卡片头；逐行 `prev → hash` 是技术证据，故放在显式展开
+         之后，默认收起。读者先看到审计摘要，而不是哈希链。 -->
+    <el-card shadow="never" class="mb-4">
+      <template #header>
+        <div class="d-flex align-center ga-2">
+          <span>{{ t('hashChain') }}</span>
+          <el-tag v-if="chainVerify" :type="chainVerify.valid ? 'success' : 'danger'" size="small">
+            {{ chainVerify.valid ? t('chainValid') : t('chainBroken', { idx: chainVerify.brokenIndex ?? '-' }) }}
+          </el-tag>
+          <span v-if="chainVerify" class="text-secondary text-sm">{{ t('chainChecked', { n: chainVerify.checked }) }}</span>
+          <el-button
+            v-if="chainVerify?.chain?.length"
+            text
+            size="small"
+            class="ms-auto"
+            @click="showChain = !showChain"
+          >
+            {{ showChain ? t('collapse') : t('expand') }}
+          </el-button>
+        </div>
+      </template>
+      <div v-if="showChain && chainVerify?.chain?.length" class="chain-list">
+        <div v-for="n in chainVerify.chain" :key="n.id" class="chain-node" :class="{ 'chain-broken': n.broken }">
+          <span class="chain-id">#{{ n.id }}</span>
+          <span class="chain-action">{{ n.action }}</span>
+          <code class="chain-hash">{{ (n.prevHash || '—').slice(0, 10) }} → {{ (n.hash || '—').slice(0, 10) }}</code>
+          <el-tag v-if="n.broken" type="danger" size="small">✗ {{ t('broken') }}</el-tag>
+        </div>
+      </div>
+      <div v-else-if="chainVerify" class="text-caption text-medium-emphasis">
+        {{ chainVerify.chain?.length ? t('hashChainHint') : t('noChainData') }}
+      </div>
     </el-card>
 
     <!-- AU-4（§22.19）会话下钻：**引用优先**——先元数据，正文需显式「查看正文」才取 -->
@@ -385,6 +406,8 @@ const snackbar = useSnackbarStore()
 const logs = ref<AuditLog[]>([])
 const stats = ref<UsageStats | null>(null)
 const chainVerify = ref<ChainVerifyResult | null>(null)
+// Chain nodes are technical evidence: the reader opens them explicitly (AW-4 default).
+const showChain = ref(false)
 // AW-3 覆盖声明。`coverageLoaded` 单拎出来，是为了让「取不到」**不静默** —— 一句告诫取不到，
 // 读者会把这份视图读成完整，那正是这个特性要防的事。
 // AW-3 coverage statement. `coverageLoaded` is separate so that a fetch failure is NOT silent: a
@@ -583,6 +606,30 @@ function opPath(payload: unknown): string {
   return p?.path ? `${p.method ?? ''} ${p.path}`.trim() : ''
 }
 
+/**
+ * §7.3: the four revoke states must not be read as one another. `compensating` in particular is a
+ * request, not a restored business record, so it never borrows the "revoked" label. An unknown future
+ * value falls back to itself rather than being hidden or guessed.
+ *
+ * §7.3：四个撤销状态不能互相读错。`compensating` 是「已请求补偿」，不是「业务已恢复」，故绝不借用
+ * 「已撤销」的文案。未来出现的未知值原样保留，既不隐瞒也不臆造。
+ */
+function revokeStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    revoked: t('statusRevoked'),
+    compensating: t('statusRevokingExternal'),
+    revoke_failed: t('statusRevokeFailed'),
+  }
+  return map[status] ?? status
+}
+
+/** Both windows are uncertain in different ways; say which uncertainty, never "done". */
+function revokeWindowLabel(window: string): string {
+  if (window === 'unacknowledged') return t('revokeWindowUnacknowledged')
+  if (window === 'awaiting_target') return t('revokeWindowAwaitingTarget')
+  return window
+}
+
 function hasStats(s: AuditInterpretation['summary']['stats']): boolean {
   return s.businessEvents.length > 0 || s.evidence.length > 0 || s.confirmations.approved > 0 || s.confirmations.declined > 0 || s.blocked > 0 || s.errors > 0
 }
@@ -595,6 +642,21 @@ function actionLabel(log: AuditLog): string {
     if (localized) return localized
   }
   return log.actionLabel || log.action || '-'
+}
+
+/**
+ * The recent-errors line is a business summary: a recognised error keeps its translated label, an
+ * unknown one becomes "execution failed" plus the business action rather than the raw English
+ * message. The raw text stays available in the row's technical detail.
+ *
+ * 最近错误那一行是业务摘要：已知错误保留译文，未识别的错误显示「执行出错」+ 业务动作，而不是原始英文
+ * 报文。原始文本仍在该行的技术详情里。
+ */
+function errorSummary(log: AuditLog): string {
+  const raw = log.errorMessage || ''
+  if (!raw) return actionLabel(log)
+  const label = errorLabel(raw, t)
+  return `${label === raw ? t('executionError') : label} · ${actionLabel(log)}`
 }
 
 /** 解析工具调用 detail（形如 create_followup_task({"title":...})）→ 工具名 + 参数；非工具调用返回 null */

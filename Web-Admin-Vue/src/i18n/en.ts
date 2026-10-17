@@ -492,6 +492,10 @@ const en: ZhDict = {
   explanationStepResult: 'Result, and how it is proven',
   approverCol: 'Approver',
   revokeStatusCol: 'Revoke status',
+  // REV-2: two different uncertainties. "Never arrived" is not "arrived, no answer yet"; neither is "revoked".
+  revokeWindowUnacknowledged: 'May not have reached the target system',
+  revokeWindowAwaitingTarget: 'Reached the target; no final state yet',
+  executionError: 'Execution failed',
   // P0-20's own vocabulary (eight values). Larger than tool-effects' four on purpose: there
   // `revoke_failed` is not "the action failed", and "refused", "waiting for a person" and "nobody
   // knows" have no name at all. Same set as the back end's `audit-explanation-state.ts`.
