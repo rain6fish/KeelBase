@@ -193,9 +193,15 @@ export class AiController {
 
   /**
    * R4 双人审批：待审批列表（管理员审批页）
+   *
+   * AW-2 second half: reading the queue is judged `read ApprovalQueue`. Approving / deciding /
+   * retrying execution stay `manage all` below — an auditor reads the queue, it does not resolve it.
+   *
+   * AW-2 续：读队列判 `read ApprovalQueue`。批准 / 裁决 / 重试执行仍是下面的 `manage all` ——
+   * 审计读者**读队列**，不**处理队列**。
    */
   @Get('confirmations/pending')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'ApprovalQueue'))
   @ApiOperation({ summary: 'R4 待人工审批列表（管理员）' })
   async pendingApprovals() {
     return this.r4Approval.listPendingApprovals();
@@ -203,9 +209,13 @@ export class AiController {
 
   /**
    * R4 双人审批：已审批历史（管理员审批页）
+   *
+   * Same read as `pending` — it is the queue's other half, so it shares `read ApprovalQueue`.
+   *
+   * 与 `pending` 同属队列的读侧，故共用 `read ApprovalQueue`。
    */
   @Get('confirmations/decided')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'ApprovalQueue'))
   @ApiOperation({ summary: 'R4 已审批历史（管理员）' })
   async decidedApprovals() {
     return this.r4Approval.listDecidedApprovals();
@@ -392,9 +402,16 @@ export class AiController {
 
   /**
    * HS-2 工具清单（管理台可见）：展示工具与权限元数据，便于审计/治理
+   *
+   * AW-2 second half: judged `read ToolInventory` rather than `manage all` — an auditor has to read
+   * what the agent can call. `manage all` implies `read`, so admins are unaffected and a plain user
+   * still fails.
+   *
+   * AW-2 续：判 `read ToolInventory` 而不是 `manage all` —— 审计读者要读得了「Agent 能调用什么」。
+   * `manage all` 蕴含 `read`，故管理员不受影响、普通用户照旧过不去。
    */
   @Get('tools')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'ToolInventory'))
   @ApiOperation({ summary: 'AI 工具清单与权限（管理员）' })
   getTools() {
     return this.toolExposure.getToolInventory();
@@ -650,9 +667,15 @@ export class AiController {
 
   /**
    * D2-1d 治理策略（admin）：读当前策略（工具开关/确认/角色白名单/审计粒度），策略中心实时生效。
+   *
+   * AW-2 second half: the read is judged `read GovernancePolicy`. The write below (`PUT`) and
+   * `apply-preset` remain `manage all` — an auditor reviews the rule set, it does not rule.
+   *
+   * AW-2 续：读判 `read GovernancePolicy`。下面的写（`PUT`）与 `apply-preset` 仍是 `manage all` ——
+   * 审计读者**复核**规则集，不**制定**规则集。
    */
   @Get('governance/policy')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'GovernancePolicy'))
   @ApiOperation({ summary: '治理策略（admin）' })
   async getGovernancePolicy(): Promise<GovernancePolicy> {
     return this.governancePolicy.getPolicy();
@@ -662,7 +685,7 @@ export class AiController {
    * P-③（§internal.17 ① P-③）：治理策略历史快照列表（admin，供「当时哪版规则」查看/回放比对）。
    */
   @Get('governance/policy/history')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'GovernancePolicy'))
   @ApiOperation({ summary: '治理策略历史列表（admin，P-③）' })
   async getPolicyHistory(
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
@@ -674,7 +697,7 @@ export class AiController {
    * P-③（§internal.17 ① P-③）：单版本策略快照（admin，回放/人读比对）。
    */
   @Get('governance/policy/history/:revision')
-  @CheckPolicies((ability) => ability.can('manage', 'all'))
+  @CheckPolicies((ability) => ability.can('read', 'GovernancePolicy'))
   @ApiOperation({ summary: '治理策略历史快照（admin，P-③）' })
   async getPolicyHistoryRevision(@Param('revision') revision: string) {
     const snap = await this.governancePolicy.getPolicySnapshotByRevision(revision);
