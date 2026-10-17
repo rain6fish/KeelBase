@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <template>
   <div class="permissions-view" data-testid="permissions-boundary">
-    <PageHeader :title="t('navPermissions')" :subtitle="t('boundarySubtitle')">
+    <PageHeader :title="pageTitle" :subtitle="t('boundarySubtitle')">
       <el-button size="small" data-testid="permission-refresh" @click="reload">
         {{ t('permissionRefresh') }}
       </el-button>
@@ -275,6 +275,11 @@ const inventory = ref<AdminAiTool[]>([])
 const fingerprint = ref<AiToolFingerprint | null>(null)
 
 const isTarget = computed(() => targetUserId.value != null)
+
+// Same component, two shells: the console page keeps its own title, the workbench entry names
+// the self-scoped view. The route guard already keeps each role in its own shell.
+// 同一组件、两套壳：控制台页保留原名，工作台入口用「我的」口径。路由守卫已按角色分壳。
+const pageTitle = computed(() => (auth.isAdmin ? t('navPermissions') : t('navMyAccess')))
 
 // Self capabilities come from GET /auth/me/permissions; the chain is the fallback when the
 // capability list is unavailable, so the page still shows server-returned scope and basis.
