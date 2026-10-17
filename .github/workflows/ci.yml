@@ -70,6 +70,12 @@ jobs:
           echo "ENCRYPTION_HMAC_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      # 装配冒烟（C-6）：三个进程入口模块各实例化一次。单列一步，红了直接指着哪个 provider 缺；
+      # 本地 `npm run check:all` 跑同一道门禁，故这类断裂（构造器加了依赖、模块没补 provider）在推之前
+      # 就看得见，而不是只在这条 CI 的单测 job 里。
+      - name: 装配冒烟（AppModule / GovernanceModule / SidecarModule 实例化）
+        working-directory: .
+        run: npm run check:app-wiring
       - run: npm run test:cov
         env:
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
