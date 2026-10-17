@@ -29,7 +29,14 @@ import { frontendFiles } from './generator/templates-frontend.mjs';
 import { adminFiles } from './generator/templates-admin.mjs';
 import { taroFiles } from './generator/templates-taro.mjs';
 import { aiFiles } from './generator/templates-ai.mjs';
-import { wireBackend, wireFrontend, wireAdmin, wireTaro, wireAiModule } from './generator/wire.mjs';
+import {
+  WIRED_FILES,
+  wireBackend,
+  wireFrontend,
+  wireAdmin,
+  wireTaro,
+  wireAiModule,
+} from './generator/wire.mjs';
 import { buildSpecPrompt, parseSpecResponse, extractSpec, llmConfig } from './generator/llm.mjs';
 import { parseOpenApiSpec } from './generator/import-openapi.mjs';
 import { parseOpenApiProxy } from './generator/import-openapi-proxy.mjs';
@@ -2060,6 +2067,12 @@ test('模块名单复数：不规则走表，表外仍朴素（不猜）', () =>
   // 邻域的**反例**：`cases` 与 `gases` 同尾异解 —— 补表不许把它们搅在一起（这是「表而非规则」的理由）。
   assert.equal(toSingular('cases'), 'case');
   assert.equal(toPlural('case'), 'cases');
+});
+
+test('WIRED_FILES：还原清单覆盖接线会改的每一个文件（含 CLAUDE.md）', () => {
+  // wireAdmin 会改 CLAUDE.md，而共用检出的调用方正是按 WIRED_FILES 还原；漏掉它就会把改动留在树上。
+  // wireAdmin edits CLAUDE.md, and a shared-checkout caller restores exactly WIRED_FILES.
+  assert.ok(WIRED_FILES.includes('CLAUDE.md'), 'CLAUDE.md 必须列在 WIRED_FILES 里');
 });
 
 test('wireAdmin：把新模块补进 CLAUDE.md §13 的模块清单，且幂等', async () => {

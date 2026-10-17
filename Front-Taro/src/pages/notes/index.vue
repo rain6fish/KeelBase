@@ -61,6 +61,7 @@ async function handleAdd() {
   }
 }
 
+
 function handleRemove(item: any) {
   Taro.showModal({
     title: t('notes.deleteTitle'),

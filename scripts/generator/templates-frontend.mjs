@@ -421,7 +421,7 @@ const FORM_FIELD = {
           ),`,
   decimal: (c, l10n, f) =>
     `          CupertinoTextField(
-            placeholder: '\${l10n} (≤${decimalScale(f)} 位小数)',
+            placeholder: '\${${l10n}} (≤${decimalScale(f)} 位小数)',
             controller: _${c}Ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -430,7 +430,7 @@ const FORM_FIELD = {
   ref: (c, l10n, f) =>
     `          if (_${c}Options.isEmpty)\n` +
     `            CupertinoTextField(\n` +
-    `              placeholder: '\${l10n} ID（${f.target}）',\n` +
+    `              placeholder: '\${${l10n}} ID（${f.target}）',\n` +
     `              controller: _${refColumnName(c)}Ctrl,\n` +
     `              keyboardType: const TextInputType.numberWithOptions(decimal: false),\n` +
     `              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),\n` +
@@ -459,7 +459,7 @@ const FORM_FIELD = {
           ),`,
   date: (c, l10n) =>
     `          CupertinoTextField(
-            placeholder: '\${l10n} (ISO 8601)',
+            placeholder: '\${${l10n}} (ISO 8601)',
             controller: _${c}Ctrl,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),`,

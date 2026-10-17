@@ -137,6 +137,42 @@ export const use${ctx.pluralPascal}Store = defineStore('${ctx.plural}', {
 export function taroPageTemplate(ctx) {
   const first = ctx.fields.length > 0 ? ctx.fields[0].name : 'id';
   const firstField = ctx.fields[0];
+  // The add bar needs a scalar to bind to. An attachment is not one: it is not a member of the
+  // create request, so binding the bar to it sends a key the API drops and omits the real fields.
+  // 新增栏需要绑定一个标量。附件不是标量：它不在 create 请求里，绑上去会发一个 API 丢弃的键、
+  // 同时漏掉真正的字段。
+  const addField = ctx.fields.find((f) => f.type !== 'attachment');
+  const addName = addField ? addField.name : null;
+  const addBar = addName
+    ? `    <view class="${ctx.plural}-page__input-bar">
+      <input
+        class="${ctx.plural}-page__input"
+        v-model="${addName}"
+        :placeholder="t('${ctx.plural}.placeholder')"
+        confirm-type="done"
+        @confirm="handleAdd"
+      />
+      <button class="${ctx.plural}-page__add" size="mini" @click="handleAdd">{{ t('${ctx.plural}.add') }}</button>
+    </view>
+`
+    : '';
+  const addRef = addName ? `const ${addName} = ref('')` : '';
+  const addHandler = addName
+    ? `async function handleAdd() {
+  const text = ${addName}.value.trim()
+  if (!text) {
+    Taro.showToast({ title: t('${ctx.plural}.inputRequired'), icon: 'none' })
+    return
+  }
+  try {
+    await store.add({ ${addName}: text } as any)
+    ${addName}.value = ''
+  } catch (err: any) {
+    Taro.showToast({ title: err.message || t('${ctx.plural}.createFailed'), icon: 'none' })
+  }
+}
+`
+    : '';
   // Taro 页面文案目前为**中文单语**（双语化 = CR-25 待办），故标签取 zh，与页面其余文案一致；
   // 不在此引入半套 i18n —— 那会把 CR-25 拆成两半、更难收口。
   const firstEnumLabels =
@@ -167,17 +203,7 @@ export function taroPageTemplate(ctx) {
       <text class="${ctx.plural}-page__count">{{ t('${ctx.plural}.count', { total: items.length }) }}</text>
     </view>
 
-    <view class="${ctx.plural}-page__input-bar">
-      <input
-        class="${ctx.plural}-page__input"
-        v-model="${first}"
-        :placeholder="t('${ctx.plural}.placeholder')"
-        confirm-type="done"
-        @confirm="handleAdd"
-      />
-      <button class="${ctx.plural}-page__add" size="mini" @click="handleAdd">{{ t('${ctx.plural}.add') }}</button>
-    </view>
-
+${addBar}
     <text v-if="store.isLoading" class="${ctx.plural}-page__hint">{{ t('common.loading') }}</text>
     <text v-if="store.error" class="${ctx.plural}-page__error">{{ store.error }}</text>
 
@@ -202,25 +228,13 @@ import { useI18n } from '../../composables/useI18n'
 const store = use${ctx.pluralPascal}Store()
 const { t } = useI18n()
 const { items } = storeToRefs(store)
-const ${first} = ref('')
+${addRef}
 ${firstLabelsDecl}
 onMounted(() => {
   store.load()
 })
 
-async function handleAdd() {
-  const text = ${first}.value.trim()
-  if (!text) {
-    Taro.showToast({ title: t('${ctx.plural}.inputRequired'), icon: 'none' })
-    return
-  }
-  try {
-    await store.add({ ${first}: text } as any)
-    ${first}.value = ''
-  } catch (err: any) {
-    Taro.showToast({ title: err.message || t('${ctx.plural}.createFailed'), icon: 'none' })
-  }
-}
+${addHandler}
 
 function handleRemove(item: any) {
   Taro.showModal({

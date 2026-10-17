@@ -54,6 +54,9 @@ export const WIRED_FILES = [
   'Front-Taro/src/i18n/zh.ts',
   'Front-Taro/src/i18n/en.ts',
   'Front-Taro/src/pages/explore/index.vue',
+  // wireAdmin appends the new module to the console's module list here.
+  // wireAdmin 在这里把新模块补进控制台的模块清单。
+  'CLAUDE.md',
   '.keelbase/manifest.json',
 ];
 
@@ -615,14 +618,16 @@ export async function wireTaro(ctx, root = '') {
         taroKeys({
           title: `'${ctx.pluralPascal}'`,
           count: `'{total} items'`,
-          placeholder: `'Add a ${ctx.singular}…'`,
+          // The identifier is an internal name; user-visible English reads it as words, not snake_case.
+          // 模块标识符是内部名；用户看到的英文按词读，不出现下划线。
+          placeholder: `'Add ${ctx.singular.replace(/_/g, ' ')}…'`,
           add: `'Add'`,
-          empty: `'No ${ctx.plural} yet'`,
-          inputRequired: `'Please enter a ${ctx.singular} name'`,
+          empty: `'No ${ctx.plural.replace(/_/g, ' ')} yet'`,
+          inputRequired: `'Please enter a ${ctx.singular.replace(/_/g, ' ')} name'`,
           createFailed: `'Failed to create'`,
           deleteTitle: `'Delete ${ctx.singlePascal}'`,
           deleteFailed: `'Failed to delete'`,
-          loadFailed: `'Failed to load ${ctx.plural}'`,
+          loadFailed: `'Failed to load ${ctx.plural.replace(/_/g, ' ')}'`,
         }),
         `'${ctx.plural}.title'`,
       ),

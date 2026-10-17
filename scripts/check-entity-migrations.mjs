@@ -72,7 +72,9 @@ const byTable = new Map(); // table name → [files]
 const unnamed = [];
 for (const f of entities) {
   const s = fs.readFileSync(f, 'utf8');
-  const named = s.match(/@Entity\(\s*\{?\s*name:\s*["']([^"']+)["']/);
+  // `name` need not be the first property: `@Entity({ schema: 'public', name: 'users' })` is valid.
+  // `name` 不必是第一个属性：`@Entity({ schema: 'public', name: 'users' })` 同样合法。
+  const named = s.match(/@Entity\(\s*\{[^}]*\bname:\s*["']([^"']+)["']/);
   const shorthand = s.match(/@Entity\(\s*["']([^"']+)["']/);
   const name = named?.[1] ?? shorthand?.[1];
   if (!name) {

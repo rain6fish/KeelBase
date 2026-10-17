@@ -341,6 +341,18 @@ test('Taro：附件为首字段时读侧表，且不引用类型里没有的成�
   // The wording moved into the dictionary, so the line is found by its key rather than by its Chinese.
   const confirm = page.split('\n').find((l) => l.includes("t('common.deleteConfirm'"));
   assert.ok(confirm.includes('item.attachments'), '删除确认用同一个表达式，否则行上会显示 undefined');
+  // 附件不是标量：新增栏不得绑定它，否则发的是 API 会丢弃的键、且漏掉真正的字段。
+  // An attachment is not a scalar: the add bar must not bind to it.
+  assert.ok(!page.includes('v-model="contract"'), '新增栏不得绑定附件字段');
+  assert.ok(!page.includes('store.add({ contract'), '新增不得发 API 会丢弃的键');
+  assert.ok(!page.includes('handleAdd'), '没有标量字段时不渲染新增栏与处理函数');
+});
+
+test('Taro：附件为首字段、其后有标量时，新增栏绑定那个标量', () => {
+  const page = taroPageTemplate(ctxWith([ATT_FIELD, { name: 'title', type: 'string' }]));
+  assert.ok(page.includes('v-model="title"'), '新增栏绑定第一个标量字段');
+  assert.ok(page.includes('store.add({ title: text }'), '新增发送第一个标量字段');
+  assert.ok(!page.includes('v-model="contract"'), '新增栏不得绑定附件字段');
 });
 
 test('Taro：附件不是首字段时，首字段显示与确认文案不变', () => {

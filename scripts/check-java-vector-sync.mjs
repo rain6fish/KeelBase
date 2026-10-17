@@ -63,7 +63,7 @@ const SYNC = argv.includes('--sync');
 
 if (!existsSync(JAVA_DIR)) {
   console.error(`✗ Java 快照目录不存在：${JAVA_DIR}`);
-  console.error('  用 --java <dir> 或 KEELBASE_JAVA_REPO 指定 Java 仓根（本检查需两仓同机；不在 CI 跑）。');
+  console.error('  用 --java <dir> 或 KEELBASE_JAVA_REPO 指定 Java 仓根（本检查需两仓同机；CI 的 java-vector-drift job 会检出两仓来跑）。');
   process.exit(2);
 }
 

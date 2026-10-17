@@ -53,7 +53,16 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const runners = [
   ...fs.readdirSync(path.join(ROOT, '.github/workflows')).map((f) => `.github/workflows/${f}`),
   'scripts/release-gate.sh',
-].map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+]
+  .map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8'))
+  // Comments are not wiring: release-gate.sh already names a gate script in its header comment, and a
+  // commented-out `run:` line is not a call. Without this, a gate nobody runs can still report as wired.
+  // 注释不算接线：release-gate.sh 的头注释里就出现过一道闸的脚本路径，而被注释掉的 `run:` 也不是调用。
+  // 不过滤的话，一道没人跑的闸仍会报「已接线」。
+  .join('\n')
+  .split('\n')
+  .filter((line) => !/^\s*#/.test(line))
+  .join('\n');
 
 const failures = [];
 const gates = Object.keys(pkg.scripts).filter((n) => n.startsWith('check:') && n !== 'check:all');
