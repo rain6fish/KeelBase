@@ -5,6 +5,10 @@ import { Reflector } from '@nestjs/core';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import { CHECK_POLICIES_KEY, PolicyHandler } from './check-policies.decorator';
 import { UserRole } from '../entities/user.entity';
+import {
+  buildDenialExplanation,
+  pickLanguageFromHeader,
+} from '../errors/denial-guidance';
 
 @Injectable()
 export class PoliciesGuard implements CanActivate {
@@ -36,17 +40,21 @@ export class PoliciesGuard implements CanActivate {
     }
 
     if (!handlers.every((handler) => handler(ability))) {
-      // W5-⑦ Explainable Authz：403 附「为何阻止」依据（前端可展示）
+      // W5-⑦ Explainable Authz：403 附「为何阻止」依据（前端可展示）。
+      // Trust-grade errors：同一 `explanation` 形状再带 reasonKey / nextStepKey / params，
+      // 按 Accept-Language 给出本地化文案 —— 客户端可自行翻译，也可直接展示。
+      //
+      // W5-⑦ Explainable Authz: the 403 carries "why" (frontend can render it). Trust-grade errors
+      // extend the same `explanation` object with reasonKey / nextStepKey / params and localized text,
+      // so a client can either translate the keys itself or display the text as-is.
       throw new ForbiddenException({
         statusCode: 403,
         message: 'Forbidden resource',
-        explanation: {
-          deniedBy: 'casl',
-          reason:
-            user.role === UserRole.ADMIN
-              ? '当前策略不允许此操作'
-              : '需要管理员权限，或该操作不在你的角色范围内',
-        },
+        explanation: buildDenialExplanation(
+          user.role === UserRole.ADMIN ? 'casl_admin' : 'casl_user',
+          { role: user.role ?? 'none' },
+          pickLanguageFromHeader(request.headers?.['accept-language']),
+        ),
       });
     }
 

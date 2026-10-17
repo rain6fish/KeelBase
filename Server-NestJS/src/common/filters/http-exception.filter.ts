@@ -14,13 +14,8 @@ import { Request, Response } from 'express';
 import { ApiResponse } from '../interfaces/api-response.interface';
 import { API_ERROR_CODES } from '../errors/api-error-codes';
 import { BusinessException } from '../errors/business.exception';
+import { pickLanguageFromHeader } from '../errors/denial-guidance';
 import { AlertWebhookService } from '../../alert-webhook/alert-webhook.service';
-
-/** 按 Accept-Language 选择语言（zh 开头 → 中文，其余 → 英文） */
-function pickLanguage(request: Request): 'zh' | 'en' {
-  const accept = request.headers['accept-language'];
-  return typeof accept === 'string' && accept.toLowerCase().startsWith('zh') ? 'zh' : 'en';
-}
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -34,7 +29,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const lang = pickLanguage(request);
+    const lang = pickLanguageFromHeader(request.headers['accept-language']);
 
     let httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = lang === 'zh' ? '服务器内部错误' : 'Internal server error';

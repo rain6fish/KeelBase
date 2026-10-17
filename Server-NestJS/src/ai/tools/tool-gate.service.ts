@@ -25,6 +25,7 @@ import {
 } from '../interfaces/tool.interface';
 import { resolveToolDestination } from './tool-destination';
 import { BusinessException } from '../../common/errors/business.exception';
+import type { DenialCause } from '../../common/errors/denial-guidance';
 import { UserRole } from '../../common/entities/user.entity';
 import { MetricsService } from '../../metrics/metrics.service';
 import { isFixtureUser } from '../constants/fixture-identity';
@@ -56,9 +57,14 @@ export class ToolGateService {
    * REV-15：拒绝的**唯一出口** —— 计数与抛出在同一处，所以「同一闸门、同一计数器」是**结构保证**的，
    * 不靠每个分支各自记得加一行。新加一条门控若绕开它，就直接少了证据（且审查时一眼可见）。
    */
-  private _refuse(userId: string, check: AuthorizationCheck, message: string): never {
+  private _refuse(
+    userId: string,
+    check: AuthorizationCheck,
+    message: string,
+    denial?: DenialCause,
+  ): never {
     this._countRefusal(userId, check.name);
-    throw new AuthorizationDeniedError(message, [check]);
+    throw new AuthorizationDeniedError(message, [check], denial);
   }
 
   /**
@@ -97,6 +103,7 @@ export class ToolGateService {
         userId,
         { name: 'risk_policy', ok: false, note: `风险级 R5（不可逆/外部动作）→ 阻断` },
         `Tool "${toolName}" is blocked (risk level R5)`,
+        { kind: 'risk_r5', params: { tool: toolName } },
       );
     }
 
@@ -108,6 +115,7 @@ export class ToolGateService {
           userId,
           { name: 'tool_enabled', ok: false, note: '治理策略禁用此工具' },
           `Tool "${toolName}" is disabled by governance policy`,
+          { kind: 'tool_disabled', params: { tool: toolName } },
         );
       }
       const allowedRoles = await this.governancePolicy.getAllowedRoles(toolName);
@@ -127,6 +135,14 @@ export class ToolGateService {
               note: `需要角色 [${allowedRoles.join(', ')}]${user ? `，当前 ${user.role ?? '无角色'}` : ''}`,
             },
             `Tool "${toolName}" is restricted to roles: ${allowedRoles.join(', ')}`,
+            {
+              kind: 'role_denied',
+              params: {
+                tool: toolName,
+                allowedRoles: allowedRoles.join(', '),
+                currentRole: user?.role ?? 'none',
+              },
+            },
           );
         }
       }
@@ -144,6 +160,10 @@ export class ToolGateService {
         userId,
         { name: 'feature_flag', ok: false, note: `特性开关 ${perms.featureFlag} 关闭` },
         `Tool "${toolName}" is disabled (feature flag "${perms.featureFlag}" off)`,
+        {
+          kind: 'feature_disabled',
+          params: { tool: toolName, featureFlag: perms.featureFlag },
+        },
       );
     }
 
@@ -158,6 +178,7 @@ export class ToolGateService {
           userId,
           { name: 'admin_only', ok: false, note: '仅管理员/系统账号可用' },
           `Tool "${toolName}" is admin-only`,
+          { kind: 'admin_only', params: { tool: toolName } },
         );
       }
     }
@@ -232,6 +253,14 @@ export class ToolGateService {
             note: `目的地 ${destination} 不在白名单 [${allowedDestinations.join(', ')}]`,
           },
           `Tool "${toolName}" is not allowed to write to destination "${destination}" (allowed: ${allowedDestinations.join(', ')})`,
+          {
+            kind: 'destination_denied',
+            params: {
+              tool: toolName,
+              destination,
+              allowedDestinations: allowedDestinations.join(', '),
+            },
+          },
         );
       }
     }
@@ -248,6 +277,14 @@ export class ToolGateService {
             note: `字段 ${outOfDomain.join(', ')} 不在可写域 [${writableFields.join(', ')}]`,
           },
           `Tool "${toolName}" received arguments outside its writable field domain: ${outOfDomain.join(', ')}`,
+          {
+            kind: 'field_out_of_domain',
+            params: {
+              tool: toolName,
+              outOfDomain: outOfDomain.join(', '),
+              writableFields: writableFields.join(', '),
+            },
+          },
         );
       }
     }
@@ -268,6 +305,10 @@ export class ToolGateService {
             note: `${field} 超出声明界限（须为 ≤ ${bound.max} 的有限数）`,
           },
           `Tool "${toolName}" received ${field} outside its declared bound (<= ${bound.max})`,
+          {
+            kind: 'field_out_of_bound',
+            params: { tool: toolName, field, max: bound.max },
+          },
         );
       }
     }
@@ -343,6 +384,7 @@ export class ToolGateService {
         note: '该工具此刻要求人工审批，而本次执行持有的凭据不是一位审批人的批准（策略可能在等待窗口内升档）',
       },
       `Tool "${toolName}" requires human approval, and this execution does not hold one`,
+      { kind: 'approval_missing', params: { tool: toolName } },
     );
   }
 

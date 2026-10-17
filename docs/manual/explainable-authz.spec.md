@@ -84,6 +84,34 @@ interface PermissionExplanation {
 { "code": 403, "message": "无权访问此客户", "data": { "explanation": { "deniedBy": "casl", "reason": "只能操作自己的数据" } } }
 ```
 
+**信任化错误信息（2026-10-17）**：`explanation` 在原 `{ deniedBy, reason }` 之上**纯加性**扩展，
+成为 403 / AI 工具门控拒绝 / 确认超时共用的**唯一形状**（构造器 = `src/common/errors/denial-guidance.ts`）：
+
+```json
+{
+  "deniedBy": "casl",
+  "reasonKey": "ai.deny.casl_user.reason",
+  "nextStepKey": "ai.deny.casl_user.nextStep",
+  "reason": "需要管理员权限，或该操作不在你的角色范围内。",
+  "nextStep": "请切换管理员账号，或请管理员调整你的角色权限。",
+  "params": { "role": "user" }
+}
+```
+
+- `reasonKey` / `nextStepKey`：稳定 i18n key，客户端可忽略服务端文案、按语言自行渲染。
+- `reason` / `nextStep`：服务端按 `Accept-Language` 本地化后的可执行文案（默认英文）。
+- `params`：插值参数（工具名 / 角色 / 目的地 / 窗口秒数等），供客户端自行插值。
+- `deniedBy` 取值：`casl`（CASL 策略）、`governance`（治理策略 / 角色 / 范围 / 审批）、
+  `risk_policy`（R5 恒阻断）、`confirmation`（确认超时 / token 失效）。
+- 落点：
+  - HTTP 403：`body.explanation`（本文 §3.3）。
+  - AI 工具拒绝（策略 / R5 / 目的地绑定 / 只读子代理）：SSE `tool_end.toolEnd.explanation`
+    （拒绝发生在 `tool_start` 之前也发 `tool_end`；成功路径不带该字段）。
+  - 确认超时：SSE `tool_end.toolEnd.explanation`（`deniedBy: 'confirmation'`）。
+  - MCP 出口：JSON-RPC `error.data.explanation`。
+  - 确认 token 不存在 / 已过期 / 已裁决 / 他人 token：404 `body.explanation`（同形返回，不泄露存在性）。
+- **不泄漏**：文案只含调用方自己的角色、本次工具名、策略声明与窗口读数，不含内部路径 / SQL / 他人信息。
+
 ## 4. UX（挂旗舰内，验证优先）
 
 | 面 | 视图 | 展示 |

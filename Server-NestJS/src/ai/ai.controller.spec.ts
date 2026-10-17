@@ -386,6 +386,26 @@ describe('AiController', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('确认失败 → 404 带 explanation（为什么 + 怎么解决，按 zh 渲染）', async () => {
+      mockConfirmResolve.mockReturnValue(false);
+      const err = await controller
+        .confirm('tok-1', { decision: 'approve' }, mockUser as any, 'zh-CN,zh;q=0.9')
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      const resp = (err as NotFoundException).getResponse() as {
+        message: string;
+        explanation: Record<string, unknown>;
+      };
+      expect(resp.message).toContain('不存在或已过期');
+      expect(resp.explanation).toMatchObject({
+        deniedBy: 'confirmation',
+        reasonKey: 'ai.deny.confirmation_invalid.reason',
+        nextStepKey: 'ai.deny.confirmation_invalid.nextStep',
+      });
+      expect(resp.explanation.reason).toContain('确认请求');
+      expect(resp.explanation.nextStep).toContain('重新发起');
+    });
+
     it('decision 为 decline 时透传 trustTool 默认 false', async () => {
       mockConfirmResolve.mockReturnValue(true);
       const result = await controller.confirm('tok-2', { decision: 'decline' }, mockUser as any);

@@ -45,6 +45,10 @@ import {
 } from './interfaces/tool.interface';
 import { GovernancePolicyService } from './governance-bridge/governance-policy.service';
 import {
+  buildDenialExplanation,
+  type DenialLanguage,
+} from '../common/errors/denial-guidance';
+import {
   markSystemBoundary,
   sanitizeExternalContent,
   sanitizeMemoryEntry,
@@ -395,11 +399,20 @@ export class AiService {
   async chat(
     userId: string,
     request: ChatRequest,
+    /**
+     * Response language for executable refusal guidance. Optional so internal callers (eval,
+     * headless, trust sandbox) keep their current signature; the HTTP entry passes the request's
+     * Accept-Language. Defaults to English per the repo's English-first rule.
+     *
+     * 可执行拒绝指引的响应语言。可选，使评测 / headless / 信任沙盘等内部调用方保持原签名；
+     * HTTP 入口传入请求的 Accept-Language。按本仓「英文在前」的口径默认英文。
+     */
+    lang: DenialLanguage = 'en',
   ): Promise<ChatResponse> {
     const reserved = await this.enforceDailyLimit(userId);
     try {
       return await withSpan('ai.chat', async () => {
-        return this.chatImpl(userId, request);
+        return this.chatImpl(userId, request, lang);
       }, {
         'ai.user_id': userId,
         'ai.provider': request.provider,
@@ -592,6 +605,7 @@ export class AiService {
   private async chatImpl(
     userId: string,
     request: ChatRequest,
+    lang: DenialLanguage = 'en',
   ): Promise<ChatResponse> {
     // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
     await this._checkContentSafety(request.message, userId);
@@ -729,6 +743,7 @@ export class AiService {
           providerName,
           conversationId,
           userId,
+          lang,
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this.toolExposure.buildToolDefs(),
           fallbackProviders: this.llmRouter.fallbackChain(providerName),
@@ -793,6 +808,7 @@ export class AiService {
           providerName,
           conversationId,
           userId,
+          lang,
           model: request.model ?? this.config.defaultModel,
           initialToolDefs: await this.toolExposure.buildToolDefs(),
           fallbackProviders: this.llmRouter.fallbackChain(providerName),
@@ -811,6 +827,7 @@ export class AiService {
         providerName,
         conversationId,
         userId,
+        lang,
         model: request.model ?? this.config.defaultModel,
         initialToolDefs: await this.toolExposure.buildToolDefs(),
         fallbackProviders: this.llmRouter.fallbackChain(providerName),
@@ -868,6 +885,8 @@ export class AiService {
   async *chatStream(
     userId: string,
     request: ChatRequest,
+    /** Same as `chat`: localization for executable refusal guidance; English when the caller has no request. */
+    lang: DenialLanguage = 'en',
   ): AsyncIterable<StreamChunk> {
     // RG-2.1：流式路径限额超限 → 转为 error chunk（不抛给迭代器）
     let reserved = false;
@@ -886,7 +905,7 @@ export class AiService {
       },
     });
     try {
-      yield* this.chatStreamImpl(userId, request);
+      yield* this.chatStreamImpl(userId, request, lang);
       span.end();
     } catch (err) {
       // 对话失败释放预留槽（成功保留 = 计入当日用量）
@@ -901,6 +920,7 @@ export class AiService {
   private async *chatStreamImpl(
     userId: string,
     request: ChatRequest,
+    lang: DenialLanguage = 'en',
   ): AsyncIterable<StreamChunk> {
     // N-6 AI-23 内容安全：敏感词/越狱/注入 → 拒绝（读 Settings 动态配置 + 命中审计）
     await this._checkContentSafety(request.message, userId);
@@ -1343,6 +1363,26 @@ export class AiService {
                     ? 'User did not respond in time'
                     : 'User declined the operation',
               };
+              // Trust-grade errors：超时也带「为什么 + 怎么解决」，与 403 / 策略拒绝共用
+              // `explanation` 形状。decline 是用户明确选择，不附指引。
+              //
+              // A timeout carries the same `explanation` shape as a 403 / policy refusal. A decline is
+              // an explicit user choice, so it gets no guidance.
+              const timeoutExplanation =
+                outcome === 'timeout'
+                  ? buildDenialExplanation(
+                      'confirmation_timeout',
+                      {
+                        tool: tc.name,
+                        ttlSeconds: await this._confirmationTtlSeconds(),
+                        offlineTtlHours: Math.max(
+                          1,
+                          Math.round((await this.confirmationStore.offlineTtlMs()) / 3_600_000),
+                        ),
+                      },
+                      lang,
+                    )
+                  : undefined;
               yield {
                 type: 'confirmation_decision',
                 confirmationDecision: { toolName: tc.name, decision: outcome, approved: false },
@@ -1356,6 +1396,7 @@ export class AiService {
                     outcome === 'timeout'
                       ? { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' }
                       : { key: 'ai.present.result.cancelled', fallback: 'Cancelled' },
+                  ...(timeoutExplanation ? { explanation: timeoutExplanation } : {}),
                 },
               };
             }
@@ -1410,13 +1451,23 @@ export class AiService {
             }
           }
         } catch (err) {
-          // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片
-          if (started) {
-            // W5-⑦ Explainable Authz：授权拒绝透出「为何阻止」（结构化检查清单）
-            const denied =
-              err instanceof AuthorizationDeniedError
-                ? { reason: err.message, checks: err.reasons }
-                : undefined;
+          // 已发出 tool_start 则补发失败的 tool_end，避免前端悬空"执行中"卡片。
+          // Trust-grade errors：**授权拒绝即使发生在 tool_start 之前**（策略 / R5 在门控段就拒）
+          // 也要发一条 tool_end —— 否则响应体里只有模型转述，客户端拿不到「为什么 + 怎么解决」。
+          //
+          // Close a dangling "executing" card when tool_start was emitted. Trust-grade errors also emit
+          // a tool_end when the refusal happened **before** tool_start (policy / R5 are decided in the
+          // gate): otherwise the response body carries only the model's paraphrase, and a client cannot
+          // read the why + next step.
+          const denied =
+            err instanceof AuthorizationDeniedError
+              ? { reason: err.message, checks: err.reasons }
+              : undefined;
+          const explanation =
+            err instanceof AuthorizationDeniedError && err.denial
+              ? buildDenialExplanation(err.denial.kind, err.denial.params, lang)
+              : undefined;
+          if (started || denied) {
             yield {
               type: 'tool_end',
               toolEnd: {
@@ -1427,6 +1478,8 @@ export class AiService {
                   : { key: 'ai.present.result.error', fallback: 'The tool failed' },
                 error: denied ? denied.reason : 'Tool execution failed',
                 authorizationDenied: denied,
+                // The shared 403 shape: why + how to solve, machine-readable + localized.
+                ...(explanation ? { explanation } : {}),
               },
             };
           }
@@ -1518,6 +1571,8 @@ export class AiService {
     fallbackProviders: string[];
     images?: string[];
     systemPrompt?: string;
+    /** Response language for executable refusal guidance (see `chat`). */
+    lang?: DenialLanguage;
   }): Promise<{ finalContent: string; usage?: { promptTokens: number; completionTokens: number }; navigateTo?: string; toolCalls?: string[] }> {
     const builtMessages = await this.buildMessages(params.conversationId, params.images, params.systemPrompt);
     let messages = builtMessages.messages;
@@ -1644,15 +1699,24 @@ export class AiService {
             tool_call_id: tc.id,
           });
         } catch (err) {
-          // W5-⑦：非流式路径也透传结构化拒绝原因（此前只流式透传），让模型看到「为何阻止」
+          // W5-⑦：非流式路径也透传结构化拒绝原因（此前只流式透传），让模型看到「为何阻止」。
+          // Trust-grade errors：同一份 `explanation` 也交给模型，使最终回答能说出「为什么 + 怎么解决」。
+          //
+          // W5-⑦: the non-stream path passes structured deny reasons to the model. Trust-grade errors
+          // also hand it the shared `explanation`, so the final reply can state why + the next step.
           const denied = err instanceof AuthorizationDeniedError;
           const deniedMsg = denied ? err.message : `Failed to execute tool "${tc.name}"`;
+          const explanation =
+            denied && err.denial
+              ? buildDenialExplanation(err.denial.kind, err.denial.params, params.lang ?? 'en')
+              : undefined;
           messages.push({
             role: 'tool',
             content: JSON.stringify({
               success: false,
               error: deniedMsg,
               ...(denied ? { reasons: err.reasons } : {}),
+              ...(explanation ? { explanation } : {}),
             }),
             tool_call_id: tc.id,
           });

@@ -288,3 +288,121 @@ describe('ACT-7 执行点重算审批要求', () => {
     );
   });
 });
+
+/**
+ * Trust-grade denial guidance: every gate refusal names its kind and the params a boundary needs
+ * to render "why + how to solve" in the request language.
+ *
+ * 信任化拒绝指引：每道闸的拒绝都带类别与参数，响应边界据此渲染「为什么 + 怎么解决」。
+ */
+describe('Trust-grade denial guidance（explanation 的单一来源）', () => {
+  it('R5 阻断 → risk_r5 + 工具名', async () => {
+    const { gate } = makeGate({ riskLevel: 'R5' });
+
+    await expect(gate.assertToolAllowed('delete_customer', '7')).rejects.toMatchObject({
+      denial: { kind: 'risk_r5', params: { tool: 'delete_customer' } },
+    });
+  });
+
+  it('治理策略禁用 → tool_disabled + 工具名', async () => {
+    const policy = {
+      isToolEnabled: jest.fn().mockResolvedValue(false),
+      getAllowedRoles: jest.fn().mockResolvedValue([]),
+    };
+    const { gate } = makeGate({ policy });
+
+    await expect(gate.assertToolAllowed('create_event', '7')).rejects.toMatchObject({
+      denial: { kind: 'tool_disabled', params: { tool: 'create_event' } },
+    });
+  });
+
+  it('角色白名单拒绝 → role_denied，带允许角色与当前角色', async () => {
+    const policy = {
+      isToolEnabled: jest.fn().mockResolvedValue(true),
+      getAllowedRoles: jest.fn().mockResolvedValue(['admin', 'ops']),
+    };
+    const { gate } = makeGate({ policy });
+    (gate as unknown as { usersService: unknown }).usersService = {
+      findOne: jest.fn().mockResolvedValue({ id: 7, role: 'user' }),
+    };
+
+    await expect(gate.assertToolAllowed('create_event', '7')).rejects.toMatchObject({
+      denial: {
+        kind: 'role_denied',
+        params: {
+          tool: 'create_event',
+          allowedRoles: 'admin, ops',
+          currentRole: 'user',
+        },
+      },
+    });
+  });
+
+  it('特性开关关闭 → feature_disabled + 开关名', async () => {
+    const { gate } = makeGate();
+    (gate as unknown as { featureFlagsService: unknown }).featureFlagsService = {
+      isEnabled: jest.fn().mockReturnValue(false),
+    };
+    (gate as unknown as { toolRegistry: { getTool: jest.Mock } }).toolRegistry.getTool = jest.fn(
+      () => ({ name: 'x', permissions: { featureFlag: 'ai' } }),
+    );
+
+    await expect(gate.assertToolAllowed('create_event', '7')).rejects.toMatchObject({
+      denial: {
+        kind: 'feature_disabled',
+        params: { tool: 'create_event', featureFlag: 'ai' },
+      },
+    });
+  });
+
+  it('adminOnly 拒绝 → admin_only + 工具名', async () => {
+    const { gate } = makeGate();
+    (gate as unknown as { usersService: unknown }).usersService = {
+      findOne: jest.fn().mockResolvedValue({ id: 7, role: 'user' }),
+    };
+    (gate as unknown as { toolRegistry: { getTool: jest.Mock } }).toolRegistry.getTool = jest.fn(
+      () => ({ name: 'x', permissions: { adminOnly: true } }),
+    );
+
+    await expect(gate.assertToolAllowed('navigate_admin_page', '7')).rejects.toMatchObject({
+      denial: { kind: 'admin_only', params: { tool: 'navigate_admin_page' } },
+    });
+  });
+
+  it('字段界限越界 → field_out_of_bound + 字段与上界', async () => {
+    const policy = {
+      getToolPolicy: jest.fn().mockResolvedValue({
+        allowedDestinations: [],
+        writableFields: [],
+        boundedFields: { amount: { max: 10000 } },
+      }),
+    };
+    const { gate } = makeGate({ policy });
+
+    await expect(
+      gate.assertWithinDeclaredScope('create_invoice', { amount: 10001 }, '7'),
+    ).rejects.toMatchObject({
+      denial: {
+        kind: 'field_out_of_bound',
+        params: { tool: 'create_invoice', field: 'amount', max: 10000 },
+      },
+    });
+  });
+
+  it('审批凭据不成立 → approval_missing + 工具名', async () => {
+    const { gate } = makeGate({ riskLevel: 'R4' });
+
+    await expect(
+      gate.assertApprovalRequirementHolds('create_task', '7', 'tok-1'),
+    ).rejects.toMatchObject({
+      denial: { kind: 'approval_missing', params: { tool: 'create_task' } },
+    });
+  });
+
+  it('放行不带 denial —— 成功路径没有「为什么被拒」', async () => {
+    const { gate, metrics } = makeGate({ riskLevel: 'R1' });
+
+    await expect(gate.assertToolAllowed('query_events', '7')).resolves.toBeUndefined();
+    expect(metrics.toolGateRefusalsTotal.inc).not.toHaveBeenCalled();
+  });
+});

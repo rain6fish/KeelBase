@@ -22,6 +22,7 @@ import {
   DefaultValuePipe,
   Put,
   Patch,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import {
@@ -38,6 +39,10 @@ import { actorContext } from './actor-context';
 import { ConversationService } from './conversation/conversation.service';
 import { ConfirmationStore } from './confirmation/confirmation.store';
 import { MyConfirmationService } from './confirmation/my-confirmation.service';
+import {
+  buildDenialExplanation,
+  pickLanguageFromHeader,
+} from '../common/errors/denial-guidance';
 import { AuditEvidenceService } from './audit/audit-evidence.service';
 import { MemoriesService } from './memory/memory.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
@@ -94,17 +99,24 @@ export class AiController {
   async chat(
     @Body() dto: ChatRequestDto,
     @CurrentUser() user: JwtPayload,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
     // Agent Identity（评审二 §5）：access token 会话标识贯穿审计
     // AU-6（§22.19）：入口来源 source=web（首方客户端对话入口）
+    const chatRequest = {
+      message: dto.message,
+      provider: dto.provider,
+      model: dto.model,
+      conversationId: dto.conversationId,
+      images: dto.images,
+    };
+    // Only add the language argument when the request actually negotiated one, so the existing
+    // two-argument call shape stays untouched for callers/tests that send no Accept-Language.
+    // 仅在请求确实带语言协商时追加参数；未带 Accept-Language 的调用保持原来的两参形态。
     return actorContext.run({ sessionId: user.sessionId, username: user.username, source: 'web' }, () =>
-      this.aiService.chat(String(user.sub), {
-        message: dto.message,
-        provider: dto.provider,
-        model: dto.model,
-        conversationId: dto.conversationId,
-        images: dto.images,
-      }),
+      acceptLanguage
+        ? this.aiService.chat(String(user.sub), chatRequest, pickLanguageFromHeader(acceptLanguage))
+        : this.aiService.chat(String(user.sub), chatRequest),
     );
   }
 
@@ -122,6 +134,7 @@ export class AiController {
     @Body() dto: ChatRequestDto,
     @CurrentUser() user: JwtPayload,
     @Res() response: Response,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
     // 设置 SSE 头部
     response.setHeader('Content-Type', 'text/event-stream');
@@ -129,13 +142,22 @@ export class AiController {
     response.setHeader('Connection', 'keep-alive');
     response.flushHeaders();
 
-    const stream = this.aiService.chatStream(String(user.sub), {
+    const streamRequest = {
       message: dto.message,
       provider: dto.provider,
       model: dto.model,
       conversationId: dto.conversationId,
       images: dto.images,
-    });
+    };
+    // Same rule as `chat`: keep the two-argument call shape when no language was negotiated.
+    // 与 `chat` 同口径：未协商语言时保持两参调用形态。
+    const stream = acceptLanguage
+      ? this.aiService.chatStream(
+          String(user.sub),
+          streamRequest,
+          pickLanguageFromHeader(acceptLanguage),
+        )
+      : this.aiService.chatStream(String(user.sub), streamRequest);
 
     // 客户端断开时停止
     let aborted = false;
@@ -178,6 +200,7 @@ export class AiController {
     @Param('token') token: string,
     @Body() dto: ConfirmDecisionDto,
     @CurrentUser() user: JwtPayload,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
     const ok = await this.confirmationStore.resolve(
       token,
@@ -186,7 +209,19 @@ export class AiController {
       dto.trustTool,
     );
     if (!ok) {
-      throw new NotFoundException('确认请求不存在或已过期');
+      // Non-leaking: the same response covers not-found, expired, already-decided and wrong-owner.
+      // The explanation says why + how to recover without revealing whether someone else's token exists.
+      //
+      // 不泄漏：不存在 / 已过期 / 已裁决 / 他人 token 同形返回。指引给出原因与恢复动作，
+      // 不透露他人 token 是否存在。
+      const lang = pickLanguageFromHeader(acceptLanguage);
+      throw new NotFoundException({
+        message:
+          lang === 'zh'
+            ? '确认请求不存在或已过期'
+            : 'Confirmation request not found or expired',
+        explanation: buildDenialExplanation('confirmation_invalid', undefined, lang),
+      });
     }
     return { ok: true, trustTool: dto.trustTool ?? false };
   }

@@ -502,6 +502,19 @@ beforeEach(installAiServiceTestbed);
         { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' },
         { key: 'ai.present.result.timeout', fallback: 'Timed out without a decision' },
       ]);
+      // Trust-grade errors：超时也带「为什么 + 怎么解决」，按请求语言（此处默认英文）渲染。
+      for (const end of toolEnds) {
+        expect((end as any).toolEnd.explanation).toMatchObject({
+          deniedBy: 'confirmation',
+          reasonKey: 'ai.deny.confirmation_timeout.reason',
+          nextStepKey: 'ai.deny.confirmation_timeout.nextStep',
+        });
+        expect((end as any).toolEnd.explanation.reason).toContain('confirmation window');
+        expect((end as any).toolEnd.explanation.params).toMatchObject({
+          ttlSeconds: expect.any(Number),
+          offlineTtlHours: expect.any(Number),
+        });
+      }
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
 
@@ -1151,6 +1164,109 @@ beforeEach(installAiServiceTestbed);
       // 超限道歉文案 yield 给客户端
       expect(texts.some((c) => c.content.includes('unable to complete'))).toBe(true);
       expect(chunks[chunks.length - 1].type).toBe('done');
+    });
+
+    /**
+     * Trust-grade errors：三类拒绝在**真实流式入口**上都要给出「为什么 + 怎么解决」，
+     * 且成功路径不带这些字段（避免噪音）。
+     *
+     * Trust-grade errors: all three refusal classes must expose why + next step on the real stream
+     * entry point, and the success path must not carry them.
+     */
+    it('策略拒绝：tool_end 在 tool_start 之前也发出，并带 explanation（zh）', async () => {
+      async function* mockWithTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'query_events', arguments: '{}' },
+        };
+      }
+      async function* mockAfter() {
+        yield { type: 'text' as const, content: 'blocked' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockWithTool())
+        .mockReturnValueOnce(mockAfter());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+      (mockToolGate as any).governancePolicy = {
+        isToolEnabled: jest.fn().mockResolvedValue(false),
+        getAllowedRoles: jest.fn().mockResolvedValue([]),
+      };
+
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'query' }, 'zh')) chunks.push(c);
+
+      // 拒绝发生在门控段 → 没有 tool_start；但 tool_end 仍要可见（否则响应体只有模型转述）
+      expect(chunks.filter((c) => c.type === 'tool_start')).toHaveLength(0);
+      const end = chunks.find((c) => c.type === 'tool_end');
+      expect(end?.toolEnd?.authorizationDenied?.checks[0].name).toBe('tool_enabled');
+      expect(end?.toolEnd?.explanation).toMatchObject({
+        deniedBy: 'governance',
+        reasonKey: 'ai.deny.tool_disabled.reason',
+        nextStepKey: 'ai.deny.tool_disabled.nextStep',
+        params: { tool: 'query_events' },
+      });
+      expect(end?.toolEnd?.explanation?.reason).toContain('治理策略');
+      expect(end?.toolEnd?.explanation?.nextStep).toContain('策略中心');
+
+      (mockToolGate as any).governancePolicy = undefined;
+    });
+
+    it('R5 阻断：tool_end 带 explanation（deniedBy=risk，下一步可执行）', async () => {
+      async function* mockWithTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'delete_customer', arguments: '{}' },
+        };
+      }
+      async function* mockAfter() {
+        yield { type: 'text' as const, content: 'blocked' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockWithTool())
+        .mockReturnValueOnce(mockAfter());
+      mockToolRegistry.getTool.mockReturnValue(mockTool());
+      mockToolRegistry.riskLevel.mockReturnValue('R5');
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'delete' })) chunks.push(c);
+
+      const end = chunks.find((c) => c.type === 'tool_end');
+      expect(end?.toolEnd?.explanation).toMatchObject({
+        deniedBy: 'risk_policy',
+        reasonKey: 'ai.deny.risk_r5.reason',
+        nextStepKey: 'ai.deny.risk_r5.nextStep',
+        params: { tool: 'delete_customer' },
+      });
+      expect(end?.toolEnd?.explanation?.reason).toMatch(/R5/);
+      expect(end?.toolEnd?.explanation?.nextStep).toContain('reversible');
+    });
+
+    it('成功路径不带 explanation（同一路径不产生噪音）', async () => {
+      async function* mockWithTool() {
+        yield {
+          type: 'tool_call' as const,
+          toolCall: { index: 0, id: 'c1', name: 'query_events', arguments: '{}' },
+        };
+      }
+      async function* mockAfter() {
+        yield { type: 'text' as const, content: 'ok' };
+        yield { type: 'done' as const };
+      }
+      mockProvider.stream
+        .mockReturnValueOnce(mockWithTool())
+        .mockReturnValueOnce(mockAfter());
+      mockToolRegistry.requiresConfirmation.mockReturnValue(false);
+      mockToolRegistry.execute.mockResolvedValue({ success: true, data: [] });
+
+      const chunks: any[] = [];
+      for await (const c of aiService.chatStream('1', { message: 'query' })) chunks.push(c);
+
+      const end = chunks.find((c) => c.type === 'tool_end');
+      expect(end?.toolEnd?.success).toBe(true);
+      expect(end?.toolEnd?.explanation).toBeUndefined();
     });
   });
 

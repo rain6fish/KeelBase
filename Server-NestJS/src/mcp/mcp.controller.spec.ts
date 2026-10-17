@@ -261,6 +261,35 @@ describe('McpExportController (HS-10)', () => {
     expect((res as any).error.message).toBe('无权访问此工具');
   });
 
+  it('Trust-grade：MCP 拒绝在 JSON-RPC error.data.explanation 带「为什么 + 怎么解决」（zh）', async () => {
+    ai.executeToolForExternal.mockRejectedValue(
+      new AuthorizationDeniedError(
+        'Tool "delete_customer" is blocked (risk level R5)',
+        [{ name: 'risk_policy', ok: false }],
+        { kind: 'risk_r5', params: { tool: 'delete_customer' } },
+      ),
+    );
+    const res = await controller.handle(
+      user,
+      {
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: { name: 'delete_customer', arguments: {} },
+      },
+      'zh-CN,zh;q=0.9',
+    );
+
+    expect((res as any).error.data.explanation).toMatchObject({
+      deniedBy: 'risk_policy',
+      reasonKey: 'ai.deny.risk_r5.reason',
+      nextStepKey: 'ai.deny.risk_r5.nextStep',
+      params: { tool: 'delete_customer' },
+    });
+    expect((res as any).error.data.explanation.reason).toContain('R5');
+    expect((res as any).error.data.explanation.nextStep).toContain('低风险工具');
+  });
+
   it('T5 tools/call 风险策略拒绝（risk_policy）→ outcome=blocked（未到裁决，另一道闸）', async () => {
     ai.executeToolForExternal.mockRejectedValue(
       new AuthorizationDeniedError('blocked by risk policy', [{ name: 'risk_policy', ok: false }]),

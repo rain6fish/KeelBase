@@ -55,6 +55,57 @@ describe('PoliciesGuard', () => {
     await expect(guard.canActivate(makeContext(request))).rejects.toThrow('Forbidden resource');
   });
 
+  it('403 explanation 带「为什么 + 怎么解决」：共享形状 + zh 文案 + 机器可读 key', async () => {
+    reflector.getAllAndOverride.mockReturnValue([() => false]);
+    const request: Record<string, unknown> = {
+      user,
+      headers: { 'accept-language': 'zh-CN,zh;q=0.9' },
+    };
+
+    const err = await guard.canActivate(makeContext(request)).catch((e: unknown) => e);
+    const explanation = (err as { getResponse: () => { explanation: Record<string, unknown> } })
+      .getResponse().explanation;
+
+    expect(explanation).toMatchObject({
+      deniedBy: 'casl',
+      reasonKey: 'ai.deny.casl_user.reason',
+      nextStepKey: 'ai.deny.casl_user.nextStep',
+      params: { role: 'user' },
+    });
+    expect(explanation.reason).toContain('管理员');
+    expect(explanation.nextStep).toContain('管理员');
+  });
+
+  it('403 explanation 跟随 Accept-Language：en 请求得到英文文案（同一 key）', async () => {
+    reflector.getAllAndOverride.mockReturnValue([() => false]);
+    const request: Record<string, unknown> = {
+      user,
+      headers: { 'accept-language': 'en-US,en;q=0.9' },
+    };
+
+    const err = await guard.canActivate(makeContext(request)).catch((e: unknown) => e);
+    const explanation = (err as { getResponse: () => { explanation: Record<string, unknown> } })
+      .getResponse().explanation;
+
+    expect(explanation.reasonKey).toBe('ai.deny.casl_user.reason');
+    expect(explanation.reason).toContain('Administrator privileges');
+    expect(explanation.nextStep).toContain('administrator');
+  });
+
+  it('admin 被策略拒 → casl_admin 类别（文案与普通用户不同）', async () => {
+    reflector.getAllAndOverride.mockReturnValue([() => false]);
+    const request: Record<string, unknown> = {
+      user: { ...user, role: UserRole.ADMIN },
+      headers: { 'accept-language': 'en' },
+    };
+
+    const err = await guard.canActivate(makeContext(request)).catch((e: unknown) => e);
+    const explanation = (err as { getResponse: () => { explanation: Record<string, unknown> } })
+      .getResponse().explanation;
+
+    expect(explanation.reasonKey).toBe('ai.deny.casl_admin.reason');
+  });
+
   it('策略按顺序逐个执行（every 短路）', async () => {
     const first = jest.fn(() => false);
     const second = jest.fn(() => true);

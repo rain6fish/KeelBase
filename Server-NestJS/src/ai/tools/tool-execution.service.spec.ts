@@ -283,6 +283,7 @@ describe('ToolExecutionService（执行域）', () => {
         .catch((e: any) => e);
       expect(err.message).toContain('write/confirmation-gated');
       expect(err.reasons.some((c: any) => c.name === 'agent_read_only' && c.ok === false)).toBe(true);
+      expect(err.denial).toEqual({ kind: 'agent_read_only', params: { tool: 'create_event' } });
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
 
@@ -334,6 +335,14 @@ describe('ToolExecutionService（执行域）', () => {
       expect(err.reasons).toEqual([
         expect.objectContaining({ name: 'destination_binding', ok: false }),
       ]);
+      expect(err.denial).toEqual({
+        kind: 'destination_changed',
+        params: {
+          tool: 'create_invoice',
+          confirmedFor: 'legacy-erp',
+          current: 'legacy-crm',
+        },
+      });
       expect(mockToolRegistry.execute).not.toHaveBeenCalled();
     });
 

@@ -8,6 +8,7 @@
  */
 
 import { LlmUsage } from '../llm-usage';
+import type { DenialCause } from '../../common/errors/denial-guidance';
 
 /**
  * One human-readable line about a tool call, addressed to whichever renderer will show it.
@@ -179,7 +180,19 @@ export interface AuthorizationReasons {
  * message 保持原拒绝文案（兼容既有 toThrow 断言）。
  */
 export class AuthorizationDeniedError extends Error {
-  constructor(message: string, public readonly reasons: AuthorizationCheck[]) {
+  /**
+   * `denial` carries the language-agnostic kind + params for the shared `explanation` object.
+   * It is optional so existing throw sites that already say enough (`reasons`) keep working
+   * unchanged; the response boundary simply omits the explanation when it is absent.
+   *
+   * `denial` 携带共享 `explanation` 所需的「语言无关类别 + 参数」。它是可选的：已经说清楚的既有
+   * 抛出点（`reasons`）无需改动；响应边界在缺席时省略 explanation。
+   */
+  constructor(
+    message: string,
+    public readonly reasons: AuthorizationCheck[],
+    public readonly denial?: DenialCause,
+  ) {
     super(message);
     this.name = 'AuthorizationDeniedError';
   }

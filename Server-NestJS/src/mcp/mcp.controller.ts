@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +17,11 @@ import {
   buildAllowSnapshot,
 } from '../ai/authorization-explainer.service';
 import { AuthorizationDeniedError, READ_ONLY_RISK_LEVELS } from '../ai/interfaces/tool.interface';
+import {
+  buildDenialExplanation,
+  pickLanguageFromHeader,
+  type DenialLanguage,
+} from '../common/errors/denial-guidance';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Raw } from '../common/decorators/raw.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -104,9 +109,14 @@ export class McpExportController {
   // @Raw()：MCP 协议要求原始 JSON-RPC 响应，跳过全局 ResponseInterceptor 包装
   @Raw()
   @ApiOperation({ summary: 'HS-10 MCP 出口：现有 AI 工具暴露为 MCP server（JSON-RPC）' })
-  async handle(@CurrentUser() user: JwtPayload, @Body() body: McpJsonRpc): Promise<unknown> {
+  async handle(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: McpJsonRpc,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<unknown> {
     const method = body.method ?? '';
     const id = body.id ?? null;
+    const lang = pickLanguageFromHeader(acceptLanguage);
     try {
       switch (method) {
         case 'initialize':
@@ -125,7 +135,7 @@ export class McpExportController {
             tools: (await this.toolExposure.listMcpTools()).map(toMcpTool),
           }));
         case 'tools/call':
-          return await this._callTool(user, id, body.params);
+          return await this._callTool(user, id, body.params, lang);
         default:
           return this._error(id, -32601, `Method not found: ${method}`);
       }
@@ -139,6 +149,7 @@ export class McpExportController {
     user: JwtPayload,
     id: number | string | null,
     params?: Record<string, unknown>,
+    lang: DenialLanguage = 'en',
   ): Promise<unknown> {
     const parsed = CallToolRequestSchema.parse({
       method: 'tools/call',
@@ -174,7 +185,15 @@ export class McpExportController {
           outcome: e.reasons.some((r) => r.name === 'risk_policy') ? 'blocked' : 'refused',
           tool: toolName,
         });
-        return this._error(id, -32603, e.message);
+        // JSON-RPC `data` is free-form: carry the same `explanation` shape as the HTTP 403 / SSE
+        // tool_end, so an MCP client can render why + the next step without parsing prose.
+        //
+        // JSON-RPC `data` 是自由字段：携带与 HTTP 403 / SSE tool_end 相同的 `explanation` 形状，
+        // 使 MCP 客户端无需解析散文即可渲染「为什么 + 怎么解决」。
+        const explanation = e.denial
+          ? buildDenialExplanation(e.denial.kind, e.denial.params, lang)
+          : undefined;
+        return this._error(id, -32603, e.message, explanation ? { explanation } : undefined);
       }
       throw e;
     }
@@ -239,7 +258,16 @@ export class McpExportController {
     return { jsonrpc: '2.0', id, result };
   }
 
-  private _error(id: number | string | null, code: number, message: string): unknown {
-    return { jsonrpc: '2.0', id, error: { code, message } };
+  private _error(
+    id: number | string | null,
+    code: number,
+    message: string,
+    data?: Record<string, unknown>,
+  ): unknown {
+    return {
+      jsonrpc: '2.0',
+      id,
+      error: { code, message, ...(data ? { data } : {}) },
+    };
   }
 }

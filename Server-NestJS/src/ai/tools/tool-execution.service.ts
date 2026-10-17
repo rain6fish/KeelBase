@@ -127,6 +127,14 @@ export class ToolExecutionService {
               note: `确认绑定目的地 ${opts.audience}，当前 ${destination} —— 跨目标复用被拒`,
             },
           ],
+          {
+            kind: 'destination_changed',
+            params: {
+              tool: toolName,
+              confirmedFor: opts.audience,
+              current: destination,
+            },
+          },
         );
       }
     }
@@ -398,6 +406,7 @@ export class ToolExecutionService {
             note: 'plan/子代理仅执行只读工具；写操作请在主对话发起并人工确认',
           },
         ],
+        { kind: 'agent_read_only', params: { tool: toolName } },
       );
     }
     return this.executeRead(toolName, args, userId);
