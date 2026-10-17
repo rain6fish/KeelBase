@@ -70,10 +70,15 @@ const consoleChildren: RouteRecordRaw[] = [
 ]
 
 // The console is admin-only by default. The audit reader (AW-2) gets exactly the pages whose backend
-// it can actually read — everything else would be "clickable, then 403".
+// it can actually read — everything else would be "clickable, then 403". The three governance read
+// pages listed here serve the six read endpoints opened in `1b75e884`: policy + revision history
+// (`/policy-center`), tool inventory (`/ai-tools`) and the approval queue's two halves
+// (`/ai-approvals`). Writes and decisions on those pages stay admin-only.
 // 控制台默认只给 admin。审计读者（AW-2）只拿到它**后端真的读得到**的那几页 —— 多放一页就会变成
-// 「点得进、点开 403」。这张表与后端判据同步：今天只有 AI 审计控制器换了 `can('read','AuditLog')`。
-const AUDITOR_PAGES = new Set(['audit'])
+// 「点得进、点开 403」。这里列出的三个治理读页对应 `1b75e884` 放开的六个读端点：策略与版本历史
+// （`/policy-center`）、工具清单（`/ai-tools`）、审批队列的两半（`/ai-approvals`）；页面上的写与
+// 裁决仍只给管理员。
+const AUDITOR_PAGES = new Set(['audit', 'policy-center', 'ai-tools', 'ai-approvals'])
 
 for (const r of consoleChildren) {
   const roles = AUDITOR_PAGES.has(r.name as string) ? ['admin', 'auditor'] : ['admin']

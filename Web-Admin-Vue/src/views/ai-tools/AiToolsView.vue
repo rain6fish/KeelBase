@@ -4,7 +4,7 @@
     <PageHeader :title="t('navAiTools')" />
 
     <!-- N-6 AI-23 内容安全配置（Settings ai_content_safety，实时生效） -->
-    <el-card shadow="never" class="mb-4">
+    <el-card v-if="canEdit" shadow="never" class="mb-4">
       <template #header>
         <div class="d-flex align-center justify-space-between">
           <span>{{ t('contentSafetyTitle') }}</span>
@@ -68,14 +68,14 @@
       <div v-else class="text-medium-emphasis">{{ t('loading') }}</div>
     </el-card>
 
-    <PageHeader :title="t('toolEffects')">
+    <PageHeader v-if="canEdit" :title="t('toolEffects')">
       <el-button @click="loadEffects()">
         <template #icon><AppIcon icon="mdi-refresh" /></template>
         {{ t('refresh') }}
       </el-button>
     </PageHeader>
 
-    <el-card shadow="never" class="mb-4">
+    <el-card v-if="canEdit" shadow="never" class="mb-4">
       <div class="d-flex ga-3 align-center">
         <el-input v-model="effectUserId" :label="t('filterByUserId')" type="number" style="max-width: 180px" />
         <el-button type="primary" @click="loadEffects(1)">
@@ -85,7 +85,7 @@
       </div>
     </el-card>
 
-    <AppTable :headers="effectHeaders" :items="effects" :loading="effectsLoading" :total="effectTotal" :items-per-page="limit">
+    <AppTable v-if="canEdit" :headers="effectHeaders" :items="effects" :loading="effectsLoading" :total="effectTotal" :items-per-page="limit">
       <template #item.resultType="{ item }">
         <StatusChip :status="item.resultType" :label-map="resultTypeMap" />
       </template>
@@ -163,9 +163,10 @@
       </template>
     </AppTable>
 
-    <AppPagination :page="effectPage" :limit="limit" :total="effectTotal" :loading="effectsLoading" @update:page="loadEffects" />
+    <AppPagination v-if="canEdit" :page="effectPage" :limit="limit" :total="effectTotal" :loading="effectsLoading" @update:page="loadEffects" />
 
     <ConfirmDialog
+      v-if="canEdit"
       v-model="showRevoke"
       :title="t('revokeEffect')"
       :content="t('revokeEffectConfirm', { title: pending?.targetTitle || `#${pending?.resultId}` })"
@@ -173,7 +174,7 @@
     />
 
     <!-- E-1 字段级变更审计：副作用目标记录 before/after diff -->
-    <el-dialog v-model="showDiffDialog" :title="t('fieldChange')" width="600px">
+    <el-dialog v-if="canEdit" v-model="showDiffDialog" :title="t('fieldChange')" width="600px">
       <FieldDiff v-if="diffTarget" :before="diffTarget.beforeSnapshot" :after="diffTarget.afterSnapshot" />
     </el-dialog>
   </div>
@@ -189,6 +190,7 @@ import StatusChip from '@/components/StatusChip.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FieldDiff from '@/components/FieldDiff.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
 import { settingsApi } from '@/api/settings'
 import { formatTime } from '@/utils/format'
@@ -197,6 +199,11 @@ import type { AdminAiTool, ToolEffect } from '@/types/admin'
 
 const { t } = useI18n()
 const snackbar = useSnackbarStore()
+const auth = useAuthStore()
+// AW-2: the auditor reads the tool inventory; the content-safety editor and the effects ledger are
+// admin-only on the server, so they do not render for it (an entry that 403s is worse than none).
+// AW-2：审计读者只读工具清单；内容安全编辑与副作用账本在服务端仍只给管理员，故对它不渲染。
+const canEdit = computed(() => auth.isAdmin)
 
 const tools = ref<AdminAiTool[]>([])
 const effects = ref<ToolEffect[]>([])
@@ -399,6 +406,7 @@ async function onAcknowledgeDispute(item: ToolEffect) {
 
 onMounted(() => {
   loadTools()
+  if (!canEdit.value) return
   loadEffects()
   loadContentSafety()
 })

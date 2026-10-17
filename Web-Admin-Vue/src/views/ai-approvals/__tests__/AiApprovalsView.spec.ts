@@ -28,6 +28,12 @@ vi.mock('@/stores/snackbar', () => ({
   useSnackbarStore: () => ({ error: errorMock, success: successMock }),
 }))
 
+// AW-2: the view reads `auth.isAdmin`; default to admin so the existing decision-path assertions still
+// exercise the admin UI, and flip it to test the auditor's read-only rendering.
+// AW-2：视图读 `auth.isAdmin`；默认 admin 让既有裁决路径断言照旧，翻转后测审计读者的只读渲染。
+const authState = vi.hoisted(() => ({ isAdmin: true, isAuditor: false }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+
 import ElementPlus from 'element-plus'
 import AiApprovalsView from '../AiApprovalsView.vue'
 
@@ -55,6 +61,8 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  authState.isAdmin = true
+  authState.isAuditor = false
 })
 
 describe('AiApprovalsView', () => {
@@ -131,6 +139,23 @@ describe('AiApprovalsView', () => {
 
     expect(approvalsMock).toHaveBeenCalledTimes(1)
     expect(decidedMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('auditor 只读：队列照读，批准/拒绝/重试按钮不渲染', async () => {
+    authState.isAdmin = false
+    approvalsMock.mockResolvedValue([
+      { id: 1, token: 't1', toolName: 'create_event', args: '{}', operatorId: 'u1', conversationId: null, riskLevel: 'R4', status: 'pending', createdAt: '2026-08-21' },
+    ])
+    decidedMock.mockResolvedValue([decidedRow()])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(approvalsMock).toHaveBeenCalledTimes(1)
+    expect(decidedMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.app-table-stub .el-button--success').exists()).toBe(false)
+    expect(wrapper.find('.app-table-stub .el-button--danger').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('重试执行')
   })
 
   it('加载失败 → snackbar.error 提示', async () => {

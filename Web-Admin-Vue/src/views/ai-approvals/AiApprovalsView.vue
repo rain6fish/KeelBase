@@ -31,12 +31,16 @@
         </template>
         <template #item.createdAt="{ item }">{{ formatTime(item.createdAt) }}</template>
         <template #item.actions="{ item }">
-          <el-button size="small" type="success" :loading="actingToken === item.token" @click="onDecide(item, 'approve')">
-            {{ t('aiApprovalsApprove') }}
-          </el-button>
-          <el-button size="small" type="danger" plain :loading="actingToken === item.token" @click="onDecide(item, 'decline')">
-            {{ t('aiApprovalsDecline') }}
-          </el-button>
+          <!-- AW-2: the decision buttons exist only for the role allowed to decide. -->
+          <!-- AW-2：裁决按钮只对有权裁决的角色出现。 -->
+          <template v-if="canDecide">
+            <el-button size="small" type="success" :loading="actingToken === item.token" @click="onDecide(item, 'approve')">
+              {{ t('aiApprovalsApprove') }}
+            </el-button>
+            <el-button size="small" type="danger" plain :loading="actingToken === item.token" @click="onDecide(item, 'decline')">
+              {{ t('aiApprovalsDecline') }}
+            </el-button>
+          </template>
         </template>
       </AppTable>
       <div v-if="!loading && pending.length === 0" class="text-medium-emphasis pa-3">{{ t('aiApprovalsEmpty') }}</div>
@@ -80,7 +84,7 @@
         <template #item.decidedAt="{ item }">{{ item.decidedAt ? formatTime(item.decidedAt) : '-' }}</template>
         <template #item.audit="{ item }">
           <el-button
-            v-if="canRetry(item)"
+            v-if="canDecide && canRetry(item)"
             link
             type="warning"
             size="small"
@@ -106,6 +110,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppTable from '@/components/AppTable.vue'
 import StatusChip from '@/components/StatusChip.vue'
 import { useSnackbarStore } from '@/stores/snackbar'
+import { useAuthStore } from '@/stores/auth'
 import { aiToolsApi } from '@/api/aiTools'
 import { formatTime } from '@/utils/format'
 import { toolLabel, toolArgsSummary } from '@/utils/businessLabel'
@@ -114,6 +119,11 @@ import type { AiApprovalRequest } from '@/types/admin'
 const { t, tm, locale } = useI18n()
 const router = useRouter()
 const snackbar = useSnackbarStore()
+const auth = useAuthStore()
+// AW-2: the auditor reads both halves of the queue; approving, declining and retrying stay admin-only —
+// the role reads the record, it does not rule on it.
+// AW-2：审计读者读队列的两半；批准、拒绝与重试仍是管理员专属 —— 这个角色读记录，不裁决。
+const canDecide = computed(() => auth.isAdmin)
 
 const pending = ref<AiApprovalRequest[]>([])
 const decided = ref<AiApprovalRequest[]>([])
@@ -121,15 +131,20 @@ const loading = ref(false)
 const actingToken = ref('')
 
 const statusMap = computed(() => ({ ok: t('aiApprovalStatusApproved'), cancelled: t('aiApprovalStatusDeclined') }))
-const pendingHeaders = computed(() => [
-  { key: 'id', title: t('idCol') },
-  { key: 'toolName', title: t('aiApprovalsTool') },
-  { key: 'riskLevel', title: t('riskLevel') },
-  { key: 'path', title: t('aiApprovalsPath') },
-  { key: 'args', title: t('aiApprovalsArgs') },
-  { key: 'createdAt', title: t('aiApprovalsCreated') },
-  { key: 'actions', title: t('actionCol') },
-])
+const pendingHeaders = computed(() => {
+  const headers = [
+    { key: 'id', title: t('idCol') },
+    { key: 'toolName', title: t('aiApprovalsTool') },
+    { key: 'riskLevel', title: t('riskLevel') },
+    { key: 'path', title: t('aiApprovalsPath') },
+    { key: 'args', title: t('aiApprovalsArgs') },
+    { key: 'createdAt', title: t('aiApprovalsCreated') },
+  ]
+  // AW-2: the decision column exists only for the role allowed to decide.
+  // AW-2：裁决列只对有权裁决的角色出现。
+  if (canDecide.value) headers.push({ key: 'actions', title: t('actionCol') })
+  return headers
+})
 const decidedHeaders = computed(() => [
   { key: 'id', title: t('idCol') },
   { key: 'toolName', title: t('aiApprovalsTool') },
